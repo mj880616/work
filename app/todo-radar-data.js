@@ -1,6 +1,6 @@
 // JOURNAL-챙길것 1단계 + AI-서버연동 S5 (docs/design/todo-radar.md 10·11절, docs/design/ai-server.md 5.2).
-// Data side of "챙길 것": the owner-RLS candidate table app_todo_candidates and the find state app_todo_radar_state
-// (20261021075034_todo_radar_candidates), read and changed with the signed-in token through the shared runtime.
+// Data side of "챙길 것": the owner-RLS candidate table app_todo_candidates (20261021075034_todo_radar_candidates), read and
+// changed with the signed-in token through the shared runtime. The find state table belongs to the server (ai-assist).
 // Finding is the server's job: ai-assist kind=todo_radar reads the Web2 records itself and adds "open" candidates.
 // The screen only sends {kind,mode}; it never sends record text. [할 일로] uses the existing Google task create path
 // (quick-save.js createGoogleTask) and then marks the candidate; [무시] marks it. A counterpart promise (COM) is never
@@ -62,13 +62,6 @@ export async function readWeekCandidates(from, to, rt = window.KPTURuntime) {
     return {ok:true, rows:clean(rows)};
   } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
 }
-export async function readRadarState(rt = window.KPTURuntime) {
-  try {
-    const rows = await rt.api(`/rest/v1/app_todo_radar_state?workspace_id=eq.${encode(workspace(rt))}&select=last_success_at,last_partial&limit=1`, {singleFlight:false});
-    const row = Array.isArray(rows) ? rows[0] : null;
-    return {ok:true, checkedAt:typeof row?.last_success_at === 'string' ? row.last_success_at : null, partial:row?.last_partial === true};
-  } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
-}
 
 // A promise returned by the server: shown once, never stored.
 function validPromise(p) {
@@ -82,9 +75,11 @@ export async function findTodos(mode, options = {}) {
   const r = await callAiAssist({kind:'todo_radar', mode}, {timeoutMs:RADAR_TIMEOUT_MS, ...options}, RADAR_TEXT);
   if (!r.ok) return {ok:false, code:r.code, message:RADAR_TEXT[r.code] || RADAR_TEXT.internal_error};
   const d = r.data;
-  if (d.skipped === true) return {ok:true, skipped:true};
+  // The last finding time comes with every answer (the screen does not read the state table itself).
+  const checkedAt = typeof d.checked_at === 'string' && Number.isFinite(Date.parse(d.checked_at)) ? d.checked_at : null;
+  if (d.skipped === true) return {ok:true, skipped:true, checkedAt, partial:d.partial === true};
   if (!Number.isSafeInteger(d.added) || d.added < 0 || !Array.isArray(d.promises)) return {ok:false, code:'ai_invalid_response', message:RADAR_TEXT.ai_invalid_response};
-  return {ok:true, skipped:false, added:d.added, partial:d.partial === true, promises:d.promises.filter(validPromise).slice(0, 10)};
+  return {ok:true, skipped:false, added:d.added, checkedAt, partial:d.partial === true, promises:d.promises.filter(validPromise).slice(0, 10)};
 }
 
 // Each change is guarded by the current status, so a candidate already handled elsewhere is not changed twice.

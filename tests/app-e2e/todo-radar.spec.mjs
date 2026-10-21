@@ -30,7 +30,6 @@ async function fixture(page,{rows=[cand(1,{kind:'deadline',due:'2026-10-09',summ
   if(method==='PATCH'){const body=req.postDataJSON(),h=hit();calls.patch.push({query:Object.fromEntries(q),body});for(const r of h)Object.assign(r,body);return route.fulfill({json:h.map(r=>({id:r.id,status:r.status,task_id:r.task_id,decided_at:r.decided_at}))});}
   return route.fulfill({status:405,json:{}});
  });
- await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_todo_radar_state',route=>tables?route.fulfill({json:db.state?[db.state]:[]}):missing(route));
  await page.route(SB+'/functions/v1/ai-assist',async route=>{
   if(route.request().method()!=='POST')return route.fulfill({status:204});
   const body=route.request().postDataJSON();if(armed)calls.ai.push(body);
@@ -38,7 +37,7 @@ async function fixture(page,{rows=[cand(1,{kind:'deadline',due:'2026-10-09',summ
   // Queued replies answer [다시 찾기] only; the automatic first look of the day always gets the default.
   const next=body.mode==='again'?queue.shift():null;
   if(next)return route.fulfill(next);
-  if(body.mode==='auto')return route.fulfill({json:{ok:true,kind:'todo_radar',skipped:true,checked_at:db.state?.last_success_at??null}});
+  if(body.mode==='auto')return route.fulfill({json:{ok:true,kind:'todo_radar',skipped:true,checked_at:db.state?.last_success_at??null,partial:db.state?.last_partial===true}});
   return route.fulfill({json:{ok:true,kind:'todo_radar',added:0,found:0,partial:false,checked_at:'2026-10-06T01:00:00Z',promises:[]}});
  });
  // The home starts before these routes exist; start again from a fresh page so every radar read hits them.

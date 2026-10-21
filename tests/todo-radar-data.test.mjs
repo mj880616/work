@@ -17,7 +17,7 @@ test('findTodos sends only {kind,mode} with the signed-in token, and reads count
   const seen=[];const {rt}=fakeRt();
   const promise={summary:'상대 측 자료 송부.',due:null,evidence:'보내기로 함',source_kind:'meeting',source_id:id(3),source_day:'2026-10-20'};
   const r=await mod.findTodos('again',{rt,online:()=>true,fetcher:async(url,init)=>{seen.push({url,init});return new Response(JSON.stringify({ok:true,kind:'todo_radar',added:2,found:2,partial:true,checked_at:'x',promises:[promise,{summary:'<bad>',source_kind:'x'}]}));}});
-  assert.deepEqual(r,{ok:true,skipped:false,added:2,partial:true,promises:[promise]});
+  assert.deepEqual(r,{ok:true,skipped:false,added:2,checkedAt:null,partial:true,promises:[promise]});
   assert.equal(seen[0].url,'https://fixture.invalid/functions/v1/ai-assist');
   assert.deepEqual(JSON.parse(seen[0].init.body),{kind:'todo_radar',mode:'again'});
   assert.equal(seen[0].init.headers.Authorization,'Bearer token-fixture');
@@ -26,7 +26,7 @@ test('findTodos sends only {kind,mode} with the signed-in token, and reads count
 
 test('findTodos: skipped, not deployed, limits and odd answers map to plain words',async()=>{
   const {rt}=fakeRt();const ask=(f,opts={})=>mod.findTodos('auto',{rt,online:()=>true,fetcher:f,...opts});
-  assert.deepEqual(await ask(reply(200,{ok:true,kind:'todo_radar',skipped:true})),{ok:true,skipped:true});
+  assert.deepEqual(await ask(reply(200,{ok:true,kind:'todo_radar',skipped:true,checked_at:'2026-10-21T01:00:00Z',partial:true})),{ok:true,skipped:true,checkedAt:'2026-10-21T01:00:00Z',partial:true});
   const missing=await ask(reply(404,{code:'NOT_FOUND'}));assert.equal(missing.code,'not_ready');assert.match(missing.message,/준비 중/);
   assert.equal((await ask(async()=>{throw new TypeError('Failed to fetch');})).code,'not_ready');
   assert.match((await ask(reply(429,{ok:false,error:'daily_limit'}))).message,/횟수/);
@@ -46,7 +46,6 @@ test('reads use owner workspace, only open rows on home, and hide quietly when t
   const err=Object.assign(new Error('Could not find the table public.app_todo_candidates in the schema cache'),{status:404});
   const {rt:gone}=fakeRt({api:async()=>{throw err;}});
   assert.deepEqual(await mod.readOpenCandidates(gone),{missing:true});
-  assert.deepEqual(await mod.readRadarState(gone),{missing:true});
   const {rt:down}=fakeRt({api:async()=>{throw Object.assign(new Error('x'),{status:500});}});
   assert.deepEqual(await mod.readOpenCandidates(down),{ok:false});
 });

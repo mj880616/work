@@ -466,7 +466,7 @@ const timeOf = (v: unknown) => { const t = typeof v === "string" ? Date.parse(v)
 const isUuid = (v: unknown): v is string => typeof v === "string" && UUID.test(v);
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-type RadarState = { last_success_at: string | null; last_day: string | null; runs_on_day: number; running_since: string | null };
+type RadarState = { last_success_at: string | null; last_partial: boolean; last_day: string | null; runs_on_day: number; running_since: string | null };
 
 async function readList(ctx: Ctx, path: string): Promise<Record<string, unknown>[]> {
   let rows: unknown;
@@ -482,11 +482,12 @@ async function readRadarState(ctx: Ctx): Promise<RadarState> {
     await rest(ctx, "app_todo_radar_state?on_conflict=workspace_id", {
       method: "POST", prefer: "resolution=ignore-duplicates,return=minimal", body: { workspace_id: ctx.workspaceId },
     });
-    const rows = await rest(ctx, `app_todo_radar_state?workspace_id=eq.${ws}&select=workspace_id,last_success_at,last_day,runs_on_day,running_since&limit=2`);
+    const rows = await rest(ctx, `app_todo_radar_state?workspace_id=eq.${ws}&select=workspace_id,last_success_at,last_partial,last_day,runs_on_day,running_since&limit=2`);
     if (!Array.isArray(rows) || rows.length !== 1 || String((rows[0] as Record<string, unknown>).workspace_id).toLowerCase() !== ctx.workspaceId) throw new Error("state");
     const r = rows[0] as Record<string, unknown>;
     return {
       last_success_at: typeof r.last_success_at === "string" ? r.last_success_at : null,
+      last_partial: r.last_partial === true,
       last_day: typeof r.last_day === "string" ? r.last_day : null,
       runs_on_day: tokenCount(r.runs_on_day),
       running_since: typeof r.running_since === "string" ? r.running_since : null,
@@ -594,7 +595,7 @@ async function runTodoRadar(ctx: Ctx, input: TodoRadarInput, deps: RadarDeps): P
   const runsToday = state.last_day === today ? state.runs_on_day : 0;
   // 하루 처음 열 때 한 번(D7): 오늘 이미 찾았으면 AI를 부르지 않는다.
   if (input.mode === "auto" && runsToday > 0) {
-    return json({ ok: true, kind: "todo_radar", skipped: true, checked_at: state.last_success_at });
+    return json({ ok: true, kind: "todo_radar", skipped: true, checked_at: state.last_success_at, partial: state.last_partial });
   }
   if (runsToday >= DAILY_LIMITS.todo_radar) throw new Fail(429, "daily_limit");
   const config = aiConfig(deps.env);

@@ -199,7 +199,7 @@ test('injection text stays data: JSON user message, developer rule says to ignor
 
 test('auto: skipped without OpenAI when already found today; again: runs; daily cap 5 per day',async()=>{
   {const {handler,calls}=harness({state:{last_day:TODAY,runs_on_day:1,last_success_at:RECENT}});
-   const b=await (await post(handler,find('auto'))).json();assert.deepEqual(b,{ok:true,kind:'todo_radar',skipped:true,checked_at:RECENT});assert.equal(calls.openai.length,0);}
+   const b=await (await post(handler,find('auto'))).json();assert.deepEqual(b,{ok:true,kind:'todo_radar',skipped:true,checked_at:RECENT,partial:false});assert.equal(calls.openai.length,0);}
   {const {handler,calls}=harness({state:{last_day:'2026-10-20',runs_on_day:5,last_success_at:'2026-10-20T01:00:00Z'}});
    assert.equal((await post(handler,find('auto'))).status,200);assert.equal(calls.openai.length,1);}
   {const {handler,calls}=harness({state:{last_day:TODAY,runs_on_day:DAILY_LIMITS.todo_radar,last_success_at:RECENT}});

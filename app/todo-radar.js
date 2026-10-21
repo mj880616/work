@@ -7,7 +7,7 @@
 // - A candidate is only a candidate: [할 일로] makes one Google task through the existing create path; [무시] hides it
 //   (5 s [되돌리기]). A counterpart promise is shown once with [원장으로 복사] and never stored.
 // - Nothing is kept in browser storage. A table or function that is not deployed yet hides the box quietly (as PR 838 does for [AI 요약]).
-import {readOpenCandidates, readWeekCandidates, readRadarState, findTodos, dismissCandidate, reopenCandidate, markTasked,
+import {readOpenCandidates, readWeekCandidates, findTodos, dismissCandidate, reopenCandidate, markTasked,
   candidateToTask, validateTaskDraft, notPlanned, ledgerRequestText, radarScope, RADAR_KIND_LABEL, RADAR_SOURCE_LABEL,
   HOME_ROWS, TASK_TITLE_MAX} from './todo-radar-data.js';
 import {formatSeoulTime, seoulDateKey} from './meeting-time.js';
@@ -41,7 +41,8 @@ async function find(mode) {
   shared.finding = findTodos(mode).then(result => {
     if (scope !== radarScope(rt)) return result;
     if (!result.ok && result.code === 'not_ready') shared.fnMissing = true;
-    if (result.ok && !result.skipped) { shared.promises = result.promises; shared.partial = result.partial; }
+    if (result.ok) { shared.checkedAt = result.checkedAt; shared.partial = result.partial; }
+    if (result.ok && !result.skipped) shared.promises = result.promises;
     shared.status = result.ok ? (result.skipped ? '' : result.added ? `새로 ${result.added}개 찾았어요.` : '새로 찾은 것은 없어요.') : result.message;
     return result;
   }).then(result => { shared.finding = null; if (scope === radarScope(rt)) notify(result.ok && !result.skipped); return result; },
@@ -82,12 +83,12 @@ export function mountRadar(host, {place}) {
   async function load() {
     scope = sameScope();
     const mine = ++run;
-    const [list, info] = await Promise.all([place === 'home' ? readOpenCandidates(rt) : readWeekCandidates(week.from, week.to, rt), readRadarState(rt)]);
+    // One read of the candidates; a table that does not exist yet keeps the box hidden and asks the server nothing.
+    const list = await (place === 'home' ? readOpenCandidates(rt) : readWeekCandidates(week.from, week.to, rt));
     if (mine !== run || scope !== radarScope(rt)) return;
-    if (list.missing || info.missing) { state = 'missing'; paint(); return; }
+    if (list.missing) { state = 'missing'; paint(); return; }
     state = list.ok ? 'ok' : 'failed';
     rows = list.ok ? list.rows : [];
-    if (info.ok) { shared.checkedAt = info.checkedAt; shared.partial = shared.partial || info.partial; }
     paint();
     // D7: the first open of the day in this tab asks the server once; the server skips when it already looked today.
     const today = seoulDateKey();
@@ -135,7 +136,7 @@ export function mountRadar(host, {place}) {
     const list = visibleRows(), promises = dayPromises();
     lastKey = list.map(r => r.id).join(',');
     const listed = place === 'home' && !all ? list.slice(0, HOME_ROWS) : list;
-    const checked = shared.checkedAt ? `마지막 찾기 ${stamp(shared.checkedAt)}${shared.partial ? ' · 일부만 봤어요' : ''}` : '아직 찾지 않았어요';
+    const checked = shared.checkedAt ? `마지막 찾기 ${stamp(shared.checkedAt)}${shared.partial ? ' · 일부만 봤어요' : ''}` : shared.finding ? '' : '아직 찾지 않았어요';
     const titleId = place === 'home' ? 'home-radar-title' : 'journal-radar-title';
     const head = place === 'home'
       ? `<header><h3 id="${titleId}">챙길 것 <small data-home-count>${list.length || ''}</small></h3><button type="button" data-radar-find${shared.finding ? ' disabled aria-busy="true"' : ''}>다시 찾기</button></header>`

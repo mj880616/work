@@ -116,6 +116,10 @@ export async function openHome(
         contentType: "application/json",
         body: '{"message":"QA failure"}',
       });
+    // JOURNAL-챙길것: by default the candidate table and ai-assist are not deployed (404), so the 챙길 것 box stays hidden
+    // and the other home tests see the home as it was. tests/app-e2e/todo-radar.spec.mjs routes them itself.
+    if (p.startsWith("/rest/v1/app_todo_") || p.endsWith("/functions/v1/ai-assist"))
+      return route.fulfill({ status: 404, contentType: "application/json", body: '{"code":"PGRST205","message":"not deployed"}' });
     if (p.endsWith("google-tasks")) {
       if(a==='create'){const body=req.postDataJSON(),d=createdTaskReply(body,{id:'home-created-'+tasks.length});tasks.push(d.task);links.push(...d.links.map(link=>({...link,google_task_id:d.task.id})));return ok(d)}
       if(a==='tasks')return ok({tasks:connected?tasks:[],needs_reconnect:!connected,pending_scope:'all'});
