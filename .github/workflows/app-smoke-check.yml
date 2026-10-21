@@ -131,7 +131,7 @@ jobs:
         run: node --test tests/meeting-when.test.mjs tests/meeting-columns.test.mjs
 
       - name: Markdown display pin and safety unit tests
-        run: node --test tests/markdown-view.test.mjs tests/md-editor.test.mjs tests/html-frame.test.mjs
+        run: node --test tests/markdown-view.test.mjs tests/md-editor.test.mjs tests/html-frame.test.mjs tests/note-markdown.test.mjs
 
       - name: Check English eyebrow cleanup
         run: node --test tests/english-labels.test.mjs

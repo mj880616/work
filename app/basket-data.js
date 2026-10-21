@@ -4,6 +4,7 @@ import { noteTasks } from './basket-note-tasks.js';
 import { documentCategories, categoryOf } from './document-categories.js';
 import { requestsGuard } from './update-requests.js';
 import { noteJournalAt, journalGuard, othersGuard, MOVED_KEY } from './update-journal.js';
+import { bodyWithoutTitleLine } from './note-markdown.mjs';
 const PAGE_SIZE = 100;
 export function validateNoteText(raw_text) {
   if (typeof raw_text !== 'string' || !raw_text.trim()) throw new Error('글을 입력해 주세요.');
@@ -136,14 +137,27 @@ export function noteTitleFromText(text) {
   return [...line.replace(/^#{1,6}\s+/, '')].slice(0, NOTE_LIMITS.title).join('').trim();
 }
 // [노트] [+] and menu [쓰기]: a new kind=note row through the same owner-RLS insert as createNote.
-export async function createNoteDoc({title, raw_text}, rt = window.KPTURuntime) {
-  const body = {kind:'note', title:validateNoteTitle(title), raw_text:validateNoteBody(raw_text)};
+// NOTE-마크다운선택: markdown (true/false) is the window's [마크다운] box, kept in the row's existing metadata jsonb (metadata.markdown).
+export async function createNoteDoc({title, raw_text, markdown}, rt = window.KPTURuntime) {
+  const body = {kind:'note', title:validateNoteTitle(title), raw_text:validateNoteBody(raw_text), ...(typeof markdown === 'boolean' ? {metadata:{markdown}} : {})};
   const workspace_id = rt.context.read()?.workspace?.id;
   workspace(rt);
   return savedRow(await rt.api('/rest/v1/app_notes', {method:'POST', prefer:'return=representation', body:{workspace_id, ...body}}));
 }
-export function saveNoteDoc(id, {title, raw_text}, rt = window.KPTURuntime) {
-  return patchKind(id, 'note', {title:validateNoteTitle(title), raw_text:validateNoteBody(raw_text)}, rt);
+// markdown (optional, NOTE-마크다운선택): true/false to keep as metadata.markdown with the text. Without it the save is the same
+// PATCH as before. With it the row is read again and the other metadata keys are kept: the PATCH only applies while the row is
+// still the version read (updated_at and the keys the other metadata writers guard), as the pin and folder writes do.
+export async function saveNoteDoc(id, {title, raw_text, markdown}, rt = window.KPTURuntime) {
+  const body = {title:validateNoteTitle(title), raw_text:validateNoteBody(raw_text)};
+  if (typeof markdown !== 'boolean') return patchKind(id, 'note', body, rt);
+  const base = `/rest/v1/app_notes?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${workspace(rt)}&kind=eq.note`;
+  const rows = await rt.api(`${base}&select=id,updated_at,metadata`, {singleFlight:false});
+  if (!Array.isArray(rows) || rows.length !== 1 || !rows[0]?.updated_at) throw new Error('노트를 찾지 못했어요.');
+  const fresh = rows[0], old = plainObject(fresh.metadata) ? fresh.metadata : {};
+  const guard = `updated_at=eq.${encodeURIComponent(fresh.updated_at)}${metaGuardValue('pinned_at', old.pinned_at)}${metaGuardValue('folder', old.folder)}${requestsGuard(old)}${journalGuard(old)}${taskGuard(firstTaskId(old))}`;
+  const saved = await rt.api(`${base}&${guard}`, {method:'PATCH', prefer:'return=representation', body:{...body, metadata:{...old, markdown}, updated_at:new Date().toISOString()}});
+  if (!Array.isArray(saved) || saved.length !== 1) throw Object.assign(new Error('노트가 그사이 바뀌었어요. 다시 불러온 뒤 저장해 주세요.'), {code:'note_changed'});
+  return saved[0];
 }
 // Links, attachments and tasks stay on the same row; its kind and title change and metadata.moved_from_update_at (the time it
 // moved; the work journal's "노트: (title)" line reads it) is added. The other metadata keys are kept: the row is read again
@@ -152,11 +166,15 @@ export function saveNoteDoc(id, {title, raw_text}, rt = window.KPTURuntime) {
 export async function moveToNote(id, title, rt = window.KPTURuntime, now = new Date()) {
   const checked = validateNoteTitle(title);
   const base = `/rest/v1/app_notes?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${workspace(rt)}&kind=eq.basket`;
-  const rows = await rt.api(`${base}&select=id,updated_at,metadata`, {singleFlight:false});
+  const rows = await rt.api(`${base}&select=id,updated_at,metadata,raw_text`, {singleFlight:false});
   if (!Array.isArray(rows) || rows.length !== 1 || !rows[0]?.updated_at) throw Object.assign(new Error('업데이트를 찾지 못했어요.'), {code:'note_missing'});
   const fresh = rows[0], old = plainObject(fresh.metadata) ? fresh.metadata : {};
   const guard = `updated_at=eq.${encodeURIComponent(fresh.updated_at)}${metaGuardValue(MOVED_KEY, old[MOVED_KEY])}${journalGuard(old)}${othersGuard(old)}`;
-  const saved = await rt.api(`${base}&${guard}&select=id,updated_at,metadata`, {method:'PATCH', prefer:'return=representation', body:{kind:'note', title:checked, metadata:{...old, [MOVED_KEY]:now.toISOString()}, updated_at:new Date().toISOString()}});
+  // NOTE-마크다운선택 (날짜 두 번): a first line that starts with a date and became the title is not kept again in the body.
+  // The guard above (updated_at) makes sure it is the text that was read. A moved update was written as plain text: markdown off
+  // unless it already uses markdown marks (the same guess as an old note: metadata.markdown is left unset).
+  const text = typeof fresh.raw_text === 'string' ? fresh.raw_text : null, body = text == null ? text : bodyWithoutTitleLine(text, checked);
+  const saved = await rt.api(`${base}&${guard}&select=id,updated_at,metadata`, {method:'PATCH', prefer:'return=representation', body:{kind:'note', title:checked, ...(body != null && body !== text.replace(/\r\n?/g, '\n') ? {raw_text:body} : {}), metadata:{...old, [MOVED_KEY]:now.toISOString()}, updated_at:new Date().toISOString()}});
   if (!Array.isArray(saved) || saved.length !== 1) throw Object.assign(new Error('업데이트가 그사이 바뀌었어요. 다시 불러온 뒤 눌러 주세요.'), {code:'note_changed'});
   return saved[0];
 }

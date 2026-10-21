@@ -106,7 +106,8 @@ for(const width of [390,1280]){
   await expect(again.locator('[data-md-title]')).toBeVisible();await expect(again.locator('[data-md-save-icon]')).toHaveAccessibleName('새 노트로 저장');
   await again.locator('[data-md-title]').fill('노트 제목');await again.locator('.md-editor-text').fill('노트 본문');
   await again.locator('[data-md-save-icon]').click();await expect(page.locator('#mdEditor')).toHaveCount(0);
-  expect(f.notes).toEqual([{workspace_id:'w',kind:'note',title:'노트 제목',raw_text:'노트 본문'}]);
+  // NOTE-마크다운선택: a new note is saved with 마크다운 off.
+  expect(f.notes).toEqual([{workspace_id:'w',kind:'note',title:'노트 제목',raw_text:'노트 본문',metadata:{markdown:false}}]);
   await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('basket');
   expect(f.errors).toEqual([]);
  });

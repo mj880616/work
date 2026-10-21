@@ -2,6 +2,7 @@
 // line is left out of the preview when it is the same as the title. Pure functions; the stored text is never changed.
 
 import { toTelegram } from './md-telegram.mjs';
+import { noteMarkdown } from './note-markdown.mjs';
 
 const FENCE = /^\s{0,3}(`{3,}|~{3,})/;
 const RULE = /^\s{0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
@@ -68,6 +69,8 @@ export function notePreview(note) {
 const attachmentNames = note => (Array.isArray(note?.attachments) ? note.attachments : []).map(file => String(file?.file_name || '').trim()).filter(Boolean);
 export function noteCopyPayload(note) {
   const title = String(note?.title || '').trim(), body = String(note?.raw_text || '');
+  // NOTE-마크다운선택: a note with 마크다운 off copies as written (its '- '·'1. ' lines are not converted), title first.
+  if (body.trim() && !noteMarkdown(note)) return {text: title ? `${title}\n\n${body}` : body, done: '복사했습니다'};
   if (body.trim()) return {text: toTelegram(title ? `# ${title}\n\n${body}` : body), done: '복사했습니다'};
   const names = attachmentNames(note);
   if (names.length) return {text: names.join('\n'), done: '첨부 이름을 복사했습니다'};

@@ -15,6 +15,7 @@ import { fileLine } from './meeting-compact.js';
 import { paintHtmlAttachments } from './html-frame.js';
 import { placeAnchored, followAnchor, clearAnchored } from './anchored-popup.js';
 import { notePreview, noteCopyPayload } from './note-preview.mjs';
+import { noteMarkdown, storedMarkdown } from './note-markdown.mjs';
 import { renderFilterChips } from './filter-chips.js';
 import { createChoiceSheet } from './choice-sheet.js';
 import { basketNoteOrigin, basketReturnHtml } from './basket-note-tasks.js';
@@ -102,8 +103,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     }
   }
 
-  const fields = () => ({title: detail.querySelector('[data-note-title-input]'), body: detail.querySelector('[data-basket-text]')});
-  const textDirty = () => { if (!selected || !editing) return false; const f = fields(); return f.title.value !== (selected.title || '') || f.body.value !== normalize(selected.raw_text); };
+  const fields = () => ({title: detail.querySelector('[data-note-title-input]'), body: detail.querySelector('[data-basket-text]'), markdown: detail.querySelector('[data-note-markdown]')});
+  // NOTE-마크다운선택: the [마크다운] box counts as a change too.
+  const textDirty = () => { if (!selected || !editing) return false; const f = fields(); return f.title.value !== (selected.title || '') || f.body.value !== normalize(selected.raw_text) || f.markdown.checked !== noteMarkdown(selected); };
   // A note with only HTML hides its empty body box; focus then goes to the HTML area.
   const readFocus = () => { const text = detail.querySelector('[data-basket-read-text]'); return text.hidden ? detail.querySelector('[data-basket-html-views]') : text; };
   // The message goes to the open note's status line, or to the list's when the action came from a list row.
@@ -183,6 +185,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     text.classList.toggle('basket-read-empty', !raw);
     if (!raw) return showPlainText(text, htmlCount ? '' : '본문이 없는 노트입니다.');
     showPlainText(text, raw);
+    // NOTE-마크다운선택: a note with 마크다운 off is shown exactly as written (no list, heading or indent made from its lines).
+    text.dataset.noteView = noteMarkdown(selected) ? 'markdown' : 'plain';
+    if (!noteMarkdown(selected)) return;
     void renderMarkdownInto(text, raw, {isCurrent: () => owner === scope() && selected?.id === id && !editing});
   }
   function paintMode() {
@@ -199,7 +204,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const from = !!selected && !!basketNoteOrigin(selected.id, rt);
     if (!from) layer ||= window.KPTURouter?.layer?.open('basket-notedoc', {close: () => !busy && close({fromBack:true})}) || null;
     ++epoch; editing = false; linkOpen = false; list.hidden = true; detail.hidden = false; onOpenChange(true);
-    detail.innerHTML = `<div class="basket-detail-head"><button type="button" class="basket-back" data-note-close aria-label="노트 목록으로"><span aria-hidden="true">‹</span> 노트</button><div class="note-head-main" data-note-head-main><h3 class="note-head-title" data-note-read-title></h3><button type="button" class="basket-icon-button" data-note-telegram aria-label="복사" title="복사">${COPY_ICON}</button><button type="button" class="basket-icon-button basket-more-trigger" data-note-more aria-label="이 노트 메뉴" title="메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button></div></div><div class="basket-read note-read" data-note-read><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="노트 본문"></div><div class="basket-html-views" data-basket-html-views tabindex="-1" role="region" aria-label="HTML 첨부 화면"></div><p class="basket-note-meta" data-note-meta></p></div><div class="basket-editor note-editor" data-note-editor hidden><label class="basket-text-label">노트 제목<input type="text" data-note-title-input autocomplete="off" enterkeyhint="next"></label><label class="basket-text-label">본문<textarea data-basket-text rows="14"></textarea></label></div><div data-note-attachments class="note-files"></div><button type="button" data-note-reload hidden>노트 다시 불러오기</button><div data-basket-manual hidden></div><div class="basket-actions note-edit-actions" data-note-edit-actions hidden><button type="button" class="secondary" data-note-big-write>큰 창에서 수정</button><button type="button" class="primary" data-note-save>저장</button><button type="button" data-note-cancel>취소</button></div><p data-basket-status role="status"></p>`;
+    detail.innerHTML = `<div class="basket-detail-head"><button type="button" class="basket-back" data-note-close aria-label="노트 목록으로"><span aria-hidden="true">‹</span> 노트</button><div class="note-head-main" data-note-head-main><h3 class="note-head-title" data-note-read-title></h3><button type="button" class="basket-icon-button" data-note-telegram aria-label="복사" title="복사">${COPY_ICON}</button><button type="button" class="basket-icon-button basket-more-trigger" data-note-more aria-label="이 노트 메뉴" title="메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button></div></div><div class="basket-read note-read" data-note-read><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="노트 본문"></div><div class="basket-html-views" data-basket-html-views tabindex="-1" role="region" aria-label="HTML 첨부 화면"></div><p class="basket-note-meta" data-note-meta></p></div><div class="basket-editor note-editor" data-note-editor hidden><label class="basket-text-label">노트 제목<input type="text" data-note-title-input autocomplete="off" enterkeyhint="next"></label><label class="note-md-toggle"><input type="checkbox" data-note-markdown> 마크다운</label><label class="basket-text-label">본문<textarea data-basket-text rows="14"></textarea></label></div><div data-note-attachments class="note-files"></div><button type="button" data-note-reload hidden>노트 다시 불러오기</button><div data-basket-manual hidden></div><div class="basket-actions note-edit-actions" data-note-edit-actions hidden><button type="button" class="secondary" data-note-big-write>큰 창에서 수정</button><button type="button" class="primary" data-note-save>저장</button><button type="button" data-note-cancel>취소</button></div><p data-basket-status role="status"></p>`;
     if (from) detail.querySelector('.basket-detail-head')?.insertAdjacentHTML('afterend', basketReturnHtml(selected.id, rt));
     manual.attach(detail.querySelector('[data-basket-manual]'));
   }
@@ -242,7 +247,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   function startEdit() {
     if (!selected || editing || busy) return;
-    editing = true; const f = fields(); f.title.value = selected.title || ''; f.body.value = normalize(selected.raw_text); say('');
+    editing = true; const f = fields(); f.title.value = selected.title || ''; f.body.value = normalize(selected.raw_text); f.markdown.checked = noteMarkdown(selected); say('');
     paintMode(); f.title.focus();
   }
   function finishEdit({force = false} = {}) {
@@ -251,29 +256,39 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     bigWriter?.close({silent:true}); bigWriter = null;
     editing = false; if (!force) say(''); paintRead(); paintMode(); readFocus().focus();
   }
-  // MD-편집기: the shared full-screen editor works on the body field. Its one save icon is this view's own [저장]
-  // (save below): it saves and closes (저장하고 닫기), and stays with a message on failure.
+  // MD-편집기: the shared full-screen editor works on the body field and its [마크다운] box. Its one save icon is this view's
+  // own [저장] (save below). NOTE-큰창저장유지: it only saves — the window stays and says 저장했어요; ✕ closes it (asking once
+  // when something changed after the last save). Closed right after a save, the note shows its read view; otherwise the text
+  // goes back to the edit field as before.
   function openBigWriter() {
-    const field = fields().body, id = selected?.id;
+    const {body: field, markdown: box} = fields(), id = selected?.id;
     if (!selected || !editing || busy || !field) return;
     const same = () => editing && selected?.id === id && field.isConnected;
-    bigWriter = openMarkdownEditor({text:field.value, title:'큰 창에서 수정',
-      save:{aria:'노트 저장', run: async value => { if (!same()) return {ok:false, message:'수정 화면이 바뀌어 저장하지 못했어요.'}; field.value = value; return save(); }},
+    bigWriter = openMarkdownEditor({text:field.value, title:'큰 창에서 수정', keepOpen:true,
+      markdown:{value:box.checked, onChange: on => { if (same()) box.checked = on; }},
+      save:{aria:'노트 저장', run: async (value, kind, {markdown}) => { if (!same()) return {ok:false, message:'수정 화면이 바뀌어 저장하지 못했어요.'}; field.value = value; box.checked = markdown; return save({stay:true}); }},
       onInput: value => { if (same()) field.value = value; },
-      onClose: value => { bigWriter = null; if (!same()) return; field.value = value; field.focus(); }});
+      onClose: (value, {saved, markdown} = {}) => {
+        bigWriter = null; if (!same()) return;
+        field.value = value; if (typeof markdown === 'boolean') box.checked = markdown;
+        if (saved && !textDirty()) finishEdit({force:true}); else field.focus();
+      }});
   }
   // save() resolves {ok:true} or {ok:false, message}; the big window's save icon waits for it (same path as [저장]).
-  async function save() {
+  // stay (the big window): the edit stays open after the save (NOTE-큰창저장유지); the window shows the message.
+  async function save({stay = false} = {}) {
     if (!selected || !editing || busy) return {ok:false, message:'지금은 저장할 수 없어요.'};
     const f = fields();
-    if (!textDirty()) { showToast('저장된 노트입니다.'); finishEdit({force:true}); return {ok:true}; }
-    const changes = {title:f.title.value, raw_text:f.body.value};
+    if (!textDirty()) { if (stay) return {ok:true, message:'저장했어요'}; showToast('저장된 노트입니다.'); finishEdit({force:true}); return {ok:true}; }
+    // NOTE-마크다운선택: the box is kept in metadata.markdown when it differs from what is stored (or nothing is stored yet).
+    const changes = {title:f.title.value, raw_text:f.body.value, ...(storedMarkdown(selected) !== f.markdown.checked ? {markdown:f.markdown.checked} : {})};
     try { validateNoteTitle(changes.title); validateNoteBody(changes.raw_text); } catch (error) { say(error.message); return {ok:false, message:error.message}; }
     const id = selected.id, run = ++epoch, owner = scope(); lock(true); say('저장 중…');
     try {
       const note = await saveNoteDoc(id, changes, rt);
       if (run !== epoch || owner !== scope()) return {ok:false, message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
       notes = notes.map(n => n.id === id ? note : n); selected = note; renderList(); paintMeta();
+      if (stay) { say(''); return {ok:true, message:'저장했어요'}; }
       finishEdit({force:true}); say(''); showToast('노트를 저장했습니다.');
       return {ok:true};
     } catch (error) {

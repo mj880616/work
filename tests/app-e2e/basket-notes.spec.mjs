@@ -151,12 +151,14 @@ for(const width of [390,1280]){
   await expect(editor.locator('[data-md-save-icon]')).toHaveAccessibleName('새 노트로 저장');
   await editor.locator('[data-md-title]').fill('단체교섭 준비');
   await editor.locator('.md-editor-text').fill('## 할 일\n\n- 요구안 정리');
+  // NOTE-마크다운선택: a new note starts with 마크다운 off; this one turns it on (kept in metadata.markdown).
+  await expect(editor.locator('[data-md-markdown]')).not.toBeChecked();await editor.locator('[data-md-markdown]').check();
   await editor.locator('[data-md-save-icon]').click();
   await expect(page.locator('#mdEditor')).toHaveCount(0);await expect(page.locator('#toast')).toContainText('노트로 저장했어요.');
   await expect(detail.locator('[data-note-read-title]')).toHaveText('단체교섭 준비');
   await expect(detail.locator('[data-basket-read-text] h2')).toHaveText('할 일');
   await expect(detail.locator('[data-note-more]')).toBeVisible();await expect(detail.locator('[data-note-read-actions]')).toHaveCount(0);
-  expect(f.writes).toEqual([{method:'POST',body:{workspace_id:'w',kind:'note',title:'단체교섭 준비',raw_text:'## 할 일\n\n- 요구안 정리'}}]);
+  expect(f.writes).toEqual([{method:'POST',body:{workspace_id:'w',kind:'note',title:'단체교섭 준비',raw_text:'## 할 일\n\n- 요구안 정리',metadata:{markdown:true}}}]);
   await detail.locator('[data-note-close]').click();
   await expect(noteList(page)).toHaveCount(3);
   await expect(noteList(page).nth(0)).toContainText('단체교섭 준비');
@@ -261,9 +263,10 @@ for(const width of [390,1280]){
   await editor.locator('[data-md-save-icon]').click();
   await expect(editor.locator('.md-editor-status')).toHaveText('제목이나 본문을 써 주세요.');expect(f.writes).toEqual([]);
   await editor.locator('.md-editor-text').fill('# 회의 정리\n\n- 다음 일정 확인');
+  await editor.locator('[data-md-markdown]').check();
   await editor.locator('[data-md-save-icon]').click();
   await expect(page.locator('#mdEditor')).toHaveCount(0);
-  expect(f.writes).toEqual([{method:'POST',body:{workspace_id:'w',kind:'note',title:'회의 정리',raw_text:'# 회의 정리\n\n- 다음 일정 확인'}}]);
+  expect(f.writes).toEqual([{method:'POST',body:{workspace_id:'w',kind:'note',title:'회의 정리',raw_text:'# 회의 정리\n\n- 다음 일정 확인',metadata:{markdown:true}}}]);
   const detail=page.locator('[data-note-detail]');
   await expect(page.locator('[data-basket-kind="note"]')).toHaveAttribute('aria-pressed','true');
   await expect(detail.locator('[data-note-read-title]')).toHaveText('회의 정리');
@@ -370,7 +373,7 @@ async function expectIconNextToClose(editor,name){
  expect(Math.round(save.height)).toBe(32);expect(save.after).toBe('44px');
 }
 for(const width of [390,1280]){
- test(`big window save icon saves a note through [저장], closes, and keeps the window when the save fails ${width}`,async({page})=>{
+ test(`big window save icon saves a note through [저장] and keeps the window open (NOTE-큰창저장유지), also when the save fails ${width}`,async({page})=>{
   await page.setViewportSize({width,height:900});const f=await fixture(page);
   await page.locator('[data-basket-kind="note"]').click();
   await noteList(page).filter({hasText:'오래된 노트'}).click();
@@ -381,16 +384,23 @@ for(const width of [390,1280]){
   await expectIconNextToClose(editor,'노트 저장');
   await editor.locator('.md-editor-text').fill('큰 창에서 고친 본문');
   // A failed save keeps the window, the text and the message.
-  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_notes',r=>r.request().method()==='PATCH'?r.fulfill({status:500,json:{}}):r.fallback(),{times:1});
+  // (The save reads the row first to keep its other metadata, so only the first PATCH fails.)
+  let failed=false;
+  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_notes',r=>{if(r.request().method()==='PATCH'&&!failed){failed=true;return r.fulfill({status:500,json:{}});}return r.fallback();});
   await editor.locator(SAVE_ICON).click();
   await expect(editor.locator('.md-editor-status')).toContainText('저장하지 못했어요');
   await expect(editor).toBeVisible();await expect(editor.locator('.md-editor-text')).toHaveValue('큰 창에서 고친 본문');
   await expect(editor.locator(SAVE_ICON)).toBeEnabled();expect(f.writes).toEqual([]);
-  // The second press goes the same path as [저장]: PATCH, the window closes, the read view shows the new text.
+  // The second press goes the same path as [저장]: PATCH, and the window stays with a short 저장했어요.
   await editor.locator(SAVE_ICON).click();
+  await expect(editor.locator('.md-editor-status')).toHaveText('저장했어요');
+  await expect(editor).toBeVisible();await expect(editor.locator('.md-editor-text')).toHaveValue('큰 창에서 고친 본문');
+  // ✕ right after the save closes without asking, and the note shows its read view with the new text.
+  await editor.locator('[data-close="mdEditor"]').click();
   await expect(page.locator('#mdEditor')).toHaveCount(0);
-  await expect(page.locator('#toast')).toContainText('노트를 저장했습니다.');
+  await expect(page.locator('#mdCloseSheet[open]')).toHaveCount(0);
   await expect(detail.locator('[data-basket-read-text]')).toContainText('큰 창에서 고친 본문');
+  await expect(detail.locator('[data-note-editor]')).toBeHidden();
   expect(f.writes).toHaveLength(1);
   expect(f.writes[0].query).toMatchObject({id:'eq.n-old',kind:'eq.note'});expect(f.writes[0].body.raw_text).toBe('큰 창에서 고친 본문');
   expect(f.errors.filter(e=>!/500/.test(e))).toEqual([]);
@@ -434,14 +444,21 @@ for(const width of [390,1280]){
  });
 }
 
-test('[닫기] in the big window hands the text back to the edit field and the menu write window has the same one save icon',async({page})=>{
+test('[닫기] in the big window asks once, then hands the text back to the edit field; the menu write window has the same one save icon',async({page})=>{
  await page.setViewportSize({width:390,height:900});const f=await fixture(page);
  await page.locator('[data-basket-kind="note"]').click();
  await noteList(page).filter({hasText:'오래된 노트'}).click();
  const detail=page.locator('[data-note-detail]');
  await noteMenuAction(page,'data-note-edit');await detail.locator('[data-note-big-write]').click();
  const editor=page.locator('#mdEditor');await editor.locator('.md-editor-text').fill('닫아도 남는 글');
+ // NOTE-큰창저장유지: changes not saved → ✕ asks once. [계속 쓰기] keeps the window; [저장하지 않고 닫기] closes it.
+ const ask=page.locator('#mdCloseSheet');
  await editor.locator('[data-close="mdEditor"]').click();
+ await expect(ask).toHaveAttribute('open','');await expect(ask.locator('h2')).toHaveText('저장하지 않고 닫을까요?');
+ await ask.getByRole('button',{name:'계속 쓰기',exact:true}).click();
+ await expect(ask).not.toHaveAttribute('open','');await expect(editor).toBeVisible();await expect(editor.locator('.md-editor-text')).toBeFocused();
+ await editor.locator('[data-close="mdEditor"]').click();
+ await ask.getByRole('button',{name:'저장하지 않고 닫기',exact:true}).click();
  await expect(page.locator('#mdEditor')).toHaveCount(0);await expect(detail.locator('[data-basket-text]')).toHaveValue('닫아도 남는 글');
  page.once('dialog',d=>d.accept());await detail.locator('[data-note-cancel]').click();
  const writer=await openWriter(page,390);

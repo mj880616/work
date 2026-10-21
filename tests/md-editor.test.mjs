@@ -103,7 +103,8 @@ test('the editor module is reusable: no basket imports, text and callbacks only,
   // UI-디자인손질 8: the optional save is the opener's own callback; the module itself still never saves or fetches.
   // BASKET-업데이트통합 PR 2: one save (the icon), draft/kinds/placeholder/noteTitle are labels and callbacks only.
   // UI-크게첨부: attach only hands the opener empty places for its own file part (mount); the module keeps no files.
-  assert.match(src, /export function openMarkdownEditor\(\{text = '', title = '크게 쓰기', onInput = null, onClose = \(\) => \{\}, save = null, draft = false, kinds = null, placeholder = null, noteTitle = null, attach = null\} = \{\}\)/);
+  // NOTE-마크다운선택·NOTE-큰창저장유지: markdown is a label/choice only, keepOpen keeps the window after the opener's own save.
+  assert.match(src, /export function openMarkdownEditor\(\{text = '', title = '크게 쓰기', onInput = null, onClose = \(\) => \{\}, save = null, draft = false, kinds = null, placeholder = null, noteTitle = null, attach = null, markdown = null, keepOpen = false\} = \{\}\)/);
   assert.match(src, /attach\.mount\(\{picker: attachRow\.querySelector\('\[data-md-attach-picker\]'\), files: attachRow\.querySelector\('\[data-md-attach-files\]'\), drop: panes\}\)/);
   assert.doesNotMatch(src, /KPTURuntime|\.api\(|fetch\(/);
   for (const file of ['app/md-editor.js', 'app/md-editor-ops.mjs', 'app/md-telegram.mjs', 'app/md-hangul.mjs', 'app/md-editor.css']) {
