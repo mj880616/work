@@ -293,11 +293,11 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
 .ps3-plist .kptu-list-row.ps3-drop-before,.ps3-plist .kptu-list-row.ps3-drop-after{background-image:linear-gradient(var(--kptu-primary),var(--kptu-primary));background-size:100% 2px;background-repeat:no-repeat;background-position:top}
 .ps3-plist .kptu-list-row.ps3-drop-after{background-position:bottom}
 /* PRJ-순서바꾸기(폰): [순서 바꾸기] 작은 버튼(32px, 누르는 범위 44px) → 줄마다 ↑ ↓(누르는 범위 44px). */
-#appView #projectsView .ps3-plist .ps3-order-toggle{position:relative;box-sizing:border-box;height:var(--ds-compact-height);min-height:var(--ds-compact-height);margin:0;padding:0 var(--ds-compact-pad-x);font-size:var(--ds-compact-text);line-height:1;white-space:nowrap;color:var(--kptu-ink);background:var(--kptu-surface);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control)}
+#appView #projectsView .ps3-plist .ps3-order-toggle{position:relative;box-sizing:border-box;height:var(--ds-compact-height);min-height:var(--ds-compact-height);margin:0;padding:0 var(--ds-compact-pad-x);font-size:var(--ds-compact-text);line-height:1;white-space:nowrap;color:var(--kptu-ink);background:var(--kptu-surface);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-md)}
 #appView #projectsView .ps3-plist .ps3-order-toggle[aria-pressed="true"]{background:var(--kptu-primary-soft);border-color:var(--kptu-primary)}
 #appView #projectsView .ps3-plist .ps3-order-toggle::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 #appView #projectsView .ps3-plist .ps3-order-line>.kptu-list-row{min-width:0}
-#appView #projectsView .ps3-plist .ps3-order-move{flex:none;box-sizing:border-box;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);min-width:var(--kptu-touch-target,44px);min-height:var(--kptu-touch-target,44px);margin:0;padding:0;font-size:18px;line-height:1;color:var(--kptu-ink);background:transparent;border:0;border-radius:var(--ds-radius-control)}
+#appView #projectsView .ps3-plist .ps3-order-move{flex:none;box-sizing:border-box;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);min-width:var(--kptu-touch-target,44px);min-height:var(--kptu-touch-target,44px);margin:0;padding:0;font-size:18px;line-height:1;color:var(--kptu-ink);background:transparent;border:0;border-radius:var(--kptu-radius-md)}
 #appView #projectsView .ps3-plist .ps3-order-move:disabled{color:var(--kptu-faint);opacity:.45;cursor:default}
 #appView #projectsView .ps3-plist .ps3-order-move:last-child{margin-right:var(--kptu-space-2)}
 /* 순서 바꾸는 중: 줄은 눌리는 모양이 아니며, 이름이 가리지 않게 일정 알약은 잠시 숨김. */
