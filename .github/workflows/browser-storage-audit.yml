@@ -91,11 +91,9 @@ jobs:
               # 묶음C-2: per-owner read cache of Google Tasks (Google stays the source of truth),
               # dropped by KPTURuntime on sign-out or owner change.
               'app/google-tasks.js':[r'gtCacheKey\('],
-              'app/public-page-auth.js':[r'config[.]sessionKey'],
               'app/web1-admin-auth.js':[r'cfg[.]sessionKey',r'oauthReturnKey'],
               'tests/app-e2e/public-page-editor-fixture.html':[r'kptu_public_editor_session_v1'],
               'tests/app-e2e/public-page-editor-live.spec.mjs':[r'kptu_public_editor_session_v1',r'kptu_collab_session_v1'],
-              'tests/app-e2e/public-page-password-recovery.spec.mjs':[r'kptu_public_editor_session_v1'],
               'tests/app-e2e/public-workspace-auth.spec.mjs':[r'\blocalStorage\b'],
               'tests/security/web1-admin-auth-redirect.test.mjs':[r'\bsessionStorage\b',r'\blocalStorage\b'],
               # SEC-1 synthetic session adapter and a read-only assertion that
