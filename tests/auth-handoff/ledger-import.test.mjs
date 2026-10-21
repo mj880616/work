@@ -119,7 +119,7 @@ test('S7-b ledger import functions: files, prechecks, dry-run, apply, duplicate 
    const counts=await rpc('app_import_ledger_counts',[importId]);
    const check=numberCheck(counts.file.report,counts);
    assert.ok(check.length>=10);assert.ok(check.every(r=>r.ok),JSON.stringify(check));
-   assert.deepEqual(check.find(r=>r.key==='event'),{key:'event',label:'사건',sheet:3,inserted:2,excluded:1,rejected:0,ok:true});
+   assert.deepEqual(check.find(r=>r.key==='event'),{key:'event',label:'사건',sheet:3,inserted:2,excluded:1,rejected:0,shift:0,ok:true});
    // Prefixes registered; the counter followed the imported numbers (next new event is 0904).
    assert.equal((await pool.query(`select last_number from public.app_ledger_id_counters where workspace_id=$1 and scope='event'`,[WS_A])).rows[0].last_number,902);
    const audit=(await pool.query(`select event from public.app_ledger_audit where import_id=$1 order by event`,[importId])).rows.map(r=>r.event);

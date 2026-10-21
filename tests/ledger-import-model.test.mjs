@@ -117,8 +117,10 @@ test('mapping draft: rule guesses, ambiguous values marked, user choice wins and
 test('broken references reject the whole batch (rows listed); existing ids, duplicates, mixed or foreign prefixes are refused',async()=>{
  const broken=await run([one('변화기록',[['ID','사건ID','제목'],['CHG-0950','EVT-0999','가상 변화']]),one('근거',[['ID','제목','출처'],['EVD-0950','가상 근거','SRC-0999'],['EVD-0951','가상 근거 둘','없는 출처 제목']])]);
  assert.equal(broken.ok,false);
- assert.deepEqual(reasons(broken),{broken_ref:3});
- assert.deepEqual(broken.summary.error[0].samples.sort(),['CHG-0950 → EVT-0999','EVD-0950 → SRC-0999','EVD-0951 → 없는 출처 제목']);
+ assert.deepEqual(reasons(broken),{broken_ref:2});
+ // 무엇이 없는지 함께 보인다. 출처가 ID가 아닌 글자면 거부하지 않고 비고에 남긴다(알림).
+ assert.deepEqual(broken.summary.error[0].samples.sort(),['CHG-0950 → EVT-0999 (없는 ID: EVT-0999)','EVD-0950 → SRC-0999 (없는 ID: SRC-0999)']);
+ assert.equal(reasons(broken,'warning').source_text_kept,1);
  // A reference to a row already in the ledger is fine.
  const later=await run([one('변화기록',[['ID','사건ID','제목'],['CHG-0950','EVT-0901','가상 변화']])],{existing:{records:new Set(['EVT-0901'])},prefixes:{event:'EVT'}});
  assert.equal(later.ok,true);assert.equal(later.counts.links_to_records,1);
@@ -138,7 +140,11 @@ test('row checks: empty title, missing column, commitment needs counterparty, su
   one('결정',[['ID','제목','유효상태','대체기록ID'],['DEC-0901','가상 하나','대체',''],['DEC-0902','가상 둘','대체','DEC-0903'],['DEC-0903','가상 셋','대체','DEC-0902'],['DEC-0904','가'.repeat(301),'유효','']]),
   one('조직',[['ID','별칭'],['ORG-0901','가지부']])
  ]);
- assert.deepEqual(reasons(r),{empty_title:1,missing_column:1,missing_counterparty:1,bad_date:2,supersede_mismatch:1,broken_ref:2,too_long:1});
+ assert.deepEqual(reasons(r),{empty_title:1,missing_column:1,missing_counterparty:1,bad_date:1,supersede_mismatch:1,broken_ref:2});
+ // 긴 제목은 앞 300자 + 전체는 요지, 읽을 수 없는 후속확인일은 비우고 비고에(둘 다 알림).
+ assert.deepEqual(reasons(r,'warning'),{title_cut:1,date_text_kept:1});
+ const long=r.payload.records.find(x=>x.ledger_id==='DEC-0904');assert.equal(long.title.length,300);assert.equal(long.summary.length,301);
+ assert.match(r.payload.records.find(x=>x.ledger_id==='COM-0902').note,/후속확인일: 언젠가/);
  assert.equal(tab(r,'organization').rejected,1);
  assert.equal(tab(r,'event').importRows,0);
 });
@@ -188,5 +194,5 @@ test('number check: sheet rows = inserted + excluded + rejected per tab',async()
  const rows=numberCheck(r.payload.report,db);
  assert.equal(rows.length,10);assert.ok(rows.every(x=>x.ok));
  const short=numberCheck(r.payload.report,{...db,records_by_kind:{...db.records_by_kind,event:1}});
- assert.deepEqual(short.find(x=>x.key==='event'),{key:'event',label:'사건',sheet:3,inserted:1,excluded:1,rejected:0,ok:false});
+ assert.deepEqual(short.find(x=>x.key==='event'),{key:'event',label:'사건',sheet:3,inserted:1,excluded:1,rejected:0,shift:0,ok:false});
 });
