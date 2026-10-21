@@ -127,6 +127,8 @@
   if(context)window.KPTUCapabilities.setContext({user:context.user,membership:context.membership});
   // ORG-사본자동갱신: 저장 뒤 Drive 읽기용 사본 자동 갱신(화면 표시 없음).
   await import('./drive-summary.js').catch(err=>console.warn('drive summary refresh load failed',err?.name||'Error'));
+  // AI-서버연동 S7-d: 원장 매주 Drive 내보내기(Web2를 열 때 7일 지났으면 한 번, 화면 표시 없음). 기다리지 않는다.
+  import('./ledger-export.js').catch(err=>console.warn('ledger export load failed',err?.name||'Error'));
 
   const mobileNavigationReady=import('./mobile-swipe-navigation.js').catch(err=>{console.error('mobile navigation load failed',err);return null});
   const showFeatureError=err=>{

@@ -7,7 +7,7 @@ import {checkDriveSummaryIsolation} from '../../scripts/check-drive-summary-isol
 
 test('functions-only deployment copy passes Deno check and bundle for the real drive-summary graph',{timeout:120000},async()=>{
   const result=await checkDriveSummaryIsolation();
-  assert.equal(result.modules,8);assert.ok(result.bundleBytes>0);
+  assert.equal(result.modules,9); // S7-d: + ledger-export.mjsassert.ok(result.bundleBytes>0);
 });
 
 async function fixture(run){

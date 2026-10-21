@@ -84,4 +84,20 @@ Web2 링크는 `https://desk.bokdoong.com/work/app/?view=basket&note=<ID>`이며
 - 상태 읽기 `GET ?action=status` 응답에 `collectors:{telegram, transcript}`(각 `{last_at, count, reported_at}` 또는 `null`)를 더했다. 저장값도 같은 형식 검사를 통과한 것만 낸다.
 - 화면 기준: 텔레그램 26시간(업무방 매일 07:30 1회 수집)·통화 전사 72시간(통화 없는 날·주말) 넘으면 주의, 신호(`reported_at`)가 3시간 넘게 없으면 "점검 신호 끊김"(`app/collection-status.js`).
 - 앱 스크립트 코드·설정 안내: `docs/ops/collector-heartbeat.gs`, `docs/ops/collector-heartbeat.md`.
-- 남은 위험: 사본 재생성(POST)의 `recordStatus`는 읽어 둔 폴더 속성 전체를 다시 보내므로, 재생성 도중(수 초) 신호가 들어오면 그 신호 하나가 옛 값으로 덮일 수 있다. 다음 시간 신호로 바로 회복된다. 비밀값이 새면 가짜 시각을 쓸 수 있을 뿐(읽기·내용·다른 키 쓰기 불가) — 비밀값 교체로 막는다.
+- (S7-d에서 해소) 사본 재생성의 `recordStatus`가 읽어 둔 폴더 속성 전체를 다시 보내던 것을, 자기 키(`last_success_at` 또는 `last_failure_*`)만 보내도록 고쳤다. 재생성 도중 들어온 신호·원장 내보내기 시각이 옛 값으로 덮이지 않는다. 남은 위험: 비밀값이 새면 가짜 시각을 쓸 수 있을 뿐(읽기·내용·다른 키 쓰기 불가) — 비밀값 교체로 막는다.
+
+## S7-d 원장 매주 Drive 내보내기
+
+설계: `docs/design/ledger-web2.md` 9절. 코드: `ledger-export.mjs`(읽기·JSON·읽기용 문서, 순수) + `core.mjs`(경로·Drive).
+
+- `POST ?action=ledger_export`: **소유자 JWT만**. 예약 비밀값 헤더가 있으면 값과 무관하게 401. 원장 표(`app_ledger_*`)는 service_role 권한이 없으므로(의도) 호출자의 토큰 + `SUPABASE_ANON_KEY`로 읽는다(owner RLS 그대로). 기존 사본 표·Drive 설정 읽기는 지금처럼.
+- 읽는 표 8개(열 허용 목록, 감사·후보 제외), 표당 2만 행 넘으면 `LEDGER_READ_LIMIT`(잘린 백업 없음). 표가 없으면 `LEDGER_NOT_READY`(409).
+- 쓰는 것: 사본 폴더 아래 "원장 백업" 하위 폴더에 `원장-YYYY-MM-DD.json`(KST 날짜, 같은 날은 같은 ID에 덮어쓰기) → 사본 폴더에 Google 문서 "원장 (읽기용 사본)"(같은 ID 전체 교체) → 날짜 최근 8개 밖 JSON은 휴지통(`trashed=true`, 실패는 `trim_failed` 수만). 폴더·하위 폴더·두 파일 모두 공개 공유 검사.
+- S2는 문서에 ID·기준일·제목만. 요지는 600자까지. 문서가 4 MiB를 넘으면 진단 문서 + `LEDGER_DOC_LIMIT`(백업 JSON은 이미 올라감).
+- 결과: 폴더 `appProperties`의 `ledger_last_success_at`·`ledger_last_failure_at`·`ledger_last_failure_summary`만 PATCH(Drive가 다른 열쇠 보존). 사본 재생성·heartbeat도 각자 자기 키만 보낸다 — 세 경로가 서로의 키를 덮지 않는다.
+- 경로 순서: POST는 heartbeat → (수집 비밀값 헤더면 401) → `ledger_export` → 사본 재생성. 수집 비밀값으로는 원장 내보내기도 401.
+- 응답: `{ok, exported_at, counts, keep, trim_failed, documents:{ledger}}`. 실패는 단계 코드만.
+- `GET ?action=ledger_status`: 소유자 JWT **또는** 예약 비밀값. 폴더 속성의 세 값만(`{ok, checked_at, ledger:{state, last_success_at, last_failure_at, last_failure_code}}`). 만들기·쓰기·원장 읽기 없음.
+- 부르는 쪽: `app/ledger-export.js`(Web2를 열고 2분 뒤 7일 지났으면 자동 + [원장] 화면 [지금 Drive로 내보내기]), `.github/workflows/ledger-export-check.yml`(월 07:43 KST, `scripts/ops/ledger-export-check.mjs`로 상태만 점검, 8일 넘거나 최근 실패면 workflow 실패).
+- 시험: `node --test tests/security/drive-summary-ledger-export.test.mjs tests/security/ledger-export-check.test.mjs tests/ledger-export-model.test.mjs`, 화면 `tests/app-e2e/ledger-export.spec.mjs`.
+- 배포: 같은 함수 재배포(verify_jwt=false 유지). 새 비밀값 없음(`SUPABASE_ANON_KEY`는 Edge 기본 제공). 되돌리기: 이전 운영 소스(main `9c0bbf9`, v14)로 재배포.

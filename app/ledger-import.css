@@ -53,12 +53,18 @@
 /* S7-c 원장 목록·검색(#ledgerBrowseRoot)·원장 후보(#ledgerCandidatesRoot). */
 #appView #ledgerView .lb-form{ display:flex; flex-direction:column; gap:10px; }
 #appView #ledgerView .lb-row{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:8px 12px; }
+#appView #ledgerView .lb-row:has(> .lb-chip){ align-items:center; }
 #appView #ledgerView .lb-query{ flex:1 1 240px; }
 #appView #ledgerView .lb-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px 12px; }
 #appView #ledgerView .lb-select{ width:100%; max-width:none; min-height:var(--ds-control-height); }
-#appView #ledgerView .lb-kinds{ display:flex; flex-wrap:wrap; gap:4px 12px; margin:0; padding:0; border:0; }
+#appView #ledgerView .lb-kinds{ display:flex; flex-wrap:wrap; gap:8px; margin:0; padding:0; border:0; }
 #appView #ledgerView .lb-kinds legend{ padding:0; margin-bottom:2px; font-size:var(--ds-text-meta); font-weight:var(--ds-weight-medium); color:var(--kptu-muted); }
-#appView #ledgerView .lb-chip{ display:inline-flex; align-items:center; gap:6px; min-height:var(--kptu-touch-target,44px); font-size:var(--ds-text-row); color:var(--kptu-ink); }
+/* 체크 칸 칩: 전역 label(세로·굵게)·input(칸 전체 너비·46px 높이) 규칙을 이 칩 안에서만 되돌려 [☐ 글자] 한 줄 알약으로 둔다. 높이는 작은 버튼(.lg-tool)과 같은 --ds-compact-height, 누르는 범위는 44px. */
+#appView #ledgerView .lb-chip{ position:relative; box-sizing:border-box; display:inline-flex; flex-direction:row; align-items:center; gap:6px; height:var(--ds-compact-height); margin:0; padding:0 var(--ds-compact-pad-x) 0 10px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-chip-radius); background:var(--kptu-surface); color:var(--kptu-ink); font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap; cursor:pointer; }
+#appView #ledgerView .lb-chip::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+#appView #ledgerView .lb-chip input{ position:relative; z-index:1; flex:none; box-sizing:border-box; width:16px; height:16px; min-width:0; min-height:0; margin:0; padding:0; border-radius:4px; box-shadow:none; accent-color:var(--kptu-primary); cursor:pointer; }
+#appView #ledgerView .lb-chip:has(input:checked){ background:var(--kptu-primary-soft); border-color:var(--kptu-primary-ink); color:var(--kptu-primary-ink); }
+#appView #ledgerView .lb-chip:has(input:focus-visible){ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 #appView #ledgerView :is(.lb-list,.lc-list){ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; }
 #appView #ledgerView :is(.lb-item,.lc-item){ border-top:var(--ds-line-width) solid var(--ds-line); min-width:0; }
 #appView #ledgerView :is(.lb-item,.lc-item):first-child{ border-top:0; }

@@ -12,15 +12,20 @@ for (const width of [412, 870]) {
     await expect(rows).toHaveCount(2);
 
     // 44px per line; the 1px separator between rows is the only extra.
-    const heights = await rows.evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
-    for (const h of heights) expect(h).toBeGreaterThanOrEqual(44);
-    for (const h of heights) expect(h).toBeLessThanOrEqual(45);
-    const text = await rows.evaluateAll((els) => els.map((el) => el.querySelector(".home-task-text").getBoundingClientRect().height));
-    for (const h of text) expect(h).toBe(44);
+    // The card repaints its rows as project names and links arrive, so rows are found and measured in one page-side
+    // call; resolving them first (evaluateAll, boundingBox) can measure rows a repaint has just detached (height 0).
+    const sizes = await card.evaluate((c) => [...c.querySelectorAll("[data-home-task]")].map((el) => {
+      const box = el.querySelector(".gt-check").getBoundingClientRect();
+      return { row: el.getBoundingClientRect().height, text: el.querySelector(".home-task-text").getBoundingClientRect().height, check: [box.width, box.height] };
+    }));
+    expect(sizes).toHaveLength(2);
+    for (const { row } of sizes) expect(row).toBeGreaterThanOrEqual(44);
+    for (const { row } of sizes) expect(row).toBeLessThanOrEqual(45);
+    for (const { text } of sizes) expect(text).toBe(44);
 
-    const check = await rows.first().locator(".gt-check").boundingBox();
-    expect(check.width).toBeGreaterThanOrEqual(44);
-    expect(check.height).toBeGreaterThanOrEqual(44);
+    const [checkWidth, checkHeight] = sizes[0].check;
+    expect(checkWidth).toBeGreaterThanOrEqual(44);
+    expect(checkHeight).toBeGreaterThanOrEqual(44);
 
     await expect(card).not.toContainText("오늘 항목 · 오늘");
     await expect(card.locator('[data-home-task="today"] small')).toHaveCount(0);

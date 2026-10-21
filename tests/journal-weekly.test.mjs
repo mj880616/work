@@ -209,3 +209,18 @@ test('[주간보고 초안 복사]: the tab as text in the form order (1 → 2 �
   assert.ok(off.includes('5. 주요 일정 (10월 12일(월) ~ 10월 25일(일))\n(불러오지 못함)\n'));
   assert.ok(off.includes('※ 달력 일정은(는) 불러오지 못해 빠졌어요.'));
 });
+
+test('■ 일시 = 상집 보고일: the Monday after the shown week (tab, draft and .hwpx write the same day)', async () => {
+  const m = await mod, data = await import('../app/journal-data.js');
+  assert.equal(data.reportDay('2026-10-05'), '2026-10-12');
+  assert.equal(data.reportDay('2026-12-28'), '2027-01-04');
+  assert.equal(m.reportDateText('2026-10-05'), '2026년 10월 12일(월)');
+  assert.equal(m.reportDateText('2026-12-28'), '2027년 1월 4일(월)');
+  // The same text as the .hwpx form's date line.
+  const draft = await import('../app/weekly-hwpx/draft.mjs');
+  assert.equal(draft.reportDate(data.reportDay('2026-10-19')), m.reportDateText('2026-10-19'));
+  // 5. 주요 일정 starts on the report day.
+  assert.equal(m.upcomingSchedule([], '2026-10-19').days[0], data.reportDay('2026-10-19'));
+  const text = m.weeklyReportText(m.weeklySummary({...base, materials:materials()}));
+  assert.equal(text.split('\n')[1], '■ 일시 : 2026년 10월 12일(월)');
+});

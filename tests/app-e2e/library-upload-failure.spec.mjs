@@ -33,7 +33,10 @@ test('library upload timeout is an unknown outcome, releases busy state and neve
   await expect(page.locator('#documentStatus')).toHaveAttribute('role','status');
   await expect(page.locator('#documentStatus')).toHaveAttribute('aria-live','polite');
   await save.evaluate(button=>button.onclick());
-  await page.evaluate(()=>window.__releaseLibraryUpload?.());
+  // The status line says "업로드 중" before the upload request is sent (session check and file copy come first), so
+  // release the held request only once it has actually arrived; releasing earlier is a no-op and the request hangs.
+  await expect.poll(()=>page.evaluate(()=>typeof window.__releaseLibraryUpload)).toBe('function');
+  await page.evaluate(()=>window.__releaseLibraryUpload());
   await expect(page.locator('#documentStatus')).toContainText('업로드 시간이 오래 걸려 결과를 확인하지 못했습니다',{timeout:3000});
   await expect(page.locator('#documentStatus')).not.toContainText('요청 시간이 초과되었습니다');
   await expectFailureSettled(page);

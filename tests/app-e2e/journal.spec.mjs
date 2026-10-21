@@ -525,9 +525,9 @@ test('[주간보고 초안 복사]: 양식 순서(1 → 2 → 4 → 5 → 참고
  await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('주간보고 양식 순서로 복사했어요.');
  const text=await page.evaluate(()=>navigator.clipboard.readText());
  const lines=text.split('\n');
- expect(lines[0]).toBe('주간 업무일지 10월 5일(월) ~ 10월 11일(일)');
+ expect(lines.slice(0,2)).toEqual(['주간 업무일지 10월 5일(월) ~ 10월 11일(일)','■ 일시 : 2026년 10월 12일(월)']);
  expect(lines.filter(l=>/^(\d\. |참고$)/.test(l))).toEqual(['1. 요청사항','2. 기본·영역·의제 사업','4. 산하 조직 현황','5. 주요 일정 (10월 12일(월) ~ 10월 25일(일))','참고']);
- expect(lines.some(l=>l.startsWith('■ ')||l.startsWith('한 줄: '))).toBe(false);
+ expect(lines.filter(l=>l.startsWith('■ '))).toEqual(['■ 일시 : 2026년 10월 12일(월)']);expect(lines.some(l=>l.startsWith('한 줄: '))).toBe(false);
  const part=title=>{const at=lines.indexOf(title);return lines.slice(at+1,lines.indexOf('',at));};
  expect(part('1. 요청사항')).toEqual(['1) 임원 일정 배정·논의 요청: (아직 재료 없음)','2) 주요 일정: (비워 둠) 본부 주요 일정 — 기자회견·주요 회의·토론회·집회·교육 등, 특정 사업장·반복 일정 제외. 자동 채우기는 나중에']);
  // 2. 사업: 프로젝트 기록(프로젝트 트리 — 이 fixture에서는 홈 모의 트리의 사업영역 한 개) → 회의·행사 결과.
@@ -804,7 +804,7 @@ for(const width of [390,1280])test(`[업무일지] 요청 표시: 하루 카드 
  await page.locator('#journalRoot [data-journal-copy]').click();
  await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('주간보고 양식 순서로 복사했어요.');
  const lines=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n');
- expect(lines.slice(0,3)).toEqual(['주간 업무일지 10월 5일(월) ~ 10월 11일(일)','','1. 요청사항']);
+ expect(lines.slice(0,4)).toEqual(['주간 업무일지 10월 5일(월) ~ 10월 11일(일)','■ 일시 : 2026년 10월 12일(월)','','1. 요청사항']);
  expect(lines.some(l=>l==='[임원 일정 배정 요청]'||l==='[논의 요청]')).toBe(false);
  expect(lines[lines.indexOf('◦ 가상 노동조합')+1]).toBe('- 10월 6일(화) [임원 요청] [논의 요청] 안녕하세요 위원장님');
  expect(lines[lines.indexOf('◦ 미분류')+1]).toBe('- 10월 6일(화) [논의 요청] 현장 간담회 메모');
@@ -867,6 +867,8 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  await expect(page.locator('#journalRoot [data-journal-day]')).toBeHidden();
  await expect(page.locator('#journalRoot [data-journal-weekly-title]')).toHaveText('주간 정리 · 10월 5일 월요일 ~ 10월 11일 일요일');
  await expect(page.locator('#journalRoot [data-journal-weekly-chapter] > h4')).toHaveText(['1. 요청사항','2. 기본·영역·의제 사업','4. 산하 조직 현황','5. 주요 일정','참고 — 보고서 칸 밖 재료']);
+ // ■ 일시 = 상집 보고일(보고 있는 주의 다음 월요일) — 한글 파일·초안 복사와 같은 날짜.
+ await expect(page.locator('#journalRoot [data-journal-weekly-date]')).toHaveText('■ 일시 : 2026년 10월 12일(월) (상집 보고일)');
  // 1. 요청사항: 자리만, 입력칸·버튼 없음. 2) 주요 일정(본부 주요 일정)은 뜻만 한 줄로 알린다.
  await expect(weekly(page,'ask').locator('h5')).toHaveText('1) 임원 일정 배정·논의 요청');
  await expect(weekly(page,'hq-schedule').locator('h5')).toHaveText('2) 주요 일정');
@@ -912,7 +914,7 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  await page.locator('#journalRoot [data-journal-copy]').click();
  await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('주간보고 양식 순서로 복사했어요.');
  const lines=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n');
- expect(lines.slice(0,3)).toEqual(['주간 업무일지 10월 5일(월) ~ 10월 11일(일)','','1. 요청사항']);
+ expect(lines.slice(0,4)).toEqual(['주간 업무일지 10월 5일(월) ~ 10월 11일(일)','■ 일시 : 2026년 10월 12일(월)','','1. 요청사항']);
  // 화면과 같은 묶음·순서: 사업영역 → 세부 과제(트리 순서), 5. 주요 일정 표 줄.
  const sum=lines.indexOf('1) 요약');
  expect(lines.slice(sum+1,sum+5)).toEqual(['◦ 사업영역 가','- 10월 8일(목) 세부 과제 가-1: 가-1 목요일 기록','- 10월 7일(수) 세부 과제 가-1 › 사안 가-1-ㄱ: 사안 수요일 기록','- 10월 6일(화) 세부 과제 가-2: 가-2 화요일 기록']);
@@ -946,6 +948,7 @@ test('[주간 정리] 주 넘기기: 빈 주는 칸마다 빈 안내, [이번 �
  await expect(page.locator('#journalRoot [data-journal-weekly-quiet-notes]')).toHaveText('기록 없는 묶음: 한 줄, 끝낸 할 일, 공유 페이지');
  // 5. 주요 일정은 그 주 다음 월요일부터 2주(10/19~11/1)로 다시 읽는다.
  await expect(weekly(page,'calendar').locator('h5')).toHaveText('10월 19일(월) ~ 11월 1일(일) · 다음 주 월요일부터 2주');
+ await expect(page.locator('#journalRoot [data-journal-weekly-date]')).toHaveText('■ 일시 : 2026년 10월 19일(월) (상집 보고일)');
  await expect(weekly(page,'calendar').locator('tbody th')).toHaveText(['10.27.(화)']);
  await expect(weekly(page,'calendar').locator('[data-journal-weekly-vacation]')).toHaveText('※ 휴가: 10/23(금) 연차');
  await page.locator('#journalRoot [data-journal-prev]').click();await page.locator('#journalRoot [data-journal-prev]').click();
@@ -1060,7 +1063,7 @@ for(const width of [390,1280])test(`[주간보고 한글 파일 만들기]: 자�
  expect(f.sent.open).toEqual([{action:'hwp-open',document_id:'doc-team'}]);
  // 내 줄 2개(다른 담당의 가-2 줄은 없음), 내 담당 조직(가상 노동조합)만. 이름은 프로필에서.
  await expect(hwpx(page).locator('[data-hwpx-me]')).toHaveValue('가상 담당');
- await expect(hwpx(page).locator('[data-hwpx-date]')).toHaveValue('2026년 10월 5일(월)');
+ await expect(hwpx(page).locator('[data-hwpx-date]')).toHaveValue('2026년 10월 12일(월)');
  await expect(hwpx(page).locator('[data-hwpx-part="summary"] .journal-hwpx-label')).toHaveText(['사업영역 가 › 세부 과제 가-1','사업영역 나 › 세부 과제 나-1']);
  await expect(hwpx(page).locator('[data-hwpx-part="orgs"] .journal-hwpx-label')).toHaveText(['가상 노동조합']);
  await expect(hwpx(page).locator('[data-hwpx-orgs]')).toContainText('내 담당 조직 2곳');
@@ -1079,7 +1082,7 @@ for(const width of [390,1280])test(`[주간보고 한글 파일 만들기]: 자�
  await rowBox(page,'가상 노동조합').locator('textarea').fill('- 지난주 조직 소식\n- 손으로 고친 조직 소식');
  // .hwpx 받기: 규격 검사 통과, 내 줄만 채워지고 바뀐 줄만 파란 글씨, 요청 표는 확정본 그대로.
  const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
- expect(download.suggestedFilename()).toBe('주간보고_20261005.hwpx');
+ expect(download.suggestedFilename()).toBe('주간보고_20261012.hwpx');
  const {pkg,report}=await savedReport(download);
  expect(report.summary[0].rows.map(r=>r.progress)).toEqual([['- 지난주 가-1 진행','- 가-1 목요일 기록'],[]]);
  expect(report.summary[0].rows[1].owner).toEqual([]);
@@ -1110,7 +1113,7 @@ for(const width of [390,1280])test(`[주간보고 한글 파일 만들기]: 자�
  await expect(hwpx(page).locator('[data-hwpx-status]')).toContainText('자료실에 "주간보고 개인본" 분류로 저장했어요');
  expect(f.sent.library).toHaveLength(1);
  const saved=f.sent.library[0];
- expect([saved.title,saved.category,saved.document_date,saved.file.file]).toEqual(['주간보고 2026년 10월 5일(월)','주간보고 개인본','2026-10-05','주간보고_20261005.hwpx']);
+ expect([saved.title,saved.category,saved.document_date,saved.file.file]).toEqual(['주간보고 2026년 10월 12일(월)','주간보고 개인본','2026-10-12','주간보고_20261012.hwpx']);
  expect(Object.keys(saved).sort()).toEqual(['category','document_date','file','title']);
  expect(validateHwpx(new Uint8Array(saved.file.bytes),zlib).errors).toEqual([]);
  await expect(hwpx(page).locator('[data-hwpx-confirm]')).toBeDisabled();
@@ -1139,7 +1142,7 @@ test('[주간보고 한글 파일 만들기]: 자료실에 확정본이 없으�
  await expect(hwpx(page).locator('[data-hwpx-me]')).toHaveValue('가상 담당');
  // [HWP로 받기]: 같은 엔진이 HWP 5로 저장(OLE 머리)
  const [hwp]=await Promise.all([page.waitForEvent('download',{timeout:90000}),hwpx(page).locator('[data-hwpx-hwp]').click()]);
- expect(hwp.suggestedFilename()).toBe('주간보고_20261005.hwp');
+ expect(hwp.suggestedFilename()).toBe('주간보고_20261012.hwp');
  const hwpBytes=readFileSync(await hwp.path());
  expect([...hwpBytes.subarray(0,4)]).toEqual([0xd0,0xcf,0x11,0xe0]);
  // 그 HWP를 다시 기기 파일로: 엔진이 .hwpx로 바꾼 뒤 같은 칸

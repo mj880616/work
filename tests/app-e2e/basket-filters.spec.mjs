@@ -165,3 +165,21 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`library
  await capture(page,info,`library-meeting-${width}-${scheme}`);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });
+
+// STAB-간헐3: a segment tap while the list is still loading must not say "no updates"; the row appears once the read answers.
+test('a segment tap during the first basket read keeps the loading line and then shows the memo',async({page})=>{
+ const f=await fixture(page,{width:1280});
+ let release;const gate=new Promise(resolve=>{release=resolve});
+ await page.route(SB+'/rest/v1/app_notes?**',async route=>{await gate;return route.fallback();});
+ await page.evaluate(()=>window.KPTURouter.go('basket'));
+ const status=page.locator('[data-basket-list-status]');
+ await expect(status).toHaveText('불러오는 중…');
+ for(const segment of ['classified','unclassified']){
+  await filterChip(page,segment).click();await expect(filterChip(page,segment)).toHaveAttribute('aria-pressed','true');
+  await expect(status).toHaveText('불러오는 중…');await expect(status).not.toHaveAttribute('data-basket-empty','');
+ }
+ release();
+ await expect(page.locator(`[data-basket-row="${PLAIN}"]`)).toBeVisible();
+ await expect(status).toHaveText('2개 업데이트');
+ expect(f.errors).toEqual([]);
+});

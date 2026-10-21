@@ -154,7 +154,7 @@ function shellHtml() {
         <label class="lg-field"><span>범위</span><select id="lbScope" class="lg-select lb-select">${SCOPE_CHOICES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select></label>
       </div>
       <div class="lb-row">
-        <label class="lg-check"><input id="lbInactive" type="checkbox"> 대체·폐기 기록도 보기</label>
+        <label class="lb-chip"><input id="lbInactive" type="checkbox"><span>대체·폐기 기록도 보기</span></label>
         <button type="button" class="lg-tool" data-lb-action="clear">조건 지우기</button>
       </div>
     </form>

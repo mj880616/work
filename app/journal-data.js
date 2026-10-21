@@ -132,7 +132,9 @@ export const readWeekEvents = (start, rt = window.KPTURuntime) => readEventsBetw
 // Monday after the shown week — the report is written at the end of the week (Friday), gathered on Sunday and reported on
 // Monday, so it is "the reported week and the week after". The shown week, not today, sets it, so a past week stays the same.
 export const SCHEDULE_WEEKS = 2;
-export const scheduleDays = start => Array.from({length:SCHEDULE_WEEKS * 7}, (_, i) => seoulDateKey(addSeoulDays(shiftWeek(start, 1), i)));
+// The report day (상집 보고일, "■ 일시"): the Monday after the shown week (2026-10-21 사용자 결정, WEEKLY-보고일).
+export const reportDay = start => shiftWeek(start, 1);
+export const scheduleDays = start => Array.from({length:SCHEDULE_WEEKS * 7}, (_, i) => seoulDateKey(addSeoulDays(reportDay(start), i)));
 export const readScheduleEvents = (start, rt = window.KPTURuntime) => readEventsBetween(shiftWeek(start, 1), shiftWeek(start, 1 + SCHEDULE_WEEKS), rt);
 // JOURNAL-끝낸할일범위: the google-tasks Edge returns the tasks completed in the last `completed_days` days (whole number
 // 1..8, capped by the server). An older Edge ignores the field and answers the last 3 days without echoing it, so the days
