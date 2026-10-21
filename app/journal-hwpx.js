@@ -5,9 +5,13 @@
 //   Web2 창·로그인 정보에 닿지 못함)이 하고, 표 읽기·빈 서식·보고서 만들기는 weekly-hwpx/*.mjs(외부 라이브러리 없음)가 한다.
 //   서버로 가는 것은 자료실 확정본 열기(기존 document-actions hwp-open, owner 확인)와 [확정] 저장(기존 library-files)뿐이다.
 // - 내 담당 조직은 my-organizations.js(내 프로필 → 담당 사업장)에서 받는다. 담당 팀원 칸의 내 이름은 프로필 이름(화면에서 고침).
+// - 5. 주요 일정 표는 [주간 정리]의 5번 묶음(다음 주 월요일부터 2주, 달력 일정)으로 14일을 한 줄씩 채우고 참석자 칸에 내 이름,
+//   휴가는 표 아래 "※ 날짜 이름 연차" 줄로 쓴다(WEEKLY-주요일정, 2026-10-21 사용자 결정 — 금요일 작성·월요일 보고라 "보고 주 + 그다음 주").
+//   1. 2) 주요 일정(본부 주요 일정)은 기준이 정해지지 않아 비운다.
 // - 이 상자 하나만 이 모듈이 그린다(journal.js는 자리만 주고 주·자료가 바뀌면 알려 줌). 브라우저 저장소에 아무것도 두지 않는다.
 import {selectMyOrganizations} from './my-organizations.js';
 import {shortDay} from './journal-data.js';
+import {scheduleForm} from './journal-weekly.js';
 
 const CONFIRMED_CATEGORY = '주간보고 확정본';
 const encode = encodeURIComponent;
@@ -226,6 +230,10 @@ export function mountWeeklyHwpx(host, {getWeek, rt = window.KPTURuntime}) {
         return li;
       }));
     }
+    const c = model?.calendar, cal = body.querySelector('[data-hwpx-calendar]');
+    if (cal) cal.textContent = !c || c.loading ? '5. 주요 일정 표: 달력 일정을 불러오는 중이에요.'
+      : c.failed?.length ? '5. 주요 일정 표: 달력 일정을 불러오지 못해 날짜만 넣어요. [주간 정리]의 5. 주요 일정에서 [다시 시도]할 수 있어요.'
+      : `5. 주요 일정 표: ${shortDay(c.days[0])}~${shortDay(c.days.at(-1))} 일정 ${c.rows.reduce((n, r) => n + r.items.length, 0)}개(참석자 = 내 이름)${c.vacations.length ? `, 휴가 ${c.vacations.length}개는 표 아래 ※ 줄` : ''}로 채워요.`;
     const loading = model && ['summary', 'orgs'].some(k => model[k]?.loading);
     const note = body.querySelector('[data-hwpx-loading]');
     if (note) note.hidden = !loading;
@@ -249,7 +257,8 @@ export function mountWeeklyHwpx(host, {getWeek, rt = window.KPTURuntime}) {
       : s.context.orgFallback ? `담당 사업장이 지정되지 않아 모든 조직(${s.context.organizations.length}곳)을 내 조직으로 봤어요. 내 프로필 → 담당 사업장에서 정할 수 있어요.`
       : `내 담당 조직 ${s.context.organizations.length}곳(내 프로필 → 담당 사업장 기준)`;
     const o = el('p', 'journal-muted', orgLine); o.dataset.hwpxOrgs = ''; parts.push(o);
-    parts.push(el('p', 'journal-muted', '1. 요청사항 표는 직전 주 확정본 그대로 넣고 "이번 주 확인 필요" 표시를 달아요. 세부 내용·집회·주요 일정 표는 비워요. 바탕과 다른 줄은 파란 글씨가 돼요.'));
+    parts.push(el('p', 'journal-muted', '1. 요청사항 표는 직전 주 확정본 그대로 넣고 "이번 주 확인 필요" 표시를 달아요. 1. 2) 주요 일정과 세부 내용·집회 표는 비워요. 바탕과 다른 줄은 파란 글씨가 돼요.'));
+    const cal = el('p', 'journal-muted', ''); cal.dataset.hwpxCalendar = ''; parts.push(cal);
     const loading = el('p', 'journal-muted', '이번 주 기록을 불러오는 중이에요. 다 오면 줄 옆에 보여요.'); loading.dataset.hwpxLoading = ''; loading.hidden = true; parts.push(loading);
 
     const sum = el('section', 'journal-hwpx-part'); sum.dataset.hwpxPart = 'summary';
@@ -281,7 +290,7 @@ export function mountWeeklyHwpx(host, {getWeek, rt = window.KPTURuntime}) {
   async function build() {
     const {draft} = state;
     if (state.built) return state.built;
-    const data = draft.assembleDraft({...state.base, date:state.date}, state.edits);
+    const data = draft.assembleDraft({...state.base, date:state.date, ...scheduleForm(getWeek().model?.calendar, state.me)}, state.edits);
     const bytes = await draft.buildHwpx(state.template, data);
     state.built = {bytes, changed:draft.changedCount(data), name:draft.fileNameFor(state.start)};
     return state.built;
@@ -339,7 +348,7 @@ export function mountWeeklyHwpx(host, {getWeek, rt = window.KPTURuntime}) {
     // The shown week or the owner changed: a draft belongs to one week, so it closes.
     setWeek(week) { if (state && week !== state.start) close('주가 바뀌어 한글 파일 초안을 닫았어요.'); },
     // The week's reads landed: refresh only the candidates beside the rows (what was typed stays).
-    refresh() { renderMaterial(); },
+    refresh() { if (state) state.built = null; renderMaterial(); },
     close,
   };
 }

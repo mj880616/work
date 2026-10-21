@@ -315,7 +315,8 @@ export function buildReport(template, data, {sectionTitles = DEFAULT_SECTIONS} =
     ...lines(protos.body, data.orgNotes),
     paragraph(protos.big, S.calendar),
     fillTable(protos.scheduleTable, requestGrid(data.calendar ?? []), changed),
-    ...(data.calendarNotes ?? []).map(line => paragraph(protos.note, line, changed)),
+    // 확정본처럼 표 아래 빈 줄 하나 뒤에 "※ 휴가" 줄(WEEKLY-주요일정: 확정본·개인본 6주치 모두 표 → 빈 줄 → ※ 줄).
+    ...((data.calendarNotes ?? []).length ? [blank(), ...data.calendarNotes.map(line => paragraph(protos.note, line, changed))] : []),
     blank(),
   ];
   sec.root.children = body;
