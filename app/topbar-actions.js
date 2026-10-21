@@ -201,7 +201,7 @@ window.addEventListener('kptu:view-changed',event=>{
   syncMenuLocation();
   const home=event.detail?.view==='home';
   document.querySelector('.mobile-shell-header [data-home-date]')?.toggleAttribute('hidden',!home);
-  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:'바구니',calendar:'일정',tasks:'일정',journal:'일정',diary:'일정',projects:'프로젝트',team:'담당조직',meetings:'회의',library:'자료실',hwp:'HWP 편집',profile:'내 프로필',media:'성명·보도자료',pages:'공유 페이지'})[event.detail?.view]||''}
+  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:'바구니',calendar:'일정',tasks:'일정',journal:'일정',diary:'일정',projects:'프로젝트',team:'담당조직',meetings:'회의',library:'자료실',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',media:'성명·보도자료',pages:'공유 페이지'})[event.detail?.view]||''}
 });
 // Menu [쓰기] (UI-디자인손질 8, BASKET-업데이트통합 PR 2): the shared write window (write-window.js) opens empty with [업데이트 ▾ | 노트],
 // 업데이트 preselected and no place (= the basket). Each choice saves through its existing owner-RLS path and the window closes

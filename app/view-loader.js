@@ -33,7 +33,8 @@ const routeStyles={
   pages:['./web1-board.css','./sr-blocks.css','./share-pages.css','./ui-standard.css'],
   team:['./suborganizations.css','./workplace-detail.css','./google-tasks.css','./ui-standard.css'],
   hwp:['./hwp-lab.css','./ui-standard.css'],
-  profile:['./profile-settings.css','./ui-standard.css']
+  profile:['./profile-settings.css','./ui-standard.css'],
+  ledger:['./ledger-import.css','./ui-standard.css']
 };
 async function prepare(view){
   const key=normalize(view);
@@ -160,7 +161,9 @@ async function diary(){ await module('./diary.js'); return {ok:true} }
 async function hwpLab(){ await module('./hwp-lab.js','__KPTU_HWP_LAB_READY__'); return {ok:true} }
 // UI-프로필입구: [계정 ▾] → [내 프로필]. Like hwp, it stays out of loadAll; the module installs #profileView and loads its data on first open.
 async function profile(){ await module('./profile-settings.js','__KPTU_PROFILE_SETTINGS_READY__'); return {ok:true} }
-const loaders={home,basket,calendar,tasks,journal,diary,projects,library,meetings,media,pages,team:organizations,hwp:hwpLab,profile};
+// AI-서버연동 S7-b: [원장](내 프로필 → 계정 → [원장], ?view=ledger). loadAll에 넣지 않고 열 때만 가져오기 화면과 검사기를 불러온다.
+async function ledger(){ await module('./ledger-import.js','__KPTU_LEDGER_IMPORT_READY__'); return {ok:true} }
+const loaders={home,basket,calendar,tasks,journal,diary,projects,library,meetings,media,pages,team:organizations,hwp:hwpLab,profile,ledger};
 // Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp). The router uses the same map.
 const VIEW_ALIAS={'hwp-lab':'hwp'};
 function normalize(view){
