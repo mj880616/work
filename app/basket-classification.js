@@ -1,3 +1,4 @@
+import { ordered } from './project-order.mjs';
 // Untrusted AI proposals live only in memory. Never render reason as markup.
 export const CLASSIFICATION_LIMITS = Object.freeze({bytes:1048576, items:100, targets:20, reason:2000, depth:7, compared:5});
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -100,6 +101,13 @@ export function parseClassification(input) {
   // Ordinary JSON objects leave the parser; internal objects protect __proto__ keys.
   return JSON.parse(JSON.stringify(data));
 }
+// BASKET-분류순서: the picker lists projects in the one project order (project-order.mjs): each top project, then its
+// children, siblings by the user's order. `visible` is selectableProjects(). Rows outside it are dropped.
+export function orderedSelectableProjects(projects,visible=selectableProjects(projects)) {
+  const rows=ordered(projects.filter(p=>visible.has(p.id))),out=[],seen=new Set();
+  const walk=p=>{if(seen.has(p.id))return;seen.add(p.id);out.push(p);rows.filter(c=>c.parent_id===p.id).forEach(walk);};
+  rows.filter(p=>!p.parent_id||!rows.some(x=>x.id===p.parent_id)).forEach(walk);return out;
+}
 export function selectableProjects(projects) {
   const included=new Set(projects.filter(p=>p.metadata?.project_system==='v2'||Number(p.metadata?.management_version)===2).map(p=>p.id));
   let changed=true;while(changed){changed=false;for(const p of projects)if(included.has(p.parent_id)&&!included.has(p.id)){included.add(p.id);changed=true;}}
@@ -140,7 +148,7 @@ export async function readClassificationSnapshot(proposal,rt=window.KPTURuntime)
   const [notes,links,projects,organizations]=await Promise.all([
     ids?readPages(`/rest/v1/app_notes?id=in.(${ids})&kind=eq.basket&select=id,workspace_id,raw_text,updated_at,archived_at,ai_export_allowed&order=id.asc`,rt):[],
     ids?readPages(`/rest/v1/app_record_links?note_id=in.(${ids})&select=id,note_id,status,summary,organization_id,project_id&order=id.asc`,rt):[],
-    readPages('/rest/v1/app_spaces?select=id,workspace_id,owner_id,name,parent_id,status,metadata&order=id.asc',rt),
+    readPages('/rest/v1/app_spaces?select=id,workspace_id,owner_id,name,parent_id,status,metadata,sort_order,created_at&order=id.asc',rt),
     readPages('/rest/v1/app_suborganizations?select=id,workspace_id,name&order=id.asc',rt)
   ]);return {workspaceId,userId,notes,links,projects,organizations};
 }

@@ -107,3 +107,17 @@ test('screen notes are plain Korean and the verdict flags flow from the preview 
  const old=previewClassification(parseClassification(JSON.stringify(proposal())),{...snapshot(),sentRecords:sent})[0].destinations[0];
  assert.equal(old.excluded,undefined);assert.equal(old.verdict,'new');assert.equal(initialSummary(old),old.reason);
 });
+
+test('BASKET-분류순서: picker projects follow the user project order, children under their parent', async () => {
+  const { orderedSelectableProjects } = await import('../app/basket-classification.js');
+  const v2 = { project_system: 'v2' }, at = n => `2026-09-0${n}T00:00:00Z`;
+  const rows = [
+    { id: 'a', name: '가', metadata: v2, sort_order: 30, created_at: at(1) },
+    { id: 'b', name: '나', metadata: v2, sort_order: 10, created_at: at(2) },
+    { id: 'b2', name: '나-2', parent_id: 'b', metadata: v2, sort_order: 20, created_at: at(3) },
+    { id: 'b1', name: '나-1', parent_id: 'b', metadata: v2, sort_order: 10, created_at: at(4) },
+    { id: 'c', name: '다', metadata: v2, sort_order: null, created_at: at(5) },
+    { id: 'x', name: '보관', metadata: v2, status: 'archived', sort_order: 1 },
+  ];
+  assert.deepEqual(orderedSelectableProjects(rows).map(p => p.id), ['b', 'b1', 'b2', 'a', 'c']);
+});
