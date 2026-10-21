@@ -79,7 +79,6 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  // 계정 상자: 내 프로필·화면 색·로그아웃(빨강). 사본 갱신 줄은 없다(ORG-사본갱신퇴장).
  const account=page.locator('#mobileAccountGroup');
  await expect(account.locator('button')).toHaveText(['내 프로필','화면 색','로그아웃']);
- await open();
  const red=await account.locator('[data-kptu-logout]').evaluate(el=>getComputedStyle(el).color),danger=await page.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-danger)';document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c;});
  expect(red).toBe(danger);
  // Keyboard: Tab moves from the grip into the tiles; Esc closes and returns to the [메뉴] tab.
