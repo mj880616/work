@@ -18,6 +18,7 @@ import {requestBasketNote, requestNoteDocOpen} from './basket-note-tasks.js';
 const rt = window.KPTURuntime;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
 const shortDay = day => formatSeoulTime(day, {month:'numeric', day:'numeric'});
+const clock = value => formatSeoulTime(value, {hour:'2-digit', minute:'2-digit', hourCycle:'h23'});
 const stamp = value => formatSeoulTime(value, {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit', hourCycle:'h23'});
 const CHANGED = 'kptu:todo-radar-changed';
 
@@ -139,14 +140,19 @@ export function mountRadar(host, {place}) {
     lastKey = list.map(r => r.id).join(',');
     const listed = place === 'home' && !all ? list.slice(0, HOME_ROWS) : list;
     const checked = shared.checkedAt ? `마지막 찾기 ${stamp(shared.checkedAt)}${shared.partial ? ' · 일부만 봤어요' : ''}` : shared.finding ? '' : '아직 찾지 않았어요';
+    // Journal: a day with nothing to take care of folds the big box into one line (JOURNAL-다듬기).
+    const quiet = place === 'journal' && state === 'ok' && !list.length && !promises.length;
+    host.classList.toggle('radar-collapsed', quiet);
     const titleId = place === 'home' ? 'home-radar-title' : 'journal-radar-title';
-    const head = place === 'home'
+    const head = quiet
+      ? `<header class="radar-head"><p class="radar-muted radar-quiet" data-radar-quiet id="${titleId}">챙길 것 없음${shared.checkedAt ? ` · 마지막 찾기 ${esc(clock(shared.checkedAt))}` : shared.finding ? '' : ' · 아직 찾지 않았어요'}</p><button type="button" data-radar-find${shared.finding ? ' disabled aria-busy="true"' : ''}>다시 찾기</button></header>`
+      : place === 'home'
       ? `<header><h3 id="${titleId}">챙길 것 <small data-home-count>${list.length || ''}</small></h3><button type="button" data-radar-find${shared.finding ? ' disabled aria-busy="true"' : ''}>다시 찾기</button></header>`
       : `<header class="radar-head"><h4 id="${titleId}">그날 나온 챙길 것 <small>${list.length || ''}</small></h4><button type="button" data-radar-find${shared.finding ? ' disabled aria-busy="true"' : ''}>다시 찾기</button></header>`;
     const empty = state === 'failed' ? `<p class="radar-muted">챙길 것을 불러오지 못했어요. <button type="button" class="radar-link" data-radar-retry>다시 시도</button></p>`
       : !list.length && !promises.length ? `<p class="radar-muted">${state === 'loading' ? '불러오는 중…' : place === 'home' ? '챙길 것 없음' : '이 날 기록에서 나온 챙길 것 없음'}</p>` : '';
     const more = place === 'home' && list.length > HOME_ROWS ? `<button type="button" class="radar-link" data-radar-all aria-expanded="${all}">${all ? '접기' : `모두 보기 ${list.length}`}</button>` : '';
-    const body = `<div data-home-body>${empty}${listed.length || promises.length ? `<ul class="radar-list">${listed.map(rowHtml).join('')}${promises.map(promiseHtml).join('')}</ul>` : ''}${more}<p class="radar-muted radar-checked" data-radar-checked>${esc(checked)}</p><p class="radar-status" data-radar-status-line role="status" aria-live="polite">${esc(shared.status)}</p></div>`;
+    const body = quiet ? `<div data-home-body><p class="radar-status" data-radar-status-line role="status" aria-live="polite">${esc(shared.status)}</p></div>` : `<div data-home-body>${empty}${listed.length || promises.length ? `<ul class="radar-list">${listed.map(rowHtml).join('')}${promises.map(promiseHtml).join('')}</ul>` : ''}${more}<p class="radar-muted radar-checked" data-radar-checked>${esc(checked)}</p><p class="radar-status" data-radar-status-line role="status" aria-live="polite">${esc(shared.status)}</p></div>`;
     host.setAttribute('aria-labelledby', titleId);
     host.dataset.state = state;
     // The same drawing is not redrawn, so a button is never replaced under a finger or the keyboard focus.

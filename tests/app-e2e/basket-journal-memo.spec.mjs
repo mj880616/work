@@ -99,7 +99,7 @@ for (const width of [390, 1280]) {
     await expect(group(page, 'memos').locator('h4')).toHaveText('기타 메모');
     await expect(group(page, 'memos').locator('li')).toHaveText(['합성 기타 메모 하나']);
     await expect(group(page, 'orgs').locator('[data-journal-org="미분류"] li')).toHaveText(['합성 미분류 업데이트']);
-    await expect(page.locator('#journalRoot [data-journal-empty]')).not.toContainText('기타 메모');
+    await expect(page.locator('#journalRoot [data-journal-empty]')).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (SHOT_DIR && width === 390) { await group(page, 'memos').scrollIntoViewIfNeeded(); await page.screenshot({ path: `${SHOT_DIR}/journal-memo-journal-390.png` }); }
     await page.screenshot({ path: info.outputPath(`journal-memo-journal-${width}.png`), fullPage: true });

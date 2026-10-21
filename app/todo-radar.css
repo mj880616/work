@@ -35,3 +35,6 @@
 #appView :is(#homeView,#journalView) .radar-edit label{ display:flex; flex-direction:column; gap:2px; font-size:var(--ds-text-meta); color:var(--kptu-muted); }
 #appView :is(#homeView,#journalView) .radar-edit input{ box-sizing:border-box; width:100%; min-height:var(--kptu-touch-target,44px); margin:0; font-size:var(--ds-text-read); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); }
 #appView :is(#homeView,#journalView) .radar-checked{ margin-top:6px; }
+
+#appView #journalView .journal-radar.radar-collapsed{ padding:6px 12px; gap:0; }
+#appView #journalView .journal-radar .radar-quiet{ margin:0; }
