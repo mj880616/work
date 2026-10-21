@@ -400,7 +400,11 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     else if (b.dataset.mdKindMenu) { if (!saving) { setKind(b.dataset.mdKindMenu); kinds.menu.open(b); } }
     else if (b.hasAttribute('data-md-export')) void exportChoices().open('export', copy);
     else if (b.hasAttribute('data-md-save-icon')) void runSave();
-    else if (b.dataset.close === ID) requestClose({fromBack: shell.dataset.kptuHistoryClosing === 'pop'});
+    else if (b.dataset.close === ID) {
+      // The app's shared [data-close] handler (team.js) would hide the window at once; this window decides (it may ask first).
+      e.stopPropagation();
+      requestClose({fromBack: shell.dataset.kptuHistoryClosing === 'pop'});
+    }
   });
   mdBox?.addEventListener('change', () => { status.textContent = ''; paintPlain(); markdown.onChange?.(mdBox.checked); });
   area.addEventListener('input', () => { if (!saving) status.textContent = ''; onInput?.(area.value); schedule(); });
