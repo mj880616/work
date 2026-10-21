@@ -11,16 +11,16 @@ for(const zone of ['Asia/Seoul','America/Los_Angeles'])for(const now of ['2026-1
     await openEmphasisFixture(page,{view:'list',now:Date.parse(now),events:[],tasks:[task('overdue',date(-1)),task('today',date(0)),task('tomorrow',date(1)),task('seventh',date(7)),task('eighth',date(8)),task('undated'),task('done',date(0),'completed')]});
     await page.evaluate(()=>window.KPTURouter.go('tasks'));
     await expect(page.locator('#gt-today-head')).toHaveText('오늘 1');
-    await expect(page.locator('#gt-week-head')).toHaveText('7일 안 2');
+    await expect(page.locator('#gt-week-head')).toHaveText('일주일 안 2');
     for(const [group,ids] of [['overdue',['overdue']],['today',['today']],['week',['tomorrow','seventh']],['later',['eighth']],['undated',['undated']]]){
       await expect(page.locator(`[data-gt-${group}] [data-google-task]`)).toHaveCount(ids.length);
       expect(await page.locator(`[data-gt-${group}] [data-google-task]`).evaluateAll(es=>es.map(e=>e.dataset.googleTask))).toEqual(ids);
     }
-    expect(await page.locator('#gtTaskBody>.gt-group .gt-group-head').allTextContents()).toEqual(['기한 지남 1','오늘 1','7일 안 2','나중 1','기한 없음 1','완료 1 ▸']);
+    expect(await page.locator('#gtTaskBody>.gt-group .gt-group-head').allTextContents()).toEqual(['기한 지남 1','오늘 1','일주일 안 2','나중 1','기한 없음 1','완료 1 ▸']);
     await page.locator('#gtCompleted summary').click();await expect(page.locator('#gtCompleted [data-google-task="done"]')).toBeVisible();
     await page.setViewportSize({width:1280,height:800});
     await expect(page.locator('#gtTaskBody .gt-col-count')).toHaveText(['2','2']);
-    // 나중·기한 없음은 "7일 안" 열 아래 접기 줄 안(접힌 동안 숨김, 펼치면 보임).
+    // 나중·기한 없음은 "일주일 안" 열 아래 접기 줄 안(접힌 동안 숨김, 펼치면 보임).
     await expect(page.locator('#gtLater summary')).toContainText('나중 2');await expect(page.locator('#gtLater [data-google-task]').first()).toBeHidden();
     await page.locator('#gtLater summary').click();
     for(const [col,group,ids] of [['now','overdue',['overdue']],['now','today',['today']],['week','week',['tomorrow','seventh']],['week','later',['eighth']],['week','undated',['undated']]])
