@@ -18,7 +18,7 @@
 // Notes moved from the basket (노트로 옮긴 업데이트, PR 868) are not included. The tab only shows; it saves nothing and makes no file
 // (WEEKLY-한글초안 2단계 builds the .hwpx from this grouping). journal.js stays the only renderer of #journalRoot and calls
 // renderWeekly() into the box it owns.
-import {weekDays, workLines, shortDay, tasksOn, pendingOn, meetingsOn, meetingLine, orgNewsOn, projectRecordsOn, scheduleDays,
+import {weekDays, workLines, shortDay, reportDay, tasksOn, pendingOn, meetingsOn, meetingLine, orgNewsOn, projectRecordsOn, scheduleDays,
   compareOrgSections, journalMemosOn, documentLine, sharePageLine, UNSORTED, DONE_TASK_DAYS, doneCoverFrom, pendingCoverTo, PENDING_DAYS, todayKey, WEEK_READ_CAP} from './journal-data.js';
 import {requestTagsHtml, requestPrefix} from './update-requests.js';
 import {seoulDateKey, addSeoulDays, seoulClock} from './meeting-time.js';
@@ -85,6 +85,9 @@ export const summaryLine = item => item.label ? `${item.label}: ${item.text}` : 
 // ---- 5. 주요 일정 ----
 const WEEKDAY = '일월화수목금토';
 const parts_ = day => { const [y, m, d] = String(day).split('-').map(Number); return {m, d, w:WEEKDAY[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]}; };
+// "■ 일시" of the report: the report day (상집 보고일 — the Monday after the shown week) as "2026년 10월 12일(월)", the form's
+// date line (weekly-hwpx draft.mjs reportDate writes the same).
+export const reportDateText = start => { const day = reportDay(start), {m, d, w} = parts_(day); return `${day.slice(0, 4)}년 ${m}월 ${d}일(${w})`; };
 // The form's day cell: "10.19.(월)"; the screen's vacation line: "10/19(월)".
 export const formDay = day => { const {m, d, w} = parts_(day); return `${m}.${d}.(${w})`; };
 const slashDay = day => { const {m, d, w} = parts_(day); return `${m}/${d}(${w})`; };
@@ -202,7 +205,7 @@ const seoulDay = value => value && Number.isFinite(Date.parse(value)) ? seoulDat
 // that is still loading or failed says so in its place, and the end names what could not be read.
 const LABELS = Object.freeze({summary:'프로젝트 기록', meetings:'회의·행사 결과', orgs:'조직 소식', calendar:'달력 일정', lines:'한 줄'});
 export function weeklyReportText(model) {
-  const {days} = model, out = [`주간 업무일지 ${shortDay(days[0])} ~ ${shortDay(days[6])}`, ''];
+  const {days} = model, out = [`주간 업무일지 ${shortDay(days[0])} ~ ${shortDay(days[6])}`, `■ 일시 : ${reportDateText(model.start)}`, ''];
   const item = (i, text = i.text) => `- ${shortDay(i.day)} ${requestPrefix(i.requests)}${text}`;
   const gap = (part, key) => part.loading ? '(불러오는 중)' : !part.failed?.length ? '' : part.failed.length < WEEKLY_SOURCES[key].length ? '(일부를 불러오지 못함)' : '(불러오지 못함)';
   const missing = [];
@@ -281,6 +284,8 @@ export function renderWeekly(host, model, esc) {
   const chapter = (key, title) => { const box = el('section', 'journal-weekly-chapter'); box.dataset.journalWeeklyChapter = key; box.append(el('h4', 'journal-heading', title)); return box; };
   const empty = text => { const p = muted(text); p.dataset.journalWeeklyEmpty = ''; return p; };
 
+  // ■ 일시: the report day (상집 보고일), the same date the .hwpx and the draft write.
+  const when = el('p', 'journal-weekly-date', `■ 일시 : ${reportDateText(model.start)} (상집 보고일)`); when.dataset.journalWeeklyDate = '';
   // 1. 요청사항: the boxes only (임원 일정 배정·논의 요청 has no material yet — no input until decision W; 2) 주요 일정 only says
   // what goes there).
   const one = chapter('requests', '1. 요청사항');
@@ -378,5 +383,5 @@ export function renderWeekly(host, model, esc) {
   }
   if (quiet.length) { const q = muted(`기록 없는 묶음: ${quiet.join(', ')}`); q.classList.add('journal-empty'); q.dataset.journalWeeklyQuietNotes = ''; ref.append(q); }
 
-  host.replaceChildren(one, two, four, five, ref);
+  host.replaceChildren(when, one, two, four, five, ref);
 }

@@ -358,11 +358,12 @@ test('weekly draft: the form order (1 → 2 → 4 → 5 → 참고); lines in sa
     orgUpdates:{status:'ok', items:[]}, projectUpdates:{status:'ok', items:[]}, meetings:{status:'ok', items:[{series_name:'기자회견', meeting_at:'2026-10-06T05:00:00Z'}]},
     documents:{status:'ok', items:[]}, sharePages:{status:'ok', items:[]}}, today:'2026-10-06'});
   const rows = text.split('\n');
-  assert.equal(rows[0], '주간 업무일지 10월 5일(월) ~ 10월 11일(일)');
+  assert.deepEqual(rows.slice(0, 2), ['주간 업무일지 10월 5일(월) ~ 10월 11일(일)', '■ 일시 : 2026년 10월 12일(월)']);
   // The form's order, not day by day.
   const order = ['1. 요청사항', '2. 기본·영역·의제 사업', '4. 산하 조직 현황', '5. 주요 일정 (10월 12일(월) ~ 10월 25일(일))', '참고'].map(t => rows.indexOf(t));
   assert.ok(order.every((at, i) => at > 0 && (i === 0 || at > order[i - 1])), JSON.stringify(order));
-  assert.equal(rows.some(r => r.startsWith('■ ')), false);
+  // No day-by-day '■ 날짜' headers: the only ■ line is the report day (■ 일시).
+  assert.deepEqual(rows.filter(r => r.startsWith('■ ')), ['■ 일시 : 2026년 10월 12일(월)']);
   assert.deepEqual(partOf(text, '1. 요청사항'), ['1) 임원 일정 배정·논의 요청: (아직 재료 없음)',
     '2) 주요 일정: (비워 둠) 본부 주요 일정 — 기자회견·주요 회의·토론회·집회·교육 등, 특정 사업장·반복 일정 제외. 자동 채우기는 나중에']);
   const ref = partOf(text, '참고');
