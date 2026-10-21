@@ -1,6 +1,6 @@
 // UI-PC할일(2026-10-20) → UI-PC할일후속 → UI-PC할일배치(2026-10-20): PC(≥1024) 할 일 화면은 좌우 절반.
-// 왼쪽 절반 = 위 칸 "지남·오늘" + 아래 칸 "7일 안"(높이는 항목 수만큼), 오른쪽 절반 = 상세 칸(왼쪽 위 칸과 같은 줄에서 시작해 맨 아래까지).
-// "나중 N ▸"·"완료 N ▸"는 "7일 안" 열 맨 아래 접기 줄. 상세 칸의 [저장]은 맨 위 제목 줄(닫기 X 옆)에 있고 스크롤해도 고정.
+// 왼쪽 절반 = 위 칸 "지남·오늘" + 아래 칸 "일주일 안"(높이는 항목 수만큼), 오른쪽 절반 = 상세 칸(왼쪽 위 칸과 같은 줄에서 시작해 맨 아래까지).
+// "나중 N ▸"·"완료 N ▸"는 "일주일 안" 열 맨 아래 접기 줄. 상세 칸의 [저장]은 맨 위 제목 줄(닫기 X 옆)에 있고 스크롤해도 고정.
 // 폰·중간 폭은 지금 묶음 목록 그대로. 상세 칸은 지금 수정 창과 같은 요소·같은 저장 경로(google-tasks update/link/unlink)를 쓴다.
 import {test,expect} from '@playwright/test';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
@@ -40,7 +40,7 @@ for(const width of [1280,1440]){
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     const tasks=[task('late','2026-10-06'),task('today','2026-10-08'),task('soon','2026-10-10'),task('far','2026-10-30'),task('none'),task('done',null,{status:'completed',completed:new Date(NOW).toISOString()})];
     await open(page,width,tasks,{links:[{google_task_id:'today',project_id:'p1',status:'confirmed'},{google_task_id:'soon',organization_id:'o1',status:'confirmed'}]});
-    await expect(page.locator('#gtTaskBody .gt-col-name')).toHaveText(['지남·오늘','7일 안']);
+    await expect(page.locator('#gtTaskBody .gt-col-name')).toHaveText(['지남·오늘','일주일 안']);
     await expect(page.locator('#gtTaskBody [data-gt-col="later"]')).toHaveCount(0);
     await expect(page.locator('#gtTaskBody .gt-col-count')).toHaveText(['2','1']);
     // 지남·오늘: 지난 건이 먼저, 기한 글자는 빨강(지금 목록의 "기한 지남" 색과 같음).
@@ -53,12 +53,12 @@ for(const width of [1280,1440]){
     // 카드 태그: 프로젝트·담당조직 이름.
     await expect(col(page,'now').locator('[data-google-task="today"] .gt-tag-project')).toHaveText('시험 프로젝트');
     await expect(col(page,'week').locator('[data-google-task="soon"] .gt-tag-org')).toHaveText('시험 조직');
-    // "7일 안" 열 맨 아래 접기 줄: "나중 2 ▸"(먼 기한 1 + 기한 없음 1)·"완료 1 ▸". 접힌 동안 항목은 안 보이고, 펼치면 모두 보인다.
+    // "일주일 안" 열 맨 아래 접기 줄: "나중 2 ▸"(먼 기한 1 + 기한 없음 1)·"완료 1 ▸". 접힌 동안 항목은 안 보이고, 펼치면 모두 보인다.
     const later=col(page,'week').locator('#gtLater'),done=col(page,'week').locator('#gtCompleted');
     await expect(later.locator('summary')).toContainText('나중 2');await expect(done.locator('summary')).toContainText('완료 1');
     await expect(later).not.toHaveAttribute('open','');await expect(done).not.toHaveAttribute('open','');
     await expect(later.locator('[data-google-task="far"]')).toBeHidden();await expect(later.locator('[data-google-task="none"]')).toBeHidden();await expect(done.locator('[data-google-task="done"]')).toBeHidden();
-    // 접기 줄은 열 안쪽 맨 아래(7일 안 카드 뒤), 나중이 완료보다 먼저.
+    // 접기 줄은 열 안쪽 맨 아래(일주일 안 카드 뒤), 나중이 완료보다 먼저.
     const order=await col(page,'week').locator('.gt-col-body').evaluate(b=>[...b.children].map(e=>e.matches('ul[data-gt-week]')?'week':e.id));
     expect(order).toEqual(['week','gtLater','gtCompleted']);
     await later.locator('summary').click();await expect(later).toHaveAttribute('open','');
@@ -183,7 +183,7 @@ for(const width of [1280,1440]){
     expect(calls.find(c=>c.action==='link').body.links).toEqual([{organization_id:'o1'}]);
     expect(calls.find(c=>c.action==='unlink').body.links).toEqual([{project_id:'p1'}]);
     expect(calls.some(c=>c.action==='create')).toBe(false);
-    // 다시 읽은 목록에서 카드가 "7일 안"으로 옮겨지고 선택은 유지된다.
+    // 다시 읽은 목록에서 카드가 "일주일 안"으로 옮겨지고 선택은 유지된다.
     await expect(col(page,'week').locator('[data-google-task="a"]')).toHaveClass(/is-selected/);
     await expect(editor).toBeVisible();
     // 다른 카드를 누르면 그 할 일로 바뀐다.
@@ -196,7 +196,7 @@ for(const width of [1280,1440]){
     expect(errors).toEqual([]);
   });
 
-  test(`PC ${width}: "7일 안"이 비어도 나중·완료 접기 줄은 남고, 펼친 항목은 다시 그려도 유지`,async({page})=>{
+  test(`PC ${width}: "일주일 안"이 비어도 나중·완료 접기 줄은 남고, 펼친 항목은 다시 그려도 유지`,async({page})=>{
     const tasks=[task('far','2026-10-30'),task('none'),task('done',null,{status:'completed',completed:new Date(NOW).toISOString()})];
     await open(page,width,tasks);
     await expect(col(page,'week').locator('.gt-col-empty')).toHaveText('없음');await expect(col(page,'week').locator('.gt-col-count')).toHaveText('0');

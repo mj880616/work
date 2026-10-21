@@ -249,7 +249,7 @@ const taskCard=(t,overdue=false,fx=null)=>{const date=dueDateKey(t.due)?`<span c
 // Organization names for the tags: the assigned organizations the editor already offers (loadTargets, cached per owner).
 let orgNameMap={owner:'',map:new Map(),loading:false};
 function orgNamesOf(t){const ids=t.orgIds||[];if(!ids.length)return[];const owner=currentOwner();if(orgNameMap.owner!==owner&&!orgNameMap.loading){orgNameMap.loading=true;loadTargets().then(targets=>{if(currentOwner()!==owner)return;orgNameMap={owner,map:new Map(targets.orgGroups.flat().map(o=>[o.key.slice(2),o.label])),loading:false};if(tasksViewShown()&&pcColumns())renderTasks(lastTasks)},()=>{orgNameMap.loading=false})}return orgNameMap.owner===owner?ids.map(id=>orgNameMap.map.get(id)).filter(Boolean):[]}
-// The two columns. "지남·오늘" joins overdue and today (the home "오늘 할 일" card uses the same due ≤ today rule). "7일 안" ends with two
+// The two columns. "지남·오늘" joins overdue and today (the home "오늘 할 일" card uses the same due ≤ today rule). "일주일 안" ends with two
 // fold rows: "나중 N ▸" (later tasks, with the undated ones under their own small heading) and "완료 N ▸" (recent completed). Nothing is dropped.
 function columnsHtml({overdue,today,week,later,undated,completed},row,{completedOpen=false,laterOpen=false}={}){
   const cards=(rows,isOverdue=false)=>rows.map(x=>row(x,isOverdue)).join('');
@@ -260,7 +260,7 @@ function columnsHtml({overdue,today,week,later,undated,completed},row,{completed
   const undatedCards=undated.length?`<h4 class="gt-col-sub">기한 없음 ${undated.length}</h4>${list('undated',cards(undated))}`:'';
   const laterFold=later.length+undated.length?`<details id="gtLater" class="gt-col-fold gt-later"${laterOpen?' open':''}><summary class="gt-group-head">나중 ${later.length+undated.length} <span class="gt-disclosure">▸</span></summary>${list('later',cards(later))+undatedCards}</details>`:'';
   const doneFold=completed.length?`<details id="gtCompleted" class="gt-completed gt-col-fold gt-col-done"${completedOpen?' open':''}><summary class="gt-group-head">완료 ${completed.length} <span class="gt-disclosure">▸</span></summary>${list('',cards(completed))}</details>`:'';
-  return `<div class="gt-cols">${col('now','지남·오늘',overdue.length+today.length,now)+col('week','7일 안',week.length,list('week',cards(week)),laterFold+doneFold)}</div>`;
+  return `<div class="gt-cols">${col('now','지남·오늘',overdue.length+today.length,now)+col('week','일주일 안',week.length,list('week',cards(week)),laterFold+doneFold)}</div>`;
 }
 // BASKET-할일출처: task id -> source note id, read once per list load for the signed-in owner.
 let sourceNotes={owner:'',map:new Map()};
@@ -325,7 +325,7 @@ function renderTasks(tasks){
   const pc=pcColumns()&&!unlinkedOnly;section()?.classList.toggle('gt-pc',pc);
   if(pc){body.className='gt-list gt-board';const openId=isDocked()&&!document.querySelector('#gtTaskModal').classList.contains('hidden')?editing?.id:'',has=rows=>!!openId&&rows.some(x=>x.t.id===openId);body.innerHTML=columnsHtml({overdue,today,week,later,undated,completed},(x,overdue=false)=>taskCard(x.t,overdue,effectOf(x.t.id,now)),{completedOpen:completedOpen||has(completed),laterOpen:laterOpen||has(later)||has(undated)});laterWasOpen=!!body.querySelector('#gtLater')?.open||(!body.querySelector('#gtLater')&&laterOpen)}else{
   const group=(id,title,rows)=>rows.length?`<div class="gt-group${id==='overdue'?' gt-overdue':''}" data-gt-${id} role="group" aria-labelledby="gt-${id}-head"><h4 id="gt-${id}-head" class="gt-group-head">${title} ${rows.length}</h4>${rows.map(x=>row(x,id==='overdue')).join('')}</div>`:'';
-  body.className='gt-list';body.innerHTML=(pending.length?'':'<div class="gt-status">할 일이 없습니다</div>')+group('overdue','기한 지남',overdue)+group('today','오늘',today)+group('week','7일 안',week)+group('later','나중',later)+group('undated','기한 없음',undated)+(completed.length?`<details id="gtCompleted" class="gt-group gt-completed"${completedOpen?' open':''}><summary class="gt-group-head">완료 ${completed.length} <span class="gt-disclosure">▸</span></summary>${completed.map(x=>row(x)).join('')}</details>`:'');}
+  body.className='gt-list';body.innerHTML=(pending.length?'':'<div class="gt-status">할 일이 없습니다</div>')+group('overdue','기한 지남',overdue)+group('today','오늘',today)+group('week','일주일 안',week)+group('later','나중',later)+group('undated','기한 없음',undated)+(completed.length?`<details id="gtCompleted" class="gt-group gt-completed"${completedOpen?' open':''}><summary class="gt-group-head">완료 ${completed.length} <span class="gt-disclosure">▸</span></summary>${completed.map(x=>row(x)).join('')}</details>`:'');}
   if(unlinkedOnly){section()?.classList.remove('gt-pc');const unlinked=pending.filter(x=>x.t.unlinked);body.innerHTML=`<div class="gt-group-head" tabindex="-1" data-gt-unlinked-heading>연결 안 된 할 일 ${unlinked.filter(x=>!isDone(x.t)).length} <button type="button" data-gt-show-all>전체 보기 ›</button></div>${unlinked.map(x=>row(x,isOverdue(x.p,now))).join('')}`;body.querySelector('[data-gt-show-all]').onclick=()=>{unlinkedOnly=false;renderTasks(lastTasks)}}
   body.querySelectorAll('[data-gt-toggle]').forEach(b=>b.onclick=()=>toggleTask(lastTasks.find(t=>t.id===b.dataset.gtToggle)));
   body.querySelectorAll('[data-gt-edit]').forEach(b=>b.onclick=()=>{const task=lastTasks.find(t=>t.id===b.dataset.gtEdit);if(task)openEditor(task,{docked:pc})});
