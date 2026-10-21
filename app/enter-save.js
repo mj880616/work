@@ -112,8 +112,14 @@ export function installEnterSave(doc=globalThis.document){
     e.preventDefault();
     if(!buttonReady(button)||pending.has(button))return;
     pending.add(button);
-    // Let other Enter listeners of this same press finish first (a time cell tidies 930 → 09:30 on Enter).
-    setTimeout(()=>{pending.delete(button);if(buttonReady(button))button.click()},0);
+    // Let other Enter listeners of this same press finish first (a time cell tidies 930 → 09:30 on Enter), then do what a
+    // click does: focus leaves the field (its change handlers run, e.g. the event end follows the start), the button is
+    // pressed. If the window is still open with the button focused (a failed check, a panel that stays), go back to the field.
+    setTimeout(()=>{
+      pending.delete(button);if(!buttonReady(button))return;
+      button.focus({preventScroll:true});button.click();
+      if(doc.activeElement===button&&target.isConnected&&!target.disabled&&shown(target))target.focus({preventScroll:true});
+    },0);
   });
 }
 

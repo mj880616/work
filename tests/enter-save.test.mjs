@@ -17,7 +17,8 @@ class El{
   querySelectorAll(sel){return this.all().filter(el=>el.matches(sel))}
   querySelector(sel){return this.querySelectorAll(sel)[0]||null}
   getClientRects(){return {length:this.rects}}
-  click(){this.clicks++}
+  click(){this.clicks++;this.focusedAtClick=El.doc?.activeElement===this;this.onclick?.()}
+  focus(){if(El.doc)El.doc.activeElement=this}
   get ownerDocument(){return {querySelector:()=>null}}
 }
 // Supports: tag, .class, #id, [attr], [attr="v"], tag[attr="v"], and :not(...)-free combinations used here.
@@ -122,7 +123,7 @@ function harness({pc=true}={}){
   const listeners={};const timers=[];
   const doc={addEventListener:(t,fn)=>{(listeners[t]||=[]).push(fn)},activeElement:null,defaultView:{matchMedia:()=>({matches:pc}),navigator:{platform:'Win32'}}};
   const realTimeout=globalThis.setTimeout;globalThis.setTimeout=fn=>{timers.push(fn);return timers.length};
-  installEnterSave(doc);
+  installEnterSave(doc);El.doc=doc;
   globalThis.setTimeout=realTimeout;
   const fire=(type,target,o={})=>{const e={...key(o),type,target,prevented:false,preventDefault(){this.prevented=true;this.defaultPrevented=true}};(listeners[type]||[]).forEach(fn=>fn(e));return e};
   const flush=()=>{const realT=globalThis.setTimeout;globalThis.setTimeout=fn=>{timers.push(fn);return 0};while(timers.length)timers.shift()();globalThis.setTimeout=realT};
@@ -142,10 +143,16 @@ test('설치된 규칙: 한 줄 엔터는 한 번만 저장하고, 기본 동작
   assert.equal(again.prevented,true,'a second press before the click still takes no line break');
   h.flush();
   assert.equal(d.save.clicks,1,'one press, one save');
+  assert.equal(d.save.focusedAtClick,true,'focus leaves the field first, as with a click (its change handlers run)');
+  assert.equal(h.doc.activeElement,d.title,'the window stayed open: focus goes back to the field');
+  d.save.onclick=()=>{d.save.isConnected=false;h.doc.activeElement=null};
+  h.withTimers(()=>h.fire('keydown',d.title));h.flush();
+  assert.equal(d.save.clicks,2);assert.equal(h.doc.activeElement,null,'a closed window is left to its own focus handling');
+  d.save.isConnected=true;d.save.onclick=null;
   h.withTimers(()=>h.fire('keydown',d.title,{isComposing:true}));h.flush();
-  assert.equal(d.save.clicks,1,'composing Enter does nothing');
+  assert.equal(d.save.clicks,2,'composing Enter does nothing');
   h.withTimers(()=>h.fire('keydown',d.title));d.save.disabled=true;h.flush();
-  assert.equal(d.save.clicks,1,'button went busy before the click: no save');
+  assert.equal(d.save.clicks,2,'button went busy before the click: no save');
 });
 
 test('설치된 규칙: 저장 중이면 누르지 않고, 여러 줄은 PC Ctrl+엔터만, 체크 칸은 무시', () => {
