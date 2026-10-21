@@ -283,3 +283,19 @@ union all select 'server version', current_setting('server_version');
 - **검색 속도**: 순차 검색(8절). 수만 건이 되면 색인 필요.
 - **payload 모양**: 후보 내용 JSON은 크기만 DB가 막는다. 모양 검사는 S7-c 확정 함수와 화면 몫이다.
 - **시트 값 대응의 판단**: 96종 → 10종처럼 줄이는 대응표가 틀리면 분류가 어긋난다. 명진이 대응표를 훑어보고, 애매하면 "기타"로 두고 나중에 고친다(고침은 감사 기록에 남음).
+
+## 15. S7-c 원장 목록·검색 + 원장 후보 확정 (2026-10-21)
+
+📱 폰 경로 C — 코드·migration 파일·시험만. 운영 DB 적용·Edge 배포는 PR 본문 순서대로 사용자 승인 뒤.
+
+### 15.1 화면 배치(한 칸 한 renderer)
+
+`[원장]`(`?view=ledger`) 화면은 세 칸으로 나눈다. 칸마다 모듈 하나가 유일한 renderer다.
+
+| 칸 | 모듈 | 하는 일 | 숨는 조건 |
+| --- | --- | --- | --- |
+| `#ledgerRoot` | `app/ledger-import.js`(S7-b) | 가져오기. Claude 후보 파일(`kind: "candidates"`)은 15.4 함수가 있으면 [후보로 넣기] | (기존) 표 없음·함수 없음 안내 |
+| `#ledgerCandidatesRoot` | `app/ledger-candidates.js` | 원장 후보 대기 목록, [원장 후보 만들기](ai-assist), [확정]·[고쳐서 확정]·[버림] | 후보 표 또는 확정 함수가 없으면 칸 전체를 조용히 숨김 |
+| `#ledgerBrowseRoot` | `app/ledger-browse.js` | 원장 목록·검색, 행 상세(근거·출처·연결) | 원장 표·검색 RPC가 없으면 조용히 숨김 |
+
+칸끼리는 `kptu:ledger-changed` 이벤트로만 알린다(확정·가져오기 뒤 목록 다시 읽기).
