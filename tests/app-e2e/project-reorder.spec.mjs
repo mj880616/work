@@ -55,6 +55,8 @@ test('PC 1280: drag a row onto a sibling saves sort_order and every list shows t
  // 2단 설명회 → before 토론회 (siblings under 정책 사업); the 3단 사안 stays under 토론회.
  await row(page,'pg').dragTo(row(page,'pc'),{targetPosition:{x:40,y:4}});
  await expect.poll(()=>listIds(page)).toEqual(['pe','pa','pg','pc','pd','pb']);
+ // The open detail (정책 사업) lists its 하위 프로젝트 in the new order as well.
+ await expect(page.locator('#ps3-children [data-ps3-project]')).toHaveText([/합성 하위 설명회/,/합성 하위 토론회/]);
  if(SHOT)await page.screenshot({path:SHOT+'/prj-order-pc-1280.png'});
  // Not siblings: 2단 onto 1단, and 1단 onto 2단 — nothing is written.
  const before=state.writes.length;

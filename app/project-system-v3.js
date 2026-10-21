@@ -514,6 +514,8 @@ async function reorderProject(id,to,{menu=''}={}){
  finally{reordering=false}
  if(epoch!==projectEpoch)return;
  await renderGrid();if(epoch!==projectEpoch)return;
+ // The open detail's 하위 프로젝트 list follows the new order too (as after 완료).
+ if(current)await refreshDetail();if(epoch!==projectEpoch)return;
  // The ⋯ menu shows the new place (위로 off at the top, 아래로 at the bottom) and stays open for the next step.
  if(current){const now=projects.find(x=>x.id===current.id)||current,box=$('#ps3Menu');if(box&&canManage(now)){const open=!!menu;box.innerHTML=moreMenu(now);if(open){const d=box.querySelector('details.ps3-more');d.open=true;const b=d.querySelector(`[data-ps3-move-project="${menu}"]:not([disabled])`)||d.querySelector('[data-ps3-move-project]:not([disabled])');b?.focus()}}}
  if(saved)toast('순서를 바꿨어요.')
