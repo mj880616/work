@@ -64,23 +64,23 @@ test('linked records (project/organization screens) skip links whose source row 
   assert.deepEqual(records.map(r => r.id), ['l-basket']);
 });
 
-test('drive-summary basket reader asks for kind=basket in header, recheck and content scans', async () => {
+test('drive-summary basket reader asks for kind=basket in header and recheck scans and never reads bodies', async () => {
   const calls = [];
   const fetcher = async url => {
     const u = new URL(url); calls.push(u);
     if (u.pathname.endsWith('/app_record_links')) return new Response('[]', {headers:{'Content-Range':'*/0'}});
     const fields = u.searchParams.get('select').split(',');
-    const rows = ROWS.filter(r => matches(r, u.searchParams) && r.ai_export_allowed).map(r => Object.fromEntries(fields.map(k => [k, r[k] ?? null])));
+    const rows = ROWS.filter(r => matches(r, u.searchParams) && r.ai_export_allowed).map(r => Object.fromEntries(fields.map(f => f.split(':')[0]).map(k => [k, r[k] ?? (k === 'journal_at' ? r.metadata?.journal_at : undefined) ?? null])));
     return new Response(JSON.stringify(rows), {headers:{'Content-Range':rows.length ? `0-${rows.length - 1}/${rows.length}` : '*/0'}});
   };
   const reader = createBasketReader({fetcher, baseUrl:'https://db.example', headers:{}, workspaceId:'w', at:new Date('2026-10-18T00:00:00Z')});
   const snapshot = await reader.snapshot();
   assert.deepEqual([...snapshot.notes.keys()], ['basket-row']);
-  const content = []; for await (const note of reader.content(snapshot, [...snapshot.notes.values()])) content.push(note.raw_text);
-  assert.deepEqual(content, ['BASKET_ROW']);
+  assert.equal(reader.content, undefined);
   await reader.recheck(snapshot);
   const noteCalls = calls.filter(u => u.pathname.endsWith('/app_notes'));
-  assert.equal(noteCalls.length, 3);
+  assert.equal(noteCalls.length, 2);
+  assert.ok(noteCalls.every(u => !u.searchParams.get('select').split(',').includes('raw_text')));
   assert.ok(noteCalls.every(u => u.searchParams.get('kind') === 'eq.basket'));
 });
 
