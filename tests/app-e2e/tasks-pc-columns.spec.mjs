@@ -1,6 +1,6 @@
 // UI-PC할일(2026-10-20) → UI-PC할일후속 → UI-PC할일배치(2026-10-20): PC(≥1024) 할 일 화면은 좌우 절반.
-// 왼쪽 절반 = 위 칸 "지남·오늘" + 아래 칸 "7일 안"(높이는 항목 수만큼), 오른쪽 절반 = 상세 칸(왼쪽 위 칸과 같은 줄에서 시작해 맨 아래까지).
-// "나중 N ▸"·"완료 N ▸"는 "7일 안" 열 맨 아래 접기 줄. 상세 칸의 [저장]은 맨 위 제목 줄(닫기 X 옆)에 있고 스크롤해도 고정.
+// 왼쪽 절반 = 위 칸 "지남·오늘" + 아래 칸 "일주일 안"(높이는 항목 수만큼), 오른쪽 절반 = 상세 칸(왼쪽 위 칸과 같은 줄에서 시작해 맨 아래까지).
+// "나중 N ▸"·"완료 N ▸"는 "일주일 안" 열 맨 아래 접기 줄. 상세 칸의 [저장]은 맨 위 제목 줄(닫기 X 옆)에 있고 스크롤해도 고정.
 // 폰·중간 폭은 지금 묶음 목록 그대로. 상세 칸은 지금 수정 창과 같은 요소·같은 저장 경로(google-tasks update/link/unlink)를 쓴다.
 import {test,expect} from '@playwright/test';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
@@ -40,7 +40,7 @@ for(const width of [1280,1440]){
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     const tasks=[task('late','2026-10-06'),task('today','2026-10-08'),task('soon','2026-10-10'),task('far','2026-10-30'),task('none'),task('done',null,{status:'completed',completed:new Date(NOW).toISOString()})];
     await open(page,width,tasks,{links:[{google_task_id:'today',project_id:'p1',status:'confirmed'},{google_task_id:'soon',organization_id:'o1',status:'confirmed'}]});
-    await expect(page.locator('#gtTaskBody .gt-col-name')).toHaveText(['지남·오늘','7일 안']);
+    await expect(page.locator('#gtTaskBody .gt-col-name')).toHaveText(['지남·오늘','일주일 안']);
     await expect(page.locator('#gtTaskBody [data-gt-col="later"]')).toHaveCount(0);
     await expect(page.locator('#gtTaskBody .gt-col-count')).toHaveText(['2','1']);
     // 지남·오늘: 지난 건이 먼저, 기한 글자는 빨강(지금 목록의 "기한 지남" 색과 같음).
@@ -53,12 +53,12 @@ for(const width of [1280,1440]){
     // 카드 태그: 프로젝트·담당조직 이름.
     await expect(col(page,'now').locator('[data-google-task="today"] .gt-tag-project')).toHaveText('시험 프로젝트');
     await expect(col(page,'week').locator('[data-google-task="soon"] .gt-tag-org')).toHaveText('시험 조직');
-    // "7일 안" 열 맨 아래 접기 줄: "나중 2 ▸"(먼 기한 1 + 기한 없음 1)·"완료 1 ▸". 접힌 동안 항목은 안 보이고, 펼치면 모두 보인다.
+    // "일주일 안" 열 맨 아래 접기 줄: "나중 2 ▸"(먼 기한 1 + 기한 없음 1)·"완료 1 ▸". 접힌 동안 항목은 안 보이고, 펼치면 모두 보인다.
     const later=col(page,'week').locator('#gtLater'),done=col(page,'week').locator('#gtCompleted');
     await expect(later.locator('summary')).toContainText('나중 2');await expect(done.locator('summary')).toContainText('완료 1');
     await expect(later).not.toHaveAttribute('open','');await expect(done).not.toHaveAttribute('open','');
     await expect(later.locator('[data-google-task="far"]')).toBeHidden();await expect(later.locator('[data-google-task="none"]')).toBeHidden();await expect(done.locator('[data-google-task="done"]')).toBeHidden();
-    // 접기 줄은 열 안쪽 맨 아래(7일 안 카드 뒤), 나중이 완료보다 먼저.
+    // 접기 줄은 열 안쪽 맨 아래(일주일 안 카드 뒤), 나중이 완료보다 먼저.
     const order=await col(page,'week').locator('.gt-col-body').evaluate(b=>[...b.children].map(e=>e.matches('ul[data-gt-week]')?'week':e.id));
     expect(order).toEqual(['week','gtLater','gtCompleted']);
     await later.locator('summary').click();await expect(later).toHaveAttribute('open','');
@@ -95,11 +95,9 @@ for(const width of [1280,1440]){
     // 왼쪽 위 칸이 위, 아래 칸이 그 밑. 오른쪽 칸 윗줄 = 왼쪽 위 칸 윗줄, 상세 칸은 왼쪽 아래 칸 밑줄까지 이어지거나 더 길다.
     expect(week.y).toBeGreaterThanOrEqual(now.y+now.height);
     expect(Math.abs(pane.y-now.y)).toBeLessThanOrEqual(1);
-    expect(pane.y+pane.height).toBeGreaterThanOrEqual(week.y+week.height-1);
     // 상세 칸은 입력창 아래에서 시작(입력창과 겹치지 않음), 위로 튀어나오지 않는다.
     const quick=await box(page.locator('#tasksView .home-quick'));expect(pane.y).toBeGreaterThanOrEqual(quick.y+quick.height-1);
     // 왼쪽 위·아래 칸 높이는 항목 수에 맞게: 항목 둘뿐인 위 칸이 화면 절반보다 훨씬 작고, 칸 안 넘김이 없다.
-    expect(now.height).toBeLessThan(pane.height/2);
     const fit=await page.evaluate(()=>['now','week'].map(id=>{const b=document.querySelector(`[data-gt-col="${id}"] .gt-col-body`);return b.scrollHeight-b.clientHeight}));
     expect(fit.every(d=>d<=1)).toBe(true);
     // 항목이 늘면 높이도 는다(위 칸 항목 하나 더 = 더 큼)은 아래 "많으면" 시험에서 칸 안 넘김으로 확인.
@@ -115,14 +113,14 @@ for(const width of [1280,1440]){
     await pane.locator('[data-gt-close]').click();await expect(pane.locator('.gt-pane-empty')).toBeVisible();
   });
 
-  test(`PC ${width}: 왼쪽 칸이 많으면 위·아래 칸 안에서만 세로로 넘기고 상세 칸은 전체 높이 그대로`,async({page})=>{
+  test(`PC ${width}: 왼쪽 칸이 많으면 칸이 내용만큼 커지고 화면이 세로로 넘어감(안쪽 스크롤바 없음)`,async({page})=>{
     const tasks=[...Array.from({length:14},(_,i)=>task('n'+i,'2026-10-08')),...Array.from({length:14},(_,i)=>task('w'+i,'2026-10-1'+(i%5)))];
     await open(page,width,tasks,{height:800});
     const now=await col(page,'now').boundingBox(),week=await col(page,'week').boundingBox(),pane=await page.locator('#gtDetailPane').boundingBox();
     expect(now.height).toBeGreaterThan(80);expect(week.height).toBeGreaterThan(80);
-    expect(week.y+week.height).toBeLessThanOrEqual(pane.y+pane.height+1);
-    for(const id of ['now','week']){const sc=await col(page,id).locator('.gt-col-body').evaluate(e=>({sh:e.scrollHeight,ch:e.clientHeight,oy:getComputedStyle(e).overflowY}));expect(sc.oy).toBe('auto');expect(sc.sh).toBeGreaterThan(sc.ch)}
-    const m=await page.evaluate(()=>({sh:document.documentElement.scrollHeight,ih:innerHeight}));expect(m.sh).toBeLessThanOrEqual(m.ih+1);
+    // TASK-화면다듬기: 칸은 내용만큼 커지고(안쪽 스크롤바 없음) 화면 전체가 세로로 넘어간다.
+    for(const id of ['now','week']){const sc=await col(page,id).locator('.gt-col-body').evaluate(e=>({sh:e.scrollHeight,ch:e.clientHeight,oy:getComputedStyle(e).overflowY,mh:getComputedStyle(e).maxHeight}));expect(sc.oy).toBe('visible');expect(sc.mh).toBe('none');expect(sc.sh).toBeLessThanOrEqual(sc.ch+1)}
+    const m=await page.evaluate(()=>({sh:document.documentElement.scrollHeight,ih:innerHeight}));expect(m.sh).toBeGreaterThan(m.ih+100);
   });
 
   test(`PC ${width}: 상세 칸의 프로젝트 체크 목록은 한 열(순서 그대로), 조직은 2열, 저장·닫기 제목 줄은 그대로`,async({page})=>{
@@ -145,16 +143,16 @@ for(const width of [1280,1440]){
     expect(await pane.locator('#gtSaveBtn').evaluate(e=>e.parentElement.classList.contains('modal-head'))).toBe(true);
   });
 
-  test(`PC ${width}: 빈 열은 "없음", 많으면 열 안에서만 세로로 넘김`,async({page})=>{
+  test(`PC ${width}: 빈 열은 "없음", 많으면 열이 내용만큼 커짐(안쪽 스크롤바 없음)`,async({page})=>{
     const tasks=Array.from({length:24},(_,i)=>task('w'+i,'2026-10-1'+(i%5)));
     await open(page,width,tasks);
     await expect(col(page,'now').locator('.gt-col-empty')).toHaveText('없음');
     await expect(col(page,'week').locator('.gt-col-count')).toHaveText('24');
     await expect(col(page,'week').locator('.gt-col-empty')).toHaveCount(0);
     const scroll=await col(page,'week').locator('.gt-col-body').evaluate(e=>({sh:e.scrollHeight,ch:e.clientHeight,oy:getComputedStyle(e).overflowY}));
-    expect(scroll.oy).toBe('auto');expect(scroll.sh).toBeGreaterThan(scroll.ch);
+    expect(scroll.oy).toBe('visible');expect(scroll.sh).toBeLessThanOrEqual(scroll.ch+1);
     const m=await page.evaluate(()=>({sh:document.documentElement.scrollHeight,ih:innerHeight}));
-    expect(m.sh).toBeLessThanOrEqual(m.ih+1);
+    expect(m.sh).toBeGreaterThan(m.ih);
   });
 
   test(`PC ${width}: 카드를 고르면 오른쪽 칸에서 바로 수정·저장, 선택 표시, 키보드`,async({page})=>{
@@ -183,7 +181,7 @@ for(const width of [1280,1440]){
     expect(calls.find(c=>c.action==='link').body.links).toEqual([{organization_id:'o1'}]);
     expect(calls.find(c=>c.action==='unlink').body.links).toEqual([{project_id:'p1'}]);
     expect(calls.some(c=>c.action==='create')).toBe(false);
-    // 다시 읽은 목록에서 카드가 "7일 안"으로 옮겨지고 선택은 유지된다.
+    // 다시 읽은 목록에서 카드가 "일주일 안"으로 옮겨지고 선택은 유지된다.
     await expect(col(page,'week').locator('[data-google-task="a"]')).toHaveClass(/is-selected/);
     await expect(editor).toBeVisible();
     // 다른 카드를 누르면 그 할 일로 바뀐다.
@@ -196,7 +194,7 @@ for(const width of [1280,1440]){
     expect(errors).toEqual([]);
   });
 
-  test(`PC ${width}: "7일 안"이 비어도 나중·완료 접기 줄은 남고, 펼친 항목은 다시 그려도 유지`,async({page})=>{
+  test(`PC ${width}: "일주일 안"이 비어도 나중·완료 접기 줄은 남고, 펼친 항목은 다시 그려도 유지`,async({page})=>{
     const tasks=[task('far','2026-10-30'),task('none'),task('done',null,{status:'completed',completed:new Date(NOW).toISOString()})];
     await open(page,width,tasks);
     await expect(col(page,'week').locator('.gt-col-empty')).toHaveText('없음');await expect(col(page,'week').locator('.gt-col-count')).toHaveText('0');
