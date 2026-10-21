@@ -31,10 +31,12 @@ export const AI_SUMMARY_TEXT=Object.freeze({
   ai_busy:'AI가 지금 바빠요. 잠시 뒤 다시 눌러 주세요.',
   ai_timeout:'AI 답이 늦어 멈췄어요. 잠시 뒤 다시 눌러 주세요.',
   ai_invalid_response:'AI 답을 읽지 못했어요. 다시 눌러 주세요.',
+  in_progress:'다른 AI 작업이 진행 중이에요. 잠시 뒤 다시 눌러 주세요.',
+  radar_unavailable:'AI 요청을 처리하지 못했어요. 다시 눌러 주세요.',
   internal_error:'AI 요청을 처리하지 못했어요. 다시 눌러 주세요.',
 });
 // 잠깐의 문제라 같은 버튼을 [다시 시도]로 보여 줄 코드.
-const RETRYABLE=new Set(['offline','auth_unavailable','usage_unavailable','read_unavailable','ai_busy','ai_timeout','ai_invalid_response','internal_error']);
+const RETRYABLE=new Set(['offline','auth_unavailable','usage_unavailable','read_unavailable','ai_busy','ai_timeout','ai_invalid_response','in_progress','radar_unavailable','internal_error']);
 export const aiSummaryRetryable=code=>RETRYABLE.has(code);
 
 // 서버가 거절하는 메모(일기·보관·AI 제외·빈 글)에서는 버튼을 보이지 않는다(서버가 다시 확인한다).
@@ -47,36 +49,43 @@ function validSummary(value){
 }
 const fail=code=>({ok:false,code,message:AI_SUMMARY_TEXT[code]||AI_SUMMARY_TEXT.internal_error,retry:aiSummaryRetryable(code)});
 
-// Returns {ok:true,summary} or {ok:false,code,message,retry}. Never throws, never saves.
-export async function requestLinkSummary({noteId,targetKind,targetId},{rt=globalThis.window?.KPTURuntime,fetcher=(...a)=>globalThis.fetch(...a),timeoutMs=AI_SUMMARY_TIMEOUT_MS,online=()=>globalThis.navigator?.onLine!==false}={}){
-  if(typeof noteId!=='string'||!UUID.test(noteId)||typeof targetId!=='string'||!UUID.test(targetId)||!['organization','project'].includes(targetKind))return fail('invalid_request');
+// One POST to ai-assist with the signed-in token. Shared by every ai-assist use on the screen (연결 요약, 챙길 것 찾기).
+// Returns {ok:true,data} for a well-formed success, or {ok:false,code} with a known code. Never throws, never saves.
+// An undeployed function (404, or blocked without CORS so it looks like a network error) is 'not_ready'.
+export async function callAiAssist(body,{rt=globalThis.window?.KPTURuntime,fetcher=(...a)=>globalThis.fetch(...a),timeoutMs=AI_SUMMARY_TIMEOUT_MS,online=()=>globalThis.navigator?.onLine!==false}={},codes=AI_SUMMARY_TEXT){
   let signedIn=false;
-  try{signedIn=await rt.session.ensure();}catch{return fail('auth_unavailable');}
+  try{signedIn=await rt.session.ensure();}catch{return {ok:false,code:'auth_unavailable'};}
   const token=rt.session.read?.()?.access_token;
-  if(!signedIn||!token)return fail('session_required');
+  if(!signedIn||!token)return {ok:false,code:'session_required'};
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
   let response,text='';
   try{
     response=await fetcher(rt.config.url+AI_SUMMARY_PATH,{method:'POST',cache:'no-store',signal:controller.signal,
       headers:{apikey:rt.config.key,Authorization:'Bearer '+token,'Content-Type':'application/json'},
-      body:JSON.stringify({kind:'link_summary',note_id:noteId,target_kind:targetKind,target_id:targetId})});
+      body:JSON.stringify(body)});
     text=await response.text();
   }catch{
-    // 배포 전 함수는 404이거나 CORS 없이 막혀 네트워크 오류로 보인다. 오류를 늘어놓지 않고 준비 중으로 안내한다.
-    if(controller.signal.aborted)return fail('ai_timeout');
-    return fail(online()?'not_ready':'offline');
+    if(controller.signal.aborted)return {ok:false,code:'ai_timeout'};
+    return {ok:false,code:online()?'not_ready':'offline'};
   }finally{clearTimeout(timer);}
   let data=null;
   if(text.length<=MAX_RESPONSE_CHARS){try{data=JSON.parse(text);}catch{data=null;}}
-  if(response.ok&&data?.ok===true){
-    if(data.kind==='link_summary'&&validSummary(data.summary))return {ok:true,summary:data.summary};
-    return fail('ai_invalid_response');
-  }
-  if(data?.ok===false&&typeof data.error==='string'&&Object.hasOwn(AI_SUMMARY_TEXT,data.error)&&!['not_ready','offline'].includes(data.error))return fail(data.error);
-  if(response.status===404)return fail('not_ready');
-  if(response.status===401)return fail('session_required');
-  if(response.status===429||response.status>=500)return fail('ai_busy');
-  return fail('internal_error');
+  if(response.ok&&data?.ok===true&&data.kind===body.kind)return {ok:true,data};
+  if(response.ok&&data?.ok===true)return {ok:false,code:'ai_invalid_response'};
+  if(data?.ok===false&&typeof data.error==='string'&&Object.hasOwn(codes,data.error)&&!['not_ready','offline'].includes(data.error))return {ok:false,code:data.error};
+  if(response.status===404)return {ok:false,code:'not_ready'};
+  if(response.status===401)return {ok:false,code:'session_required'};
+  if(response.status===429||response.status>=500)return {ok:false,code:'ai_busy'};
+  return {ok:false,code:'internal_error'};
+}
+
+// Returns {ok:true,summary} or {ok:false,code,message,retry}. Never throws, never saves.
+export async function requestLinkSummary({noteId,targetKind,targetId},options={}){
+  if(typeof noteId!=='string'||!UUID.test(noteId)||typeof targetId!=='string'||!UUID.test(targetId)||!['organization','project'].includes(targetKind))return fail('invalid_request');
+  const r=await callAiAssist({kind:'link_summary',note_id:noteId,target_kind:targetKind,target_id:targetId},options);
+  if(!r.ok)return fail(r.code);
+  if(validSummary(r.data.summary))return {ok:true,summary:r.data.summary};
+  return fail('ai_invalid_response');
 }
 
 // D11: an empty box is filled at once; a box with text keeps it and gets a separate proposal.
