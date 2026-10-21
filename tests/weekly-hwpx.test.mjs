@@ -2,14 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {zlib, SAMPLE} from '../scripts/weekly-hwpx/cli.mjs';
-import {writeZip, readZip, crc32} from '../scripts/weekly-hwpx/zip.mjs';
-import {parseXml, toXml, walk, textOf} from '../scripts/weekly-hwpx/xml.mjs';
-import {openHwpx, packHwpx, validateHwpx, readXml, setText, headerStyles, REQUIRED_PARTS} from '../scripts/weekly-hwpx/hwpx.mjs';
-import {extractBlankTemplate, assertBlank, FORM_LABELS, readPrototypes, PROTO_ORDER} from '../scripts/weekly-hwpx/template.mjs';
-import {buildReport, readReport, reportTexts, lineText, isChanged} from '../scripts/weekly-hwpx/report.mjs';
-import {personalFromTeam, personalReportFromTeam, applyPatch, applyReportPatch, diffLines, diffRows, isMine, REQUEST_CHECK_NOTE} from '../scripts/weekly-hwpx/delta.mjs';
-import {estimateLines, layoutTable, headerMetrics} from '../scripts/weekly-hwpx/layout.mjs';
-import {kid, kids} from '../scripts/weekly-hwpx/xml.mjs';
+import {writeZip, readZip, crc32} from '../app/weekly-hwpx/zip.mjs';
+import {parseXml, toXml, walk, textOf} from '../app/weekly-hwpx/xml.mjs';
+import {openHwpx, packHwpx, validateHwpx, readXml, setText, headerStyles, REQUIRED_PARTS} from '../app/weekly-hwpx/hwpx.mjs';
+import {extractBlankTemplate, assertBlank, FORM_LABELS, readPrototypes, PROTO_ORDER} from '../app/weekly-hwpx/template.mjs';
+import {buildReport, readReport, reportTexts, lineText, isChanged} from '../app/weekly-hwpx/report.mjs';
+import {personalFromTeam, personalReportFromTeam, applyPatch, applyReportPatch, diffLines, diffRows, isMine, REQUEST_CHECK_NOTE} from '../app/weekly-hwpx/delta.mjs';
+import {estimateLines, layoutTable, headerMetrics} from '../app/weekly-hwpx/layout.mjs';
+import {kid, kids} from '../app/weekly-hwpx/xml.mjs';
 import {makeFakeReport, FAKE_TEXTS, DEMO_DATA, STYLE_TABLE} from '../scripts/weekly-hwpx/fixture.mjs';
 
 // WEEKLY-한글초안 1단계 시제품(docs/design/weekly-hwpx-draft.md). 실제 업무 문서는 쓰지 않는다: 저장소의 rhwp 빈 문서
@@ -124,7 +124,7 @@ test('보고서 만들기: 빈 서식의 글자·문단 모양·테두리만 쓰
   assert.deepEqual(['1) 집회/행사 참가 요청', '2) 세부 내용', '1) 집회·농성 등', '2) 참고자료'].map(styleOf), ['작은 제목', '작은 제목', '중간 제목', '중간 제목']);
   assert.deepEqual(back.details, [{heading: '(1) 가짜 회의 정', box: DEMO_DATA.details[0].box.map(b => ({label: b.label, lines: b.lines.map(lineText)}))}]);
   assert.deepEqual(back.calendar, DEMO_DATA.calendar);
-  assert.deepEqual(back.orgs, DEMO_DATA.orgs);
+  assert.deepEqual(back.orgs.map(({org, status}) => ({org, status})), DEMO_DATA.orgs);
 });
 
 test('빈 보고 자료로도 열리는 파일을 만든다(빈 표 한 줄)', () => {

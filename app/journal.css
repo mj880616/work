@@ -149,6 +149,32 @@
 #appView #journalView .journal-weekly .journal-org{ display:flex; flex-direction:column; gap:2px; }
 #appView #journalView .journal-weekly .journal-org + .journal-org{ margin-top:4px; }
 #appView #journalView .journal-weekly-others{ display:flex; flex-direction:column; gap:4px; margin-top:4px; }
+/* WEEKLY-한글초안 2단계: [주간보고 한글 파일 만들기] 상자(journal-hwpx.js) */
+#appView #journalView .journal-hwpx{ display:flex; flex-direction:column; gap:8px; }
+#appView #journalView .journal-hwpx > [data-hwpx-start]{ align-self:flex-start; }
+#appView #journalView .journal-hwpx-panel{ display:flex; flex-direction:column; gap:10px; padding:10px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); background:var(--kptu-surface-subtle); }
+#appView #journalView .journal-hwpx-panel h4{ margin:0; font-size:var(--ds-text-read); font-weight:700; color:var(--kptu-ink); }
+#appView #journalView .journal-hwpx-panel h4:focus{ outline:none; }
+#appView #journalView .journal-hwpx-status{ margin:0; font-size:var(--kptu-text-body); color:var(--kptu-muted); overflow-wrap:anywhere; }
+#appView #journalView .journal-hwpx-status:empty{ display:none; }
+#appView #journalView .journal-hwpx-status[data-kind="error"]{ color:var(--kptu-danger); font-weight:var(--ds-weight-medium); }
+#appView #journalView .journal-hwpx-body,
+#appView #journalView .journal-hwpx-part{ display:flex; flex-direction:column; gap:8px; }
+#appView #journalView .journal-hwpx-panel .journal-muted{ margin:0; font-size:var(--kptu-text-body); }
+#appView #journalView .journal-hwpx-actions{ display:flex; flex-wrap:wrap; gap:8px; }
+#appView #journalView .journal-hwpx-fields{ display:flex; flex-wrap:wrap; gap:8px 12px; }
+#appView #journalView .journal-hwpx-field{ display:flex; flex-direction:column; gap:2px; font-size:var(--kptu-text-body); min-width:0; flex:1 1 200px; }
+#appView #journalView .journal-hwpx-field input,
+#appView #journalView .journal-hwpx-lines,
+#appView #journalView .journal-hwpx-target{ width:100%; min-width:0; box-sizing:border-box; font:inherit; font-size:var(--kptu-text-body); }
+#appView #journalView .journal-hwpx-target{ width:auto; max-width:100%; }
+#appView #journalView .journal-hwpx-row{ display:flex; flex-direction:column; gap:4px; }
+#appView #journalView .journal-hwpx-label{ font-size:var(--kptu-text-body); font-weight:var(--ds-weight-medium); overflow-wrap:anywhere; }
+#appView #journalView .journal-hwpx-lines{ resize:vertical; line-height:1.5; }
+#appView #journalView .journal-hwpx-material{ margin:0; padding-left:18px; display:flex; flex-direction:column; gap:4px; font-size:var(--kptu-text-body); line-height:1.5; overflow-wrap:anywhere; }
+#appView #journalView .journal-hwpx-material:empty{ display:none; }
+#appView #journalView .journal-hwpx-material li > .mini,
+#appView #journalView .journal-hwpx-material li > select{ margin-left:4px; vertical-align:middle; }
 /* 요약 표: 사업영역 | 세부 과제 | 진행 상황 및 이후 계획 | 담당 팀원(상집보고 폭 비율 11/18/61/10). 사업영역 칸은 세로로 합친다. */
 #appView #journalView .journal-weekly-table{ width:100%; border-collapse:collapse; table-layout:fixed; font-size:var(--kptu-text-body); line-height:1.5; }
 #appView #journalView .journal-weekly-table th,

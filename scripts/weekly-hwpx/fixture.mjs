@@ -2,9 +2,9 @@
 // 실제 노조 양식 파일은 저장소에 넣지 않으므로(docs/hwp-style-map.md 1절), 저장소에 이미 있는 rhwp 빈 문서
 // (tests/fixtures/hwp-lab/sample.hwpx)에 docs/hwp-style-map.md 2절의 스타일 이름·글자 크기와 같은 스타일 표를 얹고,
 // 상집보고와 같은 차례·표 구성(열 이름·병합)에 자리표시 글만 넣는다. 시험과 시연은 이 파일 → 빈 서식 → 보고서 순서로 돈다.
-import {el, clone, kid, kids, walk} from './xml.mjs';
-import {readXml, setXml, clonePkg} from './hwpx.mjs';
-import {renumber} from './template.mjs';
+import {el, clone, kid, kids, walk} from '../../app/weekly-hwpx/xml.mjs';
+import {readXml, setXml, clonePkg} from '../../app/weekly-hwpx/hwpx.mjs';
+import {renumber} from '../../app/weekly-hwpx/template.mjs';
 
 // docs/hwp-style-map.md 2절(스타일 이름·글자 크기) + 문단 왼쪽 여백. 줄간격은 양식 기본값(%).
 export const STYLE_TABLE = Object.freeze([

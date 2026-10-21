@@ -95,6 +95,23 @@ export async function saveLibraryCopy(target,bytes,{rt=window.KPTURuntime,fetche
   return newFileOutcome(response.ok?{status:0}:{status:response.status,data},'자료실');
 }
 
+// WEEKLY-한글초안 2단계 [확정]: the weekly report file made in the browser goes to the library like any upload (library-files:
+// the owner's Drive library folder under drive.file, one private app_documents row). Title, category and date are given, so
+// the server does not read the content to guess a title. One request, never repeated; an unknown outcome says to check first.
+export const WEEKLY_CONFIRMED_CATEGORY='주간보고 개인본';
+export async function saveWeeklyReport(bytes,{fileName,title,documentDate},{rt=window.KPTURuntime,fetcher}={}){
+  const form=new FormData();
+  form.append('file',new File([bytes],fileName,{type:/\.hwpx$/i.test(fileName)?'application/hwp+zip':'application/x-hwp'}));
+  form.append('title',title);
+  form.append('category',WEEKLY_CONFIRMED_CATEGORY);
+  if(documentDate)form.append('document_date',documentDate);
+  let response;
+  try{response=await send(rt,'/functions/v1/library-files',form,{fetcher})}catch(error){return newFileOutcome({error},'자료실')}
+  const data=await readJson(response);
+  if(response.ok&&data?.ok===true&&typeof data.document?.id==='string')return {kind:'created',document:{id:data.document.id,title:String(data.document.title||'')},message:`자료실에 "${WEEKLY_CONFIRMED_CATEGORY}" 분류로 저장했어요(Drive 자료실 폴더).`};
+  return newFileOutcome(response.ok?{status:0}:{status:response.status,data},'자료실');
+}
+
 // 바구니: the HWP is added to the same note as a new attachment (basket-files). The note decides the workspace.
 export async function saveBasketCopy(target,bytes,{rt=window.KPTURuntime,fetcher}={}){
   const form=new FormData();

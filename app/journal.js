@@ -25,6 +25,7 @@ import {requestTagsHtml, normalizeRequests} from './update-requests.js';
 import {recordMark} from './basket-link-records.js';
 import {requestNoteDocOpen} from './basket-note-tasks.js';
 import {weeklySummary, renderWeekly} from './journal-weekly.js';
+import {mountWeeklyHwpx} from './journal-hwpx.js';
 import {mountRadar} from './todo-radar.js';
 
 // ORG-묶음순서: the shared organization order (window.KPTUOrganizationOrder) orders the 조직 소식 sections.
@@ -53,7 +54,7 @@ root.innerHTML = `<div class="journal-head"><div class="journal-mode-switch" rol
 <ol class="journal-lines" data-journal-lines aria-label="이 날 한 줄 목록"></ol>
 <div class="journal-materials" data-journal-materials></div>
 </section>
-<section class="journal-weekly" data-journal-weekly-root aria-labelledby="journalWeeklyTitle" hidden><h3 id="journalWeeklyTitle" tabindex="-1" data-journal-weekly-title></h3><p class="journal-muted journal-weekly-intro">주간보고 양식 순서로 이 주 기록을 모았어요. 화면에서 보기만 하고 저장하지 않아요.</p><div class="journal-weekly-body" data-journal-weekly></div></section>`;
+<section class="journal-weekly" data-journal-weekly-root aria-labelledby="journalWeeklyTitle" hidden><h3 id="journalWeeklyTitle" tabindex="-1" data-journal-weekly-title></h3><p class="journal-muted journal-weekly-intro">주간보고 양식 순서로 이 주 기록을 모았어요. 화면에서 보기만 하고 저장하지 않아요.</p><div class="journal-hwpx" data-journal-hwpx></div><div class="journal-weekly-body" data-journal-weekly></div></section>`;
 const $ = selector => root.querySelector(selector);
 const days = $('[data-journal-days]'), input = $('[data-journal-input]'), lineStatus = $('[data-journal-line-status]'), status = $('[data-journal-status]');
 
@@ -208,7 +209,10 @@ function renderWeekly_() {
   const list = weekDays(start);
   $('[data-journal-weekly-title]').textContent = `주간 정리 · ${longDay(list[0])} ~ ${longDay(list[6])}`;
   renderWeekly($('[data-journal-weekly]'), weeklySummary({start, lines, linesState, materials, doneDays}), esc);
+  hwpx?.refresh();
 }
+// WEEKLY-한글초안 2단계: [주간보고 한글 파일 만들기] — journal-hwpx.js owns that box; it reads the shown week's grouping.
+const hwpx = mountWeeklyHwpx($('[data-journal-hwpx]'), {rt, getWeek: () => ({start, model:weeklySummary({start, lines, linesState, materials, doneDays})})});
 function renderMode() {
   root.dataset.journalMode = mode;
   root.querySelectorAll('[data-journal-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.journalMode === mode)));
@@ -273,8 +277,10 @@ async function loadLines(run, scope) {
 // A new week reads its lines and that week's events, organization/project records, meetings, new documents and changed
 // share pages; Google tasks (done and pending) and basket updates are read once per visit (not per week).
 function loadWeek({shared = false} = {}) {
+  const changedOwner = owner !== ownerScope(rt);
   const run = ++epoch, scope = owner = ownerScope(rt);
   lines = new Map(); status.textContent = ''; editing = null;
+  if (changedOwner) hwpx?.close(); else hwpx?.setWeek(start);
   const keys = shared ? Object.keys(readers) : ['events', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages'];
   for (const key of keys) materials[key] = {status:'loading'};
   render();
