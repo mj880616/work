@@ -8,7 +8,7 @@ import {UPDATE_REQUESTS, normalizeRequests, noteRequests, requestsGuard, request
 import * as basketData from '../app/basket-data.js';
 const {createNote, setNoteFolder, setNotePinned} = basketData;
 import {noteTaskGuard} from '../app/basket-note-tasks.js';
-import {orgNewsOn, projectNewsOn, weeklyDraft, weekRequests} from '../app/journal-data.js';
+import {orgNewsOn, projectNewsOn, weeklyDraft} from '../app/journal-data.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function runtime(fresh, {reply} = {}) {
@@ -93,22 +93,19 @@ test('day card: a marked update carries its tags per item; sections without a ma
   assert.deepEqual(projectNewsOn({basket: basket()}, '2026-10-06'), [{name: '가상 사업', items: ['가상 사업 메모'], tags: [['exec_schedule', 'discussion']]}]);
 });
 
-test('weekly draft: the two request lists come first ("(없음)" when none), then the days; a marked item keeps its tag', () => {
-  assert.deepEqual(weekRequests(basket(), '2026-10-05'), {
-    exec_schedule: ['10월 6일(화) · 가상 조직: 가상 조직 소식', '10월 6일(화) · 가상 사업: 가상 사업 메모'],
-    discussion: ['10월 6일(화) · 가상 사업: 가상 사업 메모', '10월 8일(목): 미분류 논의'],
-  });
+test('weekly draft: no request lists at the top; a marked item stays in its own group and keeps its tag', () => {
   const ok = items => ({status: 'ok', items});
   const materials = {events: ok([]), tasks: ok([]), basket: ok(basket()), orgUpdates: ok([]), projectUpdates: ok([]), meetings: ok([]), documents: ok([]), sharePages: ok([])};
-  const rows = weeklyDraft({start: '2026-10-05', lines: new Map(), materials, today: '2026-10-06'}).split('\n');
-  assert.deepEqual(rows.slice(0, 11), ['주간 업무일지 10월 5일(월) ~ 10월 11일(일)', '',
-    '[임원 일정 배정 요청]', '- 10월 6일(화) · 가상 조직: 가상 조직 소식', '- 10월 6일(화) · 가상 사업: 가상 사업 메모', '',
-    '[논의 요청]', '- 10월 6일(화) · 가상 사업: 가상 사업 메모', '- 10월 8일(목): 미분류 논의', '', '■ 10월 5일(월)']);
+  const text = weeklyDraft({start: '2026-10-05', lines: new Map(), materials, today: '2026-10-06'});
+  const rows = text.split('\n');
+  assert.deepEqual(rows.slice(0, 3), ['주간 업무일지 10월 5일(월) ~ 10월 11일(일)', '', '■ 10월 5일(월)']);
+  assert.ok(!rows.some(r => r === '[임원 일정 배정 요청]' || r === '[논의 요청]'));
   assert.ok(rows.includes('- 조직 소식 · 가상 조직: [임원 요청] 가상 조직 소식'));
   assert.ok(rows.includes('- 프로젝트 소식 · 가상 사업: [임원 요청] [논의 요청] 가상 사업 메모'));
   assert.ok(rows.includes('- 조직 소식 · 미분류: 표시 없음'));
-  const empty = weeklyDraft({start: '2026-10-12', lines: new Map(), materials, today: '2026-10-06'}).split('\n');
-  assert.deepEqual(empty.slice(2, 8), ['[임원 일정 배정 요청]', '- (없음)', '', '[논의 요청]', '- (없음)', '']);
-  const failed = weeklyDraft({start: '2026-10-05', lines: new Map(), materials: {...materials, basket: {status: 'failed'}}, today: '2026-10-06'}).split('\n');
-  assert.deepEqual(failed.slice(2, 8), ['[임원 일정 배정 요청]', '- (업데이트를 불러오지 못해 빠졌어요)', '', '[논의 요청]', '- (업데이트를 불러오지 못해 빠졌어요)', '']);
+  for (const m of [materials, {...materials, basket: {status: 'failed'}}]) {
+    const t = weeklyDraft({start: '2026-10-12', lines: new Map(), materials: m, today: '2026-10-06'});
+    assert.ok(!t.split('\n').some(r => r === '[임원 일정 배정 요청]' || r === '[논의 요청]'));
+    assert.equal(t.split('\n')[2], '■ 10월 12일(월)');
+  }
 });
