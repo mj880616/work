@@ -42,7 +42,7 @@
 
 ## BASKET-3 (소스·검증, 운영 배포 없음)
 
-프로젝트 사본 끝에만 바구니를 붙인다. 서버가 `kptu-work` workspace·최근 4주 KST·기존 폴더를 결정한다. `archived_at IS NULL`, `ai_export_allowed=true`이고 확정/제안 연결이 없는 메모만 포함한다. 과거 미분류 건수만 표시한다. 저장된 제안은 원문 버전 열이 없으므로 모두 보수적으로 유효하게 취급하며 화면 `noteState`와 같은 기준이다. BASKET-4의 버전 검증·무효화와 처리 결과 writer를 구현하지 않는다.
+프로젝트 사본 끝에만 바구니를 붙인다. 서버가 `kptu-work` workspace·최근 4주 KST·기존 폴더를 결정한다. `archived_at IS NULL`, `ai_export_allowed=true`이고 확정/제안 연결이 없는 메모만 포함한다. 업무일지에 남긴 업데이트(`metadata.journal_at`, 화면 `app/update-journal.js`의 `noteJournalAt`과 같은 판정)는 미분류가 아니므로 대상 건수·과거 미분류 건수·원문에서 모두 빠진다. 이 판정을 위해 메타데이터는 `journal_at:metadata->journal_at` 한 값만 조회한다. 과거 미분류 건수만 표시한다. 저장된 제안은 원문 버전 열이 없으므로 모두 보수적으로 유효하게 취급하며 화면 `noteState`와 같은 기준이다. BASKET-4의 버전 검증·무효화와 처리 결과 writer를 구현하지 않는다.
 
 원문은 HTML escape만 하고 공백·개행을 보존한다. `<pre>` 첫 개행 제거를 방지하는 빈 span과 CR 문자 참조를 사용한다. 첨부는 파일명·MIME·byte 크기·검증된 Drive ID 링크만 출력하며 파일 읽기·OCR·AI 요청은 없다. 분류 목적지는 `app/project-catalog-model.mjs`를 기준으로 한 배포 내부 사본 `./project-catalog-model.mjs`의 동일한 분류·tree를 사용한다. 두 사본은 회귀에서 바이트 단위로 비교한다. v2/management_version=2 프로젝트와 후손 중 화면에 보이는 tree에서 완료(done/completed)·보관을 제외하고, 하위 이름은 “상위 › 하위” 경로로 제공한다. 완료 상위의 미완료 하위는 유지하고 보관 상위의 후손·순환 계층은 화면과 같이 숨긴다. 담당조직은 #500의 내 담당 활성 조직·담당 0개 대체 문구를 유지하며 목적지 kind는 organization·project다. 7.2 JSON 기술 초안 `schema_version=1`과 제안 전용 지침을 함께 제공한다.
 

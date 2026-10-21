@@ -66,8 +66,9 @@ function harness(options = {}) {
         if(content)contentReads++;
         if(range?.startsWith('0-')&&!content){if(notePath)headerScans++;else linkScans++;}
         rows=options.mutateRows?.({rows,table,content,contentReads,headerScans,linkScans})??rows;
-        const columns=url.searchParams.get('select').split(',');
-        rows=rows.map(r=>Object.fromEntries(columns.map(k=>[k,r[k]??null])));
+        // PostgREST "alias:metadata->key" returns that one JSON value of metadata under the alias.
+        const columns=url.searchParams.get('select').split(',').map(c=>{const [alias,expr]=c.split(':');const m=/^metadata->([a-z_]+)$/.exec(expr||'');return [alias,m?r=>r.metadata?.[m[1]]:r=>r[alias]];});
+        rows=rows.map(r=>Object.fromEntries(columns.map(([k,get])=>[k,get(r)??null])));
         if(range){
           const [start,end]=range.split('-').map(Number);
           const page=rows.slice(start,Math.min(end+1,start+(options.notePageCap||500)));
@@ -184,7 +185,7 @@ function harness(options = {}) {
     const h = harness(); await h.request({ Authorization: 'Bearer valid-owner' });
     for (const c of h.calls.filter(c => c.url.pathname.startsWith('/rest/v1/'))) {
       const select = c.url.searchParams.get('select');
-      if (c.url.pathname.endsWith('/app_notes')) assert.ok(['id,workspace_id,occurred_at,created_at,updated_at,archived_at,ai_export_allowed','id,workspace_id,occurred_at,created_at,updated_at,archived_at,ai_export_allowed,raw_text,attachments'].includes(select));
+      if (c.url.pathname.endsWith('/app_notes')) assert.ok(['id,workspace_id,occurred_at,created_at,updated_at,archived_at,ai_export_allowed,journal_at:metadata->journal_at','id,workspace_id,occurred_at,created_at,updated_at,archived_at,ai_export_allowed,journal_at:metadata->journal_at,raw_text,attachments'].includes(select));
       assert.doesNotMatch(select, /\*|transcript_text|notes|decisions|body|detail_text|year_summary/);
       assert.doesNotMatch(c.url.pathname, /app_tasks|timeline|comments/);
       if (!/app_workspaces|app_workspace_members|public_policy_drive_config/.test(c.url.pathname)) {
@@ -384,6 +385,37 @@ test('basket state matches the screen for confirmed, suggested and archived note
   for(const archived_at of [null,now.toISOString()]) assert.equal(core.basketState(note('n',{archived_at}),links),noteState(note('n',{archived_at}),links).status);
  }
  assert.equal(core.basketState(note('n'),[{note_id:'n',status:'suggested'}]),'분류 제안됨');
+});
+
+// BASKET-일지로남기기: an update kept as a work-journal memo (metadata.journal_at) is not 미분류 in the Drive copy either.
+test('work-journal memos (metadata.journal_at) leave the basket and its old 미분류 count; unmarked ones stay',async()=>{
+ const AT='2026-10-03T10:00:00.000Z';
+ const h=harness({data:{app_notes:[
+  note('kept',{metadata:{journal_at:AT,other:'PRIVATE_META'}}),note('keptOld',{occurred_at:'2026-09-01T00:00:00Z',metadata:{journal_at:AT}}),
+  note('plain'),note('plainOld',{occurred_at:'2026-09-01T00:00:00Z'}),note('noMeta',{metadata:null}),
+  note('badNumber',{metadata:{journal_at:1}}),note('badText',{metadata:{journal_at:'nope'}}),note('badObject',{metadata:{journal_at:{at:AT}}}),
+ ]}});
+ assert.equal((await h.request({Authorization:'Bearer valid-owner'})).status,200);
+ const project=h.uploads[1].body;
+ assert.doesNotMatch(project,/TEXT_kept|PRIVATE_META/);
+ for(const id of ['plain','noMeta','badNumber','badText','badObject'])assert.match(project,new RegExp(`TEXT_${id}<`));
+ assert.match(project,/대상 건수: 5/);assert.match(project,/4주 이전 미분류: 1건/);
+ assert.ok(contentCalls(h).length>0);assert.ok(contentCalls(h).every(c=>!/kept/.test(c.url.searchParams.get('id'))),'a kept memo body is never read');
+});
+test('Edge noteJournalAt matches the screen rule (app/update-journal.js) for every mark shape',async()=>{
+ const {noteJournalAt}=await import('../../app/update-journal.js');
+ const basket=await import('../../supabase/functions/drive-summary/basket.mjs');
+ for(const value of [undefined,null,'2026-10-03T10:00:00.000Z','nope','',1,0,true,{},[],['2026-10-03T10:00:00Z']]){
+  const screen=noteJournalAt({metadata:value===undefined?{}:{journal_at:value}});
+  assert.equal(basket.noteJournalAt({journal_at:value??null}),screen,JSON.stringify(value));
+ }
+ const window=core.kstWindow(now),AT='2026-10-03T10:00:00.000Z';
+ const prepared=basket.prepareBasket([note('a',{journal_at:AT}),note('b',{journal_at:null}),note('c',{journal_at:'nope'})],[],now,window);
+ assert.deepEqual(prepared.recent.map(n=>n.id),['b','c']);
+});
+test('a journal mark changed between selection and recheck fails closed',async()=>{
+ const h=harness({existing:true,data:{app_notes:[note('one'),note('two')]},mutateRows:({rows,table,content,headerScans})=>table==='app_notes'&&!content&&headerScans===2?rows.map(r=>r.id==='one'?{...r,metadata:{journal_at:'2026-10-03T10:00:00.000Z'}}:r):rows});
+ const r=await(await h.request({Authorization:'Bearer valid-owner'})).json();assert.equal(r.error,'DB_READ_FAILED');assert.equal(h.uploads.length,0);
 });
 
 test('attachment filenames use Unicode character length like the DB constraint',async()=>{

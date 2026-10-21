@@ -10,6 +10,13 @@ export function selectBasketOrganizations(organizations, assignees) {
   const mine = active.filter(row => assigned.has(row.id));
   return { organizations: mine.length ? mine : active, fallback: mine.length === 0 };
 }
+// BASKET-일지로남기기: an update kept as a work-journal memo ([업무일지에 남기기]) is not 미분류. The mark is
+// metadata.journal_at, read as the row's journal_at (basket-read.mjs). Same rule as the browser's noteJournalAt
+// (app/update-journal.js): only a string that parses as a time counts; regression tests compare both.
+export const noteJournalAt = note => {
+  const value = note?.journal_at;
+  return typeof value === 'string' && Number.isFinite(Date.parse(value)) ? value : null;
+};
 // Basket export is read-only. No attachment downloads or external AI calls.
 export const BASKET_LIMITS = Object.freeze({ notes: 100, documentBytes: 1024 * 1024 });
 const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -40,7 +47,7 @@ function* attachmentChunks(file) {
 }
 export function prepareBasket(notes, links, now, window) {
   const linked = new Set(links.filter(link => ['confirmed', 'suggested'].includes(link.status)).map(link => link.note_id));
-  const unclassified = notes.filter(note => !note.archived_at && note.ai_export_allowed === true && !linked.has(note.id));
+  const unclassified = notes.filter(note => !note.archived_at && note.ai_export_allowed === true && !linked.has(note.id) && !noteJournalAt(note));
   const recent = unclassified.filter(note => Date.parse(note.occurred_at) >= Date.parse(window.start) && Date.parse(note.occurred_at) <= now.getTime())
     .sort((a, b) => Date.parse(b.occurred_at) - Date.parse(a.occurred_at) || String(a.id).localeCompare(String(b.id)));
   const oldCount = unclassified.filter(note => Date.parse(note.occurred_at) < Date.parse(window.start)).length;

@@ -1,6 +1,8 @@
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
+// journal_at: the work-journal memo mark only (metadata.journal_at, browser source app/update-journal.js;
+// BASKET-일지로남기기), as its JSON value. No other metadata key is selected.
 const HEADER_FIELDS =
-  "id,workspace_id,occurred_at,created_at,updated_at,archived_at,ai_export_allowed";
+  "id,workspace_id,occurred_at,created_at,updated_at,archived_at,ai_export_allowed,journal_at:metadata->journal_at";
 const LINK_FIELDS = "id,workspace_id,note_id,status";
 const CONTENT_FIELDS = `${HEADER_FIELDS},raw_text,attachments`;
 const validId = (v) =>
@@ -9,7 +11,13 @@ const failed = () => new Error("DB_READ_FAILED");
 const date = (v) =>
   typeof v === "string" && /(?:Z|[+-]\d\d:\d\d)$/.test(v) &&
   Number.isFinite(Date.parse(v));
-const same = (a, b, fields) => fields.split(",").every((k) => a[k] === b[k]);
+// A select entry is "column" or "alias:expression"; the row key is the part before ':'.
+const keysOf = (fields) => fields.split(",").map((f) => f.split(":")[0]);
+// journal_at is a JSON value (normally a string; anything else is compared by its JSON text).
+const same = (a, b, fields) =>
+  keysOf(fields).every((k) =>
+    a[k] === b[k] || JSON.stringify(a[k]) === JSON.stringify(b[k])
+  );
 
 // Notes-only complete Range/count reads. Other tables keep the existing reader.
 export function createBasketReader(
@@ -72,8 +80,8 @@ export function createBasketReader(
           !row || typeof row !== "object" || Array.isArray(row) ||
           !validId(row.id) || seen.has(row.id) ||
           row.workspace_id !== workspaceId || Object.keys(row).some((k) =>
-            !fields.split(",").includes(k)
-          ) || fields.split(",").some((k) => !Object.hasOwn(row, k))
+            !keysOf(fields).includes(k)
+          ) || keysOf(fields).some((k) => !Object.hasOwn(row, k))
         ) throw failed();
         seen.add(row.id);
         if (table === "app_notes") {
