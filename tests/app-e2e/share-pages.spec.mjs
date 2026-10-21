@@ -97,7 +97,14 @@ for (const width of [390, 1280]) test('make a share page: blocks, move, save, li
   await expect(root).toContainText('아직 만든 공유 페이지가 없어요');
   // S7: the old five cards stay, folded under "이전 페이지".
   const legacy = page.locator('#web1BoardLegacy');
-  await expect(legacy.locator(':scope > summary')).toHaveText('이전 페이지');
+  await expect(legacy.locator(':scope > summary')).toHaveText('이전 페이지 5');
+  await expect(legacy.locator(':scope > summary')).toHaveCSS('list-style-type','none');
+  expect(await legacy.locator(':scope > summary').evaluate(e=>getComputedStyle(e,'::before').content)).toBe('"▸"');
+  await legacy.locator(':scope > summary').focus();
+  await page.keyboard.press('Enter');
+  await expect(legacy).toHaveAttribute('open','');
+  expect(await legacy.locator(':scope > summary').evaluate(e=>getComputedStyle(e,'::before').content)).toBe('"▾"');
+  await page.keyboard.press('Enter');
   await expect(legacy).not.toHaveAttribute('open', '');
   await expect(page.locator('#web1BoardActive .w1b-card')).toHaveCount(5);
   await expect(page.locator('#web1BoardActive .w1b-card').first()).toBeHidden();

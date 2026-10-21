@@ -44,6 +44,8 @@
     active.innerHTML=aa.length?aa.map(card).join(''):'<div class="empty">진행 중인 Web1 사업 페이지가 없습니다.</div>';
     archived.innerHTML=zz.length?zz.map(card).join(''):'<div class="empty">지나간 업무·사업이 없습니다.</div>';
     archivedWrap.classList.toggle('hidden',!zz.length);
+    const legacyLabel=document.querySelector('#web1BoardLegacy > summary');
+    if(legacyLabel)legacyLabel.innerHTML='이전 페이지 <span class="w1b-legacy-count">'+items.length+'</span>';
     host.dataset.web1BoardReady='1'
   }
   function discardPendingReader(){
