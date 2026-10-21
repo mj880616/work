@@ -24,6 +24,7 @@ import { photoElement } from './diary-data.js';
 import { fileKind } from './meeting-compact.js';
 
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js';
+import { attachmentName, attachmentTitle } from './basket-file-name.mjs';
 import { placeAnchored, followAnchor, clearAnchored, isWide } from './anchored-popup.js';
 
 const root = document.querySelector('#basketView'), rt = window.KPTURuntime;
@@ -484,7 +485,7 @@ function renderList() {
   root.querySelector('[data-basket-rows]').innerHTML = visible.map(note => {
     const state = noteState(note, links, docs);
     const lines=String(note.raw_text||'').split(/\r?\n/).map(line=>line.trim()).filter(Boolean),file=note.attachments?.[0];
-    const title=lines[0]||(file?`${String(file.mime_type||'').startsWith('image/')?'사진':'파일'} · ${file.file_name||'첨부'}`:'업데이트');
+    const title=lines[0]||(file?attachmentTitle(file):'업데이트');
     // BUG-바구니연결해제: links are chips under the row button (a button cannot hold the × button).
     const chips = [...confirmedLinks(note.id).map(link => linkChip(link)), ...filedChips(note)].join('') + taskPlaceLine(note);
     return `<div class="basket-row-item" data-basket-row-item="${esc(note.id)}"><button type="button" class="basket-row-copy" data-basket-row-copy="${esc(note.id)}" aria-label="${esc([...title].slice(0,40).join(''))} 복사"${String(note.raw_text||'').trim()?'':' hidden'}>${COPY_ICON}</button><button type="button" class="basket-row-more" data-basket-row-more="${esc(note.id)}" aria-label="${esc([...title].slice(0,40).join(''))} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="basketRowMenu"><span aria-hidden="true">⋯</span></button><button type="button" class="basket-row" data-basket-row="${esc(note.id)}"><b class="basket-title">${esc([...title].slice(0,80).join(''))}</b>${lines.length>1?`<span class="basket-preview">${esc([...lines.slice(1).join(' ')].slice(0,120).join(''))}</span>`:''}<time>${esc(time(note))}</time><span>${esc(rowState(note, state))}${note.attachments?.length ? ' · 첨부 ' + note.attachments.length + '개' : ''}</span>${requestTagsHtml(noteRequests(note), esc)}</button>${chips ? `<div class="basket-row-links" role="group" aria-label="연결된 곳">${chips}</div>` : ''}</div>`;
@@ -599,14 +600,14 @@ async function copyChatgptRequest(){
 const PHOTO_TYPES=/^image\/(jpeg|png|webp|gif)$/i;
 const isPhoto=file=>PHOTO_TYPES.test(String(file?.mime_type||''));
 function fileRow(file){
-  const id=String(file?.drive_file_id||''),name=file.file_name||'첨부',url=driveFileUrl(id),sent=librarySent(id),doc=sent?.document?.id;
+  const id=String(file?.drive_file_id||''),name=attachmentName(file),url=driveFileUrl(id),sent=librarySent(id),doc=sent?.document?.id;
   const inLibrary=['created','exists'].includes(sent?.kind),meta=[fileSize(file.size_bytes),inLibrary?'자료실에 있음 ✓':sent?.kind==='unknown'?'자료실에서 확인해 주세요':''].filter(Boolean).join(' · ');
   const link=(icon,label)=>`${LINK_ICONS[icon]}<span>${label}</span>`;
   const open=url?`<a class="basket-file-link" href="${url}" target="_blank" rel="noopener noreferrer" aria-label="${esc(name)} Drive에서 열기">${link('drive','Drive에서 열기')}</a>`:'<span class="basket-file-link-off">링크를 확인할 수 없습니다.</span>';
   const sending=sent?.kind==='sending';
   const library=!id?'':inLibrary?(doc?`<a class="basket-file-link" href="${esc(libraryHref)}" data-basket-library-open="${esc(doc)}" aria-label="${esc(name)} 자료실에서 보기">${link('library','자료실에서 보기')}</a>`:'')
     :sent?.kind==='unknown'?'':`<button type="button" class="basket-file-link" data-basket-library-send="${esc(id)}" aria-label="${esc(name)} ${sending?'보내는 중…':'자료실로 보내기'}"${sending?' disabled':''}>${link('library',sending?'보내는 중…':'자료실로 보내기')}</button>`;
-  const hwp=id&&isHwpName(name)?`<button type="button" class="basket-file-link" data-basket-hwp-edit="${esc(id)}" aria-label="${esc(name)} 편집">${link('edit','편집')}</button>`:'';
+  const hwp=id&&isHwpName(file.file_name)?`<button type="button" class="basket-file-link" data-basket-hwp-edit="${esc(id)}" aria-label="${esc(name)} 편집">${link('edit','편집')}</button>`:'';
   const kind=fileKind(name);
   const thumb=isPhoto(file)&&id?`<button type="button" class="basket-file-thumb" data-basket-photo="${esc(id)}" aria-label="${esc(name)} 크게 보기"></button>`
     :`<span class="basket-file-thumb basket-file-kind file-kind" data-kind="${esc(kind.key)}" aria-hidden="true">${esc(kind.label)}</span>`;
@@ -619,9 +620,9 @@ let photoView=null;
 function openPhoto(fileId,trigger){
   const file=selected?.attachments?.find(f=>f.drive_file_id===fileId);if(!file||photoView)return;
   const box=document.createElement('div');box.className='basket-photo-view';box.dataset.basketPhotoView='';
-  box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');box.setAttribute('aria-label',file.file_name||'사진');
-  box.innerHTML=`<div class="basket-photo-bar"><span class="basket-photo-name">${esc(file.file_name||'사진')}</span><button type="button" class="basket-photo-close" data-basket-photo-close aria-label="크게 보기 닫기">×</button></div><div class="basket-photo-stage"></div>`;
-  box.querySelector('.basket-photo-stage').append(photoElement(selected,file,'large',{label:file.file_name||'사진',rt}));
+  box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');box.setAttribute('aria-label',attachmentName(file));
+  box.innerHTML=`<div class="basket-photo-bar"><span class="basket-photo-name">${esc(attachmentName(file))}</span><button type="button" class="basket-photo-close" data-basket-photo-close aria-label="크게 보기 닫기">×</button></div><div class="basket-photo-stage"></div>`;
+  box.querySelector('.basket-photo-stage').append(photoElement(selected,file,'large',{label:attachmentName(file),rt}));
   box.addEventListener('click',e=>{if(e.target.closest('[data-basket-photo-close]')||e.target===box.querySelector('.basket-photo-stage'))closePhoto();});
   box.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closePhoto();}});
   document.body.append(box);

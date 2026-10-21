@@ -21,6 +21,7 @@ import {categoryOf} from './document-categories.js';
 import {myOrganizationIds, OTHERS} from './my-organizations.js';
 import {noteRequests} from './update-requests.js';
 import {noteJournalAt, MOVED_KEY} from './update-journal.js';
+import {attachmentName} from './basket-file-name.mjs';
 
 export const WORK_LINE_MAX = 300;
 export const WORK_LINES_PER_DAY = 50;
@@ -256,7 +257,7 @@ export function memoLine(memo) {
   if (first) return first;
   const files = Array.isArray(memo?.attachments) ? memo.attachments : [];
   if (!files.length) return '(빈 업데이트)';
-  const name = String(files[0]?.file_name || '').trim();
+  const name = String(files[0]?.file_name || '').trim() ? attachmentName(files[0]) : '';
   return name ? (files.length > 1 ? `첨부: ${name} 외 ${files.length - 1}개` : `첨부: ${name}`) : `첨부 ${files.length}개`;
 }
 export const UNSORTED = '미분류';
