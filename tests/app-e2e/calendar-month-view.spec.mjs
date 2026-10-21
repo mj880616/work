@@ -1,6 +1,7 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 
-const url='http://127.0.0.1:8123/tests/app-e2e/calendar-month-view-fixture.html';
+const url=`${appOrigin}/tests/app-e2e/calendar-month-view-fixture.html`;
 
 test('five-week month uses 35 dense date cells with adjacent-month dates',async({page})=>{
   await page.setViewportSize({width:390,height:844});

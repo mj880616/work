@@ -1,9 +1,10 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import {serveBuiltShell,shellVersion} from './helpers/built-shell.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 
-const origin='http://127.0.0.1:8123';
+const origin=appOrigin;
 const current=shellVersion;
 async function boot(page,{connected=false}={}){
   // BUG-main브라우저시험: version-notice.js skips checks while navigator.onLine is false. Chromium

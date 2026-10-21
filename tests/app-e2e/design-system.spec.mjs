@@ -1,3 +1,4 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
@@ -51,7 +52,7 @@ test('Design System 1.0 keeps 36px top-level actions and the 32px calendar toolb
   test.setTimeout(60000);
   await page.setViewportSize({width:1024,height:900});
   await mockApp(page);
-  await page.goto('http://127.0.0.1:8123/app/');
+  await page.goto(`${appOrigin}/app/`);
   await signIn(page);
 
   const tokenNames=[

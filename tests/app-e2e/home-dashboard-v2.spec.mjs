@@ -1,8 +1,9 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 
 test('home dashboard renders project, task, milestone and library panels',async({page})=>{
   await page.setViewportSize({width:1440,height:900});
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/home-dashboard-v2-fixture.html');
+  await page.goto(`${appOrigin}/tests/app-e2e/home-dashboard-v2-fixture.html`);
 
   await expect(page.locator('#hdvProjectPanel')).toBeVisible();
   await expect(page.locator('#hdvTaskPanel')).toBeVisible();
@@ -28,7 +29,7 @@ test('home dashboard renders project, task, milestone and library panels',async(
 
 test('home dashboard stacks cards on mobile without horizontal overflow',async({page})=>{
   await page.setViewportSize({width:390,height:844});
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/home-dashboard-v2-fixture.html');
+  await page.goto(`${appOrigin}/tests/app-e2e/home-dashboard-v2-fixture.html`);
   await expect(page.locator('#hdvProjectPanel')).toBeVisible();
   await expect(page.locator('#hdvTaskPanel')).toBeVisible();
   await expect(page.locator('#hdvLibraryPanel')).toBeVisible();
@@ -42,7 +43,7 @@ test('home dashboard stacks cards on mobile without horizontal overflow',async({
 });
 
 test('home dashboard explains an initialization failure and recovers after a session refresh',async({page})=>{
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/home-dashboard-v2-fixture.html?fail-user=1');
+  await page.goto(`${appOrigin}/tests/app-e2e/home-dashboard-v2-fixture.html?fail-user=1`);
 
   await expect(page.locator('#hdvProjects')).toContainText('세션 확인에 실패했습니다.');
   await expect(page.locator('#hdvTasks')).toContainText('세션 확인에 실패했습니다.');
@@ -53,7 +54,7 @@ test('home dashboard explains an initialization failure and recovers after a ses
 });
 
 test('home dashboard never reuses context resolved by a previous session',async({page})=>{
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/home-dashboard-v2-fixture.html?race-session=1');
+  await page.goto(`${appOrigin}/tests/app-e2e/home-dashboard-v2-fixture.html?race-session=1`);
   await page.waitForFunction(()=>window.__firstMembershipPending===true);
 
   await page.evaluate(()=>window.__switchDashboardSession());

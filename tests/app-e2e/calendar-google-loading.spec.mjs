@@ -1,3 +1,4 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 
@@ -10,7 +11,7 @@ import { signInWithSession } from './helpers/session-login.mjs';
 //   status  = calendarList ∥ colors                 (병렬)
 //   events  = colors → calendars[i].events ×N        (직렬)
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const APP='http://127.0.0.1:8123/app/';
+const APP=`${appOrigin}/app/`;
 const LAT={edge:80,calendarList:300,colors:200,events:300};
 const CALS=['primary','cal-b','cal-c'];
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));

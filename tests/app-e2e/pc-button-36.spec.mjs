@@ -1,3 +1,4 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
@@ -51,7 +52,7 @@ async function signIn(page){
 
 async function boot(page,width){
  await page.setViewportSize({width,height:900});await mockApp(page,{spaces:[project]});
- await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
+ await page.goto(`${appOrigin}/app/`);await signIn(page);
 }
 async function open(page,name){await clickView(page,name);await expect.poll(()=>page.evaluate(n=>window.KPTUViewLoader.isLoaded(n),name)).toBe(true);}
 // Painted height and 44px touch area (pointer hits the same button 3px above and below its painted edge).

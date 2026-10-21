@@ -1,3 +1,4 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {openLegacyBoard} from './helpers/legacy-board.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
@@ -47,7 +48,7 @@ async function login(page){
 test('desktop web uses compact left navigation and safe project detail margins',async({page})=>{
   await page.setViewportSize({width:1440,height:900});
   await installMock(page);
-  await page.goto('http://127.0.0.1:8123/app/?view=calendar');
+  await page.goto(`${appOrigin}/app/?view=calendar`);
   await login(page);
 
   for(const width of [1280,1440,1920]){
@@ -126,12 +127,12 @@ test('desktop web uses compact left navigation and safe project detail margins',
 test('selected view survives refresh and page cards open inside the 게시판 tab',async({page})=>{
   await page.setViewportSize({width:1440,height:900});
   await installMock(page);
-  await page.goto('http://127.0.0.1:8123/app/?view=calendar');
+  await page.goto(`${appOrigin}/app/?view=calendar`);
   await login(page);
 
   await clickView(page,'calendar');
   await expect(page.locator('#calendarView')).toBeVisible();
-  await expect(page).toHaveURL('http://127.0.0.1:8123/app/?view=calendar');
+  await expect(page).toHaveURL(`${appOrigin}/app/?view=calendar`);
   await page.reload();
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await expect(page.locator('#calendarView')).toBeVisible({timeout:10000});

@@ -1,9 +1,10 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {test, expect} from '@playwright/test';
 import { signInWithSession } from './helpers/session-login.mjs';
 import {loginEntry} from './helpers/login-entry.mjs';
 
 const sb = 'https://xmlkxfjeagycwttklxjw.supabase.co';
-const base = 'http://127.0.0.1:8123/app/';
+const base = `${appOrigin}/app/`;
 
 for (const width of [390, 1280]) {
   test(`nonmember gets only denial and logout, including legacy invite at ${width}px`, async ({page}) => {
