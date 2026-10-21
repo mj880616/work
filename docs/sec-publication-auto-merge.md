@@ -169,7 +169,7 @@ CLI로 설정할 경우, **별도 승인 뒤에만** 저장소 루트에서 `gh 
 | `team-member-overview-e2e.yml` | PR, push main | `app/**`, `tests/app-e2e/nonmember-access.spec.mjs`, `tests/app-e2e/access-request-push.spec.mjs`, `tests/app-e2e/solo-shell.spec.mjs`, 자신 |
 | `update-2in1-labor-meeting-0911.yml` | 수동 | 없음 |
 | `update-2in1-labor-meeting-0913.yml` | push * | 자신 |
+| `web1-editor-auth-check.yml` | PR | 모든 `*.html`·`*.js`·`*.mjs`, `tests/security/web1-email-login-removed.test.mjs`, 자신 |
 | `web1-file-dropzone.yml` | PR | 없음. 모든 main 대상 PR에서 읽기 전용 검사 |
-| `web1-password-recovery-check.yml` | PR | `app/public-page-auth.js`, `app/public-page-editor.js`, `tests/app-e2e/public-page-password-recovery.spec.mjs`, 자신 |
 | `web2-one-shot-schema-authz.yml` | 수동 | 없음 |
 | `workplace-detail-static-check.yml` | PR, push main | `app/workplace-detail.js`, `app/workplace-detail.css`, `app/workplace-report.js`, `app/styles.css`, `app/loader-v2.js`, `app/view-loader.js`, 자신 |

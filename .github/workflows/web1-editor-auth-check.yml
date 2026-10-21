@@ -1,0 +1,28 @@
+name: Web1 editor auth check
+
+# 2026-10-21 Supabase 이메일 로그인 종료 뒤 Web1 편집은 Google 로그인만 쓴다.
+# 브라우저 코드에 이메일·비밀번호 로그인 경로가 다시 들어오지 않는지 확인한다.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '**/*.html'
+      - '**/*.js'
+      - '**/*.mjs'
+      - 'tests/security/web1-email-login-removed.test.mjs'
+      - '.github/workflows/web1-editor-auth-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  web1-editor-auth:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 20
+          package-manager-cache: false
+      - name: Verify Web1 editor uses Google sign-in only
+        run: node --test tests/security/web1-email-login-removed.test.mjs
