@@ -1,0 +1,67 @@
+name: Weekly HWPX prototype check
+
+# WEEKLY-한글초안 1단계 시제품(docs/design/weekly-hwpx-draft.md). 가짜 내용만 쓴다. 운영 접속·비밀값 없음.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/weekly-hwpx/**'
+      - 'tests/weekly-hwpx.test.mjs'
+      - 'tests/fixtures/hwp-lab/**'
+      - 'scripts/hwp-lab/rhwp-pin.json'
+      - '.github/workflows/weekly-hwpx-check.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/weekly-hwpx/**'
+      - 'tests/weekly-hwpx.test.mjs'
+      - 'tests/fixtures/hwp-lab/**'
+      - 'scripts/hwp-lab/rhwp-pin.json'
+      - '.github/workflows/weekly-hwpx-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  weekly-hwpx:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 20
+          package-manager-cache: false
+
+      - name: Unit tests (zip·XML·빈 서식·보고서·바뀐 줄)
+        run: node --test tests/weekly-hwpx.test.mjs
+
+      # 편집기와 같은 rhwp 엔진(@rhwp/core, 고정 버전·무결성은 scripts/hwp-lab/rhwp-pin.json)으로 만든 .hwpx를 다시 연다.
+      - name: Fetch pinned rhwp engine
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./scripts/hwp-lab/rhwp-pin.json').version")
+          INTEGRITY=$(node -p "require('./scripts/hwp-lab/rhwp-pin.json').coreIntegrity")
+          mkdir -p "$RUNNER_TEMP/rhwp"
+          TARBALL=$(cd "$RUNNER_TEMP/rhwp" && npm pack --silent "@rhwp/core@$VERSION")
+          ACTUAL="sha512-$(openssl dgst -sha512 -binary "$RUNNER_TEMP/rhwp/$TARBALL" | base64 -w0)"
+          [ "$ACTUAL" = "$INTEGRITY" ] || { echo "@rhwp/core 무결성 불일치" >&2; exit 1; }
+          tar -xzf "$RUNNER_TEMP/rhwp/$TARBALL" -C "$RUNNER_TEMP/rhwp"
+
+      - name: Build fake report → blank template → report, then reopen with rhwp
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/weekly-hwpx"
+          CORE="$RUNNER_TEMP/rhwp/package"
+          mkdir -p "$OUT"
+          node scripts/weekly-hwpx/cli.mjs fake "$OUT/fake.hwpx"
+          node scripts/weekly-hwpx/cli.mjs template "$OUT/fake.hwpx" "$OUT/blank.hwpx"
+          node scripts/weekly-hwpx/cli.mjs build "$OUT/blank.hwpx" demo "$OUT/report.hwpx"
+          for f in fake blank report; do node scripts/weekly-hwpx/cli.mjs reread "$CORE" "$OUT/$f.hwpx"; done
+          # rhwp가 HWP 5로 바꾼 파일을 다시 .hwpx로 바꿔도 규격 검사를 통과하는지(HWP 원본 → .hwpx 길)
+          node -e "const r=require('fs');(async()=>{const m=await import(process.argv[1]+'/rhwp.js');m.initSync({module:r.readFileSync(process.argv[1]+'/rhwp_bg.wasm')});const d=new m.HwpDocument(new Uint8Array(r.readFileSync(process.argv[2])));r.writeFileSync(process.argv[3],d.exportHwp());})()" "$CORE" "$OUT/report.hwpx" "$OUT/report.hwp"
+          node scripts/weekly-hwpx/cli.mjs convert "$CORE" "$OUT/report.hwp" "$OUT/report-again.hwpx"
+          node scripts/weekly-hwpx/cli.mjs template "$OUT/report-again.hwpx" "$OUT/blank-again.hwpx"
