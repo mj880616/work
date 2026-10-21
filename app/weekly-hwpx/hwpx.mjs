@@ -1,6 +1,6 @@
 // WEEKLY-한글초안 시제품: .hwpx 묶음 열기·저장, 머리(header.xml) 스타일 표 읽기, OWPML 규격 검사.
 // 압축 함수는 부르는 쪽이 넘긴다({deflateRaw, inflateRaw}) — Node는 node:zlib, 브라우저는 CompressionStream.
-import {readZip, writeZip} from './zip.mjs';
+import {readZip, writeZip, readZipAsync, writeZipAsync} from './zip.mjs';
 import {parseXml, toXml, kid, kids, walk} from './xml.mjs';
 
 export const MIMETYPE = 'application/hwp+zip';
@@ -11,6 +11,15 @@ const dec = new TextDecoder();
 export function openHwpx(bytes, zlib) {
   const entries = readZip(bytes, zlib);
   return {order: entries.map(e => e.name), files: new Map(entries.map(e => [e.name, e.data])), firstMethod: entries[0]?.method};
+}
+// 브라우저용(압축이 비동기): {inflateRawAsync} / {deflateRawAsync}
+export async function openHwpxAsync(bytes, zlib) {
+  const entries = await readZipAsync(bytes, zlib);
+  return {order: entries.map(e => e.name), files: new Map(entries.map(e => [e.name, e.data])), firstMethod: entries[0]?.method};
+}
+export function packHwpxAsync(pkg, zlib) {
+  const names = ['mimetype', ...pkg.order.filter(n => n !== 'mimetype')];
+  return writeZipAsync(names.map(name => ({name, data: pkg.files.get(name), store: name === 'mimetype'})), zlib);
 }
 export const readText = (pkg, name) => (pkg.files.has(name) ? dec.decode(pkg.files.get(name)) : null);
 export const readXml = (pkg, name) => parseXml(readText(pkg, name));
@@ -46,9 +55,18 @@ const LISTS = [['hh:fontfaces', 'hh:fontface'], ['hh:borderFills', 'hh:borderFil
 
 // OWPML 묶음·참조 검사. → {errors:[문장], parts, tables, paragraphs}
 export function validateHwpx(bytes, zlib) {
-  const errors = [];
   let pkg;
   try { pkg = openHwpx(bytes, zlib); } catch (e) { return {errors: [`압축 구조: ${e.message}`]}; }
+  return validatePackage(pkg);
+}
+// 브라우저용: 묶은 바이트를 다시 열어 같은 검사를 한다.
+export async function validateHwpxAsync(bytes, zlib) {
+  let pkg;
+  try { pkg = await openHwpxAsync(bytes, zlib); } catch (e) { return {errors: [`압축 구조: ${e.message}`]}; }
+  return validatePackage(pkg);
+}
+export function validatePackage(pkg) {
+  const errors = [];
   if (pkg.order[0] !== 'mimetype') errors.push('mimetype이 첫 항목이 아님');
   if (pkg.firstMethod !== 0) errors.push('mimetype이 압축됨(저장만 해야 함)');
   if (readText(pkg, 'mimetype') !== MIMETYPE) errors.push(`mimetype 값이 ${MIMETYPE}이 아님`);

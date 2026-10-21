@@ -82,8 +82,8 @@ function protoTable(tbl) {
 }
 
 // 회의 결과 상자 견본: 2열, 칸 이름 칸 + 내용 칸 한 줄(둘 다 빈칸).
-function protoBoxTable(tbl) {
-  const [first] = kids(tbl, 'hp:tr');
+function protoBoxTable(tbl, {row = 0} = {}) {
+  const first = kids(tbl, 'hp:tr')[row];
   const [label, body] = kids(first, 'hp:tc');
   const widths = [label, body].map(tc => Number(kid(tc, 'hp:cellSz').attrs.width));
   const out = el('hp:tbl', {...tbl.attrs, rowCnt: '1', colCnt: '2'});
@@ -112,8 +112,13 @@ export function extractBlankTemplate(source) {
     for (const p of top) for (const t of tablesIn(p)) if (head.every((label, i) => headTexts(t)[i] === label)) return [p, t];
     throw new Error(`표 머리가 '${head.join(' | ')}'인 표가 없음`);
   };
+  // 회의 결과 상자가 없는 주(회의 결과를 안 쓴 확정본)도 있다. 그때는 2열 표(투쟁 사업장 → 산하조직)의 첫 내용 줄 칸으로 상자 견본을
+  // 만든다(양식 안의 칸 모양·테두리만 쓰므로 머리 header.xml은 그대로).
   const findBox = () => {
-    for (const p of top) for (const t of tablesIn(p)) if (isBoxTable(t)) return [p, t];
+    for (const p of top) for (const t of tablesIn(p)) if (isBoxTable(t)) return [p, t, protoBoxTable];
+    for (const head of [SITE_HEAD, ORG_HEAD]) for (const p of top) for (const t of tablesIn(p)) {
+      if (headTexts(t).join('|') === head.join('|') && kids(t, 'hp:tr').length >= 2 && kids(kids(t, 'hp:tr')[1], 'hp:tc').length >= 2) return [p, t, tbl => protoBoxTable(tbl, {row: 1})];
+    }
     throw new Error('회의 결과 상자(2열, 왼쪽 칸 이름 표)가 없음');
   };
   const first = top[0];
@@ -126,7 +131,7 @@ export function extractBlankTemplate(source) {
     mid: protoParagraph(find(STYLE_OF.mid) ?? small),
     small: protoParagraph(small),
     note: protoParagraph(find(STYLE_OF.note) ?? find(STYLE_OF.body) ?? first),
-    boxTable: anchorWith(...findBox(), protoBoxTable),
+    boxTable: anchorWith(...findBox()),
   };
   for (const [key, head] of Object.entries(HEADED_TABLES)) protos[key] = anchorWith(...findTable(head));
   sec.root.children = PROTO_ORDER.map(k => protos[k]);

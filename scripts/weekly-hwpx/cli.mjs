@@ -13,9 +13,9 @@ import {readFileSync, writeFileSync} from 'node:fs';
 import {deflateRawSync, inflateRawSync} from 'node:zlib';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {join} from 'node:path';
-import {openHwpx, packHwpx, validateHwpx, readXml, headerStyles} from './hwpx.mjs';
-import {extractBlankTemplate, assertBlank, FORM_LABELS, BOX_LABELS} from './template.mjs';
-import {buildReport, readReport, reportTexts} from './report.mjs';
+import {openHwpx, packHwpx, validateHwpx, readXml, headerStyles} from '../../app/weekly-hwpx/hwpx.mjs';
+import {extractBlankTemplate, assertBlank} from '../../app/weekly-hwpx/template.mjs';
+import {buildReport, readReport, reportWords} from '../../app/weekly-hwpx/report.mjs';
 import {makeFakeReport, DEMO_DATA, FAKE_TEXTS} from './fixture.mjs';
 
 export const zlib = {deflateRaw: b => deflateRawSync(b, {level: 9}), inflateRaw: b => inflateRawSync(b)};
@@ -23,13 +23,7 @@ export const SAMPLE = fileURLToPath(new URL('../../tests/fixtures/hwp-lab/sample
 const load = path => openHwpx(new Uint8Array(readFileSync(path)), zlib);
 const save = (path, pkg) => { const bytes = packHwpx(pkg, zlib); writeFileSync(path, bytes); return bytes; };
 
-// 빈 서식 검사용 원본 글 조각: 문장 전체 + 한글 3글자 이상 낱말(양식 글자에 들어 있는 낱말은 뺌).
-const LABEL_TEXT = [...FORM_LABELS, ...BOX_LABELS].join(' ');
-export const reportWords = report => {
-  const texts = reportTexts(report).filter(t => !BOX_LABELS.includes(t));
-  const words = texts.flatMap(t => t.split(/[^가-힣A-Za-z0-9]+/)).filter(w => /[가-힣]/.test(w) && [...w].length >= 3 && !LABEL_TEXT.includes(w));
-  return [...new Set([...texts, ...words])];
-};
+export {reportWords};
 
 async function rhwp(core) {
   const mod = await import(pathToFileURL(join(core, 'rhwp.js')).href);
