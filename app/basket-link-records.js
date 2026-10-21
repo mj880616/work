@@ -58,6 +58,11 @@ export async function readLinkRecords({kind,targetIds,linkId,weekStart,weekEnd,d
   }
   return rows;
 }
+// UI-연결요약수정: clearing a saved summary back to NULL is not possible yet (app_basket_update_link_summary needs 1+ characters).
+export const SUMMARY_BLANK_TEXT='요약을 비워 저장하는 기능은 아직 준비 중이에요. 글을 남기거나 [취소]를 눌러 주세요.';
+// UI-연결요약수정: in a multi-line box Enter is a new line and Ctrl+Enter (Cmd+Enter on a Mac) saves. An Enter that only ends a
+// Korean IME composition is ignored. The coming common Enter-save rule (UI-엔터저장) uses the same keys.
+export const isSaveShortcut=event=>event?.key==='Enter'&&(event.ctrlKey||event.metaKey)&&!event.altKey&&!event.shiftKey&&!event.isComposing&&event.keyCode!==229;
 export const SUMMARY_ERROR_TEXT=Object.freeze({
   NOT_FOUND:'이 연결 기록을 찾거나 열 수 없어요.',
   PERMISSION_DENIED:'이 기록 요약을 고칠 권한이 없어요.',
@@ -87,7 +92,7 @@ export function recordMark(row,className='record-mark'){const note=isNoteRecord(
 // A note record shows the summary written when it was linked, else the note's title, else its opening text.
 export const recordText=row=>row.summary??(isNoteRecord(row)&&String(row.title||'').trim()?row.title:noteExcerpt(row.raw_text));
 // BUG-바구니연결해제: the whole line opens the original note; the ⋯ at its end holds
-// [메모 열기]·[연결 해제] and, in organization detail, [요약 수정]·[원문 삭제].
+// [메모 열기]·[연결 해제]·[요약 수정] and, for an update in organization detail, [원문 삭제].
 export function linkRecordHtml(row){
   const date=Number.isFinite(Date.parse(row.occurred_at))?formatSeoulTime(row.occurred_at,{year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}):'';
   const kind=row.organization_id?'organization':'project',note=isNoteRecord(row),href=note?'./?view=basket':`./?view=basket&note=${encodeURIComponent(row.note_id)}`;
@@ -101,14 +106,21 @@ function recordMenu(host){
   if(linkMenu)return linkMenu;
   linkMenu=createAnchoredMenu({id:'basketLinkMenu',className:'basket-link-menu',label:'바구니 기록 관리',historyKey:'kptuBasketLinkMenu',parent:host.closest('.modal')||document.body,
     key:trigger=>trigger.dataset.basketLinkMenu,canOpen:trigger=>!!hostOf(trigger)&&!trigger.disabled,
-    // UI-기록아이콘: a note's line offers [노트 열기]·[연결 해제] only (the note itself is managed on the note screen).
-    render:id=>[...document.querySelectorAll('[data-basket-link]')].find(el=>el.dataset.basketLink===id)?.dataset.basketLinkNoteKind==='note'?'<button type="button" data-basket-link-action="open">노트 열기</button><button type="button" data-basket-link-action="disconnect">연결 해제</button>':'<button type="button" data-basket-link-action="open">업데이트 열기</button><button type="button" data-basket-link-action="disconnect">연결 해제</button><button type="button" data-basket-link-action="summary">요약 수정</button><button type="button" class="basket-link-danger" data-basket-link-action="note-delete">원문 삭제</button>',
+    // UI-기록아이콘: a note's line offers [노트 열기]·[연결 해제]·[요약 수정] (the note itself is managed on the note screen, so no
+    // [원문 삭제]). UI-연결요약수정: [요약 수정] changes only this link's summary, never the note.
+    render:id=>[...document.querySelectorAll('[data-basket-link]')].find(el=>el.dataset.basketLink===id)?.dataset.basketLinkNoteKind==='note'?'<button type="button" data-basket-link-action="open">노트 열기</button><button type="button" data-basket-link-action="disconnect">연결 해제</button><button type="button" data-basket-link-action="summary">요약 수정</button>':'<button type="button" data-basket-link-action="open">업데이트 열기</button><button type="button" data-basket-link-action="disconnect">연결 해제</button><button type="button" data-basket-link-action="summary">요약 수정</button><button type="button" class="basket-link-danger" data-basket-link-action="note-delete">원문 삭제</button>',
     onAction:(button,active)=>{const host=hostOf(active.trigger);mountedHosts.get(host)?.(button.dataset.basketLinkAction,active.id);}});
   return linkMenu;
 }
 
 // One delegated editor per detail host; drafts and exact previous strings are
 // memory-only. A conflict/unknown result always needs explicit user confirmation.
+// UI-연결요약수정: organization detail (#wdUpdates) and project detail (the record list) both mount this one editor; project
+// detail opens it from its own ⋯ menu through edit(id). Rows are re-read with both note kinds so a note link saves too.
+// Overwrite rule (D11, docs/design/ai-server.md): the only summary writer is app_basket_update_link_summary, a compare-and-set
+// on the exact previous summary. [AI 요약] never saves and never replaces typed text without [이걸로 바꾸기]; any automatic
+// filler must send expected NULL, so a summary a person saved (non-NULL) makes it fail with SUMMARY_CHANGED instead of overwriting.
+const LINK_KINDS=['basket','note'];
 export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=()=>true,onUpdated=()=>{},onRemoved=()=>{},onOpenNote=null},rt=window.KPTURuntime){
   const states=new Map();let epoch=0;
   const valid=(state,run,owner)=>run===epoch&&states.get(state.id)===state&&owner===scope(rt)&&isCurrent()&&host.isConnected;
@@ -119,7 +131,7 @@ export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=
     const existing=formFor(id);if(existing){existing.querySelector('textarea')?.focus();return;}
     const row=[...host.querySelectorAll('[data-basket-link]')].find(row=>row.dataset.basketLink===id);if(!row)return;
     const state={id,expected:record.summary??null,busy:false,needsReview:false,latest:null,ai:newAiState(),aiTarget:null};states.set(id,state);
-    row.insertAdjacentHTML('beforeend',`<form data-link-summary-form="${escape(id)}"><details data-link-summary-original><summary>원문 전체 보기</summary><pre class="basket-link-original">${escape(record.raw_text??'')}</pre></details><label>기록 요약<textarea data-link-summary-input rows="3"></textarea></label><p data-link-summary-status role="status" aria-live="polite"></p><div data-link-summary-latest hidden></div><button type="button" class="secondary" data-link-summary-current hidden>최신 요약 확인</button><div class="basket-link-actions"><button type="submit" class="primary" data-link-summary-save>저장</button><button type="button" class="ghost" data-link-summary-cancel>취소</button></div></form>`);
+    row.insertAdjacentHTML('beforeend',`<form data-link-summary-form="${escape(id)}"><details data-link-summary-original><summary>원문 전체 보기</summary><pre class="basket-link-original">${escape(record.raw_text??'')}</pre></details><label>기록 요약<textarea data-link-summary-input rows="3"></textarea></label><p data-link-summary-status role="status" aria-live="polite"></p><div data-link-summary-latest hidden></div><button type="button" class="secondary" data-link-summary-current hidden>최신 요약 확인</button><div class="basket-link-actions"><button type="submit" class="primary" data-link-summary-save aria-keyshortcuts="Control+Enter" title="Ctrl+Enter로 저장">저장</button><button type="button" class="ghost" data-link-summary-cancel>취소</button></div></form>`);
     const form=formFor(id),input=form.querySelector('textarea');input.value=record.summary??'';input.focus();
     void aiGate(state,form,record);
   }
@@ -159,7 +171,7 @@ export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=
   }
   async function latest(state,form,run,owner){
     try{
-      const records=await readLinkRecords({linkId:state.id},rt);if(!valid(state,run,owner))return;
+      const records=await readLinkRecords({linkId:state.id,noteKinds:LINK_KINDS},rt);if(!valid(state,run,owner))return;
       const fresh=records[0];if(!fresh){form.querySelector('[data-link-summary-status]').textContent=SUMMARY_ERROR_TEXT.NOT_FOUND;return;}
       state.latest=fresh;const box=form.querySelector('[data-link-summary-latest]');box.hidden=false;box.textContent=`최신 요약: ${fresh.summary??'요약 없음'}`;
       form.querySelector('[data-link-summary-current]').hidden=false;
@@ -169,6 +181,7 @@ export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=
     const state=states.get(form.dataset.linkSummaryForm);if(!state||state.busy||!isCurrent())return;
     const run=epoch,owner=scope(rt),input=form.querySelector('textarea'),status=form.querySelector('[data-link-summary-status]');
     if(state.needsReview){await latest(state,form,run,owner);return;}
+    if(isBlankLinkSummary(input.value)){status.textContent=SUMMARY_BLANK_TEXT;input.focus();return;}
     let summary;try{summary=validateLinkSummary(input.value);}catch(error){status.textContent=error.message;input.focus();return;}
     const invalidate=()=>{if(owner===scope(rt))window.dispatchEvent(new Event('kptu:basket-links-changed'));};
     let acknowledged=false;
@@ -180,7 +193,7 @@ export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=
         if(result.error==='RESULT_UNKNOWN')invalidate();
         return;
       }
-      const fresh=(await readLinkRecords({linkId:state.id},rt))[0];if(!valid(state,run,owner)){invalidate();return;}
+      const fresh=(await readLinkRecords({linkId:state.id,noteKinds:LINK_KINDS},rt))[0];if(!valid(state,run,owner)){invalidate();return;}
       if(!fresh){status.textContent=SUMMARY_ERROR_TEXT.NOT_FOUND;state.needsReview=true;invalidate();return;}
       await onUpdated(fresh);if(!valid(state,run,owner)){invalidate();return;}
       states.delete(state.id);form.remove();window.dispatchEvent(new Event('kptu:basket-links-changed'));
@@ -225,7 +238,7 @@ export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=
     const row=rowsFor('basketLink',id)[0];if(!row||!isCurrent())return;
     const noteRow=row.dataset.basketLinkNoteKind==='note';
     if(name==='open'){openNote(row.dataset.basketLinkNote,noteRow?'note':'basket');return;}
-    if(noteRow&&name!=='disconnect')return;
+    if(noteRow&&!['disconnect','summary'].includes(name))return;
     if(name==='summary'){open(id);return;}
     if(name==='disconnect'||name==='note-delete')void act(id,name==='note-delete');
   }
@@ -245,6 +258,11 @@ export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=
     if(button.hasAttribute('data-link-summary-current')&&state.latest){state.expected=state.latest.summary;state.needsReview=false;form.querySelector('[data-link-summary-status]').textContent='최신 요약을 확인했어요. 작성 중인 글을 저장하려면 저장을 눌러 주세요.';button.hidden=true;form.querySelector('textarea').focus();}
   }
   function submit(event){const form=event.target.closest?.('[data-link-summary-form]');if(form&&host.contains(form)){event.preventDefault();void save(form);}}
-  host.addEventListener('click',click);host.addEventListener('submit',submit);mountedHosts.set(host,action);
-  return {clear,hasDraft:()=>states.size>0,dispose(){clear();if(linkMenu?.active&&host.contains(linkMenu.active.trigger))linkMenu.close(()=>{},false);if(mountedHosts.get(host)===action)mountedHosts.delete(host);host.removeEventListener('click',click);host.removeEventListener('submit',submit);}};
+  function keydown(event){
+    const input=event.target.closest?.('[data-link-summary-input]'),form=input?.closest('[data-link-summary-form]');
+    if(!form||!host.contains(form)||!isSaveShortcut(event))return;
+    event.preventDefault();if(!input.disabled)void save(form);
+  }
+  host.addEventListener('click',click);host.addEventListener('submit',submit);host.addEventListener('keydown',keydown);mountedHosts.set(host,action);
+  return {clear,hasDraft:()=>states.size>0,edit:id=>open(id),dispose(){clear();if(linkMenu?.active&&host.contains(linkMenu.active.trigger))linkMenu.close(()=>{},false);if(mountedHosts.get(host)===action)mountedHosts.delete(host);host.removeEventListener('click',click);host.removeEventListener('submit',submit);host.removeEventListener('keydown',keydown);}};
 }

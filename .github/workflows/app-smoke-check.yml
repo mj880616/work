@@ -383,7 +383,11 @@ jobs:
           grep -q "workstream_id:null,author_id:e.owner,status_label:null" app/project-system-v3.js
           grep -q "data-ps3-basket-note" app/project-system-v3.js
           grep -q ".ps3-rec-line" app/project-system-v3.css
-          if grep -Eq "data-ps3-add-ws|data-ps3-progress-item|data-ps3-quick-progress|ps3ProgressModal|mountLinkSummaryEditor" app/project-system-v3.js; then echo 'retired per-item progress UI or project basket editor returned'; exit 1; fi
+          if grep -Eq "data-ps3-add-ws|data-ps3-progress-item|data-ps3-quick-progress|ps3ProgressModal" app/project-system-v3.js; then echo 'retired per-item progress UI returned'; exit 1; fi
+          # UI-연결요약수정: the shared link summary editor may be mounted only lazily from the record ⋯ [요약 수정] action (no always-on project basket editor).
+          grep -q "ps3RecordAction==='summary')editBasketSummary(b)" app/project-system-v3.js
+          test "$(grep -o 'mountLinkSummaryEditor(' app/project-system-v3.js | wc -l)" -eq 1
+          grep -q "if(!basketEditor){basketEditorKey=key;basketEditor=mountLinkSummaryEditor(body," app/project-system-v3.js
           if grep -Eq "ps3CreateType|ps3CreateVisibility|ps3AccessModal|ps3TypeModal|data-ps3-access|ps3ManageTypes" app/project-system-v3.js; then echo 'removed project type/access UI returned'; exit 1; fi
           if grep -q "bindPublication();" app/project-system-v3.js; then echo 'project publication execution path returned'; exit 1; fi
           grep -q "projects','\\[\\]'::jsonb" supabase/migrations/20260923074619_web2_project_owner_only.sql
