@@ -20,7 +20,7 @@
 - **CC가 시작하고 사용자는 승인만**(2026-10-21 사용자 결정): CC 세션은 workflow를 시작할 수 있고(`workflow_dispatch`), 승인(environment reviewer)은 할 수 없다. 그래서
   - Edge 배포: CC가 `edge-function-deploy`를 정확한 function·ref·옵션으로 시작 → 사용자는 GitHub 알림에서 [Approve] 한 번 → CC가 결과(버전·401·OPTIONS)를 확인하고 되돌리기 ref를 기록.
   - basket-pc 릴리스: CC가 태그를 만들어 시작 → 사용자 승인 한 번.
-  - DB 적용: 승인형 DB workflow로 옮기는 중(DB-승인형확장). 그 전까지는 SQL Editor(사전 확인·상태 저장·적용·사후 확인·되돌리기 파일)로 사용자가 실행.
+  - DB 적용: CC가 `db-migration-apply`를 mode `apply`·migration 파일 이름으로 시작 → 사용자 승인 한 번 → workflow가 사전 확인·상태 저장(artifact)·시험 적용·적용·사후 확인을 차례로 하고 하나라도 실패하면 멈춤(되돌리기는 자동 아님, 사용자 결정). 확장 규칙이 거절한 migration(권한 확대 모양)만 SQL Editor 경로로 간다. 상세: `docs/ops-db-workflow.md` "승인 한 번 흐름".
 - **사용자가 꼭 해야 하는 것**(CC가 대신 할 수 없음, 단계별 일상어 안내): 위 승인 버튼, 비밀값 값 입력(Supabase·GitHub), GitHub 설정, 사용자 PC에서의 시험.
 - 인증 우회·RLS 약화·권한 확대는 해결책으로 쓰지 않는다.
 
