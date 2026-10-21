@@ -3,6 +3,7 @@ import type { UploadAdmin, UploadLog } from "../_shared/drive-upload.ts";
 import {createOcrHandler} from "./ocr.ts";
 import { createNoteDeleteHandler } from "./note-delete.ts";
 import { createPhotoHandler } from "./photo.ts";
+import { readMultipartForm } from "./multipart.ts";
 import type {OcrUser} from "./ocr.ts";
 
 const cors = {
@@ -108,7 +109,8 @@ export function createBasketHandler(
       stage = "request";
       let form: FormData;
       try {
-        form = await req.formData();
+        // Not req.formData(): Deno cuts quoted file names at ';' and '=' (see multipart.ts).
+        form = await readMultipartForm(req);
       } catch {
         throw new UploadError(400, "invalid_request", stage);
       }
