@@ -32,10 +32,11 @@ test('project deletion keeps other unlink requests and makes no app_events reque
   const calls = [];
   const context = vm.createContext({
     current: {id: 'parent-1'}, detail: {},
-    kids: () => [{id: 'child-1'}],
+    // PRJ-3단(#850): deletion walks every level below (descendants), not just direct children.
+    descendants: () => [{project: {id: 'child-1'}}],
     $: () => ({textContent: '', className: ''}),
     api: async (path, options) => { calls.push({path, method: options.method}); return []; },
-    closeModal: () => {}, clearUrl: () => {}, renderGrid: async () => {}, toast: () => {},
+    closeModal: () => {}, closeDetail: () => {}, splitWanted: () => false, clearUrl: () => {}, renderGrid: async () => {}, toast: () => {},
   });
   const src = read('project-system-v3.js');
   vm.runInContext(`${functionSource(src, 'unlink')}; ${functionSource(src, 'deleteProject')}; this.deleteProject=deleteProject`, context);
