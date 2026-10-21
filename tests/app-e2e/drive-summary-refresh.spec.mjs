@@ -87,11 +87,13 @@ const workspace={id:'refresh-workspace',slug:'kptu-work',name:'웹2'};
 for(const [name,width] of [['PC',1280],['phone',390]])test(`app meeting save refreshes the Drive copy once after a few minutes (${name})`,async({page})=>{
   test.setTimeout(90000);
   await page.setViewportSize({width,height:900});
-  let calls=0;const meetings=[];
+  let calls=0;const meetings=[],ledgerReads=[];
   await page.route(`${SB}/**`,async route=>{
     const req=route.request(),path=new URL(req.url()).pathname;
     const ok=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data??null)});
-    if(path==='/functions/v1/drive-summary'){calls++;return ok(success)}
+    // S7-d: the weekly ledger export check (GET ?action=ledger_status, 2 minutes after start) is a separate read;
+    // this test counts only the copy refresh (POST without an action).
+    if(path==='/functions/v1/drive-summary'){const action=new URL(req.url()).searchParams.get('action');if(req.method()==='POST'&&!action)calls++;else ledgerReads.push(`${req.method()} ${action}`);return ok(success)}
     if(path==='/auth/v1/token')return ok({access_token:'refresh-access',refresh_token:'refresh-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user});
     if(path==='/auth/v1/user')return ok(user);
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
@@ -121,6 +123,8 @@ for(const [name,width] of [['PC',1280],['phone',390]])test(`app meeting save ref
   await page.clock.fastForward(WAIT-5000);expect(calls).toBe(0);
   await page.clock.fastForward(5000);await expect.poll(()=>calls).toBe(1);
   await page.clock.fastForward(WAIT*4);expect(calls).toBe(1);
+  // Only the ledger status read may appear besides the copy refresh; the old-shape answer never starts an export.
+  expect(ledgerReads.every(r=>r==='GET ledger_status')).toBe(true);
   await expect(page.locator('[data-drive-summary-refresh],[data-drive-summary-status],[data-account-drive-slot],.drive-summary-time,.drive-summary-links')).toHaveCount(0);
   await expect(page.locator('body')).not.toContainText('사본');
 });
