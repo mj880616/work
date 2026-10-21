@@ -42,13 +42,13 @@ for(const width of [390,1280])test(`read actions: three buttons in one row, the 
  await expect(page.locator('#basketView').getByRole('button',{name:'AI 분류 요청',exact:true})).toHaveCount(0);
  await expect(page.locator('[data-basket-handoff-scope]')).toBeHidden();
  if(width===390)await more.tap();else await more.click();
- await expect(menu.getByRole('button')).toHaveText(['수정','보관','삭제']);
+ await expect(menu.getByRole('button')).toHaveText(['수정','보관','업무일지에 남기기','삭제']);
  for(const b of await menu.getByRole('button').all())expect((await box(b)).height).toBeGreaterThanOrEqual(44);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath(`basket-read-actions-${width}.png`),fullPage:true});
  // Keyboard: the menu opens on its first item and Tab walks it in order, 삭제 last.
  const items=menu.getByRole('button');await expect(items.first()).toBeFocused();
- for(let i=1;i<3;i++){await page.keyboard.press('Tab');await expect(items.nth(i)).toBeFocused();}
+ for(let i=1;i<4;i++){await page.keyboard.press('Tab');await expect(items.nth(i)).toBeFocused();}
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(more).toBeFocused();
  // Touch and keyboard still open the same panels as before.
  if(width===390)await task.tap();else{await task.focus();await page.keyboard.press('Enter');}

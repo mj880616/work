@@ -71,7 +71,7 @@ for (const width of [390, 1280]) {
     for (const b of ab) { expect(Math.round(b.y)).toBe(Math.round(ab[0].y)); expect(b.y + b.height).toBeLessThanOrEqual(box.y + box.height); }
     // ⋯ keeps 수정·보관·삭제 only.
     await press(page, page.locator('[data-basket-note-more]'), width);
-    await expect(page.locator('#basketNoteMenu button')).toHaveText(['수정', '보관', '삭제']);
+    await expect(page.locator('#basketNoteMenu button')).toHaveText(['수정', '보관', '업무일지에 남기기', '삭제']);
     await page.keyboard.press('Escape');
     // Photo: a small preview through the owner-only photo view (never a public or Drive share address).
     const photo = card.locator('[data-basket-file-card="drive-photo"]');

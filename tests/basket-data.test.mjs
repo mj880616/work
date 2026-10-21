@@ -84,8 +84,8 @@ test('the basket read asks for these attachments\' documents and their project n
 
 // UI-바구니거르기: [미분류][분류][보류] and, under [분류], where the memo went.
 test('segments split unclassified, classified and on-hold memos; place chips follow links, filed documents and tasks',()=>{
- assert.deepEqual(BASKET_PLACES.map(([v])=>v),['all','organization','project','library','task']);
- assert.deepEqual(BASKET_PLACES.map(([,l])=>l),['전체','담당조직','프로젝트','자료실','할 일']);
+ assert.deepEqual(BASKET_PLACES.map(([v])=>v),['all','organization','project','library','task','journal']);
+ assert.deepEqual(BASKET_PLACES.map(([,l])=>l),['전체','담당조직','프로젝트','자료실','할 일','업무일지']);
  const task={task_id:'t1',task_list_id:'l',title:'할 일',created_at:'2026-10-18T00:00:00Z'};
  const notes=[
   {id:'org'},{id:'proj'},{id:'doc'},{id:'meet'},{id:'filed',attachments:[{drive_file_id:'drive-a'}]},

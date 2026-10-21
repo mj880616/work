@@ -20,6 +20,7 @@ import {readBasket, filedOrganizations, filedProjects} from './basket-data.js';
 import {categoryOf} from './document-categories.js';
 import {myOrganizationIds, OTHERS} from './my-organizations.js';
 import {UPDATE_REQUESTS, noteRequests, requestPrefix} from './update-requests.js';
+import {noteJournalAt} from './update-journal.js';
 
 export const WORK_LINE_MAX = 300;
 export const WORK_LINES_PER_DAY = 50;
@@ -270,12 +271,13 @@ function basketPlaces(basket, day) {
     }
     for (const org of filedOrganizations(memo, docs)) if (!orgs.has(org.organization_id)) orgs.set(org.organization_id, {id:org.organization_id, name:org.name, summary:''});
     for (const project of filedProjects(memo, docs)) if (!projects.some(p => p.name === project.name)) projects.push({name:project.name, summary:''});
-    return {memo, orgs:[...orgs.values()], projects, line:memoLine(memo), requests:noteRequests(memo)};
+    return {memo, orgs:[...orgs.values()], projects, line:memoLine(memo), requests:noteRequests(memo), journal:!!noteJournalAt(memo)};
   });
 }
 // 조직 소식 of one day: [{name, items:[text]}] — one section per organization (by name), '미분류' last.
 // A basket update goes under each organization it was sent to (a confirmed link, or its files filed as that organization's
-// documents); the link's summary is shown when there is one. One sent to no organization and no project is '미분류'.
+// documents); the link's summary is shown when there is one. One sent to no organization and no project is '미분류'
+// unless it is kept as a work-journal memo (기타 메모, journalMemosOn).
 // An organization record goes under its organization. Project records and updates sent only to a project are 프로젝트 소식.
 // ORG-담당13기준: when the organization read gave my organizations (orgUpdates.mine), only those get their own section; an
 // update of any other organization goes under one '그 외' section as "조직 이름 · 내용", so it is still there. Without that
@@ -287,9 +289,9 @@ export function orgNewsOn({basket, orgUpdates} = {}, day) {
     if (id && mine && !mine.has(id)) entries.push({name:OTHERS, at, text:`${label || '조직'} · ${text}`, requests});
     else entries.push({name: label || UNSORTED, at, text, requests});
   };
-  for (const {memo, orgs, projects, line, requests} of basketPlaces(basket, day)) {
+  for (const {memo, orgs, projects, line, requests, journal} of basketPlaces(basket, day)) {
     if (orgs.length) for (const org of orgs) add(org.id, org.name, memo.occurred_at, org.summary || line, requests);
-    else if (!projects.length) add(null, UNSORTED, memo.occurred_at, line, requests);
+    else if (!projects.length && !journal) add(null, UNSORTED, memo.occurred_at, line, requests);
   }
   for (const row of orgUpdates || []) if (onDay(row?.occurred_at, day)) add(row.organization_id, row.organization?.name, row.occurred_at, firstLine(row.raw_text) || firstLine(row.detail_text) || '(빈 업데이트)');
   return sectionsOf(entries);
@@ -306,6 +308,11 @@ export function projectNewsOn({basket, projectUpdates} = {}, day) {
     add(row.project?.name, row.created_at || `${day}T23:59:59+09:00`, firstLine(row.summary) || '(빈 업데이트)');
   return sectionsOf(entries);
 }
+// BASKET-일지로남기기: 기타 메모 of one day — the day's updates kept as work-journal memos ([업무일지에 남기기], metadata.journal_at)
+// that went to no organization and no project, oldest first, one item each (its first line, as the other update groups).
+// They leave 조직 소식's '미분류'; an update linked to an organization or a project later shows there instead, never twice.
+export const journalMemosOn = (basket, day) => basketPlaces(basket, day)
+  .filter(({orgs, projects, journal}) => journal && !orgs.length && !projects.length).map(({line}) => line);
 // 회의·행사 결과 of one day: every meeting row of this workspace whose meeting_at falls on that day (Korea time). Press
 // conferences and forums are meeting rows too (their series name says so), so no kind is filtered out.
 export const meetingsOn = (meetings, day) => (meetings || []).filter(meeting => onDay(meeting?.meeting_at, day)).sort((a, b) => byTime(a.meeting_at, b.meeting_at));
@@ -320,12 +327,12 @@ export const documentLine = doc => `[${categoryOf(doc?.category)}] ${String(doc?
 export const sharePageLine = page => `${String(page?.title || '').trim() || '제목 없음'} · ${page?.status === 'published' ? '게시' : '초안'}`;
 export const GROUPS = Object.freeze([
   ['events', '일정'], ['tasks', '끝낸 할 일'], ['orgs', '조직 소식'], ['meetings', '회의·행사 결과'],
-  ['projects', '프로젝트 소식'], ['due', '할 일 예정'], ['docs', '자료실 새 자료'], ['shares', '공유 페이지'],
+  ['projects', '프로젝트 소식'], ['due', '할 일 예정'], ['docs', '자료실 새 자료'], ['shares', '공유 페이지'], ['memos', '기타 메모'],
 ]);
 // The reads behind each group (journal.js reads each on its own; a group shows what it could read). One Google Tasks read
 // feeds both 끝낸 할 일 and 할 일 예정; the basket read feeds both 조직 소식 and 프로젝트 소식.
 export const GROUP_SOURCES = Object.freeze({events:['events'], tasks:['tasks'], orgs:['basket', 'orgUpdates'], meetings:['meetings'],
-  projects:['basket', 'projectUpdates'], due:['tasks'], docs:['documents'], shares:['sharePages']});
+  projects:['basket', 'projectUpdates'], due:['tasks'], docs:['documents'], shares:['sharePages'], memos:['basket']});
 const SECTIONED = new Set(['orgs', 'projects']);
 // The items of one day: {key, label, items:[text]} per group (조직 소식·프로젝트 소식 also have sections:[{name, items}]),
 // loading:true while a read is out, failed:[source keys] for reads that failed (a sectioned group still shows what its other
@@ -342,6 +349,7 @@ export function dayMaterials(materials, day) {
     if (key === 'meetings' && !failed.length) items = meetingsOn(ok('meetings'), day).map(meetingLine);
     if (key === 'due' && !failed.length) items = pendingOn(ok('tasks'), day).map(task => task.title || '(제목 없음)');
     if (key === 'docs' && !failed.length) items = (ok('documents') || []).filter(doc => onDay(doc?.created_at, day)).map(documentLine);
+    if (key === 'memos' && !failed.length) items = journalMemosOn(ok('basket'), day);
     if (key === 'shares' && !failed.length) items = (ok('sharePages') || []).filter(page => onDay(page?.updated_at, day)).map(sharePageLine);
     if (SECTIONED.has(key) && failed.length < sources.length) {
       const read = {basket:ok('basket'), orgUpdates:ok('orgUpdates'), projectUpdates:ok('projectUpdates')};
@@ -360,6 +368,9 @@ export function rangeNote(group, day, {doneDays = DONE_TASK_DAYS, today = todayK
   if (group.key === 'due' && day > pendingCoverTo(today)) return `할 일 예정은 오늘부터 ${PENDING_DAYS}일 안 마감만 모여요.`;
   return '';
 }
+// BASKET-일지로남기기: 기타 메모 is only there when something was kept for it, so an empty one is left out altogether (no box and
+// not named in "기록 없는 묶음").
+export const QUIET_WHEN_EMPTY = Object.freeze(['memos']);
 export const isFolded = (group, day, range) => !group.items.length && !group.loading && !group.failed && !rangeNote(group, day, range);
 export const shortDay = day => `${formatSeoulTime(day, {month:'long', day:'numeric'})}(${formatSeoulTime(day, {weekday:'short'})})`;
 

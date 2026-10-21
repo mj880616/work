@@ -3,6 +3,7 @@
 import { noteTasks } from './basket-note-tasks.js';
 import { documentCategories, categoryOf } from './document-categories.js';
 import { requestsGuard } from './update-requests.js';
+import { noteJournalAt, journalGuard } from './update-journal.js';
 const PAGE_SIZE = 100;
 export function validateNoteText(raw_text) {
   if (typeof raw_text !== 'string' || !raw_text.trim()) throw new Error('글을 입력해 주세요.');
@@ -166,7 +167,8 @@ export function sortNotes(notes) {
 // Folder and pin share metadata: every metadata write here reads the row again, keeps the other keys, and only applies
 // while updated_at, pinned_at and folder are still what it read (so a pin never drops a folder and a move never drops a pin).
 // It also guards the request marks already saved on a row (metadata.requests, JOURNAL-요청표시; the screen no longer sets them,
-// UI-요청버튼삭제) and the first recorded task (metadata.tasks, basket-note-tasks.js), so no writer drops another's key.
+// UI-요청버튼삭제), the work-journal memo mark (metadata.journal_at, update-journal.js) and the first recorded task
+// (metadata.tasks, basket-note-tasks.js), so no writer drops another's key.
 const metaGuardValue = (key, value) => typeof value === 'string' ? `&metadata->>${key}=eq.${encodeURIComponent(value)}` : value == null ? `&metadata->>${key}=is.null` : '';
 // The same guard as noteTaskGuard (basket-note-tasks.js) for the first recorded task.
 const taskGuard = id => `&metadata->tasks->0->>task_id=${id == null ? 'is.null' : 'eq.' + encodeURIComponent(typeof id === 'string' ? id : JSON.stringify(id))}`;
@@ -178,7 +180,7 @@ async function patchNoteMetadata(note, change, rt) {
   const fresh = rows[0], old = plainObject(fresh.metadata) ? fresh.metadata : {};
   const metadata = change({...old});
   if (metadata === null) return fresh;
-  const guard = `updated_at=eq.${encodeURIComponent(fresh.updated_at)}${metaGuardValue('pinned_at', old.pinned_at)}${metaGuardValue('folder', old.folder)}${requestsGuard(old)}${taskGuard(firstTaskId(old))}`;
+  const guard = `updated_at=eq.${encodeURIComponent(fresh.updated_at)}${metaGuardValue('pinned_at', old.pinned_at)}${metaGuardValue('folder', old.folder)}${requestsGuard(old)}${journalGuard(old)}${taskGuard(firstTaskId(old))}`;
   const saved = await rt.api(`${base}&${guard}&select=id,updated_at,metadata`, {method:'PATCH', prefer:'return=representation', body:{metadata}});
   if (!Array.isArray(saved) || saved.length !== 1) throw Object.assign(new Error('노트가 그사이 바뀌었어요. 다시 불러온 뒤 눌러 주세요.'), {code:'note_changed'});
   return saved[0];
@@ -262,8 +264,9 @@ export function noteState(note, links, docs = []) {
 }
 // UI-바구니거르기: where a classified memo went, from what is already read (no stored state):
 // confirmed record links by target kind, [자료로 넣기] documents (a project's library documents, so both
-// 'project' and 'library'), and Google tasks made from it (metadata.tasks, basket-note-tasks.js).
-export const BASKET_PLACES = Object.freeze([['all','전체'], ['organization','담당조직'], ['project','프로젝트'], ['library','자료실'], ['task','할 일']]);
+// 'project' and 'library'), Google tasks made from it (metadata.tasks, basket-note-tasks.js) and the work-journal memo
+// mark (metadata.journal_at, update-journal.js; place 'journal' = [업무일지]).
+export const BASKET_PLACES = Object.freeze([['all','전체'], ['organization','담당조직'], ['project','프로젝트'], ['library','자료실'], ['task','할 일'], ['journal','업무일지']]);
 export function notePlaces(note, links, docs = []) {
   const places = new Set();
   for (const link of links) {
@@ -276,12 +279,21 @@ export function notePlaces(note, links, docs = []) {
   if (filedProjects(note, docs).length) { places.add('project'); places.add('library'); }
   if (filedOrganizations(note, docs).length) { places.add('organization'); places.add('library'); }
   if (noteTasks(note).length) places.add('task');
+  if (noteJournalAt(note)) places.add('journal');
   return places;
 }
-// A memo has gone somewhere when it is confirmed (noteState) or a Google task was made from it.
+// A memo has gone somewhere when it is confirmed (noteState), a Google task was made from it, or it was kept as a
+// work-journal memo (metadata.journal_at, update-journal.js; BASKET-일지로남기기).
 export function noteClassified(note, links, docs = []) {
-  return !note.archived_at && (noteState(note, links, docs).status === '확정' || noteTasks(note).length > 0);
+  return !note.archived_at && (noteState(note, links, docs).status === '확정' || noteTasks(note).length > 0 || !!noteJournalAt(note));
 }
+// BASKET-일지로남기기: [업무일지에 남기기] is offered only for an update that went to no organization and no project (a confirmed
+// organization/project link, or its files put in as their documents); the mark itself can always be removed.
+export function noteHasOrgOrProject(note, links, docs = []) {
+  return links.some(l => l.note_id === note.id && l.status === 'confirmed' && (l.organization_id || l.project_id))
+    || filedProjects(note, docs).length > 0 || filedOrganizations(note, docs).length > 0;
+}
+export const canKeepInJournal = (note, links, docs = []) => !note.archived_at && !noteJournalAt(note) && !noteHasOrgOrProject(note, links, docs);
 // [미분류]: not archived and gone nowhere yet (a stored suggestion still waits here, marked "정리 제안 있음").
 // [분류]: gone somewhere, narrowed by place. [보류] (filter value 'archived'): archived. noteState is unchanged.
 export function visibleNotes(notes, links, filter, docs = [], place = 'all', sub = 'all') {

@@ -264,7 +264,7 @@ test('one day of materials in display order; a failed group is marked, the rest 
     meetings:{status:'ok', items:[{id:'m1', series_name:'기자회견', round_no:null, meeting_at:'2026-10-06T02:00:00Z'}, {id:'m2', title:'운영위', series_name:'운영위원회', round_no:3, meeting_at:'2026-10-05T23:30:00Z'}, {id:'m3', series_name:'다른 날', meeting_at:'2026-10-06T15:00:00Z'}]},
   };
   const day = m.dayMaterials(materials, '2026-10-06');
-  assert.deepEqual(day.map(g => g.label), ['일정', '끝낸 할 일', '조직 소식', '회의·행사 결과', '프로젝트 소식', '할 일 예정', '자료실 새 자료', '공유 페이지']);
+  assert.deepEqual(day.map(g => g.label), ['일정', '끝낸 할 일', '조직 소식', '회의·행사 결과', '프로젝트 소식', '할 일 예정', '자료실 새 자료', '공유 페이지', '기타 메모']);
   assert.deepEqual(day[0].items, ['종일 종일', '00:30 새벽', '14:00 오후']);
   assert.deepEqual(day[1].failed, ['tasks']);
   assert.deepEqual(day[2].sections, [{name:'미분류', items:['첫 줄 메모', '첨부 2개']}]);
@@ -495,8 +495,8 @@ test('hub groups: an empty group is folded unless it is loading, failed or has a
   const m = await mod;
   const range = {doneDays:3, today:'2026-10-06'};
   const fold = (materials, day) => m.dayMaterials(materials, day).filter(g => m.isFolded(g, day, range)).map(g => g.key);
-  assert.deepEqual(fold(hubMaterials(), '2026-10-06'), ['events', 'orgs', 'meetings']);
-  assert.deepEqual(fold({...hubMaterials(), meetings:{status:'failed'}, events:{status:'loading'}}, '2026-10-06'), ['orgs']);
+  assert.deepEqual(fold(hubMaterials(), '2026-10-06'), ['events', 'orgs', 'meetings', 'memos']);
+  assert.deepEqual(fold({...hubMaterials(), meetings:{status:'failed'}, events:{status:'loading'}}, '2026-10-06'), ['orgs', 'memos']);
   // Before the covered days, 끝낸 할 일 keeps its box with the range note; after the server's range, 할 일 예정 does.
   const old = m.dayMaterials(hubMaterials(), '2026-10-01').find(g => g.key === 'tasks');
   assert.equal(m.rangeNote(old, '2026-10-01', range), 'Google 할 일은 최근 3일 안에 끝낸 것만 모여요.');

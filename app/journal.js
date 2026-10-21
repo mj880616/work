@@ -13,7 +13,7 @@
 // the day is not drawn as a box; one "기록 없는 묶음: …" line at the end names them (docs/design/weekly-report-hub.md 2절).
 import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, changeWorkDay, validateWorkLine, WORK_LINE_MAX,
   workLines, addLine, editLine, removeLine, restoreLine, readWeekEvents, readDoneTasksWindow, readBasketUpdates, readOrgUpdates, readProjectUpdates,
-  readWeekMeetings, readWeekDocuments, readWeekSharePages, dayMaterials, weeklyDraft, DONE_TASK_DAYS, GROUP_SOURCES, rangeNote, isFolded, WEEK_READ_CAP} from './journal-data.js';
+  readWeekMeetings, readWeekDocuments, readWeekSharePages, dayMaterials, weeklyDraft, DONE_TASK_DAYS, GROUP_SOURCES, rangeNote, isFolded, QUIET_WHEN_EMPTY, WEEK_READ_CAP} from './journal-data.js';
 import {loadDocumentCategories} from './document-categories.js';
 import {formatSeoulTime, seoulParts} from './meeting-time.js';
 import {copyText} from './md-editor.js';
@@ -127,8 +127,9 @@ const itemList = (texts, tags = []) => { const list = document.createElement('ul
 function renderMaterials() {
   const host = $('[data-journal-materials]');
   const groups = dayMaterials(materials, selected), range = {doneDays};
-  const folded = groups.filter(group => isFolded(group, selected, range));
-  const boxes = groups.filter(group => !folded.includes(group)).map(group => {
+  const folded = groups.filter(group => isFolded(group, selected, range) && !QUIET_WHEN_EMPTY.includes(group.key));
+  const quiet = groups.filter(group => isFolded(group, selected, range) && QUIET_WHEN_EMPTY.includes(group.key));
+  const boxes = groups.filter(group => !folded.includes(group) && !quiet.includes(group)).map(group => {
     const box = document.createElement('section');
     box.className = 'journal-group'; box.dataset.journalGroup = group.key;
     const head = document.createElement('h4'); head.className = 'journal-heading'; head.textContent = group.label; box.append(head);
