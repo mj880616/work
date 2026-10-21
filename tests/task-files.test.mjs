@@ -63,3 +63,40 @@ test('attach sends one file as multipart to the Edge; detach sends only ids', as
   await detachTaskFile('t1', 'f1', { rt });
   assert.deepEqual(calls[1], { path: '/functions/v1/google-tasks?action=detach', options: { method: 'POST', body: { action: 'detach', task_id: 't1', drive_file_id: 'f1' }, singleFlight: false } });
 });
+
+// TASK-추가창파일: files chosen in an add window go up after the task exists, one attach each; failures are listed, never silent.
+import { attachNewTaskFiles, newTaskFilesNotice, pickProblem, taskFilesAvailable } from '../app/task-files.js';
+test('attachNewTaskFiles: one attach per file to the new task; a failed file is listed and the rest still go', async () => {
+  const sent = [];
+  const rt = { api: async (path, options) => { const name = options.body.get('file').name; sent.push([path, options.body.get('task_id'), name]); if (name === 'b.txt') throw Error('Drive에 올리지 못했습니다.'); return { ok: true, files: sent.filter(s => s[2] !== 'b.txt').map((s, i) => ({ drive_file_id: 'd' + i, file_name: s[2], size_bytes: 1 })), notes_synced: true }; }, copyUploadFile: async f => f };
+  const files = [new File(['a'], 'a.txt'), new File(['b'], 'b.txt'), new File([''], 'empty.txt'), new File(['c'], 'c.txt')];
+  const seen = [];
+  const result = await attachNewTaskFiles('t1', files, { rt, onProgress: (i, n, f) => seen.push([i, n, f.name]) });
+  assert.deepEqual(sent.map(s => s.slice(0, 3)), [['/functions/v1/google-tasks?action=attach', 't1', 'a.txt'], ['/functions/v1/google-tasks?action=attach', 't1', 'b.txt'], ['/functions/v1/google-tasks?action=attach', 't1', 'c.txt']]);
+  assert.deepEqual(seen.map(s => s[2]), ['a.txt', 'b.txt', 'c.txt']);
+  assert.equal(result.done, 2);
+  assert.deepEqual(result.failed.map(f => f.name), ['b.txt', 'empty.txt']);
+  assert.deepEqual(result.files.map(f => f.file_name), ['a.txt', 'c.txt']);
+  const notice = newTaskFilesNotice(result);
+  assert.match(notice, /^할 일은 저장했습니다\. 파일 2개\(b\.txt, empty\.txt\)를 붙이지 못했습니다: Drive에 올리지 못했습니다\./);
+  assert.match(notice, /할 일 ⋯ → 파일 붙이기/);
+  assert.equal(newTaskFilesNotice({ done: 1, failed: [] }), '');
+});
+
+test('pickProblem: the same limits as ⋯ → 파일 붙이기 (count, empty, size)', () => {
+  const one = new File(['x'], 'x.txt');
+  assert.equal(pickProblem([], [one]), '');
+  assert.match(pickProblem(Array(MAX_TASK_FILES).fill(one), [one]), /10개까지/);
+  assert.match(pickProblem([], [new File([''], 'e.txt')]), /^e\.txt: 빈 파일/);
+});
+
+test('taskFilesAvailable: yes only when the table answers for this owner; a no is asked again later', async () => {
+  let answer = () => { throw Error('no table'); }, calls = 0;
+  const rt = { context: { read: () => ({ user: { id: 'u1' } }) }, api: async () => { calls++; return answer(); } };
+  assert.equal(await taskFilesAvailable({ rt }), false);
+  answer = () => [];
+  assert.equal(await taskFilesAvailable({ rt }), true);
+  assert.equal(await taskFilesAvailable({ rt }), true);
+  assert.equal(calls, 2);
+  assert.equal(await taskFilesAvailable({ rt: { context: { read: () => null }, session: { read: () => null } } }), false);
+});

@@ -238,3 +238,15 @@ div.gt-main{cursor:default}
   .gt-links .gt-link-opt[data-depth="3"]{padding-left:48px}
   .gt-org-group-name{display:block;grid-column:1 / -1;padding:6px 0 0;font-size:11px;font-weight:500;color:var(--kptu-muted)}
 }
+/* TASK-추가창파일: 할 일 추가 창의 [📎 파일 붙이기] 한 줄과 고른 파일 목록. 저장 뒤 ⋯ → 파일 붙이기와 같은 경로로 올라간다.
+   보이는 버튼은 작게(32px), 누르는 범위는 44px. 이름이 길면 줄 안에서 줄인다(옆 스크롤 없음). */
+.gt-pick[hidden],.gt-pick [hidden]{display:none}
+.gt-pick{min-width:0;margin:0 0 var(--kptu-space-2)}
+.gt-pick-line{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;min-height:var(--kptu-touch-target,44px)}
+.gt-pick .gt-pick-btn{position:relative;display:inline-flex;align-items:center;gap:4px;height:var(--ds-compact-height,32px);min-height:0;margin:0;padding:0 var(--ds-compact-pad-x,12px);font-size:var(--kptu-text-meta)}
+.gt-pick .gt-pick-btn svg{color:var(--kptu-link)}
+.gt-pick .gt-pick-btn::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+.gt-pick-hint{min-width:0;color:var(--kptu-muted);font-size:11px;line-height:1.4}
+.gt-pick-list{list-style:none;margin:0;padding:0}
+.gt-pick-list li{display:flex;align-items:center;justify-content:space-between;gap:var(--kptu-space-2);min-height:var(--kptu-touch-target,44px);border-top:1px solid var(--kptu-border)}
+.gt-pick-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--kptu-text-meta)}
