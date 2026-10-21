@@ -1,15 +1,15 @@
 // JOURNAL-주간보고허브 2단계: [주간 정리] — one week of the journal's materials grouped in the order of the weekly report form
 // (docs/design/weekly-report-hub.md 4절 2단계, 7절 결정; the form is docs/design/weekly-hwpx-draft.md 1.2·1.3절):
-//   1. 요청사항 — 임원 일정 배정·논의 요청. There is no material for it yet (the request marks are not a group any more, #859;
+//   1. 요청사항 — 임원 일정 배정·논의 요청. There is no material for it yet (the request marks are not a group any more, PR 859;
 //      how to enter it waits for decision W), so the box is kept and says "아직 재료 없음" — no input is made here.
 //   2. 기본·영역·의제 사업 — 1) 요약: 사업영역(1단 project) → 세부 과제(2단) → 진행 상황 및 이후 계획 → 담당 팀원 (left empty,
 //      결정 4). Records follow the project tree and its order (project-catalog tree, PRJ-3단); a 3단 (사안) record sits on its
 //      2단 row as "세부과제 › 사안: 내용", a 2단 record as "세부과제: 내용", a 1단 record on the area's own row (project-3-levels.md
 //      3절 D, 8절 ④). 2) 세부 내용: 회의·행사 결과 by the meeting's date.
-//   4. 산하 조직 현황 — 조직 소식 in the app's organization order (13 조직 묶음, then 그 외, then 미분류; ORG-묶음순서 #864).
+//   4. 산하 조직 현황 — 조직 소식 in the app's organization order (13 조직 묶음, then 그 외, then 미분류; ORG-묶음순서 PR 864).
 //   참고 — the week's 일정, 한 줄, 끝낸 할 일, 자료실 새 자료, 공유 페이지, 기타 메모 (material the form has no box for; the
 //      form's 1. 2) 주요 일정 is left empty in the team report, docs/design/weekly-hwpx-draft.md 2절, so 일정 is reference only).
-// Notes moved from the basket (노트로 옮긴 업데이트, #868) are not included. The tab only shows; it saves nothing and makes no file
+// Notes moved from the basket (노트로 옮긴 업데이트, PR 868) are not included. The tab only shows; it saves nothing and makes no file
 // (WEEKLY-한글초안 2단계 builds the .hwpx from this grouping). journal.js stays the only renderer of #journalRoot and calls
 // renderWeekly() into the box it owns.
 import {weekDays, workLines, shortDay, eventsOn, eventTime, tasksOn, meetingsOn, meetingLine, orgNewsOn, projectRecordsOn,
