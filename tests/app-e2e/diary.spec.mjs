@@ -126,7 +126,7 @@ async function photoFiles(page,n,{w=3000,h=1500}={}){
  const out=[];for(let i=0;i<n;i++)out.push({name:`IMG_${i+1}.png`,mimeType:'image/png',buffer:await pngFor(page,['#e85','#5a8','#58e'][i%3],w,h)});return out;
 }
 
-test('[일정] 머리줄 [달력|할 일|업무일지|일기]: 높이 32·고른 쪽 회색, [업무일지] 화면, 탭은 마지막으로 본 쪽',async({page})=>{
+test('[일정] 머리줄 [달력|할 일|업무일지|일기]: 높이 32·고른 쪽 테마색, [업무일지] 화면, 탭은 마지막으로 본 쪽',async({page})=>{
  const f=await fixture(page);
  await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();
  const sw=page.locator('#calendarView .schedule-switch');
@@ -137,7 +137,7 @@ test('[일정] 머리줄 [달력|할 일|업무일지|일기]: 높이 32·고른
  await sw.locator('[data-view="journal"]').click();
  await expect(page.locator('#journalView')).toBeVisible();await expect(page.locator('#journalRoot [data-journal-input]')).toBeVisible();await expect(page.locator('#journalView')).not.toContainText('준비 중');
  const pressed=page.locator('#journalView .schedule-switch [aria-pressed="true"]');await expect(pressed).toHaveText('업무일지');
- expect(await pressed.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe(await page.evaluate(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--ds-kind-other-soft)';document.body.append(e);const c=getComputedStyle(e).backgroundColor;e.remove();return c;}));
+ expect(await pressed.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe(await page.evaluate(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--ds-select-bg)';document.body.append(e);const c=getComputedStyle(e).backgroundColor;e.remove();return c;}));
  await page.locator('#journalView .schedule-switch [data-view="diary"]').click();await expect(page.locator('#diaryView')).toBeVisible();
  await page.locator('.mobile-tabs [data-view="home"]').click();await page.locator('.mobile-tabs [data-mobile-schedule-tab]').click();
  await expect(page.locator('#diaryView')).toBeVisible();await expect(page).toHaveURL(/view=diary/);

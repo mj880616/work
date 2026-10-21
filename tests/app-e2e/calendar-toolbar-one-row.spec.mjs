@@ -16,7 +16,7 @@ for(const width of [360,390,686,760,761,1023,1024,1280,1440])test(`toolbar one r
     await button.click();await expect(button).toHaveAttribute('aria-pressed','true');
     await expect(toolbar.locator('[data-calendar-view][aria-pressed="true"]')).toHaveCount(1);
     for(const inactive of await toolbar.locator('[data-calendar-view][aria-pressed="false"]').all())await expect(inactive).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
-    const colors=await button.evaluate(el=>{const s=getComputedStyle(el);return {background:s.backgroundColor,color:s.color,stroke:getComputedStyle(el.querySelector('svg')).stroke}});expect(colors.background).toBe('rgb(239, 237, 230)');expect(colors.color).toBe('rgb(85, 83, 74)');expect(colors.stroke).toBe(colors.color);
+    const colors=await button.evaluate(el=>{const s=getComputedStyle(el);return {background:s.backgroundColor,color:s.color,stroke:getComputedStyle(el.querySelector('svg')).stroke}});const sel=await page.evaluate(()=>{const e=document.createElement('span');e.style.cssText='background-color:var(--ds-select-bg);color:var(--ds-select-ink)';document.body.append(e);const s=getComputedStyle(e),r={background:s.backgroundColor,color:s.color};e.remove();return r});expect(colors.background).toBe(sel.background);expect(colors.color).toBe(sel.color);expect(colors.stroke).toBe(colors.color);
     expect(await page.evaluate(()=>localStorage.getItem('kptu-calendar-view'))).toBe(view);
   }
   // Do not seed storage on reload: the real selection must survive.
