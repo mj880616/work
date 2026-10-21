@@ -127,8 +127,9 @@ const itemList = (texts, tags = []) => { const list = document.createElement('ul
 function renderMaterials() {
   const host = $('[data-journal-materials]');
   const groups = dayMaterials(materials, selected), range = {doneDays};
-  const folded = groups.filter(group => isFolded(group, selected, range) && !QUIET_WHEN_EMPTY.includes(group.key));
-  const quiet = groups.filter(group => isFolded(group, selected, range) && QUIET_WHEN_EMPTY.includes(group.key));
+  // BASKET-일지로남기기: 기타 메모 shows only with items (its one read, the basket, already shows loading and failure in 조직 소식).
+  const quiet = groups.filter(group => QUIET_WHEN_EMPTY.includes(group.key) && !group.items.length);
+  const folded = groups.filter(group => !quiet.includes(group) && isFolded(group, selected, range));
   const boxes = groups.filter(group => !folded.includes(group) && !quiet.includes(group)).map(group => {
     const box = document.createElement('section');
     box.className = 'journal-group'; box.dataset.journalGroup = group.key;

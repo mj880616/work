@@ -368,8 +368,9 @@ export function rangeNote(group, day, {doneDays = DONE_TASK_DAYS, today = todayK
   if (group.key === 'due' && day > pendingCoverTo(today)) return `할 일 예정은 오늘부터 ${PENDING_DAYS}일 안 마감만 모여요.`;
   return '';
 }
-// BASKET-일지로남기기: 기타 메모 is only there when something was kept for it, so an empty one is left out altogether (no box and
-// not named in "기록 없는 묶음").
+// BASKET-일지로남기기: 기타 메모 is only there when something was kept for it, so on the day card an empty one (also while its
+// read is out or after it failed — 조직 소식 shows those for the same basket read) is left out altogether (no box and not named
+// in "기록 없는 묶음").
 export const QUIET_WHEN_EMPTY = Object.freeze(['memos']);
 export const isFolded = (group, day, range) => !group.items.length && !group.loading && !group.failed && !rangeNote(group, day, range);
 export const shortDay = day => `${formatSeoulTime(day, {month:'long', day:'numeric'})}(${formatSeoulTime(day, {weekday:'short'})})`;
