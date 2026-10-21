@@ -16,7 +16,7 @@ const PHASE = { preparation: '준비', in_progress: '진행', consultation: '협
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-drive-summary-cron-secret',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Cache-Control': 'no-store',
 };
 export const ORGANIZATION_GROUPS = Object.freeze([
@@ -146,6 +146,24 @@ async function secretMatches(given, expected) {
   return diff === 0;
 }
 const json = (body, status = 200) => Response.json(body, { status, headers: CORS });
+// OPS-수집점검: the status read returns only times and a safe stage code. Anything else stored in the folder
+// properties is never echoed (it is checked against a strict shape first).
+const STATUS_CODE = /^[A-Z][A-Z0-9_]{0,63}$/;
+export function statusTime(value) {
+  if (typeof value !== 'string' || value.length > 40 || !/^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/.test(value)) return null;
+  const at = Date.parse(value);
+  return Number.isFinite(at) ? new Date(at).toISOString() : null;
+}
+export function folderStatus(appProperties) {
+  const p = appProperties && typeof appProperties === 'object' ? appProperties : {};
+  const failureAt = statusTime(p.last_failure_at);
+  return {
+    state: 'found',
+    last_success_at: statusTime(p.last_success_at),
+    last_failure_at: failureAt,
+    last_failure_code: failureAt && typeof p.last_failure_summary === 'string' && STATUS_CODE.test(p.last_failure_summary) ? p.last_failure_summary : null,
+  };
+}
 const driveQuote = value => String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
 export function createHandler({ env, fetcher = fetch, now = () => new Date() }) {
@@ -300,8 +318,31 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date() }) 
       body: JSON.stringify({ appProperties: { ...folder.appProperties, ...patch } }),
     }, 'DRIVE_STATUS_WRITE_FAILED');
   }
+  // OPS-수집점검: GET ?action=status. Owner JWT only (the cron secret is refused here). Reads the copy folder's three
+  // properties; never creates the folder, rebuilds documents, records status, or returns names, links, or content.
+  async function statusRead(req) {
+    const checkedAt = () => now().toISOString();
+    try {
+      let action = null;
+      try { action = new URL(req.url).searchParams.get('action'); } catch { /* invalid URL → treated as no action */ }
+      if (action !== 'status') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405);
+      if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) throw new SummaryError('SERVER_CONFIG_MISSING');
+      if (req.headers.get('x-drive-summary-cron-secret') !== null) throw new SummaryError('UNAUTHORIZED', 401);
+      const { ownerId } = await authorize(req);
+      if (!ownerId) throw new SummaryError('UNAUTHORIZED', 401);
+      const token = await accessToken();
+      const folder = await findFile(token, 'folder');
+      if (!folder) return json({ ok: true, checked_at: checkedAt(), copy: { state: 'none', last_success_at: null, last_failure_at: null, last_failure_code: null } });
+      await assertPrivate(token, folder.id);
+      return json({ ok: true, checked_at: checkedAt(), copy: folderStatus(folder.appProperties) });
+    } catch (error) {
+      const code = error instanceof SummaryError ? error.message : 'STATUS_FAILED';
+      return json({ ok: false, error: code, checked_at: checkedAt() }, error instanceof SummaryError ? error.status : 502);
+    }
+  }
   return async req => {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
+    if (req.method === 'GET') return statusRead(req);
     if (req.method !== 'POST') return json({ ok: false, error: 'METHOD_NOT_ALLOWED', updated_at: null, documents: {} }, 405);
     let token, folder;
     const documents = {};
