@@ -317,3 +317,5 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
 /* PRJ-화면다듬기: detail sections are no longer boxes inside the dialog box; the text gets the full width, sections are told apart by a hairline. */
 #ps3DetailModal .ps3-section{border:0;border-radius:var(--kptu-radius-none);padding-left:0;padding-right:0;background:transparent}
 #ps3DetailModal .ps3-section+.ps3-section{border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));padding-top:var(--kptu-space-3)}
+/* The section no longer has side padding, so the small + keeps its 44px touch area inside the section's right edge. */
+#ps3DetailModal .ps3-section .ps3-add-plus{margin-right:0}
