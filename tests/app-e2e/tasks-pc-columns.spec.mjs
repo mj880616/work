@@ -365,3 +365,12 @@ test('PC 1024(좁은 PC): 좌 1/3 : 우 2/3(왼쪽 최소 폭 안), 체크 목�
   expect(m.sw).toBeLessThanOrEqual(m.cw+1);
   const pw=await page.locator('#gtDetailPane').evaluate(e=>e.scrollWidth-e.clientWidth);expect(pw).toBeLessThanOrEqual(1);
 });
+
+// TASK-화면다듬기(폰): 묶음 이름은 "일주일 안", 입력 아이콘은 ⤢ 모양, 수정 창에는 PC 전용 빠른 기한 버튼이 보이지 않는다.
+test('폰 390: "일주일 안" 묶음 이름·⤢ 아이콘, 빠른 기한 버튼 숨김',async({page})=>{
+  await open(page,390,[task('a','2026-10-10')]);
+  await expect(page.locator('#gt-week-head')).toHaveText('일주일 안 1');
+  await expect(page.locator('#tasksView [data-quick-detail] path')).toHaveAttribute('d','M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9');
+  await page.locator('[data-gt-edit="a"]').click();await expect(page.locator('#gtEditDue')).toBeVisible();
+  await expect(page.locator('#gtTaskModal [data-gt-due-quick]').first()).toBeHidden();
+});
