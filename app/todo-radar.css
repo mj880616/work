@@ -38,3 +38,7 @@
 
 #appView #journalView .journal-radar.radar-collapsed{ padding:6px 12px; gap:0; }
 #appView #journalView .journal-radar .radar-quiet{ margin:0; }
+/* HOME-오늘먼저: [할 일로] [무시]는 제목 줄 오른쪽의 작은 글자 버튼. 보이는 크기는 작게, 누르는 범위는 ::after 44px로 유지. */
+#appView :is(#homeView,#journalView) .radar-actions-inline{ flex:0 0 auto; display:inline-flex; flex-wrap:nowrap; gap:0; margin:0 0 0 auto; }
+#appView :is(#homeView,#journalView) .radar-actions-inline button{ height:auto; min-height:0; padding:2px 8px; border:0; background:transparent; font-size:var(--ds-text-meta); line-height:1.5; color:var(--kptu-primary-ink); }
+#appView :is(#homeView,#journalView) .radar-actions-inline button:disabled{ color:var(--kptu-muted); }

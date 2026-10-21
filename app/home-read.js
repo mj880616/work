@@ -106,10 +106,13 @@ function arrangeHome() {
     dday = card('dday');
   if (!left || !right || !dday) return;
   const target = desktopHome.matches ? right : left,
-    before = desktopHome.matches ? null : card('calendar'),
+    before = desktopHome.matches ? null : card('meetings'),
     radar = card('radar');
-  // The phone has no right column: 주요 일정 and 챙길 것 go right under the quick input, before 오늘 일정 (todo-radar 5절).
-  if (dday.parentElement === target && (!radar || radar.previousElementSibling === dday)) return;
+  // HOME-오늘먼저: the phone has no right column. 오늘 일정 and 오늘 할 일 stay on top (right under the quick input);
+  // 주요 일정 and 챙길 것 go below them, before 회의 후속. PC keeps both in the right column.
+  const placed = dday.parentElement === target && (!radar || radar.previousElementSibling === dday)
+    && (desktopHome.matches || dday.previousElementSibling === card('tasks'));
+  if (placed) return;
   const focused = [dday, radar].find(el => el?.contains(document.activeElement)) ? document.activeElement : null;
   target.insertBefore(dday, before);
   if (radar) target.insertBefore(radar, dday.nextSibling);

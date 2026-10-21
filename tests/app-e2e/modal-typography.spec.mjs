@@ -150,7 +150,7 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     expected[oldZero]=['SPAN','kptu-list-chevron','20px',muted,'400','20px'];
     await expect(page.locator('#projectGrid .add-list-head h2')).toHaveCount(0);
     await expect(page.locator('[data-ps3-total]')).toHaveText('프로젝트 1개');
-    await expect(page.locator('#projectGrid .ps3-prow-meta .ps3-dday')).toHaveText('일정 없음');
+    await expect(page.locator('#projectGrid .ps3-prow-meta .ps3-dday')).toHaveCount(0);
   }
   if(name==='team'){
     // D-담당조직목록 intentionally replaces only the type role with a group heading above the retained name.

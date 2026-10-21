@@ -66,9 +66,10 @@ for(const width of [390,1280]){
   await clickView(page,'projects');await page.locator('#projectGrid .ps3-plist [data-ps3-project="p"]').click();
   await expectProjectDetail(page,'p');await expect(page.locator('#ps3Title')).toContainText('테스트 프로젝트');
   const form=page.locator('#ps3-progress [data-ps3-record-input]'),big=form.locator('[data-ps3-record-big]');
-  await expect(big).toBeVisible();await expect(big).toHaveText('크게');
+  await expect(big).toBeVisible();await expect(big).toHaveAccessibleName('큰 창에서 쓰기');
   const [i,b,s]=await Promise.all([form.locator('input').boundingBox(),big.boundingBox(),form.getByRole('button',{name:'기록',exact:true}).boundingBox()]);
-  for(const box of [b,s])expect(Math.abs(box.y-i.y)).toBeLessThanOrEqual(1);expect(b.x+b.width).toBeLessThanOrEqual(s.x);
+  // PRJ-화면다듬기: the icon sits inside the input, [기록] stays beside it.
+  expect(Math.abs(s.y-i.y)).toBeLessThanOrEqual(1);expect(b.x).toBeGreaterThanOrEqual(i.x);expect(b.x+b.width).toBeLessThanOrEqual(i.x+i.width+1);expect(i.x+i.width).toBeLessThanOrEqual(s.x);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await form.locator('input').fill('발제자 섭외');
   await big.click();

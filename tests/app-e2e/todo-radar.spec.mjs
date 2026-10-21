@@ -50,7 +50,7 @@ async function tap(page,locator,width){await expect(locator).toBeVisible();if(wi
 const noWideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 const pressHeight=button=>button.evaluate(el=>Math.max(el.getBoundingClientRect().height,parseFloat(getComputedStyle(el,'::after').height)||0));
 
-for(const width of [390,1280])test(`home: 챙길 것 below 주요 일정 (PC right column, phone under the quick input), auto find once ${width}`,async({page},info)=>{
+for(const width of [390,1280])test(`home: 챙길 것 below 주요 일정 (PC right column, phone below 오늘 일정·오늘 할 일), auto find once ${width}`,async({page},info)=>{
  const f=await fixture(page,{width});const box=radar(page);
  await expect(box).toBeVisible();
  await expect(box.locator('h3')).toContainText('챙길 것');
@@ -60,12 +60,16 @@ for(const width of [390,1280])test(`home: 챙길 것 below 주요 일정 (PC rig
  await expect(box.locator('[data-radar-checked]')).toContainText('마지막 찾기');
  // The first open of the day asks once with mode auto (the server answers skipped) and only kind+mode are sent.
  await expect.poll(()=>f.calls.ai.length).toBe(1);expect(f.calls.ai[0]).toEqual({kind:'todo_radar',mode:'auto'});
- const order=await page.evaluate(()=>{const dday=document.querySelector('[data-home-card="dday"]'),radar=document.querySelector('[data-home-card="radar"]'),cal=document.querySelector('[data-home-card="calendar"]');
-  return {sameColumn:dday.parentElement===radar.parentElement,next:dday.nextElementSibling===radar,column:radar.parentElement.dataset.homeColumn,beforeCalendar:!!(radar.compareDocumentPosition(cal)&Node.DOCUMENT_POSITION_FOLLOWING)};});
+ const order=await page.evaluate(()=>{const dday=document.querySelector('[data-home-card="dday"]'),radar=document.querySelector('[data-home-card="radar"]'),tasks=document.querySelector('[data-home-card="tasks"]'),meet=document.querySelector('[data-home-card="meetings"]');
+  return {sameColumn:dday.parentElement===radar.parentElement,next:dday.nextElementSibling===radar,column:radar.parentElement.dataset.homeColumn,afterTasks:!!(radar.compareDocumentPosition(tasks)&Node.DOCUMENT_POSITION_PRECEDING),beforeMeetings:!!(radar.compareDocumentPosition(meet)&Node.DOCUMENT_POSITION_FOLLOWING)};});
  expect(order.sameColumn&&order.next).toBe(true);
  expect(order.column).toBe(width>=1024?'aside':'main');
- if(width<1024)expect(order.beforeCalendar).toBe(true);
- for(const name of ['할 일로','무시'])expect(await pressHeight(box.getByRole('button',{name}).first())).toBeGreaterThanOrEqual(44);
+ if(width<1024)expect(order.afterTasks&&order.beforeMeetings).toBe(true);
+ for(const name of ['할 일로','무시']){const btn=box.getByRole('button',{name}).first();
+  expect(await pressHeight(btn)).toBeGreaterThanOrEqual(44);
+  // HOME-오늘먼저: small text buttons on the title line, not a big full-width row.
+  const bb=await btn.boundingBox();expect(bb.height).toBeLessThanOrEqual(32);expect(bb.width).toBeLessThanOrEqual(80);
+  const same=await btn.evaluate(el=>{const line=el.closest('.radar-line'),sum=line?.querySelector('.radar-summary');return !!line&&Math.abs(el.getBoundingClientRect().top-sum.getBoundingClientRect().top)<24;});expect(same).toBe(true);}
  expect(await noWideScroll(page)).toBe(true);
  if(width===390)await page.screenshot({path:info.outputPath('todo-radar-home-390.png'),fullPage:true});
  expect(f.errors).toEqual([]);
