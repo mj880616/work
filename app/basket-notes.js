@@ -13,7 +13,7 @@ import { toTelegram } from './md-telegram.mjs';
 import { driveFileUrl, fileSize } from './basket-upload.js';
 import { fileLine } from './meeting-compact.js';
 import { paintHtmlAttachments } from './html-frame.js';
-import { placeAnchored, followAnchor, clearAnchored } from './anchored-popup.js';
+import { placeAnchored, followAnchor, clearAnchored, isWide } from './anchored-popup.js';
 import { notePreview, noteCopyPayload } from './note-preview.mjs';
 import { noteMarkdown, storedMarkdown } from './note-markdown.mjs';
 import { renderFilterChips } from './filter-chips.js';
@@ -119,7 +119,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const menuEl = () => host.querySelector('#noteDocMenu');
   // UI-노트폴더: [폴더로 옮기기] comes right after [고정]. The folder row's ⋯ uses the same menu: [새 폴더] and, with a folder
   // chosen, [이름 바꾸기]·[폴더 지우기].
+  // UI-모바일노트복사메뉴: on a phone a list row has no [복사] button; [복사] is the first item of its ⋯ menu (PC keeps the button).
   const menuItems = (note, from) => from === 'folder' ? [['data-note-folder-new', '새 폴더'], ...(viewFolder() ? [['data-note-folder-rename', '폴더 이름 바꾸기'], ['data-note-folder-delete', '폴더 지우기', 'basket-menu-danger']] : [])] : [
+    ...(from === 'list' && !isWide() && noteCopyPayload(note) ? [['data-note-copy', '복사']] : []),
     ['data-note-pin', notePinnedAt(note) ? '고정 해제' : '고정'], ['data-note-folder-move', '폴더로 옮기기'], ['data-note-edit', '수정'],
     ...(from === 'detail' ? [['data-basket-link-open', '연결하기'], ['data-note-to-basket', '바구니로 돌리기']] : []),
     ['data-note-delete', '삭제', 'basket-menu-danger']];
@@ -465,7 +467,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       return;
     }
     const note = notes.find(n => n.id === from.noteId); if (!note) return;
-    if (b.hasAttribute('data-note-pin')) void pin(note);
+    if (b.hasAttribute('data-note-copy')) void telegram(note);
+    else if (b.hasAttribute('data-note-pin')) void pin(note);
     else if (b.hasAttribute('data-note-folder-move')) { folderTarget = note; void folderSheet.open('folder', from.trigger); }
     else if (b.hasAttribute('data-note-edit')) { if (selected?.id !== note.id) open(note.id, {focus:false}); startEdit(); }
     else if (b.hasAttribute('data-basket-link-open')) say(manual.open('link') || '');

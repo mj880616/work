@@ -1064,6 +1064,13 @@
 #appView #basketView .basket-row-item:has(> [data-basket-row-more]) > button.basket-row-copy{ right:var(--kptu-touch-target,44px); }
 #appView #basketView .basket-row-item:has(> [data-basket-row-more]) > .basket-row{ padding-right:calc(var(--kptu-touch-target,44px) * 2 + 4px); }
 #appView #basketView .basket-row-item:has(> [data-basket-row-more]):has(> button.basket-row-copy[hidden]) > .basket-row{ padding-right:48px; }
+/* UI-모바일노트복사메뉴: 폰(760px 이하)에서는 목록 줄의 [복사] 버튼을 없애고(⋯ 메뉴 맨 위 [복사]로 이동), 줄 글은 ⋯ 바로 왼쪽까지 넓게 쓴다. ⋯ 아래 세로 줄은 비워 둔다. PC는 그대로. */
+@media(max-width:760px){
+  #appView #basketView .basket-row-item > button.basket-row-copy{ display:none; }
+  #appView #basketView .basket-row-item > .basket-row,
+  #appView #basketView .note-row-item > .basket-row,
+  #appView #basketView .basket-row-item:has(> [data-basket-row-more]) > .basket-row{ padding-right:48px; }
+}
 #appView #basketView .note-row-item + .note-row-item{ border-top:var(--ds-line-width) solid var(--ds-line); }
 #appView #basketView .note-row .basket-title{ display:flex; align-items:center; gap:6px; min-width:0; }
 #appView #basketView .note-row .basket-title-text{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
