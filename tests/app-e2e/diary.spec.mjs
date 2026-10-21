@@ -668,3 +668,36 @@ for(const width of [390,1280]){
   expect(f.errors).toEqual([]);
  });
 }
+
+// DIARY-목록색: 이 달 일기 목록(달력 아래, 최신 날짜 먼저, 날짜 + 첫 줄), 날짜를 고르면 같은 자리에 그날 일기, 달력 표시는 테마 대표색.
+for(const width of [390,1280]){
+ test(`[일기] 이 달 목록: 최신 날짜 먼저, 날짜 누르면 같은 자리에 그날 일기, 닫으면 목록, 표시색은 테마 대표색 ${width}`,async({page})=>{
+  const rows=store();rows[2].raw_text='\n첫 줄 글\n둘째 줄';
+  const f=await fixture(page,{width,rows});await openDiary(page,width);
+  const list=page.locator('#diaryRoot [data-diary-list]'),detail=page.locator('#diaryRoot [data-diary-detail]');
+  await expect(list).toBeVisible();
+  const items=list.locator('[data-diary-list-day]');
+  await expect(items).toHaveCount(2);
+  await expect(items.nth(0)).toContainText('10월 4일');await expect(items.nth(0)).toContainText('첫 줄 글');await expect(items.nth(0)).not.toContainText('둘째 줄');
+  await expect(items.nth(1)).toContainText('10월 3일');await expect(items.nth(1)).toContainText('가을 산책');
+  const calBottom=await page.locator('#diaryRoot [data-diary-cal]').evaluate(el=>el.getBoundingClientRect().bottom);
+  const listTop=await list.evaluate(el=>el.getBoundingClientRect().top);
+  expect(listTop).toBeGreaterThanOrEqual(calBottom-1);
+  await items.nth(1).click();
+  await expect(detail.locator('h3')).toHaveText('10월 3일 토요일');await expect(list).toBeHidden();
+  expect(Math.abs(await detail.evaluate(el=>el.getBoundingClientRect().top)-listTop)).toBeLessThan(2);
+  await page.locator('#diaryRoot [data-diary-detail-close]').click();
+  await expect(detail).toBeHidden();await expect(list).toBeVisible();
+  await cell(page,'2026-10-04').click();
+  await expect(detail.locator('h3')).toHaveText('10월 4일 일요일');await expect(list).toBeHidden();
+  await page.locator('#diaryRoot [data-diary-detail-close]').click();
+  // 표시색: 글만 있는 날 점·오늘 동그라미·고른 날 테두리는 --kptu-primary-ink, 사진 칸 바탕은 --kptu-primary-soft.
+  const color=(token)=>page.evaluate(t=>{const e=document.createElement('span');e.style.color=`var(${t})`;document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c;},token);
+  const ink=await color('--kptu-primary-ink');
+  expect(await cell(page,'2026-10-04').locator('[data-diary-dot]').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe(ink);
+  expect(await cell(page,'2026-10-06').locator('.diary-num').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe(ink);
+  await cell(page,'2026-10-04').click();
+  expect(await cell(page,'2026-10-04').evaluate(el=>getComputedStyle(el).borderTopColor)).toBe(ink);
+  expect(f.errors).toEqual([]);
+ });
+}
