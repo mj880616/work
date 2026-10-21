@@ -4,6 +4,7 @@
 // query. updated_at stays the original's version (raw text and attachments),
 // so an AI handoff or a photo-text read already in flight keeps its version.
 import {requestsGuard} from './update-requests.js';
+import {journalGuard} from './update-journal.js';
 export const NOTE_TASK_LIMIT=50;
 const ENTRY_KEYS=['task_id','task_list_id','title','created_at'];
 const LIMITS={task_id:1024,task_list_id:1024,title:1024};
@@ -40,8 +41,9 @@ const textGuard=value=>value==null?'is.null':'eq.'+encodeURIComponent(typeof val
 export function noteTaskGuard(note){
   const first=Array.isArray(note?.metadata?.tasks)?note.metadata.tasks[0]:null;
   const request=plainObject(note?.metadata)&&plainObject(note.metadata.write_request)?note.metadata.write_request.marked_at:null;
-  // JOURNAL-요청표시: the update's request marks (metadata.requests, update-requests.js) are guarded too.
-  return `updated_at=eq.${encodeURIComponent(note.updated_at)}&metadata->write_request->>marked_at=${textGuard(request)}${requestsGuard(note?.metadata)}&metadata->tasks->0->>task_id=${textGuard(plainObject(first)?first.task_id:null)}`;
+  // JOURNAL-요청표시: the update's request marks (metadata.requests, update-requests.js) are guarded too, and so is the
+  // work-journal memo mark (metadata.journal_at, update-journal.js; BASKET-일지로남기기).
+  return `updated_at=eq.${encodeURIComponent(note.updated_at)}&metadata->write_request->>marked_at=${textGuard(request)}${requestsGuard(note?.metadata)}${journalGuard(note?.metadata)}&metadata->tasks->0->>task_id=${textGuard(plainObject(first)?first.task_id:null)}`;
 }
 function workspaceId(rt){
   const id=rt.context.read()?.workspace?.id;

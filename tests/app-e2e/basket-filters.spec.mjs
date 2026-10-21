@@ -84,7 +84,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`[미분
  await tap(page,classified,width);await expect(classified).toHaveAttribute('aria-pressed','true');expect((await look(classified)).bg).toBe(gray);
  const places=page.locator('[data-basket-place-filter]');await expect(places).toBeVisible();
  await expect(places).toHaveAttribute('role','radiogroup');await expect(places).toHaveAttribute('aria-label','분류된 곳');
- await expect(places.getByRole('radio')).toHaveText(['전체','담당조직','프로젝트','자료실','할 일']);
+ await expect(places.getByRole('radio')).toHaveText(['전체','담당조직','프로젝트','자료실','할 일','업무일지']);
  await expect(places.locator('[aria-checked="true"]')).toHaveText('전체');
  // It sits right under the segment row, and above the list.
  const segBox=await seg.first().boundingBox(),placeBox=await places.boundingBox(),listBox=await page.locator('#basketView [data-basket-rows]').boundingBox();

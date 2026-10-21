@@ -1,6 +1,7 @@
 import {classificationFormat} from './basket-classification.js';
 import {readBasket,filedProjects} from './basket-data.js';
 import {effectiveOcrText} from './basket-ocr-text.mjs';
+import {noteJournalAt} from './update-journal.js';
 import {readLinkRecords} from './basket-link-records.js';
 import {selectMyOrganizations} from './my-organizations.js';
 
@@ -9,11 +10,12 @@ import {selectMyOrganizations} from './my-organizations.js';
 export const selectBasketOrganizations = selectMyOrganizations;
 
 // docs: the basket's filed documents (readBasket). A memo whose files went into a project ([자료로 넣기]) is not 미분류.
+// A memo kept as a work-journal memo (metadata.journal_at, update-journal.js) is not 미분류 either.
 export function selectHandoffNotes(notes,links,now,docs=[]) {
   const today=new Date(now.getTime()+9*3600000).toISOString().slice(0,10);
   const start=Date.parse(today+'T00:00:00+09:00')-28*86400000;
   const linked=new Set(links.filter(l=>['confirmed','suggested'].includes(l.status)).map(l=>l.note_id));
-  return notes.filter(n=>!n.archived_at&&n.ai_export_allowed===true&&!linked.has(n.id)&&!filedProjects(n,docs).length&&Date.parse(n.occurred_at)>=start&&Date.parse(n.occurred_at)<=now.getTime())
+  return notes.filter(n=>!n.archived_at&&n.ai_export_allowed===true&&!linked.has(n.id)&&!filedProjects(n,docs).length&&!noteJournalAt(n)&&Date.parse(n.occurred_at)>=start&&Date.parse(n.occurred_at)<=now.getTime())
     .sort((a,b)=>Date.parse(b.occurred_at)-Date.parse(a.occurred_at)||String(a.id).localeCompare(String(b.id))).slice(0,100);
 }
 

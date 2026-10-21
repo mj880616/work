@@ -67,7 +67,7 @@ for (const width of [390, 1280]) {
     const mc = await rowMore(page, C).boundingBox(); expect(Math.round(mc.x)).toBe(Math.round(mb.x));
     await press(page, more, width);
     await expect(menu(page)).toBeVisible(); await expect(more).toHaveAttribute('aria-expanded', 'true');
-    await expect(menu(page).locator('button')).toHaveText(['수정', '연결하기', '할 일 만들기', '노트로 옮기기', '삭제']);
+    await expect(menu(page).locator('button')).toHaveText(['수정', '연결하기', '할 일 만들기', '노트로 옮기기', '업무일지에 남기기', '삭제']);
     await expect(menu(page).locator('button').last()).toHaveClass(/basket-menu-danger/);
     for (const b of await menu(page).locator('button').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
     const m = await menu(page).boundingBox();
