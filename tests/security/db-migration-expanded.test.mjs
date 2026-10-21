@@ -2,7 +2,7 @@
 // accepted only when they cannot widen access; every refusal below has a fixed reason code. No database, no production.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, copyFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, copyFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { validateExpanded, checkSnapshotSQL, parseExpectations, meetsExpectation, ExpandedRejection, REJECT_REASONS } from '../../scripts/ops/db-migration-expanded.mjs';
@@ -174,4 +174,58 @@ test('workflow input accepts the migration file name and refuses a mismatched na
   assert.equal(makePlan('dry-run', '5', 'refs/heads/main', '20261021200000_web1_archive_state_readonly.sql', repo).version, '20261021200000');
   assert.throws(() => makePlan('dry-run', '5', 'refs/heads/main', '20261021200000_other_name.sql', repo));
   assert.throws(() => makePlan('dry-run', '5', 'refs/heads/main', '../20261021200000_web1_archive_state_readonly.sql', repo));
+});
+
+test('check labels: a label outside the shared rule is refused at plan time, not after apply', async () => {
+  const { CHECK_LABEL_RE, extractItemLabels, unsafeCheckLabels } = await import('../../scripts/ops/db-migration-plan.mjs');
+  assert.ok(CHECK_LABEL_RE.test('authenticated: select, insert columns, delete, no update'));
+  assert.ok(!CHECK_LABEL_RE.test('authenticated: select, insert columns, delete; no update'));
+  // Parsed shapes: `as item` anywhere, first literal of a union branch; casts allowed.
+  const sql = "select 'a; b' as item, 1 as ok union all select 'c'::text, 1 union all select 'ok label',1 union all select x || 'y; z', 1";
+  assert.deepEqual(extractItemLabels(sql), ['a; b', 'c', 'ok label']);
+  assert.deepEqual(unsafeCheckLabels(sql), ['a; b']);
+  // Every committed precheck/postcheck label passes the same rule.
+  const docs = new URL('../../docs/', import.meta.url);
+  for (const f of readdirSync(docs).filter(n => /(pre|post)check\.sql$/.test(n))) {
+    assert.deepEqual(unsafeCheckLabels(readFileSync(new URL(f, docs), 'utf8')), [], f);
+  }
+  const root = mkdtempSync(join(tmpdir(), 'db-label-'));
+  try {
+    mkdirSync(join(root, 'supabase/migrations'), { recursive: true }); mkdirSync(join(root, 'docs'));
+    const stem = '20261022003000_task_attachments';
+    copyFileSync(new URL(`../../supabase/migrations/${stem}.sql`, import.meta.url), join(root, `supabase/migrations/${stem}.sql`));
+    for (const f of ['summary.md', 'precheck.sql', 'snapshot.sql', 'postcheck.sql', 'rollback.sql']) {
+      copyFileSync(new URL(`../../docs/${stem}.${f}`, import.meta.url), join(root, `docs/${stem}.${f}`));
+    }
+    const run = mode => prepareMigration({ mode, version: '20261022003000', runId: '1', root });
+    assert.equal(run('apply').flow, 'full');
+    const post = join(root, `docs/${stem}.postcheck.sql`);
+    const good = readFileSync(post, 'utf8');
+    writeFileSync(post, good.replace('delete, no update', 'delete; no update'));
+    for (const mode of ['dry-run', 'apply']) {
+      assert.throws(() => run(mode), e => e instanceof ExpandedRejection && e.reason === 'check-label' && !/;/.test(e.message));
+    }
+    assert.match(REJECT_REASONS['check-label'], /항목 이름/);
+    writeFileSync(post, good);
+    const pre = join(root, `docs/${stem}.precheck.sql`);
+    writeFileSync(pre, readFileSync(pre, 'utf8').replace(/'([^']+)' as item/, "'$1; x' as item"));
+    assert.throws(() => run('apply'), e => e.reason === 'check-label');
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('check SQL label/shape failure is reported as a SQL format error, not a DB request failure', async () => {
+  const { queryErrorSummary, CheckFormatError } = await import('../../scripts/ops/db-query.mjs');
+  const text = queryErrorSummary(new CheckFormatError());
+  assert.match(text, /^확인 SQL 형식 오류\(항목 이름·열 모양\)/);
+  assert.doesNotMatch(text, /DB 요청·응답 확인 실패|HTTP/);
+  assert.match(queryErrorSummary(new Error('x')), /DB 요청·응답 확인 실패/);
+  const { runFullPlan } = await import('../../scripts/ops/db-migration-run.mjs');
+  const repo = new URL('../../', import.meta.url).pathname;
+  const plan = prepareMigration({ mode: 'apply', version: '20261022003000', runId: '1', root: repo });
+  // A fake DB whose precheck rows carry a ';' label: the failure text must be the format error.
+  const query = async sql => sql === plan.checks.precheck.sql ? [{ item: 'bad; label', value: '1' }] : [{ count: 0 }];
+  const result = await runFullPlan(plan, query);
+  assert.equal(result.ok, false);
+  assert.match(result.summary, /사전 확인\(precheck\): 실패\. 확인 SQL 형식 오류\(항목 이름·열 모양\)/);
+  assert.doesNotMatch(result.summary, /DB 요청·응답 확인 실패|bad; label|HTTP/);
 });

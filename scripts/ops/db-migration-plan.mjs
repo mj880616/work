@@ -3,6 +3,10 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { validateExpanded, parseExpectations, checkSnapshotSQL, createdTables, ExpandedRejection } from './db-migration-expanded.mjs';
 
+// Single source of truth for check item labels. The run phase (db-migration-run.mjs)
+// refuses any label outside this set AFTER apply, so the plan phase checks it first.
+export const CHECK_LABEL_RE = /^[\p{L}\p{N} _/()=:+.,·-]{1,100}$/u;
+
 const modes = ['dry-run', 'apply', 'rollback'];
 const fail = () => { throw new Error('DB plan rejected; check file structure, pairing or risk rules'); };
 
@@ -412,6 +416,30 @@ export function checkSQL(sql) {
   return { baselineNull };
 }
 
+// Static, conservative label extraction from a precheck/postcheck SQL. Only string
+// literals in these shapes are read: `'label' [::type] as item` anywhere, and the
+// first select-list literal of a `union [all] select 'label' [::type] ,`
+// branch. Labels produced by expressions, concatenation or the first branch
+// written as `select 'label',` (no alias) cannot be parsed and are NOT checked here;
+// the run phase still checks every label at runtime.
+export function extractItemLabels(sql) {
+  const ts = tokens(sql).filter(t => t.kind !== 'block');
+  const isItem = t => t && ['word', 'quoted'].includes(t.kind) && t.value.toLowerCase() === 'item';
+  const labels = [];
+  for (let i = 0; i < ts.length; i++) {
+    if (ts[i].kind !== 'string') continue;
+    let j = i + 1;
+    if (ts[j]?.value === ':' && ts[j + 1]?.value === ':' && ts[j + 2]?.kind === 'word') j += 3;
+    const aliased = ts[j]?.kind === 'word' && ts[j].value === 'as' && isItem(ts[j + 1]);
+    const afterUnion = ts[i - 1]?.value === 'select' && ts[i - 1].kind === 'word'
+      && (ts[i - 2]?.value === 'union' || ts[i - 2]?.value === 'all' && ts[i - 3]?.value === 'union')
+      && ts[j]?.kind === 'symbol' && ts[j].value === ',';
+    if (aliased || afterUnion) labels.push(ts[i].value);
+  }
+  return labels;
+}
+export const unsafeCheckLabels = sql => extractItemLabels(sql).filter(label => !CHECK_LABEL_RE.test(label));
+
 export function prepareMigration({ mode, version, runId, root }) {
   if (!modes.includes(mode) || !/^[0-9]{14}$/.test(version) || !/^[1-9][0-9]{0,19}$/.test(runId)) fail();
   const path = choose(root, 'supabase/migrations', new RegExp(`^${version}_.*\\.sql$`), true);
@@ -454,6 +482,7 @@ export function prepareMigration({ mode, version, runId, root }) {
       if (checkPath !== `docs/${version}_${name}.${suffix}.sql`) fail();
       const check = safeFile(root, checkPath, 65_536);
       const checked = { ...check, ...checkSQL(check.sql) };
+      if (unsafeCheckLabels(check.sql).length) throw new ExpandedRejection('check-label');
       if (mode === 'dry-run' && suffix === 'postcheck') {
         // Preserve the existing manual snapshot requirement without selecting
         // or executing an applied-state check after rollback.
