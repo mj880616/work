@@ -3,7 +3,7 @@ import {select} from './project-catalog-model.mjs';
 import {createBasketReader} from './basket-read.mjs';
 import {createHtmlBudget} from './html-budget.mjs';
 import { LedgerError, LEDGER_LIMITS, LEDGER_TITLE, readLedger, buildBackup, renderLedgerDocument, ledgerStatus, backupsToTrash, kstDate, backupName } from './ledger-export.mjs';
-import { basketState, prepareBasket, basketIntroLines, basketNoteLines, selectBasketOrganizations, BASKET_LIMITS } from './basket.mjs';
+import { basketState, prepareBasket, selectBasketOrganizations, BASKET_LIMITS } from './basket.mjs';
 export { basketState, BASKET_LIMITS };
 const WORKSPACE = 'kptu-work';
 const DAY = 86400000, KST = 9 * 3600000, PAGE = 500;
@@ -107,31 +107,26 @@ function prepareDocuments(data, now) {
   if (!data.meetings.length) project.push(paragraph('최근 4주 회의 없음'));
   return {org:wrap(TITLES.org,org),project,projects,selected,wrap,top,window};
 }
+// DRIVE-바구니원문제외: the basket part of the project copy is one count line. Memo bodies are never read or written.
 function documentRenderer(data,now,notes,links) {
   const prepared=prepareDocuments(data,now),basket=prepareBasket(notes,links,now,prepared.window);
   const sink=createHtmlBudget(BASKET_LIMITS.documentBytes,'\n</body></html>');
-  let overflow=basket.overLimit;
+  let overflow=false;
   const append=text=>{if(!overflow&&!sink.append(text)){overflow=true;sink.discard();}};
   append(`${prepared.top}\n<h1>${escapeHtml(TITLES.project)}</h1>\n${paragraph(`최근 4주: ${prepared.window.startDate} 00:00 ~ ${kstText(now)} (KST)`)}\n`);
   let first=true;
-  const line=chunks=>{if(overflow)return; if(!first)append('\n');first=false;for(const chunk of chunks){append(chunk);if(overflow)break;}};
-  for(const text of prepared.project)line([text]);
-  for(const chunks of basketIntroLines(basket,prepared.projects,prepared.selected.organizations,now,prepared.selected.fallback)){line(chunks);if(overflow)break;}
-  function add(note){if(overflow)return false;for(const chunks of basketNoteLines(note)){line(chunks);if(overflow)break;}return !overflow;}
+  for(const text of [...prepared.project,basket.section]){if(!first)append('\n');first=false;append(text);if(overflow)break;}
   function finish(){
-    if(!basket.recent.length&&!overflow)line([paragraph('최근 4주 미분류 메모 없음')]);
     if(!overflow)return {org:prepared.org,project:sink.finish()};
-    const notice=paragraph('대상 축소 필요: 바구니 출력 상한 초과. 이번 갱신의 바구니 원문은 내보내지 않았습니다. 이전 갱신 성공으로 처리하지 않습니다.');
-    let failure=prepared.wrap(TITLES.project,[...prepared.project,basket.diagnostic]).replace('<body>\n',`<body>\n${notice}\n`);
-    if(new TextEncoder().encode(failure).length>BASKET_LIMITS.documentBytes)failure=prepared.wrap(TITLES.project,[paragraph('기존 프로젝트 절을 포함한 문서 크기가 상한을 넘었습니다.'),basket.diagnostic]).replace('<body>\n',`<body>\n${notice}\n`);
+    const notice=paragraph('대상 축소 필요: 문서 출력 상한 초과. 이번 갱신의 사본은 내보내지 않았습니다. 이전 갱신 성공으로 처리하지 않습니다.');
+    let failure=prepared.wrap(TITLES.project,[...prepared.project,basket.section]).replace('<body>\n',`<body>\n${notice}\n`);
+    if(new TextEncoder().encode(failure).length>BASKET_LIMITS.documentBytes)failure=prepared.wrap(TITLES.project,[paragraph('기존 프로젝트 절을 포함한 문서 크기가 상한을 넘었습니다.'),basket.section]).replace('<body>\n',`<body>\n${notice}\n`);
     return {org:prepared.org,project:failure,basketError:'BASKET_OUTPUT_LIMIT'};
   }
-  return {basket,add,finish,get overflow(){return overflow;}};
+  return {basket,finish,get overflow(){return overflow;}};
 }
 export function renderDocuments(data,now){
-  const renderer=documentRenderer(data,now,data.notes||[],data.noteLinks||[]);
-  if(!renderer.overflow)for(const note of renderer.basket.recent)if(!renderer.add(note))break;
-  return renderer.finish();
+  return documentRenderer(data,now,data.notes||[],data.noteLinks||[]).finish();
 }
 
 class SummaryError extends Error {
@@ -540,7 +535,6 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date() }) 
       let html;
       try {
         const snapshot=await reader.snapshot(),renderer=documentRenderer(data,at,[...snapshot.notes.values()],[...snapshot.links.values()]);
-        if(!renderer.overflow)for await(const note of reader.content(snapshot,renderer.basket.recent))if(!renderer.add(note))break;
         await reader.recheck(snapshot);
         html=renderer.finish();
       }catch(error){
@@ -556,7 +550,7 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date() }) 
       return json({ ok: true, updated_at: updatedAt, documents });
     } catch (error) {
       // Only controlled stage codes leave the server. Upstream text may contain secrets/content.
-      const code = error instanceof SummaryError ? error.message : error?.message === 'BASKET_ATTACHMENT_INVALID' ? 'BASKET_ATTACHMENT_INVALID' : 'SUMMARY_FAILED';
+      const code = error instanceof SummaryError ? error.message : 'SUMMARY_FAILED';
       const status = error instanceof SummaryError ? error.status : 502;
       let failureRecorded = false;
       if (token && folder) {
