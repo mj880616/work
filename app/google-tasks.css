@@ -154,7 +154,7 @@ div.gt-main{cursor:default}
   #appView #tasksView #gtTaskSection.gt-pc>#gtTaskBody.gt-status{align-self:start}
   #appView #tasksView #gtTaskSection.gt-pc>#gtTaskBody.gt-board{display:contents}
   #appView #tasksView #gtTaskSection.gt-pc>#gtUndoDeletes{grid-column:1;grid-row:3}
-  #appView #tasksView #gtTaskSection.gt-pc>#gtDetailPane{grid-column:2;grid-row:2 / -1;display:block;position:sticky;top:12px;align-self:start;max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);min-height:0;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
+  #appView #tasksView #gtTaskSection.gt-pc>#gtDetailPane{grid-column:2;grid-row:2 / -1;display:block;position:sticky;top:12px;align-self:start;height:calc(100vh - 24px);height:calc(100dvh - 24px);min-height:0;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
   #appView #tasksView #gtDetailPane .gt-pane-empty{margin:0;font-size:var(--ds-text-meta);line-height:1.5;color:var(--kptu-muted)}
   #appView #tasksView #gtDetailPane.has-task .gt-pane-empty{display:none}
   /* 열 */

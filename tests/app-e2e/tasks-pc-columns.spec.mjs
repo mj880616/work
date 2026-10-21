@@ -106,9 +106,9 @@ for(const width of [1280,1440]){
     await later.locator('summary').click();await expect(later.locator('[data-google-task="far"]')).toBeHidden();
     await expect(page.locator('#gtTaskBody [data-google-task]')).toHaveCount(6);
     await expect(col(page,'now').locator('[data-gt-overdue] [data-google-task]')).toHaveCount(1);await expect(col(page,'now').locator('[data-gt-today] [data-google-task]')).toHaveCount(1);
-    // 화면 전체는 한 페이지(세로·가로 넘김 없음), 입력 카드는 입력창 + [추가]만.
+    // 가로 넘김 없음(세로는 칸이 내용만큼 늘어나 페이지가 스크롤), 입력 카드는 입력창 + [추가]만.
     const m=await page.evaluate(()=>({sh:document.documentElement.scrollHeight,ih:innerHeight,sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth}));
-    expect(m.sh).toBeLessThanOrEqual(m.ih+1);expect(m.sw).toBeLessThanOrEqual(m.cw+1);
+    expect(m.sw).toBeLessThanOrEqual(m.cw+1);
     const quick=page.locator('#tasksView .home-quick');
     await expect(quick.locator('[data-quick-save]')).toHaveText('추가');await expect(quick.locator('[data-quick-input]')).toBeVisible();
     const qbox=await quick.boundingBox(),input=await quick.locator('[data-quick-input]').boundingBox();
@@ -130,7 +130,8 @@ for(const width of [1280,1440]){
     // 왼쪽 위 칸이 위, 아래 칸이 그 밑. 오른쪽 칸 윗줄 = 왼쪽 위 칸 윗줄, 상세 칸은 왼쪽 아래 칸 밑줄까지 이어지거나 더 길다.
     expect(week.y).toBeGreaterThanOrEqual(now.y+now.height);
     expect(Math.abs(pane.y-now.y)).toBeLessThanOrEqual(1);
-    expect(pane.y+pane.height).toBeGreaterThanOrEqual(week.y+week.height-1);
+    // 상세 칸은 화면 높이만큼(페이지를 내려도 따라옴), 왼쪽이 짧으면 왼쪽 맨 아래까지 이어진다.
+    expect(pane.height).toBeGreaterThanOrEqual(Math.min(week.y+week.height-pane.y,page.viewportSize().height-24)-1);
     // 상세 칸은 입력창 아래에서 시작(입력창과 겹치지 않음), 위로 튀어나오지 않는다.
     const quick=await box(page.locator('#tasksView .home-quick'));expect(pane.y).toBeGreaterThanOrEqual(quick.y+quick.height-1);
     // 왼쪽 위·아래 칸 높이는 항목 수에 맞게: 항목 둘뿐인 위 칸이 화면 절반보다 훨씬 작고, 칸 안 넘김이 없다.
