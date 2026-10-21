@@ -230,7 +230,7 @@ test('편집 권한이 없으면 기록·메모 삭제 버튼이 없고 삭제 �
   await page.locator('#wdMore > summary').click();
   await expect(page.locator('#wdItems')).toContainText('최근 교섭');
   await expect(page.locator('#wdUpdates button,#wdItems button')).toHaveCount(0);
-  await expect(page.locator('[data-wd-up-del],[data-wd-memo-del]')).toHaveCount(0);
+  await expect(page.locator('[data-wd-up-del],[data-wd-up-menu],[data-wd-memo-del]')).toHaveCount(0);
   let dialogs=0;
   page.on('dialog',d=>{dialogs++;d.accept()});
   // Forge the real delete controls so both module-scoped handlers must reject the viewer.

@@ -1,6 +1,8 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
+// UI-모바일업데이트겹쳐보기: on a phone a tapped record first comes up as a card over the detail; its full-open button continues as before.
+const viaSheet=async page=>{if((page.viewportSize()?.width||0)>760)return;const sheet=page.locator('#kptuRecordSheet');await expect(sheet).toBeVisible();await sheet.locator('[data-record-sheet-full]').click()};
 // UI-PC프로젝트좌우(2026-10-20 사용자 확정, 시안 A): PC(≥1024) 프로젝트 화면은 왼쪽 목록 + 오른쪽 상세(같은 상세 창을 칸에 옮겨 씀).
 // 처음 열면 이 기기에서 마지막으로 본 프로젝트(저장 실패 시 맨 위). 761~1023px·폰은 지금처럼 목록 + 상세 창.
 // 돌아오기: 상세의 🧺 기록 → 업데이트 화면의 "← (이름)으로 돌아가기"·뒤로 가기·탭 → 같은 프로젝트(담당조직)·같은 스크롤.
@@ -118,7 +120,7 @@ test('PC 1280: a 🧺 record opens the update with "← (project)으로 돌아�
  await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();await expect(title(page)).toHaveText('합성 정책 사업');
  const before=await scrollToRecord(page,basketLine(page));expect(await pane(page).evaluate(el=>el.scrollTop)).toBeGreaterThan(100);
  for(const how of ['button','back','browser']){
-  await basketLine(page).click();
+  await basketLine(page).click();await viaSheet(page);
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
   const back=page.locator('#basketView [data-basket-return]');await expect(back).toHaveText('← 합성 정책 사업으로 돌아가기');
   if(how==='button')await back.click();else await goBack(page,how);
@@ -146,7 +148,7 @@ test('phone 390: list and detail dialog stay; the update shows "← 프로젝트
  expect(await modal.evaluate(el=>el.parentElement===document.body)).toBe(true);
  const before=await scrollToRecord(page,basketLine(page));
  for(const how of ['button','back','browser']){
-  await basketLine(page).click();
+  await basketLine(page).click();await viaSheet(page);
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
   const back=page.locator('#basketView [data-basket-return]');await expect(back).toHaveText('← 프로젝트로 돌아가기');
   const b=await back.boundingBox();expect(b.height).toBeGreaterThanOrEqual(44);
@@ -181,7 +183,7 @@ for(const width of [390,1280])test(`organization ${width}: a 🧺 record returns
  const modal=page.locator('#wdModal'),line=modal.locator('[data-basket-link="l-o"] a[data-basket-link-open]');await expect(line).toBeVisible();
  const before=await scrollToRecord(page,line);
  for(const how of ['button','back','browser']){
-  await line.click();await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
+  await line.click();await viaSheet(page);await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
   await expect(page.locator('#basketView [data-basket-return]')).toHaveText(width<761?'← 담당조직으로 돌아가기':'← 테스트 조직으로 돌아가기');
   if(how==='button')await page.locator('#basketView [data-basket-return]').click();else await goBack(page,how);
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('team');await expect(modal).toBeVisible();await expect(page.locator('#wdTitle')).toHaveText('테스트 조직');

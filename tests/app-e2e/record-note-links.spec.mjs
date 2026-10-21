@@ -1,6 +1,8 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
+// UI-모바일업데이트겹쳐보기: on a phone a tapped record first comes up as a card over the detail; its full-open button continues as before.
+const viaSheet=async page=>{if((page.viewportSize()?.width||0)>760)return;const sheet=page.locator('#kptuRecordSheet');await expect(sheet).toBeVisible();await sheet.locator('[data-record-sheet-full]').click()};
 // UI-기록아이콘(2026-10-18 명진 결정): 노트를 [연결하기]로 이은 조직·프로젝트 화면의 기록 목록에 노트도 보인다. 기록 줄 앞 표시는 새 업데이트 아이콘·노트
 // 아이콘으로 구분하고 🧺는 없앤다. 노트 줄을 누르면 노트 읽기 화면, "← (이름)으로 돌아가기"·뒤로 가기는 #831 규칙대로 같은 프로젝트·조직으로.
 // DB 변경 없음: 같은 확정 연결(app_record_links, app_basket_confirm_links로 만든 것)을 노트 종류까지 함께 읽는다. 이름은 모두 합성 값이다.
@@ -76,7 +78,7 @@ for(const width of [1280,390])test(`project ${width}: a note line opens the note
  const line=page.locator('#ps3Body [data-basket-link="l-note"] a[data-ps3-basket-note]');
  const before=await scrollToRecord(page,line);
  for(const how of ['button','back','browser']){
-  await line.click();
+  await line.click();await viaSheet(page);
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(noteRead(page)).toHaveText('합성 회의 준비 노트');
   await expect(page.locator('#basketView [data-basket-text]').first()).toBeHidden();
   const back=page.locator('#basketView [data-basket-return]');await expect(back).toHaveText(width<761?'← 프로젝트로 돌아가기':'← 합성 정책 사업으로 돌아가기');
@@ -104,7 +106,7 @@ for(const width of [390,1280])test(`organization ${width}: the linked note shows
  await row.locator('[data-basket-link-menu]').click();const menu=page.locator('#basketLinkMenu');await expect(menu.getByRole('button')).toHaveText(['노트 열기','연결 해제','요약 수정']);await page.keyboard.press('Escape');await expect(menu).toBeHidden();
  const before=await top(line);
  for(const how of ['button','back','browser']){
-  await line.click();await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(noteRead(page)).toHaveText('합성 회의 준비 노트');
+  await line.click();await viaSheet(page);await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(noteRead(page)).toHaveText('합성 회의 준비 노트');
   await expect(page.locator('#basketView [data-basket-return]')).toHaveText(width<761?'← 담당조직으로 돌아가기':'← 테스트 조직으로 돌아가기');
   if(how==='button')await page.locator('#basketView [data-basket-return]').click();else await goBack(page,how);
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('team');await expect(modal).toBeVisible();await expect(page.locator('#wdTitle')).toHaveText('테스트 조직');
