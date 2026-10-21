@@ -76,7 +76,8 @@ async function sameButtons(page,region){
   if(kind==='button'){const pcAdd=await control.evaluate(el=>innerWidth>=1024&&el.matches('#newDocumentBtn,#newMeetingBtn,#newProjectBtn'));expect(s.height,label).toBe(pcAdd?36:46);expect(s.radius,label).toBe('8px');if(pcAdd)expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').minHeight)),label).toBe(44);}
   else{expect(s.height,label).toBe(32);expect(s.radius,label).toBe(kind==='chip'?'999px':'8px');expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),label).toBe(44);}
   expect(s.fontSize,label).toBe('13px');expect(s.fontWeight,label).toBe('500');expect(s.shadow,label).toBe('none');
-  if(s.bg===primary)filled.push(label);
+  // UI-테마선택색: 고른 전환·필터 쪽은 일부러 주 버튼 색이라 채운 버튼 수에서 뺀다.
+  if(s.bg===primary&&!await control.evaluate(el=>el.matches('[aria-pressed="true"],[aria-checked="true"],.active')))filled.push(label);
  }
  return filled;
 }
@@ -141,10 +142,10 @@ for(const width of [390,1280])test(`자료실: 종류 색(확장자, 없으면 D
  for(const row of await rows.all())expect((await row.boundingBox()).height).toBeGreaterThanOrEqual(44);
  const box=await look(page.locator('#libraryListCard'));expect(box.borderWidth).toBe(await lineWidth(page));expect(box.radius).toBe('12px');
  expect((await look(rows.nth(1))).borderWidth).toBe(await lineWidth(page));
- // 버튼·필터: 한 높이, 채운 버튼은 [+ 자료] 하나, 고른 필터는 회색(UI-선택표시통일).
+ // 버튼·필터: 한 높이, 채운 버튼은 [+ 자료] 하나, 고른 필터는 테마 주 색(UI-선택표시통일).
  expect(await sameButtons(page,page.locator('#libraryView'))).toEqual(width<761?[]:['+ 자료 등록']);
  const selected=await look(page.locator('#libraryCategoryFilter [aria-pressed="true"]').first());
- expect(selected.bg).toBe(await token(page,'--ds-kind-other-soft'));expect(selected.fg).toBe(await token(page,'--ds-kind-other-ink'));
+ expect(selected.bg).toBe(await token(page,'--ds-select-bg'));expect(selected.fg).toBe(await token(page,'--ds-select-ink'));
  const search=await look(page.locator('#documentSearch'));expect(search.height).toBe(46);expect(search.radius).toBe('8px');expect(search.borderWidth).toBe(await lineWidth(page));expect(search.border).toBe(await token(page,'--ds-line'));
  await noOverflow(page);
  expect(errors).toEqual([]);

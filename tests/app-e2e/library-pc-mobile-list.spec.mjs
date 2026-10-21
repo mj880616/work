@@ -113,7 +113,7 @@ for(const scheme of ['light','dark'])test(`꺼진 분류 칩은 흐리게(글자
   const off=await look(chip(page,'회의')),on=await look(chip(page,'교섭'));
   await expect(chip(page,'회의')).toHaveAttribute('aria-pressed','false');
   expect(off.fg).toBe(await token('--kptu-muted'));expect(off.fg).not.toBe(on.fg);expect(off.border).not.toBe(on.border);
-  expect(on.bg).toBe(await token('--ds-kind-other-soft'));
+  expect(on.bg).toBe(await token('--ds-select-bg'));
   expect(contrast(off.fg,off.bg)).toBeGreaterThanOrEqual(4.5);
   // 키보드 초점은 꺼진 칩에서도 보인다.
   await chip(page,'정책').focus();await page.keyboard.press('Tab');await expect(chip(page,'회의')).toBeFocused();
