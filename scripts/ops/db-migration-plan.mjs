@@ -1,7 +1,7 @@
 import { lstatSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { validateExpanded, parseExpectations, checkSnapshotSQL, ExpandedRejection, REJECT_REASONS } from './db-migration-expanded.mjs';
+import { validateExpanded, parseExpectations, checkSnapshotSQL, createdTables, ExpandedRejection } from './db-migration-expanded.mjs';
 
 const modes = ['dry-run', 'apply', 'rollback'];
 const fail = () => { throw new Error('DB plan rejected; check file structure, pairing or risk rules'); };
@@ -484,8 +484,11 @@ export function prepareMigration({ mode, version, runId, root }) {
   const flow = mode !== 'rollback' && pairs && checks.precheck && !checks.precheck.baselineNull
     && !manualSnapshotRequired && !checks.postcheck?.baselineNull ? 'full' : 'legacy';
   if (!strict && flow !== 'full') throw new ExpandedRejection('pair-missing');
+  // A table created by this same migration has no earlier rows: never back it up
+  // (the copy would fail before the table exists).
+  const fresh = mode === 'rollback' ? new Set() : createdTables(migration.sql);
   return { mode, version, name, runId, file, summaryFile, summaryLines, checks, snapshot, manualSnapshotRequired, flow,
-    rollbackPath, rules: strict ? 'strict' : 'expanded', ...validation };
+    rollbackPath, rules: strict ? 'strict' : 'expanded', ...validation, targets: validation.targets.filter(t => !fresh.has(t)) };
 }
 
 export const escapeSummary = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('|', '&#124;').replaceAll('`', '&#96;');

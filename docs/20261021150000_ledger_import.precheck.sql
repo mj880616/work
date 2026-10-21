@@ -1,5 +1,9 @@
 -- SELECT only. Run before apply (SQL Editor, phone path C). Aggregates only; no row values.
 -- 적용 전 기대: 앞 6개 모두 예. 원장 묶음 수·원장 행 수는 기록만(가져오기 전이면 0).
+-- 승인형 DB workflow 기대값(DB-승인형확장): 아래에 없는 항목은 모두 예여야 한다. 기록 = 값만 남기고 판정하지 않음.
+-- expect: import batches = 기록
+-- expect: ledger records = 기록
+-- expect: recent migrations = 기록
 select 'new migration absent' as item,case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261021150000') then '예' else '아니오' end as value
 union all select 'ledger schema applied (20261021082000)',case when exists(select 1 from supabase_migrations.schema_migrations where version='20261021082000' and name='ledger_schema') then '예' else '아니오' end
 union all select 'ledger tables present (10)',case when (select count(*) from pg_class where relnamespace='public'::regnamespace and relkind='r' and relname like 'app\_ledger\_%' and relrowsecurity)=10 then '예' else '아니오' end

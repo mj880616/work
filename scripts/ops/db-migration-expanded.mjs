@@ -462,10 +462,23 @@ export function validateExpanded(sql, { version, name }) {
   };
 }
 
+/** Public tables created by the file itself: they have no earlier rows to back up. */
+export function createdTables(sql) {
+  const out = new Set();
+  for (const ts of statements(lex(sql))) {
+    const c = code(ts);
+    if (c[0] !== 'create' || c[1] !== 'table') continue;
+    let i = 2;
+    if (c[2] === 'if' && c[3] === 'not' && c[4] === 'exists') i = 5;
+    if (c[i] === 'public' && c[i + 1] === '.' && /^[a-z_][a-z0-9_]*$/.test(c[i + 2] ?? '')) out.add(c[i + 2]);
+  }
+  return out;
+}
+
 // --- Pair-file helpers -------------------------------------------------------
 
 const EXPECT_VALUE = /^(?:예|아니오|기록|-?\d{1,18}|\d{1,18}~\d{1,18})$/;
-const LABEL = /^[\p{L}\p{N} _/()=:+.,-]{1,100}$/u;
+const LABEL = /^[\p{L}\p{N} _/()=:+.,·*-]{1,100}$/u;
 /** `-- expect: <item> = <value>` comment lines. value: 예 · 아니오 · 기록 · integer · a~b. */
 export function parseExpectations(sql) {
   const map = new Map();
@@ -476,6 +489,12 @@ export function parseExpectations(sql) {
     map.set(m[1], m[2]);
   }
   return map;
+}
+// `-- expect: policy * = 기록` covers every item starting with `policy `.
+export function expectationFor(expect, item) {
+  if (expect.has(item)) return expect.get(item);
+  for (const [key, value] of expect) if (key.endsWith(' *') && item.startsWith(key.slice(0, -1))) return value;
+  return undefined;
 }
 export function meetsExpectation(value, expected) {
   if (expected === '기록') return true;

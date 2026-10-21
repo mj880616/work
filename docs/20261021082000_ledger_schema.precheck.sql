@@ -1,5 +1,9 @@
 -- SELECT only. Run before apply (SQL Editor, phone path C). Aggregates only; no row values.
 -- 적용 전 기대: 앞 9개 모두 예. recent migrations·workspace count·owner count는 기록만(owner count는 1이어야 이전 계획이 맞음).
+-- 승인형 DB workflow 기대값(DB-승인형확장): 아래에 없는 항목은 모두 예여야 한다. 기록 = 값만 남기고 판정하지 않음.
+-- expect: workspace count = 기록
+-- expect: owner member count = 기록
+-- expect: recent migrations = 기록
 select 'new migration absent' as item,case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261021082000') then '예' else '아니오' end as value
 union all select 'no app_ledger table yet',case when not exists(select 1 from pg_class where relnamespace='public'::regnamespace and relname like 'app\_ledger\_%') then '예' else '아니오' end
 union all select 'no app_ledger function yet',case when not exists(select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in('public','private') and p.proname like 'app\_ledger\_%') then '예' else '아니오' end

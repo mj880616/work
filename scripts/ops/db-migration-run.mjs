@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { toDryRun, escapeSummary } from './db-migration-plan.mjs';
-import { meetsExpectation } from './db-migration-expanded.mjs';
+import { meetsExpectation, expectationFor } from './db-migration-expanded.mjs';
 import { queryErrorSummary } from './db-query.mjs';
 
 export function buildBackup(plan) {
@@ -19,7 +19,7 @@ export function buildBackup(plan) {
 }
 
 function safeLabel(value, secretValues) {
-  if (typeof value !== 'string' || !/^[\p{L}\p{N} _/()=:+.-]{1,100}$/u.test(value)
+  if (typeof value !== 'string' || !/^[\p{L}\p{N} _/()=:+.,·-]{1,100}$/u.test(value)
       || secretValues.some(secret => secret && value.includes(secret))) throw new Error('Unsafe check label');
   return escapeSummary(value);
 }
@@ -121,11 +121,11 @@ export async function runFullPlan(plan, query, { secretValues = [], saveSnapshot
     const expect = plan.checks.precheck.expect ?? new Map();
     let prePassed = true;
     const preLines = [...pre].map(([item, value]) => {
-      const expected = expect.get(item) ?? '예';
+      const expected = expectationFor(expect, item) ?? '예';
       const ok = meetsExpectation(value, expected); prePassed &&= ok;
       return `| ${safeLabel(item, secretValues)} | ${display(value)} | ${escapeSummary(expected)} | ${ok ? '예' : '아니오'} |`;
     });
-    const missing = [...expect.keys()].filter(item => !pre.has(item));
+    const missing = [...expect.keys()].filter(item => !item.endsWith(' *') && !pre.has(item));
     if (missing.length) prePassed = false;
     notes.push('사전 확인:\n\n| 항목 | 값 | 기대 | 판정 |\n| --- | --- | --- | --- |\n' + preLines.join('\n')
       + (missing.length ? `\n\n기대 주석에 있으나 결과에 없는 항목: ${missing.length}개` : ''));
@@ -188,7 +188,8 @@ export async function runFullPlan(plan, query, { secretValues = [], saveSnapshot
     let postPassed = true;
     const postLines = [...post].map(([item, value]) => {
       let basis; let ok;
-      if (postExpect.has(item)) { basis = `기대 ${postExpect.get(item)}`; ok = meetsExpectation(value, postExpect.get(item)); }
+      const wanted = expectationFor(postExpect, item);
+      if (wanted !== undefined) { basis = `기대 ${wanted}`; ok = meetsExpectation(value, wanted); }
       else if (['예', '아니오'].includes(value)) { basis = '예'; ok = value === '예'; }
       else if (pre.has(item)) { basis = '사전 값과 같음'; ok = pre.get(item) === value; }
       else { basis = '비교 기준 없음'; ok = false; }

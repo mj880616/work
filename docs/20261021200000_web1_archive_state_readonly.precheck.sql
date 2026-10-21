@@ -3,6 +3,22 @@
 -- 핵심 판정: "anon can insert/update/delete" 중 하나라도 '예'이고, RLS가 꺼져 있거나 anon 쓰기를 통과시키는 정책이 있으면
 --   로그인 없이 누구나 카드 보관 상태를 바꿀 수 있다(실제 위험). 행 값은 카드 이름·보관 여부뿐이라 민감정보가 아니다.
 -- 적용 전 기대: new migration absent 예 / table exists 예 / anon can select 예. 나머지는 캡처해 사후 확인과 비교한다.
+-- 승인형 DB workflow 기대값(DB-승인형확장): 아래에 없는 항목은 모두 예여야 한다. 기록 = 값만 남기고 판정하지 않음.
+-- expect: RLS enabled = 기록
+-- expect: RLS forced = 기록
+-- expect: anon can insert = 기록
+-- expect: anon can update = 기록
+-- expect: anon can delete = 기록
+-- expect: anon can truncate = 기록
+-- expect: authenticated can insert/update/delete = 기록
+-- expect: anon write policies (insert/update/delete/all) = 기록
+-- expect: policy * = 기록
+-- expect: columns = 기록
+-- expect: triggers = 기록
+-- expect: table acl = 기록
+-- expect: row count = 기록
+-- expect: rows (card:archived:updated) = 기록
+-- expect: recent migrations = 기록
 select 'new migration absent' as item,case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261021200000') then '예' else '아니오' end as value
 union all select 'table exists',case when to_regclass('public.main_project_archive_state') is not null then '예' else '아니오' end
 union all select 'RLS enabled',case when exists(select 1 from pg_class where oid=to_regclass('public.main_project_archive_state') and relrowsecurity) then '예' else '아니오' end
