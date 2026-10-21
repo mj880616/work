@@ -63,6 +63,8 @@ test('PC 1280: list on the left, the first project on the right without a dialog
  expect(right.x).toBeGreaterThanOrEqual(list.x+list.width);expect(Math.abs(right.y-list.y)).toBeLessThanOrEqual(1);
  // 좌 1/3 : 우 2/3(UI-좌우비율): 오른쪽 폭이 왼쪽의 2배 안팎(틈 포함).
  expect(Math.abs(right.width/list.width-2)).toBeLessThan(0.1);
+ // UI-프로젝트칸폭: 상세가 칸 폭을 다 쓴다(창 가운데 맞춤이 상세를 좁은 가운데 열로 줄이지 않음).
+ { const card=await modal.locator('.ps3-detail-card').boundingBox();expect(card.width).toBeGreaterThan(right.width-40);expect(card.width).toBeLessThanOrEqual(right.width); }
  // Children: indented under the parent, with the parent's color dot in the soft tone.
  const main=page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]'),child=page.locator('#projectGrid .ps3-plist [data-ps3-project="pc"]');
  const pad=el=>el.evaluate(n=>parseFloat(getComputedStyle(n).paddingLeft));expect(await pad(child)).toBeGreaterThan(await pad(main));
