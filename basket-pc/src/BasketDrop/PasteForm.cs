@@ -78,7 +78,7 @@ internal sealed class PasteForm : Form
         if (c.Files.Count > 0)
         {
             _fileList.Items.Clear();
-            foreach (var f in c.Files) _fileList.Items.Add(Path.GetFileName(f));
+            foreach (var f in c.Files) _fileList.Items.Add(FileNames.Clean(f));
             _fileList.Visible = true;
             _hint.Text = $"파일 {c.Files.Count}개를 붙여넣었어요.";
         }

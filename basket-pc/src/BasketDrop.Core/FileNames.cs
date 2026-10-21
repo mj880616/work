@@ -7,7 +7,9 @@ namespace BasketDrop;
 /// Why this exists (basket-pc v0.2.0 bug): the built-in .NET multipart helper wrote non-ASCII names as a MIME
 /// encoded word (<c>filename="=?utf-8?B?...?="</c>). The basket Edge function (Deno <c>req.formData()</c>) splits
 /// header parameters on '=', so every Korean name arrived as a single <c>"</c>. Browsers send the raw UTF-8 name in
-/// quotes, which the server already reads correctly; this class sends the same, plus RFC 5987 <c>filename*</c>.
+/// quotes, which the server already reads correctly; this class sends exactly that.
+/// No <c>filename*</c> (RFC 5987): RFC 7578 4.2 forbids it in form data, Deno ignores it, and Node's form parser
+/// rejects the whole request when it is present. An ASCII-only <c>filename</c> would lose the Korean name.
 /// </summary>
 public static class FileNames
 {
@@ -15,6 +17,7 @@ public static class FileNames
     public const string Fallback = "파일";
 
     private const int MaxExtensionChars = 16;
+    private static readonly char[] Separators = { '\\', '/' };
 
     /// <summary>
     /// Path with surrounding blanks and quotes removed (a path copied as text or passed by another program can be
@@ -43,7 +46,7 @@ public static class FileNames
             if (c != '"' && !char.IsControl(c) && !IsInvisibleFormat(c)) sb.Append(c);
         s = sb.ToString();
 
-        var cut = s.LastIndexOfAny(new[] { '\\', '/' });
+        var cut = s.LastIndexOfAny(Separators);
         if (cut >= 0) s = s[(cut + 1)..];
         s = s.Trim().TrimEnd('.', ' ').Trim();
 
@@ -53,17 +56,16 @@ public static class FileNames
     }
 
     /// <summary>
-    /// Content-Disposition for one file part, written like a browser form: the UTF-8 name in quotes (the server
-    /// reads this one) and <c>filename*=UTF-8''</c> percent-encoded (the exact name, for parsers that follow RFC 5987).
-    /// Characters that break the server's simple parameter split (<c>" \ ; =</c>) are replaced by '_' in the quoted
-    /// copy only.
+    /// Content-Disposition for one file part, written like a browser form: <c>form-data; name="file";
+    /// filename="UTF-8 name"</c>. Characters that break the server's simple parameter split (<c>" \ ; =</c>) and
+    /// control characters are replaced by '_'. The part headers must be written as UTF-8.
     /// </summary>
     public static string ContentDisposition(string fieldName, string fileName)
     {
         var name = Clean(fileName);
         var quoted = new StringBuilder(name.Length);
         foreach (var c in name) quoted.Append(c is '"' or '\\' or ';' or '=' || char.IsControl(c) ? '_' : c);
-        return $"form-data; name=\"{fieldName}\"; filename=\"{quoted}\"; filename*=UTF-8''{Uri.EscapeDataString(name)}";
+        return $"form-data; name=\"{fieldName}\"; filename=\"{quoted}\"";
     }
 
     /// <summary>Stem and extension (with the dot). An extension is 1–16 letters or digits after the last dot.</summary>
