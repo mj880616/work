@@ -198,19 +198,21 @@ test('S7-a ledger schema: prechecks, apply, owner-only access, fixed lists, ids,
    for(const fn of ['app_ledger_assign_id()','app_ledger_touch()','app_ledger_audit_change()'])
     assert.equal((await pool.query(`select has_function_privilege('authenticated','private.${fn}','execute') a`)).rows[0].a,false,fn);
   });
-  await t.test('candidates: three origins, decided once, S3 cannot be confirmed, decisions audited',async()=>{
+  await t.test('candidates: three origins, decided once, S3 never stored, decisions audited',async()=>{
    const cImp=(await one(`insert into public.app_ledger_imports(workspace_id,label,source_kind,file_sha256) values($1,'가상 대화 묶음','claude_file',$2) returning id`,[WS_A,sha('c')])).id;
    const c1=(await one(`insert into public.app_ledger_candidates(workspace_id,origin,kind,title,payload,dedup_key) values($1,'web2_ai','event','가상 후보 1','{"summary":"요지"}','2026-04-02|ORG-0907|가상') returning id`,[WS_A])).id;
    const c2=(await one(`insert into public.app_ledger_candidates(workspace_id,origin,kind,title,import_id,action,target_record_id) values($1,'claude_import','evidence','가상 후보 2',$2,'add_source',$3) returning id`,[WS_A,cImp,evd])).id;
-   const c3=(await one(`insert into public.app_ledger_candidates(workspace_id,origin,kind,title,sensitivity) values($1,'user','event','가상 민감 후보','S3') returning id`,[WS_A])).id;
+   await assert.rejects(q(`insert into public.app_ledger_candidates(workspace_id,origin,kind,title,sensitivity) values($1,'user','event','가상 민감 후보','S3')`,[WS_A]),{code:'23514'});
+   const c3=(await one(`insert into public.app_ledger_candidates(workspace_id,origin,kind,title) values($1,'user','event','가상 셋째 후보') returning id`,[WS_A])).id;
    await assert.rejects(q(`insert into public.app_ledger_candidates(workspace_id,origin,kind,title,dedup_key) values($1,'web2_ai','event','같은 열쇠','2026-04-02|ORG-0907|가상')`,[WS_A]),{code:'23505'});
    const rec=(await one(`insert into public.app_ledger_records(workspace_id,kind,title,event_status) values($1,'event','가상 후보 1','tracking') returning id`,[WS_A])).id;
    await q(`update public.app_ledger_candidates set status='confirmed', result_record_id=$2, decided_at=now() where id=$1`,[c1,rec]);
    await q(`update public.app_ledger_candidates set status='discarded', discard_reason='중복', decided_at=now() where id=$1`,[c2]);
-   await assert.rejects(q(`update public.app_ledger_candidates set status='confirmed', result_record_id=$2, decided_at=now() where id=$1`,[c3,rec]),{code:'23514'});
+   await assert.rejects(q(`update public.app_ledger_candidates set status='confirmed', decided_at=now() where id=$1`,[c3]),{code:'23514'}); // confirmed needs a record
+   await assert.rejects(q(`update public.app_ledger_candidates set status='discarded' where id=$1`,[c3]),{code:'23514'}); // decided needs a time
    await assert.rejects(q(`update public.app_ledger_candidates set title='고침' where id=$1`,[c1]),/LEDGER_ALREADY_DECIDED/);
    await assert.rejects(q(`update public.app_ledger_candidates set status='pending', decided_at=null where id=$1`,[c2]),/LEDGER_ALREADY_DECIDED/);
-   await q(`update public.app_ledger_candidates set status='discarded', discard_reason='민감', decided_at=now() where id=$1`,[c3]);
+   await q(`update public.app_ledger_candidates set status='discarded', discard_reason='필요 없음', decided_at=now() where id=$1`,[c3]);
    await assert.rejects(q(`delete from public.app_ledger_candidates where id=$1`,[c1]),{code:'42501'});
    const audit=(await q(`select event, detail->'before'->>'status' s from public.app_ledger_audit where target_table='candidates' order by created_at`)).rows;
    assert.deepEqual(audit.map(r=>[r.event,r.s]),[['candidate_decided','pending'],['candidate_decided','pending'],['candidate_decided','pending']]);

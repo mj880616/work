@@ -336,15 +336,14 @@ create table public.app_ledger_candidates (
     status in ('pending', 'confirmed', 'discarded')
     and (status = 'pending') = (decided_at is null)
     and (status <> 'confirmed' or result_record_id is not null)
-    and (status = 'discarded' or discard_reason is null)
-    and (status <> 'confirmed' or sensitivity <> 'S3')),
+    and (status = 'discarded' or discard_reason is null)),
   constraint app_ledger_candidates_action_check check (
     action in ('new', 'add_source', 'update', 'supersede') and (action = 'new') = (target_record_id is null)),
   constraint app_ledger_candidates_kind_check check (kind in ('event', 'change', 'decision', 'evidence', 'commitment')),
   constraint app_ledger_candidates_title_check check (char_length(btrim(title)) between 1 and 300 and title !~ '[[:cntrl:]]'),
   constraint app_ledger_candidates_payload_check check (jsonb_typeof(payload) = 'object' and octet_length(payload::text) <= 65536),
-  -- S3(개인 민감)는 후보 표시까지만: 확정할 수 없고 버림 대상.
-  constraint app_ledger_candidates_sensitivity_check check (sensitivity in ('S0', 'S1', 'S2', 'S3')),
+  -- S3(개인 민감)는 어디에도 저장하지 않는다. AI·가져오기는 S3 항목을 버리고 개수만 보고한다.
+  constraint app_ledger_candidates_sensitivity_check check (sensitivity in ('S0', 'S1', 'S2')),
   constraint app_ledger_candidates_dedup_check check (dedup_key is null or (char_length(dedup_key) between 1 and 300 and dedup_key !~ '[[:cntrl:]]')),
   constraint app_ledger_candidates_reason_check check (discard_reason is null or char_length(discard_reason) between 1 and 500)
 );
@@ -419,7 +418,7 @@ begin
       raise exception using errcode = '23514', message = 'LEDGER_ID_FORMAT: id must be ' || v_prefix || '-0000';
     end if;
     v_number := pg_catalog."substring"(v_id, '[0-9]+$')::integer;
-    -- 같은 번호를 다른 모양(EVT-0012와 EVT-00012)으로 두 번 쓰지 못하게, 4자리 미만만 0으로 채운 모양만 받는다.
+    -- 같은 번호를 다른 모양(EVT-0912와 EVT-00912)으로 두 번 쓰지 못하게, 4자리 미만만 0으로 채운 모양만 받는다.
     if v_id <> v_prefix || '-' || pg_catalog.lpad(v_number::text, greatest(4, pg_catalog.length(v_number::text)), '0') then
       raise exception using errcode = '23514', message = 'LEDGER_ID_FORMAT: id must be ' || v_prefix || '-0000';
     end if;
