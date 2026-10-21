@@ -8,6 +8,7 @@ on:
     paths:
       - 'supabase/**'
       - 'app/project-catalog-model.mjs'
+      - 'app/project-system-v3.js'
       - 'scripts/check-drive-summary-isolation.mjs'
       - 'tests/security/**'
       - 'tests/edge-isolation/**'
@@ -22,6 +23,7 @@ on:
     paths:
       - 'supabase/**'
       - 'app/project-catalog-model.mjs'
+      - 'app/project-system-v3.js'
       - 'scripts/check-drive-summary-isolation.mjs'
       - 'tests/security/**'
       - 'tests/edge-isolation/**'
