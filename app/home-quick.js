@@ -3,7 +3,7 @@ import { createChoiceSheet, projectRows } from './choice-sheet.js';
 import { readPlaces, placeSheetHtml, placeValue, placeFromValue, rememberPlace } from './update-places.js';
 import { createGoogleTask, saveOrganizationUpdate, saveProjectProgress } from './quick-save.js';
 import { createNote, validateNoteText, createNoteDoc, noteTitleFromText } from './basket-data.js';
-import { createUploadBatch, uploadBatch, mountBasketPicker } from './basket-upload.js';
+import { createUploadBatch, uploadBatch, uploadNoteFiles, mountBasketPicker, fileTitle } from './basket-upload.js';
 import { extractHtmlDocument, htmlFileName, utf8Bytes, HTML_MAX_BYTES, HTML_MARK } from './chatgpt-html.mjs';
 import { dayKey } from './home-read-model.js';
 
@@ -11,8 +11,9 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   // UI-할일입력: taskOnly is the [할 일] screen's always-visible input. It is the [할 일] mode of this same box with the mode
   // buttons, project·date row and basket link taken out; each task it adds is due today (KST) and uses the same create path.
   // BASKET-노트입력창: noteOnly is the basket [노트] list's always-visible input, the same box as the basket's update input
-  // (phone: docked above the tabs; PC: at the top of the list) without its clip. [추가] saves a note whose title is the first
-  // line (createNoteDoc, 마크다운 off like a new note in the write window); [크게] hands the text to onBig (the note list's write window).
+  // (phone: docked above the tabs; PC: at the top of the list). [추가] saves a note whose title is the first line (createNoteDoc,
+  // 마크다운 off like a new note in the write window); [크게] hands the text and this box's files to onBig (the note list's write
+  // window). NOTE-파일붙이기: its clip and drop take files too; they go up with the new note's id after the note is saved.
   const box=root.querySelector('.home-quick-placeholder');
   box.removeAttribute('aria-hidden'); box.className='home-quick'; box.dataset.homeQuick='';
   const quickScope=()=>{const c=window.KPTURuntime.context.read();return `${c?.user?.id||''}:${c?.workspace?.id||''}`;};
@@ -25,9 +26,8 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   if(taskOnly)mode='task';
   if(noteOnly)mode='note';
   const toBasket=()=>mode==='update'&&!organization&&!updateProject;
-  // Whether the clip and drop take files for this save. NOTE-파일붙이기 hook: notes take none yet, so the picker stays mounted but
-  // hidden and inactive here; letting notes take files means returning true for noteOnly and saving them with the note.
-  const takesFiles=()=>!noteOnly&&toBasket();
+  // Whether the clip and drop take files for this save: a basket update, or a note (NOTE-파일붙이기).
+  const takesFiles=()=>noteOnly||toBasket();
   const currentPlace=()=>organization?{kind:'organization',id:organization}:updateProject?{kind:'project',id:updateProject}:null;
   const setPlace=place=>{organization=place?.kind==='organization'?place.id:'';updateProject=place?.kind==='project'?place.id:'';};
   let taskAttempt=null,taskRequest=null,taskSequence=0,taskReading=false,taskSessionEpoch=window.KPTURuntime.session.epoch();
@@ -63,7 +63,8 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   function paint(){
     pickerFiles.render();
     // A saved or unconfirmed note keeps its text; say why and offer the reset next to the input.
-    const locked=takesFiles()&&(!!upload.note_id||!!upload.blocked);input.readOnly=locked;box.querySelector('[data-quick-lock]').hidden=!locked;
+    // A note's files are always settled by its own save (the batch is emptied after it), so the note input never locks.
+    const locked=!noteOnly&&takesFiles()&&(!!upload.note_id||!!upload.blocked);input.readOnly=locked;box.querySelector('[data-quick-lock]').hidden=!locked;
     box.querySelector('[data-quick-lock-reason]').textContent=!locked?'':upload.blocked?'앞선 저장 결과를 확인하지 못해 입력창을 잠갔어요. 바구니 목록에서 저장 여부를 확인하고, 새로 쓰려면 ‘새 업데이트 입력’을 눌러 주세요.':'업데이트 글은 이미 저장되어 남은 첨부만 다시 저장할 수 있어요. 새로 쓰려면 ‘새 업데이트 입력’을 눌러 주세요.';
     box.dataset.mode=noteOnly?'note':toBasket()?'basket':mode; input.rows=1; const orgName=orgChoices.groups.flat().find(o=>o.id===organization)?.name||'',updateProjectName=projectChoices.find(x=>x.project.id===updateProject)?.project.name||'',targetName=organization?orgName:updateProjectName;
     input.placeholder=noteOnly?'노트를 입력하세요':mode==='task'?'할 일을 입력하세요':toBasket()?(basketOnly?'업데이트를 입력하세요':'업데이트 입력(바구니에 저장)'):(targetName||'담당조직')+' 기록을 입력하세요';
@@ -218,18 +219,28 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     finally{if(pendingOcr===token)pendingOcr=null;saving=false;box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=false);paint();}
   }
   // BASKET-노트입력창: one line (or more) + [추가] → a note titled by its first line, through the same insert as the write window.
+  // NOTE-파일붙이기: with files, the note is made first (files only: titled by the first file's name), then the files go up with its
+  // id. A file that did not go up leaves the note saved and says so; the box is emptied either way (no lock, no second note).
   async function saveNote(){
     if(saving)return {ok:false,message:'저장 중이에요.'};
-    const text=input.value,title=noteTitleFromText(text);
+    const batch=upload,files=batch.entries.filter(e=>e.kind!=='success'),text=input.value,title=noteTitleFromText(text)||(files.length?fileTitle(files[0].file?.name):'');
     if(!title){const message='글을 입력해 주세요.';status.textContent='';hint.textContent=message;return {ok:false,message};}
     const owner=quickScope(),isCurrent=()=>owner===quickScope()&&window.KPTURouter.current===view;
     saving=true;status.textContent='';hint.textContent='';
     box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=true);pickerFiles.render();
     try{
       const note=await createNoteDoc({title,raw_text:text,markdown:false});
+      let warning='';
+      if(files.length){
+        try{await uploadNoteFiles(note.id,batch,{isCurrent:()=>owner===quickScope(),onChange:()=>{if(isCurrent())pickerFiles.render();}});}
+        catch(e){warning=`노트는 저장했지만 첨부를 올리지 못했어요. ${e?.message||''}`.trim();}
+      }
+      if(owner!==quickScope())return {ok:false,message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
+      if(upload===batch)upload=createUploadBatch();
       if(!isCurrent())return {ok:false,message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
       input.value='';expanded=false;paint();onSaved(note);
-      const toast=document.querySelector('#toast');if(toast){toast.textContent='노트를 추가했습니다.';toast.classList.remove('hidden');clearTimeout(save.toastTimer);save.toastTimer=setTimeout(()=>toast.classList.add('hidden'),3200);}
+      if(warning)status.textContent=warning;
+      const toast=document.querySelector('#toast');if(toast){toast.textContent=warning?'노트는 저장했어요. 첨부를 확인해 주세요.':'노트를 추가했습니다.';toast.classList.remove('hidden');clearTimeout(save.toastTimer);save.toastTimer=setTimeout(()=>toast.classList.add('hidden'),3200);}
       return {ok:true};
     }catch(e){const message=e.message||'저장하지 못했습니다.';if(isCurrent())status.textContent=message;return {ok:false,message};}
     finally{saving=false;box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=false);paint();}
@@ -239,9 +250,11 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   // 업데이트 saves through this box's own save() (its attachments and photo text reading go along); 노트 saves a note.
   // Saving closes the window (저장하고 닫기); closing without saving hands the text back to this input.
   const bigBtn=box.querySelector('[data-quick-big]');
+  const fileHandle={getBatch:()=>upload,isBusy:()=>saving,onChange:()=>paint(),reset:()=>{upload=createUploadBatch();paint();}};
   if(taskOnly)bigBtn.remove();
   // BASKET-노트입력창: the note input's [크게] opens the note list's own write window on this text (onBig, basket-notes.js).
-  else if(noteOnly)bigBtn.onclick=()=>{if(saving||document.querySelector('#mdEditor:not(.hidden)'))return;onBig?.(input.value);};
+  // The window works on this box's own file batch (as the home input's [크게] does); a note saved there empties it (reset).
+  else if(noteOnly)bigBtn.onclick=()=>{if(saving||document.querySelector('#mdEditor:not(.hidden)'))return;onBig?.(input.value,fileHandle);};
   else bigBtn.onclick=async()=>{
     if(saving||input.readOnly||document.querySelector('#mdEditor:not(.hidden)'))return;
     const owner=quickScope();
@@ -251,7 +264,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     const places=projectChoices.length||orgChoices.groups.length?{projects:projectChoices,orgs:orgChoices}:null;
     ww.openWriteWindow({text:input.value,kind:'update',place:currentPlace(),places,draft:false,title:'크게 쓰기',sources:dependencies?.orgs?dependencies:null,
       // UI-크게첨부: the window's [📎 첨부] works on this input's own file batch, so files chosen in either place go together.
-      upload:{getBatch:()=>upload,isBusy:()=>saving,onChange:()=>paint()},
+      upload:fileHandle,
       onInput:value=>{input.value=value;},
       // The basket screen's input has no ▾: a place chosen in the window is used for that one save only.
       onPlace:place=>{if(basketOnly)return;setPlace(place);if(mode!=='update')setMode('update');else paint();},

@@ -107,8 +107,30 @@ export function filedProjects(note, docs = []) {
   return [...seen.values()];
 }
 // MEMO-노트: notes are listed by the day they were last changed.
+const NOTE_FIELDS = 'id,title,raw_text,occurred_at,created_at,updated_at,archived_at,ai_export_allowed,attachments,metadata';
 export function readNoteDocs(rt = window.KPTURuntime) {
-  return readKind('note', 'id,title,raw_text,occurred_at,created_at,updated_at,archived_at,ai_export_allowed,attachments,metadata', 'updated_at.desc,id.desc', rt);
+  return readKind('note', NOTE_FIELDS, 'updated_at.desc,id.desc', rt);
+}
+// One note again (after its files were saved): the same owner-RLS read as the list. null when it is gone.
+export async function readNoteDoc(id, rt = window.KPTURuntime) {
+  const rows = await rt.api(`/rest/v1/app_notes?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${workspace(rt)}&kind=eq.note&select=${NOTE_FIELDS}`, {singleFlight:false});
+  if (!Array.isArray(rows)) throw new Error('노트를 확인하지 못했어요.');
+  return rows.find(row => row?.id === id) || null;
+}
+// NOTE-파일붙이기 [빼기]: the file leaves this note only; the Drive file is never touched (no delete, no trash, no move).
+// The same owner-RLS PATCH as the other note writes: the row is read again and the PATCH only applies while it is still the
+// version read (updated_at — every attachment writer, basket-files included, moves it), so a file added meanwhile is never
+// dropped. Only attachments and updated_at are written; the other columns (metadata: pin, folder, …) are left as they are.
+export async function detachNoteFile(id, fileId, rt = window.KPTURuntime, now = new Date()) {
+  const base = `/rest/v1/app_notes?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${workspace(rt)}&kind=eq.note`;
+  const rows = await rt.api(`${base}&select=id,updated_at,attachments`, {singleFlight:false});
+  if (!Array.isArray(rows) || rows.length !== 1 || !rows[0]?.updated_at) throw Object.assign(new Error('노트를 찾지 못했어요.'), {code:'note_missing'});
+  const fresh = rows[0], files = Array.isArray(fresh.attachments) ? fresh.attachments : [];
+  const kept = files.filter(file => file?.drive_file_id !== fileId);
+  if (kept.length === files.length) return {row:await readNoteDoc(id, rt), already:true};
+  const saved = await rt.api(`${base}&updated_at=eq.${encodeURIComponent(fresh.updated_at)}&select=${NOTE_FIELDS}`, {method:'PATCH', prefer:'return=representation', body:{attachments:kept, updated_at:now.toISOString()}});
+  if (!Array.isArray(saved) || saved.length !== 1) throw Object.assign(new Error('노트가 그사이 바뀌었어요. 다시 불러온 뒤 빼 주세요.'), {code:'note_changed'});
+  return {row:saved[0], already:false};
 }
 // The database checks the same limits (app_notes_title_check, app_notes_raw_text_check); these give plain messages first.
 export const NOTE_LIMITS = Object.freeze({title:200, text:100000});

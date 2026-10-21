@@ -881,6 +881,10 @@
 #appView #basketView .note-files a.file-line-link::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 #appView #basketView .note-files a.file-line-link:hover{ background:var(--kptu-surface-subtle); }
 #appView #basketView .note-files a.file-line-link:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+/* NOTE-파일붙이기: 카드 끝 [Drive에서 열기] 옆 ⋯(항목 [빼기] 하나). 보이는 32px·누르는 범위 44px, 이름이 길어도 줄 밖으로 밀리지 않음. */
+#appView #basketView .note-files .file-line{ gap:6px; }
+#appView #basketView .note-files button.note-file-more{ position:relative; width:var(--ds-compact-height); height:var(--ds-compact-height); min-width:0; min-height:0; }
+#appView #basketView .note-files button.note-file-more::after{ content:""; position:absolute; left:-6px; right:-6px; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 
 /* ───────── UI-버튼작게 ③(2026-10-18 사용자 결정): 폰 전환 줄은 아래 탭 바로 위 ─────────
    폰(760px 이하)에서 일정 [달력 | 할 일 | 업무일지 | 일기]와 바구니 [업데이트 | 노트]를 화면 위에서 빼서 아래 탭 6칸 바로 위 한 줄에 둔다.
