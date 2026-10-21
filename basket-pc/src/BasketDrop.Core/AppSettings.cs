@@ -10,6 +10,9 @@ public sealed class AppSettings
 
     /// <summary>False until the first run has applied the default, so a later "off" is never undone.</summary>
     public bool AutoStartDecided { get; set; }
+
+    /// <summary>Screen corner that opens the drop box: TopRight (default), BottomRight or Off. See <see cref="CornerChoices"/>.</summary>
+    public string Corner { get; set; } = CornerChoices.Default.ToString();
 }
 
 public sealed class SettingsStore
