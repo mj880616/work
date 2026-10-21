@@ -261,3 +261,33 @@ test('ids in free text: only UPPER-prefix + hyphen + digits; 출처명 is an id 
  assert.deepEqual(rs('CHG-0933'),['SRC-0937']);assert.deepEqual(rs('CHG-0934'),['SRC-0937']);
  assert.deepEqual(reasons(r,'warning'),{source_title_prefix:1,source_text_kept:2});
 });
+
+test('every real sheet column goes somewhere: ledger field, or "칸이름: 값" in note/detail; only the listed columns are dropped on purpose',async()=>{
+ const {ALL_TABS,DROPPED_COLUMNS}=await import('./ledger-import-fixture.mjs');
+ const r=await run(csvFiles(ALL_TABS));
+ assert.deepEqual(r.summary.error,[]);assert.equal(r.ok,true);
+ for(const t of r.tabs)assert.deepEqual(t.dropped,DROPPED_COLUMNS[t.key]||[],t.key);
+ const p=r.payload,rec=id=>p.records.find(x=>x.ledger_id===id);
+ // 사건 날짜 = 최초확인일, 현재상태 = 요지, 맞는 칸이 없는 칸은 비고.
+ assert.deepEqual([rec('EVT-0901').date_start,rec('EVT-0901').date_precision,rec('EVT-0901').summary,rec('EVT-0901').confidence],['2026-09-22','day','가상 현재 상태','medium']);
+ for(const line of ['왜 중요한가: 가상 중요 이유','영향 주체·조직: 가 지부','관련 업무: 가상 관련 업무','태그: 가상태그'])assert.ok(rec('EVT-0901').note.includes(line),line);
+ assert.equal(rec('EVD-0901').summary,'가상 핵심 내용');
+ for(const line of ['활용가능업무: 가상 활용 업무','관련조직: ORG-0901','태그: 가상태그'])assert.ok(rec('EVD-0901').note.includes(line),line);
+ const org=p.organizations.find(x=>x.ledger_id==='ORG-0901');
+ assert.deepEqual(org.aliases,['가지부','가상지부']);assert.equal(org.status,'active');assert.equal(p.organizations.find(x=>x.ledger_id==='ORG-0902').status,'retired');
+ for(const line of ['조직유형: 지부','상위조직/협의체: 가상 협의회','업무영역: 가상 업무 영역','사용자담당여부: Y','주요상대기관: 가상 상대 기관','Drive폴더ID: AAAAAAAAAA1','Drive폴더URL: https://example.org/가상폴더','최초등록일: 2026-09-01','가상 비고'])assert.ok(org.note.includes(line),line);
+ const src=p.sources.find(x=>x.ledger_id==='SRC-0901');
+ assert.deepEqual([src.source_date,src.location,src.drive_file_id,src.coverage,src.processing_status],['2026-03-02','https://example.org/가상문서','BBBBBBBBBB1','1~3쪽','partial']);
+ for(const line of ['생산주체: 가상 위원회','관련업무: 가상 업무','관련조직: ORG-0901','처리일: 2026-03-03','추출기록ID: EVT-0901','원문최종수정시각: 2026-03-02 10:00','수집대상ID: COL-0901'])assert.ok(src.note.includes(line),line);
+ assert.equal(p.sources.find(x=>x.ledger_id==='SRC-0902').source_date,'2026-03-05');
+ // 약속 상태변경일, 조직연결 연결ID·기록유형도 보존.
+ assert.match(rec('COM-0901').note,/상태변경일: 2026-04-11/);
+ assert.match(p.links.find(l=>l.record==='EVT-0901'&&l.target_organization).note,/연결ID: LNK-0901 \/ 기록유형: 사건/);
+ // 어느 탭에도 "맞는 칸 없음" 칸 값이 빠진 곳이 없다: 머리줄마다 원장 칸이거나 비고에 보존되거나 일부러 뺀 목록.
+ for(const t of r.tabs)for(const h of t.unknown){
+  const tab=Object.entries(ALL_TABS).find(([n])=>tabKey(n)===t.key)[1];const at=tab[0].indexOf(h);
+  const values=tab.slice(1).map(row=>row[at]).filter(Boolean);
+  const text=JSON.stringify(p);
+  for(const v of values)assert.ok(text.includes(`${h}: ${v}`)||text.includes(`"${h}":"${v}"`),`${t.key} ${h}`);
+ }
+});

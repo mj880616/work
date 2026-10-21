@@ -158,15 +158,23 @@ for(const [name,width] of [['PC',1440],['phone',390]]){
   await check.locator('[data-lg-action="revert"]').click();
   await expect(page.locator('[data-lg-check="reverted"]')).toBeVisible();
   await expect(page.locator('[data-lg-check="reverted"] [data-lg-action]')).toHaveCount(0);
+  // 되돌린 묶음은 "다름"이 아니라 "되돌림"으로 보이고, 같은 파일을 다시 해 볼 수 있다.
+  await expect(page.locator('[data-lg-check="reverted"] td:has-text("다름")')).toHaveCount(0);
+  await expect(page.locator('[data-lg-check="reverted"] tr[data-lg-tab="event"] td').last()).toHaveText('되돌림');
+  await page.locator('#lgFile').setInputFiles(csvUploads());
+  await expect(page.locator('[data-lg-verdict="ok"]')).toBeVisible();
+  await page.locator('[data-lg-action="dry"]').click();
+  await expect(page.locator('[data-lg-dry]')).toBeVisible();
+  await expect(page.locator('[data-lg-error]')).toHaveCount(0);
   await expect(page.locator('[data-lg-import][data-lg-status="reverted"]')).toHaveCount(1);
 
   // RPC로 간 것은 검사를 통과한 행뿐: 머리줄·가져오지 않는 칸·민감 제외 행·가져오지 않는 탭 내용이 없다.
   const sent=db.rpc.filter(r=>r.name==='app_import_ledger_apply');
-  expect(sent.length).toBe(3);
+  expect(sent.length).toBe(4);
   for(const r of sent){
    for(const text of ['신문반영일','"가상 민감 사건"','가상 민감 메모','EVT-0903','SRC-0903','계속추적','검색인덱스'])expect(r.body).not.toContain(text);
   }
-  const final=JSON.parse(sent.at(-1).body);
+  const final=JSON.parse(sent[2].body);
   expect(final.p_dry_run).toBe(false);
   expect(final.p_file.records.find(x=>x.ledger_id==='EVT-0901')).toMatchObject({topic:'TOP-0901',importance:'very_high',event_status:'tracking',date_precision:'month',date_start:'2026-03-01'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);

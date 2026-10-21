@@ -301,7 +301,7 @@ function resultHtml(r) {
 function columnsHtml(tabs) {
   const rows = tabs.filter(t => t.matched?.length || t.unknown?.length || t.dropped?.length || t.missing?.length);
   if (!rows.length) return '';
-  return `<details class="lg-details"><summary>칸 이름 확인</summary><ul class="lg-list">${rows.map(t => `<li><b>${esc(t.label)}</b>: ${t.matched.map(m => esc(m.header)).join(', ') || '없음'}${t.missing.length ? ` · <span class="lg-bad">없는 칸: ${esc(t.missing.join(', '))}</span>` : ''}${t.unknown.length ? ` · 모르는 칸(버림): ${esc(t.unknown.join(', '))}` : ''}${t.dropped.length ? ` · 가져오지 않는 칸: ${esc(t.dropped.join(', '))}` : ''}</li>`).join('')}</ul></details>`;
+  return `<details class="lg-details"><summary>칸 이름 확인</summary><ul class="lg-list">${rows.map(t => `<li><b>${esc(t.label)}</b>: ${t.matched.map(m => esc(m.header)).join(', ') || '없음'}${t.missing.length ? ` · <span class="lg-bad">없는 칸: ${esc(t.missing.join(', '))}</span>` : ''}${t.unknown.length ? ` · 맞는 원장 칸이 없어 비고에 보존: ${esc(t.unknown.join(', '))}` : ''}${t.dropped.length ? ` · 가져오지 않는 칸: ${esc(t.dropped.join(', '))}` : ''}</li>`).join('')}</ul></details>`;
 }
 function issuesHtml(r) {
   const block = (level, title) => {
@@ -346,11 +346,13 @@ function actionsHtml(r) {
 function checkHtml(c) {
   const rows = numberCheck(c.file?.report, c);
   const allOk = rows.length && rows.every(r => r.ok);
+  // 되돌린 묶음은 들어간 수가 0이 맞으므로 "다름" 대신 "되돌림"으로 보인다.
+  const reverted = c.status === 'reverted';
   return `<section class="lg-card" id="lgCheck" tabindex="-1" aria-labelledby="lgCheckTitle" data-lg-check="${esc(c.status)}">
     <h3 id="lgCheckTitle">숫자 확인 — ${esc(c.label)} <span class="lg-pill">${esc(STATUS_LABEL[c.status] || c.status)}</span></h3>
-    <p class="lg-note">탭마다 시트 행 수 = 들어간 수 + 민감 제외 + 거부 이어야 합니다. 들어간 수는 지금 DB에서 센 값입니다.</p>
+    <p class="lg-note">${reverted ? '되돌린 묶음입니다. 이 묶음에서 들어온 행은 모두 지웠고(들어간 수 0), 같은 파일을 다시 올릴 수 있습니다.' : '탭마다 시트 행 수 = 들어간 수 + 민감 제외 + 거부 이어야 합니다. 들어간 수는 지금 DB에서 센 값입니다.'}</p>
     <div class="lg-table-wrap"><table class="lg-table" data-lg-numbers><thead><tr><th scope="col">탭</th><th scope="col">시트 행</th><th scope="col">들어간 수</th><th scope="col">민감 제외</th><th scope="col">거부</th><th scope="col">맞음</th></tr></thead><tbody>
-      ${rows.map(r => `<tr data-lg-tab="${esc(r.key)}"><th scope="row">${esc(r.label)}</th><td>${r.sheet}${r.shift ? ` <span class="lg-muted" title="한 행에 기록 여러 개(+) 또는 겹치거나 담을 수 없어 뺀 연결(−)">(연결 ${r.shift > 0 ? '+' : ''}${r.shift})</span>` : ''}</td><td>${r.inserted}</td><td>${r.excluded}</td><td>${r.rejected}</td><td>${r.ok ? '맞음' : '<span class="lg-bad">다름</span>'}</td></tr>`).join('')}
+      ${rows.map(r => `<tr data-lg-tab="${esc(r.key)}"><th scope="row">${esc(r.label)}</th><td>${r.sheet}${r.shift ? ` <span class="lg-muted" title="한 행에 기록 여러 개(+) 또는 겹치거나 담을 수 없어 뺀 연결(−)">(연결 ${r.shift > 0 ? '+' : ''}${r.shift})</span>` : ''}</td><td>${r.inserted}</td><td>${r.excluded}</td><td>${r.rejected}</td><td>${reverted ? '<span class="lg-muted">되돌림</span>' : r.ok ? '맞음' : '<span class="lg-bad">다름</span>'}</td></tr>`).join('')}
     </tbody></table></div>
     <p class="lg-note">연결: 기록-출처 ${c.record_sources ?? 0}, 기록 간 ${c.links_to_records ?? 0}, 조직연결 ${c.links_to_organizations ?? 0}. 가져온 뒤 고친 행 ${c.modified ?? 0}.</p>
     ${c.status === 'applied' ? `<div class="lg-actions">
