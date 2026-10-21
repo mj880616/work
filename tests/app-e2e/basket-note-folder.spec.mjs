@@ -262,7 +262,10 @@ test('the chosen folder is remembered per user on this device: other screen, rel
   expect(await titles(page)).toEqual(['가 노트']);
   expect(await folderKeys(page)).toEqual([['kptu_owner_cache:note-folder-v1:home-test', 'f:자료 폴더']]);
   // Another screen and back: the same folder.
+  // The calendar screen loads on first use and switches to itself when ready; wait for that before going back, so its late
+  // switch cannot land after [노트] (it would cover the list and leave the address on the calendar for the reload).
   await page.evaluate(() => window.KPTURouter.go('calendar'));
+  await expect.poll(() => page.evaluate(() => window.KPTURouter.current)).toBe('calendar');
   await backToNotes(page);
   await expect(chip(page, '자료 폴더')).toBeChecked();
   expect(await titles(page)).toEqual(['가 노트']);
