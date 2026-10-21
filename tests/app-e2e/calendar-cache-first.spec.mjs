@@ -19,7 +19,7 @@ const task=(id,title)=>({id,title,taskListId:'l1',taskListTitle:'업무',due:kst
 
 function newState(){
   return {events:[event('keep','남는 일정'),event('gone','지울 일정',0,13)],tasks:[task('t-keep','남는 할 일'),task('t-gone','지울 할 일')],
-    hold:false,waiters:[],failEvents:false,failTasks:false,eventCalls:0,deleted:[]};
+    hold:false,waiters:[],failEvents:false,failTasks:false,eventCalls:0,deleted:[],trashed:[]};
 }
 const release=state=>{state.hold=false;state.waiters.splice(0).forEach(r=>r())};
 async function mock(page,state){
@@ -41,9 +41,10 @@ async function mock(page,state){
         return ok({events:state.events.filter(e=>Date.parse(e.start)<max&&Date.parse(e.end)>min),eventColors:{}});
       }
       if(action==='event'){
-        const e=state.events.find(x=>x.id===url.searchParams.get('eventId'));
+        const id=url.searchParams.get('eventId'),e=state.events.find(x=>x.id===id)||state.trashed.find(x=>x.id===id);
         return e?ok({event:e,eventColors:{}}):ok({error:'Not Found'},400);
       }
+      if(action==='update-event'){const e=state.events.find(x=>x.id===body.event_id);if(!e)return ok({error:'Not Found'},400);e.title=body.title;return ok({ok:true,event:e})}
       if(action==='delete-event'){state.deleted.push(body.event_id);state.events=state.events.filter(e=>e.id!==body.event_id);return ok({ok:true})}
       return ok({});
     }
@@ -148,8 +149,8 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}]){
   });
 }
 
-test.describe('saved copy follow-ups',()=>{
-  test.use({viewport:{width:390,height:844}});
+for(const viewport of [{width:390,height:844},{width:1280,height:900}])test.describe(`saved copy follow-ups at ${viewport.width}px`,()=>{
+  test.use({viewport});
   test.beforeEach(async({page})=>{await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','list')}catch{}})});
 
   test('deleting an event in Web2 drops it from the copy at once',async({page})=>{
@@ -223,6 +224,7 @@ test.describe('saved copy follow-ups',()=>{
     state.tasks=state.tasks.filter(t=>t.id!=='t-gone');state.failTasks=true;
     await page.reload();await ready(page);
     await expect(body).toContainText('지울 할 일');
+    await expect(line).toBeVisible();
     await expect(line).toContainText('최신 아님 · 마지막 확인');
     await expect(line.getByRole('button',{name:'다시 시도'})).toBeVisible();
     // Opening the task that is gone checks Google's latest list (now answering) and drops it.
@@ -231,5 +233,63 @@ test.describe('saved copy follow-ups',()=>{
     await expect(page.locator('#gtEditStatus')).toContainText('삭제된 항목');
     await expect(page.locator('#gtSaveBtn')).toBeDisabled();
     await expect.poll(()=>page.evaluate(k=>JSON.parse(localStorage.getItem(k)||'null')?.tasks?.map(t=>t.id),TASK_KEY)).toEqual(['t-keep']);
+  });
+  test('an event deleted elsewhere that Google still answers by ID is judged by the fresh list',async({page})=>{
+    const state=newState();await mock(page,state);
+    await signIn(page,'calendar');
+    await expect(listEvent(page,'gone')).toBeVisible();
+    state.trashed=state.events.filter(e=>e.id==='gone');state.events=state.events.filter(e=>e.id!=='gone');state.hold=true;
+    await page.reload();await ready(page);
+    await expect(fresh(page)).toHaveText('새로 불러오는 중');
+    await listEvent(page,'gone').click();
+    await expect(page.locator('#ciGoogleTitle')).toHaveValue('지울 일정');
+    await expect(page.locator('#ciGoogleSave')).toBeDisabled();
+    release(state);
+    await expect(page.locator('#ciGoogleStatus')).toContainText('삭제된 항목');
+    await expect(page.locator('#ciGoogleSave')).toBeDisabled();
+    await expect(page.locator('#ciGoogleDelete')).toBeDisabled();
+    await expect.poll(()=>copiedIds(page)).toEqual(['keep']);
+  });
+
+  test('editing an event in Web2 updates the copy at once',async({page})=>{
+    const state=newState();await mock(page,state);
+    await signIn(page,'calendar');
+    await listEvent(page,'keep').click();
+    await expect(page.locator('#ciGoogleSave')).toBeEnabled();
+    await page.locator('#ciGoogleTitle').fill('고친 일정');
+    state.hold=true;
+    await page.locator('#ciGoogleSave').click();
+    await expect.poll(async()=>{const v=await copy(page);return v&&v!=='navigating'?Object.values(v.ranges).flatMap(r=>r.events).find(e=>e.id==='keep')?.title:v}).toBe('고친 일정');
+    const home=await page.evaluate(k=>JSON.parse(localStorage.getItem(k)||'null'),HOME_KEY);
+    expect(home.cards.calendar.rows.find(r=>r.id==='keep')?.title).toBe('고친 일정');
+    await expect(listEvent(page,'keep')).toContainText('고친 일정');
+    release(state);
+  });
+
+  test('month view shows the copy first and replaces it with the fresh answer',async({page})=>{
+    await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}});
+    const state=newState();await mock(page,state);
+    await signIn(page,'calendar');
+    const grid=page.locator('#calendarGrid');
+    await expect(grid).toContainText('지울 일정');
+    await expect(fresh(page)).toBeHidden();
+    state.events=state.events.filter(e=>e.id!=='gone');state.hold=true;
+    await page.reload();await ready(page);
+    await expect(grid).toContainText('지울 일정');
+    await expect(fresh(page)).toHaveText('새로 불러오는 중');
+    release(state);
+    await expect(grid).not.toContainText('지울 일정');
+    await expect(grid).toContainText('남는 일정');
+    await expect(fresh(page)).toBeHidden();
+  });
+
+  test('month view without a copy says 불러오는 중 until the first answer',async({page})=>{
+    await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}});
+    const state=newState();state.hold=true;await mock(page,state);
+    await signIn(page,'calendar');
+    await expect(fresh(page)).toHaveText('불러오는 중…');
+    release(state);
+    await expect(page.locator('#calendarGrid')).toContainText('남는 일정');
+    await expect(fresh(page)).toBeHidden();
   });
 });

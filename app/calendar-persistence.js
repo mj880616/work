@@ -73,7 +73,10 @@ async function cpReadEvents(s,e,force){
   }
   result.events=[...new Map(result.events.map(ev=>[ev.calendarId+':'+ev.id,ev])).values()];if(warnings.length)result.warning=warnings.join(' · ');return result;
 }
-async function cpLoadEvents({force=false,appendPage=false}={}){
+// The read under way (cpConfirm waits for it before judging an event opened from this device's copy).
+let cpLoading=null;
+function cpLoadEvents(options){const p=cpLoadEventsNow(options);cpLoading=p;p.finally(()=>{if(cpLoading===p)cpLoading=null}).catch(()=>{});return p}
+async function cpLoadEventsNow({force=false,appendPage=false}={}){
   const viewRevision=window.KPTUCalendarView?.begin();
   if(!cpState?.connected){cpEvents=[];cpShownKey='';cpCover=null;cpFromCopy=false;cpFreshness(cpState?'':'loading');cpSyncEvents();window.KPTUCalendarView?.finish(viewRevision,true);return true}
   const owner=cpSessionOwner(),{s,e,append=false}=cpRange(appendPage),key=cpEventsKey(owner,s,e),seq=++cpEventSeq;
@@ -104,8 +107,27 @@ function cpForget(id,calendarId){
   const v=cpCopyRead(owner);if(v){for(const r of Object.values(v.ranges))r.events=r.events.filter(ev=>!same(ev));cpCopyStore(owner,v)}
   cpHomeCache()?.update('calendar',card=>({...card,rows:card.rows.filter(r=>!(r.id===id&&(!calendarId||r.calendarId===calendarId)))}));
 }
+// An event saved in Web2: the screen, the saved ranges and the home copy show the saved version at once (the reload that follows
+// replaces them wholesale). prevCalendarId: the calendar it was in before a move.
+function cpPut(ev,prevCalendarId){
+  if(!ev?.id)return;const owner=cpSessionOwner(),from=prevCalendarId||ev.calendarId,old=x=>x.id===ev.id&&x.calendarId===from;
+  const swap=list=>list.some(old)?list.map(x=>old(x)?{...x,...ev}:x):list;
+  if(cpEvents.some(old)){cpEvents=swap(cpEvents);cpSyncEvents()}
+  for(const hit of cpRangeCache.values())if(hit.d?.events)hit.d={...hit.d,events:swap(hit.d.events)};
+  const v=cpCopyRead(owner);if(v){for(const r of Object.values(v.ranges))r.events=cpCopyEvents(swap(r.events));cpCopyStore(owner,v)}
+  cpHomeCache()?.update('calendar',card=>card.day!==dayKey()?card:{...card,rows:homeEventRows([...card.rows.filter(r=>!(r.id===ev.id&&r.calendarId===from)),ev],cpState)});
+}
+// An event opened from this device's copy: wait for the read under way (or read again when the last one failed) and answer
+// 'present', 'gone' (the latest read no longer has it) or 'unknown' (Google did not answer; the copy is still shown).
+async function cpConfirm(id,calendarId){
+  const owner=cpSessionOwner(),same=ev=>ev.id===id&&(!calendarId||ev.calendarId===calendarId);
+  for(let i=0;i<3&&cpFromCopy&&cpLoading;i++)await cpLoading.catch(()=>{});
+  if(cpFromCopy&&!cpLoading&&cpState?.connected)await cpLoadEvents().catch(()=>{});
+  if(!owner||owner!==cpSessionOwner()||cpFromCopy)return 'unknown';
+  return cpEvents.some(same)?'present':'gone';
+}
 async function cpInit(){cpMessage('');cpRestore();await cpStatus();return true}
-window.KPTUCalendarPersistence={knows:cpKnows,state:()=>cpFresh,fromCopy:()=>cpFromCopy,forget:cpForget,paint:cpPaint,decorate:cpDecorate,refresh:options=>cpLoadEvents(options),status:()=>cpStatus({force:true}),setEnabled:cpSetEnabled,disconnected:cpDisconnected,peek:()=>cpOwner===cpSessionOwner()?{owner:cpOwner,status:cpState}:null};
+window.KPTUCalendarPersistence={knows:cpKnows,state:()=>cpFresh,fromCopy:()=>cpFromCopy,forget:cpForget,put:cpPut,confirm:cpConfirm,paint:cpPaint,decorate:cpDecorate,refresh:options=>cpLoadEvents(options),status:()=>cpStatus({force:true}),setEnabled:cpSetEnabled,disconnected:cpDisconnected,peek:()=>cpOwner===cpSessionOwner()?{owner:cpOwner,status:cpState}:null};
 // 일정 생성·수정·삭제 직후 호출된다: 캐시와 진행 중 요청을 무시하고 새로 읽는다.
 window.__KPTU_RELOAD_GOOGLE_EVENTS__=()=>cpLoadEvents({force:true});
 window.__KPTU_CALENDAR_PERSISTENCE_READY__=cpInit().catch(e=>{console.warn('calendar persistence init',e);return false});
