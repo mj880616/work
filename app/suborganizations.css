@@ -16,3 +16,26 @@
 #soOrganizationList>.so-org-group{border:0;border-radius:var(--kptu-radius-md);background:transparent}
 .so-group-heading{margin:0 0 6px;font-size:12px;line-height:18px;color:var(--kptu-muted)}
 .so-group-card{min-width:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface)}
+/* ORG-PC좌우(2026-10-21): PC(1024px~) 담당조직 화면 = 왼쪽 목록 + 오른쪽 상세 칸(#wdDetailPane). 프로젝트 화면(UI-PC프로젝트좌우,
+   project-system-v3.css #ps3DetailPane)과 같은 짜임·비율(--ds-split-*): 화면 높이에 맞춘 한 페이지, 목록·상세 칸 안에서만 세로로 넘긴다.
+   상세 칸은 지금 상세 창(#wdModal)을 그 자리에 옮겨 그대로 쓴다(workplace-detail.js wdPlace). 창 겉모양만 칸에 맞추고
+   닫기 ×는 숨긴다(다른 조직을 고르면 바뀜). 761~1023px·폰은 지금처럼 목록 + 상세 창. */
+#wdDetailPane{display:none}
+@media(min-width:1024px){
+  html:has(#appView #teamView:not(.hidden)) main{padding-bottom:12px}
+  html:has(#appView #teamView:not(.hidden)) #appView>.app-nav{margin-bottom:0}
+  #appView #teamView:not(.hidden){display:flex;flex-direction:column;height:calc(100vh - 24px);height:calc(100dvh - 24px);min-height:420px}
+  #appView #teamView>#soTeamSection{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:minmax(0,1fr);column-gap:var(--kptu-space-3);margin:0}
+  #appView #teamView #soTeamSection>#soOrganizationList{grid-column:1;grid-row:1;align-self:start;align-content:start;max-height:100%;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;min-width:0}
+  #appView #teamView #soTeamSection>#wdDetailPane{grid-column:2;grid-row:1;display:block;min-height:0;min-width:0;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
+  #wdDetailPane .so-pane-empty{margin:0;font-size:var(--ds-text-meta);line-height:1.5;color:var(--kptu-muted)}
+  #wdDetailPane.has-org .so-pane-empty{display:none}
+  /* 고른 조직 줄: 연한 초록(프로젝트 목록의 고른 줄과 같음). */
+  #appView #teamView #soOrganizationList .kptu-list-row.is-selected{background:var(--kptu-primary-soft)}
+  /* 상세 칸 안의 상세 창(같은 요소). */
+  #wdDetailPane>#wdModal.wd-docked{position:static;inset:auto;display:block;justify-items:normal;align-items:normal;padding:0;background:transparent;z-index:auto}
+  #wdDetailPane>#wdModal.wd-docked.hidden{display:none}
+  #wdDetailPane>#wdModal.wd-docked>.wd-card{width:auto;max-width:none;max-height:none;overflow:visible;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-none);box-shadow:none;background:transparent}
+  #wdDetailPane>#wdModal.wd-docked>.wd-card>.modal-head{top:calc(var(--kptu-space-3) * -1);margin:calc(var(--kptu-space-3) * -1) calc(var(--kptu-space-3) * -1) 0;padding:var(--kptu-space-3)}
+  #wdDetailPane>#wdModal.wd-docked [data-wd-close="wdModal"]{display:none}
+}

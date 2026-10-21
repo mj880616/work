@@ -2,6 +2,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { closeProjectDetail, expectProjectDetail } from './helpers/project-detail.mjs';
+import { closeOrganizationDetail } from './helpers/organization-detail.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'design-system-user',email:'design-system@example.org',user_metadata:{display_name:'Design QA'}};
@@ -166,7 +167,7 @@ for(const width of [390,1440])test('D-button project and organization detail and
  for(const selector of ['[data-ps3-toggle-done]','[data-ps3-edit-project]','[data-ps3-archive-project]','[data-ps3-delete-project]'])await standard(page,selector);
  await closeProjectDetail(page);
  await view(page,'team');await page.locator('[data-ps-workplace-org="type-org"]').click();await dsStandard(page,'#wdInboxSave');
- await page.locator('[data-wd-close="wdModal"]').click();await expect(page.locator('#wdModal')).toBeHidden();
+ await closeOrganizationDetail(page);
  await view(page,'meetings');await page.locator('#newMeetingBtn').click();await page.locator('#addMeetingAction').click();for(let i=0;i<await page.locator('.meeting-action-remove').count();i++)await standard(page,'.meeting-action-remove >> nth='+i);
 });
 

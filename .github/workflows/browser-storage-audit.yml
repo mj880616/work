@@ -77,9 +77,11 @@ jobs:
               'tests/app-e2e/mobile-ux-shell.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
               'tests/app-e2e/calendar-google-loading.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
               'tests/app-e2e/helpers/calendar-task-emphasis.mjs':[r"['\"]kptu-calendar-view['\"]"],
-              # UI-PC프로젝트좌우: device-local "last project seen" on the PC projects screen (one project id, no names or
-              # content), stored under the per-owner cache prefix that sign-out clears.
-              'app/project-system-v3.js':[r'lastKey\(\)'],
+              # UI-PC프로젝트좌우·ORG-PC좌우: device-local "last project / organization seen" on the PC left-list / right-detail
+              # screens (one id, no names or content), stored under the per-owner cache prefix that sign-out and owner change clear.
+              'app/split-last.js':[r'localStorage\.(?:getItem|setItem)\(k\b'],
+              # ORG-PC좌우 시험: 합성 조직 id 하나를 넣고 읽어 로그아웃·사용자 변경 때 지워지는지 본다.
+              'tests/app-e2e/organization-pc-split.spec.mjs':[r"organization-last"],
               # UI-노트폴더 기억: device-local "last chosen note folder" (one folder choice string, no note content), stored under the
               # per-owner cache prefix that sign-out and owner change clear (KPTURuntime.ownerCache).
               'app/basket-notes.js':[r'localStorage\.(?:setItem|getItem)\(key'],
