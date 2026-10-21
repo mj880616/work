@@ -266,6 +266,13 @@ test('the chosen folder is remembered per user on this device: other screen, rel
   await backToNotes(page);
   await expect(chip(page, '자료 폴더')).toBeChecked();
   expect(await titles(page)).toEqual(['가 노트']);
+  // The calendar asked for above finishes loading after [바구니] was opened: it must not take the screen or the address back.
+  await expect.poll(() => page.evaluate(() => window.KPTUViewLoader.isLoaded('calendar')), { timeout: 20000 }).toBe(true);
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0))));
+  expect(await page.evaluate(() => [window.KPTURouter.current, new URL(location.href).searchParams.get('view')])).toEqual(['basket', 'basket']);
+  // The calendar's background organization load runs on after it; a reload cutting its request would log a network error.
+  await expect.poll(() => page.evaluate(() => !!window.__KPTU_SUBORGANIZATIONS_READY__), { timeout: 20000 }).toBe(true);
+  expect(await page.evaluate(() => window.__KPTU_SUBORGANIZATIONS_READY__)).toBe(true);
   // Reload (app opened again): the same folder.
   await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, { timeout: 20000 });
