@@ -27,7 +27,7 @@ const ERRORS = [
 let state = freshState();
 let bound = false;
 function freshState() {
-  return {phase: 'loading', ctx: null, imports: [], input: null, result: null, overrides: {}, label: '', mappingOk: false,
+  return {phase: 'loading', ctx: null, imports: [], input: null, result: null, overrides: {}, label: '', mappingOk: false, mappingOpen: null,
     dry: null, dryKey: '', busy: '', message: '', error: '', check: null, readError: ''};
 }
 const workspaceId = () => rt?.context?.read?.()?.workspace?.id || null;
@@ -115,7 +115,7 @@ const canApply = () => canDry() && !!state.dry && state.dryKey === payloadKey() 
 
 async function onFiles(list) {
   const files = [...(list || [])];
-  state.input = null; state.result = null; state.overrides = {}; state.mappingOk = false; state.readError = ''; state.message = ''; state.error = ''; state.check = null;
+  state.input = null; state.result = null; state.overrides = {}; state.mappingOk = false; state.mappingOpen = null; state.readError = ''; state.message = ''; state.error = ''; state.check = null;
   if (!files.length) { render(); return; }
   state.busy = 'read'; render();
   try {
@@ -267,7 +267,7 @@ function mappingHtml(r) {
   const fields = Object.entries(r.mapping || {});
   if (!fields.length) return '';
   const ambiguous = fields.reduce((n, [, m]) => n + m.values.filter(v => v.ambiguous).length, 0);
-  return `<details class="lg-details lg-mapping" ${ambiguous ? 'open' : ''} data-lg-mapping><summary>고정 목록 대응표 (${fields.length}칸${ambiguous ? `, 확인 필요 ${ambiguous}개` : ''})</summary>
+  return `<details class="lg-details lg-mapping" ${(state.mappingOpen ?? ambiguous > 0) ? 'open' : ''} data-lg-mapping><summary>고정 목록 대응표 (${fields.length}칸${ambiguous ? `, 확인 필요 ${ambiguous}개` : ''})</summary>
     <p class="lg-note">시트에 적힌 값을 원장의 고정 값으로 바꿉니다. 규칙으로 고른 초안이며, 애매한 값(⚠)은 기본값으로 두었습니다. 다르면 바꾸세요.</p>
     ${fields.map(([field, m]) => `<div class="lg-map-field"><h5>${esc(m.label)}</h5><div class="lg-table-wrap"><table class="lg-table lg-map-table"><thead><tr><th scope="col">시트 값</th><th scope="col">행</th><th scope="col">원장 값</th></tr></thead><tbody>
       ${m.values.map((v, i) => `<tr><th scope="row">${v.ambiguous ? '<span class="lg-warn" title="확인 필요">⚠</span> ' : ''}${v.raw ? esc(v.raw) : '<span class="lg-muted">(빈칸)</span>'}</th><td>${v.count}</td><td><select class="lg-select" id="lgMap-${esc(field)}-${i}" data-lg-map-field="${esc(field)}" data-lg-map-raw="${esc(v.raw)}" aria-label="${esc(m.label)} ${esc(v.raw || '빈칸')}" ${state.busy ? 'disabled' : ''}>${m.options.map(([value, label]) => `<option value="${esc(value)}" ${value === v.value ? 'selected' : ''}>${esc(label)}</option>`).join('')}</select></td></tr>`).join('')}
@@ -330,7 +330,7 @@ function bind() {
     const field = e.target.dataset?.lgMapField;
     if (field) {
       (state.overrides[field] ||= {})[e.target.dataset.lgMapRaw] = e.target.value;
-      state.mappingOk = false;
+      state.mappingOk = false; state.mappingOpen = true;
       reanalyze(); render();
     }
   });
@@ -349,6 +349,8 @@ function bind() {
     else if (action === 'check') void showCheck(id);
     else if (action === 'confirm' || action === 'revert') void decide(id, action);
   });
+  // 대응표를 펼치고 접은 것은 다시 그려도 유지한다(toggle은 거품이 없어 capture로 받는다).
+  document.addEventListener('toggle', e => { if (e.target?.matches?.('#ledgerRoot details[data-lg-mapping]')) state.mappingOpen = e.target.open; }, true);
   window.KPTURouter?.on?.('ledger', () => { void load(); });
 }
 

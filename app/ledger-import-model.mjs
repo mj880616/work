@@ -326,6 +326,8 @@ export function parseLedgerDate(raw) {
       return { date_start: a.start, date_end: b.end, date_precision: 'range', date_note: text };
     }
   }
+  // 날짜 모양인데 달력에 없는 날(2026-02-30)은 거부. 그 밖의 글(○○ 이전 등)은 모름 + 원래 표기.
+  if (/^\d{4}\s*[-./년]\s*\d{1,2}(\s*[-./월]\s*\d{1,2})?\s*일?\.?$/.test(text) || range.length === 2 && range.every(x => /^\d{4}/.test(x))) return { error: 'bad_date' };
   return { date_start: null, date_end: null, date_precision: 'unknown', date_note: text, warning: 'date_unknown' };
 }
 // 날짜 하나만 받는 칸(출처 날짜·후속확인일): 일. 월·연이면 첫날 + 알림. 못 읽으면 거부.
