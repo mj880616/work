@@ -4,12 +4,14 @@ namespace BasketDrop;
 
 /// <summary>
 /// Cleans the file name shown in the basket and builds the multipart header that carries it.
-/// Why this exists (basket-pc v0.2.0 bug): the built-in .NET multipart helper wrote non-ASCII names as a MIME
-/// encoded word (<c>filename="=?utf-8?B?...?="</c>). The basket Edge function (Deno <c>req.formData()</c>) splits
-/// header parameters on '=', so every Korean name arrived as a single <c>"</c>. Browsers send the raw UTF-8 name in
-/// quotes, which the server already reads correctly; this class sends exactly that.
-/// No <c>filename*</c> (RFC 5987): RFC 7578 4.2 forbids it in form data, Deno ignores it, and Node's form parser
-/// rejects the whole request when it is present. An ASCII-only <c>filename</c> would lose the Korean name.
+/// History: basket-pc v0.2.0 wrote non-ASCII names as a MIME encoded word (<c>filename="=?utf-8?B?...?="</c>), which
+/// the basket Edge function read as a single <c>"</c>. v0.2.1 (PR #918) sent the raw UTF-8 name in quotes like a
+/// browser, but replaced <c>" \ ; =</c> with '_' because the server then cut quoted names at ';' and '='.
+/// Since PR #925 (basket-files v9) the server reads quoted <c>filename=</c> properly (';' '=' inside quotes are
+/// kept, <c>\"</c> and <c>\\</c> are unescaped), so the original name is sent: quoted-string with <c>"</c> and
+/// <c>\</c> escaped by a backslash (RFC 6266 4.1 / RFC 7578 4.2).
+/// No <c>filename*</c> (RFC 5987): RFC 7578 4.2 forbids it in form data and Node's form parser rejects the whole
+/// request when it is present. An ASCII-only <c>filename</c> would lose the Korean name.
 /// </summary>
 public static class FileNames
 {
@@ -31,9 +33,10 @@ public static class FileNames
     }
 
     /// <summary>
-    /// The name to show and send: NFC (names from macOS can arrive decomposed), no control characters or quotes,
-    /// last path segment only, no trailing dots or blanks, extension kept. A name with no letter or digit left
-    /// (e.g. <c>"</c>, <c>___.hwp</c>, <c>.hwp</c>) becomes <see cref="Fallback"/> plus the original extension.
+    /// The name to show and send: NFC (names from macOS can arrive decomposed), no control characters, last path
+    /// segment only (cut at '/' and, like the server, at '\'), no trailing dots or blanks, extension kept.
+    /// Quotes, ';' and '=' stay in the name. A name with no letter or digit left (e.g. <c>"</c>, <c>___.hwp</c>,
+    /// <c>.hwp</c>) becomes <see cref="Fallback"/> plus the original extension.
     /// </summary>
     public static string Clean(string? raw)
     {
@@ -43,7 +46,7 @@ public static class FileNames
 
         var sb = new StringBuilder(s.Length);
         foreach (var c in s)
-            if (c != '"' && !char.IsControl(c) && !IsInvisibleFormat(c)) sb.Append(c);
+            if (!char.IsControl(c) && !IsInvisibleFormat(c)) sb.Append(c);
         s = sb.ToString();
 
         var cut = s.LastIndexOfAny(Separators);
@@ -57,16 +60,14 @@ public static class FileNames
 
     /// <summary>
     /// Content-Disposition for one file part, written like a browser form: <c>form-data; name="file";
-    /// filename="UTF-8 name"</c>. Characters that break the server's simple parameter split (<c>" \ ; =</c>) and
-    /// control characters are replaced by '_'. The part headers must be written as UTF-8.
+    /// filename="UTF-8 name"</c>. The name is sent as cleaned (<see cref="Clean"/>); inside the quotes only
+    /// <c>"</c> and <c>\</c> are escaped with a backslash. The part headers must be written as UTF-8.
     /// </summary>
-    public static string ContentDisposition(string fieldName, string fileName)
-    {
-        var name = Clean(fileName);
-        var quoted = new StringBuilder(name.Length);
-        foreach (var c in name) quoted.Append(c is '"' or '\\' or ';' or '=' || char.IsControl(c) ? '_' : c);
-        return $"form-data; name=\"{fieldName}\"; filename=\"{quoted}\"";
-    }
+    public static string ContentDisposition(string fieldName, string fileName) =>
+        $"form-data; name=\"{fieldName}\"; filename=\"{EscapeQuoted(Clean(fileName))}\"";
+
+    /// <summary>Content of an HTTP quoted-string: a backslash before every <c>"</c> and <c>\</c>.</summary>
+    public static string EscapeQuoted(string value) => value.Replace("\\", "\\\\").Replace("\"", "\\\"");
 
     /// <summary>Stem and extension (with the dot). An extension is 1–16 letters or digits after the last dot.</summary>
     internal static (string Stem, string Ext) Split(string name)
