@@ -52,7 +52,7 @@ test('render: checkable rows with time, uncheckable rows say 확인 불가, noth
 
 test('readStatus: owner GET status without session refresh; 404 table and failed function hide quietly', async () => {
   const {rt, calls} = fakeRt({copy:new Error('Failed to fetch'), radar:missing});
-  assert.deepEqual(await mod.readStatus(rt), {copy:null, radar:null});
+  assert.deepEqual(await mod.readStatus(rt), {copy:null, radar:null, collectors:null});
   assert.equal(calls[0].path, '/functions/v1/drive-summary?action=status');
   assert.equal(calls[0].opts.refreshSession, false, 'a 401 must never log the owner out');
   assert.ok(!calls[0].opts.method || calls[0].opts.method === 'GET', 'never the POST that rebuilds the copy');
@@ -87,4 +87,44 @@ test('radar state: no row or no time yet hides the line', () => {
   assert.equal(mod.radarFromRows([{last_success_at:null}]), null);
   assert.equal(mod.radarFromRows({}), null);
   assert.deepEqual(mod.radarFromRows([{last_success_at:'2026-10-21T01:00:00Z'}]), {at:'2026-10-21T01:00:00Z', failedAt:null});
+});
+
+// OPS-수집점검 2단계: telegram·transcript lines from the heartbeat values in the same status answer.
+const beat = (atH, reportedH = 0.5, count) => ({last_at:iso(now - atH * H), reported_at:iso(now - reportedH * H), ...(count === undefined ? {} : {count})});
+test('collectorsFromStatus: only the ok shape; missing field (old function) is null; bad entries are no signal', () => {
+  assert.equal(mod.collectorsFromStatus({ok:true, copy:{state:'none'}}), null);
+  assert.equal(mod.collectorsFromStatus({ok:false, collectors:{}}), null);
+  assert.equal(mod.collectorsFromStatus(null), null);
+  assert.deepEqual(mod.collectorsFromStatus({ok:true, collectors:{telegram:beat(1), transcript:{last_at:'파일 이름', reported_at:iso(now)}}}),
+    {telegram:{at:iso(now - H), reportedAt:iso(now - 0.5 * H), count:null}, transcript:null});
+  assert.equal(mod.collectorsFromStatus({ok:true, collectors:{transcript:beat(1, 0.5, -3)}}).transcript.count, null);
+});
+test('judgeCollector: telegram 6h, call 72h, signal older than 3h is silent, nothing yet is never', () => {
+  const j = (key, raw) => mod.judgeCollector(key, raw && {at:raw.last_at, reportedAt:raw.reported_at, count:raw.count}, now).state;
+  assert.equal(j('telegram', beat(5)), 'ok');
+  assert.equal(j('telegram', beat(7)), 'stale');
+  assert.equal(j('call', beat(60)), 'ok', 'a weekend without calls is not a warning');
+  assert.equal(j('call', beat(73)), 'stale');
+  assert.equal(j('telegram', beat(1, 4)), 'silent', 'the script itself stopped');
+  assert.equal(j('call', null), 'never');
+  assert.deepEqual(mod.STALE_HOURS, {copy:24, radar:48, telegram:6, call:72});
+});
+test('render: collector lines show time, 24h count for calls, and warnings; old function keeps 확인 불가', () => {
+  const collectors = mod.collectorsFromStatus({ok:true, collectors:{telegram:beat(8), transcript:beat(2, 0.5, 5)}});
+  const html = mod.renderRows({copy:null, radar:null, collectors}, now);
+  assert.match(html, /data-collect="telegram" data-collect-state="stale"/);
+  assert.match(html, /collect-warn">주의 · 오래됨/);
+  assert.match(html, /data-collect="call" data-collect-state="ok"><span class="collect-label">통화 녹음 전사<\/span><span class="collect-value">마지막 [^<]+ · 24시간 5건<\/span>/);
+  assert.doesNotMatch(html, /확인 불가/);
+  const silent = mod.renderRows({copy:null, radar:null, collectors:{telegram:null, transcript:mod.collectorsFromStatus({ok:true, collectors:{transcript:beat(1, 5)}}).transcript}}, now);
+  assert.match(silent, /data-collect="telegram" data-collect-state="never"[^]*점검 신호 없음/);
+  assert.match(silent, /data-collect="call" data-collect-state="silent"[^]*collect-warn">주의 · 점검 신호 끊김/);
+  assert.match(mod.renderRows({copy:{at:iso(now - H)}, radar:null, collectors:null}, now), /data-collect="call" data-collect-state="unknown"[^]*확인 불가/);
+});
+test('readStatus: one status call feeds both copy and collectors', async () => {
+  const {rt, calls} = fakeRt({copy:{ok:true, copy:{state:'found', last_success_at:iso(now - H), last_failure_at:null}, collectors:{telegram:beat(1), transcript:null}}, radar:[]});
+  const raw = await mod.readStatus(rt);
+  assert.equal(calls.filter(c => c.path.startsWith('/functions/v1/drive-summary')).length, 1);
+  assert.equal(raw.copy.at, iso(now - H));
+  assert.deepEqual(raw.collectors, {telegram:{at:iso(now - H), reportedAt:iso(now - 0.5 * H), count:null}, transcript:null});
 });
