@@ -3,7 +3,7 @@
 // 고정 목록 대응표 확인 → [해 보기](DB에 남지 않음) → [적용](묶음 하나, 한 거래) → 숫자 확인 → [확인] 또는 [되돌리기].
 // 파일 원문은 서버로 보내지 않고 로그에도 남기지 않는다. DB에는 검사를 통과한 행만 app_import_ledger_apply RPC로 보낸다.
 // 원장 표(20261021082000)가 없으면 "원장 표 준비 전", 가져오기 함수(20261021150000)가 없으면 "가져오기 기능 준비 전"만 보인다.
-// 원장 목록·검색은 S7-c(자리만).
+// 원장 후보 확정(#ledgerCandidatesRoot, ledger-candidates.js)과 목록·검색(#ledgerBrowseRoot, ledger-browse.js)은 S7-c 모듈이 각자 그린다.
 import {readInputFiles, analyze, numberCheck, TABS} from './ledger-import-model.mjs';
 
 const rt = window.KPTURuntime;
@@ -34,7 +34,7 @@ const workspaceId = () => rt?.context?.read?.()?.workspace?.id || null;
 
 function installView() {
   if (document.querySelector('#ledgerView')) return;
-  document.querySelector('#appView')?.insertAdjacentHTML('beforeend', `<section id="ledgerView" class="view-panel hidden" aria-labelledby="ledgerTitle"><div class="section-head"><div><h2 id="ledgerTitle">원장</h2><p>업무 원장(사건·결정·근거·약속·출처·조직)을 Web2로 옮기고 확인하는 화면입니다.</p></div></div><div id="ledgerRoot" class="lg-root"></div></section>`);
+  document.querySelector('#appView')?.insertAdjacentHTML('beforeend', `<section id="ledgerView" class="view-panel hidden" aria-labelledby="ledgerTitle"><div class="section-head"><div><h2 id="ledgerTitle">원장</h2><p>업무 원장(사건·결정·근거·약속·출처·조직)을 Web2로 옮기고 확인하는 화면입니다.</p></div></div><div class="lg-root"><div id="ledgerRoot" class="lg-root"></div><div id="ledgerCandidatesRoot" class="lg-root" hidden></div><div id="ledgerBrowseRoot" class="lg-root" hidden></div></div></section>`);
 }
 
 function friendly(error) {
@@ -224,8 +224,7 @@ function shellHtml() {
     <div id="lgError"></div>
   </section>
   <div id="lgCheckBox"></div>
-  <div id="lgImportsBox"></div>
-  <section class="lg-card lg-later" aria-labelledby="lgListTitle"><h3 id="lgListTitle">원장 목록·검색</h3><p class="lg-note">원장 후보 확정, 목록과 검색은 다음 단계에서 이 자리에 열립니다.</p></section></div>`;
+  <div id="lgImportsBox"></div></div>`;
 }
 
 function resultHtml(r) {
