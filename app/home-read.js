@@ -1,6 +1,7 @@
 import { readRecordPages } from './basket-link-records.js';
 import { mountQuick } from './home-quick.js';
 import { mountRadar } from './todo-radar.js';
+import { mountCollectionStatus } from './collection-status.js';
 import { createHomeCache } from './home-read-cache.js';
 import {
   ranges,
@@ -46,7 +47,8 @@ let epoch = 0,
   copies = {},
   calendarState = null,
   imports = null,
-  radarMount = null;
+  radarMount = null,
+  collectMount = null;
 const metrics = {
   shellAt:
     window.__KPTU_STARTUP__?.marks.requestedShellVisible || performance.now(),
@@ -124,12 +126,16 @@ function shell() {
   };
   // JOURNAL-챙길것: 챙길 것 sits below 주요 일정. todo-radar.js is the only renderer inside that card; it stays hidden until
   // the candidate table and the server function answer (not deployed yet = hidden).
-  host.innerHTML = `<div data-home-column="main">${['calendar','tasks','meetings'].map(section).join('')}</div><div data-home-column="aside">${section('dday')}<section class="home-card home-radar" data-home-card="radar" hidden></section></div>`;
+  host.innerHTML = `<div data-home-column="main">${['calendar','tasks','meetings'].map(section).join('')}</div><div data-home-column="aside">${section('dday')}<section class="home-card home-radar" data-home-card="radar" hidden></section><section class="home-card home-collect" data-home-card="collect" aria-labelledby="home-collect-title" hidden></section></div>`;
   host.querySelector('[data-home-column="main"]').prepend(quick);
   focused?.focus({ preventScroll: true });
   radarMount?.destroy();
   radarMount = mountRadar(card('radar'), { place: 'home' });
   radarMount?.refresh();
+  // OPS-수집점검: 마지막 수집 시각. collection-status.js is the only renderer; hidden until something can be checked.
+  collectMount?.destroy();
+  collectMount = mountCollectionStatus(card('collect'));
+  collectMount?.refresh();
   arrangeHome();
   root.querySelector('[data-home-timing]')?.remove();
   if(new URLSearchParams(location.search).get('homeTiming')==='1'){

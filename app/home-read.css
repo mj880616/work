@@ -286,3 +286,9 @@
 #homeView .home-quick .home-quick-new-note { justify-self:start; padding:0 14px; border:0; border-radius:8px; font-size:13px; font-weight:700; background:var(--kptu-primary); color:var(--kptu-on-primary); }
 .home-quick[data-mode="basket"] [data-quick-lock]:not([hidden]) { grid-row:3; }
 .home-quick[data-mode="basket"]:has([data-quick-lock]:not([hidden])) [data-goto="basket"] { grid-row:4; }
+/* OPS-수집점검: 마지막 수집 시각(collection-status.js). 작은 글자 한 줄씩, 주의만 경고 색. */
+.home-collect .collect-list { display:flex; flex-direction:column; gap:4px; margin:0; padding:0; list-style:none; }
+.home-collect .collect-row { display:flex; flex-wrap:wrap; justify-content:space-between; gap:2px 8px; font-size:12px; line-height:1.5; min-width:0; }
+.home-collect .collect-label { color:var(--kptu-ink); }
+.home-collect .collect-value { color:var(--kptu-muted); overflow-wrap:anywhere; }
+.home-collect .collect-warn { color:var(--kptu-warning); font-weight:700; }

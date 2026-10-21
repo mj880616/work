@@ -66,3 +66,11 @@ Web2 링크는 `https://desk.bokdoong.com/work/app/?view=basket&note=<ID>`이며
 
 - **원장 요약 포함(S7 뒤)**: Web2 원장 표가 생기면 프로젝트 사본 끝(또는 세 번째 문서 `kptu_summary=ledger`)에 사용자가 확정한 항목만 싣는다(AI 후보 제외). 읽기는 지금처럼 `kptu-work` 범위 GET·열 허용 목록·상한 초과 시 진단 문서. 앱 쪽은 `SUMMARY_FIELDS`에 원장 표·열을 더하면 같은 묶기·예약을 그대로 쓴다. 예약 workflow는 바꿀 필요 없다.
 - **OPS-수집점검 연결("마지막 수집 시각")**: 지금 앱은 사본 마지막 갱신 시각을 읽을 수 없다. 시각은 Drive 폴더 `appProperties.last_success_at`·`last_failure_at`·`last_failure_summary`에만 있고, Drive 토큰은 서버에만 있으며, 이 함수는 POST(전체 재생성)만 받고 GET은 405다. DB에는 시각을 저장하지 않는다. 다음 과제 추천안: 이 함수에 소유자 JWT 전용 읽기 동작(예: POST `?action=status` 또는 GET)을 더해 폴더 appProperties의 세 값만 돌려준다(문서 재생성·쓰기 없음, drive.file·공유 금지 검사 유지). Edge 재배포가 필요하다.
+
+## OPS-수집점검 (소유자 전용 상태 읽기)
+
+- `GET /functions/v1/drive-summary?action=status`. 소유자 JWT 경로만 받는다. 예약 비밀값 헤더가 있으면(값과 무관) 401이고, 비로그인 401·비소유자 403이다. 다른 GET은 지금처럼 405이며 I/O가 없다.
+- 하는 일: 기존 `drive.file` 토큰으로 "Web2 읽기용 사본" 폴더를 `appProperties`로 찾아 공유 검사(anyone/domain 거절) 뒤 폴더 속성 세 값만 돌려준다. 폴더가 없으면 만들지 않고 `state:'none'`이다. 문서 재생성·업로드·상태 기록·DB 쓰기는 없다. Web2 기록 표는 읽지 않는다(인증용 `app_workspaces`·`app_workspace_members`와 Drive 설정만).
+- 응답: `{ok, checked_at, copy:{state, last_success_at, last_failure_at, last_failure_code}}`. 시각은 ISO 형식 검사, 코드는 `^[A-Z][A-Z0-9_]{0,63}$`(실패 시각이 있을 때만)를 통과한 값만 낸다. 폴더 이름·ID·문서 링크·다른 속성은 내지 않는다. 실패는 단계 코드만(`DRIVE_TOKEN_FAILED` 등), 실패 기록을 남기지 않는다.
+- CORS `Access-Control-Allow-Methods`에 GET을 더했다. 배포 전 앱이 먼저 나가도 옛 함수는 preflight에서 GET을 허락하지 않거나 405를 주므로 홈 칸은 조용히 숨는다(옛 POST 재생성으로 잘못 가지 않게 POST가 아닌 GET을 골랐다).
+- 화면: `app/collection-status.js`(홈 "마지막 수집 시각"). 텔레그램 수집·통화 전사는 바깥 프로그램이 만든 Drive 파일이라 `drive.file`로 못 읽으므로 "확인 불가"로만 표시한다. 권한을 넓히지 않는다.
