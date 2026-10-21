@@ -109,7 +109,7 @@ export function mountRadar(host, {place}) {
   function rowHtml(c) {
     const meta = [`${RADAR_SOURCE_LABEL[c.source_kind]} ${shortDay(c.source_day)}`, c.due ? `기한 ${shortDay(c.due)}` : ''].filter(Boolean).join(' · ');
     const id = esc(c.id), isBusy = busy.has(c.id);
-    let actions = '';
+    let actions = '', inline = '';
     if (c.status === 'open' && edit?.id === c.id) {
       actions = `<form class="radar-edit" data-radar-edit="${id}" novalidate><label>할 일 제목<input type="text" data-radar-title maxlength="${TASK_TITLE_MAX}" value="${esc(edit.title)}"${isBusy ? ' disabled' : ''}></label><label>기한<input type="date" data-radar-due value="${esc(edit.due || '')}"${isBusy ? ' disabled' : ''}></label><div class="radar-actions"><button type="submit" class="primary" data-radar-make="${id}"${isBusy ? ' disabled aria-busy="true"' : ''}>할 일 만들기</button><button type="button" data-radar-cancel="${id}"${isBusy ? ' disabled' : ''}>취소</button></div></form>`;
     } else if (c.status === 'open' && unknown.has(c.id)) {
@@ -117,11 +117,12 @@ export function mountRadar(host, {place}) {
     } else if (c.status === 'open' && unmarked.has(c.id)) {
       actions = `<div class="radar-actions"><button type="button" data-radar-mark="${id}"${isBusy ? ' disabled' : ''}>옮긴 것으로 표시</button></div>`;
     } else if (c.status === 'open') {
-      actions = `<div class="radar-actions"><button type="button" data-radar-task="${id}"${isBusy || edit ? ' disabled' : ''}>할 일로</button><button type="button" data-radar-dismiss="${id}"${isBusy || edit ? ' disabled' : ''}>무시</button></div>`;
+      // HOME-오늘먼저: [할 일로] [무시] are small text buttons on the title line (right side), not a full-width row.
+      inline = `<span class="radar-actions radar-actions-inline"><button type="button" data-radar-task="${id}"${isBusy || edit ? ' disabled' : ''}>할 일로</button><button type="button" data-radar-dismiss="${id}"${isBusy || edit ? ' disabled' : ''}>무시</button></span>`;
     }
     const tag = place === 'journal' ? `<span class="radar-state" data-radar-state="${esc(c.status)}">${STATUS_LABEL[c.status]}</span>` : '';
     const note = rowStatus.get(c.id) ? `<p class="radar-row-status" role="status">${esc(rowStatus.get(c.id))}</p>` : '';
-    return `<li class="radar-row" data-radar-row="${id}" data-radar-status="${esc(c.status)}"><div class="radar-line"><span class="radar-kind" data-radar-kind="${esc(c.kind)}">${RADAR_KIND_LABEL[c.kind]}</span><span class="radar-summary">${esc(c.summary)}</span>${tag}</div><div class="radar-meta"><button type="button" class="radar-source" data-radar-source="${id}" aria-label="출처 열기: ${esc(meta)}">${esc(meta)}</button></div>${c.evidence ? `<p class="radar-evidence">${esc(c.evidence)}</p>` : ''}${note}${actions}</li>`;
+    return `<li class="radar-row" data-radar-row="${id}" data-radar-status="${esc(c.status)}"><div class="radar-line"><span class="radar-kind" data-radar-kind="${esc(c.kind)}">${RADAR_KIND_LABEL[c.kind]}</span><span class="radar-summary">${esc(c.summary)}</span>${tag}${inline}</div><div class="radar-meta"><button type="button" class="radar-source" data-radar-source="${id}" aria-label="출처 열기: ${esc(meta)}">${esc(meta)}</button></div>${c.evidence ? `<p class="radar-evidence">${esc(c.evidence)}</p>` : ''}${note}${actions}</li>`;
   }
   function promiseHtml(p, i) {
     return `<li class="radar-row radar-promise" data-radar-promise="${i}"><div class="radar-line"><span class="radar-kind" data-radar-kind="promise">상대 약속</span><span class="radar-summary">${esc(p.summary)}</span></div><div class="radar-meta"><span>${esc(RADAR_SOURCE_LABEL[p.source_kind])} ${esc(shortDay(p.source_day))}${p.due ? ' · 기한 ' + esc(shortDay(p.due)) : ''}</span></div><div class="radar-actions"><button type="button" data-radar-ledger="${i}">원장으로 복사</button></div></li>`;
