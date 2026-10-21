@@ -14,7 +14,7 @@ test('home copy projects only approved display fields and drops retired counts',
   cache.save('tasks',{unlinkedCount:3,names:[{id:'t',names:['project']}],tasks:[{title:'duplicate'}]},now);
   const copy=JSON.parse(values.get('kptu_owner_cache:home-read-v1:one'));
   assert.deepEqual(Object.keys(copy).sort(),['cards','owner','savedAt','version','workspaceId']);
-  assert.deepEqual(Object.keys(copy.cards.calendar.rows[0]).sort(),['allDay','color','end','start','title']);
+  assert.deepEqual(Object.keys(copy.cards.calendar.rows[0]).sort(),['allDay','calendarId','color','end','id','start','title']);
   assert.deepEqual(copy.cards.tasks.names,[{id:'t',names:['project']}]);
   assert.equal(copy.cards.tasks.unlinkedCount,undefined);
   assert.equal(JSON.stringify(copy).includes('secret'),false);
@@ -86,4 +86,12 @@ test('retired basket display projections never create storage even with approved
     cache.save('updates',{week:'2026-10-04T15:00:00.000Z',rows:[row]},now);
     assert.deepEqual(cache.read(now),{});assert.equal(values.size,0);
   }
+});
+test('update changes one saved card in place and keeps its saved time (CAL-저장본먼저)',()=>{
+  const {cache}=fixture();
+  cache.save('calendar',{day:'2026-10-06',rows:[{id:'a',calendarId:'c',title:'지운 일정',start:'2026-10-06',end:'2026-10-07',allDay:true,color:''},{id:'b',calendarId:'c',title:'남는 일정',start:'2026-10-06',end:'2026-10-07',allDay:true,color:''}]},now);
+  cache.update('calendar',card=>({...card,rows:card.rows.filter(r=>r.id!=='a')}),now+1000);
+  const card=cache.read(now+1000).calendar;
+  assert.deepEqual(card.rows.map(r=>r.title),['남는 일정']);assert.equal(card.savedAt,now);
+  cache.update('dday',card=>card,now);assert.equal(cache.read(now).dday,undefined);
 });
