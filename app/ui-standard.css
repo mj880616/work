@@ -789,7 +789,7 @@
 #appView #libraryView .library-filter-toolbar{ gap:0 12px; }
 #appView #libraryView .library-filter-toolbar #documentProject{ flex:1 1 100%; }
 
-/* ④ 보조 버튼 32px: 일정 [오늘], 바구니 [⋯ 더보기](PC, 폰은 아이콘 그대로), 자료실 [분류 수정], 담당조직·프로젝트 상세 할 일 [연결 해제](담당조직 [기존 할 일 연결]·[+]는 프로젝트 상세와 같은 글자 버튼·작은 + 버튼, workplace-detail.css). */
+/* ④ 보조 버튼 32px: 일정 [오늘], 바구니 [⋯ 더보기](PC, 폰은 아이콘 그대로), 자료실 종류 줄 [편집](id manageLibraryBtn), 담당조직·프로젝트 상세 할 일 [연결 해제](담당조직 [기존 할 일 연결]·[+]는 프로젝트 상세와 같은 글자 버튼·작은 + 버튼, workplace-detail.css). */
 #appView #calendarView .calendar-toolbar button#calendarTodayBtn,
 #appView #libraryView button#manageLibraryBtn,
 #ps3DetailModal button.mini[data-gt-linked-unlink],

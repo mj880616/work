@@ -87,7 +87,10 @@ for(const width of [390,1440]){
     test('library list card keeps add action and opens the same form',async({page})=>{
       await openApp(page,'library');
       await assertPlaced(page,width,{card:'#libraryListCard',head:'.add-list-head',button:'#newDocumentBtn',title:'h2'});
-      await expect(page.locator('#libraryListCard .add-list-head #manageLibraryBtn')).toBeVisible();
+      // UI-자료실편집버튼(2026-10-21): 분류 편집은 목록 머리가 아니라 [종류] 칩 줄 맨 끝의 작은 [편집]. 머리에는 [+ 자료 등록]만.
+      await expect(page.locator('#libraryListCard .add-list-head #manageLibraryBtn')).toHaveCount(0);
+      const edit=page.locator('#libraryView .lu-filter-row[data-lu-filter-row="category"] > #manageLibraryBtn');
+      await expect(edit).toBeVisible();await expect(edit).toHaveText('편집');await expect(edit).toHaveAttribute('aria-label','분류 편집');
       await expect(page.locator('#libraryView>.section-head.actions-only')).toHaveCount(0);
       await page.locator('#newDocumentBtn').click();
       await expect(page.locator('#documentModal')).toBeVisible();

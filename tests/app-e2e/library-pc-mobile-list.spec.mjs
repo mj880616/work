@@ -198,3 +198,24 @@ test('폰 거르기 줄: 이름표 없이 줄마다 옆으로 밀기, 차례(프
   await expect(category).toHaveCSS('overflow-x','auto');await expect(category).toHaveCSS('flex-wrap','nowrap');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });
+
+// UI-자료실편집버튼(2026-10-21): [분류 수정]이 목록 머리에서 [종류] 칩 줄 맨 끝의 작은 [편집]으로 옮겨 갔다. 동작(분류 편집 창 열기)은 그대로, 접근성 이름은 "분류 편집".
+for(const width of [1280,390])test(`종류 칩 줄 맨 끝 [편집] ${width}: 칩 오른쪽 같은 줄, 머리에는 [+ 자료 등록]만, 누르면 분류 편집 창`,async({page})=>{
+  const {errors}=await boot(page,width);
+  const edit=page.getByRole('button',{name:'분류 편집',exact:true}),category=page.locator('#libraryCategoryFilter');
+  await expect(edit).toHaveCount(1);await expect(edit).toBeVisible();await expect(edit).toHaveText('편집');await expect(edit).toHaveAttribute('id','manageLibraryBtn');
+  // 머리에는 [+ 자료 등록]만.
+  expect(await page.locator('#libraryListCard .add-list-head button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['newDocumentBtn']);
+  // 종류 칩 줄 안, 칩 묶음 바로 다음(맨 끝). 칩 묶음의 버튼에는 섞이지 않는다(칩 개수·이름 그대로).
+  expect(await edit.evaluate(el=>el.previousElementSibling?.id==='libraryCategoryFilter'&&!el.nextElementSibling&&el.parentElement.dataset.luFilterRow==='category')).toBe(true);
+  await expect(category.getByRole('button')).toHaveText(['전체','교섭','투쟁','교육','선전','정책','회의','기타']);
+  const e=await box(edit),c=await box(category);
+  expect(Math.abs((e.y+e.height/2)-(c.y+c.height/2))).toBeLessThan(4);
+  if(width>=761){const lastChip=await box(category.locator('[data-lu-category]').last());expect(e.x).toBeGreaterThanOrEqual(lastChip.x+lastChip.width-1);}
+  // 폰에서도 화면 안에 보이고(칩이 많아도 [편집]은 줄 끝에 남음) 보이는 높이는 작은 버튼 32px, 누르는 범위는 44px.
+  expect(e.x+e.width).toBeLessThanOrEqual(width);expect(Math.round(e.height)).toBe(32);
+  expect(await edit.evaluate(n=>parseFloat(getComputedStyle(n,'::after').height))).toBe(44);
+  await edit.click();await expect(page.locator('#libraryManageModal')).toBeVisible();
+  await page.locator('#libraryManageClose').click();await expect(page.locator('#libraryManageModal')).toBeHidden();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
+});

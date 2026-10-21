@@ -545,7 +545,7 @@ test('meeting list filters title-only and series-only legacy rows by the display
   await page.route(`${SB}/rest/v1/app_meetings**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(rows)}));
   await page.reload();
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
-  await expect(page.locator('#meetingList h3')).toHaveText(['제목만 회의','계열명만 회의','기존 회의 계열']);
+  await expect(page.locator('#meetingList h3')).toHaveText(['기존 회의 계열','계열명만 회의','제목만 회의']);// 시각이 같으면 차수 큰 쪽이 위(MEET-폰순서, PC와 같은 기준)
   await selectFilter(page,'#meetingTypeFilter',{label:'제목만 회의'});
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(1);
   await expect(page.locator('#meetingList .meeting-list-row p')).not.toContainText('차');
