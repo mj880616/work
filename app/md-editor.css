@@ -118,8 +118,8 @@ html .modal.md-editor :is(.md-editor-tools, .md-editor-menu) button::after { con
 /* NOTE-마크다운선택: 서식 줄 맨 앞 [☐ 마크다운] 체크 칸(노트 쓰기·수정 창). 버튼 줄은 그 옆에서 옆으로 넘긴다(폰). 누르는 범위 44px. */
 .md-editor-toolrow { display:flex; align-items:center; min-width:0; }
 .md-editor-toolrow > .md-editor-tools { flex:1 1 auto; min-width:0; }
-.md-editor-md { flex:none; display:inline-flex; align-items:center; gap:6px; min-height:var(--kptu-touch-target, 44px); padding:0 10px 0 8px; border-right:1px solid var(--kptu-border); font-size:var(--ds-compact-text, 13px); font-weight:var(--ds-weight-medium, 500); color:var(--kptu-ink); cursor:pointer; white-space:nowrap; box-sizing:border-box; }
-.md-editor-md[hidden] { display:none; }
+html .modal.md-editor .md-editor-md { flex:none; display:inline-flex; flex-direction:row; align-items:center; gap:6px; margin:0; min-height:var(--kptu-touch-target, 44px); padding:0 10px 0 8px; border-right:1px solid var(--kptu-border); font-size:var(--ds-compact-text, 13px); font-weight:var(--ds-weight-medium, 500); color:var(--kptu-ink); cursor:pointer; white-space:nowrap; box-sizing:border-box; }
+html .modal.md-editor .md-editor-md[hidden] { display:none; }
 html .modal.md-editor .md-editor-md input { width:18px; height:18px; min-width:0; min-height:0; margin:0; accent-color:var(--kptu-primary); }
 .md-editor-md:has(input:focus-visible) { outline:2px solid var(--kptu-primary); outline-offset:-2px; }
 /* 마크다운을 끈 노트: 쓴 그대로 — 미리보기·[쓰기|미리보기] 없이 쓰는 칸 하나가 넓게. */

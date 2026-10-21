@@ -141,8 +141,8 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .note-search { display:block; margin:8px 0; }
 #basketView :is(.note-search input,.note-editor input[type="text"],.basket-to-note input) { box-sizing:border-box; width:100%; min-height:44px; padding:8px 12px; font:inherit; font-size:14px; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; }
 /* NOTE-마크다운선택: 노트 수정 칸의 [☐ 마크다운] 체크(노트마다 따로 저장). 누르는 범위 44px. */
-#basketView .note-editor .note-md-toggle { display:inline-flex; align-items:center; gap:8px; min-height:44px; margin:2px 0 0; font-size:14px; font-weight:500; color:var(--kptu-ink); cursor:pointer; }
-#basketView .note-editor .note-md-toggle input { width:18px; height:18px; min-height:0; margin:0; accent-color:var(--kptu-primary); }
+#appView #basketView .note-editor label.note-md-toggle { display:flex; flex-direction:row; width:max-content; align-items:center; gap:8px; min-height:44px; margin:2px 0 0; font-size:14px; font-weight:500; color:var(--kptu-ink); cursor:pointer; }
+#appView #basketView .note-editor label.note-md-toggle input { flex:none; width:18px; height:18px; min-height:0; min-width:0; margin:0; padding:0; accent-color:var(--kptu-primary); }
 .note-dot { display:inline-block; flex-shrink:0; width:8px; height:8px; margin-right:8px; border-radius:50%; background:var(--ds-kind-note-ink); vertical-align:middle; }
 .note-row-chips { display:flex; flex-wrap:wrap; gap:6px; }
 /* UI-노트폴더: 검색칸 아래 한 줄 [전체][폴더…][폴더 없음](공용 filter-chips.js, 넘치면 옆으로 밂) + 줄 끝 폴더 ⋯. */
