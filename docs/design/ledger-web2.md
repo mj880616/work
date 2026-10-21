@@ -299,3 +299,54 @@ union all select 'server version', current_setting('server_version');
 | `#ledgerBrowseRoot` | `app/ledger-browse.js` | 원장 목록·검색, 행 상세(근거·출처·연결) | 원장 표·검색 RPC가 없으면 조용히 숨김 |
 
 칸끼리는 `kptu:ledger-changed` 이벤트로만 알린다(확정·가져오기 뒤 목록 다시 읽기).
+
+### 15.2 원장 목록·검색 (`app/ledger-browse.js`, 순수 함수 `app/ledger-browse-model.mjs`)
+
+- 검색은 S7-a `app_ledger_search`만 쓴다(새 DB 변경 없음). 기본 인자: 찾을 말 없음, 모든 종류, **범위 업무만**(L1), 대체·폐기 빼기, 50건.
+- 걸러보기: 종류(사건·변화기록·결정·근거·약속, 다섯 개 모두 고르면 거르지 않음), 기간(시작·끝 날짜), 원장 조직, 업무주제, 범위(업무만 / 업무 + 관심 / 관심만), 대체·폐기 포함. [더 보기]로 200건까지.
+- 행 상세(읽기만, 로그인 토큰·owner RLS): 칸(종류별 칸만, 기한 지난 약속은 볼 때 계산), 근거·출처(출처 ID·제목·문서종류·날짜·근거위치, `https://` 위치 또는 Drive 파일 ID만 연결로), 연결(나가는 연결 + 이 기록을 가리키는 연결, 기록 ID를 누르면 그 ID로 다시 찾음).
+
+### 15.3 원장 후보 확정 (`app/ledger-candidates.js`, `app/ledger-candidate-model.mjs`)
+
+- 후보 표는 S7-a `app_ledger_candidates`를 그대로 쓴다(새 표 없음). 화면은 대기 후보 최근 100건.
+- [확정] = `app_confirm_ledger_candidate(후보, null)`, [고쳐서 확정] = 같은 함수에 고친 제목·민감도(S0~S2)·내용(`p_edit`). 종류·대상·출처 종류는 못 바꾼다. [버림] = 대기 후보의 상태만 `discarded`(이유 선택, DB 트리거가 이후 잠금).
+- 처리 방식: `new`(새 기록), `supersede`(새 기록 + 대상 기록 대체, 대체 이유 꼭), `add_source`(대상 기록에 출처·연결만). `update`는 원장 기록을 직접 고친 뒤 버리도록 안내(함수가 거절).
+- 내용(payload) 모양은 4절 + 함수 머리말: `record`(기록 칸, 주제는 ID), `sources`(기존 출처 ID 또는 새 출처), `links`(기록·원장 조직 ID 또는 Web2 프로젝트·회의), `supersede_reason`, `origin_ref`(Web2 원래 기록, 표시용).
+- Web2 기록 출처는 위치 `web2:<종류>:<id>`로 둔다. 같은 위치의 출처가 이미 있으면 확정 함수가 그 출처를 다시 쓴다(같은 회의에서 나온 후보 여러 개 = 출처 하나).
+- 고정 ID는 DB가 붙인다(번호표 다음 번호). 번호표에 그 종류 접두어가 없으면 "먼저 시트를 가져와 번호표를 만드세요"로 거절된다(시트 이전 = 10절 뒤에 쓰는 것이 전제).
+
+### 15.4 함수 2개 (migration `20261021190000_ledger_candidates`, 운영 미적용)
+
+| 함수 | 하는 일 |
+| --- | --- |
+| `app_confirm_ledger_candidate(uuid, jsonb)` | 대기 후보 하나를 한 거래로: (고침) → 기록 → 출처·기록-출처 → 연결 → 후보 확정. 하나라도 틀리면 전부 취소되고 후보는 대기로 남음. 깨진 참조·칸 규칙 위반은 `LEDGER_CANDIDATE_*`로 알림 |
+| `app_queue_ledger_candidates(uuid, jsonb, boolean)` | Claude 후보 파일(`kind: "candidates"`, 1~500건) → 가져오기 묶음 1행(파일 지문, `claude_file`, 넣자마자 확인으로 잠금) + 대기 후보(`origin = claude_import`). 대상 기록이 없으면 묶음 전체 거절, 같은 중복 열쇠의 대기 후보는 건너뜀. 해 보기는 모두 되돌림 |
+
+- 둘 다 SECURITY INVOKER·`search_path = ''`, authenticated만 실행(PUBLIC·anon·service_role 없음). 표·정책·트리거는 그대로라 owner RLS·칸 권한·결정된 후보 잠금·감사 기록이 그대로 걸린다. 승인형 DB workflow 검사 통과(apply·dry-run·rollback).
+- 이름이 `app_ledger_`·`app_import_ledger_`로 시작하지 않아 앞 단계 짝 확인 SQL(함수 6개·4개)과 섞이지 않는다.
+- 되돌리기: `docs/20261021190000_ledger_candidates.rollback.sql`(함수 2개 + 기록 1행만). 확정한 원장 행·후보는 남고 화면의 후보 칸만 숨는다.
+- Claude 후보 묶음은 원장 행을 만들지 않으므로 S7-b [되돌리기] 대신 후보 칸의 [이 묶음 대기 후보 모두 버림]으로 정리한다.
+
+### 15.5 ai-assist 쓰임 3 `ledger_candidates`
+
+- 요청은 `{kind: "ledger_candidates"}` 하나(글·ID 없음). 서버가 로그인 토큰으로 재료를 읽는다. **재료 읽기는 쓰임 2(챙길 것)와 같은 함수**: 업데이트·노트·일지 한 줄·회의 결과·조직 기록·프로젝트 기록, 일기·보관·AI 내보내기 비허용 제외, 짧은 참조(r1 …)만 OpenAI에 보냄. 이미 있는 사건(현재유효·업무·S0~S1, 최근 80건)의 ID·제목도 보내 변화기록을 그 사건에 붙이게 한다(S2 제목은 보내지 않음).
+- AI 답은 믿지 않는 입력: 키·종류(사건·변화·결정·약속)·글자 수·날짜·참조를 다시 검사, HTML 지움, 약속은 상대측 꼭, 모르는 사건 ID는 연결하지 않음. **S3·개인정보 모양(주민번호·휴대전화)은 후보에도 남기지 않고 개수만**(L9).
+- 서버가 정하는 것: 출처(Web2 원래 기록 위치), 연결(변화 → 사건 소속, 조직 기록 → 그 담당조직에 연결된 원장 조직, 프로젝트 기록 → Web2 프로젝트, 회의 결과 → Web2 회의), 중복 열쇠 `web2:<종류>:<id>:<제목>`. 같은 열쇠의 후보는 상태와 관계없이(버린 것도) 다시 넣지 않는다.
+- **원장 표에는 쓰지 않는다**(후보 표 insert만). 실행 표시는 감사 기록 `event = note`(숫자·시각만, `detail.use = ledger_candidates`) — 다음 실행의 기준선(없으면 최근 3일, 길어도 7일)과 하루 횟수를 센다.
+- 비용: 하루 5회(이 쓰임), 모든 쓰임 합계 하루 50회, 월 추정 1만 5천 원 한도(#884와 같은 `app_ai_daily_usage` 합산). 부르기 전에 횟수부터 센다. 자동 실행 없음 — [원장 후보 만들기]를 눌렀을 때만.
+- 원장 표가 없으면 `ledger_not_ready`(OpenAI 부르지 않음). 서버 기록(log)에는 숫자만.
+- 동시에 두 번 눌러도 대기 후보 중복은 DB 유일 색인이 막는다(겹친 것만 건너뜀). 실행 잠금은 두지 않았다(버튼 하나·사용자 한 명).
+
+### 15.6 적용 순서와 되돌리기
+
+1. S7-a `20261021082000_ledger_schema` (SQL Editor) → 2. S7-b `20261021150000_ledger_import` → 3. **이 migration** `20261021190000_ledger_candidates`(승인형 DB workflow 또는 SQL Editor) → 4. `ai-assist` 재배포(이 PR merge 뒤 main ref, verify_jwt 그대로 `true`).
+- 3까지만 하고 4를 안 해도 된다: 후보 칸은 보이고 [확정]·[버림]·Claude 파일 넣기는 되며, [원장 후보 만들기]만 "준비 중"으로 안내된다(운영 ai-assist는 `ledger_candidates`를 `unsupported_kind`로 거절).
+- 4만 먼저 하면 안전: 원장 표가 없으면 서버가 `ledger_not_ready`로 멈추고 화면의 후보 칸은 숨는다.
+- 되돌리기: 4 → 이전 운영 소스 `e74cf17`(배포 v3)로 같은 workflow 재배포. 3 → 짝 rollback SQL.
+
+### 15.7 남은 위험
+
+- 실행 잠금이 없어 두 기기에서 동시에 누르면 OpenAI를 두 번 부를 수 있다(비용 한도 안, 중복 후보는 DB가 막음).
+- 후보가 기존 기록과 같은 일인지(중복)는 사건 제목 목록과 중복 열쇠로만 줄인다. 같은 일이 다른 기록·제목으로 다시 후보가 될 수 있다(명진이 [버림]).
+- 번호표 접두어가 없으면 확정이 거절된다(시트 이전 전에는 확정 불가). 이전 전 시험 확정이 필요하면 번호표만 먼저 등록하는 방법을 따로 정해야 한다.
+
