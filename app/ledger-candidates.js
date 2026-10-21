@@ -3,9 +3,11 @@
 // - [원장 후보 만들기]: 서버 ai-assist(kind=ledger_candidates)에 kind만 보낸다. 서버가 Web2 기록을 로그인 토큰으로 읽어 후보를 "대기"로 더한다.
 // - [확정]·[고쳐서 확정]: app_confirm_ledger_candidate RPC(20261021190000, SECURITY INVOKER) 한 번. 한 거래로 기록·출처·연결을 만든다.
 // - [버림]: 대기 후보의 상태만 바꾼다(owner RLS, 결정된 후보는 DB 트리거가 잠금).
+// - [되돌리기](확정 직후 10초)·최근 확정 ⋯ [확정 취소]: app_unconfirm_ledger_candidate RPC(20261021234000) 한 번. 한 거래로 그 확정이 만든
+//   출처 연결·기록 간 연결을 지우고 새 기록은 폐기, 후보는 대기로. 함수가 없으면(404) 두 버튼과 최근 확정 칸만 숨긴다.
 // 후보 표 또는 확정 함수가 없으면(404) 칸 전체를 조용히 숨긴다. 원장이 바뀌면 kptu:ledger-changed로 다른 칸에 알린다.
 import {callAiAssist, AI_SUMMARY_TEXT} from './basket-ai-summary.js';
-import {candidateView, editPayload, confirmError} from './ledger-candidate-model.mjs';
+import {candidateView, editPayload, confirmError, undoError, UNDO_SECONDS} from './ledger-candidate-model.mjs';
 import {KIND_LABEL, EVENT_STATUS_LABEL, DECISION_TYPE_LABEL, EVIDENCE_TYPE_LABEL, COMMITMENT_STATUS_LABEL, SENSITIVITY_LABEL, RELATION_LABEL} from './ledger-browse-model.mjs';
 
 const rt = window.KPTURuntime;
@@ -16,6 +18,7 @@ const workspaceId = () => rt?.context?.read?.()?.workspace?.id || null;
 const isMissing = e => e?.status === 404 || /PGRST20[25]|42P01|42883|schema cache|Could not find the function/i.test(String(e?.message || ''));
 const FIELDS = 'id,origin,status,action,kind,target_record_id,title,payload,sensitivity,dedup_key,import_id,created_at';
 const LIMIT = 100;
+const CONFIRMED_LIMIT = 20;
 // 서버는 OpenAI를 30초 기다리고 1번 다시 시도할 수 있고, 그 전에 기록을 여러 표에서 읽는다.
 const AI_TIMEOUT_MS = 90000;
 const LEDGER_AI_TEXT = Object.freeze({
@@ -30,8 +33,10 @@ const LEDGER_AI_TEXT = Object.freeze({
 
 let state = fresh();
 let bound = false;
+let undoTimer = null;
 function fresh() {
-  return {phase: 'loading', rows: [], more: false, busy: '', message: '', error: '', editing: null, form: null, formError: '', discarding: null, reason: '', targets: new Map()};
+  return {phase: 'loading', rows: [], more: false, busy: '', message: '', error: '', editing: null, form: null, formError: '', discarding: null, reason: '', targets: new Map(),
+    undoReady: false, confirmed: [], results: new Map(), lastConfirmed: null, confirmedOpen: false};
 }
 
 async function probe() {
@@ -44,6 +49,28 @@ async function probe() {
     throw e;
   }
   return true;
+}
+// 확정 취소 함수가 있는지: 없는 후보(0…0)를 보내면 있는 함수는 LEDGER_UNDO_NOT_FOUND로 거절한다(아무것도 쓰지 않음).
+async function probeUndo() {
+  try {
+    await rt.api('/rest/v1/rpc/app_unconfirm_ledger_candidate', {method: 'POST', body: {p_candidate_id: ZERO}, singleFlight: false});
+  } catch (e) {
+    if (/LEDGER_UNDO_NOT_FOUND/.test(String(e?.message || ''))) return true;
+    return false; // 없는 함수(404)·그 밖의 오류: 버튼을 숨긴다(확정·버림은 그대로).
+  }
+  return false; // 진짜 함수는 없는 후보를 꼭 거절한다. 거절이 없으면 다른 것으로 보고 숨긴다.
+}
+// 최근 확정한 후보(확정 취소용)와 그 결과 원장 기록의 ID·제목·유효상태.
+async function readConfirmed() {
+  if (!state.undoReady) { state.confirmed = []; state.results = new Map(); return; }
+  const rows = await rt.api(`/rest/v1/app_ledger_candidates?workspace_id=eq.${q(workspaceId())}&status=eq.confirmed&select=id,action,kind,title,result_record_id,decided_at&order=decided_at.desc,id.asc&limit=${CONFIRMED_LIMIT}`, {singleFlight: false});
+  state.confirmed = Array.isArray(rows) ? rows.filter(r => r && r.id) : [];
+  const ids = [...new Set(state.confirmed.map(r => r.result_record_id).filter(Boolean))];
+  state.results = new Map();
+  if (ids.length) {
+    const t = await rt.api(`/rest/v1/app_ledger_records?id=in.(${ids.map(q).join(',')})&select=id,ledger_id,title`, {singleFlight: false}).catch(() => []);
+    for (const r of t || []) state.results.set(r.id, r);
+  }
 }
 async function readRows() {
   const rows = await rt.api(`/rest/v1/app_ledger_candidates?workspace_id=eq.${q(workspaceId())}&status=eq.pending&select=${FIELDS}&order=created_at.desc,id.asc&limit=${LIMIT + 1}`, {singleFlight: false});
@@ -67,6 +94,8 @@ function load() {
     try {
       await readRows();
       state.phase = (await probe()) ? 'ready' : 'hidden';
+      state.undoReady = state.phase === 'ready' && await probeUndo();
+      await readConfirmed().catch(() => { state.confirmed = []; });
     } catch (e) { state.phase = isMissing(e) ? 'hidden' : 'error'; }
     render();
   })().finally(() => { loading = null; });
@@ -96,11 +125,32 @@ async function confirmRow(id, edit = null) {
     state.message = `${done?.ledger_id || '원장 기록'}${done?.action === 'add_source' ? '에 출처를 더했습니다.' : '(으)로 원장에 넣었습니다.'}`;
     state.editing = null; state.form = null;
     state.rows = state.rows.filter(r => r.id !== id);
+    if (state.undoReady) offerUndo(id);
+    try { await readConfirmed(); } catch {}
     changed();
   } catch (e) {
     const text = confirmError(e);
     if (state.editing === id) state.formError = text; else state.error = text;
   }
+  state.busy = ''; render();
+}
+// 확정 직후 [되돌리기]를 UNDO_SECONDS초 동안 보인다(그 뒤에는 최근 확정 ⋯ [확정 취소]).
+function offerUndo(id) {
+  clearTimeout(undoTimer);
+  state.lastConfirmed = id;
+  undoTimer = setTimeout(() => { if (state.lastConfirmed === id) { state.lastConfirmed = null; render(); } }, UNDO_SECONDS * 1000);
+}
+async function undoConfirm(id) {
+  if (!id || state.busy) return;
+  state.busy = 'undo:' + id; state.message = ''; state.error = ''; render();
+  try {
+    const done = await rt.api('/rest/v1/rpc/app_unconfirm_ledger_candidate', {method: 'POST', body: {p_candidate_id: id}, singleFlight: false, timeoutMs: 60000});
+    if (state.lastConfirmed === id) { clearTimeout(undoTimer); state.lastConfirmed = null; }
+    state.message = `${done?.ledger_id || '원장 기록'} 확정을 취소했습니다. 후보는 대기로 돌아갔습니다.`
+      + (done?.record_retired ? ` ${done?.ledger_id || '그 기록'}은 폐기 상태로 남고 번호는 다시 쓰지 않습니다.` : '');
+    try { await readRows(); await readConfirmed(); } catch {}
+    changed();
+  } catch (e) { state.error = undoError(e); }
   state.busy = ''; render();
 }
 async function discard(ids, reason) {
@@ -158,9 +208,38 @@ function render() {
     <div class="lg-actions"><button type="button" class="secondary" data-lc-action="make" ${state.busy || state.phase !== 'ready' ? 'disabled' : ''}>원장 후보 만들기</button>
       ${state.busy === 'ai' ? '<span class="lg-note" role="status">Web2 기록에서 후보를 찾는 중…</span>' : ''}</div>
     <div class="lg-live" role="status" aria-live="polite">${state.message ? `<p class="lg-ok">${esc(state.message)}</p>` : ''}</div>
+    ${undoOfferHtml()}
     ${state.error ? `<p class="lg-error" role="alert" data-lc-error>${esc(state.error)}</p>` : ''}
     ${bodyHtml()}
+    ${confirmedHtml()}
   </section>`;
+}
+function undoOfferHtml() {
+  if (!state.undoReady || !state.lastConfirmed) return '';
+  const busy = state.busy === 'undo:' + state.lastConfirmed;
+  return `<div class="lg-actions" data-lc-undo-offer><button type="button" class="lg-tool" data-lc-action="undo" data-lc-id="${esc(state.lastConfirmed)}" ${state.busy ? 'disabled' : ''}>${busy ? '되돌리는 중…' : '되돌리기'}</button>
+    <span class="lg-note">${UNDO_SECONDS}초 안에 누르면 방금 확정을 취소합니다.</span></div>`;
+}
+// 최근 확정(접힘). 항목마다 ⋯ 안에 [확정 취소]. 기록이 확정 뒤 고쳐졌거나 다른 기록이 가리키면 서버가 거절하고 이유를 보인다.
+function confirmedHtml() {
+  if (!state.undoReady || state.phase !== 'ready' || !state.confirmed.length) return '';
+  const items = state.confirmed.map(c => {
+    const rec = state.results.get(c.result_record_id);
+    const day = String(c.decided_at || '').slice(0, 10);
+    const busy = state.busy === 'undo:' + c.id;
+    return `<li class="lc-item lc-confirmed" data-lc-confirmed="${esc(c.id)}">
+      <div class="lc-confirmed-line">
+        <span class="lb-line"><span class="lg-pill">${esc(KIND_LABEL[c.kind] || c.kind)}</span><span class="lg-pill">확정됨</span>${rec ? `<span class="lb-id">${esc(rec.ledger_id)}</span>` : ''}${day ? `<span class="lb-id">${esc(day)}</span>` : ''}</span>
+        <details class="lc-more"><summary class="lg-tool" aria-label="확정 관리: ${esc(c.title)}">⋯</summary>
+          <div class="lc-more-panel" role="group" aria-label="확정 관리"><button type="button" class="lg-tool lg-danger" data-lc-action="undo-ask" data-lc-id="${esc(c.id)}" data-lc-ledger="${esc(rec?.ledger_id || '')}" ${state.busy ? 'disabled' : ''}>${busy ? '취소하는 중…' : '확정 취소'}</button></div>
+        </details>
+      </div>
+      <span class="lb-title">${esc(c.title)}</span>
+    </li>`;
+  }).join('');
+  return `<details class="lg-details lc-confirmed-box" data-lc-confirmed-box ${state.confirmedOpen ? 'open' : ''}><summary>최근 확정 ${state.confirmed.length}건 (확정 취소)</summary>
+    <p class="lg-note">확정을 취소하면 그 확정이 만든 출처 연결·기록 간 연결을 지우고, 새로 만든 기록은 폐기 상태로 남기며(번호는 다시 쓰지 않음) 후보는 대기로 돌아갑니다.</p>
+    <ul class="lc-list">${items}</ul></details>`;
 }
 function bodyHtml() {
   if (state.phase === 'loading') return '<p class="lg-note" role="status">원장 후보를 읽는 중…</p>';
@@ -253,6 +332,10 @@ function bind() {
     const form = e.target.closest?.('[data-lc-form]');
     if (form && root()?.contains(form) && state.form && e.target.name) state.form[e.target.name] = e.target.value;
   });
+  // 최근 확정 칸을 펼친 상태는 다시 그려도 유지한다(toggle은 버블링하지 않아 capture로 받는다).
+  document.addEventListener('toggle', e => {
+    if (e.target?.matches?.('[data-lc-confirmed-box]') && root()?.contains(e.target)) state.confirmedOpen = e.target.open;
+  }, true);
   document.addEventListener('submit', e => {
     const form = e.target.closest?.('[data-lc-form]');
     if (!form || !root()?.contains(form)) return;
@@ -267,6 +350,11 @@ function bind() {
     if (action === 'make') void makeCandidates();
     else if (action === 'reload') void load();
     else if (action === 'confirm') void confirmRow(id);
+    else if (action === 'undo') void undoConfirm(id);
+    else if (action === 'undo-ask') {
+      const label = button.dataset.lcLedger || '이 기록';
+      if (window.confirm(`${label} 확정을 취소할까요? 후보는 대기로 돌아가고 ${label}은 폐기 상태로 남습니다.`)) void undoConfirm(id);
+    }
     else if (action === 'edit') startEdit(id);
     else if (action === 'cancel') { state.editing = null; state.form = null; state.discarding = null; state.formError = ''; render(); }
     else if (action === 'discard') { state.discarding = id; state.editing = null; state.reason = ''; render(); document.querySelector(`#lcReason-${CSS.escape(id)}`)?.focus?.(); }
@@ -280,7 +368,7 @@ function bind() {
   window.KPTURouter?.on?.('ledger', () => { void load(); });
 }
 
-window.addEventListener('kptu:session-changed', () => { state = fresh(); if (document.querySelector('#ledgerCandidatesRoot') && workspaceId()) void load(); });
+window.addEventListener('kptu:session-changed', () => { clearTimeout(undoTimer); state = fresh(); if (document.querySelector('#ledgerCandidatesRoot') && workspaceId()) void load(); });
 async function boot() {
   bind();
   await load();

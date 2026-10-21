@@ -5,8 +5,13 @@ namespace BasketDrop;
 /// <summary>One thing the user dropped: a file on disk or in-memory bytes (a clipboard picture).</summary>
 public sealed record DropSource(string? Path, byte[]? Bytes, string DisplayName)
 {
-    public static DropSource FromPath(string path) => new(path, null, System.IO.Path.GetFileName(path));
-    public static DropSource FromBytes(byte[] bytes, string displayName) => new(null, bytes, displayName);
+    public static DropSource FromPath(string path)
+    {
+        var clean = FileNames.CleanPath(path);
+        return new(clean, null, FileNames.Clean(clean));
+    }
+
+    public static DropSource FromBytes(byte[] bytes, string displayName) => new(null, bytes, FileNames.Clean(displayName));
 }
 
 public enum ProblemKind { Folder, Missing, Empty, TooLarge, NameTooLong, TextTooLong, NothingToSend, QueueFull }

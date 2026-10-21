@@ -267,7 +267,7 @@ const tail = name => name === UNSORTED ? 2 : name === OTHERS ? 1 : 0;
 // (update-requests.js), so the card can put the same small tags before those items. Without a mark there is no `tags`.
 // ORG-묶음순서: 조직 소식 sections follow the app's one organization order (organization-order.js, window.KPTUOrganizationOrder:
 // 철도 → 지하철 → 민자철도 → 민간도시철도 → 그 외 조직, the order of the picker and the lists). Names it does not know, and the
-// whole list when that module is not loaded, stay 가나다순. Project sections have no such order (byName).
+// whole list when that module is not loaded, stay 가나다순. Project sections follow the project order (projectNewsOn).
 const orgCompare = (a, b) => {
   const order = globalThis.window?.KPTUOrganizationOrder;
   return typeof order?.compare === 'function' ? order.compare({name:a}, {name:b}) : a.localeCompare(b, 'ko');
@@ -335,7 +335,17 @@ export function projectRecordsOn({basket, projectUpdates} = {}, day) {
     add(row.project_id, row.project?.name, row.created_at || `${day}T23:59:59+09:00`, firstLine(row.summary) || '(빈 업데이트)');
   return entries;
 }
-export const projectNewsOn = (read = {}, day) => sectionsOf(projectRecordsOn(read, day));
+// PRJ-순서바꾸기: with the project tree (project-catalog tree, [{project, depth}]) the sections follow the app's one project order
+// (the project screen's order, the same as [주간 정리]); a project the tree does not have, and every section without the tree
+// (its read failed or is still out), stays 가나다순 after them. '미분류' stays last.
+export const projectNewsOn = (read = {}, day, tree = null) => {
+  const entries = projectRecordsOn(read, day);
+  if (!Array.isArray(tree)) return sectionsOf(entries);
+  const at = new Map(tree.map(({project}, i) => [project?.id, i])), place = new Map();
+  for (const entry of entries) place.set(entry.name, Math.min(place.get(entry.name) ?? Infinity, at.get(entry.id) ?? Infinity));
+  const rank = name => place.get(name) ?? Infinity;
+  return sectionsOf(entries, (a, b) => (rank(a) === rank(b) ? 0 : rank(a) < rank(b) ? -1 : 1) || byName(a, b));
+};
 // BASKET-일지로남기기: 기타 메모 of one day — the day's updates kept as work-journal memos ([업무일지에 남기기], metadata.journal_at)
 // that went to no organization and no project, oldest first, one item each (its first line, as the other update groups).
 // They leave 조직 소식's '미분류'; an update linked to an organization or a project later shows there instead, never twice.
@@ -388,7 +398,7 @@ export function dayMaterials(materials, day) {
     if (key === 'shares' && !failed.length) items = (ok('sharePages') || []).filter(page => onDay(page?.updated_at, day)).map(sharePageLine);
     if (SECTIONED.has(key) && failed.length < sources.length) {
       const read = {basket:ok('basket'), orgUpdates:ok('orgUpdates'), projectUpdates:ok('projectUpdates')};
-      sections = key === 'orgs' ? orgNewsOn(read, day) : projectNewsOn(read, day);
+      sections = key === 'orgs' ? orgNewsOn(read, day) : projectNewsOn(read, day, materials?.catalog?.status === 'ok' ? materials.catalog.items : null);
       items = sections.flatMap(section => section.items);
     }
     const cap = sources.some(source => materials[source].status === 'ok' && materials[source].items?.capped);

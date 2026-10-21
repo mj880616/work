@@ -6,6 +6,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 // AI-서버연동 S7-c: [원장] 화면의 원장 후보 칸과 원장 목록·검색 칸. Supabase·ai-assist는 시험 상태로 대신한다(가상 값만).
 // 후보: [원장 후보 만들기](ai-assist kind만) → [확정](확정 RPC, p_edit 없음) / [고쳐서 확정](p_edit) / [버림](대기 후보 상태만).
 // 목록·검색: 검색 RPC(기본 업무만) → 걸러보기 → 행 상세(칸·출처·연결). 표·함수가 없으면 두 칸 모두 조용히 숨는다.
+// LEDGER-확정되돌리기: 확정 직후 [되돌리기](10초)·최근 확정 ⋯ [확정 취소](취소 RPC). 취소 함수가 없으면 두 버튼과 최근 확정 칸만 숨는다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'ledger-c-user',email:'ledger-c@example.org',user_metadata:{display_name:'Ledger QA'}};
 const workspace={id:'ledger-c-workspace',slug:'ledger-c',name:'웹2'};
@@ -36,8 +37,11 @@ function candidates(){
  ];
 }
 
-async function mockApp(page,{ready=true}={}){
- const db={records:records(),candidates:candidates(),search:[],confirm:[],patch:[],ai:[],queue:[]};
+async function mockApp(page,{ready=true,undo=false}={}){
+ const db={records:records(),candidates:candidates(),search:[],confirm:[],patch:[],ai:[],queue:[],undo:[]};
+ // 확정 뒤 손으로 고친 기록을 가리키는 확정 후보(취소는 거절된다).
+ if(undo)db.candidates.push({id:u(105),origin:'web2_ai',status:'confirmed',action:'new',kind:'event',target_record_id:null,title:'가상 고친 뒤 후보',sensitivity:'S1',dedup_key:null,import_id:null,
+  created_at:'2026-10-19T00:00:00Z',decided_at:'2026-10-19T01:00:00Z',result_record_id:u(1),payload:{}});
  await page.route(`${SB}/**`,async route=>{
   const request=route.request(),url=new URL(request.url()),path=url.pathname,method=request.method();
   const ok=(data,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(data??null)});
@@ -77,9 +81,23 @@ async function mockApp(page,{ready=true}={}){
    if(c.id===u(103))return fail(409,'LEDGER_CANDIDATE_BROKEN_REF: record EVT-0999');
    if(c.kind==='commitment'&&!a.p_edit?.payload?.record?.counterparty)return fail(400,'LEDGER_CANDIDATE_BAD_RECORD: app_ledger_records_commitment_check');
    c.status='confirmed';
-   const ledger_id=c.kind==='commitment'?'COM-0902':'EVT-0910';
+   const ledger_id=c.kind==='commitment'?'COM-0902':c.id===u(101)&&db.undo.length?'EVT-0911':'EVT-0910';
+   c.result_record_id=u(10+db.records.length);c.decided_at=new Date().toISOString();
    db.records.push({id:u(10+db.records.length),workspace_id:workspace.id,kind:c.kind,ledger_id,title:a.p_edit?.title||c.title,summary:'',scope:'work',topic_id:null,sensitivity:'S1',importance:'normal',validity:'current',date_start:null,date_end:null,date_precision:'unknown',date_note:'',note:''});
    return ok({candidate_id:c.id,status:'confirmed',action:'new',record_id:u(99),ledger_id,sources_added:1,links_added:1});
+  }
+  if(path==='/rest/v1/rpc/app_unconfirm_ledger_candidate'){
+   if(!undo)return noFn();
+   const a=request.postDataJSON();
+   if(a.p_candidate_id===ZERO)return fail(400,'LEDGER_UNDO_NOT_FOUND');
+   db.undo.push(a);
+   const c=db.candidates.find(x=>x.id===a.p_candidate_id);
+   if(!c||c.status!=='confirmed')return fail(400,'LEDGER_UNDO_NOT_CONFIRMED: only a confirmed candidate can be undone');
+   if(c.id===u(105))return fail(400,'LEDGER_UNDO_RECORD_CHANGED: the record was edited after confirmation');
+   const rec=db.records.find(r=>r.id===c.result_record_id);
+   Object.assign(c,{status:'pending',result_record_id:null,decided_at:null});
+   if(rec)rec.validity='retired';
+   return ok({candidate_id:c.id,status:'pending',action:'new',record_id:rec?.id,ledger_id:rec?.ledger_id,record_retired:true,target_restored:false,sources_unlinked:1,links_removed:1,sources_retired:1});
   }
   if(path==='/rest/v1/rpc/app_queue_ledger_candidates'){
    if(!ready)return noFn();
@@ -99,7 +117,8 @@ async function mockApp(page,{ready=true}={}){
     for(const c of hit)Object.assign(c,body);
     return ok(hit.map(c=>({id:c.id,status:c.status})));
    }
-   return ok(db.candidates.filter(c=>c.status==='pending'));
+   const st=(url.searchParams.get('status')||'eq.pending').slice(3);
+   return ok(db.candidates.filter(c=>c.status===st));
   }
   if(path==='/rest/v1/app_ledger_records'){
    const id=url.searchParams.get('id')||'';
@@ -250,6 +269,9 @@ test('원장 후보: 만들기 → 확정 → 고쳐서 확정 → 버림, 거�
  await expect(box.locator('[data-lc-row="'+u(101)+'"]')).toHaveCount(0);
  expect(db.confirm.at(-1)).toEqual({p_candidate_id:u(101),p_edit:null});
  await expect.poll(()=>db.search.length).toBeGreaterThan(searches);
+ // 취소 함수가 없으면(운영 미적용) [되돌리기]·최근 확정 칸이 없다.
+ await expect(box.locator('[data-lc-undo-offer]')).toHaveCount(0);
+ await expect(box.locator('[data-lc-confirmed-box]')).toHaveCount(0);
 
  // 거절: 이유를 보이고 후보는 남는다.
  await box.locator('[data-lc-row="'+u(103)+'"] [data-lc-action="confirm"]').click();
@@ -337,3 +359,59 @@ test('후보 표·확정 함수·검색 RPC가 없으면 후보 칸과 목록·�
  await expect(page.locator('[data-lg-action="cand-apply"]')).toHaveCount(0);
  expect(db.ai.length).toBe(0);
 });
+
+for(const [name,width] of [['phone',390],['PC',1440]]){
+ test(`확정 되돌리기: 확정 직후 [되돌리기] → 대기로, 10초 뒤 버튼이 사라지고 최근 확정 ⋯ [확정 취소], 거절은 이유를 보인다 (${name} ${width}px)`,async({page})=>{
+  test.setTimeout(90000);
+  await page.setViewportSize({width,height:900});
+  const db=await mockApp(page,{undo:true});
+  const dialogs=[];
+  page.on('dialog',dialog=>{dialogs.push(dialog.message());dialog.accept();});
+  await signIn(page);
+  const box=page.locator('#ledgerCandidatesRoot');
+  await expect(box).toHaveAttribute('data-ledger-candidates','ready',{timeout:15000});
+  await expect(box.locator('[data-lc-confirmed-box] > summary')).toContainText('최근 확정 1건');
+
+  // [확정] → [되돌리기]: 취소 RPC 한 번, 후보는 대기 목록으로 돌아온다.
+  await box.locator('[data-lc-row="'+u(101)+'"] [data-lc-action="confirm"]').click();
+  await expect(box).toContainText('EVT-0910(으)로 원장에 넣었습니다.');
+  const offer=box.locator('[data-lc-undo-offer] [data-lc-action="undo"]');
+  await expect(offer).toBeVisible();
+  await offer.click();
+  await expect(box).toContainText('EVT-0910 확정을 취소했습니다. 후보는 대기로 돌아갔습니다.');
+  expect(db.undo.at(-1)).toEqual({p_candidate_id:u(101)});
+  await expect(box.locator('[data-lc-row="'+u(101)+'"]')).toHaveCount(1);
+  await expect(box.locator('[data-lc-undo-offer]')).toHaveCount(0);
+  expect(dialogs).toEqual([]);
+
+  // 다시 확정 → 10초 안에 누르지 않으면 [되돌리기]가 사라진다. 최근 확정 칸의 ⋯ 안 [확정 취소]로는 계속 할 수 있다.
+  await box.locator('[data-lc-row="'+u(101)+'"] [data-lc-action="confirm"]').click();
+  await expect(box).toContainText('EVT-0911(으)로 원장에 넣었습니다.');
+  await expect(box.locator('[data-lc-undo-offer]')).toHaveCount(1);
+  await expect(box.locator('[data-lc-undo-offer]')).toHaveCount(0,{timeout:15000});
+  const recent=box.locator('[data-lc-confirmed-box]');
+  await expect(recent.locator(':scope > summary')).toContainText('최근 확정 2건');
+  await recent.locator(':scope > summary').click();
+  const item=recent.locator('[data-lc-confirmed="'+u(101)+'"]');
+  await expect(item).toContainText('EVT-0911');
+  await expect(item).toContainText('확정됨');
+  // ⋯는 키보드로 연다(Enter).
+  await item.locator('.lc-more summary').focus();
+  await page.keyboard.press('Enter');
+  await expect(item.locator('[data-lc-action="undo-ask"]')).toBeVisible();
+  await item.locator('[data-lc-action="undo-ask"]').click();
+  await expect(box).toContainText('EVT-0911 확정을 취소했습니다.');
+  expect(dialogs.at(-1)).toContain('EVT-0911 확정을 취소할까요?');
+  expect(db.undo.at(-1)).toEqual({p_candidate_id:u(101)});
+  await expect(box.locator('[data-lc-row="'+u(101)+'"]')).toHaveCount(1);
+
+  // 거절(확정 뒤 기록을 고침): 이유를 보이고 확정 항목은 그대로 남는다.
+  const kept=box.locator('[data-lc-confirmed="'+u(105)+'"]');
+  if(!(await box.locator('[data-lc-confirmed-box]').evaluate(el=>el.open)))await box.locator('[data-lc-confirmed-box] > summary').click();
+  await kept.locator('.lc-more summary').click();
+  await kept.locator('[data-lc-action="undo-ask"]').click();
+  await expect(box.locator('[data-lc-error]')).toContainText('확정 뒤 이 기록(또는 출처·연결)을 고쳐서 취소할 수 없습니다.');
+  await expect(box.locator('[data-lc-confirmed="'+u(105)+'"]')).toHaveCount(1);
+  expect(await noSideScroll(page)).toBe(true);
+ });
+}
