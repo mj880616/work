@@ -1,3 +1,4 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 // 프로젝트 상세 → 자료 "전체 보기" → 자료실: 다른 화면에서 들어올 때와 같이 [회의] 칩만 꺼진 채 열리고, 그 프로젝트 거르기는 적용된다.
 import {test,expect} from '@playwright/test';
 import {expectProjectDetail} from './helpers/project-detail.mjs';
@@ -10,7 +11,7 @@ const ids=page=>page.locator('#documentList [data-lu-document]').evaluateAll(els
 for(const width of [390,1280])test(`프로젝트 상세 → 자료 전체 보기: [회의]만 꺼짐, 다른 칩 켜짐, 프로젝트 거르기 적용, 다시 들어와도 같음 ${width}`,async({page})=>{
   await page.setViewportSize({width,height:900});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
-  const s=baseState();s.docs.push({id:'meeting-doc',workspace_id:s.workspace.id,project_id:'child-a1',title:'회의 연결 자료',meeting_id:'meeting-0',category:'회의자료'});await mockApp(page,s);await signIn(page,'http://127.0.0.1:8123/app/?view=library');
+  const s=baseState();s.docs.push({id:'meeting-doc',workspace_id:s.workspace.id,project_id:'child-a1',title:'회의 연결 자료',meeting_id:'meeting-0',category:'회의자료'});await mockApp(page,s);await signIn(page,`${appOrigin}/app/?view=library`);
   await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));await expect(page.locator('#documentList .lu-row').first()).toBeVisible();
   // 자료실에서 [전체]로 모든 칩을 켜 둔 채 나간다(고른 상태가 남아 있어도 프로젝트에서 들어오면 같은 기본 상태).
   await chip(page,'all').click();await expect(offChips(page)).toHaveCount(0);

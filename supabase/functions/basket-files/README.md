@@ -12,7 +12,7 @@
 | `raw_text` | 새 메모에만 선택 입력, 20,000자까지, 수신된 공백·개행 보존. 파일만 저장 가능. |
 | `note_id` | 기존 메모에 추가할 때 UUID. 서버 owner workspace에 속한 메모만 조회·갱신. 기존 글·AI 설정은 보존. |
 
-파일 이름은 `req.formData()` 대신 `multipart.ts`가 읽는다(Deno 기본 해석기는 따옴표 안의 `;`·`=`에서 이름을 자름).
+파일 이름은 `req.formData()` 대신 `../_shared/multipart.ts`가 읽는다(library-files·meeting-files·workspace-drive 업로드도 같은 모듈 사용)(Deno 기본 해석기는 따옴표 안의 `;`·`=`에서 이름을 자름).
 따옴표 문자열·`\"` 이스케이프·UTF-8 원문을 그대로 읽고, `filename*=UTF-8''…`가 올바르면 그것을 우선한다.
 제어 문자를 지우고 `/`·`\` 앞 경로는 버린 뒤 앞뒤 공백을 자르며, 결과가 1~255자가 아니면 거절한다.
 

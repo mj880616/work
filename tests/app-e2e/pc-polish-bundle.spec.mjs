@@ -1,3 +1,4 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
@@ -49,7 +50,7 @@ async function signIn(page){
 
 
 
-async function boot(page,width,url='http://127.0.0.1:8123/app/'){
+async function boot(page,width,url=`${appOrigin}/app/`){
  await page.setViewportSize({width,height:900});await mockApp(page,{spaces:[project]});
  await page.goto(url);await signIn(page);
 }
@@ -77,7 +78,7 @@ test('UI-PC다듬기묶음 ① 폰 390: ☰ 메뉴는 [쓰기]가 맨 앞 그대
 });
 
 for(const width of [1024,1280,1440,1920])test(`UI-PC다듬기묶음 ② PC ${width}: [+ 일정 등록]은 같은 줄 [오늘]·보기 전환과 같은 높이, 누르는 범위 44`,async({page})=>{
- await boot(page,width,'http://127.0.0.1:8123/app/?view=calendar');
+ await boot(page,width,`${appOrigin}/app/?view=calendar`);
  const tb=page.locator('#calendarView .calendar-toolbar');
  const add=await box(tb.locator('#newEventBtn')),today=await box(tb.locator('#calendarTodayBtn')),group=await box(tb.locator('.calendar-view-switch'));
  expect(add.height).toBe(32);expect(add.height).toBe(today.height);expect(add.height).toBe(group.height);
@@ -89,7 +90,7 @@ for(const width of [1024,1280,1440,1920])test(`UI-PC다듬기묶음 ② PC ${wid
 });
 
 test('UI-PC다듬기묶음 ② 폰 390·중간 폭 900: [+ 일정 등록]은 그대로(폰 동그란 [+] 36, 중간 폭 46)',async({page})=>{
- await boot(page,390,'http://127.0.0.1:8123/app/?view=calendar');
+ await boot(page,390,`${appOrigin}/app/?view=calendar`);
  const phone=await box(page.locator('#newEventBtn'));expect([phone.width,phone.height]).toEqual([36,36]);
  await page.setViewportSize({width:900,height:900});
  const mid=await box(page.locator('#newEventBtn'));expect(mid.height).toBe(46);

@@ -1,8 +1,9 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {readFileSync} from 'node:fs';
 import {test,expect} from '@playwright/test';
 import {renderShell} from '../../scripts/public-page-meta.mjs';
 
-const BASE='http://127.0.0.1:8123';
+const BASE=appOrigin;
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 
 test('generated slug shell loads the shared renderer and uses fixed metadata slug',async({page})=>{

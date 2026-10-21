@@ -1,3 +1,4 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 
@@ -66,7 +67,7 @@ test('nonmember cannot access workspace or request membership',async({page})=>{
     workspace:{id:'workspace-1',slug:'kptu-work',name:'웹2'},membership:null,requests:[],
     org:{id:'org-1',workspace_id:'workspace-1',name:'테스트지부',representative_name:null,contact:null,member_count:null,updated_at:now(),created_by:'owner-1'},tags:[],affiliations:[]
   };
-  await preloadSession(page,state.user);await installMock(page,state);await page.goto('http://127.0.0.1:8123/app/');
+  await preloadSession(page,state.user);await installMock(page,state);await page.goto(`${appOrigin}/app/`);
   await expect(page.locator('#accessDeniedView')).toBeVisible({timeout:10000});
   await expect(page.locator('#accessDeniedView')).toContainText('접근 권한이 없습니다');
   await expect(page.locator('#accessDeniedView button')).toHaveText(['로그아웃']);
@@ -83,7 +84,7 @@ test('solo workspace does not expose account approval controls',async({page})=>{
     tags:[{id:'tag-1',workspace_id:'workspace-1',name:'운수산업협의회',kind:'council',created_by:'owner-1'}],affiliations:['tag-1']
   };
   page.on('dialog',d=>d.accept());
-  await preloadSession(page,state.user);await installMock(page,state);await page.goto('http://127.0.0.1:8123/app/');
+  await preloadSession(page,state.user);await installMock(page,state);await page.goto(`${appOrigin}/app/`);
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await clickView(page,'team');
   await expect(page.locator('#aaReviewSection')).toHaveCount(0);
@@ -98,7 +99,7 @@ test('organization detail shows representative contact, system update time, and 
     org:{id:'org-1',workspace_id:'workspace-1',name:'테스트지부',representative_name:'대표자',contact:'010-1234-5678',member_count:100,updated_at:now(),created_by:'owner-1'},
     tags:[{id:'tag-1',workspace_id:'workspace-1',name:'운수산업협의회',kind:'council',created_by:'owner-1'},{id:'tag-2',workspace_id:'workspace-1',name:'안전인력사업단',kind:'taskforce',created_by:'owner-1'}],affiliations:['tag-1','tag-2']
   };
-  await preloadSession(page,state.user);await installMock(page,state);await page.goto('http://127.0.0.1:8123/app/');
+  await preloadSession(page,state.user);await installMock(page,state);await page.goto(`${appOrigin}/app/`);
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await page.evaluate(()=>window.KPTUDeferredFeatures.load());
   await page.evaluate(()=>{const b=document.createElement('button');b.id='openOrgE2E';b.dataset.psWorkplaceOrg='org-1';document.body.appendChild(b)});

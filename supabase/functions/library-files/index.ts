@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { HwpxReader, hwpToText } from 'npm:@ssabrojs/hwpxjs';
+import { readMultipartForm } from '../_shared/multipart.ts';
 
 const SB=Deno.env.get('SUPABASE_URL')!;
 const SERVICE=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -89,7 +90,8 @@ Deno.serve(async(req:Request)=>{
     if(req.method!=='POST')return json({error:'POST only'},405);
     if((req.headers.get('content-type')||'').includes('application/json'))throw new UploadError('지원하지 않는 작업입니다.',{code:'unsupported_request'});
     let form:FormData;
-    try{form=await req.formData()}catch(e){console.error('library-files form parse failed',e);throw new UploadError('업로드 요청을 읽지 못했습니다. 다시 시도해 주세요.',{code:'invalid_request',retryable:true})}
+    // Not req.formData(): Deno cuts quoted file names at ';' and '=' (see _shared/multipart.ts).
+    try{form=await readMultipartForm(req)}catch(e){console.error('library-files form parse failed',e);throw new UploadError('업로드 요청을 읽지 못했습니다. 다시 시도해 주세요.',{code:'invalid_request',retryable:true})}
     const file=form.get('file');
     if(!(file instanceof File))throw new UploadError('파일을 선택해 주세요.',{code:'file_missing',stage:'validate'});
     if(file.size<=0)throw new UploadError('빈 파일은 업로드할 수 없습니다.',{code:'file_empty',stage:'validate'});

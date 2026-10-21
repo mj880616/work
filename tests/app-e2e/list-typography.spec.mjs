@@ -1,3 +1,4 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
@@ -59,12 +60,12 @@ const samples={
 };
 async function boot(page){
  await mockApp(page,{spaces:[{id:'type-project',workspace_id:workspace.id,name:'Fixture project',status:'active',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2}},{id:'type-archive',workspace_id:workspace.id,name:'Archive fixture',status:'archived',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2}}]});
- await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
+ await page.goto(`${appOrigin}/app/`);await signIn(page);
 }
 async function view(page,name){await clickView(page,name);await expect.poll(()=>page.evaluate(name=>window.KPTUViewLoader.isLoaded(name),name)).toBe(true);}
 async function baseline(page){
  const cache=new Map();
- await page.route(/^http:\/\/127\.0\.0\.1:8123\/(?:app|press)\//,route=>{
+ await page.route(new RegExp('^'+appOrigin.replace(/[.*+?^${}()|[\]\\\/]/g,'\\$&')+"\\/(?:app|press)\\/"),route=>{
   let path=new URL(route.request().url()).pathname.slice(1);if(path.endsWith('/'))path+='index.html';
   if(!/\.(css|js|html)$/.test(path))return route.continue();
   if(!cache.has(path))cache.set(path,execFileSync('git',['show',BASE+':'+path],{encoding:'utf8'}));
@@ -97,7 +98,7 @@ for(const width of [390,1440])test('D-3d list roles, C2 and excluded main fonts 
   for(const selector of selectorsForView){if(width<=760&&['#newEventBtn','#newTaskBtn','#libraryListCard button'].includes(selector))continue;// 폰의 자료실 머리 버튼은 글자 없는 동그란 [+](분류 편집은 종류 칩 줄로 옮김, 아래 #manageLibraryBtn으로 검사)
   await expect(page.locator(selector).first()).toHaveCount(1);await expect(original.locator(selector).first()).toHaveCount(1);const fonts=async p=>p.locator(selector).first().evaluate(el=>getComputedStyle(el).fontSize);expect(await fonts(page),selector).toBe(selector==='#prevMonthBtn'?'24px':['#newEventBtn','#newTaskBtn','#libraryListCard h2','#libraryListCard button','#libraryView #manageLibraryBtn'].includes(selector)?'13px':selector==='#monthTitle'?'18px':await fonts(original));}
  }
- for(const p of [page,original])await p.goto('http://127.0.0.1:8123/press/');
+ for(const p of [page,original])await p.goto(`${appOrigin}/press/`);
  for(const selector of ['h1','.item h3','.date','.tag','.filter']){
   const fonts=async p=>p.locator(selector).first().evaluate(el=>getComputedStyle(el).fontSize);expect(await fonts(page)).toBe(await fonts(original));
  }

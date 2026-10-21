@@ -1,6 +1,7 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 import { expectGoogleDisplay } from './helpers/calendar-google-display.mjs';
-const fixture='http://127.0.0.1:8123/tests/app-e2e/calendar-month-view-fixture.html';
+const fixture=`${appOrigin}/tests/app-e2e/calendar-month-view-fixture.html`;
 test.use({timezoneId:'Asia/Seoul'});
 
 for(const width of [390,1023,1024,1280]){

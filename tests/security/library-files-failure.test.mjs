@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
+const { readMultipartForm } = await import('../../supabase/functions/_shared/multipart.ts');
 
 // Runs the real library-files handler with mocked Supabase, Google Drive, and AI so each failure stage
 // can be checked for its status, structured error body, and Drive orphan cleanup. No network calls.
@@ -72,8 +73,8 @@ function harness({
   };
   const quietConsole = { ...console, error: (...a) => calls.errors.push(a), warn: () => {}, log: () => {} };
   const fastSignal = { timeout: () => { const c = new AbortController(); setTimeout(() => c.abort(new DOMException('timed out', 'TimeoutError')), 30); return c.signal; } };
-  new Function('Deno', 'createClient', 'HwpxReader', 'hwpToText', 'fetch', 'console', 'AbortSignal', SOURCE)(
-    Deno, () => admin, class {}, async () => '', fetchMock, quietConsole, fastSignal
+  new Function('Deno', 'createClient', 'HwpxReader', 'hwpToText', 'readMultipartForm', 'fetch', 'console', 'AbortSignal', SOURCE)(
+    Deno, () => admin, class {}, async () => '', readMultipartForm, fetchMock, quietConsole, fastSignal
   );
   return { handler, calls };
 }

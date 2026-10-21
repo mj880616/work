@@ -1,3 +1,4 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 import { openEmphasisFixture, taskChip } from './helpers/calendar-task-emphasis.mjs';
 
@@ -196,7 +197,7 @@ test('release clicks remain guarded while the optional menu module is unavailabl
 
 test('short six-week mobile rows keep events and overflow inside their own dates',async({page})=>{
   await page.setViewportSize({width:390,height:400});
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/calendar-month-view-fixture.html');
+  await page.goto(`${appOrigin}/tests/app-e2e/calendar-month-view-fixture.html`);
   await page.evaluate(()=>window.renderDensityFixture({year:2026,month:7,dateCounts:{'2026-08-13':2}}));
   await expect(page.locator('.cmv-week')).toHaveCount(6);
   const items=page.locator('.cmv-event,.kptu-day-more');

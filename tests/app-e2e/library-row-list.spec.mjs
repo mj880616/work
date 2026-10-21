@@ -1,3 +1,4 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {selectFilter,filterOptions} from './helpers/filter-chips.mjs';
 import {onlyLibraryCategories} from './helpers/library-categories.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
@@ -61,7 +62,7 @@ async function mockApp(page,state){
       state.uploads.push(row);state.docs.push(row);
       return ok({ok:true,document:row});
     }
-    if(path==='/functions/v1/workspace-drive'){state.downloads.push(body);return ok({url:'http://127.0.0.1:8123/tests/app-e2e/library-open-fixture.html?download=1'})}
+    if(path==='/functions/v1/workspace-drive'){state.downloads.push(body);return ok({url:`${appOrigin}/tests/app-e2e/library-open-fixture.html?download=1`})}
     if(path==='/functions/v1/document-actions'){state.deletes.push(body);state.docs=state.docs.filter(d=>d.id!==body.document_id);return ok({ok:true})}
     if(path.startsWith('/functions/v1/'))return ok({});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
@@ -95,7 +96,7 @@ async function mockApp(page,state){
   });
 }
 
-async function signIn(page,target='http://127.0.0.1:8123/app/'){
+async function signIn(page,target=`${appOrigin}/app/`){
   await page.goto(target);
   await enterLogin(page);
   await signInWithSession(page,'owner@example.org');
@@ -105,7 +106,7 @@ async function signIn(page,target='http://127.0.0.1:8123/app/'){
 const MAIN='96eeb04a16fd93d532222795ada9c09baec9f323';
 async function boot(page,{width=390,main=false}={}){
   await page.setViewportSize({width,height:900});
-  if(main){const cache=new Map();await page.route(/^http:\/\/127\.0\.0\.1:8123\/app\//,route=>{
+  if(main){const cache=new Map();await page.route(new RegExp('^'+appOrigin.replace(/[.*+?^${}()|[\]\\\/]/g,'\\$&')+"\\/app\\/"),route=>{
     let path=new URL(route.request().url()).pathname.slice(1);if(path.endsWith('/'))path+='index.html';
     if(!/\.(css|js|html)$/.test(path))return route.continue();
     if(!cache.has(path))cache.set(path,execFileSync('git',['show',MAIN+':'+path],{encoding:'utf8'}));
@@ -116,9 +117,9 @@ async function boot(page,{width=390,main=false}={}){
     id:'row-'+i,workspace_id:'workspace-1',project_id:'top-a',title:i===0?'긴 자료 제목 '.repeat(30):'자료 '+i,
     file_name:'sample.'+ext,category:'정책자료',document_date:i===5?null:'2026-10-06',
     source:'목록에 표시하지 않을 출처',file_size:2048,description:'목록에 표시하지 않을 요약',tags:['검색태그'],
-    drive_url:'http://127.0.0.1:8123/tests/app-e2e/library-open-fixture.html',created_at:'2026-10-06T00:00:00Z'
+    drive_url:`${appOrigin}/tests/app-e2e/library-open-fixture.html`,created_at:'2026-10-06T00:00:00Z'
   }));
-  await mockApp(page,state);await signIn(page,'http://127.0.0.1:8123/app/?view=library');
+  await mockApp(page,state);await signIn(page,`${appOrigin}/app/?view=library`);
   await expect(page.locator('[data-lu-document]')).toHaveCount(10);
   return state;
 }
@@ -255,7 +256,7 @@ for(const width of [390,1280]){
       ];
       const documentQueries=[];
       page.on('request',req=>{const url=new URL(req.url());if(url.pathname==='/rest/v1/app_documents')documentQueries.push(url.searchParams)});
-      await mockApp(page,state);await signIn(page,'http://127.0.0.1:8123/app/?view=library');
+      await mockApp(page,state);await signIn(page,`${appOrigin}/app/?view=library`);
       await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
       const rows=page.locator('#documentList [data-lu-document]'),ids=()=>rows.evaluateAll(els=>els.map(el=>el.dataset.luDocument));
       // UI-PC자료실 C: 분류 칩은 여러 개 켜고 끄는 토글 묶음(aria-pressed). 들어올 때는 [회의]만 꺼져 있다.
@@ -324,7 +325,7 @@ for(const width of [390,1280]){
       state.docs=state.docs.filter(d=>d.id==='doc-archived');
       const original={...state.docs[0],meeting_id:null,auto_classified:true,classification_note:'자동분류 결과',file_id:'drive-original',file_name:'report.pdf',drive_url:'https://drive.google.com/file/d/drive-original/view'};
       state.docs=[{...original}];
-      await mockApp(page,state);await signIn(page,'http://127.0.0.1:8123/app/?view=library');
+      await mockApp(page,state);await signIn(page,`${appOrigin}/app/?view=library`);
       await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
       const edit=async()=>{await page.locator('[data-lu-menu="doc-archived"]').click();await page.locator('[data-lu-edit="doc-archived"]').click();await expect(page.locator('#libraryEditModal')).toBeVisible();await expect(page.locator('#libraryEditMeeting option')).toHaveCount(3)};
       await edit();

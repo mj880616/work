@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 // PRJ-순서바꾸기 (2026-10-21 요청함 01:01·01:10 승인): 같은 상위 아래 형제끼리 순서를 바꾼다. PC는 프로젝트 목록에서 끌어다 놓기,
-// 폰(과 PC)은 ⋯ 안 "위로·아래로". 저장은 기존 app_spaces.sort_order(소유자 PATCH, DB 변경 없음). 정한 순서는 프로젝트 화면·
+// 폰은 목록 머리 [순서 바꾸기] 모드의 줄별 ↑ ↓(2026-10-22 변경: 상세 ⋯ 안 위로·아래로는 없앰). 저장은 기존 app_spaces.sort_order(소유자 PATCH, DB 변경 없음). 정한 순서는 프로젝트 화면·
 // 기록할 곳·할 일 연결·업무일지·주간 정리(한글 파일)가 모두 같은 목록(project-catalog.js)에서 읽는다. 순서 규칙과 업무일지·주간 정리
 // 묶음 순서는 tests/project-order.test.mjs. 이름은 모두 합성 값이다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-09-15T01:00:00Z';
@@ -38,6 +38,8 @@ async function fixture(page,{width=1280,height=800,failPatch=false}={}){
 }
 const listIds=page=>page.locator('#projectGrid .ps3-plist [data-ps3-project]').evaluateAll(xs=>xs.map(x=>x.dataset.ps3Project));
 const row=(page,id)=>page.locator(`#projectGrid .ps3-plist [data-ps3-project="${id}"]`);
+const orderRow=(page,id)=>page.locator(`#projectGrid .ps3-plist [data-ps3-order-row="${id}"]`);
+const orderIds=page=>page.locator('#projectGrid .ps3-plist [data-ps3-order-row]').evaluateAll(xs=>xs.map(x=>x.dataset.ps3OrderRow));
 const title=page=>page.locator('#ps3Title');
 const catalogIds=page=>page.evaluate(()=>KPTUProjectCatalog.snapshot().tree.map(x=>x.project.id));
 const optionIds=page=>page.evaluate(()=>{const d=document.createElement('select');d.innerHTML=KPTUProjectCatalog.options('',false);return [...d.options].map(o=>o.value)});
@@ -46,6 +48,11 @@ test('PC 1280: drag a row onto a sibling saves sort_order and every list shows t
  const {state,errors}=await fixture(page);
  await clickView(page,'projects');await expect(title(page)).toHaveText('합성 정책 사업');
  expect(await listIds(page)).toEqual(['pa','pc','pd','pg','pb','pe']);
+ // PC orders by drag only: no [순서 바꾸기] button, and the detail ⋯ menu has no 위로·아래로.
+ await expect(page.locator('#ps3OrderBtn')).toHaveCount(0);
+ const pcMore=page.locator('#ps3Menu details.ps3-more');await pcMore.locator('summary').click();
+ await expect(pcMore.locator('.ps3-more-panel button')).toHaveText(['완료','수정','보관','삭제']);
+ await expect(pcMore.locator('[data-ps3-move-project]')).toHaveCount(0);await pcMore.locator('summary').click();
  await expect(row(page,'pa')).toHaveAttribute('draggable','true');await expect(row(page,'pd')).not.toHaveAttribute('draggable','true');
  // 1단 교섭 사업 → before 정책 사업 (upper half of the row).
  await row(page,'pe').dragTo(row(page,'pa'),{targetPosition:{x:40,y:4}});
@@ -72,38 +79,70 @@ test('PC 1280: drag a row onto a sibling saves sort_order and every list shows t
  expect(errors).toEqual([]);
 });
 
-test('phone 390: ⋯ 위로·아래로 move among siblings, stay open, and switch off at the ends',async({page})=>{
+test('phone 390: [순서 바꾸기] mode moves projects with ↑ ↓ among siblings, blocks opening a row, and [완료] returns the list',async({page})=>{
  const {state,errors}=await fixture(page,{width:390,height:844});
- await clickView(page,'projects');await row(page,'pb').click();await expect(title(page)).toHaveText('합성 조직 사업');
- const more=page.locator('#ps3Menu details.ps3-more');await more.locator('summary').click();
- await expect(more.locator('[data-ps3-move-project]')).toHaveText(['위로','아래로']);
- if(SHOT)await page.screenshot({path:SHOT+'/prj-order-phone-390-menu.png'});
- await more.locator('[data-ps3-move-project="-1"]').click();
+ await clickView(page,'projects');
+ // A phone list row is not draggable and the list head carries the small button (32px tall, 44px to press).
+ await expect(row(page,'pa')).not.toHaveAttribute('draggable','true');
+ const toggle=page.locator('#ps3OrderBtn');await expect(toggle).toHaveText('순서 바꾸기');await expect(toggle).toHaveAttribute('aria-pressed','false');
+ expect((await toggle.boundingBox()).height).toBe(32);
+ expect(await page.locator('#projectGrid .ps3-plist [data-ps3-order-row]').count()).toBe(0);
+ if(SHOT)await page.screenshot({path:SHOT+'/prj-order-phone-390-list.png'});
+ await toggle.click();
+ await expect(toggle).toHaveText('완료');await expect(toggle).toHaveAttribute('aria-pressed','true');
+ expect(await orderIds(page)).toEqual(['pa','pc','pd','pg','pb','pe']);
+ // Rows are no longer openers; the detail does not open on a tap.
+ await expect(page.locator('#projectGrid .ps3-plist [data-ps3-project]')).toHaveCount(0);
+ await orderRow(page,'pb').locator('.ps3-prow-name').click();
+ await expect(page.locator('#ps3DetailModal')).toBeHidden();await page.mouse.move(0,0);
+ // ↑ ↓ only where there are siblings: the 3단 사안 has none; each button is 44px to press.
+ await expect(orderRow(page,'pd').locator('[data-ps3-order-move]')).toHaveCount(0);
+ await expect(orderRow(page,'pc').locator('[data-ps3-order-move]')).toHaveCount(2);
+ await expect(orderRow(page,'pa').locator('[data-ps3-order-move="-1"]')).toBeDisabled();
+ const arrow=await orderRow(page,'pb').locator('[data-ps3-order-move="-1"]').boundingBox();expect(arrow.width).toBe(44);expect(arrow.height).toBe(44);
+ if(SHOT)await page.screenshot({path:SHOT+"/prj-order-phone-390-mode.png"});
+ await orderRow(page,'pb').locator('[data-ps3-order-move="-1"]').click();
  await expect.poll(()=>catalogIds(page)).toEqual(['pb','pa','pc','pd','pg','pe']);
  expect(state.writes.map(w=>[w.id,w.body.sort_order])).toEqual([['pb',10],['pa',20],['pe',30]]);
- // Still open; a second 위로 reaches the top and 위로 turns off there.
- await expect(more).toHaveAttribute('open','');await expect(more.locator('[data-ps3-move-project="-1"]')).toBeDisabled();
- await more.locator('[data-ps3-move-project="1"]').click();
+ // Still in the mode, shown in the new order; 위로 turns off at the top and the focus moves on to 아래로.
+ expect(await orderIds(page)).toEqual(['pb','pa','pc','pd','pg','pe']);await expect(toggle).toHaveText('완료');
+ await expect(orderRow(page,'pb').locator('[data-ps3-order-move="-1"]')).toBeDisabled();
+ await orderRow(page,'pb').locator('[data-ps3-order-move="1"]').click();
  await expect.poll(()=>catalogIds(page)).toEqual(['pa','pc','pd','pg','pb','pe']);
- await more.locator('[data-ps3-move-project="1"]').click();
+ await orderRow(page,'pb').locator('[data-ps3-order-move="1"]').click();
  await expect.poll(()=>catalogIds(page)).toEqual(['pa','pc','pd','pg','pe','pb']);
- await expect(more.locator('[data-ps3-move-project="1"]')).toBeDisabled();await expect(more.locator('[data-ps3-move-project="-1"]')).toBeEnabled();
- // A 3단 with no sibling has no 위로·아래로; the phone list rows are not draggable.
- await expect(row(page,'pa')).not.toHaveAttribute('draggable','true');
- await page.evaluate(()=>KPTUProjects.open('pd'));await expect(title(page)).toHaveText('합성 세부 사안');
- await more.locator('summary').click();await expect(more.locator('[data-ps3-move-project]')).toHaveCount(0);
- if(SHOT)await page.screenshot({path:SHOT+'/prj-order-phone-390-after.png'});
+ await expect(orderRow(page,'pb').locator('[data-ps3-order-move="1"]')).toBeDisabled();await expect(orderRow(page,'pb').locator('[data-ps3-order-move="-1"]')).toBeEnabled();
+ // 2단 moves only among its siblings (설명회 above 토론회); its 3단 child stays under 토론회.
+ await orderRow(page,'pg').locator('[data-ps3-order-move="-1"]').click();
+ await expect.poll(()=>catalogIds(page)).toEqual(['pa','pg','pc','pd','pe','pb']);
+ expect(await orderIds(page)).toEqual(['pa','pg','pc','pd','pe','pb']);
+ // [완료] returns the ordinary list: rows open the detail again, and the detail ⋯ menu has no 위로·아래로.
+ await toggle.click();await expect(toggle).toHaveText('순서 바꾸기');
+ expect(await listIds(page)).toEqual(['pa','pg','pc','pd','pe','pb']);await expect(page.locator('#projectGrid [data-ps3-order-row]')).toHaveCount(0);
+ await row(page,'pb').click();await expect(title(page)).toHaveText('합성 조직 사업');
+ const more=page.locator('#ps3Menu details.ps3-more');await more.locator('summary').click();
+ await expect(more.locator('.ps3-more-panel button')).toHaveText(['완료','수정','보관','삭제']);
+ await expect(more.locator('[data-ps3-move-project]')).toHaveCount(0);
+ if(SHOT)await page.screenshot({path:SHOT+'/prj-order-phone-390-menu.png'});
  expect(state.writes.every(w=>!('parent_id' in w.body))).toBe(true);
+ expect(errors).toEqual([]);
+});
+
+test('phone 390: leaving the projects screen ends 순서 바꾸기 mode',async({page})=>{
+ const {errors}=await fixture(page,{width:390,height:844});
+ await clickView(page,'projects');await page.locator('#ps3OrderBtn').click();await expect(orderRow(page,'pa')).toBeVisible();
+ await clickView(page,'home');await clickView(page,'projects');
+ await expect(page.locator('#ps3OrderBtn')).toHaveText('순서 바꾸기');expect(await listIds(page)).toEqual(['pa','pc','pd','pg','pb','pe']);
  expect(errors).toEqual([]);
 });
 
 test('phone 390: a failed save says so and keeps the old order',async({page})=>{
  const {state,errors}=await fixture(page,{width:390,height:844,failPatch:true});
- await clickView(page,'projects');await row(page,'pe').click();
- const more=page.locator('#ps3Menu details.ps3-more');await more.locator('summary').click();
- await more.locator('[data-ps3-move-project="-1"]').click();
+ await clickView(page,'projects');await page.locator('#ps3OrderBtn').click();
+ await orderRow(page,'pe').locator('[data-ps3-order-move="-1"]').click();
  await expect(page.locator('#toast')).toHaveText('순서를 저장하지 못했어요. 다시 해 주세요.');
  expect(state.writes.length).toBe(1);expect(await catalogIds(page)).toEqual(['pa','pc','pd','pg','pb','pe']);
+ expect(await orderIds(page)).toEqual(['pa','pc','pd','pg','pb','pe']);
  expect(errors).toEqual([]);
 });
 
