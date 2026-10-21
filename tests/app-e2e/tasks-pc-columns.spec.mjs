@@ -36,6 +36,41 @@ async function open(page,width,tasks,{links=[],projects=[PROJECT],orgs=[ORG],hei
 const col=(page,id)=>page.locator(`#gtTaskBody [data-gt-col="${id}"]`);
 
 for(const width of [1280,1440]){
+  test(`PC ${width}: 수정 칸 기한 줄 빠른 버튼(내일·모레·다음주·기한 없음)은 누르면 바로 저장`,async({page})=>{
+    const tasks=[task('a','2026-10-08')];
+    const calls=await open(page,width,tasks);
+    await page.locator('[data-gt-edit="a"]').click();
+    const due=page.locator('#gtEditDue'),btns=page.locator('#gtTaskModal [data-gt-due-quick]');
+    await expect(btns).toHaveText(['내일','모레','다음주','기한 없음']);
+    const bd=await due.boundingBox(),b0=await btns.first().boundingBox();
+    expect(bd.width).toBeLessThan(260);expect(b0.x).toBeGreaterThan(bd.x+bd.width-1);expect(Math.abs((b0.y+b0.height/2)-(bd.y+bd.height/2))).toBeLessThan(30);
+    const last=()=>calls.filter(c=>c.action==='update').at(-1)?.body.due;
+    for(const [name,want] of [['내일','2026-10-09'],['모레','2026-10-10'],['다음주','2026-10-15']]){
+      const n=calls.filter(c=>c.action==='update').length;
+      await page.locator('#gtTaskModal').getByRole('button',{name,exact:true}).click();
+      await expect.poll(()=>calls.filter(c=>c.action==='update').length).toBe(n+1);
+      expect(last()).toBe(want);await expect(due).toHaveValue(want);
+    }
+    const n=calls.filter(c=>c.action==='update').length;
+    await page.locator('#gtTaskModal').getByRole('button',{name:'기한 없음',exact:true}).click();
+    await expect.poll(()=>calls.filter(c=>c.action==='update').length).toBe(n+1);
+    expect(last()).toBeNull();await expect(due).toHaveValue('');
+  });
+
+  test(`PC ${width}: 완료를 펼쳐도 위 칸은 줄지 않고 완료 목록은 아래로 이어지며 칸 안 스크롤은 없다`,async({page})=>{
+    const tasks=[...Array.from({length:6},(_,i)=>task('n'+i,'2026-10-08')),...Array.from({length:6},(_,i)=>task('w'+i,'2026-10-10')),...Array.from({length:10},(_,i)=>task('d'+i,null,{status:'completed',completed:new Date(NOW).toISOString()}))];
+    await open(page,width,tasks,{height:800});
+    const h=async id=>(await col(page,id).boundingBox()).height;
+    const [n0,w0]=[await h('now'),await h('week')];
+    await col(page,'week').locator('#gtCompleted summary').click();
+    await expect(col(page,'week').locator('[data-google-task="d9"]')).toBeVisible();
+    const [n1,w1]=[await h('now'),await h('week')];
+    expect(n1).toBeGreaterThanOrEqual(n0-1);expect(w1).toBeGreaterThan(w0+200);
+    for(const id of ['now','week']){const sc=await col(page,id).locator('.gt-col-body').evaluate(e=>e.scrollHeight-e.clientHeight);expect(sc).toBeLessThanOrEqual(1)}
+    const wk=await col(page,'week').boundingBox(),last=await col(page,'week').locator('[data-google-task="d9"]').boundingBox();
+    expect(last.y+last.height).toBeLessThanOrEqual(wk.y+wk.height+1);
+  });
+
   test(`PC ${width}: 기한별 열 2개 + 접기 줄, 건수, 빈 열 "없음", 지난 기한은 빨간 글자, 한 페이지`,async({page})=>{
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     const tasks=[task('late','2026-10-06'),task('today','2026-10-08'),task('soon','2026-10-10'),task('far','2026-10-30'),task('none'),task('done',null,{status:'completed',completed:new Date(NOW).toISOString()})];
@@ -115,14 +150,14 @@ for(const width of [1280,1440]){
     await pane.locator('[data-gt-close]').click();await expect(pane.locator('.gt-pane-empty')).toBeVisible();
   });
 
-  test(`PC ${width}: 왼쪽 칸이 많으면 위·아래 칸 안에서만 세로로 넘기고 상세 칸은 전체 높이 그대로`,async({page})=>{
+  test(`PC ${width}: 왼쪽 칸이 많으면 위·아래 칸이 내용만큼 늘어나고(칸 안 스크롤 없음) 페이지가 스크롤`,async({page})=>{
     const tasks=[...Array.from({length:14},(_,i)=>task('n'+i,'2026-10-08')),...Array.from({length:14},(_,i)=>task('w'+i,'2026-10-1'+(i%5)))];
     await open(page,width,tasks,{height:800});
     const now=await col(page,'now').boundingBox(),week=await col(page,'week').boundingBox(),pane=await page.locator('#gtDetailPane').boundingBox();
     expect(now.height).toBeGreaterThan(80);expect(week.height).toBeGreaterThan(80);
-    expect(week.y+week.height).toBeLessThanOrEqual(pane.y+pane.height+1);
-    for(const id of ['now','week']){const sc=await col(page,id).locator('.gt-col-body').evaluate(e=>({sh:e.scrollHeight,ch:e.clientHeight,oy:getComputedStyle(e).overflowY}));expect(sc.oy).toBe('auto');expect(sc.sh).toBeGreaterThan(sc.ch)}
-    const m=await page.evaluate(()=>({sh:document.documentElement.scrollHeight,ih:innerHeight}));expect(m.sh).toBeLessThanOrEqual(m.ih+1);
+    expect(now.height).toBeGreaterThan(14*40);expect(week.height).toBeGreaterThan(14*40);
+    for(const id of ['now','week']){const sc=await col(page,id).locator('.gt-col-body').evaluate(e=>({sh:e.scrollHeight,ch:e.clientHeight,oy:getComputedStyle(e).overflowY}));expect(sc.oy).not.toBe('auto');expect(sc.sh-sc.ch).toBeLessThanOrEqual(1)}
+    const m=await page.evaluate(()=>({sh:document.documentElement.scrollHeight,ih:innerHeight}));expect(m.sh).toBeGreaterThan(m.ih+100);
   });
 
   test(`PC ${width}: 상세 칸의 프로젝트 체크 목록은 한 열(순서 그대로), 조직은 2열, 저장·닫기 제목 줄은 그대로`,async({page})=>{
@@ -145,16 +180,16 @@ for(const width of [1280,1440]){
     expect(await pane.locator('#gtSaveBtn').evaluate(e=>e.parentElement.classList.contains('modal-head'))).toBe(true);
   });
 
-  test(`PC ${width}: 빈 열은 "없음", 많으면 열 안에서만 세로로 넘김`,async({page})=>{
+  test(`PC ${width}: 빈 열은 "없음", 많으면 열이 늘어나고 칸 안 스크롤 없음`,async({page})=>{
     const tasks=Array.from({length:24},(_,i)=>task('w'+i,'2026-10-1'+(i%5)));
     await open(page,width,tasks);
     await expect(col(page,'now').locator('.gt-col-empty')).toHaveText('없음');
     await expect(col(page,'week').locator('.gt-col-count')).toHaveText('24');
     await expect(col(page,'week').locator('.gt-col-empty')).toHaveCount(0);
     const scroll=await col(page,'week').locator('.gt-col-body').evaluate(e=>({sh:e.scrollHeight,ch:e.clientHeight,oy:getComputedStyle(e).overflowY}));
-    expect(scroll.oy).toBe('auto');expect(scroll.sh).toBeGreaterThan(scroll.ch);
+    expect(scroll.oy).not.toBe('auto');expect(scroll.sh-scroll.ch).toBeLessThanOrEqual(1);
     const m=await page.evaluate(()=>({sh:document.documentElement.scrollHeight,ih:innerHeight}));
-    expect(m.sh).toBeLessThanOrEqual(m.ih+1);
+    expect(m.sh).toBeGreaterThan(m.ih);
   });
 
   test(`PC ${width}: 카드를 고르면 오른쪽 칸에서 바로 수정·저장, 선택 표시, 키보드`,async({page})=>{
