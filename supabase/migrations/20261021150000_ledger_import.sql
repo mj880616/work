@@ -299,7 +299,7 @@ begin
         message = 'LEDGER_IMPORT_EXISTING_ID: ' || coalesce(v_constraint, '') || ' ' || pg_catalog.left(coalesce(v_detail, ''), 300);
   end;
   return v_result;
-end
+end;
 $$;
 
 -- 확인: 숫자 대조를 마친 묶음을 잠근다(되돌리기 불가).
@@ -322,7 +322,7 @@ begin
   insert into public.app_ledger_audit (workspace_id, event, target_table, target_id, import_id, detail)
   values (v_workspace, 'import_confirmed', 'imports', p_import_id, p_import_id, '{}'::jsonb);
   return public.app_import_ledger_counts(p_import_id);
-end
+end;
 $$;
 
 -- 되돌리기: 확인 전(applied) 묶음만. 그 묶음에서 들어와 고친 적 없는 행만 지울 수 있으므로(20261021082000 제한 정책)
@@ -382,7 +382,7 @@ begin
   values (v_workspace, 'import_reverted', 'imports', p_import_id, p_import_id,
     pg_catalog.jsonb_build_object('deleted', v_before - 'file' - 'label' - 'status' - 'created_at' - 'decided_at' - 'import_id'));
   return public.app_import_ledger_counts(p_import_id);
-end
+end;
 $$;
 
 revoke all on function public.app_import_ledger_counts(uuid) from public, anon, service_role;
