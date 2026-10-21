@@ -222,7 +222,7 @@ export function mountRadar(host, {place}) {
     if (d.radarLedger) {
       const p = dayPromises()[Number(d.radarLedger)]; if (!p) return;
       const ok = await copyText(ledgerRequestText(p));
-      shared.status = ok ? '쓰기요청 문구를 복사했어요. 원장에 붙여 넣어 주세요.' : '복사하지 못했어요.'; notify(false);
+      shared.status = ok ? '원장에 넣을 약속 문구를 복사했어요.' : '복사하지 못했어요.'; notify(false);
     }
   }, on);
   window.addEventListener(CHANGED, event => {

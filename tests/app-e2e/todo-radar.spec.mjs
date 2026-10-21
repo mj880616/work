@@ -138,7 +138,7 @@ test('[다시 찾기]: new candidates appear; a counterpart promise is shown wit
  await expect(promise.getByRole('button',{name:'할 일로'})).toHaveCount(0);
  await expect(box.locator('[data-radar-checked]')).toContainText('일부만 봤어요');
  await promise.getByRole('button',{name:'원장으로 복사'}).click();
- await expect(box.locator('[data-radar-status-line]')).toHaveText('쓰기요청 문구를 복사했어요. 원장에 붙여 넣어 주세요.');
+ await expect(box.locator('[data-radar-status-line]')).toHaveText('원장에 넣을 약속 문구를 복사했어요.');
  const copied=await page.evaluate(()=>navigator.clipboard.readText());
  expect(copied).toMatch(/^쓰기요청\n- 종류: 약속\(상대·제3자\)\n- 내용: 상대 측 자료 송부 약속\n- 기한: 2026-10-10/);
  expect(f.calls.ai.map(a=>a.mode)).toEqual(['auto','again']);
