@@ -35,7 +35,8 @@ let cpHome=null;
 function cpHomeCache(){const rt=window.KPTURuntime;if(!cpHome&&rt?.ownerCache?.prefix)try{cpHome=createHomeCache({storage:localStorage,keyPrefix:rt.ownerCache.prefix+'home-read-v1:',context:()=>({owner:rt.context?.read?.()?.user?.id,workspaceId:rt.context?.read?.()?.workspace?.id})})}catch{}return cpHome}
 function cpHomeCopy(events,s,e){const r=ranges();if(+s>r.start||+e<r.end)return;cpHomeCache()?.save('calendar',{day:dayKey(),rows:homeEventRows(events,cpState)})}
 function cpFreshness(state){
-  if(cpFresh!==state){cpFresh=state;cpPaint()}
+  // Only the day placeholder (불러오는 중… / 불러오지 못함) depends on this state; other changes are painted by their own events.
+  if(cpFresh!==state){const repaint=(cpFresh==='failed')!==(state==='failed');cpFresh=state;if(repaint)cpPaint()}
   paintFreshness(document.querySelector('#calendarFreshness'),{state,checkedAt:cpCheckedAt,onRetry:()=>cpStatusAt&&cpState?.connected?cpLoadEvents({force:true}):cpStatus({force:true})});
 }
 // The list asks this before writing "일정 없음" for a day: only a confirmed answer (fresh or saved) for that span may say so.
