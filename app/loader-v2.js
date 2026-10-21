@@ -90,6 +90,7 @@
     import('./action-labels.js'),
     import('./app-router.js'),
     import('./accessibility-dialog.js'),
+    import('./enter-save.js'),
     import('./native-back-guard.js'),
     import('./session-resilience.js'),
     import('./capabilities.js'),

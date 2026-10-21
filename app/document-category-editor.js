@@ -1,3 +1,4 @@
+import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {
   LOCKED_CATEGORY,CATEGORY_NAME_LIMIT,documentCategories,documentCategoriesLoaded,loadDocumentCategories,categoryNameProblem,categoryErrorText,
   addDocumentCategory,renameDocumentCategory,deleteDocumentCategory,storedValuesOf,documentCountOf,
@@ -22,7 +23,7 @@ export function mountCategoryEditor(host,{documents=()=>[],refresh=async()=>docu
   function row(name){
     if(name===LOCKED_CATEGORY)return `<li class="dce-row" data-dce-row="${esc(name)}"><span class="dce-name">${esc(name)}</span><span class="dce-meta">자료 ${countOf(name)}개 · 고정(이름을 바꾸거나 지울 수 없어요)</span></li>`;
     if(editing===name){
-      return `<li class="dce-row dce-row-edit" data-dce-row="${esc(name)}"><form class="dce-rename-form" data-dce-rename-form="${esc(name)}"><label class="dce-label">‘${esc(name)}’의 새 이름<input type="text" class="dce-input" data-dce-rename-input maxlength="${CATEGORY_NAME_LIMIT}" value="${esc(renameDraft)}" autocomplete="off"></label><p class="dce-note">${esc(CATEGORY_EDITOR_TEXT.renameNote(countOf(name)))}</p><div class="dce-actions"><button type="submit" class="primary" ${busy?'disabled':''}>저장</button><button type="button" class="secondary" data-dce-cancel ${busy?'disabled':''}>취소</button></div></form></li>`;
+      return `<li class="dce-row dce-row-edit" data-dce-row="${esc(name)}"><form class="dce-rename-form" data-enter-save data-dce-rename-form="${esc(name)}"><label class="dce-label">‘${esc(name)}’의 새 이름<input type="text" class="dce-input" data-dce-rename-input maxlength="${CATEGORY_NAME_LIMIT}" value="${esc(renameDraft)}" autocomplete="off"></label><p class="dce-note">${esc(CATEGORY_EDITOR_TEXT.renameNote(countOf(name)))}</p><div class="dce-actions"><button type="submit" class="primary" ${busy?'disabled':''}>저장</button><button type="button" class="secondary" data-dce-cancel ${busy?'disabled':''}>취소</button></div></form></li>`;
     }
     return `<li class="dce-row" data-dce-row="${esc(name)}"><span class="dce-name">${esc(name)}</span><span class="dce-meta">자료 ${countOf(name)}개</span><span class="dce-actions"><button type="button" class="secondary" data-dce-rename="${esc(name)}" aria-label="${esc(name)} 이름 바꾸기" ${busy?'disabled':''}>이름 바꾸기</button><button type="button" class="danger" data-dce-delete="${esc(name)}" aria-label="${esc(name)} 지우기" ${busy?'disabled':''}>지우기</button></span></li>`;
   }
@@ -33,7 +34,7 @@ export function mountCategoryEditor(host,{documents=()=>[],refresh=async()=>docu
       return;
     }
     const list=documentCategories();
-    host.innerHTML=`<section class="dce" aria-labelledby="dceTitle"><h3 id="dceTitle">분류 목록 <span class="dce-count">${list.length}개</span></h3><p class="dce-note">${esc(CATEGORY_EDITOR_TEXT.help)}</p><ul class="dce-list">${list.map(row).join('')}</ul><form class="dce-add" data-dce-add><label class="dce-label" for="dceNewName">새 분류 이름</label><div class="dce-add-line"><input id="dceNewName" type="text" class="dce-input" maxlength="${CATEGORY_NAME_LIMIT}" placeholder="예: 홍보" value="${esc(addDraft)}" autocomplete="off" ${busy?'disabled':''}><button type="submit" class="primary" ${busy?'disabled':''}>추가</button></div></form><p class="dce-status${status.error?' error':''}" data-dce-status role="${status.error?'alert':'status'}">${esc(status.text)}</p></section>`;
+    host.innerHTML=`<section class="dce" aria-labelledby="dceTitle"><h3 id="dceTitle">분류 목록 <span class="dce-count">${list.length}개</span></h3><p class="dce-note">${esc(CATEGORY_EDITOR_TEXT.help)}</p><ul class="dce-list">${list.map(row).join('')}</ul><form class="dce-add" data-dce-add data-enter-save><label class="dce-label" for="dceNewName">새 분류 이름</label><div class="dce-add-line"><input id="dceNewName" type="text" class="dce-input" maxlength="${CATEGORY_NAME_LIMIT}" placeholder="예: 홍보" value="${esc(addDraft)}" autocomplete="off" ${busy?'disabled':''}><button type="submit" class="primary" ${busy?'disabled':''}>추가</button></div></form><p class="dce-status${status.error?' error':''}" data-dce-status role="${status.error?'alert':'status'}">${esc(status.text)}</p></section>`;
   }
   function focus(selector){queueMicrotask(()=>host.querySelector(selector)?.focus({preventScroll:true}));}
   // 결과를 모를 때: 다시 보내지 않고 목록과 자료를 다시 읽어 보여 준다.

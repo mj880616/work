@@ -110,6 +110,9 @@ jobs:
       - name: Check meeting Korea time conversions
         run: node --test tests/meeting-time.test.mjs tests/seoul-time.test.mjs tests/time-input.test.mjs tests/meeting-compact.test.mjs
 
+      - name: Check shared Enter-to-save rule (UI-엔터저장)
+        run: node --test tests/enter-save.test.mjs
+
       - name: Check meeting draft parser
         run: node --test tests/meeting-draft-parser.test.mjs
 

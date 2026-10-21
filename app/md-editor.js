@@ -9,6 +9,7 @@
 // 이 화면은 이 모듈 하나가 그린다. 여는 쪽은 글과 콜백만 넘기고, 저장은 여는 쪽의 기존 흐름이 맡는다(이 모듈은 저장하지 않는다).
 // 도구 막대는 선택한 글을 감싸거나 줄 앞에 기호를 넣는 마크다운 편집이며, 바꾸기는 execCommand('insertText')로 해
 // 브라우저 기본 되돌리기(Ctrl+Z·[되돌리기])에 그대로 남는다. 미리보기는 공용 markdown-view.js(정화·외부 요청 0)를 쓴다.
+import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {renderMarkdownInto, preloadMarkdown} from './markdown-view.js';
 import {applyAction, applyPlainAction, PLAIN_ACTIONS, MERMAID_TEMPLATES, CALLOUT_KINDS} from './md-editor-ops.mjs';
 import {toTelegram} from './md-telegram.mjs';
@@ -173,7 +174,8 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   let kind = kinds?.value ?? null;
   const saveAria = () => (typeof save?.aria === 'function' ? save.aria(kind) : save?.aria) || '저장';
   const saveButton = save ? button('', {mdSaveIcon: ''}, saveAria()) : null;
-  if (saveButton) { saveButton.className = 'md-editor-icon'; saveButton.append(saveIconSvg()); }
+  // UI-엔터저장: the big editor keeps Enter as a new line; on PC Ctrl+Enter (Cmd+Enter) runs its existing save (enter-save.js).
+  if (saveButton) { saveButton.className = 'md-editor-icon'; saveButton.append(saveIconSvg()); saveButton.dataset.enterSaveSubmit = 'nohint'; shell.dataset.enterSave = ''; }
   const kindGroup = kinds ? document.createElement('div') : null;
   const kindMenu = kinds?.menu ? button('▾', {mdKindMenu: kinds.menu.value}) : null;
   if (kindMenu) { kindMenu.setAttribute('aria-haspopup', 'dialog'); kindMenu.setAttribute('aria-expanded', 'false'); }

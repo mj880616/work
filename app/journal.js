@@ -15,6 +15,7 @@
 // JOURNAL-주간보고허브 2단계: [하루 | 주간 정리] above the week. [주간 정리] hides the day row and the day card and shows the same
 // week's materials (the same reads, read once) in the weekly report's order (journal-weekly.js builds and draws it into
 // [data-journal-weekly], a box this module owns). The chosen side is kept in memory only (not in browser storage).
+import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, changeWorkDay, validateWorkLine, WORK_LINE_MAX,
   workLines, addLine, editLine, removeLine, restoreLine, readWeekEvents, readDoneTasksWindow, readBasketUpdates, readMovedNotes, movedNotesOn, readOrgUpdates, readProjectUpdates,
   readWeekMeetings, readWeekDocuments, readWeekSharePages, dayMaterials, readScheduleEvents, DONE_TASK_DAYS, GROUP_SOURCES, rangeNote, isFolded, QUIET_WHEN_EMPTY, WEEK_READ_CAP} from './journal-data.js';
@@ -50,7 +51,7 @@ root.innerHTML = `<div class="journal-head"><div class="journal-mode-switch" rol
 <div class="journal-days" data-journal-days role="group" aria-label="이번 주 날짜"></div>
 <section class="journal-day" data-journal-day aria-labelledby="journalDayTitle">
 <h3 id="journalDayTitle" tabindex="-1" data-journal-day-title></h3>
-<form class="journal-line" data-journal-line novalidate><label class="journal-heading" for="journalLineInput">오늘 한 줄</label><div class="journal-line-row"><textarea id="journalLineInput" rows="2" data-journal-input placeholder="오늘 한 일을 한 줄로 남겨 보세요" aria-describedby="journalLineCount journalLineStatus"></textarea><button type="submit" class="primary" data-journal-save>저장</button></div><div class="journal-line-meta"><small id="journalLineCount" data-journal-count></small><p id="journalLineStatus" class="journal-line-status" data-journal-line-status role="status" aria-live="polite"></p></div></form>
+<form class="journal-line" data-journal-line data-enter-save novalidate><label class="journal-heading" for="journalLineInput">오늘 한 줄</label><div class="journal-line-row"><textarea id="journalLineInput" rows="2" data-journal-input data-enter-field="single" placeholder="오늘 한 일을 한 줄로 남겨 보세요" aria-describedby="journalLineCount journalLineStatus"></textarea><button type="submit" class="primary" data-journal-save>저장</button></div><div class="journal-line-meta"><small id="journalLineCount" data-journal-count></small><p id="journalLineStatus" class="journal-line-status" data-journal-line-status role="status" aria-live="polite"></p></div></form>
 <ol class="journal-lines" data-journal-lines aria-label="이 날 한 줄 목록"></ol>
 <section class="journal-radar" data-journal-radar hidden></section>
 <div class="journal-materials" data-journal-materials></div>
@@ -102,8 +103,8 @@ function renderList() {
     const item = document.createElement('li');
     item.className = 'journal-line-item'; item.dataset.journalItem = String(index);
     if (edit?.index === index) {
-      item.dataset.editing = '';
-      item.innerHTML = `<textarea rows="2" data-journal-edit-input aria-label="${index + 1}번째 줄 고치기" aria-describedby="journalEditCount journalEditStatus"></textarea><div class="journal-edit-meta"><small id="journalEditCount" data-journal-edit-count></small><p id="journalEditStatus" class="journal-line-status" data-journal-edit-status role="status" aria-live="polite"></p></div><div class="journal-edit-actions"><button type="button" class="mini primary" data-journal-edit-save>저장</button><button type="button" class="mini" data-journal-edit-cancel>취소</button><button type="button" class="mini journal-delete" data-journal-edit-delete>삭제</button></div>`;
+      item.dataset.editing = ''; item.dataset.enterSave = '';
+      item.innerHTML = `<textarea rows="2" data-journal-edit-input data-enter-field="single" aria-label="${index + 1}번째 줄 고치기" aria-describedby="journalEditCount journalEditStatus"></textarea><div class="journal-edit-meta"><small id="journalEditCount" data-journal-edit-count></small><p id="journalEditStatus" class="journal-line-status" data-journal-edit-status role="status" aria-live="polite"></p></div><div class="journal-edit-actions"><button type="button" class="mini primary" data-journal-edit-save data-enter-save-submit>저장</button><button type="button" class="mini" data-journal-edit-cancel>취소</button><button type="button" class="mini journal-delete" data-journal-edit-delete>삭제</button></div>`;
       const box = item.querySelector('[data-journal-edit-input]');
       box.value = edit.value; box.disabled = saving;
       item.querySelectorAll('button').forEach(button => { button.disabled = saving; });
@@ -447,10 +448,10 @@ const lists = $('[data-journal-lines]');
 lists.addEventListener('keydown', event => {
   if (!event.target.matches('[data-journal-edit-input]') || event.isComposing) return;
   if (event.key === 'Escape') { event.preventDefault(); cancelEdit(); return; }
-  if (event.key !== 'Enter') return;
+  // Enter saves through the shared rule (enter-save.js, data-enter-field="single"); Shift+Enter is refused here.
+  if (event.key !== 'Enter' || !event.shiftKey || event.keyCode === 229) return;
   event.preventDefault();
-  if (event.shiftKey) { const note = root.querySelector('[data-journal-edit-status]'); if (note) note.textContent = '한 줄로 써 주세요. 줄바꿈은 넣을 수 없어요.'; if (editing) editing.status = note?.textContent; }
-  else saveEdit();
+  const note = root.querySelector('[data-journal-edit-status]'); if (note) note.textContent = '한 줄로 써 주세요. 줄바꿈은 넣을 수 없어요.'; if (editing) editing.status = note?.textContent;
 });
 lists.addEventListener('input', event => {
   if (!event.target.matches('[data-journal-edit-input]') || !editing) return;
@@ -461,7 +462,7 @@ lists.addEventListener('input', event => {
 $('[data-journal-line]').addEventListener('submit', event => { event.preventDefault(); save(); });
 // Enter saves (a line has no line break); Shift+Enter is refused the same way as a pasted line break.
 input.addEventListener('keydown', event => {
-  if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); if (!event.shiftKey) save(); else lineStatus.textContent = '한 줄로 써 주세요. 줄바꿈은 넣을 수 없어요.'; }
+  if (event.key === 'Enter' && event.shiftKey && !event.isComposing && event.keyCode !== 229) { event.preventDefault(); lineStatus.textContent = '한 줄로 써 주세요. 줄바꿈은 넣을 수 없어요.'; }
 });
 input.addEventListener('input', () => {
   if (input.value === '') drafts.delete(selected); else drafts.set(selected, input.value);
