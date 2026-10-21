@@ -147,15 +147,15 @@ div.gt-main{cursor:default}
 @media(min-width:1024px){
   html:has(#appView #tasksView:not(.hidden) #gtTaskSection.gt-pc) main{padding-bottom:12px}
   html:has(#appView #tasksView:not(.hidden) #gtTaskSection.gt-pc) #appView>.app-nav{margin-bottom:0}
-  #appView #tasksView:not(.hidden):has(#gtTaskSection.gt-pc){display:flex;flex-direction:column;height:auto;min-height:420px}
+  #appView #tasksView:not(.hidden):has(#gtTaskSection.gt-pc){display:flex;flex-direction:column;height:auto;min-height:calc(100vh - 24px);min-height:calc(100dvh - 24px)}
   #appView #tasksView:has(#gtTaskSection.gt-pc)>.home-quick{flex:none;margin:0 0 var(--kptu-space-2);padding:6px}
-  #appView #tasksView #gtTaskSection.gt-pc{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:auto auto auto;column-gap:var(--kptu-space-3);margin:0;padding:0;border:0;background:transparent}
+  #appView #tasksView #gtTaskSection.gt-pc{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:auto auto auto;align-content:start;column-gap:var(--kptu-space-3);margin:0;padding:0;border:0;background:transparent}
   #appView #tasksView #gtTaskSection.gt-pc>.gt-head{grid-column:1 / -1;grid-row:1;min-height:32px}
   #appView #tasksView #gtTaskSection.gt-pc>#gtTaskBody{grid-column:1;grid-row:2;min-height:0;margin:0}
   #appView #tasksView #gtTaskSection.gt-pc>#gtTaskBody.gt-status{align-self:start}
   #appView #tasksView #gtTaskSection.gt-pc>#gtTaskBody.gt-board{display:contents}
   #appView #tasksView #gtTaskSection.gt-pc>#gtUndoDeletes{grid-column:1;grid-row:3}
-  #appView #tasksView #gtTaskSection.gt-pc>#gtDetailPane{grid-column:2;grid-row:2 / -1;display:block;align-self:start;position:sticky;top:12px;max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);min-height:0;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
+  #appView #tasksView #gtTaskSection.gt-pc>#gtDetailPane{grid-column:2;grid-row:2 / -1;display:block;align-self:start;position:sticky;top:12px;max-height:calc(100vh - 130px);max-height:calc(100dvh - 130px);min-height:0;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
   #appView #tasksView #gtDetailPane .gt-pane-empty{margin:0;font-size:var(--ds-text-meta);line-height:1.5;color:var(--kptu-muted)}
   #appView #tasksView #gtDetailPane.has-task .gt-pane-empty{display:none}
   /* TASK-화면다듬기: [기한] 칸은 좁게, 오른쪽에 낮은 빠른 버튼 [내일][모레][다음주][기한 없음](PC 상세 칸에서만, 이미 있는 할 일을 고칠 때). */
