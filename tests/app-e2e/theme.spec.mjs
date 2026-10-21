@@ -220,7 +220,7 @@ for(const width of [390,1440])test('D-3c shell owns account and orders its actio
  await expect(nav.locator(':scope > [data-theme-open], :scope > [data-kptu-logout]')).toHaveCount(0);
  await account.click();
  const panel=page.locator(width<=760?'#mobileMenu':'#sidebarAccountPanel');await expect(panel).toBeVisible();
- expect(await panel.locator(width<=760?'#mobileAccountGroup button':'button').allTextContents()).toEqual(['화면 색','로그아웃']);
+ expect(await panel.locator(width<=760?'#mobileAccountGroup button':'button').allTextContents()).toEqual(['내 프로필','화면 색','로그아웃']);
  await page.keyboard.press('Escape');await expect(panel).toBeHidden();await expect(account).toBeFocused();
  await account.click();await page.goBack();await expect(panel).toBeHidden();
 });
