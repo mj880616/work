@@ -99,18 +99,18 @@ test('collectorsFromStatus: only the ok shape; missing field (old function) is n
     {telegram:{at:iso(now - H), reportedAt:iso(now - 0.5 * H), count:null}, transcript:null});
   assert.equal(mod.collectorsFromStatus({ok:true, collectors:{transcript:beat(1, 0.5, -3)}}).transcript.count, null);
 });
-test('judgeCollector: telegram 6h, call 72h, signal older than 3h is silent, nothing yet is never', () => {
+test('judgeCollector: telegram 26h, call 72h, signal older than 3h is silent, nothing yet is never', () => {
   const j = (key, raw) => mod.judgeCollector(key, raw && {at:raw.last_at, reportedAt:raw.reported_at, count:raw.count}, now).state;
-  assert.equal(j('telegram', beat(5)), 'ok');
-  assert.equal(j('telegram', beat(7)), 'stale');
+  assert.equal(j('telegram', beat(25)), 'ok', 'daily 07:30 collection is not a warning');
+  assert.equal(j('telegram', beat(27)), 'stale');
   assert.equal(j('call', beat(60)), 'ok', 'a weekend without calls is not a warning');
   assert.equal(j('call', beat(73)), 'stale');
   assert.equal(j('telegram', beat(1, 4)), 'silent', 'the script itself stopped');
   assert.equal(j('call', null), 'never');
-  assert.deepEqual(mod.STALE_HOURS, {copy:24, radar:48, telegram:6, call:72});
+  assert.deepEqual(mod.STALE_HOURS, {copy:24, radar:48, telegram:26, call:72});
 });
 test('render: collector lines show time, 24h count for calls, and warnings; old function keeps 확인 불가', () => {
-  const collectors = mod.collectorsFromStatus({ok:true, collectors:{telegram:beat(8), transcript:beat(2, 0.5, 5)}});
+  const collectors = mod.collectorsFromStatus({ok:true, collectors:{telegram:beat(30), transcript:beat(2, 0.5, 5)}});
   const html = mod.renderRows({copy:null, radar:null, collectors}, now);
   assert.match(html, /data-collect="telegram" data-collect-state="stale"/);
   assert.match(html, /collect-warn">주의 · 오래됨/);

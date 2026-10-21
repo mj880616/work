@@ -82,6 +82,6 @@ Web2 링크는 `https://desk.bokdoong.com/work/app/?view=basket&note=<ID>`이며
 - 본문: 정확히 `{source:'telegram'|'transcript', last_at:ISO 시각, count?:0~100000 정수}`, 1 KiB 이하. 다른 키(파일 이름·ID·내용 등)가 있으면 400 `INVALID_BODY`. 시각은 2020년 이후·서버 시각보다 10분 넘게 미래면 거절.
 - 하는 일은 하나: 기존 "Web2 읽기용 사본" 폴더(공유 검사 통과)의 `appProperties`에 그 출처 키 3개(`collector_<source>_at`·`_count`·`_reported_at`)만 PATCH한다(Drive는 appProperties를 키별로 합친다 → 사본 상태 키는 건드리지 않음). 폴더가 없으면 만들지 않고 409 `COPY_FOLDER_MISSING`. DB 쓰기·문서 재생성·Web2 기록 읽기 없음(DB는 기존과 같은 Drive 연결 설정 읽기만). **새 표·migration 없음.**
 - 상태 읽기 `GET ?action=status` 응답에 `collectors:{telegram, transcript}`(각 `{last_at, count, reported_at}` 또는 `null`)를 더했다. 저장값도 같은 형식 검사를 통과한 것만 낸다.
-- 화면 기준: 텔레그램 6시간·통화 전사 72시간(통화 없는 주말) 넘으면 주의, 신호(`reported_at`)가 3시간 넘게 없으면 "점검 신호 끊김"(`app/collection-status.js`).
+- 화면 기준: 텔레그램 26시간(업무방 매일 07:30 1회 수집)·통화 전사 72시간(통화 없는 날·주말) 넘으면 주의, 신호(`reported_at`)가 3시간 넘게 없으면 "점검 신호 끊김"(`app/collection-status.js`).
 - 앱 스크립트 코드·설정 안내: `docs/ops/collector-heartbeat.gs`, `docs/ops/collector-heartbeat.md`.
 - 남은 위험: 사본 재생성(POST)의 `recordStatus`는 읽어 둔 폴더 속성 전체를 다시 보내므로, 재생성 도중(수 초) 신호가 들어오면 그 신호 하나가 옛 값으로 덮일 수 있다. 다음 시간 신호로 바로 회복된다. 비밀값이 새면 가짜 시각을 쓸 수 있을 뿐(읽기·내용·다른 키 쓰기 불가) — 비밀값 교체로 막는다.

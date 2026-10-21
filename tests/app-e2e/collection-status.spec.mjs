@@ -73,13 +73,13 @@ for(const copy of ['missing','abort'])test(`function not deployed (${copy}) and 
 const withCollectors=collectors=>({...status({last_success_at:'2026-10-05T21:17:00.000Z'}),collectors});
 for(const width of [1280,390])test(`telegram and call lines show the heartbeat time, call count and 주의 when old (${width})`,async({page})=>{
   const {calls,card}=await fixture(page,{width,copy:withCollectors({
-    telegram:{last_at:'2026-10-05T17:30:00.000Z',count:null,reported_at:'2026-10-06T00:40:00.000Z'},
+    telegram:{last_at:'2026-10-04T22:30:00.000Z',count:null,reported_at:'2026-10-06T00:40:00.000Z'},
     transcript:{last_at:'2026-10-05T23:05:00.000Z',count:3,reported_at:'2026-10-06T00:40:00.000Z'},
   })});
   await expect(card).toBeVisible();
   await expect(card).not.toContainText('확인 불가');
   await expect(card.locator('[data-collect="telegram"]')).toHaveAttribute('data-collect-state','stale');
-  await expect(card.locator('[data-collect="telegram"]')).toContainText('02:30');
+  await expect(card.locator('[data-collect="telegram"]')).toContainText('07:30');
   await expect(card.locator('[data-collect="telegram"] .collect-warn')).toHaveText('주의 · 오래됨');
   await expect(card.locator('[data-collect="call"]')).toHaveAttribute('data-collect-state','ok');
   await expect(card.locator('[data-collect="call"]')).toContainText('08:05');
