@@ -60,6 +60,8 @@ showPlainText(el, text); // 원문 그대로
 
 모양은 `app/markdown-view.css`(`.md-body`)다. 그 화면의 css 목록(`view-loader.js`)에 함께 넣는다. 순수 변환은 `app/markdown-render.mjs`(DOM 없음, Node 검사 가능)다.
 
+날짜 줄(NOTE-마크다운선택): "2026. 10. 21. 교섭"·"10. 21.(화) 통화"처럼 날짜로 시작하는 줄은 번호 목록으로 읽지 않고 글자 그대로 보인다(`guardDateLines`, 코드 상자 안은 그대로). 노트는 [마크다운] 체크가 꺼져 있으면 `showPlainText`만 쓴다(`app/note-markdown.mjs`).
+
 ## 7. ChatGPT 화면 보완(MD-표시보완)
 
 ChatGPT 화면의 카드·그림 상자·도식은 복사·붙여넣기로 모양이 넘어오지 않는다. 그래서 두 경로를 둔다. 순수 판별은 `app/chatgpt-html.mjs`(Node 검사 가능), 칸막이는 `app/html-frame.js`다.
