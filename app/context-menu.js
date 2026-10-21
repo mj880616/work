@@ -3,7 +3,7 @@
 // card's own handlers (so the items, order, focus and close behavior are exactly the ⋯ menu's), and keeps the menu where
 // the pointer was instead of under the ⋯ (the trigger reports a pointer-sized box while its menu is open; the menu code
 // already keeps its panel inside the window). The browser's own menu stays when the target is inside an input / textarea /
-// select / contenteditable, when text is selected, with Shift held, when the card has no visible ⋯, on a phone-width window,
+// select / contenteditable, on a link (<a href>), when text is selected, with Shift held, when the card has no visible ⋯, on a phone-width window,
 // and for a touch long-press (no long-press menu this time).
 (() => {
 'use strict';
@@ -126,6 +126,8 @@ document.addEventListener('contextmenu', e => {
   if (!WIDE.matches || e.pointerType === 'touch') return;
   const target = e.target instanceof Element ? e.target : null;
   if (!target || target.closest(EDITABLE)) return;
+  // A link (<a href>) keeps the browser's own menu (open in a new tab, copy link address).
+  if (target.closest('a[href]')) return;
   const selection = window.getSelection?.();
   if (selection && !selection.isCollapsed && selection.toString().trim() !== '') return;
   const trigger = findTrigger(target);

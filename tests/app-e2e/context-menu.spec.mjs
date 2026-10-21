@@ -176,6 +176,15 @@ test('1280 update row: browser menu stays with a text selection, outside any car
   await page.mouse.click(1270, 890, { button: 'right' }); await expect(menu).toBeHidden();
   expect(await kept(page)).toEqual([true, true]);
 });
+test('1280 update row: right-click on a link inside the card keeps the browser menu (no ⋯ menu); beside the link the ⋯ menu still opens', async ({ page }) => {
+  await basketFixture(page, 1280); await watch(page);
+  const row = page.locator(`[data-basket-row="${A}"]`), menu = page.locator('#basketRowMenu');
+  await row.evaluate(el => { const a = document.createElement('a'); a.href = 'https://example.org/x'; a.id = 'ctxLink'; a.textContent = '합성 링크'; a.style.cssText = 'display:inline-block;padding:4px 8px'; el.appendChild(a); });
+  const link = page.locator('#ctxLink');
+  await link.click({ button: 'right' }); await expect(menu).toBeHidden();
+  expect(await kept(page)).toEqual([true]);
+  const at = await rightClickAt(page, row, 0.3, 0.5); await expectAtPointer(page, menu, at);
+});
 test('1280 update row: the menu stays inside a short window (bottom edge)', async ({ page }) => {
   await basketFixture(page, 1280); await watch(page);
   await page.setViewportSize({ width: 1280, height: 420 });
