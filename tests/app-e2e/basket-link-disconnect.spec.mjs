@@ -63,13 +63,13 @@ test('organization detail: cancelling the confirmation changes nothing and retur
  expect(await deletes(page)).toEqual([]);expect(await page.evaluate(()=>window.__linkEvents)).toBe(0);expect(errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`project detail: 🧺 ⋯ holds only [메모 열기]·[연결 해제]; the notice ends after 5 seconds ${width}`,async({page},info)=>{
+for(const width of [390,1280])test(`project detail: 🧺 ⋯ holds [업데이트 열기]·[연결 해제]·[요약 수정]; the notice ends after 5 seconds ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:900});const {errors,host,ids}=await ready(page,'project'),row=host.locator(`[data-basket-link="${ids.link}"]`);
  await expect(row.locator('a[data-ps3-basket-note]')).toHaveAttribute('href',/view=basket&note=/);
  const more=row.getByRole('button',{name:'바구니 기록 메뉴'}),box=await more.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);
  await expect(host.locator('[data-link-summary-edit],[data-link-note-delete]')).toHaveCount(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- await tap(page,more,width);await expect(page.locator('#ps3RecordMenu')).toBeVisible();expect(await menuItems(page,'ps3RecordMenu')).toEqual(['업데이트 열기','연결 해제']);
+ await tap(page,more,width);await expect(page.locator('#ps3RecordMenu')).toBeVisible();expect(await menuItems(page,'ps3RecordMenu')).toEqual(['업데이트 열기','연결 해제','요약 수정']);
  if(width===390)await page.screenshot({path:info.outputPath('project-menu-390.png')});
  const messages=accept(page);await tap(page,page.locator('#ps3RecordMenu').getByRole('button',{name:'연결 해제'}),width);
  await expect(row).toHaveCount(0);expect(messages).toEqual(['합성 프로젝트 연결을 해제할까요? 업데이트는 남아요']);await expect(host.locator('[data-basket-link]')).toHaveCount(1);

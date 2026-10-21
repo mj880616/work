@@ -11,6 +11,9 @@
 // [다시 시도]; the lines still work. A typed, unsaved line stays in memory per day until the owner changes.
 // JOURNAL-주간보고허브 1단계: four more groups (프로젝트 소식·할 일 예정·자료실 새 자료·공유 페이지). A group with nothing on
 // the day is not drawn as a box; one "기록 없는 묶음: …" line at the end names them (docs/design/weekly-report-hub.md 2절).
+// JOURNAL-주간보고허브 2단계: [하루 | 주간 정리] above the week. [주간 정리] hides the day row and the day card and shows the same
+// week's materials (the same reads, read once) in the weekly report's order (journal-weekly.js builds and draws it into
+// [data-journal-weekly], a box this module owns). The chosen side is kept in memory only (not in browser storage).
 import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, changeWorkDay, validateWorkLine, WORK_LINE_MAX,
   workLines, addLine, editLine, removeLine, restoreLine, readWeekEvents, readDoneTasksWindow, readBasketUpdates, readMovedNotes, movedNotesOn, readOrgUpdates, readProjectUpdates,
   readWeekMeetings, readWeekDocuments, readWeekSharePages, dayMaterials, weeklyDraft, DONE_TASK_DAYS, GROUP_SOURCES, rangeNote, isFolded, QUIET_WHEN_EMPTY, WEEK_READ_CAP} from './journal-data.js';
@@ -21,9 +24,12 @@ import {offerUndoNotice, closeUndoNotice} from './basket-record-delete.js';
 import {requestTagsHtml, normalizeRequests} from './update-requests.js';
 import {recordMark} from './basket-link-records.js';
 import {requestNoteDocOpen} from './basket-note-tasks.js';
+import {weeklySummary, renderWeekly} from './journal-weekly.js';
 
 // ORG-묶음순서: the shared organization order (window.KPTUOrganizationOrder) orders the 조직 소식 sections.
 await import('./organization-order.js').catch(() => {});
+// [주간 정리] places project records in the project tree and its order (PRJ-3단): the shared project catalog.
+await import('./project-catalog.js').catch(() => {});
 
 (() => {
 if (window.KPTUJournal) return;
@@ -36,7 +42,7 @@ const longDay = day => formatSeoulTime(day, {month:'long', day:'numeric', weekda
 const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일'];
 const length = text => [...String(text ?? '')].length;
 
-root.innerHTML = `<div class="journal-head"><div class="journal-week-nav"><button type="button" class="mini" data-journal-prev aria-label="이전 주">‹</button><b data-journal-title aria-live="polite"></b><button type="button" class="mini" data-journal-next aria-label="다음 주">›</button><button type="button" class="mini" data-journal-today>이번 주</button></div><button type="button" class="secondary" data-journal-copy>주간보고 초안 복사</button></div>
+root.innerHTML = `<div class="journal-head"><div class="journal-mode-switch" role="group" aria-label="업무일지 보기"><button type="button" data-journal-mode="day" aria-pressed="true">하루</button><button type="button" data-journal-mode="week" aria-pressed="false">주간 정리</button></div><div class="journal-week-nav"><button type="button" class="mini" data-journal-prev aria-label="이전 주">‹</button><b data-journal-title aria-live="polite"></b><button type="button" class="mini" data-journal-next aria-label="다음 주">›</button><button type="button" class="mini" data-journal-today>이번 주</button></div><button type="button" class="secondary" data-journal-copy>주간보고 초안 복사</button></div>
 <p class="journal-status" data-journal-status role="status" aria-live="polite"></p>
 <div class="journal-days" data-journal-days role="group" aria-label="이번 주 날짜"></div>
 <section class="journal-day" data-journal-day aria-labelledby="journalDayTitle">
@@ -44,7 +50,8 @@ root.innerHTML = `<div class="journal-head"><div class="journal-week-nav"><butto
 <form class="journal-line" data-journal-line novalidate><label class="journal-heading" for="journalLineInput">오늘 한 줄</label><div class="journal-line-row"><textarea id="journalLineInput" rows="2" data-journal-input placeholder="오늘 한 일을 한 줄로 남겨 보세요" aria-describedby="journalLineCount journalLineStatus"></textarea><button type="submit" class="primary" data-journal-save>저장</button></div><div class="journal-line-meta"><small id="journalLineCount" data-journal-count></small><p id="journalLineStatus" class="journal-line-status" data-journal-line-status role="status" aria-live="polite"></p></div></form>
 <ol class="journal-lines" data-journal-lines aria-label="이 날 한 줄 목록"></ol>
 <div class="journal-materials" data-journal-materials></div>
-</section>`;
+</section>
+<section class="journal-weekly" data-journal-weekly-root aria-labelledby="journalWeeklyTitle" hidden><h3 id="journalWeeklyTitle" tabindex="-1" data-journal-weekly-title></h3><p class="journal-muted journal-weekly-intro">주간보고 양식 순서로 이 주 기록을 모았어요. 화면에서 보기만 하고 저장하지 않아요.</p><div class="journal-weekly-body" data-journal-weekly></div></section>`;
 const $ = selector => root.querySelector(selector);
 const days = $('[data-journal-days]'), input = $('[data-journal-input]'), lineStatus = $('[data-journal-line-status]'), status = $('[data-journal-status]');
 
@@ -56,6 +63,8 @@ let doneDays = DONE_TASK_DAYS; // days of finished tasks the Edge really covered
 let drafts = new Map(), saving = false;
 // The one line being edited in place: {day, index, before, value}.
 let editing = null;
+// 'day' (the day card) or 'week' ([주간 정리]); memory only.
+let mode = 'day';
 const current = (run, scope) => run === epoch && scope === ownerScope(rt);
 
 function renderWeek() {
@@ -187,7 +196,27 @@ function renderMaterials() {
   }
   host.replaceChildren(...boxes);
 }
-function render() { renderWeek(); renderLine({keepStatus:true}); renderMaterials(); }
+// [주간 정리]: the week in report order. Drawn only while that side is shown; every read that lands redraws it.
+function renderWeekly_() {
+  if (mode !== 'week') return;
+  const list = weekDays(start);
+  $('[data-journal-weekly-title]').textContent = `주간 정리 · ${longDay(list[0])} ~ ${longDay(list[6])}`;
+  renderWeekly($('[data-journal-weekly]'), weeklySummary({start, lines, linesState, materials, doneDays}), esc);
+}
+function renderMode() {
+  root.dataset.journalMode = mode;
+  root.querySelectorAll('[data-journal-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.journalMode === mode)));
+  days.hidden = mode === 'week';
+  $('[data-journal-day]').hidden = mode === 'week';
+  $('[data-journal-weekly-root]').hidden = mode !== 'week';
+}
+function setMode(next) {
+  if (next === mode || !['day', 'week'].includes(next)) return;
+  mode = next; editing = null;
+  renderMode();
+  if (mode === 'week') renderWeekly_(); else { renderWeek(); renderLine({keepStatus:true}); renderMaterials(); }
+}
+function render() { renderMode(); renderWeek(); renderLine({keepStatus:true}); renderMaterials(); renderWeekly_(); }
 
 const readers = {
   events: () => readWeekEvents(start, rt),
@@ -200,9 +229,18 @@ const readers = {
   meetings: () => readWeekMeetings(start, rt),
   documents: () => { void loadDocumentCategories({rt}).catch(() => {}); return readWeekDocuments(start, rt); },
   sharePages: () => readWeekSharePages(start, rt),
+  // The project tree for [주간 정리] (read once per visit, like the basket). Without it records go under their project names.
+  catalog: async () => {
+    const c = rt.context.read(), catalog = window.KPTUProjectCatalog;
+    if (!catalog || !c?.workspace?.id || !c?.user?.id) throw new Error('catalog');
+    // force: the tree as it is now (a project reordered elsewhere since the last read shows in this visit).
+    const snap = await catalog.load({workspaceId:c.workspace.id, userId:c.user.id, force:true});
+    if (!snap?.loaded) throw new Error('catalog');
+    return snap.tree;
+  },
 };
 async function loadGroup(key, run = epoch, scope = owner) {
-  materials[key] = {status:'loading'}; renderMaterials();
+  materials[key] = {status:'loading'}; renderMaterials(); renderWeekly_();
   try {
     const items = await readers[key]();
     if (!current(run, scope)) return;
@@ -211,7 +249,7 @@ async function loadGroup(key, run = epoch, scope = owner) {
     if (!current(run, scope)) return;
     materials[key] = {status:'failed'};
   }
-  renderMaterials();
+  renderMaterials(); renderWeekly_();
 }
 async function loadLines(run, scope) {
   linesState = 'loading'; renderLine();
@@ -223,7 +261,7 @@ async function loadLines(run, scope) {
     if (!current(run, scope)) return;
     lines = new Map(); linesState = 'failed';
   }
-  renderWeek(); renderLine();
+  renderWeek(); renderLine(); renderWeekly_();
 }
 // A new week reads its lines and that week's events, organization/project records, meetings, new documents and changed
 // share pages; Google tasks (done and pending) and basket updates are read once per visit (not per week).
@@ -263,6 +301,7 @@ async function apply(day, change, {onStale} = {}) {
     if (scope !== ownerScope(rt)) return {stale:true};
     saving = false;
     if (run === epoch || weekDays(start).includes(day)) { if (result.row) lines.set(day, result.row); else lines.delete(day); }
+    renderWeekly_();
     renderWeek(); renderLine({keepStatus:true});
     return {ok:true};
   } catch (error) {
@@ -364,14 +403,22 @@ async function deleteLine(index) {
 async function copyDraft() {
   const text = weeklyDraft({start, lines, materials, doneDays});
   const ok = await copyText(text);
-  // movedNotes is not draft material (a failed read of it hides only its own lines).
-  const missing = Object.entries(materials).some(([key, state]) => key !== 'movedNotes' && state?.status !== 'ok');
+  // movedNotes and catalog (the project order of [주간 정리]) are not draft material.
+  const missing = Object.entries(materials).some(([key, state]) => !['movedNotes', 'catalog'].includes(key) && state?.status !== 'ok');
   status.textContent = ok ? `이번 주 한 줄과 재료 목록을 복사했어요.${missing ? ' 불러오지 못한 묶음은 빠졌어요.' : ''}` : '복사하지 못했어요. 다시 시도해 주세요.';
 }
 
 root.addEventListener('click', event => {
   const button = event.target.closest('button');
   if (!button || !root.contains(button) || button.disabled) return;
+  if (button.matches('[data-journal-mode]')) return setMode(button.dataset.journalMode);
+  if (button.matches('[data-journal-weekly-retry]')) {
+    for (const key of button.dataset.journalWeeklyRetry.split(' ')) {
+      if (key === 'lines') { if (linesState === 'failed') loadLines(epoch, owner); }
+      else if (readers[key] && materials[key]?.status === 'failed') loadGroup(key);
+    }
+    return;
+  }
   if (button.matches('[data-journal-date]')) return selectDay(button.dataset.journalDate);
   if (button.matches('[data-journal-prev]')) return moveWeek(-1);
   if (button.matches('[data-journal-next]')) return moveWeek(1);
@@ -417,7 +464,7 @@ input.addEventListener('input', () => {
 window.addEventListener('kptu:session-changed', () => {
   if (owner === ownerScope(rt)) return;
   owner = ownerScope(rt); epoch++;
-  drafts = new Map(); lines = new Map(); materials = {}; doneDays = DONE_TASK_DAYS; saving = false; editing = null;
+  drafts = new Map(); lines = new Map(); materials = {}; doneDays = DONE_TASK_DAYS; saving = false; editing = null; mode = 'day';
   start = weekStart(todayKey()); selected = todayKey();
   if (window.KPTURouter?.current === 'journal') enter();
 });
@@ -425,7 +472,7 @@ window.addEventListener('kptu:session-changed', () => {
 function enter() { loadWeek({shared:true}); }
 window.KPTURouter?.on?.('journal', enter);
 // A renamed category list (자료실 분류) shows on the next draw of 자료실 새 자료.
-window.addEventListener('kptu:document-categories-changed', () => { if (materials.documents?.status === 'ok') renderMaterials(); });
+window.addEventListener('kptu:document-categories-changed', () => { if (materials.documents?.status === 'ok') { renderMaterials(); renderWeekly_(); } });
 window.KPTUJournal = {refresh:() => loadWeek({shared:true})};
 if (window.KPTURouter?.current === 'journal') enter();
 })();

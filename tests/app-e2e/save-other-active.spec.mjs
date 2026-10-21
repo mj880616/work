@@ -64,6 +64,10 @@ async function openBasic(page,id='org-A'){await openOrganization(page,id);await 
 async function editMeeting(page,id='meeting-A'){await page.locator(`[data-mrd-meeting="${id}"]`).click();await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();await page.locator('#mrdEdit').click();}
 async function openReport(page,id='report-A'){await openOrganization(page,id==='report-A'?'org-A':'org-B');await page.locator(`[data-war-detail="${id}"]`).click();await expect(page.locator('#warDraftModal')).toBeVisible();}
 async function setAffChoices(page,ids){for(const id of ['tag-old','tag-new'])await page.locator(`[data-wd-aff][value="${id}"]`).setChecked(ids.includes(id));}
+// STAB-노트폴더시험: s.completed counts when the mocked server answered, not when the app handled the answer. A reopen
+// that must show the saved row waits for the app's own success notice (kptu:api-saved) for that table as well.
+const watchSaved=(page,table)=>page.evaluate(table=>{window.__soaSaved=new Promise(resolve=>{const on=e=>{if(e.detail?.path?.includes('/'+table)){removeEventListener('kptu:api-saved',on);resolve(true)}};addEventListener('kptu:api-saved',on)})},table);
+const savedHandled=async page=>{expect(await page.evaluate(()=>window.__soaSaved)).toBe(true);await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));};
 async function completed(page,s,n=1){await expect.poll(()=>s.completed).toBeGreaterThanOrEqual(n);await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));}
 test.afterEach(async({page})=>{const s=captures.get(page);if(s)expect(s.pageErrors).toEqual([]);});
 for(const width of [390,1280]){
@@ -74,7 +78,7 @@ for(const width of [390,1280]){
         const s=await app(page,'library');await editDocument(page);await page.locator('#libraryEditTitle').fill('submitted title');s.hold='app_documents';
         await page.locator('#libraryEditSave').click();await expect.poll(()=>s.writes.length).toBe(1);await page.locator('#libraryEditClose').click();
         if(reopenBefore){await editDocument(page);await expect(page.locator('#libraryEditTitle')).toHaveValue('doc-A');await expect(page.locator('#libraryEditSave')).toBeDisabled();}
-        s.release();await completed(page,s);if(!reopenBefore){await editDocument(page);await expect(page.locator('#libraryEditTitle')).toHaveValue('submitted title');await page.locator('#libraryEditTitle').fill('doc-A');}
+        if(!reopenBefore)await watchSaved(page,'app_documents');s.release();await completed(page,s);if(!reopenBefore){await savedHandled(page);await editDocument(page);await expect(page.locator('#libraryEditTitle')).toHaveValue('submitted title');await page.locator('#libraryEditTitle').fill('doc-A');}
         await expect(page.locator('#libraryEditModal')).toBeVisible();await expect(page.locator('#libraryEditTitle')).toHaveValue('doc-A');await expect(page.locator('#libraryEditSave')).toBeEnabled();
         s.hold='app_documents';await page.locator('#libraryEditSave').click();await expect.poll(()=>s.writes.length).toBe(2);await expect(page.locator('#libraryEditModal')).toBeVisible();s.release();
         await expect(page.locator('#libraryEditModal')).toBeHidden();expect(s.tables.app_documents[0].title).toBe('doc-A');expect(s.writes[1].body.title).toBe('doc-A');expect(s.tables.app_documents[0].source).toBe('  원 출처  ');expect(s.tables.app_documents[0].file_id).toBe('original-doc-A');

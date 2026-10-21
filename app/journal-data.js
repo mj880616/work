@@ -263,6 +263,8 @@ const orgCompare = (a, b) => {
   return typeof order?.compare === 'function' ? order.compare({name:a}, {name:b}) : a.localeCompare(b, 'ko');
 };
 const byName = (a, b) => a.localeCompare(b, 'ko');
+// The order of 조직 소식 sections (named organizations in the app's order, then '그 외', then '미분류'); [주간 정리] uses it too.
+export const compareOrgSections = (a, b) => tail(a.name) - tail(b.name) || orgCompare(a.name, b.name);
 const sectionsOf = (entries, compare = byName) => {
   const sections = new Map();
   for (const entry of entries.sort((a, b) => byTime(a.at, b.at) || 0)) {
@@ -281,10 +283,10 @@ function basketPlaces(basket, day) {
     const orgs = new Map(), projects = [];
     for (const link of confirmed) {
       if (link.organization_id && !orgs.has(link.organization_id)) orgs.set(link.organization_id, {id:link.organization_id, name:link.organization?.name || '조직', summary:firstLine(link.summary)});
-      else if (link.project_id && !link.organization_id && link.project?.name) projects.push({name:link.project.name, summary:firstLine(link.summary)});
+      else if (link.project_id && !link.organization_id && link.project?.name) projects.push({id:link.project_id, name:link.project.name, summary:firstLine(link.summary)});
     }
     for (const org of filedOrganizations(memo, docs)) if (!orgs.has(org.organization_id)) orgs.set(org.organization_id, {id:org.organization_id, name:org.name, summary:''});
-    for (const project of filedProjects(memo, docs)) if (!projects.some(p => p.name === project.name)) projects.push({name:project.name, summary:''});
+    for (const project of filedProjects(memo, docs)) if (!projects.some(p => p.name === project.name)) projects.push({id:project.project_id, name:project.name, summary:''});
     return {memo, orgs:[...orgs.values()], projects, line:memoLine(memo), requests:noteRequests(memo), journal:!!noteJournalAt(memo)};
   });
 }
@@ -313,15 +315,17 @@ export function orgNewsOn({basket, orgUpdates} = {}, day) {
 // 프로젝트 소식 of one day: [{name, items:[text]}] — one section per project (by name). A project progress record goes under
 // its project on its day (effective_on); a basket update sent to a project and to no organization goes under each such
 // project (an update sent to an organization stays in 조직 소식 only, so nothing shows twice).
-export function projectNewsOn({basket, projectUpdates} = {}, day) {
+// The same records one by one with their project id: [{id, name, at, text, requests}] ([주간 정리] places them in the project tree).
+export function projectRecordsOn({basket, projectUpdates} = {}, day) {
   const entries = [];
-  const add = (name, at, text, requests) => entries.push({name: String(name || '').trim() || UNSORTED, at, text, requests});
+  const add = (id, name, at, text, requests) => entries.push({id: id || null, name: String(name || '').trim() || UNSORTED, at, text, requests});
   for (const {memo, orgs, projects, line, requests} of basketPlaces(basket, day))
-    if (!orgs.length) for (const project of projects) add(project.name, memo.occurred_at, project.summary || line, requests);
+    if (!orgs.length) for (const project of projects) add(project.id, project.name, memo.occurred_at, project.summary || line, requests);
   for (const row of projectUpdates || []) if (row?.effective_on === day)
-    add(row.project?.name, row.created_at || `${day}T23:59:59+09:00`, firstLine(row.summary) || '(빈 업데이트)');
-  return sectionsOf(entries);
+    add(row.project_id, row.project?.name, row.created_at || `${day}T23:59:59+09:00`, firstLine(row.summary) || '(빈 업데이트)');
+  return entries;
 }
+export const projectNewsOn = (read = {}, day) => sectionsOf(projectRecordsOn(read, day));
 // BASKET-일지로남기기: 기타 메모 of one day — the day's updates kept as work-journal memos ([업무일지에 남기기], metadata.journal_at)
 // that went to no organization and no project, oldest first, one item each (its first line, as the other update groups).
 // They leave 조직 소식's '미분류'; an update linked to an organization or a project later shows there instead, never twice.
