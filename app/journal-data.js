@@ -19,7 +19,7 @@ import {seoulParts, seoulDateKey, addSeoulDays, seoulClock, formatSeoulTime} fro
 import {readBasket, filedOrganizations, filedProjects} from './basket-data.js';
 import {categoryOf} from './document-categories.js';
 import {myOrganizationIds, OTHERS} from './my-organizations.js';
-import {noteRequests, requestPrefix} from './update-requests.js';
+import {noteRequests} from './update-requests.js';
 import {noteJournalAt, MOVED_KEY} from './update-journal.js';
 
 export const WORK_LINE_MAX = 300;
@@ -119,13 +119,21 @@ export async function changeWorkDay({day, row = null, change}, rt = window.KPTUR
 }
 
 // Materials of one week. Each reader fails on its own; the screen shows the rest and names the group that failed.
-export async function readWeekEvents(start, rt = window.KPTURuntime) {
-  const days = weekDays(start), end = shiftWeek(start, 1);
-  const data = await rt.api(`/functions/v1/google-calendar?action=events&timeMin=${encode(dayStartIso(days[0]))}&timeMax=${encode(dayStartIso(end))}`);
+// Google Calendar events from the first day (Korea time) up to, not including, the end day — the same google-calendar read
+// as the calendar screen (owner's selected calendars). One read per range.
+async function readEventsBetween(first, end, rt) {
+  const data = await rt.api(`/functions/v1/google-calendar?action=events&timeMin=${encode(dayStartIso(checkDay(first)))}&timeMax=${encode(dayStartIso(checkDay(end)))}`);
   const events = Array.isArray(data?.events) ? data.events : null;
   if (!events || data?.connected === false || data?.needs_reconnect || data?.authorized === false || (data?.warning && !events.length)) throw new Error('calendar');
   return events;
 }
+export const readWeekEvents = (start, rt = window.KPTURuntime) => readEventsBetween(weekDays(start)[0], shiftWeek(start, 1), rt);
+// WEEKLY-주요일정 (2026-10-21 사용자 결정): the weekly report's "5. 주요 일정" is the two weeks (Monday to Sunday, twice) from the
+// Monday after the shown week — the report is written at the end of the week (Friday), gathered on Sunday and reported on
+// Monday, so it is "the reported week and the week after". The shown week, not today, sets it, so a past week stays the same.
+export const SCHEDULE_WEEKS = 2;
+export const scheduleDays = start => Array.from({length:SCHEDULE_WEEKS * 7}, (_, i) => seoulDateKey(addSeoulDays(shiftWeek(start, 1), i)));
+export const readScheduleEvents = (start, rt = window.KPTURuntime) => readEventsBetween(shiftWeek(start, 1), shiftWeek(start, 1 + SCHEDULE_WEEKS), rt);
 // JOURNAL-끝낸할일범위: the google-tasks Edge returns the tasks completed in the last `completed_days` days (whole number
 // 1..8, capped by the server). An older Edge ignores the field and answers the last 3 days without echoing it, so the days
 // actually covered are the echoed number or, without an echo, DONE_TASK_DAYS (3).
@@ -399,29 +407,3 @@ export function rangeNote(group, day, {doneDays = DONE_TASK_DAYS, today = todayK
 export const QUIET_WHEN_EMPTY = Object.freeze(['memos']);
 export const isFolded = (group, day, range) => !group.items.length && !group.loading && !group.failed && !rangeNote(group, day, range);
 export const shortDay = day => `${formatSeoulTime(day, {month:'long', day:'numeric'})}(${formatSeoulTime(day, {weekday:'short'})})`;
-
-// [주간보고 초안] (this stage: copy only): day by day (Monday to Sunday), each day's lines in saving order (one "한 줄:" row each)
-// and that day's materials in group order. Empty groups add no row. A marked update stays in its own group and keeps its tag;
-// there are no separate request lists at the top.
-export function weeklyDraft({start, lines, materials, doneDays = DONE_TASK_DAYS, today = todayKey()}) {
-  const days = weekDays(start);
-  const out = [`주간 업무일지 ${shortDay(days[0])} ~ ${shortDay(days[6])}`, ''];
-  for (const day of days) {
-    out.push(`■ ${shortDay(day)}`);
-    const list = workLines(lines?.get?.(day));
-    if (list.length) for (const line of list) out.push(`한 줄: ${line}`);
-    else out.push('한 줄: (없음)');
-    for (const group of dayMaterials(materials, day)) {
-      if (SECTIONED.has(group.key)) { for (const section of group.sections) section.items.forEach((item, i) => out.push(`- ${group.label} · ${section.name}: ${requestPrefix(section.tags?.[i])}${item}`)); }
-      else for (const item of group.items) out.push(`- ${group.label}: ${item}`);
-    }
-    out.push('');
-  }
-  const missing = GROUPS.filter(([key]) => GROUP_SOURCES[key].some(source => materials?.[source]?.status !== 'ok')).map(([, label]) => label);
-  if (missing.length) out.push(`※ ${missing.join(', ')}은(는) 불러오지 못해 빠졌어요.`);
-  if (days[0] < doneCoverFrom(doneDays, today)) out.push(`※ 끝낸 할 일은 Google 할 일에서 최근 ${doneDays}일 안에 끝낸 것만 모여요.`);
-  if (days[6] > pendingCoverTo(today)) out.push(`※ 할 일 예정은 Google 할 일에서 오늘부터 ${PENDING_DAYS}일 안 마감(지난 마감 포함)만 모여요.`);
-  const full = GROUPS.filter(([key]) => GROUP_SOURCES[key].some(source => materials?.[source]?.status === 'ok' && materials[source].items?.capped)).map(([, label]) => label);
-  if (full.length) out.push(`※ ${full.join(', ')}은(는) 이 주에 ${WEEK_READ_CAP}개가 넘어 앞의 ${WEEK_READ_CAP}개만 모였어요.`);
-  return out.join('\n').replace(/\n+$/, '') + '\n';
-}

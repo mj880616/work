@@ -121,6 +121,7 @@ test('export: anonymous, forged, non-owner and any cron header are refused befor
     [{}, 401], [{ Authorization: 'Bearer forged' }, 401], [{ Authorization: 'Bearer valid-other' }, 403],
     [{ 'x-drive-summary-cron-secret': 'right-secret' }, 401], [{ 'x-drive-summary-cron-secret': 'wrong' }, 401],
     [{ ...owner, 'x-drive-summary-cron-secret': 'right-secret' }, 401],
+    [{ ...owner, 'x-collector-heartbeat-secret': 'beat' }, 401], // heartbeat secret never reaches the export
   ]) {
     const h = harness();
     const response = await h.exportRequest(headers);
@@ -184,12 +185,14 @@ test('export: JSON backup has all rows (S2 included), counts and per-table sha25
   assert.ok(!doc.content.includes('대체된 요지'));
 });
 
-test('export: status is written with only the ledger keys; copy keys stay', async () => {
-  const h = harness();
+test('export: status is written with only the ledger keys; copy and heartbeat keys stay', async () => {
+  const h = harness({ folderProps: { collector_telegram_at: '2026-10-25T22:00:00.000Z', collector_telegram_count: '5', collector_telegram_reported_at: '2026-10-25T23:00:00.000Z' } });
   await h.exportRequest(owner);
   const folderPatches = h.patches.filter(p => p.id === 'folder');
   assert.deepEqual(folderPatches.map(p => p.patch), [{ appProperties: { ledger_last_success_at: now.toISOString() } }]);
   assert.equal(h.files.get('folder').appProperties.last_success_at, '2026-10-25T21:17:00.000Z');
+  assert.equal(h.files.get('folder').appProperties.collector_telegram_count, '5');
+  assert.equal(h.files.get('folder').appProperties.collector_telegram_reported_at, '2026-10-25T23:00:00.000Z');
 });
 
 test('export: same date replaces the same JSON; newest 8 are kept, older ones go to trash (not delete)', async () => {
@@ -280,7 +283,8 @@ test('ledger_status: owner or cron secret; times and code only; no writes, no le
     assert.equal(h.dbAuth.length, 0);
     assert.ok(!h.calls.some(c => c.method !== 'GET' && c.url.hostname !== 'oauth2.googleapis.com'));
   }
-  for (const [headers, status] of [[{}, 401], [{ 'x-drive-summary-cron-secret': 'wrong' }, 401], [{ Authorization: 'Bearer valid-other' }, 403]]) {
+  for (const [headers, status] of [[{}, 401], [{ 'x-drive-summary-cron-secret': 'wrong' }, 401], [{ Authorization: 'Bearer valid-other' }, 403],
+    [{ ...owner, 'x-collector-heartbeat-secret': 'beat' }, 401], [{ 'x-drive-summary-cron-secret': 'right-secret', 'x-collector-heartbeat-secret': 'beat' }, 401]]) {
     const h = harness();
     assert.equal((await h.statusRequest(headers)).status, status);
     assert.equal(h.calls.some(c => c.url.hostname.endsWith('googleapis.com')), false);

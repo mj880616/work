@@ -2,7 +2,8 @@
 // #journalRoot: the week's day-number row (Monday to Sunday, ‹ › moves a week, a green dot on days with a line — J4 ①)
 // → the chosen day: "오늘 한 줄" on top, then that day's materials (일정·끝낸 할 일·조직 소식·회의·행사 결과 — JOURNAL-일지카드정리,
 // then 프로젝트 소식·할 일 예정·자료실 새 자료·공유 페이지 — JOURNAL-주간보고허브),
-// gathered on screen and never stored. [주간보고 초안 복사] copies each day's lines and the materials list.
+// gathered on screen and never stored. [주간보고 초안 복사] copies the week as text in the weekly report form's order (the same
+// grouping as [주간 정리], journal-weekly.js weeklyReportText; 2026-10-21 사용자 승인).
 // JOURNAL-오늘한줄목록: [저장] adds the typed line under the input (saving order, oldest first) and empties the input.
 // Pressing a line turns it into an edit box in place with [저장][취소][삭제]; a removed line can be put back for 5 seconds
 // ([되돌리기], the app's existing undo notice). No ⋯ menu or popup. On a PC (≥1024) each line also has [수정][삭제], shown while
@@ -16,7 +17,7 @@
 // [data-journal-weekly], a box this module owns). The chosen side is kept in memory only (not in browser storage).
 import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, changeWorkDay, validateWorkLine, WORK_LINE_MAX,
   workLines, addLine, editLine, removeLine, restoreLine, readWeekEvents, readDoneTasksWindow, readBasketUpdates, readMovedNotes, movedNotesOn, readOrgUpdates, readProjectUpdates,
-  readWeekMeetings, readWeekDocuments, readWeekSharePages, dayMaterials, weeklyDraft, DONE_TASK_DAYS, GROUP_SOURCES, rangeNote, isFolded, QUIET_WHEN_EMPTY, WEEK_READ_CAP} from './journal-data.js';
+  readWeekMeetings, readWeekDocuments, readWeekSharePages, dayMaterials, readScheduleEvents, DONE_TASK_DAYS, GROUP_SOURCES, rangeNote, isFolded, QUIET_WHEN_EMPTY, WEEK_READ_CAP} from './journal-data.js';
 import {loadDocumentCategories} from './document-categories.js';
 import {formatSeoulTime, seoulParts} from './meeting-time.js';
 import {copyText} from './md-editor.js';
@@ -24,7 +25,7 @@ import {offerUndoNotice, closeUndoNotice} from './basket-record-delete.js';
 import {requestTagsHtml, normalizeRequests} from './update-requests.js';
 import {recordMark} from './basket-link-records.js';
 import {requestNoteDocOpen} from './basket-note-tasks.js';
-import {weeklySummary, renderWeekly} from './journal-weekly.js';
+import {weeklySummary, renderWeekly, weeklyReportText} from './journal-weekly.js';
 import {mountWeeklyHwpx} from './journal-hwpx.js';
 import {mountRadar} from './todo-radar.js';
 
@@ -231,6 +232,8 @@ function render() { renderMode(); renderWeek(); renderLine({keepStatus:true}); r
 
 const readers = {
   events: () => readWeekEvents(start, rt),
+  // 5. 주요 일정 of [주간 정리] and the draft: the two weeks from the Monday after the shown week (one more calendar read a week).
+  upcoming: () => readScheduleEvents(start, rt),
   // One Google Tasks read: finished tasks (끝낸 할 일) and pending tasks in the server's range (할 일 예정).
   tasks: async () => { const read = await readDoneTasksWindow(rt); doneDays = read.days; return [...read.tasks, ...read.pending]; },
   basket: () => readBasketUpdates(rt),
@@ -274,14 +277,14 @@ async function loadLines(run, scope) {
   }
   renderWeek(); renderLine(); renderWeekly_();
 }
-// A new week reads its lines and that week's events, organization/project records, meetings, new documents and changed
-// share pages; Google tasks (done and pending) and basket updates are read once per visit (not per week).
+// A new week reads its lines and that week's events (and the two weeks after it, 5. 주요 일정), organization/project records,
+// meetings, new documents and changed share pages; Google tasks (done and pending) and basket updates are read once per visit (not per week).
 function loadWeek({shared = false} = {}) {
   const changedOwner = owner !== ownerScope(rt);
   const run = ++epoch, scope = owner = ownerScope(rt);
   lines = new Map(); status.textContent = ''; editing = null;
   if (changedOwner) hwpx?.close(); else hwpx?.setWeek(start);
-  const keys = shared ? Object.keys(readers) : ['events', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages'];
+  const keys = shared ? Object.keys(readers) : ['events', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages'];
   for (const key of keys) materials[key] = {status:'loading'};
   render();
   loadLines(run, scope);
@@ -414,11 +417,11 @@ async function deleteLine(index) {
 }
 
 async function copyDraft() {
-  const text = weeklyDraft({start, lines, materials, doneDays});
+  const text = weeklyReportText(weeklySummary({start, lines, linesState, materials, doneDays}));
   const ok = await copyText(text);
-  // movedNotes and catalog (the project order of [주간 정리]) are not draft material.
-  const missing = Object.entries(materials).some(([key, state]) => !['movedNotes', 'catalog'].includes(key) && state?.status !== 'ok');
-  status.textContent = ok ? `이번 주 한 줄과 재료 목록을 복사했어요.${missing ? ' 불러오지 못한 묶음은 빠졌어요.' : ''}` : '복사하지 못했어요. 다시 시도해 주세요.';
+  // movedNotes, catalog (the project order) and this week's events (the day card's 일정) are not draft material.
+  const missing = Object.entries(materials).some(([key, state]) => !['movedNotes', 'catalog', 'events'].includes(key) && state?.status !== 'ok');
+  status.textContent = ok ? `주간보고 양식 순서로 복사했어요.${missing ? ' 불러오지 못한 묶음은 빠졌어요.' : ''}` : '복사하지 못했어요. 다시 시도해 주세요.';
 }
 
 root.addEventListener('click', event => {

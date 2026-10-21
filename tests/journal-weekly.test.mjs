@@ -82,7 +82,9 @@ test('조직 소식 in the organization order (named, then 그 외, then 미분�
   assert.equal(JSON.stringify(w.summary).includes('조직으로 보낸'), false);
   // 회의·행사 결과 by the meeting's date.
   assert.deepEqual(w.meetings.items, [{day:'2026-10-06', text:'14:00 가상 간담회'}, {day:'2026-10-08', text:'10:00 운영위원회 3차'}]);
-  assert.deepEqual(w.notes.schedule.items, [{day:'2026-10-05', text:'10:00 월요일 일정'}]);
+  // This week's events are not 참고 any more (WEEKLY-주요일정): 5. 주요 일정 reads the two weeks after.
+  assert.equal('schedule' in w.notes, false);
+  assert.equal(JSON.stringify(w).includes('월요일 일정'), false);
   assert.deepEqual(w.notes.lines.items.map(i => i.text), ['월요일 한 줄', '둘째 한 줄']);
   assert.deepEqual(w.notes.memos.items, [{day:'2026-10-08', text:'일지에 남긴 메모'}]);
   assert.deepEqual(w.notes.docs.items.map(i => i.day), ['2026-10-06']);
@@ -93,11 +95,12 @@ test('조직 소식 in the organization order (named, then 그 외, then 미분�
 
 test('an empty week: every part is ready and empty', async () => {
   const m = await mod;
-  const all = {events:empty, tasks:empty, basket:ok({notes:[], links:[], docs:[]}), orgUpdates:empty, projectUpdates:empty, catalog:ok(tree), meetings:empty, documents:empty, sharePages:empty};
+  const all = {events:empty, upcoming:empty, tasks:empty, basket:ok({notes:[], links:[], docs:[]}), orgUpdates:empty, projectUpdates:empty, catalog:ok(tree), meetings:empty, documents:empty, sharePages:empty};
   const w = m.weeklySummary({...base, lines:new Map(), materials:all});
   assert.deepEqual([w.summary.areas, w.summary.others, w.orgs.sections, w.meetings.items], [[], [], [], []]);
   assert.equal(w.summary.count, 0);
   for (const part of Object.values(w.notes)) assert.deepEqual(part.items, []);
+  assert.deepEqual([w.calendar.rows, w.calendar.vacations, w.calendar.days.length], [[], [], 14]);
 });
 
 test('one failed read marks only its own part; without the project tree records go under project names', async () => {
@@ -109,10 +112,12 @@ test('one failed read marks only its own part; without the project tree records 
   assert.deepEqual(w.meetings.failed, ['meetings']);
   assert.deepEqual(w.summary.failed, ['catalog']); assert.equal(w.summary.ordered, false); assert.deepEqual(w.summary.areas, []);
   assert.deepEqual(w.summary.others.map(o => o.name), ['보관된 프로젝트', '사안 A-1-가', '사업영역 A', '세부 과제 A-1', '세부 과제 A-2', '세부 과제 C-1']);
-  assert.deepEqual(w.notes.schedule.failed, []);
-  // A read still out is loading, not failed.
-  const loading = m.weeklySummary({...base, materials:{...materials(), events:{status:'loading'}}});
-  assert.equal(loading.notes.schedule.loading, true);
+  assert.deepEqual(w.notes.docs.failed, []);
+  // A read still out is loading, not failed; the two-week calendar read fails on its own.
+  const loading = m.weeklySummary({...base, materials:{...materials(), upcoming:{status:'loading'}}});
+  assert.equal(loading.calendar.loading, true);
+  const off = m.weeklySummary({...base, materials:{...materials(), upcoming:{status:'failed'}}});
+  assert.deepEqual([off.calendar.failed, off.orgs.failed], [['upcoming'], []]);
   assert.equal(m.weeklySummary({...base, linesState:'failed', lines:new Map()}).notes.lines.failed.length, 1);
 });
 
@@ -121,4 +126,86 @@ test('a tree deeper than 3단 puts the deeper record on its 세부 과제 row', 
   const deep = [{project:{id:'A', name:'영역'}, depth:0}, {project:{id:'T', name:'과제'}, depth:1}, {project:{id:'I', name:'사안'}, depth:2}, {project:{id:'D', name:'더 깊은 것'}, depth:3}];
   const placed = m.placeRecords([{id:'D', name:'더 깊은 것', day:'2026-10-06', at:'2026-10-06T01:00:00Z', text:'깊은 기록'}], deep);
   assert.deepEqual(placed.areas[0].rows.map(r => [r.task.name, r.items.map(m.summaryLine)]), [['과제', ['과제 › 더 깊은 것: 깊은 기록']]]);
+});
+
+// WEEKLY-주요일정 (2026-10-21 사용자 결정): 5. 주요 일정 = the two weeks (Monday to Sunday twice) from the Monday after the shown
+// week; a vacation is a "※ 휴가" line, not a row; an event marked 일기·비공개 is left out. Fake titles and places only.
+const upcoming = [
+  {id:'u1', calendarId:'c', title:'가상 회의', location:'가상 장소', start:'2026-10-13T10:30:00+09:00', end:'2026-10-13T12:00:00+09:00'},
+  {id:'u1', calendarId:'c', title:'가상 회의', location:'가상 장소', start:'2026-10-13T10:30:00+09:00', end:'2026-10-13T12:00:00+09:00'},
+  {id:'u2', calendarId:'c', title:'가상 아침 일정', start:'2026-10-13T09:00:00+09:00', end:'2026-10-13T09:30:00+09:00'},
+  {id:'u3', calendarId:'c', title:'가상 수련회', location:'가상 연수원', allDay:true, start:'2026-10-13', end:'2026-10-15'},
+  {id:'u4', calendarId:'c', title:'가상 종일 행사', allDay:true, start:'2026-10-13', end:'2026-10-14'},
+  {id:'u5', calendarId:'c', title:'연차', allDay:true, start:'2026-10-23', end:'2026-10-24'},
+  {id:'u6', calendarId:'c', title:'여름 휴가', allDay:true, start:'2026-10-19', end:'2026-10-22'},
+  {id:'u7', calendarId:'c', title:'오후 반차', start:'2026-10-16T13:00:00+09:00', end:'2026-10-16T18:00:00+09:00'},
+  {id:'u8', calendarId:'c', title:'일기 쓰기', start:'2026-10-14T21:00:00+09:00', end:'2026-10-14T22:00:00+09:00'},
+  {id:'u9', calendarId:'c', title:'가상 약속', description:'비공개', start:'2026-10-15T19:00:00+09:00', end:'2026-10-15T20:00:00+09:00'},
+  {id:'u10', calendarId:'c', title:'이번 주 일정', start:'2026-10-11T10:00:00+09:00', end:'2026-10-11T11:00:00+09:00'},
+  {id:'u11', calendarId:'c', title:'셋째 주 일정', start:'2026-10-26T00:00:00+09:00', end:'2026-10-26T01:00:00+09:00'},
+  {id:'u12', calendarId:'c', title:'걸친 출장', allDay:true, start:'2026-10-10', end:'2026-10-13'},
+  {id:'u13', calendarId:'c', title:'가상 마지막 날', start:'2026-10-25T23:00:00+09:00', end:'2026-10-25T23:30:00+09:00'},
+];
+
+test('5. 주요 일정: the two weeks after the shown week, form cells, vacations apart, 일기·비공개 left out', async () => {
+  const m = await mod;
+  const c = m.upcomingSchedule(upcoming, '2026-10-05');
+  assert.deepEqual([c.days[0], c.days.at(-1), c.days.length], ['2026-10-12', '2026-10-25', 14]);
+  assert.deepEqual(c.rows.map(r => [r.label, r.items.map(i => i.what)]), [
+    // Began before the two weeks: on the first day, with its own dates.
+    ['10.10.(토) ~ 10.12.(월)', ['종일 / 걸친 출장']],
+    // One day: 종일 first, then by time (the duplicate read once); then the several-day event on its own row.
+    ['10.13.(화)', ['종일 / 가상 종일 행사', '09:00 / 가상 아침 일정', '10:30 / 가상 회의 / 가상 장소']],
+    ['10.13.(화) ~ 10.14.(수)', ['종일 / 가상 수련회 / 가상 연수원']],
+    ['10.25.(일)', ['23:00 / 가상 마지막 날']],
+  ]);
+  assert.deepEqual(c.vacations.map(v => [v.first, v.last, v.title]), [['2026-10-16', '2026-10-16', '오후 반차'], ['2026-10-19', '2026-10-21', '여름 휴가'], ['2026-10-23', '2026-10-23', '연차']]);
+  assert.equal(m.vacationLine(c.vacations), '※ 휴가: 10/16(금) 오후 반차, 10/19(월)~10/21(수) 여름 휴가, 10/23(금) 연차');
+  assert.equal(m.vacationLine([]), '');
+  assert.equal(JSON.stringify(c).match(/일기|비공개|가상 약속|이번 주 일정|셋째 주 일정/), null);
+  assert.equal(m.isPrivateEvent({title:'가상', description:'메모 — 비공개'}), true);
+  assert.equal(m.isVacation({title:'병가'}), true);
+  assert.equal(m.isVacation({title:'가상 회의'}), false);
+  // The shown week sets the range (a past week stays the same whatever today is).
+  assert.deepEqual(m.upcomingSchedule([], '2026-09-28').days.slice(0, 1), ['2026-10-05']);
+  // In the week model: one part with its own read.
+  const w = m.weeklySummary({...base, materials:{...materials(), upcoming:ok(upcoming)}});
+  assert.equal(w.calendar.rows.length, 4);
+  assert.deepEqual(m.WEEKLY_SOURCES.calendar, ['upcoming']);
+});
+
+test('5. 주요 일정 in the .hwpx form: 14 day rows (empty days keep their date), several-day rows after their first day, my name, ※ vacation lines', async () => {
+  const m = await mod;
+  const w = m.weeklySummary({...base, materials:{...materials(), upcoming:ok(upcoming)}});
+  const f = m.scheduleForm(w.calendar, '가상 담당');
+  assert.deepEqual(f.calendar.map(d => d.day), ['10.12.(월)', '10.10.(토) ~ 10.12.(월)', '10.13.(화)', '10.13.(화) ~ 10.14.(수)', '10.14.(수)', '10.15.(목)', '10.16.(금)', '10.17.(토)', '10.18.(일)',
+    '10.19.(월)', '10.20.(화)', '10.21.(수)', '10.22.(목)', '10.23.(금)', '10.24.(토)', '10.25.(일)']);
+  assert.deepEqual(f.calendar[0].items, []);
+  assert.deepEqual(f.calendar[2].items, [{what:'종일 / 가상 종일 행사', who:['가상 담당']}, {what:'09:00 / 가상 아침 일정', who:['가상 담당']}, {what:'10:30 / 가상 회의 / 가상 장소', who:['가상 담당']}]);
+  assert.deepEqual(f.calendarNotes, ['※ 10.16.(금) 가상 담당 오후 반차', '※ 10.19.(월)~10.21.(수) 가상 담당 여름 휴가', '※ 10.23.(금) 가상 담당 연차']);
+  // Without a name the cells stay empty; a failed read keeps the 14 dates with empty cells and no vacation line.
+  assert.deepEqual(m.scheduleForm(w.calendar, '').calendar[2].items[0].who, []);
+  const failed = m.scheduleForm(m.weeklySummary({...base, materials:{...materials(), upcoming:{status:'failed'}}}).calendar, '가상 담당');
+  assert.deepEqual([failed.calendar.length, failed.calendar.every(d => !d.items.length), failed.calendarNotes], [14, true, []]);
+});
+
+test('[주간보고 초안 복사]: the tab as text in the form order (1 → 2 → 4 → 5 → 참고)', async () => {
+  const m = await mod;
+  const text = m.weeklyReportText(m.weeklySummary({...base, materials:{...materials(), upcoming:ok(upcoming)}}));
+  const rows = text.split('\n');
+  const heads = rows.filter(r => /^(\d\. |참고$)/.test(r));
+  assert.deepEqual(heads, ['1. 요청사항', '2. 기본·영역·의제 사업', '4. 산하 조직 현황', '5. 주요 일정 (10월 12일(월) ~ 10월 25일(일))', '참고']);
+  assert.ok(rows.includes(`2) 주요 일정: (비워 둠) ${m.HQ_SCHEDULE_GUIDE}`));
+  // 요약 in the project tree order with the record's day.
+  const sum = rows.indexOf('1) 요약');
+  assert.deepEqual(rows.slice(sum + 1, sum + 4), ['◦ 사업영역 A', '- 10월 6일(화) 영역 전체 기록', '- 10월 8일(목) 세부 과제 A-1: A-1 기록']);
+  const five = rows.indexOf('5. 주요 일정 (10월 12일(월) ~ 10월 25일(일))');
+  assert.deepEqual(rows.slice(five + 1, five + 9), ['- 10.10.(토) ~ 10.12.(월) 종일 / 걸친 출장', '- 10.13.(화) 종일 / 가상 종일 행사', '- 10.13.(화) 09:00 / 가상 아침 일정',
+    '- 10.13.(화) 10:30 / 가상 회의 / 가상 장소', '- 10.13.(화) ~ 10.14.(수) 종일 / 가상 수련회 / 가상 연수원', '- 10.25.(일) 23:00 / 가상 마지막 날',
+    '※ 휴가: 10/16(금) 오후 반차, 10/19(월)~10/21(수) 여름 휴가, 10/23(금) 연차', '']);
+  assert.equal(/일기 쓰기|가상 약속/.test(text), false);
+  // A failed calendar read is said in its place and at the end; the rest stays.
+  const off = m.weeklyReportText(m.weeklySummary({...base, materials:{...materials(), upcoming:{status:'failed'}}}));
+  assert.ok(off.includes('5. 주요 일정 (10월 12일(월) ~ 10월 25일(일))\n(불러오지 못함)\n'));
+  assert.ok(off.includes('※ 달력 일정은(는) 불러오지 못해 빠졌어요.'));
 });

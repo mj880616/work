@@ -72,11 +72,11 @@
 - 믿는 범위: 이 저장소의 릴리스 파일과 GitHub의 파일 서버뿐이다(`UpdatePolicy`, 시험으로 고정). `releases/latest`와 다른 태그·다른 저장소는 받지 않는다. 서명이 없어서 해시 목록과 파일이 같은 릴리스에 있으므로, 안전은 저장소 쓰기 권한·태그 보호·릴리스 승인에 기댄다.
 - 시작 시 자동 실행: 기본 켬. 현재 사용자 `Run` 항목(관리자 권한 불필요)이며 트레이 메뉴 [윈도우를 켤 때 자동 실행]으로 끄고 켠다. 켤 때마다 현재 설치 경로로 다시 맞춘다. 윈도우 설정 [앱 > 시작 프로그램]에서 끈 것은 다시 켜지 않는다. 설치한 프로그램에서만 동작하며 개발 빌드는 등록하지 않는다.
 - 제거: 시작 항목·우클릭 [보내기] 항목·저장된 로그인을 지운다. 대기열·기록 폴더는 남긴다.
-- 새 판 내기: 아래 "새 판 내기"를 따른다. 사용자가 하는 일은 **태그 하나 만들기**뿐이고, 빌드·설치 파일·Release 만들기·파일 올리기는 `Basket PC release` workflow가 한다. 비밀값은 이 실행의 자체 토큰 외에 없다.
+- 새 판 내기: 아래 "새 판 내기"를 따른다. 사용자가 하는 일은 **태그 하나 만들기**(또는 커맨드센터가 workflow를 시작했을 때는 **승인 한 번**)뿐이고, 빌드·설치 파일·Release 만들기·파일 올리기는 `Basket PC release` workflow가 한다. 비밀값은 이 실행의 자체 토큰 외에 없다.
 
 ## 새 판 내기
 
-태그 `basket-pc-vX.Y.Z`(예: `basket-pc-v0.1.2`)가 만들어지면 `Basket PC release` workflow가 저절로 시작한다. 태그는 **main에 이미 들어간 커밋**에만 만든다(아니면 workflow가 멈춘다). 먼저 올릴 변경이 main에 merge되어 있어야 한다.
+시작하는 길은 두 가지다. ① 태그 `basket-pc-vX.Y.Z`(예: `basket-pc-v0.1.2`)가 만들어지면 `Basket PC release` workflow가 저절로 시작한다. ② 커맨드센터(또는 사용자)가 같은 workflow를 직접 시작한다(아래 "커맨드센터가 시작하는 길"). 태그는 **main에 이미 들어간 커밋**에만 만든다(아니면 workflow가 멈춘다). 먼저 올릴 변경이 main에 merge되어 있어야 한다.
 
 ### 가장 쉬운 길: GitHub 웹 (PC·폰 모두 가능)
 
@@ -88,6 +88,17 @@
 6. [Publish release]를 누른다. (초안으로 저장만 하면 태그가 만들어지지 않아 시작되지 않는다.)
 7. 저장소 [Actions] 탭 → `Basket PC release` 실행을 연다. `verify`는 자동으로 끝나고, `release`가 **승인 대기**로 멈추면 [Review deployments] → `basket-pc-release` 체크 → [Approve and deploy]를 누른다.
 8. 15~20분쯤 뒤 [Releases]에 설치 파일(`BasketDropApp-win-Setup.exe`)이 붙은 공개 Release가 보이면 끝이다. workflow가 pre-release 표시를 풀고 공개한다. 사용 중인 프로그램은 12시간 안에 새 판을 받는다.
+
+### 커맨드센터가 시작하는 길 (사용자는 승인만)
+
+커맨드센터 세션은 태그를 만들 수 없어서(프록시) workflow를 직접 시작한다. 먼저 올릴 변경이 main에 merge되어 있어야 한다.
+
+1. 커맨드센터가 `Basket PC release` workflow를 **main**에서 시작한다. 입력 `version`에 `0.2.0`처럼 숫자.숫자.숫자만 쓴다(`basket-pc-v`는 붙이지 않는다). 사람이 직접 하려면 [Actions] → `Basket PC release` → [Run workflow] → Branch는 `main` → version 입력.
+2. `verify`가 main 최신 커밋을 기준으로 입력 모양, 같은 번호의 태그가 이미 있는지를 확인한다(문제 있으면 승인 요청 전에 멈춘다).
+3. 사용자는 `release`가 **승인 대기**로 멈추면 [Review deployments] → `basket-pc-release` 체크 → [Approve and deploy]를 누른다. 이것이 사용자가 하는 일의 전부다.
+4. 승인 뒤 `release`가 확인한 그 커밋에 `basket-pc-v<version>` 태그를 만들고(이미 있으면 거절), 빌드·설치 파일·Release 만들기·파일 올리기를 이어서 한다. 태그 보호(`basket-pc-tags`)는 그대로이며, 이 태그 생성이 두 번째 실행을 일으키지는 않는다.
+
+main이 아닌 가지에서 시작하면 workflow가 거절한다.
 
 ### PC에서 명령으로
 

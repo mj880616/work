@@ -168,6 +168,51 @@ export function folderStatus(appProperties) {
 }
 const driveQuote = value => String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
+// OPS-수집점검 2단계: 바깥 수집 점검 신호(heartbeat). 통화 전사용 Google 앱 스크립트가 전사 폴더·텔레그램 수집 상태 파일의
+// 시각(과 건수)만 보내면, 사본 폴더 appProperties에 그 값과 받은 시각만 남긴다(사본 상태와 같은 저장 위치, DB 쓰기 없음).
+export const COLLECTOR_SOURCES = Object.freeze(['telegram', 'transcript']);
+const COLLECTOR_KEYS = Object.freeze(['source', 'last_at', 'count']);
+const COLLECTOR_BODY_BYTES = 1024, COLLECTOR_COUNT_MAX = 100000, COLLECTOR_FUTURE_MS = 10 * 60000;
+const COLLECTOR_OLDEST = Date.parse('2020-01-01T00:00:00Z');
+const collectorKey = (source, field) => `collector_${source}_${field}`;
+// Strict body check: exactly {source, last_at, count?}. No names, links, or content are ever accepted.
+export function parseHeartbeat(text, at) {
+  if (typeof text !== 'string' || !text || new TextEncoder().encode(text).length > COLLECTOR_BODY_BYTES) return null;
+  let body;
+  try { body = JSON.parse(text); } catch { return null; }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
+  if (Object.keys(body).some(key => !COLLECTOR_KEYS.includes(key))) return null;
+  if (!COLLECTOR_SOURCES.includes(body.source)) return null;
+  if (typeof body.last_at !== 'string' || body.last_at.length > 40 || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?(Z|[+-]\d{2}:\d{2})$/.test(body.last_at)) return null;
+  const lastAt = Date.parse(body.last_at);
+  if (!Number.isFinite(lastAt) || lastAt < COLLECTOR_OLDEST || lastAt > at.getTime() + COLLECTOR_FUTURE_MS) return null;
+  let count = null;
+  if ('count' in body) {
+    if (!Number.isInteger(body.count) || body.count < 0 || body.count > COLLECTOR_COUNT_MAX) return null;
+    count = body.count;
+  }
+  return { source: body.source, lastAt: new Date(lastAt).toISOString(), count };
+}
+export function heartbeatProperties({ source, lastAt, count }, at) {
+  return {
+    [collectorKey(source, 'at')]: lastAt,
+    [collectorKey(source, 'count')]: count === null ? null : String(count), // null clears an earlier count.
+    [collectorKey(source, 'reported_at')]: at.toISOString(),
+  };
+}
+// Status side: only values that pass the same strict shape leave the server.
+export function collectorStatus(appProperties) {
+  const p = appProperties && typeof appProperties === 'object' ? appProperties : {};
+  const out = {};
+  for (const source of COLLECTOR_SOURCES) {
+    const lastAt = statusTime(p[collectorKey(source, 'at')]), reportedAt = statusTime(p[collectorKey(source, 'reported_at')]);
+    const rawCount = p[collectorKey(source, 'count')];
+    const count = typeof rawCount === 'string' && /^\d{1,6}$/.test(rawCount) && Number(rawCount) <= COLLECTOR_COUNT_MAX ? Number(rawCount) : null;
+    out[source] = lastAt && reportedAt ? { last_at: lastAt, count, reported_at: reportedAt } : null;
+  }
+  return out;
+}
+
 export function createHandler({ env, fetcher = fetch, now = () => new Date() }) {
   // No global cached tokens, database state, or caller-selected workspace/Drive IDs.
   async function checked(url, init, code) {
@@ -319,19 +364,16 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date() }) 
     await assertPrivate(token, file.id);
     return `https://docs.google.com/document/d/${encodeURIComponent(file.id)}/edit`;
   }
+  // Drive merges appProperties on update (keys not sent stay as they are). Send only the keys this path owns, so the
+  // copy status, the ledger export times (S7-d) and the collector heartbeat keys never overwrite each other with a
+  // stale snapshot read at the start of a slow call.
   async function recordStatus(token, folder, patch) {
-    await checked(`${DRIVE}/${encodeURIComponent(folder.id)}?fields=id`, {
-      method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ appProperties: { ...folder.appProperties, ...patch } }),
-    }, 'DRIVE_STATUS_WRITE_FAILED');
-  }
-  // S7-d: folder properties are merged by Drive; send only the ledger keys so the copy keys are never rewritten here.
-  async function recordLedger(token, folder, patch) {
     await checked(`${DRIVE}/${encodeURIComponent(folder.id)}?fields=id`, {
       method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ appProperties: patch }),
     }, 'DRIVE_STATUS_WRITE_FAILED');
   }
+  const recordLedger = recordStatus;
   async function backupFolderFor(token, folder) {
     const found = await findFile(token, 'ledger_backup', folder.id);
     if (found) return found;
@@ -414,6 +456,8 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date() }) 
     const checkedAt = () => now().toISOString();
     try {
       if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) throw new SummaryError('SERVER_CONFIG_MISSING');
+      // The collector heartbeat secret is never a credential here, even next to a JWT or the cron secret.
+      if (req.headers.get('x-collector-heartbeat-secret') !== null) throw new SummaryError('UNAUTHORIZED', 401);
       await authorize(req);
       const token = await accessToken();
       const folder = await findFile(token, 'folder');
@@ -425,7 +469,6 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date() }) 
       return json({ ok: false, error: code, checked_at: checkedAt() }, error instanceof SummaryError ? error.status : 502);
     }
   }
-  const actionOf = req => { try { return new URL(req.url).searchParams.get('action'); } catch { return null; } };
   // OPS-수집점검: GET ?action=status. Owner JWT only (the cron secret is refused here). Reads the copy folder's three
   // properties; never creates the folder, rebuilds documents, records status, or returns names, links, or content.
   async function statusRead(req) {
@@ -440,18 +483,49 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date() }) 
       if (!ownerId) throw new SummaryError('UNAUTHORIZED', 401);
       const token = await accessToken();
       const folder = await findFile(token, 'folder');
-      if (!folder) return json({ ok: true, checked_at: checkedAt(), copy: { state: 'none', last_success_at: null, last_failure_at: null, last_failure_code: null } });
+      if (!folder) return json({ ok: true, checked_at: checkedAt(), copy: { state: 'none', last_success_at: null, last_failure_at: null, last_failure_code: null }, collectors: collectorStatus(null) });
       await assertPrivate(token, folder.id);
-      return json({ ok: true, checked_at: checkedAt(), copy: folderStatus(folder.appProperties) });
+      return json({ ok: true, checked_at: checkedAt(), copy: folderStatus(folder.appProperties), collectors: collectorStatus(folder.appProperties) });
     } catch (error) {
       const code = error instanceof SummaryError ? error.message : 'STATUS_FAILED';
       return json({ ok: false, error: code, checked_at: checkedAt() }, error instanceof SummaryError ? error.status : 502);
     }
   }
+  // OPS-수집점검 2단계: POST ?action=heartbeat. Only the collector secret header is accepted (no JWT, no cron secret).
+  // The one thing it can do is record {time, count} for one source on the existing copy folder. It never creates the
+  // folder, rebuilds documents, writes the DB, or reads/accepts content, file names, or IDs.
+  async function heartbeat(req) {
+    try {
+      if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) throw new SummaryError('SERVER_CONFIG_MISSING');
+      if (req.headers.get('x-drive-summary-cron-secret') !== null) throw new SummaryError('UNAUTHORIZED', 401);
+      if (!await secretMatches(req.headers.get('x-collector-heartbeat-secret'), env.COLLECTOR_HEARTBEAT_SECRET)) throw new SummaryError('UNAUTHORIZED', 401);
+      const length = Number(req.headers.get('content-length') || 0);
+      if (length > COLLECTOR_BODY_BYTES) throw new SummaryError('INVALID_BODY', 400);
+      const at = now(), beat = parseHeartbeat(await req.text().catch(() => ''), at);
+      if (!beat) throw new SummaryError('INVALID_BODY', 400);
+      const token = await accessToken();
+      const folder = await findFile(token, 'folder');
+      if (!folder) throw new SummaryError('COPY_FOLDER_MISSING', 409);
+      await assertPrivate(token, folder.id);
+      // Drive merges appProperties on update: send only this source's keys so copy status is never rewritten here.
+      await checked(`${DRIVE}/${encodeURIComponent(folder.id)}?fields=id`, {
+        method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appProperties: heartbeatProperties(beat, at) }),
+      }, 'DRIVE_STATUS_WRITE_FAILED');
+      return json({ ok: true, source: beat.source, recorded_at: at.toISOString() });
+    } catch (error) {
+      const code = error instanceof SummaryError ? error.message : 'HEARTBEAT_FAILED';
+      return json({ ok: false, error: code }, error instanceof SummaryError ? error.status : 502);
+    }
+  }
+  const actionOf = req => { try { return new URL(req.url).searchParams.get('action'); } catch { return null; } };
   return async req => {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
     if (req.method === 'GET') return actionOf(req) === 'ledger_status' ? ledgerStatusRead(req) : statusRead(req);
     if (req.method !== 'POST') return json({ ok: false, error: 'METHOD_NOT_ALLOWED', updated_at: null, documents: {} }, 405);
+    if (actionOf(req) === 'heartbeat') return heartbeat(req);
+    // A collector secret never reaches the copy rebuild path, even next to another credential.
+    if (req.headers.get('x-collector-heartbeat-secret') !== null) return json({ ok: false, error: 'UNAUTHORIZED', updated_at: null, documents: {} }, 401);
     if (actionOf(req) === 'ledger_export') return ledgerExport(req);
     let token, folder;
     const documents = {};
