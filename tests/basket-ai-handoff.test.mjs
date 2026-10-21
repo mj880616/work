@@ -1,4 +1,5 @@
 import * as projectRules from '../app/project-catalog-model.mjs';
+import * as orderRules from '../app/project-order.mjs';
 import test from 'node:test';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
@@ -8,7 +9,7 @@ import {buildHandoff, selectHandoffNotes, readHandoff, mountHandoff} from '../ap
 import {parseAIAnswer, classificationFormat, ERROR_TEXT} from '../app/basket-classification.js';
 const installCatalog=rt=>{
  globalThis.window={addEventListener(){},dispatchEvent(){},KPTURuntime:rt};
- vm.runInNewContext(readFileSync(new URL('../app/project-catalog.js',import.meta.url),'utf8').replace(/^import .*\n/,''),{...projectRules,window:globalThis.window,CustomEvent:class {}});
+ vm.runInNewContext(readFileSync(new URL('../app/project-catalog.js',import.meta.url),'utf8').replace(/^import .*\n/gm,''),{...projectRules,...orderRules,window:globalThis.window,CustomEvent:class {}});
 };
 const now=new Date('2026-10-11T01:02:03.123Z'),stamp=now.toISOString();
 const n='10000000-0000-4000-8000-000000000001',p='20000000-0000-4000-8000-000000000001';
@@ -350,7 +351,7 @@ test('catalog read in flight survives a same-owner session refresh, not an owner
  const listeners=[],pending=[];
  const rt={api:()=>new Promise(resolve=>pending.push(resolve))};
  globalThis.window={addEventListener(type,fn){if(type==='kptu:session-changed')listeners.push(fn);},dispatchEvent(){},KPTURuntime:rt};
- vm.runInNewContext(readFileSync(new URL('../app/project-catalog.js',import.meta.url),'utf8').replace(/^import .*\n/,''),{...projectRules,window:globalThis.window,CustomEvent:class {}});
+ vm.runInNewContext(readFileSync(new URL('../app/project-catalog.js',import.meta.url),'utf8').replace(/^import .*\n/gm,''),{...projectRules,...orderRules,window:globalThis.window,CustomEvent:class {}});
  const catalog=globalThis.window.KPTUProjectCatalog,session=id=>listeners.forEach(fn=>fn({detail:{session:id?{user:{id}}:null}}));
  const rows=[{id:p,name:'합성 프로젝트',status:'active',metadata:{project_system:'v2'}}];
  let read=catalog.load({workspaceId:'w',userId:'u',force:true});session('u');pending.shift()(rows);
