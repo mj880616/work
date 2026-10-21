@@ -68,7 +68,7 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
   const tab=quick.locator(`[data-quick-mode="${mode}"]`);
   if(width<761)await tab.tap();else await tab.click();
   await expect(tab).toHaveAttribute('aria-pressed','true');
-  const s=await look(tab);expect(s.bg).toBe(await token(page,kind+'-soft'));expect(s.fg).toBe(await token(page,kind+'-ink'));
+  const s=await look(tab);expect(s.bg).toBe(await token(page,'--ds-select-bg'));expect(s.fg).toBe(await token(page,'--ds-select-ink'));
   for(const other of Object.keys(kinds).filter(m=>m!==mode))expect((await look(quick.locator(`[data-quick-mode="${other}"]`))).bg).toBe(await token(page,'--kptu-surface'));
   const filled=await look(save);expect(filled.height).toBe(quickHeight);expect(filled.bg).toBe(primary);expect(filled.fg).toBe(onPrimary);
   if(mode!=='update')expect((await quick.locator('[data-quick-input]').boundingBox()).height).toBe(quickHeight);
