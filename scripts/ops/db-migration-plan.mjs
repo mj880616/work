@@ -477,7 +477,15 @@ export function prepareMigration({ mode, version, runId, root }) {
       }
     }
   }
-  return { mode, version, name, runId, file, summaryFile, summaryLines, checks, snapshot, manualSnapshotRequired, rules: strict ? 'strict' : 'expanded', ...validation };
+  // Full single-approval flow (precheck → snapshot artifact → dry-run → apply →
+  // postcheck) whenever every pair file exists; the expanded rules require it.
+  const pairs = ['precheck', 'postcheck'].every(kind => choose(root, 'docs',
+    new RegExp(`^${version}_${name}\\.${kind}\\.sql$`), false)) && Boolean(rollbackPath) && snapshot?.artifact === true;
+  const flow = mode !== 'rollback' && pairs && checks.precheck && !checks.precheck.baselineNull
+    && !manualSnapshotRequired && !checks.postcheck?.baselineNull ? 'full' : 'legacy';
+  if (!strict && flow !== 'full') throw new ExpandedRejection('pair-missing');
+  return { mode, version, name, runId, file, summaryFile, summaryLines, checks, snapshot, manualSnapshotRequired, flow,
+    rollbackPath, rules: strict ? 'strict' : 'expanded', ...validation };
 }
 
 export const escapeSummary = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('|', '&#124;').replaceAll('`', '&#96;');

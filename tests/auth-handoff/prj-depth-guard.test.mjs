@@ -79,7 +79,7 @@ test('PRJ-3단 depth guard: prechecks, apply, 3 levels allowed, 4th level / cycl
 
   await t.test('pre/post checks are read-only aggregates the workflow parser accepts; the migration is SQL Editor only',()=>{
    for(const sql of [precheck,postcheck,snapshot])assert.equal(checkSQL(sql).baselineNull,false);
-   assert.throws(()=>prepareMigration({mode:'apply',version,runId:'1',root}),/DB plan rejected/);
+   assert.equal(prepareMigration({mode:'apply',version,runId:'1',root}).rules,'expanded'); // DB-승인형확장
    const code=migration.replace(/--.*$/gm,'');
    assert.doesNotMatch(code,/security definer|grant |policy|disable row level|add column|update public|delete from public|rtw_/i);
    assert.match(code,/security invoker\s+set search_path = ''/);

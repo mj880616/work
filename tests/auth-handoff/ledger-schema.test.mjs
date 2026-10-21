@@ -50,7 +50,7 @@ test('S7-a ledger schema: prechecks, apply, owner-only access, fixed lists, ids,
 
   await t.test('files: read-only checks, summary 3 lines, SQL Editor only, no definer/anon/rtw',()=>{
    for(const sql of [precheck,postcheck,snapshot])assert.equal(checkSQL(sql).baselineNull,false);
-   assert.throws(()=>prepareMigration({mode:'apply',version,runId:'1',root}),/DB plan rejected/);
+   assert.equal(prepareMigration({mode:'apply',version,runId:'1',root}).rules,'expanded'); // DB-승인형확장
    const lines=summary.trim().split('\n');
    assert.equal(lines.length,3);['무엇이 바뀌나:','잘못되면:','되돌리는 법:'].forEach((p,i)=>assert.ok(lines[i].startsWith(p)));
    const code=migration.replace(/--.*$/gm,'');
