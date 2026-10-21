@@ -17,7 +17,11 @@
 - CC가 PR의 변경 파일·diff·CI를 직접 검토하고 **문제 없으면 사용자에게 묻지 않고 merge**한다.
 - `.github/` 변경은 CC가 diff를 직접 본다(권한·비밀값·트리거·필수 검사 삭제 여부). 필수 검사(`publication-gate`·`dropzone`·`browser-e2e`)를 지우거나 우회하는 변경은 merge하지 않는다.
 - 같은 시험이 다른 실행에서 두 번 흔들리면 재실행하지 않고 안정화 과제로 고친다.
-- **사용자가 꼭 해야 하는 것**(CC가 대신 할 수 없음, 단계별 일상어 안내): production DB 적용(SQL Editor: 사전 확인·상태 저장·적용·사후 확인·되돌리기 파일), Edge 배포(`edge-function-deploy` 승인), 비밀값 등록, GitHub 설정, 릴리스·태그 승인, 사용자 PC에서의 시험.
+- **CC가 시작하고 사용자는 승인만**(2026-10-21 사용자 결정): CC 세션은 workflow를 시작할 수 있고(`workflow_dispatch`), 승인(environment reviewer)은 할 수 없다. 그래서
+  - Edge 배포: CC가 `edge-function-deploy`를 정확한 function·ref·옵션으로 시작 → 사용자는 GitHub 알림에서 [Approve] 한 번 → CC가 결과(버전·401·OPTIONS)를 확인하고 되돌리기 ref를 기록.
+  - basket-pc 릴리스: CC가 태그를 만들어 시작 → 사용자 승인 한 번.
+  - DB 적용: 승인형 DB workflow로 옮기는 중(DB-승인형확장). 그 전까지는 SQL Editor(사전 확인·상태 저장·적용·사후 확인·되돌리기 파일)로 사용자가 실행.
+- **사용자가 꼭 해야 하는 것**(CC가 대신 할 수 없음, 단계별 일상어 안내): 위 승인 버튼, 비밀값 값 입력(Supabase·GitHub), GitHub 설정, 사용자 PC에서의 시험.
 - 인증 우회·RLS 약화·권한 확대는 해결책으로 쓰지 않는다.
 
 ## 3. 요청함
