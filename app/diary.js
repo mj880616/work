@@ -20,10 +20,11 @@ const shortDay = day => formatSeoulTime(day, {month:'long', day:'numeric'});
 root.innerHTML = `<div class="diary-head"><div class="diary-month"><button type="button" class="mini" data-diary-prev aria-label="이전 달">‹</button><b data-diary-title aria-live="polite"></b><button type="button" class="mini" data-diary-next aria-label="다음 달">›</button><button type="button" class="mini" data-diary-today>오늘</button></div><button type="button" id="newDiaryBtn" class="primary" data-diary-new aria-label="일기 쓰기">+ 일기</button></div>
 <p class="diary-status" data-diary-status role="status"></p><button type="button" class="secondary" data-diary-retry hidden>다시 시도</button>
 <div class="diary-cal" data-diary-cal><div class="diary-week-head" aria-hidden="true">${['일','월','화','수','목','금','토'].map((d, i) => `<span${i === 0 ? ' class="sunday"' : i === 6 ? ' class="saturday"' : ''}>${d}</span>`).join('')}</div><div class="diary-days" data-diary-days></div></div>
+<section class="diary-list" data-diary-list hidden aria-label="이 달 일기 목록"></section>
 <section class="diary-detail" data-diary-detail hidden aria-labelledby="diaryDetailTitle"></section>
 <section class="diary-editor" data-diary-editor hidden aria-labelledby="diaryEditorTitle"></section>`;
 const $ = selector => root.querySelector(selector);
-const cal = $('[data-diary-cal]'), days = $('[data-diary-days]'), detail = $('[data-diary-detail]'), editor = $('[data-diary-editor]'), status = $('[data-diary-status]');
+const cal = $('[data-diary-cal]'), days = $('[data-diary-days]'), detail = $('[data-diary-detail]'), list = $('[data-diary-list]'), editor = $('[data-diary-editor]'), status = $('[data-diary-status]');
 
 let cursor = seoulParts(new Date()), rows = new Map(), loadedMonth = '', epoch = 0, owner = ownerScope(rt);
 let selected = null, source = 'all', dayLayer = null;
@@ -51,6 +52,24 @@ function renderMonth() {
     cells.push(cell);
   }
   days.replaceChildren(...cells);
+  renderList();
+}
+// Month list under the calendar: date + first line, newest first. A chosen day replaces it (the detail takes the same spot).
+function firstLine(row) {
+  const line = diaryText(row).split('\n').map(part => part.trim()).find(Boolean);
+  if (line) return line;
+  const n = diaryPhotos(row).length; return n ? `사진 ${n}장` : '';
+}
+function renderList() {
+  const days = [...rows.keys()].filter(day => monthOf(day) === monthKey() && rows.get(day)).sort().reverse();
+  list.hidden = !!selected || !!edit || !days.length;
+  list.replaceChildren(...days.map(day => {
+    const row = rows.get(day), item = document.createElement('button');
+    item.type = 'button'; item.className = 'diary-list-item'; item.dataset.diaryListDay = day;
+    const date = document.createElement('b'), line = document.createElement('span');
+    date.textContent = shortDay(day); line.textContent = firstLine(row);
+    item.append(date, line); return item;
+  }));
 }
 async function loadMonth({force = false} = {}) {
   if (!force && loadedMonth === monthKey()) return renderMonth();
@@ -95,11 +114,12 @@ function closeDetail({fromBack = false} = {}) {
   selected = null; detail.hidden = true; detail.replaceChildren();
   days.querySelectorAll('[aria-pressed="true"]').forEach(cell => cell.setAttribute('aria-pressed', 'false'));
   const opened = dayLayer; dayLayer = null; if (!fromBack) opened?.close();
+  renderList();
 }
 function renderDetail() {
   if (!selected) return;
   const row = rows.get(selected), photos = diaryPhotos(row), text = diaryText(row);
-  detail.hidden = false;
+  detail.hidden = false; list.hidden = true;
   detail.innerHTML = `<div class="diary-panel-head"><h3 id="diaryDetailTitle" tabindex="-1">${esc(longDay(selected))}</h3><button type="button" class="icon-btn" data-diary-detail-close aria-label="날짜 닫기">×</button></div>${row ? `<div class="diary-source" role="group" aria-label="사진 보기"><button type="button" data-diary-source="all" aria-pressed="${source === 'all'}">전체</button><button type="button" data-diary-source="star" aria-pressed="${source === 'star'}">별표</button></div><div data-diary-photos></div>${text ? `<div class="diary-text" data-diary-text-view>${esc(text)}</div>` : ''}<div class="diary-actions"><button type="button" class="secondary" data-diary-edit>수정</button><button type="button" class="secondary diary-danger" data-diary-delete>일기 지우기</button></div>` : `<p class="diary-muted">이 날 일기가 없어요.</p>`}`;
   const host = detail.querySelector('[data-diary-photos]');
   if (!host) return;
@@ -184,7 +204,7 @@ async function openEditor(day) {
     try { row = await readDiaryDay(day, rt); } catch { row = null; }
   }
   edit = {day, row, pending:[], busy:false, startText:diaryText(row), comments:photoComments(row), startComments:photoComments(row)};
-  cal.hidden = true; detail.hidden = true; $('[data-diary-new]').hidden = true; $('.diary-head').hidden = true; status.hidden = true;
+  cal.hidden = true; detail.hidden = true; list.hidden = true; $('[data-diary-new]').hidden = true; $('.diary-head').hidden = true; status.hidden = true;
   renderEditor();
   editLayer ||= window.KPTURouter?.layer?.open('diary-edit', {close:() => closeEditor({fromBack:true})}) || null;
   requestAnimationFrame(() => editor.querySelector('h3')?.focus());
@@ -236,7 +256,7 @@ function closeEditor({fromBack = false, force = false} = {}) {
   if (edit.busy) return false;
   if (!force && dirty() && !window.confirm('쓰던 일기를 저장하지 않고 닫을까요?')) return false;
   releasePending(); edit = null; editor.hidden = true; editor.replaceChildren();
-  cal.hidden = false; $('[data-diary-new]').hidden = false; $('.diary-head').hidden = false; status.hidden = false;
+  cal.hidden = false; renderList(); $('[data-diary-new]').hidden = false; $('.diary-head').hidden = false; status.hidden = false;
   const opened = editLayer; editLayer = null; if (!fromBack) opened?.close();
   if (selected) renderDetail();
   return true;
@@ -359,6 +379,7 @@ root.addEventListener('click', event => {
   const button = event.target.closest('button');
   if (!button || !root.contains(button) || button.disabled) return;
   if (button.matches('[data-diary-day]')) return selected === button.dataset.diaryDay ? closeDetail() : selectDay(button.dataset.diaryDay);
+  if (button.matches('[data-diary-list-day]')) return selectDay(button.dataset.diaryListDay, {focus:true});
   if (button.matches('[data-diary-prev]')) return moveMonth(-1);
   if (button.matches('[data-diary-next]')) return moveMonth(1);
   if (button.matches('[data-diary-today]')) return goToday();
