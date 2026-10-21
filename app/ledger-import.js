@@ -5,6 +5,7 @@
 // 원장 표(20261021082000)가 없으면 "원장 표 준비 전", 가져오기 함수(20261021150000)가 없으면 "가져오기 기능 준비 전"만 보인다.
 // 원장 후보 확정(#ledgerCandidatesRoot, ledger-candidates.js)과 목록·검색(#ledgerBrowseRoot, ledger-browse.js)은 S7-c 모듈이 각자 그린다.
 import {readInputFiles, analyze, numberCheck, TABS} from './ledger-import-model.mjs';
+import {candidateFilePayload} from './ledger-candidate-model.mjs';
 
 const rt = window.KPTURuntime;
 const ZERO = '00000000-0000-0000-0000-000000000000';
@@ -20,7 +21,10 @@ const ERRORS = [
   [/LEDGER_IMPORT_MODIFIED/, '가져온 뒤 고친 행이 있어 되돌릴 수 없습니다(고친 내용은 감사 기록에 있습니다).'],
   [/LEDGER_IMPORT_REVERT_BLOCKED/, '다른 행(손으로 붙인 연결·후보 등)이 이 묶음의 행을 가리켜 되돌릴 수 없습니다.'],
   [/LEDGER_IMPORT_NOT_OPEN/, '확인 전(적용) 묶음만 확인·되돌리기를 할 수 있습니다.'],
-  [/LEDGER_IMPORT_CANDIDATES_LATER/, '후보 묶음은 다음 단계(원장 후보 화면)에서 확정합니다.'],
+  [/LEDGER_IMPORT_CANDIDATES_LATER/, '후보 묶음은 [후보로 넣기]로 넣고 원장 후보 칸에서 확정합니다.'],
+  [/LEDGER_QUEUE_BROKEN_REF:?\s*(.*)/, '원장에 없는 대상 기록을 가리키는 후보가 있어 묶음 전체를 넣지 않았습니다.'],
+  [/LEDGER_QUEUE_BAD_CANDIDATE|LEDGER_QUEUE_BAD_FILE/, '후보 파일의 모양이 맞지 않아 넣지 않았습니다.'],
+  [/LEDGER_QUEUE_NOT_OWNER/, '이 작업공간의 소유자만 후보를 넣을 수 있습니다.'],
   [/LEDGER_IMPORT_NOT_OWNER|42501|permission denied/i, '이 작업공간의 소유자만 가져올 수 있습니다.']
 ];
 
@@ -28,7 +32,7 @@ let state = freshState();
 let bound = false;
 function freshState() {
   return {phase: 'loading', ctx: null, imports: [], input: null, result: null, overrides: {}, label: '', mappingOk: false, mappingOpen: null,
-    dry: null, dryKey: '', busy: '', message: '', error: '', check: null, readError: ''};
+    dry: null, dryKey: '', busy: '', message: '', error: '', check: null, readError: '', queueReady: false, cand: null, candDry: null, candDryKey: ''};
 }
 const workspaceId = () => rt?.context?.read?.()?.workspace?.id || null;
 
@@ -54,6 +58,11 @@ async function probe() {
   try { await rt.api('/rest/v1/rpc/app_import_ledger_counts', {method: 'POST', body: {p_import_id: ZERO}, singleFlight: false}); }
   catch (e) { return e?.status === 404 ? 'no-functions' : 'error'; }
   return 'ready';
+}
+// S7-c 후보 묶음 넣기 함수(20261021190000)가 있는지: 남의(없는) 작업공간으로 부르면 넣기 전에 소유자 아님으로 거절된다.
+async function probeQueue() {
+  try { await rt.api('/rest/v1/rpc/app_queue_ledger_candidates', {method: 'POST', body: {p_workspace_id: ZERO, p_file: {}, p_dry_run: true}, singleFlight: false}); return true; }
+  catch (e) { return e?.status !== 404 && /LEDGER_QUEUE_NOT_OWNER/.test(String(e?.message || '')); }
 }
 async function fetchAll(path) {
   const rows = [];
@@ -96,7 +105,7 @@ async function loadOnce() {
   if (state.phase !== 'ready') { state.phase = 'loading'; render(); }
   const status = await probe();
   if (status !== 'ready') { state.phase = status; render(); return; }
-  try { await loadContext(); state.phase = 'ready'; }
+  try { await loadContext(); state.phase = 'ready'; state.queueReady = await probeQueue(); }
   catch { state.phase = 'error'; }
   if (state.input) reanalyze();
   render();
@@ -107,6 +116,36 @@ function reanalyze() {
   if (!state.input) { state.result = null; state.dry = null; state.dryKey = ''; return; }
   state.result = analyze(state.input, state.ctx || {}, state.overrides, state.label);
   if (payloadKey() !== state.dryKey) { state.dry = null; state.dryKey = ''; }
+  // S7-c: Claude 후보 파일은 검사한 후보만(S3·개인정보 모양 제외) 묶음으로 만든다.
+  state.cand = state.result.kind === 'candidates' ? candidateFilePayload(state.input.data, state.input.sha256) : null;
+  if (state.cand?.payload) state.cand.payload.label = state.label.trim().slice(0, 80) || state.cand.payload.label;
+  if (candKey() !== state.candDryKey) { state.candDry = null; state.candDryKey = ''; }
+}
+const candKey = () => state.cand?.payload ? JSON.stringify(state.cand.payload) : '';
+const candOk = () => state.phase === 'ready' && state.queueReady && !state.busy && !!state.cand?.payload && !state.cand.invalid.length && !!state.cand.payload.label;
+async function callQueue(dry) {
+  return rt.api('/rest/v1/rpc/app_queue_ledger_candidates', {method: 'POST', body: {p_workspace_id: workspaceId(), p_file: state.cand.payload, p_dry_run: dry}, singleFlight: false, timeoutMs: 120000});
+}
+async function candDryRun() {
+  if (!candOk()) return;
+  state.busy = 'cand-dry'; state.error = ''; state.message = ''; render();
+  try { state.candDry = await callQueue(true); state.candDryKey = candKey(); state.message = '해 보기를 마쳤습니다. DB에는 아무것도 남지 않았습니다.'; }
+  catch (e) { state.candDry = null; state.candDryKey = ''; state.error = friendly(e); }
+  state.busy = ''; render();
+}
+async function candApply() {
+  if (!candOk() || !state.candDry || state.candDryKey !== candKey()) return;
+  if (!window.confirm('검사한 후보를 원장 후보(대기)로 넣을까요? 원장에는 아래 원장 후보 칸에서 [확정]한 것만 들어갑니다.')) return;
+  state.busy = 'cand-apply'; state.error = ''; state.message = ''; render();
+  try {
+    const done = await callQueue(false);
+    state.message = `후보 ${done?.added ?? 0}건을 넣었습니다${done?.skipped ? `(이미 대기 중인 같은 후보 ${done.skipped}건은 건너뜀)` : ''}. 원장 후보 칸에서 확정하세요.`;
+    state.input = null; state.result = null; state.cand = null; state.candDry = null; state.candDryKey = ''; state.label = '';
+    const file = document.querySelector('#lgFile'); if (file) file.value = '';
+    await loadContext().catch(() => {});
+    try { window.dispatchEvent(new CustomEvent('kptu:ledger-changed', {detail: {from: 'import'}})); } catch {}
+  } catch (e) { state.error = friendly(e); }
+  state.busy = ''; render();
 }
 const payloadKey = () => state.result?.payload ? JSON.stringify({...state.result.payload, label: ''}) : '';
 const needsMappingCheck = () => !!state.result && Object.keys(state.result.mapping || {}).length > 0;
@@ -229,9 +268,19 @@ function shellHtml() {
 
 function resultHtml(r) {
   if (r.kind === 'candidates') {
-    const c = r.candidates || {total: 0, kinds: {}, invalid: 0, excluded: 0};
-    return `<div class="lg-result" data-lg-result="candidates"><h4>후보 묶음</h4><p>후보 ${c.total}건(${Object.entries(c.kinds).map(([k, n]) => `${KIND_LABEL[k] || k} ${n}`).join(', ') || '없음'}${c.excluded ? `, 민감 S3 ${c.excluded}건은 넣지 않음` : ''}).</p>
-      <p class="lg-note">후보 확정 화면은 다음 단계(원장 후보)에서 열립니다. 이 화면에서는 모양만 확인하고 넣지 않습니다.</p>${issuesHtml(r)}</div>`;
+    const c = state.cand || {total: 0, kinds: {}, invalid: [], excluded: 0, personal: 0};
+    const dry = state.candDry && state.candDryKey === candKey() ? state.candDry : null;
+    const kept = Object.values(c.kinds).reduce((a, b) => a + b, 0);
+    const busyLabel = {'cand-dry': '해 보는 중…', 'cand-apply': '넣는 중…'}[state.busy];
+    return `<div class="lg-result" data-lg-result="candidates"><h4>후보 묶음 <span class="lg-pill ${c.invalid.length ? 'is-bad' : 'is-ok'}" data-lg-verdict="${c.invalid.length ? 'rejected' : 'ok'}">${c.invalid.length ? `거부 ${c.invalid.length}건 — 파일을 고친 뒤 다시 올리세요` : `넣을 후보 ${kept}건`}</span></h4>
+      <p>파일의 후보 ${c.total}건(${Object.entries(c.kinds).map(([k, n]) => `${KIND_LABEL[k] || k} ${n}`).join(', ') || '없음'})${c.excluded ? `, 민감 S3 ${c.excluded}건` : ''}${c.personal ? `, 개인정보 모양 ${c.personal}건` : ''}${c.excluded || c.personal ? '은 넣지 않음' : ''}.</p>
+      ${c.invalid.length ? `<ul class="lg-list lg-issues-error" data-lg-cand-invalid>${c.invalid.slice(0, 10).map(i => `<li>${i.index >= 0 ? `${i.index + 1}번째 후보: ` : ''}${esc(i.reason)}</li>`).join('')}</ul>` : ''}
+      ${!state.queueReady ? '<p class="lg-note" data-lg-cand-later>후보 넣기 기능이 아직 DB에 없습니다. 기능이 적용되면 여기서 넣을 수 있습니다.</p>' : `<div class="lg-actions">
+        <button type="button" class="secondary" data-lg-action="cand-dry" ${candOk() ? '' : 'disabled'}>해 보기</button>
+        <button type="button" class="primary" data-lg-action="cand-apply" ${candOk() && dry ? '' : 'disabled'}>후보로 넣기</button>
+        ${busyLabel ? `<span class="lg-note" role="status">${busyLabel}</span>` : ''}</div>
+        ${dry ? `<p class="lg-note" data-lg-cand-dry>해 보기 결과(DB에 남지 않음): 넣을 후보 ${dry.added}건${dry.skipped ? `, 이미 대기 중인 같은 후보 ${dry.skipped}건 건너뜀` : ''}.</p>` : '<p class="lg-note">[후보로 넣기]는 [해 보기]를 마친 뒤에 누를 수 있습니다. 원장에는 후보 칸에서 [확정]한 것만 들어갑니다.</p>'}`}
+</div>`;
   }
   const tabs = r.tabs;
   return `<div class="lg-result" data-lg-result="sheet">
@@ -347,6 +396,8 @@ function bind() {
     else if (action === 'apply') void applyNow();
     else if (action === 'check') void showCheck(id);
     else if (action === 'confirm' || action === 'revert') void decide(id, action);
+    else if (action === 'cand-dry') void candDryRun();
+    else if (action === 'cand-apply') void candApply();
   });
   // 대응표를 펼치고 접은 것은 다시 그려도 유지한다(toggle은 거품이 없어 capture로 받는다).
   document.addEventListener('toggle', e => { if (e.target?.matches?.('#ledgerRoot details[data-lg-mapping]')) state.mappingOpen = e.target.open; }, true);

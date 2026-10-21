@@ -72,7 +72,7 @@ declare
 begin
   select * into c from public.app_ledger_candidates where id = p_candidate_id for update;
   if not found then
-    raise exception using errcode = 'P0002', message = 'LEDGER_CANDIDATE_NOT_FOUND';
+    raise exception using errcode = 'P0001', message = 'LEDGER_CANDIDATE_NOT_FOUND';
   end if;
   if c.status <> 'pending' then
     raise exception using errcode = '55000', message = 'LEDGER_CANDIDATE_DECIDED: this candidate was already confirmed or discarded';
