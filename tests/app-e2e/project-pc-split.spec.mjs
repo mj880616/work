@@ -100,7 +100,7 @@ test('PC 1280: the right pane keeps the detail actions — ⋯ (complete, edit, 
  const {state,errors}=await fixture(page);
  await clickView(page,'projects');await expect(title(page)).toHaveText('합성 정책 사업');
  const more=page.locator('#ps3Menu details.ps3-more');await more.locator('summary').click();await expect(more).toHaveAttribute('open','');
- expect(await more.locator('.ps3-more-panel button').allTextContents()).toEqual(['완료','수정','보관','삭제']);
+ expect(await more.locator('.ps3-more-panel button').allTextContents()).toEqual(['위로','아래로','완료','수정','보관','삭제']);
  await more.locator('[data-ps3-toggle-done]').click();await expect.poll(()=>state.patches.map(p=>p.body.status)).toEqual(['done']);
  await expect(more.locator('[data-ps3-toggle-done]')).toHaveText('완료 취소');await expect(page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]')).toHaveAttribute('aria-current','true');
  await more.locator('summary').click();await expect(more).toHaveAttribute('open','');

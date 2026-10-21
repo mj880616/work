@@ -515,7 +515,7 @@ async function reorderProject(id,to,{menu=''}={}){
  if(epoch!==projectEpoch)return;
  await renderGrid();if(epoch!==projectEpoch)return;
  // The ⋯ menu shows the new place (위로 off at the top, 아래로 at the bottom) and stays open for the next step.
- if(current){const now=projects.find(x=>x.id===current.id)||current,box=$('#ps3Menu');if(box&&canManage(now)){const open=!!menu&&!!box.querySelector('details.ps3-more[open]');box.innerHTML=moreMenu(now);if(open){const d=box.querySelector('details.ps3-more');d.open=true;const b=d.querySelector(`[data-ps3-move-project="${menu}"]:not([disabled])`)||d.querySelector('[data-ps3-move-project]:not([disabled])');b?.focus()}}}
+ if(current){const now=projects.find(x=>x.id===current.id)||current,box=$('#ps3Menu');if(box&&canManage(now)){const open=!!menu;box.innerHTML=moreMenu(now);if(open){const d=box.querySelector('details.ps3-more');d.open=true;const b=d.querySelector(`[data-ps3-move-project="${menu}"]:not([disabled])`)||d.querySelector('[data-ps3-move-project]:not([disabled])');b?.focus()}}}
  if(saved)toast('순서를 바꿨어요.')
 }
 function clearDropMarks(){document.querySelectorAll('#projectGrid .ps3-plist .ps3-drop-before,#projectGrid .ps3-plist .ps3-drop-after,#projectGrid .ps3-plist .ps3-dragging').forEach(x=>x.classList.remove('ps3-drop-before','ps3-drop-after','ps3-dragging'))}

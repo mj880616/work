@@ -1,4 +1,5 @@
 import * as projectRules from '../../app/project-catalog-model.mjs';
+import * as orderRules from '../../app/project-order.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -436,7 +437,7 @@ test('basket reuses the catalog tree, excluding completed and archived projects;
  const h=harness({data:{app_spaces:spaces}});await h.request({Authorization:'Bearer valid-owner'});
  const html=h.uploads[1].body,section=html.split('<h2>바구니</h2>')[1];
  assert.doesNotMatch(section,/ARCHIVED_|HIDDEN_|DONE_PROJECT|COMPLETED_PROJECT/);assert.match(html.split('<h2>바구니</h2>')[0],/ARCHIVED_PARENT/);
- const context={...projectRules,window:{addEventListener(){}}};vm.runInNewContext(readFileSync(new URL('../../app/project-catalog.js',import.meta.url),'utf8').replace(/^import .*\n/,''),context);
+ const context={...projectRules,...orderRules,window:{addEventListener(){}}};vm.runInNewContext(readFileSync(new URL('../../app/project-catalog.js',import.meta.url),'utf8').replace(/^import .*\n/gm,''),context);
  const expected=context.window.KPTUProjectCatalog.tree(spaces).map(row=>row.project.id);
  const catalog=Array.from(section.matchAll(/<p>project · ([^·]+) · /g),m=>m[1].trim());assert.deepEqual(catalog,expected.filter(id=>!['done','complete'].includes(id)));assert.match(section,/가상 프로젝트 › 가상 하위 프로젝트/);assert.ok(expected.includes('p'));assert.ok(expected.includes('child'));assert.match(html.split('<h2>바구니</h2>')[0],/가상 프로젝트|가상 하위 프로젝트/);
 });
@@ -542,8 +543,8 @@ test('Drive completes every owner assignment page before selecting guidance orga
 test('browser catalog and Drive guidance list the same six synthetic destinations and preserve assignment fallback',async()=>{
  const synthetic=JSON.parse(readFileSync(new URL('../fixtures/basket-project-destinations.json',import.meta.url),'utf8'));
  const {buildHandoff,selectBasketOrganizations}=await import('../../app/basket-ai-handoff.js');
- const context={...projectRules,window:{addEventListener(){},dispatchEvent(){}},CustomEvent:class {}};
- vm.runInNewContext(readFileSync(new URL('../../app/project-catalog.js',import.meta.url),'utf8').replace(/^import .*\n/,''),context);
+ const context={...projectRules,...orderRules,window:{addEventListener(){},dispatchEvent(){}},CustomEvent:class {}};
+ vm.runInNewContext(readFileSync(new URL('../../app/project-catalog.js',import.meta.url),'utf8').replace(/^import .*\n/gm,''),context);
  const catalog=context.window.KPTUProjectCatalog;
  const snapshot=catalog.publish({workspaceId:'synthetic-workspace',userId:'synthetic-owner',spaces:synthetic.spaces});
  const destinations=catalog.basketProjects(snapshot.projects);

@@ -1,13 +1,13 @@
 // PRJ-순서바꾸기: the one project order (docs/design/project-3-levels.md 6절). app_spaces.sort_order (lower first, empty last,
-// as the read's sort_order.asc), then created_at, then id. project-catalog.js sorts its rows with it once, so every list built
+// as the read's sort_order.asc), then created_at, then the order the rows came in (a stable sort). project-catalog.js sorts its rows with it once, so every list built
 // from the catalog (tops, kids, tree, options, basketProjects) — the project screen, 기록할 곳, 할 일 연결, 업무일지, 주간 정리 —
 // shows siblings in the same order. Kept apart from project-catalog-model.mjs, whose copy the drive-summary Edge Function ships.
 const rank=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?Infinity:Number(v);
 export function compareOrder(a,b){
   const x=rank(a?.sort_order),y=rank(b?.sort_order);
   if(x!==y)return x<y?-1:1;
-  const c=String(a?.created_at||'').localeCompare(String(b?.created_at||''));
-  return c||String(a?.id||'').localeCompare(String(b?.id||''));
+  const p=String(a?.created_at||''),q=String(b?.created_at||'');
+  return p===q?0:p<q?-1:1;
 }
 export const ordered=rows=>[...(Array.isArray(rows)?rows:[])].sort(compareOrder);
 // The active projects beside p under the same parent (p included), in the shared order. A project whose parent is not among
