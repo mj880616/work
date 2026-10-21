@@ -4,6 +4,7 @@
 // 2) applyPatch: AI(또는 사람)가 낸 "고칠 목록"을 바탕에 적용. 목록은 줄 단위 add/replace/remove만, 내 줄만, 바꿀 줄 원문이 정확히
 //    있어야 함. 맞지 않는 항목은 적용하지 않고 rejected로 돌려준다(사람이 확인). 바뀐/더한 줄은 changed 표시(파란 글씨).
 // 3) diffRows: 두 판의 내 줄을 줄 단위로 비교(같음/더함/뺌) — 비교 메모와 "지난주에 고친 문구를 또 고치지 않기" 검사에 씀.
+// 4) personalReportFromTeam: 상집보고 전체 구조(W3 확대)의 개인본 바탕 — 요약 표 내 줄, 내 담당 조직 줄, 요청 표는 직전 주 그대로 + "이번 주 확인 필요".
 import {lineText, isChanged} from './report.mjs';
 
 const key = (area, row) => `${area.join('')}›${(row.task ?? []).join('')}`;
@@ -38,6 +39,93 @@ export function personalFromTeam(teamSummary, me) {
       };
     }),
   }));
+}
+
+// 상집보고 전체 구조의 개인본 바탕(다음 주 초안의 출발점).
+// - 요약 표: personalFromTeam(내 줄만, 틀 그대로)
+// - 1. 요청사항 표: 재료(임원 일정 배정·논의 요청 기록)가 아직 없으므로 직전 주 확정본 그대로 두고 확인 필요 표시 줄을 단다.
+// - 4. 산하조직 현황: 내 담당 조직(myOrgs) 줄만, 확정본 순서대로. 글은 확정본 그대로(지난주 소식이 바탕, 바뀐 것만 고침).
+// - 3. 투쟁 사업장 현황: 내 담당 조직이면 남김. 집회·농성 표, 2) 세부 내용(회의 결과 상자), 5. 주요 일정은 매주 새로 쓰므로 비움.
+export const REQUEST_CHECK_NOTE = '※ 직전 주 확정본 그대로임 — 이번 주 확인 필요';
+const sameName = (a, b) => norm(a) === norm(b);
+export const isMyOrg = (org, myOrgs) => myOrgs.some(name => sameName(name, [].concat(org).join('')));
+export function personalReportFromTeam(team, me, {myOrgs = [], title = '', date = ''} = {}) {
+  return {
+    title, date,
+    requests: structuredClone(team.requests ?? []),
+    requestNote: (team.requests ?? []).length ? REQUEST_CHECK_NOTE : undefined,
+    schedule: [],
+    summary: personalFromTeam(team.summary ?? [], me),
+    details: [],
+    rallies: [],
+    sites: (team.sites ?? []).filter(r => isMyOrg(r.org, myOrgs)).map(r => ({org: [...r.org], status: r.status.map(lineText)})),
+    orgs: (team.orgs ?? []).filter(r => isMyOrg(r.org, myOrgs)).map(r => ({org: [...r.org], status: r.status.map(lineText)})),
+    orgNotes: [],
+    calendar: [],
+    calendarNotes: [],
+  };
+}
+
+// 조직 줄 고치기: {section:'orgs'|'sites', org:'조직 A'} — 내 담당 조직 줄만.
+function applyOrgItem(report, item, myOrgs) {
+  const list = report[item.at.section];
+  const row = (list ?? []).find(r => sameName(r.org.join(''), item.at.org ?? ''));
+  if (!row) return '그런 조직 줄이 없음';
+  if (!isMyOrg(row.org, myOrgs)) return '내 담당 조직이 아님';
+  return applyLineOp(row.status, item);
+}
+function applyLineOp(lines, item) {
+  const index = item.old === undefined ? -1 : lines.findIndex(l => lineText(l) === item.old);
+  if (item.op === 'add') {
+    if (typeof item.text !== 'string' || !item.text.trim()) return '더할 글이 비어 있음';
+    const after = item.after === undefined ? lines.length - 1 : lines.findIndex(l => lineText(l) === item.after);
+    if (item.after !== undefined && after < 0) return '뒤에 붙일 줄을 찾지 못함';
+    lines.splice(after + 1, 0, {text: item.text, changed: true});
+  } else if (item.op === 'replace') {
+    if (index < 0) return '바꿀 줄 원문이 바탕에 없음';
+    if (isChanged(lines[index])) return '이번 주에 이미 고친 줄';
+    lines[index] = {text: item.text, changed: true};
+  } else if (item.op === 'remove') {
+    if (index < 0) return '뺄 줄 원문이 바탕에 없음';
+    lines.splice(index, 1);
+  } else return '알 수 없는 op';
+  return null;
+}
+
+// 전체 구조 고칠 목록. 요약 표 항목은 applyPatch와 같고, 아래가 더해진다.
+//   {op, at:{section:'orgs'|'sites', org}, old?, text?, after?}  — 내 담당 조직 줄
+//   {op:'add', at:{section:'calendar'}, day, what, who:[]}        — 이번 주 일정(새로 쓰는 표)
+//   {op:'add', at:{section:'details'}, heading, box:[{label, lines}]} — 회의 결과 상자
+//   {op:'add', at:{section:'rallies'}, when:[], name:[], attend:[]}
+// 요청 표는 사람이 정하는 칸(참석 요청 대상)이라 고칠 목록으로 바꾸지 않는다.
+export function applyReportPatch(report, patch, me, {myOrgs = []} = {}) {
+  const out = structuredClone(report);
+  const summaryItems = [];
+  const applied = [];
+  const rejected = [];
+  for (const item of patch) {
+    const section = item.at?.section ?? 'summary';
+    if (section === 'summary') { summaryItems.push(item); continue; }
+    let reason = null;
+    if (section === 'orgs' || section === 'sites') reason = applyOrgItem(out, item, myOrgs);
+    else if (item.op !== 'add') reason = '이 칸은 더하기만 받음';
+    else if (section === 'calendar') {
+      if (!item.day || !item.what) reason = '날짜·내용이 비어 있음';
+      else {
+        const day = out.calendar.find(d => d.day === item.day) ?? (out.calendar.push({day: item.day, items: []}), out.calendar[out.calendar.length - 1]);
+        day.items.push({what: {text: item.what, changed: true}, who: (item.who ?? []).map(text => ({text, changed: true}))});
+      }
+    } else if (section === 'details') {
+      if (!item.heading || !(item.box ?? []).length) reason = '제목·상자가 비어 있음';
+      else out.details.push({heading: item.heading, box: item.box.map(b => ({label: b.label, lines: (b.lines ?? []).map(text => ({text, changed: true}))}))});
+    } else if (section === 'rallies') {
+      out.rallies.push({when: item.when ?? [], name: item.name ?? [], attend: item.attend ?? []});
+    } else reason = '알 수 없는 칸';
+    if (reason) rejected.push({item, reason}); else applied.push(item);
+  }
+  const s = applyPatch(out.summary, summaryItems, me);
+  out.summary = s.summary;
+  return {report: out, applied: [...applied, ...s.applied], rejected: [...rejected, ...s.rejected]};
 }
 
 // 줄 위치: {area:'사업영역 A', task:'세부 과제 A-1', nth?:0} — 같은 세부 과제가 여러 줄(세로 병합)이면 nth로 고른다.

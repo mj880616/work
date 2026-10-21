@@ -7,10 +7,20 @@ import {readXml, setXml, setText, removePart, clonePkg, headerStyles} from './hw
 // 표 머리 칸 이름(양식 글자). 이 밖의 글자는 빈 서식에 남으면 안 된다.
 export const REQUEST_HEAD = Object.freeze(['일', '시간/내용/장소', '참석 요청']);
 export const SUMMARY_HEAD = Object.freeze(['사업영역', '세부 과제', '진행 상황 및 이후 계획', '담당 팀원']);
-export const FORM_LABELS = Object.freeze([...REQUEST_HEAD, ...SUMMARY_HEAD]);
-// 빈 서식 본문 견본 순서(문단 스타일 이름). 표 둘은 '작은 제목' 문단 안에 있다.
-export const PROTO_ORDER = Object.freeze(['title', 'body', 'big', 'small', 'requestTable', 'summaryTable']);
-export const STYLE_OF = Object.freeze({title: '안건제목', body: '바탕글', big: '큰 제목', small: '작은 제목', cell: '표내부'});
+// 조직보고 이후 절(상집보고 전체 구조, W3 확대): 3. 투쟁 사업 1)·2), 4. 산하조직 현황 1), 5. 주요 일정
+export const RALLY_HEAD = Object.freeze(['일시/장소', '집회/행사명', '참석현황']);
+export const SITE_HEAD = Object.freeze(['조직명', '현황']);
+export const ORG_HEAD = Object.freeze(['사업장', '조직현황']);
+export const SCHEDULE_HEAD = Object.freeze(['일', '시간/내용/장소', '참석자']);
+export const HEADED_TABLES = Object.freeze({requestTable: REQUEST_HEAD, summaryTable: SUMMARY_HEAD, rallyTable: RALLY_HEAD, siteTable: SITE_HEAD, orgTable: ORG_HEAD, scheduleTable: SCHEDULE_HEAD});
+export const FORM_LABELS = Object.freeze([...new Set(Object.values(HEADED_TABLES).flat())]);
+// 회의 결과 상자(2열: 왼쪽 칸 이름 | 내용)의 왼쪽 칸 이름. 같은 문서 안에서 세 가지 묶음이 섞여 쓰인다(기획 문서 1.2절).
+// 상자 견본은 칸 이름을 지운 채 빈 서식에 넣고, 칸 이름은 보고 자료가 준다.
+export const BOX_LABELS = Object.freeze(['제목', '회의제목', '일시/장소', '참석자', '회의 내용', '내용', '차기일정', '보고', '논의결과', '*차기회의']);
+// 빈 서식 본문 견본 순서. 앞 6개는 문단 견본, 뒤 7개는 표 견본(각각 원본에서 표를 담고 있던 문단 속성을 따른다).
+export const PROTO_ORDER = Object.freeze(['title', 'body', 'big', 'mid', 'small', 'note',
+  'requestTable', 'summaryTable', 'boxTable', 'rallyTable', 'siteTable', 'orgTable', 'scheduleTable']);
+export const STYLE_OF = Object.freeze({title: '안건제목', body: '바탕글', big: '큰 제목', mid: '중간 제목', small: '작은 제목', note: '표내부', cell: '표내부'});
 
 // 68바이트 흰 PNG(1×1). 미리보기 그림에 원본 첫 쪽 모습이 남지 않게 바꿔 넣는다.
 const BLANK_PNG = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGP4DwQACfsD/bwXO7YAAAAASUVORK5CYII='), c => c.charCodeAt(0));
@@ -71,9 +81,22 @@ function protoTable(tbl) {
   return out;
 }
 
-function anchorWith(p, tbl) {
-  const run = kids(p, 'hp:run').find(r => r.children.some(isTable));
-  return el('hp:p', {...p.attrs}, [el('hp:run', {...run.attrs}, [protoTable(tbl)])]);
+// 회의 결과 상자 견본: 2열, 칸 이름 칸 + 내용 칸 한 줄(둘 다 빈칸).
+function protoBoxTable(tbl) {
+  const [first] = kids(tbl, 'hp:tr');
+  const [label, body] = kids(first, 'hp:tc');
+  const widths = [label, body].map(tc => Number(kid(tc, 'hp:cellSz').attrs.width));
+  const out = el('hp:tbl', {...tbl.attrs, rowCnt: '1', colCnt: '2'});
+  for (const name of ['hp:sz', 'hp:pos', 'hp:outMargin', 'hp:inMargin']) { const n = kid(tbl, name); if (n) out.children.push(clone(n)); }
+  out.children.push(el('hp:tr', {}, [protoCell(label, 0, 0, 1, widths[0]), protoCell(body, 0, 1, 1, widths[1])]));
+  return out;
+}
+export const isBoxTable = tbl => tbl.attrs.colCnt === '2' && kids(tbl, 'hp:tr').length >= 3
+  && kids(tbl, 'hp:tr').every(tr => BOX_LABELS.includes(cellText(kids(tr, 'hp:tc')[0] ?? el('x'))));
+
+function anchorWith(p, tbl, make = protoTable) {
+  const run = kids(p, 'hp:run').find(r => r.children.some(c => c === tbl || [...walk(c)].includes(tbl)));
+  return el('hp:p', {...p.attrs}, [el('hp:run', {charPrIDRef: run.attrs.charPrIDRef}, [make(tbl)])]);
 }
 
 // 원본 보고서 .hwpx 묶음 → 빈 서식 묶음. 원본은 바꾸지 않는다.
@@ -84,23 +107,28 @@ export function extractBlankTemplate(source) {
   const sec = readXml(pkg, 'Contents/section0.xml');
   const top = kids(sec.root, 'hp:p');
   const styleName = p => names.get(p.attrs.styleIDRef);
-  const find = (name, from = 0) => top.slice(from).find(p => styleName(p) === name && !tablesIn(p).length);
+  const find = name => top.find(p => styleName(p) === name && !tablesIn(p).length);
   const findTable = head => {
     for (const p of top) for (const t of tablesIn(p)) if (head.every((label, i) => headTexts(t)[i] === label)) return [p, t];
     throw new Error(`표 머리가 '${head.join(' | ')}'인 표가 없음`);
   };
-  const [reqP, reqT] = findTable(REQUEST_HEAD);
-  const [sumP, sumT] = findTable(SUMMARY_HEAD);
+  const findBox = () => {
+    for (const p of top) for (const t of tablesIn(p)) if (isBoxTable(t)) return [p, t];
+    throw new Error('회의 결과 상자(2열, 왼쪽 칸 이름 표)가 없음');
+  };
   const first = top[0];
   if (!first || !kids(first, 'hp:run').some(r => r.children.some(c => c.name === 'hp:secPr'))) throw new Error('첫 문단에 쪽 설정이 없음');
+  const small = find(STYLE_OF.small) ?? first;
   const protos = {
     title: protoParagraph(first, {keepSection: true}),
     body: protoParagraph(find(STYLE_OF.body) ?? first),
     big: protoParagraph(find(STYLE_OF.big) ?? first),
-    small: protoParagraph(find(STYLE_OF.small) ?? first),
-    requestTable: anchorWith(reqP, reqT),
-    summaryTable: anchorWith(sumP, sumT),
+    mid: protoParagraph(find(STYLE_OF.mid) ?? small),
+    small: protoParagraph(small),
+    note: protoParagraph(find(STYLE_OF.note) ?? find(STYLE_OF.body) ?? first),
+    boxTable: anchorWith(...findBox(), protoBoxTable),
   };
+  for (const [key, head] of Object.entries(HEADED_TABLES)) protos[key] = anchorWith(...findTable(head));
   sec.root.children = PROTO_ORDER.map(k => protos[k]);
   renumber(sec.root);
   setXml(pkg, 'Contents/section0.xml', sec);
@@ -138,16 +166,17 @@ export function readPrototypes(pkg) {
   const top = kids(sec.root, 'hp:p');
   if (top.length !== PROTO_ORDER.length) throw new Error(`빈 서식 견본 수가 ${PROTO_ORDER.length}개가 아님(${top.length})`);
   const protos = Object.fromEntries(PROTO_ORDER.map((k, i) => [k, top[i]]));
-  for (const [key, head] of [['requestTable', REQUEST_HEAD], ['summaryTable', SUMMARY_HEAD]]) {
+  for (const [key, head] of Object.entries(HEADED_TABLES)) {
     const [t] = tablesIn(protos[key]);
     if (!t || headTexts(t).join('|') !== head.join('|')) throw new Error(`빈 서식 ${key} 머리가 다름`);
   }
+  if (!tablesIn(protos.boxTable).length) throw new Error('빈 서식에 상자 견본이 없음');
   return {sec, protos};
 }
 
 const HANGUL_OR_WORD = /[가-힣A-Za-z0-9]/;
 // 빈 서식 검사: 본문 글자는 FORM_LABELS만, 그림·미리보기 글 없음, 문서 정보 비움, 머리(header.xml)의 글자는 스타일·글꼴 이름 칸에만.
-// forbidden(선택): 원본에서 뽑은 글 조각 목록. 묶음 어디에든 2글자 이상 조각이 남으면 실패. 결과에는 글 자체를 넣지 않고 개수만 낸다.
+// forbidden(선택): 원본에서 뽑은 글 조각 목록. 묶음 어디에든 2글자 이상 조각이 남으면 실패(양식 글자·스타일·글꼴 이름 안에 든 조각은 뺌). 결과에는 글 자체를 넣지 않고 개수만 낸다.
 export function assertBlank(pkg, {forbidden = []} = {}) {
   const problems = [];
   const sec = readXml(pkg, 'Contents/section0.xml');
@@ -178,8 +207,8 @@ export function assertBlank(pkg, {forbidden = []} = {}) {
   }
   if (forbidden.length) {
     const blob = [...pkg.files].filter(([name]) => /\.(xml|hpf|rdf|txt)$/.test(name)).map(([, data]) => new TextDecoder().decode(data)).join('\n');
-    const allowedText = new Set([...FORM_LABELS, ...headerStyles(header).map(s => s.name), ...[...walk(header.root)].filter(n => n.name === 'hh:font').map(n => n.attrs.face)]);
-    const hits = forbidden.map(s => s.trim()).filter(s => [...s].length >= 2 && HANGUL_OR_WORD.test(s) && !allowedText.has(s)).filter(s => blob.includes(s) || blob.includes(escapeForXml(s)));
+    const allowedText = new Set([...FORM_LABELS, ...BOX_LABELS, ...headerStyles(header).map(s => s.name), ...[...walk(header.root)].filter(n => n.name === 'hh:font').map(n => n.attrs.face)]);
+    const hits = forbidden.map(s => s.trim()).filter(s => [...s].length >= 2 && HANGUL_OR_WORD.test(s) && ![...allowedText].some(a => a.includes(s))).filter(s => blob.includes(s) || blob.includes(escapeForXml(s)));
     if (hits.length) problems.push(`원본 글 조각 ${hits.length}개가 남음`);
   }
   return problems;
