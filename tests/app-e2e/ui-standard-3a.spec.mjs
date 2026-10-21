@@ -76,7 +76,8 @@ async function sameButtons(page,region){
   if(kind==='button'){const pcAdd=await control.evaluate(el=>innerWidth>=1024&&el.matches('#newDocumentBtn,#newMeetingBtn,#newProjectBtn'));expect(s.height,label).toBe(pcAdd?36:46);expect(s.radius,label).toBe('8px');if(pcAdd)expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').minHeight)),label).toBe(44);}
   else{expect(s.height,label).toBe(32);expect(s.radius,label).toBe(kind==='chip'?'999px':'8px');expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),label).toBe(44);}
   expect(s.fontSize,label).toBe('13px');expect(s.fontWeight,label).toBe('500');expect(s.shadow,label).toBe('none');
-  if(s.bg===primary)filled.push(label);
+  // UI-테마선택색: 고른 전환·필터는 주 버튼 색이지만 '채운 버튼'(주 동작)이 아니다.
+  if(s.bg===primary&&!(await control.evaluate(el=>el.matches('[aria-pressed="true"],[aria-checked="true"],.active'))))filled.push(label);
  }
  return filled;
 }
