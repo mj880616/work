@@ -33,7 +33,7 @@ public class HttpApiTests
         Assert.Equal("Bearer TOKEN", req.Headers["Authorization"]);
         Assert.Equal("PUBLIC-KEY", req.Headers["apikey"]);
         var body = Encoding.UTF8.GetString(req.Body);
-        Assert.Contains("name=file", body);
+        Assert.Contains("name=\"file\"; filename=\"한글 이름.txt\"", body);
         Assert.Contains("name=raw_text", body);
         Assert.Contains("memo\r\nline2", body); // newlines sent as CRLF like a browser form
         Assert.DoesNotContain("name=note_id", body);
