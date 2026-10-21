@@ -150,7 +150,8 @@ for(const width of [390,1440]){
     else{await expect(title).toHaveCSS('white-space','nowrap');await expect(title).toHaveCSS('text-overflow','ellipsis');expect(await title.evaluate(el=>el.scrollWidth>el.clientWidth)).toBe(true)}
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     await expect(page.locator('#libraryView>.section-head.actions-only')).toHaveCount(0);
-    expect(await page.locator('#libraryListCard .add-list-head button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['manageLibraryBtn','newDocumentBtn']);
+    expect(await page.locator('#libraryListCard .add-list-head button').evaluateAll(xs=>xs.map(x=>x.id))).toEqual(['newDocumentBtn']);// 분류 편집 버튼은 종류 칩 줄로 옮겼다(UI-자료실편집버튼).
+    await expect(page.locator('#libraryView .lu-filter-row[data-lu-filter-row="category"] > #manageLibraryBtn')).toBeVisible();
     await page.locator('#manageLibraryBtn').click();await expect(page.locator('#libraryManageModal')).toBeVisible();
     await page.locator('#libraryManageClose').click();await expect(page.locator('#libraryManageModal')).toBeHidden();
     const before=await browser.newPage();await boot(before,{width,main:true});

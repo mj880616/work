@@ -260,6 +260,8 @@ test('폰 390: 지금 한 줄 목록 그대로(종류 목록·차수 목록 없�
   await expect(page.locator('#meetingList :is(.mcol-layout,.mcol-kinds,.mcol-detail)')).toHaveCount(0);
   await expect(page.locator('#meetingsView .meeting-toolbar')).toBeVisible();await expect(page.locator('#meetingTypeFilter')).toBeVisible();
   await expect(page.locator('#meetingList .meeting-list-row')).toHaveCount(s.meetings.length);
+  // 폰도 PC처럼 최신이 위: 시각 내림차순(받은 순서에 기대지 않음).
+  expect(await page.locator('#meetingList [data-mrd-meeting]').evaluateAll(els=>els.map(e=>e.dataset.mrdMeeting))).toEqual(['rail-derived','labor-2','labor-1','rail-6','rail-5','rail-4','rail-3','rail-2','rail-1','blank-1','safety-1']);
   await expect(page.locator('[data-mrd-meeting="rail-6"] p')).toContainText('회의자료 있음');
   await expect(page.locator('[data-mrd-meeting="rail-6"] p')).not.toContainText('2개');
   await expect(page.locator('[data-mrd-meeting="rail-5"] p')).not.toContainText('회의자료');
@@ -293,4 +295,23 @@ for(const width of [1024,1100,1279])test(`PC ${width}: 회의 종류·차수 칸
   // 비율은 그대로: 종류+차수(+칸 사이) 1/3 : 결과 2/3 근처(좁은 폭은 list-min 240px 때문에 1/3보다 조금 넓다).
   expect(m.resultW).toBeGreaterThan((m.kindsW+m.roundsW)*1.5);
   expect(errors).toEqual([]);
+});
+
+// MEET-폰순서(2026-10-21): 폰(좁은 화면) 회의 목록도 PC처럼 최신이 위. 서버가 오래된 것부터 주거나 시각이 같아도 차수 큰 쪽이 위. PC 3단은 그대로.
+test('폰 390: 회의 목록은 최신 차수가 위(6차→1차), 시각이 같으면 차수 큰 쪽이 위, 종류 거르기 뒤에도 같음 / PC 1280 3단 순서는 그대로',async({page})=>{
+  const s=columnState();
+  // 같은 날 같은 시각에 열린 연속 차수를 오래된 차수부터 받는 경우(가상 데이터).
+  s.meetings=[1,2,3,4,5,6].map(n=>({id:`tie-${n}`,workspace_id:s.workspace.id,title:'궤도협의회',series_name:'궤도협의회',round_no:n,meeting_at:'2026-09-01T01:00:00Z',transcript_text:'원문',created_by:s.user.id}));
+  s.meetings.push({id:'labor-1',workspace_id:s.workspace.id,title:'노사협의회',series_name:'노사협의회',round_no:1,meeting_at:'2026-10-01T01:00:00Z',transcript_text:'원문',created_by:s.user.id});
+  await open(page,s,390);
+  const order=()=>page.locator('#meetingList [data-mrd-meeting]').evaluateAll(els=>els.map(e=>e.dataset.mrdMeeting));
+  expect(await order()).toEqual(['labor-1','tie-6','tie-5','tie-4','tie-3','tie-2','tie-1']);
+  await expect(page.locator('#meetingList .meeting-list-row').nth(1).locator('h3')).toHaveText('궤도협의회');
+  // 회의 종류 칩으로 거른 뒤에도 최신이 위.
+  await page.locator('#meetingTypeFilter').getByRole('radio',{name:'궤도협의회',exact:true}).click();
+  expect(await order()).toEqual(['tie-6','tie-5','tie-4','tie-3','tie-2','tie-1']);
+  // PC 3단: 가운데 차수 목록은 지금처럼 6차→1차, 왼쪽 종류 순서도 그대로.
+  await page.setViewportSize({width:1280,height:900});await page.waitForFunction(()=>document.querySelector('#meetingList .mcol-kinds'));
+  await expect(kindNames(page)).toHaveText(['노사협의회','궤도협의회']);
+  await kind(page,'궤도협의회').click();await expect(detail(page).locator('.mcol-card .mcol-round')).toHaveText(['6차','5차','4차','3차','2차','1차']);
 });

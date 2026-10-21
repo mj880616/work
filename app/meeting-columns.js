@@ -10,6 +10,8 @@ export const MEETING_DOCS_LABEL='회의자료 있음';
 const time=m=>{const t=new Date(m?.meeting_at).getTime();return Number.isFinite(t)?t:-Infinity};
 const round=m=>{const n=Number(m?.round_no);return Number.isFinite(n)?n:-Infinity};
 const byRecent=(a,b)=>time(b)-time(a)||round(b)-round(a);
+// 폰·중간 폭 한 줄 목록도 PC와 같은 기준으로 최신이 위(날짜·시간이 같거나 없으면 차수 큰 쪽이 위). 받은 순서에 기대지 않는다.
+export const sortRecentFirst=list=>[...(list||[])].sort(byRecent);
 
 // 회의 유형별로 묶는다. 종류 순서 = 가장 최근 결과가 있는 순, 종류 안 = 최신 위. 결과가 없는 유형은 생기지 않는다.
 export function meetingColumns(meetings,{nameOf,keyOf}){
