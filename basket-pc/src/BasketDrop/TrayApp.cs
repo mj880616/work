@@ -32,10 +32,12 @@ internal sealed class TrayApp : ApplicationContext
     private readonly ToolStripMenuItem _sendNowItem = new();
     private readonly ToolStripMenuItem _hotkeyMenu = new("단축키 바꾸기");
     private readonly ToolStripMenuItem _autoStartItem = new("윈도우를 켤 때 자동 실행");
+    private readonly ToolStripMenuItem _cornerMenu = new("화면 구석 던지기 칸");
     private readonly ToolStripMenuItem _restartForUpdateItem = new("새 버전으로 다시 시작") { Visible = false };
     private readonly SettingsStore _settings = new(AppPaths.Settings);
     private readonly AutoStartManager _autoStart;
     private readonly UpdateService _updates;
+    private readonly CornerWatcher _cornerWatcher;
     private CancellationTokenSource? _signInCts;
     private PasteForm? _paste;
     private StatusForm? _status;
@@ -78,6 +80,9 @@ internal sealed class TrayApp : ApplicationContext
         else _log.Write(LogCode.HotkeyOk);
         RefreshHotkeyMenu();
 
+        _cornerWatcher = new CornerWatcher(this, CornerChoices.FromId(_settings.Load().Corner));
+        RefreshCornerMenu();
+
         _autoStart = new AutoStartManager(new RegistryStartup(), _settings, UpdateService.IsInstalled ? Environment.ProcessPath : null);
         SyncAutoStart();
         _updates = new UpdateService(_log);
@@ -119,6 +124,13 @@ internal sealed class TrayApp : ApplicationContext
             _hotkeyMenu.DropDownItems.Add(item);
         }
         menu.Items.Add(_hotkeyMenu);
+        foreach (var corner in new[] { CornerChoice.TopRight, CornerChoice.BottomRight, CornerChoice.Off })
+        {
+            var item = new ToolStripMenuItem(CornerChoices.Label(corner)) { Tag = corner };
+            item.Click += (_, _) => ChangeCorner(corner);
+            _cornerMenu.DropDownItems.Add(item);
+        }
+        menu.Items.Add(_cornerMenu);
         _autoStartItem.Click += (_, _) => ToggleAutoStart();
         menu.Items.Add(_autoStartItem);
         _restartForUpdateItem.Click += (_, _) => RestartForUpdate();
@@ -158,6 +170,26 @@ internal sealed class TrayApp : ApplicationContext
                 : $"{choice.Label}를 등록하지 못했어요. 다른 프로그램이 쓰고 있어요. 지금 단축키 {before.Label}는 그대로 쓸 수 있어요.", ToolTipIcon.Warning);
         }
         RefreshHotkeyMenu();
+    }
+
+    // ---- hot corner ----
+
+    private void RefreshCornerMenu()
+    {
+        foreach (ToolStripMenuItem item in _cornerMenu.DropDownItems) item.Checked = Equals(item.Tag, _cornerWatcher.Corner);
+    }
+
+    private void ChangeCorner(CornerChoice corner)
+    {
+        _cornerWatcher.Apply(corner);
+        var s = _settings.Load();
+        s.Corner = corner.ToString();
+        try { _settings.Save(s); }
+        catch (IOException) { _log.Write(LogCode.Error); }
+        RefreshCornerMenu();
+        ToastForm.Show(corner == CornerChoice.Off
+            ? "화면 구석 던지기 칸을 껐어요. 트레이 메뉴에서 다시 켤 수 있어요."
+            : $"화면 {CornerChoices.Label(corner)} 구석에 마우스를 잠깐 대면 던지기 칸이 나타나요.");
     }
 
     // ---- start with Windows ----
@@ -239,6 +271,7 @@ internal sealed class TrayApp : ApplicationContext
         _signInCts?.Cancel();
         _stop.Cancel();
         _hotkey.Dispose();
+        _cornerWatcher.Dispose();
         _tray.Visible = false;
         _log.Write(LogCode.Stopped);
         _updates.ApplyAndRestart();
@@ -353,6 +386,7 @@ internal sealed class TrayApp : ApplicationContext
         _signInCts?.Cancel();
         _stop.Cancel();
         _hotkey.Dispose();
+        _cornerWatcher.Dispose();
         _tray.Visible = false;
         _log.Write(LogCode.Stopped);
         ExitThread();
@@ -360,7 +394,7 @@ internal sealed class TrayApp : ApplicationContext
 
     // ---- entry points ----
 
-    private void ShowPaste()
+    public void ShowPaste()
     {
         if (_paste is { IsDisposed: false }) { _paste.Activate(); return; }
         _paste = new PasteForm(this);

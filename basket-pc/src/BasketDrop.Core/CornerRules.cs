@@ -112,9 +112,13 @@ public static class FullscreenRule
 {
     private static readonly string[] DesktopClasses = { "Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd" };
 
-    public static bool CoversMonitor(Rectangle window, Rectangle monitor, string? windowClass)
+    /// <summary>
+    /// A maximized window is an ordinary window even when the taskbar hides itself and the window then covers the
+    /// whole monitor, so it never counts as full screen.
+    /// </summary>
+    public static bool CoversMonitor(Rectangle window, Rectangle monitor, string? windowClass, bool maximized = false)
     {
-        if (window.IsEmpty || monitor.IsEmpty) return false;
+        if (maximized || window.IsEmpty || monitor.IsEmpty) return false;
         if (windowClass != null && DesktopClasses.Contains(windowClass, StringComparer.Ordinal)) return false;
         return window.Left <= monitor.Left && window.Top <= monitor.Top && window.Right >= monitor.Right && window.Bottom >= monitor.Bottom;
     }

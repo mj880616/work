@@ -140,6 +140,12 @@ public class FullscreenRuleTests
         Assert.False(FullscreenRule.CoversMonitor(new Rectangle(0, 0, 1920, 1032), Monitor, "CabinetWClass"));
     }
 
+    [Fact]
+    public void A_maximized_window_with_a_hidden_taskbar_is_not_full_screen()
+    {
+        Assert.False(FullscreenRule.CoversMonitor(new Rectangle(-8, -8, 1936, 1096), Monitor, "CabinetWClass", maximized: true));
+    }
+
     [Theory]
     [InlineData("Progman")]
     [InlineData("WorkerW")]
