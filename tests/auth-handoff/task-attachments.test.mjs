@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL only. No Supabase, Google or production credentials. All data synthetic.
-// TASK-파일붙이기: 20261021233000_task_attachments — Google task → Drive file link table, owner-only RLS,
+// TASK-파일붙이기: 20261022003000_task_attachments — Google task → Drive file link table, owner-only RLS,
 // insert column grants (no update), value checks, the exact statements google-tasks Edge sends through PostgREST, guarded rollback.
 // Optional: TASK_ATTACH_PG_PORT=<port> runs the same checks on an already running local server (user postgres, trust auth).
 import test from 'node:test';
@@ -13,7 +13,7 @@ import EmbeddedPostgres from 'embedded-postgres';
 import pg from 'pg';
 import {fixture,OWNER,STRANGER,WS_A,WS_B} from './basket4-fixture.mjs';
 import {prepareMigration,checkSQL} from '../../scripts/ops/db-migration-plan.mjs';
-const version='20261021233000',name='task_attachments',stem=version+'_'+name;
+const version='20261022003000',name='task_attachments',stem=version+'_'+name;
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 const root=new URL('../../',import.meta.url).pathname;
 const externalPort=process.env.TASK_ATTACH_PG_PORT;
@@ -56,7 +56,7 @@ test('task attachments: migration, owner-only RLS, column grants, checks, PostgR
    assert.match(code,/^begin;\n/);assert.match(code,/\ncommit;\n$/);
    assert.doesNotMatch(code,/security definer|create function|disable row level|to anon|to public|to service_role|grant update|update public|delete from public|rtw_/i);
    assert.match(code,/revoke all on table public\.app_task_attachments from public, anon, authenticated, service_role;/);
-   assert.match(code,/insert into supabase_migrations\.schema_migrations \(version, name, statements\)\s*values \('20261021233000', 'task_attachments'/);
+   assert.match(code,/insert into supabase_migrations\.schema_migrations \(version, name, statements\)\s*values \('20261022003000', 'task_attachments'/);
    assert.doesNotMatch(rollbackSQL.replace(/--.*$/gm,''),/delete from public|update public|truncate|cascade|grant |policy/i);
   });
   const before=(await pool.query(snapshot)).rows;

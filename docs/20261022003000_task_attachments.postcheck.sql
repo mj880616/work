@@ -2,7 +2,7 @@
 with t as (
   select to_regclass('public.app_task_attachments') as att
 ), history as (
-  select count(*) filter(where name='task_attachments') as named, count(*) as n from supabase_migrations.schema_migrations where version='20261021233000'
+  select count(*) filter(where name='task_attachments') as named, count(*) as n from supabase_migrations.schema_migrations where version='20261022003000'
 )
 select 'table and history agree' as item,case when
   (history.n=0 and t.att is null) or (history.n=1 and history.named=1 and t.att is not null) then '예' else '아니오' end as ok

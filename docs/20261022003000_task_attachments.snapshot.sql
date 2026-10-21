@@ -5,5 +5,5 @@ union all select 'owner check function',p.oid::regprocedure::text,p.prosecdef::t
   from pg_proc p where p.oid=to_regprocedure('private.app_is_workspace_owner(uuid)')
 union all select 'default ACL',coalesce(d.defaclrole::regrole::text,'')||':'||d.defaclobjtype::text,coalesce(d.defaclacl::text,'none')
   from pg_default_acl d where d.defaclnamespace='public'::regnamespace
-union all select 'history',version,name from supabase_migrations.schema_migrations where version='20261021233000'
+union all select 'history',version,name from supabase_migrations.schema_migrations where version='20261022003000'
 order by 1,2;

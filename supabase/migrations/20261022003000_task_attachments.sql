@@ -4,14 +4,14 @@ begin;
 -- 파일 내용·Drive 폴더 ID·토큰은 넣지 않는다. 할 일을 지우면 google-tasks Edge가 이 연결만 지우고 Drive 파일은 남긴다.
 -- owner만 읽고 쓴다(private.app_is_workspace_owner). anon·PUBLIC·service_role 권한과 공개 정책은 없다.
 -- google-tasks Edge는 이 표를 caller JWT(authenticated)로만 읽고 쓴다(app_record_links와 같은 경로). 고치기(update)는 없다.
--- 짝: docs/20261021233000_task_attachments.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
+-- 짝: docs/20261022003000_task_attachments.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 
 -- 사전 조건이 다르면 아무것도 바꾸지 않고 멈춘다.
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261021233000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261022003000')
      or to_regclass('public.app_task_attachments') is not null
      or to_regclass('public.app_workspaces') is null
      or not exists (select 1 from pg_proc
@@ -71,5 +71,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261021233000', 'task_attachments', array['TASK-파일붙이기: app_task_attachments (Google task -> Drive file link), owner RLS, authenticated select/insert(columns)/delete only, no anon/service_role']);
+values ('20261022003000', 'task_attachments', array['TASK-파일붙이기: app_task_attachments (Google task -> Drive file link), owner RLS, authenticated select/insert(columns)/delete only, no anon/service_role']);
 commit;
