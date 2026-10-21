@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { noteAction } from './helpers/basket-more.mjs';
+import { chooseBasketKind } from './helpers/basket-kind.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // BUG-뒤로가기: whatever is open, Back closes the top one first; only with nothing open does it reach the
 // previous tab. Browser/PWA Back and Android back (KPTUNativeBack.handle) give the same result.
@@ -48,7 +49,7 @@ for(const platform of ['browser','android'])test.describe(`Back closes the top o
 
  test('note opened from the note list: Back returns to the note list at the same scroll, and ‹ gives the same result',async({page})=>{
   const errors=await fixture(page);await enterBasket(page);
-  await page.locator('[data-basket-kind="note"]').click();await expect(page.locator('[data-note-host] [data-note-row]')).toHaveCount(noteDocs.length);
+  await chooseBasketKind(page,'note');await expect(page.locator('[data-note-host] [data-note-row]')).toHaveCount(noteDocs.length);
   const row=page.locator('[data-note-row="d5"]');await row.scrollIntoViewIfNeeded();
   const scroll=await page.evaluate(()=>scrollY);expect(scroll).toBeGreaterThan(300);
   await row.click();await expect(page.locator('[data-note-detail] [data-basket-read-text]')).toContainText('노트 본문 5');

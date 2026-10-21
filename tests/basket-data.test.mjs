@@ -152,3 +152,20 @@ test('second row: organization and project names by memo count, the 7 categories
  // [전체]·[할 일] ignore a leftover sub value.
  assert.deepEqual(ids('all','org-a'),ids('all'));
 });
+
+// BASKET-드롭제목: names cut by the old upload reader (Deno formData before #925) keep a leading '"'. The display drops it;
+// a name with nothing left shows the fallback. The stored row is not changed.
+test('attachment names cut by the old upload reader display without the stray quote',async()=>{
+ const { attachmentName } = await import('../app/attachment-name.mjs');
+ const { suggestNoteTitle } = await import('../app/basket-data.js');
+ assert.equal(attachmentName({file_name:'"'}),'파일');
+ assert.equal(attachmentName({file_name:'"'},''),'');
+ assert.equal(attachmentName({file_name:'"회의록'}),'회의록');
+ assert.equal(attachmentName({file_name:'"a\\"b"'}),'a"b');
+ assert.equal(attachmentName({file_name:'회의록; 최종=v2.hwp'}),'회의록; 최종=v2.hwp');
+ assert.equal(attachmentName({}),'파일');
+ assert.equal(attachmentName(null,'첨부'),'첨부');
+ assert.equal(suggestNoteTitle({raw_text:'',attachments:[{file_name:'"'}]}),'');
+ assert.equal(suggestNoteTitle({raw_text:'',attachments:[{file_name:'"회의록'}]}),'회의록');
+ const original={file_name:'"'};attachmentName(original);assert.equal(original.file_name,'"');
+});

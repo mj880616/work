@@ -3,6 +3,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import { chooseBasketKind } from './helpers/basket-kind.mjs';
 
 // UI-PC버튼36(2026-10-20 사용자 결정): PC(≥1024) 큰 버튼은 회의 [+ 회의 결과]와 같은 입력칸 높이(--kptu-control-height 36px).
 // 같은 줄 입력칸·칸 안 아이콘도 36px로 맞춰 줄이 어긋나지 않는다. 누르는 범위는 44px(::after). 폰 동그란 [+]·폰 버튼·중간 폭은 그대로.
@@ -84,12 +85,12 @@ test('PC 1280: 큰 버튼은 회의 [+ 회의 결과]와 같은 36px, 옆 입력
  await open(page,'tasks');const tq=page.locator('#tasksView [data-home-quick]');
  const ti=await measure(tq.locator('[data-quick-input]')),ts=await pcButton(tq.locator('[data-quick-save]'),'할 일 추가'),td=await measure(tq.locator('[data-quick-detail]'));
  expect(ti.height).toBe(36);expect(td.height).toBe(36);expect(td.touch).toBeGreaterThanOrEqual(44);expect(Math.abs(ti.top-ts.top)).toBeLessThanOrEqual(0.5);
- // 바구니: [추가]·[📎 첨부] 36px(여러 줄 업데이트 칸 높이는 그대로), 노트 [+ 노트]와 옆 검색칸 같은 높이.
- await open(page,'basket');const bq=page.locator('#basketView [data-home-quick]');
+ // 바구니: [추가]·[📎 첨부] 36px(여러 줄 업데이트 칸 높이는 그대로). 노트(BASKET-노트입력창): [+ 노트] 대신 같은 입력칸의 [추가] 36px, 검색칸 36px.
+ await open(page,'basket');const bq=page.locator('#basketView [data-basket-list] [data-home-quick]');
  await pcButton(bq.locator('[data-quick-save]'),'바구니 추가');await pcButton(bq.getByRole('button',{name:'파일 첨부',exact:true}),'바구니 첨부');
- await page.locator('#basketView [data-basket-kind="note"]').click();
- const nb=await pcButton(page.locator('#newNoteBtn'),'새 노트'),ns=await measure(page.locator('#basketView [data-note-search]'));
- expect(ns.height).toBe(36);expect(Math.abs(ns.top-nb.top)).toBeLessThanOrEqual(0.5);
+ await chooseBasketKind(page,'note');
+ const nb=await pcButton(page.locator('#basketView [data-note-list] [data-quick-save]'),'노트 추가'),ns=await measure(page.locator('#basketView [data-note-search]'));
+ expect(ns.height).toBe(36);
  // 모두 회의 버튼과 같은 높이. 창(모달) 버튼은 공용 기준(46px) 그대로.
  expect(meeting.height).toBe(nb.height);
  await open(page,'projects');await page.locator('#newProjectBtn').click();

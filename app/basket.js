@@ -22,6 +22,7 @@ import { openMarkdownEditor, copyText } from './md-editor.js';
 import { toTelegram } from './md-telegram.mjs';
 import { photoElement } from './diary-data.js';
 import { fileKind } from './meeting-compact.js';
+import { attachmentName } from './attachment-name.mjs';
 
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js';
 import { placeAnchored, followAnchor, clearAnchored, isWide } from './anchored-popup.js';
@@ -340,6 +341,11 @@ const manualDraft=()=>!!selected&&manual.hasDraft();
 // MEMO-노트: [메모 | 노트] at the top of the basket tab. basket.js owns this switch; basket-notes.js owns the note side.
 const kindSwitch=root.querySelector('[data-basket-kind-switch]'),noteHost=root.querySelector('[data-note-host]');
 let kind='memo';
+// BASKET-노트입력창 (2026-10-22 사용자 결정): on a PC (≥1024px, where the sidebar shows [바구니] → [업데이트]·[노트]) the screen's own
+// [업데이트 | 노트] switch is not drawn; the sidebar is the one way to change sides there. Below that (phone, mid width) it stays.
+const sidebarKinds=window.matchMedia('(min-width:1024px)');
+const paintKindSwitch=()=>{kindSwitch.hidden=sidebarKinds.matches;};
+sidebarKinds.addEventListener('change',paintKindSwitch);paintKindSwitch();
 const switchRow=root.querySelector('.basket-switch-row');
 // UI-일기손질 ⑥: the [메모 | 노트] row and the list head have one painter. They show only while a list is on screen;
 // an open memo or note draws its own "‹ 바구니"/"‹ 노트" head in that place instead.
@@ -484,7 +490,8 @@ function renderList() {
   root.querySelector('[data-basket-rows]').innerHTML = visible.map(note => {
     const state = noteState(note, links, docs);
     const lines=String(note.raw_text||'').split(/\r?\n/).map(line=>line.trim()).filter(Boolean),file=note.attachments?.[0];
-    const title=lines[0]||(file?`${String(file.mime_type||'').startsWith('image/')?'사진':'파일'} · ${file.file_name||'첨부'}`:'업데이트');
+    // BASKET-드롭제목: a memo with only files is titled by its first file; a name cut by the old upload reader shows cleaned, and one with nothing left is just "파일"/"사진" (attachment-name.mjs).
+    const fileTitle=file?[String(file.mime_type||'').startsWith('image/')?'사진':'파일',attachmentName(file,'')].filter(Boolean).join(' · '):'',title=lines[0]||fileTitle||'업데이트';
     // BUG-바구니연결해제: links are chips under the row button (a button cannot hold the × button).
     const chips = [...confirmedLinks(note.id).map(link => linkChip(link)), ...filedChips(note)].join('') + taskPlaceLine(note);
     return `<div class="basket-row-item" data-basket-row-item="${esc(note.id)}"><button type="button" class="basket-row-copy" data-basket-row-copy="${esc(note.id)}" aria-label="${esc([...title].slice(0,40).join(''))} 복사"${String(note.raw_text||'').trim()?'':' hidden'}>${COPY_ICON}</button><button type="button" class="basket-row-more" data-basket-row-more="${esc(note.id)}" aria-label="${esc([...title].slice(0,40).join(''))} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="basketRowMenu"><span aria-hidden="true">⋯</span></button><button type="button" class="basket-row" data-basket-row="${esc(note.id)}"><b class="basket-title">${esc([...title].slice(0,80).join(''))}</b>${lines.length>1?`<span class="basket-preview">${esc([...lines.slice(1).join(' ')].slice(0,120).join(''))}</span>`:''}<time>${esc(time(note))}</time><span>${esc(rowState(note, state))}${note.attachments?.length ? ' · 첨부 ' + note.attachments.length + '개' : ''}</span>${requestTagsHtml(noteRequests(note), esc)}</button>${chips ? `<div class="basket-row-links" role="group" aria-label="연결된 곳">${chips}</div>` : ''}</div>`;
@@ -599,7 +606,7 @@ async function copyChatgptRequest(){
 const PHOTO_TYPES=/^image\/(jpeg|png|webp|gif)$/i;
 const isPhoto=file=>PHOTO_TYPES.test(String(file?.mime_type||''));
 function fileRow(file){
-  const id=String(file?.drive_file_id||''),name=file.file_name||'첨부',url=driveFileUrl(id),sent=librarySent(id),doc=sent?.document?.id;
+  const id=String(file?.drive_file_id||''),name=attachmentName(file),url=driveFileUrl(id),sent=librarySent(id),doc=sent?.document?.id;
   const inLibrary=['created','exists'].includes(sent?.kind),meta=[fileSize(file.size_bytes),inLibrary?'자료실에 있음 ✓':sent?.kind==='unknown'?'자료실에서 확인해 주세요':''].filter(Boolean).join(' · ');
   const link=(icon,label)=>`${LINK_ICONS[icon]}<span>${label}</span>`;
   const open=url?`<a class="basket-file-link" href="${url}" target="_blank" rel="noopener noreferrer" aria-label="${esc(name)} Drive에서 열기">${link('drive','Drive에서 열기')}</a>`:'<span class="basket-file-link-off">링크를 확인할 수 없습니다.</span>';
@@ -619,9 +626,9 @@ let photoView=null;
 function openPhoto(fileId,trigger){
   const file=selected?.attachments?.find(f=>f.drive_file_id===fileId);if(!file||photoView)return;
   const box=document.createElement('div');box.className='basket-photo-view';box.dataset.basketPhotoView='';
-  box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');box.setAttribute('aria-label',file.file_name||'사진');
-  box.innerHTML=`<div class="basket-photo-bar"><span class="basket-photo-name">${esc(file.file_name||'사진')}</span><button type="button" class="basket-photo-close" data-basket-photo-close aria-label="크게 보기 닫기">×</button></div><div class="basket-photo-stage"></div>`;
-  box.querySelector('.basket-photo-stage').append(photoElement(selected,file,'large',{label:file.file_name||'사진',rt}));
+  box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');const shown=attachmentName(file,'사진');box.setAttribute('aria-label',shown);
+  box.innerHTML=`<div class="basket-photo-bar"><span class="basket-photo-name">${esc(shown)}</span><button type="button" class="basket-photo-close" data-basket-photo-close aria-label="크게 보기 닫기">×</button></div><div class="basket-photo-stage"></div>`;
+  box.querySelector('.basket-photo-stage').append(photoElement(selected,file,'large',{label:shown,rt}));
   box.addEventListener('click',e=>{if(e.target.closest('[data-basket-photo-close]')||e.target===box.querySelector('.basket-photo-stage'))closePhoto();});
   box.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closePhoto();}});
   document.body.append(box);

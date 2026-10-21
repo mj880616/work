@@ -6,7 +6,7 @@ const borders=(page,root)=>page.evaluate(root=>[document.querySelector(root+' .h
 const color=(page,value)=>page.evaluate(value=>{const p=document.createElement('span');p.style.color=value;document.body.append(p);const c=getComputedStyle(p).color;p.remove();return c;},value);
 for(const [view,width] of [['basket',1280],['basket',390],['home',1280],['home',390]])test(`빈 [추가]: 입력칸 아래 작은 안내만, 글 쓰면 사라짐 — ${view} ${width}`,async({page})=>{
  await page.setViewportSize({width,height:844});await openHome(page,{query:view==='basket'?'?view=basket':''});
- const root=view==='basket'?'#basketView':'#homeView',q=page.locator(root+' [data-home-quick]');
+ const root=view==='basket'?'#basketView [data-basket-list]':'#homeView',q=page.locator(root+' [data-home-quick]');
  if(view==='home')await q.locator('[data-quick-mode="update"]').click();
  const before=await borders(page,root);
  await q.locator('[data-quick-save]').click();

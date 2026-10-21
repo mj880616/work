@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
+import { chooseBasketKind } from './helpers/basket-kind.mjs';
 
 // UI-노트폴더 1단계 (docs/design/note-folders.md): a note's folder is metadata.folder in its existing row (no database change).
 // The note list has one folder row under the search box ([전체] [folders…] [폴더 없음] + ⋯), the note ⋯ has [폴더로 옮기기],
@@ -36,7 +37,7 @@ async function fixture(page, width, made = null) {
   });
   await page.route(SB + '/rest/v1/app_record_links?**', r => { const q = new URL(r.request().url()).searchParams; return q.has('note_id') ? r.fulfill({ json: [] }) : r.fallback(); });
   await page.evaluate(() => window.KPTURouter.go('basket'));
-  await page.locator('[data-basket-kind="note"]').click();
+  await chooseBasketKind(page,'note');
   await expect(page.locator('[data-note-row]')).toHaveCount(rows.length);
   return { rows, writes, errors, failOnce };
 }
@@ -235,7 +236,8 @@ test('moving a note in a folder back to the basket drops the folder in the same 
 test('a note written while a folder is shown goes into that folder', async ({ page }) => {
   const f = await fixture(page, 1280, row => [row('n1', '가 노트', '2026-10-16T01:00:00Z', { folder: '자료 폴더' }), row('n2', '나 노트', '2026-10-12T01:00:00Z')]);
   await chip(page, '자료 폴더').click();
-  await page.locator('[data-note-new]').click();
+  // BASKET-노트입력창: [크게] on the note input opens the same write window (was [+ 노트]).
+  await page.locator('[data-note-list] [data-quick-big]').click();
   const editor = page.locator('#mdEditor');
   await editor.locator('[data-md-title]').fill('새 자료 노트');
   await editor.locator('.md-editor-text').fill('본문');
@@ -253,7 +255,7 @@ test('a note written while a folder is shown goes into that folder', async ({ pa
 // prefix), restored after another screen / a reload, falls back to [전체] without a message when the folder is gone, and is
 // dropped on sign-out or owner change. Storage keys are read through the browser context so this file needs no storage grant.
 const folderKeys = async page => (await page.context().storageState()).origins.flatMap(o => o.localStorage).filter(i => i.name.includes('note-folder')).map(i => [i.name, i.value]);
-const backToNotes = async page => { await page.evaluate(() => window.KPTURouter.go('basket')); await page.locator('[data-basket-kind="note"]').click(); };
+const backToNotes = async page => { await page.evaluate(() => window.KPTURouter.go('basket')); await chooseBasketKind(page,'note'); };
 const two = row => [row('n1', '가 노트', '2026-10-16T01:00:00Z', { folder: '자료 폴더' }), row('n2', '나 노트', '2026-10-12T01:00:00Z', { folder: '다른 폴더' }), row('n3', '다 노트', '2026-10-10T01:00:00Z')];
 test('the chosen folder is remembered per user on this device: other screen, reload, deleted folder, sign-out', async ({ page }) => {
   const f = await fixture(page, 1280, two);

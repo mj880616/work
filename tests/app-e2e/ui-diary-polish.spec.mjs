@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {noteMenuAction} from './helpers/note-menu.mjs';
+import { chooseBasketKind } from './helpers/basket-kind.mjs';
 // UI-일기손질: ① the shared round [+] never moves when a button is pressed (it used to jump while the finger was down,
 // because the swipe code put will-change:transform on the view panel and the fixed [+] then followed the panel),
 // ② today = filled purple circle on the day number, the chosen day = the cell border, ③ [+] in [일기] writes the chosen day,
@@ -88,11 +89,13 @@ test('① the shared [+] stays at the bottom right whatever is pressed (calendar
  }
  // A real swipe still moves the panel sideways (left offset) and changes tab; afterwards the [+] is back home.
  await page.locator('.mobile-tabs [data-view="basket"]').click();
- await page.locator('[data-basket-kind="note"]').click();
+ await chooseBasketKind(page,'note');
  await expect(page.locator('[data-note-row="n1"]')).toBeVisible();
- expect(await fabSpot(page,'#basketView #newNoteBtn')).toEqual(home);
- const seen=await pressAndMeasure(page,'[data-note-search]','#basketView #newNoteBtn');
- expect(seen.during).toEqual(home);expect(seen.after).toEqual(home);
+ // BASKET-노트입력창: notes have no [+] any more; the note input docked above the tabs stays put the same way.
+ await expect(page.locator('#basketView #newNoteBtn')).toHaveCount(0);
+ const dockSel='#basketView [data-note-list] [data-home-quick]',dock=await fabSpot(page,dockSel);
+ const seen=await pressAndMeasure(page,'[data-note-search]',dockSel);
+ expect(seen.during).toEqual(dock);expect(seen.after).toEqual(dock);
  // Finger down alone leaves the panel untouched (no class, no offset, nothing that re-anchors fixed children).
  const panel=await page.evaluate(()=>{const p=document.querySelector('#basketView'),r=p.querySelector('[data-note-row]').getBoundingClientRect();
   const ev=new Event('touchstart',{bubbles:true});Object.defineProperty(ev,'touches',{value:[{clientX:r.left+20,clientY:r.top+10}]});p.querySelector('[data-note-row]').dispatchEvent(ev);
@@ -160,7 +163,7 @@ test('③ no write button under the date; [+] writes the chosen day, an existing
 test('⑤ an empty note list shows no guide sentence',async({page})=>{
  const f=await fixture(page,{notes:false});
  await page.evaluate(()=>window.KPTURouter.go('basket'));
- await page.locator('[data-basket-kind="note"]').click();
+ await chooseBasketKind(page,'note');
  const status=page.locator('[data-note-list-status]');
  await expect(page.locator('[data-note-rows] [data-note-row]')).toHaveCount(0);
  await expect(status).toHaveText('');await expect(status).toHaveAttribute('data-basket-empty','');
@@ -174,7 +177,7 @@ test('⑤ an empty note list shows no guide sentence',async({page})=>{
 for(const width of [390,1280])test(`⑥ an opened note draws only "‹ 노트" (no [메모|노트]), files are the shared file line ${width}`,async({page})=>{
  const f=await fixture(page,{width});
  await page.evaluate(()=>window.KPTURouter.go('basket'));
- await page.locator('[data-basket-kind="note"]').click();
+ await chooseBasketKind(page,'note');
  await page.locator('[data-note-row="n1"]').click();
  const back=page.locator('[data-note-close]');
  await expect(back).toBeVisible();
@@ -199,7 +202,8 @@ for(const width of [390,1280])test(`⑥ an opened note draws only "‹ 노트" (
  expect(s).toEqual({size:'13px',deco:'none',h:32,hit:'44px'});
  // Back to the list: the switch is drawn again.
  await back.click();
- await expect(page.locator('[data-basket-kind="note"]')).toBeVisible();await expect(page.locator('[data-note-row="n1"]')).toBeVisible();
+ // BASKET-노트입력창: a PC (≥1024) draws no switch at all (the sidebar changes sides); a phone draws it again.
+ if(width<1024)await expect(page.locator('[data-basket-kind="note"]')).toBeVisible();else await expect(page.locator('[data-basket-kind-switch]')).toBeHidden();await expect(page.locator('[data-note-row="n1"]')).toBeVisible();
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
@@ -225,13 +229,13 @@ if(REVIEW){
    await page.locator('#diaryRoot [data-diary-detail-close]').click();await page.locator('#diaryRoot [data-diary-day="2026-10-02"]').click();
    await page.evaluate(()=>scrollTo(0,0));await shot('diary-empty-day');
    await openMonth(page);await expect(page.locator('#calendarGrid .cal-cell.today')).toBeVisible();await shot('calendar');
-   await page.evaluate(()=>window.KPTURouter.go('basket'));await page.locator('[data-basket-kind="note"]').click();
+   await page.evaluate(()=>window.KPTURouter.go('basket'));await chooseBasketKind(page,'note');
    await page.locator('[data-note-row="n1"]').click();await expect(page.locator('[data-note-attachments] .file-line')).toHaveCount(2);await shot('note-open');
   });
  }
  test('캡처 빈 노트 390',async({page})=>{
   await fixture(page,{notes:false});
-  await page.evaluate(()=>window.KPTURouter.go('basket'));await page.locator('[data-basket-kind="note"]').click();
+  await page.evaluate(()=>window.KPTURouter.go('basket'));await chooseBasketKind(page,'note');
   await expect(page.locator('[data-note-list-status]')).toHaveAttribute('data-basket-empty','');
   await page.screenshot({path:`${REVIEW}/note-empty-390-light.png`});
  });

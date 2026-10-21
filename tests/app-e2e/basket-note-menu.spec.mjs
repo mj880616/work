@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { notePreview, plainLines, noteCopyPayload } from '../../app/note-preview.mjs';
+import { chooseBasketKind } from './helpers/basket-kind.mjs';
 
 // UI-노트메뉴정리: every note row has [복사] and [⋯] on its right; the ⋯ (list row and open note alike) holds 고정/고정 해제 · 수정 ·
 // (연결하기 · 바구니로 돌리기, open note only) · 삭제, and opens right under the pressed ⋯ (anchored-popup.js). The open note's head
@@ -38,7 +39,7 @@ async function fixture(page, width) {
   });
   await page.route(SB + '/rest/v1/app_record_links?**', r => { const q = new URL(r.request().url()).searchParams; return q.has('note_id') ? r.fulfill({ json: [] }) : r.fallback(); });
   await page.evaluate(() => window.KPTURouter.go('basket'));
-  await page.locator('[data-basket-kind="note"]').click();
+  await chooseBasketKind(page,'note');
   await expect(page.locator('[data-note-row]')).toHaveCount(4);
   return { rows, writes, deletes, errors };
 }

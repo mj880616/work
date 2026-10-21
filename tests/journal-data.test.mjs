@@ -348,6 +348,9 @@ test('one update, one line: the first non-empty line of any line break kind, cut
   assert.equal(m.firstLine('가'.repeat(81)), '가'.repeat(80) + '…');
   assert.equal(m.memoLine({raw_text:'', attachments:[{file_name:'a.pdf'}, {file_name:'b.hwp'}]}), '첨부: a.pdf 외 1개');
   assert.equal(m.memoLine({raw_text:''}), '(빈 업데이트)');
+  // BASKET-드롭제목: a name cut by the old upload reader shows without the stray quote; nothing left → the count line.
+  assert.equal(m.memoLine({raw_text:'', attachments:[{file_name:'"회의록'}]}), '첨부: 회의록');
+  assert.equal(m.memoLine({raw_text:'', attachments:[{file_name:'"'}]}), '첨부 1개');
   assert.equal(m.meetingLine({series_name:'토론회', round_no:2, meeting_at:'2026-10-05T15:00:00Z'}), '토론회 2차');
 });
 

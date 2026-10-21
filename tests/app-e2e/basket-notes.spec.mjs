@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { noteAction,showBasketRow} from './helpers/basket-more.mjs';
 import { noteMenuAction } from './helpers/note-menu.mjs';
+import { chooseBasketKind } from './helpers/basket-kind.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // MEMO-노트 PR 3: [메모 | 노트] in the basket tab. The mock keeps one app_notes store and honours the kind/id
 // filters, so every list and write is checked against the row kind the screen showed.
@@ -49,32 +50,39 @@ async function fixture(page){
  return {rows,writes,errors};
 }
 const noteList=page=>page.locator('[data-note-host] [data-note-row]');
+// BASKET-노트입력창: the note list's own input (the basket update input in its note mode): [크게] and [추가].
+const noteInput=page=>page.locator('[data-note-list] [data-quick-input]');
+const noteBig=page=>page.locator('[data-note-list] [data-quick-big]');
+const noteAdd=page=>page.locator('[data-note-list] [data-quick-save]');
 
 for(const width of [390,1280]){
- test(`[메모 | 노트] switch lists notes by last change with search, dot and link chip ${width}`,async({page})=>{
+ test(`[메모 | 노트] switch lists notes by last change with search, no dot and link chip ${width}`,async({page})=>{
   await page.setViewportSize({width,height:900});const f=await fixture(page);
   const memo=page.locator('[data-basket-kind="memo"]'),note=page.locator('[data-basket-kind="note"]');
   await expect(memo).toHaveAttribute('aria-pressed','true');await expect(note).toHaveAttribute('aria-pressed','false');
-  const [a,b]=await Promise.all([memo.boundingBox(),note.boundingBox()]);expect(Math.abs(a.width-b.width)).toBeLessThan(1);
-  await note.click();
+  // BASKET-노트입력창: a PC (≥1024) has no switch on the screen (the sidebar's [업데이트]·[노트] change sides); a phone keeps it.
+  if(width<1024){const [a,b]=await Promise.all([memo.boundingBox(),note.boundingBox()]);expect(Math.abs(a.width-b.width)).toBeLessThan(1);}
+  else{await expect(page.locator('[data-basket-kind-switch]')).toBeHidden();}
+  await chooseBasketKind(page,'note');
   await expect(note).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-list]')).toBeHidden();
   await expect(noteList(page)).toHaveCount(2);
   await expect(noteList(page).nth(0)).toContainText('임금협상 정리');await expect(noteList(page).nth(1)).toContainText('오래된 노트');
-  await expect(noteList(page).nth(0).locator('.note-dot')).toBeVisible();
+  // BASKET-노트입력창: no blue dot before a note title (a pinned note keeps its pin).
+  await expect(page.locator('[data-note-host] .note-dot')).toHaveCount(0);
   await expect(noteList(page).nth(0)).toContainText('합성 임금 프로젝트');
   await expect(page.locator('[data-note-host]')).not.toContainText('회의 준비 메모');
   await page.locator('[data-note-search]').fill('기본급');
   await expect(noteList(page)).toHaveCount(1);await expect(noteList(page)).toContainText('임금협상 정리');
   await page.locator('[data-note-search]').fill('없는 말');
   await expect(noteList(page)).toHaveCount(0);await expect(page.locator('[data-note-list-status]')).toHaveText('찾는 노트가 없어요');
-  await memo.click();
+  await chooseBasketKind(page,'memo');
   await expect(page.locator('[data-basket-row="m1"]')).toBeVisible();await expect(page.locator('[data-note-host]')).toBeHidden();
   expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
  });
 
  test(`note reads as markdown, edits title and body through the kind=note PATCH ${width}`,async({page})=>{
   await page.setViewportSize({width,height:900});const f=await fixture(page);
-  await page.locator('[data-basket-kind="note"]').click();
+  await chooseBasketKind(page,'note');
   await noteList(page).filter({hasText:'임금협상 정리'}).click();
   const detail=page.locator('[data-note-detail]');
   await expect(page.locator('[data-basket-kind-switch]')).toBeHidden();
@@ -101,7 +109,7 @@ for(const width of [390,1280]){
   expect(f.writes[0].query).toMatchObject({id:'eq.n-new',workspace_id:'eq.w',kind:'eq.note'});
   expect(f.writes[0].body).toMatchObject({title:'임금협상 정리 v2',raw_text:'## 쟁점\n\n- 기본급 5% 인상'});
   await detail.locator('[data-note-close]').click();
-  await expect(page.locator('[data-basket-kind-switch]')).toBeVisible();
+  if(width<1024)await expect(page.locator('[data-basket-kind-switch]')).toBeVisible();else await expect(page.locator('[data-basket-kind-switch]')).toBeHidden();
   await expect(noteList(page).nth(0)).toContainText('임금협상 정리 v2');
   expect(f.errors).toEqual([]);
  });
@@ -125,29 +133,68 @@ for(const width of [390,1280]){
   await expect(page.locator('[data-note-list-status]')).toHaveText('바구니로 돌렸어요.');
   expect(f.writes[1].query).toMatchObject({id:'eq.m1',kind:'eq.note'});expect(f.writes[1].body).toMatchObject({kind:'basket',title:null});
   await expect(noteList(page)).toHaveCount(2);
-  await page.locator('[data-basket-kind="memo"]').click();
+  await chooseBasketKind(page,'memo');
   await expect(page.locator('[data-basket-row="m1"]')).toBeVisible();
   expect(f.errors).toEqual([]);
  });
 }
 
-// BASKET-업데이트통합 PR 2: [+] opens the one write window (same as menu [쓰기]) with [노트] chosen; its save icon saves and closes,
-// then the new note opens in its read view.
+// BASKET-노트입력창 (2026-10-22): notes are added like updates. The note list has the update input (phone: docked above the
+// tabs; PC: at the top). One line + [추가] saves a note titled by that line (마크다운 off) and the list stays; [크게] opens the
+// one write window (same as menu [쓰기]) with [노트] chosen on the typed text, which saves, closes and opens the new note.
 for(const width of [390,1280]){
- test(`[+] writes a new note: saved as kind=note, read view, top of the list, not a basket memo ${width}`,async({page})=>{
+ test(`note input: one line + [추가] adds a note titled by that line; no [+ 노트]·⊕ ${width}`,async({page})=>{
   await page.setViewportSize({width,height:900});const f=await fixture(page);
-  await page.locator('[data-basket-kind="note"]').click();
+  await chooseBasketKind(page,'note');
   await expect(noteList(page)).toHaveCount(2);
-  const add=page.getByRole('button',{name:'새 노트',exact:true});
-  await expect(add).toBeVisible();
-  // Phone: the same round [+] as the other screens, above the bottom tabs.
-  if(width<=760){const s=await add.evaluate(el=>{const c=getComputedStyle(el);return {position:c.position,radius:c.borderRadius,width:el.getBoundingClientRect().width};});
-   expect(s.position).toBe('fixed');expect(s.radius).toBe('50%');expect(Math.round(s.width)).toBe(36);}
+  await expect(page.locator('#newNoteBtn,[data-note-new]')).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'새 노트',exact:true})).toHaveCount(0);
+  const input=noteInput(page),add=noteAdd(page),big=noteBig(page);
+  await expect(input).toBeVisible();await expect(input).toHaveAttribute('placeholder','노트를 입력하세요');await expect(input).toHaveAccessibleName('노트 입력');
+  await expect(big).toBeVisible();await expect(add).toBeVisible();
+  // The clip is not offered on the note input yet (NOTE-파일붙이기).
+  await expect(page.locator('[data-note-list] [data-quick-file-picker]')).toBeHidden();
+  const [ib,bb,ab]=await Promise.all([input.boundingBox(),big.boundingBox(),add.boundingBox()]);
+  // [크게] sits at the right end of the input, right before [추가]; one row.
+  expect(bb.x+bb.width).toBeLessThanOrEqual(ab.x+1);expect(ab.x-(bb.x+bb.width)).toBeLessThan(16);expect(Math.abs((bb.y+bb.height/2)-(ib.y+Math.min(ib.height,46)/2))).toBeLessThan(24);
+  const listTop=(await noteList(page).nth(0).boundingBox()).y;
+  if(width<=760){
+   // Phone: docked above the bottom tabs and the [업데이트 | 노트] row, like the update input.
+   const dock=await page.locator('[data-note-list] [data-home-quick]').evaluate(el=>({position:getComputedStyle(el).position,bottom:el.getBoundingClientRect().bottom}));
+   expect(dock.position).toBe('fixed');
+   const sw=await page.locator('#basketView .basket-kind-switch').boundingBox();expect(dock.bottom).toBeLessThanOrEqual(sw.y+1);
+  }else{
+   // PC: the top row of the note list, above the notes (like the update input).
+   expect(ib.y).toBeLessThan(listTop);
+  }
+  // Empty → a small hint, nothing saved.
+  await add.click();await expect(page.locator('[data-note-list] [data-quick-hint]')).toHaveText('글을 입력해 주세요.');expect(f.writes).toEqual([]);
+  await input.fill('교섭 준비 메모');
   await add.click();
+  await expect(page.locator('#toast')).toContainText('노트를 추가했습니다.');
+  expect(f.writes).toEqual([{method:'POST',body:{workspace_id:'w',kind:'note',title:'교섭 준비 메모',raw_text:'교섭 준비 메모',metadata:{markdown:false}}}]);
+  await expect(input).toHaveValue('');
+  await expect(noteList(page)).toHaveCount(3);await expect(noteList(page).filter({hasText:'교섭 준비 메모'})).toHaveCount(1);
+  await expect(page.locator('[data-note-detail]')).toBeHidden();
+  // Several lines: the first line is the title, the whole text is the body.
+  await input.fill('둘째 노트 제목\n본문 둘째 줄');await add.click();
+  await expect(page.locator('#toast')).toContainText('노트를 추가했습니다.');
+  expect(f.writes[1].body).toMatchObject({kind:'note',title:'둘째 노트 제목',raw_text:'둘째 노트 제목\n본문 둘째 줄',metadata:{markdown:false}});
+  await chooseBasketKind(page,'memo');
+  await expect(page.locator('[data-basket-row="m1"]')).toBeVisible();await expect(page.locator('[data-basket-rows]')).not.toContainText('교섭 준비 메모');
+  expect(f.errors).toEqual([]);
+ });
+
+ test(`[크게] on the note input writes a new note in the write window: kind=note, read view, top of the list ${width}`,async({page})=>{
+  await page.setViewportSize({width,height:900});const f=await fixture(page);
+  await chooseBasketKind(page,'note');
+  await expect(noteList(page)).toHaveCount(2);
+  await noteInput(page).fill('단체교섭 준비');
+  await noteBig(page).click();
   const detail=page.locator('[data-note-detail]'),editor=page.locator('#mdEditor');
   await expect(editor).toBeVisible();await expect(editor).toHaveAccessibleName('새 노트');
   await expect(editor.locator('[data-md-kind="note"]')).toHaveAttribute('aria-pressed','true');
-  await expect(editor.locator('[data-md-title]')).toBeVisible();await expect(editor.locator('[data-md-title]')).toHaveValue('');await expect(editor.locator('.md-editor-text')).toHaveValue('');
+  await expect(editor.locator('[data-md-title]')).toBeVisible();await expect(editor.locator('[data-md-title]')).toHaveValue('');await expect(editor.locator('.md-editor-text')).toHaveValue('단체교섭 준비');
   await expect(editor.locator('[data-md-save-icon]')).toHaveAccessibleName('새 노트로 저장');
   await editor.locator('[data-md-title]').fill('단체교섭 준비');
   await editor.locator('.md-editor-text').fill('## 할 일\n\n- 요구안 정리');
@@ -162,7 +209,8 @@ for(const width of [390,1280]){
   await detail.locator('[data-note-close]').click();
   await expect(noteList(page)).toHaveCount(3);
   await expect(noteList(page).nth(0)).toContainText('단체교섭 준비');
-  await page.locator('[data-basket-kind="memo"]').click();
+  await expect(noteInput(page)).toHaveValue('');
+  await chooseBasketKind(page,'memo');
   await expect(page.locator('[data-basket-row="m1"]')).toBeVisible();
   await expect(page.locator('[data-basket-rows]')).not.toContainText('단체교섭 준비');
   await expect(page.locator('[data-basket-row="n-created"]')).toHaveCount(0);
@@ -172,8 +220,8 @@ for(const width of [390,1280]){
 
 test('an empty new note is not saved; a body-only note takes its first line as title',async({page})=>{
  await page.setViewportSize({width:390,height:900});const f=await fixture(page);
- await page.locator('[data-basket-kind="note"]').click();
- await page.getByRole('button',{name:'새 노트',exact:true}).click();
+ await chooseBasketKind(page,'note');
+ await noteBig(page).click();
  const detail=page.locator('[data-note-detail]'),editor=page.locator('#mdEditor');
  await editor.locator('[data-md-title]').fill('   ');await editor.locator('.md-editor-text').fill('  \n ');
  await editor.locator('[data-md-save-icon]').click();
@@ -186,23 +234,23 @@ test('an empty new note is not saved; a body-only note takes its first line as t
  expect(f.errors).toEqual([]);
 });
 
-test('phone back closes the new-note window and keeps its text for the next [+]; a bottom tab with text asks before leaving',async({page})=>{
+test('phone back closes the new-note window and hands its text back to the note input; a bottom tab with text asks before leaving',async({page})=>{
  await page.setViewportSize({width:390,height:900});const f=await fixture(page);
- await page.locator('[data-basket-kind="note"]').click();
- const add=page.getByRole('button',{name:'새 노트',exact:true}),editor=page.locator('#mdEditor');
+ await chooseBasketKind(page,'note');
+ const add=noteBig(page),editor=page.locator('#mdEditor');
  await add.click();await expect(editor).toBeVisible();
  await page.goBack();
- await expect(page.locator('#mdEditor')).toHaveCount(0);await expect(page.locator('[data-note-list]')).toBeVisible();await expect(add).toBeFocused();
+ await expect(page.locator('#mdEditor')).toHaveCount(0);await expect(page.locator('[data-note-list]')).toBeVisible();await expect(noteInput(page)).toBeFocused();
  await add.click();
  await editor.locator('.md-editor-text').fill('쓰던 글');
  await page.locator('.mobile-tabs [data-view="projects"]').click();
  const leave=page.locator('#mdLeaveSheet');await expect(leave).toHaveAttribute('open','');
  await leave.getByRole('button',{name:'계속 쓰기',exact:true}).click();
  await expect(editor.locator('.md-editor-text')).toHaveValue('쓰던 글');
- // Back (or ×) closes without saving; the text waits for the next [+] (this tab's memory only).
+ // Back (or ×) closes without saving; the text goes back into the note input (this tab's memory only).
  await page.goBack();
  await expect(page.locator('#mdEditor')).toHaveCount(0);
- await expect(page.locator('[data-note-list-status]')).toHaveText('저장하지 않은 글은 [+ 노트]를 다시 누르면 이어서 쓸 수 있어요.');
+ await expect(noteInput(page)).toHaveValue('쓰던 글');
  await add.click();await expect(editor.locator('.md-editor-text')).toHaveValue('쓰던 글');
  await editor.locator('[data-close="mdEditor"]').click();
  await expect(page.locator('#mdEditor')).toHaveCount(0);
@@ -215,7 +263,7 @@ test('phone back closes the new-note window and keeps its text for the next [+];
 test('a note without body cannot go back to the basket and nothing is written',async({page})=>{
  await page.setViewportSize({width:390,height:900});const f=await fixture(page);
  f.rows.find(r=>r.id==='n-old').raw_text='';
- await page.locator('[data-basket-kind="note"]').click();
+ await chooseBasketKind(page,'note');
  await noteList(page).filter({hasText:'오래된 노트'}).click();
  await expect(page.locator('[data-note-detail] [data-basket-read-text]')).toHaveText('본문이 없는 노트입니다.');
  page.once('dialog',d=>d.accept());
@@ -226,7 +274,7 @@ test('a note without body cannot go back to the basket and nothing is written',a
 
 test('note edit draft is protected when leaving with Escape',async({page})=>{
  await page.setViewportSize({width:1280,height:900});const f=await fixture(page);
- await page.locator('[data-basket-kind="note"]').click();
+ await chooseBasketKind(page,'note');
  await noteList(page).filter({hasText:'오래된 노트'}).click();
  await noteMenuAction(page,'data-note-edit');
  await page.locator('[data-note-detail] [data-basket-text]').fill('고치는 중');
@@ -273,7 +321,7 @@ for(const width of [390,1280]){
   await expect(detail.locator('[data-basket-read-text] h1')).toHaveText('회의 정리');
   await detail.locator('[data-note-close]').click();
   await expect(noteList(page).nth(0)).toContainText('회의 정리');
-  await page.locator('[data-basket-kind="memo"]').click();
+  await chooseBasketKind(page,'memo');
   await expect(page.locator('[data-basket-row="m1"]')).toBeVisible();await expect(page.locator('[data-basket-rows]')).not.toContainText('회의 정리');
   expect(f.errors).toEqual([]);
  });
@@ -327,7 +375,7 @@ test('[내보내기] opens the shared choice sheet: 텔레그램·한글 copy, H
 
 test('the editor opened to change a note has no [업데이트|노트] switch, and the same 32px head',async({page})=>{
  await page.setViewportSize({width:390,height:900});const f=await fixture(page);
- await page.locator('[data-basket-kind="note"]').click();
+ await chooseBasketKind(page,'note');
  await noteList(page).filter({hasText:'오래된 노트'}).click();
  await noteMenuAction(page,'data-note-edit');
  await page.locator('[data-note-big-write]').click();
@@ -345,7 +393,7 @@ test('the editor opened to change a note has no [업데이트|노트] switch, an
 for(const width of [360,390,412,870,1280]){
  test(`note edit buttons [큰 창에서 수정][저장][취소] sit on one uncut line at ${width}px`,async({page})=>{
   await page.setViewportSize({width,height:900});const f=await fixture(page);
-  await page.locator('[data-basket-kind="note"]').click();
+  await chooseBasketKind(page,'note');
   await noteList(page).filter({hasText:'오래된 노트'}).click();
   await noteMenuAction(page,'data-note-edit');
   const bar=page.locator('[data-note-edit-actions]');await expect(bar).toBeVisible();
@@ -375,7 +423,7 @@ async function expectIconNextToClose(editor,name){
 for(const width of [390,1280]){
  test(`big window save icon saves a note through [저장] and keeps the window open (NOTE-큰창저장유지), also when the save fails ${width}`,async({page})=>{
   await page.setViewportSize({width,height:900});const f=await fixture(page);
-  await page.locator('[data-basket-kind="note"]').click();
+  await chooseBasketKind(page,'note');
   await noteList(page).filter({hasText:'오래된 노트'}).click();
   const detail=page.locator('[data-note-detail]');
   await noteMenuAction(page,'data-note-edit');
@@ -408,10 +456,10 @@ for(const width of [390,1280]){
 
  test(`big window save icon on a new note creates it and returns to its read view ${width}`,async({page})=>{
   await page.setViewportSize({width,height:900});const f=await fixture(page);
-  await page.locator('[data-basket-kind="note"]').click();
-  await page.locator('[data-note-new]').click();
+  await chooseBasketKind(page,'note');
+  await noteBig(page).click();
   const detail=page.locator('[data-note-detail]');
-  // [+] opens the write window itself (no small form in between).
+  // [크게] on the empty note input opens the write window itself (no small form in between).
   const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();
   await expectIconNextToClose(editor,'새 노트로 저장');
   // Nothing written: the message shows in the window and nothing is sent.
@@ -446,7 +494,7 @@ for(const width of [390,1280]){
 
 test('[닫기] in the big window asks once, then hands the text back to the edit field; the menu write window has the same one save icon',async({page})=>{
  await page.setViewportSize({width:390,height:900});const f=await fixture(page);
- await page.locator('[data-basket-kind="note"]').click();
+ await chooseBasketKind(page,'note');
  await noteList(page).filter({hasText:'오래된 노트'}).click();
  const detail=page.locator('[data-note-detail]');
  await noteMenuAction(page,'data-note-edit');await detail.locator('[data-note-big-write]').click();
