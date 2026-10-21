@@ -11,7 +11,7 @@
 // Only the lines are saved (journal-data.js, kind=work). A material group that cannot be read shows its own notice and
 // [다시 시도]; the lines still work. A typed, unsaved line stays in memory per day until the owner changes.
 // JOURNAL-주간보고허브 1단계: four more groups (프로젝트 소식·할 일 예정·자료실 새 자료·공유 페이지). A group with nothing on
-// the day is not drawn as a box; one "기록 없는 묶음: …" line at the end names them (docs/design/weekly-report-hub.md 2절).
+// the day is not drawn as a box and is not named (JOURNAL-다듬기 removed the "기록 없는 묶음: …" line).
 // JOURNAL-주간보고허브 2단계: [하루 | 주간 정리] above the week. [주간 정리] hides the day row and the day card and shows the same
 // week's materials (the same reads, read once) in the weekly report's order (journal-weekly.js builds and draws it into
 // [data-journal-weekly], a box this module owns). The chosen side is kept in memory only (not in browser storage).
@@ -48,11 +48,11 @@ const length = text => [...String(text ?? '')].length;
 root.innerHTML = `<div class="journal-head"><div class="journal-mode-switch" role="group" aria-label="업무일지 보기"><button type="button" data-journal-mode="day" aria-pressed="true">하루</button><button type="button" data-journal-mode="week" aria-pressed="false">주간 정리</button></div><div class="journal-week-nav"><button type="button" class="mini" data-journal-prev aria-label="이전 주">‹</button><b data-journal-title aria-live="polite"></b><button type="button" class="mini" data-journal-next aria-label="다음 주">›</button><button type="button" class="mini" data-journal-today>이번 주</button></div><button type="button" class="secondary" data-journal-copy>주간보고 초안 복사</button></div>
 <p class="journal-status" data-journal-status role="status" aria-live="polite"></p>
 <div class="journal-days" data-journal-days role="group" aria-label="이번 주 날짜"></div>
-<section class="journal-radar" data-journal-radar hidden></section>
 <section class="journal-day" data-journal-day aria-labelledby="journalDayTitle">
 <h3 id="journalDayTitle" tabindex="-1" data-journal-day-title></h3>
 <form class="journal-line" data-journal-line novalidate><label class="journal-heading" for="journalLineInput">오늘 한 줄</label><div class="journal-line-row"><textarea id="journalLineInput" rows="2" data-journal-input placeholder="오늘 한 일을 한 줄로 남겨 보세요" aria-describedby="journalLineCount journalLineStatus"></textarea><button type="submit" class="primary" data-journal-save>저장</button></div><div class="journal-line-meta"><small id="journalLineCount" data-journal-count></small><p id="journalLineStatus" class="journal-line-status" data-journal-line-status role="status" aria-live="polite"></p></div></form>
 <ol class="journal-lines" data-journal-lines aria-label="이 날 한 줄 목록"></ol>
+<section class="journal-radar" data-journal-radar hidden></section>
 <div class="journal-materials" data-journal-materials></div>
 </section>
 <section class="journal-weekly" data-journal-weekly-root aria-labelledby="journalWeeklyTitle" hidden><h3 id="journalWeeklyTitle" tabindex="-1" data-journal-weekly-title></h3><p class="journal-muted journal-weekly-intro">주간보고 양식 순서로 이 주 기록을 모았어요. 화면에서 보기만 하고 저장하지 않아요.</p><div class="journal-hwpx" data-journal-hwpx></div><div class="journal-weekly-body" data-journal-weekly></div></section>`;
@@ -190,13 +190,6 @@ function renderMaterials() {
     }
     box.append(head, list);
     boxes.push(box);
-  }
-  // Empty groups are folded into one line at the end (2절: "기록 없는 묶음: …").
-  if (folded.length) {
-    const line = document.createElement('p');
-    line.className = 'journal-muted journal-empty'; line.dataset.journalEmpty = folded.map(group => group.key).join(' ');
-    line.textContent = `기록 없는 묶음: ${folded.map(group => group.label).join(', ')}`;
-    boxes.push(line);
   }
   host.replaceChildren(...boxes);
 }
