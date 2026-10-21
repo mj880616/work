@@ -223,6 +223,18 @@
 .ps3-rec-more:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
 .ps3-rec-empty{margin:0;padding:18px 0;text-align:center;color:var(--kptu-faint);font-size:var(--ds-text-row,13px)}
 .ps3-rec .ps3-pg-editor{padding:6px 0}
+/* UI-연결요약수정: the shared link summary editor (basket-link-records.js) opens under a linked line, across both columns. */
+.ps3-rec-basket [data-link-summary-form]{grid-column:1/-1;min-width:0;margin:0 0 10px;padding-top:10px;border-top:1px solid var(--kptu-border)}
+.ps3-rec-basket [data-link-summary-form] label{display:block;min-width:0}
+.ps3-rec-basket [data-link-summary-input]{display:block;width:100%;max-width:100%;box-sizing:border-box;white-space:pre-wrap;resize:vertical}
+.ps3-rec-basket [data-link-summary-original]>summary{min-height:44px;align-content:center;cursor:pointer}
+.ps3-rec-basket .basket-link-original{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;max-width:100%}
+.ps3-rec-basket [data-link-summary-status]:empty{display:none}
+.ps3-rec-basket [data-link-summary-latest]{overflow-wrap:anywhere}
+.ps3-rec-basket [data-link-summary-form] .basket-link-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:8px}
+.ps3-rec-basket [data-link-summary-form] :is(.basket-link-actions button,[data-link-summary-current],[data-link-summary-ai-box] button){min-height:44px;display:inline-flex;align-items:center;padding:6px 10px;box-sizing:border-box}
+.ps3-rec-basket .ai-summary-row,.ps3-rec-basket .ai-summary-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:6px}
+.ps3-rec-basket .ai-summary-status{min-width:0;font-size:var(--kptu-text-meta);color:var(--kptu-muted);overflow-wrap:anywhere}
 .ps3-add-plus{flex:0 0 auto;display:inline-grid;place-items:center;width:var(--kptu-touch-target);height:var(--kptu-touch-target);min-height:var(--kptu-touch-target);margin:-8px -8px -8px 0;padding:0;border:0;border-radius:999px;background:transparent;color:var(--kptu-link);font-size:22px;font-weight:400;line-height:1;cursor:pointer}
 .ps3-add-plus:hover{background:var(--kptu-surface-subtle)}
 .ps3-add-plus:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
