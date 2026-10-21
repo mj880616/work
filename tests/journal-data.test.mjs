@@ -122,6 +122,15 @@ test('another device: a 409 for a new day or a changed row is read again and the
   assert.equal(rt.calls.length, 1);
 });
 
+test('readScheduleEvents: names each event\'s calendar from the status list, and fails when the list cannot be read', async () => {
+  const m = await mod;
+  const ev = [{id:'e1', calendarId:'id1', title:'가상', start:'2026-10-13T10:00:00+09:00', end:'2026-10-13T11:00:00+09:00'}, {id:'e2', calendarId:'idX', title:'가상2', start:'2026-10-13T12:00:00+09:00', end:'2026-10-13T13:00:00+09:00'}];
+  const rt = runtime(path => path.includes('action=status') ? {connected:true, calendars:[{id:'id1', summary:'가상 달력'}]} : {events:ev});
+  assert.deepEqual((await m.readScheduleEvents('2026-10-05', rt)).map(e => [e.id, e.calendarName]), [['e1', '가상 달력'], ['e2', '']]);
+  await assert.rejects(m.readScheduleEvents('2026-10-05', runtime(path => path.includes('action=status') ? {connected:true, calendars:[], warning:'x'} : {events:ev})));
+  await assert.rejects(m.readScheduleEvents('2026-10-05', runtime(path => path.includes('action=status') ? {} : {events:ev})));
+});
+
 test('materials: events of the week, done tasks, every basket update (kind=basket) and the week of organization/project records and meetings', async () => {
   const m = await mod;
   const rt = runtime(path => {

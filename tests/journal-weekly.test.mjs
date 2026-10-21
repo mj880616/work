@@ -147,6 +147,28 @@ const upcoming = [
   {id:'u13', calendarId:'c', title:'가상 마지막 날', start:'2026-10-25T23:00:00+09:00', end:'2026-10-25T23:30:00+09:00'},
 ];
 
+// RPT-개인일정빼기: the two personal calendars are left out by name (one list; the table and the .hwpx form share upcomingSchedule).
+test('5. 주요 일정: events of the two excluded calendars (by name) are left out, others stay', async () => {
+  const m = await mod;
+  assert.deepEqual([...m.REPORT_EXCLUDED_CALENDARS], ['명진승지', 'arsenal 명진']);
+  const at = {start:'2026-10-13T10:00:00+09:00', end:'2026-10-13T11:00:00+09:00'};
+  const events = [
+    {id:'a', calendarId:'x1', calendarName:'명진승지', title:'가상 개인', ...at},
+    {id:'b', calendarId:'x2', calendarName:' Arsenal   명진 ', title:'가상 경기', ...at},
+    {id:'c', calendarId:'x3', calendarName:'가상 업무', title:'가상 업무 회의', ...at},
+    {id:'d', calendarId:'x4', title:'이름 모름', ...at},
+    {id:'e', calendarId:'x1', calendarName:'명진승지', title:'연차', allDay:true, start:'2026-10-14', end:'2026-10-15'},
+  ];
+  assert.equal(m.isExcludedCalendar(events[0]), true);
+  assert.equal(m.isExcludedCalendar(events[1]), true);
+  assert.equal(m.isExcludedCalendar(events[2]), false);
+  const c = m.upcomingSchedule(events, '2026-10-05');
+  assert.deepEqual(c.rows.map(r => r.items.map(i => i.what)), [['10:00 / 가상 업무 회의', '10:00 / 이름 모름']]);
+  assert.deepEqual(c.vacations, []);
+  // The .hwpx form cells come from the same model.
+  assert.equal(JSON.stringify(m.scheduleForm(c, '나')).match(/가상 개인|가상 경기/), null);
+});
+
 test('5. 주요 일정: the two weeks after the shown week, form cells, vacations apart, 일기·비공개 left out', async () => {
   const m = await mod;
   const c = m.upcomingSchedule(upcoming, '2026-10-05');
