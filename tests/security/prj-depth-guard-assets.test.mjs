@@ -10,8 +10,8 @@ test('PRJ depth guard files: SQL Editor only, read-only checks, three-line summa
   const sql = readFileSync(`supabase/migrations/${stem}.sql`, 'utf8');
   assert.match(sql, /^begin;\n/);
   assert.match(sql, /\ncommit;\n$/);
-  // CREATE TRIGGER is outside the approved DB workflow grammar, so the workflow must refuse it (phone path C only).
-  assert.throws(() => prepareMigration({ mode: 'dry-run', version: '20261021053502', runId: '1', root: process.cwd() }), /DB plan rejected/);
+  // DB-승인형확장: CREATE TRIGGER on a function made in the same file passes the expanded rules (single-approval flow).
+  assert.equal(prepareMigration({ mode: 'dry-run', version: '20261021053502', runId: '1', root: process.cwd() }).rules, 'expanded');
   for (const suffix of ['precheck', 'postcheck', 'snapshot']) checkSQL(readFileSync(`docs/${stem}.${suffix}.sql`, 'utf8'));
   const summary = readFileSync(`docs/${stem}.summary.md`, 'utf8').trim().split('\n');
   assert.deepEqual(summary.map(l => l.split(':')[0]), ['무엇이 바뀌나', '잘못되면', '되돌리는 법']);

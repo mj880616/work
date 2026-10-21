@@ -3,6 +3,21 @@
 --   max depth 1~3 / rows deeper than 3 levels 0 / rows not reachable from a top project 0 / rows whose parent is itself 0 /
 --   rows whose parent is missing 0 / rows whose parent is in another workspace 0.
 --   project row count·rows at level 3·hash 항목은 사후 확인과 비교용으로 캡처만 한다.
+-- 승인형 DB workflow 기대값(DB-승인형확장): 아래에 없는 항목은 모두 예여야 한다. 기록 = 값만 남기고 판정하지 않음.
+-- expect: project row count = 기록
+-- expect: max depth = 1~3
+-- expect: rows at level 3 = 기록
+-- expect: rows deeper than 3 levels (=0) = 0
+-- expect: rows not reachable from a top project (=0) = 0
+-- expect: rows whose parent is itself (=0) = 0
+-- expect: rows whose parent is missing (=0) = 0
+-- expect: rows whose parent is in another workspace (=0) = 0
+-- expect: triggers = 기록
+-- expect: constraints hash = 기록
+-- expect: owner RLS grants hash = 기록
+-- expect: policies hash = 기록
+-- expect: rows hash (parent links only) = 기록
+-- expect: recent migrations = 기록
 with recursive t(id, lvl, path) as (
   select s.id, 1, array[s.id] from public.app_spaces s where s.parent_id is null
   union all

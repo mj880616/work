@@ -131,8 +131,8 @@ test('migration keeps owner RLS, no anon/PUBLIC grants, and does not touch retir
  assert.equal((code.match(/using \(private\.app_is_workspace_owner\(workspace_id\)\)/g)||[]).length,2);
  assert.match(code,/grant select \(page_id, token_hash, expires_at, disabled_at\) on table public\.app_share_page_links to service_role;/);
  assert.match(code,/insert into supabase_migrations\.schema_migrations \(version, name, statements\)\s*values \('20261020005000', 'share_pages_links'/);
- // Policies and table grants are outside the approved DB workflow; it must refuse this file (SQL Editor only).
- assert.throws(()=>prepareMigration({mode:'apply',version:'20261020005000',runId:'1',root:process.cwd()}),/DB plan rejected/);
+ // DB-승인형확장: policies/grants on tables made in this file pass the expanded rules (no anon/PUBLIC widening).
+ assert.equal(prepareMigration({mode:'apply',version:'20261020005000',runId:'1',root:process.cwd()}).rules,'expanded');
  const summary=readFileSync('docs/20261020005000_share_pages_links.summary.md','utf8').trim().split('\n');
  assert.deepEqual(summary.map(l=>l.split(':')[0]),['무엇이 바뀌나','잘못되면','되돌리는 법']);
  const rollback=readFileSync('docs/20261020005000_share_pages_links.rollback.sql','utf8');

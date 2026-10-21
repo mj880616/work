@@ -1,6 +1,7 @@
 import { lstatSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
+import { validateExpanded, parseExpectations, checkSnapshotSQL, createdTables, ExpandedRejection } from './db-migration-expanded.mjs';
 
 const modes = ['dry-run', 'apply', 'rollback'];
 const fail = () => { throw new Error('DB plan rejected; check file structure, pairing or risk rules'); };
@@ -416,11 +417,27 @@ export function prepareMigration({ mode, version, runId, root }) {
   const path = choose(root, 'supabase/migrations', new RegExp(`^${version}_.*\\.sql$`), true);
   const name = path.slice('supabase/migrations/'.length + 15, -4);
   const migration = safeFile(root, path);
-  validateSQL(migration.sql, { mode: 'apply', version, name });
-  const rollbackPath = choose(root, 'docs', new RegExp(`^${version}_.*\\.rollback\\.sql$`), mode === 'rollback');
+  // Strict grammar first (unchanged). Apply/dry-run may fall back to the
+  // expanded rules, which refuse every access-widening pattern by reason code.
+  let strict = true;
+  try { validateSQL(migration.sql, { mode: 'apply', version, name }); }
+  catch (error) {
+    if (mode === 'rollback') throw error;
+    strict = false;
+  }
+  const expanded = strict ? null : validateExpanded(migration.sql, { version, name });
+  const rollbackPath = choose(root, 'docs', new RegExp(`^${version}_.*\\.rollback\\.sql$`), mode === 'rollback' || !strict);
   if (rollbackPath && rollbackPath !== `docs/${version}_${name}.rollback.sql`) fail();
   const file = mode === 'rollback' ? safeFile(root, rollbackPath) : migration;
-  const validation = validateSQL(file.sql, { mode, version, name, migrationSQL: migration.sql });
+  const validation = expanded ?? validateSQL(file.sql, { mode, version, name, migrationSQL: migration.sql });
+  if (expanded) {
+    // The expanded path needs every pair file: precheck/snapshot/postcheck/rollback.
+    for (const suffix of ['precheck', 'snapshot', 'postcheck']) {
+      const exclude = suffix === 'postcheck' ? '(?!.*\\.dry-run\\.postcheck\\.sql$)' : '';
+      const found = choose(root, 'docs', new RegExp(`^${version}_${exclude}.*\\.${suffix}\\.sql$`), false);
+      if (found !== `docs/${version}_${name}.${suffix}.sql`) throw new ExpandedRejection('pair-missing');
+    }
+  }
   const summaryPath = choose(root, 'docs', new RegExp(`^${version}_.*\\.summary\\.md$`), true);
   if (summaryPath !== `docs/${version}_${name}.summary.md`) fail();
   const summaryFile = safeFile(root, summaryPath, 4096);
@@ -444,7 +461,37 @@ export function prepareMigration({ mode, version, runId, root }) {
       } else checks[suffix === 'dry-run.postcheck' ? 'dryRunPostcheck' : suffix] = checked;
     }
   }
-  return { mode, version, name, runId, file, summaryFile, summaryLines, checks, manualSnapshotRequired, ...validation };
+  for (const kind of ['precheck', 'postcheck']) if (checks[kind]) checks[kind].expect = parseExpectations(checks[kind].sql);
+  let snapshot = null;
+  if (mode !== 'rollback') {
+    const snapshotPath = choose(root, 'docs', new RegExp(`^${version}_.*\\.snapshot\\.sql$`), false);
+    if (snapshotPath) {
+      if (snapshotPath !== `docs/${version}_${name}.snapshot.sql`) fail();
+      snapshot = safeFile(root, snapshotPath, 65_536);
+      try { checkSQL(snapshot.sql); checkSnapshotSQL(snapshot.sql); snapshot.artifact = true; }
+      catch (error) {
+        // Expanded path: a snapshot that could carry row values is a refusal.
+        // Strict path keeps its earlier behavior (manual snapshot, no artifact).
+        if (!strict) throw error instanceof ExpandedRejection ? new ExpandedRejection('snapshot-rows') : error;
+        snapshot.artifact = false;
+      }
+    }
+  }
+  // Full single-approval flow (precheck → snapshot artifact → dry-run → apply →
+  // postcheck) whenever every pair file exists; the expanded rules require it.
+  const pairs = ['precheck', 'postcheck'].every(kind => choose(root, 'docs',
+    new RegExp(`^${version}_${name}\\.${kind}\\.sql$`), false)) && Boolean(rollbackPath) && snapshot?.artifact === true;
+  // Strict-rule files opt in with `-- expect:` lines in the precheck (older
+  // migrations keep their earlier flow and outputs); expanded files always run full.
+  const optedIn = !strict || (checks.precheck?.expect?.size ?? 0) > 0;
+  const flow = mode !== 'rollback' && optedIn && pairs && checks.precheck && !checks.precheck.baselineNull
+    && !manualSnapshotRequired && !checks.postcheck?.baselineNull ? 'full' : 'legacy';
+  if (!strict && flow !== 'full') throw new ExpandedRejection('pair-missing');
+  // A table created by this same migration has no earlier rows: never back it up
+  // (the copy would fail before the table exists).
+  const fresh = mode === 'rollback' ? new Set() : createdTables(migration.sql);
+  return { mode, version, name, runId, file, summaryFile, summaryLines, checks, snapshot, manualSnapshotRequired, flow,
+    rollbackPath, rules: strict ? 'strict' : 'expanded', ...validation, targets: validation.targets.filter(t => !fresh.has(t)) };
 }
 
 export const escapeSummary = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('|', '&#124;').replaceAll('`', '&#96;');

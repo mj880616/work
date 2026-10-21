@@ -51,7 +51,7 @@ test('todo radar: migration, owner-only RLS, column grants, dedupe, PostgREST st
 
   await t.test('files: read-only checks, three-line summary; SQL Editor only (workflow parser refuses policies/grants)',async()=>{
    for(const sql of [precheck,postcheck,snapshot])assert.equal(checkSQL(sql).baselineNull,false);
-   assert.throws(()=>prepareMigration({mode:'apply',version,runId:'1',root}),/DB plan rejected/);
+   assert.equal(prepareMigration({mode:'apply',version,runId:'1',root}).rules,'expanded'); // DB-승인형확장
    const summary=(await read('docs/'+stem+'.summary.md')).trim().split('\n');
    assert.deepEqual(summary.map(l=>l.split(':')[0]),['무엇이 바뀌나','잘못되면','되돌리는 법']);
    const code=migration.replace(/--.*$/gm,'');
