@@ -315,5 +315,5 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
 #appView #projectsView .ps3-prow-kids .ps3-order-line:last-child>.ps3-kid-row::before{bottom:50%}
 
 /* PRJ-화면다듬기: detail sections are no longer boxes inside the dialog box; the text gets the full width, sections are told apart by a hairline. */
-#ps3DetailModal .ps3-section{border:0;border-radius:0;padding-left:0;padding-right:0;background:transparent}
+#ps3DetailModal .ps3-section{border:0;border-radius:var(--kptu-radius-none);padding-left:0;padding-right:0;background:transparent}
 #ps3DetailModal .ps3-section+.ps3-section{border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));padding-top:var(--kptu-space-3)}
