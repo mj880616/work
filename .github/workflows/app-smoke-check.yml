@@ -219,7 +219,7 @@ jobs:
           if grep -Eq "profile-settings.js|myspace-return.js" app/loader-v2.js; then echo 'personal view module was loaded at startup'; exit 1; fi
           if grep -q "myspace-return.js" app/view-loader.js; then echo 'removed personal view module was loaded'; exit 1; fi
           grep -q "profile-settings.js" app/view-loader.js
-          grep -q "data-profile-open" app/topbar-actions.js
+          grep -q "dataset.profileOpen" app/topbar-actions.js
           test ! -f app/home-task-controls.js
           test ! -f app/home-task.css
           test ! -f app/library-public-toggle.js
