@@ -1,5 +1,7 @@
 # 📱 폰 가능 · BASKET-3 검토 기록 (파일·PR만, 배포 없음)
 
+> 2026-10-22 DRIVE-바구니원문제외: 아래는 이전 설계 기록이다. 현재 Drive 사본의 바구니 절은 건수 한 줄뿐이며 원문·메모 ID·분류 안내는 싣지 않는다. 현재 동작은 `supabase/functions/drive-summary/README.md`의 "바구니 절"을 따른다.
+
 2026-10-11, Codex 웹·클라우드. 원격 `origin/main`을 새로 fetch한 실제 시작 SHA는 `f160bef2183f7952930f54f236b9dc39e0932c38`(#484 포함). 브랜치는 `codex/basket-3-drive-copy`, PR은 [#485](https://github.com/mj880616/work/pull/485). `main` 직접 쓰기·merge·운영 접속·Edge 배포·workflow 수동 실행·DB 변경은 하지 않는다.
 
 ## 구현과 범위
