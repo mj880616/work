@@ -528,3 +528,32 @@ test('weekly draft with the hub groups: day by day, groups in screen order, sect
   const failed = m.weeklyDraft({start:'2026-10-05', lines:new Map(), materials:{...hubMaterials(), sharePages:{status:'failed'}}, doneDays:8, today:'2026-10-06'});
   assert.ok(failed.includes('※ 공유 페이지은(는) 불러오지 못해 빠졌어요.'));
 });
+
+test('조직 소식 sections follow the shared organization order (organization-order.js); projects and the tail do not', async () => {
+  const m = await mod, day = '2026-10-06';
+  const saved = globalThis.window;
+  const mk = (id, name, at) => ({id, organization_id:id, organization:{name}, occurred_at:`2026-10-06T0${at}:00:00Z`, raw_text:`${name} 기록`});
+  const projects = [{id:'p1', project:{name:'가 프로젝트'}, effective_on:day, summary:'가'}, {id:'p2', project:{name:'나 프로젝트'}, effective_on:day, summary:'나'}];
+  try {
+    globalThis.window = globalThis;
+    await import('../app/organization-order.js');
+    const groups = globalThis.KPTUOrganizationOrder.GROUPS;
+    // Known names are taken from the shared table itself: last of the last group, first of the first group, and one between.
+    const late = groups[3][3], mid = groups[1][0], first = groups[0][0];
+    const rows = [mk('o1', late, 1), mk('o2', '가상 모르는 조직', 2), mk('o3', first, 3), mk('o4', mid, 4), mk('o5', '가상 가나다 앞', 5)];
+    const names = sections => sections.map(s => s.name);
+    const mine = new Set(rows.map(row => row.id));
+    const ordered = m.orgNewsOn({basket:{notes:[], links:[], docs:[]}, orgUpdates:Object.assign(rows, {mine})}, day);
+    assert.deepEqual(names(ordered), [first, mid, late, '가상 가나다 앞', '가상 모르는 조직']);
+    assert.deepEqual(names(m.projectNewsOn({projectUpdates:projects}, day)), ['가 프로젝트', '나 프로젝트']);
+    // The weekly draft lists the same sections in the same order.
+    const empty = {status:'ok', items:[]};
+    const text = m.weeklyDraft({start:'2026-10-05', lines:new Map(), today:day, materials:{events:empty, tasks:empty, basket:{status:'ok', items:{notes:[], links:[], docs:[]}},
+      orgUpdates:{status:'ok', items:Object.assign(rows, {mine})}, projectUpdates:empty, meetings:empty, documents:empty, sharePages:empty}});
+    const lines = text.split('\n').filter(row => row.startsWith('- 조직 소식 · ')).map(row => row.split(':')[0].replace('- 조직 소식 · ', ''));
+    assert.deepEqual(lines, [first, mid, late, '가상 가나다 앞', '가상 모르는 조직']);
+    // Not loaded: every organization stays in 가나다순, as before.
+    delete globalThis.KPTUOrganizationOrder;
+    assert.deepEqual(names(m.orgNewsOn({orgUpdates:Object.assign(rows, {mine})}, day)), [...[first, mid, late, '가상 가나다 앞', '가상 모르는 조직']].sort((a, b) => a.localeCompare(b, 'ko')));
+  } finally { if (saved === undefined) delete globalThis.window; else globalThis.window = saved; }
+});
