@@ -1,8 +1,48 @@
 import {seoulParts,seoulDate,addSeoulDays} from './meeting-time.js';
+import {paintFreshness} from './data-freshness.js';
+import {createHomeCache} from './home-read-cache.js';
+import {dayKey,ranges,homeEventRows} from './home-read-model.js';
 let cpState=null,cpEvents=[],cpSavePromise=null,cpSaveQueued=false,cpOwner=null;
-// 메모리 캐시만 사용한다(저장소 키 없음). status는 연결 상태일 때만 5분, 월별 events는 5분 동안 먼저 보여주고 항상 뒤에서 다시 읽는다.
+// 메모리 캐시: status는 연결 상태일 때만 5분, 범위별 events는 5분 동안 먼저 보여주고 항상 뒤에서 다시 읽는다.
+// CAL-저장본먼저(2026-10-22 사용자 결정): 이 기기에도 마지막 연결 상태와 범위별 일정을 남겨, 다음에 열 때 바로 보여 주고 곧바로 다시 읽는다.
+// Google이 원본이다. 새로 읽은 범위는 저장본을 통째로 바꾸고(다른 곳에서 지운 일정은 화면·저장본에서 사라짐), 기간 제한은 없다.
+// 저장 위치는 KPTURuntime.ownerCache(로그아웃·계정 변경 때 runtime이 지움)이고 크기는 범위 수·바이트로 묶는다. 일정 설명은 남기지 않는다.
 const CP_STATUS_TTL=5*60*1000,CP_EVENTS_TTL=5*60*1000,CP_FOCUS_MIN=30*1000,cpRangeCache=new Map();
 let cpStatusAt=0,cpEventSeq=0,cpCacheGen=0,cpShownKey='',cpShownAt=0;
+// What the screen shows: the time span its events cover, whether they came from this device's copy, when they were last confirmed,
+// and the freshness line state (data-freshness.js). cpAnswered: the status read answered at least once for this owner.
+let cpCover=null,cpFromCopy=false,cpCheckedAt=0,cpFresh='',cpAnswered=false;
+const CP_COPY_NAME='calendar-events-v1',CP_COPY_RANGES=8,CP_COPY_MAX=1500000;
+const cpCacheKey=owner=>{const p=window.KPTURuntime?.ownerCache?.prefix;return p&&owner?`${p}${CP_COPY_NAME}:${owner}`:''};
+function cpCopyRead(owner){const k=cpCacheKey(owner);if(!k)return null;try{const v=JSON.parse(localStorage.getItem(k)||'null');return v&&v.version===1&&v.owner===owner&&v.status?.connected&&v.ranges&&typeof v.ranges==='object'?v:null}catch{return null}}
+function cpCopyStore(owner,v){const keys=Object.keys(v.ranges).sort((a,b)=>v.ranges[b].at-v.ranges[a].at);for(const k of keys.slice(CP_COPY_RANGES))delete v.ranges[k];let raw=JSON.stringify(v);for(const k of keys.slice(0,CP_COPY_RANGES).reverse()){if(raw.length<=CP_COPY_MAX||Object.keys(v.ranges).length<=1)break;delete v.ranges[k];raw=JSON.stringify(v)}if(raw.length>CP_COPY_MAX)return cpCopyDrop(owner);try{localStorage.setItem(cpCacheKey(owner),raw)}catch{cpCopyDrop(owner)}}
+function cpCopyDrop(owner){const k=cpCacheKey(owner);if(!k)return;try{localStorage.removeItem(k)}catch{}}
+const cpCopyStatus=()=>{const {email,warning,...rest}=cpState||{};return rest};
+const cpCopyEvents=list=>(list||[]).map(({description,...ev})=>ev);
+// A fresh range replaces its saved copy wholesale. Other saved ranges lose the events of the same calendars in the same span that the fresh
+// read no longer has, so an event deleted elsewhere does not come back from an overlapping range.
+function cpCopySave(owner,key,s,e,d){
+  if(!owner||cpSessionOwner()!==owner||!cpState?.connected)return;
+  const v=cpCopyRead(owner)||{version:1,owner,status:{},ranges:{}},now=Date.now(),ids=new Set((d.events||[]).map(ev=>ev.calendarId+':'+ev.id)),cals=new Set(cpState.selected||[]);
+  for(const r of Object.values(v.ranges))r.events=r.events.filter(ev=>ids.has(ev.calendarId+':'+ev.id)||!cals.has(ev.calendarId)||!(cpTime(ev.start)<+e&&cpTime(ev.end)>+s));
+  v.status=cpCopyStatus();v.ranges[key]={at:now,s:+s,e:+e,events:cpCopyEvents(d.events),eventColors:d.eventColors||{}};
+  cpCopyStore(owner,v);
+  cpHomeCopy(d.events||[],s,e);
+}
+const cpTime=v=>/^\d{4}-\d{2}-\d{2}$/.test(String(v||''))?Date.parse(v+'T00:00:00+09:00'):Date.parse(v);
+// The home 오늘 일정 copy (home-read-cache.js) follows a fresh read that covers today, so the home shows it next time without a gap.
+let cpHome=null;
+function cpHomeCache(){const rt=window.KPTURuntime;if(!cpHome&&rt?.ownerCache?.prefix)try{cpHome=createHomeCache({storage:localStorage,keyPrefix:rt.ownerCache.prefix+'home-read-v1:',context:()=>({owner:rt.context?.read?.()?.user?.id,workspaceId:rt.context?.read?.()?.workspace?.id})})}catch{}return cpHome}
+function cpHomeCopy(events,s,e){const r=ranges();if(+s>r.start||+e<r.end)return;cpHomeCache()?.save('calendar',{day:dayKey(),rows:homeEventRows(events,cpState)})}
+function cpFreshness(state){
+  // Only the day placeholder (불러오는 중… / 불러오지 못함) depends on this state; other changes are painted by their own events.
+  if(cpFresh!==state){const repaint=(cpFresh==='failed')!==(state==='failed');cpFresh=state;if(repaint)cpPaint()}
+  paintFreshness(document.querySelector('#calendarFreshness'),{state,checkedAt:cpCheckedAt,onRetry:()=>cpStatusAt&&cpState?.connected?cpLoadEvents({force:true}):cpStatus({force:true})});
+}
+// The list asks this before writing "일정 없음" for a day: only a confirmed answer (fresh or saved) for that span may say so.
+function cpKnows(s,e){if(!cpState)return false;if(!cpState.connected)return cpAnswered;return !!cpCover&&+s>=cpCover.s&&+e<=cpCover.e}
+// Show this device's copy of a range when nothing newer is shown for it.
+function cpShowCopy(owner,key,s,e,append){const saved=cpCopyRead(owner)?.ranges?.[key];if(!saved)return false;cpApplyEvents({events:saved.events,eventColors:saved.eventColors},append,s,e,{at:saved.at,copy:true});cpShownKey=key;cpShownAt=0;return true}
 function cpAuthError(e){const status=Number(e?.status||0),m=String(e?.message||e||'');return status===401||/로그인|재인증|연결되지 않|토큰 갱신|권한이 필요|invalid_grant|invalid.?credentials|unauthori[sz]ed/i.test(m)}
 function cpInvalidate(){cpStatusAt=0;cpShownAt=0;cpCacheGen++;cpRangeCache.clear()}
 async function cpCall(action,{method='GET',body=null,params=null,fresh=false}={}){try{const rt=window.KPTURuntime;if(!rt?.session||!(await rt.session.ensure()))throw new Error('로그인이 필요합니다.');const u=new URL(rt.config.url+'/functions/v1/google-calendar');if(action)u.searchParams.set('action',action);if(params)Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,String(v)));const d=await rt.api(u.toString(),fresh?{method,body,singleFlight:false}:{method,body});if(d?.error)throw new Error(d.error||'Google Calendar 요청 실패');return d}catch(e){if(cpAuthError(e))cpInvalidate();throw e}}
@@ -19,7 +59,7 @@ function cpSyncEvents(){window.__KPTU_GOOGLE_EVENTS__=cpEvents;window.__KPTU_SYN
 function cpDecorate(){if(!cpState?.connected)return;const box=document.querySelector('#googleCalendarList');if(!box)return;const selected=new Set(cpState.selected||[]);box.querySelectorAll('[data-google-cal]').forEach(ch=>{ch.checked=selected.has(ch.dataset.googleCal);if(!ch.dataset.cpBound){ch.dataset.cpBound='1';ch.addEventListener('change',cpSave)}const lab=ch.closest('label');if(!lab)return;let c=lab.querySelector('.cp-color');if(!c){c=document.createElement('input');c.type='color';c.className='cp-color';c.dataset.id=ch.dataset.googleCal;c.title='색상';c.addEventListener('change',cpSave);lab.appendChild(c)}c.value=cpColor(ch.dataset.googleCal)});const save=document.querySelector('#saveGooglePrefs');if(save){save.textContent='자동 저장';save.disabled=true}}
 function cpPreferenceSnapshot(){const ids=[...document.querySelectorAll('[data-google-cal]:checked')].map(x=>x.dataset.googleCal),colors={...(cpState?.colors||{})};document.querySelectorAll('.cp-color').forEach(x=>colors[x.dataset.id]=x.value);return{ids,colors,enabled:true}}
 function cpSave(){if(!cpState)return Promise.resolve(false);cpSaveQueued=true;if(cpSavePromise)return cpSavePromise;const owner=cpSessionOwner();cpSavePromise=(async()=>{let last=null;try{while(cpSaveQueued){cpSaveQueued=false;last=cpPreferenceSnapshot();await cpCall('',{method:'POST',body:{action:'preferences',calendar_ids:last.ids,calendar_colors:last.colors,enabled:last.enabled}});if(!owner||cpSessionOwner()!==owner)return false;cpState.selected=last.ids;cpState.colors=last.colors;cpState.enabled=last.enabled}cpSyncState();cpMessage(`Google 캘린더 ${last?.ids.length||0}개 표시 · 자동 저장됨`);await cpLoadEvents({force:true});return true}catch(e){if(!owner||cpSessionOwner()!==owner)return false;cpMessage(e.message,true);return false}finally{cpSavePromise=null;if(cpSaveQueued)cpSave()}})();return cpSavePromise}
-function cpApplyEvents(d,append=false){cpEvents=append?[...new Map([...cpEvents,...(d.events||[])].map(ev=>[ev.calendarId+':'+ev.id,ev])).values()]:d.events||[];cpState.eventColors=d.eventColors||cpState?.eventColors||{};cpSyncState();cpSyncEvents()}
+function cpApplyEvents(d,append=false,s=null,e=null,{at=Date.now(),copy=false}={}){if(s&&e)cpCover=append&&cpCover?{s:Math.min(cpCover.s,+s),e:Math.max(cpCover.e,+e)}:{s:+s,e:+e};cpFromCopy=append?cpFromCopy||copy:copy;cpCheckedAt=append&&cpCheckedAt?Math.min(cpCheckedAt,at):at;cpEvents=append?[...new Map([...cpEvents,...(d.events||[])].map(ev=>[ev.calendarId+':'+ev.id,ev])).values()]:d.events||[];cpState.eventColors=d.eventColors||cpState?.eventColors||{};cpSyncState();cpSyncEvents()}
 function cpEventsMessage(d){cpMessage(d.warning?'Google 일정 읽기 오류: '+d.warning:(cpEvents.length?`Google 일정 ${cpEvents.length}건 표시 중`:'이 기간에 선택한 Google 일정이 없습니다.'),!!d.warning)}
 async function cpReadEvents(s,e,force){
   // Refresh the whole shown list in bounded windows. The existing Edge caps each request.
@@ -33,15 +73,63 @@ async function cpReadEvents(s,e,force){
   }
   result.events=[...new Map(result.events.map(ev=>[ev.calendarId+':'+ev.id,ev])).values()];if(warnings.length)result.warning=warnings.join(' · ');return result;
 }
-async function cpLoadEvents({force=false,appendPage=false}={}){const viewRevision=window.KPTUCalendarView?.begin();if(!cpState?.connected){cpEvents=[];cpShownKey='';cpSyncEvents();window.KPTUCalendarView?.finish(viewRevision,true);return true}const owner=cpSessionOwner(),{s,e,append=false}=cpRange(appendPage),key=cpEventsKey(owner,s,e),seq=++cpEventSeq;if(force){cpCacheGen++;cpRangeCache.clear()}else{const hit=cpRangeCache.get(key);if(hit&&Date.now()-hit.at<CP_EVENTS_TTL&&cpShownKey!==key){cpApplyEvents(hit.d,append);cpEventsMessage(hit.d);cpShownKey=key;cpShownAt=0}}const gen=cpCacheGen;try{const d=await cpReadEvents(s,e,force);if(!owner||cpSessionOwner()!==owner)return;if(d.warning){cpRangeCache.delete(key);if(cpAuthError(d.warning))cpInvalidate()}else if(gen===cpCacheGen){const now=Date.now();for(const [k,v] of cpRangeCache)if(now-v.at>=CP_EVENTS_TTL)cpRangeCache.delete(k);cpRangeCache.set(key,{d,at:now})}if(seq!==cpEventSeq)return;cpApplyEvents(d,append);cpShownKey=key;cpShownAt=d.warning?0:Date.now();cpEventsMessage(d);window.KPTUCalendarView?.finish(viewRevision,!d.warning);return !d.warning}catch(err){if(!owner||cpSessionOwner()!==owner)return;cpRangeCache.delete(key);if(seq!==cpEventSeq)return;cpMessage(err.message,true);window.KPTUCalendarView?.finish(viewRevision,false);return false}}
-async function cpStatus({force=false}={}){const owner=cpSessionOwner();if(!force&&cpStatusFresh()){await cpLoadEvents();return true}const known=!!cpState?.connected&&cpOwner===owner,before=String(cpState?.selected||[]),early=known?cpLoadEvents():null;try{const next=await cpCall('status',{fresh:force});if(!owner||cpSessionOwner()!==owner)return false;cpOwner=owner;cpState=next;cpStatusAt=next?.connected&&!next.warning?Date.now():0;if(next?.warning&&cpAuthError(next.warning))cpRangeCache.clear();cpSyncState();if(!cpState?.connected){cpInvalidate();cpEvents=[];cpShownKey='';cpEventSeq++;window.KPTUCalendarView?.cancel();cpSyncEvents();return false}cpState.enabled=true;window.__KPTU_RENDER_GOOGLE_CONTROLS__?.();cpDecorate();await (early&&String(cpState.selected||[])===before?early:cpLoadEvents());return true}catch(e){if(!owner||cpSessionOwner()!==owner)return false;cpMessage(e.message,true);return false}}
+// The read under way (cpConfirm waits for it before judging an event opened from this device's copy).
+let cpLoading=null;
+function cpLoadEvents(options){const p=cpLoadEventsNow(options);cpLoading=p;p.finally(()=>{if(cpLoading===p)cpLoading=null}).catch(()=>{});return p}
+async function cpLoadEventsNow({force=false,appendPage=false}={}){
+  const viewRevision=window.KPTUCalendarView?.begin();
+  if(!cpState?.connected){cpEvents=[];cpShownKey='';cpCover=null;cpFromCopy=false;cpFreshness(cpState?'':'loading');cpSyncEvents();window.KPTUCalendarView?.finish(viewRevision,true);return true}
+  const owner=cpSessionOwner(),{s,e,append=false}=cpRange(appendPage),key=cpEventsKey(owner,s,e),seq=++cpEventSeq;
+  if(force){cpCacheGen++;cpRangeCache.clear()}
+  else{const hit=cpRangeCache.get(key);if(hit&&Date.now()-hit.at<CP_EVENTS_TTL&&cpShownKey!==key){cpApplyEvents(hit.d,append,s,e,{at:hit.at});cpEventsMessage(hit.d);cpShownKey=key;cpShownAt=0}else if(cpShownKey!==key)cpShowCopy(owner,key,s,e,append)}
+  cpFreshness(cpKnows(s,e)?'refresh':'loading');
+  const gen=cpCacheGen;
+  try{
+    const d=await cpReadEvents(s,e,force);if(!owner||cpSessionOwner()!==owner)return;
+    if(d.warning){cpRangeCache.delete(key);if(cpAuthError(d.warning))cpInvalidate()}else if(gen===cpCacheGen){const now=Date.now();for(const [k,v] of cpRangeCache)if(now-v.at>=CP_EVENTS_TTL)cpRangeCache.delete(k);cpRangeCache.set(key,{d,at:now})}
+    if(seq!==cpEventSeq)return;
+    // A read with a warning is partial: keep what is shown (saved or earlier) and say it is not the latest.
+    if(d.warning&&cpKnows(s,e)){cpEventsMessage(d);cpFreshness('stale');window.KPTUCalendarView?.finish(viewRevision,false);return false}
+    cpApplyEvents(d,append,s,e);cpShownKey=key;cpShownAt=d.warning?0:Date.now();if(!d.warning)cpCopySave(owner,key,s,e,d);cpEventsMessage(d);cpFreshness(d.warning?'stale':'');window.KPTUCalendarView?.finish(viewRevision,!d.warning);return !d.warning
+  }catch(err){if(!owner||cpSessionOwner()!==owner)return;cpRangeCache.delete(key);if(seq!==cpEventSeq)return;cpMessage(err.message,true);cpFreshness(cpKnows(s,e)?'stale':'failed');window.KPTUCalendarView?.finish(viewRevision,false);return false}
+}
+async function cpStatus({force=false}={}){const owner=cpSessionOwner();if(!force&&cpStatusFresh()){await cpLoadEvents();return true}const known=!!cpState?.connected&&cpOwner===owner,before=String(cpState?.selected||[]),early=known?cpLoadEvents():null;try{const next=await cpCall('status',{fresh:force});if(!owner||cpSessionOwner()!==owner)return false;cpOwner=owner;cpState=next;cpAnswered=true;cpStatusAt=next?.connected&&!next.warning?Date.now():0;if(next?.warning&&cpAuthError(next.warning))cpRangeCache.clear();cpSyncState();if(!cpState?.connected){cpInvalidate();cpCopyDrop(owner);cpEvents=[];cpShownKey='';cpCover=null;cpFromCopy=false;cpEventSeq++;window.KPTUCalendarView?.cancel();cpFreshness('');cpSyncEvents();return false}cpState.enabled=true;window.__KPTU_RENDER_GOOGLE_CONTROLS__?.();cpDecorate();await (early&&String(cpState.selected||[])===before?early:cpLoadEvents());return true}catch(e){if(!owner||cpSessionOwner()!==owner)return false;cpMessage(e.message,true);const {s,e:end}=cpRange();if(!(cpShownAt&&cpShownKey===cpEventsKey(owner,s,end)))cpFreshness(cpKnows(s,end)?'stale':'failed');return false}}
 function cpOnFocus(){if(!cpCalendarVisible())return;if(!cpStatusFresh())return cpStatus();const {s,e}=cpRange();if(cpShownKey===cpEventsKey(cpSessionOwner(),s,e)&&cpShownAt&&Date.now()-cpShownAt<CP_FOCUS_MIN)return;return cpLoadEvents()}
-function cpDisconnected(){cpInvalidate();cpState={connected:false,enabled:false,selected:[],calendars:[],colors:{},eventColors:{},email:null};cpEvents=[];cpShownKey='';cpEventSeq++;window.KPTUCalendarView?.cancel();cpSyncState();cpSyncEvents()}
+function cpDisconnected(){cpInvalidate();cpCopyDrop(cpSessionOwner());cpCover=null;cpFromCopy=false;cpAnswered=true;cpFreshness('');cpState={connected:false,enabled:false,selected:[],calendars:[],colors:{},eventColors:{},email:null};cpEvents=[];cpShownKey='';cpEventSeq++;window.KPTUCalendarView?.cancel();cpSyncState();cpSyncEvents()}
 async function cpSetEnabled(){if(!cpState)return;cpState.enabled=true;const ok=await cpSave();if(!ok)throw new Error('Google Calendar 설정 저장에 실패했습니다.')}
-async function cpInit(){cpMessage('');await cpStatus();return true}
-window.KPTUCalendarPersistence={paint:cpPaint,decorate:cpDecorate,refresh:options=>cpLoadEvents(options),status:()=>cpStatus({force:true}),setEnabled:cpSetEnabled,disconnected:cpDisconnected,peek:()=>cpOwner===cpSessionOwner()?{owner:cpOwner,status:cpState}:null};
+// This device's copy first: the last status and the shown range's events, while status and events are read again at once.
+function cpRestore(){const owner=cpSessionOwner(),copy=cpCopyRead(owner);if(!copy||cpState?.connected)return false;cpOwner=owner;cpState={...copy.status,connected:true};cpSyncState();const {s,e}=cpRange();if(!cpShowCopy(owner,cpEventsKey(owner,s,e),s,e,false))cpPaint();return true}
+// An event that the latest read no longer has (deleted here or elsewhere): out of the screen, the saved ranges and the home copy.
+function cpForget(id,calendarId){
+  if(!id)return;const same=ev=>ev.id===id&&(!calendarId||ev.calendarId===calendarId),owner=cpSessionOwner();
+  if(cpEvents.some(same)){cpEvents=cpEvents.filter(ev=>!same(ev));cpSyncEvents()}
+  for(const hit of cpRangeCache.values())if(hit.d?.events)hit.d={...hit.d,events:hit.d.events.filter(ev=>!same(ev))};
+  const v=cpCopyRead(owner);if(v){for(const r of Object.values(v.ranges))r.events=r.events.filter(ev=>!same(ev));cpCopyStore(owner,v)}
+  cpHomeCache()?.update('calendar',card=>({...card,rows:card.rows.filter(r=>!(r.id===id&&(!calendarId||r.calendarId===calendarId)))}));
+}
+// An event saved in Web2: the screen, the saved ranges and the home copy show the saved version at once (the reload that follows
+// replaces them wholesale). prevCalendarId: the calendar it was in before a move.
+function cpPut(ev,prevCalendarId){
+  if(!ev?.id)return;const owner=cpSessionOwner(),from=prevCalendarId||ev.calendarId,old=x=>x.id===ev.id&&x.calendarId===from;
+  const swap=list=>list.some(old)?list.map(x=>old(x)?{...x,...ev}:x):list;
+  if(cpEvents.some(old)){cpEvents=swap(cpEvents);cpSyncEvents()}
+  for(const hit of cpRangeCache.values())if(hit.d?.events)hit.d={...hit.d,events:swap(hit.d.events)};
+  const v=cpCopyRead(owner);if(v){for(const r of Object.values(v.ranges))r.events=cpCopyEvents(swap(r.events));cpCopyStore(owner,v)}
+  cpHomeCache()?.update('calendar',card=>card.day!==dayKey()?card:{...card,rows:homeEventRows([...card.rows.filter(r=>!(r.id===ev.id&&r.calendarId===from)),ev],cpState)});
+}
+// An event opened from this device's copy: wait for the read under way (or read again when the last one failed) and answer
+// 'present', 'gone' (the latest read no longer has it) or 'unknown' (Google did not answer; the copy is still shown).
+async function cpConfirm(id,calendarId){
+  const owner=cpSessionOwner(),same=ev=>ev.id===id&&(!calendarId||ev.calendarId===calendarId);
+  for(let i=0;i<3&&cpFromCopy&&cpLoading;i++)await cpLoading.catch(()=>{});
+  if(cpFromCopy&&!cpLoading&&cpState?.connected)await cpLoadEvents().catch(()=>{});
+  if(!owner||owner!==cpSessionOwner()||cpFromCopy)return 'unknown';
+  return cpEvents.some(same)?'present':'gone';
+}
+async function cpInit(){cpMessage('');cpRestore();await cpStatus();return true}
+window.KPTUCalendarPersistence={paint:cpPaint,knows:cpKnows,state:()=>cpFresh,fromCopy:()=>cpFromCopy,forget:cpForget,put:cpPut,confirm:cpConfirm,decorate:cpDecorate,refresh:options=>cpLoadEvents(options),status:()=>cpStatus({force:true}),setEnabled:cpSetEnabled,disconnected:cpDisconnected,peek:()=>cpOwner===cpSessionOwner()?{owner:cpOwner,status:cpState}:null};
 // 일정 생성·수정·삭제 직후 호출된다: 캐시와 진행 중 요청을 무시하고 새로 읽는다.
 window.__KPTU_RELOAD_GOOGLE_EVENTS__=()=>cpLoadEvents({force:true});
 window.__KPTU_CALENDAR_PERSISTENCE_READY__=cpInit().catch(e=>{console.warn('calendar persistence init',e);return false});
-window.addEventListener('kptu:session-changed',e=>{const next=e.detail?.session?.user?.id||'';if(cpOwner&&next===cpOwner)return;cpOwner=next||null;cpInvalidate();cpShownKey='';cpEventSeq++;cpState={connected:false,enabled:false,selected:[],calendars:[],colors:{},eventColors:{},email:null};cpEvents=[];window.KPTUCalendarView?.cancel();cpSyncState();cpSyncEvents()});
+window.addEventListener('kptu:session-changed',e=>{const next=e.detail?.session?.user?.id||'';if(cpOwner&&next===cpOwner)return;cpOwner=next||null;cpInvalidate();cpShownKey='';cpCover=null;cpFromCopy=false;cpAnswered=false;cpCheckedAt=0;cpHome=null;cpEventSeq++;cpFreshness('');cpState={connected:false,enabled:false,selected:[],calendars:[],colors:{},eventColors:{},email:null};cpEvents=[];window.KPTUCalendarView?.cancel();cpSyncState();cpSyncEvents()});
 window.addEventListener('focus',()=>{cpOnFocus()});
