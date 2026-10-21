@@ -4,9 +4,10 @@ import {existsSync, readFileSync} from 'node:fs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {loginEntry} from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import {testOrigin} from './helpers/test-origin.mjs';
 
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
-const ORIGIN = 'http://127.0.0.1:8123';
+const ORIGIN = testOrigin;
 const app = ORIGIN + '/app/';
 const user = {id:'share-user', email:'share@example.org', user_metadata:{display_name:'공유 QA'}};
 const WS = 'share-workspace';
@@ -119,8 +120,11 @@ for (const width of [390, 1280]) test('make a share page: blocks, move, save, li
   await editor.getByRole('button', {name:'3번째 블록 자료·링크 위로', exact:true}).click();
   await expect(editor.locator('[data-sp-block]').nth(1)).toHaveAttribute('data-sp-type', 'links');
   await expect(editor.getByRole('button', {name:'2번째 블록 자료·링크 위로', exact:true})).toBeFocused();
+  // SHARE-보이는편집: a block shown as it will look keeps 위로·아래로·삭제 in its ⋯ menu; the open block shows them in place.
+  await editor.getByLabel('1번째 블록 한 줄 현황 메뉴', {exact:true}).click();
   await expect(editor.getByRole('button', {name:'1번째 블록 한 줄 현황 위로', exact:true})).toBeDisabled();
   await editor.getByRole('button', {name:'2번째 블록 자료·링크 아래로', exact:true}).click();
+  await editor.getByLabel('2번째 블록 진행 단계 메뉴', {exact:true}).click();
   await editor.getByRole('button', {name:'2번째 블록 진행 단계 위로', exact:true}).click();
   expect(await editor.locator('[data-sp-block]').evaluateAll(n => n.map(x => x.dataset.spType))).toEqual(['stages', 'summary', 'links']);
   // Delete then re-add a block (an empty block goes without asking).
@@ -386,7 +390,8 @@ for (const hash of ['', '#t=short', '#t=' + 'A'.repeat(64), '#x=' + TOKEN, '#t='
 });
 
 test('Web1 reader source draws server content with textContent only and keeps no link value', () => {
-  const source = readFileSync('share/share.js', 'utf8');
+  // SHARE-보이는편집: the blocks are drawn by app/sr-render.mjs (shared with the Web2 editor), so it is checked as reader code.
+  const source = ['share/share.js', 'app/sr-render.mjs'].map(file => readFileSync(file, 'utf8')).join('\n');
   for (const sink of ['innerHTML', 'outerHTML', 'insertAdjacentHTML', 'document.write', 'console.', 'eval(', 'new Function', 'document.cookie']) expect(source, sink).not.toContain(sink);
   expect(source).not.toMatch(new RegExp(['local', 'session'].map(k => k + 'Storage').concat(['index' + 'edDB', 'caches\\s*\\.']).join('|')));
   const html = readFileSync('share/index.html', 'utf8');
@@ -409,7 +414,7 @@ test('Web1 reader source draws server content with textContent only and keeps no
   expect(names.length).toBeGreaterThan(10);
   for (const name of names) expect(name, name).not.toMatch(/share/i);
   // Older Samsung Internet (Chromium 7x) cannot parse ?. or ?? and has no replaceChildren: one SyntaxError would stop the page.
-  for (const file of ['share/share.js', 'app/share-pages-model.mjs']) {
+  for (const file of ['share/share.js', 'app/sr-render.mjs', 'app/share-pages-model.mjs']) {
     const code = readFileSync(file, 'utf8').replace(/^\s*\/\/.*$/gm, '');
     expect(code, file).not.toMatch(/\?\.[\w[(]|\?\?|replaceChildren|structuredClone|\.findLast|\.toSorted|\.at\(/);
   }
