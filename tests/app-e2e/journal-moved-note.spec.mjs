@@ -128,7 +128,7 @@ for (const width of [390, 1280]) {
     await expect(moved(page)).toHaveCount(0);
     await expect(page.locator('#journalRoot [data-journal-failed]')).toHaveCount(0);
     await press(page, page.locator('#journalRoot [data-journal-copy]'), width);
-    await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('이번 주 한 줄과 재료 목록을 복사했어요.');
+    await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('주간보고 양식 순서로 복사했어요.');
     expect(f.errors).toEqual([]);
   });
 }
