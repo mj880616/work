@@ -604,15 +604,13 @@
   #appView .mobile-menu-panel nav{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
   /* #mobileMenu까지 적어 3부의 메뉴 줄 규칙(:is(nav,#mobileAccountGroup) button, id 하나 무게)보다 앞선다. */
   #appView #mobileMenu .mobile-menu-panel nav button,#appView #mobileMenu .mobile-menu-panel nav button:not([hidden]) ~ button:not([hidden]){
-    box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; min-height:76px; padding:10px 4px;
+    box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; min-height:56px; padding:6px 4px;
     font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); line-height:1.3; text-align:center; word-break:keep-all;
     color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box);
   }
   #appView #mobileMenu .mobile-menu-panel nav button svg{ display:block; width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
   #appView #mobileMenu .mobile-menu-panel nav button[aria-current="page"]{ color:var(--kptu-primary-ink); background:var(--kptu-primary-soft); border-color:var(--kptu-primary-soft); font-weight:var(--ds-weight-medium); }
-  #appView #mobileMenu .mobile-menu-panel nav [data-menu-write]{ color:var(--ds-kind-basket-ink); background:var(--ds-kind-basket-soft); border-color:var(--ds-kind-basket-soft); }
   #appView #mobileMenu .mobile-menu-panel nav button:hover{ background:var(--kptu-surface-subtle); }
-  #appView #mobileMenu .mobile-menu-panel nav [data-menu-write]:hover{ background:var(--ds-kind-basket-soft); }
   #appView .mobile-menu-panel hr{ display:none; }
   #appView .mobile-menu-panel h2{ margin:16px 0 6px; padding:0 2px; }
   /* 계정: 0.5px 상자 안 줄(44px)·줄 사이 이어진 0.5px 선. 사본 갱신 시각은 같은 줄 오른쪽에 작게, 사본 링크는 그 아래 보조 글자. */
@@ -1163,3 +1161,53 @@
 #appView #basketView .basket-row .update-request-tags{ display:flex; margin-top:2px; }
 #appView #journalView .update-request-tags{ margin-right:6px; }
 #appView :is(#basketView,#journalView) .update-request-tag{ display:inline-flex; align-items:center; padding:1px 6px; font-size:12px; line-height:1.4; font-weight:var(--ds-weight-medium); border:var(--ds-line-width) solid transparent; border-radius:var(--ds-chip-radius,999px); white-space:nowrap; }
+
+/* ───────── UI-테마선택색(2026-10-22 사용자 결정) ─────────
+   ① 전환·필터·칩의 고른 쪽은 어디서든 계정 테마의 주 버튼 색([추가]와 같은 --kptu-primary) 바탕 + 흰 글자(--kptu-on-primary).
+      값은 theme-tokens.css의 --ds-select-bg/--ds-select-ink 한 곳이고 테마를 바꾸면 따라 바뀐다. 안 고른 쪽은 기존 그대로 옅은 바탕.
+   ② 폰 하단 탭: 지금 화면은 흰 아이콘 뒤 테마 색 동그란 바탕 + 테마 색 글자. 메뉴로 가는 화면(회의·자료실·HWP·성명·공유)은 [메뉴]가 지금 화면.
+   ③ PC 사이드바: 지금 화면 하나만 같은 채움(아래 묶음의 머리 [바구니]·[일정]은 채우지 않고 글자만 강조 — 하위 항목이 지금 화면을 보임).
+   ④ 폰 메뉴 판 타일 여섯은 모두 같은 모양(쓰기만 주황 채움이던 것을 없앰), 높이 56px. */
+html :is(
+  #appView #basketView .basket-filters [aria-pressed="true"],
+  #appView #basketView .basket-kind-switch [aria-pressed="true"],
+  #appView #homeView .home-quick-modes [data-quick-mode][aria-pressed="true"],
+  #appView #homeView .home-quick-modes [data-quick-mode="update"][aria-pressed="true"] + [data-quick-org],
+  #appView :is(#homeView,#basketView) button:is([data-quick-day],[data-manual-task-day])[aria-pressed="true"],
+  #appView #basketView .basket-manual-record-toggle[aria-pressed="true"],
+  #appView #basketView .basket-switch-row .basket-filters button[aria-pressed="true"],
+  #appView #basketView .basket-switch-row .basket-kind-switch button[aria-pressed="true"],
+  #appView #homeView .home-quick [data-quick-task-options] button[aria-pressed="true"],
+  #appView #basketView button[data-manual-task-day][aria-pressed="true"],
+  #appView #calendarView .calendar-toolbar .calendar-view-switch button[aria-pressed="true"],
+  #appView .schedule-switch button[aria-pressed="true"],
+  #appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button[aria-checked="true"],
+  #appView #libraryView #libraryCategoryFilter button[aria-pressed="true"],
+  #appView #mediaView .w1p-filters button.w1p-filter.active,
+  #appView #mediaView button.w1p-filter.active,
+  #appView #diaryView .diary-source [aria-pressed="true"],
+  #appView #journalView .journal-mode-switch button[aria-pressed="true"],
+  #appView #pagesView .sp-seg button[aria-pressed="true"],
+  .modal .event-create-modes button[data-event-mode][aria-pressed="true"],
+  .modal .meeting-create-modes button[aria-pressed="true"],
+  .md-editor .md-editor-kinds button[aria-pressed="true"],
+  .md-editor .md-editor-head .md-editor-kinds [data-md-kind-menu][aria-pressed="true"],
+  .md-editor-modes button[aria-pressed="true"]
+){ color:var(--ds-select-ink); background:var(--ds-select-bg); border-color:var(--ds-select-bg); }
+html .modal.md-editor .md-editor-head .md-editor-kinds [data-md-kind-menu][aria-pressed="true"]{ color:var(--ds-select-ink); background:var(--ds-select-bg); border-color:var(--ds-select-bg); }
+
+/* ③ PC 사이드바(1024px~ 왼쪽 세로·761~1023px 위쪽 한 줄): 지금 화면 하나만 채운다. */
+html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):is(.active,[aria-current]):not(:has(+ .nav-sub)){ color:var(--ds-select-ink); background:var(--ds-select-bg); font-weight:var(--ds-weight-medium); }
+html #appView > .app-nav .nav-btn:has(+ .nav-sub):is(.active,[aria-current]){ color:var(--kptu-primary-ink); background:transparent; font-weight:var(--ds-weight-medium); }
+html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[aria-current]){ font-weight:var(--ds-weight-regular); }
+@media(hover:hover){
+  html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[aria-current]):hover{ background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
+  html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):is(.active,[aria-current]):not(:has(+ .nav-sub)):hover{ background:var(--kptu-primary-hover); color:var(--ds-select-ink); }
+}
+
+/* ② 폰 하단 탭 */
+@media(max-width:760px){
+  html #appView > .mobile-tabs button svg{ box-sizing:content-box; width:22px; height:22px; padding:3px 14px; border-radius:var(--ds-chip-radius); background:transparent; }
+  html #appView > .mobile-tabs button:is([aria-current="page"],#mobileMenuTab[aria-expanded="true"]){ color:var(--kptu-primary); font-weight:var(--ds-weight-medium); }
+  html #appView > .mobile-tabs button:is([aria-current="page"],#mobileMenuTab[aria-expanded="true"]) svg{ color:var(--ds-select-ink); background:var(--ds-select-bg); stroke-width:1.9; }
+}

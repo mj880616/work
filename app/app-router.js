@@ -3,6 +3,7 @@
   const hooks=new Map();
   const VIEW_PARAM='view';
   const NAV_ALIAS={messages:'home',myspace:'home'};
+  const MENU_SHEET_VIEWS=['meetings','library','hwp','media','pages'];
   // Retired addresses that now open another view (HWP 편집기 시험판 ?view=hwp-lab → ?view=hwp).
   const VIEW_ALIAS={'hwp-lab':'hwp'};
   const viewName=view=>VIEW_ALIAS[view]||view;
@@ -191,6 +192,11 @@
       if(own)btn.setAttribute('aria-current',btn.dataset.goto&&!btn.dataset.view?'true':'page');
       else btn.removeAttribute('aria-current');
     });
+    // UI-테마선택색: the phone tab [메뉴] is the current item on every screen reached through the menu sheet.
+    const menuTab=document.getElementById('mobileMenuTab');
+    if(menuTab){if(MENU_SHEET_VIEWS.includes(target))menuTab.setAttribute('aria-current','page');else menuTab.removeAttribute('aria-current')}
+    // Only the current screen is marked: a sub item of another group (basket 업데이트·노트) never keeps its mark after leaving.
+    if(target!=='basket')document.querySelectorAll('.app-nav [data-basket-kind-nav]').forEach(btn=>{btn.classList.remove('active');btn.removeAttribute('aria-current')});
     // UI-PC사이드바: on the PC sidebar the top line (icon + 홈) is the home menu, so it carries the home selection.
     document.querySelectorAll('.app-nav .sidebar-brand').forEach(brand=>{
       const current=(NAV_ALIAS[view]||view)==='home';
