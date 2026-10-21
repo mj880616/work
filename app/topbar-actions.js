@@ -15,12 +15,13 @@ const accounts=logoutButtons.map(logout=>{
   const panel=document.createElement('div');panel.id=id;panel.className='account-panel';panel.setAttribute('role','group');panel.setAttribute('aria-label','계정');panel.hidden=true;
   let nativePopover=typeof panel.showPopover==='function'&&typeof panel.hidePopover==='function'&&'popover' in panel;
   if(nativePopover)panel.setAttribute('popover','manual');
+  const profile=document.createElement('button');profile.type='button';profile.className='account-action';profile.dataset.profileOpen='';profile.textContent='내 프로필';
   const theme=document.createElement('button');theme.type='button';theme.className='account-action';theme.dataset.themeOpen='';
   if(sidebar)theme.id='sidebarThemeBtn';theme.textContent='화면 색';theme.setAttribute('aria-haspopup','dialog');theme.setAttribute('aria-controls','themeModal');
   const slot=document.createElement('div');slot.dataset.accountDriveSlot='';
-  logout.before(host);host.append(trigger);panel.append(theme,slot,logout);document.body.append(panel);
+  logout.before(host);host.append(trigger);panel.append(profile,theme,slot,logout);document.body.append(panel);
   logout.classList.remove('ghost','sidebar-utility','hidden');logout.classList.add('account-action');
-  return {host,trigger,panel,theme,nativePopover};
+  return {host,trigger,panel,profile,theme,nativePopover};
 });
 let activeAccount=null;
 const mobileQuery=window.matchMedia('(max-width:760px)');
@@ -139,7 +140,7 @@ function syncMobile(){
   const target=menuQuery.matches?mobileGroup:mobileAccount.panel;
   if(mobileAccount.theme.parentElement!==target){
     if(activeAccount)closeAccount();
-    target.append(mobileAccount.theme,mobileAccount.panel.querySelector('[data-account-drive-slot]')||mobileGroup.querySelector('[data-account-drive-slot]'),logoutButtons[0]);
+    target.append(mobileAccount.profile,mobileAccount.theme,mobileAccount.panel.querySelector('[data-account-drive-slot]')||mobileGroup.querySelector('[data-account-drive-slot]'),logoutButtons[0]);
   }
   syncKeyboard();
 }
@@ -201,7 +202,7 @@ window.addEventListener('kptu:view-changed',event=>{
   syncMenuLocation();
   const home=event.detail?.view==='home';
   document.querySelector('.mobile-shell-header [data-home-date]')?.toggleAttribute('hidden',!home);
-  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:'바구니',calendar:'일정',tasks:'일정',journal:'일정',diary:'일정',projects:'프로젝트',team:'담당조직',meetings:'회의',library:'자료실',hwp:'HWP 편집',media:'성명·보도자료',pages:'공유 페이지'})[event.detail?.view]||''}
+  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:'바구니',calendar:'일정',tasks:'일정',journal:'일정',diary:'일정',projects:'프로젝트',team:'담당조직',meetings:'회의',library:'자료실',hwp:'HWP 편집',profile:'내 프로필',media:'성명·보도자료',pages:'공유 페이지'})[event.detail?.view]||''}
 });
 // Menu [쓰기] (UI-디자인손질 8, BASKET-업데이트통합 PR 2): the shared write window (write-window.js) opens empty with [업데이트 ▾ | 노트],
 // 업데이트 preselected and no place (= the basket). Each choice saves through its existing owner-RLS path and the window closes
@@ -295,6 +296,8 @@ document.addEventListener('click',event=>{
 document.addEventListener('keydown',event=>{if(activeAccount&&event.key==='Escape'){event.preventDefault();event.stopPropagation();closeAccount()}});
 window.addEventListener('resize',positionAccount);
 window.addEventListener('popstate',event=>{if(activeAccount&&event.state?.kptuAccount!==activeAccount.panel.id)closeAccount(null,true)});
+// [내 프로필]: close the account menu, then the router (the one owner of screen changes) opens the screen; its module loads on first use.
+accounts.forEach(account=>account.profile.addEventListener('click',()=>closeAccount(()=>window.KPTURouter?.go('profile',{source:'delegated'}))));
 const themeButtons=accounts.map(account=>account.theme);
 window.dispatchEvent(new CustomEvent('kptu:account-ready'));
 const modal=document.querySelector('#themeModal');

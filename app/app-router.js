@@ -2,7 +2,7 @@
   if(window.KPTURouter)return;
   const hooks=new Map();
   const VIEW_PARAM='view';
-  const NAV_ALIAS={messages:'home',profile:'home',myspace:'home'};
+  const NAV_ALIAS={messages:'home',myspace:'home'};
   // Retired addresses that now open another view (HWP 편집기 시험판 ?view=hwp-lab → ?view=hwp).
   const VIEW_ALIAS={'hwp-lab':'hwp'};
   const viewName=view=>VIEW_ALIAS[view]||view;

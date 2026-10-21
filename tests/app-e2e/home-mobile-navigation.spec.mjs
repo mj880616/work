@@ -74,7 +74,7 @@ test('drawer consumes history before navigation, theme and logout',async({page})
 test('default is home; explicit calendar, explicit home, retired routes, project and reload preserve addresses',async({page})=>{
   await open(page,app);await expect(page.locator('#homeView')).toBeVisible();
   await page.goto(app+'?view=calendar');await expect(page.locator('#calendarView')).toBeVisible();await expect(page).toHaveURL(/view=calendar/);
-  for(const view of ['home','profile','photos','team-ai']){
+  for(const view of ['home','photos','team-ai']){
     await page.goto(app+'?view='+view);await expect(page.locator('#homeView')).toBeVisible();await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBe(view==='home'?'home':null);
   }
   await page.goto(app+'?project=missing');await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});await expect(page.locator('#projectsView')).toBeVisible();await expect(page).toHaveURL(/project=missing/);

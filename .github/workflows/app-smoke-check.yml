@@ -215,7 +215,11 @@ jobs:
           if grep -q "cacheEverything" cloudflare/bokdoong-router.mjs; then echo 'unverified edge pinning of ?v= assets returned'; exit 1; fi
           if grep -q "home-dashboard-v2.js" app/view-loader.js; then echo 'removed home route returned'; exit 1; fi
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/view-loader.js
-          if grep -Eq "profile-settings.js|myspace-return.js" app/loader-v2.js app/view-loader.js; then echo 'removed personal view module was loaded'; exit 1; fi
+          # UI-프로필입구: 내 프로필은 [계정 ▾] 메뉴에서 열 때만 view-loader가 불러온다. 시작 로더(loader-v2.js)에는 넣지 않는다.
+          if grep -Eq "profile-settings.js|myspace-return.js" app/loader-v2.js; then echo 'personal view module was loaded at startup'; exit 1; fi
+          if grep -q "myspace-return.js" app/view-loader.js; then echo 'removed personal view module was loaded'; exit 1; fi
+          grep -q "profile-settings.js" app/view-loader.js
+          grep -q "dataset.profileOpen" app/topbar-actions.js
           test ! -f app/home-task-controls.js
           test ! -f app/home-task.css
           test ! -f app/library-public-toggle.js

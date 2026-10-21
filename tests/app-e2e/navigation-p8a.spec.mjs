@@ -84,7 +84,7 @@ test('removed personal and photo deep links return to home while media links rem
   test.setTimeout(60000);
   await mockApp(page);
   await signIn(page);
-  for(const view of ['profile','messages','myspace']){
+  for(const view of ['messages','myspace']){
     await page.goto(app+'?view='+view);
     await expect(page.locator('#homeView')).toBeVisible({timeout:20000});
     await expect(page.locator('#'+view+'View')).toHaveCount(0);
