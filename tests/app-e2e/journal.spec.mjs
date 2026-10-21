@@ -251,8 +251,12 @@ for(const width of [390,1280]){
   // 다음 주 월요일 0시(한국 시간)에 올린 자료는 이번 주 일요일에 오지 않는다.
   await date(page,'2026-10-11').click();await expect(group(page,'docs')).toHaveCount(0);
   await expect(page.locator('#journalRoot [data-journal-empty]')).toContainText('자료실 새 자료');
-  // app_notes 읽기는 모두 종류를 가린다(일지 한 줄은 kind=work, 업데이트는 basket). 노트(note)는 더 읽지 않는다.
-  expect(f.reads.filter(q=>!q.table).every(q=>/^eq\.(work|basket)$/.test(q.kind||''))).toBe(true);
+  // app_notes 읽기는 모두 종류를 가린다(일지 한 줄은 kind=work, 업데이트는 basket). 노트(note)는 '노트로 옮긴 업데이트' 표시가 있는 것만,
+  // id·제목·날·표시만 읽는다(본문 raw_text·다른 metadata 없음).
+  const noteReads=f.reads.filter(q=>!q.table&&q.kind==='eq.note');
+  expect(noteReads).toHaveLength(1);
+  expect(noteReads[0]).toMatchObject({'metadata->>moved_from_update_at':'not.is.null',select:'id,title,occurred_at,moved_at:metadata->>moved_from_update_at'});
+  expect(f.reads.filter(q=>!q.table&&q.kind!=='eq.note').every(q=>/^eq\.(work|basket)$/.test(q.kind||''))).toBe(true);
   // 조직·회의 읽기는 이 업무 공간·이번 주(한국 시간)로 가린다.
   expect(f.reads.find(q=>q.table==='app_suborganization_updates')).toMatchObject({organization_id:'in.(o1,o2)',occurred_at:'gte.2026-10-04T15:00:00.000Z&lt.2026-10-11T15:00:00.000Z'});
   expect(f.reads.find(q=>q.table==='app_meetings')).toMatchObject({workspace_id:'eq.w',meeting_at:'gte.2026-10-04T15:00:00.000Z&lt.2026-10-11T15:00:00.000Z'});

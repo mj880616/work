@@ -557,3 +557,34 @@ test('조직 소식 sections follow the shared organization order (organization-
     assert.deepEqual(names(m.orgNewsOn({orgUpdates:Object.assign(rows, {mine})}, day)), [...[first, mid, late, '가상 가나다 앞', '가상 모르는 조직']].sort((a, b) => a.localeCompare(b, 'ko')));
   } finally { if (saved === undefined) delete globalThis.window; else globalThis.window = saved; }
 });
+
+// 5-2 A: a note moved from the basket shows as one "노트: (title)" line on the update's day; only marked notes, never the text.
+test('moved notes are read as id, title, day and the mark only, in the signed-in workspace', async () => {
+  const m = await mod, rt = runtime(() => []);
+  await m.readMovedNotes(rt);
+  const p = params(rt.calls[0]);
+  assert.equal(p.get('workspace_id'), 'eq.w'); assert.equal(p.get('kind'), 'eq.note');
+  assert.equal(p.get('metadata->>moved_from_update_at'), 'not.is.null');
+  assert.equal(p.get('select'), 'id,title,occurred_at,moved_at:metadata->>moved_from_update_at');
+  assert.doesNotMatch(p.get('select'), /raw_text/);
+});
+
+test('moved notes of a day: marked ones only, on the update day in Korea time, title line, oldest first', async () => {
+  const m = await mod;
+  const rows = [
+    {id:'b', title:'둘째 노트', occurred_at:'2026-10-06T03:00:00Z', moved_at:'2026-10-07T00:00:00Z'},
+    {id:'a', title:'첫째 노트', occurred_at:'2026-10-05T16:00:00Z', moved_at:'2026-10-07T00:00:00Z'},
+    {id:'c', title:'표시 없음', occurred_at:'2026-10-06T01:00:00Z', moved_at:null},
+    {id:'d', title:'다른 날', occurred_at:'2026-10-07T01:00:00Z', moved_at:'2026-10-07T00:00:00Z'},
+    {id:'e', title:'', occurred_at:'2026-10-06T04:00:00Z', moved_at:'2026-10-07T00:00:00Z'},
+  ];
+  assert.deepEqual(m.movedNotesOn(rows, '2026-10-06'), [{id:'a', line:'노트: 첫째 노트'}, {id:'b', line:'노트: 둘째 노트'}, {id:'e', line:'노트: (제목 없음)'}]);
+  assert.deepEqual(m.movedNotesOn(rows, '2026-10-07'), [{id:'d', line:'노트: 다른 날'}]);
+  assert.deepEqual(m.movedNotesOn(null, '2026-10-06'), []);
+});
+
+test('the weekly draft does not carry moved notes', async () => {
+  const m = await mod;
+  const materials = {movedNotes:{status:'ok', items:[{id:'a', title:'제목', occurred_at:'2026-10-06T01:00:00Z', moved_at:'2026-10-07T00:00:00Z'}]}};
+  assert.doesNotMatch(m.weeklyDraft({start:'2026-10-05', lines:new Map(), materials, today:'2026-10-06'}), /노트: 제목/);
+});

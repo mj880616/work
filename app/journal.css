@@ -108,8 +108,8 @@
 }
 
 /* 노트로 옮긴 업데이트: 그날 칸의 "노트: (제목)" 한 줄. 줄 전체가 버튼이라 누르면 그 노트가 열린다. */
-#appView #journalView .journal-moved-list{ list-style:none; padding-left:0; }
-#appView #journalView .journal-note-open{ display:flex; align-items:center; gap:6px; width:100%; min-height:var(--kptu-touch-target,44px); margin:0; padding:2px 0; text-align:left; font:inherit; color:var(--kptu-ink); background:transparent; border:0; border-radius:0; cursor:pointer; overflow-wrap:anywhere; }
+#appView #journalView .journal-group ul.journal-moved-list{ list-style:none; padding-left:0; gap:0; }
+#appView #journalView .journal-note-open{ display:flex; align-items:center; gap:6px; width:100%; min-height:var(--kptu-touch-target,44px); margin:0; padding:0; text-align:left; font:inherit; color:var(--kptu-ink); background:transparent; border:0; border-radius:0; cursor:pointer; overflow-wrap:anywhere; }
 #appView #journalView .journal-note-open:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 #appView #journalView .journal-note-mark{ display:inline-flex; flex:0 0 auto; }
 #appView #journalView .journal-note-mark svg{ display:block; }
