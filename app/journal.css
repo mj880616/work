@@ -114,3 +114,70 @@
 #appView #journalView .journal-note-mark{ display:inline-flex; flex:0 0 auto; }
 #appView #journalView .journal-note-mark svg{ display:block; }
 @media(hover:hover){ #appView #journalView .journal-note-open:hover{ text-decoration:underline; } }
+
+/* JOURNAL-주간보고허브 2단계: [하루 | 주간 정리] 전환(작은 세그먼트, 고른 쪽 회색 — ui-standard.css ①과 같은 모양)과 [주간 정리] 칸.
+   주간 정리는 상집보고 순서(1. 요청사항(재료 없음 자리) → 2. 기본·영역·의제 사업 요약 표·회의 → 4. 산하 조직 현황 → 참고). PC는 넓게, 큰 버튼 없음. */
+#appView #journalView .journal-mode-switch{ box-sizing:border-box; display:inline-grid; grid-auto-flow:column; grid-auto-columns:1fr; flex:0 0 auto; height:var(--ds-compact-height);
+  margin:0; padding:0; background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); }
+#appView #journalView .journal-mode-switch button{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; width:auto; min-width:0; height:auto; min-height:0;
+  margin:0; padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1; white-space:nowrap; color:var(--kptu-ink); background:var(--kptu-surface);
+  border:0; border-radius:0; box-shadow:none; -webkit-tap-highlight-color:transparent; }
+#appView #journalView .journal-mode-switch button + button{ border-left:var(--ds-line-width) solid var(--ds-line); }
+#appView #journalView .journal-mode-switch button:first-child{ border-radius:var(--ds-radius-control) 0 0 var(--ds-radius-control); }
+#appView #journalView .journal-mode-switch button:last-child{ border-radius:0 var(--ds-radius-control) var(--ds-radius-control) 0; }
+#appView #journalView .journal-mode-switch button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+#appView #journalView .journal-mode-switch button[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
+#appView #journalView .journal-mode-switch button:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+@media(hover:hover){ #appView #journalView .journal-mode-switch button:not([aria-pressed="true"]):hover{ background:var(--kptu-surface-subtle); } }
+#appView #journalView .journal-head{ justify-content:flex-start; }
+#appView #journalView .journal-head [data-journal-copy]{ margin-left:auto; }
+
+#appView #journalView .journal-weekly{ display:flex; flex-direction:column; gap:12px; padding:12px; background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); }
+#appView #journalView .journal-weekly h3{ margin:0; font-size:var(--ds-text-section); font-weight:var(--ds-weight-medium); color:var(--ds-kind-journal-ink); }
+#appView #journalView .journal-weekly h3:focus{ outline:none; }
+#appView #journalView .journal-weekly-body{ display:flex; flex-direction:column; gap:14px; }
+#appView #journalView .journal-weekly-chapter{ display:flex; flex-direction:column; gap:8px; padding-top:10px; border-top:var(--ds-line-width) solid var(--ds-line); }
+#appView #journalView .journal-weekly-chapter > h4.journal-heading{ margin:0; font-size:var(--ds-text-read); font-weight:700; line-height:1.4; color:var(--kptu-ink); }
+#appView #journalView .journal-weekly-part{ display:flex; flex-direction:column; gap:4px; }
+#appView #journalView .journal-weekly-sub{ margin:0; font-size:var(--kptu-text-body); font-weight:700; color:var(--kptu-ink); }
+#appView #journalView .journal-weekly-part > .mini{ align-self:flex-start; }
+#appView #journalView .journal-weekly .journal-muted,
+#appView #journalView .journal-weekly .journal-org-name{ font-size:var(--kptu-text-body); }
+#appView #journalView .journal-weekly-list{ margin:0; padding-left:18px; display:flex; flex-direction:column; gap:2px; font-size:var(--kptu-text-body); line-height:1.5; overflow-wrap:anywhere; }
+#appView #journalView .journal-weekly-day{ display:inline-block; min-width:5.2em; margin-right:6px; color:var(--kptu-muted); font-variant-numeric:tabular-nums; }
+#appView #journalView .journal-weekly-label{ font-weight:var(--ds-weight-medium); }
+#appView #journalView .journal-weekly .journal-org{ display:flex; flex-direction:column; gap:2px; }
+#appView #journalView .journal-weekly .journal-org + .journal-org{ margin-top:4px; }
+#appView #journalView .journal-weekly-others{ display:flex; flex-direction:column; gap:4px; margin-top:4px; }
+/* 요약 표: 사업영역 | 세부 과제 | 진행 상황 및 이후 계획 | 담당 팀원(상집보고 폭 비율 11/18/61/10). 사업영역 칸은 세로로 합친다. */
+#appView #journalView .journal-weekly-table{ width:100%; border-collapse:collapse; table-layout:fixed; font-size:var(--kptu-text-body); line-height:1.5; }
+#appView #journalView .journal-weekly-table th,
+#appView #journalView .journal-weekly-table td{ padding:6px 8px; text-align:left; vertical-align:top; border:var(--ds-line-width) solid var(--ds-line); overflow-wrap:anywhere; }
+#appView #journalView .journal-weekly-table thead th{ font-weight:var(--ds-weight-medium); color:var(--kptu-muted); background:var(--kptu-surface-subtle); }
+#appView #journalView .journal-weekly-table thead th:nth-child(1){ width:13%; }
+#appView #journalView .journal-weekly-table thead th:nth-child(2){ width:18%; }
+#appView #journalView .journal-weekly-table thead th:nth-child(4){ width:9%; }
+#appView #journalView .journal-weekly-area{ font-weight:var(--ds-weight-medium); }
+#appView #journalView .journal-weekly-table .journal-weekly-list{ padding-left:16px; }
+/* 폰: 표를 한 줄씩 쌓는다(사업영역 머리 → 세부 과제 → 내용). 담당 팀원 칸은 비어 있어 숨긴다. */
+@media(max-width:760px){
+  #appView #journalView .journal-weekly{ padding:10px; }
+  #appView #journalView .journal-weekly-table,
+  #appView #journalView .journal-weekly-table tbody,
+  #appView #journalView .journal-weekly-table tr,
+  #appView #journalView .journal-weekly-table th,
+  #appView #journalView .journal-weekly-table td{ display:block; width:auto; }
+  #appView #journalView .journal-weekly-table thead,
+  #appView #journalView .journal-weekly-table .journal-weekly-owner{ display:none; }
+  #appView #journalView .journal-weekly-table tr{ border-top:var(--ds-line-width) solid var(--ds-line); padding:6px 0; }
+  #appView #journalView .journal-weekly-table th,
+  #appView #journalView .journal-weekly-table td{ border:0; padding:2px 0; }
+  #appView #journalView .journal-weekly-area{ font-size:var(--ds-text-read); }
+  #appView #journalView .journal-weekly-task{ font-weight:var(--ds-weight-medium); color:var(--kptu-muted); }
+  #appView #journalView .journal-weekly-day{ min-width:0; }
+}
+/* PC: 1. 요청사항·2. 요약 표는 한 줄 전체, 4. 산하 조직 현황과 참고는 2칸으로 나란히. */
+@media(min-width:1024px){
+  #appView #journalView .journal-weekly-body{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px 24px; align-items:start; }
+  #appView #journalView .journal-weekly-chapter:is([data-journal-weekly-chapter="requests"],[data-journal-weekly-chapter="business"]){ grid-column:1/-1; }
+}

@@ -6,7 +6,7 @@
   // Retired addresses that now open another view (HWP 편집기 시험판 ?view=hwp-lab → ?view=hwp).
   const VIEW_ALIAS={'hwp-lab':'hwp'};
   const viewName=view=>VIEW_ALIAS[view]||view;
-  let bound=false,routeEntry=null,returningTo=null;
+  let bound=false,routeEntry=null,returningTo=null,goSeq=0;
   // BUG-뒤로가기: the app's first entry in this document. Back below it leaves Web2.
   const baseIndex=window.navigation?.currentEntry?.index;
 
@@ -203,9 +203,13 @@
     view=viewName(view);
     if(!view||!authenticatedShellReady()||returningTo)return false;
     const lazy=window.KPTUViewLoader;
+    // STAB-노트폴더시험: a view still loading switches only if nothing was opened after it was asked for. Otherwise a slow
+    // module (calendar) took the screen and the address back from a view opened while it loaded.
+    const request=++goSeq;
     if(!allowUnloaded&&lazy?.isLoaded&&!lazy.isLoaded(view)){
       const requestedEntry=window.navigation?.currentEntry?.key,requestedUrl=location.href;
       lazy.load(view).then(()=>{
+        if(request!==goSeq)return false;
         if(source==='popstate'&&(requestedEntry?window.navigation?.currentEntry?.key!==requestedEntry:location.href!==requestedUrl))return false;
         return go(view,{scroll,source:source==='popstate'?'popstate':'lazy-ready',updateUrl,replaceUrl,allowUnloaded:true});
       }).catch(err=>console.error('view lazy load',view,err));

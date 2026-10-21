@@ -77,11 +77,24 @@ export const FAKE = Object.freeze({
     ]],
   ],
   extra: ['(1) 가짜 회의 결과 제목', '가짜 세부 내용 문단'],
+  // 2) 세부 내용 상자(왼쪽 칸 이름은 양식 글자, 오른쪽은 가짜 글)
+  boxes: [
+    ['(1) 가짜 회의 갑', [['회의제목', ['가짜 회의 갑']], ['일시/장소', ['1.4.(화) 10시 / 가짜 장소 갑']], ['참석자', ['가짜 참석자 갑']], ['내용', ['- 가짜 회의 내용 하나', '- 가짜 회의 내용 둘']], ['차기일정', ['가짜 미정']]]],
+    ['(2) 가짜 회의 을', [['제목', ['가짜 회의 을']], ['일시/장소', ['1.5.(수) 14시']], ['참석자', ['가짜 참석자 을']], ['회의 내용', ['- 가짜 회의 을 내용']]]],
+  ],
+  rallies: [[['1.6.(목) 가짜 광장'], ['가짜 집회 갑'], ['가짜 참석 10명']]],
+  sites: [[['가짜조직 갑'], ['개요 가짜 현황 갑', '- 가짜 현황 갑 둘']], [['가짜조직 병'], ['개요 가짜 현황 병']]],
+  orgs: [[['가짜조직 갑'], ['- 가짜 소식 갑']], [['가짜조직 을'], ['- 가짜 소식 을 하나', '- 가짜 소식 을 둘']], [['가짜조직 병'], ['- 가짜 소식 병']]],
+  calendar: [['1.10.(월)', [['09:00 / 가짜 일정 갑 / 가짜 장소 갑', ['가짜담당 갑']], ['13:00 / 가짜 일정 을 / 가짜 장소 을', ['가짜담당 을']]]], ['1.11.(화)', [['10:00 / 가짜 일정 병', ['가짜담당 갑, 가짜담당 을']]]]],
+  calendarNotes: ['※ 1.12.(수) 가짜담당 을 휴가'],
 });
 export const FAKE_TEXTS = Object.freeze([
   FAKE.title, FAKE.date, ...FAKE.extra,
   ...FAKE.requests.flatMap(([d, items]) => [d, ...items.flatMap(([w, who]) => [w, ...who])]),
   ...FAKE.summary.flatMap(([a, rows]) => [...a, ...rows.flatMap(([t, p, o]) => [...(t ?? []), ...p, ...o])]),
+  ...FAKE.boxes.flatMap(([h, rows]) => [h, ...rows.flatMap(([, lines]) => lines)]),
+  ...[...FAKE.rallies, ...FAKE.sites, ...FAKE.orgs].flat(2),
+  ...FAKE.calendar.flatMap(([d, items]) => [d, ...items.flatMap(([w, who]) => [w, ...who])]), ...FAKE.calendarNotes,
 ]);
 
 // sample.hwpx 묶음 → 가짜 주간보고 묶음
@@ -153,6 +166,26 @@ export function makeFakeReport(sample) {
       r++;
     });
   }
+  // 2열 상자·표: 왼쪽 칸은 머리 칸(옅은 색), 오른쪽은 글 칸
+  const BW = [5400, 42500];
+  const box = rows => table(rows.length, 2, 47900, rows.map(([label, lines], r) => [tc(r, 0, 1, 1, BW[0], [label], {head: true}), tc(r, 1, 1, 1, BW[1], lines)]));
+  const plain = (head, widths, rows) => table(rows.length + 1, head.length, widths.reduce((a, b) => a + b, 0), [
+    head.map((t, i) => tc(0, i, 1, 1, widths[i], [t], {head: true})),
+    ...rows.map((cells, r) => cells.map((lines, i) => tc(r + 1, i, 1, 1, widths[i], lines, {center: i === 0}))),
+  ]);
+  const CW = [4950, 35200, 7700];
+  const calRows = [['일', '시간/내용/장소', '참석자'].map((t, i) => tc(0, i, 1, 1, CW[i], [t], {head: true}))];
+  r = 1;
+  for (const [day, items] of FAKE.calendar) {
+    items.forEach(([what, who], i) => {
+      const row = [];
+      if (i === 0) row.push(tc(r, 0, items.length, 1, CW[0], [day], {center: true}));
+      row.push(tc(r, 1, 1, 1, CW[1], [what]), tc(r, 2, 1, 1, CW[2], who, {center: true}));
+      calRows.push(row);
+      r++;
+    });
+  }
+  const midTable = t => { t.attrs.styleIDRef = S['중간 제목']; t.attrs.paraPrIDRef = S['중간 제목']; t.children[0].attrs.charPrIDRef = S['중간 제목']; return t; };
   sec.root.children = [
     para('안건제목', FAKE.title, [clone(secRun)]),
     para('바탕글', ''), para('바탕글', `■ 일시 : ${FAKE.date}`), para('바탕글', ''),
@@ -161,7 +194,19 @@ export function makeFakeReport(sample) {
     para('작은 제목', '2) 주요 일정'), para('바탕글', ''),
     para('큰 제목', '2. 기본․영역․의제 사업'), para('바탕글', ''), para('작은 제목', '1) 요약'),
     table(sumRows.length, 4, 48100, sumRows),
-    para('작은 제목', '2) 세부 내용'), para('작은 제목', FAKE.extra[0]), para('바탕글', FAKE.extra[1]),
+    para('작은 제목', '2) 세부 내용'),
+    ...FAKE.boxes.flatMap(([heading, rows]) => [para('작은 제목', heading), box(rows), para('바탕글', '')]),
+    para('작은 제목', FAKE.extra[0]), para('바탕글', FAKE.extra[1]),
+    para('큰 제목', '3. 투쟁 사업'), para('중간 제목', '1) 집회·농성 등'),
+    midTable(plain(['일시/장소', '집회/행사명', '참석현황'], [11100, 13400, 23500], FAKE.rallies)),
+    para('중간 제목', '2) 투쟁 사업장 현황'),
+    midTable(plain(['조직명', '현황'], [13400, 34600], FAKE.sites)),
+    para('큰 제목', '4. 산하조직 현황'), para('중간 제목', '1) 요약'),
+    midTable(plain(['사업장', '조직현황'], [13800, 34600], FAKE.orgs)),
+    para('중간 제목', '2) 참고자료'), para('바탕글', ''),
+    para('큰 제목', '5. 주요 일정'),
+    table(calRows.length, 3, 47850, calRows),
+    ...FAKE.calendarNotes.map(t => para('표내부', t)),
   ];
   renumber(sec.root);
   setXml(pkg, 'Contents/section0.xml', sec);
@@ -182,5 +227,12 @@ export const DEMO_DATA = Object.freeze({
     ]},
     {area: ['가짜영역 을'], rows: [{task: ['가짜과제 셋'], progress: ['- 가짜 진행 셋'], owner: ['가짜담당 갑']}]},
   ],
+  details: [{heading: '(1) 가짜 회의 정', box: [{label: '회의제목', lines: ['가짜 회의 정']}, {label: '일시/장소', lines: ['1.11.(화) 10시']}, {label: '참석자', lines: ['가짜 참석자 갑']}, {label: '내용', lines: ['- 가짜 회의 정 내용', {text: '- 가짜 회의 정 바뀐 내용', changed: true}]}]}],
+  rallies: [{when: ['1.13.(목) 가짜 광장'], name: ['가짜 집회 정'], attend: ['가짜 참석 5명']}],
+  sites: [{org: ['가짜조직 갑'], status: ['개요 가짜 현황 정']}],
+  orgs: [{org: ['가짜조직 갑'], status: ['- 가짜 소식 정']}, {org: ['가짜조직 을'], status: []}],
+  orgNotes: ['- 가짜 참고 하나'],
+  calendar: [{day: '1.17.(월)', items: [{what: '10:00 / 가짜 일정 정 / 가짜 장소 정', who: ['가짜담당 갑']}, {what: '14:00 / 가짜 일정 무', who: ['가짜담당 을']}]}],
+  calendarNotes: ['※ 1.18.(화) 가짜담당 갑 휴가'],
 });
 export {kid};

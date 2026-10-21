@@ -106,7 +106,8 @@ test('담당조직 상세에서 연결된 할 일을 보고, 이 조직으로 �
   await expect(picker).toBeHidden();
 
   // Closed: the box is emptied, so a later change elsewhere does not ask Google for this organization again.
-  await page.locator('[data-wd-close="wdModal"]').click();
+  // ORG-PC좌우: at this PC width the detail is the right pane (no ×); leaving the 담당조직 screen closes it.
+  await clickView(page,'home');
   await expect(page.locator('#wdModal')).toBeHidden();
   await expect(page.locator('#wdTaskBody')).toBeEmpty();
 });
@@ -125,7 +126,8 @@ test('담당조직 목록·상세·편집창은 412px와 1280px에서 가로로 
     await expect(page.locator('#gtTaskModal')).toBeVisible();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth),`editor at ${width}px`).toBeLessThanOrEqual(1);
     await page.locator('#gtTaskModal [data-gt-close]').click();
-    await page.locator('[data-wd-close="wdModal"]').click();
+    // ORG-PC좌우: on a PC the detail is the right pane and has no ×.
+    if(width<1024)await page.locator('[data-wd-close="wdModal"]').click();
   }
 });
 
@@ -138,10 +140,15 @@ for(const extra of [0,100])test(`담당조직 ${14+extra}개도 Google·기록 �
   await expect(rail.locator('[data-so-dot]')).toHaveAttribute('data-so-at',/./);
   expect(await rail.locator('[data-so-dot]').evaluate(t=>{const d=new Date(Date.parse(t.dataset.soAt)+9*3600000).toISOString();return Number(d.slice(5,7))+'.'+Number(d.slice(8,10))})).toBe('1.9');
   await page.waitForFunction(()=>window.KPTUHome?.metrics?.readyAt>0);
-  expect(calls.filter(c=>c.action==='linked')).toHaveLength(0);
+  // The list itself asks Google for no organization; on a PC (ORG-PC좌우) only the detail opened on the right (the first
+  // organization in the list, 전국철도노동조합) asks for its own tasks.
+  await expect.poll(()=>calls.filter(c=>c.action==='linked').map(c=>c.query.organization_id)).toEqual([RAIL]);
   // One home overview and one team overview; number of organizations does not change either bound.
   expect(calls.filter(c=>c.action==='overview').length).toBeLessThanOrEqual(2);
-  const noteReads=calls.filter(c=>c.action==='record-links'&&c.query.note_id==='not.is.null');
+  // ORG-PC좌우: the detail opened on the right reads its own records (one organization, with text); the list reads stay batched.
+  const isDetailRead=c=>c.query.organization_id===`in.(${RAIL})`&&/raw_text,kind,title/.test(c.query.select||'');
+  expect(calls.filter(c=>c.action==='record-links'&&c.query.note_id==='not.is.null'&&isDetailRead(c)).length).toBeLessThanOrEqual(1);
+  const noteReads=calls.filter(c=>c.action==='record-links'&&c.query.note_id==='not.is.null'&&!isDetailRead(c));
   const taskReads=calls.filter(c=>c.action==='record-links'&&c.query.note_id!=='not.is.null');
   expect(taskReads.length).toBeLessThanOrEqual(3);
   const ids=[...orgs.map(o=>o.id),...Array.from({length:extra},(_,i)=>'extra-'+i)];

@@ -1,6 +1,7 @@
 import {formatMeetingTime,formatSeoulTime,seoulInputValue,toSeoulISO,seoulParts,seoulDateKey} from './meeting-time.js';
 import {bindDateTimeFields} from './time-input.js';
 import { dayKey, ranges } from './home-read-model.js';
+import {lastSeen} from './split-last.js';
 import { createAnchoredMenu } from './anchored-menu.js';
 import {readRecordPages,readLinkRecords,recordMark,recordText,isNoteRecord,mountLinkSummaryEditor} from './basket-link-records.js';
 import {categoryTag,loadDocumentCategories} from './document-categories.js';
@@ -153,11 +154,11 @@ function placeDetail(){
 // The list row of the project shown on the right carries the selection (PC only); choosing it again, or while it is
 // still opening, leaves the pane as it is (bind).
 function paintSelection(){const id=docked()&&!$('#ps3DetailModal').classList.contains('hidden')?current?.id:null;document.querySelectorAll('#projectGrid .ps3-plist [data-ps3-project]').forEach(b=>{const on=!!id&&b.dataset.ps3Project===id;b.classList.toggle('is-selected',on);if(on)b.setAttribute('aria-current','true');else b.removeAttribute('aria-current')})}
-// The last project seen on this device opens first next time (PC). Owner-scoped like the meeting columns (kptu_owner_cache:
-// is cleared on sign-out); a blocked storage only means the first project opens.
-const lastKey=()=>user?.id?'kptu_owner_cache:project-last-v1:'+user.id:'';
-function rememberLast(id){const key=lastKey();if(!key)return;try{localStorage.setItem(key,id)}catch{}}
-function readLast(){const key=lastKey();if(!key)return '';try{return localStorage.getItem(key)||''}catch{return ''}}
+// The last project seen on this device opens first next time (PC): split-last.js, shared with the 담당조직 screen
+// (ORG-PC좌우). Owner-scoped (kptu_owner_cache: is cleared on sign-out); a blocked storage only means the first project opens.
+const lastProject=lastSeen('project');
+function rememberLast(id){lastProject.write(user?.id,id)}
+function readLast(){return lastProject.read(user?.id)}
 // Scroll of the detail and the list, kept when a 🧺 record opens its note and restored on return.
 function detailScroll(){const m=$('#ps3DetailModal');return {pane:$('#ps3DetailPane')?.scrollTop||0,card:m?.querySelector('.modal-card')?.scrollTop||0,modal:m?.scrollTop||0,list:$('#projectGrid .ps3-plist')?.scrollTop||0,page:window.scrollY||0}}
 function restoreScroll(s){if(!s)return;const set=()=>{const m=$('#ps3DetailModal'),pane=$('#ps3DetailPane'),list=$('#projectGrid .ps3-plist'),card=m?.querySelector('.modal-card');if(pane)pane.scrollTop=s.pane||0;if(list)list.scrollTop=s.list||0;if(card)card.scrollTop=s.card||0;if(m)m.scrollTop=s.modal||0;window.scrollTo({top:s.page||0,behavior:'instant'})};set();requestAnimationFrame(set)}
