@@ -2,10 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 // JOURNAL-요청표시: an update's [임원 요청]·[논의 요청] marks live in its existing metadata jsonb (metadata.requests); no database
-// change. Writes go through the same guarded metadata write as the note pin and folder, and every metadata writer guards the
-// marks, so no writer drops another's key. Fake content only.
+// change. UI-요청버튼삭제: the screen no longer writes marks, but marks already saved are still read (tags, weekly draft), and every
+// metadata writer keeps and guards them, so no write drops them. Fake content only.
 import {UPDATE_REQUESTS, normalizeRequests, noteRequests, requestsGuard, requestPrefix, requestTagsHtml} from '../app/update-requests.js';
-import {setUpdateRequests, createNote, setNoteFolder, setNotePinned} from '../app/basket-data.js';
+import * as basketData from '../app/basket-data.js';
+const {createNote, setNoteFolder, setNotePinned} = basketData;
 import {noteTaskGuard} from '../app/basket-note-tasks.js';
 import {orgNewsOn, projectNewsOn, weeklyDraft, weekRequests} from '../app/journal-data.js';
 
@@ -43,46 +44,12 @@ test('the guard compares the marks as PostgREST shows the jsonb text; no key is 
   assert.equal(requestsGuard({requests: [1]}), '');
 });
 
-test('marking writes metadata only, keeps every other key, never touches updated_at, and is guarded on all metadata writers', async () => {
-  const fresh = {id: 'b1', updated_at: '2026-10-10T00:00:00.123456Z', metadata: {tasks: [{task_id: 't,1'}], folder: '가상', pinned_at: '2026-10-01T00:00:00.000Z', keep: 1}};
-  const rt = runtime(fresh);
-  const saved = await setUpdateRequests({id: 'b1'}, ['discussion', 'exec_schedule'], rt);
-  assert.deepEqual(saved.metadata, {...fresh.metadata, requests: ['exec_schedule', 'discussion']});
-  const patch = rt.calls[1], q = query(patch);
-  assert.equal(patch.options.method, 'PATCH');
-  assert.deepEqual(Object.keys(patch.options.body), ['metadata']);
-  assert.equal(q.get('kind'), 'eq.basket');
-  assert.equal(q.get('updated_at'), 'eq.2026-10-10T00:00:00.123456Z');
-  assert.equal(q.get('metadata->>requests'), 'is.null');
-  assert.equal(q.get('metadata->>folder'), 'eq.가상');
-  assert.equal(q.get('metadata->>pinned_at'), 'eq.2026-10-01T00:00:00.000Z');
-  assert.equal(q.get('metadata->tasks->0->>task_id'), 'eq.t,1');
-  // Off: the key goes away when no mark is left.
-  fresh.metadata = {requests: ['exec_schedule'], other: 2};
-  rt.calls.length = 0;
-  const off = await setUpdateRequests({id: 'b1'}, [], rt);
-  assert.deepEqual(off.metadata, {other: 2});
-  assert.equal(query(rt.calls[1]).get('metadata->>requests'), 'eq.["exec_schedule"]');
-  assert.equal(query(rt.calls[1]).get('metadata->tasks->0->>task_id'), 'is.null');
-});
-
-test('marks already so are not written again; a row changed in between is reported, not overwritten', async () => {
-  const rt = runtime({id: 'b1', updated_at: 'x', metadata: {requests: ['discussion']}});
-  await setUpdateRequests({id: 'b1'}, ['discussion'], rt);
-  assert.equal(rt.calls.length, 1);
-  const none = runtime({id: 'b1', updated_at: 'x', metadata: {}});
-  await setUpdateRequests({id: 'b1'}, [], none);
-  assert.equal(none.calls.length, 1);
-  const changed = runtime(null, {reply: (path, options) => options.method ? [] : [{id: 'b1', updated_at: 'x', metadata: {}}]});
-  await assert.rejects(setUpdateRequests({id: 'b1'}, ['exec_schedule'], changed), e => e.code === 'note_changed' && /업데이트가 그사이 바뀌었어요/.test(e.message));
-});
-
-test('a new update carries its marks in the same insert; without marks the insert is as before', async () => {
+// UI-요청버튼삭제: the screen no longer sets marks, so a new update never carries them (and the setter is gone).
+test('a new update is inserted without any request marks', async () => {
   const rt = runtime(null);
-  await createNote({raw_text: '가상 업데이트', requests: ['discussion', 'nope']}, rt);
-  assert.deepEqual(rt.calls[0].options.body, {workspace_id: 'w', raw_text: '가상 업데이트', metadata: {requests: ['discussion']}});
-  await createNote({raw_text: '표시 없음'}, rt);
-  assert.deepEqual(rt.calls[1].options.body, {workspace_id: 'w', raw_text: '표시 없음'});
+  await createNote({raw_text: '가상 업데이트', requests: ['discussion']}, rt);
+  assert.deepEqual(rt.calls[0].options.body, {workspace_id: 'w', raw_text: '가상 업데이트'});
+  assert.equal(Object.hasOwn(basketData, 'setUpdateRequests'), false);
 });
 
 test('the folder, pin and task writers keep the marks and guard them too', async () => {
@@ -90,7 +57,9 @@ test('the folder, pin and task writers keep the marks and guard them too', async
   const rt = runtime(fresh);
   const moved = await setNoteFolder({id: 'n1'}, '가상', rt);
   assert.deepEqual(moved.metadata, {requests: ['exec_schedule'], folder: '가상'});
+  assert.deepEqual(Object.keys(rt.calls[1].options.body), ['metadata']);
   assert.equal(query(rt.calls[1]).get('metadata->>requests'), 'eq.["exec_schedule"]');
+  assert.equal(query(rt.calls[1]).get('metadata->tasks->0->>task_id'), 'is.null');
   rt.calls.length = 0;
   const pinned = await setNotePinned({id: 'n1'}, true, rt, new Date('2026-10-20T00:00:00Z'));
   assert.deepEqual(pinned.metadata.requests, ['exec_schedule']);

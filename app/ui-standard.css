@@ -1156,29 +1156,12 @@
   #appView #basketView .basket-edit-actions > button,#appView #basketView .basket-edit-actions .basket-clip{ padding:0 8px; }
 }
 
-/* JOURNAL-요청표시: 업데이트의 [임원 요청]·[논의 요청] 표시(update-requests.js). 입력칸 아래·업데이트 상세의 켜고 끄는 작은 알약 버튼은
-   보이는 높이 32px(--ds-compact-*), 누르는 범위는 ::after로 44px. 켜진 쪽은 aria-pressed=true(색은 아래 꼬리표와 같음).
-   목록 줄·업무일지 항목 앞의 꼬리표는 글자만 한 작은 표시(누르지 않음). 임원 요청은 주황(basket), 논의 요청은 파랑(note) 토큰. */
-#appView :is(#homeView,#basketView) .update-request-toggles:not([hidden]){ display:flex; flex-wrap:wrap; align-items:center; gap:8px; min-height:var(--kptu-touch-target,44px); margin:2px 0; }
-#appView :is(#homeView,#basketView) .update-request-toggles button{
-  position:relative; box-sizing:border-box; flex:0 0 auto; width:auto; min-width:0; height:var(--ds-compact-height); min-height:var(--ds-compact-height);
-  margin:0; padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1; white-space:nowrap;
-  color:var(--kptu-muted); background:var(--kptu-surface); border:var(--ds-line-width) dashed var(--ds-line); border-radius:var(--ds-chip-radius,999px); box-shadow:none;
-}
-#appView :is(#homeView,#basketView) .update-request-toggles button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
-#appView :is(#homeView,#basketView) .update-request-toggles button[aria-pressed="true"]{ border-style:solid; }
-#appView :is(#homeView,#basketView) .update-request-toggles button[data-quick-request="exec_schedule"][aria-pressed="true"],
-#appView :is(#homeView,#basketView) .update-request-toggles button[data-basket-request="exec_schedule"][aria-pressed="true"],
+/* JOURNAL-요청표시: 이미 표시가 저장된 업데이트(update-requests.js)의 [임원 요청]·[논의 요청] 꼬리표. 목록 줄·업무일지 항목 앞에
+   글자만 한 작은 표시(누르지 않음). 임원 요청은 주황(basket), 논의 요청은 파랑(note) 토큰.
+   UI-요청버튼삭제: 입력칸 아래·업데이트 상세의 켜고 끄는 버튼은 없앴다(필요하면 업데이트 글 안에 그 단어를 쓴다). */
 #appView :is(#basketView,#journalView) .update-request-tag[data-request-tag="exec_schedule"]{ color:var(--ds-kind-basket-ink); background:var(--ds-kind-basket-soft); border-color:var(--ds-kind-basket-soft); }
-#appView :is(#homeView,#basketView) .update-request-toggles button[data-quick-request="discussion"][aria-pressed="true"],
-#appView :is(#homeView,#basketView) .update-request-toggles button[data-basket-request="discussion"][aria-pressed="true"],
 #appView :is(#basketView,#journalView) .update-request-tag[data-request-tag="discussion"]{ color:var(--ds-kind-note-ink); background:var(--ds-kind-note-soft); border-color:var(--ds-kind-note-soft); }
 #appView :is(#basketView,#journalView) .update-request-tags{ display:inline-flex; flex-wrap:wrap; gap:4px; vertical-align:baseline; }
 #appView #basketView .basket-row .update-request-tags{ display:flex; margin-top:2px; }
 #appView #journalView .update-request-tags{ margin-right:6px; }
 #appView :is(#basketView,#journalView) .update-request-tag{ display:inline-flex; align-items:center; padding:1px 6px; font-size:12px; line-height:1.4; font-weight:var(--ds-weight-medium); border:var(--ds-line-width) solid transparent; border-radius:var(--ds-chip-radius,999px); white-space:nowrap; }
-/* 홈 PC(≥761): 바로 아래 줄은 "바구니 전체 보기"(grid-row 3)라, 표시 버튼은 [업데이트 ▾|할 일] 줄 오른쪽에 둔다. 폰은 입력칸 바로 위 줄. */
-@media(min-width:761px){
-  #appView #homeView .home-quick[data-mode="basket"]:has(.home-quick-requests:not([hidden])) .home-quick-modes{ grid-row:1; grid-column:1; justify-self:start; align-self:center; }
-  #appView #homeView .home-quick[data-mode="basket"] .home-quick-requests:not([hidden]){ grid-row:1; grid-column:1; justify-self:end; margin:0; }
-}

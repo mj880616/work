@@ -1,8 +1,10 @@
-// JOURNAL-요청표시: an update (app_notes kind=basket) can be marked "임원 일정 배정 요청" and/or "논의 요청". The marks live in
-// the row's existing metadata jsonb as metadata.requests, an array of keys in this fixed order (no new column, no database
-// change). No mark = no key. Unknown keys are ignored when read. The marks are written only through the guarded metadata
-// write in basket-data.js (read again, keep the other keys, apply only while the row is the version that was read), which the
-// note pin·folder (metadata.pinned_at·folder) and the task record (metadata.tasks) also use or guard against.
+// JOURNAL-요청표시: an update (app_notes kind=basket) can carry the marks "임원 일정 배정 요청" and/or "논의 요청" in the row's
+// existing metadata jsonb as metadata.requests, an array of keys in this fixed order (no new column, no database change). No
+// mark = no key. Unknown keys are ignored when read.
+// UI-요청버튼삭제: the screen no longer sets or clears the marks (the toggles under the input and in an open update are gone; the
+// owner writes the word in the update's text instead). Marks already saved are still read here (list tags, journal tags, the
+// weekly report draft), and every metadata writer (note pin·folder in basket-data.js, the task record in basket-note-tasks.js)
+// keeps them and guards them with requestsGuard, so no write drops them.
 export const UPDATE_REQUESTS = Object.freeze([
   Object.freeze({key:'exec_schedule', label:'임원 일정 배정 요청', short:'임원 요청'}),
   Object.freeze({key:'discussion', label:'논의 요청', short:'논의 요청'}),
@@ -13,7 +15,6 @@ export const requestInfo = key => UPDATE_REQUESTS.find(request => request.key ==
 export const normalizeRequests = list => Array.isArray(list) ? KEYS.filter(key => list.includes(key)) : [];
 const plainObject = value => !!value && typeof value === 'object' && !Array.isArray(value);
 export const noteRequests = note => plainObject(note?.metadata) ? normalizeRequests(note.metadata.requests) : [];
-export const hasRequest = (note, key) => noteRequests(note).includes(key);
 // The concurrency guard for metadata.requests as PostgREST sees it (metadata->>requests is the jsonb text, which writes an array
 // of strings as ["a", "b"]). A value this screen never writes (not an array of strings) gets no guard of its own; the other
 // guards of the same write still apply.
