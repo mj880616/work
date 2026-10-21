@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
+import { createTaskFiles } from '../../supabase/functions/google-tasks/task-files.ts';
 
 // Runs the real google-tasks handler (action=tasks / action=overview) against a mocked Supabase and a mocked Google Tasks API.
 // The mock follows the list filters the handler relies on: showCompleted=false drops completed tasks,
@@ -102,7 +103,7 @@ function harness(lists, { connection = 'ok', scope = 'openid https://www.googlea
     static now() { return now; }
   }
   const consoleMock = { log: (...a) => logs.push(a.join(' ')), error: () => {}, warn: () => {} };
-  new Function('Deno', 'createClient', 'fetch', 'Date', 'console', SOURCE)(Deno, (_url, key) => key === 'service' ? admin : userDb, fetchMock, FakeDate, consoleMock);
+  new Function('Deno', 'createClient', 'createTaskFiles', 'fetch', 'Date', 'console', SOURCE)(Deno, (_url, key) => key === 'service' ? admin : userDb, createTaskFiles, fetchMock, FakeDate, consoleMock);
   return { handler, calls, logs, linkReads, get maxInFlight() { return maxInFlight; }, get tokeninfo() { return tokeninfo; } };
 }
 
