@@ -106,7 +106,25 @@ public class SourceRulesTests
         var users = Sources().Where(f => File.ReadAllText(f).Contains("RegisterHotKey(")).Select(Path.GetFileName).ToList();
         Assert.Equal(new[] { "HotkeyWindow.cs" }, users);
         foreach (var file in Sources())
-            Assert.DoesNotMatch(@"SetWindowsHookEx|WH_KEYBOARD|GetAsyncKeyState|GetKeyboardState|GetKeyState|RegisterRawInputDevices|SendKeys", File.ReadAllText(file));
+        {
+            var text = File.ReadAllText(file);
+            Assert.DoesNotMatch(@"SetWindowsHookEx|WH_KEYBOARD|WH_MOUSE|GetKeyboardState|GetKeyState|RegisterRawInputDevices|SendKeys", text);
+            // The hot corner may ask whether a mouse button is held (dragging a file in). Only there, and never for a key.
+            if (Path.GetFileName(file) != "CornerWatcher.cs") Assert.DoesNotContain("GetAsyncKeyState", text);
+        }
+    }
+
+    [Fact]
+    public void The_hot_corner_reads_only_the_pointer_and_the_two_mouse_buttons()
+    {
+        var watcher = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "CornerWatcher.cs"));
+        var calls = Regex.Matches(watcher, @"GetAsyncKeyState\((\w+)\)").Select(m => m.Groups[1].Value).Where(a => a != "int").Distinct().OrderBy(x => x).ToArray();
+        Assert.Equal(new[] { "VkLButton", "VkRButton" }, calls);
+        Assert.Contains("VkLButton = 0x01, VkRButton = 0x02", watcher);
+        Assert.DoesNotContain("Clipboard", watcher);
+        Assert.DoesNotContain("ClipboardReader", File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "CornerDropForm.cs")));
+        // A drop goes through the one gate, like every other entry.
+        Assert.Contains("_app.Submit(", File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "CornerDropForm.cs")));
     }
 
     [Fact]
