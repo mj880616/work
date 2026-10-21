@@ -51,3 +51,18 @@
 Web2 링크는 `https://desk.bokdoong.com/work/app/?view=basket&note=<ID>`이며 로그인 후 owner API 조회 결과의 정확한 메모만 연다. 갱신 호출은 payload 없이 유지한다. 상세 검토·가짜 데이터·운영 SHA 추정 근거: [검토 기록](../../../docs/basket-3-drive-copy.md).
 
 화면 기준 모듈은 브라우저가 제공받는 `app/` 경로에 두고 Edge 사본은 `supabase/functions/drive-summary/` 안에 둔다. 운영 workflow는 `supabase/functions`만 격리 복사하므로 Edge에서 `app/`를 import하지 않는다. `scripts/check-drive-summary-isolation.mjs`가 같은 functions-only 복사를 만든 뒤 Deno 의존 그래프의 모든 로컬 경로·심볼릭 링크가 functions 내부인지 검사하고 check·bundle한다. 자동 보안 CI는 Deno 2.9.6과 `tests/edge-isolation/*.test.mjs`로 이 검사를 실행한다. 배포 workflow는 수정하지 않았다. 파일·PR 준비만 했으며 운영 v5(source `8b91b60`)에서 재배포 전까지 사본 안내는 바뀌지 않는다.
+
+## ORG-사본자동갱신 (버튼 없는 자동 갱신)
+
+서버 코드는 바꾸지 않았다(운영 v12 소스 `ee030ea`와 같음). 기존 두 인증 경로를 그대로 쓴다.
+
+- **저장 뒤 자동 갱신(앱, 소유자 JWT 경로)**: `app/drive-summary.js`가 사본에 들어가는 것(조직 기록·요약, 프로젝트·진행·단계·일정, 회의 이름·일시, 할 일 연결, 프로젝트 자료, 바구니 메모)의 성공 저장을 받아 마지막 저장 3분 뒤(처음 저장부터 최대 10분) 본문 없는 POST 한 번을 보낸다. 화면 표시·버튼은 없다. 화면이 가려지거나 닫히면 기다리던 갱신을 keepalive 요청으로 바로 보낸다.
+- **하루 2번 예약 갱신(cron 경로)**: `.github/workflows/drive-summary-refresh.yml`이 06:17·13:17 KST에 `scripts/ops/drive-summary-cron.mjs`로 `x-drive-summary-cron-secret` 헤더만 보낸다. GitHub 비밀값이 없으면 "비밀값 미등록", 서버 401이면 "비밀값 불일치"로 workflow가 실패한다. 네트워크·5xx만 1분 뒤 한 번 더 시도한다. 수동 실행(workflow_dispatch)도 같다.
+- 비밀값 `DRIVE_SUMMARY_CRON_SECRET`은 같은 값을 GitHub 저장소 Actions 비밀값과 Supabase Edge Function 비밀값 두 곳에 사용자가 등록한다. 값은 저장소·PR·로그에 남기지 않는다. Supabase 쪽 비밀값을 바꾼 뒤에는 함수 재배포 없이 다음 호출부터 적용된다.
+- 서버 쪽 묶기(변경 표시 + 예약 처리)는 고르지 않았다: 새 DB 표·트리거·migration(§6 정지)과 새 상태 저장소가 필요하고, 예약 간격(GitHub 최소 5분·지연)만큼 늦다. 앱 묶기 + 하루 2번 예약으로 같은 효과를 서버 변경 없이 얻는다.
+- 동시 호출: 앱은 한 탭에서 한 번에 하나만 부르고 workflow는 `concurrency`로 겹치지 않는다. 앱과 예약이 우연히 겹치면 두 호출이 같은 문서를 차례로 전체 교체하므로 나중 것이 남는다(둘 다 최신 원본 기준). 기존 "남은 위험"(최초 생성 경합)은 문서가 이미 있어 해당하지 않는다.
+
+### 설계 메모 (이번 범위 아님)
+
+- **원장 요약 포함(S7 뒤)**: Web2 원장 표가 생기면 프로젝트 사본 끝(또는 세 번째 문서 `kptu_summary=ledger`)에 사용자가 확정한 항목만 싣는다(AI 후보 제외). 읽기는 지금처럼 `kptu-work` 범위 GET·열 허용 목록·상한 초과 시 진단 문서. 앱 쪽은 `SUMMARY_FIELDS`에 원장 표·열을 더하면 같은 묶기·예약을 그대로 쓴다. 예약 workflow는 바꿀 필요 없다.
+- **OPS-수집점검 연결("마지막 수집 시각")**: 지금 앱은 사본 마지막 갱신 시각을 읽을 수 없다. 시각은 Drive 폴더 `appProperties.last_success_at`·`last_failure_at`·`last_failure_summary`에만 있고, Drive 토큰은 서버에만 있으며, 이 함수는 POST(전체 재생성)만 받고 GET은 405다. DB에는 시각을 저장하지 않는다. 다음 과제 추천안: 이 함수에 소유자 JWT 전용 읽기 동작(예: POST `?action=status` 또는 GET)을 더해 폴더 appProperties의 세 값만 돌려준다(문서 재생성·쓰기 없음, drive.file·공유 금지 검사 유지). Edge 재배포가 필요하다.
