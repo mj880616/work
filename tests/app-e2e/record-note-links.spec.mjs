@@ -62,9 +62,9 @@ for(const width of [1280,390])test(`project ${width}: a linked note joins the re
  // Newest first: the note (9.16) above the update (9.15), both counted.
  const order=await records.locator(':scope > [data-basket-link]').evaluateAll(xs=>xs.map(x=>x.dataset.basketLink));expect(order).toEqual(['l-note','l-up']);
  await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('26');
- // Its ⋯: [노트 열기]·[연결 해제]; the update's ⋯ stays [업데이트 열기]·[연결 해제].
- await nt.getByRole('button',{name:'바구니 기록 메뉴'}).click();const menu=page.locator('#ps3RecordMenu');await expect(menu.getByRole('button')).toHaveText(['노트 열기','연결 해제']);await page.keyboard.press('Escape');await expect(menu).toBeHidden();
- await up.getByRole('button',{name:'바구니 기록 메뉴'}).click();await expect(menu.getByRole('button')).toHaveText(['업데이트 열기','연결 해제']);await page.keyboard.press('Escape');
+ // Its ⋯: [노트 열기]·[연결 해제]·[요약 수정]; the update's ⋯ is [업데이트 열기]·[연결 해제]·[요약 수정] (UI-연결요약수정).
+ await nt.getByRole('button',{name:'바구니 기록 메뉴'}).click();const menu=page.locator('#ps3RecordMenu');await expect(menu.getByRole('button')).toHaveText(['노트 열기','연결 해제','요약 수정']);await page.keyboard.press('Escape');await expect(menu).toBeHidden();
+ await up.getByRole('button',{name:'바구니 기록 메뉴'}).click();await expect(menu.getByRole('button')).toHaveText(['업데이트 열기','연결 해제','요약 수정']);await page.keyboard.press('Escape');
  // The same link read asks for both kinds, nothing is written.
  expect(state.queries).toContain('in.(basket,note)');expect(state.writes).toEqual([]);expect(errors).toEqual([]);
 });
@@ -101,7 +101,7 @@ for(const width of [390,1280])test(`organization ${width}: the linked note shows
  const modal=page.locator('#wdModal'),row=modal.locator('[data-basket-link="l-note-o"]'),line=row.locator('a[data-basket-link-open]');await expect(line).toBeVisible();
  await expect(row.getByRole('img',{name:'노트'})).toBeVisible();await expect(row.locator('small')).toContainText('노트 연결');await expect(row.locator('[data-link-summary-text]')).toHaveText('합성 회의 준비 노트');
  await expect(modal).not.toContainText('🧺');
- await row.locator('[data-basket-link-menu]').click();const menu=page.locator('#basketLinkMenu');await expect(menu.getByRole('button')).toHaveText(['노트 열기','연결 해제']);await page.keyboard.press('Escape');await expect(menu).toBeHidden();
+ await row.locator('[data-basket-link-menu]').click();const menu=page.locator('#basketLinkMenu');await expect(menu.getByRole('button')).toHaveText(['노트 열기','연결 해제','요약 수정']);await page.keyboard.press('Escape');await expect(menu).toBeHidden();
  const before=await top(line);
  for(const how of ['button','back','browser']){
   await line.click();await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(noteRead(page)).toHaveText('합성 회의 준비 노트');
