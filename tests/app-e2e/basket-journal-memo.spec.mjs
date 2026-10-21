@@ -103,13 +103,15 @@ for (const width of [390, 1280]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (SHOT_DIR && width === 390) { await group(page, 'memos').scrollIntoViewIfNeeded(); await page.screenshot({ path: `${SHOT_DIR}/journal-memo-journal-390.png` }); }
     await page.screenshot({ path: info.outputPath(`journal-memo-journal-${width}.png`), fullPage: true });
-    // [주간보고 초안 복사]: the same group name, one row per kept update, on its day.
+    // [주간보고 초안 복사] (양식 순서, 2026-10-21): 기타 메모는 참고에 그 날짜로, 미분류는 4. 산하 조직 현황에.
     await press(page, page.locator('#journalRoot [data-journal-copy]'), width);
     const lines = (await page.evaluate(() => navigator.clipboard.readText())).split('\n');
-    const tue = lines.indexOf('■ 10월 6일(화)'), wed = lines.indexOf('■ 10월 7일(수)');
-    expect(lines.slice(tue, wed)).toContain('- 기타 메모: 합성 기타 메모 하나');
-    expect(lines.slice(tue, wed)).toContain('- 조직 소식 · 미분류: 합성 미분류 업데이트');
-    expect(lines).not.toContain('- 조직 소식 · 미분류: 합성 기타 메모 하나');
+    const memo = lines.indexOf('◦ 기타 메모'), unsorted = lines.indexOf('◦ 미분류');
+    expect(memo).toBeGreaterThan(lines.indexOf('참고'));
+    expect(lines[memo + 1]).toBe('- 10월 6일(화) 합성 기타 메모 하나');
+    expect(unsorted).toBeGreaterThan(lines.indexOf('4. 산하 조직 현황'));
+    expect(lines[unsorted + 1]).toBe('- 10월 6일(화) 합성 미분류 업데이트');
+    expect(lines.filter(l => l.includes('합성 기타 메모 하나'))).toHaveLength(1);
     // [업무일지에서 빼기] from the row ⋯ removes only the mark: back in 미분류, and the journal has no 기타 메모 box.
     await page.evaluate(() => window.KPTURouter.go('basket'));
     await expect(row(page, B)).toBeVisible(); await expect(row(page, A)).toHaveCount(0);

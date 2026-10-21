@@ -6,7 +6,8 @@ import {noteJournalAt, journalGuard, setNoteJournal} from '../app/update-journal
 import {noteClassified, visibleNotes, notePlaces, canKeepInJournal, noteHasOrgOrProject} from '../app/basket-data.js';
 import {noteTaskGuard} from '../app/basket-note-tasks.js';
 import {selectHandoffNotes} from '../app/basket-ai-handoff.js';
-import {dayMaterials, journalMemosOn, orgNewsOn, weeklyDraft} from '../app/journal-data.js';
+import {dayMaterials, journalMemosOn, orgNewsOn} from '../app/journal-data.js';
+import {weeklySummary, weeklyReportText} from '../app/journal-weekly.js';
 
 const AT = '2026-10-21T02:00:00.000Z';
 const runtime = fresh => {
@@ -106,8 +107,9 @@ test('the journal day card: 기타 메모 holds the day\'s kept updates and they
   assert.equal(memos.label, '기타 메모');
   assert.deepEqual(memos.items, ['가상 메모 앞', '가상 메모 하나']);
   assert.equal(dayMaterials({...materials, basket:{status:'failed'}}, '2026-10-06').find(g => g.key === 'memos').failed[0], 'basket');
-  const draft = weeklyDraft({start:'2026-10-05', lines:new Map(), materials, today:'2026-10-06'}).split('\n');
-  assert.ok(draft.includes('- 기타 메모: 가상 메모 앞'));
-  assert.ok(draft.includes('- 기타 메모: 가상 메모 하나'));
-  assert.ok(draft.indexOf('- 기타 메모: 다른 날') > draft.indexOf('■ 10월 7일(수)'));
+  // [주간보고 초안 복사] (form order, journal-weekly.js): 기타 메모 under 참고, day by day.
+  const draft = weeklyReportText(weeklySummary({start:'2026-10-05', lines:new Map(), linesState:'ok', materials, today:'2026-10-06'})).split('\n');
+  const memo = draft.indexOf('◦ 기타 메모');
+  assert.ok(memo > draft.indexOf('참고'));
+  assert.deepEqual(draft.slice(memo + 1, memo + 4), ['- 10월 6일(화) 가상 메모 앞', '- 10월 6일(화) 가상 메모 하나', '- 10월 7일(수) 다른 날']);
 });
