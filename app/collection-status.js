@@ -9,7 +9,7 @@
 import {formatSeoulTime} from './meeting-time.js';
 
 const HOUR = 3600000;
-// telegram: 회사 PC 수집 상태 파일 수정 시각(업무방 매일 07:30 1회 → 하루+2시간 여유로 26시간). call: 전사 폴더 최근 파일 시각(통화가 없는 주말을 넘기도록 72시간).
+// telegram: 회사 PC 수집이 messages/<YYYY-MM>/에 만드는 가장 최근 메시지 파일 시각(업무방 매일 07:30 1회 → 하루+2시간 여유로 26시간). call: 전사 폴더 최근 파일 시각(통화가 없는 주말을 넘기도록 72시간).
 // silent: 앱 스크립트가 1시간마다 보내는 신호 자체가 3시간 넘게 없으면 스크립트·트리거 문제로 본다.
 export const STALE_HOURS = Object.freeze({copy:24, radar:48, telegram:26, call:72});
 export const SILENT_HOURS = 3;
