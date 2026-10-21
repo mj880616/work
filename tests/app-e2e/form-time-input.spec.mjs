@@ -1,3 +1,4 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 import {openSeoulApp} from './helpers/seoul-time-fixture.mjs';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
@@ -64,7 +65,7 @@ for(const width of [390,1280])test.describe(`${width}px`,()=>{
   });
 
   test('회의 일시: 날짜 고르기 + 4자리 시간, 잘못된 시각은 저장 안 함',async({page})=>{
-    const s=baseState();s.meetingWrites=[];s.meetings=[];await mockApp(page,s);await signIn(page,'http://127.0.0.1:8123/app/?view=meetings');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
+    const s=baseState();s.meetingWrites=[];s.meetings=[];await mockApp(page,s);await signIn(page,`${appOrigin}/app/?view=meetings`);await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
     await page.locator('#newMeetingBtn').click();
     const date=page.locator('#meetingAtDate'),time=page.locator('#meetingAtTime');
     await expect(date).toHaveAttribute('type','date');await expect(time).toHaveAttribute('inputmode','numeric');

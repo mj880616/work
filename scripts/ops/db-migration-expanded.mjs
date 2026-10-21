@@ -6,6 +6,7 @@
 import { tokens } from './db-migration-plan.mjs';
 
 export const REJECT_REASONS = {
+  'check-label': '확인 SQL(precheck/postcheck)의 항목 이름에 허용되지 않는 문자(허용: 글자·숫자·공백과 _ / ( ) = : + . , · -; 세미콜론·따옴표 등 불가, 100자 이하)',
   structure: '파일 구조(begin/commit·문장 끝·주석)',
   history: 'migration 기록 INSERT 불일치(version/name·위치·개수)',
   'quoted-identifier': '대소문자 구분·특수문자 따옴표 식별자',

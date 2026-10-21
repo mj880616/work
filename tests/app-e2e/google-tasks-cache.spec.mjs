@@ -378,8 +378,8 @@ for(const phase of ['readiness','overview'])for(const transition of ['switch','l
       if(phase==='readiness')await page.evaluate(()=>window.__releaseReadiness());
       else{
         gates.previous.release();
-        // Current first: its overview, link read and source-note read (BASKET-할일출처) have all settled.
-        await expect.poll(async()=>(await stats(page)).settled).toBe(finish==='current first'?4:1);
+        // Current first: its overview, link read, source-note read (BASKET-할일출처) and file read (TASK-파일붙이기) have all settled.
+        await expect.poll(async()=>(await stats(page)).settled).toBe(finish==='current first'?5:1);
       }
       await drain(page);
     };
@@ -414,8 +414,8 @@ for(const phase of ['readiness','overview'])for(const transition of ['switch','l
     expect(final.staleRows).toBe(0);
     expect(final.documentId).toBe(documentId);
     expect(final.ensures).toBe(2);
-    // One owner-scoped link read and one owner-scoped source-note read (BASKET-할일출처) after the current overview.
-    expect(final.apiCalls).toBe(expectedCalls+2);
+    // One owner-scoped link read, one source-note read (BASKET-할일출처) and one file read (TASK-파일붙이기) after the current overview.
+    expect(final.apiCalls).toBe(expectedCalls+3);
     expect(requests).toEqual({previous:phase==='overview'?1:0,current:1});
     expect(await page.evaluate(owner=>{
       const keys=Object.keys(localStorage).filter(key=>key.startsWith('kptu_owner_cache:'));

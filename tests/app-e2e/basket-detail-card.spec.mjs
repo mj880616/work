@@ -111,9 +111,18 @@ for (const width of [390, 1280]) {
     const f = await fixture(page, width);
     // List row: [복사] copies the 텔레그램 conversion without opening the update.
     const rowCopy = page.locator(`[data-basket-row-copy="${U}"]`);
-    await expect(rowCopy).toHaveAccessibleName(/복사$/);
-    const rb = await rowCopy.boundingBox(); expect(rb.width).toBeGreaterThanOrEqual(44); expect(rb.height).toBeGreaterThanOrEqual(44);
-    await press(page, rowCopy, width);
+    await expect(rowCopy).toHaveAttribute('aria-label', /복사$/);
+    if (width >= 761) {
+      await expect(rowCopy).toHaveAccessibleName(/복사$/);
+      const rb = await rowCopy.boundingBox(); expect(rb.width).toBeGreaterThanOrEqual(44); expect(rb.height).toBeGreaterThanOrEqual(44);
+      await press(page, rowCopy, width);
+    } else {
+      // UI-모바일노트복사메뉴: on a phone the row's [복사] is the first item of its ⋯ menu.
+      await expect(rowCopy).toBeHidden();
+      await press(page, page.locator(`[data-basket-row-more="${U}"]`), width);
+      await expect(page.locator('#basketRowMenu button').first()).toHaveText('복사');
+      await press(page, page.locator('#basketRowMenu').getByRole('button', { name: '복사', exact: true }), width);
+    }
     await expect(toast(page)).toHaveText('복사했습니다'); await expect(toast(page)).not.toHaveClass(/hidden/);
     expect(await copied(page)).toBe('교섭 결과 공유\n• 다음 회의 10/27');
     await expect(page.locator('[data-basket-detail]')).toBeHidden();
@@ -134,7 +143,12 @@ for (const width of [390, 1280]) {
     // Notes: the row and the read view copy the same way (title as the first line).
     await press(page, page.locator('[data-basket-close]'), width);
     await press(page, page.locator('[data-basket-kind="note"]'), width);
-    await press(page, page.locator('[data-note-row-copy="n-titled"]'), width);
+    if (width >= 761) await press(page, page.locator('[data-note-row-copy="n-titled"]'), width);
+    else {
+      await expect(page.locator('[data-note-row-copy="n-titled"]')).toBeHidden();
+      await press(page, page.locator('[data-note-row-more="n-titled"]'), width);
+      await press(page, page.locator('#noteDocMenu').getByRole('button', { name: '복사', exact: true }), width);
+    }
     await expect(toast(page)).toHaveText('복사했습니다'); expect(await copied(page)).toBe('정리 노트\n\n쟁점\n\n• 기본급');
     await press(page, page.locator('[data-note-row="n-titled"]'), width);
     await page.evaluate(() => { window.__copied.length = 0; });

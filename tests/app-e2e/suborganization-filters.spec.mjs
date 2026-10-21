@@ -1,7 +1,8 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
-const canonical='http://127.0.0.1:8123/tests/app-e2e/suborganization-filters-canonical-fixture.html';
+const canonical=`${appOrigin}/tests/app-e2e/suborganization-filters-canonical-fixture.html`;
 
 async function deleteRecord(page,row){await row.getByRole('button',{name:'기록 메뉴'}).click();await page.locator('#wdUpMenu').getByRole('button',{name:'삭제',exact:true}).click()}
 async function openAssigned(page,suffix=''){

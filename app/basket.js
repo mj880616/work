@@ -24,7 +24,7 @@ import { photoElement } from './diary-data.js';
 import { fileKind } from './meeting-compact.js';
 
 import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSize } from './basket-upload.js';
-import { placeAnchored, followAnchor, clearAnchored } from './anchored-popup.js';
+import { placeAnchored, followAnchor, clearAnchored, isWide } from './anchored-popup.js';
 
 const root = document.querySelector('#basketView'), rt = window.KPTURuntime;
 // STAB-간헐3: the refresh run whose list read is still pending (0 = none). Until it answers, an empty list is "loading",
@@ -103,8 +103,9 @@ document.addEventListener('click',e=>{const wrap=root.querySelector('[data-baske
 // Each item reuses the detail's own path (openDetail and its buttons); an item the detail would refuse is left out.
 const rowMenuEl=root.querySelector('#basketRowMenu');
 let rowMenu=null;
+// UI-모바일노트복사메뉴: on a phone the row has no [복사] button; [복사] is the first item of this menu (PC keeps the button).
 function rowMenuItems(note){
-  return [['edit','수정'],...(note.archived_at||note.ai_export_allowed!==true?[]:[['link','연결하기']]),['task','할 일 만들기'],['to-note','노트로 옮기기'],...journalItem(note),['delete','삭제','basket-menu-danger']];
+  return [...(!isWide()&&String(note.raw_text||'').trim()?[['copy','복사']]:[]),['edit','수정'],...(note.archived_at||note.ai_export_allowed!==true?[]:[['link','연결하기']]),['task','할 일 만들기'],['to-note','노트로 옮기기'],...journalItem(note),['delete','삭제','basket-menu-danger']];
 }
 // BASKET-일지로남기기: [업무일지에 남기기] for an update that went to no organization and no project; [업무일지에서 빼기] once kept.
 function journalItem(note){
@@ -369,6 +370,7 @@ function setKind(next,{openId=null}={}){
 // detail's own move; 삭제 is the detail's delete (same confirmation from basket-record-delete.js), reported on the list.
 function rowMenuAction(act,noteId){
   const note=notes.find(n=>n.id===noteId);if(!note||busy||selected)return;
+  if(act==='copy'){void copyNote(note);return;}
   handoff.close();hideHandoffNotice();
   if(act==='delete'){void deleteFromList(noteId);return;}
   if(act==='journal'||act==='unjournal'){void keepInJournal(noteId,act==='journal');return;}

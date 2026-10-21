@@ -160,6 +160,51 @@ export function createDriveUpload(
   }
   const fields =
     "id,name,mimeType,ownedByMe,trashed,parents,permissions(type,role)";
+  type FolderMeta = {
+    id?: unknown;
+    name?: string;
+    mimeType?: string;
+    ownedByMe?: boolean;
+    trashed?: boolean;
+    parents?: string[];
+    permissions?: { type: string; role: string }[];
+  };
+  // Owned, not trashed, exactly one parent and exactly one permission (the owner): never shared, publicly or otherwise.
+  const privateOwnedFolder = (f: FolderMeta) =>
+    validId(f.id) && f.mimeType === "application/vnd.google-apps.folder" &&
+    f.ownedByMe === true && f.trashed === false &&
+    Array.isArray(f.parents) && f.parents.length === 1 &&
+    Array.isArray(f.permissions) && f.permissions.length === 1 &&
+    f.permissions[0].type === "user" && f.permissions[0].role === "owner";
+  async function listFolders(q: string, token: string) {
+    const params = new URLSearchParams({
+      q,
+      fields: `nextPageToken,incompleteSearch,files(${fields})`,
+      pageSize: "100",
+      orderBy: "createdTime",
+    });
+    const folders: FolderMeta[] = [];
+    const pages = new Set<string>();
+    while (true) {
+      const listed = await driveFetch(
+        "drive_folder",
+        "https://www.googleapis.com/drive/v3/files?" + params,
+        { headers: auth(token) },
+      );
+      const found = await bodyJson(listed);
+      if (!listed.ok || !Array.isArray(found.files) || found.incompleteSearch) {
+        throw unavailable("drive_folder");
+      }
+      folders.push(...found.files);
+      if (!found.nextPageToken) return folders;
+      if (
+        typeof found.nextPageToken !== "string" ||
+        pages.has(found.nextPageToken)
+      ) throw unavailable("drive_folder");
+      pages.add(found.nextPageToken);
+      params.set("pageToken", found.nextPageToken);
+    }
+  }
   async function folderInfo(id: string, token: string) {
     if (!validId(id)) {
       throw new UploadError(409, "drive_folder_invalid", "drive_folder");
@@ -186,18 +231,7 @@ export function createDriveUpload(
       .select("basket_folder_id")
       .eq("workspace_id", workspaceId).maybeSingle();
     if (error) throw unavailable("drive_settings");
-    const verify = (
-      f: {
-        id?: unknown;
-        name?: string;
-        mimeType?: string;
-        ownedByMe?: boolean;
-        trashed?: boolean;
-        parents?: string[];
-        permissions?: { type: string; role: string }[];
-      },
-      atRoot: boolean,
-    ) => {
+    const verify = (f: FolderMeta, atRoot: boolean) => {
       if (f.permissions === undefined) {
         throw new UploadError(
           409,
@@ -205,56 +239,22 @@ export function createDriveUpload(
           "drive_folder",
         );
       }
-      if (
-        !validId(f.id) || f.name !== "Web2 바구니" ||
-        f.mimeType !== "application/vnd.google-apps.folder" ||
-        f.ownedByMe !== true || f.trashed !== false ||
-        !Array.isArray(f.parents) || f.parents.length !== 1 || !atRoot ||
-        !Array.isArray(f.permissions) || f.permissions.length !== 1 ||
-        f.permissions[0].type !== "user" ||
-        f.permissions[0].role !== "owner"
-      ) {
+      if (f.name !== "Web2 바구니" || !atRoot || !privateOwnedFolder(f)) {
         throw new UploadError(
           409,
           "drive_folder_not_private_root",
           "drive_folder",
         );
       }
-      return f.id;
+      return f.id as string;
     };
     // Root membership comes from the query, never GET /files/root (404 with drive.file).
     // Search own My Drive root only; never create permissions or adopt a shared folder.
-    async function rootFolders() {
-      const params = new URLSearchParams({
-        q: "name = 'Web2 바구니' and mimeType = 'application/vnd.google-apps.folder' and 'root' in parents and 'me' in owners and trashed = false",
-        fields: `nextPageToken,incompleteSearch,files(${fields})`,
-        pageSize: "100",
-        orderBy: "createdTime",
-      });
-      const folders = [];
-      const pages = new Set<string>();
-      while (true) {
-        const listed = await driveFetch(
-          "drive_folder",
-          "https://www.googleapis.com/drive/v3/files?" + params,
-          { headers: auth(token) },
-        );
-        const found = await bodyJson(listed);
-        if (
-          !listed.ok || !Array.isArray(found.files) || found.incompleteSearch
-        ) {
-          throw unavailable("drive_folder");
-        }
-        folders.push(...found.files);
-        if (!found.nextPageToken) return folders;
-        if (
-          typeof found.nextPageToken !== "string" ||
-          pages.has(found.nextPageToken)
-        ) throw unavailable("drive_folder");
-        pages.add(found.nextPageToken);
-        params.set("pageToken", found.nextPageToken);
-      }
-    }
+    const rootFolders = () =>
+      listFolders(
+        "name = 'Web2 바구니' and mimeType = 'application/vnd.google-apps.folder' and 'root' in parents and 'me' in owners and trashed = false",
+        token,
+      );
     async function verifyStoredFolder(id: string) {
       const folder = await folderInfo(id, token);
       const found = await rootFolders();
@@ -300,10 +300,50 @@ export function createDriveUpload(
     }
     return await verifyStoredFolder(winner.basket_folder_id);
   }
+  // A named folder directly inside an existing app folder (e.g. "할 일 첨부" in 자료실), found or created by this app.
+  // The same private check as the basket root: a folder that is shared (its own or an inherited permission) is never used,
+  // and no permission is created or removed. The ID is not stored; the search finds it again (drive.file sees app files only).
+  async function ensurePrivateChildFolder(
+    parentId: string,
+    name: string,
+    token: string,
+  ): Promise<string> {
+    if (!validId(parentId) || !/^[^'\\]{1,100}$/.test(name)) {
+      throw new UploadError(409, "drive_folder_invalid", "drive_folder");
+    }
+    const verify = (f: FolderMeta) => {
+      if (f.permissions === undefined) {
+        throw new UploadError(
+          409,
+          "drive_folder_permissions_unavailable",
+          "drive_folder",
+        );
+      }
+      if (
+        f.name !== name || !privateOwnedFolder(f) ||
+        f.parents?.[0] !== parentId
+      ) {
+        throw new UploadError(409, "drive_folder_not_private", "drive_folder");
+      }
+      return f.id as string;
+    };
+    const found = await listFolders(
+      `name = '${name}' and mimeType = 'application/vnd.google-apps.folder' and '${parentId}' in parents and 'me' in owners and trashed = false`,
+      token,
+    );
+    if (found.length) return verify(found[0]);
+    const id = await createFolder(name, parentId, token);
+    const created = await folderInfo(id, token);
+    if (created.id !== id) {
+      throw new UploadError(409, "drive_folder_not_private", "drive_folder");
+    }
+    return verify(created);
+  }
   return {
     driveToken,
     createFolder,
     ensurePrivateRootFolder,
+    ensurePrivateChildFolder,
     upload,
     discardUploadedFile,
   };

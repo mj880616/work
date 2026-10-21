@@ -1,6 +1,7 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 
-const url='http://127.0.0.1:8123/tests/app-e2e/profile-workplaces-fixture.html';
+const url=`${appOrigin}/tests/app-e2e/profile-workplaces-fixture.html`;
 
 async function openProfile(page){
   await page.goto(url);

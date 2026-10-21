@@ -17,8 +17,16 @@ export class DbQueryError extends Error {
   }
 }
 
+// Check SQL whose item names or column shape the runner cannot accept. Fixed text only.
+export class CheckFormatError extends Error {
+  constructor() { super('Invalid check SQL format'); this.name = 'CheckFormatError'; }
+}
+
 // Render only bounded internal metadata, never message/cause or response data.
 export function queryErrorSummary(error) {
+  if (error instanceof CheckFormatError) {
+    return '확인 SQL 형식 오류(항목 이름·열 모양): 확인 SQL의 항목 이름 또는 결과 열 모양이 규칙에 맞지 않습니다. DB 연결 문제가 아닙니다. 원문 오류·SQL·데이터는 출력하지 않습니다.';
+  }
   const known = error instanceof DbQueryError;
   const status = known && validStatus(error.status) ? `HTTP ${error.status}` : 'HTTP 상태 미확인';
   const kind = known && KINDS.has(error.kind) ? error.kind : '응답 검증';

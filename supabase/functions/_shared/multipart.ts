@@ -1,4 +1,5 @@
-// multipart/form-data reader for basket uploads.
+// multipart/form-data reader shared by the upload functions (basket-files, library-files, meeting-files,
+// workspace-drive upload).
 // Why not req.formData(): Deno's parser splits Content-Disposition parameters on every ';' and '=' even inside a
 // quoted string, so a browser upload named `회의록; 최종=v2.hwp` arrived as `"회의록`. This reader tokenizes the
 // header properly (quoted strings, backslash escapes, RFC 5987 filename*) and keeps the rest of the contract:

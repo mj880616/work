@@ -1,6 +1,7 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 
-const fixture='http://127.0.0.1:8123/tests/app-e2e/suborganization-filters-canonical-fixture.html';
+const fixture=`${appOrigin}/tests/app-e2e/suborganization-filters-canonical-fixture.html`;
 
 async function setup(page,table,method='POST'){
   await page.goto(fixture);

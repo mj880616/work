@@ -1,7 +1,8 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 import {readFile} from 'node:fs/promises';
 
-const BASE='http://127.0.0.1:8123';
+const BASE=appOrigin;
 const repoRoot=new URL('../../',import.meta.url);
 const read=path=>readFile(new URL(path,repoRoot),'utf8');
 
