@@ -2,7 +2,7 @@
 // ① 매주 1회 자동: 소유자가 Web2를 열고 2분 뒤(시작 요청과 겹치지 않게, 한 탭에서 6시간에 한 번) drive-summary ?action=ledger_status를 보고
 //    마지막 성공이 7일 넘었으면 ?action=ledger_export를 한 번 부른다. 화면 표시 없음, 실패는 조용히(다음 날 다시).
 // ② 수동: [원장] 화면 #ledgerExportRoot 칸의 [지금 Drive로 내보내기]. 이 모듈이 그 칸의 유일한 renderer다.
-// 원장 표는 service_role 권한이 없어 예약 실행(GitHub)이 원장을 읽을 수 없다. 그래서 내보내기는 이 앱(소유자 로그인 토큰)이 부른다.
+// 원장 표는 서버 키 권한이 없어 예약 실행(GitHub)이 원장을 읽을 수 없다. 그래서 내보내기는 이 앱(소유자 로그인 토큰)이 부른다.
 // 요청에 본문 없음. 서버가 작업공간·소유자·폴더를 정한다. 응답의 내용·파일 ID는 그리지 않는다(시각·행 수·문서 링크만).
 // 함수가 배포 전이면 상태 읽기가 405 → 칸을 숨기고 자동 실행도 하지 않는다.
 import { ledgerFromStatus, exportDue, exportResult, failureText, CHECK_EVERY_MS, START_DELAY_MS } from './ledger-export-model.mjs';

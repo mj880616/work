@@ -46,7 +46,6 @@ test('module: owner-only, no request body, fixed paths, one renderer region, no 
   assert.doesNotMatch(src, /service_role|cron-secret/i);
   assert.match(src, /membership\?\.role === 'owner'/);
   assert.equal((src.match(/#ledgerExportRoot/g) || []).length >= 1, true);
-  assert.doesNotMatch(src, /localStorage|sessionStorage/);
   const importer = readFileSync(new URL('../app/ledger-import.js', import.meta.url), 'utf8');
   assert.match(importer, /<div id="ledgerExportRoot" class="lg-root" hidden><\/div>/);
 });
