@@ -35,7 +35,6 @@ async function boot(page,width,{dark=false}={}){
   if(path==='/auth/v1/user')return ok(user);
   if(path==='/functions/v1/google-calendar')return ok(action==='events'?{events:[],colors:{},eventColors:{}}:{connected:true,enabled:true,selected:['primary'],calendars:[{id:'primary',summary:'내 캘린더',primary:true,selected:true}],events:[],eventColors:{}});
   if(path==='/functions/v1/google-tasks'){if(['linked','links'].includes(action))return ok({tasks:[],links:[],meeting_links:[]});return ok({connected:true,authorized:true,pending_scope:'all',tasks});}
-  if(path==='/functions/v1/drive-summary')return ok({ok:true,updated_at:ago(0.1),documents:{org:'https://docs.google.com/document/d/org/edit',project:'https://docs.google.com/document/d/project/edit'}});
   if(path.startsWith('/functions/v1/'))return ok({});
   if(path.startsWith('/rest/v1/rpc/'))return ok(null);
   if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:ws.id,user_id:user.id,role:'owner',email:user.email,workspace:ws}]);
@@ -77,15 +76,10 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  const boxes=await tiles.evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {x:Math.round(r.left),y:Math.round(r.top),h:r.height};}));
  expect(new Set(boxes.map(b=>b.y)).size).toBe(2);expect(new Set(boxes.map(b=>b.x)).size).toBe(3);
  for(const b of boxes)expect(b.h).toBeGreaterThanOrEqual(44);
- // 계정 상자: 화면 색·사본 갱신(시각은 오른쪽 작게)·로그아웃(빨강), 사본 링크는 밑줄 없는 보조 글자.
+ // 계정 상자: 내 프로필·화면 색·로그아웃(빨강). 사본 갱신 줄은 없다(ORG-사본갱신퇴장).
  const account=page.locator('#mobileAccountGroup');
- await expect(account.locator('button')).toHaveText(['내 프로필','화면 색','사본 갱신','로그아웃']);
- await account.locator('[data-drive-summary-refresh]').click();
+ await expect(account.locator('button')).toHaveText(['내 프로필','화면 색','로그아웃']);
  await open();
- const time=account.locator('.drive-summary-time');await expect(time).toBeVisible();
- const [refresh,timeBox]=await Promise.all([rect(account.locator('[data-drive-summary-refresh]')),rect(time)]);
- expect(timeBox.top).toBeGreaterThanOrEqual(refresh.top);expect(timeBox.bottom).toBeLessThanOrEqual(refresh.bottom);expect(timeBox.right).toBeGreaterThan(refresh.left+refresh.width/2);
- expect(await account.locator('.drive-summary-links a').first().evaluate(el=>getComputedStyle(el).textDecorationLine)).toBe('none');
  const red=await account.locator('[data-kptu-logout]').evaluate(el=>getComputedStyle(el).color),danger=await page.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-danger)';document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c;});
  expect(red).toBe(danger);
  // Keyboard: Tab moves from the grip into the tiles; Esc closes and returns to the [메뉴] tab.

@@ -8,10 +8,7 @@
 .account-panel{position:fixed;z-index:60;inset:auto;margin:0;width:min(300px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto;padding:8px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float)}
 .account-action{display:flex;align-items:center;width:100%;min-height:44px;border:0;border-radius:var(--kptu-radius-sm);padding:8px 10px;text-align:left;background:transparent;color:var(--kptu-ink);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
 .account-action:hover,.account-action:focus-visible{background:var(--kptu-primary-soft)}
-.account-panel,[data-drive-summary-status]{word-break:keep-all;overflow-wrap:normal}
-[data-drive-summary-status]{font-size:12px;line-height:1.7;padding:0 10px}
-[data-drive-summary-status]:not(:empty){margin-bottom:8px}
-.drive-summary-time,.drive-summary-links{white-space:nowrap}
+.account-panel{word-break:keep-all;overflow-wrap:normal}
 @media(min-width:1024px){#appView>.app-nav .account-menu{width:100%}.account-trigger{font-size:12.5px;line-height:1.25}}
 .theme-panel{padding:var(--kptu-space-4);width:min(360px,calc(100vw - 24px));max-width:100%;box-sizing:border-box}
 #themeModal{place-items:center;padding:12px}

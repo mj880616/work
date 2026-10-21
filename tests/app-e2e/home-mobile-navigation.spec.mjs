@@ -113,7 +113,7 @@ test('KST date crosses the day boundary independently of the browser timezone',a
   await page.clock.setFixedTime(new Date('2026-10-05T16:00:00Z'));await open(page);
   await expect(page.locator('#homeView [data-home-date]')).toHaveText('10월 6일 화요일');
 });
-test('drawer media item and moved Drive slot run their existing handlers once',async({page})=>{
+test('drawer media item opens once and the account box has no copy-refresh row',async({page})=>{
   await page.setViewportSize({width:390,height:844});await open(page);
   // UI-디자인손질 4: 성명·보도자료 is one menu item; it opens the list with every kind and one header name.
   await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu [data-mobile-press]')).toHaveCount(0);
@@ -121,12 +121,14 @@ test('drawer media item and moved Drive slot run their existing handlers once',a
   await expect(page.locator('#mediaView [data-press-type="all"]')).toHaveClass(/active/);await expect(page.locator('[data-mobile-view-name]')).toHaveText('성명·보도자료');
   await page.locator('#mediaView [data-press-type="release"]').click();await expect(page.locator('[data-mobile-view-name]')).toHaveText('성명·보도자료');
   await page.goBack();await expect(page.locator('#homeView')).toBeVisible();
-  let posts=0;await page.route(`${SB}/functions/v1/drive-summary`,r=>{posts++;return r.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,updated_at:new Date().toISOString(),documents:{}})})});
-  await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-drive-summary-refresh]').click();
-  await expect.poll(()=>posts).toBe(1);await expect(page.locator('#mobileMenu')).toBeHidden();
+  let posts=0;await page.route(`${SB}/functions/v1/drive-summary`,r=>{posts++;return r.fulfill({contentType:'application/json',body:'{}'})});
+  await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu [data-drive-summary-refresh]')).toHaveCount(0);
+  await expect(page.locator('#mobileMenu [data-account-drive-slot]')).toHaveCount(0);
+  await expect(page.locator('#mobileAccountGroup button')).toHaveText(['내 프로필','화면 색','로그아웃']);
+  await page.keyboard.press('Escape');await expect(page.locator('#mobileMenu')).toBeHidden();
   await page.setViewportSize({width:1440,height:844});await page.setViewportSize({width:390,height:844});
-  await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu [data-account-drive-slot]')).toHaveCount(1);
-  await page.locator('#mobileMenu [data-drive-summary-refresh]').click();await expect.poll(()=>posts).toBe(2);
+  await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileAccountGroup button')).toHaveText(['내 프로필','화면 색','로그아웃']);
+  expect(posts).toBe(0);
 });
 test('native final return and browser default both open home',async({page})=>{
   await open(page,app);

@@ -101,3 +101,27 @@ test('PC 계정 메뉴: Esc로 닫으면 화면은 그대로이고, 메뉴를 �
   await expect(page.locator('#calendarView')).toBeVisible();
   await expect(page.locator('#profileView')).toHaveCount(0);
 });
+
+// ORG-사본갱신퇴장: [사본 갱신] 칸(버튼·갱신 시각·사본 링크)은 앱에서 없어졌고, 앱은 시작 때도 저장 뒤에도 drive-summary를 부르지 않는다.
+for(const [name,width] of [['PC',1440],['mid',900],['phone',390]]){
+  test(`계정 메뉴에 [사본 갱신]이 없고 순서가 내 프로필·화면 색·로그아웃이다 (${name} ${width}px)`,async({page})=>{
+    test.setTimeout(60000);
+    const driveCalls=[];
+    page.on('request',request=>{if(new URL(request.url()).pathname==='/functions/v1/drive-summary')driveCalls.push(request.method())});
+    await page.setViewportSize({width,height:900});
+    await mockApp(page);
+    await page.goto(testOrigin+'/app/?view=calendar');
+    await signIn(page);
+    await expect(page.locator('#calendarView')).toBeVisible();
+    const phoneLike=width<=1023;
+    const panel=page.locator(phoneLike?'#mobileMenu':'#sidebarAccountPanel');
+    await accountButton(page).click();
+    await expect(panel).toBeVisible();
+    await expect(panel.locator(phoneLike?'#mobileAccountGroup button':'button')).toHaveText(['내 프로필','화면 색','로그아웃']);
+    await expect(panel.locator('[data-drive-summary-refresh],[data-drive-summary-status],[data-account-drive-slot],.drive-summary-time,.drive-summary-links')).toHaveCount(0);
+    await expect(panel).not.toContainText('사본');
+    await expect(page.locator('body')).not.toContainText('사본 갱신');
+    expect(await page.evaluate(()=>typeof window.KPTUDriveSummary)).toBe('undefined');
+    expect(driveCalls).toEqual([]);
+  });
+}
