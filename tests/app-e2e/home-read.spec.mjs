@@ -219,7 +219,9 @@ test("phone home follows the supplied reference while desktop stays unchanged", 
   await expect(chips).toHaveCSS('border-top-width','0px');
   await expect(chips).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
   await expect(page.locator('.home-event').nth(1)).toHaveCSS('border-top-width','1px');
-  const check=page.locator('.home-task .gt-check').first();const b=await check.boundingBox();expect(b.width).toBeGreaterThanOrEqual(44);expect(b.height).toBeGreaterThanOrEqual(44);
+  await expect(page.locator('.home-task .gt-check').first()).toBeVisible();
+  // Found and measured in one page-side call: the card repaints its rows as data arrives, so a located element can be detached before it is measured.
+  const b=await page.evaluate(()=>{const r=document.querySelector('.home-task .gt-check').getBoundingClientRect();return {width:r.width,height:r.height}});expect(b.width).toBeGreaterThanOrEqual(44);expect(b.height).toBeGreaterThanOrEqual(44);
   for(const width of [390,760]) {
     await page.setViewportSize({width,height:1000});await expect(chips).toHaveCSS('border-top-width','0px');
     const chip=page.locator('.home-chip').first();const painted=await chip.evaluate(el=>{const p=getComputedStyle(el,'::before');return el.getBoundingClientRect().height-parseFloat(p.top)-parseFloat(p.bottom)});expect(painted).toBe(28);
