@@ -3,7 +3,7 @@
 import { noteTasks } from './basket-note-tasks.js';
 import { documentCategories, categoryOf } from './document-categories.js';
 import { requestsGuard } from './update-requests.js';
-import { noteJournalAt, journalGuard } from './update-journal.js';
+import { noteJournalAt, journalGuard, othersGuard, MOVED_KEY } from './update-journal.js';
 const PAGE_SIZE = 100;
 export function validateNoteText(raw_text) {
   if (typeof raw_text !== 'string' || !raw_text.trim()) throw new Error('글을 입력해 주세요.');
@@ -145,9 +145,20 @@ export async function createNoteDoc({title, raw_text}, rt = window.KPTURuntime) 
 export function saveNoteDoc(id, {title, raw_text}, rt = window.KPTURuntime) {
   return patchKind(id, 'note', {title:validateNoteTitle(title), raw_text:validateNoteBody(raw_text)}, rt);
 }
-// Links, attachments and tasks stay on the same row; only its kind and title change.
-export function moveToNote(id, title, rt = window.KPTURuntime) {
-  return patchKind(id, 'basket', {kind:'note', title:validateNoteTitle(title)}, rt);
+// Links, attachments and tasks stay on the same row; its kind and title change and metadata.moved_from_update_at (the time it
+// moved; the work journal's "노트: (title)" line reads it) is added. The other metadata keys are kept: the row is read again
+// and the PATCH only applies while it is still the version read (updated_at, the mark itself and the keys the other
+// metadata writers of an update guard), so a change made elsewhere is never overwritten.
+export async function moveToNote(id, title, rt = window.KPTURuntime, now = new Date()) {
+  const checked = validateNoteTitle(title);
+  const base = `/rest/v1/app_notes?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${workspace(rt)}&kind=eq.basket`;
+  const rows = await rt.api(`${base}&select=id,updated_at,metadata`, {singleFlight:false});
+  if (!Array.isArray(rows) || rows.length !== 1 || !rows[0]?.updated_at) throw Object.assign(new Error('업데이트를 찾지 못했어요.'), {code:'note_missing'});
+  const fresh = rows[0], old = plainObject(fresh.metadata) ? fresh.metadata : {};
+  const guard = `updated_at=eq.${encodeURIComponent(fresh.updated_at)}${metaGuardValue(MOVED_KEY, old[MOVED_KEY])}${journalGuard(old)}${othersGuard(old)}`;
+  const saved = await rt.api(`${base}&${guard}&select=id,updated_at,metadata`, {method:'PATCH', prefer:'return=representation', body:{kind:'note', title:checked, metadata:{...old, [MOVED_KEY]:now.toISOString()}, updated_at:new Date().toISOString()}});
+  if (!Array.isArray(saved) || saved.length !== 1) throw Object.assign(new Error('업데이트가 그사이 바뀌었어요. 다시 불러온 뒤 눌러 주세요.'), {code:'note_changed'});
+  return saved[0];
 }
 // UI-노트고정: a pinned note keeps the time it was pinned in its existing metadata jsonb (metadata.pinned_at, an ISO time;
 // no new column, no database change, like metadata.tasks and the diary's metadata.photo_comments). Other metadata keys are

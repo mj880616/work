@@ -29,18 +29,47 @@ test('suggested title is the first non-empty line, else the first file name, cap
   assert.equal([...suggestNoteTitle({raw_text:'가'.repeat(300)})].length, 200);
 });
 
-test('save, move to note and move back are single PATCHes scoped by id, workspace and the shown kind', async () => {
+test('save and move back are single PATCHes scoped by id, workspace and the shown kind', async () => {
   const calls = [];
   const rt = runtime(async (path, options) => { calls.push({path, options}); return [{id:'n', ...options.body}]; });
   await saveNoteDoc('n', {title:'제목', raw_text:'본문'}, rt);
-  await moveToNote('m', '첫 줄', rt);
   await moveToBasket({id:'n', raw_text:'본문', attachments:[]}, rt);
   assert.deepEqual(calls.map(c => [c.options.method, q(c.path).get('id'), q(c.path).get('workspace_id'), q(c.path).get('kind')]),
-    [['PATCH', 'eq.n', 'eq.w', 'eq.note'], ['PATCH', 'eq.m', 'eq.w', 'eq.basket'], ['PATCH', 'eq.n', 'eq.w', 'eq.note']]);
+    [['PATCH', 'eq.n', 'eq.w', 'eq.note'], ['PATCH', 'eq.n', 'eq.w', 'eq.note']]);
   assert.deepEqual(Object.keys(calls[0].options.body).sort(), ['raw_text', 'title', 'updated_at']);
-  assert.deepEqual({kind:calls[1].options.body.kind, title:calls[1].options.body.title}, {kind:'note', title:'첫 줄'});
-  assert.deepEqual({kind:calls[2].options.body.kind, title:calls[2].options.body.title}, {kind:'basket', title:null});
+  assert.deepEqual({kind:calls[1].options.body.kind, title:calls[1].options.body.title}, {kind:'basket', title:null});
   assert.ok(calls.every(c => !Object.hasOwn(c.options.body, 'workspace_id') && !Object.hasOwn(c.options.body, 'ai_export_allowed')));
+});
+
+// 5-2 A: [노트로 옮기기] leaves metadata.moved_from_update_at; every other metadata key stays, and the write only applies to the version read.
+test('move to note reads the update, keeps its other metadata, adds the moved mark and guards the version read', async () => {
+  const calls = [];
+  const meta = {tasks:[{task_id:'t1'}], other:'keep', journal_at:'2026-10-06T01:00:00.000Z', requests:['discussion']};
+  const rt = runtime(async (path, options = {}) => { calls.push({path, options}); return options.method === 'PATCH' ? [{id:'m', ...options.body}] : [{id:'m', updated_at:'2026-10-06T00:00:00.123456Z', metadata:meta}]; });
+  await moveToNote('m', '첫 줄', rt, new Date('2026-10-07T03:00:00Z'));
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].options.method, undefined);
+  assert.equal(q(calls[0].path).get('kind'), 'eq.basket');
+  const patch = calls[1], p = q(patch.path);
+  assert.deepEqual([patch.options.method, p.get('id'), p.get('workspace_id'), p.get('kind')], ['PATCH', 'eq.m', 'eq.w', 'eq.basket']);
+  assert.equal(p.get('updated_at'), 'eq.2026-10-06T00:00:00.123456Z');
+  assert.equal(p.get('metadata->>moved_from_update_at'), 'is.null');
+  assert.equal(p.get('metadata->>journal_at'), 'eq.2026-10-06T01:00:00.000Z');
+  assert.equal(p.get('metadata->tasks->0->>task_id'), 'eq.t1');
+  assert.deepEqual(patch.options.body.metadata, {...meta, moved_from_update_at:'2026-10-07T03:00:00.000Z'});
+  assert.deepEqual({kind:patch.options.body.kind, title:patch.options.body.title}, {kind:'note', title:'첫 줄'});
+  assert.deepEqual(meta.other, 'keep');
+});
+
+test('move to note with no metadata at all sets only the mark; an update changed in between is refused', async () => {
+  const rt = runtime(async (path, options = {}) => options.method === 'PATCH' ? [{id:'m', ...options.body}] : [{id:'m', updated_at:'2026-10-06T00:00:00Z', metadata:null}]);
+  const saved = await moveToNote('m', '제목', rt, new Date('2026-10-07T03:00:00Z'));
+  assert.deepEqual(saved.metadata, {moved_from_update_at:'2026-10-07T03:00:00.000Z'});
+  const raced = runtime(async (path, options = {}) => options.method === 'PATCH' ? [] : [{id:'m', updated_at:'2026-10-06T00:00:00Z', metadata:{}}]);
+  await assert.rejects(moveToNote('m', '제목', raced), e => e.code === 'note_changed');
+  const gone = runtime(async () => []);
+  await assert.rejects(moveToNote('m', '제목', gone), e => e.code === 'note_missing');
+  await assert.rejects(moveToNote('m', '두\n줄', runtime(async () => { throw new Error('must not read'); })), /한 줄/);
 });
 
 test('a note that the basket rules would refuse is not sent back', async () => {
