@@ -467,3 +467,167 @@ test('Clear-Site-Data still applies once per epoch to desk pages fetched with th
   assert.equal(response.headers.get('Clear-Site-Data'), '"cache"');
   assert.equal(calls[0].headers.get('Cookie'), null);
 });
+
+// SHARE-미리보기제목: link-preview cards show the share page's title. Fake titles only.
+const SHARE_HTML = (await readFile(new URL('../../share/index.html', import.meta.url), 'utf8'));
+const SHARE_TOKEN = '3c'.repeat(32);
+const SHARE_READ = 'https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/share-page-read';
+const TELEGRAM = 'TelegramBot (like TwitterBot)';
+const BROWSER = 'Mozilla/5.0 (Linux; Android 14; SM-S921N) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/26.0 Chrome/122.0.0.0 Mobile Safari/537.36';
+
+async function shareRequest(url, { ua = TELEGRAM, read = () => Response.json({ ok: true, page: { title: '가짜 제목', blocks: [{ type: 'summary', text: '본문 비밀' }] } }), method = 'GET', headers = {} } = {}) {
+  const pages = [];
+  const reads = [];
+  const logged = [];
+  const originalFetch = globalThis.fetch;
+  const originalConsole = {};
+  for (const name of ['log', 'info', 'warn', 'error', 'debug']) {
+    originalConsole[name] = console[name];
+    console[name] = (...args) => logged.push(args.join(' '));
+  }
+  globalThis.fetch = async (input, init) => {
+    const req = input instanceof Request ? input : new Request(input, init);
+    if (req.url.startsWith('https://xmlkxfjeagycwttklxjw.supabase.co/')) {
+      reads.push({ url: req.url, method: req.method, type: req.headers.get('Content-Type'), body: await req.text(), signal: req.signal, headers: [...req.headers.keys()] });
+      return read(req);
+    }
+    pages.push(req);
+    return new Response(SHARE_HTML, { headers: { 'Content-Type': 'text/html; charset=utf-8', ETag: '"pages"', 'Content-Length': String(Buffer.byteLength(SHARE_HTML)) } });
+  };
+  try {
+    const response = await router.fetch(new Request(url, { method, headers: { 'User-Agent': ua, ...headers } }));
+    const text = method === 'HEAD' ? '' : await response.text();
+    return { response, text, pages, reads, logged };
+  } finally {
+    globalThis.fetch = originalFetch;
+    Object.assign(console, originalConsole);
+  }
+}
+const ogTitle = html => /<meta property="og:title" content="([^"]*)">/.exec(html)?.[1];
+
+test('a preview bot opening a valid ?t= share link gets the page title only, escaped, with no-store', async () => {
+  const { response, text, pages, reads, logged } = await shareRequest(`https://work.bokdoong.com/work/share/?t=${SHARE_TOKEN}`, {
+    read: () => Response.json({ ok: true, page: { title: '가짜 <b>"제목"</b> & \'따옴표\' $& $1', blocks: [{ type: 'summary', text: '본문 비밀' }] } })
+  });
+  assert.equal(response.status, 200);
+  const safe = '가짜 &lt;b&gt;&quot;제목&quot;&lt;/b&gt; &amp; &#39;따옴표&#39; $&amp; $1';
+  assert.equal(ogTitle(text), safe);
+  assert.match(text, new RegExp(`<meta name="twitter:title" content="${safe.replace(/[$&]/g, '\\$&')}">`));
+  assert.ok(text.includes(`<title>${safe} · 공유 페이지</title>`));
+  assert.ok(!text.includes('<b>'));
+  // Only the title: no blocks, the shared description stays, the shared og:url is dropped, the token is never echoed.
+  assert.ok(!text.includes('본문 비밀'));
+  assert.match(text, /<meta property="og:description" content="링크를 받은 사람만 볼 수 있는 페이지">/);
+  assert.ok(!text.includes('og:url'));
+  assert.ok(!text.includes(SHARE_TOKEN));
+  assert.equal(response.headers.get('Cache-Control'), 'no-store');
+  assert.match(response.headers.get('X-Robots-Tag'), /noindex/);
+  assert.equal(response.headers.get('ETag'), null);
+  assert.equal(response.headers.get('Content-Length'), null);
+  // The token goes to share-page-read in a POST body only; GitHub Pages never sees it.
+  assert.equal(reads.length, 1);
+  assert.equal(reads[0].url, SHARE_READ);
+  assert.equal(reads[0].method, 'POST');
+  assert.equal(reads[0].type, 'application/json');
+  assert.deepEqual(JSON.parse(reads[0].body), { token: SHARE_TOKEN });
+  assert.deepEqual(reads[0].headers.sort(), ['content-type']);
+  assert.equal(pages.length, 1);
+  assert.equal(pages[0].url, 'https://mj880616.github.io/work/share/');
+  assert.equal(pages[0].headers.get('Cookie'), null);
+  assert.deepEqual(logged, []);
+});
+
+test('invalid, expired, off, draft or failing lookups all give the unchanged shared card', async () => {
+  const replies = [
+    () => Response.json({ error: 'not_found' }, { status: 404 }),
+    () => Response.json({ error: 'unavailable' }, { status: 503 }),
+    () => new Response('not json', { status: 200 }),
+    () => Response.json({ ok: true, page: { title: '', blocks: [] } }),
+    () => Response.json({ ok: true, page: { title: 12, blocks: [] } }),
+    () => Response.json({ ok: true, page: { title: '줄\n바꿈', blocks: [] } }),
+    () => Response.json({ ok: true, page: { title: '가'.repeat(201), blocks: [] } }),
+    () => Response.json({ ok: false, page: { title: '가짜 제목' } }),
+    () => new Response(null, { status: 302, headers: { Location: 'https://example.org/' } }),
+    () => { throw new TypeError('network down'); }
+  ];
+  for (const read of replies) {
+    const { response, text, logged } = await shareRequest(`https://work.bokdoong.com/work/share/?t=${SHARE_TOKEN}`, { read });
+    assert.equal(response.status, 200);
+    assert.equal(text, SHARE_HTML);
+    assert.equal(response.headers.get('Cache-Control'), 'no-store');
+    assert.deepEqual(logged, []);
+  }
+});
+
+test('a slow lookup is cut off at the time limit and the shared card is served', async () => {
+  const { SHARE_TITLE_TIMEOUT_MS } = await import('../../cloudflare/bokdoong-router.mjs');
+  assert.ok(SHARE_TITLE_TIMEOUT_MS > 0 && SHARE_TITLE_TIMEOUT_MS <= 2000);
+  let aborted = false;
+  const started = Date.now();
+  const { response, text } = await shareRequest(`https://work.bokdoong.com/work/share/?t=${SHARE_TOKEN}`, {
+    read: req => new Promise(resolve => {
+      req.signal.addEventListener('abort', () => { aborted = true; });
+      setTimeout(() => resolve(Response.json({ ok: true, page: { title: '늦은 가짜 제목', blocks: [] } })), 10000).unref();
+    })
+  });
+  const elapsed = Date.now() - started;
+  assert.equal(response.status, 200);
+  assert.equal(text, SHARE_HTML);
+  assert.ok(elapsed >= SHARE_TITLE_TIMEOUT_MS - 50 && elapsed < SHARE_TITLE_TIMEOUT_MS + 1000, `elapsed ${elapsed}`);
+  assert.ok(aborted, 'the lookup request is aborted');
+});
+
+test('people opening a share link get the static page without any lookup, and the token never reaches Pages', async () => {
+  for (const ua of [BROWSER, '', 'Googlebot/2.1 (+http://www.google.com/bot.html)']) {
+    const { response, text, pages, reads } = await shareRequest(`https://work.bokdoong.com/work/share/?t=${SHARE_TOKEN}`, { ua });
+    assert.equal(response.status, 200);
+    assert.equal(text, SHARE_HTML);
+    assert.equal(reads.length, 0);
+    assert.equal(pages[0].url, 'https://mj880616.github.io/work/share/');
+    assert.equal(response.headers.get('Cache-Control'), 'no-store');
+  }
+  // Old #t= links: the browser sends no token at all; unchanged behaviour and caching.
+  const old = await shareRequest('https://work.bokdoong.com/work/share/', { ua: BROWSER });
+  assert.equal(old.reads.length, 0);
+  assert.equal(old.text, SHARE_HTML);
+  assert.equal(old.response.headers.get('Cache-Control'), 'no-cache, must-revalidate');
+});
+
+test('bots get the shared card without a lookup for malformed values, other paths and hosts', async () => {
+  for (const url of [
+    'https://work.bokdoong.com/work/share/',
+    'https://work.bokdoong.com/work/share/?t=short',
+    `https://work.bokdoong.com/work/share/?t=${'A'.repeat(64)}`,
+    `https://work.bokdoong.com/work/share/?t=${SHARE_TOKEN}&t=${SHARE_TOKEN}`,
+    `https://work.bokdoong.com/work/share/?x=${SHARE_TOKEN}`,
+    `https://work.bokdoong.com/work/share/index.html?t=${SHARE_TOKEN}`,
+    `https://work.bokdoong.com/work/p/?t=${SHARE_TOKEN}`
+  ]) {
+    const { reads, pages } = await shareRequest(url);
+    assert.equal(reads.length, 0, url);
+    if (new URL(url).pathname === '/work/share/') assert.equal(pages[0].url, 'https://mj880616.github.io/work/share/', url);
+  }
+  const head = await shareRequest(`https://work.bokdoong.com/work/share/?t=${SHARE_TOKEN}`, { method: 'HEAD' });
+  assert.equal(head.reads.length, 0);
+  assert.ok(!head.pages[0].url.includes(SHARE_TOKEN));
+  // desk is not the share host: it sends Web1 paths to work as before, without a lookup.
+  const desk = await shareRequest(`https://desk.bokdoong.com/work/share/?t=${SHARE_TOKEN}`);
+  assert.equal(desk.response.status, 302);
+  assert.equal(desk.reads.length, 0);
+});
+
+test('a share link without the trailing slash keeps its value on the redirect', async () => {
+  const { response, reads, pages } = await shareRequest(`https://work.bokdoong.com/work/share?t=${SHARE_TOKEN}`);
+  assert.equal(response.status, 301);
+  assert.equal(response.headers.get('Location'), `https://work.bokdoong.com/work/share/?t=${SHARE_TOKEN}`);
+  assert.equal(reads.length, 0);
+  assert.equal(pages.length, 0);
+});
+
+test('Workers Logs are off so request URLs carrying link values are not stored', async () => {
+  const config = await readFile(new URL('../../cloudflare/wrangler.toml', import.meta.url), 'utf8');
+  assert.match(config, /^\[observability\]\nenabled = false$/m);
+  assert.match(config, /^\[observability\.logs\]\nenabled = false\ninvocation_logs = false$/m);
+  const source = await readFile(new URL('../../cloudflare/bokdoong-router.mjs', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /console\./);
+});

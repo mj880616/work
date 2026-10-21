@@ -206,7 +206,8 @@ export default {
     const freshDocument = deskDocument(host, incoming);
     originUrl.search = freshDocument ? withFreshness(incoming.search) : incoming.search;
     const shareToken = sharePage ? shareTokenOf(incoming) : null;
-    if (sharePage && originUrl.searchParams.has('t')) originUrl.searchParams.delete('t');
+    // The share page is one static file: nothing after ? is needed by Pages, and it may hold a link value.
+    if (sharePage) originUrl.search = '';
     const headers = new Headers();
     for (const name of ['Accept', 'Accept-Language', 'If-None-Match', 'If-Modified-Since', 'Range']) {
       const value = request.headers.get(name);
@@ -258,7 +259,7 @@ export default {
     }
     responseHeaders.set(
       'Cache-Control',
-      immutableAsset ? 'public, max-age=31536000, immutable' : (sharePage && incoming.searchParams.has('t') ? 'no-store' : 'no-cache, must-revalidate')
+      immutableAsset ? 'public, max-age=31536000, immutable' : (sharePage && incoming.search ? 'no-store' : 'no-cache, must-revalidate')
     );
     const location = responseHeaders.get('Location');
     if (location) {
