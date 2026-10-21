@@ -186,7 +186,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (!raw) return showPlainText(text, htmlCount ? '' : '본문이 없는 노트입니다.');
     showPlainText(text, raw);
     // NOTE-마크다운선택: a note with 마크다운 off is shown exactly as written (no list, heading or indent made from its lines).
-    text.dataset.noteMarkdown = String(noteMarkdown(selected));
+    text.dataset.noteView = noteMarkdown(selected) ? 'markdown' : 'plain';
     if (!noteMarkdown(selected)) return;
     void renderMarkdownInto(text, raw, {isCurrent: () => owner === scope() && selected?.id === id && !editing});
   }
