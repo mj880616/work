@@ -40,7 +40,7 @@ test('Deno form parser reads the basket-pc file header with the Korean name inta
 });
 
 // BASKET-파일명파싱: req.formData() above cuts '"회의록; 최종=v2.hwp"' to '"회의록'. basket-files now reads multipart with
-// basket-files/multipart.ts; run that module in the same Deno runtime on browser, basket-pc and filename* headers.
+// _shared/multipart.ts; run that module in the same Deno runtime on browser, basket-pc and filename* headers.
 const fixedScript=moduleUrl=>`
 import {readMultipartForm} from ${JSON.stringify(moduleUrl)};
 const korean=${JSON.stringify(NAME)};
@@ -64,7 +64,7 @@ console.log(JSON.stringify(out));
 test('basket-files multipart reader keeps ; = quotes, Korean and filename* names in Deno',{timeout:60000},async()=>{
  const dir=await mkdtemp(join(tmpdir(),'basket-files-filename-'));
  try{
-  const moduleUrl=new URL('../../supabase/functions/basket-files/multipart.ts',import.meta.url).href;
+  const moduleUrl=new URL('../../supabase/functions/_shared/multipart.ts',import.meta.url).href;
   const file=join(dir,'parse.mjs');await writeFile(file,fixedScript(moduleUrl));
   const r=spawnSync(process.env.DENO_BIN||'deno',['run','--no-config','--no-prompt','--no-check',file],{cwd:dir,encoding:'utf8',timeout:30000});
   if(r.error)throw r.error;assert.equal(r.status,0,r.stderr);

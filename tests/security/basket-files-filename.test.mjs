@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 // BASKET-파일명파싱: Deno req.formData() cut quoted file names at ';' and '=' ("회의록; 최종=v2.hwp" -> '"회의록').
-// basket-files now reads multipart itself (supabase/functions/basket-files/multipart.ts); these pin its header rules.
-const {parseMultipart,parseHeaderParams,decodeExtValue,cleanFileName}=await import('../../supabase/functions/basket-files/multipart.ts');
+// basket-files now reads multipart itself (supabase/functions/_shared/multipart.ts); these pin its header rules.
+const {parseMultipart,parseHeaderParams,decodeExtValue,cleanFileName}=await import('../../supabase/functions/_shared/multipart.ts');
 
 const enc=new TextEncoder();
 const CT='multipart/form-data; boundary=B';
@@ -97,7 +97,7 @@ test('header parameter tokenizer',()=>{
 });
 
 test('browser FormData through Request is read the same way (handler entry point)',async()=>{
-  const {readMultipartForm}=await import('../../supabase/functions/basket-files/multipart.ts');
+  const {readMultipartForm}=await import('../../supabase/functions/_shared/multipart.ts');
   const fd=new FormData();fd.append('file',new File(['abc'],'회의록; 최종=v2.hwp',{type:'application/x-hwp'}));fd.append('raw_text','메모');
   const form=await readMultipartForm(new Request('https://synthetic.invalid/',{method:'POST',body:fd}));
   assert.equal(form.get('file').name,'회의록; 최종=v2.hwp');assert.equal(form.get('file').size,3);assert.equal(form.get('raw_text'),'메모');

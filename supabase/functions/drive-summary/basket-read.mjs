@@ -1,10 +1,10 @@
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
-// journal_at: the work-journal memo mark only (metadata.journal_at, browser source app/update-journal.js;
-// BASKET-일지로남기기), as its JSON value. No other metadata key is selected.
+// DRIVE-바구니원문제외: only the columns needed to count unclassified memos are read. No raw_text, attachments or
+// OCR text, no created_at/updated_at. journal_at: the work-journal memo mark only (metadata.journal_at, browser source
+// app/update-journal.js; BASKET-일지로남기기), as its JSON value. No other metadata key is selected.
 const HEADER_FIELDS =
-  "id,workspace_id,occurred_at,created_at,updated_at,archived_at,ai_export_allowed,journal_at:metadata->journal_at";
+  "id,workspace_id,occurred_at,archived_at,ai_export_allowed,journal_at:metadata->journal_at";
 const LINK_FIELDS = "id,workspace_id,note_id,status";
-const CONTENT_FIELDS = `${HEADER_FIELDS},raw_text,attachments`;
 const validId = (v) =>
   typeof v === "string" && /^[A-Za-z0-9_-]{1,255}$/.test(v);
 const failed = () => new Error("DB_READ_FAILED");
@@ -86,8 +86,7 @@ export function createBasketReader(
         seen.add(row.id);
         if (table === "app_notes") {
           if (
-            !date(row.occurred_at) || !date(row.created_at) ||
-            !date(row.updated_at) || row.archived_at !== null ||
+            !date(row.occurred_at) || row.archived_at !== null ||
             row.ai_export_allowed !== true ||
             Date.parse(row.occurred_at) > at.getTime()
           ) throw failed();
@@ -136,27 +135,5 @@ export function createBasketReader(
       }, map.size);
     }
   }
-  async function* content(saved, selected) {
-    for (let i = 0; i < selected.length; i += 5) {
-      const ids = selected.slice(i, i + 5).map((r) => r.id), batch = new Map();
-      if (!ids.every(validId)) throw failed();
-      await scan(
-        "app_notes",
-        CONTENT_FIELDS,
-        { ...noteScope, id: `in.(${ids.join(",")})` },
-        5,
-        (r) => {
-          const old = saved.notes.get(r.id);
-          if (
-            !ids.includes(r.id) || !old || !same(old, r, HEADER_FIELDS)
-          ) throw failed();
-          batch.set(r.id, r);
-        },
-        ids.length,
-      );
-      for (const id of ids) yield batch.get(id);
-      // The only raw/OCR objects retained by this generator are this <=5 batch.
-    }
-  }
-  return { snapshot, recheck, content };
+  return { snapshot, recheck };
 }
