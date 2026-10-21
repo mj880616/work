@@ -13,7 +13,7 @@
 
 ## 권장 연결 방식
 
-GitHub Pages custom domain을 설정하지 않음. 기존 github.io URL을 계속 사용하게 하고, Cloudflare Worker 한 개를 다섯 개 Custom Domain에 연결함. Worker는 허용된 Pages 정적 경로만 GitHub Pages에서 가져오며 쿠키·Authorization 헤더를 전달하지 않음. Supabase 요청은 Worker로 보내지 않음.
+GitHub Pages custom domain을 설정하지 않음. 기존 github.io URL을 계속 사용하게 하고, Cloudflare Worker 한 개를 다섯 개 Custom Domain에 연결함. Worker는 허용된 Pages 정적 경로만 GitHub Pages에서 가져오며 쿠키·Authorization 헤더를 전달하지 않음. Supabase 요청은 Worker로 보내지 않음. 예외 하나: `work.bokdoong.com/work/share/?t=<링크 값>`을 미리보기 수집기(텔레그램·카카오톡 등, User-Agent로 판별)가 가져갈 때만 Worker가 `share-page-read`에 링크 값을 POST 본문으로 보내 제목 한 줄을 받아 `og:title`에 넣음(1.5초 상한, 실패·무효면 공통 카드, 응답 `no-store`, 링크 값은 Pages로 넘기지 않고 기록하지 않음, Workers Logs 꺼짐 — SHARE-미리보기제목).
 
 | 호스트 | `/` 요청 | GitHub Pages 원본 |
 | --- | --- | --- |

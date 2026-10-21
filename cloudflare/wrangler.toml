@@ -19,3 +19,12 @@ custom_domain = true
 [[routes]]
 pattern = "arsenal.bokdoong.com"
 custom_domain = true
+
+# SHARE-미리보기제목: share links (/work/share/?t=<link value>) reach this Worker, and Workers Logs would store each
+# request URL. Keep invocation logs off so link values are not kept in Cloudflare's log store.
+[observability]
+enabled = false
+
+[observability.logs]
+enabled = false
+invocation_logs = false

@@ -80,6 +80,86 @@ function withoutFreshness(url) {
   if (url.searchParams.has(FRESH_PARAM)) url.searchParams.delete(FRESH_PARAM);
 }
 
+// SHARE-미리보기제목: link-preview bots (Telegram, KakaoTalk, …) do not run JS and never send what is after #, so a share
+// link that should show its page title is /work/share/?t=<link value>. For that address only, and only when the
+// request comes from a known preview bot, the Worker asks share-page-read (POST body, never the address) for the
+// page and puts its title, HTML-escaped, into og:title/twitter:title/<title>. Nothing else from the page is used.
+// Any other case (not a bot, malformed value, unknown/expired/off/draft link, error, slow lookup) gets the shared
+// card unchanged, so a preview never tells whether a link exists. The link value is never sent to GitHub Pages,
+// never logged (no console calls; Workers Logs are off in wrangler.toml) and these responses are never cached.
+const SHARE_PAGE = '/work/share/';
+const SHARE_READ_URL = 'https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/share-page-read';
+const SHARE_TOKEN = /^[0-9a-f]{64}$/;
+export const SHARE_TITLE_TIMEOUT_MS = 1500;
+const SHARE_READ_MAX_CHARS = 600000;
+const SHARE_TITLE_MAX = 200;
+// Link-preview fetchers only. Search engine crawlers are left out on purpose (the page is noindex).
+const PREVIEW_BOT = /TelegramBot|kakaotalk-scrap|facebookexternalhit|Facebot|Twitterbot|Slackbot|Discordbot|WhatsApp|LinkedInBot|SkypeUriPreview|line-poker|Iframely|Embedly|redditbot|vkShare/i;
+
+function shareTokenOf(url) {
+  const values = url.searchParams.getAll('t');
+  return values.length === 1 && SHARE_TOKEN.test(values[0]) ? values[0] : null;
+}
+
+function previewBot(request) {
+  return PREVIEW_BOT.test(request.headers.get('User-Agent') || '');
+}
+
+function escapeHtml(text) {
+  return text.replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+}
+
+// Resolves to the page title or null; never rejects and never waits longer than SHARE_TITLE_TIMEOUT_MS.
+function shareTitle(token, timeoutMs = SHARE_TITLE_TIMEOUT_MS) {
+  const controller = new AbortController();
+  let timer;
+  const timeout = new Promise(resolve => {
+    timer = setTimeout(() => { controller.abort(); resolve(null); }, timeoutMs);
+  });
+  const lookup = (async () => {
+    const response = await fetch(new Request(SHARE_READ_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+      redirect: 'manual',
+      signal: controller.signal
+    }));
+    if (response.status !== 200) return null;
+    if (Number(response.headers.get('Content-Length')) > SHARE_READ_MAX_CHARS) return null;
+    const text = await response.text();
+    if (text.length > SHARE_READ_MAX_CHARS) return null;
+    const data = JSON.parse(text);
+    const title = data && data.ok === true && data.page && typeof data.page.title === 'string' ? data.page.title.trim() : '';
+    return title && title.length <= SHARE_TITLE_MAX && !/[\u0000-\u001f\u007f]/.test(title) ? title : null;
+  })().catch(() => null);
+  return Promise.race([lookup, timeout]).finally(() => clearTimeout(timer));
+}
+
+export function withShareTitle(html, title) {
+  const safe = escapeHtml(title);
+  // Replacement functions, so "$&" and similar in a title stay literal.
+  return html
+    .replace(/<meta property="og:title" content="[^"]*">/, () => `<meta property="og:title" content="${safe}">`)
+    .replace(/<meta name="twitter:title" content="[^"]*">/, () => `<meta name="twitter:title" content="${safe}">`)
+    .replace(/<title>[^<]*<\/title>/, () => `<title>${safe} · 공유 페이지</title>`)
+    // The shared og:url would let a preview service merge every link into one card.
+    .replace(/<meta property="og:url" content="[^"]*">\n?/, '');
+}
+
+async function sharePreview(upstreamRequest, token) {
+  const [upstream, title] = await Promise.all([fetch(upstreamRequest), shareTitle(token)]);
+  const headers = new Headers(upstream.headers);
+  headers.set('Cache-Control', 'no-store');
+  headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  headers.set('Referrer-Policy', 'no-referrer');
+  if (upstream.status !== 200 || !/^text\/html\b/i.test(headers.get('Content-Type') || '')) {
+    return new Response(upstream.body, { status: upstream.status, headers });
+  }
+  const html = await upstream.text();
+  for (const name of ['Content-Length', 'Content-Encoding', 'ETag', 'Last-Modified']) headers.delete(name);
+  return new Response(title ? withShareTitle(html, title) : html, { status: 200, headers });
+}
+
 export function resetManifestMemo() {
   manifestMemo = null;
 }
@@ -114,11 +194,20 @@ export default {
       incoming.hostname = 'work.bokdoong.com';
       return Response.redirect(incoming.href, 302);
     }
+    const sharePage = host === 'work.bokdoong.com' && incoming.pathname === SHARE_PAGE;
+    if (host === 'work.bokdoong.com' && incoming.pathname === '/work/share' && incoming.searchParams.has('t')) {
+      // GitHub Pages would add the slash but drop the link value (it is never sent there).
+      incoming.pathname = SHARE_PAGE;
+      return Response.redirect(incoming.href, 301);
+    }
     if (!allowedPath(host, incoming.pathname)) return new Response('Not found', { status: 404 });
 
     const originUrl = new URL(upstreamPath(host, incoming.pathname), PAGES_ORIGIN);
     const freshDocument = deskDocument(host, incoming);
     originUrl.search = freshDocument ? withFreshness(incoming.search) : incoming.search;
+    const shareToken = sharePage ? shareTokenOf(incoming) : null;
+    // The share page is one static file: nothing after ? is needed by Pages, and it may hold a link value.
+    if (sharePage) originUrl.search = '';
     const headers = new Headers();
     for (const name of ['Accept', 'Accept-Language', 'If-None-Match', 'If-Modified-Since', 'Range']) {
       const value = request.headers.get(name);
@@ -143,6 +232,11 @@ export default {
       const cached = await edgeCache.match(cacheKey);
       if (cached) return cached;
     }
+    if (shareToken && request.method === 'GET' && previewBot(request)) {
+      // The bot gets the full page every time: no conditional or partial answers to rewrite.
+      for (const name of ['If-None-Match', 'If-Modified-Since', 'Range']) headers.delete(name);
+      return sharePreview(new Request(originUrl, { method: 'GET', headers, redirect: 'manual', cache: 'no-store' }), shareToken);
+    }
     const upstream = await fetch(new Request(originUrl, {
       method: request.method,
       headers,
@@ -165,7 +259,7 @@ export default {
     }
     responseHeaders.set(
       'Cache-Control',
-      immutableAsset ? 'public, max-age=31536000, immutable' : 'no-cache, must-revalidate'
+      immutableAsset ? 'public, max-age=31536000, immutable' : (sharePage && incoming.search ? 'no-store' : 'no-cache, must-revalidate')
     );
     const location = responseHeaders.get('Location');
     if (location) {

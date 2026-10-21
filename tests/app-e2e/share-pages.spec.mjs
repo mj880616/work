@@ -163,7 +163,7 @@ for (const width of [390, 1280]) test('make a share page: blocks, move, save, li
   await editor.getByRole('button', {name:'○○지부 링크 복사', exact:true}).click();
   await expect(editor.locator('[data-sp-link-status]')).toContainText('링크를 복사했어요');
   expect(state.tokenReads).toBe(1);
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('https://work.bokdoong.com/work/share/#t=' + TOKEN);
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('https://work.bokdoong.com/work/share/?t=' + TOKEN);
   expect(await page.content()).not.toContain(TOKEN);
   expect(logs.join('\n')).not.toContain(TOKEN);
   page.once('dialog', d => d.accept());
@@ -381,6 +381,41 @@ for (const [name, setup] of [
   await expect(page.locator('h1.sr-title')).toHaveText('열 수 없는 링크예요');
   await expect(page.locator('.sr-closed')).toContainText('다시 받아 주세요');
   expect(calls).toHaveLength(1);
+});
+
+// SHARE-미리보기제목: links copied from Web2 carry ?t= so the Worker can title the preview card. In the browser the value
+// moves after # at once (reloads and the page's own file requests no longer send it) and the page reads as before.
+test('Web1 reader opens a ?t= link, moves the value after # and reads it once', async ({page}) => {
+  const files = [];
+  page.on('request', r => { if (r.url().startsWith(ORIGIN)) files.push(r.url()); });
+  const {calls, errors} = await openReader(page, {hash:'?t=' + TOKEN, reply:route => route.fulfill({status:200, contentType:'application/json', body:JSON.stringify({ok:true, page:samplePage})})});
+  await expect(page.locator('h1.sr-title')).toHaveText(samplePage.title);
+  expect(new URL(page.url()).search).toBe('');
+  expect(new URL(page.url()).hash).toBe('#t=' + TOKEN);
+  expect(calls).toHaveLength(1);
+  expect(JSON.parse(calls[0].body)).toEqual({token:TOKEN});
+  expect(calls[0].headers.referer).toBeUndefined();
+  // Only the page address itself carried the value; its scripts and styles did not.
+  expect(files.filter(u => u.includes(TOKEN))).toEqual([ORIGIN + '/share/?t=' + TOKEN]);
+  expect(errors).toEqual([]);
+  await page.reload();
+  await expect(page.locator('h1.sr-title')).toHaveText(samplePage.title);
+  expect(new URL(page.url()).search).toBe('');
+  expect(calls).toHaveLength(2);
+});
+
+for (const search of ['?t=short', '?t=' + 'A'.repeat(64), '?t=' + TOKEN + '&t=' + TOKEN, '?x=' + TOKEN]) test('Web1 reader never calls the server for a malformed ?t= address ' + JSON.stringify(search), async ({page}) => {
+  const {calls} = await openReader(page, {hash:search, reply:route => route.fulfill({status:200, body:'{}'})});
+  await expect(page.locator('h1.sr-title')).toHaveText('열 수 없는 링크예요');
+  expect(calls).toHaveLength(0);
+});
+
+test('Web1 reader prefers the # value when an address has both', async ({page}) => {
+  const other = 'c'.repeat(64);
+  const {calls} = await openReader(page, {hash:'?t=' + other + '#t=' + TOKEN, reply:route => route.fulfill({status:200, contentType:'application/json', body:JSON.stringify({ok:true, page:samplePage})})});
+  await expect(page.locator('h1.sr-title')).toHaveText(samplePage.title);
+  expect(calls).toHaveLength(1);
+  expect(JSON.parse(calls[0].body)).toEqual({token:TOKEN});
 });
 
 for (const hash of ['', '#t=short', '#t=' + 'A'.repeat(64), '#x=' + TOKEN, '#t=' + TOKEN + 'aa']) test('Web1 reader never calls the server for a malformed address ' + JSON.stringify(hash), async ({page}) => {

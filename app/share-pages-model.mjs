@@ -128,5 +128,7 @@ export function linkState(link, now = Date.now()) {
 }
 export function shareUrl(token) {
   if (typeof token !== 'string' || !/^[0-9a-f]{64}$/.test(token)) throw new Error('링크 값을 확인할 수 없어요.');
-  return `${SHARE_ORIGIN}${SHARE_PATH}#t=${token}`;
+  // SHARE-미리보기제목: ?t= (not #t=) so the Worker can show the page title on link-preview cards. share/share.js
+  // moves the value to # as soon as the page opens; older #t= links keep working.
+  return `${SHARE_ORIGIN}${SHARE_PATH}?t=${token}`;
 }
