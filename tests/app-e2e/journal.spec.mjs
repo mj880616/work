@@ -767,8 +767,8 @@ test('[주간보고 초안 복사] 끝낸 할 일: 넓어진 서버면 지난주
 });
 
 // JOURNAL-요청표시: an update marked [임원 요청]·[논의 요청] (metadata.requests) carries the same small tags in the day card, and the
-// weekly report draft starts with the two request lists ("임원 일정 배정 요청", "논의 요청"), the week's marked updates in each.
-for(const width of [390,1280])test(`[업무일지] 요청 표시: 하루 카드 항목 앞 꼬리표, 초안 맨 앞 "임원 일정 배정 요청"·"논의 요청" 묶음 ${width}`,async({page},info)=>{
+// weekly report draft has no separate request lists at the top (the marked updates stay in their own groups with the tag).
+for(const width of [390,1280])test(`[업무일지] 요청 표시: 하루 카드 항목 앞 꼬리표, 초안에는 요청 묶음 없음 ${width}`,async({page},info)=>{
  const f=await fixture(page,{width});
  f.rows.find(r=>r.id==='b2').metadata={requests:['exec_schedule','discussion']};
  f.rows.find(r=>r.id==='b1').metadata={requests:['discussion'],folder:'무시되는 값'};
@@ -788,10 +788,8 @@ for(const width of [390,1280])test(`[업무일지] 요청 표시: 하루 카드 
  await page.locator('#journalRoot [data-journal-copy]').click();
  await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('이번 주 한 줄과 재료 목록을 복사했어요.');
  const lines=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n');
- expect(lines.slice(0,9)).toEqual(['주간 업무일지 10월 5일(월) ~ 10월 11일(일)','',
-  '[임원 일정 배정 요청]','- 10월 6일(화) · 가상 노동조합: 안녕하세요 위원장님','',
-  '[논의 요청]','- 10월 6일(화) · 가상 노동조합: 안녕하세요 위원장님','- 10월 6일(화): 현장 간담회 메모','']);
- expect(lines[9]).toBe('■ 10월 5일(월)');
+ expect(lines.slice(0,3)).toEqual(['주간 업무일지 10월 5일(월) ~ 10월 11일(일)','','■ 10월 5일(월)']);
+ expect(lines.some(l=>l==='[임원 일정 배정 요청]'||l==='[논의 요청]')).toBe(false);
  expect(lines).toContain('- 조직 소식 · 가상 노동조합: [임원 요청] [논의 요청] 안녕하세요 위원장님');
  expect(lines).toContain('- 조직 소식 · 미분류: [논의 요청] 현장 간담회 메모');
  expect(lines).toContain('- 조직 소식 · 나 지역 모임: 조직 화면에서 쓴 업데이트');

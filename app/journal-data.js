@@ -19,7 +19,7 @@ import {seoulParts, seoulDateKey, addSeoulDays, seoulClock, formatSeoulTime} fro
 import {readBasket, filedOrganizations, filedProjects} from './basket-data.js';
 import {categoryOf} from './document-categories.js';
 import {myOrganizationIds, OTHERS} from './my-organizations.js';
-import {UPDATE_REQUESTS, noteRequests, requestPrefix} from './update-requests.js';
+import {noteRequests, requestPrefix} from './update-requests.js';
 import {noteJournalAt} from './update-journal.js';
 
 export const WORK_LINE_MAX = 300;
@@ -375,31 +375,12 @@ export const QUIET_WHEN_EMPTY = Object.freeze(['memos']);
 export const isFolded = (group, day, range) => !group.items.length && !group.loading && !group.failed && !rangeNote(group, day, range);
 export const shortDay = day => `${formatSeoulTime(day, {month:'long', day:'numeric'})}(${formatSeoulTime(day, {weekday:'short'})})`;
 
-// JOURNAL-요청표시: the week's updates marked as a request, one list per request kind (update-requests.js order), each item
-// "날짜 · 보낸 곳: 첫 줄" (보낸 곳: the organizations, else the projects it was sent to; none → no place), oldest first.
-export function weekRequests(basket, start) {
-  const out = Object.fromEntries(UPDATE_REQUESTS.map(request => [request.key, []]));
-  for (const day of weekDays(start)) for (const {orgs, projects, line, requests} of basketPlaces(basket, day)) {
-    const where = (orgs.length ? orgs : projects).map(place => place.name).filter(Boolean).join(', ');
-    for (const key of requests) out[key].push(`${shortDay(day)}${where ? ` · ${where}` : ''}: ${line}`);
-  }
-  return out;
-}
-// [주간보고 초안] (this stage: copy only): first the week's marked updates under "임원 일정 배정 요청" and "논의 요청" (the
-// weekly report starts with these two; "(없음)" when none), then day by day (Monday to Sunday), each day's lines in saving order
-// (one "한 줄:" row each) and that day's materials in group order. Empty groups add no row. A marked item keeps its tag.
+// [주간보고 초안] (this stage: copy only): day by day (Monday to Sunday), each day's lines in saving order (one "한 줄:" row each)
+// and that day's materials in group order. Empty groups add no row. A marked update stays in its own group and keeps its tag;
+// there are no separate request lists at the top.
 export function weeklyDraft({start, lines, materials, doneDays = DONE_TASK_DAYS, today = todayKey()}) {
   const days = weekDays(start);
   const out = [`주간 업무일지 ${shortDay(days[0])} ~ ${shortDay(days[6])}`, ''];
-  const basketRead = materials?.basket?.status === 'ok' ? materials.basket.items : null;
-  const marked = basketRead ? weekRequests(basketRead, start) : null;
-  for (const request of UPDATE_REQUESTS) {
-    out.push(`[${request.label}]`);
-    if (!marked) out.push('- (업데이트를 불러오지 못해 빠졌어요)');
-    else if (marked[request.key].length) for (const item of marked[request.key]) out.push(`- ${item}`);
-    else out.push('- (없음)');
-    out.push('');
-  }
   for (const day of days) {
     out.push(`■ ${shortDay(day)}`);
     const list = workLines(lines?.get?.(day));
