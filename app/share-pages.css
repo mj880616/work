@@ -112,6 +112,11 @@
 
 /* 이전 페이지(옛 Web1 카드 5개): 접어 둔다(S7). */
 #appView #pagesView .w1b-legacy > summary{ display:flex; align-items:center; min-height:var(--kptu-touch-target,44px); font-size:var(--ds-text-section); color:var(--ds-section-ink); cursor:pointer; }
+#appView #pagesView .w1b-legacy > summary::-webkit-details-marker{ display:none; }
+#appView #pagesView .w1b-legacy > summary{ list-style:none; gap:6px; }
+#appView #pagesView .w1b-legacy > summary::before{ content:"\25B8"; }
+#appView #pagesView .w1b-legacy[open] > summary::before{ content:"\25BE"; }
+#appView #pagesView .w1b-legacy-count{ font-variant-numeric:tabular-nums; }
 #appView #pagesView .w1b-legacy[open] > summary{ margin-bottom:6px; }
 
 @media(min-width:761px){
