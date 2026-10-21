@@ -138,9 +138,9 @@ for(const width of [390,1440]){
     await expect(title).toHaveCSS('font-size','13px');await expect(title).toHaveCSS('font-weight','400');
     await expect(rows.first().locator('.lu-row-date')).toHaveCSS('font-size','12px');
     expect(await rows.locator('.lu-file-kind').allTextContents()).toEqual(['HWP','PDF','XLS','DOC','PPT','파일','HWP','XLS','DOC','PPT']);
-    // UI-바구니첨부메모 ⑪ + UI-PC자료실: 분류 꼬리표(정책자료 → 정책)와 오른쪽 날짜. 날짜 없는 자료는 날짜 칸이 없고, 등록일(같은 10.06)로 같은 달 묶음.
+    // UI-바구니첨부메모 ⑪ + UI-PC자료실: 분류 꼬리표(정책자료 → 정책)와 오른쪽 날짜. 날짜 없는 자료는 올린 날 + 올림(LIB-목록다듬기)이고, 등록일(같은 10.06)로 같은 달 묶음.
     await expect(rows.first().locator('.doc-category-tag')).toHaveText('정책');await expect(rows.first().locator('.lu-row-date')).toHaveText('10.06');
-    await expect(rows.nth(5).locator('.doc-category-tag')).toHaveText('정책');await expect(rows.nth(5).locator('.lu-row-date')).toHaveCount(0);
+    await expect(rows.nth(5).locator('.doc-category-tag')).toHaveText('정책');await expect(rows.nth(5).locator('.lu-row-date')).toHaveCount(1);await expect(rows.nth(5).locator('.lu-row-date')).toContainText('올림');
     await expect(rows.locator('.badges,.compact-entry-summary,.lu-document-actions,.lu-row-meta')).toHaveCount(0);
     await expect(page.locator('[data-lu-download]')).toBeHidden();
     await expect(page.locator('[data-lu-edit]')).toBeHidden();
