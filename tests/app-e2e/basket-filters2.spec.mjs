@@ -83,7 +83,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`[분류
  await expect(subs.locator('[aria-checked="true"]')).toHaveText('모든 조직 3');
  // Same pill as the rows above (32px, 44px touch), sitting right below the place row and above the list.
  const look=l=>l.evaluate(el=>({h:el.getBoundingClientRect().height,touch:parseFloat(getComputedStyle(el,'::after').height),bg:getComputedStyle(el).backgroundColor}));
- const gray=await page.evaluate(()=>{const p=document.createElement('i');p.style.color='var(--ds-kind-other-soft)';document.querySelector('#appView').append(p);const c=getComputedStyle(p).color;p.remove();return c;});
+ const gray=await page.evaluate(()=>{const p=document.createElement('i');p.style.color='var(--ds-select-bg)';document.querySelector('#appView').append(p);const c=getComputedStyle(p).color;p.remove();return c;});
  const first=subs.getByRole('radio').first();expect((await look(first)).h).toBe(32);expect((await look(first)).touch).toBe(44);expect((await look(first)).bg).toBe(gray);
  const pb=await places.boundingBox(),sb=await subs.boundingBox(),lb=await page.locator('#basketView [data-basket-rows]').boundingBox();
  expect(sb.y).toBeGreaterThanOrEqual(pb.y+pb.height-1);expect(sb.y+sb.height).toBeLessThanOrEqual(lb.y+1);

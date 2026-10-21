@@ -134,7 +134,7 @@ test('[다시 찾기]: new candidates appear; a counterpart promise is shown wit
  await expect.poll(()=>f.calls.ai.length).toBe(1);await expect(box).toBeHidden();
  await page.evaluate(()=>window.KPTURouter.go('journal'));
  const jbox=page.locator('#journalView [data-journal-radar]');
- await expect(jbox.locator('[data-home-body]')).toContainText('이 날 기록에서 나온 챙길 것 없음');
+ await expect(jbox).toHaveClass(/radar-collapsed/);await expect(jbox.locator('[data-radar-quiet]')).toHaveText(/^챙길 것 없음 · 마지막 찾기 \d\d:\d\d$|^챙길 것 없음$|^챙길 것 없음 · 아직 찾지 않았어요$/);await expect(jbox.getByRole('button',{name:'다시 찾기'})).toBeVisible();expect(await jbox.evaluate(e=>e.getBoundingClientRect().height)).toBeLessThan(70);
  f.queue.push({json:{ok:true,kind:'todo_radar',added:1,found:1,partial:true,checked_at:'2026-10-06T01:00:00Z',promises:[{summary:'상대 측 자료 송부 약속',due:'2026-10-10',evidence:'보내기로 함',source_kind:'meeting',source_id:id(50),source_day:'2026-10-05'}]}});
  f.db.rows.push(cand(9,{summary:'새로 찾은 가상 요청'}));f.db.state={last_success_at:'2026-10-06T01:00:00Z',last_partial:true};
  await jbox.getByRole('button',{name:'다시 찾기'}).click();
@@ -183,7 +183,7 @@ for(const width of [390,1280])test(`journal: the chosen day's candidates above t
  await expect(box.locator(`[data-radar-row="${id(2)}"] [data-radar-state]`)).toHaveText('할 일로 옮김');
  await expect(box.locator(`[data-radar-row="${id(2)}"]`).getByRole('button',{name:'할 일로'})).toHaveCount(0);
  await expect(box.locator(`[data-radar-row="${id(1)}"]`).getByRole('button',{name:'무시'})).toBeVisible();
- expect(await page.evaluate(()=>{const r=document.querySelector('[data-journal-radar]').getBoundingClientRect(),d=document.querySelector('[data-journal-day]').getBoundingClientRect();return r.bottom<=d.top;})).toBe(true);
+ expect(await page.evaluate(()=>{const q=s=>document.querySelector(s).getBoundingClientRect();const w=q('[data-journal-days]'),l=q('[data-journal-line]'),r=q('[data-journal-radar]'),m=q('[data-journal-materials]');return w.bottom<=l.top&&l.bottom<=r.top&&r.bottom<=m.top;})).toBe(true);
  // The week is read once; another day of the same week is drawn from it.
  const weekReads=f.calls.reads.filter(r=>r.source_day).length;
  await page.locator('#journalRoot [data-journal-date="2026-10-05"]').click();

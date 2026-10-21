@@ -60,7 +60,8 @@ for(const nextOwner of ['other-home-owner',''])test(`home display copy is cleare
   const control=await openHome(page);await page.waitForFunction(()=>KPTUHome.metrics.readyAt);
   const copy=await page.evaluate(k=>JSON.parse(localStorage.getItem(k)),HOME_CACHE_KEY);
   expect(copy.owner).toBe('home-test');expect(copy.workspaceId).toBe('w');expect(copy.version).toBe(1);
-  expect(Object.keys(copy.cards.calendar.rows[0]).sort()).toEqual(['allDay','color','end','start','title']);
+  // CAL-저장본먼저: event and calendar ids let a deleted event leave the home copy at once.
+  expect(Object.keys(copy.cards.calendar.rows[0]).sort()).toEqual(['allDay','calendarId','color','end','id','start','title']);
   expect(copy.cards.tasks.tasks).toBeUndefined();
   if(nextOwner)control.setUserId(nextOwner);
   await page.evaluate(nextOwner=>{
@@ -99,12 +100,14 @@ test('reopening shows the last result first, marks the refresh, then replaces it
   await page.reload();await ready(page);await openTasks(page);
   await expect.poll(()=>holding).toBeTruthy();
   await expect(page.locator('#gtTaskSection')).toContainText('직전 결과');
-  await expect(page.locator('#gtTaskSection [data-gt-sync]')).toHaveText('새로 받는 중…');
+  // CAL-저장본먼저: the shared freshness line (data-freshness.js) marks the refresh.
+  await expect(page.locator('#gtTaskSection [data-gt-fresh]')).toHaveText('새로 불러오는 중');
   await expect(page.locator('#gtTaskBody')).not.toContainText('불러오는 중');
   release();
   await expect(page.locator('#gtTaskSection')).toContainText('새 결과');
   await expect(page.locator('#gtTaskSection')).not.toContainText('직전 결과');
   await expect(page.locator('#gtTaskSection [data-gt-sync]')).toHaveText('');
+  await expect(page.locator('#gtTaskSection [data-gt-fresh]')).toBeHidden();
   expect(JSON.parse(await cached(page)).tasks.map(t=>t.id)).toEqual(['t2']);
 });
 
@@ -123,7 +126,7 @@ for(const failure of ['overview','session readiness']){
       window.__qaRestoreEnsure=()=>{session.ensure=ensure};
     });
     await page.evaluate(()=>{window.KPTURouter.go('calendar',{source:'qa'});window.KPTURouter.go('tasks',{source:'qa'})});
-    await expect(page.locator('#gtTaskSection [data-gt-sync]')).toContainText('새로 받지 못했습니다 · 직전 결과 표시 중');
+    await expect(page.locator('#gtTaskSection [data-gt-fresh]')).toContainText('최신 아님 · 마지막 확인');
     await expect(page.locator('#gtTaskBody [data-google-task="t1"]')).toBeVisible();
     expect(JSON.parse(await cached(page)).tasks.map(t=>t.id)).toEqual(['t1']);
     const retry=page.getByRole('button',{name:'다시 시도',exact:true});

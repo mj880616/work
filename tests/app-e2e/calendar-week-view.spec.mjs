@@ -207,3 +207,37 @@ test('phone list keeps the small color bar and no week stripe rule',async({page}
   await expect(row.locator('.clv-color')).toHaveCSS('background-color','rgb(220, 33, 39)');
   await expect(row).toHaveCSS('border-left-width','0px');
 });
+// CAL-주간제목: 주간 일정 칸은 시간을 윗줄, 제목을 아랫줄(최대 2줄)에 두고 넘치면 말풍선(시간+전체 제목)을 보인다.
+test('PC week event shows time above a 2-line title and a tooltip only when clipped (hover and focus)',async({page})=>{
+  const long='아주 긴 일정 제목입니다 아주 긴 일정 제목입니다 아주 긴 일정 제목입니다 아주 긴 일정 제목입니다 아주 긴 일정 제목입니다';
+  const ev=(id,title,start,end)=>({id,title,calendarId:'qa-cal',start,end,allDay:false,color:'#4285f4'});
+  await open(page,1280,'week',[
+    ev('short','짧은 제목','2026-10-15T09:00:00+09:00','2026-10-15T10:00:00+09:00'),
+    ev('two','두 줄 제목 두 줄 제목 두 줄','2026-10-15T10:30:00+09:00','2026-10-15T11:00:00+09:00'),
+    ev('long',long,'2026-10-15T12:00:00+09:00','2026-10-15T13:00:00+09:00')
+  ]);
+  const day=page.locator('.cwv-day[data-date="2026-10-15"]');
+  const g=await day.locator('[data-google-event="long"]').evaluate(el=>{const t=el.querySelector('.clv-time').getBoundingClientRect(),h=el.querySelector('.clv-title'),hr=h.getBoundingClientRect(),cs=getComputedStyle(h);return {timeBottom:t.bottom,titleTop:hr.top,lines:Math.round(hr.height/parseFloat(cs.lineHeight)),clip:el.classList.contains('cwv-clipped'),width:el.getBoundingClientRect().width}});
+  expect(g.titleTop).toBeGreaterThanOrEqual(g.timeBottom-1);expect(g.lines).toBe(2);expect(g.clip).toBe(true);
+  const colWidth=(await day.boundingBox()).width;expect(g.width).toBeLessThanOrEqual(colWidth);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(1280);
+  const long1=day.locator('[data-google-event="long"]'),tip=long1.locator('.cwv-tip');
+  await expect(tip).toBeHidden();
+  await long1.hover();await expect(tip).toBeVisible();
+  await expect(tip).toHaveText('12:00 '+long);
+  await page.mouse.move(0,0);await expect(tip).toBeHidden();
+  await long1.focus();await page.keyboard.press('Tab');await page.keyboard.press('Shift+Tab');
+  await expect(long1).toBeFocused();await expect(tip).toBeVisible();
+  await expect(long1).toHaveAccessibleName(new RegExp(long.slice(0,10)));
+  for(const id of ['short','two']){
+    const row=day.locator(`[data-google-event="${id}"]`);
+    await row.hover();await expect(row.locator('.cwv-tip')).toBeHidden();
+  }
+});
+test('phone list rows keep time and title on one line without tooltip',async({page})=>{
+  const ev={id:'long',title:'아주 긴 일정 제목 '.repeat(8),calendarId:'qa-cal',start:'2026-10-15T09:00:00+09:00',end:'2026-10-15T10:00:00+09:00',allDay:false,color:'#dc2127'};
+  await open(page,390,'list',[ev]);
+  const row=page.locator('#calendarList [data-google-event="long"]');await expect(row).toBeVisible();
+  await expect(row).toHaveCSS('flex-direction','row');await expect(row.locator('.cwv-tip')).toHaveCount(0);
+  await expect(row.locator('.clv-title')).toHaveCSS('white-space','nowrap');
+});

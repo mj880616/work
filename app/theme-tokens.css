@@ -58,6 +58,8 @@
   --ds-kind-diary-soft:#eee8f8;--ds-kind-diary-ink:#5a3d8f;
   --ds-kind-task-soft:#e1f5ee;--ds-kind-task-ink:#0f6e56;
   --ds-kind-other-soft:#efede6;--ds-kind-other-ink:#55534a;
+  /* UI-테마선택색: 전환·필터·메뉴에서 고른 쪽 = 계정 테마의 주 버튼 색 + 그 위 글자(테마·다크 모드를 따라 바뀜). */
+  --ds-select-bg:var(--kptu-primary);--ds-select-ink:var(--kptu-on-primary);
   /* 3/3(8-9e) 자료실 파일 종류 색(원장 CC18 결정): PDF 빨강·HWP 파랑·엑셀 초록·워드 남색·PPT 주황, 나머지는 --ds-kind-other(회색). */
   --ds-file-pdf-soft:#fbe5e2;--ds-file-pdf-ink:#a3271b;
   --ds-file-hwp-soft:#e3eefb;--ds-file-hwp-ink:#1c5aa6;

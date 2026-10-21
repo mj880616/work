@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'basket-pc/**'
+      - 'tests/fixtures/basket-pc-content-disposition.json'
       - '.github/workflows/basket-pc-check.yml'
   workflow_dispatch:
 

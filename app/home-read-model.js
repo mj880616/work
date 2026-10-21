@@ -45,6 +45,14 @@ export function milestoneChips(projects, milestones, now = Date.now()) {
       days: Math.round((Date.parse(m.date) - Date.parse(today)) / DAY),
     }));
 }
+// Home 오늘 일정 rows (display copy shape). Shared by the home card and the calendar, which refreshes the home copy when it
+// reads today's events (CAL-저장본먼저), so both judge colors and today's events alike.
+export function homeEventRows(events, status = {}, now = Date.now()) {
+  return todayEvents(events || [], now).map((e) => {
+    const raw = e.color || status?.colors?.[e.calendarId] || status?.calendars?.find((c) => c.id === e.calendarId)?.backgroundColor;
+    return { id: e.id || "", calendarId: e.calendarId || "", start: e.start, end: e.end, allDay: !!e.allDay, title: e.title, color: /^#[0-9a-f]{6}$/i.test(raw) ? raw : "var(--kptu-primary-ink)" };
+  });
+}
 export function todayEvents(events, now = Date.now()) {
   const { start, end } = ranges(now);
   return events

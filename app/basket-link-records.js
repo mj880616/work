@@ -1,3 +1,4 @@
+import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {formatSeoulTime} from './meeting-time.js';
 import {disconnectWithUndo,deleteNoteOriginal} from './basket-record-delete.js';
 import {createAnchoredMenu} from './anchored-menu.js';
@@ -62,7 +63,6 @@ export async function readLinkRecords({kind,targetIds,linkId,weekStart,weekEnd,d
 export const SUMMARY_BLANK_TEXT='요약을 비워 저장하는 기능은 아직 준비 중이에요. 글을 남기거나 [취소]를 눌러 주세요.';
 // UI-연결요약수정: in a multi-line box Enter is a new line and Ctrl+Enter (Cmd+Enter on a Mac) saves. An Enter that only ends a
 // Korean IME composition is ignored. The coming common Enter-save rule (UI-엔터저장) uses the same keys.
-export const isSaveShortcut=event=>event?.key==='Enter'&&(event.ctrlKey||event.metaKey)&&!event.altKey&&!event.shiftKey&&!event.isComposing&&event.keyCode!==229;
 export const SUMMARY_ERROR_TEXT=Object.freeze({
   NOT_FOUND:'이 연결 기록을 찾거나 열 수 없어요.',
   PERMISSION_DENIED:'이 기록 요약을 고칠 권한이 없어요.',
@@ -131,7 +131,7 @@ export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=
     const existing=formFor(id);if(existing){existing.querySelector('textarea')?.focus();return;}
     const row=[...host.querySelectorAll('[data-basket-link]')].find(row=>row.dataset.basketLink===id);if(!row)return;
     const state={id,expected:record.summary??null,busy:false,needsReview:false,latest:null,ai:newAiState(),aiTarget:null};states.set(id,state);
-    row.insertAdjacentHTML('beforeend',`<form data-link-summary-form="${escape(id)}"><details data-link-summary-original><summary>원문 전체 보기</summary><pre class="basket-link-original">${escape(record.raw_text??'')}</pre></details><label>기록 요약<textarea data-link-summary-input rows="3"></textarea></label><p data-link-summary-status role="status" aria-live="polite"></p><div data-link-summary-latest hidden></div><button type="button" class="secondary" data-link-summary-current hidden>최신 요약 확인</button><div class="basket-link-actions"><button type="submit" class="primary" data-link-summary-save aria-keyshortcuts="Control+Enter" title="Ctrl+Enter로 저장">저장</button><button type="button" class="ghost" data-link-summary-cancel>취소</button></div></form>`);
+    row.insertAdjacentHTML('beforeend',`<form data-enter-save data-link-summary-form="${escape(id)}"><details data-link-summary-original><summary>원문 전체 보기</summary><pre class="basket-link-original">${escape(record.raw_text??'')}</pre></details><label>기록 요약<textarea data-link-summary-input rows="3"></textarea></label><p data-link-summary-status role="status" aria-live="polite"></p><div data-link-summary-latest hidden></div><button type="button" class="secondary" data-link-summary-current hidden>최신 요약 확인</button><div class="basket-link-actions"><button type="submit" class="primary" data-link-summary-save aria-keyshortcuts="Control+Enter" title="Ctrl+Enter로 저장">저장</button><button type="button" class="ghost" data-link-summary-cancel>취소</button></div></form>`);
     const form=formFor(id),input=form.querySelector('textarea');input.value=record.summary??'';input.focus();
     void aiGate(state,form,record);
   }
@@ -260,11 +260,6 @@ export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=
     if(button.hasAttribute('data-link-summary-current')&&state.latest){state.expected=state.latest.summary;state.needsReview=false;form.querySelector('[data-link-summary-status]').textContent='최신 요약을 확인했어요. 작성 중인 글을 저장하려면 저장을 눌러 주세요.';button.hidden=true;form.querySelector('textarea').focus();}
   }
   function submit(event){const form=event.target.closest?.('[data-link-summary-form]');if(form&&host.contains(form)){event.preventDefault();void save(form);}}
-  function keydown(event){
-    const input=event.target.closest?.('[data-link-summary-input]'),form=input?.closest('[data-link-summary-form]');
-    if(!form||!host.contains(form)||!isSaveShortcut(event))return;
-    event.preventDefault();if(!input.disabled)void save(form);
-  }
-  host.addEventListener('click',click);host.addEventListener('submit',submit);host.addEventListener('keydown',keydown);mountedHosts.set(host,action);
-  return {clear,hasDraft:()=>states.size>0,edit:id=>open(id),dispose(){clear();if(linkMenu?.active&&host.contains(linkMenu.active.trigger))linkMenu.close(()=>{},false);if(mountedHosts.get(host)===action)mountedHosts.delete(host);host.removeEventListener('click',click);host.removeEventListener('submit',submit);host.removeEventListener('keydown',keydown);}};
+  host.addEventListener('click',click);host.addEventListener('submit',submit);mountedHosts.set(host,action);
+  return {clear,hasDraft:()=>states.size>0,edit:id=>open(id),dispose(){clear();if(linkMenu?.active&&host.contains(linkMenu.active.trigger))linkMenu.close(()=>{},false);if(mountedHosts.get(host)===action)mountedHosts.delete(host);host.removeEventListener('click',click);host.removeEventListener('submit',submit);}};
 }

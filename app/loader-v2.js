@@ -90,6 +90,7 @@
     import('./action-labels.js'),
     import('./app-router.js'),
     import('./accessibility-dialog.js'),
+    import('./enter-save.js'),
     import('./native-back-guard.js'),
     import('./session-resilience.js'),
     import('./capabilities.js'),
@@ -116,6 +117,7 @@
   }
   await Promise.all([
     import('./topbar-actions.js'),
+    import('./context-menu.js'),
     import('./team.js')
   ]);
   const teamState=await window.__KPTU_TEAM_READY__;

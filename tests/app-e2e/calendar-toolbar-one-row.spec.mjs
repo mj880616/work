@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
-// UI-디자인기준 2/3(8-9d): 머리줄 버튼은 높이 하나(--ds-control-height 46px; UI-버튼크기부터 보기 전환·[오늘]은 32px, 누르는 범위 44px), 고른 보기는 회색(--ds-kind-other-*), 보기 칸은 같은 폭 44px로 정확히 나눔(UI-선택표시통일), 상자 선 0.5px.
+// UI-디자인기준 2/3(8-9d): 머리줄 버튼은 높이 하나(--ds-control-height 46px; UI-버튼크기부터 보기 전환·[오늘]은 32px, 누르는 범위 44px), 고른 보기는 테마 주 버튼 색(UI-테마선택색, 올리브 기본 rgb(92,106,53)+흰 글자), 보기 칸은 같은 폭 44px로 정확히 나눔(UI-선택표시통일), 상자 선 0.5px.
 for(const width of [360,390,686,760,761,1023,1024,1280,1440])test(`toolbar one row, accessible icons and persistence at ${width}`,async({page})=>{
   await page.setViewportSize({width,height:844});await openEmphasisFixture(page,{view:'default'});
   const toolbar=page.locator('.calendar-toolbar');
@@ -16,7 +16,7 @@ for(const width of [360,390,686,760,761,1023,1024,1280,1440])test(`toolbar one r
     await button.click();await expect(button).toHaveAttribute('aria-pressed','true');
     await expect(toolbar.locator('[data-calendar-view][aria-pressed="true"]')).toHaveCount(1);
     for(const inactive of await toolbar.locator('[data-calendar-view][aria-pressed="false"]').all())await expect(inactive).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
-    const colors=await button.evaluate(el=>{const s=getComputedStyle(el);return {background:s.backgroundColor,color:s.color,stroke:getComputedStyle(el.querySelector('svg')).stroke}});expect(colors.background).toBe('rgb(239, 237, 230)');expect(colors.color).toBe('rgb(85, 83, 74)');expect(colors.stroke).toBe(colors.color);
+    const colors=await button.evaluate(el=>{const s=getComputedStyle(el);return {background:s.backgroundColor,color:s.color,stroke:getComputedStyle(el.querySelector('svg')).stroke}});const sel=await page.evaluate(()=>{const e=document.createElement('span');e.style.cssText='background-color:var(--ds-select-bg);color:var(--ds-select-ink)';document.body.append(e);const s=getComputedStyle(e),r={background:s.backgroundColor,color:s.color};e.remove();return r});expect(colors.background).toBe(sel.background);expect(colors.color).toBe(sel.color);expect(colors.stroke).toBe(colors.color);
     expect(await page.evaluate(()=>localStorage.getItem('kptu-calendar-view'))).toBe(view);
   }
   // Do not seed storage on reload: the real selection must survive.

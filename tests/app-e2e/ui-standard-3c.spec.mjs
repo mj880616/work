@@ -72,7 +72,8 @@ async function sameButtons(page,region,skip='.icon-btn'){
   if(kind==='button'){expect(s.height,label).toBe(46);expect(s.radius,label).toBe('8px');}
   else{expect(s.height,label).toBeGreaterThanOrEqual(kind==='chip'?32:30);expect(s.height,label).toBeLessThanOrEqual(32);if(kind==='chip')expect(s.radius,label).toBe('999px');expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),label).toBe(44);}
   expect(s.fontSize,label).toBe('13px');expect(s.fontWeight,label).toBe('500');expect(s.shadow,label).toBe('none');
-  if(s.bg===primary)filled.push(label);
+  // UI-테마선택색: 고른 전환·필터 쪽은 일부러 주 버튼 색이라 채운 버튼 수에서 뺀다.
+  if(s.bg===primary&&!await control.evaluate(el=>el.matches('[aria-pressed="true"],[aria-checked="true"],.active')))filled.push(label);
  }
  return filled;
 }
@@ -168,8 +169,7 @@ for(const width of [390,1280])test('남은 화면: HWP 편집 바깥 틀·성명
  const media=page.locator('#mediaView');
  expect(await sameButtons(page,media.locator('.w1p-tools'))).toEqual([]);
  const all=await look(media.locator('[data-press-type="all"]'));
- expect(all.bg).toBe(await token(page,'--ds-kind-other-soft'));expect(all.fg).toBe(await token(page,'--ds-kind-other-ink'));
- expect(all.bg).not.toBe(primary);
+ expect(all.bg).toBe(await token(page,'--ds-select-bg'));expect(all.fg).toBe(await token(page,'--ds-select-ink'));
  const search=await look(media.locator('#pressSearch'));expect(search.height).toBe(46);expect(search.radius).toBe('8px');
  const year=await look(media.locator('.w1p-year > h3').first());expect([year.fontSize,year.fontWeight,year.fg]).toEqual(['13px','500',await token(page,'--ds-section-ink')]);
  const table=await look(media.locator('.w1p-table').first());expect(table.radius).toBe('12px');expect(table.shadow).toBe('none');
@@ -177,7 +177,7 @@ for(const width of [390,1280])test('남은 화면: HWP 편집 바깥 틀·성명
  const pressTitle=await look(media.locator('.w1p-title').first());expect([pressTitle.fontSize,pressTitle.fontWeight]).toEqual(['13px','400']);
  const date=await look(media.locator('.w1p-date').first());expect(date.fontSize).toBe('12px');
  await media.locator('[data-press-type="statement"]').click();
- expect((await look(media.locator('[data-press-type="statement"]'))).bg).toBe(await token(page,'--ds-kind-other-soft'));
+ expect((await look(media.locator('[data-press-type="statement"]'))).bg).toBe(await token(page,'--ds-select-bg'));
  // 게시판: 한 상자 안 줄(44px)·이름 13px/400·오른쪽 ›, 카드 그림자·떠오름 없음.
  await view(page,'pages');await openLegacyBoard(page);
  const board=page.locator('#web1BoardActive');await expect(board.locator('.w1b-card').first()).toBeVisible();
@@ -253,7 +253,7 @@ for(const width of [390,1280])test('공용 창: 제목 18px/500, 버튼 한 높�
  modal=page.locator('#eventModal');await expect(modal).toBeVisible();
  await titleOf(modal);await inputs(modal);await labels(modal);
  expect(await sameButtons(page,modal,'.icon-btn,.calendar-color-swatch,[role="radio"]')).toEqual(['저장']);
- expect((await look(modal.locator('[data-event-mode="event"]'))).bg).toBe(await token(page,'--ds-kind-other-soft'));
+ expect((await look(modal.locator('[data-event-mode="event"]'))).bg).toBe(await token(page,'--ds-select-bg'));
  await page.keyboard.press('Escape');await expect(modal).toBeHidden();
  // 자료 등록
  await view(page,'library');await page.locator('#newDocumentBtn').click();

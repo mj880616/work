@@ -256,7 +256,7 @@ for(const width of [390,1280]){
   // JOURNAL-주간보고허브: 빈 묶음은 상자 없이 맨 아래 한 줄로 접힌다(화면 순서대로 이름).
   await expect(page.locator('#journalRoot [data-journal-group] > h4')).toHaveText(['일정']);
   await expect(group(page,'orgs')).toHaveCount(0);await expect(group(page,'meetings')).toHaveCount(0);
-  await expect(page.locator('#journalRoot [data-journal-empty]')).toHaveText('기록 없는 묶음: 끝낸 할 일, 조직 소식, 회의·행사 결과, 프로젝트 소식, 할 일 예정, 자료실 새 자료, 공유 페이지');
+  await expect(page.locator('#journalRoot [data-journal-empty]')).toHaveCount(0); // JOURNAL-다듬기: '기록 없는 묶음' 줄은 없다.
   await expect(page.locator('#journalRoot')).not.toContainText('없어요.');
   // 목요일: 회의 결과(차수까지), 그날 올린 회의자료.
   await date(page,'2026-10-08').click();await expect(group(page,'meetings').locator('li')).toHaveText(['10:00 운영위원회 3차']);
@@ -266,7 +266,7 @@ for(const width of [390,1280]){
   await expect(group(page,'due').locator('li')).toHaveText(['남은 할 일']);
   // 다음 주 월요일 0시(한국 시간)에 올린 자료는 이번 주 일요일에 오지 않는다.
   await date(page,'2026-10-11').click();await expect(group(page,'docs')).toHaveCount(0);
-  await expect(page.locator('#journalRoot [data-journal-empty]')).toContainText('자료실 새 자료');
+  await expect(page.locator('#journalRoot [data-journal-empty]')).toHaveCount(0);
   // app_notes 읽기는 모두 종류를 가린다(일지 한 줄은 kind=work, 업데이트는 basket). 노트(note)는 '노트로 옮긴 업데이트' 표시가 있는 것만,
   // id·제목·날·표시만 읽는다(본문 raw_text·다른 metadata 없음).
   const noteReads=f.reads.filter(q=>!q.table&&q.kind==='eq.note');
@@ -597,10 +597,10 @@ for(const width of [1024,1279,1280,1920]){
   const pos=await page.locator('#journalRoot [data-journal-group]').evaluateAll(els=>els.map(e=>{const b=e.getBoundingClientRect();return [Math.round(b.x),Math.round(b.y)];}));
   expect(pos).toHaveLength(8);
   for(let i=0;i<8;i+=2){expect(pos[i][1]).toBe(pos[i+1][1]);expect(pos[i+1][0]).toBeGreaterThan(pos[i][0]);expect(pos[i][0]).toBe(pos[0][0]);if(i)expect(pos[i][1]).toBeGreaterThan(pos[i-2][1]);}
-  // 빈 묶음이 접힌 날(월): 남은 칸은 그대로 2칸 줄, '기록 없는 묶음' 줄은 두 칸 폭 전체를 쓴다.
-  await date(page,'2026-10-05').click();await expect(page.locator('#journalRoot [data-journal-empty]')).toBeVisible();
-  const fold=await page.evaluate(()=>{const m=document.querySelector('#journalRoot [data-journal-materials]').getBoundingClientRect(),e=document.querySelector('#journalRoot [data-journal-empty]').getBoundingClientRect(),g=document.querySelector('#journalRoot [data-journal-group]').getBoundingClientRect();return {m:m.width,e:e.width,g:g.width,below:e.top>=g.bottom};});
-  expect(Math.abs(fold.e-fold.m)).toBeLessThan(2);expect(fold.g).toBeLessThan(fold.m*0.6);expect(fold.below).toBe(true);
+  // 빈 묶음이 접힌 날(월): 남은 칸은 그대로 2칸 줄이고, '기록 없는 묶음' 줄은 없다(JOURNAL-다듬기).
+  await date(page,'2026-10-05').click();await expect(page.locator('#journalRoot [data-journal-empty]')).toHaveCount(0);await expect(page.locator('#journalRoot')).not.toContainText('기록 없는 묶음');
+  const fold=await page.evaluate(()=>{const m=document.querySelector('#journalRoot [data-journal-materials]').getBoundingClientRect(),g=document.querySelector('#journalRoot [data-journal-group]').getBoundingClientRect();return {m:m.width,g:g.width};});
+  expect(fold.g).toBeLessThan(fold.m*0.6);
   await date(page,'2026-10-06').click();await expect(group(page,'shares').locator('li')).toHaveCount(1);
   // 같은 창에서 [일기]로 옮겨도 바깥 폭(본문 칸 상한·좌우 여백)과 화면 칸 폭이 같다.
   await page.locator('.app-nav [data-view="diary"]').click();await expect(page.locator('#diaryView')).toBeVisible();
@@ -630,9 +630,7 @@ test('PC 하루 카드 모양: 제목(오늘 한 줄 + 칸 8개) 같은 크기 �
  expect(new Set(look.heads.map(h=>h.size))).toEqual(new Set(['15px']));
  expect(look.heads.every(h=>h.weight>=600)).toBe(true);
  expect(look.line.size).toBe('14px');expect(look.item).toBe('14px');
- await page.locator('#journalRoot [data-journal-date="2026-10-07"]').click();await expect(page.locator('#journalRoot [data-journal-empty]')).toContainText('회의·행사 결과');
- expect(await page.locator('#journalRoot .journal-muted').first().evaluate(e=>getComputedStyle(e).fontSize)).toBe('14px');
- expect(await page.locator('#journalRoot [data-journal-empty]').evaluate(e=>getComputedStyle(e).fontSize)).toBe('14px');
+ await page.locator('#journalRoot [data-journal-date="2026-10-07"]').click();await expect(page.locator('#journalRoot [data-journal-empty]')).toHaveCount(0);
  await page.locator('#journalRoot [data-journal-date="2026-10-06"]').click();await expect(items(page)).toHaveCount(2);
  // 초록 바탕·왼쪽 막대 없음, 줄 앞에 점.
  expect(look.line.bg).toBe('rgba(0, 0, 0, 0)');expect(look.line.bg).not.toBe(look.soft);expect(look.line.leftStyle==='none'||look.line.left==='0px').toBe(true);
@@ -715,8 +713,7 @@ test('JOURNAL-주간보고허브: 자료실·공유 페이지·프로젝트 기�
  // 빈 날(월)에도 실패한 묶음은 상자로 남고, '기록 없는 묶음' 줄에 들어가지 않는다.
  await date(page,'2026-10-05').click();
  await expect(group(page,'docs').locator('[data-journal-retry]')).toBeVisible();
- await expect(page.locator('#journalRoot [data-journal-empty]')).not.toContainText('자료실 새 자료');
- await expect(page.locator('#journalRoot [data-journal-empty]')).not.toContainText('공유 페이지');
+ await expect(page.locator('#journalRoot [data-journal-empty]')).toHaveCount(0);
  await date(page,'2026-10-06').click();
  f.heal('documents');
  await group(page,'docs').locator('[data-journal-retry]').click();

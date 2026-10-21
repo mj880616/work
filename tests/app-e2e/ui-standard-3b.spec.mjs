@@ -94,7 +94,7 @@ test('[일정] 탭: [달력 | 할 일] 전환, 마지막으로 본 쪽, 옛 ?vie
  const toTasks=page.locator('#tasksView .schedule-switch [data-view="tasks"]'),toCalendar=page.locator('#tasksView .schedule-switch [data-view="calendar"]');
  await expect(toTasks).toHaveAttribute('aria-pressed','true');await expect(toCalendar).toHaveAttribute('aria-pressed','false');
  const pressed=await toTasks.evaluate(el=>({fg:getComputedStyle(el).color,bg:getComputedStyle(el).backgroundColor}));
- expect(pressed).toEqual({fg:await token(page,'--ds-kind-other-ink'),bg:await page.evaluate(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--ds-kind-other-soft)';document.body.append(e);const c=getComputedStyle(e).backgroundColor;e.remove();return c;})});
+ expect(pressed).toEqual({fg:await token(page,'--ds-select-ink'),bg:await page.evaluate(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--ds-select-bg)';document.body.append(e);const c=getComputedStyle(e).backgroundColor;e.remove();return c;})});
  await toCalendar.click();await loaded(page,'calendar');await expect(schedule).toHaveAttribute('aria-current','page');await expect(name).toHaveText('일정');
  await expect(page.locator('#calendarView .schedule-switch [data-view="calendar"]')).toHaveAttribute('aria-pressed','true');
  // UI-선택표시통일: 고른 [달력]도 [할 일]과 같은 회색, 안 고른 [할 일]은 흰 바탕.
@@ -175,7 +175,7 @@ test('동그란 [+]: 하단 탭 바로 위 오른쪽, 보이는 원 36px·누르
  const chips=page.locator('#meetingTypeFilter button');await expect.poll(()=>chips.count()).toBeGreaterThanOrEqual(2);
  {
   const color=(el,prop)=>el.evaluate((el,prop)=>getComputedStyle(el)[prop],prop);
-  const paint=prop=>page.evaluate(([prop,name])=>{const e=document.createElement('span');e.style[prop]=`var(${name})`;document.querySelector('#appView').append(e);const c=getComputedStyle(e)[prop];e.remove();return c;},[prop,prop==='color'?'--ds-kind-other-ink':'--ds-kind-other-soft']);
+  const paint=prop=>page.evaluate(([prop,name])=>{const e=document.createElement('span');e.style[prop]=`var(${name})`;document.querySelector('#appView').append(e);const c=getComputedStyle(e)[prop];e.remove();return c;},[prop,prop==='color'?'--ds-select-ink':'--ds-select-bg']);
   const picked=page.locator('#meetingTypeFilter [aria-checked="true"]');
   await expect(picked).toHaveCount(1);expect(await color(picked,'backgroundColor')).toBe(await paint('backgroundColor'));expect(await color(picked,'color')).toBe(await paint('color'));
   for(const other of await page.locator('#meetingTypeFilter [aria-checked="false"]').all())expect(await color(other,'backgroundColor')).toBe(await page.evaluate(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--kptu-surface)';document.body.append(e);const c=getComputedStyle(e).backgroundColor;e.remove();return c;}));

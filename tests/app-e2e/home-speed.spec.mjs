@@ -92,7 +92,10 @@ test('calendar copy survives reload but is ignored on next KST day',async({page}
 });
 test('latest failure is visible and does not replace the last successful copy',async({page})=>{
   const c=await openHome(page);await ready(page);c.setFailure('google-calendar');await start(page);
-  await expect(page.locator('[data-home-card="calendar"]')).toHaveAttribute('data-state','failed');
+  // CAL-저장본먼저: the saved copy stays and the card says it is not the latest, with [다시 시도].
+  await expect(page.locator('[data-home-card="calendar"] [data-home-fresh]')).toContainText('최신 아님 · 마지막 확인');
+  await expect(page.locator('[data-home-card="calendar"]')).toContainText('오전 일정');
+  await expect(page.locator('[data-home-card="calendar"] [data-home-fresh]').getByRole('button',{name:'다시 시도'})).toBeVisible();
   c.setDelay('google-calendar',1200);const retry=start(page);
   await expect(page.locator('[data-home-card="calendar"]')).toContainText('오전 일정',{timeout:500});await retry;
   c.setFailure('');c.setConnected(false);await start(page);

@@ -173,14 +173,19 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
    ['library','#libraryListCard','backgroundColor',surface[theme]],
    ['meetings','#newMeetingBtn','backgroundColor',color],
    // UI-디자인기준 3/3 3부(8-9e-3): 게시판은 상자 안 줄(상자가 바탕). 고른 성명 필터는 회색(--ds-kind-other-soft, UI-선택표시통일).
-   ['media','.w1p-filter.active','backgroundColor','#efede6'],
+   ['media','.w1p-filter.active','backgroundColor',color],
    ['pages','#web1BoardActive','backgroundColor',surface[theme]]
   ]){
    await clickView(page,view);
    await expect(page.locator('#'+view+'View')).toBeVisible();await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
    await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
    expect(await readPrimary(page)).toBe(color);
-   if(width<=760){if(['basket','calendar','tasks','projects','team'].includes(view))await matches('.mobile-tabs [aria-current]','color',theme==='olive'?'#47532a':theme==='navy'?'#355f86':theme==='terracotta'?'#7f3f1b':'#7a5012');}else await matches('.app-nav .nav-btn.active','backgroundColor',{olive:'#eef0e1',navy:'#eef4f8',terracotta:'#f8e9dc',sand:'#f6ead1'}[theme]);/* 8-9e-3: 고른 메뉴는 연한 계정 색 */
+   if(width<=760){if(['basket','calendar','tasks','projects','team'].includes(view))await matches('.mobile-tabs [aria-current]','color',color);}else{/* UI-테마선택색: 지금 화면 하나만 계정 색으로 채운다. 하위 묶음의 머리 항목은 채우지 않는다. */
+    const navBtn=page.locator('.app-nav .nav-btn.active').first();await expect(navBtn).toBeVisible();
+    const group=await navBtn.evaluate(el=>el.nextElementSibling?.classList.contains('nav-sub')===true);
+    if(group)await expect.poll(()=>navBtn.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+    else await matches('.app-nav .nav-btn.active','backgroundColor',color);
+   }
    if(view==='pages')await openLegacyBoard(page);/* SHARE PR 2: 옛 게시판 카드는 [이전 페이지] 안으로 접힘 */
    await matches(selector,property,expected);
    if(view==='projects'){

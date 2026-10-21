@@ -6,7 +6,7 @@ import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 const OPEN=`${appOrigin}/tests/app-e2e/library-open-fixture.html`;
 const LONG='가상 예시 자료 — 아주 긴 이름이 줄 끝을 넘어갈 때 잘리는지 확인하기 위한 시험용 제목 '.repeat(4).trim();
 const doc=(id,title,category,date,extra={})=>({id,workspace_id:'workspace-1',project_id:'top-a',title,file_name:id+'.pdf',category,document_date:date,tags:[],drive_url:OPEN,created_at:'2026-10-01T00:00:00Z',...extra});
-function state(){
+function state(extra=[]){
   const s=baseState();
   s.docs=[
     doc('long',LONG,'교섭','2026-10-15',{file_name:'long.hwp'}),
@@ -18,14 +18,15 @@ function state(){
     doc('plain','참고 자료 목록 (가나다순)','기타','2026-10-07'),
     doc('not-a-date','123456_시험용_묶음','기타','2026-10-06')
   ];
+  s.docs.push(...extra);
   // 하위가 없는 프로젝트(세부 줄 숨김 확인용).
   s.spaces.push({...s.spaces.find(p=>p.id==='top-a'),id:'solo-1',name:'가상 단독 프로젝트',sort_order:80});
   return s;
 }
-async function boot(page,width,{scheme='light'}={}){
+async function boot(page,width,{scheme='light',extra=[]}={}){
   await page.setViewportSize({width,height:900});await page.emulateMedia({colorScheme:scheme});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
-  const s=state();await mockApp(page,s);await signIn(page,`${appOrigin}/app/?view=library`);
+  const s=state(extra);await mockApp(page,s);await signIn(page,`${appOrigin}/app/?view=library`);
   await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));await expect(page.locator('#documentList .lu-row').first()).toBeVisible();
   return {s,errors};
 }
@@ -113,11 +114,30 @@ for(const scheme of ['light','dark'])test(`꺼진 분류 칩은 흐리게(글자
   const off=await look(chip(page,'회의')),on=await look(chip(page,'교섭'));
   await expect(chip(page,'회의')).toHaveAttribute('aria-pressed','false');
   expect(off.fg).toBe(await token('--kptu-muted'));expect(off.fg).not.toBe(on.fg);expect(off.border).not.toBe(on.border);
-  expect(on.bg).toBe(await token('--ds-kind-other-soft'));
+  expect(on.bg).toBe(await token('--ds-select-bg'));
   expect(contrast(off.fg,off.bg)).toBeGreaterThanOrEqual(4.5);
   // 키보드 초점은 꺼진 칩에서도 보인다.
   await chip(page,'정책').focus();await page.keyboard.press('Tab');await expect(chip(page,'회의')).toBeFocused();
   const focused=await look(chip(page,'회의'));expect(focused.outline).toBe('solid');expect(parseFloat(focused.outlineWidth)).toBeGreaterThanOrEqual(2);
+  expect(errors).toEqual([]);
+});
+
+// 날짜 우선순위는 폰·PC 같다: 자료 날짜 → 이름 앞 날짜 → 올린 날 + 올림.
+for(const width of [1280,390])test(`날짜 우선순위(자료 날짜 → 이름 앞 날짜 → 올린 날 + 올림) ${width}`,async({page})=>{
+  const {errors}=await boot(page,width,{extra:[doc('no-date','가상 날짜 없는 참고자료','기타',null,{file_name:'nd.pdf'})]});await chip(page,'all').click();
+  const d=id=>page.locator(`[data-lu-document="${id}"] .lu-row-date`);
+  // 1) 자료 날짜가 있으면 그 날짜(이름 앞 날짜가 있어도 자료 날짜가 이긴다).
+  await expect(d('short')).toHaveText('10.14');await expect(d('short')).not.toHaveClass(/upload/);
+  await expect(d('dated-prefix')).toHaveText('10.08');await expect(d('dated-prefix')).not.toHaveClass(/upload/);
+  // 2) 자료 날짜가 없고 이름이 날짜로 시작하면 그 날짜, 올림 없음.
+  await expect(d('prefixed')).toHaveText('10.09');await expect(d('prefixed')).not.toHaveClass(/upload/);await expect(d('prefixed').locator('small')).toHaveCount(0);
+  // PC는 이름을 그대로 둔다(날짜만 같은 규칙).
+  if(width===1280)await expect(page.locator('[data-lu-document="prefixed"] .lu-row-title')).toHaveText('261009_가상노조_교섭_본교섭_3차_요구안.hwp');
+  // 3) 둘 다 없으면 올린 날을 흐리게 + 작은 올림.
+  await expect(d('no-date')).toHaveText('10.01 올림');await expect(d('no-date')).toHaveClass(/upload/);await expect(d('no-date').locator('small')).toHaveText('올림');
+  const color=l=>l.evaluate(el=>getComputedStyle(el).color);expect(await color(d('no-date'))).not.toBe(await color(d('short')));
+  // 날짜 모양이 아닌 숫자 앞머리(123456)는 이름 앞 날짜로 보지 않는다 → 자료 날짜.
+  await expect(d('not-a-date')).toHaveText('10.06');
   expect(errors).toEqual([]);
 });
 
@@ -187,15 +207,18 @@ for(const scheme of ['light','dark'])test(`PC 거르기 세 줄: 이름표·차�
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });
 
-test('폰 거르기 줄: 이름표 없이 줄마다 옆으로 밀기, 차례(프로젝트 → 세부 → 종류)는 같음',async({page})=>{
+test('폰 거르기 줄: 줄마다 이름표(프로젝트·세부·종류) + 옆으로 밀기, 차례는 PC와 같음',async({page})=>{
   const {errors}=await boot(page,390);
-  await expect(page.locator('#libraryView .lu-filter-label:visible')).toHaveCount(0);
+  // LIB-목록다듬기: 폰도 PC처럼 줄마다 이름표. 처음에는 프로젝트·종류 둘.
+  await expect(page.locator('#libraryView .lu-filter-label:visible')).toHaveText(['프로젝트','종류']);
   const project=page.locator('#documentProject'),projectChips=project.locator(':scope > .filter-chips').first(),subChips=project.locator('.filter-chips-small'),category=page.locator('#libraryCategoryFilter');
   await projectChips.locator('[data-filter-value="top-a"]').click();await expect(subChips).toBeVisible();
   const top=await box(projectChips),sub=await box(subChips),cat=await box(category);
   expect(sub.y).toBeGreaterThanOrEqual(top.y+top.height-1);expect(cat.y).toBeGreaterThanOrEqual(sub.y+sub.height-1);
   // 칩 줄은 화면 폭을 다 쓰고, 넘치는 칩은 그 줄 안에서 옆으로 민다.
-  for(const b of [top,cat])expect(b.x).toBeLessThan(24);
+  // 이름표가 칩 왼쪽에 선다(칩은 이름표 오른쪽에서 시작).
+  for(const [b,n] of [[top,0],[sub,1],[cat,2]]){const l=await box(page.locator('#libraryView .lu-filter-label:visible').nth(n));expect(b.x).toBeGreaterThanOrEqual(l.x+l.width-1)}
+  await expect(page.locator('#libraryView .lu-filter-label:visible')).toHaveText(['프로젝트','세부','종류']);
   // UI-자료실편집버튼: 종류 줄은 칩과 [편집]이 한 줄로 함께 밀리므로, 미는 쪽은 칩 묶음이 아니라 줄 전체.
   const categoryRow=page.locator('#libraryView .lu-filter-row[data-lu-filter-row="category"]');await expect(categoryRow).toHaveCSS('overflow-x','auto');await expect(categoryRow).toHaveCSS('flex-wrap','nowrap');await expect(category).toHaveCSS('flex-wrap','nowrap');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);

@@ -93,6 +93,11 @@ jobs:
               # 묶음C-2: per-owner read cache of Google Tasks (Google stays the source of truth),
               # dropped by KPTURuntime on sign-out or owner change.
               'app/google-tasks.js':[r'gtCacheKey\('],
+              # CAL-저장본먼저(2026-10-22 사용자 승인): per-owner read copy of Google Calendar status and events per shown range (Google stays
+              # the source of truth, every visit reads again and replaces it), plus the existing home 오늘 일정 display copy, which the calendar
+              # refreshes. Both live under KPTURuntime.ownerCache, which sign-out and owner change clear.
+              'app/calendar-persistence.js':[r'cpCacheKey\(',r"'home-read-v1:'"],
+              'tests/app-e2e/calendar-cache-first.spec.mjs':[r'\blocalStorage\b'],
               'app/web1-admin-auth.js':[r'cfg[.]sessionKey',r'oauthReturnKey'],
               'tests/app-e2e/public-page-editor-fixture.html':[r'kptu_public_editor_session_v1'],
               'tests/app-e2e/public-page-editor-live.spec.mjs':[r'kptu_public_editor_session_v1',r'kptu_collab_session_v1'],
