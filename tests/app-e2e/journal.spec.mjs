@@ -438,7 +438,8 @@ test('주 단위 넘기기: › 다음 주, ‹‹ 지난주(그 주 한 줄 점
  await expect(date(page,'2026-10-13')).toHaveAttribute('aria-pressed','true');
  await expect(page.locator('#journalRoot [data-journal-dot]')).toHaveCount(0);
  await expect(page.locator('#journalRoot [aria-current="date"]')).toHaveCount(0);
- expect(f.reads.some(q=>q.kind==='eq.work'&&q.journal_day==='gte.2026-10-12&lte.2026-10-18')).toBe(true);
+ // 제목·선택은 누르자마자 바뀌고 그 주 읽기 요청은 그 뒤에 도착한다: 요청이 온 것을 기다린다.
+ await expect.poll(()=>f.reads.some(q=>q.kind==='eq.work'&&q.journal_day==='gte.2026-10-12&lte.2026-10-18')).toBe(true);
  await page.locator('#journalRoot [data-journal-prev]').click();await page.locator('#journalRoot [data-journal-prev]').click();
  await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('9월 28일 ~ 10월 4일');
  await expect(date(page,'2026-09-30').locator('[data-journal-dot]')).toBeVisible();
