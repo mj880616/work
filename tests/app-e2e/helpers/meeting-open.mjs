@@ -23,3 +23,12 @@ export async function openMeetingResult(page,id){
   await page.locator('#mcolMenu [data-meeting-menu="edit"]').click();
   await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
 }
+// 첫 회의 결과 창을 연다: 폰은 맨 위 줄, PC는 처음 열면 오른쪽에 보이는 가장 최근 차수의 ⋯ → [수정].
+export async function openFirstMeetingResult(page){
+  const row=page.locator('#meetingList [data-mrd-meeting]').first(),more=page.locator('#meetingList [data-meeting-more]');
+  await expect(row.or(more).first()).toBeVisible();
+  if(await row.count()){await row.click();return}
+  await more.click();
+  await page.locator('#mcolMenu [data-meeting-menu="edit"]').click();
+  await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
+}
