@@ -21,8 +21,9 @@ export function crc32(bytes) {
 const enc = new TextEncoder();
 export const toBytes = data => (typeof data === 'string' ? enc.encode(data) : new Uint8Array(data));
 
-// entries: [{name, data(string|Uint8Array), store?:boolean}] → Uint8Array. 날짜는 1980-01-01 고정(같은 입력 → 같은 파일).
-export function writeZip(entries, {deflateRaw}) {
+// entries: [{name, data(string|Uint8Array), store?:boolean, packed?:Uint8Array}] → Uint8Array. 날짜는 1980-01-01 고정(같은 입력 → 같은 파일).
+// packed: 미리 deflate한 몸통(브라우저의 비동기 압축 — writeZipAsync). 있으면 deflateRaw를 부르지 않는다.
+export function writeZip(entries, {deflateRaw} = {}) {
   const local = [];
   const central = [];
   let offset = 0;
@@ -30,7 +31,7 @@ export function writeZip(entries, {deflateRaw}) {
     const name = enc.encode(entry.name);
     const raw = toBytes(entry.data);
     const store = entry.store || raw.length === 0;
-    const body = store ? raw : toBytes(deflateRaw(raw));
+    const body = store ? raw : toBytes(entry.packed ?? deflateRaw(raw));
     const crc = crc32(raw);
     const head = new DataView(new ArrayBuffer(30));
     head.setUint32(0, 0x04034b50, true);
@@ -75,8 +76,35 @@ export function writeZip(entries, {deflateRaw}) {
   return out;
 }
 
+// 브라우저용: 압축이 비동기(CompressionStream)라 항목마다 먼저 압축한 뒤 묶는다. 결과는 writeZip과 같다.
+export async function writeZipAsync(entries, {deflateRawAsync}) {
+  const ready = [];
+  for (const entry of entries) {
+    const raw = toBytes(entry.data);
+    const store = entry.store || raw.length === 0;
+    ready.push({...entry, data: raw, store, packed: store ? undefined : toBytes(await deflateRawAsync(raw))});
+  }
+  return writeZip(ready);
+}
+
 // → [{name, data:Uint8Array, method, localOrder}] (중앙 목록 순서). 손상되면 Error.
 export function readZip(bytes, {inflateRaw}) {
+  return listZip(bytes).map(entry => finish(entry, entry.method === 8 ? toBytes(inflateRaw(entry.packed)) : entry.packed));
+}
+export async function readZipAsync(bytes, {inflateRawAsync}) {
+  const out = [];
+  for (const entry of listZip(bytes)) out.push(finish(entry, entry.method === 8 ? toBytes(await inflateRawAsync(entry.packed)) : entry.packed));
+  return out;
+}
+function finish({name, method, crc, size, localAt}, data) {
+  if (data.length !== size) throw new Error(`zip: ${name} 크기 불일치`);
+  if (crc32(data) !== crc) throw new Error(`zip: ${name} CRC 불일치`);
+  return {name, data, method, localAt};
+}
+// 한 항목을 풀었을 때 크기 상한(.hwpx 본문·머리는 수 MB 안쪽 — 이상한 파일이 메모리를 다 쓰지 않게).
+export const MAX_ENTRY_BYTES = 64 * 1024 * 1024;
+// 중앙 목록 읽기(압축 풀기 전). 지원하지 않는 압축이면 Error.
+function listZip(bytes) {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let end = -1;
   for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65557); i--) {
@@ -91,7 +119,8 @@ export function readZip(bytes, {inflateRaw}) {
     if (view.getUint32(at, true) !== 0x02014b50) throw new Error('zip: 중앙 목록 손상');
     const method = view.getUint16(at + 10, true);
     const crc = view.getUint32(at + 16, true);
-    const size = view.getUint32(at + 20, true);
+    const packedSize = view.getUint32(at + 20, true);
+    const size = view.getUint32(at + 24, true);
     const nameLen = view.getUint16(at + 28, true);
     const extraLen = view.getUint16(at + 30, true);
     const commentLen = view.getUint16(at + 32, true);
@@ -99,11 +128,11 @@ export function readZip(bytes, {inflateRaw}) {
     const name = dec.decode(bytes.subarray(at + 46, at + 46 + nameLen));
     if (view.getUint32(localAt, true) !== 0x04034b50) throw new Error(`zip: ${name} 머리 손상`);
     const dataAt = localAt + 30 + view.getUint16(localAt + 26, true) + view.getUint16(localAt + 28, true);
-    const packed = bytes.subarray(dataAt, dataAt + size);
-    const data = method === 0 ? packed : method === 8 ? toBytes(inflateRaw(packed)) : null;
-    if (!data) throw new Error(`zip: ${name} 지원하지 않는 압축(${method})`);
-    if (crc32(data) !== crc) throw new Error(`zip: ${name} CRC 불일치`);
-    out.push({name, data, method, localAt});
+    if (dataAt + packedSize > bytes.length) throw new Error(`zip: ${name} 몸통이 잘림`);
+    const packed = bytes.subarray(dataAt, dataAt + packedSize);
+    if (method !== 0 && method !== 8) throw new Error(`zip: ${name} 지원하지 않는 압축(${method})`);
+    if (size > MAX_ENTRY_BYTES) throw new Error(`zip: ${name} 너무 큼`);
+    out.push({name, packed, method, crc, size, localAt});
     at += 46 + nameLen + extraLen + commentLen;
   }
   return out;

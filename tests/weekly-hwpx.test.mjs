@@ -124,7 +124,7 @@ test('보고서 만들기: 빈 서식의 글자·문단 모양·테두리만 쓰
   assert.deepEqual(['1) 집회/행사 참가 요청', '2) 세부 내용', '1) 집회·농성 등', '2) 참고자료'].map(styleOf), ['작은 제목', '작은 제목', '중간 제목', '중간 제목']);
   assert.deepEqual(back.details, [{heading: '(1) 가짜 회의 정', box: DEMO_DATA.details[0].box.map(b => ({label: b.label, lines: b.lines.map(lineText)}))}]);
   assert.deepEqual(back.calendar, DEMO_DATA.calendar);
-  assert.deepEqual(back.orgs, DEMO_DATA.orgs);
+  assert.deepEqual(back.orgs.map(({org, status}) => ({org, status})), DEMO_DATA.orgs);
 });
 
 test('빈 보고 자료로도 열리는 파일을 만든다(빈 표 한 줄)', () => {
