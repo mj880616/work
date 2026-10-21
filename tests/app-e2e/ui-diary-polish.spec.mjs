@@ -105,12 +105,12 @@ test('① the shared [+] stays at the bottom right whatever is pressed (calendar
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`② today is a filled purple circle on the number, the chosen day keeps the border (일기·달력) ${width}`,async({page})=>{
+for(const width of [390,1280])test(`② today is a filled theme-primary circle on the number, the chosen day keeps the border (일기·달력) ${width}`,async({page})=>{
  const f=await fixture(page,{width});
  await page.evaluate(()=>window.KPTURouter.go('diary'));
  const today=page.locator('#diaryRoot [data-diary-day="2026-10-06"]'),other=page.locator('#diaryRoot [data-diary-day="2026-10-04"]');
  await expect(today).toHaveAttribute('aria-current','date');
- const purple=await page.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--ds-kind-diary-ink)';document.querySelector('#diaryView').append(e);const c=getComputedStyle(e).color;e.remove();return c;});
+ const purple=await page.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-primary-ink)';document.querySelector('#diaryView').append(e);const c=getComputedStyle(e).color;e.remove();return c;});
  const look=loc=>loc.evaluate(el=>{const n=el.querySelector('.diary-num'),c=getComputedStyle(n),cell=getComputedStyle(el);const r=n.getBoundingClientRect();return {bg:c.backgroundColor,radius:c.borderRadius,w:Math.round(r.width),h:Math.round(r.height),ring:cell.boxShadow};});
  const t=await look(today),o=await look(other);
  expect(t.bg).toBe(purple);expect(t.radius).toBe('999px');expect(t.h).toBe(20);expect(t.w).toBeGreaterThanOrEqual(20);

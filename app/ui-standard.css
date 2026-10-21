@@ -182,8 +182,8 @@
 /* 일정 목록 보기: 줄 단위 행(13px), 시각·빈 날·할 일 수는 보조 12px, 날짜 머리 13px. */
 #appView #calendarView #calendarList .clv-date{ font-size:var(--ds-text-section); color:var(--kptu-muted); }
 #appView #calendarView #calendarList .clv-date.clv-today{ color:var(--ds-section-ink); }
-/* UI-일기손질 ②: [달력] 오늘 칸은 날짜 숫자 보라 동그라미(채움). [일기] 달력 오늘 칸(diary.css)과 같은 모양·색. */
-#appView #calendarView #calendarGrid .cal-cell.today .cal-day{ color:var(--kptu-surface); background:var(--ds-kind-diary-ink); border-radius:999px; }
+/* UI-일기손질 ②: [달력] 오늘 칸은 날짜 숫자 테마 대표색 동그라미(채움). [일기] 달력 오늘 칸(diary.css)과 같은 모양·색. */
+#appView #calendarView #calendarGrid .cal-cell.today .cal-day{ color:var(--kptu-surface); background:var(--kptu-primary-ink); border-radius:999px; }
 #appView #calendarView #calendarList :is(.clv-event,.clv-tasks,.clv-more,.clv-empty){ border-bottom:var(--ds-line-width) solid var(--ds-line); border-radius:0; }
 #appView #calendarView #calendarList .clv-title{ font-size:var(--ds-text-row); }
 #appView #calendarView #calendarList :is(.clv-time,.clv-tasks,.clv-more,.clv-empty){ font-size:var(--ds-text-meta); }

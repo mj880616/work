@@ -680,12 +680,12 @@ for(const width of [390,1280]){
   await expect(items).toHaveCount(2);
   await expect(items.nth(0)).toContainText('10월 4일');await expect(items.nth(0)).toContainText('첫 줄 글');await expect(items.nth(0)).not.toContainText('둘째 줄');
   await expect(items.nth(1)).toContainText('10월 3일');await expect(items.nth(1)).toContainText('가을 산책');
-  const calBottom=await page.locator('#diaryRoot [data-diary-cal]').evaluate(el=>el.getBoundingClientRect().bottom);
-  const listTop=await list.evaluate(el=>el.getBoundingClientRect().top);
-  expect(listTop).toBeGreaterThanOrEqual(calBottom-1);
+  const calBottom=await page.locator('#diaryRoot [data-diary-cal]').evaluate(el=>el.getBoundingClientRect().bottom+scrollY);
+  const listTop=await list.evaluate(el=>el.offsetTop);
+  expect(await list.evaluate(el=>el.getBoundingClientRect().top+scrollY)).toBeGreaterThanOrEqual(calBottom-1);
   await items.nth(1).click();
   await expect(detail.locator('h3')).toHaveText('10월 3일 토요일');await expect(list).toBeHidden();
-  expect(Math.abs(await detail.evaluate(el=>el.getBoundingClientRect().top)-listTop)).toBeLessThan(2);
+  expect(Math.abs(await detail.evaluate(el=>el.offsetTop)-listTop)).toBeLessThan(2);
   await page.locator('#diaryRoot [data-diary-detail-close]').click();
   await expect(detail).toBeHidden();await expect(list).toBeVisible();
   await cell(page,'2026-10-04').click();
