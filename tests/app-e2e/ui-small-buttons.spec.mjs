@@ -120,7 +120,7 @@ for(const width of [390,1280]){
  });
 }
 
-test('③ 폰: 일정·바구니 전환은 아래 탭 바로 위 한 줄(알약 32px, 고른 쪽 회색), 고르면 화면이 바뀌고 [+]는 그 위',async({page})=>{
+test('③ 폰: 일정·바구니 전환은 아래 탭 바로 위 한 줄(알약 32px, 고른 쪽 테마 주 색), 고르면 화면이 바뀌고 [+]는 그 위',async({page})=>{
  const f=await fixture(page);
  const tabs=page.locator('#appView > .mobile-tabs'),tabsTop=(await tabs.boundingBox()).y;
  const gray=await paint(page,'backgroundColor','--ds-select-bg'),white=await paint(page,'backgroundColor','--kptu-surface');

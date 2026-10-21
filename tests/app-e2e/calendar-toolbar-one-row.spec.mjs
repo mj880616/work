@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
-// UI-디자인기준 2/3(8-9d): 머리줄 버튼은 높이 하나(--ds-control-height 46px; UI-버튼크기부터 보기 전환·[오늘]은 32px, 누르는 범위 44px), 고른 보기는 회색(--ds-kind-other-*), 보기 칸은 같은 폭 44px로 정확히 나눔(UI-선택표시통일), 상자 선 0.5px.
+// UI-디자인기준 2/3(8-9d): 머리줄 버튼은 높이 하나(--ds-control-height 46px; UI-버튼크기부터 보기 전환·[오늘]은 32px, 누르는 범위 44px), 고른 보기는 테마 주 버튼 색(UI-테마선택색, 올리브 기본 rgb(92,106,53)+흰 글자), 보기 칸은 같은 폭 44px로 정확히 나눔(UI-선택표시통일), 상자 선 0.5px.
 for(const width of [360,390,686,760,761,1023,1024,1280,1440])test(`toolbar one row, accessible icons and persistence at ${width}`,async({page})=>{
   await page.setViewportSize({width,height:844});await openEmphasisFixture(page,{view:'default'});
   const toolbar=page.locator('.calendar-toolbar');

@@ -43,7 +43,7 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`빠른 입
  await page.screenshot({path:shot(info,`home-quick-task-${width}-${dark?'dark':'light'}`)});
  await input.fill('');
 
- // [업데이트 ▾]: 조직 줄 없이 [업데이트] 바로 오른쪽 ▾, 둘이 함께 회색. ▾ 누르는 범위 44px 이상.
+ // [업데이트 ▾]: 조직 줄 없이 [업데이트] 바로 오른쪽 ▾, 둘이 함께 테마 주 색. ▾ 누르는 범위 44px 이상.
  await update.click();await expect(box).toHaveAttribute('data-mode','basket');
  await expect(options).toBeHidden();await expect(box.locator('[data-quick-options]')).toBeHidden();
  await expect(box).not.toContainText('담당조직 기록');

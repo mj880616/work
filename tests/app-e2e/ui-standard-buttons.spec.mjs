@@ -88,9 +88,9 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
  await expect(more).toHaveJSProperty('tagName','BUTTON');await expect(more).toHaveAttribute('aria-label','더보기');await expect(more).toHaveAttribute('aria-expanded','false');
  for(const name of ['AI 분류 요청','분류 결과 입력','GPT 답변 가져오기'])await expect(basket.getByRole('button',{name,exact:true})).toHaveCount(0);
  await sameButtons(basket,height,quickHeight);
- const filled=[];for(const c of await basket.locator('button:visible').all())if((await look(c)).bg===primary)filled.push(await c.textContent());
+ const filled=[];for(const c of await basket.locator('button:visible').all())if((await look(c)).bg===primary&&!(await c.evaluate(el=>el.matches('[aria-pressed="true"],[aria-checked="true"],.active'))))filled.push(await c.textContent());
  expect(filled).toEqual(['추가']);
- expect((await look(basket.locator('[data-basket-filter="unclassified"]'))).bg).toBe(await token(page,'--ds-kind-other-soft'));
+ expect((await look(basket.locator('[data-basket-filter="unclassified"]'))).bg).toBe(primary);
  // Keyboard opens and closes the menu; it does not push the list.
  const listTop=(await basket.locator('[data-basket-filter="unclassified"]').boundingBox()).y;
  await more.focus();await page.keyboard.press('Enter');await expect(more).toHaveAttribute('aria-expanded','true');
@@ -118,7 +118,7 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
  // Edit view: [수정 저장] is the one filled button.
  await detail.locator('[data-basket-edit]').click();await expect(detail.locator('[data-basket-save]')).toBeVisible();
  await sameButtons(detail,height);
- const editFilled=[];for(const c of await detail.locator('button:visible').all())if((await look(c)).bg===primary)editFilled.push(await c.textContent());
+ const editFilled=[];for(const c of await detail.locator('button:visible').all())if((await look(c)).bg===primary&&!(await c.evaluate(el=>el.matches('[aria-pressed="true"],[aria-checked="true"],.active'))))editFilled.push(await c.textContent());
  expect(editFilled).toEqual(['수정 저장']);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(errors).toEqual([]);

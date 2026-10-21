@@ -223,7 +223,7 @@ test('Chromium page scale releases calendar touch action and restores it after z
   }finally{await context.close()}
 });
 
-test('active bottom tab follows swipes and auxiliary views leave tabs inactive',async({page})=>{
+test('active bottom tab follows swipes and menu-reached views mark only [메뉴]',async({page})=>{
   await openMobileApp(page);
   await page.evaluate(()=>window.KPTURouter.go('pages',{source:'swipe'}));
   await expect(page.locator('#pagesView')).toBeVisible();
@@ -232,6 +232,7 @@ test('active bottom tab follows swipes and auxiliary views leave tabs inactive',
   await expect(page.locator('.mobile-tabs #mobileMenuTab')).toHaveAttribute('aria-current','page');
   await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'swipe'}));
   await expect(page.locator('.mobile-tabs [data-view="calendar"]')).toHaveAttribute('aria-current','page');
+  await expect(page.locator('#mobileMenuTab')).not.toHaveAttribute('aria-current','page');
   const box=await page.locator('.mobile-tabs').boundingBox();expect(box.y+box.height).toBe(844);
 });
 
