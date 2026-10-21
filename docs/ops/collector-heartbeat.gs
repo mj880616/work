@@ -1,38 +1,41 @@
 /**
  * Web2 수집 점검 신호 (OPS-수집점검 2단계)
  *
- * 하는 일: 1시간마다 아래 두 가지 "시각"만 읽어 Web2에 알린다. 파일 이름·내용·ID는 보내지 않는다.
- *   1) 통화 전사 폴더에서 가장 최근 파일 시각 + 최근 24시간에 생긴 파일 수
- *   2) 텔레그램 수집 상태 파일의 마지막 수정 시각
+ * 하는 일: 1시간마다 아래 두 가지 "시각"과 "개수"만 읽어 Web2에 알린다. 파일 이름·내용·ID는 보내지 않는다.
+ *   1) 텔레그램: messages 폴더 안 월별 폴더(예: 2026-10)에서 가장 최근 메시지 파일 시각 + 최근 24시간에 생긴 파일 수
+ *   2) 통화 전사: 전사 폴더에서 가장 최근 txt 파일 시각 + 최근 24시간에 생긴 txt 수
  * Web2 홈 "마지막 수집 시각" 칸이 이 값으로 텔레그램·통화 전사 줄을 보여 준다.
  *
- * 설정 안내: docs/ops/collector-heartbeat.md (붙여넣기 → ID 채우기 → 비밀값 → 시험 → 1시간 트리거)
+ * 설정 안내: docs/ops/collector-heartbeat.md (붙여넣기 → 폴더 주소 두 칸 채우기 → 비밀값 → 시험 → 1시간 트리거)
  *
  * 비밀값은 이 코드에 넣지 않는다. "프로젝트 설정 → 스크립트 속성"의 COLLECTOR_HEARTBEAT_SECRET에만 둔다.
- * 기존 통화 전사 스크립트와 이름이 겹치지 않도록 함수 이름은 모두 web2Heartbeat_로 시작한다.
+ * 기존 통화 전사 스크립트와 이름이 겹치지 않도록 함수·설정 이름은 모두 web2Heartbeat로 시작한다.
  */
 
-// ── 여기 두 줄만 채운다 ──────────────────────────────────────────────
-// 통화 전사 글이 쌓이는 Drive 폴더 ID (폴더 주소의 /folders/ 뒤 부분)
-var WEB2_HEARTBEAT_TRANSCRIPT_FOLDER_ID = '여기에_전사_폴더_ID';
-// 회사 PC 텔레그램 수집 프로그램이 고치는 상태 파일 ID (파일 주소의 /d/ 와 /view 사이 부분)
-var WEB2_HEARTBEAT_TELEGRAM_FILE_ID = '여기에_텔레그램_상태_파일_ID';
-// ────────────────────────────────────────────────────────────────
+// ── 여기 두 칸만 채운다 (따옴표는 그대로 두고 안쪽만 바꾼다) ─────────────────
+// ① 텔레그램 메시지 폴더: Drive에서 "messages" 폴더를 열었을 때 주소창의 /folders/ 뒤 글자.
+//    (그 안에 2026-09, 2026-10 같은 월별 폴더가 있는 폴더)
+var WEB2_HEARTBEAT_TELEGRAM_MESSAGES_FOLDER = '여기에_텔레그램_messages_폴더_주소_끝부분';
+// ② 통화 전사 폴더: Drive에서 "통화 녹음 → 전사" 폴더를 열었을 때 주소창의 /folders/ 뒤 글자.
+var WEB2_HEARTBEAT_TRANSCRIPT_FOLDER = '여기에_통화_전사_폴더_주소_끝부분';
+// ─────────────────────────────────────────────────────────────────────
 
-// 전사 폴더 안의 하위 폴더까지 볼지(날짜별 하위 폴더에 저장한다면 true)
-var WEB2_HEARTBEAT_INCLUDE_SUBFOLDERS = false;
 // Web2 받는 입구(공개 주소, 비밀값 아님)
 var WEB2_HEARTBEAT_URL = 'https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/drive-summary?action=heartbeat';
 var WEB2_HEARTBEAT_SECRET_KEY = 'COLLECTOR_HEARTBEAT_SECRET';
-var WEB2_HEARTBEAT_MAX_FILES = 20000; // 폴더가 아주 커도 실행 시간 안에 끝나게 상한
+var WEB2_HEARTBEAT_RECENT_DAYS = 7;      // 먼저 최근 7일 안에 바뀐 파일만 찾는다(빠름)
+var WEB2_HEARTBEAT_MAX_FILES = 20000;    // 7일 안에 하나도 없을 때만 전체를 훑되, 이 개수에서 멈춘다
+var WEB2_HEARTBEAT_TIME_LIMIT_MS = 4.5 * 60 * 1000; // 앱 스크립트 6분 제한 전에 멈춘다
+var WEB2_HEARTBEAT_MONTH = /^\d{4}-\d{2}$/;
 
 /** 1시간 트리거가 부르는 함수. 손으로 [실행]해서 시험해도 된다. */
 function web2Heartbeat_send() {
   var secret = PropertiesService.getScriptProperties().getProperty(WEB2_HEARTBEAT_SECRET_KEY);
   if (!secret) throw new Error('스크립트 속성에 ' + WEB2_HEARTBEAT_SECRET_KEY + '가 없습니다. 안내 문서 3단계를 먼저 하세요.');
+  var started = Date.now();
   var results = [];
-  results.push(web2Heartbeat_try_('transcript', web2Heartbeat_transcript_, secret));
-  results.push(web2Heartbeat_try_('telegram', web2Heartbeat_telegram_, secret));
+  results.push(web2Heartbeat_try_('telegram', function () { return web2Heartbeat_telegram_(started); }, secret));
+  results.push(web2Heartbeat_try_('transcript', function () { return web2Heartbeat_transcript_(started); }, secret));
   Logger.log(results.join('\n'));
   if (results.some(function (line) { return line.indexOf('정상') < 0; })) {
     throw new Error('일부 신호를 보내지 못했습니다. 위 실행 로그를 확인하세요.');
@@ -73,12 +76,13 @@ function web2Heartbeat_makeSecret() {
 function web2Heartbeat_try_(source, read, secret) {
   try {
     var beat = read();
-    if (!beat) return source + ': 보낼 시각 없음(폴더가 비어 있음) — 건너뜀';
+    if (!beat) return source + ': 보낼 시각 없음(폴더에 파일이 없음) — 건너뜀';
     var code = web2Heartbeat_post_(source, beat, secret);
-    if (code === 200) return source + ': 정상(200)';
+    var note = beat.partial ? ' (시간 제한으로 일부만 확인)' : '';
+    if (code === 200) return source + ': 정상(200)' + note;
     if (code === 401) return source + ': 비밀값 불일치(401) — Supabase 비밀값과 스크립트 속성 값이 같은지 확인';
-    if (code === 409) return source + ': Web2 읽기용 사본 폴더 없음(409) — Web2에서 사본을 한 번 만든 뒤 다시';
-    if (code === 405 || code === 404) return source + ': 받는 입구 미배포(' + code + ') — Web2 함수 배포 뒤 다시';
+    if (code === 409) return source + ': Web2 읽기용 사본 폴더 없음(409) — 커맨드센터에 알리기';
+    if (code === 405 || code === 404) return source + ': 받는 입구 미배포(' + code + ') — 커맨드센터에 알리기';
     return source + ': 실패(HTTP ' + code + ')';
   } catch (e) {
     return source + ': 읽기 실패 — ' + (e && e.message ? e.message : e);
@@ -86,8 +90,7 @@ function web2Heartbeat_try_(source, read, secret) {
 }
 
 function web2Heartbeat_post_(source, beat, secret) {
-  var body = { source: source, last_at: beat.lastAt.toISOString() };
-  if (typeof beat.count === 'number') body.count = beat.count;
+  var body = { source: source, last_at: beat.lastAt.toISOString(), count: beat.count };
   var res = UrlFetchApp.fetch(WEB2_HEARTBEAT_URL, {
     method: 'post',
     contentType: 'application/json',
@@ -98,39 +101,63 @@ function web2Heartbeat_post_(source, beat, secret) {
   return res.getResponseCode();
 }
 
-function web2Heartbeat_checkId_(id, label) {
-  if (!id || id.indexOf('여기에_') === 0) throw new Error(label + ' ID를 코드 맨 위에 채우세요.');
+function web2Heartbeat_folder_(id, label) {
+  if (!id || id.indexOf('여기에_') === 0) throw new Error(label + ' 칸을 코드 맨 위에 채우세요.');
+  return DriveApp.getFolderById(id);
 }
 
-/** 전사 폴더: 가장 최근 파일 시각(만든 시각·고친 시각 중 늦은 것) + 최근 24시간에 생긴 파일 수. */
-function web2Heartbeat_transcript_() {
-  web2Heartbeat_checkId_(WEB2_HEARTBEAT_TRANSCRIPT_FOLDER_ID, '전사 폴더');
-  var since = Date.now() - 24 * 3600 * 1000;
-  var latest = 0, count = 0, seen = 0;
-  var folders = [DriveApp.getFolderById(WEB2_HEARTBEAT_TRANSCRIPT_FOLDER_ID)];
-  while (folders.length && seen < WEB2_HEARTBEAT_MAX_FILES) {
-    var folder = folders.shift();
-    var files = folder.getFiles();
-    while (files.hasNext() && seen < WEB2_HEARTBEAT_MAX_FILES) {
-      var f = files.next();
-      seen++;
-      if (f.isTrashed()) continue;
-      var created = f.getDateCreated().getTime(), updated = f.getLastUpdated().getTime();
-      latest = Math.max(latest, created, updated);
-      if (created >= since) count++;
-    }
-    if (WEB2_HEARTBEAT_INCLUDE_SUBFOLDERS) {
-      var subs = folder.getFolders();
-      while (subs.hasNext()) folders.push(subs.next());
+/** 텔레그램: messages 폴더 → 이름이 YYYY-MM인 월별 폴더 중 최근 두 달(이번 달·지난달) → 그 안과 한 단계 아래 폴더. */
+function web2Heartbeat_telegram_(started) {
+  var root = web2Heartbeat_folder_(WEB2_HEARTBEAT_TELEGRAM_MESSAGES_FOLDER, '① 텔레그램 메시지 폴더');
+  var months = [];
+  var subs = root.getFolders();
+  while (subs.hasNext()) {
+    var f = subs.next();
+    if (WEB2_HEARTBEAT_MONTH.test(f.getName())) months.push(f);
+  }
+  if (!months.length) throw new Error('messages 폴더 안에 2026-10 같은 월별 폴더가 없습니다. ① 칸이 messages 폴더인지 확인하세요.');
+  months.sort(function (a, b) { return a.getName() < b.getName() ? 1 : -1; });
+  var folders = [];
+  months.slice(0, 2).forEach(function (month) {
+    folders.push(month);
+    var inner = month.getFolders();
+    while (inner.hasNext()) folders.push(inner.next()); // 한 단계 아래까지
+  });
+  return web2Heartbeat_scan_(folders, function () { return true; }, started);
+}
+
+/** 통화 전사: 전사 폴더의 txt 파일만. */
+function web2Heartbeat_transcript_(started) {
+  var folder = web2Heartbeat_folder_(WEB2_HEARTBEAT_TRANSCRIPT_FOLDER, '② 통화 전사 폴더');
+  return web2Heartbeat_scan_([folder], function (file) {
+    return /\.txt$/i.test(file.getName()) || file.getMimeType() === 'text/plain';
+  }, started);
+}
+
+/**
+ * 여러 폴더에서 가장 최근 파일 시각(만든·고친 시각 중 늦은 것)과 최근 24시간에 생긴 파일 수를 센다.
+ * 먼저 최근 7일 안에 바뀐 파일만 검색하고(searchFiles), 하나도 없을 때만 전체를 훑는다(상한·시간 제한).
+ */
+function web2Heartbeat_scan_(folders, accept, started) {
+  var now = Date.now(), since24 = now - 24 * 3600 * 1000;
+  var recentFrom = new Date(now - WEB2_HEARTBEAT_RECENT_DAYS * 24 * 3600 * 1000);
+  var query = 'trashed = false and modifiedDate > "' + Utilities.formatDate(recentFrom, 'UTC', "yyyy-MM-dd'T'HH:mm:ss") + '"';
+  var state = { latest: 0, count: 0, seen: 0, partial: false };
+  function take(iterator) {
+    while (iterator.hasNext()) {
+      if (Date.now() - started > WEB2_HEARTBEAT_TIME_LIMIT_MS || state.seen >= WEB2_HEARTBEAT_MAX_FILES) { state.partial = true; return; }
+      var file = iterator.next();
+      state.seen++;
+      if (!accept(file)) continue;
+      var created = file.getDateCreated().getTime(), updated = file.getLastUpdated().getTime();
+      state.latest = Math.max(state.latest, created, updated);
+      if (created >= since24) state.count++;
     }
   }
-  if (!latest) return null;
-  return { lastAt: new Date(Math.min(latest, Date.now())), count: Math.min(count, 100000) };
-}
-
-/** 텔레그램 수집 상태 파일: 마지막 수정 시각만. */
-function web2Heartbeat_telegram_() {
-  web2Heartbeat_checkId_(WEB2_HEARTBEAT_TELEGRAM_FILE_ID, '텔레그램 상태 파일');
-  var updated = DriveApp.getFileById(WEB2_HEARTBEAT_TELEGRAM_FILE_ID).getLastUpdated().getTime();
-  return { lastAt: new Date(Math.min(updated, Date.now())) };
+  folders.forEach(function (folder) { if (!state.partial) take(folder.searchFiles(query)); });
+  if (!state.latest && !state.partial) {
+    folders.forEach(function (folder) { if (!state.partial) take(folder.getFiles()); });
+  }
+  if (!state.latest) return null;
+  return { lastAt: new Date(Math.min(state.latest, now)), count: Math.min(state.count, 100000), partial: state.partial };
 }
