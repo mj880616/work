@@ -17,6 +17,8 @@ for(const width of [412,870,1280]){
   const q=page.locator('#tasksView .home-quick[data-home-quick]'),input=q.locator('[data-quick-input]'),plus=q.locator('[data-quick-detail]');
   await expect(plus).toBeVisible();
   await expect(plus).toHaveAttribute('aria-label','상세 설정으로 추가');
+  // TASK-화면다듬기: the icon is the shared ⤢ expand shape (no longer a plus cross).
+  expect(await plus.locator('path').getAttribute('d')).toBe('M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9');
   // Inside the input box at its right edge; touch area at least 44px; input and [추가] share one height
   // (46px; UI-PC버튼36: PC ≥1024 is the input height 36px and the touch area is the 44px ::after).
   const ib=await input.boundingBox(),pb=await plus.boundingBox(),ab=await q.locator('[data-quick-save]').boundingBox(),h=width>=1024?36:46;
