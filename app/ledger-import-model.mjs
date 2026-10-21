@@ -28,17 +28,27 @@ export const SKIPPED_TABS = { 검색인덱스: 'L2', 설정: 'L3', 수집대상:
 
 const RECORD_COLUMNS = {
   title: ['제목', '건명'], summary: ['요지', '요약', '내용'], date: ['기준일', '날짜', '일자', '시점'],
-  topic: ['분야', '업무주제', '주제'], scope: ['범위', '정보구분', '구분'], sensitivity: ['민감도'], importance: ['중요도'],
+  topic: ['분야', '업무주제', '주제', '관련업무'], scope: ['범위', '정보구분', '구분'], sensitivity: ['민감도'], importance: ['중요도'],
   validity: ['유효상태', '유효성'], confidence: ['신뢰도', '확신도'], verification: ['확인상태', '검증상태', '사실확인'],
   superseded_by: ['대체기록ID', '대체기록', '대체ID'], supersede_reason: ['대체사유'], sources: ['출처', '출처ID'], note: ['비고', '메모']
 };
 // 칸 이름(머리줄) → 필드. 앞에 있는 이름이 먼저 맞는다. drop은 알고 있지만 가져오지 않는 칸.
 export const COLUMNS = {
   event: { id: ['ID', '사건ID'], ...RECORD_COLUMNS, title: ['제목', '사건명', '건명'], status: ['상태', '진행상태'], tracking: ['계속추적', '추적여부', '추적'] },
-  change: { id: ['ID', '변화기록ID', '변화ID'], event: ['사건ID', '소속사건', '관련사건', '사건'], ...RECORD_COLUMNS, drop: ['신문반영일'] },
-  decision: { id: ['ID', '결정ID'], ...RECORD_COLUMNS, title: ['제목', '결정사항', '건명'], decision_type: ['결정유형', '유형'], decision_reason: ['결정이유', '이유'] },
+  // 실제 시트 머리줄(2026-10-21 확인, 구조만): 변화기록 = 업데이트ID·사건ID·확인시각·새로 확인된 것·이전 상태·새 상태·출처유형·출처명·출처URL·검증상태·신문반영일.
+  change: { id: ['ID', '업데이트ID', '변화기록ID', '변화ID'], event: ['사건ID', '소속사건', '관련사건', '사건'], ...RECORD_COLUMNS,
+    title: ['제목', '새로 확인된 것', '건명'], date: ['기준일', '확인시각', '날짜', '일자', '시점'], prev_state: ['이전 상태'], new_state: ['새 상태'],
+    source_type: ['출처유형'], source_name: ['출처명'], source_url: ['출처URL'], drop: ['신문반영일'] },
+  // 결정 = 결정ID·결정일·회의명·결정주체·결정내용·관련업무·관련조직·후속조치 요지·Web2연결ID·출처ID·근거위치·유효상태·최종업데이트일·태그·대체기록ID·대체사유.
+  decision: { id: ['ID', '결정ID'], ...RECORD_COLUMNS, title: ['제목', '결정내용', '결정사항', '건명'], date: ['기준일', '결정일', '날짜', '일자'],
+    decision_type: ['결정유형', '유형'], decision_reason: ['결정이유', '이유'], meeting: ['회의명'], actor: ['결정주체'], related_org: ['관련조직'],
+    follow: ['후속조치 요지', '후속조치'], web2: ['Web2연결ID'], tags: ['태그'], locator: ['근거위치'], drop: ['최종업데이트일'] },
   evidence: { id: ['ID', '근거ID'], ...RECORD_COLUMNS, evidence_type: ['유형', '근거유형'], locator: ['근거위치', '위치'] },
-  commitment: { id: ['ID', '약속ID'], ...RECORD_COLUMNS, counterparty: ['상대측', '상대방', '상대'], commitment_status: ['이행상태', '상태'], follow_up_on: ['후속확인일', '확인일', '기한'] },
+  // 약속 = 약속ID·주체·주체유형·약속내용·원문표현·기준일·기한·조건·후속확인일·중요도·이행상태·대표관련기록ID·출처ID·근거위치·GoogleTaskID·상태변경일·상태근거ID.
+  commitment: { id: ['ID', '약속ID'], ...RECORD_COLUMNS, title: ['제목', '약속내용', '건명'], summary: ['요지', '원문표현', '요약', '내용'],
+    counterparty: ['상대측', '주체', '상대방', '상대'], commitment_status: ['이행상태', '상태'], follow_up_on: ['후속확인일', '확인일', '기한'],
+    actor_type: ['주체유형'], condition: ['기한·조건', '기한조건'], related: ['대표관련기록ID'], locator: ['근거위치'], google: ['GoogleTaskID'],
+    status_basis: ['상태근거ID'], drop: ['상태변경일'] },
   source: {
     id: ['ID', '출처ID'], title: ['제목', '출처명', '문서명', '자료명'], doc_type: ['문서종류', '종류', '유형'],
     location: ['위치', '링크', 'URL', '경로', '주소'], drive_file_id: ['DriveID', '드라이브ID', '파일ID'],
@@ -46,8 +56,13 @@ export const COLUMNS = {
     sensitivity: ['민감도'], note: ['비고', '메모']
   },
   organization: { id: ['ID', '조직ID'], name: ['조직명', '이름', '명칭'], aliases: ['별칭', '약칭'], web2: ['Web2연결ID', 'Web2ID', '웹2연결ID'], note: ['비고', '메모'] },
-  org_link: { link_id: ['ID', '연결ID'], record: ['기록ID', '원장ID', '대상ID', '사건ID', '기록'], organization: ['조직ID', '조직'], relation: ['관계유형', '관계'], note: ['비고', '메모'] },
-  write_request: { id: ['ID', '요청ID', '쓰기요청ID'], status: ['상태', '처리상태'], date: ['요청일시', '요청일', '일시', '날짜'], type: ['요청유형', '유형'], summary: ['요지', '요청내용', '내용', '요약'] },
+  // 조직연결 = 연결ID·조직ID·기록유형·기록ID·관계유형·기준일·활성여부·출처ID·최종업데이트일·비고.
+  org_link: { link_id: ['ID', '연결ID'], record: ['기록ID', '원장ID', '대상ID', '사건ID', '기록'], organization: ['조직ID', '조직'], relation: ['관계유형', '관계'],
+    note: ['비고', '메모'], record_type: ['기록유형'], date: ['기준일'], active: ['활성여부'], sources: ['출처ID'], drop: ['최종업데이트일'] },
+  // 쓰기요청 = 요청ID·요청시각·요청출처·작업유형·대상유형·대상기록ID·중복키·제안내용·출처ID·상태·처리시각·결과기록ID·오류·비고.
+  write_request: { id: ['ID', '요청ID', '쓰기요청ID'], status: ['상태', '처리상태'], date: ['요청시각', '요청일시', '요청일', '일시', '날짜'], type: ['작업유형', '요청유형', '유형'],
+    summary: ['제안내용', '요지', '요청내용', '내용', '요약'], origin: ['요청출처'], target_type: ['대상유형'], targets: ['대상기록ID'], dedup: ['중복키'],
+    sources: ['출처ID'], processed: ['처리시각'], results: ['결과기록ID'], error: ['오류'], note: ['비고'] },
   topic: { id: ['ID', '주제ID'], name: ['주제명', '이름', '주제'], aliases: ['별칭'], description: ['설명'] }
 };
 const REQUIRED = {
@@ -125,7 +140,11 @@ export const REASONS = {
   self_link: '자기 자신을 가리킴', duplicate_link: '같은 연결이 두 번', too_many: '행이 너무 많음', bad_file: '파일 모양이 다름',
   s3: '민감도 S3', personal: '개인정보 모양(주민번호·휴대전화)', excluded_link: '민감 제외 행에 걸린 연결(빠짐)',
   id_padded: 'ID 숫자를 4자리로 맞춤', date_unknown: '날짜를 읽지 못해 "모름"으로 두고 원래 표기를 남김', web2_missing: 'Web2 담당조직을 찾지 못해 연결 없이 넣음',
-  date_month_start: '날짜가 일 단위가 아니라 그 달·해 첫날로 넣음'
+  date_month_start: '날짜가 일 단위가 아니라 그 달·해 첫날로 넣음',
+  title_cut: '제목이 길어 앞 300자만 제목으로(전체는 요지에)', source_text_kept: '출처가 ID가 아니라 글자라 비고에 남김',
+  date_text_kept: '날짜 칸을 읽지 못해 비고에 남김', legacy_id_kept: '옛 쓰기요청 ID 모양이 달라 원래 표기로 보관',
+  idx_ref_ignored: '검색인덱스(IDX) 참조는 가져오지 않음(L2)', link_kind_unsupported: '기록이 아닌 행(출처 등)을 가리키는 연결은 담을 칸이 없어 뺌',
+  duplicate_link_skipped: '같은 연결이 두 번 — 한 번만 넣음'
 };
 
 // ---------- 파일 읽기 ----------
@@ -295,7 +314,8 @@ const realDate = (y, m, d) => {
 const lastDay = (y, m) => new Date(Date.UTC(y, m, 0)).getUTCDate();
 // 한 점(일·월·연)을 읽는다. Excel 날짜 번호(xlsx)도 일로.
 function datePoint(raw) {
-  const s = raw.trim().replace(/\.$/, '');
+  // 시각이 붙은 값(2026-09-24 14:30, 2026-09-24T14:30:00)은 날짜만 본다.
+  const s = raw.trim().replace(/(?:[T\s]+\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)$/, '').replace(/\.$/, '');
   let m = s.match(/^(\d{4})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})\s*일?$/);
   if (m && realDate(+m[1], +m[2], +m[3])) return { precision: 'day', start: `${m[1]}-${pad2(m[2])}-${pad2(m[3])}`, end: `${m[1]}-${pad2(m[2])}-${pad2(m[3])}` };
   m = s.match(/^(\d{4})\s*[-./년]\s*(\d{1,2})\s*월?$/);
@@ -375,6 +395,15 @@ function mappingKeyOf(field, row, get) {
   return oneLine(get(field));
 }
 
+// 참조 칸 → ID 목록. 검색인덱스(IDX-…)는 가져오지 않으므로(L2) 빼고 알림만 남긴다.
+function refsOf(text, issues, tab, id) {
+  const refs = expandRefs(text);
+  const kept = refs.ids.filter(x => !x.startsWith('IDX-'));
+  const idx = kept.length !== refs.ids.length;
+  if (idx) issues.push({ level: 'warning', reason: 'idx_ref_ignored', tab, id: String(id).slice(0, 60) });
+  return { ...refs, ids: kept, idx };
+}
+
 // 시트 탭(행 배열) → 가져오기 파일 모양(canonical) + 탭별 행 정보. 고정 목록 값은 mapping(사용자가 고친 대응표)으로 바꾼다.
 export function sheetToCanonical(input, mapping) {
   const tabs = []; const skipped = []; const unknownTabs = []; const issues = [];
@@ -449,7 +478,24 @@ export function sheetToCanonical(input, mapping) {
         const date = parseLedgerDate(get('date'));
         if (date.error) { issues.push({ level: 'error', reason: date.error, tab: key, id, row: rowNo }); row.rejected = true; continue; }
         if (date.warning) issues.push({ level: 'warning', reason: date.warning, tab: key, id });
-        const rec = { ...meta, kind, ledger_id: id, title: oneLine(get('title')), summary: noCtrl(get('summary')), scope: pick('scope', oneLine(get('scope'))),
+        // 제목이 길면(결정내용·새로 확인된 것 등) 앞부분만 제목으로, 전체는 요지에.
+        let title = oneLine(get('title')), summary = noCtrl(get('summary'));
+        if (title.length > 300) {
+          if (!summary) summary = noCtrl(get('title'));
+          title = title.slice(0, 299) + '…';
+          issues.push({ level: 'warning', reason: 'title_cut', tab: key, id });
+        }
+        // 담을 칸이 따로 없는 시트 칸은 "이름: 값" 줄로 비고에 모은다(내용을 버리지 않음).
+        const extra = [];
+        const keep = (label, field) => { const v = oneLine(get(field)); if (v) extra.push(`${label}: ${v}`); };
+        if (kind === 'change') {
+          const prev = oneLine(get('prev_state')), next = oneLine(get('new_state'));
+          if (prev || next) extra.push(`상태 변화: ${prev || '-'} → ${next || '-'}`);
+          keep('출처유형', 'source_type'); keep('출처URL', 'source_url');
+        }
+        if (kind === 'decision') { keep('회의명', 'meeting'); keep('결정주체', 'actor'); keep('후속조치 요지', 'follow'); keep('관련조직', 'related_org'); keep('Web2연결ID', 'web2'); keep('태그', 'tags'); }
+        if (kind === 'commitment') { keep('주체유형', 'actor_type'); keep('기한·조건', 'condition'); keep('GoogleTaskID', 'google'); keep('상태근거ID', 'status_basis'); }
+        const rec = { ...meta, kind, ledger_id: id, title, summary: summary.slice(0, 4000), scope: pick('scope', oneLine(get('scope'))),
           topic: pick('topic', oneLine(get('topic'))) || null, sensitivity: pick('sensitivity', oneLine(get('sensitivity'))),
           importance: pick('importance', oneLine(get('importance'))), validity: pick('validity', oneLine(get('validity'))),
           confidence: pick('confidence', oneLine(get('confidence'))) || null, verification: pick('verification', oneLine(get('verification'))) || null,
@@ -459,54 +505,77 @@ export function sheetToCanonical(input, mapping) {
         const sup = oneLine(get('superseded_by'));
         if (sup) {
           const n = normalizeId(sup);
-          if (n.error) { issues.push({ level: 'error', reason: 'broken_ref', tab: key, id: `${id} → ${sup}`, row: rowNo }); row.rejected = true; continue; }
+          if (n.error) { issues.push({ level: 'error', reason: 'broken_ref', tab: key, id: `${id} 대체기록 "${sup.slice(0, 30)}" — ID 모양이 아님`, row: rowNo }); row.rejected = true; continue; }
           rec.superseded_by = n.id;
         }
         if (kind === 'event') rec.event_status = pick('event_status', mappingKeyOf('event_status', r, get));
         if (kind === 'decision') { rec.decision_type = pick('decision_type', oneLine(get('decision_type'))) || null; rec.decision_reason = noCtrl(get('decision_reason')) || null; }
         if (kind === 'evidence') rec.evidence_type = pick('evidence_type', oneLine(get('evidence_type'))) || null;
         if (kind === 'commitment') {
+          // 후속확인일을 날짜로 못 읽으면 비우고 원래 글자를 비고에(거부하지 않음).
           const follow = parseDay(get('follow_up_on'));
-          if (follow.error) { issues.push({ level: 'error', reason: follow.error, tab: key, id, row: rowNo }); row.rejected = true; continue; }
-          if (follow.warning) issues.push({ level: 'warning', reason: follow.warning, tab: key, id });
-          rec.counterparty = oneLine(get('counterparty')) || null;
+          if (follow.error) { extra.push(`후속확인일: ${oneLine(get('follow_up_on'))}`); issues.push({ level: 'warning', reason: 'date_text_kept', tab: key, id }); }
+          else if (follow.warning) issues.push({ level: 'warning', reason: follow.warning, tab: key, id });
+          rec.counterparty = oneLine(get('counterparty')).slice(0, 200) || null;
           rec.commitment_status = pick('commitment_status', oneLine(get('commitment_status')));
-          rec.follow_up_on = follow.date;
+          rec.follow_up_on = follow.date || null;
         }
-        out.records.push(rec);
-        // 출처 칸: ID(범위 포함)로 풀고, ID가 아니면 출처 제목과 정확히 같은 것. 못 찾으면 깨진 참조.
-        const srcText = clean(get('sources'));
-        if (srcText) {
-          const refs = expandRefs(srcText);
+        // 출처 칸: ID(범위 포함)로 풀고, ID가 없으면 출처 제목과 정확히 같은 것. 그래도 없으면 글자를 비고에 남김(알림).
+        const locator = oneLine(get('locator')).slice(0, 500);
+        const srcCells = [['출처', clean(get('sources'))], ['출처명', kind === 'change' ? clean(get('source_name')) : '']].filter(([, v]) => v);
+        for (const [label, srcText] of srcCells) {
+          const refs = refsOf(srcText, issues, key, id);
           let ids = refs.ids;
-          if (!ids.length) { const byTitle = textBy.get('source:' + norm(srcText)); ids = byTitle ? [byTitle] : []; }
-          if (refs.bad || !ids.length) {
-            issues.push({ level: 'error', reason: 'broken_ref', tab: key, id: `${id} → ${oneLine(srcText).slice(0, 40)}`, row: rowNo }); row.rejected = true;
-            out.records.pop(); continue;
+          if (!ids.length && !refs.idx) { const byTitle = textBy.get('source:' + norm(srcText)); ids = byTitle ? [byTitle] : []; }
+          if (refs.bad) { issues.push({ level: 'error', reason: 'broken_ref', tab: key, id: `${id} 출처 "${oneLine(srcText).slice(0, 40)}" — 범위를 읽을 수 없음`, row: rowNo }); row.rejected = true; break; }
+          if (!ids.length) {
+            if (!refs.idx) { extra.push(`${label}: ${oneLine(srcText)}`); issues.push({ level: 'warning', reason: 'source_text_kept', tab: key, id }); }
+            continue;
           }
-          const locator = kind === 'evidence' ? oneLine(get('locator')) : '';
           for (const source of ids) out.record_sources.push({ ...meta, record: id, source, locator, note: '' });
         }
+        if (row.rejected) { out.record_sources = out.record_sources.filter(x => x.record !== id || x._tab !== key); continue; }
         if (kind === 'change') {
           const ev = oneLine(get('event'));
           if (ev) {
             const refs = expandRefs(ev);
-            if (refs.bad || refs.ids.length !== 1) { issues.push({ level: 'error', reason: 'broken_ref', tab: key, id: `${id} → ${ev.slice(0, 40)}`, row: rowNo }); row.rejected = true; out.records.pop(); out.record_sources = out.record_sources.filter(x => x.record !== id || x._tab !== key); continue; }
+            if (refs.bad || refs.ids.length !== 1) { issues.push({ level: 'error', reason: 'broken_ref', tab: key, id: `${id} 사건ID "${ev.slice(0, 40)}" — 사건 ID 하나여야 함`, row: rowNo }); row.rejected = true; out.record_sources = out.record_sources.filter(x => x.record !== id || x._tab !== key); continue; }
             out.links.push({ ...meta, record: id, target_record: refs.ids[0], target_organization: null, relation: 'belongs_to', note: '' });
           }
         }
+        if (kind === 'commitment') {
+          for (const target of refsOf(get('related'), issues, key, id).ids) if (target !== id) out.links.push({ ...meta, record: id, target_record: target, target_organization: null, relation: 'related', note: '' });
+        }
+        if (extra.length) rec.note = [rec.note, ...extra].filter(Boolean).join('\n').slice(0, 4000);
+        out.records.push(rec);
       } else if (key === 'org_link') {
-        const rec = expandRefs(get('record')), org = expandRefs(get('organization'));
-        if (rec.bad || org.bad || rec.ids.length !== 1 || org.ids.length !== 1) {
-          issues.push({ level: 'error', reason: 'broken_ref', tab: key, id: `${oneLine(get('record')).slice(0, 20)} → ${oneLine(get('organization')).slice(0, 20)}`, row: rowNo });
+        const recText = oneLine(get('record')), orgText = oneLine(get('organization'));
+        const rec = refsOf(recText, issues, key, recText), org = expandRefs(orgText);
+        if (rec.bad || org.bad || !rec.ids.length || org.ids.length !== 1) {
+          if (rec.idx && !rec.ids.length) { row.excludedIdx = true; issues.push({ level: 'excluded', reason: 'idx_ref_ignored', tab: key, id: recText.slice(0, 40), row: rowNo }); continue; }
+          const what = !rec.ids.length || rec.bad ? `기록ID "${recText.slice(0, 30)}"` : `조직ID "${orgText.slice(0, 30)}"`;
+          issues.push({ level: 'error', reason: 'broken_ref', tab: key, id: `${recText.slice(0, 20)} → ${orgText.slice(0, 20)} — ${what}를 ID로 읽을 수 없음`, row: rowNo });
           row.rejected = true; continue;
         }
-        out.links.push({ ...meta, record: rec.ids[0], target_record: null, target_organization: org.ids[0], relation: pick('relation', oneLine(get('relation'))), note: noCtrl(get('note')) });
+        const extra = [];
+        for (const [label, field] of [['기준일', 'date'], ['활성여부', 'active'], ['출처ID', 'sources']]) { const v = oneLine(get(field)); if (v) extra.push(`${label}: ${v}`); }
+        const note = [noCtrl(get('note')), ...extra].filter(Boolean).join(' / ').slice(0, 500);
+        for (const target of rec.ids) out.links.push({ ...meta, record: target, target_record: null, target_organization: org.ids[0], relation: pick('relation', oneLine(get('relation'))), note });
       } else if (key === 'write_request') {
+        // 옛 ID는 REQ-0001 모양이면 그대로, 다른 모양(REQ-20260924…)이면 원래 표기를 detail에 보관한다(L7, 감사 기록은 번호를 새로 받지 않음).
+        if (!rawId) { issues.push({ level: 'error', reason: 'missing_id', tab: key, id: `${rowNo}행`, row: rowNo }); row.rejected = true; continue; }
         const legacy = rawId.toUpperCase();
-        if (!/^[A-Z]{2,6}-[0-9]{1,6}$/.test(legacy)) { issues.push({ level: 'error', reason: rawId ? 'bad_id' : 'missing_id', tab: key, id: rawId || `${rowNo}행`, row: rowNo }); row.rejected = true; continue; }
-        const detail = { status: oneLine(get('status')), date: oneLine(get('date')), type: oneLine(get('type')), summary: noCtrl(get('summary')).slice(0, 2000) };
-        out.legacy_write_requests.push({ ...meta, legacy_id: legacy, occurred_at: occurredAt(get('date')), detail });
+        const shaped = /^[A-Z]{2,6}-[0-9]{1,6}$/.test(legacy);
+        if (!shaped) issues.push({ level: 'warning', reason: 'legacy_id_kept', tab: key, id: rawId.slice(0, 60) });
+        const detail = {};
+        for (const [field, name] of [['status', 'status'], ['date', 'date'], ['type', 'type'], ['summary', 'summary'], ['origin', 'origin'], ['target_type', 'target_type'],
+          ['targets', 'targets'], ['dedup', 'dedup_key'], ['sources', 'sources'], ['processed', 'processed_at'], ['results', 'results'], ['error', 'error'], ['note', 'note']]) {
+          const v = noCtrl(get(field)).slice(0, 2000);
+          if (v || ['status', 'date', 'type', 'summary'].includes(field)) detail[name] = v;
+        }
+        if (/IDX-?\d/i.test(`${get('targets')} ${get('results')}`)) issues.push({ level: 'warning', reason: 'idx_ref_ignored', tab: key, id: rawId.slice(0, 60) });
+        if (!shaped) detail.legacy_id_original = rawId.slice(0, 200);
+        out.legacy_write_requests.push({ ...meta, legacy_id: shaped ? legacy : null, occurred_at: occurredAt(get('date')), detail });
       }
     }
   }
@@ -698,11 +767,11 @@ export function validateCanonical(file, ctx = {}, carried = []) {
     if (row.superseded_by && row.superseded_by === row.ledger_id) { fail('self_link'); continue; }
     if (row.superseded_by) {
       if (excluded.records.has(row.superseded_by)) { push('error', 'excluded_ref', 'records', `${row.ledger_id} → ${row.superseded_by}`, where('records', row)); bad.add(row); continue; }
-      if (!known('records')(row.superseded_by)) { push('error', 'broken_ref', 'records', `${row.ledger_id} → ${row.superseded_by}`, where('records', row)); bad.add(row); continue; }
+      if (!known('records')(row.superseded_by)) { push('error', 'broken_ref', 'records', `${row.ledger_id} 대체기록 → ${row.superseded_by} (없는 ID: ${row.superseded_by})`, where('records', row)); bad.add(row); continue; }
     }
     if (row.topic) {
       if (excluded.topics.has(row.topic)) { push('error', 'excluded_ref', 'records', `${row.ledger_id} → ${row.topic}`, where('records', row)); bad.add(row); continue; }
-      if (!known('topics')(row.topic)) { push('error', 'broken_ref', 'records', `${row.ledger_id} → ${row.topic}`, where('records', row)); bad.add(row); continue; }
+      if (!known('topics')(row.topic)) { push('error', 'broken_ref', 'records', `${row.ledger_id} 주제 → ${row.topic} (없는 ID: ${row.topic})`, where('records', row)); bad.add(row); continue; }
     }
   }
   // 대체 관계 순환(A→B→A)은 DB가 넣을 순서를 찾지 못하므로 미리 거부.
@@ -718,7 +787,10 @@ export function validateCanonical(file, ctx = {}, carried = []) {
   for (const row of file.record_sources) {
     const w = where('record_sources', row);
     if (excluded.records.has(row.record) || excluded.sources.has(row.source)) { push('excluded', 'excluded_link', 'record_sources', `${row.record} → ${row.source}`, { ...w, link: true }); continue; }
-    if (!known('records')(row.record) || !known('sources')(row.source)) { push('error', 'broken_ref', 'record_sources', `${row.record} → ${row.source}`, { ...w, link: true }); continue; }
+    if (!known('records')(row.record) || !known('sources')(row.source)) {
+      const missing = [!known('records')(row.record) && row.record, !known('sources')(row.source) && row.source].filter(Boolean).join(', ');
+      push('error', 'broken_ref', 'record_sources', `${row.record} → ${row.source} (없는 ID: ${missing})`, { ...w, link: true }); continue;
+    }
     if (tooLong(row.locator, LIMITS.locator) || tooLong(row.note, LIMITS.link_note)) { push('error', 'too_long', 'record_sources', `${row.record} → ${row.source}`, { ...w, link: true }); continue; }
     const key = `${row.record}|${row.source}|${row.locator || ''}`;
     if (rsSeen.has(key)) continue;
@@ -731,23 +803,35 @@ export function validateCanonical(file, ctx = {}, carried = []) {
     const label = `${row.record} → ${target ?? '?'}`;
     if (!!row.target_record === !!row.target_organization) { push('error', 'bad_value', 'links', label, w); continue; }
     if (excluded.records.has(row.record) || excluded.records.has(row.target_record) || excluded.organizations.has(row.target_organization)) { push('excluded', 'excluded_link', 'links', label, w); continue; }
-    if (!known('records')(row.record) || (row.target_record && !known('records')(row.target_record)) || (row.target_organization && !known('organizations')(row.target_organization))) { push('error', 'broken_ref', 'links', label, w); continue; }
+    // 기록이 아닌 행(출처·조직·주제)을 기록 자리에서 가리키면 담을 칸이 없으므로 빼고 알림.
+    const other = id => id && !known('records')(id) && (known('sources')(id) || known('organizations')(id) || known('topics')(id));
+    if (other(row.record) || other(row.target_record)) { push('warning', 'link_kind_unsupported', 'links', label, w); continue; }
+    if (!known('records')(row.record) || (row.target_record && !known('records')(row.target_record)) || (row.target_organization && !known('organizations')(row.target_organization))) {
+      const missing = [!known('records')(row.record) && row.record, row.target_record && !known('records')(row.target_record) && row.target_record,
+        row.target_organization && !known('organizations')(row.target_organization) && row.target_organization].filter(Boolean).join(', ');
+      push('error', 'broken_ref', 'links', `${label} (없는 ID: ${missing})`, w); continue;
+    }
     if (row.target_record && row.target_record === row.record) { push('error', 'self_link', 'links', label, w); continue; }
     const relations = row.target_record ? ['belongs_to', 'follow_up', 'supports', 'contradicts', 'related'] : values('relation');
     if (!relations.includes(row.relation)) { push('error', 'bad_value', 'links', label, w); continue; }
     if (tooLong(row.note, LIMITS.link_note)) { push('error', 'too_long', 'links', label, w); continue; }
     const key = `${row.record}|${row.target_record || ''}|${row.target_organization || ''}|${row.relation}`;
-    if (linkSeen.has(key)) { push('error', 'duplicate_link', 'links', label, w); continue; }
+    if (linkSeen.has(key)) { push('warning', 'duplicate_link_skipped', 'links', label, w); continue; }
     linkSeen.add(key); links.push(row);
   }
   const legacySeen = new Set();
   const legacyKept = [];
   for (const row of legacy) {
     const w = where('legacy_write_requests', row);
-    if (!/^[A-Z]{2,6}-[0-9]{1,6}$/.test(String(row.legacy_id ?? ''))) { push('error', 'bad_id', 'legacy_write_requests', String(row.legacy_id ?? ''), w); continue; }
-    if (legacySeen.has(row.legacy_id) || ctx.existing?.legacy?.has?.(row.legacy_id)) { push('error', ctx.existing?.legacy?.has?.(row.legacy_id) ? 'existing_id' : 'duplicate_id', 'legacy_write_requests', row.legacy_id, w); continue; }
+    // REQ-0001 모양은 legacy_id(유일 색인)로, 다른 모양은 legacy_id 없이 detail.legacy_id_original에 원래 표기를 보관(L7).
+    const original = typeof row.detail?.legacy_id_original === 'string' && row.detail.legacy_id_original.trim() ? row.detail.legacy_id_original.trim() : null;
+    if (row.legacy_id === null && original) row.legacy_id = null;
+    else if (!/^[A-Z]{2,6}-[0-9]{1,6}$/.test(String(row.legacy_id ?? ''))) { push('error', 'bad_id', 'legacy_write_requests', String(row.legacy_id ?? ''), w); continue; }
+    const seenKey = row.legacy_id || 'original:' + original;
+    const exists = row.legacy_id && ctx.existing?.legacy?.has?.(row.legacy_id);
+    if (legacySeen.has(seenKey) || exists) { push('error', exists ? 'existing_id' : 'duplicate_id', 'legacy_write_requests', row.legacy_id || original, w); continue; }
     if (row.detail !== undefined && (typeof row.detail !== 'object' || Array.isArray(row.detail) || JSON.stringify(row.detail).length > 60000)) { push('error', 'bad_value', 'legacy_write_requests', row.legacy_id, w); continue; }
-    legacySeen.add(row.legacy_id); legacyKept.push(row);
+    legacySeen.add(seenKey); legacyKept.push(row);
   }
 
   const strip = row => Object.fromEntries(Object.entries(row).filter(([k]) => !k.startsWith('_')));
@@ -800,7 +884,7 @@ export function analyze(input, ctx = {}, overrides = {}, label = '') {
   result.idPrefixes = checked.idPrefixes;
   result.tabs = tabCounts(sheetTabs, canonical, checked);
   result.payload = { ...checked.payload, label: result.label, sha256: input.sha256, source_kind: input.source_kind,
-    report: { tabs: Object.fromEntries(result.tabs.map(t => [t.key, [t.sheetRows, t.excluded, t.rejected]])) } };
+    report: { tabs: Object.fromEntries(result.tabs.map(t => [t.key, t.key === 'org_link' && t.linkShift ? [t.sheetRows, t.excluded, t.rejected, t.linkShift] : [t.sheetRows, t.excluded, t.rejected]])) } };
   return finish(result);
 }
 function topicChoices(input, ctx) {
@@ -842,6 +926,8 @@ function tabCounts(sheetTabs, canonical, checked) {
       if (t.missing.length) s.rejected = t.sheetRows;
       s.importRows = Math.max(0, s.sheetRows - s.excluded - s.rejected);
     }
+    const orgLinks = byTab.get('org_link');
+    if (orgLinks) orgLinks.linkShift = checked.payload.links.filter(l => l.target_organization).length - orgLinks.importRows;
   } else {
     // Claude 가져오기 파일: 표 행이 곧 시트 행.
     const p = checked.payload;
@@ -898,8 +984,9 @@ export function numberCheck(report, db) {
     topic: db?.topics, organization: db?.organizations, source: db?.sources, org_link: db?.links_to_organizations,
     write_request: db?.legacy_write_requests, ...Object.fromEntries(KINDS.map(k => [k, db?.records_by_kind?.[k] ?? 0]))
   };
-  return Object.entries(report?.tabs || {}).filter(([k]) => TABS[k]).sort((a, b) => TAB_ORDER.indexOf(a[0]) - TAB_ORDER.indexOf(b[0])).map(([key, [sheet, excluded, rejected]]) => {
+  // 4번째 값(조직연결만): 한 행에 기록 ID가 여럿이라 늘어난 연결 수 − 겹치거나 담을 수 없어 뺀 연결 수.
+  return Object.entries(report?.tabs || {}).filter(([k]) => TABS[k]).sort((a, b) => TAB_ORDER.indexOf(a[0]) - TAB_ORDER.indexOf(b[0])).map(([key, [sheet, excluded, rejected, shift = 0]]) => {
     const n = Number(inserted[key] ?? 0);
-    return { key, label: TABS[key].label, sheet, inserted: n, excluded, rejected, ok: sheet === n + excluded + rejected };
+    return { key, label: TABS[key].label, sheet, inserted: n, excluded, rejected, shift, ok: sheet + shift === n + excluded + rejected };
   });
 }
