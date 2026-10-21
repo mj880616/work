@@ -657,7 +657,7 @@ test('PC 한 줄 [수정][삭제]: 마우스를 올리거나 키보드 초점일
  expect(f.writes.map(w=>w.method)).toEqual(['PATCH','PATCH']);
  expect(f.errors).toEqual([]);
 });
-test('폰 업무일지: 폭·1열 그대로, 모양 그대로(제목·줄 상자·초록 바탕·왼쪽 막대, [수정][삭제] 없음) 390',async({page})=>{
+test('폰 업무일지: 폭·1열 그대로, 모양은 PC와 같게(제목 15px 굵게, 내용 14px, 한 줄은 점 목록), [수정][삭제] 없음 390',async({page})=>{
  const f=await fixture(page,{width:390});
  f.rows.push({id:'k6',workspace_id:'w',kind:'work',title:null,journal_day:'2026-10-06',raw_text:'첫 줄',occurred_at:at,created_at:at,updated_at:'2026-10-06T00:50:00Z',archived_at:null,ai_export_allowed:true,attachments:[],metadata:{}});
  await openJournal(page,390);
@@ -667,10 +667,12 @@ test('폰 업무일지: 폭·1열 그대로, 모양 그대로(제목·줄 상자
  const j8=await journalBox(page);
  expect(j8.doc).toBeLessThanOrEqual(j8.vw);expect(j8.cols).toBe(1);expect(j8.rows).toBe(8);expect(Math.abs(j8.root-j8.panel)).toBeLessThan(2);
  const look=await journalLook(page);
- // 폰은 예전 모양: '오늘 한 줄'은 작은 회색 안내(12px), 칸 제목 13px, 한 줄은 초록 바탕 + 왼쪽 3px 막대, 내용 13px.
- expect(look.heads.map(h=>h.size)).toEqual(['12px',...Array(8).fill('13px')]);
- expect(look.heads.map(h=>h.weight)).toEqual([700,...Array(8).fill(500)]);
- expect(look.line.bg).toBe(look.soft);expect(look.line.left).toBe('3px');expect(look.line.size).toBe('15px');expect(look.item).toBe('13px');
+ // UI-일지폰정리: 폰도 PC와 같은 모양 — 제목 9개 같은 크기(15px) 굵게, 한 줄·내용 14px, 초록 바탕·왼쪽 막대 없는 점 목록.
+ expect(new Set(look.heads.map(h=>h.size))).toEqual(new Set(['15px']));
+ expect(look.heads.every(h=>h.weight>=600)).toBe(true);
+ expect(look.line.size).toBe('14px');expect(look.item).toBe('14px');
+ expect(look.line.bg).toBe('rgba(0, 0, 0, 0)');expect(look.line.bg).not.toBe(look.soft);expect(look.line.leftStyle==='none'||look.line.left==='0px').toBe(true);
+ expect(await items(page).first().evaluate(e=>getComputedStyle(e,'::before').content)).toBe('"•"');
  expect(look.actions).toBe('none');
  await expect(page.locator('#journalRoot [data-journal-lines] button:visible')).toHaveCount(1);
  expect(f.errors).toEqual([]);
