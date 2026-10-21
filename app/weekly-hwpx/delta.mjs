@@ -49,6 +49,12 @@ export function personalFromTeam(teamSummary, me) {
 export const REQUEST_CHECK_NOTE = '※ 직전 주 확정본 그대로임 — 이번 주 확인 필요';
 const sameName = (a, b) => norm(a) === norm(b);
 export const isMyOrg = (org, myOrgs) => myOrgs.some(name => sameName(name, [].concat(org).join('')));
+// 내 담당 조직 줄만 남김. 확정본 줄 테두리(borders)를 따라가고, 바로 위 줄이 빠진 줄은 cutAbove(위 선 닫기, report.mjs pairGrid).
+function keepOrgRows(rows, myOrgs) {
+  const kept = (rows ?? []).filter(r => isMyOrg(r.org, myOrgs));
+  return kept.map((r, i) => ({org: [...r.org], status: r.status.map(lineText), ...(r.borders ? {borders: [...r.borders]} : {}),
+    ...(Number.isInteger(r.src) ? {src: r.src, cutAbove: i === 0 ? r.src !== 0 : kept[i - 1].src !== r.src - 1} : {})}));
+}
 export function personalReportFromTeam(team, me, {myOrgs = [], title = '', date = ''} = {}) {
   return {
     title, date,
@@ -58,8 +64,8 @@ export function personalReportFromTeam(team, me, {myOrgs = [], title = '', date 
     summary: personalFromTeam(team.summary ?? [], me),
     details: [],
     rallies: [],
-    sites: (team.sites ?? []).filter(r => isMyOrg(r.org, myOrgs)).map(r => ({org: [...r.org], status: r.status.map(lineText)})),
-    orgs: (team.orgs ?? []).filter(r => isMyOrg(r.org, myOrgs)).map(r => ({org: [...r.org], status: r.status.map(lineText)})),
+    sites: keepOrgRows(team.sites, myOrgs),
+    orgs: keepOrgRows(team.orgs, myOrgs),
     orgNotes: [],
     calendar: [],
     calendarNotes: [],

@@ -1,6 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { testOrigin } from './helpers/test-origin.mjs';
+import { servePagesCors } from './helpers/hwp-editor.mjs';
+import { readFileSync } from 'node:fs';
+import { zlib, SAMPLE } from '../../scripts/weekly-hwpx/cli.mjs';
+import { makeFakeReport } from '../../scripts/weekly-hwpx/fixture.mjs';
+import { openHwpx, packHwpx, validateHwpx, readXml } from '../../app/weekly-hwpx/hwpx.mjs';
+import { extractBlankTemplate } from '../../app/weekly-hwpx/template.mjs';
+import { buildReport, readReport, CHANGED_COLOR } from '../../app/weekly-hwpx/report.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // JOURNAL-일지 2단계: [일정] [달력|할 일|일지|일기] → [일지]. The clock is 2026-10-06 10:00 KST (Tuesday); the week is
 // 10/5(월)~10/11(일). The mock keeps one app_notes store, honours PostgREST filters and the database's work-line rules
@@ -968,4 +975,141 @@ for(const width of [390,1280])test(`업무일지 위 조작 줄: 버튼 높이·
  expect(metrics.bar.map(b=>b.name)).toEqual(['하루','주간 정리','이전 주','다음 주','이번 주','주간보고 초안 복사']);
  for(const b of metrics.bar){expect(b.h,`${b.name} 높이`).toBe(metrics.compact);expect(b.size,`${b.name} 글자`).toBe('13px');expect(b.weight,`${b.name} 굵기`).toBe(500)}
  expect(f.errors).toEqual([]);
+});
+
+// WEEKLY-한글초안 2단계: [주간 정리] → [주간보고 한글 파일 만들기]. 지난주 팀 확정본(합성 .hwpx: 저장소 rhwp 빈 문서 → 가짜 양식 → 합성 글)을
+// 자료실 "주간보고 확정본"(document-actions hwp-open) 또는 기기 파일에서 열고, 내 줄·내 담당 조직 줄만 고칠 칸으로 보이고, 이번 주 기록을 줄 옆에
+// [붙이기]로 더한 뒤 .hwpx / HWP를 내려받고, [확정]하면 library-files로 자료실에 저장한다. 이름·조직은 모두 합성.
+const TEAM_REPORT={
+ title:'가상팀 주간보고', date:'2026년 9월 28일(월)',
+ requests:[{day:'10.1.(목)',items:[{what:'10:00 / 가상 행사 / 가상 장소',who:['가상 임원']}]}],
+ summary:[
+  {area:['사업영역 가'],rows:[{task:['세부 과제 가-1'],progress:['- 지난주 가-1 진행'],owner:['가상 담당']},{task:['세부 과제 가-2'],progress:['- 남의 진행'],owner:['다른 담당']}]},
+  {area:['사업영역 나'],rows:[{task:['세부 과제 나-1'],progress:['- 지난주 나-1 진행'],owner:['가상 담당']}]},
+ ],
+ orgs:[{org:['가상 노동조합'],status:['- 지난주 조직 소식']},{org:['다 바깥 모임'],status:['- 남의 조직 소식']}],
+};
+const teamHwpx=()=>{const blank=extractBlankTemplate(makeFakeReport(openHwpx(new Uint8Array(readFileSync(SAMPLE)),zlib)));return Buffer.from(packHwpx(buildReport(blank,TEAM_REPORT).pkg,zlib));};
+function multipartBody(request){
+ const type=request.headers()['content-type']||'',boundary=type.split('boundary=')[1],raw=request.postDataBuffer(),parts={};
+ for(const chunk of raw.toString('latin1').split('--'+boundary).slice(1,-1)){
+  const [head,...rest]=chunk.split('\r\n\r\n'),body=rest.join('\r\n\r\n').replace(/\r\n$/,'');
+  const name=/name="([^"]+)"/.exec(head)?.[1],file=/filename="([^"]*)"/.exec(head)?.[1];
+  parts[name]=file!==undefined?{file:Buffer.from(file,'latin1').toString('utf8'),bytes:Buffer.from(body,'latin1')}:Buffer.from(body,'latin1').toString('utf8');
+ }
+ return parts;
+}
+async function hwpxFixture(page,options={}){
+ const f=await weeklyFixture(page,options),sent={open:[],library:[],other:[]},bytes=teamHwpx();
+ const cors={'access-control-allow-origin':'*','access-control-expose-headers':'X-Web2-Hwp'};
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_profiles',r=>r.request().method()==='GET'?r.fulfill({json:[{display_name:'가상 담당'}]}):r.fallback());
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganizations',r=>new URL(r.request().url()).searchParams.get('select')==='id,name,aliases,active'?r.fulfill({json:f.more.orgs.map(o=>({...o,aliases:[],active:o.active!==false}))}):r.fallback());
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_documents',r=>{const q=new URL(r.request().url()).searchParams;if(!q.has('category'))return r.fallback();sent.other.push({category:q.get('category')});return r.fulfill({json:options.noConfirmed?[]:[{id:'doc-team',title:'가상 상집보고',file_name:'team.hwpx',created_at:at}]});});
+ await page.route(SB+'/functions/v1/document-actions',r=>{
+  if(r.request().method()==='OPTIONS')return r.fulfill({status:200,headers:cors});
+  const body=r.request().postDataJSON();sent.open.push(body);
+  return r.fulfill({status:200,headers:{...cors,'content-type':'application/octet-stream','x-web2-hwp':encodeURIComponent(JSON.stringify({source:'library',file_name:'team.hwpx',format:'hwpx',size:bytes.length,revision:'rev-1',md5:'a'.repeat(32),can_overwrite:false,shared:false}))},body:bytes});
+ });
+ await page.route(SB+'/functions/v1/library-files',r=>{const body=multipartBody(r.request());sent.library.push(body);return r.fulfill({headers:cors,json:{ok:true,document:{id:'doc-new',title:body.title}}});});
+ await page.route(SB+'/functions/v1/ai-assist',r=>{sent.other.push({ai:true});return r.fulfill({status:500,json:{}});});
+ return {...f,sent};
+}
+const hwpx=page=>page.locator('#journalRoot [data-journal-hwpx]');
+const rowBox=(page,label)=>hwpx(page).locator('.journal-hwpx-row').filter({has:page.locator('label',{hasText:label})});
+async function openDraft(page){
+ await hwpx(page).locator('[data-hwpx-start]').click();
+ await expect(hwpx(page).locator('#journalHwpxTitle')).toBeFocused();
+ await hwpx(page).locator('[data-hwpx-library]').click();
+ await expect(rowBox(page,'사업영역 가 › 세부 과제 가-1').locator('textarea')).toHaveValue('- 지난주 가-1 진행');
+}
+const savedReport=async download=>{const bytes=new Uint8Array(readFileSync(await download.path()));expect(validateHwpx(bytes,zlib).errors).toEqual([]);const pkg=openHwpx(bytes,zlib);return {pkg,report:readReport(pkg)};};
+
+for(const width of [390,1280])test(`[주간보고 한글 파일 만들기]: 자료실 확정본 → 내 줄·내 담당 조직만, 이번 주 기록 붙이기 → .hwpx 받기 → [확정] 자료실 저장 ${width}`,async({page})=>{
+ const f=await hwpxFixture(page,{width});
+ await openJournal(page,width);await openWeekly(page);
+ await openDraft(page);
+ expect(f.sent.other).toEqual([{category:'eq.주간보고 확정본'}]);
+ expect(f.sent.open).toEqual([{action:'hwp-open',document_id:'doc-team'}]);
+ // 내 줄 2개(다른 담당의 가-2 줄은 없음), 내 담당 조직(가상 노동조합)만. 이름은 프로필에서.
+ await expect(hwpx(page).locator('[data-hwpx-me]')).toHaveValue('가상 담당');
+ await expect(hwpx(page).locator('[data-hwpx-date]')).toHaveValue('2026년 10월 5일(월)');
+ await expect(hwpx(page).locator('[data-hwpx-part="summary"] .journal-hwpx-label')).toHaveText(['사업영역 가 › 세부 과제 가-1','사업영역 나 › 세부 과제 나-1']);
+ await expect(hwpx(page).locator('[data-hwpx-part="orgs"] .journal-hwpx-label')).toHaveText(['가상 노동조합']);
+ await expect(hwpx(page).locator('[data-hwpx-orgs]')).toContainText('내 담당 조직 2곳');
+ // 이번 주 기록이 이름이 같은 줄 옆에. 남의 줄(가-2) 기록은 "줄을 찾지 못한 기록"으로.
+ const a1=rowBox(page,'사업영역 가 › 세부 과제 가-1');
+ await expect(a1.locator('[data-hwpx-material] li')).toHaveText([/가-1 목요일 기록/,/사안 가-1-ㄱ: 사안 수요일 기록/]);
+ await expect(rowBox(page,'사업영역 나 › 세부 과제 나-1').locator('[data-hwpx-material] li')).toHaveText([/나-1 월요일 기록/]);
+ await expect(hwpx(page).locator('[data-hwpx-unmatched]')).toContainText('가-2 화요일 기록');
+ await a1.locator('[data-hwpx-material] li').first().getByRole('button',{name:/붙이기/}).click();
+ await expect(a1.locator('textarea')).toHaveValue('- 지난주 가-1 진행\n- 가-1 목요일 기록');
+ // 짝 없는 기록은 줄을 골라 붙인다.
+ const rest=hwpx(page).locator('[data-hwpx-unmatched] li').filter({hasText:'가-2 화요일 기록'});
+ await rest.locator('select').selectOption({label:'사업영역 나 › 세부 과제 나-1'});
+ await rest.getByRole('button',{name:/붙이기/}).click();
+ await expect(rowBox(page,'사업영역 나 › 세부 과제 나-1').locator('textarea')).toHaveValue('- 지난주 나-1 진행\n- 가-2 화요일 기록');
+ await rowBox(page,'가상 노동조합').locator('textarea').fill('- 지난주 조직 소식\n- 손으로 고친 조직 소식');
+ // .hwpx 받기: 규격 검사 통과, 내 줄만 채워지고 바뀐 줄만 파란 글씨, 요청 표는 확정본 그대로.
+ const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ expect(download.suggestedFilename()).toBe('주간보고_20261005.hwpx');
+ const {pkg,report}=await savedReport(download);
+ expect(report.summary[0].rows.map(r=>r.progress)).toEqual([['- 지난주 가-1 진행','- 가-1 목요일 기록'],[]]);
+ expect(report.summary[0].rows[1].owner).toEqual([]);
+ expect(report.summary[1].rows[0].progress).toEqual(['- 지난주 나-1 진행','- 가-2 화요일 기록']);
+ expect(report.orgs.map(o=>[o.org,o.status])).toEqual([[['가상 노동조합'],['- 지난주 조직 소식','- 손으로 고친 조직 소식']]]);
+ expect(report.requests).toEqual(TEAM_REPORT.requests);
+ const header=readXml(pkg,'Contents/header.xml'),blue=new Set();
+ for(const n of (function*w(x){yield x;for(const c of x.children||[])yield*w(c);})(header.root))if(n.name==='hh:charPr'&&n.attrs.textColor?.toUpperCase()===CHANGED_COLOR)blue.add(n.attrs.id);
+ const sec=new TextDecoder().decode(pkg.files.get('Contents/section0.xml'));
+ const runOf=text=>new RegExp(`charPrIDRef="(\\d+)"><hp:t>${text}</hp:t>`).exec(sec)?.[1];
+ expect(blue.has(runOf('- 가-1 목요일 기록'))).toBe(true);
+ expect(blue.has(runOf('- 지난주 가-1 진행'))).toBe(false);
+ await expect(hwpx(page).locator('[data-hwpx-status]')).toContainText('바뀐 줄 3개');
+ // [확정]: 한 번 묻고 library-files로 자료실에 저장(분류 "주간보고 개인본", 제목·날짜를 줘서 서버가 내용을 읽지 않음).
+ page.once('dialog',d=>d.accept());
+ await hwpx(page).locator('[data-hwpx-confirm]').click();
+ await expect(hwpx(page).locator('[data-hwpx-status]')).toContainText('자료실에 "주간보고 개인본" 분류로 저장했어요');
+ expect(f.sent.library).toHaveLength(1);
+ const saved=f.sent.library[0];
+ expect([saved.title,saved.category,saved.document_date,saved.file.file]).toEqual(['주간보고 2026년 10월 5일(월)','주간보고 개인본','2026-10-05','주간보고_20261005.hwpx']);
+ expect(Object.keys(saved).sort()).toEqual(['category','document_date','file','title']);
+ expect(validateHwpx(new Uint8Array(saved.file.bytes),zlib).errors).toEqual([]);
+ await expect(hwpx(page).locator('[data-hwpx-confirm]')).toBeDisabled();
+ expect(f.sent.other.filter(x=>x.ai)).toEqual([]);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ // 주가 바뀌면 초안은 닫힌다(다른 주 기록과 섞이지 않게).
+ await page.locator('#journalRoot [data-journal-next]').click();
+ await expect(hwpx(page).locator('.journal-hwpx-panel')).toBeHidden();
+ await expect(hwpx(page).locator('[data-hwpx-status]')).toHaveText('주가 바뀌어 한글 파일 초안을 닫았어요.');
+ await expect(hwpx(page).locator('[data-hwpx-start]')).toBeVisible();
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+
+test('[주간보고 한글 파일 만들기]: 자료실에 확정본이 없으면 알리고, [HWP로 받기]·기기 HWP 파일 고르기는 칸막이 편집기 엔진으로 바꾼다',async({page})=>{
+ test.setTimeout(120000);
+ await servePagesCors(page);
+ const f=await hwpxFixture(page,{width:1280,noConfirmed:true});
+ await openJournal(page,1280);await openWeekly(page);
+ await hwpx(page).locator('[data-hwpx-start]').click();
+ await hwpx(page).locator('[data-hwpx-library]').click();
+ await expect(hwpx(page).locator('[data-hwpx-status]')).toContainText('"주간보고 확정본" 분류 자료가 없어요');
+ expect(f.sent.open).toEqual([]);
+ // 기기 파일(.hwpx) → 고칠 칸
+ await hwpx(page).locator('[data-hwpx-file]').setInputFiles({name:'team.hwpx',mimeType:'application/octet-stream',buffer:teamHwpx()});
+ await expect(rowBox(page,'사업영역 가 › 세부 과제 가-1').locator('textarea')).toHaveValue('- 지난주 가-1 진행');
+ await expect(hwpx(page).locator('[data-hwpx-me]')).toHaveValue('가상 담당');
+ // [HWP로 받기]: 같은 엔진이 HWP 5로 저장(OLE 머리)
+ const [hwp]=await Promise.all([page.waitForEvent('download',{timeout:90000}),hwpx(page).locator('[data-hwpx-hwp]').click()]);
+ expect(hwp.suggestedFilename()).toBe('주간보고_20261005.hwp');
+ const hwpBytes=readFileSync(await hwp.path());
+ expect([...hwpBytes.subarray(0,4)]).toEqual([0xd0,0xcf,0x11,0xe0]);
+ // 그 HWP를 다시 기기 파일로: 엔진이 .hwpx로 바꾼 뒤 같은 칸
+ await hwpx(page).locator('[data-hwpx-restart]').click();
+ await hwpx(page).locator('[data-hwpx-file]').setInputFiles({name:'team.hwp',mimeType:'application/x-hwp',buffer:hwpBytes});
+ await expect(rowBox(page,'사업영역 가 › 세부 과제 가-1').locator('textarea')).toHaveValue('- 지난주 가-1 진행',{timeout:60000});
+ const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ const {report}=await savedReport(download);
+ expect(report.summary[0].rows[0].progress).toEqual(['- 지난주 가-1 진행']);
+ expect(f.sent.library).toEqual([]);
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
