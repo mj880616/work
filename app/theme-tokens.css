@@ -44,6 +44,8 @@
   --ds-control-height:46px;--ds-control-pad-x:14px;
   /* UI-버튼크기(2026-10-17 사용자 결정): 큰 버튼(--ds-control-height)은 그 화면의 주 동작만. 전환(세그먼트)·필터(알약 칩)·보조 버튼은
      보이는 높이 32px·글자 13px이고, 누르는 범위는 위아래로 늘려 --kptu-touch-target(44px)을 지킨다. */
+  /* UI-좌우비율(2026-10-21): PC 좌우 화면(할 일·프로젝트, 이후 담당조직·회의 결과) 공통 비율 = 왼쪽 목록 1 : 오른쪽 상세 2. 왼쪽 최소 폭 아래로는 줄이지 않는다. */
+  --ds-split-list:1fr;--ds-split-detail:2fr;--ds-split-list-min:240px;
   --ds-compact-height:32px;--ds-compact-pad-x:12px;--ds-compact-text:13px;--ds-chip-radius:999px;
   /* UI-버튼작게(2026-10-18 사용자 결정): 쓰기 창 서식 도구줄 버튼은 한 단계 더 작게 28px(누르는 범위는 그대로 44px). */
   --ds-compact-height-sm:28px;

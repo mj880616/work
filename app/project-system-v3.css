@@ -248,7 +248,7 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
   #appView #projectsView:not(.hidden){display:flex;flex-direction:column;height:calc(100vh - 24px);height:calc(100dvh - 24px);min-height:420px}
   #appView #projectsView>.section-head{flex:none}
   #appView #projectsView>.section-head.actions-only:not(:has(button)){display:none}
-  #appView #projectsView>#projectGrid[data-ps3-ready="1"]{flex:1 1 auto;min-height:0;grid-template-columns:minmax(280px,1fr) minmax(0,2fr);grid-template-rows:minmax(0,1fr);column-gap:var(--kptu-space-3);margin:0}
+  #appView #projectsView>#projectGrid[data-ps3-ready="1"]{flex:1 1 auto;min-height:0;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:minmax(0,1fr);column-gap:var(--kptu-space-3);margin:0}
   #appView #projectsView #projectGrid>.ps3-plist{grid-column:1;grid-row:1;align-self:start;max-height:100%;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box}
   #appView #projectsView #projectGrid>.ps3-plist>.add-list-head{position:sticky;top:0;z-index:1;background:var(--kptu-surface)}
   #appView #projectsView #projectGrid>#ps3DetailPane{grid-column:2;grid-row:1;display:block;min-height:0;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
