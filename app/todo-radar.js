@@ -44,7 +44,8 @@ async function find(mode) {
     if (result.ok && !result.skipped) { shared.promises = result.promises; shared.partial = result.partial; }
     shared.status = result.ok ? (result.skipped ? '' : result.added ? `새로 ${result.added}개 찾았어요.` : '새로 찾은 것은 없어요.') : result.message;
     return result;
-  }).finally(() => { shared.finding = null; if (scope === radarScope(rt)) notify(true); });
+  }).then(result => { shared.finding = null; if (scope === radarScope(rt)) notify(result.ok && !result.skipped); return result; },
+    error => { shared.finding = null; if (scope === radarScope(rt)) notify(false); throw error; });
   return shared.finding;
 }
 
@@ -73,7 +74,7 @@ const STATUS_LABEL = {open:'대기', tasked:'할 일로 옮김', dismissed:'무�
 export function mountRadar(host, {place}) {
   if (!host) return null;
   let rows = [], state = 'loading', all = false, edit = null, run = 0, scope = sameScope();
-  let day = seoulDateKey(), week = {from:day, to:day}, shown = true;
+  let day = seoulDateKey(), week = {from:day, to:day}, visible = true;
   const busy = new Set(), unknown = new Map(), unmarked = new Map(), rowStatus = new Map();
   const life = new AbortController(), on = {signal:life.signal};
   host.hidden = true;
@@ -100,6 +101,8 @@ export function mountRadar(host, {place}) {
     if (place === 'home') return notPlanned(rows.filter(r => r.status === 'open'), taskTitles());
     return rows.filter(r => r.source_day === day && (r.status !== 'open' || notPlanned([r], taskTitles()).length));
   }
+  let lastKey = '', drawn = '';
+  const shownKey = () => visibleRows().map(r => r.id).join(',');
   const dayPromises = () => place === 'home' ? shared.promises : shared.promises.filter(p => p.source_day === day);
 
   function rowHtml(c) {
@@ -124,13 +127,14 @@ export function mountRadar(host, {place}) {
   }
 
   function paint() {
-    if (!shown || state === 'missing' || shared.fnMissing || !rt.context.read()?.workspace?.id) { host.hidden = true; host.replaceChildren(); return; }
+    if (!visible || state === 'missing' || shared.fnMissing || !rt.context.read()?.workspace?.id) { host.hidden = true; host.replaceChildren(); drawn = ''; return; }
     host.hidden = false;
     const focus = host.contains(document.activeElement) ? [...host.querySelectorAll('button,input')].indexOf(document.activeElement) : -1;
     const focusKey = document.activeElement && host.contains(document.activeElement) ? [...document.activeElement.attributes].find(a => a.name.startsWith('data-radar-'))?.name : '';
     const focusVal = focusKey ? document.activeElement.getAttribute(focusKey) : '';
     const list = visibleRows(), promises = dayPromises();
-    const shown = place === 'home' && !all ? list.slice(0, HOME_ROWS) : list;
+    lastKey = list.map(r => r.id).join(',');
+    const listed = place === 'home' && !all ? list.slice(0, HOME_ROWS) : list;
     const checked = shared.checkedAt ? `마지막 찾기 ${stamp(shared.checkedAt)}${shared.partial ? ' · 일부만 봤어요' : ''}` : '아직 찾지 않았어요';
     const titleId = place === 'home' ? 'home-radar-title' : 'journal-radar-title';
     const head = place === 'home'
@@ -139,10 +143,13 @@ export function mountRadar(host, {place}) {
     const empty = state === 'failed' ? `<p class="radar-muted">챙길 것을 불러오지 못했어요. <button type="button" class="radar-link" data-radar-retry>다시 시도</button></p>`
       : !list.length && !promises.length ? `<p class="radar-muted">${state === 'loading' ? '불러오는 중…' : place === 'home' ? '챙길 것 없음' : '이 날 기록에서 나온 챙길 것 없음'}</p>` : '';
     const more = place === 'home' && list.length > HOME_ROWS ? `<button type="button" class="radar-link" data-radar-all aria-expanded="${all}">${all ? '접기' : `모두 보기 ${list.length}`}</button>` : '';
-    const body = `<div data-home-body>${empty}${shown.length || promises.length ? `<ul class="radar-list">${shown.map(rowHtml).join('')}${promises.map(promiseHtml).join('')}</ul>` : ''}${more}<p class="radar-muted radar-checked" data-radar-checked>${esc(checked)}</p><p class="radar-status" data-radar-status-line role="status" aria-live="polite">${esc(shared.status)}</p></div>`;
+    const body = `<div data-home-body>${empty}${listed.length || promises.length ? `<ul class="radar-list">${listed.map(rowHtml).join('')}${promises.map(promiseHtml).join('')}</ul>` : ''}${more}<p class="radar-muted radar-checked" data-radar-checked>${esc(checked)}</p><p class="radar-status" data-radar-status-line role="status" aria-live="polite">${esc(shared.status)}</p></div>`;
     host.setAttribute('aria-labelledby', titleId);
     host.dataset.state = state;
-    host.innerHTML = head + body;
+    // The same drawing is not redrawn, so a button is never replaced under a finger or the keyboard focus.
+    if (drawn === head + body && host.firstChild) return;
+    drawn = head + body;
+    host.innerHTML = drawn;
     const again = focusKey ? host.querySelector(`[${focusKey}="${CSS.escape(focusVal)}"]`) : null;
     (again || (focus >= 0 ? host.querySelectorAll('button,input')[focus] : null))?.focus({preventScroll:true});
   }
@@ -222,18 +229,22 @@ export function mountRadar(host, {place}) {
     if (!host.isConnected || scope !== radarScope(rt)) return;
     if (event.detail?.reload && !busy.size && !edit) void load(); else paint();
   }, on);
-  window.addEventListener('kptu:google-tasks-changed', () => { if (host.isConnected && state === 'ok') paint(); }, on);
+  // Decision 5 reads the task list the task module already has; repaint when it arrives or changes (no extra request).
+  // Only when the shown rows really change, so a row is never redrawn under a finger.
+  for (const name of ['kptu:google-tasks-changed', 'kptu:home-ready']) window.addEventListener(name, () => {
+    if (host.isConnected && state === 'ok' && !edit && shownKey() !== lastKey) paint();
+  }, on);
   window.addEventListener('kptu:session-changed', () => {
     if (scope === radarScope(rt)) return;
     run++; rows = []; state = 'loading'; edit = null; all = false; busy.clear(); unknown.clear(); unmarked.clear(); rowStatus.clear();
-    host.hidden = true; host.replaceChildren();
+    host.hidden = true; host.replaceChildren(); drawn = "";
   }, on);
 
   return {
     destroy: () => { run++; life.abort(); },
     refresh: () => load(),
     // The journal's [주간 정리] side hides the box; [하루] shows it again.
-    setShown(value) { if (shown === !!value) return; shown = !!value; paint(); },
+    setShown(value) { if (visible === !!value) return; visible = !!value; paint(); },
     setDay(next, from, to) {
       const weekChanged = from !== week.from || to !== week.to;
       day = next; week = {from, to}; edit = null;
