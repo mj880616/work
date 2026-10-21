@@ -142,6 +142,9 @@
 @media(max-width:760px){
   #appView #libraryView .library-filter-toolbar #documentProject,
   #appView #libraryView .library-filter-toolbar .lu-filter-row{grid-template-columns:minmax(0,1fr)}
-  #appView #libraryView .library-filter-toolbar .lu-filter-row[data-lu-filter-row="category"]{grid-template-columns:minmax(0,max-content) auto}
+  /* 폰: 종류 줄 전체(칩 + [편집])가 한 줄로 옆으로 민다. [편집]은 칩 줄 맨 끝에 있고, 칩과 겹치지 않는다. */
+  #appView #libraryView .library-filter-toolbar .lu-filter-row[data-lu-filter-row="category"]{display:flex;flex-wrap:nowrap;align-items:center;gap:8px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+  #appView #libraryView .lu-filter-row[data-lu-filter-row="category"] > .filter-chips{flex:0 0 auto;max-width:none;overflow:visible}
+  #appView #libraryView .lu-filter-row[data-lu-filter-row="category"] > .lu-category-edit{flex:0 0 auto}
   #appView #libraryView .lu-filter-label{display:none}
 }

@@ -195,7 +195,8 @@ test('폰 거르기 줄: 이름표 없이 줄마다 옆으로 밀기, 차례(프
   expect(sub.y).toBeGreaterThanOrEqual(top.y+top.height-1);expect(cat.y).toBeGreaterThanOrEqual(sub.y+sub.height-1);
   // 칩 줄은 화면 폭을 다 쓰고, 넘치는 칩은 그 줄 안에서 옆으로 민다.
   for(const b of [top,cat])expect(b.x).toBeLessThan(24);
-  await expect(category).toHaveCSS('overflow-x','auto');await expect(category).toHaveCSS('flex-wrap','nowrap');
+  // UI-자료실편집버튼: 종류 줄은 칩과 [편집]이 한 줄로 함께 밀리므로, 미는 쪽은 칩 묶음이 아니라 줄 전체.
+  const categoryRow=page.locator('#libraryView .lu-filter-row[data-lu-filter-row="category"]');await expect(categoryRow).toHaveCSS('overflow-x','auto');await expect(categoryRow).toHaveCSS('flex-wrap','nowrap');await expect(category).toHaveCSS('flex-wrap','nowrap');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });
 
@@ -213,7 +214,9 @@ for(const width of [1280,390])test(`종류 칩 줄 맨 끝 [편집] ${width}: �
   expect(Math.abs((e.y+e.height/2)-(c.y+c.height/2))).toBeLessThan(4);
   if(width>=761){const lastChip=await box(category.locator('[data-lu-category]').last());expect(e.x).toBeGreaterThanOrEqual(lastChip.x+lastChip.width-1);}
   // 폰에서도 화면 안에 보이고(칩이 많아도 [편집]은 줄 끝에 남음) 보이는 높이는 작은 버튼 32px, 누르는 범위는 44px.
-  expect(e.x+e.width).toBeLessThanOrEqual(width);expect(Math.round(e.height)).toBe(32);
+  // 폰: 칩이 많으면 줄 전체가 옆으로 밀려 [편집]은 맨 끝에서 만난다(칩과 겹치지 않음).
+  if(width<761){const lastChip=await box(category.locator('[data-lu-category]').last());expect(e.x).toBeGreaterThanOrEqual(lastChip.x+lastChip.width-1);await edit.scrollIntoViewIfNeeded();const e2=await box(edit);expect(e2.x+e2.width).toBeLessThanOrEqual(width+1);}
+  expect(Math.round(e.height)).toBe(32);
   expect(await edit.evaluate(n=>parseFloat(getComputedStyle(n,'::after').height))).toBe(44);
   await edit.click();await expect(page.locator('#libraryManageModal')).toBeVisible();
   await page.locator('#libraryManageClose').click();await expect(page.locator('#libraryManageModal')).toBeHidden();
