@@ -233,7 +233,8 @@ const readers = {
   catalog: async () => {
     const c = rt.context.read(), catalog = window.KPTUProjectCatalog;
     if (!catalog || !c?.workspace?.id || !c?.user?.id) throw new Error('catalog');
-    const snap = await catalog.load({workspaceId:c.workspace.id, userId:c.user.id});
+    // force: the tree as it is now (a project reordered elsewhere since the last read shows in this visit).
+    const snap = await catalog.load({workspaceId:c.workspace.id, userId:c.user.id, force:true});
     if (!snap?.loaded) throw new Error('catalog');
     return snap.tree;
   },
