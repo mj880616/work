@@ -8,9 +8,10 @@
 // - 5. 주요 일정 표는 [주간 정리]의 5번 묶음(다음 주 월요일부터 2주, 달력 일정)으로 14일을 한 줄씩 채우고 참석자 칸에 내 이름,
 //   휴가는 표 아래 "※ 날짜 이름 연차" 줄로 쓴다(WEEKLY-주요일정, 2026-10-21 사용자 결정 — 금요일 작성·월요일 보고라 "보고 주 + 그다음 주").
 //   1. 2) 주요 일정(본부 주요 일정)은 기준이 정해지지 않아 비운다.
+// - ■ 일시·파일 이름·자료 날짜는 상집 보고일(보고 있는 주의 다음 월요일, journal-data.js reportDay)로 한다(2026-10-21 사용자 결정).
 // - 이 상자 하나만 이 모듈이 그린다(journal.js는 자리만 주고 주·자료가 바뀌면 알려 줌). 브라우저 저장소에 아무것도 두지 않는다.
 import {selectMyOrganizations} from './my-organizations.js';
-import {shortDay} from './journal-data.js';
+import {shortDay, reportDay} from './journal-data.js';
 import {scheduleForm} from './journal-weekly.js';
 
 const CONFIRMED_CATEGORY = '주간보고 확정본';
@@ -151,7 +152,7 @@ export function mountWeeklyHwpx(host, {getWeek, rt = window.KPTURuntime}) {
       const context = await readContext(rt).catch(() => ({me:'', organizations:[], orgFallback:true, orgFailed:true}));
       if (mine !== run) return;
       const week = getWeek();
-      state = {draft, team, template, source, start:week.start, me:context.me, date:draft.reportDate(week.start), context,
+      state = {draft, team, template, source, start:week.start, me:context.me, date:draft.reportDate(reportDay(week.start)), context,
         myOrgs:draft.orgNames(context.organizations), aliases:new Map(context.organizations.map(o => [o.name, Array.isArray(o.aliases) ? o.aliases : []])), edits:null, built:null, saved:null};
       rebase();
       say('');
@@ -292,7 +293,7 @@ export function mountWeeklyHwpx(host, {getWeek, rt = window.KPTURuntime}) {
     if (state.built) return state.built;
     const data = draft.assembleDraft({...state.base, date:state.date, ...scheduleForm(getWeek().model?.calendar, state.me)}, state.edits);
     const bytes = await draft.buildHwpx(state.template, data);
-    state.built = {bytes, changed:draft.changedCount(data), name:draft.fileNameFor(state.start)};
+    state.built = {bytes, changed:draft.changedCount(data), name:draft.fileNameFor(reportDay(state.start))};
     return state.built;
   }
   async function doBuild() {
@@ -321,7 +322,7 @@ export function mountWeeklyHwpx(host, {getWeek, rt = window.KPTURuntime}) {
     trigger.disabled = true; trigger.setAttribute('aria-busy', 'true');
     say('자료실에 저장하는 중…');
     try {
-      const result = await drive.saveWeeklyReport(b.bytes, {fileName:b.name, title:`주간보고 ${state.date}`, documentDate:state.start}, {rt});
+      const result = await drive.saveWeeklyReport(b.bytes, {fileName:b.name, title:`주간보고 ${state.date}`, documentDate:reportDay(state.start)}, {rt});
       if (mine !== run) return;
       state.saved = result;
       say(result.message, result.kind === 'created' ? 'ok' : 'error');

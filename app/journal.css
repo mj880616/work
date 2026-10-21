@@ -197,6 +197,8 @@
 #appView #journalView .journal-weekly-schedule thead th:nth-child(2){ width:auto; }
 #appView #journalView .journal-weekly-schedule thead th:nth-child(3){ width:14%; }
 #appView #journalView .journal-weekly-vacation{ margin:0; font-size:var(--kptu-text-body); line-height:1.5; }
+/* ■ 일시(상집 보고일): 보고 있는 주의 다음 월요일. 한글 파일·초안 복사와 같은 날짜. */
+#appView #journalView .journal-weekly-date{ margin:0; font-size:var(--kptu-text-body); font-weight:var(--ds-weight-medium); color:var(--kptu-ink); }
 /* 폰: 표를 한 줄씩 쌓는다(사업영역 머리 → 세부 과제 → 내용). 담당 팀원 칸은 비어 있어 숨긴다. */
 @media(max-width:760px){
   #appView #journalView .journal-weekly{ padding:10px; }
@@ -218,4 +220,5 @@
 @media(min-width:1024px){
   #appView #journalView .journal-weekly-body{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px 24px; align-items:start; }
   #appView #journalView .journal-weekly-chapter:is([data-journal-weekly-chapter="requests"],[data-journal-weekly-chapter="business"]){ grid-column:1/-1; }
+  #appView #journalView .journal-weekly-date{ grid-column:1/-1; }
 }
