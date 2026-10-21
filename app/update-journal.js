@@ -21,10 +21,14 @@ export function journalGuard(metadata) {
   if (value == null) return '&metadata->>journal_at=is.null';
   return typeof value === 'string' ? `&metadata->>journal_at=eq.${encodeURIComponent(value)}` : '';
 }
+// The mark [노트로 옮기기] leaves on the row (basket-data.js moveToNote): the time the update became a note, in metadata as
+// metadata.moved_from_update_at (an ISO time; no new column, no database change). The work journal shows a note with this mark
+// as one "노트: (title)" line on the update's own day (journal-data.js readMovedNotes); a note without it is not shown there.
+export const MOVED_KEY = 'moved_from_update_at';
 const textGuard = value => value == null ? 'is.null' : 'eq.' + encodeURIComponent(typeof value === 'string' ? value : JSON.stringify(value));
 // The keys the other writers of an update's metadata guard (basket-note-tasks.js noteTaskGuard): the first recorded task,
 // the write-request candidate's mark and the request marks.
-function othersGuard(metadata) {
+export function othersGuard(metadata) {
   const meta = plainObject(metadata) ? metadata : {};
   const first = Array.isArray(meta.tasks) ? meta.tasks[0] : null;
   const request = plainObject(meta.write_request) ? meta.write_request.marked_at : null;

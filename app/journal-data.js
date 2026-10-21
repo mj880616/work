@@ -20,7 +20,7 @@ import {readBasket, filedOrganizations, filedProjects} from './basket-data.js';
 import {categoryOf} from './document-categories.js';
 import {myOrganizationIds, OTHERS} from './my-organizations.js';
 import {noteRequests, requestPrefix} from './update-requests.js';
-import {noteJournalAt} from './update-journal.js';
+import {noteJournalAt, MOVED_KEY} from './update-journal.js';
 
 export const WORK_LINE_MAX = 300;
 export const WORK_LINES_PER_DAY = 50;
@@ -154,6 +154,12 @@ export const doneCoverFrom = (days = DONE_TASK_DAYS, today = todayKey()) => seou
 export async function readBasketUpdates(rt = window.KPTURuntime) {
   const {notes, links, docs} = await readBasket(rt);
   return {notes, links, docs};
+}
+// A note that was moved here from the basket ([노트로 옮기기]) carries metadata.moved_from_update_at (basket-data.js moveToNote).
+// Only those notes are read, and only id, title, the update's day (occurred_at) and that mark: never the text (raw_text) or the
+// other metadata. A failed read hides just these lines; the rest of the journal is unaffected.
+export async function readMovedNotes(rt = window.KPTURuntime) {
+  return pages(`/rest/v1/app_notes?workspace_id=eq.${encode(workspace(rt))}&kind=eq.note&metadata->>${MOVED_KEY}=not.is.null&select=id,title,occurred_at,moved_at:metadata->>${MOVED_KEY}&order=occurred_at.asc,id.asc`, rt);
 }
 const PAGE = 100;
 async function pages(path, rt) {
@@ -321,6 +327,13 @@ export function projectNewsOn({basket, projectUpdates} = {}, day) {
 // They leave 조직 소식's '미분류'; an update linked to an organization or a project later shows there instead, never twice.
 export const journalMemosOn = (basket, day) => basketPlaces(basket, day)
   .filter(({orgs, projects, journal}) => journal && !orgs.length && !projects.length).map(({line}) => line);
+// Moved notes of one day (the day the update sat on: occurred_at, Korea time, as memosOn): [{id, line}] oldest first, line =
+// "노트: (title)" cut like the other update lines. A row without the mark is not shown. Not part of GROUPS, so the weekly draft
+// does not carry it (a note is not weekly-report material).
+export const movedNotesOn = (notes, day) => (notes || [])
+  .filter(note => note?.id && typeof note.moved_at === 'string' && onDay(note.occurred_at, day))
+  .sort((a, b) => byTime(a.occurred_at, b.occurred_at) || String(a.id).localeCompare(String(b.id)))
+  .map(note => ({id:note.id, line:`노트: ${firstLine(note.title) || '(제목 없음)'}`}));
 // 회의·행사 결과 of one day: every meeting row of this workspace whose meeting_at falls on that day (Korea time). Press
 // conferences and forums are meeting rows too (their series name says so), so no kind is filtered out.
 export const meetingsOn = (meetings, day) => (meetings || []).filter(meeting => onDay(meeting?.meeting_at, day)).sort((a, b) => byTime(a.meeting_at, b.meeting_at));

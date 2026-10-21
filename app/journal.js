@@ -12,13 +12,15 @@
 // JOURNAL-주간보고허브 1단계: four more groups (프로젝트 소식·할 일 예정·자료실 새 자료·공유 페이지). A group with nothing on
 // the day is not drawn as a box; one "기록 없는 묶음: …" line at the end names them (docs/design/weekly-report-hub.md 2절).
 import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, changeWorkDay, validateWorkLine, WORK_LINE_MAX,
-  workLines, addLine, editLine, removeLine, restoreLine, readWeekEvents, readDoneTasksWindow, readBasketUpdates, readOrgUpdates, readProjectUpdates,
+  workLines, addLine, editLine, removeLine, restoreLine, readWeekEvents, readDoneTasksWindow, readBasketUpdates, readMovedNotes, movedNotesOn, readOrgUpdates, readProjectUpdates,
   readWeekMeetings, readWeekDocuments, readWeekSharePages, dayMaterials, weeklyDraft, DONE_TASK_DAYS, GROUP_SOURCES, rangeNote, isFolded, QUIET_WHEN_EMPTY, WEEK_READ_CAP} from './journal-data.js';
 import {loadDocumentCategories} from './document-categories.js';
 import {formatSeoulTime, seoulParts} from './meeting-time.js';
 import {copyText} from './md-editor.js';
 import {offerUndoNotice, closeUndoNotice} from './basket-record-delete.js';
 import {requestTagsHtml, normalizeRequests} from './update-requests.js';
+import {recordMark} from './basket-link-records.js';
+import {requestNoteDocOpen} from './basket-note-tasks.js';
 
 // ORG-묶음순서: the shared organization order (window.KPTUOrganizationOrder) orders the 조직 소식 sections.
 await import('./organization-order.js').catch(() => {});
@@ -157,6 +159,25 @@ function renderMaterials() {
     if (note) box.insertAdjacentHTML('beforeend', `<p class="journal-muted">${esc(note)}</p>`);
     return box;
   });
+  // 노트로 옮긴 업데이트: a note moved from the basket shows as one "노트: (제목)" line on the update's own day; pressing it opens
+  // the note. Quiet when empty or when its read failed; it is not one of GROUPS, so the weekly draft does not carry it.
+  const moved = materials.movedNotes?.status === 'ok' ? movedNotesOn(materials.movedNotes.items, selected) : [];
+  if (moved.length) {
+    const box = document.createElement('section');
+    box.className = 'journal-group'; box.dataset.journalMovedNotes = '';
+    const head = document.createElement('h4'); head.className = 'journal-heading'; head.textContent = '노트로 옮긴 업데이트';
+    const list = document.createElement('ul'); list.className = 'journal-moved-list';
+    for (const note of moved) {
+      const item = document.createElement('li'), button = document.createElement('button');
+      button.type = 'button'; button.className = 'journal-note-open'; button.dataset.journalNoteOpen = note.id;
+      button.innerHTML = recordMark({note_kind:'note'}, 'journal-note-mark');
+      button.append(note.line);
+      button.setAttribute('aria-label', `${note.line} (눌러서 노트 열기)`);
+      item.append(button); list.append(item);
+    }
+    box.append(head, list);
+    boxes.push(box);
+  }
   // Empty groups are folded into one line at the end (2절: "기록 없는 묶음: …").
   if (folded.length) {
     const line = document.createElement('p');
@@ -173,6 +194,7 @@ const readers = {
   // One Google Tasks read: finished tasks (끝낸 할 일) and pending tasks in the server's range (할 일 예정).
   tasks: async () => { const read = await readDoneTasksWindow(rt); doneDays = read.days; return [...read.tasks, ...read.pending]; },
   basket: () => readBasketUpdates(rt),
+  movedNotes: () => readMovedNotes(rt),
   orgUpdates: () => readOrgUpdates(start, rt),
   projectUpdates: () => readProjectUpdates(start, rt),
   meetings: () => readWeekMeetings(start, rt),
@@ -342,7 +364,8 @@ async function deleteLine(index) {
 async function copyDraft() {
   const text = weeklyDraft({start, lines, materials, doneDays});
   const ok = await copyText(text);
-  const missing = Object.values(materials).some(state => state?.status !== 'ok');
+  // movedNotes is not draft material (a failed read of it hides only its own lines).
+  const missing = Object.entries(materials).some(([key, state]) => key !== 'movedNotes' && state?.status !== 'ok');
   status.textContent = ok ? `이번 주 한 줄과 재료 목록을 복사했어요.${missing ? ' 불러오지 못한 묶음은 빠졌어요.' : ''}` : '복사하지 못했어요. 다시 시도해 주세요.';
 }
 
@@ -354,6 +377,7 @@ root.addEventListener('click', event => {
   if (button.matches('[data-journal-next]')) return moveWeek(1);
   if (button.matches('[data-journal-today]')) return goThisWeek();
   if (button.matches('[data-journal-retry]')) { for (const key of GROUP_SOURCES[button.dataset.journalRetry] || []) if (materials[key]?.status === 'failed') loadGroup(key); return; }
+  if (button.matches('[data-journal-note-open]')) { requestNoteDocOpen(button.dataset.journalNoteOpen, rt); window.KPTURouter?.go('basket', {source:'delegated'}); return; }
   if (button.matches('[data-journal-copy]')) return copyDraft();
   if (button.matches('[data-journal-edit]')) return startEdit(Number(button.dataset.journalEdit));
   if (button.matches('[data-journal-edit-open]')) return startEdit(Number(button.dataset.journalEditOpen));
