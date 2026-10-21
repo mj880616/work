@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import { signInWithSession } from './helpers/session-login.mjs';
+import {openMeetingResult} from './helpers/meeting-open.mjs';
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const captures=new WeakMap();
@@ -61,7 +62,7 @@ async function app(page,view,{profile=true,empty=false}={}){
 async function editDocument(page,id='doc-A'){await page.locator(`[data-lu-menu="${id}"]`).click();await page.locator(`[data-lu-edit="${id}"]`).click();await expect(page.locator('#libraryEditModal')).toBeVisible();}
 async function openOrganization(page,id='org-A'){await page.locator(`[data-so-org="${id}"]`).click();await expect(page.locator('#wdModal')).toBeVisible();await expect(page.locator('#wdTitle')).toHaveText(id);if(!await page.locator('#wdMore').evaluate(el=>el.open))await page.locator('#wdMore > summary').click();}
 async function openBasic(page,id='org-A'){await openOrganization(page,id);await page.locator('#wdEditBasic').click();}
-async function editMeeting(page,id='meeting-A'){await page.locator(`[data-mrd-meeting="${id}"]`).click();await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();await page.locator('#mrdEdit').click();}
+async function editMeeting(page,id='meeting-A'){await openMeetingResult(page,id);await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();await page.locator('#mrdEdit').click();}
 async function openReport(page,id='report-A'){await openOrganization(page,id==='report-A'?'org-A':'org-B');await page.locator(`[data-war-detail="${id}"]`).click();await expect(page.locator('#warDraftModal')).toBeVisible();}
 async function setAffChoices(page,ids){for(const id of ['tag-old','tag-new'])await page.locator(`[data-wd-aff][value="${id}"]`).setChecked(ids.includes(id));}
 async function completed(page,s,n=1){await expect.poll(()=>s.completed).toBeGreaterThanOrEqual(n);await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));}

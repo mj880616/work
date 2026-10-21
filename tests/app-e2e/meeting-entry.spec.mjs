@@ -6,6 +6,7 @@ import {fileURLToPath} from 'node:url';
 import {dirname,resolve} from 'node:path';
 import {fillDateTime} from './helpers/date-time.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import {openMeetingResult} from './helpers/meeting-open.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -239,7 +240,7 @@ test('a Google follow-up failure leaves the saved meeting available without anot
   await page.locator('.meeting-action-title').fill('후속');
   await page.locator('#saveMeetingBtn').click();
   await expect(page.locator('#meetingModal')).toBeHidden();
-  await expect(page.locator('[data-mrd-meeting="meeting-saved"]')).toBeVisible();
+  await expect(page.locator('#meetingList :is([data-mrd-meeting="meeting-saved"],[data-meeting-round="meeting-saved"])')).toBeVisible();
   await expect(page.locator('#toast')).toContainText('회의 결과는 저장됐습니다.');
   expect(creates).toBe(1);
 });
@@ -461,7 +462,7 @@ test('edit can replace a meeting name with an existing choice',async({page})=>{
     if(route.request().method()==='PATCH'){saved=route.request().postDataJSON();return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{id:meeting.id}])})}
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(rows)});
   });
-  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await openMeetingResult(page,'meeting-1');
   await page.locator('#mrdEdit').click();
   await page.locator('#mrdEditNameSelect').selectOption({label:'통일할 회의'});
   await page.locator('#mrdSaveEdit').click();
@@ -563,7 +564,7 @@ test('meeting detail does not repeat a new meeting name when title and series na
   await signIn(page);
   const fresh={...meeting,title:'궤도협의회 집행위원회',series_name:'궤도협의회 집행위원회',round_no:8};
   await page.route(`${SB}/rest/v1/app_meetings**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([fresh])}));
-  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await openMeetingResult(page,'meeting-1');
   await expect(page.locator('#mrdTitle')).toHaveText('궤도협의회 집행위원회');
   await expect(page.locator('#mrdMeta')).not.toContainText('궤도협의회 집행위원회');
   await expect(page.locator('#mrdMeta')).toContainText('8차');
@@ -571,9 +572,13 @@ test('meeting detail does not repeat a new meeting name when title and series na
 
 test('meeting detail dialog exposes semantics, Escape close, and trigger focus restore',async({page})=>{
   await signIn(page);
-  const trigger=page.locator('[data-mrd-meeting="meeting-1"]');
+  // 폰·중간 폭은 목록 줄, PC 3단(MEET-결과3단)은 오른쪽 머리 ⋯ → [수정]. 창을 닫으면 누른 줄(PC는 ⋯)로 돌아간다.
+  const row=page.locator('#meetingList [data-mrd-meeting="meeting-1"]'),more=page.locator('#meetingList [data-meeting-more="meeting-1"]');
+  await expect(row.or(more).first()).toBeVisible();
+  const pc=!(await row.count()),trigger=pc?more:row;
   await trigger.focus();
   await trigger.click();
+  if(pc)await page.locator('#mcolMenu [data-meeting-menu="edit"]').click();
   const modal=page.locator('#meetingRoundDetailModal');
   await expect(modal).toBeVisible();
   await expect(modal).toHaveAttribute('role','dialog');
@@ -596,7 +601,7 @@ test('meeting edit preserves legacy name fields when the user does not rename th
     }
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([meeting])});
   });
-  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await openMeetingResult(page,'meeting-1');
   await expect(page.locator('#mrdResult')).toHaveText('원문 첫 줄\n원문 둘째 줄');
   await expect(page.locator('#mrdSpecialSection')).toBeVisible();
   await page.locator('#mrdEdit').click();
@@ -629,7 +634,7 @@ test('renaming a legacy meeting normalizes title and series_name to the one user
     }
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([meeting])});
   });
-  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await openMeetingResult(page,'meeting-1');
   await page.locator('#mrdEdit').click();
   await page.locator('#mrdEditNameSelect').selectOption('__other__');
   await page.locator('#mrdEditTitle').fill('궤도협의회 집행위원회');
@@ -649,7 +654,7 @@ test('round number remains optional on edit',async({page})=>{
     }
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([meeting])});
   });
-  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await openMeetingResult(page,'meeting-1');
   await page.locator('#mrdEdit').click();
   await page.locator('#mrdEditRound').fill('');
   await page.locator('#mrdSaveEdit').click();
@@ -660,14 +665,14 @@ test('round number remains optional on edit',async({page})=>{
 test('empty special notes stay hidden in meeting detail',async({page})=>{
   await signIn(page);
   await page.route(`${SB}/rest/v1/app_meetings**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{...meeting,notes:''}])}));
-  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await openMeetingResult(page,'meeting-1');
   await expect(page.locator('#mrdSpecialSection')).toBeHidden();
 });
 
 test('legacy structured decisions remain visible only as fallback when old meetings have no raw result',async({page})=>{
   await signIn(page);
   await page.route(`${SB}/rest/v1/app_meetings**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{...meeting,transcript_text:null,decisions:'기존 결정 기록'}])}));
-  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await openMeetingResult(page,'meeting-1');
   await expect(page.locator('#mrdResult')).toContainText('[기존 회의결과 기록]');
   await expect(page.locator('#mrdResult')).toContainText('기존 결정 기록');
 });
@@ -678,7 +683,7 @@ test('meeting edit does not report success when RLS updates zero rows',async({pa
     const data=route.request().method()==='PATCH'?[]:[meeting];
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
   });
-  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await openMeetingResult(page,'meeting-1');
   await page.locator('#mrdEdit').click();
   await page.locator('#mrdSaveEdit').click();
   await expect(page.locator('#mrdEditStatus')).toContainText('저장 결과를 확인하지 못했습니다.');
@@ -699,7 +704,7 @@ test('closing a meeting ignores its late detail response',async({page})=>{
     await held;
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([meeting])});
   });
-  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await openMeetingResult(page,'meeting-1');
   await expect.poll(()=>requested).toBe(true);
   await page.locator('#mrdClose').evaluate(button=>button.click());
   release();
@@ -716,7 +721,7 @@ test('closing a meeting during a delayed follow-up save does not reopen its deta
     if(action==='create'){posted=true;await held}
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(action==='linked'?{tasks:[]}:{ok:true,task:{id:'google-new'}})});
   });
-  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await openMeetingResult(page,'meeting-1');
   await page.locator('#mrdAddTask').click();
   await page.locator('#mrdTaskTitle').fill('후속 자료 정리');
   await page.locator('#mrdTaskSave').click();
@@ -742,7 +747,7 @@ test('repeated meeting follow-up save sends one Google create',async({page})=>{
     }
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true})});
   });
-  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await openMeetingResult(page,'meeting-1');
   await page.locator('#mrdAddTask').click();
   await page.locator('#mrdTaskTitle').fill('후속');
   await page.locator('#mrdTaskSave').click();
@@ -788,7 +793,7 @@ test('meeting detail waits for a task screen completion and rereads it on reopen
   await expect(page.locator('#gtTaskBody [data-google-task="meeting-follow-up"]')).toHaveClass(/completed/);
   await clickView(page,'meetings');
   linkedReads=0;
-  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await openMeetingResult(page,'meeting-1');
   await page.waitForTimeout(150);
   const readsBeforeSave=linkedReads;
   release();
@@ -796,7 +801,7 @@ test('meeting detail waits for a task screen completion and rereads it on reopen
   expect(readsBeforeSave).toBe(0);
   await page.locator('#mrdClose').click();
   const previousReads=linkedReads,previousCompleted=linkedCompleted;
-  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await openMeetingResult(page,'meeting-1');
   await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
   await expect.poll(()=>linkedCompleted).toBeGreaterThan(previousCompleted);
   await expect(page.locator('#mrdTasks [data-mrd-task="meeting-follow-up"]')).toHaveClass(/completed/);
@@ -819,7 +824,7 @@ test('meeting detail can undo a completion while the immediate Google save is in
     }
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,tasks:[task()]})});
   });
-  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await openMeetingResult(page,'meeting-1');
   const row=page.locator('#mrdTasks [data-mrd-task="meeting-follow-up"]');
   await expect(row).toBeVisible();
   await row.locator('[data-mrd-task-toggle]').click();
@@ -837,7 +842,7 @@ test('meeting detail restores a failed completion and alerts the user',async({pa
     const action=new URL(route.request().url()).searchParams.get('action');
     return route.fulfill({status:action==='toggle'?500:200,contentType:'application/json',body:JSON.stringify(action==='linked'?{tasks:[task]}:action==='toggle'?{error:'Google 저장 실패'}:{connected:true,authorized:true,tasks:[task]})});
   });
-  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await openMeetingResult(page,'meeting-1');
   const row=page.locator('#mrdTasks [data-mrd-task="meeting-follow-up"]');
   await expect(row).toBeVisible();
   const dialog=page.waitForEvent('dialog');
@@ -862,7 +867,7 @@ test('meeting detail keeps completed Google follow-ups and supports create, edit
     if(action==='delete'){deleted=body;tasks.splice(tasks.findIndex(t=>t.id===body.task_id),1)}
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true})});
   });
-  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await openMeetingResult(page,'meeting-1');
   await expect(page.locator('#mrdTasks [data-mrd-task]')).toHaveCount(1);
   await expect(page.locator('#mrdTasks [data-mrd-task="old-done"]')).toHaveClass(/completed/);
   await expect(page.locator('#mrdTasks [data-mrd-task-toggle="old-done"]')).toHaveAttribute('aria-label','완료 취소');
@@ -900,7 +905,7 @@ for(const width of [390,1280])test(`meeting Google follow-up row stays usable at
   await page.setViewportSize({width,height:844});
   await signIn(page);
   await page.route(`${SB}/functions/v1/google-tasks**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({tasks:[{id:'followup',title:'긴 후속 할 일 제목을 표시하는 항목',status:'completed',completed:'2025-01-01T00:00:00Z',due:'2025-01-02T00:00:00Z',taskListId:'@default'}]})}));
-  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await openMeetingResult(page,'meeting-1');
   const row=page.locator('#mrdTasks [data-mrd-task="followup"]');
   await expect(row).toBeVisible();
   await expect(row.locator('[data-mrd-task-toggle]')).toBeVisible();
@@ -966,7 +971,7 @@ test('changing a meeting project leaves existing Google follow-up links untouche
     if(action==='linked'){linkedReads++;return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({tasks:[{id:'existing',title:'기존 후속',status:'needsAction',taskListId:'@default'}]})})}
     return route.fulfill({status:200,contentType:'application/json',body:'{}'});
   });
-  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await openMeetingResult(page,'meeting-1');
   await expect(page.locator('#mrdTasks [data-mrd-task="existing"]')).toBeVisible();
   await page.locator('#mrdEdit').click();
   await page.locator('#mrdEditProject').selectOption('child');

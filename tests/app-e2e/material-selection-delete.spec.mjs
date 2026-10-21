@@ -4,6 +4,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import {showAllLibraryCategories} from './helpers/library-categories.mjs';
+import {openMeetingResult} from './helpers/meeting-open.mjs';
 
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -65,7 +66,7 @@ for(const width of [390,1280]){
     page.on('pageerror',e=>pageErrors.push(e.message));
     await page.route('**/app/document-delete.js*',route=>route.abort());
     if(view==='meetings'){
-      await page.locator('[data-mrd-meeting="meeting-1"]').click();
+      await openMeetingResult(page,'meeting-1');
       await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
     }else{
       await clickView(page,'library');
@@ -81,7 +82,7 @@ for(const width of [390,1280]){
   test(`meeting material deletion confirms, cancels and refreshes all three lists ${width}px`,async({page})=>{
     const state=await boot(page,width);
     await expect(page.locator('#meetingList')).toContainText('회의자료 있음');
-    await page.locator('[data-mrd-meeting="meeting-1"]').click();
+    await openMeetingResult(page,'meeting-1');
     await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
     const remove=page.locator('[data-mrd-delete-document="doc-0"]');
     let canceled=false;page.once('dialog',async d=>{expect(d.message()).toBe('“first.pdf” 자료 등록을 삭제할까요?\n파일도 Drive 휴지통으로 이동할 수 있습니다. 삭제 결과에서 원본 보존 여부를 확인해 주세요.');await d.dismiss();canceled=true});
@@ -106,7 +107,7 @@ for(const width of [390,1280]){
 
   test(`failed meeting material deletion uses library error guidance and keeps lists ${width}px`,async({page})=>{
     const state=await boot(page,width);state.error='permission denied';
-    await page.locator('[data-mrd-meeting="meeting-1"]').click();
+    await openMeetingResult(page,'meeting-1');
     const alerts=[];
     page.on('dialog',async d=>{if(d.type()==='confirm')await d.accept();else{alerts.push(d.message());await d.accept()}});
     await page.locator('[data-mrd-delete-document="doc-0"]').click();
@@ -183,7 +184,7 @@ for(const width of [390,1280]){
   // UI-회의결과창정리: 파일을 고르면 바로 올라간다([업로드] 버튼 없음). 차례를 기다리는 파일은 ×로 뺄 수 있다.
   test(`meeting detail uploads picked files right away and drops a waiting file on × ${width}px`,async({page})=>{
     const state=await boot(page,width);
-    await page.locator('[data-mrd-meeting="meeting-1"]').click();
+    await openMeetingResult(page,'meeting-1');
     await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
     await expect(page.locator('#mrdUpload')).toHaveCount(0);
     state.hold=true;
@@ -248,7 +249,7 @@ async function openUploadScreen(page,screen){
     await page.locator('#meetingTranscript').fill('원문');
     return {input:'#meetingFiles',save:'#saveMeetingBtn',rows:'#meetingSelectedFiles > div',status:'#toast'};
   }
-  await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  await openMeetingResult(page,'meeting-1');
   await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
   // 회의 결과 창 회의자료는 고르면 바로 올라가므로 따로 누를 저장 버튼이 없다.
   return {input:'#mrdFiles',save:null,rows:'#mrdSelectedFiles > div',status:'#mrdStatus'};
@@ -320,7 +321,7 @@ for(const width of [390,1280])for(const screen of ['library','new meeting','meet
 
 async function openDeleteControl(page,view){
   if(view==='meetings'){
-    await page.locator('[data-mrd-meeting="meeting-1"]').click();
+    await openMeetingResult(page,'meeting-1');
     await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
   }else{
     await clickView(page,'library');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));

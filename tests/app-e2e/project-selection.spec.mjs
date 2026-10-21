@@ -2,6 +2,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import {test,expect} from '@playwright/test';
 import {calendarToday} from './helpers/calendar-today.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import {openMeetingResult} from './helpers/meeting-open.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -76,7 +77,7 @@ test('new meeting uses the project catalog tree while calendar has no project se
 
 test('meeting edit retains an excluded project unless changed',async({page})=>{
   const writes={};await signIn(page,'meetings',writes);
-  await page.locator('[data-mrd-meeting="selection-meeting"]').click();
+  await openMeetingResult(page,'selection-meeting');
   await page.locator('#mrdEdit').click();
   const select=page.locator('#mrdEditProject');
   await expect(select).toHaveValue('legacy');

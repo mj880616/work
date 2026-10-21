@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import { signInWithSession } from './helpers/session-login.mjs';
+import {openMeetingResult} from './helpers/meeting-open.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -121,7 +122,7 @@ async function openDocument(page){
 
 async function openMeetingEdit(page){
   // 확인된 저장은 편집창만 닫고 현재 회의 상세를 유지한다.
-  if(!(await page.locator('#meetingRoundDetailModal').isVisible()))await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  if(!(await page.locator('#meetingRoundDetailModal').isVisible()))await openMeetingResult(page,'meeting-1');
   await page.locator('#mrdEdit').click();
   await expect(page.locator('#mrdSaveEdit')).toBeVisible();
 }

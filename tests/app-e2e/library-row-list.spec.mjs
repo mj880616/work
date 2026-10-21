@@ -5,6 +5,7 @@ import { test, expect } from '@playwright/test';
 import {execFileSync} from 'node:child_process';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import {openMeetingResult} from './helpers/meeting-open.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -343,7 +344,7 @@ for(const width of [390,1280]){
       await expect(page.locator('[data-lu-document="doc-archived"]')).toBeVisible();
       // Existing meeting query/data and display stay shared with the meeting screen.
       await page.evaluate(()=>window.KPTURouter.go('meetings'));await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
-      await page.locator('[data-mrd-meeting="recent"]').click();
+      await openMeetingResult(page,'recent');
       await expect(page.locator('#mrdMaterials')).toContainText('report.pdf');
       await page.locator('#mrdClose').click();await page.evaluate(()=>window.KPTURouter.go('library'));
       await edit();
@@ -351,7 +352,7 @@ for(const width of [390,1280]){
       await meeting.selectOption('');await page.locator('#libraryEditSave').click();await expect(page.locator('#libraryEditModal')).toBeHidden();
       expect(state.patches.at(-1).body.meeting_id).toBeNull();
       await expect(page.locator('[data-lu-document="doc-archived"]')).toBeVisible();
-      await page.evaluate(()=>window.KPTURouter.go('meetings'));await page.locator('[data-mrd-meeting="recent"]').click();
+      await page.evaluate(()=>window.KPTURouter.go('meetings'));await openMeetingResult(page,'recent');
       await expect(page.locator('#mrdMaterials')).toContainText('회의자료가 없습니다.');
       // Refresh the open material list through the same signal that the edit save emitted.
       // It must leave an in-progress meeting editor intact.
