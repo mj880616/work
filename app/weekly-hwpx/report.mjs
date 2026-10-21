@@ -21,7 +21,7 @@
 // 줄은 글자 또는 {text, changed}. changed 줄은 양식 안의 "바뀐 글" 글자 모양(같은 크기·글꼴의 파란 글씨)으로 쓴다.
 import {el, clone, kid, kids, walk, textOf} from './xml.mjs';
 import {readXml, setXml, clonePkg} from './hwpx.mjs';
-import {readPrototypes, renumber, isBoxTable, REQUEST_HEAD, SUMMARY_HEAD, RALLY_HEAD, SITE_HEAD, ORG_HEAD, SCHEDULE_HEAD} from './template.mjs';
+import {readPrototypes, renumber, isBoxTable, FORM_LABELS, BOX_LABELS, REQUEST_HEAD, SUMMARY_HEAD, RALLY_HEAD, SITE_HEAD, ORG_HEAD, SCHEDULE_HEAD} from './template.mjs';
 import {headerMetrics, layoutTable} from './layout.mjs';
 
 export const CHANGED_COLOR = '#0000FF';
@@ -46,7 +46,7 @@ export function readTable(tbl) {
       if (i < 0 || a.row < 1) continue;
       const slot = rows[a.row - 1];
       if (slot[i]) slot[i].lines.push(...cellLines(tc)); // 숨은 좁은 열 등으로 한 논리 열에 칸이 둘이면 이어 붙인다
-      else slot[i] = {lines: cellLines(tc), rs: a.rs, start: true};
+      else slot[i] = {lines: cellLines(tc), rs: a.rs, start: true, border: tc.attrs.borderFillIDRef};
     }
   }
   return {head: headCells.map(h => h.lines.join('').trim()), rows};
@@ -68,9 +68,11 @@ export function findTables(pkg) {
   return found;
 }
 
-// 2열 표(조직명 | 현황 등) → [{org, status}]
+// 2열 표(조직명 | 현황 등) → [{org, status, borders, src}]. borders = 칸마다 확정본의 테두리 번호(양식의 줄별 굵은 구분선·
+// 바깥 테두리를 그대로 따르기 위해), src = 확정본 표에서 몇 번째 줄인지(머리 줄 뺌).
 export function pairsFromTable(t) {
-  return t.rows.map(([a, b]) => ({org: trimLines(a?.lines ?? []), status: trimLines(b?.lines ?? [])})).filter(r => r.org.length || r.status.length);
+  return t.rows.map(([a, b], src) => ({org: trimLines(a?.lines ?? []), status: trimLines(b?.lines ?? []), borders: [a?.border ?? null, b?.border ?? null], src}))
+    .filter(r => r.org.length || r.status.length);
 }
 export function ralliesFromTable(t) {
   return t.rows.map(([a, b, c]) => ({when: trimLines(a?.lines ?? []), name: trimLines(b?.lines ?? []), attend: trimLines(c?.lines ?? [])})).filter(r => r.when.length || r.name.length || r.attend.length);
@@ -113,7 +115,9 @@ export function requestsFromTable(t) {
 export function readReport(pkg) {
   const found = findTables(pkg);
   if (!found.summary) throw new Error('요약 표(사업영역 | 세부 과제 | 진행 상황 및 이후 계획 | 담당 팀원)를 찾지 못함');
+  const first = found.top.find(p => !kids(p, 'hp:run').some(r => r.children.some(c => c.name === 'hp:tbl')) && textOf(p).trim());
   return {
+    title: first ? textOf(first).trim() : '',
     requests: found.request ? requestsFromTable(found.request) : [],
     summary: summaryFromTable(found.summary),
     details: detailsFrom(found),
@@ -157,8 +161,9 @@ function tableProto(anchor) {
   return {tbl, cells: kids(body, 'hp:tc'), cellPara: kids(kid(kids(body, 'hp:tc')[0], 'hp:subList'), 'hp:p')[0]};
 }
 
-function cell(protoCell, row, col, rowSpan, lines, changedCharPr) {
+function cell(protoCell, row, col, rowSpan, lines, changedCharPr, border) {
   const tc = clone(protoCell);
+  if (border) tc.attrs.borderFillIDRef = border;
   const sub = kid(tc, 'hp:subList');
   const pProto = kids(sub, 'hp:p')[0];
   const list = lines && lines.length ? lines : [''];
@@ -173,7 +178,7 @@ function fillTable(anchor, grid, changedCharPr) {
   const out = clone(anchor);
   const {tbl, cells} = tableProto(out);
   const [head] = kids(tbl, 'hp:tr');
-  const trs = grid.map((row, r) => el('hp:tr', {}, row.map((c, col) => (c ? cell(cells[col], r + 1, col, c.rs, c.lines, changedCharPr) : null)).filter(Boolean)));
+  const trs = grid.map((row, r) => el('hp:tr', {}, row.map((c, col) => (c ? cell(cells[col], r + 1, col, c.rs, c.lines, changedCharPr, c.border) : null)).filter(Boolean)));
   tbl.children = tbl.children.filter(c => c.name !== 'hp:tr').concat([head, ...trs]);
   tbl.attrs.rowCnt = String(grid.length + 1);
   return out;
@@ -218,6 +223,37 @@ export function plainGrid(rows, cols) {
   return out.length ? out : [Array.from({length: cols}, () => ({lines: [], rs: 1}))];
 }
 
+// 산하조직·투쟁 사업장 표(2열): 줄마다 확정본의 테두리를 따른다(2단계 — 확정본은 조직 묶음 사이에 굵은 선, 같은 조직이
+// 여러 줄이면 위 선 없음, 바깥 왼쪽·오른쪽은 굵은 선). 테두리 번호는 양식 머리(header.xml)에 있는 것만 쓰고 새로 만들지 않는다.
+// 내 담당 조직만 남기면 위 줄이 빠진 줄이 생기는데(cutAbove), 그 줄의 위 선이 '없음'이면 위 선만 다른 양식 안의 테두리로 바꾼다
+// (그런 테두리가 양식에 없으면 그대로 둠). 테두리 정보가 없는 줄(사람이 더한 줄 등)은 견본 줄 테두리를 쓴다.
+export function borderTools(header) {
+  const fills = new Map([...walk(header.root)].filter(n => n.name === 'hh:borderFill').map(b => [b.attrs.id, b]));
+  const sig = (b, skip) => JSON.stringify([Object.entries(b.attrs).filter(([k]) => k !== 'id'), b.children.filter(c => c.name !== skip).map(c => toSig(c))]);
+  const toSig = n => ('text' in n ? n.text : [n.name, Object.entries(n.attrs), n.children.map(toSig)]);
+  const top = b => kid(b, 'hh:topBorder')?.attrs ?? {};
+  return {
+    known: id => !!id && fills.has(id),
+    closeTop(id) {
+      const b = fills.get(id);
+      if (!b || top(b).type !== 'NONE') return id;
+      const want = sig(b, 'hh:topBorder');
+      const hits = [...fills.values()].filter(o => o !== b && top(o).type && top(o).type !== 'NONE' && sig(o, 'hh:topBorder') === want);
+      const bottom = kid(b, 'hh:bottomBorder')?.attrs ?? {};
+      return (hits.find(o => top(o).type === bottom.type && top(o).width === bottom.width) ?? hits[0])?.attrs.id ?? id;
+    },
+  };
+}
+export function pairGrid(list, tools) {
+  const border = (row, i) => {
+    const id = row.borders?.[i];
+    if (!tools?.known(id)) return undefined;
+    return row.cutAbove ? tools.closeTop(id) : id;
+  };
+  const out = list.map(row => [{lines: row.org, rs: 1, border: border(row, 0)}, {lines: row.status, rs: 1, border: border(row, 1)}]);
+  return out.length ? out : [[{lines: [], rs: 1}, {lines: [], rs: 1}]];
+}
+
 // 회의 결과 상자: 견본(1줄 2칸)을 칸 이름 수만큼 늘린다.
 function fillBox(anchor, box, changedCharPr) {
   const out = clone(anchor);
@@ -240,6 +276,7 @@ export function buildReport(template, data, {sectionTitles = DEFAULT_SECTIONS} =
   const header = readXml(pkg, 'Contents/header.xml');
   const cellCharPr = kids(tableProto(protos.summaryTable).cellPara, 'hp:run')[0]?.attrs.charPrIDRef;
   const changed = findChangedCharPr(header, cellCharPr);
+  const borders = borderTools(header);
   const S = sectionTitles;
   const blank = () => paragraph(protos.body, '');
   const lines = (proto, list) => (list?.length ? list.map(line => paragraph(proto, line, changed)) : [blank()]);
@@ -268,11 +305,11 @@ export function buildReport(template, data, {sectionTitles = DEFAULT_SECTIONS} =
     fillTable(protos.rallyTable, plainGrid((data.rallies ?? []).map(r => [r.when, r.name, r.attend]), 3), changed),
     blank(),
     paragraph(protos.mid, S.siteTable),
-    fillTable(protos.siteTable, plainGrid((data.sites ?? []).map(r => [r.org, r.status]), 2), changed),
+    fillTable(protos.siteTable, pairGrid(data.sites ?? [], borders), changed),
     blank(),
     paragraph(protos.big, S.orgs),
     paragraph(protos.mid, S.orgTable),
-    fillTable(protos.orgTable, plainGrid((data.orgs ?? []).map(r => [r.org, r.status]), 2), changed),
+    fillTable(protos.orgTable, pairGrid(data.orgs ?? [], borders), changed),
     blank(),
     paragraph(protos.mid, S.orgNotes),
     ...lines(protos.body, data.orgNotes),
@@ -308,3 +345,11 @@ export function reportTexts(data) {
   for (const r of [...(data.sites ?? []), ...(data.orgs ?? [])]) out.push(...r.org, ...r.status.map(lineText));
   return out.filter(Boolean).map(lineText);
 }
+
+// 빈 서식 검사용 원본 글 조각: 문장 전체 + 한글 3글자 이상 낱말(양식 글자에 들어 있는 낱말은 뺌). 빈 서식에 하나라도 남으면 실패.
+const LABEL_TEXT = [...FORM_LABELS, ...BOX_LABELS].join(' ');
+export const reportWords = report => {
+  const texts = reportTexts(report).filter(t => !BOX_LABELS.includes(t));
+  const words = texts.flatMap(t => t.split(/[^가-힣A-Za-z0-9]+/)).filter(w => /[가-힣]/.test(w) && [...w].length >= 3 && !LABEL_TEXT.includes(w));
+  return [...new Set([...texts, ...words])];
+};

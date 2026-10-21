@@ -1,12 +1,15 @@
 name: Weekly HWPX prototype check
 
-# WEEKLY-한글초안 1단계 시제품(docs/design/weekly-hwpx-draft.md). 가짜 내용만 쓴다. 운영 접속·비밀값 없음.
+# WEEKLY-한글초안 1단계 시제품·2단계 브라우저 흐름(docs/design/weekly-hwpx-draft.md). 가짜 내용만 쓴다. 운영 접속·비밀값 없음.
 on:
   push:
     branches: [main]
     paths:
       - 'scripts/weekly-hwpx/**'
+      - 'app/weekly-hwpx/**'
       - 'tests/weekly-hwpx.test.mjs'
+      - 'tests/weekly-hwpx-draft.test.mjs'
+      - 'app/my-organizations.js'
       - 'tests/fixtures/hwp-lab/**'
       - 'scripts/hwp-lab/rhwp-pin.json'
       - '.github/workflows/weekly-hwpx-check.yml'
@@ -14,7 +17,10 @@ on:
     branches: [main]
     paths:
       - 'scripts/weekly-hwpx/**'
+      - 'app/weekly-hwpx/**'
       - 'tests/weekly-hwpx.test.mjs'
+      - 'tests/weekly-hwpx-draft.test.mjs'
+      - 'app/my-organizations.js'
       - 'tests/fixtures/hwp-lab/**'
       - 'scripts/hwp-lab/rhwp-pin.json'
       - '.github/workflows/weekly-hwpx-check.yml'
@@ -37,7 +43,7 @@ jobs:
           package-manager-cache: false
 
       - name: Unit tests (zip·XML·빈 서식·보고서·바뀐 줄)
-        run: node --test tests/weekly-hwpx.test.mjs
+        run: node --test tests/weekly-hwpx.test.mjs tests/weekly-hwpx-draft.test.mjs
 
       # 편집기와 같은 rhwp 엔진(@rhwp/core, 고정 버전·무결성은 scripts/hwp-lab/rhwp-pin.json)으로 만든 .hwpx를 다시 연다.
       - name: Fetch pinned rhwp engine
