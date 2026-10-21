@@ -2,14 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {zlib, SAMPLE} from '../scripts/weekly-hwpx/cli.mjs';
-import {writeZip, readZip, crc32} from '../scripts/weekly-hwpx/zip.mjs';
-import {parseXml, toXml, walk, textOf} from '../scripts/weekly-hwpx/xml.mjs';
-import {openHwpx, packHwpx, validateHwpx, readXml, setText, headerStyles, REQUIRED_PARTS} from '../scripts/weekly-hwpx/hwpx.mjs';
-import {extractBlankTemplate, assertBlank, FORM_LABELS, readPrototypes, PROTO_ORDER} from '../scripts/weekly-hwpx/template.mjs';
-import {buildReport, readReport, reportTexts, lineText, isChanged} from '../scripts/weekly-hwpx/report.mjs';
-import {personalFromTeam, personalReportFromTeam, applyPatch, applyReportPatch, diffLines, diffRows, isMine, REQUEST_CHECK_NOTE} from '../scripts/weekly-hwpx/delta.mjs';
-import {estimateLines, layoutTable, headerMetrics} from '../scripts/weekly-hwpx/layout.mjs';
-import {kid, kids} from '../scripts/weekly-hwpx/xml.mjs';
+import {writeZip, readZip, crc32} from '../app/weekly-hwpx/zip.mjs';
+import {parseXml, toXml, walk, textOf} from '../app/weekly-hwpx/xml.mjs';
+import {openHwpx, packHwpx, validateHwpx, readXml, setText, headerStyles, REQUIRED_PARTS} from '../app/weekly-hwpx/hwpx.mjs';
+import {extractBlankTemplate, assertBlank, FORM_LABELS, readPrototypes, PROTO_ORDER} from '../app/weekly-hwpx/template.mjs';
+import {buildReport, readReport, reportTexts, lineText, isChanged} from '../app/weekly-hwpx/report.mjs';
+import {personalFromTeam, personalReportFromTeam, applyPatch, applyReportPatch, diffLines, diffRows, isMine, REQUEST_CHECK_NOTE} from '../app/weekly-hwpx/delta.mjs';
+import {estimateLines, layoutTable, headerMetrics} from '../app/weekly-hwpx/layout.mjs';
+import {kid, kids} from '../app/weekly-hwpx/xml.mjs';
 import {makeFakeReport, FAKE_TEXTS, DEMO_DATA, STYLE_TABLE} from '../scripts/weekly-hwpx/fixture.mjs';
 
 // WEEKLY-한글초안 1단계 시제품(docs/design/weekly-hwpx-draft.md). 실제 업무 문서는 쓰지 않는다: 저장소의 rhwp 빈 문서

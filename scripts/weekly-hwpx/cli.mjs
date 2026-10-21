@@ -13,9 +13,9 @@ import {readFileSync, writeFileSync} from 'node:fs';
 import {deflateRawSync, inflateRawSync} from 'node:zlib';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {join} from 'node:path';
-import {openHwpx, packHwpx, validateHwpx, readXml, headerStyles} from './hwpx.mjs';
-import {extractBlankTemplate, assertBlank, FORM_LABELS, BOX_LABELS} from './template.mjs';
-import {buildReport, readReport, reportTexts} from './report.mjs';
+import {openHwpx, packHwpx, validateHwpx, readXml, headerStyles} from '../../app/weekly-hwpx/hwpx.mjs';
+import {extractBlankTemplate, assertBlank, FORM_LABELS, BOX_LABELS} from '../../app/weekly-hwpx/template.mjs';
+import {buildReport, readReport, reportTexts} from '../../app/weekly-hwpx/report.mjs';
 import {makeFakeReport, DEMO_DATA, FAKE_TEXTS} from './fixture.mjs';
 
 export const zlib = {deflateRaw: b => deflateRawSync(b, {level: 9}), inflateRaw: b => inflateRawSync(b)};

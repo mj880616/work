@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/weekly-hwpx/**'
+      - 'app/weekly-hwpx/**'
       - 'tests/weekly-hwpx.test.mjs'
       - 'tests/fixtures/hwp-lab/**'
       - 'scripts/hwp-lab/rhwp-pin.json'
@@ -14,6 +15,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/weekly-hwpx/**'
+      - 'app/weekly-hwpx/**'
       - 'tests/weekly-hwpx.test.mjs'
       - 'tests/fixtures/hwp-lab/**'
       - 'scripts/hwp-lab/rhwp-pin.json'
