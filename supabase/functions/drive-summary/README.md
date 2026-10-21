@@ -40,17 +40,26 @@
 - 복구: Claude Code 로컬 별도 승인 후 대상 함수만 비활성화/삭제한다. 삭제 명령안은 `npx.cmd supabase functions delete drive-summary --project-ref <ref>`이다. 만들어진 읽기용 문서는 사용자가 Drive에서 삭제한다. DB 복구는 필요 없다.
 - 남은 위험: 여러 호출이 동시에 최초 생성/교체하면 중복 파일 또는 오래된 사본으로 덮어쓰기가 가능하다. DB lock/write는 이 PR에서 금지되어 추가하지 않았다. PR 2 호출 몰아주기와 PR 3 실행 겹침 방지로 줄이고, 표시 중복은 이 함수가 실패로 보고한다. Drive 공유 변경과 읽기 검사 사이에도 외부 변경 경합은 가능하다.
 
-## BASKET-3 (소스·검증, 운영 배포 없음)
+## 바구니 절 (DRIVE-바구니원문제외, 2026-10-22 사용자 결정)
 
-프로젝트 사본 끝에만 바구니를 붙인다. 서버가 `kptu-work` workspace·최근 4주 KST·기존 폴더를 결정한다. `archived_at IS NULL`, `ai_export_allowed=true`이고 확정/제안 연결이 없는 메모만 포함한다. 업무일지에 남긴 업데이트(`metadata.journal_at`, 화면 `app/update-journal.js`의 `noteJournalAt`과 같은 판정)는 미분류가 아니므로 대상 건수·과거 미분류 건수·원문에서 모두 빠진다. 이 판정을 위해 메타데이터는 `journal_at:metadata->journal_at` 한 값만 조회한다. 과거 미분류 건수만 표시한다. 저장된 제안은 원문 버전 열이 없으므로 모두 보수적으로 유효하게 취급하며 화면 `noteState`와 같은 기준이다. BASKET-4의 버전 검증·무효화와 처리 결과 writer를 구현하지 않는다.
+프로젝트 사본 끝의 바구니 절은 **건수 한 줄**뿐이다.
 
-원문은 HTML escape만 하고 공백·개행을 보존한다. `<pre>` 첫 개행 제거를 방지하는 빈 span과 CR 문자 참조를 사용한다. 첨부는 파일명·MIME·byte 크기·검증된 Drive ID 링크만 출력하며 파일 읽기·OCR·AI 요청은 없다. 분류 목적지는 `app/project-catalog-model.mjs`를 기준으로 한 배포 내부 사본 `./project-catalog-model.mjs`의 동일한 분류·tree를 사용한다. 두 사본은 회귀에서 바이트 단위로 비교한다. v2/management_version=2 프로젝트와 후손 중 화면에 보이는 tree에서 완료(done/completed)·보관을 제외하고, 하위 이름은 “상위 › 하위” 경로로 제공한다. 완료 상위의 미완료 하위는 유지하고 보관 상위의 후손·순환 계층은 화면과 같이 숨긴다. 담당조직은 #500의 내 담당 활성 조직·담당 0개 대체 문구를 유지하며 목적지 kind는 organization·project다. 7.2 JSON 기술 초안 `schema_version=1`과 제안 전용 지침을 함께 제공한다.
+```
+<h2>바구니</h2>
+<p>바구니 미분류 메모 N건 (내용은 Web2 바구니에서 확인)</p>
+```
 
-상한: 메모 **100건**, 프로젝트 문서 전체 HTML **UTF-8 1 MiB**(정확한 상한 포함). 초과하면 바구니 본문 전체를 내보내지 않고 프로젝트 사본 상단에 **대상 축소 필요**를 표시한다. 기존 절이 단독으로 상한을 초과하면 해당 사본도 진단 문서로 대체한다. `BASKET_OUTPUT_LIMIT` 실패·`last_failure_at/summary`를 기록하고 `last_success_at`은 유지한다. 잘못된 첨부는 업로드 전 `BASKET_ATTACHMENT_INVALID`로 실패하며 민감 내용은 오류에 넣지 않는다. Drive 장애로 경고 문서/실패 기록 자체가 쓰이지 못할 때는 기존 실패 경로와 `failure_recorded=false`를 그대로 따른다.
+- 이유: 바깥 AI에 분류를 맡기는 흐름을 더 쓰지 않는다(분류는 Web2 안 AI가 한다). 그래서 사본에 메모 원문·메모 ID·Web2 메모 링크·첨부 정보·사진 글자(OCR)·분류 안내/JSON 예시·담당조직·프로젝트 목록을 싣지 않는다. 이전의 BASKET-3 절(원문 포함, 메모 100건 상한, 분류 안내)은 없어졌다.
+- N: 서버가 `kptu-work`·최근 4주(한국 자정 기준 28일, 양끝 포함)에서 `archived_at IS NULL`, `ai_export_allowed=true`이고 확정/제안 연결이 없는 메모를 센 값이다. 업무일지에 남긴 업데이트(`metadata.journal_at`, 화면 `app/update-journal.js`의 `noteJournalAt`과 같은 판정)는 미분류가 아니므로 센 값에서 빠진다. 4주 이전 미분류 건수는 더 싣지 않는다. 저장된 제안은 원문 버전 열이 없으므로 모두 유효하게 취급하며 화면 `noteState`와 같은 기준이다.
+- 읽는 열: `app_notes`는 `id,workspace_id,occurred_at,archived_at,ai_export_allowed,journal_at:metadata->journal_at` 여섯 값만 읽는다(`kind=eq.basket`). `raw_text`·`attachments`·`created_at`·`updated_at`·`metadata` 나머지 키는 읽지 않고, 메모 ID별 본문 읽기(5건씩)도 없어졌다. `app_record_links`는 `id,workspace_id,note_id,status`. 목록 읽기와 마지막 재확인 두 번만 하며, 그 사이 메모·연결이 바뀌면 `DB_READ_FAILED`로 실패한다.
+- 상한: 메모 건수 상한(100건)은 없어졌다. 프로젝트 문서 전체 HTML UTF-8 1 MiB 상한은 그대로다. 초과하면 사본 상단에 **대상 축소 필요**를 표시하고 `BASKET_OUTPUT_LIMIT` 실패·`last_failure_at/summary`를 기록하며 `last_success_at`은 유지한다. `BASKET_ATTACHMENT_INVALID`는 첨부를 더 읽지 않으므로 나오지 않는다.
+- 담당조직 선택 규칙(`selectBasketOrganizations`)은 조직 사본이 그대로 쓴다. 프로젝트 분류(`project-catalog-model.mjs`)도 프로젝트 현황 절이 쓴다.
+- 갱신 호출은 payload 없이 유지한다. 인증·Drive 폴더·공유 검사는 바뀌지 않았다.
+- 배포: 같은 함수 재배포(`verify_jwt=false` 유지). 새 비밀값·DB 변경 없음. 재배포 전까지 운영 사본은 이전 형식(원문 포함)이다. 사본에 이미 올라간 원문은 재배포 뒤 다음 갱신 때 전체 교체로 사라진다(Drive 문서 버전 기록에는 이전 내용이 남을 수 있음).
+- 되돌리기: 이전 운영 소스(main `089ac0b`)로 재배포.
+- 이전 설계 기록: [검토 기록](../../../docs/basket-3-drive-copy.md)(역사 기록, 현재 동작이 아님).
 
-Web2 링크는 `https://desk.bokdoong.com/work/app/?view=basket&note=<ID>`이며 로그인 후 owner API 조회 결과의 정확한 메모만 연다. 갱신 호출은 payload 없이 유지한다. 상세 검토·가짜 데이터·운영 SHA 추정 근거: [검토 기록](../../../docs/basket-3-drive-copy.md).
-
-화면 기준 모듈은 브라우저가 제공받는 `app/` 경로에 두고 Edge 사본은 `supabase/functions/drive-summary/` 안에 둔다. 운영 workflow는 `supabase/functions`만 격리 복사하므로 Edge에서 `app/`를 import하지 않는다. `scripts/check-drive-summary-isolation.mjs`가 같은 functions-only 복사를 만든 뒤 Deno 의존 그래프의 모든 로컬 경로·심볼릭 링크가 functions 내부인지 검사하고 check·bundle한다. 자동 보안 CI는 Deno 2.9.6과 `tests/edge-isolation/*.test.mjs`로 이 검사를 실행한다. 배포 workflow는 수정하지 않았다. 파일·PR 준비만 했으며 운영 v5(source `8b91b60`)에서 재배포 전까지 사본 안내는 바뀌지 않는다.
+화면 기준 모듈은 브라우저가 제공받는 `app/` 경로에 두고 Edge 사본은 `supabase/functions/drive-summary/` 안에 둔다. 운영 workflow는 `supabase/functions`만 격리 복사하므로 Edge에서 `app/`를 import하지 않는다. `scripts/check-drive-summary-isolation.mjs`가 같은 functions-only 복사를 만든 뒤 Deno 의존 그래프의 모든 로컬 경로·심볼릭 링크가 functions 내부인지 검사하고 check·bundle한다.
 
 ## ORG-사본자동갱신 (버튼 없는 자동 갱신)
 
