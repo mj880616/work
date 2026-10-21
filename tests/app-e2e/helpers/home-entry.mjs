@@ -116,6 +116,9 @@ export async function openHome(
         contentType: "application/json",
         body: '{"message":"QA failure"}',
       });
+    // JOURNAL-챙길것: by default nothing is found (no candidate; the server already looked today), so the home 챙길 것 card
+    // folds away and the other home tests see the home as before. tests/app-e2e/todo-radar.spec.mjs routes these itself.
+    if (p.endsWith("/functions/v1/ai-assist")) return ok({ ok: true, kind: "todo_radar", skipped: true, checked_at: null, partial: false });
     if (p.endsWith("google-tasks")) {
       if(a==='create'){const body=req.postDataJSON(),d=createdTaskReply(body,{id:'home-created-'+tasks.length});tasks.push(d.task);links.push(...d.links.map(link=>({...link,google_task_id:d.task.id})));return ok(d)}
       if(a==='tasks')return ok({tasks:connected?tasks:[],needs_reconnect:!connected,pending_scope:'all'});

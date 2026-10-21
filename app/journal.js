@@ -25,6 +25,7 @@ import {requestTagsHtml, normalizeRequests} from './update-requests.js';
 import {recordMark} from './basket-link-records.js';
 import {requestNoteDocOpen} from './basket-note-tasks.js';
 import {weeklySummary, renderWeekly} from './journal-weekly.js';
+import {mountRadar} from './todo-radar.js';
 
 // ORG-묶음순서: the shared organization order (window.KPTUOrganizationOrder) orders the 조직 소식 sections.
 await import('./organization-order.js').catch(() => {});
@@ -45,6 +46,7 @@ const length = text => [...String(text ?? '')].length;
 root.innerHTML = `<div class="journal-head"><div class="journal-mode-switch" role="group" aria-label="업무일지 보기"><button type="button" data-journal-mode="day" aria-pressed="true">하루</button><button type="button" data-journal-mode="week" aria-pressed="false">주간 정리</button></div><div class="journal-week-nav"><button type="button" class="mini" data-journal-prev aria-label="이전 주">‹</button><b data-journal-title aria-live="polite"></b><button type="button" class="mini" data-journal-next aria-label="다음 주">›</button><button type="button" class="mini" data-journal-today>이번 주</button></div><button type="button" class="secondary" data-journal-copy>주간보고 초안 복사</button></div>
 <p class="journal-status" data-journal-status role="status" aria-live="polite"></p>
 <div class="journal-days" data-journal-days role="group" aria-label="이번 주 날짜"></div>
+<section class="journal-radar" data-journal-radar hidden></section>
 <section class="journal-day" data-journal-day aria-labelledby="journalDayTitle">
 <h3 id="journalDayTitle" tabindex="-1" data-journal-day-title></h3>
 <form class="journal-line" data-journal-line novalidate><label class="journal-heading" for="journalLineInput">오늘 한 줄</label><div class="journal-line-row"><textarea id="journalLineInput" rows="2" data-journal-input placeholder="오늘 한 일을 한 줄로 남겨 보세요" aria-describedby="journalLineCount journalLineStatus"></textarea><button type="submit" class="primary" data-journal-save>저장</button></div><div class="journal-line-meta"><small id="journalLineCount" data-journal-count></small><p id="journalLineStatus" class="journal-line-status" data-journal-line-status role="status" aria-live="polite"></p></div></form>
@@ -196,6 +198,10 @@ function renderMaterials() {
   }
   host.replaceChildren(...boxes);
 }
+// JOURNAL-챙길것: the box above the day card shows the candidates found in the chosen day's records (todo-radar.js draws it).
+// It belongs to the [하루] side; [주간 정리] hides it.
+const radar = mountRadar($('[data-journal-radar]'), {place:'journal'});
+const radarDay = () => { const list = weekDays(start); radar?.setDay(selected, list[0], list[6]); };
 // [주간 정리]: the week in report order. Drawn only while that side is shown; every read that lands redraws it.
 function renderWeekly_() {
   if (mode !== 'week') return;
@@ -208,15 +214,16 @@ function renderMode() {
   root.querySelectorAll('[data-journal-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.journalMode === mode)));
   days.hidden = mode === 'week';
   $('[data-journal-day]').hidden = mode === 'week';
+  radar?.setShown(mode === 'day');
   $('[data-journal-weekly-root]').hidden = mode !== 'week';
 }
 function setMode(next) {
   if (next === mode || !['day', 'week'].includes(next)) return;
   mode = next; editing = null;
   renderMode();
-  if (mode === 'week') renderWeekly_(); else { renderWeek(); renderLine({keepStatus:true}); renderMaterials(); }
+  if (mode === 'week') renderWeekly_(); else { renderWeek(); renderLine({keepStatus:true}); renderMaterials(); radarDay(); }
 }
-function render() { renderMode(); renderWeek(); renderLine({keepStatus:true}); renderMaterials(); renderWeekly_(); }
+function render() { renderMode(); renderWeek(); renderLine({keepStatus:true}); renderMaterials(); renderWeekly_(); radarDay(); }
 
 const readers = {
   events: () => readWeekEvents(start, rt),
@@ -286,7 +293,7 @@ function goThisWeek() {
 }
 function selectDay(day) {
   if (day === selected) return;
-  selected = day; editing = null; renderWeek(); renderLine(); renderMaterials();
+  selected = day; editing = null; renderWeek(); renderLine(); renderMaterials(); radarDay();
 }
 
 const saveMessage = error => error?.status === 401 ? '로그인이 필요해요. 다시 로그인한 뒤 저장해 주세요.'

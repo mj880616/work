@@ -27,8 +27,12 @@ for (const width of [390, 1440])
       page.locator('[data-home-card="tasks"] [data-home-task]'),
     ).toHaveCount(2);
     await page.waitForFunction(() => window.KPTUHome?.metrics?.readyAt);
+    // JOURNAL-챙길것: the 챙길 것 card has its own budget: one candidate read and one ai-assist call (first open of the day).
+    const radarRequest = (r) => r.path.startsWith("/rest/v1/app_todo_") || r.path.endsWith("/functions/v1/ai-assist");
+    expect(requests.filter((r) => r.path.startsWith("/rest/v1/app_todo_")).length).toBeLessThanOrEqual(1);
+    expect(requests.filter((r) => r.path.endsWith("/functions/v1/ai-assist")).length).toBeLessThanOrEqual(1);
     const dataRequests = requests.filter(
-      (r) => r.path.includes("/rest/") || r.path.includes("/functions/"),
+      (r) => (r.path.includes("/rest/") || r.path.includes("/functions/")) && !radarRequest(r),
     );
     const basketRequests=requests.filter(r=>r.path.endsWith('app_record_links')&&r.query.includes('note_id=not.is.null'));
     expect(basketRequests).toHaveLength(0);

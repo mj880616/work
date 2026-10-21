@@ -1,5 +1,6 @@
 import { readRecordPages } from './basket-link-records.js';
 import { mountQuick } from './home-quick.js';
+import { mountRadar } from './todo-radar.js';
 import { createHomeCache } from './home-read-cache.js';
 import {
   ranges,
@@ -44,7 +45,8 @@ let epoch = 0,
   tasksDirty = false,
   copies = {},
   calendarState = null,
-  imports = null;
+  imports = null,
+  radarMount = null;
 const metrics = {
   shellAt:
     window.__KPTU_STARTUP__?.marks.requestedShellVisible || performance.now(),
@@ -102,10 +104,13 @@ function arrangeHome() {
     dday = card('dday');
   if (!left || !right || !dday) return;
   const target = desktopHome.matches ? right : left,
-    before = desktopHome.matches ? null : card('calendar');
-  if (dday.parentElement === target) return;
-  const focused = dday.contains(document.activeElement) ? document.activeElement : null;
+    before = desktopHome.matches ? null : card('calendar'),
+    radar = card('radar');
+  // The phone has no right column: 주요 일정 and 챙길 것 go right under the quick input, before 오늘 일정 (todo-radar 5절).
+  if (dday.parentElement === target && (!radar || radar.previousElementSibling === dday)) return;
+  const focused = [dday, radar].find(el => el?.contains(document.activeElement)) ? document.activeElement : null;
   target.insertBefore(dday, before);
+  if (radar) target.insertBefore(radar, dday.nextSibling);
   focused?.focus({ preventScroll: true });
 }
 desktopHome.addEventListener('change', arrangeHome);
@@ -117,9 +122,14 @@ function shell() {
     const [title, view, label] = cards[key];
     return `<section class="home-card" data-home-card="${key}" aria-labelledby="home-${key}-title"><header><h3 id="home-${key}-title">${title} <small data-home-count></small></h3>${view ? `<button type="button" data-goto="${view}">${label} ›</button>` : ""}</header><div data-home-body role="status">불러오는 중…</div></section>`;
   };
-  host.innerHTML = `<div data-home-column="main">${['calendar','tasks','meetings'].map(section).join('')}</div><div data-home-column="aside">${section('dday')}</div>`;
+  // JOURNAL-챙길것: 챙길 것 sits below 주요 일정. todo-radar.js is the only renderer inside that card; it stays hidden until
+  // the candidate table and the server function answer (not deployed yet = hidden).
+  host.innerHTML = `<div data-home-column="main">${['calendar','tasks','meetings'].map(section).join('')}</div><div data-home-column="aside">${section('dday')}<section class="home-card home-radar" data-home-card="radar" hidden></section></div>`;
   host.querySelector('[data-home-column="main"]').prepend(quick);
   focused?.focus({ preventScroll: true });
+  radarMount?.destroy();
+  radarMount = mountRadar(card('radar'), { place: 'home' });
+  radarMount?.refresh();
   arrangeHome();
   root.querySelector('[data-home-timing]')?.remove();
   if(new URLSearchParams(location.search).get('homeTiming')==='1'){
