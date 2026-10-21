@@ -99,10 +99,17 @@ public sealed class HttpBasketApi : IBasketApi, IDisposable
         try
         {
             using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-            using var form = new MultipartFormDataContent();
+            using var form = new MultipartFormDataContent
+            {
+                // Part headers as UTF-8 like a browser; the default (Latin-1) would turn Korean into '?'.
+                HeaderEncodingSelector = (_, _) => Encoding.UTF8,
+            };
             var part = new StreamContent(stream);
             part.Headers.ContentType = MediaTypeHeaderValue.Parse(file.MimeType);
-            form.Add(part, "file", file.DisplayName);
+            // Not form.Add(part, "file", name): that writes non-ASCII names as "=?utf-8?B?...?=", which the
+            // server's form parser reads as a single '"' (see FileNames).
+            part.Headers.TryAddWithoutValidation("Content-Disposition", FileNames.ContentDisposition("file", file.DisplayName));
+            form.Add(part);
             if (noteId != null) form.Add(new StringContent(noteId.Value.ToString()), "note_id");
             else if (!string.IsNullOrEmpty(rawText)) form.Add(new StringContent(NormalizeNewlines(rawText), Encoding.UTF8), "raw_text");
 
