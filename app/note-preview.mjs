@@ -3,6 +3,7 @@
 
 import { toTelegram } from './md-telegram.mjs';
 import { noteMarkdown } from './note-markdown.mjs';
+import { readableFileName } from './attachment-name.mjs';
 
 const FENCE = /^\s{0,3}(`{3,}|~{3,})/;
 const RULE = /^\s{0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
@@ -66,7 +67,7 @@ export function notePreview(note) {
 // What [복사] puts on the clipboard. A note with text copies as before (텔레그램용 conversion, title as the first line); a note with
 // only attachments copies their file names (one per line); a note with only a title copies the title; nothing to copy → null
 // (the copy icon is hidden).
-const attachmentNames = note => (Array.isArray(note?.attachments) ? note.attachments : []).map(file => String(file?.file_name || '').trim()).filter(Boolean);
+const attachmentNames = note => (Array.isArray(note?.attachments) ? note.attachments : []).map(file => readableFileName(file?.file_name)).filter(Boolean);
 export function noteCopyPayload(note) {
   const title = String(note?.title || '').trim(), body = String(note?.raw_text || '');
   // NOTE-마크다운선택: a note with 마크다운 off copies as written (its '- '·'1. ' lines are not converted), title first.

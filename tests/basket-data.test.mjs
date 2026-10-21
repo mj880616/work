@@ -152,3 +152,23 @@ test('second row: organization and project names by memo count, the 7 categories
  // [전체]·[할 일] ignore a leftover sub value.
  assert.deepEqual(ids('all','org-a'),ids('all'));
 });
+
+// BASKET-드롭제목: old uploads stored a cut name ('"' from the PC drop program's encoded word, '"회의록' from a quoted ';').
+import { readableFileName, attachmentName } from '../app/attachment-name.mjs';
+import { suggestNoteTitle } from '../app/basket-data.js';
+test('broken stored file names show a readable part or the fallback, display only',()=>{
+ assert.equal(readableFileName('"'),'');
+ assert.equal(readableFileName('\\"'),'');
+ assert.equal(readableFileName('  "" '),'');
+ assert.equal(readableFileName('"회의록'),'회의록');
+ assert.equal(readableFileName('회의록; 최종=v2.hwp'),'회의록; 최종=v2.hwp');
+ assert.equal(readableFileName('사진 1.png'),'사진 1.png');
+ assert.equal(attachmentName({file_name:'"'}),'파일');
+ assert.equal(attachmentName({file_name:'"'},'사진'),'사진');
+ assert.equal(attachmentName({}),'파일');
+ assert.equal(attachmentName({file_name:'보고서.hwp'}),'보고서.hwp');
+ const stored={file_name:'"'};
+ attachmentName(stored);
+ assert.equal(stored.file_name,'"');
+ assert.equal(suggestNoteTitle({raw_text:'',attachments:[{file_name:'"'}]}),'');
+});

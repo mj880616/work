@@ -5,6 +5,7 @@ import { documentCategories, categoryOf } from './document-categories.js';
 import { requestsGuard } from './update-requests.js';
 import { noteJournalAt, journalGuard, othersGuard, MOVED_KEY } from './update-journal.js';
 import { bodyWithoutTitleLine } from './note-markdown.mjs';
+import { readableFileName } from './attachment-name.mjs';
 const PAGE_SIZE = 100;
 export function validateNoteText(raw_text) {
   if (typeof raw_text !== 'string' || !raw_text.trim()) throw new Error('글을 입력해 주세요.');
@@ -124,7 +125,7 @@ export function validateNoteBody(text) {
 }
 // [노트로 옮기기] suggests the memo's first line (or its first file) as the title.
 export function suggestNoteTitle(note) {
-  const line = String(note?.raw_text || '').split(/\r?\n/).map(value => value.trim()).find(Boolean) || note?.attachments?.[0]?.file_name || '';
+  const line = String(note?.raw_text || '').split(/\r?\n/).map(value => value.trim()).find(Boolean) || readableFileName(note?.attachments?.[0]?.file_name);
   return [...line].slice(0, NOTE_LIMITS.title).join('');
 }
 // Same owner-RLS PATCH as updateNote. The kind filter keeps each write on the row kind the screen showed.
