@@ -1,8 +1,15 @@
-import {isProject,select,active,archived,tops,kids,tree,basketProjects} from './project-catalog-model.mjs';
+import {isProject,select as selectRows,active,archived,tops as topRows,kids as kidRows,tree as treeRows,basketProjects as basketRows} from './project-catalog-model.mjs';
+import {compareOrder,ordered,siblings,reorderPlan} from './project-order.mjs';
 (()=>{
 'use strict';
 if(window.KPTUProjectCatalog)return;
 // Canonical Web2 project catalog: one project rule and one hierarchy, shared by the project screen and the library.
+// PRJ-순서바꾸기: every list keeps the one project order (project-order.mjs), whatever order its rows came in.
+const select=spaces=>ordered(selectRows(spaces));
+const tops=projects=>topRows(ordered(projects));
+const kids=(projects,p)=>kidRows(ordered(projects),p);
+const tree=projects=>treeRows(ordered(projects));
+const basketProjects=projects=>basketRows(ordered(projects));
 const label=(name,depth)=>depth>0?'　'.repeat(depth)+'↳ '+name:name;
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -12,7 +19,7 @@ function publish({workspaceId,userId,spaces}){
   const rows=Array.isArray(spaces)?spaces:[];
   version+=1;
   state={workspaceId,userId,spaces:rows,projects:select(rows),loaded:true};
-  const next=JSON.stringify([workspaceId,userId,rows.map(p=>[p.id,p.name,p.parent_id,p.status,p.updated_at,isProject(p)])]);
+  const next=JSON.stringify([workspaceId,userId,rows.map(p=>[p.id,p.name,p.parent_id,p.status,p.sort_order,p.updated_at,isProject(p)])]);
   if(next!==key){key=next;window.dispatchEvent(new CustomEvent('kptu:project-catalog-updated',{detail:{workspaceId,userId}}))}
   return snapshot()
 }
@@ -57,5 +64,5 @@ function reset(){epoch+=1;flight=null;key='';state={workspaceId:null,userId:null
 // A token refresh writes the session again for the same owner: keep the catalog and a read in flight for that owner (before
 // the first publish state.userId is still empty, so it must not count as another owner). A new owner or sign-out resets.
 window.addEventListener('kptu:session-changed',e=>{const next=e.detail?.session?.user?.id||'';if(next&&[state.userId,flight?.userId].every(id=>!id||id===next))return;reset()});
-window.KPTUProjectCatalog={isProject,select,active,archived,tops,kids,tree,basketProjects,label,options,publish,fetchSpaces,load,snapshot,describe,reset};
+window.KPTUProjectCatalog={isProject,select,active,archived,tops,kids,tree,basketProjects,compareOrder,ordered,siblings,reorderPlan,label,options,publish,fetchSpaces,load,snapshot,describe,reset};
 })();

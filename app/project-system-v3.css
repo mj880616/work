@@ -287,3 +287,9 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
 /* UI-기록아이콘: 기록 줄 앞 업데이트·노트 아이콘(글자색 선 그림, 🧺 대신). */
 .ps3-rec-mark{display:inline-flex;vertical-align:-2px;color:var(--kptu-muted)}
 .ps3-rec-mark svg{display:block}
+/* PRJ-순서바꾸기: PC drag of a list row onto a row of the same level — the line shows where it lands. */
+.ps3-plist .kptu-list-row[draggable="true"]{cursor:grab}
+.ps3-plist .kptu-list-row.ps3-dragging{opacity:.5}
+.ps3-plist .kptu-list-row.ps3-drop-before{box-shadow:inset 0 2px 0 var(--kptu-primary)}
+.ps3-plist .kptu-list-row.ps3-drop-after{box-shadow:inset 0 -2px 0 var(--kptu-primary)}
+.ps3-more-panel button:disabled{color:var(--kptu-muted);cursor:default;background:transparent}
