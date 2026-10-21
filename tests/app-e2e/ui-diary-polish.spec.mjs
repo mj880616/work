@@ -202,7 +202,8 @@ for(const width of [390,1280])test(`⑥ an opened note draws only "‹ 노트" (
  expect(s).toEqual({size:'13px',deco:'none',h:32,hit:'44px'});
  // Back to the list: the switch is drawn again.
  await back.click();
- await expect(page.locator('[data-basket-kind="note"]')).toBeVisible();await expect(page.locator('[data-note-row="n1"]')).toBeVisible();
+ // BASKET-노트입력창: a PC (≥1024) draws no switch at all (the sidebar changes sides); a phone draws it again.
+ if(width<1024)await expect(page.locator('[data-basket-kind="note"]')).toBeVisible();else await expect(page.locator('[data-basket-kind-switch]')).toBeHidden();await expect(page.locator('[data-note-row="n1"]')).toBeVisible();
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 

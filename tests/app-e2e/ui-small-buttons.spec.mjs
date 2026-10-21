@@ -248,14 +248,17 @@ test('③ 폰: 전환 줄이 있는 바구니·일정에서 고르기 시트는 
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-test('③ PC 1280: 전환은 지금처럼 위(바구니 [메모|노트]는 목록 위, 일정 전환은 보이지 않음), [+]·아래 탭 없음',async({page})=>{
+// BASKET-노트입력창 (2026-10-22 사용자 결정): PC(≥1024)에는 바구니 화면 위 [업데이트 | 노트]가 없다 — 사이드바 [바구니] 아래
+// [업데이트]·[노트]가 맡는다. 필터 줄은 그대로 목록 위.
+test('③ PC 1280: 바구니 [업데이트|노트]는 사이드바가 맡고(화면 위 전환 없음), 일정 전환도 보이지 않음, [+]·아래 탭 없음',async({page})=>{
  const f=await fixture(page,{width:1280,height:900});
  await go(page,'basket');
- const sw=page.locator('#basketView .basket-kind-switch');await expect(sw).toBeVisible();
- expect(await sw.evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');
- const s=await sw.boundingBox(),filter=await page.locator('[data-basket-filter="unclassified"]').boundingBox(),rows=await page.locator('#basketView [data-basket-rows]').boundingBox();
- expect(s.y+s.height).toBeLessThanOrEqual(rows.y);expect(filter.x).toBeGreaterThan(s.x+s.width);expect(Math.abs((filter.y+filter.height/2)-(s.y+s.height/2))).toBeLessThanOrEqual(1);
- expect(await sw.locator('button').first().evaluate(el=>getComputedStyle(el).borderTopLeftRadius)).toBe('8px');
+ const sw=page.locator('#basketView .basket-kind-switch');await expect(sw).toBeHidden();
+ const sub=page.locator('#appView > .app-nav [data-basket-kind-nav]');await expect(sub).toHaveText(['업데이트','노트']);
+ const filter=await page.locator('[data-basket-filter="unclassified"]').boundingBox(),rows=await page.locator('#basketView [data-basket-rows]').boundingBox();
+ expect(filter.y+filter.height).toBeLessThanOrEqual(rows.y);
+ await sub.nth(1).click();await expect(page.locator('[data-note-row="n1"]')).toBeVisible();await expect(sw).toBeHidden();
+ await sub.nth(0).click();await expect(page.locator('#basketView [data-basket-list]')).toBeVisible();
  await expect(page.locator('.mobile-tabs')).toBeHidden();
  for(const v of ['calendar','tasks']){await go(page,v);await expect(page.locator(`#${v}View .schedule-switch`)).toBeHidden();}
  expect(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-switch-dock').trim()||'0px')).toBe('0px');
