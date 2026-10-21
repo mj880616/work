@@ -955,3 +955,17 @@ test('[주간 정리] 일부 읽기 실패: 못 읽은 칸만 안내·[다시 �
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
+
+// UI-화면점검 ④: 업무일지 위 조작 줄 — [하루|주간 정리]·‹ ›·[이번 주]·[주간보고 초안 복사]가 하나의 작은 버튼 기준(--ds-compact-*: 높이 32px·13px·500)을 쓴다.
+for(const width of [390,1280])test(`업무일지 위 조작 줄: 버튼 높이·굵기·글자 크기가 하나의 작은 버튼 기준 ${width}`,async({page})=>{
+ const f=await fixture(page,{width});
+ await openJournal(page,width);
+ const metrics=await page.evaluate(()=>{
+  const token=n=>{const e=document.createElement('i');e.style.cssText=`display:block;height:var(${n})`;document.body.append(e);const v=e.getBoundingClientRect().height;e.remove();return v};
+  const root=document.querySelector('#journalRoot'),pick=s=>[...root.querySelectorAll(s)].filter(b=>b.getBoundingClientRect().width>0).map(b=>{const r=(b.matches('[data-journal-mode]')?b.parentElement:b).getBoundingClientRect(),c=getComputedStyle(b);return {name:(b.getAttribute('aria-label')||b.textContent).trim(),h:Math.round(r.height*10)/10,size:c.fontSize,weight:Number(c.fontWeight)}});
+  return {compact:token('--ds-compact-height'),bar:pick('.journal-head [data-journal-mode],.journal-head [data-journal-prev],.journal-head [data-journal-next],.journal-head [data-journal-today],.journal-head [data-journal-copy]')};
+ });
+ expect(metrics.bar.map(b=>b.name)).toEqual(['하루','주간 정리','이전 주','다음 주','이번 주','주간보고 초안 복사']);
+ for(const b of metrics.bar){expect(b.h,`${b.name} 높이`).toBe(metrics.compact);expect(b.size,`${b.name} 글자`).toBe('13px');expect(b.weight,`${b.name} 굵기`).toBe(500)}
+ expect(f.errors).toEqual([]);
+});

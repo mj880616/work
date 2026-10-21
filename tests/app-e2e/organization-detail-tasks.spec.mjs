@@ -177,3 +177,50 @@ for(const extra of [0,100])test(`담당조직 ${14+extra}개도 Google·기록 �
   expect(reads).toHaveLength(batchCount);assertBatches(reads);
   for(const read of reads)expect(read.query.limit).toBe('500');
 });
+
+// UI-화면점검 ② + ⑤: 담당조직 상세 "할 일" 머리 줄은 프로젝트 상세와 같은 짜임이다 — [기존 할 일 연결]은 글자 버튼(32px), [할 일 추가]는 작은 + 버튼(누르는 범위 44px),
+// 줄마다 [연결 해제]는 32px(46px 큰 버튼이 아님). 기능은 그대로(버튼 이름·동작). PC 목록 머리("N곳")는 카드 안 머리라 왼쪽 카드 윗선이 오른쪽 상세 칸 윗선과 맞는다.
+for(const width of [412,1280])test(`담당조직 상세 할 일 머리 줄: 글자 버튼 + 작은 + 버튼, [연결 해제] 32px ${width}`,async({page})=>{
+  const calls=[];
+  await page.setViewportSize({width,height:900});
+  await openTeam(page,calls);
+  await page.locator(`[data-so-org="${RAIL}"]`).click();
+  await expect(page.locator('#wdTaskBody [data-google-task]')).toHaveCount(3);
+  const m=await page.evaluate(()=>{
+    const compact=(()=>{const e=document.createElement('i');e.style.cssText='display:block;height:var(--ds-compact-height)';document.body.append(e);const h=e.getBoundingClientRect().height;e.remove();return h})();
+    const box=e=>e.getBoundingClientRect(),css=e=>getComputedStyle(e),link=document.querySelector('#wdTaskLink'),add=document.querySelector('#wdTaskAdd'),sec=document.querySelector('#wdTasks'),title=sec.querySelector('h3');
+    const hit=e=>{const a=getComputedStyle(e,'::after');return a.content!=='none'?parseFloat(a.height):box(e).height};
+    const unlinks=[...document.querySelectorAll('#wdTaskBody [data-gt-linked-unlink]')];
+    return {compact,link:{h:box(link).height,bg:css(link).backgroundColor,border:css(link).borderTopWidth,size:css(link).fontSize,weight:css(link).fontWeight,text:link.textContent.trim()},
+      add:{w:box(add).width,h:box(add).height,text:add.textContent.trim(),name:add.getAttribute('aria-label'),bg:css(add).backgroundColor,border:css(add).borderTopWidth,radius:css(add).borderRadius},
+      centers:[box(link),box(add),box(title)].map(b=>Math.round(b.top+b.height/2)),inSection:[link,add].every(b=>box(b).left>=box(sec).left-1&&box(b).right<=box(sec).right+1),
+      unlinks:unlinks.map(b=>({h:box(b).height,w:box(b).width,hit:hit(b),size:css(b).fontSize,weight:css(b).fontWeight})),doc:document.documentElement.scrollWidth-innerWidth};
+  });
+  expect(m.link.text).toBe('기존 할 일 연결');expect(m.link.h).toBe(m.compact);expect(m.link.bg).toBe('rgba(0, 0, 0, 0)');expect(m.link.border).toBe('0px');
+  expect(m.add.text).toBe('+');expect(m.add.name).toBe('할 일 추가');expect(m.add.w).toBe(44);expect(m.add.h).toBe(44);expect(m.add.bg).toBe('rgba(0, 0, 0, 0)');expect(m.add.border).toBe('0px');
+  expect(Math.max(...m.centers)-Math.min(...m.centers),'제목·글자 버튼·+ 버튼이 한 줄 가운데').toBeLessThanOrEqual(2);
+  expect(m.inSection).toBe(true);
+  expect(m.unlinks).toHaveLength(3);
+  for(const u of m.unlinks){expect(u.h).toBe(m.compact);expect(u.w).toBeLessThan(100);expect(u.hit).toBe(44)}
+  expect(m.doc).toBeLessThanOrEqual(1);
+  // 기능 그대로: 이름으로 찾은 버튼이 같은 창을 연다.
+  await page.getByRole('button',{name:'할 일 추가'}).first().click();await expect(page.locator('#gtTaskModal')).toBeVisible();
+  await page.locator('#gtTaskModal [data-gt-close]').click();await expect(page.locator('#gtTaskModal')).toBeHidden();
+  await page.getByRole('button',{name:'기존 할 일 연결'}).click();await expect(page.locator('#gtPickModal')).toBeVisible();
+});
+
+test('담당조직 PC 목록 머리("N곳")는 카드 안 머리: 왼쪽 카드 윗선 = 오른쪽 상세 칸 윗선 1280',async({page})=>{
+  const calls=[];
+  await page.setViewportSize({width:1280,height:900});
+  await openTeam(page,calls);
+  await expect(page.locator('#wdDetailPane.has-org')).toBeVisible();
+  const m=await page.evaluate(()=>{
+    const box=e=>e.getBoundingClientRect(),cards=[...document.querySelectorAll('#soOrganizationList .so-group-card')],pane=document.querySelector('#wdDetailPane');
+    const heads=cards.map(c=>({inside:c.contains(c.querySelector('.so-group-heading')),headFirst:c.firstElementChild.classList.contains('so-group-heading'),border:getComputedStyle(c.querySelector('.so-group-heading')).borderBottomWidth,
+      headInCard:box(c.querySelector('.so-group-heading')).top>=box(c).top&&box(c.querySelector('.so-group-heading')).bottom<=box(c).bottom,count:c.querySelector('.so-group-count')?.textContent}));
+    return {heads,cardTop:Math.round(box(cards[0]).top),paneTop:Math.round(box(pane).top),listTop:Math.round(box(document.querySelector('#soOrganizationList')).top)};
+  });
+  expect(m.heads.length).toBeGreaterThan(0);
+  for(const h of m.heads){expect(h.inside).toBe(true);expect(h.headFirst).toBe(true);expect(h.headInCard).toBe(true);expect(h.border).not.toBe('0px');expect(h.count).toMatch(/곳$/)}
+  expect(m.cardTop).toBe(m.paneTop);
+});

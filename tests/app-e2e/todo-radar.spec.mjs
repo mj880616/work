@@ -209,3 +209,16 @@ test('source link opens the update in the basket',async({page})=>{
  await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('basket');
  expect(f.errors).toEqual([]);
 });
+
+// UI-화면점검 ④: 업무일지의 [다시 찾기]는 홈 챙길 것 카드의 [다시 찾기]와 같은 굵기·글자 크기·높이(작은 버튼 기준).
+for(const width of [390,1280])test(`업무일지 [다시 찾기]는 홈과 같은 굵기·크기 ${width}`,async({page})=>{
+ const f=await fixture(page,{width});
+ const look=l=>l.evaluate(b=>{const c=getComputedStyle(b);return {h:Math.round(b.getBoundingClientRect().height),size:c.fontSize,weight:Number(c.fontWeight)}});
+ const hf=page.locator('#homeView [data-radar-find]').first();await expect(hf).toBeVisible();
+ const home=await look(hf);
+ await page.evaluate(()=>window.KPTURouter.go('journal'));
+ const jf=page.locator('#journalView [data-journal-radar] [data-radar-find]');await expect(jf).toBeVisible();
+ const journal=await look(jf);
+ expect(journal).toEqual(home);expect(home.weight).toBe(500);expect(home.size).toBe('12px');
+ expect(f.errors).toEqual([]);
+});

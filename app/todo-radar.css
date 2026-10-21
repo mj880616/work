@@ -27,6 +27,8 @@
 #appView :is(#homeView,#journalView) .radar-actions{ display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
 #appView :is(#homeView,#journalView) :is(.radar-actions,.radar-head,.home-radar header) button{ position:relative; min-height:var(--ds-compact-height); height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--kptu-surface); color:var(--kptu-ink); }
 #appView :is(#homeView,#journalView) :is(.radar-actions,.radar-head,.home-radar header) button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+/* UI-화면점검 ④: 업무일지 [다시 찾기]는 홈 챙길 것 카드와 같은 굵기(500)·글자(12px). 예전에는 .mini 때문에 굵게 보였다. */
+#appView #journalView .journal-radar .radar-head button{ font-size:var(--ds-text-meta); font-weight:var(--ds-weight-medium); }
 #appView :is(#homeView,#journalView) .radar-actions button.primary{ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); }
 #appView :is(#homeView,#journalView) .radar-actions button:disabled{ opacity:.6; cursor:default; }
 #appView :is(#homeView,#journalView) .radar-edit{ display:flex; flex-direction:column; gap:6px; margin-top:4px; }

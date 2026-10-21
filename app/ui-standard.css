@@ -292,6 +292,8 @@
    7일 이내 초록·8~20일 주황·21일 이상 또는 기록 없음 빨강. 읽기 전에는 점을 비워 둔다. */
 #appView #teamView .so-group-heading{ display:flex; align-items:baseline; justify-content:space-between; gap:8px; font-size:var(--ds-text-meta); color:var(--ds-section-ink); }
 #appView #teamView .so-group-heading .so-group-count{ color:var(--kptu-muted); }
+/* UI-화면점검 ⑤: 묶음 제목("그 외 N곳")은 프로젝트 목록 머리(.ps3-plist>.add-list-head)처럼 카드 안 머리 — 카드 윗선이 오른쪽 상세 칸과 맞는다. */
+#appView #teamView .so-group-card>.so-group-heading{ margin:0; padding:var(--kptu-space-3) var(--kptu-space-4); border-bottom:var(--ds-line-width) solid var(--ds-line); }
 #appView #teamView #soOrgCount{ font-size:var(--ds-text-meta); }
 #appView #teamView #soOrganizationList .kptu-list-row{ box-sizing:border-box; display:grid; align-items:center; min-height:var(--kptu-touch-target,44px); padding-top:0; padding-bottom:0; }
 #appView #teamView #soOrganizationList .kptu-list-row-main{ grid-template-columns:8px minmax(0,1fr) 24px; gap:10px; }

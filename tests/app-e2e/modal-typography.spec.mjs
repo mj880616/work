@@ -359,6 +359,10 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // BASKET-할일출처 added the task editor's source-note line; compare it under both style sets too.
   const sourceNote=await page.locator('#gtSourceNote').evaluate(el=>el.outerHTML);
   await original.locator('#gtMeetingLinks').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),sourceNote);
+  // UI-화면점검 ③: 할 일 수정 창 "연결할 프로젝트·조직"은 legend에 짧은 이름만 두고 안내문은 legend 밖 아래 작은 글씨로 옮겼고, legend 글자는 다른 라벨과 같은 12px로 맞췄다.
+  // 현재 마크업을 main 쪽에도 넣고, 새로 정한 두 요소(.gt-links-legend·.gt-links-hint)의 크기는 아래 generic에서 빼고 pickers-org-project.spec이 확인한다.
+  const taskLinks=await page.locator('#gtTaskModal .gt-links').evaluate(el=>el.outerHTML);
+  await original.locator('#gtTaskModal .gt-links').evaluate((el,html)=>{el.outerHTML=html},taskLinks);
   // UI-디자인손질 1 (2026-10-16 사용자 결정): "차수" has no separate "선택" tag any more; drop that removed node from
   // the baseline only. Every other optional tag (특이사항·약칭 etc.) is still compared.
   await original.evaluate(()=>document.querySelectorAll('#meetingRoundNo,#mrdEditRound').forEach(input=>input.closest('label')?.querySelector(':scope > .optional')?.remove()));
@@ -398,7 +402,7 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // Two new elements carry their own PRJ-기록입력 rules that main never had: the header line (compared above on line 202)
   // and the empty-list text (project-record-input.spec). Drop exactly those from the generic dialog rows on both sides.
   // UI-회의결과창정리: 묶음 설명(.mtg-note 12px)과 빈 상태(.mtg-empty 13px)도 자기 규칙이 있다(meeting-entry.spec에서 크기 확인).
-  const generic=el=>!(el.class==='ps3-rec-empty'||el.class==='mtg-note'||el.class==='mtg-empty'||el.id==='ps3Summary');
+  const generic=el=>!(el.class==='gt-links-legend'||el.class==='gt-links-hint'||el.class==='ps3-rec-empty'||el.class==='mtg-note'||el.class==='mtg-empty'||el.id==='ps3Summary');
   for(const rows of [before,after])rows.forEach((row,i)=>{if(i!==d6bSelectors.indexOf(d6bProgressLine))row.elements=row.elements.filter(generic)});
   // UI-디자인기준 3/3 3부(8-9e-3): 창 제목(h2)만 새 기준 18px. 나머지 15개 규칙과 색은 그대로 비교한다.
   for(const row of before)for(const el of row.elements)if(el.tag==='H2')el.fontSize='18px';

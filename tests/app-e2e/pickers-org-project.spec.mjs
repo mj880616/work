@@ -149,3 +149,22 @@ test('할 일 상세 "연결할 프로젝트·조직"(PC): 하위는 ↳ 없이 
  await expect(child.locator('.gt-link-arrow')).toBeVisible();await expect(child.locator('span')).toHaveText('　↳ 자식 프로젝트');
  await expect(links.locator('.gt-org-group-name:visible')).toHaveCount(0);
 });
+
+// UI-화면점검 ③: 할 일 수정 창 "연결할 프로젝트·조직" — legend는 다른 라벨과 같은 크기(12px)의 짧은 이름만, 안내문은 legend 밖 아래 작은 글씨.
+// 폰 390에서 안내문이 legend 안에서 꺾여 테두리선이 글자를 지나가던 문제: legend는 한 줄이고 안내문은 fieldset 안쪽(테두리 안)에 놓인다.
+for(const width of [390,1280])test(`할 일 수정 창 연결 fieldset legend: 라벨과 같은 크기, 안내문은 legend 밖 ${width}`,async({page})=>{
+ await page.setViewportSize({width,height:844});await openHome(page);await orgRoutes(page,NAMES);
+ await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
+ await expect(page.locator('#gtEditLinkBody input[value="p:child"]')).toBeVisible();
+ const m=await page.evaluate(()=>{
+  const modal=document.querySelector('#gtTaskModal'),set=modal.querySelector('.gt-links'),legend=set.querySelector(':scope > legend'),hint=set.querySelector('.gt-links-hint'),label=modal.querySelector('label'),box=e=>e.getBoundingClientRect(),fs=e=>parseFloat(getComputedStyle(e).fontSize);
+  return {legendText:legend.textContent.trim(),legendSize:fs(legend),labelSize:fs(label),legendInsideSmall:!!legend.querySelector('small'),hintOutside:!legend.contains(hint),hintText:hint.textContent.trim(),hintSize:fs(hint),
+   legendH:box(legend).height,legendLineH:parseFloat(getComputedStyle(legend).lineHeight),hintBelow:box(hint).top>=box(legend).bottom-1,hintInside:box(hint).left>=box(set).left&&box(hint).right<=box(set).right,
+   legendRight:box(legend).right,setRight:box(set).right,weight:Number(getComputedStyle(legend).fontWeight),labelWeight:Number(getComputedStyle(label).fontWeight)};
+ });
+ expect(m.legendText).toBe('연결할 프로젝트·조직');expect(m.legendInsideSmall).toBe(false);
+ expect(m.legendSize).toBe(m.labelSize);expect(m.weight).toBe(m.labelWeight);
+ expect(m.hintOutside).toBe(true);expect(m.hintText).toContain('고르지 않아도');expect(m.hintSize).toBeLessThan(m.legendSize);
+ expect(m.legendH,'legend 한 줄').toBeLessThanOrEqual(m.legendLineH+1);expect(m.legendRight).toBeLessThanOrEqual(m.setRight);
+ expect(m.hintBelow).toBe(true);expect(m.hintInside).toBe(true);
+});
