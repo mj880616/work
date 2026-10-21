@@ -136,7 +136,18 @@ export const SCHEDULE_WEEKS = 2;
 // The report day (상집 보고일, "■ 일시"): the Monday after the shown week (2026-10-21 사용자 결정, WEEKLY-보고일).
 export const reportDay = start => shiftWeek(start, 1);
 export const scheduleDays = start => Array.from({length:SCHEDULE_WEEKS * 7}, (_, i) => seoulDateKey(addSeoulDays(reportDay(start), i)));
-export const readScheduleEvents = (start, rt = window.KPTURuntime) => readEventsBetween(shiftWeek(start, 1), shiftWeek(start, 1 + SCHEDULE_WEEKS), rt);
+// The events carry only a calendar id (an account value), never its name, so the report's calendar exclusion (journal-weekly.js
+// REPORT_EXCLUDED_CALENDARS, by name) needs the id -> name list of the same Edge (action=status calendars[].summary). Each event gets
+// calendarName. The list is read with the events; when it cannot be read the whole read fails, so an excluded calendar never slips in.
+async function readCalendarNames(rt) {
+  const data = await rt.api('/functions/v1/google-calendar?action=status');
+  if (!Array.isArray(data?.calendars) || data?.connected === false || data?.warning) throw new Error('calendar');
+  return new Map(data.calendars.map(c => [c?.id, String(c?.summary ?? '')]));
+}
+export async function readScheduleEvents(start, rt = window.KPTURuntime) {
+  const [events, names] = await Promise.all([readEventsBetween(shiftWeek(start, 1), shiftWeek(start, 1 + SCHEDULE_WEEKS), rt), readCalendarNames(rt)]);
+  return events.map(event => ({...event, calendarName:names.get(event.calendarId) ?? ''}));
+}
 // JOURNAL-끝낸할일범위: the google-tasks Edge returns the tasks completed in the last `completed_days` days (whole number
 // 1..8, capped by the server). An older Edge ignores the field and answers the last 3 days without echoing it, so the days
 // actually covered are the echoed number or, without an echo, DONE_TASK_DAYS (3).
