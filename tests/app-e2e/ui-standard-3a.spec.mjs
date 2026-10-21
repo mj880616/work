@@ -43,7 +43,7 @@ async function boot(page,width){
   if(path==='/rest/v1/app_meetings')return ok(meetings);
   if(path==='/rest/v1/app_suborganizations')return ok(orgs);
   if(path==='/rest/v1/app_suborganization_assignees')return ok(orgs.map(o=>({organization_id:o.id,user_id:user.id})));
-  if(path==='/rest/v1/app_suborganization_updates'){calls.updates++;return ok(updates);}
+  if(path==='/rest/v1/app_suborganization_updates'){if(q.get('select')==='organization_id,occurred_at')calls.updates++;return ok(updates);}
   if(path==='/rest/v1/app_documents')return ok(docs);
   if(path==='/rest/v1/app_spaces'){const select=q.get('select')||'';if(select.includes('milestones:')){calls.spaces.push(select);return ok([{id:'p1',milestones:[{start_at:'2026-10-18T01:00:00Z'}]},{id:'p1a',milestones:[]},{id:'p2',milestones:[{start_at:'2026-10-26T01:00:00Z'}]}]);}return ok(spaces);}
   // UI-PC프로젝트좌우: PC opens the first project in the pane, whose own detail read (same dates as the list read) also paints its D-day.
@@ -67,7 +67,8 @@ async function sameButtons(page,region){
  const primary=await token(page,'--kptu-primary'),filled=[];
  for(const control of await region.locator('button:visible').all()){
   // 8-9e-2: on phones the add button is the floating round [+] and 담당조직 추가 is a small text link (ui-standard-3b).
-  if(await control.evaluate(el=>el.matches('.icon-btn,.kptu-list-row,[data-ps3-project]')||innerWidth<761&&el.matches('#newDocumentBtn,#newMeetingBtn,.so-add-link')))continue;
+  // ORG-PC좌우: the organization detail on the right of the PC 담당조직 screen keeps the detail's own buttons (as in its dialog).
+  if(await control.evaluate(el=>el.matches('.icon-btn,.kptu-list-row,[data-ps3-project]')||!!el.closest('#wdDetailPane')||innerWidth<761&&el.matches('#newDocumentBtn,#newMeetingBtn,.so-add-link')))continue;
   const s=await look(control),label=(await control.textContent()).trim();
   // UI-버튼크기: 필터 칩(자료실·회의)은 32px 알약, 보조 버튼([분류 수정])은 32px. 둘 다 누르는 범위 44px. 나머지는 46px·8px.
   const kind=await control.evaluate(el=>el.matches('.filter-chips button')?'chip':el.matches('#manageLibraryBtn')?'compact':'button');
@@ -112,12 +113,12 @@ for(const width of [390,1280])test(`담당조직: 이름 한 줄·마지막 기�
  await rowText(page,list.locator('.kptu-list-name'));
  for(const row of await list.locator('.so-card').all())expect((await row.boundingBox()).height).toBe(44);
  const card=await look(list.locator('.so-group-card').first());expect(card.borderWidth).toBe(await lineWidth(page));expect(card.radius).toBe('12px');expect(card.shadow).toBe('none');
- // 날짜는 기존 묶음 읽기 한 번(조직별 요청 없음).
+ // 날짜는 기존 묶음 읽기 한 번(조직별 요청 없음). ORG-PC좌우: PC는 오른쪽 칸에 첫 조직 상세를 열고, 그 상세 기록 읽기는 따로 센다.
  expect(calls.updates).toBe(1);
  expect(await sameButtons(page,page.locator('#teamView'))).toEqual([]);
  await noOverflow(page);
  // 키보드로 상세 열기는 그대로.
- await list.locator('[data-so-org="o1"]').focus();await page.keyboard.press('Enter');await expect(page.locator('#wdModal')).toBeVisible();
+ await list.locator('[data-so-org="o1"]').focus();await page.keyboard.press('Enter');await expect(page.locator('#wdModal')).toBeVisible();await expect(page.locator('#wdTitle')).toHaveText(orgs.find(o=>o.id==='o1').name);
  expect(errors).toEqual([]);
 });
 
