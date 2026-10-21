@@ -23,7 +23,7 @@
 ### 입력
 
 - mode `dry-run` 또는 `apply`, version 칸에 **migration 파일 이름**(`<version>_<name>.sql`) 또는 14자리 version. 파일 이름이면 저장소의 실제 이름과 같아야 한다.
-- 짝 파일 5개가 모두 있어야 한다: `docs/<version>_<name>.precheck.sql`·`.snapshot.sql`·`.postcheck.sql`·`.rollback.sql`·`.summary.md`. 하나라도 없으면 승인 전(plan)에서 거절한다(확장 규칙). 기존 엄격 규칙만으로 통과하던 파일도 5개가 모두 있으면 같은 흐름으로 돈다. 없으면 이전 흐름 그대로다.
+- 짝 파일 5개가 모두 있어야 한다: `docs/<version>_<name>.precheck.sql`·`.snapshot.sql`·`.postcheck.sql`·`.rollback.sql`·`.summary.md`. 하나라도 없으면 승인 전(plan)에서 거절한다(확장 규칙). 기존 엄격 규칙만으로 통과하는 파일은 precheck에 `-- expect:` 줄이 있고 5개가 모두 있을 때만 같은 흐름으로 돈다(그 밖에는 이전 흐름 그대로).
 
 ### 순서 (apply, 승인 뒤 한 번의 실행)
 

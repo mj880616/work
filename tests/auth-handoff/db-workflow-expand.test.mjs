@@ -151,7 +151,7 @@ test('DB-승인형확장: today\'s six migrations through precheck → snapshot 
    await mkdir(join(tmp,'supabase/migrations'),{recursive:true});await mkdir(join(tmp,'docs'));
    await writeFile(join(tmp,`supabase/migrations/${stem}.sql`),`begin;\ncreate table public.ex_synthetic(id int primary key);\nalter table public.ex_synthetic enable row level security;\ninsert into supabase_migrations.schema_migrations (version, name) values ('${v}', '${n}');\ncommit;\n`);
    await writeFile(join(tmp,`docs/${stem}.summary.md`),'무엇이 바뀌나: 시험 표.\n잘못되면: 없음.\n되돌리는 법: rollback 파일.\n');
-   await writeFile(join(tmp,`docs/${stem}.precheck.sql`),`select 'new migration absent' as item, case when to_regclass('public.ex_synthetic') is null then '예' else '아니오' end as value;`);
+   await writeFile(join(tmp,`docs/${stem}.precheck.sql`),`-- expect: new migration absent = 예\nselect 'new migration absent' as item, case when to_regclass('public.ex_synthetic') is null then '예' else '아니오' end as value;`);
    await writeFile(join(tmp,`docs/${stem}.snapshot.sql`),`select 'table' as kind, coalesce(to_regclass('public.ex_synthetic')::text,'absent') as name;`);
    await writeFile(join(tmp,`docs/${stem}.postcheck.sql`),`select 'deliberately false' as item, '아니오' as ok;`);
    await writeFile(join(tmp,`docs/${stem}.rollback.sql`),`begin;\nalter table public.ex_synthetic drop column id;\ndelete from supabase_migrations.schema_migrations where version = '${v}';\ncommit;\n`);

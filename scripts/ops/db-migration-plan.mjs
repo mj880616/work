@@ -481,7 +481,10 @@ export function prepareMigration({ mode, version, runId, root }) {
   // postcheck) whenever every pair file exists; the expanded rules require it.
   const pairs = ['precheck', 'postcheck'].every(kind => choose(root, 'docs',
     new RegExp(`^${version}_${name}\\.${kind}\\.sql$`), false)) && Boolean(rollbackPath) && snapshot?.artifact === true;
-  const flow = mode !== 'rollback' && pairs && checks.precheck && !checks.precheck.baselineNull
+  // Strict-rule files opt in with `-- expect:` lines in the precheck (older
+  // migrations keep their earlier flow and outputs); expanded files always run full.
+  const optedIn = !strict || (checks.precheck?.expect?.size ?? 0) > 0;
+  const flow = mode !== 'rollback' && optedIn && pairs && checks.precheck && !checks.precheck.baselineNull
     && !manualSnapshotRequired && !checks.postcheck?.baselineNull ? 'full' : 'legacy';
   if (!strict && flow !== 'full') throw new ExpandedRejection('pair-missing');
   // A table created by this same migration has no earlier rows: never back it up
