@@ -1202,7 +1202,7 @@ html #appView > .app-nav .nav-btn:has(+ .nav-sub):is(.active,[aria-current]){ co
 html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[aria-current]){ font-weight:var(--ds-weight-regular); }
 @media(hover:hover){
   html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[aria-current]):hover{ background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
-  html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):is(.active,[aria-current]):not(:has(+ .nav-sub)):hover{ background:var(--kptu-primary-hover); color:var(--ds-select-ink); }
+  html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):is(.active,[aria-current]):not(:has(+ .nav-sub)):hover{ background:var(--ds-select-bg); color:var(--ds-select-ink); }
 }
 
 /* ② 폰 하단 탭 */
