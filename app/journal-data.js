@@ -15,6 +15,7 @@
 // default range: overdue and up to 6 days ahead), 자료실 새 자료 (documents added that day, with their category) and
 // 공유 페이지 (share pages changed that day). Every read is limited to the week, a few columns and a row cap; no long body
 // (meeting text, document text, share page blocks) is read.
+import { attachmentName } from './attachment-name.mjs';
 import {seoulParts, seoulDateKey, addSeoulDays, seoulClock, formatSeoulTime} from './meeting-time.js';
 import {readBasket, filedOrganizations, filedProjects} from './basket-data.js';
 import {categoryOf} from './document-categories.js';
@@ -256,7 +257,7 @@ export function memoLine(memo) {
   if (first) return first;
   const files = Array.isArray(memo?.attachments) ? memo.attachments : [];
   if (!files.length) return '(빈 업데이트)';
-  const name = String(files[0]?.file_name || '').trim();
+  const name = attachmentName(files[0], '');
   return name ? (files.length > 1 ? `첨부: ${name} 외 ${files.length - 1}개` : `첨부: ${name}`) : `첨부 ${files.length}개`;
 }
 export const UNSORTED = '미분류';

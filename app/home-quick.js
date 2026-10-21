@@ -2,14 +2,17 @@ import {basketOcrFor} from './basket-ocr-runtime.js';
 import { createChoiceSheet, projectRows } from './choice-sheet.js';
 import { readPlaces, placeSheetHtml, placeValue, placeFromValue, rememberPlace } from './update-places.js';
 import { createGoogleTask, saveOrganizationUpdate, saveProjectProgress } from './quick-save.js';
-import { createNote, validateNoteText } from './basket-data.js';
+import { createNote, validateNoteText, createNoteDoc, noteTitleFromText } from './basket-data.js';
 import { createUploadBatch, uploadBatch, mountBasketPicker } from './basket-upload.js';
 import { extractHtmlDocument, htmlFileName, utf8Bytes, HTML_MAX_BYTES, HTML_MARK } from './chatgpt-html.mjs';
 import { dayKey } from './home-read-model.js';
 
-export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateProjects=()=>{}, esc, basketOnly=false, taskOnly=false, view="home", idPrefix="home", onSaved=()=>{}}) {
+export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateProjects=()=>{}, esc, basketOnly=false, taskOnly=false, noteOnly=false, onBig=null, view="home", idPrefix="home", onSaved=()=>{}}) {
   // UI-할일입력: taskOnly is the [할 일] screen's always-visible input. It is the [할 일] mode of this same box with the mode
   // buttons, project·date row and basket link taken out; each task it adds is due today (KST) and uses the same create path.
+  // BASKET-노트입력창: noteOnly is the basket [노트] list's always-visible input, the same box as the basket's update input
+  // (phone: docked above the tabs; PC: at the top of the list) without its clip. [추가] saves a note whose title is the first
+  // line (createNoteDoc, 마크다운 off like a new note in the write window); [크게] hands the text to onBig (the note list's write window).
   const box=root.querySelector('.home-quick-placeholder');
   box.removeAttribute('aria-hidden'); box.className='home-quick'; box.dataset.homeQuick='';
   const quickScope=()=>{const c=window.KPTURuntime.context.read();return `${c?.user?.id||''}:${c?.workspace?.id||''}`;};
@@ -20,7 +23,11 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   let mode='update',saving=false,expanded=false,project='',organization='',updateProject='',due='',dateKind='',choicesFlight=null,choiceEpoch=0,projectChoices=[],orgChoices={recent:[],groups:[]};
   try { const saved=basketOnly||taskOnly?null:window.localStorage.getItem('kptu-home-quick-mode'); mode=saved==='task'?'task':'update'; } catch {}
   if(taskOnly)mode='task';
+  if(noteOnly)mode='note';
   const toBasket=()=>mode==='update'&&!organization&&!updateProject;
+  // Whether the clip and drop take files for this save. NOTE-파일붙이기 hook: notes take none yet, so the picker stays mounted but
+  // hidden and inactive here; letting notes take files means returning true for noteOnly and saving them with the note.
+  const takesFiles=()=>!noteOnly&&toBasket();
   const currentPlace=()=>organization?{kind:'organization',id:organization}:updateProject?{kind:'project',id:updateProject}:null;
   const setPlace=place=>{organization=place?.kind==='organization'?place.id:'';updateProject=place?.kind==='project'?place.id:'';};
   let taskAttempt=null,taskRequest=null,taskSequence=0,taskReading=false,taskSessionEpoch=window.KPTURuntime.session.epoch();
@@ -32,7 +39,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   // HOME-빠른입력정리: the task options row sits above the mode buttons, and the organization picker is the ▾ right of [업데이트].
   box.innerHTML=`<div data-quick-options hidden><div data-quick-task-options><button type="button" data-quick-project aria-label="프로젝트" aria-haspopup="dialog" aria-expanded="false">프로젝트 ▾</button><button type="button" data-quick-day="today">오늘</button><button type="button" data-quick-day="tomorrow">내일</button><button type="button" data-quick-day="date">날짜</button><input type="date" data-quick-date aria-label="기한 날짜" tabindex="-1"></div></div><div class="home-quick-modes" role="group" aria-label="입력 종류"><span class="home-quick-update-split"><button type="button" data-quick-mode="update">업데이트</button><button type="button" data-quick-org aria-label="기록할 곳 선택" aria-haspopup="dialog" aria-expanded="false">▾</button></span><button type="button" data-quick-mode="task">할 일</button></div><div class="home-quick-entry"><div class="home-quick-input-wrap"><div data-quick-file-picker hidden></div><textarea data-quick-input aria-label="빠른 입력" rows="1" placeholder="할 일을 입력하세요"></textarea><button type="button" class="home-quick-big" data-quick-big aria-label="큰 창에서 쓰기" aria-haspopup="dialog"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" class="home-quick-detail" data-quick-detail aria-label="상세 설정으로 추가" aria-haspopup="dialog"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M8 2.5v11M2.5 8h11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div><button type="button" class="home-quick-save" data-quick-save>추가</button></div><p class="home-quick-hint" data-quick-hint role="status"></p><div class="home-quick-lock" data-quick-lock hidden><p data-quick-lock-reason></p><button type="button" class="home-quick-new-note" data-quick-new-note>새 업데이트 입력</button></div><div data-quick-basket-options hidden><div data-quick-files></div></div><div data-quick-status role="status"></div><button type="button" data-goto="basket" class="home-basket-link">바구니 전체 보기 ›</button>`;
   const input=box.querySelector('[data-quick-input]'),options=box.querySelector('[data-quick-options]'),status=box.querySelector('[data-quick-status]'),hint=box.querySelector('[data-quick-hint]'),orgSelect=box.querySelector('[data-quick-org]'),projectSelect=box.querySelector('[data-quick-project]'),date=box.querySelector('[data-quick-date]');
-  const pickerFiles=mountBasketPicker(box.querySelector('[data-quick-file-picker]'),{id:idPrefix==='home'?'quickBasketFiles':idPrefix+'QuickBasketFiles',filesHost:box.querySelector('[data-quick-files]'),dropTarget:box,isActive:()=>toBasket(),getBatch:()=>upload,isBusy:()=>saving,onError:message=>status.textContent=message,onChange:()=>{status.textContent='';paint();}});
+  const pickerFiles=mountBasketPicker(box.querySelector('[data-quick-file-picker]'),{id:idPrefix==='home'?'quickBasketFiles':idPrefix+'QuickBasketFiles',filesHost:box.querySelector('[data-quick-files]'),dropTarget:box,isActive:()=>takesFiles(),getBatch:()=>upload,isBusy:()=>saving,onError:message=>status.textContent=message,onChange:()=>{status.textContent='';paint();}});
   // UI-PC바구니첨부버튼: on PC the same picker part sits outside the input, just left of [추가], as [📎 첨부].
   // The phone keeps it inside the input's left edge. Moving the node keeps focus order the same as what is seen.
   const pickerHost=box.querySelector('[data-quick-file-picker]'),pickerWide=window.matchMedia('(min-width:761px)');
@@ -41,7 +48,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   // MD-표시보완: a pasted complete HTML document (ChatGPT HTML) becomes a .html attachment of this memo through the
   // same upload path as the clip; the text keeps a short mark. Nothing is saved until [추가].
   input.addEventListener('paste',e=>{
-    if(!toBasket()||saving||input.readOnly)return;
+    if(!takesFiles()||saving||input.readOnly)return;
     const found=extractHtmlDocument(e.clipboardData?.getData('text/plain')||'');if(!found)return;
     e.preventDefault();
     if(utf8Bytes(found.html)>HTML_MAX_BYTES){status.textContent='HTML 문서가 2MB를 넘어 붙여 넣지 않았어요. 더 짧게 만들어 달라고 한 뒤 다시 붙여 넣어 주세요.';return;}
@@ -52,18 +59,18 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   });
   box.querySelector('[data-quick-new-note]').onclick=()=>{if(saving)return;if((input.value||upload.entries.some(e=>e.kind!=='success'))&&!window.confirm('바구니에서 저장 여부를 확인한 후 새 업데이트를 입력할까요? 현재 입력과 파일 선택은 비워집니다.'))return;upload=createUploadBatch();input.value='';status.textContent='';paint();input.focus();};
   // UI-버튼크기: 홈은 세 모드 모두 한 줄 높이에서 시작해 글에 맞춰 늘고 5줄에서 멈춘다(그 뒤는 칸 안 스크롤). 바구니 화면은 CSS 높이 그대로.
-  function size(){ input.style.height=''; if(basketOnly||taskOnly)return; const s=getComputedStyle(input),edge=parseFloat(s.paddingTop)+parseFloat(s.paddingBottom)+parseFloat(s.borderTopWidth)+parseFloat(s.borderBottomWidth),line=parseFloat(s.lineHeight)||21,min=input.offsetHeight;input.style.height=Math.max(min,Math.min(line*5+edge,input.scrollHeight+parseFloat(s.borderTopWidth)+parseFloat(s.borderBottomWidth)))+'px'; }
+  function size(){ input.style.height=''; if(basketOnly||taskOnly||noteOnly)return; const s=getComputedStyle(input),edge=parseFloat(s.paddingTop)+parseFloat(s.paddingBottom)+parseFloat(s.borderTopWidth)+parseFloat(s.borderBottomWidth),line=parseFloat(s.lineHeight)||21,min=input.offsetHeight;input.style.height=Math.max(min,Math.min(line*5+edge,input.scrollHeight+parseFloat(s.borderTopWidth)+parseFloat(s.borderBottomWidth)))+'px'; }
   function paint(){
     pickerFiles.render();
     // A saved or unconfirmed note keeps its text; say why and offer the reset next to the input.
-    const locked=toBasket()&&(!!upload.note_id||!!upload.blocked);input.readOnly=locked;box.querySelector('[data-quick-lock]').hidden=!locked;
+    const locked=takesFiles()&&(!!upload.note_id||!!upload.blocked);input.readOnly=locked;box.querySelector('[data-quick-lock]').hidden=!locked;
     box.querySelector('[data-quick-lock-reason]').textContent=!locked?'':upload.blocked?'앞선 저장 결과를 확인하지 못해 입력창을 잠갔어요. 바구니 목록에서 저장 여부를 확인하고, 새로 쓰려면 ‘새 업데이트 입력’을 눌러 주세요.':'업데이트 글은 이미 저장되어 남은 첨부만 다시 저장할 수 있어요. 새로 쓰려면 ‘새 업데이트 입력’을 눌러 주세요.';
-    box.dataset.mode=toBasket()?'basket':mode; input.rows=1; const orgName=orgChoices.groups.flat().find(o=>o.id===organization)?.name||'',updateProjectName=projectChoices.find(x=>x.project.id===updateProject)?.project.name||'',targetName=organization?orgName:updateProjectName;
-    input.placeholder=mode==='task'?'할 일을 입력하세요':toBasket()?(basketOnly?'업데이트를 입력하세요':'업데이트 입력(바구니에 저장)'):(targetName||'담당조직')+' 기록을 입력하세요';
-    box.querySelector('[data-quick-file-picker]').hidden=!toBasket();
+    box.dataset.mode=noteOnly?'note':toBasket()?'basket':mode; input.rows=1; const orgName=orgChoices.groups.flat().find(o=>o.id===organization)?.name||'',updateProjectName=projectChoices.find(x=>x.project.id===updateProject)?.project.name||'',targetName=organization?orgName:updateProjectName;
+    input.placeholder=noteOnly?'노트를 입력하세요':mode==='task'?'할 일을 입력하세요':toBasket()?(basketOnly?'업데이트를 입력하세요':'업데이트 입력(바구니에 저장)'):(targetName||'담당조직')+' 기록을 입력하세요';
+    box.querySelector('[data-quick-file-picker]').hidden=!takesFiles();
     if(!taskOnly)box.querySelector('[data-quick-big]').hidden=mode==='task';
     if(!taskOnly&&!basketOnly)box.querySelector('[data-quick-detail]').hidden=mode!=='task';
-    box.querySelector('[data-quick-basket-options]').hidden=!toBasket()||!upload.entries.length;
+    box.querySelector('[data-quick-basket-options]').hidden=!takesFiles()||!upload.entries.length;
     box.querySelectorAll('[data-quick-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.quickMode===mode)));
     options.hidden=taskOnly||!expanded||mode!=='task';
     projectSelect.textContent=(projectChoices.find(x=>x.project.id===project)?.project.name||'프로젝트')+' ▾';
@@ -179,6 +186,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   // Resolves {ok:true} or {ok:false, message}; the write window's save icon ([크게]) waits for it (same path as [추가]).
   async function save(){
     if(mode==='task')return saveTask();
+    if(noteOnly)return saveNote();
     const fail=message=>{status.textContent=message;return {ok:false,message};};
     if(saving)return {ok:false,message:'저장 중이에요.'};
     // UI-빈입력안내: no text is a small hint line right under the input (not an error, no red); typing removes it.
@@ -209,12 +217,31 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     }catch(e){const message=e.message||'저장하지 못했습니다.';if(isCurrent())status.textContent=message;return {ok:false,message};}
     finally{if(pendingOcr===token)pendingOcr=null;saving=false;box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=false);paint();}
   }
+  // BASKET-노트입력창: one line (or more) + [추가] → a note titled by its first line, through the same insert as the write window.
+  async function saveNote(){
+    if(saving)return {ok:false,message:'저장 중이에요.'};
+    const text=input.value,title=noteTitleFromText(text);
+    if(!title){const message='글을 입력해 주세요.';status.textContent='';hint.textContent=message;return {ok:false,message};}
+    const owner=quickScope(),isCurrent=()=>owner===quickScope()&&window.KPTURouter.current===view;
+    saving=true;status.textContent='';hint.textContent='';
+    box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=true);pickerFiles.render();
+    try{
+      const note=await createNoteDoc({title,raw_text:text,markdown:false});
+      if(!isCurrent())return {ok:false,message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
+      input.value='';expanded=false;paint();onSaved(note);
+      const toast=document.querySelector('#toast');if(toast){toast.textContent='노트를 추가했습니다.';toast.classList.remove('hidden');clearTimeout(save.toastTimer);save.toastTimer=setTimeout(()=>toast.classList.add('hidden'),3200);}
+      return {ok:true};
+    }catch(e){const message=e.message||'저장하지 못했습니다.';if(isCurrent())status.textContent=message;return {ok:false,message};}
+    finally{saving=false;box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=false);paint();}
+  }
   box.querySelector('[data-quick-save]').onclick=()=>void save();
   // BASKET-업데이트통합 PR 2: [크게] opens the one write window (write-window.js) on this input's text and chosen place.
   // 업데이트 saves through this box's own save() (its attachments and photo text reading go along); 노트 saves a note.
   // Saving closes the window (저장하고 닫기); closing without saving hands the text back to this input.
   const bigBtn=box.querySelector('[data-quick-big]');
   if(taskOnly)bigBtn.remove();
+  // BASKET-노트입력창: the note input's [크게] opens the note list's own write window on this text (onBig, basket-notes.js).
+  else if(noteOnly)bigBtn.onclick=()=>{if(saving||document.querySelector('#mdEditor:not(.hidden)'))return;onBig?.(input.value);};
   else bigBtn.onclick=async()=>{
     if(saving||input.readOnly||document.querySelector('#mdEditor:not(.hidden)'))return;
     const owner=quickScope();
@@ -236,7 +263,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   // 입력한 글은 그 창의 제목으로 미리 채운다. 입력 칸 글은 그 창에서 저장될 때 비운다(같은 글이 두 번 남지 않게). 저장 경로는 기존 그대로.
   // UI-홈빠른입력상세: 홈 빠른 입력도 [할 일] 모드에서 같은 [+]로 같은 창을 연다([업데이트] 모드에서는 숨는다). 바구니 화면에는 없다.
   const detailBtn=box.querySelector('[data-quick-detail]');
-  if(basketOnly)detailBtn.remove();
+  if(basketOnly||noteOnly)detailBtn.remove();
   else{
     let detailTitle=null,detailProject=false;
     detailBtn.onclick=async()=>{
@@ -266,10 +293,13 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   window.addEventListener('kptu:project-catalog-updated',()=>{choiceEpoch++;choicesFlight=null;invalidateProjects();if(expanded&&mode==='task'&&!taskOnly)void choices();});
   window.KPTURouter.on(view,()=>{choiceEpoch++;choicesFlight=null;if(expanded&&mode==='task'&&!taskOnly)void choices();});
   if(basketOnly){box.querySelector('.home-quick-modes').remove();box.querySelector('[data-goto="basket"]').remove();input.setAttribute('aria-label','바구니에 업데이트 입력');}
+  if(noteOnly){box.querySelector('.home-quick-modes').remove();box.querySelector('[data-goto="basket"]').remove();input.setAttribute('aria-label','노트 입력');bigBtn.setAttribute('aria-label','큰 창에서 노트 쓰기');box.dataset.noteOnly='';}
   if(taskOnly){box.querySelector('.home-quick-modes').remove();box.querySelector('[data-goto="basket"]').remove();input.setAttribute('aria-label','오늘 할 일 입력');box.dataset.taskOnly='';}
   // Phone (ui-standard.css): this box is docked above the bottom tabs. Its height keeps the
   // last card and the toast clear of it; only the visible box (home or basket) writes it.
   new ResizeObserver(()=>{const height=box.getBoundingClientRect().height;if(height)document.documentElement.style.setProperty('--kptu-quick-dock',Math.ceil(height)+'px');}).observe(box);
   paint();
-  return {hasDraft:()=>!!input.value||!!taskAttempt||upload.entries.some(e=>e.kind!=='success'),isBusy:()=>saving};
+  return {hasDraft:()=>!!input.value||!!taskAttempt||upload.entries.some(e=>e.kind!=='success'),isBusy:()=>saving,
+    // The note list's write window hands unsaved text back here (and clears it after a save there).
+    setText:value=>{input.value=String(value??'');paint();},focus:()=>input.focus({preventScroll:true})};
 }
