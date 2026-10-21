@@ -129,6 +129,8 @@ export function mountRadar(host, {place}) {
 
   function paint() {
     if (!visible || state === 'missing' || shared.fnMissing || !rt.context.read()?.workspace?.id) { host.hidden = true; host.replaceChildren(); drawn = ''; return; }
+    // Home: with nothing to show the card folds away (todo-radar.md 5절); the journal box stays with [다시 찾기].
+    if (place === 'home' && state !== 'failed' && !visibleRows().length && !dayPromises().length) { host.hidden = true; host.replaceChildren(); drawn = ''; lastKey = ''; return; }
     host.hidden = false;
     const focus = host.contains(document.activeElement) ? [...host.querySelectorAll('button,input')].indexOf(document.activeElement) : -1;
     const focusKey = document.activeElement && host.contains(document.activeElement) ? [...document.activeElement.attributes].find(a => a.name.startsWith('data-radar-'))?.name : '';

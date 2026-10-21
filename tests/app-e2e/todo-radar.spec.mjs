@@ -126,12 +126,16 @@ test('home shows 5 rows and [모두 보기 N]; what is already a task is not sho
 test('[다시 찾기]: new candidates appear; a counterpart promise is shown with [원장으로 복사] and never stored',async({page,context})=>{
  await context.grantPermissions(['clipboard-read','clipboard-write']);
  const f=await fixture(page,{rows:[]});const box=radar(page);
- await expect(box.locator('[data-home-body]')).toContainText('챙길 것 없음');
- await expect.poll(()=>f.calls.ai.length).toBe(1);await expect(box.getByRole('button',{name:'다시 찾기'})).toBeEnabled();
+ // With nothing to show the home card folds away; the journal box keeps [다시 찾기].
+ await expect.poll(()=>f.calls.ai.length).toBe(1);await expect(box).toBeHidden();
+ await page.evaluate(()=>window.KPTURouter.go('journal'));
+ const jbox=page.locator('#journalView [data-journal-radar]');
+ await expect(jbox.locator('[data-home-body]')).toContainText('이 날 기록에서 나온 챙길 것 없음');
  f.queue.push({json:{ok:true,kind:'todo_radar',added:1,found:1,partial:true,checked_at:'2026-10-06T01:00:00Z',promises:[{summary:'상대 측 자료 송부 약속',due:'2026-10-10',evidence:'보내기로 함',source_kind:'meeting',source_id:id(50),source_day:'2026-10-05'}]}});
  f.db.rows.push(cand(9,{summary:'새로 찾은 가상 요청'}));f.db.state={last_success_at:'2026-10-06T01:00:00Z',last_partial:true};
- await box.getByRole('button',{name:'다시 찾기'}).click();
- await expect(box.locator('[data-radar-status-line]')).toHaveText('새로 1개 찾았어요.');
+ await jbox.getByRole('button',{name:'다시 찾기'}).click();
+ await expect(jbox.locator('[data-radar-status-line]')).toHaveText('새로 1개 찾았어요.');
+ await page.evaluate(()=>window.KPTURouter.go('home'));
  await expect(box.locator(`[data-radar-row="${id(9)}"]`)).toBeVisible();
  const promise=box.locator('[data-radar-promise]');await expect(promise).toContainText('상대 약속');await expect(promise).toContainText('상대 측 자료 송부 약속');
  await expect(promise.getByRole('button',{name:'할 일로'})).toHaveCount(0);
