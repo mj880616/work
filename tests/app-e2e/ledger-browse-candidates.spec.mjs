@@ -185,6 +185,44 @@ for(const [name,width] of [['PC',1440],['phone',390]]){
   expect(db.search.at(-1)).toMatchObject({p_query:'EVT-0901',p_include_inactive:true,p_scope:null});
   expect(await noSideScroll(page)).toBe(true);
  });
+
+ test(`원장 목록·검색: 종류·대체 보기 체크 칸은 글자와 같은 줄의 같은 크기이고 다른 칸 줄과 높이가 맞는다 (${name} ${width}px)`,async({page})=>{
+  test.setTimeout(60000);
+  await page.setViewportSize({width,height:900});
+  await mockApp(page);
+  await signIn(page);
+  const browse=page.locator('#ledgerBrowseRoot');
+  await expect(browse).toHaveAttribute('data-ledger-browse','ready',{timeout:15000});
+  const box=l=>l.evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height}});
+  const kinds=browse.locator('input[name="lbKind"]'),inactive=browse.locator('#lbInactive');
+  expect(await kinds.count()).toBe(5);
+  const inputs=[];
+  for(const input of [...await kinds.all(),inactive]){
+   const check=await box(input),label=await box(input.locator('xpath=ancestor::label[1]')),text=await box(input.locator('xpath=following-sibling::span'));
+   // 체크 칸은 작은 정사각형(12~24px), 글자 줄과 같은 줄(세로 중심이 글자와 6px 안), 칸 안쪽에 있다.
+   expect(check.w).toBeGreaterThanOrEqual(12);expect(check.w).toBeLessThanOrEqual(24);
+   expect(Math.abs(check.w-check.h)).toBeLessThanOrEqual(1);
+   expect(Math.abs((check.y+check.h/2)-(text.y+text.h/2))).toBeLessThanOrEqual(6);
+   expect(check.y).toBeGreaterThanOrEqual(label.y-1);expect(check.y+check.h).toBeLessThanOrEqual(label.y+label.h+1);
+   inputs.push({check,label});
+  }
+  // 모든 체크 칸 크기 통일, 글자 칸 높이 통일.
+  for(const i of inputs){expect(Math.abs(i.check.w-inputs[0].check.w)).toBeLessThanOrEqual(0.5);expect(Math.abs(i.label.h-inputs[0].label.h)).toBeLessThanOrEqual(0.5)}
+  // 칩 높이는 같은 줄의 작은 버튼([조건 지우기])과 같고, 대체·폐기 칩과 그 버튼은 세로 중심이 같다. 종류 다섯 개는 PC에서 한 줄.
+  const clear=await box(browse.locator('[data-lb-action="clear"]'));
+  expect(Math.abs(inputs[0].label.h-clear.h)).toBeLessThanOrEqual(1);
+  expect(Math.abs((inputs[5].label.y+inputs[5].label.h/2)-(clear.y+clear.h/2))).toBeLessThanOrEqual(1);
+  const rows=new Set(inputs.slice(0,5).map(i=>Math.round(i.label.y)));
+  expect(rows.size).toBeLessThanOrEqual(width>=1000?1:2);
+  // 날짜·조직 칸의 줄과 겹치지 않는다(종류 줄이 먼저, 그 아래 칸 줄).
+  const from=await box(browse.locator('#lbFrom'));
+  expect(Math.max(...inputs.slice(0,5).map(i=>i.label.y+i.label.h))).toBeLessThanOrEqual(from.y);
+  // 체크하면 눌린 모양이 바뀌고(aria 대신 :checked), 글자를 눌러도 체크된다.
+  await browse.locator('input[name="lbKind"][value="decision"]').locator('xpath=ancestor::label[1]').click();
+  await expect(browse.locator('input[name="lbKind"][value="decision"]')).toBeChecked();
+  await expect(browse.locator('[data-lb-shell]')).toHaveCount(1);
+  expect(await noSideScroll(page)).toBe(true);
+ });
 }
 
 test('원장 후보: 만들기 → 확정 → 고쳐서 확정 → 버림, 거절은 이유를 보이고 후보를 남긴다 (phone 390px)',async({page})=>{
