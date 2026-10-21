@@ -249,7 +249,15 @@ export {OTHERS};
 const tail = name => name === UNSORTED ? 2 : name === OTHERS ? 1 : 0;
 // JOURNAL-요청표시: a section whose items include a marked update also has `tags`, one list of request keys per item
 // (update-requests.js), so the card can put the same small tags before those items. Without a mark there is no `tags`.
-const sectionsOf = entries => {
+// ORG-묶음순서: 조직 소식 sections follow the app's one organization order (organization-order.js, window.KPTUOrganizationOrder:
+// 철도 → 지하철 → 민자철도 → 민간도시철도 → 그 외 조직, the order of the picker and the lists). Names it does not know, and the
+// whole list when that module is not loaded, stay 가나다순. Project sections have no such order (byName).
+const orgCompare = (a, b) => {
+  const order = globalThis.window?.KPTUOrganizationOrder;
+  return typeof order?.compare === 'function' ? order.compare({name:a}, {name:b}) : a.localeCompare(b, 'ko');
+};
+const byName = (a, b) => a.localeCompare(b, 'ko');
+const sectionsOf = (entries, compare = byName) => {
   const sections = new Map();
   for (const entry of entries.sort((a, b) => byTime(a.at, b.at) || 0)) {
     if (!sections.has(entry.name)) sections.set(entry.name, {items:[], tags:[]});
@@ -257,7 +265,7 @@ const sectionsOf = entries => {
     sections.get(entry.name).tags.push(entry.requests || []);
   }
   return [...sections].map(([name, {items, tags}]) => tags.some(list => list.length) ? {name, items, tags} : {name, items})
-    .sort((a, b) => tail(a.name) - tail(b.name) || a.name.localeCompare(b.name, 'ko'));
+    .sort((a, b) => tail(a.name) - tail(b.name) || compare(a.name, b.name));
 };
 // Where each basket update of the day went: {orgs:[{name, text}], projects:[name], line, at}.
 function basketPlaces(basket, day) {
@@ -294,7 +302,7 @@ export function orgNewsOn({basket, orgUpdates} = {}, day) {
     else if (!projects.length && !journal) add(null, UNSORTED, memo.occurred_at, line, requests);
   }
   for (const row of orgUpdates || []) if (onDay(row?.occurred_at, day)) add(row.organization_id, row.organization?.name, row.occurred_at, firstLine(row.raw_text) || firstLine(row.detail_text) || '(빈 업데이트)');
-  return sectionsOf(entries);
+  return sectionsOf(entries, orgCompare);
 }
 // 프로젝트 소식 of one day: [{name, items:[text]}] — one section per project (by name). A project progress record goes under
 // its project on its day (effective_on); a basket update sent to a project and to no organization goes under each such

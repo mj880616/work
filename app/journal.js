@@ -20,6 +20,9 @@ import {copyText} from './md-editor.js';
 import {offerUndoNotice, closeUndoNotice} from './basket-record-delete.js';
 import {requestTagsHtml, normalizeRequests} from './update-requests.js';
 
+// ORG-묶음순서: the shared organization order (window.KPTUOrganizationOrder) orders the 조직 소식 sections.
+await import('./organization-order.js').catch(() => {});
+
 (() => {
 if (window.KPTUJournal) return;
 const root = document.querySelector('#journalRoot');
