@@ -251,3 +251,15 @@ for(const width of [412,870])test(`verdict rows: duplicate starts unchecked and 
  await expect(page.locator('[data-classification-choice="0:0"]')).toBeChecked();await expect(page.locator('[data-classification-verdict="no-basis"]')).toBeVisible();await expect(page.locator('[data-classification-verdict="duplicate"]')).toHaveCount(0);
  expect(f.errors).toEqual([]);
 });
+
+// BASKET-분류순서: the "연결할 곳" picker lists projects in the user's own project order (sort_order), not in id order.
+for(const width of [390,900,1280])test(`classification picker follows the user project order ${width}`,async({page})=>{
+ await page.setViewportSize({width,height:1000});const f=await fixture(page);
+ const q='20000000-0000-4000-8000-000000000003',r='20000000-0000-4000-8000-000000000004',k='20000000-0000-4000-8000-000000000005';
+ const row=(id,name,sort_order,extra={})=>({id,workspace_id:'w',owner_id:'home-test',name,metadata:{project_system:'v2'},status:'active',sort_order,created_at:stamp,...extra});
+ await page.route(SB+'/rest/v1/app_spaces?**',route=>route.fulfill({json:[row(p,'현재 프로젝트',30),row(q,'둘째 사업',10),row(r,'셋째 사업',20),row(k,'둘째 하위',5,{parent_id:q})]}));
+ await open(page);await preview(page);
+ const options=await page.locator('[data-classification-target-select="0:0"] option').allTextContents();
+ expect(options.map(t=>t.replace(/^.*· /,''))).toEqual(['현재 프로젝트','현재 조직','둘째 사업','둘째 하위','셋째 사업']);
+ expect(f.errors).toEqual([]);
+});
