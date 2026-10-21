@@ -27,6 +27,9 @@ import { createUploadBatch, uploadBatch, mountBasketPicker, driveFileUrl, fileSi
 import { placeAnchored, followAnchor, clearAnchored } from './anchored-popup.js';
 
 const root = document.querySelector('#basketView'), rt = window.KPTURuntime;
+// STAB-간헐3: the refresh run whose list read is still pending (0 = none). Until it answers, an empty list is "loading",
+// not "no updates" (a segment click repaints the list meanwhile).
+let loadingRun = 0;
 let notes = [], links = [], docs = [], filter = 'unclassified', place = 'all', sub = 'all', selected = null, editing = false, busy = false, epoch = 0, rawView = false;
 const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 let upload = createUploadBatch(), pickerFiles = null, handoffBusy = false;
@@ -484,8 +487,8 @@ function renderList() {
     const chips = [...confirmedLinks(note.id).map(link => linkChip(link)), ...filedChips(note)].join('') + taskPlaceLine(note);
     return `<div class="basket-row-item" data-basket-row-item="${esc(note.id)}"><button type="button" class="basket-row-copy" data-basket-row-copy="${esc(note.id)}" aria-label="${esc([...title].slice(0,40).join(''))} 복사"${String(note.raw_text||'').trim()?'':' hidden'}>${COPY_ICON}</button><button type="button" class="basket-row-more" data-basket-row-more="${esc(note.id)}" aria-label="${esc([...title].slice(0,40).join(''))} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="basketRowMenu"><span aria-hidden="true">⋯</span></button><button type="button" class="basket-row" data-basket-row="${esc(note.id)}"><b class="basket-title">${esc([...title].slice(0,80).join(''))}</b>${lines.length>1?`<span class="basket-preview">${esc([...lines.slice(1).join(' ')].slice(0,120).join(''))}</span>`:''}<time>${esc(time(note))}</time><span>${esc(rowState(note, state))}${note.attachments?.length ? ' · 첨부 ' + note.attachments.length + '개' : ''}</span>${requestTagsHtml(noteRequests(note), esc)}</button>${chips ? `<div class="basket-row-links" role="group" aria-label="연결된 곳">${chips}</div>` : ''}</div>`;
   }).join('');
-  listStatus.textContent = visible.length ? `${visible.length}개 업데이트` : '아직 업데이트가 없어요';
-  listStatus.toggleAttribute('data-basket-empty', !visible.length);
+  listStatus.textContent = visible.length ? `${visible.length}개 업데이트` : loadingRun ? '불러오는 중…' : '아직 업데이트가 없어요';
+  listStatus.toggleAttribute('data-basket-empty', !visible.length && !loadingRun);
   root.querySelector('[data-basket-filter-count]').textContent = ' ' + visibleNotes(notes, links, 'unclassified', docs).length;
 }
 const textDirty = () => selected && detail.querySelector('[data-basket-text]')?.value !== selected.raw_text.replace(/\r\n?/g, '\n');
@@ -748,12 +751,14 @@ function finishEdit({force = false} = {}) {
 async function refresh() {
   if (busy) return;
   const run = ++epoch, owner = scope();
+  loadingRun = run;
   listStatus.textContent = '불러오는 중…'; root.querySelector('[data-basket-retry]').hidden = true;
   // UI-바구니첨부메모 PR 3: 자료실 분류 칩은 내 분류 목록을 따른다(목록이 오면 'kptu:document-categories-changed'로 다시 그린다).
   void loadDocumentCategories();
   try {
     const result = await readBasket();
     if (run !== epoch || owner !== scope()) return;
+    loadingRun = 0;
     notes = result.notes; links = result.links; docs = result.docs; renderList();
     if (requestedNote) {
       const id = requestedNote; requestedNote = null;
@@ -762,9 +767,12 @@ async function refresh() {
     }
   } catch (e) {
     if (run !== epoch || owner !== scope()) return;
+    loadingRun = 0;
     notes = []; links = []; docs = []; root.querySelector('[data-basket-rows]').replaceChildren();
     listStatus.textContent = '업데이트를 불러오지 못했어요. 다시 시도해 주세요.';
     root.querySelector('[data-basket-retry]').hidden = false;
+  } finally {
+    if (loadingRun === run) loadingRun = 0;
   }
 }
 // Resolves true when the change was saved, false when it was not (busy, no note, or the save failed).
