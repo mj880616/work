@@ -37,9 +37,13 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   let layer = null, listScroll = 0;
   // UI-노트폴더: the folder row's choice ('all' · 'none' · 'f:<name>'), folders made from the folder ⋯ that hold no note yet
   // (this screen's memory only: a folder is kept by the notes in it), and an unfinished rename/delete ([다시 시도]).
-  // The choice lives in this module's memory only (like the basket's filters); entering again after a reload starts at [전체].
-  let folderView = 'all', draftFolders = [], folderJob = null;
+  // The choice is also kept on this device only (never the server): one string per signed-in user under the per-owner cache
+  // prefix that KPTURuntime drops on sign-out or owner change. A missing/deleted folder falls back to [전체] without a message.
+  let folderView = 'all', draftFolders = [], folderJob = null, viewRestored = false;
   const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
+  const viewKey = () => { let id = ''; try { id = rt.context.read()?.user?.id || ''; } catch {} return id ? 'kptu_owner_cache:note-folder-v1:' + id : ''; };
+  const saveView = () => { const key = viewKey(); if (!key) return; try { localStorage.setItem(key, folderView); } catch {} };
+  const readView = () => { const key = viewKey(); if (!key) return 'all'; try { const v = localStorage.getItem(key); return typeof v === 'string' && /^(all|none|f:.+)$/.test(v) ? v : 'all'; } catch { return 'all'; } };
   host.innerHTML = `<div data-note-list><div class="note-list-head"><label class="note-search"><span class="a11y-only">노트 검색</span><input type="search" data-note-search placeholder="노트 검색" autocomplete="off" enterkeyhint="search"></label><button type="button" id="newNoteBtn" class="primary" data-note-new aria-label="새 노트">+ 노트</button></div><div class="note-folder-bar" data-note-folder-bar><div class="note-folder-filter" data-note-folder-filter></div><button type="button" class="basket-icon-button note-folder-more" data-note-folder-more aria-label="폴더 메뉴" title="폴더 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button></div><p class="note-folder-status" data-note-folder-status role="status" hidden></p><button type="button" class="secondary" data-note-folder-retry hidden>다시 시도</button><p data-note-list-status role="status"></p><button type="button" class="secondary" data-note-search-all hidden>전체에서 찾기</button><button type="button" data-note-retry hidden>다시 시도</button><div data-note-rows id="noteRows"></div></div><div data-note-detail hidden></div><div id="noteDocMenu" class="basket-more-menu note-pop-menu" role="group" aria-label="노트 메뉴" hidden></div>`;
   const list = host.querySelector('[data-note-list]'), detail = host.querySelector('[data-note-detail]'), status = host.querySelector('[data-note-list-status]');
   // UI-노트고정: pinned notes first, then by last change.
@@ -57,6 +61,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   function paintFolders() {
     const names = folders();
     if ((folderView.startsWith('f:') && !names.includes(viewFolder())) || (folderView === 'none' && !names.length)) folderView = 'all';
+    if (loaded) saveView();
     const options = [{value:'all', label:'전체'}, ...names.map(name => ({value:'f:' + name, label:name})), ...(names.length ? [{value:'none', label:'폴더 없음'}] : [])];
     renderFilterChips(host.querySelector('[data-note-folder-filter]'), {label:'노트 폴더', controls:'noteRows', value:folderView, options, onChange:value => { closeMenu(); folderView = value; renderList(); }});
   }
@@ -85,7 +90,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     try {
       const result = await readNoteDocs(rt);
       if (run !== epoch || owner !== scope()) return;
-      notes = result.notes; links = result.links; loaded = true; renderList();
+      notes = result.notes; links = result.links; loaded = true;
+      if (!viewRestored) { viewRestored = true; folderView = readView(); }
+      renderList();
       if (pendingOpen) { const id = pendingOpen; pendingOpen = null; if (notes.some(n => n.id === id)) open(id); }
     } catch {
       if (run !== epoch || owner !== scope()) return;
@@ -488,7 +495,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     // openId: a note just moved here from the basket opens once the list is read.
     show({openId = null} = {}) { void preloadMarkdown(); pendingOpen = openId; if (!selected) void refresh(); },
     close,
-    reset() { closeMenu(); void folderSheet.close(); folderTarget = null; folderView = 'all'; draftFolders = []; folderJob = null; folderSay(''); newDraft = ''; const opened = layer; layer = null; opened?.close(); ++epoch; bigWriter?.close({silent:true}); bigWriter = null; selected = null; editing = false; busy = false; manual.reset(); notes = []; links = []; loaded = false; query = ''; detail.replaceChildren(); detail.hidden = true; list.hidden = false; host.querySelector('[data-note-search]').value = ''; host.querySelector('[data-note-rows]').replaceChildren(); status.textContent = ''; onOpenChange(false); },
+    reset() { closeMenu(); void folderSheet.close(); folderTarget = null; folderView = 'all'; viewRestored = false; draftFolders = []; folderJob = null; folderSay(''); newDraft = ''; const opened = layer; layer = null; opened?.close(); ++epoch; bigWriter?.close({silent:true}); bigWriter = null; selected = null; editing = false; busy = false; manual.reset(); notes = []; links = []; loaded = false; query = ''; detail.replaceChildren(); detail.hidden = true; list.hidden = false; host.querySelector('[data-note-search]').value = ''; host.querySelector('[data-note-rows]').replaceChildren(); status.textContent = ''; onOpenChange(false); },
     isBusy: () => busy,
     hasDraft: () => textDirty() || (!!selected && manual.hasDraft()),
     isOpen: () => !!selected,
