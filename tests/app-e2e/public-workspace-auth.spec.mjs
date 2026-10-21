@@ -1,8 +1,9 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView,accountButton} from './helpers/shell-navigation.mjs';
 import {test,expect} from '@playwright/test';
 import { signInWithSession } from './helpers/session-login.mjs';
 
-const BASE='http://127.0.0.1:8123';
+const BASE=appOrigin;
 const APP=`${BASE}/app/`;
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const SESSION_KEY='kptu_collab_session_v1';

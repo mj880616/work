@@ -1,5 +1,6 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
-const url='http://127.0.0.1:8123/tests/app-e2e/suborganization-filters-canonical-fixture.html?orgs=order&teamstats=1';
+const url=`${appOrigin}/tests/app-e2e/suborganization-filters-canonical-fixture.html?orgs=order&teamstats=1`;
 // UI-디자인기준 3/3(2026-10-16 사용자 결정): one line per organization — the colored dot before the name shows how long ago the last
 // record was (KST days from this fixed now), and the row's accessible name says it in words. No second line and no task count.
 const now=new Date('2026-10-16T03:00:00Z');

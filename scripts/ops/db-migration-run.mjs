@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
-import { toDryRun, escapeSummary } from './db-migration-plan.mjs';
+import { toDryRun, escapeSummary, CHECK_LABEL_RE } from './db-migration-plan.mjs';
 import { meetsExpectation, expectationFor } from './db-migration-expanded.mjs';
-import { queryErrorSummary } from './db-query.mjs';
+import { queryErrorSummary, CheckFormatError } from './db-query.mjs';
 
 export function buildBackup(plan) {
   const tables = plan.targets.map(source => {
@@ -19,8 +19,8 @@ export function buildBackup(plan) {
 }
 
 function safeLabel(value, secretValues) {
-  if (typeof value !== 'string' || !/^[\p{L}\p{N} _/()=:+.,·-]{1,100}$/u.test(value)
-      || secretValues.some(secret => secret && value.includes(secret))) throw new Error('Unsafe check label');
+  if (typeof value !== 'string' || !CHECK_LABEL_RE.test(value)
+      || secretValues.some(secret => secret && value.includes(secret))) throw new CheckFormatError();
   return escapeSummary(value);
 }
 const aggregate = value => typeof value === 'string' && value.length <= 128
@@ -30,13 +30,13 @@ const aggregate = value => typeof value === 'string' && value.length <= 128
 const onlyKeys = (row, keys) => row && typeof row === 'object' && !Array.isArray(row)
   && Object.keys(row).length === keys.length && keys.every(key => Object.hasOwn(row, key));
 function observations(rows, secretValues) {
-  if (!Array.isArray(rows) || !rows.length || rows.length > 64) throw new Error('Invalid precheck size');
+  if (!Array.isArray(rows) || !rows.length || rows.length > 64) throw new CheckFormatError();
   const result = new Map();
   for (const row of rows) {
     if (!onlyKeys(row, ['item', 'value']) || !aggregate(row.value)
         || secretValues.some(secret => secret && row.value.includes(secret))) throw new Error('Unsafe precheck value');
     safeLabel(row.item, secretValues);
-    if (result.has(row.item)) throw new Error('Duplicate check item');
+    if (result.has(row.item)) throw new CheckFormatError();
     result.set(row.item, row.value);
   }
   return result;
@@ -48,18 +48,18 @@ function observations(rows, secretValues) {
 const shortHash = value => '#' + createHash('sha256').update(value).digest('hex').slice(0, 16);
 const display = value => aggregate(value) ? escapeSummary(value) : shortHash(value);
 function rawObservations(rows, secretValues, keys) {
-  if (!Array.isArray(rows) || !rows.length || rows.length > 64) throw new Error('Invalid check size');
+  if (!Array.isArray(rows) || !rows.length || rows.length > 64) throw new CheckFormatError();
   const result = new Map();
   for (const row of rows) {
     const key = keys.find(k => onlyKeys(row, ['item', k]));
-    if (!key) throw new Error('Invalid check shape');
+    if (!key) throw new CheckFormatError();
     let value = row[key];
     if (value === true || value === false) value = value ? '예' : '아니오';
     if (value === null) value = 'NULL';
     if (typeof value !== 'string' || value.length > 65_536
         || secretValues.some(secret => secret && value.includes(secret))) throw new Error('Unsafe check value');
     safeLabel(row.item, secretValues);
-    if (result.has(row.item)) throw new Error('Duplicate check item');
+    if (result.has(row.item)) throw new CheckFormatError();
     result.set(row.item, value);
   }
   return result;

@@ -1,3 +1,4 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 import {showAllLibraryCategories} from './helpers/library-categories.mjs';
 import { readFileSync } from 'node:fs';
@@ -12,7 +13,7 @@ const expiredSession=()=>({
 });
 
 async function loadRuntime(page,session){
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/runtime-client-fixture.html');
+  await page.goto(`${appOrigin}/tests/app-e2e/runtime-client-fixture.html`);
   await page.evaluate(s=>window.KPTURuntime.session.write(s),session);
 }
 
@@ -281,7 +282,7 @@ async function deleteConsumerFixture(page,view,width=390,{holdImport=false}={}){
     }
     if(path==='/functions/v1/public-policy-drive'){
       state.driveCalls++;if(state.driveGate)await state.driveGate.promise;
-      return route.fulfill({status:state.driveStatus,json:state.driveStatus===200?{url:'http://127.0.0.1:8123/tests/app-e2e/library-open-fixture.html?delete-oauth=1'}:{error:'controlled reconnect failure'}});
+      return route.fulfill({status:state.driveStatus,json:state.driveStatus===200?{url:`${appOrigin}/tests/app-e2e/library-open-fixture.html?delete-oauth=1`}:{error:'controlled reconnect failure'}});
     }
     if(path==='/functions/v1/library-files'){state.uploadCalls++;return route.fulfill({status:400,json:{error:'invalid_grant'}})}
     if(path==='/functions/v1/google-tasks')return route.fulfill({json:{tasks:[]}});

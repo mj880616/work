@@ -1,3 +1,4 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
@@ -8,7 +9,7 @@ const pressItems=JSON.parse(readFileSync(new URL('../../press/archive.json',impo
 const pressCount=pressItems.length;
 const statementCount=pressItems.filter(item=>item.type==='statement').length;
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const app='http://127.0.0.1:8123/app/';
+const app=`${appOrigin}/app/`;
 const user={id:'press-user',email:'press@example.org',user_metadata:{display_name:'언론자료 QA'}};
 
 async function mockApp(page){

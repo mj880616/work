@@ -4,7 +4,7 @@ import { signInWithSession } from './helpers/session-login.mjs';
 
 // UI-밀기전환: the phone tab swipe (mobile-swipe-navigation.js) works on empty space, ignores open windows, and leaves
 // text fields, text selection and sideways-scrolling rows alone. Real touch handlers; only the network is mocked.
-const ORIGIN = process.env.KPTU_E2E_ORIGIN || 'http://127.0.0.1:8123';
+const ORIGIN = process.env.APP_E2E_ORIGIN || process.env.KPTU_E2E_ORIGIN || 'http://127.0.0.1:8123';
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 
 async function mockApp(page) {

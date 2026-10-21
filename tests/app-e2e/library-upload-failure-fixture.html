@@ -19,7 +19,7 @@
     window.__libraryUploadCalls=[];
     window.__libraryUploadOpts=[];
     window.__libraryUploadPlan={};
-    window.__libraryDocs=[{id:'doc-1',workspace_id:'workspace-1',title:'내부 자료',category:'정책자료',source:'테스트',visibility:'workspace',tags:[],drive_url:'http://127.0.0.1:8123/tests/app-e2e/library-open-fixture.html'}];
+    window.__libraryDocs=[{id:'doc-1',workspace_id:'workspace-1',title:'내부 자료',category:'정책자료',source:'테스트',visibility:'workspace',tags:[],drive_url:location.origin+'/tests/app-e2e/library-open-fixture.html'}];
     window.addEventListener('kptu:documents-changed',()=>window.__documentsChanged++);
     window.KPTURouter={current:'library',on(){}};
     window.KPTURuntime={

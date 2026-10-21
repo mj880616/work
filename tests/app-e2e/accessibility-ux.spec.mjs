@@ -1,3 +1,4 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {openLegacyBoard} from './helpers/legacy-board.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
@@ -62,7 +63,7 @@ async function signIn(page){
 async function boot(page,viewport,options={}){
   await page.setViewportSize(viewport);
   await mockApp(page,options);
-  await page.goto('http://127.0.0.1:8123/app/');
+  await page.goto(`${appOrigin}/app/`);
   await signIn(page);
 }
 

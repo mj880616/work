@@ -1,5 +1,6 @@
+import { appOrigin } from './test-origin.mjs';
 import {baseState,mockApp,signIn} from './filter-chip-fixture.mjs';
-const BASE='http://127.0.0.1:8123',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
+const BASE=appOrigin,SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 export async function openSeoulApp(page,{view='month',target=BASE+'/app/?view=calendar',now='2026-09-30T15:10:00Z'}={}){
   const base=new URL(target).origin;
   await page.clock.setFixedTime(new Date(now));

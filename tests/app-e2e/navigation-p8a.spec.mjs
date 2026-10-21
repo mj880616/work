@@ -1,10 +1,11 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {test,expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const app='http://127.0.0.1:8123/app/';
+const app=`${appOrigin}/app/`;
 const views=['home','basket','calendar','tasks','journal','diary','projects','library','meetings','media','pages','team','hwp'];
 const user={id:'p8a-user',email:'p8a@example.org',user_metadata:{display_name:'내비게이션 QA'}};
 const event={id:'p8a-event',title:'현장 일정',start_at:'2026-09-18T09:00:00+09:00',event_type:'meeting',location:'현장'};

@@ -1,3 +1,4 @@
+import { appOrigin } from './test-origin.mjs';
 import {clickView} from './shell-navigation.mjs';
 import { expect } from '@playwright/test';
 import {execFileSync} from 'node:child_process';
@@ -58,7 +59,7 @@ async function mockApp(page,state){
       state.uploads.push(row);state.docs.push(row);
       return ok({ok:true,document:row});
     }
-    if(path==='/functions/v1/workspace-drive'){state.downloads.push(body);return ok({url:'http://127.0.0.1:8123/tests/app-e2e/library-open-fixture.html?download=1'})}
+    if(path==='/functions/v1/workspace-drive'){state.downloads.push(body);return ok({url:`${appOrigin}/tests/app-e2e/library-open-fixture.html?download=1`})}
     if(path==='/functions/v1/document-actions'){state.deletes.push(body);state.docs=state.docs.filter(d=>d.id!==body.document_id);return ok({ok:true})}
     if(path.startsWith('/functions/v1/'))return ok({});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
@@ -96,7 +97,7 @@ async function mockApp(page,state){
   });
 }
 
-async function signIn(page,target='http://127.0.0.1:8123/app/'){
+async function signIn(page,target=`${appOrigin}/app/`){
   await page.goto(target);
   await enterLogin(page);
   await signInWithSession(page,'owner@example.org');
