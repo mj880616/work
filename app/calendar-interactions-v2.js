@@ -32,6 +32,9 @@ function ciPopulateGoogleCalendars(event){
   sel.value=event.calendarId;sel.disabled=!!event.recurring||!rows.length;
   document.querySelector('#ciGoogleCalendarHint').textContent=event.recurring?'반복 일정은 Google 캘린더에서 옮겨 주세요':!rows.length?'쓰기 가능한 캘린더가 없습니다.':'';
 }
+// Google answers 404 Not Found / 410 "Resource has been deleted" for an event that is gone; the Edge passes the message on.
+const ciGoneError=e=>/not ?found|has been deleted|\bdeleted\b/i.test(String(e?.message||e||''));
+function ciGoneEvent(eventId,calendarId){ciStatus('#ciGoogleStatus','삭제된 항목입니다. 다른 곳에서 지워져 목록에서 뺐습니다.',true);document.querySelector('#ciGoogleSave').disabled=true;document.querySelector('#ciGoogleDelete').disabled=true;window.KPTUCalendarPersistence?.forget?.(eventId,calendarId)}
 async function ciOpenGoogle(eventId,calendarId,{fresh=false,fallback=null}={}){
   const seq=++ciGoogleOpenSeq,owner=window.KPTURuntime?.session?.read?.()?.user?.id,epoch=ciRuntime().session.epoch();ciSaveRequest=null;ciGoogleSavePending=false;const pending=ciPendingWrites.get(ciUncertainKey(eventId,calendarId));
   ciGoogleOwner=owner;
@@ -42,7 +45,9 @@ async function ciOpenGoogle(eventId,calendarId,{fresh=false,fallback=null}={}){
     ciRuntime();if(!owner)throw new Error('로그인이 필요합니다.');
     const cached=(window.__KPTU_GOOGLE_EVENTS__||[]).find(e=>e.id===eventId&&(!calendarId||e.calendarId===calendarId));
     let d,readFailed=false;
-    try{d=!fresh&&cached&&typeof cached.recurring==='boolean'?{event:cached}:await ciGoogleCall('event',{expectedSessionEpoch:epoch,params:{eventId,calendarId}})}catch(e){if(!fallback)throw e;d={event:fallback};readFailed=true}
+    // CAL-저장본먼저: an event shown from this device's saved copy is read again before editing.
+    const latest=!window.KPTUCalendarPersistence?.fromCopy?.();
+    try{d=!fresh&&latest&&cached&&typeof cached.recurring==='boolean'?{event:cached}:await ciGoogleCall('event',{expectedSessionEpoch:epoch,params:{eventId,calendarId}})}catch(e){if(ciGoneError(e)){if(active()){ciGoneEvent(eventId,calendarId)}return}if(!fallback)throw e;d={event:fallback};readFailed=true}
     if(!active())return;
     if(d.eventColors)window.__KPTU_GOOGLE_STATE__={...(window.__KPTU_GOOGLE_STATE__||{}),eventColors:d.eventColors};
     ciGoogleCurrent=d.event;const e=ciGoogleCurrent;
@@ -132,7 +137,7 @@ async function ciSaveGoogle(){
   }
   finally{if(ciPendingWrites.get(key)===r)ciPendingWrites.delete(key);r.finish();if(ciSaveRequest===r){ciSaveRequest=null;ciGoogleSavePending=false;if(ciSameSession(r)&&r.seq===ciGoogleOpenSeq){const ready=!!ciGoogleCurrent&&ciGoogleReadySeq===ciGoogleOpenSeq;b.disabled=!ready;b.textContent=label;b.removeAttribute('aria-busy');document.querySelector('#ciGoogleDelete').disabled=!ready}}}
 }
-async function ciDeleteGoogle(){if(!ciGoogleCurrent)return;if(!confirm('이 Google 일정을 삭제할까요?'))return;const b=document.querySelector('#ciGoogleDelete');b.disabled=true;ciStatus('#ciGoogleStatus','삭제 중…');try{await ciGoogleCall('',{method:'POST',body:{action:'delete-event',calendar_id:ciGoogleCurrent.calendarId||'primary',event_id:ciGoogleCurrent.id}});ciClose('#ciGoogleModal');ciGoogleCurrent=null;await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.();ciToast('Google 일정을 삭제했습니다.')}catch(e){ciStatus('#ciGoogleStatus',e.message||String(e),true)}finally{b.disabled=false}}
+async function ciDeleteGoogle(){if(!ciGoogleCurrent)return;if(!confirm('이 Google 일정을 삭제할까요?'))return;const b=document.querySelector('#ciGoogleDelete');b.disabled=true;ciStatus('#ciGoogleStatus','삭제 중…');try{await ciGoogleCall('',{method:'POST',body:{action:'delete-event',calendar_id:ciGoogleCurrent.calendarId||'primary',event_id:ciGoogleCurrent.id}});window.KPTUCalendarPersistence?.forget?.(ciGoogleCurrent.id,ciGoogleCurrent.calendarId||'primary');ciClose('#ciGoogleModal');ciGoogleCurrent=null;await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.();ciToast('Google 일정을 삭제했습니다.')}catch(e){ciStatus('#ciGoogleStatus',e.message||String(e),true)}finally{b.disabled=false}}
 function ciClickedDate(cell){const m=String(cell?.dataset?.date||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);if(!m)return null;const d=seoulDate(+m[1],+m[2]-1,+m[3],9);return Number.isFinite(d.getTime())?d:null}
 function ciCreateAt(d){const btn=document.querySelector('#newEventBtn');if(!btn)return;btn.click();const finish=new Date(d.getTime()+3600000),sp=ciParts(d),ep=ciParts(finish);const allDay=document.querySelector('#eventAllDay');if(allDay){allDay.checked=false;allDay.dispatchEvent(new Event('change',{bubbles:true}))}if(document.querySelector('#eventStartDate'))document.querySelector('#eventStartDate').value=sp.date;if(document.querySelector('#eventStartTime'))document.querySelector('#eventStartTime').value=sp.time;if(document.querySelector('#eventEndDate'))document.querySelector('#eventEndDate').value=ep.date;if(document.querySelector('#eventEndTime'))document.querySelector('#eventEndTime').value=ep.time;queueMicrotask(()=>document.querySelector('#eventTitle')?.focus())}
 ciInject();

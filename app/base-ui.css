@@ -206,3 +206,9 @@ button:disabled,[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
    (project detail .ps3-modal-head, the PC task pane #gtDetailPane) still sets its own offset. Save stays where it is: in the
    bottom row (.modal-action-footer) for popups, in the title line only for the PC task pane. */
 :where(.modal-card)>.modal-head:where(:not(.w1p-detail-head)){position:sticky;top:0;z-index:3;background:var(--kptu-surface);box-shadow:0 -24px 0 24px var(--kptu-surface)}
+/* CAL-저장본먼저: one small line on screens that show this device's saved copy first (data-freshness.js draws it):
+   새로 불러오는 중 / 최신 아님 · 마지막 확인 HH:MM [다시 시도]. Muted while refreshing, danger ink when not the latest. */
+.data-freshness{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:4px 0;font-size:var(--ds-text-meta,13px);color:var(--kptu-muted)}
+.data-freshness[hidden]{display:none}
+.data-freshness.data-freshness-warn{color:var(--kptu-danger)}
+.data-freshness .data-freshness-retry{min-height:28px}

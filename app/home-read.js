@@ -3,6 +3,7 @@ import { mountQuick } from './home-quick.js';
 import { mountRadar } from './todo-radar.js';
 import { mountCollectionStatus } from './collection-status.js';
 import { createHomeCache } from './home-read-cache.js';
+import { paintFreshness } from './data-freshness.js';
 import {
   ranges,
   dayKey,
@@ -10,6 +11,7 @@ import {
   todayEvents,
   dueTasks,
   meetingTasks,
+  homeEventRows,
 } from "./home-read-model.js";
 const rt = window.KPTURuntime,
   root = document.querySelector("#homeView"),
@@ -45,6 +47,9 @@ let epoch = 0,
   taskFlight = null,
   tasksDirty = false,
   copies = {},
+  // CAL-저장본먼저: which cards still show this device's copy (fresh read not answered yet) and when that copy was saved.
+  fromCopy = {},
+  copyAt = {},
   calendarState = null,
   imports = null,
   radarMount = null,
@@ -122,7 +127,7 @@ function shell() {
     focused = quick?.contains(document.activeElement) ? document.activeElement : null;
   const section = key => {
     const [title, view, label] = cards[key];
-    return `<section class="home-card" data-home-card="${key}" aria-labelledby="home-${key}-title"><header><h3 id="home-${key}-title">${title} <small data-home-count></small></h3>${view ? `<button type="button" data-goto="${view}">${label} ›</button>` : ""}</header><div data-home-body role="status">불러오는 중…</div></section>`;
+    return `<section class="home-card" data-home-card="${key}" aria-labelledby="home-${key}-title"><header><h3 id="home-${key}-title">${title} <small data-home-count></small></h3>${view ? `<button type="button" data-goto="${view}">${label} ›</button>` : ""}</header>${key==='calendar'||key==='tasks'?'<p class="data-freshness" data-home-fresh role="status" aria-live="polite" hidden></p>':''}<div data-home-body role="status">불러오는 중…</div></section>`;
   };
   // JOURNAL-챙길것: 챙길 것 sits below 주요 일정. todo-radar.js is the only renderer inside that card; it stays hidden until
   // the candidate table and the server function answer (not deployed yet = hidden).
@@ -223,7 +228,13 @@ const dependencies = {
   calendar: () =>
     share("calendar", () => api("/functions/v1/google-calendar?action=status")),
 };
+// The small 새로 불러오는 중 / 최신 아님 · 마지막 확인 HH:MM [다시 시도] line of the 오늘 일정 and 오늘 할 일 cards.
+function fresh(key,state){
+  if(state!=='refresh'&&state!=='stale')fromCopy[key]=false;
+  paintFreshness(card(key)?.querySelector('[data-home-fresh]'),{state,checkedAt:copyAt[key]||0,onRetry:()=>void retry(key)});
+}
 function disconnected(key) {
+  fresh(key,'');
   paint(
     key,
     `<p class="home-status"><button type="button" data-goto="${key === "calendar" ? "calendar" : "tasks"}">Google ${key === "calendar" ? "캘린더" : "할 일"} 연결 ›</button></p>`,
@@ -314,12 +325,6 @@ function renderDday(rows){
   if(!rows.length)return empty('dday','주요 일정 없음',true);
   paint('dday',`<div class="home-chips">${rows.map(m=>`<button type="button" class="home-chip ${m.days<=3?'urgent':''}" data-home-project="${esc(m.project_id)}">${m.days===0?'D-day':'D-'+m.days} ${esc(m.title)}</button>`).join('')}</div>`,rows.length);
 }
-function eventRows(events,status={}){
-  return todayEvents(events).map(e=>{
-    const raw=e.color||status.colors?.[e.calendarId]||status.calendars?.find(c=>c.id===e.calendarId)?.backgroundColor;
-    return {start:e.start,end:e.end,allDay:!!e.allDay,title:e.title,color:/^#[0-9a-f]{6}$/i.test(raw)?raw:'var(--kptu-primary-ink)'};
-  });
-}
 function renderCalendar(rows){
   if(!rows.length)return empty('calendar','오늘 일정 없음');
   paint('calendar',rows.map(e=>{
@@ -330,7 +335,7 @@ function renderCalendar(rows){
 }
 function restoreCopies(){
   if(copies.dday)renderDday(copies.dday.rows);
-  if(copies.calendar)renderCalendar(copies.calendar.rows);
+  if(copies.calendar){renderCalendar(copies.calendar.rows);fromCopy.calendar=true;copyAt.calendar=copies.calendar.savedAt;fresh('calendar','refresh');}
   if(copies.meetings){
     const rows=copies.meetings.rows;
     if(rows.length)paint('meetings',rows.map(r=>taskRowHtml(r.id,r.title,false,esc(r.meetingName))).join(''),rows.length);
@@ -367,8 +372,8 @@ const loaders = {
       guard(run);
       if(d?.connected===false||d?.needs_reconnect||d?.authorized===false||calendarAuthError(d?.warning||''))return disconnected('calendar');
       if(d.warning)throw new Error(d.warning);
-      const rows=eventRows(d.events||[],status);
-      saveCopy('calendar',{day:dayKey(),rows});renderCalendar(rows);
+      const rows=homeEventRows(d.events||[],status);
+      saveCopy('calendar',{day:dayKey(),rows});renderCalendar(rows);fresh('calendar','');
       metrics.refreshed.calendar=Math.round(performance.now()-metrics.shellAt);timing();
     };
     // A slow calendar-list status read must not hold a completed fresh events read behind the display copy.
@@ -391,7 +396,7 @@ const loaders = {
       cached = g.peekTasks();
     guard(run);
     if (cached?.owner===owner() && taskStatus === 'loading') {
-      tasks=cached.tasks;taskStatus='ok';tasksReady=true;renderTasks({includeMeetings:false});
+      tasks=cached.tasks;taskStatus='ok';tasksReady=true;renderTasks({includeMeetings:false});fromCopy.tasks=true;copyAt.tasks=cached.savedAt;fresh('tasks','refresh');
     }
     const d = await dependencies.tasks();
     guard(run);
@@ -401,7 +406,7 @@ const loaders = {
       return disconnected("tasks");
     }
     tasks = d.tasks;
-    tasksReady=true;renderTasks({includeMeetings:false});
+    tasksReady=true;renderTasks({includeMeetings:false});fresh('tasks','');
     const ls = await dependencies.links();
     guard(run);
     links = ls;
@@ -450,7 +455,8 @@ async function loadCard(key, run = epoch) {
   try {
     await loaders[key](run);
   } catch {
-    if (current(run)) { if(key==='tasks')taskStatus='failed';failure(key); }
+    // A card still showing this device's copy keeps it and says it is not the latest; with nothing shown it says it failed.
+    if (current(run)) { if(fromCopy[key])fresh(key,'stale');else{if(key==='tasks')taskStatus='failed';failure(key);} }
   } finally {
     if(current(run)){metrics.refreshed[key]=Math.round(performance.now()-metrics.shellAt);timing();}
   }
@@ -468,7 +474,7 @@ function start({ freshTasks = false } = {}) {
   tasksReady = false;
   meetingsReady = false;
   tasks=[];links=[];projects=[];orgs=[];meetings=[];
-  copies=homeCache?.read()||{};
+  copies=homeCache?.read()||{};fromCopy={};copyAt={};
   unsubscribe?.();
   metrics.readyAt = 0;
   metrics.shellAt = performance.now();
@@ -538,19 +544,22 @@ function refreshTaskCards(){
   flights.delete('tasks');flights.delete('links');flights.delete('meetings');
   return trackTaskFlight(Promise.allSettled(['tasks','meetings'].map(key=>loadCard(key,run))),run);
 }
+async function retry(key){
+  if (key === "calendar") {
+    flights.delete("calendar");
+    flights.delete("events");
+  }
+  if(fromCopy[key])fresh(key,'refresh');
+  if(key==='tasks'||key==='meetings')return refreshTaskCards();
+  await loadCard(key);
+}
 root.addEventListener("click", async (event) => {
   const b = event.target.closest("button");
   if (!b) return;
   const key = b.dataset.homeRetry;
   if (key) {
     b.disabled = true;
-    if (key === "calendar") {
-      flights.delete("calendar");
-      flights.delete("events");
-    }
-    if(key==='tasks'||key==='meetings')return refreshTaskCards();
-    await loadCard(key);
-    return;
+    return retry(key);
   }
   const editId = b.dataset.homeEdit;
   if (editId) {
@@ -594,7 +603,7 @@ window.addEventListener("kptu:session-changed", (event) => {
   epoch++;
   flights.clear();
   unsubscribe?.();
-  activeStart=null;taskFlight=null;tasksDirty=false;copies={};calendarState=null;
+  activeStart=null;taskFlight=null;tasksDirty=false;copies={};fromCopy={};copyAt={};calendarState=null;
   tasks = [];
   links = [];
   projects = [];
