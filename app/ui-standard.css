@@ -787,17 +787,19 @@
 #appView #libraryView .library-filter-toolbar{ gap:0 12px; }
 #appView #libraryView .library-filter-toolbar #documentProject{ flex:1 1 100%; }
 
-/* ④ 보조 버튼 32px: 일정 [오늘], 바구니 [⋯ 더보기](PC, 폰은 아이콘 그대로), 자료실 [분류 수정], 담당조직 상세 [할 일 추가]·[기존 할 일 연결], 프로젝트 상세 할 일 [연결 해제]. */
+/* ④ 보조 버튼 32px: 일정 [오늘], 바구니 [⋯ 더보기](PC, 폰은 아이콘 그대로), 자료실 [분류 수정], 담당조직·프로젝트 상세 할 일 [연결 해제](담당조직 [기존 할 일 연결]·[+]는 프로젝트 상세와 같은 글자 버튼·작은 + 버튼, workplace-detail.css). */
 #appView #calendarView .calendar-toolbar button#calendarTodayBtn,
 #appView #libraryView button#manageLibraryBtn,
-.modal button:is(#wdTaskAdd,#wdTaskLink),
-#ps3DetailModal button.mini[data-gt-linked-unlink]{
+#ps3DetailModal button.mini[data-gt-linked-unlink],
+#wdModal button.mini[data-gt-linked-unlink],
+#appView #teamView #wdModal button.mini[data-gt-linked-unlink]{
   position:relative; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1;
 }
 #appView #calendarView .calendar-toolbar button#calendarTodayBtn::after,
 #appView #libraryView button#manageLibraryBtn::after,
-.modal button:is(#wdTaskAdd,#wdTaskLink)::after,
-#ps3DetailModal button.mini[data-gt-linked-unlink]::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
+#ps3DetailModal button.mini[data-gt-linked-unlink]::after,
+#wdModal button.mini[data-gt-linked-unlink]::after,
+#appView #teamView #wdModal button.mini[data-gt-linked-unlink]::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
 
 /* UI-버튼작게 ①(2026-10-18 사용자 결정): 바구니 메모·노트 읽기 화면 아래 버튼(메모 [연결하기][할 일 만들기], 노트 [수정][텔레그램용 복사][연결하기])은
    한 줄, 폭은 글자만큼, 보이는 높이 32px. 색은 기본 버튼 모양 하나로 통일(UI-바구니상세버튼색, 2026-10-20). 누르는 범위는 ::after로 44px. */

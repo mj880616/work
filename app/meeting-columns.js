@@ -70,18 +70,18 @@ export function columnsHtml(columns,{selectedKey,selectedId,colorOf,whenOf,resul
   const selected=columns.find(c=>c.key===selectedKey)||columns[0],current=pickMeeting(selected,selectedId);
   const kinds=columns.map(c=>{
     const label=c.name||'회의명 미지정',on=c===selected;
-    return `<li><button type="button" class="mcol-kind" data-meeting-kind="${esc(c.key)}" aria-controls="mcolRounds"${on?' aria-current="true"':''} style="--meeting-color:${esc(colorOf(c.name))}"><span class="mcol-dot" aria-hidden="true"></span><span class="mcol-name">${esc(label)}</span><span class="mcol-count" aria-label="${c.meetings.length}건">${c.meetings.length}</span></button></li>`;
+    return `<li><button type="button" class="mcol-kind" data-meeting-kind="${esc(c.key)}" aria-controls="mcolRounds"${on?' aria-current="true"':''} style="--meeting-color:${esc(colorOf(c.name))}"><span class="mcol-dot" aria-hidden="true"></span><span class="mcol-name" title="${esc(label)}">${esc(label)}</span><span class="mcol-count" aria-label="${c.meetings.length}건">${c.meetings.length}</span></button></li>`;
   }).join('');
   const label=selected.name||'회의명 미지정';
   const rows=selected.meetings.map(m=>{
     const roundText=roundLabel(m),when=whenOf(m),on=m===current;
-    return `<li><button type="button" class="mcol-card" data-meeting-round="${esc(m.id)}" aria-controls="mcolResult" aria-label="${esc([label,roundText,when].filter(Boolean).join(' · '))}"${on?' aria-current="true"':''}><b class="mcol-round">${esc(roundText)}</b><span class="mcol-meta"><span class="mcol-when">${esc(when)}</span></span></button></li>`;
+    return `<li><button type="button" class="mcol-card" data-meeting-round="${esc(m.id)}" aria-controls="mcolResult" aria-label="${esc([label,roundText,when].filter(Boolean).join(' · '))}"${on?' aria-current="true"':''}><b class="mcol-round" title="${esc(roundText)}">${esc(roundText)}</b><span class="mcol-meta"><span class="mcol-when" title="${esc(when)}">${esc(when)}</span></span></button></li>`;
   }).join('');
   return `<div class="mcol-layout">`
     +`<div class="mcol-lists">`
     +`<nav class="mcol-kinds" aria-label="회의 종류"><ul>${kinds}</ul></nav>`
     +`<section id="mcolRounds" class="mcol-rounds" data-meeting-column="${esc(selected.key)}" style="--meeting-color:${esc(colorOf(selected.name))}" aria-labelledby="mcolRoundsHead">`
-    +`<h3 class="mcol-head" id="mcolRoundsHead"><span class="mcol-dot" aria-hidden="true"></span><span class="mcol-name">${esc(label)}</span><span class="mcol-count" aria-label="${selected.meetings.length}건">${selected.meetings.length}</span></h3>`
+    +`<h3 class="mcol-head" id="mcolRoundsHead"><span class="mcol-dot" aria-hidden="true"></span><span class="mcol-name" title="${esc(label)}">${esc(label)}</span><span class="mcol-count" aria-label="${selected.meetings.length}건">${selected.meetings.length}</span></h3>`
     +`<ol class="mcol-cards">${rows}</ol>`
     +`</section></div>`
     +`<section id="mcolResult" class="mcol-result" style="--meeting-color:${esc(colorOf(selected.name))}" aria-labelledby="mcolResultHead"${current?` data-meeting-result="${esc(current.id)}"`:''}>${current?resultHtml(current,{kindName:label}):''}</section>`

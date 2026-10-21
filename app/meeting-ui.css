@@ -173,8 +173,12 @@
   #meetingList .mcol-card:hover{background:var(--kptu-surface-subtle)}
   #meetingList .mcol-card[aria-current="true"]{background:var(--ds-kind-other-soft);border-left-color:var(--meeting-color,var(--kptu-border-strong))}
   #meetingList .mcol-round{max-width:100%;min-width:0;font-size:var(--ds-text-row);font-weight:var(--ds-weight-medium);line-height:1.4;color:var(--kptu-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  #meetingList .mcol-meta{max-width:100%;display:flex;font-size:var(--ds-text-meta);line-height:1.4;color:var(--kptu-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  #meetingList .mcol-when{font-variant-numeric:tabular-nums}
+  #meetingList .mcol-meta{max-width:100%;min-width:0;display:flex;font-size:var(--ds-text-meta);line-height:1.4;color:var(--kptu-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #meetingList .mcol-when{min-width:0;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+  /* UI-회의좁은PC: 1024~1279px에서는 종류·차수 칸이 각각 120px 안팎이다. 줄(li)이 글자 폭만큼 늘어 선택 배경이 칸 밖으로 잘리지 않게 줄 폭을 칸에 묶고,
+     칸 안 글자는 줄임표로 줄인다(전체 글은 title). 1280px 이상 배치·비율은 그대로. */
+  #meetingList :is(.mcol-kinds,.mcol-cards)>li,#meetingList .mcol-kinds ul>li{min-width:0}
+  #meetingList .mcol-card{overflow:hidden}
   /* 오른쪽 결과(읽기용): 머리(회의 이름·차수·시각·프로젝트 + ⋯) 고정, 몸통만 세로로 넘어간다. */
   #meetingList .mcol-result{display:flex;flex-direction:column}
   #meetingList .mcol-result-head{flex:none;display:flex;align-items:flex-start;gap:var(--kptu-space-2);padding:var(--kptu-space-3) var(--kptu-space-2) var(--kptu-space-2) var(--kptu-space-4);border-bottom:var(--ds-line-width) solid var(--ds-line)}
