@@ -1,6 +1,6 @@
 begin;
 -- LEDGER-확정되돌리기: 원장 후보 [확정]·[고쳐서 확정]을 되돌리는 함수 1개 + "결정된 후보 잠금" 트리거를 함수 경로만 여는 판으로 바꿈.
--- 앞 단계: 20261021082000_ledger_schema(표·권한·트리거), 20261021190000_ledger_candidates(확정 함수). 설계: docs/design/ledger-web2.md 15.6절.
+-- 앞 단계: 20261021082000_ledger_schema(표·권한·트리거), 20261021190000_ledger_candidates(확정 함수). 설계: docs/design/ledger-web2.md 16절.
 -- 표·정책·권한·감사 기록 목록·다른 트리거는 바꾸지 않는다. 새 함수 2개 모두 SECURITY INVOKER·search_path 빈칸이라
 -- 기존 owner RLS·칸 권한·고정 ID·감사 기록 트리거가 그대로 걸린다. 실행은 authenticated만(PUBLIC·anon·service_role 없음).
 --   app_unconfirm_ledger_candidate : 확정된 후보 하나를 한 거래로 되돌린다.

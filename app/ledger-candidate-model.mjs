@@ -162,3 +162,22 @@ export function confirmError(error) {
   if (error?.status === 0 || /timeout|network|fetch/i.test(text)) return '연결이 끊겨 결과를 확인하지 못했습니다. 목록을 다시 읽어 확인하세요.';
   return '확정하지 못했습니다. 잠시 뒤 다시 시도하세요.';
 }
+
+// 확정 취소(app_unconfirm_ledger_candidate) 오류 → 일상어. 거절이면 아무것도 바뀌지 않았다.
+export const UNDO_SECONDS = 10;
+export const UNDO_ERRORS = Object.freeze([
+  [/LEDGER_UNDO_NOT_CONFIRMED/, '이미 대기로 돌아갔거나 버린 후보입니다.'],
+  [/LEDGER_UNDO_NOT_FOUND/, '후보나 원장 기록을 찾을 수 없습니다.'],
+  [/LEDGER_UNDO_IMPORTED/, '가져오기(시트 이전)로 들어온 기록이라 확정 취소를 할 수 없습니다.'],
+  [/LEDGER_UNDO_REFERENCED/, '다른 기록이나 후보가 이 기록을 연결·대체·대상으로 가리키고 있어 취소할 수 없습니다. 그쪽을 먼저 정리하세요.'],
+  [/LEDGER_UNDO_TARGET_CHANGED/, '이 확정이 대체한 기록이 그 뒤 고쳐져서 취소할 수 없습니다.'],
+  [/LEDGER_UNDO_RECORD_CHANGED/, '확정 뒤 이 기록(또는 출처·연결)을 고쳐서 취소할 수 없습니다. 원장 기록을 직접 고치세요.'],
+  [/LEDGER_UNDO_DUPLICATE_PENDING/, '같은 내용의 대기 후보가 이미 있어 취소할 수 없습니다. 그 후보를 먼저 정리하세요.'],
+  [/42501|permission denied/i, '이 작업공간의 소유자만 확정을 취소할 수 있습니다.']
+]);
+export function undoError(error) {
+  const text = String(error?.message || error || '');
+  for (const [re, label] of UNDO_ERRORS) if (re.test(text)) return label;
+  if (error?.status === 0 || /timeout|network|fetch/i.test(text)) return '연결이 끊겨 결과를 확인하지 못했습니다. 목록을 다시 읽어 확인하세요.';
+  return '확정을 취소하지 못했습니다. 잠시 뒤 다시 시도하세요.';
+}
