@@ -7,6 +7,7 @@
 //   data-enter-field="off"       on a field or a region: Enter is not ours there (big editors, pickers with their own Enter).
 //   data-enter-field="single"    a <textarea> that holds one line (Enter saves, the line never gets a break).
 //   data-enter-field="multi"     an <input> that should follow the many-line rule.
+//   data-enter-save-submit="nohint" an icon-only save button: same rule, no visible hint.
 // Rule:
 //   one-line field (title, 차수, time, due…)   Enter = save (PC and phone)
 //   many-line field (textarea, contenteditable) Enter = new line; Ctrl+Enter (Cmd+Enter on Mac) = save, PC only
@@ -65,11 +66,14 @@ export function saveButtonFor(root){
   return null;
 }
 
-export function buttonReady(button){
-  if(!button||!button.isConnected)return false;
-  if(button.disabled||button.getAttribute('aria-disabled')==='true'||button.getAttribute('aria-busy')==='true')return false;
-  if(button.closest('.hidden,[hidden],[inert]'))return false;
+export function shown(button){
+  if(!button||!button.isConnected||button.closest('.hidden,[hidden],[inert]'))return false;
   return !button.getClientRects||button.getClientRects().length>0;
+}
+
+export function buttonReady(button){
+  if(!shown(button))return false;
+  return !(button.disabled||button.getAttribute('aria-disabled')==='true'||button.getAttribute('aria-busy')==='true');
 }
 
 export function installEnterSave(doc=globalThis.document){
@@ -82,7 +86,7 @@ export function installEnterSave(doc=globalThis.document){
   let hinted=null;
   const clearHint=()=>{hinted?.removeAttribute('data-enter-hint');hinted=null};
   const paintHint=target=>{
-    const root=containerOf(target),button=root&&saveButtonFor(root),text=button?hintText(fieldKind(target),{pc:pc(),mac}):'';
+    const root=containerOf(target),button=root&&saveButtonFor(root),text=button&&button.getAttribute('data-enter-save-submit')!=='nohint'?hintText(fieldKind(target),{pc:pc(),mac}):'';
     if(!button||!text){clearHint();return}
     if(hinted!==button)clearHint();
     button.setAttribute('data-enter-hint',text);hinted=button;
@@ -94,9 +98,13 @@ export function installEnterSave(doc=globalThis.document){
     const target=e.target,root=containerOf(target);if(!root)return;
     const kind=fieldKind(target);
     if(!enterAction(e,kind,{pc:pc()}))return;
-    // One-line fields never take a line break and never fall back to the browser's own form submit.
+    const button=saveButtonFor(root);
+    // A root whose save button is not on screen (a detail in read mode, an editor still closed) is not a save target.
+    if(!shown(button))return;
+    // From here the press is ours: a one-line field never takes a line break and never falls back to the browser's
+    // own form submit, even while the button waits (disabled or busy) for the save before it.
     e.preventDefault();
-    const button=saveButtonFor(root);if(!buttonReady(button)||pending.has(button))return;
+    if(!buttonReady(button)||pending.has(button))return;
     pending.add(button);
     // Let other Enter listeners of this same press finish first (a time cell tidies 930 → 09:30 on Enter).
     setTimeout(()=>{pending.delete(button);if(buttonReady(button))button.click()},0);

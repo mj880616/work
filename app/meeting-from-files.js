@@ -38,13 +38,13 @@ function install(){
   if(!head)return false;
   head.insertAdjacentHTML('afterend','<div class="meeting-create-modes" role="group" aria-label="만드는 방법"><button type="button" data-meeting-mode="manual" aria-pressed="true">직접 쓰기</button><button type="button" data-meeting-mode="files" aria-pressed="false">파일·글로 만들기</button></div>');
   const modes=host.querySelector('.meeting-create-modes');
-  modes.insertAdjacentHTML('afterend',`<section id="mffPanel" class="mff-panel" aria-label="파일·글로 회의 만들기">
+  modes.insertAdjacentHTML('afterend',`<section id="mffPanel" class="mff-panel" data-enter-save aria-label="파일·글로 회의 만들기">
 <section class="mtg-group" aria-labelledby="mffFilesHead"><div class="mtg-group-head"><h3 id="mffFilesHead">파일</h3><button id="mffPick" class="mtg-add-plus" type="button" aria-label="회의자료·회의결과 파일 고르기">+</button><input id="mffFiles" type="file" multiple accept=".hwp,.hwpx,.pdf" hidden></div>
 <p class="mtg-note">HWP·PDF 여러 개 · 이름에 "결과·회의록"이면 결과, "자료·안건"이면 자료 · 자료실에도 자동 등록</p></section>
 <label class="mff-text-label">회의 결과 글 <span class="optional">붙여 넣기</span><textarea id="mffText" rows="5" placeholder="회의 결과 글을 붙여 넣으세요. 회의가 여럿이면 회의 제목 줄(예: 제5차 중앙집행위원회 결과 2025.10.15)로 나눠요."></textarea></label>
 <div id="mffList" class="mff-list" aria-live="polite"></div>
 <datalist id="mffKinds"></datalist>
-<div class="modal-action-footer mff-footer"><div id="mffStatus" class="status" role="status"></div><button id="mffCreate" class="primary wide" type="button" disabled>만들기</button></div>
+<div class="modal-action-footer mff-footer"><div id="mffStatus" class="status" role="status"></div><button id="mffCreate" data-enter-save-submit class="primary wide" type="button" disabled>만들기</button></div>
 </section>`);
   modes.addEventListener('click',e=>{const b=e.target.closest('[data-meeting-mode]');if(b)setMode(b.dataset.meetingMode,true)});
   $('#mffPick').onclick=()=>$('#mffFiles').click();

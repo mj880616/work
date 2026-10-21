@@ -173,7 +173,8 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   let kind = kinds?.value ?? null;
   const saveAria = () => (typeof save?.aria === 'function' ? save.aria(kind) : save?.aria) || '저장';
   const saveButton = save ? button('', {mdSaveIcon: ''}, saveAria()) : null;
-  if (saveButton) { saveButton.className = 'md-editor-icon'; saveButton.append(saveIconSvg()); }
+  // UI-엔터저장: the big editor keeps Enter as a new line; on PC Ctrl+Enter (Cmd+Enter) runs its existing save (enter-save.js).
+  if (saveButton) { saveButton.className = 'md-editor-icon'; saveButton.append(saveIconSvg()); saveButton.dataset.enterSaveSubmit = 'nohint'; shell.dataset.enterSave = ''; }
   const kindGroup = kinds ? document.createElement('div') : null;
   const kindMenu = kinds?.menu ? button('▾', {mdKindMenu: kinds.menu.value}) : null;
   if (kindMenu) { kindMenu.setAttribute('aria-haspopup', 'dialog'); kindMenu.setAttribute('aria-expanded', 'false'); }

@@ -22,7 +22,7 @@ root.innerHTML = `<div class="diary-head"><div class="diary-month"><button type=
 <div class="diary-cal" data-diary-cal><div class="diary-week-head" aria-hidden="true">${['일','월','화','수','목','금','토'].map((d, i) => `<span${i === 0 ? ' class="sunday"' : i === 6 ? ' class="saturday"' : ''}>${d}</span>`).join('')}</div><div class="diary-days" data-diary-days></div></div>
 <section class="diary-list" data-diary-list hidden aria-label="이 달 일기 목록"></section>
 <section class="diary-detail" data-diary-detail hidden aria-labelledby="diaryDetailTitle"></section>
-<section class="diary-editor" data-diary-editor hidden aria-labelledby="diaryEditorTitle"></section>`;
+<section class="diary-editor" data-diary-editor data-enter-save hidden aria-labelledby="diaryEditorTitle"></section>`;
 const $ = selector => root.querySelector(selector);
 const cal = $('[data-diary-cal]'), days = $('[data-diary-days]'), detail = $('[data-diary-detail]'), list = $('[data-diary-list]'), editor = $('[data-diary-editor]'), status = $('[data-diary-status]');
 
@@ -219,7 +219,7 @@ function renderEditor(message = '') {
 <div class="diary-thumbs" data-diary-thumbs></div>
 <label class="diary-field"><span>글</span><textarea data-diary-text rows="6" placeholder="오늘 있었던 일을 적어 보세요(사진만 남겨도 돼요)"></textarea></label>
 <p class="diary-editor-status" data-diary-editor-status role="status" aria-live="polite"></p>
-<div class="diary-actions"><button type="button" class="primary" data-diary-save>저장</button>${row ? '<button type="button" class="secondary diary-danger" data-diary-delete>일기 지우기</button>' : ''}</div>`;
+<div class="diary-actions"><button type="button" class="primary" data-diary-save data-enter-save-submit>저장</button>${row ? '<button type="button" class="secondary diary-danger" data-diary-delete>일기 지우기</button>' : ''}</div>`;
   editor.querySelector('[data-diary-text]').value = text;
   const thumbs = editor.querySelector('[data-diary-thumbs]');
   // Each photo has a one-line optional comment under it (max 200 chars), typed text kept in edit state across redraws.

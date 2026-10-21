@@ -145,14 +145,14 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
   function confirmLabel(n){return filesOnly(n)&&link.targets.every(t=>!t.record)?'자료로 넣기':'연결';}
   function linkMarkup(n){
     const done=[...linked().keys()].length,only=filesOnly(n);
-    return `<section class="basket-manual" data-manual-link aria-labelledby="basketManualLinkTitle"><h3 id="basketManualLinkTitle">${only?'조직·프로젝트 자료로 넣기':'조직·프로젝트에 연결'}</h3>
+    return `<section class="basket-manual" data-manual-link data-enter-save aria-labelledby="basketManualLinkTitle"><h3 id="basketManualLinkTitle">${only?'조직·프로젝트 자료로 넣기':'조직·프로젝트에 연결'}</h3>
 ${only?'':`<details data-manual-original><summary>원문 전체 보기</summary><div class="basket-classification-original">${esc(n.raw_text||'')}</div></details>`}
 <div class="basket-actions"><button type="button" data-manual-pick="organization" aria-haspopup="dialog" aria-expanded="false">담당조직 고르기 ▾</button><button type="button" data-manual-pick="project" aria-haspopup="dialog" aria-expanded="false">프로젝트 고르기 ▾</button></div>
 ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 수 없어요.</p>`:''}
 <p class="basket-manual-hint">${only?'담당조직이나 프로젝트를 고르면 파일을 그 자료로 넣어요. 진행상황과 기록에는 남지 않아요.':'고른 곳마다 요약을 직접 쓸 수 있어요(선택). 비워 두면 업데이트 본문이 기록에 보여요.'}</p>
 <div data-manual-targets>${link.targets.map(t=>{const key=linkKey(t.kind,t.id);return `<div class="basket-manual-target" data-manual-target="${esc(key)}"><div class="basket-manual-target-head"><b>${esc(KIND_NAME[t.kind]+' · '+t.name)}</b><button type="button" data-manual-remove="${esc(key)}" aria-label="${esc(t.name)} 빼기">빼기</button></div>${targetFiles(t)}${only?`<button type="button" class="basket-manual-record-toggle" data-manual-record="${esc(key)}" aria-pressed="${t.record}">기록도 남기기</button>`:''}${t.record?`<label class="basket-text-label basket-manual-summary">기록 요약 (선택 · 비우면 업데이트 본문이 기록에 보여요)<textarea data-manual-summary="${esc(key)}" rows="3" maxlength="2000" spellcheck="false" placeholder="일시·장소·누가·숫자를 빠짐없이">${esc(t.summary)}</textarea></label>${aiSummaryAllowed(n)?aiSummaryMarkup(t.ai,key,'data-manual',esc):''}`:''}</div>`;}).join('')}</div>
 <p data-manual-status role="status">${esc(link.status)}</p>
-<div class="basket-actions"><button type="button" class="quick-pill-primary" data-manual-confirm>${confirmLabel(n)}</button><button type="button" data-manual-cancel>취소</button></div></section>`;
+<div class="basket-actions"><button type="button" class="quick-pill-primary" data-manual-confirm data-enter-save-submit>${confirmLabel(n)}</button><button type="button" data-manual-cancel>취소</button></div></section>`;
   }
   const taskProjectName=()=>task?.project?choices?.projects.find(x=>x.project.id===task.project)?.project.name||'프로젝트':'프로젝트';
   function paintTaskProject(){
@@ -162,13 +162,13 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
   function taskMarkup(){
     const project=taskProjectName();
     const dateLabel=task.dateKind==='date'&&task.due?`${Number(task.due.slice(5,7))}.${Number(task.due.slice(8,10))}`:'날짜';
-    return `<section class="basket-manual" data-manual-task aria-labelledby="basketManualTaskTitle"><h3 id="basketManualTaskTitle">Google 할 일 만들기</h3>
+    return `<section class="basket-manual" data-manual-task data-enter-save aria-labelledby="basketManualTaskTitle"><h3 id="basketManualTaskTitle">Google 할 일 만들기</h3>
 <label class="basket-text-label">할 일 제목<input type="text" data-manual-task-title maxlength="${TASK_LIMITS.title}" value="${esc(task.title)}"></label>
 <label class="basket-text-label">할 일 메모<textarea data-manual-task-notes rows="6" spellcheck="false">${esc(task.notes)}</textarea></label>
 <div class="basket-actions basket-manual-task-options"><button type="button" data-manual-task-project aria-haspopup="dialog" aria-expanded="false" aria-label="${task.project?esc('프로젝트: '+project):'프로젝트'}">${esc(project)} ▾</button><button type="button" data-manual-task-day="today" aria-pressed="${task.dateKind==='today'}">오늘</button><button type="button" data-manual-task-day="tomorrow" aria-pressed="${task.dateKind==='tomorrow'}">내일</button><button type="button" data-manual-task-day="date" aria-pressed="${task.dateKind==='date'}">${esc(dateLabel)}</button><input type="date" class="basket-manual-date" data-manual-task-date aria-label="기한 날짜" tabindex="-1" value="${esc(task.dateKind==='date'?task.due:'')}"></div>
 <p class="basket-manual-hint">만든 할 일은 이 업데이트의 ‘이 업데이트로 만든 할 일’에 기록돼요.</p>
 <p data-manual-task-status role="status">${esc(task.status)}</p><div data-manual-task-recover></div>
-<div class="basket-actions"><button type="button" class="quick-pill-primary" data-manual-task-save>할 일 만들기</button><button type="button" data-manual-task-cancel>취소</button></div></section>`;
+<div class="basket-actions"><button type="button" class="quick-pill-primary" data-manual-task-save data-enter-save-submit>할 일 만들기</button><button type="button" data-manual-task-cancel>취소</button></div></section>`;
   }
   function paint(){
     if(!host)return;
