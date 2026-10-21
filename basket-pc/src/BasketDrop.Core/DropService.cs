@@ -8,7 +8,8 @@ public sealed record DropSource(string? Path, byte[]? Bytes, string DisplayName)
     public static DropSource FromPath(string path)
     {
         var clean = FileNames.CleanPath(path);
-        return new(clean, null, FileNames.Clean(clean));
+        // A Windows file name cannot contain '"', so a quote left at either end of a path is stray text, not part of the name.
+        return new(clean, null, FileNames.Clean(clean.Trim('"')));
     }
 
     public static DropSource FromBytes(byte[] bytes, string displayName) => new(null, bytes, FileNames.Clean(displayName));
