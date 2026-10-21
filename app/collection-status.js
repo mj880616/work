@@ -1,5 +1,5 @@
 // OPS-수집점검: 홈 "마지막 수집 시각" 작은 칸. 조용히 멈춘 수집을 알아채려고 출처별 마지막 시각만 보여 준다.
-// - Drive 읽기용 사본: drive-summary GET ?action=status(소유자 JWT 전용, 시각·단계 코드만, 쓰기 없음).
+// - Claude용 Drive 사본(Drive "Web2 읽기용 사본" 폴더): drive-summary GET ?action=status(소유자 JWT 전용, 시각·단계 코드만, 쓰기 없음).
 // - 챙길 것 찾기(AI 후보): app_todo_radar_state.last_success_at(owner RLS 표, 화면 토큰으로 읽기만).
 // - 텔레그램 수집·통화 전사: 바깥 프로그램이 만든 Drive 파일이라 Web2 권한(drive.file)으로 직접 못 읽는다(권한을 넓히지 않음).
 //   대신 통화 전사용 Google 앱 스크립트가 1시간마다 시각·건수만 drive-summary POST ?action=heartbeat로 보내고(2단계),
@@ -17,7 +17,7 @@ export const CACHE_MS = 10 * 60 * 1000;
 export const SOURCES = Object.freeze([
   {key:'telegram', label:'텔레그램 수집', collector:'telegram'},
   {key:'call', label:'통화 녹음 전사', collector:'transcript'},
-  {key:'copy', label:'Drive 읽기용 사본'},
+  {key:'copy', label:'Claude용 Drive 사본'},
   {key:'radar', label:'챙길 것 찾기(AI)'},
 ]);
 export const UNCHECKABLE_NOTE = 'Web2 권한 밖이라 확인 불가';

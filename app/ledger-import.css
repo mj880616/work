@@ -92,3 +92,9 @@
   #appView #ledgerView .lg-fields{ grid-template-columns:minmax(0,1fr); }
   #appView #ledgerView .lg-select{ max-width:160px; }
 }
+/* LEDGER-확정되돌리기: 최근 확정 칸의 ⋯ 메뉴(접는 <details>, 키보드 Enter·Space로 연다). */
+#appView #ledgerView .lc-confirmed-line{ display:flex; align-items:center; justify-content:space-between; gap:8px; min-width:0; }
+#appView #ledgerView .lc-more{ position:relative; flex:none; }
+#appView #ledgerView .lc-more > summary{ list-style:none; }
+#appView #ledgerView .lc-more > summary::-webkit-details-marker{ display:none; }
+#appView #ledgerView .lc-more-panel{ position:absolute; right:0; top:calc(100% + 4px); z-index:5; display:flex; flex-direction:column; gap:6px; padding:8px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); background:var(--kptu-surface); }

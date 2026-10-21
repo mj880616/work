@@ -55,6 +55,7 @@ const order=[
  ['20261021150000','ledger_import'],
  ['20261021190000','ledger_candidates'],
  ['20261021200000','web1_archive_state_readonly'],
+ ['20261021234000','ledger_candidate_undo'],
 ];
 
 test('DB-승인형확장: today\'s six migrations through precheck → snapshot → dry-run → apply → postcheck',{timeout:120000},async t=>{

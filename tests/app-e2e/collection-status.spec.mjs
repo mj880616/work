@@ -36,6 +36,7 @@ for(const width of [1280,390])test(`shows each source, 확인 불가 for outside
   await expect(card.locator('[data-collect="call"]')).toContainText('확인 불가');
   await expect(card.locator('[data-collect="copy"]')).toHaveAttribute('data-collect-state','ok');
   await expect(card.locator('[data-collect="copy"]')).toContainText('06:17');
+  await expect(card.locator('[data-collect="copy"] .collect-label')).toHaveText('Claude용 Drive 사본');
   await expect(card.locator('[data-collect="radar"]')).toHaveAttribute('data-collect-state','ok');
   await expect(card.locator('.collect-warn')).toHaveCount(0);
   const fn=calls.filter(c=>!c.table);
