@@ -2,6 +2,7 @@ import {select} from './project-catalog-model.mjs';
 // Pure rendering + injectable HTTP boundary. Node 24 tests exercise this same code.
 import {createBasketReader} from './basket-read.mjs';
 import {createHtmlBudget} from './html-budget.mjs';
+import { LedgerError, LEDGER_LIMITS, LEDGER_TITLE, readLedger, buildBackup, renderLedgerDocument, ledgerStatus, backupsToTrash, kstDate, backupName } from './ledger-export.mjs';
 import { basketState, prepareBasket, basketIntroLines, basketNoteLines, selectBasketOrganizations, BASKET_LIMITS } from './basket.mjs';
 export { basketState, BASKET_LIMITS };
 const WORKSPACE = 'kptu-work';
@@ -11,7 +12,8 @@ const DOC_MIME = 'application/vnd.google-apps.document';
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
 const NOTICE = '이 문서는 Web2가 자동으로 만드는 읽기용 사본입니다. 직접 고쳐도 다음 갱신 때 덮어써집니다. 원본은 Web2입니다.';
 const OTHERS = '그 외';
-const TITLES = { org: '조직 업데이트 (읽기용 사본)', project: '프로젝트 현황 (읽기용 사본)' };
+const TITLES = { org: '조직 업데이트 (읽기용 사본)', project: '프로젝트 현황 (읽기용 사본)', ledger: LEDGER_TITLE };
+const LEDGER_BACKUP_FOLDER = '원장 백업';
 const PHASE = { preparation: '준비', in_progress: '진행', consultation: '협의', execution: '실행', follow_up: '후속조치', done: '종료' };
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -264,9 +266,10 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date() }) 
     if (!token.access_token) throw new SummaryError('DRIVE_TOKEN_FAILED');
     return token.access_token;
   }
-  async function findFile(token, kind, parent) {
-    const mime = kind === 'folder' ? FOLDER_MIME : DOC_MIME;
-    const q = `trashed = false and 'me' in owners and mimeType = '${mime}' and appProperties has { key='kptu_summary' and value='${kind}' } and appProperties has { key='kptu_workspace' and value='${WORKSPACE}' } and '${driveQuote(parent || 'root')}' in parents`;
+  // S7-d: kind 'ledger_backup' is a folder, 'ledger_json' a JSON file; the others are Google documents.
+  const mimeOf = kind => kind === 'folder' || kind === 'ledger_backup' ? FOLDER_MIME : kind === 'ledger_json' ? 'application/json' : DOC_MIME;
+  async function listFiles(token, kind, parent) {
+    const q = `trashed = false and 'me' in owners and mimeType = '${mimeOf(kind)}' and appProperties has { key='kptu_summary' and value='${kind}' } and appProperties has { key='kptu_workspace' and value='${WORKSPACE}' } and '${driveQuote(parent || 'root')}' in parents`;
     const files = []; let pageToken = '';
     do {
       const params = new URLSearchParams({ q, spaces: 'drive', pageSize: '100', fields: 'files(id,appProperties),nextPageToken,incompleteSearch' });
@@ -275,6 +278,10 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date() }) 
       if (data.incompleteSearch || !Array.isArray(data.files)) throw new SummaryError('DRIVE_DISCOVERY_FAILED');
       files.push(...data.files); pageToken = data.nextPageToken || '';
     } while (pageToken);
+    return files;
+  }
+  async function findFile(token, kind, parent) {
+    const files = await listFiles(token, kind, parent);
     if (files.length > 1) throw new SummaryError('DRIVE_DUPLICATE_MARKERS');
     return files[0] || null;
   }
@@ -318,6 +325,107 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date() }) 
       body: JSON.stringify({ appProperties: { ...folder.appProperties, ...patch } }),
     }, 'DRIVE_STATUS_WRITE_FAILED');
   }
+  // S7-d: folder properties are merged by Drive; send only the ledger keys so the copy keys are never rewritten here.
+  async function recordLedger(token, folder, patch) {
+    await checked(`${DRIVE}/${encodeURIComponent(folder.id)}?fields=id`, {
+      method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ appProperties: patch }),
+    }, 'DRIVE_STATUS_WRITE_FAILED');
+  }
+  async function backupFolderFor(token, folder) {
+    const found = await findFile(token, 'ledger_backup', folder.id);
+    if (found) return found;
+    const created = await checked(`${DRIVE}?fields=id,appProperties`, {
+      method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: LEDGER_BACKUP_FOLDER, mimeType: FOLDER_MIME, parents: [folder.id], appProperties: { kptu_summary: 'ledger_backup', kptu_workspace: WORKSPACE } }),
+    }, 'DRIVE_FOLDER_CREATE_FAILED');
+    if (!created.id) throw new SummaryError('DRIVE_FOLDER_CREATE_FAILED');
+    return created;
+  }
+  // One JSON per KST date: the same date replaces the same file ID. Duplicate markers for one date fail closed.
+  async function uploadBackup(token, backup, files, date, text) {
+    const same = files.filter(f => f?.appProperties?.kptu_export_date === date);
+    if (same.length > 1) throw new SummaryError('DRIVE_DUPLICATE_MARKERS');
+    const found = same[0] || null;
+    if (found) await assertPrivate(token, found.id);
+    const boundary = `ledger_${crypto.randomUUID()}`;
+    const metadata = { name: backupName(date), mimeType: 'application/json', appProperties: { kptu_summary: 'ledger_json', kptu_workspace: WORKSPACE, kptu_export_date: date }, ...(!found ? { parents: [backup.id] } : {}) };
+    const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${text}\r\n--${boundary}--\r\n`;
+    const file = await checked(`https://www.googleapis.com/upload/drive/v3/files${found ? `/${encodeURIComponent(found.id)}` : ''}?uploadType=multipart&fields=id`, {
+      method: found ? 'PATCH' : 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': `multipart/related; boundary=${boundary}` }, body,
+    }, 'DRIVE_UPLOAD_FAILED');
+    if (!file.id) throw new SummaryError('DRIVE_UPLOAD_FAILED');
+    await assertPrivate(token, file.id);
+    return file.id;
+  }
+  // Keep the newest N backups; older ones go to the Drive trash (not permanent delete). Failures only count.
+  async function trimBackups(token, backup) {
+    let failed = 0;
+    for (const f of backupsToTrash(await listFiles(token, 'ledger_json', backup.id))) {
+      try {
+        await checked(`${DRIVE}/${encodeURIComponent(f.id)}?fields=id`, {
+          method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }),
+        }, 'DRIVE_TRASH_FAILED');
+      } catch { failed++; }
+    }
+    return failed;
+  }
+  // S7-d: POST ?action=ledger_export. Owner JWT only: the ledger tables have no service_role grant, so the ledger is
+  // read with the caller's token + anon key (owner RLS applies). The cron secret is refused (no user token to read with).
+  async function ledgerExport(req) {
+    let token, folder;
+    try {
+      if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY || !env.SUPABASE_ANON_KEY) throw new SummaryError('SERVER_CONFIG_MISSING');
+      if (req.headers.get('x-drive-summary-cron-secret') !== null) throw new SummaryError('UNAUTHORIZED', 401);
+      const { workspaceId, ownerId } = await authorize(req);
+      if (!ownerId) throw new SummaryError('UNAUTHORIZED', 401);
+      token = await accessToken();
+      folder = await folderFor(token);
+      await assertPrivate(token, folder.id);
+      const at = now();
+      const tables = await readLedger({ fetcher, baseUrl: env.SUPABASE_URL, anonKey: env.SUPABASE_ANON_KEY, userAuthorization: req.headers.get('Authorization'), workspaceId });
+      const backupFile = await buildBackup(tables, at), doc = renderLedgerDocument(tables, at);
+      const backup = await backupFolderFor(token, folder);
+      await assertPrivate(token, backup.id);
+      // Backup first: an oversized reading copy must not block the restore file.
+      await uploadBackup(token, backup, await listFiles(token, 'ledger_json', backup.id), kstDate(at), backupFile.text);
+      const link = await replaceDocument(token, folder, 'ledger', doc.html);
+      const trimFailed = await trimBackups(token, backup);
+      await assertPrivate(token, backup.id);
+      await assertPrivate(token, folder.id);
+      if (doc.overLimit) throw new SummaryError('LEDGER_DOC_LIMIT');
+      const exportedAt = at.toISOString();
+      await recordLedger(token, folder, { ledger_last_success_at: exportedAt });
+      return json({ ok: true, exported_at: exportedAt, counts: backupFile.counts, keep: LEDGER_LIMITS.keepBackups, trim_failed: trimFailed, documents: { ledger: link } });
+    } catch (error) {
+      const code = error instanceof SummaryError || error instanceof LedgerError ? error.message : 'LEDGER_EXPORT_FAILED';
+      const status = error instanceof SummaryError || error instanceof LedgerError ? error.status : 502;
+      let failureRecorded = false;
+      if (token && folder) {
+        try { await recordLedger(token, folder, { ledger_last_failure_at: now().toISOString(), ledger_last_failure_summary: code }); failureRecorded = true; }
+        catch { /* Drive outage can also prevent status persistence. */ }
+      }
+      return json({ ok: false, error: code, exported_at: null, attempted_at: now().toISOString(), failure_recorded: failureRecorded }, status);
+    }
+  }
+  // S7-d: GET ?action=ledger_status. Owner JWT or the cron secret (weekly check). Times and a stage code only;
+  // never creates anything, never reads ledger tables.
+  async function ledgerStatusRead(req) {
+    const checkedAt = () => now().toISOString();
+    try {
+      if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) throw new SummaryError('SERVER_CONFIG_MISSING');
+      await authorize(req);
+      const token = await accessToken();
+      const folder = await findFile(token, 'folder');
+      if (!folder) return json({ ok: true, checked_at: checkedAt(), ledger: ledgerStatus({}, false) });
+      await assertPrivate(token, folder.id);
+      return json({ ok: true, checked_at: checkedAt(), ledger: ledgerStatus(folder.appProperties) });
+    } catch (error) {
+      const code = error instanceof SummaryError ? error.message : 'STATUS_FAILED';
+      return json({ ok: false, error: code, checked_at: checkedAt() }, error instanceof SummaryError ? error.status : 502);
+    }
+  }
+  const actionOf = req => { try { return new URL(req.url).searchParams.get('action'); } catch { return null; } };
   // OPS-수집점검: GET ?action=status. Owner JWT only (the cron secret is refused here). Reads the copy folder's three
   // properties; never creates the folder, rebuilds documents, records status, or returns names, links, or content.
   async function statusRead(req) {
@@ -342,8 +450,9 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date() }) 
   }
   return async req => {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
-    if (req.method === 'GET') return statusRead(req);
+    if (req.method === 'GET') return actionOf(req) === 'ledger_status' ? ledgerStatusRead(req) : statusRead(req);
     if (req.method !== 'POST') return json({ ok: false, error: 'METHOD_NOT_ALLOWED', updated_at: null, documents: {} }, 405);
+    if (actionOf(req) === 'ledger_export') return ledgerExport(req);
     let token, folder;
     const documents = {};
     try {
