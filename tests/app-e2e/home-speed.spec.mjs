@@ -75,7 +75,9 @@ test('first visit task rows appear before links; overlapping starts share the re
   await ready(page);
   expect(c.requests.filter(r=>r.path.endsWith('app_record_links')&&!r.query.includes('note_id=not.is.null'))).toHaveLength(1);
   expect(c.requests.filter(r=>r.action==='overview')).toHaveLength(1);
-  expect(c.requests.filter(r=>r.action==='status')).toHaveLength(1);
+  // OPS-수집점검: drive-summary ?action=status is the 마지막 수집 시각 card's own read, not the calendar status.
+  expect(c.requests.filter(r=>r.action==='status'&&r.path.endsWith('google-calendar'))).toHaveLength(1);
+  expect(c.requests.filter(r=>r.path.endsWith('/functions/v1/drive-summary')).length).toBeLessThanOrEqual(1);
   expect(c.requests.filter(r=>r.action==='events')).toHaveLength(1);
   await expect(page.locator('[data-home-timing]')).toHaveCount(0);
 });

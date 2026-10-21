@@ -28,11 +28,16 @@ for (const width of [390, 1440])
     ).toHaveCount(2);
     await page.waitForFunction(() => window.KPTUHome?.metrics?.readyAt);
     // JOURNAL-챙길것: the 챙길 것 card has its own budget: one candidate read and one ai-assist call (first open of the day).
-    const radarRequest = (r) => r.path.startsWith("/rest/v1/app_todo_") || r.path.endsWith("/functions/v1/ai-assist");
-    expect(requests.filter((r) => r.path.startsWith("/rest/v1/app_todo_")).length).toBeLessThanOrEqual(1);
+    const radarRequest = (r) => r.path === "/rest/v1/app_todo_candidates" || r.path.endsWith("/functions/v1/ai-assist");
+    expect(requests.filter((r) => r.path === "/rest/v1/app_todo_candidates").length).toBeLessThanOrEqual(1);
     expect(requests.filter((r) => r.path.endsWith("/functions/v1/ai-assist")).length).toBeLessThanOrEqual(1);
+    // OPS-수집점검: the 마지막 수집 시각 card has its own budget: one status read and one radar state read.
+    const collectRequest = (r) => r.path === "/rest/v1/app_todo_radar_state" || r.path.endsWith("/functions/v1/drive-summary");
+    expect(requests.filter((r) => r.path === "/rest/v1/app_todo_radar_state").length).toBeLessThanOrEqual(1);
+    expect(requests.filter((r) => r.path.endsWith("/functions/v1/drive-summary")).length).toBeLessThanOrEqual(1);
+    expect(requests.filter((r) => r.path.endsWith("/functions/v1/drive-summary") && r.action !== "status")).toHaveLength(0);
     const dataRequests = requests.filter(
-      (r) => (r.path.includes("/rest/") || r.path.includes("/functions/")) && !radarRequest(r),
+      (r) => (r.path.includes("/rest/") || r.path.includes("/functions/")) && !radarRequest(r) && !collectRequest(r),
     );
     const basketRequests=requests.filter(r=>r.path.endsWith('app_record_links')&&r.query.includes('note_id=not.is.null'));
     expect(basketRequests).toHaveLength(0);

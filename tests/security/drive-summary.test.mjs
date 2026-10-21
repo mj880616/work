@@ -25,7 +25,7 @@ function harness(options = {}) {
   const calls = [], uploads = [], patches = [];
   let contentReads=0,headerScans=0,linkScans=0;
   const files = new Map(options.existing ? [
-    ['folder', { id: 'folder', mimeType: 'application/vnd.google-apps.folder', appProperties: { kptu_summary: 'folder', last_success_at: 'old-success', extra: 'keep' } }],
+    ['folder', { id: 'folder', mimeType: 'application/vnd.google-apps.folder', appProperties: { kptu_summary: 'folder', last_success_at: 'old-success', extra: 'keep', ...options.folderProps } }],
     ['org-doc', { id: 'org-doc', mimeType: 'application/vnd.google-apps.document', appProperties: { kptu_summary: 'org' } }],
     ['project-doc', { id: 'project-doc', mimeType: 'application/vnd.google-apps.document', appProperties: { kptu_summary: 'project' } }],
   ] : []);
@@ -126,7 +126,8 @@ function harness(options = {}) {
   const env = { SUPABASE_URL: 'https://db.test', SUPABASE_SERVICE_ROLE_KEY: 'test-service', DRIVE_SUMMARY_CRON_SECRET: options.noSecret ? undefined : 'right-secret' };
   const handler = core?.createHandler({ env, fetcher, now: () => now });
   const request = (headers = {}, method = 'POST', body) => handler(new Request('https://edge.test/drive-summary', { method, headers, body }));
-  return { calls, uploads, patches, files, request };
+  const statusRequest = (headers = {}, query = '?action=status') => handler(new Request(`https://edge.test/drive-summary${query}`, { method: 'GET', headers }));
+  return { calls, uploads, patches, files, request, statusRequest };
 }
 
   test('rejects anonymous, invalid JWT, non-owner, wrong/unset cron secret before Google/data reads', async () => {
@@ -628,4 +629,80 @@ test('capped selector page total drift fails before either body and preserves ol
 test('notes advertised100000 retains the existing read limit refusal without accumulating that content',async()=>{
  const h=harness({existing:true,data:{app_notes:[note('one')]},noteResponse:({rows,content,table})=>!content&&table==='app_notes'?Response.json(rows,{headers:{'Content-Range':'0-0/100000'}}):undefined});
  const r=await(await h.request({Authorization:'Bearer valid-owner'})).json();assert.equal(r.error,'DB_READ_LIMIT');assert.equal(contentCalls(h).length,0);assert.equal(h.uploads.length,0);
+});
+
+// OPS-수집점검: GET ?action=status — owner JWT only, read-only, times and a safe stage code only.
+const writes = h => h.calls.filter(c => c.method !== 'GET' && c.url.hostname !== 'oauth2.googleapis.com');
+test('status read: anonymous, forged, non-owner and any cron header are refused before Google', async () => {
+  for (const [headers, status] of [
+    [{}, 401], [{ Authorization: 'Bearer forged' }, 401], [{ Authorization: 'Bearer valid-other' }, 403],
+    [{ 'x-drive-summary-cron-secret': 'right-secret' }, 401],
+    [{ 'x-drive-summary-cron-secret': 'right-secret', Authorization: 'Bearer valid-owner' }, 401],
+    [{ 'x-drive-summary-cron-secret': '' , Authorization: 'Bearer valid-owner' }, 401],
+  ]) {
+    const h = harness({ existing: true }), response = await h.statusRequest(headers), result = await response.json();
+    assert.equal(response.status, status);
+    assert.equal(result.ok, false);
+    assert.ok(!('copy' in result));
+    assert.ok(h.calls.every(c => c.url.hostname === 'db.test'), 'no Google call before owner check');
+    assert.equal(writes(h).length, 0);
+  }
+});
+test('status read: other GET actions are 405 without I/O, and POST without action still rebuilds', async () => {
+  for (const query of ['', '?action=refresh', '?action=STATUS', '?x=status']) {
+    const h = harness({ existing: true }), response = await h.statusRequest({ Authorization: 'Bearer valid-owner' }, query);
+    assert.equal(response.status, 405); assert.equal(h.calls.length, 0);
+  }
+  const h = harness({ existing: true }), r = await h.request({ Authorization: 'Bearer valid-owner' });
+  assert.equal(r.status, 200); assert.equal(h.uploads.length, 2);
+});
+test('status read: returns only the three folder values, never names, IDs, links, or other properties, and writes nothing', async () => {
+  const h = harness({ existing: true, folderProps: {
+    last_success_at: '2026-10-03T04:17:00.000Z', last_failure_at: '2026-10-02T21:17:05.120Z', last_failure_summary: 'DRIVE_UPLOAD_FAILED', extra: '비공개 내용 FORBIDDEN_EXTRA',
+  } });
+  const response = await h.statusRequest({ Authorization: 'Bearer valid-owner' }), result = await response.json();
+  assert.equal(response.status, 200);
+  assert.deepEqual(result, { ok: true, checked_at: now.toISOString(), copy: {
+    state: 'found', last_success_at: '2026-10-03T04:17:00.000Z', last_failure_at: '2026-10-02T21:17:05.120Z', last_failure_code: 'DRIVE_UPLOAD_FAILED',
+  } });
+  assert.doesNotMatch(JSON.stringify(result), /FORBIDDEN|folder"|docs\.google|읽기용 사본|kptu_/);
+  assert.equal(writes(h).length, 0, 'no create, upload, or status PATCH');
+  assert.equal(h.uploads.length, 0); assert.equal(h.patches.length, 0);
+  assert.ok(!h.calls.some(c => /app_suborganization|app_spaces|app_meetings|app_notes|app_project/.test(c.url.pathname)), 'no Web2 record read');
+  assert.ok(h.calls.some(c => c.url.pathname.endsWith('/permissions')), 'sharing check kept');
+});
+test('status read: malformed stored values are dropped, not echoed', async () => {
+  const h = harness({ existing: true, folderProps: {
+    last_success_at: '내용이 들어간 값', last_failure_at: '2026-10-02T21:17:05Z', last_failure_summary: 'raw upstream text: token=abc',
+  } });
+  const { copy } = await (await h.statusRequest({ Authorization: 'Bearer valid-owner' })).json();
+  assert.deepEqual(copy, { state: 'found', last_success_at: null, last_failure_at: '2026-10-02T21:17:05.000Z', last_failure_code: null });
+  assert.equal(core.statusTime('2026-13-45T99:99:99Z'), null);
+  assert.equal(core.statusTime(12345), null);
+  assert.equal(core.folderStatus({ last_failure_summary: 'DRIVE_UPLOAD_FAILED' }).last_failure_code, null, 'code only with a failure time');
+});
+test('status read: no folder yet answers state none without creating one', async () => {
+  const h = harness(), response = await h.statusRequest({ Authorization: 'Bearer valid-owner' }), result = await response.json();
+  assert.equal(response.status, 200);
+  assert.deepEqual(result.copy, { state: 'none', last_success_at: null, last_failure_at: null, last_failure_code: null });
+  assert.equal(writes(h).length, 0); assert.equal(h.files.size, 0);
+});
+test('status read: public sharing, Drive and OAuth failures give a stage code only and record nothing', async () => {
+  for (const [options, code] of [
+    [{ existing: true, public: true }, 'DRIVE_PUBLIC_SHARING_FOUND'], [{ existing: true, permissionFail: true }, 'DRIVE_PERMISSION_CHECK_FAILED'],
+    [{ existing: true, duplicate: true }, 'DRIVE_DUPLICATE_MARKERS'], [{ oauthFail: true }, 'DRIVE_TOKEN_FAILED'],
+  ]) {
+    const h = harness(options), response = await h.statusRequest({ Authorization: 'Bearer valid-owner' }), result = await response.json();
+    assert.equal(response.status, 502); assert.equal(result.ok, false); assert.equal(result.error, code);
+    assert.ok(!('copy' in result));
+    assert.doesNotMatch(JSON.stringify(result), /refresh secret|SECRET_RAW/);
+    assert.equal(writes(h).length, 0); assert.equal(h.patches.length, 0);
+  }
+});
+test('status read: CORS allows GET for the browser preflight, still no other methods', async () => {
+  const h = harness(), options = await h.request({}, 'OPTIONS');
+  assert.equal(options.status, 204);
+  assert.equal(options.headers.get('Access-Control-Allow-Methods'), 'GET, POST, OPTIONS');
+  for (const method of ['PUT', 'PATCH', 'DELETE']) assert.equal((await h.request({}, method)).status, 405);
+  assert.equal(h.calls.length, 0);
 });
