@@ -127,7 +127,7 @@ async function cpConfirm(id,calendarId){
   return cpEvents.some(same)?'present':'gone';
 }
 async function cpInit(){cpMessage('');cpRestore();await cpStatus();return true}
-window.KPTUCalendarPersistence={knows:cpKnows,state:()=>cpFresh,fromCopy:()=>cpFromCopy,forget:cpForget,put:cpPut,confirm:cpConfirm,paint:cpPaint,decorate:cpDecorate,refresh:options=>cpLoadEvents(options),status:()=>cpStatus({force:true}),setEnabled:cpSetEnabled,disconnected:cpDisconnected,peek:()=>cpOwner===cpSessionOwner()?{owner:cpOwner,status:cpState}:null};
+window.KPTUCalendarPersistence={paint:cpPaint,knows:cpKnows,state:()=>cpFresh,fromCopy:()=>cpFromCopy,forget:cpForget,put:cpPut,confirm:cpConfirm,decorate:cpDecorate,refresh:options=>cpLoadEvents(options),status:()=>cpStatus({force:true}),setEnabled:cpSetEnabled,disconnected:cpDisconnected,peek:()=>cpOwner===cpSessionOwner()?{owner:cpOwner,status:cpState}:null};
 // 일정 생성·수정·삭제 직후 호출된다: 캐시와 진행 중 요청을 무시하고 새로 읽는다.
 window.__KPTU_RELOAD_GOOGLE_EVENTS__=()=>cpLoadEvents({force:true});
 window.__KPTU_CALENDAR_PERSISTENCE_READY__=cpInit().catch(e=>{console.warn('calendar persistence init',e);return false});
