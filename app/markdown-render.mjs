@@ -211,9 +211,31 @@ export function createMarkdown(MarkdownIt) {
   return md;
 }
 
+// NOTE-마크다운선택: "2026. 10. 21. 회의"·"10. 21.(화) 통화"처럼 날짜로 시작하는 줄은 마크다운이 번호 목록(2026번·10번)으로
+// 읽는다. 그런 줄은 첫 숫자 뒤 점을 \. 로 바꿔 글자 그대로 보이게 한다(목록·인용 기호 뒤에 와도 같다). 코드 상자 안은 그대로.
+// 날짜로 보는 것: 4자리 해(19xx·20xx). 월(1~12). 또는 월(1~12). 일(1~31). 로 시작하는 줄. "1. 2. 항목" 같은 목록은 건드리지 않는다.
+const DATE_LINE = /^(\s*(?:(?:[-*+]|>)[ \t]+)*)(\d{1,4})\.([ \t]+)(\d{1,2})\.(?=[ \t(]|$)/;
+const FENCE_LINE = /^\s{0,3}(`{3,}|~{3,})/;
+function dateLike(first, second) {
+  const a = Number(first), b = Number(second);
+  if (first.length === 4) return /^(19|20)\d\d$/.test(first) && b >= 1 && b <= 12;
+  return first.length <= 2 && a >= 1 && a <= 12 && b >= 1 && b <= 31;
+}
+export function guardDateLines(text) {
+  let fence = null;
+  return String(text ?? '').split('\n').map(line => {
+    const open = FENCE_LINE.exec(line);
+    if (open) { if (!fence) fence = open[1][0]; else if (open[1][0] === fence) fence = null; return line; }
+    if (fence) return line;
+    const m = DATE_LINE.exec(line);
+    if (!m || !dateLike(m[2], m[4]) || /^ {4,}/.test(m[1]) && !/[-*+>]/.test(m[1])) return line;
+    return m[1] + m[2] + '\\.' + line.slice(m[1].length + m[2].length + 1);
+  }).join('\n');
+}
+
 export function renderMarkdown(md, text) {
   const env = {};
-  const html = md.render(String(text ?? ''), env);
+  const html = md.render(guardDateLines(text), env);
   return {html, math: !!env.math, mermaid: !!env.mermaid};
 }
 

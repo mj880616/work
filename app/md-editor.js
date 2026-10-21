@@ -10,7 +10,7 @@
 // 도구 막대는 선택한 글을 감싸거나 줄 앞에 기호를 넣는 마크다운 편집이며, 바꾸기는 execCommand('insertText')로 해
 // 브라우저 기본 되돌리기(Ctrl+Z·[되돌리기])에 그대로 남는다. 미리보기는 공용 markdown-view.js(정화·외부 요청 0)를 쓴다.
 import {renderMarkdownInto, preloadMarkdown} from './markdown-view.js';
-import {applyAction, MERMAID_TEMPLATES, CALLOUT_KINDS} from './md-editor-ops.mjs';
+import {applyAction, applyPlainAction, PLAIN_ACTIONS, MERMAID_TEMPLATES, CALLOUT_KINDS} from './md-editor-ops.mjs';
 import {toTelegram} from './md-telegram.mjs';
 import {toHangul} from './md-hangul.mjs';
 import {createChoiceSheet} from './choice-sheet.js';
@@ -46,6 +46,25 @@ const EXPORTS = [['telegram', '텔레그램용 복사'], ['hangul', '한글용 �
 let exportSheet = null, leaveSheet = null;
 // UI-키보드하단바: the same shared sheet asks before a bottom tab leaves a write window that has text.
 const LEAVE_CHOICES = [['stay', '계속 쓰기'], ['leave', '저장 안 하고 이동']];
+// NOTE-큰창저장유지: a window that stays open after saving (keepOpen) asks once before ✕ closes it with changes not saved.
+const CLOSE_CHOICES = [['stay', '계속 쓰기'], ['close', '저장하지 않고 닫기']];
+let closeSheet = null, markdownSheet = null;
+function closeChoices() {
+  closeSheet ||= createChoiceSheet({id:'mdCloseSheet', titleId:'mdCloseSheetTitle', historyKey:'kptuMdClose',
+    canOpen:() => !!current, choices:async () => {},
+    render:() => ({title:'저장하지 않고 닫을까요?', html:CLOSE_CHOICES.map(([value, label]) => `<button type="button" class="home-choice-row" data-sheet-value="${value}">${label}</button>`).join('')}),
+    onSelect:(kind, value) => current?.closeChoice(value)});
+  return closeSheet;
+}
+// NOTE-마크다운선택: with 마크다운 off, a button that needs markdown (제목·굵게·표 …) asks to turn it on first.
+const MARKDOWN_CHOICES = [['on', '마크다운 켜고 적용'], ['off', '그대로 두기']];
+function markdownChoices() {
+  markdownSheet ||= createChoiceSheet({id:'mdMarkdownSheet', titleId:'mdMarkdownSheetTitle', historyKey:'kptuMdMarkdown',
+    canOpen:() => !!current, choices:async () => {},
+    render:() => ({title:'마크다운을 켤까요?', html:MARKDOWN_CHOICES.map(([value, label]) => `<button type="button" class="home-choice-row" data-sheet-value="${value}">${label}</button>`).join('')}),
+    onSelect:(kind, value) => current?.markdownChoice(value)});
+  return markdownSheet;
+}
 function leaveChoices() {
   leaveSheet ||= createChoiceSheet({id:'mdLeaveSheet', titleId:'mdLeaveSheetTitle', historyKey:'kptuMdLeave',
     canOpen:() => !!current, choices:async () => {},
@@ -126,9 +145,15 @@ export async function copyText(text, {html = null} = {}) {
 // attach (optional, UI-크게첨부): {mount({picker, files, drop}), show?(kind)} adds a row under the text for choosing files. The
 // opener mounts its own existing file part there (basket-upload.js mountBasketPicker) and keeps the files; this module only gives
 // the places. show(kind) hides the row for a kind that takes no files (노트).
+// markdown (optional, NOTE-마크다운선택): {value, show?(kind), onChange?(on)} adds a [☐ 마크다운] box at the start of the format row.
+// Off: the text is shown and saved as written — one wide text box, no preview, and the format buttons that work with letters
+// alone (• 목록·1. 번호·☐ 체크·구분선) put those letters in; the others ask to turn markdown on first. show(kind) hides the box for a
+// kind that is always markdown (업데이트); hidden means on. The choice goes to save.run as the third argument ({markdown}).
+// keepOpen (optional, NOTE-큰창저장유지): a successful save keeps the window and says 저장했어요; ✕ (or Escape) with changes not
+// saved since then asks once. onClose then gets (text, {saved, markdown}): saved is true when nothing changed after the last save.
 // Returns {close({silent}), paint(), kind}: silent closes without calling onClose; paint() redraws labels after the opener's
 // state (the chosen place) changed.
-export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput = null, onClose = () => {}, save = null, draft = false, kinds = null, placeholder = null, noteTitle = null, attach = null} = {}) {
+export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput = null, onClose = () => {}, save = null, draft = false, kinds = null, placeholder = null, noteTitle = null, attach = null, markdown = null, keepOpen = false} = {}) {
   current?.close({silent: true});
   const trigger = document.activeElement;
   const shell = document.createElement('div');
@@ -173,6 +198,7 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     if (hint != null) area.placeholder = hint;
     if (titleRow) titleRow.hidden = kind !== noteTitle.kind;
     if (attachRow) attachRow.hidden = attach.show ? !attach.show(kind) : false;
+    if (mdRow) { mdRow.hidden = !markdownShown(); paintPlain(); }
   }
   function setKind(next) { if (next !== kind) status.textContent = ''; kind = next; paint(); }
   const modes = document.createElement('div');
@@ -181,6 +207,17 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   modes.append(writeTab, previewTab);
   head.append(name, done, ...(saveButton ? [saveButton] : []), ...(kindGroup ? [kindGroup] : []), modes, copy);
 
+  // The [마크다운] box (markdown option): a real checkbox, so keyboard and screen readers work as usual.
+  const mdRow = markdown ? document.createElement('label') : null, mdBox = markdown ? document.createElement('input') : null;
+  if (mdRow) {
+    mdRow.className = 'md-editor-md';
+    mdBox.type = 'checkbox'; mdBox.dataset.mdMarkdown = ''; mdBox.checked = !!markdown.value;
+    const caption = document.createElement('span'); caption.textContent = '마크다운';
+    mdRow.append(mdBox, caption);
+  }
+  const markdownShown = () => !!mdRow && (markdown.show ? !!markdown.show(kind) : true);
+  const isPlain = () => markdownShown() && !mdBox.checked;
+  const markdownValue = () => !mdRow ? null : markdownShown() ? mdBox.checked : true;
   const tools = document.createElement('div'), menu = document.createElement('div');
   tools.className = 'md-editor-tools'; tools.setAttribute('role', 'toolbar'); tools.setAttribute('aria-label', '서식');
   menu.className = 'md-editor-menu'; menu.hidden = true; menu.setAttribute('role', 'group');
@@ -216,14 +253,26 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     picker.dataset.mdAttachPicker = ''; files.dataset.mdAttachFiles = '';
     attachRow.append(picker, files);
   }
-  paint();
-  const bar = document.createElement('div');
-  // The format row sits right under the head; a choice row (제목·강조 상자·도식) opens under it.
-  bar.className = 'md-editor-bar'; bar.append(tools, menu);
+  const bar = document.createElement('div'), toolRow = document.createElement('div');
+  // The format row sits right under the head ([마크다운] box first, then the buttons); a choice row (제목·강조 상자·도식) opens under it.
+  toolRow.className = 'md-editor-toolrow'; toolRow.append(...(mdRow ? [mdRow] : []), tools);
+  bar.className = 'md-editor-bar'; bar.append(toolRow, menu);
   shell.append(head, ...(titleRow ? [titleRow] : []), bar, panes, ...(attachRow ? [attachRow] : []), status);
 
-  let mode = 'write', openMenu = null, timer = 0, closed = false, shown = null, saving = false;
-  const previewing = () => WIDE.matches || mode === 'preview';
+  let mode = 'write', openMenu = null, timer = 0, closed = false, shown = null, saving = false, pendingAction = null, savedOnce = false;
+  // What was last saved (keepOpen): the text, the title box and the markdown choice as they were.
+  const snapshot = () => ({text: area.value, title: titleBox?.value ?? '', markdown: markdownValue()});
+  let baseline = null;
+  const changed = () => { const now = snapshot(); return now.text !== baseline.text || now.title !== baseline.title || now.markdown !== baseline.markdown; };
+  const previewing = () => !isPlain() && (WIDE.matches || mode === 'preview');
+  // Off: one wide text box (no preview, no [쓰기|미리보기]).
+  function paintPlain() {
+    const plain = isPlain();
+    if (plain) shell.dataset.mdPlain = ''; else delete shell.dataset.mdPlain;
+    area.setAttribute('aria-label', plain ? '본문' : '마크다운 원문');
+    if (plain && mode === 'preview') setMode('write', {focus: false});
+    if (!plain) paintPreview();
+  }
   // 761px~: the app's own menu stays beside (side) or above (top) the editor; the editor takes only the rest. One
   // function measures it for open, resize, and the menu's own size changes. With the menu in use the dialog is not modal.
   function placeBesideNav() {
@@ -278,23 +327,46 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     }
   }
   function run(action, option) {
+    if (isPlain() && action !== 'undo' && action !== 'redo' && !PLAIN_ACTIONS.includes(action)) {
+      if (openMenu) setMenu(null);
+      pendingAction = [action, option];
+      void markdownChoices().open('markdown', textReturn, tools.querySelector(`[data-md-action="${action}"]`));
+      return;
+    }
     if (MENUS[action]) { setMenu(action); return; }
     if (openMenu) setMenu(null);
     if (mode === 'preview' && !WIDE.matches) setMode('write', {focus: false});
     if (action === 'undo' || action === 'redo') { area.focus(); try { document.execCommand(action); } catch {} return; }
-    const r = applyAction(area.value, area.selectionStart, area.selectionEnd, action, option);
+    const r = (isPlain() ? applyPlainAction : applyAction)(area.value, area.selectionStart, area.selectionEnd, action, option);
     replace(r.from, r.to, r.insert);
     area.setSelectionRange(r.selStart, r.selEnd);
+  }
+  // The sheet hands focus back to the text, so the selection and the phone keyboard stay.
+  const textReturn = {setAttribute() {}, hidden: false, get isConnected() { return !closed; }, focus: () => area.focus({preventScroll: true})};
+  function setMarkdown(on) {
+    if (!mdBox || mdBox.checked === on) return;
+    mdBox.checked = on; status.textContent = ''; paintPlain(); markdown.onChange?.(on);
+  }
+  function markdownChoice(value) {
+    const next = pendingAction; pendingAction = null;
+    if (closed || !next) return;
+    if (value !== 'on') { area.focus({preventScroll: true}); return; }
+    setMarkdown(true);
+    // Let the sheet hand focus back first, then apply the button the person pressed.
+    queueMicrotask(() => { if (!closed) run(...next); });
   }
   async function runSave() {
     if (!save || saving || closed) return;
     saving = true; saveButton.disabled = true; if (kindMenu) kindMenu.disabled = true; status.textContent = '저장 중…';
     let result;
-    try { result = await save.run(area.value, kind, {title: titleBox?.value ?? ''}); } catch (error) { result = {ok: false, message: error?.message}; }
+    const sent = snapshot();
+    try { result = await save.run(sent.text, kind, {title: sent.title, markdown: sent.markdown}); } catch (error) { result = {ok: false, message: error?.message}; }
     saving = false;
     if (closed) return;
     saveButton.disabled = false; if (kindMenu) kindMenu.disabled = false;
-    if (result?.ok) close();
+    // keepOpen: 저장만 하고 창은 그대로(닫기는 ✕로만). What was sent is now the saved state.
+    if (result?.ok && keepOpen) { baseline = sent; savedOnce = true; status.textContent = result.message || '저장했어요'; }
+    else if (result?.ok) close();
     else status.textContent = result?.message || '저장하지 못했어요. 다시 눌러 주세요.';
   }
   async function telegram() {
@@ -328,9 +400,10 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     else if (b.dataset.mdKindMenu) { if (!saving) { setKind(b.dataset.mdKindMenu); kinds.menu.open(b); } }
     else if (b.hasAttribute('data-md-export')) void exportChoices().open('export', copy);
     else if (b.hasAttribute('data-md-save-icon')) void runSave();
-    else if (b.dataset.close === ID) close();
+    else if (b.dataset.close === ID) requestClose({fromBack: shell.dataset.kptuHistoryClosing === 'pop'});
   });
-  area.addEventListener('input', () => { status.textContent = ''; onInput?.(area.value); schedule(); });
+  mdBox?.addEventListener('change', () => { status.textContent = ''; paintPlain(); markdown.onChange?.(mdBox.checked); });
+  area.addEventListener('input', () => { if (!saving) status.textContent = ''; onInput?.(area.value); schedule(); });
   titleBox?.addEventListener('input', () => { status.textContent = ''; });
   shell.addEventListener('keydown', e => {
     if (e.key === 'Escape' && openMenu) { e.preventDefault(); e.stopPropagation(); setMenu(null); return; }
@@ -375,6 +448,21 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   PHONE.addEventListener('change', placeBesideNav);
   window.addEventListener('resize', placeBesideNav);
 
+  // NOTE-큰창저장유지: ✕ and Escape ask once when the window keeps open after saving and has changes not saved since.
+  // The back button (it arrives as a [닫기] click after the history step) closes as before and hands the text back.
+  let asking = false;
+  const closeReturn = {setAttribute() {}, hidden: false, get isConnected() { return !closed && !asking; }, focus: () => area.focus({preventScroll: true})};
+  function requestClose({fromBack = false} = {}) {
+    if (closed) return;
+    if (!keepOpen || fromBack || saving || !changed()) { close(); return; }
+    void closeChoices().open('close', closeReturn, done);
+  }
+  function closeChoice(value) {
+    if (value !== 'close' || closed) return;
+    asking = true;
+    // The sheet's own history entry steps back first, then the editor's.
+    void closeSheet.close().then(() => close());
+  }
   // Closing by button or Escape gives the text back; the back button arrives as a [닫기] click.
   function close({silent = false} = {}) {
     if (closed) return;
@@ -382,24 +470,27 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     PHONE.removeEventListener('change', placeBesideNav); window.removeEventListener('resize', placeBesideNav); navSize?.disconnect();
     if (copy.getAttribute('aria-expanded') === 'true') exportSheet?.dismiss();
     if (leavingTab) { leavingTab = null; leaveSheet?.dismiss(); }
-    const value = area.value;
+    if (pendingAction) { pendingAction = null; markdownSheet?.dismiss(); }
+    if (!asking && closeSheet && current === handle) closeSheet.dismiss();
+    const value = area.value, after = {saved: savedOnce && !changed(), markdown: markdownValue()};
     shell.classList.add('hidden'); shell.setAttribute('aria-hidden', 'true');
     window.KPTUA11y?.dialog.deactivate?.(shell, {restoreFocus: false});
     document.documentElement.classList.remove('md-editor-open');
     if (current === handle) current = null;
     // Let mobile-modal-history see the hidden state (and step back) before the node goes.
     queueMicrotask(() => shell.remove());
-    if (!silent) onClose(value);
+    if (!silent) onClose(value, after);
     else if (trigger?.isConnected) trigger.focus?.({preventScroll: true});
   }
-  const handle = {close, exportAs, leaveChoice, paint, get text() { return area.value; }, get kind() { return kind; }, get closed() { return closed; }};
+  const handle = {close, exportAs, leaveChoice, closeChoice, markdownChoice, paint, get text() { return area.value; }, get kind() { return kind; }, get markdown() { return markdownValue(); }, get closed() { return closed; }};
 
   document.body.append(shell);
   if (attachRow) attach.mount({picker: attachRow.querySelector('[data-md-attach-picker]'), files: attachRow.querySelector('[data-md-attach-files]'), drop: panes});
   document.documentElement.classList.add('md-editor-open');
+  paint(); baseline = snapshot();
   onWide(); setMode('write', {focus: false});
   // companions: the wide menu is part of the Tab cycle (editor → menu → editor); on a phone there is none.
-  window.KPTUA11y?.dialog.activate?.(shell, {trigger, initialFocus: area, onRequestClose: () => close(),
+  window.KPTUA11y?.dialog.activate?.(shell, {trigger, initialFocus: area, onRequestClose: () => requestClose(),
     companions: () => PHONE.matches ? [] : document.querySelectorAll(`${NAV} :is(button, a[href]):not([disabled])`)});
   area.focus({preventScroll: true});
   area.setSelectionRange(area.value.length, area.value.length);

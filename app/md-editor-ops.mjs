@@ -129,6 +129,32 @@ export function mermaidFormat(text, s, e, kind = 'flow') {
   return insertBlock(text, s, e, block, [11, 11 + t.body.length]);
 }
 
+// NOTE-마크다운선택: 마크다운을 끈 노트에서 글자만으로 되는 버튼(• 목록 '- ', 1. 번호 '1. ', ☐ 체크 '☐ ', 구분선 '────').
+// 나머지(제목·굵게·기울임·표·인용·코드·강조 상자·도식)는 마크다운이 있어야 보이므로 여기 없다(md-editor.js가 켤지 묻는다).
+export const PLAIN_ACTIONS = Object.freeze(['bullet', 'number', 'task', 'rule']);
+const PLAIN_TASK = /^(\s*)☐[ \t]+/;
+const PLAIN_RULE = '────';
+export function applyPlainAction(text, s, e, action) {
+  if (action === 'bullet' || action === 'number') return prefixLines(text, s, e, action);
+  if (action === 'rule') return insertBlock(text, s, e, PLAIN_RULE);
+  if (action !== 'task') throw new Error('not a plain action ' + action);
+  // ☐ in front of each touched line, or off when every written line already has it.
+  const {from, to} = lineRange(text, s, e);
+  const lines = text.slice(from, to).split('\n'), used = lines.filter(l => l.trim());
+  const remove = used.length > 0 && used.every(l => PLAIN_TASK.test(l));
+  const insert = lines.map(line => {
+    if (remove) return stripLine(line, PLAIN_TASK);
+    if (!line.trim() && lines.length > 1) return line;
+    const bare = stripLine(line, [TASK, BULLET, NUMBER]), indent = /^\s*/.exec(bare)[0];
+    return indent + '☐ ' + bare.slice(indent.length);
+  }).join('\n');
+  if (s === e && lines.length === 1) {
+    const pos = Math.min(Math.max(s + insert.length - (to - from), from), from + insert.length);
+    return {from, to, insert, selStart: pos, selEnd: pos};
+  }
+  return {from, to, insert, selStart: from, selEnd: from + insert.length};
+}
+
 // One entry point for the toolbar: action names match data-md-action in md-editor.js.
 export function applyAction(text, s, e, action, option) {
   switch (action) {

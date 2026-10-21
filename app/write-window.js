@@ -1,7 +1,7 @@
 // BASKET-업데이트통합 PR 2: one write window for a new text, whichever way it is opened (menu [쓰기], 노트 [+], the home and
 // basket input's [크게]). It is the shared editor (md-editor.js) with [업데이트 ▾ | 노트] beside the one save icon:
 // - 업데이트: ▾ picks where it goes (update-places.js) — nothing chosen is the basket (미분류), or an organization / a project record.
-// - 노트: a kind=note row; its title is the first line (as menu [쓰기] always did).
+// - 노트: a kind=note row; its title is the first line (as menu [쓰기] always did). [마크다운] starts off (NOTE-마크다운선택).
 // Saving is 저장하고 닫기. Every save is an existing owner-RLS path; an opener may route the update through its own save
 // (the home input keeps its attachments that way). Texts that already exist (memo·note edit) keep their own editor call.
 // UI-크게첨부: under the text, [📎 첨부] (the basket's own picker part, basket-upload.js) while 업데이트 is chosen. Files go only
@@ -67,7 +67,7 @@ export function openWriteWindow({text = '', kind = 'update', place = null, place
     if (target || !ownBatch?.entries.length) return saveUpdate({place:target, text:value, owner}, rt);
     return uploadBatch(ownBatch, {raw_text:value, rt, isCurrent:() => rt.session.read()?.user?.id === owner, onChange:() => picker?.render()});
   }
-  async function run(value, chosen, {title: heading = ''} = {}) {
+  async function run(value, chosen, {title: heading = '', markdown = false} = {}) {
     if (rt.session.read()?.user?.id !== owner) return {ok:false, message:'로그인 정보가 바뀌었어요. 다시 열어 주세요.'};
     const count = files();
     busy = true; picker?.render();
@@ -75,7 +75,7 @@ export function openWriteWindow({text = '', kind = 'update', place = null, place
       if (chosen === 'note') {
         if (count) return {ok:false, message:'첨부는 업데이트(바구니)로만 저장돼요. 업데이트로 바꾸거나 첨부를 빼 주세요.'};
         if (!value.trim() && !heading.trim()) return {ok:false, message:'제목이나 본문을 써 주세요.'};
-        const note = await createNoteDoc({title:heading.trim() ? heading : noteTitleFromText(value), raw_text:value}, rt);
+        const note = await createNoteDoc({title:heading.trim() ? heading : noteTitleFromText(value), raw_text:value, markdown:markdown === true}, rt);
         saved = {kind:'note', id:note.id};
       } else {
         const target = state.place, label = name();
@@ -100,7 +100,8 @@ export function openWriteWindow({text = '', kind = 'update', place = null, place
       isBusy:() => busy || !!upload?.isBusy?.(), onChange:() => { upload?.onChange?.(); state.say(''); },
       onError:message => state.say(message)});
   }};
-  editor = openMarkdownEditor({text, title, draft, onInput, attach, noteTitle:{kind:'note', label:'노트 제목', placeholder:'노트 제목(비우면 본문 첫 줄)'},
+  // NOTE-마크다운선택: [노트] shows the [마크다운] box, off for a new note; an update is always markdown (no box).
+  editor = openMarkdownEditor({text, title, draft, onInput, attach, markdown:{value:false, show:chosen => chosen === 'note'}, noteTitle:{kind:'note', label:'노트 제목', placeholder:'노트 제목(비우면 본문 첫 줄)'},
     kinds:{label:'저장할 곳', value:kind, options:[['update', '업데이트'], ['note', '노트']], text:value => value === 'update' && state.place ? name() || null : null,
       menu:{value:'update', aria:() => state.place && name() ? '기록할 곳 선택: ' + name() : '기록할 곳 선택', open:trigger => void placeSheet().open('place', trigger)}},
     placeholder:chosen => chosen === 'note' ? '노트 본문을 쓰세요' : state.place ? `${name() || '고른 곳'} 기록을 입력하세요` : '업데이트 입력(바구니에 저장)',
