@@ -129,7 +129,7 @@ for(const width of [390,1280]){
   await expect.poll(()=>page.evaluate(()=>window.__copied)).toBe('위 답변을 외부 라이브러리·폰트·이미지 주소 없이 인라인 CSS와 인라인 SVG만 쓴 HTML 파일 하나로 만들어 줘. 카드·표·도식 모양을 살려 줘.');
   await expect(page.locator('#toast')).toContainText('복사했어요');
   // Pasting a whole document into the basket input turns it into an attachment and leaves a short mark.
-  const quick=page.locator('#basketView [data-home-quick]'),input=quick.locator('[data-quick-input]');
+  const quick=page.locator('#basketView [data-basket-list] [data-home-quick]'),input=quick.locator('[data-quick-input]');
   await input.fill('오늘 받은 답변\n');
   await input.evaluate(el=>el.setSelectionRange(el.value.length,el.value.length));
   const pasted=await input.evaluate((el,html)=>{const data=new DataTransfer();data.setData('text/plain','설명\n\n```html\n'+html+'\n```\n끝');const ev=new ClipboardEvent('paste',{clipboardData:data,bubbles:true,cancelable:true});el.dispatchEvent(ev);return ev.defaultPrevented;},PROBE);

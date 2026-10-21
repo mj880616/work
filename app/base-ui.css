@@ -206,6 +206,12 @@ button:disabled,[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
    (project detail .ps3-modal-head, the PC task pane #gtDetailPane) still sets its own offset. Save stays where it is: in the
    bottom row (.modal-action-footer) for popups, in the title line only for the PC task pane. */
 :where(.modal-card)>.modal-head:where(:not(.w1p-detail-head)){position:sticky;top:0;z-index:3;background:var(--kptu-surface);box-shadow:0 -24px 0 24px var(--kptu-surface)}
+
+/* PRJ-화면다듬기: one 4-line text clamp (text-clamp.js). Open = .is-open; the organization record list adds a [더보기]/[접기] button under the text. */
+.kptu-clamp{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;line-clamp:4;overflow:hidden}
+.kptu-clamp.is-open{display:block;-webkit-line-clamp:unset;line-clamp:unset;overflow:visible}
+.kptu-clamp-more{display:inline-flex;align-items:center;min-height:44px;margin:0;padding:0 4px;border:0;background:transparent;color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-meta,12px);cursor:pointer}
+.kptu-clamp-more:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px;border-radius:var(--kptu-radius-md)}
 /* CAL-저장본먼저: one small line on screens that show this device's saved copy first (data-freshness.js draws it):
    새로 불러오는 중 / 최신 아님 · 마지막 확인 HH:MM [다시 시도]. Muted while refreshing, danger ink when not the latest. */
 .data-freshness{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:4px 0;font-size:var(--ds-text-meta,13px);color:var(--kptu-muted)}

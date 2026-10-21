@@ -78,7 +78,7 @@ for (const width of [390, 1280]) test(`home and basket inputs have no request to
   await noToggles(q);
   // The basket screen's input has none either.
   await page.evaluate(() => window.KPTURouter.go('basket'));
-  const bq = page.locator('#basketView [data-home-quick]');
+  const bq = page.locator('#basketView [data-basket-list] [data-home-quick]');
   await bq.locator('[data-quick-input]').focus(); await bq.locator('[data-quick-input]').fill('바구니 화면 입력');
   await noToggles(bq);
   await press(page, bq.locator('[data-quick-save]'), width);

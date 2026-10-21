@@ -54,6 +54,9 @@
 .lu-row-tag{flex:0 0 auto;min-width:40px;max-width:84px}
 .lu-row-tag .doc-category-tag{display:block;width:100%;line-height:20px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lu-row-date{flex:none;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
+/* 자료 날짜가 없어 올린 날을 보일 때: 더 흐린 글자 + 작은 "올림". */
+.lu-row-date-upload{color:var(--kptu-faint)}
+.lu-row-date-upload small{font-size:10px;white-space:nowrap}
 /* 폰 M2: 두 단 격자 — 위 [이름(2줄까지) | 날짜 | ⋯], 아래 [종류 | 분류]. 종류는 상자 없이 색 글자. */
 @media(max-width:760px){
   .lu-row-title{white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2}
@@ -146,5 +149,8 @@
   #appView #libraryView .library-filter-toolbar .lu-filter-row[data-lu-filter-row="category"]{display:flex;flex-wrap:nowrap;align-items:center;gap:8px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
   #appView #libraryView .lu-filter-row[data-lu-filter-row="category"] > .filter-chips{flex:0 0 auto;max-width:none;overflow:visible}
   #appView #libraryView .lu-filter-row[data-lu-filter-row="category"] > .lu-category-edit{flex:0 0 auto}
-  #appView #libraryView .lu-filter-label{display:none}
+  /* 폰: 이름표(프로젝트·세부·종류 등)를 칩 줄 왼쪽에 작게 둔다. 줄이 옆으로 밀려도 칩 폭은 그대로. */
+  #appView #libraryView .library-filter-toolbar #documentProject,
+  #appView #libraryView .library-filter-toolbar .lu-filter-row:not([data-lu-filter-row="category"]){grid-template-columns:3.6em minmax(0,1fr);column-gap:6px}
+  #appView #libraryView .lu-filter-label{flex:0 0 3.6em;font-size:11px}
 }

@@ -121,6 +121,19 @@ for(const scheme of ['light','dark'])test(`꺼진 분류 칩은 흐리게(글자
   expect(errors).toEqual([]);
 });
 
+for(const width of [1280,390])test(`자료 날짜 없는 자료: 올린 날을 흐리게 + 작은 올림 ${width}`,async({page})=>{
+  {
+    await boot(page,width);await chip(page,'all').click();
+    const up=page.locator('[data-lu-document="prefixed"] .lu-row-date'),dated=page.locator('[data-lu-document="short"] .lu-row-date');
+    if(width===1280){await expect(up).toHaveText('10.01 올림');}else{await expect(up).toHaveText('10.09');await expect(up).not.toHaveClass(/upload/)}
+    await expect(dated).toHaveText('10.14');await expect(dated).not.toHaveClass(/upload/);
+    if(width===1280){
+      const color=l=>l.evaluate(el=>getComputedStyle(el).color);expect(await color(up)).not.toBe(await color(dated));
+      await expect(up.locator('small')).toHaveText('올림');
+    }
+  }
+});
+
 test('폰 M2: 이름 다듬기(날짜 앞머리 → 오른쪽 날짜, 밑줄 → 띄어쓰기, 확장자 빼기), 원본 이름은 그대로 검색',async({page})=>{
   const {s,errors}=await boot(page,390);
   await chip(page,'all').click();
@@ -187,15 +200,18 @@ for(const scheme of ['light','dark'])test(`PC 거르기 세 줄: 이름표·차�
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });
 
-test('폰 거르기 줄: 이름표 없이 줄마다 옆으로 밀기, 차례(프로젝트 → 세부 → 종류)는 같음',async({page})=>{
+test('폰 거르기 줄: 줄마다 이름표(프로젝트·세부·종류) + 옆으로 밀기, 차례는 PC와 같음',async({page})=>{
   const {errors}=await boot(page,390);
-  await expect(page.locator('#libraryView .lu-filter-label:visible')).toHaveCount(0);
+  // LIB-목록다듬기: 폰도 PC처럼 줄마다 이름표. 처음에는 프로젝트·종류 둘.
+  await expect(page.locator('#libraryView .lu-filter-label:visible')).toHaveText(['프로젝트','종류']);
   const project=page.locator('#documentProject'),projectChips=project.locator(':scope > .filter-chips').first(),subChips=project.locator('.filter-chips-small'),category=page.locator('#libraryCategoryFilter');
   await projectChips.locator('[data-filter-value="top-a"]').click();await expect(subChips).toBeVisible();
   const top=await box(projectChips),sub=await box(subChips),cat=await box(category);
   expect(sub.y).toBeGreaterThanOrEqual(top.y+top.height-1);expect(cat.y).toBeGreaterThanOrEqual(sub.y+sub.height-1);
   // 칩 줄은 화면 폭을 다 쓰고, 넘치는 칩은 그 줄 안에서 옆으로 민다.
-  for(const b of [top,cat])expect(b.x).toBeLessThan(24);
+  // 이름표가 칩 왼쪽에 선다(칩은 이름표 오른쪽에서 시작).
+  for(const [b,n] of [[top,0],[sub,1],[cat,2]]){const l=await box(page.locator('#libraryView .lu-filter-label:visible').nth(n));expect(b.x).toBeGreaterThanOrEqual(l.x+l.width-1)}
+  await expect(page.locator('#libraryView .lu-filter-label:visible')).toHaveText(['프로젝트','세부','종류']);
   // UI-자료실편집버튼: 종류 줄은 칩과 [편집]이 한 줄로 함께 밀리므로, 미는 쪽은 칩 묶음이 아니라 줄 전체.
   const categoryRow=page.locator('#libraryView .lu-filter-row[data-lu-filter-row="category"]');await expect(categoryRow).toHaveCSS('overflow-x','auto');await expect(categoryRow).toHaveCSS('flex-wrap','nowrap');await expect(category).toHaveCSS('flex-wrap','nowrap');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);

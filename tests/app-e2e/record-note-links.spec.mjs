@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
+import { chooseBasketKind } from './helpers/basket-kind.mjs';
 // UI-모바일업데이트겹쳐보기: on a phone a tapped record first comes up as a card over the detail; its full-open button continues as before.
 const viaSheet=async page=>{if((page.viewportSize()?.width||0)>760)return;const sheet=page.locator('#kptuRecordSheet');await expect(sheet).toBeVisible();await sheet.locator('[data-record-sheet-full]').click()};
 // UI-기록아이콘(2026-10-18 명진 결정): 노트를 [연결하기]로 이은 조직·프로젝트 화면의 기록 목록에 노트도 보인다. 기록 줄 앞 표시는 새 업데이트 아이콘·노트
@@ -90,7 +91,7 @@ for(const width of [1280,390])test(`project ${width}: a note line opens the note
  await page.locator('#ps3Body [data-basket-link="l-note"] [data-ps3-record-menu]').click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'노트 열기'}).click();
  await expect(noteRead(page)).toHaveText('합성 회의 준비 노트');await page.locator('#basketView [data-basket-return]').click();await expect(title(page)).toHaveText('합성 정책 사업');if(width<761){await page.locator('[data-ps3-close="ps3DetailModal"]').click();await expect(page.locator('#ps3DetailModal')).toBeHidden()}
  // A note opened from the note list itself has no return line and its back stays the note list.
- await clickView(page,'basket');await page.locator('#basketView [data-basket-kind="note"]').click();await page.locator(`[data-note-row="${note.id}"]`).click();
+ await clickView(page,'basket');await chooseBasketKind(page,'note');await page.locator(`[data-note-row="${note.id}"]`).click();
  await expect(noteRead(page)).toHaveText('합성 회의 준비 노트');await expect(page.locator('#basketView [data-basket-return]')).toHaveCount(0);
  await page.goBack();await expect(noteRead(page)).toBeHidden();await expect(page.locator(`[data-note-row="${note.id}"]`)).toBeVisible();
  expect(await page.evaluate(()=>KPTURouter.current)).toBe('basket');

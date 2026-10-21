@@ -24,7 +24,7 @@ for(const width of [1024,1280,1440,1023,390])for(const milestones of [true,false
     const b=await boxes(page);
     const left=['quick','calendar','tasks','meetings'];
     const right=milestones?['dday']:[];
-    const order=width>=1024?[...left,...right]:['quick',...(milestones?['dday']:[]),'calendar','tasks','meetings'];
+    const order=width>=1024?[...left,...right]:['quick','calendar','tasks',...(milestones?['dday']:[]),'meetings'];
     expect(await readingOrder(page)).toEqual(order);
     if(width>=1024&&milestones){
       const sidebar=b[right[0]];
@@ -76,7 +76,7 @@ test('home breakpoint moves the same D-day control and preserves input and focus
     await expect(page.locator('[data-quick-input]')).toHaveValue('유지할 입력');
     await noOverflow(page);
     // The D-day card moves on the media query's change event, which fires after the resize.
-    await expect.poll(()=>readingOrder(page)).toEqual(width>=1024?['quick','calendar','tasks','meetings','dday']:['quick','dday','calendar','tasks','meetings']);
+    await expect.poll(()=>readingOrder(page)).toEqual(width>=1024?['quick','calendar','tasks','meetings','dday']:['quick','calendar','tasks','dday','meetings']);
   }
 });
 for(const [card,view] of [['calendar','calendar'],['tasks','tasks'],['meetings','meetings']]){

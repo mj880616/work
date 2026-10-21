@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import { chooseBasketKind } from './helpers/basket-kind.mjs';
 // UI-PC사이드바 + UI-PC메모노트(BASKET-업데이트통합 PR 3): PC 사이드바 맨 위 아이콘+"홈" 줄이 홈 메뉴(고른 표시도 그 줄),
 // 아래 따로 있던 [홈]은 PC 사이드바에서 없음. [바구니] 아래 하위 메뉴 [업데이트]·[노트](항상 펼침). "게시판" → "공유 페이지"(주소 그대로).
 // 폰 하단 탭 [홈]·761~1023px 위쪽 한 줄 메뉴의 [홈]은 그대로.
@@ -43,7 +44,7 @@ test('PC 1280: [바구니] 아래 [업데이트]·[노트]가 항상 보이고 �
  await expect(page.locator('[data-basket-kind="memo"]')).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-list]')).toBeVisible();
  await expect(sub.getByRole('button',{name:'업데이트',exact:true})).toHaveAttribute('aria-current','true');
  // The basket screen's own switch keeps the sidebar in step.
- await page.locator('[data-basket-kind="note"]').click();await expect(sub.getByRole('button',{name:'노트',exact:true})).toHaveAttribute('aria-current','true');
+ await chooseBasketKind(page,'note');await expect(sub.getByRole('button',{name:'노트',exact:true})).toHaveAttribute('aria-current','true');
  // Leaving the basket clears the sub mark.
  await nav(page).locator('.nav-btn[data-view="calendar"]').click();await expect(page.locator('#calendarView')).toBeVisible();
  await expect(sub.locator('[aria-current]')).toHaveCount(0);
