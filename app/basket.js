@@ -606,7 +606,7 @@ async function copyChatgptRequest(){
 const PHOTO_TYPES=/^image\/(jpeg|png|webp|gif)$/i;
 const isPhoto=file=>PHOTO_TYPES.test(String(file?.mime_type||''));
 function fileRow(file){
-  const id=String(file?.drive_file_id||''),name=attachmentName(file,'첨부'),url=driveFileUrl(id),sent=librarySent(id),doc=sent?.document?.id;
+  const id=String(file?.drive_file_id||''),name=attachmentName(file),url=driveFileUrl(id),sent=librarySent(id),doc=sent?.document?.id;
   const inLibrary=['created','exists'].includes(sent?.kind),meta=[fileSize(file.size_bytes),inLibrary?'자료실에 있음 ✓':sent?.kind==='unknown'?'자료실에서 확인해 주세요':''].filter(Boolean).join(' · ');
   const link=(icon,label)=>`${LINK_ICONS[icon]}<span>${label}</span>`;
   const open=url?`<a class="basket-file-link" href="${url}" target="_blank" rel="noopener noreferrer" aria-label="${esc(name)} Drive에서 열기">${link('drive','Drive에서 열기')}</a>`:'<span class="basket-file-link-off">링크를 확인할 수 없습니다.</span>';

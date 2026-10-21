@@ -96,12 +96,12 @@ for(const width of [390,1280]){
  test(`basket quick input takes taps and typing after entering from home ${width}`,async({page})=>{
   await page.setViewportSize({width,height:900});const f=await fixture(page);
   await enterBasket(page,width);
-  const input=page.locator('#basketView [data-quick-input]'),b=await input.boundingBox();
+  const input=page.locator('#basketView [data-basket-list] [data-quick-input]'),b=await input.boundingBox();
   // The save button's enlarged hit area must stay on the button, not over the input.
   expect(await page.evaluate(([x,y])=>document.elementFromPoint(x,y)?.matches('[data-quick-input]'),[b.x+b.width/2,b.y+b.height/2])).toBe(true);
   await press(page,input,width);await expect(input).toBeFocused();expect(await input.evaluate(el=>({readOnly:el.readOnly,disabled:el.disabled}))).toEqual({readOnly:false,disabled:false});
   await page.keyboard.type('홈에서 들어와 쓴 메모');await expect(input).toHaveValue('홈에서 들어와 쓴 메모');
-  await press(page,page.locator('#basketView [data-quick-save]'),width);await expect(input).toHaveValue('');
+  await press(page,page.locator('#basketView [data-basket-list] [data-quick-save]'),width);await expect(input).toHaveValue('');
   expect(f.writes.at(-1)).toMatchObject({method:'POST',body:{raw_text:'홈에서 들어와 쓴 메모'}});expect(f.errors).toEqual([]);
  });
 }
@@ -109,8 +109,8 @@ for(const width of [390,1280]){
 test('basket quick input takes taps and typing when the basket opens directly',async({page})=>{
  await page.setViewportSize({width:390,height:900});const f=await fixture(page,{query:'?view=basket'});
  await expect(page.locator('[data-basket-row]')).toHaveCount(1);
- const input=page.locator('#basketView [data-quick-input]');await press(page,input,390);await expect(input).toBeFocused();
- await page.keyboard.type('바로 연 바구니 메모');await press(page,page.locator('#basketView [data-quick-save]'),390);await expect(input).toHaveValue('');
+ const input=page.locator('#basketView [data-basket-list] [data-quick-input]');await press(page,input,390);await expect(input).toBeFocused();
+ await page.keyboard.type('바로 연 바구니 메모');await press(page,page.locator('#basketView [data-basket-list] [data-quick-save]'),390);await expect(input).toHaveValue('');
  expect(f.writes.at(-1)).toMatchObject({method:'POST',body:{raw_text:'바로 연 바구니 메모'}});expect(f.errors).toEqual([]);
 });
 
@@ -125,7 +125,7 @@ test('basket quick input explains a lock below the input and offers a new memo',
  await page.setViewportSize({width:390,height:900});const f=await fixture(page,{query:'?view=basket'});
  await expect(page.locator('[data-basket-row]')).toHaveCount(1);
  let calls=0;await page.route(SB+'/functions/v1/basket-files',r=>++calls===1?r.fulfill({json:{ok:true,note_id:'n',attachments:[]}}):r.fulfill({status:503,json:{error:'첨부를 저장하지 못했습니다.',code:'note_save_result_unknown',note_id:'n'}}));
- const q=page.locator('#basketView [data-home-quick]'),input=q.locator('[data-quick-input]'),lock=q.locator('[data-quick-lock]');
+ const q=page.locator('#basketView [data-basket-list] [data-home-quick]'),input=q.locator('[data-quick-input]'),lock=q.locator('[data-quick-lock]');
  await expect(lock).toBeHidden();
  await input.fill('첨부와 함께 쓴 글');await q.locator('input[type=file]').setInputFiles(['a.txt','b.txt'].map(name=>({name,mimeType:'text/plain',buffer:Buffer.from(name)})));
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('바구니에서 확인');

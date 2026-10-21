@@ -2,6 +2,7 @@ import {showBasketRow} from './helpers/basket-more.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {noteMenuAction} from './helpers/note-menu.mjs';
+import { chooseBasketKind, basketKindButton } from './helpers/basket-kind.mjs';
 // UI-버튼작게(2026-10-18 사용자 결정):
 // ① 바구니 노트·메모 읽기 화면 아래 버튼은 한 줄, 보이는 높이 32px(누르는 범위 44px), [연결하기]만 주 버튼 색. 첨부만 있는 메모도 같음. 노트는 UI-노트메뉴정리로 이 줄이 없어지고 [⋯] 안으로 들어갔다.
 // ② 메뉴 [쓰기] 큰 편집기 서식 도구줄 버튼은 보이는 높이 28px(누르는 범위 44px).
@@ -67,7 +68,7 @@ for(const width of [390,1280]){
   const surface=await paint(page,'backgroundColor','--kptu-surface');
   await go(page,'basket');
   // 노트 (UI-노트메뉴정리): 본문 아래 [수정][연결하기] 줄이 없다. 수정·연결하기는 맨 위 한 줄의 [⋯] 안에 있다.
-  await tap(page,page.locator('[data-basket-kind="note"]'),width);
+  await tap(page,basketKindButton(page,'note'),width);
   await tap(page,page.locator('[data-note-row="n1"]'),width);
   await expect(page.locator('[data-note-read-actions]')).toHaveCount(0);
   await expect(page.locator('[data-note-detail]').getByRole('button',{name:'연결하기',exact:true})).toHaveCount(0);
@@ -78,7 +79,7 @@ for(const width of [390,1280]){
   await tap(page,page.locator('[data-note-cancel]'),width);await expect(page.locator('[data-note-more]')).toBeVisible();
   await tap(page,page.locator('[data-note-close]'),width);
   // 메모: [연결하기][할 일 만들기][노트로 옮기기] — 같은 규칙, 세 버튼 모두 같은 모양(UI-바구니상세버튼색).
-  await tap(page,page.locator('[data-basket-kind="memo"]'),width);
+  await tap(page,basketKindButton(page,'memo'),width);
   await showBasketRow(page,'m1');
   await tap(page,page.locator('[data-basket-row="m1"]'),width);
   const memoRow=page.locator('[data-basket-read-actions]');
@@ -159,16 +160,17 @@ test('③ 폰: 일정·바구니 전환은 아래 탭 바로 위 한 줄(알약 
  await go(page,'tasks');const quickH=await page.locator('#tasksView .home-quick').evaluate(el=>Math.ceil(el.getBoundingClientRect().height));
  expect(await page.locator('#tasksView').evaluate(el=>getComputedStyle(el).paddingBottom)).toBe(`${quickH+44+16}px`);
  await go(page,'calendar');
- // 바구니: [메모] → [노트]; 메모 목록은 입력칸이 전환 줄 바로 위, 노트 목록은 [+]가 그 위.
+ // 바구니: [메모] → [노트]; 메모·노트 목록 모두 입력칸이 전환 줄 바로 위(BASKET-노트입력창: 노트도 [+] 대신 같은 입력칸).
  await page.locator('.mobile-tabs [data-view="basket"]').tap();
  row=await dock('#basketView .basket-kind-switch',['업데이트','노트'],'업데이트');
- const quick=await page.locator('#basketView .home-quick').boundingBox();expect(Math.round(quick.y+quick.height)).toBe(Math.round(row.y-6));
+ const quick=await page.locator('#basketView [data-basket-list] .home-quick').boundingBox();expect(Math.round(quick.y+quick.height)).toBe(Math.round(row.y-6));
  // Filters stay at the top, alone on their row.
  const filter=await page.locator('[data-basket-filter="unclassified"]').boundingBox();expect(filter.y).toBeLessThan(header.y+header.height+40);
  await page.locator('[data-basket-kind="note"]').tap();
  await expect(page.locator('[data-note-row="n1"]')).toBeVisible();
  row=await dock('#basketView .basket-kind-switch',['업데이트','노트'],'노트');
- await fabAbove('#basketView #newNoteBtn',row);
+ await expect(page.locator('#basketView #newNoteBtn')).toHaveCount(0);
+ const noteQuick=await page.locator('#basketView [data-note-list] .home-quick').boundingBox();expect(Math.round(noteQuick.y+noteQuick.height)).toBe(Math.round(row.y-6));
  // An opened note (head "‹ 노트") keeps the row hidden, as before (#660 ⑥); it comes back on close.
  await page.locator('[data-note-row="n1"]').tap();await expect(page.locator('[data-note-close]')).toBeVisible();
  await expect(page.locator('#basketView .basket-kind-switch')).toBeHidden();
@@ -192,17 +194,17 @@ test('③ 폰: 자판이 뜨면 전환 줄·아래 탭이 함께 숨고, 내려�
  // 바구니 메모: 빠른 입력칸에 초점 → 자판.
  await page.locator('.mobile-tabs [data-view="basket"]').tap();
  const sw=page.locator('#basketView .basket-kind-switch');await expect(sw).toBeVisible();
- await page.locator('#basketView .home-quick [data-quick-input]').focus();await keyboard(page,true);
+ await page.locator('#basketView [data-basket-list] .home-quick [data-quick-input]').focus();await keyboard(page,true);
  await expect(page.locator('body')).toHaveClass(/kptu-mobile-keyboard/);
  await expect(tabs).toBeHidden();await expect(sw).toBeHidden();
  // The input sits right on the keyboard (no room left for the hidden row).
- await expect.poll(async()=>{const b=await page.locator('#basketView .home-quick').boundingBox();return Math.round(b.y+b.height);}).toBe(444);
+ await expect.poll(async()=>{const b=await page.locator('#basketView [data-basket-list] .home-quick').boundingBox();return Math.round(b.y+b.height);}).toBe(444);
  await keyboard(page,false);
  await expect(tabs).toBeVisible();await expect(sw).toBeVisible();
  // 노트 검색칸도 같은 공용 감지.
  await page.locator('[data-basket-kind="note"]').tap();await page.locator('[data-note-search]').focus();await keyboard(page,true);
- await expect(tabs).toBeHidden();await expect(sw).toBeHidden();await expect(page.locator('#basketView #newNoteBtn')).toBeHidden();
- await keyboard(page,false);await expect(tabs).toBeVisible();await expect(sw).toBeVisible();await expect(page.locator('#basketView #newNoteBtn')).toBeVisible();
+ await expect(tabs).toBeHidden();await expect(sw).toBeHidden();
+ await keyboard(page,false);await expect(tabs).toBeVisible();await expect(sw).toBeVisible();await expect(page.locator('#basketView [data-note-list] .home-quick')).toBeVisible();
  // 일정 [일기]: 글 칸에 초점 → 자판.
  await page.locator('[data-note-search]').blur();
  await page.locator('.mobile-tabs [data-mobile-schedule-tab]').tap();
@@ -268,7 +270,7 @@ if(REVIEW){
    await go(page,'basket');await showBasketRow(page,'m1');await expect(page.locator('[data-basket-row="m1"]')).toBeVisible();await shot('basket-memo-list');
    await page.locator('[data-basket-row="m1"]').click();await expect(page.locator('[data-basket-read-actions]')).toBeVisible();await shot('memo-read');
    await page.locator('[data-basket-close]').click();
-   await page.locator('[data-basket-kind="note"]').click();await expect(page.locator('[data-note-row="n1"]')).toBeVisible();await shot('basket-note-list');
+   await chooseBasketKind(page,'note');await expect(page.locator('[data-note-row="n1"]')).toBeVisible();await shot('basket-note-list');
    await page.locator('[data-note-row="n1"]').click();await expect(page.locator('[data-note-more]')).toBeVisible();await shot('note-read');
    await page.locator('[data-note-close]').click();
    await go(page,'calendar');await page.waitForTimeout(300);await shot('calendar');

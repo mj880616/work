@@ -3,6 +3,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import { chooseBasketKind } from './helpers/basket-kind.mjs';
 
 // UI-PC버튼36(2026-10-20 사용자 결정): PC(≥1024) 큰 버튼은 회의 [+ 회의 결과]와 같은 입력칸 높이(--kptu-control-height 36px).
 // 같은 줄 입력칸·칸 안 아이콘도 36px로 맞춰 줄이 어긋나지 않는다. 누르는 범위는 44px(::after). 폰 동그란 [+]·폰 버튼·중간 폭은 그대로.
@@ -108,13 +109,15 @@ for(const width of [1024,1280,1920])test(`UI-PC다듬기묶음 ③ PC ${width}: 
  };
  // 업데이트: 탭·입력창
  await check('업데이트');
- for(const sel of ['#basketView .basket-kind-switch','#basketView [data-home-quick]']){const b=await box(page.locator(sel));expect(b.left-nav.right,sel).toBeLessThanOrEqual(48);}
- await page.locator('#basketView [data-basket-kind="note"]').click();
+ // BASKET-노트입력창: PC(≥1024)에는 화면 위 [업데이트 | 노트]가 없다(사이드바가 맡음).
+ await expect(page.locator('#basketView .basket-kind-switch')).toBeHidden();
+ for(const sel of ['#basketView [data-basket-list] [data-home-quick]']){const b=await box(page.locator(sel));expect(b.left-nav.right,sel).toBeLessThanOrEqual(48);}
+ await chooseBasketKind(page,'note');
  await expect(page.locator('#basketView [data-note-search]')).toBeVisible();
  await check('노트');
- for(const sel of ['#basketView .basket-kind-switch','#basketView [data-note-search]']){const b=await box(page.locator(sel));expect(b.left-nav.right,sel).toBeLessThanOrEqual(48);}
- // [+ 노트]는 오른쪽 끝(본문 칸 안쪽)에 그대로 있다.
- const root=await box(page.locator('#basketView')),add=await box(page.locator('#newNoteBtn'));expect(add.right).toBeLessThanOrEqual(root.right+.5);expect(add.right).toBeGreaterThanOrEqual(root.right-48);
+ for(const sel of ['#basketView [data-note-list] [data-home-quick]','#basketView [data-note-search]']){const b=await box(page.locator(sel));expect(b.left-nav.right,sel).toBeLessThanOrEqual(48);}
+ // 노트 입력칸의 [추가]는 오른쪽 끝(본문 칸 안쪽)에 있다([+ 노트] 자리).
+ const root=await box(page.locator('#basketView')),add=await box(page.locator('#basketView [data-note-list] [data-quick-save]'));expect(add.right).toBeLessThanOrEqual(root.right+.5);expect(add.right).toBeGreaterThanOrEqual(root.right-48);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
 });
 

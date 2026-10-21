@@ -69,7 +69,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     input.placeholder=noteOnly?'노트를 입력하세요':mode==='task'?'할 일을 입력하세요':toBasket()?(basketOnly?'업데이트를 입력하세요':'업데이트 입력(바구니에 저장)'):(targetName||'담당조직')+' 기록을 입력하세요';
     box.querySelector('[data-quick-file-picker]').hidden=!takesFiles();
     if(!taskOnly)box.querySelector('[data-quick-big]').hidden=mode==='task';
-    if(!taskOnly&&!basketOnly)box.querySelector('[data-quick-detail]').hidden=mode!=='task';
+    if(!taskOnly&&!basketOnly&&!noteOnly)box.querySelector('[data-quick-detail]').hidden=mode!=='task';
     box.querySelector('[data-quick-basket-options]').hidden=!takesFiles()||!upload.entries.length;
     box.querySelectorAll('[data-quick-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.quickMode===mode)));
     options.hidden=taskOnly||!expanded||mode!=='task';

@@ -13,7 +13,7 @@ for (const width of [390, 1280]) test(`basket attach button placement and shared
   await openHome(page);
   await page.route('**/rest/v1/app_notes**', r => r.fulfill({ json: [{ id: 'n', raw_text: '테스트 업데이트', occurred_at: '2026-10-06', attachments: [] }] }));
   await page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click();
-  const quick = page.locator('#basketView .home-quick');
+  const quick = page.locator('#basketView [data-basket-list] .home-quick');
   const clip = quick.getByRole('button', { name: '파일 첨부', exact: true });
   await expect(clip).toBeVisible();
   const box = await clip.boundingBox(), input = await quick.locator('[data-quick-input]').boundingBox(), save = await quick.locator('[data-quick-save]').boundingBox();

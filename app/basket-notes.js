@@ -177,7 +177,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     box.innerHTML = `${folder ? `<span class="note-meta-folder" data-note-meta-folder>폴더 ${esc(folder)}</span>` : ''}${tags ? `<span class="basket-note-state">${tags}</span>` : `<span class="basket-note-state"><span class="basket-state-text">${esc(noteState(selected, links).status === '확정' ? '분류 완료' : '연결 없음')}</span></span>`}<time>고친 날 ${esc(day(selected.updated_at))}</time>`;
     // UI-일기손질 ⑥: each attachment is the shared file line (meeting-compact.js) with a small [Drive에서 열기] at its end.
     detail.querySelector('[data-note-attachments]').innerHTML = (selected.attachments || []).map(file => {
-      const url = driveFileUrl(file.drive_file_id), name = attachmentName(file, '첨부');
+      const url = driveFileUrl(file.drive_file_id), name = attachmentName(file);
       const end = url ? `<a class="file-line-link" href="${url}" target="_blank" rel="noopener noreferrer" aria-label="${esc(name)} Drive에서 열기">Drive에서 열기</a>` : '<span class="file-line-state">링크를 확인할 수 없습니다.</span>';
       return fileLine({name, meta:fileSize(file.size_bytes), cls:'note-file-line', end});
     }).join('');

@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { noteMenuAction } from './helpers/note-menu.mjs';
+import { chooseBasketKind } from './helpers/basket-kind.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // NOTE-마크다운선택·NOTE-큰창저장유지 (합성 데이터). One app_notes store honours the kind/id filters, like basket-notes.spec.mjs.
 const LONG='https://example.org/'+'아주긴주소'.repeat(40);
@@ -40,7 +41,7 @@ async function fixture(page){
  return {rows,writes,errors};
 }
 const noteRow=(page,text)=>page.locator('[data-note-host] [data-note-row]').filter({hasText:text});
-async function openNote(page,text){await page.locator('[data-basket-kind="note"]').click();await noteRow(page,text).click();return page.locator('[data-note-detail]');}
+async function openNote(page,text){await chooseBasketKind(page,'note');await noteRow(page,text).click();return page.locator('[data-note-detail]');}
 const noOverflow=el=>el.evaluate(n=>n.scrollWidth<=n.clientWidth+1&&n.getBoundingClientRect().right<=document.documentElement.clientWidth+1);
 
 for(const width of [390,1280]){
@@ -159,8 +160,8 @@ for(const width of [390,1280]){
 
  test(`a new note starts with 마크다운 off and reads as written ${width}`,async({page})=>{
   await page.setViewportSize({width,height:900});const f=await fixture(page);
-  await page.locator('[data-basket-kind="note"]').click();
-  await page.getByRole('button',{name:'새 노트',exact:true}).click();
+  await chooseBasketKind(page,'note');
+  await page.locator('[data-note-list] [data-quick-big]').click();
   const editor=page.locator('#mdEditor'),box=editor.locator('[data-md-markdown]');
   await expect(box).toBeVisible();await expect(box).not.toBeChecked();await expect(editor.locator('.md-editor-preview')).toBeHidden();
   // [업데이트] is always markdown: the box hides there.

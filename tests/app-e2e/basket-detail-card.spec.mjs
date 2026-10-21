@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
+import { basketKindButton } from './helpers/basket-kind.mjs';
 
 // UI-바구니상세개편: an update's detail is one card — text (with a small 원문 toggle and [복사] beside it), state·time,
 // attachments (photo previews through the owner-only basket-files photo view, a kind mark for other files, small text links
@@ -142,7 +143,7 @@ for (const width of [390, 1280]) {
     await expect(toast(page)).toHaveText('복사했습니다'); expect(await copied(page)).toBe('교섭 결과 공유\n• 다음 회의 10/27');
     // Notes: the row and the read view copy the same way (title as the first line).
     await press(page, page.locator('[data-basket-close]'), width);
-    await press(page, page.locator('[data-basket-kind="note"]'), width);
+    await press(page, basketKindButton(page,'note'), width);
     if (width >= 761) await press(page, page.locator('[data-note-row-copy="n-titled"]'), width);
     else {
       await expect(page.locator('[data-note-row-copy="n-titled"]')).toBeHidden();
@@ -183,7 +184,7 @@ for (const width of [390, 1280]) {
     const f = await fixture(page, width);
     // A note saved without a title elsewhere (older rows, other tools): the list shows the body's first line instead.
     f.rows.push({ id: 'n-untitled', workspace_id: 'w', kind: 'note', title: '', raw_text: '제목 없이 쓴 아주 긴 노트의 첫 줄입니다 '.repeat(4) + '\n둘째 줄', occurred_at: stamp, created_at: stamp, updated_at: '2026-10-06T02:00:00Z', archived_at: null, ai_export_allowed: true, attachments: [], metadata: {} });
-    await press(page, page.locator('[data-basket-kind="note"]'), width);
+    await press(page, basketKindButton(page,'note'), width);
     const title = page.locator('[data-note-row="n-untitled"] .basket-title-text');
     await expect(title).toHaveText(/^제목 없이 쓴 아주 긴 노트의 첫 줄입니다/);
     await expect(page.locator('[data-note-row="n-untitled"] .basket-preview')).toHaveText('둘째 줄');

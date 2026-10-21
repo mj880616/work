@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
+import { chooseBasketKind } from './helpers/basket-kind.mjs';
 
 // UI-노트고정: [고정] in a note's ⋯ puts it on top of the note list (most recently pinned first); [고정 해제] returns it to
 // last-change order. Stored in the existing metadata jsonb (metadata.pinned_at) by an owner-RLS PATCH of metadata only;
@@ -25,7 +26,7 @@ async function fixture(page, width) {
   });
   await page.route(SB + '/rest/v1/app_record_links?**', r => { const q = new URL(r.request().url()).searchParams; return q.has('note_id') ? r.fulfill({ json: [] }) : r.fallback(); });
   await page.evaluate(() => window.KPTURouter.go('basket'));
-  await page.locator('[data-basket-kind="note"]').click();
+  await chooseBasketKind(page,'note');
   await expect(page.locator('[data-note-row]')).toHaveCount(3);
   return { rows, writes, errors };
 }

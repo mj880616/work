@@ -72,8 +72,8 @@ for(const width of [390,1440]){
   await page.locator('[data-close="eventModal"]').click();
   // 바구니 화면 입력에는 [+]가 없다.
   await go(page,'basket');
-  await expect(page.locator('#basketView .home-quick[data-home-quick] [data-quick-input]')).toBeVisible();
-  await expect(page.locator('#basketView .home-quick [data-quick-detail]')).toHaveCount(0);
+  await expect(page.locator('#basketView [data-basket-list] .home-quick[data-home-quick] [data-quick-input]')).toBeVisible();
+  await expect(page.locator('#basketView [data-basket-list] .home-quick [data-quick-detail]')).toHaveCount(0);
   expect(errors).toEqual([]);
  });
 }
