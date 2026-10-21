@@ -91,7 +91,7 @@ for(const width of [390,1280]){
   expect(f.errors).toEqual([]);
  });
 
- test(`큰 편집 창 [📎 첨부]: 바구니로 저장할 때만, 조직 기록·노트로 저장하면 기존 안내 ${width}`,async({page})=>{
+ test(`큰 편집 창 [📎 첨부]: 바구니(또는 노트)로 저장할 때만, 조직 기록으로 저장하면 기존 안내 ${width}`,async({page})=>{
   const f=await fixture(page,width);
   // Menu [쓰기]: the window's own file batch.
   if(width<761){await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-menu-write]').click();}
@@ -101,8 +101,9 @@ for(const width of [390,1280]){
   // The same small button as the head (32px painted, 44px touch area) under the text, not covering it.
   const cb=await clip.boundingBox(),text=await e.locator('.md-editor-text').boundingBox();
   expect(cb.height).toBe(32);expect(await clip.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);expect(cb.y).toBeGreaterThanOrEqual(text.y+text.height-1);
-  // [노트] hides the row; [업데이트] shows it again.
-  await e.locator('[data-md-kind="note"]').click();await expect(clip).toBeHidden();await e.locator('[data-md-kind="update"]').click();await expect(clip).toBeVisible();
+  // NOTE-파일붙이기: [노트] moves the same [📎 첨부] to the end of the format row; [업데이트] puts it back under the text.
+  await e.locator('[data-md-kind="note"]').click();await expect(e.locator('.md-editor-tools').getByRole('button',{name:'파일 첨부',exact:true})).toBeVisible();
+  await e.locator('[data-md-kind="update"]').click();await expect(e.locator('.md-editor-attach').getByRole('button',{name:'파일 첨부',exact:true})).toBeVisible();
   await e.locator('.md-editor-text').fill('파일과 함께 쓰는 업데이트');
   await chooseFile(page,clip);
   await expect(clip.locator('[data-basket-count]')).toHaveText('1');await expect(e.locator('[data-basket-file]')).toHaveCount(1);
@@ -111,9 +112,6 @@ for(const width of [390,1280]){
   await expect(e.locator('[data-md-kind="update"]')).toHaveText('테스트 조직');
   await e.locator('[data-md-save-icon]').click();
   await expect(e.locator('.md-editor-status')).toHaveText('첨부는 바구니로만 저장돼요. ▾에서 바구니를 고르거나 첨부를 빼 주세요.');
-  // A note with a file: the existing rule too.
-  await e.locator('[data-md-kind="note"]').click();await e.locator('[data-md-save-icon]').click();
-  await expect(e.locator('.md-editor-status')).toHaveText('첨부는 업데이트(바구니)로만 저장돼요. 업데이트로 바꾸거나 첨부를 빼 주세요.');
   expect([f.orgs,f.notes,f.uploads.length]).toEqual([[],[],0]);
   // Back to the basket: the text and file go through the basket upload path (one request with the text), then it closes.
   await e.locator('[data-md-kind="update"]').click();

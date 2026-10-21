@@ -84,6 +84,18 @@ Drive PUT 성공 응답 자체 유실·정리 실패·강제 종료는 파일이
 업로드·orphan 정리 흐름을 추출했다. 이번 PR은 library-files 소스를 변경하지 않는다.
 기존 업로드 경로 재배포를 피하기 위한 사용자 지정 예외이며 `_shared` 전환은 후속 원장 행으로 추적한다.
 
+## 노트 첨부 폴더(NOTE-파일붙이기) — 배포 대기
+
+`note_id`로 받은 행의 `kind`가 `note`(노트)이면 파일을 **Web2 바구니** 안의 하위 폴더 **노트 첨부**에 올린다.
+폴더는 요청 값이 아니라 서버가 읽은 행의 `kind`로 정하며, 업데이트(`basket`)·일기(`diary`)·새 행(`note_id` 없음)은 지금처럼 최상위 폴더를 쓴다.
+하위 폴더는 `_shared/drive-upload.ts`의 `ensurePrivateChildFolder`로 찾거나 만든다(할 일 첨부와 같은 규칙):
+소유·휴지통 아님·부모 하나(Web2 바구니)·권한 1개(소유자)인 폴더만 쓰고, 공유된 폴더(`drive_folder_not_private`)나
+공유 상태를 읽지 못한 폴더(`drive_folder_permissions_unavailable`)는 업로드 전에 409로 거절한다. 권한은 만들거나 지우지 않는다.
+첨부 기록은 기존 `app_notes.attachments`(새 테이블·DB 변경 없음)이고, 저장은 기존처럼 `updated_at`·`attachments` 조건부 갱신이라
+읽은 뒤 행이 바뀌면(예: 바구니로 돌리기) 저장하지 않고 올린 파일을 지운다. 자료실 목록은 `app_documents`만 읽으므로 이 파일은 자료실에 보이지 않는다.
+노트에서 [빼기]는 화면이 owner RLS PATCH로 `attachments`에서 그 항목만 지우고(Drive 무변경), 노트 삭제는 REST 삭제만 해 파일을 Drive에 남긴다(`note-delete`를 부르지 않음).
+업데이트에서 노트로 옮긴 노트의 기존 파일은 최상위 폴더에 그대로 둔다(옮기지 않음).
+
 ## 메모 삭제(note-delete) — 배포 대기
 
 `POST ?action=note-delete`, JSON `{action:"note-delete",note_id,note_updated_at}`(정확히 이 3개 키, 4096 bytes까지).

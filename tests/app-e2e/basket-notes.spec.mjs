@@ -152,11 +152,13 @@ for(const width of [390,1280]){
   const input=noteInput(page),add=noteAdd(page),big=noteBig(page);
   await expect(input).toBeVisible();await expect(input).toHaveAttribute('placeholder','노트를 입력하세요');await expect(input).toHaveAccessibleName('노트 입력');
   await expect(big).toBeVisible();await expect(add).toBeVisible();
-  // The clip is not offered on the note input yet (NOTE-파일붙이기).
-  await expect(page.locator('[data-note-list] [data-quick-file-picker]')).toBeHidden();
-  const [ib,bb,ab]=await Promise.all([input.boundingBox(),big.boundingBox(),add.boundingBox()]);
-  // [크게] sits at the right end of the input, right before [추가]; one row.
-  expect(bb.x+bb.width).toBeLessThanOrEqual(ab.x+1);expect(ab.x-(bb.x+bb.width)).toBeLessThan(16);expect(Math.abs((bb.y+bb.height/2)-(ib.y+Math.min(ib.height,46)/2))).toBeLessThan(24);
+  // NOTE-파일붙이기: the note input has the update input's clip too (phone: inside the input at its left; PC: [📎 첨부] before [추가]).
+  const clip=page.locator('[data-note-list] [data-quick-file-picker] .basket-clip');await expect(clip).toBeVisible();
+  const [ib,bb,ab,cb]=await Promise.all([input.boundingBox(),big.boundingBox(),add.boundingBox(),clip.boundingBox()]);
+  // [크게] sits at the right end of the input, right before [추가] (on a PC with the clip between them); one row.
+  expect(bb.x+bb.width).toBeLessThanOrEqual(ab.x+1);expect(Math.abs((bb.y+bb.height/2)-(ib.y+Math.min(ib.height,46)/2))).toBeLessThan(24);
+  if(width<=760){expect(ab.x-(bb.x+bb.width)).toBeLessThan(16);expect(cb.x+cb.width).toBeLessThanOrEqual(bb.x);}
+  else{expect(cb.x).toBeGreaterThanOrEqual(bb.x+bb.width-1);expect(cb.x+cb.width).toBeLessThanOrEqual(ab.x+1);expect(ab.x-(bb.x+bb.width)).toBeLessThan(16+cb.width+16);}
   const listTop=(await noteList(page).nth(0).boundingBox()).y;
   if(width<=760){
    // Phone: docked above the bottom tabs and the [업데이트 | 노트] row, like the update input.

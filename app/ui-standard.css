@@ -374,8 +374,7 @@
   #appView #basketView .home-quick [data-quick-input]{ box-sizing:border-box; height:var(--ds-control-height); min-height:var(--ds-control-height); padding:12px 10px 11px 44px; font-size:14px; line-height:21px; resize:none; overflow-y:auto; }
   #appView #basketView .home-quick [data-quick-file-picker]{ top:1px; left:1px; }
   #appView #basketView .home-quick .home-quick-entry{ align-items:stretch; }
-  /* BASKET-노트입력창: 노트 입력칸은 아직 첨부가 없어 클립 자리를 비우지 않는다(NOTE-파일붙이기에서 다시). */
-  #appView #basketView .home-quick[data-note-only] [data-quick-input]{ padding-left:10px; }
+  /* NOTE-파일붙이기: 노트 입력칸도 업데이트 입력칸처럼 왼쪽에 클립 자리(44px)를 둔다(위 규칙 그대로). */
 
   /* 바구니 머리줄: 폰 화면 제목은 위 머리줄("바구니")이 맡으므로 [⋯]를 그 오른쪽 자리로 올린다(☰가 빠진 자리). 작은 아이콘, 누르는 범위 44px. */
   #appView #basketView > .basket-head{ justify-content:flex-end; min-height:var(--kptu-touch-target,44px); margin:calc(-1 * (var(--kptu-touch-target,44px) + 12px)) 0 12px; pointer-events:none; }
