@@ -42,3 +42,42 @@ test('functions-only copy preserves valid internal relative symlinks like deploy
   await writeFile(join(dir,'index.ts'),"import {local} from './internal.mjs'; export const value=local;\n");
   const result=await checkDriveSummaryIsolation({root});assert.ok(result.bundleBytes>0);
 }));
+
+// OPS-수집점검: the functions-only copy (as deployed) answers GET ?action=status under Deno with no network permission.
+// The probe injects a fake fetcher; every Drive/DB call is recorded so the test proves the read never writes.
+test('functions-only copy serves the owner status read under Deno without any write',{timeout:120000},async()=>{
+  const {spawnSync}=await import('node:child_process');
+  const {cp}=await import('node:fs/promises');
+  const isolated=await mkdtemp(join(tmpdir(),'drive-summary-status-'));
+  try{
+    const functions=join(isolated,'supabase','functions');
+    await mkdir(join(isolated,'supabase'),{recursive:true});
+    await cp(new URL('../../supabase/functions',import.meta.url),functions,{recursive:true,verbatimSymlinks:true});
+    await writeFile(join(isolated,'probe.mjs'),`
+import {createHandler} from './supabase/functions/drive-summary/core.mjs';
+const calls=[];
+const fetcher=async(input,init={})=>{const url=new URL(input),method=init.method||'GET';calls.push(method+' '+url.hostname+url.pathname);
+  const reply=d=>Response.json(d);
+  if(url.pathname==='/auth/v1/user')return init.headers.Authorization==='Bearer owner'?reply({id:'u'}):Response.json({},{status:401});
+  if(url.pathname.endsWith('/app_workspaces'))return reply([{id:'ws'}]);
+  if(url.pathname.endsWith('/app_workspace_members'))return reply([{user_id:'u',role:'owner'}]);
+  if(url.pathname.endsWith('/public_policy_drive_config'))return reply([{google_client_id:'c',google_client_secret:'s',google_refresh_token:'r'}]);
+  if(url.hostname==='oauth2.googleapis.com')return reply({access_token:'a'});
+  if(url.pathname.endsWith('/permissions'))return reply({permissions:[{type:'user',role:'owner'}]});
+  if(url.searchParams.has('q'))return reply({files:[{id:'f',appProperties:{last_success_at:'2026-10-21T04:17:00.000Z',name:'SECRET_NAME'}}]});
+  throw new Error('unexpected '+method+' '+url);};
+const h=createHandler({env:{SUPABASE_URL:'https://db.test',SUPABASE_SERVICE_ROLE_KEY:'k'},fetcher,now:()=>new Date('2026-10-21T05:00:00Z')});
+const ok=await h(new Request('https://edge.test/drive-summary?action=status',{headers:{Authorization:'Bearer owner'}}));
+const anon=await h(new Request('https://edge.test/drive-summary?action=status'));
+console.log(JSON.stringify({status:ok.status,body:await ok.json(),anon:anon.status,calls}));
+`);
+    const r=spawnSync(process.env.DENO_BIN||'deno',['run','--no-config','--no-prompt','probe.mjs'],{cwd:isolated,encoding:'utf8',timeout:60000});
+    if(r.error)throw r.error;
+    assert.equal(r.status,0,r.stderr);
+    const out=JSON.parse(r.stdout.trim().split('\n').at(-1));
+    assert.equal(out.status,200);assert.equal(out.anon,401);
+    assert.deepEqual(out.body.copy,{state:'found',last_success_at:'2026-10-21T04:17:00.000Z',last_failure_at:null,last_failure_code:null});
+    assert.doesNotMatch(JSON.stringify(out.body),/SECRET_NAME/);
+    assert.ok(out.calls.every(c=>c.startsWith('GET ')||c==='POST oauth2.googleapis.com/token'),out.calls.join('\n'));
+  }finally{await rm(isolated,{recursive:true,force:true});}
+});
