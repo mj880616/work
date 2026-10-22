@@ -16,7 +16,8 @@ function reply(body){
       item('update','note','n5','다섯째 메모',{occurred_at:'2026-10-01T00:00:00+00:00'})]},
     note:{total:1,items:[item('note','note','d1','교섭 노트')]},
     work:{total:1,items:[item('work','note','w1','교섭 준비 한 줄',{day:'2026-10-06',occurred_at:'2026-10-06T00:00:00+09:00'})]},
-    document:{total:1,items:[item('document','document','doc1','교섭 자료')]},
+    // SEARCH ②: 자료는 파일 안 글자(extracted_text)에서 찾으면 matched_in 'attachment'.
+    document:{total:1,items:[item('document','document','doc1','교섭 자료',{matched_in:'attachment',snippet:'…3조 교섭 위원 구성은 노사 각 5명…'})]},
     meeting:{total:0,items:[]},
     project:{total:1,items:[item('project','project','p','테스트 프로젝트 교섭',{state:'done'})]},
     organization:{total:0,items:[]},
@@ -69,6 +70,13 @@ for(const width of [1280,1440]){
   await expect(upd.locator('.gs-row').nth(1).locator('.gs-state')).toHaveText('보류');
   await expect(upd.locator('.gs-row').nth(1).locator('.gs-row-snippet mark')).toHaveText('교섭');
   await expect(upd.locator('.gs-row').nth(2).locator('.gs-row-snippet')).toContainText('사진 글자');
+  // 자료 파일 안 글자에서 찾은 줄: 작은 글자 한 줄(배지 아님) "파일 안 글자에서 찾음 · 앞뒤 한 줄", 찾은 낱말 형광.
+  const docSnip=panel(page).locator('[data-gs-group="document"] .gs-row .gs-row-snippet');
+  await expect(docSnip).toHaveText('파일 안 글자에서 찾음 · …3조 교섭 위원 구성은 노사 각 5명…');
+  await expect(docSnip.locator('.gs-row-where')).toHaveText('파일 안 글자에서 찾음 · ');
+  await expect(docSnip.locator('mark')).toHaveText('교섭');
+  expect(await docSnip.evaluate(el=>getComputedStyle(el).fontSize)).toBe(await upd.locator('.gs-row').nth(1).locator('.gs-row-snippet').evaluate(el=>getComputedStyle(el).fontSize));
+  await expect(upd.locator('.gs-row').nth(2).locator('.gs-row-where')).toHaveText('사진 글자 · ');
   // 한 칸 들여쓰기: 줄 글자가 띠 이름보다 오른쪽.
   const bandX=(await upd.locator('.gs-band .gs-icon').boundingBox()).x,rowX=(await upd.locator('.gs-row .gs-icon').first().boundingBox()).x;
   expect(rowX).toBeGreaterThan(bandX+8);

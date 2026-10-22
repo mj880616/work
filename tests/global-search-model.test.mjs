@@ -157,3 +157,54 @@ test('eventRanges cover 3 months back to 6 months ahead in three reads', () => {
   assert.equal(r[2][1], '2027-05-01T00:00:00.000Z');
   for (let i = 1; i < r.length; i++) assert.equal(r[i][0], r[i - 1][1]);
 });
+
+// ---- SEARCH ② 첨부 파일 안 글자: app/document-text-read.js (screen side). No network: the runtime is a stub. ----
+const dtr=await import('../app/document-text-read.js');
+const DOC_ID='e0000000-0000-4000-8000-0000000000a1',WS_ID='e0000000-0000-4000-8000-0000000000b1';
+test('requestDocumentText: one document-text call with the id only, no session refresh, never throws',async()=>{
+  const calls=[];
+  const rt={api:async(path,o)=>{calls.push([path,o]);return {ok:true,status:'ready',reason:'ok'}}};
+  assert.deepEqual(await dtr.requestDocumentText(DOC_ID,{rt}),{ok:true,status:'ready'});
+  assert.deepEqual(calls.map(([p,o])=>[p,o.method,o.body,o.refreshSession,o.singleFlight]),[['/functions/v1/document-actions','POST',{action:'document-text',document_id:DOC_ID},false,false]]);
+  // Bad id or no runtime: nothing is sent.
+  for(const id of ['x',null,DOC_ID+'0'])assert.deepEqual(await dtr.requestDocumentText(id,{rt}),{ok:false});
+  assert.equal(calls.length,1);
+  assert.deepEqual(await dtr.requestDocumentText(DOC_ID,{rt:null}),{ok:false});
+  // Failures and odd answers are quiet.
+  assert.deepEqual(await dtr.requestDocumentText(DOC_ID,{rt:{api:async()=>{throw new Error('boom')}}}),{ok:false});
+  assert.deepEqual(await dtr.requestDocumentText(DOC_ID,{rt:{api:async()=>({ok:true,status:'weird'})}}),{ok:false});
+});
+test('readTextLater: starts a read for an upload answer with a document id only; never waits or throws',async()=>{
+  const calls=[];const rt={api:async(path,o)=>{calls.push(o.body);return {ok:true,status:'error'}}};
+  assert.equal(dtr.readTextLater({id:DOC_ID,title:'x'},{rt}),undefined);
+  dtr.readTextLater(null,{rt});dtr.readTextLater({id:'nope'},{rt});dtr.readTextLater(undefined,{rt});
+  await new Promise(r=>setTimeout(r,0));
+  assert.deepEqual(calls,[{action:'document-text',document_id:DOC_ID}]);
+  dtr.readTextLater({id:DOC_ID},{rt:{api:async()=>{throw new Error('x')}}});
+  await new Promise(r=>setTimeout(r,0));
+});
+test('readMissingTexts (backfill, prepared only): lists unread documents of this workspace, newest first, capped, one at a time',async()=>{
+  const calls=[];let n=0;
+  const rows=[{id:'e0000000-0000-4000-8000-0000000000c1'},{id:'e0000000-0000-4000-8000-0000000000c2'},{id:'e0000000-0000-4000-8000-0000000000c3'}];
+  const rt={context:{read:()=>({workspace:{id:WS_ID}})},api:async(path,o={})=>{calls.push([path,o.body??null]);if(path.startsWith('/rest/v1/'))return rows;n++;return n===2?{ok:true,status:'error'}:n===3?Promise.reject(new Error('x')):{ok:true,status:'ready'}}};
+  assert.deepEqual(await dtr.readMissingTexts({rt,limit:500}),{asked:3,ready:1,error:1,failed:1,stop:null});
+  const list=new URL('https://x'+calls[0][0]);
+  assert.equal(list.pathname,'/rest/v1/app_documents');
+  assert.equal(list.searchParams.get('workspace_id'),'eq.'+WS_ID);
+  assert.equal(list.searchParams.get('or'),'(extraction_status.is.null,extraction_status.not.in.(ready,error))');
+  assert.equal(list.searchParams.get('order'),'created_at.desc');
+  assert.equal(list.searchParams.get('limit'),String(dtr.BACKFILL_MAX));
+  assert.equal(list.searchParams.get('select'),'id');
+  assert.deepEqual(calls.slice(1).map(c=>c[1].document_id),rows.map(r=>r.id));
+  // Stops before the next request when the screen is no longer current; no workspace → nothing sent.
+  let current=true;const rt2={...rt,api:async(path,o)=>{if(path.startsWith('/rest/'))return rows;current=false;return {ok:true,status:'ready'}}};
+  assert.deepEqual(await dtr.readMissingTexts({rt:rt2,isCurrent:()=>current}),{asked:1,ready:1,error:0,failed:0,stop:'stale'});
+  assert.equal((await dtr.readMissingTexts({rt:{api:async()=>[],context:{read:()=>({})}}})).stop,'invalid_request');
+  assert.equal((await dtr.readMissingTexts({rt:{...rt,api:async()=>{throw new Error('x')}}})).stop,'list_failed');
+});
+test('the backfill helper is not wired to any screen (prepared only, runs after approval)',async()=>{
+  const {readdirSync,readFileSync:rf}=await import('node:fs');
+  const dir=new URL('../app/',import.meta.url);
+  const users=readdirSync(dir).filter(f=>/\.(m?js|html)$/.test(f)&&f!=='document-text-read.js').filter(f=>rf(new URL(f,dir),'utf8').includes('readMissingTexts'));
+  assert.deepEqual(users,[]);
+});
