@@ -34,7 +34,8 @@ async function homeProjectSheet(page,width){
 }
 const below=async(trigger,sheet)=>{const t=await trigger.boundingBox(),d=await sheet.boundingBox();return {t,d,gap:d.y-(t.y+t.height)};};
 
-test('PC 담당조직: 묶음 순서대로 한 줄씩(이름 왼쪽, 칩 오른쪽), 그 외는 맨 아래, 이름은 줄이지 않음, 누른 버튼 바로 아래',async({page})=>{
+// UPD-여러곳고르기 ①: 담당조직도 프로젝트처럼 — 묶음 이름은 작은 소제목, 그 아래 조직이 한 줄에 하나씩 체크칸과 함께.
+test('PC 담당조직: 묶음 소제목 아래 한 줄에 하나(체크칸), 그 외는 맨 아래, 이름은 줄이지 않음, 누른 버튼 바로 아래',async({page})=>{
  const {trigger,sheet}=await homeOrgSheet(page,1280,[...NAMES,LONG]);
  await expect(sheet).toHaveClass(/home-choice-anchored/);
  const {d,gap}=await below(trigger,sheet);expect(gap).toBeGreaterThanOrEqual(-1);expect(gap).toBeLessThanOrEqual(12);
@@ -43,23 +44,24 @@ test('PC 담당조직: 묶음 순서대로 한 줄씩(이름 왼쪽, 칩 오른�
  const groups=sheet.locator('[data-sheet-all] [data-sheet-group]');
  await expect(groups.locator('.home-choice-group-name')).toHaveText(['철도','지하철','민자철도','민간도시철도','그 외']);
  expect(await groups.evaluateAll(gs=>gs.map(g=>[...g.querySelectorAll('[data-sheet-value]')].map(b=>b.textContent)))).toEqual([NAMES.slice(0,1),NAMES.slice(1,5),NAMES.slice(5,9),NAMES.slice(9,13),[LONG]]);
- // Each group is one line: its name sits left of its first chip, on the same line.
+ // Each group: the heading above, then its organizations one per line (same left edge), each with a check box.
  for(const g of await groups.all()){
-  const name=await g.locator('.home-choice-group-name').boundingBox(),chip=await g.locator('[data-sheet-value]').first().boundingBox();
-  expect(name.x+name.width).toBeLessThanOrEqual(chip.x);expect(Math.abs(name.y-chip.y)).toBeLessThanOrEqual(2);
+  const name=await g.locator('.home-choice-group-name').boundingBox(),rows=await g.locator('[data-sheet-value]').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {x:r.left,top:r.top,bottom:r.bottom};}));
+  expect(name.y+name.height).toBeLessThanOrEqual(rows[0].top+1);
+  for(let i=1;i<rows.length;i++){expect(rows[i].x).toBe(rows[0].x);expect(rows[i].top).toBeGreaterThanOrEqual(rows[i-1].bottom-.5);}
  }
- // Low chips (24px), full names (no ellipsis, nothing cut).
- const chip=sheet.locator('[data-sheet-all] [data-sheet-value]').first();await expect(chip).toHaveCSS('height','24px');
+ // Low rows (32px), full names (no ellipsis, nothing cut).
+ const chip=sheet.locator('[data-sheet-all] [data-sheet-value]').first();expect((await chip.boundingBox()).height).toBeLessThanOrEqual(34);await expect(chip.locator('.home-choice-check')).toBeVisible();
  const long=sheet.locator('[data-sheet-all] [data-sheet-value]').filter({hasText:LONG});await expect(long).toHaveText(LONG);
  // Every letter is drawn inside the chip (the long name wraps instead of being cut or ended with "…").
  expect(await long.evaluate(el=>{const r=document.createRange();r.selectNodeContents(el);const t=r.getBoundingClientRect(),b=el.getBoundingClientRect();return getComputedStyle(el).textOverflow!=='ellipsis'&&t.left>=b.left-.5&&t.right<=b.right+.5&&t.bottom<=b.bottom+.5;})).toBe(true);
  const lb=await long.boundingBox();expect(lb.x+lb.width).toBeLessThanOrEqual(d.x+d.width);
- // A chosen chip is green with ✓.
- await sheet.locator('[data-sheet-all]').getByRole('button',{name:'서해선지부',exact:true}).click();await expect(sheet).toBeHidden();
+ // A chosen row is light green with a green ✓ box, as a chosen project row.
+ await sheet.locator('[data-sheet-all]').getByRole('button',{name:'서해선지부',exact:true}).click();await sheet.getByRole('button',{name:'저장',exact:true}).click();await expect(sheet).toBeHidden();
  await trigger.click();const chosen=sheet.locator('[data-sheet-all] [aria-pressed="true"]');await expect(chosen).toHaveText('서해선지부');
  await expect(chosen).toBeFocused();
- const look=await chosen.evaluate(el=>{const probe=document.createElement('span');probe.style.color='var(--kptu-success)';document.body.append(probe);const green=getComputedStyle(probe).color;probe.remove();return {green,color:getComputedStyle(el).color,border:getComputedStyle(el).borderTopColor,mark:getComputedStyle(el,'::before').content};});
- expect(look.color).toBe(look.green);expect(look.border).toBe(look.green);expect(look.mark).toContain('✓');
+ const look=await chosen.evaluate(el=>{const p=document.createElement('span');p.style.background='var(--kptu-success-soft)';p.style.color='var(--kptu-success)';document.body.append(p);const s=getComputedStyle(p),out={soft:s.backgroundColor,green:s.color};p.remove();const c=el.querySelector('.home-choice-check');return {...out,bg:getComputedStyle(el).backgroundColor,check:getComputedStyle(c).backgroundColor,mark:getComputedStyle(c,'::after').content};});
+ expect(look.bg).toBe(look.soft);expect(look.check).toBe(look.green);expect(look.mark).toContain('✓');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 
@@ -78,9 +80,9 @@ test('PC 담당조직: 검색칸이 이름으로 거르고 빈 묶음은 숨김,
  await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(0);await expect(sheet.locator('[data-sheet-projects] [data-sheet-value]:visible')).toHaveText(['자식 프로젝트']);
  await box.fill('없는 이름');await expect(sheet.getByText('맞는 항목이 없어요.')).toBeVisible();
  await box.fill('');await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(13);await expect(sheet.getByText('맞는 항목이 없어요.')).toBeHidden();
- // ↓ goes from the box to the first choice shown; a pick closes the list.
+ // ↓ goes from the box to the first choice shown; Enter marks it and [저장] closes the list.
  await box.fill('공항');await box.press('ArrowDown');const first=sheet.locator('[data-sheet-all]').getByRole('button',{name:'공항철도지부',exact:true});await expect(first).toBeFocused();
- await page.keyboard.press('Enter');await expect(sheet).toBeHidden();await expect(quick(page).locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택: 공항철도지부');
+ await page.keyboard.press('Enter');await expect(first).toHaveAttribute('aria-pressed','true');await sheet.getByRole('button',{name:'저장',exact:true}).click();await expect(sheet).toBeHidden();await expect(quick(page).locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택: 공항철도지부');
  // Opening again starts with an empty box and every choice.
  await quick(page).locator('[data-quick-org]').click();await expect(box).toHaveValue('');await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(13);
 });
@@ -88,7 +90,7 @@ test('PC 담당조직: 검색칸이 이름으로 거르고 빈 묶음은 숨김,
 test('묶음 값이 없을 때(묶음에 든 조직이 없음): 지금처럼 한 묶음 + 검색, 묶음 이름 없음',async({page})=>{
  const names=['합성 가지부','합성 나지부','합성 다지부'];
  const {sheet}=await homeOrgSheet(page,1280,names);
- await expect(sheet.locator('[data-sheet-all] .home-choice-group')).toHaveCount(1);await expect(sheet.locator('[data-sheet-all] .home-choice-group-name')).toHaveCount(0);
+ await expect(sheet.locator('[data-sheet-all] .home-choice-org-group')).toHaveCount(1);await expect(sheet.locator('[data-sheet-all] .home-choice-group-name')).toHaveCount(0);
  await expect(sheet.locator('[data-sheet-all] [data-sheet-value]')).toHaveText(names);
  await sheet.getByRole('searchbox').fill('나');await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveText(['합성 나지부']);
 });
@@ -121,14 +123,17 @@ test('PC 프로젝트: 한 줄에 하나, 하위는 들여쓰기·흐린 글자(
  await box.fill('상위');await expect(sheet.locator('[data-sheet-value]:visible')).toHaveText(['다른 상위 프로젝트']);
 });
 
-test('폰은 그대로: 아래에서 올라오는 시트, 검색칸 없음, 칩 32px·묶음 이름 없음, 프로젝트 줄 44px·체크칸 없음',async({page})=>{
+// UPD-여러곳고르기: the phone sheet has the same list as a PC (group headings, one organization per 44px line, check boxes on every
+// row, since many can be chosen) with [취소] [저장] fixed at the bottom; still no search box.
+test('폰: 아래에서 올라오는 시트, 검색칸 없음, 묶음 소제목 + 조직 줄 44px, 체크칸, 아래 [취소] [저장]',async({page})=>{
  const {sheet}=await homeOrgSheet(page,390,NAMES);
  await expect(sheet).not.toHaveClass(/home-choice-anchored/);
- await expect(sheet.getByRole('searchbox')).toBeHidden();await expect(sheet.locator('.home-choice-group-name:visible')).toHaveCount(0);
- await expect(sheet.locator('[data-sheet-all] [data-sheet-value]').first()).toHaveCSS('height','32px');
+ await expect(sheet.getByRole('searchbox')).toBeHidden();await expect(sheet.locator('[data-sheet-all] .home-choice-group-name')).toHaveText(['철도','지하철','민자철도','민간도시철도']);
+ await expect(sheet.locator('[data-sheet-all] [data-sheet-value]').first()).toHaveCSS('min-height','44px');
  await expect(sheet.locator('[data-sheet-all] [data-sheet-value]')).toHaveText(NAMES);
  const row=sheet.locator('[data-sheet-projects] [data-sheet-value]').first();await expect(row).toHaveCSS('height','44px');
- await expect(row.locator('.home-choice-check')).toBeHidden();
+ await expect(row.locator('.home-choice-check')).toBeVisible();
+ await expect(sheet.getByRole('button',{name:'저장',exact:true})).toBeVisible();
  // A box typed in on a PC and then shrunk to a phone does not keep filtering.
  await page.keyboard.press('Escape');await page.setViewportSize({width:1280,height:900});await quick(page).locator('[data-quick-org]').click();
  await sheet.getByRole('searchbox').fill('9호선');await expect(sheet.locator('[data-sheet-all] [data-sheet-value]:visible')).toHaveCount(2);
