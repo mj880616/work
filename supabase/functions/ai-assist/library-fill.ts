@@ -25,6 +25,16 @@ export type DocRow = {
 };
 export type Proposal = { field: LibraryField; from: string | null; to: string };
 
+// LIB-자동정리: 칸별 기록(field_origin)이 생기기 전에 사람이 손댄 흔적. 자동 정리(tidy)는 이 칸도 사용자 칸으로 보고 바꾸지 않는다.
+// - 자료 정보 수정에서 저장한 자료: classification_note '사용자 수정'(어느 칸을 고쳤는지 모름 → 4칸 모두).
+// - 올릴 때 자료명을 직접 넣은 자료: library-files의 '사용자 입력 제목 …' 표시 → 제목.
+export function legacyUserFields(note: unknown): LibraryField[] {
+  const text = typeof note === "string" ? note.trim() : "";
+  if (text === "사용자 수정") return [...LIBRARY_FIELDS];
+  if (text.startsWith("사용자 입력 제목")) return ["title"];
+  return [];
+}
+
 export function readOrigin(value: unknown): Origin | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const out: Origin = {};
