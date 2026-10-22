@@ -257,7 +257,7 @@
 #appView #journalView .journal-item[data-journal-report-off] .journal-item-summary{ color:var(--kptu-muted); }
 #appView #journalView .journal-item[data-journal-report-off]{ opacity:.7; }
 #appView #journalView .journal-report-off{ font-size:var(--ds-text-meta); color:var(--kptu-muted); white-space:nowrap; }
-/* 줄 끝 ⋯ (원래 업데이트 보기 · 폰 [내일로]): 28px 칸 그 자체가 누르는 범위(줄이 촘촘해 ::after 확장 없음). */
+/* 줄 끝 ⋯ (원래 업데이트 보기): 28px 칸 그 자체가 누르는 범위(줄이 촘촘해 ::after 확장 없음). */
 #appView #journalView .journal-item-more{ position:relative; flex:0 0 auto; }
 #appView #journalView .journal-item-more > summary{ list-style:none; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; min-width:var(--ds-compact-height-sm); height:var(--ds-compact-height-sm);
   margin-top:2px; cursor:pointer; color:var(--kptu-muted); font-size:var(--ds-text-meta); line-height:1; border-radius:var(--kptu-radius-md); }
@@ -265,13 +265,43 @@
 #appView #journalView .journal-item-more > summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 #appView #journalView .journal-item-more[open]{ display:flex; flex-wrap:wrap; justify-content:flex-end; gap:4px; }
 #appView #journalView .journal-item-more[open] > .mini{ white-space:nowrap; }
-/* [내일로]: 넓은 화면은 줄 오른쪽 작은 버튼, 폰(≤760)은 ⋯ 안. */
-#appView #journalView .journal-tomorrow-inline{ flex:0 0 auto; align-self:center; white-space:nowrap; }
-#appView #journalView .journal-task-more{ display:none; }
-@media(max-width:760px){
-  #appView #journalView .journal-tomorrow-inline{ display:none; }
-  #appView #journalView .journal-task-more{ display:block; }
+/* JOURNAL-할일바로처리: 할 일 줄 = 동그라미(완료) + 글 + ⋯(내일로·기한 바꾸기·고치기·지우기). 새 크기 값 없음: 28px 칸(⋯ 과 같은 칸, 줄이
+   촘촘해 위아래 확장 없이 좌우만 ::after 로 44px), 색은 할 일 화면의 동그라미와 같은 --kptu-success. PC(1024px~, 마우스)는 줄에 마우스를
+   올렸거나 초점이 있을 때(메뉴가 열려 있을 때도)만 ⋯ 가 보이고, 폰·터치는 늘 보인다. */
+#appView #journalView .journal-task-item::before{ content:none; }
+#appView #journalView .journal-check{ position:relative; flex:0 0 auto; box-sizing:border-box; width:var(--ds-compact-height-sm); min-width:var(--ds-compact-height-sm); height:var(--ds-compact-height-sm); min-height:var(--ds-compact-height-sm);
+  margin:2px 0 0; padding:0; border:0; border-radius:var(--kptu-radius-pill); background:transparent; box-shadow:none; font-size:0; line-height:0; }
+#appView #journalView button.journal-check{ cursor:pointer; }
+#appView #journalView .journal-check::before{ content:""; position:absolute; left:50%; top:50%; box-sizing:border-box; width:18px; height:18px; transform:translate(-50%,-50%);
+  border:2px solid var(--kptu-success); border-radius:var(--kptu-radius-pill); background:var(--kptu-surface); }
+#appView #journalView .journal-check.is-done::before{ background:var(--kptu-success); }
+#appView #journalView .journal-check.is-done::after{ content:""; position:absolute; left:50%; top:50%; box-sizing:border-box; width:5px; height:9px; transform:translate(-50%,-62%) rotate(45deg);
+  border:solid var(--kptu-on-primary); border-width:0 2px 2px 0; }
+#appView #journalView button.journal-check::after,
+#appView #journalView .journal-more-btn::after{ content:""; position:absolute; inset:-2px -8px; }
+@media(hover:hover){ #appView #journalView button.journal-check:not(:disabled):hover::before{ background:var(--kptu-surface-subtle); } }
+#appView #journalView button.journal-check:focus-visible,
+#appView #journalView .journal-more-btn:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+#appView #journalView button.journal-check:disabled{ opacity:.5; cursor:default; }
+#appView #journalView .journal-more-btn{ position:relative; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:var(--ds-compact-height-sm); min-width:var(--ds-compact-height-sm);
+  height:var(--ds-compact-height-sm); min-height:var(--ds-compact-height-sm); margin:2px 0 0; padding:0; border:0; border-radius:var(--kptu-radius-md); background:transparent; box-shadow:none; color:var(--kptu-muted); font-size:var(--ds-text-meta); line-height:1; cursor:pointer; }
+@media(hover:hover){ #appView #journalView .journal-more-btn:not(:disabled):hover{ background:var(--kptu-surface-subtle); } }
+@media(min-width:1024px) and (hover:hover){
+  #appView #journalView .journal-task-item .journal-more-btn{ opacity:0; }
+  #appView #journalView .journal-task-item:hover .journal-more-btn,
+  #appView #journalView .journal-task-item:focus-within .journal-more-btn,
+  #appView #journalView .journal-task-item .journal-more-btn[aria-expanded="true"]{ opacity:1; }
 }
+/* [기한 바꾸기]: 글 아래 작은 날짜 칸 + [바꾸기][취소] */
+#appView #journalView .journal-due-edit{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin:0 0 4px; }
+#appView #journalView .journal-due-input{ box-sizing:border-box; height:var(--ds-compact-height); min-height:var(--ds-compact-height); width:auto; max-width:100%; padding:0 8px; font-size:var(--kptu-text-body); }
+/* ⋯ 메뉴 창(걸어 둔 메뉴): 할 일 화면의 ⋯ 메뉴와 같은 모양, 줄 높이만 한 단계 낮게(UI-버튼기준) */
+.journal-task-menu{ position:fixed; inset:auto; margin:0; box-sizing:border-box; padding:4px; border:1px solid var(--kptu-border); border-radius:var(--kptu-radius-md); background:var(--kptu-surface); color:var(--kptu-ink); box-shadow:var(--kptu-shadow-float); z-index:1600; overflow:auto; }
+.journal-task-menu[hidden]{ display:none; }
+.journal-task-menu button{ display:block; width:100%; height:var(--kptu-control-height); min-height:var(--kptu-control-height); padding:0 12px; text-align:left; border:0; border-radius:var(--kptu-radius-md); background:transparent; color:var(--kptu-ink); font-size:var(--kptu-text-meta); font-weight:700; cursor:pointer; }
+.journal-task-menu button:hover{ background:var(--kptu-surface-subtle); }
+.journal-task-menu .journal-menu-danger{ color:var(--kptu-danger); }
+.journal-task-menu button:focus-visible{ outline:2px solid var(--kptu-primary); outline-offset:2px; }
 /* 기한 지난 것: 할 일 아래 한 줄로 접힘 */
 #appView #journalView .journal-overdue{ margin-top:2px; }
 #appView #journalView .journal-overdue > summary{ display:flex; align-items:center; min-height:32px; cursor:pointer; color:var(--kptu-danger); font-size:var(--kptu-text-body); }

@@ -1429,45 +1429,206 @@ for(const width of [390,1280])test(`[업무일지] 누르면 원본: 담당조�
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-// JOURNAL-하루개편 ②: 못 끝낸 할 일의 [내일로] — 기존 할 일 수정 경로(google-tasks action=update)로 기한만 내일로. PC는 줄 오른쪽 작은 버튼,
-// 폰은 ⋯ 안. 끝낸 할 일에는 없다. 기한 지난 것은 할 일 아래 한 줄로 접히고, 펼치면 거기에도 [내일로].
-for(const width of [390,1280])test(`[업무일지] 할 일 / 한 일: 오늘 기한 못 끝낸 것과 오늘 끝낸 것, [내일로]는 기존 수정 경로로 기한만 내일 ${width}`,async({page},info)=>{
- const f=await fixture(page,{width});const updates=[];
- await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/google-tasks'&&u.searchParams.get('action')==='update',r=>{
-  const b=r.request().postDataJSON();updates.push(b);
-  return r.fulfill({json:{ok:true,task:{id:b.task_id,title:b.title,notes:b.notes,due:`${b.due}T00:00:00.000Z`,status:'needsAction',taskListId:'@default'}}});
+// JOURNAL-할일바로처리 (2026-10-22 22:37, 시안 22:29): 할 일 줄 = 동그라미(완료) + 글 + ⋯. 완료·되돌리기·삭제는 할 일 화면의 기존 요청(toggle·delete),
+// [내일로]·[기한 바꾸기]는 수정 창이 보내는 update, [고치기]는 할 일 화면의 수정 창 그대로. 목록은 이 도우미의 가변 상태에서 답한다.
+async function mockTasks(page,{failToggle=false}={}){
+ const state=[
+  {id:'t-done',title:'보도자료 배포',status:'completed',completed:'2026-10-06T00:10:00Z',taskListId:'@default'},
+  {id:'t-open',title:'남은 할 일',status:'needsAction',due:'2026-10-07',taskListId:'@default'},
+  {id:'t-today',title:'오늘 마감 할 일',status:'needsAction',due:'2026-10-06T00:00:00.000Z',taskListId:'@default'},
+  {id:'t-late',title:'기한 지난 일',status:'needsAction',due:'2026-10-05T00:00:00.000Z',taskListId:'@default'},
+ ];
+ const calls={tasks:0,toggle:[],update:[],delete:[]};
+ await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/google-tasks',async r=>{
+  const url=new URL(r.request().url()),a=url.searchParams.get('action'),post=r.request().method()==='POST'?r.request().postDataJSON():null;
+  const find=id=>state.find(t=>t.id===id);
+  if(a==='tasks'){calls.tasks++;return r.fulfill({json:{tasks:state.map(t=>({...t})),needs_reconnect:false}});}
+  if(a==='toggle'){
+   calls.toggle.push(post);
+   if(failToggle)return r.fulfill({status:500,json:{error:'QA failure'}});
+   const t=find(post.task_id);Object.assign(t,post.completed?{status:'completed',completed:'2026-10-06T01:00:00.000Z'}:{status:'needsAction',completed:null});
+   return r.fulfill({json:{ok:true,task:{...t}}});
+  }
+  if(a==='update'){
+   calls.update.push(post);
+   const t=find(post.task_id);Object.assign(t,{title:post.title,notes:post.notes,due:post.due?`${post.due}T00:00:00.000Z`:null});
+   return r.fulfill({json:{ok:true,task:{...t}}});
+  }
+  if(a==='delete'){calls.delete.push(post);state.splice(state.indexOf(find(post.task_id)),1);return r.fulfill({json:{ok:true}});}
+  return r.fallback();
  });
+ return {state,calls};
+}
+const taskRowOf=(page,key,id)=>group(page,key).locator(`li[data-journal-task="${id}"]`);
+const menuItems=page=>page.locator('#journalTaskMenu button');
+const toastText=page=>page.locator('#toast');
+// 동그라미 → 완료 요청 1번 → 그 줄이 한 일로 → 알림 [되돌리기] → 완료 취소 요청 1번 → 다시 할 일에.
+for(const width of [390,1280])test(`[업무일지] 할 일 동그라미: 누르면 완료 요청 한 번·한 일로 이동, 알림 [되돌리기]는 완료 취소 ${width}`,async({page},info)=>{
+ const f=await fixture(page,{width});const m=await mockTasks(page);
  await openJournal(page,width);
  await expect(itemTexts(page,'todo')).toHaveText(['오늘 마감 할 일']);
  await expect(itemTexts(page,'done')).toHaveText(['보도자료 배포']);
- await expect(group(page,'done').locator('[data-journal-tomorrow]')).toHaveCount(0);
- const row=group(page,'todo').locator('li[data-journal-task="t-today"]');
- const inline=row.locator('.journal-tomorrow-inline');
- if(width>=761){
-  await expect(inline).toBeVisible();await expect(row.locator('.journal-task-more')).toBeHidden();
-  const b=await inline.boundingBox(),r=await row.boundingBox();expect(b.x+b.width).toBeGreaterThan(r.x+r.width-4);expect(b.height).toBeLessThanOrEqual(32);
-  await page.screenshot({path:info.outputPath(`journal-tasks-${width}.png`)});
-  await inline.click();
+ const circle=taskRowOf(page,'todo','t-today').locator('.journal-check');
+ await expect(circle).toHaveAttribute('aria-label','오늘 마감 할 일 완료');
+ // 점(•)이 아니라 동그라미: 줄 앞 글자 없음, 28px 칸 안에 18px 동그라미.
+ expect(await taskRowOf(page,'todo','t-today').evaluate(e=>getComputedStyle(e,'::before').content)).toBe('none');
+ const box=await circle.boundingBox();expect(box.width).toBeLessThanOrEqual(32);expect(box.height).toBeLessThanOrEqual(32);
+ await circle.click();
+ await expect(itemTexts(page,'todo')).toHaveCount(0);
+ await expect(itemTexts(page,'done')).toHaveText(['보도자료 배포','오늘 마감 할 일']);
+ expect(m.calls.toggle).toEqual([{action:'toggle',task_list_id:'@default',task_id:'t-today',completed:true}]);
+ const undo=page.locator('[data-undo-notice]');
+ await expect(undo).toContainText("'오늘 마감 할 일'을 끝냈어요.");
+ await page.screenshot({path:info.outputPath(`journal-done-${width}.png`)});
+ await undo.getByRole('button',{name:'되돌리기'}).click();
+ await expect(undo).toContainText('다시 할 일로 돌려놨어요.');
+ await expect(itemTexts(page,'todo')).toHaveText(['오늘 마감 할 일']);
+ await expect(itemTexts(page,'done')).toHaveText(['보도자료 배포']);
+ expect(m.calls.toggle.map(c=>c.completed)).toEqual([true,false]);
+ await expect(undo).toHaveCount(0,{timeout:6000});
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+test('[업무일지] 할 일 동그라미: 저장이 실패하면 줄이 할 일에 그대로 돌아오고 알림이 뜬다 390',async({page})=>{
+ const f=await fixture(page,{width:390});const m=await mockTasks(page,{failToggle:true});
+ await openJournal(page,390);
+ await taskRowOf(page,'todo','t-today').locator('.journal-check').click();
+ await expect(toastText(page)).toBeVisible();
+ await expect(itemTexts(page,'todo')).toHaveText(['오늘 마감 할 일']);
+ await expect(itemTexts(page,'done')).toHaveText(['보도자료 배포']);
+ expect(m.calls.toggle.length).toBe(1);
+ expect(f.writes).toEqual([]);
+});
+// ⋯: 할 일은 [내일로·기한 바꾸기·고치기·지우기], 한 일은 [다시 할 일로·고치기]. PC(1024px~)는 마우스를 올렸거나 초점이 있는 줄에만 보이고, 폰은 늘 보인다.
+for(const width of [390,1280])test(`[업무일지] 줄 ⋯: 메뉴 항목, PC는 올린 줄·초점 줄에만 보이고 폰은 늘 보임 ${width}`,async({page},info)=>{
+ const f=await fixture(page,{width});await mockTasks(page);
+ await openJournal(page,width);
+ const rowA=taskRowOf(page,'todo','t-today'),more=rowA.locator('.journal-more-btn');
+ const opacity=loc=>loc.evaluate(e=>getComputedStyle(e).opacity);
+ await expect(more).toHaveAccessibleName('오늘 마감 할 일 더 보기');
+ const doneMore=taskRowOf(page,'done','t-done').locator('.journal-more-btn');
+ if(width>=1024){
+  await page.mouse.move(5,5);
+  await expect.poll(()=>opacity(more)).toBe('0');await expect.poll(()=>opacity(doneMore)).toBe('0');
+  await rowA.hover();await expect.poll(()=>opacity(more)).toBe('1');await expect.poll(()=>opacity(doneMore)).toBe('0');
+  await page.mouse.move(5,5);await expect.poll(()=>opacity(more)).toBe('0');
+  await rowA.locator('.journal-item-open').focus();await expect.poll(()=>opacity(more)).toBe('1');
+  await page.keyboard.press('Tab');await expect(more).toBeFocused();
+  await page.keyboard.press('Enter');
  }else{
-  await expect(inline).toBeHidden();
-  const more=row.locator('.journal-task-more');await expect(more).toBeVisible();
-  await more.locator('summary').click();
-  await page.screenshot({path:info.outputPath(`journal-tasks-${width}.png`)});
-  await more.getByRole('button',{name:'오늘 마감 할 일 기한을 내일로'}).click();
+  await expect.poll(()=>opacity(more)).toBe('1');await expect.poll(()=>opacity(doneMore)).toBe('1');
+  await expect(more).toBeVisible();
+  await more.click();
  }
- await expect(page.locator('#journalRoot [data-journal-task-status]')).toHaveText("'오늘 마감 할 일' 기한을 내일로 옮겼어요.");
- expect(updates).toEqual([{action:'update',task_id:'t-today',task_list_id:'@default',title:'오늘 마감 할 일',notes:'',due:'2026-10-07'}]);
+ await expect(menuItems(page)).toHaveText(['내일로','기한 바꾸기','고치기','지우기']);
+ await page.screenshot({path:info.outputPath(`journal-menu-${width}.png`)});
+ for(const b of await menuItems(page).all()){const h=(await b.boundingBox()).height;expect(h).toBeLessThanOrEqual(40);}
+ await page.keyboard.press('Escape');await expect(page.locator('#journalTaskMenu')).toBeHidden();
+ await doneMore.click();
+ await expect(menuItems(page)).toHaveText(['다시 할 일로','고치기']);
+ await page.keyboard.press('Escape');
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+// PC 우클릭: 줄을 오른쪽 눌러도 그 줄의 ⋯ 메뉴(UI-우클릭메뉴 규칙).
+test('[업무일지] 줄 우클릭은 그 줄의 ⋯ 메뉴를 연다 1280',async({page})=>{
+ const f=await fixture(page,{width:1280});await mockTasks(page);
+ await openJournal(page,1280);
+ await taskRowOf(page,'todo','t-today').locator('.journal-item-open').click({button:'right'});
+ await expect(menuItems(page)).toHaveText(['내일로','기한 바꾸기','고치기','지우기']);
+ await page.keyboard.press('Escape');
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+// [내일로]: 수정 창과 같은 update 로 기한만 내일, 알림은 잠깐 떴다 사라지고 목록 아래에 남는 줄은 없다. [기한 바꾸기]: 달력 칸 → [바꾸기].
+for(const width of [390,1280])test(`[업무일지] 줄 ⋯ 내일로·기한 바꾸기: update 요청으로 기한만, 작은 알림은 잠깐 뜨고 사라짐 ${width}`,async({page})=>{
+ const f=await fixture(page,{width});const m=await mockTasks(page);
+ await openJournal(page,width);
+ await expect(page.locator('#journalRoot [data-journal-task-status]')).toHaveCount(0);
+ const open=async(key,id)=>{const row=taskRowOf(page,key,id);await row.hover();await row.locator('.journal-more-btn').click();};
+ await open('todo','t-today');await menuItems(page).filter({hasText:'내일로'}).click();
+ await expect(toastText(page)).toHaveText("'오늘 마감 할 일' 기한을 내일로 옮겼어요.");
+ expect(m.calls.update).toEqual([{action:'update',task_id:'t-today',task_list_id:'@default',title:'오늘 마감 할 일',notes:'',due:'2026-10-07'}]);
  await expect(itemTexts(page,'todo')).toHaveCount(0);
  await expect(group(page,'todo')).toContainText('이 날 기한인 남은 할 일이 없어요.');
- // 수요일에는 할 일이 둘(원래 수요일 마감 + 옮긴 것).
+ await expect(page.locator('#journalRoot [data-journal-task-status]')).toHaveCount(0);
+ await expect(toastText(page)).toBeHidden({timeout:6000});
+ // 수요일: 원래 수요일 마감 + 옮긴 것. 그 줄의 기한을 달력 칸으로 금요일로.
  await date(page,'2026-10-07').click();await expect(itemTexts(page,'todo')).toHaveText(['남은 할 일','오늘 마감 할 일']);
- // 목요일: 기한 지난 것 한 줄(접힘). 펼치면 [내일로].
- await date(page,'2026-10-08').click();
+ await open('todo','t-open');await menuItems(page).filter({hasText:'기한 바꾸기'}).click();
+ const input=taskRowOf(page,'todo','t-open').locator('[data-journal-due-input]');
+ await expect(input).toBeVisible();await expect(input).toHaveValue('2026-10-07');await expect(input).toHaveAttribute('type','date');
+ await input.fill('2026-10-09');
+ await taskRowOf(page,'todo','t-open').getByRole('button',{name:'바꾸기'}).click();
+ await expect(toastText(page)).toHaveText("'남은 할 일' 기한을 10월 9일(금)로 바꿨어요.");
+ expect(m.calls.update[1]).toEqual({action:'update',task_id:'t-open',task_list_id:'@default',title:'남은 할 일',notes:'',due:'2026-10-09'});
+ await expect(itemTexts(page,'todo')).toHaveText(['오늘 마감 할 일']);
+ await date(page,'2026-10-09').click();await expect(itemTexts(page,'todo')).toHaveText(['남은 할 일']);
+ // 취소·Esc 는 요청 없이 닫는다.
+ await open('todo','t-open');await menuItems(page).filter({hasText:'기한 바꾸기'}).click();
+ await expect(taskRowOf(page,'todo','t-open').locator('[data-journal-due-input]')).toBeVisible();
+ await page.keyboard.press('Escape');await page.keyboard.press('Escape');await expect(page.locator('#journalRoot [data-journal-due-input]')).toHaveCount(0);
+ expect(m.calls.update.length).toBe(2);
+ // 기한 지난 것(10/5): 접힌 줄 안의 줄에도 같은 ⋯.
+ await date(page,'2026-10-06').click();
  const overdue=group(page,'todo').locator('[data-journal-overdue]');
- await expect(overdue.locator(':scope > summary')).toHaveText('기한 지난 것 2');await expect(overdue.locator('li').first()).toBeHidden();
- await overdue.locator(':scope > summary').click();await expect(overdue.locator('.journal-item-open')).toHaveText(['남은 할 일','오늘 마감 할 일']);
- // 할 일 줄을 누르면 할 일 화면의 그 할 일.
- await date(page,'2026-10-06').click();await itemTexts(page,'done').click();
+ await expect(overdue.locator(':scope > summary')).toHaveText('기한 지난 것 1');await expect(overdue.locator('li').first()).toBeHidden();
+ await overdue.locator(':scope > summary').click();await expect(overdue.locator('.journal-item-open')).toHaveText(['기한 지난 일']);
+ await overdue.locator('li').first().locator('.journal-check').click();
+ await expect(itemTexts(page,'done')).toHaveText(['보도자료 배포','기한 지난 일']);
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+// [지우기]: 확인 한 번(할 일 삭제 규칙대로) 뒤 delete 요청 1번. 취소하면 요청 없음.
+for(const width of [390,1280])test(`[업무일지] 줄 ⋯ 지우기: 확인 한 번, 취소하면 그대로, 확인하면 delete 요청 ${width}`,async({page})=>{
+ const f=await fixture(page,{width});const m=await mockTasks(page);const dialogs=[];
+ await openJournal(page,width);
+ let accept=false;page.on('dialog',d=>{dialogs.push(d.message());void(accept?d.accept():d.dismiss());});
+ const row=taskRowOf(page,'todo','t-today');
+ await row.hover();await row.locator('.journal-more-btn').click();await menuItems(page).filter({hasText:'지우기'}).click();
+ await expect.poll(()=>dialogs.length).toBe(1);expect(dialogs[0]).toBe('이 Google 할 일을 삭제할까요?');
+ expect(m.calls.delete).toEqual([]);await expect(itemTexts(page,'todo')).toHaveText(['오늘 마감 할 일']);
+ accept=true;
+ await row.hover();await row.locator('.journal-more-btn').click();await menuItems(page).filter({hasText:'지우기'}).click();
+ await expect(itemTexts(page,'todo')).toHaveCount(0);
+ expect(dialogs.length).toBe(2);expect(m.calls.delete).toEqual([{action:'delete',task_list_id:'@default',task_id:'t-today'}]);
+ await expect(toastText(page)).toHaveText('할 일을 삭제했어요.');
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+// 한 일 ⋯: [다시 할 일로]는 완료 취소 요청, 되돌리기 알림 없이 짧은 알림.
+for(const width of [390,1280])test(`[업무일지] 한 일 ⋯ 다시 할 일로: 완료 취소 요청 한 번, 줄이 할 일로 ${width}`,async({page})=>{
+ const f=await fixture(page,{width});const m=await mockTasks(page);
+ await openJournal(page,width);
+ await expect(itemTexts(page,'done')).toHaveText(['보도자료 배포']);
+ const row=taskRowOf(page,'done','t-done');await row.hover();await row.locator('.journal-more-btn').click();
+ await menuItems(page).filter({hasText:'다시 할 일로'}).click();
+ await expect(toastText(page)).toContainText('다시 할 일로 돌려놨어요.');
+ expect(m.calls.toggle.map(c=>[c.task_id,c.completed])).toEqual([['t-done',false]]);
+ await expect(itemTexts(page,'done')).toHaveCount(0);
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+// [고치기]: 할 일 화면의 수정 창(#gtTaskModal) 그대로. 저장하면 update 요청, 닫으면 일지 줄이 새 제목으로.
+for(const width of [390,1280])test(`[업무일지] 줄 ⋯ 고치기: 할 일 화면의 수정 창이 열리고 저장하면 줄이 따라 바뀜(한 일도 같은 창) ${width}`,async({page})=>{
+ const f=await fixture(page,{width});const m=await mockTasks(page);
+ await openJournal(page,width);
+ const row=taskRowOf(page,'todo','t-today');await row.hover();await row.locator('.journal-more-btn').click();
+ await menuItems(page).filter({hasText:'고치기'}).click();
+ const modal=page.locator('#gtTaskModal');await expect(modal).toBeVisible();
+ await expect(modal.locator('#gtEditTitle')).toHaveValue('오늘 마감 할 일');
+ await modal.locator('#gtEditTitle').fill('오늘 마감 할 일 고침');
+ await modal.locator('#gtSaveBtn').click();
+ await expect.poll(()=>m.calls.update.length).toBe(1);
+ expect(m.calls.update[0]).toMatchObject({action:'update',task_id:'t-today',title:'오늘 마감 할 일 고침'});
+ await expect(modal).toBeHidden();
+ await expect(itemTexts(page,'todo')).toHaveText(['오늘 마감 할 일 고침']);
+ // 한 일 줄도 같은 창.
+ const done=taskRowOf(page,'done','t-done');await done.hover();await done.locator('.journal-more-btn').click();
+ await menuItems(page).filter({hasText:'고치기'}).click();
+ await expect(modal).toBeVisible();await expect(modal.locator('#gtEditTitle')).toHaveValue('보도자료 배포');
+ await modal.getByRole('button',{name:'닫기'}).first().click().catch(()=>{});
+ expect(f.writes).toEqual([]);
+});
+// 줄의 글을 누르면 그 할 일이 할 일 화면에 열리는 것은 그대로.
+test('[업무일지] 할 일 줄의 글을 누르면 할 일 화면의 그 할 일 1280',async({page})=>{
+ const f=await fixture(page,{width:1280});await mockTasks(page);
+ await openJournal(page,1280);
+ await itemTexts(page,'done').click();
  await expect(page.locator('#tasksView')).toBeVisible();
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
