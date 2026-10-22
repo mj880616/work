@@ -285,10 +285,11 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     const cs = getComputedStyle(view.dom);
     return Math.max(120, view.dom.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight));
   };
-  const tableAt = (st, pos) => {
-    const $p = st.doc.resolve(pos);
+  // The table around pos (or right after it) in a state or a document.
+  const tableAt = (stOrDoc, pos) => {
+    const d0 = stOrDoc.doc || stOrDoc, $p = d0.resolve(pos);
     for (let d = $p.depth; d > 0; d--) if ($p.node(d).type === N.table) return {node: $p.node(d), pos: $p.before(d), start: $p.start(d)};
-    const after = st.doc.nodeAt(pos);
+    const after = d0.nodeAt(pos);
     return after && after.type === N.table ? {node: after, pos, start: pos + 1} : null;
   };
   function shownWidths(t) {
@@ -460,11 +461,36 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     say(other.type === N.table ? '표를 골랐어요. 한 번 더 누르면 지워요.' : '골랐어요. 한 번 더 누르면 지워요.');
     return true;
   };
+  // ↑ in a table's first row / ↓ in its last row: out of the table. When no line is there (the table starts the text, or
+  // sits next to another table, rule or photo) the cursor becomes a gap cursor there, and typing makes a line.
+  const leaveTable = dir => (state, dispatch, v) => {
+    const sel = state.selection;
+    if (!(sel instanceof pm.TextSelection) || !sel.empty || !pm.isInTable(state)) return false;
+    if (v && !v.endOfTextblock(dir < 0 ? 'up' : 'down')) return false;
+    const $c = sel.$from;
+    let depth = -1;
+    for (let d = $c.depth; d > 0; d--) if ($c.node(d).type === N.table) { depth = d; break; }
+    if (depth < 0) return false;
+    const table = $c.node(depth), map = pm.TableMap.get(table), start = $c.start(depth);
+    const cellPos = $c.before(depth + 2) - start, rect = map.findCell(cellPos);
+    if (dir < 0 ? rect.top !== 0 : rect.bottom !== map.height) return false;
+    const edge = dir < 0 ? $c.before(depth) : $c.after(depth), $edge = state.doc.resolve(edge);
+    const other = dir < 0 ? $edge.nodeBefore : $edge.nodeAfter;
+    if (other && other.isTextblock) {
+      dispatch?.(state.tr.setSelection(pm.TextSelection.create(state.doc, dir < 0 ? edge - 1 : edge + 1)).scrollIntoView());
+      return true;
+    }
+    if (!pm.GapCursor.valid($edge)) return false;
+    dispatch?.(state.tr.setSelection(new pm.GapCursor($edge)).scrollIntoView());
+    return true;
+  };
   const keys = {
+    ArrowUp: leaveTable(-1), ArrowDown: leaveTable(1),
     Enter: enter, 'Shift-Enter': hardBreak, 'Mod-Enter': () => false,
     'Mod-z': pm.undo, 'Mod-y': pm.redo, 'Shift-Mod-z': pm.redo,
     'Mod-b': pm.toggleMark(M.strong), 'Mod-i': pm.toggleMark(M.em), 'Mod-u': pm.toggleMark(M.underline),
     'Mod-k': () => { openPanel('link'); return true; },
+    Escape: () => { if (!openName) return false; closePanels(); return true; },
     'Mod-\\': (st, d) => clearFormat(st, d),
     Tab: pm.chainCommands(nextCellOrRow, pm.sinkListItem(N.list_item), indentBy(1)),
     'Shift-Tab': pm.chainCommands(pm.goToNextCell(-1), pm.liftListItem(N.list_item), indentBy(-1)),
@@ -479,7 +505,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   if (fix) state = state.apply(fix.setMeta('addToHistory', false));
   if (!endsOpen(state.doc)) state = state.apply(state.tr.insert(state.doc.content.size, N.paragraph.create({style: DEFAULT_BODY})).setMeta('addToHistory', false));
 
-  let pendingPaste = null;
+  let pendingPaste = null, pointerHeld = false;
   const isFileTransfer = data => !!data && ([...(data.types || [])].includes('Files') || (data.files && data.files.length > 0));
   const view = new pm.EditorView(box, {
     state,
@@ -510,6 +536,14 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       return true;
     },
     handleDOMEvents: {
+      // Letters typed at a gap cursor (before or after a table, rule or photo) start a new line there. The gapcursor plugin
+      // covers a composition starting there; this covers plain text input (a pasted word, a keyboard without composition).
+      beforeinput(v, event) {
+        if (event.inputType !== 'insertText' || !event.data || !(v.state.selection instanceof pm.GapCursor)) return false;
+        event.preventDefault();
+        v.dispatch(v.state.tr.insertText(event.data).scrollIntoView());
+        return true;
+      },
       contextmenu(v, event) {
         const cell = event.target.closest?.('td,th');
         if (!cell || !v.dom.contains(cell)) return false;
@@ -708,6 +742,17 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     view.dispatch(tr.scrollIntoView());
     return true;
   }
+  // The link at the cursor (either side of it) or the first one in the selection.
+  function linkAt(st) {
+    const {from, to, empty, $from} = st.selection;
+    if (empty) {
+      for (const n of [$from.nodeAfter, $from.nodeBefore]) { const m = n && M.link.isInSet(n.marks); if (m) return m; }
+      return null;
+    }
+    let found = null;
+    st.doc.nodesBetween(from, to, n => { if (!found && n.isText) found = M.link.isInSet(n.marks) || null; });
+    return found;
+  }
   function removeLink() {
     const st = view.state;
     let {from, to} = st.selection;
@@ -788,9 +833,9 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     }
     openName = name || null;
     if (name === 'link') {
-      const st = view.state, mark = M.link.isInSet(st.selection.$from.marks());
+      const mark = linkAt(view.state);
       linkInput.value = mark ? mark.attrs.href : '';
-      linkOff.hidden = !mark && !st.doc.rangeHasMark(st.selection.from, st.selection.to, M.link);
+      linkOff.hidden = !mark;
       setTimeout(() => linkInput.focus(), 0);
     }
     if (name === 'grid') paintGrid(2, 2);
@@ -856,6 +901,9 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   };
   document.addEventListener('pointerdown', outside, true);
 
+  view.dom.addEventListener('mousedown', e => { if (e.button === 0) pointerHeld = true; });
+  const release = () => { if (pointerHeld) { pointerHeld = false; paint(); } };
+  window.addEventListener('mouseup', release, true);
   // A press on the table grip (its top left corner) chooses the whole table.
   view.dom.addEventListener('mousedown', e => {
     if (!e.target.closest?.('.ed-table-grip')) return;
@@ -961,9 +1009,12 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     buttons.ordered.setAttribute('aria-pressed', String(listType === N.ordered_list));
     buttons.outdent.disabled = !(li > 0 || (p.attrs && p.attrs.indent > 0));
     buttons.undo.disabled = pm.undoDepth(st) === 0; buttons.redo.disabled = pm.redoDepth(st) === 0;
-    buttons.link.setAttribute('aria-pressed', String(markActive(st, M.link)));
+    buttons.link.setAttribute('aria-pressed', String(!!linkAt(st)));
     const inTable = pm.isInTable(st);
-    tableRow.hidden = !inTable; buttons.table.disabled = inTable;
+    // The table tools row shows or hides only when no mouse button is held: appearing in the middle of a press would push
+    // the text down under the pointer (a drag across cells would land on the wrong row).
+    if (!pointerHeld) tableRow.hidden = !inTable;
+    buttons.table.disabled = inTable;
     if (inTable) {
       const can = {merge: pm.mergeCells(st), split: pm.splitCell(st), rowDel: pm.deleteRow(st), colDel: pm.deleteColumn(st)};
       for (const list of [tableRow, ctx]) for (const b of list.querySelectorAll('[data-ed-table]')) if (b.dataset.edTable in can) b.disabled = !can[b.dataset.edTable];
@@ -991,6 +1042,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     destroy() {
       resize?.disconnect(); phone?.removeEventListener?.('change', queueFit); cancelAnimationFrame(fitFrame); clearTimeout(noteTimer);
       document.removeEventListener('pointerdown', outside, true);
+      window.removeEventListener('mouseup', release, true);
       view.destroy(); root.remove();
     },
   };
