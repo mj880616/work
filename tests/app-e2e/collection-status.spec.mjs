@@ -159,13 +159,14 @@ test('phone: one thin warning line opens the full card, ✕ hides it for today, 
   await page.screenshot({path:'test-results/home-collect-menu-390.png'});
 });
 test('phone: blocked device storage still shows the warning and ✕ hides it for this view',async({page})=>{
-  await page.addInitScript(()=>{const deny=()=>{throw new Error('blocked')};Storage.prototype.getItem=function(k){if(k==='kptu-collect-alert-hidden')deny();return null};Storage.prototype.setItem=function(k){if(k==='kptu-collect-alert-hidden')deny()}});
+  await page.addInitScript(()=>{const get=Storage.prototype.getItem,set=Storage.prototype.setItem,key='kptu-collect-alert-hidden';Storage.prototype.getItem=function(k){if(k===key)throw new Error('blocked');return get.call(this,k)};Storage.prototype.setItem=function(k,v){if(k===key)throw new Error('blocked');return set.call(this,k,v)}});
   await fixture(page,{width:390,copy:staleTelegram});
   const alert=page.locator('[data-home-collect-alert]');
   await expect(alert).toBeVisible();
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await alert.locator('[data-collect-dismiss]').click();
   expect(errors).toEqual([]);
+  await expect(page.locator('[data-menu-collect] [data-collect="telegram"]')).toHaveAttribute('data-collect-state','stale');
 });
 test('PC keeps the right-column card and never shows the phone lines (1280)',async({page})=>{
   const f=await fixture(page,{width:1280,copy:staleTelegram});
