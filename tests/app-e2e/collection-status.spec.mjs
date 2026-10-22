@@ -80,15 +80,16 @@ for(const copy of ['missing','abort'])test(`function not deployed (${copy}) and 
 
 // OPS-수집점검 2단계: collectors in the same status answer (heartbeat from the call-transcript Apps Script).
 const withCollectors=collectors=>({...status({last_success_at:'2026-10-05T21:17:00.000Z'}),collectors});
-for(const width of [1280,390])test(`telegram and call lines show the heartbeat time, call count and 주의 when old (${width})`,async({page})=>{
+for(const width of [1280,390])test(`telegram and call lines show the heartbeat time, call count and 조용함 when files are old (${width})`,async({page})=>{
   const f=await fixture(page,{width,copy:withCollectors({
     telegram:{last_at:'2026-10-04T22:30:00.000Z',count:null,reported_at:'2026-10-06T00:40:00.000Z'},
     transcript:{last_at:'2026-10-05T23:05:00.000Z',count:3,reported_at:'2026-10-06T00:40:00.000Z'},
-  })}),{calls}=f,card=width<1024?page.locator('#homeCollectPanel'):f.card;
+  })}),{calls}=f,card=width<1024?page.locator('[data-menu-collect]'):f.card;
   if(width<1024){
     await expect(f.card).toBeHidden();
-    await expect(page.locator('[data-home-collect-ok]')).toBeHidden();
-    await page.locator('[data-collect-expand]').click();
+    await expect(page.locator('[data-home-collect-alert]')).toBeHidden();
+    await expect(page.locator('[data-home-collect-ok]')).toBeVisible();
+    await page.locator('#mobileMenuTab').click();
   }
   await expect(card).toBeVisible();
   await expect(card).not.toContainText('확인 불가');
