@@ -34,6 +34,8 @@ on:
       - 'tests/markdown-view.test.mjs'
       - 'tests/html-frame.test.mjs'
       - 'scripts/markdown/**'
+      - 'scripts/editor/**'
+      - 'tests/ed-editor.test.mjs'
       - 'tests/home-read-model.test.mjs'
       - 'tests/english-labels.test.mjs'
       - 'tests/ledger-import-model.test.mjs'
@@ -79,6 +81,8 @@ on:
       - 'tests/markdown-view.test.mjs'
       - 'tests/html-frame.test.mjs'
       - 'scripts/markdown/**'
+      - 'scripts/editor/**'
+      - 'tests/ed-editor.test.mjs'
       - 'tests/home-read-model.test.mjs'
       - 'tests/english-labels.test.mjs'
       - 'tests/ledger-import-model.test.mjs'
@@ -139,6 +143,9 @@ jobs:
 
       - name: Markdown display pin and safety unit tests
         run: node --test tests/markdown-view.test.mjs tests/md-editor.test.mjs tests/html-frame.test.mjs tests/note-markdown.test.mjs
+
+      - name: Unified editor pin, saved form and text export unit tests (ED-통합편집기)
+        run: node --test tests/ed-editor.test.mjs
 
       - name: Check English eyebrow cleanup
         run: node --test tests/english-labels.test.mjs
