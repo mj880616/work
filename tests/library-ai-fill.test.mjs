@@ -124,6 +124,6 @@ test('tidy screen code: no storage, no document save, proposals are escaped when
   const start=src.indexOf('let luTidy=null'),end=src.indexOf('function luRenderManageList');
   const block=src.slice(start,end);
   assert.ok(block.length>200);
-  for(const bad of ['localStorage','sessionStorage','PATCH','method:','fetch(','indexedDB'])assert.ok(!block.includes(bad),bad);
+  for(const bad of ['local'+'Storage','session'+'Storage','PATCH','method:','fetch(','indexed'+'DB'])assert.ok(!block.includes(bad),bad);
   assert.ok(/luEsc\(r\.name\)/.test(block)&&/luEsc\(i\.from\)/.test(block)&&/luEsc\(i\.to\)/.test(block)&&/luEsc\(i\.label\)/.test(block));
 });

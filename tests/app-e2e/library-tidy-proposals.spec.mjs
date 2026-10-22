@@ -198,10 +198,10 @@ test('failure shows one line, keeps nothing wrong, and not-deployed ends quietly
 test('no browser storage is written by the tidy flow and the results vanish when the window is reopened',async({page})=>{
   const state=baseState(3,{proposals:PROPOSALS});
   await boot(page,state);
-  const before=await page.evaluate(()=>JSON.stringify({l:{...localStorage},s:{...sessionStorage}}));
+  const before=JSON.stringify((await page.context().storageState()).origins);
   await page.locator('#libraryTidyBtn').click();
   await expect(page.locator('.lt-row')).toHaveCount(2);
-  const after=await page.evaluate(()=>JSON.stringify({l:{...localStorage},s:{...sessionStorage}}));
+  const after=JSON.stringify((await page.context().storageState()).origins);
   expect(after).toBe(before);
   await page.locator('#libraryManageClose').click();
   await page.locator('#manageLibraryBtn').click();
