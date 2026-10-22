@@ -102,7 +102,8 @@ export const basketNoteHref=id=>`./?view=basket&note=${encodeURIComponent(id)}`;
 // where it came from, so the note screen offers "← (name)으로 돌아가기" and the opener reopens that project or
 // organization at the same scroll when the person comes back (the button, browser or phone back, or the tab itself).
 // It lives in this tab's memory only, bound to the signed-in user and workspace, and ends when another screen is chosen.
-const ORIGIN_VIEWS={projects:'프로젝트',team:'담당조직'};
+// JOURNAL-하루개편 ⑥: the work journal's lines open an update or a note the same way (one back returns to the journal's day).
+const ORIGIN_VIEWS={projects:'프로젝트',team:'담당조직',journal:'업무일지'};
 let origin=null;
 export function requestBasketNoteFrom(id,from,rt=window.KPTURuntime){
   put('note',id,rt);const scope=scopeOf(rt);
