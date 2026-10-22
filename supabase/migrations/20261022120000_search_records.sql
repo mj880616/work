@@ -260,7 +260,7 @@ begin
   left join counts c on c.kind = k.kind;
 
   return pg_catalog.jsonb_build_object('words', pg_catalog.to_jsonb(v_words), 'groups', coalesce(v_groups, '[]'::jsonb));
-end
+end;
 $$;
 revoke all on function public.app_search_records(text, text[], integer, integer, text) from public, anon, service_role;
 grant execute on function public.app_search_records(text, text[], integer, integer, text) to authenticated;

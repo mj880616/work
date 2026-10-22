@@ -13,7 +13,8 @@ begin
   if (select count(*) from supabase_migrations.schema_migrations
       where version = '20261022120000' and name = 'search_records') <> 1
      or exists (select 1 from supabase_migrations.schema_migrations where version = '20261022120100')
-     or not exists (select 1 from pg_extension where extname = 'pg_trgm' and extnamespace = to_regnamespace('extensions'))
+     or not exists (select 1 from pg_extension e join pg_namespace s on s.oid = e.extnamespace
+         where e.extname = 'pg_trgm' and s.nspname = 'extensions')
      or exists (select 1 from pg_class where relname = 'app_notes_search_trgm_idx' and relnamespace = 'public'::regnamespace)
      or (select count(*) from pg_attribute where attrelid = to_regclass('public.app_notes') and not attisdropped
          and attname in ('title', 'raw_text', 'attachments')) <> 3 then
