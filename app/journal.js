@@ -16,6 +16,7 @@
 // JOURNAL-주간보고허브 2단계: [하루 | 주간 정리] above the week. [주간 정리] hides the day row and the day card and shows the same
 // week's materials (the same reads, read once) in the weekly report's order (journal-weekly.js builds and draws it into
 // [data-journal-weekly], a box this module owns). The chosen side is kept in memory only (not in browser storage).
+// JOURNAL-하루개편 (작업 중): the day card is being rebuilt in the order 오늘 한 줄 → 할 일/한 일 → 챙길 것 → 주간보고 재료 → 그 밖의 기록.
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, changeWorkDay, validateWorkLine, WORK_LINE_MAX,
   workLines, addLine, editLine, removeLine, restoreLine, readWeekEvents, readDoneTasksWindow, readBasketUpdates, readMovedNotes, movedNotesOn, readOrgUpdates, readProjectUpdates,
