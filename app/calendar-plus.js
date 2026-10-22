@@ -3,7 +3,7 @@ import {linkEventEnd,normalizeTime,paintTimeHint} from './time-input.js';
 import {googleSaveFailure,unknownRetryText,addressConfirmedText,calendarName,logSaveDetail} from './calendar-save-notice.js';
 import { createGoogleTask, saveProjectMilestone } from './quick-save.js';
 import { createChoiceSheet, projectRows } from './choice-sheet.js';
-import { taskFilesAvailable, taskFilesKnown, taskFilesExpected, mountNewTaskFilePick, attachNewTaskFiles, newTaskFilesNotice } from './task-files.js';
+import { taskFilesAvailable, taskFilesKnown, mountNewTaskFilePick, attachNewTaskFiles, newTaskFilesNotice } from './task-files.js';
 const CM_GOOGLE_DEFAULT='#4285f4';
 const CM_FALLBACK_EVENT_COLORS=['#a4bdfc','#7ae7bf','#dbadff','#ff887c','#fbd75b','#ffb878','#46d6db','#e1e1e1','#5484ed','#51b749','#dc2127'];
 let cmEndLink=null,cmGoogle=null,cmSavePending=false,cmMode='event',cmProject='',cmProjectRows=[],cmFormEpoch=0,cmRequest=null,cmSaved=null;const cmAttempts=new Map();
@@ -53,9 +53,9 @@ function cmEnsureFiles(){if(cmFiles)return cmFiles;const memo=document.querySele
 // on a phone this window sits on the bottom edge and a row that came in late would push the fields above it upward.
 function cmAskFiles(){const owner=cmOwner();if(owner)void taskFilesAvailable().then(yes=>{if(yes&&owner===cmOwner()&&!cmFilesOn)cmPaintFiles()})}
 function cmPaintFiles(){const f=cmEnsureFiles();if(!f)return;const owner=cmOwner();if(cmFilesOwner!==owner){cmFilesOwner=owner;cmFilesOn=false}if(!cmFilesOn&&owner&&taskFilesKnown())cmFilesOn=true;const on=cmMode==='task'&&cmFilesOn&&!cmSaved;
-  // TEST-홈빠른입력안정화: a yes last time on this device keeps the row's place (unseen) until this load's answer.
+  // TEST-홈빠른입력안정화: until this load's answer, [할 일] keeps the row's place (unseen); a no frees it.
   const host=document.querySelector('#eventTaskFiles'),place=(show,wait)=>{host.hidden=!show&&!wait;host.toggleAttribute('data-gt-pick-wait',!show&&wait);f.render()};
-  place(on,!on&&cmMode==='task'&&!cmSaved&&!!owner&&taskFilesExpected()===true);
+  place(on,!on&&cmMode==='task'&&!cmSaved&&!!owner);
   if(cmMode==='task'&&!cmFilesOn&&owner)void taskFilesAvailable().then(yes=>{if(owner!==cmOwner())return;if(yes)cmFilesOn=true;if(cmMode==='task'&&!cmSaved)place(yes,false)})}
 let cmFormOwner=window.KPTURuntime.context.read()?.user?.id;
 const cmProjectButton=()=>document.querySelector('#eventTaskProject');

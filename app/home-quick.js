@@ -6,7 +6,7 @@ import { createNote, validateNoteText, createNoteDoc, noteTitleFromText } from '
 import { createUploadBatch, uploadBatch, uploadNoteFiles, mountBasketPicker, fileTitle } from './basket-upload.js';
 import { extractHtmlDocument, htmlFileName, utf8Bytes, HTML_MAX_BYTES, HTML_MARK } from './chatgpt-html.mjs';
 import { dayKey } from './home-read-model.js';
-import { taskFilesAvailable, taskFilesKnown, taskFilesExpected, onTaskFilesReady, attachNewTaskFiles, newTaskFilesNotice, MAX_TASK_FILES } from './task-files.js';
+import { taskFilesAvailable, taskFilesKnown, onTaskFilesReady, attachNewTaskFiles, newTaskFilesNotice, MAX_TASK_FILES } from './task-files.js';
 
 export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateProjects=()=>{}, esc, basketOnly=false, taskOnly=false, noteOnly=false, onBig=null, view="home", idPrefix="home", onSaved=()=>{}}) {
   // UI-할일입력: taskOnly is the [할 일] screen's always-visible input. It is the [할 일] mode of this same box with the mode
@@ -30,8 +30,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   // Whether the clip and drop take files for this save: a basket update, or a note (NOTE-파일붙이기).
   // TASK-추가창파일: a new task too, once the task-file table answers (as ⋯ → 파일 붙이기); they go up after Google made the task.
   // TEST-홈빠른입력안정화: while this load's task-file table answer for [할 일] is not in, the clip's place is kept (unseen,
-  // unusable) unless this device last heard "no table" (taskFilesExpected), so the input does not narrow once the answer
-  // comes (PC: [📎 첨부] sits left of [추가]). A no frees the place.
+  // unusable), so the input does not narrow once the answer comes (PC: [📎 첨부] sits left of [추가]). A no frees the place.
   let taskFilesOn=false,taskFilesWait=false;
   const takesFiles=()=>noteOnly||toBasket()||(mode==='task'&&taskFilesOn);
   // UPD-여러곳고르기: places is the list chosen on the 기록할 곳 sheet (in the order picked; empty is the basket).
@@ -138,9 +137,9 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   const checkTaskFiles=()=>{
     if(taskFilesOn||noteOnly||basketOnly||mode!=='task')return;
     if(taskFilesKnown()){filesAnswer(true);return;}
-    // The [할 일] screen waits for its list's read (onTaskFilesReady), and keeps the place only after a yes on this device.
-    const expected=taskFilesExpected();taskFilesWait=taskOnly?expected===true:expected!==false;paint();
-    if(!taskFilesWait&&taskOnly)return;
+    // The [할 일] screen asks nothing itself: its list's read answers (onTaskFilesReady, a failed read too).
+    taskFilesWait=true;paint();
+    if(taskOnly)return;
     const owner=quickScope();void taskFilesAvailable().then(on=>{if(owner===quickScope()&&!taskFilesOn)filesAnswer(on);});
   };
   if(!noteOnly&&!basketOnly)onTaskFilesReady((owner,yes)=>{if(taskFilesOn||!owner||owner!==window.KPTURuntime.context.read()?.user?.id)return;if(yes)checkTaskFiles();else if(taskFilesWait)filesAnswer(false);});

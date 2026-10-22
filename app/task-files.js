@@ -23,7 +23,7 @@ export async function readTaskFiles(ids, {rt = window.KPTURuntime, expectedSessi
     const ids = list.slice(i, i + LIST_CHUNK);
     let rows;
     try { rows = await rt.api(`/rest/v1/app_task_attachments?${ids.length ? `google_task_id=in.(${ids.join(',')})&` : 'limit=1&'}${cols}`, options); }
-    catch (e) { tableMissing(rt, e); throw e; }
+    catch (e) { tableMissing(rt); throw e; }
     if (!Array.isArray(rows)) throw Error('할 일 파일을 확인하지 못했어요.');
     if (!ids.length) continue;
     for (const f of rows) {
@@ -33,7 +33,7 @@ export async function readTaskFiles(ids, {rt = window.KPTURuntime, expectedSessi
     }
   }
   // TASK-추가창파일: the table answered, so the add windows may offer files without asking again (taskFilesAvailable).
-  tableAnswered(ownerOf(rt), rt);
+  tableAnswered(ownerOf(rt));
   return out;
 }
 
@@ -172,34 +172,19 @@ async function detach(id) {
 const available = new Map();
 const readyEvents = typeof window === 'undefined' ? new EventTarget() : window;
 function ownerOf(rt) { return rt?.context?.read?.()?.user?.id || rt?.session?.read?.()?.user?.id || ''; }
-// TEST-홈빠른입력안정화: the last answer (yes, or no = the table is not there, HTTP 404) is kept on this device per owner
-// (KPTURuntime.ownerCache: dropped on sign-out or owner change), so the add windows lay out their file part from the first
-// paint as last time instead of moving once the answer comes. It only places things: files are taken after this load's answer.
-const MEMO_NAME = 'task-files-v1';
-function memoKey(rt, owner) { const p = rt?.ownerCache?.prefix; return p && owner ? `${p}${MEMO_NAME}:${owner}` : ''; }
-function remember(rt, owner, yes) { const k = memoKey(rt, owner); if (!k) return; try { localStorage.setItem(k, yes ? '1' : '0'); } catch {} }
+// TEST-홈빠른입력안정화: windows that keep the file part's place while the answer is out hear a yes and a failed read alike.
 function tell(owner, yes) { try { readyEvents.dispatchEvent(new CustomEvent('kptu:task-files-ready', {detail: {owner, yes}})); } catch {} }
 // A read of the table answered for this owner (the task list's own read or the check below). Only a yes is kept in memory.
-function tableAnswered(owner, rt) {
+function tableAnswered(owner) {
   if (!owner || available.get(owner)?.yes) return;
   const yes = Promise.resolve(true); yes.yes = true; available.set(owner, yes);
-  remember(rt, owner, true);
   tell(owner, true);
 }
-// A read failed. 404 means the table is not there: remembered as no. Any failure is told so a waiting window stops waiting.
-function tableMissing(rt, error) {
+// A read failed (no table yet, or a network error): a window still keeping the place stops waiting. Nothing is stored.
+function tableMissing(rt) {
   const owner = ownerOf(rt);
   if (!owner || available.get(owner)?.yes) return;
-  if (error?.status === 404) remember(rt, owner, false);
   tell(owner, false);
-}
-// What the last answer on this device was for the signed-in owner: true, false, or null (never answered here). No request.
-export function taskFilesExpected({rt = window.KPTURuntime} = {}) {
-  const owner = ownerOf(rt);
-  if (!owner) return false;
-  if (available.get(owner)?.yes) return true;
-  const k = memoKey(rt, owner); if (!k) return null;
-  try { const v = localStorage.getItem(k); return v === '1' ? true : v === '0' ? false : null; } catch { return null; }
 }
 // Whether the link table answers for this owner (the same check that shows ⋯ → 파일 붙이기). Only a yes is remembered.
 // ask:false only reports an answer already known (the [할 일] screen waits for its list's own read, see onTaskFilesReady).
@@ -282,7 +267,7 @@ export function mountNewTaskFilePick(host, {isBusy = () => false, onError = () =
     files: () => [...chosen],
     clear: () => { chosen = []; render(); },
     show: on => { host.hidden = !on; host.removeAttribute('data-gt-pick-wait'); if (!on) { chosen = []; } render(); },
-    // TEST-홈빠른입력안정화: the last answer here was yes, this load's is not in yet: keep the row's place, unseen and unusable.
+    // TEST-홈빠른입력안정화: this load's answer is not in yet: keep the row's place, unseen and unusable.
     wait: () => { host.hidden = false; host.setAttribute('data-gt-pick-wait', ''); chosen = []; render(); },
     render,
   };

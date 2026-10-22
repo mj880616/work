@@ -157,9 +157,7 @@ test('sign-out and owner change remove the cached Google Tasks; another owner ne
   await page.evaluate(()=>window.KPTURuntime.session.write({access_token:'token-b',refresh_token:'token-b',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'user-b'}}));
   await expect(page.locator('#gtTaskSection')).toContainText('B의 할 일');
   await expect(page.locator('#gtTaskSection')).not.toContainText('QA의 할 일');
-  // TEST-홈빠른입력안정화: other owner caches of B (e.g. task-files-v1, the task-file table answer) may sit next to it; none of A's remain.
-  await expect.poll(async()=>(await storageKeys(page)).filter(k=>!k.endsWith(':user-b'))).toEqual([]);
-  await expect.poll(async()=>(await storageKeys(page)).filter(k=>k.includes(':google-tasks-'))).toEqual(['kptu_owner_cache:google-tasks-v2:user-b']);
+  await expect.poll(()=>storageKeys(page)).toEqual(['kptu_owner_cache:google-tasks-v2:user-b']);
   // Sign-out: every owner cache is dropped.
   await page.evaluate(()=>window.KPTURuntime.session.write(null));
   await expect.poll(()=>storageKeys(page)).toEqual([]);
