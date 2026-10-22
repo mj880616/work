@@ -4,7 +4,8 @@ begin;
 -- SECURITY INVOKER: 기존 owner RLS가 그대로 걸린다(원장 검색 app_ledger_search와 같은 모양).
 -- 일기(app_notes.kind='diary')는 함수 안에서 허용 목록(basket·note·work)으로 막는다. 종류 인자에도 diary가 없다.
 -- 실행 권한: authenticated만(PUBLIC·anon·service_role 회수).
--- pg_trgm 색인은 짝 migration 20261022120100_search_trgm_index(확장 설치는 대시보드, 승인형 workflow는 확장 명령을 막는다).
+-- pg_trgm 색인은 넣지 않는다: 이 함수는 INVOKER라 authenticated에 RLS가 걸리고, ILIKE는 leakproof가 아니라서
+-- PostgreSQL이 RLS 조건보다 먼저 색인 조건으로 쓰지 못한다(로컬 PostgreSQL 17에서 확인, 순차 훑기). 1인 사용 표 크기에서는 순차 훑기로 충분하다.
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 
@@ -68,7 +69,6 @@ declare
   v_query text;
   v_words text[];
   v_pats text[];
-  v_first text;
   v_kinds text[];
   v_note_kinds text[];
   v_limit integer;
@@ -116,8 +116,6 @@ begin
            order by o)
     into v_pats
   from pg_catalog.unnest(v_words) with ordinality as x(w, o);
-  -- 가장 긴 낱말 하나를 색인 조건으로 쓴다(나머지는 같은 행을 다시 거른다).
-  select p into v_first from pg_catalog.unnest(v_pats) p order by pg_catalog.char_length(p) desc limit 1;
 
   with
   notes as (
@@ -130,8 +128,7 @@ begin
       null::uuid as project_id, null::uuid as organization_id, n.id as note_id
     from public.app_notes n
     where n.kind in ('basket', 'note', 'work') and n.kind = any (v_note_kinds)
-      -- 아래 두 식은 짝 색인 app_notes_search_trgm_idx의 식과 글자 하나까지 같아야 색인을 쓴다.
-      and (coalesce(n.title, '') || ' ' || n.raw_text || ' ' || coalesce(pg_catalog.jsonb_path_query_array(n.attachments, '$[*].ocr ? (@.state == "done").text')::text, '')) ilike v_first
+      -- 사진 글자는 읽기가 끝난(state done) 것만 찾는다.
       and (coalesce(n.title, '') || ' ' || n.raw_text || ' ' || coalesce(pg_catalog.jsonb_path_query_array(n.attachments, '$[*].ocr ? (@.state == "done").text')::text, '')) ilike all (v_pats)
   ),
   docs as (
@@ -238,8 +235,8 @@ begin
       'matched_in', coalesce(h.found ->> 0, 'title'),
       'snippet', case when h.found is null then null else pg_catalog.btrim(pg_catalog.regexp_replace(pg_catalog.substr(
           case h.found ->> 0 when 'body' then h.body else h.ocr_text end,
-          pg_catalog.greatest((h.found ->> 1)::integer - 40, 1),
-          (h.found ->> 2)::integer + 80 + pg_catalog.least((h.found ->> 1)::integer - 41, 0)), '\s+', ' ', 'g')) end,
+          greatest((h.found ->> 1)::integer - 40, 1),
+          (h.found ->> 2)::integer + 80 + least((h.found ->> 1)::integer - 41, 0)), '\s+', ' ', 'g')) end,
       'occurred_at', h.occurred_at, 'day', h.day, 'state', h.state,
       'project_id', h.link_project, 'project_name', (select s.name from public.app_spaces s where s.id = h.link_project),
       'organization_id', h.link_org, 'organization_name', (select o.name from public.app_suborganizations o where o.id = h.link_org)) as item
@@ -250,7 +247,7 @@ begin
   )
   select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
       'kind', k.kind,
-      'total', pg_catalog.least(coalesce(c.total, 0), 200),
+      'total', least(coalesce(c.total, 0), 200),
       'capped', coalesce(c.total, 0) > 200,
       'offset', v_offset,
       'items', coalesce((select pg_catalog.jsonb_agg(i.item order by i.rn) from items i where i.kind = k.kind), '[]'::jsonb))
