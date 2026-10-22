@@ -1303,3 +1303,7 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
   #appView :is(#homeView,#basketView) .home-quick .home-quick-big::after,
   #appView :is(#tasksView,#homeView) .home-quick .home-quick-detail::after{ content:""; position:absolute; inset:auto; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); width:auto; min-width:0; height:var(--kptu-touch-target,44px); min-height:0; }
 }
+
+/* TEST-홈빠른입력안정화(2026-10-22): 할 일 첨부 확인이 오기 전에는 첨부 자리를 보이지 않게 잡아 둔다(home-quick.js·task-files.js).
+   그래서 답이 온 뒤 입력 칸·[+]·창 칸이 한 번 밀리지 않는다. 대기 중 버튼은 비활성이고 숨김이라 누르거나 Tab으로 갈 수 없다. */
+#appView .home-quick [data-quick-file-picker][data-quick-files-wait],.gt-pick[data-gt-pick-wait]{ visibility:hidden; }
