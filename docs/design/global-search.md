@@ -269,3 +269,90 @@ S-2(`global-search-data.js`)·S-3 화면은 이 계약만 쓴다. 설계 2.3과 
 찾는 칸: 메모·노트·업무일지 제목·본문·사진 글자(`ocr.state='done'`), 자료 제목·파일 이름·출처·분류·태그·설명(본문 글자 `extracted_text`는 ②-a), 회의 제목·시리즈·결과(`transcript_text`)·옛 `decisions`, 프로젝트 이름(v2 프로젝트만)·진행 기록 상태·요약·다음 할 일, 조직 이름·별칭·설명·업데이트·상세·타임라인 제목·요약, 일정 제목.
 
 색인: 이 함수는 INVOKER라 호출자(authenticated)에게 owner RLS가 걸리고, `ILIKE`는 leakproof가 아니어서 PostgreSQL이 RLS 조건보다 먼저 trigram 색인을 쓰지 못한다(로컬 PostgreSQL 17에서 확인, `tests/auth-handoff/search-records.test.mjs`). 그래서 S-1은 `pg_trgm`·색인을 넣지 않고 순차 훑기로 시작한다(1인 사용 표 크기). 느려지면 별도 단계에서 소유자 조건을 색인에 함께 넣는 방법(예: `workspace_id` 포함 색인 + 함수 안 명시적 workspace 조건)을 검토한다. 확장 설치는 대시보드(Database → Extensions, schema `extensions`)이며 승인형 workflow는 확장 명령을 막는다.
+
+## 8. ② 첨부 파일 안 글자 구현 (`20261023013000_search_attachment_text`)
+
+### 8.1 설계 선택
+
+- **글자 읽기 코드는 새로 만들지 않았다**(결정 3, 3.2 "읽기 함수 하나"). LIB-AI자동분류(#959)가 먼저 merge되어 `supabase/functions/_shared/document-text.ts`(Drive 임시 사본 변환, AI 없음)와 `document-actions` `action=document-text`(자료 행·소유자를 서버가 DB에서 확인 → `app_documents.extracted_text`·`extraction_status`·`extraction_error`·`extracted_at`에 저장, 응답에 글자 없음, 이미 `ready`면 다시 읽지 않음)가 운영 중이다. ②는 이 한 곳을 그대로 쓴다. 옛 `document-ai-index`는 살리지 않았다.
+- 같은 함수에 형식 2개를 더했다(AI 없음, 같은 임시 사본 방식): PPT·PPTX·ODP → Google 프레젠테이션 사본 → text/plain, XLS·XLSX·ODS → Google 스프레드시트 사본 → text/csv(Drive 내보내기는 **첫 시트만**). txt·md·csv에 tsv·log를 더했다. 내보낸 글이 1MB를 넘으면 실패 대신 앞부분만 쓴다(저장은 어차피 앞 12,000자).
+- 저장 상한은 **12,000자 그대로**다(library-ai-fill.md 3절). 목록 화면 여러 곳이 `app_documents`를 `select=*`로 읽어 상한을 올리면 목록이 무거워지고, 그 화면 일부(`library-*.js`·`project-system-v3.js`)는 이번 작업에서 건드리지 않는 파일이다. 그래서 파일 앞 12,000자 안의 글자만 찾힌다(9절 남은 위험).
+- 노트에 붙인 PDF·HWP(결정 6)는 대상 밖. [자료로 넣기]로 자료가 되면 그때 읽힌다(바구니 보내기는 LIB-AI가 이미 읽기를 부름).
+- 파일을 바꾸는 경로(HWP 편집기 [원본에 덮어쓰기])는 `file_id`가 같아 글자를 다시 읽지 않는다(3.5-3 "file_id가 같으면 그대로"). 덮어쓴 뒤의 새 글자는 반영되지 않는다(9절).
+
+### 8.2 업로드 때 한 번 읽기
+
+자료 행을 만드는 경로마다 등록 성공 응답의 자료 ID로 `document-text`를 **한 번, 기다리지 않고** 부른다. 실패는 조용히 끝나고 올리기 결과·문구는 그대로다(다시 보내지 않음). 서버는 소유자를 다시 확인하므로 화면이 보내는 것은 자료 ID뿐이다.
+
+| 등록 경로 | 읽기 요청 | 비고 |
+| --- | --- | --- |
+| 자료실 올리기(`library-files`) | 이미 있음: `library-ai-fill.js` `fillLibraryDocument` | LIB-AI |
+| 바구니 [자료실로 보내기](`register-basket-attachment`) | 이미 있음: `basket.js` → `fillLibraryDocument` | LIB-AI, 새로 등록된 경우만 |
+| 기존 자료 정리(LIB-자동정리) | 이미 있음: `readTexts`(정리 후보만) | LIB-자동정리 |
+| 회의자료 올리기(`meeting-files`): 회의 결과 창·회의 상세·파일로 만들기 | **새로**: `team.js`·`meeting-round-detail.js`·`meeting-from-files.js` → `document-text-read.js` `readTextLater` | |
+| HWP 편집기 [새 파일로 저장]·주간보고 [확정] 저장(`library-files`) | **새로**: `hwp-drive.js` `saveLibraryCopy`·`saveWeeklyReport` → `readTextLater` | |
+| 링크만 등록(`team.js` `saveDocument`, 파일 없음) | 없음 | 읽을 파일이 없음 |
+| `workspace-drive` `action=upload` | 없음 | 앱에서 부르는 곳 없음(조사) |
+
+Edge 코드 변경은 `_shared/document-text.ts` 한 파일이다. 이것을 쓰는 운영 함수는 **`document-actions` 하나**다(`library-files`·`meeting-files`는 고치지 않음).
+
+### 8.3 검색 함수
+
+`app_search_records`를 같은 서명·같은 권한 모양으로 다시 정의했다(migration `20261023013000_search_attachment_text`, 운영 미적용).
+
+- 자료 찾는 칸에 `extracted_text`를 더한다. **`extraction_status = 'ready'`인 글자만** 찾는다(읽는 중·실패 글자는 찾지 않음).
+- 줄 표시는 사진 글자와 같은 규칙: 본문 칸(설명·출처·분류·태그·파일 이름)에서 먼저 찾고, 없으면 파일 안 글자에서 찾아 `matched_in='attachment'`, `snippet`은 그 글자에서 처음 찾은 낱말 앞뒤 약 40자. 제목에도 있고 파일 안 글자에도 있으면 앞뒤 한 줄을 보여 주려고 `attachment`가 된다(S-1의 사진 글자와 같음). `title`은 "글자 칸 밖에서만 찾음"이다.
+- 그대로인 것: SECURITY INVOKER·`search_path = ''`(owner RLS 그대로), 실행 authenticated만(PUBLIC·anon·service_role 없음), 일기 제외, 입력 규칙·오류 코드·반환 모양, 다른 종류의 결과.
+- 색인 없음: S-1과 같은 이유(INVOKER의 `ILIKE`는 owner RLS 아래 trigram 색인을 못 씀). 행 수는 precheck가 기록만 한다.
+- 화면: 결과 줄의 앞뒤 한 줄 앞에 작은 글자 "파일 안 글자에서 찾음 · "(기존 `gs-row-where`, 배지 아님). 메모 사진 글자는 그대로 "사진 글자 · ".
+
+| 적용 순서 | 무엇 | 방법 | 되돌리기 |
+| --- | --- | --- | --- |
+| 1 | DB `20261023013000_search_attachment_text` | 승인형 `db-migration-apply`(mode apply, 엄격 규칙·전체 흐름) | `docs/20261023013000_search_attachment_text.rollback.sql`을 **SQL Editor**에서(함수를 S-1 판으로 다시 정의하므로 workflow rollback 모드 문법 밖) |
+| 2 | Edge `document-actions`(이 PR의 merge SHA) | 승인형 `edge-function-deploy`, `verify_jwt` keep(true) | 직전 운영 ref로 같은 버튼 재실행(PR 본문) |
+| 3 | 화면 | Pages 배포(merge) | 화면만 되돌리는 PR |
+
+1과 2는 서로 기다리지 않는다. DB만 적용되면 이미 읽힌 글자(LIB-AI가 채운 것)부터 찾히고, Edge만 배포되면 PPT·엑셀 글자가 저장만 되고 아직 찾히지 않는다.
+
+### 8.4 기존 자료 채우기(backfill) — 준비만, 실행 안 함
+
+운영 자료(`app_documents`의 글자 4칸)를 대량으로 바꾸므로 **커맨드센터 승인 뒤에만** 실행한다. 원본 Drive 파일은 읽기만 하고(임시 사본은 만들었다 지움), AI 비용은 없다. 실행 코드는 `app/document-text-read.js` `readMissingTexts({limit})`(화면 어디에도 연결하지 않음, 시험으로 확인)다. 한 번 부르면 아직 읽지 않은 자료(`extraction_status`가 `ready`·`error`가 아닌 것)만 최근 것부터 `limit`개(최대 50) 하나씩 `document-text`를 부른다. 이미 읽은 자료·실패한 자료는 다시 읽지 않는다.
+
+1. 건수 확인(읽기 전용, SQL Editor 또는 로컬 세션 조회):
+
+```sql
+select coalesce(extraction_status,'(없음)') as status, count(*) as n,
+       count(*) filter (where file_id is not null) as with_file
+from public.app_documents group by 1 order by 1;
+```
+
+2. 시작 시각을 적어 둔다(되돌리기 기준): `select now();`
+3. 시험 1건 → 일부(10) → 나머지(50씩): 커맨드센터가 승인한 별도 작은 PR이 `readMissingTexts`를 자료실 화면 열기(LIB-자동정리와 같은 자리, 로그인한 명진 화면)에 `limit`과 함께 잠깐 붙이거나, 명진이 자료실을 연 상태에서 단계별로 부른다. 각 단계 뒤 1번 SQL로 `ready`·`error` 수가 늘었는지 본다.
+4. 확인(읽기 전용): `select count(*) from public.app_documents where extracted_at >= '<2번 시각>';`
+
+되돌리기(채우기로 바뀐 칸만 비움, 자료·파일·다른 칸은 그대로. SQL Editor 새 창, 끝이 `commit;`인지 확인):
+
+```sql
+begin;
+-- 기존 자료 채우기 되돌리기: <2번 시각> 이후 글자를 읽은 자료의 글자 4칸만 비운다(다음에 다시 읽힘).
+update public.app_documents
+   set extracted_text = null, extraction_status = null, extraction_error = null, extracted_at = null
+ where extracted_at >= '<2번 시각>'::timestamptz;
+commit;
+```
+
+주의: 같은 시간 안에 새로 올린 자료의 글자도 함께 비워진다(다음 읽기 요청 때 다시 읽힘). LIB-AI가 이미 채운 제목·분류 등은 글자 칸과 별개라 그대로다.
+
+### 8.5 시험
+
+- `tests/security/document-text.test.mjs`: PPTX·XLSX 임시 사본 형식·내보내기 형식·사본 삭제·원본 무변경, 변환 거절, 큰 내보내기 앞부분만.
+- `tests/auth-handoff/search-attachment-text.test.mjs`(로컬 PostgreSQL 17, 합성 자료): workflow plan(엄격·전체 흐름), 사전 조건 멈춤 4가지, dry-run 무변경, apply·postcheck, 소유자 전용(다른 업무공간·anon·service_role), 일기 제외, `ready`만, 앞뒤 한 줄, 기존 결과 무변경, rollback 뒤 S-1 본문과 같음·자료 무변경·재적용.
+- `tests/global-search-model.test.mjs`: `document-text-read.js` 요청 모양·실패 조용히·채우기 목록 조건·상한·중단·화면 미연결.
+- `tests/app-e2e/global-search.spec.mjs`: 자료 줄 "파일 안 글자에서 찾음 · 앞뒤 한 줄"(작은 글자, 형광).
+
+### 8.6 남은 위험
+
+- 파일 앞 12,000자만 찾힌다(8.1). 상한을 올리려면 목록 읽기 칸을 좁히는 별도 작업이 먼저다.
+- 엑셀은 첫 시트만, 스캔 PDF는 Drive 변환 OCR 품질에 따른다. 25MB 넘는 파일은 Drive 변환 한도(50MB) 안이면 읽는다.
+- HWP 원본 덮어쓰기 뒤 글자는 옛 글자로 남는다(8.1).
+- 화면은 업로드 직후 읽기를 기다리지 않으므로 올린 직후 몇 초~수십 초는 파일 안 글자로 찾히지 않는다.
