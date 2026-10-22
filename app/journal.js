@@ -811,6 +811,14 @@ function enter(detail) {
 window.KPTURouter?.on?.('journal', enter);
 // A renamed category list (자료실 분류) shows on the next draw of 자료실 새 자료.
 window.addEventListener('kptu:document-categories-changed', () => { if (materials.documents?.status === 'ok') { renderDay(); renderWeekly_(); } });
-window.KPTUJournal = {refresh:() => loadWeek({shared:true})};
+// SEARCH-전체검색: a search result line of 업무일지 opens that day (its week, then the day).
+function showDay(day) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(day || ''))) return;
+  if (mode !== 'day') setMode('day');
+  const week = weekStart(day);
+  if (week === start) { selectDay(day); return; }
+  start = week; selected = day; loadWeek();
+}
+window.KPTUJournal = {refresh:() => loadWeek({shared:true}), show:showDay};
 if (window.KPTURouter?.current === 'journal') enter();
 })();

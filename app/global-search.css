@@ -1,0 +1,76 @@
+/* SEARCH-전체검색: 검색칸·결과 창·검색 결과 화면. 그리는 곳은 global-search.js 하나. 값은 theme-tokens.css의 --ds-*·--kptu-*만 쓴다. */
+.gs-field{position:relative;display:flex;align-items:center;min-width:0}
+.gs-field-icon{position:absolute;left:10px;width:16px;height:16px;fill:none;stroke:var(--kptu-muted);stroke-width:1.8;stroke-linecap:round;pointer-events:none}
+.gs-input{box-sizing:border-box;width:100%;min-width:0;height:var(--ds-compact-height,32px);padding:0 10px 0 32px;border:var(--ds-line-width,.5px) solid var(--ds-line);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px)}
+.gs-input::placeholder{color:var(--kptu-muted)}
+.gs-input:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-1px}
+.gs-input::-webkit-search-cancel-button{cursor:pointer}
+/* 상단 줄 칸 자리(1024px~): 가운데 칸 하나, 너무 넓어지지 않게. */
+.app-topline .gs-top-field{flex:1 1 auto;width:100%;max-width:440px}
+
+/* 결과 창(PC): 검색칸 아래 펼침. 위치는 anchored-popup.js. */
+.gs-panel{position:fixed;z-index:60;box-sizing:border-box;margin:0;padding:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto;overscroll-behavior:contain}
+.gs-panel[hidden]{display:none!important}
+
+/* 공용 그리기(결과 창·결과 화면·폰 전체 화면) */
+.gs-results{display:flex;flex-direction:column;min-width:0}
+.gs-chips{padding:4px 8px;border-bottom:var(--ds-line-width,.5px) solid var(--ds-line)}
+.gs-status{margin:0;padding:8px 12px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.gs-status:empty{display:none}
+.gs-list{display:flex;flex-direction:column}
+.gs-group{display:flex;flex-direction:column}
+/* 묶음 제목: 옅은 바탕 한 줄 띠(아이콘 + 굵은 이름 + 오른쪽 건수), 위아래 구분선. */
+.gs-band{display:flex;align-items:center;gap:6px;min-height:28px;padding:4px 12px;border-top:var(--ds-line-width,.5px) solid var(--ds-line);border-bottom:var(--ds-line-width,.5px) solid var(--ds-line);background:var(--kptu-surface-subtle);font-size:var(--ds-text-meta,12px);color:var(--kptu-ink)}
+.gs-group:first-child .gs-band{border-top:0}
+.gs-band-name{font-weight:var(--ds-weight-medium,600)}
+.gs-band-count{margin-left:auto;color:var(--kptu-muted)}
+.gs-icon{flex:none;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;color:var(--kptu-muted)}
+.gs-band .gs-icon{color:var(--ds-section-ink)}
+/* 결과 줄: 한 칸 들여쓰기. */
+.gs-row,.gs-more{position:relative;display:flex;align-items:flex-start;gap:8px;min-height:var(--kptu-touch-target,44px);box-sizing:border-box;padding:var(--ds-row-pad-y,9px) 12px var(--ds-row-pad-y,9px) 28px;cursor:pointer;font-size:var(--ds-text-row,13px)}
+.gs-row .gs-icon{margin-top:1px}
+.gs-row+.gs-row,.gs-row+.gs-more{border-top:var(--ds-line-width,.5px) solid color-mix(in srgb,var(--ds-line) 50%,transparent)}
+.gs-row:hover,.gs-more:hover,.gs-row.is-active,.gs-more.is-active{background:var(--kptu-primary-soft)}
+.gs-row.is-active,.gs-more.is-active{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+.gs-row-main{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}
+.gs-row-head{display:flex;align-items:center;gap:6px;min-width:0}
+.gs-row-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--kptu-ink)}
+.gs-row-meta{font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gs-row-snippet{font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gs-mark{background:var(--ds-project-yellow-soft);color:inherit;border-radius:2px;padding:0 1px}
+.gs-state{flex:none;padding:0 6px;border-radius:var(--ds-chip-radius,999px);background:var(--ds-kind-other-soft);color:var(--ds-kind-other-ink);font-size:11px;line-height:18px}
+.gs-more{align-items:center;color:var(--kptu-link,var(--kptu-primary-ink));font-size:var(--ds-text-meta,12px);min-height:36px}
+.gs-more::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+.gs-foot{margin:0;padding:8px 12px;border-top:var(--ds-line-width,.5px) solid var(--ds-line);font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+
+/* 검색 결과 화면(?view=search). 폰·761~1023px는 화면 전체 검색(왼쪽 위 ←). */
+#appView #searchView{min-width:0}
+.gs-view-bar{display:flex;align-items:center;gap:6px;margin:0 0 8px}
+.gs-back{position:relative;flex:none;display:inline-grid;place-items:center;width:var(--ds-compact-height,32px);height:var(--ds-compact-height,32px);padding:0;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-ink);font-size:18px;line-height:1}
+.gs-back::after{content:"";position:absolute;inset:calc((var(--ds-compact-height,32px) - var(--kptu-touch-target,44px)) / 2)}
+.gs-back:hover{background:var(--kptu-primary-soft)}
+.gs-view-input{flex:1 1 auto}
+.gs-view-title{margin:0;font-size:var(--ds-text-title,18px);font-weight:var(--ds-weight-medium,600);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:none}
+.gs-view-body{border:var(--ds-line-width,.5px) solid var(--ds-line);border-radius:var(--ds-radius-box,10px);background:var(--kptu-surface);overflow:hidden}
+@media (min-width:1024px){
+  /* PC는 상단 줄 검색칸 하나로 고치고, 이 화면에는 제목만. */
+  .gs-view-input{display:none}
+  .gs-view-title{display:block;flex:1 1 auto}
+  #appView #searchView{max-width:1100px}
+}
+@media (max-width:760px){
+  #appView #searchView{padding-bottom:calc(var(--kptu-mobile-tab-height,56px) + 16px)}
+  .gs-view-bar{position:sticky;top:0;z-index:2;margin:0 -12px 8px;padding:6px 12px;background:var(--kptu-bg)}
+  .gs-input{height:40px;font-size:16px}
+  .gs-view-body{border-radius:var(--kptu-radius-md)}
+  .gs-row-title,.gs-row-snippet,.gs-row-meta{white-space:normal;overflow-wrap:anywhere}
+}
+
+/* 폰 메뉴 창 맨 위 검색칸(입구): 누르면 화면 전체 검색. 메뉴 판의 공용 버튼 규칙보다 앞서도록 .mobile-menu-panel로 한정. */
+.mobile-menu-search{padding:0 0 8px}
+.mobile-menu-search:empty{display:none}
+.mobile-menu-panel .gs-menu-entry{position:relative;display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;height:40px;padding:0 12px 0 32px;border:var(--ds-line-width,.5px) solid var(--ds-line);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-muted);font:inherit;font-size:var(--ds-compact-text,13px);text-align:left}
+.mobile-menu-panel .gs-menu-entry .gs-field-icon{left:10px}
+.mobile-menu-panel .gs-menu-entry:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+/* 761~1023px의 ☰ 메뉴 창에도 같은 입구(그 폭에는 상단 줄 검색칸이 없음). PC(1024px~)는 상단 줄 검색칸. */
+@media (min-width:1024px){.mobile-menu-search{display:none}}
