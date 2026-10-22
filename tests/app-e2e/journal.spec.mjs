@@ -1367,6 +1367,9 @@ async function originals(page,f){
   const q=new URL(r.request().url()).searchParams,key=q.has('organization_id')?'organization_id':'project_id',ids=q.get(key).replace(/^(eq\.|in\.\()/,'').replace(/\)$/,'').split(',');
   return r.fulfill({json:f.more.links.filter(l=>ids.includes(l[key])).map(l=>({...l,note:note(l.note_id)}))});
  });
+ // 회의 화면 자기 목록(전체 회의).
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_meetings'&&u.searchParams.get('select')==='*'&&!u.searchParams.has('id'),r=>r.fulfill({json:f.more.meetings}));
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_meetings'&&/^eq\./.test(u.searchParams.get('id')||''),r=>{const id=new URL(r.request().url()).searchParams.get('id').slice(3);return r.fulfill({json:f.more.meetings.filter(m=>m.id===id)});});
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_project_progress_updates'&&u.searchParams.has('project_id'),r=>r.fulfill({json:f.more.progress.map(x=>({...x,workstream_id:null}))}));
 }
 const flashed=(page,sel)=>expect.poll(()=>page.evaluate(s=>{const e=document.querySelector(s);if(!e||!e.getClientRects().length)return 'none';const b=e.getBoundingClientRect();return e.hasAttribute('data-journal-flash')&&b.top>=0&&b.top<innerHeight-24?'lit':'dark';},sel)).toBe('lit');
@@ -1407,12 +1410,14 @@ for(const width of [390,1280])test(`[업무일지] 누르면 원본: 담당조�
  await flashed(page,'#ps3Body [data-ps3-record="p1"]');
  await page.goBack();
  await expect(page.locator('#journalView')).toBeVisible();await expect(page.locator('#ps3DetailModal:not(.hidden)')).toHaveCount(0);await expect(progress).toBeFocused();
+
  // ④ ⋯ [원래 업데이트 보기]: 바구니의 그 업데이트 원문. 뒤로가기 한 번이면 일지.
  const more=group(page,'orgs').locator('li',{hasText:'안녕하세요 위원장님'}).locator('.journal-item-more');
  await more.locator('summary').click();
  await more.getByRole('button',{name:'원래 업데이트 보기'}).click();
  await expect(page.locator('#basketView')).toBeVisible();
  await expect(page.locator('[data-basket-text]')).toHaveValue(GREETING);
+
  await page.goBack();
  await expect(page.locator('#journalView')).toBeVisible();await expect(page.locator('#journalRoot [data-journal-day-title]')).toHaveText('10월 6일 화요일');
  // ⑤ 회의·활동 결과 → 그 회의 결과(PC 회의 화면 오른쪽 칸, 폰 회의 결과 창).

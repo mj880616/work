@@ -555,7 +555,18 @@ function refocusAfter(modalSelector, trigger) {
   const watch = new MutationObserver(() => {
     if (!modal.classList.contains('hidden')) return;
     watch.disconnect();
-    requestAnimationFrame(() => { if (window.KPTURouter?.current === 'journal' && trigger.isConnected) trigger.focus({preventScroll:true}); });
+    requestAnimationFrame(() => {
+      if (window.KPTURouter?.current !== 'journal') return;
+      // The project window writes ?project= into this screen's entry while it is open; once it is closed the journal's entry
+      // must not keep it, or a later back to this entry would open the project again over the journal.
+      const url = new URL(location.href);
+      if (url.searchParams.has('project')) {
+        url.searchParams.delete('project');
+        const state = {...(history.state || {})}; delete state.project; delete state.kptuOverlay;
+        history.replaceState(state, '', url.pathname + url.search + url.hash);
+      }
+      if (trigger.isConnected) trigger.focus({preventScroll:true});
+    });
   });
   watch.observe(modal, {attributes:true, attributeFilter:['class']});
   window.addEventListener('kptu:view-changed', () => watch.disconnect(), {once:true});
@@ -578,7 +589,16 @@ async function openOriginal(target, trigger) {
     if (target.type === 'meeting') {
       if (wide) {
         await loader.load('meetings'); rememberReturn(trigger);
-        if (goView('meetings')) window.KPTUMeetingColumns?.select?.({id:String(target.id), kind:target.kind});
+        if (!goView('meetings')) { pendingReturn = null; return; }
+        // The meeting screen reads its list after it shows; choose the round once its row is drawn (the screen's own select).
+        for (let i = 0; i < 300 && window.KPTURouter?.current === 'meetings'; i++) {
+          if (document.querySelector(`#meetingList [data-meeting-round="${CSS.escape(String(target.id))}"], #meetingList [data-meeting-kind="${CSS.escape(target.kind || '')}"]`)) {
+            window.KPTUMeetingColumns?.select?.({id:String(target.id), kind:target.kind});
+            await flashRecord('#meetingList #mcolResult');
+            break;
+          }
+          await new Promise(resolve => requestAnimationFrame(resolve));
+        }
         return;
       }
       await loader?.prepare?.('meetings'); await import('./meeting-round-detail.js');
