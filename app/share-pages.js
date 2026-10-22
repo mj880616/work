@@ -665,7 +665,8 @@ root.addEventListener('keydown', event => {
   // Full screen: Enter in the title goes on to the text (not during a 한글 composition).
   if (event.key === 'Enter' && !event.isComposing && editing?.mode === 'full' && 'spTitle' in (event.target.dataset || {})) { event.preventDefault(); docEditor?.focus(); return; }
   if (event.key !== 'Escape' || !editing || event.defaultPrevented) return;
-  if (event.target.closest?.('[data-sp-links-panel],[data-sp-top-extra]')) { event.preventDefault(); closeTopPanels({focus:true}); return; }
+  const panelOpen = editorView.querySelector('[data-sp-links-panel]:not([hidden]),[data-sp-top-extra].is-open');
+  if (panelOpen && event.target.closest?.('.sp-topline')) { event.preventDefault(); closeTopPanels({focus:true}); return; }
   // Esc closes an open ⋯ / [+ 블록] menu (focus back on its button), otherwise finishes the open block keeping what was typed.
   const menu = event.target.closest?.('details[open]');
   if (menu && root.contains(menu)) { event.preventDefault(); menu.open = false; menu.querySelector('summary')?.focus(); return; }

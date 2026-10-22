@@ -235,10 +235,13 @@ test('phone width: one row of small buttons scrolls sideways, page itself never 
   expect(m.wrap).toBe('nowrap');
   expect(m.overflow).toBe('auto');
   expect(m.scroll).toBeGreaterThan(m.client);
-  const heights = await row.locator('button').evaluateAll(list => list.map(b => Math.round(b.getBoundingClientRect().height)));
+  const heights = await row.locator('button:visible').evaluateAll(list => list.map(b => Math.round(b.getBoundingClientRect().height)));
   for (const h of heights) expect(h).toBeLessThanOrEqual(28);
-  const tops = await row.locator('button').evaluateAll(list => new Set(list.map(b => Math.round(b.getBoundingClientRect().top))).size);
+  const tops = await row.locator('button:visible').evaluateAll(list => new Set(list.map(b => Math.round(b.getBoundingClientRect().top))).size);
   expect(tops).toBe(1);
+  // SHARE-전체편집: on a phone the row is swiped sideways, with no scroll bar and no [⋯].
+  expect(await row.evaluate(el => getComputedStyle(el).scrollbarWidth)).toBe('none');
+  await expect(row.locator('.ed-more')).toBeHidden();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({path: 'test-results/ed-editor-390.png'});
 });
@@ -257,4 +260,30 @@ test('PC width: the row fits and the document reads as it is drawn for readers',
   expect(html).toContain('<strong>굵은</strong>');
   expect(html).toContain('<blockquote class="ed-quote">');
   await page.screenshot({path: 'test-results/ed-editor-1280.png'});
+});
+
+// SHARE-전체편집: wider than a phone the row never scrolls sideways; what does not fit goes under [⋯] and still works.
+test('narrow PC width: buttons that do not fit go under [⋯], no sideways scroll bar, and they still work', async ({page}) => {
+  await page.setViewportSize({width: 800, height: 700});
+  await page.goto(url);
+  await expect(page.locator('body')).toHaveAttribute('data-ready', '1');
+  await page.evaluate(() => { document.querySelector('.ed-editor').parentElement.style.width = '520px'; });
+  const row = page.locator('.ed-tools'), more = row.locator('.ed-more');
+  await expect(more).toBeVisible();
+  await expect.poll(() => row.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
+  const box = page.getByRole('textbox', {name: '본문'});
+  await box.click();
+  await page.keyboard.type('가나다');
+  await more.click();
+  await expect(more).toHaveAttribute('aria-expanded', 'true');
+  const menu = page.getByRole('group', {name: '서식 더보기'});
+  await menu.getByRole('button', {name: '되돌리기', exact: true}).click();
+  await expect(box).toBeFocused();
+  expect((await value(page)).doc.content[0].content).toBeUndefined();
+  await expect(menu).toBeHidden();
+  // Wide again: every button back on the row, [⋯] gone.
+  await page.evaluate(() => { document.querySelector('.ed-editor').parentElement.style.width = ''; });
+  await page.setViewportSize({width: 1280, height: 700});
+  await expect(more).toBeHidden();
+  await expect(row.getByRole('button', {name: '되돌리기', exact: true})).toBeVisible();
 });
