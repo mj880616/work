@@ -278,7 +278,8 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
       upload:fileHandle,
       onInput:value=>{input.value=value;},
       // The basket screen's input has no ▾: a place chosen in the window is used for that one save only.
-      onPlace:list=>{if(basketOnly)return;setPlaces(list);if(mode!=='update')setMode('update');else paint();},
+      // The window may have read the place lists itself (the home had not yet): read them here too so the button says the names.
+      onPlace:list=>{if(basketOnly)return;setPlaces(list);if(mode!=='update')setMode('update');else paint();if(list.length&&!orgChoices.groups.length&&!projectChoices.length)void choices();},
       updateVia:async(value,list)=>{input.value=value;setPlaces(list);if(mode!=='update')setMode('update');try{return await save();}finally{if(basketOnly){setPlaces([]);paint();}}},
       onSaved:saved=>{if(saved.kind==='note'){input.value='';expanded=false;paint();}},
       onClose:(value,{saved})=>{if(!saved){input.value=value;resetChoices();paint();}input.focus({preventScroll:true});}});
@@ -313,7 +314,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   }
   input.addEventListener('keydown',e=>{if(mode==='task'&&e.key==='Enter'&&!e.isComposing&&e.keyCode!==229){e.preventDefault();void save();}});
   window.addEventListener('kptu:before-reload',e=>{if(saving)e.preventDefault();else if(input.value.length||taskAttempt||upload.entries.some(e=>e.kind!=='success'))e.detail.otherDraft=true;});
-  window.addEventListener('kptu:session-changed',()=>{const nextEpoch=taskRuntime.session.epoch();if(nextEpoch!==taskSessionEpoch){taskSessionEpoch=nextEpoch;taskSequence++;taskAttempt=null;taskRequest=null;taskReading=false;if(mode==='task'){saving=false;taskControls(false)}}const nextOwner=quickScope();if(nextOwner===quickOwner)return;dismissForNavigation();quickOwner=nextOwner;projectChoices=[];orgChoices={recent:[],groups:[]};choiceEpoch++;choicesFlight=null;project='';organization='';updateProject='';due='';dateKind='';input.value='';upload=createUploadBatch();expanded=false;paint();});
+  window.addEventListener('kptu:session-changed',()=>{const nextEpoch=taskRuntime.session.epoch();if(nextEpoch!==taskSessionEpoch){taskSessionEpoch=nextEpoch;taskSequence++;taskAttempt=null;taskRequest=null;taskReading=false;if(mode==='task'){saving=false;taskControls(false)}}const nextOwner=quickScope();if(nextOwner===quickOwner)return;dismissForNavigation();quickOwner=nextOwner;projectChoices=[];orgChoices={recent:[],groups:[]};choiceEpoch++;choicesFlight=null;project='';places=[];pendingPlaces=[];due='';dateKind='';input.value='';upload=createUploadBatch();expanded=false;paint();});
   window.addEventListener('kptu:project-catalog-updated',()=>{choiceEpoch++;choicesFlight=null;invalidateProjects();if(expanded&&mode==='task'&&!taskOnly)void choices();});
   window.KPTURouter.on(view,()=>{choiceEpoch++;choicesFlight=null;if(expanded&&mode==='task'&&!taskOnly)void choices();});
   if(basketOnly){box.querySelector('.home-quick-modes').remove();box.querySelector('[data-goto="basket"]').remove();input.setAttribute('aria-label','바구니에 업데이트 입력');}

@@ -56,7 +56,7 @@ for(const width of [390,1280]){
  test(`home [크게]: a place chosen at home comes along; ▾ in the window changes it; organization and project records ${width}`,async({page})=>{
   const f=await fixture(page,width),q=quick(page);
   await q.locator('[data-quick-input]').fill('조직 기록');
-  await q.locator('[data-quick-org]').click();await page.getByRole('dialog').getByRole('button',{name:'테스트 조직',exact:true}).first().click();
+  await q.locator('[data-quick-org]').click();await page.getByRole('dialog').getByRole('button',{name:'테스트 조직',exact:true}).first().click();await page.getByRole('dialog').getByRole('button',{name:'저장',exact:true}).click();
   await expect(q).toHaveAttribute('data-mode','update');
   await q.locator('[data-quick-big]').click();
   const e=editor(page);await expect(e).toBeVisible();
@@ -72,7 +72,9 @@ for(const width of [390,1280]){
   await e.locator('[data-md-kind-menu]').click();await expect(sheet(page)).toBeVisible();
   await expect(sheet(page).locator('[data-sheet-basket] button')).toHaveText('바구니(미분류)');
   await sheet(page).locator('[data-sheet-projects]').getByRole('button',{name:'테스트 프로젝트',exact:true}).click();
-  await expect(sheet(page)).toBeHidden();
+  // UPD-여러곳고르기: the press only marks it; [저장] keeps it (the home input went back to the basket after the add above).
+  await expect(sheet(page)).toBeVisible();await expect(sheet(page).locator('[data-sheet-count]')).toHaveText('1곳 선택됨');
+  await sheet(page).getByRole('button',{name:'저장',exact:true}).click();await expect(sheet(page)).toBeHidden();
   await expect(e.locator('[data-md-kind="update"]')).toHaveText('테스트 프로젝트');
   await expect(e.locator('.md-editor-status')).toHaveText('테스트 프로젝트 기록에 저장돼요.');
   await e.locator('[data-md-save-icon]').click();await expect(page.locator('#mdEditor')).toHaveCount(0);
@@ -93,7 +95,7 @@ for(const width of [390,1280]){
   await expect(e.locator('[data-md-title]')).toBeHidden();
   await e.locator('.md-editor-text').fill('쓰기에서 조직으로');
   await e.locator('[data-md-kind-menu]').click();await expect(sheet(page)).toBeVisible();
-  await sheet(page).getByRole('button',{name:'테스트 조직',exact:true}).first().click();
+  await sheet(page).getByRole('button',{name:'테스트 조직',exact:true}).first().click();await sheet(page).getByRole('button',{name:'저장',exact:true}).click();
   await expect(e.locator('[data-md-kind="update"]')).toHaveText('테스트 조직');
   expect(await fits(page)).toBe(true);
   await e.locator('[data-md-save-icon]').click();await expect(page.locator('#mdEditor')).toHaveCount(0);
@@ -120,7 +122,7 @@ test('attachments in the home input go with a basket update or a note, never wit
  await q.locator('[data-quick-input]').fill('첨부와 함께');
  await q.locator('[data-quick-big]').click();
  const e=editor(page);await expect(e).toBeVisible();
- await e.locator('[data-md-kind-menu]').click();await sheet(page).getByRole('button',{name:'테스트 조직',exact:true}).first().click();
+ await e.locator('[data-md-kind-menu]').click();await sheet(page).getByRole('button',{name:'테스트 조직',exact:true}).first().click();await sheet(page).getByRole('button',{name:'저장',exact:true}).click();
  await e.locator('[data-md-save-icon]').click();
  await expect(e.locator('.md-editor-status')).toHaveText('첨부는 바구니로만 저장돼요. ▾에서 바구니를 고르거나 첨부를 빼 주세요.');
  expect(f.notes).toEqual([]);expect(f.orgs).toEqual([]);expect(uploads).toEqual([]);

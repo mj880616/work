@@ -108,7 +108,7 @@ for(const width of [390,1280]){
   await chooseFile(page,clip);
   await expect(clip.locator('[data-basket-count]')).toHaveText('1');await expect(e.locator('[data-basket-file]')).toHaveCount(1);
   // An organization record with a file: the existing rule, nothing saved.
-  await e.locator('[data-md-kind-menu]').click();await page.locator('#mdPlaceSheet').getByRole('button',{name:'테스트 조직',exact:true}).first().click();
+  await e.locator('[data-md-kind-menu]').click();await page.locator('#mdPlaceSheet').getByRole('button',{name:'테스트 조직',exact:true}).first().click();await page.locator('#mdPlaceSheet').getByRole('button',{name:'저장',exact:true}).click();
   await expect(e.locator('[data-md-kind="update"]')).toHaveText('테스트 조직');
   await e.locator('[data-md-save-icon]').click();
   await expect(e.locator('.md-editor-status')).toHaveText('첨부는 바구니로만 저장돼요. ▾에서 바구니를 고르거나 첨부를 빼 주세요.');

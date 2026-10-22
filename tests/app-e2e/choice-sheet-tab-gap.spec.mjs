@@ -104,7 +104,12 @@ test('다른 고르기 시트(홈 [업데이트 ▾] 조직)도 아래 탭 위�
  await quick.locator('[data-quick-mode="update"]').tap();await quick.locator('[data-quick-org]').tap();
  const sheet=page.getByRole('dialog');await expect(sheet).toBeVisible();await settle(sheet);
  await expectAboveTabs(page,sheet);
- const last=await sheet.getByRole('button',{name:names.at(-1),exact:true}).last().boundingBox(),x=last.x+last.width/2,y=last.y+last.height-2;
+ // UPD-여러곳고르기: a press on a row marks it and keeps the sheet open; [저장] (at the very bottom, just above the tabs) closes it.
+ // The same spot pressed again after the sheet closed must not reach the tab under it.
+ const last=await sheet.getByRole('button',{name:names.at(-1),exact:true}).last().boundingBox();
+ await touch(page,last.x+last.width/2,last.y+last.height/2);
+ await expect(sheet).toBeVisible();await expect(sheet.getByRole('button',{name:names.at(-1),exact:true}).last()).toHaveAttribute('aria-pressed','true');
+ const save=await sheet.getByRole('button',{name:'저장',exact:true}).boundingBox(),x=save.x+save.width/2,y=save.y+save.height-2;
  await touch(page,x,y);
  await expect(sheet).toBeHidden();
  await expect(quick.locator('[data-quick-org]')).toHaveAccessibleName(`기록할 곳 선택: ${names.at(-1)}`);

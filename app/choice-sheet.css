@@ -85,7 +85,17 @@ body:has(.home-choice-sheet[open]) { overflow:hidden; }
 .home-choice-sheet .home-choice-foot button { box-sizing:border-box; min-width:64px; height:var(--kptu-touch-target,44px); padding:0 16px; border:1px solid var(--kptu-border-strong); border-radius:var(--ds-radius-control,8px); font-size:14px; background:var(--kptu-surface); }
 .home-choice-sheet .home-choice-foot .home-choice-save { border-color:var(--kptu-primary); background:var(--kptu-primary); color:var(--kptu-on-primary); font-weight:var(--ds-weight-medium,500); }
 .home-choice-sheet.home-choice-anchored .home-choice-foot button { height:32px; padding:0 14px; font-size:13px; }
+/* PC: 아래 줄이 창 높이를 덜 쓰도록 간격을 줄인다(1280×800에서 두 열이 스크롤 없이 보이게). 누르는 범위는 ::after 44px. */
+.home-choice-sheet.home-choice-anchored.home-choice-multi { padding-bottom:12px; }
+.home-choice-sheet.home-choice-anchored .home-choice-foot { margin-top:6px; padding-top:8px; }
+.home-choice-sheet.home-choice-anchored .home-choice-foot button { position:relative; }
+.home-choice-sheet.home-choice-anchored .home-choice-foot button::after { content:""; position:absolute; left:0; right:0; top:50%; height:var(--kptu-touch-target,44px); transform:translateY(-50%); }
 /* 조직 이름은 줄이지 않는다(긴 이름은 줄 안에서 줄바꿈). */
-.home-choice-sheet .home-choice-org-items .home-choice-pick { height:auto; min-height:var(--kptu-touch-target,44px); white-space:normal; }
-.home-choice-sheet .home-choice-org-items .home-choice-pick .home-choice-name { white-space:normal; overflow:visible; overflow-wrap:anywhere; }
+.home-choice-sheet .home-choice-org-items .home-choice-pick { height:auto; min-height:var(--kptu-touch-target,44px); white-space:normal; overflow:visible; text-overflow:clip; }
+.home-choice-sheet .home-choice-org-items .home-choice-pick .home-choice-name { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; }
+/* 넓은 PC(1024px~) 나란히 배치: 조직 열 안에서 묶음을 두 단으로 흘려 1280×800에서도 스크롤 없이 한 번에 보이게(UI-기록할곳창PC).
+   묶음은 단 사이에서 쪼개지지 않고, 각 조직은 여전히 한 줄에 하나. */
+.home-choice-sheet.home-choice-split [data-sheet-all] { columns:2; column-gap:12px; }
+.home-choice-sheet.home-choice-split [data-sheet-all] .home-choice-org-group { break-inside:avoid; }
+.home-choice-sheet.home-choice-split [data-sheet-all] .home-choice-org-group:not(:first-child) > .home-choice-group-name { margin-top:6px; }
 .home-choice-sheet.home-choice-anchored .home-choice-org-items .home-choice-pick { min-height:32px; padding-top:4px; padding-bottom:4px; line-height:20px; }
