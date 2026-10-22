@@ -31,6 +31,12 @@ test('share page doc block approval files pass risk checks and dry-run transform
   assert.match(code, /@\.key != "type" && @\.key != "doc"/);
   // The prerequisite pins the original 6-kind CHECK text and the one owner policy.
   assert.match(code, /@ == "links"\) \|\| @ == "updates"\)''::jsonpath/);
+  // check_clause outer parentheses differ by PostgreSQL major (16: one more pair, 17: one fewer; 2026-10-22 production
+  // dry-run stopped on the 16-only text). The guard accepts exactly those two texts and nothing else.
+  assert.match(code, /check_clause, '\\s\+', ' ', 'g'\)\) in \(/);
+  assert.match(code, /^'\(\(\(jsonb_typeof\(blocks\)/m);
+  assert.match(code, /^'\(\(jsonb_typeof\(blocks\)[^\n]*= jsonb_array_length\(blocks\)\)\)',$/m);
+  assert.match(code, /^'\(\(\(jsonb_typeof\(blocks\)[^\n]*= jsonb_array_length\(blocks\)\)\)\)',$/m);
   // The migration guard runs in the write request as the table owner, so information_schema sees the CHECK there
   // (and the strict grammar allows only text helpers in DO). The precheck runs as a read-only, non-owner role where
   // information_schema hides the row (2026-10-22 apply precheck stopped on this): it reads pg_constraint instead.
