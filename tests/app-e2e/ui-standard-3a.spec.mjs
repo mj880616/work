@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {expandLibraryTree} from './helpers/library-tree.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {enterLogin} from './helpers/login-entry.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
@@ -71,6 +72,8 @@ async function sameButtons(page,region){
   if(await control.evaluate(el=>el.matches('.icon-btn,.kptu-list-row,[data-ps3-project]')||!!el.closest('#wdDetailPane')||innerWidth<761&&el.matches('#newDocumentBtn,#newMeetingBtn,.so-add-link')))continue;
   const s=await look(control),label=(await control.textContent()).trim();
   // UI-버튼크기: 필터 칩(자료실·회의)은 32px 알약, 보조 버튼([분류 수정])은 32px. 둘 다 누르는 범위 44px. 나머지는 46px·8px.
+  // LIB-토글트리: [모두 펴기/접기]·[N건 더]는 안내 줄 안의 작은 글자 버튼(28px, 테두리 없음, 누르는 범위 44px, UI-버튼기준).
+  if(await control.evaluate(el=>el.matches('.lu-expand-all,.lu-more-files'))){expect(s.height,label).toBe(28);expect(s.borderWidth,label).toBe('0px');expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),label).toBe(44);expect(s.shadow,label).toBe('none');continue}
   const kind=await control.evaluate(el=>el.matches('.filter-chips button')?'chip':el.matches('#manageLibraryBtn')?'compact':'button');
   // UI-PC버튼36: PC(≥1024) 목록 머리 추가 버튼은 입력칸 높이(36px), 누르는 범위 44px.
   if(kind==='button'){const pcAdd=await control.evaluate(el=>innerWidth>=1024&&el.matches('#newDocumentBtn,#newMeetingBtn,#newProjectBtn'));expect(s.height,label).toBe(pcAdd?36:46);expect(s.radius,label).toBe('8px');if(pcAdd)expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').minHeight)),label).toBe(44);}
@@ -127,6 +130,8 @@ for(const width of [390,1280])test(`자료실: 종류 색(확장자, 없으면 D
  const {errors}=await boot(page,width);
  await view(page,'library');
  const rows=page.locator('#documentList .lu-row');await expect(rows).toHaveCount(9);
+ // LIB-토글트리: 줄을 보는 시험이라 토글을 모두 편다.
+ await expandLibraryTree(page);
  const kinds=rows.locator('.lu-file-kind');
  await expect(kinds).toHaveText(['PDF','HWP','XLS','DOC','PPT','DOC','XLS','PDF','파일']);
  const expected=['pdf','hwp','xls','doc','ppt','doc','xls','pdf','other'];
