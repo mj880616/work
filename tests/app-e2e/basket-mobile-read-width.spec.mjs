@@ -4,7 +4,9 @@ import { chooseBasketKind } from './helpers/basket-kind.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // BASKET-모바일본문폭: on a phone the title row keeps the room for the right-hand buttons, but the text and tables
 // below it use the whole card width; a many-column table scrolls sideways and keeps a date such as 10/21(수) on one line.
-const TABLE='| 날짜 | 장소 | 내용 | 참석 | 담당 | 비고 | 결과 |\n| --- | --- | --- | --- | --- | --- | --- |\n| 10/21(수) | 본사 회의실 | 교섭 준비 회의 | 12명 | 김명진 | 자료 취합 | 완료 |\n| 10/22(목) | 서울 현장 | 현장 간담회 진행 | 30명 | 박승지 | 사진 첨부 | 진행 |';
+const X=Array.from({length:4},(_,i)=>'추가열'+i+'번아주긴제목입니다열');
+const row=a=>'| '+a.concat(X).join(' | ')+' |';
+const TABLE=[row(['날짜','장소','내용','참석','담당','비고','결과']),'|'+' --- |'.repeat(11),row(['10/21(수)','본사 회의실','교섭 준비 회의','12명','김명진','자료 취합','완료']),row(['10/22(목)','서울 현장','현장 간담회 진행','30명','박승지','사진 첨부','진행'])].join('\n');
 const TITLE='첫 줄 제목입니다 이 줄은 버튼 옆에 놓입니다 길게 길게 이어집니다';
 const BODY=TITLE+'\n\n'+'둘째 문단은 카드 오른쪽 끝까지 폭을 모두 씁니다. '.repeat(6)+'\n\n'+TABLE;
 function rows(){return [
@@ -45,20 +47,20 @@ async function check(page,card,text,tools,info,name){
  if(tools){const tl=await tools.boundingBox();const first=await text.evaluate(el=>{const r=document.createRange();r.selectNodeContents(el.querySelector('p')||el);return r.getClientRects()[0].right;});expect(first).toBeLessThanOrEqual(tl.x+2);}
  await page.screenshot({path:info.outputPath(`${name}.png`),fullPage:true});
 }
-test('phone update card: body uses the full card width, table scrolls sideways',async({page},info)=>{
- await page.setViewportSize({width:390,height:900});const f=await fixture(page);
+for(const width of [390,1280])test(`update card ${width}: body uses the full card width, table scrolls sideways`,async({page},info)=>{
+ await page.setViewportSize({width,height:900});const f=await fixture(page);
  await page.locator('[data-basket-row="m1"]').click();
  const card=page.locator('[data-basket-card]'),text=card.locator('[data-basket-read-text]');
  await expect(text).toHaveClass(/md-body/);
- await check(page,card,text,card.locator('.basket-card-tools'),info,'update-390');
+ await check(page,card,text,card.locator('.basket-card-tools'),info,`update-${width}`);
  expect(f.errors).toEqual([]);
 });
-test('phone note: body uses the full card width, table scrolls sideways',async({page},info)=>{
- await page.setViewportSize({width:390,height:900});const f=await fixture(page);
+for(const width of [390,1280])test(`note ${width}: body uses the full card width, table scrolls sideways`,async({page},info)=>{
+ await page.setViewportSize({width,height:900});const f=await fixture(page);
  await chooseBasketKind(page,'note');
  await page.locator('[data-note-host] [data-note-row]').first().click();
  const detail=page.locator('[data-note-detail]'),text=detail.locator('[data-basket-read-text]');
  await expect(text).toHaveClass(/md-body/);
- await check(page,detail.locator('[data-note-read]'),text,null,info,'note-390');
+ await check(page,detail.locator('[data-note-read]'),text,null,info,`note-${width}`);
  expect(f.errors).toEqual([]);
 });
