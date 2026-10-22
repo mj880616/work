@@ -13,7 +13,10 @@
 //   화면은 주(월요일)와 조직 ID만 보낸다. 요약은 owner RLS 표 app_weekly_org_summaries에 쓰되, 고친 요약(edited)은 보내지도 덮어쓰지도 않는다.
 // 자료실 빈 칸 채우기(kind=library_fill, LIB-AI자동분류, docs/design/library-ai-fill.md):
 //   fill = 막 올린 자료(1시간 안)의 제목·자료 날짜·작성 주체·유형 중 사용자가 넣지 않은 칸만 바로 저장(사용자 요청 ①, 버튼 없음).
-//   propose = 기존 자료의 정리 안 된 칸에 대한 제안 목록만 돌려준다(저장 없음, 적용은 사용자 확인 뒤 별도 단계 ⑥).
+//   propose = 기존 자료의 정리 안 된 칸에 대한 제안 목록만 돌려준다(저장 없음). 2026-10-22 LIB-자동정리 뒤로 화면은 쓰지 않는다.
+//   tidy = 기존 자료(올린 지 1시간 지난 것)의 정리 안 된 칸을 버튼 없이 바꾼다(LIB-자동정리, 사용자 결정 2026-10-22 20:54).
+//     바꾸기 전 원래 값은 DB 함수 app_library_auto_tidy_apply가 백업 표에 남기고 같은 트랜잭션에서 바꾼다. AI에 한 번 보낸 자료는
+//     시도 기록(app_library_tidy_attempts)이 있어 다시 보내지 않는다.
 //   칸별 안쪽 기록 field_origin('ai'·'user')은 화면에 보이지 않는다. 'user' 칸은 어느 쪽도 쓰지 않는다.
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import {
@@ -26,7 +29,7 @@ import {
 } from "./ledger-candidates.ts";
 import {
   type DocRow, fillableFields, LIBRARY_FIELDS, LIBRARY_FILL_INSTRUCTIONS, LIBRARY_FILL_SCHEMA, LIBRARY_FILL_WINDOW_MS,
-  LIBRARY_MAX_OUTPUT_TOKENS, LIBRARY_PROPOSE_BATCH, type LibraryField, libraryMaterial, type MaterialFile, parseLibraryFill,
+  LIBRARY_MAX_OUTPUT_TOKENS, LIBRARY_PROPOSE_BATCH, legacyUserFields, type LibraryField, libraryMaterial, type MaterialFile, parseLibraryFill,
   proposalsFor, readOrigin, validCategories,
 } from "./library-fill.ts";
 import {
@@ -291,7 +294,8 @@ function parseOrgSummaryRequest(b: Record<string, unknown>): OrgSummaryInput {
   if (unique.length !== ids.length) throw new Fail(400, "invalid_request");
   return { kind: "org_summary", week_start: week, organization_ids: unique };
 }
-type LibraryFillInput = { kind: "library_fill"; mode: "fill" | "propose"; document_ids: string[]; keep: LibraryField[] };
+type LibraryMode = "fill" | "propose" | "tidy";
+type LibraryFillInput = { kind: "library_fill"; mode: LibraryMode; document_ids: string[]; keep: LibraryField[] };
 
 // 화면은 ID만 보낸다(4.3). 모르는 키·잘못된 UUID는 거절.
 // 챙길 것 찾기는 글·ID 없이 "언제 찾나"만 보낸다: auto(하루 처음 열 때, 오늘 이미 찾았으면 건너뜀) / again([다시 찾기]).
@@ -299,7 +303,7 @@ type LibraryFillInput = { kind: "library_fill"; mode: "fill" | "propose"; docume
 // 자료실 빈 칸 채우기도 자료 ID(1~10개)와, 올릴 때 사용자가 직접 넣은 칸 이름(keep, fill만)만 보낸다.
 function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   const keys = Object.keys(b).sort().join(",");
-  if (b.mode === "fill" ? keys !== "document_ids,keep,kind,mode" : b.mode === "propose" ? keys !== "document_ids,kind,mode" : true) {
+  if (b.mode === "fill" ? keys !== "document_ids,keep,kind,mode" : b.mode === "propose" || b.mode === "tidy" ? keys !== "document_ids,kind,mode" : true) {
     throw new Fail(400, "invalid_request");
   }
   const ids = b.document_ids;
@@ -316,7 +320,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
     }
     keep = b.keep as LibraryField[];
   }
-  return { kind: "library_fill", mode: b.mode as "fill" | "propose", document_ids: unique, keep };
+  return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
 function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LibraryFillInput | OrgSummaryInput {
@@ -958,7 +962,7 @@ async function runLedgerCandidates(ctx: Ctx, deps: RadarDeps): Promise<Response>
 
 // ---- 자료실 빈 칸 채우기(library_fill, LIB-AI자동분류) -----------------------------------------------------------
 
-const LIBRARY_SELECT = "id,workspace_id,title,category,source,document_date,file_name,mime_type,created_at,updated_at,field_origin,extracted_text,extraction_status";
+const LIBRARY_SELECT = "id,workspace_id,title,category,source,document_date,file_name,mime_type,created_at,updated_at,field_origin,extracted_text,extraction_status,classification_note";
 
 // jsonb가 돌려주는 키 순서(짧은 것 먼저, 같으면 바이트 순)로 맞춘다. 화면의 저장 확인 비교와 같은 모양.
 const canonicalOrigin = (o: Record<string, string>) =>
@@ -974,7 +978,7 @@ async function readLibraryDocs(ctx: Ctx, ids: string[]) {
     throw new Fail(503, "library_unavailable");
   }
   if (!Array.isArray(rows) || rows.length > ids.length) throw new Fail(503, "library_unavailable");
-  const docs: (DocRow & { updated_at: string | null; text: string })[] = [];
+  const docs: (DocRow & { updated_at: string | null; text: string; legacy_user: LibraryField[] })[] = [];
   for (const raw of rows as Record<string, unknown>[]) {
     const id = String(raw.id ?? "").toLowerCase();
     if (!ids.includes(id) || String(raw.workspace_id ?? "").toLowerCase() !== ctx.workspaceId) continue;
@@ -986,6 +990,7 @@ async function readLibraryDocs(ctx: Ctx, ids: string[]) {
       document_date: str(raw.document_date), file_name: str(raw.file_name), mime_type: str(raw.mime_type), created_at: str(raw.created_at),
       updated_at: str(raw.updated_at), field_origin: origin,
       text: raw.extraction_status === "ready" && typeof raw.extracted_text === "string" ? raw.extracted_text : "",
+      legacy_user: legacyUserFields(raw.classification_note),
     });
   }
   return docs;
@@ -998,6 +1003,37 @@ async function readCategories(ctx: Ctx): Promise<string[]> {
   } catch {
     return validCategories(null);
   }
+}
+
+// tidy: 이미 AI에 보낸 자료(시도 기록). 표가 없으면(DB 적용 전) library_not_ready.
+async function readTidyAttempts(ctx: Ctx, ids: string[]): Promise<Set<string>> {
+  let rows: unknown;
+  try {
+    rows = await rest(ctx, `app_library_tidy_attempts?document_id=in.(${ids.join(",")})&workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&select=document_id&limit=${ids.length + 1}`);
+  } catch (e) {
+    if (["rest_400", "rest_404"].includes((e as Error)?.message)) throw new Fail(503, "library_not_ready");
+    throw new Fail(503, "library_unavailable");
+  }
+  if (!Array.isArray(rows) || rows.length > ids.length) throw new Fail(503, "library_unavailable");
+  return new Set((rows as Record<string, unknown>[]).map((r) => String(r?.document_id ?? "").toLowerCase()));
+}
+
+type TidyItem = { document_id: string; updated_at: string; changes: Record<string, string> };
+// tidy 저장: 백업·바꾸기·시도 기록을 DB 함수 하나(한 트랜잭션)로. 함수가 없으면(DB 적용 전) library_not_ready.
+async function applyTidy(ctx: Ctx, batch: string, items: TidyItem[]) {
+  const r = await ctx.doFetch(`${ctx.sb}/rest/v1/rpc/app_library_auto_tidy_apply`, {
+    method: "POST",
+    headers: { apikey: ctx.anon, Authorization: `Bearer ${ctx.token}`, "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ p_batch: batch, p_items: items }),
+  });
+  if (!r.ok) {
+    try { await r.body?.cancel(); } catch { /* ignore */ }
+    if (r.status === 404) throw new Fail(503, "library_not_ready");
+    throw new Fail(503, "library_unavailable");
+  }
+  const out = await readBoundedJson(r, { maxBytes: 64 * 1024 }) as Record<string, unknown> | null;
+  const n = (v: unknown) => (Number.isSafeInteger(v) && (v as number) >= 0 ? v as number : 0);
+  return { documents: n(out?.documents), fields: n(out?.fields), moved: n(out?.moved) };
 }
 
 // 바꿀 칸만 저장한다. 읽은 뒤 사용자가 고쳤으면(updated_at이 달라짐) 0행이 바뀌고 건너뛴다.
@@ -1019,11 +1055,15 @@ async function runLibraryFill(ctx: Ctx, input: LibraryFillInput, deps: RadarDeps
   const docs = await readLibraryDocs(ctx, input.document_ids);
   if (!docs.length) throw new Fail(404, "not_found");
   const categories = await readCategories(ctx);
-  // fill은 막 올린 자료만(오래된 자료를 몰래 바꾸지 않음). 오래된 자료는 propose 목록 → 사용자 확인으로만.
+  // fill은 막 올린 자료만. tidy는 그 반대(올린 지 1시간 지난 자료만, 막 올린 자료는 fill이 맡음)이고 AI에 이미 보낸 자료는 뺀다.
+  const tried = input.mode === "tidy" ? await readTidyAttempts(ctx, docs.map((d) => d.id)) : new Set<string>();
   const targets = docs.map((doc) => {
     const created = timeOf(doc.created_at);
     const fresh = Number.isFinite(created) && started - created <= LIBRARY_FILL_WINDOW_MS && created - started <= 300000;
-    const fields = input.mode === "fill" && !fresh ? [] : fillableFields(doc, input.mode, input.keep, categories);
+    const old = Number.isFinite(created) && started - created > LIBRARY_FILL_WINDOW_MS;
+    const skip = input.mode === "fill" ? !fresh : input.mode === "tidy" ? !old || tried.has(doc.id) : false;
+    const fields = skip ? [] : fillableFields(doc, input.mode === "tidy" ? "propose" : input.mode, input.keep, categories)
+      .filter((f) => input.mode !== "tidy" || !doc.legacy_user.includes(f));
     return { doc, fields };
   });
   // 올릴 때 사용자가 넣은 칸(keep)은 AI가 실패해도 'user'로 남긴다(다음 정리 목록에서도 빠지게).
@@ -1069,6 +1109,11 @@ async function runLibraryFill(ctx: Ctx, input: LibraryFillInput, deps: RadarDeps
   if (!result.ok || !parsed) {
     const code = result.ok ? "ai_invalid_response" : result.code;
     deps.log(code);
+    // tidy: AI 답이 틀린 형식이면 같은 자료를 다시 보내도 같을 가능성이 커서 시도 기록만 남긴다(값은 그대로). 바쁨·시간 초과는 남기지 않는다.
+    if (input.mode === "tidy" && result.ok) {
+      try { await applyTidy(ctx, crypto.randomUUID(), work.map((t) => ({ document_id: t.doc.id, updated_at: t.doc.updated_at ?? "", changes: {} }))); }
+      catch { deps.log("library_tidy_mark_failed"); }
+    }
     // fill: 사용자가 넣은 칸 표시만은 남긴다(값은 그대로). 실패해도 자료 등록 자체는 이미 끝났다.
     if (input.mode === "fill") {
       for (const t of targets) {
@@ -1090,6 +1135,20 @@ async function runLibraryFill(ctx: Ctx, input: LibraryFillInput, deps: RadarDeps
     });
     deps.log("library_propose_done", { documents: files.length, proposals: proposals.length });
     return json({ ok: true, kind: "library_fill", mode: "propose", proposals });
+  }
+
+  if (input.mode === "tidy") {
+    // 서버가 다시 고른 칸(정리 안 된 칸·'user' 아님)에 대한 검사 통과 값만. 값이 없어도 시도 기록은 남긴다(같은 자료 다시 안 보냄).
+    const items: TidyItem[] = files.map((f) => {
+      const t = work.find((w) => w.doc.id === f.doc.id)!;
+      const changes = Object.fromEntries(proposalsFor(t.doc, t.fields, parsed.get(f.ref) ?? {}, "propose").map((p) => [p.field, p.to]));
+      return { document_id: t.doc.id, updated_at: t.doc.updated_at ?? "", changes };
+    });
+    let saved;
+    try { saved = await applyTidy(ctx, crypto.randomUUID(), items); }
+    catch (e) { deps.log("library_tidy_save_failed"); throw e instanceof Fail ? e : new Fail(503, "library_unavailable"); }
+    deps.log("library_tidy_done", { documents: files.length, updated: saved.documents, fields: saved.fields, moved: saved.moved });
+    return json({ ok: true, kind: "library_fill", mode: "tidy", updated: saved.documents, fields: saved.fields, skipped: docs.length - saved.documents });
   }
 
   let updated = 0, skipped = docs.length - files.length;

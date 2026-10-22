@@ -129,7 +129,7 @@ begin
       from public.app_documents d
       where d.id = (v_item->>'document_id')::uuid
       for update;
-    if not found or v_doc.updated_at is distinct from (v_item->>'updated_at')::timestamptz then
+    if not found or v_doc.updated_at is distinct from nullif(v_item->>'updated_at', '')::timestamptz then
       v_moved := v_moved + 1;
       continue;
     end if;
