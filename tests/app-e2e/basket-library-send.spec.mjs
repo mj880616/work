@@ -105,3 +105,22 @@ test('a slow send keeps the button off and a result after an account switch is n
  await expect(page.locator('[data-basket-library-status]:has-text("자료실로 보냈어요")')).toHaveCount(0);await expect(page.locator('#toast')).not.toContainText('자료실로 보냈어요');
  expect(f.sends).toHaveLength(1);
 });
+
+// LIB-AI자동분류 ⑤: a newly sent attachment gets the same AI fill as an upload (text read, then fill), with no wait,
+// no extra notice and no AI marker. An existing registration ('exists') is not filled again. AI failure changes nothing on screen.
+test('a newly sent attachment is filled in the background like an upload',async({page})=>{
+ const DOC='e0000000-0000-4000-8000-0000000000aa',fills=[];
+ await page.route(SB+'/functions/v1/ai-assist',async route=>{fills.push(route.request().postDataJSON());return route.fulfill({status:503,json:{ok:false,error:'ai_busy',message:'x'}});});
+ const f=await fixture(page,390,(route,body)=>body.action==='document-text'?route.fulfill({json:{ok:true,status:'error',reason:'unsupported'}})
+  :route.fulfill({json:{ok:true,result:body.drive_file_id==='drive-a'?'created':'exists',document:{id:body.drive_file_id==='drive-a'?DOC:'doc-b',title:'x'}}}));
+ await press(page,f.box('drive-a').getByRole('button'),390);
+ await expect(page.locator('#toast')).toHaveText('자료실로 보냈어요. 바구니와 같은 Drive 원본을 씁니다.');
+ await expect.poll(()=>fills.length).toBe(1);
+ expect(fills[0]).toEqual({kind:'library_fill',mode:'fill',document_ids:[DOC],keep:[]});
+ expect(f.sends).toEqual([{action:'register-basket-attachment',note_id:n,drive_file_id:'drive-a'},{action:'document-text',document_id:DOC}]);
+ await press(page,f.box('drive-b').getByRole('button'),390);
+ await expect(page.locator('#toast')).toHaveText('이미 자료실에 있어요.');
+ await page.waitForTimeout(300);expect(fills.length).toBe(1);
+ await expect(f.meta('drive-a')).toHaveText('2.0 KB · 자료실에 있음 ✓');
+ expect(await page.locator('[data-basket-file-card]').allInnerTexts()).not.toContainEqual(expect.stringMatching(/AI/));
+});
