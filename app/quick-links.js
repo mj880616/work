@@ -82,7 +82,7 @@ const profileUrl = rt => {
   return user ? `/rest/v1/app_profiles?user_id=eq.${encodeURIComponent(user)}` : '';
 };
 // {status:'ok', links} | {status:'pending', links: 초기} (칸이 아직 없음) | {status:'error', links: 초기}
-export async function readLinks(rt = window.KPTURuntime) {
+export async function readLinks(rt = globalThis.window?.KPTURuntime) {
   const url = profileUrl(rt);
   const fallback = status => ({status, links: DEFAULT_LINKS.map(link => ({...link}))});
   if (!url) return fallback('error');
@@ -96,7 +96,7 @@ export async function readLinks(rt = window.KPTURuntime) {
     return fallback(error?.status === 400 ? 'pending' : 'error');
   }
 }
-export async function saveLinks(links, rt = window.KPTURuntime) {
+export async function saveLinks(links, rt = globalThis.window?.KPTURuntime) {
   const url = profileUrl(rt);
   if (!url || parseLinks(links) === null) return {ok: false};
   try {
@@ -330,4 +330,4 @@ function onDrop(event) {
   render({focus: `[data-ql-handle="${to}"]`});
 }
 
-window.addEventListener('kptu:session-changed', () => { close({focus: false}); state.links = null; state.status = 'idle'; state.loadSeq++; });
+globalThis.window?.addEventListener('kptu:session-changed', () => { close({focus: false}); state.links = null; state.status = 'idle'; state.loadSeq++; });
