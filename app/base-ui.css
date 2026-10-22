@@ -219,6 +219,6 @@ button:disabled,[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
 .data-freshness.data-freshness-warn{color:var(--kptu-danger)}
 .data-freshness .data-freshness-retry{min-height:28px}
 /* JOURNAL-하루개편 ⑥: 업무일지에서 누른 기록이 조직·프로젝트 화면에서 열리면 그 기록을 잠깐(1.6초) 강조한다. journal.js가 붙였다 뗀다. */
-[data-journal-flash]{ animation:kptu-journal-flash 1.6s ease-out 1; border-radius:var(--kptu-radius-md,8px); }
-@keyframes kptu-journal-flash{ 0%,35%{ background-color:var(--ds-kind-journal-soft,#e3f1e6); box-shadow:0 0 0 2px var(--ds-kind-journal-ink,#2a6537); } 100%{ background-color:transparent; box-shadow:0 0 0 0 transparent; } }
+[data-journal-flash]{ animation:kptu-journal-flash 1.6s ease-out 1; border-radius:var(--kptu-radius-md); }
+@keyframes kptu-journal-flash{ 0%,35%{ background-color:var(--ds-kind-journal-soft); box-shadow:0 0 0 2px var(--ds-kind-journal-ink); } 100%{ background-color:transparent; box-shadow:0 0 0 0 transparent; } }
 @media(prefers-reduced-motion:reduce){ [data-journal-flash]{ animation-timing-function:steps(1,end); } }
