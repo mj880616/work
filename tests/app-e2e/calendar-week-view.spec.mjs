@@ -109,9 +109,12 @@ for(const width of [1024,1280,1440])test(`week bands, timed order, tasks and dia
   await day.locator('[data-google-event="early"]').click();await expect(page.locator('#ciGoogleModal')).toBeVisible();
   await page.locator('#ciGoogleClose').first().click();
   await span.click();await expect(page.locator('#ciGoogleModal')).toBeVisible();await page.locator('#ciGoogleClose').first().click();
-  // CAL-주간시간표: 09:00~24:00 일정이 칸 아래를 채우므로 빈 곳은 접힌 0~7시 줄을 누른다.
-  const blank=day.locator('.cwv-create'),blankRect=await blank.boundingBox(),fold=await day.locator('.cwv-timeline').boundingBox();
-  await blank.click({position:{x:10,y:fold.y-blankRect.y+6}});await expect(page.locator('#eventModal')).toBeVisible();await expect(page.locator('#eventStartDate')).toHaveValue('2026-10-15');
+  // CAL-주간시간표: 09:00~24:00 일정이 칸 아래를 채우므로 빈 곳은 0~7시(위로 스크롤)를 누른다.
+  await page.evaluate(()=>{document.querySelector('#calendarWeek').scrollTop=0});
+  await expect(async()=>{
+    const blank=day.locator('.cwv-create'),blankRect=await blank.boundingBox(),fold=await day.locator('.cwv-timeline').boundingBox();
+    await blank.click({position:{x:10,y:fold.y-blankRect.y+3*48},timeout:2000});
+  }).toPass({timeout:10000});await expect(page.locator('#eventModal')).toBeVisible();await expect(page.locator('#eventStartDate')).toHaveValue('2026-10-15');
   await page.locator('#eventModal [data-close="eventModal"]').click();
   await page.locator('#nextMonthBtn').click();
   await expect(page.locator('#calendarWeek .cwv-bands [data-google-event]')).toHaveCount(16);

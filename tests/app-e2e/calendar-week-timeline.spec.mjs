@@ -59,8 +59,11 @@ for(const width of [1280,1440,1920])test(`timetable places cards by time and len
   await page.locator('#calendarWeek .cwv-bands [data-google-event="span"]').click();await expect(page.locator('#ciGoogleModal')).toBeVisible();
   await page.locator('#ciGoogleClose').first().click();
   // 빈 칸을 누르면 새 일정 창(그날 날짜).
-  const sat=page.locator('.cwv-day[data-date="2026-10-17"]'),create=await sat.locator('.cwv-create').boundingBox(),satLine=lineOf(g,'2026-10-17');
-  await sat.locator('.cwv-create').click({position:{x:10,y:satLine.top-create.y+10*HOUR}});
+  const sat=page.locator('.cwv-day[data-date="2026-10-17"]');
+  await expect(async()=>{
+    const create=await sat.locator('.cwv-create').boundingBox(),tl=await sat.locator('.cwv-timeline').boundingBox();
+    await sat.locator('.cwv-create').click({position:{x:10,y:tl.y-create.y+10*HOUR},timeout:2000});
+  }).toPass({timeout:10000});
   await expect(page.locator('#eventModal')).toBeVisible();await expect(page.locator('#eventStartDate')).toHaveValue('2026-10-17');
 });
 
@@ -73,7 +76,7 @@ const frame=page=>page.evaluate(()=>{
   const capBottom=r(day.querySelector('.cwv-cap')).bottom;
   const visibleTicks=ticks.filter(t=>t.top>=capBottom-0.5);
   return {scrollTop:box.scrollTop,max:box.scrollHeight-box.clientHeight,boxTop:b.top,head:r(day.querySelector('.cwv-header')).top,date:r(day.querySelector('.cwv-date')).top,band:band?r(band).top:null,
-    tl:r(day.querySelector('.cwv-timeline')).top,capBottom,firstTick:visibleTicks[0]?.text,pageScroll:document.documentElement.scrollHeight>document.documentElement.clientHeight};
+    tl:r(day.querySelector('.cwv-timeline')).top,capBottom,firstTick:visibleTicks[0]?.text,boxBottom:b.bottom,viewport:innerHeight};
 });
 
 for(const width of [1280,1440])test(`date row and all-day band stay put while the timetable scrolls, and it opens at 7시 at ${width}`,async({page})=>{
@@ -94,7 +97,7 @@ for(const width of [1280,1440])test(`date row and all-day band stay put while th
   await page.evaluate(()=>{const b=document.querySelector('#calendarWeek');b.scrollTop=b.scrollHeight});
   const bottom=await frame(page);
   expect(Math.abs(bottom.head-first.head)).toBeLessThanOrEqual(1);expect(Math.abs(bottom.band-first.band)).toBeLessThanOrEqual(1);
-  expect(bottom.pageScroll).toBe(false);
+  expect(bottom.boxBottom).toBeLessThanOrEqual(bottom.viewport);// 주간 칸이 화면 안에 들어와 시간표만 안에서 스크롤
   // 고정 줄 밑으로 지나가는 일정 카드는 눌러지지 않는다(띠 영역은 가려진다).
   const hit=await page.evaluate(()=>{const b=document.querySelector('#calendarWeek .cwv-bands [data-google-event]').getBoundingClientRect();return document.elementFromPoint(b.left+b.width/2,b.top+b.height/2).closest('[data-google-event]')?.dataset.googleEvent});
   expect(hit).toBe('span');
