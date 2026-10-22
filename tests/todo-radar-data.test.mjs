@@ -106,3 +106,19 @@ test('draft check, decision 5 title filter, and the ledger text for a counterpar
   assert.match(text,/^쓰기요청\n/);assert.match(text,/약속\(상대·제3자\)/);assert.match(text,/회의 결과 2026-10-20/);
   assert.doesNotMatch(text,/[0-9a-f]{8}-[0-9a-f]{4}/,'no internal ids in the copied text');
 });
+
+test('JOURNAL-챙길것화면: home read (open + handled since), ✓ due rule, ✎ due choices, short date',async()=>{
+  const {rt,calls}=fakeRt({api:async()=>[row(),row({id:id(3),status:'dismissed',decided_at:'2026-10-21T01:00:00Z'})]});
+  const r=await mod.readHomeCandidates('2026-10-20T15:00:00.000Z',rt);
+  assert.equal(r.ok,true);assert.equal(r.rows.length,2);
+  assert.match(calls[0].path,/^\/rest\/v1\/app_todo_candidates\?workspace_id=eq\.w&or=/);
+  assert.equal(decodeURIComponent(calls[0].path.match(/&or=([^&]+)/)[1]),'(status.eq.open,decided_at.gte."2026-10-20T15:00:00.000Z")');
+  assert.deepEqual(await mod.readHomeCandidates('not a date',rt),{ok:false});
+  assert.equal(mod.HOME_ROWS,4);
+  assert.equal(mod.quickDue(row({due:'2026-10-23'}),'2026-10-21'),'2026-10-23');
+  assert.equal(mod.quickDue(row({due:null}),'2026-10-21'),'2026-10-21');
+  assert.deepEqual(mod.dueChoices(row({due:'2026-10-23'}),'2026-10-21','2026-10-22').map(o=>[o.key,o.label,o.due]),
+    [['today','오늘','2026-10-21'],['tomorrow','내일','2026-10-22'],['suggested','제안 기한 10.23','2026-10-23'],['none','기한 없음','']]);
+  assert.deepEqual(mod.dueChoices(row(),'2026-10-21','2026-10-22').map(o=>o.key),['today','tomorrow','none']);
+  assert.equal(mod.dotDay('2026-10-09'),'10.9');assert.equal(mod.dotDay('2026-10-23T00:00:00.000Z'),'10.23');assert.equal(mod.dotDay(''),'');
+});
