@@ -41,7 +41,8 @@ test('vendored files match the recorded hashes and stay small',()=>{
 test('the editor loads only same-origin files; readers never load the editor bundle',()=>{
   const strip=s=>s.replace(/^\s*\/\/.*$/gm,'');
   const editor=strip(readFileSync('app/ed-editor.js','utf8'));
-  assert.doesNotMatch(editor,/https?:\/\//);
+  // No outside address (the link box's "https://…" hint and the https:// it puts before "example.org" name no host).
+  assert.doesNotMatch(editor,/https?:\/\/[a-z0-9]/i);
   assert.doesNotMatch(editor,/\?v=/);
   assert.doesNotMatch(editor,/innerHTML\s*=/);
   for(const file of ['app/ed-render.mjs','app/ed-schema.mjs','app/ed-text.mjs','app/ed-markdown.mjs']){
@@ -66,7 +67,7 @@ test('cleanDoc keeps the allowed form and drops everything else, keeping letters
   assert.equal(cleanDoc({v:'ed1',doc:{type:'nope'}}),null);
   assert.deepEqual(cleanDoc({v:'ed1',doc:{type:'doc',content:[]}}),emptyDoc());
   const dirty={v:'ed1',doc:{type:'doc',content:[
-    {type:'paragraph',attrs:{style:'body9',align:'right',onclick:'x'},content:[
+    {type:'paragraph',attrs:{style:'body9',align:'diagonal',indent:99,onclick:'x'},content:[
       {type:'text',text:'가\u0000나',marks:[{type:'strong'},{type:'strong'},{type:'font',attrs:{}}]},
       {type:'text',text:'링크',marks:[{type:'link',attrs:{href:'javascript:alert(1)'}}]},
       {type:'text',text:'좋은',marks:[{type:'link',attrs:{href:'https://ok.example/a'}}]},

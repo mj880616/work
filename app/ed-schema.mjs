@@ -2,7 +2,7 @@
 // editor library in it. The editor (ed-editor.js) builds its ProseMirror schema from these names, and the readers
 // (ed-render.mjs: Web2 and the Web1 share page) and the text exports (ed-text.mjs) read the same names.
 // Saved form: {v:'ed1', doc:{type:'doc', content:[…]}}. Format is structure, never markdown marks: a typed "1." stays text.
-// ED-기본기보강 added only optional attributes and marks (align right·justify, indent, table width, cell colwidth, color,
+// ED-기본기보강 added only optional attributes and marks (align right·justify, indent, cell colwidth, color,
 // highlight), so every document saved before still reads the same and stays 'ed1'; an older reader drops what it does not know.
 // cleanDoc is an allowlist: unknown nodes, marks and attributes are dropped, text is kept, links keep only http(s)·mailto.
 // The Web1 reader imports this file (through ed-render.mjs), so it keeps to syntax older Samsung Internet parses:
@@ -28,8 +28,8 @@ export const BLOCK_NODES = ['paragraph', 'heading', 'blockquote', 'bullet_list',
 // Photo src is our own id, never an address: drive:<Drive file id> (notes·diary·updates, ③) or share:<photo id> (share pages, ②).
 // Until ② a photo is a place only (src null) with its description.
 export const PHOTO_SRC = /^(drive|share):[A-Za-z0-9_-]{1,200}$/;
-// colWidth: one table column's width in px (column dragging); tableWidth: the table's width as % of the text width.
-export const LIMITS = {depth:24, nodes:20000, text:200000, alt:200, href:2000, tableCols:20, indent:8, colWidth:2000, tableWidth:100};
+// colWidth: one table column's width in px (dragging a column edge; the table's width is the sum of its columns).
+export const LIMITS = {depth:24, nodes:20000, text:200000, alt:200, href:2000, tableCols:20, indent:8, colWidth:2000};
 
 const LINK_PROTOCOLS = {'http:':1, 'https:':1, 'mailto:':1};
 export function safeHref(value) {
@@ -89,10 +89,6 @@ function attrsOf(type, a) {
     var ha = alignOf(a.align); if (ha) h.align = ha;
     var hi = intIn(a.indent, 0, LIMITS.indent, 0); if (hi) h.indent = hi;
     return h;
-  }
-  if (type === 'table') {
-    var tw = intIn(a.width, 5, LIMITS.tableWidth, 0);
-    return tw ? {width:tw} : null;
   }
   if (type === 'ordered_list') return {order:intIn(a.order, 0, 99999, 1)};
   if (type === 'image') {
@@ -200,6 +196,35 @@ function cleanNode(n, depth, budget) {
   if (type === 'list_item' && content[0].type !== 'paragraph') content.unshift(emptyParagraph());
   if (content.length) node.content = content;
   return node;
+}
+
+// Table column widths (ED-기본기보강): a column edge dragged in the editor saves px widths on the cells (colwidth, like
+// prosemirror-tables). The editor and every reader lay a table out the same way from them: no width set = the old look
+// (sized by its letters); widths set = fixed layout, the table as wide as the columns' sum but never wider than the text,
+// each column its share of the sum, so a reader on a narrow phone sees the same proportions (not a sideways scroll).
+// widthsOfRow(cells): cells = [{colspan, colwidth}] of the first row → one width per column (0 = not set).
+export function widthsOfRow(cells) {
+  var out = [];
+  for (var i = 0; i < (cells || []).length; i++) {
+    var a = cells[i] || {}, span = intIn(a.colspan, 1, LIMITS.tableCols, 1);
+    for (var j = 0; j < span; j++) out.push(Array.isArray(a.colwidth) ? intIn(a.colwidth[j], 0, LIMITS.colWidth, 0) : 0);
+  }
+  return out;
+}
+// widths → null (no width set: old look) or {width: px of the whole table, cols: ['40.000%', …]}. A column with no width
+// (one added later) takes the average of the others.
+export function tableLayout(widths) {
+  var set = [], i, total = 0;
+  for (i = 0; i < (widths || []).length; i++) if (widths[i] > 0) set.push(widths[i]);
+  if (!set.length) return null;
+  var avg = 0;
+  for (i = 0; i < set.length; i++) avg += set[i];
+  avg = avg / set.length;
+  var full = [];
+  for (i = 0; i < widths.length; i++) { full.push(widths[i] > 0 ? widths[i] : avg); total += full[full.length - 1]; }
+  var cols = [];
+  for (i = 0; i < full.length; i++) cols.push((full[i] / total * 100).toFixed(3) + '%');
+  return {width:Math.round(total), cols:cols};
 }
 
 // Size of the saved form as JSON text (bytes), for the opener's own limits.
