@@ -195,25 +195,41 @@
 
 #calendarView.calendar-list-active .calendar-toolbar #monthTitle{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* D-주간정리: Monday–Sunday columns with shared month bars below the header. */
-#calendarWeek{position:relative;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));width:100%;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);box-sizing:border-box}
-.cwv-day{position:relative;min-width:0;border-right:1px solid var(--kptu-border)}
-.cwv-day:nth-child(7){border-right:0}
+/* D-주간정리 + CAL-주간시간표: left hour axis, Monday–Sunday columns, all-day/multi-day bands below the header,
+   then a timetable (1 hour = 48px, 0~7시 folded to one row unless that week has early events). */
+#calendarWeek{--cwv-axis-width:40px;--cwv-hour:48px;position:relative;display:grid;grid-template-columns:var(--cwv-axis-width) repeat(7,minmax(0,1fr));width:100%;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);box-sizing:border-box}
+.cwv-day{position:relative;grid-row:1;min-width:0;border-left:1px solid var(--kptu-border)}
 .cwv-header{position:relative;height:44px;box-sizing:border-box;border-bottom:1px solid var(--kptu-border);padding-right:44px;display:flex;align-items:center}
 .cwv-date{min-width:0;white-space:nowrap;margin:0;padding:0 6px;font-size:12px;line-height:16px;color:var(--kptu-muted);font-weight:400}
-.cwv-items{position:relative;min-width:0;padding-top:var(--cwv-band-height,0px);min-height:320px;pointer-events:none}
-.cwv-items .clv-event{position:relative;pointer-events:auto;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:2px;padding:8px 4px;box-sizing:border-box}
+.cwv-items{position:relative;min-width:0;padding-top:var(--cwv-band-height,0px);pointer-events:none}
+.cwv-timeline{position:relative;box-sizing:content-box;height:var(--cwv-timeline-height,1152px);border-top:1px solid var(--kptu-border);
+  background:linear-gradient(var(--kptu-surface-subtle),var(--kptu-surface-subtle)) 0 0/100% var(--cwv-collapsed-height,0px) no-repeat,
+    repeating-linear-gradient(to bottom,color-mix(in srgb,var(--kptu-border) 60%,transparent) 0 1px,transparent 1px var(--cwv-hour)) 0 var(--cwv-collapsed-height,0px)/100% calc(100% - var(--cwv-collapsed-height,0px)) no-repeat}
+.cwv-axis{grid-column:1;grid-row:1;position:relative;padding-top:calc(44px + var(--cwv-band-height,0px));pointer-events:none}
+.cwv-axis-ticks{position:relative;box-sizing:content-box;height:var(--cwv-timeline-height,1152px);border-top:1px solid var(--kptu-border)}
+.cwv-tick,.cwv-fold{position:absolute;right:4px;font-size:var(--ds-text-meta);line-height:14px;color:var(--kptu-muted);white-space:nowrap}
+.cwv-tick{transform:translateY(-7px)}
+.cwv-fold{top:0;height:var(--cwv-collapsed-height,0px);display:flex;align-items:center}
+.cwv-tick.cwv-tick-top{transform:none}
+.cwv-items .clv-event{position:absolute;z-index:1;top:0;left:0;min-height:0;pointer-events:auto;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:0;padding:1px 4px;margin:0 1px;border-bottom:0;box-sizing:border-box;overflow:visible}
+.cwv-items .clv-event:hover,.cwv-items .clv-event:focus-visible{z-index:3}
 .cwv-items .clv-time{flex:0 0 auto;line-height:16px}
-.cwv-items .clv-title{font-size:12px;line-height:16px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;white-space:normal;overflow:hidden;text-overflow:ellipsis;overflow-wrap:anywhere}
+.cwv-items .clv-title{font-size:12px;line-height:15px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;white-space:normal;overflow:hidden;text-overflow:ellipsis;overflow-wrap:anywhere}
+.cwv-items .clv-event[data-cwv-lines="1"] .clv-title{-webkit-line-clamp:1;line-clamp:1}
+/* 30분 이하처럼 낮은 칸: 시간과 제목을 한 줄에 두고 넘치면 말줄임(마우스를 올리면 말풍선). */
+.cwv-items .clv-event[data-cwv-lines="0"]{flex-direction:row;align-items:flex-start;gap:4px}
+.cwv-items .clv-event[data-cwv-lines="0"] .clv-title{display:block;white-space:nowrap;line-height:16px;min-width:0;flex:1 1 auto}
+.cwv-now{position:absolute;z-index:2;left:0;right:0;height:2px;margin-top:-1px;background:var(--kptu-danger);pointer-events:none}
+.cwv-now::before{content:"";position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:var(--kptu-radius-pill);background:var(--kptu-danger)}
 .cwv-tip{display:none;position:absolute;z-index:20;top:100%;left:0;box-sizing:border-box;width:max-content;max-width:220px;padding:6px 8px;border-radius:var(--kptu-radius-sm);background:var(--kptu-ink);color:var(--kptu-surface);font-size:12px;line-height:16px;font-weight:400;white-space:normal;overflow-wrap:anywhere;pointer-events:none;box-shadow:var(--kptu-shadow-float)}
-.cwv-day:nth-child(n+5) .cwv-tip{left:auto;right:0}
+.cwv-day:nth-of-type(n+5) .cwv-tip{left:auto;right:0}
 .cwv-items .clv-event.cwv-clipped:hover .cwv-tip,.cwv-items .clv-event.cwv-clipped:focus-visible .cwv-tip{display:block}
 .cwv-items .clv-color{display:none}
 .cwv-create{position:absolute;inset:44px 0 0;width:100%;min-width:44px;min-height:44px;border:0;background:transparent;border-radius:var(--kptu-radius-sm);cursor:pointer}
 .cwv-create:focus-visible{outline:2px solid var(--kptu-link);outline-offset:-2px}
 .cwv-today{background:var(--kptu-primary-soft)}
 .cwv-today .cwv-date{color:var(--kptu-primary-ink);font-weight:700}
-.cwv-bands{position:absolute;top:44px;left:0;right:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-auto-rows:44px;gap:4px 0;padding:2px 0;pointer-events:none}
+.cwv-bands{position:absolute;top:44px;left:var(--cwv-axis-width);right:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-auto-rows:44px;gap:4px 0;padding:2px 0;pointer-events:none}
 #calendarWeek .cal-event.cmv-event{box-sizing:border-box;height:44px;min-height:44px;line-height:16px;font-size:12px;padding:0 6px;margin:0 2px}
 #calendarWeek .cmv-event-time{font-size:12px}
 .calendar-view-switch button[hidden]{display:none}

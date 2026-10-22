@@ -109,8 +109,9 @@ for(const width of [1024,1280,1440])test(`week bands, timed order, tasks and dia
   await day.locator('[data-google-event="early"]').click();await expect(page.locator('#ciGoogleModal')).toBeVisible();
   await page.locator('#ciGoogleClose').first().click();
   await span.click();await expect(page.locator('#ciGoogleModal')).toBeVisible();await page.locator('#ciGoogleClose').first().click();
-  const blank=day.locator('.cwv-create'),blankRect=await blank.boundingBox();
-  await blank.click({position:{x:10,y:blankRect.height-20}});await expect(page.locator('#eventModal')).toBeVisible();await expect(page.locator('#eventStartDate')).toHaveValue('2026-10-15');
+  // CAL-주간시간표: 09:00~24:00 일정이 칸 아래를 채우므로 빈 곳은 접힌 0~7시 줄을 누른다.
+  const blank=day.locator('.cwv-create'),blankRect=await blank.boundingBox(),fold=await day.locator('.cwv-timeline').boundingBox();
+  await blank.click({position:{x:10,y:fold.y-blankRect.y+6}});await expect(page.locator('#eventModal')).toBeVisible();await expect(page.locator('#eventStartDate')).toHaveValue('2026-10-15');
   await page.locator('#eventModal [data-close="eventModal"]').click();
   await page.locator('#nextMonthBtn').click();
   await expect(page.locator('#calendarWeek .cwv-bands [data-google-event]')).toHaveCount(16);
@@ -213,7 +214,7 @@ test('PC week event shows time above a 2-line title and a tooltip only when clip
   const ev=(id,title,start,end)=>({id,title,calendarId:'qa-cal',start,end,allDay:false,color:'#4285f4'});
   await open(page,1280,'week',[
     ev('short','짧은 제목','2026-10-15T09:00:00+09:00','2026-10-15T10:00:00+09:00'),
-    ev('two','두 줄 제목 두 줄 제목 두 줄','2026-10-15T10:30:00+09:00','2026-10-15T11:00:00+09:00'),
+    ev('two','두 줄 제목 두 줄 제목 두 줄','2026-10-15T10:30:00+09:00','2026-10-15T11:30:00+09:00'),
     ev('long',long,'2026-10-15T12:00:00+09:00','2026-10-15T13:00:00+09:00')
   ]);
   const day=page.locator('.cwv-day[data-date="2026-10-15"]');
