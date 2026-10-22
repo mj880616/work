@@ -148,8 +148,9 @@
 #appView #pagesView .sp-topline .sp-seg{ flex:none; align-self:center; }
 #appView #pagesView .sp-top-extra{ display:flex; align-items:center; gap:8px; min-width:0; }
 #appView #pagesView .sp-top-more{ display:none; min-width:var(--ds-compact-height); padding:0 8px; }
-#appView #pagesView .sp-top-project{ display:inline-flex; align-items:center; gap:6px; min-width:0; font-size:var(--ds-text-meta); color:var(--kptu-muted); }
-#appView #pagesView .sp-top-select{ box-sizing:border-box; height:var(--ds-compact-height); min-height:0; max-width:220px; min-width:0; margin:0; padding:0 26px 0 8px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); box-shadow:none; background-color:var(--kptu-surface); color:var(--kptu-ink); font-size:var(--ds-compact-text); }
+#appView #pagesView .sp-top-project{ display:inline-flex; flex-direction:row; align-items:center; gap:6px; min-width:0; margin:0; font-size:var(--ds-text-meta); font-weight:var(--ds-weight-regular); color:var(--kptu-muted); }
+#appView #pagesView .sp-top-select{ box-sizing:border-box; height:var(--ds-compact-height); min-height:0; max-width:220px; min-width:0; margin:0; padding:0 26px 0 8px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); box-shadow:none; background-color:var(--kptu-surface); color:var(--kptu-ink); font-size:var(--ds-compact-text); font-weight:var(--ds-weight-regular); }
+#appView #pagesView .sp-top-project > span{ white-space:nowrap; }
 #appView #pagesView .sp-top-gap{ flex:1 1 auto; }
 #appView #pagesView .sp-top-status{ flex:0 1 auto; min-width:0; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 #appView #pagesView .sp-dirty{ flex:none; font-size:var(--ds-text-meta); color:var(--kptu-muted); white-space:nowrap; }
@@ -186,6 +187,7 @@
   #appView #pagesView .sp-top-extra.is-open{ display:flex; }
   #appView #pagesView .sp-top-extra > .sp-tool{ align-self:flex-start; }
   #appView #pagesView .sp-top-project{ flex-direction:column; align-items:stretch; }
+  #appView #pagesView .sp-top-select{ height:var(--ds-control-height); }
   #appView #pagesView .sp-top-select{ max-width:none; width:100%; }
   #appView #pagesView .sp-links-pop{ left:8px; right:8px; width:auto; }
   #appView #pagesView .sp-full-title{ padding:18px 16px 2px; font-size:24px; }
