@@ -8,6 +8,7 @@ import {BLOCK_TYPES, BLOCK_LABELS, ITEM_FIELDS, LIMITS, newBlock, newItem, moveB
   labelProblem, expiresAt, linkState, shareUrl} from './share-pages-model.mjs';
 import {renderBlock} from './sr-render.mjs';
 import {copyText} from './md-editor.js';
+import {mountSplitResize} from './split-resize.js';
 
 (() => {
 if (window.KPTUSharePages) return;
@@ -260,6 +261,14 @@ function renderEditor() {
     el('section', {class:'sp-links', 'aria-labelledby':'spLinksTitle'}, el('h3', {id:'spLinksTitle', text:'링크'}), el('div', {dataset:{spLinks:''}})));
   title.value = editing.title;
   paintStatusButtons(); renderBlocks(); renderLinks(); void paintProjects();
+  mountCanvasWidth();
+}
+// SHARE-편집폭: on PC the right edge of the '받는 사람에게 보이는 모양' box can be dragged (split-resize.js one-edge mode, remembered on this
+// device). Only this editing screen changes; the reader (Web1) keeps its own 640px width.
+function mountCanvasWidth() {
+  mountSplitResize({container:editorView, name:'share-edit', label:'받는 사람에게 보이는 모양 칸 폭 조절', list:() => editorView.querySelector('.sp-canvas'), pane:() => editorView.querySelector('.sp-canvas'),
+    active:() => !!editing && !editorView.hidden && window.matchMedia?.('(min-width:1024px)').matches,
+    edge:{widthVar:'--sp-canvas-w', minVar:'--sp-canvas-min', defaultRatio:0.85, valueLabel:'칸 폭'}});
 }
 function showEditor(page) {
   editing = {id:page?.id || null, title:page?.title || '', status:page?.status === 'published' ? 'published' : 'draft', project_id:page?.project_id || null,

@@ -95,10 +95,12 @@ for (const width of [390, 1280]) test('editor shows each block exactly as the re
   await expect(reader.locator('h1.sr-title')).toHaveText(PAGE.title);
   expect(inEditor).toEqual(await readerBlocks(reader));
   const readerLook = await looks(reader.locator('#srMain'), LOOK);
-  // Same colours, type and spacing. Widths match on PC (both 640px columns); on a phone the editor sits inside the app frame.
+  // Same colours, type and spacing. Widths match up to tablet width (both 640px columns); on a phone the editor sits inside the app frame.
   const strip = list => list.map(({width:w, ...rest}) => rest);
   expect(strip(editorLook)).toEqual(strip(readerLook));
-  if (width > 760) expect(editorLook.map(x => x.width)).toEqual(readerLook.map(x => x.width));
+  // SHARE-편집폭: from 1024px the editor box is wider than the reader's 640px column (draggable); the reader itself stays 640px.
+  if (width > 760 && width < 1024) expect(editorLook.map(x => x.width)).toEqual(readerLook.map(x => x.width));
+  if (width >= 1024) editorLook.forEach((x, i) => expect(x.width).toBeGreaterThanOrEqual(readerLook[i].width));
   expect(titleSize).toBe(await reader.locator('h1.sr-title').evaluate(n => getComputedStyle(n).fontSize));
   // Links in the editor drawing do not open (the block is one [고치기] button) and are out of the Tab order.
   await expect(editor.locator('.sp-vblock .sr-link')).toHaveAttribute('href', 'https://example.org/demand.pdf');

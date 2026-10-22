@@ -122,6 +122,14 @@
 @media(min-width:761px){
   #appView #pagesView .sp-title{ font-size:26px; }
 }
+/* SHARE-편집폭(2026-10-22): PC에서는 편집 화면이 화면 폭을 따라 넓어지고, '받는 사람에게 보이는 모양' 칸은 오른쪽 가장자리를 끌어 폭을 바꾼다
+   (split-resize.js 한쪽 끌기, 비율은 편집 칸 폭 기준, 기본 85%·최소 480px). 설정·링크 칸은 기존 폭(760px)을 지키고, 받는 사람이 보는 Web1 공유 페이지 폭(640px)은 그대로다. */
+@media(min-width:1024px){
+  #appView #pagesView .sp-editor{ max-width:none; --sp-canvas-min:480px; }
+  #appView #pagesView .sp-editor > :not(.sp-canvas):not(.split-resize-handle){ max-width:760px; }
+  #appView #pagesView .sp-canvas{ box-sizing:border-box; max-width:none; width:var(--sp-canvas-w,85%); min-width:min(100%,var(--sp-canvas-min)); }
+  #appView #pagesView .sp-canvas .sp-canvas-page{ max-width:none; }
+}
 @media(max-width:760px){
   #appView #pagesView .sp-settings{ grid-template-columns:1fr; }
   #appView #pagesView .sp-canvas-cap{ padding:10px 12px 0; }

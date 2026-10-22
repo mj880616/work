@@ -9,6 +9,9 @@
 //   kptu-split-ratio:<name>. Blocked or missing storage only means the default ratio.
 // - Mouse/pen drag, double click (double tap) returns to the default, keyboard: focus the boundary, ←/→ (Home/End = ends).
 //   role=separator with aria-valuenow (left pane share in %).
+// - One-edge mode (o.edge, SHARE-편집폭): a single box (the 공유 페이지 editor canvas) whose right edge is dragged. The stored ratio is the
+//   box width as a share of the container, written to one container variable (edge.widthVar) as a percentage; the screen's CSS
+//   uses it as the box width. Same storage, drag, double click and keyboard as above; default and minimum come from the screen.
 const STORE_PREFIX='kptu-split-ratio:';
 const DEFAULT_RATIO=1/3,STEP=0.02;
 const storeKey=name=>STORE_PREFIX+name;
@@ -62,23 +65,26 @@ export function mountSplitResize(o){
   if(!o.active?.()){waitForPc(o);return null}
   pending.delete(container);
   ensureStyle();
+  const edge=o.edge||null;
+  const defaultRatio=edge?(edge.defaultRatio??0.85):DEFAULT_RATIO;
   const listVar=o.listVar||'--ds-split-list',detailVar=o.detailVar||'--ds-split-detail';
   const handle=document.createElement('div');
   handle.className='split-resize-handle';handle.tabIndex=0;handle.hidden=true;
   handle.setAttribute('role','separator');handle.setAttribute('aria-orientation','vertical');
-  handle.setAttribute('aria-label',o.label||'목록과 상세 칸 폭 조절');
+  handle.setAttribute('aria-label',o.label||(edge?'칸 폭 조절':'목록과 상세 칸 폭 조절'));
   handle.setAttribute('aria-valuemin','0');handle.setAttribute('aria-valuemax','100');
   if(o.controls)handle.setAttribute('aria-controls',o.controls);
-  handle.title='끌어서 폭 조절 · 두 번 누르면 기본(1/3)';
+  handle.title=edge?'끌어서 폭 조절 · 두 번 누르면 기본 폭':'끌어서 폭 조절 · 두 번 누르면 기본(1/3)';
   container.append(handle);
   if(getComputedStyle(container).position==='static')container.style.position='relative';
-  let ratio=readRatio(o.name)??DEFAULT_RATIO,drag=null,frame=0;
+  let ratio=readRatio(o.name)??defaultRatio,drag=null,frame=0;
 
-  const gap=()=>{const v=parseFloat(getComputedStyle(container).columnGap);return Number.isFinite(v)?v:0};
+  const gap=()=>{if(edge)return 0;const v=parseFloat(getComputedStyle(container).columnGap);return Number.isFinite(v)?v:0};
   const width=()=>{const s=getComputedStyle(container);return container.clientWidth-(parseFloat(s.paddingLeft)||0)-(parseFloat(s.paddingRight)||0)-gap()};
   // Allowed share of the left pane at the current width; the minimum widths win over the stored ratio.
   function range(){
     const w=width();if(!(w>0))return [0.05,0.95];
+    if(edge){const minW=px(container,edge.minVar||'--ds-edge-min',320);return [Math.min(minW/w,1),1]}
     const minL=px(container,'--ds-split-list-min',240),minD=px(container,'--ds-split-detail-min',360);
     let lo=Math.min(minL/w,0.9),hi=Math.max(1-minD/w,0.1);if(lo>hi){const mid=(lo+hi)/2;lo=hi=mid}
     return [lo,hi];
@@ -86,6 +92,11 @@ export function mountSplitResize(o){
   const clamp=r=>{const [lo,hi]=range();return Math.min(hi,Math.max(lo,r))};
   function apply(){
     const r=clamp(ratio);
+    if(edge){
+      container.style.setProperty(edge.widthVar,`${(r*100).toFixed(2)}%`);
+      handle.setAttribute('aria-valuenow',String(Math.round(r*100)));handle.setAttribute('aria-valuetext',`${edge.valueLabel||'폭'} ${Math.round(r*100)}%`);
+      return;
+    }
     // fr values that add up to 100 (a sum below 1 would leave part of the row empty).
     container.style.setProperty(listVar,`${(r*100).toFixed(2)}fr`);container.style.setProperty(detailVar,`${((1-r)*100).toFixed(2)}fr`);
     handle.setAttribute('aria-valuenow',String(Math.round(r*100)));
@@ -96,6 +107,12 @@ export function mountSplitResize(o){
     const pane=o.pane?.(),list=o.list?.();if(!pane)return;
     const box=container.getBoundingClientRect(),p=pane.getBoundingClientRect(),g=gap(),w=Math.max(g,12);
     const top=Math.max(0,((list||pane).getBoundingClientRect().top-box.top));
+    if(edge){
+      // The handle sits just inside the box's right edge, so it can never push the page sideways.
+      const wE=12,share=box.width>0?Math.min(1,Math.max(0,(p.right-box.left)/box.width)):0;
+      handle.style.left=`calc(${(share*100).toFixed(3)}% - ${wE}px)`;handle.style.width=`${wE}px`;
+      handle.style.top=`${top}px`;handle.style.height=`${Math.max(0,p.height)}px`;return;
+    }
     // Left as a share of the grid width, so a position left over from a wider layout (before the next frame hides it) can never
     // reach past the grid's right edge and make the page scroll sideways.
     const share=box.width>0?Math.min(0.98,Math.max(0,(p.left-box.left-g/2)/box.width)):0;
@@ -104,7 +121,7 @@ export function mountSplitResize(o){
   }
   function update(){apply();position();watch(o.pane?.());watch(o.list?.())}
   const schedule=()=>{if(frame)return;frame=requestAnimationFrame(()=>{frame=0;update()})};
-  function set(r,{save=true}={}){ratio=r==null?DEFAULT_RATIO:clamp(r);update();if(save)writeRatio(o.name,r==null?null:ratio)}
+  function set(r,{save=true}={}){ratio=r==null?defaultRatio:clamp(r);update();if(save)writeRatio(o.name,r==null?null:ratio)}
 
   handle.addEventListener('pointerdown',e=>{
     if(e.button!==0||handle.hidden)return;e.preventDefault();
