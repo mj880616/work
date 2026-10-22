@@ -53,8 +53,8 @@
     <button class="nav-btn" data-view="calendar" data-nav-group="calendar tasks journal diary" type="button">일정</button>
     <div class="nav-sub" role="group" aria-label="일정"><button class="nav-sub-btn" data-goto="calendar" type="button">달력</button><button class="nav-sub-btn" data-view="tasks" type="button">할 일</button><button class="nav-sub-btn" data-view="journal" type="button">업무일지</button><button class="nav-sub-btn" data-view="diary" type="button">일기</button></div>
     <button class="nav-btn" data-view="projects" type="button">프로젝트</button>
+    <button class="nav-btn" data-view="meetings" type="button">사업 보고</button>
     <button class="nav-btn" data-view="library" type="button">자료실</button>
-    <button class="nav-btn" data-view="meetings" type="button">회의</button>
     <button class="nav-btn" data-view="media" type="button">성명·보도자료</button>
     <button class="nav-btn" data-view="pages" type="button">공유 페이지</button>
     <button class="nav-btn" data-view="team" type="button">담당조직</button>
@@ -86,7 +86,7 @@
       <div class="mobile-menu-head"><b>메뉴</b><button type="button" data-mobile-menu-close aria-label="메뉴 닫기"><span class="mobile-menu-x" aria-hidden="true">×</span></button></div>
       <div class="mobile-menu-search" data-search-entry></div>
       <nav aria-label="더 보기">
-        <button type="button" data-view="meetings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg><span>회의</span></button>
+        <button type="button" data-view="meetings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg><span>사업 보고</span></button>
         <button type="button" data-view="library"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v5H4zM5 9v11h14V9M10 13h4"/></svg><span>자료실</span></button>
         <button type="button" data-view="hwp"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7"/></svg><span>HWP 편집</span></button>
         <button type="button" data-view="media"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10v4h4l8 5V5l-8 5zM18 9a4 4 0 0 1 0 6"/></svg><span>성명·보도자료</span></button>
@@ -147,8 +147,9 @@
   </section>
 
   <section id="meetingsView" class="view-panel hidden">
+    <p class="report-lead" data-report-lead>프로젝트 = 사업영역별 진행상황, 사업 보고 = 날짜별 활동 결과</p>
     <div class="toolbar meeting-toolbar"><div id="meetingTypeFilter" aria-label="회의명" aria-controls="meetingList"></div></div>
-    <section id="meetingsListCard" class="add-list-card"><div class="add-list-head"><h2>회의 결과</h2><button id="newMeetingBtn" class="primary" type="button" aria-label="회의 결과 등록">+ 회의 결과</button></div><div id="meetingList" class="card-list meeting-list"></div></section>
+    <section id="meetingsListCard" class="add-list-card"><div class="add-list-head"><h2>사업 보고</h2><button id="newMeetingBtn" class="primary" type="button" aria-label="회의 결과 등록">+ 회의 결과</button></div><div id="meetingList" class="card-list meeting-list"></div></section>
   </section>
 
   <section id="pagesView" class="view-panel hidden">
