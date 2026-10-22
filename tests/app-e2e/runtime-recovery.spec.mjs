@@ -1,4 +1,5 @@
 import { appOrigin } from './helpers/test-origin.mjs';
+import {expandLibraryTree,revealLibraryRow} from './helpers/library-tree.mjs';
 import { test, expect } from '@playwright/test';
 import {showAllLibraryCategories} from './helpers/library-categories.mjs';
 import { readFileSync } from 'node:fs';
@@ -317,7 +318,7 @@ async function deleteConsumerFixture(page,view,width=390,{holdImport=false}={}){
   },view);
   // UI-바구니거르기: meeting documents list with the rest in the library (no [회의자료만] row).
   if(view!=='library'){await page.locator('[data-mrd-meeting="meeting-1"]').click();await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2)}
-  else await showAllLibraryCategories(page);// UI-PC자료실: 자료실은 기본으로 [회의]가 꺼져 있어 회의자료 분류 자료를 보려면 켠다.
+  else{await showAllLibraryCategories(page);await expandLibraryTree(page)}// UI-PC자료실: 자료실은 기본으로 [회의]가 꺼져 있어 회의자료 분류 자료를 보려면 켠다. LIB-토글트리: 토글을 모두 편다.
   expect(await page.evaluate(()=>({owner:window.KPTURuntime.session.read()?.user?.id,token:!!window.KPTURuntime.session.read()?.access_token,ctx:window.KPTURuntime.context.read()?.workspace?.id,view:window.KPTURouter.current}))).toEqual({owner:'owner',token:true,ctx:'ws',view});
   return state;
 }

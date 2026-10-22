@@ -3,6 +3,7 @@ import { appOrigin } from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 import {expectProjectDetail} from './helpers/project-detail.mjs';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
+// LIB-토글트리: 자료실에 그냥 들어오면 토글이 접혀 있고, 프로젝트에서 걸러 열면 맞는 토글이 펼쳐져 그 자료가 보인다.
 
 const chip=(page,name)=>page.locator(`#libraryCategoryFilter [data-lu-category="${name}"]`);
 const offChips=page=>page.locator('#libraryCategoryFilter [aria-pressed="false"]');
@@ -12,7 +13,7 @@ for(const width of [390,1280])test(`프로젝트 상세 → 자료 전체 보기
   await page.setViewportSize({width,height:900});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
   const s=baseState();s.docs.push({id:'meeting-doc',workspace_id:s.workspace.id,project_id:'child-a1',title:'회의 연결 자료',meeting_id:'meeting-0',category:'회의자료'});await mockApp(page,s);await signIn(page,`${appOrigin}/app/?view=library`);
-  await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));await expect(page.locator('#documentList .lu-row').first()).toBeVisible();
+  await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));await expect(page.locator('#documentList .lu-row').first()).toBeAttached();
   // 자료실에서 [전체]로 모든 칩을 켜 둔 채 나간다(고른 상태가 남아 있어도 프로젝트에서 들어오면 같은 기본 상태).
   await chip(page,'all').click();await expect(offChips(page)).toHaveCount(0);
   await page.evaluate(()=>window.KPTURouter.go('projects'));await expect(page.locator('#projectsView')).toBeVisible();

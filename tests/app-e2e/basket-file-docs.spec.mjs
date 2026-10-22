@@ -1,4 +1,5 @@
 import {showBasketRow} from './helpers/basket-more.mjs';
+import {expandLibraryTree,revealLibraryRow} from './helpers/library-tree.mjs';
 import {onlyLibraryCategories} from './helpers/library-categories.mjs';
 import {test,expect} from '@playwright/test';
 import {mkdirSync} from 'node:fs';
@@ -312,8 +313,9 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`library
  // UI-PC자료실 C: 분류 칩은 여러 개 켜고 끄는 토글(aria-pressed). 들어올 때는 [회의]만 꺼져 있다.
  await expect(chips.getByRole('button')).toHaveText(['전체','교섭','투쟁','교육','선전','정책','회의','기타']);
  await expect(chips.locator('[aria-pressed="false"]')).toHaveText(['전체','회의']);
- // Newest first, grouped by month (a missing document date uses the registration day).
- await expect(page.locator('#documentList > *')).toHaveText([/^2026년 10월$/,/교섭 요구안/,/기자회견 웹자보/,/^2026년 9월$/,/회의 메모/,/국토부 지침/,/^2026년 8월$/,/집회 계획/]);
+ // LIB-토글트리: 프로젝트로 걸러 들어오면 그 프로젝트 토글이 펼쳐져 있고, 안은 날짜 최신순(자료 날짜가 없으면 올린 날).
+ await expect(page.locator(`#documentList details[data-lu-node="p:${P}"]`)).toHaveAttribute('open','');
+ await expect(page.locator('#documentList .lu-row')).toHaveText([/교섭 요구안/,/기자회견 웹자보/,/회의 메모/,/국토부 지침/,/집회 계획/]);
  await expect(page.locator('[data-lu-document="d2"] .lu-file-kind')).toHaveText('HWP');
  // UI-PC자료실: 분류 꼬리표는 이름 왼쪽(폰은 이름 아래), 날짜는 오른쪽.
  await expect(page.locator('[data-lu-document="d2"] .doc-category-tag')).toHaveText('교섭');await expect(page.locator('[data-lu-document="d2"] .lu-row-date')).toHaveText('10.05');
@@ -328,7 +330,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`library
 test('the library forms choose one of the 7 categories; an old value is shown as its match and kept unless changed',async({page})=>{
  const docs=[{id:'d1',workspace_id:'w',project_id:null,meeting_id:null,title:'국토부 지침',file_id:'f1',file_name:'a.pdf',category:'정부자료',document_date:'2026-09-02',drive_url:'https://example.org/d1',created_at:stamp,tags:[]}];
  const f=await fixture(page,{width:1280,docs});
- await clickView(page,'library');await expect(page.locator('[data-lu-document="d1"]')).toBeVisible();
+ await clickView(page,'library');await revealLibraryRow(page,'d1');
  await page.locator('#newDocumentBtn').click();
  await expect(page.locator('#docCategory option')).toHaveText(['자동 분류','교섭','투쟁','교육','선전','정책','회의','기타']);await expect(page.locator('#docCategory')).toHaveValue('');
  await page.locator('[data-close="documentModal"]').click();
