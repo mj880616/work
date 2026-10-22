@@ -353,8 +353,9 @@ const switchRow=root.querySelector('.basket-switch-row');
 // an open memo or note draws its own "‹ 바구니"/"‹ 노트" head in that place instead.
 // BASKET-드롭제목: a memo's title is its first line; a memo with only files is titled by its first file (a name cut by the old upload reader shows cleaned,
 // and one with nothing left is just "파일"/"사진", attachment-name.mjs). The list row and the PC top line (UI-상단줄제목) use this one function.
+const memoLines=note=>String(note.raw_text||'').split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
 function memoTitle(note){
-  const lines=String(note.raw_text||'').split(/\r?\n/).map(line=>line.trim()).filter(Boolean),file=note.attachments?.[0];
+  const lines=memoLines(note),file=note.attachments?.[0];
   const fileTitle=file?[String(file.mime_type||'').startsWith('image/')?'사진':'파일',attachmentName(file,'')].filter(Boolean).join(' · '):'';
   return lines[0]||fileTitle||'업데이트';
 }
@@ -503,7 +504,7 @@ function renderList() {
   const visible = visibleNotes(notes, links, filter, docs, place, sub);
   root.querySelector('[data-basket-rows]').innerHTML = visible.map(note => {
     const state = noteState(note, links, docs);
-    const title=memoTitle(note);
+    const lines=memoLines(note),title=memoTitle(note);
     // BUG-바구니연결해제: links are chips under the row button (a button cannot hold the × button).
     const chips = [...confirmedLinks(note.id).map(link => linkChip(link)), ...filedChips(note)].join('') + taskPlaceLine(note);
     return `<div class="basket-row-item" data-basket-row-item="${esc(note.id)}"><button type="button" class="basket-row-copy" data-basket-row-copy="${esc(note.id)}" aria-label="${esc([...title].slice(0,40).join(''))} 복사"${String(note.raw_text||'').trim()?'':' hidden'}>${COPY_ICON}</button><button type="button" class="basket-row-more" data-basket-row-more="${esc(note.id)}" aria-label="${esc([...title].slice(0,40).join(''))} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="basketRowMenu"><span aria-hidden="true">⋯</span></button><button type="button" class="basket-row" data-basket-row="${esc(note.id)}"><b class="basket-title">${esc([...title].slice(0,80).join(''))}</b>${lines.length>1?`<span class="basket-preview">${esc([...lines.slice(1).join(' ')].slice(0,120).join(''))}</span>`:''}<time>${esc(time(note))}</time><span>${esc(rowState(note, state))}${note.attachments?.length ? ' · 첨부 ' + note.attachments.length + '개' : ''}</span>${requestTagsHtml(noteRequests(note), esc)}</button>${chips ? `<div class="basket-row-links" role="group" aria-label="연결된 곳">${chips}</div>` : ''}</div>`;
