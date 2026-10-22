@@ -338,7 +338,7 @@ async function luDeleteDocument(id){
 // LIB-자동정리: 자료실을 열 때(목록을 읽은 뒤) 정리 안 된 기존 자료를 조용히 소량씩 서버에 채우기 요청한다. 버튼·표시·안내문 없음.
 // 목록 열기는 이것을 기다리지 않는다. 한 번에 하나만 돌고, 로그인·업무공간이 바뀌거나 자료실을 떠나면 다음 요청을 보내지 않는다.
 // 한도·준비 안 됨으로 멈추면 이 로그인 동안(화면 메모리만) 다시 부르지 않는다. 새로 고치거나 다시 로그인하면 서버가 다시 판단한다.
-const LU_TIDY_HALT=new Set(['daily_limit','monthly_limit','library_not_ready','not_ready','unsupported_kind','ai_not_configured','forbidden','session_required']);
+const LU_TIDY_HALT=new Set(['daily_limit','monthly_limit','library_not_ready','not_ready','unsupported_kind','invalid_request','ai_not_configured','forbidden','session_required']);
 let luTidyRun=null,luTidyHalted='';
 function luTidyScope(){const rt=window.KPTURuntime;const epoch=rt?.session?.epoch?.();return Number.isInteger(epoch)&&luWorkspace&&luUser?.id?{epoch,workspace:luWorkspace,user:luUser.id}:null}
 function luStartAutoTidy(){
