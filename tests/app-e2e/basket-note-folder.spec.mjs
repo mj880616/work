@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
+import { expectNoteTitle } from './helpers/note-title.mjs';
 
 // UI-노트폴더 1단계 (docs/design/note-folders.md): a note's folder is metadata.folder in its existing row (no database change).
 // The note list has one folder row under the search box ([전체] [folders…] [폴더 없음] + ⋯), the note ⋯ has [폴더로 옮기기],
@@ -242,7 +243,7 @@ test('a note written while a folder is shown goes into that folder', async ({ pa
   await editor.locator('[data-md-title]').fill('새 자료 노트');
   await editor.locator('.md-editor-text').fill('본문');
   await editor.locator('[data-md-save-icon]').click();
-  await expect(page.locator('[data-note-read-title]')).toHaveText('새 자료 노트');
+  await expectNoteTitle(page,'새 자료 노트');
   await expect(page.locator('[data-note-meta-folder]')).toHaveText('폴더 자료 폴더');
   expect(f.writes.map(w => w.method || 'PATCH')).toEqual(['POST', 'PATCH']);
   expect(f.writes[1].body).toEqual({ metadata: { folder: '자료 폴더' } });

@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import {noteMenuAction} from './helpers/note-menu.mjs';
 import { basketKindButton } from './helpers/basket-kind.mjs';
+import { expectNoteTitle } from './helpers/note-title.mjs';
 // BUG-노트HTML표시: a note's .html attachment (ChatGPT HTML) shows in the same sandboxed frame as the memo read view
 // (html-frame.js, document-actions `html-view`), so a note made only of HTML no longer says "본문이 없는 노트입니다.".
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -54,7 +55,7 @@ for(const width of [390,1280]){
   await page.setViewportSize({width,height:900});const f=await fixture(page);
   const probe=page.evaluate(()=>new Promise(resolve=>addEventListener('message',e=>{if(e.data?.type==='web2-note-probe')resolve(e.data.parent);})));
   const detail=await openNote(page,'n-html',width);
-  await expect(detail.locator('[data-note-read-title]')).toHaveText('GPT 답변 HTML');
+  await expectNoteTitle(page,'GPT 답변 HTML');
   const view=detail.locator('[data-basket-html-view="note_html"]'),frame=view.locator('iframe.html-frame-view');
   await expect(frame).toHaveCount(1);
   await expect(frame).toHaveAttribute('sandbox','allow-scripts');
