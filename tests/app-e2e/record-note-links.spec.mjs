@@ -115,3 +115,18 @@ for(const width of [390,1280])test(`organization ${width}: the linked note shows
  }
  expect(state.writes).toEqual([]);expect(errors).toEqual([]);
 });
+
+// BUG-미리보기기호: project record lines (a linked update's summary, a progress record) show plain letters, no ###·|·**·entity leftovers.
+for(const width of [1280,390])test(`project ${width}: record lines show plain letters without markdown marks`,async({page})=>{
+ const {state,errors}=await fixture(page,{width});
+ state.links[0].summary='### 합성 결과 | 일시 | 장소 |\n|---|---|\n| 2026\\.&#x20;10\\.&#x20;21\\. | **합성 본사** |';
+ state.progress[0].summary='## 합성 진행 | 항목 | **굵게**';
+ await clickView(page,'projects');if(width<761)await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();
+ await expect(title(page)).toHaveText('합성 정책 사업');
+ const up=page.locator('#ps3-progress [data-ps3-records] [data-basket-link="l-up"] .ps3-rec-text');
+ await expect(up).toContainText('합성 결과 · 일시 · 장소 2026. 10. 21. · 합성 본사');
+ expect((await up.textContent())||'').not.toMatch(/###|\||\*\*|&#x20;|\\\./);
+ const progress=page.locator('#ps3-progress .ps3-rec-summary').first();
+ await expect(progress).toHaveText('합성 진행 · 항목 · 굵게');
+ expect(errors).toEqual([]);
+});
