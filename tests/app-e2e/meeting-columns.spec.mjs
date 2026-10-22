@@ -91,7 +91,8 @@ for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 
   // ⋯ → [수정]: 누른 자리 바로 아래에 펼치고, 지금의 회의 결과 창(수정 단추가 있는 창)을 그 차수로 연다.
   const more=result(page).locator('[data-meeting-more]');await more.click();
   const menu=page.locator('#mcolMenu');await expect(menu).toBeVisible();await expect(more).toHaveAttribute('aria-expanded','true');
-  await expect(menu.locator('button')).toHaveText(['수정']);await expect(menu.locator('button')).toBeFocused();
+  // MTG-사업보고 4단계: 메뉴는 [수정] [칸 바꾸기] 두 줄, 열면 [수정]에 초점.
+  await expect(menu.locator('button')).toHaveText(['수정','칸 바꾸기']);await expect(menu.locator('button').first()).toBeFocused();
   const pos=await page.evaluate(()=>{const a=document.querySelector('#meetingList [data-meeting-more]').getBoundingClientRect(),b=document.querySelector('#mcolMenu').getBoundingClientRect();return {gap:b.top-a.bottom,right:b.right<=innerWidth,left:b.left>=0}});
   expect(pos.gap).toBeGreaterThanOrEqual(0);expect(pos.gap).toBeLessThanOrEqual(12);expect(pos.right&&pos.left).toBe(true);
   // Esc는 메뉴만 닫고 ⋯로 돌아간다. 바깥을 눌러도 닫힌다.
