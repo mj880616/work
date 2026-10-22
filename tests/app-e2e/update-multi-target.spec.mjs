@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import {openWriteFromEntry} from './helpers/write-opener.mjs';
 // UPD-여러곳고르기: 홈 [업데이트 ▾] "기록할 곳 선택" 창에서 담당조직·프로젝트를 여러 곳 고른다.
 // 누르면 체크만 되고 창은 열린 채, 아래 'N곳 선택됨' + [취소] [저장], [저장]을 눌러야 닫히고 반영. 바구니(미분류)는 다른 곳과 함께
 // 고를 수 없다. 여러 곳이면 입력창 버튼이 '첫 곳 이름 외 N'. 저장은 바구니 업데이트 1건 + 기존 [연결하기] 경로
@@ -141,9 +142,9 @@ test('큰 창(쓰기)의 ▾도 같은 여러 곳 고르기, 저장하면 한 �
  await expect(q).toHaveAttribute('data-mode','basket');
 });
 
-test('메뉴 [쓰기]도 같은 창: 여러 곳 저장은 바구니 1건 + 연결',async({page})=>{
+test('빠른 추가 [업데이트]도 같은 창: 여러 곳 저장은 바구니 1건 + 연결',async({page})=>{
  const {f}=await setup(page,1280);
- await page.locator('[data-menu-write]').first().evaluate(b=>b.click());const e=page.locator('#mdEditor');await expect(e).toBeVisible();
+ await openWriteFromEntry(page,1280);const e=page.locator('#mdEditor');await expect(e).toBeVisible();
  await e.locator('.md-editor-text').fill('쓰기 여러 곳');
  await e.locator('[data-md-kind-menu]').click();const sheet=page.locator('#mdPlaceSheet');
  await sheet.locator('[data-sheet-all]').getByRole('button',{name:'전국철도노동조합',exact:true}).click();

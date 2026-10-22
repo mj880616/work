@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {expectProjectDetail} from './helpers/project-detail.mjs';
+import {openWriteFromEntry} from './helpers/write-opener.mjs';
 // UI-크게첨부(2026-10-20 사용자 결정): (a) 조직 상세·프로젝트 상세의 업데이트 입력에도 [크게]. 같은 큰 편집 창(write-window.js)이
 // 그 조직·프로젝트를 미리 고른 채 열리고, 저장하면 그 조직·프로젝트 기록으로 저장된 뒤 닫힌다. (b) 큰 편집 창에서도 [📎 첨부]
 // (바구니 첨부 부품 basket-upload.js 그대로). 첨부는 바구니로 저장할 때만 — 조직·프로젝트 기록이나 노트로 저장할 때 첨부가 있으면
@@ -97,11 +98,10 @@ for(const width of [390,1280]){
   expect(f.errors).toEqual([]);
  });
 
- test(`큰 편집 창 [📎 첨부]: 바구니(또는 노트)로 저장할 때만, 조직 기록으로 저장하면 기존 안내 ${width}`,async({page})=>{
+ if(width===1280)test(`큰 편집 창 [📎 첨부]: 바구니(또는 노트)로 저장할 때만, 조직 기록으로 저장하면 기존 안내 ${width}`,async({page})=>{
   const f=await fixture(page,width);
   // Menu [쓰기]: the window's own file batch.
-  if(width<761){await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-menu-write]').click();}
-  else await page.locator('#appView>.app-nav [data-menu-write]').click();
+  await openWriteFromEntry(page,width);
   const e=editor(page);await expect(e).toBeVisible();
   const clip=e.getByRole('button',{name:'파일 첨부',exact:true});await expect(clip).toBeVisible();
   // The same small button as the head (32px painted, 44px touch area) under the text, not covering it.

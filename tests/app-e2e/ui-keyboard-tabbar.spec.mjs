@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { noteAction } from './helpers/basket-more.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
+import {openWriteFromEntry} from './helpers/write-opener.mjs';
 // UI-키보드하단바: 쓰기 창 머리줄 한 줄 [× 닫기] [저장 아이콘] [업데이트 ▾|노트] [쓰기|미리보기] … [내보내기] → 서식 도구줄 → 본문 → 앱 하단 탭 6칸.
 // BASKET-업데이트통합 PR 2: 저장은 × 옆 저장 아이콘 하나(저장하고 닫기).
 // 하단 탭은 자판이 없을 때만 보이고(쓰기 창·홈 빠른 입력·노트 검색 공통, accessibility-dialog.js 한 곳), 글이 있는 쓰기 창에서
@@ -28,8 +29,7 @@ async function fixture(page,{width=390,height=844,dark=false}={}){
  return {writes,errors};
 }
 async function openWriter(page,width){
- if(width<761){await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-menu-write]').click();}
- else await page.locator('#appView>.app-nav [data-menu-write]').click();
+ await openWriteFromEntry(page,width);
  const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();return editor;
 }
 // The phone keyboard as most Android browsers show it over the page: only the visual viewport shrinks.

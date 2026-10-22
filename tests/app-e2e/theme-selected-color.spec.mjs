@@ -77,10 +77,10 @@ for(const theme of ['olive','terracotta']){
  });
 }
 
-test('폰 390: 메뉴 판 타일 여섯이 같은 모양(쓰기 주황 채움 없음)이고 낮다',async({page})=>{
+test('폰 390: 메뉴 판 타일 다섯이 같은 모양이고 낮다',async({page})=>{
  const errors=await open(page,390);
  await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu .mobile-menu-panel')).toBeVisible();
- const tiles=page.locator('#mobileMenu .mobile-menu-panel nav button');await expect(tiles).toHaveCount(6);
+ const tiles=page.locator('#mobileMenu .mobile-menu-panel nav button');await expect(tiles).toHaveCount(5);
  const look=await tiles.evaluateAll(els=>els.map(e=>{const s=getComputedStyle(e);return {bg:s.backgroundColor,color:s.color,border:s.borderTopColor,h:Math.round(e.getBoundingClientRect().height)}}));
  for(const t of look){expect(t).toEqual(look[0]);expect(t.h).toBeLessThanOrEqual(60);expect(t.h).toBeGreaterThanOrEqual(44)}
  expect(errors).toEqual([]);
