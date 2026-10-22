@@ -4,6 +4,7 @@ import { mountRadar } from './todo-radar.js';
 import { mountCollectionStatus } from './collection-status.js';
 import { createHomeCache } from './home-read-cache.js';
 import { paintFreshness } from './data-freshness.js';
+import { createTaskInline, moreButtonHtml } from './task-inline.js';
 import {
   ranges,
   dayKey,
@@ -163,7 +164,7 @@ function paint(key, html, count = null) {
   const c = card(key);
   if (!c) return;
   const active = c.contains(document.activeElement) ? document.activeElement : null,
-    focused = active?.dataset.homeToggle ? `toggle:${active.dataset.homeToggle}` : active?.dataset.homeEdit ? `edit:${active.dataset.homeEdit}` : null;
+    focused = active?.dataset.homeToggle ? `toggle:${active.dataset.homeToggle}` : active?.dataset.homeEdit ? `edit:${active.dataset.homeEdit}` : active?.dataset.homeTaskMenu ? `menu:${active.dataset.homeTaskMenu}` : null;
   c.hidden = false;
   c.querySelector("[data-home-body]").innerHTML = html;
   c.querySelector("[data-home-count]").textContent =
@@ -176,7 +177,9 @@ function paint(key, html, count = null) {
     c.querySelector(
       focused.startsWith("edit:")
         ? `[data-home-edit="${CSS.escape(focused.slice(5))}"]`
-        : `[data-home-toggle="${CSS.escape(focused.slice(7))}"]`,
+        : focused.startsWith("menu:")
+          ? `[data-home-task-menu="${CSS.escape(focused.slice(5))}"]`
+          : `[data-home-toggle="${CSS.escape(focused.slice(7))}"]`,
     )?.focus({ preventScroll: true });
 }
 function empty(key, text, hide = false) {
@@ -256,7 +259,9 @@ function shownTasks() {
 function taskRowHtml(id, title, done, meta, followUp = false) {
   const name = esc(title || "제목 없음");
   // HOME-모바일정리②: 회의 후속이기도 한 오늘 할 일은 여기 한 번만 나오고 작은 꼬리표를 단다.
-  return `<div class="home-task ${done ? "completed" : ""}" data-home-task="${esc(id)}"><button type="button" class="gt-check" data-home-toggle="${esc(id)}" ${google?.taskState(id)?.task ? "" : "disabled"} aria-label="${done ? "완료 취소" : "완료"}" aria-pressed="${done}"></button><button type="button" class="home-task-text" data-home-edit="${esc(id)}" aria-label="${name} 수정"><span class="home-title">${name}</span>${followUp ? '<span class="home-tag" data-home-followup-tag>회의 후속</span>' : ""}${meta ? `<small>${meta}</small>` : ""}</button></div>`;
+  // TASK-바로처리통일: 줄 오른쪽 ⋯(공용 task-inline.js: 내일로·기한 바꾸기·고치기·지우기, 끝낸 줄은 다시 할 일로·고치기).
+  const ready = !!google?.taskState(id)?.task;
+  return `<div class="home-task ${done ? "completed" : ""}" data-home-task="${esc(id)}" data-task-inline-row><button type="button" class="gt-check" data-home-toggle="${esc(id)}" ${ready ? "" : "disabled"} aria-label="${done ? "완료 취소" : "완료"}" aria-pressed="${done}"></button><button type="button" class="home-task-text" data-home-edit="${esc(id)}" aria-label="${name} 수정"><span class="home-title">${name}</span>${followUp ? '<span class="home-tag" data-home-followup-tag>회의 후속</span>' : ""}${meta ? `<small>${meta}</small>` : ""}</button>${moreButtonHtml({id, name:title || "제목 없음", attr:"homeTaskMenu", menuId:"homeTaskMenu", className:"home-task-more"}).replace('<button ', ready ? '<button ' : '<button disabled ')}</div>`;
 }
 const isFollowUp = (id) => linksReady
   ? links.some((l) => l.google_task_id === id && l.meeting_id && l.status === "confirmed")
@@ -307,7 +312,7 @@ function renderTasks({ includeMeetings = true } = {}) {
         : '<p class="home-status">오늘 할 일 없음</p>',
       dueTasks(shown.map((x) => x.task)).length,
     );
-  if(tasksReady)card('meetings')?.querySelectorAll('[data-home-toggle]').forEach(b=>{b.disabled=!google?.taskState(b.dataset.homeToggle)?.task;});
+  if(tasksReady)card('meetings')?.querySelectorAll('[data-home-toggle],[data-home-task-menu]').forEach(b=>{b.disabled=!google?.taskState(b.dataset.homeToggle||b.dataset.homeTaskMenu)?.task;});
   if(tasksReady&&linksReady)saveCopy('tasks',{names:tasks.map(t=>({id:t.id,meeting:isFollowUp(t.id),names:links.filter(l=>l.google_task_id===t.id&&l.status==='confirmed').flatMap(l=>[projects.find(p=>p.id===l.project_id)?.name,orgs.find(o=>o.id===l.organization_id)?.name].filter(Boolean))}))});
   if (!meetingsReady || !includeMeetings) return;
   // HOME-모바일정리②(폰·중간 폭): 오늘 할 일에 이미 나온 항목은 빼고(그쪽에 꼬리표), 남는 것이 없으면 칸을 숨긴다.
@@ -561,6 +566,10 @@ async function retry(key){
   if(key==='tasks'||key==='meetings')return refreshTaskCards();
   await loadCard(key);
 }
+const homeTasks = createTaskInline({menuId:'homeTaskMenu', historyKey:'kptuHomeTaskMenu', menuAttr:'homeTaskMenu',
+  find:id => google?.taskState(id)?.task || tasks.find((x) => x.id === id),
+  // A deleted task leaves the card at once (the task screen's fresh read follows through kptu:google-tasks-changed).
+  removed:id => { tasks = tasks.filter((t) => t.id !== id); renderTasks(); }});
 root.addEventListener("click", async (event) => {
   const b = event.target.closest("button");
   if (!b) return;
@@ -576,21 +585,14 @@ root.addEventListener("click", async (event) => {
     if (t) google?.openEditor?.(t);
     return;
   }
+  // The circle and ⋯: the shared task line (task-inline.js). The rows follow the task screen's own state (google.taskState,
+  // redrawn through its subscribe), so this card only says which task a line is.
   const id = b.dataset.homeToggle;
   if (id) {
-    const run=epoch,me=owner(),t = google?.taskState(id)?.task;
-    if(!t||!me||run!==epoch||owner()!==me)return;
-    const result = await google.toggleTask(t);
-    if(run!==epoch||owner()!==me)return;
-    if (result?.ok === false) {
-      const msg = document.createElement("p");
-      msg.className = "home-status";
-      msg.setAttribute("role", "alert");
-      msg.textContent = result.message;
-      card("tasks").append(msg);
-    }
-    return;
+    if(!google?.taskState(id)?.task||!owner())return;
+    return void homeTasks.toggle(id, b);
   }
+  if (b.dataset.homeTaskMenu) return homeTasks.openMenu(b);
   try {
     if (b.dataset.homeProject) {
       await window.KPTUViewLoader.load("projects");

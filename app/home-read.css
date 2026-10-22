@@ -342,3 +342,11 @@
 .mobile-menu-collect { margin:8px 0; padding:10px 12px; border:1px solid var(--kptu-border); border-radius:var(--ds-radius-box,12px); background:var(--kptu-surface); }
 .mobile-menu-collect header { margin-bottom:6px; }
 .mobile-menu-collect h3 { font-size:var(--ds-text-section,13px); }
+/* TASK-바로처리통일: 줄 오른쪽 ⋯(공용 task-inline.js). 보이는 칸은 업무일지와 같은 --ds-compact-height-sm(28px), 줄이 촘촘해 위아래로
+   늘리지 않고 좌우만 ::after로 44px 폭을 지킨다. PC hover/focus 때만 보이는 규칙은 ui-standard.css [data-task-inline-row]. */
+#appView #homeView .home-task .home-task-more{ position:relative; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box;
+  width:var(--ds-compact-height-sm); min-width:var(--ds-compact-height-sm); height:var(--ds-compact-height-sm); min-height:var(--ds-compact-height-sm); margin:0 0 0 auto; padding:0;
+  border:0; border-radius:var(--kptu-radius-md); background:transparent; box-shadow:none; color:var(--kptu-muted); font-size:var(--ds-text-meta); line-height:1; cursor:pointer; }
+#appView #homeView .home-task .home-task-more::after{ content:""; position:absolute; inset:-8px -8px; }
+@media(hover:hover){ #appView #homeView .home-task .home-task-more:not(:disabled):hover{ background:var(--kptu-surface-subtle); } }
+#appView #homeView .home-task .home-task-more:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }

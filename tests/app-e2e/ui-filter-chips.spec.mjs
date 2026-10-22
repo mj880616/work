@@ -5,6 +5,7 @@ test.use({hasTouch:true});
 import {clickView} from './helpers/shell-navigation.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
 import {openMeetingResult} from './helpers/meeting-open.mjs';
+import {expandLibraryTree,focusLibraryProject,libraryNodeHead} from './helpers/library-tree.mjs';
 export function chipState(){const s=baseState();s.meetingWrites=[];s.meetings=['궤도협의회','노사협의회','안전위원회','정책회의','현안회의','후속회의',''].map((name,i)=>({id:`meeting-${i}`,workspace_id:s.workspace.id,title:name,series_name:name,round_no:i+1,meeting_at:'2026-10-11T01:00:00Z',transcript_text:'원문',created_by:s.user.id}));s.docs.push({id:'meeting-doc',workspace_id:s.workspace.id,project_id:'child-a1',title:'회의 연결 자료',meeting_id:'meeting-0',category:'회의자료'});return s}
 // UI-PC회의: PC(≥1024) 회의는 유형별 열이고 위쪽 칩은 "보일 열 고르기"(meeting-columns.spec.mjs). 회의명 필터는 1024 미만에서 본다.
 for(const width of [390,1000])test(`공용 알약 필터·2단 프로젝트·키보드·터치 ${width}`,async({page})=>{
@@ -37,15 +38,19 @@ for(const width of [390,1000])test(`공용 알약 필터·2단 프로젝트·키
   const category=page.locator('#libraryCategoryFilter');await expect(category).toHaveAttribute('role','group');
   await expect(category.locator('[data-lu-category="회의"]')).toHaveAttribute('aria-pressed','false');await expect(page.locator('[data-lu-document="meeting-doc"]')).toHaveCount(0);
   await category.locator('[data-lu-category="회의"]').click();await expect(page.locator('.lu-row')).toHaveCount(7);
-  await expect(page.locator('[data-lu-document="meeting-doc"]')).toBeVisible();
+  await expect(page.locator('[data-lu-document="meeting-doc"]')).toBeAttached();
+  // LIB-토글트리: 프로젝트 칩 줄 대신 트리. 1단 토글의 자료 수는 그 아래 2·3단 자료까지 센다(PRJ-3단 결정 2와 같은 범위).
+  await expect(libraryNodeHead(page,'p:top-a').locator('.lu-node-count')).toHaveText('3');
+  await libraryNodeHead(page,'p:top-a').click();await expect(libraryNodeHead(page,'p:child-a1')).toBeVisible();await expect(libraryNodeHead(page,'p:child-a1').locator('.lu-node-count')).toHaveText('2');
+  // 머리 줄은 32px 얇은 줄, 누르는 범위 44px.
+  expect(Math.round((await libraryNodeHead(page,'p:top-a').boundingBox()).height)).toBe(32);
+  expect(await libraryNodeHead(page,'p:top-a').evaluate(n=>parseFloat(getComputedStyle(n,'::after').height))).toBe(44);
+  // 키보드: 토글 머리에서 Enter로 펴고 접는다.
+  await libraryNodeHead(page,'p:child-a1').focus();await page.keyboard.press('Enter');await expect(page.locator('[data-lu-document="doc-a1"]')).toBeVisible();await expect(page.locator('[data-lu-document="meeting-doc"]')).toBeVisible();
+  // 다른 화면(프로젝트 상세)에서 큰 프로젝트로 걸러 열면 그 아래 프로젝트 자료도 함께, 맞는 토글만 펼쳐져 보인다.
   const project=page.locator('#documentProject');
-  // PRJ-3단(결정 2): 큰 프로젝트를 고르면 그 아래 프로젝트 자료(하위 자료·하위 회의 자료)도 함께 보인다.
-  await project.locator('[data-filter-value="top-a"]').click();await expect(page.locator('.lu-row')).toHaveCount(3);
-  await expect(page.locator('[data-lu-document="doc-a1"]')).toBeVisible();await expect(page.locator('[data-lu-document="meeting-doc"]')).toBeVisible();
-  await expect(project.locator('.filter-chips-small')).toBeVisible();await expect(project.locator('.filter-chips-small').getByRole('radio')).toHaveText(['전체(이 프로젝트)','국토부 대응','산자부 대응']);
-  // UI-버튼크기: the second (child project) row uses the same 32px chip height.
-  await expect(project.locator('.filter-chips-small [role=radio]').first()).toHaveCSS('height','32px');
-  await project.locator('[data-filter-value="child-a1"]').click();await expect(page.locator('.lu-row')).toHaveCount(2);
+  await focusLibraryProject(page,'top-a');await expect(page.locator('.lu-row')).toHaveCount(3);await expect(page.locator('.lu-row:visible')).toHaveCount(3);
+  await focusLibraryProject(page,'child-a1');await expect(page.locator('.lu-row')).toHaveCount(2);
   await expect(page.locator('[data-lu-document="doc-a1"]')).toBeVisible();
   // [정책]을 끄면 회의 자료만 남고, 검색 중 [회의]를 끄면 목록 아래 안내와 [켜기]가 나온다.
   await category.locator('[data-lu-category="정책"]').click();await expect(page.locator('.lu-row')).toHaveCount(1);
@@ -55,7 +60,7 @@ for(const width of [390,1000])test(`공용 알약 필터·2단 프로젝트·키
   await expect(page.locator('.lu-off-hint')).toHaveText('회의 분류 1건은 꺼져 있어요 켜기');
   await page.locator('.lu-off-hint button').click();await expect(page.locator('.lu-row')).toHaveCount(1);await expect(page.locator('.lu-off-hint')).toHaveCount(0);
   await category.locator('[data-lu-category="all"]').click();await expect(category.locator('[aria-pressed="false"]')).toHaveCount(0);
-  await page.locator('#documentSearch').fill('');await project.locator('[data-filter-value="all"]').click();await expect(project.locator('.filter-chips-small')).toBeHidden();await expect(page.locator('.lu-row')).toHaveCount(7);
+  await page.locator('#documentSearch').fill('');await focusLibraryProject(page,'all');await expect(project).toBeHidden();await expect(page.locator('.lu-row')).toHaveCount(7);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);expect(errors).toEqual([]);
 });
 for(const timezoneId of ['Europe/Rome','Asia/Seoul','UTC'])test.describe(timezoneId,()=>{test.use({timezoneId});test('회의 표시·새 입력·수정 왕복 한국 고정',async({page})=>{

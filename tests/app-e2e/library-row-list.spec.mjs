@@ -2,6 +2,7 @@ import { appOrigin } from './helpers/test-origin.mjs';
 import {selectFilter,filterOptions} from './helpers/filter-chips.mjs';
 import {onlyLibraryCategories} from './helpers/library-categories.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
+import {expandLibraryTree,focusLibraryProject} from './helpers/library-tree.mjs';
 import { test, expect } from '@playwright/test';
 import {execFileSync} from 'node:child_process';
 import { enterLogin } from './helpers/login-entry.mjs';
@@ -121,6 +122,8 @@ async function boot(page,{width=390,main=false}={}){
   }));
   await mockApp(page,state);await signIn(page,`${appOrigin}/app/?view=library`);
   await expect(page.locator('[data-lu-document]')).toHaveCount(10);
+  // LIB-토글트리: 줄을 보고 누르는 시험이라 모두 편다. main 화면(옛 목록)에는 토글이 없다.
+  if(!main)await expandLibraryTree(page);
   return state;
 }
 async function menu(page,id='row-0'){await page.locator(`[data-lu-document="${id}"] .lu-more-trigger`).click();await expect(page.locator('.lu-more-panel')).toBeVisible()}
@@ -134,7 +137,7 @@ for(const width of [390,1440]){
     if(width<761){for(const [property,value]of [['background-color','rgba(0, 0, 0, 0)'],['font-size','11px']])await expect(kind).toHaveCSS(property,value)}
     else for(const [property,value]of [['width','36px'],['height','36px'],['border-radius','8px'],['font-size','11px']])await expect(kind).toHaveCSS(property,value);
     // UI-디자인기준 3/3(8-9e-1): 상자 안 줄 단위(줄 최소 44px), 이름 13px·400, 보조 글자(날짜) 12px.
-    await expect(rows.first()).toHaveCSS(width<761?'column-gap':'gap',width<761?'6px':'10px');await expect(rows.first()).toHaveCSS('padding','9px 0px');await expect(rows.first()).toHaveCSS('min-height','44px');
+    await expect(rows.first()).toHaveCSS(width<761?'column-gap':'gap',width<761?'6px':'10px');await expect(rows.first()).toHaveCSS('padding-top','9px');await expect(rows.first()).toHaveCSS('padding-bottom','9px');await expect(rows.first()).toHaveCSS('padding-left',width<761?'12px':'16px');// LIB-토글트리: 토글 안 파일 줄은 단마다 들여 쓴다(폰 12px, PC 16px).await expect(rows.first()).toHaveCSS('min-height','44px');
     await expect(title).toHaveCSS('font-size','13px');await expect(title).toHaveCSS('font-weight','400');
     await expect(rows.first().locator('.lu-row-date')).toHaveCSS('font-size','12px');
     expect(await rows.locator('.lu-file-kind').allTextContents()).toEqual(['HWP','PDF','XLS','DOC','PPT','파일','HWP','XLS','DOC','PPT']);
@@ -217,8 +220,8 @@ test('library file type keeps its kind color in all four themes and search/filte
   }
   await page.locator('#documentSearch').fill('목록에 표시하지 않을 출처');await expect(page.locator('.lu-row')).toHaveCount(10);
   await page.locator('#documentSearch').fill('없는 검색어');await expect(page.locator('.lu-row')).toHaveCount(0);
-  await page.locator('#documentSearch').fill('');await selectFilter(page,'#documentProject','top-b');await expect(page.locator('.lu-row')).toHaveCount(0);
-  await selectFilter(page,'#documentProject','top-a');await expect(page.locator('.lu-row')).toHaveCount(10);
+  await page.locator('#documentSearch').fill('');await focusLibraryProject(page,'top-b');await expect(page.locator('.lu-row')).toHaveCount(0);
+  await focusLibraryProject(page,'top-a');await expect(page.locator('.lu-row')).toHaveCount(10);
 });
 
 test('library menu waits for close traversal before rapid reopening',async({page})=>{
@@ -259,26 +262,28 @@ for(const width of [390,1280]){
       await mockApp(page,state);await signIn(page,`${appOrigin}/app/?view=library`);
       await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
       const rows=page.locator('#documentList [data-lu-document]'),ids=()=>rows.evaluateAll(els=>els.map(el=>el.dataset.luDocument));
+      await expandLibraryTree(page);
       // UI-PC자료실 C: 분류 칩은 여러 개 켜고 끄는 토글 묶음(aria-pressed). 들어올 때는 [회의]만 꺼져 있다.
       const category=page.getByRole('group',{name:'자료 분류 (여러 개 고르기)',exact:true});
       const pressed=name=>category.getByRole('button',{name,exact:true});
       // UI-바구니거르기: no [일반 자료|회의자료만] row; meeting-linked documents list with the rest by their category.
       await expect(page.locator('#libraryViewFilter')).toHaveCount(0);await expect(page.getByRole('radiogroup',{name:'자료 종류',exact:true})).toHaveCount(0);
-      expect(await ids()).toEqual(['ordinary-a','ordinary-b','meeting-a']);
+      expect(await ids()).toEqual(['ordinary-a','meeting-a','ordinary-b']);
       await expect(pressed('회의')).toHaveAttribute('aria-pressed','false');await expect(pressed('전체')).toHaveAttribute('aria-pressed','false');
       await expect(page.locator('#libraryMeetingToggle')).toHaveCount(0);
-      // The project chip row and the category chip row stay; meeting documents are the [회의] category (회의자료·회의결과).
-      await expect(page.locator('#documentProject')).toBeVisible();await expect(category).toHaveAttribute('aria-controls','documentList');
+      // The group-by row (LIB-토글트리, in place of the project chip row) and the category chip row stay; meeting documents are the [회의] category (회의자료·회의결과).
+      await expect(page.locator('#libraryGroupBy')).toBeVisible();await expect(category).toHaveAttribute('aria-controls','documentList');
       if(width===390)await pressed('회의').tap();else await pressed('회의').click();
       await expect(pressed('회의')).toHaveAttribute('aria-pressed','true');await expect(pressed('전체')).toHaveAttribute('aria-pressed','true');
-      expect(await ids()).toEqual(['ordinary-a','category-only','ordinary-b','meeting-a','meeting-b']);
+      // LIB-토글트리: 줄 차례는 트리 차례(프로젝트 차례, 그 안은 날짜 최신순).
+      expect(await ids()).toEqual(['ordinary-a','category-only','meeting-a','ordinary-b','meeting-b']);
       await onlyLibraryCategories(page,['회의'],{tap:width===390});expect(await ids()).toEqual(['category-only','meeting-b']);
       await page.screenshot({path:`/tmp/library-two-meetings-${width}.png`,fullPage:true});
       // Keyboard: [전체] turns every category on, and pressing it again returns to the default (회의 off).
       await pressed('전체').focus();await page.keyboard.press('Enter');
       await expect(rows).toHaveCount(5);await expect(pressed('전체')).toHaveAttribute('aria-pressed','true');await expect(pressed('전체')).toBeFocused();
       await page.keyboard.press('Space');await expect(rows).toHaveCount(3);await expect(pressed('회의')).toHaveAttribute('aria-pressed','false');await expect(pressed('전체')).toBeFocused();
-      await selectFilter(page,'#documentProject','top-a');
+      await focusLibraryProject(page,'top-a');
       await page.locator('#documentSearch').fill('철도');
       // A search follows the chips; a hit in a switched-off category is reported below the list with [켜기].
       await expect(rows).toHaveCount(2);await expect(page.locator('.lu-off-hint')).toHaveText('회의 분류 1건은 꺼져 있어요 켜기');
@@ -286,7 +291,7 @@ for(const width of [390,1280]){
       await expect(page.locator('.lu-off-hint')).toHaveText('정책·기타 분류 2건은 꺼져 있어요 켜기');
       await page.locator('#documentSearch').fill('회의 연결');await expect(rows).toHaveCount(0);await expect(page.locator('.lu-off-hint')).toHaveText('기타 분류 1건은 꺼져 있어요 켜기');
       await page.locator('.lu-off-hint button').click();await expect(rows).toHaveCount(1);await expect(page.locator('[data-lu-document="meeting-a"]')).toBeVisible();await expect(pressed('기타')).toHaveAttribute('aria-pressed','true');
-      await page.locator('#documentSearch').fill('');await expect(page.locator('.lu-off-hint')).toHaveCount(0);await selectFilter(page,'#documentProject','all');
+      await page.locator('#documentSearch').fill('');await expect(page.locator('.lu-off-hint')).toHaveCount(0);await focusLibraryProject(page,'all');
       expect(await ids()).toEqual(['category-only','meeting-a','meeting-b']);
       await pressed('전체').click();await expect(rows).toHaveCount(5);
       await page.locator('#manageLibraryBtn').click();
@@ -300,7 +305,7 @@ for(const width of [390,1280]){
       // Every entry to the library starts from the default: only [회의] off.
       await page.evaluate(()=>window.KPTURouter.go('home'));await expect(page.locator('#homeView')).toBeVisible();
       await page.evaluate(()=>window.KPTURouter.go('library'));
-      expect(await ids()).toEqual(['ordinary-a','ordinary-b','meeting-a']);await expect(category.locator('[aria-pressed="false"]')).toHaveText(['전체','회의']);
+      expect(await ids()).toEqual(['ordinary-a','meeting-a','ordinary-b']);await expect(category.locator('[aria-pressed="false"]')).toHaveText(['전체','회의']);
       // An old address or remembered view (?view=library) lands on the default list.
       await page.reload();await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
       await expect(rows).toHaveCount(3);await expect(category.locator('[aria-pressed="false"]')).toHaveText(['전체','회의']);await expect(page.locator('#libraryViewFilter')).toHaveCount(0);
@@ -327,7 +332,7 @@ for(const width of [390,1280]){
       state.docs=[{...original}];
       await mockApp(page,state);await signIn(page,`${appOrigin}/app/?view=library`);
       await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
-      const edit=async()=>{await page.locator('[data-lu-menu="doc-archived"]').click();await page.locator('[data-lu-edit="doc-archived"]').click();await expect(page.locator('#libraryEditModal')).toBeVisible();await expect(page.locator('#libraryEditMeeting option')).toHaveCount(3)};
+      const edit=async()=>{await expandLibraryTree(page);await page.locator('[data-lu-menu="doc-archived"]').click();await page.locator('[data-lu-edit="doc-archived"]').click();await expect(page.locator('#libraryEditModal')).toBeVisible();await expect(page.locator('#libraryEditMeeting option')).toHaveCount(3)};
       await edit();
       const meeting=page.getByRole('combobox',{name:'회의',exact:true});
       await expect(meeting).toHaveValue('');
@@ -380,7 +385,7 @@ for(const width of [390,1280]){
       expect(materialReads).toBe(2);
       await expect(page.locator('#mrdEditTranscript')).toHaveValue('작성 중 원문');
       await page.locator('#mrdClose').click();await page.evaluate(()=>window.KPTURouter.go('library'));
-      await expect(page.locator('#libraryViewFilter')).toHaveCount(0);await expect(page.locator('[data-lu-document="doc-archived"]')).toBeVisible();
+      await expect(page.locator('#libraryViewFilter')).toHaveCount(0);await expandLibraryTree(page);await expect(page.locator('[data-lu-document="doc-archived"]')).toBeVisible();
       expect(state.docs[0].project_id).toBe('top-c');
       expect(requests.filter(r=>r.method!=='GET'&&/functions\/v1\/(library-files|meeting-files|document-actions|drive-summary)/.test(r.url))).toEqual([]);
       expect(requests.filter(r=>r.method==='GET'&&r.url.includes('/rest/v1/app_meetings?')&&!r.url.includes('id=eq.recent'))).toHaveLength(1);
