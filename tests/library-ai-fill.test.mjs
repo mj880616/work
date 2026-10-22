@@ -34,17 +34,6 @@ test('fillLibraryDocument: reads text first, then one fill call; never throws; r
   delete globalThis.window;delete globalThis.CustomEvent;
 });
 
-test('buildTidyProposals: batches of 10, keeps only well-formed proposals for sent ids, stops on limits; never saves',async()=>{
-  const ids=Array.from({length:12},(_,i)=>`e0000000-0000-4000-8000-${String(i+1).padStart(12,'0')}`);
-  const sent=[];
-  const call=async body=>{sent.push(body);return {ok:true,data:{proposals:[{document_id:body.document_ids[0],field:'category',from:'기타',to:'교섭'},{document_id:'x',field:'title',to:'a'},{document_id:body.document_ids[0],field:'project_id',to:'p'}]}}};
-  const r=await m.buildTidyProposals(ids,{rt:{api:async()=>({})},call,readFirst:false});
-  assert.deepEqual(sent.map(b=>[b.mode,b.document_ids.length]),[['propose',10],['propose',2]]);
-  assert.deepEqual(r.proposals,[{document_id:ids[0],field:'category',from:'기타',to:'교섭'},{document_id:ids[10],field:'category',from:'기타',to:'교섭'}]);
-  const limited=await m.buildTidyProposals(ids,{rt:{api:async()=>({})},call:async()=>({ok:false,code:'daily_limit'}),readFirst:false});
-  assert.equal(limited.failed.length,1);
-});
-
 test('no AI marker reaches the library screen (사용자 결정 ③)',()=>{
   const src=readFileSync(new URL('../app/library-upload.js',import.meta.url),'utf8');
   for(const marker of ['field_origin==','field_origin?.','AI가 채움','AI 채움','data-ai','✨'])assert.ok(!src.includes(marker),marker);
@@ -52,78 +41,122 @@ test('no AI marker reaches the library screen (사용자 결정 ③)',()=>{
   assert.equal(src.match(/field_origin/g)?.length,1);
 });
 
-// ---- LIB-정리제안화면: 정리 제안 화면용 순수 함수 ----
+// ---- LIB-자동정리: 자료실을 열 때 조용히 정리 안 된 칸만 서버에 맡긴다 ----
 const DOC=n=>`e0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
-const nameOf=v=>({'기타':'기타','회의자료':'회의'}[v]||v);
+const CATS=['교섭','투쟁','교육','선전','정책','회의','기타'];
+const NOW=Date.parse('2026-10-22T12:00:00Z'),OLD='2026-09-01T00:00:00Z',JUST='2026-10-22T11:50:00Z';
+const row=(n,over={})=>({id:DOC(n),title:'2026_요구안',file_name:'2026_요구안.hwp',category:'기타',source:null,document_date:null,
+  created_at:OLD,updated_at:OLD,field_origin:{},extraction_status:'ready',classification_note:'파일명 정돈 및 메타정보 기반 자동분류',...over});
 
-test('tidyValueText: empty is (빈 칸), a title equal to the file name is (파일 이름 그대로), category shows its name, date is dotted',()=>{
-  const doc={file_name:'2026_임단협_요구안.hwp'};
-  assert.equal(m.tidyValueText('date',null,doc),'(빈 칸)');
-  assert.equal(m.tidyValueText('source','  ',doc),'(빈 칸)');
-  assert.equal(m.tidyValueText('title','2026 임단협 요구안',doc),'(파일 이름 그대로)');
-  assert.equal(m.tidyValueText('title','2026년 임단협 요구안',doc),'2026년 임단협 요구안');
-  assert.equal(m.tidyValueText('category','회의자료',doc,{categoryName:nameOf}),'회의');
-  assert.equal(m.tidyValueText('document_date','2026-03-14',doc),'2026.03.14');
-  assert.equal(m.tidyValueText('document_date','모름',doc),'모름');
+test('untidyFields: only empty / file-name / 기타 / out-of-list fields; user and legacy-edited fields are never candidates',()=>{
+  assert.deepEqual(m.untidyFields(row(1),CATS),['title','document_date','source','category']);
+  assert.deepEqual(m.untidyFields(row(1,{title:'2026년 임금교섭 요구안',source:'공공운수노조',document_date:'2026-01-01',category:'교섭'}),CATS),[]);
+  assert.deepEqual(m.untidyFields(row(1,{category:'회의자료'}),CATS).includes('category'),true);
+  assert.deepEqual(m.untidyFields(row(1,{field_origin:{title:'user',category:'user'}}),CATS),['document_date','source']);
+  assert.deepEqual(m.untidyFields(row(1,{classification_note:'사용자 수정'}),CATS),[]);
+  assert.deepEqual(m.untidyFields(row(1,{classification_note:'사용자 입력 제목 · 메타정보 자동분류'}),CATS),['document_date','source','category']);
+  // 'ai' fields that still look untidy stay candidates (the server decides again)
+  assert.deepEqual(m.untidyFields(row(1,{field_origin:{source:'ai'},source:'국토부'}),CATS),['title','document_date','category']);
 });
 
-test('groupTidyProposals: groups per document in list order, drops unknown documents, shows display text, keeps markup as plain text',()=>{
-  const docs=[{id:DOC(1),file_name:'a.pdf',title:'a'},{id:DOC(2),file_name:'b.hwp',title:'b'},{id:DOC(3),file_name:'c.pdf',title:'c'}];
-  const rows=m.groupTidyProposals([
-    {document_id:DOC(2),field:'category',from:'기타',to:'회의자료'},
-    {document_id:DOC(1),field:'title',from:'a',to:'<img src=x onerror=alert(1)>'},
-    {document_id:DOC(1),field:'document_date',from:null,to:'2026-03-14'},
-    {document_id:DOC(9),field:'title',from:null,to:'모르는 자료'},
-  ],docs,{categoryName:nameOf});
-  assert.deepEqual(rows.map(r=>[r.id,r.name,r.items.length]),[[DOC(1),'a.pdf',2],[DOC(2),'b.hwp',1]]);
-  assert.deepEqual(rows[0].items[0],{field:'title',label:'제목',from:'(파일 이름 그대로)',to:'<img src=x onerror=alert(1)>'});
-  assert.deepEqual(rows[0].items[1],{field:'document_date',label:'날짜',from:'(빈 칸)',to:'2026.03.14'});
-  assert.deepEqual(rows[1].items[0],{field:'category',label:'분류',from:'기타',to:'회의'});
+test('tidyCandidates: needs the field_origin column, skips just-uploaded, tried and already tidy documents',()=>{
+  const docs=[row(1),row(2,{created_at:JUST}),row(3),row(4,{title:'정리됨',source:'a',document_date:'2026-01-01',category:'교섭'}),{...row(5),id:'bad'}];
+  const {field_origin,...noColumn}=row(6);void field_origin;
+  const out=m.tidyCandidates([...docs,noColumn],{tried:new Set([DOC(3)]),categories:CATS,now:NOW}).map(d=>d.id);
+  assert.deepEqual(out,[DOC(1)]);
 });
 
-test('buildTidyProposals for the screen: progress, remaining ids after a limit, stop code, stopOnError, no save kind',async()=>{
-  const ids=Array.from({length:25},(_,i)=>DOC(i+1));
-  const sent=[],progress=[];
-  const call=async body=>{
-    sent.push(body);
-    if(sent.length===2)return {ok:false,code:'daily_limit'};
-    return {ok:true,data:{proposals:[{document_id:body.document_ids[0],field:'title',from:null,to:'제목'}]}};
-  };
-  const r=await m.buildTidyProposals(ids,{rt:{api:async()=>({})},call,readFirst:false,onProgress:(d,t)=>progress.push([d,t])});
-  assert.deepEqual(sent.map(b=>[b.kind,b.mode]),[['library_fill','propose'],['library_fill','propose']]); // stops after the limit: batch 3 never sent
-  assert.deepEqual(progress,[[10,25]]);
-  assert.equal(r.stop,'daily_limit');
-  assert.equal(r.done,10);
-  assert.deepEqual(r.remaining,ids.slice(10));
-  assert.equal(r.proposals.length,1);
-  // a non-limit failure continues by default but stops with stopOnError
-  const calls=[];
-  const flaky=async body=>{calls.push(body);return {ok:false,code:'ai_busy'};};
-  const a=await m.buildTidyProposals(ids,{rt:{api:async()=>({})},call:flaky,readFirst:false});
-  assert.equal(calls.length,3);assert.equal(a.remaining.length,25);assert.equal(a.stop,null);
-  calls.length=0;
-  const b=await m.buildTidyProposals(ids,{rt:{api:async()=>({})},call:flaky,readFirst:false,stopOnError:true});
-  assert.equal(calls.length,1);assert.equal(b.stop,'ai_busy');assert.equal(b.remaining.length,25);
+function fakeRt({tried=[],triedFails=false,textDelay=0,textLog=[]}={}){
+  return {api:async(path,o)=>{
+    if(path.startsWith('/rest/v1/app_library_tidy_attempts')){if(triedFails)throw Object.assign(new Error('missing'),{status:404});return tried.map(id=>({document_id:id}))}
+    if(path==='/functions/v1/document-actions'){textLog.push({id:o.body.document_id,start:Date.now()});if(textDelay)await new Promise(r=>setTimeout(r,textDelay));return {ok:true}}
+    throw new Error('unexpected '+path);
+  }};
+}
+
+test('autoTidyLibrary: 10 per request, at most 3 requests per run, mode tidy with ids only, refreshes when something changed',async()=>{
+  const docs=Array.from({length:45},(_,i)=>row(i+1));
+  const sent=[];let changed=0;
+  const call=async body=>{sent.push(body);return {ok:true,data:{ok:true,kind:'library_fill',mode:'tidy',updated:2}}};
+  const r=await m.autoTidyLibrary(docs,{rt:fakeRt(),call,workspace:'ws',categories:CATS,now:NOW,onChanged:()=>changed++});
+  assert.deepEqual(sent.map(b=>[b.kind,b.mode,b.document_ids.length,Object.keys(b).sort().join(',')]),
+    [['library_fill','tidy',10,'document_ids,kind,mode'],['library_fill','tidy',10,'document_ids,kind,mode'],['library_fill','tidy',10,'document_ids,kind,mode']]);
+  assert.deepEqual(r,{sent:30,updated:6,stop:null});assert.equal(changed,3);
 });
 
-test('continue-search state: keeps received proposals, resumes only the remaining ids, ignores duplicates, error text and retryability',()=>{
-  const ids=Array.from({length:15},(_,i)=>DOC(i+1));
-  let st=m.startTidyState([...ids,ids[0],'not-an-id']);
-  assert.equal(st.total,15);assert.equal(st.pending.length,15);assert.deepEqual(st.proposals,[]);
-  const p1={document_id:DOC(1),field:'title',from:null,to:'가'};
-  st=m.mergeTidyResult(st,{proposals:[p1],failed:[{ids:ids.slice(10),code:'daily_limit'}],remaining:ids.slice(10),stop:'daily_limit'});
-  assert.deepEqual(st.pending,ids.slice(10));assert.equal(st.error,'daily_limit');assert.equal(st.proposals.length,1);
-  st=m.mergeTidyResult(st,{proposals:[p1,{document_id:DOC(12),field:'category',from:'기타',to:'교섭'}],failed:[],remaining:[],stop:null});
-  assert.equal(st.pending.length,0);assert.equal(st.error,null);assert.equal(st.proposals.length,2);
-  assert.equal(m.tidyRetryable('daily_limit'),true);assert.equal(m.tidyRetryable('monthly_limit'),false);assert.equal(m.tidyRetryable('not_ready'),false);assert.equal(m.tidyRetryable('ai_busy'),true);
-  assert.match(m.tidyErrorText('daily_limit'),/오늘/);assert.match(m.tidyErrorText('not_ready'),/아직 쓸 수 없/);assert.ok(m.tidyErrorText('zzz'));
+test('autoTidyLibrary: a tried document is never sent again; nothing to do sends nothing',async()=>{
+  const sent=[];const call=async body=>{sent.push(body);return {ok:true,data:{updated:0}}};
+  await m.autoTidyLibrary([row(1),row(2)],{rt:fakeRt({tried:[DOC(1)]}),call,workspace:'ws',categories:CATS,now:NOW});
+  assert.deepEqual(sent.map(b=>b.document_ids),[[DOC(2)]]);
+  sent.length=0;
+  await m.autoTidyLibrary([row(1),row(2)],{rt:fakeRt({tried:[DOC(1),DOC(2)]}),call,workspace:'ws',categories:CATS,now:NOW});
+  assert.equal(sent.length,0);
 });
 
-test('tidy screen code: no storage, no document save, proposals are escaped when drawn',()=>{
+test('autoTidyLibrary: stops quietly at the limit and on any failure; no retry; before the DB is ready nothing is called',async()=>{
+  const docs=Array.from({length:25},(_,i)=>row(i+1));
+  const sent=[];
+  const r=await m.autoTidyLibrary(docs,{rt:fakeRt(),call:async b=>{sent.push(b);return {ok:false,code:'daily_limit'}},workspace:'ws',categories:CATS,now:NOW});
+  assert.equal(sent.length,1);assert.equal(r.stop,'daily_limit');
+  sent.length=0;
+  const busy=await m.autoTidyLibrary(docs,{rt:fakeRt(),call:async b=>{sent.push(b);return {ok:false,code:'ai_busy'}},workspace:'ws',categories:CATS,now:NOW});
+  assert.equal(sent.length,1);assert.equal(busy.stop,'ai_busy');
+  sent.length=0;
+  const notReady=await m.autoTidyLibrary(docs,{rt:fakeRt({triedFails:true}),call:async b=>{sent.push(b);return {ok:true,data:{}}},workspace:'ws',categories:CATS,now:NOW});
+  assert.equal(sent.length,0);assert.equal(notReady.stop,'library_not_ready');
+  const {field_origin,...old}=row(1);void field_origin;
+  const noColumn=await m.autoTidyLibrary([old],{rt:fakeRt(),call:async b=>{sent.push(b);return {ok:true,data:{}}},workspace:'ws',categories:CATS,now:NOW});
+  assert.equal(sent.length,0);assert.equal(noColumn.stop,'library_not_ready');
+  // never throws
+  const thrown=await m.autoTidyLibrary(docs,{rt:fakeRt(),call:async()=>{throw new Error('x')},workspace:'ws',categories:CATS,now:NOW});
+  assert.equal(thrown.stop,'internal_error');
+});
+
+test('autoTidyLibrary: a stale scope (other workspace, sign-out, left the library) sends no further request',async()=>{
+  const docs=Array.from({length:30},(_,i)=>row(i+1));
+  let current=true;const sent=[];
+  const call=async b=>{sent.push(b);current=false;return {ok:true,data:{updated:1}}};
+  let changed=0;
+  const r=await m.autoTidyLibrary(docs,{rt:fakeRt(),call,workspace:'ws',categories:CATS,now:NOW,isCurrent:()=>current,onChanged:()=>changed++});
+  assert.equal(sent.length,1);assert.equal(r.stop,'stale');assert.equal(changed,0);
+  sent.length=0;
+  const none=await m.autoTidyLibrary(docs,{rt:fakeRt(),call,workspace:'ws',categories:CATS,now:NOW,isCurrent:()=>false});
+  assert.equal(sent.length,0);assert.equal(none.stop,'invalid_request');
+});
+
+test('text reading: documents that already have text (ready or error) never call document-text; others 3 at a time; a slow one is not awaited past the limit',async()=>{
+  const log=[];
+  const sent=[];
+  const docs=[row(1),row(2,{extraction_status:'error'}),...Array.from({length:6},(_,i)=>row(i+3,{extraction_status:'pending'}))];
+  await m.autoTidyLibrary(docs,{rt:fakeRt({textLog:log}),call:async b=>{sent.push(b);return {ok:true,data:{updated:0}}},workspace:'ws',categories:CATS,now:NOW});
+  assert.deepEqual(log.map(l=>l.id),docs.slice(2).map(d=>d.id));
+  assert.deepEqual(sent[0].document_ids,docs.map(d=>d.id));
+  // all-ready → zero document-text calls
+  const none=[];
+  await m.autoTidyLibrary([row(1),row(2)],{rt:fakeRt({textLog:none}),call:async()=>({ok:true,data:{}}),workspace:'ws',categories:CATS,now:NOW});
+  assert.equal(none.length,0);
+  // concurrency 3 and per-document time limit
+  let active=0,peak=0;const limits=[];
+  const slowRt={api:async(path,o)=>{limits.push(o.timeoutMs);active++;peak=Math.max(peak,active);await new Promise(r=>setTimeout(r,30));active--;return {}}};
+  await m.readTexts(Array.from({length:7},(_,i)=>row(i+1,{extraction_status:'pending'})),{rt:slowRt});
+  assert.equal(peak,3);assert.deepEqual([...new Set(limits)],[m.TIDY_TEXT_TIMEOUT_MS]);assert.equal(m.TIDY_TEXT_TIMEOUT_MS,20000);
+  // the runtime aborts the request at the limit; even if a read hangs, the run moves on with the file name only
+  const hangRt={api:()=>new Promise(()=>{})};
+  const t0=Date.now();
+  await m.readTexts([row(1,{extraction_status:'pending'})],{rt:hangRt,timeoutMs:40});
+  assert.ok(Date.now()-t0<1000,'did not wait for the hanging read');
+});
+
+test('library screen: auto tidy has no button, no progress text, no storage; list loading does not await it',()=>{
   const src=readFileSync(new URL('../app/library-upload.js',import.meta.url),'utf8');
-  const start=src.indexOf('let luTidy=null'),end=src.indexOf('function luRenderManageList');
+  for(const gone of ['libraryTidy','luTidyRender','정리 제안','이어서 찾기','찾는 중','lt-row'])assert.ok(!src.includes(gone),gone);
+  const start=src.indexOf('// LIB-자동정리'),end=src.indexOf('function luRenderManageList');
   const block=src.slice(start,end);
   assert.ok(block.length>200);
-  for(const bad of ['local'+'Storage','session'+'Storage','PATCH','method:','fetch(','indexed'+'DB'])assert.ok(!block.includes(bad),bad);
-  assert.ok(/luEsc\(r\.name\)/.test(block)&&/luEsc\(i\.from\)/.test(block)&&/luEsc\(i\.to\)/.test(block)&&/luEsc\(i\.label\)/.test(block));
+  for(const bad of ['local'+'Storage','session'+'Storage','indexed'+'DB','innerHTML','textContent','await '])assert.ok(!block.includes(bad),bad);
+  assert.match(src,/luRenderLibrary\(\);luRevealRequested\(\);luStartAutoTidy\(\)/);
+  const lib=readFileSync(new URL('../app/library-ai-fill.js',import.meta.url),'utf8');
+  for(const bad of ['local'+'Storage','session'+'Storage','indexed'+'DB','buildTidyProposals','groupTidyProposals'])assert.ok(!lib.includes(bad),bad);
+  const css=readFileSync(new URL('../app/library-upload.css',import.meta.url),'utf8');
+  assert.ok(!/\.lt-|\.library-tidy/.test(css));
 });
