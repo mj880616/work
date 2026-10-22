@@ -35,6 +35,8 @@ export const AI_SUMMARY_TEXT=Object.freeze({
   radar_unavailable:'AI 요청을 처리하지 못했어요. 다시 눌러 주세요.',
   ledger_not_ready:'원장 후보 기능이 아직 준비되지 않았어요.',
   ledger_unavailable:'원장 후보를 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
+  library_not_ready:'자료 정보 채우기가 아직 준비되지 않았어요.',
+  library_unavailable:'자료를 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
   internal_error:'AI 요청을 처리하지 못했어요. 다시 눌러 주세요.',
 });
 // 잠깐의 문제라 같은 버튼을 [다시 시도]로 보여 줄 코드.
