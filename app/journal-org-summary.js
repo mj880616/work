@@ -1,5 +1,5 @@
 // JOURNAL-조직현황AI요약: [주간 정리] '4. 산하 조직 현황 > 1) 요약'의 조직별 요약(주간보고 문체, 몇 줄).
-// - 저장소: owner RLS 표 app_weekly_org_summaries(migration 20261022120000) — 주(월요일)·조직마다 1행, 요약 글과 "고친 요약"(edited) 표시만.
+// - 저장소: owner RLS 표 app_weekly_org_summaries(migration 20261022140000) — 주(월요일)·조직마다 1행, 요약 글과 "고친 요약"(edited) 표시만.
 // - [요약 만들기]를 누를 때만 서버 ai-assist(kind=org_summary)에 주와 조직 ID만 보낸다. 재료는 서버가 로그인으로 읽고,
 //   고친 요약(edited=true)은 서버가 보내지도 덮어쓰지도 않는다. 화면은 응답 뒤 표를 다시 읽는다.
 // - 고친 요약은 여기서 edited=true로 저장한다(빈 글이면 행을 지워 다음 [요약 만들기]에서 다시 생김).

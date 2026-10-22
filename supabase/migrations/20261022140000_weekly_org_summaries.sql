@@ -5,14 +5,14 @@ begin;
 --   - AI 요약은 서버 ai-assist(kind=org_summary)가 내 로그인으로 edited=false 행만 쓴다(고친 요약은 다시 만들어도 덮어쓰지 않음).
 --   - 화면에서 고친 요약은 edited=true로 저장한다. 빈 글로 저장하면 행을 지운다(다음 [요약 만들기]에서 다시 생김).
 -- owner만 읽고 쓴다(private.app_is_workspace_owner, 조직은 같은 작업공간만). anon·PUBLIC·service_role 권한과 공개 정책은 없다.
--- 정책·표 grant가 있어 승인형 DB workflow 검사가 거절하므로 SQL Editor(폰 경로 C) 전용. 짝: docs/20261022120000_weekly_org_summaries.*
+-- 정책·표 grant가 있어 승인형 DB workflow 검사가 거절하므로 SQL Editor(폰 경로 C) 전용. 짝: docs/20261022140000_weekly_org_summaries.*
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 
 -- 사전 조건이 다르면 아무것도 바꾸지 않고 멈춘다.
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261022120000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261022140000')
      or to_regclass('public.app_weekly_org_summaries') is not null
      or to_regclass('public.app_workspaces') is null
      or to_regclass('public.app_suborganizations') is null
@@ -77,5 +77,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261022120000', 'weekly_org_summaries', array['JOURNAL-조직현황AI요약: app_weekly_org_summaries (week x organization summary + edited flag), owner RLS, no anon/service_role']);
+values ('20261022140000', 'weekly_org_summaries', array['JOURNAL-조직현황AI요약: app_weekly_org_summaries (week x organization summary + edited flag), owner RLS, no anon/service_role']);
 commit;

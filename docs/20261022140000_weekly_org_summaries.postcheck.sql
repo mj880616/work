@@ -2,7 +2,7 @@
 with t as (
   select to_regclass('public.app_weekly_org_summaries') as s
 ), history as (
-  select count(*) filter(where name='weekly_org_summaries') as named, count(*) as n from supabase_migrations.schema_migrations where version='20261022120000'
+  select count(*) filter(where name='weekly_org_summaries') as named, count(*) as n from supabase_migrations.schema_migrations where version='20261022140000'
 )
 select 'table and history agree' as item,case when
   (history.n=0 and t.s is null) or (history.n=1 and history.named=1 and t.s is not null) then '예' else '아니오' end as ok
