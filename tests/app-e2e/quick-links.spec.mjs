@@ -36,10 +36,13 @@ const group=(page,label)=>panel(page).getByRole('region',{name:label,exact:true}
 for(const width of [1280,1440]){
  test(`PC ${width}: [쓰기] 아래 한 줄, 오른쪽에서 위로 열림(아래끝 맞춤·잘림 없음), 두 묶음 2열·새 탭, 바깥·Esc로 닫힘`,async({page})=>{
   const {errors}=await open(page,width);
-  const nav=page.locator('#appView>.app-nav'),write=nav.locator('.nav-write');
   await expect(row(page)).toBeVisible();await expect(row(page)).toHaveText(/자주 가는 링크\s*›/);
-  const w=await write.boundingBox(),r=await row(page).boundingBox();
-  expect(r.y).toBeGreaterThanOrEqual(w.y+w.height-1);expect(r.y).toBeLessThan(w.y+w.height+12);
+  // The row is the last menu row (right before the sidebar spacer), directly under whichever menu row comes before it.
+  // It does not depend on [쓰기]: when [쓰기] leaves the sidebar the row stays at the same place in the list.
+  expect(await row(page).evaluate(el=>el.nextElementSibling?.classList.contains('sidebar-spacer'))).toBe(true);
+  const prev=await row(page).evaluate(el=>{let p=el.previousElementSibling;while(p&&!p.getClientRects().length)p=p.previousElementSibling;const r=p.getBoundingClientRect();return {y:r.y,height:r.height}});
+  const r=await row(page).boundingBox();
+  expect(r.y).toBeGreaterThanOrEqual(prev.y+prev.height-1);expect(r.y).toBeLessThan(prev.y+prev.height+12);
   await expect(row(page)).toHaveAttribute('aria-expanded','false');
   await row(page).click();
   await expect(panel(page)).toBeVisible();await expect(row(page)).toHaveAttribute('aria-expanded','true');
@@ -180,6 +183,16 @@ test('저장된 목록이 틀린 모양이면 믿지 않고 초기 링크(편집
  await expect(panel(page).getByRole('link',{name:'나쁜 링크'})).toHaveCount(0);
  await panel(page).getByRole('button',{name:'편집'}).click();
  await expect(panel(page).locator('.ql-note')).toContainText('불러오지 못해');
+ expect(errors).toEqual([]);
+});
+
+test('PC 1280: [쓰기]가 사이드바에서 빠져도 줄은 같은 자리(목록 끝)에 남고 창이 그대로 열린다',async({page})=>{
+ const {errors}=await open(page,1280);
+ await page.locator('#appView>.app-nav .nav-write').evaluate(el=>el.remove());
+ const hwp=await page.locator('#appView>.app-nav [data-view="hwp"]').boundingBox(),r=await row(page).boundingBox();
+ expect(r.y).toBeGreaterThanOrEqual(hwp.y+hwp.height-1);expect(r.y).toBeLessThan(hwp.y+hwp.height+12);
+ await row(page).click();await expect(panel(page)).toBeVisible();
+ const p=await panel(page).boundingBox();expect(Math.abs((p.y+p.height)-(r.y+r.height))).toBeLessThanOrEqual(1.5);
  expect(errors).toEqual([]);
 });
 

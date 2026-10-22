@@ -7,6 +7,7 @@ import {recordSheetWanted,openRecordSheet} from './record-sheet.js';
 import {requestBasketNote,requestBasketNoteFrom,requestNoteDocOpen,requestNoteDocFrom,takeBasketReturn} from './basket-note-tasks.js';
 import {categoryTag,loadDocumentCategories} from './document-categories.js';
 import {lastSeen} from './split-last.js';
+import {mountSplitResize} from './split-resize.js';
 const wdRt=window.KPTURuntime;
 let wdEpoch=0,wdSessionEpoch=0,wdTargetId=null,wdLinks=[],wdLinkError=false,wdLinkEditor=null,wdLinkRun=0,wdLinkPending=false,wdDocs=[],wdDocsError=false,wdDocsRun=0,wdDocBusy=false,wdDocNote={text:'',error:false};
 const wdCurrent=(id,epoch=wdEpoch)=>epoch===wdEpoch&&wdTargetId===id&&!document.querySelector('#wdModal')?.classList.contains('hidden');
@@ -249,8 +250,10 @@ let wdResuming=false;
 const wdListIds=()=>[...document.querySelectorAll('#soOrganizationList [data-so-org]')].map(row=>row.dataset.soOrg);
 const wdSplitWanted=()=>{const pane=document.querySelector('#wdDetailPane');return !!WD_PC?.matches&&window.KPTURouter?.current==='team'&&!!pane&&getComputedStyle(pane).display!=='none'};
 const wdDocked=()=>document.querySelector('#wdModal')?.dataset.wdDocked==='1';
+// UI-칸폭조절: the list | detail boundary can be dragged (split-resize.js, remembered per screen).
+function wdSplit(){const sec=document.querySelector('#soTeamSection');if(sec)mountSplitResize({container:sec,name:'team',label:'담당조직 목록과 상세 칸 폭 조절',list:()=>document.querySelector('#soOrganizationList'),pane:()=>document.querySelector('#wdDetailPane'),active:wdSplitWanted})}
 function wdPlace(){
-  const m=document.querySelector('#wdModal'),pane=document.querySelector('#wdDetailPane');if(!m)return false;
+  const m=document.querySelector('#wdModal'),pane=document.querySelector('#wdDetailPane');if(!m)return false;wdSplit();
   const dock=wdSplitWanted(),open=!m.classList.contains('hidden');
   if(dock&&wdDocked()&&m.parentElement===pane){pane.classList.toggle('has-org',open);return true}
   if(!dock&&!wdDocked())return false;
