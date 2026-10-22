@@ -30,6 +30,8 @@ export async function readTaskFiles(ids, {rt = window.KPTURuntime, expectedSessi
       out.get(f.google_task_id).push({drive_file_id: f.drive_file_id, file_name: String(f.file_name || '파일'), size_bytes: Number(f.size_bytes) || 0});
     }
   }
+  // TASK-추가창파일: the table answered, so the add windows may offer files without asking again (taskFilesAvailable).
+  tableAnswered(ownerOf(rt));
   return out;
 }
 
@@ -160,4 +162,100 @@ async function detach(id) {
   } finally {
     if (dialog?.state === s) { s.busy = false; paint(); }
   }
+}
+
+// TASK-추가창파일: files chosen in a task's add window (the task editor, the [할 일] quick input, the calendar's 할 일 등록) go
+// up only after Google made the task: save → task id → one attach request per file, the same Edge action and Drive folder as
+// ⋯ → 파일 붙이기. A file that did not go up leaves the task as it is; the caller says so and points at ⋯ → 파일 붙이기.
+const available = new Map();
+const readyEvents = typeof window === 'undefined' ? new EventTarget() : window;
+function ownerOf(rt) { return rt?.context?.read?.()?.user?.id || rt?.session?.read?.()?.user?.id || ''; }
+// A read of the table answered for this owner (the task list's own read or the check below). Only a yes is kept.
+function tableAnswered(owner) {
+  if (!owner || available.get(owner)?.yes) return;
+  const yes = Promise.resolve(true); yes.yes = true; available.set(owner, yes);
+  try { readyEvents.dispatchEvent(new CustomEvent('kptu:task-files-ready', {detail: {owner}})); } catch {}
+}
+// Whether the link table answers for this owner (the same check that shows ⋯ → 파일 붙이기). Only a yes is remembered.
+// ask:false only reports an answer already known (the [할 일] screen waits for its list's own read, see onTaskFilesReady).
+export function taskFilesAvailable({rt = window.KPTURuntime, ask = true} = {}) {
+  const owner = ownerOf(rt);
+  if (!owner) return Promise.resolve(false);
+  if (!available.has(owner)) {
+    if (!ask) return Promise.resolve(false);
+    available.set(owner, readTaskFiles([], {rt}).then(() => true, () => { if (!available.get(owner)?.yes) available.delete(owner); return false; }));
+  }
+  return available.get(owner);
+}
+// Whether a yes is already known for the signed-in owner (no request). Lets a window lay out its file row before it shows.
+export function taskFilesKnown({rt = window.KPTURuntime} = {}) { return !!available.get(ownerOf(rt))?.yes; }
+// Calls back once the table has answered for an owner (by any read). Returns a function that stops listening.
+export function onTaskFilesReady(callback) {
+  const listener = e => callback(e.detail?.owner || '');
+  readyEvents.addEventListener('kptu:task-files-ready', listener);
+  return () => readyEvents.removeEventListener('kptu:task-files-ready', listener);
+}
+// The problem with adding these files to a new task's selection, or ''.
+export function pickProblem(chosen, added) {
+  let count = chosen.length;
+  for (const file of added) { const problem = fileProblem(file, count++); if (problem) return `${file.name}: ${problem}`; }
+  return '';
+}
+export async function attachNewTaskFiles(taskId, files, {rt = window.KPTURuntime, onProgress = () => {}} = {}) {
+  const failed = [];
+  let done = 0, saved = null, unsynced = false;
+  for (const [index, file] of files.entries()) {
+    const problem = fileProblem(file, done);
+    if (problem) { failed.push({name: file.name, message: problem}); continue; }
+    onProgress(index, files.length, file);
+    try {
+      const d = await attachTaskFile(taskId, file, {rt});
+      if (!d?.ok) throw Error('저장 결과를 확인하지 못했습니다.');
+      done++;
+      if (Array.isArray(d.files)) saved = d.files.map(f => ({drive_file_id: f.drive_file_id, file_name: String(f.file_name || '파일'), size_bytes: Number(f.size_bytes) || 0}));
+      if (d.notes_synced === false) unsynced = true;
+    } catch (e) { failed.push({name: file.name, message: message(e)}); }
+  }
+  return {done, failed, files: saved, unsynced};
+}
+// One line for the add window (and the toast) when some files did not go up. Never silent.
+export function newTaskFilesNotice(result) {
+  if (!result?.failed?.length) return '';
+  const names = result.failed.map(f => f.name).join(', '), first = result.failed[0].message;
+  return `할 일은 저장했습니다. 파일 ${result.failed.length}개(${names})를 붙이지 못했습니다: ${first} 할 일 ⋯ → 파일 붙이기에서 확인하고 다시 붙일 수 있습니다.`;
+}
+
+// The [📎 파일 붙이기] button and the chosen-file list inside an add window. Nothing is uploaded here; the window reads files()
+// after its own save. hidden until show(true) (the table answered).
+export function mountNewTaskFilePick(host, {isBusy = () => false, onError = () => {}} = {}) {
+  host.classList.add('gt-pick');
+  host.hidden = true;
+  host.innerHTML = `<div class="gt-pick-line"><button type="button" class="secondary gt-pick-btn" data-gt-pick><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M13.2 7.6 8.1 12.7a3.3 3.3 0 0 1-4.7-4.7l5.4-5.4a2.2 2.2 0 0 1 3.1 3.1l-5.4 5.4a1.1 1.1 0 0 1-1.6-1.6l5-5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>파일 붙이기</button><small class="gt-pick-hint">저장하면 Drive "자료실/할 일 첨부"에 올라갑니다 · ${MAX_TASK_FILES}개까지 · 파일당 100MB</small><input type="file" multiple hidden data-gt-pick-input></div><ul class="gt-pick-list" data-gt-pick-list></ul>`;
+  const input = host.querySelector('[data-gt-pick-input]'), button = host.querySelector('[data-gt-pick]'), list = host.querySelector('[data-gt-pick-list]');
+  let chosen = [];
+  const render = () => {
+    const busy = isBusy();
+    button.disabled = busy || chosen.length >= MAX_TASK_FILES;
+    list.hidden = !chosen.length;
+    list.innerHTML = chosen.map((f, i) => `<li><span class="gt-pick-name">${esc(f.name)}</span><button type="button" class="icon-btn" data-gt-pick-remove="${i}" aria-label="${esc(f.name)} 선택 취소"${busy ? ' disabled' : ''}>×</button></li>`).join('');
+  };
+  button.onclick = () => { if (!isBusy()) input.click(); };
+  input.onchange = () => {
+    const added = [...(input.files || [])]; input.value = '';
+    const problem = pickProblem(chosen, added);
+    if (problem) { onError(problem); return; }
+    chosen = [...chosen, ...added]; onError(''); render();
+  };
+  list.onclick = e => {
+    const b = e.target.closest('[data-gt-pick-remove]'); if (!b || isBusy()) return;
+    chosen.splice(Number(b.dataset.gtPickRemove), 1); render();
+    (list.querySelector('button') || button).focus();
+  };
+  render();
+  return {
+    files: () => [...chosen],
+    clear: () => { chosen = []; render(); },
+    show: on => { host.hidden = !on; if (!on) { chosen = []; } render(); },
+    render,
+  };
 }

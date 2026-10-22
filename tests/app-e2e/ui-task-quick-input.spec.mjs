@@ -34,9 +34,10 @@ for(const width of [390,1280]){
   const q=quick(page),input=q.locator('[data-quick-input]'),add=q.locator('[data-quick-save]');
   await expect(input).toBeVisible();await expect(add).toHaveText('추가');
   await expect(input).toHaveAttribute('placeholder','할 일을 입력하세요');await expect(input).toHaveAttribute('aria-label','오늘 할 일 입력');
-  // The same shared box as the basket memo input, without the mode buttons, project·date row, clip or basket link.
+  // The same shared box as the basket memo input, without the mode buttons, project·date row or basket link.
+  // TASK-추가창파일(2026-10-22): the clip shows too once the task-file table answers (this fixture answers [] for it).
   await expect(q.locator('.home-quick-modes,[data-goto="basket"]')).toHaveCount(0);
-  await expect(q.locator('[data-quick-options]')).toBeHidden();await expect(q.locator('[data-quick-file-picker]')).toBeHidden();
+  await expect(q.locator('[data-quick-options]')).toBeHidden();await expect(q.locator('[data-quick-file-picker]')).toBeVisible();
   expect(await page.locator('#tasksView .home-quick').count()).toBe(1);
   // No [+] on [할 일].
   await expect(page.locator('#newTaskBtn')).toHaveCount(0);

@@ -23,7 +23,7 @@ const routeStyles={
   basket:['./basket.css','./markdown-view.css','./md-editor.css','./library-upload.css','./basket-picker.css','./choice-sheet.css','./ui-standard.css'],
   home:['./library-upload.css','./basket-picker.css','./choice-sheet.css','./home-read.css','./google-tasks.css','./todo-radar.css','./ui-standard.css'],
   calendar:['./choice-sheet.css','./calendar-ui.css','./view-wide.css','./ui-standard.css'],
-  tasks:['./task-layout.css','./google-tasks.css','./ui-standard.css'],
+  tasks:['./task-layout.css','./google-tasks.css','./library-upload.css','./basket-picker.css','./ui-standard.css'],
   journal:['./journal.css','./todo-radar.css','./view-wide.css','./ui-standard.css'],
   diary:['./diary.css','./view-wide.css','./ui-standard.css'],
   projects:['./project-system-v3.css','./record-sheet.css','./forum-flow-polish.css','./google-tasks.css','./ui-standard.css'],
