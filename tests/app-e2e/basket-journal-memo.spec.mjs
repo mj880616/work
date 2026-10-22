@@ -49,6 +49,16 @@ async function fixture(page, width) {
   return { rows, writes, errors };
 }
 const press = async (page, l, width) => { await expect(l).toBeVisible(); if (width < 761) await l.tap(); else await l.click(); };
+// JOURNAL-주간정리다듬기 ①: the top-row copy button is gone; the draft is copied by [주간 정리]'s [복사] (beside [주간보고 한글 파일 만들기]).
+// This goes to [주간 정리], presses [복사], waits for the copy notice and comes back to [하루].
+const copyDraft = async (page, width) => {
+  await press(page, page.locator('#journalRoot [data-journal-mode="week"]'), width);
+  await page.locator('#journalRoot [data-journal-status]').evaluate(e => { e.textContent = ''; });
+  await press(page, page.locator('#journalRoot [data-hwpx-copy]'), width);
+  await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사');
+  await press(page, page.locator('#journalRoot [data-journal-mode="day"]'), width);
+  await expect(page.locator('#journalRoot [data-journal-day]')).toBeVisible();
+};
 const rowMenu = page => page.locator('#basketRowMenu');
 const rowMore = (page, id) => page.locator(`[data-basket-row-more="${id}"]`);
 const row = (page, id) => page.locator(`[data-basket-row="${id}"]`);
@@ -104,7 +114,7 @@ for (const width of [390, 1280]) {
     if (SHOT_DIR && width === 390) { await group(page, 'memos').scrollIntoViewIfNeeded(); await page.screenshot({ path: `${SHOT_DIR}/journal-memo-journal-390.png` }); }
     await page.screenshot({ path: info.outputPath(`journal-memo-journal-${width}.png`), fullPage: true });
     // [주간보고 초안 복사] (양식 순서, 2026-10-21): 기타 메모는 참고에 그 날짜로, 미분류는 4. 산하 조직 현황에.
-    await press(page, page.locator('#journalRoot [data-journal-copy]'), width);
+    await copyDraft(page, width);
     const lines = (await page.evaluate(() => navigator.clipboard.readText())).split('\n');
     const memo = lines.indexOf('◦ 기타 메모'), unsorted = lines.indexOf('◦ 미분류');
     expect(memo).toBeGreaterThan(lines.indexOf('참고'));

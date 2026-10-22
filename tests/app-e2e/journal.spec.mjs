@@ -9,6 +9,17 @@ import { openHwpx, packHwpx, validateHwpx, readXml } from '../../app/weekly-hwpx
 import { extractBlankTemplate } from '../../app/weekly-hwpx/template.mjs';
 import { buildReport, readReport, CHANGED_COLOR } from '../../app/weekly-hwpx/report.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
+// JOURNAL-주간정리다듬기 ①(2026-10-22 사용자 결정): 위 줄 [주간보고 초안 복사]는 없어졌다. 초안 복사는 [주간 정리]의
+// [주간보고 한글 파일 만들기] 옆 [복사] 하나다. 이 도우미는 [주간 정리]로 가서 [복사]를 누르고, 복사 안내가 뜬 뒤 [하루]로 돌아온다.
+async function copyDraft(page){
+ await page.locator('#journalRoot [data-journal-mode="week"]').click();
+ const copy=page.locator('#journalRoot [data-hwpx-copy]');await expect(copy).toBeVisible();
+ await page.locator('#journalRoot [data-journal-status]').evaluate(e=>{e.textContent='';});
+ await copy.click();
+ await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사');
+ await page.locator('#journalRoot [data-journal-mode="day"]').click();
+ await expect(page.locator('#journalRoot [data-journal-day]')).toBeVisible();
+}
 // JOURNAL-일지 2단계: [일정] [달력|할 일|일지|일기] → [일지]. The clock is 2026-10-06 10:00 KST (Tuesday); the week is
 // 10/5(월)~10/11(일). The mock keeps one app_notes store, honours PostgREST filters and the database's work-line rules
 // (JOURNAL-오늘한줄목록, 20261020051027: one row a day — 409; raw_text = 1~50 lines joined by "\n", each 1~300 characters,
@@ -524,7 +535,7 @@ test('[주간보고 초안 복사]: 양식 순서(1 → 2 → 4 → 5 → 참고
  await input.fill('화요일 둘째 줄');await input.press('Enter');await expect(items(page)).toHaveCount(2);
  // 5. 주요 일정은 다음 주 월요일부터 2주(10/12~10/25)를 따로 읽는다.
  await expect.poll(()=>f.calendarReads.some(([min,max])=>min===new Date('2026-10-12T00:00:00+09:00').toISOString()&&max===new Date('2026-10-26T00:00:00+09:00').toISOString())).toBe(true);
- await page.locator('#journalRoot [data-journal-copy]').click();
+ await copyDraft(page);
  await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('주간보고 양식 순서로 복사했어요.');
  const text=await page.evaluate(()=>navigator.clipboard.readText());
  const lines=text.split('\n');
@@ -566,7 +577,7 @@ test('[업무일지] 내 담당 조직만 이름별, 담당 밖·쉬는 조직 �
  expect(f.reads.find(q=>q.table==='app_suborganization_assignees')).toMatchObject({user_id:'eq.home-test',select:'organization_id'});
  expect(f.reads.find(q=>q.table==='app_suborganizations')).toMatchObject({workspace_id:'eq.w',select:'id,name,active'});
  expect(f.reads.find(q=>q.table==='app_suborganization_updates')).toMatchObject({organization_id:'in.(o1,o2,o3,o4)'});
- await page.locator('#journalRoot [data-journal-copy]').click();
+ await copyDraft(page);
  await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('주간보고 양식 순서로 복사했어요.');
  const lines=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n');
  const four=lines.indexOf('4. 산하 조직 현황'),orgLines=lines.slice(four+2,lines.indexOf('',four)).filter(l=>!l.includes('10월 7일'));
@@ -581,17 +592,17 @@ const journalBox=page=>page.evaluate(()=>{
  const r=e=>e.getBoundingClientRect(),view=document.querySelector('#journalView'),cs=getComputedStyle(view),main=getComputedStyle(document.querySelector('main'));
  const groups=[...document.querySelectorAll('#journalRoot [data-journal-group]')].map(r);
  return {root:r(document.querySelector('#journalRoot')).width,panel:view.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight),
-  right:r(document.querySelector('#journalRoot')).right,copy:r(document.querySelector('#journalRoot [data-journal-copy]')).right,days:r(document.querySelector('#journalRoot [data-journal-days]')).width,
+  right:r(document.querySelector('#journalRoot')).right,copies:document.querySelectorAll('#journalRoot .journal-head [data-journal-copy]').length,days:r(document.querySelector('#journalRoot [data-journal-days]')).width,
   rows:new Set(groups.map(g=>Math.round(g.y))).size,cols:new Set(groups.map(g=>Math.round(g.x))).size,
   main:{max:main.maxWidth,pl:main.paddingLeft,pr:main.paddingRight},doc:document.documentElement.scrollWidth,vw:innerWidth};
 });
 for(const width of [1024,1279,1280,1920]){
- test(`PC 업무일지 폭: 일기와 같은 바깥 폭, 날짜 줄·카드·[주간보고 초안 복사]가 끝까지, 하루 카드 2칸씩 줄 ${width}`,async({page})=>{
+ test(`PC 업무일지 폭: 일기와 같은 바깥 폭, 날짜 줄·카드가 끝까지(위 줄 복사 버튼 없음), 하루 카드 2칸씩 줄 ${width}`,async({page})=>{
   const f=await fixture(page,{width});await openJournal(page,width);
   await expect(group(page,'meetings').locator('li')).toHaveCount(1);
   const j=await journalBox(page);
   expect(j.doc).toBeLessThanOrEqual(j.vw);
-  expect(Math.abs(j.root-j.panel)).toBeLessThan(2);expect(Math.abs(j.days-j.root)).toBeLessThan(2);expect(Math.abs(j.copy-j.right)).toBeLessThan(2);
+  expect(Math.abs(j.root-j.panel)).toBeLessThan(2);expect(Math.abs(j.days-j.root)).toBeLessThan(2);expect(j.copies).toBe(0);
   expect(j.root).toBeGreaterThan(760);
   await expect(group(page,'shares').locator('li')).toHaveCount(1);
   const j8=await journalBox(page);
@@ -767,7 +778,7 @@ test('[주간보고 초안 복사] 끝낸 할 일: 넓어진 서버면 지난주
  await expect(group(page,'tasks').locator('li')).toHaveCount(1);
  await page.locator('#journalRoot [data-journal-prev]').click();
  await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('9월 28일 ~ 10월 4일');
- await page.locator('#journalRoot [data-journal-copy]').click();
+ await copyDraft(page);
  await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사했어요');
  const lines=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n');
  const done=lines.indexOf('◦ 끝낸 할 일');
@@ -777,7 +788,7 @@ test('[주간보고 초안 복사] 끝낸 할 일: 넓어진 서버면 지난주
  // 이번 주는 한 주 전체가 창 안이라 안내가 없다.
  await page.locator('#journalRoot [data-journal-next]').click();
  await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('10월 5일 ~ 11일');
- await page.locator('#journalRoot [data-journal-copy]').click();
+ await copyDraft(page);
  const now=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n');
  expect(now.some(l=>l.startsWith('※ Google 할 일은'))).toBe(false);
 });
@@ -801,7 +812,7 @@ for(const width of [390,1280])test(`[업무일지] 요청 표시: 하루 카드 
  // The organization's own record has no tag.
  await expect(orgs.locator('li',{hasText:'조직 화면에서 쓴 업데이트'}).locator('[data-request-tag]')).toHaveCount(0);
  await page.screenshot({path:info.outputPath(`journal-requests-${width}.png`)});
- await page.locator('#journalRoot [data-journal-copy]').click();
+ await copyDraft(page);
  await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('주간보고 양식 순서로 복사했어요.');
  const lines=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n');
  expect(lines.slice(0,4)).toEqual(['주간 업무일지 10월 5일(월) ~ 10월 11일(일)','■ 일시 : 2026년 10월 12일(월)','','1. 요청사항']);
@@ -879,6 +890,11 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  // 2. 요약: 사업영역 → 세부 과제 순서는 프로젝트 트리 그대로. 사업영역 칸은 세로로 합친다.
  const summary=weekly(page,'summary');
  await expect(summary.locator('tbody tr')).toHaveCount(3);
+ // JOURNAL-주간정리다듬기 ②: 화면 요약 표에는 담당 팀원 칸·"손으로 채움" 안내가 없고, 그 자리만큼 진행 상황 칸이 넓다(PC).
+ await expect(summary.locator('thead th')).toHaveText(['사업영역','세부 과제','진행 상황 및 이후 계획']);
+ await expect(summary.locator('.journal-weekly-owner')).toHaveCount(0);
+ await expect(summary).not.toContainText('담당 팀원');
+ if(width>760){const w=await summary.locator('table').evaluate(t=>({table:t.getBoundingClientRect().width,progress:t.querySelector('thead th:nth-child(3)').getBoundingClientRect().width}));expect(w.progress/w.table).toBeGreaterThan(0.6);}
  expect(await summary.locator('tbody tr').evaluateAll(rows=>rows.map(r=>[r.dataset.journalArea,r.dataset.journalTask]))).toEqual([
   ['사업영역 가','세부 과제 가-1'],['사업영역 가','세부 과제 가-2'],['사업영역 나','세부 과제 나-1']]);
  await expect(summary.locator('th.journal-weekly-area')).toHaveText(['사업영역 가','사업영역 나']);
@@ -910,8 +926,8 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).not.toContainText('다음 주 자료');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath(`weekly-tab-${width}.png`),fullPage:true});
- // [주간보고 초안 복사] (JOURNAL-복사버튼): 주간 정리에서는 위 줄 버튼이 빠지고 [주간보고 한글 파일 만들기] 옆 [복사]가 같은 글을 복사한다.
- await expect(page.locator('#journalRoot [data-journal-copy]')).toBeHidden();
+ // [주간보고 초안 복사] (JOURNAL-복사버튼·JOURNAL-주간정리다듬기 ①): 위 줄 버튼은 없고 [주간보고 한글 파일 만들기] 옆 [복사]가 같은 글을 복사한다.
+ await expect(page.locator('#journalRoot [data-journal-copy]')).toHaveCount(0);
  const copy=page.locator('#journalRoot [data-hwpx-copy]');
  await expect(copy).toBeVisible();await expect(copy).toHaveText('복사');await expect(copy).toHaveAccessibleName('주간보고 초안 복사');
  const startBox=await page.locator('#journalRoot [data-hwpx-start]').boundingBox(),copyBox=await copy.boundingBox();
@@ -1000,21 +1016,21 @@ test('[주간 정리] 일부 읽기 실패: 못 읽은 칸만 안내·[다시 �
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-// UI-화면점검 ④: 업무일지 위 조작 줄 — [하루|주간 정리]·‹ ›·[이번 주]·[주간보고 초안 복사]가 하나의 작은 버튼 기준(--ds-compact-*: 높이 32px·13px·500)을 쓴다.
+// UI-화면점검 ④: 업무일지 위 조작 줄 — [하루|주간 정리]·‹ ›·[이번 주]가 하나의 작은 버튼 기준(--ds-compact-*: 높이 32px·13px·500)을 쓴다.
 for(const width of [390,1280])test(`업무일지 위 조작 줄: 버튼 높이·굵기·글자 크기가 하나의 작은 버튼 기준 ${width}`,async({page})=>{
  const f=await fixture(page,{width});
  await openJournal(page,width);
  const metrics=await page.evaluate(()=>{
   const token=n=>{const e=document.createElement('i');e.style.cssText=`display:block;height:var(${n})`;document.body.append(e);const v=e.getBoundingClientRect().height;e.remove();return v};
   const root=document.querySelector('#journalRoot'),pick=s=>[...root.querySelectorAll(s)].filter(b=>b.getBoundingClientRect().width>0).map(b=>{const r=(b.matches('[data-journal-mode]')?b.parentElement:b).getBoundingClientRect(),c=getComputedStyle(b);return {name:(b.getAttribute('aria-label')||b.textContent).trim(),h:Math.round(r.height*10)/10,size:c.fontSize,weight:Number(c.fontWeight)}});
-  return {compact:token('--ds-compact-height'),bar:pick('.journal-head [data-journal-mode],.journal-head [data-journal-prev],.journal-head [data-journal-next],.journal-head [data-journal-today],.journal-head [data-journal-copy]')};
+  return {compact:token('--ds-compact-height'),bar:pick('.journal-head [data-journal-mode],.journal-head [data-journal-prev],.journal-head [data-journal-next],.journal-head [data-journal-today]')};
  });
- expect(metrics.bar.map(b=>b.name)).toEqual(['하루','주간 정리','이전 주','다음 주','이번 주','주간보고 초안 복사']);
+ expect(metrics.bar.map(b=>b.name)).toEqual(['하루','주간 정리','이전 주','다음 주','이번 주']);
  for(const b of metrics.bar){expect(b.h,`${b.name} 높이`).toBe(metrics.compact);expect(b.size,`${b.name} 글자`).toBe('13px');expect(b.weight,`${b.name} 굵기`).toBe(500)}
- // JOURNAL-복사버튼: [하루]는 그대로(위 줄 버튼), [한글 파일 만들기] 옆 [복사]는 [주간 정리]에서만 보인다.
- await expect(page.locator('#journalRoot [data-journal-copy]')).toBeVisible();await expect(page.locator('#journalRoot [data-hwpx-copy]')).toBeHidden();
+ // JOURNAL-주간정리다듬기 ①: 위 줄 [주간보고 초안 복사]는 [하루]·[주간 정리] 모두 없다. [한글 파일 만들기] 옆 [복사]는 [주간 정리]에서만 보인다.
+ await expect(page.locator('#journalRoot [data-journal-copy]')).toHaveCount(0);await expect(page.locator('#journalRoot [data-hwpx-copy]')).toBeHidden();
  await page.locator('#journalRoot [data-journal-mode="week"]').click();
- await expect(page.locator('#journalRoot [data-journal-copy]')).toBeHidden();await expect(page.locator('#journalRoot [data-hwpx-copy]')).toBeVisible();
+ await expect(page.locator('#journalRoot [data-journal-copy]')).toHaveCount(0);await expect(page.locator('#journalRoot [data-hwpx-copy]')).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors).toEqual([]);
 });
@@ -1044,7 +1060,7 @@ function multipartBody(request){
 async function hwpxFixture(page,options={}){
  const f=await weeklyFixture(page,options),sent={open:[],library:[],other:[]},bytes=teamHwpx();
  const cors={'access-control-allow-origin':'*','access-control-expose-headers':'X-Web2-Hwp'};
- await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_profiles',r=>r.request().method()==='GET'?r.fulfill({json:[{display_name:'가상 담당'}]}):r.fallback());
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_profiles',r=>r.request().method()==='GET'?r.fulfill({json:[{display_name:options.profileName??'가상 담당'}]}):r.fallback());
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganizations',r=>new URL(r.request().url()).searchParams.get('select')==='id,name,aliases,active'?r.fulfill({json:f.more.orgs.map(o=>({...o,aliases:[],active:o.active!==false}))}):r.fallback());
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_documents',r=>{const q=new URL(r.request().url()).searchParams;if(!q.has('category'))return r.fallback();sent.other.push({category:q.get('category')});return r.fulfill({json:options.noConfirmed?[]:[{id:'doc-team',title:'가상 상집보고',file_name:'team.hwpx',created_at:at}]});});
  await page.route(SB+'/functions/v1/document-actions',r=>{
@@ -1075,6 +1091,7 @@ for(const width of [390,1280])test(`[주간보고 한글 파일 만들기]: 자�
  // 내 줄 2개(다른 담당의 가-2 줄은 없음), 내 담당 조직(가상 노동조합)만. 이름은 프로필에서.
  await expect(hwpx(page).locator('[data-hwpx-me]')).toHaveValue('가상 담당');
  await expect(hwpx(page).locator('[data-hwpx-date]')).toHaveValue('2026년 10월 12일(월)');
+ await expect(hwpx(page).locator('[data-hwpx-me-from]')).toHaveText('담당 팀원 칸 이름은 직전 주 확정본에 쓴 표기 그대로예요.');
  await expect(hwpx(page).locator('[data-hwpx-part="summary"] .journal-hwpx-label')).toHaveText(['사업영역 가 › 세부 과제 가-1','사업영역 나 › 세부 과제 나-1']);
  await expect(hwpx(page).locator('[data-hwpx-part="orgs"] .journal-hwpx-label')).toHaveText(['가상 노동조합']);
  await expect(hwpx(page).locator('[data-hwpx-orgs]')).toContainText('내 담당 조직 2곳');
@@ -1097,6 +1114,8 @@ for(const width of [390,1280])test(`[주간보고 한글 파일 만들기]: 자�
  const {pkg,report}=await savedReport(download);
  expect(report.summary[0].rows.map(r=>r.progress)).toEqual([['- 지난주 가-1 진행','- 가-1 목요일 기록'],[]]);
  expect(report.summary[0].rows[1].owner).toEqual([]);
+ // JOURNAL-주간정리다듬기 ②: 한글 파일 요약 표에는 서식대로 담당 팀원 칸이 있고 내 줄에는 내 이름(직전 확정본 표기)이 들어간다.
+ expect(report.summary.map(a=>a.rows.map(r=>r.owner))).toEqual([[['가상 담당'],[]],[['가상 담당']]]);
  expect(report.summary[1].rows[0].progress).toEqual(['- 지난주 나-1 진행','- 가-2 화요일 기록']);
  expect(report.orgs.map(o=>[o.org,o.status])).toEqual([[['가상 노동조합'],['- 지난주 조직 소식','- 손으로 고친 조직 소식']]]);
  expect(report.requests).toEqual(TEAM_REPORT.requests);
@@ -1135,6 +1154,36 @@ for(const width of [390,1280])test(`[주간보고 한글 파일 만들기]: 자�
  await expect(hwpx(page).locator('.journal-hwpx-panel')).toBeHidden();
  await expect(hwpx(page).locator('[data-hwpx-status]')).toHaveText('주가 바뀌어 한글 파일 초안을 닫았어요.');
  await expect(hwpx(page).locator('[data-hwpx-start]')).toBeVisible();
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+
+// JOURNAL-주간정리다듬기 ②: 프로필 이름과 확정본 표기가 다르면 확정본 표기를 쓴다(가상 이름). 확정본에서 못 찾으면 프로필 이름 그대로.
+test('[주간보고 한글 파일 만들기] 담당 팀원 칸 이름: 직전 확정본 표기 우선, 없으면 프로필 이름',async({page})=>{
+ const f=await hwpxFixture(page,{width:1280,profileName:'가상 담당자'});
+ await openJournal(page,1280);await openWeekly(page);
+ await openDraft(page);
+ await expect(hwpx(page).locator('[data-hwpx-me]')).toHaveValue('가상 담당');
+ await expect(hwpx(page).locator('[data-hwpx-me-from]')).toHaveText('담당 팀원 칸 이름은 직전 주 확정본에 쓴 표기 그대로예요.');
+ const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ const {report}=await savedReport(download);
+ expect(report.summary.map(a=>a.rows.map(r=>r.owner))).toEqual([[['가상 담당'],[]],[['가상 담당']]]);
+ // 5. 주요 일정 참석자 칸도 같은 이름.
+ expect(report.calendar.find(d=>d.items.length).items[0].who).toEqual(['가상 담당']);
+ // 직접 고치면 그 이름으로 다시 찾는다(못 찾으면 안내).
+ await hwpx(page).locator('[data-hwpx-me]').fill('없는 이름');await hwpx(page).locator('[data-hwpx-me]').press('Tab');
+ await expect(hwpx(page).locator('[data-hwpx-me-from]')).toHaveText('담당 팀원 칸 이름을 직접 고쳤어요.');
+ await expect(hwpx(page).locator('[data-hwpx-no-mine]')).toBeVisible();
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+test('[주간보고 한글 파일 만들기] 담당 팀원 칸 이름: 확정본에서 표기를 못 찾으면 프로필 이름을 쓰고 알린다',async({page})=>{
+ const f=await hwpxFixture(page,{width:390,profileName:'전혀 다른 사람'});
+ await openJournal(page,390);await openWeekly(page);
+ await hwpx(page).locator('[data-hwpx-start]').click();
+ await hwpx(page).locator('[data-hwpx-library]').click();
+ await expect(hwpx(page).locator('[data-hwpx-me]')).toHaveValue('전혀 다른 사람');
+ await expect(hwpx(page).locator('[data-hwpx-me-from]')).toHaveText('직전 주 확정본에서 내 이름 표기를 찾지 못해 프로필 이름을 썼어요.');
+ await expect(hwpx(page).locator('[data-hwpx-no-mine]')).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 

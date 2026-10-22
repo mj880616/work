@@ -2,8 +2,8 @@
 // (docs/design/weekly-report-hub.md 4절 2단계, 7절 결정; the form is docs/design/weekly-hwpx-draft.md 1.2·1.3절):
 //   1. 요청사항 — 임원 일정 배정·논의 요청. There is no material for it yet (the request marks are not a group any more, PR 859;
 //      how to enter it waits for decision W), so the box is kept and says "아직 재료 없음" — no input is made here.
-//   2. 기본·영역·의제 사업 — 1) 요약: 사업영역(1단 project) → 세부 과제(2단) → 진행 상황 및 이후 계획 → 담당 팀원 (left empty,
-//      결정 4). Records follow the project tree and its order (project-catalog tree, PRJ-3단); a 3단 (사안) record sits on its
+//   2. 기본·영역·의제 사업 — 1) 요약: 사업영역(1단 project) → 세부 과제(2단) → 진행 상황 및 이후 계획. The screen has no 담당 팀원
+//      column (JOURNAL-주간정리다듬기 ②, 2026-10-22); the .hwpx keeps the form's column and fills it (journal-hwpx.js). Records follow the project tree and its order (project-catalog tree, PRJ-3단); a 3단 (사안) record sits on its
 //      2단 row as "세부과제 › 사안: 내용", a 2단 record as "세부과제: 내용", a 1단 record on the area's own row (project-3-levels.md
 //      3절 D, 8절 ④). 2) 세부 내용: 회의·행사 결과 by the meeting's date.
 //   1. 2) 주요 일정 — 본부 주요 일정 (the headquarters' press conferences, main meetings, forums, rallies, trainings; not one
@@ -312,14 +312,14 @@ export function renderWeekly(host, model, esc) {
     if (s.failed.includes('catalog')) summary.append(muted('프로젝트 순서를 불러오지 못해 프로젝트 이름별로 보여요.'));
     if (s.areas.length) {
       const table = el('table', 'journal-weekly-table');
-      table.innerHTML = '<thead><tr><th scope="col">사업영역</th><th scope="col">세부 과제</th><th scope="col">진행 상황 및 이후 계획</th><th scope="col">담당 팀원</th></tr></thead>';
+      table.className += ' journal-weekly-summary';
+      table.innerHTML = '<thead><tr><th scope="col">사업영역</th><th scope="col">세부 과제</th><th scope="col">진행 상황 및 이후 계획</th></tr></thead>';
       const body = el('tbody');
       for (const area of s.areas) area.rows.forEach((row, index) => {
         const tr = el('tr'); tr.dataset.journalArea = area.name; tr.dataset.journalTask = row.task?.name || '';
         if (!index) { const th = el('th', 'journal-weekly-area', area.name); th.scope = 'rowgroup'; th.rowSpan = area.rows.length; tr.append(th); }
         tr.append(el('td', 'journal-weekly-task', row.task?.name || '—'));
         const cell = el('td', 'journal-weekly-progress'); cell.append(itemList(row.items, true)); tr.append(cell);
-        tr.append(el('td', 'journal-weekly-owner'));
         body.append(tr);
       });
       table.append(body); summary.append(table);
@@ -336,7 +336,6 @@ export function renderWeekly(host, model, esc) {
     }
     if (!s.count && !s.failed.some(k => k !== 'catalog')) summary.append(empty('이 주 프로젝트 기록이 없어요.'));
     if (s.ordered && s.quiet.length && s.count) { const q = muted(`이 주 기록 없는 사업영역: ${s.quiet.join(', ')}`); q.dataset.journalWeeklyQuiet = ''; summary.append(q); }
-    summary.append(muted('담당 팀원 칸은 비워 둬요(손으로 채움).'));
   }
   const meet = block('meetings', '2) 세부 내용 — 회의·행사 결과');
   if (!status(meet, model.meetings, '회의·행사 결과') && !model.meetings.failed.length) meet.append(model.meetings.items.length ? itemList(model.meetings.items) : empty('이 주 회의·행사가 없어요.'));
