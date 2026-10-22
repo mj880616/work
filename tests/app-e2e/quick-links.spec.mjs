@@ -34,7 +34,7 @@ const panel=page=>page.locator('#quickLinksPanel');
 const group=(page,label)=>panel(page).getByRole('region',{name:label,exact:true});
 
 for(const width of [1280,1440]){
- test(`PC ${width}: [쓰기] 아래 한 줄, 오른쪽에서 위로 열림(아래끝 맞춤·잘림 없음), 두 묶음 2열·새 탭, 바깥·Esc로 닫힘`,async({page})=>{
+ test(`PC ${width}: [HWP 편집] 아래 한 줄, 오른쪽에서 위로 열림(아래끝 맞춤·잘림 없음), 두 묶음 2열·새 탭, 바깥·Esc로 닫힘`,async({page})=>{
   const {errors}=await open(page,width);
   await expect(row(page)).toBeVisible();await expect(row(page)).toHaveText(/자주 가는 링크\s*›/);
   // The row is the last menu row (right before the sidebar spacer), directly under whichever menu row comes before it.
@@ -186,9 +186,9 @@ test('저장된 목록이 틀린 모양이면 믿지 않고 초기 링크(편집
  expect(errors).toEqual([]);
 });
 
-test('PC 1280: [쓰기]가 사이드바에서 빠져도 줄은 같은 자리(목록 끝)에 남고 창이 그대로 열린다',async({page})=>{
+test('PC 1280: [쓰기]가 사이드바에 없어도 줄은 같은 자리(목록 끝)에 남고 창이 그대로 열린다',async({page})=>{
  const {errors}=await open(page,1280);
- await page.locator('#appView>.app-nav .nav-write').evaluate(el=>el.remove());
+ await expect(page.locator('#appView>.app-nav .nav-write')).toHaveCount(0);
  const hwp=await page.locator('#appView>.app-nav [data-view="hwp"]').boundingBox(),r=await row(page).boundingBox();
  expect(r.y).toBeGreaterThanOrEqual(hwp.y+hwp.height-1);expect(r.y).toBeLessThan(hwp.y+hwp.height+12);
  await row(page).click();await expect(panel(page)).toBeVisible();

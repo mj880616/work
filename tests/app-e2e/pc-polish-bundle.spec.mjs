@@ -4,6 +4,7 @@ import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
+import {openWriteFromEntry} from './helpers/write-opener.mjs';
 
 // UI-PC버튼36(2026-10-20 사용자 결정): PC(≥1024) 큰 버튼은 회의 [+ 회의 결과]와 같은 입력칸 높이(--kptu-control-height 36px).
 // 같은 줄 입력칸·칸 안 아이콘도 36px로 맞춰 줄이 어긋나지 않는다. 누르는 범위는 44px(::after). 폰 동그란 [+]·폰 버튼·중간 폭은 그대로.
@@ -58,25 +59,22 @@ async function boot(page,width,url=`${appOrigin}/app/`){
 async function open(page,name){await clickView(page,name);await expect.poll(()=>page.evaluate(n=>window.KPTUViewLoader.isLoaded(n),name)).toBe(true);}
 const box=async locator=>{await expect(locator.first()).toBeVisible();return locator.first().evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,height:r.height,width:r.width}})};
 
-test('UI-PC다듬기묶음 ① PC 1280: 사이드바 [쓰기]는 맨 아래 [HWP 편집] 바로 아래, 폰 ☰ 메뉴 순서는 그대로',async({page})=>{
+test('UI-PC다듬기묶음 ① PC 1280: 사이드바 맨 아래는 [HWP 편집], [쓰기] 항목은 없음(쓰기 창은 상단 줄 빠른 추가로)',async({page})=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await boot(page,1280);
  const items=await page.locator('#appView>.app-nav .nav-btn:visible').allTextContents();
- // UI-자주가는링크: '자주 가는 링크 ›' 줄이 [쓰기] 바로 아래에 붙는다.
- expect(items.slice(-3,-1)).toEqual(['HWP 편집','쓰기']);expect(items.at(-1)).toMatch(/^자주 가는 링크/);
- const hwp=await box(page.locator('#appView>.app-nav [data-view="hwp"]')),write=await box(page.locator('#appView>.app-nav [data-menu-write]'));
- expect(write.top).toBeGreaterThanOrEqual(hwp.top+hwp.height-1);
- expect(write.top-(hwp.top+hwp.height)).toBeLessThanOrEqual(8);
- // 같은 쓰기 버튼이 아직 동작한다.
- await page.locator('#appView>.app-nav [data-menu-write]').click();
+ // UI-자주가는링크: '자주 가는 링크 ›' 줄이 [HWP 편집] 아래 맨 끝에 붙는다.
+ expect(items.at(-2)).toBe('HWP 편집');expect(items.at(-1)).toMatch(/^자주 가는 링크/);expect(items).not.toContain('쓰기');
+ await expect(page.locator('[data-menu-write]')).toHaveCount(0);
+ await openWriteFromEntry(page,1280);
  await expect(page.locator('#mdEditor')).toBeVisible({timeout:10000});
  expect(errors).toEqual([]);
 });
 
-test('UI-PC다듬기묶음 ① 폰 390: ☰ 메뉴는 [쓰기]가 맨 앞 그대로',async({page})=>{
+test('UI-PC다듬기묶음 ① 폰 390: ☰ 메뉴에 [쓰기]가 없고 회의부터 시작',async({page})=>{
  await boot(page,390);
  await page.locator('#mobileMenuTab').click();
- expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['쓰기','회의','자료실','HWP 편집','성명·보도자료','공유 페이지']);
+ expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['회의','자료실','HWP 편집','성명·보도자료','공유 페이지']);
 });
 
 for(const width of [1024,1280,1440,1920])test(`UI-PC다듬기묶음 ② PC ${width}: [+ 일정 등록]은 같은 줄 [오늘]·보기 전환과 같은 높이, 누르는 범위 44`,async({page})=>{

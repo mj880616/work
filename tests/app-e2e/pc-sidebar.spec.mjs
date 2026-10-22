@@ -146,7 +146,7 @@ test('"일지" → "업무일지": 사이드바·폰 전환 줄·화면, 주소(
  await expect(page.locator('.mobile-tabs > button')).toHaveText(['홈','바구니','일정','프로젝트','담당조직','메뉴']);
  await expect(page.locator('.mobile-tabs [data-mobile-schedule-tab]')).toHaveAttribute('aria-current','page');
  await page.locator('#mobileMenuTab').click();
- expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['쓰기','회의','자료실','HWP 편집','성명·보도자료','공유 페이지']);
+ expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['회의','자료실','HWP 편집','성명·보도자료','공유 페이지']);
  await expect(nav(page)).toBeHidden();
  expect(errors).toEqual([]);
 });
