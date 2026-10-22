@@ -3,7 +3,9 @@ export function createAnchoredMenu({id,className,label,historyKey,parent=documen
   let active=null,closing=null;
   const panel=document.createElement('div');panel.id=id;panel.className=className;panel.hidden=true;panel.setAttribute('role','group');panel.setAttribute('aria-label',label);
   let popover=typeof panel.showPopover==='function'&&typeof panel.hidePopover==='function'&&'popover' in panel;
-  if(popover)panel.setAttribute('popover','manual');parent.append(panel);
+  // parent may be a function of the trigger (TASK-바로처리통일: a list inside an open dialog keeps its menu inside that dialog).
+  const host=trigger=>typeof parent==='function'?parent(trigger)||document.body:parent;
+  if(popover)panel.setAttribute('popover','manual');(typeof parent==='function'?document.body:parent).append(panel);
   panel.addEventListener('click',e=>{const button=e.target.closest('button'),previous=active;if(!button||!previous)return;close(()=>{if(previous.trigger.isConnected)onAction(button,previous)});});
 function close(then,fromBack=false){
   const previous=active;if(!previous){if(then){if(closing)closing.then(then);else then()}return closing||Promise.resolve()}
@@ -24,7 +26,7 @@ function open(trigger){
   if(trigger.disabled||!canOpen(trigger))return;
   if(closing){closing.then(()=>{if(trigger.isConnected)open(trigger)});return}
   if(active){close(active.trigger===trigger?null:()=>open(trigger));return}
-  const id=key(trigger);active={trigger,id};
+  const id=key(trigger),to=host(trigger);if(panel.parentElement!==to)to.append(panel);active={trigger,id};
   panel.innerHTML=render(id);
   panel.hidden=false;if(popover){try{panel.showPopover()}catch{popover=false;panel.removeAttribute('popover')}}
   position();trigger.setAttribute('aria-expanded','true');history.pushState({...history.state,[historyKey]:id},'',location.href);panel.querySelector('button')?.focus({preventScroll:true});

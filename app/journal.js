@@ -32,8 +32,8 @@ import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the 
 import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, changeWorkDay, validateWorkLine, WORK_LINE_MAX,
   workLines, addLine, editLine, removeLine, restoreLine, readWeekEvents, readDoneTasksWindow, readBasketUpdates, readMovedNotes, readOrgUpdates, readProjectUpdates,
   readWeekMeetings, readWeekDocuments, readWeekSharePages, readScheduleEvents, DONE_TASK_DAYS, WEEK_READ_CAP,
-  dayCard, othersCount, DAY_SOURCES, moveTaskToDay, tomorrowKey, dueDay, shortDay, dayRangeNote} from './journal-data.js';
-import {createAnchoredMenu} from './anchored-menu.js';
+  dayCard, othersCount, DAY_SOURCES, dueDay, dayRangeNote} from './journal-data.js';
+import {createTaskInline} from './task-inline.js';
 import {loadDocumentCategories} from './document-categories.js';
 import {formatSeoulTime, seoulParts} from './meeting-time.js';
 import {copyText} from './md-editor.js';
@@ -166,25 +166,12 @@ function count() {
 // ── JOURNAL-하루개편: ② 할 일 / 한 일 and ④ 주간보고 재료 · ⑤ 그 밖의 기록 (one renderer: renderDay) ──
 // Each drawn line that opens something gets a key into `opens` (rebuilt on every draw).
 let opens = new Map(), openSeq = 0, othersOpen = false;
-// JOURNAL-할일바로처리: the Google task data stays where it is read (materials.tasks, one read for the whole week) and every change
-// goes through the task screen's own functions (window.KPTUGoogleTasks toggleTask / deleteTask / openEditor) or the editor's update
-// action (journal-data.js moveTaskToDay). busy = tasks being saved now; dueEdit = the task whose [기한 바꾸기] box is open;
-// selfBusy > 0 while this screen itself changes a task, so the change event it causes does not trigger a second read.
-const busy = new Set();
-let dueEdit = null, selfBusy = 0;
-function notify(text) {
-  const toast = document.querySelector('#toast');
-  if (!toast) return;
-  toast.textContent = text; toast.classList.remove('hidden');
-  clearTimeout(notify.timer); notify.timer = setTimeout(() => toast.classList.add('hidden'), 3200);
-}
-// 을/를 by the last Hangul letter of the name (other endings: 을(를)).
-function objectParticle(name) {
-  const last = [...String(name)].pop() || '', code = last.charCodeAt(0);
-  if (code >= 0xAC00 && code <= 0xD7A3) return (code - 0xAC00) % 28 ? '을' : '를';
-  return '을(를)';
-}
-const shortName = name => { const chars = [...String(name || '(제목 없음)')]; return chars.length > 24 ? chars.slice(0, 24).join('') + '…' : chars.join(''); };
+// JOURNAL-할일바로처리: the Google task data stays where it is read (materials.tasks, one read for the whole week). The line's
+// circle and ⋯ are the shared task-inline.js (TASK-바로처리통일), which changes a task only through the task screen's own functions
+// (window.KPTUGoogleTasks toggleTask / deleteTask / openEditor) or the editor's update action (task-due.mjs moveTaskToDay) and asks
+// this screen to draw the change (apply / saved / removed below). selfBusy > 0 while this screen itself changes a task, so the change
+// event it causes does not trigger a second read.
+let selfBusy = 0;
 const keyFor = target => { if (!target) return ''; const key = `j${++openSeq}`; opens.set(key, target); return key; };
 const WIDE = window.matchMedia?.('(min-width:1024px)');
 // ⋯ of one line: a native disclosure (as the meeting-kind ⋯ of [주간 정리]) holding small buttons.
@@ -226,7 +213,7 @@ function itemRow(item) {
 }
 const listOf = items => { const ul = document.createElement('ul'); ul.className = 'journal-items'; ul.append(...items.map(itemRow)); return ul; };
 // A task line: circle (complete; a filled circle on a finished one) + the text (opens the task) + ⋯ (journal.css shows it only on the
-// hovered / focused line on a PC, always on the phone). The [기한 바꾸기] box opens under the text of the task being changed.
+// hovered / focused line on a PC, always on the phone — ui-standard.css [data-task-inline-row]). [기한 바꾸기] is task-inline.js's date box.
 function taskRow(item, {pending}) {
   const li = itemRow(item);
   li.dataset.journalTask = item.id; li.classList.add('journal-task-item');
@@ -234,23 +221,18 @@ function taskRow(item, {pending}) {
   if (pending) {
     const check = document.createElement('button');
     check.type = 'button'; check.className = 'journal-check'; check.dataset.journalComplete = item.id;
-    check.setAttribute('aria-label', `${name} 완료`); check.disabled = busy.has(item.id);
+    check.setAttribute('aria-label', `${name} 완료`); check.disabled = taskLine.isBusy(item.id);
     li.prepend(check);
   } else {
     const mark = document.createElement('span');
     mark.className = 'journal-check is-done'; mark.setAttribute('aria-hidden', 'true');
     li.prepend(mark);
   }
-  if (pending && dueEdit === item.id) {
-    const form = document.createElement('form');
-    form.className = 'journal-due-edit'; form.dataset.journalDueForm = item.id;
-    form.innerHTML = `<input type="date" class="journal-due-input" data-journal-due-input value="${esc(dueDay(item.task))}" aria-label="${esc(name)} 새 기한"><button type="submit" class="mini">바꾸기</button><button type="button" class="mini" data-journal-due-cancel>취소</button>`;
-    li.querySelector('.journal-item-body').append(form);
-  }
+  li.dataset.taskInlineRow = '';
   const more = document.createElement('button');
-  more.type = 'button'; more.className = 'journal-more-btn'; more.dataset.journalTaskMenu = item.id;
+  more.type = 'button'; more.className = 'journal-more-btn task-inline-more'; more.dataset.journalTaskMenu = item.id;
   more.setAttribute('aria-label', `${name} 더 보기`); more.setAttribute('aria-haspopup', 'true'); more.setAttribute('aria-expanded', 'false');
-  more.disabled = busy.has(item.id);
+  more.setAttribute('aria-controls', 'journalTaskMenu'); more.disabled = taskLine.isBusy(item.id);
   more.innerHTML = '<span aria-hidden="true">⋯</span>';
   li.append(more);
   return li;
@@ -668,10 +650,11 @@ async function openOriginal(target, trigger) {
     status.textContent = '원본을 열지 못했어요. 다시 시도해 주세요.';
   }
 }
-// ── JOURNAL-할일바로처리: change one task from its line ──
+// ── JOURNAL-할일바로처리: change one task from its line (task-inline.js does the change; this screen draws it) ──
 const taskById = id => materials.tasks?.status === 'ok' ? materials.tasks.items.find(t => t.id === id) : null;
 const patchTask = (id, patch) => { if (materials.tasks?.status === 'ok') materials.tasks = {status:'ok', items:materials.tasks.items.map(t => t.id === id ? (typeof patch === 'function' ? patch(t) : {...t, ...patch}) : t)}; };
 const redraw = () => { renderDay(); renderWeekly_(); };
+const groupOf = id => taskById(id)?.status === 'completed' ? 'done' : 'todo';
 // After a line was changed or removed the focus would be lost with the redrawn row: it goes to the row's new place, else the heading.
 function focusAfter(id, group) {
   const target = root.querySelector(`[data-journal-group="${group}"] [data-journal-task="${CSS.escape(id)}"] .journal-item-open`) || root.querySelector(`[data-journal-group="${group}"] > h4`);
@@ -679,112 +662,19 @@ function focusAfter(id, group) {
   if (target.tagName === 'H4') target.tabIndex = -1;
   target.focus({preventScroll:true});
 }
-const tasksApi = () => {
-  const api = window.KPTUGoogleTasks;
-  if (!api) notify('할 일 기능을 아직 불러오는 중이에요. 잠시 뒤 다시 눌러 주세요.');
-  return api;
-};
-// The circle: completes at once on screen, saves through the task screen's toggleTask (one request), and puts the line back when
-// the save fails. [되돌리기] (5 seconds) and ⋯ [다시 할 일로] are the same toggle the other way.
-async function setDone(id, done, {undo = true, viaMenu = false} = {}) {
-  const task = taskById(id), api = tasksApi();
-  if (!task || !api?.toggleTask || busy.has(id)) return;
-  const scope = ownerScope(rt), name = task.title || '(제목 없음)', base = api.taskState?.(id)?.task || task;
-  const patch = done ? {status:'completed', completed:new Date().toISOString()} : {status:'needsAction', completed:null};
-  busy.add(id); selfBusy++;
-  patchTask(id, patch); redraw(); focusAfter(id, done ? 'done' : 'todo');
-  let result;
-  try { result = await api.toggleTask({...base, status:done ? 'needsAction' : 'completed'}); } catch { result = {ok:false}; }
-  finally { busy.delete(id); selfBusy--; }
-  if (scope !== ownerScope(rt)) return;
-  if (result?.ok !== true) {
-    patchTask(id, t => ({...t, status:task.status, completed:task.completed ?? null})); redraw();
-    notify(result?.message || (done ? '완료를 저장하지 못해 되돌렸어요.' : '다시 할 일로 돌리지 못했어요.'));
-    return;
-  }
-  redraw();
-  if (done && undo) {
-    offerUndoNotice({text:`'${shortName(name)}'${objectParticle(shortName(name))} 끝냈어요.`, onUndo:async () => {
-      const again = taskById(id);
-      if (!again || again.status !== 'completed') return {status:'stale'};
-      await setDone(id, false, {undo:false});
-      const now = taskById(id);
-      return now?.status !== 'completed' ? {status:'restored', message:'다시 할 일로 돌려놨어요.'} : {status:'failed', message:'되돌리지 못했어요.'};
-    }});
-  } else if (!done && viaMenu) notify(dueDay(task) ? '다시 할 일로 돌려놨어요.' : '다시 할 일로 돌려놨어요. 기한이 없어 이 화면에는 안 보여요.');
-}
-// [내일로] and [기한 바꾸기]: only the due date changes (the editor's own update action).
-async function changeDue(id, day) {
-  const task = taskById(id);
-  if (!task || busy.has(id) || day === dueDay(task)) return;
-  const scope = ownerScope(rt), name = shortName(task.title || '(제목 없음)');
-  busy.add(id); selfBusy++; redraw();
-  try {
-    const saved = await moveTaskToDay(task, day, rt);
-    if (scope !== ownerScope(rt)) return;
-    patchTask(id, {...saved});
-    window.KPTUGoogleTasks?.invalidateAfterCreate?.();
-    window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed'));
-    notify(day === tomorrowKey() ? `'${name}' 기한을 내일로 옮겼어요.` : `'${name}' 기한을 ${shortDay(day)}로 바꿨어요.`);
-  } catch (error) {
-    if (scope !== ownerScope(rt)) return;
-    notify(error?.message && !error.status ? error.message : '기한을 바꾸지 못했어요. 다시 시도해 주세요.');
-  } finally {
-    busy.delete(id); selfBusy--;
-    if (scope === ownerScope(rt)) { redraw(); focusAfter(id, 'todo'); }
-  }
-}
-// [지우기]: one confirmation (as the editor's and the date list's [삭제]), then the task screen's own deleteTask.
-async function removeTask(id) {
-  const task = taskById(id), api = tasksApi();
-  if (!task || !api?.deleteTask || busy.has(id)) return;
-  if (!window.confirm('이 Google 할 일을 삭제할까요?')) return;
-  const scope = ownerScope(rt), group = task.status === 'completed' ? 'done' : 'todo';
-  busy.add(id); selfBusy++; redraw();
-  let result;
-  try { result = await api.deleteTask(api.taskState?.(id)?.task || task); } catch { result = {ok:false}; }
-  finally { busy.delete(id); selfBusy--; }
-  if (scope !== ownerScope(rt)) return;
-  if (result?.ok) { materials.tasks = {status:'ok', items:materials.tasks.items.filter(t => t.id !== id)}; redraw(); focusAfter('', group); notify('할 일을 삭제했어요.'); }
-  else { redraw(); notify(result?.message || '할 일을 삭제하지 못했어요.'); }
-}
-// [고치기]: the task screen's own editor window opens over this screen; its save is heard through kptu:google-tasks-changed.
-function editTask(id) {
-  const task = taskById(id), api = tasksApi();
-  if (task && api?.openEditor) void api.openEditor(api.taskState?.(id)?.task || task);
-}
-// [기한 바꾸기]: a native date box under the line (the phone's / browser's own calendar), [바꾸기] saves.
-function openDueEdit(id) {
-  dueEdit = id; renderDay();
-  const input = root.querySelector(`[data-journal-task="${CSS.escape(id)}"] [data-journal-due-input]`);
-  if (!input) return;
-  input.focus({preventScroll:true});
-  try { input.showPicker?.(); } catch { /* the box itself still works */ }
-}
-function closeDueEdit(id) {
-  if (dueEdit == null) return;
-  dueEdit = null; renderDay();
-  if (id) root.querySelector(`[data-journal-task="${CSS.escape(id)}"] [data-journal-task-menu]`)?.focus({preventScroll:true});
-}
-let taskMenu = null;
-function openTaskMenu(trigger) {
-  taskMenu ||= createAnchoredMenu({id:'journalTaskMenu', className:'journal-task-menu', label:'할 일 관리', historyKey:'kptuJournalTaskMenu', key:t => t.dataset.journalTaskMenu,
-    render:id => {
-      const task = taskById(id), done = task?.status === 'completed';
-      const item = (action, text, danger) => `<button type="button" data-journal-menu="${action}"${danger ? ' class="journal-menu-danger"' : ''}>${text}</button>`;
-      return done ? item('reopen', '다시 할 일로') + item('edit', '고치기')
-        : item('tomorrow', '내일로') + item('due', '기한 바꾸기') + item('edit', '고치기') + item('delete', '지우기', true);
-    },
-    onAction:(button, active) => {
-      const id = active.id, action = button.dataset.journalMenu;
-      if (action === 'tomorrow') return void changeDue(id, tomorrowKey());
-      if (action === 'due') return openDueEdit(id);
-      if (action === 'edit') return editTask(id);
-      if (action === 'delete') return void removeTask(id);
-      if (action === 'reopen') return void setDone(id, false, {undo:false, viaMenu:true});
-    }});
-  taskMenu.open(trigger);
-}
+const focusLost = () => !document.activeElement || document.activeElement === document.body;
+const taskLine = createTaskInline({menuId:'journalTaskMenu', historyKey:'kptuJournalTaskMenu', menuAttr:'journalTaskMenu', find:id => taskById(id),
+  begin:() => { selfBusy++; redraw(); },
+  end:id => { selfBusy--; if (!current(epoch, owner)) return; redraw(); if (focusLost()) focusAfter(id, groupOf(id)); },
+  // The circle: the line moves to 한 일 at once (and back when the save fails).
+  apply:(id, done, original) => {
+    patchTask(id, done === null ? t => ({...t, status:original.status, completed:original.completed ?? null})
+      : done ? {status:'completed', completed:new Date().toISOString()} : {status:'needsAction', completed:null});
+    redraw(); if (done !== null) focusAfter(id, done ? 'done' : 'todo');
+  },
+  saved:(id, task) => { patchTask(id, {...task}); redraw(); focusAfter(id, 'todo'); },
+  removed:(id, task) => { materials.tasks = {status:'ok', items:materials.tasks.items.filter(t => t.id !== id)}; redraw(); focusAfter('', task.status === 'completed' ? 'done' : 'todo'); },
+  reopenedText:task => dueDay(task) ? '다시 할 일로 돌려놨어요.' : '다시 할 일로 돌려놨어요. 기한이 없어 이 화면에는 안 보여요.'});
 // A task changed somewhere else while this screen is shown (the editor window opened by [고치기]): read the tasks again, quietly.
 let refreshSeq = 0;
 async function refreshTasks() {
@@ -862,17 +752,7 @@ async function saveOrgEdit() {
     renderWeekly_(); root.querySelector('[data-journal-org-edit-input]')?.focus();
   }
 }
-root.addEventListener('submit', event => {
-  const form = event.target.closest?.('[data-journal-due-form]');
-  if (!form) return;
-  event.preventDefault();
-  const id = form.dataset.journalDueForm, day = form.querySelector('[data-journal-due-input]').value;
-  if (!day) return;
-  dueEdit = null; renderDay();
-  void changeDue(id, day);
-});
 root.addEventListener('keydown', event => {
-  if (event.target.matches?.('[data-journal-due-input]') && event.key === 'Escape' && !event.isComposing) { event.preventDefault(); closeDueEdit(event.target.closest('[data-journal-due-form]')?.dataset.journalDueForm); return; }
   if (event.target.matches?.('[data-journal-org-edit-input]') && event.key === 'Escape' && !event.isComposing) { event.preventDefault(); closeOrgEdit(); }
 });
 root.addEventListener('click', event => {
@@ -898,9 +778,8 @@ root.addEventListener('click', event => {
   if (button.matches('[data-journal-retry]')) { for (const key of DAY_SOURCES[button.dataset.journalRetry] || []) if (materials[key]?.status === 'failed') loadGroup(key); return; }
   if (button.matches('[data-journal-open]')) { const target = opens.get(button.dataset.journalOpen); if (target) void openOriginal(target, button); return; }
   if (button.matches('[data-journal-original]')) { const target = opens.get(button.dataset.journalOriginal); button.closest('details')?.removeAttribute('open'); if (target) void openOriginal(target, button.closest('li')?.querySelector('[data-journal-open]') || button); return; }
-  if (button.matches('[data-journal-complete]')) return void setDone(button.dataset.journalComplete, true);
-  if (button.matches('[data-journal-task-menu]')) return openTaskMenu(button);
-  if (button.matches('[data-journal-due-cancel]')) return closeDueEdit(button.closest('[data-journal-due-form]')?.dataset.journalDueForm);
+  if (button.matches('[data-journal-complete]')) return void taskLine.complete(button.dataset.journalComplete, button);
+  if (button.matches('[data-journal-task-menu]')) return taskLine.openMenu(button);
   if (button.matches('[data-journal-edit]')) return startEdit(Number(button.dataset.journalEdit));
   if (button.matches('[data-journal-edit-open]')) return startEdit(Number(button.dataset.journalEditOpen));
   if (button.matches('[data-journal-line-delete]')) return deleteLine(Number(button.dataset.journalLineDelete));
@@ -940,7 +819,7 @@ window.addEventListener('kptu:session-changed', () => {
   if (owner === ownerScope(rt)) return;
   owner = ownerScope(rt); epoch++;
   kinds = {status:'loading'}; drafts = new Map(); lines = new Map(); materials = {}; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; doneDays = DONE_TASK_DAYS; saving = false; editing = null; mode = 'day';
-  pendingReturn = null; busy.clear(); dueEdit = null; selfBusy = 0; othersOpen = false;
+  pendingReturn = null; taskLine.close(); selfBusy = 0; othersOpen = false;
   start = weekStart(todayKey()); selected = todayKey();
   if (window.KPTURouter?.current === 'journal') enter();
 });

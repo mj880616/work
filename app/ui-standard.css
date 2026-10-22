@@ -1308,3 +1308,25 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
 /* TEST-홈빠른입력안정화(2026-10-22): 할 일 첨부 확인이 오기 전에는 첨부 자리를 보이지 않게 잡아 둔다(home-quick.js·task-files.js).
    그래서 답이 온 뒤 입력 칸·[+]·창 칸이 한 번 밀리지 않는다. 대기 중 버튼은 비활성이고 숨김이라 누르거나 Tab으로 갈 수 없다. */
 #appView .home-quick [data-quick-file-picker][data-quick-files-wait],.gt-pick[data-gt-pick-wait]{ visibility:hidden; }
+
+/* TASK-바로처리통일 (2026-10-23 사용자 결정 00:06): 할 일이 보이는 곳(업무일지·홈 오늘 할 일·담당조직·프로젝트 상세·달력 날짜 목록)의 줄은
+   하나의 부품(task-inline.js)이다. 줄 오른쪽 ⋯는 PC(1024px~, 마우스)에서 마우스를 올렸거나 초점이 있는 줄(메뉴가 열린 줄 포함)에만 보이고,
+   폰·터치는 늘 보인다. 보이지 않을 때도 자리는 그대로라 줄이 흔들리지 않고 키보드로 갈 수 있다. 크기 값은 새로 정하지 않는다. */
+@media(min-width:1024px) and (hover:hover){
+  [data-task-inline-row] .task-inline-more{ opacity:0; }
+  [data-task-inline-row]:hover .task-inline-more,
+  [data-task-inline-row]:focus-within .task-inline-more,
+  [data-task-inline-row] .task-inline-more[aria-expanded="true"]{ opacity:1; }
+}
+/* ⋯ 메뉴 창: 할 일 화면의 ⋯ 메뉴와 같은 모양, 줄 높이만 한 단계 낮게(UI-버튼기준, --kptu-control-height 36px). */
+.task-inline-menu{ position:fixed; inset:auto; margin:0; box-sizing:border-box; padding:4px; border:1px solid var(--kptu-border); border-radius:var(--kptu-radius-md); background:var(--kptu-surface); color:var(--kptu-ink); box-shadow:var(--kptu-shadow-float); z-index:1600; overflow:auto; }
+.task-inline-menu[hidden]{ display:none; }
+.task-inline-menu button{ display:block; width:100%; height:var(--kptu-control-height); min-height:var(--kptu-control-height); padding:0 12px; text-align:left; border:0; border-radius:var(--kptu-radius-md); background:transparent; box-shadow:none; color:var(--kptu-ink); font-size:var(--kptu-text-meta); font-weight:700; cursor:pointer; }
+.task-inline-menu button:hover{ background:var(--kptu-surface-subtle); }
+.task-inline-menu .task-inline-danger{ color:var(--kptu-danger); }
+.task-inline-menu button:focus-visible{ outline:2px solid var(--kptu-primary); outline-offset:2px; }
+/* [기한 바꾸기]: ⋯ 바로 아래 작은 상자 하나(달력 날짜 칸 + [바꾸기][취소], 작은 버튼 32px). */
+.task-due-popup{ position:fixed; inset:auto; margin:0; box-sizing:border-box; padding:6px; border:1px solid var(--kptu-border); border-radius:var(--kptu-radius-md); background:var(--kptu-surface); color:var(--kptu-ink); box-shadow:var(--kptu-shadow-float); z-index:1600; overflow:visible; }
+.task-due-popup .task-due-form{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin:0; }
+.task-due-popup .task-due-input{ box-sizing:border-box; flex:1 1 140px; min-width:0; height:var(--ds-compact-height); min-height:var(--ds-compact-height); width:auto; max-width:100%; margin:0; padding:0 8px; font-size:var(--kptu-text-body); }
+.task-due-popup button.mini{ position:relative; flex:0 0 auto; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1; }

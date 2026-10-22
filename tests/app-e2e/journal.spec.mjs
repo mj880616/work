@@ -1553,18 +1553,20 @@ for(const width of [390,1280])test(`[업무일지] 줄 ⋯ 내일로·기한 바
  // 수요일: 원래 수요일 마감 + 옮긴 것. 그 줄의 기한을 달력 칸으로 금요일로.
  await date(page,'2026-10-07').click();await expect(itemTexts(page,'todo')).toHaveText(['남은 할 일','오늘 마감 할 일']);
  await open('todo','t-open');await menuItems(page).filter({hasText:'기한 바꾸기'}).click();
- const input=taskRowOf(page,'todo','t-open').locator('[data-journal-due-input]');
+ // TASK-바로처리통일: the date box is the shared one under the ⋯ (task-inline.js), the same on every task line.
+ const input=page.locator('#taskDuePopup [data-task-due-input]');
  await expect(input).toBeVisible();await expect(input).toHaveValue('2026-10-07');await expect(input).toHaveAttribute('type','date');
  await input.fill('2026-10-09');
- await taskRowOf(page,'todo','t-open').getByRole('button',{name:'바꾸기'}).click();
+ await page.locator('#taskDuePopup').getByRole('button',{name:'바꾸기'}).click();
  await expect(toastText(page)).toHaveText("'남은 할 일' 기한을 10월 9일(금)로 바꿨어요.");
  expect(m.calls.update[1]).toEqual({action:'update',task_id:'t-open',task_list_id:'@default',title:'남은 할 일',notes:'',due:'2026-10-09'});
  await expect(itemTexts(page,'todo')).toHaveText(['오늘 마감 할 일']);
  await date(page,'2026-10-09').click();await expect(itemTexts(page,'todo')).toHaveText(['남은 할 일']);
  // 취소·Esc 는 요청 없이 닫는다.
  await open('todo','t-open');await menuItems(page).filter({hasText:'기한 바꾸기'}).click();
- await expect(taskRowOf(page,'todo','t-open').locator('[data-journal-due-input]')).toBeVisible();
- await page.keyboard.press('Escape');await page.keyboard.press('Escape');await expect(page.locator('#journalRoot [data-journal-due-input]')).toHaveCount(0);
+ await expect(page.locator('#taskDuePopup [data-task-due-input]')).toBeVisible();
+ await page.keyboard.press('Escape');await expect(page.locator('#taskDuePopup')).toHaveCount(0);
+ await expect(taskRowOf(page,'todo','t-open').locator('.journal-more-btn')).toBeFocused();
  expect(m.calls.update.length).toBe(2);
  // 기한 지난 것(10/5): 접힌 줄 안의 줄에도 같은 ⋯.
  await date(page,'2026-10-06').click();

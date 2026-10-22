@@ -506,6 +506,9 @@ async function listTasks({publish=false,fresh=false}={}){const owner=currentOwne
 // Used by the project detail (TASK-구현 PR 4) and the calendar (CAL-할일). The date rules are shared so other screens judge dates as this view does.
 // UI-할일조작통일: delete from another screen (the calendar date list) with the same Edge call as the editor's [삭제]. The caller asks first.
 // It waits for a toggle still being saved, and answers {ok:true} or {ok:false,message} so the caller can keep or restore its row.
+// TASK-바로처리통일: a task saved elsewhere through the editor's own update action (task-inline.js [내일로]·[기한 바꾸기]): this
+// view's copy and the linked lists show it at once, and every listening screen hears kptu:google-tasks-changed.
+function taskSaved(task){const owner=currentOwner();if(!task?.id||!owner)return;const shown=lastTasks.find(t=>t.id===task.id);if(shown)putTask({...shown,...task},owner);syncLinkedTask(task);fetchedOwner='';window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed'))}
 async function deleteTask(task){
   const id=task?.id,owner=currentOwner(),epoch=sessionEpoch;
   if(!id||!owner||pendingDeletes.has(id))return {ok:false,message:'할 일을 삭제하지 못했습니다.'};
@@ -517,6 +520,6 @@ async function deleteTask(task){
   if(stillCurrent(epoch,owner)){deletedTombstones.add(id);lastTasks=lastTasks.filter(t=>t.id!==id);cacheWrite(owner,lastTasks);tasksChanged()}
   return {ok:true};
 }
-window.KPTUGoogleTasks={openById:id=>{const task=tasksViewShown()?lastTasks.find(t=>t.id===id):null;if(task)openEditor(task,{docked:true});return !!task},deleteTask,invalidateAfterCreate:()=>{linkedCache.clear();fetchedOwner='';},openEditor:(task=null,opts={})=>openEditor(task,opts),mountLinked,openLinkPicker,toggleTask,waitForPendingToggles:()=>Promise.allSettled([...pendingToggles.values()].map(p=>p.saving).filter(Boolean)),peekTasks,listTasks,readLinks,describeTasks,taskMeta,subscribe:fn=>{stateListeners.add(fn);return()=>stateListeners.delete(fn)},taskState:id=>({task:lastTasks.find(t=>t.id===id),place:settling.get(id)?.before}),showUnlinked:()=>{unlinkedOnly=true;renderTasks(lastTasks);const heading=document.querySelector('[data-gt-unlinked-heading]');heading?.focus({preventScroll:true});heading?.scrollIntoView({block:'start'})},dueDateKey,completedRecently,isOverdue};
+window.KPTUGoogleTasks={taskSaved,openById:id=>{const task=tasksViewShown()?lastTasks.find(t=>t.id===id):null;if(task)openEditor(task,{docked:true});return !!task},deleteTask,invalidateAfterCreate:()=>{linkedCache.clear();fetchedOwner='';},openEditor:(task=null,opts={})=>openEditor(task,opts),mountLinked,openLinkPicker,toggleTask,waitForPendingToggles:()=>Promise.allSettled([...pendingToggles.values()].map(p=>p.saving).filter(Boolean)),peekTasks,listTasks,readLinks,describeTasks,taskMeta,subscribe:fn=>{stateListeners.add(fn);return()=>stateListeners.delete(fn)},taskState:id=>({task:lastTasks.find(t=>t.id===id),place:settling.get(id)?.before}),showUnlinked:()=>{unlinkedOnly=true;renderTasks(lastTasks);const heading=document.querySelector('[data-gt-unlinked-heading]');heading?.focus({preventScroll:true});heading?.scrollIntoView({block:'start'})},dueDateKey,completedRecently,isOverdue};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>boot().catch(console.error),{once:true});else boot().catch(console.error);
 })();

@@ -20,6 +20,8 @@ import {moveTaskToDay, tomorrowKey, dueDay, shortDay} from './task-due.mjs';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
 const tasksApi = () => window.KPTUGoogleTasks;
+// A list inside an open dialog keeps its menu and date box inside that dialog (its focus loop and outside-press rules).
+const dialogOf = el => el?.closest?.('.modal[aria-modal="true"]:not(.hidden)') || document.body;
 const ownerNow = () => window.KPTURuntime?.session?.read?.()?.user?.id || '';
 export function toast(text) {
   const box = document.querySelector('#toast');
@@ -52,7 +54,7 @@ function closeDue({focus = true} = {}) {
 }
 function openDue(anchor, {name, value, onPick}) {
   closeDue({focus:false});
-  const host = anchor.closest('.modal:not(.hidden)') || document.body;
+  const host = dialogOf(anchor);
   const panel = document.createElement('div');
   panel.id = 'taskDuePopup'; panel.className = 'task-due-popup'; panel.setAttribute('role', 'group'); panel.setAttribute('aria-label', `${name} 기한 바꾸기`);
   panel.innerHTML = `<form class="task-due-form" data-task-due-form><input type="date" class="task-due-input" data-task-due-input value="${esc(value)}" aria-label="${esc(name)} 새 기한"><button type="submit" class="mini">바꾸기</button><button type="button" class="mini" data-task-due-cancel>취소</button></form>`;
@@ -76,27 +78,29 @@ function openDue(anchor, {name, value, onPick}) {
 window.addEventListener('kptu:session-changed', () => closeDue({focus:false}));
 
 // One screen's line handling. Options:
-//   menuId, historyKey, parent  the anchored menu (one per screen; parent = inside a dialog when the list lives in one)
+//   menuId, historyKey, parent  the anchored menu (one per screen; by default it sits in the open dialog the line is in, else the page)
 //   menuAttr                    the screen's dataset name on its ⋯ (e.g. 'journalTaskMenu')
 //   find(id, el)                the task as the screen holds it (el = the pressed circle or ⋯)
 //   extras(task, el)            the screen's own menu items: [{key, label, danger, run}]
 //   edit(id, task, el)          open the editor the screen's way (default: KPTUGoogleTasks.openEditor)
 //   begin(id) / end(id)         around every save (the screen may redraw busy lines or ignore its own change event)
-//   apply(id, done, original)   draw the new completion at once (or the original back after a failure); screens whose list is
+//   apply(id, done, original)   draw the new completion at once; done === null puts the original back after a failure; screens whose list is
 //                               drawn by google-tasks.js itself (home, linked lists) leave it out
 //   saved(id, task)             the due date was saved; removed(id) the task was deleted
 //   reopenedText(task)          the toast after ⋯ [다시 할 일로]
-export function createTaskInline({menuId, historyKey, parent = document.body, menuAttr, find, extras = () => [], edit, begin, end, apply, saved, removed,
+export function createTaskInline({menuId, historyKey, parent = dialogOf, menuAttr, find, extras = () => [], edit, begin, end, apply, saved, removed,
   reopenedText = () => '다시 할 일로 돌려놨어요.'} = {}) {
-  const busy = new Set();
+  // Saves under way per task (a count: the circle may be pressed again while the first toggle is still saving — toggleTask keeps
+  // only the last wish — but 내일로·기한 바꾸기·지우기 wait until nothing is being saved for that task).
+  const busy = new Map();
   const look = (id, el) => find(id, el) || null;
   const base = (id, task) => tasksApi()?.taskState?.(id)?.task || task;
-  const start = id => { busy.add(id); begin?.(id); };
-  const stop = id => { busy.delete(id); end?.(id); };
+  const start = id => { busy.set(id, (busy.get(id) || 0) + 1); begin?.(id); };
+  const stop = id => { const n = (busy.get(id) || 1) - 1; if (n) busy.set(id, n); else busy.delete(id); end?.(id); };
   const missing = () => { toast('할 일 기능을 아직 불러오는 중이에요. 잠시 뒤 다시 눌러 주세요.'); return null; };
   async function setDone(id, done, {el = null, undo = true, viaMenu = false} = {}) {
     const task = look(id, el), api = tasksApi() || missing();
-    if (!task || !api?.toggleTask || busy.has(id)) return;
+    if (!task || !api?.toggleTask) return;
     const owner = ownerNow(), name = shortName(task.title);
     start(id); apply?.(id, done, task);
     let result;
@@ -104,13 +108,17 @@ export function createTaskInline({menuId, historyKey, parent = document.body, me
     finally { stop(id); }
     if (owner !== ownerNow()) return;
     if (result?.ok !== true) {
-      apply?.(id, task.status === 'completed', task);
+      apply?.(id, null, task);
       toast(result?.message || (done ? '완료를 저장하지 못해 되돌렸어요.' : '다시 할 일로 돌리지 못했어요.'));
       return;
     }
+    // Pressed again meanwhile (the other way): no notice for a change that is no longer what the line shows.
+    const now = look(id, el);
+    if (now && (now.status === 'completed') !== done) return true;
     if (done && undo) {
       offerUndoNotice({text:`'${name}'${objectParticle(name)} 끝냈어요.`, onUndo:async () => {
-        if (owner !== ownerNow()) return {status:'stale'};
+        const again = look(id, el);
+        if (owner !== ownerNow() || !again || again.status !== 'completed') return {status:'stale'};
         const ok = await setDone(id, false, {el, undo:false});
         return ok ? {status:'restored', message:'다시 할 일로 돌려놨어요.'} : {status:'failed', message:'되돌리지 못했어요.'};
       }});
