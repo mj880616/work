@@ -56,20 +56,27 @@ async function signIn(page, state) {
   return errors;
 }
 
-for (const width of [390, 1280]) test('a new page is one 글 block: buttons, format, table, saved as ed1 structure ' + width, async ({page}) => {
+for (const width of [390, 1280]) test('a new page is one 글 block on the full screen: buttons, format, table, saved as ed1 structure ' + width, async ({page}) => {
   await page.setViewportSize({width, height:900});
   const state = {pages:[]};
   const errors = await signIn(page, state);
   await page.getByRole('button', {name:'새 공유 페이지', exact:true}).click();
   const editor = page.locator('[data-sp-editor]');
-  const box = editor.getByRole('textbox', {name:'1번째 블록 글', exact:true});
+  await expect(editor.locator('[data-sp-title]')).toBeFocused();
+  await page.keyboard.type('글 블록 페이지');
+  await page.keyboard.press('Enter');
+  const box = editor.getByRole('textbox', {name:'본문', exact:true});
   await expect(box).toBeFocused();
   const tools = editor.locator('.ed-tools');
   await expect(tools).toBeVisible();
-  // Small buttons on one row; on a phone the row scrolls sideways, the page itself does not.
-  const heights = await tools.locator('button').evaluateAll(list => list.map(b => Math.round(b.getBoundingClientRect().height)));
+  // Small buttons on one row; on a phone the row scrolls sideways (no bar), on PC every button fits (no bar, no ⋯).
+  const heights = await tools.locator('button:visible').evaluateAll(list => list.map(b => Math.round(b.getBoundingClientRect().height)));
   for (const h of heights) expect(h).toBeLessThanOrEqual(28);
   expect(await tools.evaluate(el => getComputedStyle(el).flexWrap)).toBe('nowrap');
+  if (width >= 1280) {
+    expect(await tools.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
+    await expect(tools.locator('.ed-more')).toBeHidden();
+  } else expect(await tools.evaluate(el => getComputedStyle(el).scrollbarWidth)).toBe('none');
   await page.keyboard.type('회의 결과');
   await editor.locator('.ed-style').click();
   await editor.locator('.ed-menu').getByRole('button', {name:'제목 2', exact:true}).click();
@@ -81,17 +88,15 @@ for (const width of [390, 1280]) test('a new page is one 글 block: buttons, for
   await expect(box).toBeFocused();
   await tools.getByRole('button', {name:'표 넣기', exact:true}).click();
   await page.keyboard.type('항목');
-  await editor.locator('[data-sp-title]').fill('글 블록 페이지');
-  await editor.getByRole('button', {name:'1번째 블록 글 고치기 완료', exact:true}).click();
-  // Shown as the reader draws it.
-  const shown = editor.locator('[data-sp-block="0"] .sr-doc .ed-doc');
-  await expect(shown.locator('h3.ed-h2')).toHaveText('회의 결과');
-  await expect(shown.locator('strong')).toHaveText('굵게');
-  await expect(shown.locator('ol')).toHaveCount(0);
-  await expect(shown.locator('table th').first()).toHaveText('항목');
+  await expect(box.locator('h3.ed-h2')).toHaveText('회의 결과');
+  await expect(box.locator('strong')).toHaveText('굵게');
+  await expect(box.locator('ol')).toHaveCount(0);
+  await expect(box.locator('table th').first()).toHaveText('항목');
+  const node = await box.elementHandle();
   await editor.getByRole('button', {name:'저장', exact:true}).click();
   await expect(editor.locator('[data-sp-status-line]')).toContainText('저장했어요');
   const saved = state.pages[0].blocks;
+  expect(state.pages[0].title).toBe('글 블록 페이지');
   expect(saved).toHaveLength(1);
   expect(saved[0].type).toBe('doc');
   expect(saved[0].doc.v).toBe('ed1');
@@ -99,6 +104,9 @@ for (const width of [390, 1280]) test('a new page is one 글 block: buttons, for
   expect(content[0]).toEqual({type:'heading', attrs:{level:2}, content:[{type:'text', text:'회의 결과'}]});
   expect(content[1].content).toEqual([{type:'text', text:'1. 날짜는 글자 그대로 '}, {type:'text', text:'굵게', marks:[{type:'strong'}]}]);
   expect(content.some(n => n.type === 'table')).toBe(true);
+  // Saving keeps the same editor (no redraw), so undo still has what was typed.
+  expect(await node.evaluate(n => n.isConnected)).toBe(true);
+  await expect(tools.getByRole('button', {name:'되돌리기', exact:true})).toBeEnabled();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
   expect(errors).toEqual([]);
 });
@@ -160,7 +168,10 @@ test('[새 편집기로 바꾸기] turns the old blocks into one 글 block keepi
   await editor.getByRole('button', {name:'저장', exact:true}).click();
   await expect(editor.locator('[data-sp-status-line]')).toContainText('저장했어요');
   expect(state.pages[0].blocks.map(b => b.type)).toEqual(['doc']);
-  await expect(editor.locator('[data-sp-convert-row]')).toBeHidden();
+  // Saved as one 글 block: the full writing screen from now on.
+  await expect(editor).toHaveClass(/is-full/);
+  await expect(editor.getByRole('textbox', {name:'본문', exact:true})).toContainText('3차 교섭 결렬');
+  await expect(editor.locator('[data-sp-convert-row]')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 

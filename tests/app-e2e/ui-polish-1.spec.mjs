@@ -82,8 +82,9 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  await expect(account.locator('button')).toHaveText(['내 프로필','화면 색','로그아웃']);
  const red=await account.locator('[data-kptu-logout]').evaluate(el=>getComputedStyle(el).color),danger=await page.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-danger)';document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c;});
  expect(red).toBe(danger);
- // Keyboard: Tab moves from the grip into the tiles; Esc closes and returns to the [메뉴] tab.
- await grip.focus();await page.keyboard.press('Tab');await expect(tiles.first()).toBeFocused();
+ // Keyboard: Tab moves from the grip to the search field at the top (SEARCH-전체검색), then into the tiles; Esc closes and returns to the [메뉴] tab.
+ await grip.focus();await page.keyboard.press('Tab');await expect(page.locator('#mobileMenu .gs-menu-entry')).toBeFocused();
+ await page.keyboard.press('Tab');await expect(tiles.first()).toBeFocused();
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(tab).toBeFocused();await expect(tab).toHaveAttribute('aria-expanded','false');
  // A tap on the grip closes.
  await open();await grip.click();await expect(menu).toBeHidden();
