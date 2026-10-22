@@ -67,8 +67,8 @@ test('a note without a written summary shows its opening text: whitespace collap
   assert.equal(noteExcerpt(null),'');
   assert.equal(isBlankLinkSummary(' \n'),true);assert.equal(isBlankLinkSummary(null),true);assert.equal(isBlankLinkSummary('글'),false);
   const html=linkRecordHtml({id:'l',note_id:'n',organization_id:'o',project_id:null,occurred_at:'2026-10-20T01:00:00Z',summary:null,raw_text:'<b>본문</b> 앞부분'});
-  // BUG-미리보기기호: the line shows plain letters; the written text stays escaped in data-md-raw (never a live <b>).
-  assert.match(html,/data-link-summary-text data-md-raw="&lt;b&gt;본문&lt;\/b&gt; 앞부분">본문 앞부분<\/p>/);
+  // BUG-미리보기기호: the line shows plain letters (the tag is dropped, never a live <b>); no markdown marks, so nothing to open as markdown.
+  assert.match(html,/data-link-summary-text>본문 앞부분<\/p>/);
   assert.doesNotMatch(html,/<b>/);
   assert.doesNotMatch(html,/요약 없음/);
 });

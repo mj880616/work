@@ -2,7 +2,7 @@
 // line is left out of the preview when it is the same as the title. Pure functions; the stored text is never changed.
 
 import { toTelegram } from './md-telegram.mjs';
-import { noteMarkdown } from './note-markdown.mjs';
+import { noteMarkdown, looksLikeMarkdown } from './note-markdown.mjs';
 
 const FENCE = /^\s{0,3}(`{3,}|~{3,})/;
 const RULE = /^\s{0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
@@ -72,12 +72,14 @@ export function previewText(raw, max = 0) {
 // The same letters with the line breaks kept (one plain line per written line), for rows that show their text over several lines.
 export const previewLines = raw => plainLines(raw).join('\n');
 
-// The written text a [더보기] opens as headings, tables and line breaks: only when it carries marks or line breaks the preview line
-// flattened (else '').
+// The written text a [더보기] opens as headings, tables and line breaks: only when it carries markdown marks, list marks, AI escapes or
+// entities (or, with withBreaks, line breaks the one-line preview flattened); else ''.
 export const MD_RAW_MAX = 20000;
 export function markdownSource(raw, withBreaks = false) {
   const text = String(raw ?? '');
-  return text.length <= MD_RAW_MAX && (previewText(text) !== text.replace(/\s+/g, ' ').trim() || (withBreaks && /\n/.test(text.trim()))) ? text : '';
+  if (!text.trim() || text.length > MD_RAW_MAX) return '';
+  const marked = looksLikeMarkdown(text) || /^\s{0,3}(?:[-*+]|\d+[.)])\s/m.test(text) || /\\[\\`*_{}[\]()#+\-.!|>~<]|&#?\w{2,8};/.test(text);
+  return marked || (withBreaks && /\n/.test(text.trim())) ? text : '';
 }
 
 const same = (a, b) => String(a).replace(/\s+/g, ' ').trim().toLowerCase() === String(b).replace(/\s+/g, ' ').trim().toLowerCase();
