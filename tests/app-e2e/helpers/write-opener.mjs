@@ -9,8 +9,11 @@ export async function openWriteFromEntry(page,width){
   }
   if(await page.evaluate(()=>window.KPTURouter.current)!=='basket')await page.evaluate(()=>window.KPTURouter.go('basket'));
   const note=page.locator('#basketView [data-basket-kind="note"]:visible');
-  await note.click();
-  await page.locator('#basketView [data-quick-big]:visible').first().click();
+  // The [메모 | 노트] switch is hidden while a note's detail is open; then the note side is already showing.
+  const switchShown=await note.first().waitFor({timeout:3000}).then(()=>true,()=>false);
+  if(switchShown&&await note.first().getAttribute('aria-pressed')!=='true')await note.first().click();
+  await page.locator('#basketView [data-note-list] [data-quick-big]:visible').first().click();
   // The old menu window started on [업데이트]; this one starts on [노트], so put it on [업데이트] too.
   await page.locator('#mdEditor [data-md-kind="update"]').click();
+  await page.locator('#mdEditor .md-editor-text').focus();
 }

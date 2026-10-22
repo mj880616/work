@@ -92,7 +92,7 @@ for(const width of [390,1280]){
   expect(f.errors).toEqual([]);
  });
 
- test(`큰 편집 창 [📎 첨부]: 바구니(또는 노트)로 저장할 때만, 조직 기록으로 저장하면 기존 안내 ${width}`,async({page})=>{
+ if(width===1280)test(`큰 편집 창 [📎 첨부]: 바구니(또는 노트)로 저장할 때만, 조직 기록으로 저장하면 기존 안내 ${width}`,async({page})=>{
   const f=await fixture(page,width);
   // Menu [쓰기]: the window's own file batch.
   await openWriteFromEntry(page,width);

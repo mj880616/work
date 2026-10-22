@@ -337,6 +337,7 @@ test('menu [쓰기] → [업데이트] still saves one basket memo (no kind, no 
  await editor.locator('[data-md-save-icon]').click();
  await expect(page.locator('#mdEditor')).toHaveCount(0);await expect(page.locator('#toast')).toContainText('바구니에 저장했어요.');
  expect(f.writes).toEqual([{method:'POST',body:{workspace_id:'w',raw_text:'쓰기 메모'}}]);
+ await chooseBasketKind(page,'memo');
  await showBasketRow(page,'m-created');
  await expect(page.locator('[data-basket-row="m-created"]')).toContainText('쓰기 메모');
  await expect(page.locator('[data-basket-kind="memo"]')).toHaveAttribute('aria-pressed','true');
@@ -511,6 +512,7 @@ test('[닫기] in the big window asks once, then hands the text back to the edit
  await ask.getByRole('button',{name:'저장하지 않고 닫기',exact:true}).click();
  await expect(page.locator('#mdEditor')).toHaveCount(0);await expect(detail.locator('[data-basket-text]')).toHaveValue('닫아도 남는 글');
  page.once('dialog',d=>d.accept());await detail.locator('[data-note-cancel]').click();
+ await page.locator('[data-note-close]').click();
  const writer=await openWriter(page,390);
  await expect(writer.locator(SAVE_ICON)).toHaveCount(1);await expect(writer.locator('[data-md-save]')).toHaveCount(0);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
