@@ -149,7 +149,7 @@
 @media(min-width:1024px){
   html:has(#appView #meetingsView:not(.hidden) #meetingList.meeting-columns) main{padding-bottom:12px}
   html:has(#appView #meetingsView:not(.hidden) #meetingList.meeting-columns) #appView>.app-nav{margin-bottom:0}
-  #appView #meetingsView:not(.hidden):has(#meetingList.meeting-columns){display:flex;flex-direction:column;height:calc(100vh - 24px);height:calc(100dvh - 24px);min-height:420px}
+  #appView #meetingsView:not(.hidden):has(#meetingList.meeting-columns){display:flex;flex-direction:column;height:calc(100vh - 24px - var(--kptu-topline-space,0px));height:calc(100dvh - 24px - var(--kptu-topline-space,0px));min-height:420px}
   #appView #meetingsView:has(#meetingList.meeting-columns)>#meetingsListCard{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;margin:0}
   #appView #meetingsView #newMeetingBtn{height:var(--kptu-control-height);min-height:var(--kptu-control-height)}
   #meetingList.meeting-columns{display:flex;flex:1 1 auto;min-height:0}

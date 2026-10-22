@@ -209,14 +209,15 @@ window.addEventListener('kptu:view-changed',event=>{
 // the next [쓰기] only (never in browser storage).
 let writeDraft='',writerOpening=false;
 const writeToast=message=>{const toast=document.querySelector('#toast');if(!toast)return;toast.textContent=message;toast.classList.remove('hidden');clearTimeout(writeToast.timer);writeToast.timer=setTimeout(()=>toast.classList.add('hidden'),3200)};
-async function openWriter(){
+// kind: 'update' (menu [쓰기], top line [+ 추가] → 업데이트) or 'note' (top line → 노트). Same window, same draft, same saves.
+async function openWriter(kind='update'){
   if(writerOpening||document.querySelector('#mdEditor:not(.hidden)')||window.__KPTU_TEAM_READY_STATE__!=='workspace')return;
   writerOpening=true;
   try{
     const owner=window.KPTURuntime?.session?.read?.()?.user?.id;
     const [{openWriteWindow},{requestNoteDocOpen}]=await Promise.all([import('./write-window.js'),import('./basket-note-tasks.js'),window.KPTUViewLoader?.prepare?.('basket')]);
     if(owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return;
-    openWriteWindow({text:writeDraft,title:'쓰기',kind:'update',onClose:(text,{saved})=>{
+    openWriteWindow({text:writeDraft,title:'쓰기',kind,onClose:(text,{saved})=>{
       if(saved){
         writeDraft='';
         if(saved.kind!=='note')return;
@@ -232,7 +233,7 @@ async function openWriter(){
   }catch(error){console.error('menu write',error);writeToast('쓰기 화면을 열지 못했어요. 다시 시도해 주세요.')}
   finally{writerOpening=false}
 }
-document.querySelectorAll('[data-menu-write]').forEach(button=>button.addEventListener('click',()=>void openWriter()));
+document.querySelectorAll('[data-menu-write]').forEach(button=>button.addEventListener('click',()=>void openWriter('update')));
 // UI-PC메모노트: PC sidebar [바구니] → [업데이트]·[노트] (always shown). Each opens the basket on that side through the basket's
 // own one-shot hand-off (basket-note-tasks.js); the basket screen itself and the phone stay as they are.
 document.querySelectorAll('#appView>.app-nav [data-basket-kind-nav]').forEach(button=>button.addEventListener('click',async()=>{
@@ -295,6 +296,148 @@ document.addEventListener('click',event=>{
 document.addEventListener('keydown',event=>{if(activeAccount&&event.key==='Escape'){event.preventDefault();event.stopPropagation();closeAccount()}});
 window.addEventListener('resize',positionAccount);
 window.addEventListener('popstate',event=>{if(activeAccount&&event.state?.kptuAccount!==activeAccount.panel.id)closeAccount(null,true)});
+// UI-상단줄 (PC ≥1024 only; phone and 761~1023px keep their own shell). One thin row above every screen, owned and drawn here:
+// [sidebar] [←][→] [where] [search slot] [+ 추가] [계정 ▾]. Nothing else draws into it; the search slot is mounted later by SEARCH.
+const topline=document.querySelector('[data-app-topline]'),appView=document.querySelector('#appView');
+const sidebarAccount=accounts.find(account=>account.panel.id==='sidebarAccountPanel');
+// The PC account trigger lives at the right end of the top line (it was the last row of the sidebar). Same node and handlers.
+topline?.querySelector('[data-topline-account]')?.append(sidebarAccount?.host||document.createComment('no account'));
+// ① Sidebar hide. A device preference only (no user content), so it lives in this browser; a blocked storage just means "shown".
+const NAV_KEY='kptu-nav-collapsed';
+const navToggle=topline?.querySelector('[data-nav-toggle]');
+function paintNavToggle(){
+  const hidden=!!appView?.classList.contains('nav-collapsed');
+  navToggle?.setAttribute('aria-expanded',String(!hidden));
+  navToggle?.setAttribute('aria-label',hidden?'메뉴 보이기':'메뉴 숨기기');
+  if(navToggle)navToggle.title=hidden?'메뉴 보이기':'메뉴 숨기기';
+}
+function setNavCollapsed(hidden,{save=true}={}){
+  appView?.classList.toggle('nav-collapsed',hidden);paintNavToggle();
+  if(save){try{if(hidden)localStorage.setItem(NAV_KEY,'1');else localStorage.removeItem(NAV_KEY)}catch{}}
+  window.dispatchEvent(new CustomEvent('kptu:nav-collapsed',{detail:{hidden}}));
+}
+let navStored=false;try{navStored=localStorage.getItem(NAV_KEY)==='1'}catch{}
+setNavCollapsed(navStored,{save:false});
+navToggle?.addEventListener('click',()=>setNavCollapsed(!appView?.classList.contains('nav-collapsed')));
+// ② ← →: the app's own record of screens moved through (and the item chosen on a left-list / right-detail screen). It never
+// reads or moves browser history: a step is an ordinary KPTURouter.go (the same as a menu click), so the router stays the one
+// owner of screens and history, and back/forward of the browser, PWA and Android keep their own rules (BUG-뒤로가기).
+const SPLIT_OPEN={
+  projects:item=>window.KPTUProjects?.open?.(item.id,false),
+  team:item=>window.KPTUWorkplace?.open?.(item.id),
+  tasks:item=>window.KPTUGoogleTasks?.openById?.(item.id),
+  meetings:item=>window.KPTUMeetingColumns?.select?.(item)
+};
+const trail={entries:[],index:-1,pending:null,restoring:null};
+const sameItem=(a,b)=>(a?.id??null)===(b?.id??null)&&(a?.kind??null)===(b?.kind??null);
+const backBtn=topline?.querySelector('[data-trail="back"]'),forwardBtn=topline?.querySelector('[data-trail="forward"]');
+function paintTrail(){
+  if(backBtn)backBtn.disabled=trail.index<=0;
+  if(forwardBtn)forwardBtn.disabled=trail.index>=trail.entries.length-1;
+}
+function pushTrail(entry){
+  trail.entries.splice(trail.index+1);trail.entries.push(entry);
+  if(trail.entries.length>50)trail.entries.shift();
+  trail.index=trail.entries.length-1;paintTrail();
+}
+function stepTrail(delta){
+  const index=trail.index+delta,entry=trail.entries[index];
+  if(trail.pending&&performance.now()-trail.pending.at<10000)return;
+  trail.pending=null;if(!entry)return;
+  const router=window.KPTURouter;if(!router)return;
+  if(router.current===entry.view){trail.index=index;paintTrail();restoreItem(entry);return}
+  trail.pending={index,at:performance.now()};
+  const moved=router.go(entry.view,{source:'trail'});
+  // A refused move (unsaved text kept) leaves the record as it was. A view still loading moves on its own later.
+  if(!moved&&window.KPTUViewLoader?.isLoaded?.(entry.view)!==false)trail.pending=null;
+}
+function restoreItem(entry){
+  if(!entry.item||!SPLIT_OPEN[entry.view])return;
+  trail.restoring={view:entry.view,id:entry.item.id,until:performance.now()+3000};
+  try{SPLIT_OPEN[entry.view](entry.item)}catch(error){console.error('trail item',error)}
+}
+backBtn?.addEventListener('click',()=>stepTrail(-1));
+forwardBtn?.addEventListener('click',()=>stepTrail(1));
+window.addEventListener('kptu:view-changed',event=>{
+  const view=event.detail?.view;if(!view)return;
+  if(trail.pending){
+    const {index}=trail.pending;trail.pending=null;
+    if(trail.entries[index]?.view===view){trail.index=index;paintTrail();restoreItem(trail.entries[index]);paintWhere(view);return}
+  }
+  if(trail.entries[trail.index]?.view!==view)pushTrail({view,item:null});
+  paintWhere(view);
+});
+// A left-list / right-detail screen names the item shown on the right (its own module paints the selection and sends this).
+function recordItem(view,item){
+  if(!view||view!==window.KPTURouter?.current||!item?.id)return;
+  const current=trail.entries[trail.index];if(!current||current.view!==view)return;
+  if(sameItem(current.item,item))return;
+  const restoring=trail.restoring&&trail.restoring.view===view&&performance.now()<trail.restoring.until;
+  if(restoring&&trail.restoring.id===item.id)trail.restoring=null;
+  // The first item a screen opens by itself (last seen / first in list) belongs to the step that opened the screen;
+  // while a ← → step is putting its item back, what the screen shows belongs to that step too.
+  if(!current.item||restoring){current.item={...item};return}
+  pushTrail({view,item:{...item}});
+}
+window.addEventListener('kptu:split-selection',event=>recordItem(event.detail?.view,event.detail?.item));
+window.addEventListener('kptu:workplace-selection',event=>{if(event.detail?.id)recordItem('team',{id:event.detail.id})});
+window.addEventListener('kptu:session-changed',()=>{trail.entries=[];trail.index=-1;trail.pending=null;trail.restoring=null;paintTrail()});
+paintTrail();
+// Where you are: group › screen. The group word goes to the group's first screen; the last word is the current page.
+const GROUPS={calendar:'schedule',tasks:'schedule',journal:'schedule',diary:'schedule'};
+const GROUP_HEAD={schedule:{name:'일정',view:'calendar'},basket:{name:'바구니',view:'basket'}};
+const VIEW_NAMES={home:'홈',basket:'바구니',calendar:'달력',tasks:'할 일',journal:'업무일지',diary:'일기',projects:'프로젝트',library:'자료실',meetings:'회의',media:'성명·보도자료',pages:'공유 페이지',team:'담당조직',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장'};
+const whereList=topline?.querySelector('[data-topline-where]');
+let basketKind=null;
+function paintWhere(view=window.KPTURouter?.current){
+  if(!whereList)return;
+  const parts=[];
+  const groupKey=GROUPS[view]||(view==='basket'&&basketKind?'basket':null);
+  if(groupKey)parts.push({name:GROUP_HEAD[groupKey].name,go:GROUP_HEAD[groupKey].view});
+  parts.push({name:view==='basket'&&basketKind?(basketKind==='note'?'노트':'업데이트'):VIEW_NAMES[view]||''});
+  whereList.replaceChildren(...parts.map((part,i)=>{
+    const li=document.createElement('li');
+    if(i<parts.length-1){const b=document.createElement('button');b.type='button';b.className='topline-where-link';b.dataset.toplineGo=part.go;b.textContent=part.name;li.append(b)}
+    else{const s=document.createElement('span');s.setAttribute('aria-current','page');s.textContent=part.name;li.append(s)}
+    return li;
+  }));
+}
+whereList?.addEventListener('click',event=>{
+  const go=event.target.closest('[data-topline-go]')?.dataset.toplineGo;if(!go)return;
+  // 바구니 › 노트: the group word opens the basket on its first side (업데이트), through the basket's own hand-off.
+  if(go==='basket'&&window.KPTURouter?.current==='basket'){
+    import('./basket-note-tasks.js').then(({requestBasketKind})=>{requestBasketKind('memo');window.KPTURouter?.go('basket',{source:'delegated'})}).catch(error=>console.error('where basket',error));
+    return;
+  }
+  window.KPTURouter?.go(go,{source:'delegated'});
+});
+window.addEventListener('kptu:basket-kind',event=>{basketKind=event.detail?.kind||null;paintWhere()});
+paintWhere();
+// [+ 추가]: 업데이트·할 일·노트·일정 open the existing windows, each through its existing opener (no new save path):
+// 업데이트·노트 = the menu [쓰기] window; 일정 = [+ 일정 등록]; 할 일 = the same window on its [할 일] side (as the home input's [+]).
+const addButton=topline?.querySelector('[data-quick-add]');
+const ADD_ITEMS=[['update','업데이트'],['task','할 일'],['note','노트'],['event','일정']];
+async function openEventWindow(task){
+  try{
+    await window.KPTUDeferredFeatures?.loadView?.('calendar');
+    const open=document.querySelector('#newEventBtn');if(!open)throw new Error('missing');
+    open.click();
+    if(task)document.querySelector('#eventModal [data-event-mode="task"]')?.click();
+  }catch(error){console.error('quick add',error);writeToast('추가 창을 열지 못했어요. 다시 시도해 주세요.')}
+}
+if(addButton){
+  import('./anchored-menu.js').then(({createAnchoredMenu})=>{
+    const menu=createAnchoredMenu({id:'toplineAddMenu',className:'topline-add-menu',label:'추가',historyKey:'kptuToplineAdd',key:()=>'add',
+      canOpen:()=>window.__KPTU_TEAM_READY_STATE__==='workspace',
+      render:()=>ADD_ITEMS.map(([kind,name])=>`<button type="button" data-topline-add="${kind}">${name}</button>`).join(''),
+      onAction:button=>{
+        const kind=button.dataset.toplineAdd;
+        if(kind==='update'||kind==='note')void openWriter(kind);
+        else void openEventWindow(kind==='task');
+      }});
+    addButton.addEventListener('click',()=>menu.open(addButton));
+  }).catch(error=>console.error('quick add menu',error));
+}
 // [내 프로필]: close the account menu, then the router (the one owner of screen changes) opens the screen; its module loads on first use.
 accounts.forEach(account=>account.profile.addEventListener('click',()=>closeAccount(()=>window.KPTURouter?.go('profile',{source:'delegated'}))));
 const themeButtons=accounts.map(account=>account.theme);

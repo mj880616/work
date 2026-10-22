@@ -45,7 +45,7 @@
 </section>
 <section id="appView" class="app-view hidden">
   <header class="mobile-shell-header"><time data-home-date></time><span data-mobile-view-name hidden></span><button id="mobileMenuOpen" type="button" aria-label="메뉴 열기" aria-controls="mobileMenu" aria-expanded="false">☰</button></header>
-  <nav class="app-nav">
+  <nav id="appNav" class="app-nav">
     <a class="sidebar-brand" data-core-brand href="./?view=home" aria-label="홈"><img src="./app-icon.svg" width="22" height="22" alt="" aria-hidden="true"><span>홈</span></a>
     <button class="nav-btn nav-home-mid" data-view="home" type="button">홈</button>
     <button class="nav-btn" data-view="basket" type="button">바구니</button>
@@ -63,6 +63,15 @@
     <div class="sidebar-spacer" aria-hidden="true"></div>
     <button id="sidebarLogoutBtn" class="sidebar-utility hidden" type="button" data-kptu-logout>로그아웃</button>
   </nav>
+  <div class="app-topline" data-app-topline role="toolbar" aria-label="화면 이동">
+    <button class="topline-btn topline-nav-toggle" type="button" data-nav-toggle aria-controls="appNav" aria-expanded="true" aria-label="메뉴 숨기기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM9 5v14"/></svg></button>
+    <button class="topline-btn" type="button" data-trail="back" aria-label="이전 화면" disabled><span aria-hidden="true">←</span></button>
+    <button class="topline-btn" type="button" data-trail="forward" aria-label="다음 화면" disabled><span aria-hidden="true">→</span></button>
+    <nav class="topline-where" aria-label="지금 위치"><ol data-topline-where></ol></nav>
+    <div class="topline-search" data-search-slot></div>
+    <button class="topline-btn topline-add" type="button" data-quick-add aria-haspopup="true" aria-expanded="false"><span aria-hidden="true">+</span> 추가</button>
+    <div class="topline-account" data-topline-account></div>
+  </div>
 
   <nav class="mobile-tabs" aria-label="주 메뉴">
     <button type="button" data-view="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10 12 3l9 7M5 9v12h5v-7h4v7h5V9"/></svg><span>홈</span></button>
