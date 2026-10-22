@@ -1,9 +1,13 @@
 // BASKET-업데이트통합: where an "업데이트" goes, in one place for the home input and the shared write window (write-window.js).
 // No place → a basket note (미분류); an organization → that organization's record; a project → that project's progress record.
 // Every save is an existing owner-RLS path (createNote, saveOrganizationUpdate, saveProjectProgress); nothing new is written here.
+// UPD-여러곳고르기: several places can be chosen at once (an array; empty is the basket). Two or more → one basket update linked
+// to every chosen place through the basket's own [연결하기] path (app_basket_confirm_links: owner RLS, INVOKER, 1~20 places, all
+// or none), so the update is one original shown in each place's records, as a linked basket update already is.
 import { createNote } from './basket-data.js';
 import { saveOrganizationUpdate, saveProjectProgress } from './quick-save.js';
-import { projectRows, projectRow, orgGroupRows } from './choice-sheet.js';
+import { projectRows, projectRow, orgGroupRows, orgRow } from './choice-sheet.js';
+import { confirmLinks } from './basket-classification.js';
 
 // place: null (basket) | {kind:'organization'|'project', id}
 export const BASKET = null;
@@ -14,6 +18,27 @@ export function placeFromValue(value) {
   return {kind:'organization', id:value};
 }
 export const samePlace = (a, b) => placeValue(a) === placeValue(b);
+export const PLACE_LIMIT = 20; // app_basket_confirm_links takes 1~20 places
+// A list of chosen places (no basket value, no repeats) from any mix of values, places and null.
+export function placeList(chosen) {
+  const out = [];
+  for (const item of Array.isArray(chosen) ? chosen : chosen ? [chosen] : []) {
+    const place = typeof item === 'string' ? placeFromValue(item) : item;
+    if (place && !out.some(p => samePlace(p, place))) out.push({kind:place.kind, id:place.id});
+  }
+  return out;
+}
+export const samePlaces = (a, b) => { const x = placeList(a), y = placeList(b); return x.length === y.length && x.every((p, i) => samePlace(p, y[i])); };
+// Pending choice of the 기록할 곳 sheet: [바구니(미분류)] and the other places never go together; a press toggles.
+// Returns the next list, or null when it would pass the limit.
+export function togglePlace(chosen, value) {
+  const list = placeList(chosen);
+  if (!value || value === 'basket') return [];
+  const place = placeFromValue(value), at = list.findIndex(p => samePlace(p, place));
+  if (at >= 0) return list.filter((_, i) => i !== at);
+  return list.length >= PLACE_LIMIT ? null : [...list, place];
+}
+export const choiceCountText = chosen => { const n = placeList(chosen).length; return n ? `${n}곳 선택됨` : '바구니(미분류) 선택됨'; };
 
 // sources: {projects(), orgs(), assignments()} — the home passes its shared reads; the write window reads them itself.
 // Returns {projects:[tree rows of active projects], orgs:{recent, groups}} with the three most recent organizations first.
@@ -41,49 +66,72 @@ export function keepPlace(places, place) {
   if (place.kind === 'project') return places.projects.some(x => x.project.id === place.id) ? place : BASKET;
   return places.orgs.groups.flat().some(o => o.id === place.id) ? place : BASKET;
 }
+export const keepPlaces = (places, chosen) => placeList(chosen).filter(place => keepPlace(places, place));
 export function placeName(places, place) {
   if (!place) return '';
   if (place.kind === 'project') return places?.projects.find(x => x.project.id === place.id)?.project.name || '';
   return places?.orgs.groups.flat().find(o => o.id === place.id)?.name || '';
 }
+// UPD-여러곳고르기 ⑥: what the input's button says — one place by its name, more as "첫 곳 이름 외 N" (in the order picked).
+export function placesLabel(places, chosen, fallback = () => '') {
+  const list = placeList(chosen); if (!list.length) return '';
+  const first = placeName(places, list[0]) || fallback(list[0]) || '고른 곳';
+  return list.length > 1 ? `${first} 외 ${list.length - 1}` : first;
+}
 // UI-기록할곳되돌리기: after an update is added to an organization or a project, the input goes back to the basket; the place
 // just used stays on the 최근 line (first, after [바구니(미분류)]) until the page reloads or the signed-in user changes. Memory only.
+// UPD-여러곳고르기: every place of a save stays there, in the order picked.
 let lastUsed = null;
 const viewer = () => window.KPTURuntime?.context?.read?.()?.user?.id || '';
-export function rememberPlace(place) { if (place) lastUsed = {owner:viewer(), place:{kind:place.kind, id:place.id}}; }
-function usedPlace(places) {
-  if (!lastUsed || lastUsed.owner !== viewer() || !places) return null;
-  return keepPlace(places, lastUsed.place);
+export function rememberPlace(chosen) { const list = placeList(chosen); if (list.length) lastUsed = {owner:viewer(), places:list}; }
+function usedPlaces(places) {
+  if (!lastUsed || lastUsed.owner !== viewer() || !places) return [];
+  return keepPlaces(places, lastUsed.places);
 }
 // The 기록할 곳 sheet: [바구니(미분류)] then the recent places on one line, all organizations by group, then projects.
-// UI-고르기창개선: on a PC list the organizations are one line per group (group name, then its chips) and the projects one per line
-// with a small check box; the search box above filters both (the recent line steps aside while searching, its chips are also below).
+// UI-고르기창개선: the projects are one per line with a small check box; the search box above filters both (the recent line steps
+// aside while searching, its chips are also below). UPD-여러곳고르기 ①: the organizations look the same: each group's name is a small
+// heading and its organizations follow one per line with a check box. Many may be chosen; the sheet marks them (choice-sheet.js multi).
 // UI-기록할곳창PC: the organizations and the projects are each one column block (data-sheet-col); on a wide PC (1024px~) the sheet
 // sets them side by side under the 최근 line (choice-sheet.js wide, choice-sheet.css). Phones and middle widths keep them stacked.
-export function placeSheetHtml(places, place, esc) {
-  const chosen = placeValue(place);
-  const chip = o => `<button type="button" class="home-choice-chip" data-sheet-value="${esc(o.id)}" aria-pressed="${o.id === chosen}">${esc(o.name)}</button>`;
-  const row = x => projectRow(x, chosen, esc, {value:'project:' + x.project.id});
-  const basket = `<span data-sheet-basket class="home-choice-inline"><button type="button" class="home-choice-chip" data-sheet-value="basket" aria-pressed="${chosen === 'basket'}">바구니(미분류)</button></span>`;
+export function placeSheetHtml(places, chosen, esc) {
+  const list = placeList(chosen), picked = value => value === 'basket' ? !list.length : list.some(p => placeValue(p) === value);
+  const chip = (value, name) => `<button type="button" class="home-choice-chip" data-sheet-value="${esc(value)}" aria-pressed="${picked(value)}">${esc(name)}</button>`;
+  const row = x => projectRow(x, picked('project:' + x.project.id) ? 'project:' + x.project.id : null, esc, {value:'project:' + x.project.id});
+  const basket = `<span data-sheet-basket class="home-choice-inline">${chip('basket', '바구니(미분류)')}</span>`;
   const orgs = places?.orgs || {recent:[], groups:[]}, projects = places?.projects || [];
-  const used = usedPlace(places);
-  let recent = orgs.recent.map(chip);
-  if (used?.kind === 'project') {
-    const value = placeValue(used);
-    recent = [`<button type="button" class="home-choice-chip" data-sheet-value="${esc(value)}" aria-pressed="${value === chosen}">${esc(placeName(places, used))}</button>`, ...recent];
-  } else if (used) {
-    const org = orgs.groups.flat().find(o => o.id === used.id);
-    recent = [org, ...orgs.recent.filter(o => o.id !== used.id)].slice(0, Math.max(3, orgs.recent.length)).map(chip);
-  }
-  return `<div data-sheet-recent-block data-sheet-hide-on-search><p class="home-choice-label">최근</p><div class="home-choice-group home-choice-group-plain">${basket}<span data-sheet-recent class="home-choice-inline">${recent.join('')}</span></div></div><div class="home-choice-col" data-sheet-col="orgs"><p class="home-choice-label" data-sheet-label-of="all">담당조직</p><div data-sheet-all data-sheet-part="all">${orgGroupRows(orgs.groups, chip)}</div></div>${projects.length ? `<div class="home-choice-col" data-sheet-col="projects"><p class="home-choice-label" data-sheet-label-of="projects">프로젝트</p><div data-sheet-projects data-sheet-part="projects">${projects.map(row).join('')}</div></div>` : ''}`;
+  const used = usedPlaces(places), usedIds = new Set(used.filter(p => p.kind === 'organization').map(p => p.id));
+  const all = orgs.groups.flat();
+  const recent = [...used.map(p => p.kind === 'project' ? chip(placeValue(p), placeName(places, p)) : chip(p.id, all.find(o => o.id === p.id)?.name || '')),
+    ...orgs.recent.filter(o => !usedIds.has(o.id)).slice(0, Math.max(0, Math.max(3, orgs.recent.length) - usedIds.size)).map(o => chip(o.id, o.name))];
+  return `<div data-sheet-recent-block data-sheet-hide-on-search><p class="home-choice-label">최근</p><div class="home-choice-group home-choice-group-plain">${basket}<span data-sheet-recent class="home-choice-inline">${recent.join('')}</span></div></div><div class="home-choice-col" data-sheet-col="orgs"><p class="home-choice-label" data-sheet-label-of="all">담당조직</p><div data-sheet-all data-sheet-part="all">${orgGroupRows(orgs.groups, o => orgRow(o, picked(o.id), esc))}</div></div>${projects.length ? `<div class="home-choice-col" data-sheet-col="projects"><p class="home-choice-label" data-sheet-label-of="projects">프로젝트</p><div data-sheet-projects data-sheet-part="projects">${projects.map(row).join('')}</div></div>` : ''}`;
 }
 export { projectRows };
 // Text-only save of one update. owner is the signed-in user (the record's created_by/author_id, checked again by RLS).
-export function saveUpdate({place, text, owner}, rt = window.KPTURuntime) {
-  if (!place) return createNote({raw_text:text}, rt);
-  if (place.kind === 'project') return saveProjectProgress({project_id:place.id, raw_text:text.trim(), created_by:owner}, rt);
-  return saveOrganizationUpdate({organization_id:place.id, raw_text:text.trim(), created_by:owner}, rt);
+// chosen: one place, null, or a list. None → a basket note; one → that place's own record (unchanged); two or more → one basket
+// note linked to every place at once (app_basket_confirm_links, the basket [연결하기] path; the database refuses all or none).
+// When the links are refused the note stays in the basket (nothing is lost or doubled): {note, linkError} says so to the caller.
+export async function saveUpdate({place, places, text, owner}, rt = window.KPTURuntime) {
+  const list = placeList(places ?? place);
+  if (!list.length) return createNote({raw_text:text}, rt);
+  if (list.length === 1) {
+    const [one] = list;
+    if (one.kind === 'project') return saveProjectProgress({project_id:one.id, raw_text:text.trim(), created_by:owner}, rt);
+    return saveOrganizationUpdate({organization_id:one.id, raw_text:text.trim(), created_by:owner}, rt);
+  }
+  if (list.length > PLACE_LIMIT) throw new Error(`한 번에 ${PLACE_LIMIT}곳까지 고를 수 있어요.`);
+  const note = await createNote({raw_text:text}, rt);
+  let linkError = '';
+  try {
+    const result = await confirmLinks(note.id, note.updated_at, list.map(p => ({kind:p.kind, target_id:p.id, reason:MULTI_REASON})), rt);
+    if (result?.ok !== true) linkError = result?.error || 'UNKNOWN';
+  } catch (error) { linkError = error?.message || 'UNKNOWN'; }
+  window.dispatchEvent(new CustomEvent('kptu:basket-note-created'));
+  if (!linkError) window.dispatchEvent(new CustomEvent('kptu:basket-links-changed'));
+  return {note, linkError};
 }
+export const MULTI_REASON = '직접 연결'; // the same reason as the basket [연결하기] (basket-manual-link.js)
+export const linkFailText = '업데이트는 바구니에 저장했지만 고른 곳에 연결하지 못했어요. 바구니에서 [연결하기]로 다시 연결해 주세요.';
 // Reads for a screen without the home's shared flights (the write window).
 export function placeSources(rt = window.KPTURuntime) {
   const ctx = () => rt.context.read();

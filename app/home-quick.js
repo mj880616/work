@@ -1,7 +1,7 @@
 import {basketOcrFor} from './basket-ocr-runtime.js';
 import { createChoiceSheet, projectRows } from './choice-sheet.js';
-import { readPlaces, placeSheetHtml, placeValue, placeFromValue, rememberPlace } from './update-places.js';
-import { createGoogleTask, saveOrganizationUpdate, saveProjectProgress } from './quick-save.js';
+import { readPlaces, placeSheetHtml, placeValue, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, rememberPlace, linkFailText } from './update-places.js';
+import { createGoogleTask } from './quick-save.js';
 import { createNote, validateNoteText, createNoteDoc, noteTitleFromText } from './basket-data.js';
 import { createUploadBatch, uploadBatch, uploadNoteFiles, mountBasketPicker, fileTitle } from './basket-upload.js';
 import { extractHtmlDocument, htmlFileName, utf8Bytes, HTML_MAX_BYTES, HTML_MARK } from './chatgpt-html.mjs';
@@ -22,17 +22,18 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   // BASKET-업데이트통합 PR 1: the home box has two modes, [업데이트 ▾] and [할 일]. [업데이트] with no place chosen is the old
   // [바구니] (a basket note, attachments allowed); with an organization or a project chosen it is that place's record, saved
   // through the same existing paths as before. toBasket() is that one rule; data-mode shows the effective kind (basket/update/task).
-  let mode='update',saving=false,expanded=false,project='',organization='',updateProject='',due='',dateKind='',choicesFlight=null,choiceEpoch=0,projectChoices=[],orgChoices={recent:[],groups:[]};
+  let mode='update',saving=false,expanded=false,project='',places=[],pendingPlaces=[],due='',dateKind='',choicesFlight=null,choiceEpoch=0,projectChoices=[],orgChoices={recent:[],groups:[]};
   try { const saved=basketOnly||taskOnly?null:window.localStorage.getItem('kptu-home-quick-mode'); mode=saved==='task'?'task':'update'; } catch {}
   if(taskOnly)mode='task';
   if(noteOnly)mode='note';
-  const toBasket=()=>mode==='update'&&!organization&&!updateProject;
+  const toBasket=()=>mode==='update'&&!places.length;
   // Whether the clip and drop take files for this save: a basket update, or a note (NOTE-파일붙이기).
   // TASK-추가창파일: a new task too, once the task-file table answers (as ⋯ → 파일 붙이기); they go up after Google made the task.
   let taskFilesOn=false;
   const takesFiles=()=>noteOnly||toBasket()||(mode==='task'&&taskFilesOn);
-  const currentPlace=()=>organization?{kind:'organization',id:organization}:updateProject?{kind:'project',id:updateProject}:null;
-  const setPlace=place=>{organization=place?.kind==='organization'?place.id:'';updateProject=place?.kind==='project'?place.id:'';};
+  // UPD-여러곳고르기: places is the list chosen on the 기록할 곳 sheet (in the order picked; empty is the basket).
+  const currentPlaces=()=>places.map(p=>({...p}));
+  const setPlaces=list=>{places=placeList(list);};
   let taskAttempt=null,taskRequest=null,taskSequence=0,taskReading=false,taskSessionEpoch=window.KPTURuntime.session.epoch();
   let upload = createUploadBatch(),uploadGeneration=0,pendingOcr=null;
   const guardPendingOcr=()=>{pendingOcr?.current();};
@@ -69,7 +70,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     // A note's files are always settled by its own save (the batch is emptied after it), so the note input never locks.
     const locked=toBasket()&&(!!upload.note_id||!!upload.blocked);input.readOnly=locked;box.querySelector('[data-quick-lock]').hidden=!locked;
     box.querySelector('[data-quick-lock-reason]').textContent=!locked?'':upload.blocked?'앞선 저장 결과를 확인하지 못해 입력창을 잠갔어요. 바구니 목록에서 저장 여부를 확인하고, 새로 쓰려면 ‘새 업데이트 입력’을 눌러 주세요.':'업데이트 글은 이미 저장되어 남은 첨부만 다시 저장할 수 있어요. 새로 쓰려면 ‘새 업데이트 입력’을 눌러 주세요.';
-    box.dataset.mode=noteOnly?'note':toBasket()?'basket':mode; input.rows=1; const orgName=orgChoices.groups.flat().find(o=>o.id===organization)?.name||'',updateProjectName=projectChoices.find(x=>x.project.id===updateProject)?.project.name||'',targetName=organization?orgName:updateProjectName;
+    box.dataset.mode=noteOnly?'note':toBasket()?'basket':mode; input.rows=1; const targetName=placesLabel({projects:projectChoices,orgs:orgChoices},places);
     input.placeholder=noteOnly?'노트를 입력하세요':mode==='task'?'할 일을 입력하세요':toBasket()?(basketOnly?'업데이트를 입력하세요':'업데이트 입력(바구니에 저장)'):(targetName||'담당조직')+' 기록을 입력하세요';
     box.querySelector('[data-quick-file-picker]').hidden=!takesFiles();
     // TASK-추가창파일: a task takes up to 10 files (the ⋯ → 파일 붙이기 limit), not the basket's 20; say where they go.
@@ -81,7 +82,10 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     options.hidden=taskOnly||!expanded||mode!=='task';
     projectSelect.textContent=(projectChoices.find(x=>x.project.id===project)?.project.name||'프로젝트')+' ▾';
     projectSelect.setAttribute('aria-label',project?'프로젝트: '+projectSelect.textContent.slice(0,-2):'프로젝트');
-    orgSelect.setAttribute('aria-label',organization&&orgName?'기록할 곳 선택: '+orgName:updateProject&&updateProjectName?'기록할 곳 선택: '+updateProjectName:'기록할 곳 선택');
+    orgSelect.setAttribute('aria-label',places.length&&targetName?'기록할 곳 선택: '+targetName:'기록할 곳 선택');
+    // UPD-여러곳고르기 ⑥: with two or more places the [업데이트] button itself says where ("첫 곳 이름 외 N"); one place keeps
+    // [업데이트] (its name is in the input's placeholder, as before).
+    const updateBtn=box.querySelector('[data-quick-mode="update"]');if(updateBtn){const many=mode==='update'&&places.length>1&&targetName;updateBtn.textContent=many?targetName:'업데이트';updateBtn.title=many?targetName:'';updateBtn.toggleAttribute('data-quick-many',!!many);}
     box.querySelectorAll('[data-quick-day]').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.quickDay===dateKind));if(b.dataset.quickDay==='date')b.textContent=dateKind==='date'?`${Number(due.slice(5,7))}.${Number(due.slice(8,10))}`:'날짜';});size();
   }
   async function choices(){
@@ -94,8 +98,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
       if(!read||run!==choiceEpoch)return;
       projectChoices=read.projects;orgChoices=read.orgs;
       if(!projectChoices.some(x=>x.project.id===project))project='';
-      if(!projectChoices.some(x=>x.project.id===updateProject))updateProject='';
-      if(!orgChoices.groups.flat().some(o=>o.id===organization))organization='';
+      places=places.filter(p=>p.kind==='project'?projectChoices.some(x=>x.project.id===p.id):orgChoices.groups.flat().some(o=>o.id===p.id));
       paint();picker.render();
     })().catch(e=>{if(run===choiceEpoch){choicesFlight=null;status.textContent=e.message||'선택 목록을 불러오지 못했습니다.';}});
     return choicesFlight;
@@ -107,9 +110,13 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     canOpen:()=>!saving&&window.KPTURouter.current===view,choices,
     render:kind=>{
       // BASKET-업데이트통합: [바구니(미분류)] (no place) is the first chip, on the recent line (update-places.js, shared with the write window).
-      return {title:kind==='org'?'기록할 곳 선택':'프로젝트 선택',search:kind==='org'?'조직·프로젝트 이름 검색':'프로젝트 이름 검색',split:kind==='org',html:kind==='org'?placeSheetHtml({projects:projectChoices,orgs:orgChoices},currentPlace(),esc):projectRows(projectChoices,project,esc)};
+      // UPD-여러곳고르기: the 기록할 곳 sheet keeps many; presses mark a pending list that only [저장] makes the input's (onCommit).
+      if(kind==='org')pendingPlaces=currentPlaces();
+      return {title:kind==='org'?'기록할 곳 선택':'프로젝트 선택',search:kind==='org'?'조직·프로젝트 이름 검색':'프로젝트 이름 검색',split:kind==='org',html:kind==='org'?placeSheetHtml({projects:projectChoices,orgs:orgChoices},pendingPlaces,esc):projectRows(projectChoices,project,esc)};
     },
-    onSelect:(kind,value)=>{if(kind==='org')setPlace(placeFromValue(value));else project=value;paint();}
+    multi:kind=>kind==='org'?{pressed:value=>value==='basket'?!pendingPlaces.length:pendingPlaces.some(p=>placeValue(p)===value),label:choiceCountText(pendingPlaces)}:null,
+    onSelect:(kind,value)=>{if(kind==='org'){const next=togglePlace(pendingPlaces,value);if(next)pendingPlaces=next;else status.textContent=`한 번에 ${PLACE_LIMIT}곳까지 고를 수 있어요.`;return;}project=value;paint();},
+    onCommit:kind=>{if(kind!=='org')return;setPlaces(pendingPlaces);status.textContent='';paint();}
   });
   const openSheet=kind=>picker.open(kind,kind==='org'?orgSelect:projectSelect);
   const dismissForNavigation=()=>picker.dismiss();
@@ -119,7 +126,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   // UI-기록할곳되돌리기 (b)(c): a place (and a task's project) chosen here is for one add only. Leaving the screen, or closing the big
   // window without saving, puts the next input back on the basket (and no project); the placeholder then says 바구니. A save in
   // flight keeps its place, and a task whose result is still being confirmed keeps its project.
-  const resetChoices=()=>{if(saving)return;if(currentPlace())setPlace(null);if(project&&!taskAttempt&&!taskRequest)project='';paint();};
+  const resetChoices=()=>{if(saving)return;if(places.length)setPlaces([]);if(project&&!taskAttempt&&!taskRequest)project='';paint();};
   window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view!==view){uploadGeneration++;dismissForNavigation();resetChoices();}});
   // The clip shows in [할 일] only when the task-file table answers for this owner (checked once; only a yes is kept).
   // The [할 일] screen's own input does not ask: the task list below it reads the table anyway, and its answer turns the clip on.
@@ -211,7 +218,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     if(saving)return {ok:false,message:'저장 중이에요.'};
     // UI-빈입력안내: no text is a small hint line right under the input (not an error, no red); typing removes it.
     if(!input.value.trim()&&!(toBasket()&&upload.entries.length)){const message='글을 입력해 주세요.';status.textContent='';hint.textContent=message;return {ok:false,message};}
-    if(toBasket()){if(!upload.entries.length){try{validateNoteText(input.value);}catch(e){return fail(e.message);}}}
+    if(toBasket()||places.length>1){if(!upload.entries.length){try{validateNoteText(input.value);}catch(e){return fail(e.message);}}}
     // Organization and project records have no attachment column: attachments go only to the basket.
     if(!toBasket()&&upload.entries.length)return fail('첨부는 바구니로만 저장돼요. ▾에서 바구니를 고르거나 첨부를 빼 주세요.');
     const ctx=window.KPTURuntime.context.read(),owner=ctx?.user?.id;if(!owner)return {ok:false,message:'로그인 정보를 확인하지 못했어요.'};
@@ -224,16 +231,20 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     saving=true;status.textContent='';hint.textContent='';
     box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=true);pickerFiles.render();
     try{
-      const result=saveMode==='basket'?(batch.entries.length?await uploadBatch(batch,{raw_text:text,isCurrent,ocr,onChange:()=>{if(isCurrent())paint();},onOcrChange:value=>{if(isCurrent()&&token.current()&&!value.ok)status.textContent=value.result_unknown?'사진은 저장했습니다. 글자 읽기 결과는 바구니에서 확인해 주세요.':value.ocr_saved?'사진과 글자는 저장했습니다. 임시 문서 정리는 바구니에서 확인해 주세요.':value.text?'사진은 저장했습니다. 이전 글자는 유지했습니다. 읽기 결과와 임시 문서 정리는 바구니에서 확인해 주세요.':'사진은 저장했습니다. 글자는 읽지 못했습니다.';}}):await createNote({raw_text:text})):organization?await saveOrganizationUpdate({organization_id:organization,raw_text:text,created_by:owner}):await saveProjectProgress({project_id:updateProject,raw_text:text,created_by:owner});
+      const result=saveMode==='basket'?(batch.entries.length?await uploadBatch(batch,{raw_text:text,isCurrent,ocr,onChange:()=>{if(isCurrent())paint();},onOcrChange:value=>{if(isCurrent()&&token.current()&&!value.ok)status.textContent=value.result_unknown?'사진은 저장했습니다. 글자 읽기 결과는 바구니에서 확인해 주세요.':value.ocr_saved?'사진과 글자는 저장했습니다. 임시 문서 정리는 바구니에서 확인해 주세요.':value.text?'사진은 저장했습니다. 이전 글자는 유지했습니다. 읽기 결과와 임시 문서 정리는 바구니에서 확인해 주세요.':'사진은 저장했습니다. 글자는 읽지 못했습니다.';}}):await createNote({raw_text:text})):await saveUpdate({places:currentPlaces(),text,owner});
       if(!isCurrent())return {ok:false,message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
       if(saveMode==='basket'&&!batch.blocked&&batch.entries.every(entry=>entry.kind==='success'))upload=createUploadBatch();
-      // UI-기록할곳되돌리기: after an organization or project record is added, the next input goes to the basket again; the place
-      // stays first on the sheet's 최근 line (update-places.js). A failed save keeps the place (catch below) for another try.
-      if(saveMode!=='basket'){rememberPlace(currentPlace());setPlace(null);}
-      input.value='';expanded=false;paint();if(saveMode==='basket')onSaved(result);
-      const toast=document.querySelector('#toast');toast.textContent=saveMode==='basket'?'바구니에 저장했습니다.':'기록을 저장했습니다.';toast.classList.remove('hidden');clearTimeout(save.toastTimer);save.toastTimer=setTimeout(()=>toast.classList.add('hidden'),3200);
+      // UI-기록할곳되돌리기: after an organization or project record is added, the next input goes to the basket again; the places
+      // stay first on the sheet's 최근 line (update-places.js). A failed save keeps the places (catch below) for another try.
+      // UPD-여러곳고르기: with two or more places the update is one basket note linked to each; when the links are refused the
+      // note is still saved in the basket, so the input is emptied (no second note on a retry) and the line says what to do.
+      const linkFailed=!!result?.linkError;
+      if(saveMode!=='basket'){rememberPlace(currentPlaces());setPlaces([]);}
+      input.value='';expanded=false;paint();if(saveMode==='basket'||result?.note)onSaved(result?.note||result);
+      if(linkFailed)status.textContent=linkFailText;
+      const toast=document.querySelector('#toast');toast.textContent=linkFailed?'바구니에 저장했습니다.':saveMode==='basket'?'바구니에 저장했습니다.':'기록을 저장했습니다.';toast.classList.remove('hidden');clearTimeout(save.toastTimer);save.toastTimer=setTimeout(()=>toast.classList.add('hidden'),3200);
       choicesFlight=null;
-      return {ok:true};
+      return linkFailed?{ok:true,linkError:result.linkError}:{ok:true};
     }catch(e){const message=e.message||'저장하지 못했습니다.';if(isCurrent())status.textContent=message;return {ok:false,message};}
     finally{if(pendingOcr===token)pendingOcr=null;saving=false;box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=false);paint();}
   }
@@ -281,13 +292,14 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     let ww;try{[ww]=await Promise.all([import('./write-window.js'),window.KPTUViewLoader?.prepare?.('basket')]);}catch{status.textContent='큰 창을 열지 못했어요. 다시 눌러 주세요.';return;}
     if(owner!==quickScope()||saving)return;
     const places=projectChoices.length||orgChoices.groups.length?{projects:projectChoices,orgs:orgChoices}:null;
-    ww.openWriteWindow({text:input.value,kind:'update',place:currentPlace(),places,draft:false,title:'크게 쓰기',sources:dependencies?.orgs?dependencies:null,
+    ww.openWriteWindow({text:input.value,kind:'update',place:currentPlaces(),places,draft:false,title:'크게 쓰기',sources:dependencies?.orgs?dependencies:null,
       // UI-크게첨부: the window's [📎 첨부] works on this input's own file batch, so files chosen in either place go together.
       upload:fileHandle,
       onInput:value=>{input.value=value;},
       // The basket screen's input has no ▾: a place chosen in the window is used for that one save only.
-      onPlace:place=>{if(basketOnly)return;setPlace(place);if(mode!=='update')setMode('update');else paint();},
-      updateVia:async(value,place)=>{input.value=value;setPlace(place);if(mode!=='update')setMode('update');try{return await save();}finally{if(basketOnly){setPlace(null);paint();}}},
+      // The window may have read the place lists itself (the home had not yet): read them here too so the button says the names.
+      onPlace:list=>{if(basketOnly)return;setPlaces(list);if(mode!=='update')setMode('update');else paint();if(list.length&&!orgChoices.groups.length&&!projectChoices.length)void choices();},
+      updateVia:async(value,list)=>{input.value=value;setPlaces(list);if(mode!=='update')setMode('update');try{return await save();}finally{if(basketOnly){setPlaces([]);paint();}}},
       onSaved:saved=>{if(saved.kind==='note'){input.value='';expanded=false;paint();}},
       onClose:(value,{saved})=>{if(!saved){input.value=value;resetChoices();paint();}input.focus({preventScroll:true});}});
   };
@@ -321,7 +333,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   }
   input.addEventListener('keydown',e=>{if(mode==='task'&&e.key==='Enter'&&!e.isComposing&&e.keyCode!==229){e.preventDefault();void save();}});
   window.addEventListener('kptu:before-reload',e=>{if(saving)e.preventDefault();else if(input.value.length||taskAttempt||upload.entries.some(e=>e.kind!=='success'))e.detail.otherDraft=true;});
-  window.addEventListener('kptu:session-changed',()=>{const nextEpoch=taskRuntime.session.epoch();if(nextEpoch!==taskSessionEpoch){taskSessionEpoch=nextEpoch;taskSequence++;taskAttempt=null;taskRequest=null;taskReading=false;if(mode==='task'){saving=false;taskControls(false)}}const nextOwner=quickScope();if(nextOwner===quickOwner)return;dismissForNavigation();quickOwner=nextOwner;taskFilesOn=false;projectChoices=[];orgChoices={recent:[],groups:[]};choiceEpoch++;choicesFlight=null;project='';organization='';updateProject='';due='';dateKind='';input.value='';upload=createUploadBatch();expanded=false;paint();checkTaskFiles();});
+  window.addEventListener('kptu:session-changed',()=>{const nextEpoch=taskRuntime.session.epoch();if(nextEpoch!==taskSessionEpoch){taskSessionEpoch=nextEpoch;taskSequence++;taskAttempt=null;taskRequest=null;taskReading=false;if(mode==='task'){saving=false;taskControls(false)}}const nextOwner=quickScope();if(nextOwner===quickOwner)return;dismissForNavigation();quickOwner=nextOwner;taskFilesOn=false;projectChoices=[];orgChoices={recent:[],groups:[]};choiceEpoch++;choicesFlight=null;project='';places=[];pendingPlaces=[];due='';dateKind='';input.value='';upload=createUploadBatch();expanded=false;paint();checkTaskFiles();});
   window.addEventListener('kptu:project-catalog-updated',()=>{choiceEpoch++;choicesFlight=null;invalidateProjects();if(expanded&&mode==='task'&&!taskOnly)void choices();});
   window.KPTURouter.on(view,()=>{choiceEpoch++;choicesFlight=null;if(expanded&&mode==='task'&&!taskOnly)void choices();});
   if(basketOnly){box.querySelector('.home-quick-modes').remove();box.querySelector('[data-goto="basket"]').remove();input.setAttribute('aria-label','바구니에 업데이트 입력');}

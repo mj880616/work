@@ -45,7 +45,7 @@ test('quick update with a chosen organization preserves multiline and saves with
  await input.press('Enter');await expect(input).toHaveValue('1\n2\n3\n4\n5\n6\n7\n');await input.fill('첫 줄\n둘째 줄');
  await q.locator('[data-quick-mode="task"]').click();await expect(input).toHaveValue('첫 줄\n둘째 줄');await q.locator('[data-quick-mode="update"]').click();
  await q.locator('[data-quick-org]').click();await expect(page.getByRole('dialog')).toBeVisible();
- await page.getByRole('dialog').getByRole('button',{name:'테스트 조직',exact:true}).first().click();await expect(q.locator('[data-quick-org]')).toBeFocused();let fail=true,bodies=[];
+ await page.getByRole('dialog').getByRole('button',{name:'테스트 조직',exact:true}).first().click();await page.getByRole('dialog').getByRole('button',{name:'저장',exact:true}).click();await expect(q.locator('[data-quick-org]')).toBeFocused();let fail=true,bodies=[];
  await page.route(SB+'/rest/v1/app_suborganization_updates',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({status:fail?500:200,json:fail?{message:'QA error'}:[]});});
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('QA error');await expect(input).toHaveValue('첫 줄\n둘째 줄');
  fail=false;const before=requests.length;await q.locator('[data-quick-save]').click();await expect(input).toHaveValue('');expect(bodies[1]).toEqual({organization_id:'o',raw_text:'첫 줄\n둘째 줄',created_by:'home-test'});
