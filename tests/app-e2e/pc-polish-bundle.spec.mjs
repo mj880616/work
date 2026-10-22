@@ -62,7 +62,8 @@ test('UI-PC다듬기묶음 ① PC 1280: 사이드바 [쓰기]는 맨 아래 [HWP
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await boot(page,1280);
  const items=await page.locator('#appView>.app-nav .nav-btn:visible').allTextContents();
- expect(items.slice(-2)).toEqual(['HWP 편집','쓰기']);
+ // UI-자주가는링크: '자주 가는 링크 ›' 줄이 [쓰기] 바로 아래에 붙는다.
+ expect(items.slice(-3,-1)).toEqual(['HWP 편집','쓰기']);expect(items.at(-1)).toMatch(/^자주 가는 링크/);
  const hwp=await box(page.locator('#appView>.app-nav [data-view="hwp"]')),write=await box(page.locator('#appView>.app-nav [data-menu-write]'));
  expect(write.top).toBeGreaterThanOrEqual(hwp.top+hwp.height-1);
  expect(write.top-(hwp.top+hwp.height)).toBeLessThanOrEqual(8);
