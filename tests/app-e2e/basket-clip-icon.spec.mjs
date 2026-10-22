@@ -9,9 +9,12 @@ const files = names => names.map(name => ({ name, mimeType: 'text/plain', buffer
 for (const width of [390, 1280]) test(`basket clip placement badge keyboard touch drop and reset ${width}`, async ({ page }, info) => {
   const errors = [], calls = [];
   page.on('pageerror', e => errors.push(e.message));
-  page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+  // The absent task-file table below answers 404 on purpose (as before its migration); only that expected answer is not an error.
+  page.on('console', m => { if (m.type() === 'error' && !String(m.location()?.url || '').includes('/rest/v1/app_task_attachments')) errors.push(m.text()); });
   await page.setViewportSize({ width, height: 1000 });
-  await openHome(page);
+  // TASK-추가창파일: with the task-file table, home [할 일] takes files too (task-add-files.spec). This test keeps checking the
+  // basket clip on its own, so it runs without that table: [할 일] then still has no clip and ignores a dropped file.
+  await openHome(page, { beforeLoad: () => page.route('**/rest/v1/app_task_attachments**', r => r.fulfill({ status: 404, json: { code: 'PGRST205', message: 'Could not find the table' } })) });
   const note = { id: 'n', raw_text: '테스트 메모', occurred_at: '2026-10-06', attachments: [] };
   const homeNote = { id: 'uploaded', raw_text: '', occurred_at: '2026-10-06', attachments: [] };
   await page.route('**/rest/v1/app_notes**', r => r.fulfill({ json: [note, homeNote] }));

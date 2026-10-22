@@ -6,6 +6,7 @@ import { createNote, validateNoteText, createNoteDoc, noteTitleFromText } from '
 import { createUploadBatch, uploadBatch, uploadNoteFiles, mountBasketPicker, fileTitle } from './basket-upload.js';
 import { extractHtmlDocument, htmlFileName, utf8Bytes, HTML_MAX_BYTES, HTML_MARK } from './chatgpt-html.mjs';
 import { dayKey } from './home-read-model.js';
+import { taskFilesAvailable, onTaskFilesReady, attachNewTaskFiles, newTaskFilesNotice, MAX_TASK_FILES } from './task-files.js';
 
 export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateProjects=()=>{}, esc, basketOnly=false, taskOnly=false, noteOnly=false, onBig=null, view="home", idPrefix="home", onSaved=()=>{}}) {
   // UI-할일입력: taskOnly is the [할 일] screen's always-visible input. It is the [할 일] mode of this same box with the mode
@@ -27,7 +28,9 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   if(noteOnly)mode='note';
   const toBasket=()=>mode==='update'&&!places.length;
   // Whether the clip and drop take files for this save: a basket update, or a note (NOTE-파일붙이기).
-  const takesFiles=()=>noteOnly||toBasket();
+  // TASK-추가창파일: a new task too, once the task-file table answers (as ⋯ → 파일 붙이기); they go up after Google made the task.
+  let taskFilesOn=false;
+  const takesFiles=()=>noteOnly||toBasket()||(mode==='task'&&taskFilesOn);
   // UPD-여러곳고르기: places is the list chosen on the 기록할 곳 sheet (in the order picked; empty is the basket).
   const currentPlaces=()=>places.map(p=>({...p}));
   const setPlaces=list=>{places=placeList(list);};
@@ -49,7 +52,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   // MD-표시보완: a pasted complete HTML document (ChatGPT HTML) becomes a .html attachment of this memo through the
   // same upload path as the clip; the text keeps a short mark. Nothing is saved until [추가].
   input.addEventListener('paste',e=>{
-    if(!takesFiles()||saving||input.readOnly)return;
+    if(!(noteOnly||toBasket())||saving||input.readOnly)return;
     const found=extractHtmlDocument(e.clipboardData?.getData('text/plain')||'');if(!found)return;
     e.preventDefault();
     if(utf8Bytes(found.html)>HTML_MAX_BYTES){status.textContent='HTML 문서가 2MB를 넘어 붙여 넣지 않았어요. 더 짧게 만들어 달라고 한 뒤 다시 붙여 넣어 주세요.';return;}
@@ -65,11 +68,13 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     pickerFiles.render();
     // A saved or unconfirmed note keeps its text; say why and offer the reset next to the input.
     // A note's files are always settled by its own save (the batch is emptied after it), so the note input never locks.
-    const locked=!noteOnly&&takesFiles()&&(!!upload.note_id||!!upload.blocked);input.readOnly=locked;box.querySelector('[data-quick-lock]').hidden=!locked;
+    const locked=toBasket()&&(!!upload.note_id||!!upload.blocked);input.readOnly=locked;box.querySelector('[data-quick-lock]').hidden=!locked;
     box.querySelector('[data-quick-lock-reason]').textContent=!locked?'':upload.blocked?'앞선 저장 결과를 확인하지 못해 입력창을 잠갔어요. 바구니 목록에서 저장 여부를 확인하고, 새로 쓰려면 ‘새 업데이트 입력’을 눌러 주세요.':'업데이트 글은 이미 저장되어 남은 첨부만 다시 저장할 수 있어요. 새로 쓰려면 ‘새 업데이트 입력’을 눌러 주세요.';
     box.dataset.mode=noteOnly?'note':toBasket()?'basket':mode; input.rows=1; const targetName=placesLabel({projects:projectChoices,orgs:orgChoices},places);
     input.placeholder=noteOnly?'노트를 입력하세요':mode==='task'?'할 일을 입력하세요':toBasket()?(basketOnly?'업데이트를 입력하세요':'업데이트 입력(바구니에 저장)'):(targetName||'담당조직')+' 기록을 입력하세요';
     box.querySelector('[data-quick-file-picker]').hidden=!takesFiles();
+    // TASK-추가창파일: a task takes up to 10 files (the ⋯ → 파일 붙이기 limit), not the basket's 20; say where they go.
+    const fileHint=box.querySelector('[data-basket-hint]');if(fileHint)fileHint.textContent=mode==='task'?`파일당 100MB · ${MAX_TASK_FILES}개까지 · 추가하면 Drive "자료실/할 일 첨부"에 올라갑니다`:'파일당 100MiB · 20개까지';
     if(!taskOnly)box.querySelector('[data-quick-big]').hidden=mode==='task';
     if(!taskOnly&&!basketOnly&&!noteOnly)box.querySelector('[data-quick-detail]').hidden=mode!=='task';
     box.querySelector('[data-quick-basket-options]').hidden=!takesFiles()||!upload.entries.length;
@@ -123,10 +128,14 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   // flight keeps its place, and a task whose result is still being confirmed keeps its project.
   const resetChoices=()=>{if(saving)return;if(places.length)setPlaces([]);if(project&&!taskAttempt&&!taskRequest)project='';paint();};
   window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view!==view){uploadGeneration++;dismissForNavigation();resetChoices();}});
+  // The clip shows in [할 일] only when the task-file table answers for this owner (checked once; only a yes is kept).
+  // The [할 일] screen's own input does not ask: the task list below it reads the table anyway, and its answer turns the clip on.
+  const checkTaskFiles=()=>{if(taskFilesOn||noteOnly||basketOnly||mode!=='task')return;const owner=quickScope();void taskFilesAvailable({ask:!taskOnly}).then(on=>{if(on&&owner===quickScope()&&!taskFilesOn){taskFilesOn=true;paint();}});};
+  if(!noteOnly&&!basketOnly)onTaskFilesReady(owner=>{if(!taskFilesOn&&owner&&owner===window.KPTURuntime.context.read()?.user?.id)checkTaskFiles();});
   function setMode(next){
     mode=next;status.textContent='';hint.textContent='';
     try{if(!basketOnly&&!taskOnly)window.localStorage.setItem('kptu-home-quick-mode',mode);}catch{}
-    paint();if(mode==='task'&&taskAttempt?.needsReview)taskNotice('앞선 저장 결과를 확인해 주세요. 입력은 유지했습니다.',{confirm:true});if(expanded&&mode==='task')void choices();
+    paint();checkTaskFiles();if(mode==='task'&&taskAttempt?.needsReview)taskNotice('앞선 저장 결과를 확인해 주세요. 입력은 유지했습니다.',{confirm:true});if(expanded&&mode==='task')void choices();
   }
   box.querySelectorAll('[data-quick-mode]').forEach(b=>b.onclick=()=>{if(!saving)setMode(b.dataset.quickMode);});
   box.querySelectorAll('[data-quick-day]').forEach(b=>b.onclick=()=>{
@@ -164,29 +173,39 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     if(saving||taskRequest||taskReading)return;const ctx=taskRuntime.context.read();if(!ctx?.user?.id||!ctx?.workspace?.id)return;
     const a=taskAttempt;if(a?.pending)return;if(a&&(a.needsReview||a.bodyState==='unknown'||a.linkState==='unknown')){taskNotice('앞선 저장 결과를 먼저 확인해 주세요. 새 할 일은 만들지 않았습니다.',{confirm:true});return}
     const title=input.value.trim();if(!title)return;
+    const batch=upload,files=takesFiles()?batch.entries.filter(e=>e.kind!=='success').map(e=>e.file):[];
+    if(files.length>MAX_TASK_FILES){taskNotice(`한 할 일에는 파일을 ${MAX_TASK_FILES}개까지 붙일 수 있습니다.`);return}
     const attempt=a||{owner:ctx.user.id,workspace:ctx.workspace.id,epoch:taskRuntime.session.epoch(),task:null,bodyState:'idle',linkState:'idle',links:new Set(),needsReview:false};
     const body=Object.freeze({title,due:taskOnly?dayKey(Date.now()):due||null,notes:attempt.task?.notes||'',links:Object.freeze(project?[Object.freeze({project_id:project})]:[])}),r={owner:attempt.owner,workspace:attempt.workspace,epoch:attempt.epoch,token:++taskSequence,attempt,body,draft:taskSnapshot()};
     taskAttempt=attempt;taskRequest=r;attempt.pending=true;saving=true;taskControls(true);taskNotice('저장 중…');let stage='body';
+    // TASK-추가창파일: the chosen files go up once the task exists (once per attempt, also after a recovered create).
+    const sendFiles=async()=>{if(!files.length||attempt.filesSent||!attempt.task)return;attempt.filesSent=true;
+      const result=await attachNewTaskFiles(attempt.task.id,files,{onProgress:(i,n,f)=>{if(taskCurrent(r))taskNotice(`${f.name} 올리는 중… (${i+1}/${n})`)}});
+      attempt.filesNotice=newTaskFilesNotice(result);if(upload===batch)upload=createUploadBatch();
+      if(attempt.filesNotice&&taskScopeCurrent(r))taskToast(r,'할 일은 저장했습니다. 파일을 확인해 주세요.');};
     const call=(action,body)=>{if(!taskCurrent(r))throw new Error('입력창이나 로그인이 바뀌었습니다.');return taskRuntime.api('/functions/v1/google-tasks?action='+action,{method:'POST',body,expectedSessionEpoch:r.epoch})};
     try{
       if(!attempt.task){
         const result=await createGoogleTask({...body,expectedSessionEpoch:r.epoch});if(!taskScopeCurrent(r))return;
         if(result?.ok===true&&taskIdentity(result.task))attempt.task=structuredClone(result.task);
         if(!attempt.task||!taskBodyMatches(attempt.task,body))throw new Error('Google 할 일의 저장 결과를 확인하지 못했습니다.');attempt.bodyState='confirmed';
+        // TASK-추가창파일: the task exists; the chosen files go up now (once, even if the links need another save).
+        await sendFiles();
         if(!taskCurrent(r)){attempt.needsReview=true;return}
         stage='links';attempt.links=taskLinkKeys(result);
-        if(result.link_error||body.links.some(l=>!attempt.links.has(taskLinkKey(l)))){attempt.linkState='partial';attempt.needsReview=true;taskNotice('할 일은 저장했습니다. 프로젝트 연결을 확인해 주세요.',{confirm:true});taskToast(r,'할 일은 저장했습니다. 프로젝트 연결을 확인해 주세요.');return}
+        if(result.link_error||body.links.some(l=>!attempt.links.has(taskLinkKey(l)))){attempt.linkState='partial';attempt.needsReview=true;taskNotice('할 일은 저장했습니다. 프로젝트 연결을 확인해 주세요.'+(attempt.filesNotice?' '+attempt.filesNotice:''),{confirm:true});taskToast(r,'할 일은 저장했습니다. 프로젝트 연결을 확인해 주세요.');return}
       }else if(!taskBodyMatches(attempt.task,body)){
         const result=await call('update',{action:'update',task_id:attempt.task.id,task_list_id:attempt.task.taskListId,title:body.title,notes:body.notes,due:body.due});if(!taskScopeCurrent(r))return;
         if(result?.ok!==true||!taskIdentity(result.task)||result.task.id!==attempt.task.id||result.task.taskListId!==attempt.task.taskListId||!taskBodyMatches(result.task,body))throw new Error('기존 할 일의 수정 결과를 확인하지 못했습니다.');attempt.task=structuredClone(result.task);attempt.bodyState='confirmed';if(!taskCurrent(r)){attempt.needsReview=true;return}
       }
+      await sendFiles();if(!taskCurrent(r)){attempt.needsReview=true;return}
       stage='links';const missing=body.links.filter(l=>!attempt.links.has(taskLinkKey(l)));
       if(missing.length){const result=await call('link',{action:'link',task_id:attempt.task.id,links:missing});if(!taskScopeCurrent(r))return;const confirmed=taskLinkKeys(result);if(result?.ok!==true||missing.some(l=>!confirmed.has(taskLinkKey(l))))throw new Error('프로젝트 연결의 저장 결과를 확인하지 못했습니다.');attempt.links=confirmed;if(!taskCurrent(r)){attempt.needsReview=true;return}}
       attempt.linkState='confirmed';if(!taskCurrent(r))return;taskAttempt=null;r.completed=true;
       
-      if(taskSnapshot()===r.draft){input.value='';expanded=false;taskNotice('')}else{expanded=true;taskNotice('제출한 할 일은 저장했습니다. 추가 입력은 남겨 두었습니다.')}
+      if(taskSnapshot()===r.draft){input.value='';expanded=false;taskNotice(attempt.filesNotice||'')}else{expanded=true;taskNotice('제출한 할 일은 저장했습니다. 추가 입력은 남겨 두었습니다.'+(attempt.filesNotice?' '+attempt.filesNotice:''))}
       // UI-기록할곳되돌리기 (c): the next task starts with no project (the date choice stays as before).
-      project='';paint();taskToast(r,'할 일을 추가했습니다.');
+      project='';paint();taskToast(r,attempt.filesNotice?'할 일은 저장했습니다. 파일을 확인해 주세요.':'할 일을 추가했습니다.');
       try{void Promise.resolve(refreshTasks()).catch(()=>{if(taskScopeCurrent(r)&&r.token===taskSequence&&mode==='task'&&!input.value)taskNotice('할 일은 저장했습니다. 목록을 다시 불러오지 못했습니다.')})}catch(error){if(taskCurrent(r))taskNotice('할 일은 저장했습니다. 목록을 다시 불러오지 못했습니다.')}
     }catch(error){if(!taskScopeCurrent(r))return;if(stage==='body')attempt.bodyState='unknown';else attempt.linkState='unknown';attempt.needsReview=true;if(taskCurrent(r))taskNotice((attempt.task?'할 일은 확인했습니다. 연결과 수정 결과를 확인해 주세요. ':'저장 결과를 확인하지 못했습니다. ')+(error.message||error),{confirm:true})}
     finally{attempt.pending=false;if(taskRequest===r&&taskScopeCurrent(r)&&r.token===taskSequence){taskRequest=null;saving=false;taskControls(false);paint()}}
@@ -314,7 +333,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   }
   input.addEventListener('keydown',e=>{if(mode==='task'&&e.key==='Enter'&&!e.isComposing&&e.keyCode!==229){e.preventDefault();void save();}});
   window.addEventListener('kptu:before-reload',e=>{if(saving)e.preventDefault();else if(input.value.length||taskAttempt||upload.entries.some(e=>e.kind!=='success'))e.detail.otherDraft=true;});
-  window.addEventListener('kptu:session-changed',()=>{const nextEpoch=taskRuntime.session.epoch();if(nextEpoch!==taskSessionEpoch){taskSessionEpoch=nextEpoch;taskSequence++;taskAttempt=null;taskRequest=null;taskReading=false;if(mode==='task'){saving=false;taskControls(false)}}const nextOwner=quickScope();if(nextOwner===quickOwner)return;dismissForNavigation();quickOwner=nextOwner;projectChoices=[];orgChoices={recent:[],groups:[]};choiceEpoch++;choicesFlight=null;project='';places=[];pendingPlaces=[];due='';dateKind='';input.value='';upload=createUploadBatch();expanded=false;paint();});
+  window.addEventListener('kptu:session-changed',()=>{const nextEpoch=taskRuntime.session.epoch();if(nextEpoch!==taskSessionEpoch){taskSessionEpoch=nextEpoch;taskSequence++;taskAttempt=null;taskRequest=null;taskReading=false;if(mode==='task'){saving=false;taskControls(false)}}const nextOwner=quickScope();if(nextOwner===quickOwner)return;dismissForNavigation();quickOwner=nextOwner;taskFilesOn=false;projectChoices=[];orgChoices={recent:[],groups:[]};choiceEpoch++;choicesFlight=null;project='';places=[];pendingPlaces=[];due='';dateKind='';input.value='';upload=createUploadBatch();expanded=false;paint();checkTaskFiles();});
   window.addEventListener('kptu:project-catalog-updated',()=>{choiceEpoch++;choicesFlight=null;invalidateProjects();if(expanded&&mode==='task'&&!taskOnly)void choices();});
   window.KPTURouter.on(view,()=>{choiceEpoch++;choicesFlight=null;if(expanded&&mode==='task'&&!taskOnly)void choices();});
   if(basketOnly){box.querySelector('.home-quick-modes').remove();box.querySelector('[data-goto="basket"]').remove();input.setAttribute('aria-label','바구니에 업데이트 입력');}
@@ -323,7 +342,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   // Phone (ui-standard.css): this box is docked above the bottom tabs. Its height keeps the
   // last card and the toast clear of it; only the visible box (home or basket) writes it.
   new ResizeObserver(()=>{const height=box.getBoundingClientRect().height;if(height)document.documentElement.style.setProperty('--kptu-quick-dock',Math.ceil(height)+'px');}).observe(box);
-  paint();
+  paint();checkTaskFiles();
   return {hasDraft:()=>!!input.value||!!taskAttempt||upload.entries.some(e=>e.kind!=='success'),isBusy:()=>saving,
     // The note list's write window hands unsaved text back here (and clears it after a save there).
     setText:value=>{input.value=String(value??'');paint();},focus:()=>input.focus({preventScroll:true})};

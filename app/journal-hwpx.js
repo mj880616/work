@@ -4,7 +4,9 @@
 // - 파일은 이 기기 안에서만 다룬다. HWP 5 ↔ .hwpx 바꾸기는 HWP 편집기와 같은 칸막이 엔진(hwp-frame.js, sandbox iframe —
 //   Web2 창·로그인 정보에 닿지 못함)이 하고, 표 읽기·빈 서식·보고서 만들기는 weekly-hwpx/*.mjs(외부 라이브러리 없음)가 한다.
 //   서버로 가는 것은 자료실 확정본 열기(기존 document-actions hwp-open, owner 확인)와 [확정] 저장(기존 library-files)뿐이다.
-// - 내 담당 조직은 my-organizations.js(내 프로필 → 담당 사업장)에서 받는다. 담당 팀원 칸의 내 이름은 프로필 이름(화면에서 고침).
+// - 내 담당 조직은 my-organizations.js(내 프로필 → 담당 사업장)에서 받는다. 담당 팀원 칸의 내 이름은 직전 주 확정본에 쓴 표기,
+//   그 표기를 찾지 못하면 프로필 이름(JOURNAL-주간정리다듬기 ②, draft.mjs resolveMe — 화면에서 고칠 수 있음). [주간 정리] 화면 요약 표에는
+//   담당 팀원 칸이 없고 이 파일에만 서식대로 들어간다. 내 줄의 담당 칸은 확정본 그대로(여러 사람이 함께 맡은 줄도 그대로).
 // - 5. 주요 일정 표는 [주간 정리]의 5번 묶음(다음 주 월요일부터 2주, 달력 일정)으로 14일을 한 줄씩 채우고 참석자 칸에 내 이름,
 //   휴가는 표 아래 "※ 날짜 이름 연차" 줄로 쓴다(WEEKLY-주요일정, 2026-10-21 사용자 결정 — 금요일 작성·월요일 보고라 "보고 주 + 그다음 주").
 //   1. 2) 주요 일정(본부 주요 일정)은 기준이 정해지지 않아 비운다.
@@ -155,7 +157,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, rt = window.KPTURuntime}
       const context = await readContext(rt).catch(() => ({me:'', organizations:[], orgFallback:true, orgFailed:true}));
       if (mine !== run) return;
       const week = getWeek();
-      state = {draft, team, template, source, start:week.start, me:context.me, date:draft.reportDate(reportDay(week.start)), context,
+      const who = draft.resolveMe(team, context.me);
+      state = {draft, team, template, source, start:week.start, me:who.me, meFrom:who.from, date:draft.reportDate(reportDay(week.start)), context,
         myOrgs:draft.orgNames(context.organizations), aliases:new Map(context.organizations.map(o => [o.name, Array.isArray(o.aliases) ? o.aliases : []])), edits:null, built:null, saved:null};
       rebase();
       say('');
@@ -253,10 +256,13 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, rt = window.KPTURuntime}
       fields.append(wrap); return input;
     };
     const me = field('담당 팀원 칸의 내 이름', s.me, 'hwpxMe');
-    me.addEventListener('change', () => { state.me = me.value.trim(); rebase(); renderEdit(); });
+    me.addEventListener('change', () => { state.me = me.value.trim(); state.meFrom = 'typed'; rebase(); renderEdit(); });
     const date = field('■ 일시', s.date, 'hwpxDate');
     date.addEventListener('input', () => { state.date = date.value; state.built = null; });
     parts.push(fields);
+    const meNote = el('p', 'journal-muted', s.meFrom === 'confirmed' ? '담당 팀원 칸 이름은 직전 주 확정본에 쓴 표기 그대로예요.'
+      : s.meFrom === 'profile' ? '직전 주 확정본에서 내 이름 표기를 찾지 못해 프로필 이름을 썼어요.' : '담당 팀원 칸 이름을 직접 고쳤어요.');
+    meNote.dataset.hwpxMeFrom = s.meFrom || ''; parts.push(meNote);
     const orgLine = s.context.orgFailed ? '담당 사업장을 읽지 못해 산하조직 표는 비워요.'
       : s.context.orgFallback ? `담당 사업장이 지정되지 않아 모든 조직(${s.context.organizations.length}곳)을 내 조직으로 봤어요. 내 프로필 → 담당 사업장에서 정할 수 있어요.`
       : `내 담당 조직 ${s.context.organizations.length}곳(내 프로필 → 담당 사업장 기준)`;

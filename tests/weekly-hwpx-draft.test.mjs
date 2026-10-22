@@ -9,7 +9,8 @@ import {clone, kid, kids, walk, el} from '../app/weekly-hwpx/xml.mjs';
 import {readReport, findTables, lineText, isChanged, CHANGED_COLOR} from '../app/weekly-hwpx/report.mjs';
 import {REQUEST_CHECK_NOTE} from '../app/weekly-hwpx/delta.mjs';
 import {browserZlib, prepareConfirmed, openConfirmed, startDraft, editableRows, editableOrgs, weekMaterial, assembleDraft,
-  buildHwpx, changedCount, reportDate, fileNameFor, orgNames, candidateLine} from '../app/weekly-hwpx/draft.mjs';
+  buildHwpx, changedCount, reportDate, fileNameFor, orgNames, candidateLine, resolveMe} from '../app/weekly-hwpx/draft.mjs';
+import {ownerNotation} from '../app/weekly-hwpx/delta.mjs';
 import {selectMyOrganizations} from '../app/my-organizations.js';
 
 // WEEKLY-한글초안 2단계: 업무일지 [주간 정리]에서 쓰는 브라우저 쪽 흐름(app/weekly-hwpx/draft.mjs). 가짜 내용만 쓴다.
@@ -147,4 +148,42 @@ test('회의 결과 상자가 없는 주의 확정본도 빈 서식을 뽑는다
   const out = await buildHwpx(again.template, assembleDraft(startDraft(again.team, {me: ME, date: ''})));
   assert.deepEqual(validateHwpx(out, zlib).errors, []);
   assert.deepEqual(openHwpx(out, zlib).files.get('Contents/header.xml'), template.files.get('Contents/header.xml'));
+});
+
+// JOURNAL-주간정리다듬기 ②: 담당 팀원 칸 이름 = 직전 주 확정본 표기, 없으면 프로필 이름. 여러 사람이 함께 맡은 줄은 칸 글 그대로. 이름은 가짜.
+test('담당 팀원 칸 이름: 직전 확정본 표기를 그대로 가져오고, 못 찾으면 프로필 이름, 함께 맡은 줄은 그대로', async () => {
+  const sum = owners => [{area: ['가짜영역'], rows: owners.map((owner, i) => ({task: [`가짜과제 ${i}`], progress: [`- 가짜 줄 ${i}`], owner}))}];
+  // 띄어쓰기만 다른 표기: 확정본 표기("가짜담당  갑" → 조각 "가짜담당  갑")를 쓴다.
+  assert.equal(ownerNotation(sum([['가짜담당  갑']]), '가짜담당 갑'), '가짜담당  갑');
+  // 프로필이 성까지 쓴 이름, 확정본은 이름만(한쪽이 다른 쪽을 품음) → 확정본 표기.
+  assert.equal(ownerNotation(sum([['담당갑'], ['가짜을']]), '가짜담당갑'), '담당갑');
+  // 함께 맡은 줄의 한 조각도 찾는다(/ , · 로 나눔).
+  assert.equal(ownerNotation(sum([['가짜을/가짜담당 갑']]), '가짜담당 갑'), '가짜담당 갑');
+  // 후보가 둘이면(누군지 모름) 찾지 못함 → 프로필 이름.
+  assert.equal(ownerNotation(sum([['담당갑'], ['가짜담당갑님']]), '가짜담당갑'), null);
+  assert.equal(ownerNotation(sum([['가짜병']]), '가짜담당 갑'), null);
+  assert.equal(ownerNotation(sum([['가짜병']]), ''), null);
+  // 한 글자 조각은 품는 비교에 쓰지 않는다.
+  assert.equal(ownerNotation(sum([['갑']]), '가짜담당갑'), null);
+  assert.deepEqual(resolveMe({summary: sum([['가짜담당  갑']])}, '가짜담당 갑'), {me: '가짜담당  갑', from: 'confirmed'});
+  assert.deepEqual(resolveMe({summary: sum([['가짜병']])}, ' 가짜담당 갑 '), {me: '가짜담당 갑', from: 'profile'});
+  assert.deepEqual(resolveMe(null, '가짜담당 갑'), {me: '가짜담당 갑', from: 'profile'});
+
+  // 실제 파일: 확정본 표기로 내 줄을 찾고, 담당 칸은 확정본 글 그대로(함께 맡은 줄 포함), 남의 줄은 비움.
+  const {template} = prepareConfirmed(await openConfirmed(fakeBytes()));
+  const {buildReport} = await import('../app/weekly-hwpx/report.mjs');
+  const teamPkg = buildReport(template, {title: '가짜팀', summary: [{area: ['가짜영역'], rows: [
+    {task: ['가짜과제 하나'], progress: ['- 가짜 줄 하나'], owner: ['담당갑']},
+    {task: ['가짜과제 둘'], progress: ['- 가짜 줄 둘'], owner: ['가짜을/담당갑']},
+    {task: ['가짜과제 셋'], progress: ['- 남의 줄'], owner: ['가짜을']}]}]}).pkg;
+  const again = prepareConfirmed(await openConfirmed(packHwpx(teamPkg, zlib)));
+  const who = resolveMe(again.team, '가짜담당갑');
+  assert.deepEqual(who, {me: '담당갑', from: 'confirmed'});
+  const base = startDraft(again.team, {me: who.me, date: ''});
+  assert.deepEqual(editableRows(base, who.me).map(r => r.task), ['가짜과제 하나', '가짜과제 둘']);
+  const back = readReport(openHwpx(await buildHwpx(again.template, assembleDraft(base)), zlib));
+  assert.deepEqual(back.summary[0].rows.map(r => r.owner), [['담당갑'], ['가짜을/담당갑'], []]);
+  assert.deepEqual(back.summary[0].rows.map(r => r.progress), [['- 가짜 줄 하나'], ['- 가짜 줄 둘'], []]);
+  // 프로필 이름 그대로는 내 줄을 찾지 못한다(그래서 확정본 표기를 쓴다).
+  assert.deepEqual(editableRows(startDraft(again.team, {me: '가짜담당갑', date: ''}), '가짜담당갑'), []);
 });

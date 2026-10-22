@@ -3,6 +3,7 @@
 // 사람이 붙이기·고치기 한다. 바탕과 다른 줄은 파란 글씨(W5). 파일 내용은 기기 안에서만 다룬다(서버로 보내지 않음, W6).
 //
 //   prepareConfirmed(pkg) → {team, template}: 확정본 읽기 + 빈 서식 뽑기 + 빈 서식 검사(확정본 글이 한 조각이라도 남으면 멈춤)
+//   resolveMe(team, 프로필 이름) → 담당 팀원 칸의 내 이름(직전 확정본 표기 우선)
 //   startDraft(team, {me, myOrgs, title, date}) → base(개인본 바탕, delta.mjs personalReportFromTeam)
 //   editableRows(base, me) / editableOrgs(base) → 화면이 고칠 줄 목록
 //   weekMaterial(model, rows, orgs) → 줄마다 이번 주 기록 후보, 짝 없는 기록
@@ -10,7 +11,7 @@
 import {openHwpxAsync, packHwpxAsync, validateHwpxAsync} from './hwpx.mjs';
 import {extractBlankTemplate, assertBlank} from './template.mjs';
 import {readReport, buildReport, reportWords, lineText} from './report.mjs';
-import {personalReportFromTeam, effectiveOwners, isMine} from './delta.mjs';
+import {personalReportFromTeam, effectiveOwners, isMine, ownerNotation} from './delta.mjs';
 
 // 브라우저 기본 압축(CompressionStream 'deflate-raw'). Node 20에도 있어 시험이 같은 길을 쓴다.
 const pipe = (bytes, Kind) => new Response(new Blob([bytes]).stream().pipeThrough(new Kind('deflate-raw'))).arrayBuffer().then(b => new Uint8Array(b));
@@ -52,6 +53,12 @@ export const fileNameFor = (day, ext = 'hwpx') => `주간보고_${String(day).re
 
 // 내 담당 조직 이름 목록(my-organizations.js selectMyOrganizations 결과 + 별칭). 이름 비교는 띄어쓰기 무시(delta.mjs isMyOrg).
 export const orgNames = organizations => [...new Set(organizations.flatMap(o => [o.name, ...(Array.isArray(o.aliases) ? o.aliases : [])]).map(s => String(s ?? '').trim()).filter(Boolean))];
+
+// 담당 팀원 칸의 내 이름: 직전 주 확정본 표기(delta.mjs ownerNotation), 없으면 프로필 이름(기존 경로). {me, from:'confirmed'|'profile'}
+export function resolveMe(team, profileName) {
+  const found = ownerNotation(team?.summary, profileName);
+  return found ? {me: found, from: 'confirmed'} : {me: String(profileName ?? '').trim(), from: 'profile'};
+}
 
 export function startDraft(team, {me, myOrgs = [], title, date}) {
   return personalReportFromTeam(team, me, {myOrgs, title: title ?? team.title ?? '', date});

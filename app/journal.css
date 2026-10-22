@@ -130,12 +130,11 @@
 #appView #journalView .journal-mode-switch button:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 @media(hover:hover){ #appView #journalView .journal-mode-switch button:not([aria-pressed="true"]):hover{ background:var(--kptu-surface-subtle); } }
 #appView #journalView .journal-head{ justify-content:flex-start; }
-#appView #journalView .journal-head [data-journal-copy]{ margin-left:auto; }
 /* UI-화면점검 ④: 위 조작 줄은 하나의 작은 버튼 기준(--ds-compact-height 32px·--ds-compact-text 13px·500)으로 통일한다.
-   ‹ › [이번 주] [주간보고 초안 복사]는 [하루|주간 정리] 칸과 같은 높이·글자·굵기. 누르는 범위 44px은 ::after. */
-#appView #journalView .journal-head :is(.journal-week-nav .mini,[data-journal-copy]){ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center;
+   ‹ › [이번 주]는 [하루|주간 정리] 칸과 같은 높이·글자·굵기. 누르는 범위 44px은 ::after. */
+#appView #journalView .journal-head .journal-week-nav .mini{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center;
   height:var(--ds-compact-height); min-height:var(--ds-compact-height); margin-top:0; margin-right:0; margin-bottom:0; padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap; }
-#appView #journalView .journal-head :is(.journal-week-nav .mini,[data-journal-copy])::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+#appView #journalView .journal-head .journal-week-nav .mini::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 #appView #journalView .journal-head :is([data-journal-prev],[data-journal-next]){ min-width:var(--ds-compact-height); padding:0; }
 #appView #journalView .journal-mode-switch button{ font-weight:var(--ds-weight-medium); }
 
@@ -160,8 +159,6 @@
 #appView #journalView .journal-hwpx{ display:flex; flex-direction:column; gap:8px; }
 #appView #journalView .journal-hwpx-bar{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
 #appView #journalView .journal-hwpx-bar > [data-hwpx-start]{ align-self:flex-start; }
-/* JOURNAL-복사버튼: 위 줄 [주간보고 초안 복사]는 [하루]에서만 보이고, [주간 정리]에서는 [한글 파일 만들기] 옆 [복사]를 쓴다. */
-#appView #journalView .journal-head[data-copy-hidden] [data-journal-copy]{ display:none; }
 #appView #journalView .journal-hwpx-panel{ display:flex; flex-direction:column; gap:10px; padding:10px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); background:var(--kptu-surface-subtle); }
 #appView #journalView .journal-hwpx-panel h4{ margin:0; font-size:var(--ds-text-read); font-weight:700; color:var(--kptu-ink); }
 #appView #journalView .journal-hwpx-panel h4:focus{ outline:none; }
@@ -185,14 +182,14 @@
 #appView #journalView .journal-hwpx-material:empty{ display:none; }
 #appView #journalView .journal-hwpx-material li > .mini,
 #appView #journalView .journal-hwpx-material li > select{ margin-left:4px; vertical-align:middle; }
-/* 요약 표: 사업영역 | 세부 과제 | 진행 상황 및 이후 계획 | 담당 팀원(상집보고 폭 비율 11/18/61/10). 사업영역 칸은 세로로 합친다. */
+/* 요약 표: 사업영역 | 세부 과제 | 진행 상황 및 이후 계획. 사업영역 칸은 세로로 합친다. 화면에는 담당 팀원 칸이 없고(한글 파일에만 둠 —
+   JOURNAL-주간정리다듬기 ②) 그 폭만큼 진행 상황 칸이 넓다. */
 #appView #journalView .journal-weekly-table{ width:100%; border-collapse:collapse; table-layout:fixed; font-size:var(--kptu-text-body); line-height:1.5; }
 #appView #journalView .journal-weekly-table th,
 #appView #journalView .journal-weekly-table td{ padding:6px 8px; text-align:left; vertical-align:top; border:var(--ds-line-width) solid var(--ds-line); overflow-wrap:anywhere; }
 #appView #journalView .journal-weekly-table thead th{ font-weight:var(--ds-weight-medium); color:var(--kptu-muted); background:var(--kptu-surface-subtle); }
 #appView #journalView .journal-weekly-table thead th:nth-child(1){ width:13%; }
 #appView #journalView .journal-weekly-table thead th:nth-child(2){ width:18%; }
-#appView #journalView .journal-weekly-table thead th:nth-child(4){ width:9%; }
 #appView #journalView .journal-weekly-area{ font-weight:var(--ds-weight-medium); }
 #appView #journalView .journal-weekly-table .journal-weekly-list{ padding-left:16px; }
 /* 5. 주요 일정 표: 일 | 시간/내용/장소 | 참석자(확정본 양식 칸). 참석자는 한글 파일에서 내 이름으로 채워 화면에서는 비어 있다. */
@@ -202,7 +199,7 @@
 #appView #journalView .journal-weekly-vacation{ margin:0; font-size:var(--kptu-text-body); line-height:1.5; }
 /* ■ 일시(상집 보고일): 보고 있는 주의 다음 월요일. 한글 파일·초안 복사와 같은 날짜. */
 #appView #journalView .journal-weekly-date{ margin:0; font-size:var(--kptu-text-body); font-weight:var(--ds-weight-medium); color:var(--kptu-ink); }
-/* 폰: 표를 한 줄씩 쌓는다(사업영역 머리 → 세부 과제 → 내용). 담당 팀원 칸은 비어 있어 숨긴다. */
+/* 폰: 표를 한 줄씩 쌓는다(사업영역 머리 → 세부 과제 → 내용). 5. 주요 일정의 참석자 칸은 비어 있어 숨긴다. */
 @media(max-width:760px){
   #appView #journalView .journal-weekly{ padding:10px; }
   #appView #journalView .journal-weekly-table,
