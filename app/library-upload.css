@@ -176,3 +176,4 @@
 .lt-from{color:var(--kptu-muted);overflow-wrap:anywhere;min-width:0}
 .lt-arrow{flex:none;color:var(--kptu-faint)}
 .lt-to{color:var(--kptu-ink);font-weight:600;overflow-wrap:anywhere;min-width:0}
+.lt-bar [hidden]{display:none}
