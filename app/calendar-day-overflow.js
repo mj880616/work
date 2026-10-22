@@ -22,11 +22,12 @@ import {seoulDateKey,seoulClock,formatSeoulTime} from './meeting-time.js';
     b.innerHTML=`<span class="cmv-day-time">${esc(time)}</span><span class="cmv-day-title">${esc(ev.title)}</span>`;
     b.setAttribute('aria-label',time+' '+ev.title);return b;
   }
-  // UI-할일조작통일: each task row sits beside a ⋯ button (완료·완료 취소·삭제). The menu itself belongs to calendar-tasks.js.
+  // UI-할일조작통일 → TASK-바로처리통일: each task row sits beside a ⋯ button, the shared task line's menu (task-inline.js, opened by
+  // calendar-tasks.js). On a PC it shows on the hovered / focused row only (ui-standard.css [data-task-inline-row]).
   function taskLine(ev,row){
-    const wrap=document.createElement('div');wrap.className='gt-day-row';wrap.dataset.calendarTaskLine=ev.id;
-    const menu=document.createElement('button');menu.type='button';menu.className='gt-day-menu';menu.dataset.calendarTaskMenu=ev.id;
-    menu.textContent='⋯';menu.setAttribute('aria-label',(ev.title||'제목 없음')+' 메뉴');menu.setAttribute('aria-haspopup','menu');menu.setAttribute('aria-expanded','false');
+    const wrap=document.createElement('div');wrap.className='gt-day-row';wrap.dataset.calendarTaskLine=ev.id;wrap.dataset.taskInlineRow='';
+    const menu=document.createElement('button');menu.type='button';menu.className='gt-day-menu task-inline-more';menu.dataset.calendarTaskMenu=ev.id;
+    menu.textContent='⋯';menu.setAttribute('aria-label',(ev.title||'제목 없음')+' 메뉴');menu.setAttribute('aria-haspopup','true');menu.setAttribute('aria-expanded','false');menu.setAttribute('aria-controls','calendarTaskMenu');
     wrap.append(row,menu);return wrap;
   }
   let openSeq=0;

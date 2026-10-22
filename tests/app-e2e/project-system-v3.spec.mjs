@@ -1138,7 +1138,10 @@ test('V3 project task section completes, edits and unlinks linked Google tasks',
   await expect(page.locator('#gtEditLinkBody input[value="p:child-1"]')).toBeChecked();
   await page.locator('#gtTaskModal [data-gt-close]').click();
   await expect(page.locator('#gtTaskModal')).toBeHidden();
-  await panel.locator('[data-gt-linked-unlink="g1"]').click();
+  // TASK-바로처리통일: [연결 해제] is in the row's ⋯ (the shared task line).
+  await panel.locator('[data-gt-linked-more="g1"]').click();
+  await expect(page.locator('#gtLinkedMenu').getByRole('button')).toHaveText(['다시 할 일로','고치기','연결 해제']);
+  await page.locator('#gtLinkedMenu').getByRole('button',{name:'연결 해제'}).click();
   await expect.poll(()=>state.gtCalls.find(x=>x.action==='unlink')?.body).toEqual(expect.objectContaining({task_id:'g1',links:[{project_id:'child-1'}]}));
   await expect(panel).toContainText('연결된 Google 할 일이 없습니다.');
   expect(state.tasks).toEqual([]);
