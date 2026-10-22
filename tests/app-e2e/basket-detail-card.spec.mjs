@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { basketKindButton } from './helpers/basket-kind.mjs';
+import { expectNoteTitle } from './helpers/note-title.mjs';
 
 // UI-바구니상세개편: an update's detail is one card — text (with a small 원문 toggle and [복사] beside it), state·time,
 // attachments (photo previews through the owner-only basket-files photo view, a kind mark for other files, small text links
@@ -173,7 +174,7 @@ for (const width of [390, 1280]) {
     await expect(page.locator('[data-basket-to-note-form]')).toHaveCount(0);
     await expect(toast(page)).toHaveText('노트로 옮겼어요.');
     await expect(page.locator('[data-basket-kind="note"]')).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('[data-note-read-title]')).toHaveText('교섭 결과 공유');
+    await expectNoteTitle(page,'교섭 결과 공유');
     const move = f.writes.at(-1);
     expect(move.query).toMatchObject({ id: 'eq.' + U, kind: 'eq.basket' }); expect(move.body).toMatchObject({ kind: 'note', title: '교섭 결과 공유' });
     expect(f.rows.find(r => r.id === U).attachments).toHaveLength(3);

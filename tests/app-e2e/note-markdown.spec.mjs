@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { noteMenuAction } from './helpers/note-menu.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
+import { expectNoteTitle } from './helpers/note-title.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // NOTE-마크다운선택·NOTE-큰창저장유지 (합성 데이터). One app_notes store honours the kind/id filters, like basket-notes.spec.mjs.
 const LONG='https://example.org/'+'아주긴주소'.repeat(40);
@@ -183,7 +184,7 @@ for(const width of [390,1280]){
   await page.locator('[data-basket-read-actions] [data-basket-to-note]').click();
   await expect(page.locator('#toast')).toHaveText('노트로 옮겼어요.');
   const detail=page.locator('[data-note-detail]');
-  await expect(detail.locator('[data-note-read-title]')).toHaveText('2026.10.21. 14:30 합성지부 통화');
+  await expectNoteTitle(page,'2026.10.21. 14:30 합성지부 통화');
   await expect(detail.locator('[data-basket-read-text]')).toHaveText('통화 내용 첫 줄\n둘째 줄');
   expect(f.writes).toHaveLength(1);
   expect(f.writes[0].body).toMatchObject({kind:'note',title:'2026.10.21. 14:30 합성지부 통화',raw_text:'통화 내용 첫 줄\n둘째 줄'});

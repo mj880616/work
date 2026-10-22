@@ -23,13 +23,14 @@ const doc=(n,over={})=>({id:id(n),workspace_id:WS,title:'251020_요구안_최종
   file_name:'251020_요구안_최종.hwpx',mime_type:'application/octet-stream',created_at:JUST,updated_at:JUST,field_origin:{},
   extracted_text:'2026년 임금교섭 요구안\n공공운수노조\n2026. 10. 20.',extraction_status:'ready',...over});
 
-function harness({docs=[doc(1)],openai=[()=>respond(answer([fill()]))],usage=[],categories=null,patchStatus=0,missingColumn=false}={}){
-  const calls={openai:[],rest:[],patches:[],logs:[]};
+function harness({docs=[doc(1)],openai=[()=>respond(answer([fill()]))],usage=[],categories=null,patchStatus=0,missingColumn=false,attempts=[],tidyMissing=false,rpcStatus=0}={}){
+  const calls={openai:[],rest:[],patches:[],logs:[],rpcs:[]};
   const db={
     app_workspace_members:[{workspace_id:WS,user_id:OWNER,role:'owner'},{workspace_id:OTHER_WS,user_id:STRANGER,role:'owner'}],
     app_documents:structuredClone(docs),
     app_profiles:[{user_id:OWNER,document_categories:categories??['교섭','투쟁','교육','선전','정책','회의','기타']}],
     app_ai_daily_usage:structuredClone(usage),
+    app_library_tidy_attempts:structuredClone(attempts),app_library_tidy_backups:[],
   };
   const users={'owner-token':OWNER,'stranger-token':STRANGER};
   const wsOwner={[WS]:OWNER,[OTHER_WS]:STRANGER};
@@ -51,6 +52,28 @@ function harness({docs=[doc(1)],openai=[()=>respond(answer([fill()]))],usage=[],
     const uid=users[bearer];assert.ok(uid,'REST only with the caller session token');
     const table=url.pathname.replace('/rest/v1/','');calls.rest.push({table,method,query:url.search});
     if(table==='app_documents'&&missingColumn)return respond({message:'column app_documents.field_origin does not exist'},400);
+    if(tidyMissing&&(table==='app_library_tidy_attempts'||table==='rpc/app_library_auto_tidy_apply'))return respond({message:'not found'},404);
+    if(table==='rpc/app_library_auto_tidy_apply'){
+      // Synthetic stand-in for the DB function (the real one is tested on PostgreSQL in tests/auth-handoff/library-auto-tidy.test.mjs):
+      // per document, skip when updated_at moved, refuse 'user' fields, back up then change, record the attempt.
+      assert.equal(method,'POST');const body=JSON.parse(init.body);calls.rpcs.push(body);
+      if(rpcStatus)return respond({},rpcStatus);
+      let documents=0,fields=0,moved=0;
+      for(const item of body.p_items){
+        const d=db.app_documents.find(r=>r.id===item.document_id&&visible('app_documents',r,uid));
+        if(!d||d.updated_at!==item.updated_at){moved++;continue;}
+        let n=0;
+        for(const [f,v] of Object.entries(item.changes)){
+          assert.notEqual(d.field_origin[f],'user','server sent a user field');
+          if(d[f]===v)continue;
+          db.app_library_tidy_backups.push({batch_id:body.p_batch,document_id:d.id,field:f,old_value:d[f],old_origin:d.field_origin[f]??null,new_value:v});
+          d[f]=v;d.field_origin={...d.field_origin,[f]:'ai'};n++;
+        }
+        if(n){documents++;fields+=n;d.updated_at='2026-10-22T03:00:01Z';}
+        if(!db.app_library_tidy_attempts.some(a=>a.document_id===d.id))db.app_library_tidy_attempts.push({document_id:d.id,workspace_id:d.workspace_id,batch_id:body.p_batch,changed:n});
+      }
+      return respond({documents,fields,moved});
+    }
     if(table==='app_ai_daily_usage'&&method==='POST'){
       const body=JSON.parse(init.body);if(!visible(table,body,uid))return respond({},403);
       const i=db.app_ai_daily_usage.findIndex(r=>r.workspace_id===body.workspace_id&&r.user_id===body.user_id&&r.day===body.day);
@@ -226,4 +249,92 @@ test('pure helpers: needsTidy, validDocDate, readOrigin',()=>{
   for(const v of ['2026-13-01','1970-01-01','2030-01-01','2026/10/20',''])assert.equal(lib.validDocDate(v,TODAY),null,v);
   assert.deepEqual(lib.readOrigin({title:'ai'}),{title:'ai'});
   for(const v of [null,[],{title:'x'},{project_id:'ai'}])assert.equal(lib.readOrigin(v),null);
+});
+
+// ---- LIB-자동정리: mode tidy (기존 자료, 버튼 없음) ----
+const tidyReq=ids=>({kind:'library_fill',mode:'tidy',document_ids:ids});
+const old=(n,over={})=>doc(n,{created_at:OLD,updated_at:OLD,...over});
+
+test('tidy: untidy fields of an old document are changed through the backup function; one batch id; attempt recorded',async()=>{
+  const {handler,calls,db}=harness({docs:[old(1)]});
+  const res=await post(handler,tidyReq([id(1)]));
+  assert.equal(res.status,200);
+  assert.deepEqual(await res.json(),{ok:true,kind:'library_fill',mode:'tidy',updated:1,fields:4,skipped:0});
+  const d=db.app_documents[0];
+  assert.deepEqual([d.title,d.document_date,d.source,d.category],['2026년 임금교섭 요구안','2026-10-20','공공운수노조','교섭']);
+  assert.deepEqual(d.field_origin,{title:'ai',document_date:'ai',source:'ai',category:'ai'});
+  // No direct table PATCH: the change and its backup happen in one DB call (one transaction).
+  assert.equal(calls.patches.length,0);assert.equal(calls.rpcs.length,1);
+  const rpc=calls.rpcs[0];
+  assert.match(rpc.p_batch,/^[0-9a-f-]{36}$/);
+  assert.deepEqual(rpc.p_items,[{document_id:id(1),updated_at:OLD,changes:{title:'2026년 임금교섭 요구안',document_date:'2026-10-20',source:'공공운수노조',category:'교섭'}}]);
+  assert.deepEqual(db.app_library_tidy_backups.map(b=>[b.field,b.old_value,b.new_value]),[
+    ['title','251020_요구안_최종','2026년 임금교섭 요구안'],['document_date',null,'2026-10-20'],['source',null,'공공운수노조'],['category','기타','교섭']]);
+  assert.ok(db.app_library_tidy_backups.every(b=>b.batch_id===rpc.p_batch));
+  assert.equal(db.app_library_tidy_attempts.length,1);
+});
+
+test('tidy: user fields and meaningful values are never sent or changed; only untidy fields',async()=>{
+  const docs=[old(1,{title:'고친 제목',field_origin:{title:'user'},source:'국토교통부',category:'정책'})];
+  const {handler,calls,db}=harness({docs,openai:[()=>respond(answer([fill({title:'AI 제목',source:'다른 곳',category:'교섭'})]))]});
+  await post(handler,tidyReq([id(1)]));
+  const d=db.app_documents[0];
+  assert.deepEqual([d.title,d.source,d.category,d.document_date],['고친 제목','국토교통부','정책','2026-10-20']);
+  assert.deepEqual(calls.rpcs[0].p_items[0].changes,{document_date:'2026-10-20'});
+  assert.deepEqual(d.field_origin,{title:'user',document_date:'ai'});
+});
+
+test('tidy: documents edited before field_origin existed (사용자 수정 / 사용자 입력 제목) keep those fields',async()=>{
+  const docs=[old(1,{classification_note:'사용자 수정'}),old(2,{classification_note:'사용자 입력 제목 · 메타정보 자동분류'})];
+  const {handler,calls}=harness({docs,openai:[()=>respond(answer([fill({ref:'d1'})]))]});
+  await post(handler,tidyReq([id(1),id(2)]));
+  assert.equal(JSON.parse(calls.openai[0].input[1].content).files.length,1,'the fully edited document is not sent');
+  assert.deepEqual(Object.keys(calls.rpcs[0].p_items[0].changes).sort(),['category','document_date','source']);
+  assert.equal(calls.rpcs[0].p_items[0].document_id,id(2));
+});
+
+test('tidy: a document already tried is never sent to AI again; just-uploaded documents are left to fill',async()=>{
+  const {handler,calls}=harness({docs:[old(1),doc(2)],attempts:[{document_id:id(1),workspace_id:WS,batch_id:id(99),changed:0}]});
+  const body=await (await post(handler,tidyReq([id(1),id(2)]))).json();
+  assert.deepEqual(body,{ok:true,kind:'library_fill',mode:'tidy',updated:0,skipped:2});
+  assert.equal(calls.openai.length,0);assert.equal(calls.rpcs.length,0);
+});
+
+test('tidy: an edit between read and write is skipped by the function (updated_at guard), not overwritten',async()=>{
+  let h;
+  h=harness({docs:[old(1)],openai:[()=>{h.db.app_documents[0].updated_at='2026-10-22T03:00:10Z';h.db.app_documents[0].title='방금 고친 제목';return respond(answer([fill()]));}]});
+  const body=await (await post(h.handler,tidyReq([id(1)]))).json();
+  assert.equal(body.updated,0);assert.equal(h.db.app_documents[0].title,'방금 고친 제목');assert.equal(h.db.app_library_tidy_backups.length,0);
+});
+
+test('tidy: an invalid AI answer records the attempt only (no value change); busy/timeout records nothing',async()=>{
+  {const {handler,db,calls}=harness({docs:[old(1)],openai:[()=>respond({status:'completed',output:[{type:'message',content:[{type:'output_text',text:'nope'}]}],usage:{}})]});
+   const r=await post(handler,tidyReq([id(1)]));assert.equal(r.status,502);
+   assert.deepEqual(calls.rpcs.map(b=>b.p_items.map(i=>i.changes)),[[{}]]);
+   assert.equal(db.app_library_tidy_attempts.length,1);assert.equal(db.app_documents[0].title,'251020_요구안_최종');}
+  {const {handler,calls,db}=harness({docs:[old(1)],openai:[()=>respond({},500)]});
+   const r=await post(handler,tidyReq([id(1)]));assert.equal(r.status,503);assert.equal(calls.rpcs.length,0);assert.equal(db.app_library_tidy_attempts.length,0);}
+});
+
+test('tidy: same limits as fill (daily 50); before the DB is applied → library_not_ready and AI is not called',async()=>{
+  {const {handler,calls}=harness({docs:[old(1)],usage:[{workspace_id:WS,user_id:OWNER,day:TODAY,requests:50,input_tokens:0,output_tokens:0}]});
+   const r=await post(handler,tidyReq([id(1)]));assert.equal(r.status,429);assert.equal((await r.json()).error,'daily_limit');assert.equal(calls.openai.length,0);assert.equal(calls.rpcs.length,0);}
+  {const {handler,calls}=harness({docs:[old(1)],tidyMissing:true});
+   const r=await post(handler,tidyReq([id(1)]));assert.equal(r.status,503);assert.equal((await r.json()).error,'library_not_ready');assert.equal(calls.openai.length,0);}
+  {const {handler}=harness({docs:[old(1)],rpcStatus:500});
+   const r=await post(handler,tidyReq([id(1)]));assert.equal(r.status,503);assert.equal((await r.json()).error,'library_unavailable');}
+});
+
+test('tidy: another workspace document is invisible (404); keep and extra keys refused; at most 10 ids',async()=>{
+  {const {handler,calls}=harness({docs:[old(1,{workspace_id:OTHER_WS})]});
+   const r=await post(handler,tidyReq([id(1)]));assert.equal(r.status,404);assert.equal(calls.openai.length,0);assert.equal(calls.rpcs.length,0);}
+  for(const body of [{...tidyReq([id(1)]),keep:[]},{...tidyReq([id(1)]),workspace_id:WS},tidyReq(Array.from({length:11},(_,i)=>id(i+1)))]){
+    const {handler,calls}=harness({docs:[old(1)]});const r=await post(handler,body);assert.equal(r.status,400,JSON.stringify(body));assert.equal(calls.openai.length,0);}
+});
+
+test('tidy: injected text in a document is only material; values are validated before the function call',async()=>{
+  const {handler,calls}=harness({docs:[old(1,{extracted_text:INJECTION})],
+    openai:[()=>respond(answer([fill({title:'<b>요구안</b>',category:'해킹',document_date:'2099-01-01',source:'x'.repeat(61)})]))]});
+  await post(handler,tidyReq([id(1)]));
+  assert.deepEqual(calls.rpcs[0].p_items[0].changes,{title:'요구안'});
 });
