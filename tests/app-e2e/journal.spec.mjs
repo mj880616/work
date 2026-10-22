@@ -1489,6 +1489,8 @@ test('[업무일지] 회의·활동 결과: 보고 안 함 종류는 흐리게, 
  await expect(page.locator('#journalRoot [data-journal-report] [data-journal-group]')).toHaveCount(3);
  expect(await page.locator('#journalRoot [data-journal-report] [data-journal-group]').evaluateAll(els=>els.map(e=>e.dataset.journalGroup))).toEqual(['activities','business','orgs']);
  expect(f.errors).toEqual([]);
+});
+
 // JOURNAL-조직현황AI요약: [주간 정리] 4. 산하 조직 현황 > 1) 요약. 작은 [요약 만들기]를 누를 때만 ai-assist(kind=org_summary)에
 // 주와 조직 ID만 보낸다(글 없음). 서버가 저장한 요약을 다시 읽어 조직마다 몇 줄로 보이고, 원문은 접힌다. [요약 고치기]로 고친 요약은
 // edited=true로 저장되고 다시 만들어도 그대로다(서버가 덮어쓰지 않음 — 여기서는 서버 흉내가 edited 행을 건너뜀). 복사도 요약을 쓴다.
