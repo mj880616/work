@@ -1215,3 +1215,115 @@ test('[주간보고 한글 파일 만들기]: 자료실에 확정본이 없으�
  expect(f.sent.library).toEqual([]);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
+
+// JOURNAL-회의종류표시: 회의 종류(series_name → title, 띄어쓰기 없음·소문자)가 내 프로필의 "주간보고에 올리지 않을 종류" 목록에 있으면
+// [주간 정리] 2) 회의·행사 결과와 초안 복사에서 빠진다. 목록에 없는 종류(새 종류)·행사는 올라간다. 줄 옆 ⋯ 로 종류별 빼기/다시 올리기 —
+// 저장은 내 프로필 행의 이 칸 하나만 PATCH. 목록을 못 읽으면(옛 응답) 전부 올린다.
+const KINDS_DEFAULT=['궤도집행국회의','본부집행위'];
+async function kindsFixture(page,{width=390,list=KINDS_DEFAULT,readStatus=200,patchStatus=200,column=true}={}){
+ const f=await weeklyFixture(page,{width});
+ f.more.meetings.push(
+  {id:'mk1',workspace_id:'w',title:'궤도 집행국 회의',series_name:'궤도 집행국 회의',round_no:12,meeting_at:'2026-10-05T01:00:00Z'},
+  {id:'mk2',workspace_id:'w',title:'본부집행위',series_name:null,round_no:null,meeting_at:'2026-10-07T01:00:00Z'},
+  {id:'mk3',workspace_id:'w',title:'궤도집행국회의',series_name:'궤도집행국회의',round_no:13,meeting_at:'2026-10-10T01:00:00Z'},
+  {id:'mk4',workspace_id:'w',title:'새 회의 종류',series_name:'새 회의 종류',round_no:null,meeting_at:'2026-10-09T01:00:00Z'},
+ );
+ const profile={list:[...list],reads:[],patches:[]};
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_profiles',async r=>{
+  const req=r.request(),q=new URL(req.url()).searchParams;
+  if(req.method()==='GET'&&q.get('select')==='weekly_hidden_meeting_kinds'){
+   profile.reads.push(q.get('user_id'));
+   if(readStatus!==200||!column)return r.fulfill({status:readStatus===200?400:readStatus,json:{message:'column does not exist'}});
+   return r.fulfill({json:[{weekly_hidden_meeting_kinds:profile.list}]});
+  }
+  if(req.method()==='PATCH'){
+   const body=req.postDataJSON();profile.patches.push({user_id:q.get('user_id'),body});
+   if(patchStatus!==200)return r.fulfill({status:patchStatus,json:{message:'QA failure'}});
+   profile.list=body.weekly_hidden_meeting_kinds;return r.fulfill({json:[{weekly_hidden_meeting_kinds:profile.list}]});
+  }
+  return r.fallback();
+ });
+ return {...f,profile};
+}
+const kindLines=page=>weekly(page,'meetings').locator('.journal-weekly-list > li');
+// 줄 글(날짜+회의 이름)만: ⋯ 메뉴 안의 글자는 뺀다.
+const kindTexts=page=>kindLines(page).evaluateAll(list=>list.map(li=>{const c=li.cloneNode(true);c.querySelector('details')?.remove();return c.textContent;}));
+const expectKindTexts=async(page,expected)=>expect.poll(()=>kindTexts(page)).toEqual(expected);
+for(const width of [390,1280])test(`[주간 정리] 회의 종류: 정기 회의 둘은 빠지고 새 종류·행사는 남음, ⋯ 로 빼기·다시 올리기가 저장·반영됨 ${width}`,async({page},info)=>{
+ const f=await kindsFixture(page,{width});
+ await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
+ await openJournal(page,width);await openWeekly(page);
+ // 두 정기 회의(띄어쓰기·표기 달라도 같은 종류)는 없고, 행사·운영위원회·새 종류는 날짜순으로 남는다.
+ await expectKindTexts(page,['10월 6일(화)14:00 가상 기자회견','10월 8일(목)10:00 운영위원회 3차','10월 9일(금)10:00 새 회의 종류']);
+ expect(f.profile.reads).toEqual(['eq.home-test']);
+ const off=weekly(page,'meetings').locator('[data-journal-kinds-off]');
+ await expect(off.locator('li')).toHaveText(['궤도 집행국 회의 · 2건다시 올리기','본부집행위 · 1건다시 올리기']);
+ // 초안 복사에도 정기 회의가 없다.
+ await page.locator('#journalRoot [data-journal-status]').evaluate(e=>{e.textContent='';});
+ await page.locator('#journalRoot [data-hwpx-copy]').click();
+ await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사');
+ const text=await page.evaluate(()=>navigator.clipboard.readText());
+ expect(text).toContain('가상 기자회견');expect(text).toContain('새 회의 종류');expect(text).not.toMatch(/집행국|집행위/);
+ // ⋯ 는 작게(글자 버튼 기준): 처음엔 [주간보고에서 빼기]가 안 보이고, 눌러야 한 줄 옆에 작은 글자 버튼이 나온다. 누르는 범위는 44px.
+ const first=kindLines(page).nth(1).locator('[data-journal-kind-more]');
+ await expect(kindLines(page).nth(1).locator('[data-journal-kind-toggle]')).toBeHidden();
+ await expect(first.locator('summary')).toHaveAccessibleName('운영위원회 종류 설정');
+ const dot=await first.locator('summary').boundingBox();expect(dot.height).toBeLessThanOrEqual(32);expect(dot.height).toBeGreaterThanOrEqual(28);expect(dot.width).toBeGreaterThanOrEqual(28);
+ await first.locator('summary').click();
+ const toggle=kindLines(page).nth(1).locator('[data-journal-kind-toggle]');
+ await expect(toggle).toBeVisible();await expect(toggle).toHaveText('주간보고에서 빼기');
+ expect((await toggle.boundingBox()).height).toBeLessThanOrEqual(32);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:info.outputPath(`meeting-kinds-open-${width}.png`),fullPage:true});
+ // 빼면 줄이 없어지고 "뺀 종류"에 올라오며, 내 프로필 행의 이 칸 하나만 저장된다(기존 목록 뒤에 더해서).
+ await toggle.click();
+ await expectKindTexts(page,['10월 6일(화)14:00 가상 기자회견','10월 9일(금)10:00 새 회의 종류']);
+ await expect(off.locator('li')).toHaveText(['궤도 집행국 회의 · 2건다시 올리기','본부집행위 · 1건다시 올리기','운영위원회 · 1건다시 올리기']);
+ await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText("'운영위원회' 종류는 앞으로 주간보고에서 빼요.");
+ expect(f.profile.patches).toEqual([{user_id:'eq.home-test',body:{weekly_hidden_meeting_kinds:['궤도집행국회의','본부집행위','운영위원회']}}]);
+ // 행사(가상 기자회견)는 같은 방법으로 빼기 전엔 그대로, 다시 올리면 날짜순 자리로 돌아온다.
+ await off.locator('li[data-journal-kind-off="본부집행위"] button').click();
+ await expectKindTexts(page,['10월 6일(화)14:00 가상 기자회견','10월 7일(수)10:00 본부집행위','10월 9일(금)10:00 새 회의 종류']);
+ expect(f.profile.patches.at(-1)).toEqual({user_id:'eq.home-test',body:{weekly_hidden_meeting_kinds:['궤도집행국회의','운영위원회']}});
+ expect(f.profile.list).toEqual(['궤도집행국회의','운영위원회']);
+ expect(f.profile.patches.every(p=>Object.keys(p.body).join()==='weekly_hidden_meeting_kinds')).toBe(true);
+ // 다른 곳(하루 카드)의 회의 목록은 그대로: 거르기는 주간보고에만 적용된다.
+ await page.locator('#journalRoot [data-journal-mode="day"]').click();
+ await page.locator('#journalRoot [data-journal-date="2026-10-05"]').click();
+ await expect(group(page,'meetings').locator('li')).toHaveText(['10:00 궤도 집행국 회의 12차']);
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+
+test('[주간 정리] 회의 종류: 목록을 못 읽으면(옛 응답) 지금처럼 전부 올리고 ⋯ 표시는 없다',async({page})=>{
+ const f=await kindsFixture(page,{width:1280,column:false});
+ await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
+ await openJournal(page,1280);await openWeekly(page);
+ await expectKindTexts(page,['10월 5일(월)10:00 궤도 집행국 회의 12차','10월 6일(화)14:00 가상 기자회견','10월 7일(수)10:00 본부집행위','10월 8일(목)10:00 운영위원회 3차','10월 9일(금)10:00 새 회의 종류','10월 10일(토)10:00 궤도집행국회의 13차']);
+ await expect(weekly(page,'meetings').locator('[data-journal-kind-more],[data-journal-kind-toggle],[data-journal-kinds-off]')).toHaveCount(0);
+ await page.locator('#journalRoot [data-hwpx-copy]').click();
+ await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사');
+ expect(await page.evaluate(()=>navigator.clipboard.readText())).toContain('궤도 집행국 회의 12차');
+ expect(f.profile.patches).toEqual([]);expect(f.errors).toEqual([]);
+});
+
+test('[주간 정리] 회의 종류: 저장이 실패하면 안내하고 목록은 그대로, 이 주 회의가 모두 뺀 종류면 그렇게 알린다',async({page})=>{
+ const f=await kindsFixture(page,{width:1280,patchStatus:500});
+ await openJournal(page,1280);await openWeekly(page);
+ const line=kindLines(page).filter({hasText:'새 회의 종류'});
+ await line.locator('summary').click();await line.locator('[data-journal-kind-toggle]').click();
+ await expect(page.locator('#journalRoot [data-journal-status]')).toHaveText('저장하지 못했어요. 다시 시도해 주세요.');
+ await expect(kindLines(page)).toHaveCount(3);
+ expect(f.profile.list).toEqual(KINDS_DEFAULT);
+ expect(f.errors.filter(e=>!/500/.test(e))).toEqual([]);
+});
+
+test('[주간 정리] 회의 종류: 이 주 회의가 모두 뺀 종류면 줄 대신 안내와 [다시 올리기]',async({page})=>{
+ const f=await kindsFixture(page,{width:1280,list:['가상기자회견','운영위원회','새회의종류','궤도집행국회의','본부집행위']});
+ await openJournal(page,1280);await openWeekly(page);
+ await expect(kindLines(page)).toHaveCount(0);
+ await expect(weekly(page,'meetings').locator('[data-journal-weekly-empty]')).toHaveText('이 주 회의·행사는 모두 주간보고에서 뺀 종류예요.');
+ await expect(weekly(page,'meetings').locator('[data-journal-kinds-off] li')).toHaveCount(5);
+ await weekly(page,'meetings').locator('[data-journal-kind-off="가상기자회견"] button').click();
+ await expectKindTexts(page,['10월 6일(화)14:00 가상 기자회견']);
+ expect(f.profile.list).toEqual(['운영위원회','새회의종류','궤도집행국회의','본부집행위']);
+});

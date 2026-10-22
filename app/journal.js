@@ -29,6 +29,7 @@ import {recordMark} from './basket-link-records.js';
 import {requestNoteDocOpen} from './basket-note-tasks.js';
 import {weeklySummary, renderWeekly, weeklyReportText} from './journal-weekly.js';
 import {mountWeeklyHwpx} from './journal-hwpx.js';
+import {readKinds, changeKind} from './journal-meeting-kinds.js';
 import {mountRadar} from './todo-radar.js';
 
 // ORG-묶음순서: the shared organization order (window.KPTUOrganizationOrder) orders the 조직 소식 sections.
@@ -65,6 +66,8 @@ let owner = ownerScope(rt), epoch = 0;
 let start = weekStart(todayKey()), selected = todayKey();
 let lines = new Map(), linesState = 'loading';
 let materials = {};
+// JOURNAL-회의종류표시: my list of meeting kinds left out of the weekly report ({status:'loading'|'ok'|'unknown', list}); read once per visit.
+let kinds = {status:'loading'}, kindsBusy = false;
 let doneDays = DONE_TASK_DAYS; // days of finished tasks the Edge really covered (3 on an older Edge)
 let drafts = new Map(), saving = false;
 // The one line being edited in place: {day, index, before, value}.
@@ -204,11 +207,11 @@ function renderWeekly_() {
   if (mode !== 'week') return;
   const list = weekDays(start);
   $('[data-journal-weekly-title]').textContent = `주간 정리 · ${longDay(list[0])} ~ ${longDay(list[6])}`;
-  renderWeekly($('[data-journal-weekly]'), weeklySummary({start, lines, linesState, materials, doneDays}), esc);
+  renderWeekly($('[data-journal-weekly]'), weeklySummary({start, lines, linesState, materials, doneDays, kinds}), esc);
   hwpx?.refresh();
 }
 // WEEKLY-한글초안 2단계: [주간보고 한글 파일 만들기] — journal-hwpx.js owns that box; it reads the shown week's grouping.
-const hwpx = mountWeeklyHwpx($('[data-journal-hwpx]'), {rt, onCopy: () => copyDraft(), getWeek: () => ({start, model:weeklySummary({start, lines, linesState, materials, doneDays})})});
+const hwpx = mountWeeklyHwpx($('[data-journal-hwpx]'), {rt, onCopy: () => copyDraft(), getWeek: () => ({start, model:weeklySummary({start, lines, linesState, materials, doneDays, kinds})})});
 function renderMode() {
   root.dataset.journalMode = mode;
   root.querySelectorAll('[data-journal-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.journalMode === mode)));
@@ -274,6 +277,12 @@ async function loadLines(run, scope) {
 }
 // A new week reads its lines and that week's events (and the two weeks after it, 5. 주요 일정), organization/project records,
 // meetings, new documents and changed share pages; Google tasks (done and pending) and basket updates are read once per visit (not per week).
+async function loadKinds(run, scope) {
+  kinds = {status:'loading'};
+  const read = await readKinds(rt);
+  if (!current(run, scope)) return;
+  kinds = read; renderWeekly_();
+}
 function loadWeek({shared = false} = {}) {
   const changedOwner = owner !== ownerScope(rt);
   const run = ++epoch, scope = owner = ownerScope(rt);
@@ -281,6 +290,7 @@ function loadWeek({shared = false} = {}) {
   if (changedOwner) hwpx?.close(); else hwpx?.setWeek(start);
   const keys = shared ? Object.keys(readers) : ['events', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages'];
   for (const key of keys) materials[key] = {status:'loading'};
+  if (shared || changedOwner) loadKinds(run, scope);
   render();
   loadLines(run, scope);
   for (const key of keys) loadGroup(key, run, scope);
@@ -412,13 +422,25 @@ async function deleteLine(index) {
 }
 
 async function copyDraft() {
-  const text = weeklyReportText(weeklySummary({start, lines, linesState, materials, doneDays}));
+  const text = weeklyReportText(weeklySummary({start, lines, linesState, materials, doneDays, kinds}));
   const ok = await copyText(text);
   // movedNotes, catalog (the project order) and this week's events (the day card's 일정) are not draft material.
   const missing = Object.entries(materials).some(([key, state]) => !['movedNotes', 'catalog', 'events'].includes(key) && state?.status !== 'ok');
   status.textContent = ok ? `주간보고 양식 순서로 복사했어요.${missing ? ' 불러오지 못한 묶음은 빠졌어요.' : ''}` : '복사하지 못했어요. 다시 시도해 주세요.';
 }
 
+// 주간보고에 올림 표시 바꾸기: only my profile's list column is written (journal-meeting-kinds.js); the screen follows the saved list.
+async function toggleKind(key, hide, name) {
+  if (kindsBusy || kinds.status !== 'ok') return;
+  const scope = ownerScope(rt); kindsBusy = true; status.textContent = '';
+  try {
+    const result = await changeKind(key, hide, rt);
+    if (scope !== ownerScope(rt)) return;
+    if (result.ok) { kinds = {status:'ok', list:result.list}; status.textContent = hide ? `'${name}' 종류는 앞으로 주간보고에서 빼요.` : `'${name}' 종류를 주간보고에 다시 올려요.`; }
+    else status.textContent = '저장하지 못했어요. 다시 시도해 주세요.';
+    renderWeekly_();
+  } finally { kindsBusy = false; }
+}
 root.addEventListener('click', event => {
   const button = event.target.closest('button');
   if (!button || !root.contains(button) || button.disabled) return;
@@ -430,6 +452,7 @@ root.addEventListener('click', event => {
     }
     return;
   }
+  if (button.matches('[data-journal-kind-toggle]')) return toggleKind(button.dataset.journalKindToggle, button.dataset.journalKindHide === '1', button.dataset.journalKindName);
   if (button.matches('[data-journal-date]')) return selectDay(button.dataset.journalDate);
   if (button.matches('[data-journal-prev]')) return moveWeek(-1);
   if (button.matches('[data-journal-next]')) return moveWeek(1);
@@ -474,7 +497,7 @@ input.addEventListener('input', () => {
 window.addEventListener('kptu:session-changed', () => {
   if (owner === ownerScope(rt)) return;
   owner = ownerScope(rt); epoch++;
-  drafts = new Map(); lines = new Map(); materials = {}; doneDays = DONE_TASK_DAYS; saving = false; editing = null; mode = 'day';
+  kinds = {status:'loading'}; drafts = new Map(); lines = new Map(); materials = {}; doneDays = DONE_TASK_DAYS; saving = false; editing = null; mode = 'day';
   start = weekStart(todayKey()); selected = todayKey();
   if (window.KPTURouter?.current === 'journal') enter();
 });
