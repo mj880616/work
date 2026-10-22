@@ -42,12 +42,17 @@
 .ed-bar button[aria-pressed="true"],.ed-bar button[aria-expanded="true"]{background:var(--kptu-primary-soft);border-color:var(--kptu-primary);color:var(--kptu-primary-ink)}
 .ed-bar button:disabled{opacity:.4;cursor:default}
 .ed-bar .ed-style{min-width:72px;border-color:var(--ds-line,var(--kptu-border));justify-content:space-between}
-.ed-tools [data-ed-cmd="strong"]{font-weight:700}
-.ed-tools [data-ed-cmd="em"]{font-style:italic}
-.ed-tools [data-ed-cmd="underline"]{text-decoration:underline}
-.ed-tools [data-ed-cmd="strike"]{text-decoration:line-through}
+.ed-bar [data-ed-cmd="strong"]{font-weight:700}
+.ed-bar [data-ed-cmd="em"]{font-style:italic}
+.ed-bar [data-ed-cmd="underline"]{text-decoration:underline}
+.ed-bar [data-ed-cmd="strike"]{text-decoration:line-through}
 /* 묶음 사이 간격(묶음 첫 버튼에 ed-gap) */
 .ed-tools .ed-gap{margin-left:6px}
+/* SHARE-전체편집: 폰보다 넓으면 넘치는 버튼은 줄 끝 [⋯] 아래 줄로(가로 스크롤 막대 없음). 폰은 손가락으로 가로 밀기(막대 숨김). */
+.ed-bar .ed-more[hidden]{display:none}
+.ed-tools .ed-more{margin-left:auto;font-weight:700}
+.ed-more-menu{flex-wrap:wrap;overflow:visible;padding-top:4px;padding-bottom:4px}
+.ed-more-menu .ed-gap{margin-left:0}
 .ed-suggest{display:flex;align-items:center;gap:6px;padding:0 8px;min-height:var(--kptu-touch-target,44px);border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 .ed-suggest [data-ed-convert]{border-color:var(--kptu-primary);color:var(--kptu-primary-ink)}
 .ed-box{flex:1 1 auto;min-height:0}
@@ -65,3 +70,4 @@
 .ProseMirror-selectednode{outline:2px solid var(--kptu-primary)}
 .ProseMirror-gapcursor{display:none}
 @media(min-width:761px){.ed-input{padding:22px 28px 30vh}}
+@media(max-width:760px){.ed-tools{scrollbar-width:none}.ed-tools::-webkit-scrollbar{display:none}}
