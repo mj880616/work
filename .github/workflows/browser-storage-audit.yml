@@ -57,6 +57,8 @@ jobs:
               'app/login/index.html':[r"'kptu-theme'"],
               # UI-상단줄: PC 사이드바 숨김 여부(켜짐/꺼짐 하나)도 기기에만 두는 화면 설정이며 사용자 내용이 아님.
               'app/topbar-actions.js':[r"'kptu-theme'",r'\bNAV_KEY\b'],
+              # UI-상단줄 시험: 같은 화면 설정 키(kptu-nav-collapsed)만 읽고 넣어 기억·초기 숨김을 확인한다.
+              'tests/app-e2e/topline.spec.mjs':[r"['\"]kptu-nav-collapsed['\"]"],
               'tests/theme-bootstrap.test.mjs':[r'\bTHEME_STORAGE_KEY\b'],
               'tests/app-e2e/theme.spec.mjs':[r'\bTHEME_STORAGE_KEY\b'],
               'index.html':[r'AUTH_KEY',r'AUTH_SESSION_KEY'],
