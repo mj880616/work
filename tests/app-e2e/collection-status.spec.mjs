@@ -191,3 +191,45 @@ test('phone: old files with a healthy signal show 조용함 only, no warning lin
   await expect(page.locator('[data-menu-collect] [data-collect="call"]')).toHaveAttribute('data-collect-state','quiet');
   await expect(page.locator('[data-menu-collect] .collect-warn')).toHaveCount(0);
 });
+
+// HOME-수집시각정렬: 네 줄의 시각이 같은 세로선(오른쪽 끝)에 서고, 건수는 시각 앞 별도 칸(없는 줄은 빈칸). 배치만 본다.
+const rightEdges=(scope)=>scope.locator('[data-collect] .collect-value').evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect(),row=el.closest('[data-collect]').getBoundingClientRect();return {key:el.closest('[data-collect]').dataset.collect,right:r.right,rowRight:row.right,w:r.width};}));
+const alignCases={
+  'count on call only (ok)':withCollectors({
+    telegram:{last_at:'2026-10-04T22:30:00.000Z',count:null,reported_at:'2026-10-06T00:40:00.000Z'},
+    transcript:{last_at:'2026-10-05T23:05:00.000Z',count:34,reported_at:'2026-10-06T00:40:00.000Z'},
+  }),
+  'warnings and quiet notes':staleTelegram,
+};
+for(const width of [1280,390])for(const [name,copy] of Object.entries(alignCases))test(`four times share one right edge, count cell apart from time (${name}, ${width})`,async({page})=>{
+  const f=await fixture(page,{width,copy});
+  let card=f.card;
+  if(width<1024){
+    await page.locator('#mobileMenuTab').click();
+    card=page.locator('[data-menu-collect]');
+  }
+  await expect(card).toBeVisible();
+  await expect(card.locator('[data-collect]')).toHaveCount(4);
+  const edges=await rightEdges(card);
+  expect(edges.map(e=>e.key)).toEqual(['telegram','call','copy','radar']);
+  for(const e of edges){expect(Math.abs(e.right-edges[0].right)).toBeLessThanOrEqual(1);expect(Math.abs(e.right-e.rowRight)).toBeLessThanOrEqual(1);expect(e.w).toBeGreaterThan(0);}
+  // 건수 칸: 통화 줄만 채워지고 나머지는 비어 있으며, 건수는 시각의 왼쪽에 겹치지 않게 선다.
+  const counts=await card.locator('[data-collect]').evaluateAll(els=>els.map(el=>{const c=el.querySelector('.collect-count'),v=el.querySelector('.collect-value');return {key:el.dataset.collect,text:c.textContent,cRight:c.getBoundingClientRect().right,vLeft:v.getBoundingClientRect().left};}));
+  expect(counts.filter(c=>c.text).map(c=>c.key)).toEqual(['call']);
+  expect(counts.find(c=>c.key==='call').text).toBe('24시간 34건'.replace('34',String(copy.collectors.transcript.count)));
+  for(const c of counts)expect(c.cRight).toBeLessThanOrEqual(c.vLeft+1);
+  // 글자 크기는 지금처럼 콤팩트(12px) 그대로.
+  expect(await card.locator('.collect-row').first().evaluate(el=>getComputedStyle(el).fontSize)).toBe('12px');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  expect(await card.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
+});
+test('phone: the card opened from the warning line aligns the four times too (390)',async({page})=>{
+  await fixture(page,{width:390,copy:staleTelegram});
+  await page.locator('[data-home-collect-alert] [data-collect-expand]').click();
+  const panel=page.locator('#homeCollectPanel');
+  await expect(panel).toBeVisible();
+  const edges=await rightEdges(panel);
+  expect(edges).toHaveLength(4);
+  for(const e of edges)expect(Math.abs(e.right-edges[0].right)).toBeLessThanOrEqual(1);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
