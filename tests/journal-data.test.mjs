@@ -264,7 +264,7 @@ test('조직 소식: my organizations each by name, the others under one 그 외
   ]);
 });
 
-test('one day of materials in display order; a failed group is marked, the rest stay', async () => {
+test('JOURNAL-하루개편: the day card — 할 일/한 일, 주간보고 재료 in report order, 그 밖의 기록; failed parts are marked, the rest stay', async () => {
   const m = await mod;
   const materials = {
     events:{status:'ok', items:[
@@ -275,26 +275,79 @@ test('one day of materials in display order; a failed group is marked, the rest 
     ]},
     tasks:{status:'failed'},
     basket:{status:'ok', items:{notes:[{id:'b1', raw_text:'\n  첫 줄 메모\n둘째', occurred_at:'2026-10-06T00:00:00Z'}, {id:'b2', raw_text:'', attachments:[{}, {}], occurred_at:'2026-10-06T01:00:00Z'}, {id:'b3', raw_text:'어제', occurred_at:'2026-10-05T14:59:00Z'}], links:[], docs:[]}},
-    orgUpdates:{status:'ok', items:[]}, projectUpdates:{status:'ok', items:[]},
-    meetings:{status:'ok', items:[{id:'m1', series_name:'기자회견', round_no:null, meeting_at:'2026-10-06T02:00:00Z'}, {id:'m2', title:'운영위', series_name:'운영위원회', round_no:3, meeting_at:'2026-10-05T23:30:00Z'}, {id:'m3', series_name:'다른 날', meeting_at:'2026-10-06T15:00:00Z'}]},
+    orgUpdates:{status:'ok', items:[]}, projectUpdates:{status:'ok', items:[]}, movedNotes:{status:'ok', items:[]}, documents:{status:'ok', items:[]}, sharePages:{status:'ok', items:[]},
+    meetings:{status:'ok', items:[
+      {id:'m1', series_name:'기자회견', round_no:null, meeting_at:'2026-10-06T02:00:00Z', transcript_text:'\n결과 첫 줄\n둘째'},
+      {id:'m2', title:'운영위', series_name:'운영위원회', round_no:3, meeting_at:'2026-10-05T23:30:00Z', transcript_text:null, decisions:'옛 결정'},
+      {id:'m4', series_name:'본부 집행위', meeting_at:'2026-10-06T05:00:00Z'},
+      {id:'m3', series_name:'다른 날', meeting_at:'2026-10-06T15:00:00Z'}]},
   };
-  const day = m.dayMaterials(materials, '2026-10-06');
-  assert.deepEqual(day.map(g => g.label), ['일정', '끝낸 할 일', '조직 소식', '회의·행사 결과', '프로젝트 소식', '할 일 예정', '자료실 새 자료', '공유 페이지', '기타 메모']);
-  assert.deepEqual(day[0].items, ['종일 종일', '00:30 새벽', '14:00 오후']);
-  assert.deepEqual(day[1].failed, ['tasks']);
-  assert.deepEqual(day[2].sections, [{name:'미분류', items:['첫 줄 메모', '첨부 2개']}]);
-  assert.deepEqual(day[3].items, ['08:30 운영위원회 3차', '11:00 기자회견']);
-  assert.equal(m.dayMaterials({}, '2026-10-06')[0].loading, true);
-  // 조직 소식 waits for its three reads, then shows what it could read and names the failed one.
-  assert.equal(m.dayMaterials({...materials, orgUpdates:{status:'loading'}}, '2026-10-06')[2].loading, true);
-  const partial = m.dayMaterials({...materials, orgUpdates:{status:'failed'}}, '2026-10-06')[2];
-  assert.deepEqual(partial.failed, ['orgUpdates']); assert.deepEqual(partial.items, ['첫 줄 메모', '첨부 2개']);
-  // Project records left 조직 소식: a failed project read no longer marks it, it marks 프로젝트 소식 (which waits for its own reads).
-  const noProject = m.dayMaterials({...materials, projectUpdates:{status:'failed'}}, '2026-10-06');
-  assert.equal(noProject[2].failed, undefined); assert.deepEqual(noProject[4].failed, ['projectUpdates']);
-  // The new groups wait for their reads; a failed Google Tasks read marks both 끝낸 할 일 and 할 일 예정.
-  assert.equal(day[6].loading, true); assert.equal(day[7].loading, true);
-  assert.deepEqual(day[5].failed, ['tasks']);
+  const card = m.dayCard(materials, '2026-10-06', {kinds:{status:'ok', list:['본부집행위']}});
+  assert.deepEqual(card.report.map(g => g.label), ['회의·활동 결과', '사업 소식', '조직 소식']);
+  assert.deepEqual(card.others.map(g => g.label), ['일정', '자료실 새 자료', '공유 페이지', '노트로 옮긴 것', '기타 메모', '어디에도 안 보낸 업데이트']);
+  // 회의·활동 결과: title, the result's first line ('' when none), the weekly-report kind switch as `hidden`, and where it opens.
+  assert.deepEqual(card.report[0].items.map(i => [i.text, i.summary, i.hidden, i.open.type, i.open.id]), [
+    ['08:30 운영위원회 3차', '옛 결정', false, 'meeting', 'm2'], ['11:00 기자회견', '결과 첫 줄', false, 'meeting', 'm1'], ['14:00 본부 집행위', '', true, 'meeting', 'm4']]);
+  // Without my list (unknown) nothing is dimmed.
+  assert.deepEqual(m.dayCard(materials, '2026-10-06', {kinds:{status:'unknown'}}).report[0].items.map(i => i.hidden), [false, false, false]);
+  assert.deepEqual(card.others[0].items.map(i => i.text), ['종일 종일', '00:30 새벽', '14:00 오후']);
+  assert.deepEqual(card.tasks.failed, ['tasks']);
+  // 조직 소식 has no '미분류': an update sent nowhere is 어디에도 안 보낸 업데이트, opening the basket update.
+  assert.deepEqual(card.report[2].sections, []);
+  assert.deepEqual(card.others[5].items.map(i => [i.text, i.open]), [['첫 줄 메모', {type:'note', note:'b1'}], ['첨부 2개', {type:'note', note:'b2'}]]);
+  assert.equal(m.othersCount(card.others), '일정 3 · 어디에도 안 보낸 업데이트 2');
+  assert.equal(m.dayCard({}, '2026-10-06').tasks.loading, true);
+  // 조직 소식 waits for its reads, then shows what it could read and names the failed one.
+  assert.equal(m.dayCard({...materials, orgUpdates:{status:'loading'}}, '2026-10-06').report[2].loading, true);
+  assert.deepEqual(m.dayCard({...materials, orgUpdates:{status:'failed'}}, '2026-10-06').report[2].failed, ['orgUpdates']);
+  const noProject = m.dayCard({...materials, projectUpdates:{status:'failed'}}, '2026-10-06');
+  assert.equal(noProject.report[2].failed, undefined); assert.deepEqual(noProject.report[1].failed, ['projectUpdates']);
+  assert.equal(m.dayCard({...materials, documents:{status:'loading'}}, '2026-10-06').others[1].loading, true);
+  // ACTIVITY_SOURCES is the one place 회의·활동 결과 reads from (today: meetings).
+  assert.deepEqual([...m.ACTIVITY_SOURCES], ['meetings']);
+});
+
+test('JOURNAL-하루개편: 할 일 = due that day and not done, 기한 지난 것 apart, 한 일 = finished that day; [내일로] sends the editor update', async () => {
+  const m = await mod;
+  const tasks = [
+    {id:'a', title:'나 오늘', status:'needsAction', due:'2026-10-06T00:00:00.000Z', notes:'메모', taskListId:'L'},
+    {id:'b', title:'가 오늘', status:'needsAction', due:'2026-10-06T00:00:00.000Z'},
+    {id:'c', title:'지난 것', status:'needsAction', due:'2026-10-02T00:00:00.000Z'},
+    {id:'d', title:'내일 것', status:'needsAction', due:'2026-10-07T00:00:00.000Z'},
+    {id:'e', title:'끝낸 것', status:'completed', completed:'2026-10-06T03:00:00Z', due:'2026-10-06T00:00:00.000Z'},
+    {id:'f', title:'기한 없음', status:'needsAction'},
+  ];
+  const part = m.tasksPart(tasks, '2026-10-06');
+  assert.deepEqual(part.todo.map(i => i.text), ['가 오늘', '나 오늘']);
+  assert.deepEqual(part.overdue.map(i => i.text), ['지난 것']);
+  assert.deepEqual(part.done.map(i => [i.text, i.open]), [['끝낸 것', {type:'task', id:'e'}]]);
+  assert.equal(m.tomorrowKey('2026-10-31'), '2026-11-01');
+  const rt = runtime((path, options) => ({ok:true, task:{...tasks[0], ...options.body, id:options.body.task_id, due:`${options.body.due}T00:00:00.000Z`}}));
+  const saved = await m.moveTaskToTomorrow(tasks[0], rt, '2026-10-06');
+  assert.equal(m.dueDay(saved), '2026-10-07');
+  assert.equal(rt.calls[0].path, '/functions/v1/google-tasks?action=update');
+  assert.deepEqual(rt.calls[0].body, {action:'update', task_id:'a', task_list_id:'L', title:'나 오늘', notes:'메모', due:'2026-10-07'});
+  // A reply that is not the moved task is a failure (the card keeps the task where it was).
+  await assert.rejects(m.moveTaskToTomorrow(tasks[0], runtime(() => ({ok:true, task:{id:'a', due:'2026-10-06T00:00:00.000Z'}})), '2026-10-06'), /기한/);
+  await assert.rejects(m.moveTaskToTomorrow(tasks[0], runtime(() => ({ok:false})), '2026-10-06'), /기한/);
+  // Range notes under an empty column.
+  assert.equal(m.dayRangeNote('done', '2026-10-01', {doneDays:3, today:'2026-10-06'}), 'Google 할 일은 최근 3일 안에 끝낸 것만 모여요.');
+  assert.equal(m.dayRangeNote('todo', '2026-10-13', {today:'2026-10-06'}), '할 일은 오늘부터 7일 안 마감만 모여요.');
+  assert.equal(m.dayRangeNote('todo', '2026-10-12', {today:'2026-10-06'}), '');
+});
+
+test('JOURNAL-하루개편 ⑥: each update line knows where its original is shown', async () => {
+  const m = await mod, day = '2026-10-06';
+  const basket = {notes:[{id:'n1', raw_text:'조직으로 보낸 것', occurred_at:'2026-10-06T01:00:00Z'}, {id:'n2', raw_text:'사업으로 보낸 것', occurred_at:'2026-10-06T02:00:00Z'}],
+    links:[{id:'L1', note_id:'n1', status:'confirmed', organization_id:'o1', organization:{name:'가 조직'}}, {id:'L2', note_id:'n2', status:'confirmed', project_id:'p1', project:{name:'가 사업'}}], docs:[]};
+  const orgUpdates = [{id:'u1', organization_id:'o1', organization:{name:'가 조직'}, occurred_at:'2026-10-06T03:00:00Z', raw_text:'조직 화면 기록'}];
+  const projectUpdates = [{id:'pg1', project_id:'p1', project:{name:'가 사업'}, summary:'진행 기록', effective_on:day, created_at:'2026-10-06T04:00:00Z'}];
+  assert.deepEqual(m.orgNewsOn({basket, orgUpdates}, day, {open:true}), [{name:'가 조직', items:['조직으로 보낸 것', '조직 화면 기록'],
+    opens:[{type:'org', org:'o1', record:'link:L1', note:'n1'}, {type:'org', org:'o1', record:'up:u1', note:null}]}]);
+  assert.deepEqual(m.projectNewsOn({basket, projectUpdates}, day, null, {open:true}), [{name:'가 사업', items:['사업으로 보낸 것', '진행 기록'],
+    opens:[{type:'project', project:'p1', record:'link:L2', note:'n2'}, {type:'project', project:'p1', record:'progress:pg1', note:null}]}]);
+  // Without {open:true} the sections are as before ([주간 정리] and the draft).
+  assert.deepEqual(m.orgNewsOn({basket, orgUpdates}, day), [{name:'가 조직', items:['조직으로 보낸 것', '조직 화면 기록']}]);
 });
 
 test('조직 소식: every update of the day (basket, organization record, project record) by organization name, 미분류 last, one item each', async () => {
@@ -488,42 +541,27 @@ const hubMaterials = () => ({
     {id:'d4', title:'다음 날 0시', category:'교육', created_at:'2026-10-06T15:00:00Z'},
   ]},
   sharePages:{status:'ok', items:[{id:'s1', title:'가상 안내 페이지', status:'published', updated_at:'2026-10-06T04:00:00Z'}, {id:'s2', title:'', status:'draft', updated_at:'2026-10-06T05:00:00Z'}]},
+  movedNotes:{status:'ok', items:[]},
 });
 
-test('hub groups: each day shows its own items (Korea-time day edges), categories named, projects by name', async () => {
+test('hub parts on the day card: each day shows its own items (Korea-time day edges), categories named, projects by name', async () => {
   const m = await mod;
-  const day = m.dayMaterials(hubMaterials(), '2026-10-06');
-  const by = Object.fromEntries(day.map(g => [g.key, g]));
-  assert.deepEqual(by.projects.sections, [{name:'가상 사업', items:['사업으로 보낸 메모', '진행 기록']}]);
-  assert.deepEqual(by.orgs.items, []);
-  assert.deepEqual(by.due.items, ['가 예정', '나 예정']);
-  assert.deepEqual(by.tasks.items, ['끝낸 일']);
-  assert.deepEqual(by.docs.items, ['[교섭] 교섭 요구안', '[기타] 회의록.hwp · 회의자료']);
-  assert.deepEqual(by.shares.items, ['가상 안내 페이지 · 게시', '제목 없음 · 초안']);
-  assert.deepEqual(m.dayMaterials(hubMaterials(), '2026-10-05').find(g => g.key === 'docs').items, ['[교육] 전날 23:59']);
-  assert.deepEqual(m.dayMaterials(hubMaterials(), '2026-10-07').find(g => g.key === 'docs').items, ['[교육] 다음 날 0시']);
-  // Each group fails on its own: a failed document read leaves the others as they are.
-  const failed = m.dayMaterials({...hubMaterials(), documents:{status:'failed'}}, '2026-10-06');
+  const card = m.dayCard(hubMaterials(), '2026-10-06'), part = key => [...card.report, ...card.others].find(g => g.key === key);
+  assert.deepEqual(part('business').sections.map(s => ({name:s.name, items:s.items})), [{name:'가상 사업', items:['사업으로 보낸 메모', '진행 기록']}]);
+  assert.deepEqual(part('orgs').items, []);
+  assert.deepEqual(card.tasks.todo.map(i => i.text), ['가 예정', '나 예정']);
+  assert.deepEqual(card.tasks.done.map(i => i.text), ['끝낸 일']);
+  assert.deepEqual(part('docs').items.map(i => i.text), ['[교섭] 교섭 요구안', '[기타] 회의록.hwp · 회의자료']);
+  assert.deepEqual(part('shares').items.map(i => i.text), ['가상 안내 페이지 · 게시', '제목 없음 · 초안']);
+  assert.deepEqual(m.dayCard(hubMaterials(), '2026-10-05').others.find(g => g.key === 'docs').items.map(i => i.text), ['[교육] 전날 23:59']);
+  assert.deepEqual(m.dayCard(hubMaterials(), '2026-10-07').others.find(g => g.key === 'docs').items.map(i => i.text), ['[교육] 다음 날 0시']);
+  // Each part fails on its own: a failed document read leaves the others as they are.
+  const failed = m.dayCard({...hubMaterials(), documents:{status:'failed'}}, '2026-10-06').others;
   assert.deepEqual(failed.find(g => g.key === 'docs').failed, ['documents']);
   assert.deepEqual(failed.find(g => g.key === 'shares').items.length, 2);
-  // A capped week is marked on its group.
+  // A capped week is marked on its part.
   const many = Object.assign([...hubMaterials().documents.items], {capped:true});
-  assert.equal(m.dayMaterials({...hubMaterials(), documents:{status:'ok', items:many}}, '2026-10-06').find(g => g.key === 'docs').capped, true);
-});
-
-test('hub groups: an empty group is folded unless it is loading, failed or has a range note', async () => {
-  const m = await mod;
-  const range = {doneDays:3, today:'2026-10-06'};
-  const fold = (materials, day) => m.dayMaterials(materials, day).filter(g => m.isFolded(g, day, range)).map(g => g.key);
-  assert.deepEqual(fold(hubMaterials(), '2026-10-06'), ['events', 'orgs', 'meetings', 'memos']);
-  assert.deepEqual(fold({...hubMaterials(), meetings:{status:'failed'}, events:{status:'loading'}}, '2026-10-06'), ['orgs', 'memos']);
-  // Before the covered days, 끝낸 할 일 keeps its box with the range note; after the server's range, 할 일 예정 does.
-  const old = m.dayMaterials(hubMaterials(), '2026-10-01').find(g => g.key === 'tasks');
-  assert.equal(m.rangeNote(old, '2026-10-01', range), 'Google 할 일은 최근 3일 안에 끝낸 것만 모여요.');
-  assert.equal(m.isFolded(old, '2026-10-01', range), false);
-  const later = m.dayMaterials(hubMaterials(), '2026-10-13').find(g => g.key === 'due');
-  assert.equal(m.rangeNote(later, '2026-10-13', range), '할 일 예정은 오늘부터 7일 안 마감만 모여요.');
-  assert.equal(m.isFolded(m.dayMaterials(hubMaterials(), '2026-10-12').find(g => g.key === 'due'), '2026-10-12', range), true);
+  assert.equal(m.dayCard({...hubMaterials(), documents:{status:'ok', items:many}}, '2026-10-06').others.find(g => g.key === 'docs').capped, true);
 });
 
 test('weekly draft with the hub groups: form order, project records in 요약, the rest under 참고, range and cap notes', async () => {

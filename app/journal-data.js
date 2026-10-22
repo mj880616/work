@@ -403,54 +403,6 @@ export const pendingOn = (tasks, day) => (tasks || []).filter(task => task?.stat
   .sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'ko'));
 export const documentLine = doc => `[${categoryOf(doc?.category)}] ${String(doc?.title || doc?.file_name || '').trim() || '(제목 없음)'}${doc?.meeting_id ? ' · 회의자료' : ''}`;
 export const sharePageLine = page => `${String(page?.title || '').trim() || '제목 없음'} · ${page?.status === 'published' ? '게시' : '초안'}`;
-export const GROUPS = Object.freeze([
-  ['events', '일정'], ['tasks', '끝낸 할 일'], ['orgs', '조직 소식'], ['meetings', '회의·행사 결과'],
-  ['projects', '프로젝트 소식'], ['due', '할 일 예정'], ['docs', '자료실 새 자료'], ['shares', '공유 페이지'], ['memos', '기타 메모'],
-]);
-// The reads behind each group (journal.js reads each on its own; a group shows what it could read). One Google Tasks read
-// feeds both 끝낸 할 일 and 할 일 예정; the basket read feeds both 조직 소식 and 프로젝트 소식.
-export const GROUP_SOURCES = Object.freeze({events:['events'], tasks:['tasks'], orgs:['basket', 'orgUpdates'], meetings:['meetings'],
-  projects:['basket', 'projectUpdates'], due:['tasks'], docs:['documents'], shares:['sharePages'], memos:['basket']});
-const SECTIONED = new Set(['orgs', 'projects']);
-// The items of one day: {key, label, items:[text]} per group (조직 소식·프로젝트 소식 also have sections:[{name, items}]),
-// loading:true while a read is out, failed:[source keys] for reads that failed (a sectioned group still shows what its other
-// read gave), capped:true when the week had more rows than one read takes (WEEK_READ_CAP).
-export function dayMaterials(materials, day) {
-  return GROUPS.map(([key, label]) => {
-    const sources = GROUP_SOURCES[key], states = sources.map(source => materials?.[source]);
-    if (states.some(state => !state || state.status === 'loading')) return {key, label, loading:true, items:[], sections:[]};
-    const failed = sources.filter((_, i) => states[i].status !== 'ok');
-    const ok = source => materials[source].status === 'ok' ? materials[source].items : null;
-    let items = [], sections = [];
-    if (key === 'events' && !failed.length) items = eventsOn(ok('events'), day).map(event => `${eventTime(event)} ${event.title || '(제목 없음)'}`);
-    if (key === 'tasks' && !failed.length) items = tasksOn(ok('tasks'), day).map(task => task.title || '(제목 없음)');
-    if (key === 'meetings' && !failed.length) items = meetingsOn(ok('meetings'), day).map(meetingLine);
-    if (key === 'due' && !failed.length) items = pendingOn(ok('tasks'), day).map(task => task.title || '(제목 없음)');
-    if (key === 'docs' && !failed.length) items = (ok('documents') || []).filter(doc => onDay(doc?.created_at, day)).map(documentLine);
-    if (key === 'memos' && !failed.length) items = journalMemosOn(ok('basket'), day);
-    if (key === 'shares' && !failed.length) items = (ok('sharePages') || []).filter(page => onDay(page?.updated_at, day)).map(sharePageLine);
-    if (SECTIONED.has(key) && failed.length < sources.length) {
-      const read = {basket:ok('basket'), orgUpdates:ok('orgUpdates'), projectUpdates:ok('projectUpdates')};
-      sections = key === 'orgs' ? orgNewsOn(read, day) : projectNewsOn(read, day, materials?.catalog?.status === 'ok' ? materials.catalog.items : null);
-      items = sections.flatMap(section => section.items);
-    }
-    const cap = sources.some(source => materials[source].status === 'ok' && materials[source].items?.capped);
-    return {key, label, items, sections, ...(failed.length ? {failed} : {}), ...(cap ? {capped:true} : {})};
-  });
-}
-// A group with nothing on the day is folded into one "기록 없는 묶음" line, unless it is loading, failed, or has a range note
-// (끝낸 할 일 before the covered days, 할 일 예정 after the server's range) — those keep their own box.
-export function rangeNote(group, day, {doneDays = DONE_TASK_DAYS, today = todayKey()} = {}) {
-  if (group.items.length || group.loading || group.failed) return '';
-  if (group.key === 'tasks' && day < doneCoverFrom(doneDays, today)) return `Google 할 일은 최근 ${doneDays}일 안에 끝낸 것만 모여요.`;
-  if (group.key === 'due' && day > pendingCoverTo(today)) return `할 일 예정은 오늘부터 ${PENDING_DAYS}일 안 마감만 모여요.`;
-  return '';
-}
-// BASKET-일지로남기기: 기타 메모 is only there when something was kept for it, so on the day card an empty one (also while its
-// read is out or after it failed — 조직 소식 shows those for the same basket read) is left out altogether (no box and not named
-// in "기록 없는 묶음").
-export const QUIET_WHEN_EMPTY = Object.freeze(['memos']);
-export const isFolded = (group, day, range) => !group.items.length && !group.loading && !group.failed && !rangeNote(group, day, range);
 export const shortDay = day => `${formatSeoulTime(day, {month:'long', day:'numeric'})}(${formatSeoulTime(day, {weekday:'short'})})`;
 
 // JOURNAL-하루개편 (2026-10-22 요청함 14:26·12:55): the [하루] card from top to bottom —
