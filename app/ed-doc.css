@@ -1,0 +1,67 @@
+/* ED-통합편집기 ①a: 새 편집기 문서의 모양 하나(읽기 화면 ed-render.mjs와 편집 칸 ed-editor.js가 같은 클래스 ed-*를 씀).
+   Web1 공유 페이지(share/index.html)도 이 파일을 불러온다. 색·크기는 theme-tokens.css 토큰만 쓴다.
+   보이는 모양: 넓은 여백, 큰 제목, 옅은 인용선, 가운데 정렬 사진, 얇은 선 표(설계 2.3). 클래스 이름에 "share"를 쓰지 않는다. */
+.ed-doc{color:var(--kptu-ink);font-size:var(--ds-text-read,15px);line-height:1.7;word-break:keep-all;overflow-wrap:anywhere}
+.ed-doc>:first-child{margin-top:0}
+.ed-doc>:last-child{margin-bottom:0}
+.ed-doc .ed-p{margin:0 0 .55em;white-space:pre-wrap}
+.ed-doc .ed-body1{font-size:17px;line-height:1.7}
+.ed-doc .ed-body2{font-size:var(--ds-text-read,15px)}
+.ed-doc .ed-body3{font-size:13px;color:var(--kptu-muted)}
+.ed-doc .ed-h{margin:1.1em 0 .45em;font-weight:var(--ds-weight-medium,600);line-height:1.35;color:var(--kptu-ink)}
+.ed-doc .ed-h1{font-size:24px}
+.ed-doc .ed-h2{font-size:20px}
+.ed-doc .ed-h3{font-size:17px}
+.ed-doc .ed-center{text-align:center}
+.ed-doc .ed-quote{margin:.4em 0 .8em;padding:2px 0 2px 14px;border-left:3px solid var(--kptu-border-strong);color:var(--kptu-muted)}
+.ed-doc .ed-ul,.ed-doc .ed-ol{margin:0 0 .6em;padding-left:1.5em}
+.ed-doc li>.ed-p{margin:0 0 .15em}
+.ed-doc .ed-hr{height:0;margin:1.2em 0;border:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+.ed-doc .ed-code{margin:.4em 0 .8em;padding:10px 12px;overflow-x:auto;border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface-subtle);font-size:13px;line-height:1.5;white-space:pre}
+.ed-doc .ed-link{color:var(--kptu-link);text-decoration:underline}
+.ed-doc .ed-photo{display:flex;flex-direction:column;align-items:center;gap:4px;margin:.6em auto .9em;padding:18px 12px;max-width:420px;border:1px dashed var(--kptu-border-strong);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface-subtle);color:var(--kptu-muted);text-align:center}
+.ed-doc .ed-photo-mark{font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,600)}
+.ed-doc .ed-photo-cap{font-size:var(--ds-text-meta,12px)}
+.ed-doc .ed-table-wrap,.ed-doc .tableWrapper{margin:.4em 0 .9em;overflow-x:auto}
+.ed-doc table{border-collapse:collapse;min-width:50%}
+.ed-doc th,.ed-doc td{padding:6px 10px;border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));text-align:left;vertical-align:top;min-width:3em}
+.ed-doc th{background:var(--kptu-surface-subtle);font-weight:var(--ds-weight-medium,600)}
+.ed-doc th>.ed-p,.ed-doc td>.ed-p{margin:0}
+
+/* 편집 칸 */
+.ed-editor{display:flex;flex-direction:column;min-width:0}
+.ed-bar{position:sticky;top:0;z-index:2;background:var(--kptu-surface);border-bottom:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+/* 버튼 줄: 폰에서 넘치면 가로로 넘긴다(줄바꿈 없음). 버튼은 보이는 높이 28px, 누르는 범위 44px(UI-버튼기준). */
+.ed-tools,.ed-menu{display:flex;flex-wrap:nowrap;align-items:center;gap:4px;min-height:var(--kptu-touch-target,44px);padding:0 8px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;box-sizing:border-box}
+.ed-menu{border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+.ed-menu[hidden],.ed-suggest[hidden]{display:none}
+.ed-bar button{position:relative;flex:0 0 auto;box-sizing:border-box;height:var(--ds-compact-height-sm,28px);min-height:0;min-width:28px;margin:0;padding:0 8px;border:var(--ds-line-width,1px) solid transparent;border-radius:var(--ds-radius-control,8px);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px);line-height:1;white-space:nowrap;cursor:pointer}
+.ed-bar button::after{content:"";position:absolute;left:0;right:0;top:50%;height:var(--kptu-touch-target,44px);transform:translateY(-50%)}
+.ed-bar button:hover{background:var(--kptu-surface-subtle)}
+.ed-bar button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:1px}
+.ed-bar button[aria-pressed="true"],.ed-bar button[aria-expanded="true"]{background:var(--kptu-primary-soft);border-color:var(--kptu-primary);color:var(--kptu-primary-ink)}
+.ed-bar button:disabled{opacity:.4;cursor:default}
+.ed-bar .ed-style{min-width:72px;border-color:var(--ds-line,var(--kptu-border));justify-content:space-between}
+.ed-tools [data-ed-cmd="strong"]{font-weight:700}
+.ed-tools [data-ed-cmd="em"]{font-style:italic}
+.ed-tools [data-ed-cmd="underline"]{text-decoration:underline}
+.ed-tools [data-ed-cmd="strike"]{text-decoration:line-through}
+/* 묶음 사이 간격(묶음 첫 버튼에 ed-gap) */
+.ed-tools .ed-gap{margin-left:6px}
+.ed-suggest{display:flex;align-items:center;gap:6px;padding:0 8px;min-height:var(--kptu-touch-target,44px);border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.ed-suggest [data-ed-convert]{border-color:var(--kptu-primary);color:var(--kptu-primary-ink)}
+.ed-box{flex:1 1 auto;min-height:0}
+.ed-input{min-height:12em;padding:16px 18px 40vh;outline:none;caret-color:var(--kptu-ink);white-space:pre-wrap}
+.ed-input:focus-visible{outline:none}
+.ed-editor[data-ed-empty] .ed-input[data-placeholder]::before{content:attr(data-placeholder);position:absolute;color:var(--kptu-faint);pointer-events:none}
+.ed-input .ed-photo.ProseMirror-selectednode{outline:2px solid var(--kptu-primary);outline-offset:2px}
+.ed-input .selectedCell{background:var(--kptu-primary-soft)}
+.ProseMirror{position:relative;word-wrap:break-word;white-space:pre-wrap;white-space:break-spaces;-webkit-font-variant-ligatures:none;font-variant-ligatures:none;font-feature-settings:"liga" 0}
+.ProseMirror pre{white-space:pre-wrap}
+.ProseMirror li{position:relative}
+.ProseMirror-hideselection *::selection{background:transparent}
+.ProseMirror-hideselection{caret-color:transparent}
+.ProseMirror [draggable][contenteditable=false]{user-select:text}
+.ProseMirror-selectednode{outline:2px solid var(--kptu-primary)}
+.ProseMirror-gapcursor{display:none}
+@media(min-width:761px){.ed-input{padding:22px 28px 30vh}}
