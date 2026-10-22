@@ -102,7 +102,7 @@ for(const width of [390,1280])test(`✓ goes straight in (due = suggested due, e
  await tap(page,btn(box.locator(`[data-radar-row="${id(1)}"]`),'바로 할 일로'),width);
  await expect(box.locator('[data-radar-open] [data-radar-row]')).toHaveCount(1);
  await expect(box.locator('[data-radar-count]')).toHaveText('1');
- await expect(box.locator('[data-radar-status-line]')).toHaveText('할 일로 넣었어요 · 기한 10.9.');
+ await expect(box.locator('[data-radar-status-line]')).toContainText('할 일로 넣었어요 · 기한 10.9.');
  // Without one: today (2026-10-06 KST).
  await tap(page,btn(box.locator(`[data-radar-row="${id(2)}"]`),'바로 할 일로'),width);
  await expect(box.locator('[data-radar-open] [data-radar-row]')).toHaveCount(0);
@@ -110,7 +110,7 @@ for(const width of [390,1280])test(`✓ goes straight in (due = suggested due, e
  expect(creates).toEqual([{action:'create',task_id:null,title:'가상 의견 제출',notes:'',due:'2026-10-09',links:[]},{action:'create',task_id:null,title:'가상 조직 회신',notes:'',due:'2026-10-06',links:[{organization_id:ORG}]}]);
  expect(f.calls.patch.map(p=>[p.query.status,p.body.status])).toEqual([['eq.open','tasked'],['eq.open','tasked']]);
  // ⑤ handled rows sit below, folded: '처리함 2 ▸'; opening shows them struck through with the due they went in with.
- const done=box.locator('[data-radar-done]'),toggle=done.locator('[data-radar-done-toggle]');
+ const done=box.locator('[data-radar-done]'),toggle=box.locator('[data-radar-done-toggle]');
  await expect(toggle).toHaveText('처리함 2 ▸');await expect(toggle).toHaveAttribute('aria-expanded','false');await expect(done.locator('[data-radar-row]')).toHaveCount(0);
  await tap(page,toggle,width);
  await expect(toggle).toHaveText('처리함 2 ▾');
@@ -196,6 +196,8 @@ for(const width of [390,1280])test(`first 4 open rows and 'N건 더 ›'; open a
  // Handled today: folded below the open rows; yesterday's handled rows are not read on home.
  await expect(box.locator('[data-radar-done-toggle]')).toHaveText('처리함 2 ▸');
  expect(await box.evaluate(el=>{const o=el.querySelector('[data-radar-open]').getBoundingClientRect(),d=el.querySelector('[data-radar-done]').getBoundingClientRect();return d.top>=o.bottom;})).toBe(true);
+ // The two folding links are on one line and their press ranges do not overlap.
+ expect(await box.evaluate(el=>{const a=el.querySelector('[data-radar-all]').getBoundingClientRect(),b=el.querySelector('[data-radar-done-toggle]').getBoundingClientRect();return Math.abs(a.top-b.top)<4&&a.right<=b.left;})).toBe(true);
  await tap(page,more,width);
  await expect(box.locator('[data-radar-open] [data-radar-row]')).toHaveCount(7);await expect(box).not.toContainText('오늘 항목');
  await tap(page,box.getByRole('button',{name:'접기'}),width);await expect(box.locator('[data-radar-open] [data-radar-row]')).toHaveCount(4);

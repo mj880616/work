@@ -182,8 +182,11 @@ export function mountRadar(host, {place}) {
     const hiddenCount = list.length - listed.length;
     const more = all && list.length > HOME_ROWS ? `<button type="button" class="radar-link" data-radar-all aria-expanded="true">접기</button>`
       : hiddenCount > 0 ? `<button type="button" class="radar-link" data-radar-all aria-expanded="false">${hiddenCount}건 더 ›</button>` : '';
-    const doneHtml = done.length ? `<div class="radar-done" data-radar-done><button type="button" class="radar-link" data-radar-done-toggle aria-expanded="${doneOpen}">처리함 ${done.length} ${doneOpen ? '▾' : '▸'}</button>${doneOpen ? `<ul class="radar-list">${done.map(rowHtml).join('')}</ul>` : ''}</div>` : '';
-    const body = quiet ? `<div data-home-body><p class="radar-status" data-radar-status-line role="status" aria-live="polite">${esc(shared.status)}</p></div>` : `<div data-home-body>${empty}${listed.length || promises.length ? `<ul class="radar-list" data-radar-open>${listed.map(rowHtml).join('')}${promises.map(promiseHtml).join('')}</ul>` : ''}${more}${doneHtml}<p class="radar-muted radar-checked" data-radar-checked>${esc(checked)}</p><p class="radar-status" data-radar-status-line role="status" aria-live="polite">${esc(shared.status)}</p></div>`;
+    // 'N건 더 ›' and '처리함 N ▸' share one line so their 44px press ranges never overlap.
+    const doneToggle = done.length ? `<button type="button" class="radar-link" data-radar-done-toggle aria-expanded="${doneOpen}">처리함 ${done.length} ${doneOpen ? '▾' : '▸'}</button>` : '';
+    const foot = more || doneToggle ? `<div class="radar-foot">${more}${doneToggle}</div>` : '';
+    const doneHtml = done.length ? `<div class="radar-done" data-radar-done>${doneOpen ? `<ul class="radar-list">${done.map(rowHtml).join('')}</ul>` : ''}</div>` : '';
+    const body = quiet ? `<div data-home-body><p class="radar-status" data-radar-status-line role="status" aria-live="polite">${esc(shared.status)}</p></div>` : `<div data-home-body>${empty}${listed.length || promises.length ? `<ul class="radar-list" data-radar-open>${listed.map(rowHtml).join('')}${promises.map(promiseHtml).join('')}</ul>` : ''}${foot}${doneHtml}<p class="radar-muted radar-checked" data-radar-checked>${esc(checked)}</p><p class="radar-status" data-radar-status-line role="status" aria-live="polite">${esc(shared.status)}</p></div>`;
     host.setAttribute('aria-labelledby', titleId);
     host.dataset.state = state;
     // The same drawing is not redrawn, so a button is never replaced under a finger or the keyboard focus.

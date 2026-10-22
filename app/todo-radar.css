@@ -27,7 +27,8 @@
 /* 처리한 항목: 흐리게 줄 긋기, '할 일로 넣음 · 10.23' / '무시함'은 줄 없이 남김. */
 #appView :is(#homeView,#journalView) .radar-row:not([data-radar-status="open"]) .radar-summary{ color:var(--kptu-muted); text-decoration:line-through; }
 #appView :is(#homeView,#journalView) .radar-row:not([data-radar-status="open"]){ opacity:.75; }
-#appView :is(#homeView,#journalView) .radar-done{ margin-top:4px; }
+#appView :is(#homeView,#journalView) .radar-foot{ display:flex; align-items:baseline; justify-content:space-between; gap:16px; margin-top:4px; }
+#appView :is(#homeView,#journalView) .radar-foot > [data-radar-done-toggle]{ margin-left:auto; color:var(--kptu-muted); }
 #appView :is(#homeView,#journalView) .radar-done > .radar-list{ margin-top:4px; }
 #appView :is(#homeView,#journalView) .radar-due{ display:flex; flex-wrap:wrap; gap:6px; }
 #appView :is(#homeView,#journalView) .radar-chip{ position:relative; min-height:0; height:var(--ds-compact-height); margin:0; padding:0 var(--ds-compact-pad-x); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-chip-radius); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:var(--ds-compact-text); cursor:pointer; }
