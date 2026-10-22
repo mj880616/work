@@ -11,7 +11,7 @@ export const GROUPS = Object.freeze([
   {key: 'note', label: '노트', icon: 'note', chip: true},
   {key: 'task', label: '할 일', icon: 'task', chip: true},
   {key: 'document', label: '자료실', icon: 'document', chip: true},
-  {key: 'meeting', label: '회의 결과', icon: 'meeting', chip: true},
+  {key: 'meeting', label: '사업 보고', icon: 'meeting', chip: true},
   {key: 'schedule', label: '일정', icon: 'schedule', chip: true},
   // 칩 없이 '전체'에만(결정 1: 업무일지 한 줄. 프로젝트·담당조직도 요청 칩에 없어 같은 규칙).
   {key: 'work', label: '업무일지', icon: 'work', chip: false},

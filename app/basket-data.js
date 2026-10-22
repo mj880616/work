@@ -51,7 +51,7 @@ async function readKind(kind, fields, order, rt) {
   // Read only links whose source is one of these notes, never task links.
   for (let start = 0; start < notes.length; start += PAGE_SIZE) {
     const ids = notes.slice(start, start + PAGE_SIZE).map(n => encodeURIComponent(n.id)).join(',');
-    links.push(...await pages(`/rest/v1/app_record_links?${scope}&note_id=in.(${ids})&select=id,note_id,status,summary,project_id,organization_id,meeting_id,document_id,project:app_spaces(name),organization:app_suborganizations(name),meeting:app_meetings(title,series_name),document:app_documents(title,category)&order=id.asc`, rt));
+    links.push(...await pages(`/rest/v1/app_record_links?${scope}&note_id=in.(${ids})&select=id,note_id,status,summary,project_id,organization_id,meeting_id,document_id,project:app_spaces(name),organization:app_suborganizations(name),meeting:app_meetings!app_record_links_meeting_id_fkey(title,series_name),document:app_documents(title,category)&order=id.asc`, rt));
   }
   return {notes, links};
 }
@@ -303,7 +303,7 @@ async function moveFolderNoteToBasket(note, rt) {
 export function noteState(note, links, docs = []) {
   const confirmed = links.filter(l => l.note_id === note.id && l.status === 'confirmed');
   const destinations = confirmed.map(link => {
-    for (const [key, label] of [['project','프로젝트'], ['organization','담당조직'], ['meeting','회의'], ['document','자료실']]) {
+    for (const [key, label] of [['project','프로젝트'], ['organization','담당조직'], ['meeting','사업 보고'], ['document','자료실']]) {
       if (!link[key + '_id']) continue;
       const name = link[key]?.name || link[key]?.title || link[key]?.series_name;
       return name ? `${label}: ${name}` : '연결 대상 없음';
