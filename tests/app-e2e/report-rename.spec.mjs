@@ -72,6 +72,7 @@ for(const width of [390,1280])test(`basket list opens with the meeting link chip
  });
  await page.evaluate(async()=>{await KPTUViewLoader.load('basket');KPTURouter.go('basket')});
  await expect(page.locator('#basketView')).toBeVisible();
+ await page.locator('#basketView').getByRole('button',{name:/분류 완료/}).first().click();
  const chip=page.locator('#basketView .basket-chip[data-chip-kind="meeting"]').first();
  await expect(chip).toContainText('합성 정기 회의');
  await expect(chip.locator('.a11y-only')).toHaveText('사업 보고: ');
