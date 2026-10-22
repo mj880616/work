@@ -4,7 +4,7 @@
 // - '업무'·'담당조직 홈페이지' 두 묶음, 2열. 창 오른쪽 위 [편집]으로 추가·이름/주소 수정·삭제·끌어서 순서 바꾸기.
 // 저장: 내 프로필 행의 quick_links 칸(app_profiles, migration 20261022163000, 기존 owner RLS로 내 행만 PATCH). 칸이 비어 있으면
 // 아래 초기 링크를 보여 준다. 칸이 아직 없으면(적용 전) 초기 링크를 보여 주고 편집은 '저장 준비 중' 안내만 한다.
-// 기기 저장(localStorage)은 쓰지 않는다 — 목록은 기기마다 같아야 한다.
+// 브라우저 기기 저장소는 쓰지 않는다 — 목록은 기기마다 같아야 한다.
 import {placeAnchored,clearAnchored,followAnchor} from './anchored-popup.js';
 
 export const GROUPS = [['work', '업무'], ['org', '담당조직 홈페이지']];
