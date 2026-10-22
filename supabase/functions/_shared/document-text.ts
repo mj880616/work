@@ -1,9 +1,11 @@
 // LIB-AI자동분류 (docs/design/library-ai-fill.md 3절): 자료 파일의 본문 글자를 읽는 한 곳.
-// document-actions `document-text`가 부르고, 나중에 전체 검색(GLOBAL-SEARCH)도 같은 함수를 그대로 쓴다.
+// document-actions `document-text`가 부르고, 전체 검색 ②(docs/design/global-search.md 8절)도 이 함수가 저장한 글자를 찾는다.
 // - 글 파일(txt·md·csv): 내려받아 UTF-8로 읽는다.
 // - HWPX: 내려받아 zip 안 Contents/section*.xml의 글자만 모은다(외부 라이브러리 없음).
 // - PDF·HWP·DOC·DOCX·RTF·ODT: Drive가 Google 문서로 바꾼 임시 사본을 text/plain으로 내보낸 뒤 사본을 지운다(OpenAI 비용 없음).
 //   Drive가 바꾸지 못하는 형식이면 글자 없음으로 끝난다.
+// - PPT·PPTX·ODP(SEARCH ②): 같은 방법으로 Google 프레젠테이션 임시 사본 → text/plain.
+// - XLS·XLSX·ODS(SEARCH ②): Google 스프레드시트 임시 사본 → text/csv. Drive 내보내기는 첫 시트만 준다(나머지 시트 글자는 없음).
 // - 사진·그 밖의 파일: 읽지 않는다(파일 이름으로만 판단, 사용자 결정 ④).
 // 원본 Drive 파일은 읽기만 한다(이름·위치·내용 변경 없음, ⑦). 실패는 던지지 않고 {text:'', reason}으로 돌려준다.
 
@@ -20,7 +22,13 @@ const DRIVE = "https://www.googleapis.com/drive/v3/files";
 const DOC = "application/vnd.google-apps.document";
 const DRIVE_ID = /^[A-Za-z0-9_-]{1,255}$/;
 
-export type TextKind = "text" | "hwpx" | "convert" | "none";
+export type TextKind = "text" | "hwpx" | "convert" | "slides" | "sheet" | "none";
+// 임시 사본 형식과 내보낼 글 형식. 원본은 그대로 두고 사본만 만들었다 지운다.
+const CONVERT: Record<"convert" | "slides" | "sheet", { target: string; exportMime: string }> = {
+  convert: { target: DOC, exportMime: "text/plain" },
+  slides: { target: "application/vnd.google-apps.presentation", exportMime: "text/plain" },
+  sheet: { target: "application/vnd.google-apps.spreadsheet", exportMime: "text/csv" },
+};
 export type TextResult = { text: string; source: "content" | "none"; reason: string; cut: boolean };
 
 const ext = (name: string) => String(name || "").toLowerCase().match(/\.([a-z0-9]{1,8})$/)?.[1] ?? "";
@@ -28,13 +36,17 @@ const ext = (name: string) => String(name || "").toLowerCase().match(/\.([a-z0-9
 // 파일 이름(확장자)을 먼저 보고, 확장자가 없으면 Drive가 알려 준 형식을 본다.
 export function textKindOf(name: string, mime: string): TextKind {
   const e = ext(name), m = String(mime || "").toLowerCase();
-  if (["txt", "md", "markdown", "csv"].includes(e)) return "text";
+  if (["txt", "md", "markdown", "csv", "tsv", "log"].includes(e)) return "text";
   if (e === "hwpx") return "hwpx";
   if (["pdf", "hwp", "doc", "docx", "rtf", "odt"].includes(e)) return "convert";
+  if (["ppt", "pptx", "odp"].includes(e)) return "slides";
+  if (["xls", "xlsx", "ods"].includes(e)) return "sheet";
   if (e) return "none";
-  if (/^text\/(plain|markdown|csv)$/.test(m)) return "text";
+  if (/^text\/(plain|markdown|csv|tab-separated-values)$/.test(m)) return "text";
   if (m === "application/hwp+zip" || m === "application/vnd.hancom.hwpx") return "hwpx";
   if (m === "application/pdf" || /msword|wordprocessingml|hwp|haansoft|rtf|opendocument\.text/.test(m)) return "convert";
+  if (/ms-powerpoint|presentationml|opendocument\.presentation/.test(m)) return "slides";
+  if (/ms-excel|spreadsheetml|opendocument\.spreadsheet/.test(m)) return "sheet";
   return "none";
 }
 
@@ -136,7 +148,8 @@ export async function hwpxText(bytes: Uint8Array, { maxXmlBytes = HWPX_XML_MAX_B
   return out.join("\n");
 }
 
-async function readBounded(response: Response, max: number): Promise<Uint8Array> {
+// keep: 상한을 넘으면 실패 대신 앞부분만 쓴다(내보낸 글은 어차피 앞 DOCUMENT_TEXT_CHARS자만 저장한다).
+async function readBounded(response: Response, max: number, { keep = false } = {}): Promise<Uint8Array> {
   if (!response.body) throw new Error("EMPTY_BODY");
   const reader = response.body.getReader(), parts: Uint8Array[] = [];
   let size = 0;
@@ -144,8 +157,13 @@ async function readBounded(response: Response, max: number): Promise<Uint8Array>
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
+      if (size + value.byteLength > max) {
+        if (!keep) throw new Error("TOO_LARGE");
+        parts.push(value.subarray(0, max - size));
+        size = max;
+        break;
+      }
       size += value.byteLength;
-      if (size > max) throw new Error("TOO_LARGE");
       parts.push(value);
     }
   } finally {
@@ -172,22 +190,24 @@ export function createDocumentText(deps: Deps) {
     return await readBounded(r, max);
   }
 
-  // Drive가 Google 문서로 바꾼 임시 사본을 글로 내보낸다. 사본은 성공·실패와 관계없이 지운다(원본은 그대로).
-  async function convert(fileId: string, token: string): Promise<string> {
+  // Drive가 Google 문서(프레젠테이션·스프레드시트)로 바꾼 임시 사본을 글로 내보낸다. 사본은 성공·실패와 관계없이 지운다(원본은 그대로).
+  async function convert(fileId: string, token: string, kind: "convert" | "slides" | "sheet" = "convert"): Promise<string> {
+    const { target, exportMime } = CONVERT[kind];
     const r = await request(`${DRIVE}/${encodeURIComponent(fileId)}/copy?fields=id,mimeType`, token, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: TEMP_NAME, mimeType: DOC, appProperties: { web2_text_tmp: "1" } }),
+      body: JSON.stringify({ name: TEMP_NAME, mimeType: target, appProperties: { web2_text_tmp: "1" } }),
     });
     if (!r.ok) { await r.body?.cancel().catch(() => {}); throw new Error("CONVERT_UNSUPPORTED"); }
     const made = await r.json().catch(() => null) as { id?: unknown; mimeType?: unknown } | null;
     const copy = typeof made?.id === "string" && DRIVE_ID.test(made.id) && made.id !== fileId ? made.id : null;
     if (!copy) throw new Error("CONVERT_UNKNOWN");
     try {
-      if (made?.mimeType !== DOC) throw new Error("CONVERT_UNSUPPORTED");
-      const e = await request(`${DRIVE}/${encodeURIComponent(copy)}/export?mimeType=text%2Fplain`, token);
+      if (made?.mimeType !== target) throw new Error("CONVERT_UNSUPPORTED");
+      const e = await request(`${DRIVE}/${encodeURIComponent(copy)}/export?mimeType=${encodeURIComponent(exportMime)}`, token);
       if (!e.ok) { await e.body?.cancel().catch(() => {}); throw new Error("EXPORT_FAILED"); }
-      return new TextDecoder("utf-8").decode(await readBounded(e, EXPORT_MAX_BYTES));
+      // 큰 문서·표는 앞 1MB만 읽는다(잘린 끝 글자는 저장 상한 밖이라 남지 않는다).
+      return new TextDecoder("utf-8").decode(await readBounded(e, EXPORT_MAX_BYTES, { keep: true }));
     } finally {
       try {
         const d = await request(`${DRIVE}/${encodeURIComponent(copy)}`, token, { method: "DELETE" });
@@ -212,7 +232,7 @@ export function createDocumentText(deps: Deps) {
       const token = await deps.driveToken();
       if (kind === "text") raw = new TextDecoder("utf-8").decode(await download(file.fileId, token, max));
       else if (kind === "hwpx") raw = await hwpxText(await download(file.fileId, token, max));
-      else raw = await convert(file.fileId, token);
+      else raw = await convert(file.fileId, token, kind);
     } catch (e) {
       const code = e instanceof Error ? e.message : "";
       return none(code === "CONVERT_UNSUPPORTED" ? "unsupported" : code === "TOO_LARGE" || code === "HWPX_TOO_LARGE" ? "too_large" : "read_failed");

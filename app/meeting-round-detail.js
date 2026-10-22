@@ -5,6 +5,7 @@ import {bindDateTimeFields} from './time-input.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {selectedResultText,sendMeetingToBasket} from './meeting-basket-send.js';
 import {dueText,fileLine,bindDue,paintDue,bindDropTarget} from './meeting-compact.js';
+import {readTextLater} from './document-text-read.js'; // SEARCH ②: 올린 회의자료 파일 안 글자를 서버가 한 번 읽어 둠
 import {reportKindOf,reportKindLabel} from './report-kinds.mjs';
 import {pickReportKind,saveReportKind} from './report-kind-sheet.js';
 let mrdUploadEntries=[],mrdUploading=false;
@@ -230,7 +231,7 @@ async function mrdUploadSelected(){
     // 올리는 동안 더 고른 파일도 같은 차례로 이어서 올린다(한 번에 하나씩).
     while(stillCurrent()&&(entry=mrdUploadEntries.find(e=>e.kind==='pending'))){
       const f=entry.file;entry.kind='uploading';entry.label='';mrdRenderSelectedFiles();
-      let fd=null;try{fd=new FormData();fd.append('meeting_id',id);fd.append('file',await window.KPTURuntime.copyUploadFile(f));if(!stillCurrent())break;await mrdApi('/functions/v1/meeting-files',{method:'POST',body:fd});uploaded++;entry.kind='success';entry.label=''}catch(err){failed++;const readFailed=err?.code==='file_read_failed';if(readFailed)readFailureMessage=err.message;entry.kind='error';entry.label=readFailed?err.message:'실패';console.warn('meeting material upload failed',f.name,err)}finally{fd?.delete('file');fd=null}
+      let fd=null;try{fd=new FormData();fd.append('meeting_id',id);fd.append('file',await window.KPTURuntime.copyUploadFile(f));if(!stillCurrent())break;readTextLater((await mrdApi('/functions/v1/meeting-files',{method:'POST',body:fd}))?.document);uploaded++;entry.kind='success';entry.label=''}catch(err){failed++;const readFailed=err?.code==='file_read_failed';if(readFailed)readFailureMessage=err.message;entry.kind='error';entry.label=readFailed?err.message:'실패';console.warn('meeting material upload failed',f.name,err)}finally{fd?.delete('file');fd=null}
       if(stillCurrent())mrdRenderSelectedFiles();
     }
     window.dispatchEvent(new CustomEvent('kptu:documents-changed'));

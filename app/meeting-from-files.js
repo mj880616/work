@@ -10,6 +10,7 @@ import {parseKey,roleOf,splitPasted,firstLineKey,mergeKey,matchKind,kindCandidat
 import {readFileText,createHwpReader,kindOf} from './meeting-file-text.js';
 import {fileLine,bindDropTarget} from './meeting-compact.js';
 import {seoulDateKey,toMeetingISO} from './meeting-time.js';
+import {readTextLater} from './document-text-read.js'; // SEARCH ②: 올린 파일 안 글자를 서버가 한 번 읽어 둠
 
 (()=>{
 'use strict';
@@ -253,7 +254,7 @@ async function saveGroup(g,scope){
     let form=null;
     try{
       form=new FormData();form.append('meeting_id',meetingId);form.append('file',await rt().copyUploadFile(item.file));
-      await api('/functions/v1/meeting-files',{method:'POST',body:form});
+      readTextLater((await api('/functions/v1/meeting-files',{method:'POST',body:form}))?.document);
       item.uploaded=true;item.error='';
     }catch(err){failed++;message=err?.message||'파일 올리기 실패';item.error=message;console.warn('meeting file upload failed',item.file.name,err)}
     finally{form?.delete('file');form=null}
