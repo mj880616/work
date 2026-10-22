@@ -31,6 +31,13 @@ test('share page doc block approval files pass risk checks and dry-run transform
   assert.match(code, /@\.key != "type" && @\.key != "doc"/);
   // The prerequisite pins the original 6-kind CHECK text and the one owner policy.
   assert.match(code, /@ == "links"\) \|\| @ == "updates"\)''::jsonpath/);
+  // The migration guard runs in the write request as the table owner, so information_schema sees the CHECK there
+  // (and the strict grammar allows only text helpers in DO). The precheck runs as a read-only, non-owner role where
+  // information_schema hides the row (2026-10-22 apply precheck stopped on this): it reads pg_constraint instead.
+  const precheck = readFileSync(`docs/${version}_${name}.precheck.sql`, 'utf8').replace(/--.*$/gm, '');
+  assert.doesNotMatch(precheck, /information_schema/);
+  assert.match(precheck, /regexp_replace\(pg_get_constraintdef\(oid\),'\\s\+',' ','g'\)\)=btrim\(regexp_replace\('CHECK \(\(\(jsonb_typeof/);
+  assert.match(precheck, /@ == "links"\) \|\| @ == "updates"\)''::jsonpath/);
   assert.equal((code.match(/count\(\*\) from pg_policy where polrelid = 'public\.app_share_pages'::regclass\) <> 1/g) || []).length, 2);
   const rollback = readFileSync(`docs/${version}_${name}.rollback.sql`, 'utf8').replace(/--.*$/gm, '');
   assert.match(rollback, /blocks @> '\[\{"type":"doc"\}\]'::jsonb\) then\s+raise exception/);
