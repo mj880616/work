@@ -343,6 +343,9 @@ function renderFull() {
     host.querySelector('.sp-hint')?.remove();
     docEditor = ed;
     const focus = page.focusOnOpen; page.focusOnOpen = null;
+    // Only when nothing else took the focus while the editor was loading (e.g. the 링크 window opened first).
+    const free = !document.activeElement || document.activeElement === document.body;
+    if (!free) return;
     if (focus === 'title') title.focus(); else if (focus === 'doc') ed.focus();
   }).catch(() => {
     if (mount !== docMount || !host.isConnected) return;
