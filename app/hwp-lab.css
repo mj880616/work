@@ -22,5 +22,5 @@
 @media(min-width:1024px){
   .hwp-lab .hwp-lab-head h2{flex:0 1 auto;margin-right:auto}
   .hwp-lab .hwp-lab-note{margin-bottom:4px}
-  .hwp-lab .hwp-lab-editor{height:max(560px,calc(100dvh - 200px))}
+  .hwp-lab .hwp-lab-editor{height:max(560px,calc(100dvh - 200px - var(--kptu-topline-space,0px)))}
 }

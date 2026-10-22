@@ -102,13 +102,15 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
   }
   expect(await page.locator('#'+name+'View').evaluate(el=>({overflow:el.scrollWidth>el.clientWidth,clipped:[...el.querySelectorAll('button.primary,button.secondary,.w1p-filter')].filter(b=>b.checkVisibility()&&!(innerWidth<=760&&['newEventBtn','newTaskBtn','newProjectBtn','newDocumentBtn','newMeetingBtn'].includes(b.id))&&b.scrollWidth>b.clientWidth+1).map(b=>b.id||b.className)}))).toEqual({overflow:false,clipped:[]});
  }
- for(const [name,selectors]of Object.entries({calendar:['#prevMonthBtn','#nextMonthBtn'],library:['#newDocumentBtn'],menu:['.app-nav [data-view="projects"]','.app-nav [data-account-open]']})){
+ for(const [name,selectors]of Object.entries({calendar:['#prevMonthBtn','#nextMonthBtn'],library:['#newDocumentBtn'],menu:['.app-nav [data-view="projects"]','#appView [data-account-open]']})){
   if(name!=='menu')for(const p of [page,original])await view(p,name);
   if(name==='library'){if(width<=760)await phoneFab(page,'#newDocumentBtn');else if(width>=1024)await pcAdd(page,'#newDocumentBtn');else await dsStandard(page,'#newDocumentBtn');continue}
   if(name==='calendar'){for(const selector of selectors){const s=await size(page.locator(selector));expect(s,selector).toMatchObject({height:46,font:'24px',paddingLeft:'0px',paddingRight:'0px',color:await muted(page),background:'rgba(0, 0, 0, 0)'})}continue}
   if(name==='menu'&&width<=760){await expect(page.locator('.mobile-tabs [data-mobile-schedule-tab]')).toHaveCSS('font-size','12px');await expect(page.locator('#mobileMenuTab')).toHaveCSS('min-height','44px');}else for(const selector of selectors){const before=await size(original.locator(selector).first());
    // 8-9e-3: PC 메뉴·[계정 ▾]는 13px·보통 굵기(400), 크기·색은 그대로.
-   expect(await size(page.locator(selector).first()),selector).toEqual({...before,font:'13px',weight:'400'});}
+   // UI-상단줄: the PC [계정 ▾] moved to the top line as a small button (32px visible, UI-버튼기준); its letters stay the menu's.
+   if(selector.includes('account-open'))expect(await size(page.locator(selector).first()),selector).toEqual({...before,height:32,paddingLeft:'8px',paddingRight:'8px',font:'13px',weight:'400'});
+   else expect(await size(page.locator(selector).first()),selector).toEqual({...before,font:'13px',weight:'400'});}
  }
  await original.close();
 });
