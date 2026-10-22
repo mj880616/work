@@ -13,6 +13,14 @@ const STORE_PREFIX='kptu-split-ratio:';
 const DEFAULT_RATIO=1/3,STEP=0.02;
 const storeKey=name=>STORE_PREFIX+name;
 const mounted=new WeakMap();
+// Screens asked to mount while not in the two-column layout; retried when the window reaches PC width.
+const pending=new Map();let pcQuery=null;
+function waitForPc(o){
+  pending.set(o.container,o);
+  if(pcQuery||!window.matchMedia)return;
+  pcQuery=window.matchMedia('(min-width:1024px)');
+  pcQuery.addEventListener?.('change',()=>{if(!pcQuery.matches)return;requestAnimationFrame(()=>{for(const [c,cfg] of [...pending]){if(!c.isConnected){pending.delete(c);continue}mountSplitResize(cfg)}})});
+}
 let sheet=false;
 
 function readRatio(name){try{const v=Number(localStorage.getItem(storeKey(name)));return v>0&&v<1?v:null}catch{return null}}
@@ -49,6 +57,10 @@ export function mountSplitResize(o){
   const {container}=o;if(!container)return null;
   const known=mounted.get(container);
   if(known&&known.handle.isConnected&&known.handle.parentElement===container){known.update();return known.api}
+  // Nothing is added to the page until the two-column layout is shown (phones and middle widths stay untouched); a later
+  // widening to PC width mounts it then.
+  if(!o.active?.()){waitForPc(o);return null}
+  pending.delete(container);
   ensureStyle();
   const listVar=o.listVar||'--ds-split-list',detailVar=o.detailVar||'--ds-split-detail';
   const handle=document.createElement('div');
