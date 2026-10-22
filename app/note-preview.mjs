@@ -69,11 +69,12 @@ export function previewText(raw, max = 0) {
   return max > 0 && chars.length > max ? chars.slice(0, max).join('') + '…' : chars.join('');
 }
 
-// The written text a [더보기] opens as headings and tables: only when it carries marks the preview line removed (else '').
+// The written text a [더보기] opens as headings, tables and line breaks: only when it carries marks or line breaks the preview line
+// flattened (else '').
 export const MD_RAW_MAX = 20000;
 export function markdownSource(raw) {
   const text = String(raw ?? '');
-  return text.length <= MD_RAW_MAX && previewText(text) !== text.replace(/\s+/g, ' ').trim() ? text : '';
+  return text.length <= MD_RAW_MAX && (previewText(text) !== text.replace(/\s+/g, ' ').trim() || /\n/.test(text.trim())) ? text : '';
 }
 
 const same = (a, b) => String(a).replace(/\s+/g, ' ').trim().toLowerCase() === String(b).replace(/\s+/g, ' ').trim().toLowerCase();

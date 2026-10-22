@@ -21,8 +21,9 @@ test('fenced code keeps its words; the cut adds … only when longer; empty stay
   assert.equal(previewText(null), '');
   assert.deepEqual(plainLines('|---|---|'), []);
 });
-test('markdownSource is returned only when the line removed marks', () => {
-  assert.equal(markdownSource('그냥 글\n두 줄'), '');
+test('markdownSource is returned only when the line removed marks or line breaks', () => {
+  assert.equal(markdownSource('그냥 한 줄'), '');
+  assert.equal(markdownSource('그냥 글\n두 줄'), '그냥 글\n두 줄');
   assert.equal(markdownSource('### 제목\n본문'), '### 제목\n본문');
   assert.equal(markdownSource('가'.repeat(30000) + '**x**'), '');
 });
