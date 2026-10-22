@@ -222,11 +222,11 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   const gridSize = document.createElement('span'); gridSize.className = 'ed-grid-size'; gridSize.textContent = '2 × 2';
   panels.grid.append(grid, gridSize);
   // [링크]: one address box.
+  // Its address box is put in only while the row is open (no hidden input sits in the page otherwise).
   panels.link = panel('ed-link-menu', '링크');
   const linkInput = Object.assign(document.createElement('input'), {type: 'url', className: 'ed-link-input', placeholder: 'https://…', autocomplete: 'off'});
   linkInput.setAttribute('aria-label', '링크 주소'); linkInput.spellcheck = false;
   const linkOk = btn('넣기', {edLinkOk: ''}, '링크 넣기 확인'), linkOff = btn('링크 빼기', {edLinkOff: ''});
-  panels.link.append(linkInput, linkOk, linkOff);
   const tableRow = panel('ed-table-tools', '표 고치기');
   for (const [key, text, aria] of TABLE_TOOLS) tableRow.append(btn(text, {edTable: key}, aria));
   const suggest = document.createElement('div');
@@ -839,7 +839,9 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       triggerOf(key)?.setAttribute('aria-expanded', String(on));
     }
     openName = name || null;
+    if (name !== 'link' && panels.link.firstChild) panels.link.replaceChildren();
     if (name === 'link') {
+      if (!panels.link.firstChild) panels.link.append(linkInput, linkOk, linkOff);
       const mark = linkAt(view.state);
       linkInput.value = mark ? mark.attrs.href : '';
       linkOff.hidden = !mark;

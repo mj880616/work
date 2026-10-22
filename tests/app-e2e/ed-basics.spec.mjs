@@ -27,6 +27,8 @@ const para = (text, attrs = {style: 'body2'}) => ({type: 'paragraph', attrs, ...
 const ed1 = (...nodes) => ({v: 'ed1', doc: {type: 'doc', content: nodes}});
 const table = (rows, cols, cellAttrs = () => ({})) => ({type: 'table', content: Array.from({length: rows}, (_, r) => ({type: 'table_row',
   content: Array.from({length: cols}, (_, c) => ({type: r ? 'table_cell' : 'table_header', attrs: cellAttrs(r, c), content: [para(`${r}${c}`)]}))}))});
+// The editor reads the browser's cursor a moment after a click or a Shift/End key (selectionchange): wait until it has.
+const stateSel = page => page.evaluate(() => { const s = window.ed.view.state.selection; return {from: s.from, to: s.to, empty: s.empty, cell: s.$from.node(Math.max(0, s.$from.depth - 1)).type.name, size: window.ed.view.state.doc.content.size}; });
 // Ctrl+End moves the browser's cursor; the editor reads it a moment later (selectionchange). Wait for that.
 const toEnd = async page => {
   await page.keyboard.press('Control+End');
@@ -80,6 +82,7 @@ test.describe('PC 1280', () => {
     const box = await open(page);
     await page.keyboard.type('빨간 글');
     await page.keyboard.press('Shift+Home');
+    await expect.poll(async () => (await stateSel(page)).empty).toBe(false);
     await tool(page, '글자색 고르기').click();
     await menu(page, '글자색').getByRole('button', {name: '글자색 빨강'}).click();
     await expect(box.locator('span.ed-c-red')).toHaveText('빨간 글');
@@ -104,6 +107,7 @@ test.describe('PC 1280', () => {
     const box = await open(page);
     await page.keyboard.type('누리집');
     await page.keyboard.press('Shift+Home');
+    await expect.poll(async () => (await stateSel(page)).empty).toBe(false);
     await tool(page, '링크 넣기').click();
     const input = page.getByRole('textbox', {name: '링크 주소'});
     await expect(input).toBeFocused();
@@ -115,6 +119,7 @@ test.describe('PC 1280', () => {
     await expect(box.locator('a')).toHaveAttribute('href', 'https://example.org/a');
     await expect(box).toBeFocused();
     await page.keyboard.press('Shift+Home');
+    await expect.poll(async () => (await stateSel(page)).empty).toBe(false);
     await page.keyboard.press('Control+k');
     await expect(input).toHaveValue('https://example.org/a');
     await menu(page, '링크').getByRole('button', {name: '링크 빼기'}).click();
@@ -136,6 +141,7 @@ test.describe('PC 1280', () => {
     const box = await open(page);
     await page.keyboard.type('가나');
     await page.keyboard.press('Shift+Home');
+    await expect.poll(async () => (await stateSel(page)).empty).toBe(false);
     await page.keyboard.press('Control+b');
     await page.keyboard.press('Control+i');
     await page.keyboard.press('Control+u');
@@ -213,7 +219,7 @@ test.describe('PC 1280', () => {
     expect(c[1]).toEqual(para('표 아래 글'));
     // Before a table at the start: ↑ from the first cell gives a gap cursor, typing makes a line there.
     await box.locator('table th').first().click();
-    await expect.poll(() => page.evaluate(() => window.ed.view.state.selection.$from.parent.type.name)).toBe('paragraph');
+    await expect.poll(async () => (await stateSel(page)).cell).toBe('table_header');
     await page.keyboard.press('ArrowUp');
     await expect.poll(() => page.evaluate(() => window.ed.view.state.selection.toJSON().type)).toBe('gapcursor');
     await page.keyboard.type('표 위 글');
@@ -243,6 +249,8 @@ test.describe('PC 1280', () => {
     const box = await open(page, ed1(table(2, 2)));
     await box.locator('table td').last().click();
     await page.keyboard.press('End');
+    // In the last cell, at the end of its letters ("11").
+    await expect.poll(() => page.evaluate(() => { const s = window.ed.view.state.selection; return s.$from.parent.textContent === '11' && s.$from.parentOffset === 2 && s.$from.node(s.$from.depth - 1).type.name === 'table_cell'; })).toBe(true);
     await page.keyboard.press('Tab');
     await expect(box.locator('table tr')).toHaveCount(3);
     await page.keyboard.type('새 줄');
