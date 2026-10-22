@@ -1,7 +1,7 @@
 -- SELECT only. Works after apply (record + column + CHECK) and after rollback/dry-run (none of them).
 -- The hash/count items must equal the precheck values of the same name (no grant, policy, trigger or index change; no row added or removed).
 with history as (
-  select count(*) as n,count(*) filter(where name='profile_quick_links') as named from supabase_migrations.schema_migrations where version='20261022150000'
+  select count(*) as n,count(*) filter(where name='profile_quick_links') as named from supabase_migrations.schema_migrations where version='20261022163000'
 ), cols as (
   select count(*) as n from pg_attribute where attrelid=to_regclass('public.app_profiles') and attname='quick_links' and not attisdropped
 ), checks as (

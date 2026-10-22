@@ -18,7 +18,7 @@ const source = stripTypeScriptTypes(
     "utf8",
   ),
   { mode: "strip" },
-).replace(/^import .*basket-file-origin\.ts.*;\s*$/m, "").replace(/^import .*bounded-json\.mjs.*;\s*$/m, "").replace(/^import .*hwp-edit\.ts.*;\s*$/m, "");
+).replace(/^import .*basket-file-origin\.ts.*;\s*$/m, "").replace(/^import .*bounded-json\.mjs.*;\s*$/m, "").replace(/^import .*hwp-edit\.ts.*;\s*$/m, "").replace(/^import .*document-text\.ts.*;\s*$/m, "");
 export const folder = (id = "basket-1") => ({
   id,
   name: "Web2 바구니",
@@ -179,7 +179,7 @@ export function harness(options = {}) {
       handler = fn;
     },
   };
-  new Function("Deno", "fetch", "console", "inspectBasketOriginal", "readBoundedJson", "createHwpEdit", "HwpEditError", source)(
+  new Function("Deno", "fetch", "console", "inspectBasketOriginal", "readBoundedJson", "createHwpEdit", "HwpEditError", "createDocumentText", source)(
     Deno,
     fetchMock,
     { error() {} },

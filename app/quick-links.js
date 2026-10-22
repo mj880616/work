@@ -2,7 +2,7 @@
 // - 창은 그 줄 오른쪽에서 위쪽으로 열린다(창 아래끝 = 줄 아래끝, 화면 밖으로 나가지 않음; anchored-popup.js beside:'up').
 // - 바깥 누르기·Esc로 닫힌다. 링크는 새 탭(rel="noopener noreferrer").
 // - '업무'·'담당조직 홈페이지' 두 묶음, 2열. 창 오른쪽 위 [편집]으로 추가·이름/주소 수정·삭제·끌어서 순서 바꾸기.
-// 저장: 내 프로필 행의 quick_links 칸(app_profiles, migration 20261022150000, 기존 owner RLS로 내 행만 PATCH). 칸이 비어 있으면
+// 저장: 내 프로필 행의 quick_links 칸(app_profiles, migration 20261022163000, 기존 owner RLS로 내 행만 PATCH). 칸이 비어 있으면
 // 아래 초기 링크를 보여 준다. 칸이 아직 없으면(적용 전) 초기 링크를 보여 주고 편집은 '저장 준비 중' 안내만 한다.
 // 기기 저장(localStorage)은 쓰지 않는다 — 목록은 기기마다 같아야 한다.
 import {placeAnchored,clearAnchored,followAnchor} from './anchored-popup.js';

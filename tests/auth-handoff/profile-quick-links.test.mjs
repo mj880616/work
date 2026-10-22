@@ -12,7 +12,7 @@ import pg from 'pg';
 import {fixture,OWNER,STRANGER,WS_A} from './basket4-fixture.mjs';
 import {prepareMigration} from '../../scripts/ops/db-migration-plan.mjs';
 import {runMigrationPlan} from '../../scripts/ops/db-migration-run.mjs';
-const version='20261022150000',name='profile_quick_links',stem=version+'_'+name;
+const version='20261022163000',name='profile_quick_links',stem=version+'_'+name;
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 const root=new URL('../../',import.meta.url).pathname;
 const OUTSIDER='20000000-0000-4000-8000-000000000003';

@@ -5,7 +5,7 @@ import { prepareMigration, toDryRun } from '../../scripts/ops/db-migration-plan.
 
 // UI-자주가는링크: one jsonb column + CHECK on app_profiles (the sidebar "자주 가는 링크" list).
 // No table grant, no policy or RLS change, no function. The screen writes its own row under the existing owner RLS.
-const version = '20261022150000';
+const version = '20261022163000';
 const name = 'profile_quick_links';
 test('profile quick links approval files pass risk checks and dry-run transformation', () => {
   for (const mode of ['apply', 'dry-run', 'rollback']) {

@@ -11,7 +11,7 @@
 -- expect: triggers hash = 기록
 -- expect: indexes hash = 기록
 select 'prerequisite recorded' as item,case when (select count(*) from supabase_migrations.schema_migrations where version='20261018112943' and name='doc_categories_profile')=1 then '예' else '아니오' end as value
-union all select 'new migration absent',case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261022150000') then '예' else '아니오' end
+union all select 'new migration absent',case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261022163000') then '예' else '아니오' end
 union all select 'new column count',count(*)::text from pg_attribute where attrelid=to_regclass('public.app_profiles') and attname='quick_links' and not attisdropped
 union all select 'RLS enabled',case when exists(select 1 from pg_class where oid=to_regclass('public.app_profiles') and relrowsecurity) then '예' else '아니오' end
 union all select 'anon or public table privilege',case when has_table_privilege('anon','public.app_profiles','select,insert,update,delete')

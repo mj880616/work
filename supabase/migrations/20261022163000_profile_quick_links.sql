@@ -15,7 +15,7 @@ lock table public.app_profiles in access exclusive mode;
 
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261022150000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261022163000')
      or (select count(*) from supabase_migrations.schema_migrations
          where version = '20261018112943' and name = 'doc_categories_profile') <> 1
      or exists (select 1 from pg_attribute
@@ -76,5 +76,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261022150000', 'profile_quick_links', array['UI-자주가는링크: app_profiles.quick_links jsonb + CHECK (own profile via existing owner RLS, no grants/policies/functions)']);
+values ('20261022163000', 'profile_quick_links', array['UI-자주가는링크: app_profiles.quick_links jsonb + CHECK (own profile via existing owner RLS, no grants/policies/functions)']);
 commit;

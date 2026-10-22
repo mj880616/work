@@ -27,11 +27,17 @@ begin
      or (select count(*) from pg_constraint where connamespace = 'public'::regnamespace and conname = 'app_share_pages_blocks_check') <> 1
      or (select count(*) from pg_constraint where conrelid = 'public.app_share_pages'::regclass and conname = 'app_share_pages_blocks_check' and convalidated) <> 1
      -- 지금 제약 원문(공백만 맞춰 비교). 다르면 누군가 이미 바꾼 것이므로 멈춘다.
+     -- check_clause의 바깥 괄호는 PostgreSQL 판에 따라 다르다(16: 한 겹 더, 17: 한 겹 덜 — 2026-10-22 운영 dry-run이 이 차이로 멈춤).
+     -- 그래서 두 판의 글자만 받는다. 그 밖의 글자 차이는 모두 멈춘다.
      or (select count(*) from information_schema.check_constraints
          where constraint_schema = 'public' and constraint_name = 'app_share_pages_blocks_check'
-           and btrim(regexp_replace(check_clause, '\s+', ' ', 'g')) = btrim(regexp_replace(
+           and btrim(regexp_replace(check_clause, '\s+', ' ', 'g')) in (
+             btrim(regexp_replace(
 '(((jsonb_typeof(blocks) = ''array''::text) AND (jsonb_array_length(blocks) <= 60) AND (octet_length((blocks)::text) <= 262144) AND (jsonb_array_length(jsonb_path_query_array(blocks, ''strict $[*]."type"?(((((@ == "summary" || @ == "stages") || @ == "schedule") || @ == "issues") || @ == "links") || @ == "updates")''::jsonpath, ''{}''::jsonb, true)) = jsonb_array_length(blocks))))',
-           '\s+', ' ', 'g'))) <> 1 then
+               '\s+', ' ', 'g')),
+             btrim(regexp_replace(
+'((jsonb_typeof(blocks) = ''array''::text) AND (jsonb_array_length(blocks) <= 60) AND (octet_length((blocks)::text) <= 262144) AND (jsonb_array_length(jsonb_path_query_array(blocks, ''strict $[*]."type"?(((((@ == "summary" || @ == "stages") || @ == "schedule") || @ == "issues") || @ == "links") || @ == "updates")''::jsonpath, ''{}''::jsonb, true)) = jsonb_array_length(blocks)))',
+               '\s+', ' ', 'g')))) <> 1 then
     raise exception 'SHARE_DOC_BLOCK_PREREQUISITE_CHANGED; stop';
   end if;
 end

@@ -217,3 +217,55 @@ PR마다 `docs/roadmap.md`는 고치지 않고 본문 끝에 "원장 반영" 절
 - 할 일 첨부 파일이 `app_documents` 행인지.
 - #959 읽기 방식, #950 상단 줄 칸 자리 이름.
 - 결과 줄을 눌렀을 때 화면별 "열기" 방법(노트 상세·자료 열기·회의 결과 창·프로젝트 상세·조직 상세·일정 상세 창)은 구현 때 화면별 소유 모듈의 기존 열기 약속을 조사한다.
+
+## 7. S-1 결과 계약 (구현, `20261022150000_search_records`)
+
+S-2(`global-search-data.js`)·S-3 화면은 이 계약만 쓴다. 설계 2.3과 다른 점: 승인형 DB workflow 엄격 규칙이 인자 기본값·`RETURNS TABLE`을 받지 않아 **인자 5개를 모두 보내고(없으면 null) 결과는 jsonb 한 덩어리**다. pg_trgm 색인은 넣지 않았다(아래 "색인").
+
+호출: `POST /rest/v1/rpc/app_search_records` (로그인 토큰, authenticated만)
+
+```json
+{ "p_query": "궤도 교섭", "p_kinds": null, "p_per_kind": 3, "p_offset": 0, "p_kind": null }
+```
+
+| 인자 | 규칙 |
+| --- | --- |
+| `p_query` | 공백으로 나눈 낱말 1~6개, 모두 포함(AND). **낱말마다 2글자 이상**, 낱말 100자 이하, 전체 200자 이하, 제어문자(줄바꿈·탭 포함) 불가. 같은 낱말은 한 번. `\` `%` `_`는 글자 그대로. 영문은 대소문자 무시 |
+| `p_kinds` | null = 전체 8종. 배열이면 아래 종류 이름만(빈 배열·`diary`·`basket` 등은 거절) |
+| `p_per_kind` | 종류마다 돌려줄 줄 수 1~50, null = 3 |
+| `p_kind` | "N건 모두 보기": 한 종류 이름. 이때 `p_kinds`는 null이어야 함 |
+| `p_offset` | `p_kind`가 있을 때만 0~199(그 종류 안에서 건너뛸 줄 수). 없으면 0 또는 null |
+
+종류(`kind`)와 묶음 순서: `update`(바구니 메모) · `note` · `work`(업무일지 한 줄, 결정 1: 칩 없이 "전체"에만) · `document` · `meeting` · `project` · `organization` · `milestone`(프로젝트 주요 일정; 화면의 "일정" 칩은 이것 + Google 일정). **일기는 어떤 인자로도 나오지 않는다**(함수 안 허용 목록). Google 일정·할 일은 이 함수 대상이 아니다(2.2, S-2가 브라우저에서 거름).
+
+응답:
+
+```json
+{ "words": ["궤도", "교섭"],
+  "groups": [
+    { "kind": "update", "total": 12, "capped": false, "offset": 0,
+      "items": [
+        { "kind": "update", "source": "note", "id": "uuid", "title": "첫 줄 80자",
+          "matched_in": "body", "snippet": "…앞뒤 약 40자…",
+          "occurred_at": "2026-10-03T00:00:00+00:00", "day": null, "state": "held",
+          "project_id": "uuid", "project_name": "…", "organization_id": null, "organization_name": null } ] } ] }
+```
+
+| 칸 | 뜻 |
+| --- | --- |
+| `groups` | 요청한 종류마다 1개(0건이어도), 위 순서. `total`은 그 종류 전체 건수(200에서 멈춤, 넘으면 `capped: true` → 화면 "200+") |
+| `items` | 최근 것 먼저(`occurred_at` 내림차순, 같으면 `id`), `offset` 다음부터 `p_per_kind`줄 |
+| `source` | 여는 화면을 고르는 값: `note`(update·note·work) · `document` · `meeting` · `project`(프로젝트 이름) · `progress`(프로젝트 진행 기록, `id`는 진행 기록, `project_id`로 프로젝트 열기) · `organization`(조직 이름·별칭·설명) · `org_update`(조직 업데이트) · `org_timeline`(조직 타임라인) · `milestone` |
+| `title` | 줄 제목. 노트는 제목, 메모·업무일지는 첫 줄(80자), 진행 기록·조직 업데이트는 프로젝트·조직 이름 |
+| `matched_in` | `body`(본문) · `attachment`(사진 글자, 읽기 끝난 것만) · `title`(제목 등 본문 밖에서만 찾음) |
+| `snippet` | `body`·`attachment`일 때 처음 찾은 낱말(입력 순서) 앞뒤 약 40자, 공백 정리. `title`이면 null. 형광 표시는 화면이 `words`로 `textContent`를 나눠 만든다(HTML 삽입 금지) |
+| `occurred_at` | 정렬 기준 시각: 메모·노트 `occurred_at`, 업무일지 날짜, 자료 `document_date`(없으면 올린 때), 회의 `meeting_at`(없으면 만든 때), 프로젝트 `updated_at`, 진행 기록 `effective_on`, 일정 `start_at`, 조직 업데이트 `occurred_at`, 타임라인 날짜(없으면 그해 1월 1일) |
+| `day` | 업무일지 날짜(`YYYY-MM-DD`), 다른 종류는 null |
+| `state` | 결정 5 표시: `held`(보류한 업데이트) · `done`(끝난 프로젝트·진행 기록·끝난 일정) · `cancelled`(취소 일정) · null. 보관(archived) 프로젝트와 그 진행 기록·일정은 나오지 않는다 |
+| `project_*`·`organization_*` | 연결된 곳. 메모는 **확정**(`confirmed`) 연결 중 이름순 첫 프로젝트·첫 조직, 자료는 자기 칸, 회의는 프로젝트만 |
+
+오류(`code 22023`, `message`로 구분): `SEARCH_QUERY_TOO_SHORT`(빈 검색어·2글자 미만 낱말) · `SEARCH_TOO_MANY_WORDS`(7개 이상·100자 넘는 낱말) · `SEARCH_BAD_QUERY`(200자 초과·제어문자) · `SEARCH_BAD_KIND` · `SEARCH_BAD_PAGE`. 화면은 2글자 미만이면 요청하지 않는다. anon·service_role은 `42501`.
+
+찾는 칸: 메모·노트·업무일지 제목·본문·사진 글자(`ocr.state='done'`), 자료 제목·파일 이름·출처·분류·태그·설명(본문 글자 `extracted_text`는 ②-a), 회의 제목·시리즈·결과(`transcript_text`)·옛 `decisions`, 프로젝트 이름(v2 프로젝트만)·진행 기록 상태·요약·다음 할 일, 조직 이름·별칭·설명·업데이트·상세·타임라인 제목·요약, 일정 제목.
+
+색인: 이 함수는 INVOKER라 호출자(authenticated)에게 owner RLS가 걸리고, `ILIKE`는 leakproof가 아니어서 PostgreSQL이 RLS 조건보다 먼저 trigram 색인을 쓰지 못한다(로컬 PostgreSQL 17에서 확인, `tests/auth-handoff/search-records.test.mjs`). 그래서 S-1은 `pg_trgm`·색인을 넣지 않고 순차 훑기로 시작한다(1인 사용 표 크기). 느려지면 별도 단계에서 소유자 조건을 색인에 함께 넣는 방법(예: `workspace_id` 포함 색인 + 함수 안 명시적 workspace 조건)을 검토한다. 확장 설치는 대시보드(Database → Extensions, schema `extensions`)이며 승인형 workflow는 확장 명령을 막는다.
