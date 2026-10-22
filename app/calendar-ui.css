@@ -202,11 +202,11 @@
 .cwv-header{position:relative;height:44px;box-sizing:border-box;border-bottom:1px solid var(--kptu-border);padding-right:44px;display:flex;align-items:center}
 .cwv-date{min-width:0;white-space:nowrap;margin:0;padding:0 6px;font-size:12px;line-height:16px;color:var(--kptu-muted);font-weight:400}
 .cwv-items{position:relative;min-width:0;padding-top:var(--cwv-band-height,0px);pointer-events:none}
-.cwv-timeline{position:relative;height:var(--cwv-timeline-height,1152px);border-top:1px solid var(--kptu-border);
+.cwv-timeline{position:relative;box-sizing:content-box;height:var(--cwv-timeline-height,1152px);border-top:1px solid var(--kptu-border);
   background:linear-gradient(var(--kptu-surface-subtle),var(--kptu-surface-subtle)) 0 0/100% var(--cwv-collapsed-height,0px) no-repeat,
     repeating-linear-gradient(to bottom,color-mix(in srgb,var(--kptu-border) 60%,transparent) 0 1px,transparent 1px var(--cwv-hour)) 0 var(--cwv-collapsed-height,0px)/100% calc(100% - var(--cwv-collapsed-height,0px)) no-repeat}
 .cwv-axis{grid-column:1;grid-row:1;position:relative;padding-top:calc(44px + var(--cwv-band-height,0px));pointer-events:none}
-.cwv-axis-ticks{position:relative;height:var(--cwv-timeline-height,1152px);border-top:1px solid var(--kptu-border)}
+.cwv-axis-ticks{position:relative;box-sizing:content-box;height:var(--cwv-timeline-height,1152px);border-top:1px solid var(--kptu-border)}
 .cwv-tick,.cwv-fold{position:absolute;right:4px;font-size:var(--ds-text-meta);line-height:14px;color:var(--kptu-muted);white-space:nowrap}
 .cwv-tick{transform:translateY(-7px)}
 .cwv-fold{top:0;height:var(--cwv-collapsed-height,0px);display:flex;align-items:center}
