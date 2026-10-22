@@ -211,5 +211,6 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포·삭제, Cloudfl
 - `docs/migration-history.md`: 저장소 migration 파일과 production 기록의 대응표.
 - `docs/web2-env6b-edge-source.md` 5절: production Edge Function 전체 verify_jwt 표.
 - `app/ARCHITECTURE.md`: Web2 앱 진입 경로, 모듈 로딩, 화면 전환 소유권 구조.
+- `docs/design-decisions.md`: Web2 디자인 결정 기록. 새 버튼·UI 크기 기준은 맨 아래 "UI-버튼기준" 절을 먼저 본다.
 - `docs/bokdoong-domain.md`: bokdoong.com 도메인 연결과 호스트·경로 운영 설계.
 - `docs/web2-expand-deploy-verify-contract.md`: Web2 공개 경로 변경의 Expand → Deploy → Verify → Contract 배포 순서.
