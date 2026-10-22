@@ -6,7 +6,7 @@ import { createNote, validateNoteText, createNoteDoc, noteTitleFromText } from '
 import { createUploadBatch, uploadBatch, uploadNoteFiles, mountBasketPicker, fileTitle } from './basket-upload.js';
 import { extractHtmlDocument, htmlFileName, utf8Bytes, HTML_MAX_BYTES, HTML_MARK } from './chatgpt-html.mjs';
 import { dayKey } from './home-read-model.js';
-import { taskFilesAvailable, attachNewTaskFiles, newTaskFilesNotice, MAX_TASK_FILES } from './task-files.js';
+import { taskFilesAvailable, onTaskFilesReady, attachNewTaskFiles, newTaskFilesNotice, MAX_TASK_FILES } from './task-files.js';
 
 export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateProjects=()=>{}, esc, basketOnly=false, taskOnly=false, noteOnly=false, onBig=null, view="home", idPrefix="home", onSaved=()=>{}}) {
   // UI-할일입력: taskOnly is the [할 일] screen's always-visible input. It is the [할 일] mode of this same box with the mode
@@ -122,7 +122,9 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   const resetChoices=()=>{if(saving)return;if(currentPlace())setPlace(null);if(project&&!taskAttempt&&!taskRequest)project='';paint();};
   window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view!==view){uploadGeneration++;dismissForNavigation();resetChoices();}});
   // The clip shows in [할 일] only when the task-file table answers for this owner (checked once; only a yes is kept).
-  const checkTaskFiles=()=>{if(taskFilesOn||noteOnly||basketOnly||mode!=='task')return;const owner=quickScope();void taskFilesAvailable().then(on=>{if(on&&owner===quickScope()&&!taskFilesOn){taskFilesOn=true;paint();}});};
+  // The [할 일] screen's own input does not ask: the task list below it reads the table anyway, and its answer turns the clip on.
+  const checkTaskFiles=()=>{if(taskFilesOn||noteOnly||basketOnly||mode!=='task')return;const owner=quickScope();void taskFilesAvailable({ask:!taskOnly}).then(on=>{if(on&&owner===quickScope()&&!taskFilesOn){taskFilesOn=true;paint();}});};
+  if(!noteOnly&&!basketOnly)onTaskFilesReady(owner=>{if(!taskFilesOn&&owner&&owner===window.KPTURuntime.context.read()?.user?.id)checkTaskFiles();});
   function setMode(next){
     mode=next;status.textContent='';hint.textContent='';
     try{if(!basketOnly&&!taskOnly)window.localStorage.setItem('kptu-home-quick-mode',mode);}catch{}

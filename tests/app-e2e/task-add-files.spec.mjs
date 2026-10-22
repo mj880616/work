@@ -130,6 +130,10 @@ test('upload failure in the 할 일 등록 window: the task stays, the window sa
   await expect(page.locator('#eventModalTitle')).toHaveText('할 일 등록');
   const pick=modal.locator('#eventTaskFiles');
   await expect(pick.locator('[data-gt-pick]')).toBeVisible();
+  // The file row is laid out as the window opens (the answer is already known), so the fields above it do not jump afterwards
+  // (on a phone the window sits on the bottom edge; a late row would push [프로젝트] up under a finger).
+  const projectTop=()=>page.locator('#eventTaskProject').evaluate(el=>Math.round(el.getBoundingClientRect().top));
+  const top=await projectTop();await page.waitForTimeout(300);expect(await projectTop()).toBe(top);
   await pick.locator('[data-gt-pick-input]').setInputFiles([txt('목차.txt'),txt('큰 자료.txt')]);
   await expect(pick.locator('.gt-pick-name')).toHaveText(['목차.txt','큰 자료.txt']);
   expect(await noSideScroll(page)).toBe(true);

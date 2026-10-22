@@ -100,3 +100,22 @@ test('taskFilesAvailable: yes only when the table answers for this owner; a no i
   assert.equal(calls, 2);
   assert.equal(await taskFilesAvailable({ rt: { context: { read: () => null }, session: { read: () => null } } }), false);
 });
+
+// TASK-추가창파일: the task list's own read of the table also answers for the add windows (no second probe request).
+import { taskFilesKnown, onTaskFilesReady } from '../app/task-files.js';
+test('a list read that answers marks the table known for that owner and tells the add windows once', async () => {
+  const heard = [];
+  const stop = onTaskFilesReady(owner => heard.push(owner));
+  let calls = 0;
+  const rt = { context: { read: () => ({ user: { id: 'u-list' } }) }, api: async () => { calls++; return []; } };
+  assert.equal(taskFilesKnown({ rt }), false);
+  assert.equal(await taskFilesAvailable({ rt, ask: false }), false);
+  assert.equal(calls, 0);
+  await readTaskFiles(['t1'], { rt });
+  assert.equal(taskFilesKnown({ rt }), true);
+  assert.equal(await taskFilesAvailable({ rt, ask: false }), true);
+  await readTaskFiles(['t1'], { rt });
+  assert.deepEqual(heard, ['u-list']);
+  assert.equal(calls, 2);
+  stop();
+});
