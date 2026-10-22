@@ -57,7 +57,7 @@ async function copyRow(page, id, width) {
 }
 
 test('preview helpers: plain letters, no repeated title, file-name copy', () => {
-  expect(plainLines('# 제목\n\n- **굵게** 와 `코드`\n> 인용\n---\n```js\nlet a\n```\n| a | b |\n| --- | --- |\n| 1 | 2 |\n[링크](https://x.y) ![그림](a.png)')).toEqual(['제목', '굵게 와 코드', '인용', 'let a', 'a b', '1 2', '링크 그림']);
+  expect(plainLines('# 제목\n\n- **굵게** 와 `코드`\n> 인용\n---\n```js\nlet a\n```\n| a | b |\n| --- | --- |\n| 1 | 2 |\n[링크](https://x.y) ![그림](a.png)')).toEqual(['제목', '굵게 와 코드', '인용', 'let a', 'a · b', '1 · 2', '링크 그림']);
   expect(notePreview({ title: '정리', raw_text: '# 정리\n\n본문 글' })).toEqual({ shown: '정리', preview: '본문 글' });
   expect(notePreview({ title: '', raw_text: '## 첫 줄\n둘째' })).toEqual({ shown: '첫 줄', preview: '둘째' });
   expect(notePreview({ title: '다른 제목', raw_text: '본문 하나' })).toEqual({ shown: '다른 제목', preview: '본문 하나' });
