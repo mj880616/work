@@ -73,7 +73,7 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  await expect(grip).toBeFocused();await expect(grip).toHaveAccessibleName('메뉴 닫기');
  // 큰 칸 3열: 회의·자료실·HWP 편집 / HWP 편집·성명·보도자료·공유 페이지. 성명과 보도자료는 한 칸.
  const tiles=page.locator('#mobileMenu nav button:visible');
- await expect(tiles).toHaveText(['회의','자료실','HWP 편집','성명·보도자료','공유 페이지']);
+ await expect(tiles).toHaveText(['사업 보고','자료실','HWP 편집','성명·보도자료','공유 페이지']);
  const boxes=await tiles.evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {x:Math.round(r.left),y:Math.round(r.top),h:r.height};}));
  expect(new Set(boxes.map(b=>b.y)).size).toBe(2);expect(new Set(boxes.map(b=>b.x)).size).toBe(3);
  for(const b of boxes)expect(b.h).toBeGreaterThanOrEqual(44);
@@ -111,14 +111,14 @@ test('쓰기 메뉴 없음: PC 사이드바·폰 메뉴 창·☰ 메뉴에 [쓰�
  // UI-PC사이드바: 홈은 맨 위 아이콘+"홈" 줄(따로 있던 [홈] 줄은 PC 사이드바에서 숨김), 게시판 → 공유 페이지.
  // UI-PC일정묶음: 할 일·업무일지·일기는 [일정] 아래 하위 메뉴(달력·할 일·업무일지·일기)로.
  await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn:visible')).toHaveText(['달력','할 일','업무일지','일기']);
- await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['바구니','일정','프로젝트','자료실','회의','성명·보도자료','공유 페이지','담당조직','HWP 편집',/^자주 가는 링크/]);
+ await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['바구니','일정','프로젝트','사업 보고','자료실','성명·보도자료','공유 페이지','담당조직','HWP 편집',/^자주 가는 링크/]);
  await openWriteFromEntry(page,1280);await expect(page.locator('#mdEditor')).toBeVisible();
  await page.keyboard.press('Escape');await expect(page.locator('#mdEditor')).toHaveCount(0);
  await page.setViewportSize({width:900,height:900});
  await page.locator('#mobileMenuOpen').click();await expect(page.locator('#mobileMenu [data-menu-write]')).toHaveCount(0);
  await page.setViewportSize({width:390,height:844});
  await page.locator('#mobileMenuTab').click();
- await expect(page.locator('#mobileMenu nav[aria-label="더 보기"] button')).toHaveText(['회의','자료실','HWP 편집','성명·보도자료','공유 페이지']);
+ await expect(page.locator('#mobileMenu nav[aria-label="더 보기"] button')).toHaveText(['사업 보고','자료실','HWP 편집','성명·보도자료','공유 페이지']);
  await expect(page.locator('#mobileMenu [data-menu-write]')).toHaveCount(0);
 });
 
