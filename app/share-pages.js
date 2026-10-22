@@ -343,6 +343,9 @@ function renderFull() {
     host.querySelector('.sp-hint')?.remove();
     docEditor = ed;
     const focus = page.focusOnOpen; page.focusOnOpen = null;
+    // Not when a control on the top line (e.g. the 링크 window) took the focus while the editor was loading.
+    const now = document.activeElement;
+    if (now && editorView.contains(now) && !host.contains(now)) return;
     if (focus === 'title') title.focus(); else if (focus === 'doc') ed.focus();
   }).catch(() => {
     if (mount !== docMount || !host.isConnected) return;

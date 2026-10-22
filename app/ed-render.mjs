@@ -5,7 +5,7 @@
 // description until ② gives share photos their own short-lived address).
 // The Web1 reader imports this file, so it keeps to syntax older Samsung Internet parses: no ?. ?? replaceChildren
 // structuredClone .at( (BUG-공유페이지삼성). Class and id names never contain "share".
-import {cleanDoc, safeHref} from './ed-schema.mjs';
+import {cleanDoc, safeHref, widthsOfRow, tableLayout} from './ed-schema.mjs';
 
 function make(tag, className, text) {
   var node = document.createElement(tag);
@@ -13,8 +13,10 @@ function make(tag, className, text) {
   if (text !== undefined && text !== null) node.textContent = String(text);
   return node;
 }
+// ED-기본기보강: center·right·justify and indent 1–8 (cleanDoc already allowed only these values).
 function withAlign(node, attrs) {
-  if (attrs && attrs.align === 'center') node.classList.add('ed-center');
+  if (attrs && (attrs.align === 'center' || attrs.align === 'right' || attrs.align === 'justify')) node.classList.add('ed-' + attrs.align);
+  if (attrs && attrs.indent > 0) node.classList.add('ed-indent-' + attrs.indent);
   return node;
 }
 var MARK_TAG = {strong:'strong', em:'em', underline:'u', strike:'s'};
@@ -31,7 +33,9 @@ function inline(parent, list) {
         if (!href) continue;
         wrap = make('a', 'ed-link');
         wrap.href = href; wrap.target = '_blank'; wrap.rel = 'noopener noreferrer';
-      } else if (MARK_TAG[mark.type]) wrap = make(MARK_TAG[mark.type]);
+      } else if (mark.type === 'color') wrap = make('span', 'ed-c ed-c-' + mark.attrs.color);
+      else if (mark.type === 'highlight') wrap = make('mark', 'ed-hl ed-hl-' + mark.attrs.color);
+      else if (MARK_TAG[mark.type]) wrap = make(MARK_TAG[mark.type]);
       else continue;
       wrap.appendChild(node);
       node = wrap;
@@ -71,6 +75,17 @@ function block(n) {
     }
     case 'table': {
       var wrap = make('div', 'ed-table-wrap'), table = make('table', 'ed-table'), body = make('tbody');
+      // Column widths dragged in the editor: the same proportions for every reader (ed-schema.mjs tableLayout).
+      var first = (n.content || [])[0], firstCells = [];
+      for (var f = 0; first && f < (first.content || []).length; f++) firstCells.push(first.content[f].attrs || {});
+      var lay = tableLayout(widthsOfRow(firstCells));
+      if (lay) {
+        table.classList.add('ed-fixed');
+        table.style.width = lay.width + 'px';
+        var group = make('colgroup');
+        for (var k = 0; k < lay.cols.length; k++) { var col = make('col'); col.style.width = lay.cols[k]; group.appendChild(col); }
+        table.appendChild(group);
+      }
       for (var r = 0; r < (n.content || []).length; r++) {
         var row = make('tr'), cells = n.content[r].content || [];
         for (var c = 0; c < cells.length; c++) {

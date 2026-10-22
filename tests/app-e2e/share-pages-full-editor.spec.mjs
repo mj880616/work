@@ -90,9 +90,9 @@ for (const width of [1280, 1440, 390]) test('a new page fills the content area a
     expect(h).toBeLessThanOrEqual(32);
   const tools = editor.locator('.ed-tools');
   if (width >= 1280) {
-    // PC: every format button on one row, no sideways scroll bar, no [⋯].
+    // PC: every row button on one row, no sideways scroll bar; [⋯] holds only its own less used buttons (ED-기본기보강).
     expect(await tools.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
-    await expect(tools.locator('.ed-more')).toBeHidden();
+    await expect(editor.locator('.ed-more-menu [data-ed-moved]')).toHaveCount(0);
     await expect(tools.getByRole('button', {name:'다시하기', exact:true})).toBeVisible();
     // The project and 링크 sit on the top line.
     await expect(editor.locator('[data-sp-project]')).toBeVisible();

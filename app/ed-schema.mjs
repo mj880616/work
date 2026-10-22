@@ -2,6 +2,8 @@
 // editor library in it. The editor (ed-editor.js) builds its ProseMirror schema from these names, and the readers
 // (ed-render.mjs: Web2 and the Web1 share page) and the text exports (ed-text.mjs) read the same names.
 // Saved form: {v:'ed1', doc:{type:'doc', content:[…]}}. Format is structure, never markdown marks: a typed "1." stays text.
+// ED-기본기보강 added only optional attributes and marks (align right·justify, indent, cell colwidth, color,
+// highlight), so every document saved before still reads the same and stays 'ed1'; an older reader drops what it does not know.
 // cleanDoc is an allowlist: unknown nodes, marks and attributes are dropped, text is kept, links keep only http(s)·mailto.
 // The Web1 reader imports this file (through ed-render.mjs), so it keeps to syntax older Samsung Internet parses:
 // no ?. ?? replaceChildren structuredClone .at( (BUG-공유페이지삼성).
@@ -11,15 +13,23 @@ export const DOC_VERSION = 'ed1';
 export const TEXT_STYLES = [['h1', '제목 1'], ['h2', '제목 2'], ['h3', '제목 3'], ['body1', '본문 1'], ['body2', '본문 2'], ['body3', '본문 3']];
 export const BODY_STYLES = ['body1', 'body2', 'body3'];
 export const DEFAULT_BODY = 'body2';
-export const ALIGNS = ['left', 'center'];
-export const MARKS = ['strong', 'em', 'underline', 'strike', 'link'];
+// ED-기본기보강: right and justify join left and center (left is saved as no align). indent: 들여쓰기 steps 1–8 (0 = none).
+export const ALIGNS = ['left', 'center', 'right', 'justify'];
+export const MARKS = ['strong', 'em', 'underline', 'strike', 'link', 'color', 'highlight'];
+// 글자색·형광펜: a short fixed list of names (never a raw color), drawn by ed-doc.css from theme tokens so dark mode and the
+// Web1 reader follow the theme. [value, label].
+export const TEXT_COLORS = [['red', '빨강'], ['orange', '주황'], ['green', '초록'], ['blue', '파랑'], ['purple', '보라'], ['gray', '회색']];
+export const HIGHLIGHTS = [['yellow', '노랑'], ['green', '연두'], ['blue', '하늘'], ['pink', '분홍'], ['orange', '살구']];
+const COLOR_NAMES = {red:1, orange:1, green:1, blue:1, purple:1, gray:1};
+const HIGHLIGHT_NAMES = {yellow:1, green:1, blue:1, pink:1, orange:1};
 // Block nodes and what they hold. Inline: text, hard_break.
 export const BLOCK_NODES = ['paragraph', 'heading', 'blockquote', 'bullet_list', 'ordered_list', 'list_item', 'horizontal_rule',
   'code_block', 'image', 'table', 'table_row', 'table_cell', 'table_header'];
 // Photo src is our own id, never an address: drive:<Drive file id> (notes·diary·updates, ③) or share:<photo id> (share pages, ②).
 // Until ② a photo is a place only (src null) with its description.
 export const PHOTO_SRC = /^(drive|share):[A-Za-z0-9_-]{1,200}$/;
-export const LIMITS = {depth:24, nodes:20000, text:200000, alt:200, href:2000, tableCols:20};
+// colWidth: one table column's width in px (dragging a column edge; the table's width is the sum of its columns).
+export const LIMITS = {depth:24, nodes:20000, text:200000, alt:200, href:2000, tableCols:20, indent:8, colWidth:2000};
 
 const LINK_PROTOCOLS = {'http:':1, 'https:':1, 'mailto:':1};
 export function safeHref(value) {
@@ -35,7 +45,7 @@ const isObject = function (v) { return !!v && typeof v === 'object' && !Array.is
 // Control characters other than tab are removed from text (line breaks are hard_break nodes, not characters).
 const cleanString = function (v) { return typeof v === 'string' ? v.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '') : ''; };
 const intIn = function (v, lo, hi, fallback) { return typeof v === 'number' && v % 1 === 0 && v >= lo && v <= hi ? v : fallback; };
-const alignOf = function (v) { return v === 'center' ? 'center' : null; };
+const alignOf = function (v) { return v === 'center' || v === 'right' || v === 'justify' ? v : null; };
 
 function cleanMarks(marks) {
   var out = [], seen = {};
@@ -47,6 +57,10 @@ function cleanMarks(marks) {
       var href = safeHref(m.attrs && m.attrs.href);
       if (!href) continue;
       out.push({type:'link', attrs:{href:href}});
+    } else if (m.type === 'color' || m.type === 'highlight') {
+      var name = m.attrs && m.attrs.color;
+      if (typeof name !== 'string' || !(m.type === 'color' ? COLOR_NAMES : HIGHLIGHT_NAMES).hasOwnProperty(name)) continue;
+      out.push({type:m.type, attrs:{color:name}});
     } else out.push({type:m.type});
     seen[m.type] = 1;
   }
@@ -67,11 +81,13 @@ function attrsOf(type, a) {
   if (type === 'paragraph') {
     var out = {style:BODY_STYLES.indexOf(a.style) >= 0 ? a.style : DEFAULT_BODY};
     var al = alignOf(a.align); if (al) out.align = al;
+    var pi = intIn(a.indent, 0, LIMITS.indent, 0); if (pi) out.indent = pi;
     return out;
   }
   if (type === 'heading') {
     var h = {level:intIn(a.level, 1, 3, 2)};
     var ha = alignOf(a.align); if (ha) h.align = ha;
+    var hi = intIn(a.indent, 0, LIMITS.indent, 0); if (hi) h.indent = hi;
     return h;
   }
   if (type === 'ordered_list') return {order:intIn(a.order, 0, 99999, 1)};
@@ -80,8 +96,25 @@ function attrsOf(type, a) {
     var ia = alignOf(a.align); if (ia) img.align = ia;
     return img;
   }
-  if (type === 'table_cell' || type === 'table_header') return {colspan:intIn(a.colspan, 1, LIMITS.tableCols, 1), rowspan:intIn(a.rowspan, 1, 500, 1)};
+  if (type === 'table_cell' || type === 'table_header') {
+    var cell = {colspan:intIn(a.colspan, 1, LIMITS.tableCols, 1), rowspan:intIn(a.rowspan, 1, 500, 1)};
+    var cw = colWidthOf(a.colwidth, cell.colspan); if (cw) cell.colwidth = cw;
+    return cell;
+  }
   return null;
+}
+
+// A cell's column widths (px, one per spanned column; 0 = not set), or null when none is set or the shape is wrong.
+function colWidthOf(list, colspan) {
+  if (!Array.isArray(list) || list.length !== colspan) return null;
+  var out = [], any = false;
+  for (var i = 0; i < list.length; i++) {
+    var w = intIn(list[i], 0, LIMITS.colWidth, -1);
+    if (w < 0) return null;
+    if (w) any = true;
+    out.push(w);
+  }
+  return any ? out : null;
 }
 
 // Cleans one saved document. Returns {v:'ed1', doc} (always at least one empty paragraph), or null when value is not a
@@ -163,6 +196,35 @@ function cleanNode(n, depth, budget) {
   if (type === 'list_item' && content[0].type !== 'paragraph') content.unshift(emptyParagraph());
   if (content.length) node.content = content;
   return node;
+}
+
+// Table column widths (ED-기본기보강): a column edge dragged in the editor saves px widths on the cells (colwidth, like
+// prosemirror-tables). The editor and every reader lay a table out the same way from them: no width set = the old look
+// (sized by its letters); widths set = fixed layout, the table as wide as the columns' sum but never wider than the text,
+// each column its share of the sum, so a reader on a narrow phone sees the same proportions (not a sideways scroll).
+// widthsOfRow(cells): cells = [{colspan, colwidth}] of the first row → one width per column (0 = not set).
+export function widthsOfRow(cells) {
+  var out = [];
+  for (var i = 0; i < (cells || []).length; i++) {
+    var a = cells[i] || {}, span = intIn(a.colspan, 1, LIMITS.tableCols, 1);
+    for (var j = 0; j < span; j++) out.push(Array.isArray(a.colwidth) ? intIn(a.colwidth[j], 0, LIMITS.colWidth, 0) : 0);
+  }
+  return out;
+}
+// widths → null (no width set: old look) or {width: px of the whole table, cols: ['40.000%', …]}. A column with no width
+// (one added later) takes the average of the others.
+export function tableLayout(widths) {
+  var set = [], i, total = 0;
+  for (i = 0; i < (widths || []).length; i++) if (widths[i] > 0) set.push(widths[i]);
+  if (!set.length) return null;
+  var avg = 0;
+  for (i = 0; i < set.length; i++) avg += set[i];
+  avg = avg / set.length;
+  var full = [];
+  for (i = 0; i < widths.length; i++) { full.push(widths[i] > 0 ? widths[i] : avg); total += full[full.length - 1]; }
+  var cols = [];
+  for (i = 0; i < full.length; i++) cols.push((full[i] / total * 100).toFixed(3) + '%');
+  return {width:Math.round(total), cols:cols};
 }
 
 // Size of the saved form as JSON text (bytes), for the opener's own limits.

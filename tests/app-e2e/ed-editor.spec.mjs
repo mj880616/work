@@ -14,6 +14,25 @@ const open = async (page, doc) => {
 };
 const value = page => page.evaluate(() => window.ed.getValue());
 const tool = (page, name) => page.locator('.ed-tools').getByRole('button', {name, exact: true});
+// ED-기본기보강: less used buttons are under [⋯] (취소선·인용·구분선…); signs open a row to pick from.
+async function press(page, name) {
+  const onRow = tool(page, name);
+  if (await onRow.count() && await onRow.isVisible()) return onRow.click();
+  if ((await page.locator('.ed-more').getAttribute('aria-expanded')) !== 'true') await page.locator('.ed-more').click();
+  await page.getByRole('group', {name: '서식 더보기', exact: true}).getByRole('button', {name, exact: true}).click();
+}
+const pick = async (page, opener, group, sign) => {
+  await tool(page, opener).click();
+  await page.getByRole('group', {name: group, exact: true}).getByRole('button', {name: `${sign} 넣기`, exact: true}).click();
+};
+const nextCircled = async page => {
+  await tool(page, '동그라미 번호 고르기').click();
+  await page.getByRole('group', {name: '동그라미 번호', exact: true}).locator('.is-next').click();
+};
+const insertTable = async (page, rows = 2, cols = 2) => {
+  await tool(page, '표 넣기').click();
+  await page.getByRole('group', {name: '표 크기 고르기', exact: true}).getByRole('button', {name: `${rows}줄 ${cols}칸 표`, exact: true}).click();
+};
 
 test('typing keeps letters: "1. ", "- ", "# " and dates are never turned into format', async ({page}) => {
   const box = await open(page);
@@ -62,8 +81,8 @@ test('bold, italic, underline, strike toggle on the selection and show as presse
   await page.keyboard.type('굵고 기울고');
   await page.keyboard.press('Shift+Home');
   for (const name of ['굵게', '기울임', '밑줄', '취소선']) {
-    await tool(page, name).click();
-    await expect(tool(page, name)).toHaveAttribute('aria-pressed', 'true');
+    await press(page, name);
+    await expect(page.locator('.ed-bar').getByRole('button', {name, exact: true, includeHidden: true})).toHaveAttribute('aria-pressed', 'true');
     await expect(box).toBeFocused();
   }
   const marks = (await value(page)).doc.content[0].content[0].marks.map(m => m.type).sort();
@@ -72,24 +91,24 @@ test('bold, italic, underline, strike toggle on the selection and show as presse
   await expect(tool(page, '굵게')).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('· ※ → put their sign; ① puts the next number after the nearest one', async ({page}) => {
+test('· ※ → put their sign; ① marks the next number after the nearest one', async ({page}) => {
   await open(page);
-  await tool(page, '다음 동그라미 번호 넣기').click();
+  await nextCircled(page);
   await page.keyboard.type('첫째');
   await page.keyboard.press('Enter');
-  await tool(page, '다음 동그라미 번호 넣기').click();
+  await nextCircled(page);
   await page.keyboard.type('둘째 ');
-  await tool(page, '다음 동그라미 번호 넣기').click();
+  await nextCircled(page);
   await page.keyboard.type('셋째');
   await page.keyboard.press('Enter');
-  await tool(page, '가운뎃점 넣기').click();
-  await tool(page, '참고표 넣기').click();
-  await tool(page, '화살표 넣기').click();
+  await pick(page, '점 기호 고르기', '점 기호', '·');
+  await pick(page, '참고 기호 고르기', '참고 기호', '※');
+  await pick(page, '화살표 고르기', '화살표', '→');
   const text = await page.evaluate(() => window.plain());
   expect(text).toBe('① 첫째\n\n② 둘째 ③ 셋째\n\n· ※ →');
 });
 
-test('lists, quote, rule and photo place; undo and redo', async ({page}) => {
+test('lists, quote and rule; undo and redo', async ({page}) => {
   const box = await open(page);
   await page.keyboard.type('항목');
   await tool(page, '글머리 목록').click();
@@ -99,52 +118,50 @@ test('lists, quote, rule and photo place; undo and redo', async ({page}) => {
   await expect(tool(page, '번호 목록')).toHaveAttribute('aria-pressed', 'true');
   await tool(page, '번호 목록').click();
   await expect(box.locator('ol')).toHaveCount(0);
-  await tool(page, '인용').click();
+  await press(page, '인용');
   await expect(box.locator('blockquote')).toHaveCount(1);
-  await tool(page, '구분선').click();
+  await press(page, '구분선');
   await expect(box.locator('hr')).toHaveCount(1);
-  await tool(page, '사진 자리 넣기').click();
-  await expect(box.locator('figure.ed-photo')).toHaveCount(1);
-  await expect(box.locator('img')).toHaveCount(0);
   await tool(page, '되돌리기').click();
-  await expect(box.locator('figure.ed-photo')).toHaveCount(0);
+  await expect(box.locator('hr')).toHaveCount(0);
   await tool(page, '다시하기').click();
-  await expect(box.locator('figure.ed-photo')).toHaveCount(1);
-  const types = JSON.stringify(await value(page));
-  expect(types).toContain('"image"');
-  expect(types).toContain('"src":null');
+  await expect(box.locator('hr')).toHaveCount(1);
+  // [사진] waits for ② (no button); ed-basics.spec.mjs checks drops and pastes.
+  await expect(page.locator('.ed-bar').getByRole('button', {name: /사진/})).toHaveCount(0);
+  expect(JSON.stringify(await value(page))).toContain('"horizontal_rule"');
 });
 
 test('center and left alignment are saved on the paragraph', async ({page}) => {
   await open(page);
   await page.keyboard.type('가운데 글');
-  await tool(page, '가운데 정렬').click();
-  await expect(tool(page, '가운데 정렬')).toHaveAttribute('aria-pressed', 'true');
+  const align = async name => { await tool(page, '정렬 고르기').click(); await page.getByRole('group', {name: '정렬', exact: true}).getByRole('button', {name, exact: true}).click(); };
+  await align('가운데 정렬');
+  await expect(tool(page, '정렬 고르기')).toHaveText('가운데 ▾');
   expect((await value(page)).doc.content[0].attrs).toEqual({style: 'body2', align: 'center'});
-  await tool(page, '왼쪽 정렬').click();
+  await align('왼쪽 정렬');
   expect((await value(page)).doc.content[0].attrs).toEqual({style: 'body2'});
 });
 
-test('table: insert, type in cells, add and remove rows and columns, head row; no merge tool', async ({page}) => {
+test('table: insert, type in cells, add and remove rows and columns, head row', async ({page}) => {
   const box = await open(page);
-  await tool(page, '표 넣기').click();
+  await insertTable(page);
   await expect(box.locator('table tr')).toHaveCount(2);
   const tools = page.locator('.ed-table-tools');
   await expect(tools).toBeVisible();
-  await expect(tools.getByRole('button')).toHaveText(['줄 추가', '칸 추가', '줄 삭제', '칸 삭제', '머리줄', '표 지우기']);
+  await expect(tools.getByRole('button')).toHaveText(['위에 줄', '아래에 줄', '왼쪽에 칸', '오른쪽에 칸', '줄 삭제', '칸 삭제', '칸 합치기', '칸 나누기', '머리줄', '글자에 맞추기', '표 고르기', '표 지우기']);
   await page.keyboard.type('가');
   await page.keyboard.press('Tab');
   await page.keyboard.type('나');
   expect(await page.evaluate(() => window.plain())).toBe('가 | 나\n |');
-  await tools.getByRole('button', {name: '칸 추가'}).click();
+  await tools.getByRole('button', {name: '오른쪽에 칸 넣기'}).click();
   await expect(box.locator('table tr').first().locator('th,td')).toHaveCount(3);
-  await tools.getByRole('button', {name: '줄 추가'}).click();
+  await tools.getByRole('button', {name: '아래에 줄 넣기'}).click();
   await expect(box.locator('table tr')).toHaveCount(3);
   // 줄 삭제 removes the row the cursor is in (the first row here).
-  await tools.getByRole('button', {name: '줄 삭제'}).click();
+  await tools.getByRole('button', {name: '줄 삭제', exact: true}).click();
   await expect(box.locator('table tr')).toHaveCount(2);
   await expect(box.locator('table')).not.toContainText('가');
-  await tools.getByRole('button', {name: '칸 삭제'}).click();
+  await tools.getByRole('button', {name: '칸 삭제', exact: true}).click();
   await expect(box.locator('table tr').first().locator('th,td')).toHaveCount(2);
   // The head row went with the deleted first row: 머리줄 makes the (new) first row the head row, and again turns it off.
   await expect(box.locator('table th')).toHaveCount(0);
@@ -239,9 +256,11 @@ test('phone width: one row of small buttons scrolls sideways, page itself never 
   for (const h of heights) expect(h).toBeLessThanOrEqual(28);
   const tops = await row.locator('button:visible').evaluateAll(list => new Set(list.map(b => Math.round(b.getBoundingClientRect().top))).size);
   expect(tops).toBe(1);
-  // SHARE-전체편집: on a phone the row is swiped sideways, with no scroll bar and no [⋯].
+  // SHARE-전체편집: on a phone the row is swiped sideways, with no scroll bar. ED-기본기보강: [⋯] (less used buttons)
+  // stays at the row's right end; no button is moved under it on a phone.
   expect(await row.evaluate(el => getComputedStyle(el).scrollbarWidth)).toBe('none');
-  await expect(row.locator('.ed-more')).toBeHidden();
+  await expect(row.locator('.ed-more')).toBeVisible();
+  await expect(page.locator('.ed-more-menu [data-ed-moved]')).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({path: 'test-results/ed-editor-390.png'});
 });
@@ -281,9 +300,9 @@ test('narrow PC width: buttons that do not fit go under [⋯], no sideways scrol
   await expect(box).toBeFocused();
   expect((await value(page)).doc.content[0].content).toBeUndefined();
   await expect(menu).toBeHidden();
-  // Wide again: every button back on the row, [⋯] gone.
+  // Wide again: every row button back on the row ([⋯] keeps only its own buttons).
   await page.evaluate(() => { document.querySelector('.ed-editor').parentElement.style.width = ''; });
   await page.setViewportSize({width: 1280, height: 700});
-  await expect(more).toBeHidden();
+  await expect(page.locator('.ed-more-menu [data-ed-moved]')).toHaveCount(0);
   await expect(row.getByRole('button', {name: '되돌리기', exact: true})).toBeVisible();
 });
