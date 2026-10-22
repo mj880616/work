@@ -15,7 +15,7 @@ import {looksLikeMarkdown} from './note-markdown.mjs';
 import {markdownToDoc} from './ed-markdown.mjs';
 import {toPlain} from './ed-text.mjs';
 
-const LIB = './editor-lib/pm-ed1-1.0.0/prosemirror.min.mjs';
+const LIB = './editor-lib/pm-ed1-1.1.0/prosemirror.min.mjs';
 const MARKDOWN_IT = './markdown-lib/markdown-it-15.0.2/markdown-it.esm.min.mjs';
 let pmPromise = null, mdPromise = null;
 export const loadEditorLib = () => (pmPromise ||= import(LIB));
