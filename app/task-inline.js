@@ -1,6 +1,6 @@
 // TASK-바로처리통일 (2026-10-23 사용자 결정 00:06): the one shared part behind every task line that can be handled in place —
 // 업무일지 할 일 / 한 일 (journal.js), 홈 오늘 할 일·회의 후속 (home-read.js), 담당조직·프로젝트 상세의 연결된 할 일 (google-tasks.js
-// mountLinked), 달력 날짜 목록 (calendar-tasks.js). It was JOURNAL-할일바로처리 (#1006) inside journal.js, lifted here unchanged in
+// mountLinked), 달력 날짜 목록 (calendar-tasks.js). It was JOURNAL-할일바로처리 (PR 1006) inside journal.js, lifted here unchanged in
 // behavior so no screen keeps its own copy.
 //   circle  → complete with the task screen's own KPTUGoogleTasks.toggleTask (one request); a 5-second '…을 끝냈어요 [되돌리기]'
 //             (offerUndoNotice) undoes it with the same toggle; a failed save puts the line back and says so in the toast.
