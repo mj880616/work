@@ -5,6 +5,7 @@ import { appOrigin } from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import { expandLibraryTree } from './helpers/library-tree.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -84,7 +85,14 @@ async function boot(page,state,{width=390}={}){
   await page.goto(`${appOrigin}/app/?view=library`);
   await enterLogin(page);await signInWithSession(page,'owner@example.org');
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
+  // LIB-토글트리: 들어올 때 맨 위 단만 보이므로(결정 D13) 줄은 그려졌는지(attached)만 보고, 줄을 보는 시험처럼 [모두 펴기]로 연다.
+  await expect(page.locator('[data-lu-document]').first()).toBeAttached();
+  await expandLibraryTree(page);
   await expect(page.locator('[data-lu-document]').first()).toBeVisible();
+}
+// LIB-토글트리: 한 토글은 20개까지 그리고 나머지는 [N건 더]로 그린다(설계 5절). 모든 줄 수를 셀 때는 [N건 더]를 모두 누른다.
+async function showAllRows(page){
+  for(let more=page.locator('#documentList [data-lu-more]');await more.count();)await more.first().click();
 }
 async function leave(page){
   await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'tidy-test'}));
@@ -93,6 +101,8 @@ async function leave(page){
 async function reopen(page){
   await page.evaluate(()=>window.KPTURouter.go('library',{source:'tidy-test'}));
   await expect(page.locator('#libraryView')).toBeVisible();
+  await expect(page.locator('[data-lu-document]').first()).toBeAttached();
+  await expandLibraryTree(page);
   await expect(page.locator('[data-lu-document]').first()).toBeVisible();
 }
 // No AI marker, progress or notice anywhere on the library (사용자 결정 ③).
@@ -150,6 +160,7 @@ test('the list shows without waiting for AI; leaving the library stops further r
   await boot(page,state);
   await expect.poll(()=>state.aiCalls.length).toBe(1);
   // List is visible and usable while the AI answer is pending.
+  await showAllRows(page);
   await expect(page.locator('[data-lu-document]')).toHaveCount(25);
   await expectQuiet(page);
   await leave(page);
@@ -179,6 +190,7 @@ test('limit reached or server not ready: stops quietly, the library keeps workin
    await leave(page);await reopen(page);
    await page.waitForTimeout(400);
    expect(state.aiCalls.length).toBe(1);
+   await showAllRows(page);
    await expect(page.locator('[data-lu-document]')).toHaveCount(25);}
 });
 

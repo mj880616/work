@@ -1,10 +1,11 @@
 // AI-서버연동 S7-c: [원장] 화면의 원장 목록·검색 칸(#ledgerBrowseRoot). 이 모듈이 그 칸의 유일한 renderer다.
 // 검색은 S7-a 검색 RPC(app_ledger_search, SECURITY INVOKER라 owner RLS 그대로)만 쓴다. 기본은 업무만(L1), 관심 정보는 따로 고른다.
+// 화면(S7-c 정리): 검색칸 하나만 늘 보이고 나머지 조건은 [조건 ▾] 안(처음엔 접힘, 펼침 상태는 저장하지 않음). 걸린 조건은 칩, ✕로 하나씩 해제.
 // 걸러보기: 종류·기간·조직·주제·범위·대체/폐기 포함. 행을 누르면 상세(칸·근거·출처·연결)를 로그인 토큰으로 읽는다(읽기만).
 // 원장 표 또는 검색 RPC가 없으면(404) 칸 전체를 조용히 숨긴다. 다른 칸이 원장을 바꾸면 kptu:ledger-changed로 다시 읽는다.
 import {
-  KIND_LABEL, KINDS, VALIDITY_LABEL, SENSITIVITY_LABEL, DOC_TYPE_LABEL, SCOPE_CHOICES, PAGE, MAX_LIMIT, QUERY_MAX,
-  freshFilters, searchArgs, dateLabel, validResult, detailFields, sourceHref, linkLabel
+  KIND_DISPLAY, KIND_HINT, KINDS, VALIDITY_LABEL, SENSITIVITY_LABEL, DOC_TYPE_LABEL, SCOPE_CHOICES, PAGE, MAX_LIMIT, QUERY_MAX,
+  freshFilters, searchArgs, validResult, detailFields, sourceHref, linkLabel, rowView, activeConditions, clearCondition, countLabel
 } from './ledger-browse-model.mjs';
 
 const rt = window.KPTURuntime;
@@ -19,7 +20,7 @@ let bound = false;
 let seq = 0;
 function fresh() {
   return { phase: 'loading', organizations: [], topics: [], filters: freshFilters(), limit: PAGE, rows: [], busy: false, error: '',
-    openId: null, details: new Map(), detailBusy: '', detailError: '' };
+    openId: null, details: new Map(), detailBusy: '', detailError: '', condOpen: false };
 }
 
 async function search() {
@@ -130,38 +131,46 @@ function render() {
   syncForm(root);
   const box = root.querySelector('#lbResults');
   if (state.phase === 'loading') box.innerHTML = '<p class="lg-note" role="status">원장을 읽는 중…</p>';
-  else if (state.phase === 'error') box.innerHTML = '<p class="lg-error" role="alert">원장을 읽지 못했습니다.</p><button type="button" class="secondary" data-lb-action="reload">다시 읽기</button>';
+  else if (state.phase === 'error') box.innerHTML = '<p class="lg-error" role="alert">원장을 읽지 못했습니다.</p><button type="button" class="lg-tool" data-lb-action="reload">다시 읽기</button>';
   else box.innerHTML = resultsHtml();
-  root.querySelector('#lbStatus').textContent = state.busy ? '찾는 중…' : state.phase === 'ready' ? `${state.rows.length}건${state.rows.length >= state.limit ? ' 이상' : ''}` : '';
+  root.querySelector('#lbStatus').textContent = state.busy ? '찾는 중…' : state.phase === 'ready' ? countLabel(state.rows.length, state.limit) : '';
+  root.querySelector('#lbChips').innerHTML = chipsHtml();
   root.querySelector('#lbError').innerHTML = state.error ? `<p class="lg-error" role="alert">${esc(state.error)}</p>` : '';
 }
 
+const SEARCH_ICON = '<svg class="lb-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 10.5 14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+const isPhone = () => !!window.matchMedia?.('(max-width:760px)').matches;
 function shellHtml() {
-  const kindBoxes = KINDS.map(k => `<label class="lb-chip"><input type="checkbox" name="lbKind" value="${k}"><span>${KIND_LABEL[k]}</span></label>`).join('');
+  const kindBoxes = KINDS.map(k => `<label class="lb-chip" title="${esc(KIND_HINT[k])}" data-hint="${esc(KIND_HINT[k])}"><input type="checkbox" name="lbKind" value="${k}"><span>${KIND_DISPLAY[k]}</span></label>`).join('');
   return `<section class="lg-card lb-card" data-lb-shell aria-labelledby="lbTitle">
-    <h3 id="lbTitle">원장 목록·검색</h3>
     <form id="lbForm" class="lb-form" role="search" novalidate>
-      <div class="lb-row">
-        <label class="lg-field lb-query"><span>찾을 말</span><input id="lbQuery" class="lg-input" type="search" maxlength="${QUERY_MAX}" placeholder="제목·요지·ID·조직·주제·출처" autocomplete="off"></label>
-        <button type="submit" class="primary lb-submit">찾기</button>
+      <div class="lb-bar">
+        <h3 id="lbTitle" class="lb-h">원장</h3>
+        <label class="lb-search"><span class="lg-sr">찾을 말</span>${SEARCH_ICON}<input id="lbQuery" type="search" maxlength="${QUERY_MAX}" placeholder="${isPhone() ? '찾기' : '제목·요지·조직·주제로 찾기 (Enter)'}" autocomplete="off" enterkeyhint="search"></label>
+        <button type="button" class="lb-cond-btn" id="lbCondBtn" data-lb-action="cond" aria-expanded="false" aria-controls="lbCond">조건 <span aria-hidden="true">▾</span></button>
       </div>
-      <fieldset class="lb-kinds"><legend>종류</legend>${kindBoxes}</fieldset>
-      <div class="lb-grid">
-        <label class="lg-field"><span>시작 날짜</span><input id="lbFrom" class="lg-input" type="date"></label>
-        <label class="lg-field"><span>끝 날짜</span><input id="lbTo" class="lg-input" type="date"></label>
-        <label class="lg-field"><span>조직</span><select id="lbOrg" class="lg-select lb-select"></select></label>
-        <label class="lg-field"><span>업무주제</span><select id="lbTopic" class="lg-select lb-select"></select></label>
-        <label class="lg-field"><span>범위</span><select id="lbScope" class="lg-select lb-select">${SCOPE_CHOICES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select></label>
-      </div>
-      <div class="lb-row">
-        <label class="lb-chip"><input id="lbInactive" type="checkbox"><span>대체·폐기 기록도 보기</span></label>
-        <button type="button" class="lg-tool" data-lb-action="clear">조건 지우기</button>
+      <div class="lb-meta-row"><div id="lbChips" class="lb-chips" aria-label="걸린 조건"></div><p id="lbStatus" class="lb-count" role="status" aria-live="polite"></p></div>
+      <div id="lbCond" class="lb-cond" hidden>
+        <fieldset class="lb-kinds"><legend>종류</legend>${kindBoxes}</fieldset>
+        <div class="lb-line2">
+          <span class="lb-f lb-period"><span class="lb-fl">기간</span><input id="lbFrom" class="lb-date" type="date" aria-label="시작 날짜"><span aria-hidden="true">~</span><input id="lbTo" class="lb-date" type="date" aria-label="끝 날짜"></span>
+          <label class="lb-f"><span class="lb-fl">조직</span><select id="lbOrg" class="lg-select lb-select"></select></label>
+          <label class="lb-f"><span class="lb-fl">주제</span><select id="lbTopic" class="lg-select lb-select"></select></label>
+        </div>
+        <div class="lb-line2">
+          <label class="lb-f"><span class="lb-fl">범위</span><select id="lbScope" class="lg-select lb-select">${SCOPE_CHOICES.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select></label>
+          <label class="lb-check"><input id="lbInactive" type="checkbox"><span>지난 기록도 보기</span></label>
+          <button type="button" class="lb-clear" data-lb-action="clear">조건 지우기</button>
+        </div>
       </div>
     </form>
-    <p id="lbStatus" class="lg-note" role="status" aria-live="polite"></p>
     <div id="lbError"></div>
     <div id="lbResults"></div>
   </section>`;
+}
+function chipsHtml() {
+  return activeConditions(state.filters, state).map(c =>
+    `<button type="button" class="lb-tag" data-lb-action="unset" data-lb-key="${esc(c.key)}" aria-label="조건 해제: ${esc(c.label)}">${esc(c.label)} <span aria-hidden="true">✕</span></button>`).join('');
 }
 function syncForm(root) {
   const f = state.filters;
@@ -169,29 +178,30 @@ function syncForm(root) {
   set('#lbQuery', f.q); set('#lbFrom', f.from); set('#lbTo', f.to); set('#lbScope', f.scope);
   root.querySelector('#lbInactive').checked = f.inactive;
   root.querySelectorAll('input[name="lbKind"]').forEach(el => { el.checked = f.kinds.includes(el.value); });
+  const cond = root.querySelector('#lbCond'), btn = root.querySelector('#lbCondBtn');
+  cond.hidden = !state.condOpen; btn.setAttribute('aria-expanded', String(state.condOpen));
   const options = (sel, list, all) => {
     const el = root.querySelector(sel), want = `<option value="">${all}</option>` + list.map(o => `<option value="${esc(o.id)}">${esc(o.name)}${o.ledger_id ? ` (${esc(o.ledger_id)})` : ''}</option>`).join('');
     if (el.dataset.lbOptions !== want) { el.innerHTML = want; el.dataset.lbOptions = want; }
     el.value = sel === '#lbOrg' ? f.organization : f.topic;
   };
-  options('#lbOrg', state.organizations, '모든 조직'); options('#lbTopic', state.topics, '모든 주제');
+  options('#lbOrg', state.organizations, '전체'); options('#lbTopic', state.topics, '전체');
 }
 function resultsHtml() {
   if (!state.rows.length) return `<p class="lg-note" data-lb-empty>${state.filters.q || state.filters.kinds.length || state.filters.organization || state.filters.topic || state.filters.from || state.filters.to ? '조건에 맞는 기록이 없습니다.' : '아직 원장 기록이 없습니다. 위에서 시트를 가져오거나 원장 후보를 확정하면 여기에 보입니다.'}</p>`;
   return `<ul class="lb-list" data-lb-list>${state.rows.map(rowHtml).join('')}</ul>
-    ${state.rows.length >= state.limit && state.limit < MAX_LIMIT ? `<button type="button" class="secondary" data-lb-action="more" ${state.busy ? 'disabled' : ''}>더 보기</button>` : ''}`;
+    ${state.rows.length >= state.limit && state.limit < MAX_LIMIT ? `<button type="button" class="lg-tool lb-more" data-lb-action="more" ${state.busy ? 'disabled' : ''}>더 보기</button>` : ''}`;
 }
 function rowHtml(r) {
   const open = state.openId === r.id;
-  const badges = [r.validity && r.validity !== 'current' ? `<span class="lg-pill">${esc(VALIDITY_LABEL[r.validity] || r.validity)}</span>` : '',
-    r.sensitivity === 'S2' ? `<span class="lg-pill">${esc(SENSITIVITY_LABEL.S2)}</span>` : ''].join('');
-  const meta = [dateLabel(r), r.topic_name, ...(Array.isArray(r.organizations) ? r.organizations : [])].filter(Boolean).map(esc).join(' · ');
-  return `<li class="lb-item" data-lb-row="${esc(r.id)}" data-lb-kind="${esc(r.kind)}">
+  const v = rowView(r);
+  const tags = [v.status ? `<span class="lb-state">${esc(v.status)}</span>` : '',
+    r.validity && r.validity !== 'current' ? `<span class="lb-state">${esc(VALIDITY_LABEL[r.validity] || r.validity)}</span>` : '',
+    r.sensitivity === 'S2' ? `<span class="lb-state">${esc(SENSITIVITY_LABEL.S2)}</span>` : ''].join('');
+  return `<li class="lb-item${open ? ' is-open' : ''}" data-lb-row="${esc(r.id)}" data-lb-kind="${esc(r.kind)}">
     <button type="button" class="lb-head" data-lb-action="open" data-lb-id="${esc(r.id)}" aria-expanded="${open}" aria-controls="lbDetail-${esc(r.id)}">
-      <span class="lb-line"><span class="lg-pill lb-kind">${esc(KIND_LABEL[r.kind])}</span><span class="lb-id">${esc(r.ledger_id)}</span>${badges}</span>
-      <span class="lb-title">${esc(r.title)}</span>
-      ${meta ? `<span class="lb-meta">${meta}</span>` : ''}
-      ${r.summary ? `<span class="lb-summary">${esc(r.summary)}</span>` : ''}
+      <span class="lbr-1"><span class="lbr-kind" data-kind="${esc(r.kind)}">${esc(KIND_DISPLAY[r.kind])}</span><span class="lbr-title">${esc(v.title)}</span>${tags}${v.date ? `<span class="lbr-date" title="${esc(v.dateFull)}">${esc(v.date)}</span>` : ''}</span>
+      <span class="lbr-2"><span class="lbr-summary">${esc(v.summary)}</span><span class="lbr-id">${esc(r.ledger_id)}</span></span>
     </button>
     ${open ? `<div class="lb-detail" id="lbDetail-${esc(r.id)}" tabindex="-1" role="region" aria-label="${esc(r.ledger_id)} 상세">${detailHtml(r.id)}</div>` : ''}
   </li>`;
@@ -201,7 +211,8 @@ function detailHtml(id) {
   const d = state.details.get(id);
   if (!d) return `<p class="lg-error" role="alert">${esc(state.detailError || '상세를 읽지 못했습니다.')}</p>`;
   const summary = d.record.summary ? `<p class="lb-text">${esc(d.record.summary)}</p>` : '';
-  const fields = `<dl class="lb-fields">${d.fields.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`;
+  const orgs = (state.rows.find(r => r.id === id)?.organizations || []).filter(Boolean);
+  const fields = `<dl class="lb-fields">${(orgs.length ? [...d.fields, ['조직', orgs.join(', ')]] : d.fields).map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`;
   const sources = d.sources.length ? `<ul class="lg-list" data-lb-sources>${d.sources.map(s => {
     const src = s.source;
     if (!src) return '<li>(읽을 수 없는 출처)</li>';
@@ -232,6 +243,11 @@ function bind() {
     if (e.target?.id !== 'lbForm') return;
     e.preventDefault(); readForm(root()); run();
   });
+  // 검색칸 Enter = 찾기(한글 입력 중 Enter는 글자 확정이므로 건너뜀). 찾기 버튼은 없다.
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || e.isComposing || e.target?.id !== 'lbQuery') return;
+    e.preventDefault(); readForm(root()); run();
+  });
   document.addEventListener('change', e => {
     const r = root();
     if (!r?.contains(e.target) || e.target.id === 'lbQuery') return;
@@ -243,6 +259,8 @@ function bind() {
     const action = button.dataset.lbAction;
     if (action === 'open') void toggleDetail(button.dataset.lbId);
     else if (action === 'more') { state.limit = Math.min(MAX_LIMIT, state.limit + PAGE); void search(); }
+    else if (action === 'cond') { state.condOpen = !state.condOpen; render(); }
+    else if (action === 'unset') { readForm(root()); state.filters = clearCondition(state.filters, button.dataset.lbKey || ''); render(); run(); root().querySelector('#lbCondBtn')?.focus?.(); }
     else if (action === 'clear') { state.filters = freshFilters(); render(); run(); }
     else if (action === 'reload') void load();
     else if (action === 'find') { state.filters = { ...freshFilters(), q: button.dataset.lbQ || '', inactive: true, scope: 'all' }; render(); run(); }

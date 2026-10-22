@@ -263,12 +263,20 @@ for(const width of [390,1440])test('D-3c expanded buttons do not overlap adjacen
   const overlaps=await page.evaluate(()=>{
    const visible=el=>el.checkVisibility({checkVisibilityCSS:true});
    const controls=[...document.querySelectorAll('button,input,select,textarea,a[href],summary')].filter(visible);
+   // CAL-주간고정: 안에서 스크롤되는 칸(#calendarWeek)에 가려진 부분은 겹침으로 세지 않는다(화면에 보이는 영역만).
+   const clip=(el,r)=>{
+    let box={left:r.left,top:r.top,right:r.right,bottom:r.bottom};
+    for(let up=el.parentElement;up&&up!==document.body&&up!==document.documentElement;up=up.parentElement){
+     if(!/(auto|scroll|hidden|clip)/.test(getComputedStyle(up).overflowY))continue;
+     const c=up.getBoundingClientRect();box={left:Math.max(box.left,c.left),top:Math.max(box.top,c.top),right:Math.min(box.right,c.right),bottom:Math.min(box.bottom,c.bottom)};
+    }return box;
+   };
    const rect=el=>{
     const r=el.getBoundingClientRect(),p=getComputedStyle(el,'::after'),s=getComputedStyle(el);
     if(el.matches('button:is(.primary,.secondary,.ghost,.danger,.mini,.icon-btn)')&&p.content!=='none'){
      const left=r.left+parseFloat(s.borderLeftWidth)+parseFloat(p.left),top=r.top+parseFloat(s.borderTopWidth)+parseFloat(p.top);
-     return {left,top,right:left+parseFloat(p.width),bottom:top+parseFloat(p.height)};
-    }return r;
+     return clip(el,{left,top,right:left+parseFloat(p.width),bottom:top+parseFloat(p.height)});
+    }return clip(el,r);
    };
    const buttons=controls.filter(el=>el.matches('button:is(.primary,.secondary,.ghost,.danger,.mini,.icon-btn)')&&getComputedStyle(el,'::after').content!=='none');
    const result=[];

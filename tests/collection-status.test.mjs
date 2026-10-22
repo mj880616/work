@@ -116,7 +116,8 @@ test('render: collector lines show time, 24h count for calls, and warnings; old 
   const html = mod.renderRows({copy:null, radar:null, collectors}, now);
   assert.match(html, /data-collect="telegram" data-collect-state="quiet"[^]*조용함/);
   assert.doesNotMatch(html, /collect-warn/);
-  assert.match(html, /data-collect="call" data-collect-state="ok"><span class="collect-label">통화 녹음 전사<\/span><span class="collect-value">마지막 [^<]+ · 24시간 5건<\/span>/);
+  assert.match(html, /data-collect="call" data-collect-state="ok"><span class="collect-name"><span class="collect-label">통화 녹음 전사<\/span><\/span><span class="collect-count">24시간 5건<\/span><span class="collect-value">마지막 [^<]+<\/span>/);
+  assert.match(html, /data-collect="telegram" data-collect-state="quiet"[^]*<span class="collect-count"><\/span><span class="collect-value">마지막 /, 'telegram has an empty count cell, time stays last');
   assert.doesNotMatch(html, /확인 불가/);
   const silent = mod.renderRows({copy:null, radar:null, collectors:{telegram:null, transcript:mod.collectorsFromStatus({ok:true, collectors:{transcript:beat(1, 5)}}).transcript}}, now);
   assert.match(silent, /data-collect="telegram" data-collect-state="never"[^]*점검 신호 없음/);

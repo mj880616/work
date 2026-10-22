@@ -1,24 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {weekTimeline,eventMinutes,linesFor,HOUR,FOLD} from '../app/calendar-week-timeline.js';
+import {weekTimeline,eventMinutes,linesFor,HOUR,TOP_PAD} from '../app/calendar-week-timeline.js';
 
 const ev=(id,start,end)=>({id,calendarId:'c',start:new Date(start),end});
 const D='2026-10-15';
 
-test('0~7시 접기: 이른 일정이 없으면 한 줄로 접고 7시부터 1시간 48px',()=>{
+test('0~24시를 항상 펼치고 화면은 7시(여유 TOP_PAD)부터 시작',()=>{
   const line=weekTimeline([{date:D,events:[ev('a',D+'T09:00:00+09:00',D+'T10:30:00+09:00')]}]);
-  assert.equal(line.firstHour,7);assert.equal(line.collapsedHeight,FOLD);
-  assert.equal(line.height,FOLD+17*HOUR);
+  assert.equal(line.height,24*HOUR);assert.equal(line.ticks.length,24);assert.equal(line.ticks[0].hour,0);assert.equal(line.ticks[7].top,7*HOUR);
   const at=line.place(D).get('c:a');
-  assert.equal(at.top,FOLD+2*HOUR);assert.equal(at.height,1.5*HOUR);assert.equal(at.cols,1);
-  assert.equal(line.ticks[0].hour,7);assert.equal(line.ticks[0].top,FOLD);
+  assert.equal(at.top,9*HOUR);assert.equal(at.height,1.5*HOUR);assert.equal(at.cols,1);
+  assert.equal(line.startTop,7*HOUR-TOP_PAD);assert.deepEqual(line.early,{count:0,top:null});
 });
-test('새벽 일정이 있으면 그 시부터 펼친다',()=>{
-  const line=weekTimeline([{date:D,events:[]},{date:'2026-10-16',events:[ev('b','2026-10-16T05:30:00+09:00','2026-10-16T06:00:00+09:00')]}]);
-  assert.equal(line.firstHour,5);assert.equal(line.ticks[0].hour,5);
-  assert.equal(line.place('2026-10-16').get('c:b').top,FOLD+0.5*HOUR);
+test('7시 전에 시작하는 일정은 early로 개수와 가장 이른 위치를 알려 준다',()=>{
+  const line=weekTimeline([{date:D,events:[ev('x',D+'T06:30:00+09:00',D+'T08:00:00+09:00')]},{date:'2026-10-16',events:[ev('b','2026-10-16T05:30:00+09:00','2026-10-16T06:00:00+09:00'),ev('c','2026-10-16T07:00:00+09:00','2026-10-16T08:00:00+09:00')]}]);
+  assert.equal(line.early.count,2);assert.equal(line.early.top,5.5*HOUR);
+  assert.equal(line.place('2026-10-16').get('c:b').top,5.5*HOUR);
   const zero=weekTimeline([{date:D,events:[ev('z',D+'T00:10:00+09:00',D+'T01:00:00+09:00')]}]);
-  assert.equal(zero.firstHour,0);assert.equal(zero.collapsedHeight,0);assert.equal(zero.height,24*HOUR);
+  assert.equal(zero.early.count,1);assert.equal(zero.height,24*HOUR);
 });
 test('자정을 넘기는 끝은 그날 칸 끝(24시)에서 자르고, 전날 시작은 0시부터',()=>{
   assert.deepEqual(eventMinutes(ev('m',D+'T22:00:00+09:00','2026-10-16T00:00:00+09:00'),D),{start:1320,end:1440});
