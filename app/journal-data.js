@@ -426,17 +426,18 @@ export function tasksPart(tasks, day) {
     done: tasksOn(tasks, day).map(taskItem),
   };
 }
-// [내일로]: the due date becomes tomorrow (Korea time) through the same google-tasks action=update the task editor sends
+// [내일로]·[기한 바꾸기]: the due date becomes the given day through the same google-tasks action=update the task editor sends
 // (google-tasks.js saveEditor). That action writes title, notes and due together, so the task's own title and notes go with it.
 export const tomorrowKey = (today = todayKey()) => seoulDateKey(addSeoulDays(today, 1));
-export async function moveTaskToTomorrow(task, rt = window.KPTURuntime, today = todayKey()) {
+export async function moveTaskToDay(task, day, rt = window.KPTURuntime) {
   if (!task?.id) throw new Error('할 일을 확인할 수 없어요.');
-  const due = tomorrowKey(today);
+  if (!dayKey.test(String(day || ''))) throw new Error('날짜를 확인할 수 없어요.');
   const data = await rt.api('/functions/v1/google-tasks?action=update', {method:'POST', body:{action:'update', task_id:task.id, task_list_id:task.taskListId || null,
-    title:String(task.title || ''), notes:String(task.notes || ''), due}});
-  if (data?.ok !== true || data.task?.id !== task.id || dueDay(data.task) !== due) throw new Error('기한을 바꾸지 못했어요. 다시 시도해 주세요.');
+    title:String(task.title || ''), notes:String(task.notes || ''), due:day}});
+  if (data?.ok !== true || data.task?.id !== task.id || dueDay(data.task) !== day) throw new Error('기한을 바꾸지 못했어요. 다시 시도해 주세요.');
   return data.task;
 }
+export const moveTaskToTomorrow = (task, rt = window.KPTURuntime, today = todayKey()) => moveTaskToDay(task, tomorrowKey(today), rt);
 
 // ④ 회의·활동 결과 — ONE source function. Today it is the day's meetings; when '사업 보고' (요청 13:04, not started) arrives this is
 // the only place to change. An item: {text, summary, hidden, open}. summary = the first line of the meeting's result ('' when none —
