@@ -39,7 +39,7 @@ test('Claude 후보 파일: S3·개인정보 모양은 빼고 개수만, 모양�
 
 test('표시: 모양이 맞는 행만, 원래 Web2 기록·날짜', () => {
   const v = candidateView(row());
-  assert.equal(v.kindLabel, '사건'); assert.equal(v.originLabel, 'Web2 AI'); assert.equal(v.date, '2026-10-20');
+  assert.equal(v.kindLabel, '일어난 일'); assert.equal(v.kindHint, '추적할 일 하나(원장의 사건)'); assert.equal(v.originLabel, 'Web2 AI'); assert.equal(v.date, '2026-10-20');
   assert.deepEqual(v.originRef, { label: '업데이트', day: '2026-10-20' });
   assert.equal(candidateView(row({ id: 'x' })), null);
   assert.equal(candidateView(row({ kind: 'bogus' })), null);

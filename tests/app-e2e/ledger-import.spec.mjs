@@ -133,6 +133,8 @@ for(const [name,width] of [['PC',1440],['phone',390]]){
 
   await dry.click();
   await expect(page.locator('[data-lg-dry]')).toBeVisible();
+  await expect(page.locator('[data-lg-dry] tbody th').filter({hasText:'일어난 일'})).toHaveCount(1);
+  await expect(page.locator('[data-lg-dry] tbody th').filter({hasText:'정한 것'})).toHaveCount(1);
   await expect(page.locator('#lgLive')).toContainText('DB에는 아무것도 남지 않았습니다');
   await expect(apply).toBeDisabled();
   await page.locator('#lgMappingOk').check();
