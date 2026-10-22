@@ -156,7 +156,7 @@ test('mobile shell and event modal stay inside 360/390/412/430px viewports',asyn
         nav:rect(document.querySelector('.mobile-tabs')),
         topbarDisplay:getComputedStyle(document.querySelector('.topbar')).display,
         sidebarBrandDisplay:getComputedStyle(document.querySelector('.sidebar-brand')).display,
-        sidebarLogoutDisplay:getComputedStyle(document.querySelector('#appView>.app-nav [data-account-open]')).display,
+        sidebarLogoutDisplay:getComputedStyle(document.querySelector('#appView>.app-topline [data-account-open]')).display,
         viewport:{width:innerWidth,height:innerHeight}
       };
     });
