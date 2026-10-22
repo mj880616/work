@@ -41,7 +41,10 @@ function render(){
   empty?.classList.toggle('hidden',rows.length>0);
   el('mediaView')?.setAttribute('data-press-ready','1');
 }
+// UI-상단줄제목: the open statement's title goes to the PC top line's place (kptu:where-item, topbar-actions.js); null drops it.
+const sendWhere=name=>window.dispatchEvent(new CustomEvent('kptu:where-item',{detail:{view:'media',name}}));
 function closeDetail(){
+  sendWhere(null);
   const modal=el('pressDetailModal'),frame=el('pressDetailFrame');if(!modal)return;
   modal.classList.add('hidden');modal.setAttribute('aria-hidden','true');
   if(frame){frame.removeAttribute('srcdoc');frame.src='about:blank'}
@@ -49,6 +52,7 @@ function closeDetail(){
 async function openDetail(href,title){
   const modal=el('pressDetailModal'),frame=el('pressDetailFrame'),heading=el('pressDetailTitle');if(!modal||!frame)return;
   if(heading)heading.textContent=title||'성명·보도자료';
+  sendWhere(title||'성명·보도자료');
   frame.title=(title||'성명·보도자료')+' 본문';
   frame.removeAttribute('srcdoc');frame.src='about:blank';
   modal.classList.remove('hidden');modal.setAttribute('aria-hidden','false');

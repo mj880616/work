@@ -368,6 +368,8 @@ function closeTopPanels({focus = false} = {}) {
   const linksButton = editorView.querySelector('[data-sp-links-open]');
   (wasLinks && visible(linksButton) ? linksButton : editorView.querySelector('[data-sp-top-more]'))?.focus();
 }
+// UI-상단줄제목: the open page's title (as typed) goes to the PC top line's place (kptu:where-item, topbar-actions.js); null drops it.
+const sendWhere = name => window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'pages', name}}));
 function showEditor(page) {
   editing = {id:page?.id || null, title:page?.title || '', status:page?.status === 'published' ? 'published' : 'draft', project_id:page?.project_id || null,
     blocks:Array.isArray(page?.blocks) ? structuredClone(page.blocks) : [], updated_at:page?.updated_at || null, links:[], linksState:page?.id ? 'loading' : 'none',
@@ -379,7 +381,7 @@ function showEditor(page) {
     if (!editing.blocks.length) editing.blocks = [newBlock('doc')];
     editing.focusOnOpen = page ? 'doc' : 'title';
   }
-  editing.saved = snapshotOf(editing);
+  editing.saved = snapshotOf(editing); sendWhere(editing.title.trim() || '제목 없음');
   listView.hidden = true; editorView.hidden = false; view.dataset.spEditing = '1';
   layer ||= window.KPTURouter?.layer?.open('share-page-editor', {close:() => closeEditor({fromBack:true})}) || null;
   const focusDoc = editing.focusDoc || editing.mode === 'full';
@@ -392,7 +394,7 @@ function closeEditor({fromBack = false, force = false} = {}) {
   if (busy && !force) return false;
   if (!force && dirty() && !window.confirm('저장하지 않은 내용이 있어요. 버리고 목록으로 돌아갈까요?')) return false;
   dropDocEditor();
-  const opened = layer; layer = null; editing = null;
+  const opened = layer; layer = null; editing = null; sendWhere(null);
   editorView.replaceChildren(); editorView.hidden = true; editorView.classList.remove('is-full'); listView.hidden = false;
   delete view.dataset.spEditing; view.removeAttribute('data-sp-full');
   if (!fromBack) opened?.close();
@@ -650,7 +652,7 @@ root.addEventListener('click', event => {
 root.addEventListener('input', event => {
   if (!editing) return;
   const t = event.target;
-  if ('spTitle' in t.dataset) { editing.title = t.value; queueDirty(); return; }
+  if ('spTitle' in t.dataset) { editing.title = t.value; sendWhere(t.value.trim() || '제목 없음'); queueDirty(); return; }
   if (t.dataset.spB === undefined || !t.dataset.spF) return;
   const block = editing.blocks[Number(t.dataset.spB)];
   if (!block) return;
