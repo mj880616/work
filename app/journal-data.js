@@ -23,6 +23,7 @@ import {categoryOf} from './document-categories.js';
 import {myOrganizationIds, OTHERS} from './my-organizations.js';
 import {noteRequests} from './update-requests.js';
 import {noteJournalAt, MOVED_KEY} from './update-journal.js';
+import {dueDay, shortDay, tomorrowKey, moveTaskToDay} from './task-due.mjs';
 import {reportsMeeting, meetingKindKey, meetingKindName} from './journal-meeting-kinds.js';
 
 export const WORK_LINE_MAX = 300;
@@ -166,7 +167,8 @@ export async function readDoneTasksWindow(rt = window.KPTURuntime, ask = DONE_TA
 }
 const isDone = task => task?.status === 'completed' && Number.isFinite(Date.parse(task.completed || ''));
 // Google keeps a due date as midnight UTC of that date, so its day is the date part as written.
-export const dueDay = task => { const key = String(task?.due || '').slice(0, 10); return dayKey.test(key) ? key : ''; };
+// dueDay / shortDay / tomorrowKey / moveTaskToDay live in task-due.mjs (TASK-바로처리통일: every task line shares them).
+export {dueDay, shortDay, tomorrowKey, moveTaskToDay};
 // The last day whose pending tasks the server sends (today + 6, Korea time).
 export const PENDING_DAYS = 7;
 export const pendingCoverTo = (today = todayKey()) => seoulDateKey(addSeoulDays(today, PENDING_DAYS - 1));
@@ -407,7 +409,6 @@ export const pendingOn = (tasks, day) => (tasks || []).filter(task => task?.stat
   .sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'ko'));
 export const documentLine = doc => `[${categoryOf(doc?.category)}] ${String(doc?.title || doc?.file_name || '').trim() || '(제목 없음)'}${doc?.meeting_id ? ' · 회의자료' : ''}`;
 export const sharePageLine = page => `${String(page?.title || '').trim() || '제목 없음'} · ${page?.status === 'published' ? '게시' : '초안'}`;
-export const shortDay = day => `${formatSeoulTime(day, {month:'long', day:'numeric'})}(${formatSeoulTime(day, {weekday:'short'})})`;
 
 // JOURNAL-하루개편 (2026-10-22 요청함 14:26·12:55): the [하루] card from top to bottom —
 //   ① 오늘 한 줄 (journal.js) → ② 할 일 / 한 일 → ③ 그날 나온 챙길 것 (todo-radar.js, its own renderer) → ④ 주간보고 재료 in the
@@ -425,17 +426,6 @@ export function tasksPart(tasks, day) {
     overdue: pending.filter(task => dueDay(task) < day).sort((a, b) => dueDay(a).localeCompare(dueDay(b)) || String(a.title || '').localeCompare(String(b.title || ''), 'ko')).map(taskItem),
     done: tasksOn(tasks, day).map(taskItem),
   };
-}
-// [내일로]·[기한 바꾸기]: the due date becomes the given day through the same google-tasks action=update the task editor sends
-// (google-tasks.js saveEditor). That action writes title, notes and due together, so the task's own title and notes go with it.
-export const tomorrowKey = (today = todayKey()) => seoulDateKey(addSeoulDays(today, 1));
-export async function moveTaskToDay(task, day, rt = window.KPTURuntime) {
-  if (!task?.id) throw new Error('할 일을 확인할 수 없어요.');
-  if (!dayKey.test(String(day || ''))) throw new Error('날짜를 확인할 수 없어요.');
-  const data = await rt.api('/functions/v1/google-tasks?action=update', {method:'POST', body:{action:'update', task_id:task.id, task_list_id:task.taskListId || null,
-    title:String(task.title || ''), notes:String(task.notes || ''), due:day}});
-  if (data?.ok !== true || data.task?.id !== task.id || dueDay(data.task) !== day) throw new Error('기한을 바꾸지 못했어요. 다시 시도해 주세요.');
-  return data.task;
 }
 export const moveTaskToTomorrow = (task, rt = window.KPTURuntime, today = todayKey()) => moveTaskToDay(task, tomorrowKey(today), rt);
 
