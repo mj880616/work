@@ -33,7 +33,13 @@ test('textKindOf: extension first, then Drive type; photos and others are not re
   assert.equal(dt.textKindOf('a.PDF', ''), 'convert');
   assert.equal(dt.textKindOf('a.hwp', ''), 'convert');
   assert.equal(dt.textKindOf('a.md', ''), 'text');
-  for (const name of ['a.jpg', 'a.png', 'a.zip', 'a.xlsx', 'a.pptx']) assert.equal(dt.textKindOf(name, 'application/pdf'), 'none', name);
+  for (const name of ['a.jpg', 'a.png', 'a.zip', 'a.mp3', 'a.mp4']) assert.equal(dt.textKindOf(name, 'application/pdf'), 'none', name);
+  // SEARCH ②: slides and spreadsheets are read through a temporary Google copy too.
+  for (const name of ['a.ppt', 'a.pptx', 'a.odp']) assert.equal(dt.textKindOf(name, ''), 'slides', name);
+  for (const name of ['a.xls', 'a.xlsx', 'a.ods']) assert.equal(dt.textKindOf(name, ''), 'sheet', name);
+  assert.equal(dt.textKindOf('a.tsv', ''), 'text');
+  assert.equal(dt.textKindOf('noext', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'), 'slides');
+  assert.equal(dt.textKindOf('noext', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'), 'sheet');
   assert.equal(dt.textKindOf('noext', 'application/pdf'), 'convert');
   assert.equal(dt.textKindOf('noext', 'image/jpeg'), 'none');
 });
@@ -55,12 +61,12 @@ test('tidyText trims control characters and cuts to the limit with a flag', () =
   assert.equal([...long.text].length, dt.DOCUMENT_TEXT_CHARS); assert.equal(long.cut, true);
 });
 
-function drive({ copyStatus = 200, copyMime = 'application/vnd.google-apps.document', exportText = '표지 제목\n국토교통부', deleteStatus = 204, media = null } = {}) {
+function drive({ copyStatus = 200, copyMime = 'application/vnd.google-apps.document', exportText = '표지 제목\n국토교통부', deleteStatus = 204, media = null, sameMime = false } = {}) {
   const calls = [];
   const fetch = async (url, init = {}) => {
     const u = new URL(String(url)), method = init.method || 'GET';
     calls.push({ path: u.pathname + u.search, method, body: init.body });
-    if (u.pathname.endsWith('/copy')) return copyStatus === 200 ? Response.json({ id: 'temp-1', mimeType: copyMime }) : Response.json({}, { status: copyStatus });
+    if (u.pathname.endsWith('/copy')) return copyStatus === 200 ? Response.json({ id: 'temp-1', mimeType: sameMime ? JSON.parse(init.body).mimeType : copyMime }) : Response.json({}, { status: copyStatus });
     if (u.pathname.endsWith('/export')) return new Response(exportText);
     if (method === 'DELETE') return new Response(null, { status: deleteStatus });
     if (u.searchParams.get('alt') === 'media') return new Response(media);
@@ -147,4 +153,34 @@ test('document-text: refuses non-owner, bad id, missing document; cached text is
   assert.ok(!cached.calls.some(c => c.path.includes('/drive/') || c.method === 'PATCH'));
   const photo = actions({ doc: { id: DOC, workspace_id: 'ws-1', file_id: 'drive-1', file_name: '사진.jpg', mime_type: 'image/jpeg', file_size: 5, extraction_status: null } });
   assert.deepEqual((await photo.send({ action: 'document-text', document_id: DOC })).body, { ok: true, status: 'error', reason: 'unsupported' });
+});
+
+test('SEARCH ②: PPTX and XLSX become a temporary Google Slides / Sheets copy, exported as plain text / CSV, then deleted', async () => {
+  for (const [name, target, exportMime] of [
+    ['발표.pptx', 'application/vnd.google-apps.presentation', 'text/plain'],
+    ['인력표.xlsx', 'application/vnd.google-apps.spreadsheet', 'text/csv'],
+  ]) {
+    const d = drive({ sameMime: true, exportText: '합성 표 1행,가짜 값' });
+    const r = await dt.createDocumentText({ fetch: d.fetch, driveToken: async () => 't' }).extract({ fileId: 'orig-2', name, mime: '', size: 10 });
+    assert.equal(r.text, '합성 표 1행,가짜 값', name);
+    assert.equal(JSON.parse(d.calls[0].body).mimeType, target, name);
+    assert.equal(new URL('https://x' + d.calls[1].path).searchParams.get('mimeType'), exportMime, name);
+    assert.deepEqual(d.calls.map(c => c.method), ['POST', 'GET', 'DELETE'], name);
+    assert.ok(!d.calls.some(c => c.path.includes('orig-2') && c.method !== 'POST'), name);
+  }
+  // Drive returns another type (conversion refused): no text, the copy is still deleted.
+  const d = drive({ copyMime: 'application/vnd.google-apps.document' });
+  const r = await dt.createDocumentText({ fetch: d.fetch, driveToken: async () => 't' }).extract({ fileId: 'o', name: 'a.xlsx', mime: '', size: 10 });
+  assert.equal(r.source, 'none');
+  assert.ok(d.calls.some(c => c.method === 'DELETE' && c.path.includes('temp-1')));
+});
+
+test('SEARCH ②: a large export keeps only its first part instead of failing (stored text is capped anyway)', async () => {
+  const big = '가'.repeat(dt.EXPORT_MAX_BYTES); // 3 bytes each in UTF-8, so well over the export cap
+  const d = drive({ exportText: big });
+  const r = await dt.createDocumentText({ fetch: d.fetch, driveToken: async () => 't' }).extract({ fileId: 'o', name: 'a.pdf', mime: '', size: 10 });
+  assert.equal(r.source, 'content');
+  assert.equal(r.cut, true);
+  assert.equal([...r.text].length, dt.DOCUMENT_TEXT_CHARS);
+  assert.ok(d.calls.some(c => c.method === 'DELETE' && c.path.includes('temp-1')));
 });

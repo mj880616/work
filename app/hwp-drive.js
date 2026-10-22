@@ -3,6 +3,7 @@
 // - 새 파일로 저장(기본): 자료실은 library-files로 새 자료 등록, 바구니는 basket-files로 같은 메모에 첨부 추가.
 // 어떤 요청도 자동으로 다시 보내지 않는다. 400대 거절은 "바뀐 것 없음", 시간 초과·5xx·응답 이상은 "결과 불명"이다.
 // 서버가 아직 배포되지 않았으면 열기가 거절되어 편집기에 Drive 파일이 들어오지 않으므로 아무것도 바뀌지 않는다.
+import {readTextLater} from './document-text-read.js'; // SEARCH ②: 자료실에 새로 등록된 파일 안 글자를 서버가 한 번 읽어 둠
 export const HWP_EDIT_MAX_BYTES=30*1024*1024;
 const OLD_SERVER=new Set(['document_id가 필요합니다.','Unknown action']);
 export const HWP_TEXT={
@@ -91,7 +92,7 @@ export async function saveLibraryCopy(target,bytes,{rt=window.KPTURuntime,fetche
   let response;
   try{response=await send(rt,'/functions/v1/library-files',form,{fetcher})}catch(error){return newFileOutcome({error},'자료실')}
   const data=await readJson(response);
-  if(response.ok&&data?.ok===true&&typeof data.document?.id==='string')return {kind:'created',document:{id:data.document.id,title:String(data.document.title||'')},message:'자료실에 새 문서로 등록했어요. 원본은 그대로예요.'};
+  if(response.ok&&data?.ok===true&&typeof data.document?.id==='string'){readTextLater(data.document,{rt});return {kind:'created',document:{id:data.document.id,title:String(data.document.title||'')},message:'자료실에 새 문서로 등록했어요. 원본은 그대로예요.'};}
   return newFileOutcome(response.ok?{status:0}:{status:response.status,data},'자료실');
 }
 
@@ -108,7 +109,7 @@ export async function saveWeeklyReport(bytes,{fileName,title,documentDate},{rt=w
   let response;
   try{response=await send(rt,'/functions/v1/library-files',form,{fetcher})}catch(error){return newFileOutcome({error},'자료실')}
   const data=await readJson(response);
-  if(response.ok&&data?.ok===true&&typeof data.document?.id==='string')return {kind:'created',document:{id:data.document.id,title:String(data.document.title||'')},message:`자료실에 "${WEEKLY_CONFIRMED_CATEGORY}" 분류로 저장했어요(Drive 자료실 폴더).`};
+  if(response.ok&&data?.ok===true&&typeof data.document?.id==='string'){readTextLater(data.document,{rt});return {kind:'created',document:{id:data.document.id,title:String(data.document.title||'')},message:`자료실에 "${WEEKLY_CONFIRMED_CATEGORY}" 분류로 저장했어요(Drive 자료실 폴더).`};}
   return newFileOutcome(response.ok?{status:0}:{status:response.status,data},'자료실');
 }
 
