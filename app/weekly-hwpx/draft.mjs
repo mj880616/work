@@ -92,10 +92,11 @@ export function weekMaterial(model, rows, orgs, {aliases = new Map()} = {}) {
   for (const section of model?.orgs?.sections ?? []) {
     const names = [section.name, ...(aliases.get(section.name) ?? [])].map(norm);
     const hit = orgs.find(o => names.includes(norm(o.org)));
-    for (const item of section.items) {
-      const line = {day: item.day, text: `- ${item.text}`, from: section.name};
-      if (hit) byOrg.get(hit.index).push(line); else orgUnmatched.push(line);
-    }
+    // JOURNAL-조직현황AI요약: an organization with a summary offers its summary lines (no day) instead of the raw records.
+    const summary = String(section.summary?.text ?? '').split('\n').map(s => s.trim()).filter(Boolean);
+    const lines = summary.length ? summary.map(text => ({day: '', text: `- ${text}`, from: section.name, summary: true}))
+      : section.items.map(item => ({day: item.day, text: `- ${item.text}`, from: section.name}));
+    for (const line of lines) if (hit) byOrg.get(hit.index).push(line); else orgUnmatched.push(line);
   }
   return {byRow, unmatched, byOrg, orgUnmatched};
 }

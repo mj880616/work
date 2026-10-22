@@ -231,3 +231,23 @@
   #appView #journalView .journal-weekly-chapter:is([data-journal-weekly-chapter="requests"],[data-journal-weekly-chapter="business"]){ grid-column:1/-1; }
   #appView #journalView .journal-weekly-date{ grid-column:1/-1; }
 }
+/* JOURNAL-조직현황AI요약: 4. 산하 조직 현황 > 1) 요약의 조직별 요약. UI-버튼기준: [요약 만들기]는 작은 버튼(--ds-compact-height),
+   조직마다 [요약 고치기]·[원문 N건]은 글자 크기(--ds-text-meta)의 낮은 글자 버튼(--ds-compact-height-sm), 누르는 범위는 ::after 44px.
+   요약 줄은 일반 목록과 같은 글자, 원문은 <details>로 접어 둔다. 새 크기 값 없음. */
+#appView #journalView .journal-org-ai{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; }
+#appView #journalView .journal-org-ai .mini,
+#appView #journalView .journal-org-tools .mini{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; margin:0; line-height:1; white-space:nowrap; font-weight:var(--ds-weight-medium); }
+#appView #journalView .journal-org-ai .mini{ height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); }
+#appView #journalView .journal-org-tools .mini{ height:var(--ds-compact-height-sm); min-height:var(--ds-compact-height-sm); padding:0 8px; font-size:var(--ds-text-meta); color:var(--kptu-primary-ink); background:transparent; border-color:transparent; }
+#appView #journalView .journal-org-ai .mini::after,
+#appView #journalView .journal-org-tools .mini::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+@media(hover:hover){ #appView #journalView .journal-org-tools .mini:hover:not(:disabled){ background:var(--kptu-surface-subtle); } }
+#appView #journalView .journal-org-ai-status{ color:var(--kptu-muted); font-size:var(--ds-text-meta); }
+#appView #journalView .journal-org-ai-status.journal-failed{ color:var(--kptu-danger); }
+#appView #journalView .journal-org-tools{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
+#appView #journalView .journal-org-edited{ color:var(--kptu-muted); font-size:var(--ds-text-meta); }
+#appView #journalView .journal-org-raw > summary{ display:inline-flex; align-items:center; min-height:var(--ds-compact-height-sm); cursor:pointer; color:var(--kptu-muted); font-size:var(--ds-text-meta); }
+#appView #journalView .journal-org-raw > summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+#appView #journalView .journal-org-raw[open] > .journal-weekly-list{ color:var(--kptu-muted); }
+#appView #journalView .journal-org-edit{ display:flex; flex-direction:column; gap:4px; }
+#appView #journalView .journal-org-edit-input{ width:100%; box-sizing:border-box; font-size:var(--kptu-text-body); line-height:1.5; }
