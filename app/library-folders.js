@@ -78,7 +78,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{}})
   // ---- 메뉴 ----
   // key: 'p:<project id>' | 'p:none' | 'f:<folder id>'
   const frameFromKey=key=>key==='p:none'?null:key.slice(2);
-  const menu=createAnchoredMenu({id:'luFolderMenu',className:'lu-more-panel',label:'폴더 관리',historyKey:'kptuLibraryFolderMenu',key:t=>t.dataset.luNodeMenu,
+  const menu=createAnchoredMenu({id:'luFolderMenu',className:'lu-folder-menu',label:'폴더 관리',historyKey:'kptuLibraryFolderMenu',key:t=>t.dataset.luNodeMenu,
     render:key=>{
       if(!key.startsWith('f:'))return '<button type="button" data-lu-folder-action="create">폴더 만들기</button>';
       const f=folder(key.slice(2));if(!f)return '';
