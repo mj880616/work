@@ -1,6 +1,9 @@
 // SHARE-현장공유 PR 2(화면): the top of the "공유 페이지" menu (#sharePagesRoot). This module is the only renderer of that
 // region: my share pages list + [새 공유 페이지], and the editor (title, blocks, 초안/게시, project link, links).
 // The old Web1 cards below stay with web1-board.js, folded under "이전 페이지" (S7: not moved).
+// SHARE-전체편집: a page that is one 글(doc) block — every new page — opens as a full writing screen (renderFull): one thin
+// line (‹ · 초안/게시 · 프로젝트 · 링크 · 저장), the editor's button row, a big title and the text, over the whole content area.
+// A page with old blocks (한 줄 현황 …) keeps the block editor below (설계 4.2, [새 편집기로 바꾸기]).
 // Storage is the owner-RLS tables from PR 1 through the shared runtime (authenticated REST); no new RPC.
 // A link value (token) is read from the DB only when [복사] is pressed and goes straight to the clipboard: it is never
 // drawn, kept in this module, logged or stored in the browser. Lists read only id·label·expiry·off·created.
@@ -44,7 +47,7 @@ const message = (e, fallback) => (e?.status === 401 || e?.code === 'session_requ
 
 let scope = ownerScope(), epoch = 0;
 let pages = null, listState = 'idle';
-let editing = null; // {id, title, status, project_id, blocks, updated_at, saved, links, linksState}
+let editing = null; // {id, title, status, project_id, blocks, updated_at, saved, links, linksState, mode:'full'|'blocks'}
 let busy = false, layer = null;
 // ED-통합편집기 ①b: the open 글(doc) block is edited with the new editor (ed-editor.js). One instance at a time, for the
 // open block only; it writes each change into that block (block.doc), so a redraw (move, add) keeps the text.
@@ -90,9 +93,21 @@ async function loadList({force = false} = {}) {
 }
 
 // ── editor ──
+// A page with no block or only one 글 block is written on the full screen.
+const isFullPage = blocks => !blocks.length || (blocks.length === 1 && blocks[0]?.type === 'doc');
 const snapshotOf = page => JSON.stringify({title:String(page.title || '').trim(), status:page.status, project_id:page.project_id || null, blocks:normalizeBlocks(page.blocks)});
 const dirty = () => !!editing && snapshotOf(editing) !== editing.saved;
 const editorStatus = text => { const node = editorView.querySelector('[data-sp-status-line]'); if (node) node.textContent = text; };
+// '저장 안 됨' on the full screen's top line, painted once per frame while typing.
+let dirtyFrame = 0;
+function paintDirty() {
+  const node = editorView.querySelector('[data-sp-dirty]');
+  if (!node || !editing) return;
+  const unsaved = dirty();
+  node.hidden = !unsaved;
+  if (unsaved && !busy) editorStatus('');
+}
+const queueDirty = () => { if (!dirtyFrame) dirtyFrame = requestAnimationFrame(() => { dirtyFrame = 0; paintDirty(); }); };
 const linkStatus = text => { const node = editorView.querySelector('[data-sp-link-status]'); if (node) node.textContent = text; };
 
 function itemRow(block, b, i) {
@@ -255,6 +270,10 @@ async function paintProjects() {
 }
 function renderEditor() {
   if (!editing) return;
+  const full = editing.mode === 'full';
+  editorView.classList.toggle('is-full', full);
+  view.toggleAttribute('data-sp-full', full);
+  if (full) { renderFull(); return; }
   // The title sits where the reader shows it, in the reader's title look (sr-title).
   const title = el('input', {type:'text', class:'sr-title sp-title', maxLength:LIMITS.title, value:editing.title, placeholder:'제목 (예: ○○민자철도 교섭 현황)',
     'aria-label':'제목', dataset:{spTitle:''}});
@@ -285,16 +304,82 @@ function renderEditor() {
   title.value = editing.title;
   paintStatusButtons(); renderBlocks(); renderLinks(); void paintProjects();
 }
+// SHARE-전체편집: the full writing screen. The editor's own button row stays on top while scrolling, under the thin line.
+function renderFull() {
+  const page = editing;
+  if (!page.blocks.length) page.blocks = [newBlock('doc')];
+  const title = el('input', {type:'text', class:'sp-full-title', maxLength:LIMITS.title, value:page.title, placeholder:'제목',
+    'aria-label':'제목', dataset:{spTitle:''}});
+  title.value = page.title;
+  const top = el('div', {class:'sp-topline', role:'group', 'aria-label':'페이지 설정'},
+    el('button', {type:'button', class:'sp-back', dataset:{spClose:''}, 'aria-label':'공유 페이지 목록으로'},
+      el('span', {'aria-hidden':'true', text:'‹'}), el('span', {class:'sp-back-text', 'aria-hidden':'true', text:'공유 페이지'})),
+    el('h2', {class:'a11y-only', id:'spEditorTitle', text:page.id ? '공유 페이지 고치기' : '새 공유 페이지'}),
+    el('div', {class:'sp-seg', role:'group', 'aria-label':'상태'},
+      el('button', {type:'button', dataset:{spSetStatus:'draft'}, text:'초안'}),
+      el('button', {type:'button', dataset:{spSetStatus:'published'}, text:'게시'})),
+    el('button', {type:'button', class:'sp-tool sp-top-more', 'aria-label':'프로젝트·링크', 'aria-expanded':'false', 'aria-controls':'spTopExtra', dataset:{spTopMore:''}},
+      el('span', {'aria-hidden':'true', text:'⋯'})),
+    el('div', {class:'sp-top-extra', id:'spTopExtra', dataset:{spTopExtra:''}},
+      el('label', {class:'sp-top-project'}, el('span', {text:'프로젝트'}), el('select', {class:'sp-top-select', dataset:{spProject:''}})),
+      el('button', {type:'button', class:'sp-tool', 'aria-expanded':'false', 'aria-controls':'spLinksPanel', dataset:{spLinksOpen:''}, text:'링크'})),
+    el('span', {class:'sp-top-gap', 'aria-hidden':'true'}),
+    el('p', {class:'sp-status sp-top-status', role:'status', 'aria-live':'polite', dataset:{spStatusLine:''}}),
+    el('span', {class:'sp-dirty', hidden:true, dataset:{spDirty:''}, text:'저장 안 됨'}),
+    el('button', {type:'button', class:'sp-tool sp-top-save', 'aria-keyshortcuts':'Control+S Meta+S', dataset:{spSave:''}, text:'저장'}),
+    el('section', {class:'sp-links-pop', id:'spLinksPanel', role:'dialog', 'aria-labelledby':'spLinksTitle', hidden:true, dataset:{spLinksPanel:''}},
+      el('div', {class:'sp-links-pop-head'}, el('h3', {id:'spLinksTitle', text:'링크'}),
+        el('button', {type:'button', class:'sp-tool', 'aria-label':'링크 창 닫기', dataset:{spLinksClose:''}, text:'닫기'})),
+      el('p', {class:'sp-hint', text:'게시 상태일 때만 링크를 받은 사람이 볼 수 있어요. 초안으로 바꾸면 모든 링크에서 바로 안 보여요.'}),
+      el('div', {dataset:{spLinks:''}})));
+  const host = el('div', {class:'sp-full-doc', dataset:{spDocHost:'0'}}, el('p', {class:'sp-hint', text:'편집기를 여는 중…'}), title);
+  dropDocEditor();
+  editorView.replaceChildren(top, host);
+  paintStatusButtons(); renderLinks(); void paintProjects();
+  const mount = ++docMount, block = page.blocks[0];
+  createDocEditor({host, value:block.doc, label:'본문', placeholder:'여기에 쓰세요', head:title,
+    onChange:value => { if (editing === page && page.blocks[0] === block) { block.doc = value; queueDirty(); } }}).then(ed => {
+    if (mount !== docMount || !host.isConnected) { ed.destroy(); return; }
+    host.querySelector('.sp-hint')?.remove();
+    docEditor = ed;
+    const focus = page.focusOnOpen; page.focusOnOpen = null;
+    if (focus === 'title') title.focus(); else if (focus === 'doc') ed.focus();
+  }).catch(() => {
+    if (mount !== docMount || !host.isConnected) return;
+    host.querySelector('.sp-hint')?.replaceWith(el('p', {class:'sp-hint', role:'alert', text:'편집기를 열지 못했어요. 목록으로 나갔다가 다시 열어 주세요.'}));
+  });
+}
+function openTopPanel(which, open) {
+  const button = editorView.querySelector(which === 'links' ? '[data-sp-links-open]' : '[data-sp-top-more]');
+  const panel = editorView.querySelector(which === 'links' ? '[data-sp-links-panel]' : '[data-sp-top-extra]');
+  if (!button || !panel) return;
+  if (which === 'links') panel.hidden = !open; else panel.classList.toggle('is-open', !!open);
+  button.setAttribute('aria-expanded', String(!!open));
+}
+const visible = node => !!node && node.getClientRects().length > 0;
+function closeTopPanels({focus = false} = {}) {
+  const links = editorView.querySelector('[data-sp-links-panel]');
+  const wasLinks = links && !links.hidden;
+  openTopPanel('links', false); openTopPanel('extra', false);
+  if (!focus) return;
+  const linksButton = editorView.querySelector('[data-sp-links-open]');
+  (wasLinks && visible(linksButton) ? linksButton : editorView.querySelector('[data-sp-top-more]'))?.focus();
+}
 function showEditor(page) {
   editing = {id:page?.id || null, title:page?.title || '', status:page?.status === 'published' ? 'published' : 'draft', project_id:page?.project_id || null,
     blocks:Array.isArray(page?.blocks) ? structuredClone(page.blocks) : [], updated_at:page?.updated_at || null, links:[], linksState:page?.id ? 'loading' : 'none',
-    open:-1, openBefore:null, converted:null, focusDoc:false};
-  // ED-통합편집기 ①b (결정 6 가): a new page starts with one empty 글 block, already open in the new editor.
-  if (!page) { editing.blocks = [newBlock('doc')]; editing.open = 0; editing.focusDoc = true; }
+    open:-1, openBefore:null, converted:null, focusDoc:false, mode:'blocks', focusOnOpen:null};
+  // ED-통합편집기 ①b (결정 6 가) · SHARE-전체편집: a new page (and a page that is one 글 block) opens on the full writing screen,
+  // the cursor in the title for a new page and in the text otherwise.
+  if (isFullPage(editing.blocks)) {
+    editing.mode = 'full';
+    if (!editing.blocks.length) editing.blocks = [newBlock('doc')];
+    editing.focusOnOpen = page ? 'doc' : 'title';
+  }
   editing.saved = snapshotOf(editing);
   listView.hidden = true; editorView.hidden = false; view.dataset.spEditing = '1';
   layer ||= window.KPTURouter?.layer?.open('share-page-editor', {close:() => closeEditor({fromBack:true})}) || null;
-  const focusDoc = editing.focusDoc;
+  const focusDoc = editing.focusDoc || editing.mode === 'full';
   renderEditor();
   if (!focusDoc) editorView.querySelector('[data-sp-title]')?.focus();
   if (editing.id) void loadLinks();
@@ -305,7 +390,8 @@ function closeEditor({fromBack = false, force = false} = {}) {
   if (!force && dirty() && !window.confirm('저장하지 않은 내용이 있어요. 버리고 목록으로 돌아갈까요?')) return false;
   dropDocEditor();
   const opened = layer; layer = null; editing = null;
-  editorView.replaceChildren(); editorView.hidden = true; listView.hidden = false; delete view.dataset.spEditing;
+  editorView.replaceChildren(); editorView.hidden = true; editorView.classList.remove('is-full'); listView.hidden = false;
+  delete view.dataset.spEditing; view.removeAttribute('data-sp-full');
   if (!fromBack) opened?.close();
   void loadList({force:true});
   listView.querySelector('[data-sp-new]')?.focus({preventScroll:true});
@@ -345,7 +431,9 @@ async function loadLinks() {
 async function save() {
   if (!editing || busy) return;
   const page = editing, owner = scope;
-  if (docEditor && page.blocks[page.open]?.type === 'doc') page.blocks[page.open].doc = docEditor.getValue();
+  const full = page.mode === 'full';
+  if (docEditor && full) page.blocks[0].doc = docEditor.getValue();
+  else if (docEditor && page.blocks[page.open]?.type === 'doc') page.blocks[page.open].doc = docEditor.getValue();
   const blocks = normalizeBlocks(page.blocks), title = String(page.title || '').trim();
   const problem = pageProblem({title, blocks});
   if (problem) { editorStatus(problem); return; }
@@ -362,11 +450,23 @@ async function save() {
       return;
     }
     const row = rows[0], first = !page.id;
+    if (full) {
+      // The full screen stays as it is (cursor, undo): what is in it now may already be newer than what was sent.
+      Object.assign(page, {id:row.id, status:row.status, project_id:row.project_id || null, updated_at:row.updated_at});
+      page.saved = snapshotOf({title, status:row.status, project_id:row.project_id || null, blocks});
+      if (first) { page.linksState = 'ready'; page.links = []; renderLinks(); }
+      const heading = editorView.querySelector('#spEditorTitle'); if (heading) heading.textContent = '공유 페이지 고치기';
+      paintStatusButtons(); paintDirty();
+      editorStatus(page.status === 'published' ? '저장했어요. 게시 중이에요.' : '저장했어요. 아직 초안이라 링크로는 안 보여요.');
+      return;
+    }
     Object.assign(page, {id:row.id, title:row.title, status:row.status, project_id:row.project_id || null,
       blocks:Array.isArray(row.blocks) ? structuredClone(row.blocks) : blocks, updated_at:row.updated_at});
     page.saved = snapshotOf(page);
     page.open = -1; page.openBefore = null; page.converted = null;
     if (first) { page.linksState = 'ready'; page.links = []; }
+    // After [새 편집기로 바꾸기] (or deleting every old block) the saved page is one 글 block: the full screen from now on.
+    if (isFullPage(page.blocks)) page.mode = 'full';
     renderEditor();
     editorStatus(page.status === 'published' ? '저장했어요. 게시 중이에요.' : '저장했어요. 아직 초안이라 링크로는 안 보여요.');
     editorView.querySelector('[data-sp-save]')?.focus({preventScroll:true});
@@ -489,7 +589,15 @@ root.addEventListener('click', event => {
   if (!editing) return;
   if ('spClose' in d) { closeEditor(); return; }
   if ('spSave' in d) { void save(); return; }
-  if (d.spSetStatus) { editing.status = d.spSetStatus === 'published' ? 'published' : 'draft'; paintStatusButtons(); return; }
+  if (d.spSetStatus) { editing.status = d.spSetStatus === 'published' ? 'published' : 'draft'; paintStatusButtons(); paintDirty(); return; }
+  if ('spTopMore' in d) { const open = target.getAttribute('aria-expanded') !== 'true'; closeTopPanels(); openTopPanel('extra', open); return; }
+  if ('spLinksOpen' in d) {
+    const open = target.getAttribute('aria-expanded') !== 'true';
+    closeTopPanels(); openTopPanel('links', open);
+    if (open) editorView.querySelector('[data-sp-links-panel]')?.querySelector('input,button:not([data-sp-links-close])')?.focus();
+    return;
+  }
+  if ('spLinksClose' in d) { closeTopPanels({focus:true}); return; }
   if (d.spAddBlock) { addBlock(d.spAddBlock, editing.blocks.length); return; }
   if (d.spInsert) { const [at, type] = d.spInsert.split(':'); addBlock(type, Number(at)); return; }
   if (d.spEdit !== undefined) { openBlock(Number(d.spEdit)); return; }
@@ -539,7 +647,7 @@ root.addEventListener('click', event => {
 root.addEventListener('input', event => {
   if (!editing) return;
   const t = event.target;
-  if ('spTitle' in t.dataset) { editing.title = t.value; return; }
+  if ('spTitle' in t.dataset) { editing.title = t.value; queueDirty(); return; }
   if (t.dataset.spB === undefined || !t.dataset.spF) return;
   const block = editing.blocks[Number(t.dataset.spB)];
   if (!block) return;
@@ -549,12 +657,16 @@ root.addEventListener('input', event => {
 root.addEventListener('change', event => {
   if (!editing) return;
   const t = event.target;
-  if ('spProject' in t.dataset) { editing.project_id = t.value || null; return; }
+  if ('spProject' in t.dataset) { editing.project_id = t.value || null; paintDirty(); return; }
   if (t.dataset.spCurrent !== undefined) { const block = editing.blocks[Number(t.dataset.spCurrent)]; if (block) block.current = Number(t.value); }
 });
 root.addEventListener('keydown', event => {
   if (event.key === 'Enter' && 'spLinkLabel' in (event.target.dataset || {})) { event.preventDefault(); void createLink(); }
+  // Full screen: Enter in the title goes on to the text (not during a 한글 composition).
+  if (event.key === 'Enter' && !event.isComposing && editing?.mode === 'full' && 'spTitle' in (event.target.dataset || {})) { event.preventDefault(); docEditor?.focus(); return; }
   if (event.key !== 'Escape' || !editing || event.defaultPrevented) return;
+  const panelOpen = editorView.querySelector('[data-sp-links-panel]:not([hidden]),[data-sp-top-extra].is-open');
+  if (panelOpen && event.target.closest?.('.sp-topline')) { event.preventDefault(); closeTopPanels({focus:true}); return; }
   // Esc closes an open ⋯ / [+ 블록] menu (focus back on its button), otherwise finishes the open block keeping what was typed.
   const menu = event.target.closest?.('details[open]');
   if (menu && root.contains(menu)) { event.preventDefault(); menu.open = false; menu.querySelector('summary')?.focus(); return; }
@@ -562,7 +674,19 @@ root.addEventListener('keydown', event => {
 });
 // One menu open at a time; a press outside closes them.
 root.addEventListener('toggle', event => { if (event.target.open && event.target.matches?.('details.sp-more,details.sp-slot')) closeMenus(event.target); }, true);
-document.addEventListener('click', event => { if (editing && !event.target.closest?.('details.sp-more,details.sp-slot')) closeMenus(null); });
+document.addEventListener('click', event => {
+  if (!editing) return;
+  if (!event.target.closest?.('details.sp-more,details.sp-slot')) closeMenus(null);
+  if (event.target.isConnected && !event.target.closest?.('[data-sp-links-panel],[data-sp-top-extra],[data-sp-top-more],[data-sp-links-open]')) closeTopPanels();
+});
+// Saving: [저장] or Ctrl/Cmd+S while the editor is on screen; leaving the app with unsaved changes asks first.
+const editorOnScreen = () => !!editing && !editorView.hidden && !view.classList.contains('hidden');
+document.addEventListener('keydown', event => {
+  if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey || String(event.key).toLowerCase() !== 's' || !editorOnScreen()) return;
+  event.preventDefault();
+  void save();
+});
+window.addEventListener('beforeunload', event => { if (editing && dirty()) { event.preventDefault(); event.returnValue = ''; } });
 // Leaving the menu keeps the editor as it is (nothing is lost); the router forgets our history entry.
 window.addEventListener('kptu:view-changed', event => {
   if (event.detail?.view !== 'pages') { layer = null; return; }
@@ -575,7 +699,8 @@ window.addEventListener('kptu:session-changed', () => {
   if (next === scope) return;
   dropDocEditor();
   scope = next; epoch++; pages = null; listState = 'idle'; editing = null; layer = null; busy = false;
-  editorView.replaceChildren(); editorView.hidden = true; listView.hidden = false; delete view.dataset.spEditing;
+  editorView.replaceChildren(); editorView.hidden = true; editorView.classList.remove('is-full'); listView.hidden = false;
+  delete view.dataset.spEditing; view.removeAttribute('data-sp-full');
   renderList();
 });
 
