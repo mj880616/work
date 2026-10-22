@@ -8,7 +8,7 @@
 // 후보 표 또는 확정 함수가 없으면(404) 칸 전체를 조용히 숨긴다. 원장이 바뀌면 kptu:ledger-changed로 다른 칸에 알린다.
 import {callAiAssist, AI_SUMMARY_TEXT} from './basket-ai-summary.js';
 import {candidateView, editPayload, confirmError, undoError, UNDO_SECONDS} from './ledger-candidate-model.mjs';
-import {KIND_LABEL, EVENT_STATUS_LABEL, DECISION_TYPE_LABEL, EVIDENCE_TYPE_LABEL, COMMITMENT_STATUS_LABEL, SENSITIVITY_LABEL, RELATION_LABEL} from './ledger-browse-model.mjs';
+import {KIND_DISPLAY, KIND_HINT, EVENT_STATUS_LABEL, DECISION_TYPE_LABEL, EVIDENCE_TYPE_LABEL, COMMITMENT_STATUS_LABEL, SENSITIVITY_LABEL, RELATION_LABEL} from './ledger-browse-model.mjs';
 
 const rt = window.KPTURuntime;
 const ZERO = '00000000-0000-0000-0000-000000000000';
@@ -229,7 +229,7 @@ function confirmedHtml() {
     const busy = state.busy === 'undo:' + c.id;
     return `<li class="lc-item lc-confirmed" data-lc-confirmed="${esc(c.id)}">
       <div class="lc-confirmed-line">
-        <span class="lb-line"><span class="lg-pill">${esc(KIND_LABEL[c.kind] || c.kind)}</span><span class="lg-pill">확정됨</span>${rec ? `<span class="lb-id">${esc(rec.ledger_id)}</span>` : ''}${day ? `<span class="lb-id">${esc(day)}</span>` : ''}</span>
+        <span class="lb-line"><span class="lg-pill" title="${esc(KIND_HINT[c.kind] || '')}">${esc(KIND_DISPLAY[c.kind] || c.kind)}</span><span class="lg-pill">확정됨</span>${rec ? `<span class="lb-id">${esc(rec.ledger_id)}</span>` : ''}${day ? `<span class="lb-id">${esc(day)}</span>` : ''}</span>
         <details class="lc-more"><summary class="lg-tool" aria-label="확정 관리: ${esc(c.title)}">⋯</summary>
           <div class="lc-more-panel" role="group" aria-label="확정 관리"><button type="button" class="lg-tool lg-danger" data-lc-action="undo-ask" data-lc-id="${esc(c.id)}" data-lc-ledger="${esc(rec?.ledger_id || '')}" ${state.busy ? 'disabled' : ''}>${busy ? '취소하는 중…' : '확정 취소'}</button></div>
         </details>
@@ -254,7 +254,7 @@ function bodyHtml() {
 }
 function rowHtml(v) {
   const target = v.targetRecordId ? state.targets.get(v.targetRecordId) : null;
-  const pills = [`<span class="lg-pill">${esc(v.kindLabel)}</span>`, v.action !== 'new' ? `<span class="lg-pill">${esc(v.actionLabel)}</span>` : '',
+  const pills = [`<span class="lg-pill" title="${esc(v.kindHint)}">${esc(v.kindLabel)}</span>`, v.action !== 'new' ? `<span class="lg-pill">${esc(v.actionLabel)}</span>` : '',
     v.originLabel ? `<span class="lb-id">${esc(v.originLabel)}</span>` : '', v.sensitivity === 'S2' ? `<span class="lg-pill">${esc(SENSITIVITY_LABEL.S2)}</span>` : ''].join('');
   const sources = v.sources.map(s => s.source ? esc(s.source) : s.new ? esc(s.new.title || '새 출처') : '').filter(Boolean);
   const links = v.links.map(l => `${esc(RELATION_LABEL[l.relation] || '관련')} ${l.target_record ? esc(l.target_record) : l.target_organization ? esc(l.target_organization) : l.target_project_id ? 'Web2 프로젝트' : l.target_meeting_id ? 'Web2 회의' : ''}`);
@@ -285,7 +285,7 @@ function editHtml(v) {
   const field = (name, label, control, wide = false) => `<label class="lg-field${wide ? ' lc-wide' : ''}"><span>${esc(label)}</span>${control}</label>`;
   const input = (name, type = 'text', max = 300) => `<input class="lg-input" name="${name}" type="${type}" ${type === 'text' ? `maxlength="${max}"` : ''} value="${esc(f[name] ?? '')}">`;
   const extra = {
-    event: () => field('event_status', '사건 상태', `<select class="lg-select lb-select" name="event_status">${option(EVENT_STATUS_LABEL, f.event_status)}</select>`),
+    event: () => field('event_status', `${KIND_DISPLAY.event} 상태`, `<select class="lg-select lb-select" name="event_status">${option(EVENT_STATUS_LABEL, f.event_status)}</select>`),
     decision: () => field('decision_type', '결정유형', `<select class="lg-select lb-select" name="decision_type">${option(DECISION_TYPE_LABEL, f.decision_type, '(비움)')}</select>`)
       + field('decision_reason', '결정이유', `<textarea class="lc-textarea" name="decision_reason" maxlength="2000">${esc(f.decision_reason)}</textarea>`, true),
     evidence: () => field('evidence_type', '근거 유형', `<select class="lg-select lb-select" name="evidence_type">${option(EVIDENCE_TYPE_LABEL, f.evidence_type)}</select>`),
@@ -293,7 +293,7 @@ function editHtml(v) {
       + field('follow_up_on', '후속확인일', input('follow_up_on', 'date')),
     change: () => ''
   }[v.kind]?.() || '';
-  return `<form class="lc-edit" id="lcEdit-${esc(id)}" data-lc-form="${esc(id)}" novalidate aria-label="${esc(KIND_LABEL[v.kind])} 후보 고치기">
+  return `<form class="lc-edit" id="lcEdit-${esc(id)}" data-lc-form="${esc(id)}" novalidate aria-label="${esc(KIND_DISPLAY[v.kind])} 후보 고치기">
     ${field('title', '제목', input('title'), true)}
     ${field('summary', '요지', `<textarea class="lc-textarea" name="summary" maxlength="4000">${esc(f.summary)}</textarea>`, true)}
     ${field('date_start', '기준일(하루)', input('date_start', 'date'))}

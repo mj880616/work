@@ -83,11 +83,11 @@
 .lu-more-trigger{flex:none;color:var(--kptu-muted);border:0;background:transparent}
 .lu-head-actions{display:flex;align-items:center;gap:8px}
 #libraryListCard .lu-head-actions button{margin:0}
-.lu-more-panel{position:fixed;inset:auto;margin:0;z-index:100;box-sizing:border-box;padding:6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto}
-.lu-more-panel button{display:block;width:100%;min-height:44px;padding:8px 12px;text-align:left;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta);font-weight:700;cursor:pointer}
-.lu-more-panel button:hover,.lu-more-panel button:focus-visible{background:var(--kptu-primary-soft)}
-.lu-more-panel button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
-.lu-more-panel .lu-menu-danger{color:var(--kptu-danger)}
+:is(.lu-more-panel,.lu-folder-menu){position:fixed;inset:auto;margin:0;z-index:100;box-sizing:border-box;padding:6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto}
+:is(.lu-more-panel,.lu-folder-menu) button{display:block;width:100%;min-height:44px;padding:8px 12px;text-align:left;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta);font-weight:700;cursor:pointer}
+:is(.lu-more-panel,.lu-folder-menu) button:is(:hover,:focus-visible){background:var(--kptu-primary-soft)}
+:is(.lu-more-panel,.lu-folder-menu) button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+:is(.lu-more-panel,.lu-folder-menu) .lu-menu-danger{color:var(--kptu-danger)}
 
 /* D-6b: dialog role typography owned here; explicit roots preserve list styles. */
 
@@ -154,3 +154,84 @@
   #appView #libraryView .library-filter-toolbar .lu-filter-row:not([data-lu-filter-row="category"]){grid-template-columns:3.6em minmax(0,1fr);column-gap:6px}
   #appView #libraryView .lu-filter-label{flex:0 0 3.6em;font-size:11px}
 }
+
+/* LIB-토글트리 ②(docs/design/library-tree.md 5.2): 토글 안 토글. 토글 머리는 32px 얇은 줄(누르는 범위 44px),
+   이름 · 자료 수 · 종류 색 점. 단마다 들여쓰기(폰 12px, PC 16px, 6단까지). 파일 줄은 기존 .lu-row 그대로. */
+#appView #libraryView #documentList .lu-node{margin:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+#appView #libraryView #documentList > .lu-node:first-child{border-top:0}
+#appView #libraryView #documentList .lu-node .lu-node{border-top:0}
+#appView #libraryView .lu-node-head{position:relative;display:flex;align-items:center;gap:6px;min-width:0;min-height:var(--ds-compact-height,32px);padding:6px 2px 6px calc(var(--lu-depth,0) * 16px);list-style:none;cursor:pointer;font-size:var(--ds-compact-text,13px);color:var(--kptu-ink);-webkit-tap-highlight-color:transparent}
+#appView #libraryView .lu-node-head::-webkit-details-marker{display:none}
+#appView #libraryView .lu-node-head::before{content:"";flex:none;width:0;height:0;margin:0 3px 0 2px;border-left:5px solid var(--kptu-muted);border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .15s}
+#appView #libraryView .lu-node[open] > .lu-node-head::before{transform:rotate(90deg)}
+#appView #libraryView .lu-node-head::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+#appView #libraryView .lu-node-head:hover{background:var(--kptu-surface-subtle)}
+#appView #libraryView .lu-node-head:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+#appView #libraryView .lu-node[data-lu-node-kind="group"][style*="--lu-depth:0"] > .lu-node-head{font-weight:var(--ds-weight-bold,700)}
+#appView #libraryView .lu-node-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#appView #libraryView .lu-node-count{flex:none;font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,500);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
+#appView #libraryView .lu-kdots{flex:none;display:inline-flex;gap:3px;margin-left:2px}
+#appView #libraryView .lu-kdot{display:block;width:6px;height:6px;border-radius:999px;background:var(--ds-kind-other-ink)}
+#appView #libraryView .lu-kdot[data-lu-kind="pdf"]{background:var(--ds-file-pdf-ink)}
+#appView #libraryView .lu-kdot[data-lu-kind="hwp"]{background:var(--ds-file-hwp-ink)}
+#appView #libraryView .lu-kdot[data-lu-kind="xls"]{background:var(--ds-file-xls-ink)}
+#appView #libraryView .lu-kdot[data-lu-kind="doc"]{background:var(--ds-file-doc-ink)}
+#appView #libraryView .lu-kdot[data-lu-kind="ppt"]{background:var(--ds-file-ppt-ink)}
+#appView #libraryView .lu-pdot{flex:none;width:8px;height:8px;border-radius:999px;background:var(--ds-project-gray)}
+#appView #libraryView .lu-pdot[data-color="green"]{background:var(--ds-project-green)}#appView #libraryView .lu-pdot[data-color="green"][data-tone="soft"]{background:var(--ds-project-green-soft)}
+#appView #libraryView .lu-pdot[data-color="blue"]{background:var(--ds-project-blue)}#appView #libraryView .lu-pdot[data-color="blue"][data-tone="soft"]{background:var(--ds-project-blue-soft)}
+#appView #libraryView .lu-pdot[data-color="orange"]{background:var(--ds-project-orange)}#appView #libraryView .lu-pdot[data-color="orange"][data-tone="soft"]{background:var(--ds-project-orange-soft)}
+#appView #libraryView .lu-pdot[data-color="purple"]{background:var(--ds-project-purple)}#appView #libraryView .lu-pdot[data-color="purple"][data-tone="soft"]{background:var(--ds-project-purple-soft)}
+#appView #libraryView .lu-pdot[data-color="pink"]{background:var(--ds-project-pink)}#appView #libraryView .lu-pdot[data-color="pink"][data-tone="soft"]{background:var(--ds-project-pink-soft)}
+#appView #libraryView .lu-pdot[data-color="yellow"]{background:var(--ds-project-yellow)}#appView #libraryView .lu-pdot[data-color="yellow"][data-tone="soft"]{background:var(--ds-project-yellow-soft)}
+#appView #libraryView .lu-pdot[data-color="red"]{background:var(--ds-project-red)}#appView #libraryView .lu-pdot[data-color="red"][data-tone="soft"]{background:var(--ds-project-red-soft)}
+#appView #libraryView .lu-pdot[data-tone="soft"]:not([data-color]){background:var(--ds-project-gray-soft)}
+#appView #libraryView .lu-folder-icon{flex:none;color:var(--kptu-muted)}
+#appView #libraryView .lu-node-body > .lu-row{padding-left:calc((var(--lu-depth,0) + 1) * 16px)}
+#appView #libraryView .lu-node-body > .lu-row:first-child{border-top:0}
+/* 'N건 더'·'모두 펴기/접기': 작은 글자 버튼(UI-버튼기준, 28px·12px·테두리 없음, 누르는 범위 44px). */
+#appView #libraryView :is(.lu-more-files,.lu-expand-all){position:relative;display:inline-flex;align-items:center;height:var(--ds-compact-height-sm,28px);min-height:0;margin:2px 0;padding:0 6px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-primary-ink);font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,500);white-space:nowrap;cursor:pointer}
+#appView #libraryView :is(.lu-more-files,.lu-expand-all)::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+#appView #libraryView :is(.lu-more-files,.lu-expand-all):hover{background:var(--kptu-surface-subtle)}
+#appView #libraryView :is(.lu-more-files,.lu-expand-all):focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:1px}
+#appView #libraryView .lu-expand-all:disabled{color:var(--kptu-faint);cursor:default}
+#appView #libraryView .lu-more-files{margin-left:calc((var(--lu-depth,0) + 1) * 16px)}
+#appView #libraryView .lu-filter-row[data-lu-filter-row="group"]{grid-template-columns:var(--lu-filter-label-width,4.5em) minmax(0,max-content) auto;justify-content:start}
+#appView #libraryView .library-filter-toolbar #documentProject[hidden]{display:none}
+/* 첫 토글 머리의 누르는 범위(44px)가 위 [+ 자료 등록]의 누르는 범위를 덮지 않게 머리 줄을 위에 둔다. */
+#appView #libraryView #libraryListCard > .add-list-head{position:relative;z-index:2}
+@media(max-width:760px){
+  #appView #libraryView .lu-node-head{padding-left:calc(var(--lu-depth,0) * 12px)}
+  #appView #libraryView .lu-node-body > .lu-row{padding-left:calc((var(--lu-depth,0) + 1) * 12px)}
+  #appView #libraryView .lu-more-files{margin-left:calc((var(--lu-depth,0) + 1) * 12px)}
+  #appView #libraryView .library-filter-toolbar .lu-filter-row[data-lu-filter-row="group"]{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none}
+  #appView #libraryView .lu-filter-row[data-lu-filter-row="group"] > .filter-chips{flex:0 0 auto;max-width:none;overflow:visible}
+  #appView #libraryView .lu-filter-row[data-lu-filter-row="group"] > .lu-expand-all{flex:0 0 auto}
+}
+@media(prefers-reduced-motion:reduce){#appView #libraryView .lu-node-head::before{transition:none}}
+
+/* LIB-토글트리 ③: 토글 머리 끝 ⋯(폴더 만들기·관리). 보이는 크기 28px, 누르는 범위 44px(UI-버튼기준 작은 버튼). */
+#appView #libraryView .lu-node-more{position:relative;flex:none;width:var(--ds-compact-height-sm,28px);height:var(--ds-compact-height-sm,28px);min-height:0;margin:-4px 0 -4px auto;padding:0;border:0;background:transparent;color:var(--kptu-muted);font-size:var(--ds-compact-text,13px);line-height:1}
+#appView #libraryView .lu-node-more::after{content:"";position:absolute;inset:calc((var(--ds-compact-height-sm,28px) - var(--kptu-touch-target,44px)) / 2)}
+#appView #libraryView .lu-node-more:hover{background:var(--kptu-surface-subtle)}
+#appView #libraryView .lu-node-more:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:1px}
+/* 머리 줄 안의 ⋯는 줄의 44px 누르는 범위 위에 둔다. */
+#appView #libraryView .lu-node-head > .lu-node-more{z-index:1}
+.lu-folder-status{margin:0 0 6px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.lu-folder-status.error{color:var(--kptu-danger)}
+.lu-folder-status[hidden]{display:none}
+.lu-folder-hint{margin:4px 0 0;font-size:var(--ds-text-meta,12px);line-height:1.5;color:var(--kptu-muted)}
+.lu-folder-hint[hidden],.lu-folder-name[hidden],.lu-folder-targets[hidden]{display:none}
+.lu-folder-targets{display:grid;gap:2px;max-height:50vh;overflow:auto;margin:0 0 8px}
+.lu-folder-target{display:block;width:100%;min-height:var(--kptu-touch-target,44px);padding:8px 10px 8px calc(10px + var(--lu-target-depth,0) * 12px);border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px);text-align:left;cursor:pointer;overflow-wrap:anywhere}
+.lu-folder-target:hover{background:var(--kptu-surface-subtle)}
+.lu-folder-target[aria-checked="true"]{background:var(--ds-kind-other-soft);color:var(--ds-kind-other-ink);font-weight:var(--ds-weight-bold,700)}
+.lu-folder-target:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+
+/* LIB-토글트리 ④ PC 끌어 놓기: 놓을 수 있는 곳은 테두리, 앞·뒤로는 위·아래 선, 놓을 수 없는 곳은 흐림 + 금지 커서. */
+#appView #libraryView summary.lu-node-head[draggable="true"],#appView #libraryView .lu-row[draggable="true"]{cursor:grab}
+#appView #libraryView .lu-dragging{opacity:.5}
+#appView #libraryView .lu-node-head.lu-drop-into{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px;background:var(--kptu-primary-soft)}
+#appView #libraryView .lu-node-head.lu-drop-before{border-top:2px solid var(--kptu-primary-ink);margin-top:-2px}
+#appView #libraryView .lu-node-head.lu-drop-after{border-bottom:2px solid var(--kptu-primary-ink);margin-bottom:-2px}
+#appView #libraryView .lu-node-head.lu-drop-no{opacity:.55;cursor:no-drop}
