@@ -154,3 +154,56 @@
   #appView #libraryView .library-filter-toolbar .lu-filter-row:not([data-lu-filter-row="category"]){grid-template-columns:3.6em minmax(0,1fr);column-gap:6px}
   #appView #libraryView .lu-filter-label{flex:0 0 3.6em;font-size:11px}
 }
+
+/* LIB-토글트리 ②(docs/design/library-tree.md 5.2): 토글 안 토글. 토글 머리는 32px 얇은 줄(누르는 범위 44px),
+   이름 · 자료 수 · 종류 색 점. 단마다 들여쓰기(폰 12px, PC 16px, 6단까지). 파일 줄은 기존 .lu-row 그대로. */
+#appView #libraryView #documentList .lu-node{margin:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+#appView #libraryView #documentList > .lu-node:first-child{border-top:0}
+#appView #libraryView #documentList .lu-node .lu-node{border-top:0}
+#appView #libraryView .lu-node-head{position:relative;display:flex;align-items:center;gap:6px;min-width:0;min-height:var(--ds-compact-height,32px);padding:6px 2px 6px calc(var(--lu-depth,0) * 16px);list-style:none;cursor:pointer;font-size:var(--ds-compact-text,13px);color:var(--kptu-ink);-webkit-tap-highlight-color:transparent}
+#appView #libraryView .lu-node-head::-webkit-details-marker{display:none}
+#appView #libraryView .lu-node-head::before{content:"";flex:none;width:0;height:0;margin:0 3px 0 2px;border-left:5px solid var(--kptu-muted);border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .15s}
+#appView #libraryView .lu-node[open] > .lu-node-head::before{transform:rotate(90deg)}
+#appView #libraryView .lu-node-head::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+#appView #libraryView .lu-node-head:hover{background:var(--kptu-surface-subtle)}
+#appView #libraryView .lu-node-head:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+#appView #libraryView .lu-node[data-lu-node-kind="group"][style*="--lu-depth:0"] > .lu-node-head{font-weight:var(--ds-weight-bold,700)}
+#appView #libraryView .lu-node-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#appView #libraryView .lu-node-count{flex:none;font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,500);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
+#appView #libraryView .lu-kdots{flex:none;display:inline-flex;gap:3px;margin-left:2px}
+#appView #libraryView .lu-kdot{display:block;width:6px;height:6px;border-radius:999px;background:var(--ds-kind-other-ink)}
+#appView #libraryView .lu-kdot[data-lu-kind="pdf"]{background:var(--ds-file-pdf-ink)}
+#appView #libraryView .lu-kdot[data-lu-kind="hwp"]{background:var(--ds-file-hwp-ink)}
+#appView #libraryView .lu-kdot[data-lu-kind="xls"]{background:var(--ds-file-xls-ink)}
+#appView #libraryView .lu-kdot[data-lu-kind="doc"]{background:var(--ds-file-doc-ink)}
+#appView #libraryView .lu-kdot[data-lu-kind="ppt"]{background:var(--ds-file-ppt-ink)}
+#appView #libraryView .lu-pdot{flex:none;width:8px;height:8px;border-radius:999px;background:var(--ds-project-gray)}
+#appView #libraryView .lu-pdot[data-color="green"]{background:var(--ds-project-green)}#appView #libraryView .lu-pdot[data-color="green"][data-tone="soft"]{background:var(--ds-project-green-soft)}
+#appView #libraryView .lu-pdot[data-color="blue"]{background:var(--ds-project-blue)}#appView #libraryView .lu-pdot[data-color="blue"][data-tone="soft"]{background:var(--ds-project-blue-soft)}
+#appView #libraryView .lu-pdot[data-color="orange"]{background:var(--ds-project-orange)}#appView #libraryView .lu-pdot[data-color="orange"][data-tone="soft"]{background:var(--ds-project-orange-soft)}
+#appView #libraryView .lu-pdot[data-color="purple"]{background:var(--ds-project-purple)}#appView #libraryView .lu-pdot[data-color="purple"][data-tone="soft"]{background:var(--ds-project-purple-soft)}
+#appView #libraryView .lu-pdot[data-color="pink"]{background:var(--ds-project-pink)}#appView #libraryView .lu-pdot[data-color="pink"][data-tone="soft"]{background:var(--ds-project-pink-soft)}
+#appView #libraryView .lu-pdot[data-color="yellow"]{background:var(--ds-project-yellow)}#appView #libraryView .lu-pdot[data-color="yellow"][data-tone="soft"]{background:var(--ds-project-yellow-soft)}
+#appView #libraryView .lu-pdot[data-color="red"]{background:var(--ds-project-red)}#appView #libraryView .lu-pdot[data-color="red"][data-tone="soft"]{background:var(--ds-project-red-soft)}
+#appView #libraryView .lu-pdot[data-tone="soft"]:not([data-color]){background:var(--ds-project-gray-soft)}
+#appView #libraryView .lu-folder-icon{flex:none;color:var(--kptu-muted)}
+#appView #libraryView .lu-node-body > .lu-row{padding-left:calc((var(--lu-depth,0) + 1) * 16px)}
+#appView #libraryView .lu-node-body > .lu-row:first-child{border-top:0}
+/* 'N건 더'·'모두 펴기/접기': 작은 글자 버튼(UI-버튼기준, 28px·12px·테두리 없음, 누르는 범위 44px). */
+#appView #libraryView :is(.lu-more-files,.lu-expand-all){position:relative;display:inline-flex;align-items:center;height:var(--ds-compact-height-sm,28px);min-height:0;margin:2px 0;padding:0 6px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-primary-ink);font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,500);white-space:nowrap;cursor:pointer}
+#appView #libraryView :is(.lu-more-files,.lu-expand-all)::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+#appView #libraryView :is(.lu-more-files,.lu-expand-all):hover{background:var(--kptu-surface-subtle)}
+#appView #libraryView :is(.lu-more-files,.lu-expand-all):focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:1px}
+#appView #libraryView .lu-expand-all:disabled{color:var(--kptu-faint);cursor:default}
+#appView #libraryView .lu-more-files{margin-left:calc((var(--lu-depth,0) + 1) * 16px)}
+#appView #libraryView .lu-filter-row[data-lu-filter-row="group"]{grid-template-columns:var(--lu-filter-label-width,4.5em) minmax(0,max-content) auto;justify-content:start}
+#appView #libraryView .library-filter-toolbar #documentProject[hidden]{display:none}
+@media(max-width:760px){
+  #appView #libraryView .lu-node-head{padding-left:calc(var(--lu-depth,0) * 12px)}
+  #appView #libraryView .lu-node-body > .lu-row{padding-left:calc((var(--lu-depth,0) + 1) * 12px)}
+  #appView #libraryView .lu-more-files{margin-left:calc((var(--lu-depth,0) + 1) * 12px)}
+  #appView #libraryView .library-filter-toolbar .lu-filter-row[data-lu-filter-row="group"]{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none}
+  #appView #libraryView .lu-filter-row[data-lu-filter-row="group"] > .filter-chips{flex:0 0 auto;max-width:none;overflow:visible}
+  #appView #libraryView .lu-filter-row[data-lu-filter-row="group"] > .lu-expand-all{flex:0 0 auto}
+}
+@media(prefers-reduced-motion:reduce){#appView #libraryView .lu-node-head::before{transition:none}}
