@@ -159,7 +159,7 @@ test('phone: one thin warning line opens the full card, ✕ hides it for today, 
   await page.screenshot({path:'test-results/home-collect-menu-390.png'});
 });
 test('phone: blocked device storage still shows the warning and ✕ hides it for this view',async({page})=>{
-  await page.addInitScript(()=>{const get=Storage.prototype.getItem,set=Storage.prototype.setItem,key='kptu-collect-alert-hidden';Storage.prototype.getItem=function(k){if(k===key)throw new Error('blocked');return get.call(this,k)};Storage.prototype.setItem=function(k,v){if(k===key)throw new Error('blocked');return set.call(this,k,v)}});
+  await page.addInitScript(()=>{const get=Storage.prototype.getItem,set=Storage.prototype.setItem,hit=k=>String(k).includes('collect-alert-hidden');Storage.prototype.getItem=function(k){if(hit(k))throw new Error('blocked');return get.call(this,k)};Storage.prototype.setItem=function(k,v){if(hit(k))throw new Error('blocked');return set.call(this,k,v)}});
   await fixture(page,{width:390,copy:staleTelegram});
   const alert=page.locator('[data-home-collect-alert]');
   await expect(alert).toBeVisible();

@@ -136,13 +136,16 @@ let cache = null; // {scope, at, raw} — memory only, this tab.
 // 맨 아래 '수집 정상 ✓' 한 줄. 전체 칸은 폰 메뉴 창 안에도 둔다. PC(1024px 이상)는 오른쪽 칸 그대로.
 // 이 파일이 네 자리(카드·경고 줄·정상 줄·메뉴 창 칸)의 유일한 상태 소유자이자 렌더러다.
 const phoneQuery = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(max-width:1023px)') : null;
-const HIDE_KEY = 'kptu-collect-alert-hidden';
+// ✕ "오늘 하루 숨김"은 이 기기의 화면 설정(날짜 하나)이다. 소유자별 캐시 접두어 아래 두어 로그아웃·사용자 변경 때 함께 지워진다.
+const hideKey = rt => { const prefix = rt?.ownerCache?.prefix, owner = rt?.context?.read?.()?.user?.id; return prefix && owner ? `${prefix}collect-alert-hidden-v1:${owner}` : ''; };
 let expanded = false;
-function hiddenToday(scope, now) {
-  try { return window.localStorage.getItem(HIDE_KEY) === `${scope}|${seoulDateKey(now)}`; } catch { return false; }
+function hiddenToday(rt, now) {
+  if (!hideKey(rt)) return false;
+  try { return window.localStorage.getItem(hideKey(rt)) === seoulDateKey(now); } catch { return false; }
 }
-function hideToday(scope, now) {
-  try { window.localStorage.setItem(HIDE_KEY, `${scope}|${seoulDateKey(now)}`); } catch {}
+function hideToday(rt, now) {
+  if (!hideKey(rt)) return;
+  try { window.localStorage.setItem(hideKey(rt), seoulDateKey(now)); } catch {}
 }
 const cardHtml = (rows, titleId) => `<header><h3${titleId ? ` id="${titleId}"` : ''}>마지막 수집 시각</h3></header><ul class="collect-list">${rows}</ul>`;
 function menuHostFor(doc) {
@@ -177,8 +180,8 @@ export function mountCollectionStatus(host, {rt = window.KPTURuntime, now = () =
     host.hidden = phone;
     if (menuHost) { menuHost.innerHTML = cardHtml(rows); menuHost.hidden = false; }
     if (!phone) { if (alert) { alert.hidden = true; alert.innerHTML = ''; } if (okLine) { okLine.hidden = true; okLine.innerHTML = ''; } return; }
-    const sum = summarize(raw, at), scope = scopeOf(rt);
-    const warn = sum.attention.length > 0 && !hiddenToday(scope, at);
+    const sum = summarize(raw, at);
+    const warn = sum.attention.length > 0 && !hiddenToday(rt, at);
     alert.hidden = !warn;
     alert.innerHTML = warn ? `<div class="collect-alert-line"><button type="button" class="collect-alert-open" data-collect-expand aria-expanded="${expanded}" aria-controls="homeCollectPanel"><svg class="collect-alert-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3 2.5 16.5h15zM10 8.5v3.5M10 14.2v.3"/></svg><span>${esc(alertText(sum.attention))}</span><span class="collect-alert-chevron" aria-hidden="true">›</span></button><button type="button" class="collect-alert-close" data-collect-dismiss aria-label="오늘 하루 숨기기">✕</button></div><div class="home-card home-collect collect-alert-panel" id="homeCollectPanel" role="region" aria-label="마지막 수집 시각"${expanded ? '' : ' hidden'}>${cardHtml(rows)}</div>` : '';
     const ok = !sum.attention.length && sum.ok;
@@ -193,7 +196,7 @@ export function mountCollectionStatus(host, {rt = window.KPTURuntime, now = () =
       if (shown) paint(shown);
       alert.querySelector('[data-collect-expand]')?.focus({preventScroll:true});
     } else if (b.matches('[data-collect-dismiss]')) {
-      hideToday(scopeOf(rt), now());
+      hideToday(rt, now());
       expanded = false;
       if (shown) paint(shown);
     }
