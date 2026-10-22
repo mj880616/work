@@ -119,3 +119,20 @@ test('a list read that answers marks the table known for that owner and tells th
   assert.equal(calls, 2);
   stop();
 });
+
+// TEST-홈빠른입력안정화: windows keeping the file part's place hear a failed read too (yes=false), so they free the place.
+test('a failed table read tells waiting windows no; a later answer tells yes once', async () => {
+  const heard = [];
+  const stop = onTaskFilesReady((owner, yes) => heard.push([owner, yes]));
+  try {
+    let answer = () => { throw Object.assign(Error('missing'), { status: 404 }); };
+    const rt = { context: { read: () => ({ user: { id: 'm1' } }) }, api: async () => answer() };
+    await assert.rejects(readTaskFiles([], { rt }));
+    assert.equal(taskFilesKnown({ rt }), false);
+    answer = () => [];
+    await readTaskFiles([], { rt });
+    await readTaskFiles([], { rt });
+    assert.equal(taskFilesKnown({ rt }), true);
+    assert.deepEqual(heard, [['m1', false], ['m1', true]]);
+  } finally { stop(); }
+});

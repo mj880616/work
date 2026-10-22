@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="/app/theme-tokens.css">
+<link rel="stylesheet" href="/app/base-ui.css">
+<link rel="stylesheet" href="/app/ed-doc.css">
+<title>ED editor fixture</title>
+<style>body{margin:0;background:var(--kptu-surface)} #host{height:100vh;display:flex;flex-direction:column} #out{display:none}</style>
+</head>
+<body>
+<div id="host"></div>
+<div id="out"></div>
+<script type="module">
+import {createDocEditor} from '/app/ed-editor.js';
+import {renderDoc} from '/app/ed-render.mjs';
+import {toPlain} from '/app/ed-text.mjs';
+const start = new URLSearchParams(location.search).get('doc');
+window.changes = 0;
+window.ed = await createDocEditor({host: document.getElementById('host'), value: start ? JSON.parse(start) : null,
+  label: '본문', placeholder: '여기에 쓰세요', onChange: () => { window.changes++; }});
+window.renderOut = () => { const out = document.getElementById('out'); out.textContent = ''; out.append(renderDoc(window.ed.getValue())); out.style.display = 'block'; return out.innerHTML; };
+window.plain = () => toPlain(window.ed.getValue());
+document.body.dataset.ready = '1';
+</script>
+</body>
+</html>

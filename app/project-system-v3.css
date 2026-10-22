@@ -263,7 +263,7 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
 @media(min-width:1024px){
   html:has(#appView #projectsView:not(.hidden)) main{padding-bottom:12px}
   html:has(#appView #projectsView:not(.hidden)) #appView>.app-nav{margin-bottom:0}
-  #appView #projectsView:not(.hidden){display:flex;flex-direction:column;height:calc(100vh - 24px);height:calc(100dvh - 24px);min-height:420px}
+  #appView #projectsView:not(.hidden){display:flex;flex-direction:column;height:calc(100vh - 24px - var(--kptu-topline-space,0px));height:calc(100dvh - 24px - var(--kptu-topline-space,0px));min-height:420px}
   #appView #projectsView>.section-head{flex:none}
   #appView #projectsView>.section-head.actions-only:not(:has(button)){display:none}
   #appView #projectsView>#projectGrid[data-ps3-ready="1"]{flex:1 1 auto;min-height:0;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:minmax(0,1fr);column-gap:var(--kptu-space-3);margin:0}

@@ -70,7 +70,7 @@ function harness(o = {}) {
     throw Error(`Unexpected ${method} ${u.href}`);
   };
   const Deno = { env: { get: k => ({ SUPABASE_URL: 'https://sb.example', SUPABASE_SERVICE_ROLE_KEY: 'service' })[k] }, serve: fn => { handler = fn; } };
-  new Function('Deno', 'fetch', 'console', 'inspectBasketOriginal', 'readBoundedJson', 'createHwpEdit', 'HwpEditError', source)(Deno, fetchMock, { error() {} }, inspectBasketOriginal, readBoundedJson, createHwpEdit, HwpEditError);
+  new Function('Deno', 'fetch', 'console', 'inspectBasketOriginal', 'readBoundedJson', 'createHwpEdit', 'HwpEditError', 'createDocumentText', source)(Deno, fetchMock, { error() {} }, inspectBasketOriginal, readBoundedJson, createHwpEdit, HwpEditError, () => { throw Error('document-text not used here'); });
   const call = async init => {
     const r = await handler(new Request('https://sb.example/functions/v1/document-actions', { method: 'POST', ...init, headers: { Authorization: 'Bearer user-token', ...(init.headers || {}) } }));
     const info = r.headers.get('X-Web2-Hwp');

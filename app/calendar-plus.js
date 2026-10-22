@@ -52,7 +52,11 @@ function cmEnsureFiles(){if(cmFiles)return cmFiles;const memo=document.querySele
 // The answer is asked for when the calendar loads and when the window opens, so the row is laid out before [할 일] is pressed:
 // on a phone this window sits on the bottom edge and a row that came in late would push the fields above it upward.
 function cmAskFiles(){const owner=cmOwner();if(owner)void taskFilesAvailable().then(yes=>{if(yes&&owner===cmOwner()&&!cmFilesOn)cmPaintFiles()})}
-function cmPaintFiles(){const f=cmEnsureFiles();if(!f)return;const owner=cmOwner();if(cmFilesOwner!==owner){cmFilesOwner=owner;cmFilesOn=false}if(!cmFilesOn&&owner&&taskFilesKnown())cmFilesOn=true;const on=cmMode==='task'&&cmFilesOn&&!cmSaved;document.querySelector('#eventTaskFiles').hidden=!on;f.render();if(cmMode==='task'&&!cmFilesOn&&owner)void taskFilesAvailable().then(yes=>{if(yes&&owner===cmOwner()){cmFilesOn=true;if(cmMode==='task'&&!cmSaved){document.querySelector('#eventTaskFiles').hidden=false;f.render()}}})}
+function cmPaintFiles(){const f=cmEnsureFiles();if(!f)return;const owner=cmOwner();if(cmFilesOwner!==owner){cmFilesOwner=owner;cmFilesOn=false}if(!cmFilesOn&&owner&&taskFilesKnown())cmFilesOn=true;const on=cmMode==='task'&&cmFilesOn&&!cmSaved;
+  // TEST-홈빠른입력안정화: until this load's answer, [할 일] keeps the row's place (unseen); a no frees it.
+  const host=document.querySelector('#eventTaskFiles'),place=(show,wait)=>{host.hidden=!show&&!wait;host.toggleAttribute('data-gt-pick-wait',!show&&wait);f.render()};
+  place(on,!on&&cmMode==='task'&&!cmSaved&&!!owner);
+  if(cmMode==='task'&&!cmFilesOn&&owner)void taskFilesAvailable().then(yes=>{if(owner!==cmOwner())return;if(yes)cmFilesOn=true;if(cmMode==='task'&&!cmSaved)place(yes,false)})}
 let cmFormOwner=window.KPTURuntime.context.read()?.user?.id;
 const cmProjectButton=()=>document.querySelector('#eventTaskProject');
 function cmPaintProject(){const b=cmProjectButton();if(!b)return;const name=cmProjectRows.find(x=>x.project.id===cmProject)?.project.name||'',label=document.createElement('span'),arrow=document.createElement('span');label.className='event-project-name';label.textContent=cmProject&&name?name:'선택 안 함';label.dataset.empty=String(!(cmProject&&name));arrow.className='event-project-arrow';arrow.setAttribute('aria-hidden','true');arrow.textContent='▾';b.replaceChildren(label,arrow);b.setAttribute('aria-label',cmProject&&name?'프로젝트: '+name:'프로젝트')}

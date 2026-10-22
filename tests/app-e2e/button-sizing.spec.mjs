@@ -69,7 +69,7 @@ async function muted(page){return page.evaluate(()=>{const el=document.createEle
 async function size(el){return el.evaluate(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return {height:r.height,font:s.fontSize,paddingLeft:s.paddingLeft,paddingRight:s.paddingRight,radius:s.borderRadius,weight:s.fontWeight,color:s.color,background:s.backgroundColor}})}
 async function standard(page,selector){const el=page.locator(selector);await expect(el).toBeVisible();await expect(el).toHaveCSS('font-size','12px');const s=await size(el);expect(s.height,selector).toBeGreaterThanOrEqual(35);expect(s.height,selector).toBeLessThanOrEqual(37);expect(s.paddingLeft).toBe('12px');expect(s.paddingRight).toBe('12px');if(!selector.includes('press-type'))expect(s.radius).toBe('8px');}
 // UI-디자인기준 2/3(8-9d): 일정·할 일·프로젝트의 버튼은 새 기준(높이 --ds-control-height 46px·13px·모서리 8px·굵기 500)으로 바뀌었다.
-async function dsStandard(page,selector){const el=page.locator(selector).first();await expect(el).toBeVisible();const s=await size(el);expect(s.height,selector).toBe(46);expect(s.font,selector).toBe('13px');expect(s.radius,selector).toBe('8px');expect(s.weight,selector).toBe('500');}
+async function dsStandard(page,selector,h=46){const el=page.locator(selector).first();await expect(el).toBeVisible();const s=await size(el);expect(s.height,selector).toBe(h);expect(s.font,selector).toBe('13px');expect(s.radius,selector).toBe('8px');expect(s.weight,selector).toBe('500');}
 // UI-PC버튼36(2026-10-20): PC(≥1024) 목록 머리 추가 버튼은 입력칸 높이(--kptu-control-height 36px)·13px·8px·500, 누르는 범위 44px.
 async function pcAdd(page,selector){const el=page.locator(selector);await expect(el).toBeVisible();const s=await size(el);expect(s.height,selector).toBe(36);expect(s.font,selector).toBe('13px');expect(s.radius,selector).toBe('8px');expect(s.weight,selector).toBe('500');expect(await el.evaluate(n=>getComputedStyle(n,'::after').minHeight),selector).toBe('44px');}
 // UI-PC프로젝트좌우(2026-10-20 사용자 확정): PC(≥1024) [+ 프로젝트]는 왼쪽 목록 머리의 낮은 버튼(--ds-compact-height 32px)·13px·8px·500, 누르는 범위 44px.
@@ -102,13 +102,15 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
   }
   expect(await page.locator('#'+name+'View').evaluate(el=>({overflow:el.scrollWidth>el.clientWidth,clipped:[...el.querySelectorAll('button.primary,button.secondary,.w1p-filter')].filter(b=>b.checkVisibility()&&!(innerWidth<=760&&['newEventBtn','newTaskBtn','newProjectBtn','newDocumentBtn','newMeetingBtn'].includes(b.id))&&b.scrollWidth>b.clientWidth+1).map(b=>b.id||b.className)}))).toEqual({overflow:false,clipped:[]});
  }
- for(const [name,selectors]of Object.entries({calendar:['#prevMonthBtn','#nextMonthBtn'],library:['#newDocumentBtn'],menu:['.app-nav [data-view="projects"]','.app-nav [data-account-open]']})){
+ for(const [name,selectors]of Object.entries({calendar:['#prevMonthBtn','#nextMonthBtn'],library:['#newDocumentBtn'],menu:['.app-nav [data-view="projects"]','#appView [data-account-open]']})){
   if(name!=='menu')for(const p of [page,original])await view(p,name);
   if(name==='library'){if(width<=760)await phoneFab(page,'#newDocumentBtn');else if(width>=1024)await pcAdd(page,'#newDocumentBtn');else await dsStandard(page,'#newDocumentBtn');continue}
   if(name==='calendar'){for(const selector of selectors){const s=await size(page.locator(selector));expect(s,selector).toMatchObject({height:46,font:'24px',paddingLeft:'0px',paddingRight:'0px',color:await muted(page),background:'rgba(0, 0, 0, 0)'})}continue}
   if(name==='menu'&&width<=760){await expect(page.locator('.mobile-tabs [data-mobile-schedule-tab]')).toHaveCSS('font-size','12px');await expect(page.locator('#mobileMenuTab')).toHaveCSS('min-height','44px');}else for(const selector of selectors){const before=await size(original.locator(selector).first());
    // 8-9e-3: PC 메뉴·[계정 ▾]는 13px·보통 굵기(400), 크기·색은 그대로.
-   expect(await size(page.locator(selector).first()),selector).toEqual({...before,font:'13px',weight:'400'});}
+   // UI-상단줄: the PC [계정 ▾] moved to the top line as a small button (32px visible, UI-버튼기준); its letters stay the menu's.
+   if(selector.includes('account-open'))expect(await size(page.locator(selector).first()),selector).toEqual({...before,height:32,paddingLeft:'8px',paddingRight:'8px',font:'13px',weight:'400'});
+   else expect(await size(page.locator(selector).first()),selector).toEqual({...before,font:'13px',weight:'400'});}
  }
  await original.close();
 });
@@ -167,7 +169,7 @@ for(const width of [390,1440])test('D-button project and organization detail and
  // ⋯ 메뉴 안 항목은 버튼 모양이 아닌 메뉴(옛 크기 그대로). 창 안 [저장]·[삭제]는 새 기준.
  for(const selector of ['[data-ps3-toggle-done]','[data-ps3-edit-project]','[data-ps3-archive-project]','[data-ps3-delete-project]'])await standard(page,selector);
  await closeProjectDetail(page);
- await view(page,'team');await page.locator('[data-ps-workplace-org="type-org"]').click();await dsStandard(page,'#wdInboxSave');
+ await view(page,'team');await page.locator('[data-ps-workplace-org="type-org"]').click();await dsStandard(page,'#wdInboxSave',36);/* UI-버튼줄이기: 담당조직 상세 [저장] 36px */
  await closeOrganizationDetail(page);
  await view(page,'meetings');await page.locator('#newMeetingBtn').click();await page.locator('#addMeetingAction').click();for(let i=0;i<await page.locator('.meeting-action-remove').count();i++)await standard(page,'.meeting-action-remove >> nth='+i);
 });

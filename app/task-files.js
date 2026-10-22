@@ -21,7 +21,9 @@ export async function readTaskFiles(ids, {rt = window.KPTURuntime, expectedSessi
   // One request even with no tasks, so the answer still says whether the table exists.
   for (let i = 0; i === 0 || i < list.length; i += LIST_CHUNK) {
     const ids = list.slice(i, i + LIST_CHUNK);
-    const rows = await rt.api(`/rest/v1/app_task_attachments?${ids.length ? `google_task_id=in.(${ids.join(',')})&` : 'limit=1&'}${cols}`, options);
+    let rows;
+    try { rows = await rt.api(`/rest/v1/app_task_attachments?${ids.length ? `google_task_id=in.(${ids.join(',')})&` : 'limit=1&'}${cols}`, options); }
+    catch (e) { tableMissing(rt); throw e; }
     if (!Array.isArray(rows)) throw Error('할 일 파일을 확인하지 못했어요.');
     if (!ids.length) continue;
     for (const f of rows) {
@@ -170,11 +172,19 @@ async function detach(id) {
 const available = new Map();
 const readyEvents = typeof window === 'undefined' ? new EventTarget() : window;
 function ownerOf(rt) { return rt?.context?.read?.()?.user?.id || rt?.session?.read?.()?.user?.id || ''; }
-// A read of the table answered for this owner (the task list's own read or the check below). Only a yes is kept.
+// TEST-홈빠른입력안정화: windows that keep the file part's place while the answer is out hear a yes and a failed read alike.
+function tell(owner, yes) { try { readyEvents.dispatchEvent(new CustomEvent('kptu:task-files-ready', {detail: {owner, yes}})); } catch {} }
+// A read of the table answered for this owner (the task list's own read or the check below). Only a yes is kept in memory.
 function tableAnswered(owner) {
   if (!owner || available.get(owner)?.yes) return;
   const yes = Promise.resolve(true); yes.yes = true; available.set(owner, yes);
-  try { readyEvents.dispatchEvent(new CustomEvent('kptu:task-files-ready', {detail: {owner}})); } catch {}
+  tell(owner, true);
+}
+// A read failed (no table yet, or a network error): a window still keeping the place stops waiting. Nothing is stored.
+function tableMissing(rt) {
+  const owner = ownerOf(rt);
+  if (!owner || available.get(owner)?.yes) return;
+  tell(owner, false);
 }
 // Whether the link table answers for this owner (the same check that shows ⋯ → 파일 붙이기). Only a yes is remembered.
 // ask:false only reports an answer already known (the [할 일] screen waits for its list's own read, see onTaskFilesReady).
@@ -189,9 +199,10 @@ export function taskFilesAvailable({rt = window.KPTURuntime, ask = true} = {}) {
 }
 // Whether a yes is already known for the signed-in owner (no request). Lets a window lay out its file row before it shows.
 export function taskFilesKnown({rt = window.KPTURuntime} = {}) { return !!available.get(ownerOf(rt))?.yes; }
-// Calls back once the table has answered for an owner (by any read). Returns a function that stops listening.
+// Calls back once the table has answered for an owner (by any read; yes = true), and after a read failed (yes = false).
+// Returns a function that stops listening.
 export function onTaskFilesReady(callback) {
-  const listener = e => callback(e.detail?.owner || '');
+  const listener = e => callback(e.detail?.owner || '', e.detail?.yes !== false);
   readyEvents.addEventListener('kptu:task-files-ready', listener);
   return () => readyEvents.removeEventListener('kptu:task-files-ready', listener);
 }
@@ -235,7 +246,7 @@ export function mountNewTaskFilePick(host, {isBusy = () => false, onError = () =
   let chosen = [];
   const render = () => {
     const busy = isBusy();
-    button.disabled = busy || chosen.length >= MAX_TASK_FILES;
+    button.disabled = busy || chosen.length >= MAX_TASK_FILES || host.hasAttribute('data-gt-pick-wait');
     list.hidden = !chosen.length;
     list.innerHTML = chosen.map((f, i) => `<li><span class="gt-pick-name">${esc(f.name)}</span><button type="button" class="icon-btn" data-gt-pick-remove="${i}" aria-label="${esc(f.name)} 선택 취소"${busy ? ' disabled' : ''}>×</button></li>`).join('');
   };
@@ -255,7 +266,9 @@ export function mountNewTaskFilePick(host, {isBusy = () => false, onError = () =
   return {
     files: () => [...chosen],
     clear: () => { chosen = []; render(); },
-    show: on => { host.hidden = !on; if (!on) { chosen = []; } render(); },
+    show: on => { host.hidden = !on; host.removeAttribute('data-gt-pick-wait'); if (!on) { chosen = []; } render(); },
+    // TEST-홈빠른입력안정화: this load's answer is not in yet: keep the row's place, unseen and unusable.
+    wait: () => { host.hidden = false; host.setAttribute('data-gt-pick-wait', ''); chosen = []; render(); },
     render,
   };
 }
