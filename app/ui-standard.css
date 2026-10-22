@@ -225,8 +225,18 @@
 #ps3DetailModal :is(.ps3-child-link strong,.ps3-row-main > b,.ps3-row-title b,.ps3-summary b,.ps3-stat-grid b){ font-size:var(--ds-text-row); }
 #ps3DetailModal :is(.ps3-child-link small,.ps3-row p,.ps3-row small,.ps3-section-head p){ font-size:var(--ds-text-meta); }
 #ps3DetailModal :is(.ps3-row,.ps3-child-link){ border-top-width:var(--ds-line-width); border-top-color:var(--ds-line); }
-/* 상세 맨 위 기록 칸은 옆 [기록]과 같은 높이, 0.5px 선·모서리 8px. */
-#ps3DetailModal [data-ps3-record-input] input{ box-sizing:border-box; height:var(--ds-control-height); min-height:var(--ds-control-height); border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); }
+/* 상세 맨 위 기록 칸은 옆 [기록]과 같은 높이(PRJ-기록버튼줄이기: 둘 다 36px, UI-버튼기준 입력칸·주 버튼), 0.5px 선·모서리 8px. */
+#ps3DetailModal [data-ps3-record-input] input{ box-sizing:border-box; height:var(--kptu-control-height); min-height:var(--kptu-control-height); padding-top:0; padding-bottom:0; border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); }
+/* [기록]: 폰은 모달이 #appView 밖, PC는 #projectsView 안이라 둘 다 이긴다. 누르는 범위는 ::after로 44px. */
+#ps3DetailModal [data-ps3-record-input] > button.primary,
+#appView #ps3DetailModal [data-ps3-record-input] > button.primary,
+#appView #projectsView #ps3DetailModal [data-ps3-record-input] > button.primary{ position:relative; height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+#ps3DetailModal [data-ps3-record-input] > button.primary::after,
+#appView #ps3DetailModal [data-ps3-record-input] > button.primary::after,
+#appView #projectsView #ps3DetailModal [data-ps3-record-input] > button.primary::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+/* [큰 창에서 쓰기] ⤢는 입력칸 안 오른쪽 끝(보이는 높이 보조 32px, 입력칸 36px 안). 누르는 범위는 ::after로 위아래를 늘려 44px. */
+#ps3DetailModal [data-ps3-record-input] .ps3-record-big{ top:2px; right:2px; height:var(--ds-compact-height); min-height:0; }
+#ps3DetailModal [data-ps3-record-input] .ps3-record-big::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 
 /* ───────── 3단계 1부(8-9e-1): 담당조직·자료실·회의 + 목록 글자 통일 ─────────
    1·2단계와 같은 값·같은 모양. 규칙은 #appView 안의 #teamView·#libraryView·#meetingsView로만 한정한다. */
@@ -1011,7 +1021,7 @@
    첨부(사진 작은 미리보기 / 그 밖은 종류 표시, 이름·크기 아래 아이콘 붙은 작은 글자 링크) · 사진 속 글자 · 맨 아래 동작 한 줄. 폰은 위아래로 쌓인다. */
 #appView #basketView .basket-card{ display:block; margin:0 0 12px; padding:12px; background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); }
 #appView #basketView .basket-card .basket-read{ position:relative; }
-#appView #basketView .basket-card .basket-read-text{ margin:0 0 8px; padding:4px 76px 4px 0; border:0; border-radius:0; background:transparent; }
+#appView #basketView .basket-card .basket-read-text{ margin:0 0 8px; padding:4px 0; border:0; border-radius:0; background:transparent; }
 #appView #basketView .basket-card .basket-read-text[hidden]{ display:none; }
 #appView #basketView .basket-card .basket-note-meta{ margin:0 0 4px; }
 #appView #basketView .basket-card-tools{ position:absolute; top:-6px; right:-6px; z-index:1; display:flex; gap:0; }
