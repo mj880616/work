@@ -84,8 +84,14 @@ for(const width of [390,1280]){
   await check(page.locator('#ps3DetailModal [data-gt-linked-unlink]').first(),32,'프로젝트 [연결 해제]');
   await page.keyboard.press('Escape');
   await go(page,'team');await page.locator('[data-ps-workplace-org="o"]').first().click();await expect(page.locator('#wdModal')).toBeVisible();
-  const big=await check(page.locator('#wdInboxBig'),36,'조직 [크게]'),save=await check(page.locator('#wdInboxSave'),36,'조직 [저장]');expect(big.top).toBe(save.top);
-  if(await page.locator('#wdModal [data-gt-linked-unlink]').count())await check(page.locator('#wdModal [data-gt-linked-unlink]').first(),32,'조직 [연결 해제]');
+  if(width>=1024){
+   // ORG-PC상세정리(요청 14:10): PC 상세 칸은 ⤢가 입력칸 안 오른쪽 아래(보조 32px), [저장]은 작은 버튼(32px), 누르는 범위 44px.
+   const input=await measure(page.locator('#wdInboxText')),big=await check(page.locator('#wdInboxBig'),32,'조직 ⤢');await check(page.locator('#wdInboxSave'),32,'조직 [저장]');
+   expect(big.bottom).toBeLessThanOrEqual(input.bottom);expect(big.right).toBeLessThanOrEqual(input.right);expect(big.top).toBeGreaterThan(input.top);
+  }else{
+   const big=await check(page.locator('#wdInboxBig'),36,'조직 [크게]'),save=await check(page.locator('#wdInboxSave'),36,'조직 [저장]');expect(big.top).toBe(save.top);
+   if(await page.locator('#wdModal [data-gt-linked-unlink]').count())await check(page.locator('#wdModal [data-gt-linked-unlink]').first(),32,'조직 [연결 해제]');
+  }
   await noWideScroll(page);expect(errors).toEqual([]);
  });
 
