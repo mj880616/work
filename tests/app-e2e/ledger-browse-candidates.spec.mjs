@@ -16,11 +16,11 @@ const ORG=u(50),TOPIC=u(60),SRC=u(70);
 
 function records(){
  return [
-  {id:u(1),workspace_id:workspace.id,kind:'event',ledger_id:'EVT-0901',title:'가상 노선 교섭',summary:'가 지부 교섭 진행.',scope:'work',topic_id:TOPIC,sensitivity:'S1',importance:'high',validity:'current',
+  {id:u(1),workspace_id:workspace.id,kind:'event',ledger_id:'EVT-0901',title:'가상 노선 교섭',summary:'가 지부 교섭 진행. (계속추적=아니오, 상태=종료)',scope:'work',topic_id:TOPIC,sensitivity:'S1',importance:'high',validity:'current',
    date_start:'2026-09-01',date_end:null,date_precision:'month',date_note:'2026-09',event_status:'tracking',note:'',superseded_by:null},
   {id:u(2),workspace_id:workspace.id,kind:'change',ledger_id:'CHG-0901',title:'가상 교섭 2차 일정 확정',summary:'2차 교섭 날짜 확정.',scope:'work',topic_id:null,sensitivity:'S2',importance:'normal',validity:'current',
    date_start:'2026-10-20',date_end:null,date_precision:'day',date_note:'',note:'가상 비고',superseded_by:null},
-  {id:u(3),workspace_id:workspace.id,kind:'commitment',ledger_id:'COM-0901',title:'가상 기관 자료 회신',summary:'',scope:'work',topic_id:null,sensitivity:'S1',importance:'normal',validity:'current',
+  {id:u(3),workspace_id:workspace.id,kind:'commitment',ledger_id:'COM-0901',title:'가상 기관 자료 회신',summary:'가상 기관 자료 회신.',scope:'work',topic_id:null,sensitivity:'S1',importance:'normal',validity:'current',
    date_start:null,date_end:null,date_precision:'unknown',date_note:'',counterparty:'가상 기관',commitment_status:'waiting',follow_up_on:'2026-10-01',note:'',superseded_by:null},
   {id:u(4),workspace_id:workspace.id,kind:'event',ledger_id:'EVT-0905',title:'가상 관심 소식',summary:'업무 밖 소식.',scope:'interest',topic_id:null,sensitivity:'S0',importance:'low',validity:'current',
    date_start:null,date_end:null,date_precision:'unknown',date_note:'',event_status:'watching',note:'',superseded_by:null}
@@ -159,7 +159,7 @@ async function signIn(page){
 }
 const noSideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth);
 
-for(const [name,width] of [['PC',1440],['phone',390]]){
+for(const [name,width] of [['PC',1280],['phone',390]]){
  test(`원장 목록·검색: 기본은 업무만, 종류·범위 걸러보기, 행 상세의 근거·출처·연결 (${name} ${width}px)`,async({page})=>{
   test.setTimeout(60000);
   await page.setViewportSize({width,height:900});
@@ -170,8 +170,9 @@ for(const [name,width] of [['PC',1440],['phone',390]]){
   await expect(browse.locator('[data-lb-row]')).toHaveCount(3);
   expect(db.search[0]).toMatchObject({p_query:'',p_kinds:null,p_scope:'work',p_include_inactive:false,p_limit:50});
   await expect(browse.locator('[data-lb-row="'+u(4)+'"]')).toHaveCount(0);
-  await expect(browse.locator('[data-lb-row="'+u(1)+'"]')).toContainText('2026-09');
-  // 종류: 약속만.
+  await expect(browse.locator('[data-lb-row="'+u(1)+'"]')).toContainText('2026.09');
+  // 종류: 약속만. 조건은 처음에 접혀 있어 [조건 ▾]를 먼저 연다.
+  await browse.locator('#lbCondBtn').click();
   await browse.locator('input[name="lbKind"][value="commitment"]').check();
   await expect(browse.locator('[data-lb-row]')).toHaveCount(1);
   expect(db.search.at(-1).p_kinds).toEqual(['commitment']);
@@ -185,7 +186,7 @@ for(const [name,width] of [['PC',1440],['phone',390]]){
   expect(db.search.at(-1).p_scope).toBe(null);
   // 찾을 말 + 찾기.
   await browse.locator('#lbQuery').fill('2차');
-  await browse.locator('#lbForm button[type="submit"]').click();
+  await browse.locator('#lbQuery').press('Enter');
   await expect(browse.locator('[data-lb-row]')).toHaveCount(1);
   const head=browse.locator('[data-lb-row="'+u(2)+'"] [data-lb-action="open"]');
   await expect(head).toContainText('S2 교섭·전략');
@@ -205,44 +206,176 @@ for(const [name,width] of [['PC',1440],['phone',390]]){
   expect(await noSideScroll(page)).toBe(true);
  });
 
- test(`원장 목록·검색: 종류·대체 보기 체크 칸은 글자와 같은 줄의 같은 크기이고 다른 칸 줄과 높이가 맞는다 (${name} ${width}px)`,async({page})=>{
+ test(`원장 목록·검색: 검색칸 하나만 보이고 Enter로 찾고, 조건은 접힘·칩·✕ 해제, 종류 칩은 쉬운 이름(값 불변)과 툴팁 (${name} ${width}px)`,async({page})=>{
+  test.setTimeout(60000);
+  await page.setViewportSize({width,height:900});
+  const db=await mockApp(page);
+  await signIn(page);
+  const browse=page.locator('#ledgerBrowseRoot');
+  await expect(browse).toHaveAttribute('data-ledger-browse','ready',{timeout:15000});
+  const box=l=>l.evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height}});
+  // 1. 검색칸 하나만 늘 보인다. 큰 [찾기] 버튼은 없고, '찾을 말' 라벨은 읽기 도구용으로만 남는다. 조건은 접혀 있고 걸린 조건 칩도 없다.
+  await expect(browse.locator('#lbQuery')).toBeVisible();
+  await expect(browse.locator('#lbForm button[type="submit"]')).toHaveCount(0);
+  await expect(browse.getByRole('button',{name:'찾기',exact:true})).toHaveCount(0);
+  await expect(browse.locator('label.lb-search .lg-sr')).toHaveText('찾을 말');
+  await expect(browse.locator('#lbCond')).toBeHidden();
+  await expect(browse.locator('#lbCondBtn')).toHaveAttribute('aria-expanded','false');
+  await expect(browse.locator('.lb-tag')).toHaveCount(0);
+  const search=await box(browse.locator('#lbQuery'));
+  expect(search.h).toBeLessThanOrEqual(34);
+  // Enter = 찾기.
+  const before=db.search.length;
+  await browse.locator('#lbQuery').fill('2차');
+  await browse.locator('#lbQuery').press('Enter');
+  await expect(browse.locator('[data-lb-row]')).toHaveCount(1);
+  expect(db.search.length).toBeGreaterThan(before);
+  expect(db.search.at(-1).p_query).toBe('2차');
+  await browse.locator('#lbQuery').fill('');
+  await browse.locator('#lbQuery').press('Enter');
+  await expect(browse.locator('[data-lb-row]')).toHaveCount(3);
+
+  // 2. [조건 ▾]를 열면 종류·기간·조직·주제·범위·지난 기록이 보인다.
+  await browse.locator('#lbCondBtn').click();
+  await expect(browse.locator('#lbCondBtn')).toHaveAttribute('aria-expanded','true');
+  await expect(browse.locator('#lbCond')).toBeVisible();
+  // 3. 종류 칩: 화면 이름만 쉬운 말, 값(value)과 RPC 인자는 그대로. 작은 칩(높이 28 안팎).
+  const names={event:'일어난 일',change:'바뀐 점',decision:'정한 것',evidence:'근거',commitment:'약속'};
+  for(const [value,label] of Object.entries(names)){
+   const chip=browse.locator(`label.lb-chip:has(input[value="${value}"])`);
+   await expect(chip).toHaveText(label);
+   await expect(chip.locator('input')).toHaveAttribute('name','lbKind');
+   expect((await box(chip)).h).toBeLessThanOrEqual(30);
+   expect((await chip.getAttribute('title'))||'').not.toBe('');
+  }
+  await expect(browse.locator('label.lb-chip')).toHaveCount(5);
+  await expect(browse.locator('#lbCond')).not.toContainText('변화기록');
+  await browse.locator('label.lb-chip:has(input[value="event"])').click();
+  await expect(browse.locator('input[name="lbKind"][value="event"]')).toBeChecked();
+  expect(db.search.at(-1).p_kinds).toEqual(['event']);
+  // 눌린 칩은 계정 색으로 칠해진다(안 눌린 칩과 배경이 다르다).
+  const bg=l=>l.evaluate(el=>getComputedStyle(el).backgroundColor);
+  expect(await bg(browse.locator('label.lb-chip:has(input[value="event"])'))).not.toBe(await bg(browse.locator('label.lb-chip:has(input[value="change"])')));
+  // 걸린 조건 칩 + ✕ 해제.
+  const tag=browse.locator('.lb-tag');
+  await expect(tag).toHaveCount(1);
+  await expect(tag).toContainText('일어난 일');
+  await expect(tag).toContainText('✕');
+  await tag.click();
+  await expect(tag).toHaveCount(0);
+  await expect(browse.locator('input[name="lbKind"][value="event"]')).not.toBeChecked();
+  await expect.poll(()=>db.search.at(-1).p_kinds).toBe(null);
+  // 기간 칩: 시작·끝 날짜(달력 입력)를 넣으면 한 칩으로 보이고 ✕로 함께 풀린다. 조직도 칩.
+  const year=new Date().getFullYear();
+  await browse.locator('#lbFrom').fill(`${year}-10-01`);
+  await browse.locator('#lbTo').fill(`${year}-10-22`);
+  await expect(tag).toHaveText(/10\.01~10\.22/);
+  await expect.poll(()=>db.search.at(-1)).toMatchObject({p_date_from:`${year}-10-01`,p_date_to:`${year}-10-22`});
+  await expect(browse.locator('#lbFrom')).toHaveAttribute('type','date');
+  await browse.locator('#lbOrg').selectOption(ORG);
+  await expect(browse.locator('.lb-tag')).toHaveCount(2);
+  await browse.locator('.lb-tag',{hasText:'~'}).click();
+  await expect(browse.locator('#lbFrom')).toHaveValue('');
+  await expect.poll(()=>db.search.at(-1)).toMatchObject({p_date_from:null,p_date_to:null,p_organization_id:ORG});
+  await expect(browse.locator('.lb-tag')).toHaveCount(1);
+  // 4. 범위 표시는 업무만 / 전체(값 work/all), '지난 기록도 보기' 작은 체크, '조건 지우기' 작은 글자 버튼.
+  await expect(browse.locator('#lbScope option')).toHaveText(['업무만','전체','관심만']);
+  await expect(browse.locator('#lbScope option').nth(1)).toHaveAttribute('value','all');
+  await expect(browse.locator('label.lb-check')).toHaveText('지난 기록도 보기');
+  const check=await box(browse.locator('#lbInactive'));
+  expect(check.w).toBeLessThanOrEqual(16);
+  await browse.locator('#lbInactive').check();
+  expect(db.search.at(-1).p_include_inactive).toBe(true);
+  await expect(browse.locator('.lb-tag',{hasText:'지난 기록 포함'})).toHaveCount(1);
+  const clear=browse.locator('[data-lb-action="clear"]');
+  await expect(clear).toHaveText('조건 지우기');
+  expect((await box(clear)).h).toBeLessThanOrEqual(30);
+  // 5. 날짜·선택 칸은 낮다(32px 안팎).
+  expect((await box(browse.locator('#lbFrom'))).h).toBeLessThanOrEqual(34);
+  expect((await box(browse.locator('#lbOrg'))).h).toBeLessThanOrEqual(34);
+  await clear.click();
+  await expect(browse.locator('.lb-tag')).toHaveCount(0);
+  expect(db.search.at(-1)).toMatchObject({p_kinds:null,p_organization_id:null,p_include_inactive:false,p_scope:'work'});
+  // 키보드: 종류 칩에 초점이 가면 한 줄 설명이 보인다(마우스는 title).
+  await browse.locator('input[name="lbKind"][value="decision"]').focus();
+  await page.keyboard.press('Shift+Tab');await page.keyboard.press('Tab');
+  const hint=await browse.locator('label.lb-chip:has(input[value="decision"])').evaluate(el=>getComputedStyle(el,'::before').content);
+  expect(hint).toContain('채택·기각·보류');
+  expect(await noSideScroll(page)).toBe(true);
+  await browse.locator('#lbCondBtn').click();
+  await expect(browse.locator('#lbCond')).toBeHidden();
+ });
+
+ test(`원장 목록·검색: 결과 줄은 종류 꼬리표·제목·날짜, 요지가 제목과 같으면 요지 줄 생략, 기계식 표기 없음, ID·상태 꼬리표 (${name} ${width}px)`,async({page})=>{
   test.setTimeout(60000);
   await page.setViewportSize({width,height:900});
   await mockApp(page);
   await signIn(page);
   const browse=page.locator('#ledgerBrowseRoot');
   await expect(browse).toHaveAttribute('data-ledger-browse','ready',{timeout:15000});
-  const box=l=>l.evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height}});
-  const kinds=browse.locator('input[name="lbKind"]'),inactive=browse.locator('#lbInactive');
-  expect(await kinds.count()).toBe(5);
-  const inputs=[];
-  for(const input of [...await kinds.all(),inactive]){
-   const check=await box(input),label=await box(input.locator('xpath=ancestor::label[1]')),text=await box(input.locator('xpath=following-sibling::span'));
-   // 체크 칸은 작은 정사각형(12~24px), 글자 줄과 같은 줄(세로 중심이 글자와 6px 안), 칸 안쪽에 있다.
-   expect(check.w).toBeGreaterThanOrEqual(12);expect(check.w).toBeLessThanOrEqual(24);
-   expect(Math.abs(check.w-check.h)).toBeLessThanOrEqual(1);
-   expect(Math.abs((check.y+check.h/2)-(text.y+text.h/2))).toBeLessThanOrEqual(6);
-   expect(check.y).toBeGreaterThanOrEqual(label.y-1);expect(check.y+check.h).toBeLessThanOrEqual(label.y+label.h+1);
-   inputs.push({check,label});
+  const row=id=>browse.locator('[data-lb-row="'+id+'"]');
+  // 개수: '최근 N건'은 한 번에 가져오는 수 이상일 때만, 아니면 실제 건수.
+  await expect(browse.locator('#lbStatus')).toHaveText('3건');
+  // 종류 꼬리표는 화면 이름, 데이터 값(data-lb-kind)은 그대로.
+  await expect(row(u(1)).locator('.lbr-kind')).toHaveText('일어난 일');
+  await expect(row(u(1))).toHaveAttribute('data-lb-kind','event');
+  await expect(row(u(2)).locator('.lbr-kind')).toHaveText('바뀐 점');
+  await expect(row(u(3)).locator('.lbr-kind')).toHaveText('약속');
+  const color=l=>l.evaluate(el=>getComputedStyle(el).color+'|'+getComputedStyle(el).backgroundColor);
+  const tones=new Set([await color(row(u(1)).locator('.lbr-kind')),await color(row(u(2)).locator('.lbr-kind')),await color(row(u(3)).locator('.lbr-kind'))]);
+  expect(tones.size).toBe(3);
+  // 날짜는 짧게(올해면 MM.DD), 전체 표기는 툴팁.
+  await expect(row(u(2)).locator('.lbr-date')).toHaveText(/^(\d\d\.)?10\.20$/);
+  await expect(row(u(2)).locator('.lbr-date')).toHaveAttribute('title','2026-10-20');
+  // 기계식 표기 '(계속추적=아니오, 상태=종료)'는 글에서 빼고 상태만 작은 꼬리표로.
+  await expect(row(u(1))).not.toContainText('계속추적');
+  await expect(row(u(1)).locator('.lb-state')).toHaveText('종료');
+  await expect(row(u(1)).locator('.lbr-summary')).toHaveText('가 지부 교섭 진행.');
+  // 요지가 제목과 같은 문장이면 요지 줄(글)이 없다. 다른 요지는 있다.
+  await expect(row(u(3)).locator('.lbr-summary')).toHaveText('');
+  await expect(row(u(2)).locator('.lbr-summary')).toHaveText('2차 교섭 날짜 확정.');
+  // S2 꼬리표.
+  await expect(row(u(2)).locator('.lb-state')).toHaveText('S2 교섭·전략');
+  if(width>=1000){
+   // PC: 둘째 줄 요지, ID는 오른쪽 끝에 작고 흐리게.
+   await expect(row(u(1)).locator('.lbr-id')).toBeVisible();
+   await expect(row(u(1)).locator('.lbr-id')).toHaveText('EVT-0901');
+   const id=await row(u(1)).locator('.lbr-id').evaluate(el=>{const r=el.getBoundingClientRect(),p=el.closest('.lb-head').getBoundingClientRect();return {right:r.right,head:p.right,size:parseFloat(getComputedStyle(el).fontSize)}});
+   expect(id.head-id.right).toBeLessThan(12);expect(id.size).toBeLessThanOrEqual(12);
+  }else{
+   // 폰: 요지·ID는 줄을 눌러 펼칠 때만.
+   await expect(row(u(1)).locator('.lbr-summary')).toBeHidden();
+   await expect(row(u(1)).locator('.lbr-id')).toBeHidden();
+   await row(u(1)).locator('[data-lb-action="open"]').click();
+   await expect(browse.locator('#lbDetail-'+u(1))).toContainText('EVT-0901');
+   await expect(browse.locator('#lbDetail-'+u(1))).toContainText('가 지부 교섭 진행.');
   }
-  // 모든 체크 칸 크기 통일, 글자 칸 높이 통일.
-  for(const i of inputs){expect(Math.abs(i.check.w-inputs[0].check.w)).toBeLessThanOrEqual(0.5);expect(Math.abs(i.label.h-inputs[0].label.h)).toBeLessThanOrEqual(0.5)}
-  // 칩 높이는 같은 줄의 작은 버튼([조건 지우기])과 같고, 대체·폐기 칩과 그 버튼은 세로 중심이 같다. 종류 다섯 개는 PC에서 한 줄.
-  const clear=await box(browse.locator('[data-lb-action="clear"]'));
-  expect(Math.abs(inputs[0].label.h-clear.h)).toBeLessThanOrEqual(1);
-  expect(Math.abs((inputs[5].label.y+inputs[5].label.h/2)-(clear.y+clear.h/2))).toBeLessThanOrEqual(1);
-  const rows=new Set(inputs.slice(0,5).map(i=>Math.round(i.label.y)));
-  expect(rows.size).toBeLessThanOrEqual(width>=1000?1:2);
-  // 날짜·조직 칸의 줄과 겹치지 않는다(종류 줄이 먼저, 그 아래 칸 줄).
-  const from=await box(browse.locator('#lbFrom'));
-  expect(Math.max(...inputs.slice(0,5).map(i=>i.label.y+i.label.h))).toBeLessThanOrEqual(from.y);
-  // 체크하면 눌린 모양이 바뀌고(aria 대신 :checked), 글자를 눌러도 체크된다.
-  await browse.locator('input[name="lbKind"][value="decision"]').locator('xpath=ancestor::label[1]').click();
-  await expect(browse.locator('input[name="lbKind"][value="decision"]')).toBeChecked();
-  await expect(browse.locator('[data-lb-shell]')).toHaveCount(1);
+  // 줄은 낮다(PC 2줄·폰 1줄). 가로 넘침 없음.
+  const h=await row(u(3)).evaluate(el=>el.getBoundingClientRect().height);
+  expect(h).toBeLessThanOrEqual(width>=1000?56:46);
   expect(await noSideScroll(page)).toBe(true);
  });
 }
+
+test('원장 화면의 다른 칸(후보)의 버튼·입력칸도 같은 작은 기준 (PC 1440px)',async({page})=>{
+ test.setTimeout(60000);
+ await page.setViewportSize({width:1440,height:900});
+ await mockApp(page);
+ await signIn(page);
+ const box=page.locator('#ledgerCandidatesRoot');
+ await expect(box).toHaveAttribute('data-ledger-candidates','ready',{timeout:15000});
+ const h=l=>l.evaluate(el=>el.getBoundingClientRect().height);
+ for(const sel of ['[data-lc-action="make"]','[data-lc-row="'+u(101)+'"] [data-lc-action="confirm"]','[data-lc-row="'+u(101)+'"] [data-lc-action="edit"]','[data-lc-row="'+u(101)+'"] [data-lc-action="discard"]'])
+  expect(await h(box.locator(sel))).toBeLessThanOrEqual(34);
+ // 문구는 그대로.
+ await expect(box.locator('[data-lc-action="make"]')).toHaveText('원장 후보 만들기');
+ await expect(box.locator('[data-lc-row="'+u(101)+'"] [data-lc-action="edit"]')).toHaveText('고쳐서 확정');
+ await box.locator('[data-lc-row="'+u(101)+'"] [data-lc-action="edit"]').click();
+ const form=box.locator('form[data-lc-form]');
+ expect(await h(form.locator('[name="title"]'))).toBeLessThanOrEqual(34);
+ expect(await h(form.locator('[name="sensitivity"]'))).toBeLessThanOrEqual(34);
+ expect(await h(form.locator('[data-lc-action="save"]'))).toBeLessThanOrEqual(34);
+});
 
 test('원장 후보: 만들기 → 확정 → 고쳐서 확정 → 버림, 거절은 이유를 보이고 후보를 남긴다 (phone 390px)',async({page})=>{
  test.setTimeout(90000);
