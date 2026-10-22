@@ -119,3 +119,30 @@ test('a list read that answers marks the table known for that owner and tells th
   assert.equal(calls, 2);
   stop();
 });
+
+// TEST-홈빠른입력안정화: the last answer is kept per owner on this device (owner cache), so add windows place their file part
+// from the first paint; a 404 (no table) is kept as no, other failures are not kept, and a later yes replaces a no.
+import { taskFilesExpected } from '../app/task-files.js';
+test('the table answer is remembered per owner: yes, 404 as no, other failures not kept', async () => {
+  const store = new Map();
+  globalThis.localStorage = { getItem: k => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k) };
+  const heard = [];
+  const stop = onTaskFilesReady((owner, yes) => heard.push([owner, yes]));
+  try {
+    let answer = () => { throw Object.assign(Error('down'), { status: 503 }); };
+    const rt = owner => ({ ownerCache: { prefix: 'kptu_owner_cache:' }, context: { read: () => ({ user: { id: owner } }) }, api: async () => answer() });
+    assert.equal(taskFilesExpected({ rt: rt('m1') }), null);
+    await assert.rejects(readTaskFiles([], { rt: rt('m1') }));
+    assert.equal(taskFilesExpected({ rt: rt('m1') }), null);
+    answer = () => { throw Object.assign(Error('missing'), { status: 404 }); };
+    await assert.rejects(readTaskFiles([], { rt: rt('m1') }));
+    assert.equal(taskFilesExpected({ rt: rt('m1') }), false);
+    assert.equal(store.get('kptu_owner_cache:task-files-v1:m1'), '0');
+    answer = () => [];
+    await readTaskFiles([], { rt: rt('m1') });
+    assert.equal(taskFilesExpected({ rt: rt('m1') }), true);
+    assert.equal(store.get('kptu_owner_cache:task-files-v1:m1'), '1');
+    assert.equal(taskFilesExpected({ rt: rt('m2') }), null);
+    assert.deepEqual(heard, [['m1', false], ['m1', false], ['m1', true]]);
+  } finally { stop(); delete globalThis.localStorage; }
+});

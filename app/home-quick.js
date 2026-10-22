@@ -6,7 +6,7 @@ import { createNote, validateNoteText, createNoteDoc, noteTitleFromText } from '
 import { createUploadBatch, uploadBatch, uploadNoteFiles, mountBasketPicker, fileTitle } from './basket-upload.js';
 import { extractHtmlDocument, htmlFileName, utf8Bytes, HTML_MAX_BYTES, HTML_MARK } from './chatgpt-html.mjs';
 import { dayKey } from './home-read-model.js';
-import { taskFilesAvailable, onTaskFilesReady, attachNewTaskFiles, newTaskFilesNotice, MAX_TASK_FILES } from './task-files.js';
+import { taskFilesAvailable, taskFilesKnown, taskFilesExpected, onTaskFilesReady, attachNewTaskFiles, newTaskFilesNotice, MAX_TASK_FILES } from './task-files.js';
 
 export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateProjects=()=>{}, esc, basketOnly=false, taskOnly=false, noteOnly=false, onBig=null, view="home", idPrefix="home", onSaved=()=>{}}) {
   // UI-할일입력: taskOnly is the [할 일] screen's always-visible input. It is the [할 일] mode of this same box with the mode
@@ -29,9 +29,10 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   const toBasket=()=>mode==='update'&&!places.length;
   // Whether the clip and drop take files for this save: a basket update, or a note (NOTE-파일붙이기).
   // TASK-추가창파일: a new task too, once the task-file table answers (as ⋯ → 파일 붙이기); they go up after Google made the task.
-  // TEST-홈빠른입력안정화: while the task-file table check for [할 일] is out, the clip's slot is kept (unseen, unusable), so the
-  // input does not narrow under the pointer when the answer comes (PC: [📎 첨부] sits left of [추가]). A no frees the slot.
-  let taskFilesOn=false,taskFilesWait=null;
+  // TEST-홈빠른입력안정화: while this load's task-file table answer for [할 일] is not in, the clip's place is kept (unseen,
+  // unusable) unless this device last heard "no table" (taskFilesExpected), so the input does not narrow once the answer
+  // comes (PC: [📎 첨부] sits left of [추가]). A no frees the place.
+  let taskFilesOn=false,taskFilesWait=false;
   const takesFiles=()=>noteOnly||toBasket()||(mode==='task'&&taskFilesOn);
   // UPD-여러곳고르기: places is the list chosen on the 기록할 곳 sheet (in the order picked; empty is the basket).
   const currentPlaces=()=>places.map(p=>({...p}));
@@ -74,7 +75,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     box.querySelector('[data-quick-lock-reason]').textContent=!locked?'':upload.blocked?'앞선 저장 결과를 확인하지 못해 입력창을 잠갔어요. 바구니 목록에서 저장 여부를 확인하고, 새로 쓰려면 ‘새 업데이트 입력’을 눌러 주세요.':'업데이트 글은 이미 저장되어 남은 첨부만 다시 저장할 수 있어요. 새로 쓰려면 ‘새 업데이트 입력’을 눌러 주세요.';
     box.dataset.mode=noteOnly?'note':toBasket()?'basket':mode; input.rows=1; const targetName=placesLabel({projects:projectChoices,orgs:orgChoices},places);
     input.placeholder=noteOnly?'노트를 입력하세요':mode==='task'?'할 일을 입력하세요':toBasket()?(basketOnly?'업데이트를 입력하세요':'업데이트 입력(바구니에 저장)'):(targetName||'담당조직')+' 기록을 입력하세요';
-    const filesWait=!takesFiles()&&!!taskFilesWait&&mode==='task'&&!taskOnly;
+    const filesWait=!takesFiles()&&taskFilesWait&&mode==='task';
     box.querySelector('[data-quick-file-picker]').hidden=!takesFiles()&&!filesWait;box.querySelector('[data-quick-file-picker]').toggleAttribute('data-quick-files-wait',filesWait);
     // TASK-추가창파일: a task takes up to 10 files (the ⋯ → 파일 붙이기 limit), not the basket's 20; say where they go.
     const fileHint=box.querySelector('[data-basket-hint]');if(fileHint)fileHint.textContent=mode==='task'?`파일당 100MB · ${MAX_TASK_FILES}개까지 · 추가하면 Drive "자료실/할 일 첨부"에 올라갑니다`:'파일당 100MiB · 20개까지';
@@ -133,8 +134,16 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   window.addEventListener('kptu:view-changed',e=>{if(e.detail?.view!==view){uploadGeneration++;dismissForNavigation();resetChoices();}});
   // The clip shows in [할 일] only when the task-file table answers for this owner (checked once; only a yes is kept).
   // The [할 일] screen's own input does not ask: the task list below it reads the table anyway, and its answer turns the clip on.
-  const checkTaskFiles=()=>{if(taskFilesOn||noteOnly||basketOnly||mode!=='task')return;const owner=quickScope(),wait={};taskFilesWait=wait;paint();void taskFilesAvailable({ask:!taskOnly}).then(on=>{if(taskFilesWait!==wait)return;taskFilesWait=null;if(on&&owner===quickScope())taskFilesOn=true;paint();});};
-  if(!noteOnly&&!basketOnly)onTaskFilesReady(owner=>{if(!taskFilesOn&&owner&&owner===window.KPTURuntime.context.read()?.user?.id)checkTaskFiles();});
+  const filesAnswer=on=>{taskFilesWait=false;if(on)taskFilesOn=true;paint();};
+  const checkTaskFiles=()=>{
+    if(taskFilesOn||noteOnly||basketOnly||mode!=='task')return;
+    if(taskFilesKnown()){filesAnswer(true);return;}
+    // The [할 일] screen waits for its list's read (onTaskFilesReady), and keeps the place only after a yes on this device.
+    const expected=taskFilesExpected();taskFilesWait=taskOnly?expected===true:expected!==false;paint();
+    if(!taskFilesWait&&taskOnly)return;
+    const owner=quickScope();void taskFilesAvailable().then(on=>{if(owner===quickScope()&&!taskFilesOn)filesAnswer(on);});
+  };
+  if(!noteOnly&&!basketOnly)onTaskFilesReady((owner,yes)=>{if(taskFilesOn||!owner||owner!==window.KPTURuntime.context.read()?.user?.id)return;if(yes)checkTaskFiles();else if(taskFilesWait)filesAnswer(false);});
   function setMode(next){
     mode=next;status.textContent='';hint.textContent='';
     try{if(!basketOnly&&!taskOnly)window.localStorage.setItem('kptu-home-quick-mode',mode);}catch{}

@@ -245,8 +245,6 @@
 .home-quick-input-wrap { position:relative; display:flex; flex:1; min-width:0; }
 .home-quick [data-quick-file-picker] { position:absolute; left:1px; top:1px; }
 .home-quick [data-quick-file-picker][hidden] { display:none; }
-/* TEST-홈빠른입력안정화: [할 일] keeps the clip's place (unseen, out of the tab order) until the task-file table answers (home-quick.js). */
-.home-quick [data-quick-file-picker][data-quick-files-wait] { visibility:hidden; }
 #homeView .home-quick[data-mode="basket"] [data-quick-input] { height:46px; min-height:46px; padding:12px 10px 11px 46px; }
 #homeView .home-quick[data-mode="basket"] .home-quick-save { height:46px; min-height:46px; }
 #homeView .home-quick [data-quick-input] { box-sizing:border-box; flex:1; min-width:0; width:100%; margin:0; padding:9px 10px; height:40px; min-height:40px; border:1px solid var(--kptu-border); border-radius:8px; font-family:inherit; font-size:14px; line-height:21px; color:var(--kptu-ink); background:var(--kptu-surface); resize:none; }

@@ -21,7 +21,9 @@ export async function readTaskFiles(ids, {rt = window.KPTURuntime, expectedSessi
   // One request even with no tasks, so the answer still says whether the table exists.
   for (let i = 0; i === 0 || i < list.length; i += LIST_CHUNK) {
     const ids = list.slice(i, i + LIST_CHUNK);
-    const rows = await rt.api(`/rest/v1/app_task_attachments?${ids.length ? `google_task_id=in.(${ids.join(',')})&` : 'limit=1&'}${cols}`, options);
+    let rows;
+    try { rows = await rt.api(`/rest/v1/app_task_attachments?${ids.length ? `google_task_id=in.(${ids.join(',')})&` : 'limit=1&'}${cols}`, options); }
+    catch (e) { tableMissing(rt, e); throw e; }
     if (!Array.isArray(rows)) throw Error('할 일 파일을 확인하지 못했어요.');
     if (!ids.length) continue;
     for (const f of rows) {
@@ -31,7 +33,7 @@ export async function readTaskFiles(ids, {rt = window.KPTURuntime, expectedSessi
     }
   }
   // TASK-추가창파일: the table answered, so the add windows may offer files without asking again (taskFilesAvailable).
-  tableAnswered(ownerOf(rt));
+  tableAnswered(ownerOf(rt), rt);
   return out;
 }
 
@@ -170,11 +172,34 @@ async function detach(id) {
 const available = new Map();
 const readyEvents = typeof window === 'undefined' ? new EventTarget() : window;
 function ownerOf(rt) { return rt?.context?.read?.()?.user?.id || rt?.session?.read?.()?.user?.id || ''; }
-// A read of the table answered for this owner (the task list's own read or the check below). Only a yes is kept.
-function tableAnswered(owner) {
+// TEST-홈빠른입력안정화: the last answer (yes, or no = the table is not there, HTTP 404) is kept on this device per owner
+// (KPTURuntime.ownerCache: dropped on sign-out or owner change), so the add windows lay out their file part from the first
+// paint as last time instead of moving once the answer comes. It only places things: files are taken after this load's answer.
+const MEMO_NAME = 'task-files-v1';
+function memoKey(rt, owner) { const p = rt?.ownerCache?.prefix; return p && owner ? `${p}${MEMO_NAME}:${owner}` : ''; }
+function remember(rt, owner, yes) { const k = memoKey(rt, owner); if (!k) return; try { localStorage.setItem(k, yes ? '1' : '0'); } catch {} }
+function tell(owner, yes) { try { readyEvents.dispatchEvent(new CustomEvent('kptu:task-files-ready', {detail: {owner, yes}})); } catch {} }
+// A read of the table answered for this owner (the task list's own read or the check below). Only a yes is kept in memory.
+function tableAnswered(owner, rt) {
   if (!owner || available.get(owner)?.yes) return;
   const yes = Promise.resolve(true); yes.yes = true; available.set(owner, yes);
-  try { readyEvents.dispatchEvent(new CustomEvent('kptu:task-files-ready', {detail: {owner}})); } catch {}
+  remember(rt, owner, true);
+  tell(owner, true);
+}
+// A read failed. 404 means the table is not there: remembered as no. Any failure is told so a waiting window stops waiting.
+function tableMissing(rt, error) {
+  const owner = ownerOf(rt);
+  if (!owner || available.get(owner)?.yes) return;
+  if (error?.status === 404) remember(rt, owner, false);
+  tell(owner, false);
+}
+// What the last answer on this device was for the signed-in owner: true, false, or null (never answered here). No request.
+export function taskFilesExpected({rt = window.KPTURuntime} = {}) {
+  const owner = ownerOf(rt);
+  if (!owner) return false;
+  if (available.get(owner)?.yes) return true;
+  const k = memoKey(rt, owner); if (!k) return null;
+  try { const v = localStorage.getItem(k); return v === '1' ? true : v === '0' ? false : null; } catch { return null; }
 }
 // Whether the link table answers for this owner (the same check that shows ⋯ → 파일 붙이기). Only a yes is remembered.
 // ask:false only reports an answer already known (the [할 일] screen waits for its list's own read, see onTaskFilesReady).
@@ -189,9 +214,10 @@ export function taskFilesAvailable({rt = window.KPTURuntime, ask = true} = {}) {
 }
 // Whether a yes is already known for the signed-in owner (no request). Lets a window lay out its file row before it shows.
 export function taskFilesKnown({rt = window.KPTURuntime} = {}) { return !!available.get(ownerOf(rt))?.yes; }
-// Calls back once the table has answered for an owner (by any read). Returns a function that stops listening.
+// Calls back once the table has answered for an owner (by any read; yes = true), and after a read failed (yes = false).
+// Returns a function that stops listening.
 export function onTaskFilesReady(callback) {
-  const listener = e => callback(e.detail?.owner || '');
+  const listener = e => callback(e.detail?.owner || '', e.detail?.yes !== false);
   readyEvents.addEventListener('kptu:task-files-ready', listener);
   return () => readyEvents.removeEventListener('kptu:task-files-ready', listener);
 }
@@ -235,7 +261,7 @@ export function mountNewTaskFilePick(host, {isBusy = () => false, onError = () =
   let chosen = [];
   const render = () => {
     const busy = isBusy();
-    button.disabled = busy || chosen.length >= MAX_TASK_FILES;
+    button.disabled = busy || chosen.length >= MAX_TASK_FILES || host.hasAttribute('data-gt-pick-wait');
     list.hidden = !chosen.length;
     list.innerHTML = chosen.map((f, i) => `<li><span class="gt-pick-name">${esc(f.name)}</span><button type="button" class="icon-btn" data-gt-pick-remove="${i}" aria-label="${esc(f.name)} 선택 취소"${busy ? ' disabled' : ''}>×</button></li>`).join('');
   };
@@ -255,7 +281,9 @@ export function mountNewTaskFilePick(host, {isBusy = () => false, onError = () =
   return {
     files: () => [...chosen],
     clear: () => { chosen = []; render(); },
-    show: on => { host.hidden = !on; if (!on) { chosen = []; } render(); },
+    show: on => { host.hidden = !on; host.removeAttribute('data-gt-pick-wait'); if (!on) { chosen = []; } render(); },
+    // TEST-홈빠른입력안정화: the last answer here was yes, this load's is not in yet: keep the row's place, unseen and unusable.
+    wait: () => { host.hidden = false; host.setAttribute('data-gt-pick-wait', ''); chosen = []; render(); },
     render,
   };
 }
