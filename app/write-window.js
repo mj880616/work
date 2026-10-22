@@ -75,8 +75,12 @@ export function openWriteWindow({text = '', kind = 'update', place = null, place
   const name = () => placesLabel(state.places, state.chosen, p => ownPlace && samePlace(p, ownPlace) ? own.name || '' : '');
   // The window's own basket save: with files, the basket upload path makes the update with the text (as the home input does).
   async function saveOwn(value, target) {
-    if (target.length || !ownBatch?.entries.length) return saveUpdate({places:target, text:value, owner}, rt);
-    return uploadBatch(ownBatch, {raw_text:value, rt, isCurrent:() => rt.session.read()?.user?.id === owner, onChange:() => picker?.render()});
+    // The batch is the opener's own (upload) or this window's; the file list has one owner, whichever opened the window.
+    const files = batch();
+    if (target.length || !files.entries.length) return saveUpdate({places:target, text:value, owner}, rt);
+    const result = await uploadBatch(files, {raw_text:value, rt, isCurrent:() => rt.session.read()?.user?.id === owner, onChange:() => picker?.render()});
+    if (upload && !files.blocked && files.entries.every(entry => entry.kind === 'success')) upload.reset?.();
+    return result;
   }
   async function run(value, chosen, {title: heading = '', markdown = false} = {}) {
     if (rt.session.read()?.user?.id !== owner) return {ok:false, message:'로그인 정보가 바뀌었어요. 다시 열어 주세요.'};
