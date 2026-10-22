@@ -205,7 +205,8 @@ function rowNode(item, key, where) {
   if (meta) main.append(el('span', 'gs-row-meta', meta));
   if (item.snippet && item.matched_in !== 'title') {
     const snip = marked(item.snippet, state.words, 'gs-row-snippet');
-    if (item.matched_in === 'attachment') snip.prepend(el('span', 'gs-row-where', '사진 글자 · '));
+    // ② 첨부 안 글자: 자료(document)는 파일 안 글자(extracted_text), 메모는 사진 글자(ocr). 작은 글자 한 줄로만 밝힌다.
+    if (item.matched_in === 'attachment') snip.prepend(el('span', 'gs-row-where', item.source === 'document' ? '파일 안 글자에서 찾음 · ' : '사진 글자 · '));
     main.append(snip);
   }
   row.append(main);
