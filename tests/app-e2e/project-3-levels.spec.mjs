@@ -142,7 +142,8 @@ for(const width of [1280,390])test(`${width}: the record-place sheet shows "1단
  // The search matches names only: a parent's name does not bring up its third level.
  await search.fill('토론회');await expect(sheet.locator('[data-sheet-projects] [data-sheet-value="project:pc"]')).toBeVisible();await expect(deep).toBeHidden();
  await search.fill('');await expect(deep.locator('.home-choice-path')).toHaveCount(0);await expect(deep).toHaveText('합성 세부 사안');
- await deep.click();await expect(sheet).toBeHidden();await expect(q.locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택: 합성 세부 사안');
+ // UPD-여러곳고르기: a press marks the row; [저장] keeps it and closes the sheet.
+ await deep.click();await expect(deep).toHaveAttribute('aria-pressed','true');await sheet.getByRole('button',{name:'저장',exact:true}).click();await expect(sheet).toBeHidden();await expect(q.locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택: 합성 세부 사안');
  expect(errors).toEqual([]);
 });
 

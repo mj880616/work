@@ -81,7 +81,7 @@ test('조직 소식 in the organization order (named, then 그 외, then 미분�
   assert.equal(JSON.stringify(w.orgs).includes('프로젝트로 보낸'), false);
   assert.equal(JSON.stringify(w.summary).includes('조직으로 보낸'), false);
   // 회의·행사 결과 by the meeting's date.
-  assert.deepEqual(w.meetings.items, [{day:'2026-10-06', text:'14:00 가상 간담회'}, {day:'2026-10-08', text:'10:00 운영위원회 3차'}]);
+  assert.deepEqual(w.meetings.items, [{day:'2026-10-06', text:'14:00 가상 간담회', kind:'가상간담회', kindName:'가상 간담회'}, {day:'2026-10-08', text:'10:00 운영위원회 3차', kind:'운영위원회', kindName:'운영위원회'}]);
   // This week's events are not 참고 any more (WEEKLY-주요일정): 5. 주요 일정 reads the two weeks after.
   assert.equal('schedule' in w.notes, false);
   assert.equal(JSON.stringify(w).includes('월요일 일정'), false);

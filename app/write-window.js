@@ -14,29 +14,33 @@ import { openMarkdownEditor } from './md-editor.js';
 import { createChoiceSheet } from './choice-sheet.js';
 import { createNoteDoc, noteTitleFromText, validateNoteText } from './basket-data.js';
 import { createUploadBatch, uploadBatch, uploadNoteFiles, mountBasketPicker, fileTitle } from './basket-upload.js';
-import { readPlaces, placeSources, placeSheetHtml, placeFromValue, keepPlace, placeName, samePlace, saveUpdate, rememberPlace } from './update-places.js';
+import { readPlaces, placeSources, placeSheetHtml, keepPlaces, samePlace, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, rememberPlace, linkFailText } from './update-places.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
 let sheet = null, active = null;
 function placeSheet() {
   sheet ||= createChoiceSheet({id:'mdPlaceSheet', titleId:'mdPlaceSheetTitle', historyKey:'kptuMdPlace',
     canOpen:() => !!active && !active.closed(), choices:() => active.load(),
-    render:() => ({title:'기록할 곳 선택', search:'조직·프로젝트 이름 검색', split:true, html:placeSheetHtml(active?.places, active?.place, esc)}),
-    onSelect:(kind, value) => active?.choose(value), onError:error => active?.say(error?.message || '기록할 곳을 불러오지 못했어요.')});
+    // UPD-여러곳고르기: a press only marks (pending); [저장] keeps the marks, every other close drops them.
+    render:() => { if (active) active.pending = [...active.chosen]; return {title:'기록할 곳 선택', search:'조직·프로젝트 이름 검색', split:true, html:placeSheetHtml(active?.places, active?.pending, esc)}; },
+    multi:() => active ? {pressed:value => value === 'basket' ? !active.pending.length : active.pending.some(p => (p.kind === 'project' ? 'project:' + p.id : p.id) === value), label:choiceCountText(active.pending)} : null,
+    onSelect:(kind, value) => active?.toggle(value), onCommit:() => active?.choose(),
+    onError:error => active?.say(error?.message || '기록할 곳을 불러오지 못했어요.')});
   return sheet;
 }
 function toast(message) {
   const box = document.querySelector('#toast'); if (!box) return;
   box.textContent = message; box.classList.remove('hidden'); clearTimeout(toast.timer); toast.timer = setTimeout(() => box.classList.add('hidden'), 3200);
 }
-export const savedMessage = (saved) => saved.kind === 'note' ? '노트로 저장했어요.' : saved.place ? `${saved.name || '고른 곳'} 기록에 저장했어요.` : '바구니에 저장했어요.';
+export const savedMessage = (saved) => saved.kind === 'note' ? '노트로 저장했어요.' : saved.places?.length || saved.place ? `${saved.name || '고른 곳'} 기록에 저장했어요.` : '바구니에 저장했어요.';
 
-// kind: 'update' | 'note' (preselected). place: null (basket) or {kind, id}. places: the opener's already read lists (optional).
-// sources: reads for the place lists (default: the window's own). updateVia(text, place): the opener's own update save, resolving
+// kind: 'update' | 'note' (preselected). place: null (basket), {kind, id} or a list of them (UPD-여러곳고르기). places: the opener's already read lists (optional).
+// sources: reads for the place lists (default: the window's own). updateVia(text, places): the opener's own update save, resolving
 // {ok:true} or {ok:false, message}, or undefined to leave that place to this window's own save.
 // own: {place, name} — the opener's own record (organization·project detail). It keeps its name and stays chosen even when the
 // place lists do not offer it. upload: {getBatch(), isBusy(), onChange()} — the opener's own file batch (the home input); without
-// it the window keeps its own. onSaved({kind, place, name, id}) after a save; onClose(text, {saved, place}) when it closes.
+// it the window keeps its own. onPlace(places) after [저장] in the sheet. onSaved({kind, place, places, name, id}) after a save
+// (place: the one place when exactly one was chosen); onClose(text, {saved, places}) when it closes.
 export function openWriteWindow({text = '', kind = 'update', place = null, places = null, title = '쓰기', draft = true, sources = null,
   rt = window.KPTURuntime, updateVia = null, own = null, upload = null, onInput = null, onPlace = () => {}, onSaved = () => {}, onClose = () => {}} = {}) {
   const owner = rt.session.read()?.user?.id;
@@ -45,7 +49,7 @@ export function openWriteWindow({text = '', kind = 'update', place = null, place
   const files = () => batch().entries.filter(entry => entry.kind !== 'success').length;
   const ownPlace = own?.place || null;
   const state = {
-    places, place,
+    places, chosen:placeList(place), pending:[],
     closed: () => closed,
     say: message => { const status = document.querySelector('#mdEditor .md-editor-status'); if (status && !closed) status.textContent = message; },
     load() {
@@ -54,20 +58,24 @@ export function openWriteWindow({text = '', kind = 'update', place = null, place
         await Promise.all([import('./organization-order.js'), import('./project-catalog.js')]);
         const read = await readPlaces(sources || placeSources(rt), {rt, isCurrent:() => !closed && rt.session.read()?.user?.id === owner});
         if (!read) throw new Error('기록할 곳을 불러오지 못했어요.');
-        state.places = read; if (!(ownPlace && samePlace(state.place, ownPlace))) state.place = keepPlace(read, state.place); editor?.paint();
+        state.places = read; state.chosen = state.chosen.filter(p => (ownPlace && samePlace(p, ownPlace)) || keepPlaces(read, [p]).length); editor?.paint();
         return read;
       })().catch(error => { flight = null; throw error; });
       return flight;
     },
-    choose(value) {
-      state.place = placeFromValue(value); onPlace(state.place); editor?.paint();
-      state.say(state.place ? `${placeName(state.places, state.place)} 기록에 저장돼요.` : '바구니에 저장돼요.');
+    toggle(value) {
+      const next = togglePlace(state.pending, value);
+      if (next) state.pending = next; else state.say(`한 번에 ${PLACE_LIMIT}곳까지 고를 수 있어요.`);
+    },
+    choose() {
+      state.chosen = [...state.pending]; onPlace(state.chosen); editor?.paint();
+      state.say(state.chosen.length ? `${name()} 기록에 저장돼요.` : '바구니에 저장돼요.');
     },
   };
-  const name = () => placeName(state.places, state.place) || (ownPlace && samePlace(state.place, ownPlace) ? own.name || '' : '');
+  const name = () => placesLabel(state.places, state.chosen, p => ownPlace && samePlace(p, ownPlace) ? own.name || '' : '');
   // The window's own basket save: with files, the basket upload path makes the update with the text (as the home input does).
   async function saveOwn(value, target) {
-    if (target || !ownBatch?.entries.length) return saveUpdate({place:target, text:value, owner}, rt);
+    if (target.length || !ownBatch?.entries.length) return saveUpdate({places:target, text:value, owner}, rt);
     return uploadBatch(ownBatch, {raw_text:value, rt, isCurrent:() => rt.session.read()?.user?.id === owner, onChange:() => picker?.render()});
   }
   async function run(value, chosen, {title: heading = '', markdown = false} = {}) {
@@ -89,16 +97,17 @@ export function openWriteWindow({text = '', kind = 'update', place = null, place
           if (upload) upload.reset?.(); else ownBatch = createUploadBatch();
         }
       } else {
-        const target = state.place, label = name();
-        if (target && count) return {ok:false, message:'첨부는 바구니로만 저장돼요. ▾에서 바구니를 고르거나 첨부를 빼 주세요.'};
-        if (!(!target && count)) { if (!value.trim()) return {ok:false, message:'글을 입력해 주세요.'}; if (!target) validateNoteText(value); }
+        const target = [...state.chosen], label = name();
+        if (target.length && count) return {ok:false, message:'첨부는 바구니로만 저장돼요. ▾에서 바구니를 고르거나 첨부를 빼 주세요.'};
+        if (!(!target.length && count)) { if (!value.trim()) return {ok:false, message:'글을 입력해 주세요.'}; if (!target.length || target.length > 1) validateNoteText(value); }
         let result = updateVia ? await updateVia(value, target) : undefined;
         if (result === undefined) result = await saveOwn(value, target);
         if (result?.ok === false) return result;
-        saved = {kind:'update', place:target, name:label};
-        // UI-기록할곳되돌리기: a place picked here (not the opener's own record) comes first on the 최근 line next time.
-        if (!(ownPlace && samePlace(target, ownPlace))) rememberPlace(target);
-        if (!target) window.dispatchEvent(new CustomEvent('kptu:basket-note-created'));
+        if (result?.linkError) warning = linkFailText;
+        saved = {kind:'update', place:target.length === 1 ? target[0] : null, places:target, name:label};
+        // UI-기록할곳되돌리기: places picked here (not the opener's own record alone) come first on the 최근 line next time.
+        if (!(target.length === 1 && ownPlace && samePlace(target[0], ownPlace))) rememberPlace(target);
+        if (!target.length) window.dispatchEvent(new CustomEvent('kptu:basket-note-created'));
       }
     } catch (error) { return {ok:false, message:error?.message || '저장하지 못했어요. 다시 눌러 주세요.'}; }
     finally { busy = false; if (!closed) picker?.render(); }
@@ -113,12 +122,12 @@ export function openWriteWindow({text = '', kind = 'update', place = null, place
   }};
   // NOTE-마크다운선택: [노트] shows the [마크다운] box, off for a new note; an update is always markdown (no box).
   editor = openMarkdownEditor({text, title, draft, onInput, attach, markdown:{value:false, show:chosen => chosen === 'note'}, noteTitle:{kind:'note', label:'노트 제목', placeholder:'노트 제목(비우면 본문 첫 줄)'},
-    kinds:{label:'저장할 곳', value:kind, options:[['update', '업데이트'], ['note', '노트']], text:value => value === 'update' && state.place ? name() || null : null,
-      menu:{value:'update', aria:() => state.place && name() ? '기록할 곳 선택: ' + name() : '기록할 곳 선택', open:trigger => void placeSheet().open('place', trigger)}},
-    placeholder:chosen => chosen === 'note' ? '노트 본문을 쓰세요' : state.place ? `${name() || '고른 곳'} 기록을 입력하세요` : '업데이트 입력(바구니에 저장)',
-    save:{aria:chosen => chosen === 'note' ? '새 노트로 저장' : state.place ? `${name() || '고른 곳'} 기록으로 저장` : '바구니에 새 업데이트로 저장', run},
-    onClose:value => { closed = true; if (active === state) active = null; sheet?.dismiss(); onClose(value, {saved, place:state.place}); }});
+    kinds:{label:'저장할 곳', value:kind, options:[['update', '업데이트'], ['note', '노트']], text:value => value === 'update' && state.chosen.length ? name() || null : null,
+      menu:{value:'update', aria:() => state.chosen.length && name() ? '기록할 곳 선택: ' + name() : '기록할 곳 선택', open:trigger => void placeSheet().open('place', trigger)}},
+    placeholder:chosen => chosen === 'note' ? '노트 본문을 쓰세요' : state.chosen.length ? `${name() || '고른 곳'} 기록을 입력하세요` : '업데이트 입력(바구니에 저장)',
+    save:{aria:chosen => chosen === 'note' ? '새 노트로 저장' : state.chosen.length ? `${name() || '고른 곳'} 기록으로 저장` : '바구니에 새 업데이트로 저장', run},
+    onClose:value => { closed = true; if (active === state) active = null; sheet?.dismiss(); onClose(value, {saved, places:[...state.chosen]}); }});
   active = state;
-  if (state.place && !state.places) void state.load().catch(() => {});
+  if (state.chosen.length && !state.places) void state.load().catch(() => {});
   return editor;
 }

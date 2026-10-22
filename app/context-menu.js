@@ -3,7 +3,7 @@
 // card's own handlers (so the items, order, focus and close behavior are exactly the ⋯ menu's), and keeps the menu where
 // the pointer was instead of under the ⋯ (the trigger reports a pointer-sized box while its menu is open; the menu code
 // already keeps its panel inside the window). The browser's own menu stays when the target is inside an input / textarea /
-// select / contenteditable, when text is selected, with Shift held, when the card has no visible ⋯, on a phone-width window,
+// select / contenteditable, on a link (<a href>), when text is selected, with Shift held, when the card has no visible ⋯, on a phone-width window,
 // and for a touch long-press (no long-press menu this time).
 (() => {
 'use strict';
@@ -130,6 +130,11 @@ document.addEventListener('contextmenu', e => {
   if (selection && !selection.isCollapsed && selection.toString().trim() !== '') return;
   const trigger = findTrigger(target);
   if (!trigger) return;
+  // A link (<a href>) inside the card keeps the browser's own menu (open in a new tab, copy link address). A card's own
+  // "open" line (a link that sits next to its ⋯ in the same row, e.g. a project record line) is the card itself, not a link
+  // in its text, so it still opens the ⋯ menu.
+  const link = target.closest('a[href]');
+  if (link && !link.parentElement?.contains(trigger)) return;
   // A right-click inside the already open context details menu keeps the browser's own menu.
   if (openDetails?.details.contains(target)) return;
   e.preventDefault();

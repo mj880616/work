@@ -3,6 +3,7 @@ import {linkEventEnd,normalizeTime,paintTimeHint} from './time-input.js';
 import {googleSaveFailure,unknownRetryText,addressConfirmedText,calendarName,logSaveDetail} from './calendar-save-notice.js';
 import { createGoogleTask, saveProjectMilestone } from './quick-save.js';
 import { createChoiceSheet, projectRows } from './choice-sheet.js';
+import { taskFilesAvailable, taskFilesKnown, mountNewTaskFilePick, attachNewTaskFiles, newTaskFilesNotice } from './task-files.js';
 const CM_GOOGLE_DEFAULT='#4285f4';
 const CM_FALLBACK_EVENT_COLORS=['#a4bdfc','#7ae7bf','#dbadff','#ff887c','#fbd75b','#ffb878','#46d6db','#e1e1e1','#5484ed','#51b749','#dc2127'];
 let cmEndLink=null,cmGoogle=null,cmSavePending=false,cmMode='event',cmProject='',cmProjectRows=[],cmFormEpoch=0,cmRequest=null,cmSaved=null;const cmAttempts=new Map();
@@ -42,7 +43,16 @@ function cmPaintMode(){
   modal.querySelectorAll('[data-event-mode]').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.eventMode===cmMode));b.disabled=cmSavePending;});
   modal.querySelectorAll('[data-event-only]').forEach(el=>el.hidden=task);document.querySelector('#eventGoogleOptions').hidden=task;
   const org=document.querySelector('#soEventOrganizations');if(org)org.hidden=task;
+  cmPaintFiles();
 }
+// TASK-추가창파일: [파일 붙이기] in the 할 일 등록 window (also opened by the quick inputs' [+]), once the task-file table answers.
+// The files go up after Google made the task (cmSaveTask), through the same path as the task list's ⋯ → 파일 붙이기.
+let cmFiles=null,cmFilesOn=false,cmFilesOwner='';
+function cmEnsureFiles(){if(cmFiles)return cmFiles;const memo=document.querySelector('#eventDescription')?.closest('label');if(!memo)return null;const host=document.createElement('div');host.id='eventTaskFiles';memo.after(host);cmFiles=mountNewTaskFilePick(host,{isBusy:()=>cmSavePending,onError:text=>cmStatus(text,!!text)});return cmFiles}
+// The answer is asked for when the calendar loads and when the window opens, so the row is laid out before [할 일] is pressed:
+// on a phone this window sits on the bottom edge and a row that came in late would push the fields above it upward.
+function cmAskFiles(){const owner=cmOwner();if(owner)void taskFilesAvailable().then(yes=>{if(yes&&owner===cmOwner()&&!cmFilesOn)cmPaintFiles()})}
+function cmPaintFiles(){const f=cmEnsureFiles();if(!f)return;const owner=cmOwner();if(cmFilesOwner!==owner){cmFilesOwner=owner;cmFilesOn=false}if(!cmFilesOn&&owner&&taskFilesKnown())cmFilesOn=true;const on=cmMode==='task'&&cmFilesOn&&!cmSaved;document.querySelector('#eventTaskFiles').hidden=!on;f.render();if(cmMode==='task'&&!cmFilesOn&&owner)void taskFilesAvailable().then(yes=>{if(yes&&owner===cmOwner()){cmFilesOn=true;if(cmMode==='task'&&!cmSaved){document.querySelector('#eventTaskFiles').hidden=false;f.render()}}})}
 let cmFormOwner=window.KPTURuntime.context.read()?.user?.id;
 const cmProjectButton=()=>document.querySelector('#eventTaskProject');
 function cmPaintProject(){const b=cmProjectButton();if(!b)return;const name=cmProjectRows.find(x=>x.project.id===cmProject)?.project.name||'',label=document.createElement('span'),arrow=document.createElement('span');label.className='event-project-name';label.textContent=cmProject&&name?name:'선택 안 함';label.dataset.empty=String(!(cmProject&&name));arrow.className='event-project-arrow';arrow.setAttribute('aria-hidden','true');arrow.textContent='▾';b.replaceChildren(label,arrow);b.setAttribute('aria-label',cmProject&&name?'프로젝트: '+name:'프로젝트')}
@@ -101,7 +111,9 @@ async function cmSaveTask(){
   const owner=cmOwner(),epoch=cmSession();if(!owner){cmStatus('로그인이 필요합니다.',true);return false}
   const prior=cmAttempts.get('task');if(!cmSaved&&prior?.owner===owner&&prior.epoch===epoch){if(prior.pending)cmStatus('앞선 할 일을 저장 중입니다. 결과를 기다려 주세요.');else cmUnknownNotice('task','앞선 할 일의 저장 결과를 확인해 주세요. 새로 만들지 않았습니다.');return false}
   const body={title,due:document.querySelector('#eventStartDate').value||null,links:cmProject?[{project_id:cmProject}]:[],notes:document.querySelector('#eventDescription').value};
-  const r={owner,epoch,seq:cmFormEpoch,snapshot:cmSnapshot()},rt=cmRuntime();cmRequest=r;cmSavePending=true;cmSetBusy(true);cmPaintMode();cmStatus('할 일 저장 중…');let attempt=null,stage='body';
+  const r={owner,epoch,seq:cmFormEpoch,snapshot:cmSnapshot(),files:!cmSaved&&cmFilesOn?cmFiles?.files()||[]:[]},rt=cmRuntime();cmRequest=r;cmSavePending=true;cmSetBusy(true);cmPaintMode();cmStatus('할 일 저장 중…');let attempt=null,stage='body',filesNotice='';
+  // TASK-추가창파일: once the task exists, its chosen files go up (one request each). A failure keeps the task and is said.
+  const attachFiles=async task=>{const files=r.files;r.files=[];if(!files.length)return;if(cmActive(r))cmFiles?.clear();const result=await attachNewTaskFiles(task.id,files,{rt,onProgress:(i,n,f)=>{if(cmActive(r))cmStatus(`${f.name} 올리는 중… (${i+1}/${n})`)}});filesNotice=newTaskFilesNotice(result);if(filesNotice)cmToast(cmActive(r)?'할 일은 저장했습니다. 파일을 확인해 주세요.':filesNotice)};
   try{
     if(cmSaved?.kind==='task'&&cmSaved.unknown){
       if(cmSaved.unknown==='body'){const d=await cmCall(r,'/functions/v1/google-tasks?action=overview&pending_scope=all',{singleFlight:false});if(!cmActive(r))return false;const t=d?.tasks?.find(t=>t.id===cmSaved.record.id);if(!t)throw new Error('앞선 할 일 저장을 확인하지 못했습니다.');cmSaved.body={title:t.title||'',notes:t.notes||'',due:t.due?String(t.due).slice(0,10):null,links:cmSaved.body?.links||[]}}
@@ -113,10 +125,11 @@ async function cmSaveTask(){
       if(!cmSaved){attempt={owner,epoch,body,pending:true};cmAttempts.set('task',attempt)}
       const d=cmSaved?await cmCall(r,'/functions/v1/google-tasks?action=update',{method:'POST',body:{action:'update',task_id:cmSaved.record.id,task_list_id:cmSaved.record.taskListId||'@default',...body}}):await createGoogleTask(body,{api:(path,options)=>cmCall(r,path,options)});
       if(attempt){attempt.pending=false;if(d?.ok===true&&d.task?.id)attempt.record=d.task}
-      if(!cmActive(r)){if(attempt&&cmSameSession(r)&&d?.ok===true&&d.task?.id&&!d.link_error)cmAttempts.delete('task');return false}
+      if(!cmActive(r)){if(attempt&&cmSameSession(r)&&d?.ok===true&&d.task?.id&&!d.link_error)cmAttempts.delete('task');if(cmSameSession(r)&&d?.ok===true&&d.task?.id&&r.files.length){await attachFiles(d.task);window.KPTUGoogleTasks?.invalidateAfterCreate();window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed'))}return false}
       if(d?.ok!==true||typeof d.task?.id!=='string'||!d.task.id||(cmSaved&&d.task.id!==cmSaved.record.id))throw new Error('할 일 저장 결과를 확인하지 못했습니다.');
       if(!cmSaved)cmSaved={kind:'task',record:d.task,body,links:cmTaskLinks(d),managedProject:body.links[0]?.project_id||'',unknown:false};else{cmSaved.record=d.task;cmSaved.body=body}
-      if(d.link_error){stage='links';const links=await cmCall(r,'/functions/v1/google-tasks?action=links&task_id='+encodeURIComponent(cmSaved.record.id),{singleFlight:false});if(!cmActive(r))return false;cmSaved.links=cmTaskLinks(links);cmStatus('할 일은 저장했습니다. 프로젝트 연결을 확인한 뒤 저장해 주세요.',true);return false}
+      await attachFiles(cmSaved.record);if(!cmActive(r))return false;
+      if(d.link_error){stage='links';const links=await cmCall(r,'/functions/v1/google-tasks?action=links&task_id='+encodeURIComponent(cmSaved.record.id),{singleFlight:false});if(!cmActive(r))return false;cmSaved.links=cmTaskLinks(links);cmStatus('할 일은 저장했습니다. 프로젝트 연결을 확인한 뒤 저장해 주세요.'+(filesNotice?' '+filesNotice:''),true);return false}
     }
     if(!cmActive(r))return false;
     stage='links';const next=body.links[0]?.project_id||'',previous=cmSaved.managedProject;
@@ -125,11 +138,12 @@ async function cmSaveTask(){
     if(next&&!cmSaved.links.some(l=>l.project_id===next)||previous&&previous!==next&&cmSaved.links.some(l=>l.project_id===previous))throw new Error('연결 결과가 선택과 다릅니다.');
     cmSaved.managedProject=next;cmAttempts.delete('task');window.KPTUGoogleTasks?.invalidateAfterCreate();window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed'));
     if(!cmActive(r))return false;
+    if(filesNotice){cmStatus(filesNotice,true);return true}
     if(r.snapshot===cmSnapshot()){cmCloseModal();cmToast('할 일을 추가했습니다.')}else cmStatus('보낸 내용은 저장했습니다. 이후 수정한 내용은 아직 저장하지 않았습니다.');return true;
   }catch(e){
     if(attempt)attempt.pending=false;if(!cmActive(r))return false;
     const scope=/TASKS_SCOPE_REQUIRED|권한/.test(String(e.message||''));
-    if(cmSaved){cmSaved.unknown=stage; if(stage==='links'){try{const d=await cmCall(r,'/functions/v1/google-tasks?action=links&task_id='+encodeURIComponent(cmSaved.record.id),{singleFlight:false});if(!cmActive(r))return false;cmSaved.links=cmTaskLinks(d);cmSaved.unknown=false}catch{}}if(!cmActive(r))return false;cmStatus((stage==='links'?'할 일은 저장했습니다. 연결 결과를 확인해 주세요. ':'저장 결과를 확인하지 못했습니다. ')+(e.message||String(e)),true)}
+    if(cmSaved){cmSaved.unknown=stage; if(stage==='links'){try{const d=await cmCall(r,'/functions/v1/google-tasks?action=links&task_id='+encodeURIComponent(cmSaved.record.id),{singleFlight:false});if(!cmActive(r))return false;cmSaved.links=cmTaskLinks(d);cmSaved.unknown=false}catch{}}if(!cmActive(r))return false;cmStatus((stage==='links'?'할 일은 저장했습니다. 연결 결과를 확인해 주세요. ':'저장 결과를 확인하지 못했습니다. ')+(e.message||String(e))+(filesNotice?' '+filesNotice:''),true)}
     else if(scope){if(cmAttempts.get('task')===attempt)cmAttempts.delete('task');cmStatus('Google 할 일 권한을 다시 연결해 주세요. 입력은 유지했습니다.',true)}
     else cmUnknownNotice('task','저장 결과를 확인하지 못했습니다. 입력은 유지했습니다. '+(e.message||String(e)));return false;
   }finally{if(cmRequest===r){cmRequest=null;cmSavePending=false;if(cmSameSession(r)&&r.seq===cmFormEpoch){cmSetBusy(false);cmPaintMode()}}}
@@ -197,8 +211,8 @@ async function cmSaveGoogle(){
     else cmUnknownNotice('event',f.text);return false}
   finally{if(cmRequest===r){cmRequest=null;cmSavePending=false;if(cmSameSession(r)&&r.seq===cmFormEpoch){cmSetBusy(false);button.textContent=label}}}
 }
-async function cmPrepareNewEvent(){cmFormEpoch++;cmRequest=null;cmSaved=null;cmSavePending=false;cmSetBusy(false);document.querySelector('#saveEventBtn').textContent='저장';cmMode='event';cmProject='';cmPaintMode();cmPaintProject();cmStatus('');cmToggleAllDay();['#eventStartTime','#eventEndTime'].forEach(id=>{const el=document.querySelector(id);if(el)paintTimeHint(el,false)});cmEndLink?.reset();await cmPopulateGoogleCalendars()}
+async function cmPrepareNewEvent(){cmAskFiles();cmFormEpoch++;cmRequest=null;cmSaved=null;cmFiles?.clear();cmSavePending=false;cmSetBusy(false);document.querySelector('#saveEventBtn').textContent='저장';cmMode='event';cmProject='';cmPaintMode();cmPaintProject();cmStatus('');cmToggleAllDay();['#eventStartTime','#eventEndTime'].forEach(id=>{const el=document.querySelector(id);if(el)paintTimeHint(el,false)});cmEndLink?.reset();await cmPopulateGoogleCalendars()}
 function cmBindCreate(){const modal=document.querySelector('#eventModal');window.addEventListener('kptu:dialog-closed',e=>{if(e.detail?.modal===modal&&cmRequest){cmFormEpoch++;cmRequest=null;cmSavePending=false}});const allDay=document.querySelector('#eventAllDay'),calendar=document.querySelector('#eventGoogleCalendar'),btn=document.querySelector('#saveEventBtn');if(!allDay||!btn)return false;document.querySelectorAll('[data-event-mode]').forEach(b=>b.onclick=()=>{if(cmSavePending)return;if(cmSaved||cmAttempts.has(cmMode==='task'?'task':'event')){cmStatus('현재 항목의 저장 결과를 먼저 확인해 주세요. 입력은 유지했습니다.',true);return}cmMode=b.dataset.eventMode;cmPaintMode();cmStatus('');});cmProjectButton().onclick=()=>void cmProjectPicker.open('project',cmProjectButton());allDay.addEventListener('change',cmToggleAllDay);const q=id=>document.querySelector('#event'+id);cmEndLink=linkEventEnd({startDate:q('StartDate'),startTime:q('StartTime'),endDate:q('EndDate'),endTime:q('EndTime'),allDay});calendar?.addEventListener('change',cmGoogleCalendarChanged);btn.onclick=e=>{e?.preventDefault?.();return cmSaveGoogle()};return true}
-async function cmInit(){if(!document.querySelector('#calendarView'))return false;cmInjectControls();cmBindCreate();return true}
+async function cmInit(){if(!document.querySelector('#calendarView'))return false;cmInjectControls();cmBindCreate();cmAskFiles();return true}
 window.KPTUCalendarPlus={paint:()=>{},refresh:async()=>true,prepareNewEvent:cmPrepareNewEvent,setTaskProject:cmSetTaskProject,saveGoogle:cmSaveGoogle,savePrefs:()=>{}};
 window.__KPTU_CALENDAR_PLUS_READY__=cmInit().catch(e=>{console.warn('calendar plus init',e);return false});

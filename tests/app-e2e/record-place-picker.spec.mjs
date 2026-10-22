@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome,createdTaskReply} from './helpers/home-entry.mjs';
 // UI-기록할곳창PC: 넓은 PC(1024px~)에서 [업데이트 ▾] "기록할 곳 선택" 창은 넓게 — 제목 옆 검색칸 하나, 그 아래 "최근" 한 줄, 그 아래
-// 왼쪽 담당조직(묶음별 줄) / 오른쪽 프로젝트(한 줄 목록). 1280×800에서 창 안 스크롤 없이 한 번에 보이고, 항목이 아주 많으면 각 열 안에서만
+// 왼쪽 담당조직(묶음 소제목 아래 한 줄 목록, UPD-여러곳고르기) / 오른쪽 프로젝트(한 줄 목록). 1280×800에서 창 안 스크롤 없이 한 번에 보이고, 항목이 아주 많으면 각 열 안에서만
 // 스크롤. 폰·중간 폭은 위아래 순서 그대로.
 // UI-기록할곳되돌리기: 조직·프로젝트에 업데이트를 추가하면 다음 입력은 바구니(미분류)로 돌아가고, 방금 쓴 곳은 "최근" 맨 앞에 남는다.
 // 추가 없이 닫거나 다른 화면에 다녀와도 바구니. 추가가 실패하면 고른 곳 유지. 할 일 [프로젝트 ▾]도 추가 뒤 "프로젝트 없음"으로.
@@ -40,7 +40,7 @@ test('PC 1280×800: 넓은 창 — 제목 옆 검색칸, 최근 한 줄, 왼쪽 
  expect(recent.y+recent.height).toBeLessThanOrEqual(orgs.y+1);expect(Math.abs(orgs.y-projects.y)).toBeLessThanOrEqual(1);expect(orgs.x+orgs.width).toBeLessThanOrEqual(projects.x);
  await expect(sheet.locator('[data-sheet-recent] [data-sheet-value]')).toHaveText(['서해선지부','서울교통공사노동조합','전국철도노동조합']);
  await expect(sheet.locator('[data-sheet-col="orgs"] .home-choice-label')).toHaveText('담당조직');await expect(sheet.locator('[data-sheet-col="projects"] .home-choice-label')).toHaveText('프로젝트');
- // Organizations keep the group lines with full names (A); projects keep one per line with a check box (B3).
+ // Organizations are rows under group headings with full names (UPD-여러곳고르기 ①); projects keep one per line with a check box (B3).
  await expect(sheet.locator('[data-sheet-all] [data-sheet-group] .home-choice-group-name')).toHaveText(['철도','지하철','민자철도','민간도시철도']);
  await expect(sheet.locator('[data-sheet-all] [data-sheet-value]')).toHaveText(NAMES);
  await expect(sheet.locator('[data-sheet-projects] .home-choice-check').first()).toBeVisible();
@@ -52,7 +52,8 @@ test('PC 1280×800: 넓은 창 — 제목 옆 검색칸, 최근 한 줄, 왼쪽 
  // Tab order follows what is seen: title-line search box, then ×.
  await search.focus();await page.keyboard.press('Tab');await expect(sheet.getByRole('button',{name:'선택판 닫기'})).toBeFocused();
  // A project row on the right picks it.
- await sheet.locator('[data-sheet-projects]').getByRole('button',{name:'자식 프로젝트',exact:true}).click();await expect(sheet).toBeHidden();
+ await sheet.locator('[data-sheet-projects]').getByRole('button',{name:'자식 프로젝트',exact:true}).click();await expect(sheet).toBeVisible();
+ await sheet.getByRole('button',{name:'저장',exact:true}).click();await expect(sheet).toBeHidden();
  await expect(q.locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택: 자식 프로젝트');
 });
 
@@ -80,6 +81,8 @@ for(const [width,height] of [[390,844],[900,800]])test(`폭 ${width}: 위아래 
  const q=await setup(page,{width,height,projects:2});
  await q.locator('[data-quick-org]').click();const sheet=dialog(page);await expect(sheet).toBeVisible();
  await expect(sheet).not.toHaveClass(/home-choice-split/);
+ // The phone sheet rises in (choice-sheet.css): measure once it has settled, as home-selection-sheet.spec does.
+ await sheet.evaluate(async d=>{await Promise.all(d.getAnimations().map(a=>a.finished));});
  if(width<761){await expect(sheet).not.toHaveClass(/home-choice-anchored/);await expect(sheet.getByRole('searchbox')).toBeHidden();}
  else{await expect(sheet).toHaveClass(/home-choice-anchored/);expect((await box(sheet)).width).toBeLessThanOrEqual(480);
   // The search box stays above the list (not on the title line).
@@ -105,7 +108,7 @@ for(const width of [390,1280])test(`조직에 추가하면 다음 입력은 바�
  await page.route(SB+'/rest/v1/app_suborganization_updates',r=>{orgBodies.push(r.request().postDataJSON());return r.fulfill({json:[]});});
  await page.route(SB+'/rest/v1/app_project_progress_updates',r=>{projectBodies.push(r.request().postDataJSON());return r.fulfill({json:[]});});
  await page.route(SB+'/rest/v1/app_notes**',r=>{if(r.request().method()!=='POST')return r.fallback();const body=r.request().postDataJSON();notes.push(body);return r.fulfill({json:[{id:'n'+notes.length,kind:'basket',occurred_at:'2026-10-06T01:00:00Z',...body}]});});
- await q.locator('[data-quick-org]').click();await dialog(page).locator('[data-sheet-all]').getByRole('button',{name:'공항철도지부',exact:true}).click();
+ await q.locator('[data-quick-org]').click();await dialog(page).locator('[data-sheet-all]').getByRole('button',{name:'공항철도지부',exact:true}).click();await dialog(page).getByRole('button',{name:'저장',exact:true}).click();
  await expect(q.locator('[data-quick-input]')).toHaveAttribute('placeholder','공항철도지부 기록을 입력하세요');
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
  expect(orgBodies).toEqual([{organization_id:'o8',raw_text:'합성 기록',created_by:'home-test'}]);
@@ -116,10 +119,13 @@ for(const width of [390,1280])test(`조직에 추가하면 다음 입력은 바�
  await q.locator('[data-quick-org]').click();const sheet=dialog(page);
  await expect(sheet.locator('[data-sheet-basket] [aria-pressed="true"]')).toHaveText('바구니(미분류)');
  await expect(sheet.locator('[data-sheet-recent] [data-sheet-value]')).toHaveText(['공항철도지부','서해선지부','서울교통공사노동조합']);
- await sheet.locator('[data-sheet-recent]').getByRole('button',{name:'공항철도지부',exact:true}).click();
+ await sheet.locator('[data-sheet-recent]').getByRole('button',{name:'공항철도지부',exact:true}).click();await sheet.getByRole('button',{name:'저장',exact:true}).click();
  await expect(q.locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택: 공항철도지부');
  // A project used once also shows on the 최근 line and can be picked from there.
  await q.locator('[data-quick-org]').click();await sheet.locator('[data-sheet-projects]').getByRole('button',{name:'자식 프로젝트',exact:true}).click();
+ // UPD-여러곳고르기: 공항철도지부 (chosen above) stays marked until pressed again; unmark it so only the project is kept.
+ await sheet.locator('[data-sheet-recent]').getByRole('button',{name:'공항철도지부',exact:true}).click();
+ await expect(sheet.locator('[aria-pressed="true"]')).toHaveText(['자식 프로젝트']);await sheet.getByRole('button',{name:'저장',exact:true}).click();
  await q.locator('[data-quick-input]').fill('합성 진행');await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
  expect(projectBodies).toHaveLength(1);expect(projectBodies[0]).toMatchObject({project_id:'child',summary:'합성 진행'});
  await expect(q).toHaveAttribute('data-mode','basket');
@@ -134,7 +140,7 @@ for(const width of [390,1280])test(`조직에 추가하면 다음 입력은 바�
 test('추가가 실패하면 고른 곳과 글을 그대로 두어 다시 누르면 같은 곳에 저장',async({page})=>{
  const q=await setup(page,{width:1280,height:800,projects:2});let fail=true;const bodies=[];
  await page.route(SB+'/rest/v1/app_suborganization_updates',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({status:fail?500:200,json:fail?{message:'합성 오류'}:[]});});
- await q.locator('[data-quick-org]').click();await dialog(page).locator('[data-sheet-all]').getByRole('button',{name:'서해선지부',exact:true}).click();
+ await q.locator('[data-quick-org]').click();await dialog(page).locator('[data-sheet-all]').getByRole('button',{name:'서해선지부',exact:true}).click();await dialog(page).getByRole('button',{name:'저장',exact:true}).click();
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('합성 오류');
  await expect(q.locator('[data-quick-input]')).toHaveValue('합성 기록');await expect(q).toHaveAttribute('data-mode','update');
  await expect(q.locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택: 서해선지부');
@@ -144,7 +150,7 @@ test('추가가 실패하면 고른 곳과 글을 그대로 두어 다시 누르
 
 test('추가 없이 다른 화면에 다녀오거나 큰 창을 저장 없이 닫으면 다음 입력은 바구니',async({page})=>{
  const q=await setup(page,{width:1280,height:800,projects:2});
- await q.locator('[data-quick-org]').click();await dialog(page).locator('[data-sheet-all]').getByRole('button',{name:'서해선지부',exact:true}).click();
+ await q.locator('[data-quick-org]').click();await dialog(page).locator('[data-sheet-all]').getByRole('button',{name:'서해선지부',exact:true}).click();await dialog(page).getByRole('button',{name:'저장',exact:true}).click();
  await expect(q).toHaveAttribute('data-mode','update');
  await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('#basketView')).toBeVisible();
  await page.evaluate(()=>window.KPTURouter.go('home'));await expect(page.locator('#homeView')).toBeVisible();
@@ -152,7 +158,7 @@ test('추가 없이 다른 화면에 다녀오거나 큰 창을 저장 없이 �
  // The text typed before leaving stays; only the place goes back.
  await expect(q.locator('[data-quick-input]')).toHaveValue('합성 기록');
  // Big window: a place chosen inside it and closed without saving is not kept.
- await q.locator('[data-quick-org]').click();await dialog(page).locator('[data-sheet-all]').getByRole('button',{name:'공항철도지부',exact:true}).click();
+ await q.locator('[data-quick-org]').click();await dialog(page).locator('[data-sheet-all]').getByRole('button',{name:'공항철도지부',exact:true}).click();await dialog(page).getByRole('button',{name:'저장',exact:true}).click();
  await q.locator('[data-quick-big]').click();const e=page.locator('#mdEditor');await expect(e).toBeVisible();
  await expect(e.locator('[data-md-kind="update"]')).toHaveText('공항철도지부');
  await e.locator('[data-close="mdEditor"]').click();await expect(e).toHaveCount(0);
