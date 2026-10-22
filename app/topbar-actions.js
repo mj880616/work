@@ -332,8 +332,14 @@ const trail={entries:[],index:-1,pending:null,restoring:null};
 const sameItem=(a,b)=>(a?.id??null)===(b?.id??null)&&(a?.kind??null)===(b?.kind??null);
 const backBtn=topline?.querySelector('[data-trail="back"]'),forwardBtn=topline?.querySelector('[data-trail="forward"]');
 function paintTrail(){
+  const focused=document.activeElement;
   if(backBtn)backBtn.disabled=trail.index<=0;
   if(forwardBtn)forwardBtn.disabled=trail.index>=trail.entries.length-1;
+  // A button that just went dim drops the keyboard focus; hand it to the other arrow (or the sidebar toggle).
+  if(focused&&focused.disabled&&(focused===backBtn||focused===forwardBtn)){
+    const other=focused===backBtn?forwardBtn:backBtn;
+    (other&&!other.disabled?other:navToggle)?.focus({preventScroll:true});
+  }
 }
 function pushTrail(entry){
   trail.entries.splice(trail.index+1);trail.entries.push(entry);
