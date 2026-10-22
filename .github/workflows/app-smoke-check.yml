@@ -152,7 +152,7 @@ jobs:
       - name: Check English eyebrow cleanup
         run: node --test tests/english-labels.test.mjs
 
-      - name: Global search model (SEARCH-전체검색: words, highlights, Google filters, groups, error codes)
+      - name: Global search model (SEARCH-전체검색 words, highlights, Google filters, groups, error codes)
         run: node --test tests/global-search-model.test.mjs
 
       - name: Ledger import checker (CSV·xlsx·import file, synthetic sheet)
