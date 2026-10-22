@@ -148,4 +148,6 @@ function ciCreateAt(d){const btn=document.querySelector('#newEventBtn');if(!btn)
 ciInject();
 let ciSessionEpoch=ciRuntime().session.epoch();window.addEventListener('kptu:session-changed',()=>{if(ciSessionEpoch===ciRuntime().session.epoch())return;ciSessionEpoch=ciRuntime().session.epoch();ciUncertain.clear();ciPendingWrites.clear();ciClose('#ciGoogleModal');ciGoogleCurrent=null});
 document.addEventListener('click',e=>{const g=e.target.closest?.('.cp-event[data-google-event]');if(g){e.preventDefault();e.stopImmediatePropagation();ciCloseDay(()=>ciOpenGoogle(g.dataset.googleEvent,g.dataset.googleCalendar));return}const cell=e.target.closest?.('#calendarGrid .cal-cell, #calendarWeek .cwv-day');if(!cell||window.KPTUCalendarMonthView?.suppressClick?.()||e.target.closest?.('.cal-event,.kptu-day-more,.cmv-date-list,.cmv-task-count,a,input,select,textarea'))return;const d=ciClickedDate(cell);if(d){e.preventDefault();e.stopPropagation();ciCreateAt(d)}},true);
+// SEARCH-전체검색: a Google event found by search opens in the same edit window as a click on it in the calendar.
+window.KPTUCalendarEvents={open:(eventId,calendarId)=>{if(eventId)ciCloseDay(()=>ciOpenGoogle(String(eventId),calendarId||'primary'))}};
 window.__KPTU_CALENDAR_INTERACTIONS_READY__=Promise.resolve(true);

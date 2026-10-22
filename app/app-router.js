@@ -5,7 +5,10 @@
   const NAV_ALIAS={messages:'home',myspace:'home'};
   const MENU_SHEET_VIEWS=['meetings','library','hwp','media','pages'];
   // Retired addresses that now open another view (HWP 편집기 시험판 ?view=hwp-lab → ?view=hwp).
-  const VIEW_ALIAS={'hwp-lab':'hwp'};
+  const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings'};
+  // MTG-사업보고: the 회의 screen (#meetingsView) is written as ?view=reports in the address; the old ?view=meetings still opens it.
+  const URL_NAME={meetings:'reports'};
+  const urlName=view=>URL_NAME[view]||view;
   const viewName=view=>VIEW_ALIAS[view]||view;
   let bound=false,routeEntry=null,returningTo=null,goSeq=0;
   // BUG-뒤로가기: the app's first entry in this document. Back below it leaves Web2.
@@ -58,7 +61,7 @@
     if(!authenticatedShellReady()||!viewExists(view))return;
     const u=new URL(location.href);
     if(view==='home'&&!u.searchParams.has('project'))u.searchParams.delete(VIEW_PARAM);
-    else u.searchParams.set(VIEW_PARAM,view);
+    else u.searchParams.set(VIEW_PARAM,urlName(view));
     const next=u.pathname+(u.search||'')+u.hash;
     const current=location.pathname+location.search+location.hash;
     if(next===current)return;
@@ -249,7 +252,8 @@
     if(!appReady())return false;
     const view=viewFromUrl();
     if(!view)return false;
-    if(new URLSearchParams(location.search).get(VIEW_PARAM)!==view&&new URLSearchParams(location.search).has(VIEW_PARAM))syncUrl(view,{replace:true});
+    const written=new URLSearchParams(location.search).get(VIEW_PARAM);
+    if(written!==null&&written!==view&&written!==urlName(view))syncUrl(view,{replace:true});
     const target=document.getElementById(view+'View');
     if(api.current===view&&target&&!target.classList.contains('hidden')){
       syncNavigationState(view);

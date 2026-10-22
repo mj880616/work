@@ -26,15 +26,16 @@ const routeStyles={
   tasks:['./task-layout.css','./google-tasks.css','./library-upload.css','./basket-picker.css','./ui-standard.css'],
   journal:['./journal.css','./todo-radar.css','./view-wide.css','./ui-standard.css'],
   diary:['./diary.css','./view-wide.css','./ui-standard.css'],
-  projects:['./project-system-v3.css','./record-sheet.css','./forum-flow-polish.css','./google-tasks.css','./ui-standard.css'],
+  projects:['./project-system-v3.css','./record-sheet.css','./markdown-view.css','./forum-flow-polish.css','./google-tasks.css','./ui-standard.css'],
   library:['./filter-chips.css','./library-upload.css','./compact-list.css','./ui-standard.css'],
   meetings:['./filter-chips.css','./meeting-ui.css','./google-tasks.css','./ui-standard.css'],
   media:['./web1-press.css','./ui-standard.css'],
-  pages:['./web1-board.css','./sr-blocks.css','./share-pages.css','./ui-standard.css'],
-  team:['./suborganizations.css','./workplace-detail.css','./record-sheet.css','./google-tasks.css','./ui-standard.css'],
+  pages:['./web1-board.css','./sr-blocks.css','./ed-doc.css','./share-pages.css','./ui-standard.css'],
+  team:['./suborganizations.css','./workplace-detail.css','./markdown-view.css','./record-sheet.css','./google-tasks.css','./ui-standard.css'],
   hwp:['./hwp-lab.css','./ui-standard.css'],
   profile:['./profile-settings.css','./ui-standard.css'],
-  ledger:['./ledger-import.css','./ui-standard.css']
+  ledger:['./ledger-import.css','./ui-standard.css'],
+  search:['./filter-chips.css','./global-search.css','./ui-standard.css']
 };
 async function prepare(view){
   const key=normalize(view);
@@ -164,9 +165,11 @@ async function profile(){ await module('./profile-settings.js','__KPTU_PROFILE_S
 // AI-서버연동 S7-b: [원장](내 프로필 → 계정 → [원장], ?view=ledger). loadAll에 넣지 않고 열 때만 가져오기 화면과 검사기를 불러온다.
 // S7-c: 같은 화면의 원장 후보 확정 칸과 목록·검색 칸(칸마다 모듈 하나). 표·함수가 없으면 각 칸이 조용히 숨는다.
 async function ledger(){ await module('./ledger-import.js','__KPTU_LEDGER_IMPORT_READY__'); await Promise.all([module('./ledger-candidates.js','__KPTU_LEDGER_CANDIDATES_READY__'),module('./ledger-browse.js','__KPTU_LEDGER_BROWSE_READY__'),module('./ledger-export.js','__KPTU_LEDGER_EXPORT_READY__')]); void window.KPTULedgerExport?.open?.(); return {ok:true} }
-const loaders={home,basket,calendar,tasks,journal,diary,projects,library,meetings,media,pages,team:organizations,hwp:hwpLab,profile,ledger};
-// Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp). The router uses the same map.
-const VIEW_ALIAS={'hwp-lab':'hwp'};
+// SEARCH-전체검색: 상단 줄 검색칸·결과 창·검색 결과 화면(?view=search)·폰 메뉴 검색 입구. loader-v2가 첫 화면 뒤에 한 번 불러온다.
+async function search(){ await module('./global-search.js','__KPTU_GLOBAL_SEARCH_READY__'); return {ok:true} }
+const loaders={home,basket,calendar,tasks,journal,diary,projects,library,meetings,media,pages,team:organizations,hwp:hwpLab,profile,ledger,search};
+// Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp, 새 주소 ?view=reports → meetings 화면). The router uses the same map.
+const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings'};
 function normalize(view){
   view=VIEW_ALIAS[view]||view;
   return loaders[view]?view:'home'

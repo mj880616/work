@@ -16,21 +16,33 @@
 // JOURNAL-주간보고허브 2단계: [하루 | 주간 정리] above the week. [주간 정리] hides the day row and the day card and shows the same
 // week's materials (the same reads, read once) in the weekly report's order (journal-weekly.js builds and draws it into
 // [data-journal-weekly], a box this module owns). The chosen side is kept in memory only (not in browser storage).
+// JOURNAL-하루개편 (2026-10-22 요청함 14:26·12:55): the [하루] card from top to bottom is ① 오늘 한 줄 → ② 할 일 / 한 일 (PC side by
+// side from 761px, phone one above the other; 기한 지난 것 one folded line; [내일로] on each unfinished task — at the line's right on
+// a wide screen, inside its ⋯ on the phone) → ③ 그날 나온 챙길 것 (todo-radar.js draws it; this module only gives it its place) →
+// ④ 주간보고 재료 in the report's order (회의·활동 결과 → 사업 소식 → 조직 소식) → ⑤ 그 밖의 기록, folded, with a count line.
+// journal-data.js dayCard() builds the model; renderDay() below is the one renderer of ② and ④⑤ (the parts above are unchanged).
+// ⑥ Every line opens its original (openOriginal): an organization or project record opens that screen at that record and
+// highlights it for a moment; an update's ⋯ has [원래 업데이트 보기]. On a PC (≥1024) the organization/project opens on its own
+// screen (one history entry, so one back or the top line's ← returns here); on the phone it opens over this screen as the app's
+// usual window (its own history entry), so one back also returns. Coming back by back/← keeps this card as it was (no re-read)
+// and the same scroll and focus.
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, changeWorkDay, validateWorkLine, WORK_LINE_MAX,
-  workLines, addLine, editLine, removeLine, restoreLine, readWeekEvents, readDoneTasksWindow, readBasketUpdates, readMovedNotes, movedNotesOn, readOrgUpdates, readProjectUpdates,
-  readWeekMeetings, readWeekDocuments, readWeekSharePages, dayMaterials, readScheduleEvents, DONE_TASK_DAYS, GROUP_SOURCES, rangeNote, isFolded, QUIET_WHEN_EMPTY, WEEK_READ_CAP} from './journal-data.js';
+  workLines, addLine, editLine, removeLine, restoreLine, readWeekEvents, readDoneTasksWindow, readBasketUpdates, readMovedNotes, readOrgUpdates, readProjectUpdates,
+  readWeekMeetings, readWeekDocuments, readWeekSharePages, readScheduleEvents, DONE_TASK_DAYS, WEEK_READ_CAP,
+  dayCard, othersCount, DAY_SOURCES, moveTaskToTomorrow, dayRangeNote} from './journal-data.js';
 import {loadDocumentCategories} from './document-categories.js';
 import {formatSeoulTime, seoulParts} from './meeting-time.js';
 import {copyText} from './md-editor.js';
 import {offerUndoNotice, closeUndoNotice} from './basket-record-delete.js';
 import {requestTagsHtml, normalizeRequests} from './update-requests.js';
 import {recordMark} from './basket-link-records.js';
-import {requestNoteDocOpen} from './basket-note-tasks.js';
+import {requestBasketNoteFrom, requestNoteDocFrom, requestTaskOpen, takeBasketReturn} from './basket-note-tasks.js';
 import {weeklySummary, renderWeekly, weeklyReportText} from './journal-weekly.js';
 import {mountWeeklyHwpx} from './journal-hwpx.js';
 import {readKinds, changeKind} from './journal-meeting-kinds.js';
 import {mountRadar} from './todo-radar.js';
+import {readOrgSummaries, saveEditedSummary, requestOrgSummaries, resultMessage, cleanEdited} from './journal-org-summary.js';
 
 // ORG-묶음순서: the shared organization order (window.KPTUOrganizationOrder) orders the 조직 소식 sections.
 await import('./organization-order.js').catch(() => {});
@@ -55,6 +67,7 @@ root.innerHTML = `<div class="journal-head"><div class="journal-mode-switch" rol
 <h3 id="journalDayTitle" tabindex="-1" data-journal-day-title></h3>
 <form class="journal-line" data-journal-line data-enter-save novalidate><label class="journal-heading" for="journalLineInput">오늘 한 줄</label><div class="journal-line-row"><textarea id="journalLineInput" rows="2" data-journal-input data-enter-field="single" placeholder="오늘 한 일을 한 줄로 남겨 보세요" aria-describedby="journalLineCount journalLineStatus"></textarea><button type="submit" class="primary" data-journal-save>저장</button></div><div class="journal-line-meta"><small id="journalLineCount" data-journal-count></small><p id="journalLineStatus" class="journal-line-status" data-journal-line-status role="status" aria-live="polite"></p></div></form>
 <ol class="journal-lines" data-journal-lines aria-label="이 날 한 줄 목록"></ol>
+<section class="journal-tasks" data-journal-tasks aria-label="할 일과 한 일"></section>
 <section class="journal-radar" data-journal-radar hidden></section>
 <div class="journal-materials" data-journal-materials></div>
 </section>
@@ -74,6 +87,8 @@ let drafts = new Map(), saving = false;
 let editing = null;
 // 'day' (the day card) or 'week' ([주간 정리]); memory only.
 let mode = 'day';
+// JOURNAL-조직현황AI요약: the 4. 산하 조직 현황 summary controls of [주간 정리] (memory only; the summaries live in their table).
+let orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()};
 const current = (run, scope) => run === epoch && scope === ownerScope(rt);
 
 function renderWeek() {
@@ -145,58 +160,137 @@ function count() {
   counter.textContent = `${n}/${WORK_LINE_MAX}자`;
   counter.classList.toggle('over', n > WORK_LINE_MAX || /[\r\n]/.test(input.value));
 }
-// JOURNAL-요청표시: a marked update's item starts with the same small tags as the basket list (update-requests.js).
-const itemList = (texts, tags = []) => { const list = document.createElement('ul'); texts.forEach((text, i) => { const item = document.createElement('li'); item.innerHTML = requestTagsHtml(tags[i], esc); item.append(text); if (normalizeRequests(tags[i]).length) item.dataset.journalRequests = normalizeRequests(tags[i]).join(' '); list.append(item); }); return list; };
-function renderMaterials() {
-  const host = $('[data-journal-materials]');
-  const groups = dayMaterials(materials, selected), range = {doneDays};
-  // BASKET-일지로남기기: 기타 메모 shows only with items (its one read, the basket, already shows loading and failure in 조직 소식).
-  const quiet = groups.filter(group => QUIET_WHEN_EMPTY.includes(group.key) && !group.items.length);
-  const folded = groups.filter(group => !quiet.includes(group) && isFolded(group, selected, range));
-  const boxes = groups.filter(group => !folded.includes(group) && !quiet.includes(group)).map(group => {
-    const box = document.createElement('section');
-    box.className = 'journal-group'; box.dataset.journalGroup = group.key;
-    const head = document.createElement('h4'); head.className = 'journal-heading'; head.textContent = group.label; box.append(head);
-    if (group.loading) { box.insertAdjacentHTML('beforeend', '<p class="journal-muted">불러오는 중…</p>'); return box; }
-    if (group.sections.length) {
-      for (const section of group.sections) {
-        const part = document.createElement('div');
-        part.className = 'journal-org'; part.dataset.journalOrg = section.name;
-        const name = document.createElement('p'); name.className = 'journal-org-name'; name.textContent = section.name;
-        part.append(name, itemList(section.items, section.tags));
-        box.append(part);
-      }
-    } else if (group.items.length) box.append(itemList(group.items));
-    if (group.capped) box.insertAdjacentHTML('beforeend', `<p class="journal-muted" data-journal-capped>이 주에 ${WEEK_READ_CAP}개가 넘어 앞의 ${WEEK_READ_CAP}개만 모였어요.</p>`);
-    if (group.failed) {
-      box.dataset.failed = '';
-      box.insertAdjacentHTML('beforeend', `<p class="journal-muted journal-failed" data-journal-failed>${group.items.length ? `${esc(group.label)} 일부를` : `${esc(group.label)}을(를)`} 불러오지 못했어요. 한 줄은 그대로 쓸 수 있어요.</p><button type="button" class="mini" data-journal-retry="${group.key}">다시 시도</button>`);
-      return box;
-    }
-    const note = rangeNote(group, selected, range);
-    if (note) box.insertAdjacentHTML('beforeend', `<p class="journal-muted">${esc(note)}</p>`);
-    return box;
-  });
-  // 노트로 옮긴 업데이트: a note moved from the basket shows as one "노트: (제목)" line on the update's own day; pressing it opens
-  // the note. Quiet when empty or when its read failed; it is not one of GROUPS, so the weekly draft does not carry it.
-  const moved = materials.movedNotes?.status === 'ok' ? movedNotesOn(materials.movedNotes.items, selected) : [];
-  if (moved.length) {
-    const box = document.createElement('section');
-    box.className = 'journal-group'; box.dataset.journalMovedNotes = '';
-    const head = document.createElement('h4'); head.className = 'journal-heading'; head.textContent = '노트로 옮긴 업데이트';
-    const list = document.createElement('ul'); list.className = 'journal-moved-list';
-    for (const note of moved) {
-      const item = document.createElement('li'), button = document.createElement('button');
-      button.type = 'button'; button.className = 'journal-note-open'; button.dataset.journalNoteOpen = note.id;
-      button.innerHTML = recordMark({note_kind:'note'}, 'journal-note-mark');
-      button.append(note.line);
-      button.setAttribute('aria-label', `${note.line} (눌러서 노트 열기)`);
-      item.append(button); list.append(item);
-    }
-    box.append(head, list);
-    boxes.push(box);
+// ── JOURNAL-하루개편: ② 할 일 / 한 일 and ④ 주간보고 재료 · ⑤ 그 밖의 기록 (one renderer: renderDay) ──
+// Each drawn line that opens something gets a key into `opens` (rebuilt on every draw).
+let opens = new Map(), openSeq = 0, othersOpen = false;
+const moving = new Set(); // tasks whose [내일로] is being saved
+let taskNote = '';        // the result line under 할 일 / 한 일
+const keyFor = target => { if (!target) return ''; const key = `j${++openSeq}`; opens.set(key, target); return key; };
+const WIDE = window.matchMedia?.('(min-width:1024px)');
+// ⋯ of one line: a native disclosure (as the meeting-kind ⋯ of [주간 정리]) holding small buttons.
+function moreMenu(label, buttons) {
+  const more = document.createElement('details');
+  more.className = 'journal-item-more';
+  more.innerHTML = `<summary aria-label="${esc(label)} 더 보기"><span aria-hidden="true">⋯</span></summary>`;
+  more.append(...buttons);
+  return more;
+}
+function smallButton(text, data, value, aria) {
+  const button = document.createElement('button');
+  button.type = 'button'; button.className = 'mini'; button.textContent = text; button.dataset[data] = value;
+  if (aria) button.setAttribute('aria-label', aria);
+  return button;
+}
+// One line: the text is a button that opens the original. Update lines keep the request tags (JOURNAL-요청표시) in front.
+function itemRow(item) {
+  const li = document.createElement('li');
+  li.className = 'journal-item';
+  const key = keyFor(item.open);
+  const main = document.createElement(key ? 'button' : 'span');
+  main.className = 'journal-item-open';
+  if (key) { main.type = 'button'; main.dataset.journalOpen = key; main.setAttribute('aria-label', `${item.text} (원본 열기)`); }
+  if (item.noteMark) main.innerHTML = recordMark({note_kind:'note'}, 'journal-note-mark');
+  else main.innerHTML = requestTagsHtml(item.requests, esc);
+  main.append(item.text);
+  if (normalizeRequests(item.requests).length) li.dataset.journalRequests = normalizeRequests(item.requests).join(' ');
+  const body = document.createElement('div'); body.className = 'journal-item-body'; body.append(main);
+  // 회의·활동 결과: '보고 안 함' kinds are dimmed; the result's first line (or "결과 아직 없음") sits under the title.
+  if (item.hidden) { li.dataset.journalReportOff = ''; main.insertAdjacentHTML('beforeend', ' <small class="journal-report-off">보고 안 함</small>'); }
+  if ('summary' in item) body.insertAdjacentHTML('beforeend', item.summary ? `<p class="journal-item-summary">${esc(item.summary)}</p>` : '<p class="journal-item-summary journal-no-result" data-journal-no-result>결과 아직 없음</p>');
+  li.append(body);
+  // An update filed to an organization or a project: ⋯ [원래 업데이트 보기] opens the basket update itself.
+  if (item.open?.note && ['org', 'project'].includes(item.open.type)) {
+    li.append(moreMenu(item.text, [smallButton('원래 업데이트 보기', 'journalOriginal', keyFor({type:'note', note:item.open.note}))]));
   }
-  host.replaceChildren(...boxes);
+  return li;
+}
+const listOf = items => { const ul = document.createElement('ul'); ul.className = 'journal-items'; ul.append(...items.map(itemRow)); return ul; };
+// A task line: open (the task) + [내일로] when unfinished — on a wide screen at the line's right, on the phone inside ⋯ (journal.css).
+function taskRow(item, {pending}) {
+  const li = itemRow(item);
+  li.dataset.journalTask = item.id;
+  if (!pending) return li;
+  const busy = moving.has(item.id), label = `${item.text} 기한을 내일로`;
+  const inline = smallButton(busy ? '옮기는 중…' : '내일로', 'journalTomorrow', item.id, label);
+  inline.classList.add('journal-tomorrow-inline'); inline.disabled = busy;
+  const inMenu = smallButton(busy ? '옮기는 중…' : '내일로', 'journalTomorrow', item.id, label); inMenu.disabled = busy;
+  const menu = moreMenu(item.text, [inMenu]); menu.classList.add('journal-task-more');
+  li.append(inline, menu);
+  return li;
+}
+function partNotes(box, part) {
+  if (part.capped) box.insertAdjacentHTML('beforeend', `<p class="journal-muted" data-journal-capped>이 주에 ${WEEK_READ_CAP}개가 넘어 앞의 ${WEEK_READ_CAP}개만 모였어요.</p>`);
+  if (part.failed) {
+    box.dataset.failed = '';
+    box.insertAdjacentHTML('beforeend', `<p class="journal-muted journal-failed" data-journal-failed>${part.items.length ? `${esc(part.label)} 일부를` : `${esc(part.label)}을(를)`} 불러오지 못했어요. 한 줄은 그대로 쓸 수 있어요.</p><button type="button" class="mini" data-journal-retry="${part.key}">다시 시도</button>`);
+  }
+}
+function partBox(part, {heading = 'h4'} = {}) {
+  const box = document.createElement('section');
+  box.className = 'journal-group'; box.dataset.journalGroup = part.key;
+  const head = document.createElement(heading); head.className = 'journal-heading'; head.textContent = part.label; box.append(head);
+  if (part.loading) { box.insertAdjacentHTML('beforeend', '<p class="journal-muted">불러오는 중…</p>'); return box; }
+  if (part.sections.length) for (const section of part.sections) {
+    const wrap = document.createElement('div');
+    wrap.className = 'journal-org'; wrap.dataset.journalOrg = section.name;
+    const name = document.createElement('p'); name.className = 'journal-org-name'; name.textContent = section.name;
+    wrap.append(name, listOf(section.items.map((text, i) => ({text, requests:section.tags?.[i], open:section.opens?.[i]}))));
+    box.append(wrap);
+  } else if (part.items.length) box.append(listOf(part.items));
+  partNotes(box, part);
+  return box;
+}
+function renderTasks(card) {
+  const host = $('[data-journal-tasks]'), part = card.tasks, range = {doneDays};
+  const column = (key, label, items, pending, empty) => {
+    const box = document.createElement('section');
+    box.className = 'journal-group journal-task-col'; box.dataset.journalGroup = key;
+    box.innerHTML = `<h4 class="journal-heading">${label}</h4>`;
+    if (part.loading) { box.insertAdjacentHTML('beforeend', '<p class="journal-muted">불러오는 중…</p>'); return box; }
+    if (items.length) { const ul = document.createElement('ul'); ul.className = 'journal-items'; ul.append(...items.map(item => taskRow(item, {pending}))); box.append(ul); }
+    else if (!part.failed) { const note = dayRangeNote(key, selected, range); box.insertAdjacentHTML('beforeend', `<p class="journal-muted">${esc(note || empty)}</p>`); }
+    return box;
+  };
+  const todo = column('todo', '할 일', part.todo || [], true, '이 날 기한인 남은 할 일이 없어요.');
+  // 기한 지난 것: one folded line under 할 일.
+  if (!part.loading && part.overdue?.length) {
+    const fold = document.createElement('details');
+    fold.className = 'journal-overdue'; fold.dataset.journalOverdue = '';
+    fold.innerHTML = `<summary>기한 지난 것 ${part.overdue.length}</summary>`;
+    const ul = document.createElement('ul'); ul.className = 'journal-items'; ul.append(...part.overdue.map(item => taskRow(item, {pending:true})));
+    fold.append(ul); todo.append(fold);
+  }
+  const done = column('done', '한 일', part.done || [], false, '이 날 끝낸 할 일이 없어요.');
+  const cols = document.createElement('div'); cols.className = 'journal-task-cols'; cols.append(todo, done);
+  const after = document.createElement('div');
+  partNotes(after, {...part, key:'tasks', label:'할 일', items:[...(part.todo || []), ...(part.done || [])]});
+  after.insertAdjacentHTML('beforeend', `<p class="journal-line-status" data-journal-task-status role="status" aria-live="polite">${esc(taskNote)}</p>`);
+  host.replaceChildren(cols, ...after.childNodes);
+}
+function renderDay() {
+  opens = new Map(); openSeq = 0;
+  const card = dayCard(materials, selected, {kinds, tree:materials.catalog?.status === 'ok' ? materials.catalog.items : null});
+  renderTasks(card);
+  const host = $('[data-journal-materials]');
+  // ④ 주간보고 재료: the three parts in the report's order; a part with nothing that day is not drawn.
+  const report = document.createElement('section');
+  report.className = 'journal-report'; report.dataset.journalReport = '';
+  report.innerHTML = '<h4 class="journal-heading journal-report-title">주간보고 재료</h4>';
+  const parts = card.report.filter(part => part.loading || part.failed || part.items.length);
+  if (parts.length) { const grid = document.createElement('div'); grid.className = 'journal-report-parts'; grid.append(...parts.map(part => partBox(part, {heading:'h5'}))); report.append(grid); }
+  else report.insertAdjacentHTML('beforeend', '<p class="journal-muted" data-journal-report-empty>이 날은 주간보고 재료가 없어요.</p>');
+  // ⑤ 그 밖의 기록: folded by default; the summary line counts what is inside.
+  const shown = card.others.filter(part => part.loading || part.failed || part.items.length);
+  const others = document.createElement('details');
+  others.className = 'journal-others'; others.dataset.journalOthers = ''; others.open = othersOpen;
+  const loading = card.others.some(part => part.loading), count = othersCount(card.others), failed = card.others.some(part => part.failed);
+  // Folded, the summary still says when a part could not be read (its [다시 시도] is inside).
+  others.innerHTML = `<summary><span class="journal-heading">그 밖의 기록</span> <small class="journal-others-count" data-journal-others-count>${esc(count || (loading ? '불러오는 중…' : '없음'))}</small>${failed ? '<small class="journal-failed" data-journal-others-failed>· 못 읽은 묶음 있음</small>' : ''}</summary>`;
+  const body = document.createElement('div'); body.className = 'journal-others-parts';
+  body.append(...shown.map(part => partBox(part, {heading:'h5'})));
+  others.append(body);
+  others.addEventListener('toggle', () => { othersOpen = others.open; });
+  host.replaceChildren(report, others);
 }
 // JOURNAL-챙길것: the box above the day card shows the candidates found in the chosen day's records (todo-radar.js draws it).
 // It belongs to the [하루] side; [주간 정리] hides it.
@@ -207,7 +301,14 @@ function renderWeekly_() {
   if (mode !== 'week') return;
   const list = weekDays(start);
   $('[data-journal-weekly-title]').textContent = `주간 정리 · ${longDay(list[0])} ~ ${longDay(list[6])}`;
-  renderWeekly($('[data-journal-weekly]'), weeklySummary({start, lines, linesState, materials, doneDays, kinds}), esc);
+  const host = $('[data-journal-weekly]');
+  // Keep which 원문 folds are open and the text being typed across redraws (a read landing must not lose them).
+  // (a fold not drawn right now — its summary is being read again — keeps its last state.)
+  for (const d of host.querySelectorAll('[data-journal-org-raw]')) { if (d.open) orgUi.open.add(d.dataset.journalOrgRaw); else orgUi.open.delete(d.dataset.journalOrgRaw); }
+  const typing = host.querySelector('[data-journal-org-edit-input]'), focused = typing && typing === document.activeElement;
+  if (typing && orgUi.editing?.id === typing.dataset.journalOrgEditInput) orgUi.editing.value = typing.value;
+  renderWeekly(host, weeklySummary({start, lines, linesState, materials, doneDays, kinds}), esc, orgUi);
+  if (focused) host.querySelector('[data-journal-org-edit-input]')?.focus();
   hwpx?.refresh();
 }
 // WEEKLY-한글초안 2단계: [주간보고 한글 파일 만들기] — journal-hwpx.js owns that box; it reads the shown week's grouping.
@@ -224,9 +325,9 @@ function setMode(next) {
   if (next === mode || !['day', 'week'].includes(next)) return;
   mode = next; editing = null;
   renderMode();
-  if (mode === 'week') renderWeekly_(); else { renderWeek(); renderLine({keepStatus:true}); renderMaterials(); radarDay(); }
+  if (mode === 'week') renderWeekly_(); else { renderWeek(); renderLine({keepStatus:true}); renderDay(); radarDay(); }
 }
-function render() { renderMode(); renderWeek(); renderLine({keepStatus:true}); renderMaterials(); renderWeekly_(); radarDay(); }
+function render() { renderMode(); renderWeek(); renderLine({keepStatus:true}); renderDay(); renderWeekly_(); radarDay(); }
 
 const readers = {
   events: () => readWeekEvents(start, rt),
@@ -241,6 +342,8 @@ const readers = {
   meetings: () => readWeekMeetings(start, rt),
   documents: () => { void loadDocumentCategories({rt}).catch(() => {}); return readWeekDocuments(start, rt); },
   sharePages: () => readWeekSharePages(start, rt),
+  // JOURNAL-조직현황AI요약: the week's saved organization summaries (a missing table reads as {missing:true}).
+  orgSummaries: () => readOrgSummaries(start, rt),
   // The project tree for [주간 정리] (read once per visit, like the basket). Without it records go under their project names.
   catalog: async () => {
     const c = rt.context.read(), catalog = window.KPTUProjectCatalog;
@@ -252,7 +355,7 @@ const readers = {
   },
 };
 async function loadGroup(key, run = epoch, scope = owner) {
-  materials[key] = {status:'loading'}; renderMaterials(); renderWeekly_();
+  materials[key] = {status:'loading'}; renderDay(); renderWeekly_();
   try {
     const items = await readers[key]();
     if (!current(run, scope)) return;
@@ -261,7 +364,7 @@ async function loadGroup(key, run = epoch, scope = owner) {
     if (!current(run, scope)) return;
     materials[key] = {status:'failed'};
   }
-  renderMaterials(); renderWeekly_();
+  renderDay(); renderWeekly_();
 }
 async function loadLines(run, scope) {
   linesState = 'loading'; renderLine();
@@ -281,14 +384,14 @@ async function loadKinds(run, scope) {
   kinds = {status:'loading'};
   const read = await readKinds(rt);
   if (!current(run, scope)) return;
-  kinds = read; renderWeekly_();
+  kinds = read; renderDay(); renderWeekly_();
 }
 function loadWeek({shared = false} = {}) {
   const changedOwner = owner !== ownerScope(rt);
   const run = ++epoch, scope = owner = ownerScope(rt);
-  lines = new Map(); status.textContent = ''; editing = null;
+  lines = new Map(); status.textContent = ''; editing = null; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()};
   if (changedOwner) hwpx?.close(); else hwpx?.setWeek(start);
-  const keys = shared ? Object.keys(readers) : ['events', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages'];
+  const keys = shared ? Object.keys(readers) : ['events', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'orgSummaries'];
   for (const key of keys) materials[key] = {status:'loading'};
   if (shared || changedOwner) loadKinds(run, scope);
   render();
@@ -307,7 +410,7 @@ function goThisWeek() {
 }
 function selectDay(day) {
   if (day === selected) return;
-  selected = day; editing = null; renderWeek(); renderLine(); renderMaterials(); radarDay();
+  selected = day; editing = null; renderWeek(); renderLine(); renderDay(); radarDay();
 }
 
 const saveMessage = error => error?.status === 401 ? '로그인이 필요해요. 다시 로그인한 뒤 저장해 주세요.'
@@ -421,11 +524,147 @@ async function deleteLine(index) {
   await removeWithUndo(day, index, before, {onFail:result => { lineStatus.textContent = result.message; }});
 }
 
+// ── JOURNAL-하루개편 ⑥: open a line's original ──
+// The org/project/meeting screens open through their own modules' open functions (the same ones the top line's ← → and
+// todo-radar.js use); this module only asks and then marks the record. On a PC (≥1024) they open on their own screen — a
+// history entry, so back or ← returns here. On the phone they open over this screen as the app's usual window, whose own
+// history entry back closes. A basket update, a note and a task open on their screens as from the other screens.
+let pendingReturn = null;
+function rememberReturn(trigger) {
+  pendingReturn = {owner:ownerScope(rt), start, day:selected, scroll:window.scrollY, focus:trigger};
+}
+const goView = view => window.KPTURouter?.go?.(view, {source:'delegated'});
+// The record on the opened screen: scrolled to the middle and lit for a moment (journal.css [data-journal-flash]). Waits for the
+// owner module to draw it (a few frames at most); a record that is not drawn (folded away, gone) leaves the screen as opened.
+// The owner module may draw its records once more right after opening (its link read lands); a record drawn again is marked again
+// while the moment lasts, so the highlight is never lost to that redraw.
+const FLASH_MS = 1600;
+async function flashRecord(selector) {
+  const find = () => [...document.querySelectorAll(selector)].find(node => node.getClientRects().length);
+  const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
+  let el = null, until = 0;
+  for (let i = 0; i < 90 && !el; i++) { el = find(); if (!el) await frame(); }
+  if (!el) return false;
+  const light = node => {
+    node.scrollIntoView({block:'center', behavior:'instant'});
+    node.removeAttribute('data-journal-flash'); void node.offsetWidth; node.setAttribute('data-journal-flash', '');
+    node.addEventListener('animationend', () => node.removeAttribute('data-journal-flash'), {once:true});
+  };
+  light(el); until = performance.now() + FLASH_MS;
+  while (performance.now() < until) {
+    await frame();
+    if (el.isConnected) continue;
+    const again = find(); if (!again) return true;
+    el = again; light(el);
+  }
+  return true;
+}
+// Phone: the organization/project/meeting opens as a window over this screen; when back (or its ×) closes it, the focus returns to
+// the pressed line.
+function refocusAfter(modalSelector, trigger) {
+  const modal = document.querySelector(modalSelector);
+  if (!modal || !trigger) return;
+  const watch = new MutationObserver(() => {
+    if (!modal.classList.contains('hidden')) return;
+    watch.disconnect();
+    requestAnimationFrame(() => {
+      if (window.KPTURouter?.current !== 'journal') return;
+      // The project window writes ?project= into this screen's entry while it is open; once it is closed the journal's entry
+      // must not keep it, or a later back to this entry would open the project again over the journal.
+      const url = new URL(location.href);
+      if (url.searchParams.has('project')) {
+        url.searchParams.delete('project');
+        const state = {...(history.state || {})}; delete state.project; delete state.kptuOverlay;
+        history.replaceState(state, '', url.pathname + url.search + url.hash);
+      }
+      if (trigger.isConnected) trigger.focus({preventScroll:true});
+    });
+  });
+  watch.observe(modal, {attributes:true, attributeFilter:['class']});
+  window.addEventListener('kptu:view-changed', () => watch.disconnect(), {once:true});
+}
+const RECORD = {
+  org:record => { const [kind, id] = String(record || '').split(/:(.*)/s); return !id ? '' : kind === 'up' ? `#wdUpdates [data-wd-up="${CSS.escape(id)}"]` : `#wdUpdates [data-basket-link="${CSS.escape(id)}"]`; },
+  project:record => { const [kind, id] = String(record || '').split(/:(.*)/s); return !id ? '' : kind === 'progress' ? `#ps3Body [data-ps3-record="${CSS.escape(id)}"]` : `#ps3Body [data-basket-link="${CSS.escape(id)}"]`; },
+};
+async function openOriginal(target, trigger) {
+  const wide = !!WIDE?.matches, loader = window.KPTUViewLoader;
+  status.textContent = '';
+  try {
+    // An update or a note opens in the basket as "opened from 업무일지" (basket-note-tasks.js): no history entry of its own, a
+    // "← 업무일지로 돌아가기" line, and one back returns here.
+    const from = {view:'journal', id:selected, name:'업무일지'};
+    if (target.type === 'note') { rememberReturn(trigger); requestBasketNoteFrom(target.note, from, rt); goView('basket'); return; }
+    if (target.type === 'notedoc') { rememberReturn(trigger); requestNoteDocFrom(target.note, from, rt); goView('basket'); return; }
+    if (target.type === 'task') { rememberReturn(trigger); requestTaskOpen(target.id, rt); goView('tasks'); return; }
+    if (['calendar', 'library', 'pages'].includes(target.type)) { rememberReturn(trigger); goView(target.type); return; }
+    if (target.type === 'meeting') {
+      if (wide) {
+        await loader.load('meetings'); rememberReturn(trigger);
+        if (!goView('meetings')) { pendingReturn = null; return; }
+        // The meeting screen reads its list after it shows; choose the round once its row is drawn (the screen's own select).
+        for (let i = 0; i < 300 && window.KPTURouter?.current === 'meetings'; i++) {
+          if (document.querySelector(`#meetingList [data-meeting-round="${CSS.escape(String(target.id))}"], #meetingList [data-meeting-kind="${CSS.escape(target.kind || '')}"]`)) {
+            window.KPTUMeetingColumns?.select?.({id:String(target.id), kind:target.kind});
+            await flashRecord('#meetingList #mcolResult');
+            break;
+          }
+          await new Promise(resolve => requestAnimationFrame(resolve));
+        }
+        return;
+      }
+      await loader?.prepare?.('meetings'); await import('./meeting-round-detail.js');
+      if (!(await window.__KPTU_MEETING_ROUND_DETAIL_READY__)) throw new Error('meeting');
+      await window.KPTUMeetingRoundDetail.open(target.id);
+      refocusAfter('#meetingRoundDetailModal', trigger);
+      return;
+    }
+    if (target.type === 'org' || target.type === 'project') {
+      const org = target.type === 'org';
+      await loader.load(org ? 'team' : 'projects');
+      if (wide) { rememberReturn(trigger); if (!goView(org ? 'team' : 'projects')) { pendingReturn = null; return; } }
+      await (org ? window.KPTUWorkplace.open(target.org) : window.KPTUProjects.open(target.project));
+      if (!wide) refocusAfter(org ? '#wdModal' : '#ps3DetailModal', trigger);
+      const selector = RECORD[target.type](target.record);
+      if (selector) await flashRecord(selector);
+    }
+  } catch {
+    status.textContent = '원본을 열지 못했어요. 다시 시도해 주세요.';
+  }
+}
+// [내일로]: the task's due date becomes tomorrow (journal-data.js moveTaskToTomorrow, the editor's own update action). The card
+// shows the saved task; the other task screens hear the usual kptu:google-tasks-changed.
+async function moveTomorrow(id) {
+  const task = materials.tasks?.status === 'ok' ? materials.tasks.items.find(t => t.id === id) : null;
+  if (!task || moving.has(id)) return;
+  const scope = ownerScope(rt), name = task.title || '(제목 없음)';
+  moving.add(id); taskNote = ''; renderDay();
+  try {
+    const saved = await moveTaskToTomorrow(task, rt);
+    if (scope !== ownerScope(rt)) return;
+    if (materials.tasks?.status === 'ok') materials.tasks = {status:'ok', items:materials.tasks.items.map(t => t.id === id ? {...t, ...saved} : t)};
+    taskNote = `'${name}' 기한을 내일로 옮겼어요.`;
+    window.KPTUGoogleTasks?.invalidateAfterCreate?.();
+    window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed'));
+  } catch (error) {
+    if (scope !== ownerScope(rt)) return;
+    taskNote = error?.message && !error.status ? error.message : '기한을 바꾸지 못했어요. 다시 시도해 주세요.';
+  } finally {
+    moving.delete(id);
+    if (scope === ownerScope(rt)) {
+      renderDay();
+      const again = root.querySelector(`[data-journal-task="${CSS.escape(id)}"] [data-journal-tomorrow]:not(.journal-task-more [data-journal-tomorrow])`);
+      const head = root.querySelector('[data-journal-group="todo"] > h4');
+      if (again && again.getClientRects().length) again.focus(); else if (head) { head.tabIndex = -1; head.focus(); }
+    }
+  }
+}
+
 async function copyDraft() {
   const text = weeklyReportText(weeklySummary({start, lines, linesState, materials, doneDays, kinds}));
   const ok = await copyText(text);
   // movedNotes, catalog (the project order) and this week's events (the day card's 일정) are not draft material.
-  const missing = Object.entries(materials).some(([key, state]) => !['movedNotes', 'catalog', 'events'].includes(key) && state?.status !== 'ok');
+  const missing = Object.entries(materials).some(([key, state]) => !['movedNotes', 'catalog', 'events', 'orgSummaries'].includes(key) && state?.status !== 'ok');
   status.textContent = ok ? `주간보고 양식 순서로 복사했어요.${missing ? ' 불러오지 못한 묶음은 빠졌어요.' : ''}` : '복사하지 못했어요. 다시 시도해 주세요.';
 }
 
@@ -438,9 +677,56 @@ async function toggleKind(key, hide, name) {
     if (scope !== ownerScope(rt)) return;
     if (result.ok) { kinds = {status:'ok', list:result.list}; status.textContent = hide ? `'${name}' 종류는 앞으로 주간보고에서 빼요.` : `'${name}' 종류를 주간보고에 다시 올려요.`; }
     else status.textContent = '저장하지 못했어요. 다시 시도해 주세요.';
-    renderWeekly_();
+    renderDay(); renderWeekly_();
   } finally { kindsBusy = false; }
 }
+// JOURNAL-조직현황AI요약 ----
+// [요약 만들기]: one ai-assist call with the week and the shown organizations' ids; then the saved summaries are read again.
+async function makeOrgSummaries() {
+  const model = weeklySummary({start, lines, linesState, materials, doneDays, kinds});
+  const ids = (model.orgs.sections || []).map(section => section.id).filter(Boolean);
+  if (orgUi.busy || !ids.length) return;
+  const run = epoch, scope = owner, week = start;
+  orgUi.busy = true; orgUi.status = ''; orgUi.error = false; renderWeekly_();
+  const result = await requestOrgSummaries({start:week, organizationIds:ids});
+  if (!current(run, scope)) return;
+  orgUi.busy = false; orgUi.status = resultMessage(result); orgUi.error = !result.ok;
+  if (result.ok) await loadGroup('orgSummaries', run, scope); else renderWeekly_();
+  root.querySelector('[data-journal-org-ai-run]')?.focus();
+}
+function openOrgEdit(id) {
+  const section = weeklySummary({start, lines, linesState, materials, doneDays, kinds}).orgs.sections?.find(s => s.id === id);
+  if (!section || orgUi.editing?.saving) return;
+  orgUi.editing = {id, name:section.name, value:section.summary?.text || '', status:'', invalid:false, saving:false};
+  renderWeekly_();
+  const box = root.querySelector('[data-journal-org-edit-input]');
+  box?.focus(); box?.setSelectionRange(box.value.length, box.value.length);
+}
+function closeOrgEdit() {
+  const id = orgUi.editing?.id; orgUi.editing = null; renderWeekly_();
+  root.querySelector(`[data-journal-org-edit-open="${id}"]`)?.focus();
+}
+async function saveOrgEdit() {
+  const edit = orgUi.editing; if (!edit || edit.saving) return;
+  const box = root.querySelector('[data-journal-org-edit-input]'); if (box) edit.value = box.value;
+  try { cleanEdited(edit.value); } catch (error) { edit.status = error.message; edit.invalid = true; renderWeekly_(); root.querySelector('[data-journal-org-edit-input]')?.focus(); return; }
+  const run = epoch, scope = owner, week = start, saved = materials.orgSummaries?.items?.get?.(edit.id) || null;
+  edit.saving = true; edit.invalid = false; edit.status = '저장하는 중…'; renderWeekly_();
+  try {
+    await saveEditedSummary({start:week, organizationId:edit.id, row:saved, text:edit.value}, rt);
+    if (!current(run, scope)) return;
+    orgUi.editing = null; orgUi.status = `${edit.name} 요약을 저장했어요. 다시 만들어도 이 요약은 그대로예요.`; orgUi.error = false;
+    await loadGroup('orgSummaries', run, scope);
+    root.querySelector(`[data-journal-org-edit-open="${edit.id}"]`)?.focus();
+  } catch (error) {
+    if (!current(run, scope)) return;
+    edit.saving = false; edit.status = error?.status === 401 ? '로그인이 필요해요. 다시 로그인한 뒤 저장해 주세요.' : '저장하지 못했어요. 다시 시도해 주세요.';
+    renderWeekly_(); root.querySelector('[data-journal-org-edit-input]')?.focus();
+  }
+}
+root.addEventListener('keydown', event => {
+  if (event.target.matches?.('[data-journal-org-edit-input]') && event.key === 'Escape' && !event.isComposing) { event.preventDefault(); closeOrgEdit(); }
+});
 root.addEventListener('click', event => {
   const button = event.target.closest('button');
   if (!button || !root.contains(button) || button.disabled) return;
@@ -452,13 +738,19 @@ root.addEventListener('click', event => {
     }
     return;
   }
+  if (button.matches('[data-journal-org-ai-run]')) return makeOrgSummaries();
+  if (button.matches('[data-journal-org-edit-open]')) return openOrgEdit(button.dataset.journalOrgEditOpen);
+  if (button.matches('[data-journal-org-edit-save]')) return saveOrgEdit();
+  if (button.matches('[data-journal-org-edit-cancel]')) return closeOrgEdit();
   if (button.matches('[data-journal-kind-toggle]')) return toggleKind(button.dataset.journalKindToggle, button.dataset.journalKindHide === '1', button.dataset.journalKindName);
   if (button.matches('[data-journal-date]')) return selectDay(button.dataset.journalDate);
   if (button.matches('[data-journal-prev]')) return moveWeek(-1);
   if (button.matches('[data-journal-next]')) return moveWeek(1);
   if (button.matches('[data-journal-today]')) return goThisWeek();
-  if (button.matches('[data-journal-retry]')) { for (const key of GROUP_SOURCES[button.dataset.journalRetry] || []) if (materials[key]?.status === 'failed') loadGroup(key); return; }
-  if (button.matches('[data-journal-note-open]')) { requestNoteDocOpen(button.dataset.journalNoteOpen, rt); window.KPTURouter?.go('basket', {source:'delegated'}); return; }
+  if (button.matches('[data-journal-retry]')) { for (const key of DAY_SOURCES[button.dataset.journalRetry] || []) if (materials[key]?.status === 'failed') loadGroup(key); return; }
+  if (button.matches('[data-journal-open]')) { const target = opens.get(button.dataset.journalOpen); if (target) void openOriginal(target, button); return; }
+  if (button.matches('[data-journal-original]')) { const target = opens.get(button.dataset.journalOriginal); button.closest('details')?.removeAttribute('open'); if (target) void openOriginal(target, button.closest('li')?.querySelector('[data-journal-open]') || button); return; }
+  if (button.matches('[data-journal-tomorrow]')) { button.closest('details')?.removeAttribute('open'); return void moveTomorrow(button.dataset.journalTomorrow); }
   if (button.matches('[data-journal-edit]')) return startEdit(Number(button.dataset.journalEdit));
   if (button.matches('[data-journal-edit-open]')) return startEdit(Number(button.dataset.journalEditOpen));
   if (button.matches('[data-journal-line-delete]')) return deleteLine(Number(button.dataset.journalLineDelete));
@@ -497,15 +789,36 @@ input.addEventListener('input', () => {
 window.addEventListener('kptu:session-changed', () => {
   if (owner === ownerScope(rt)) return;
   owner = ownerScope(rt); epoch++;
-  kinds = {status:'loading'}; drafts = new Map(); lines = new Map(); materials = {}; doneDays = DONE_TASK_DAYS; saving = false; editing = null; mode = 'day';
+  kinds = {status:'loading'}; drafts = new Map(); lines = new Map(); materials = {}; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; doneDays = DONE_TASK_DAYS; saving = false; editing = null; mode = 'day';
+  pendingReturn = null; moving.clear(); taskNote = ''; othersOpen = false;
   start = weekStart(todayKey()); selected = todayKey();
   if (window.KPTURouter?.current === 'journal') enter();
 });
-// Each visit reads again from the week and day last seen in this sign-in (this week on the first visit).
-function enter() { loadWeek({shared:true}); }
+// Each visit reads again from the week and day last seen in this sign-in (this week on the first visit) — except a return by
+// back or the top line's ← from an original opened here (JOURNAL-하루개편 ⑥): then the card stays as it was, at the same scroll,
+// with the focus back on the line that was pressed.
+function enter(detail) {
+  const back = pendingReturn; pendingReturn = null;
+  takeBasketReturn('journal', rt); // an update/note opened from here has done its job once this screen shows again
+  if (back && back.owner === ownerScope(rt) && back.start === start && back.day === selected && ['popstate', 'trail', 'back'].includes(detail?.source)) {
+    renderMode();
+    window.scrollTo({top:back.scroll, behavior:'instant'});
+    if (back.focus?.isConnected) back.focus.focus({preventScroll:true});
+    return;
+  }
+  loadWeek({shared:true});
+}
 window.KPTURouter?.on?.('journal', enter);
 // A renamed category list (자료실 분류) shows on the next draw of 자료실 새 자료.
-window.addEventListener('kptu:document-categories-changed', () => { if (materials.documents?.status === 'ok') { renderMaterials(); renderWeekly_(); } });
-window.KPTUJournal = {refresh:() => loadWeek({shared:true})};
+window.addEventListener('kptu:document-categories-changed', () => { if (materials.documents?.status === 'ok') { renderDay(); renderWeekly_(); } });
+// SEARCH-전체검색: a search result line of 업무일지 opens that day (its week, then the day).
+function showDay(day) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(day || ''))) return;
+  if (mode !== 'day') setMode('day');
+  const week = weekStart(day);
+  if (week === start) { selectDay(day); return; }
+  start = week; selected = day; loadWeek();
+}
+window.KPTUJournal = {refresh:() => loadWeek({shared:true}), show:showDay};
 if (window.KPTURouter?.current === 'journal') enter();
 })();

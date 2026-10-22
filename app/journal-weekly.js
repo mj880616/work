@@ -19,7 +19,7 @@
 // (WEEKLY-한글초안 2단계 builds the .hwpx from this grouping). journal.js stays the only renderer of #journalRoot and calls
 // renderWeekly() into the box it owns.
 import {weekDays, workLines, shortDay, reportDay, tasksOn, pendingOn, meetingsOn, meetingLine, orgNewsOn, projectRecordsOn, scheduleDays,
-  compareOrgSections, journalMemosOn, documentLine, sharePageLine, UNSORTED, DONE_TASK_DAYS, doneCoverFrom, pendingCoverTo, PENDING_DAYS, todayKey, WEEK_READ_CAP} from './journal-data.js';
+  compareOrgSections, journalMemosOn, documentLine, sharePageLine, UNSORTED, OTHERS, DONE_TASK_DAYS, doneCoverFrom, pendingCoverTo, PENDING_DAYS, todayKey, WEEK_READ_CAP} from './journal-data.js';
 import {requestTagsHtml, requestPrefix} from './update-requests.js';
 import {seoulDateKey, addSeoulDays, seoulClock} from './meeting-time.js';
 import {meetingKindKey, meetingKindName, reportsMeeting, validKindKey} from './journal-meeting-kinds.js';
@@ -195,6 +195,9 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
     return {items, hidden:[...off.values()], editable:!!list};
   });
 
+  // JOURNAL-조직현황AI요약: a named organization section (its id found by name in the organization read) carries the week's
+  // saved summary (journal-org-summary.js) when there is one. `summaries`: 'loading' | 'ok' | 'failed' | 'missing' (no table yet —
+  // the part shows the records as before, without the summary button).
   const orgs = part('orgs', s => {
     const read = {basket:ok(m, 'basket'), orgUpdates:ok(m, 'orgUpdates')};
     const sections = new Map();
@@ -202,7 +205,18 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
       if (!sections.has(section.name)) sections.set(section.name, {name:section.name, items:[]});
       section.items.forEach((text, i) => sections.get(section.name).items.push({day, text, requests:section.tags?.[i] || []}));
     }
-    return {sections:[...sections.values()].sort(compareOrgSections)};
+    const sm = m.orgSummaries, saved = sm?.status === 'ok' && !sm.items?.missing ? sm.items : null;
+    const summaries = !sm || sm.status === 'loading' ? 'loading' : sm.status !== 'ok' ? 'failed' : sm.items?.missing ? 'missing' : 'ok';
+    const ids = new Map();
+    for (const org of read.orgUpdates?.orgs || []) if (org?.id && !ids.has(String(org.name || '').trim())) ids.set(String(org.name || '').trim(), String(org.id).toLowerCase());
+    for (const section of sections.values()) {
+      const id = section.name !== UNSORTED && section.name !== OTHERS ? ids.get(section.name) : null;
+      if (!id) continue;
+      section.id = id;
+      const row = saved?.get?.(id);
+      if (row) section.summary = {text:row.summary, edited:row.edited};
+    }
+    return {sections:[...sections.values()].sort(compareOrgSections), summaries};
   });
 
   const calendar = part('calendar', () => upcomingSchedule(ok(m, 'upcoming'), start));
@@ -221,6 +235,8 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
   return {start, days, summary, meetings, orgs, calendar, notes};
 }
 const seoulDay = value => value && Number.isFinite(Date.parse(value)) ? seoulDateKey(value) : '';
+
+export const orgSummaryLines = text => String(text ?? '').split('\n').map(line => line.trim()).filter(Boolean);
 
 // ---- [주간보고 초안 복사] (2026-10-21 사용자 승인: 날짜순이 아니라 양식 순서) ----
 // The same grouping as the tab, as text in the form's order: 1. 요청사항 → 2. 사업 → 4. 산하 조직 → 5. 주요 일정 → 참고. A part
@@ -243,7 +259,15 @@ export function weeklyReportText(model) {
   out.push('2) 세부 내용 — 회의·행사 결과');
   if (!note('meetings', model.meetings)) { for (const i of model.meetings.items) out.push(item(i)); if (!model.meetings.items.length) out.push('(이 주 회의·행사 없음)'); }
   out.push('', '4. 산하 조직 현황', '1) 요약');
-  if (!note('orgs', model.orgs)) { for (const section of model.orgs.sections) { out.push(`◦ ${section.name}`); for (const i of section.items) out.push(item(i)); } if (!model.orgs.sections.length) out.push('(이 주 조직 소식 없음)'); }
+  // An organization with a summary (JOURNAL-조직현황AI요약) gives its summary lines (no day); the others give their records.
+  if (!note('orgs', model.orgs)) {
+    for (const section of model.orgs.sections) {
+      out.push(`◦ ${section.name}`);
+      if (section.summary) for (const line of orgSummaryLines(section.summary.text)) out.push(`- ${line}`);
+      else for (const i of section.items) out.push(item(i));
+    }
+    if (!model.orgs.sections.length) out.push('(이 주 조직 소식 없음)');
+  }
   const c = model.calendar;
   out.push('', `5. 주요 일정 (${c.days?.length ? `${shortDay(c.days[0])} ~ ${shortDay(c.days.at(-1))}` : '다음 주 월요일부터 2주'})`);
   if (!note('calendar', c)) {
@@ -273,7 +297,9 @@ export const NOTE_PARTS = Object.freeze([['lines', '한 줄'], ['tasks', '끝낸
 // 1. 2) 주요 일정: what goes there (its rule is not settled; nothing is filled in yet).
 export const HQ_SCHEDULE_GUIDE = '본부 주요 일정 — 기자회견·주요 회의·토론회·집회·교육 등, 특정 사업장·반복 일정 제외. 자동 채우기는 나중에';
 const rangeTitle = calendar => `${shortDay(calendar.days[0])} ~ ${shortDay(calendar.days.at(-1))} · 다음 주 월요일부터 2주`;
-export function renderWeekly(host, model, esc) {
+// orgUi (JOURNAL-조직현황AI요약, journal.js keeps it): {busy, status, error, editing:{id, value, status, invalid, saving}, open:Set(names)}.
+export const ORG_EDIT_MAX_LINES = 8;
+export function renderWeekly(host, model, esc, orgUi = {}) {
   const doc = host.ownerDocument;
   const el = (tag, cls, text) => { const node = doc.createElement(tag); if (cls) node.className = cls; if (text != null) node.textContent = text; return node; };
   const muted = text => el('p', 'journal-muted', text);
@@ -391,12 +417,58 @@ export function renderWeekly(host, model, esc) {
   const four = chapter('orgs', '4. 산하 조직 현황');
   const orgs = block('orgs', '1) 요약');
   if (!status(orgs, model.orgs, '조직 소식')) {
-    for (const section of model.orgs.sections || []) {
+    const o = model.orgs, can = o.summaries === 'ok' && !o.failed.includes('orgUpdates');
+    const named = (o.sections || []).filter(section => section.id);
+    // JOURNAL-조직현황AI요약: one small [요약 만들기] for the shown organizations (only when pressed; edited summaries stay).
+    if (can && named.length) {
+      const row = el('div', 'journal-org-ai'); row.dataset.journalOrgAi = '';
+      const run = el('button', 'mini', orgUi.busy ? '요약 만드는 중…' : '요약 만들기'); run.type = 'button'; run.dataset.journalOrgAiRun = '';
+      run.setAttribute('aria-label', '조직별 요약 만들기(AI)');
+      if (orgUi.busy) { run.disabled = true; run.setAttribute('aria-busy', 'true'); }
+      const say = el('span', 'journal-org-ai-status', orgUi.status || ''); say.dataset.journalOrgAiStatus = ''; say.setAttribute('role', 'status'); say.setAttribute('aria-live', 'polite');
+      if (orgUi.error) say.classList.add('journal-failed');
+      row.append(run, say); orgs.append(row);
+    }
+    if (o.summaries === 'failed' && named.length) orgs.append(muted('저장한 조직 요약을 불러오지 못해 기록만 보여요.'));
+    for (const section of o.sections || []) {
       const part = el('div', 'journal-org'); part.dataset.journalOrg = section.name;
-      part.append(el('p', 'journal-org-name', section.name), itemList(section.items));
+      part.append(el('p', 'journal-org-name', section.name));
+      const editing = can && section.id && orgUi.editing?.id === section.id ? orgUi.editing : null;
+      if (editing) {
+        const box = el('div', 'journal-org-edit'); box.dataset.journalOrgEdit = section.id;
+        const id = `journalOrgEdit-${section.id}`;
+        const label = el('label', 'journal-muted', `${section.name} 요약 고치기 (한 줄에 한 사안, ${ORG_EDIT_MAX_LINES}줄까지)`); label.htmlFor = id;
+        const area = el('textarea', 'journal-org-edit-input'); area.id = id; area.rows = Math.min(8, Math.max(3, editing.value.split('\n').length + 1));
+        area.value = editing.value; area.dataset.journalOrgEditInput = section.id; area.disabled = !!editing.saving;
+        if (editing.invalid) area.setAttribute('aria-invalid', 'true');
+        const note = el('p', 'journal-line-status', editing.status || ''); note.dataset.journalOrgEditStatus = ''; note.setAttribute('role', 'status'); note.setAttribute('aria-live', 'polite');
+        const actions = el('div', 'journal-edit-actions');
+        const save = el('button', 'mini primary', '저장'); save.type = 'button'; save.dataset.journalOrgEditSave = section.id;
+        const cancel = el('button', 'mini', '취소'); cancel.type = 'button'; cancel.dataset.journalOrgEditCancel = section.id;
+        if (editing.saving) { save.disabled = true; cancel.disabled = true; }
+        actions.append(save, cancel); box.append(label, area, note, actions); part.append(box);
+      } else if (section.summary) {
+        const lines = el('ul', 'journal-weekly-list journal-org-summary'); lines.dataset.journalOrgSummary = section.id;
+        for (const line of orgSummaryLines(section.summary.text)) lines.append(el('li', null, line));
+        part.append(lines);
+      }
+      if (section.summary || editing) {
+        // The records the summary came from stay folded underneath (native disclosure, keyboard accessible).
+        const raw = el('details', 'journal-org-raw'); raw.dataset.journalOrgRaw = section.name;
+        if (orgUi.open?.has(section.name)) raw.open = true;
+        raw.append(el('summary', null, `원문 ${section.items.length}건`), itemList(section.items));
+        part.append(raw);
+      } else part.append(itemList(section.items));
+      if (can && section.id && !editing) {
+        const tools = el('div', 'journal-org-tools');
+        if (section.summary?.edited) { const tag = el('span', 'journal-org-edited', '고친 요약'); tag.dataset.journalOrgEdited = ''; tools.append(tag); }
+        const edit = el('button', 'mini', section.summary ? '요약 고치기' : '요약 쓰기'); edit.type = 'button'; edit.dataset.journalOrgEditOpen = section.id;
+        edit.setAttribute('aria-label', `${section.name} ${section.summary ? '요약 고치기' : '요약 쓰기'}`);
+        tools.append(edit); part.append(tools);
+      }
       orgs.append(part);
     }
-    if (!model.orgs.sections.length && !model.orgs.failed.length) orgs.append(empty('이 주 조직 소식이 없어요.'));
+    if (!o.sections.length && !o.failed.length) orgs.append(empty('이 주 조직 소식이 없어요.'));
   }
   four.append(orgs);
 

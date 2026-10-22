@@ -49,7 +49,8 @@ async function scrollToRecord(page,locator){
  await locator.evaluate(el=>{let n=el.parentElement;while(n&&!(n.scrollHeight>n.clientHeight+1&&/(auto|scroll)/.test(getComputedStyle(n).overflowY)))n=n.parentElement;(n||document.scrollingElement).scrollTop+=el.getBoundingClientRect().top-300});
  await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>r())));return top(locator);
 }
-const noteRead=page=>page.locator('#basketView [data-note-read-title]');
+// UI-상단줄제목: on a PC (1024px~) the open note's title is in the top line's place; below that, in the note's head.
+const noteRead=page=>(page.viewportSize()?.width||0)>=1024?page.locator('[data-topline-where] [aria-current="page"]'):page.locator('#basketView [data-note-read-title]');
 
 for(const width of [1280,390])test(`project ${width}: a linked note joins the record list with the note icon; the update has the update icon and no 🧺 is left`,async({page})=>{
  const {state,errors}=await fixture(page,{width});
@@ -93,7 +94,7 @@ for(const width of [1280,390])test(`project ${width}: a note line opens the note
  // A note opened from the note list itself has no return line and its back stays the note list.
  await clickView(page,'basket');await chooseBasketKind(page,'note');await page.locator(`[data-note-row="${note.id}"]`).click();
  await expect(noteRead(page)).toHaveText('합성 회의 준비 노트');await expect(page.locator('#basketView [data-basket-return]')).toHaveCount(0);
- await page.goBack();await expect(noteRead(page)).toBeHidden();await expect(page.locator(`[data-note-row="${note.id}"]`)).toBeVisible();
+ await page.goBack();await expect(page.locator('#basketView [data-note-detail]')).toBeHidden();await expect(page.locator(`[data-note-row="${note.id}"]`)).toBeVisible();
  expect(await page.evaluate(()=>KPTURouter.current)).toBe('basket');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);expect(errors).toEqual([]);
 });
@@ -114,4 +115,19 @@ for(const width of [390,1280])test(`organization ${width}: the linked note shows
   await expect.poll(()=>top(line)).toBe(before);
  }
  expect(state.writes).toEqual([]);expect(errors).toEqual([]);
+});
+
+// BUG-미리보기기호: project record lines (a linked update's summary, a progress record) show plain letters, no ###·|·**·entity leftovers.
+for(const width of [1280,390])test(`project ${width}: record lines show plain letters without markdown marks`,async({page})=>{
+ const {state,errors}=await fixture(page,{width});
+ state.links[0].summary='### 합성 결과 | 일시 | 장소 |\n|---|---|\n| 2026\\.&#x20;10\\.&#x20;21\\. | **합성 본사** |';
+ state.progress[0].summary='## 합성 진행 | 항목 | **굵게**';
+ await clickView(page,'projects');if(width<761)await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();
+ await expect(title(page)).toHaveText('합성 정책 사업');
+ const up=page.locator('#ps3-progress [data-ps3-records] [data-basket-link="l-up"] .ps3-rec-text');
+ await expect(up).toContainText('합성 결과 · 일시 · 장소 2026. 10. 21. · 합성 본사');
+ expect((await up.textContent())||'').not.toMatch(/###|\||\*\*|&#x20;|\\\./);
+ const progress=page.locator('#ps3-progress .ps3-rec-summary').first();
+ await expect(progress).toHaveText('합성 진행 · 항목 · 굵게');
+ expect(errors).toEqual([]);
 });

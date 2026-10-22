@@ -95,7 +95,8 @@ test('mobile safe area, notices, toast, modal and keyboard keep controls reachab
   await expect(page.locator('#versionNotice')).toBeVisible();
   await page.evaluate(()=>{const t=document.querySelector('#toast');t.textContent='QA';t.classList.remove('hidden')});
   const notice=await page.locator('#versionNotice').boundingBox(),toast=await page.locator('#toast').boundingBox();
-  expect(notice.y+notice.height).toBeLessThan(tabs.y);expect(toast.y+toast.height).toBeLessThan(notice.y);
+  // HOME-모바일정리①: 알림은 화면 맨 위 한 줄, 토스트는 아래 그대로라 겹치지 않는다.
+  expect(notice.y).toBe(0);expect(notice.height).toBeLessThanOrEqual(34);expect(toast.y).toBeGreaterThan(notice.y+notice.height);
   await page.locator('[data-version-dismiss]').click();
   await page.locator('.mobile-tabs [data-view="calendar"]').click();await page.locator('#newEventBtn').click();await expect(page.locator('#eventModal')).toBeVisible();
   const stacking=await page.evaluate(()=>({modal:+getComputedStyle(document.querySelector('#eventModal')).zIndex,tabs:+getComputedStyle(document.querySelector('.mobile-tabs')).zIndex}));expect(stacking.modal).toBeGreaterThan(stacking.tabs);

@@ -3,9 +3,11 @@ import {formatMeetingTime,formatSeoulTime,seoulInputValue,toSeoulISO,seoulParts,
 import {bindDateTimeFields} from './time-input.js';
 import { dayKey, ranges } from './home-read-model.js';
 import {lastSeen} from './split-last.js';
+import {mountSplitResize} from './split-resize.js';
 import {recordSheetWanted,openRecordSheet} from './record-sheet.js';
 import { createAnchoredMenu } from './anchored-menu.js';
 import {tapExpand} from './text-clamp.js';
+import {previewLines} from './note-preview.mjs';
 import {readRecordPages,readLinkRecords,recordMark,recordText,isNoteRecord,mountLinkSummaryEditor} from './basket-link-records.js';
 import {categoryTag,loadDocumentCategories} from './document-categories.js';
 import {disconnectWithUndo} from './basket-record-delete.js';
@@ -332,6 +334,8 @@ async function renderGrid({isCurrent=()=>true}={}){
  const key=JSON.stringify(spaces.map(p=>[p.id,p.name,p.parent_id,p.status,p.sort_order,p.updated_at]));
  if(key!==lastSpacesKey){lastSpacesKey=key;window.dispatchEvent(new CustomEvent('kptu:project-spaces-updated',{detail:{workspaceId:wid,userId:user.id,spaces}}))}
  paintSelection();
+ // UI-칸폭조절: the list | detail boundary can be dragged (split-resize.js, remembered per screen).
+ mountSplitResize({container:grid,name:'projects',label:'프로젝트 목록과 상세 칸 폭 조절',list:()=>grid.querySelector(':scope>.ps3-plist'),pane:()=>$('#ps3DetailPane'),active:splitWanted});
  if(!window.KPTURouter||window.KPTURouter.current==='projects')void loadListSummaries(listed);
 }
 // Task counts are linked pending Google tasks, counted from the completion copy in app_record_links without asking Google (TASK-구현 PR 4, plan 4.3).
@@ -353,7 +357,7 @@ function headSummary(d,ch){const days=milestoneDays(d.p.id);return [!d.p.parent_
 const keyOf=v=>Number.isFinite(Date.parse(v))?seoulDateKey(new Date(v)):'';
 const recordFrom=u=>u.workstream_id?detail?.workstreams.find(w=>w.id===u.workstream_id)?.title||'':'';
 const recordButton=(id,date,text)=>`<button type="button" class="ps3-rec-line" data-ps3-record-menu="${esc(id)}" aria-haspopup="true" aria-expanded="false" aria-controls="ps3RecordMenu"><time>${esc(day(date))}</time><span class="ps3-rec-text kptu-clamp">${text}</span></button>`;
-function progressRecord(u){const from=recordFrom(u);return recordButton(u.id,u.effective_on,`${from?`<span class="ps3-rec-from">${esc(from)}</span> `:''}<span class="ps3-rec-summary">${esc(u.summary||'')}</span>${u.next_step?` <span class="ps3-rec-next">다음: ${esc(u.next_step)}</span>`:''}`)}
+function progressRecord(u){const from=recordFrom(u);return recordButton(u.id,u.effective_on,`${from?`<span class="ps3-rec-from">${esc(from)}</span> `:''}<span class="ps3-rec-summary">${esc(previewLines(u.summary||''))}</span>${u.next_step?` <span class="ps3-rec-next">다음: ${esc(u.next_step)}</span>`:''}`)}
 function itemRecord(w){return recordButton(w.id,keyOf(w.created_at),esc(w.title||''))}
 // BUG-바구니연결해제: tapping a linked line opens the original update; its ⋯ holds [업데이트 열기]·[연결 해제]·[요약 수정] (no note
 // delete here; UI-연결요약수정 added [요약 수정] with the organization detail's editor and save path). UI-기록아이콘: notes linked to this project join the list too (same confirmed links, kind=note); the mark in

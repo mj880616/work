@@ -39,8 +39,9 @@ for (const width of [390, 1280]) {
     }) };
     expect(values.home.pickerHeight).toBeLessThanOrEqual(width === 390 ? 44 : 80);
     // UI-PC버튼36: PC [📎 첨부] paints 36px (input height) with a 44px ::after touch area.
-    expect(values.home.zoneHeight).toBeGreaterThanOrEqual(width === 390 ? 44 : 36);
-    if (width !== 390) expect(values.home.zoneTouch).toBeGreaterThanOrEqual(44);
+    // HOME-모바일정리④: the phone input is 36px, so the phone clip paints inside its borders (34px), also with a 44px ::after.
+    expect(values.home.zoneHeight).toBeGreaterThanOrEqual(width === 390 ? 34 : 36);
+    expect(values.home.zoneTouch).toBeGreaterThanOrEqual(44);
     expect(values.home.inputToLink).toBeLessThanOrEqual(8);
     if (width === 390) {
       expect(values.home.background).toBe('rgba(0, 0, 0, 0)');
@@ -88,7 +89,8 @@ for (const width of [390, 1280]) {
         await expect(zone).toHaveAccessibleName('파일 첨부');
         const button = await zone.boundingBox();
         // UI-업데이트편집한줄: on the edit screen it is a small 32px button whose touch area (::after) is 44px.
-        if (name === 'home') expect(button.height).toBeGreaterThanOrEqual(44);
+        // HOME-모바일정리④: the home phone clip paints 34px inside the 36px input, touch area (::after) 44px.
+        if (name === 'home') { expect(button.height).toBeGreaterThanOrEqual(34); expect(await zone.evaluate(el => parseFloat(getComputedStyle(el, '::after').height))).toBe(44); }
         else { expect(button.height).toBe(32); expect(await zone.evaluate(el => parseFloat(getComputedStyle(el, '::after').height))).toBe(44); }
         expect(button.width).toBeGreaterThanOrEqual(44);
         await zone.focus();

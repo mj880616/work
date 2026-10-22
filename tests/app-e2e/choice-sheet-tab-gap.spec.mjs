@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
+import {openWriteFromEntry} from './helpers/write-opener.mjs';
 // BUG-내보내기탭이동: on a phone the shared bottom choice sheet (choice-sheet.js) rises from just above the bottom tabs, not
 // over them. Before, its lowest row ([HWP 파일로 받기]) lay on the tabs, so a press there followed by one more press at the
 // same spot (the sheet already closed) went to the tab under the finger — 담당조직 for a right thumb.
@@ -16,7 +17,7 @@ async function fixture(page){
  return {writes,errors};
 }
 async function openWriter(page,text){
- await page.locator('#mobileMenuTab').tap();await page.locator('#mobileMenu [data-menu-write]').tap();
+ await openWriteFromEntry(page,390);
  const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();
  const area=editor.locator('.md-editor-text');await area.fill(text);await area.evaluate(el=>el.blur());
  return {editor,area};
@@ -57,7 +58,7 @@ for(const [item,status] of EXPORTS)test(`내보내기 [${item}]: 탭 이동 없�
  await touch(page,x,y);
  await expect(page.locator('#mdLeaveSheet[open]')).toHaveCount(0);
  await expect(editor).toBeVisible();await expect(area).toHaveValue('# 쓰던 글');
- expect(await current(page)).toBe('home');
+ expect(await current(page)).toBe('basket');
  await expect(page.locator('.mobile-tabs [data-view="team"]')).not.toHaveAttribute('aria-current','page');
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
@@ -70,7 +71,7 @@ test('내보내기 시트 바깥(어두운 곳)을 누르면 시트만 닫히고
  await touch(page,200,box.y-40);
  await expect(sheet).not.toHaveAttribute('open','');
  await expect(editor).toBeVisible();await expect(area).toHaveValue('바깥 누르기');await expect(editor.locator('.md-editor-status')).toHaveText('');
- expect(await current(page)).toBe('home');
+ expect(await current(page)).toBe('basket');
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
@@ -85,7 +86,7 @@ test('시트가 닫힌 뒤 아래 탭을 직접 누르면 기존대로 "저장 �
  const leave=page.locator('#mdLeaveSheet');await expect(leave).toHaveAttribute('open','');await settle(leave);
  // The question sheet sits above the tabs too.
  await expectAboveTabs(page,leave);
- expect(await current(page)).toBe('home');
+ expect(await current(page)).toBe('basket');
  const go=await leave.getByRole('button',{name:'저장 안 하고 이동',exact:true}).boundingBox();
  await touch(page,go.x+go.width/2,go.y+go.height/2);
  await expect(page.locator('#mdEditor')).toHaveCount(0);
@@ -122,7 +123,7 @@ test('다른 고르기 시트(홈 [업데이트 ▾] 조직)도 아래 탭 위�
 test('PC 폭에서는 고르기 시트가 누른 버튼 바로 옆에 작은 목록으로 열림 1280',async({page})=>{
  await page.setViewportSize({width:1280,height:860});
  await openHome(page);
- await page.locator('#appView>.app-nav [data-menu-write]').click();
+ await openWriteFromEntry(page,1280);
  const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();
  const trigger=editor.getByRole('button',{name:'내보내기',exact:true});await trigger.click();
  const sheet=page.locator('#mdExportSheet');await expect(sheet).toHaveAttribute('open','');await settle(sheet);

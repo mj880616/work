@@ -38,7 +38,7 @@ const midQuery=window.matchMedia('(min-width:761px) and (max-width:1023px)');
 const menuQuery=window.matchMedia('(max-width:1023px)');
 const appNav=document.querySelector('#appView>.app-nav'),drawerNav=mobilePanel?.querySelector('nav');
 const phoneOnly=[...drawerNav?.querySelectorAll('[data-view]')||[]];
-const midItems=['home','basket','calendar','tasks','journal','diary','projects','library','meetings','media','pages','team','hwp']
+const midItems=['home','basket','calendar','tasks','journal','diary','projects','meetings','library','media','pages','team','hwp']
   .map(view=>appNav?.querySelector(`[data-view="${view}"]`)).filter(Boolean);
 const homes=new Map([...midItems,mobileTrigger].filter(Boolean).map(button=>{
   const anchor=document.createComment('navigation home');button.before(anchor);return [button,anchor];
@@ -201,7 +201,7 @@ window.addEventListener('kptu:view-changed',event=>{
   syncMenuLocation();
   const home=event.detail?.view==='home';
   document.querySelector('.mobile-shell-header [data-home-date]')?.toggleAttribute('hidden',!home);
-  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:'바구니',calendar:'일정',tasks:'일정',journal:'일정',diary:'일정',projects:'프로젝트',team:'담당조직',meetings:'회의',library:'자료실',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',media:'성명·보도자료',pages:'공유 페이지'})[event.detail?.view]||''}
+  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:'바구니',calendar:'일정',tasks:'일정',journal:'일정',diary:'일정',projects:'프로젝트',team:'담당조직',meetings:'사업 보고',library:'자료실',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',media:'성명·보도자료',pages:'공유 페이지',search:'검색'})[event.detail?.view]||''}
 });
 // Menu [쓰기] (UI-디자인손질 8, BASKET-업데이트통합 PR 2): the shared write window (write-window.js) opens empty with [업데이트 ▾ | 노트],
 // 업데이트 preselected and no place (= the basket). Each choice saves through its existing owner-RLS path and the window closes
@@ -228,18 +228,22 @@ async function openWriter(kind='update'){
         return;
       }
       writeDraft=text.trim()?text:'';
-      if(writeDraft)writeToast('저장하지 않은 글은 [쓰기]를 다시 누르면 이어서 쓸 수 있어요.');
+      if(writeDraft)writeToast('저장하지 않은 글은 빠른 추가의 [업데이트]로 다시 열면 이어서 쓸 수 있어요.');
     }});
   }catch(error){console.error('menu write',error);writeToast('쓰기 화면을 열지 못했어요. 다시 시도해 주세요.')}
   finally{writerOpening=false}
 }
-document.querySelectorAll('[data-menu-write]').forEach(button=>button.addEventListener('click',()=>void openWriter('update')));
 // UI-PC메모노트: PC sidebar [바구니] → [업데이트]·[노트] (always shown). Each opens the basket on that side through the basket's
 // own one-shot hand-off (basket-note-tasks.js); the basket screen itself and the phone stay as they are.
 document.querySelectorAll('#appView>.app-nav [data-basket-kind-nav]').forEach(button=>button.addEventListener('click',async()=>{
   try{const {requestBasketKind}=await import('./basket-note-tasks.js');requestBasketKind(button.dataset.basketKindNav);}catch(error){console.error('basket kind',error)}
   window.KPTURouter?.go('basket',{source:'delegated'});
 }));
+// UI-자주가는링크: PC sidebar '자주 가는 링크 ›' opens the small links window beside it (quick-links.js owns the window and its saving).
+document.querySelector('#appView>.app-nav [data-quick-links]')?.addEventListener('click',async event=>{
+  const trigger=event.currentTarget;
+  try{const quickLinks=await import('./quick-links.js');quickLinks.open(trigger);}catch(error){console.error('quick links',error);writeToast('자주 가는 링크를 열지 못했어요. 다시 시도해 주세요.')}
+});
 window.addEventListener('kptu:session-changed',()=>{writeDraft=''});
 syncMobile();
 syncMidNavigation();
@@ -392,7 +396,7 @@ paintTrail();
 // Where you are: group › screen. The group word goes to the group's first screen; the last word is the current page.
 const GROUPS={calendar:'schedule',tasks:'schedule',journal:'schedule',diary:'schedule'};
 const GROUP_HEAD={schedule:{name:'일정',view:'calendar'},basket:{name:'바구니',view:'basket'}};
-const VIEW_NAMES={home:'홈',basket:'바구니',calendar:'달력',tasks:'할 일',journal:'업무일지',diary:'일기',projects:'프로젝트',library:'자료실',meetings:'회의',media:'성명·보도자료',pages:'공유 페이지',team:'담당조직',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장'};
+const VIEW_NAMES={home:'홈',basket:'바구니',calendar:'달력',tasks:'할 일',journal:'업무일지',diary:'일기',projects:'프로젝트',library:'자료실',meetings:'사업 보고',media:'성명·보도자료',pages:'공유 페이지',team:'담당조직',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',search:'검색'};
 const whereList=topline?.querySelector('[data-topline-where]');
 let basketKind=null;
 function paintWhere(view=window.KPTURouter?.current){
@@ -403,10 +407,13 @@ function paintWhere(view=window.KPTURouter?.current){
   const groupKey=GROUPS[view]||(view==='basket'&&basketKind?'basket':null);
   if(groupKey)parts.push({name:GROUP_HEAD[groupKey].name,go:GROUP_HEAD[groupKey].view});
   parts.push({name:view==='basket'&&basketKind?(basketKind==='note'?'노트':'업데이트'):VIEW_NAMES[view]||''});
+  // The item open on the right of a left-list / right-detail screen goes last ("담당조직 › 조직명"); the screen word before it
+  // is plain text (it would only go to the screen already shown).
+  if(whereItem&&whereItem.view===view)parts.push({name:whereItem.name,item:true});
   whereList.replaceChildren(...parts.map((part,i)=>{
     const li=document.createElement('li');
-    if(i<parts.length-1){const b=document.createElement('button');b.type='button';b.className='topline-where-link';b.dataset.toplineGo=part.go;b.textContent=part.name;li.append(b)}
-    else{const s=document.createElement('span');s.setAttribute('aria-current','page');s.textContent=part.name;li.append(s)}
+    if(i<parts.length-1&&part.go){const b=document.createElement('button');b.type='button';b.className='topline-where-link';b.dataset.toplineGo=part.go;b.textContent=part.name;li.append(b)}
+    else{const s=document.createElement('span');if(i===parts.length-1)s.setAttribute('aria-current','page');s.textContent=part.name;if(part.item)s.title=part.name;li.append(s)}
     return li;
   }));
 }
@@ -420,17 +427,40 @@ whereList?.addEventListener('click',event=>{
   window.KPTURouter?.go(go,{source:'delegated'});
 });
 window.addEventListener('kptu:basket-kind',event=>{basketKind=event.detail?.kind||null;paintWhere()});
+// ORG-PC상세정리 (요청 14:06 "상단 줄에 지금 연 것 이름"): a screen names the item it shows on the right with
+// kptu:where-item {view, name}; {view, name:null} drops it. Sent by 담당조직 (workplace-detail.js) and 바구니 › 노트 (basket-notes.js, the open note's title).
+let whereItem=null;
+window.addEventListener('kptu:where-item',event=>{
+  const view=event.detail?.view,name=String(event.detail?.name??'').trim();
+  if(!view)return;
+  if(name)whereItem={view,name};else if(whereItem?.view===view)whereItem=null;else return;
+  paintWhere();
+});
+window.addEventListener('kptu:session-changed',()=>{if(whereItem){whereItem=null;paintWhere()}});
 paintWhere();
 // [+ 추가]: 업데이트·할 일·노트·일정 open the existing windows, each through its existing opener (no new save path):
 // 업데이트·노트 = the menu [쓰기] window; 일정 = [+ 일정 등록]; 할 일 = the same window on its [할 일] side (as the home input's [+]).
+// 일기·공유 페이지 (MTG-사업보고 1단계) = the router opens the screen, then that screen's own [새 일기] / [새 공유 페이지] button is pressed (no new save path).
 const addButton=topline?.querySelector('[data-quick-add]');
-const ADD_ITEMS=[['update','업데이트'],['task','할 일'],['note','노트'],['event','일정']];
+const ADD_ITEMS=[['update','업데이트'],['task','할 일'],['note','노트'],['event','일정'],['diary','일기'],['page','공유 페이지']];
 async function openEventWindow(task){
   try{
     await window.KPTUDeferredFeatures?.loadView?.('calendar');
     const open=document.querySelector('#newEventBtn');if(!open)throw new Error('missing');
     open.click();
     if(task)document.querySelector('#eventModal [data-event-mode="task"]')?.click();
+  }catch(error){console.error('quick add',error);writeToast('추가 창을 열지 못했어요. 다시 시도해 주세요.')}
+}
+async function openScreenNewButton(view,selector){
+  try{
+    await window.KPTURouter?.go(view,{source:'delegated'});
+    let button=null;
+    for(let i=0;i<80&&!button;i++){
+      const found=document.querySelector(`#${view}View ${selector}`);
+      if(found&&!found.disabled&&!found.hidden&&found.getClientRects().length)button=found;else await new Promise(resolve=>setTimeout(resolve,100));
+    }
+    if(!button)throw new Error('missing');
+    button.click();
   }catch(error){console.error('quick add',error);writeToast('추가 창을 열지 못했어요. 다시 시도해 주세요.')}
 }
 if(addButton){
@@ -441,6 +471,8 @@ if(addButton){
       onAction:button=>{
         const kind=button.dataset.toplineAdd;
         if(kind==='update'||kind==='note')void openWriter(kind);
+        else if(kind==='diary')void openScreenNewButton('diary','[data-diary-new]');
+        else if(kind==='page')void openScreenNewButton('pages','[data-sp-new]');
         else void openEventWindow(kind==='task');
       }});
     addButton.addEventListener('click',()=>menu.open(addButton));

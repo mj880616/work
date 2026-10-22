@@ -84,7 +84,7 @@ const row=(page,id)=>page.locator(`#gtTaskBody [data-google-task="${id}"]`);
 
 async function deleteTask(page,id){await row(page,id).locator('[data-gt-menu]').click();await page.locator('#gtTaskMenu [data-gt-menu-action="delete"]').click();}
 
-async function openTasks(browser,{width=1280,onDelete,onOverview,onToggle,reducedMotion='no-preference'}={}){
+async function openTasks(browser,{width=1280,onDelete,onOverview,onToggle,filesGate,reducedMotion='no-preference'}={}){
   // UI-PC할일: 묶음 목록 시험은 목록이 그대로인 중간 폭(900px)에서 본다(1024px 이상은 기한별 열, tasks-pc-columns.spec.mjs).
   const context=await browser.newContext({timezoneId:'Asia/Seoul',reducedMotion,viewport:{width,height:800}});
   const page=await context.newPage();
@@ -115,6 +115,7 @@ async function openTasks(browser,{width=1280,onDelete,onOverview,onToggle,reduce
       google[body.task_id]={...google[body.task_id],status:body.completed?'completed':'needsAction',completed:body.completed?NOW:null};
       return ok(route,{ok:true,task:google[body.task_id]});
     }
+    if(p==='/rest/v1/app_task_attachments'&&filesGate){await filesGate;return ok(route,[])}
     if(p.startsWith('/rest/v1/')||p.startsWith('/functions/v1/'))return ok(route,[]);
     return ok(route,{});
   });
@@ -222,6 +223,25 @@ test('390 task card: right-click changes nothing', async ({ browser }) => {
   const { context, page } = await openTasks(browser, { width: 390 }); await watch(page);
   await page.evaluate(() => document.querySelectorAll('#gtTaskBody details').forEach(d => { d.open = true; }));
   await rightClickAt(page, page.locator('#gtTaskBody [data-google-task="a"]:visible').first(), 0.4, 0.5); await expect(page.locator('#gtTaskMenu')).toBeHidden(); expect(await kept(page)).toEqual([true]);
+  await context.close();
+});
+// TEST-우클릭시험안정화: one list load renders again when the attachment answer arrives (and for source notes and link names). When
+// the markup is unchanged the rows on screen stay the same elements, so a right-click aimed at a row never lands on a row that was
+// just replaced (the 390 test above failed 4 in 6 runs that way). The held answer makes the late render happen after the check.
+test('390 task card: a later render with the same markup keeps the rows on screen (no replaced copies)', async ({ browser }) => {
+  let release; const filesGate = new Promise(r => { release = r; });
+  const { context, page } = await openTasks(browser, { width: 390, filesGate });
+  // Every replacement of the list's children is counted; the held answer is the only render still to come.
+  await page.evaluate(() => { window.__gtRow = document.querySelector('#gtTaskBody [data-google-task="a"]'); window.__gtSwaps = 0; new MutationObserver(ms => { window.__gtSwaps += ms.filter(m => m.type === 'childList').length; }).observe(document.querySelector('#gtTaskBody'), { childList: true }); document.querySelector('#gtCompleted').open = true; });
+  const answered = page.waitForResponse(r => new URL(r.url()).pathname === '/rest/v1/app_task_attachments');
+  release(); await answered;
+  // The render that follows the answer runs in the same task chain; one frame later it has run.
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0))));
+  expect(await page.evaluate(() => ({ same: document.querySelector('#gtTaskBody [data-google-task="a"]') === window.__gtRow, swaps: window.__gtSwaps }))).toEqual({ same: true, swaps: 0 });
+  await expect(page.locator('#gtCompleted')).toHaveAttribute('open', '');
+  // A real change still paints: completing "a" moves it to the completed fold as a new row.
+  await row(page, 'a').locator('[data-gt-toggle]').click();
+  await expect.poll(() => page.evaluate(() => document.querySelector('#gtTaskBody [data-google-task="a"]') !== window.__gtRow)).toBe(true);
   await context.close();
 });
 

@@ -54,19 +54,92 @@ export async function fillLibraryDocument(id,{keep=[],rt=globalThis.window?.KPTU
   return {ok:true,updated};
 }
 
-// 기존 자료 정리 목록 만들기(⑥ 1단계): 저장하지 않고 {document_id, field, from, to} 목록만 돌려준다.
-// 적용은 사용자 확인 뒤 별도 단계(원래 값 백업 포함, docs/design/library-ai-fill.md 6절). 10개씩 나눠 보낸다.
-export async function buildTidyProposals(ids,{rt=globalThis.window?.KPTURuntime,call=callAiAssist,readFirst=true}={}){
-  const list=[...new Set((ids||[]).filter(id=>typeof id==='string'&&UUID.test(id)))];
-  const proposals=[],failed=[];
-  for(let i=0;i<list.length;i+=10){
-    const batch=list.slice(i,i+10);
-    if(readFirst)for(const id of batch)await readText(id,rt);
-    const r=await call({kind:'library_fill',mode:'propose',document_ids:batch},{rt},CODES);
-    if(!r.ok){failed.push({ids:batch,code:r.code});if(['monthly_limit','daily_limit','ai_not_configured','library_not_ready','session_required'].includes(r.code))break;continue;}
-    for(const p of Array.isArray(r.data?.proposals)?r.data.proposals:[]){
-      if(batch.includes(p?.document_id)&&LIBRARY_AI_FIELDS.includes(p?.field)&&typeof p?.to==='string')proposals.push({document_id:p.document_id,field:p.field,from:p.from??null,to:p.to});
+// ---- LIB-자동정리 (docs/design/library-ai-fill.md 6절, 사용자 결정 2026-10-22 20:54) ----
+// 기존 자료의 정리 안 된 칸(사용자가 넣거나 고치지 않은 칸)을 버튼 없이 채운다. 화면에는 아무 표시도 없다(결정 ③).
+// 화면은 대상 후보를 고르고 서버(ai-assist library_fill mode tidy)에 자료 ID만 보낸다. 칸 판단·검사·백업·저장은 서버와 DB 함수가 다시 한다.
+// 이미 AI에 보낸 자료는 서버 시도 기록(app_library_tidy_attempts)으로 빼므로 같은 자료를 다시 보내지 않는다. 브라우저 저장소는 쓰지 않는다.
+export const TIDY_BATCH=10;
+export const TIDY_MAX_BATCHES=3;
+export const TIDY_TEXT_CONCURRENCY=3;
+export const TIDY_TEXT_TIMEOUT_MS=20000;
+export const TIDY_FRESH_MS=60*60*1000;
+const LOCKED='기타';
+const squash=s=>String(s??'').normalize('NFKC').toLowerCase().replace(/[\s_\-.()[\]]+/g,'');
+const baseName=name=>String(name??'').replace(/\.[^.]{1,8}$/,'').trim();
+// 서버 legacyUserFields와 같은 규칙: 칸별 기록이 생기기 전에 사람이 손댄 칸.
+export function legacyUserFields(note){
+  const text=typeof note==='string'?note.trim():'';
+  if(text==='사용자 수정')return [...LIBRARY_AI_FIELDS];
+  if(text.startsWith('사용자 입력 제목'))return ['title'];
+  return [];
+}
+// 서버 needsTidy와 같은 규칙(후보 고르기용일 뿐, 서버가 다시 판단한다).
+export function untidyFields(doc,categories){
+  const origin=doc?.field_origin&&typeof doc.field_origin==='object'&&!Array.isArray(doc.field_origin)?doc.field_origin:{};
+  const legacy=legacyUserFields(doc?.classification_note);
+  return LIBRARY_AI_FIELDS.filter(field=>{
+    if(origin[field]==='user'||legacy.includes(field))return false;
+    if(field==='category')return !doc.category||doc.category===LOCKED||!categories.includes(doc.category);
+    if(field==='document_date')return !doc.document_date;
+    if(field==='source')return !String(doc.source??'').trim();
+    const title=String(doc.title??'').trim();
+    return !title||squash(title)===squash(baseName(doc.file_name));
+  });
+}
+// 후보: DB에 칸별 기록 칸이 있는 행이고(적용 전이면 빈 목록), 올린 지 1시간 지났고(막 올린 자료는 fill이 맡음), 시도 기록이 없고, 정리 안 된 칸이 있는 자료.
+export function tidyCandidates(docs,{tried=new Set(),categories=[],now=Date.now()}={}){
+  return (docs||[]).filter(doc=>{
+    if(!doc||typeof doc.id!=='string'||!UUID.test(doc.id)||!Object.hasOwn(doc,'field_origin')||tried.has(doc.id.toLowerCase()))return false;
+    const created=Date.parse(doc.created_at||'');
+    if(!Number.isFinite(created)||now-created<=TIDY_FRESH_MS)return false;
+    return untidyFields(doc,categories).length>0;
+  });
+}
+// 글자 읽기가 필요한 자료: 아직 한 번도 읽지 않은 자료만(ready·error는 이미 읽어 본 것이라 다시 부르지 않는다).
+export const needsText=doc=>!['ready','error'].includes(doc?.extraction_status);
+// 작은 동시 수로 글자를 읽는다. 한 자료가 오래 걸리면(20초) 기다리지 않고 넘어간다(그 자료는 파일 이름만으로 판단).
+export async function readTexts(docs,{rt,isCurrent=()=>true,concurrency=TIDY_TEXT_CONCURRENCY,timeoutMs=TIDY_TEXT_TIMEOUT_MS}={}){
+  const queue=docs.filter(needsText);
+  const worker=async()=>{
+    while(queue.length&&isCurrent()){
+      const doc=queue.shift();
+      let timer;
+      const limit=new Promise(resolve=>{timer=setTimeout(resolve,timeoutMs)});
+      try{await Promise.race([rt.api('/functions/v1/document-actions',{method:'POST',body:{action:'document-text',document_id:doc.id},refreshSession:false,singleFlight:false,timeoutMs}).catch(()=>{}),limit]);}
+      finally{clearTimeout(timer)}
     }
-  }
-  return {proposals,failed};
+  };
+  await Promise.all(Array.from({length:Math.min(concurrency,queue.length)},worker));
+}
+async function readTried(rt,workspace){
+  try{
+    const rows=await rt.api('/rest/v1/app_library_tidy_attempts?workspace_id=eq.'+encodeURIComponent(workspace)+'&select=document_id&limit=5000',{refreshSession:false,singleFlight:false});
+    return Array.isArray(rows)?new Set(rows.map(r=>String(r?.document_id||'').toLowerCase())):null;
+  }catch{return null}
+}
+// 한 번 돌기: 후보를 10개씩(최대 3묶음) 서버에 보낸다. 어떤 실패도 조용히 멈춘다(재시도 없음). 결과 {sent,updated,stop}. 던지지 않는다.
+// isCurrent()가 거짓이 되면(다른 업무공간·로그아웃·자료실을 떠남) 다음 요청을 보내지 않는다.
+export async function autoTidyLibrary(docs,{rt=globalThis.window?.KPTURuntime,call=callAiAssist,workspace,categories=[],isCurrent=()=>true,now=Date.now(),onChanged=null}={}){
+  const out={sent:0,updated:0,stop:null};
+  try{
+    if(!rt?.api||typeof workspace!=='string'||!workspace||!isCurrent())return {...out,stop:'invalid_request'};
+    // 칸별 기록 칸이 없는 DB(적용 전)면 부르지 않는다.
+    if(!(docs||[]).some(doc=>doc&&Object.hasOwn(doc,'field_origin')))return {...out,stop:'library_not_ready'};
+    const tried=await readTried(rt,workspace);
+    if(!tried)return {...out,stop:'library_not_ready'};
+    const list=tidyCandidates(docs,{tried,categories,now});
+    for(let i=0;i<Math.min(list.length,TIDY_BATCH*TIDY_MAX_BATCHES);i+=TIDY_BATCH){
+      if(!isCurrent())return {...out,stop:'stale'};
+      const batch=list.slice(i,i+TIDY_BATCH);
+      await readTexts(batch,{rt,isCurrent});
+      if(!isCurrent())return {...out,stop:'stale'};
+      const r=await call({kind:'library_fill',mode:'tidy',document_ids:batch.map(d=>d.id)},{rt},CODES);
+      out.sent+=batch.length;
+      if(!r.ok)return {...out,stop:r.code};
+      const updated=Number.isInteger(r.data?.updated)?r.data.updated:0;
+      out.updated+=updated;
+      if(updated&&isCurrent()&&typeof onChanged==='function')onChanged();
+    }
+    return out;
+  }catch{return {...out,stop:'internal_error'}}
 }

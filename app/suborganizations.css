@@ -36,6 +36,7 @@
   #wdDetailPane>#wdModal.wd-docked{position:static;inset:auto;display:block;justify-items:normal;align-items:normal;padding:0;background:transparent;z-index:auto}
   #wdDetailPane>#wdModal.wd-docked.hidden{display:none}
   #wdDetailPane>#wdModal.wd-docked>.wd-card{width:auto;max-width:none;max-height:none;overflow:visible;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-none);box-shadow:none;background:transparent}
-  #wdDetailPane>#wdModal.wd-docked>.wd-card>.modal-head{top:calc(var(--kptu-space-3) * -1);margin:calc(var(--kptu-space-3) * -1) calc(var(--kptu-space-3) * -1) 0;padding:var(--kptu-space-3)}
-  #wdDetailPane>#wdModal.wd-docked [data-wd-close="wdModal"]{display:none}
+  /* ORG-PC상세정리 ①: 칸 맨 위 '담당조직' + 조직명 줄은 두지 않는다. 상단 줄 위치가 '담당조직 › 조직명'을 보여 준다
+     (topbar-actions.js kptu:where-item). 제목(#wdTitle)은 칸의 이름(aria-labelledby)으로 남는다. */
+  #wdDetailPane>#wdModal.wd-docked>.wd-card>.modal-head{display:none}
 }

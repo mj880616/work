@@ -1,7 +1,8 @@
 // ED-통합편집기 ①a: the one rich-text editor part (블로그 글쓰기형, docs/design/unified-editor.md 2.3), built on the vendored
 // ProseMirror bundle (app/editor-lib, loaded only when an editor opens). It edits one document in one box and saves nothing:
 // the opener reads getValue() (the cleaned saved form {v:'ed1', doc}) and stores it its own way, as md-editor.js does.
-// Button row (small 28px buttons, 44px press area, sideways scrolling on a phone, focus and the phone keyboard kept):
+// Button row (small 28px buttons, 44px press area, sideways scrolling on a phone, focus and the phone keyboard kept;
+// SHARE-전체편집: wider than a phone, buttons that do not fit go under [⋯] at the row's end, so no sideways scroll bar):
 //   [본문 2 ▾] 제목 1~3·본문 1~3 | 굵게 기울임 밑줄 취소선 | · ※ → ① | 인용 사진 표 목록 번호 구분선 | 왼쪽 가운데 | ↶ ↷
 // Decisions (2026-10-22 사용자, 설계 0절): no format while typing (no input rules: "1. " "- " "# " stay letters); a paste of
 // plain letters goes in as typed, one paragraph per line, and when it looks like markdown a small [서식으로 바꾸기] converts
@@ -108,9 +109,10 @@ function btn(label, data, aria) {
 }
 
 // Mounts an editor into host. value: a saved form (or null for an empty one). onChange(value): after each change.
-// label: the text box's accessible name. Returns {getValue(), getText(), isEmpty(), focus(), destroy(), view, root}.
+// label: the text box's accessible name. head: an optional node put between the button row and the text box (a title).
+// Returns {getValue(), getText(), isEmpty(), focus(), destroy(), view, root}.
 // getText() is the letters for raw_text (ed-text.mjs toPlain): the opener saves structure and letters together (설계 3.1).
-export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = ''} = {}) {
+export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null} = {}) {
   const pm = await loadEditorLib();
   const schema = buildSchema(pm);
   const N = schema.nodes, M = schema.marks;
@@ -133,6 +135,11 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     if (group === 'mark' || group === 'align' || key === 'quote' || key === 'bullet' || key === 'ordered') b.setAttribute('aria-pressed', 'false');
     buttons[key] = b; tools.append(b);
   }
+  const more = btn('⋯', {edMore: ''}, '서식 더보기');
+  more.classList.add('ed-more'); more.hidden = true; more.setAttribute('aria-haspopup', 'true'); more.setAttribute('aria-expanded', 'false');
+  tools.append(more);
+  const moreMenu = document.createElement('div');
+  moreMenu.className = 'ed-menu ed-more-menu'; moreMenu.hidden = true; moreMenu.setAttribute('role', 'group'); moreMenu.setAttribute('aria-label', '서식 더보기');
   const styleMenu = document.createElement('div');
   styleMenu.className = 'ed-menu'; styleMenu.hidden = true; styleMenu.setAttribute('role', 'group'); styleMenu.setAttribute('aria-label', '글 단계');
   for (const [v, text] of TEXT_STYLES) styleMenu.append(btn(text, {edStyle: v}));
@@ -146,10 +153,10 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   suggest.append(suggestText, convert, dismiss);
   const status = document.createElement('p');
   status.className = 'ed-status a11y-only'; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
-  bar.append(tools, styleMenu, tableRow, suggest);
+  bar.append(tools, moreMenu, styleMenu, tableRow, suggest);
   const box = document.createElement('div');
   box.className = 'ed-box';
-  root.append(bar, box, status);
+  root.append(bar, ...(head ? [head] : []), box, status);
   host.append(root);
 
   // The pasted part of a plain-letter paste, kept (mapped through later steps) until it is converted or dismissed.
@@ -373,16 +380,39 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     const b = e.target.closest('button');
     if (!b || !bar.contains(b)) return;
     const d = b.dataset;
-    if (d.edCmd === 'style') { openStyleMenu(styleMenu.hidden); return; }
+    if ('edMore' in d) { openMoreMenu(moreMenu.hidden); return; }
+    if (d.edCmd === 'style') { openMoreMenu(false); openStyleMenu(styleMenu.hidden); return; }
     if (d.edStyle) { run(() => setTextStyle(d.edStyle)); openStyleMenu(false); return; }
-    if (d.edCmd && RUN[d.edCmd]) { openStyleMenu(false); run(RUN[d.edCmd]); return; }
+    if (d.edCmd && RUN[d.edCmd]) { openStyleMenu(false); openMoreMenu(false); run(RUN[d.edCmd]); return; }
     if (d.edTable) { run(() => tableCmd(d.edTable)); return; }
     if ('edConvert' in d) { void convertPasted(); return; }
     if ('edDismiss' in d) { view.dispatch(view.state.tr.setMeta(pasteKey, null).setMeta('addToHistory', false)); view.focus(); }
   });
   bar.addEventListener('keydown', e => {
     if (e.key === 'Escape' && !styleMenu.hidden) { e.preventDefault(); openStyleMenu(false); buttons.style.focus(); }
+    else if (e.key === 'Escape' && !moreMenu.hidden) { e.preventDefault(); openMoreMenu(false); more.focus(); }
   });
+  function openMoreMenu(open) {
+    moreMenu.hidden = !open || more.hidden;
+    more.setAttribute('aria-expanded', String(!moreMenu.hidden));
+  }
+  // Wider than a phone the row never scrolls sideways: the buttons that do not fit move (the same nodes, so their state
+  // and presses stay) into the [⋯] row below, from the end. On a phone the row scrolls sideways under the finger instead.
+  const phone = window.matchMedia ? window.matchMedia('(max-width: 760px)') : null;
+  function fitTools() {
+    for (const b of [...moreMenu.children]) tools.insertBefore(b, more);
+    more.hidden = true;
+    if (phone?.matches || !tools.clientWidth || tools.scrollWidth <= tools.clientWidth) { openMoreMenu(false); return; }
+    more.hidden = false;
+    const list = [...tools.children].filter(b => b !== more && b !== buttons.style);
+    while (tools.scrollWidth > tools.clientWidth && list.length) moreMenu.prepend(list.pop());
+    openMoreMenu(!moreMenu.hidden);
+  }
+  let fitFrame = 0;
+  const queueFit = () => { if (!fitFrame) fitFrame = requestAnimationFrame(() => { fitFrame = 0; fitTools(); }); };
+  const resize = typeof ResizeObserver === 'function' ? new ResizeObserver(queueFit) : null;
+  resize?.observe(tools);
+  phone?.addEventListener?.('change', queueFit);
   function openStyleMenu(open) {
     styleMenu.hidden = !open;
     buttons.style.setAttribute('aria-expanded', String(!!open));
@@ -427,10 +457,11 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     return d.childCount === 1 && d.firstChild.type === N.paragraph && d.firstChild.content.size === 0;
   }
   paint();
+  fitTools();
   return {
     view, root, getValue, isEmpty,
     getText: () => toPlain(getValue()),
     focus: () => view.focus(),
-    destroy() { view.destroy(); root.remove(); },
+    destroy() { resize?.disconnect(); phone?.removeEventListener?.('change', queueFit); cancelAnimationFrame(fitFrame); view.destroy(); root.remove(); },
   };
 }

@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { testOrigin } from './helpers/test-origin.mjs';
+import { expectNoteTitle } from './helpers/note-title.mjs';
 
 // 5-2 A: an update moved to a note ([노트로 옮기기]) keeps one mark on its row (metadata.moved_from_update_at, the other keys stay).
 // The work journal then shows that note as one "노트: (제목)" line on the update's own day, without its text; pressing the line opens
@@ -80,7 +81,13 @@ async function openJournal(page, width) {
   await expect(page.locator('#journalView')).toBeVisible();
   await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('10월 5일 ~ 11일');
 }
-const moved = page => page.locator('#journalRoot [data-journal-moved-notes]');
+// JOURNAL-하루개편: 노트로 옮긴 것 is one part of 그 밖의 기록 (folded by default).
+const moved = page => page.locator('#journalRoot [data-journal-group="movedNotes"]');
+async function openOthers(page, width) {
+  const box = page.locator('#journalRoot [data-journal-others]');
+  if (!(await box.evaluate(e => e.open))) await press(page, box.locator('summary'), width);
+  await expect(box).toHaveJSProperty('open', true);
+}
 
 for (const width of [390, 1280]) {
   test(`moving an update to a note keeps its other metadata and adds the mark; the journal shows only marked notes as one title line ${width}`, async ({ page }, info) => {
@@ -100,7 +107,9 @@ for (const width of [390, 1280]) {
     expect(f.errors).toEqual([]);
     // ②③ the journal: the day card has the moved notes (the one just moved and the marked one), not the unmarked note.
     await openJournal(page, width);
-    await expect(moved(page).locator('h4')).toHaveText('노트로 옮긴 업데이트');
+    await expect(page.locator('#journalRoot [data-journal-others-count]')).toContainText('노트로 옮긴 것 2');
+    await openOthers(page, width);
+    await expect(moved(page).locator('h5')).toHaveText('노트로 옮긴 것');
     await expect(moved(page).locator('li')).toHaveText(['노트: 합성 옮길 업데이트', '노트: 합성 옮긴 노트']);
     await expect(moved(page).locator('[data-record-mark="note"]')).toHaveCount(2);
     await expect(page.locator('#journalRoot')).not.toContainText('처음부터 쓴 노트');
@@ -124,16 +133,16 @@ for (const width of [390, 1280]) {
     expect(draft).not.toContain('노트:');
     expect(draft).not.toContain('합성 옮긴 노트');
     // ④ pressing the line opens that note on the basket's [노트] side.
-    await press(page, moved(page).locator(`[data-journal-note-open="${N1}"]`), width);
+    await press(page, moved(page).locator('.journal-item-open', {hasText:'합성 옮긴 노트'}), width);
     await expect(page.locator('#basketView')).toBeVisible();
-    await expect(page.locator('[data-note-read-title]')).toHaveText('합성 옮긴 노트');
+    await expectNoteTitle(page,'합성 옮긴 노트');
     expect(f.errors).toEqual([]);
   });
 
   test(`a failed moved-note read hides only that line; the rest of the journal and the draft work ${width}`, async ({ page }) => {
     const f = await fixture(page, width, { movedReadFails: true });
     await openJournal(page, width);
-    await expect(page.locator('#journalRoot [data-journal-group]').first()).toBeVisible();
+    await expect(page.locator('#journalRoot [data-journal-report]')).toBeVisible();
     await expect(page.locator('#journalRoot [data-journal-line]')).toBeVisible();
     await expect(moved(page)).toHaveCount(0);
     await expect(page.locator('#journalRoot [data-journal-failed]')).toHaveCount(0);

@@ -78,7 +78,7 @@ test('폰 하단 탭 6칸: 바구니 색 아이콘, [메뉴] 탭이 메뉴 창�
  const menuTab=page.locator('#mobileMenuTab');await expect(menuTab).toHaveAttribute('aria-expanded','false');
  await menuTab.click();await expect(page.locator('#mobileMenu')).toBeVisible();await expect(menuTab).toHaveAttribute('aria-expanded','true');
  // 바구니는 하단 탭으로 옮겨 메뉴 창에서 뺐다. UI-디자인손질 4: 큰 칸 [쓰기]·회의·자료실·HWP 편집·성명·보도자료(한 칸)·게시판.
- await expect(page.locator('#mobileMenu nav button:visible')).toHaveText(['쓰기','회의','자료실','HWP 편집','성명·보도자료','공유 페이지']);
+ await expect(page.locator('#mobileMenu nav button:visible')).toHaveText(['사업 보고','자료실','HWP 편집','성명·보도자료','공유 페이지']);
  await page.keyboard.press('Escape');await expect(page.locator('#mobileMenu')).toBeHidden();await expect(menuTab).toBeFocused();await expect(menuTab).toHaveAttribute('aria-expanded','false');
  await menuTab.click();await page.locator('#mobileMenu [data-view="library"]').click();await loaded(page,'library');await expect(page.locator('#mobileMenu')).toBeHidden();
  await page.locator('.mobile-tabs [data-view="basket"]').click();await loaded(page,'basket');await expect(page.locator('.mobile-tabs [data-view="basket"]')).toHaveAttribute('aria-current','page');

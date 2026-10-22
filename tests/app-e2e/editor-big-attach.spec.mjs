@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {expectProjectDetail} from './helpers/project-detail.mjs';
+import {openWriteFromEntry} from './helpers/write-opener.mjs';
 // UI-크게첨부(2026-10-20 사용자 결정): (a) 조직 상세·프로젝트 상세의 업데이트 입력에도 [크게]. 같은 큰 편집 창(write-window.js)이
 // 그 조직·프로젝트를 미리 고른 채 열리고, 저장하면 그 조직·프로젝트 기록으로 저장된 뒤 닫힌다. (b) 큰 편집 창에서도 [📎 첨부]
 // (바구니 첨부 부품 basket-upload.js 그대로). 첨부는 바구니로 저장할 때만 — 조직·프로젝트 기록이나 노트로 저장할 때 첨부가 있으면
@@ -35,10 +36,16 @@ for(const width of [390,1280]){
   await clickView(page,'team');await page.locator('[data-so-org="o"]').first().click();
   const modal=page.locator('#wdModal');await expect(modal).toBeVisible();await expect(page.locator('#wdTitle')).toHaveText('테스트 조직');
   const big=page.locator('#wdInboxBig');await expect(big).toBeVisible();await expect(big).toHaveText('크게');
-  // The small input row: [크게] beside [저장], same height, one line, nothing cut off.
   const [b,s]=await Promise.all([big.boundingBox(),page.locator('#wdInboxSave').boundingBox()]);
-  expect(Math.abs(b.y-s.y)).toBeLessThanOrEqual(1);expect(Math.abs(b.height-s.height)).toBeLessThanOrEqual(1);expect(b.x+b.width).toBeLessThanOrEqual(s.x);
-  expect(await big.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+  if(width>=1024){
+   // ORG-PC상세정리: on the PC pane ⤢ sits inside the input at its bottom right; [저장] is below, on its own line.
+   const t=await page.locator('#wdInboxText').boundingBox();
+   expect(b.x+b.width).toBeLessThanOrEqual(t.x+t.width);expect(b.y+b.height).toBeLessThanOrEqual(t.y+t.height);expect(s.y).toBeGreaterThanOrEqual(t.y+t.height);
+  }else{
+   // The small input row: [크게] beside [저장], same height, one line, nothing cut off.
+   expect(Math.abs(b.y-s.y)).toBeLessThanOrEqual(1);expect(Math.abs(b.height-s.height)).toBeLessThanOrEqual(1);expect(b.x+b.width).toBeLessThanOrEqual(s.x);
+   expect(await big.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+  }
   await page.locator('#wdInboxText').fill('통화 내용 첫 줄\n둘째 줄');
   await big.click();
   const e=editor(page);await expect(e).toBeVisible();
@@ -94,8 +101,7 @@ for(const width of [390,1280]){
  test(`큰 편집 창 [📎 첨부]: 바구니(또는 노트)로 저장할 때만, 조직 기록으로 저장하면 기존 안내 ${width}`,async({page})=>{
   const f=await fixture(page,width);
   // Menu [쓰기]: the window's own file batch.
-  if(width<761){await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-menu-write]').click();}
-  else await page.locator('#appView>.app-nav [data-menu-write]').click();
+  await openWriteFromEntry(page,width);
   const e=editor(page);await expect(e).toBeVisible();
   const clip=e.getByRole('button',{name:'파일 첨부',exact:true});await expect(clip).toBeVisible();
   // The same small button as the head (32px painted, 44px touch area) under the text, not covering it.
@@ -160,5 +166,42 @@ for(const width of [390,1280])test(`바구니 업데이트 수정 [큰 창에서
  // The same selection on the edit screen; nothing uploaded until the existing [첨부 저장].
  await expect(detail.locator('.basket-edit-actions').getByRole('button',{name:'파일 첨부',exact:true}).locator('[data-basket-count]')).toHaveText('1');
  await expect(detail.locator('[data-basket-file]')).toHaveCount(1);expect(f.uploads).toHaveLength(0);
+ expect(f.errors).toEqual([]);
+});
+
+// BUG-폰바구니첨부: the note list's own input hands its file batch to the write window (no updateVia). Switching 노트 → 업데이트 there
+// and saving to the basket must send that batch through the basket upload path once (it used to be dropped silently on the way,
+// the text saved without the file), and the input's file list empties afterwards. [노트] sends the files with the new note.
+for(const width of [390,1280])test(`노트 입력칸의 파일: [크게]에서 [업데이트]로 바꿔 저장하면 첨부 업로드 1회·입력칸 비움, [노트]면 노트에 붙음 ${width}`,async({page})=>{
+ const f=await fixture(page,width);
+ await page.evaluate(()=>window.KPTURouter.go('basket'));
+ const note=page.locator('#basketView [data-basket-kind="note"]:visible');
+ // The basket shows one side at a time: [메모 | 노트] below 1024px, the side nav's [노트] on a PC.
+ if(width<1024){await note.first().waitFor();if(await note.first().getAttribute('aria-pressed')!=='true')await note.first().click();}
+ else await page.locator('#appView>.app-nav [data-basket-kind-nav="note"]').evaluate(b=>b.click());
+ const q=page.locator('#basketView [data-note-list] [data-quick-big]:visible').first();
+ const qclip=page.locator('#basketView [data-note-list] [data-quick-file-picker] [data-basket-clip]');
+ await page.locator('#basketView [data-note-list] [data-quick-input]').click();
+ await chooseFile(page,qclip,'n.txt');await expect(qclip.locator('[data-basket-count]')).toHaveText('1');
+ await q.click();
+ const e=editor(page);await expect(e).toBeVisible();
+ await expect(e.locator('[data-basket-file]')).toHaveCount(1);
+ // 노트 → 업데이트 (the order of the report): the list still holds the one file.
+ await e.locator('[data-md-kind="update"]').click();
+ await expect(e.locator('[data-basket-file]')).toHaveCount(1);
+ await e.locator('.md-editor-text').fill('노트 입력칸에서 쓴 업데이트');
+ await e.locator('[data-md-save-icon]').click();
+ await expect(page.locator('#mdEditor')).toHaveCount(0);
+ await expect(page.locator('#toast')).toContainText('바구니에 저장했어요.');
+ expect(f.uploads).toHaveLength(1);expect(f.uploads[0]).toContain('name="raw_text"');expect(f.uploads[0]).toContain(Buffer.from('노트 입력칸에서 쓴 업데이트').toString('latin1'));expect(f.uploads[0]).toContain('filename="n.txt"');
+ expect(f.notes).toEqual([]);
+ await expect(qclip.locator('[data-basket-count]')).toBeHidden();await expect(page.locator('#basketView [data-note-list] [data-basket-file]')).toHaveCount(0);
+ // [노트] with a file: the note is made, then its file goes up with the note id.
+ await chooseFile(page,qclip,'m.txt');await expect(qclip.locator('[data-basket-count]')).toHaveText('1');
+ await q.click();await expect(e).toBeVisible();
+ await e.locator('.md-editor-text').fill('파일 붙은 노트');
+ await e.locator('[data-md-save-icon]').click();
+ await expect(page.locator('#mdEditor')).toHaveCount(0);
+ expect(f.notes).toHaveLength(1);expect(f.uploads).toHaveLength(2);expect(f.uploads[1]).toContain('filename="m.txt"');expect(f.uploads[1]).toContain('name="note_id"');
  expect(f.errors).toEqual([]);
 });

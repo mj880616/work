@@ -2,12 +2,23 @@
 // line is left out of the preview when it is the same as the title. Pure functions; the stored text is never changed.
 
 import { toTelegram } from './md-telegram.mjs';
-import { noteMarkdown } from './note-markdown.mjs';
+import { noteMarkdown, looksLikeMarkdown } from './note-markdown.mjs';
 
 const FENCE = /^\s{0,3}(`{3,}|~{3,})/;
 const RULE = /^\s{0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
 const TABLE_SEP = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
 const ESCAPABLE = /\\([\\`*_{}[\]()#+\-.!|>~<])/g;
+
+// BUG-미리보기기호: HTML entities that survive from a pasted AI answer ('&#x20;', '&amp;', '&nbsp;') become their letters.
+const NAMED = {amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', middot: '·', hellip: '…', ndash: '–', mdash: '—'};
+export function decodeEntities(text) {
+  return String(text ?? '').replace(/&(?:#(\d{1,7})|#[xX]([0-9a-fA-F]{1,6})|([A-Za-z]{2,8}));/g, (m, dec, hex, name) => {
+    if (name) return Object.prototype.hasOwnProperty.call(NAMED, name.toLowerCase()) ? NAMED[name.toLowerCase()] : m;
+    const code = dec ? Number(dec) : parseInt(hex, 16);
+    if (!(code >= 32 && code <= 0x10ffff) || (code >= 0xd800 && code <= 0xdfff) || (code >= 0xe000 && code <= 0xf8ff) || code === 0x7f) return code === 9 || code === 10 ? ' ' : m;
+    return String.fromCodePoint(code);
+  });
+}
 
 // One line of inline marks → letters. Links and images keep their words, code keeps its text, emphasis marks go.
 export function plainInline(text) {
@@ -25,7 +36,7 @@ export function plainInline(text) {
     .replace(/(^|[^\w*])\*(?=[^\s*])([^*\n]*?[^\s*])?\*(?![\w*])/g, (m, lead, body) => (body === undefined ? m : lead + body))
     .replace(/(^|[^\w*])\*([^\s*])\*(?![\w*])/g, '$1$2')
     .replace(/(^|[^\w])_(?=[^\s_])([^_\n]*?[^\s_])?_(?!\w)/g, (m, lead, body) => (body === undefined ? m : lead + body));
-  return out.replace(/(\d+)/g, (_, i) => held[+i]).replace(/\s+/g, ' ').trim();
+  return decodeEntities(out).replace(/(\d+)/g, (_, i) => held[+i]).replace(/\s+/g, ' ').trim();
 }
 
 // A block line (heading, quote, list, table row) → its letters.
@@ -34,7 +45,7 @@ export function plainBlock(line) {
   t = t.replace(/^\s{0,3}#{1,6}[ \t]+/, '').replace(/[ \t]+#+[ \t]*$/, '');
   t = t.replace(/^\s*(?:>[ \t]?)+/, '');
   t = t.replace(/^\s*[-*+][ \t]+\[[ xX]\][ \t]+/, '').replace(/^\s*[-*+][ \t]+/, '');
-  if ((t.match(/\|/g) || []).length >= 2 || /^\s*\|/.test(t)) t = t.split('|').map(cell => cell.trim()).filter(Boolean).join(' ');
+  if ((t.match(/\|/g) || []).length >= 2 || /^\s*\|/.test(t)) t = t.split('|').map(cell => cell.trim()).filter(cell => cell && !/^:?-{2,}:?$/.test(cell)).join(' · ');
   return plainInline(t);
 }
 
@@ -49,6 +60,26 @@ export function plainLines(raw) {
     if (text && !/^[\\`*_~#>|-]+$/.test(text)) out.push(text);
   }
   return out;
+}
+
+// BUG-미리보기기호: the one preview line for any list row (record cards, summaries, progress): marks gone, lines joined with a
+// space, table cells joined with ' · ', cut at `max` letters with '…'. The stored text is never changed.
+export function previewText(raw, max = 0) {
+  const chars = [...plainLines(raw).join(' ')];
+  return max > 0 && chars.length > max ? chars.slice(0, max).join('') + '…' : chars.join('');
+}
+
+// The same letters with the line breaks kept (one plain line per written line), for rows that show their text over several lines.
+export const previewLines = raw => plainLines(raw).join('\n');
+
+// The written text a [더보기] opens as headings, tables and line breaks: only when it carries markdown marks, list marks, AI escapes or
+// entities (or, with withBreaks, line breaks the one-line preview flattened); else ''.
+export const MD_RAW_MAX = 20000;
+export function markdownSource(raw, withBreaks = false) {
+  const text = String(raw ?? '');
+  if (!text.trim() || text.length > MD_RAW_MAX) return '';
+  const marked = looksLikeMarkdown(text) || /^\s{0,3}(?:[-*+]|\d+[.)])\s/m.test(text) || /\\[\\`*_{}[\]()#+\-.!|>~<]|&#?\w{2,8};/.test(text);
+  return marked || (withBreaks && /\n/.test(text.trim())) ? text : '';
 }
 
 const same = (a, b) => String(a).replace(/\s+/g, ' ').trim().toLowerCase() === String(b).replace(/\s+/g, ' ').trim().toLowerCase();

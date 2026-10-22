@@ -41,6 +41,7 @@ on:
       - 'tests/ledger-import-model.test.mjs'
       - 'tests/ledger-import-fixture.mjs'
       - 'tests/ledger-browse-model.test.mjs'
+      - 'tests/global-search-model.test.mjs'
       - 'tests/ledger-candidate-model.test.mjs'
       - 'tests/ledger-export-model.test.mjs'
       - 'scripts/check-app-smoke-contract.mjs'
@@ -88,6 +89,7 @@ on:
       - 'tests/ledger-import-model.test.mjs'
       - 'tests/ledger-import-fixture.mjs'
       - 'tests/ledger-browse-model.test.mjs'
+      - 'tests/global-search-model.test.mjs'
       - 'tests/ledger-candidate-model.test.mjs'
       - 'tests/ledger-export-model.test.mjs'
       - 'scripts/check-app-smoke-contract.mjs'
@@ -112,7 +114,7 @@ jobs:
           find app -maxdepth 1 -type f -name '*.js' -print0 | xargs -0 -n1 node --check
 
       - name: Check meeting Korea time conversions
-        run: node --test tests/meeting-time.test.mjs tests/seoul-time.test.mjs tests/time-input.test.mjs tests/meeting-compact.test.mjs
+        run: node --test tests/meeting-time.test.mjs tests/seoul-time.test.mjs tests/time-input.test.mjs tests/meeting-compact.test.mjs tests/calendar-week-timeline.test.mjs
 
       - name: Check shared Enter-to-save rule (UI-엔터저장)
         run: node --test tests/enter-save.test.mjs
@@ -127,7 +129,7 @@ jobs:
         run: node --test tests/home-read-model.test.mjs tests/home-read-cache.test.mjs tests/data-freshness.test.mjs tests/collection-status.test.mjs
 
       - name: Check basket data and sequential file uploads
-        run: node --test tests/basket-data.test.mjs tests/basket-upload.test.mjs tests/basket-ocr-text.test.mjs tests/basket-ocr.test.mjs tests/basket-ocr-runtime.test.mjs tests/basket-classification.test.mjs tests/basket-ai-handoff.test.mjs tests/basket-link-records.test.mjs tests/basket-record-delete.test.mjs tests/basket-manual-link.test.mjs tests/basket-ai-summary.test.mjs tests/todo-radar-data.test.mjs tests/basket-note-tasks.test.mjs tests/basket-record-summary-guide.test.mjs tests/basket-library-send.test.mjs tests/meeting-basket-send.test.mjs tests/diary-data.test.mjs tests/journal-data.test.mjs tests/journal-weekly.test.mjs tests/journal-meeting-kinds.test.mjs tests/project-order.test.mjs tests/basket-file-docs.test.mjs tests/document-categories.test.mjs tests/basket-note-pin.test.mjs tests/update-requests.test.mjs tests/update-journal.test.mjs tests/task-files.test.mjs tests/library-ai-fill.test.mjs
+        run: node --test tests/basket-data.test.mjs tests/basket-upload.test.mjs tests/basket-ocr-text.test.mjs tests/basket-ocr.test.mjs tests/basket-ocr-runtime.test.mjs tests/basket-classification.test.mjs tests/basket-ai-handoff.test.mjs tests/basket-link-records.test.mjs tests/basket-record-delete.test.mjs tests/basket-manual-link.test.mjs tests/basket-ai-summary.test.mjs tests/todo-radar-data.test.mjs tests/basket-note-tasks.test.mjs tests/basket-record-summary-guide.test.mjs tests/basket-library-send.test.mjs tests/meeting-basket-send.test.mjs tests/diary-data.test.mjs tests/journal-data.test.mjs tests/journal-weekly.test.mjs tests/journal-org-summary.test.mjs tests/journal-meeting-kinds.test.mjs tests/project-order.test.mjs tests/basket-file-docs.test.mjs tests/document-categories.test.mjs tests/basket-note-pin.test.mjs tests/update-requests.test.mjs tests/update-journal.test.mjs tests/task-files.test.mjs tests/library-ai-fill.test.mjs tests/quick-links.test.mjs
 
       - name: Check library toggle tree model
         run: node --test tests/library-tree.test.mjs
@@ -152,6 +154,9 @@ jobs:
 
       - name: Check English eyebrow cleanup
         run: node --test tests/english-labels.test.mjs
+
+      - name: Global search model (SEARCH-전체검색 words, highlights, Google filters, groups, error codes)
+        run: node --test tests/global-search-model.test.mjs
 
       - name: Ledger import checker (CSV·xlsx·import file, synthetic sheet)
         run: node --test tests/ledger-import-model.test.mjs tests/ledger-browse-model.test.mjs tests/ledger-candidate-model.test.mjs tests/ledger-export-model.test.mjs

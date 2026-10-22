@@ -83,7 +83,7 @@ async function signIn(page) {
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/, {timeout:20000});
 }
 
-for (const width of [390, 1280]) test('make a share page: blocks, move, save, link make/copy/off, legacy cards folded ' + width, async ({page, context}) => {
+for (const width of [390, 1280]) test('make a share page on the full screen: save, link make/copy/off, legacy cards folded ' + width, async ({page, context}) => {
   await page.setViewportSize({width, height:900});
   await context.grantPermissions(['clipboard-read', 'clipboard-write'], {origin:ORIGIN});
   const state = {pages:[], links:[]};
@@ -112,36 +112,25 @@ for (const width of [390, 1280]) test('make a share page: blocks, move, save, li
   await root.getByRole('button', {name:'새 공유 페이지', exact:true}).click();
   const editor = page.locator('[data-sp-editor]');
   await expect(editor).toBeVisible();
-  await expect(editor.locator('[data-sp-block]')).toHaveCount(1);
-  await editor.locator('[data-sp-title]').fill('민자철도 교섭 현황');
-  await editor.getByLabel('1번째 블록 한 줄 현황 글',{exact:true}).fill('3차 교섭 결렬, 조정 신청 예정');
-  await editor.getByRole('button', {name:'+ 진행 단계', exact:true}).click();
-  await editor.getByLabel('진행 단계 1번째 줄 단계 이름',{exact:true}).fill('요구안 확정');
-  await editor.getByRole('button', {name:'2번째 블록 진행 단계에 줄 추가', exact:true}).click();
-  await editor.getByLabel('진행 단계 2번째 줄 단계 이름',{exact:true}).fill('교섭');
-  await editor.locator('[data-sp-block="1"] input[type="radio"]').nth(1).check();
-  await editor.getByRole('button', {name:'+ 자료·링크', exact:true}).click();
-  await editor.getByLabel('자료·링크 1번째 줄 이름',{exact:true}).fill('요구안');
-  await editor.getByLabel('자료·링크 1번째 줄 주소 (https://…)',{exact:true}).fill('https://drive.google.com/file/d/x/view');
-  // Move the links block above the stages block, then back down once to check both directions.
-  await editor.getByRole('button', {name:'3번째 블록 자료·링크 위로', exact:true}).click();
-  await expect(editor.locator('[data-sp-block]').nth(1)).toHaveAttribute('data-sp-type', 'links');
-  await expect(editor.getByRole('button', {name:'2번째 블록 자료·링크 위로', exact:true})).toBeFocused();
-  // SHARE-보이는편집: a block shown as it will look keeps 위로·아래로·삭제 in its ⋯ menu; the open block shows them in place.
-  await editor.getByLabel('1번째 블록 한 줄 현황 메뉴', {exact:true}).click();
-  await expect(editor.getByRole('button', {name:'1번째 블록 한 줄 현황 위로', exact:true})).toBeDisabled();
-  await editor.getByRole('button', {name:'2번째 블록 자료·링크 아래로', exact:true}).click();
-  await editor.getByLabel('2번째 블록 진행 단계 메뉴', {exact:true}).click();
-  await editor.getByRole('button', {name:'2번째 블록 진행 단계 위로', exact:true}).click();
-  expect(await editor.locator('[data-sp-block]').evaluateAll(n => n.map(x => x.dataset.spType))).toEqual(['stages', 'summary', 'links']);
-  // Delete then re-add a block (an empty block goes without asking).
-  await editor.getByRole('button', {name:'+ 일정', exact:true}).click();
-  await editor.getByRole('button', {name:'4번째 블록 일정 지우기', exact:true}).click();
-  await expect(editor.locator('[data-sp-block]')).toHaveCount(3);
+  // SHARE-전체편집: a new page is the full writing screen (one 글 block, no block frames), the cursor in the title.
+  await expect(editor).toHaveClass(/is-full/);
+  await expect(editor.locator('[data-sp-block],[data-sp-add-block],.sp-canvas')).toHaveCount(0);
+  await expect(editor.locator('[data-sp-title]')).toBeFocused();
+  await page.keyboard.type('민자철도 교섭 현황');
+  await page.keyboard.press('Enter');
+  await expect(editor.getByRole('textbox', {name:'본문', exact:true})).toBeFocused();
+  await page.keyboard.type('3차 교섭 결렬, 조정 신청 예정');
+  // Project: on the top line on PC, under ⋯ on a phone.
+  if (width < 761) await editor.getByRole('button', {name:'프로젝트·링크', exact:true}).click();
   await editor.locator('[data-sp-project]').selectOption('proj-1');
   await editor.locator('[data-sp-set-status="published"]').click();
   await expect(editor.locator('[data-sp-set-status="published"]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(editor.locator('[data-sp-links]')).toContainText('한 번 저장한 뒤');
+  if (width < 761) await editor.getByRole('button', {name:'프로젝트·링크', exact:true}).click();
+  await editor.getByRole('button', {name:'링크', exact:true}).click();
+  const linksPanel = editor.getByRole('dialog', {name:'링크'});
+  await expect(linksPanel.locator('[data-sp-links]')).toContainText('한 번 저장한 뒤');
+  await linksPanel.getByRole('button', {name:'링크 창 닫기', exact:true}).click();
+  await expect(linksPanel).toBeHidden();
   await editor.getByRole('button', {name:'저장', exact:true}).click();
   await expect(editor.locator('[data-sp-status-line]')).toContainText('저장했어요. 게시 중이에요.');
   const saved = state.pages[0];
@@ -149,12 +138,13 @@ for (const width of [390, 1280]) test('make a share page: blocks, move, save, li
   expect(saved.status).toBe('published');
   expect(saved.project_id).toBe('proj-1');
   expect(saved.blocks).toEqual([
-    {type:'stages', title:'', items:[{name:'요구안 확정'}, {name:'교섭'}], current:1},
-    {type:'summary', text:'3차 교섭 결렬, 조정 신청 예정'},
-    {type:'links', title:'', items:[{label:'요구안', url:'https://drive.google.com/file/d/x/view'}]},
+    {type:'doc', doc:{v:'ed1', doc:{type:'doc', content:[{type:'paragraph', attrs:{style:'body2'}, content:[{type:'text', text:'3차 교섭 결렬, 조정 신청 예정'}]}]}}},
   ]);
   const post = state.requests.find(r => r.method === 'POST' && !r.link);
   expect(post.body.workspace_id).toBe(WS);
+  if (width < 761) await editor.getByRole('button', {name:'프로젝트·링크', exact:true}).click();
+  await editor.getByRole('button', {name:'링크', exact:true}).click();
+  await expect(linksPanel).toBeVisible();
 
   // Links: label required, then make, copy (token read only on demand), off.
   await editor.getByRole('button', {name:'링크 만들기', exact:true}).click();
@@ -188,6 +178,7 @@ for (const width of [390, 1280]) test('make a share page: blocks, move, save, li
   expect(state.links[1].expires_at).toBe('2099-01-31T23:59:59+09:00');
 
   // Back to the list: the page shows with its state.
+  await linksPanel.getByRole('button', {name:'링크 창 닫기', exact:true}).click();
   await editor.locator('[data-sp-close]').click();
   await expect(root.locator('.sp-row')).toHaveCount(1);
   await expect(root.locator('.sp-row')).toContainText('민자철도 교섭 현황');
@@ -195,6 +186,8 @@ for (const width of [390, 1280]) test('make a share page: blocks, move, save, li
   // Re-open and edit: PATCH with the version guard.
   await root.locator('.sp-row').click();
   await expect(editor.locator('[data-sp-title]')).toHaveValue('민자철도 교섭 현황');
+  await expect(editor).toHaveClass(/is-full/);
+  await expect(editor.getByRole('textbox', {name:'본문', exact:true})).toBeFocused();
   await expect(editor.locator('.sp-link')).toHaveCount(2);
   await editor.locator('[data-sp-set-status="draft"]').click();
   await editor.getByRole('button', {name:'저장', exact:true}).click();
@@ -203,6 +196,51 @@ for (const width of [390, 1280]) test('make a share page: blocks, move, save, li
   expect(patch.url).toContain('updated_at=eq.');
   expect(state.pages[0].status).toBe('draft');
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+  expect(errors).toEqual([]);
+});
+
+test('old blocks: add, move with the ⋯ menu, delete, saved in the shown order ' , async ({page}) => {
+  await page.setViewportSize({width:1280, height:900});
+  const state = {pages:[{id:'page-1', title:'옛 블록 페이지', status:'draft', project_id:null, updated_at:'2026-10-20T01:00:00.000Z', blocks:[{type:'summary', text:'3차 교섭 결렬'}]}], links:[]};
+  const errors = []; page.on('pageerror', e => errors.push(e.message));
+  await mockApp(page, state);
+  await signIn(page);
+  await clickView(page, 'pages');
+  await page.locator('#sharePagesRoot .sp-row').first().click();
+  const editor = page.locator('[data-sp-editor]');
+  // A page with old blocks keeps the block editor (설계 4.2).
+  await expect(editor).not.toHaveClass(/is-full/);
+  await expect(editor.locator('[data-sp-block]')).toHaveCount(1);
+  await editor.getByRole('button', {name:'+ 진행 단계', exact:true}).click();
+  await editor.getByLabel('진행 단계 1번째 줄 단계 이름',{exact:true}).fill('요구안 확정');
+  await editor.getByRole('button', {name:'2번째 블록 진행 단계에 줄 추가', exact:true}).click();
+  await editor.getByLabel('진행 단계 2번째 줄 단계 이름',{exact:true}).fill('교섭');
+  await editor.locator('[data-sp-block="1"] input[type="radio"]').nth(1).check();
+  await editor.getByRole('button', {name:'+ 자료·링크', exact:true}).click();
+  await editor.getByLabel('자료·링크 1번째 줄 이름',{exact:true}).fill('요구안');
+  await editor.getByLabel('자료·링크 1번째 줄 주소 (https://…)',{exact:true}).fill('https://drive.google.com/file/d/x/view');
+  // Move the links block above the stages block, then back down once to check both directions.
+  await editor.getByRole('button', {name:'3번째 블록 자료·링크 위로', exact:true}).click();
+  await expect(editor.locator('[data-sp-block]').nth(1)).toHaveAttribute('data-sp-type', 'links');
+  await expect(editor.getByRole('button', {name:'2번째 블록 자료·링크 위로', exact:true})).toBeFocused();
+  await editor.getByLabel('1번째 블록 한 줄 현황 메뉴', {exact:true}).click();
+  await expect(editor.getByRole('button', {name:'1번째 블록 한 줄 현황 위로', exact:true})).toBeDisabled();
+  await editor.getByRole('button', {name:'2번째 블록 자료·링크 아래로', exact:true}).click();
+  await editor.getByLabel('2번째 블록 진행 단계 메뉴', {exact:true}).click();
+  await editor.getByRole('button', {name:'2번째 블록 진행 단계 위로', exact:true}).click();
+  expect(await editor.locator('[data-sp-block]').evaluateAll(n => n.map(x => x.dataset.spType))).toEqual(['stages', 'summary', 'links']);
+  // Delete then re-add a block (an empty block goes without asking).
+  await editor.getByRole('button', {name:'+ 일정', exact:true}).click();
+  await editor.getByRole('button', {name:'4번째 블록 일정 지우기', exact:true}).click();
+  await expect(editor.locator('[data-sp-block]')).toHaveCount(3);
+  await editor.getByRole('button', {name:'저장', exact:true}).click();
+  await expect(editor.locator('[data-sp-status-line]')).toContainText('저장했어요');
+  expect(state.pages[0].blocks).toEqual([
+    {type:'stages', title:'', items:[{name:'요구안 확정'}, {name:'교섭'}], current:1},
+    {type:'summary', text:'3차 교섭 결렬'},
+    {type:'links', title:'', items:[{label:'요구안', url:'https://drive.google.com/file/d/x/view'}]},
+  ]);
+  await expect(editor).not.toHaveClass(/is-full/);
   expect(errors).toEqual([]);
 });
 
@@ -225,18 +263,17 @@ test('unsaved editor asks before leaving and Back closes it first', async ({page
 });
 
 test('a bad link address is not saved', async ({page}) => {
-  const state = {pages:[], links:[]};
+  const state = {pages:[{id:'page-1', title:'주소 검사', status:'draft', project_id:null, updated_at:'2026-10-20T01:00:00.000Z', blocks:[{type:'summary', text:'옛 블록'}]}], links:[]};
   await mockApp(page, state);
   await signIn(page);
   await clickView(page, 'pages');
-  await page.getByRole('button', {name:'새 공유 페이지', exact:true}).click();
-  await page.locator('[data-sp-title]').fill('주소 검사');
+  await page.locator('#sharePagesRoot .sp-row').first().click();
   await page.getByRole('button', {name:'+ 자료·링크', exact:true}).click();
   await page.getByLabel('자료·링크 1번째 줄 이름',{exact:true}).fill('나쁜 링크');
   await page.getByLabel('자료·링크 1번째 줄 주소 (https://…)',{exact:true}).fill('javascript:alert(1)');
   await page.getByRole('button', {name:'저장', exact:true}).click();
   await expect(page.locator('[data-sp-status-line]')).toContainText('http:// 또는 https://');
-  expect(state.pages).toEqual([]);
+  expect(state.requests.filter(r => r.method !== 'GET')).toEqual([]);
 });
 
 // ── Web1 reader ──

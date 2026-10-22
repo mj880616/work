@@ -9,12 +9,21 @@ const anchorable=anchor=>typeof anchor?.getBoundingClientRect==='function';
 // Sets the panel's inline position (position:fixed is the caller's CSS) from the anchor's box and returns the side it took
 // ('below' | 'above' | 'side'), or '' when the anchor cannot be measured. The panel never leaves the window (edge px margin)
 // and never grows past maxHeight; its own content scrolls inside.
-export function placeAnchored(panel,anchor,{maxWidth=360,maxHeight=480,gap=4,edge=8,minHeight=160}={}){
+// beside:'up' (UI-자주가는링크, a sidebar row): open to the right of the anchor and grow upward, the panel's bottom edge on the
+// anchor's bottom edge ('beside-up'); when the window above is too short, the panel slides down only as far as the window allows.
+export function placeAnchored(panel,anchor,{maxWidth=360,maxHeight=480,gap=4,edge=8,minHeight=160,beside=''}={}){
   if(!anchorable(anchor))return '';
   const t=anchor.getBoundingClientRect(),vw=document.documentElement.clientWidth,vh=window.innerHeight;
   const width=Math.min(maxWidth,vw-edge*2),below=vh-t.bottom-gap-edge,above=t.top-gap-edge;
   let side,left,top='auto',bottom='auto',height;
-  if(Math.max(below,above)>=minHeight){
+  if(beside==='up'){
+    side='beside-up';
+    left=vw-t.right-gap-edge>=width?t.right+gap:Math.max(edge,vw-width-edge);
+    height=Math.min(maxHeight,vh-edge*2);
+    // Bottom on the anchor's bottom, but never below the window and never so low that the panel's top leaves the window.
+    const want=Math.min(vh-edge,Math.max(t.bottom,edge+Math.min(height,panel.scrollHeight||height)));
+    bottom=Math.max(edge,vh-want)+'px';
+  }else if(Math.max(below,above)>=minHeight){
     side=below>=Math.min(maxHeight,above)?'below':'above';
     left=Math.max(edge,Math.min(t.left,vw-width-edge));
     height=Math.min(maxHeight,side==='below'?below:above);

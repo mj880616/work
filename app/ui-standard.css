@@ -225,8 +225,18 @@
 #ps3DetailModal :is(.ps3-child-link strong,.ps3-row-main > b,.ps3-row-title b,.ps3-summary b,.ps3-stat-grid b){ font-size:var(--ds-text-row); }
 #ps3DetailModal :is(.ps3-child-link small,.ps3-row p,.ps3-row small,.ps3-section-head p){ font-size:var(--ds-text-meta); }
 #ps3DetailModal :is(.ps3-row,.ps3-child-link){ border-top-width:var(--ds-line-width); border-top-color:var(--ds-line); }
-/* 상세 맨 위 기록 칸은 옆 [기록]과 같은 높이, 0.5px 선·모서리 8px. */
-#ps3DetailModal [data-ps3-record-input] input{ box-sizing:border-box; height:var(--ds-control-height); min-height:var(--ds-control-height); border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); }
+/* 상세 맨 위 기록 칸은 옆 [기록]과 같은 높이(PRJ-기록버튼줄이기: 둘 다 36px, UI-버튼기준 입력칸·주 버튼), 0.5px 선·모서리 8px. */
+#ps3DetailModal [data-ps3-record-input] input{ box-sizing:border-box; height:var(--kptu-control-height); min-height:var(--kptu-control-height); padding-top:0; padding-bottom:0; border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); }
+/* [기록]: 폰은 모달이 #appView 밖, PC는 #projectsView 안이라 둘 다 이긴다. 누르는 범위는 ::after로 44px. */
+#ps3DetailModal [data-ps3-record-input] > button.primary,
+#appView #ps3DetailModal [data-ps3-record-input] > button.primary,
+#appView #projectsView #ps3DetailModal [data-ps3-record-input] > button.primary{ position:relative; height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+#ps3DetailModal [data-ps3-record-input] > button.primary::after,
+#appView #ps3DetailModal [data-ps3-record-input] > button.primary::after,
+#appView #projectsView #ps3DetailModal [data-ps3-record-input] > button.primary::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+/* [큰 창에서 쓰기] ⤢는 입력칸 안 오른쪽 끝(보이는 높이 보조 32px, 입력칸 36px 안). 누르는 범위는 ::after로 위아래를 늘려 44px. */
+#ps3DetailModal [data-ps3-record-input] .ps3-record-big{ top:2px; right:2px; height:var(--ds-compact-height); min-height:0; }
+#ps3DetailModal [data-ps3-record-input] .ps3-record-big::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 
 /* ───────── 3단계 1부(8-9e-1): 담당조직·자료실·회의 + 목록 글자 통일 ─────────
    1·2단계와 같은 값·같은 모양. 규칙은 #appView 안의 #teamView·#libraryView·#meetingsView로만 한정한다. */
@@ -339,10 +349,6 @@
   }
   #appView :is(#calendarView .calendar-toolbar #newEventBtn,#projectsView #newProjectBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn,#diaryView #newDiaryBtn):focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
   body.kptu-mobile-keyboard #appView :is(#calendarView .calendar-toolbar #newEventBtn,#projectsView #newProjectBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn,#diaryView #newDiaryBtn){ display:none; }
-  /* 새 버전 알림(version-notice.css, 하단 탭 위)이 떠 있으면 [+]는 그 위로(알림 토스트와 같은 방식). */
-  body.kptu-version-notice-open #appView :is(#calendarView .calendar-toolbar #newEventBtn,#projectsView #newProjectBtn,#libraryView #newDocumentBtn,#meetingsView #newMeetingBtn,#diaryView #newDiaryBtn){
-    bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom) + var(--kptu-version-notice-height,76px) + 24px + (var(--kptu-touch-target,44px) - var(--ds-fab-size)) / 2);
-  }
   /* 목록 마지막 줄이 [+]에 가리지 않게 아래 여백(누르는 범위 + 간격 + 여유). */
   #appView :is(#projectsView,#libraryView,#meetingsView,#diaryView).view-panel{ padding-bottom:calc(var(--kptu-switch-dock,0px) + var(--kptu-touch-target,44px) + var(--ds-fab-gap) + 16px + env(safe-area-inset-bottom))!important; }
   /* 일정은 달력 칸이 화면 아래까지 차도록 높이를 재므로(calendar-month-view.js) 여백 대신 기존 끝 여백(::after)을 [+]·전환 줄만큼 늘린다. */
@@ -366,9 +372,6 @@
   #appView #homeView .home-quick .home-basket-link{ display:none; }
   #appView #homeView.view-panel,#appView #tasksView.view-panel,#appView #basketView.view-panel:has([data-basket-list]:not([hidden])),#appView #basketView.view-panel:has(> [data-note-host]:not([hidden]) > [data-note-list]:not([hidden])){ padding-bottom:calc(var(--kptu-quick-dock,120px) + var(--kptu-switch-dock,0px) + 16px + env(safe-area-inset-bottom))!important; }
   html:has(#homeView:not(.hidden)) .toast,html:has(#tasksView:not(.hidden)) .toast,html:has(#basketView:not(.hidden) [data-basket-list]:not([hidden])) .toast,html:has(#basketView:not(.hidden) > [data-note-host]:not([hidden]) > [data-note-list]:not([hidden])) .toast{ bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + var(--kptu-keyboard-inset,0px) + var(--kptu-quick-dock,0px) + 8px + env(safe-area-inset-bottom))!important; }
-  /* 새 버전 알림도 입력칸 위로, 그때 토스트는 다시 그 위로. */
-  html:has(#homeView:not(.hidden)) #versionNotice,html:has(#tasksView:not(.hidden)) #versionNotice,html:has(#basketView:not(.hidden) [data-basket-list]:not([hidden])) #versionNotice,html:has(#basketView:not(.hidden) > [data-note-host]:not([hidden]) > [data-note-list]:not([hidden])) #versionNotice{ bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + var(--kptu-quick-dock,0px) + 12px + env(safe-area-inset-bottom)); }
-  html:has(#homeView:not(.hidden)) body.kptu-version-notice-open .toast,html:has(#tasksView:not(.hidden)) body.kptu-version-notice-open .toast,html:has(#basketView:not(.hidden) [data-basket-list]:not([hidden])) body.kptu-version-notice-open .toast,html:has(#basketView:not(.hidden) > [data-note-host]:not([hidden]) > [data-note-list]:not([hidden])) body.kptu-version-notice-open .toast{ bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + var(--kptu-quick-dock,0px) + var(--kptu-version-notice-height,76px) + 24px + env(safe-area-inset-bottom))!important; }
 
   /* 바구니 입력칸: 홈과 같은 한 줄(테두리 하나, 크기 조절 손잡이 없음). 첨부 클립은 입력칸 왼쪽 그대로. */
   #appView #basketView .home-quick [data-quick-input]{ box-sizing:border-box; height:var(--ds-control-height); min-height:var(--ds-control-height); padding:12px 10px 11px 44px; font-size:14px; line-height:21px; resize:none; overflow-y:auto; }
@@ -580,8 +583,8 @@
 @media(max-width:760px){ #appView #teamView .so-team-actions{ display:none; } }
 
 /* 4 ☰ 메뉴 판(폰): 하단 탭 바로 위로 올라오는 판. 손잡이(= 닫기 버튼, 누르거나 아래로 밀면 닫힘), 위쪽 큰 칸 3×2, 아래 "계정" 상자 줄.
-   761~1023px의 오른쪽 서랍과 PC 사이드바는 모양 그대로(사이드바는 항목만 [쓰기]를 더해 같게). */
-@media(max-width:1023px){ #appView > .app-nav :is(.nav-write,.nav-sub){ display:none; } }
+   761~1023px의 오른쪽 서랍과 PC 사이드바는 모양 그대로. */
+@media(max-width:1023px){ #appView > .app-nav .nav-sub{ display:none; } }
 #appView .mobile-menu-panel nav button svg{ display:none; }
 @media(max-width:760px){
   #appView .mobile-menu{ bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom)); }
@@ -936,10 +939,8 @@
 
   /* 바구니 위쪽 줄에는 필터 [미분류·분류·보류]만 남는다. 필터가 숨으면(노트 목록) 줄도 자리를 차지하지 않는다. */
   #appView #basketView:has(> [data-basket-list][hidden]) > .basket-switch-row{ min-height:0; margin:0; }
-  /* 알림(토스트·새 버전 알림)도 전환 줄 위로. 바구니 메모 목록은 위 빠른 입력 규칙(더 구체적)이 입력칸 높이까지 더한다. */
+  /* 토스트도 전환 줄 위로. 바구니 메모 목록은 위 빠른 입력 규칙(더 구체적)이 입력칸 높이까지 더한다. */
   html:has(:where(#appView :is(#calendarView,#tasksView,#journalView,#diaryView,#basketView):not(.hidden))) .toast{ bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + 8px + env(safe-area-inset-bottom))!important; }
-  html:has(:where(#appView :is(#calendarView,#tasksView,#journalView,#diaryView,#basketView):not(.hidden))) #versionNotice{ bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + 12px + env(safe-area-inset-bottom)); }
-  html:has(:where(#appView :is(#calendarView,#tasksView,#journalView,#diaryView,#basketView):not(.hidden))) body.kptu-version-notice-open .toast{ bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + var(--kptu-version-notice-height,76px) + 24px + env(safe-area-inset-bottom))!important; }
 }
 
 /* ───────── UI-할일입력(2026-10-18 사용자 결정): 일정 [할 일]은 공용 [+] 대신 늘 보이는 입력 칸 + [추가] ─────────
@@ -1011,7 +1012,7 @@
    첨부(사진 작은 미리보기 / 그 밖은 종류 표시, 이름·크기 아래 아이콘 붙은 작은 글자 링크) · 사진 속 글자 · 맨 아래 동작 한 줄. 폰은 위아래로 쌓인다. */
 #appView #basketView .basket-card{ display:block; margin:0 0 12px; padding:12px; background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); }
 #appView #basketView .basket-card .basket-read{ position:relative; }
-#appView #basketView .basket-card .basket-read-text{ margin:0 0 8px; padding:4px 76px 4px 0; border:0; border-radius:0; background:transparent; }
+#appView #basketView .basket-card .basket-read-text{ margin:0 0 8px; padding:4px 0; border:0; border-radius:0; background:transparent; }
 #appView #basketView .basket-card .basket-read-text[hidden]{ display:none; }
 #appView #basketView .basket-card .basket-note-meta{ margin:0 0 4px; }
 #appView #basketView .basket-card-tools{ position:absolute; top:-6px; right:-6px; z-index:1; display:flex; gap:0; }
@@ -1303,3 +1304,7 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
   #appView :is(#homeView,#basketView) .home-quick .home-quick-big::after,
   #appView :is(#tasksView,#homeView) .home-quick .home-quick-detail::after{ content:""; position:absolute; inset:auto; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); width:auto; min-width:0; height:var(--kptu-touch-target,44px); min-height:0; }
 }
+
+/* TEST-홈빠른입력안정화(2026-10-22): 할 일 첨부 확인이 오기 전에는 첨부 자리를 보이지 않게 잡아 둔다(home-quick.js·task-files.js).
+   그래서 답이 온 뒤 입력 칸·[+]·창 칸이 한 번 밀리지 않는다. 대기 중 버튼은 비활성이고 숨김이라 누르거나 Tab으로 갈 수 없다. */
+#appView .home-quick [data-quick-file-picker][data-quick-files-wait],.gt-pick[data-gt-pick-wait]{ visibility:hidden; }

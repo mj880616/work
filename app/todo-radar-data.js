@@ -11,8 +11,9 @@ import {createGoogleTask} from './quick-save.js';
 import {recordNoteTask, noteTaskEntry} from './basket-note-tasks.js';
 
 export const RADAR_KIND_LABEL = Object.freeze({request:'요청', my_task:'내 할 일', deadline:'마감', prepare:'준비', attend:'참석'});
-export const RADAR_SOURCE_LABEL = Object.freeze({basket:'업데이트', note:'노트', work:'일지', meeting:'회의 결과', org_update:'조직 기록', project_update:'프로젝트 기록'});
-export const HOME_ROWS = 5;
+export const RADAR_SOURCE_LABEL = Object.freeze({basket:'업데이트', note:'노트', work:'일지', meeting:'사업 보고', org_update:'조직 기록', project_update:'프로젝트 기록'});
+// JOURNAL-챙길것화면 ⑥: the first 4 open rows, the rest behind 'N건 더 ›' (home and journal alike).
+export const HOME_ROWS = 4;
 export const TASK_TITLE_MAX = 200;
 // The server waits for OpenAI up to 30 s and may try once more; finding reads several tables first.
 export const RADAR_TIMEOUT_MS = 90000;
@@ -51,6 +52,14 @@ const clean = rows => (Array.isArray(rows) ? rows : []).filter(validCandidate);
 export async function readOpenCandidates(rt = window.KPTURuntime) {
   try {
     const rows = await rt.api(`/rest/v1/app_todo_candidates?workspace_id=eq.${encode(workspace(rt))}&status=eq.open&select=${FIELDS}&order=created_at.desc,id.asc&limit=100`, {singleFlight:false});
+    return {ok:true, rows:clean(rows)};
+  } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
+}
+// JOURNAL-챙길것화면 ⑤: home shows what is still open and, folded below, what was handled since `since` (today's start).
+export async function readHomeCandidates(since, rt = window.KPTURuntime) {
+  if (!Number.isFinite(Date.parse(since))) return {ok:false};
+  try {
+    const rows = await rt.api(`/rest/v1/app_todo_candidates?workspace_id=eq.${encode(workspace(rt))}&or=${encode(`(status.eq.open,decided_at.gte."${new Date(since).toISOString()}")`)}&select=${FIELDS}&order=created_at.desc,id.asc&limit=150`, {singleFlight:false});
     return {ok:true, rows:clean(rows)};
   } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
 }
@@ -125,6 +134,21 @@ export async function candidateToTask(candidate, draft, {rt = window.KPTURuntime
     try { recorded = (await recordNoteTask(candidate.source_id, noteTaskEntry(result.task, now()), {rt, expectedSessionEpoch:epoch ?? null})).ok; } catch { recorded = false; }
   }
   return {status:marked ? 'done' : 'marked_failed', task:result.task, recorded, linkError:!!result.link_error};
+}
+
+// JOURNAL-챙길것화면 ③: [✓ 바로 할 일로] takes the AI's suggested due when there is one, else today.
+export const quickDue = (candidate, today) => candidate?.due && DAY.test(String(candidate.due)) ? candidate.due : today;
+// '10.23' from a date-only value or a Google due ('2026-10-23T00:00:00.000Z'); '' when it is not a date.
+export function dotDay(value) {
+  const m = String(value ?? '').match(/^\d{4}-(\d{2})-(\d{2})/);
+  return m ? `${Number(m[1])}.${Number(m[2])}` : '';
+}
+// [✎ 고쳐서 넣기] due choices: 오늘 / 내일 / 제안 기한(only when the AI suggested one) / 기한 없음.
+export function dueChoices(candidate, today, tomorrow) {
+  const list = [{key:'today', label:'오늘', due:today}, {key:'tomorrow', label:'내일', due:tomorrow}];
+  if (candidate?.due && DAY.test(String(candidate.due))) list.push({key:'suggested', label:`제안 기한 ${dotDay(candidate.due)}`, due:candidate.due});
+  list.push({key:'none', label:'기한 없음', due:''});
+  return list;
 }
 
 // todo-radar 결정 5: what is already a task is not shown again (title match after removing spaces and marks).
