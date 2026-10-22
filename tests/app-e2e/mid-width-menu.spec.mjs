@@ -94,10 +94,10 @@ test('resize and font changes repartition; phone and PC return to their original
 });
 
 test('recalculation preserves keyboard focus and highlights the hidden combined media button',async({page})=>{
-  await page.setViewportSize({width:820,height:844});await open(page);
+  await page.setViewportSize({width:900,height:844});await open(page);
   const home=page.locator('.app-nav [data-view="home"]');await home.focus();
-  await page.setViewportSize({width:900,height:844});await expect(home).toBeFocused();
-  const trigger=page.locator('#mobileMenuOpen');await trigger.focus();await page.setViewportSize({width:820,height:844});await expect(trigger).toBeFocused();
+  await page.setViewportSize({width:1000,height:844});await expect(home).toBeFocused();
+  const trigger=page.locator('#mobileMenuOpen');await trigger.focus();await page.setViewportSize({width:900,height:844});await expect(trigger).toBeFocused();
   await page.locator('.app-nav').evaluate(nav=>{nav.style.fontSize='32px';document.querySelectorAll('.nav-btn').forEach(b=>b.style.fontSize='inherit')});
   await expect.poll(()=>page.locator('.app-nav [data-view="media"]').count()).toBe(0);
   await trigger.click();await page.locator('#mobileMenu [data-view="media"]:visible').click();
@@ -143,7 +143,7 @@ test('breakpoint recovery does not steal deliberate blur or content input focus'
 });
 
 // JOURNAL-일기 1차: [일지]·[일기] 두 칸이 늘어 761px 줄에는 성명·보도자료가 들어가지 않는다(메뉴 창 쪽은 아래 글자 40px 경우가 검사).
-for(const width of [820,900,1023])test(`combined media current location at ${width}px in row and drawer`,async({page})=>{
+for(const width of [900,960,1023])test(`combined media current location at ${width}px in row and drawer`,async({page})=>{
   await page.setViewportSize({width,height:844});await open(page);await clickView(page,'media');
   const media=page.locator('.app-nav [data-view="media"]'),trigger=page.locator('#mobileMenuOpen');
   await expect(media).toHaveAttribute('aria-current','page');
