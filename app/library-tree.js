@@ -112,12 +112,14 @@ export function pathTo(list,documentId){let found=null;walk(list,(n,parents)=>{i
 
 // 노드 목록 → HTML. 접힌 줄은 <details>/<summary>(키보드·터치 기본 지원). 펼침은 isOpen(key)가 정한다.
 // fileHtml(d)는 지금의 파일 줄(luRowHtml)을 그대로 쓴다.
-export function treeHtml(list,{isOpen,showAll,fileHtml,esc,kindKey}){
+// menu(n): 그 토글 머리에 ⋯ 버튼을 둘 때 접근성 이름(없으면 버튼 없음). 버튼 누르기는 토글을 여닫지 않는다(그리는 쪽이 막음).
+export function treeHtml(list,{isOpen,showAll,fileHtml,esc,kindKey,menu=null}){
   const head=n=>{
     const dots=n.kinds.map(k=>`<i class="lu-kdot" data-lu-kind="${esc(kindKey(k))}"></i>`).join('');
     const mark=n.kind==='folder'?'<svg class="lu-folder-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M1.75 4.25a1 1 0 0 1 1-1h3.1l1.4 1.5h5.999a1 1 0 0 1 1 1v6.5a1 1 0 0 1-1 1H2.75a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>'
       :n.color?`<span class="lu-pdot" data-color="${esc(n.color)}"${n.tone?` data-tone="${esc(n.tone)}"`:''} aria-hidden="true"></span>`:'';
-    return `<summary class="lu-node-head">${mark}<span class="lu-node-name">${esc(n.label)}</span><span class="lu-node-count" aria-label="자료 ${n.count}건">${n.count}</span>${dots?`<span class="lu-kdots" aria-hidden="true">${dots}</span>`:''}</summary>`;
+    const more=menu?.(n);
+    return `<summary class="lu-node-head">${mark}<span class="lu-node-name">${esc(n.label)}</span><span class="lu-node-count" aria-label="자료 ${n.count}건">${n.count}</span>${dots?`<span class="lu-kdots" aria-hidden="true">${dots}</span>`:''}${more?`<button type="button" class="icon-btn lu-node-more" data-lu-node-menu="${esc(n.key)}" aria-label="${esc(more)}" aria-expanded="false" aria-haspopup="true">⋯</button>`:''}</summary>`;
   };
   const body=n=>{
     const all=showAll(n.key),files=all?n.files:n.files.slice(0,FILE_LIMIT),rest=n.files.length-files.length;
@@ -126,3 +128,44 @@ export function treeHtml(list,{isOpen,showAll,fileHtml,esc,kindKey}){
   const one=n=>`<details class="lu-node" data-lu-node="${esc(n.key)}" data-lu-node-kind="${n.kind}" style="--lu-depth:${Math.min(n.depth,6)}"${isOpen(n.key)?' open':''}>${head(n)}<div class="lu-node-body">${body(n)}</div></details>`;
   return list.map(one).join('');
 }
+
+// ---- 폴더 편집(LIB-토글트리 ③, 설계 4·6절) — 순수 함수. 저장은 library-upload.js가 기존 소유자 RLS REST로 한다. ----
+// 폴더 깊이(맨 위 폴더 = 1)와 그 아래 단 수(자기 포함). DB 트리거가 같은 규칙(3단, 순환 금지, 같은 프로젝트 틀)을 다시 지킨다.
+const byIdMap=folders=>new Map(folders.map(f=>[f.id,f]));
+export function folderDepth(folders,id){const map=byIdMap(folders);let n=0,cur=map.get(id),seen=new Set();while(cur&&!seen.has(cur.id)){seen.add(cur.id);n++;cur=cur.parent_id?map.get(cur.parent_id):null}return n}
+export function folderHeight(folders,id){const kids=folders.filter(f=>f.parent_id===id&&f.id!==id);return 1+(kids.length?Math.max(...kids.map(k=>folderHeight(folders.filter(f=>f.id!==id),k.id))):0)}
+export function folderSubtree(folders,id){const out=new Set([id]);let grew=true;while(grew){grew=false;for(const f of folders)if(f.parent_id&&out.has(f.parent_id)&&!out.has(f.id)){out.add(f.id);grew=true}}return out}
+const frameOf=f=>f?.project_id||null;
+// 같은 상위(같은 틀) 형제, 차례대로.
+export function folderSiblings(folders,{projectId=null,parentId=null}){return folders.filter(f=>frameOf(f)===(projectId||null)&&(f.parent_id||null)===(parentId||null)).sort(folderOrder)}
+// 새 폴더를 만들 수 있나(상위 폴더 깊이 < 3).
+export const canAddChild=(folders,parentId)=>!parentId||folderDepth(folders,parentId)<FOLDER_DEPTH;
+// 폴더를 옮길 수 있는 곳: 같은 틀의 맨 위(null) 또는 자기·자기 아래가 아니고 합친 깊이가 3단 이하인 폴더. 지금 상위는 뺀다.
+export function folderMoveTargets(folders,id){
+  const f=folders.find(x=>x.id===id);if(!f)return [];
+  const inside=folderSubtree(folders,id),h=folderHeight(folders,id),out=[];
+  if(f.parent_id)out.push(null);
+  // 트리 차례(맨 위 폴더 → 그 안)로 내놓는다.
+  const walkFrame=parent=>{for(const t of folderSiblings(folders,{projectId:frameOf(f),parentId:parent})){if(!inside.has(t.id)&&t.id!==f.parent_id&&folderDepth(folders,t.id)+h<=FOLDER_DEPTH)out.push(t.id);if(!inside.has(t.id))walkFrame(t.id)}};walkFrame(null);
+  return out;
+}
+// 새 자리의 sort_order: 맨 아래(가장 큰 값 + 1024).
+export const SORT_GAP=1024;
+export function nextSortOrder(siblings){return siblings.length?Math.max(...siblings.map(s=>Number(s.sort_order)||0))+SORT_GAP:SORT_GAP}
+// 위로·아래로: 바로 옆 형제와 sort_order를 맞바꾼다. 값이 같아 맞바꿔도 차례가 안 바뀌면 그 상위 형제만 1024 간격으로 다시 매긴다.
+// 돌려주는 값: [{id, sort_order}] 바꿀 행들(없으면 빈 배열).
+export function folderReorderPlan(folders,id,dir){
+  const f=folders.find(x=>x.id===id);if(!f)return [];
+  const sib=folderSiblings(folders,{projectId:frameOf(f),parentId:f.parent_id||null}),i=sib.findIndex(x=>x.id===id),j=dir==='up'?i-1:i+1;
+  if(i<0||j<0||j>=sib.length)return [];
+  const a=Number(sib[i].sort_order)||0,b=Number(sib[j].sort_order)||0;
+  if(a!==b)return [{id:sib[i].id,sort_order:b},{id:sib[j].id,sort_order:a}];
+  const order=sib.map(x=>x.id);[order[i],order[j]]=[order[j],order[i]];
+  return order.map((x,k)=>({id:x,sort_order:(k+1)*SORT_GAP})).filter(p=>Number(sib.find(s=>s.id===p.id).sort_order)!==p.sort_order);
+}
+// 지울 때 안내용: 바로 아래 폴더 수와 그 폴더에 든 자료 수(한 단 위로 감).
+export function folderDeleteCounts(folders,items,id){return {folders:folders.filter(f=>f.parent_id===id).length,files:items.filter(x=>x.folder_id===id).length}}
+// 폴더 이름 검사(DB 검사와 같음: 1~40자, 앞뒤 공백·제어문자 없음). 앞뒤 공백은 잘라서 쓴다.
+export function cleanFolderName(raw){const name=String(raw??'').replace(/[\u0000-\u001f\u007f]/g,'').trim();return name.length>=1&&[...name].length<=40?name:null}
+// DB 거절(23514 + LIB_FOLDER_*)을 일상어로.
+export function folderErrorText(e){const m=String(e?.message||'');if(/LIB_FOLDER_DEPTH/.test(m))return '폴더는 3단까지만 만들 수 있어요.';if(/LIB_FOLDER_CYCLE/.test(m))return '폴더를 자기 안으로 옮길 수 없어요.';if(/LIB_FOLDER_SCOPE/.test(m))return '같은 프로젝트 안에서만 옮길 수 있어요.';if(/name_check|23514/.test(m))return '폴더 이름은 1~40자로 써 주세요.';return '저장하지 못했어요. 잠시 뒤 다시 해 주세요.'}

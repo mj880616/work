@@ -207,3 +207,21 @@
   #appView #libraryView .lu-filter-row[data-lu-filter-row="group"] > .lu-expand-all{flex:0 0 auto}
 }
 @media(prefers-reduced-motion:reduce){#appView #libraryView .lu-node-head::before{transition:none}}
+
+/* LIB-토글트리 ③: 토글 머리 끝 ⋯(폴더 만들기·관리). 보이는 크기 28px, 누르는 범위 44px(UI-버튼기준 작은 버튼). */
+#appView #libraryView .lu-node-more{position:relative;flex:none;width:var(--ds-compact-height-sm,28px);height:var(--ds-compact-height-sm,28px);min-height:0;margin:-4px 0 -4px auto;padding:0;border:0;background:transparent;color:var(--kptu-muted);font-size:var(--ds-compact-text,13px);line-height:1}
+#appView #libraryView .lu-node-more::after{content:"";position:absolute;inset:calc((var(--ds-compact-height-sm,28px) - var(--kptu-touch-target,44px)) / 2)}
+#appView #libraryView .lu-node-more:hover{background:var(--kptu-surface-subtle)}
+#appView #libraryView .lu-node-more:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:1px}
+/* 머리 줄 안의 ⋯는 줄의 44px 누르는 범위 위에 둔다. */
+#appView #libraryView .lu-node-head > .lu-node-more{z-index:1}
+.lu-folder-status{margin:0 0 6px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.lu-folder-status.error{color:var(--kptu-danger)}
+.lu-folder-status[hidden]{display:none}
+.lu-folder-hint{margin:4px 0 0;font-size:var(--ds-text-meta,12px);line-height:1.5;color:var(--kptu-muted)}
+.lu-folder-hint[hidden],.lu-folder-name[hidden],.lu-folder-targets[hidden]{display:none}
+.lu-folder-targets{display:grid;gap:2px;max-height:50vh;overflow:auto;margin:0 0 8px}
+.lu-folder-target{display:block;width:100%;min-height:var(--kptu-touch-target,44px);padding:8px 10px 8px calc(10px + var(--lu-target-depth,0) * 12px);border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px);text-align:left;cursor:pointer;overflow-wrap:anywhere}
+.lu-folder-target:hover{background:var(--kptu-surface-subtle)}
+.lu-folder-target[aria-checked="true"]{background:var(--ds-kind-other-soft);color:var(--ds-kind-other-ink);font-weight:var(--ds-weight-bold,700)}
+.lu-folder-target:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
