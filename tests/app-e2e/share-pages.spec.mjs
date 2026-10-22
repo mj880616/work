@@ -112,9 +112,13 @@ for (const width of [390, 1280]) test('make a share page: blocks, move, save, li
   await root.getByRole('button', {name:'새 공유 페이지', exact:true}).click();
   const editor = page.locator('[data-sp-editor]');
   await expect(editor).toBeVisible();
+  // ED-통합편집기 ①b (결정 6 가): a new page starts with one 글 block, open in the new editor with the cursor in it.
   await expect(editor.locator('[data-sp-block]')).toHaveCount(1);
+  await expect(editor.locator('[data-sp-block="0"]')).toHaveAttribute('data-sp-type', 'doc');
+  const docBox = editor.getByRole('textbox', {name:'1번째 블록 글', exact:true});
+  await expect(docBox).toBeFocused();
+  await page.keyboard.type('3차 교섭 결렬, 조정 신청 예정');
   await editor.locator('[data-sp-title]').fill('민자철도 교섭 현황');
-  await editor.getByLabel('1번째 블록 한 줄 현황 글',{exact:true}).fill('3차 교섭 결렬, 조정 신청 예정');
   await editor.getByRole('button', {name:'+ 진행 단계', exact:true}).click();
   await editor.getByLabel('진행 단계 1번째 줄 단계 이름',{exact:true}).fill('요구안 확정');
   await editor.getByRole('button', {name:'2번째 블록 진행 단계에 줄 추가', exact:true}).click();
@@ -128,12 +132,14 @@ for (const width of [390, 1280]) test('make a share page: blocks, move, save, li
   await expect(editor.locator('[data-sp-block]').nth(1)).toHaveAttribute('data-sp-type', 'links');
   await expect(editor.getByRole('button', {name:'2번째 블록 자료·링크 위로', exact:true})).toBeFocused();
   // SHARE-보이는편집: a block shown as it will look keeps 위로·아래로·삭제 in its ⋯ menu; the open block shows them in place.
-  await editor.getByLabel('1번째 블록 한 줄 현황 메뉴', {exact:true}).click();
-  await expect(editor.getByRole('button', {name:'1번째 블록 한 줄 현황 위로', exact:true})).toBeDisabled();
+  await editor.getByLabel('1번째 블록 글 메뉴', {exact:true}).click();
+  await expect(editor.getByRole('button', {name:'1번째 블록 글 위로', exact:true})).toBeDisabled();
+  // The 글 block shows as the reader will draw it.
+  await expect(editor.locator('[data-sp-block="0"] .sr-doc .ed-doc')).toHaveText('3차 교섭 결렬, 조정 신청 예정');
   await editor.getByRole('button', {name:'2번째 블록 자료·링크 아래로', exact:true}).click();
   await editor.getByLabel('2번째 블록 진행 단계 메뉴', {exact:true}).click();
   await editor.getByRole('button', {name:'2번째 블록 진행 단계 위로', exact:true}).click();
-  expect(await editor.locator('[data-sp-block]').evaluateAll(n => n.map(x => x.dataset.spType))).toEqual(['stages', 'summary', 'links']);
+  expect(await editor.locator('[data-sp-block]').evaluateAll(n => n.map(x => x.dataset.spType))).toEqual(['stages', 'doc', 'links']);
   // Delete then re-add a block (an empty block goes without asking).
   await editor.getByRole('button', {name:'+ 일정', exact:true}).click();
   await editor.getByRole('button', {name:'4번째 블록 일정 지우기', exact:true}).click();
@@ -150,7 +156,7 @@ for (const width of [390, 1280]) test('make a share page: blocks, move, save, li
   expect(saved.project_id).toBe('proj-1');
   expect(saved.blocks).toEqual([
     {type:'stages', title:'', items:[{name:'요구안 확정'}, {name:'교섭'}], current:1},
-    {type:'summary', text:'3차 교섭 결렬, 조정 신청 예정'},
+    {type:'doc', doc:{v:'ed1', doc:{type:'doc', content:[{type:'paragraph', attrs:{style:'body2'}, content:[{type:'text', text:'3차 교섭 결렬, 조정 신청 예정'}]}]}}},
     {type:'links', title:'', items:[{label:'요구안', url:'https://drive.google.com/file/d/x/view'}]},
   ]);
   const post = state.requests.find(r => r.method === 'POST' && !r.link);
