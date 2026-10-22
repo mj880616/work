@@ -5,7 +5,8 @@ export {EditorState, Plugin, PluginKey, TextSelection, NodeSelection, AllSelecti
 export {EditorView} from 'prosemirror-view';
 export {keymap} from 'prosemirror-keymap';
 export {history, undo, redo, undoDepth, redoDepth} from 'prosemirror-history';
-export {baseKeymap, toggleMark, setBlockType, wrapIn, lift, chainCommands, exitCode} from 'prosemirror-commands';
+export {baseKeymap, toggleMark, setBlockType, wrapIn, lift, chainCommands, exitCode, splitBlockAs, newlineInCode,
+  createParagraphNear, liftEmptyBlock, selectAll} from 'prosemirror-commands';
 export {wrapInList, splitListItem, liftListItem, sinkListItem} from 'prosemirror-schema-list';
 export {tableEditing, columnResizing, goToNextCell, addRowAfter, addRowBefore, deleteRow, addColumnAfter, addColumnBefore,
   deleteColumn, deleteTable, toggleHeaderRow, isInTable, fixTables, tableNodes} from 'prosemirror-tables';

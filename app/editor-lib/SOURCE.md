@@ -19,5 +19,5 @@ ED-통합편집기용(설계 `docs/design/unified-editor.md` 2.2). `node scripts
 | rope-sequence | 1.3.4 | MIT | `sha512-UT5EDe2cu2E/6O4igUr5PSFs23nvvukicWHx6GnOPlHAiiYbzNuCRQCuiUdHJQcqKalLKlrYJnjY0ySGsXNQXQ==` |
 | w3c-keyname | 2.2.8 | MIT | `sha512-dpojBhNsCNN7T82Tm7k26A6G9ML3NkhDsnw9n/eoxSRlVBB4CEtIQ/KTCLI2Fwf3ataSXRhYFkQi3SlnFwPvPQ==` |
 
-- 묶기: esbuild 0.28.2(고정)로 `scripts/editor/entry.mjs`를 한 파일 ESM(`pm-ed1-1.0.0/prosemirror.min.mjs`, 241.2 KiB)로 묶었다. 각 패키지 라이선스 전문은 같은 폴더 `LICENSE`.
+- 묶기: esbuild 0.28.2(고정)로 `scripts/editor/entry.mjs`를 한 파일 ESM(`pm-ed1-1.0.0/prosemirror.min.mjs`, 241.3 KiB)로 묶었다. 각 패키지 라이선스 전문은 같은 폴더 `LICENSE`.
 - 불러오는 시점: 새 편집기를 열 때만(`app/ed-editor.js`). 읽기 화면(Web1 공유 페이지 포함)은 이 묶음을 받지 않는다(`app/ed-render.mjs`).
