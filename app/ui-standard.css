@@ -1266,17 +1266,20 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
 /* ② 창 안 보조 버튼: 작은 버튼(32px). 일정·할 일 창 [프로젝트 선택 안 함 ▾]은 폭도 글자만큼. */
 .modal :is(#eventTaskProject,#gtDeleteBtn,#gtToggleBtn):where(:not([hidden])),
 :is(#eventModal,#gtTaskModal) .gt-pick .gt-pick-btn,
-:is(#ps3DetailModal,#wdModal) button.mini[data-gt-linked-unlink]{
+:is(#ps3DetailModal,#wdModal) button.mini[data-gt-linked-unlink],
+#appView :is(#projectsView,#teamView) :is(#ps3DetailModal,#wdModal) button.mini[data-gt-linked-unlink]{
   height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1;
 }
 .modal #eventTaskProject{ display:inline-flex; width:auto; max-width:100%; justify-content:flex-start; }
 /* ③ 프로젝트 상세 [기록]·담당조직 상세 [크게][저장]: 36px(같은 줄 입력칸 가운데). */
-#ps3DetailModal [data-ps3-record-input] > button.primary{ align-self:center; height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+#ps3DetailModal [data-ps3-record-input] > button.primary,
+#appView #projectsView #ps3DetailModal [data-ps3-record-input] > button.primary{ align-self:center; height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
 #wdModal :is(#wdInboxSave,#wdInboxBig){ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
 /* ④ PC 할 일 수정 칸(요청함 08:43): 기한 날짜 칸과 [내일][모레][다음주][기한 없음]을 같은 줄·같은 높이(36px)로, 윗선·아랫선을 맞춘다.
    제목 줄 [↵ 저장]은 작은 버튼(32px). */
 @media(min-width:1024px){
-  #gtDetailPane #gtTaskModal.gt-docked .gt-due-row{ align-items:flex-end; }
+  #gtDetailPane #gtTaskModal.gt-docked .gt-due-row{ align-items:flex-end; margin:var(--kptu-space-3) 0; }
+  #gtDetailPane #gtTaskModal.gt-docked .gt-due-row>label{ margin:0; }
   #gtDetailPane #gtTaskModal.gt-docked #gtEditDue{ box-sizing:border-box; height:var(--kptu-control-height); min-height:var(--kptu-control-height); padding-top:0; padding-bottom:0; }
   #gtDetailPane #gtTaskModal.gt-docked .gt-due-quick{ flex-wrap:nowrap; }
   #gtDetailPane #gtTaskModal.gt-docked .gt-due-quick>button{ box-sizing:border-box; height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
