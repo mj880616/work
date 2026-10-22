@@ -1,0 +1,83 @@
+// LIB-토글트리 ②: app/library-tree.js(자료실 트리 만들기·그리기, 순수 함수). 화면·네트워크 없음.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+const m=await import('../app/library-tree.js');
+
+const sortKey=d=>String(d.document_date||d.created_at||'').slice(0,10);
+const kindOf=d=>/\.pdf$/i.test(d.file_name||'')?'PDF':/\.hwpx?$/i.test(d.file_name||'')?'HWP':'파일';
+const monthLabel=k=>{const x=/^(\d{4})-(\d{2})/.exec(k);return x?`${x[1]}년 ${Number(x[2])}월`:'날짜 없음'};
+const categoryOf=c=>c||'기타';
+const P=(id,name,parent_id=null,sort_order=0,metadata={})=>({id,name,parent_id,sort_order,metadata});
+const tree=[{project:P('a','A'),depth:0},{project:P('a1','A1','a'),depth:1},{project:P('a11','A11','a1'),depth:2},{project:P('a2','A2','a'),depth:1},{project:P('b','B'),depth:0}];
+const doc=(id,project_id,extra={})=>({id,project_id,title:id,file_name:id+'.pdf',created_at:'2026-10-01T00:00:00Z',...extra});
+const base=extra=>({groupBy:'project',tree,kindOf,sortKey,monthLabel,categoryOf,projectName:id=>'['+id+']',...extra});
+const shape=list=>list.map(n=>[n.key,n.count,n.files.map(d=>d.id),shape(n.children)]);
+
+test('프로젝트 묶기: 3단 프로젝트, 빈 하위 숨김, 1단·프로젝트 없음은 늘 보임, 확인 불가 연결은 활성 뒤',()=>{
+  const docs=[doc('d1','a'),doc('d2','a11'),doc('d3',null),doc('d4','gone')];
+  const out=m.buildTree(base({docs}));
+  assert.deepEqual(out.map(n=>n.key),['p:a','p:b','p:gone','p:none']);
+  assert.deepEqual(shape(out)[0],['p:a',2,['d1'],[['p:a1',1,[],[['p:a11',1,['d2'],[]]]]]]);
+  assert.equal(out[1].count,0);assert.equal(out[2].label,'[gone]');assert.equal(out[3].label,'프로젝트 없음');
+});
+
+test('폴더: 같은 프로젝트 틀 안 3단 폴더, 하위 프로젝트 다음·파일 앞, 빈 폴더 보임, 어긋난 연결은 프로젝트 바로 아래',()=>{
+  const folders=[{id:'f1',project_id:'a',parent_id:null,name:'F1',sort_order:2048},{id:'f0',project_id:'a',parent_id:null,name:'F0',sort_order:1024},{id:'f11',project_id:'a',parent_id:'f1',name:'F11',sort_order:0},{id:'fn',project_id:null,parent_id:null,name:'없음 폴더',sort_order:0}];
+  const docs=[doc('d1','a'),doc('d2','a'),doc('d3','b'),doc('d4',null)];
+  const items=[{document_id:'d1',folder_id:'f11'},{document_id:'d3',folder_id:'f1'},{document_id:'d4',folder_id:'fn'}];
+  const out=m.buildTree(base({docs,folders,items}));
+  const a=out[0];
+  // 빈 하위 프로젝트(a1·a2)는 숨고, 폴더는 sort_order 순.
+  assert.deepEqual(a.children.map(n=>n.key),['f:f0','f:f1']);
+  assert.deepEqual(a.files.map(d=>d.id),['d2']);
+  assert.equal(a.children[1].children[0].files[0].id,'d1');
+  assert.equal(a.count,2);assert.equal(a.children[0].count,0);
+  assert.deepEqual(out.find(n=>n.key==='p:b').files.map(d=>d.id),['d3']);
+  const none=out.at(-1);assert.equal(none.children[0].key,'f:fn');assert.equal(none.children[0].files[0].id,'d4');
+});
+
+test('폴더가 순환으로 들어와도 한 번만 그린다',()=>{
+  const folders=[{id:'x',project_id:'b',parent_id:'y',name:'X'},{id:'y',project_id:'b',parent_id:'x',name:'Y'}];
+  const out=m.buildTree(base({docs:[],folders}));const keys=m.keys(out);
+  assert.equal(keys.filter(k=>k==='f:x').length,1);assert.equal(keys.filter(k=>k==='f:y').length,1);
+});
+
+test('거르는 중: 맞는 자료가 없는 토글·폴더를 숨기고, 맞는 토글만 펼칠 목록',()=>{
+  const folders=[{id:'f',project_id:'a',name:'F'}];
+  const out=m.buildTree(base({docs:[doc('d2','a11')],folders,filtering:true}));
+  assert.deepEqual(shape(out),[['p:a',1,[],[['p:a1',1,[],[['p:a11',1,['d2'],[]]]]]]]);
+  assert.deepEqual([...m.matchedKeys(out)],['p:a','p:a1','p:a11']);
+  assert.deepEqual(m.pathTo(out,'d2'),['p:a','p:a1','p:a11']);
+});
+
+test('담당조직·종류·월별 묶기는 파일만, 빈 묶음 숨김, 순서',()=>{
+  const docs=[doc('d1',null,{organization_id:'o2',category:'교섭',document_date:'2026-09-03'}),doc('d2',null,{organization_id:null,category:'',created_at:'2026-10-02T00:00:00Z'}),doc('d3',null,{organization_id:'o1',category:'교섭',document_date:null,created_at:''})];
+  const org=m.buildTree(base({groupBy:'organization',docs,organizations:[{id:'o1',name:'가'},{id:'o2',name:'나'},{id:'o3',name:'다'}]}));
+  assert.deepEqual(org.map(n=>[n.label,n.files.map(d=>d.id)]),[['가',['d3']],['나',['d1']],['조직 없음',['d2']]]);
+  const cat=m.buildTree(base({groupBy:'category',docs,categories:['교섭','투쟁','기타']}));
+  assert.deepEqual(cat.map(n=>[n.label,n.count]),[['교섭',2],['기타',1]]);
+  const month=m.buildTree(base({groupBy:'month',docs}));
+  assert.deepEqual(month.map(n=>n.label),['2026년 10월','2026년 9월','날짜 없음']);
+  assert.ok(org.every(n=>n.children.length===0));
+});
+
+test('파일은 날짜 최신순, 종류 점은 정해진 순서로 최대 5개',()=>{
+  const docs=[doc('old','a',{document_date:'2026-01-01'}),doc('new','a',{document_date:'2026-05-01',file_name:'x.hwp'}),doc('mid','a',{document_date:null,created_at:'2026-03-01T00:00:00Z',file_name:'y.zip'})];
+  const out=m.buildTree(base({docs}));
+  assert.deepEqual(out[0].files.map(d=>d.id),['new','mid','old']);
+  assert.deepEqual(out[0].kinds,['HWP','PDF','파일']);
+});
+
+test('그리기: details/summary, 펼침, 20개 넘으면 N건 더, 이름은 이스케이프',()=>{
+  const docs=Array.from({length:23},(_,i)=>doc('d'+i,'b'));
+  const out=m.buildTree(base({docs,tree:[{project:P('b','<B>'),depth:0}]}));
+  const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const opts={isOpen:k=>k==='p:b',showAll:()=>false,fileHtml:d=>`<article data-id="${d.id}"></article>`,esc,kindKey:k=>k.toLowerCase()};
+  const html=m.treeHtml(out,opts);
+  assert.match(html,/<details class="lu-node" data-lu-node="p:b"[^>]* open>/);
+  assert.match(html,/&lt;B&gt;/);
+  assert.equal((html.match(/<article/g)||[]).length,20);
+  assert.match(html,/data-lu-more="p:b">3건 더</);
+  const all=m.treeHtml(out,{...opts,showAll:()=>true});
+  assert.equal((all.match(/<article/g)||[]).length,23);assert.doesNotMatch(all,/건 더/);
+});
