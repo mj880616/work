@@ -154,3 +154,26 @@
   #appView #libraryView .library-filter-toolbar .lu-filter-row:not([data-lu-filter-row="category"]){grid-template-columns:3.6em minmax(0,1fr);column-gap:6px}
   #appView #libraryView .lu-filter-label{flex:0 0 3.6em;font-size:11px}
 }
+
+/* LIB-정리제안화면: 자료 분류 수정 창의 정리 제안(보기만). 자료 한 줄은 늘 보이고 칸별 변경은 접기/펴기. */
+.library-tidy{margin:0 0 8px;min-width:0}
+.lt-bar{display:flex;align-items:center;gap:8px;min-height:var(--ds-compact-height,32px);min-width:0}
+.lt-status{flex:1 1 auto;min-width:0;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);overflow-wrap:anywhere}
+.lt-list{display:grid;gap:0;max-height:40vh;overflow:auto;min-width:0}
+.lt-list:empty{display:none}
+.lt-row{border-top:1px solid var(--kptu-border);min-width:0}
+.lt-row:first-child{border-top:0}
+.lt-row>summary{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:var(--kptu-touch-target,44px);padding:0 2px;cursor:pointer;list-style:none}
+.lt-row>summary::-webkit-details-marker{display:none}
+.lt-row>summary::before{content:"▸";flex:none;color:var(--kptu-muted);font-size:11px}
+.lt-row[open]>summary::before{content:"▾"}
+.lt-row>summary:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:2px;border-radius:var(--kptu-radius-md)}
+.lt-row>summary b{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.lt-row>summary small{flex:none;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
+.lt-items{display:grid;gap:4px;padding:0 2px 8px 18px;min-width:0}
+.lt-item{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 6px;min-width:0;font-size:12px;line-height:1.45}
+.lt-field{flex:none;min-width:2.4em;color:var(--kptu-muted)}
+.lt-from{color:var(--kptu-muted);overflow-wrap:anywhere;min-width:0}
+.lt-arrow{flex:none;color:var(--kptu-faint)}
+.lt-to{color:var(--kptu-ink);font-weight:600;overflow-wrap:anywhere;min-width:0}
+.lt-bar [hidden]{display:none}

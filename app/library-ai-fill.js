@@ -56,17 +56,74 @@ export async function fillLibraryDocument(id,{keep=[],rt=globalThis.window?.KPTU
 
 // 기존 자료 정리 목록 만들기(⑥ 1단계): 저장하지 않고 {document_id, field, from, to} 목록만 돌려준다.
 // 적용은 사용자 확인 뒤 별도 단계(원래 값 백업 포함, docs/design/library-ai-fill.md 6절). 10개씩 나눠 보낸다.
-export async function buildTidyProposals(ids,{rt=globalThis.window?.KPTURuntime,call=callAiAssist,readFirst=true}={}){
+// 화면용 덧붙임: onProgress(done,total)로 진행을 알리고, stopOnError면 첫 실패에서 멈추며, remaining(못 본 자료 id)·stop(멈춘 이유)을 돌려준다.
+const TIDY_STOP_CODES=Object.freeze(['monthly_limit','daily_limit','ai_not_configured','library_not_ready','session_required']);
+export async function buildTidyProposals(ids,{rt=globalThis.window?.KPTURuntime,call=callAiAssist,readFirst=true,onProgress=null,stopOnError=false}={}){
   const list=[...new Set((ids||[]).filter(id=>typeof id==='string'&&UUID.test(id)))];
-  const proposals=[],failed=[];
+  const proposals=[],failed=[],remaining=[];
+  let stop=null,done=0;
   for(let i=0;i<list.length;i+=10){
     const batch=list.slice(i,i+10);
+    if(stop){remaining.push(...batch);continue;}
     if(readFirst)for(const id of batch)await readText(id,rt);
     const r=await call({kind:'library_fill',mode:'propose',document_ids:batch},{rt},CODES);
-    if(!r.ok){failed.push({ids:batch,code:r.code});if(['monthly_limit','daily_limit','ai_not_configured','library_not_ready','session_required'].includes(r.code))break;continue;}
+    if(!r.ok){
+      failed.push({ids:batch,code:r.code});remaining.push(...batch);
+      if(stopOnError||TIDY_STOP_CODES.includes(r.code))stop=r.code;
+      continue;
+    }
+    done+=batch.length;
     for(const p of Array.isArray(r.data?.proposals)?r.data.proposals:[]){
       if(batch.includes(p?.document_id)&&LIBRARY_AI_FIELDS.includes(p?.field)&&typeof p?.to==='string')proposals.push({document_id:p.document_id,field:p.field,from:p.from??null,to:p.to});
     }
+    if(typeof onProgress==='function')onProgress(done,list.length);
   }
-  return {proposals,failed};
+  return {proposals,failed,remaining,stop,done};
 }
+
+// ---- 정리 제안 화면용 순수 함수(저장 없음, 결과는 화면 메모리에만) ----
+export const TIDY_FIELD_LABEL=Object.freeze({title:'제목',document_date:'날짜',source:'출처',category:'분류'});
+const squash=s=>String(s??'').normalize('NFKC').toLowerCase().replace(/[\s_\-.()[\]]+/g,'');
+const baseName=name=>String(name??'').replace(/\.[^.]{1,8}$/,'').trim();
+// 값 한 칸의 화면 문구. 빈 값은 "(빈 칸)", 파일 이름과 같은 제목은 "(파일 이름 그대로)", 분류는 표시 이름(categoryName), 날짜는 YYYY.MM.DD.
+export function tidyValueText(field,value,doc,{categoryName=v=>v}={}){
+  const text=String(value??'').trim();
+  if(!text)return '(빈 칸)';
+  if(field==='title'&&doc&&squash(text)===squash(baseName(doc.file_name)))return '(파일 이름 그대로)';
+  if(field==='category')return String(categoryName(text)??text);
+  if(field==='document_date'){const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(text);return m?`${m[1]}.${m[2]}.${m[3]}`:text;}
+  return text;
+}
+// 제안 목록 → 자료별 묶음. 자료 순서는 docs(목록) 순서를 따르고, 목록에 없는 자료의 제안은 버린다.
+// 반환: [{id,name,items:[{field,label,from,to}]}] (from·to는 이미 화면 문구, escape는 그리는 쪽이 한다)
+export function groupTidyProposals(proposals,docs,{categoryName}={}){
+  const byId=new Map();
+  for(const p of proposals||[]){if(!byId.has(p.document_id))byId.set(p.document_id,[]);byId.get(p.document_id).push(p);}
+  const rows=[];
+  for(const doc of docs||[]){
+    const list=byId.get(doc.id);
+    if(!list?.length)continue;
+    rows.push({id:doc.id,name:String(doc.file_name||doc.title||''),items:list.map(p=>({field:p.field,label:TIDY_FIELD_LABEL[p.field]||p.field,from:tidyValueText(p.field,p.from,doc,{categoryName}),to:tidyValueText(p.field,p.to,doc,{categoryName})}))});
+  }
+  return rows;
+}
+// 이어서 찾기 상태: ids = 대상 자료 전체, pending = 아직 못 본 것, proposals = 지금까지 받은 제안(유지).
+export function startTidyState(ids){
+  const list=[...new Set((ids||[]).filter(id=>typeof id==='string'&&UUID.test(id)))];
+  return {total:list.length,pending:list,proposals:[],error:null};
+}
+export function mergeTidyResult(state,result){
+  const seen=new Set(state.proposals.map(p=>`${p.document_id}|${p.field}`));
+  const added=(result.proposals||[]).filter(p=>!seen.has(`${p.document_id}|${p.field}`));
+  return {total:state.total,pending:[...(result.remaining||[])],proposals:[...state.proposals,...added],error:result.failed?.length?(result.stop||result.failed.at(-1).code):null};
+}
+export const TIDY_ERROR_TEXT=Object.freeze({
+  daily_limit:'오늘 쓸 수 있는 횟수를 다 썼어요.',
+  monthly_limit:'이번 달 쓸 수 있는 양을 다 썼어요.',
+  not_ready:'아직 쓸 수 없어요.',unsupported_kind:'아직 쓸 수 없어요.',library_not_ready:'아직 쓸 수 없어요.',ai_not_configured:'아직 쓸 수 없어요.',library_unavailable:'아직 쓸 수 없어요.',
+  offline:'인터넷 연결을 확인해 주세요.',session_required:'다시 로그인해 주세요.',auth_unavailable:'다시 로그인해 주세요.',
+  ai_busy:'지금 많이 바빠요. 잠시 뒤 이어서 찾아 주세요.',ai_timeout:'시간이 오래 걸려 멈췄어요. 이어서 찾아 주세요.',
+});
+export const tidyErrorText=code=>TIDY_ERROR_TEXT[code]||'찾지 못했어요. 이어서 찾아 주세요.';
+// 이어서 찾기를 숨기는 이유: 아직 못 쓰는 기능, 이번 달 한도. 하루 한도(daily_limit)는 버튼을 남기고, 눌러도 서버가 같은 답으로 막는다(상한을 늘리거나 우회하지 않음).
+export const tidyRetryable=code=>!['monthly_limit','not_ready','unsupported_kind','library_not_ready','ai_not_configured','library_unavailable'].includes(code);
