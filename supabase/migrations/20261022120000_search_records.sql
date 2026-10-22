@@ -42,6 +42,15 @@ begin
                           to_regclass('public.app_spaces'), to_regclass('public.app_project_progress_updates'),
                           to_regclass('public.app_project_milestones'), to_regclass('public.app_suborganizations'),
                           to_regclass('public.app_suborganization_updates'), to_regclass('public.app_suborganization_timeline')))
+     -- 날짜 칸은 date·timestamp·timestamptz여야 한다(글자 칸이면 검색 중 변환 오류가 날 수 있어 멈춤).
+     or exists (select 1 from pg_attribute where not attisdropped
+         and atttypid not in ('date'::regtype, 'timestamp'::regtype, 'timestamptz'::regtype)
+         and (attrelid, attname) in ((to_regclass('public.app_notes'), 'occurred_at'), (to_regclass('public.app_notes'), 'journal_day'),
+           (to_regclass('public.app_documents'), 'document_date'), (to_regclass('public.app_documents'), 'created_at'),
+           (to_regclass('public.app_meetings'), 'meeting_at'), (to_regclass('public.app_meetings'), 'created_at'),
+           (to_regclass('public.app_spaces'), 'updated_at'), (to_regclass('public.app_project_progress_updates'), 'effective_on'),
+           (to_regclass('public.app_project_milestones'), 'start_at'), (to_regclass('public.app_suborganizations'), 'updated_at'),
+           (to_regclass('public.app_suborganization_updates'), 'occurred_at'), (to_regclass('public.app_suborganization_timeline'), 'event_date')))
      -- 검색 대상 표는 모두 RLS가 켜져 있어야 한다(INVOKER 함수가 기존 경계를 그대로 쓰는 전제).
      or (select count(*) from pg_class where relrowsecurity
          and oid in (to_regclass('public.app_notes'), to_regclass('public.app_record_links'), to_regclass('public.app_documents'),

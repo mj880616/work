@@ -138,6 +138,10 @@ test('S-1 search: workflow plans, apply, owner-only results, diary excluded, inp
    try{await c.query('begin');await c.query('alter table public.app_meetings rename column transcript_text to transcript_x');
     await assert.rejects(c.query(F.migration.replace(/^begin;/,'').replace(/commit;\s*$/,'')),/SEARCH_RECORDS_PREREQUISITE_CHANGED/);}
    finally{await c.query('rollback');c.release();}
+   const c2=await pool.connect();
+   try{await c2.query('begin');await c2.query('alter table public.app_meetings alter column meeting_at type text');
+    await assert.rejects(c2.query(F.migration.replace(/^begin;/,'').replace(/commit;\s*$/,'')),/SEARCH_RECORDS_PREREQUISITE_CHANGED/);}
+   finally{await c2.query('rollback');c2.release();}
    assert.equal(await history(FN),0);
   });
 

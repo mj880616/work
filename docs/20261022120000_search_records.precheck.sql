@@ -31,6 +31,13 @@ union all select 'organization updates columns',case when (select count(*) from 
   and attname in('id','organization_id','raw_text','detail_text','occurred_at'))=5 then '예' else '아니오' end
 union all select 'organization timeline columns',case when (select count(*) from pg_attribute where attrelid=to_regclass('public.app_suborganization_timeline') and not attisdropped
   and attname in('id','organization_id','title','summary','event_date','event_year'))=6 then '예' else '아니오' end
+union all select 'date columns are date or timestamp',case when not exists(select 1 from pg_attribute where not attisdropped
+  and atttypid not in('date'::regtype,'timestamp'::regtype,'timestamptz'::regtype)
+  and (attrelid,attname) in((to_regclass('public.app_notes'),'occurred_at'),(to_regclass('public.app_notes'),'journal_day'),
+  (to_regclass('public.app_documents'),'document_date'),(to_regclass('public.app_documents'),'created_at'),(to_regclass('public.app_meetings'),'meeting_at'),
+  (to_regclass('public.app_meetings'),'created_at'),(to_regclass('public.app_spaces'),'updated_at'),(to_regclass('public.app_project_progress_updates'),'effective_on'),
+  (to_regclass('public.app_project_milestones'),'start_at'),(to_regclass('public.app_suborganizations'),'updated_at'),
+  (to_regclass('public.app_suborganization_updates'),'occurred_at'),(to_regclass('public.app_suborganization_timeline'),'event_date'))) then '예' else '아니오' end
 union all select 'search tables all RLS enabled',case when (select count(*) from pg_class where relrowsecurity and oid in(to_regclass('public.app_notes'),to_regclass('public.app_record_links'),
   to_regclass('public.app_documents'),to_regclass('public.app_meetings'),to_regclass('public.app_spaces'),to_regclass('public.app_project_progress_updates'),
   to_regclass('public.app_project_milestones'),to_regclass('public.app_suborganizations'),to_regclass('public.app_suborganization_updates'),
