@@ -428,14 +428,27 @@ window.addEventListener('kptu:basket-kind',event=>{basketKind=event.detail?.kind
 paintWhere();
 // [+ 추가]: 업데이트·할 일·노트·일정 open the existing windows, each through its existing opener (no new save path):
 // 업데이트·노트 = the menu [쓰기] window; 일정 = [+ 일정 등록]; 할 일 = the same window on its [할 일] side (as the home input's [+]).
+// 일기·공유 페이지 (MTG-사업보고 1단계) = the router opens the screen, then that screen's own [새 일기] / [새 공유 페이지] button is pressed (no new save path).
 const addButton=topline?.querySelector('[data-quick-add]');
-const ADD_ITEMS=[['update','업데이트'],['task','할 일'],['note','노트'],['event','일정']];
+const ADD_ITEMS=[['update','업데이트'],['task','할 일'],['note','노트'],['event','일정'],['diary','일기'],['page','공유 페이지']];
 async function openEventWindow(task){
   try{
     await window.KPTUDeferredFeatures?.loadView?.('calendar');
     const open=document.querySelector('#newEventBtn');if(!open)throw new Error('missing');
     open.click();
     if(task)document.querySelector('#eventModal [data-event-mode="task"]')?.click();
+  }catch(error){console.error('quick add',error);writeToast('추가 창을 열지 못했어요. 다시 시도해 주세요.')}
+}
+async function openScreenNewButton(view,selector){
+  try{
+    await window.KPTURouter?.go(view,{source:'delegated'});
+    let button=null;
+    for(let i=0;i<80&&!button;i++){
+      const found=document.querySelector(`#${view}View ${selector}`);
+      if(found&&!found.disabled&&!found.hidden&&found.getClientRects().length)button=found;else await new Promise(resolve=>setTimeout(resolve,100));
+    }
+    if(!button)throw new Error('missing');
+    button.click();
   }catch(error){console.error('quick add',error);writeToast('추가 창을 열지 못했어요. 다시 시도해 주세요.')}
 }
 if(addButton){
@@ -446,6 +459,8 @@ if(addButton){
       onAction:button=>{
         const kind=button.dataset.toplineAdd;
         if(kind==='update'||kind==='note')void openWriter(kind);
+        else if(kind==='diary')void openScreenNewButton('diary','[data-diary-new]');
+        else if(kind==='page')void openScreenNewButton('pages','[data-sp-new]');
         else void openEventWindow(kind==='task');
       }});
     addButton.addEventListener('click',()=>menu.open(addButton));
