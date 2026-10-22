@@ -389,6 +389,10 @@ test('원장 후보: 만들기 → 확정 → 고쳐서 확정 → 버림, 거�
  await expect(box.locator('[data-lc-row="'+u(101)+'"]')).toContainText('Web2 원래 기록: 업데이트 2026-10-20');
  await expect(box.locator('[data-lc-row="'+u(101)+'"]')).toContainText('직접관련 ORG-0901');
 
+ // 후보 칸 종류 이름은 화면에서만 쉬운 말(LEDGER-후보칸이름). 툴팁은 설명.
+ await expect(box.locator('[data-lc-row="'+u(101)+'"] .lg-pill').first()).toHaveText('일어난 일');
+ await expect(box.locator('[data-lc-row="'+u(101)+'"] .lg-pill').first()).toHaveAttribute('title','추적할 일 하나(원장의 사건)');
+
  // [원장 후보 만들기]: ai-assist에는 kind 하나만 간다.
  await box.locator('[data-lc-action="make"]').click();
  await expect(box).toContainText('새 원장 후보 1건을 더했어요. 민감(S3·개인정보)으로 1건은 넣지 않았어요.');
@@ -407,8 +411,6 @@ test('원장 후보: 만들기 → 확정 → 고쳐서 확정 → 버림, 거�
  await expect(box.locator('[data-lc-confirmed-box]')).toHaveCount(0);
 
  // 후보 칸 종류 이름은 화면에서만 쉬운 말(LEDGER-후보칸이름). 툴팁은 설명, 확정 때 보내는 값은 원래 종류.
- await expect(box.locator('[data-lc-row="'+u(101)+'"] .lg-pill').first()).toHaveText('일어난 일');
- await expect(box.locator('[data-lc-row="'+u(101)+'"] .lg-pill').first()).toHaveAttribute('title','추적할 일 하나(원장의 사건)');
  await expect(box.locator('[data-lc-row="'+u(102)+'"] .lg-pill').first()).toHaveText('약속');
  await expect(box.locator('[data-lc-row="'+u(103)+'"] .lg-pill').first()).toHaveText('바뀐 점');
 
