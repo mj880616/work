@@ -54,6 +54,11 @@ test('library folders: migration, owner-only RLS, scope, cycle/depth guard, lift
    for(const sql of [precheck,postcheck,snapshot])assert.equal(checkSQL(sql).baselineNull,false);
    const plan=prepareMigration({mode:'apply',version,runId:'1',root});
    assert.equal(plan.rules,'expanded');assert.equal(plan.flow,'full');
+   const dry=prepareMigration({mode:'dry-run',version,runId:'1',root});
+   assert.equal(dry.rules,'expanded');assert.equal(dry.flow,'full');
+   // Rollback mode never drops tables; this rollback is SQL Editor only (phone path C), as the file header says.
+   assert.throws(()=>prepareMigration({mode:'rollback',version,runId:'1',root}));
+   assert.match(rollbackSQL,/SQL Editor\(폰 경로 C\) 전용/);
    const summary=(await read('docs/'+stem+'.summary.md')).trim().split('\n');
    assert.deepEqual(summary.map(l=>l.split(':')[0]),['무엇이 바뀌나','잘못되면','되돌리는 법']);
    const code=migration.replace(/--.*$/gm,'');
