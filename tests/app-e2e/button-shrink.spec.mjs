@@ -36,6 +36,7 @@ for(const width of [390,1280]){
   if(width<1024)await check(page.locator('#homeView .home-quick .home-quick-big'),32,'홈 [큰 창에서 쓰기]');
   await go(page,'basket');await check(page.locator('#basketView [data-basket-list] .home-quick [data-quick-save]').first(),36,'바구니 [추가]');
   await go(page,'tasks');await check(page.locator('#tasksView .home-quick [data-quick-save]'),36,'할 일 [추가]');
+  if(width<1024)await check(page.locator('#tasksView .home-quick .home-quick-detail'),32,'할 일 [상세 설정으로 추가]');
   await page.locator('#tasksView .home-quick-detail').click();await expect(page.locator('#eventModal')).toBeVisible();
   await modalSave(page,'#eventModal','#saveEventBtn','할 일 창 [저장]');
   await check(page.locator('#eventTaskProject'),32,'[프로젝트 선택 ▾]');
@@ -54,6 +55,7 @@ for(const width of [390,1280]){
    expect(Math.abs(save.top+save.h/2-head)).toBeLessThanOrEqual(2);
    await check(page.locator('#gtDeleteBtn'),32,'[삭제]');
   }else{
+   await check(page.locator('#gtSaveBtn'),36,'할 일 수정 창 [저장]');
    await check(page.locator('#gtDeleteBtn'),32,'[삭제]');
   }
   await noWideScroll(page);expect(errors).toEqual([]);
