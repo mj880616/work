@@ -5,7 +5,7 @@
 // - 고친 요약은 여기서 edited=true로 저장한다(빈 글이면 행을 지워 다음 [요약 만들기]에서 다시 생김).
 // - 표가 아직 없으면(REST 404) 'missing' — 화면은 버튼과 요약을 숨기고 예전처럼 원문만 보인다.
 // 브라우저 저장소에 아무것도 두지 않는다.
-import {callAiAssist, AI_SUMMARY_TEXT} from './basket-ai-summary.js';
+import {callAiAssist, AI_SUMMARY_TEXT, aiSummaryRetryable} from './basket-ai-summary.js';
 
 const TABLE = '/rest/v1/app_weekly_org_summaries';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -23,8 +23,6 @@ export const ORG_AI_TEXT = Object.freeze({
   not_ready:'조직 요약은 아직 준비 중이에요.',
   not_found:'요약할 조직을 찾지 못했어요.',
   daily_limit:'오늘 AI를 쓸 수 있는 횟수를 다 썼어요. 요약은 직접 써 주세요.',
-  org_summary_not_ready:'조직 요약은 아직 준비 중이에요.',
-  org_summary_unavailable:'조직 요약을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
 });
 
 const workspaceOf = rt => {
@@ -98,7 +96,7 @@ export async function saveEditedSummary({start, organizationId, row = null, text
 // Returns {ok:true, written, kept, empty, partial, more} or {ok:false, code, message, retry}.
 export async function requestOrgSummaries({start, organizationIds}, options = {}) {
   const ids = [...new Set((organizationIds || []).map(id => String(id).toLowerCase()))].filter(id => UUID.test(id));
-  const fail = code => ({ok:false, code, message:ORG_AI_TEXT[code] || ORG_AI_TEXT.internal_error, retry:['offline', 'auth_unavailable', 'usage_unavailable', 'ai_busy', 'ai_timeout', 'ai_invalid_response', 'org_summary_unavailable', 'internal_error'].includes(code)});
+  const fail = code => ({ok:false, code, message:ORG_AI_TEXT[code] || ORG_AI_TEXT.internal_error, retry:aiSummaryRetryable(code)});
   if (!DAY.test(String(start)) || !ids.length) return fail('invalid_request');
   const sent = ids.slice(0, ORG_SUMMARY_MAX_ORGS);
   const r = await callAiAssist({kind:'org_summary', week_start:start, organization_ids:sent}, options, ORG_AI_TEXT);

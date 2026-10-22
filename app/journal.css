@@ -251,3 +251,9 @@
 #appView #journalView .journal-org-raw[open] > .journal-weekly-list{ color:var(--kptu-muted); }
 #appView #journalView .journal-org-edit{ display:flex; flex-direction:column; gap:4px; }
 #appView #journalView .journal-org-edit-input{ width:100%; box-sizing:border-box; font-size:var(--kptu-text-body); line-height:1.5; }
+#appView #journalView .journal-org-raw > summary{ list-style:none; gap:4px; }
+#appView #journalView .journal-org-raw > summary::-webkit-details-marker{ display:none; }
+#appView #journalView .journal-org-raw > summary::before{ content:"▸"; display:inline-block; transition:transform .15s; }
+#appView #journalView .journal-org-raw[open] > summary::before{ transform:rotate(90deg); }
+#appView #journalView .journal-org-tools .mini{ margin-left:-8px; }
+#appView #journalView .journal-org-tools .journal-org-edited + .mini{ margin-left:0; }

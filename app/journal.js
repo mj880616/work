@@ -212,7 +212,8 @@ function renderWeekly_() {
   $('[data-journal-weekly-title]').textContent = `주간 정리 · ${longDay(list[0])} ~ ${longDay(list[6])}`;
   const host = $('[data-journal-weekly]');
   // Keep which 원문 folds are open and the text being typed across redraws (a read landing must not lose them).
-  if (host.childElementCount) orgUi.open = new Set([...host.querySelectorAll('[data-journal-org-raw]')].filter(d => d.open).map(d => d.dataset.journalOrgRaw));
+  // (a fold not drawn right now — its summary is being read again — keeps its last state.)
+  for (const d of host.querySelectorAll('[data-journal-org-raw]')) { if (d.open) orgUi.open.add(d.dataset.journalOrgRaw); else orgUi.open.delete(d.dataset.journalOrgRaw); }
   const typing = host.querySelector('[data-journal-org-edit-input]'), focused = typing && typing === document.activeElement;
   if (typing && orgUi.editing?.id === typing.dataset.journalOrgEditInput) orgUi.editing.value = typing.value;
   renderWeekly(host, weeklySummary({start, lines, linesState, materials, doneDays, kinds}), esc, orgUi);
