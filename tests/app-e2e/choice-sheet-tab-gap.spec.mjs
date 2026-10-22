@@ -58,7 +58,7 @@ for(const [item,status] of EXPORTS)test(`내보내기 [${item}]: 탭 이동 없�
  await touch(page,x,y);
  await expect(page.locator('#mdLeaveSheet[open]')).toHaveCount(0);
  await expect(editor).toBeVisible();await expect(area).toHaveValue('# 쓰던 글');
- expect(await current(page)).toBe('home');
+ expect(await current(page)).toBe('basket');
  await expect(page.locator('.mobile-tabs [data-view="team"]')).not.toHaveAttribute('aria-current','page');
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
@@ -71,7 +71,7 @@ test('내보내기 시트 바깥(어두운 곳)을 누르면 시트만 닫히고
  await touch(page,200,box.y-40);
  await expect(sheet).not.toHaveAttribute('open','');
  await expect(editor).toBeVisible();await expect(area).toHaveValue('바깥 누르기');await expect(editor.locator('.md-editor-status')).toHaveText('');
- expect(await current(page)).toBe('home');
+ expect(await current(page)).toBe('basket');
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
@@ -86,7 +86,7 @@ test('시트가 닫힌 뒤 아래 탭을 직접 누르면 기존대로 "저장 �
  const leave=page.locator('#mdLeaveSheet');await expect(leave).toHaveAttribute('open','');await settle(leave);
  // The question sheet sits above the tabs too.
  await expectAboveTabs(page,leave);
- expect(await current(page)).toBe('home');
+ expect(await current(page)).toBe('basket');
  const go=await leave.getByRole('button',{name:'저장 안 하고 이동',exact:true}).boundingBox();
  await touch(page,go.x+go.width/2,go.y+go.height/2);
  await expect(page.locator('#mdEditor')).toHaveCount(0);
@@ -115,7 +115,7 @@ test('다른 고르기 시트(홈 [업데이트 ▾] 조직)도 아래 탭 위�
  await expect(sheet).toBeHidden();
  await expect(quick.locator('[data-quick-org]')).toHaveAccessibleName(`기록할 곳 선택: ${names.at(-1)}`);
  await touch(page,x,y);
- expect(await current(page)).toBe('home');
+ expect(await current(page)).toBe('basket');
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
