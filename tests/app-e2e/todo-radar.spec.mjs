@@ -48,7 +48,8 @@ async function fixture(page,{rows=[cand(1,{kind:'deadline',due:'2026-10-09',summ
  return {...f,db,calls,errors,queue};
 }
 const radar=page=>page.locator('#homeView [data-home-card="radar"]');
-async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.scrollIntoViewIfNeeded();const b=await locator.boundingBox();await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);}else await locator.click();}
+// Phone: a real touch tap (locator.tap waits again when the box redraws after the automatic find); PC: a click.
+async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761)await locator.tap();else await locator.click();}
 const noWideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 const pressHeight=button=>button.evaluate(el=>Math.max(el.getBoundingClientRect().height,parseFloat(getComputedStyle(el,'::after').height)||0));
 const createsOf=page=>{const list=[];page.on('request',r=>{if(r.url().includes('/functions/v1/google-tasks')&&new URL(r.url()).searchParams.get('action')==='create')list.push(r.postDataJSON());});return list;};
