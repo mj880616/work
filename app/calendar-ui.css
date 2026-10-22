@@ -196,20 +196,22 @@
 #calendarView.calendar-list-active .calendar-toolbar #monthTitle{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* D-주간정리 + CAL-주간시간표: left hour axis, Monday–Sunday columns, all-day/multi-day bands below the header,
-   then a timetable (1 hour = 48px, 0~7시 folded to one row unless that week has early events). */
-#calendarWeek{--cwv-axis-width:40px;--cwv-hour:48px;position:relative;display:grid;grid-template-columns:var(--cwv-axis-width) repeat(7,minmax(0,1fr));width:100%;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);box-sizing:border-box}
+   then a timetable (1 hour = 48px, 0~24시 always open). CAL-주간고정: #calendarWeek scrolls; the date row, the all-day bands
+   and the hour-axis corner stay sticky, and the view opens scrolled to 7시 (calendar-week-view.js). */
+#calendarWeek{--cwv-axis-width:40px;--cwv-hour:48px;--cwv-head:44px;max-height:max(420px,calc(100dvh - 190px));overflow-y:auto;overscroll-behavior:contain;background:var(--kptu-surface);position:relative;display:grid;grid-template-columns:var(--cwv-axis-width) repeat(7,minmax(0,1fr));width:100%;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);box-sizing:border-box}
 .cwv-day{position:relative;grid-row:1;min-width:0;border-left:1px solid var(--kptu-border)}
-.cwv-header{position:relative;height:44px;box-sizing:border-box;border-bottom:1px solid var(--kptu-border);padding-right:44px;display:flex;align-items:center}
+.cwv-header{position:sticky;top:0;z-index:5;background:var(--kptu-surface);height:44px;box-sizing:border-box;border-bottom:1px solid var(--kptu-border);padding-right:44px;display:flex;align-items:center}
 .cwv-date{min-width:0;white-space:nowrap;margin:0;padding:0 6px;font-size:12px;line-height:16px;color:var(--kptu-muted);font-weight:400}
-.cwv-items{position:relative;min-width:0;padding-top:var(--cwv-band-height,0px);pointer-events:none}
+.cwv-items{position:relative;min-width:0;pointer-events:none}
+.cwv-cap{position:sticky;top:var(--cwv-head);z-index:5;height:var(--cwv-band-height,0px);background:var(--kptu-surface);pointer-events:auto}
+.cwv-today .cwv-header,.cwv-today .cwv-cap{background:var(--kptu-primary-soft)}
 .cwv-timeline{position:relative;box-sizing:content-box;height:var(--cwv-timeline-height,1152px);border-top:1px solid var(--kptu-border);
-  background:linear-gradient(var(--kptu-surface-subtle),var(--kptu-surface-subtle)) 0 0/100% var(--cwv-collapsed-height,0px) no-repeat,
-    repeating-linear-gradient(to bottom,color-mix(in srgb,var(--kptu-border) 60%,transparent) 0 1px,transparent 1px var(--cwv-hour)) 0 var(--cwv-collapsed-height,0px)/100% calc(100% - var(--cwv-collapsed-height,0px)) no-repeat}
-.cwv-axis{grid-column:1;grid-row:1;position:relative;padding-top:calc(44px + var(--cwv-band-height,0px));pointer-events:none}
+  background:repeating-linear-gradient(to bottom,color-mix(in srgb,var(--kptu-border) 60%,transparent) 0 1px,transparent 1px var(--cwv-hour))}
+.cwv-axis{grid-column:1;grid-row:1;position:relative;pointer-events:none}
+.cwv-axis::before{content:"";display:block;position:sticky;top:0;z-index:5;box-sizing:border-box;height:calc(var(--cwv-head) + var(--cwv-band-height,0px));background:var(--kptu-surface)}
 .cwv-axis-ticks{position:relative;box-sizing:content-box;height:var(--cwv-timeline-height,1152px);border-top:1px solid var(--kptu-border)}
-.cwv-tick,.cwv-fold{position:absolute;right:4px;font-size:var(--ds-text-meta);line-height:14px;color:var(--kptu-muted);white-space:nowrap}
+.cwv-tick{position:absolute;right:4px;font-size:var(--ds-text-meta);line-height:14px;color:var(--kptu-muted);white-space:nowrap}
 .cwv-tick{transform:translateY(-7px)}
-.cwv-fold{top:0;height:var(--cwv-collapsed-height,0px);display:flex;align-items:center}
 .cwv-tick.cwv-tick-top{transform:none}
 .cwv-items .clv-event{position:absolute;z-index:1;top:0;left:0;min-height:0;pointer-events:auto;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:0;padding:1px 4px;margin:0 1px;border-bottom:0;box-sizing:border-box;overflow:visible}
 .cwv-items .clv-event:hover,.cwv-items .clv-event:focus-visible{z-index:3}
@@ -229,7 +231,16 @@
 .cwv-create:focus-visible{outline:2px solid var(--kptu-link);outline-offset:-2px}
 .cwv-today{background:var(--kptu-primary-soft)}
 .cwv-today .cwv-date{color:var(--kptu-primary-ink);font-weight:700}
-.cwv-bands{position:absolute;top:44px;left:var(--cwv-axis-width);right:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-auto-rows:44px;gap:4px 0;padding:2px 0;pointer-events:none}
+.cwv-bands{grid-column:2 / -1;grid-row:1;align-self:start;position:sticky;top:var(--cwv-head);z-index:6;box-sizing:border-box;height:var(--cwv-band-height,0px);margin-top:var(--cwv-head);display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-auto-rows:44px;gap:4px 0;padding:2px 0;pointer-events:none}
+/* 새벽(0~7시) 일정 알림: 띠 바로 아래에 붙어 따라 내려오는 작은 단추. */
+.cwv-early{grid-column:2 / -1;grid-row:1;justify-self:start;align-self:start;position:sticky;top:calc(var(--cwv-head) + var(--cwv-band-height,0px) + 4px);z-index:4;height:20px;margin:calc(var(--cwv-head) + var(--cwv-band-height,0px) + 4px) 0 0 4px;padding:0 8px;border:1px solid var(--kptu-border-strong);border-radius:var(--kptu-radius-pill);background:var(--kptu-surface);color:var(--kptu-ink);font-size:12px;line-height:18px;cursor:pointer;box-shadow:var(--kptu-shadow-float)}
+.cwv-early[hidden]{display:none}
+.cwv-early::after{content:"";position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+.cwv-early:focus-visible{outline:2px solid var(--kptu-link);outline-offset:1px}
+.cwv-bands[hidden]{display:none}
+#calendarWeek .cwv-bands .cal-event.cmv-event{position:relative;overflow:visible}
+.cwv-bands .cwv-tip-end>.cwv-tip{left:auto;right:0}
+.cwv-bands .cmv-event.cwv-clipped:hover>.cwv-tip,.cwv-bands .cmv-event.cwv-clipped:focus-visible>.cwv-tip{display:block}
 #calendarWeek .cal-event.cmv-event{box-sizing:border-box;height:44px;min-height:44px;line-height:16px;font-size:12px;padding:0 6px;margin:0 2px}
 #calendarWeek .cmv-event-time{font-size:12px}
 .calendar-view-switch button[hidden]{display:none}
