@@ -80,7 +80,7 @@ for(const width of [390,1280]){
   // PRJ-기록버튼줄이기(2026-10-22 사용자 결정 14:21): 기록 입력칸·[기록]은 36px 한 높이·한 줄, [큰 창에서 쓰기]는 입력칸 안 보조 32px, 누르는 범위 44px.
   const rec=await check(page.locator('#ps3DetailModal [data-ps3-record-input] > button.primary'),36,'프로젝트 [기록]'),input=await measure(page.locator('#ps3DetailModal [data-ps3-record-input] input'));
   expect(input.h,'기록 입력칸 높이').toBe(36);expect(rec.h).toBe(input.h);expect(rec.top).toBe(input.top);expect(rec.bottom).toBe(input.bottom);
-  const big=await check(page.locator('#ps3DetailModal [data-ps3-record-big]'),32,'프로젝트 [큰 창에서 쓰기]');expect(big.top).toBeGreaterThanOrEqual(input.top);expect(big.bottom).toBeLessThanOrEqual(input.bottom);expect(big.right).toBeLessThanOrEqual(input.right);
+  const rbig=await check(page.locator('#ps3DetailModal [data-ps3-record-big]'),32,'프로젝트 [큰 창에서 쓰기]');expect(rbig.top).toBeGreaterThanOrEqual(input.top);expect(rbig.bottom).toBeLessThanOrEqual(input.bottom);expect(rbig.right).toBeLessThanOrEqual(input.right);
   await check(page.locator('#ps3DetailModal [data-gt-linked-unlink]').first(),32,'프로젝트 [연결 해제]');
   await page.keyboard.press('Escape');
   await go(page,'team');await page.locator('[data-ps-workplace-org="o"]').first().click();await expect(page.locator('#wdModal')).toBeVisible();
