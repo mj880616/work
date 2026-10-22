@@ -12,7 +12,7 @@
 //   5. 주요 일정 — my own Google Calendar events of the two weeks from the Monday after the shown week (journal-data.js
 //      scheduleDays: written on Friday, reported on Monday — "the reported week and the week after"), in the form's cells
 //      (일 | 시간/내용/장소 | 참석자). A vacation (휴가·연차·반차 …) is not a row but one "※ 휴가: …" line under the table; an event
-//      marked 일기·비공개 is left out (WEEKLY-주요일정, 2026-10-21).
+//      marked 일기·비공개 is left out (WEEKLY-주요일정, 2026-10-21); the two personal calendars (REPORT_EXCLUDED_CALENDARS) are left out.
 //   참고 — the week's 한 줄, 끝낸 할 일, 할 일 예정, 자료실 새 자료, 공유 페이지, 기타 메모 (material the form has no box for).
 //   [주간보고 초안 복사] copies this same grouping as text in the same order (weeklyReportText).
 // Notes moved from the basket (노트로 옮긴 업데이트, PR 868) are not included. The tab only shows; it saves nothing and makes no file
@@ -97,6 +97,13 @@ const span = (first, last, one, joint) => first === last ? one(first) : `${one(f
 export const VACATION_WORDS = /휴가|연차|반차|월차|병가|공가|휴무/;
 export const PRIVATE_WORDS = /일기|비공개/;
 export const isVacation = event => VACATION_WORDS.test(String(event?.title ?? ''));
+// 주요 일정 does not take the owner's personal calendars (RPT-개인일정빼기, 2026-10-22 사용자 결정): fixed, by calendar NAME (the id is an
+// account value and this repository is public), one list for the screen table and the .hwpx draft (both read upcomingSchedule).
+// No calendar picker. Compared without case and spacing differences; an event whose calendar name is unknown stays.
+export const REPORT_EXCLUDED_CALENDARS = Object.freeze(['명진승지', 'arsenal 명진']);
+const calendarKey = name => String(name ?? '').normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase();
+const EXCLUDED_KEYS = new Set(REPORT_EXCLUDED_CALENDARS.map(calendarKey));
+export const isExcludedCalendar = event => EXCLUDED_KEYS.has(calendarKey(event?.calendarName));
 export const isPrivateEvent = event => PRIVATE_WORDS.test(`${event?.title ?? ''}\n${event?.description ?? ''}`);
 // The days an event covers (Korea time): an all-day event ends the day before its (exclusive) end date.
 function eventDays(event) {
@@ -120,7 +127,7 @@ export function upcomingSchedule(events, start) {
     const key = event.id ? `${event.calendarId || ''}:${event.id}` : null;
     if (key && seen.has(key)) continue;
     if (key) seen.add(key);
-    if (isPrivateEvent(event)) continue;
+    if (isExcludedCalendar(event) || isPrivateEvent(event)) continue;
     const {first, last} = eventDays(event);
     if (!first || last < from || first > to) continue;
     const title = String(event.title || '').trim() || '(제목 없음)';
@@ -367,7 +374,7 @@ export function renderWeekly(host, model, esc) {
     } else cal.append(empty('이 2주에 달력 일정이 없어요.'));
     const off = vacationLine(c.vacations);
     if (off) { const p = el('p', 'journal-weekly-vacation', off); p.dataset.journalWeeklyVacation = ''; cal.append(p); }
-    cal.append(muted('참석자 칸은 한글 파일에서 내 이름으로 채워요. 일기·비공개 표시 일정은 빼요.'));
+    cal.append(muted('참석자 칸은 한글 파일에서 내 이름으로 채워요. 명진승지·arsenal 명진 달력과 일기·비공개 표시 일정은 빼요.'));
   }
   five.append(cal);
 

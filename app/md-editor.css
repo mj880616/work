@@ -94,6 +94,14 @@ html .modal.md-editor .md-editor-attach .basket-clip { position:relative; displa
 html .modal.md-editor .md-editor-attach .basket-clip::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target, 44px) / 2); height:var(--kptu-touch-target, 44px); }
 html .modal.md-editor .md-editor-attach .basket-clip-icon { color:var(--kptu-link); }
 html .modal.md-editor .md-editor-attach .basket-clip-count { top:-6px; right:-6px; }
+/* NOTE-파일붙이기: 노트에서는 [📎 첨부]가 서식 도구줄 맨 끝(다른 서식 버튼과 같은 28px·누르는 범위 44px)에 붙고,
+   본문 아래 줄에는 고른 파일 목록만 남는다(고른 파일이 없으면 그 줄도 숨김). 숫자 배지는 줄이 옆으로 넘어가도 잘리지 않게 글자 옆. */
+.md-editor-attach[data-md-attach-in-tools]:not(:has([data-md-attach-files]:not([hidden]))) { display:none; }
+html .modal.md-editor .md-editor-tools .basket-clip-picker { width:auto; height:auto; flex:0 0 auto; }
+html .modal.md-editor .md-editor-tools .basket-clip-picker[hidden] { display:none; }
+html .modal.md-editor .md-editor-tools .basket-clip { display:inline-flex; align-items:center; gap:4px; width:auto; color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width, 1px) solid var(--ds-line, var(--kptu-border-strong)); border-radius:var(--ds-radius-control, 8px); font-weight:var(--ds-weight-medium, 500); }
+html .modal.md-editor .md-editor-tools .basket-clip-icon { flex:0 0 auto; width:14px; height:14px; color:var(--kptu-link); }
+html .modal.md-editor .md-editor-tools .basket-clip-count { position:static; min-width:14px; height:14px; margin-left:2px; }
 .md-editor-status { margin:0; padding:6px 12px; font-size:var(--kptu-text-meta, 12px); color:var(--kptu-muted); border-top:1px solid var(--kptu-border); }
 .md-editor-status:empty { display:none; }
 .md-editor-bar { border-bottom:1px solid var(--kptu-border); background:var(--kptu-surface-subtle); }

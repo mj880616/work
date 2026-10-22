@@ -7,10 +7,13 @@
 // UI-크게첨부: under the text, [📎 첨부] (the basket's own picker part, basket-upload.js) while 업데이트 is chosen. Files go only
 // with a basket update (the existing rule): the home input hands in its own file batch, every other opener uses one this window
 // keeps and sends through the same basket upload path (uploadBatch → basket-files) as the home input.
+// NOTE-파일붙이기: with [노트] chosen the same [📎 첨부] sits at the end of the format row; the note is made first, then its files
+// go up with its id (uploadNoteFiles; basket-files puts them in Drive "노트 첨부"). A note may be files only (titled by the first
+// file's name). The opener's batch is emptied after that save (upload.reset).
 import { openMarkdownEditor } from './md-editor.js';
 import { createChoiceSheet } from './choice-sheet.js';
 import { createNoteDoc, noteTitleFromText, validateNoteText } from './basket-data.js';
-import { createUploadBatch, uploadBatch, mountBasketPicker } from './basket-upload.js';
+import { createUploadBatch, uploadBatch, uploadNoteFiles, mountBasketPicker, fileTitle } from './basket-upload.js';
 import { readPlaces, placeSources, placeSheetHtml, placeFromValue, keepPlace, placeName, samePlace, saveUpdate, rememberPlace } from './update-places.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
@@ -70,13 +73,21 @@ export function openWriteWindow({text = '', kind = 'update', place = null, place
   async function run(value, chosen, {title: heading = '', markdown = false} = {}) {
     if (rt.session.read()?.user?.id !== owner) return {ok:false, message:'로그인 정보가 바뀌었어요. 다시 열어 주세요.'};
     const count = files();
+    let warning = '';
     busy = true; picker?.render();
     try {
       if (chosen === 'note') {
-        if (count) return {ok:false, message:'첨부는 업데이트(바구니)로만 저장돼요. 업데이트로 바꾸거나 첨부를 빼 주세요.'};
-        if (!value.trim() && !heading.trim()) return {ok:false, message:'제목이나 본문을 써 주세요.'};
-        const note = await createNoteDoc({title:heading.trim() ? heading : noteTitleFromText(value), raw_text:value, markdown:markdown === true}, rt);
+        const files = batch();
+        if (count && (files.blocked || files.note_id)) return {ok:false, message:'앞선 업데이트의 첨부 저장 결과를 먼저 확인해 주세요.'};
+        if (!value.trim() && !heading.trim() && !count) return {ok:false, message:'제목이나 본문을 써 주세요.'};
+        const first = files.entries.find(entry => entry.kind !== 'success')?.file?.name;
+        const note = await createNoteDoc({title:heading.trim() ? heading : noteTitleFromText(value) || fileTitle(first), raw_text:value, markdown:markdown === true}, rt);
         saved = {kind:'note', id:note.id};
+        if (count) {
+          try { await uploadNoteFiles(note.id, files, {rt, isCurrent:() => rt.session.read()?.user?.id === owner, onChange:() => picker?.render()}); }
+          catch (error) { warning = `노트는 저장했지만 첨부를 올리지 못했어요. ${error?.message || ''} 노트를 열어 다시 붙여 주세요.`.replace(/\s+/g, ' '); }
+          if (upload) upload.reset?.(); else ownBatch = createUploadBatch();
+        }
       } else {
         const target = state.place, label = name();
         if (target && count) return {ok:false, message:'첨부는 바구니로만 저장돼요. ▾에서 바구니를 고르거나 첨부를 빼 주세요.'};
@@ -91,11 +102,11 @@ export function openWriteWindow({text = '', kind = 'update', place = null, place
       }
     } catch (error) { return {ok:false, message:error?.message || '저장하지 못했어요. 다시 눌러 주세요.'}; }
     finally { busy = false; if (!closed) picker?.render(); }
-    toast(savedMessage(saved)); onSaved(saved);
+    toast(warning || savedMessage(saved)); onSaved(saved);
     return {ok:true};
   }
   // [📎 첨부] row: the same picker part as the home input and the memo edit screen, on the opener's batch or this window's own.
-  const attach = {show:chosen => chosen === 'update', mount({picker: host, files: list, drop}) {
+  const attach = {show:chosen => chosen === 'update' || chosen === 'note', inTools:chosen => chosen === 'note', pending:files, mount({picker: host, files: list, drop}) {
     picker = mountBasketPicker(host, {id:'mdAttachFiles', filesHost:list, dropTarget:drop, getBatch:batch,
       isBusy:() => busy || !!upload?.isBusy?.(), onChange:() => { upload?.onChange?.(); state.say(''); },
       onError:message => state.say(message)});

@@ -74,7 +74,7 @@ async function latestConfirmed(rt) {
 }
 
 // host: the box journal.js gives; getWeek(): {start, model} (model = journal-weekly.js weeklySummary of the shown week).
-export function mountWeeklyHwpx(host, {getWeek, rt = window.KPTURuntime}) {
+export function mountWeeklyHwpx(host, {getWeek, onCopy, rt = window.KPTURuntime}) {
   if (!host) return null;
   const doc = host.ownerDocument;
   const el = (tag, cls, text) => { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
@@ -86,7 +86,10 @@ export function mountWeeklyHwpx(host, {getWeek, rt = window.KPTURuntime}) {
   const status = el('p', 'journal-hwpx-status'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); status.dataset.hwpxStatus = '';
   const body = el('div', 'journal-hwpx-body');
   panel.append(title, status, body);
-  host.replaceChildren(start, panel);
+  // JOURNAL-복사버튼: [주간보고 초안 복사]는 이 줄의 작은 [복사]로 옮김(같은 복사 기능은 journal.js가 onCopy로 넘김). 한글 파일 상자가 열려도 [복사]는 남는다.
+  const bar = el('div', 'journal-hwpx-bar');
+  if (onCopy) { const copy = button('복사', 'hwpxCopy'); copy.setAttribute('aria-label', '주간보고 초안 복사'); copy.addEventListener('click', () => onCopy()); bar.append(start, copy); } else bar.append(start);
+  host.replaceChildren(bar, panel);
   const say = (text, kind = '') => { status.textContent = text || ''; status.dataset.kind = kind; };
   const lazy = () => lib || (lib = Promise.all([import('./weekly-hwpx/draft.mjs'), import('./hwp-drive.js')]).then(([draft, drive]) => ({draft, drive})));
 

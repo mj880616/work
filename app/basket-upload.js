@@ -18,6 +18,9 @@ function failure(e) {
   if (e.code === 'note_save_result_unknown' || !e.status || e.status >= 500) return uploadError(UNKNOWN, 'note_save_result_unknown', e.status);
   if (e.status === 401) return uploadError('로그인이 필요합니다. 다시 로그인한 후 시도해 주세요.', e.code, e.status);
   if (e.status === 413) return uploadError('파일은 100MiB까지 첨부할 수 있습니다.', e.code, e.status);
+  // NOTE-파일붙이기: basket-files refuses a shared (or unreadable) "노트 첨부" folder before it uploads anything.
+  if (e.code === 'drive_folder_not_private') return uploadError('Drive의 "노트 첨부" 폴더가 공유되어 있어 올리지 않았어요. 공유를 끈 뒤 다시 시도해 주세요.', e.code, e.status);
+  if (e.code === 'drive_folder_permissions_unavailable') return uploadError('Drive 폴더의 공유 상태를 확인하지 못해 올리지 않았어요. 잠시 뒤 다시 시도해 주세요.', e.code, e.status);
   return uploadError('첨부를 저장하지 못했습니다. 선택한 파일과 Drive 연결 상태를 확인해 주세요.', e.code, e.status);
 }
 export function validateBatch(batch, raw_text = '') {
@@ -98,6 +101,24 @@ export async function uploadBatch(batch, {raw_text = '', rt = window.KPTURuntime
   }
   return {ok:true,note_id:batch.note_id,attachments:batch.attachments};
 }
+// NOTE-파일붙이기: files for a note go through the same basket-files upload with the note's id; the server puts them in
+// Drive "노트 첨부" (it reads the row's kind itself). Photo text reading (OCR) is a basket-update feature and does not run here.
+// A batch already tied to another row (a basket save waiting for its result) is never sent to this note.
+const NO_OCR = Object.freeze({enabled:false});
+export async function uploadNoteFiles(noteId, batch, {rt = window.KPTURuntime, isCurrent = () => true, onChange = () => {}, request} = {}) {
+  if (batch.blocked) throw batch.blocked;
+  if (batch.note_id && batch.note_id !== noteId) throw uploadError('앞선 업데이트의 첨부 저장 결과를 먼저 확인해 주세요.', 'batch_other_row');
+  batch.note_id = noteId;
+  try { return await uploadBatch(batch, {rt, isCurrent, onChange, ocr:NO_OCR, ...(request ? {request} : {})}); }
+  catch (error) {
+    // The basket wording ("바구니에서 확인") is said in the note's own words; the code stays.
+    if (error?.code === 'note_save_result_unknown') error.message = '첨부 저장 결과를 확인하지 못했어요. 노트를 다시 열어 첨부를 확인해 주세요.';
+    else if (error?.code === 'note_changed') error.message = '노트가 그사이 바뀌었어요. 노트를 다시 열어 첨부를 확인해 주세요.';
+    throw error;
+  }
+}
+// A new note made only of files is titled with the first file's name (one line, 200 characters at most).
+export const fileTitle = name => [...String(name || '').replace(/[\r\n]+/g, ' ').trim()].slice(0, 200).join('').trim();
 export function mountBasketPicker(host, {id, filesHost, dropTarget, getBatch, isBusy, isActive = () => true, onChange = () => {}, onError}) {
   host.classList.add('basket-clip-picker');
   host.innerHTML = `<input id="${id}" class="library-file-input" type="file" multiple tabindex="-1" aria-hidden="true"><button type="button" class="basket-clip" data-basket-clip aria-label="파일 첨부" aria-controls="${id}"><svg class="basket-clip-icon" viewBox="0 0 16 16" width="18" height="18" aria-hidden="true" focusable="false"><path d="M13.2 7.6 8.1 12.7a3.3 3.3 0 0 1-4.7-4.7l5.4-5.4a2.2 2.2 0 0 1 3.1 3.1L6.6 11a1.1 1.1 0 0 1-1.6-1.6l4.8-4.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="basket-clip-label">첨부</span><span class="basket-clip-count" data-basket-count aria-hidden="true" hidden></span></button>`;

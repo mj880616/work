@@ -207,7 +207,7 @@ function renderWeekly_() {
   hwpx?.refresh();
 }
 // WEEKLY-한글초안 2단계: [주간보고 한글 파일 만들기] — journal-hwpx.js owns that box; it reads the shown week's grouping.
-const hwpx = mountWeeklyHwpx($('[data-journal-hwpx]'), {rt, getWeek: () => ({start, model:weeklySummary({start, lines, linesState, materials, doneDays})})});
+const hwpx = mountWeeklyHwpx($('[data-journal-hwpx]'), {rt, onCopy: () => copyDraft(), getWeek: () => ({start, model:weeklySummary({start, lines, linesState, materials, doneDays})})});
 function renderMode() {
   root.dataset.journalMode = mode;
   root.querySelectorAll('[data-journal-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.journalMode === mode)));
@@ -215,6 +215,7 @@ function renderMode() {
   $('[data-journal-day]').hidden = mode === 'week';
   radar?.setShown(mode === 'day');
   $('[data-journal-weekly-root]').hidden = mode !== 'week';
+  $('.journal-head').toggleAttribute('data-copy-hidden', mode === 'week');
 }
 function setMode(next) {
   if (next === mode || !['day', 'week'].includes(next)) return;

@@ -105,7 +105,9 @@ test('the editor module is reusable: no basket imports, text and callbacks only,
   // UI-크게첨부: attach only hands the opener empty places for its own file part (mount); the module keeps no files.
   // NOTE-마크다운선택·NOTE-큰창저장유지: markdown is a label/choice only, keepOpen keeps the window after the opener's own save.
   assert.match(src, /export function openMarkdownEditor\(\{text = '', title = '크게 쓰기', onInput = null, onClose = \(\) => \{\}, save = null, draft = false, kinds = null, placeholder = null, noteTitle = null, attach = null, markdown = null, keepOpen = false\} = \{\}\)/);
-  assert.match(src, /attach\.mount\(\{picker: attachRow\.querySelector\('\[data-md-attach-picker\]'\), files: attachRow\.querySelector\('\[data-md-attach-files\]'\), drop: panes\}\)/);
+  // NOTE-파일붙이기: the picker place may sit at the end of the format row (inTools); it is still an empty place the opener fills.
+  assert.match(src, /attach\.mount\(\{picker: pickerHost, files: attachRow\.querySelector\('\[data-md-attach-files\]'\), drop: panes\}\)/);
+  assert.match(src, /if \(inTools && pickerHost\.parentNode !== tools\) tools\.append\(pickerHost\);/);
   assert.doesNotMatch(src, /KPTURuntime|\.api\(|fetch\(/);
   for (const file of ['app/md-editor.js', 'app/md-editor-ops.mjs', 'app/md-telegram.mjs', 'app/md-hangul.mjs', 'app/md-editor.css']) {
     // The SVG namespace name (UI-키보드하단바 share icon) is not a request.
