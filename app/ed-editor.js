@@ -12,6 +12,7 @@
 import {TEXT_STYLES, DEFAULT_BODY, BODY_STYLES, cleanDoc, emptyDoc, safeHref, nextCircled} from './ed-schema.mjs';
 import {looksLikeMarkdown} from './note-markdown.mjs';
 import {markdownToDoc} from './ed-markdown.mjs';
+import {toPlain} from './ed-text.mjs';
 
 const LIB = './editor-lib/pm-ed1-1.0.0/prosemirror.min.mjs';
 const MARKDOWN_IT = './markdown-lib/markdown-it-15.0.2/markdown-it.esm.min.mjs';
@@ -107,7 +108,8 @@ function btn(label, data, aria) {
 }
 
 // Mounts an editor into host. value: a saved form (or null for an empty one). onChange(value): after each change.
-// label: the text box's accessible name. Returns {getValue(), isEmpty(), focus(), destroy(), view, root}.
+// label: the text box's accessible name. Returns {getValue(), getText(), isEmpty(), focus(), destroy(), view, root}.
+// getText() is the letters for raw_text (ed-text.mjs toPlain): the opener saves structure and letters together (설계 3.1).
 export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = ''} = {}) {
   const pm = await loadEditorLib();
   const schema = buildSchema(pm);
@@ -427,6 +429,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   paint();
   return {
     view, root, getValue, isEmpty,
+    getText: () => toPlain(getValue()),
     focus: () => view.focus(),
     destroy() { view.destroy(); root.remove(); },
   };

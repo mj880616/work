@@ -28,6 +28,7 @@ test('typing keeps letters: "1. ", "- ", "# " and dates are never turned into fo
   expect(v.v).toBe('ed1');
   expect(v.doc.content.map(n => n.type)).toEqual(['paragraph', 'paragraph', 'paragraph', 'paragraph']);
   expect(await page.evaluate(() => window.plain())).toBe('1. 하나\n\n- 둘\n\n# 셋\n\n2026.10.21. 회의');
+  expect(await page.evaluate(() => window.ed.getText())).toBe(await page.evaluate(() => window.plain()));
   await expect(box.locator('ol,ul,h2')).toHaveCount(0);
 });
 
