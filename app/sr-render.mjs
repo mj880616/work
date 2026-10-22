@@ -4,6 +4,7 @@
 // The Web1 reader imports this file, so it keeps to syntax older Samsung Internet parses: no ?. ?? replaceChildren or
 // structuredClone (BUG-공유페이지삼성). Class and id names never contain "share" (ad blockers' social lists hide those).
 import {BLOCK_LABELS, safeUrl} from './share-pages-model.mjs';
+import {renderDoc} from './ed-render.mjs';
 
 export function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -88,7 +89,14 @@ function updates(block) {
   box.append(list);
   return box;
 }
-const RENDER = {summary, stages, schedule, issues, links, updates};
+// ED-통합편집기 ①b: one 'doc' block is the new editor's document, drawn by ed-render.mjs (cleaned allowlist, textContent
+// only, links http(s)·mailto, no image is fetched) in the ed-doc.css look.
+function doc(block) {
+  const box = el('section', 'sr-block sr-doc');
+  box.append(renderDoc(block.doc));
+  return box;
+}
+const RENDER = {summary, stages, schedule, issues, links, updates, doc};
 export const canDraw = block => !!block && Object.prototype.hasOwnProperty.call(RENDER, block.type);
 
 // One block that cannot be drawn shows this notice in its place; the title and the other blocks still show.
