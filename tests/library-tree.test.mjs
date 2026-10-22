@@ -81,3 +81,21 @@ test('그리기: details/summary, 펼침, 20개 넘으면 N건 더, 이름은 �
   const all=m.treeHtml(out,{...opts,showAll:()=>true});
   assert.equal((all.match(/<article/g)||[]).length,23);assert.doesNotMatch(all,/건 더/);
 });
+
+test('폴더 편집 규칙: 깊이·옮길 곳(자기 아래·3단 초과·다른 틀 제외)·위로/아래로·이름·오류 문구',()=>{
+  const F=[{id:'a',project_id:'p',parent_id:null,sort_order:1024},{id:'b',project_id:'p',parent_id:'a',sort_order:0},{id:'c',project_id:'p',parent_id:'b',sort_order:0},{id:'d',project_id:'p',parent_id:null,sort_order:2048},{id:'e',project_id:null,parent_id:null,sort_order:0}];
+  assert.equal(m.folderDepth(F,'c'),3);assert.equal(m.folderHeight(F,'a'),3);
+  assert.equal(m.canAddChild(F,'c'),false);assert.equal(m.canAddChild(F,'b'),true);assert.equal(m.canAddChild(F,null),true);
+  assert.deepEqual(m.folderMoveTargets(F,'b'),[null,'d']);
+  assert.deepEqual(m.folderMoveTargets(F,'a'),[]);
+  assert.deepEqual(m.folderMoveTargets(F,'d'),['a','b']);
+  assert.deepEqual(m.folderReorderPlan(F,'d','up'),[{id:'d',sort_order:1024},{id:'a',sort_order:2048}]);
+  assert.deepEqual(m.folderReorderPlan(F,'a','up'),[]);
+  const same=[{id:'x',project_id:null,parent_id:null,sort_order:0,created_at:'1'},{id:'y',project_id:null,parent_id:null,sort_order:0,created_at:'2'}];
+  assert.deepEqual(m.folderReorderPlan(same,'y','up'),[{id:'y',sort_order:1024},{id:'x',sort_order:2048}]);
+  assert.equal(m.nextSortOrder([]),1024);assert.equal(m.nextSortOrder([{sort_order:2048}]),3072);
+  assert.deepEqual(m.folderDeleteCounts(F,[{document_id:'1',folder_id:'a'}],'a'),{folders:1,files:1});
+  assert.equal(m.cleanFolderName('  가 \n'),'가');assert.equal(m.cleanFolderName('   '),null);assert.equal(m.cleanFolderName('가'.repeat(41)),null);
+  assert.equal(m.folderErrorText({message:'LIB_FOLDER_CYCLE: x'}),'폴더를 자기 안으로 옮길 수 없어요.');
+  assert.equal(m.folderErrorText({message:'LIB_FOLDER_DEPTH: x'}),'폴더는 3단까지만 만들 수 있어요.');
+});

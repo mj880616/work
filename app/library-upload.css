@@ -83,11 +83,11 @@
 .lu-more-trigger{flex:none;color:var(--kptu-muted);border:0;background:transparent}
 .lu-head-actions{display:flex;align-items:center;gap:8px}
 #libraryListCard .lu-head-actions button{margin:0}
-.lu-more-panel{position:fixed;inset:auto;margin:0;z-index:100;box-sizing:border-box;padding:6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto}
-.lu-more-panel button{display:block;width:100%;min-height:44px;padding:8px 12px;text-align:left;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta);font-weight:700;cursor:pointer}
-.lu-more-panel button:hover,.lu-more-panel button:focus-visible{background:var(--kptu-primary-soft)}
-.lu-more-panel button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
-.lu-more-panel .lu-menu-danger{color:var(--kptu-danger)}
+:is(.lu-more-panel,.lu-folder-menu){position:fixed;inset:auto;margin:0;z-index:100;box-sizing:border-box;padding:6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto}
+:is(.lu-more-panel,.lu-folder-menu) button{display:block;width:100%;min-height:44px;padding:8px 12px;text-align:left;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta);font-weight:700;cursor:pointer}
+:is(.lu-more-panel,.lu-folder-menu) button:is(:hover,:focus-visible){background:var(--kptu-primary-soft)}
+:is(.lu-more-panel,.lu-folder-menu) button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+:is(.lu-more-panel,.lu-folder-menu) .lu-menu-danger{color:var(--kptu-danger)}
 
 /* D-6b: dialog role typography owned here; explicit roots preserve list styles. */
 
@@ -209,3 +209,29 @@
   #appView #libraryView .lu-filter-row[data-lu-filter-row="group"] > .lu-expand-all{flex:0 0 auto}
 }
 @media(prefers-reduced-motion:reduce){#appView #libraryView .lu-node-head::before{transition:none}}
+
+/* LIB-토글트리 ③: 토글 머리 끝 ⋯(폴더 만들기·관리). 보이는 크기 28px, 누르는 범위 44px(UI-버튼기준 작은 버튼). */
+#appView #libraryView .lu-node-more{position:relative;flex:none;width:var(--ds-compact-height-sm,28px);height:var(--ds-compact-height-sm,28px);min-height:0;margin:-4px 0 -4px auto;padding:0;border:0;background:transparent;color:var(--kptu-muted);font-size:var(--ds-compact-text,13px);line-height:1}
+#appView #libraryView .lu-node-more::after{content:"";position:absolute;inset:calc((var(--ds-compact-height-sm,28px) - var(--kptu-touch-target,44px)) / 2)}
+#appView #libraryView .lu-node-more:hover{background:var(--kptu-surface-subtle)}
+#appView #libraryView .lu-node-more:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:1px}
+/* 머리 줄 안의 ⋯는 줄의 44px 누르는 범위 위에 둔다. */
+#appView #libraryView .lu-node-head > .lu-node-more{z-index:1}
+.lu-folder-status{margin:0 0 6px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.lu-folder-status.error{color:var(--kptu-danger)}
+.lu-folder-status[hidden]{display:none}
+.lu-folder-hint{margin:4px 0 0;font-size:var(--ds-text-meta,12px);line-height:1.5;color:var(--kptu-muted)}
+.lu-folder-hint[hidden],.lu-folder-name[hidden],.lu-folder-targets[hidden]{display:none}
+.lu-folder-targets{display:grid;gap:2px;max-height:50vh;overflow:auto;margin:0 0 8px}
+.lu-folder-target{display:block;width:100%;min-height:var(--kptu-touch-target,44px);padding:8px 10px 8px calc(10px + var(--lu-target-depth,0) * 12px);border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px);text-align:left;cursor:pointer;overflow-wrap:anywhere}
+.lu-folder-target:hover{background:var(--kptu-surface-subtle)}
+.lu-folder-target[aria-checked="true"]{background:var(--ds-kind-other-soft);color:var(--ds-kind-other-ink);font-weight:var(--ds-weight-bold,700)}
+.lu-folder-target:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+
+/* LIB-토글트리 ④ PC 끌어 놓기: 놓을 수 있는 곳은 테두리, 앞·뒤로는 위·아래 선, 놓을 수 없는 곳은 흐림 + 금지 커서. */
+#appView #libraryView summary.lu-node-head[draggable="true"],#appView #libraryView .lu-row[draggable="true"]{cursor:grab}
+#appView #libraryView .lu-dragging{opacity:.5}
+#appView #libraryView .lu-node-head.lu-drop-into{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px;background:var(--kptu-primary-soft)}
+#appView #libraryView .lu-node-head.lu-drop-before{border-top:2px solid var(--kptu-primary-ink);margin-top:-2px}
+#appView #libraryView .lu-node-head.lu-drop-after{border-bottom:2px solid var(--kptu-primary-ink);margin-bottom:-2px}
+#appView #libraryView .lu-node-head.lu-drop-no{opacity:.55;cursor:no-drop}

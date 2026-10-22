@@ -158,8 +158,9 @@ for(const width of [390,1280])test(`폴더(읽기만): 프로젝트 안 3단 폴
   // 자료의 프로젝트(child-a1)와 폴더의 틀(top-a)이 어긋난 연결은 없는 것으로 보고, 자료의 프로젝트 토글 바로 아래에 둔다.
   await expect(page.locator('#documentList details[data-lu-node="p:child-a1"] > .lu-node-body > [data-lu-document="a1-1"]')).toBeVisible();
   await expect(page.locator('#documentList details[data-lu-node="p:none"] details[data-lu-node="f:f-n"] [data-lu-document="none-1"]')).toBeVisible();
-  // 프로젝트 토글에는 편집 버튼(⋯)이 없다(결정 D8, 요구 ②). 폴더 편집은 다음 단계.
-  await expect(page.locator('#documentList summary button')).toHaveCount(0);
+  // 프로젝트 토글의 ⋯는 '폴더 만들기'뿐이다(프로젝트 추가·이름·순서는 프로젝트 화면에서만, 요구 ②·결정 D8). 보관·옛 공간·확인 불가 토글에는 ⋯가 없다.
+  await expect(libraryNodeHead(page,'p:top-a').locator('[data-lu-node-menu]')).toHaveAttribute('aria-label','폴더 만들기: 공공기관 기능개혁 대응');
+  await expect(page.locator('#documentList details[data-lu-node="p:none"] > summary [data-lu-node-menu]')).toHaveCount(1);
   // 폴더 표는 읽기만: 쓰기 요청이 없다.
   expect(s.folderReads).toBeGreaterThanOrEqual(2);
   expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);
