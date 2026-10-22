@@ -1244,3 +1244,12 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
   #appView #tasksView .home-quick .home-quick-entry > [data-quick-file-picker] button.basket-clip{ position:relative; height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
   #appView #tasksView .home-quick .home-quick-entry > [data-quick-file-picker] button.basket-clip::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 }
+/* UI-버튼기준(2026-10-22 사용자 결정): 안내·상태 줄 안의 보조 버튼은 글자 버튼. 일정 '최신 아님 · 마지막 확인 HH:MM [다시 시도]' 줄이 위
+   화면별 기본 버튼 규칙(높이 46px·테두리)을 그대로 받아 안내 글자보다 커 보였다. 안내 글자 옆 작은 글자 버튼(보이는 높이 --ds-compact-height-sm 28px·
+   12px·테두리 없음)으로 줄이고, 누르는 범위는 base-ui.css의 ::after가 44px로 지킨다. 한 줄 모양은 data-freshness.js가 쓰는 .data-freshness 줄만. */
+#appView :is(#calendarView,#tasksView,#projectsView,#homeView) .data-freshness button.data-freshness-retry.mini:where(:not([hidden])){
+  height:var(--ds-compact-height-sm); min-height:var(--ds-compact-height-sm); padding:0 8px;
+  font-size:var(--ds-text-meta); font-weight:var(--ds-weight-medium); line-height:1;
+  color:var(--kptu-primary-ink); background:transparent; border-color:transparent;
+}
+#appView :is(#calendarView,#tasksView,#projectsView,#homeView) .data-freshness button.data-freshness-retry.mini:hover:not(:disabled){ background:var(--kptu-surface-subtle); }
