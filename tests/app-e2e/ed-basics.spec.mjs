@@ -27,6 +27,11 @@ const para = (text, attrs = {style: 'body2'}) => ({type: 'paragraph', attrs, ...
 const ed1 = (...nodes) => ({v: 'ed1', doc: {type: 'doc', content: nodes}});
 const table = (rows, cols, cellAttrs = () => ({})) => ({type: 'table', content: Array.from({length: rows}, (_, r) => ({type: 'table_row',
   content: Array.from({length: cols}, (_, c) => ({type: r ? 'table_cell' : 'table_header', attrs: cellAttrs(r, c), content: [para(`${r}${c}`)]}))}))});
+// Ctrl+End moves the browser's cursor; the editor reads it a moment later (selectionchange). Wait for that.
+const toEnd = async page => {
+  await page.keyboard.press('Control+End');
+  await expect.poll(() => page.evaluate(() => { const st = window.ed.view.state; return st.selection.from === st.doc.content.size - 1; })).toBe(true);
+};
 const paste = (page, data) => page.evaluate(d => {
   const t = new DataTransfer();
   for (const [k, v] of Object.entries(d)) t.setData(k, v);
@@ -303,7 +308,7 @@ test.describe('PC 1280', () => {
 
   test('표 아래 빈 줄에서 Backspace: 먼저 표를 고르고, 한 번 더 누르면 지움, ↶로 복구', async ({page}) => {
     const box = await open(page, ed1(para('앞'), table(2, 2)));
-    await page.keyboard.press('Control+End');
+    await toEnd(page);
     await page.keyboard.press('Backspace');
     await expect(box.locator('table')).toHaveCount(1);
     await expect(box.locator('.selectedCell')).toHaveCount(4);
@@ -314,7 +319,7 @@ test.describe('PC 1280', () => {
     await expect(box.locator('table')).toHaveCount(1);
     // A rule is chosen first the same way.
     await open(page, ed1(para('앞'), {type: 'horizontal_rule'}, para('')));
-    await page.keyboard.press('Control+End');
+    await toEnd(page);
     await page.keyboard.press('Backspace');
     await expect(page.locator('.ed-input hr.ProseMirror-selectednode')).toHaveCount(1);
     await page.keyboard.press('Backspace');
@@ -370,7 +375,7 @@ test.describe('PC 1280', () => {
     await box.locator('.ed-table-grip').click();
     const html = await page.evaluate(() => { const ev = new ClipboardEvent('copy', {clipboardData: new DataTransfer(), bubbles: true, cancelable: true}); document.querySelector('.ed-input').dispatchEvent(ev); return ev.clipboardData.getData('text/html'); });
     expect(html).toContain('<table');
-    await page.keyboard.press('Control+End');
+    await toEnd(page);
     await paste(page, {'text/html': html, 'text/plain': '항목 값'});
     await expect(box.locator('table')).toHaveCount(2);
   });

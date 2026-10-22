@@ -512,6 +512,13 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     attributes: {class: 'ed-doc ed-input', role: 'textbox', 'aria-multiline': 'true', 'aria-label': label, spellcheck: 'false',
       ...(placeholder ? {'data-placeholder': placeholder} : {})},
     transformPastedHTML: cleanPastedHtml,
+    // A whole table copied from this editor (all cells chosen) comes as an open slice that only fits inside a table; outside
+    // one it goes in as a table of its own.
+    transformPasted(slice, v) {
+      const only = slice.content.childCount === 1 && slice.content.firstChild;
+      if (!only || only.type !== N.table || (slice.openStart === 0 && slice.openEnd === 0) || pm.isInTable(v.state)) return slice;
+      return new pm.Slice(slice.content, 0, 0);
+    },
     // Plain letters: one paragraph per line, blank lines kept, nothing read as format.
     clipboardTextParser(text, $context) {
       const lines = String(text).replace(/\r\n?/g, '\n').split('\n');
