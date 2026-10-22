@@ -96,7 +96,7 @@ export const recordText=row=>row.summary!=null?previewText(row.summary):(isNoteR
 // BUG-바구니연결해제: the whole line opens the original note; the ⋯ at its end holds
 // [메모 열기]·[연결 해제]·[요약 수정] and, for an update in organization detail, [원문 삭제].
 // BUG-미리보기기호: the written text a record's [더보기] opens as headings and tables (only when it carries marks the line removed).
-export const recordMarkdownSource=row=>markdownSource(row.summary!=null?row.summary:(isNoteRecord(row)&&String(row.title||'').trim()?row.title:row.raw_text));
+export const recordMarkdownSource=row=>markdownSource(row.summary!=null?row.summary:(isNoteRecord(row)&&String(row.title||'').trim()?row.title:row.raw_text),true);
 export function linkRecordHtml(row){
   const date=Number.isFinite(Date.parse(row.occurred_at))?formatSeoulTime(row.occurred_at,{year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}):'';
   const kind=row.organization_id?'organization':'project',note=isNoteRecord(row),href=note?'./?view=basket':`./?view=basket&note=${encodeURIComponent(row.note_id)}`;

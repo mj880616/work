@@ -69,12 +69,15 @@ export function previewText(raw, max = 0) {
   return max > 0 && chars.length > max ? chars.slice(0, max).join('') + '…' : chars.join('');
 }
 
+// The same letters with the line breaks kept (one plain line per written line), for rows that show their text over several lines.
+export const previewLines = raw => plainLines(raw).join('\n');
+
 // The written text a [더보기] opens as headings, tables and line breaks: only when it carries marks or line breaks the preview line
 // flattened (else '').
 export const MD_RAW_MAX = 20000;
-export function markdownSource(raw) {
+export function markdownSource(raw, withBreaks = false) {
   const text = String(raw ?? '');
-  return text.length <= MD_RAW_MAX && (previewText(text) !== text.replace(/\s+/g, ' ').trim() || /\n/.test(text.trim())) ? text : '';
+  return text.length <= MD_RAW_MAX && (previewText(text) !== text.replace(/\s+/g, ' ').trim() || (withBreaks && /\n/.test(text.trim()))) ? text : '';
 }
 
 const same = (a, b) => String(a).replace(/\s+/g, ' ').trim().toLowerCase() === String(b).replace(/\s+/g, ' ').trim().toLowerCase();

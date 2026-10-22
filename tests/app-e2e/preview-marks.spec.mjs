@@ -37,7 +37,7 @@ for(const width of [390,1280])test(`organization record lines show plain letters
  await expect(link).toHaveCount(1);await expect(own).toHaveCount(1);
  const line=(await link.textContent())||'';
  expect(line).toContain('합성 간담회 결과 일시 · 위치·장소 · 참석');expect(line).toContain('2026. 10. 21.');expect(line).toContain('합성 본사 · 12명');expect(line).not.toMatch(MARKS);
- expect(((await own.textContent())||'').trim()).toMatch(/^직접 쓴 업데이트 굵게 합성 문장/);expect((await own.textContent())||'').not.toMatch(MARKS);
+ expect(((await own.textContent())||'').trim()).toMatch(/^직접 쓴 업데이트\n굵게 합성 문장/);expect((await own.textContent())||'').not.toMatch(MARKS);
  // opened: the same text as a heading and a table. The 4-line cut is made certain by a 1-line clamp so [더보기] always shows.
  const more=page.locator('#wdUpdates .kptu-clamp-more');await expect(more).toHaveCount(2);
  await more.first().click();

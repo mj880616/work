@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {previewText,decodeEntities,markdownSource,plainLines} from '../app/note-preview.mjs';
+import {previewText,previewLines,decodeEntities,markdownSource,plainLines} from '../app/note-preview.mjs';
 // BUG-미리보기기호: the one preview-line function (headings, tables, lists, bold, entities, escapes) used by every record row.
 
 test('headings, list marks, bold, quotes and rules become plain letters', () => {
@@ -23,7 +23,11 @@ test('fenced code keeps its words; the cut adds … only when longer; empty stay
 });
 test('markdownSource is returned only when the line removed marks or line breaks', () => {
   assert.equal(markdownSource('그냥 한 줄'), '');
-  assert.equal(markdownSource('그냥 글\n두 줄'), '그냥 글\n두 줄');
+  assert.equal(markdownSource('그냥 글\n두 줄'), '');
+  assert.equal(markdownSource('그냥 글\n두 줄', true), '그냥 글\n두 줄');
   assert.equal(markdownSource('### 제목\n본문'), '### 제목\n본문');
   assert.equal(markdownSource('가'.repeat(30000) + '**x**'), '');
+});
+test('previewLines keeps one plain line per written line', () => {
+  assert.equal(previewLines('## 제목\n\n- **하나**\n| a | b |\n|--|--|'), '제목\n하나\na · b');
 });
