@@ -4,7 +4,7 @@
 // 순환·3단·같은 프로젝트 틀은 DB 트리거가 지키고(거절 SQLSTATE 23514 + LIB_FOLDER_*), 화면은 같은 규칙으로 고를 수 있는 곳만 보인다.
 // 폴더·자료 연결만 바꾼다. 자료(app_documents)·프로젝트·Drive 파일은 건드리지 않는다.
 import {createAnchoredMenu} from './anchored-menu.js';
-import {FOLDER_DEPTH,canAddChild,cleanFolderName,folderDeleteCounts,folderDepth,folderErrorText,folderMoveTargets,folderReorderPlan,folderSiblings,nextSortOrder} from './library-tree.js';
+import {FOLDER_DEPTH,SORT_GAP,canAddChild,cleanFolderName,folderDeleteCounts,folderDepth,folderErrorText,folderMoveTargets,folderReorderPlan,folderSiblings,nextSortOrder} from './library-tree.js';
 
 const T_FOLDERS='/rest/v1/app_library_folders',T_ITEMS='/rest/v1/app_library_folder_items';
 const enc=encodeURIComponent;
@@ -117,5 +117,59 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{}})
     const ordered=[],add=parent=>{for(const f of folderSiblings(s().folders,{projectId:frame,parentId:parent})){if(targets.includes(f.id))ordered.push(f.id);add(f.id)}};add(null);
     askTarget({title:'폴더로 옮기기',hint:`${doc.title||doc.file_name||'자료'}을(를) 넣을 폴더를 고르세요. ${frameName(frame)} 안의 폴더만 보여요.`,trigger:document.querySelector(`[data-lu-menu="${CSS.escape(doc.id)}"]`),targets:ordered.map(t=>({value:t,label:pathName(t),depth:folderDepth(s().folders,t)})),then:fid=>fileToFolder(doc,fid)});
   }
-  return {open:t=>menu.open(t),close:()=>menu.close(),fileMenuHtml,fileAction,docFolder,get busy(){return busy}};
+  // ---- PC 끌어 놓기(LIB-토글트리 ④, 설계 6절) ----
+  // 끌 수 있는 것: 폴더 머리, 파일 줄(프로젝트 묶기, PC). 놓을 곳은 같은 프로젝트 틀 안만:
+  //   폴더 → 다른 폴더 머리 가운데(그 안으로), 같은 상위의 형제 폴더 머리 위·아래 끝(그 앞·뒤로), 그 틀의 프로젝트 머리(맨 위로)
+  //   파일 → 폴더 머리(그 폴더로), 그 틀의 프로젝트 머리(폴더 밖으로)
+  // 그 밖(다른 프로젝트, 자기·자기 아래, 3단 초과)은 놓을 수 없음 표시. 키보드·폰은 ⋯ 메뉴(위로·아래로·옮기기…)가 같은 일을 한다.
+  let drag=null;
+  const frameKeyOf=key=>key==='p:none'?null:key.slice(2);
+  function dropFor(e){
+    if(!drag)return null;
+    const head=e.target.closest?.('#documentList summary.lu-node-head');if(!head)return null;
+    const node=head.parentElement,key=node?.dataset.luNode;if(!key)return null;
+    const r=head.getBoundingClientRect(),y=e.clientY-r.top,edge=r.height/4;
+    if(key.startsWith('p:')){const frame=frameKeyOf(key);if(frame!==drag.frame)return {head,ok:false};if(drag.kind==='file'&&!drag.inFolder)return {head,ok:false};if(drag.kind==='folder'&&!folder(drag.id)?.parent_id)return {head,ok:false};return {head,ok:true,kind:'top'}}
+    const target=folder(key.slice(2));if(!target||(target.project_id||null)!==drag.frame)return {head,ok:false};
+    if(drag.kind==='file')return {head,ok:target.id!==drag.folder,kind:'into',target:target.id};
+    if(target.id===drag.id)return {head,ok:false};
+    const f=folder(drag.id),sibling=(target.parent_id||null)===(f.parent_id||null);
+    if(sibling&&(y<edge||y>r.height-edge))return {head,ok:true,kind:y<edge?'before':'after',target:target.id};
+    const ok=folderMoveTargets(s().folders,drag.id).includes(target.id);
+    return {head,ok,kind:'into',target:target.id};
+  }
+  function clearMarks(){document.querySelectorAll('#documentList .lu-drop-into,#documentList .lu-drop-before,#documentList .lu-drop-after,#documentList .lu-drop-no,#documentList .lu-dragging').forEach(el=>el.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no','lu-dragging'))}
+  // 같은 상위 형제 사이로 옮기기: 끈 폴더를 target 앞/뒤에 두고 그 형제만 1024 간격으로 다시 매긴다(바뀐 행만 저장).
+  function placeBeside(id,targetId,after){
+    const f=folder(id),sib=folderSiblings(s().folders,{projectId:f.project_id||null,parentId:f.parent_id||null}).filter(x=>x.id!==id),at=sib.findIndex(x=>x.id===targetId);if(at<0)return Promise.resolve(false);
+    const order=[...sib.slice(0,at+(after?1:0)).map(x=>x.id),id,...sib.slice(at+(after?1:0)).map(x=>x.id)];
+    const plan=order.map((x,i)=>({id:x,sort_order:(i+1)*SORT_GAP})).filter(p=>Number(folder(p.id)?.sort_order)!==p.sort_order);
+    if(!plan.length)return Promise.resolve(false);
+    return run(async()=>{for(const p of plan)await api(T_FOLDERS+where(p.id),{method:'PATCH',prefer:'return=minimal',body:{sort_order:p.sort_order}})},'순서를 바꿨어요.');
+  }
+  function bindDrag(list){
+    list.addEventListener('dragstart',e=>{
+      const head=e.target.closest?.('summary.lu-node-head[draggable="true"]'),row=e.target.closest?.('.lu-row[draggable="true"]');
+      if(head){const id=head.parentElement.dataset.luNode.slice(2),f=folder(id);if(!f)return;drag={kind:'folder',id,frame:f.project_id||null};head.parentElement.classList.add('lu-dragging')}
+      else if(row){const doc=s().docs.find(d=>d.id===row.dataset.luDocument);if(!doc)return;const here=docFolder(doc);drag={kind:'file',id:doc.id,frame:doc.project_id||null,folder:here?.id||null,inFolder:!!here};row.classList.add('lu-dragging')}
+      else return;
+      try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',drag.id)}catch{}
+    });
+    list.addEventListener('dragover',e=>{
+      if(!drag)return;const t=dropFor(e);
+      list.querySelectorAll('.lu-drop-into,.lu-drop-before,.lu-drop-after,.lu-drop-no').forEach(el=>{if(el!==t?.head)el.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no')});
+      if(!t)return;
+      t.head.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no');
+      if(!t.ok){t.head.classList.add('lu-drop-no');try{e.dataTransfer.dropEffect='none'}catch{}return}
+      e.preventDefault();try{e.dataTransfer.dropEffect='move'}catch{}
+      t.head.classList.add(t.kind==='before'?'lu-drop-before':t.kind==='after'?'lu-drop-after':'lu-drop-into');
+    });
+    list.addEventListener('drop',e=>{
+      if(!drag)return;const t=dropFor(e),d=drag;drag=null;clearMarks();if(!t?.ok)return;e.preventDefault();
+      if(d.kind==='file'){const doc=s().docs.find(x=>x.id===d.id);if(!doc)return;void(t.kind==='top'?fileOut(doc):fileToFolder(doc,t.target));return}
+      if(t.kind==='top')void moveFolder(d.id,null);else if(t.kind==='into')void moveFolder(d.id,t.target);else void placeBeside(d.id,t.target,t.kind==='after');
+    });
+    list.addEventListener('dragend',()=>{drag=null;clearMarks()});
+  }
+  return {open:t=>menu.open(t),close:()=>menu.close(),fileMenuHtml,fileAction,docFolder,bindDrag,get busy(){return busy}};
 }

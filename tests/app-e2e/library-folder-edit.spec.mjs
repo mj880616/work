@@ -3,7 +3,7 @@ import { appOrigin } from './helpers/test-origin.mjs';
 // 저장은 소유자 RLS 표(app_library_folders·_items) REST뿐. 아래 가짜 서버는 DB 트리거와 같은 규칙(3단, 같은 틀, 지울 때 한 단 위로)을 흉내 낸다.
 import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
-import {libraryNode,libraryNodeHead} from './helpers/library-tree.mjs';
+import {expandLibraryTree,libraryNode,libraryNodeHead} from './helpers/library-tree.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const eq=(url,k)=>String(url.searchParams.get(k)||'').replace(/^eq\./,'');
@@ -156,4 +156,62 @@ test('DB가 거절하면(3단 초과) 일상어 한 줄로 알리고 서버 값�
   await expect(page.locator('#libraryFolderStatusLine')).toHaveText('폴더는 3단까지만 만들 수 있어요.');await expect(page.locator('#libraryFolderStatusLine')).toHaveClass(/error/);
   await expect(libraryNode(page,'f:x')).toBeAttached();
   expect(errors).toEqual([]);
+});
+
+// ④ PC 끌어 놓기: 같은 프로젝트 틀 안에서만. 폴더를 다른 폴더 안으로·형제 앞뒤로·맨 위로, 파일을 폴더로·폴더 밖으로.
+// 다른 틀 위에서는 놓을 수 없음 표시. 폰(터치)은 끌기가 없고 ⋯ 메뉴만.
+async function dragTo(page,from,to,{edge='middle'}={}){
+  await page.evaluate(({from,to,edge})=>{
+    const src=document.querySelector(from),dst=document.querySelector(to),dt=new DataTransfer(),r=dst.getBoundingClientRect();
+    const y=edge==='top'?r.top+2:edge==='bottom'?r.bottom-2:r.top+r.height/2,x=r.left+r.width/2;
+    src.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer:dt}));
+    const over=new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:dt,clientX:x,clientY:y});dst.dispatchEvent(over);
+    window.__luDropAllowed=over.defaultPrevented;window.__luDropClass=dst.className;
+    dst.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:dt,clientX:x,clientY:y}));
+    src.dispatchEvent(new DragEvent('dragend',{bubbles:true,dataTransfer:dt}));
+  },{from,to,edge});
+  return page.evaluate(()=>({allowed:window.__luDropAllowed,cls:window.__luDropClass}));
+}
+const head=key=>`#documentList details[data-lu-node="${key}"] > summary`;
+test('PC 1280 끌어 놓기: 같은 틀 안 폴더 안으로·앞뒤로·맨 위로, 파일 폴더로·밖으로, 다른 틀은 놓을 수 없음',async({page})=>{
+  const folders=[{id:'fa',project_id:'top-a',name:'가상 A',sort_order:1024},{id:'fb',project_id:'top-a',name:'가상 B',sort_order:2048},{id:'fc',project_id:'top-a',name:'가상 C',sort_order:3072},{id:'fn',project_id:null,name:'가상 없음',sort_order:0}];
+  const {s,errors}=await boot(page,1280,{folders});
+  await page.locator('#libraryExpandAll').click();
+  await expect(page.locator(head('f:fa'))).toHaveAttribute('draggable','true');await expect(page.locator('[data-lu-document="a-1"]')).toHaveAttribute('draggable','true');
+  // child-a1 틀에는 폴더가 없어 그 자료는 끌 수 없다. 프로젝트 토글은 끌 수 없다.
+  await expect(page.locator('[data-lu-document="a1-1"]')).not.toHaveAttribute('draggable','true');await expect(page.locator(head('p:top-a'))).not.toHaveAttribute('draggable','true');
+  // 폴더 C를 A 앞(위 끝)으로: 형제만 다시 매김.
+  let r=await dragTo(page,head('f:fc'),head('f:fa'),{edge:'top'});expect(r.allowed).toBe(true);expect(r.cls).toContain('lu-drop-before');
+  await expect.poll(()=>body(page,'p:top-a')).toEqual(['p:child-a1','f:fc','f:fa','f:fb','a-1','a-2']);
+  // 폴더 B를 A 안으로(가운데).
+  r=await dragTo(page,head('f:fb'),head('f:fa'));expect(r.allowed).toBe(true);expect(r.cls).toContain('lu-drop-into');
+  await expect.poll(()=>s.folders.find(f=>f.id==='fb').parent_id).toBe('fa');
+  // 자기 아래(B)로 A를 넣을 수는 없다.
+  await expandLibraryTree(page);
+  const n=s.writes.length;r=await dragTo(page,head('f:fa'),head('f:fb'));expect(r.allowed).toBe(false);expect(r.cls).toContain('lu-drop-no');expect(s.writes.length).toBe(n);
+  // 다른 틀('프로젝트 없음'의 폴더, 다른 프로젝트 토글)에는 놓을 수 없다.
+  r=await dragTo(page,head('f:fc'),head('f:fn'));expect(r.allowed).toBe(false);
+  r=await dragTo(page,'[data-lu-document="a-1"]',head('p:top-b'));expect(r.allowed).toBe(false);expect(s.writes.length).toBe(n);
+  // 파일을 폴더로, 그다음 프로젝트 머리에 놓아 폴더 밖으로.
+  r=await dragTo(page,'[data-lu-document="a-1"]',head('f:fc'));expect(r.allowed).toBe(true);
+  await expect.poll(()=>s.items).toEqual([{document_id:'a-1',folder_id:'fc',workspace_id:'workspace-1'}]);
+  await expandLibraryTree(page);
+  r=await dragTo(page,'[data-lu-document="a-1"]',head('p:top-a'));expect(r.allowed).toBe(true);
+  await expect.poll(()=>s.items).toEqual([]);
+  // B(A 안)를 프로젝트 머리에 놓으면 맨 위로.
+  await expandLibraryTree(page);r=await dragTo(page,head('f:fb'),head('p:top-a'));expect(r.allowed).toBe(true);await expect.poll(()=>s.folders.find(f=>f.id==='fb').parent_id).toBeNull();
+  // 놓은 뒤 표시가 남지 않는다. 자료는 쓰지 않았다.
+  await expect(page.locator('#documentList .lu-drop-into,#documentList .lu-drop-no,#documentList .lu-dragging')).toHaveCount(0);
+  expect(s.patches).toEqual([]);expect(errors).toEqual([]);
+});
+test.describe('폰 390 끌기 없음',()=>{
+  test.use({hasTouch:true,isMobile:true});
+  test('폰 390: 끌 수 있는 줄이 없고 ⋯ 메뉴의 위로·아래로가 같은 일을 한다',async({page})=>{
+    const {s,errors}=await boot(page,390,{folders:[{id:'fa',project_id:'top-a',name:'가상 A',sort_order:1024},{id:'fb',project_id:'top-a',name:'가상 B',sort_order:2048}]});
+    await page.locator('#libraryExpandAll').tap();
+    await expect(page.locator('#documentList [draggable="true"]')).toHaveCount(0);
+    await menuOf(page,'f:fb').tap();await action(page,'위로').tap();
+    await expect.poll(()=>body(page,'p:top-a')).toEqual(['p:child-a1','f:fb','f:fa','a-1','a-2']);
+    expect(s.writes.every(w=>w.table==='folders'&&w.method==='PATCH')).toBe(true);expect(errors).toEqual([]);
+  });
 });

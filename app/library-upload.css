@@ -227,3 +227,11 @@
 .lu-folder-target:hover{background:var(--kptu-surface-subtle)}
 .lu-folder-target[aria-checked="true"]{background:var(--ds-kind-other-soft);color:var(--ds-kind-other-ink);font-weight:var(--ds-weight-bold,700)}
 .lu-folder-target:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+
+/* LIB-토글트리 ④ PC 끌어 놓기: 놓을 수 있는 곳은 테두리, 앞·뒤로는 위·아래 선, 놓을 수 없는 곳은 흐림 + 금지 커서. */
+#appView #libraryView summary.lu-node-head[draggable="true"],#appView #libraryView .lu-row[draggable="true"]{cursor:grab}
+#appView #libraryView .lu-dragging{opacity:.5}
+#appView #libraryView .lu-node-head.lu-drop-into{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px;background:var(--kptu-primary-soft)}
+#appView #libraryView .lu-node-head.lu-drop-before{border-top:2px solid var(--kptu-primary-ink);margin-top:-2px}
+#appView #libraryView .lu-node-head.lu-drop-after{border-bottom:2px solid var(--kptu-primary-ink);margin-bottom:-2px}
+#appView #libraryView .lu-node-head.lu-drop-no{opacity:.55;cursor:no-drop}
