@@ -1,4 +1,5 @@
 import { appOrigin } from './helpers/test-origin.mjs';
+import {expandLibraryTree,revealLibraryRow} from './helpers/library-tree.mjs';
 import { test, expect } from '@playwright/test';
 
 const FIXTURE=`${appOrigin}/tests/app-e2e/library-upload-failure-fixture.html`;
@@ -203,15 +204,14 @@ test('long failure text wraps inside the upload modal on narrow phones',async({p
 
 test('library cards expose no public or workspace visibility control',async({page})=>{
   await page.goto(`${appOrigin}/tests/app-e2e/library-upload-failure-fixture.html`);
-  const card=page.locator('[data-lu-document="doc-1"]');
-  await expect(card).toBeVisible({timeout:3000});
+  const card=await revealLibraryRow(page,'doc-1');
   await expect(card.locator('[data-lu-toggle-public],[data-lu-set-visibility]')).toHaveCount(0);
   await expect(card).not.toContainText(/외부 공개|팀 내부|나만 보기/);
 });
 
 test('library secondary action does not open its card, while card body opens the document',async({page})=>{
   await page.goto(`${appOrigin}/tests/app-e2e/library-upload-failure-fixture.html`);
-  const card=page.locator('[data-lu-document="doc-1"]');
+  const card=await revealLibraryRow(page,'doc-1');
   await expect(card).toHaveAttribute('role','button');
   await card.locator('[data-lu-menu]').click();
   await page.locator('[data-lu-edit="doc-1"]').click();
@@ -227,7 +227,7 @@ test('revoked Google Drive token starts reconnect through the canonical function
   await page.evaluate(()=>{window.__documentActionError='Token has been expired or revoked.'});
   const dialogs=[];
   page.on('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.accept()});
-  await page.locator('[data-lu-menu="doc-1"]').click();
+  await revealLibraryRow(page,'doc-1');await page.locator('[data-lu-menu="doc-1"]').click();
   await page.locator('[data-lu-delete="doc-1"]').click();
   // Shared helper (Task2): result guidance first, then the reconnect offer.
   await expect.poll(()=>dialogs.length).toBe(3);

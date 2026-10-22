@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {expandLibraryTree,revealLibraryRow} from './helpers/library-tree.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import {openMeetingResult} from './helpers/meeting-open.mjs';
 import { closeOrganizationDetail } from './helpers/organization-detail.mjs';
@@ -60,7 +61,7 @@ async function app(page,view,{profile=true,empty=false}={}){
   await page.waitForFunction(view=>window.KPTUViewLoader?.isLoaded(view),view);
   return s;
 }
-async function editDocument(page,id='doc-A'){await page.locator(`[data-lu-menu="${id}"]`).click();await page.locator(`[data-lu-edit="${id}"]`).click();await expect(page.locator('#libraryEditModal')).toBeVisible();}
+async function editDocument(page,id='doc-A'){await revealLibraryRow(page,id);await page.locator(`[data-lu-menu="${id}"]`).click();await page.locator(`[data-lu-edit="${id}"]`).click();await expect(page.locator('#libraryEditModal')).toBeVisible();}
 async function openOrganization(page,id='org-A'){await page.locator(`[data-so-org="${id}"]`).click();await expect(page.locator('#wdModal')).toBeVisible();await expect(page.locator('#wdTitle')).toHaveText(id);if(!await page.locator('#wdMore').evaluate(el=>el.open))await page.locator('#wdMore > summary').click();}
 async function openBasic(page,id='org-A'){await openOrganization(page,id);await page.locator('#wdEditBasic').click();}
 async function editMeeting(page,id='meeting-A'){await openMeetingResult(page,id);await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();await page.locator('#mrdEdit').click();}

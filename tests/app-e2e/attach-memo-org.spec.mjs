@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {expandLibraryTree,revealLibraryRow} from './helpers/library-tree.mjs';
 import {onlyLibraryCategories} from './helpers/library-categories.mjs';
 import {mkdirSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
@@ -226,14 +227,16 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`organiz
  await capture(page,info,`org-docs-${width}-${scheme}`,section);
  await section.getByRole('button',{name:'전체 6개 보기'}).click();
  await expect(page.locator('#wdModal')).toBeHidden();
- // The library is the same screen filtered to this organization: search, month groups, newest first, 7 category chips.
+ // The library is the same screen filtered to this organization: search, newest first, 7 category chips.
+ // LIB-토글트리: 거르는 중이라 맞는 자료가 든 토글('프로젝트 없음')이 펼쳐져 있다.
  await expect(page.locator('#libraryView')).toBeVisible();
  const orgChips=page.locator('#libraryOrganizationFilter');
  await expect(orgChips.getByRole('radio')).toHaveText(['전체','합성 한빛지부']);await expect(orgChips.getByRole('radio',{name:'합성 한빛지부'})).toHaveAttribute('aria-checked','true');
  // UI-PC자료실 C: 분류 칩은 여러 개 켜고 끄는 토글. 담당조직에서 들어오면 모든 분류가 켜진 채로 보인다.
  await expect(page.locator('#libraryCategoryFilter').getByRole('button')).toHaveText(['전체',...DEFAULT]);
  await expect(page.locator('#libraryCategoryFilter [aria-pressed="false"]')).toHaveCount(0);
- await expect(page.locator('#documentList > *')).toHaveText([/^2026년 10월$/,/합성 공문/,/합성 교섭 일정/,/합성 집회 계획/,/^2026년 9월$/,/합성 교육 안내/,/합성 요구안/,/합성 국토부 지침/]);
+ await expect(page.locator('#documentList > details > summary')).toHaveText([/^프로젝트 없음\s*6/]);await expect(page.locator('#documentList details[data-lu-node="p:none"]')).toHaveAttribute('open','');
+ await expect(page.locator('#documentList .lu-row')).toHaveText([/합성 공문/,/합성 교섭 일정/,/합성 집회 계획/,/합성 교육 안내/,/합성 요구안/,/합성 국토부 지침/]);
  await expect(page.locator('#documentList')).not.toContainText('다른 조직 자료');
  await expect(page.locator('#documentSearch')).toHaveValue('');
  // Rows keep the file kind and show the small category tag.
@@ -298,7 +301,7 @@ const editorDocs=()=>[
  doc('e4','합성 교섭 요구안','교섭자료','2026-10-02'),doc('e5','합성 집회','투쟁','2026-10-01'),doc('e6','합성 현장 기록','현장자료','2026-09-30'),
 ];
 async function openEditor(page,width){
- await clickView(page,'library');await expect(page.locator('.lu-row').first()).toBeVisible();
+ await clickView(page,'library');await expandLibraryTree(page);await expect(page.locator('.lu-row').first()).toBeVisible();
  await tap(page,page.locator('#manageLibraryBtn'),width);
  const modal=page.locator('#libraryManageModal');await expect(modal).toBeVisible();
  const editor=modal.locator('.dce');await expect(editor.locator('.dce-list')).toBeVisible();return {modal,editor};
@@ -400,7 +403,7 @@ test('category list: client checks, server refusals and an unknown result are ex
 test('category list: when the list cannot be read the window does not let the person edit a guess',async({page})=>{
  const f=await fixture(page,{width:390,docs:editorDocs(),profileFails:true});
  const {editor}=await (async()=>{
-  await clickView(page,'library');await expect(page.locator('.lu-row').first()).toBeVisible();
+  await clickView(page,'library');await expandLibraryTree(page);await expect(page.locator('.lu-row').first()).toBeVisible();
   await tap(page,page.locator('#manageLibraryBtn'),390);
   const modal=page.locator('#libraryManageModal');await expect(modal).toBeVisible();return {editor:modal.locator('.dce')};
  })();
@@ -421,7 +424,7 @@ test('a changed list is the list every screen uses: upload form, edit form, proj
  await page.locator('#newDocumentBtn').click();
  await expect(page.locator('#docCategory option')).toHaveText(['자동 분류','교섭','투쟁','교육','선전','정책','홍보','회의','기타']);
  await page.locator('[data-close="documentModal"]').click();
- await page.locator('[data-lu-document="e4"] .lu-more-trigger').click();await page.locator('#luMorePanel [data-lu-edit]').click();
+ await revealLibraryRow(page,'e4');await page.locator('[data-lu-document="e4"] .lu-more-trigger').click();await page.locator('#luMorePanel [data-lu-edit]').click();
  await expect(page.locator('#libraryEditCategory option')).toHaveText(['교섭','투쟁','교육','선전','정책','홍보','회의','기타']);await expect(page.locator('#libraryEditCategory')).toHaveValue('교섭');
  await page.locator('[data-close="libraryEditModal"],#libraryEditClose').first().click();
  await clickView(page,'projects');await page.evaluate(()=>window.__KPTU_PROJECT_V3_READY__);

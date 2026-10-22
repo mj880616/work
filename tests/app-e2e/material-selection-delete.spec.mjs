@@ -1,4 +1,5 @@
 import {selectFilter,filterOptions} from './helpers/filter-chips.mjs';
+import {expandLibraryTree,revealLibraryRow} from './helpers/library-tree.mjs';
 import {test,expect} from '@playwright/test';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
@@ -78,7 +79,7 @@ for(const width of [390,1280]){
     }else{
       await clickView(page,'library');
     await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
-      await showAllLibraryCategories(page);// UI-PC자료실: 자료실은 기본으로 [회의]가 꺼져 있어 회의자료 분류 자료를 보려면 켠다.
+      await showAllLibraryCategories(page);// UI-PC자료실: 자료실은 기본으로 [회의]가 꺼져 있어 회의자료 분류 자료를 보려면 켠다.await expandLibraryTree(page);
       await page.locator('[data-lu-menu="doc-0"]').click();
     }
     const alerts=[];page.on('dialog',async d=>{alerts.push(d.message());await d.accept()});
@@ -333,7 +334,7 @@ async function openDeleteControl(page,view){
   }else{
     await clickView(page,'library');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
     await showAllLibraryCategories(page);// UI-PC자료실: 회의 분류는 기본으로 꺼져 있다.
-    await page.locator('[data-lu-menu="doc-0"]').click();
+    await expandLibraryTree(page);await page.locator('[data-lu-menu="doc-0"]').click();
   }
   expect(await page.evaluate(()=>({owner:window.KPTURuntime.session.read()?.user?.id,token:!!window.KPTURuntime.session.read()?.access_token,workspace:window.KPTURuntime.context.read()?.workspace?.id,view:window.KPTURouter.current}))).toEqual({owner:'owner',token:true,workspace:'ws',view});
   return page.locator(view==='meetings'?'[data-mrd-delete-document="doc-0"]':'[data-lu-delete="doc-0"]');
