@@ -27,8 +27,7 @@ export function reportsMeeting(meeting, hidden) {
 // The list after turning one kind off (hide) or on (show). Order is kept; no kind twice; null when the change cannot be written.
 export function withKind(hidden, key, hide) {
   if (!validKindKey(key) || !Array.isArray(hidden)) return null;
-  const rest = hidden.filter(k => k !== key);
-  const next = hide ? [...rest, key] : rest;
+  const next = hide ? (hidden.includes(key) ? [...hidden] : [...hidden, key]) : hidden.filter(k => k !== key);
   return next.length <= KIND_LIST_MAX ? next : null;
 }
 
