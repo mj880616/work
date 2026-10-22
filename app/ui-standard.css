@@ -1011,7 +1011,7 @@
    첨부(사진 작은 미리보기 / 그 밖은 종류 표시, 이름·크기 아래 아이콘 붙은 작은 글자 링크) · 사진 속 글자 · 맨 아래 동작 한 줄. 폰은 위아래로 쌓인다. */
 #appView #basketView .basket-card{ display:block; margin:0 0 12px; padding:12px; background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); }
 #appView #basketView .basket-card .basket-read{ position:relative; }
-#appView #basketView .basket-card .basket-read-text{ margin:0 0 8px; padding:4px 76px 4px 0; border:0; border-radius:0; background:transparent; }
+#appView #basketView .basket-card .basket-read-text{ margin:0 0 8px; padding:4px 0; border:0; border-radius:0; background:transparent; }
 #appView #basketView .basket-card .basket-read-text[hidden]{ display:none; }
 #appView #basketView .basket-card .basket-note-meta{ margin:0 0 4px; }
 #appView #basketView .basket-card-tools{ position:absolute; top:-6px; right:-6px; z-index:1; display:flex; gap:0; }
