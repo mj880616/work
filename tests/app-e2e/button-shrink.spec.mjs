@@ -87,8 +87,14 @@ for(const width of [390,1280]){
   // TEST-시험안정화: 창이 먼저 뜨고 조직 이름·할 일·자료가 늦게 붙어 위 높이가 바뀐다(가운데 정렬 창이라 버튼 위치도 같이 움직임). 상태 소유자(workplace-detail)가 다 그린 뒤의 최종 상태를 기다린 다음에 잰다.
   await expect(page.locator('#wdTitle')).not.toHaveText('조직 상세');await expect(page.locator('#wdState')).toHaveText('');
   await expect(page.locator('#wdTaskBody')).not.toContainText('불러오는 중');await expect(page.locator('#wdDocBody [data-wd-doc-state]')).toBeAttached();
-  const big=await check(page.locator('#wdInboxBig'),36,'조직 [크게]'),save=await check(page.locator('#wdInboxSave'),36,'조직 [저장]');expect(big.top).toBe(save.top);
-  if(await page.locator('#wdModal [data-gt-linked-unlink]').count())await check(page.locator('#wdModal [data-gt-linked-unlink]').first(),32,'조직 [연결 해제]');
+  if(width>=1024){
+   // ORG-PC상세정리(요청 14:10): PC 상세 칸은 ⤢가 입력칸 안 오른쪽 아래(보조 32px), [저장]은 작은 버튼(32px), 누르는 범위 44px.
+   const input=await measure(page.locator('#wdInboxText')),big=await check(page.locator('#wdInboxBig'),32,'조직 ⤢');await check(page.locator('#wdInboxSave'),32,'조직 [저장]');
+   expect(big.bottom).toBeLessThanOrEqual(input.bottom);expect(big.right).toBeLessThanOrEqual(input.right);expect(big.top).toBeGreaterThan(input.top);
+  }else{
+   const big=await check(page.locator('#wdInboxBig'),36,'조직 [크게]'),save=await check(page.locator('#wdInboxSave'),36,'조직 [저장]');expect(big.top).toBe(save.top);
+   if(await page.locator('#wdModal [data-gt-linked-unlink]').count())await check(page.locator('#wdModal [data-gt-linked-unlink]').first(),32,'조직 [연결 해제]');
+  }
   await noWideScroll(page);expect(errors).toEqual([]);
  });
 

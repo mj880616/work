@@ -407,10 +407,13 @@ function paintWhere(view=window.KPTURouter?.current){
   const groupKey=GROUPS[view]||(view==='basket'&&basketKind?'basket':null);
   if(groupKey)parts.push({name:GROUP_HEAD[groupKey].name,go:GROUP_HEAD[groupKey].view});
   parts.push({name:view==='basket'&&basketKind?(basketKind==='note'?'노트':'업데이트'):VIEW_NAMES[view]||''});
+  // The item open on the right of a left-list / right-detail screen goes last ("담당조직 › 조직명"); the screen word before it
+  // is plain text (it would only go to the screen already shown).
+  if(whereItem&&whereItem.view===view)parts.push({name:whereItem.name});
   whereList.replaceChildren(...parts.map((part,i)=>{
     const li=document.createElement('li');
-    if(i<parts.length-1){const b=document.createElement('button');b.type='button';b.className='topline-where-link';b.dataset.toplineGo=part.go;b.textContent=part.name;li.append(b)}
-    else{const s=document.createElement('span');s.setAttribute('aria-current','page');s.textContent=part.name;li.append(s)}
+    if(i<parts.length-1&&part.go){const b=document.createElement('button');b.type='button';b.className='topline-where-link';b.dataset.toplineGo=part.go;b.textContent=part.name;li.append(b)}
+    else{const s=document.createElement('span');if(i===parts.length-1)s.setAttribute('aria-current','page');s.textContent=part.name;li.append(s)}
     return li;
   }));
 }
@@ -424,6 +427,16 @@ whereList?.addEventListener('click',event=>{
   window.KPTURouter?.go(go,{source:'delegated'});
 });
 window.addEventListener('kptu:basket-kind',event=>{basketKind=event.detail?.kind||null;paintWhere()});
+// ORG-PC상세정리 (요청 14:06 "상단 줄에 지금 연 것 이름"): a screen names the item it shows on the right with
+// kptu:where-item {view, name}; {view, name:null} drops it. Only 담당조직 (workplace-detail.js) sends it so far.
+let whereItem=null;
+window.addEventListener('kptu:where-item',event=>{
+  const view=event.detail?.view,name=String(event.detail?.name??'').trim();
+  if(!view)return;
+  if(name)whereItem={view,name};else if(whereItem?.view===view)whereItem=null;else return;
+  paintWhere();
+});
+window.addEventListener('kptu:session-changed',()=>{if(whereItem){whereItem=null;paintWhere()}});
 paintWhere();
 // [+ 추가]: 업데이트·할 일·노트·일정 open the existing windows, each through its existing opener (no new save path):
 // 업데이트·노트 = the menu [쓰기] window; 일정 = [+ 일정 등록]; 할 일 = the same window on its [할 일] side (as the home input's [+]).
