@@ -49,7 +49,8 @@ async function scrollToRecord(page,locator){
  await locator.evaluate(el=>{let n=el.parentElement;while(n&&!(n.scrollHeight>n.clientHeight+1&&/(auto|scroll)/.test(getComputedStyle(n).overflowY)))n=n.parentElement;(n||document.scrollingElement).scrollTop+=el.getBoundingClientRect().top-300});
  await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>r())));return top(locator);
 }
-const noteRead=page=>page.locator('#basketView [data-note-read-title]');
+// UI-상단줄제목: on a PC (1024px~) the open note's title is in the top line's place; below that, in the note's head.
+const noteRead=page=>(page.viewportSize()?.width||0)>=1024?page.locator('[data-topline-where] [aria-current="page"]'):page.locator('#basketView [data-note-read-title]');
 
 for(const width of [1280,390])test(`project ${width}: a linked note joins the record list with the note icon; the update has the update icon and no 🧺 is left`,async({page})=>{
  const {state,errors}=await fixture(page,{width});
@@ -93,7 +94,7 @@ for(const width of [1280,390])test(`project ${width}: a note line opens the note
  // A note opened from the note list itself has no return line and its back stays the note list.
  await clickView(page,'basket');await chooseBasketKind(page,'note');await page.locator(`[data-note-row="${note.id}"]`).click();
  await expect(noteRead(page)).toHaveText('합성 회의 준비 노트');await expect(page.locator('#basketView [data-basket-return]')).toHaveCount(0);
- await page.goBack();await expect(noteRead(page)).toBeHidden();await expect(page.locator(`[data-note-row="${note.id}"]`)).toBeVisible();
+ await page.goBack();await expect(page.locator('#basketView [data-note-detail]')).toBeHidden();await expect(page.locator(`[data-note-row="${note.id}"]`)).toBeVisible();
  expect(await page.evaluate(()=>KPTURouter.current)).toBe('basket');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);expect(errors).toEqual([]);
 });

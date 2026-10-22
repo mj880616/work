@@ -409,11 +409,11 @@ function paintWhere(view=window.KPTURouter?.current){
   parts.push({name:view==='basket'&&basketKind?(basketKind==='note'?'노트':'업데이트'):VIEW_NAMES[view]||''});
   // The item open on the right of a left-list / right-detail screen goes last ("담당조직 › 조직명"); the screen word before it
   // is plain text (it would only go to the screen already shown).
-  if(whereItem&&whereItem.view===view)parts.push({name:whereItem.name});
+  if(whereItem&&whereItem.view===view)parts.push({name:whereItem.name,item:true});
   whereList.replaceChildren(...parts.map((part,i)=>{
     const li=document.createElement('li');
     if(i<parts.length-1&&part.go){const b=document.createElement('button');b.type='button';b.className='topline-where-link';b.dataset.toplineGo=part.go;b.textContent=part.name;li.append(b)}
-    else{const s=document.createElement('span');if(i===parts.length-1)s.setAttribute('aria-current','page');s.textContent=part.name;li.append(s)}
+    else{const s=document.createElement('span');if(i===parts.length-1)s.setAttribute('aria-current','page');s.textContent=part.name;if(part.item)s.title=part.name;li.append(s)}
     return li;
   }));
 }
@@ -428,7 +428,7 @@ whereList?.addEventListener('click',event=>{
 });
 window.addEventListener('kptu:basket-kind',event=>{basketKind=event.detail?.kind||null;paintWhere()});
 // ORG-PC상세정리 (요청 14:06 "상단 줄에 지금 연 것 이름"): a screen names the item it shows on the right with
-// kptu:where-item {view, name}; {view, name:null} drops it. Only 담당조직 (workplace-detail.js) sends it so far.
+// kptu:where-item {view, name}; {view, name:null} drops it. Sent by 담당조직 (workplace-detail.js) and 바구니 › 노트 (basket-notes.js, the open note's title).
 let whereItem=null;
 window.addEventListener('kptu:where-item',event=>{
   const view=event.detail?.view,name=String(event.detail?.name??'').trim();
