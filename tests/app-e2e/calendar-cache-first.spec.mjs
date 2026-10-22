@@ -153,6 +153,23 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}])test.desc
   test.use({viewport});
   test.beforeEach(async({page})=>{await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','list')}catch{}})});
 
+  // UI-버튼기준 (2026-10-22): the [다시 시도] of the 최신 아님 line is a small text button next to the notice, not a full-size button.
+  for(const [view,line] of [['calendar','#calendarFreshness'],['home','[data-home-fresh]'],['tasks','#gtTaskSection [data-gt-fresh]']])test(`the retry of the 최신 아님 line is a small text button in ${view}`,async({page})=>{
+    const state=newState();await mock(page,state);
+    await signIn(page,view);
+    await page.waitForTimeout(500);
+    state.failEvents=true;state.failTasks=true;
+    await page.reload();await ready(page);
+    const retry=page.locator(`${line} button[data-freshness-retry]`).first();
+    await expect(retry).toBeVisible();
+    const m=await retry.evaluate(el=>{const b=el.getBoundingClientRect(),s=getComputedStyle(el),hit=getComputedStyle(el,'::after'),text=el.parentElement.querySelector('.data-freshness-text');
+      return {height:b.height,font:parseFloat(s.fontSize),textFont:parseFloat(getComputedStyle(text).fontSize),border:s.borderTopColor,touch:Math.max(b.height,parseFloat(hit.height)||0)}});
+    expect(m.height).toBeLessThanOrEqual(28);
+    expect(m.font).toBeLessThanOrEqual(m.textFont);
+    expect(m.border).toBe('rgba(0, 0, 0, 0)');
+    expect(m.touch).toBeGreaterThanOrEqual(44);
+  });
+
   test('deleting an event in Web2 drops it from the copy at once',async({page})=>{
     const state=newState();await mock(page,state);
     await signIn(page,'calendar');
