@@ -115,7 +115,7 @@ for(const width of [390,1280]){
   expect([f.orgs,f.notes,f.uploads.length]).toEqual([[],[],0]);
   // Back to the basket: the text and file go through the basket upload path (one request with the text), then it closes.
   await e.locator('[data-md-kind="update"]').click();
-  await e.locator('[data-md-kind-menu]').click();await page.locator('#mdPlaceSheet [data-sheet-basket] button').click();
+  await e.locator('[data-md-kind-menu]').click();await page.locator('#mdPlaceSheet [data-sheet-basket] button').click();await page.locator('#mdPlaceSheet').getByRole('button',{name:'저장',exact:true}).click();
   await expect(e.locator('[data-md-save-icon]')).toHaveAccessibleName('바구니에 새 업데이트로 저장');
   await e.locator('[data-md-save-icon]').click();
   await expect(page.locator('#mdEditor')).toHaveCount(0);
