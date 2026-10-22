@@ -151,6 +151,15 @@
 #appView #journalView .journal-weekly .journal-org-name{ font-size:var(--kptu-text-body); }
 #appView #journalView .journal-weekly-list{ margin:0; padding-left:18px; display:flex; flex-direction:column; gap:2px; font-size:var(--kptu-text-body); line-height:1.5; overflow-wrap:anywhere; }
 #appView #journalView .journal-weekly-day{ display:inline-block; min-width:5.2em; margin-right:6px; color:var(--kptu-muted); font-variant-numeric:tabular-nums; }
+/* JOURNAL-회의종류표시: 회의 줄 끝의 작은 ⋯ (누르면 작은 글자 버튼 하나) + 이 주 뺀 회의 종류 줄. 새 크기 값 없음(UI-버튼기준). */
+#appView #journalView .journal-kind-more{ display:inline-block; margin-left:6px; vertical-align:baseline; }
+#appView #journalView .journal-kind-more > summary{ list-style:none; display:inline-block; cursor:pointer; color:var(--kptu-muted); font-size:var(--ds-text-meta); line-height:1; padding:2px 6px; border-radius:var(--kptu-radius-md); position:relative; }
+#appView #journalView .journal-kind-more > summary::-webkit-details-marker{ display:none; }
+#appView #journalView .journal-kind-more > summary::after{ content:""; position:absolute; inset:-14px -8px; }
+#appView #journalView .journal-kind-more[open] > .mini{ margin-left:4px; }
+#appView #journalView .journal-kinds-off{ display:flex; flex-direction:column; gap:2px; margin-top:4px; }
+#appView #journalView .journal-kinds-off-list{ margin:0; padding-left:18px; display:flex; flex-direction:column; gap:2px; font-size:var(--kptu-text-body); color:var(--kptu-muted); }
+#appView #journalView .journal-kinds-off-list .mini{ margin-left:6px; }
 #appView #journalView .journal-weekly-label{ font-weight:var(--ds-weight-medium); }
 #appView #journalView .journal-weekly .journal-org{ display:flex; flex-direction:column; gap:2px; }
 #appView #journalView .journal-weekly .journal-org + .journal-org{ margin-top:4px; }

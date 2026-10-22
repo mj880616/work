@@ -22,6 +22,7 @@ import {weekDays, workLines, shortDay, reportDay, tasksOn, pendingOn, meetingsOn
   compareOrgSections, journalMemosOn, documentLine, sharePageLine, UNSORTED, DONE_TASK_DAYS, doneCoverFrom, pendingCoverTo, PENDING_DAYS, todayKey, WEEK_READ_CAP} from './journal-data.js';
 import {requestTagsHtml, requestPrefix} from './update-requests.js';
 import {seoulDateKey, addSeoulDays, seoulClock} from './meeting-time.js';
+import {meetingKindKey, meetingKindName, reportsMeeting, validKindKey} from './journal-meeting-kinds.js';
 
 // The reads behind each part (journal.js materials keys; 'lines' is the journal's own lines read).
 // 'upcoming' is the two-week calendar read of 5. 주요 일정 (journal-data.js readScheduleEvents).
@@ -166,7 +167,9 @@ export function scheduleForm(calendar, me = '') {
 }
 
 // The whole week in report order. lines: Map(day → journal row) or null when they could not be read.
-export function weeklySummary({start, lines, linesState = 'ok', materials = {}, doneDays = DONE_TASK_DAYS, today = todayKey()}) {
+// kinds: JOURNAL-회의종류표시 — {status:'ok', list} = the kinds left out of 회의·행사 결과 (journal-meeting-kinds.js); {status:'loading'} keeps
+// that part "loading" until the list is read; anything else (not given, unreadable) reports every meeting as before.
+export function weeklySummary({start, lines, linesState = 'ok', materials = {}, doneDays = DONE_TASK_DAYS, today = todayKey(), kinds = null}) {
   const days = weekDays(start), m = {...materials, lines:{status:linesState === 'loading' ? 'loading' : linesState === 'ok' ? 'ok' : 'failed', items:lines}};
   const part = (key, build) => { const s = state(m, WEEKLY_SOURCES[key]); return {key, ...s, ...(s.loading ? {} : build(s))}; };
   const perDay = (source, pick) => { const read = ok(m, source); return read ? days.flatMap(day => pick(read, day).map(text => ({day, text}))) : []; };
@@ -178,7 +181,19 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
     return {...placeRecords(records, tree), ordered:!!tree, count:records.length, failed:s.failed};
   });
 
-  const meetings = part('meetings', () => ({items:perDay('meetings', (read, day) => meetingsOn(read, day).map(meetingLine))}));
+  // 회의·행사 결과: a meeting whose kind (series name, else title, without spaces, lower-case) is in my "not reported" list is left out
+  // here, in the draft copy and wherever else this grouping is used. Items carry their kind so the screen can offer the switch;
+  // `hidden` = the kinds left out this week (name, count) so they can be put back; `editable` only when the list was read.
+  const meetings = part('meetings', () => {
+    if (kinds?.status === 'loading') return {loading:true, items:[], hidden:[], editable:false};
+    const list = kinds?.status === 'ok' ? kinds.list : null, read = ok(m, 'meetings'), items = [], off = new Map();
+    for (const day of days) for (const meeting of read ? meetingsOn(read, day) : []) {
+      const name = meetingKindName(meeting), key = meetingKindKey(name);
+      if (!reportsMeeting(meeting, list)) { const entry = off.get(key) || off.set(key, {key, name, count:0}).get(key); entry.count++; continue; }
+      items.push({day, text:meetingLine(meeting), kind:key, kindName:name});
+    }
+    return {items, hidden:[...off.values()], editable:!!list};
+  });
 
   const orgs = part('orgs', s => {
     const read = {basket:ok(m, 'basket'), orgUpdates:ok(m, 'orgUpdates')};
@@ -338,7 +353,38 @@ export function renderWeekly(host, model, esc) {
     if (s.ordered && s.quiet.length && s.count) { const q = muted(`이 주 기록 없는 사업영역: ${s.quiet.join(', ')}`); q.dataset.journalWeeklyQuiet = ''; summary.append(q); }
   }
   const meet = block('meetings', '2) 세부 내용 — 회의·행사 결과');
-  if (!status(meet, model.meetings, '회의·행사 결과') && !model.meetings.failed.length) meet.append(model.meetings.items.length ? itemList(model.meetings.items) : empty('이 주 회의·행사가 없어요.'));
+  if (!status(meet, model.meetings, '회의·행사 결과') && !model.meetings.failed.length) {
+    const mt = model.meetings, off = mt.hidden || [];
+    if (mt.items.length) {
+      const list = itemList(mt.items);
+      // 주간보고에 올림 표시: a small ⋯ after the line opens one small text button for that line's kind (only when my list was read).
+      if (mt.editable) [...list.children].forEach((li, i) => {
+        const item = mt.items[i]; if (!validKindKey(item.kind)) return;
+        const more = el('details', 'journal-kind-more'); more.dataset.journalKindMore = item.kind;
+        const summaryEl = el('summary', null, '⋯'); summaryEl.setAttribute('aria-label', `${item.kindName} 종류 설정`);
+        const toggle = el('button', 'mini', '주간보고에서 빼기'); toggle.type = 'button';
+        toggle.dataset.journalKindToggle = item.kind; toggle.dataset.journalKindHide = '1'; toggle.dataset.journalKindName = item.kindName;
+        toggle.setAttribute('aria-label', `${item.kindName} 종류를 주간보고에서 빼기`);
+        more.append(summaryEl, toggle); li.append(more);
+      });
+      meet.append(list);
+    } else meet.append(empty(off.length ? '이 주 회의·행사는 모두 주간보고에서 뺀 종류예요.' : '이 주 회의·행사가 없어요.'));
+    if (off.length) {
+      const box = el('div', 'journal-kinds-off'); box.dataset.journalKindsOff = '';
+      box.append(el('p', 'journal-muted', '주간보고에서 뺀 회의 종류(이 주)'));
+      const ul = el('ul', 'journal-kinds-off-list');
+      for (const k of off) {
+        const li = el('li'); li.dataset.journalKindOff = k.key; li.append(el('span', null, `${k.name} · ${k.count}건`));
+        if (mt.editable) {
+          const back = el('button', 'mini', '다시 올리기'); back.type = 'button';
+          back.dataset.journalKindToggle = k.key; back.dataset.journalKindHide = '0'; back.dataset.journalKindName = k.name;
+          back.setAttribute('aria-label', `${k.name} 종류를 주간보고에 다시 올리기`); li.append(back);
+        }
+        ul.append(li);
+      }
+      box.append(ul); meet.append(box);
+    }
+  }
   two.append(summary, meet);
 
   // 4. 산하 조직 현황 (the form has no 3절 for one person's report — 투쟁 사업 is the team's)
