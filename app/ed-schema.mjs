@@ -28,6 +28,10 @@ export const BLOCK_NODES = ['paragraph', 'heading', 'blockquote', 'bullet_list',
 // Photo src is our own id, never an address: drive:<Drive file id> (notes·diary·updates, ③) or share:<photo id> (share pages, ②).
 // Until ② a photo is a place only (src null) with its description.
 export const PHOTO_SRC = /^(drive|share):[A-Za-z0-9_-]{1,200}$/;
+// The id inside a share-page photo src ("share:<id>"), or '' for any other src (a drive: photo is not a share-page photo).
+export function pagePhotoId(src) {
+  return typeof src === 'string' && src.indexOf('share:') === 0 && PHOTO_SRC.test(src) ? src.slice(6) : '';
+}
 // colWidth: one table column's width in px (dragging a column edge; the table's width is the sum of its columns).
 export const LIMITS = {depth:24, nodes:20000, text:200000, alt:200, href:2000, tableCols:20, indent:8, colWidth:2000};
 

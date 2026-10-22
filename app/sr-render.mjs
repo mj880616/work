@@ -90,10 +90,10 @@ function updates(block) {
   return box;
 }
 // ED-통합편집기 ①b: one 'doc' block is the new editor's document, drawn by ed-render.mjs (cleaned allowlist, textContent
-// only, links http(s)·mailto, no image is fetched) in the ed-doc.css look.
-function doc(block) {
+// only, links http(s)·mailto, a photo only with a short https address from share-page-read) in the ed-doc.css look.
+function doc(block, media) {
   const box = el('section', 'sr-block sr-doc');
-  box.append(renderDoc(block.doc));
+  box.append(renderDoc(block.doc, media));
   return box;
 }
 const RENDER = {summary, stages, schedule, issues, links, updates, doc};
@@ -108,14 +108,14 @@ export function renderBlockError(block) {
   return box;
 }
 // One block as the reader shows it, or null for a type the reader skips.
-export function renderBlock(block) {
+export function renderBlock(block, media) {
   if (!canDraw(block)) return null;
-  try { return RENDER[block.type](block); } catch (e) { return renderBlockError(block); }
+  try { return RENDER[block.type](block, media); } catch (e) { return renderBlockError(block); }
 }
-export function renderPage(page) {
+export function renderPage(page, media) {
   const nodes = [el('h1', 'sr-title', str(page && page.title))];
   for (const block of page && Array.isArray(page.blocks) ? page.blocks : []) {
-    const node = renderBlock(block);
+    const node = renderBlock(block, media);
     if (node) nodes.push(node);
   }
   return nodes;

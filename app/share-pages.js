@@ -12,6 +12,7 @@ import {BLOCK_TYPES, ALL_TYPES, BLOCK_LABELS, ITEM_FIELDS, LIMITS, newBlock, new
 import {renderBlock} from './sr-render.mjs';
 import {copyText} from './md-editor.js';
 import {createDocEditor} from './ed-editor.js';
+import {createSharePhotos, shareIdOf, SHARE_PHOTO_MAX} from './share-photos.js';
 
 (() => {
 if (window.KPTUSharePages) return;
@@ -147,7 +148,7 @@ function editNode(block, b, count) {
     const host = el('div', {class:'sp-doc-host', dataset:{spDocHost:String(b)}}, el('p', {class:'sp-hint', text:'편집기를 여는 중…'}));
     box.append(host);
     const mount = ++docMount;
-    createDocEditor({host, value:block.doc, label:`${n}번째 블록 글`, placeholder:'여기에 쓰세요',
+    createDocEditor({host, value:block.doc, label:`${n}번째 블록 글`, placeholder:'여기에 쓰세요', photos:photosFor(editing),
       onChange:value => { if (editing && editing.blocks[b] === block) block.doc = value; }}).then(ed => {
       if (mount !== docMount || !host.isConnected) { ed.destroy(); return; }
       host.querySelector('.sp-hint')?.remove();
@@ -170,10 +171,39 @@ function editNode(block, b, count) {
     el('button', {type:'button', class:'sp-tool sp-done', dataset:{spDone:String(b)}, 'aria-label':`${n}번째 블록 ${label} 고치기 완료`, text:'완료'})));
   return box;
 }
+// ED-② share photos: asked from the Edge function with the saved page's id, never kept in this browser. The preview of a 글 block
+// draws a photo once its short address is known (mediaNow), then paints that block again.
+let photoApi = null, photoPage = null, mediaNow = {}, mediaAsk = 0;
+function photosFor(page) {
+  if (photoPage !== page) { photoPage = page; photoApi = createSharePhotos({rt, getPageId: () => page.id || null}); mediaNow = {}; }
+  return {add: file => photoApi.add(file), url: src => photoApi.url(src), max: SHARE_PHOTO_MAX};
+}
+function primeMedia(page) {
+  if (!page || !page.id) return;
+  const ids = [];
+  const walk = node => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) { node.forEach(walk); return; }
+    if (node.type === 'image' && node.attrs && shareIdOf(node.attrs.src)) ids.push(shareIdOf(node.attrs.src));
+    walk(node.content);
+  };
+  for (const block of page.blocks) if (block.type === 'doc') walk(block.doc && block.doc.doc);
+  if (!ids.length || ids.every(id => id in mediaNow)) return;
+  photosFor(page);
+  const ask = ++mediaAsk;
+  photoApi.urls(ids).then(map => {
+    if (ask !== mediaAsk || editing !== page) return;
+    // An id with no address now is marked (asked once), so a missing photo does not make this ask again and again.
+    const next = {...mediaNow};
+    for (const id of ids) next[id] = map[id] || '';
+    mediaNow = next;
+    if (page.open === -1 || page.open === undefined) renderBlocks();
+  }).catch(() => {});
+}
 function viewNode(block, b, count) {
   const label = BLOCK_LABELS[block.type], n = b + 1;
   const shown = normalizeBlocks([block])[0];
-  const drawn = renderBlock(shown) || el('p', {class:'sp-hint', text:'표시할 수 없는 블록이에요.'});
+  const drawn = renderBlock(shown, mediaNow) || el('p', {class:'sp-hint', text:'표시할 수 없는 블록이에요.'});
   drawn.setAttribute('inert', '');
   const empty = blockIsEmpty(shown);
   const box = el('div', {class:`sp-vblock${empty ? ' is-empty' : ''}`, role:'group', 'aria-label':`${n}번째 블록 ${label}`, dataset:{spBlock:String(b), spType:block.type}},
@@ -207,6 +237,7 @@ function renderBlocks() {
     : [el('p', {class:'sp-empty', text:'아래 [+ 글]로 시작해 보세요. 진행 단계·일정 같은 칸이 필요하면 옆 버튼으로 더해요.'})]));
   for (const button of editorView.querySelectorAll('[data-sp-add-block]')) button.disabled = count >= LIMITS.blocks;
   paintConvert();
+  primeMedia(editing);
 }
 function openBlock(index) {
   if (!editing?.blocks[index]) return;
@@ -337,7 +368,7 @@ function renderFull() {
   editorView.replaceChildren(top, host);
   paintStatusButtons(); renderLinks(); void paintProjects();
   const mount = ++docMount, block = page.blocks[0];
-  createDocEditor({host, value:block.doc, label:'본문', placeholder:'여기에 쓰세요', head:title,
+  createDocEditor({host, value:block.doc, label:'본문', placeholder:'여기에 쓰세요', head:title, photos:photosFor(page),
     onChange:value => { if (editing === page && page.blocks[0] === block) { block.doc = value; queueDirty(); } }}).then(ed => {
     if (mount !== docMount || !host.isConnected) { ed.destroy(); return; }
     host.querySelector('.sp-hint')?.remove();
