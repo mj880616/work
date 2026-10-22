@@ -54,9 +54,9 @@ for(const width of [1280,1440]){
   await top(page).fill('교섭');
   await expect(panel(page).locator('.gs-band')).not.toHaveCount(0);
   expect(calls.at(-1)).toEqual({p_query:'교섭',p_kinds:null,p_per_kind:3,p_offset:0,p_kind:null});
-  // 칩: 전체·업데이트·노트·할 일·자료실·회의 결과·일정(+건수). 업무일지 칩 없음, 일기 없음.
+  // 칩: 전체·업데이트·노트·할 일·자료실·사업 보고·일정(+건수). 업무일지 칩 없음, 일기 없음.
   const chips=panel(page).locator('.gs-chips [data-filter-value]');
-  await expect(chips).toHaveText([/^전체 \d+$/,'업데이트 5','노트 1',/^할 일 \d+$/,'자료실 1','회의 결과 0',/^일정 \d+$/]);
+  await expect(chips).toHaveText([/^전체 \d+$/,'업데이트 5','노트 1',/^할 일 \d+$/,'자료실 1','사업 보고 0',/^일정 \d+$/]);
   await expect(panel(page)).not.toContainText('일기');
   // 업데이트 묶음: 띠(아이콘+굵은 이름+오른쪽 건수), 3줄 + "5건 모두 보기".
   const upd=panel(page).locator('[data-gs-group="update"]');

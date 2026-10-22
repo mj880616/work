@@ -38,7 +38,7 @@ const midQuery=window.matchMedia('(min-width:761px) and (max-width:1023px)');
 const menuQuery=window.matchMedia('(max-width:1023px)');
 const appNav=document.querySelector('#appView>.app-nav'),drawerNav=mobilePanel?.querySelector('nav');
 const phoneOnly=[...drawerNav?.querySelectorAll('[data-view]')||[]];
-const midItems=['home','basket','calendar','tasks','journal','diary','projects','library','meetings','media','pages','team','hwp']
+const midItems=['home','basket','calendar','tasks','journal','diary','projects','meetings','library','media','pages','team','hwp']
   .map(view=>appNav?.querySelector(`[data-view="${view}"]`)).filter(Boolean);
 const homes=new Map([...midItems,mobileTrigger].filter(Boolean).map(button=>{
   const anchor=document.createComment('navigation home');button.before(anchor);return [button,anchor];

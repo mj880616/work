@@ -103,7 +103,7 @@ test('draft check, decision 5 title filter, and the ledger text for a counterpar
   const rows=[row({id:id(1),summary:'A 사업장 자료 회신.'}),row({id:id(2),summary:'B 회의 참석'})];
   assert.deepEqual(mod.notPlanned(rows,['a 사업장  자료회신','다른 일']).map(r=>r.id),[id(2)]);
   const text=mod.ledgerRequestText({summary:'상대 측 자료 송부.',due:'2026-10-28',evidence:'보내기로 함',source_kind:'meeting',source_day:'2026-10-20'});
-  assert.match(text,/^쓰기요청\n/);assert.match(text,/약속\(상대·제3자\)/);assert.match(text,/회의 결과 2026-10-20/);
+  assert.match(text,/^쓰기요청\n/);assert.match(text,/약속\(상대·제3자\)/);assert.match(text,/사업 보고 2026-10-20/);
   assert.doesNotMatch(text,/[0-9a-f]{8}-[0-9a-f]{4}/,'no internal ids in the copied text');
 });
 
