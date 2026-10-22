@@ -10,6 +10,7 @@ import {formatSeoulTime, seoulParts, seoulDateKey} from './meeting-time.js';
 
 const HOUR = 3600000;
 // telegram: 회사 PC 수집이 messages/<YYYY-MM>/에 만드는 가장 최근 메시지 파일 시각(업무방 매일 07:30 1회 → 하루+2시간 여유로 26시간). call: 전사 폴더 최근 파일 시각(통화가 없는 주말을 넘기도록 72시간).
+// 수집기 두 줄(telegram·call)은 이 시간을 넘게 새 파일이 없어도 경고하지 않고 '조용함'으로만 표시한다(메시지·통화가 없는 날이 있음, 2026-10-22 사용자 결정). 경고는 신호(silent)만.
 // silent: 앱 스크립트가 1시간마다 보내는 신호 자체가 3시간 넘게 없으면 스크립트·트리거 문제로 본다.
 export const STALE_HOURS = Object.freeze({copy:24, radar:48, telegram:26, call:72});
 export const SILENT_HOURS = 3;
@@ -55,14 +56,14 @@ export function collectorsFromStatus(data) {
     ? {at:v.last_at, reportedAt:v.reported_at, count:Number.isInteger(v.count) && v.count >= 0 ? v.count : null} : null;
   return {telegram:one(c.telegram), transcript:one(c.transcript)};
 }
-// One collector line → {state:'ok'|'stale'|'silent'|'never', at, count}.
+// One collector line → {state:'ok'|'quiet'|'silent'|'never', at, count}. quiet = 신호는 정상인데 새 파일만 없음(경고 아님).
 export function judgeCollector(key, raw, now = Date.now()) {
   if (!raw) return {state:'never', at:null, count:null};
   const at = validTime(raw.at), reported = validTime(raw.reportedAt);
   if (at === null || reported === null) return {state:'never', at:null, count:null};
   const count = raw.count ?? null;
   if (now - reported > SILENT_HOURS * HOUR) return {state:'silent', at, count};
-  return {state:now - at > STALE_HOURS[key] * HOUR ? 'stale' : 'ok', at, count};
+  return {state:now - at > STALE_HOURS[key] * HOUR ? 'quiet' : 'ok', at, count};
 }
 export function radarFromRows(rows) {
   if (!Array.isArray(rows)) return null;
@@ -90,7 +91,7 @@ export async function readStatus(rt) {
 }
 
 const STATE_TEXT = {ok:'', stale:'주의 · 오래됨', failed:'주의 · 최근 실패', never:'기록 없음'};
-const COLLECTOR_TEXT = {ok:'', stale:'주의 · 오래됨', silent:'주의 · 점검 신호 끊김', never:'점검 신호 없음'};
+const COLLECTOR_TEXT = {ok:'', quiet:'조용함', silent:'주의 · 점검 신호 끊김', never:'점검 신호 없음'};
 const ATTENTION = new Set(['stale', 'failed', 'silent']);
 const timeText = at => formatSeoulTime(at, {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
 function judgeAll(raw, now) {
@@ -104,7 +105,7 @@ export function summarize(raw, now = Date.now()) {
   const {judged, empty} = judgeAll(raw, now);
   if (empty) return {empty:true, attention:[], ok:false};
   const attention = SOURCES.filter(({key}) => ATTENTION.has(judged[key]?.state)).map(({key, label}) => ({key, label, ...judged[key]}));
-  return {empty:false, attention, ok:SOURCES.some(({key}) => judged[key]?.state === 'ok')};
+  return {empty:false, attention, ok:SOURCES.some(({key}) => ['ok', 'quiet'].includes(judged[key]?.state))};
 }
 // 받침이 있는 이름은 '이', 없으면 '가'(텔레그램 수집이 · 통화 녹음 전사가 · Claude용 Drive 사본이 · 챙길 것 찾기(AI)가).
 const SUBJECT = {telegram:'이', call:'가', copy:'이', radar:'가'};
