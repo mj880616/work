@@ -239,6 +239,11 @@ document.querySelectorAll('#appView>.app-nav [data-basket-kind-nav]').forEach(bu
   try{const {requestBasketKind}=await import('./basket-note-tasks.js');requestBasketKind(button.dataset.basketKindNav);}catch(error){console.error('basket kind',error)}
   window.KPTURouter?.go('basket',{source:'delegated'});
 }));
+// UI-자주가는링크: PC sidebar '자주 가는 링크 ›' opens the small links window beside it (quick-links.js owns the window and its saving).
+document.querySelector('#appView>.app-nav [data-quick-links]')?.addEventListener('click',async event=>{
+  const trigger=event.currentTarget;
+  try{const quickLinks=await import('./quick-links.js');quickLinks.open(trigger);}catch(error){console.error('quick links',error);writeToast('자주 가는 링크를 열지 못했어요. 다시 시도해 주세요.')}
+});
 window.addEventListener('kptu:session-changed',()=>{writeDraft=''});
 syncMobile();
 syncMidNavigation();

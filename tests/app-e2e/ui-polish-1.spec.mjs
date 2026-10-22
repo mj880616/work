@@ -110,7 +110,7 @@ test('쓰기 메뉴 없음: PC 사이드바·폰 메뉴 창·☰ 메뉴에 [쓰�
  // UI-PC사이드바: 홈은 맨 위 아이콘+"홈" 줄(따로 있던 [홈] 줄은 PC 사이드바에서 숨김), 게시판 → 공유 페이지.
  // UI-PC일정묶음: 할 일·업무일지·일기는 [일정] 아래 하위 메뉴(달력·할 일·업무일지·일기)로.
  await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn:visible')).toHaveText(['달력','할 일','업무일지','일기']);
- await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['바구니','일정','프로젝트','자료실','회의','성명·보도자료','공유 페이지','담당조직','HWP 편집']);
+ await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['바구니','일정','프로젝트','자료실','회의','성명·보도자료','공유 페이지','담당조직','HWP 편집',/^자주 가는 링크/]);
  await openWriteFromEntry(page,1280);await expect(page.locator('#mdEditor')).toBeVisible();
  await page.keyboard.press('Escape');await expect(page.locator('#mdEditor')).toHaveCount(0);
  await page.setViewportSize({width:900,height:900});

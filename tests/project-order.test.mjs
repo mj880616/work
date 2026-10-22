@@ -43,7 +43,7 @@ test('reorderPlan: siblings renumbered 10, 20, …; unchanged rows and parent_id
 });
 
 test('업무일지 프로젝트 소식 and 주간 정리 follow the project tree; without the tree the day card stays 가나다순', async () => {
-  const {projectNewsOn, dayMaterials} = await journal, {placeRecords} = await weekly;
+  const {projectNewsOn, dayCard} = await journal, {placeRecords} = await weekly;
   const day = '2026-10-06';
   const rows = [['pe', '합성 교섭 사업'], ['pa', '합성 정책 사업'], ['pb', '합성 조직 사업']].map(([project_id, name], i) =>
     ({project_id, project:{name}, effective_on:day, summary:'기록 ' + i, created_at:`${day}T0${i}:00:00+09:00`}));
@@ -56,9 +56,10 @@ test('업무일지 프로젝트 소식 and 주간 정리 follow the project tree
   // The day card uses the catalog read when it is there.
   const ok = items => ({status:'ok', items});
   const materials = {basket:ok({notes:[], links:[], docs:[]}), orgUpdates:ok([]), projectUpdates:ok(rows), catalog:ok(tree(['pb', 'pe', 'pa']))};
-  const group = dayMaterials(materials, day).find(g => g.key === 'projects');
+  // JOURNAL-하루개편: 프로젝트 소식 is now 사업 소식 under 주간보고 재료.
+  const group = dayCard(materials, day, {tree:materials.catalog.items}).report.find(g => g.key === 'business');
   assert.deepEqual(names(group.sections), ['합성 조직 사업', '합성 교섭 사업', '합성 정책 사업']);
-  const failed = dayMaterials({...materials, catalog:{status:'failed'}}, day).find(g => g.key === 'projects');
+  const failed = dayCard({...materials, catalog:{status:'failed'}}, day).report.find(g => g.key === 'business');
   assert.deepEqual(names(failed.sections), ['합성 교섭 사업', '합성 정책 사업', '합성 조직 사업']);
   // [주간 정리] (and its 한글 file) places the 사업영역 in the same tree order.
   const records = rows.map(r => ({id:r.project_id, name:r.project.name, day, at:r.created_at, text:r.summary}));
