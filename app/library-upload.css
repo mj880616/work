@@ -198,6 +198,8 @@
 #appView #libraryView .lu-more-files{margin-left:calc((var(--lu-depth,0) + 1) * 16px)}
 #appView #libraryView .lu-filter-row[data-lu-filter-row="group"]{grid-template-columns:var(--lu-filter-label-width,4.5em) minmax(0,max-content) auto;justify-content:start}
 #appView #libraryView .library-filter-toolbar #documentProject[hidden]{display:none}
+/* 첫 토글 머리의 누르는 범위(44px)가 위 [+ 자료 등록]의 누르는 범위를 덮지 않게 머리 줄을 위에 둔다. */
+#appView #libraryView #libraryListCard > .add-list-head{position:relative;z-index:2}
 @media(max-width:760px){
   #appView #libraryView .lu-node-head{padding-left:calc(var(--lu-depth,0) * 12px)}
   #appView #libraryView .lu-node-body > .lu-row{padding-left:calc((var(--lu-depth,0) + 1) * 12px)}

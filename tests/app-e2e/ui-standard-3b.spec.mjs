@@ -163,7 +163,8 @@ test('동그란 [+]: 하단 탭 바로 위 오른쪽, 보이는 원 36px·누르
   // 목록 끝까지 내리면 마지막 줄은 [+] 위에 있다.
   await expect.poll(()=>page.locator('#'+view+'View').evaluate(el=>{
    window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'});
-   const shown=[...el.querySelectorAll('*')].filter(node=>node.getClientRects().length&&getComputedStyle(node).position!=='fixed'&&!node.closest('.modal,.schedule-switch'));
+   // LIB-토글트리: 접힌 토글(<details>) 안 줄은 상자 크기는 있어도 보이지 않으므로 checkVisibility로 뺀다.
+   const shown=[...el.querySelectorAll('*')].filter(node=>node.getClientRects().length&&node.checkVisibility()&&getComputedStyle(node).position!=='fixed'&&!node.closest('.modal,.schedule-switch'));
    return Math.max(...shown.map(node=>node.getBoundingClientRect().bottom));
   })).toBeLessThanOrEqual(b.top);
   await button.click();await expect(page.locator(modal)).toBeVisible();

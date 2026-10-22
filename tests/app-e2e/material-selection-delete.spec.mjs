@@ -79,7 +79,7 @@ for(const width of [390,1280]){
     }else{
       await clickView(page,'library');
     await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
-      await showAllLibraryCategories(page);// UI-PC자료실: 자료실은 기본으로 [회의]가 꺼져 있어 회의자료 분류 자료를 보려면 켠다.await expandLibraryTree(page);
+      await showAllLibraryCategories(page);await expandLibraryTree(page);// UI-PC자료실: 자료실은 기본으로 [회의]가 꺼져 있어 회의자료 분류 자료를 보려면 켠다. LIB-토글트리: 모두 편다.
       await page.locator('[data-lu-menu="doc-0"]').click();
     }
     const alerts=[];page.on('dialog',async d=>{alerts.push(d.message());await d.accept()});
