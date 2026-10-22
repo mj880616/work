@@ -1,4 +1,18 @@
-#versionNotice{position:fixed;z-index:60;left:50%;bottom:calc(var(--kptu-mobile-tab-height,0px) + 12px + env(safe-area-inset-bottom));transform:translateX(-50%);box-sizing:border-box;width:min(560px,calc(100% - 24px));display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--kptu-border-strong);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);font-size:14px}
-#versionNotice>span{flex:1;min-width:0;overflow-wrap:anywhere}
-#versionNotice>button{flex:0 0 auto;min-width:44px;min-height:44px;margin:0}
-body.kptu-version-notice-open .toast{bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-version-notice-height,76px) + 24px + env(safe-area-inset-bottom))!important;max-width:calc(100% - 48px);box-sizing:border-box;overflow-wrap:anywhere}
+/* HOME-모바일정리①(2026-10-22 시안 승인): 새 버전 알림은 화면 맨 위 얇은 한 줄. PC·폰 같은 모양.
+   보이는 높이 --ds-compact-height(32px), 버튼은 글자 버튼(UI-버튼기준), 누르는 범위는 ::after로 --kptu-touch-target(44px).
+   알림이 떠 있는 동안 본문은 그 높이만큼 아래로 내려가 가리지 않는다(--kptu-version-notice-height, version-notice.js가 잰다). */
+#versionNotice{position:fixed;z-index:60;top:0;left:0;right:0;box-sizing:border-box;display:flex;align-items:center;gap:6px;min-height:var(--ds-compact-height,32px);padding:0 max(8px,env(safe-area-inset-right)) 0 max(12px,env(safe-area-inset-left));border-bottom:1px solid var(--kptu-border);background:var(--kptu-primary-soft);color:var(--kptu-ink);font-size:var(--ds-text-meta,12px);line-height:1.4}
+#versionNotice .version-notice-icon{flex:0 0 auto;width:14px;height:14px;fill:none;stroke:var(--kptu-primary-ink);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#versionNotice>span{flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#versionNotice>button{position:relative;flex:0 0 auto;box-sizing:border-box;height:var(--ds-compact-height-sm,28px);min-height:0;margin:0;padding:0 6px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;font:inherit;font-size:var(--ds-text-meta,12px);cursor:pointer}
+#versionNotice>button::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+#versionNotice>.version-notice-reload{color:var(--kptu-primary-ink);font-weight:700;text-decoration:underline;text-underline-offset:2px}
+#versionNotice>.version-notice-close{margin-left:auto;min-width:var(--ds-compact-height-sm,28px);color:var(--kptu-muted)}
+#versionNotice>button:hover{background:var(--kptu-surface)}
+#versionNotice>button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+body.kptu-version-notice-open{padding-top:var(--kptu-version-notice-height,33px)}
+@media (min-width:1024px){
+  /* PC 칸 높이 계산(상단 줄 자리)과 붙어 있는 사이드바가 알림 줄 높이만큼 비켜선다. */
+  body.kptu-version-notice-open #appView{--kptu-topline-space:calc(var(--kptu-topline-height) + var(--kptu-topline-gap) + var(--kptu-version-notice-height,33px))}
+  body.kptu-version-notice-open #appView>.app-nav{top:calc(12px + var(--kptu-version-notice-height,33px));height:calc(100dvh - 24px - var(--kptu-version-notice-height,33px))}
+}
