@@ -90,7 +90,7 @@ for(const width of [390,1280]){
     // UI-버튼크기: 필터는 알약 칩(보이는 높이 32px·13px, 누르는 범위 44px), 분류 창 버튼은 공용 큰 버튼(--ds-control-height).
     // UI-PC버튼36: PC(≥1024) 홈 [추가]만 입력칸 높이(36px)라, 분류 창 버튼은 [추가]가 아니라 공용 기준값과 비교한다.
     const bigHeight=parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--ds-control-height')));
-    expect(homePrimary.height).toBe(width>=1024?36:bigHeight);
+    expect(homePrimary.height).toBe(36); // UI-버튼줄이기: 폰도 홈 [추가]는 36px(누르는 범위 44px).
     for(const [selector,metric] of Object.entries(metrics.controls)){
       const filter=selector.startsWith('[data-basket-filter');
       expect(Math.abs(metric.height-(filter?32:bigHeight)),selector).toBeLessThanOrEqual(1);

@@ -55,7 +55,10 @@ jobs:
               # 화면 색은 기기에만 두는 화면 설정이며 사용자 내용이 아님.
               'app/index.html':[r"'kptu-theme'"],
               'app/login/index.html':[r"'kptu-theme'"],
-              'app/topbar-actions.js':[r"'kptu-theme'"],
+              # UI-상단줄: PC 사이드바 숨김 여부(켜짐/꺼짐 하나)도 기기에만 두는 화면 설정이며 사용자 내용이 아님.
+              'app/topbar-actions.js':[r"'kptu-theme'",r'\bNAV_KEY\b'],
+              # UI-상단줄 시험: 같은 화면 설정 키(kptu-nav-collapsed)만 읽고 넣어 기억·초기 숨김을 확인한다.
+              'tests/app-e2e/topline.spec.mjs':[r"['\"]kptu-nav-collapsed['\"]"],
               'tests/theme-bootstrap.test.mjs':[r'\bTHEME_STORAGE_KEY\b'],
               'tests/app-e2e/theme.spec.mjs':[r'\bTHEME_STORAGE_KEY\b'],
               'index.html':[r'AUTH_KEY',r'AUTH_SESSION_KEY'],
@@ -80,6 +83,11 @@ jobs:
               # UI-PC프로젝트좌우·ORG-PC좌우: device-local "last project / organization seen" on the PC left-list / right-detail
               # screens (one id, no names or content), stored under the per-owner cache prefix that sign-out and owner change clear.
               'app/split-last.js':[r'localStorage\.(?:getItem|setItem)\(k\b'],
+              # UI-칸폭조절: PC 좌우 화면(할 일·프로젝트·담당조직)의 목록:상세 칸 비율(화면마다 0~1 숫자 하나)을 이 기기에만 기억하는
+              # 화면 설정이며 사용자 내용이 아님(키 kptu-split-ratio:<화면>, 저장소가 막히면 기본 1/3).
+              'app/split-resize.js':[r'localStorage\.(?:getItem|setItem|removeItem)\(storeKey\('],
+              # UI-칸폭조절 시험: 같은 화면 설정 키만 읽고 넣어 기억·초기화를 확인한다.
+              'tests/app-e2e/split-resize.spec.mjs':[r"kptu-split-ratio:"],
               # ORG-PC좌우 시험: 합성 조직 id 하나를 넣고 읽어 로그아웃·사용자 변경 때 지워지는지 본다.
               'tests/app-e2e/organization-pc-split.spec.mjs':[r"organization-last"],
               # UI-노트폴더 기억: device-local "last chosen note folder" (one folder choice string, no note content), stored under the

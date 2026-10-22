@@ -3,6 +3,7 @@ import {formatMeetingTime,formatSeoulTime,seoulInputValue,toSeoulISO,seoulParts,
 import {bindDateTimeFields} from './time-input.js';
 import { dayKey, ranges } from './home-read-model.js';
 import {lastSeen} from './split-last.js';
+import {mountSplitResize} from './split-resize.js';
 import {recordSheetWanted,openRecordSheet} from './record-sheet.js';
 import { createAnchoredMenu } from './anchored-menu.js';
 import {tapExpand} from './text-clamp.js';
@@ -156,7 +157,8 @@ function placeDetail(){
 }
 // The list row of the project shown on the right carries the selection (PC only); choosing it again, or while it is
 // still opening, leaves the pane as it is (bind).
-function paintSelection(){const id=docked()&&!$('#ps3DetailModal').classList.contains('hidden')?current?.id:null;document.querySelectorAll('#projectGrid .ps3-plist [data-ps3-project]').forEach(b=>{const on=!!id&&b.dataset.ps3Project===id;b.classList.toggle('is-selected',on);if(on)b.setAttribute('aria-current','true');else b.removeAttribute('aria-current')})}
+// UI-상단줄: the project shown on the right is told to the top line's ← → record (kptu:split-selection).
+function paintSelection(){const id=docked()&&!$('#ps3DetailModal').classList.contains('hidden')?current?.id:null;if(id)window.dispatchEvent(new CustomEvent('kptu:split-selection',{detail:{view:'projects',item:{id}}}));document.querySelectorAll('#projectGrid .ps3-plist [data-ps3-project]').forEach(b=>{const on=!!id&&b.dataset.ps3Project===id;b.classList.toggle('is-selected',on);if(on)b.setAttribute('aria-current','true');else b.removeAttribute('aria-current')})}
 // The last project seen on this device opens first next time (PC): split-last.js, shared with the 담당조직 screen
 // (ORG-PC좌우). Owner-scoped (kptu_owner_cache: is cleared on sign-out); a blocked storage only means the first project opens.
 const lastProject=lastSeen('project');
@@ -331,6 +333,8 @@ async function renderGrid({isCurrent=()=>true}={}){
  const key=JSON.stringify(spaces.map(p=>[p.id,p.name,p.parent_id,p.status,p.sort_order,p.updated_at]));
  if(key!==lastSpacesKey){lastSpacesKey=key;window.dispatchEvent(new CustomEvent('kptu:project-spaces-updated',{detail:{workspaceId:wid,userId:user.id,spaces}}))}
  paintSelection();
+ // UI-칸폭조절: the list | detail boundary can be dragged (split-resize.js, remembered per screen).
+ mountSplitResize({container:grid,name:'projects',label:'프로젝트 목록과 상세 칸 폭 조절',list:()=>grid.querySelector(':scope>.ps3-plist'),pane:()=>$('#ps3DetailPane'),active:splitWanted});
  if(!window.KPTURouter||window.KPTURouter.current==='projects')void loadListSummaries(listed);
 }
 // Task counts are linked pending Google tasks, counted from the completion copy in app_record_links without asking Google (TASK-구현 PR 4, plan 4.3).

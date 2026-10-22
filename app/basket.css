@@ -160,3 +160,11 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 }
 /* BASKET-노트입력창: 노트 입력칸(PC)은 왼쪽 여백만(NOTE-파일붙이기: PC 클립은 입력칸 밖 [추가] 앞, 폰은 ui-standard.css가 클립 자리를 둔다). */
 #basketView .home-quick[data-note-only] [data-quick-input] { padding-left:10px; }
+/* BASKET-본문폭(폰·PC 공통): 업데이트 카드는 제목 줄만 오른쪽 버튼([원문 보기]·[복사]) 자리를 비우고, 그 아래 글·표는 카드 오른쪽 끝까지 쓴다.
+ (버튼 자리를 본문 오른쪽 안쪽 여백으로 두지 않고, 글 위쪽 오른쪽에 띄운 빈 상자로 만든다 → 첫 두 줄만 비켜 간다.)
+ 칸이 많은 표는 한 글자씩 줄바꿈하지 않고 옆으로 밀어 본다(날짜 같은 한 덩어리 글은 안 끊긴다). 노트 읽기 화면도 같은 표 규칙. */
+#appView #basketView .basket-card .basket-read > .basket-read-text{ padding-right:0; }
+#appView #basketView .basket-card .basket-read > .basket-read-text::before{ content:""; float:right; width:calc(var(--kptu-touch-target,44px) * 2 - 2px); height:calc(var(--kptu-touch-target,44px) - 10px); }
+#appView #basketView .basket-read-text.md-body :is(table,pre,.md-math-block,.md-mermaid-figure){ clear:right; }
+#appView #basketView .basket-read-text.md-body :is(td,th){ overflow-wrap:normal; word-break:keep-all; }
+#appView #basketView .basket-read-text.md-body table{ -webkit-overflow-scrolling:touch; }

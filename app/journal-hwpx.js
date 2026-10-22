@@ -210,7 +210,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, rt = window.KPTURuntime}
       if (!host_) return;
       host_.replaceChildren(...list.map(item => {
         const li = el('li');
-        li.append(el('span', 'journal-weekly-day', shortDay(item.day)), doc.createTextNode(item.text + ' '));
+        li.append(el('span', 'journal-weekly-day', item.day ? shortDay(item.day) : '요약'), doc.createTextNode(item.text + ' '));
         const add = button('붙이기', 'hwpxAppend'); add.dataset.hwpxTarget = key; add.dataset.hwpxText = item.text;
         add.setAttribute('aria-label', `붙이기: ${item.text}`);
         li.append(add);
@@ -226,7 +226,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, rt = window.KPTURuntime}
       const list = rest.querySelector('ul');
       list.replaceChildren(...items.map((item, n) => {
         const li = el('li');
-        li.append(el('span', 'journal-weekly-day', shortDay(item.day)), el('span', 'journal-weekly-label', `${item.from}: `), doc.createTextNode(item.text + ' '));
+        li.append(el('span', 'journal-weekly-day', item.day ? shortDay(item.day) : '요약'), el('span', 'journal-weekly-label', `${item.from}: `), doc.createTextNode(item.text + ' '));
         const targets = item.section === 'summary' ? state.rows.map(r => [`summary:${r.index}`, `${r.area} › ${r.task}`]) : state.orgs.map(r => [`orgs:${r.index}`, r.org]);
         if (!targets.length) return li;
         const pickId = `journalHwpxPick-${n}`;
