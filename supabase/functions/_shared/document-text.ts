@@ -7,6 +7,8 @@
 // - 사진·그 밖의 파일: 읽지 않는다(파일 이름으로만 판단, 사용자 결정 ④).
 // 원본 Drive 파일은 읽기만 한다(이름·위치·내용 변경 없음, ⑦). 실패는 던지지 않고 {text:'', reason}으로 돌려준다.
 
+// 저장 상한. 자료 목록 화면 여러 곳이 app_documents를 select=*로 읽으므로 지금은 앞 12,000자만 둔다.
+// 전체 검색(docs/design/global-search.md ②)이 전체 글자가 필요하면, 그 PR에서 목록 읽기 칸을 좁힌 뒤 이 값만 올린다(옛 상한 50,000자).
 export const DOCUMENT_TEXT_CHARS = 12000;
 export const TEXT_FILE_MAX_BYTES = 2 * 1024 * 1024;
 export const HWPX_MAX_BYTES = 30 * 1024 * 1024;

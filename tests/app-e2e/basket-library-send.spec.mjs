@@ -110,9 +110,10 @@ test('a slow send keeps the button off and a result after an account switch is n
 // no extra notice and no AI marker. An existing registration ('exists') is not filled again. AI failure changes nothing on screen.
 test('a newly sent attachment is filled in the background like an upload',async({page})=>{
  const DOC='e0000000-0000-4000-8000-0000000000aa',fills=[];
- await page.route(SB+'/functions/v1/ai-assist',async route=>{fills.push(route.request().postDataJSON());return route.fulfill({status:503,json:{ok:false,error:'ai_busy',message:'x'}});});
  const f=await fixture(page,390,(route,body)=>body.action==='document-text'?route.fulfill({json:{ok:true,status:'error',reason:'unsupported'}})
   :route.fulfill({json:{ok:true,result:body.drive_file_id==='drive-a'?'created':'exists',document:{id:body.drive_file_id==='drive-a'?DOC:'doc-b',title:'x'}}}));
+ // Registered after the home fixture's catch-all so this route wins (Playwright uses the latest matching route).
+ await page.route(SB+'/functions/v1/ai-assist',async route=>{fills.push(route.request().postDataJSON());return route.fulfill({status:503,json:{ok:false,error:'ai_busy',message:'x'}});});
  await press(page,f.box('drive-a').getByRole('button'),390);
  await expect(page.locator('#toast')).toHaveText('자료실로 보냈어요. 바구니와 같은 Drive 원본을 씁니다.');
  await expect.poll(()=>fills.length).toBe(1);
