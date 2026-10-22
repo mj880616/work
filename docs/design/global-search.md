@@ -21,7 +21,7 @@
 | --- | --- | --- | --- | --- |
 | 업데이트 | 바구니 메모(화면 이름 "업데이트") | `app_notes` `kind='basket'`, 글 `raw_text`, 첨부 `attachments` jsonb | Supabase REST(owner RLS) | 보류(`archived_at`) 포함 여부는 결정 5 |
 | 노트 | 노트 | `app_notes` `kind='note'`, `title`·`raw_text` | REST | 폴더는 기기별 저장(검색 대상 아님) |
-| 업무일지 한 줄 | 오늘 한 줄 | `app_notes` `kind='work'`, `raw_text`(줄 1~50개, `journal_day`) | REST | 칩은 별도로 두지 않고 "노트" 아래가 아닌 기록 묶음에 넣을지 결정 1 |
+| 업무일지 한 줄 | 오늘 한 줄 | `app_notes` `kind='work'`, `raw_text`(줄 1~50개, `journal_day`) | REST | 요청 칩에 없어 어느 묶음에 넣을지는 결정 1 |
 | (제외) | 일기 | `app_notes` `kind='diary'` | — | **검색 함수에서 `kind <> 'diary'`를 강제.** 종류 목록 받는 인자에도 `diary`를 허용하지 않는다 |
 | 할 일 | Google 할 일 | **Google Tasks가 원본.** Edge `google-tasks` 경유. DB에는 연결 사본(`app_record_links`: 할 일 id·완료 여부만, 제목 없음)과 첨부(`app_task_attachments`: 파일 이름·Drive id) | Edge GET + 기기 저장본 `google-tasks-v2` | 제목·메모는 DB에 없음 |
 | 일정 | Google 캘린더 일정 | **Google Calendar가 원본.** Edge `google-calendar` `events`(`timeMin`·`timeMax`, 서버 검색어 없음) | Edge GET + 기기 저장본 `calendar-events-v1` | 저장본은 설명 제외·본 범위 8개까지 |
@@ -78,7 +78,7 @@
 - 입력 검사: 길이 ≤ 200, 제어문자 거절, 낱말 최대 6개(공백으로 나눔, 모두 포함 = AND), `%`·`_`·`\`는 이스케이프한 뒤 `ILIKE '%…%'`. `p_kinds`는 허용 목록에 있는 값만(`diary` 불허).
 - 순서: 종류 안에서 최근 것 먼저(`occurred_at desc`, 동률은 `id`). 관련도 점수는 쓰지 않는다(요청 "최근 것 먼저").
 - 앞뒤 한 줄(`snippet`): 본문에서 찾은 첫 위치 앞뒤 각 약 40자를 서버가 잘라 보낸다(본문 통째 전송 안 함). 형광 표시는 브라우저가 `textContent`로 나눠 `<mark>`를 만든다(HTML 삽입 안 함).
-- 찾는 칸: 노트 제목·본문, 메모·업무일지 본문, 자료 제목·파일 이름·출처·분류·태그·설명, 회의 제목·시리즈 이름·결과(`transcript_text`, 옛 `decisions`), 프로젝트 이름·진행 기록 요약, 조직 이름·업데이트·타임라인, 주요 일정 제목, 사진 글자(`attachments[].ocr.text`). 연결 조직·프로젝트 이름은 결과 줄 표시용이며 이름 자체를 찾는 칸에는 넣지 않는다(결정 1과 별개).
+- 찾는 칸: 노트 제목·본문, 메모·업무일지 본문, 자료 제목·파일 이름·출처·분류·태그·설명, 회의 제목·시리즈 이름·결과(`transcript_text`, 옛 `decisions`), 프로젝트 이름·진행 기록 요약, 조직 이름·업데이트·타임라인, 주요 일정 제목, 사진 글자(`attachments[].ocr.text`). 연결 조직·프로젝트 이름은 결과 줄 표시용이며 이름 자체를 찾는 칸에는 넣지 않는다.
 - 인덱스: 표가 작으면(1인 사용, 행 수는 S-1 직전 읽기 전용 확인 SQL로 측정, 미확인) `ILIKE`만으로 충분하다. 커지면 `pg_trgm` GIN 인덱스(`app_notes.raw_text`·`title`, `app_documents.title`·`extracted_text` 등)를 추가한다. `pg_trgm`은 한국어 3글자 미만 검색어에서는 인덱스를 못 타므로(전체 훑기) 검색어 최소 길이는 결정 2. `create extension`은 DB 정지 지점이다.
 - 비용: 요청 1회, OpenAI 호출 없음.
 
