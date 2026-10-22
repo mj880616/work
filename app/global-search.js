@@ -50,7 +50,7 @@ function marked(text, words, cls) {
 // ---------- 찾기 ----------
 function setText(text) {
   state.text = String(text ?? '');
-  syncInputs();
+  syncInputs(); syncAddress();
   clearTimeout(timer);
   const parsed = parseQuery(state.text);
   if (state.text.trim()) { void data.loadEvents().then(repaintLocal); void data.loadTasks().then(repaintLocal); }

@@ -7,7 +7,7 @@ import {eventRanges, cleanServer, filterEvents, filterTasks} from './global-sear
 
 const rt = () => window.KPTURuntime;
 const ownerId = () => rt()?.session?.read?.()?.user?.id || '';
-const EVENTS_TTL = 10 * 60 * 1000;
+const EVENTS_TTL = 10 * 60 * 1000, RETRY_MS = 60 * 1000; // 실패한 읽기는 1분 동안 다시 하지 않는다(글자마다 다시 부르지 않게).
 
 let events = null;   // {owner, at, list, failed}
 let eventsFlight = null;
@@ -31,7 +31,7 @@ export async function searchRecords(query, {per = 3, kind = null, offset = 0} = 
 export function loadEvents({now = Date.now()} = {}) {
   const owner = ownerId();
   if (!owner) return Promise.resolve({list: [], failed: true});
-  if (events && events.owner === owner && !events.failed && now - events.at < EVENTS_TTL) return Promise.resolve(events);
+  if (events && events.owner === owner && now - events.at < (events.failed ? RETRY_MS : EVENTS_TTL)) return Promise.resolve(events);
   if (eventsFlight) return eventsFlight;
   const mine = epoch;
   const read = ([from, to]) => rt().api(`/functions/v1/google-calendar?action=events&timeMin=${encodeURIComponent(from)}&timeMax=${encodeURIComponent(to)}`, {refreshSession: true});
@@ -60,7 +60,7 @@ async function tasksModule() {
 export function loadTasks() {
   const owner = ownerId();
   if (!owner) return Promise.resolve({list: [], failed: true});
-  if (tasks && tasks.owner === owner && !tasks.failed) return Promise.resolve(tasks);
+  if (tasks && tasks.owner === owner && (!tasks.failed || Date.now() - tasks.at < RETRY_MS)) return Promise.resolve(tasks);
   if (tasksFlight) return tasksFlight;
   const mine = epoch;
   tasksFlight = (async () => {
@@ -77,7 +77,7 @@ export function loadTasks() {
       list = (list || []).filter(t => t?.status !== 'completed' || recent(t));
     } catch { failed = true; list = []; }
     if (mine !== epoch || owner !== ownerId()) return {list: [], failed: true};
-    tasks = {owner, list, failed};
+    tasks = {owner, at: Date.now(), list, failed};
     return tasks;
   })().finally(() => { tasksFlight = null; });
   return tasksFlight;
