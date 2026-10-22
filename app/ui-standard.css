@@ -790,19 +790,13 @@
 #appView #libraryView .library-filter-toolbar{ gap:0 12px; }
 #appView #libraryView .library-filter-toolbar #documentProject{ flex:1 1 100%; }
 
-/* ④ 보조 버튼 32px: 일정 [오늘], 바구니 [⋯ 더보기](PC, 폰은 아이콘 그대로), 자료실 종류 줄 [편집](id manageLibraryBtn), 담당조직·프로젝트 상세 할 일 [연결 해제](담당조직 [기존 할 일 연결]·[+]는 프로젝트 상세와 같은 글자 버튼·작은 + 버튼, workplace-detail.css). */
+/* ④ 보조 버튼 32px: 일정 [오늘], 바구니 [⋯ 더보기](PC, 폰은 아이콘 그대로), 자료실 종류 줄 [편집](id manageLibraryBtn). 담당조직 [기존 할 일 연결]·[+]는 프로젝트 상세와 같은 글자 버튼·작은 + 버튼(workplace-detail.css). 할 일 줄 [연결 해제]는 TASK-바로처리통일로 줄 ⋯ 안. */
 #appView #calendarView .calendar-toolbar button#calendarTodayBtn,
-#appView #libraryView button#manageLibraryBtn,
-#ps3DetailModal button.mini[data-gt-linked-unlink],
-#wdModal button.mini[data-gt-linked-unlink],
-#appView #teamView #wdModal button.mini[data-gt-linked-unlink]{
+#appView #libraryView button#manageLibraryBtn{
   position:relative; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1;
 }
 #appView #calendarView .calendar-toolbar button#calendarTodayBtn::after,
-#appView #libraryView button#manageLibraryBtn::after,
-#ps3DetailModal button.mini[data-gt-linked-unlink]::after,
-#wdModal button.mini[data-gt-linked-unlink]::after,
-#appView #teamView #wdModal button.mini[data-gt-linked-unlink]::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
+#appView #libraryView button#manageLibraryBtn::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
 
 /* UI-버튼작게 ①(2026-10-18 사용자 결정): 바구니 메모·노트 읽기 화면 아래 버튼(메모 [연결하기][할 일 만들기], 노트 [수정][텔레그램용 복사][연결하기])은
    한 줄, 폭은 글자만큼, 보이는 높이 32px. 색은 기본 버튼 모양 하나로 통일(UI-바구니상세버튼색, 2026-10-20). 누르는 범위는 ::after로 44px. */
@@ -1268,9 +1262,7 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
 .modal .gt-modal-actions > #gtSaveBtn:not(.gt-pane-save){ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
 /* ② 창 안 보조 버튼: 작은 버튼(32px). 일정·할 일 창 [프로젝트 선택 안 함 ▾]은 폭도 글자만큼. */
 .modal :is(#eventTaskProject,#gtDeleteBtn,#gtToggleBtn):where(:not([hidden])),
-:is(#eventModal,#gtTaskModal) .gt-pick .gt-pick-btn,
-:is(#ps3DetailModal,#wdModal) button.mini[data-gt-linked-unlink],
-#appView :is(#projectsView,#teamView) :is(#ps3DetailModal,#wdModal) button.mini[data-gt-linked-unlink]{
+:is(#eventModal,#gtTaskModal) .gt-pick .gt-pick-btn{
   height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1;
 }
 .modal #eventTaskProject{ display:inline-flex; width:auto; max-width:100%; justify-content:flex-start; }

@@ -1565,7 +1565,7 @@ for(const width of [390,1280])test(`[업무일지] 줄 ⋯ 내일로·기한 바
  // 취소·Esc 는 요청 없이 닫는다.
  await open('todo','t-open');await menuItems(page).filter({hasText:'기한 바꾸기'}).click();
  await expect(page.locator('#taskDuePopup [data-task-due-input]')).toBeVisible();
- await page.keyboard.press('Escape');await expect(page.locator('#taskDuePopup')).toHaveCount(0);
+ await page.keyboard.press('Escape');await page.keyboard.press('Escape');await expect(page.locator('#taskDuePopup')).toHaveCount(0);
  await expect(taskRowOf(page,'todo','t-open').locator('.journal-more-btn')).toBeFocused();
  expect(m.calls.update.length).toBe(2);
  // 기한 지난 것(10/5): 접힌 줄 안의 줄에도 같은 ⋯.

@@ -87,6 +87,11 @@
 .gt-linked .gt-row.gt-side-row{grid-template-columns:auto minmax(0,1fr) auto}
 div.gt-main{cursor:default}
 .gt-linked-msg{padding:4px 3px;font-size:11px}.gt-linked-msg:empty{display:none}
+/* TASK-바로처리통일: 담당조직·프로젝트 상세 할 일 줄 오른쪽 ⋯(공용 task-inline.js, [연결 해제]도 이 안). 할 일 화면 줄의 ⋯와 같은 44px 투명 칸(ORG-PC상세정리 ③의
+   모양을 모든 폭에 그대로). PC(1024px~) hover/focus 때만 보이는 규칙은 ui-standard.css [data-task-inline-row]. */
+.gt-linked .gt-linked-more{display:grid;place-items:center;box-sizing:border-box;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);min-width:0;min-height:0;margin:-6px 0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-muted);font-size:20px;line-height:1;cursor:pointer}
+.gt-linked .gt-linked-more:hover{background:var(--kptu-surface-subtle)}
+.gt-linked .gt-linked-more:focus-visible{outline:2px solid var(--kptu-primary);outline-offset:-2px}
 :is(#gtTaskModal,#gtPickModal):not(.hidden){z-index:60}
 @media(max-width:760px){.gt-head{align-items:flex-start}.gt-row{padding:7px 2px}.gt-main b{font-size:12.5px}.gt-note:not(.gt-sync){display:none}.gt-meta{gap:6px}.gt-meta span:last-child{max-width:42%}}
 #mrdTasks .gt-row{grid-template-columns:44px minmax(0,1fr) auto;gap:var(--kptu-space-2)}
