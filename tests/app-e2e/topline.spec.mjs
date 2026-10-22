@@ -8,6 +8,10 @@ const line=page=>page.locator('[data-app-topline]');
 const toggle=page=>page.locator('[data-nav-toggle]');
 const back=page=>page.locator('[data-trail="back"]'),forward=page=>page.locator('[data-trail="forward"]');
 const where=page=>page.locator('[data-topline-where]');
+// Move with the menu and wait for the screen (views load on first use).
+async function show(page,view){await clickView(page,view);await expect(page.locator(`#${view}View`)).toBeVisible()}
+// With the sidebar hidden the menu is not there: move through the router, as any in-app link does.
+async function go(page,view){await page.evaluate(v=>window.KPTURouter.go(v,{source:'delegated'}),view);await expect(page.locator(`#${view}View`)).toBeVisible()}
 const width=(page,sel)=>page.locator(sel).evaluate(el=>Math.round(el.getBoundingClientRect().width));
 
 test('PC: the top line sits above every screen in order, the account moved there, the search slot is empty',async({page})=>{
@@ -32,7 +36,7 @@ test('PC: the top line sits above every screen in order, the account moved there
  // Small buttons (UI-버튼기준): 32px visible height.
  for(const sel of ['[data-nav-toggle]','[data-trail="back"]','[data-quick-add]'])expect(Math.round((await page.locator(sel).boundingBox()).height)).toBe(32);
  for(const view of ['basket','calendar','tasks','journal','diary','projects','library','meetings','media','pages','team','hwp']){
-  await clickView(page,view);await expect(line(page)).toBeVisible();
+  await show(page,view);await expect(line(page)).toBeVisible();
   const [l,v]=await Promise.all([line(page).boundingBox(),page.locator(`#${view}View`).boundingBox()]);
   expect(l.y+l.height).toBeLessThanOrEqual(v.y+1);
  }
@@ -42,7 +46,7 @@ test('PC: the top line sits above every screen in order, the account moved there
 test('PC: hiding the sidebar widens the body, is remembered on this device, and survives blocked storage',async({page})=>{
  await page.setViewportSize({width:1280,height:800});
  await openHome(page);
- await clickView(page,'journal');
+ await show(page,'journal');
  const before=await width(page,'#journalView');
  await expect(toggle(page)).toHaveAttribute('aria-expanded','true');
  await toggle(page).focus();await page.keyboard.press('Enter');
@@ -76,7 +80,7 @@ test('PC: ← → walk the screens moved through, dim at the ends, and leave bro
  await page.setViewportSize({width:1280,height:800});
  await openHome(page);
  await expect(back(page)).toBeDisabled();await expect(forward(page)).toBeDisabled();
- await clickView(page,'library');await clickView(page,'tasks');
+ await show(page,'library');await show(page,'tasks');
  await expect(where(page)).toHaveText(/일정\s*›?\s*할 일/);
  const historyLength=await page.evaluate(()=>history.length);
  await back(page).click();
@@ -88,27 +92,27 @@ test('PC: ← → walk the screens moved through, dim at the ends, and leave bro
  await forward(page).click();await expect(page.locator('#tasksView')).toBeVisible();await expect(forward(page)).toBeDisabled();
  // A move made by a menu after stepping back drops the forward part, as a browser would.
  await back(page).click();await expect(page.locator('#libraryView')).toBeVisible();
- await clickView(page,'meetings');await expect(forward(page)).toBeDisabled();
+ await show(page,'meetings');await expect(forward(page)).toBeDisabled();
  // The router still owns history: the browser's back goes through its own entries (the trail steps added router entries like menu clicks).
  expect(await page.evaluate(()=>history.length)).toBeGreaterThanOrEqual(historyLength);
  await page.goBack();await expect(page.locator('#libraryView')).toBeVisible();
- // Keyboard: Tab reaches ←, Enter steps.
+ // The browser's back is a move like any other: the record now ends 자료실 → 회의 → 자료실, so ← (Enter on it) goes to 회의.
  await back(page).focus();await page.keyboard.press('Enter');
- await expect(page.locator('#libraryView,#homeView,#tasksView').locator('visible=true')).toHaveCount(1);
+ await expect(page.locator('#meetingsView')).toBeVisible();await expect(back(page)).toBeFocused();
 });
 
 test('PC: ← → bring back the project chosen on the left/right projects screen',async({page})=>{
  await page.setViewportSize({width:1280,height:800});
  await openHome(page);
- await clickView(page,'projects');
- const first=page.locator('#projectGrid [data-ps3-project="p"]');
+ await show(page,'projects');
+ const row=id=>page.locator(`#projectGrid .ps3-plist [data-ps3-project="${id}"]`),first=row('p');
  await expect(first).toHaveAttribute('aria-current','true');
- await page.locator('#projectGrid [data-ps3-project="child"]').click();
- await expect(page.locator('#projectGrid [data-ps3-project="child"]')).toHaveAttribute('aria-current','true');
+ await row('child').click();
+ await expect(row('child')).toHaveAttribute('aria-current','true');
  await back(page).click();
  await expect(first).toHaveAttribute('aria-current','true');await expect(page.locator('#projectsView')).toBeVisible();
  await forward(page).click();
- await expect(page.locator('#projectGrid [data-ps3-project="child"]')).toHaveAttribute('aria-current','true');
+ await expect(row('child')).toHaveAttribute('aria-current','true');
  await back(page).click();await back(page).click();
  await expect(page.locator('#homeView')).toBeVisible();
 });
@@ -117,7 +121,7 @@ test('PC: where shows group › screen and the group word opens the group',async
  await page.setViewportSize({width:1280,height:800});
  await openHome(page);
  await expect(where(page)).toHaveText('홈');
- await clickView(page,'diary');
+ await show(page,'diary');
  await expect(where(page).locator('[aria-current="page"]')).toHaveText('일기');
  await where(page).getByRole('button',{name:'일정'}).click();
  await expect(page.locator('#calendarView')).toBeVisible();
@@ -169,7 +173,7 @@ for(const vw of [1280,1440,1920]){
  test(`PC ${vw}: hidden sidebar widens split, 3-column, calendar week, journal and basket screens`,async({page})=>{
   await page.setViewportSize({width:vw,height:900});
   await openHome(page);
-  const measure=async(view,sel)=>{await clickView(page,view);await expect(page.locator(sel).first()).toBeVisible();return width(page,sel)};
+  const measure=async(view,sel)=>{await go(page,view);await expect(page.locator(sel).first()).toBeVisible();return width(page,sel)};
   const cases=[['projects','#projectGrid'],['team','#soTeamSection'],['tasks','#gtTaskSection'],['meetings','#meetingList'],['calendar','#calendarCard'],['journal','#journalRoot'],['basket','#basketView']];
   const shown={};for(const [v,s] of cases)shown[v]=await measure(v,s);
   await toggle(page).click();
@@ -179,11 +183,12 @@ for(const vw of [1280,1440,1920]){
    if(v==='basket')expect(w).toBeGreaterThanOrEqual(shown[v]);else expect(w,v).toBeGreaterThan(shown[v]+120);
   }
   // Split screens keep list 1/3 : detail 2/3.
-  await clickView(page,'projects');
+  await go(page,'projects');
+  await expect(page.locator('#ps3DetailPane')).toBeVisible();await expect(page.locator('#projectGrid .ps3-plist')).toBeVisible();
   const [list,detail]=await Promise.all([page.locator('#projectGrid .ps3-plist').boundingBox(),page.locator('#ps3DetailPane').boundingBox()]);
   expect(detail.width/list.width).toBeGreaterThan(1.6);expect(detail.width/list.width).toBeLessThan(2.4);
   // Basket stays left-aligned next to where the sidebar was.
-  await clickView(page,'basket');
+  await go(page,'basket');
   const [b,l]=await Promise.all([page.locator('#basketView').boundingBox(),line(page).boundingBox()]);
   expect(Math.abs(b.x-l.x)).toBeLessThanOrEqual(1);
   // Nothing overflows the page sideways.
