@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { noteMenuAction } from './helpers/note-menu.mjs';
 import { basketKindButton } from './helpers/basket-kind.mjs';
+import { expectNoteTitle } from './helpers/note-title.mjs';
 // NOTE-파일붙이기 (2026-10-22 사용자 결정): files on notes.
 // - The note input bar has the clip ([📎]); [추가] makes the note first, then its files go up with its id (basket-files, which puts
 //   them in Drive "노트 첨부"). A note of files only is titled by the first file's name.
@@ -105,7 +106,7 @@ for (const width of [390, 1280]) {
     const f = await fixture(page, width);
     await press(page, page.locator('[data-note-row="n-files"]'), width);
     const detail = page.locator('[data-note-detail]');
-    await expect(detail.locator('[data-note-read-title]')).toHaveText('자료만 있는 노트');
+    await expectNoteTitle(page,'자료만 있는 노트');
     await expect(detail).not.toContainText('본문이 없는 노트입니다.');
     await expect(detail.locator('[data-basket-read-text]')).toBeHidden();
     const cards = detail.locator('[data-note-attachments] .file-line');

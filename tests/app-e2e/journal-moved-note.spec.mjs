@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { testOrigin } from './helpers/test-origin.mjs';
+import { expectNoteTitle } from './helpers/note-title.mjs';
 
 // 5-2 A: an update moved to a note ([노트로 옮기기]) keeps one mark on its row (metadata.moved_from_update_at, the other keys stay).
 // The work journal then shows that note as one "노트: (제목)" line on the update's own day, without its text; pressing the line opens
@@ -134,7 +135,7 @@ for (const width of [390, 1280]) {
     // ④ pressing the line opens that note on the basket's [노트] side.
     await press(page, moved(page).locator('.journal-item-open', {hasText:'합성 옮긴 노트'}), width);
     await expect(page.locator('#basketView')).toBeVisible();
-    await expect(page.locator('[data-note-read-title]')).toHaveText('합성 옮긴 노트');
+    await expectNoteTitle(page,'합성 옮긴 노트');
     expect(f.errors).toEqual([]);
   });
 

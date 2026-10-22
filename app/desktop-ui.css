@@ -102,6 +102,8 @@
 #appView>.app-nav .nav-quick-links{display:none}
 .quick-links-panel[hidden]{display:none!important}
 @media (min-width:1024px){
+  /* UI-상단줄제목: 열린 노트 머리줄은 제목 줄이 없어 [복사]·[⋯]를 오른쪽 끝에 둔다. */
+  #appView #basketView .note-head-main{justify-content:flex-end}
   #appView>.app-nav .nav-quick-links{display:flex;align-items:center;justify-content:space-between;gap:6px}
   #appView>.app-nav .nav-quick-links span{color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
   .quick-links-panel{position:fixed;z-index:60;inset:auto;margin:0;box-sizing:border-box;padding:10px 12px 8px;border:var(--ds-line-width,1px) solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto;overscroll-behavior:contain}
