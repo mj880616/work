@@ -16,7 +16,6 @@ const PAGE = {id:'page-w', title:'폭 조절 시험', status:'published', projec
   {type:'summary', text:'편집 칸 폭 조절 시험용 한 줄 현황'},
   {type:'updates', title:'', items:[{date:'10/19', text:'교섭 결렬'}]},
 ]};
-const KEY = 'kptu-split-ratio:share-edit';
 
 function mockApp(page, state) {
   return page.route(SB + '/**', async route => {
@@ -54,7 +53,7 @@ async function openEditor(page, width) {
   return {editor, errors};
 }
 const settle = page => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
-const stored = page => page.evaluate(k => localStorage.getItem(k), KEY);
+const stored = page => page.evaluate(() => localStorage.getItem('kptu-split-ratio:share-edit'));
 // Box widths of the editor and its canvas (the dashed 'what the reader sees' box).
 const measure = (editor) => editor.evaluate(el => {
   const c = el.querySelector('.sp-canvas').getBoundingClientRect(), e = el.getBoundingClientRect(), s = getComputedStyle(el);
@@ -135,7 +134,7 @@ for (const width of [1280, 1440, 1920]) {
     await expect(reader.locator('h1.sr-title')).toHaveText(PAGE.title);
     const wrap = await reader.locator('.sr-wrap').first().boundingBox();
     expect(wrap.width).toBeLessThanOrEqual(640.5);
-    expect(await reader.evaluate(k => localStorage.getItem(k), KEY)).toBeNull();
+    expect(await reader.evaluate(() => localStorage.getItem('kptu-split-ratio:share-edit'))).toBeNull();
     await reader.close();
     expect(errors).toEqual([]);
   });
