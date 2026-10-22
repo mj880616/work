@@ -6,7 +6,7 @@
 //   같은 상태 읽기 응답의 collectors로 받는다. 옛 함수(collectors 없음)면 지금처럼 "확인 불가".
 // 함수가 아직 배포 전(405·CORS 실패)이거나 표가 없으면(404) 그 줄을 조용히 숨기고, 확인할 수 있는 줄이 하나도 없으면 칸을 숨긴다.
 // 내용·파일 이름·링크는 받지도 그리지도 않는다. 한 탭에서 10분에 한 번만 묻는다.
-import {formatSeoulTime} from './meeting-time.js';
+import {formatSeoulTime, seoulParts, seoulDateKey} from './meeting-time.js';
 
 const HOUR = 3600000;
 // telegram: 회사 PC 수집이 messages/<YYYY-MM>/에 만드는 가장 최근 메시지 파일 시각(업무방 매일 07:30 1회 → 하루+2시간 여유로 26시간). call: 전사 폴더 최근 파일 시각(통화가 없는 주말을 넘기도록 72시간).
@@ -93,11 +93,34 @@ const STATE_TEXT = {ok:'', stale:'주의 · 오래됨', failed:'주의 · 최근
 const COLLECTOR_TEXT = {ok:'', stale:'주의 · 오래됨', silent:'주의 · 점검 신호 끊김', never:'점검 신호 없음'};
 const ATTENTION = new Set(['stale', 'failed', 'silent']);
 const timeText = at => formatSeoulTime(at, {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
-export function renderRows(raw, now = Date.now()) {
-  const collectors = raw.collectors || null;
-  const judged = {copy:judge('copy', raw.copy, now), radar:judge('radar', raw.radar, now)};
+function judgeAll(raw, now) {
+  const collectors = raw?.collectors || null;
+  const judged = {copy:judge('copy', raw?.copy, now), radar:judge('radar', raw?.radar, now)};
   if (collectors) for (const {key, collector} of SOURCES) if (collector) judged[key] = judgeCollector(key, collectors[collector], now);
-  if (!judged.copy && !judged.radar && !collectors) return '';
+  return {collectors, judged, empty:!judged.copy && !judged.radar && !collectors};
+}
+// HOME-수집경보: 폰 홈이 쓰는 요약. attention = 주의 줄(오래됨·최근 실패·점검 신호 끊김), ok = 정상으로 확인된 줄이 있는지.
+export function summarize(raw, now = Date.now()) {
+  const {judged, empty} = judgeAll(raw, now);
+  if (empty) return {empty:true, attention:[], ok:false};
+  const attention = SOURCES.filter(({key}) => ATTENTION.has(judged[key]?.state)).map(({key, label}) => ({key, label, ...judged[key]}));
+  return {empty:false, attention, ok:SOURCES.some(({key}) => judged[key]?.state === 'ok')};
+}
+// 받침이 있는 이름은 '이', 없으면 '가'(텔레그램 수집이 · 통화 녹음 전사가 · Claude용 Drive 사본이 · 챙길 것 찾기(AI)가).
+const SUBJECT = {telegram:'이', call:'가', copy:'이', radar:'가'};
+const dayHalf = at => { const p = seoulParts(at); return `${p.month + 1}/${p.day} ${p.hour < 12 ? '오전' : '오후'}`; };
+export function alertText(attention) {
+  const first = attention[0];
+  if (!first) return '';
+  const name = first.label + SUBJECT[first.key];
+  const text = first.state === 'failed' ? `${name} 최근 실패했어요`
+    : first.state === 'silent' ? `${first.label} 점검 신호가 끊겼어요`
+    : first.at !== null ? `${name} ${dayHalf(first.at)} 이후 멈췄어요` : `${name} 멈췄어요`;
+  return attention.length > 1 ? `${text} 외 ${attention.length - 1}건` : text;
+}
+export function renderRows(raw, now = Date.now()) {
+  const {collectors, judged, empty} = judgeAll(raw, now);
+  if (empty) return '';
   return SOURCES.map(({key, label, collector}) => {
     if (collector && !collectors) return `<li class="collect-row" data-collect="${key}" data-collect-state="unknown"><span class="collect-label">${esc(label)}</span><span class="collect-value">${esc(UNCHECKABLE_NOTE)}</span></li>`;
     const j = judged[key];
@@ -109,18 +132,77 @@ export function renderRows(raw, now = Date.now()) {
 }
 
 let cache = null; // {scope, at, raw} — memory only, this tab.
-export function mountCollectionStatus(host, {rt = window.KPTURuntime, now = () => Date.now()} = {}) {
-  if (!host) return null;
-  host.hidden = true;
-  let run = 0, alive = true;
-  function paint(raw) {
-    const rows = renderRows(raw, now());
-    if (!rows) { host.hidden = true; host.innerHTML = ''; return; }
-    host.innerHTML = `<header><h3 id="home-collect-title">마지막 수집 시각</h3></header><ul class="collect-list">${rows}</ul>`;
-    host.hidden = false;
+// HOME-수집경보(폰·중간 폭, 1023px 이하): 칸 대신 홈 위쪽 경고 한 줄(누르면 전체 칸이 펼쳐짐, ✕는 오늘 하루 숨김) 또는
+// 맨 아래 '수집 정상 ✓' 한 줄. 전체 칸은 폰 메뉴 창 안에도 둔다. PC(1024px 이상)는 오른쪽 칸 그대로.
+// 이 파일이 네 자리(카드·경고 줄·정상 줄·메뉴 창 칸)의 유일한 상태 소유자이자 렌더러다.
+const phoneQuery = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(max-width:1023px)') : null;
+const HIDE_KEY = 'kptu-collect-alert-hidden';
+let expanded = false;
+function hiddenToday(scope, now) {
+  try { return window.localStorage.getItem(HIDE_KEY) === `${scope}|${seoulDateKey(now)}`; } catch { return false; }
+}
+function hideToday(scope, now) {
+  try { window.localStorage.setItem(HIDE_KEY, `${scope}|${seoulDateKey(now)}`); } catch {}
+}
+const cardHtml = (rows, titleId) => `<header><h3${titleId ? ` id="${titleId}"` : ''}>마지막 수집 시각</h3></header><ul class="collect-list">${rows}</ul>`;
+function menuHostFor(doc) {
+  const panel = doc.querySelector('#mobileMenu .mobile-menu-panel');
+  if (!panel) return null;
+  let host = panel.querySelector('[data-menu-collect]');
+  if (!host) {
+    host = doc.createElement('section');
+    host.className = 'home-collect mobile-menu-collect';
+    host.dataset.menuCollect = '';
+    host.setAttribute('aria-label', '마지막 수집 시각');
+    host.hidden = true;
+    const before = panel.querySelector(':scope > hr');
+    before ? panel.insertBefore(host, before) : panel.append(host);
   }
+  return host;
+}
+export function mountCollectionStatus(host, {rt = window.KPTURuntime, now = () => Date.now(), alert = null, okLine = null, menu = undefined} = {}) {
+  if (!host) return null;
+  const menuHost = menu === undefined && typeof document !== 'undefined' ? menuHostFor(document) : menu;
+  const all = [host, alert, okLine, menuHost].filter(Boolean);
+  for (const el of all) el.hidden = true;
+  let run = 0, alive = true, shown = null;
+  function clear() { for (const el of all) { el.hidden = true; el.innerHTML = ''; } }
+  function paint(raw) {
+    shown = raw;
+    const at = now(), rows = renderRows(raw, at);
+    if (!rows) return clear();
+    const phone = !!phoneQuery?.matches && !!alert;
+    // PC: 오른쪽 칸 그대로. 폰: 칸은 숨기고 아래 둘 중 하나만.
+    host.innerHTML = phone ? '' : cardHtml(rows, 'home-collect-title');
+    host.hidden = phone;
+    if (menuHost) { menuHost.innerHTML = cardHtml(rows); menuHost.hidden = false; }
+    if (!phone) { if (alert) { alert.hidden = true; alert.innerHTML = ''; } if (okLine) { okLine.hidden = true; okLine.innerHTML = ''; } return; }
+    const sum = summarize(raw, at), scope = scopeOf(rt);
+    const warn = sum.attention.length > 0 && !hiddenToday(scope, at);
+    alert.hidden = !warn;
+    alert.innerHTML = warn ? `<div class="collect-alert-line"><button type="button" class="collect-alert-open" data-collect-expand aria-expanded="${expanded}" aria-controls="homeCollectPanel"><svg class="collect-alert-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3 2.5 16.5h15zM10 8.5v3.5M10 14.2v.3"/></svg><span>${esc(alertText(sum.attention))}</span><span class="collect-alert-chevron" aria-hidden="true">›</span></button><button type="button" class="collect-alert-close" data-collect-dismiss aria-label="오늘 하루 숨기기">✕</button></div><div class="home-card home-collect collect-alert-panel" id="homeCollectPanel" role="region" aria-label="마지막 수집 시각"${expanded ? '' : ' hidden'}>${cardHtml(rows)}</div>` : '';
+    const ok = !sum.attention.length && sum.ok;
+    okLine.hidden = !ok;
+    okLine.innerHTML = ok ? '수집 정상 <span aria-hidden="true">✓</span>' : '';
+  }
+  function onClick(event) {
+    const b = event.target.closest('button');
+    if (!b || !alert.contains(b)) return;
+    if (b.matches('[data-collect-expand]')) {
+      expanded = b.getAttribute('aria-expanded') !== 'true';
+      if (shown) paint(shown);
+      alert.querySelector('[data-collect-expand]')?.focus({preventScroll:true});
+    } else if (b.matches('[data-collect-dismiss]')) {
+      hideToday(scopeOf(rt), now());
+      expanded = false;
+      if (shown) paint(shown);
+    }
+  }
+  const onMedia = () => { if (alive && shown) paint(shown); };
+  alert?.addEventListener('click', onClick);
+  phoneQuery?.addEventListener?.('change', onMedia);
   async function refresh() {
-    if (!isOwner(rt)) { host.hidden = true; return; }
+    if (!isOwner(rt)) { clear(); return; }
     const scope = scopeOf(rt), mine = ++run;
     if (cache && cache.scope === scope && now() - cache.at < CACHE_MS) { paint(cache.raw); return; }
     const raw = await readStatus(rt);
@@ -128,6 +210,6 @@ export function mountCollectionStatus(host, {rt = window.KPTURuntime, now = () =
     cache = {scope, at:now(), raw};
     paint(raw);
   }
-  return {refresh, destroy() { alive = false; run++; }};
+  return {refresh, destroy() { alive = false; run++; alert?.removeEventListener('click', onClick); phoneQuery?.removeEventListener?.('change', onMedia); }};
 }
 export function resetCollectionCache() { cache = null; }
