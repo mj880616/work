@@ -2,7 +2,7 @@
 with f as (
   select to_regprocedure('public.app_search_records(text,text[],integer,integer,text)') as fn
 ), history as (
-  select count(*) filter(where name='search_records') as named, count(*) as n from supabase_migrations.schema_migrations where version='20261022120000'
+  select count(*) filter(where name='search_records') as named, count(*) as n from supabase_migrations.schema_migrations where version='20261022150000'
 )
 select 'function and history agree' as item,case when (history.n=0 and f.fn is null) or (history.n=1 and history.named=1 and f.fn is not null) then '예' else '아니오' end as ok
   from f,history

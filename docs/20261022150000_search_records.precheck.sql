@@ -6,7 +6,7 @@
 -- expect: documents rows = 기록
 -- expect: meetings rows = 기록
 -- expect: search tables policies hash = 기록
-select 'new migration absent' as item,case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261022120000') then '예' else '아니오' end as value
+select 'new migration absent' as item,case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261022150000') then '예' else '아니오' end as value
 union all select 'no search function yet',case when not exists(select 1 from pg_proc where proname='app_search_records' and pronamespace='public'::regnamespace) then '예' else '아니오' end
 union all select 'owner check function (security definer)',case when exists(select 1 from pg_proc where oid=to_regprocedure('private.app_is_workspace_owner(uuid)') and prosecdef) then '예' else '아니오' end
 union all select 'notes columns',case when (select count(*) from pg_attribute where attrelid=to_regclass('public.app_notes') and not attisdropped

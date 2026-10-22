@@ -12,7 +12,7 @@ set local statement_timeout = '60s';
 -- 사전 조건이 다르면 아무것도 바꾸지 않고 멈춘다(칸이 없으면 검색 중 오류가 나므로 적용 전에 멈춤).
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261022120000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261022150000')
      or exists (select 1 from pg_proc where proname = 'app_search_records' and pronamespace = 'public'::regnamespace)
      or not exists (select 1 from pg_proc where proname = 'app_is_workspace_owner' and pronamespace = 'private'::regnamespace)
      or (select count(*) from pg_attribute where attrelid = to_regclass('public.app_notes') and not attisdropped
@@ -272,5 +272,5 @@ revoke all on function public.app_search_records(text, text[], integer, integer,
 grant execute on function public.app_search_records(text, text[], integer, integer, text) to authenticated;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261022120000', 'search_records', array['SEARCH S-1a: public.app_search_records (SECURITY INVOKER, search_path empty, authenticated only; diary excluded inside; no table, policy or grant change)']);
+values ('20261022150000', 'search_records', array['SEARCH S-1a: public.app_search_records (SECURITY INVOKER, search_path empty, authenticated only; diary excluded inside; no table, policy or grant change)']);
 commit;

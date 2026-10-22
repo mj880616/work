@@ -13,5 +13,5 @@ union all select 'policy',c.relname::text||'.'||p.polname::text,md5(p.polcmd::te
   'app_project_progress_updates','app_project_milestones','app_suborganizations','app_suborganization_updates','app_suborganization_timeline')
 union all select 'default ACL',coalesce(d.defaclrole::regrole::text,'')||':'||d.defaclobjtype::text,coalesce(d.defaclacl::text,'none')
   from pg_default_acl d where d.defaclnamespace='public'::regnamespace
-union all select 'history',version,name from supabase_migrations.schema_migrations where version='20261022120000'
+union all select 'history',version,name from supabase_migrations.schema_migrations where version='20261022150000'
 order by 1,2;

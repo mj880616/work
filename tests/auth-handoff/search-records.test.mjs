@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL only. No Supabase, Google or production credentials. All data synthetic.
-// SEARCH-전체검색 S-1: 20261022120000_search_records (public.app_search_records, SECURITY INVOKER) through the
+// SEARCH-전체검색 S-1: 20261022150000_search_records (public.app_search_records, SECURITY INVOKER) through the
 // approved DB workflow runner. Also records why a pg_trgm index is not added: under owner RLS the planner cannot use it.
 // Checks: owner-only results (another owner and anon get nothing), diary never returned with any argument,
 // input rules (2-character words, 6 words, 200 characters, control characters, \ % _ literal), kind counts,
@@ -18,7 +18,7 @@ import pg from 'pg';
 import {fixture,OWNER,STRANGER,WS_A,WS_B,PROJECT_A,PROJECT_A2,PROJECT_B,ORG_A,ORG_B,MEETING_A,MEETING_B} from './basket4-fixture.mjs';
 import {prepareMigration,checkSQL} from '../../scripts/ops/db-migration-plan.mjs';
 import {runMigrationPlan} from '../../scripts/ops/db-migration-run.mjs';
-const FN='20261022120000',FN_NAME='search_records';
+const FN='20261022150000',FN_NAME='search_records';
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 const root=new URL('../../',import.meta.url).pathname;
 const externalPort=process.env.SEARCH_PG_PORT;
