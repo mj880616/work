@@ -121,7 +121,12 @@ test('PC: where shows group › screen and the group word opens the group',async
  await page.setViewportSize({width:1280,height:800});
  await openHome(page);
  await expect(where(page)).toHaveText('홈');
+ // 홈 날짜는 PC에서 상단 줄 위치 옆(본문 맨 위 날짜 제목은 숨김). 다른 화면에서는 날짜를 보이지 않는다.
+ const date=line(page).locator('[data-topline-date]');
+ await expect(date).toBeVisible();await expect(date).toHaveText(/\d+월 \d+일 [일월화수목금토]요일/);
+ await expect(page.locator('#homeView>h2[data-home-date]')).toBeHidden();
  await show(page,'diary');
+ await expect(date).toBeHidden();
  await expect(where(page).locator('[aria-current="page"]')).toHaveText('일기');
  await where(page).getByRole('button',{name:'일정'}).click();
  await expect(page.locator('#calendarView')).toBeVisible();

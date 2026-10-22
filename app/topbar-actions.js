@@ -397,6 +397,8 @@ const whereList=topline?.querySelector('[data-topline-where]');
 let basketKind=null;
 function paintWhere(view=window.KPTURouter?.current){
   if(!whereList)return;
+  // Home only: the date sits beside the location (the PC counterpart of the phone header date); view-loader fills its text.
+  topline.querySelector('[data-topline-date]')?.toggleAttribute('hidden',view!=='home');
   const parts=[];
   const groupKey=GROUPS[view]||(view==='basket'&&basketKind?'basket':null);
   if(groupKey)parts.push({name:GROUP_HEAD[groupKey].name,go:GROUP_HEAD[groupKey].view});

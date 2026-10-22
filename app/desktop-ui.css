@@ -76,6 +76,11 @@
   .app-topline .topline-where ol{display:flex;align-items:center;gap:2px;margin:0;padding:0;list-style:none;min-width:0}
   .app-topline .topline-where li{display:flex;align-items:center;min-width:0;font-size:var(--ds-compact-text,13px);color:var(--kptu-ink);white-space:nowrap}
   .app-topline .topline-where li+li::before{content:"›";margin:0 6px;color:var(--kptu-muted)}
+  /* 홈 날짜: 폰이 위 머리줄(.mobile-shell-header time)에 날짜를 두듯 PC는 상단 줄 위치 옆에 둔다. 본문 맨 위 날짜 제목은 PC에서 숨겨 상단 줄 높이만큼 세로 자리를 돌려준다. */
+  .app-topline .topline-where{display:flex;align-items:center}
+  .app-topline .topline-date{margin-left:10px;font-size:var(--ds-compact-text,13px);color:var(--kptu-muted);white-space:nowrap}
+  .app-topline .topline-date[hidden]{display:none}
+  #appView #homeView>h2[data-home-date]{display:none}
   .app-topline .topline-where [aria-current]{font-weight:var(--ds-weight-medium,600);overflow:hidden;text-overflow:ellipsis}
   .app-topline .topline-where-link{position:relative;height:var(--ds-compact-height,32px);padding:0 4px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-muted);font:inherit}
   .app-topline .topline-where-link::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
