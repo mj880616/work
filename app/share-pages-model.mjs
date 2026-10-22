@@ -8,8 +8,13 @@
 //   issues   {type, title, items:[{title, body}]}        쟁점·요구
 //   links    {type, title, items:[{label, url}]}         자료·링크 (http·https만)
 //   updates  {type, title, items:[{date, text}]}         업데이트 기록
+//   doc      {type, doc:{v:'ed1', doc:{…}}}               글(ED-통합편집기 ①b: 새 편집기 한 칸, 모양은 ed-schema.mjs가 정함)
+// BLOCK_TYPES are the six old kinds offered by [+ 블록]; a new page starts with one 'doc' block instead (설계 결정 6 가).
+// ALL_TYPES is what may be saved and drawn (the DB check allows the same seven).
+import {cleanDoc, emptyDoc, isEmptyDoc} from './ed-schema.mjs';
 export const BLOCK_TYPES = ['summary', 'stages', 'schedule', 'issues', 'links', 'updates'];
-export const BLOCK_LABELS = {summary:'한 줄 현황', stages:'진행 단계', schedule:'일정', issues:'쟁점·요구', links:'자료·링크', updates:'업데이트 기록'};
+export const ALL_TYPES = BLOCK_TYPES.concat(['doc']);
+export const BLOCK_LABELS = {summary:'한 줄 현황', stages:'진행 단계', schedule:'일정', issues:'쟁점·요구', links:'자료·링크', updates:'업데이트 기록', doc:'글'};
 // [field, label, max characters, multiline]
 export const ITEM_FIELDS = {
   stages: [['name', '단계 이름', 60, false]],
@@ -19,7 +24,7 @@ export const ITEM_FIELDS = {
   updates: [['date', '날짜', 40, false], ['text', '내용', 2000, true]],
 };
 // DB: 60 blocks and 262144 bytes of jsonb text. The client stops a little earlier so a save never meets the DB check.
-export const LIMITS = {blocks:60, items:50, bytes:250000, title:200, summary:500, blockTitle:100, label:60};
+export const LIMITS = {blocks:60, items:50, bytes:250000, docBytes:240000, title:200, summary:500, blockTitle:100, label:60};
 export const SHARE_ORIGIN = 'https://work.bokdoong.com';
 export const SHARE_PATH = '/work/share/';
 
@@ -35,7 +40,8 @@ export function cleanText(value, max, {multiline = false} = {}) {
 export const hasControl = value => /[\u0000-\u001f\u007f]/.test(String(value == null ? '' : value));
 
 export function newBlock(type) {
-  if (!BLOCK_TYPES.includes(type)) throw new Error('알 수 없는 블록입니다.');
+  if (ALL_TYPES.indexOf(type) < 0) throw new Error('알 수 없는 블록입니다.');
+  if (type === 'doc') return {type, doc:emptyDoc()};
   if (type === 'summary') return {type, text:''};
   const block = {type, title:'', items:[newItem(type)]};
   if (type === 'stages') block.current = 0;
@@ -61,7 +67,8 @@ export function safeUrl(value) {
 
 // The saved form: trimmed text, empty rows dropped, only known fields, stage number inside the list.
 export function normalizeBlocks(blocks) {
-  return (Array.isArray(blocks) ? blocks : []).filter(b => BLOCK_TYPES.includes(b && b.type)).map(block => {
+  return (Array.isArray(blocks) ? blocks : []).filter(b => ALL_TYPES.indexOf(b && b.type) >= 0).map(block => {
+    if (block.type === 'doc') return {type:'doc', doc:cleanDoc(block.doc) || emptyDoc()};
     if (block.type === 'summary') return {type:'summary', text:cleanText(block.text, LIMITS.summary)};
     const fields = ITEM_FIELDS[block.type];
     const items = (Array.isArray(block.items) ? block.items : []).map(item => Object.fromEntries(fields.map(([field, , max, multiline]) =>
@@ -95,7 +102,8 @@ export function pageProblem({title, blocks}) {
   if (!Array.isArray(blocks)) return '블록을 확인해 주세요.';
   if (blocks.length > LIMITS.blocks) return `블록은 ${LIMITS.blocks}개까지 둘 수 있어요.`;
   for (const block of blocks) {
-    if (!BLOCK_TYPES.includes(block && block.type)) return '알 수 없는 블록이 있어요.';
+    if (ALL_TYPES.indexOf(block && block.type) < 0) return '알 수 없는 블록이 있어요.';
+    if (block.type === 'doc' && jsonbTextBytes(block.doc) > LIMITS.docBytes) return '글이 너무 길어요. 나눠서 써 주세요.';
     if (Array.isArray(block.items) && block.items.length > LIMITS.items) return `${BLOCK_LABELS[block.type]}의 줄은 ${LIMITS.items}개까지예요.`;
     if (block.type === 'links') for (const item of block.items || []) if (item.url && !safeUrl(item.url)) return '자료·링크 주소는 http:// 또는 https://로 시작해야 해요.';
     if (block.type === 'links') for (const item of block.items || []) if (!item.url && item.label) return '자료·링크에 주소가 없는 줄이 있어요.';
@@ -131,4 +139,67 @@ export function shareUrl(token) {
   // SHARE-미리보기제목: ?t= (not #t=) so the Worker can show the page title on link-preview cards. share/share.js
   // moves the value to # as soon as the page opens; older #t= links keep working.
   return `${SHARE_ORIGIN}${SHARE_PATH}?t=${token}`;
+}
+
+// True when the block has nothing a reader would see.
+export function blockIsEmpty(block) {
+  if (!block) return true;
+  if (block.type === 'doc') return isEmptyDoc(block.doc);
+  if (block.type === 'summary') return !String(block.text || '').trim();
+  return !(block.items || []).some(item => Object.keys(item || {}).some(k => String(item[k] || '').trim()));
+}
+
+// [새 편집기로 바꾸기] (설계 4.2): the old blocks of a page → one 'doc' block, keeping every letter. Shapes:
+//   한 줄 현황 → 본문 1 문단 · 진행 단계 → 번호 목록(지금 단계는 굵게 + "(지금)") · 일정 → 2칸 표(날짜·내용)
+//   쟁점·요구 → 제목 3 + 문단 · 자료·링크 → 링크 목록(http·https만 링크, 나머지는 글자) · 업데이트 기록 → 날짜 굵게 + 문단 목록
+// A block title (or the kind's name) becomes a 제목 2 above it. Existing 'doc' blocks keep their content in place.
+const para = (text, style, marks) => {
+  const lines = String(text == null ? '' : text).split('\n'), content = [];
+  lines.forEach((line, i) => {
+    if (i) content.push({type:'hard_break'});
+    if (line) content.push(marks ? {type:'text', text:line, marks:marks} : {type:'text', text:line});
+  });
+  const node = {type:'paragraph', attrs:{style:style || 'body2'}};
+  if (content.length) node.content = content;
+  return node;
+};
+const heading = (text, level) => ({type:'heading', attrs:{level:level}, content:text ? [{type:'text', text:text}] : []});
+const item = content => ({type:'list_item', content:content});
+const STRONG = [{type:'strong'}];
+function blockNodes(block) {
+  const b = normalizeBlocks([block])[0];
+  if (!b) return [];
+  if (b.type === 'doc') return b.doc.doc.content;
+  if (b.type === 'summary') return b.text ? [para(b.text, 'body1')] : [];
+  if (!b.items.length && !b.title) return [];
+  const out = [heading(b.title || BLOCK_LABELS[b.type], 2)];
+  if (b.type === 'stages') {
+    out.push({type:'ordered_list', attrs:{order:1}, content:b.items.map((it, i) => item([i === b.current
+      ? {type:'paragraph', attrs:{style:'body2'}, content:[{type:'text', text:it.name + ' (지금)', marks:STRONG}]}
+      : para(it.name)]))});
+  } else if (b.type === 'schedule') {
+    const cell = (type, text) => ({type:type, attrs:{colspan:1, rowspan:1}, content:[para(text)]});
+    out.push({type:'table', content:[{type:'table_row', content:[cell('table_header', '날짜'), cell('table_header', '내용')]}]
+      .concat(b.items.map(it => ({type:'table_row', content:[cell('table_cell', it.date), cell('table_cell', it.text)]})))});
+  } else if (b.type === 'issues') {
+    b.items.forEach(it => { if (it.title) out.push(heading(it.title, 3)); if (it.body) out.push(para(it.body)); });
+  } else if (b.type === 'links') {
+    out.push({type:'bullet_list', content:b.items.map(it => {
+      const url = safeUrl(it.url), label = it.label || it.url || '';
+      return item([url ? {type:'paragraph', attrs:{style:'body2'}, content:[{type:'text', text:label, marks:[{type:'link', attrs:{href:url}}]}]}
+        : para(label + (it.url && it.url !== label ? ' ' + it.url : ''))]);
+    })});
+  } else if (b.type === 'updates') {
+    out.push({type:'bullet_list', content:b.items.map(it => {
+      const p = para(it.text);
+      if (it.date) p.content = [{type:'text', text:it.date, marks:STRONG}, {type:'text', text:' '}].concat(p.content || []);
+      return item([p]);
+    })});
+  }
+  return out;
+}
+export function blocksToDoc(blocks) {
+  const content = [];
+  (Array.isArray(blocks) ? blocks : []).forEach(block => { blockNodes(block).forEach(n => content.push(n)); });
+  return {type:'doc', doc:cleanDoc({type:'doc', content:content}) || emptyDoc()};
 }
