@@ -128,7 +128,7 @@ test('폰 390: 동그란 [+]는 그대로, 빠른 입력 [추가]는 36px(UI-버
   expect(await page.locator(selector).evaluate(el=>getComputedStyle(el).position)).toBe('fixed');
  }
  await open(page,'home');const home=page.locator('#homeView [data-home-quick]');
- expect((await home.locator('[data-quick-save]').boundingBox()).height).toBe(36);expect((await home.locator('[data-quick-input]').boundingBox()).height).toBe(46);
+ expect((await home.locator('[data-quick-save]').boundingBox()).height).toBe(36);expect((await home.locator('[data-quick-input]').boundingBox()).height).toBe(36);/* HOME-모바일정리④ */
  await open(page,'tasks');const tq=page.locator('#tasksView [data-home-quick]');
  expect((await tq.locator('[data-quick-save]').boundingBox()).height).toBe(36);
 });

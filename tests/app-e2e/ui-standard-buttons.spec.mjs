@@ -59,8 +59,8 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
  const quick=page.locator('#homeView .home-quick'),save=quick.locator('[data-quick-save]');
  // UI-PC버튼36(2026-10-20): PC(≥1024) 빠른 입력 [추가]·입력칸은 입력칸 높이(--kptu-control-height 36px). 창·읽기·수정 화면 버튼은 그대로 --ds-control-height(46px).
  const height=parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--ds-control-height')));
- // UI-버튼줄이기: 빠른 입력 [추가]는 폭과 상관없이 36px(--kptu-control-height). 입력칸은 PC 36px, 폰 46px 그대로.
- const quickHeight=parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-control-height'))),inputHeight=width>=1024?quickHeight:height;
+ // UI-버튼줄이기 + HOME-모바일정리④: 빠른 입력 [추가]와 홈 입력칸은 폭과 상관없이 36px(--kptu-control-height).
+ const quickHeight=parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-control-height'))),inputHeight=quickHeight;
  expect(height).toBe(46);expect((await look(save)).height).toBe(quickHeight);expect(quickHeight).toBe(36);
  const primary=await token(page,'--kptu-primary'),onPrimary=await token(page,'--kptu-on-primary');
  // Home tabs: one height; the selected tab is gray whichever it is (UI-선택표시통일 결정 B), the others white.

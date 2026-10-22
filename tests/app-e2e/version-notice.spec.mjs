@@ -102,15 +102,28 @@ test('ten minute clock checks only while visible, and offline checks are ignored
   await page.evaluate(()=>{Object.defineProperty(document,'visibilityState',{configurable:true,value:'visible'});Object.defineProperty(navigator,'onLine',{configurable:true,value:false})});
   await visible(page);await page.clock.runFor(600000);expect(count).toBe(1);
 });
-for(const width of [390,1440])test(`notice does not overlap calendar add or toast at ${width}px`,async({page})=>{
+// HOME-모바일정리①: 화면 맨 위 얇은 한 줄(아이콘 + 안내 + 글자 버튼 [새로고침] + ✕), PC·폰 같은 모양. 본문은 그만큼 아래로.
+for(const width of [390,1280,1440])test(`notice is one thin line at the top and covers nothing at ${width}px`,async({page})=>{
   await page.setViewportSize({width,height:844});await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();
+  await expect(notice(page).getByRole('status')).toHaveText('새 버전이 있어요');
   await page.locator('#toast').evaluate(el=>{el.textContent='QA toast';el.classList.remove('hidden')});
   const geometry=await page.evaluate(()=>{
-    const box=id=>{const r=document.getElementById(id).getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom}};
+    const rect=el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,height:r.height}};
+    const box=id=>rect(document.getElementById(id));
     const overlaps=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
-    const n=box('versionNotice');return {overlapAdd:overlaps(n,box('newEventBtn')),overlapToast:overlaps(n,box('toast')),overflow:document.documentElement.scrollWidth>innerWidth,hit:[...document.querySelectorAll('#versionNotice button')].map(b=>({w:b.getBoundingClientRect().width,h:b.getBoundingClientRect().height}))};
+    const n=box('versionNotice'),text=document.querySelector('#versionNotice [role="status"]');
+    const tops=[...document.querySelectorAll('#appView>:is(.mobile-shell-header,.app-topline,.app-nav)')].filter(el=>el.getClientRects().length).map(rect);
+    const reload=document.querySelector('[data-version-reload]'),rs=getComputedStyle(reload);
+    return {top:n.top,height:n.height,lines:Math.round(text.getBoundingClientRect().height/parseFloat(getComputedStyle(text).lineHeight)),
+      covers:tops.some(t=>overlaps(n,t)),overlapAdd:overlaps(n,box('newEventBtn')),overlapToast:overlaps(n,box('toast')),overflow:document.documentElement.scrollWidth>innerWidth,
+      reload:{bg:rs.backgroundColor,border:rs.borderTopWidth,h:reload.getBoundingClientRect().height},
+      hit:[...document.querySelectorAll('#versionNotice button')].map(b=>getComputedStyle(b,'::after').height)};
   });
-  expect(geometry).toMatchObject({overlapAdd:false,overlapToast:false,overflow:false});for(const b of geometry.hit){expect(b.w).toBeGreaterThanOrEqual(44);expect(b.h).toBeGreaterThanOrEqual(44)}
+  expect(geometry).toMatchObject({top:0,lines:1,covers:false,overlapAdd:false,overlapToast:false,overflow:false});
+  expect(geometry.height).toBeLessThanOrEqual(34);
+  // 글자 버튼: 색 채운 상자 아님, 보이는 높이 28px, 누르는 범위 44px.
+  expect(geometry.reload).toEqual({bg:'rgba(0, 0, 0, 0)',border:'0px',h:28});
+  expect(geometry.hit).toEqual(['44px','44px']);
   await page.screenshot({path:`test-results/version-notice-${width}.png`});
 });
 test('login does not load version checker',async({page})=>{
