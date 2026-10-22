@@ -112,7 +112,7 @@ jobs:
           find app -maxdepth 1 -type f -name '*.js' -print0 | xargs -0 -n1 node --check
 
       - name: Check meeting Korea time conversions
-        run: node --test tests/meeting-time.test.mjs tests/seoul-time.test.mjs tests/time-input.test.mjs tests/meeting-compact.test.mjs
+        run: node --test tests/meeting-time.test.mjs tests/seoul-time.test.mjs tests/time-input.test.mjs tests/meeting-compact.test.mjs tests/calendar-week-timeline.test.mjs
 
       - name: Check shared Enter-to-save rule (UI-엔터저장)
         run: node --test tests/enter-save.test.mjs
