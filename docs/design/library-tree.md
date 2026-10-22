@@ -226,6 +226,16 @@ AGENTS.md §3-2("화면 제한만으로는 부족, 서버·DB에서 지킴")에 
 4. workflow: 사전 확인 → 상태 저장 → 시험 적용(취소) → 적용 → 사후 확인. 하나라도 다르면 멈춤.
 5. 되돌리기: 짝 rollback 파일을 **SQL Editor 새 쿼리 창**에서(승인형 workflow는 표 삭제를 막음). 새 표 2개·트리거 함수 2개·기록 1행만 지운다. 폴더가 하나라도 있으면 멈추고(사용자가 만든 정리를 지워서 통과시키지 않음), 먼저 화면 ③을 이전 코드로 되돌린 뒤 보관 여부를 정한다. 자료·프로젝트·Drive는 어느 경우에도 그대로.
 
+계획 검사(`scripts/ops/db-workflow.mjs`의 `makePlan`, main ref·version `20261022120000_library_folders.sql`, 2026-10-22 로컬 실행):
+
+| 모드 | 결과 | 뜻 |
+| --- | --- | --- |
+| apply | 통과(확장 규칙, 승인 한 번 흐름) | 버튼으로 적용 가능 |
+| dry-run | 통과(확장 규칙) | 시험 적용(취소)만 따로 돌릴 수도 있음 |
+| rollback | **거절**(의도) | rollback 모드는 표 삭제(`drop table`)를 허용하지 않는다. 새 표를 만든 기존 migration(share_pages_links, todo_radar_candidates, ledger_schema, task_attachments)도 같다. 되돌리기는 위 5번처럼 SQL Editor(폰 경로 C)로만 |
+
+로컬 Postgres 시험 `tests/auth-handoff/library-folders.test.mjs` 14건 통과(소유자·남·비로그인·anon·service_role, 순환·깊이·같은 틀, 지울 때 한 단 위로, 프로젝트·자료 삭제, rollback 멈춤·복원·재적용). CI `auth-handoff-postgres`에서도 돈다.
+
 ## 10. 결정 목록 (일상어, 11:11 "전부 ㅇㅋ" = 추천안)
 
 | 번호 | 정할 것 | 추천(채택) | 다른 선택 |
