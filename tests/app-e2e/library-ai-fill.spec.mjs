@@ -5,6 +5,8 @@ import { appOrigin } from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+// LIB-토글트리: 자료실 줄은 토글 안에 있어, 누르기 전에 그 자료가 든 토글을 연다.
+import {revealLibraryRow} from './helpers/library-tree.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -114,7 +116,7 @@ for(const width of [390,1440]){
     expect([doc.source,doc.category,doc.document_date]).toEqual(['내가 쓴 출처','교섭','2026-10-20']);
     await expectNoAiMarker(page);
     // The edit dialog shows plain values only.
-    await page.locator(`[data-lu-document="${DOC_ID(1)}"] .lu-more-trigger`).click();await page.locator('[data-lu-edit]').click();
+    await revealLibraryRow(page,DOC_ID(1));await page.locator(`[data-lu-document="${DOC_ID(1)}"] .lu-more-trigger`).click();await page.locator('[data-lu-edit]').click();
     await expect(page.locator('#libraryEditModal')).toBeVisible();
     await expect(page.locator('#libraryEditTitle')).toHaveValue(AI.title);
     expect(await page.locator('#libraryEditModal').innerText()).not.toMatch(/AI|자동 ?채움/);
@@ -125,7 +127,7 @@ test('a field the person corrects is recorded as user and never overwritten by a
   const state=await boot(page);
   await upload(page);
   await expect(page.locator('.lu-row-title',{hasText:AI.title})).toHaveCount(1);
-  await page.locator(`[data-lu-document="${DOC_ID(1)}"] .lu-more-trigger`).click();await page.locator('[data-lu-edit]').click();
+  await revealLibraryRow(page,DOC_ID(1));await page.locator(`[data-lu-document="${DOC_ID(1)}"] .lu-more-trigger`).click();await page.locator('[data-lu-edit]').click();
   await page.locator('#libraryEditTitle').fill('내가 고친 제목');await page.locator('#libraryEditSave').click();
   await expect(page.locator('#libraryEditModal')).toBeHidden();
   const patch=state.patches.at(-1).body;

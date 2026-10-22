@@ -235,13 +235,15 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`organiz
  // UI-PC자료실 C: 분류 칩은 여러 개 켜고 끄는 토글. 담당조직에서 들어오면 모든 분류가 켜진 채로 보인다.
  await expect(page.locator('#libraryCategoryFilter').getByRole('button')).toHaveText(['전체',...DEFAULT]);
  await expect(page.locator('#libraryCategoryFilter [aria-pressed="false"]')).toHaveCount(0);
- await expect(page.locator('#documentList > details > summary')).toHaveText([/^프로젝트 없음\s*6/]);await expect(page.locator('#documentList details[data-lu-node="p:none"]')).toHaveAttribute('open','');
- await expect(page.locator('#documentList .lu-row')).toHaveText([/합성 공문/,/합성 교섭 일정/,/합성 집회 계획/,/합성 교육 안내/,/합성 요구안/,/합성 국토부 지침/]);
+ // 맞는 자료가 든 토글만 남고 모두 펼쳐진다(프로젝트에 붙은 자료 1건 + '프로젝트 없음' 5건). 토글 안은 날짜 최신순.
+ await expect(page.locator('#documentList > details > summary')).toHaveText([/1$/,/^프로젝트 없음\s*5/]);await expect(page.locator('#documentList > details:not([open])')).toHaveCount(0);
+ await expect(page.locator('#documentList details[data-lu-node="p:none"] .lu-row')).toHaveText([/합성 공문/,/합성 교섭 일정/,/합성 집회 계획/,/합성 교육 안내/,/합성 국토부 지침/]);
+ await expect(page.locator('#documentList .lu-row')).toHaveCount(6);
  await expect(page.locator('#documentList')).not.toContainText('다른 조직 자료');
  await expect(page.locator('#documentSearch')).toHaveValue('');
  // Rows keep the file kind and show the small category tag.
  await expect(page.locator('[data-lu-document="doc-hwp"] .lu-file-kind')).toHaveText('HWP');
- await expect(page.locator('#documentList .doc-category-tag')).toHaveText(['기타','교섭','투쟁','교육','교섭','정책']);
+ await expect(page.locator('#documentList .doc-category-tag')).toHaveText(['교섭','기타','교섭','투쟁','교육','정책']);
  expect(await noWideScroll(page)).toBe(true);
  await capture(page,info,`library-org-${width}-${scheme}`);
  const chips=page.locator('#libraryCategoryFilter');
