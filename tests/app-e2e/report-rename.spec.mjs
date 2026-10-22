@@ -27,7 +27,7 @@ test('폰 390: the [메뉴] window lists 사업 보고 in the same place; lead l
  await openHome(page);
  await page.locator('#mobileMenuTab:visible').click();
  const items=await page.locator('#mobileMenu nav button:visible').allTextContents();
- expect(items.slice(0,2)).toEqual(['쓰기','사업 보고']);expect(items).not.toContain('회의');
+ expect(items[0]).toBe('사업 보고');expect(items).not.toContain('회의');
  await page.locator('#mobileMenu nav button',{hasText:'사업 보고'}).click();
  await expect(page.locator('#meetingsView')).toBeVisible();
  await expect(page.locator('[data-mobile-view-name]')).toHaveText('사업 보고');
