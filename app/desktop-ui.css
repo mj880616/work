@@ -84,7 +84,7 @@
   .app-topline .topline-search{flex:1 1 auto;display:flex;justify-content:center;min-width:0}
   .app-topline .topline-add{color:var(--kptu-primary-ink)}
   .app-topline .topline-account{flex:0 0 auto}
-  .app-topline .topline-account .account-trigger{min-height:var(--ds-compact-height,32px);height:var(--ds-compact-height,32px);padding:0 8px;font-size:var(--ds-compact-text,13px);position:relative}
+  .app-topline .topline-account .account-trigger{min-height:var(--ds-compact-height,32px);height:var(--ds-compact-height,32px);padding:0 8px;font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-regular,400);position:relative}
   .app-topline .topline-account .account-trigger::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
   .topline-add-menu{position:fixed;z-index:60;inset:auto;margin:0;box-sizing:border-box;padding:4px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto}
   .topline-add-menu[hidden]{display:none!important}

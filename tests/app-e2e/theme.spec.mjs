@@ -78,7 +78,8 @@ for(const width of [390,1440]){
   const trigger=page.locator(width<=760?'#mobileMenu [data-theme-open]':'#sidebarThemeBtn');
   const openTheme=async()=>{await account.click();await trigger.click()};
   await expect(account).toBeVisible();
-  expect(await account.evaluate(el=>el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+  // UI-상단줄: on a PC the account is a small top-line button (32px visible, 44px press range by ::after, UI-버튼기준).
+  expect(await account.evaluate(el=>{const r=el.getBoundingClientRect(),a=getComputedStyle(el,'::after');return Math.max(r.height,parseFloat(a.height)||0)})).toBeGreaterThanOrEqual(44);
   const dialog=page.getByRole('dialog',{name:'화면 색'});
   for(const [theme,color] of Object.entries(primary)){
    await openTheme();await expect(dialog).toBeVisible();
