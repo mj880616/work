@@ -156,7 +156,8 @@ function placeDetail(){
 }
 // The list row of the project shown on the right carries the selection (PC only); choosing it again, or while it is
 // still opening, leaves the pane as it is (bind).
-function paintSelection(){const id=docked()&&!$('#ps3DetailModal').classList.contains('hidden')?current?.id:null;document.querySelectorAll('#projectGrid .ps3-plist [data-ps3-project]').forEach(b=>{const on=!!id&&b.dataset.ps3Project===id;b.classList.toggle('is-selected',on);if(on)b.setAttribute('aria-current','true');else b.removeAttribute('aria-current')})}
+// UI-상단줄: the project shown on the right is told to the top line's ← → record (kptu:split-selection).
+function paintSelection(){const id=docked()&&!$('#ps3DetailModal').classList.contains('hidden')?current?.id:null;if(id)window.dispatchEvent(new CustomEvent('kptu:split-selection',{detail:{view:'projects',item:{id}}}));document.querySelectorAll('#projectGrid .ps3-plist [data-ps3-project]').forEach(b=>{const on=!!id&&b.dataset.ps3Project===id;b.classList.toggle('is-selected',on);if(on)b.setAttribute('aria-current','true');else b.removeAttribute('aria-current')})}
 // The last project seen on this device opens first next time (PC): split-last.js, shared with the 담당조직 screen
 // (ORG-PC좌우). Owner-scoped (kptu_owner_cache: is cleared on sign-out); a blocked storage only means the first project opens.
 const lastProject=lastSeen('project');
