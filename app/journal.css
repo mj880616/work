@@ -71,7 +71,7 @@
 #appView #journalView .journal-group > .mini{ align-self:flex-start; }
 #appView #journalView .journal-muted{ margin:0; color:var(--kptu-muted); font-size:var(--ds-text-row); }
 #appView #journalView .journal-failed{ color:var(--kptu-danger); }
-@media(min-width:761px){ #appView #journalView .journal-materials{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 16px; } }
+/* JOURNAL-하루개편: 재료 칸은 위에서부터 주간보고 재료(한 상자) → 그 밖의 기록(접힘). 예전 2칸 격자는 할 일/한 일과 주간보고 재료 안쪽으로 옮겼다. */
 /* JOURNAL-주간보고허브 1단계: 빈 묶음은 상자 대신 맨 아래 한 줄("기록 없는 묶음: …"). 2칸 줄에서는 두 칸을 다 쓴다. */
 #appView #journalView .journal-empty{ grid-column:1/-1; padding-top:8px; border-top:var(--ds-line-width) solid var(--ds-line); }
 /* 줄마다 [수정][삭제]는 PC에서만(아래). 폰은 줄을 눌러 고친다. */
@@ -231,3 +231,62 @@
   #appView #journalView .journal-weekly-chapter:is([data-journal-weekly-chapter="requests"],[data-journal-weekly-chapter="business"]){ grid-column:1/-1; }
   #appView #journalView .journal-weekly-date{ grid-column:1/-1; }
 }
+
+/* JOURNAL-하루개편 (2026-10-22 요청함 14:26·12:55): 하루 카드 = 오늘 한 줄 → 할 일 / 한 일 → 챙길 것(todo-radar.css) → 주간보고 재료
+   (회의·활동 결과 → 사업 소식 → 조직 소식) → 그 밖의 기록(접힘, 개수 한 줄). 할 일 / 한 일은 761px부터 좌우, 폰은 위아래.
+   새 크기 값 없음: 버튼은 작은 버튼(.mini, --ds-compact-*), ⋯ 은 회의 종류 ⋯ 과 같은 28px 칸(UI-버튼기준). */
+#appView #journalView .journal-tasks{ display:flex; flex-direction:column; gap:6px; }
+#appView #journalView .journal-tasks:empty{ display:none; }
+#appView #journalView .journal-task-cols{ display:grid; grid-template-columns:minmax(0,1fr); gap:10px 16px; }
+@media(min-width:761px){ #appView #journalView .journal-task-cols{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
+#appView #journalView .journal-tasks .journal-line-status:empty{ display:none; }
+#appView #journalView ul.journal-items{ list-style:none; padding-left:0; gap:0; }
+#appView #journalView .journal-item{ display:flex; align-items:flex-start; gap:6px; min-height:32px; }
+#appView #journalView .journal-item::before{ content:"•"; flex:0 0 auto; width:10px; line-height:32px; color:var(--kptu-ink); }
+#appView #journalView .journal-item-body{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; }
+#appView #journalView .journal-item-open{ display:block; box-sizing:border-box; width:100%; min-height:32px; height:auto; margin:0; padding:5px 0; text-align:left; white-space:normal;
+  overflow-wrap:anywhere; font:inherit; font-size:var(--kptu-text-body); line-height:1.5; color:var(--kptu-ink); background:transparent; border:0; border-radius:0; box-shadow:none; }
+#appView #journalView button.journal-item-open{ cursor:pointer; }
+#appView #journalView button.journal-item-open:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+@media(hover:hover){ #appView #journalView button.journal-item-open:hover{ text-decoration:underline; } }
+#appView #journalView .journal-item-open .journal-note-mark{ display:inline-flex; vertical-align:middle; margin-right:6px; }
+#appView #journalView .journal-item-summary{ margin:0 0 4px; color:var(--kptu-muted); font-size:var(--ds-text-meta); line-height:1.5; overflow-wrap:anywhere; }
+#appView #journalView .journal-no-result{ opacity:.75; }
+/* 주간보고에 안 올리는 회의 종류: 흐리게 + '보고 안 함' */
+#appView #journalView .journal-item[data-journal-report-off] .journal-item-open,
+#appView #journalView .journal-item[data-journal-report-off] .journal-item-summary{ color:var(--kptu-muted); }
+#appView #journalView .journal-item[data-journal-report-off]{ opacity:.7; }
+#appView #journalView .journal-report-off{ font-size:var(--ds-text-meta); color:var(--kptu-muted); white-space:nowrap; }
+/* 줄 끝 ⋯ (원래 업데이트 보기 · 폰 [내일로]): 28px 칸 그 자체가 누르는 범위(줄이 촘촘해 ::after 확장 없음). */
+#appView #journalView .journal-item-more{ position:relative; flex:0 0 auto; }
+#appView #journalView .journal-item-more > summary{ list-style:none; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; min-width:var(--ds-compact-height-sm); height:var(--ds-compact-height-sm);
+  margin-top:2px; cursor:pointer; color:var(--kptu-muted); font-size:var(--ds-text-meta); line-height:1; border-radius:var(--kptu-radius-md); }
+#appView #journalView .journal-item-more > summary::-webkit-details-marker{ display:none; }
+#appView #journalView .journal-item-more > summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+#appView #journalView .journal-item-more[open]{ display:flex; flex-wrap:wrap; justify-content:flex-end; gap:4px; }
+#appView #journalView .journal-item-more[open] > .mini{ white-space:nowrap; }
+/* [내일로]: 넓은 화면은 줄 오른쪽 작은 버튼, 폰(≤760)은 ⋯ 안. */
+#appView #journalView .journal-tomorrow-inline{ flex:0 0 auto; align-self:center; white-space:nowrap; }
+#appView #journalView .journal-task-more{ display:none; }
+@media(max-width:760px){
+  #appView #journalView .journal-tomorrow-inline{ display:none; }
+  #appView #journalView .journal-task-more{ display:block; }
+}
+/* 기한 지난 것: 할 일 아래 한 줄로 접힘 */
+#appView #journalView .journal-overdue{ margin-top:2px; }
+#appView #journalView .journal-overdue > summary{ display:flex; align-items:center; min-height:32px; cursor:pointer; color:var(--kptu-danger); font-size:var(--kptu-text-body); }
+#appView #journalView .journal-overdue > summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+/* 주간보고 재료: 제목 하나 아래 세 칸이 보고서 순서대로(PC도 위아래 한 줄씩 — 순서가 곧 보고서 순서). */
+#appView #journalView .journal-report{ display:flex; flex-direction:column; gap:6px; padding-top:10px; border-top:var(--ds-line-width) solid var(--ds-line); }
+#appView #journalView .journal-report-parts{ display:flex; flex-direction:column; gap:8px; }
+#appView #journalView .journal-report-parts > .journal-group{ padding-top:6px; border-top:0; }
+#appView #journalView .journal-group h5.journal-heading{ margin:0; font-size:var(--kptu-text-body); font-weight:700; color:var(--kptu-muted); }
+/* 그 밖의 기록: 기본 접힘, 제목 옆에 개수 한 줄. 펼치면 PC는 2칸. */
+#appView #journalView .journal-others{ padding-top:10px; border-top:var(--ds-line-width) solid var(--ds-line); }
+#appView #journalView .journal-others > summary{ display:flex; align-items:baseline; gap:8px; min-height:var(--kptu-touch-target,44px); align-items:center; cursor:pointer; }
+#appView #journalView .journal-others > summary .journal-heading{ margin:0; font-size:var(--ds-text-read); font-weight:700; color:var(--kptu-ink); }
+#appView #journalView .journal-others-count{ color:var(--kptu-muted); font-size:var(--ds-text-meta); }
+#appView #journalView .journal-others > summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+#appView #journalView .journal-others-parts{ display:flex; flex-direction:column; gap:8px; }
+#appView #journalView .journal-others-parts > .journal-group{ border-top:0; padding-top:4px; }
+@media(min-width:761px){ #appView #journalView .journal-others-parts{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px 16px; } }
