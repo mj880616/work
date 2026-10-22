@@ -242,16 +242,17 @@ function hwpFailure(e: unknown) {
 // LIB-AI자동분류: 자료 파일의 본문 글자 앞부분을 읽어 이미 있는 app_documents.extracted_text 칸에 둔다(../_shared/document-text.ts).
 // 자료·업무공간·Drive 파일 ID는 서버가 DB에서 읽는다(화면 값 믿지 않음). 원본 Drive 파일은 읽기만 한다(이름·위치 그대로).
 // 글자는 화면에 돌려주지 않는다(상태만). 이미 읽은 자료는 다시 읽지 않는다. AI는 부르지 않는다(ai-assist가 이 칸을 읽음).
-const documentText = createDocumentText({ driveToken: driveAccessToken, fetch, log: code => console.error(JSON.stringify({ fn: 'document-actions', code })) });
+let documentText: ReturnType<typeof createDocumentText> | null = null;
+const textReader = () => documentText ??= createDocumentText({ driveToken: driveAccessToken, fetch, log: code => console.error(JSON.stringify({ fn: 'document-actions', code })) });
 async function readDocumentText(userId: string, body: { document_id?: unknown }) {
   const id = String(body?.document_id || '').toLowerCase();
   if (!UUID.test(id)) throw fail('자료를 확인할 수 없습니다.', 'INVALID_REQUEST');
   const rows = await db(`app_documents?id=eq.${encodeURIComponent(id)}&select=id,workspace_id,file_id,file_name,mime_type,file_size,extraction_status&limit=1`);
   const doc = rows?.[0];
   if (!doc || doc.id !== id || typeof doc.workspace_id !== 'string') throw fail('자료를 찾을 수 없습니다.', 'DOCUMENT_NOT_FOUND');
-  await assertDeleteAccess(userId, doc);
+  try { await assertDeleteAccess(userId, doc); } catch { throw fail('워크스페이스 소유자 권한이 필요합니다.', 'FORBIDDEN'); }
   if (doc.extraction_status === 'ready') return { ok: true, status: 'ready', reason: 'cached' };
-  const result = await documentText.extract({
+  const result = await textReader().extract({
     fileId: typeof doc.file_id === 'string' ? doc.file_id : '', name: String(doc.file_name || ''), mime: String(doc.mime_type || ''),
     size: Number.isSafeInteger(doc.file_size) ? doc.file_size : null,
   });

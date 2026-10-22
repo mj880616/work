@@ -8,8 +8,8 @@ select 'column and history agree' as item,case when (h.n=0 and c.n=0) or (h.n=1 
   from h,c
 union all select 'existing documents keep empty origin',case when (select n from c)=0 or not exists(select 1 from public.app_documents d where to_jsonb(d)->'field_origin' is distinct from '{}'::jsonb) then '예' else '아니오' end
 union all select 'documents RLS enabled',case when exists(select 1 from pg_class where oid=to_regclass('public.app_documents') and relrowsecurity) then '예' else '아니오' end
-union all select 'anon or public documents privilege',case when has_table_privilege('anon','public.app_documents','select,insert,update,delete')
-  or exists(select 1 from pg_class where oid=to_regclass('public.app_documents') and relacl::text ~ '(^|[{,])(anon)?=') then '예' else '아니오' end
+union all select 'no anon or public documents privilege',case when not has_table_privilege('anon','public.app_documents','select,insert,update,delete')
+  and not exists(select 1 from pg_class where oid=to_regclass('public.app_documents') and relacl::text ~ '(^|[{,])(anon)?=') then '예' else '아니오' end
 union all select 'documents rows',count(*)::text from public.app_documents
 union all select 'documents values hash',md5(coalesce(string_agg(concat_ws('|',d.id,d.title,d.category,d.source,d.document_date,d.project_id,d.organization_id),E'\n' order by d.id),'')) from public.app_documents d
 union all select 'documents grants hash',md5(coalesce((select relacl::text from pg_class where oid=to_regclass('public.app_documents')),''))

@@ -50,7 +50,9 @@ alter table public.app_documents
   add constraint app_documents_field_origin_check check (
     jsonb_typeof(field_origin) = 'object'
     and (field_origin - array['title', 'category', 'source', 'document_date']) = '{}'::jsonb
-    and not jsonb_path_exists(field_origin, '$.* ? (@ != "ai" && @ != "user")')
+    -- 값은 글자 'ai'·'user'만. 숫자·참거짓·객체는 비교가 "모름"이 되므로 종류를 따로 막는다.
+    and not jsonb_path_exists(field_origin, 'strict $.* ? (@.type() != "string")')
+    and not jsonb_path_exists(field_origin, 'strict $.* ? (@ != "ai" && @ != "user")')
   );
 
 -- 사후 확인: 다르면 전체 취소.
