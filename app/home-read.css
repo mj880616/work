@@ -289,8 +289,12 @@
 /* OPS-수집점검: 마지막 수집 시각(collection-status.js). 작은 글자 한 줄씩, 주의만 경고 색. */
 .home-collect .collect-list { display:flex; flex-direction:column; gap:4px; margin:0; padding:0; list-style:none; }
 /* HOME-수집시각정렬: 줄마다 이름(+메모) | 건수 칸(고정 폭, 없으면 빈칸) | 시각 칸. 시각 칸이 맨 오른쪽이라 네 줄의 시각이 같은 세로선에 선다. 글자·줄 크기는 그대로. */
-.home-collect .collect-row { display:grid; grid-template-columns:minmax(0,1fr) 5.6em auto; align-items:baseline; gap:0 8px; font-size:12px; line-height:1.5; min-width:0; }
-.home-collect .collect-name { min-width:0; overflow-wrap:anywhere; }
+.home-collect .collect-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:baseline; gap:0 8px; font-size:12px; line-height:1.5; min-width:0; }
+.home-collect .collect-name { min-width:0; word-break:keep-all; overflow-wrap:break-word; }
+/* 건수가 있는 줄이 하나라도 있을 때만 건수 칸을 연다(없으면 이름 칸이 넓어진다). */
+.home-collect .collect-count { display:none; }
+.home-collect .collect-list:has(.collect-count:not(:empty)) .collect-row { grid-template-columns:minmax(0,1fr) 5.6em auto; }
+.home-collect .collect-list:has(.collect-count:not(:empty)) .collect-count { display:block; }
 .home-collect .collect-label { color:var(--kptu-ink); }
 .home-collect .collect-note { color:var(--kptu-muted); }
 .home-collect .collect-count,.home-collect .collect-value { color:var(--kptu-muted); white-space:nowrap; text-align:right; font-variant-numeric:tabular-nums; }
