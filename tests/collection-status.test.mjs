@@ -102,9 +102,11 @@ test('collectorsFromStatus: only the ok shape; missing field (old function) is n
 test('judgeCollector: telegram 26h, call 72h, signal older than 3h is silent, nothing yet is never', () => {
   const j = (key, raw) => mod.judgeCollector(key, raw && {at:raw.last_at, reportedAt:raw.reported_at, count:raw.count}, now).state;
   assert.equal(j('telegram', beat(25)), 'ok', 'daily 07:30 collection is not a warning');
-  assert.equal(j('telegram', beat(27)), 'stale');
+  assert.equal(j('telegram', beat(27)), 'quiet', 'old file + healthy signal is quiet, not a warning');
   assert.equal(j('call', beat(60)), 'ok', 'a weekend without calls is not a warning');
-  assert.equal(j('call', beat(73)), 'stale');
+  assert.equal(j('call', beat(73)), 'quiet');
+  assert.equal(j('telegram', beat(27, 4)), 'silent', 'old file + signal cut for 3h+ warns');
+  assert.equal(j('call', beat(73, 3.5)), 'silent');
   assert.equal(j('telegram', beat(1, 4)), 'silent', 'the script itself stopped');
   assert.equal(j('call', null), 'never');
   assert.deepEqual(mod.STALE_HOURS, {copy:24, radar:48, telegram:26, call:72});
@@ -112,9 +114,10 @@ test('judgeCollector: telegram 26h, call 72h, signal older than 3h is silent, no
 test('render: collector lines show time, 24h count for calls, and warnings; old function keeps 확인 불가', () => {
   const collectors = mod.collectorsFromStatus({ok:true, collectors:{telegram:beat(30), transcript:beat(2, 0.5, 5)}});
   const html = mod.renderRows({copy:null, radar:null, collectors}, now);
-  assert.match(html, /data-collect="telegram" data-collect-state="stale"/);
-  assert.match(html, /collect-warn">주의 · 오래됨/);
-  assert.match(html, /data-collect="call" data-collect-state="ok"><span class="collect-label">통화 녹음 전사<\/span><span class="collect-value">마지막 [^<]+ · 24시간 5건<\/span>/);
+  assert.match(html, /data-collect="telegram" data-collect-state="quiet"[^]*조용함/);
+  assert.doesNotMatch(html, /collect-warn/);
+  assert.match(html, /data-collect="call" data-collect-state="ok"><span class="collect-name"><span class="collect-label">통화 녹음 전사<\/span><\/span><span class="collect-count">24시간 5건<\/span><span class="collect-value">마지막 [^<]+<\/span>/);
+  assert.match(html, /data-collect="telegram" data-collect-state="quiet"[^]*<span class="collect-count"><\/span><span class="collect-value">마지막 /, 'telegram has an empty count cell, time stays last');
   assert.doesNotMatch(html, /확인 불가/);
   const silent = mod.renderRows({copy:null, radar:null, collectors:{telegram:null, transcript:mod.collectorsFromStatus({ok:true, collectors:{transcript:beat(1, 5)}}).transcript}}, now);
   assert.match(silent, /data-collect="telegram" data-collect-state="never"[^]*점검 신호 없음/);
@@ -127,4 +130,13 @@ test('readStatus: one status call feeds both copy and collectors', async () => {
   assert.equal(calls.filter(c => c.path.startsWith('/functions/v1/drive-summary')).length, 1);
   assert.equal(raw.copy.at, iso(now - H));
   assert.deepEqual(raw.collectors, {telegram:{at:iso(now - H), reportedAt:iso(now - 0.5 * H), count:null}, transcript:null});
+});
+test('summarize: quiet collectors raise no attention and keep 수집 정상; silent one warns; other sources unchanged', () => {
+  const quiet = mod.collectorsFromStatus({ok:true, collectors:{telegram:beat(30), transcript:beat(80)}});
+  const a = mod.summarize({copy:null, radar:null, collectors:quiet}, now);
+  assert.deepEqual(a.attention, []);
+  assert.equal(a.ok, true);
+  const cut = mod.collectorsFromStatus({ok:true, collectors:{telegram:beat(30, 4), transcript:beat(80)}});
+  assert.deepEqual(mod.summarize({copy:null, radar:null, collectors:cut}, now).attention.map(x => x.key), ['telegram']);
+  assert.equal(mod.summarize({copy:{at:iso(now - 25 * H)}, radar:null, collectors:quiet}, now).attention[0].key, 'copy');
 });

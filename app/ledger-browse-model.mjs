@@ -2,6 +2,12 @@
 // 검색 RPC(app_ledger_search, 20261021082000)에 보낼 인자 만들기, 날짜·고정 목록 표시, 상세 칸 정리만 한다(DOM·네트워크 없음).
 export const KIND_LABEL = Object.freeze({ event: '사건', change: '변화기록', decision: '결정', evidence: '근거', commitment: '약속' });
 export const KINDS = Object.freeze(Object.keys(KIND_LABEL));
+// 화면에 보이는 이름만 쉬운 말로(DB 값·필터 값·원장 안의 이름 KIND_LABEL은 그대로). 설명은 docs/design/ledger-web2.md 종류 정의를 짧게 줄인 것.
+export const KIND_DISPLAY = Object.freeze({ event: '일어난 일', change: '바뀐 점', decision: '정한 것', evidence: '근거', commitment: '약속' });
+export const KIND_HINT = Object.freeze({
+  event: '추적할 일 하나(원장의 사건)', change: '일어난 일에 생긴 변화·진전(원장의 변화기록)',
+  decision: '채택·기각·보류 등 정한 내용(원장의 결정)', evidence: '법령·통계·합의문 등 뒷받침 자료(원장의 근거)',
+  commitment: '상대가 하기로 한 일, 후속확인일이 있음(원장의 약속)' });
 export const VALIDITY_LABEL = Object.freeze({ current: '현재유효', fulfilled: '이행완료', superseded: '대체', retired: '폐기', needs_check: '확인필요' });
 export const SENSITIVITY_LABEL = Object.freeze({ S0: 'S0 공개 가능', S1: 'S1 내부 업무', S2: 'S2 교섭·전략' });
 export const IMPORTANCE_LABEL = Object.freeze({ very_high: '매우높음', high: '높음', normal: '보통', low: '낮음' });
@@ -18,7 +24,7 @@ export const DOC_TYPE_LABEL = Object.freeze({ meeting_material: '회의자료', 
 export const RELATION_LABEL = Object.freeze({ belongs_to: '소속', follow_up: '후속', supports: '뒷받침', contradicts: '반박', related: '관련',
   direct: '직접관련', joint: '공동사업', counterpart: '상대기관', reference: '참고', other: '기타' });
 // 범위(L1): 기본은 업무만. 관심 정보는 따로 골라야 보인다.
-export const SCOPE_CHOICES = Object.freeze([['work', '업무만'], ['all', '업무 + 관심'], ['interest', '관심만']]);
+export const SCOPE_CHOICES = Object.freeze([['work', '업무만'], ['all', '전체'], ['interest', '관심만']]);
 export const PAGE = 50;
 export const MAX_LIMIT = 200;
 export const QUERY_MAX = 200;
@@ -84,7 +90,7 @@ export function detailFields(r, { topicName = '', supersededBy = '' } = {}) {
   if (!r) return [];
   const label = (map, v) => (v == null || v === '' ? '' : map[v] || String(v));
   const rows = [
-    ['ID', r.ledger_id], ['종류', KIND_LABEL[r.kind] || r.kind], ['기준일', dateLabel(r)],
+    ['ID', r.ledger_id], ['종류', KIND_DISPLAY[r.kind] || r.kind], ['기준일', dateLabel(r)],
     ['범위', r.scope === 'interest' ? '관심' : '업무'], ['업무주제', topicName],
     ['민감도', label(SENSITIVITY_LABEL, r.sensitivity)], ['중요도', label(IMPORTANCE_LABEL, r.importance)],
     ['유효상태', label(VALIDITY_LABEL, r.validity)], ['신뢰도', label(CONFIDENCE_LABEL, r.confidence)],
@@ -129,3 +135,71 @@ export function linkLabel(link, names, dir) {
   if (link.target_meeting_id) return { relation: rel, kind: 'meeting', ledgerId: '', title: names.meetings.get(link.target_meeting_id) || '(Web2 회의)', dir };
   return { relation: rel, kind: 'other', ledgerId: '', title: '', dir };
 }
+
+// ---------- 목록 표시(화면 전용 순수 함수) ----------
+const thisYear = (now = new Date()) => seoulToday(now).slice(0, 4);
+// 'YYYY-MM-DD' → 올해면 'MM.DD', 아니면 'YY.MM.DD'.
+export function shortDay(day, now = new Date()) {
+  if (!isDay(day)) return '';
+  const [y, m, d] = day.split('-');
+  return y === thisYear(now) ? `${m}.${d}` : `${y.slice(2)}.${m}.${d}`;
+}
+// 목록 줄의 짧은 날짜. 정밀도: 일 → 10.21 / 월 → 2026.09 / 연 → 2026 / 기간 → 10.01~10.22 / 모름 → 빈칸. 전체 표기는 dateLabel(툴팁·상세).
+export function shortDate(row, now = new Date()) {
+  const s = row?.date_start, e = row?.date_end, p = row?.date_precision;
+  if (p === 'day' && isDay(s)) return shortDay(s, now);
+  if (p === 'month' && isDay(s)) return s.slice(0, 7).replace('-', '.');
+  if (p === 'year' && isDay(s)) return s.slice(0, 4);
+  if (p === 'range' && isDay(s) && isDay(e)) return `${shortDay(s, now)}~${shortDay(e, now)}`;
+  return '';
+}
+export function periodLabel(from, to, now = new Date()) {
+  if (!from && !to) return '';
+  return `${from ? shortDay(from, now) : ''}~${to ? shortDay(to, now) : ''}`;
+}
+
+// 가져온 글에 남은 기계식 표기 '(계속추적=아니오, 상태=종료)'를 글에서 빼고 상태만 따로 돌려준다.
+const MACHINE_NOTE = /\s*[(（]\s*계속\s*추적\s*[=:：]\s*[^,，)）]*[,，]\s*상태\s*[=:：]\s*([^)）]*?)\s*[)）]/g;
+export function splitMachineNote(text) {
+  let status = '';
+  const clean = String(text ?? '').replace(MACHINE_NOTE, (_, st) => { status ||= st.trim(); return ''; }).trim();
+  return { text: clean, status };
+}
+const norm = v => String(v ?? '').normalize('NFC').replace(/\s+/g, ' ').replace(/[\s.。…·]+$/u, '').trim();
+// 요지가 제목과 같은 문장이면 요지 줄을 만들지 않는다.
+export function sameSentence(a, b) { const x = norm(a); return x !== '' && x === norm(b); }
+
+// 목록 한 줄의 표시값. 제목·요지는 기계식 표기를 뺀 글, 요지는 제목과 같으면 빈 글.
+export function rowView(row, now = new Date()) {
+  const t = splitMachineNote(row?.title), s = splitMachineNote(row?.summary);
+  const title = t.text || String(row?.title ?? '').trim();
+  const summary = sameSentence(s.text, title) ? '' : s.text;
+  return { title, summary, status: s.status || t.status, date: shortDate(row, now), dateFull: dateLabel(row) };
+}
+
+// 걸려 있는 조건 → 칩 목록 [{key, label}]. key는 clearCondition에 그대로 쓴다.
+export function activeConditions(filters, { organizations = [], topics = [] } = {}, now = new Date()) {
+  const f = { ...freshFilters(), ...(filters || {}) };
+  const out = [];
+  for (const k of KINDS) if (f.kinds.includes(k)) out.push({ key: `kind:${k}`, label: KIND_DISPLAY[k] });
+  const period = periodLabel(f.from, f.to, now);
+  if (period) out.push({ key: 'period', label: period });
+  const org = organizations.find(o => o.id === f.organization);
+  if (f.organization) out.push({ key: 'organization', label: org?.name || '조직' });
+  const topic = topics.find(o => o.id === f.topic);
+  if (f.topic) out.push({ key: 'topic', label: topic?.name || '주제' });
+  if (f.scope !== 'work') out.push({ key: 'scope', label: (SCOPE_CHOICES.find(([v]) => v === f.scope) || [])[1] || '범위' });
+  if (f.inactive) out.push({ key: 'inactive', label: '지난 기록 포함' });
+  return out;
+}
+export function clearCondition(filters, key) {
+  const f = { ...freshFilters(), ...(filters || {}) };
+  if (key.startsWith('kind:')) f.kinds = f.kinds.filter(k => k !== key.slice(5));
+  else if (key === 'period') { f.from = ''; f.to = ''; }
+  else if (key === 'organization') f.organization = '';
+  else if (key === 'topic') f.topic = '';
+  else if (key === 'scope') f.scope = 'work';
+  else if (key === 'inactive') f.inactive = false;
+  return f;
+}
+export const countLabel = (n, limit) => (n >= limit ? `최근 ${limit}건` : `${n}건`);
