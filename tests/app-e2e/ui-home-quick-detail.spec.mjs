@@ -23,9 +23,12 @@ for(const width of [390,1440]){
   await q.locator('[data-quick-mode="task"]').click();
   await expect(plus).toBeVisible();await expect(big).toBeHidden();
   await expect(plus).toHaveAttribute('aria-label','상세 설정으로 추가');
+  // [할 일] 모드의 [📎 첨부]는 할 일 파일 사용 가능 확인(비동기, checkTaskFiles)이 끝나야 나타나며 입력 칸을 그만큼 좁힌다.
+  // 그 뒤의 최종 배치에서 잰다(확인이 늦게 오면 넓은 칸을 재던 간헐 실패).
+  await expect(q.locator('[data-quick-file-picker]')).toBeVisible();
   const ib=await input.boundingBox(),pb=await plus.boundingBox(),ab=await q.locator('[data-quick-save]').boundingBox();
   expect(pb.width).toBeGreaterThanOrEqual(44);
-  if(width>=1024)expect(await plus.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);else expect(pb.height).toBeGreaterThanOrEqual(44);
+  expect(await plus.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);// UI-버튼줄이기: 폰도 보이는 32px, 누르는 범위 44px
   expect(pb.x).toBeGreaterThanOrEqual(ib.x);
   expect(pb.x+pb.width).toBeLessThanOrEqual(ib.x+ib.width+0.5);
   expect(pb.x+pb.width).toBeGreaterThan(ib.x+ib.width-2);

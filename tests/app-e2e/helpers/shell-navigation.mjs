@@ -4,9 +4,9 @@ export function navigationButton(page,view){
   const home=view==='home'?',#appView>.app-nav .sidebar-brand:visible':'';
   return page.locator(`.app-nav [data-view="${view}"]:visible,.mobile-tabs [data-view="${view}"]:visible${home}`);
 }
-// The menu opener at this width: the account trigger (PC), ☰ (761~1023px) or the [메뉴] tab (phone, 8-9e-2).
+// The menu opener at this width: the account trigger (PC, top line right end since UI-상단줄), ☰ (761~1023px) or the [메뉴] tab (phone, 8-9e-2).
 export function accountButton(page){
-  return page.locator('#appView>.app-nav [data-account-open]:visible,#mobileMenuOpen:visible,#mobileMenuTab:visible');
+  return page.locator('#appView>.app-topline [data-account-open]:visible,#mobileMenuOpen:visible,#mobileMenuTab:visible');
 }
 export async function clickView(page,view){
   await page.waitForFunction(()=>{
