@@ -10,6 +10,23 @@ export function tapExpand(e,root){
   e.preventDefault();e.stopImmediatePropagation();el.classList.add('is-open');return true;
 }
 const owners=new WeakMap();
+// BUG-미리보기기호: a clamped line is plain letters (marks removed). When the text carries data-md-raw, opening it shows the written
+// text as headings and tables (the shared markdown view); closing puts the plain line back. The stored text is never changed.
+const plainKids=new WeakMap();
+let mdView=null;
+const restorePlain=el=>{const kids=plainKids.get(el);if(!kids)return;plainKids.delete(el);mdView?.showPlainText(el,'');el.replaceChildren(...kids);};
+async function showMarkdown(el){
+  if(!el.dataset.mdRaw||!el.isConnected)return;
+  if(!el.classList.contains('is-open')){restorePlain(el);return;}
+  if(plainKids.has(el))return;
+  try{
+    mdView=mdView||await import('./markdown-view.js');
+    if(!el.classList.contains('is-open')||plainKids.has(el))return;
+    plainKids.set(el,[...el.childNodes]);
+    const res=await mdView.renderMarkdownInto(el,el.dataset.mdRaw,{isCurrent:()=>el.classList.contains('is-open')});
+    if(!res.ok&&!el.classList.contains('md-body'))restorePlain(el);
+  }catch{restorePlain(el);}
+}
 export function syncMoreToggle(host,selector){
   if(!host)return;
   host.querySelectorAll(selector).forEach(el=>{
@@ -28,7 +45,7 @@ export function bindMoreToggle(host,selector){
     const btn=e.target.closest?.('.kptu-clamp-more');if(!btn||!host.contains(btn))return;
     e.preventDefault();e.stopPropagation();
     const el=owners.get(btn);if(!el?.isConnected)return;
-    el.classList.toggle('is-open');syncMoreToggle(host,selector);
+    el.classList.toggle('is-open');syncMoreToggle(host,selector);void showMarkdown(el);
   });
   if(typeof ResizeObserver==='function'){let w=host.clientWidth;new ResizeObserver(()=>{if(host.clientWidth!==w){w=host.clientWidth;syncMoreToggle(host,selector)}}).observe(host)}
 }
