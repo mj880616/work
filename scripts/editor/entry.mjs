@@ -4,7 +4,7 @@ export {Schema, Fragment, Slice, DOMParser, DOMSerializer, Node} from 'prosemirr
 export {EditorState, Plugin, PluginKey, TextSelection, NodeSelection, AllSelection} from 'prosemirror-state';
 export {EditorView} from 'prosemirror-view';
 export {keymap} from 'prosemirror-keymap';
-export {history, undo, redo, undoDepth, redoDepth} from 'prosemirror-history';
+export {history, undo, redo, undoDepth, redoDepth, closeHistory} from 'prosemirror-history';
 export {baseKeymap, toggleMark, setBlockType, wrapIn, lift, chainCommands, exitCode, splitBlockAs, newlineInCode,
   createParagraphNear, liftEmptyBlock, selectAll} from 'prosemirror-commands';
 export {wrapInList, splitListItem, liftListItem, sinkListItem} from 'prosemirror-schema-list';
