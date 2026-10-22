@@ -1,0 +1,223 @@
+// LIB-AI자동분류 (docs/design/library-ai-fill.md 3절): 자료 파일의 본문 글자를 읽는 한 곳.
+// document-actions `document-text`가 부르고, 나중에 전체 검색(GLOBAL-SEARCH)도 같은 함수를 그대로 쓴다.
+// - 글 파일(txt·md·csv): 내려받아 UTF-8로 읽는다.
+// - HWPX: 내려받아 zip 안 Contents/section*.xml의 글자만 모은다(외부 라이브러리 없음).
+// - PDF·HWP·DOC·DOCX·RTF·ODT: Drive가 Google 문서로 바꾼 임시 사본을 text/plain으로 내보낸 뒤 사본을 지운다(OpenAI 비용 없음).
+//   Drive가 바꾸지 못하는 형식이면 글자 없음으로 끝난다.
+// - 사진·그 밖의 파일: 읽지 않는다(파일 이름으로만 판단, 사용자 결정 ④).
+// 원본 Drive 파일은 읽기만 한다(이름·위치·내용 변경 없음, ⑦). 실패는 던지지 않고 {text:'', reason}으로 돌려준다.
+
+export const DOCUMENT_TEXT_CHARS = 12000;
+export const TEXT_FILE_MAX_BYTES = 2 * 1024 * 1024;
+export const HWPX_MAX_BYTES = 30 * 1024 * 1024;
+export const HWPX_XML_MAX_BYTES = 20 * 1024 * 1024;
+export const EXPORT_MAX_BYTES = 1024 * 1024;
+export const CONVERT_MAX_BYTES = 50 * 1024 * 1024;
+export const TEMP_NAME = "Web2 글자 읽기 임시";
+const DRIVE = "https://www.googleapis.com/drive/v3/files";
+const DOC = "application/vnd.google-apps.document";
+const DRIVE_ID = /^[A-Za-z0-9_-]{1,255}$/;
+
+export type TextKind = "text" | "hwpx" | "convert" | "none";
+export type TextResult = { text: string; source: "content" | "none"; reason: string; cut: boolean };
+
+const ext = (name: string) => String(name || "").toLowerCase().match(/\.([a-z0-9]{1,8})$/)?.[1] ?? "";
+
+// 파일 이름(확장자)을 먼저 보고, 확장자가 없으면 Drive가 알려 준 형식을 본다.
+export function textKindOf(name: string, mime: string): TextKind {
+  const e = ext(name), m = String(mime || "").toLowerCase();
+  if (["txt", "md", "markdown", "csv"].includes(e)) return "text";
+  if (e === "hwpx") return "hwpx";
+  if (["pdf", "hwp", "doc", "docx", "rtf", "odt"].includes(e)) return "convert";
+  if (e) return "none";
+  if (/^text\/(plain|markdown|csv)$/.test(m)) return "text";
+  if (m === "application/hwp+zip" || m === "application/vnd.hancom.hwpx") return "hwpx";
+  if (m === "application/pdf" || /msword|wordprocessingml|hwp|haansoft|rtf|opendocument\.text/.test(m)) return "convert";
+  return "none";
+}
+
+// AI에 보낼 글 정리: 제어 문자 제거, 빈 줄 줄이기, 앞부분만(잘랐는지 함께 알림).
+export function tidyText(raw: string, limit = DOCUMENT_TEXT_CHARS): { text: string; cut: boolean } {
+  const text = String(raw ?? "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f​-‏‪-‮⁠-⁩﻿]/g, "")
+    .replace(/[ \t 　]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  const chars = [...text];
+  return chars.length > limit ? { text: chars.slice(0, limit).join(""), cut: true } : { text, cut: false };
+}
+
+const ENTITY: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
+function decodeEntities(s: string) {
+  return s.replace(/&(#x[0-9a-f]{1,6}|#[0-9]{1,7}|amp|lt|gt|quot|apos);/gi, (all, v: string) => {
+    if (v[0] !== "#") return ENTITY[v.toLowerCase()] ?? all;
+    const n = v[1] === "x" || v[1] === "X" ? parseInt(v.slice(2), 16) : parseInt(v.slice(1), 10);
+    return Number.isInteger(n) && n > 0 && n <= 0x10ffff && !(n >= 0xd800 && n <= 0xdfff) ? String.fromCodePoint(n) : "";
+  });
+}
+
+// HWPX 본문 XML 한 쪽에서 글자만: 문단(<hp:p>)마다 <hp:t> 안의 글을 모은다. 표 안 문단도 한 줄씩 나온다.
+export function hwpxSectionText(xml: string): string {
+  const lines: string[] = [];
+  for (const para of xml.split(/<\/hp:p>/)) {
+    let line = "";
+    for (const m of para.matchAll(/<hp:t(?:\s[^>]*)?>([\s\S]*?)<\/hp:t>/g)) {
+      line += decodeEntities(m[1].replace(/<hp:tab\b[^>]*\/>/g, " ").replace(/<[^>]*>/g, ""));
+    }
+    if (line.trim()) lines.push(line);
+  }
+  return lines.join("\n");
+}
+
+async function inflateRaw(data: Uint8Array, max: number): Promise<Uint8Array> {
+  const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  const reader = stream.getReader(), parts: Uint8Array[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > max) throw new Error("HWPX_TOO_LARGE");
+      parts.push(value);
+    }
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
+  const out = new Uint8Array(size);
+  let at = 0;
+  for (const p of parts) { out.set(p, at); at += p.byteLength; }
+  return out;
+}
+
+// HWPX(zip)의 Contents/section0.xml, section1.xml …을 차례로 읽는다. zip 모양이 이상하면 빈 글.
+export async function hwpxText(bytes: Uint8Array, { maxXmlBytes = HWPX_XML_MAX_BYTES } = {}): Promise<string> {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const len = bytes.byteLength;
+  let eocd = -1;
+  for (let i = len - 22; i >= Math.max(0, len - 22 - 65535); i--) {
+    if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error("HWPX_NOT_ZIP");
+  const count = view.getUint16(eocd + 10, true);
+  let at = view.getUint32(eocd + 16, true);
+  const sections: { n: number; method: number; size: number; offset: number }[] = [];
+  const decoder = new TextDecoder("utf-8");
+  for (let k = 0; k < count; k++) {
+    if (at + 46 > len || view.getUint32(at, true) !== 0x02014b50) throw new Error("HWPX_NOT_ZIP");
+    const method = view.getUint16(at + 10, true), size = view.getUint32(at + 20, true);
+    const nameLen = view.getUint16(at + 28, true), extraLen = view.getUint16(at + 30, true), commentLen = view.getUint16(at + 32, true);
+    const offset = view.getUint32(at + 42, true);
+    const name = decoder.decode(bytes.subarray(at + 46, at + 46 + nameLen));
+    const m = name.match(/^Contents\/section(\d{1,4})\.xml$/i);
+    if (m) sections.push({ n: Number(m[1]), method, size, offset });
+    at += 46 + nameLen + extraLen + commentLen;
+  }
+  sections.sort((a, b) => a.n - b.n);
+  const out: string[] = [];
+  let total = 0;
+  for (const s of sections) {
+    if (s.offset + 30 > len || view.getUint32(s.offset, true) !== 0x04034b50) throw new Error("HWPX_NOT_ZIP");
+    const start = s.offset + 30 + view.getUint16(s.offset + 26, true) + view.getUint16(s.offset + 28, true);
+    if (start + s.size > len) throw new Error("HWPX_NOT_ZIP");
+    const raw = bytes.subarray(start, start + s.size);
+    const xml = s.method === 0 ? raw : s.method === 8 ? await inflateRaw(raw, maxXmlBytes - total) : null;
+    if (!xml) continue;
+    total += xml.byteLength;
+    if (total > maxXmlBytes) throw new Error("HWPX_TOO_LARGE");
+    out.push(hwpxSectionText(decoder.decode(xml)));
+    // 앞부분만 쓰므로 충분히 모이면 멈춘다.
+    if (out.join("\n").length > DOCUMENT_TEXT_CHARS * 2) break;
+  }
+  return out.join("\n");
+}
+
+async function readBounded(response: Response, max: number): Promise<Uint8Array> {
+  if (!response.body) throw new Error("EMPTY_BODY");
+  const reader = response.body.getReader(), parts: Uint8Array[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > max) throw new Error("TOO_LARGE");
+      parts.push(value);
+    }
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
+  const out = new Uint8Array(size);
+  let at = 0;
+  for (const p of parts) { out.set(p, at); at += p.byteLength; }
+  return out;
+}
+
+type Deps = { fetch?: typeof fetch; driveToken: () => Promise<string>; log?: (code: string) => void };
+export type DocumentFile = { fileId: string; name: string; mime: string; size: number | null };
+
+export function createDocumentText(deps: Deps) {
+  const doFetch = deps.fetch ?? fetch;
+  const log = deps.log ?? (() => {});
+  const request = (url: string, token: string, init: RequestInit = {}) =>
+    doFetch(url, { ...init, headers: { ...(init.headers ?? {}), Authorization: `Bearer ${token}` }, redirect: "error", signal: AbortSignal.timeout(30000) });
+
+  async function download(fileId: string, token: string, max: number) {
+    const r = await request(`${DRIVE}/${encodeURIComponent(fileId)}?alt=media`, token);
+    if (!r.ok) { await r.body?.cancel().catch(() => {}); throw new Error("DOWNLOAD_FAILED"); }
+    return await readBounded(r, max);
+  }
+
+  // Drive가 Google 문서로 바꾼 임시 사본을 글로 내보낸다. 사본은 성공·실패와 관계없이 지운다(원본은 그대로).
+  async function convert(fileId: string, token: string): Promise<string> {
+    const r = await request(`${DRIVE}/${encodeURIComponent(fileId)}/copy?fields=id,mimeType`, token, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: TEMP_NAME, mimeType: DOC, appProperties: { web2_text_tmp: "1" } }),
+    });
+    if (!r.ok) { await r.body?.cancel().catch(() => {}); throw new Error("CONVERT_UNSUPPORTED"); }
+    const made = await r.json().catch(() => null) as { id?: unknown; mimeType?: unknown } | null;
+    const copy = typeof made?.id === "string" && DRIVE_ID.test(made.id) && made.id !== fileId ? made.id : null;
+    if (!copy) throw new Error("CONVERT_UNKNOWN");
+    try {
+      if (made?.mimeType !== DOC) throw new Error("CONVERT_UNSUPPORTED");
+      const e = await request(`${DRIVE}/${encodeURIComponent(copy)}/export?mimeType=text%2Fplain`, token);
+      if (!e.ok) { await e.body?.cancel().catch(() => {}); throw new Error("EXPORT_FAILED"); }
+      return new TextDecoder("utf-8").decode(await readBounded(e, EXPORT_MAX_BYTES));
+    } finally {
+      try {
+        const d = await request(`${DRIVE}/${encodeURIComponent(copy)}`, token, { method: "DELETE" });
+        await d.body?.cancel().catch(() => {});
+        if (d.status !== 204 && d.status !== 404) log("document_text_temp_delete_failed");
+      } catch {
+        log("document_text_temp_delete_failed");
+      }
+    }
+  }
+
+  async function extract(file: DocumentFile): Promise<TextResult> {
+    const none = (reason: string): TextResult => ({ text: "", source: "none", reason, cut: false });
+    if (!DRIVE_ID.test(file.fileId)) return none("no_file");
+    const kind = textKindOf(file.name, file.mime);
+    if (kind === "none") return none("unsupported");
+    const size = typeof file.size === "number" && Number.isSafeInteger(file.size) ? file.size : null;
+    const max = kind === "text" ? TEXT_FILE_MAX_BYTES : kind === "hwpx" ? HWPX_MAX_BYTES : CONVERT_MAX_BYTES;
+    if (size !== null && size > max) return none("too_large");
+    let raw = "";
+    try {
+      const token = await deps.driveToken();
+      if (kind === "text") raw = new TextDecoder("utf-8").decode(await download(file.fileId, token, max));
+      else if (kind === "hwpx") raw = await hwpxText(await download(file.fileId, token, max));
+      else raw = await convert(file.fileId, token);
+    } catch (e) {
+      const code = e instanceof Error ? e.message : "";
+      return none(code === "CONVERT_UNSUPPORTED" ? "unsupported" : code === "TOO_LARGE" || code === "HWPX_TOO_LARGE" ? "too_large" : "read_failed");
+    }
+    const tidy = tidyText(raw);
+    return tidy.text ? { text: tidy.text, source: "content", reason: "ok", cut: tidy.cut } : none("empty");
+  }
+
+  return { extract };
+}

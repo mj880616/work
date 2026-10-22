@@ -1,6 +1,7 @@
 import { inspectBasketOriginal } from '../_shared/basket-file-origin.ts';
 import { readBoundedJson } from '../_shared/bounded-json.mjs';
 import { createHwpEdit, HwpEditError } from '../_shared/hwp-edit.ts';
+import { createDocumentText } from '../_shared/document-text.ts';
 
 const SB = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -238,6 +239,30 @@ function hwpFailure(e: unknown) {
   return json({ error: e instanceof Error ? e.message : String(e), code: known ? e.code : 'HWP_REFUSED', ...(backup ? { backup } : {}) }, known ? e.status : 400);
 }
 
+// LIB-AI자동분류: 자료 파일의 본문 글자 앞부분을 읽어 이미 있는 app_documents.extracted_text 칸에 둔다(../_shared/document-text.ts).
+// 자료·업무공간·Drive 파일 ID는 서버가 DB에서 읽는다(화면 값 믿지 않음). 원본 Drive 파일은 읽기만 한다(이름·위치 그대로).
+// 글자는 화면에 돌려주지 않는다(상태만). 이미 읽은 자료는 다시 읽지 않는다. AI는 부르지 않는다(ai-assist가 이 칸을 읽음).
+const documentText = createDocumentText({ driveToken: driveAccessToken, fetch, log: code => console.error(JSON.stringify({ fn: 'document-actions', code })) });
+async function readDocumentText(userId: string, body: { document_id?: unknown }) {
+  const id = String(body?.document_id || '').toLowerCase();
+  if (!UUID.test(id)) throw fail('자료를 확인할 수 없습니다.', 'INVALID_REQUEST');
+  const rows = await db(`app_documents?id=eq.${encodeURIComponent(id)}&select=id,workspace_id,file_id,file_name,mime_type,file_size,extraction_status&limit=1`);
+  const doc = rows?.[0];
+  if (!doc || doc.id !== id || typeof doc.workspace_id !== 'string') throw fail('자료를 찾을 수 없습니다.', 'DOCUMENT_NOT_FOUND');
+  await assertDeleteAccess(userId, doc);
+  if (doc.extraction_status === 'ready') return { ok: true, status: 'ready', reason: 'cached' };
+  const result = await documentText.extract({
+    fileId: typeof doc.file_id === 'string' ? doc.file_id : '', name: String(doc.file_name || ''), mime: String(doc.mime_type || ''),
+    size: Number.isSafeInteger(doc.file_size) ? doc.file_size : null,
+  });
+  const status = result.source === 'content' ? 'ready' : 'error';
+  await db(`app_documents?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${encodeURIComponent(doc.workspace_id)}`, {
+    method: 'PATCH', prefer: 'return=minimal',
+    body: { extracted_text: result.text || null, extraction_status: status, extraction_error: status === 'ready' ? null : result.reason, extracted_at: new Date().toISOString() },
+  });
+  return { ok: true, status, reason: result.reason };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
@@ -263,6 +288,15 @@ Deno.serve(async (req: Request) => {
         r.headers.set('Cache-Control', 'no-store');
         return r;
       } catch (e) { return hwpFailure(e); }
+    }
+    if (action === 'document-text') {
+      try {
+        return json(await readDocumentText(user.id, body));
+      } catch (e) {
+        const code = typeof (e as { code?: unknown })?.code === 'string' ? (e as { code: string }).code : 'TEXT_FAILED';
+        console.error(e);
+        return json({ error: e instanceof Error ? e.message : String(e), code }, code === 'TEXT_FAILED' ? 503 : 400);
+      }
     }
     if (action === 'register-basket-attachment') {
       try {

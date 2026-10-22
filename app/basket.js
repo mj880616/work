@@ -13,6 +13,7 @@ import { noteTasks, requestTaskOpen, takeBasketNoteRequest, takeNoteDocRequest, 
 import { deleteNoteOriginal, disconnectWithUndo, disconnectLabel, offerUndoNotice } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';
 import { sendAttachmentToLibrary, requestLibraryDocument, libraryHref } from './basket-library-send.js';
+import { fillLibraryDocument } from './library-ai-fill.js';
 import { readAttachmentDocuments, putFilesIntoTargets } from './basket-file-docs.js';
 import { loadDocumentCategories } from './document-categories.js';
 import { isHwpName, requestHwpEdit } from './hwp-drive.js';
@@ -653,6 +654,8 @@ async function sendToLibrary(fileId) {
   if(owner!==scope()||rt.session.epoch()!==sessionEpoch){librarySends.delete(key);return;}
   librarySends.set(key,outcome);
   if(outcome.kind==='created')window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:null,meeting_id:null}}));
+  // LIB-AI자동분류 ⑤: 바구니에서 보낸 자료도 빈 칸을 AI가 채운다(기다리지 않음, 표시 없음, 실패해도 보내기 결과 그대로).
+  if(outcome.kind==='created')void fillLibraryDocument(outcome.document.id,{rt}).catch(()=>{});
   if(['created','exists'].includes(outcome.kind)&&!libraryDocs.has(`${owner}:${fileId}`))libraryDocs.set(`${owner}:${fileId}`,{id:outcome.document.id,title:outcome.document.title,project_id:undefined});
   if(['created','exists'].includes(outcome.kind)&&run===epoch&&selected?.id===noteId)showToast(outcome.message);
   if(run===epoch&&selected?.id===noteId)paintAttachments();
