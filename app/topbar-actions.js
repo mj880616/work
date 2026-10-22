@@ -228,12 +228,11 @@ async function openWriter(kind='update'){
         return;
       }
       writeDraft=text.trim()?text:'';
-      if(writeDraft)writeToast('저장하지 않은 글은 [쓰기]를 다시 누르면 이어서 쓸 수 있어요.');
+      if(writeDraft)writeToast('저장하지 않은 글은 빠른 추가의 [업데이트]로 다시 열면 이어서 쓸 수 있어요.');
     }});
   }catch(error){console.error('menu write',error);writeToast('쓰기 화면을 열지 못했어요. 다시 시도해 주세요.')}
   finally{writerOpening=false}
 }
-document.querySelectorAll('[data-menu-write]').forEach(button=>button.addEventListener('click',()=>void openWriter('update')));
 // UI-PC메모노트: PC sidebar [바구니] → [업데이트]·[노트] (always shown). Each opens the basket on that side through the basket's
 // own one-shot hand-off (basket-note-tasks.js); the basket screen itself and the phone stay as they are.
 document.querySelectorAll('#appView>.app-nav [data-basket-kind-nav]').forEach(button=>button.addEventListener('click',async()=>{

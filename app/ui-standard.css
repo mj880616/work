@@ -590,8 +590,8 @@
 @media(max-width:760px){ #appView #teamView .so-team-actions{ display:none; } }
 
 /* 4 ☰ 메뉴 판(폰): 하단 탭 바로 위로 올라오는 판. 손잡이(= 닫기 버튼, 누르거나 아래로 밀면 닫힘), 위쪽 큰 칸 3×2, 아래 "계정" 상자 줄.
-   761~1023px의 오른쪽 서랍과 PC 사이드바는 모양 그대로(사이드바는 항목만 [쓰기]를 더해 같게). */
-@media(max-width:1023px){ #appView > .app-nav :is(.nav-write,.nav-sub){ display:none; } }
+   761~1023px의 오른쪽 서랍과 PC 사이드바는 모양 그대로. */
+@media(max-width:1023px){ #appView > .app-nav .nav-sub{ display:none; } }
 #appView .mobile-menu-panel nav button svg{ display:none; }
 @media(max-width:760px){
   #appView .mobile-menu{ bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom)); }
