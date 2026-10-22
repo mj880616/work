@@ -209,8 +209,10 @@ export async function readOrgUpdates(start, rt = window.KPTURuntime) {
   const rows = [];
   for (const ids of chunks([...names.keys()]))
     rows.push(...await pages(`/rest/v1/app_suborganization_updates?organization_id=${inList(ids)}&occurred_at=gte.${encode(from)}&occurred_at=lt.${encode(to)}&select=id,organization_id,occurred_at,raw_text,detail_text&order=occurred_at.asc,id.asc`, rt));
+  // `orgs` (id·name of this workspace's organizations): [주간 정리] 4. 산하 조직 현황 finds an organization section's id by its name
+  // (JOURNAL-조직현황AI요약: the summary is kept per organization id).
   return Object.assign(rows.filter(row => names.has(row.organization_id)).map(row => ({...row, organization:{name:names.get(row.organization_id)}})),
-    {mine:myOrganizationIds(orgs, assignees)});
+    {mine:myOrganizationIds(orgs, assignees), orgs:[...names].map(([id, name]) => ({id, name}))});
 }
 // Project progress records of the week by their day (effective_on), only for this workspace's projects, with the project's name.
 export async function readProjectUpdates(start, rt = window.KPTURuntime) {

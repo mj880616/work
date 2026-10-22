@@ -42,6 +42,7 @@ import {weeklySummary, renderWeekly, weeklyReportText} from './journal-weekly.js
 import {mountWeeklyHwpx} from './journal-hwpx.js';
 import {readKinds, changeKind} from './journal-meeting-kinds.js';
 import {mountRadar} from './todo-radar.js';
+import {readOrgSummaries, saveEditedSummary, requestOrgSummaries, resultMessage, cleanEdited} from './journal-org-summary.js';
 
 // ORG-묶음순서: the shared organization order (window.KPTUOrganizationOrder) orders the 조직 소식 sections.
 await import('./organization-order.js').catch(() => {});
@@ -86,6 +87,8 @@ let drafts = new Map(), saving = false;
 let editing = null;
 // 'day' (the day card) or 'week' ([주간 정리]); memory only.
 let mode = 'day';
+// JOURNAL-조직현황AI요약: the 4. 산하 조직 현황 summary controls of [주간 정리] (memory only; the summaries live in their table).
+let orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()};
 const current = (run, scope) => run === epoch && scope === ownerScope(rt);
 
 function renderWeek() {
@@ -298,7 +301,14 @@ function renderWeekly_() {
   if (mode !== 'week') return;
   const list = weekDays(start);
   $('[data-journal-weekly-title]').textContent = `주간 정리 · ${longDay(list[0])} ~ ${longDay(list[6])}`;
-  renderWeekly($('[data-journal-weekly]'), weeklySummary({start, lines, linesState, materials, doneDays, kinds}), esc);
+  const host = $('[data-journal-weekly]');
+  // Keep which 원문 folds are open and the text being typed across redraws (a read landing must not lose them).
+  // (a fold not drawn right now — its summary is being read again — keeps its last state.)
+  for (const d of host.querySelectorAll('[data-journal-org-raw]')) { if (d.open) orgUi.open.add(d.dataset.journalOrgRaw); else orgUi.open.delete(d.dataset.journalOrgRaw); }
+  const typing = host.querySelector('[data-journal-org-edit-input]'), focused = typing && typing === document.activeElement;
+  if (typing && orgUi.editing?.id === typing.dataset.journalOrgEditInput) orgUi.editing.value = typing.value;
+  renderWeekly(host, weeklySummary({start, lines, linesState, materials, doneDays, kinds}), esc, orgUi);
+  if (focused) host.querySelector('[data-journal-org-edit-input]')?.focus();
   hwpx?.refresh();
 }
 // WEEKLY-한글초안 2단계: [주간보고 한글 파일 만들기] — journal-hwpx.js owns that box; it reads the shown week's grouping.
@@ -332,6 +342,8 @@ const readers = {
   meetings: () => readWeekMeetings(start, rt),
   documents: () => { void loadDocumentCategories({rt}).catch(() => {}); return readWeekDocuments(start, rt); },
   sharePages: () => readWeekSharePages(start, rt),
+  // JOURNAL-조직현황AI요약: the week's saved organization summaries (a missing table reads as {missing:true}).
+  orgSummaries: () => readOrgSummaries(start, rt),
   // The project tree for [주간 정리] (read once per visit, like the basket). Without it records go under their project names.
   catalog: async () => {
     const c = rt.context.read(), catalog = window.KPTUProjectCatalog;
@@ -377,9 +389,9 @@ async function loadKinds(run, scope) {
 function loadWeek({shared = false} = {}) {
   const changedOwner = owner !== ownerScope(rt);
   const run = ++epoch, scope = owner = ownerScope(rt);
-  lines = new Map(); status.textContent = ''; editing = null;
+  lines = new Map(); status.textContent = ''; editing = null; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()};
   if (changedOwner) hwpx?.close(); else hwpx?.setWeek(start);
-  const keys = shared ? Object.keys(readers) : ['events', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages'];
+  const keys = shared ? Object.keys(readers) : ['events', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'orgSummaries'];
   for (const key of keys) materials[key] = {status:'loading'};
   if (shared || changedOwner) loadKinds(run, scope);
   render();
@@ -652,7 +664,7 @@ async function copyDraft() {
   const text = weeklyReportText(weeklySummary({start, lines, linesState, materials, doneDays, kinds}));
   const ok = await copyText(text);
   // movedNotes, catalog (the project order) and this week's events (the day card's 일정) are not draft material.
-  const missing = Object.entries(materials).some(([key, state]) => !['movedNotes', 'catalog', 'events'].includes(key) && state?.status !== 'ok');
+  const missing = Object.entries(materials).some(([key, state]) => !['movedNotes', 'catalog', 'events', 'orgSummaries'].includes(key) && state?.status !== 'ok');
   status.textContent = ok ? `주간보고 양식 순서로 복사했어요.${missing ? ' 불러오지 못한 묶음은 빠졌어요.' : ''}` : '복사하지 못했어요. 다시 시도해 주세요.';
 }
 
@@ -668,6 +680,53 @@ async function toggleKind(key, hide, name) {
     renderDay(); renderWeekly_();
   } finally { kindsBusy = false; }
 }
+// JOURNAL-조직현황AI요약 ----
+// [요약 만들기]: one ai-assist call with the week and the shown organizations' ids; then the saved summaries are read again.
+async function makeOrgSummaries() {
+  const model = weeklySummary({start, lines, linesState, materials, doneDays, kinds});
+  const ids = (model.orgs.sections || []).map(section => section.id).filter(Boolean);
+  if (orgUi.busy || !ids.length) return;
+  const run = epoch, scope = owner, week = start;
+  orgUi.busy = true; orgUi.status = ''; orgUi.error = false; renderWeekly_();
+  const result = await requestOrgSummaries({start:week, organizationIds:ids});
+  if (!current(run, scope)) return;
+  orgUi.busy = false; orgUi.status = resultMessage(result); orgUi.error = !result.ok;
+  if (result.ok) await loadGroup('orgSummaries', run, scope); else renderWeekly_();
+  root.querySelector('[data-journal-org-ai-run]')?.focus();
+}
+function openOrgEdit(id) {
+  const section = weeklySummary({start, lines, linesState, materials, doneDays, kinds}).orgs.sections?.find(s => s.id === id);
+  if (!section || orgUi.editing?.saving) return;
+  orgUi.editing = {id, name:section.name, value:section.summary?.text || '', status:'', invalid:false, saving:false};
+  renderWeekly_();
+  const box = root.querySelector('[data-journal-org-edit-input]');
+  box?.focus(); box?.setSelectionRange(box.value.length, box.value.length);
+}
+function closeOrgEdit() {
+  const id = orgUi.editing?.id; orgUi.editing = null; renderWeekly_();
+  root.querySelector(`[data-journal-org-edit-open="${id}"]`)?.focus();
+}
+async function saveOrgEdit() {
+  const edit = orgUi.editing; if (!edit || edit.saving) return;
+  const box = root.querySelector('[data-journal-org-edit-input]'); if (box) edit.value = box.value;
+  try { cleanEdited(edit.value); } catch (error) { edit.status = error.message; edit.invalid = true; renderWeekly_(); root.querySelector('[data-journal-org-edit-input]')?.focus(); return; }
+  const run = epoch, scope = owner, week = start, saved = materials.orgSummaries?.items?.get?.(edit.id) || null;
+  edit.saving = true; edit.invalid = false; edit.status = '저장하는 중…'; renderWeekly_();
+  try {
+    await saveEditedSummary({start:week, organizationId:edit.id, row:saved, text:edit.value}, rt);
+    if (!current(run, scope)) return;
+    orgUi.editing = null; orgUi.status = `${edit.name} 요약을 저장했어요. 다시 만들어도 이 요약은 그대로예요.`; orgUi.error = false;
+    await loadGroup('orgSummaries', run, scope);
+    root.querySelector(`[data-journal-org-edit-open="${edit.id}"]`)?.focus();
+  } catch (error) {
+    if (!current(run, scope)) return;
+    edit.saving = false; edit.status = error?.status === 401 ? '로그인이 필요해요. 다시 로그인한 뒤 저장해 주세요.' : '저장하지 못했어요. 다시 시도해 주세요.';
+    renderWeekly_(); root.querySelector('[data-journal-org-edit-input]')?.focus();
+  }
+}
+root.addEventListener('keydown', event => {
+  if (event.target.matches?.('[data-journal-org-edit-input]') && event.key === 'Escape' && !event.isComposing) { event.preventDefault(); closeOrgEdit(); }
+});
 root.addEventListener('click', event => {
   const button = event.target.closest('button');
   if (!button || !root.contains(button) || button.disabled) return;
@@ -679,6 +738,10 @@ root.addEventListener('click', event => {
     }
     return;
   }
+  if (button.matches('[data-journal-org-ai-run]')) return makeOrgSummaries();
+  if (button.matches('[data-journal-org-edit-open]')) return openOrgEdit(button.dataset.journalOrgEditOpen);
+  if (button.matches('[data-journal-org-edit-save]')) return saveOrgEdit();
+  if (button.matches('[data-journal-org-edit-cancel]')) return closeOrgEdit();
   if (button.matches('[data-journal-kind-toggle]')) return toggleKind(button.dataset.journalKindToggle, button.dataset.journalKindHide === '1', button.dataset.journalKindName);
   if (button.matches('[data-journal-date]')) return selectDay(button.dataset.journalDate);
   if (button.matches('[data-journal-prev]')) return moveWeek(-1);
@@ -726,7 +789,7 @@ input.addEventListener('input', () => {
 window.addEventListener('kptu:session-changed', () => {
   if (owner === ownerScope(rt)) return;
   owner = ownerScope(rt); epoch++;
-  kinds = {status:'loading'}; drafts = new Map(); lines = new Map(); materials = {}; doneDays = DONE_TASK_DAYS; saving = false; editing = null; mode = 'day';
+  kinds = {status:'loading'}; drafts = new Map(); lines = new Map(); materials = {}; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; doneDays = DONE_TASK_DAYS; saving = false; editing = null; mode = 'day';
   pendingReturn = null; moving.clear(); taskNote = ''; othersOpen = false;
   start = weekStart(todayKey()); selected = todayKey();
   if (window.KPTURouter?.current === 'journal') enter();

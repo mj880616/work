@@ -191,8 +191,8 @@ for(const scheme of ['light','dark'])for(const records of [false,true])test(`PRJ
   else{await page.locator('#ps3-progress [data-ps3-record-input] input').fill('오늘 새 기록');await page.locator('#ps3-progress [data-ps3-record-input] button[type=submit]').click();await expect(lines(page)).toHaveCount(5)}
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   const input=await page.locator('#ps3-progress [data-ps3-record-input] input').boundingBox(),button=await page.locator('#ps3-progress [data-ps3-record-input] button[type=submit]').boundingBox(),big=await page.locator('#ps3-progress [data-ps3-record-big]').boundingBox();
-  // PRJ-화면다듬기: the ⤢ icon is inside the input (right end); input and [기록] are one height on one line.
-  expect(Math.abs(input.height-button.height)).toBeLessThanOrEqual(1);expect(big.x).toBeGreaterThanOrEqual(input.x);expect(big.x+big.width).toBeLessThanOrEqual(input.x+input.width+1);expect(Math.abs(big.y-input.y)).toBeLessThanOrEqual(1);
+  // PRJ-화면다듬기: the ⤢ icon is inside the input (right end); input and [기록] are one 36px line (PRJ-기록버튼줄이기), the ⤢ is 32px centered in the input.
+  expect(Math.abs(input.height-button.height)).toBeLessThanOrEqual(1);expect(big.x).toBeGreaterThanOrEqual(input.x);expect(big.x+big.width).toBeLessThanOrEqual(input.x+input.width+1);expect(big.y).toBeGreaterThanOrEqual(input.y-1);expect(big.y+big.height).toBeLessThanOrEqual(input.y+input.height+1);expect(Math.abs((big.y+big.height/2)-(input.y+input.height/2))).toBeLessThanOrEqual(1);expect(Math.round(input.height)).toBe(36);expect(Math.round(button.height)).toBe(36);expect(Math.round(big.height)).toBe(32);
   for(const row of await lines(page).all()){const box=await row.boundingBox();expect(box.height).toBeGreaterThanOrEqual(44)}
   await capture(page,`detail-390-${scheme}-${records?'mixed':'empty'}`);
 });

@@ -1489,4 +1489,120 @@ test('[업무일지] 회의·활동 결과: 보고 안 함 종류는 흐리게, 
  await expect(page.locator('#journalRoot [data-journal-report] [data-journal-group]')).toHaveCount(3);
  expect(await page.locator('#journalRoot [data-journal-report] [data-journal-group]').evaluateAll(els=>els.map(e=>e.dataset.journalGroup))).toEqual(['activities','business','orgs']);
  expect(f.errors).toEqual([]);
+// JOURNAL-조직현황AI요약: [주간 정리] 4. 산하 조직 현황 > 1) 요약. 작은 [요약 만들기]를 누를 때만 ai-assist(kind=org_summary)에
+// 주와 조직 ID만 보낸다(글 없음). 서버가 저장한 요약을 다시 읽어 조직마다 몇 줄로 보이고, 원문은 접힌다. [요약 고치기]로 고친 요약은
+// edited=true로 저장되고 다시 만들어도 그대로다(서버가 덮어쓰지 않음 — 여기서는 서버 흉내가 edited 행을 건너뜀). 복사도 요약을 쓴다.
+const OA='aaaaaaaa-0000-4000-8000-00000000000a',OB='bbbbbbbb-0000-4000-8000-00000000000b';
+async function orgSummaryFixture(page,{width,missing=false}={}){
+ const f=await fixture(page,{width});
+ // The organizations get UUID ids (the server takes UUIDs only); links, records and assignments follow.
+ const ids={o1:OA,o2:OB};
+ for(const o of f.more.orgs)o.id=ids[o.id]||o.id;
+ for(const l of f.more.links)l.organization_id=ids[l.organization_id]||l.organization_id;
+ for(const u of f.more.orgUpdates)u.organization_id=ids[u.organization_id]||u.organization_id;
+ for(const a of f.more.assignees)a.organization_id=ids[a.organization_id]||a.organization_id;
+ const table=[],ai=[],sums=[];
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_weekly_org_summaries',async r=>{
+  const req=r.request(),q=new URL(req.url()).searchParams,method=req.method();
+  if(missing)return r.fulfill({status:404,json:{message:'relation does not exist'}});
+  const hit=()=>table.filter(row=>['workspace_id','week_start','organization_id'].every(k=>!q.has(k)||q.get(k)===`eq.${row[k]}`));
+  if(method==='GET')return r.fulfill({json:hit()});
+  const body=method==='DELETE'?null:req.postDataJSON();sums.push({method,query:Object.fromEntries(q),body});
+  if(method==='PATCH'){const rows=hit();for(const row of rows)Object.assign(row,body);return r.fulfill({json:rows});}
+  if(method==='POST'){const row={id:'s'+table.length,...body};table.push(row);return r.fulfill({status:201,json:[row]});}
+  if(method==='DELETE'){const rows=hit();for(const row of rows)table.splice(table.indexOf(row),1);return r.fulfill({json:rows});}
+  return r.fulfill({status:500,json:{}});
+ });
+ await page.route(SB+'/functions/v1/ai-assist',async r=>{
+  const body=r.request().postDataJSON();
+  if(body.kind!=='org_summary')return r.fallback();
+  ai.push(body);
+  const kept=[],items=[];
+  for(const id of body.organization_ids){
+   const row=table.find(x=>x.organization_id===id&&x.week_start===body.week_start);
+   if(row?.edited){kept.push(id);continue;}
+   const summary=id===OA?`가상 노동조합 일정 공유.\n${ai.length}차 요약 줄.`:'조직 화면 기록 정리.';
+   if(row)Object.assign(row,{summary});else table.push({id:'s'+table.length,workspace_id:'w',week_start:body.week_start,organization_id:id,summary,edited:false});
+   items.push({organization_id:id,summary});
+  }
+  return r.fulfill({json:{ok:true,kind:'org_summary',week_start:body.week_start,kept,items,empty:[],partial:false}});
+ });
+ return {...f,table,ai,sums};
+}
+for(const width of [390,1280])test(`[주간 정리] 조직 요약: [요약 만들기]는 누를 때만·ID만, 요약 몇 줄+원문 접기, 고친 요약은 다시 만들어도 그대로, 복사도 요약 ${width}`,async({page},info)=>{
+ const f=await orgSummaryFixture(page,{width});
+ await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
+ await openJournal(page,width);await openWeekly(page);
+ const orgs=weekly(page,'orgs'),run=orgs.locator('[data-journal-org-ai-run]');
+ await expect(run).toHaveText('요약 만들기');await expect(run).toHaveAccessibleName('조직별 요약 만들기(AI)');
+ // 열기만 해서는 AI를 부르지 않는다. 요약이 없으면 원문 그대로.
+ await expect(orgs.locator('[data-journal-org="가상 노동조합"] > .journal-weekly-list li')).toHaveCount(1);
+ expect(f.ai).toEqual([]);
+ // UI-버튼기준: 작은 버튼(32px) — 큰 primary가 아니다. 누르는 범위는 44px.
+ const box=await run.boundingBox();expect(Math.round(box.height)).toBe(32);
+ await expect(run).not.toHaveClass(/primary/);
+ await run.click();
+ await expect(orgs.locator('[data-journal-org-ai-status]')).toHaveText('조직 2곳 요약을 만들었어요.');
+ expect(f.ai).toEqual([{kind:'org_summary',week_start:'2026-10-05',organization_ids:[OA,OB]}]);
+ const a=orgs.locator('[data-journal-org="가상 노동조합"]');
+ await expect(a.locator('[data-journal-org-summary] li')).toHaveText(['가상 노동조합 일정 공유.','1차 요약 줄.']);
+ // 원문은 접혀 있고 펼치면 보인다. 미분류는 요약하지 않는다.
+ const raw=a.locator('[data-journal-org-raw]');
+ await expect(raw.locator('summary')).toHaveText('원문 1건');await expect(raw.locator('li')).toBeHidden();
+ await raw.locator('summary').click();await expect(raw.locator('li')).toBeVisible();
+ await expect(orgs.locator('[data-journal-org="미분류"] [data-journal-org-ai-run],[data-journal-org="미분류"] [data-journal-org-edit-open]')).toHaveCount(0);
+ // 고치기: edited=true로 저장, 빈 줄은 빠진다.
+ await a.locator('[data-journal-org-edit-open]').click();
+ const area=a.locator('[data-journal-org-edit-input]');await expect(area).toBeFocused();
+ await area.fill('가상 노동조합 고친 첫 줄.\n\n  고친 둘째 줄.  ');
+ await a.locator('[data-journal-org-edit-save]').click();
+ await expect(a.locator('[data-journal-org-summary] li')).toHaveText(['가상 노동조합 고친 첫 줄.','고친 둘째 줄.']);
+ await expect(a.locator('[data-journal-org-edited]')).toHaveText('고친 요약');
+ expect(f.sums.at(-1)).toMatchObject({method:'PATCH',body:{summary:'가상 노동조합 고친 첫 줄.\n고친 둘째 줄.',edited:true}});
+ // 다시 만들기: 고친 요약은 그대로, 다른 조직만 새로.
+ await run.click();
+ await expect(orgs.locator('[data-journal-org-ai-status]')).toHaveText('조직 1곳 요약을 만들었어요. 고친 요약 1곳은 그대로 두었어요.');
+ await expect(a.locator('[data-journal-org-summary] li')).toHaveText(['가상 노동조합 고친 첫 줄.','고친 둘째 줄.']);
+ // 원문 펼침은 다시 그려도 그대로.
+ await expect(raw.locator('li')).toBeVisible();
+ // 복사: 요약이 있는 조직은 요약 줄.
+ await page.locator('#journalRoot [data-hwpx-copy]').click();
+ await expect(page.locator('#journalRoot [data-journal-status]')).toContainText('복사했어요');
+ const lines=(await page.evaluate(()=>navigator.clipboard.readText())).split('\n'),at=lines.indexOf('4. 산하 조직 현황');
+ expect(lines.slice(at+2,at+7)).toEqual(['◦ 가상 노동조합','- 가상 노동조합 고친 첫 줄.','- 고친 둘째 줄.','◦ 나 지역 모임','- 조직 화면 기록 정리.']);
+ // 인사말·원문은 AI 요청에 실리지 않는다(ID만).
+ expect(JSON.stringify(f.ai)).not.toContain('안녕하세요');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:info.outputPath(`weekly-org-summary-${width}.png`),fullPage:true});
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+test('[주간 정리] 조직 요약: 표가 아직 없으면(404) 버튼 없이 원문 그대로',async({page})=>{
+ const f=await orgSummaryFixture(page,{width:1280,missing:true});
+ await openJournal(page,1280);await openWeekly(page);
+ const orgs=weekly(page,'orgs');
+ await expect(orgs.locator('[data-journal-org] > .journal-org-name')).toHaveText(['가상 노동조합','나 지역 모임','미분류']);
+ await expect(orgs.locator('[data-journal-org-ai-run],[data-journal-org-edit-open]')).toHaveCount(0);
+ await expect(orgs.locator('[data-journal-org="가상 노동조합"] > .journal-weekly-list li')).toHaveCount(1);
+ expect(f.ai).toEqual([]);expect(f.errors).toEqual([]);
+});
+test('[주간 정리] 조직 요약: 직접 쓴 요약은 edited로 새로 저장, Escape는 취소, 비우고 저장하면 지워지고 원문이 다시 보인다',async({page})=>{
+ const f=await orgSummaryFixture(page,{width:390});
+ await openJournal(page,390);await openWeekly(page);
+ const b=weekly(page,'orgs').locator('[data-journal-org="나 지역 모임"]');
+ await b.locator('[data-journal-org-edit-open]').click();
+ await b.locator('[data-journal-org-edit-input]').fill('직접 쓴 요약.');
+ await b.locator('[data-journal-org-edit-save]').click();
+ await expect(b.locator('[data-journal-org-summary] li')).toHaveText(['직접 쓴 요약.']);
+ expect(f.sums.at(-1)).toMatchObject({method:'POST',body:{organization_id:OB,week_start:'2026-10-05',summary:'직접 쓴 요약.',edited:true}});
+ await b.locator('[data-journal-org-edit-open]').click();
+ await b.locator('[data-journal-org-edit-input]').fill('  ');
+ // Escape는 취소, 다시 열어 저장.
+ await b.locator('[data-journal-org-edit-input]').press('Escape');
+ await expect(b.locator('[data-journal-org-summary] li')).toHaveText(['직접 쓴 요약.']);
+ await b.locator('[data-journal-org-edit-open]').click();
+ await b.locator('[data-journal-org-edit-input]').fill('');
+ await b.locator('[data-journal-org-edit-save]').click();
+ await expect(b.locator('[data-journal-org-summary]')).toHaveCount(0);
+ await expect(b.locator(':scope > .journal-weekly-list li')).toHaveCount(2);
+ expect(f.sums.at(-1).method).toBe('DELETE');expect(f.ai).toEqual([]);expect(f.errors).toEqual([]);
 });
