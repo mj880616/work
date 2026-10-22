@@ -147,18 +147,23 @@ for(const width of [1280,390])test(`${width}: the record-place sheet shows "1단
  expect(errors).toEqual([]);
 });
 
-test('PC 1280: the library "세부" row holds the second and third levels; a project shows the documents of the levels under it',async({page})=>{
+// LIB-토글트리: 자료실의 "세부" 칩 줄은 트리가 대신한다. 1단 → 2단 → 3단 토글 안에 그 단의 자료가 들고, 1단 자료 수는 아래 단까지 센다.
+// 다른 화면이 프로젝트로 걸러 열면(PRJ-3단 결정 2) 그 프로젝트와 아래 단 자료가 보인다.
+test('PC 1280: the library tree nests the second and third levels; a project opened from elsewhere shows the documents of the levels under it',async({page})=>{
  const {errors}=await fixture(page);
  await clickView(page,'library');
  const shown=()=>page.locator('#documentList [data-lu-document]').evaluateAll(xs=>xs.map(x=>x.dataset.luDocument).sort());
  await expect(page.locator('#documentList [data-lu-document]')).toHaveCount(4);
- const project=page.locator('#documentProject'),top=project.locator(':scope > .filter-chips').first(),sub=project.locator('.filter-chips-small');
- await top.locator('[data-filter-value="pa"]').click();
- await expect(sub.getByRole('radio')).toHaveText(['전체(이 프로젝트)','합성 하위 토론회','합성 하위 토론회 › 합성 세부 사안']);
- await expect.poll(shown).toEqual(['d-a','d-c','d-d']);
- await sub.locator('[data-filter-value="pc"]').click();await expect.poll(shown).toEqual(['d-c','d-d']);
- await sub.locator('[data-filter-value="pd"]').click();await expect.poll(shown).toEqual(['d-d']);
- await sub.locator('[data-filter-value="pa"]').click();await expect.poll(shown).toEqual(['d-a','d-c','d-d']);
- await top.locator('[data-filter-value="all"]').click();await expect.poll(shown).toEqual(['d-a','d-b','d-c','d-d']);
+ const head=key=>page.locator(`#documentList details[data-lu-node="${key}"] > summary`);
+ await expect(head('p:pa').locator('.lu-node-count')).toHaveText('3');
+ await head('p:pa').click();await head('p:pc').click();await head('p:pd').click();
+ await expect(page.locator('#documentList details[data-lu-node="p:pa"] details[data-lu-node="p:pc"] details[data-lu-node="p:pd"] [data-lu-document="d-d"]')).toBeVisible();
+ await expect(head('p:pc').locator('.lu-node-count')).toHaveText('2');
+ const focus=async id=>page.evaluate(id=>{document.querySelector('#documentProject').value=id;window.KPTULibrary.render()},id);
+ await focus('pa');await expect.poll(shown).toEqual(['d-a','d-c','d-d']);
+ await focus('pc');await expect.poll(shown).toEqual(['d-c','d-d']);
+ await focus('pd');await expect.poll(shown).toEqual(['d-d']);await expect(page.locator('[data-lu-document="d-d"]')).toBeVisible();
+ await expect(page.locator('#documentProject').getByRole('radio')).toHaveText(['전체','합성 하위 토론회 › 합성 세부 사안']);
+ await page.locator('#documentProject [data-filter-value="all"]').click();await expect.poll(shown).toEqual(['d-a','d-b','d-c','d-d']);
  expect(errors).toEqual([]);
 });
