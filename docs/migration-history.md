@@ -118,5 +118,6 @@
 | `20260920190745` | `20260921043000` | enable_multiuser_personal_spaces | 버전 다름 |
 | `20260920193613` | `20260921050000` | add_free_beta_controls | 버전 다름 |
 | `20260921015142` | `20260921105500` | add_beta_access_status_rpc | 버전 다름 |
+| `20261023110000_share_page_media.sql` | 준비중·운영 미적용 | ED-통합편집기 ②. 새 표 `app_share_page_media`(공유 사진 기록) 1개와 owner RLS. anon·PUBLIC 권한 없음, service_role은 id·page_id·storage_path 읽기만. 버킷(`share-page-media`, 비공개, 정책 없음)은 이 migration이 아니라 대시보드에서 따로 만든다. rollback은 사진 기록이 있으면 멈춤. |
 
 버전이 다른 3건은 RTW 트랙 소관이다(`docs/roadmap.md` 별도 트랙: RTW).
