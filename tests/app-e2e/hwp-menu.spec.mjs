@@ -92,7 +92,9 @@ for(const width of [390,1280])test(`menu entry opens a device HWP and hands the 
     expect(Math.abs((title.y+title.h/2)-(pick.y+pick.h/2))).toBeLessThanOrEqual(8);
     expect(new Set([pick,save,upload].map(b=>Math.round(b.y+b.h/2))).size).toBe(1);// UI-버튼줄이기: 높이가 달라(32·36·32) 가운데로 비교
     expect(editor.w).toBeGreaterThanOrEqual(900);
-    expect(editor.h).toBeGreaterThanOrEqual(680);
+    // UI-상단줄: PC 상단 줄(40px + 간격 8px)만큼 편집기 높이가 줄었다(900 - 200 - 48). 편집기 아래가 창 안에 들어오는지도 본다.
+    expect(editor.h).toBeGreaterThanOrEqual(680-48);
+    expect(editor.y+editor.h).toBeLessThanOrEqual(900);
   }
 
   page.on('dialog',dialog=>{seen.dialogs.push(dialog.message());void dialog.dismiss()});

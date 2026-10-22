@@ -355,6 +355,8 @@ const noteDocs=mountNotes(noteHost,{esc,rt,onOpenChange:()=>paintListChrome(),on
 // UI-PC메모노트: the PC sidebar's [업데이트]·[노트] under [바구니] show which side is open; this module owns the kind, so it paints them.
 function paintNavKind(){
   const on=window.KPTURouter?.current==='basket';
+  // UI-상단줄: the top line's "바구니 › 업데이트/노트" follows this module's kind.
+  window.dispatchEvent(new CustomEvent('kptu:basket-kind',{detail:{kind:on?kind:null}}));
   document.querySelectorAll('#appView>.app-nav [data-basket-kind-nav]').forEach(b=>{const current=on&&b.dataset.basketKindNav===kind;b.classList.toggle('active',current);if(current)b.setAttribute('aria-current','true');else b.removeAttribute('aria-current');});
 }
 window.addEventListener('kptu:view-changed',paintNavKind);

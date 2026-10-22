@@ -91,7 +91,7 @@ for(const width of [390,1440])test('D-3d list roles, C2 and excluded main fonts 
  else{expect(geometry.publisher).not.toBe('none');expect(Math.abs(geometry.title.y-geometry.date.y)).toBeLessThan(8);}
  const original=await browser.newPage({viewport:{width,height:900}});await baseline(original);await boot(original);
  // UI-디자인기준 2/3(8-9d): 일정 제목 18px·일정/할 일 버튼 13px(새 기준). 3/3(8-9e-1): 자료실 상자 제목·버튼 13px.
- const selectors={calendar:['#monthTitle','#newEventBtn','#prevMonthBtn'],tasks:['#gtTaskBody'],library:['#libraryListCard h2','#libraryListCard button','#libraryView #manageLibraryBtn'],menu:['.app-nav [data-view="projects"]','.app-nav [data-account-open]']};
+ const selectors={calendar:['#monthTitle','#newEventBtn','#prevMonthBtn'],tasks:['#gtTaskBody'],library:['#libraryListCard h2','#libraryListCard button','#libraryView #manageLibraryBtn'],menu:['.app-nav [data-view="projects"]','#appView [data-account-open]']};
  for(const [name,selectorsForView]of Object.entries(selectors)){
   if(name!=='menu'){await view(page,name);await view(original,name);}
   // 8-9e-2: phone add buttons of calendar·tasks are the round [+] (no label text); covered by ui-standard-3b.

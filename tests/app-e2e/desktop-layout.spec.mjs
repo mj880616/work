@@ -55,13 +55,14 @@ test('desktop web uses compact left navigation and safe project detail margins',
     await page.setViewportSize({width,height:900});
     await expect(page.locator('.topbar')).toBeHidden();
     await expect(page.locator('.sidebar-brand')).toBeVisible();
-    await expect(page.locator('#appView>.app-nav [data-account-open]')).toBeVisible();
+    await expect(page.locator('#appView>.app-topline [data-account-open]')).toBeVisible();
     const shell=await page.evaluate(()=>{
       const topbar=document.querySelector('.topbar');
       const nav=document.querySelector('#appView>.app-nav');
       const brand=document.querySelector('.sidebar-brand');
-      const logout=document.querySelector('#appView>.app-nav [data-account-open]');
+      const logout=document.querySelector('#appView>.app-topline [data-account-open]');
       const view=document.querySelector('#calendarView');
+      const line=document.querySelector('#appView>.app-topline');
       const rect=el=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height}};
       return {
         topbarDisplay:getComputedStyle(topbar).display,
@@ -70,6 +71,7 @@ test('desktop web uses compact left navigation and safe project detail margins',
         brand:rect(brand),
         logout:rect(logout),
         view:rect(view),
+        line:rect(line),
         mainPaddingTop:parseFloat(getComputedStyle(document.querySelector('main')).paddingTop)
       };
     });
@@ -78,8 +80,10 @@ test('desktop web uses compact left navigation and safe project detail margins',
     expect(shell.mainPaddingTop).toBeLessThanOrEqual(12);
     expect(shell.nav.top).toBeLessThanOrEqual(14);
     expect(shell.brand.top).toBeLessThanOrEqual(24);
-    expect(shell.view.top).toBeLessThanOrEqual(14);
-    expect(shell.logout.bottom).toBeGreaterThan(840);
+    // UI-상단줄: the thin top line starts the body column; the screen follows right under it, and the account is at its right end.
+    expect(shell.line.top).toBeLessThanOrEqual(14);
+    expect(shell.view.top).toBeLessThanOrEqual(shell.line.bottom+10);
+    expect(shell.logout.bottom).toBeLessThanOrEqual(shell.line.bottom+1);
     expect(shell.nav.bottom).toBeLessThanOrEqual(900);
   }
   await page.setViewportSize({width:1440,height:900});

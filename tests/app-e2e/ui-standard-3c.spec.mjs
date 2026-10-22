@@ -233,7 +233,7 @@ test('공용 셸(PC): 사이드바 0.5px 상자·그림자 없음, 메뉴 13px(�
   expect(v.fontSize).toBe('13px');expect(v.fontWeight).toBe(active?'500':'400');
   if(active){expect(v.bg).toBe(await token(page,'--kptu-primary-soft'));expect(v.fg).toBe(await token(page,'--kptu-primary-ink'));}
  }
- await nav.locator('[data-account-open]').click();
+ await page.locator('#appView>.app-topline [data-account-open]').click();
  const panel=page.locator('#sidebarAccountPanel');await expect(panel).toBeVisible();
  for(const item of await panel.locator('.account-action:visible').all()){const v=await look(item);expect(v.height).toBeGreaterThanOrEqual(44);expect([v.fontSize,v.fontWeight]).toEqual(['13px','400']);}
  expect((await look(panel.locator('[data-kptu-logout]'))).fg).toBe(await token(page,'--kptu-danger'));
