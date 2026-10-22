@@ -304,7 +304,8 @@
   #appView #homeView .home-task .gt-check { flex:0 0 44px; width:44px; height:44px; min-width:44px; min-height:44px; margin:-4px -14px -4px -14px; }
   #appView #homeView .home-task .gt-check::before { inset:14px; }
   #appView #homeView .home-task.completed .gt-check::after { left:19px; top:16px; width:5px; height:9px; }
-  #appView #homeView .home-task-text { min-height:0; padding:8px 0; }
+  #appView #homeView .home-task-text { position:relative; min-height:0; padding:8px 0; }
+  #appView #homeView .home-task-text::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
   #appView #homeView .home-quick[data-home-quick] .home-quick-input-wrap [data-quick-input] { height:var(--kptu-control-height); min-height:var(--kptu-control-height); padding-top:7px; padding-bottom:6px; }
   /* 입력칸 안 왼쪽 첨부 클립(누르는 범위 44px, 배경 없음)은 낮아진 입력칸 가운데에 맞춘다. */
   #appView #homeView .home-quick .home-quick-input-wrap > [data-quick-file-picker] { top:calc((var(--kptu-control-height) - var(--kptu-touch-target,44px)) / 2); }
