@@ -186,6 +186,9 @@ test('PC 1280 끌어 놓기: 같은 틀 안 폴더 안으로·앞뒤로·맨 위
   // 폴더 B를 A 안으로(가운데).
   r=await dragTo(page,head('f:fb'),head('f:fa'));expect(r.allowed).toBe(true);expect(r.cls).toContain('lu-drop-into');
   await expect.poll(()=>s.folders.find(f=>f.id==='fb').parent_id).toBe('fa');
+  // 가짜 서버 값이 바뀐 것과 화면이 폴더를 다시 읽어 그린 것은 다른 때다. 화면에 B가 A 안에 그려진 뒤에 다음 끌기를 한다
+  // (그 전에 끌면 옛 트리에서 B가 A의 형제라 놓을 수 있게 보인다 — CI에서 두 번 실패한 원인).
+  await expect(page.locator('#documentList details[data-lu-node="f:fa"] details[data-lu-node="f:fb"]')).toHaveCount(1);
   // 자기 아래(B)로 A를 넣을 수는 없다.
   await expandLibraryTree(page);
   const n=s.writes.length;r=await dragTo(page,head('f:fa'),head('f:fb'));expect(r.allowed).toBe(false);expect(r.cls).toContain('lu-drop-no');expect(s.writes.length).toBe(n);
@@ -195,9 +198,11 @@ test('PC 1280 끌어 놓기: 같은 틀 안 폴더 안으로·앞뒤로·맨 위
   // 파일을 폴더로, 그다음 프로젝트 머리에 놓아 폴더 밖으로.
   r=await dragTo(page,'[data-lu-document="a-1"]',head('f:fc'));expect(r.allowed).toBe(true);
   await expect.poll(()=>s.items).toEqual([{document_id:'a-1',folder_id:'fc',workspace_id:'workspace-1'}]);
+  await expect(page.locator('#documentList details[data-lu-node="f:fc"] [data-lu-document="a-1"]')).toHaveCount(1);
   await expandLibraryTree(page);
   r=await dragTo(page,'[data-lu-document="a-1"]',head('p:top-a'));expect(r.allowed).toBe(true);
   await expect.poll(()=>s.items).toEqual([]);
+  await expect(page.locator('#documentList details[data-lu-node="f:fc"] [data-lu-document="a-1"]')).toHaveCount(0);
   // B(A 안)를 프로젝트 머리에 놓으면 맨 위로.
   await expandLibraryTree(page);r=await dragTo(page,head('f:fb'),head('p:top-a'));expect(r.allowed).toBe(true);await expect.poll(()=>s.folders.find(f=>f.id==='fb').parent_id).toBeNull();
   // 놓은 뒤 표시가 남지 않는다. 자료는 쓰지 않았다.
