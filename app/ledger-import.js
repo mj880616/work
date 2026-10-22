@@ -7,12 +7,12 @@
 // Drive 내보내기(#ledgerExportRoot, ledger-export.js)는 S7-d 모듈이 각자 그린다.
 import {readInputFiles, analyze, numberCheck, TABS} from './ledger-import-model.mjs';
 import {candidateFilePayload} from './ledger-candidate-model.mjs';
+import {KIND_DISPLAY, KIND_HINT, KINDS} from './ledger-browse-model.mjs';
 
 const rt = window.KPTURuntime;
 const ZERO = '00000000-0000-0000-0000-000000000000';
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const q = v => encodeURIComponent(v);
-const KIND_LABEL = {event: '사건', change: '변화기록', decision: '결정', evidence: '근거', commitment: '약속'};
 const STATUS_LABEL = {applied: '적용(확인 전)', confirmed: '확인', reverted: '되돌림'};
 const ERRORS = [
   [/LEDGER_IMPORT_DUPLICATE_FILE/, '이미 가져온 파일입니다(같은 파일 지문). 되돌린 묶음의 파일만 다시 넣을 수 있습니다.'],
@@ -39,7 +39,7 @@ const workspaceId = () => rt?.context?.read?.()?.workspace?.id || null;
 
 function installView() {
   if (document.querySelector('#ledgerView')) return;
-  document.querySelector('#appView')?.insertAdjacentHTML('beforeend', `<section id="ledgerView" class="view-panel hidden" aria-labelledby="ledgerTitle"><div class="section-head"><div><h2 id="ledgerTitle">원장</h2><p>업무 원장(사건·결정·근거·약속·출처·조직)을 Web2로 옮기고 확인하는 화면입니다.</p></div></div><div class="lg-root"><div id="ledgerRoot" class="lg-root"></div><div id="ledgerCandidatesRoot" class="lg-root" hidden></div><div id="ledgerBrowseRoot" class="lg-root" hidden></div><div id="ledgerExportRoot" class="lg-root" hidden></div></div></section>`);
+  document.querySelector('#appView')?.insertAdjacentHTML('beforeend', `<section id="ledgerView" class="view-panel hidden" aria-labelledby="ledgerTitle"><div class="section-head"><div><h2 id="ledgerTitle">원장</h2><p>업무 원장(${KINDS.map(k => KIND_DISPLAY[k]).join('·')}·출처·조직)을 Web2로 옮기고 확인하는 화면입니다.</p></div></div><div class="lg-root"><div id="ledgerRoot" class="lg-root"></div><div id="ledgerCandidatesRoot" class="lg-root" hidden></div><div id="ledgerBrowseRoot" class="lg-root" hidden></div><div id="ledgerExportRoot" class="lg-root" hidden></div></div></section>`);
 }
 
 function friendly(error) {
@@ -274,7 +274,7 @@ function resultHtml(r) {
     const kept = Object.values(c.kinds).reduce((a, b) => a + b, 0);
     const busyLabel = {'cand-dry': '해 보는 중…', 'cand-apply': '넣는 중…'}[state.busy];
     return `<div class="lg-result" data-lg-result="candidates"><h4>후보 묶음 <span class="lg-pill ${c.invalid.length ? 'is-bad' : 'is-ok'}" data-lg-verdict="${c.invalid.length ? 'rejected' : 'ok'}">${c.invalid.length ? `거부 ${c.invalid.length}건 — 파일을 고친 뒤 다시 올리세요` : `넣을 후보 ${kept}건`}</span></h4>
-      <p>파일의 후보 ${c.total}건(${Object.entries(c.kinds).map(([k, n]) => `${KIND_LABEL[k] || k} ${n}`).join(', ') || '없음'})${c.excluded ? `, 민감 S3 ${c.excluded}건` : ''}${c.personal ? `, 개인정보 모양 ${c.personal}건` : ''}${c.excluded || c.personal ? '은 넣지 않음' : ''}.</p>
+      <p>파일의 후보 ${c.total}건(${Object.entries(c.kinds).map(([k, n]) => `${KIND_DISPLAY[k] || k} ${n}`).join(', ') || '없음'})${c.excluded ? `, 민감 S3 ${c.excluded}건` : ''}${c.personal ? `, 개인정보 모양 ${c.personal}건` : ''}${c.excluded || c.personal ? '은 넣지 않음' : ''}.</p>
       ${c.invalid.length ? `<ul class="lg-list lg-issues-error" data-lg-cand-invalid>${c.invalid.slice(0, 10).map(i => `<li>${i.index >= 0 ? `${i.index + 1}번째 후보: ` : ''}${esc(i.reason)}</li>`).join('')}</ul>` : ''}
       ${!state.queueReady ? '<p class="lg-note" data-lg-cand-later>후보 넣기 기능이 아직 DB에 없습니다. 기능이 적용되면 여기서 넣을 수 있습니다.</p>' : `<div class="lg-actions">
         <button type="button" class="secondary" data-lg-action="cand-dry" ${candOk() ? '' : 'disabled'}>해 보기</button>
@@ -331,7 +331,7 @@ function actionsHtml(r) {
   const c = r.counts || {};
   const dry = state.dry && state.dryKey === payloadKey() ? state.dry : null;
   const busyLabel = {dry: '해 보는 중…', apply: '적용하는 중…'}[state.busy];
-  const kinds = Object.keys(KIND_LABEL);
+  const kinds = KINDS;
   return `<div class="lg-actions">
     <button type="button" class="secondary" data-lg-action="dry" ${canDry() ? '' : 'disabled'}>해 보기</button>
     <button type="button" class="primary" data-lg-action="apply" ${canApply() ? '' : 'disabled'}>적용</button>
@@ -340,7 +340,7 @@ function actionsHtml(r) {
   ${!r.ok ? '' : !dry ? '<p class="lg-note">[적용]은 [해 보기]를 마치고 대응표를 확인한 뒤에 눌 수 있습니다. 대응표를 바꾸면 다시 해 봅니다.</p>' : ''}
   ${dry ? `<div class="lg-table-wrap"><table class="lg-table" data-lg-dry><caption>해 보기 결과(DB에 남지 않음)</caption><thead><tr><th scope="col">표</th><th scope="col">파일</th><th scope="col">DB가 넣은 수</th></tr></thead><tbody>
     ${countsRow('업무주제', c.topics, dry.topics)}${countsRow('조직', c.organizations, dry.organizations)}${countsRow('출처', c.sources, dry.sources)}
-    ${kinds.map(k => countsRow(KIND_LABEL[k], c.records?.[k] ?? 0, dry.records_by_kind?.[k] ?? 0)).join('')}
+    ${kinds.map(k => countsRow(KIND_DISPLAY[k], c.records?.[k] ?? 0, dry.records_by_kind?.[k] ?? 0)).join('')}
     ${countsRow('기록-출처 연결', c.record_sources, dry.record_sources)}${countsRow('기록 간 연결', c.links_to_records, dry.links_to_records)}${countsRow('조직연결', c.links_to_organizations, dry.links_to_organizations)}${countsRow('옛 쓰기요청', c.legacy_write_requests, dry.legacy_write_requests)}
   </tbody></table></div>${dry.registered_prefixes?.length ? `<p class="lg-note">적용하면 번호표에 등록할 접두어: ${dry.registered_prefixes.map(esc).join(', ')}</p>` : ''}` : ''}`;
 }

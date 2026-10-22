@@ -406,6 +406,12 @@ test('원장 후보: 만들기 → 확정 → 고쳐서 확정 → 버림, 거�
  await expect(box.locator('[data-lc-undo-offer]')).toHaveCount(0);
  await expect(box.locator('[data-lc-confirmed-box]')).toHaveCount(0);
 
+ // 후보 칸 종류 이름은 화면에서만 쉬운 말(LEDGER-후보칸이름). 툴팁은 설명, 확정 때 보내는 값은 원래 종류.
+ await expect(box.locator('[data-lc-row="'+u(101)+'"] .lg-pill').first()).toHaveText('일어난 일');
+ await expect(box.locator('[data-lc-row="'+u(101)+'"] .lg-pill').first()).toHaveAttribute('title','추적할 일 하나(원장의 사건)');
+ await expect(box.locator('[data-lc-row="'+u(102)+'"] .lg-pill').first()).toHaveText('약속');
+ await expect(box.locator('[data-lc-row="'+u(103)+'"] .lg-pill').first()).toHaveText('바뀐 점');
+
  // 거절: 이유를 보이고 후보는 남는다.
  await box.locator('[data-lc-row="'+u(103)+'"] [data-lc-action="confirm"]').click();
  await expect(box.locator('[data-lc-error]')).toContainText('원장에 없는 ID를 가리킵니다. (record EVT-0999)');
@@ -417,6 +423,7 @@ test('원장 후보: 만들기 → 확정 → 고쳐서 확정 → 버림, 거�
  const form=row.locator('form[data-lc-form]');
  await expect(form.locator('[name="title"]')).toBeFocused();
  await form.locator('[name="title"]').fill('가상 기관 자료 제공 약속.');
+ await expect(form).toHaveAttribute('aria-label','약속 후보 고치기');
  await form.locator('[data-lc-action="save"]').click();
  await expect(form.locator('[data-lc-form-error]')).toContainText('상대측');
  await form.locator('[name="counterparty"]').fill('가상 기관');
@@ -528,6 +535,8 @@ for(const [name,width] of [['phone',390],['PC',1440]]){
   const item=recent.locator('[data-lc-confirmed="'+u(101)+'"]');
   await expect(item).toContainText('EVT-0911');
   await expect(item).toContainText('확정됨');
+  await expect(item.locator('.lg-pill').first()).toHaveText('일어난 일');
+  await expect(item.locator('.lg-pill').first()).toHaveAttribute('title','추적할 일 하나(원장의 사건)');
   // ⋯는 키보드로 연다(Enter).
   await item.locator('.lc-more summary').focus();
   await page.keyboard.press('Enter');

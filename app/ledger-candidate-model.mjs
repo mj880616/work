@@ -2,7 +2,7 @@
 // 설계: docs/design/ledger-web2.md 4·15절, migration 20261021190000_ledger_candidates(확정 함수가 DB에서 한 번 더 검사).
 // 쓰는 곳: 후보 화면(app/ledger-candidates.js), 가져오기 화면의 Claude 후보 파일(app/ledger-import-model.mjs → [후보로 넣기]).
 import { looksPersonal } from './ledger-import-model.mjs';
-import { KIND_LABEL, dateLabel } from './ledger-browse-model.mjs';
+import { KIND_LABEL, KIND_DISPLAY, KIND_HINT, dateLabel } from './ledger-browse-model.mjs';
 
 export const ACTIONS = Object.freeze(['new', 'add_source', 'update', 'supersede']);
 export const ACTION_LABEL = Object.freeze({ new: '새 기록', add_source: '기존 기록에 출처 추가', update: '기존 기록 고침', supersede: '기존 기록 대체' });
@@ -90,7 +90,7 @@ export function candidateView(row) {
   const rec = isObj(row.payload.record) ? row.payload.record : {};
   const ref = isObj(row.payload.origin_ref) ? row.payload.origin_ref : null;
   return {
-    id: row.id, kind: row.kind, kindLabel: KIND_LABEL[row.kind], action: row.action, actionLabel: ACTION_LABEL[row.action],
+    id: row.id, kind: row.kind, kindLabel: KIND_DISPLAY[row.kind], kindHint: KIND_HINT[row.kind], action: row.action, actionLabel: ACTION_LABEL[row.action],
     origin: row.origin, originLabel: ORIGIN_LABEL[row.origin] || '', title: row.title, sensitivity: row.sensitivity,
     summary: typeof rec.summary === 'string' ? rec.summary : '', date: rec.date_start || rec.date_note ? dateLabel({ date_precision: rec.date_precision || (rec.date_start ? 'day' : 'unknown'), ...rec }) : '',
     record: rec, sources: Array.isArray(row.payload.sources) ? row.payload.sources : [], links: Array.isArray(row.payload.links) ? row.payload.links : [],
