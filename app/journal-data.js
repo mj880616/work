@@ -16,6 +16,7 @@
 // 공유 페이지 (share pages changed that day). Every read is limited to the week, a few columns and a row cap; no long body
 // (meeting text, document text, share page blocks) is read.
 import { attachmentName } from './attachment-name.mjs';
+import { plainLines } from './note-preview.mjs';
 import {seoulParts, seoulDateKey, addSeoulDays, seoulClock, formatSeoulTime} from './meeting-time.js';
 import {readBasket, filedOrganizations, filedProjects} from './basket-data.js';
 import {categoryOf} from './document-categories.js';
@@ -265,7 +266,8 @@ export const memosOn = (memos, day) => (memos || []).filter(memo => onDay(memo?.
 // One update is one item: its first non-empty line (cut at 80 characters), never one item per line.
 const SHORT = 80;
 export function firstLine(text) {
-  const first = String(text ?? '').split(/\r\n|\r|\n|\u2028|\u2029/).map(line => line.trim()).find(Boolean);
+  // BUG-미리보기기호: the line is shown as plain letters (shared note-preview rules: no #·|·** marks, entities decoded).
+  const first = plainLines(String(text ?? '').replace(/\u2028|\u2029/g, '\n'))[0];
   if (!first) return '';
   return [...first].length > SHORT ? [...first].slice(0, SHORT).join('') + '…' : first;
 }

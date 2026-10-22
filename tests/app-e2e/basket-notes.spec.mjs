@@ -3,6 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { noteAction,showBasketRow} from './helpers/basket-more.mjs';
 import { noteMenuAction } from './helpers/note-menu.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
+import {openWriteFromEntry} from './helpers/write-opener.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // MEMO-노트 PR 3: [메모 | 노트] in the basket tab. The mock keeps one app_notes store and honours the kind/id
 // filters, so every list and write is checked against the row kind the screen showed.
@@ -288,8 +289,7 @@ test('note edit draft is protected when leaving with Escape',async({page})=>{
 
 // UI-키보드하단바: menu [쓰기] head in one row = [× 닫기] [메모|노트] [쓰기|미리보기] … [내보내기] [저장], 32px buttons.
 async function openWriter(page,width){
- if(width<761){await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-menu-write]').click();}
- else await page.locator('#appView>.app-nav [data-menu-write]').click();
+ await openWriteFromEntry(page,width);
  const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();return editor;
 }
 // The [업데이트 ▾|노트] box is the shared 32px segment (its buttons sit inside its 1px line); every other head button is 32px itself.
@@ -337,6 +337,7 @@ test('menu [쓰기] → [업데이트] still saves one basket memo (no kind, no 
  await editor.locator('[data-md-save-icon]').click();
  await expect(page.locator('#mdEditor')).toHaveCount(0);await expect(page.locator('#toast')).toContainText('바구니에 저장했어요.');
  expect(f.writes).toEqual([{method:'POST',body:{workspace_id:'w',raw_text:'쓰기 메모'}}]);
+ await chooseBasketKind(page,'memo');
  await showBasketRow(page,'m-created');
  await expect(page.locator('[data-basket-row="m-created"]')).toContainText('쓰기 메모');
  await expect(page.locator('[data-basket-kind="memo"]')).toHaveAttribute('aria-pressed','true');
@@ -511,6 +512,7 @@ test('[닫기] in the big window asks once, then hands the text back to the edit
  await ask.getByRole('button',{name:'저장하지 않고 닫기',exact:true}).click();
  await expect(page.locator('#mdEditor')).toHaveCount(0);await expect(detail.locator('[data-basket-text]')).toHaveValue('닫아도 남는 글');
  page.once('dialog',d=>d.accept());await detail.locator('[data-note-cancel]').click();
+ await page.locator('[data-note-close]').click();
  const writer=await openWriter(page,390);
  await expect(writer.locator(SAVE_ICON)).toHaveCount(1);await expect(writer.locator('[data-md-save]')).toHaveCount(0);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);

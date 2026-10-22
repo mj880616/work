@@ -55,10 +55,10 @@ test('top-level V3 navigation opens the media archive and keeps removed controls
   test.setTimeout(60000);
   await mockApp(page);
   await signIn(page);
-  // UI-디자인손질 8: the sidebar also has [쓰기] (an action that opens the editor, not a view).
+  // UI-디자인손질 8: the sidebar has no [쓰기] any more (UI-쓰기메뉴삭제).
   // UI-PC일정묶음: 할 일·업무일지·일기 are sub rows under [일정]; the order of the views is unchanged.
   const nav=page.locator('.app-nav :is(.nav-btn,.nav-sub-btn)[data-view]');
-  await expect(nav).toHaveCount(views.length);await expect(page.locator('.app-nav [data-menu-write]')).toHaveCount(1);
+  await expect(nav).toHaveCount(views.length);await expect(page.locator('.app-nav [data-menu-write]')).toHaveCount(0);
   expect(await nav.evaluateAll(nodes=>nodes.map(node=>node.dataset.view))).toEqual(views);
   await expect(page.locator('#userBadge,#teamManageTop,#ccMessageTop,#pagesMediaEntry')).toHaveCount(0);
   await page.locator('#appView>.app-topline [data-account-open]').click();

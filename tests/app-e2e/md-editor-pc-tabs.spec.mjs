@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { noteAction } from './helpers/basket-more.mjs';
+import {openWriteFromEntry} from './helpers/write-opener.mjs';
 // UI-쓰기창PC탭유지: 넓은 화면(761px~)에서 쓰기 창(메뉴 [쓰기])과 고치기 창("큰 창에서 수정")은 앱 탭을 덮지 않는다.
 // 1024px~는 왼쪽 세로 메뉴 옆, 761~1023px는 위쪽 한 줄 메뉴 아래에서만 열린다. 폰(760px 이하)은 하단 탭 위에서 끝나는 기존 동작 그대로.
 // 탭을 누르면 폰 하단 탭과 같은 규칙(글 있으면 "저장 안 하고 닫을까요?", 빈 글은 바로 이동, 고치기는 글을 수정 칸에 돌려줌)이 적용된다.
@@ -30,7 +31,7 @@ const navTab=(page,view)=>view==='home'?nav(page).locator('.sidebar-brand:visibl
 const current=page=>page.evaluate(()=>window.KPTURouter.current);
 const goView=async(page,view)=>{await page.evaluate(view=>window.KPTURouter.go(view),view);await expect.poll(()=>current(page)).toBe(view);};
 async function openWriter(page){
- await nav(page).locator('[data-menu-write]').click();
+ await openWriteFromEntry(page,1280);
  const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();return editor;
 }
 const rect=l=>l.evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,r:r.right,b:r.bottom,w:r.width,h:r.height};});
@@ -101,11 +102,6 @@ test('1280: 빈 글이면 묻지 않고 바로 이동, [쓰기] 탭은 이어서
  await area.fill('  \n ');
  await navTab(page,'home').click();
  await expect(page.locator('#mdEditor')).toHaveCount(0);await expect.poll(()=>current(page)).toBe('home');
- // 글이 있는 쓰기 창에서 메뉴의 [쓰기]를 다시 눌러도 창은 그대로, 글 칸으로 돌아간다.
- const w=await openWriter(page);await w.locator('.md-editor-text').fill('쓰던 글');
- await w.getByRole('button',{name:'내보내기',exact:true}).focus();
- await nav(page).locator('[data-menu-write]').click();
- await expect(page.locator('#mdLeaveSheet[open]')).toHaveCount(0);await expect(w).toBeVisible();await expect(w.locator('.md-editor-text')).toBeFocused();await expect(w.locator('.md-editor-text')).toHaveValue('쓰던 글');
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
@@ -166,9 +162,8 @@ test('900(761~1023): 위쪽 한 줄 메뉴 아래에서만 열린다. 스크롤�
  const f=await fixture(page,{width:900,height:700});
  await goView(page,'basket');
  await page.evaluate(()=>{const tall=document.createElement('div');tall.style.height='3000px';document.querySelector('#appView').append(tall);window.scrollTo(0,300);});
- // 이 폭에는 세로 메뉴의 [쓰기]가 없어 ☰ 메뉴로 연다.
- await page.locator('#mobileMenuOpen, .mid-menu-trigger').first().click();
- await page.locator('#mobileMenu [data-menu-write]').click();
+ // 이 폭에는 메뉴의 [쓰기]가 없어 바구니 입력칸의 ⤢로 연다.
+ await openWriteFromEntry(page,900);
  const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();
  await expect(editor).toHaveAttribute('data-md-nav','top');
  const top=await rect(nav(page)),box=await rect(editor);
@@ -183,7 +178,7 @@ test('900(761~1023): 위쪽 한 줄 메뉴 아래에서만 열린다. 스크롤�
 
 test('390 폰: 기존 그대로 — 화면 전체 폭, 하단 탭 6칸 위에서 끝나고 모달',async({page})=>{
  const f=await fixture(page,{width:390,height:844});
- await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-menu-write]').click();
+ await openWriteFromEntry(page,390);
  const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();
  const box=await rect(editor),tabs=await rect(page.locator('.mobile-tabs'));
  expect(box.x).toBe(0);expect(box.y).toBe(0);expect(Math.round(box.w)).toBe(390);expect(Math.round(box.b)).toBe(Math.round(tabs.y));
@@ -209,9 +204,7 @@ test('1280 → 390 → 1280: 창 크기를 바꾸면 자리를 다시 잡는다'
 if(REVIEW)for(const [width,height,dark] of [[1280,800,false],[1280,800,true],[900,700,false],[390,844,false]])test(`캡처 ${width}${dark?' 다크':''}`,async({page})=>{
  if(dark)await page.emulateMedia({colorScheme:'dark'});
  await fixture(page,{width,height});
- if(width<761){await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-menu-write]').click();}
- else if(width<1024){await page.locator('.mid-menu-trigger').click();await page.locator('#mobileMenu [data-menu-write]').click();}
- else await nav(page).locator('[data-menu-write]').click();
+ await openWriteFromEntry(page,width);
  const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();
  await editor.locator('.md-editor-text').fill('# 회의 정리\n\n- **기본급** 인상\n- 수당 정비\n\n> [!NOTE]\n> 다음 주 확인');
  await editor.locator('.md-editor-text').evaluate(el=>el.blur());

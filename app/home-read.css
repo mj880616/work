@@ -292,3 +292,49 @@
 .home-collect .collect-label { color:var(--kptu-ink); }
 .home-collect .collect-value { color:var(--kptu-muted); overflow-wrap:anywhere; }
 .home-collect .collect-warn { color:var(--kptu-warning); font-weight:700; }
+
+/* HOME-모바일정리②: 회의 후속이기도 한 오늘 할 일의 작은 꼬리표(home-read.js, 폰·중간 폭에서만 붙는다). */
+.home-tag { flex:0 0 auto; display:inline-block; padding:0 6px; border-radius:var(--kptu-radius-pill); background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); font-size:11px; line-height:18px; font-weight:700; white-space:nowrap; }
+/* HOME-모바일정리③④(2026-10-22 시안 승인, 폰·중간 폭만 — PC는 그대로):
+   ③ 할 일·회의 후속 줄 높이를 일정 줄과 같게(위아래 8px + 글줄), 동그라미 16px, 동그라미 앞뒤 빈 폭을 줄인다.
+      누르는 범위는 동그라미 단추 44×44 그대로 두고 바깥 여백을 음수로 잡아 줄 높이·들여쓰기에 보태지 않는다.
+   ④ 아래 빠른 입력칸과 [추가]를 한 높이(--kptu-control-height 36px, PC와 같은 값)로. ⤢는 보조 32px, 누르는 범위 44px은 ui-standard.css ::after 그대로. */
+@media (max-width: 1023px) {
+  #appView #homeView .home-task { min-height:0; padding:0; gap:8px; }
+  #appView #homeView .home-task .gt-check { flex:0 0 44px; width:44px; height:44px; min-width:44px; min-height:44px; margin:-4px -14px -4px -14px; }
+  #appView #homeView .home-task .gt-check::before { inset:14px; }
+  #appView #homeView .home-task.completed .gt-check::after { left:19px; top:16px; width:5px; height:9px; }
+  #appView #homeView .home-task-text { position:relative; min-height:0; padding:8px 0; }
+  #appView #homeView .home-task-text::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+  #appView #homeView .home-quick[data-home-quick] .home-quick-input-wrap [data-quick-input] { height:var(--kptu-control-height); min-height:var(--kptu-control-height); padding-top:7px; padding-bottom:6px; }
+  /* 입력칸 안 왼쪽 첨부 클립은 입력칸 테두리 안 높이로 보이고, 누르는 범위 44px은 ::after로 지킨다. */
+  #appView #homeView .home-quick .home-quick-input-wrap > [data-quick-file-picker] { top:1px; height:calc(var(--kptu-control-height) - 2px); }
+  #appView #homeView .home-quick .home-quick-input-wrap > [data-quick-file-picker] .basket-clip { height:calc(var(--kptu-control-height) - 2px); min-height:0; }
+  #appView #homeView .home-quick .home-quick-input-wrap > [data-quick-file-picker] .basket-clip::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+  #appView #homeView .home-quick[data-home-quick] button.home-quick-save { margin-top:0; }
+  #appView #homeView .home-quick[data-home-quick] :is(.home-quick-big,.home-quick-detail) { top:calc((var(--kptu-control-height) - var(--ds-compact-height)) / 2); }
+}
+/* HOME-수집경보(2026-10-22, 폰·중간 폭만 — collection-status.js가 그리는 자리): 위쪽 경고 한 줄(누르면 전체 칸), ✕ 오늘 하루 숨김,
+   모두 정상이면 맨 아래 작은 '수집 정상 ✓'. 버튼은 글자 줄(UI-버튼기준), 누르는 범위 44px은 ::after. */
+.home-collect-alert[hidden],.home-collect-ok[hidden],.collect-alert-panel[hidden],.mobile-menu-collect[hidden] { display:none; }
+.home-collect-alert { display:flex; flex-direction:column; gap:8px; min-width:0; }
+.collect-alert-line { display:flex; align-items:center; gap:4px; min-width:0; min-height:var(--ds-compact-height,32px); padding:0 4px 0 10px; border-radius:var(--ds-radius-control,8px); background:var(--kptu-warning-soft,var(--kptu-surface)); color:var(--kptu-ink); }
+.collect-alert-line button { position:relative; margin:0; border:0; background:transparent; color:inherit; font:inherit; font-size:var(--ds-text-meta,12px); cursor:pointer; }
+.collect-alert-line button::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+.collect-alert-open { flex:1 1 auto; display:flex; align-items:center; gap:6px; min-width:0; height:var(--ds-compact-height-sm,28px); padding:0; text-align:left; }
+.collect-alert-open span:not(.collect-alert-chevron) { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:700; color:var(--kptu-warning); }
+.collect-alert-icon { flex:0 0 auto; width:14px; height:14px; fill:none; stroke:var(--kptu-warning); stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.collect-alert-chevron { flex:0 0 auto; color:var(--kptu-muted); }
+.collect-alert-open[aria-expanded="true"] .collect-alert-chevron { transform:rotate(90deg); }
+.collect-alert-close { flex:0 0 auto; width:var(--ds-compact-height-sm,28px); height:var(--ds-compact-height-sm,28px); padding:0; color:var(--kptu-muted); }
+.collect-alert-line button:focus-visible { outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
+.home-collect-ok { margin:4px 0 0; text-align:center; font-size:var(--ds-text-meta,12px); line-height:1.5; color:var(--kptu-muted); }
+.home-collect h3 { font-size:16px; margin:0; line-height:1.5; }
+.mobile-menu-collect { margin:8px 0; padding:10px 12px; border:1px solid var(--kptu-border); border-radius:var(--ds-radius-box,12px); background:var(--kptu-surface); }
+.mobile-menu-collect header { margin-bottom:6px; }
+.mobile-menu-collect h3 { font-size:var(--ds-text-section,13px); }
+.mobile-menu-collect .collect-list { display:flex; flex-direction:column; gap:4px; margin:0; padding:0; list-style:none; }
+.mobile-menu-collect .collect-row { display:flex; flex-wrap:wrap; justify-content:space-between; gap:2px 8px; font-size:12px; line-height:1.5; min-width:0; }
+.mobile-menu-collect .collect-label { color:var(--kptu-ink); }
+.mobile-menu-collect .collect-value { color:var(--kptu-muted); overflow-wrap:anywhere; }
+.mobile-menu-collect .collect-warn { color:var(--kptu-warning); font-weight:700; }

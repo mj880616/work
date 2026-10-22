@@ -123,7 +123,9 @@ function arrangeHome() {
   if (radar) target.insertBefore(radar, dday.nextSibling);
   focused?.focus({ preventScroll: true });
 }
-desktopHome.addEventListener('change', arrangeHome);
+// HOME-모바일정리②는 폰·중간 폭(한 칸 홈)에서만 겹친 회의 후속을 합친다. PC(오른쪽 칸 있는 홈)는 그대로.
+const mergeFollowUps = () => !desktopHome.matches;
+desktopHome.addEventListener('change', () => { arrangeHome(); renderTasks(); });
 function shell() {
   const host = root.querySelector('[data-home-cards]'),
     quick = root.querySelector('[data-home-quick],.home-quick-placeholder'),
@@ -134,7 +136,8 @@ function shell() {
   };
   // JOURNAL-챙길것: 챙길 것 sits below 주요 일정. todo-radar.js is the only renderer inside that card; it stays hidden until
   // the candidate table and the server function answer (not deployed yet = hidden).
-  host.innerHTML = `<div data-home-column="main">${['calendar','tasks','meetings'].map(section).join('')}</div><div data-home-column="aside">${section('dday')}<section class="home-card home-radar" data-home-card="radar" hidden></section><section class="home-card home-collect" data-home-card="collect" aria-labelledby="home-collect-title" hidden></section></div>`;
+  // HOME-수집경보: 폰·중간 폭의 경고 한 줄(본문 맨 위)과 '수집 정상 ✓' 한 줄(맨 아래)도 collection-status.js가 그린다.
+  host.innerHTML = `<div data-home-column="main"><div class="home-collect-alert" data-home-collect-alert hidden></div>${['calendar','tasks','meetings'].map(section).join('')}</div><div data-home-column="aside">${section('dday')}<section class="home-card home-radar" data-home-card="radar" hidden></section><section class="home-card home-collect" data-home-card="collect" aria-labelledby="home-collect-title" hidden></section></div><p class="home-collect-ok" data-home-collect-ok role="status" hidden></p>`;
   host.querySelector('[data-home-column="main"]').prepend(quick);
   focused?.focus({ preventScroll: true });
   radarMount?.destroy();
@@ -142,7 +145,7 @@ function shell() {
   radarMount?.refresh();
   // OPS-수집점검: 마지막 수집 시각. collection-status.js is the only renderer; hidden until something can be checked.
   collectMount?.destroy();
-  collectMount = mountCollectionStatus(card('collect'));
+  collectMount = mountCollectionStatus(card('collect'), { alert: host.querySelector('[data-home-collect-alert]'), okLine: host.querySelector('[data-home-collect-ok]') });
   collectMount?.refresh();
   arrangeHome();
   root.querySelector('[data-home-timing]')?.remove();
@@ -250,10 +253,14 @@ function shownTasks() {
     return { task: state?.task || t, place: state?.place || state?.task || t };
   });
 }
-function taskRowHtml(id, title, done, meta) {
+function taskRowHtml(id, title, done, meta, followUp = false) {
   const name = esc(title || "제목 없음");
-  return `<div class="home-task ${done ? "completed" : ""}" data-home-task="${esc(id)}"><button type="button" class="gt-check" data-home-toggle="${esc(id)}" ${google?.taskState(id)?.task ? "" : "disabled"} aria-label="${done ? "완료 취소" : "완료"}" aria-pressed="${done}"></button><button type="button" class="home-task-text" data-home-edit="${esc(id)}" aria-label="${name} 수정"><span class="home-title">${name}</span>${meta ? `<small>${meta}</small>` : ""}</button></div>`;
+  // HOME-모바일정리②: 회의 후속이기도 한 오늘 할 일은 여기 한 번만 나오고 작은 꼬리표를 단다.
+  return `<div class="home-task ${done ? "completed" : ""}" data-home-task="${esc(id)}"><button type="button" class="gt-check" data-home-toggle="${esc(id)}" ${google?.taskState(id)?.task ? "" : "disabled"} aria-label="${done ? "완료 취소" : "완료"}" aria-pressed="${done}"></button><button type="button" class="home-task-text" data-home-edit="${esc(id)}" aria-label="${name} 수정"><span class="home-title">${name}</span>${followUp ? '<span class="home-tag" data-home-followup-tag>회의 후속</span>' : ""}${meta ? `<small>${meta}</small>` : ""}</button></div>`;
 }
+const isFollowUp = (id) => linksReady
+  ? links.some((l) => l.google_task_id === id && l.meeting_id && l.status === "confirmed")
+  : !!copies.tasks?.names.find((r) => r.id === id)?.meeting;
 function taskRows(rows, meeting = false) {
   return rows
     .map(({ task: t }) => {
@@ -281,7 +288,7 @@ function taskRows(rows, meeting = false) {
       const meta = meeting
         ? esc(names.join(" · "))
         : [past ? `<strong class="home-overdue">${Number(due.slice(5, 7))}.${Number(due.slice(8, 10))} 지남</strong>` : "", ...names.map(esc)].filter(Boolean).join(" · ");
-      return taskRowHtml(t.id, t.title, done, meta);
+      return taskRowHtml(t.id, t.title, done, meta, !meeting && mergeFollowUps() && isFollowUp(t.id));
     })
     .join("");
 }
@@ -301,23 +308,21 @@ function renderTasks({ includeMeetings = true } = {}) {
       dueTasks(shown.map((x) => x.task)).length,
     );
   if(tasksReady)card('meetings')?.querySelectorAll('[data-home-toggle]').forEach(b=>{b.disabled=!google?.taskState(b.dataset.homeToggle)?.task;});
-  if(tasksReady&&linksReady)saveCopy('tasks',{names:tasks.map(t=>({id:t.id,names:links.filter(l=>l.google_task_id===t.id&&l.status==='confirmed').flatMap(l=>[projects.find(p=>p.id===l.project_id)?.name,orgs.find(o=>o.id===l.organization_id)?.name].filter(Boolean))}))});
+  if(tasksReady&&linksReady)saveCopy('tasks',{names:tasks.map(t=>({id:t.id,meeting:isFollowUp(t.id),names:links.filter(l=>l.google_task_id===t.id&&l.status==='confirmed').flatMap(l=>[projects.find(p=>p.id===l.project_id)?.name,orgs.find(o=>o.id===l.organization_id)?.name].filter(Boolean))}))});
   if (!meetingsReady || !includeMeetings) return;
+  // HOME-모바일정리②(폰·중간 폭): 오늘 할 일에 이미 나온 항목은 빼고(그쪽에 꼬리표), 남는 것이 없으면 칸을 숨긴다.
   const ids = new Set(
       meetingTasks(
         shown.map((x) => x.place),
         links,
       ).map((t) => t.id),
     ),
-    follow = shown.filter((x) => ids.has(x.place.id));
+    follow = shown.filter((x) => ids.has(x.place.id) && !(mergeFollowUps() && dueIds.has(x.place.id)));
   if (follow.length)
     paint(
       "meetings",
       taskRows(follow, true),
-      meetingTasks(
-        shown.map((x) => x.task),
-        links,
-      ).length,
+      follow.length,
     );
   else empty("meetings", "회의 후속 없음", true);
   saveCopy('meetings',{rows:follow.map(x=>({id:x.task.id,title:x.task.title,meetingName:links.filter(l=>l.google_task_id===x.task.id&&l.meeting_id&&l.status==='confirmed').map(l=>meetings.find(m=>m.id===l.meeting_id)?.series_name||meetings.find(m=>m.id===l.meeting_id)?.title||'회의 연결').join(' · ')}))});
