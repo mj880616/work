@@ -12,16 +12,18 @@ async function ready(page,width){
  await q.locator('[data-quick-input]').fill('기록 내용');
  return {...home,q};
 }
-test('sheet lists organizations and projects together and only one can be chosen',async({page})=>{
+// UPD-여러곳고르기: presses only mark; [저장] keeps the marks. Picking a project after an organization keeps both.
+test('sheet lists organizations and projects together; a press marks and [저장] keeps',async({page})=>{
  const {q}=await ready(page,1280);
  await q.locator('[data-quick-org]').click();await expect(dialog(page)).toBeVisible();
  await expect(dialog(page).locator('[data-sheet-all] button')).not.toHaveCount(0);
  await expect(dialog(page).locator('[data-sheet-projects] button')).toHaveText(['테스트 프로젝트','자식 프로젝트']);
- await dialog(page).getByRole('button',{name:'테스트 조직',exact:true}).first().click();
+ await dialog(page).getByRole('button',{name:'테스트 조직',exact:true}).first().click();await dialog(page).getByRole('button',{name:'저장',exact:true}).click();
  await expect(q.locator('[data-quick-input]')).toHaveAttribute('placeholder','테스트 조직 기록을 입력하세요');
  await q.locator('[data-quick-org]').click();
  await expect(dialog(page).locator('[data-sheet-projects] button[aria-pressed="true"]')).toHaveCount(0);
- await dialog(page).locator('[data-sheet-projects]').getByRole('button',{name:'자식 프로젝트',exact:true}).click();
+ await dialog(page).locator('[data-sheet-all]').getByRole('button',{name:'테스트 조직',exact:true}).click();
+ await dialog(page).locator('[data-sheet-projects]').getByRole('button',{name:'자식 프로젝트',exact:true}).click();await dialog(page).getByRole('button',{name:'저장',exact:true}).click();
  await expect(q.locator('[data-quick-input]')).toHaveAttribute('placeholder','자식 프로젝트 기록을 입력하세요');
  await expect(q.locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택: 자식 프로젝트');
  await q.locator('[data-quick-org]').click();
@@ -34,14 +36,14 @@ test('project choice saves through the project progress table and organization c
  await page.route(SB+'/rest/v1/app_project_progress_updates',r=>{projectBodies.push(r.request().postDataJSON());return r.fulfill({json:[]});});
  await page.route(SB+'/rest/v1/app_suborganization_updates',r=>{orgBodies.push(r.request().postDataJSON());return r.fulfill({json:[]});});
  await q.locator('[data-quick-org]').click();
- await dialog(page).locator('[data-sheet-projects]').getByRole('button',{name:'테스트 프로젝트',exact:true}).click();
+ await dialog(page).locator('[data-sheet-projects]').getByRole('button',{name:'테스트 프로젝트',exact:true}).click();await dialog(page).getByRole('button',{name:'저장',exact:true}).click();
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
  expect(orgBodies).toHaveLength(0);expect(projectBodies).toHaveLength(1);
  expect(projectBodies[0]).toMatchObject({project_id:'p',workstream_id:null,author_id:'home-test',status_label:null,summary:'기록 내용',next_step:null,metadata:{}});
  expect(projectBodies[0].effective_on).toMatch(/^\d{4}-\d{2}-\d{2}$/);
  await q.locator('[data-quick-input]').fill('조직 기록');
  await q.locator('[data-quick-org]').click();
- await dialog(page).getByRole('button',{name:'테스트 조직',exact:true}).first().click();
+ await dialog(page).getByRole('button',{name:'테스트 조직',exact:true}).first().click();await dialog(page).getByRole('button',{name:'저장',exact:true}).click();
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
  expect(projectBodies).toHaveLength(1);expect(orgBodies).toEqual([{organization_id:'o',raw_text:'조직 기록',created_by:'home-test'}]);
 });
@@ -56,9 +58,9 @@ for(const width of [390,1280])test(`saving without a place puts the update in th
  await expect(page.locator('#toast')).toContainText('바구니에 저장했습니다.');
  expect(notes).toHaveLength(1);expect(notes[0]).toMatchObject({raw_text:'기록 내용'});expect(orgBodies).toHaveLength(0);
  await q.locator('[data-quick-input]').fill('다시 바구니로');
- await q.locator('[data-quick-org]').click();await dialog(page).getByRole('button',{name:'테스트 조직',exact:true}).first().click();await expect(q).toHaveAttribute('data-mode','update');
+ await q.locator('[data-quick-org]').click();await dialog(page).getByRole('button',{name:'테스트 조직',exact:true}).first().click();await dialog(page).getByRole('button',{name:'저장',exact:true}).click();await expect(q).toHaveAttribute('data-mode','update');
  await q.locator('[data-quick-org]').click();await expect(dialog(page).locator('[data-sheet-basket] button')).toHaveText('바구니(미분류)');
- await dialog(page).getByRole('button',{name:'바구니(미분류)',exact:true}).click();await expect(q).toHaveAttribute('data-mode','basket');
+ await dialog(page).getByRole('button',{name:'바구니(미분류)',exact:true}).click();await dialog(page).getByRole('button',{name:'저장',exact:true}).click();await expect(q).toHaveAttribute('data-mode','basket');
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
  expect(notes).toHaveLength(2);expect(orgBodies).toHaveLength(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
