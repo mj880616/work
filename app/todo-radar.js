@@ -4,29 +4,29 @@
 // the chosen day; everything inside is drawn here. Data and the server call are in todo-radar-data.js.
 // - Finding runs on the server (ai-assist kind=todo_radar): once on the first open of the day in this tab (the server also
 //   skips when it already looked today) and on [다시 찾기]. The screen never sends record text.
-// - A candidate is only a candidate: [할 일로] makes one Google task through the existing create path; [무시] hides it
-//   (5 s [되돌리기]). A counterpart promise is shown once with [원장으로 복사] and never stored.
+// - A candidate is only a candidate: ✓/✎ make one Google task through the existing create path; ✕ dismisses it
+//   (5 s [되돌리기]); both stay in '처리함' struck through (JOURNAL-챙길것화면). A counterpart promise is shown once with [원장으로 복사] and never stored.
 // - Nothing is kept in browser storage. A table or function that is not deployed yet hides the box quietly (as PR 838 does for [AI 요약]).
-import {readOpenCandidates, readWeekCandidates, findTodos, dismissCandidate, reopenCandidate, markTasked,
-  candidateToTask, validateTaskDraft, notPlanned, ledgerRequestText, radarScope, RADAR_KIND_LABEL, RADAR_SOURCE_LABEL,
-  HOME_ROWS, TASK_TITLE_MAX} from './todo-radar-data.js';
-import {formatSeoulTime, seoulDateKey} from './meeting-time.js';
+import {readHomeCandidates, readWeekCandidates, findTodos, dismissCandidate, reopenCandidate, markTasked,
+  candidateToTask, validateTaskDraft, notPlanned, ledgerRequestText, radarScope, quickDue, dotDay, dueChoices,
+  RADAR_SOURCE_LABEL, HOME_ROWS, TASK_TITLE_MAX} from './todo-radar-data.js';
+import {formatSeoulTime, seoulDateKey, seoulDayStart, addSeoulDays} from './meeting-time.js';
 import {copyText} from './md-editor.js';
 import {offerUndoNotice} from './basket-record-delete.js';
 import {requestBasketNote, requestNoteDocOpen} from './basket-note-tasks.js';
 
 const rt = window.KPTURuntime;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
-const shortDay = day => formatSeoulTime(day, {month:'numeric', day:'numeric'});
 const clock = value => formatSeoulTime(value, {hour:'2-digit', minute:'2-digit', hourCycle:'h23'});
 const stamp = value => formatSeoulTime(value, {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit', hourCycle:'h23'});
 const CHANGED = 'kptu:todo-radar-changed';
 
 // Shared by every host in this tab, for the signed-in owner only.
-const shared = {scope:'', autoDay:'', fnMissing:false, finding:null, promises:[], status:'', checkedAt:null, partial:false};
+// dueOf: the due each candidate was put in with in this tab (no column for it; after a reload the task view's copy is read).
+const shared = {scope:'', autoDay:'', fnMissing:false, finding:null, promises:[], status:'', checkedAt:null, partial:false, dueOf:new Map()};
 function sameScope() {
   const scope = radarScope(rt);
-  if (shared.scope !== scope) Object.assign(shared, {scope, autoDay:'', fnMissing:false, finding:null, promises:[], status:'', checkedAt:null, partial:false});
+  if (shared.scope !== scope) Object.assign(shared, {scope, autoDay:'', fnMissing:false, finding:null, promises:[], status:'', checkedAt:null, partial:false, dueOf:new Map()});
   return scope;
 }
 // reload:true when candidates changed (other hosts read again); false when only the shared status line changed.
@@ -70,14 +70,17 @@ function openSource(c) {
   open().catch(() => toast('출처를 열지 못했어요. 다시 시도해 주세요.'));
 }
 
-const STATUS_LABEL = {open:'대기', tasked:'할 일로 옮김', dismissed:'무시함'};
-
-// place: 'home' (every open candidate, 5 rows + [모두 보기]) or 'journal' (candidates whose source is the chosen day).
+// place: 'home' (open candidates + what was handled today) or 'journal' (candidates whose source is the chosen day).
+// JOURNAL-챙길것화면: one look for both places (and phone/PC). Each row is two lines — the title, then a grey line with the
+// source and the AI's suggested due (▾ opens the evidence). Three small buttons on the right: ✓ straight to a task (due =
+// suggested due, else today), ✎ edit in place (title + 오늘/내일/제안 기한/기한 없음), ✕ dismiss. Handled rows are struck
+// through, keep '할 일로 넣음 · 10.23' or '무시함', and fold below the open ones in '처리함 N ▸'. The first 4 open rows show,
+// the rest behind 'N건 더 ›'. The count next to the title is the open count only.
 export function mountRadar(host, {place}) {
   if (!host) return null;
-  let rows = [], state = 'loading', all = false, edit = null, run = 0, scope = sameScope();
+  let rows = [], state = 'loading', all = false, doneOpen = false, edit = null, run = 0, scope = sameScope();
   let day = seoulDateKey(), week = {from:day, to:day}, visible = true;
-  const busy = new Set(), unknown = new Map(), unmarked = new Map(), rowStatus = new Map();
+  const busy = new Set(), unknown = new Map(), unmarked = new Map(), rowStatus = new Map(), why = new Set();
   const life = new AbortController(), on = {signal:life.signal};
   host.hidden = true;
 
@@ -85,7 +88,7 @@ export function mountRadar(host, {place}) {
     scope = sameScope();
     const mine = ++run;
     // One read of the candidates; a table that does not exist yet keeps the box hidden and asks the server nothing.
-    const list = await (place === 'home' ? readOpenCandidates(rt) : readWeekCandidates(week.from, week.to, rt));
+    const list = await (place === 'home' ? readHomeCandidates(seoulDayStart(new Date()).toISOString(), rt) : readWeekCandidates(week.from, week.to, rt));
     if (mine !== run || scope !== radarScope(rt)) return;
     if (list.missing) { state = 'missing'; paint(); return; }
     state = list.ok ? 'ok' : 'failed';
@@ -95,65 +98,92 @@ export function mountRadar(host, {place}) {
     const today = seoulDateKey();
     if (state === 'ok' && !shared.fnMissing && shared.autoDay !== today) {
       shared.autoDay = today;
-      const result = await find('auto');
+      await find('auto');
     }
   }
 
-  function visibleRows() {
-    if (place === 'home') return notPlanned(rows.filter(r => r.status === 'open'), taskTitles());
-    return rows.filter(r => r.source_day === day && (r.status !== 'open' || notPlanned([r], taskTitles()).length));
+  // Open rows (not already a task by title, decision 5) and handled rows, newest decision first.
+  function openRows() {
+    const list = place === 'home' ? rows : rows.filter(r => r.source_day === day);
+    return notPlanned(list.filter(r => r.status === 'open'), taskTitles());
+  }
+  function doneRows() {
+    const list = place === 'home' ? rows : rows.filter(r => r.source_day === day);
+    return list.filter(r => r.status !== 'open').sort((a, b) => String(b.decided_at || '').localeCompare(String(a.decided_at || '')));
   }
   let lastKey = '', drawn = '';
-  const shownKey = () => visibleRows().map(r => r.id).join(',');
+  const shownKey = () => openRows().map(r => r.id).join(',');
   const dayPromises = () => place === 'home' ? shared.promises : shared.promises.filter(p => p.source_day === day);
+  // The due a handled row was put in with: this tab's own record, else the task's due in the task view's copy.
+  function taskedDue(c) {
+    if (shared.dueOf.has(c.id)) return shared.dueOf.get(c.id);
+    const task = (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).find(t => t?.id === c.task_id);
+    return task ? (task.due || '') : null;
+  }
+  function doneLabel(c) {
+    if (c.status === 'dismissed') return '무시함';
+    const due = taskedDue(c);
+    return due === null ? '할 일로 넣음' : `할 일로 넣음 · ${due ? dotDay(due) : '기한 없음'}`;
+  }
 
+  function editHtml(c) {
+    const id = esc(c.id), isBusy = busy.has(c.id), dis = isBusy ? ' disabled' : '';
+    const today = seoulDateKey(), tomorrow = seoulDateKey(addSeoulDays(today, 1));
+    const chips = dueChoices(c, today, tomorrow).map(o => `<button type="button" class="radar-chip" data-radar-due-pick="${esc(o.key)}" data-due="${esc(o.due)}" aria-pressed="${edit.pick === o.key}"${dis}>${esc(o.label)}</button>`).join('');
+    return `<form class="radar-edit" data-radar-edit="${id}" novalidate><label>할 일 제목<input type="text" data-radar-title maxlength="${TASK_TITLE_MAX}" value="${esc(edit.title)}"${dis}></label><div class="radar-due" role="group" aria-label="기한">${chips}</div><div class="radar-actions"><button type="submit" class="primary" data-radar-make="${id}"${isBusy ? ' disabled aria-busy="true"' : ''}>넣기</button><button type="button" data-radar-cancel="${id}"${dis}>취소</button></div></form>`;
+  }
   function rowHtml(c) {
-    const meta = [`${RADAR_SOURCE_LABEL[c.source_kind]} ${shortDay(c.source_day)}`, c.due ? `기한 ${shortDay(c.due)}` : ''].filter(Boolean).join(' · ');
-    const id = esc(c.id), isBusy = busy.has(c.id);
-    let actions = '', inline = '';
-    if (c.status === 'open' && edit?.id === c.id) {
-      actions = `<form class="radar-edit" data-radar-edit="${id}" novalidate><label>할 일 제목<input type="text" data-radar-title maxlength="${TASK_TITLE_MAX}" value="${esc(edit.title)}"${isBusy ? ' disabled' : ''}></label><label>기한<input type="date" data-radar-due value="${esc(edit.due || '')}"${isBusy ? ' disabled' : ''}></label><div class="radar-actions"><button type="submit" class="primary" data-radar-make="${id}"${isBusy ? ' disabled aria-busy="true"' : ''}>할 일 만들기</button><button type="button" data-radar-cancel="${id}"${isBusy ? ' disabled' : ''}>취소</button></div></form>`;
-    } else if (c.status === 'open' && unknown.has(c.id)) {
-      actions = `<div class="radar-actions"><button type="button" data-radar-tasks="${id}">할 일 화면에서 확인</button></div>`;
-    } else if (c.status === 'open' && unmarked.has(c.id)) {
-      actions = `<div class="radar-actions"><button type="button" data-radar-mark="${id}"${isBusy ? ' disabled' : ''}>옮긴 것으로 표시</button></div>`;
-    } else if (c.status === 'open') {
-      // HOME-오늘먼저: [할 일로] [무시] are small text buttons on the title line (right side), not a full-width row.
-      inline = `<span class="radar-actions radar-actions-inline"><button type="button" data-radar-task="${id}"${isBusy || edit ? ' disabled' : ''}>할 일로</button><button type="button" data-radar-dismiss="${id}"${isBusy || edit ? ' disabled' : ''}>무시</button></span>`;
+    const id = esc(c.id), isBusy = busy.has(c.id), open = c.status === 'open';
+    const source = RADAR_SOURCE_LABEL[c.source_kind];
+    const meta = open ? [source, c.due ? `제안 기한 ${dotDay(c.due)}` : ''].filter(Boolean).join(' · ') : `${doneLabel(c)} · ${source}`;
+    const shownWhy = why.has(c.id);
+    const more = c.evidence ? `<button type="button" class="radar-why" data-radar-why="${id}" aria-expanded="${shownWhy}" aria-label="근거 ${shownWhy ? '접기' : '보기'}">${shownWhy ? '▴' : '▾'}</button>` : '';
+    let tools = '', below = '';
+    if (open && edit?.id === c.id) below = editHtml(c);
+    else if (open && unknown.has(c.id)) below = `<div class="radar-actions"><button type="button" data-radar-tasks="${id}">할 일 화면에서 확인</button></div>`;
+    else if (open && unmarked.has(c.id)) below = `<div class="radar-actions"><button type="button" data-radar-mark="${id}"${isBusy ? ' disabled' : ''}>옮긴 것으로 표시</button></div>`;
+    else if (open) {
+      const dis = isBusy || edit ? ' disabled' : '';
+      tools = `<span class="radar-tools"><button type="button" class="radar-tool" data-radar-quick="${id}" aria-label="바로 할 일로" title="바로 할 일로"${dis}>✓</button><button type="button" class="radar-tool" data-radar-task="${id}" aria-label="고쳐서 넣기" title="고쳐서 넣기"${dis}>✎</button><button type="button" class="radar-tool" data-radar-dismiss="${id}" aria-label="무시" title="무시"${dis}>✕</button></span>`;
     }
-    const tag = place === 'journal' ? `<span class="radar-state" data-radar-state="${esc(c.status)}">${STATUS_LABEL[c.status]}</span>` : '';
     const note = rowStatus.get(c.id) ? `<p class="radar-row-status" role="status">${esc(rowStatus.get(c.id))}</p>` : '';
-    return `<li class="radar-row" data-radar-row="${id}" data-radar-status="${esc(c.status)}"><div class="radar-line"><span class="radar-kind" data-radar-kind="${esc(c.kind)}">${RADAR_KIND_LABEL[c.kind]}</span><span class="radar-summary">${esc(c.summary)}</span>${tag}${inline}</div><div class="radar-meta"><button type="button" class="radar-source" data-radar-source="${id}" aria-label="출처 열기: ${esc(meta)}">${esc(meta)}</button></div>${c.evidence ? `<p class="radar-evidence">${esc(c.evidence)}</p>` : ''}${note}${actions}</li>`;
+    return `<li class="radar-row" data-radar-row="${id}" data-radar-status="${esc(c.status)}"><div class="radar-line"><div class="radar-text"><span class="radar-summary">${esc(c.summary)}</span><span class="radar-meta"><button type="button" class="radar-source" data-radar-source="${id}" aria-label="출처 열기: ${esc(source)}">${esc(meta)}</button>${more}</span></div>${tools}</div>${shownWhy ? `<p class="radar-evidence" data-radar-evidence>${esc(c.evidence)}</p>` : ''}${note}${below}</li>`;
   }
   function promiseHtml(p, i) {
-    return `<li class="radar-row radar-promise" data-radar-promise="${i}"><div class="radar-line"><span class="radar-kind" data-radar-kind="promise">상대 약속</span><span class="radar-summary">${esc(p.summary)}</span></div><div class="radar-meta"><span>${esc(RADAR_SOURCE_LABEL[p.source_kind])} ${esc(shortDay(p.source_day))}${p.due ? ' · 기한 ' + esc(shortDay(p.due)) : ''}</span></div><div class="radar-actions"><button type="button" data-radar-ledger="${i}">원장으로 복사</button></div></li>`;
+    const meta = ['상대 약속', RADAR_SOURCE_LABEL[p.source_kind], p.due ? `기한 ${dotDay(p.due)}` : ''].filter(Boolean).join(' · ');
+    return `<li class="radar-row radar-promise" data-radar-promise="${i}"><div class="radar-line"><div class="radar-text"><span class="radar-summary">${esc(p.summary)}</span><span class="radar-meta"><span>${esc(meta)}</span></span></div><span class="radar-tools"><button type="button" class="radar-link" data-radar-ledger="${i}">원장으로 복사</button></span></div></li>`;
   }
 
   function paint() {
     if (!visible || state === 'missing' || shared.fnMissing || !rt.context.read()?.workspace?.id) { host.hidden = true; host.replaceChildren(); drawn = ''; return; }
-    // Home: with nothing to show the card folds away (todo-radar.md 5절); the journal box stays with [다시 찾기].
-    if (place === 'home' && state !== 'failed' && !visibleRows().length && !dayPromises().length) { host.hidden = true; host.replaceChildren(); drawn = ''; lastKey = ''; return; }
+    const list = openRows(), done = doneRows(), promises = dayPromises();
+    // Home: with nothing open, handled or promised the card folds away (todo-radar.md 5절); the journal box stays with [다시 찾기].
+    if (place === 'home' && state !== 'failed' && !list.length && !done.length && !promises.length) { host.hidden = true; host.replaceChildren(); drawn = ''; lastKey = ''; return; }
     host.hidden = false;
     const focus = host.contains(document.activeElement) ? [...host.querySelectorAll('button,input')].indexOf(document.activeElement) : -1;
     const focusKey = document.activeElement && host.contains(document.activeElement) ? [...document.activeElement.attributes].find(a => a.name.startsWith('data-radar-'))?.name : '';
     const focusVal = focusKey ? document.activeElement.getAttribute(focusKey) : '';
-    const list = visibleRows(), promises = dayPromises();
     lastKey = list.map(r => r.id).join(',');
-    const listed = place === 'home' && !all ? list.slice(0, HOME_ROWS) : list;
+    // An open row being edited stays visible even when it is past the first four.
+    const listed = all ? list : list.filter((r, i) => i < HOME_ROWS || edit?.id === r.id);
     const checked = shared.checkedAt ? `마지막 찾기 ${stamp(shared.checkedAt)}${shared.partial ? ' · 일부만 봤어요' : ''}` : shared.finding ? '' : '아직 찾지 않았어요';
     // Journal: a day with nothing to take care of folds the big box into one line (JOURNAL-다듬기).
-    const quiet = place === 'journal' && state === 'ok' && !list.length && !promises.length;
+    const quiet = place === 'journal' && state === 'ok' && !list.length && !done.length && !promises.length;
     host.classList.toggle('radar-collapsed', quiet);
     const titleId = place === 'home' ? 'home-radar-title' : 'journal-radar-title';
+    const findBtn = `<button type="button" class="radar-find" data-radar-find${shared.finding ? ' disabled aria-busy="true"' : ''}>다시 찾기</button>`;
     const head = quiet
-      ? `<header class="radar-head"><p class="radar-muted radar-quiet" data-radar-quiet id="${titleId}">챙길 것 없음${shared.checkedAt ? ` · 마지막 찾기 ${esc(clock(shared.checkedAt))}` : shared.finding ? '' : ' · 아직 찾지 않았어요'}</p><button type="button" data-radar-find${shared.finding ? ' disabled aria-busy="true"' : ''}>다시 찾기</button></header>`
+      ? `<header class="radar-head"><p class="radar-muted radar-quiet" data-radar-quiet id="${titleId}">챙길 것 없음${shared.checkedAt ? ` · 마지막 찾기 ${esc(clock(shared.checkedAt))}` : shared.finding ? '' : ' · 아직 찾지 않았어요'}</p>${findBtn}</header>`
       : place === 'home'
-      ? `<header><h3 id="${titleId}">챙길 것 <small data-home-count>${list.length || ''}</small></h3><button type="button" data-radar-find${shared.finding ? ' disabled aria-busy="true"' : ''}>다시 찾기</button></header>`
-      : `<header class="radar-head"><h4 id="${titleId}">그날 나온 챙길 것 <small>${list.length || ''}</small></h4><button type="button" data-radar-find${shared.finding ? ' disabled aria-busy="true"' : ''}>다시 찾기</button></header>`;
+      ? `<header class="radar-head"><h3 id="${titleId}">챙길 것 <small data-home-count data-radar-count>${list.length || ''}</small></h3>${findBtn}</header>`
+      : `<header class="radar-head"><h4 id="${titleId}">그날 나온 챙길 것 <small data-radar-count>${list.length || ''}</small></h4>${findBtn}</header>`;
     const empty = state === 'failed' ? `<p class="radar-muted">챙길 것을 불러오지 못했어요. <button type="button" class="radar-link" data-radar-retry>다시 시도</button></p>`
-      : !list.length && !promises.length ? `<p class="radar-muted">${state === 'loading' ? '불러오는 중…' : place === 'home' ? '챙길 것 없음' : '이 날 기록에서 나온 챙길 것 없음'}</p>` : '';
-    const more = place === 'home' && list.length > HOME_ROWS ? `<button type="button" class="radar-link" data-radar-all aria-expanded="${all}">${all ? '접기' : `모두 보기 ${list.length}`}</button>` : '';
-    const body = quiet ? `<div data-home-body><p class="radar-status" data-radar-status-line role="status" aria-live="polite">${esc(shared.status)}</p></div>` : `<div data-home-body>${empty}${listed.length || promises.length ? `<ul class="radar-list">${listed.map(rowHtml).join('')}${promises.map(promiseHtml).join('')}</ul>` : ''}${more}<p class="radar-muted radar-checked" data-radar-checked>${esc(checked)}</p><p class="radar-status" data-radar-status-line role="status" aria-live="polite">${esc(shared.status)}</p></div>`;
+      : !list.length && !promises.length ? `<p class="radar-muted">${state === 'loading' ? '불러오는 중…' : place === 'home' ? '남은 챙길 것 없음' : '이 날 기록에서 나온 챙길 것 없음'}</p>` : '';
+    const hiddenCount = list.length - listed.length;
+    const more = all && list.length > HOME_ROWS ? `<button type="button" class="radar-link" data-radar-all aria-expanded="true">접기</button>`
+      : hiddenCount > 0 ? `<button type="button" class="radar-link" data-radar-all aria-expanded="false">${hiddenCount}건 더 ›</button>` : '';
+    const doneHtml = done.length ? `<div class="radar-done" data-radar-done><button type="button" class="radar-link" data-radar-done-toggle aria-expanded="${doneOpen}">처리함 ${done.length} ${doneOpen ? '▾' : '▸'}</button>${doneOpen ? `<ul class="radar-list">${done.map(rowHtml).join('')}</ul>` : ''}</div>` : '';
+    const body = quiet ? `<div data-home-body><p class="radar-status" data-radar-status-line role="status" aria-live="polite">${esc(shared.status)}</p></div>` : `<div data-home-body>${empty}${listed.length || promises.length ? `<ul class="radar-list" data-radar-open>${listed.map(rowHtml).join('')}${promises.map(promiseHtml).join('')}</ul>` : ''}${more}${doneHtml}<p class="radar-muted radar-checked" data-radar-checked>${esc(checked)}</p><p class="radar-status" data-radar-status-line role="status" aria-live="polite">${esc(shared.status)}</p></div>`;
     host.setAttribute('aria-labelledby', titleId);
     host.dataset.state = state;
     // The same drawing is not redrawn, so a button is never replaced under a finger or the keyboard focus.
@@ -180,44 +210,49 @@ export function mountRadar(host, {place}) {
       return {status:'failed', message:'되돌리지 못했어요. 다시 시도해 주세요.'};
     }});
   }
-  async function makeTask(c, form) {
-    const title = form.querySelector('[data-radar-title]').value, due = form.querySelector('[data-radar-due]').value;
-    edit = {id:c.id, title, due};
-    const problem = validateTaskDraft({title, due});
+  // ✓ (draft = summary + quickDue) and ✎ [넣기] both end here: one Google task through the existing create path.
+  async function commit(c, draft) {
+    const problem = validateTaskDraft(draft);
     if (problem) { rowStatus.set(c.id, problem); paint(); host.querySelector('[data-radar-title]')?.focus(); return; }
     const mine = sameScope();
-    busy.add(c.id); rowStatus.set(c.id, '만드는 중…'); paint();
-    const result = await candidateToTask(c, {title, due});
+    busy.add(c.id); rowStatus.set(c.id, '넣는 중…'); paint();
+    const result = await candidateToTask(c, draft);
     busy.delete(c.id);
     if (mine !== radarScope(rt)) return;
     if (result.status === 'unknown') { edit = null; unknown.set(c.id, true); rowStatus.set(c.id, '결과를 확인하지 못했어요. 새로 만들지 않았어요. 할 일 화면에서 확인해 주세요.'); paint(); return; }
-    if (result.status === 'failed') { rowStatus.set(c.id, result.code === 'session_required' ? '로그인이 필요해요. 다시 로그인한 뒤 눌러 주세요.' : '할 일을 만들지 못했어요. 다시 눌러 주세요.'); paint(); return; }
+    if (result.status === 'failed') { rowStatus.set(c.id, result.code === 'session_required' ? '로그인이 필요해요. 다시 로그인한 뒤 눌러 주세요.' : '할 일로 넣지 못했어요. 다시 눌러 주세요.'); paint(); return; }
     edit = null;
     window.KPTUGoogleTasks?.invalidateAfterCreate?.(); window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed'));
     if (result.status === 'marked_failed') { unmarked.set(c.id, result.task.id); rowStatus.set(c.id, '할 일은 만들었어요. 챙길 것에서 빼지 못했어요.'); paint(); return; }
-    rowStatus.delete(c.id); c.status = 'tasked'; c.task_id = result.task.id;
+    rowStatus.delete(c.id); c.status = 'tasked'; c.task_id = result.task.id; c.decided_at = new Date().toISOString();
+    shared.dueOf.set(c.id, draft.due || '');
     const extra = [result.linkError ? '연결은 할 일 화면에서 확인해 주세요.' : '', result.recorded === false ? '업데이트에는 기록하지 못했어요.' : ''].filter(Boolean).join(' ');
-    shared.status = `할 일로 옮겼어요.${extra ? ' ' + extra : ''}`; toast('Google 할 일을 만들었어요.');
+    shared.status = `할 일로 넣었어요${draft.due ? ` · 기한 ${dotDay(draft.due)}` : ' · 기한 없음'}.${extra ? ' ' + extra : ''}`; toast('Google 할 일을 만들었어요.');
     paint(); notify(true); host.querySelector('[data-radar-find]')?.focus({preventScroll:true});
   }
 
   host.addEventListener('submit', event => {
     const form = event.target.closest('[data-radar-edit]'); if (!form) return;
-    event.preventDefault(); const c = byId(form.dataset.radarEdit); if (c && !busy.has(c.id)) void makeTask(c, form);
+    event.preventDefault(); const c = byId(form.dataset.radarEdit); if (!c || busy.has(c.id)) return;
+    edit = {...edit, id:c.id, title:form.querySelector('[data-radar-title]').value};
+    void commit(c, {title:edit.title, due:edit.due});
   });
   host.addEventListener('input', event => {
     if (!edit) return;
     if (event.target.matches('[data-radar-title]')) edit.title = event.target.value;
-    if (event.target.matches('[data-radar-due]')) edit.due = event.target.value;
   });
   host.addEventListener('click', async event => {
     const b = event.target.closest('button'); if (!b || b.disabled || b.type === 'submit') return;
     const d = b.dataset;
     if ('radarFind' in d) { await find('again'); return; }
     if ('radarRetry' in d) { await load(); return; }
-    if ('radarAll' in d) { all = !all; paint(); return; }
+    if ('radarAll' in d) { all = !all; paint(); host.querySelector('[data-radar-all]')?.focus({preventScroll:true}); return; }
+    if ('radarDoneToggle' in d) { doneOpen = !doneOpen; paint(); return; }
+    if (d.radarWhy) { const id = d.radarWhy; if (why.has(id)) why.delete(id); else why.add(id); paint(); return; }
+    if (d.radarDuePick) { if (!edit) return; edit.pick = d.radarDuePick; edit.due = d.due || ''; paint(); return; }
+    if (d.radarQuick) { const c = byId(d.radarQuick); if (!c || busy.has(c.id) || edit) return; rowStatus.delete(c.id); await commit(c, {title:c.summary, due:quickDue(c, seoulDateKey())}); return; }
     if (d.radarSource) { const c = byId(d.radarSource); if (c) openSource(c); return; }
-    if (d.radarTask) { const c = byId(d.radarTask); if (!c) return; edit = {id:c.id, title:c.summary, due:c.due || ''}; rowStatus.delete(c.id); paint(); host.querySelector('[data-radar-title]')?.focus(); return; }
+    if (d.radarTask) { const c = byId(d.radarTask); if (!c) return; const due = quickDue(c, seoulDateKey()); edit = {id:c.id, title:c.summary, due, pick:c.due ? 'suggested' : 'today'}; rowStatus.delete(c.id); paint(); host.querySelector('[data-radar-title]')?.focus(); return; }
     if (d.radarCancel) { const id = d.radarCancel; edit = null; rowStatus.delete(id); paint(); host.querySelector(`[data-radar-task="${CSS.escape(id)}"]`)?.focus(); return; }
     if (d.radarDismiss) { const c = byId(d.radarDismiss); if (c) await dismiss(c); return; }
     if (d.radarTasks) { window.KPTURouter?.go?.('tasks', {source:'delegated'}); return; }
@@ -246,7 +281,7 @@ export function mountRadar(host, {place}) {
   }, on);
   window.addEventListener('kptu:session-changed', () => {
     if (scope === radarScope(rt)) return;
-    run++; rows = []; state = 'loading'; edit = null; all = false; busy.clear(); unknown.clear(); unmarked.clear(); rowStatus.clear();
+    run++; rows = []; state = 'loading'; edit = null; all = false; doneOpen = false; busy.clear(); unknown.clear(); unmarked.clear(); rowStatus.clear(); why.clear();
     host.hidden = true; host.replaceChildren(); drawn = "";
   }, on);
 
