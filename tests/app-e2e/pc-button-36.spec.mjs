@@ -94,7 +94,7 @@ test('PC 1280: 큰 버튼은 회의 [+ 회의 결과]와 같은 36px, 옆 입력
  // 모두 회의 버튼과 같은 높이. 창(모달) 버튼은 공용 기준(46px) 그대로.
  expect(meeting.height).toBe(nb.height);
  await open(page,'projects');await page.locator('#newProjectBtn').click();
- expect((await measure(page.locator('#ps3CreateSave'))).height).toBe(46);
+ expect((await measure(page.locator('#ps3CreateSave'))).height).toBe(36);/* UI-버튼줄이기: 창 주 동작 36px */
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
  expect(errors).toEqual([]);
 });
@@ -121,20 +121,20 @@ test('PC 1280: 공유 페이지 큰 버튼([새 공유 페이지]·[다시 불�
  expect(errors).toEqual([]);
 });
 
-test('폰 390: 동그란 [+]·빠른 입력 [추가]는 그대로',async({page})=>{
+test('폰 390: 동그란 [+]는 그대로, 빠른 입력 [추가]는 36px(UI-버튼줄이기)',async({page})=>{
  await boot(page,390);
  for(const [view,selector] of [['projects','#newProjectBtn'],['library','#newDocumentBtn'],['meetings','#newMeetingBtn']]){
   await open(page,view);const b=await page.locator(selector).boundingBox();expect([b.width,b.height],selector).toEqual([36,36]);
   expect(await page.locator(selector).evaluate(el=>getComputedStyle(el).position)).toBe('fixed');
  }
  await open(page,'home');const home=page.locator('#homeView [data-home-quick]');
- expect((await home.locator('[data-quick-save]').boundingBox()).height).toBe(46);expect((await home.locator('[data-quick-input]').boundingBox()).height).toBe(46);
+ expect((await home.locator('[data-quick-save]').boundingBox()).height).toBe(36);expect((await home.locator('[data-quick-input]').boundingBox()).height).toBe(46);
  await open(page,'tasks');const tq=page.locator('#tasksView [data-home-quick]');
- expect((await tq.locator('[data-quick-save]').boundingBox()).height).toBe(46);
+ expect((await tq.locator('[data-quick-save]').boundingBox()).height).toBe(36);
 });
 
-test('중간 폭 900: PC 기준(≥1024) 밖이라 46px 그대로',async({page})=>{
+test('중간 폭 900: 목록 머리 버튼은 46px 그대로, 빠른 입력 [추가]는 36px(UI-버튼줄이기)',async({page})=>{
  await boot(page,900);
  await open(page,'projects');expect((await page.locator('#newProjectBtn').boundingBox()).height).toBe(46);
- await open(page,'tasks');expect((await page.locator('#tasksView [data-home-quick] [data-quick-save]').boundingBox()).height).toBe(46);
+ await open(page,'tasks');expect((await page.locator('#tasksView [data-home-quick] [data-quick-save]').boundingBox()).height).toBe(36);
 });

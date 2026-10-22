@@ -76,11 +76,13 @@ for(const width of [390,1280])test(`menu entry opens a device HWP and hands the 
   for(const name of ['파일 선택','내 기기에 저장','자료실에 올리기'])await expect(page.locator('#hwpView').getByRole('button',{name,exact:true})).toBeVisible();
   await expect(page.locator('#hwpLabUpload')).toBeDisabled();
   const [pick,save,upload,editor]=await Promise.all(['#hwpLabPick','#hwpLabSave','#hwpLabUpload','#hwpLabEditor'].map(id=>box(page.locator(id))));
-  for(const b of [pick,save,upload])expect(b.h).toBeGreaterThanOrEqual(44);
+  // UI-버튼줄이기: [파일 선택]·[자료실에 올리기]는 보조 32px, [내 기기에 저장]은 주 동작 36px. 누르는 범위는 ::after 44px.
+  expect([pick.h,save.h,upload.h]).toEqual([32,36,32]);
+  for(const id of ['#hwpLabPick','#hwpLabSave','#hwpLabUpload'])expect(await page.locator(id).evaluate(el=>parseFloat(getComputedStyle(el,'::after').minHeight))).toBeGreaterThanOrEqual(44);
   if(width<761){
     await expect(page.locator('[data-mobile-view-name]')).toHaveText('HWP 편집');
     // [파일 선택] fills one row; the two save buttons share the next row in equal halves.
-    expect(save.y).toBe(upload.y);
+    expect(Math.abs((save.y+save.h/2)-(upload.y+upload.h/2))).toBeLessThanOrEqual(1);// UI-버튼줄이기: 높이가 달라(36·32) 가운데로 비교
     expect(Math.abs(save.w-upload.w)).toBeLessThanOrEqual(1);
     expect(Math.abs(pick.x-save.x)).toBeLessThanOrEqual(1);
     expect(Math.abs(pick.x+pick.w-(upload.x+upload.w))).toBeLessThanOrEqual(1);
@@ -88,7 +90,7 @@ for(const width of [390,1280])test(`menu entry opens a device HWP and hands the 
     // Title and buttons share one row; the editor takes the content width and most of the window height.
     const title=await box(page.locator('#hwpLabTitle'));
     expect(Math.abs((title.y+title.h/2)-(pick.y+pick.h/2))).toBeLessThanOrEqual(8);
-    expect(new Set([pick.y,save.y,upload.y]).size).toBe(1);
+    expect(new Set([pick,save,upload].map(b=>Math.round(b.y+b.h/2))).size).toBe(1);// UI-버튼줄이기: 높이가 달라(32·36·32) 가운데로 비교
     expect(editor.w).toBeGreaterThanOrEqual(900);
     expect(editor.h).toBeGreaterThanOrEqual(680);
   }

@@ -70,8 +70,8 @@ test('desktop task registration keeps fields and shared project sheet usable',as
 });
 test('project button retains its transparent 44px target',async({page})=>{
  await open(page);await page.locator('[data-event-mode="task"]').click();const b=page.locator('#eventTaskProject');
- // 8-9e-3: 프로젝트 버튼도 창 버튼 높이 하나(46px)라 누르는 범위가 버튼 안. 위쪽 끝 2px 안을 누른다.
- const point=await b.evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+2,h:r.height}});expect(point.h).toBeGreaterThanOrEqual(44);
+ // UI-버튼줄이기: 프로젝트 고르기는 보조 버튼이라 보이는 높이 32px, 누르는 범위는 ::after 44px. 위쪽 끝 2px 안을 누른다.
+ const point=await b.evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+2,h:r.height,press:parseFloat(getComputedStyle(el,'::after').minHeight)}});expect(point.h).toBe(32);expect(point.press).toBeGreaterThanOrEqual(44);
  expect(await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.closest('button')?.id,point)).toBe('eventTaskProject');
  await page.mouse.click(point.x,point.y);await expect(page.locator('#eventProjectSheet')).toBeVisible();
 });

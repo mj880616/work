@@ -1273,9 +1273,7 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
   height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1;
 }
 .modal #eventTaskProject{ display:inline-flex; width:auto; max-width:100%; justify-content:flex-start; }
-/* ③ 프로젝트 상세 [기록]·담당조직 상세 [크게][저장]: 36px(같은 줄 입력칸 가운데). */
-#ps3DetailModal [data-ps3-record-input] > button.primary,
-#appView #projectsView #ps3DetailModal [data-ps3-record-input] > button.primary{ align-self:center; height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+/* ③ 담당조직 상세 [크게][저장]: 36px. 프로젝트 상세 [기록]은 옆 입력칸과 한 높이(PRJ-화면다듬기)라 그대로 둔다. */
 #wdModal :is(#wdInboxSave,#wdInboxBig),
 #appView #teamView #wdModal :is(#wdInboxSave,#wdInboxBig){ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
 /* ④ PC 할 일 수정 칸(요청함 08:43): 기한 날짜 칸과 [내일][모레][다음주][기한 없음]을 같은 줄·같은 높이(36px)로, 윗선·아랫선을 맞춘다.

@@ -69,7 +69,9 @@ async function sameButtons(page,region,skip='.icon-btn'){
   const s=await look(control),label=(await control.textContent()).trim();
   // UI-버튼크기: 필터 칩(성명 종류)은 32px 알약, 전환 세그먼트(일정 창 [일정 | 할 일])는 32px 상자 안 칸. 둘 다 누르는 범위 44px.
   const kind=await control.evaluate(el=>el.matches('.w1p-filter')?'chip':el.matches('[data-event-mode]')?'segment':'button');
-  if(kind==='button'){expect(s.height,label).toBe(46);expect(s.radius,label).toBe('8px');}
+  // UI-버튼줄이기: 창 주 동작·HWP [내 기기에 저장]은 36px, 창 보조·HWP 보조는 32px.
+  const want=await control.evaluate(el=>el.matches('#hwpLabPick,#hwpLabUpload,#eventTaskProject,#gtDeleteBtn,#gtToggleBtn,.gt-pick-btn,.gt-pane-save')?32:el.matches('#hwpLabSave,#saveEventBtn,#saveTaskBtn,#gtSaveBtn,#saveMeetingBtn,#saveDocumentBtn,#ps3CreateSave,#libraryEditSave,#mffCreate,#soSaveOrg,#soSaveAssignees,#wdAffSave,#wdTimeSave,#wfMeetingGenerate,#wdInboxSave,#wdInboxBig')?36:46);
+  if(kind==='button'){expect(s.height,label).toBe(want);expect(s.radius,label).toBe('8px');}
   else{expect(s.height,label).toBeGreaterThanOrEqual(kind==='chip'?32:30);expect(s.height,label).toBeLessThanOrEqual(32);if(kind==='chip')expect(s.radius,label).toBe('999px');expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),label).toBe(44);}
   expect(s.fontSize,label).toBe('13px');expect(s.fontWeight,label).toBe('500');expect(s.shadow,label).toBe('none');
   // UI-테마선택색: 고른 전환·필터 쪽은 일부러 주 버튼 색이라 채운 버튼 수에서 뺀다.

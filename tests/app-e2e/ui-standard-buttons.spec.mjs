@@ -59,8 +59,9 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
  const quick=page.locator('#homeView .home-quick'),save=quick.locator('[data-quick-save]');
  // UI-PC버튼36(2026-10-20): PC(≥1024) 빠른 입력 [추가]·입력칸은 입력칸 높이(--kptu-control-height 36px). 창·읽기·수정 화면 버튼은 그대로 --ds-control-height(46px).
  const height=parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--ds-control-height')));
- const quickHeight=width>=1024?parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-control-height'))):height;
- expect(height).toBe(46);expect((await look(save)).height).toBe(quickHeight);if(width>=1024)expect(quickHeight).toBe(36);
+ // UI-버튼줄이기: 빠른 입력 [추가]는 폭과 상관없이 36px(--kptu-control-height). 입력칸은 PC 36px, 폰 46px 그대로.
+ const quickHeight=parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-control-height'))),inputHeight=width>=1024?quickHeight:height;
+ expect(height).toBe(46);expect((await look(save)).height).toBe(quickHeight);expect(quickHeight).toBe(36);
  const primary=await token(page,'--kptu-primary'),onPrimary=await token(page,'--kptu-on-primary');
  // Home tabs: one height; the selected tab is gray whichever it is (UI-선택표시통일 결정 B), the others white.
  const kinds={update:'--ds-kind-other',task:'--ds-kind-other'};
@@ -71,8 +72,8 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
   const s=await look(tab);expect(s.bg).toBe(await token(page,'--ds-select-bg'));expect(s.fg).toBe(await token(page,'--ds-select-ink'));
   for(const other of Object.keys(kinds).filter(m=>m!==mode))expect((await look(quick.locator(`[data-quick-mode="${other}"]`))).bg).toBe(await token(page,'--kptu-surface'));
   const filled=await look(save);expect(filled.height).toBe(quickHeight);expect(filled.bg).toBe(primary);expect(filled.fg).toBe(onPrimary);
-  if(mode!=='update')expect((await quick.locator('[data-quick-input]').boundingBox()).height).toBe(quickHeight);
-  if(width>=1024)expect(await save.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);
+  if(mode!=='update')expect((await quick.locator('[data-quick-input]').boundingBox()).height).toBe(inputHeight);
+  expect(await save.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);
   await sameButtons(quick.locator('.home-quick-modes'),height,quickHeight);
  }
  await quick.locator('[data-quick-mode="update"]').click();

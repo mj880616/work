@@ -25,7 +25,7 @@ for(const width of [390,1440]){
   await expect(plus).toHaveAttribute('aria-label','상세 설정으로 추가');
   const ib=await input.boundingBox(),pb=await plus.boundingBox(),ab=await q.locator('[data-quick-save]').boundingBox();
   expect(pb.width).toBeGreaterThanOrEqual(44);
-  if(width>=1024)expect(await plus.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);else expect(pb.height).toBeGreaterThanOrEqual(44);
+  expect(await plus.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);// UI-버튼줄이기: 폰도 보이는 32px, 누르는 범위 44px
   expect(pb.x).toBeGreaterThanOrEqual(ib.x);
   expect(pb.x+pb.width).toBeLessThanOrEqual(ib.x+ib.width+0.5);
   expect(pb.x+pb.width).toBeGreaterThan(ib.x+ib.width-2);
