@@ -296,7 +296,7 @@ for(const width of [390,760,761,1023,1024,1280,1439,1440])test('D-3c account mat
  await page.setViewportSize({width,height:900});await mockApp(page);await page.goto(`${appOrigin}/app/?view=calendar`);await signIn(page);
  if(width<=760){await accountButton(page).click();await expect(page.locator('#mobileMenu [data-theme-open]')).toHaveCSS('font-size','13px');/* 8-9e-3: 메뉴 줄 13px */await expect(page.locator('.mobile-tabs [data-mobile-schedule-tab]')).toHaveCSS('font-size','12px');return;}
  const styles=await page.evaluate(()=>{
-  const nav=getComputedStyle(document.querySelector('.app-nav [data-view="projects"]')),account=getComputedStyle(document.querySelector(innerWidth<1024?'#mobileMenuOpen':'.app-nav [data-account-open]'));
+  const nav=getComputedStyle(document.querySelector('.app-nav [data-view="projects"]')),account=getComputedStyle(document.querySelector(innerWidth<1024?'#mobileMenuOpen':'.app-topline [data-account-open]'));
   const keys=['fontSize','fontWeight','color'];return {nav:keys.map(k=>nav[k]),account:keys.map(k=>account[k])};
  });expect(styles.account).toEqual(styles.nav);
 });
@@ -328,7 +328,7 @@ for(const width of [390,1440])for(const nativePopover of [true,false]){
    await expect(account).toHaveAttribute('aria-expanded','true');
    await expect.poll(()=>panel.evaluate(el=>el.getBoundingClientRect().width)).toBeGreaterThan(0);
    const geometry=await page.evaluate(()=>{
-    const t=document.querySelector('.app-nav [data-account-open]').getBoundingClientRect(),p=document.querySelector('#sidebarAccountPanel').getBoundingClientRect(),n=document.querySelector('#appView>.app-nav');
+    const t=document.querySelector('.app-topline [data-account-open]').getBoundingClientRect(),p=document.querySelector('#sidebarAccountPanel').getBoundingClientRect(),n=document.querySelector('#appView>.app-nav');
     const b=n.getBoundingClientRect(),s=getComputedStyle(n);
     return {button:{top:t.top,bottom:t.bottom,right:t.right},panel:{left:p.left,right:p.right,top:p.top,bottom:p.bottom},inside:{left:b.left+parseFloat(s.borderLeftWidth)+parseFloat(s.paddingLeft),right:b.right-parseFloat(s.borderRightWidth)-parseFloat(s.paddingRight)}};
    });
@@ -336,16 +336,9 @@ for(const width of [390,1440])for(const nativePopover of [true,false]){
    expect(geometry.panel.right).toBeLessThanOrEqual(width-12);
    expect(geometry.panel.top).toBeGreaterThanOrEqual(12);
    expect(geometry.panel.bottom).toBeLessThanOrEqual(888);
-   if(width===390){
-    expect(Math.abs(geometry.panel.right-geometry.button.right)).toBeLessThanOrEqual(2);
-    expect(geometry.panel.top).toBeGreaterThanOrEqual(geometry.button.bottom);
-   }else{
-    expect(geometry.panel.bottom).toBeLessThanOrEqual(geometry.button.top);
-    expect(geometry.panel.left).toBeGreaterThanOrEqual(geometry.inside.left-1);
-    expect(geometry.panel.right).toBeLessThanOrEqual(geometry.inside.right+1);
-    expect(Math.abs(geometry.panel.left-geometry.inside.left)).toBeLessThanOrEqual(1);
-    expect(Math.abs(geometry.panel.right-geometry.inside.right)).toBeLessThanOrEqual(1);
-   }
+   // UI-상단줄: the PC account sits at the top line's right end, so its panel drops below it, right-aligned (as on the phone).
+   expect(Math.abs(geometry.panel.right-geometry.button.right)).toBeLessThanOrEqual(2);
+   expect(geometry.panel.top).toBeGreaterThanOrEqual(geometry.button.bottom);
   };
   for(const close of ['outside','Escape','back']){
    await open();

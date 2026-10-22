@@ -102,7 +102,7 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
   }
   expect(await page.locator('#'+name+'View').evaluate(el=>({overflow:el.scrollWidth>el.clientWidth,clipped:[...el.querySelectorAll('button.primary,button.secondary,.w1p-filter')].filter(b=>b.checkVisibility()&&!(innerWidth<=760&&['newEventBtn','newTaskBtn','newProjectBtn','newDocumentBtn','newMeetingBtn'].includes(b.id))&&b.scrollWidth>b.clientWidth+1).map(b=>b.id||b.className)}))).toEqual({overflow:false,clipped:[]});
  }
- for(const [name,selectors]of Object.entries({calendar:['#prevMonthBtn','#nextMonthBtn'],library:['#newDocumentBtn'],menu:['.app-nav [data-view="projects"]','.app-nav [data-account-open]']})){
+ for(const [name,selectors]of Object.entries({calendar:['#prevMonthBtn','#nextMonthBtn'],library:['#newDocumentBtn'],menu:['.app-nav [data-view="projects"]','.app-topline [data-account-open]']})){
   if(name!=='menu')for(const p of [page,original])await view(p,name);
   if(name==='library'){if(width<=760)await phoneFab(page,'#newDocumentBtn');else if(width>=1024)await pcAdd(page,'#newDocumentBtn');else await dsStandard(page,'#newDocumentBtn');continue}
   if(name==='calendar'){for(const selector of selectors){const s=await size(page.locator(selector));expect(s,selector).toMatchObject({height:46,font:'24px',paddingLeft:'0px',paddingRight:'0px',color:await muted(page),background:'rgba(0, 0, 0, 0)'})}continue}
