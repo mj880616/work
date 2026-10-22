@@ -70,7 +70,7 @@ export function renderWeek(options,{start,tasks}){
   const axis=document.createElement('div');axis.className='cwv-axis';axis.setAttribute('aria-hidden','true');
   const ticks=document.createElement('div');ticks.className='cwv-axis-ticks';
   if(line.collapsedHeight){const fold=document.createElement('span');fold.className='cwv-fold';fold.textContent=`0–${line.firstHour}시`;ticks.append(fold)}
-  for(const tick of line.ticks){const label=document.createElement('span');label.className='cwv-tick'+(tick.top?'':' cwv-tick-top');label.style.top=tick.top+'px';label.textContent=tick.hour+'시';ticks.append(label)}
+  for(const [n,tick] of line.ticks.entries()){const label=document.createElement('span');label.className='cwv-tick'+(n?'':' cwv-tick-top');label.style.top=tick.top+'px';label.textContent=tick.hour+'시';ticks.append(label)}
   axis.append(ticks);box.append(axis);
   const bands=document.createElement('div');bands.className='cwv-bands';
   for(const seg of week.segments){
