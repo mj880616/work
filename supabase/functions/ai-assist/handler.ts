@@ -11,6 +11,10 @@
 // 원장 후보 만들기는 후보만 owner RLS 표 app_ledger_candidates에 "대기"로 더한다. 원장 행은 명진이 화면에서 [확정]해야 생긴다.
 // 조직 현황 요약(kind=org_summary, JOURNAL-조직현황AI요약): [주간 정리] '4. 산하 조직 현황 > 1) 요약'에서 [요약 만들기]를 누를 때만.
 //   화면은 주(월요일)와 조직 ID만 보낸다. 요약은 owner RLS 표 app_weekly_org_summaries에 쓰되, 고친 요약(edited)은 보내지도 덮어쓰지도 않는다.
+// 자료실 빈 칸 채우기(kind=library_fill, LIB-AI자동분류, docs/design/library-ai-fill.md):
+//   fill = 막 올린 자료(1시간 안)의 제목·자료 날짜·작성 주체·유형 중 사용자가 넣지 않은 칸만 바로 저장(사용자 요청 ①, 버튼 없음).
+//   propose = 기존 자료의 정리 안 된 칸에 대한 제안 목록만 돌려준다(저장 없음, 적용은 사용자 확인 뒤 별도 단계 ⑥).
+//   칸별 안쪽 기록 field_origin('ai'·'user')은 화면에 보이지 않는다. 'user' 칸은 어느 쪽도 쓰지 않는다.
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import {
   dedupeKey, packSources, parseTodoRadar, radarMaterial, RADAR_MAX_OUTPUT_TOKENS, TODO_RADAR_INSTRUCTIONS, TODO_RADAR_SCHEMA,
@@ -20,6 +24,11 @@ import {
   candidateRow, LEDGER_CANDIDATES_INSTRUCTIONS, LEDGER_CANDIDATES_SCHEMA, LEDGER_KNOWN_EVENTS, LEDGER_MAX_OUTPUT_TOKENS, ledgerMaterial,
   parseLedgerCandidates, type KnownEvent,
 } from "./ledger-candidates.ts";
+import {
+  type DocRow, fillableFields, LIBRARY_FIELDS, LIBRARY_FILL_INSTRUCTIONS, LIBRARY_FILL_SCHEMA, LIBRARY_FILL_WINDOW_MS,
+  LIBRARY_MAX_OUTPUT_TOKENS, LIBRARY_PROPOSE_BATCH, type LibraryField, libraryMaterial, type MaterialFile, parseLibraryFill,
+  proposalsFor, readOrigin, validCategories,
+} from "./library-fill.ts";
 import {
   type OrgMaterial, ORG_SUMMARY_INSTRUCTIONS, ORG_SUMMARY_MAX_ORGS, ORG_SUMMARY_MAX_OUTPUT_TOKENS, ORG_SUMMARY_SCHEMA, orgSummaryMaterial,
   packOrgs, parseOrgSummary,
@@ -47,7 +56,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 50회. 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 50;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, org_summary: 50 });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, library_fill: 50, org_summary: 50 });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -100,6 +109,8 @@ export const MESSAGES: Readonly<Record<string, string>> = Object.freeze({
   radar_unavailable: "챙길 것 기록을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   ledger_not_ready: "원장 후보 기능이 아직 준비되지 않았어요.",
   ledger_unavailable: "원장 후보를 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+  library_not_ready: "자료 정보 채우기가 아직 준비되지 않았어요.",
+  library_unavailable: "자료를 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   org_summary_not_ready: "조직 현황 요약 기능이 아직 준비되지 않았어요.",
   org_summary_unavailable: "조직 요약을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   internal_error: "AI 요청을 처리하지 못했어요.",
@@ -280,11 +291,35 @@ function parseOrgSummaryRequest(b: Record<string, unknown>): OrgSummaryInput {
   if (unique.length !== ids.length) throw new Fail(400, "invalid_request");
   return { kind: "org_summary", week_start: week, organization_ids: unique };
 }
+type LibraryFillInput = { kind: "library_fill"; mode: "fill" | "propose"; document_ids: string[]; keep: LibraryField[] };
 
 // 화면은 ID만 보낸다(4.3). 모르는 키·잘못된 UUID는 거절.
 // 챙길 것 찾기는 글·ID 없이 "언제 찾나"만 보낸다: auto(하루 처음 열 때, 오늘 이미 찾았으면 건너뜀) / again([다시 찾기]).
 // 원장 후보 만들기도 글·ID 없이 kind 하나만 보낸다(재료는 서버가 로그인 토큰으로 읽음).
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | OrgSummaryInput {
+// 자료실 빈 칸 채우기도 자료 ID(1~10개)와, 올릴 때 사용자가 직접 넣은 칸 이름(keep, fill만)만 보낸다.
+function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
+  const keys = Object.keys(b).sort().join(",");
+  if (b.mode === "fill" ? keys !== "document_ids,keep,kind,mode" : b.mode === "propose" ? keys !== "document_ids,kind,mode" : true) {
+    throw new Fail(400, "invalid_request");
+  }
+  const ids = b.document_ids;
+  if (!Array.isArray(ids) || ids.length < 1 || ids.length > LIBRARY_PROPOSE_BATCH || !ids.every((id) => typeof id === "string" && UUID.test(id))) {
+    throw new Fail(400, "invalid_request");
+  }
+  const unique = [...new Set((ids as string[]).map((id) => id.toLowerCase()))];
+  if (unique.length !== ids.length) throw new Fail(400, "invalid_request");
+  let keep: LibraryField[] = [];
+  if (b.mode === "fill") {
+    if (!Array.isArray(b.keep) || b.keep.length > LIBRARY_FIELDS.length ||
+      !b.keep.every((f) => (LIBRARY_FIELDS as readonly unknown[]).includes(f)) || new Set(b.keep).size !== b.keep.length) {
+      throw new Fail(400, "invalid_request");
+    }
+    keep = b.keep as LibraryField[];
+  }
+  return { kind: "library_fill", mode: b.mode as "fill" | "propose", document_ids: unique, keep };
+}
+
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LibraryFillInput | OrgSummaryInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -296,6 +331,7 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | Ledger
     if (Object.keys(b).join(",") !== "kind") throw new Fail(400, "invalid_request");
     return { kind: "ledger_candidates" };
   }
+  if (b.kind === "library_fill") return parseLibraryFillRequest(b);
   if (b.kind === "org_summary") return parseOrgSummaryRequest(b);
   if (b.kind !== "link_summary") throw new Fail(400, "unsupported_kind");
   const keys = Object.keys(b).sort();
@@ -920,6 +956,164 @@ async function runLedgerCandidates(ctx: Ctx, deps: RadarDeps): Promise<Response>
   return json({ ok: true, kind: "ledger_candidates", added, found: rows.length, excluded: parsed.excluded, partial, checked_at: checkedAt });
 }
 
+// ---- 자료실 빈 칸 채우기(library_fill, LIB-AI자동분류) -----------------------------------------------------------
+
+const LIBRARY_SELECT = "id,workspace_id,title,category,source,document_date,file_name,mime_type,created_at,updated_at,field_origin,extracted_text,extraction_status";
+
+// jsonb가 돌려주는 키 순서(짧은 것 먼저, 같으면 바이트 순)로 맞춘다. 화면의 저장 확인 비교와 같은 모양.
+const canonicalOrigin = (o: Record<string, string>) =>
+  Object.fromEntries(Object.entries(o).sort(([a], [b]) => a.length - b.length || (a < b ? -1 : a > b ? 1 : 0)));
+
+async function readLibraryDocs(ctx: Ctx, ids: string[]) {
+  let rows: unknown;
+  try {
+    rows = await rest(ctx, `app_documents?id=in.(${ids.join(",")})&workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&select=${LIBRARY_SELECT}&limit=${ids.length + 1}`);
+  } catch (e) {
+    // 칸이 아직 없으면(DB 적용 전) PostgREST가 400으로 거절한다.
+    if ((e as Error)?.message === "rest_400") throw new Fail(503, "library_not_ready");
+    throw new Fail(503, "library_unavailable");
+  }
+  if (!Array.isArray(rows) || rows.length > ids.length) throw new Fail(503, "library_unavailable");
+  const docs: (DocRow & { updated_at: string | null; text: string })[] = [];
+  for (const raw of rows as Record<string, unknown>[]) {
+    const id = String(raw.id ?? "").toLowerCase();
+    if (!ids.includes(id) || String(raw.workspace_id ?? "").toLowerCase() !== ctx.workspaceId) continue;
+    const origin = readOrigin(raw.field_origin);
+    if (!origin) throw new Fail(503, "library_unavailable");
+    const str = (v: unknown) => (typeof v === "string" ? v : null);
+    docs.push({
+      id, workspace_id: ctx.workspaceId, title: str(raw.title), category: str(raw.category), source: str(raw.source),
+      document_date: str(raw.document_date), file_name: str(raw.file_name), mime_type: str(raw.mime_type), created_at: str(raw.created_at),
+      updated_at: str(raw.updated_at), field_origin: origin,
+      text: raw.extraction_status === "ready" && typeof raw.extracted_text === "string" ? raw.extracted_text : "",
+    });
+  }
+  return docs;
+}
+
+async function readCategories(ctx: Ctx): Promise<string[]> {
+  try {
+    const rows = await rest(ctx, `app_profiles?user_id=eq.${encodeURIComponent(ctx.userId)}&select=document_categories&limit=1`);
+    return validCategories(Array.isArray(rows) ? (rows[0] as Record<string, unknown>)?.document_categories : null);
+  } catch {
+    return validCategories(null);
+  }
+}
+
+// 바꿀 칸만 저장한다. 읽은 뒤 사용자가 고쳤으면(updated_at이 달라짐) 0행이 바뀌고 건너뛴다.
+async function saveLibraryFill(ctx: Ctx, doc: DocRow & { updated_at: string | null }, patch: Record<string, unknown>, nowMs: number) {
+  const guard = doc.updated_at ? `eq.${encodeURIComponent(doc.updated_at)}` : "is.null";
+  const r = await ctx.doFetch(`${ctx.sb}/rest/v1/app_documents?id=eq.${doc.id}&workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&updated_at=${guard}&select=id`, {
+    method: "PATCH",
+    headers: { apikey: ctx.anon, Authorization: `Bearer ${ctx.token}`, "Content-Type": "application/json", Accept: "application/json", Prefer: "return=representation" },
+    body: JSON.stringify({ ...patch, updated_at: new Date(nowMs).toISOString() }),
+  });
+  if (!r.ok) { try { await r.body?.cancel(); } catch { /* ignore */ } throw new Error(`rest_${r.status}`); }
+  const out = await readBoundedJson(r, { maxBytes: 64 * 1024 });
+  return Array.isArray(out) && out.length === 1;
+}
+
+async function runLibraryFill(ctx: Ctx, input: LibraryFillInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const today = kstDay(started);
+  const docs = await readLibraryDocs(ctx, input.document_ids);
+  if (!docs.length) throw new Fail(404, "not_found");
+  const categories = await readCategories(ctx);
+  // fill은 막 올린 자료만(오래된 자료를 몰래 바꾸지 않음). 오래된 자료는 propose 목록 → 사용자 확인으로만.
+  const targets = docs.map((doc) => {
+    const created = timeOf(doc.created_at);
+    const fresh = Number.isFinite(created) && started - created <= LIBRARY_FILL_WINDOW_MS && created - started <= 300000;
+    const fields = input.mode === "fill" && !fresh ? [] : fillableFields(doc, input.mode, input.keep, categories);
+    return { doc, fields };
+  });
+  // 올릴 때 사용자가 넣은 칸(keep)은 AI가 실패해도 'user'로 남긴다(다음 정리 목록에서도 빠지게).
+  const keepMarks = (doc: DocRow) => input.mode === "fill"
+    ? Object.fromEntries(input.keep.filter((f) => doc.field_origin[f] !== "user").map((f) => [f, "user"]))
+    : {};
+  const work = targets.filter((t) => t.fields.length);
+  if (!work.length) {
+    return json({ ok: true, kind: "library_fill", mode: input.mode, updated: 0, skipped: docs.length, proposals: input.mode === "propose" ? [] : undefined });
+  }
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+  const budget = await checkBudget(ctx, "library_fill", started, config.price);
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch {
+    throw new Fail(503, "usage_unavailable");
+  }
+  const files: MaterialFile[] = work.map((t, i) => ({ ref: `d${i + 1}`, doc: t.doc, text: t.doc.text }));
+  const material = libraryMaterial(files, categories);
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: LIBRARY_MAX_OUTPUT_TOKENS * files.length,
+    input: [
+      { role: "developer", content: LIBRARY_FILL_INSTRUCTIONS },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "library_fill", strict: true, schema: LIBRARY_FILL_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: LIBRARY_MAX_OUTPUT_TOKENS * files.length } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  const parsed = result.ok ? parseLibraryFill(result.raw, files.map((f) => f.ref), categories, today) : null;
+  if (!result.ok || !parsed) {
+    const code = result.ok ? "ai_invalid_response" : result.code;
+    deps.log(code);
+    // fill: 사용자가 넣은 칸 표시만은 남긴다(값은 그대로). 실패해도 자료 등록 자체는 이미 끝났다.
+    if (input.mode === "fill") {
+      for (const t of targets) {
+        const marks = keepMarks(t.doc);
+        if (!Object.keys(marks).length) continue;
+        try { await saveLibraryFill(ctx, t.doc, { field_origin: canonicalOrigin({ ...t.doc.field_origin, ...marks }) }, deps.now()); }
+        catch { deps.log("library_keep_mark_failed"); }
+      }
+    }
+    const status = code === "ai_timeout" ? 504 : code === "ai_not_configured" || code === "ai_busy" ? 503 : 502;
+    throw new Fail(status, code);
+  }
+
+  if (input.mode === "propose") {
+    // 저장하지 않는다. 자료·칸·원래 값·제안 값 목록만(⑥). 적용은 사용자 확인 뒤 별도 단계.
+    const proposals = files.flatMap((f) => {
+      const t = work.find((w) => w.doc.id === f.doc.id)!;
+      return proposalsFor(f.doc, t.fields, parsed.get(f.ref) ?? {}, "propose").map((p) => ({ document_id: f.doc.id, ...p }));
+    });
+    deps.log("library_propose_done", { documents: files.length, proposals: proposals.length });
+    return json({ ok: true, kind: "library_fill", mode: "propose", proposals });
+  }
+
+  let updated = 0, skipped = docs.length - files.length;
+  for (const t of targets) {
+    const f = files.find((x) => x.doc.id === t.doc.id);
+    const changes = f ? proposalsFor(t.doc, t.fields, parsed.get(f.ref) ?? {}, "fill") : [];
+    const marks: Record<string, string> = { ...keepMarks(t.doc) };
+    const patch: Record<string, unknown> = {};
+    for (const c of changes) { patch[c.field] = c.to; marks[c.field] = "ai"; }
+    if (!Object.keys(marks).length) { if (f) skipped++; continue; }
+    patch.field_origin = canonicalOrigin({ ...t.doc.field_origin, ...marks });
+    try {
+      if (await saveLibraryFill(ctx, t.doc, patch, deps.now())) { if (changes.length) updated++; else skipped++; }
+      else skipped++;
+    } catch {
+      deps.log("library_fill_save_failed");
+      throw new Fail(503, "library_unavailable");
+    }
+  }
+  // 기록에는 숫자만(자료 글·AI 답 없음).
+  deps.log("library_fill_done", { documents: docs.length, updated, skipped });
+  return json({ ok: true, kind: "library_fill", mode: "fill", updated, skipped });
+}
+
 // ---- 쓰임 5: 조직 현황 요약(org_summary, JOURNAL-조직현황AI요약) -------------------------------------------------
 
 const ORG_SUMMARY_TABLE = "app_weekly_org_summaries";
@@ -1161,6 +1355,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       const input = parseRequest(await readBody(req));
       if (input.kind === "todo_radar") return await runTodoRadar(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "ledger_candidates") return await runLedgerCandidates(ctx, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "library_fill") return await runLibraryFill(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "org_summary") return await runOrgSummary(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       const material = await loadLinkSummaryMaterial(ctx, input);
 

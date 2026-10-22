@@ -13,6 +13,7 @@ import { noteTasks, requestTaskOpen, takeBasketNoteRequest, takeNoteDocRequest, 
 import { deleteNoteOriginal, disconnectWithUndo, disconnectLabel, offerUndoNotice } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';
 import { sendAttachmentToLibrary, requestLibraryDocument, libraryHref } from './basket-library-send.js';
+import { fillLibraryDocument } from './library-ai-fill.js';
 import { readAttachmentDocuments, putFilesIntoTargets } from './basket-file-docs.js';
 import { loadDocumentCategories } from './document-categories.js';
 import { isHwpName, requestHwpEdit } from './hwp-drive.js';
@@ -355,6 +356,8 @@ const noteDocs=mountNotes(noteHost,{esc,rt,onOpenChange:()=>paintListChrome(),on
 // UI-PC메모노트: the PC sidebar's [업데이트]·[노트] under [바구니] show which side is open; this module owns the kind, so it paints them.
 function paintNavKind(){
   const on=window.KPTURouter?.current==='basket';
+  // UI-상단줄: the top line's "바구니 › 업데이트/노트" follows this module's kind.
+  window.dispatchEvent(new CustomEvent('kptu:basket-kind',{detail:{kind:on?kind:null}}));
   document.querySelectorAll('#appView>.app-nav [data-basket-kind-nav]').forEach(b=>{const current=on&&b.dataset.basketKindNav===kind;b.classList.toggle('active',current);if(current)b.setAttribute('aria-current','true');else b.removeAttribute('aria-current');});
 }
 window.addEventListener('kptu:view-changed',paintNavKind);
@@ -653,6 +656,8 @@ async function sendToLibrary(fileId) {
   if(owner!==scope()||rt.session.epoch()!==sessionEpoch){librarySends.delete(key);return;}
   librarySends.set(key,outcome);
   if(outcome.kind==='created')window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:null,meeting_id:null}}));
+  // LIB-AI자동분류 ⑤: 바구니에서 보낸 자료도 빈 칸을 AI가 채운다(기다리지 않음, 표시 없음, 실패해도 보내기 결과 그대로).
+  if(outcome.kind==='created')void fillLibraryDocument(outcome.document.id,{rt}).catch(()=>{});
   if(['created','exists'].includes(outcome.kind)&&!libraryDocs.has(`${owner}:${fileId}`))libraryDocs.set(`${owner}:${fileId}`,{id:outcome.document.id,title:outcome.document.title,project_id:undefined});
   if(['created','exists'].includes(outcome.kind)&&run===epoch&&selected?.id===noteId)showToast(outcome.message);
   if(run===epoch&&selected?.id===noteId)paintAttachments();

@@ -2,7 +2,7 @@
   "name": "sec1-isolated-postgres-tests",
   "private": true,
   "type": "module",
-  "scripts": { "test": "node --test postgres.test.mjs record-links.test.mjs task29-delete-app-tasks.test.mjs basket1.test.mjs basket2.test.mjs basket4.test.mjs basket-link-view.test.mjs basket-photo-ocr.test.mjs basket-ocr-server.test.mjs db-workflow-backup.test.mjs db-function-allow.test.mjs journal-memo-kind.test.mjs journal-work-lines.test.mjs rtw-note-copy.test.mjs doc-organization-link.test.mjs doc-categories-profile.test.mjs share-pages.test.mjs prj-depth-guard.test.mjs ledger-schema.test.mjs todo-radar.test.mjs ledger-import.test.mjs ledger-candidates.test.mjs ledger-candidate-undo.test.mjs db-workflow-expand.test.mjs task-attachments.test.mjs library-folders.test.mjs weekly-org-summaries.test.mjs" },
+  "scripts": { "test": "node --test postgres.test.mjs record-links.test.mjs task29-delete-app-tasks.test.mjs basket1.test.mjs basket2.test.mjs basket4.test.mjs basket-link-view.test.mjs basket-photo-ocr.test.mjs basket-ocr-server.test.mjs db-workflow-backup.test.mjs db-function-allow.test.mjs journal-memo-kind.test.mjs journal-work-lines.test.mjs rtw-note-copy.test.mjs doc-organization-link.test.mjs doc-categories-profile.test.mjs share-pages.test.mjs prj-depth-guard.test.mjs ledger-schema.test.mjs todo-radar.test.mjs ledger-import.test.mjs ledger-candidates.test.mjs ledger-candidate-undo.test.mjs db-workflow-expand.test.mjs task-attachments.test.mjs library-folders.test.mjs library-ai-fill.test.mjs weekly-org-summaries.test.mjs" },
   "devDependencies": { "embedded-postgres": "17.6.0-beta.15", "pg": "8.16.3" },
   "overrides": {
     "@embedded-postgres/windows-x64": "17.6.0-beta.15",

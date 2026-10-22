@@ -21,7 +21,7 @@ test('real ai-assist graph checks/bundles with functions-only sources',{timeout:
    assert.ok(path!=='..'&&!path.startsWith('..'+sep)&&!isAbsolute(path),'import outside deployment artifact');
    local.push(relative(functions,file).split(sep).join('/'));
   }
-  assert.deepEqual(local.sort(),['_shared/bounded-json.mjs','ai-assist/handler.ts','ai-assist/index.ts','ai-assist/ledger-candidates.ts','ai-assist/org-summary.ts','ai-assist/todo-radar.ts']);
+  assert.deepEqual(local.sort(),['_shared/bounded-json.mjs','ai-assist/handler.ts','ai-assist/index.ts','ai-assist/ledger-candidates.ts','ai-assist/library-fill.ts','ai-assist/org-summary.ts','ai-assist/todo-radar.ts']);
   run(['check','--no-config',entry]);const bundle=join(isolated,'ai-assist.bundle.js');run(['bundle','--no-config',entry,'--output',bundle]);assert.ok((await stat(bundle)).size>0);
  }finally{await rm(isolated,{recursive:true,force:true});}
 });
