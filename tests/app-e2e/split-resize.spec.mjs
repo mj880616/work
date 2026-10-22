@@ -13,8 +13,7 @@ const SCREENS={
  projects:{container:'#projectGrid',list:'#projectGrid>.ps3-plist',pane:'#ps3DetailPane',ready:async page=>{await expect(page.locator('#ps3DetailPane #ps3DetailModal')).toBeVisible()}},
  team:{container:'#soTeamSection',list:'#soOrganizationList',pane:'#wdDetailPane',ready:async page=>{await expect(page.locator('#wdDetailPane #wdModal')).toBeVisible()}},
 };
-const KEY=name=>'kptu-split-ratio:'+name;
-const stored=(page,name)=>page.evaluate(k=>localStorage.getItem(k),KEY(name));
+const stored=(page,name)=>page.evaluate(n=>localStorage.getItem('kptu-split-ratio:'+n),name);
 async function measure(page,s){
  const l=await page.locator(s.list).boundingBox(),p=await page.locator(s.pane).boundingBox();
  return {list:l.width,pane:p.width,ratio:l.width/(l.width+p.width),gapOk:p.x>=l.x+l.width-1};
