@@ -466,8 +466,10 @@ export function dayCard(materials, day, {kinds = null, tree = null} = {}) {
   const part = (key, label, build) => {
     const s = stateOf(materials, DAY_SOURCES[key]);
     if (s.loading) return {key, label, loading:true, items:[], sections:[]};
-    // A failed read gives nothing (okItems → null), so build() shows what the other reads gave.
-    return {key, label, items:[], sections:[], ...build(), ...(s.failed.length ? {failed:s.failed} : {}), ...(s.capped ? {capped:true} : {})};
+    // A failed read gives nothing (okItems → null), so build() shows what the other reads gave. 노트로 옮긴 것 stays quiet when its
+    // read fails (as before, journal-moved-note): it is not report material and its failure must not alarm the rest of the card.
+    const failed = key === 'movedNotes' ? [] : s.failed;
+    return {key, label, items:[], sections:[], ...build(), ...(failed.length ? {failed} : {}), ...(s.capped ? {capped:true} : {})};
   };
   const basket = okItems(materials, 'basket');
   const tasks = part('tasks', '할 일', () => tasksPart(okItems(materials, 'tasks'), day));

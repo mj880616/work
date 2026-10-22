@@ -277,6 +277,7 @@
 #appView #journalView .journal-overdue > summary{ display:flex; align-items:center; min-height:32px; cursor:pointer; color:var(--kptu-danger); font-size:var(--kptu-text-body); }
 #appView #journalView .journal-overdue > summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 /* 주간보고 재료: 제목 하나 아래 세 칸이 보고서 순서대로(PC도 위아래 한 줄씩 — 순서가 곧 보고서 순서). */
+#appView #journalView .journal-report > h4.journal-report-title{ margin:0; font-size:var(--ds-text-read); font-weight:700; line-height:1.4; color:var(--kptu-ink); }
 #appView #journalView .journal-report{ display:flex; flex-direction:column; gap:6px; padding-top:10px; border-top:var(--ds-line-width) solid var(--ds-line); }
 #appView #journalView .journal-report-parts{ display:flex; flex-direction:column; gap:8px; }
 #appView #journalView .journal-report-parts > .journal-group{ padding-top:6px; border-top:0; }
@@ -286,6 +287,7 @@
 #appView #journalView .journal-others > summary{ display:flex; align-items:baseline; gap:8px; min-height:var(--kptu-touch-target,44px); align-items:center; cursor:pointer; }
 #appView #journalView .journal-others > summary .journal-heading{ margin:0; font-size:var(--ds-text-read); font-weight:700; color:var(--kptu-ink); }
 #appView #journalView .journal-others-count{ color:var(--kptu-muted); font-size:var(--ds-text-meta); }
+#appView #journalView .journal-others > summary .journal-failed{ font-size:var(--ds-text-meta); }
 #appView #journalView .journal-others > summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 #appView #journalView .journal-others-parts{ display:flex; flex-direction:column; gap:8px; }
 #appView #journalView .journal-others-parts > .journal-group{ border-top:0; padding-top:4px; }

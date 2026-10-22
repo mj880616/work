@@ -37,7 +37,7 @@ import {copyText} from './md-editor.js';
 import {offerUndoNotice, closeUndoNotice} from './basket-record-delete.js';
 import {requestTagsHtml, normalizeRequests} from './update-requests.js';
 import {recordMark} from './basket-link-records.js';
-import {requestNoteDocOpen, requestBasketNote, requestTaskOpen} from './basket-note-tasks.js';
+import {requestBasketNoteFrom, requestNoteDocFrom, requestTaskOpen, takeBasketReturn} from './basket-note-tasks.js';
 import {weeklySummary, renderWeekly, weeklyReportText} from './journal-weekly.js';
 import {mountWeeklyHwpx} from './journal-hwpx.js';
 import {readKinds, changeKind} from './journal-meeting-kinds.js';
@@ -260,7 +260,7 @@ function renderTasks(card) {
   const done = column('done', '한 일', part.done || [], false, '이 날 끝낸 할 일이 없어요.');
   const cols = document.createElement('div'); cols.className = 'journal-task-cols'; cols.append(todo, done);
   const after = document.createElement('div');
-  partNotes(after, {...part, key:'tasks', label:'Google 할 일', items:[...(part.todo || []), ...(part.done || [])]});
+  partNotes(after, {...part, key:'tasks', label:'할 일', items:[...(part.todo || []), ...(part.done || [])]});
   after.insertAdjacentHTML('beforeend', `<p class="journal-line-status" data-journal-task-status role="status" aria-live="polite">${esc(taskNote)}</p>`);
   host.replaceChildren(cols, ...after.childNodes);
 }
@@ -280,8 +280,9 @@ function renderDay() {
   const shown = card.others.filter(part => part.loading || part.failed || part.items.length);
   const others = document.createElement('details');
   others.className = 'journal-others'; others.dataset.journalOthers = ''; others.open = othersOpen;
-  const loading = card.others.some(part => part.loading), count = othersCount(card.others);
-  others.innerHTML = `<summary><span class="journal-heading">그 밖의 기록</span> <small class="journal-others-count" data-journal-others-count>${esc(count || (loading ? '불러오는 중…' : '없음'))}</small></summary>`;
+  const loading = card.others.some(part => part.loading), count = othersCount(card.others), failed = card.others.some(part => part.failed);
+  // Folded, the summary still says when a part could not be read (its [다시 시도] is inside).
+  others.innerHTML = `<summary><span class="journal-heading">그 밖의 기록</span> <small class="journal-others-count" data-journal-others-count>${esc(count || (loading ? '불러오는 중…' : '없음'))}</small>${failed ? '<small class="journal-failed" data-journal-others-failed>· 못 읽은 묶음 있음</small>' : ''}</summary>`;
   const body = document.createElement('div'); body.className = 'journal-others-parts';
   body.append(...shown.map(part => partBox(part, {heading:'h5'})));
   others.append(body);
@@ -523,18 +524,41 @@ function rememberReturn(trigger) {
 const goView = view => window.KPTURouter?.go?.(view, {source:'delegated'});
 // The record on the opened screen: scrolled to the middle and lit for a moment (journal.css [data-journal-flash]). Waits for the
 // owner module to draw it (a few frames at most); a record that is not drawn (folded away, gone) leaves the screen as opened.
+// The owner module may draw its records once more right after opening (its link read lands); a record drawn again is marked again
+// while the moment lasts, so the highlight is never lost to that redraw.
+const FLASH_MS = 1600;
 async function flashRecord(selector) {
-  for (let i = 0; i < 90; i++) {
-    const el = [...document.querySelectorAll(selector)].find(node => node.getClientRects().length);
-    if (el) {
-      el.scrollIntoView({block:'center', behavior:'instant'});
-      el.removeAttribute('data-journal-flash'); void el.offsetWidth; el.setAttribute('data-journal-flash', '');
-      el.addEventListener('animationend', () => el.removeAttribute('data-journal-flash'), {once:true});
-      return true;
-    }
-    await new Promise(resolve => requestAnimationFrame(resolve));
+  const find = () => [...document.querySelectorAll(selector)].find(node => node.getClientRects().length);
+  const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
+  let el = null, until = 0;
+  for (let i = 0; i < 90 && !el; i++) { el = find(); if (!el) await frame(); }
+  if (!el) return false;
+  const light = node => {
+    node.scrollIntoView({block:'center', behavior:'instant'});
+    node.removeAttribute('data-journal-flash'); void node.offsetWidth; node.setAttribute('data-journal-flash', '');
+    node.addEventListener('animationend', () => node.removeAttribute('data-journal-flash'), {once:true});
+  };
+  light(el); until = performance.now() + FLASH_MS;
+  while (performance.now() < until) {
+    await frame();
+    if (el.isConnected) continue;
+    const again = find(); if (!again) return true;
+    el = again; light(el);
   }
-  return false;
+  return true;
+}
+// Phone: the organization/project/meeting opens as a window over this screen; when back (or its ×) closes it, the focus returns to
+// the pressed line.
+function refocusAfter(modalSelector, trigger) {
+  const modal = document.querySelector(modalSelector);
+  if (!modal || !trigger) return;
+  const watch = new MutationObserver(() => {
+    if (!modal.classList.contains('hidden')) return;
+    watch.disconnect();
+    requestAnimationFrame(() => { if (window.KPTURouter?.current === 'journal' && trigger.isConnected) trigger.focus({preventScroll:true}); });
+  });
+  watch.observe(modal, {attributes:true, attributeFilter:['class']});
+  window.addEventListener('kptu:view-changed', () => watch.disconnect(), {once:true});
 }
 const RECORD = {
   org:record => { const [kind, id] = String(record || '').split(/:(.*)/s); return !id ? '' : kind === 'up' ? `#wdUpdates [data-wd-up="${CSS.escape(id)}"]` : `#wdUpdates [data-basket-link="${CSS.escape(id)}"]`; },
@@ -544,8 +568,11 @@ async function openOriginal(target, trigger) {
   const wide = !!WIDE?.matches, loader = window.KPTUViewLoader;
   status.textContent = '';
   try {
-    if (target.type === 'note') { rememberReturn(trigger); requestBasketNote(target.note, rt); goView('basket'); return; }
-    if (target.type === 'notedoc') { rememberReturn(trigger); requestNoteDocOpen(target.note, rt); goView('basket'); return; }
+    // An update or a note opens in the basket as "opened from 업무일지" (basket-note-tasks.js): no history entry of its own, a
+    // "← 업무일지로 돌아가기" line, and one back returns here.
+    const from = {view:'journal', id:selected, name:'업무일지'};
+    if (target.type === 'note') { rememberReturn(trigger); requestBasketNoteFrom(target.note, from, rt); goView('basket'); return; }
+    if (target.type === 'notedoc') { rememberReturn(trigger); requestNoteDocFrom(target.note, from, rt); goView('basket'); return; }
     if (target.type === 'task') { rememberReturn(trigger); requestTaskOpen(target.id, rt); goView('tasks'); return; }
     if (['calendar', 'library', 'pages'].includes(target.type)) { rememberReturn(trigger); goView(target.type); return; }
     if (target.type === 'meeting') {
@@ -557,6 +584,7 @@ async function openOriginal(target, trigger) {
       await loader?.prepare?.('meetings'); await import('./meeting-round-detail.js');
       if (!(await window.__KPTU_MEETING_ROUND_DETAIL_READY__)) throw new Error('meeting');
       await window.KPTUMeetingRoundDetail.open(target.id);
+      refocusAfter('#meetingRoundDetailModal', trigger);
       return;
     }
     if (target.type === 'org' || target.type === 'project') {
@@ -564,6 +592,7 @@ async function openOriginal(target, trigger) {
       await loader.load(org ? 'team' : 'projects');
       if (wide) { rememberReturn(trigger); if (!goView(org ? 'team' : 'projects')) { pendingReturn = null; return; } }
       await (org ? window.KPTUWorkplace.open(target.org) : window.KPTUProjects.open(target.project));
+      if (!wide) refocusAfter(org ? '#wdModal' : '#ps3DetailModal', trigger);
       const selector = RECORD[target.type](target.record);
       if (selector) await flashRecord(selector);
     }
@@ -687,6 +716,7 @@ window.addEventListener('kptu:session-changed', () => {
 // with the focus back on the line that was pressed.
 function enter(detail) {
   const back = pendingReturn; pendingReturn = null;
+  takeBasketReturn('journal', rt); // an update/note opened from here has done its job once this screen shows again
   if (back && back.owner === ownerScope(rt) && back.start === start && back.day === selected && ['popstate', 'trail', 'back'].includes(detail?.source)) {
     renderMode();
     window.scrollTo({top:back.scroll, behavior:'instant'});

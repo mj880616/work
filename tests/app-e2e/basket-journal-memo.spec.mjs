@@ -73,6 +73,12 @@ async function openJournal(page, width) {
   await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('10월 5일 ~ 11일');
 }
 const group = (page, key) => page.locator(`#journalRoot [data-journal-group="${key}"]`);
+// JOURNAL-하루개편: 그 밖의 기록 is folded by default; open it (stays open while the screen lives).
+async function openOthers(page, width) {
+  const box = page.locator('#journalRoot [data-journal-others]');
+  if (!(await box.evaluate(e => e.open))) await press(page, box.locator('summary'), width);
+  await expect(box).toHaveJSProperty('open', true);
+}
 
 for (const width of [390, 1280]) {
   test(`[업무일지에 남기기] from the row ⋯: leaves 미분류, shows under 기타 메모 and in the weekly draft, [업무일지에서 빼기] brings it back ${width}`, async ({ page }, info) => {
@@ -104,12 +110,14 @@ for (const width of [390, 1280]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (SHOT_DIR && width === 390) await page.screenshot({ path: `${SHOT_DIR}/journal-memo-basket-390.png` });
     await page.screenshot({ path: info.outputPath(`journal-memo-basket-${width}.png`) });
-    // The work journal: 기타 메모 holds the update's first line on its day; it is no longer under 조직 소식 · 미분류.
+    // The work journal: 기타 메모 holds the update's first line on its day; it is not an update sent nowhere.
+    // JOURNAL-하루개편: both are in 그 밖의 기록 (folded); the update sent nowhere is 어디에도 안 보낸 업데이트 (no '미분류' on the day card).
     await openJournal(page, width);
-    await expect(group(page, 'memos').locator('h4')).toHaveText('기타 메모');
-    await expect(group(page, 'memos').locator('li')).toHaveText(['합성 기타 메모 하나']);
-    await expect(group(page, 'orgs').locator('[data-journal-org="미분류"] li')).toHaveText(['합성 미분류 업데이트']);
-    await expect(page.locator('#journalRoot [data-journal-empty]')).toHaveCount(0);
+    await openOthers(page, width);
+    await expect(group(page, 'memos').locator('h5')).toHaveText('기타 메모');
+    await expect(group(page, 'memos').locator('.journal-item-open')).toHaveText(['합성 기타 메모 하나']);
+    await expect(group(page, 'unsent').locator('.journal-item-open')).toHaveText(['합성 미분류 업데이트']);
+    await expect(page.locator('#journalRoot [data-journal-org="미분류"]')).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (SHOT_DIR && width === 390) { await group(page, 'memos').scrollIntoViewIfNeeded(); await page.screenshot({ path: `${SHOT_DIR}/journal-memo-journal-390.png` }); }
     await page.screenshot({ path: info.outputPath(`journal-memo-journal-${width}.png`), fullPage: true });
@@ -138,7 +146,8 @@ for (const width of [390, 1280]) {
     // The schedule tab remembers the journal on a phone, so the second visit goes straight there.
     await page.evaluate(() => window.KPTURouter.go('journal'));
     await expect(page.locator('#journalView')).toBeVisible();
-    await expect(group(page, 'orgs').locator('[data-journal-org="미분류"] li')).toHaveText(['합성 미분류 업데이트', '합성 기타 메모 하나']);
+    await openOthers(page, width);
+    await expect(group(page, 'unsent').locator('.journal-item-open')).toHaveText(['합성 미분류 업데이트', '합성 기타 메모 하나']);
     await expect(group(page, 'memos')).toHaveCount(0);
     expect(f.errors).toEqual([]);
   });
