@@ -118,12 +118,12 @@ export function mergeTidyResult(state,result){
   return {total:state.total,pending:[...(result.remaining||[])],proposals:[...state.proposals,...added],error:result.failed?.length?(result.stop||result.failed.at(-1).code):null};
 }
 export const TIDY_ERROR_TEXT=Object.freeze({
-  daily_limit:'오늘 쓸 수 있는 횟수를 다 썼어요. 내일 이어서 찾을 수 있어요.',
+  daily_limit:'오늘 쓸 수 있는 횟수를 다 썼어요.',
   monthly_limit:'이번 달 쓸 수 있는 양을 다 썼어요.',
   not_ready:'아직 쓸 수 없어요.',unsupported_kind:'아직 쓸 수 없어요.',library_not_ready:'아직 쓸 수 없어요.',ai_not_configured:'아직 쓸 수 없어요.',library_unavailable:'아직 쓸 수 없어요.',
   offline:'인터넷 연결을 확인해 주세요.',session_required:'다시 로그인해 주세요.',auth_unavailable:'다시 로그인해 주세요.',
   ai_busy:'지금 많이 바빠요. 잠시 뒤 이어서 찾아 주세요.',ai_timeout:'시간이 오래 걸려 멈췄어요. 이어서 찾아 주세요.',
 });
 export const tidyErrorText=code=>TIDY_ERROR_TEXT[code]||'찾지 못했어요. 이어서 찾아 주세요.';
-// 다시 시도해도 소용없는 이유(버튼을 숨긴다): 아직 못 쓰는 기능, 하루·달 한도.
-export const tidyRetryable=code=>!['daily_limit','monthly_limit','not_ready','unsupported_kind','library_not_ready','ai_not_configured','library_unavailable'].includes(code);
+// 이어서 찾기를 숨기는 이유: 아직 못 쓰는 기능, 이번 달 한도. 하루 한도(daily_limit)는 버튼을 남기고, 눌러도 서버가 같은 답으로 막는다(상한을 늘리거나 우회하지 않음).
+export const tidyRetryable=code=>!['monthly_limit','not_ready','unsupported_kind','library_not_ready','ai_not_configured','library_unavailable'].includes(code);
