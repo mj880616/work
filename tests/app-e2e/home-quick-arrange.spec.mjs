@@ -85,9 +85,11 @@ for(const width of [390,1280])test(`빠른 입력칸: 한 줄에서 시작해 5�
   await box.locator(`[data-quick-mode="${tab}"]`).click();await expect(box).toHaveAttribute('data-mode',mode);
   // UI-PC버튼36: PC(≥1024) starts at the input height 36px (padding 7/6px), so 3 lines are 78px and 5 lines 120px; phone keeps 46/88/130.
   const [one,three,five]=width>=1024?[36,78,120]:[46,88,130];
-  await input.fill('');expect(await measure(),mode+' empty').toEqual({h:one,scroll:false,saveTop:0,saveH:one});
-  await input.fill('첫 줄\n둘째 줄\n셋째 줄');expect(await measure(),mode+' 3 lines').toEqual({h:three,scroll:false,saveTop:0,saveH:one});
-  await input.fill('1\n2\n3\n4\n5\n6\n7');expect(await measure(),mode+' 7 lines').toEqual({h:five,scroll:true,saveTop:0,saveH:one});
+  // UI-버튼줄이기: [추가]는 폭과 상관없이 36px, 폰에서는 입력칸 첫 줄(46px) 가운데((46-36)/2=5px 아래).
+  const saveH=36,saveTop=width>=1024?0:5;
+  await input.fill('');expect(await measure(),mode+' empty').toEqual({h:one,scroll:false,saveTop,saveH});
+  await input.fill('첫 줄\n둘째 줄\n셋째 줄');expect(await measure(),mode+' 3 lines').toEqual({h:three,scroll:false,saveTop,saveH});
+  await input.fill('1\n2\n3\n4\n5\n6\n7');expect(await measure(),mode+' 7 lines').toEqual({h:five,scroll:true,saveTop,saveH});
   await input.fill('');expect((await measure()).h,mode+' cleared').toBe(one);
  }
  expect(errors).toEqual([]);
