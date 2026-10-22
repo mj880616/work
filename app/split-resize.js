@@ -25,6 +25,7 @@ function ensureStyle(){
   const style=document.createElement('style');style.dataset.kptuSplitResize='';
   style.textContent=`.split-resize-handle{position:absolute;z-index:3;box-sizing:border-box;margin:0;padding:0;border:0;background:transparent;cursor:col-resize;touch-action:none;outline:none}
 .split-resize-handle[hidden]{display:none}
+@media(max-width:1023px){.split-resize-handle{display:none!important}}
 .split-resize-handle::before{content:"";position:absolute;top:0;bottom:0;left:50%;width:2px;margin-left:-1px;border-radius:2px;background:transparent;transition:background-color .12s}
 .split-resize-handle:hover::before,.split-resize-handle.is-dragging::before{background:var(--kptu-border-strong)}
 .split-resize-handle:focus-visible::before{background:var(--kptu-info);width:3px;margin-left:-1.5px}
@@ -83,7 +84,10 @@ export function mountSplitResize(o){
     const pane=o.pane?.(),list=o.list?.();if(!pane)return;
     const box=container.getBoundingClientRect(),p=pane.getBoundingClientRect(),g=gap(),w=Math.max(g,12);
     const top=Math.max(0,((list||pane).getBoundingClientRect().top-box.top));
-    handle.style.left=`${p.left-box.left-g/2-w/2}px`;handle.style.width=`${w}px`;
+    // Left as a share of the grid width, so a position left over from a wider layout (before the next frame hides it) can never
+    // reach past the grid's right edge and make the page scroll sideways.
+    const share=box.width>0?Math.min(0.98,Math.max(0,(p.left-box.left-g/2)/box.width)):0;
+    handle.style.left=`calc(${(share*100).toFixed(3)}% - ${w/2}px)`;handle.style.width=`${w}px`;
     handle.style.top=`${top}px`;handle.style.height=`${Math.max(0,box.height-top)}px`;
   }
   function update(){apply();position();watch(o.pane?.());watch(o.list?.())}
