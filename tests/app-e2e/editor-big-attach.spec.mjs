@@ -36,10 +36,16 @@ for(const width of [390,1280]){
   await clickView(page,'team');await page.locator('[data-so-org="o"]').first().click();
   const modal=page.locator('#wdModal');await expect(modal).toBeVisible();await expect(page.locator('#wdTitle')).toHaveText('테스트 조직');
   const big=page.locator('#wdInboxBig');await expect(big).toBeVisible();await expect(big).toHaveText('크게');
-  // The small input row: [크게] beside [저장], same height, one line, nothing cut off.
   const [b,s]=await Promise.all([big.boundingBox(),page.locator('#wdInboxSave').boundingBox()]);
-  expect(Math.abs(b.y-s.y)).toBeLessThanOrEqual(1);expect(Math.abs(b.height-s.height)).toBeLessThanOrEqual(1);expect(b.x+b.width).toBeLessThanOrEqual(s.x);
-  expect(await big.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+  if(width>=1024){
+   // ORG-PC상세정리: on the PC pane ⤢ sits inside the input at its bottom right; [저장] is below, on its own line.
+   const t=await page.locator('#wdInboxText').boundingBox();
+   expect(b.x+b.width).toBeLessThanOrEqual(t.x+t.width);expect(b.y+b.height).toBeLessThanOrEqual(t.y+t.height);expect(s.y).toBeGreaterThanOrEqual(t.y+t.height);
+  }else{
+   // The small input row: [크게] beside [저장], same height, one line, nothing cut off.
+   expect(Math.abs(b.y-s.y)).toBeLessThanOrEqual(1);expect(Math.abs(b.height-s.height)).toBeLessThanOrEqual(1);expect(b.x+b.width).toBeLessThanOrEqual(s.x);
+   expect(await big.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+  }
   await page.locator('#wdInboxText').fill('통화 내용 첫 줄\n둘째 줄');
   await big.click();
   const e=editor(page);await expect(e).toBeVisible();
