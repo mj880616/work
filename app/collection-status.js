@@ -21,6 +21,8 @@ export const SOURCES = Object.freeze([
   {key:'copy', label:'Claude용 Drive 사본'},
   {key:'radar', label:'챙길 것 찾기(AI)'},
 ]);
+// 건수 칸을 채우는 줄. 텔레그램도 건수를 보여 주려면 'telegram'만 더하면 같은 칸에 들어간다.
+const COUNT_KEYS = new Set(['call']);
 export const UNCHECKABLE_NOTE = 'Web2 권한 밖이라 확인 불가';
 const ISO = /^\d{4}-\d{2}-\d{2}T[\d:.]+(Z|[+-]\d{2}:\d{2})$/;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
@@ -123,12 +125,14 @@ export function renderRows(raw, now = Date.now()) {
   const {collectors, judged, empty} = judgeAll(raw, now);
   if (empty) return '';
   return SOURCES.map(({key, label, collector}) => {
-    if (collector && !collectors) return `<li class="collect-row" data-collect="${key}" data-collect-state="unknown"><span class="collect-label">${esc(label)}</span><span class="collect-value">${esc(UNCHECKABLE_NOTE)}</span></li>`;
+    if (collector && !collectors) return `<li class="collect-row" data-collect="${key}" data-collect-state="unknown"><span class="collect-name"><span class="collect-label">${esc(label)}</span></span><span class="collect-value">${esc(UNCHECKABLE_NOTE)}</span></li>`;
     const j = judged[key];
     if (!j) return '';
     const note = (collector ? COLLECTOR_TEXT : STATE_TEXT)[j.state];
-    const parts = [j.at !== null ? `마지막 ${esc(timeText(j.at))}` : '', collector === 'transcript' && j.count !== null && j.count !== undefined ? `24시간 ${esc(j.count)}건` : '', note];
-    return `<li class="collect-row" data-collect="${key}" data-collect-state="${j.state}"><span class="collect-label">${esc(label)}</span><span class="collect-value">${parts.filter(Boolean).map(t => ATTENTION.has(j.state) && t === note ? `<strong class="collect-warn">${esc(t)}</strong>` : t).join(' · ')}</span></li>`;
+    // 배치만: 이름(+메모) | 건수 칸 | 시각 칸. 시각 칸이 맨 오른쪽이라 모든 줄의 시각이 같은 세로선에 선다. 건수가 없는 줄은 건수 칸을 비워 둔다.
+    const count = COUNT_KEYS.has(key) && j.count !== null && j.count !== undefined ? `24시간 ${esc(j.count)}건` : '';
+    const noteHtml = note ? ` <${ATTENTION.has(j.state) ? 'strong class="collect-note collect-warn"' : 'span class="collect-note"'}>${esc(note)}</${ATTENTION.has(j.state) ? 'strong' : 'span'}>` : '';
+    return `<li class="collect-row" data-collect="${key}" data-collect-state="${j.state}"><span class="collect-name"><span class="collect-label">${esc(label)}</span>${noteHtml}</span><span class="collect-count">${count}</span><span class="collect-value">${j.at !== null ? `마지막 ${esc(timeText(j.at))}` : ''}</span></li>`;
   }).join('');
 }
 
