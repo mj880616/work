@@ -22,27 +22,44 @@ export function readTextLater(document,options){
   if(typeof id==='string'&&UUID.test(id))void requestDocumentText(id,options).catch(()=>{});
 }
 
-// ---- 기존 자료 채우기(backfill) — 준비만. 화면 어디에도 연결하지 않는다 ----
-// 실행 방법·건수 확인·되돌리기 SQL은 docs/design/global-search.md 8.4절. 운영 자료를 바꾸므로 커맨드센터 승인 뒤에만 실행한다.
+// ---- 기존 자료 채우기(backfill) ----
+// 자료실을 열 때 뒤에서 조용히 소량씩 돈다(startAutoTextRead, library-upload.js가 LIB-자동정리와 같은 자리에서 부른다). 건수 확인·되돌리기 SQL은 docs/design/global-search.md 8.4절.
 // 아직 한 번도 읽지 않은 자료(extraction_status가 ready·error가 아닌 것)만 최근 것부터 limit개, 한 번에 하나씩 읽는다.
 // 결과 {asked,ready,error,failed,stop}. 던지지 않는다. isCurrent()가 거짓이면(로그아웃·화면 이동) 다음 요청을 보내지 않는다.
 export const BACKFILL_MAX=50;
-export async function readMissingTexts({rt=globalThis.window?.KPTURuntime,limit=10,isCurrent=()=>true}={}){
+export async function readMissingTexts({rt=globalThis.window?.KPTURuntime,limit=10,isCurrent=()=>true,skip=null}={}){
   const out={asked:0,ready:0,error:0,failed:0,stop:null};
   try{
     const workspace=rt?.context?.read?.()?.workspace?.id;
     const n=Number.isInteger(limit)?Math.min(Math.max(limit,1),BACKFILL_MAX):10;
     if(!rt?.api||typeof workspace!=='string'||!UUID.test(workspace))return {...out,stop:'invalid_request'};
     const rows=await rt.api('/rest/v1/app_documents?workspace_id=eq.'+encodeURIComponent(workspace)
-      +'&or=(extraction_status.is.null,extraction_status.not.in.(ready,error))&file_id=not.is.null&select=id&order=created_at.desc&limit='+n,
+      +'&or=(extraction_status.is.null,extraction_status.not.in.(ready,error))&file_id=not.is.null&select=id&order=created_at.desc&limit='+(n+(skip?skip.size:0)),
       {refreshSession:false,singleFlight:false});
     if(!Array.isArray(rows))return {...out,stop:'list_failed'};
-    for(const row of rows){
+    // skip: 이 화면 사용 중 이미 보낸 자료(요청이 실패해 상태가 안 바뀐 것)는 다시 보내지 않는다.
+    const todo=(skip?rows.filter(r=>!skip.has(r?.id)):rows).slice(0,n);
+    for(const row of todo){
       if(!isCurrent())return {...out,stop:'stale'};
+      if(skip&&typeof row?.id==='string')skip.add(row.id);
       const r=await requestDocumentText(row?.id,{rt});
       out.asked++;
       if(!r.ok)out.failed++;else out[r.status]++;
     }
     return out;
   }catch{return {...out,stop:'list_failed'}}
+}
+
+// ---- 자동 채우기: 자료실을 열 때 호출. 기다리지 않고, 한 번에 AUTO_READ_BATCH개, 동시에 하나만 ----
+// 이미 도는 중이면 건너뛴다. 같은 로그인·업무공간(scopeKey) 동안 보낸 자료는 다시 보내지 않고(화면 메모리만, 브라우저 저장소 없음),
+// 한 번에 보낸 것이 전부 실패하면 그 로그인 동안 더 부르지 않는다. 새로 고치거나 다시 로그인하면 서버 상태로 다시 판단한다.
+export const AUTO_READ_BATCH=5;
+let autoRun=null,autoKey='',autoSkip=new Set(),autoHalted='';
+export function startAutoTextRead({rt=globalThis.window?.KPTURuntime,scopeKey,isCurrent=()=>true,limit=AUTO_READ_BATCH}={}){
+  if(autoRun||typeof scopeKey!=='string'||!scopeKey||autoHalted===scopeKey||!isCurrent())return null;
+  if(autoKey!==scopeKey){autoKey=scopeKey;autoSkip=new Set()}
+  autoRun=readMissingTexts({rt,limit:Math.min(limit,AUTO_READ_BATCH),isCurrent,skip:autoSkip})
+    .then(r=>{if(r.stop==='invalid_request'||(r.asked>0&&r.failed===r.asked))autoHalted=scopeKey;return r})
+    .catch(()=>null).finally(()=>{autoRun=null});
+  return autoRun;
 }

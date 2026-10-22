@@ -42,7 +42,7 @@ async function mockApp(page,state){
       state.uploads.push(row);state.docs.push(row);
       return ok({ok:true,document:row});
     }
-    if(path==='/functions/v1/document-actions'){state.texts.push(body);return ok({ok:true,status:'ready',reason:'ok'})}
+    if(path==='/functions/v1/document-actions'){state.texts.push(body);const d=state.docs.find(x=>x.id===body?.document_id);if(d)d.extraction_status='ready';return ok({ok:true,status:'ready',reason:'ok'})}
     if(path==='/functions/v1/ai-assist'){
       state.fills.push(body);
       if(state.aiMode==='fail')return ok({ok:false,error:'ai_busy',message:'x'},503);
@@ -65,7 +65,7 @@ async function mockApp(page,state){
     if(path==='/rest/v1/app_meetings')return ok([]);
     if(path==='/rest/v1/app_documents'){
       const id=eq(url,'id');
-      if(method==='GET')return ok(state.docs.filter(x=>!id||x.id===id));
+      if(method==='GET')return ok(state.docs.filter(x=>(!id||x.id===id)&&(!url.searchParams.has('or')||!['ready','error'].includes(x.extraction_status))));
       if(method==='PATCH'){
         state.patches.push({id,body});
         const rows=state.docs.filter(row=>row.id===id);rows.forEach(row=>Object.assign(row,body||{}));

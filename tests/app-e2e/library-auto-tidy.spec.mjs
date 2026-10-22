@@ -35,7 +35,7 @@ async function mockApp(page,state){
     if(path==='/auth/v1/user')return ok(state.user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
-    if(path==='/functions/v1/document-actions'){state.texts.push(body);return ok({ok:true,status:'ready',reason:'ok'})}
+    if(path==='/functions/v1/document-actions'){state.texts.push(body);const d=state.docs.find(x=>x.id===body?.document_id);if(d)d.extraction_status='ready';return ok({ok:true,status:'ready',reason:'ok'})}
     if(path==='/functions/v1/ai-assist'){
       // Other screens (home) call ai-assist for their own kinds; only the library tidy is counted here.
       if(body?.kind!=='library_fill'||body?.mode!=='tidy')return ok({ok:false,error:'unsupported_kind',message:'x'},400);
@@ -71,7 +71,7 @@ async function mockApp(page,state){
     if(path==='/rest/v1/app_workspaces')return ok([state.workspace]);
     if(path==='/rest/v1/app_meetings')return ok([]);
     if(path==='/rest/v1/app_documents'){
-      if(method==='GET')return ok(state.docs);
+      if(method==='GET')return ok(url.searchParams.has('or')?state.docs.filter(x=>!['ready','error'].includes(x.extraction_status)):state.docs);
       state.patches.push({method,body});return ok([]);
     }
     if(path.startsWith('/rest/v1/')){if(method!=='GET')state.otherWrites.push(`${method} ${path}`);return ok([])}
@@ -200,4 +200,21 @@ test('before the DB is applied (no attempts table) nothing is sent to AI',async(
   await page.waitForTimeout(600);
   expect(state.aiCalls).toEqual([]);
   await expectQuiet(page);
+});
+
+// SEARCH-전체검색 ② 기존 자료 글자 채우기: 자료실을 열 때 아직 안 읽은 자료를 한 번에 5개씩만, 화면 표시 없이 읽는다.
+test('opening the library reads at most 5 unread documents at a time, quietly, and not again for the same ones',async({page})=>{
+  const docs=makeDocs(12,{}).map(d=>({...d,title:'정리된 제목 '+d.id,category:'정책',source:'국토교통부',document_date:'2026-01-02',extraction_status:'pending'}));
+  const state=baseState(docs);
+  await boot(page,state);
+  await expect.poll(()=>state.texts.length).toBe(5);
+  expect(state.texts.map(t=>t.document_id)).toEqual(docs.slice(0,5).map(d=>d.id));
+  await page.waitForTimeout(300);
+  expect(state.texts.length).toBe(5);
+  await expectQuiet(page);
+  await leave(page);await reopen(page);
+  await expect.poll(()=>state.texts.length).toBe(10);
+  await page.waitForTimeout(300);
+  expect(state.texts.length).toBe(10);
+  expect(state.otherWrites).toEqual([]);
 });

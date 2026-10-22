@@ -314,9 +314,9 @@ Edge 코드 변경은 `_shared/document-text.ts` 한 파일이다. 이것을 쓰
 
 1과 2는 서로 기다리지 않는다. DB만 적용되면 이미 읽힌 글자(LIB-AI가 채운 것)부터 찾히고, Edge만 배포되면 PPT·엑셀 글자가 저장만 되고 아직 찾히지 않는다.
 
-### 8.4 기존 자료 채우기(backfill) — 준비만, 실행 안 함
+### 8.4 기존 자료 채우기(backfill) — 자료실을 열 때 자동, 조금씩
 
-운영 자료(`app_documents`의 글자 4칸)를 대량으로 바꾸므로 **커맨드센터 승인 뒤에만** 실행한다. 원본 Drive 파일은 읽기만 하고(임시 사본은 만들었다 지움), AI 비용은 없다. 실행 코드는 `app/document-text-read.js` `readMissingTexts({limit})`(화면 어디에도 연결하지 않음, 시험으로 확인)다. 한 번 부르면 아직 읽지 않은 자료(`extraction_status`가 `ready`·`error`가 아닌 것)만 최근 것부터 `limit`개(최대 50) 하나씩 `document-text`를 부른다. 이미 읽은 자료·실패한 자료는 다시 읽지 않는다.
+사용자 결정(2026-10-23): 예전에 올린 자료도 파일 안 글자를 읽어 둔다, 조금씩. 운영 자료(`app_documents`의 글자 4칸)가 바뀌지만 원본 Drive 파일은 읽기만 하고(임시 사본은 만들었다 지움), AI 비용은 없다. 로그인한 사용자가 자료실을 열면(LIB-자동정리와 같은 자리, 정리 요청이 끝난 뒤) 뒤에서 `app/document-text-read.js` `startAutoTextRead`가 `readMissingTexts`로 아직 읽지 않은 자료(`extraction_status`가 `ready`·`error`가 아닌 것)를 최근 것부터 **한 번에 5개**(`AUTO_READ_BATCH`) 하나씩 `document-text`로 읽는다. 화면 표시·버튼 없음, 기다리지 않음, 동시에 하나만(도는 중이면 건너뜀), 화면 이동·로그아웃이면 다음 요청을 보내지 않는다. `ready`·`error`는 다시 읽지 않고, 요청이 실패해 상태가 안 바뀐 자료도 같은 로그인 동안(화면 메모리만) 다시 보내지 않으며, 한 번에 보낸 것이 전부 실패하면 그 로그인 동안 더 부르지 않는다. 자료실을 열 때마다 5개씩 늘어난다.
 
 1. 건수 확인(읽기 전용, SQL Editor 또는 로컬 세션 조회):
 
@@ -327,7 +327,7 @@ from public.app_documents group by 1 order by 1;
 ```
 
 2. 시작 시각을 적어 둔다(되돌리기 기준): `select now();`
-3. 시험 1건 → 일부(10) → 나머지(50씩): 커맨드센터가 승인한 별도 작은 PR이 `readMissingTexts`를 자료실 화면 열기(LIB-자동정리와 같은 자리, 로그인한 명진 화면)에 `limit`과 함께 잠깐 붙이거나, 명진이 자료실을 연 상태에서 단계별로 부른다. 각 단계 뒤 1번 SQL로 `ready`·`error` 수가 늘었는지 본다.
+3. 진행 확인: 자료실을 열 때마다 1번 SQL의 `ready`·`error` 수가 5개씩 늘어난다.
 4. 확인(읽기 전용): `select count(*) from public.app_documents where extracted_at >= '<2번 시각>';`
 
 되돌리기(채우기로 바뀐 칸만 비움, 자료·파일·다른 칸은 그대로. SQL Editor 새 창, 끝이 `commit;`인지 확인):
