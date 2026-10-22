@@ -220,7 +220,7 @@
 .cwv-items .clv-event[data-cwv-lines="0"]{flex-direction:row;align-items:flex-start;gap:4px}
 .cwv-items .clv-event[data-cwv-lines="0"] .clv-title{display:block;white-space:nowrap;line-height:16px;min-width:0;flex:1 1 auto}
 .cwv-now{position:absolute;z-index:2;left:0;right:0;height:2px;margin-top:-1px;background:var(--kptu-danger);pointer-events:none}
-.cwv-now::before{content:"";position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--kptu-danger)}
+.cwv-now::before{content:"";position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:var(--kptu-radius-pill);background:var(--kptu-danger)}
 .cwv-tip{display:none;position:absolute;z-index:20;top:100%;left:0;box-sizing:border-box;width:max-content;max-width:220px;padding:6px 8px;border-radius:var(--kptu-radius-sm);background:var(--kptu-ink);color:var(--kptu-surface);font-size:12px;line-height:16px;font-weight:400;white-space:normal;overflow-wrap:anywhere;pointer-events:none;box-shadow:var(--kptu-shadow-float)}
 .cwv-day:nth-of-type(n+5) .cwv-tip{left:auto;right:0}
 .cwv-items .clv-event.cwv-clipped:hover .cwv-tip,.cwv-items .clv-event.cwv-clipped:focus-visible .cwv-tip{display:block}
