@@ -110,6 +110,8 @@ function renderWeek() {
 }
 function renderLine({keepStatus = false} = {}) {
   $('[data-journal-day-title]').textContent = longDay(selected);
+  // UI-상단줄제목: the chosen day goes to the PC top line's place (kptu:where-item, topbar-actions.js).
+  window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'journal', name:longDay(selected)}}));
   input.value = drafts.get(selected) ?? '';
   input.disabled = saving || linesState === 'loading';
   $('[data-journal-save]').disabled = saving || linesState === 'loading';
