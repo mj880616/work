@@ -43,8 +43,8 @@ for(const width of [761,820,900,1023])for(const fontSize of [null,24,40])test(`m
   await trigger.click();
   await expect(page.locator('#mobileMenu [data-mobile-press]:visible')).toHaveCount(0);
   await expect(page.getByRole('button',{name:'성명·보도자료',exact:true})).toHaveCount(1);
-  // UI-디자인손질 4·8: the drawer starts with [쓰기] (not a screen), then the items that did not fit the row.
-  expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['쓰기',...order.slice(labels.length)]);
+  // UI-디자인손질 4·8: the drawer holds the items that did not fit the row.
+  expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(order.slice(labels.length));
   await expect(page.locator('#mobileMenu [data-theme-open]')).toBeVisible();await expect(page.locator('#mobileMenu [data-kptu-logout]')).toBeVisible();
   await page.keyboard.press('Escape');await expect(trigger).toBeFocused();
   for(const label of order){
@@ -85,12 +85,12 @@ test('resize and font changes repartition; phone and PC return to their original
   await page.locator('.app-nav').evaluate(nav=>{nav.style.fontSize='';document.querySelectorAll('.nav-btn').forEach(b=>b.style.fontSize='')});await expect.poll(count).toBeGreaterThanOrEqual(normal);await expect.poll(()=>page.locator('.app-nav').evaluate(nav=>nav.scrollWidth-nav.clientWidth)).toBeLessThanOrEqual(1);
   await page.setViewportSize({width:760,height:844});await expect(page.locator('.app-nav')).toBeHidden();await expect(page.locator('.mobile-tabs')).toBeVisible();await page.locator('#mobileMenuTab').click();
   // 8-9e-2: [바구니]는 하단 탭으로 옮겨 메뉴 창에서 뺐다.
-  expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['쓰기','회의','자료실','HWP 편집','성명·보도자료','공유 페이지']);await page.keyboard.press('Escape');
+  expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['회의','자료실','HWP 편집','성명·보도자료','공유 페이지']);await page.keyboard.press('Escape');
   await page.setViewportSize({width:1024,height:844});await expect(page.locator('#mobileMenuOpen')).toBeHidden();await expect(page.locator('.mobile-tabs')).toBeHidden();
   // UI-PC일정묶음: back on the PC sidebar, 할 일·업무일지·일기 are sub rows under [일정] again (with [달력] first).
-  expect(await page.locator('.app-nav .nav-btn:not(#mobileMenuOpen)').allTextContents()).toEqual(['홈','바구니','일정','프로젝트','자료실','회의','성명·보도자료','공유 페이지','담당조직','HWP 편집','쓰기']);
+  expect(await page.locator('.app-nav .nav-btn:not(#mobileMenuOpen)').allTextContents()).toEqual(['홈','바구니','일정','프로젝트','자료실','회의','성명·보도자료','공유 페이지','담당조직','HWP 편집']);
   expect(await page.locator('.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn:not(.nav-btn)').allTextContents()).toEqual(['달력','할 일','업무일지','일기']);
-  expect(await page.locator('.app-nav :is(.nav-btn,.nav-sub-btn[data-view]):not(#mobileMenuOpen)').allTextContents()).toEqual(['홈','바구니','일정','할 일','업무일지','일기','프로젝트','자료실','회의','성명·보도자료','공유 페이지','담당조직','HWP 편집','쓰기']);await expect(page.locator('.app-topline [data-account-open]')).toBeVisible();
+  expect(await page.locator('.app-nav :is(.nav-btn,.nav-sub-btn[data-view]):not(#mobileMenuOpen)').allTextContents()).toEqual(['홈','바구니','일정','할 일','업무일지','일기','프로젝트','자료실','회의','성명·보도자료','공유 페이지','담당조직','HWP 편집']);await expect(page.locator('.app-topline [data-account-open]')).toBeVisible();
 });
 
 test('recalculation preserves keyboard focus and highlights the hidden combined media button',async({page})=>{

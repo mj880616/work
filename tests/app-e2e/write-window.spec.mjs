@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import {openWriteFromEntry} from './helpers/write-opener.mjs';
 // BASKET-업데이트통합 PR 2: 쓰기·노트 [+]·홈 [크게] 어디서 열어도 같은 편집 창. 저장 아이콘 옆 [업데이트 ▾ | 노트],
 // 업데이트는 ▾에서 고른 곳(없으면 바구니)으로, 노트는 노트로. 저장하면 닫힌다(저장하고 닫기). 저장 경로는 기존 그대로.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -20,8 +21,7 @@ async function fixture(page,width){
  return {...home,errors,notes,orgs,projects};
 }
 async function openWriter(page,width){
- if(width<761){await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-menu-write]').click();}
- else await page.locator('#appView>.app-nav [data-menu-write]').click();
+ await openWriteFromEntry(page,width);
  await expect(editor(page)).toBeVisible();return editor(page);
 }
 const fits=page=>page.evaluate(()=>{const h=document.querySelector('#mdEditor .md-editor-head');return !!h&&h.scrollWidth<=h.clientWidth&&document.documentElement.scrollWidth<=innerWidth;});

@@ -5,6 +5,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import {enterLogin} from './helpers/login-entry.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import {openWriteFromEntry} from './helpers/write-opener.mjs';
 // UI-디자인손질(8-9e 후속): 메뉴 판(폰)·메뉴 [쓰기]·메모 [⋯]·상자 안쪽 여백·일정 하루 보기 할 일·담당조직 머리줄·
 // 성명·보도자료 제목·[AI 분류 요청]·앱 아이콘. Supabase 응답만 합성하고 실제 앱을 Chromium에서 누른다.
 test.use({locale:'ko-KR'});
@@ -70,9 +71,9 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  // The sheet sits right on top of the tab bar, full width, rounded top.
  await expect.poll(async()=>{const [sheet,tabs]=await Promise.all([rect(panel),rect(page.locator('.mobile-tabs'))]);return Math.abs(sheet.bottom-tabs.top)<=1&&sheet.left===0&&Math.round(sheet.right)===390;}).toBe(true);
  await expect(grip).toBeFocused();await expect(grip).toHaveAccessibleName('메뉴 닫기');
- // 큰 칸 3×2: 쓰기·회의·자료실 / HWP 편집·성명·보도자료·공유 페이지. 성명과 보도자료는 한 칸.
+ // 큰 칸 3열: 회의·자료실·HWP 편집 / HWP 편집·성명·보도자료·공유 페이지. 성명과 보도자료는 한 칸.
  const tiles=page.locator('#mobileMenu nav button:visible');
- await expect(tiles).toHaveText(['쓰기','회의','자료실','HWP 편집','성명·보도자료','공유 페이지']);
+ await expect(tiles).toHaveText(['회의','자료실','HWP 편집','성명·보도자료','공유 페이지']);
  const boxes=await tiles.evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {x:Math.round(r.left),y:Math.round(r.top),h:r.height};}));
  expect(new Set(boxes.map(b=>b.y)).size).toBe(2);expect(new Set(boxes.map(b=>b.x)).size).toBe(3);
  for(const b of boxes)expect(b.h).toBeGreaterThanOrEqual(44);
@@ -103,23 +104,36 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  expect(errors).toEqual([]);
 });
 
-test('PC 사이드바: 메뉴 판과 같은 항목([쓰기]·성명·보도자료 한 줄), 761~1023px 가로 메뉴에는 [쓰기]가 ☰ 안에만',async({page})=>{
+test('쓰기 메뉴 없음: PC 사이드바·폰 메뉴 창·☰ 메뉴에 [쓰기] 항목이 없고 빠른 추가의 업데이트는 쓰기 창을 연다',async({page})=>{
  await boot(page,1280);
- await expect(page.locator('#appView>.app-nav [data-menu-write]')).toBeVisible();
+ await expect(page.locator('[data-menu-write]')).toHaveCount(0);
  // UI-PC사이드바: 홈은 맨 위 아이콘+"홈" 줄(따로 있던 [홈] 줄은 PC 사이드바에서 숨김), 게시판 → 공유 페이지.
  // UI-PC일정묶음: 할 일·업무일지·일기는 [일정] 아래 하위 메뉴(달력·할 일·업무일지·일기)로.
  await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn:visible')).toHaveText(['달력','할 일','업무일지','일기']);
- await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['바구니','일정','프로젝트','자료실','회의','성명·보도자료','공유 페이지','담당조직','HWP 편집','쓰기']);
+ await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['바구니','일정','프로젝트','자료실','회의','성명·보도자료','공유 페이지','담당조직','HWP 편집']);
+ await openWriteFromEntry(page,1280);await expect(page.locator('#mdEditor')).toBeVisible();
+ await page.keyboard.press('Escape');await expect(page.locator('#mdEditor')).toHaveCount(0);
  await page.setViewportSize({width:900,height:900});
- await expect(page.locator('#appView>.app-nav [data-menu-write]')).toBeHidden();
- await page.locator('#mobileMenuOpen').click();await expect(page.locator('#mobileMenu [data-menu-write]')).toBeVisible();
+ await page.locator('#mobileMenuOpen').click();await expect(page.locator('#mobileMenu [data-menu-write]')).toHaveCount(0);
+ await page.setViewportSize({width:390,height:844});
+ await page.locator('#mobileMenuTab').click();
+ await expect(page.locator('#mobileMenu nav[aria-label="더 보기"] button')).toHaveText(['회의','자료실','HWP 편집','성명·보도자료','공유 페이지']);
+ await expect(page.locator('#mobileMenu [data-menu-write]')).toHaveCount(0);
 });
 
-for(const width of [390,1280])test(`메뉴 [쓰기]: 빈 MD 편집기에서 저장 아이콘을 누르면 바구니 새 업데이트 하나(기존 저장 경로) ${width}`,async({page})=>{
+test('폰 홈 입력칸의 ⤢가 보이고 누르면 쓰기 창이 열림 390',async({page})=>{
+ await boot(page,390);
+ await page.evaluate(()=>window.KPTURouter.go('home'));
+ const big=page.locator('#homeView [data-quick-big]:visible').first();await expect(big).toBeVisible();
+ const r=await big.boundingBox();expect(r.width).toBeGreaterThanOrEqual(24);expect(r.height).toBeGreaterThanOrEqual(24);
+ await openWriteFromEntry(page,390);await expect(page.locator('#mdEditor')).toBeVisible();
+ await page.keyboard.press('Escape');await expect(page.locator('#mdEditor')).toHaveCount(0);
+});
+
+for(const width of [1280])test(`빠른 추가 [업데이트] 쓰기 창: 빈 MD 편집기에서 저장 아이콘을 누르면 바구니 새 업데이트 하나(기존 저장 경로) ${width}`,async({page})=>{
  const {errors,state}=await boot(page,width);
  await view(page,'basket');
- if(width<761){await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-menu-write]').click();}
- else await page.locator('#appView>.app-nav [data-menu-write]').click();
+ await openWriteFromEntry(page,width);
  const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();
  await expect(editor.locator('h2')).toHaveText('쓰기');await expect(editor.locator('.md-editor-text')).toHaveValue('');await expect(editor.locator('.md-editor-text')).toBeFocused();
  // Empty text is refused by the same validation as the basket input; nothing is sent.
@@ -127,9 +141,8 @@ for(const width of [390,1280])test(`메뉴 [쓰기]: 빈 MD 편집기에서 저�
  // Closing keeps the unsaved text in this tab for the next [쓰기].
  await editor.locator('.md-editor-text').fill('# 새 메모\n쓰기에서 저장');
  await editor.locator('[data-close="mdEditor"]').click();await expect(editor).toHaveCount(0);
- await expect(page.locator('#toast')).toContainText('[쓰기]를 다시 누르면 이어서');
- if(width<761){await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-menu-write]').click();}
- else await page.locator('#appView>.app-nav [data-menu-write]').click();
+ await expect(page.locator('#toast')).toContainText('빠른 추가의 [업데이트]로 다시 열면 이어서');
+ await openWriteFromEntry(page,width);
  await expect(page.locator('#mdEditor .md-editor-text')).toHaveValue('# 새 메모\n쓰기에서 저장');
  await page.locator('#mdEditor [data-md-save-icon]').click();
  await expect(page.locator('#mdEditor')).toHaveCount(0);await expect(page.locator('#toast')).toContainText('바구니에 저장했어요.');
@@ -138,8 +151,7 @@ for(const width of [390,1280])test(`메뉴 [쓰기]: 빈 MD 편집기에서 저�
  await showBasketRow(page,'10000000-0000-4000-8000-000000000099');
  await expect(page.locator('[data-basket-row="10000000-0000-4000-8000-000000000099"]')).toContainText('# 새 메모');
  // The next [쓰기] starts empty again.
- if(width<761){await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-menu-write]').click();}
- else await page.locator('#appView>.app-nav [data-menu-write]').click();
+ await openWriteFromEntry(page,width);
  await expect(page.locator('#mdEditor .md-editor-text')).toHaveValue('');
  await page.keyboard.press('Escape');await expect(page.locator('#mdEditor')).toHaveCount(0);
  expect(errors).toEqual([]);
