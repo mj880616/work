@@ -134,7 +134,7 @@ function paint(host, where) {
   box.dataset.gsWhere = where;
   const statusLine = el('p', 'gs-status'); statusLine.setAttribute('role', 'status'); statusLine.setAttribute('aria-live', 'polite');
   if (state.phase === 'idle') {
-    statusLine.textContent = '두 글자 이상 입력하면 업데이트·노트·할 일·자료실·회의 결과·일정을 함께 찾아요.';
+    statusLine.textContent = '두 글자 이상 입력하면 업데이트·노트·할 일·자료실·사업 보고·일정을 함께 찾아요.';
     box.append(statusLine); host.append(box); return;
   }
   if (state.phase === 'hint') { statusLine.textContent = state.hint; box.append(statusLine); host.append(box); return; }

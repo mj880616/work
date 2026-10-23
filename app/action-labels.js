@@ -2,7 +2,7 @@
 const mq=window.matchMedia('(max-width:760px)');
 const mobileLabels={
   newDocumentBtn:['+ 자료','+ 자료 등록'],
-  newMeetingBtn:['+ 회의','+ 회의 결과'],
+  newMeetingBtn:['+ 사업 보고','+ 사업 보고'],
   newProjectBtn:['+ 프로젝트','+ 프로젝트']
 };
 function applyActionLabels(){

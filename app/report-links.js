@@ -12,18 +12,19 @@ const FK='app_record_links_source_meeting_id_fkey';
 
 // 서버에 DB-2 칸이 있는지 한 번만 확인한다(없으면 400). 로그아웃·계정 바뀜에 대비해 사용자별로 기억.
 const probes=new Map();
-function probe(key,path){
-  const rt=rtOf(),owner=rt.context?.read?.()?.user?.id||'';const k=owner+'|'+key;
+function probe(key,path,rt=rtOf()){
+  const owner=rt.context?.read?.()?.user?.id||'';const k=owner+'|'+key;
   if(!probes.has(k))probes.set(k,rt.api(path).then(()=>true,error=>{if(isMissingColumn(error)||Number(error?.status)===400)return false;probes.delete(k);throw error}));
   return probes.get(k);
 }
-export const linksAvailable=()=>probe('links','/rest/v1/app_record_links?select=source_meeting_id&limit=1');
-export const locationAvailable=()=>probe('location','/rest/v1/app_meetings?select=location&limit=1');
+export const resetProbes=()=>probes.clear();
+export const linksAvailable=(rt)=>probe('links','/rest/v1/app_record_links?select=source_meeting_id&limit=1',rt);
+export const locationAvailable=(rt)=>probe('location','/rest/v1/app_meetings?select=location&limit=1',rt);
 
 // 사업 보고 하나에 연결된 곳(프로젝트·조직) 목록. DB-2 전에는 옛 project_id 한 곳.
 export async function readReportTargets(meeting,rt=rtOf()){
   const id=typeof meeting==='string'?meeting:meeting?.id,ws=workspaceOf(rt);
-  if(await linksAvailable()){
+  if(await linksAvailable(rt)){
     const rows=await rt.api(`/rest/v1/app_record_links?workspace_id=eq.${enc(ws)}&source_meeting_id=eq.${enc(id)}&status=eq.confirmed&select=id,project_id,organization_id,summary&order=id.asc`);
     return targetsFromLinkRows(rows);
   }
@@ -33,7 +34,7 @@ export async function readReportTargets(meeting,rt=rtOf()){
 // 모든 사업 보고의 연결 한 번에(화면 목록·결과의 '연결' 줄용): {meetingId: [target…]}. DB-2 전에는 project_id 로 만든다.
 export async function readAllReportTargets(meetings,rt=rtOf()){
   const map=new Map(),ws=workspaceOf(rt);
-  if(await linksAvailable()){
+  if(await linksAvailable(rt)){
     for(let offset=0;;offset+=1000){
       const rows=await rt.api(`/rest/v1/app_record_links?workspace_id=eq.${enc(ws)}&source_meeting_id=not.is.null&status=eq.confirmed&select=id,source_meeting_id,project_id,organization_id,summary&order=id.asc&limit=1000&offset=${offset}`);
       for(const row of rows){const list=map.get(row.source_meeting_id)||[];list.push(row);map.set(row.source_meeting_id,list)}
@@ -49,7 +50,7 @@ export async function readLinkedReports(target,rt=rtOf()){
   const ws=workspaceOf(rt),col=target.kind===KIND_PROJECT?'project_id':'organization_id';
   let linked=[],available=false;
   try{
-    if(await linksAvailable()){
+    if(await linksAvailable(rt)){
       linked=await rt.api(`/rest/v1/app_record_links?workspace_id=eq.${enc(ws)}&source_meeting_id=not.is.null&status=eq.confirmed&${col}=eq.${enc(target.id)}&select=id,report:app_meetings!${FK}(${REPORT_FIELDS})&order=id.asc`);
       available=true;
     }

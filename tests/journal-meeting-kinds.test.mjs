@@ -125,7 +125,7 @@ test('주간 정리: 목록이 비면 전부, 목록을 못 읽거나 주지 않
   }
   const loading = weeklySummary({...base, kinds:{status:'loading'}});
   assert.equal(loading.meetings.loading, true);
-  assert.match(weeklyReportText(loading), /회의·행사 결과\n\(불러오는 중\)/);
+  assert.match(weeklyReportText(loading), /회의·활동 결과\n\(불러오는 중\)/);
 });
 
 test('주간보고 초안 복사: 뺀 종류의 회의는 글에도 없다', async () => {

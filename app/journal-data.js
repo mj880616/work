@@ -25,6 +25,7 @@ import {noteRequests} from './update-requests.js';
 import {noteJournalAt, MOVED_KEY} from './update-journal.js';
 import {dueDay, shortDay, tomorrowKey, moveTaskToDay} from './task-due.mjs';
 import {reportsMeeting, meetingKindKey, meetingKindName} from './journal-meeting-kinds.js';
+import {reportKindOf, reportKindLabel, DEFAULT_KIND} from './report-kinds.mjs';
 
 export const WORK_LINE_MAX = 300;
 export const WORK_LINES_PER_DAY = 50;
@@ -233,7 +234,7 @@ export async function readProjectUpdates(start, rt = window.KPTURuntime) {
 // A week has a handful of meetings; the text stays in this screen's memory only and is never stored.
 export async function readWeekMeetings(start, rt = window.KPTURuntime) {
   const from = dayStartIso(weekDays(start)[0]), to = dayStartIso(shiftWeek(start, 1));
-  return pages(`/rest/v1/app_meetings?workspace_id=eq.${encode(workspace(rt))}&meeting_at=gte.${encode(from)}&meeting_at=lt.${encode(to)}&select=id,title,series_name,round_no,meeting_at,transcript_text,decisions&order=meeting_at.asc,id.asc`, rt);
+  return pages(`/rest/v1/app_meetings?workspace_id=eq.${encode(workspace(rt))}&meeting_at=gte.${encode(from)}&meeting_at=lt.${encode(to)}&select=id,title,series_name,round_no,meeting_at,transcript_text,decisions,activity_kind&order=meeting_at.asc,id.asc`, rt);
 }
 
 // 자료실 새 자료: documents of this workspace added (created_at) in the week — the day they were put in the library, not the
@@ -401,10 +402,12 @@ export const movedNotesOn = (notes, day) => (notes || [])
 // 회의·행사 결과 of one day: every meeting row of this workspace whose meeting_at falls on that day (Korea time). Press
 // conferences and forums are meeting rows too (their series name says so), so no kind is filtered out.
 export const meetingsOn = (meetings, day) => (meetings || []).filter(meeting => onDay(meeting?.meeting_at, day)).sort((a, b) => byTime(a.meeting_at, b.meeting_at));
+// MTG-사업보고 8단계 (설계 결정 3-가): 회의가 아닌 칸(정책·교섭·언론·국회·투쟁·교육·기타)은 줄 맨 앞에 [칸 이름]을 붙인다. 칸 없는 옛 행·회의 칸은 그대로.
+export const activityTag = meeting => { const kind = reportKindOf(meeting); return kind === DEFAULT_KIND ? '' : `[${reportKindLabel(kind)}] `; };
 export function meetingLine(meeting) {
   const name = String(meeting?.series_name || meeting?.title || '').trim() || '회의';
   const round = Number(meeting?.round_no), clock = seoulClock(meeting.meeting_at);
-  return `${clock && clock !== '00:00' ? clock + ' ' : ''}${name}${meeting?.round_no != null && meeting.round_no !== '' && Number.isFinite(round) ? ` ${round}차` : ''}`;
+  return `${activityTag(meeting)}${clock && clock !== '00:00' ? clock + ' ' : ''}${name}${meeting?.round_no != null && meeting.round_no !== '' && Number.isFinite(round) ? ` ${round}차` : ''}`;
 }
 export const pendingOn = (tasks, day) => (tasks || []).filter(task => task?.status !== 'completed' && dueDay(task) === day)
   .sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'ko'));
