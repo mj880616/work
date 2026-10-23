@@ -1,7 +1,8 @@
 // JOURNAL-주간보고허브 2단계: [주간 정리] — one week of the journal's materials grouped in the order of the weekly report form
 // (docs/design/weekly-report-hub.md 4절 2단계, 7절 결정; the form is docs/design/weekly-hwpx-draft.md 1.2·1.3절):
-//   1. 요청사항 — 임원 일정 배정·논의 요청. There is no material for it yet (the request marks are not a group any more, PR 859;
-//      how to enter it waits for decision W), so the box is kept and says "아직 재료 없음" — no input is made here.
+//   1. 요청사항 — 1) 임원 일정 배정·논의 요청 (WEEKLY-임원요청정리, 2026-10-23): the week's own request rows (일 | 시간/내용/장소 |
+//      참석 요청), added, changed and removed here and saved on the server (weekly-exec-requests.js, app_weekly_exec_requests). Rows
+//      carried from last week's confirmed report (journal-hwpx.js, filtered) show a small '지난주에서' tag on this screen only.
 //   2. 기본·영역·의제 사업 — 1) 요약: 사업영역(1단 project) → 세부 과제(2단) → 진행 상황 및 이후 계획. The screen has no 담당 팀원
 //      column (JOURNAL-주간정리다듬기 ②, 2026-10-22); the .hwpx keeps the form's column and fills it (journal-hwpx.js). Records follow the project tree and its order (project-catalog tree, PRJ-3단); a 3단 (사안) record sits on its
 //      2단 row as "세부과제 › 사안: 내용", a 2단 record as "세부과제: 내용", a 1단 record on the area's own row (project-3-levels.md
@@ -12,22 +13,24 @@
 //   5. 주요 일정 — my own Google Calendar events of the two weeks from the Monday after the shown week (journal-data.js
 //      scheduleDays: written on Friday, reported on Monday — "the reported week and the week after"), in the form's cells
 //      (일 | 시간/내용/장소 | 참석자). A vacation (휴가·연차·반차 …) is not a row but one "※ 휴가: …" line under the table; an event
-//      marked 일기·비공개 is left out (WEEKLY-주요일정, 2026-10-21); the two personal calendars (REPORT_EXCLUDED_CALENDARS) are left out.
+//      marked 일기·비공개 is left out (WEEKLY-주요일정, 2026-10-21); only the work calendar named '공공운수노조' (REPORT_CALENDAR) is taken.
 //   참고 — the week's 한 줄, 끝낸 할 일, 할 일 예정, 자료실 새 자료, 공유 페이지, 기타 메모 (material the form has no box for).
 //   [주간보고 초안 복사] copies this same grouping as text in the same order (weeklyReportText).
 // Notes moved from the basket (노트로 옮긴 업데이트, PR 868) are not included. The tab only shows; it saves nothing and makes no file
-// (WEEKLY-한글초안 2단계 builds the .hwpx from this grouping). journal.js stays the only renderer of #journalRoot and calls
+// (WEEKLY-한글초안 2단계 builds the .hwpx from this grouping) — except the request rows, which journal.js saves through
+// weekly-exec-requests.js. journal.js stays the only renderer of #journalRoot and calls
 // renderWeekly() into the box it owns.
 import {weekDays, workLines, shortDay, reportDay, tasksOn, pendingOn, meetingsOn, meetingLine, orgNewsOn, projectRecordsOn, scheduleDays,
   compareOrgSections, journalMemosOn, documentLine, sharePageLine, UNSORTED, OTHERS, DONE_TASK_DAYS, doneCoverFrom, pendingCoverTo, PENDING_DAYS, todayKey, WEEK_READ_CAP} from './journal-data.js';
 import {requestTagsHtml, requestPrefix} from './update-requests.js';
 import {seoulDateKey, addSeoulDays, seoulClock} from './meeting-time.js';
 import {meetingKindKey, meetingKindName, reportsMeeting, validKindKey} from './journal-meeting-kinds.js';
+import {formDay, dayParts, dayLabel, whatCell, requestLine, sortItems, EXEC_HEAD, EXEC_LIMITS, EXEC_MAX_ROWS, CARRIED_TAG} from './weekly-exec-requests.js';
 
 // The reads behind each part (journal.js materials keys; 'lines' is the journal's own lines read).
 // 'upcoming' is the two-week calendar read of 5. 주요 일정 (journal-data.js readScheduleEvents).
 export const WEEKLY_SOURCES = Object.freeze({
-  summary:['basket', 'projectUpdates', 'catalog'], meetings:['meetings'], orgs:['basket', 'orgUpdates'], calendar:['upcoming'],
+  requests:['execRequests'], summary:['basket', 'projectUpdates', 'catalog'], meetings:['meetings'], orgs:['basket', 'orgUpdates'], calendar:['upcoming'],
   lines:['lines'], tasks:['tasks'], due:['tasks'], docs:['documents'], shares:['sharePages'], memos:['basket'],
 });
 const state = (materials, sources) => {
@@ -84,13 +87,12 @@ export function placeRecords(records, tree) {
 export const summaryLine = item => item.label ? `${item.label}: ${item.text}` : item.text;
 
 // ---- 5. 주요 일정 ----
-const WEEKDAY = '일월화수목금토';
-const parts_ = day => { const [y, m, d] = String(day).split('-').map(Number); return {m, d, w:WEEKDAY[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]}; };
+const parts_ = dayParts;
 // "■ 일시" of the report: the report day (상집 보고일 — the Monday after the shown week) as "2026년 10월 12일(월)", the form's
 // date line (weekly-hwpx draft.mjs reportDate writes the same).
 export const reportDateText = start => { const day = reportDay(start), {m, d, w} = parts_(day); return `${day.slice(0, 4)}년 ${m}월 ${d}일(${w})`; };
-// The form's day cell: "10.19.(월)"; the screen's vacation line: "10/19(월)".
-export const formDay = day => { const {m, d, w} = parts_(day); return `${m}.${d}.(${w})`; };
+// The form's day cell: "10.19.(월)" (weekly-exec-requests.js formDay, shared with the request table); the screen's vacation line: "10/19(월)".
+export {formDay};
 const slashDay = day => { const {m, d, w} = parts_(day); return `${m}/${d}(${w})`; };
 const span = (first, last, one, joint) => first === last ? one(first) : `${one(first)}${joint}${one(last)}`;
 // A vacation is told by its title (휴가·연차·반차·반반차·월차·병가·공가·휴무). An event whose title or memo says 일기 or 비공개 is
@@ -98,13 +100,18 @@ const span = (first, last, one, joint) => first === last ? one(first) : `${one(f
 export const VACATION_WORDS = /휴가|연차|반차|월차|병가|공가|휴무/;
 export const PRIVATE_WORDS = /일기|비공개/;
 export const isVacation = event => VACATION_WORDS.test(String(event?.title ?? ''));
-// 주요 일정 does not take the owner's personal calendars (RPT-개인일정빼기, 2026-10-22 사용자 결정): fixed, by calendar NAME (the id is an
-// account value and this repository is public), one list for the screen table and the .hwpx draft (both read upcomingSchedule).
-// No calendar picker. Compared without case and spacing differences; an event whose calendar name is unknown stays.
-export const REPORT_EXCLUDED_CALENDARS = Object.freeze(['명진승지', 'arsenal 명진']);
+// 주요 일정 takes only the work calendar (WEEKLY-출력정리 ③, 2026-10-23 사용자 지적 12:25 — 업무 일정은 '공공운수노조' 달력에 있음). Before,
+// two personal calendars were left out by name (RPT-개인일정빼기); every other calendar — and an event whose calendar name was unknown —
+// still came in, so personal events and matches from any other calendar reached the table. Now: by calendar NAME (the id is an account
+// value and this repository is public; the id → name list is read with the events every time, journal-data.js readScheduleEvents),
+// compared without case and spacing differences. No calendar → the table is empty and the screen (only) says so. The calendar screen
+// itself is unchanged. One rule for the screen table and the .hwpx draft (both read upcomingSchedule).
+export const REPORT_CALENDAR = '공공운수노조';
 const calendarKey = name => String(name ?? '').normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase();
-const EXCLUDED_KEYS = new Set(REPORT_EXCLUDED_CALENDARS.map(calendarKey));
-export const isExcludedCalendar = event => EXCLUDED_KEYS.has(calendarKey(event?.calendarName));
+const REPORT_KEY = calendarKey(REPORT_CALENDAR);
+export const isReportCalendar = event => calendarKey(event?.calendarName) === REPORT_KEY;
+// events.calendarNames (readScheduleEvents): every calendar name of the account; when it is known and holds no 공공운수노조, noCalendar.
+export const hasReportCalendar = events => (Array.isArray(events?.calendarNames) ? events.calendarNames.some(name => calendarKey(name) === REPORT_KEY) : null);
 export const isPrivateEvent = event => PRIVATE_WORDS.test(`${event?.title ?? ''}\n${event?.description ?? ''}`);
 // The days an event covers (Korea time): an all-day event ends the day before its (exclusive) end date.
 function eventDays(event) {
@@ -128,7 +135,7 @@ export function upcomingSchedule(events, start) {
     const key = event.id ? `${event.calendarId || ''}:${event.id}` : null;
     if (key && seen.has(key)) continue;
     if (key) seen.add(key);
-    if (isExcludedCalendar(event) || isPrivateEvent(event)) continue;
+    if (!isReportCalendar(event) || isPrivateEvent(event)) continue;
     const {first, last} = eventDays(event);
     if (!first || last < from || first > to) continue;
     const title = String(event.title || '').trim() || '(제목 없음)';
@@ -145,7 +152,7 @@ export function upcomingSchedule(events, start) {
     row.items.push({what:item.what, multi:item.multi});
   }
   vacations.sort((a, b) => a.first.localeCompare(b.first) || a.last.localeCompare(b.last));
-  return {days, rows, vacations};
+  return {days, rows, vacations, noCalendar:hasReportCalendar(events) === false};
 }
 // "※ 휴가: 10/23(금) 연차, 10/27(화)~10/28(수) 휴가" (screen and copy), or '' without one.
 export const vacationLine = vacations => vacations?.length ? `※ 휴가: ${vacations.map(v => `${span(v.first, v.last, slashDay, '~')} ${v.title}`).join(', ')}` : '';
@@ -220,6 +227,11 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
   });
 
   const calendar = part('calendar', () => upcomingSchedule(ok(m, 'upcoming'), start));
+  // 1. 요청사항 › 1) 임원 일정 배정·논의 요청: the week's saved rows (weekly-exec-requests.js readExecRequests → {missing, row}).
+  const requests = part('requests', () => {
+    const read = ok(m, 'execRequests');
+    return {missing:!!read?.missing, row:read?.row ?? null, items:sortItems(read?.row?.items ?? [])};
+  });
 
   const notes = {
     lines:part('lines', () => ({items:perDay('lines', (read, day) => workLines(read?.get?.(day)))})),
@@ -232,7 +244,7 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
     shares:part('shares', () => ({items:perDay('sharePages', (read, day) => read.filter(page => seoulDay(page?.updated_at) === day).map(sharePageLine))})),
     memos:part('memos', () => ({items:perDay('basket', (read, day) => journalMemosOn(read, day))})),
   };
-  return {start, days, summary, meetings, orgs, calendar, notes};
+  return {start, days, requests, summary, meetings, orgs, calendar, notes};
 }
 const seoulDay = value => value && Number.isFinite(Date.parse(value)) ? seoulDateKey(value) : '';
 
@@ -241,14 +253,18 @@ export const orgSummaryLines = text => String(text ?? '').split('\n').map(line =
 // ---- [주간보고 초안 복사] (2026-10-21 사용자 승인: 날짜순이 아니라 양식 순서) ----
 // The same grouping as the tab, as text in the form's order: 1. 요청사항 → 2. 사업 → 4. 산하 조직 → 5. 주요 일정 → 참고. A part
 // that is still loading or failed says so in its place, and the end names what could not be read.
-const LABELS = Object.freeze({summary:'프로젝트 기록', meetings:'회의·행사 결과', orgs:'조직 소식', calendar:'달력 일정', lines:'한 줄'});
+const LABELS = Object.freeze({requests:'임원 일정 배정·논의 요청', summary:'프로젝트 기록', meetings:'회의·행사 결과', orgs:'조직 소식', calendar:'달력 일정', lines:'한 줄'});
 export function weeklyReportText(model) {
   const {days} = model, out = [`주간 업무일지 ${shortDay(days[0])} ~ ${shortDay(days[6])}`, `■ 일시 : ${reportDateText(model.start)}`, ''];
   const item = (i, text = i.text) => `- ${shortDay(i.day)} ${requestPrefix(i.requests)}${text}`;
   const gap = (part, key) => part.loading ? '(불러오는 중)' : !part.failed?.length ? '' : part.failed.length < WEEKLY_SOURCES[key].length ? '(일부를 불러오지 못함)' : '(불러오지 못함)';
   const missing = [];
   const note = (key, part, label = LABELS[key]) => { const g = gap(part, key); if (g) { out.push(g); if (!part.loading) missing.push(label); } return !!part.loading || (part.failed?.length || 0) >= WEEKLY_SOURCES[key].length; };
-  out.push('1. 요청사항', '1) 임원 일정 배정·논의 요청: (아직 재료 없음)', `2) 주요 일정: (비워 둠) ${HQ_SCHEDULE_GUIDE}`, '');
+  out.push('1. 요청사항', `1) 임원 일정 배정·논의 요청 (${EXEC_HEAD.join(' | ')})`);
+  // The saved rows in the form's order and cells; the carried mark is not copied.
+  const r = model.requests;
+  if (!note('requests', r)) { for (const i of r.items) out.push(requestLine(i)); if (!r.items.length) out.push(r.missing ? '(요청 표 저장 칸 준비 전)' : '(요청 없음)'); }
+  out.push(`2) 주요 일정: (비워 둠) ${HQ_SCHEDULE_GUIDE}`, '');
   out.push('2. 기본·영역·의제 사업', '1) 요약');
   const s = model.summary;
   if (!note('summary', s)) {
@@ -299,7 +315,10 @@ export const HQ_SCHEDULE_GUIDE = '본부 주요 일정 — 기자회견·주요 
 const rangeTitle = calendar => `${shortDay(calendar.days[0])} ~ ${shortDay(calendar.days.at(-1))} · 다음 주 월요일부터 2주`;
 // orgUi (JOURNAL-조직현황AI요약, journal.js keeps it): {busy, status, error, editing:{id, value, status, invalid, saving}, open:Set(names)}.
 export const ORG_EDIT_MAX_LINES = 8;
-export function renderWeekly(host, model, esc, orgUi = {}) {
+// execUi (WEEKLY-임원요청정리, journal.js keeps it): {editing:null | 'new' | row id, draft:{day, until, time, what, place, who},
+// status, error, invalid (field name), saving}.
+export const EXEC_FIELDS = Object.freeze([['day', '일', 'date'], ['until', '끝 날(여러 날이면)', 'date'], ['time', '시간', 'text'], ['what', '내용', 'text'], ['place', '장소', 'text'], ['who', '참석 요청', 'text']]);
+export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}) {
   const doc = host.ownerDocument;
   const el = (tag, cls, text) => { const node = doc.createElement(tag); if (cls) node.className = cls; if (text != null) node.textContent = text; return node; };
   const muted = text => el('p', 'journal-muted', text);
@@ -334,12 +353,15 @@ export function renderWeekly(host, model, esc, orgUi = {}) {
 
   // ■ 일시: the report day (상집 보고일), the same date the .hwpx and the draft write.
   const when = el('p', 'journal-weekly-date', `■ 일시 : ${reportDateText(model.start)} (상집 보고일)`); when.dataset.journalWeeklyDate = '';
-  // 1. 요청사항: the boxes only (임원 일정 배정·논의 요청 has no material yet — no input until decision W; 2) 주요 일정 only says
-  // what goes there).
+  // 1. 요청사항: 1) the week's request rows (일 | 시간/내용/장소 | 참석 요청), each with a small [고치기]; one small [줄 추가] under the
+  // table opens the same edit row (date picker, time, text, place, attendees). 2) 주요 일정 only says what goes there.
   const one = chapter('requests', '1. 요청사항');
   const ask = block('ask', '1) 임원 일정 배정·논의 요청');
-  const none = muted('아직 재료 없음'); none.dataset.journalWeeklyNoMaterial = '';
-  ask.append(none);
+  const r = model.requests;
+  if (!status(ask, r, '요청 표') && !r.failed.length) {
+    if (r.missing) { const p = muted('요청 표 저장 칸이 아직 준비되지 않았어요(서버 적용 전). 한글 파일에는 지난주 확정본에서 날짜가 안 지났고 내 사업장·사업과 관련된 줄만 들어가요.'); p.dataset.journalExecMissing = ''; ask.append(p); }
+    else ask.append(...execTable(doc, el, r.items, execUi));
+  }
   const hq = block('hq-schedule', '2) 주요 일정');
   const guide = muted(HQ_SCHEDULE_GUIDE); guide.dataset.journalWeeklyGuide = '';
   hq.append(guide);
@@ -491,7 +513,8 @@ export function renderWeekly(host, model, esc, orgUi = {}) {
     } else cal.append(empty('이 2주에 달력 일정이 없어요.'));
     const off = vacationLine(c.vacations);
     if (off) { const p = el('p', 'journal-weekly-vacation', off); p.dataset.journalWeeklyVacation = ''; cal.append(p); }
-    cal.append(muted('참석자 칸은 한글 파일에서 내 이름으로 채워요. 명진승지·arsenal 명진 달력과 일기·비공개 표시 일정은 빼요.'));
+    if (c.noCalendar) { const p = muted(`'${REPORT_CALENDAR}' 달력을 찾지 못해 표를 비워요. 달력 화면의 Google 달력 목록을 확인해 주세요.`); p.dataset.journalWeeklyNoCalendar = ''; cal.append(p); }
+    cal.append(muted(`참석자 칸은 한글 파일에서 내 이름으로 채워요. '${REPORT_CALENDAR}' 달력 일정만 넣고, 일기·비공개 표시 일정은 빼요.`));
   }
   five.append(cal);
 
@@ -508,4 +531,67 @@ export function renderWeekly(host, model, esc, orgUi = {}) {
   if (quiet.length) { const q = muted(`기록 없는 묶음: ${quiet.join(', ')}`); q.classList.add('journal-empty'); q.dataset.journalWeeklyQuietNotes = ''; ref.append(q); }
 
   host.replaceChildren(when, one, two, four, five, ref);
+}
+
+// 1. 요청사항 › 1) the request rows and their edit row. Returns the nodes for the box (table, edit row for a new line, tools, status).
+function execTable(doc, el, items, ui) {
+  const editing = ui.editing ?? null, busy = !!ui.saving;
+  const table = el('table', 'journal-weekly-table journal-exec-table'); table.dataset.journalExecTable = '';
+  const head = el('thead'), hr = el('tr');
+  for (const name of EXEC_HEAD) { const th = el('th', null, name); th.scope = 'col'; hr.append(th); }
+  const tools = el('th', 'journal-exec-tools-head'); tools.scope = 'col'; tools.setAttribute('aria-label', '고치기'); hr.append(tools);
+  head.append(hr); table.append(head);
+  const body = el('tbody');
+  for (const item of items) {
+    if (editing === item.id) { body.append(execEditRow(doc, el, ui, item)); continue; }
+    const tr = el('tr'); tr.dataset.journalExecRow = item.id;
+    const th = el('th', 'journal-weekly-area', dayLabel(item)); th.scope = 'row';
+    const what = el('td', 'journal-weekly-what', whatCell(item));
+    if (item.carried) { const tag = el('span', 'journal-exec-carried', CARRIED_TAG); tag.title = '지난주 확정본에서 가져온 줄'; tag.dataset.journalExecCarried = ''; what.append(' ', tag); }
+    const who = el('td', 'journal-exec-who', item.who);
+    const cell = el('td', 'journal-exec-tools');
+    const edit = el('button', 'mini', '고치기'); edit.type = 'button'; edit.dataset.journalExecEdit = item.id;
+    edit.setAttribute('aria-label', `${dayLabel(item)} ${item.what} 고치기`);
+    if (busy || editing) edit.disabled = true;
+    cell.append(edit);
+    tr.append(th, what, who, cell); body.append(tr);
+  }
+  if (editing === 'new') body.append(execEditRow(doc, el, ui, null));
+  table.append(body);
+  const out = [table];
+  if (!items.length && editing !== 'new') { const p = el('p', 'journal-muted', '요청 줄이 없어요.'); p.dataset.journalWeeklyEmpty = ''; p.dataset.journalExecEmpty = ''; out.push(p); }
+  if (!editing) {
+    const add = el('button', 'mini', '+ 줄 추가'); add.type = 'button'; add.dataset.journalExecAdd = '';
+    add.setAttribute('aria-label', '요청 줄 추가');
+    if (busy || items.length >= EXEC_MAX_ROWS) add.disabled = true;
+    const row = el('div', 'journal-exec-bar'); row.append(add); out.push(row);
+  }
+  const say = el('p', 'journal-line-status', ui.status || ''); say.dataset.journalExecStatus = ''; say.setAttribute('role', 'status'); say.setAttribute('aria-live', 'polite');
+  if (ui.error) say.classList.add('journal-failed');
+  out.push(say);
+  return out;
+}
+function execEditRow(doc, el, ui, item) {
+  const tr = el('tr', 'journal-exec-edit-row'); tr.dataset.journalExecEditRow = item?.id ?? 'new';
+  const td = el('td'); td.colSpan = 4;
+  const form = el('div', 'journal-exec-form'); form.dataset.journalExecForm = item?.id ?? 'new';
+  const draft = ui.draft ?? {}, key = item?.id ?? 'new';
+  for (const [name, label, type] of EXEC_FIELDS) {
+    const wrap = el('label', `journal-exec-field journal-exec-${name}`); wrap.append(el('span', null, label));
+    const input = el('input'); input.type = type; input.value = draft[name] ?? ''; input.dataset.journalExecField = name;
+    input.id = `journalExec-${key}-${name}`;
+    if (type === 'text') { input.maxLength = EXEC_LIMITS[name]; input.autocomplete = 'off'; }
+    if (name === 'time') input.placeholder = '10:30';
+    if (ui.invalid === name) input.setAttribute('aria-invalid', 'true');
+    if (ui.saving) input.disabled = true;
+    wrap.append(input); form.append(wrap);
+  }
+  const actions = el('div', 'journal-edit-actions');
+  const save = el('button', 'mini primary', '저장'); save.type = 'button'; save.dataset.journalExecSave = key;
+  const cancel = el('button', 'mini', '취소'); cancel.type = 'button'; cancel.dataset.journalExecCancel = key;
+  actions.append(save, cancel);
+  if (item) { const del = el('button', 'mini journal-delete', '삭제'); del.type = 'button'; del.dataset.journalExecDelete = item.id; actions.append(del); }
+  if (ui.saving) for (const b of actions.children) b.disabled = true;
+  form.append(actions); td.append(form); tr.append(td);
+  return tr;
 }

@@ -421,7 +421,11 @@ test('weekly draft: the form order (1 → 2 → 4 → 5 → 참고); lines in sa
   const text = await draftOf({start:'2026-10-05', lines, materials:{events:{status:'ok', items:[{title:'회의', start:'2026-10-06T10:00:00+09:00', end:'2026-10-06T11:00:00+09:00'}]}, tasks:{status:'failed'},
     basket:{status:'ok', items:{notes:[{id:'b', raw_text:'조직 소식 원문\n둘째', occurred_at:'2026-10-06T01:00:00Z'}], links:[{note_id:'b', status:'confirmed', organization_id:'o', organization:{name:'가 조직'}}], docs:[]}},
     orgUpdates:{status:'ok', items:[]}, projectUpdates:{status:'ok', items:[]}, meetings:{status:'ok', items:[{series_name:'기자회견', meeting_at:'2026-10-06T05:00:00Z'}]},
-    documents:{status:'ok', items:[]}, sharePages:{status:'ok', items:[]}}, today:'2026-10-06'});
+    documents:{status:'ok', items:[]}, sharePages:{status:'ok', items:[]},
+    // WEEKLY-임원요청정리: the week's saved request rows (one carried from last week, one typed), in date order; no carried mark in the copy.
+    execRequests:{status:'ok', items:{missing:false, row:{id:'x', carried_at:null, updated_at:'t', items:[
+      {id:'r2', day:'2026-10-15', time:'', what:'가상 토론회', place:'', who:''},
+      {id:'r1', day:'2026-10-13', time:'10:30', what:'가상 결의대회', place:'가상 광장', who:'가상 임원 갑, 가상 임원 을', carried:true}]}}}}, today:'2026-10-06'});
   const rows = text.split('\n');
   assert.deepEqual(rows.slice(0, 2), ['주간 업무일지 10월 5일(월) ~ 10월 11일(일)', '■ 일시 : 2026년 10월 12일(월)']);
   // The form's order, not day by day.
@@ -429,7 +433,8 @@ test('weekly draft: the form order (1 → 2 → 4 → 5 → 참고); lines in sa
   assert.ok(order.every((at, i) => at > 0 && (i === 0 || at > order[i - 1])), JSON.stringify(order));
   // No day-by-day '■ 날짜' headers: the only ■ line is the report day (■ 일시).
   assert.deepEqual(rows.filter(r => r.startsWith('■ ')), ['■ 일시 : 2026년 10월 12일(월)']);
-  assert.deepEqual(partOf(text, '1. 요청사항'), ['1) 임원 일정 배정·논의 요청: (아직 재료 없음)',
+  assert.deepEqual(partOf(text, '1. 요청사항'), ['1) 임원 일정 배정·논의 요청 (일 | 시간/내용/장소 | 참석 요청)',
+    '- 10.13.(화) 10:30 / 가상 결의대회 / 가상 광장 — 참석 요청: 가상 임원 갑, 가상 임원 을', '- 10.15.(목) 가상 토론회',
     '2) 주요 일정: (비워 둠) 본부 주요 일정 — 기자회견·주요 회의·토론회·집회·교육 등, 특정 사업장·반복 일정 제외. 자동 채우기는 나중에']);
   const ref = partOf(text, '참고');
   assert.deepEqual(ref.slice(0, 5), ['◦ 한 줄', '- 10월 6일(화) 현장 회의 정리', '- 10월 7일(수) 첫 줄', '- 10월 7일(수) 둘째 줄', '- 10월 7일(수) 셋째 줄']);
