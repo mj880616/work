@@ -110,3 +110,28 @@ export function plainToDoc(text) {
   const lines = String(text == null ? '' : text).replace(/\r\n?/g, '\n').split('\n');
   return cleanDoc({type:'doc', content:lines.map(line => ({type:'paragraph', attrs:{style:DEFAULT_BODY}, content:line ? [{type:'text', text:line}] : []}))});
 }
+
+// ED③-창: opening an old plain text without changing its letters (설계 11.3). plainToDoc makes one paragraph per line, so toPlain
+// puts a blank line between every two lines. Here a run of lines between blank lines is ONE paragraph and the line breaks inside it
+// are hard_break nodes, so toPlain(plainToDocKeep(text)) gives the same lines back (a line of only spaces counts as blank, the
+// way toPlain's own tidy-up does; extra blank lines in a row, trailing spaces and blank ends are the only things toPlain drops).
+// Nothing is read as format: "1." "-" and dates stay letters.
+export function plainToDocKeep(text) {
+  const lines = String(text == null ? '' : text).replace(/\r\n?/g, '\n').split('\n');
+  const chunks = [];
+  let chunk = null;
+  for (const line of lines) {
+    if (!line.trim()) { chunk = null; continue; }
+    if (!chunk) chunks.push(chunk = []);
+    chunk.push(line);
+  }
+  const content = chunks.map(chunkLines => {
+    const inline = [];
+    chunkLines.forEach((line, i) => {
+      if (i) inline.push({type:'hard_break'});
+      inline.push({type:'text', text:line});
+    });
+    return {type:'paragraph', attrs:{style:DEFAULT_BODY}, content:inline};
+  });
+  return cleanDoc({type:'doc', content});
+}

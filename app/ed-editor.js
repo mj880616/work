@@ -214,7 +214,9 @@ const alignIcon = v => { const svg = svgEl('svg', {viewBox: '0 0 14 12', width: 
 // Returns {getValue(), getText(), isEmpty(), focus(), destroy(), view, root}.
 // getText() is the letters for raw_text (ed-text.mjs toPlain): the opener saves structure and letters together (설계 3.1).
 // photos: null, or {add(file) -> {src}, url(src) -> address|null, max} (share pages, ED-②).
-export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null, photos = null} = {}) {
+// onBox(open): ED③-창 — told (once per change, after the current event) when a small box (a button row panel, the 글자색·표 크기 list, the table cell menu)
+// opens or the last one closes, so a window can give the phone's back button to the box first. closeBoxes() closes them all and returns true when one was open.
+export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null, photos = null, onBox = null} = {}) {
   const pm = await loadEditorLib();
   const schema = buildSchema(pm);
   const N = schema.nodes, M = schema.marks;
@@ -1136,9 +1138,19 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     }
     if (name === 'grid') paintGrid(2, 2);
     if (name) { paint(); placeOpen(); }
+    syncBox();
     return was;
   }
   const closePanels = () => openPanel(null);
+  // ED③-창: any open panel or the cell menu counts as a small box. Coalesced into one call per event so closing one box to open another
+  // (a panel then the cell menu) reaches onBox as a single "open".
+  let boxWas = false, boxQueued = false;
+  const boxOpen = () => !!openName || !ctx.hidden;
+  const syncBox = () => {
+    if (!onBox || boxQueued) return;
+    boxQueued = true;
+    queueMicrotask(() => { boxQueued = false; const now = boxOpen(); if (now !== boxWas) { boxWas = now; onBox(now); } });
+  };
   function paintGrid(r, c) {
     for (const cell of grid.children) cell.classList.toggle('is-on', +cell.dataset.edGridR <= r && +cell.dataset.edGridC <= c);
     gridSize.textContent = `${r} × ${c}`;
@@ -1172,12 +1184,19 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     ctx.style.left = `${Math.max(8, Math.min(x, vw - r.width - 8))}px`;
     ctx.style.top = `${Math.max(8, Math.min(y, vh - r.height - bottomRoom))}px`;
     ctx.querySelector('button:not(:disabled)')?.focus({preventScroll: true});
+    syncBox();
   }
   function closeCtx(refocus = true) {
     if (ctx.hidden) return;
     ctx.hidden = true;
     if (refocus) view.focus();
     ctxFrom = null;
+    syncBox();
+  }
+  function closeBoxes() {
+    if (!boxOpen()) return false;
+    closeCtx(false); closePanels();
+    return true;
   }
   ctx.addEventListener('click', e => {
     const b = e.target.closest('button');
@@ -1420,7 +1439,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   paint();
   fitTools();
   return {
-    view, root, getValue, isEmpty,
+    view, root, getValue, isEmpty, closeBoxes, hasBox: boxOpen,
     getText: () => toPlain(getValue()),
     focus: () => view.focus(),
     destroy() {
