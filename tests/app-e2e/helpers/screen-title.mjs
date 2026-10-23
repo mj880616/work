@@ -23,6 +23,8 @@ export const expectDiaryDay = (page, text) => expectTitle(page, text, { wide: to
 // 프로젝트: the detail's name. Docked on the right (PC): the top line names it, the head keeps only the summary line (with the colour dot).
 // Dialog: the head's own title.
 export async function expectProjectTitle(page, text, { contains = false } = {}) {
+  // The detail is placed (docked or dialog) when it is shown; before that the head is still the empty template.
+  await expect(page.locator('#ps3DetailModal')).toBeVisible();
   if (await projectDetailDocked(page)) {
     await (contains ? expect(toplineItem(page)).toContainText(text) : expect(toplineItem(page)).toHaveText(text));
     await expect(page.locator('#ps3Title')).toHaveCount(0);
@@ -31,4 +33,7 @@ export async function expectProjectTitle(page, text, { contains = false } = {}) 
   }
 }
 // The project's colour dot: in the title when it is a dialog, on the head's summary line when docked.
-export const projectColorDot = async page => page.locator((await projectDetailDocked(page)) ? '#ps3Summary > .ps3-color-dot' : '#ps3Title .ps3-color-dot');
+export async function projectColorDot(page) {
+  await expect(page.locator('#ps3DetailModal')).toBeVisible();
+  return page.locator((await projectDetailDocked(page)) ? '#ps3Summary > .ps3-color-dot' : '#ps3Title .ps3-color-dot');
+}

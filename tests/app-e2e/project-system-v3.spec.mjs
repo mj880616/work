@@ -886,9 +886,14 @@ for(const width of [390,1280])test(`V3 generated dialogs expose consistent acces
     if(id==='ps3DetailModal'&&width>=1024){await expect(modal).toHaveAttribute('role','region');await expect(modal).not.toHaveAttribute('aria-modal',/.*/);await expect(page.locator('#ps3DetailPane')).toHaveAttribute('aria-label','프로젝트 상세')}
     else{await expect(modal).toHaveAttribute('role','dialog');
     await expect(modal).toHaveAttribute('aria-modal','true');}
+    if(id==='ps3DetailModal'&&width>=1024){
+      // UI-중복제목삭제: 붙은 상세는 제목 줄(#ps3Title)이 없고 상단 줄이 이름을 보이므로 이름은 aria-label로 둔다.
+      await expect(modal).toHaveAttribute('aria-label',/.+/);await expect(modal).not.toHaveAttribute('aria-labelledby',/.*/);await expect(page.locator('#ps3Title')).toHaveCount(0);
+    }else{
     const labelledby=await modal.getAttribute('aria-labelledby');
     expect(labelledby,id).toBeTruthy();
     await expect(page.locator('#'+labelledby)).toHaveCount(1);
+    }
     await expect(modal.locator('[data-ps3-close]').first()).toHaveAttribute('aria-label','닫기');
   }
 });
