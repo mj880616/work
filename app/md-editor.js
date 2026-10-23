@@ -15,6 +15,8 @@ import {applyAction, applyPlainAction, PLAIN_ACTIONS, MERMAID_TEMPLATES, CALLOUT
 import {toTelegram} from './md-telegram.mjs';
 import {toHangul} from './md-hangul.mjs';
 import {createChoiceSheet} from './choice-sheet.js';
+import {createToolbarPops, createGrouping} from './toolbar-pop.js';
+import {TOOLS, GROUPS, GROUP_KEYS, PHONE_ORDER, PHONE_LABELS} from './md-toolbar-layout.mjs';
 
 const ID = 'mdEditor';
 const WIDE = window.matchMedia('(min-width:1024px)');
@@ -23,16 +25,6 @@ const PHONE = window.matchMedia('(max-width:760px)');
 const NAV = '#appView>.app-nav';
 const TABS = `.mobile-tabs button, ${NAV} :is(button, a[href])`;
 const NAV_GAP = 12;
-// [label, action, option, aria] — option groups open a second row of choices.
-const TOOLS = [
-  ['제목', 'heading-menu', null, '제목 단계 고르기'],
-  ['굵게', 'bold'], ['기울임', 'italic'],
-  ['• 목록', 'bullet', null, '글머리 목록'], ['1. 번호', 'number', null, '번호 목록'], ['☐ 체크', 'task', null, '체크 목록'],
-  ['표', 'table', null, '표 틀 넣기'], ['인용', 'quote'], ['코드', 'code'],
-  ['강조 상자', 'callout-menu', null, '강조 상자 종류 고르기'], ['구분선', 'rule'],
-  ['도식', 'mermaid-menu', null, 'Mermaid 도식 틀 고르기'],
-  ['↶ 되돌리기', 'undo', null, '되돌리기'], ['↷ 다시하기', 'redo', null, '다시하기'],
-];
 const MENUS = {
   'heading-menu': [['제목 1', 'heading', '1'], ['제목 2', 'heading', '2'], ['제목 3', 'heading', '3']],
   'callout-menu': CALLOUT_KINDS.map(([kind, label]) => [label, 'callout', kind]),
@@ -206,7 +198,9 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     if (folderBtn) { const label = folder.label?.() || '폴더 없음'; folderBtn.hidden = folder.show ? !folder.show(kind) : false; folderBtn.textContent = label + ' ▾'; folderBtn.title = '노트를 넣을 폴더: ' + label; folderBtn.setAttribute('aria-label', '노트를 넣을 폴더: ' + label + '. 누르면 다른 폴더를 고릅니다'); }
     if (attachRow) {
       const shown = attach.show ? !!attach.show(kind) : true, inTools = shown && !!attach.inTools?.(kind);
-      if (inTools && pickerHost.parentNode !== tools) tools.append(pickerHost);
+      // MD-서식줄묶음: on a phone the [📎 첨부] button is a row of the [넣기 ▾] list (the format row has no room for it).
+      const clipHome = grouped ? panels['g-insert'] : tools;
+      if (inTools && pickerHost.parentNode !== clipHome) clipHome.append(pickerHost);
       else if (!inTools && pickerHost.parentNode !== attachRow) attachRow.prepend(pickerHost);
       attachRow.hidden = !shown; pickerHost.hidden = !shown; attachRow.toggleAttribute('data-md-attach-in-tools', inTools);
     }
@@ -233,11 +227,28 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   const tools = document.createElement('div'), menu = document.createElement('div');
   tools.className = 'md-editor-tools'; tools.setAttribute('role', 'toolbar'); tools.setAttribute('aria-label', '서식');
   menu.className = 'md-editor-menu'; menu.hidden = true; menu.setAttribute('role', 'group');
+  const buttons = {}, homeLabels = {};
   for (const [label, action, option, aria] of TOOLS) {
     const b = button(label, {mdAction: action, mdOption: option}, aria);
-    if (MENUS[action]) b.setAttribute('aria-expanded', 'false');
+    if (MENUS[action]) { b.setAttribute('aria-expanded', 'false'); b.setAttribute('aria-haspopup', 'true'); }
+    buttons[action] = b; homeLabels[action] = label;
     tools.append(b);
   }
+  const homeTools = [...tools.children];
+  // MD-서식줄묶음: the phone's group buttons and the popovers (the groups, and the 제목·강조 상자·도식 choices) — all start empty and hidden.
+  const panels = {};
+  function popPanel(key, label) {
+    const p = document.createElement('div');
+    p.className = 'md-pop'; p.dataset.tbPop = ''; p.hidden = true; p.setAttribute('role', 'group'); p.setAttribute('aria-label', label);
+    panels[key] = p;
+  }
+  for (const [key, label, aria, items] of GROUPS) {
+    const b = button(label, {mdAction: key, mdGroupButton: ''}, aria);
+    b.setAttribute('aria-haspopup', 'true'); b.setAttribute('aria-expanded', 'false');
+    buttons[key] = b; popPanel(key, aria.replace(/ 고르기$/, ''));
+    for (const item of items) buttons[item].dataset.mdGroup = key;
+  }
+  for (const key of Object.keys(MENUS)) popPanel(key, buttons[key].getAttribute('aria-label'));
 
   const panes = document.createElement('div'), area = document.createElement('textarea'), preview = document.createElement('div');
   panes.className = 'md-editor-panes';
@@ -274,7 +285,7 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   const bar = document.createElement('div'), toolRow = document.createElement('div');
   // The format row sits right under the head ([마크다운] box first, then the buttons); a choice row (제목·강조 상자·도식) opens under it.
   toolRow.className = 'md-editor-toolrow'; toolRow.append(...(mdRow ? [mdRow] : []), tools);
-  bar.className = 'md-editor-bar'; bar.append(toolRow, menu);
+  bar.className = 'md-editor-bar'; bar.append(toolRow, menu, ...Object.values(panels));
   shell.append(head, ...(titleWrap ? [titleWrap] : []), bar, panes, ...(attachRow ? [attachRow] : []), status);
 
   let mode = 'write', openMenu = null, timer = 0, closed = false, shown = null, saving = false, pendingAction = null, savedOnce = false;
@@ -333,6 +344,26 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     menu.hidden = !openMenu;
     if (openMenu) menu.setAttribute('aria-label', tools.querySelector(`[data-md-action="${openMenu}"]`).getAttribute('aria-label'));
   }
+  // MD-서식줄묶음: popovers under the pressed button (a phone); the wide screens keep the choice row below the format row (setMenu).
+  const pops = createToolbarPops({panels, order: [...GROUP_KEYS, ...Object.keys(MENUS)], triggerOf: name => buttons[name], bar, root: shell, scrollers: [tools],
+    onOpen: name => {
+      if (name && MENUS[name] && !panels[name].firstChild) panels[name].replaceChildren(...MENUS[name].map(([label, a, o]) => button(label, {mdAction: a, mdOption: o})));
+    }});
+  const grouping = createGrouping({tools, home: () => homeTools, order: PHONE_ORDER, groups: GROUPS, buttons, panels});
+  let grouped = false;
+  function setGrouped(on) {
+    if (on === grouped) return;
+    pops.close(); if (openMenu) setMenu(null);
+    grouped = on;
+    if (on) shell.dataset.mdGrouped = ''; else delete shell.dataset.mdGrouped;
+    // The wide row is first put back whole, so the clip button is found in the same place either way.
+    const clip = pickerHost && (pickerHost.parentNode === tools || pickerHost.parentNode === panels['g-insert']) ? pickerHost : null;
+    if (on) grouping.group(); else grouping.ungroup();
+    if (clip) (on ? panels['g-insert'] : tools).append(clip);
+    for (const [key, text] of Object.entries(PHONE_LABELS)) buttons[key].textContent = on ? text : homeLabels[key];
+    for (const key of Object.keys(MENUS)) panels[key].replaceChildren();
+  }
+  const syncLayout = () => setGrouped(PHONE.matches);
   function replace(from, to, insert) {
     area.focus();
     area.setSelectionRange(from, to);
@@ -345,14 +376,18 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     }
   }
   function run(action, option) {
+    // A group button only opens its list (a second press goes back / closes); the buttons inside it ask about markdown themselves.
+    if (GROUP_KEYS.includes(action)) { pops.toggle(action); return; }
     if (isPlain() && action !== 'undo' && action !== 'redo' && !PLAIN_ACTIONS.includes(action)) {
       if (openMenu) setMenu(null);
+      pops.close();
       pendingAction = [action, option];
-      void markdownChoices().open('markdown', textReturn, tools.querySelector(`[data-md-action="${action}"]`));
+      void markdownChoices().open('markdown', textReturn, buttons[action]);
       return;
     }
-    if (MENUS[action]) { setMenu(action); return; }
+    if (MENUS[action]) { if (grouped) pops.toggle(action); else setMenu(action); return; }
     if (openMenu) setMenu(null);
+    pops.close();
     if (mode === 'preview' && !WIDE.matches) setMode('write', {focus: false});
     if (action === 'undo' || action === 'redo') { area.focus(); try { document.execCommand(action); } catch {} return; }
     const r = (isPlain() ? applyPlainAction : applyAction)(area.value, area.selectionStart, area.selectionEnd, action, option);
@@ -429,6 +464,14 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   area.addEventListener('input', () => { if (!saving) status.textContent = ''; onInput?.(area.value); schedule(); });
   titleBox?.addEventListener('input', () => { status.textContent = ''; });
   shell.addEventListener('keydown', e => {
+    // The popover closes to the list that holds its button (or closes), and the focus goes back to the button that opened it.
+    if (e.key === 'Escape' && pops.name) {
+      e.preventDefault(); e.stopPropagation();
+      const name = pops.name, trigger = buttons[name];
+      pops.open(pops.hostOf(name));
+      (trigger.offsetParent ? trigger : area).focus({preventScroll: true});
+      return;
+    }
     if (e.key === 'Escape' && openMenu) { e.preventDefault(); e.stopPropagation(); setMenu(null); return; }
     if (!(e.ctrlKey || e.metaKey) || e.altKey || e.target !== area) return;
     const key = e.key.toLowerCase();
@@ -464,6 +507,7 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   }
   // window capture runs before every document listener (the deferred-view loader stops a click for a view not loaded yet).
   window.addEventListener('click', onTab, true);
+  PHONE.addEventListener('change', syncLayout);
   const onWide = () => { shell.dataset.mdWide = String(WIDE.matches); placeBesideNav(); if (WIDE.matches) paintPreview(); };
   WIDE.addEventListener('change', onWide);
   PHONE.addEventListener('change', placeBesideNav);
@@ -488,7 +532,7 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   function close({silent = false} = {}) {
     if (closed) return;
     closed = true; clearTimeout(timer); WIDE.removeEventListener('change', onWide); window.removeEventListener('click', onTab, true);
-    PHONE.removeEventListener('change', placeBesideNav); window.removeEventListener('resize', placeBesideNav); navSize?.disconnect();
+    PHONE.removeEventListener('change', placeBesideNav); PHONE.removeEventListener('change', syncLayout); pops.destroy(); window.removeEventListener('resize', placeBesideNav); navSize?.disconnect();
     if (copy.getAttribute('aria-expanded') === 'true') exportSheet?.dismiss();
     if (leavingTab) { leavingTab = null; leaveSheet?.dismiss(); }
     if (pendingAction) { pendingAction = null; markdownSheet?.dismiss(); }
@@ -509,7 +553,7 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   if (attachRow) attach.mount({picker: pickerHost, files: attachRow.querySelector('[data-md-attach-files]'), drop: panes});
   document.documentElement.classList.add('md-editor-open');
   paint(); baseline = snapshot();
-  onWide(); setMode('write', {focus: false});
+  syncLayout(); onWide(); setMode('write', {focus: false});
   // companions: the wide menu is part of the Tab cycle (editor → menu → editor); on a phone there is none.
   window.KPTUA11y?.dialog.activate?.(shell, {trigger, initialFocus: area, onRequestClose: () => requestClose(),
     companions: () => PHONE.matches ? [] : document.querySelectorAll(`${NAV} :is(button, a[href]):not([disabled])`)});

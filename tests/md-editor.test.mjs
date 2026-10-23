@@ -107,7 +107,7 @@ test('the editor module is reusable: no basket imports, text and callbacks only,
   assert.match(src, /export function openMarkdownEditor\(\{text = '', title = '크게 쓰기', onInput = null, onClose = \(\) => \{\}, save = null, draft = false, kinds = null, placeholder = null, noteTitle = null, folder = null, attach = null, markdown = null, keepOpen = false\} = \{\}\)/);
   // NOTE-파일붙이기: the picker place may sit at the end of the format row (inTools); it is still an empty place the opener fills.
   assert.match(src, /attach\.mount\(\{picker: pickerHost, files: attachRow\.querySelector\('\[data-md-attach-files\]'\), drop: panes\}\)/);
-  assert.match(src, /if \(inTools && pickerHost\.parentNode !== tools\) tools\.append\(pickerHost\);/);
+  assert.match(src, /if \(inTools && pickerHost\.parentNode !== clipHome\) clipHome\.append\(pickerHost\);/);
   assert.doesNotMatch(src, /KPTURuntime|\.api\(|fetch\(/);
   for (const file of ['app/md-editor.js', 'app/md-editor-ops.mjs', 'app/md-telegram.mjs', 'app/md-hangul.mjs', 'app/md-editor.css']) {
     // The SVG namespace name (UI-키보드하단바 share icon) is not a request.
