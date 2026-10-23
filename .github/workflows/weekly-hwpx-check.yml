@@ -12,6 +12,8 @@ on:
       - 'tests/weekly-exec-requests.test.mjs'
       - 'tests/weekly-output.test.mjs'
       - 'tests/weekly-hwp-polish.test.mjs'
+      - 'tests/weekly-schedule-polish.test.mjs'
+      - 'app/journal-weekly.js'
       - 'app/weekly-exec-requests.js'
       - 'app/org-name-match.mjs'
       - 'tests/org-name-match.test.mjs'
@@ -29,6 +31,8 @@ on:
       - 'tests/weekly-exec-requests.test.mjs'
       - 'tests/weekly-output.test.mjs'
       - 'tests/weekly-hwp-polish.test.mjs'
+      - 'tests/weekly-schedule-polish.test.mjs'
+      - 'app/journal-weekly.js'
       - 'app/weekly-exec-requests.js'
       - 'app/org-name-match.mjs'
       - 'tests/org-name-match.test.mjs'
@@ -55,7 +59,7 @@ jobs:
           package-manager-cache: false
 
       - name: Unit tests (zip·XML·빈 서식·보고서·바뀐 줄)
-        run: node --test tests/weekly-hwpx.test.mjs tests/weekly-hwpx-draft.test.mjs tests/weekly-exec-requests.test.mjs tests/weekly-output.test.mjs tests/weekly-hwp-polish.test.mjs tests/org-name-match.test.mjs
+        run: node --test tests/weekly-hwpx.test.mjs tests/weekly-hwpx-draft.test.mjs tests/weekly-exec-requests.test.mjs tests/weekly-output.test.mjs tests/weekly-hwp-polish.test.mjs tests/org-name-match.test.mjs tests/weekly-schedule-polish.test.mjs
 
       # 편집기와 같은 rhwp 엔진(@rhwp/core, 고정 버전·무결성은 scripts/hwp-lab/rhwp-pin.json)으로 만든 .hwpx를 다시 연다.
       - name: Fetch pinned rhwp engine

@@ -249,7 +249,8 @@ test('phone toolbar: one grouped row in the requested order, every button still 
 });
 test('phone toolbar: grouping only moves the same button nodes (no copies, so each runs its old command)',()=>{
   const fn=/function setGrouped\(on\)[\s\S]*?\n  \}\n/.exec(edSource)[0];
-  assert.match(fn,/tools\.replaceChildren\(\.\.\.PHONE_ORDER\.map\(k => buttons\[k\]\)/);
+  assert.match(fn,/tools\.replaceChildren\(\.\.\.PHONE_ORDER\.map\(k => k === 'dotNow' \? pair : k === 'symDot' \? null : buttons\[k\]\)/);
+  assert.match(fn,/pair\.replaceChildren\(buttons\.dotNow, buttons\.symDot\)/);
   assert.match(fn,/panels\[key\]\.replaceChildren\(\.\.\.items\.map\(k => buttons\[k\]\)/);
   assert.doesNotMatch(fn,/btn\(|createElement|cloneNode/);
   assert.match(fn,/tools\.replaceChildren\(\.\.\.homeTools, more\)/);

@@ -23,6 +23,9 @@
 //   기존 자료는 한 번씩 다시 보고(연결 판단), 파일 이름만으로 본 자료는 글자가 들어오면 한 번 더 본다. tidy 저장은
 //   app_library_classify_apply(백업·연결 검사·시도 기록 한 트랜잭션), 되돌리기는 app_library_classify_revert(_since).
 //   이 표가 없으면(DB 적용 전) fill은 예전처럼 글 칸 4개만, tidy는 library_not_ready.
+// 주요 일정 제목 다듬기(kind=schedule_titles, WEEKLY-일정다듬기 ④): 주간보고 한글 파일 '5. 주요 일정 — 제목 확인'의 [AI로 다듬기]를 누를 때만.
+//   화면은 주(월요일)와 일정 줄(참조·날짜·시각·달력 제목·장소, 30개까지)만 보낸다(이 쓰임만 몸통 20KB, 나머지는 2KB 그대로).
+//   업무 기록·이름 목록은 서버가 내 로그인으로 읽는다(일기·보관·AI 제외 업데이트 빼고). 답은 제안으로만 돌려주고 저장하지 않는다.
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import {
   dedupeKey, packSources, parseTodoRadar, radarMaterial, RADAR_MAX_OUTPUT_TOKENS, TODO_RADAR_INSTRUCTIONS, TODO_RADAR_SCHEMA,
@@ -42,6 +45,10 @@ import {
   type OrgMaterial, ORG_SUMMARY_INSTRUCTIONS, ORG_SUMMARY_MAX_ORGS, ORG_SUMMARY_MAX_OUTPUT_TOKENS, ORG_SUMMARY_SCHEMA, orgSummaryMaterial,
   packOrgs, parseOrgSummary,
 } from "./org-summary.ts";
+import {
+  addDays as addDayKeys, packScheduleRecords, parseScheduleRequest, parseScheduleTitles, SCHEDULE_BODY_BYTES, SCHEDULE_MAX_OUTPUT_TOKENS,
+  SCHEDULE_MAX_NAMES, SCHEDULE_TITLES_INSTRUCTIONS, SCHEDULE_TITLES_SCHEMA, scheduleMaterial, type ScheduleEvent, type ScheduleRecord,
+} from "./schedule-titles.ts";
 
 export type Env = (name: string) => string | undefined;
 export type Log = (code: string, detail?: Record<string, unknown>) => void;
@@ -65,7 +72,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 50회. 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 50;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, library_fill: 50, org_summary: 50 });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, library_fill: 50, org_summary: 50, schedule_titles: 20 });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -267,24 +274,50 @@ async function rest(ctx: Ctx, path: string, init: { method?: string; body?: unkn
   return await readBoundedJson(r, { maxBytes: DB_RESPONSE_BYTES });
 }
 
+// 몸통은 2KB까지. 주요 일정 제목 다듬기(kind=schedule_titles)만 일정 줄을 실어 20KB까지 받는다(한글 제목 30줄): 20KB까지 읽은 뒤 그 쓰임이 아니면
+// 선언 길이·실제 길이가 2KB를 넘을 때 전처럼 413으로 거절한다.
 async function readBody(req: Request): Promise<unknown> {
   const declared = req.headers.get("Content-Length");
-  if (declared !== null && !(/^\d{1,7}$/.test(declared) && Number(declared) <= MAX_BODY_BYTES)) {
+  if (declared !== null && !(/^\d{1,7}$/.test(declared) && Number(declared) <= SCHEDULE_BODY_BYTES)) {
     throw new Fail(413, "invalid_request");
   }
   const type = (req.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase();
   if (type !== "application/json" || !req.body) throw new Fail(400, "invalid_request");
+  let raw: Uint8Array;
   try {
-    return await readBoundedJson(req, { maxBytes: MAX_BODY_BYTES });
-  } catch {
+    const reader = req.body.getReader(), chunks: Uint8Array[] = [];
+    let size = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > SCHEDULE_BODY_BYTES) { try { await reader.cancel(); } catch { /* ignore */ } throw new Fail(413, "invalid_request"); }
+      chunks.push(value);
+    }
+    raw = new Uint8Array(size);
+    let at = 0;
+    for (const c of chunks) { raw.set(c, at); at += c.byteLength; }
+  } catch (e) {
+    if (e instanceof Fail) throw e;
     throw new Fail(400, "invalid_request");
   }
+  // 다른 쓰임은 예전과 같은 답: 선언 길이가 2KB를 넘으면 413, 선언 없이 실제 몸통이 2KB를 넘으면 400.
+  const declaredBig = declared !== null && Number(declared) > MAX_BODY_BYTES, actualBig = raw.byteLength > MAX_BODY_BYTES;
+  let body: unknown;
+  try {
+    body = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(raw));
+  } catch {
+    throw new Fail(declaredBig ? 413 : 400, "invalid_request");
+  }
+  if ((declaredBig || actualBig) && (body as { kind?: unknown } | null)?.kind !== "schedule_titles") throw new Fail(declaredBig ? 413 : 400, "invalid_request");
+  return body;
 }
 
 type LinkSummaryInput = { kind: "link_summary"; note_id: string; target_kind: "organization" | "project"; target_id: string };
 type TodoRadarInput = { kind: "todo_radar"; mode: "auto" | "again" };
 type LedgerCandidatesInput = { kind: "ledger_candidates" };
 type OrgSummaryInput = { kind: "org_summary"; week_start: string; organization_ids: string[] };
+type ScheduleTitlesInput = { kind: "schedule_titles"; week_start: string; events: ScheduleEvent[] };
 
 // 조직 현황 요약은 주(그 주 월요일, YYYY-MM-DD)와 조직 ID(1~20개, 겹침 없음)만 받는다.
 function parseOrgSummaryRequest(b: Record<string, unknown>): OrgSummaryInput {
@@ -329,7 +362,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LibraryFillInput | OrgSummaryInput {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LibraryFillInput | OrgSummaryInput | ScheduleTitlesInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -343,6 +376,11 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | Ledger
   }
   if (b.kind === "library_fill") return parseLibraryFillRequest(b);
   if (b.kind === "org_summary") return parseOrgSummaryRequest(b);
+  if (b.kind === "schedule_titles") {
+    const parsed = parseScheduleRequest(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    return { kind: "schedule_titles", ...parsed };
+  }
   if (b.kind !== "link_summary") throw new Fail(400, "unsupported_kind");
   const keys = Object.keys(b).sort();
   if (keys.join(",") !== "kind,note_id,target_id,target_kind") throw new Fail(400, "invalid_request");
@@ -1463,6 +1501,123 @@ async function runOrgSummary(ctx: Ctx, input: OrgSummaryInput, deps: RadarDeps):
   return json({ ...base, kept: [...new Set(kept)], items, empty, partial });
 }
 
+// ---- 쓰임 6: 주요 일정 제목 다듬기(schedule_titles, WEEKLY-일정다듬기) ---------------------------------------------
+
+// 재료: 그 주 월요일부터 일정 마지막 날까지의 조직 기록·업데이트(바구니)·업무일지 한 줄·사업 기록(내 프로젝트) + 담당조직·프로젝트 이름.
+// 모두 호출한 사람의 토큰으로 읽어 owner RLS가 그대로 걸린다. 업데이트는 일기·보관·AI 내보내기 비허용을 조건에서 빼고 받은 행도 다시 확인.
+async function loadScheduleMaterial(ctx: Ctx, from: string, toExclusive: string) {
+  const ws = encodeURIComponent(ctx.workspaceId);
+  const fromIso = encodeURIComponent(seoulMidnight(from)), toIso = encodeURIComponent(seoulMidnight(toExclusive));
+  const records: ScheduleRecord[] = [];
+  let partial = false;
+  const full = (rows: unknown[], limit: number) => { if (rows.length >= limit) partial = true; };
+
+  const orgs = await readList(ctx, `app_suborganizations?workspace_id=eq.${ws}&select=id,workspace_id,name,aliases&order=id.asc&limit=500`);
+  const orgName = new Map<string, string>(), orgNames: string[] = [];
+  for (const o of orgs) {
+    if (!isUuid(o.id) || String(o.workspace_id).toLowerCase() !== ctx.workspaceId || typeof o.name !== "string" || !o.name.trim()) continue;
+    orgName.set(String(o.id).toLowerCase(), o.name.trim());
+    const aliases = Array.isArray(o.aliases) ? (o.aliases as unknown[]).filter((a): a is string => typeof a === "string" && !!a.trim()) : [];
+    orgNames.push(aliases.length ? `${o.name.trim()} (다른 이름: ${aliases.slice(0, 5).join(", ")})` : o.name.trim());
+  }
+  const spaces = await readList(ctx, `app_spaces?workspace_id=eq.${ws}&owner_id=eq.${encodeURIComponent(ctx.userId)}&select=id,workspace_id,name,owner_id,status&order=id.asc&limit=500`);
+  const projectName = new Map<string, string>();
+  for (const p of spaces) {
+    if (!isUuid(p.id) || String(p.workspace_id).toLowerCase() !== ctx.workspaceId || String(p.owner_id).toLowerCase() !== ctx.userId) continue;
+    if (typeof p.name !== "string" || !p.name.trim()) continue;
+    projectName.set(String(p.id).toLowerCase(), p.name.trim());
+  }
+  const orgIds = [...orgName.keys()];
+  for (let i = 0; i < orgIds.length; i += IN_CHUNK) {
+    const ids = orgIds.slice(i, i + IN_CHUNK).join(",");
+    const rows = await readList(ctx, `app_suborganization_updates?organization_id=in.(${ids})&occurred_at=gte.${fromIso}&occurred_at=lt.${toIso}&select=id,organization_id,occurred_at,raw_text,detail_text&order=occurred_at.desc&limit=${RADAR_READ_LIMIT}`);
+    full(rows, RADAR_READ_LIMIT);
+    for (const u of rows) {
+      const org = String(u.organization_id).toLowerCase(), at = timeOf(u.occurred_at);
+      if (!isUuid(u.id) || !orgName.has(org) || !Number.isFinite(at)) continue;
+      const text = [u.raw_text, u.detail_text].filter((v) => typeof v === "string" && v.trim()).join("\n");
+      if (text) records.push({ day: kstDay(at), at, type: "org_update", label: orgName.get(org)!, text });
+    }
+  }
+  const notes = await readList(ctx, `app_notes?workspace_id=eq.${ws}&kind=in.(basket,work)&archived_at=is.null&ai_export_allowed=is.true&occurred_at=gte.${fromIso}&occurred_at=lt.${toIso}&select=id,workspace_id,kind,raw_text,occurred_at,journal_day,archived_at,ai_export_allowed&order=occurred_at.desc&limit=${RADAR_READ_LIMIT}`);
+  full(notes, RADAR_READ_LIMIT);
+  for (const n of notes) {
+    if (!isUuid(n.id) || String(n.workspace_id).toLowerCase() !== ctx.workspaceId || !["basket", "work"].includes(String(n.kind))) continue;
+    if (n.archived_at != null || n.ai_export_allowed !== true || typeof n.raw_text !== "string" || !n.raw_text.trim()) continue;
+    const at = timeOf(n.occurred_at);
+    if (!Number.isFinite(at)) continue;
+    const day = n.kind === "work" && typeof n.journal_day === "string" && DAY_RE.test(n.journal_day) ? n.journal_day : kstDay(at);
+    records.push({ day, at, type: n.kind === "work" ? "work" : "update", label: "", text: n.raw_text });
+  }
+  const projectIds = [...projectName.keys()];
+  for (let i = 0; i < projectIds.length; i += IN_CHUNK) {
+    const ids = projectIds.slice(i, i + IN_CHUNK).join(",");
+    const rows = await readList(ctx, `app_project_progress_updates?project_id=in.(${ids})&effective_on=gte.${from}&effective_on=lt.${toExclusive}&select=id,project_id,summary,effective_on,created_at&order=created_at.desc&limit=${RADAR_READ_LIMIT}`);
+    full(rows, RADAR_READ_LIMIT);
+    for (const u of rows) {
+      const project = String(u.project_id).toLowerCase(), at = timeOf(u.created_at);
+      if (!isUuid(u.id) || !projectName.has(project) || typeof u.summary !== "string" || !Number.isFinite(at)) continue;
+      const day = typeof u.effective_on === "string" && DAY_RE.test(u.effective_on) ? u.effective_on : kstDay(at);
+      records.push({ day, at, type: "project_update", label: projectName.get(project)!, text: u.summary });
+    }
+  }
+  return { records, partial, names: { organizations: orgNames.slice(0, SCHEDULE_MAX_NAMES), projects: [...projectName.values()].slice(0, SCHEDULE_MAX_NAMES) } };
+}
+
+async function runScheduleTitles(ctx: Ctx, input: ScheduleTitlesInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const today = kstDay(started);
+  // 400일보다 오래된 주·3주 넘게 앞선 주는 받지 않는다.
+  if (input.week_start < addDays(today, -400) || input.week_start > addDays(today, 21)) throw new Fail(400, "invalid_request");
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+  const budget = await checkBudget(ctx, "schedule_titles", started, config.price);
+  const last = input.events.reduce((a, e) => (e.day > a ? e.day : a), input.week_start);
+  const loaded = await loadScheduleMaterial(ctx, input.week_start, addDayKeys(last, 1));
+  const packed = packScheduleRecords(loaded.records);
+  const partial = loaded.partial || packed.partial;
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch {
+    throw new Fail(503, "usage_unavailable");
+  }
+  const material = scheduleMaterial(input.events, packed.records, loaded.names);
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: SCHEDULE_MAX_OUTPUT_TOKENS,
+    input: [
+      { role: "developer", content: SCHEDULE_TITLES_INSTRUCTIONS },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "schedule_titles", strict: true, schema: SCHEDULE_TITLES_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: SCHEDULE_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  if (!result.ok) {
+    deps.log(result.code);
+    const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
+    throw new Fail(status, result.code);
+  }
+  const parsed = parseScheduleTitles(result.raw, input.events);
+  if (!parsed) {
+    deps.log("ai_invalid_response");
+    throw new Fail(502, "ai_invalid_response");
+  }
+  // 기록에는 숫자만 남긴다(일정 제목·재료 글 없음). 저장하지 않는다.
+  deps.log("schedule_titles_done", { events: input.events.length, items: parsed.items.length, dropped: parsed.dropped, records: packed.records.length, partial });
+  return json({ ok: true, kind: "schedule_titles", week_start: input.week_start, items: parsed.items, partial });
+}
+
 async function insertCandidates(ctx: Ctx, rows: Record<string, unknown>[]) {
   const r = await ctx.doFetch(`${ctx.sb}/rest/v1/app_todo_candidates?on_conflict=workspace_id,dedupe_key&select=id`, {
     method: "POST",
@@ -1502,6 +1657,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "ledger_candidates") return await runLedgerCandidates(ctx, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "library_fill") return await runLibraryFill(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "org_summary") return await runOrgSummary(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "schedule_titles") return await runScheduleTitles(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       const material = await loadLinkSummaryMaterial(ctx, input);
 
       const config = aiConfig(deps.env);
