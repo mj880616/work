@@ -84,12 +84,14 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
         // (at the right side of the text, away from the popover that may cover the middle)
         await box.click({position: {x: viewport.width - 30, y: 150}});
         await expect(pop, `${name} outside`).toBeHidden();
-        await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+        // (On a phone the button sits in a group popover that the outside press closed too, so look it up even when hidden.)
+        await expect(page.locator('.ed-bar').getByRole('button', {name, exact: true, includeHidden: true}), `${name} outside expanded`).toHaveAttribute('aria-expanded', 'false');
         // Esc closes it, and the text box keeps (or gets back) the focus.
         await press(trigger);
         await expect(pop, `${name} reopen`).toBeVisible();
         await page.keyboard.press('Escape');
         await expect(pop, `${name} esc`).toBeHidden();
+        await expect(page.locator('.ed-bar').getByRole('button', {name, exact: true, includeHidden: true}), `${name} esc expanded`).toHaveAttribute('aria-expanded', 'false');
       }
     });
 
