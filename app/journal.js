@@ -77,7 +77,7 @@ root.innerHTML = `<div class="journal-head"><div class="journal-mode-switch" rol
 const $ = selector => root.querySelector(selector);
 const days = $('[data-journal-days]'), input = $('[data-journal-input]'), lineStatus = $('[data-journal-line-status]'), status = $('[data-journal-status]');
 
-let owner = ownerScope(rt), epoch = 0;
+let owner = ownerScope(rt), epoch = 0, sharedEpoch = 0;
 let start = weekStart(todayKey()), selected = todayKey();
 let lines = new Map(), linesState = 'loading';
 let materials = {};
@@ -385,14 +385,18 @@ const readers = {
     return snap.tree;
   },
 };
-async function loadGroup(key, run = epoch, scope = owner) {
+// 방문당 한 번 읽는 재료(할 일·기록함 업데이트·옮긴 노트·프로젝트 트리)는 주를 넘겨도 다시 읽지 않으므로, 주 넘기기(epoch)가 아니라
+// 방문(sharedEpoch)에 묶는다. 주를 먼저 넘기면 오는 중이던 읽기가 버려져 "불러오는 중"으로 남던 문제를 막는다.
+const SHARED_KEYS = new Set(['tasks', 'basket', 'movedNotes', 'catalog']);
+const liveRun = (key, run, scope) => SHARED_KEYS.has(key) ? run === sharedEpoch && scope === ownerScope(rt) : current(run, scope);
+async function loadGroup(key, run = SHARED_KEYS.has(key) ? sharedEpoch : epoch, scope = owner) {
   materials[key] = {status:'loading'}; renderDay(); renderWeekly_();
   try {
     const items = await readers[key]();
-    if (!current(run, scope)) return;
+    if (!liveRun(key, run, scope)) return;
     materials[key] = {status:'ok', items};
   } catch {
-    if (!current(run, scope)) return;
+    if (!liveRun(key, run, scope)) return;
     materials[key] = {status:'failed'};
   }
   renderDay(); renderWeekly_();
@@ -414,20 +418,21 @@ async function loadLines(run, scope) {
 async function loadKinds(run, scope) {
   kinds = {status:'loading'};
   const read = await readKinds(rt);
-  if (!current(run, scope)) return;
+  if (run !== sharedEpoch || scope !== ownerScope(rt)) return;
   kinds = read; renderDay(); renderWeekly_();
 }
 function loadWeek({shared = false} = {}) {
   const changedOwner = owner !== ownerScope(rt);
   const run = ++epoch, scope = owner = ownerScope(rt);
+  const sharedRun = shared || changedOwner ? ++sharedEpoch : sharedEpoch;
   lines = new Map(); status.textContent = ''; editing = null; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()};
   if (changedOwner) hwpx?.close(); else hwpx?.setWeek(start);
   const keys = shared ? Object.keys(readers) : ['events', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'orgSummaries'];
   for (const key of keys) materials[key] = {status:'loading'};
-  if (shared || changedOwner) loadKinds(run, scope);
+  if (shared || changedOwner) loadKinds(sharedRun, scope);
   render();
   loadLines(run, scope);
-  for (const key of keys) loadGroup(key, run, scope);
+  for (const key of keys) loadGroup(key, SHARED_KEYS.has(key) ? sharedRun : run, scope);
 }
 function moveWeek(step) {
   const index = weekDays(start).indexOf(selected);
@@ -830,7 +835,7 @@ input.addEventListener('input', () => {
 
 window.addEventListener('kptu:session-changed', () => {
   if (owner === ownerScope(rt)) return;
-  owner = ownerScope(rt); epoch++;
+  owner = ownerScope(rt); epoch++; sharedEpoch++;
   kinds = {status:'loading'}; drafts = new Map(); lines = new Map(); materials = {}; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; doneDays = DONE_TASK_DAYS; saving = false; editing = null; mode = 'day';
   pendingReturn = null; taskLine.close(); selfBusy = 0; othersOpen = false;
   start = weekStart(todayKey()); selected = todayKey();

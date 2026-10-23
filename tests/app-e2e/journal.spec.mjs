@@ -502,6 +502,26 @@ test('주 단위 넘기기: › 다음 주, ‹‹ 지난주(그 주 한 줄 점
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
+// 2026-10-23 (STAB-CI): 일지를 열자마자 주를 넘겨도, 방문당 한 번 읽는 재료(기록함 업데이트 등)는 주 넘기기에 버려지지 않고 도착한다.
+// 예전에는 주를 넘기면 아직 오는 중이던 이 읽기가 버려져 "불러오는 중"으로 남았고, 느린 실행에서 위 시험이 간헐로 실패했다.
+test('주를 먼저 넘겨도 방문당 한 번 읽는 재료(기록함 업데이트)는 버려지지 않고 나중에 도착한다',async({page})=>{
+ const f=await fixture(page,{width:1280});
+ let release;const gate=new Promise(r=>{release=r;});
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_notes'&&u.searchParams.get('kind')==='eq.basket',async r=>{
+  if(r.request().method()!=='GET')return r.fallback();
+  await gate;return r.fallback();
+ });
+ await openJournal(page,1280);
+ await page.locator('#journalRoot [data-journal-next]').click();
+ await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('10월 12일 ~ 18일');
+ release();
+ await page.locator('#journalRoot [data-journal-prev]').click();await page.locator('#journalRoot [data-journal-prev]').click();
+ await expect(page.locator('#journalRoot [data-journal-title]')).toHaveText('9월 28일 ~ 10월 4일');
+ await date(page,'2026-09-29').click();
+ await openOthers(page);await expect(itemTexts(page,'unsent')).toHaveText(['지난주 메모']);
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+
 test('재료 일부를 못 읽어도 한 줄은 쓰고, 못 읽은 묶음만 안내·[다시 시도]',async({page})=>{
  const f=await fixture(page,{fail:{events:true,tasks:true}});await openJournal(page,390);
  // 접힌 그 밖의 기록도 못 읽은 묶음이 있다고 말한다.
