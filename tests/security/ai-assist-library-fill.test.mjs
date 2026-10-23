@@ -460,7 +460,7 @@ test('categories: renamed 교섭·합의 counts as tidy; the AI guide covers pre
   assert.equal(lib.needsTidy({...doc(1),category:'교섭'},'category',cats),false);
   assert.equal(lib.needsTidy({...doc(1),category:'교섭·합의'},'category',[...lib.DEFAULT_CATEGORIES]),false);
   assert.equal(lib.needsTidy({...doc(1),category:'보도자료'},'category',cats),true);
-  for(const word of ['소식지·웹자보','= 선전','성명서·보도자료','= 성명·보도자료','= 공문','합의서','= 교섭·합의','투쟁명령','교육자료'])
+  for(const word of ['소식지·웹자보','= 선전','성명서·보도자료','= 성명·보도자료','= 공문','합의서','= 교섭·합의','투쟁명령','교육자료','기자회견문 = 성명·보도자료','유인물·현수막 = 선전'])
     assert.ok(lib.LIBRARY_FILL_INSTRUCTIONS.includes(word),word);
 });
 

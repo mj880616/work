@@ -285,9 +285,55 @@ test('html-view returns a basket HTML attachment as text and writes nothing', as
   assert.deepEqual(h.calls.filter(c => c.path.startsWith('/rest/v1/') && c.method !== 'GET'), []);
 });
 
-test('html-view refuses before Drive: library documents, non-HTML, other notes and non-owners', async () => {
+// PRESS-자료실편입: 자료실 자료(`kind:"library"`)의 .html도 같은 검사(서버가 읽은 행·owner·2MB·읽기 전용)로 연다.
+const HTML_DOC = { id: DOC, workspace_id: 'ws-1', file_id: FILE, file_name: '2025-03-04-statement.html' };
+
+test('html-view returns a library HTML document as text from the server-read row and writes nothing', async () => {
+  const h = harness({ document: HTML_DOC, content: PAGE, drive: htmlDrive() });
+  const r = await h.html({ document_id: DOC, workspace_id: 'other-ws', file_id: 'client-file' });
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body, { ok: true, file_name: '2025-03-04-statement.html', size: PAGE.length, html: '<!doctype html><p>카드</p>' });
+  assert.ok(drive(h).length > 0 && drive(h).every(c => c.path.endsWith(FILE)), 'only the server-read Drive file');
+  assert.deepEqual(driveWrites(h), []);
+  assert.deepEqual(h.calls.filter(c => c.path.startsWith('/rest/v1/') && c.method !== 'GET'), []);
+});
+
+test('html-view refuses library documents before Drive: non-HTML (hwp), missing, no Drive file and non-owners', async () => {
   for (const [o, body, code] of [
-    [{ note: HTML_NOTE }, { document_id: DOC }, 'INVALID_REQUEST'],
+    [{}, { document_id: DOC }, 'NOT_HTML'],
+    [{ document: { ...HTML_DOC, file_name: '주간보고.hwpx' } }, { document_id: DOC }, 'NOT_HTML'],
+    [{ document: { ...HTML_DOC, file_name: '자료.pdf' } }, { document_id: DOC }, 'NOT_HTML'],
+    [{ document: HTML_DOC }, { document_id: '20000000-0000-4000-8000-000000000009' }, 'DOCUMENT_NOT_FOUND'],
+    [{ document: { ...HTML_DOC, file_id: null } }, { document_id: DOC }, 'DRIVE_FILE_MISSING'],
+    [{ document: HTML_DOC, role: 'member' }, { document_id: DOC }, 'HWP_REFUSED'],
+    [{ document: HTML_DOC }, { document_id: DOC, note_id: NOTE, drive_file_id: FILE }, 'INVALID_REQUEST'],
+  ]) {
+    const h = harness(o);
+    const r = await h.html(body);
+    assert.equal(r.status, 400, code);
+    assert.equal(r.body.code, code);
+    assert.deepEqual(drive(h), [], code);
+  }
+});
+
+test('html-view refuses library HTML over 2MB without downloading', async () => {
+  const h = harness({ document: HTML_DOC, content: PAGE, drive: htmlDrive({ size: String(2 * 1024 * 1024 + 1) }) });
+  const r = await h.html({ document_id: DOC });
+  assert.equal(r.status, 400);
+  assert.equal(r.body.code, 'FILE_TOO_LARGE');
+  assert.ok(!h.calls.some(c => c.search?.get('alt') === 'media'), 'not downloaded');
+});
+
+test('hwp-open still refuses library HTML documents (editor is HWP/HWPX only)', async () => {
+  const h = harness({ document: HTML_DOC, content: PAGE, drive: htmlDrive() });
+  const r = await h.open({ document_id: DOC });
+  assert.equal(r.status, 400);
+  assert.equal(r.body.code, 'NOT_HWP');
+  assert.deepEqual(drive(h), []);
+});
+
+test('html-view refuses before Drive: non-HTML, other notes and non-owners', async () => {
+  for (const [o, body, code] of [
     [{}, { note_id: NOTE, drive_file_id: FILE }, 'NOT_HTML'],
     [{ note: HTML_NOTE }, { note_id: NOTE, drive_file_id: 'someone-else' }, 'ATTACHMENT_NOT_FOUND'],
     [{ note: HTML_NOTE, role: 'member' }, { note_id: NOTE, drive_file_id: FILE }, 'HWP_REFUSED'],
