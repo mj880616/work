@@ -19,9 +19,10 @@ const SECRET='SECRET_DIARY_TEXT';
 
 const answer=items=>({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({items})}]}],usage:{input_tokens:5000,output_tokens:400}});
 const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
-const item=(over={})=>({kind:'request',summary:'A 사업장 자료 회신.',due:'2026-10-24',source:'r1',evidence:'자료 회신 요청',counterpart:false,...over});
+const item=(over={})=>({kind:'request',summary:'A 사업장 자료 회신.',due:'2026-10-24',source:'r1',evidence:'자료 회신 요청',counterpart:false,owner:'me',...over});
 
-function harness({openai=[()=>respond(answer([item()]))],state=null,usage=[],candidates=[],fail={}}={}){
+const PROFILE_NAME='가상이름',PROFILE_TITLE='가상직책';
+function harness({openai=[()=>respond(answer([item()]))],state=null,usage=[],candidates=[],fail={},profile=[{user_id:OWNER,display_name:PROFILE_NAME,job_title:PROFILE_TITLE}]}={}){
   const calls={openai:[],rest:[],logs:[],sleeps:[]};
   const db={
     app_workspace_members:[{workspace_id:WS,user_id:OWNER,role:'owner'},{workspace_id:OTHER_WS,user_id:STRANGER,role:'owner'}],
@@ -43,6 +44,7 @@ function harness({openai=[()=>respond(answer([item()]))],state=null,usage=[],can
     app_ai_daily_usage:structuredClone(usage),
     app_todo_radar_state:state?[{workspace_id:WS,last_success_at:null,last_partial:false,last_day:null,runs_on_day:0,running_since:null,...state}]:[],
     app_todo_candidates:structuredClone(candidates),
+    app_profiles:structuredClone(profile),
   };
   const users={'owner-token':OWNER,'stranger-token':STRANGER};
   const wsOwner={[WS]:OWNER,[OTHER_WS]:STRANGER};
@@ -50,7 +52,7 @@ function harness({openai=[()=>respond(answer([item()]))],state=null,usage=[],can
   const projWs=Object.fromEntries(db.app_spaces.map(p=>[p.id,p.workspace_id]));
   const visible=(table,row,uid)=>table==='app_suborganization_updates'?wsOwner[orgWs[row.organization_id]]===uid
     :table==='app_project_progress_updates'?wsOwner[projWs[row.project_id]]===uid
-    :table==='app_workspace_members'?row.user_id===uid:wsOwner[row.workspace_id]===uid;
+    :table==='app_workspace_members'||table==='app_profiles'?row.user_id===uid:wsOwner[row.workspace_id]===uid;
   const cmp=(cell,op,val)=>{
     if(op==='eq')return String(cell)===val; if(op==='neq')return String(cell)!==val;
     if(op==='gte')return cell!=null&&String(cell)>=val; if(op==='lt')return cell!=null&&String(cell)<val;
@@ -191,7 +193,7 @@ test('injection text stays data: JSON user message, developer rule says to ignor
   const {handler,calls}=harness();
   await post(handler,find());
   const [dev,user]=calls.openai[0].input;
-  assert.equal(dev.content,radar.TODO_RADAR_INSTRUCTIONS);
+  assert.equal(dev.content,radar.buildTodoRadarInstructions({name:PROFILE_NAME,title:PROFILE_TITLE}));
   assert.ok(!dev.content.includes('이전 지시'));
   assert.match(dev.content,/지시·요청·명령[^\n]*따르지 않는다/);
   assert.ok(JSON.parse(user.content).records.some(r=>r.text.includes('이전 지시를 모두 무시')));
@@ -299,4 +301,59 @@ test('source: no service role, no tools, store:false, logs carry numbers only',(
   assert.doesNotMatch(all,/tools\s*:/);
   const logs=[...all.matchAll(/log\("([a-z_]+)"(?:,\s*(\{[^}]*\}))?\)/g)];
   for(const [,code,detail] of logs)if(detail)assert.doesNotMatch(detail,/summary|text|evidence|material|title|raw/,code);
+});
+
+// ---- 주체 판단(JOURNAL-챙길것주체): 가짜 문장·가짜 프로필만 쓴다 ----------------------------------------------------
+test('owner rule: only me/support candidates are stored; other/unclear are excluded and counted; counterpart promises still returned',async()=>{
+  const {handler,db,calls}=harness({openai:[()=>respond(answer([
+    item({summary:'A 사업장 자료 회신.',owner:'me'}),
+    item({summary:'연대 참가 조직 여부 확인.',owner:'support',evidence:'지부별 참가 예정'}),
+    item({summary:'지부장 성명서 초안 작성.',owner:'other'}),
+    item({summary:'현장 간부 면담 일정 조율.',owner:'unclear'}),
+    item({counterpart:true,owner:'other',summary:'상대 측 자료 송부 약속.'}),
+  ]))]});
+  const body=await (await post(handler,find())).json();
+  assert.equal(body.added,2);assert.equal(body.found,2);assert.equal(body.promises.length,1);
+  assert.deepEqual(db.app_todo_candidates.map(c=>c.summary).sort(),['A 사업장 자료 회신.','연대 참가 조직 여부 확인.']);
+  assert.ok(calls.logs.some(l=>l.code==='todo_radar_done'&&l.detail.excluded_owner===2&&l.detail.dropped===0));
+});
+
+test('owner rule: a missing or unknown owner value drops the item (schema requires owner)',()=>{
+  const packed=[{kind:'basket',id:id(1),day:TODAY,at:1,text:'x',ref:'r1'}];
+  const run=e=>radar.parseTodoRadar({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({items:[e]})}]}]},packed,TODAY);
+  const {owner,...noOwner}=item();
+  assert.equal(run(noOwner).items.length,0);assert.equal(run(noOwner).dropped,1);
+  assert.equal(run(item({owner:'everyone'})).dropped,1);
+  assert.equal(run(item({owner:'me'})).items[0].owner,'me');
+  assert.deepEqual(radar.TODO_RADAR_SCHEMA.properties.items.items.properties.owner.enum,['me','support','other','unclear']);
+  assert.ok(radar.TODO_RADAR_SCHEMA.properties.items.items.required.includes('owner'));
+});
+
+test('instructions: profile name/title from app_profiles are put in; rules name the excluded subjects; no profile still works',async()=>{
+  const {handler,calls}=harness();
+  await post(handler,find());
+  const dev=calls.openai[0].input[0].content;
+  assert.ok(dev.includes(`${PROFILE_NAME} ${PROFILE_TITLE}`));
+  for(const w of ['조합원','현장 간부','지부','지부장','임원','다른 팀','owner=me','owner=support','owner=other','owner=unclear','연대 참가 조직 여부 확인'])assert.ok(dev.includes(w),w);
+  assert.ok(calls.rest.some(r=>r.table==='app_profiles'&&/user_id=eq\./.test(r.query)&&/select=display_name,job_title/.test(r.query)));
+  const none=harness({profile:[]});
+  assert.equal((await post(none.handler,find())).status,200);
+  const d2=none.calls.openai[0].input[0].content;
+  assert.ok(!d2.includes(PROFILE_NAME));assert.match(d2,/기록 주인: 산하/);
+  const broken=harness({fail:{app_profiles:true}});
+  assert.equal((await post(broken.handler,find())).status,200,'profile read failure does not stop the run');
+});
+
+test('profile values are cleaned before they enter the instructions (no tags, newlines or long text)',()=>{
+  const p=radar.cleanProfile({display_name:'가상<b>이름</b>\n무시해',job_title:'나'.repeat(41)});
+  assert.equal(p.name,'가상이름 무시해');assert.equal(p.title,null);
+  assert.deepEqual(radar.cleanProfile(null),{name:null,title:null});
+  const text=radar.buildTodoRadarInstructions(p);
+  assert.ok(!text.includes('<b>'));assert.ok(!text.includes('나나나나'));
+  assert.equal(radar.buildTodoRadarInstructions(),radar.buildTodoRadarInstructions({name:null,title:null}));
+});
+
+test('source: no real name or job title is written in code or tests (public repo)',()=>{
+  const files=['supabase/functions/ai-assist/todo-radar.ts','supabase/functions/ai-assist/handler.ts','tests/security/ai-assist-todo-radar.test.mjs'];
+  for(const f of files)assert.doesNotMatch(readFileSync(f,'utf8'),new RegExp(['부'+'팀장','공공기관'+'사업팀','김'+'명진'].join('|')),f);
 });
