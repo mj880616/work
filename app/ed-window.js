@@ -50,7 +50,7 @@ function ensureStyles() {
   const have = new Set([...document.querySelectorAll('link[rel="stylesheet"]')].map(l => (l.getAttribute('href') || '').split('?')[0].split('/').at(-1)));
   const waits = [];
   for (const path of STYLES) {
-    if (have.has(path.split('/').at(-1))) continue;
+    if (have.has(path.split('?')[0].split('/').at(-1))) continue;
     waits.push(new Promise(resolve => {
       const link = document.createElement('link');
       link.rel = 'stylesheet'; link.href = path; link.dataset.kptuViewStyle = '1';
