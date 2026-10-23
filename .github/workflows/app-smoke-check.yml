@@ -465,7 +465,7 @@ jobs:
           grep -q ".ps3-plist" app/project-system-v3.css
           if grep -Eq "ps3-project-card|ps3-kind|ps3-archive-row" app/project-system-v3.js app/project-system-v3.css; then echo 'project list card layout returned'; exit 1; fi
           grep -q "ps3-more" app/project-system-v3.js
-          grep -q "d.docs.slice(0,5)" app/project-system-v3.js
+          grep -Fq "d.docs.filter(x=>!off.has(categoryOf(x.category))).slice(0,5)" app/project-system-v3.js
           if grep -Eq "data-ps3-nav|data-ps3-doc-filter|ps3DocSearch" app/project-system-v3.js; then echo 'removed project chip row or document filter returned'; exit 1; fi
           grep -q "app-icon.svg" app/project-system-v3.css
           if grep -Eq 'id="projectModal"|id="projectCreateModal"|projectModalTitle|projectUpdates|projectChecks|projectComments' app/index.html; then echo 'legacy project modal returned'; exit 1; fi

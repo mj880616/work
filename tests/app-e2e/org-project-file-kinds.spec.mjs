@@ -137,7 +137,7 @@ async function openOrg(page,id=O){
 }
 
 const kinds=(root)=>root.locator('.doc-category-tag');
-const chip=(host,name)=>host.locator('.doc-kind-chips button',{hasText:new RegExp('^'+name+'$')});
+const chip=(host,name)=>host.locator('button',{hasText:new RegExp('^'+name+'$')});
 
 async function openProjectDetail(page){
  await clickView(page,'projects');await page.evaluate(()=>window.__KPTU_PROJECT_V3_READY__);
