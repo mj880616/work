@@ -1299,6 +1299,16 @@ test('PRJ records stay editable while quick input stays visible and touch target
   await expect(item.locator('[data-ps3-record-count]')).toHaveText('2');await expect(input).toBeVisible();
   await expect(item.locator('[data-ps3-record]')).toHaveCount(2);
 });
+// STAB-project-system-v3-1287: a late background refresh (tasks/meetings changed) must not rebuild the body and erase text typed in the quick record input.
+test('PRJ background refresh keeps text typed in the quick record input',async({page})=>{
+  const state=baseState(),item=await openRecords(page,state),input=item.locator('[data-ps3-record-input] input');
+  await input.fill('쓰던 기록');
+  await page.evaluate(()=>{window.dispatchEvent(new CustomEvent('kptu:tasks-changed'));window.dispatchEvent(new CustomEvent('kptu:meetings-changed'))});
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  await expect(input).toHaveValue('쓰던 기록');
+  await input.press('Enter');
+  await expect(item.locator('[data-ps3-record-count]')).toHaveText('2');await expect(input).toHaveValue('');
+});
 test('PRJ record edit cancels or saves only summary and preserves date and other fields',async({page})=>{
   const state=baseState(),before=structuredClone(state.progress[0]),item=await openRecords(page,state),record=item.locator('[data-ps3-record="pr-1"]');
   await recordAction(page,record,'수정');
