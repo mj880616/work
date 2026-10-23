@@ -57,16 +57,25 @@
 /* 자료 날짜가 없어 올린 날을 보일 때: 더 흐린 글자 + 작은 "올림". */
 .lu-row-date-upload{color:var(--kptu-faint)}
 .lu-row-date-upload small{font-size:10px;white-space:nowrap}
+/* LIB-목록간격 (2026-10-23 사용자 확정 11:02) ①: 자료 줄은 글자 크기·순서(종류·분류·제목·날짜)를 그대로 두고 위아래 여백만 지금의 절반,
+   종류(PDF·HWP·파일)는 36px 상자 대신 작은 꼬리표. 꼬리표 폭은 가장 흔한 세 글자에 맞춰 줄마다 같게 둔다(제목 시작점 정렬).
+   줄 높이는 내용(제목 한 줄)이 정한다. 줄 전체가 누르는 곳이라 별도 최소 높이는 두지 않는다(폰은 두 줄이라 44px를 넘는다). */
+#appView #libraryView #documentList .lu-row{min-height:0;padding-top:calc(var(--ds-row-pad-y,9px) / 2);padding-bottom:calc(var(--ds-row-pad-y,9px) / 2)}
+#appView #libraryView #documentList .lu-file-kind{box-sizing:border-box;min-width:34px;width:auto;height:18px;padding:0 6px;border-radius:var(--kptu-radius-sm,6px);font-size:11px;line-height:18px;white-space:nowrap}
+/* 줄 안 단추(펼치기 꺾쇠·⋯): PC는 보이는 높이만 22px로 줄여 줄 높이를 단추가 밀어 올리지 않게 한다. 누르는 범위 44px는 공용 ::after 그대로(UI-버튼기준). 폰은 두 줄 줄이라 그대로 32px. */
+@media(min-width:761px){#appView #libraryView #documentList .lu-row :is(.lu-expand,.lu-more-trigger){height:22px;min-height:0}}
 /* 폰 M2: 두 단 격자 — 위 [이름(2줄까지) | 날짜 | ⋯], 아래 [종류 | 분류]. 종류는 상자 없이 색 글자. */
 @media(max-width:760px){
   .lu-row-title{white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2}
-  #appView #libraryView #documentList .lu-row{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto auto;grid-template-areas:"title title title date menu" "kind tag . . menu";column-gap:6px;row-gap:3px;align-items:center}
+  /* LIB-목록간격 ③: 두 줄 — 위 [이름(2줄까지) | ⋯], 아래 작은 글씨 [종류 · 분류 · 날짜]. 분류·날짜는 '분류 · 날짜'로 이어 쓴다. */
+  #appView #libraryView #documentList .lu-row{display:grid;grid-template-columns:auto auto auto minmax(0,1fr) auto;grid-template-areas:"title title title title menu" "kind tag date . menu";column-gap:6px;row-gap:2px;align-items:center}
   #appView #libraryView #documentList .lu-row-title{grid-area:title}
-  #appView #libraryView #documentList .lu-row-date{grid-area:date;align-self:start;margin-top:2px;padding-left:4px}
+  #appView #libraryView #documentList .lu-row-date{grid-area:date;align-self:center;margin:0;padding:0;font-size:var(--ds-text-meta,12px);line-height:18px;white-space:nowrap}
+  #appView #libraryView #documentList .lu-row-date::before{content:"·";margin-right:6px}
   #appView #libraryView #documentList .lu-more-trigger{grid-area:menu}
-  #appView #libraryView #documentList .lu-file-kind{grid-area:kind;display:block;width:auto;height:auto;padding:0;background:transparent;font-size:11px;font-weight:var(--ds-weight-medium,500);line-height:18px}
+  #appView #libraryView #documentList .lu-file-kind{grid-area:kind;display:block;width:auto;min-width:0;height:auto;padding:0;background:transparent;font-size:11px;font-weight:var(--ds-weight-medium,500);line-height:18px}
   #appView #libraryView #documentList .lu-row-tag{grid-area:tag;min-width:0}
-  #appView #libraryView #documentList .lu-row-tag .doc-category-tag{height:18px;line-height:18px;font-size:11px}
+  #appView #libraryView #documentList .lu-row-tag .doc-category-tag{display:inline;height:auto;padding:0;border-radius:0;background:transparent;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-regular,400);line-height:18px;text-align:left}
   #appView #libraryView #documentList .lu-expand{display:none}
 }
 /* B안 펼치기: 잘린 줄에만 ⋯ 왼쪽 작은 꺾쇠. 펼친 줄은 이름 전체를 여러 줄로 보이고 꺾쇠를 위로 돌린다. */
@@ -125,6 +134,8 @@
 
 /* UI-PC자료실 C: 분류 칩 여러 개 고르기. 고른 칩은 앱 공통 기준(회색 '그 밖' 색), 안 고른 칩은 흰 바탕. */
 #appView #libraryView #libraryCategoryFilter button[aria-pressed="true"]{color:var(--ds-kind-other-ink);background:var(--ds-kind-other-soft);border-color:var(--ds-kind-other-soft)}
+/* LIB-거르기전체: [전체]가 일부만 켜진 상태(aria-pressed="mixed")는 반쯤 찬 칩 — 왼쪽 절반만 고른 색, 나머지는 흰 바탕. 글자는 기본 글자색. */
+#appView #libraryView #libraryCategoryFilter button[aria-pressed="mixed"]{color:var(--kptu-ink);background-color:var(--kptu-surface);background-image:linear-gradient(90deg,var(--ds-kind-other-soft) 50%,transparent 50%);border-color:var(--ds-kind-other-soft)}
 /* 꺼진 분류 칩은 흐리게: 글자는 보조 글자색(대비 4.5:1 이상), 테두리는 반쯤 옅게. 초점 표시는 공용 규칙 그대로. */
 #appView #libraryView #libraryCategoryFilter button[aria-pressed="false"]{color:var(--kptu-muted);border-color:color-mix(in srgb,var(--ds-line) 50%,transparent)}
 .lu-off-hint{margin:8px 0 0;padding-top:8px;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
@@ -167,7 +178,11 @@
 #appView #libraryView .lu-node-head::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 #appView #libraryView .lu-node-head:hover{background:var(--kptu-surface-subtle)}
 #appView #libraryView .lu-node-head:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
-#appView #libraryView .lu-node[data-lu-node-kind="group"][style*="--lu-depth:0"] > .lu-node-head{font-weight:var(--ds-weight-bold,700)}
+/* LIB-목록간격 ②(2026-10-23 사용자 확정 11:02): 폴더 줄 글자는 자료 줄 이름과 같은 크기(--ds-text-row), 맨 위 단(프로젝트 이름·'프로젝트 없음')만 굵게,
+   하위 프로젝트·폴더는 보통 굵기에 단마다 들여 쓴다. 줄 간격은 지금보다 조금 넓게(32 → 36px). 누르는 범위(44px)는 ::after 그대로.
+   공용 규칙(ui-standard.css 목록 글자: summary 500)보다 앞서도록 #documentList까지 한정한다. */
+#appView #libraryView #documentList .lu-node > summary.lu-node-head{min-height:calc(var(--ds-compact-height,32px) + 4px);padding-top:8px;padding-bottom:8px;font-size:var(--ds-text-row,13px);font-weight:var(--ds-weight-regular,400)}
+#appView #libraryView #documentList .lu-node > summary.lu-node-head[data-lu-top]{font-weight:700}
 #appView #libraryView .lu-node-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #appView #libraryView .lu-node-count{flex:none;font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,500);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
 #appView #libraryView .lu-kdots{flex:none;display:inline-flex;gap:3px;margin-left:2px}

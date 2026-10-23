@@ -133,11 +133,11 @@ for(const width of [390,1440]){
     await boot(page,{width});
     const rows=page.locator('.lu-row');await expect(rows).toHaveCount(10);
     const kind=rows.first().locator('.lu-file-kind'),title=rows.first().locator('.lu-row-title');
-    // UI-PC자료실: PC는 36px 종류 상자, 폰(M2)은 이름 아래 작은 줄의 색 글자(상자 없음).
+    // LIB-목록간격(2026-10-23): PC는 36px 종류 상자 대신 작은 꼬리표(높이 18px), 폰(M2)은 이름 아래 작은 줄의 색 글자(상자 없음).
     if(width<761){for(const [property,value]of [['background-color','rgba(0, 0, 0, 0)'],['font-size','11px']])await expect(kind).toHaveCSS(property,value)}
-    else for(const [property,value]of [['width','36px'],['height','36px'],['border-radius','8px'],['font-size','11px']])await expect(kind).toHaveCSS(property,value);
+    else for(const [property,value]of [['height','18px'],['border-radius','6px'],['font-size','11px']])await expect(kind).toHaveCSS(property,value);
     // UI-디자인기준 3/3(8-9e-1): 상자 안 줄 단위(줄 최소 44px), 이름 13px·400, 보조 글자(날짜) 12px.
-    await expect(rows.first()).toHaveCSS(width<761?'column-gap':'gap',width<761?'6px':'10px');await expect(rows.first()).toHaveCSS('padding-top','9px');await expect(rows.first()).toHaveCSS('padding-bottom','9px');await expect(rows.first()).toHaveCSS('padding-left',width<761?'12px':'16px');// LIB-토글트리: 토글 안 파일 줄은 단마다 들여 쓴다(폰 12px, PC 16px).await expect(rows.first()).toHaveCSS('min-height','44px');
+    await expect(rows.first()).toHaveCSS(width<761?'column-gap':'gap',width<761?'6px':'10px');await expect(rows.first()).toHaveCSS('padding-top','4.5px');await expect(rows.first()).toHaveCSS('padding-bottom','4.5px');// LIB-목록간격: 위아래 여백은 예전 9px의 절반.await expect(rows.first()).toHaveCSS('padding-left',width<761?'12px':'16px');// LIB-토글트리: 토글 안 파일 줄은 단마다 들여 쓴다(폰 12px, PC 16px).await expect(rows.first()).toHaveCSS('min-height','0px');
     await expect(title).toHaveCSS('font-size','13px');await expect(title).toHaveCSS('font-weight','400');
     await expect(rows.first().locator('.lu-row-date')).toHaveCSS('font-size','12px');
     expect(await rows.locator('.lu-file-kind').allTextContents()).toEqual(['HWP','PDF','XLS','DOC','PPT','파일','HWP','XLS','DOC','PPT']);
@@ -170,11 +170,13 @@ for(const width of [390,1440]){
     if(width<1024){
       await clickView(page,'meetings');await page.waitForFunction(()=>window.KPTUViewLoader.isLoaded('meetings'));await expect(page.locator('#meetingList .meeting-list-row').first()).toBeVisible();
       const meetingRows=page.locator('#meetingList .meeting-list-row');
-      expect(await style(meetingRows.nth(await meetingRows.count()>1?1:0))).toEqual(libraryRow);
+      // LIB-목록간격(2026-10-23): 자료 줄은 위아래 여백이 절반이라 회의 줄과 여백·최소 높이는 일부러 다르다. 나머지 모양(모서리·그림자·바탕)은 같다.
+      const {paddingTop,paddingBottom,minHeight,...shape}=libraryRow,meetingRow=await style(meetingRows.nth(await meetingRows.count()>1?1:0));
+      expect({borderRadius:meetingRow.borderRadius,boxShadow:meetingRow.boxShadow,backgroundColor:meetingRow.backgroundColor}).toEqual(shape);
     }else{
       await clickView(page,'meetings');await page.waitForFunction(()=>window.KPTUViewLoader.isLoaded('meetings'));await expect(page.locator('#meetingList .mcol-card').first()).toBeVisible();
     }
-    expect(libraryRow).toEqual({paddingTop:'9px',paddingBottom:'9px',minHeight:'44px',borderRadius:'0px',boxShadow:'none',backgroundColor:'rgba(0, 0, 0, 0)'});
+    expect(libraryRow).toEqual({paddingTop:'4.5px',paddingBottom:'4.5px',minHeight:'0px',borderRadius:'0px',boxShadow:'none',backgroundColor:'rgba(0, 0, 0, 0)'});
     await before.close();
   });
   test('library menu closes outside, Escape and Back without opening document '+width,async({page})=>{
@@ -187,7 +189,7 @@ for(const width of [390,1440]){
     await expect.poll(()=>page.evaluate(()=>history.state?.kptuLibraryMenu||null)).toBe(null);
     await menu(page);await page.goBack();await expect(page.locator('.lu-more-panel')).toBeHidden();await expect(page).toHaveURL(url);
     // D-3c pseudo-element: click 4px outside the visible 32px icon.
-    const trigger=page.locator('.lu-more-trigger').first(),r=await trigger.boundingBox();expect(r.width).toBe(32);expect(r.height).toBe(32);
+    const trigger=page.locator('.lu-more-trigger').first(),r=await trigger.boundingBox();expect(r.width).toBe(32);expect(r.height).toBe(width<761?32:22);// LIB-목록간격: PC는 줄 높이를 밀지 않게 보이는 높이 22px(누르는 범위는 ::after 44px 그대로).
     await page.mouse.click(r.x-4,r.y+r.height/2);await expect(page.locator('.lu-more-panel')).toBeVisible();await expect(page).toHaveURL(url);
   });
   test('library row click and Enter use the existing open path '+width,async({page,browser})=>{
@@ -269,7 +271,7 @@ for(const width of [390,1280]){
       // UI-바구니거르기: no [일반 자료|회의자료만] row; meeting-linked documents list with the rest by their category.
       await expect(page.locator('#libraryViewFilter')).toHaveCount(0);await expect(page.getByRole('radiogroup',{name:'자료 종류',exact:true})).toHaveCount(0);
       expect(await ids()).toEqual(['ordinary-a','meeting-a','ordinary-b']);
-      await expect(pressed('회의')).toHaveAttribute('aria-pressed','false');await expect(pressed('전체')).toHaveAttribute('aria-pressed','false');
+      await expect(pressed('회의')).toHaveAttribute('aria-pressed','false');await expect(pressed('전체')).toHaveAttribute('aria-pressed','mixed');// LIB-거르기전체: 일부만 켜짐
       await expect(page.locator('#libraryMeetingToggle')).toHaveCount(0);
       // The group-by row (LIB-토글트리, in place of the project chip row) and the category chip row stay; meeting documents are the [회의] category (회의자료·회의결과).
       await expect(page.locator('#libraryGroupBy')).toBeVisible();await expect(category).toHaveAttribute('aria-controls','documentList');
@@ -279,10 +281,12 @@ for(const width of [390,1280]){
       expect(await ids()).toEqual(['ordinary-a','category-only','meeting-a','ordinary-b','meeting-b']);
       await onlyLibraryCategories(page,['회의'],{tap:width===390});expect(await ids()).toEqual(['category-only','meeting-b']);
       await page.screenshot({path:`/tmp/library-two-meetings-${width}.png`,fullPage:true});
-      // Keyboard: [전체] turns every category on, and pressing it again returns to the default (회의 off).
+      // Keyboard (LIB-거르기전체): [전체] turns every category on, pressing it again turns every category off ('고른 종류 없음'), and a third press turns all on; [회의] off returns to the default.
       await pressed('전체').focus();await page.keyboard.press('Enter');
       await expect(rows).toHaveCount(5);await expect(pressed('전체')).toHaveAttribute('aria-pressed','true');await expect(pressed('전체')).toBeFocused();
-      await page.keyboard.press('Space');await expect(rows).toHaveCount(3);await expect(pressed('회의')).toHaveAttribute('aria-pressed','false');await expect(pressed('전체')).toBeFocused();
+      await page.keyboard.press('Space');await expect(rows).toHaveCount(0);await expect(pressed('전체')).toHaveAttribute('aria-pressed','false');await expect(pressed('전체')).toBeFocused();await expect(page.locator('#documentList')).toHaveText('고른 종류 없음');
+      await page.keyboard.press('Enter');await expect(rows).toHaveCount(5);await expect(pressed('전체')).toBeFocused();
+      await pressed('회의').click();await expect(rows).toHaveCount(3);await expect(pressed('회의')).toHaveAttribute('aria-pressed','false');
       await focusLibraryProject(page,'top-a');
       await page.locator('#documentSearch').fill('철도');
       // A search follows the chips; a hit in a switched-off category is reported below the list with [켜기].
@@ -302,13 +306,13 @@ for(const width of [390,1280]){
       await pressed('정책').click();await pressed('정책').click();
       expect(await storageKeys()).toEqual(before);
       await pressed('정책').click();await expect(rows).toHaveCount(3);
-      // Every entry to the library starts from the default: only [회의] off.
+      // 이 가짜 서버는 프로필의 library_view를 저장하지 않으므로 서버에 기억된 것이 없다 → 들어올 때마다 기본: only [회의] off. (기억 동작은 library-list-filters.spec.mjs)
       await page.evaluate(()=>window.KPTURouter.go('home'));await expect(page.locator('#homeView')).toBeVisible();
       await page.evaluate(()=>window.KPTURouter.go('library'));
-      expect(await ids()).toEqual(['ordinary-a','meeting-a','ordinary-b']);await expect(category.locator('[aria-pressed="false"]')).toHaveText(['전체','회의']);
+      await expect.poll(ids).toEqual(['ordinary-a','meeting-a','ordinary-b']);await expect(category.locator('[aria-pressed="false"]')).toHaveText(['회의']);// 서버 읽기가 끝나면(기억 없음) 기본.
       // An old address or remembered view (?view=library) lands on the default list.
       await page.reload();await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
-      await expect(rows).toHaveCount(3);await expect(category.locator('[aria-pressed="false"]')).toHaveText(['전체','회의']);await expect(page.locator('#libraryViewFilter')).toHaveCount(0);
+      await expect(rows).toHaveCount(3);await expect(category.locator('[aria-pressed="false"]')).toHaveText(['회의']);await expect(page.locator('#libraryViewFilter')).toHaveCount(0);
       expect(documentQueries.length).toBeGreaterThan(0);
       for(const params of documentQueries)expect(params.has('meeting_id')).toBe(false);
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

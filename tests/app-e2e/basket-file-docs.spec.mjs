@@ -312,7 +312,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`library
  const chips=page.locator('#libraryCategoryFilter');
  // UI-PC자료실 C: 분류 칩은 여러 개 켜고 끄는 토글(aria-pressed). 들어올 때는 [회의]만 꺼져 있다.
  await expect(chips.getByRole('button')).toHaveText(['전체','교섭','투쟁','교육','선전','정책','회의','기타']);
- await expect(chips.locator('[aria-pressed="false"]')).toHaveText(['전체','회의']);
+ await expect(chips.locator('[aria-pressed="false"]')).toHaveText(['회의']);await expect(chips.locator('[data-lu-category="all"]')).toHaveAttribute('aria-pressed','mixed');// LIB-거르기전체: 일부만 켜진 [전체]는 mixed.
  // LIB-토글트리: 프로젝트로 걸러 들어오면 그 프로젝트 토글이 펼쳐져 있고, 안은 날짜 최신순(자료 날짜가 없으면 올린 날).
  await expect(page.locator(`#documentList details[data-lu-node="p:${P}"]`)).toHaveAttribute('open','');
  await expect(page.locator('#documentList .lu-row')).toHaveText([/교섭 요구안/,/기자회견 웹자보/,/회의 메모/,/국토부 지침/,/집회 계획/]);
