@@ -270,6 +270,36 @@ export function scaleWidths(widths, target, bounds) {
   return {widths: out, total: total};
 }
 
+// ED-폰표칸버튼: [넓게]/[좁게] on the cursor's column. widths = px per column (all > 0), delta = +/- px, bounds {min, room}
+// (room = the text width). Widening past a full table takes the room from the widest other columns (never under min);
+// narrowing stops at min. Returns the new widths (the same numbers when nothing can change).
+export function stepWidths(widths, col, delta, bounds) {
+  var b = bounds || {}, min = intIn(b.min, 1, LIMITS.colWidth, 24), list = [], total = 0, i;
+  for (i = 0; i < (widths || []).length; i++) { var w = Math.round(Number(widths[i])); list.push(w > 0 ? w : min); total += list[i]; }
+  if (!(col >= 0 && col < list.length) || !delta) return list;
+  var want = Math.round(delta);
+  if (want < 0) { list[col] = Math.max(Math.min(min, list[col]), list[col] + want); return list; }
+  want = Math.min(want, LIMITS.colWidth - list[col]);
+  var limit = Math.max(Number(b.room) > 0 ? Number(b.room) : total, total), take = Math.max(0, total + want - limit);
+  while (take > 0) {
+    var widest = -1;
+    for (i = 0; i < list.length; i++) if (i !== col && list[i] > min && (widest < 0 || list[i] > list[widest])) widest = i;
+    if (widest < 0) break;
+    var cut = Math.min(take, list[widest] - min);
+    list[widest] -= cut; take -= cut;
+  }
+  list[col] += want - take;
+  return list;
+}
+// [고르게]: every column the same width, the table's total kept (never under min per column; the last column takes the rest).
+export function evenWidths(widths, min) {
+  var m = intIn(min, 1, LIMITS.colWidth, 24), n = (widths || []).length, total = 0, i, out = [];
+  for (i = 0; i < n; i++) total += Math.max(m, Math.round(Number(widths[i])) || m);
+  var each = Math.max(m, Math.floor(total / (n || 1))), sum = 0;
+  for (i = 0; i < n; i++) { out.push(i === n - 1 ? Math.max(m, total - sum) : each); sum += each; }
+  return out;
+}
+
 // Size of the saved form as JSON text (bytes), for the opener's own limits.
 export function docBytes(value) {
   try { return new TextEncoder().encode(JSON.stringify(value)).length; } catch (e) { return Infinity; }
