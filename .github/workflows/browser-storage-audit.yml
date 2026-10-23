@@ -74,6 +74,7 @@ jobs:
               # Toolbar regression only reads the existing device-local preference.
               'tests/app-e2e/calendar-toolbar-one-row.spec.mjs':[r"localStorage\.getItem\('kptu-calendar-view'\)"],
               'tests/app-e2e/calendar-edit-move.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
+              'tests/app-e2e/calendar-drag-move.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
               'tests/app-e2e/modal-typography.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
               'tests/app-e2e/calendar-tasks.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
               'tests/app-e2e/swipe-nav-follow.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
