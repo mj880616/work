@@ -4,9 +4,12 @@
 // SHARE-전체편집: a page that is one 글(doc) block — every new page — opens as a full writing screen (renderFull): one thin
 // line (‹ · 초안/게시 · 프로젝트 · 링크 · 저장), the editor's button row, a big title and the text, over the whole content area.
 // A page with old blocks (한 줄 현황 …) keeps the block editor below (설계 4.2, [새 편집기로 바꾸기]).
-// SHARE-페이지삭제: each list line has a ⋯ (right-click on a PC opens the same menu: context-menu.js) with [삭제]. Delete = keep the
-// record and set status 'archived' (share-pages-archive.mjs): it leaves the list and the public link stops (share-page-read shows only
-// 'published'); links, photo records and photo files are untouched. One confirmation, then 5 seconds of [되돌리기].
+// SHARE-페이지삭제: each list line has a ⋯ (right-click on a PC opens the same menu: context-menu.js) with [보관] and [삭제].
+// 보관 = keep the record, status 'archived' (share-pages-archive.mjs): it leaves the list for the 보관함 and the public link stops
+// (share-page-read shows only 'published'); links and photos stay. One confirmation, then 5 seconds of [되돌리기].
+// 보관함 = one small folded line under the list ('보관함 n'); its lines have a ⋯ with [되살리기] (always back as a draft) and
+// [완전히 삭제]. 삭제 = for good, on the server (share-page-media purge_page: photo files first, then the page; links and photo
+// records go with it). One confirmation, no undo. A kept page is not opened in the editor (a save would bring it back unseen).
 // Storage is the owner-RLS tables from PR 1 through the shared runtime (authenticated REST); no new RPC.
 // A link value (token) is read from the DB only when [복사] is pressed and goes straight to the clipboard: it is never
 // drawn, kept in this module, logged or stored in the browser. Lists read only id·label·expiry·off·created.
@@ -18,7 +21,7 @@ import {createDocEditor} from './ed-editor.js';
 import {createSharePhotos, shareIdOf, SHARE_PHOTO_MAX} from './share-photos.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {offerUndoNotice} from './basket-record-delete.js';
-import {archiveFilter, archiveConfirmText, archivePatch, undoPatch, shortTitle} from './share-pages-archive.mjs';
+import {archiveFilter, boxFilter, archiveConfirmText, purgeConfirmText, archivePatch, undoPatch, restorePatch, purgePage, shortTitle} from './share-pages-archive.mjs';
 
 (() => {
 if (window.KPTUSharePages) return;
@@ -54,6 +57,7 @@ const message = (e, fallback) => (e?.status === 401 || e?.code === 'session_requ
 
 let scope = ownerScope(), epoch = 0;
 let pages = null, listState = 'idle';
+let box = null, boxOpen = false; // 보관함: the kept pages (id·title·updated_at), read with the list; folded unless opened
 let editing = null; // {id, title, status, project_id, blocks, updated_at, saved, links, linksState, mode:'full'|'blocks'}
 let busy = false, layer = null;
 // ED-통합편집기 ①b: the open 글(doc) block is edited with the new editor (ed-editor.js). One instance at a time, for the
@@ -82,6 +86,14 @@ function renderList() {
       el('span', {class:`sp-pill ${page.status === 'published' ? 'is-on' : ''}`, text:page.status === 'published' ? '게시' : '초안'})),
     el('button', {type:'button', class:'sp-row-more', dataset:{spRowMenu:page.id}, 'aria-label':`${shortTitle(page.title)} 더 보기`,
       'aria-haspopup':'true', 'aria-expanded':'false', 'aria-controls':'spRowMenu'}, el('span', {'aria-hidden':'true', text:'⋯'}))))));
+  if (box?.length) body.push(el('details', {class:'sp-box', open:boxOpen, dataset:{spBox:''}},
+    el('summary', {class:'sp-box-summary', text:`보관함 ${box.length}`}),
+    el('ul', {class:'sp-list sp-box-list', 'aria-label':'보관함'}, box.map(page => el('li', {},
+      el('div', {class:'sp-row sp-box-row'},
+        el('span', {class:'sp-row-title', text:page.title || '제목 없음'}),
+        el('span', {class:'sp-row-meta', text:day(page.updated_at)})),
+      el('button', {type:'button', class:'sp-row-more', dataset:{spBoxMenu:page.id}, 'aria-label':`${shortTitle(page.title)} 더 보기`,
+        'aria-haspopup':'true', 'aria-expanded':'false', 'aria-controls':'spRowMenu'}, el('span', {'aria-hidden':'true', text:'⋯'})))))));
   listView.replaceChildren(head, status, ...body);
   view.dataset.sharePagesReady = '1';
 }
@@ -90,10 +102,13 @@ async function loadList({force = false} = {}) {
   const run = ++epoch, owner = scope;
   listState = 'loading'; renderList();
   try {
-    const rows = await rt.api(`/rest/v1/app_share_pages?workspace_id=eq.${q(workspaceId())}&select=id,title,status,project_id,updated_at&${archiveFilter}&order=updated_at.desc`, {singleFlight:false});
+    const ws = q(workspaceId());
+    const [rows, kept] = await Promise.all([
+      rt.api(`/rest/v1/app_share_pages?workspace_id=eq.${ws}&select=id,title,status,project_id,updated_at&${archiveFilter}&order=updated_at.desc`, {singleFlight:false}),
+      rt.api(`/rest/v1/app_share_pages?workspace_id=eq.${ws}&select=id,title,updated_at&${boxFilter}&order=updated_at.desc`, {singleFlight:false})]);
     if (run !== epoch || owner !== scope) return;
-    if (!Array.isArray(rows)) throw new Error('bad list');
-    pages = rows; listState = 'ready';
+    if (!Array.isArray(rows) || !Array.isArray(kept)) throw new Error('bad list');
+    pages = rows; box = kept; listState = 'ready';
   } catch (e) {
     if (run !== epoch || owner !== scope) return;
     listState = 'error';
@@ -101,13 +116,22 @@ async function loadList({force = false} = {}) {
   renderList();
 }
 
-// ── delete = archive (SHARE-페이지삭제) ──
+// ── 보관 · 보관함 · 삭제 (SHARE-페이지삭제) ──
 let rowMenu = null, rowBusy = false;
+const MENU_ITEMS = {
+  list:'<button type="button" data-sp-row-action="archive">보관</button><button type="button" class="task-inline-danger" data-sp-row-action="purge">삭제</button>',
+  box:'<button type="button" data-sp-row-action="restore">되살리기</button><button type="button" class="task-inline-danger" data-sp-row-action="purge">완전히 삭제</button>',
+};
 function ensureRowMenu() {
   return rowMenu ||= createAnchoredMenu({id:'spRowMenu', className:'task-inline-menu sp-row-menu', label:'공유 페이지 관리', historyKey:'kptuSharePageMenu',
-    key:t => t.dataset.spRowMenu, canOpen:() => !rowBusy && !editing,
-    render:() => '<button type="button" class="task-inline-danger" data-sp-row-action="delete">삭제</button>',
-    onAction:(button, active) => { if (button.dataset.spRowAction === 'delete') void archivePage(active.id); }});
+    key:t => t.dataset.spRowMenu ? `list:${t.dataset.spRowMenu}` : `box:${t.dataset.spBoxMenu}`, canOpen:() => !rowBusy && !editing,
+    render:key => MENU_ITEMS[key.startsWith('box:') ? 'box' : 'list'],
+    onAction:(button, active) => {
+      const id = active.id.slice(active.id.indexOf(':') + 1), action = button.dataset.spRowAction;
+      if (action === 'archive') void archivePage(id);
+      else if (action === 'restore') void restorePage(id);
+      else if (action === 'purge') void purge(id);
+    }});
 }
 const listNote = text => { const node = listView.querySelector('[data-sp-list-status]'); if (node) node.textContent = text; };
 async function archivePage(id) {
@@ -115,15 +139,17 @@ async function archivePage(id) {
   if (!page || rowBusy) return;
   if (!window.confirm(archiveConfirmText(page))) return;
   const owner = scope, wasStatus = page.status, wasUpdated = page.updated_at;
-  rowBusy = true; listNote('삭제하는 중…');
+  rowBusy = true; listNote('보관하는 중…');
   try {
     const rows = await rt.api(`/rest/v1/app_share_pages?${archivePatch.where(id, workspaceId(), wasUpdated)}&select=id,updated_at`,
       {method:'PATCH', prefer:'return=representation', body:archivePatch.body(new Date().toISOString())});
     if (owner !== scope) return;
     if (!Array.isArray(rows) || rows.length !== 1) { listNote('다른 곳에서 바뀐 페이지예요. 목록을 다시 불러왔어요.'); void loadList({force:true}); return; }
     const archivedAt = rows[0].updated_at;
-    pages = pages.filter(p => p.id !== id); renderList(); listNote('');
-    offerUndoNotice({text:wasStatus === 'published' ? '공유 페이지를 삭제했어요. 링크도 열리지 않아요.' : '공유 페이지를 삭제했어요.', onUndo:async () => {
+    pages = pages.filter(p => p.id !== id);
+    box = [{id, title:page.title, updated_at:archivedAt}, ...(box || []).filter(p => p.id !== id)];
+    renderList(); listNote('');
+    offerUndoNotice({text:wasStatus === 'published' ? '보관함으로 옮겼어요. 링크도 열리지 않아요.' : '보관함으로 옮겼어요.', onUndo:async () => {
       if (owner !== scope) return {status:'stale'};
       try {
         const back = await rt.api(`/rest/v1/app_share_pages?${undoPatch.where(id, workspaceId(), archivedAt)}&select=id`,
@@ -131,11 +157,48 @@ async function archivePage(id) {
         if (owner !== scope) return {status:'stale'};
         if (!Array.isArray(back) || back.length !== 1) return {status:'failed', message:'되돌리지 못했어요. 목록을 다시 불러와 확인해 주세요.'};
         void loadList({force:true});
-        return {status:'restored', message:'삭제한 공유 페이지를 되돌렸어요.'};
+        return {status:'restored', message:'보관을 되돌렸어요.'};
       } catch (e) { return {status:'failed', message:message(e, '되돌리지 못했어요. 다시 시도해 주세요.')}; }
     }});
   } catch (e) {
-    if (owner === scope) listNote(message(e, '삭제하지 못했어요. 다시 시도해 주세요.'));
+    if (owner === scope) listNote(message(e, '보관하지 못했어요. 다시 시도해 주세요.'));
+  } finally { rowBusy = false; }
+}
+// 되살리기: back to the list as a draft (설계: no column keeps the old status; a page that was published is shown again only after
+// the owner presses 게시, so a link is never opened again without being seen). Conditional on the kept row as the screen read it.
+async function restorePage(id) {
+  const page = box?.find(p => p.id === id);
+  if (!page || rowBusy) return;
+  const owner = scope;
+  rowBusy = true; listNote('되살리는 중…');
+  try {
+    const rows = await rt.api(`/rest/v1/app_share_pages?${restorePatch.where(id, workspaceId(), page.updated_at)}&select=id`,
+      {method:'PATCH', prefer:'return=representation', body:restorePatch.body(new Date().toISOString())});
+    if (owner !== scope) return;
+    if (!Array.isArray(rows) || rows.length !== 1) { listNote('다른 곳에서 바뀐 페이지예요. 목록을 다시 불러왔어요.'); void loadList({force:true}); return; }
+    await loadList({force:true});
+    if (owner === scope) listNote('초안으로 되살렸어요. 다시 공개하려면 열어서 [게시]를 눌러 주세요.');
+  } catch (e) {
+    if (owner === scope) listNote(message(e, '되살리지 못했어요. 다시 시도해 주세요.'));
+  } finally { rowBusy = false; }
+}
+// 삭제(완전히): the server checks the owner, removes the photo files, then the page (links and photo records by cascade). No undo.
+async function purge(id) {
+  const page = pages?.find(p => p.id === id) || box?.find(p => p.id === id);
+  if (!page || rowBusy) return;
+  if (!window.confirm(purgeConfirmText(page))) return;
+  const owner = scope;
+  rowBusy = true; listNote('삭제하는 중…');
+  try {
+    const result = await purgePage(id, {rt});
+    if (owner !== scope) return;
+    if (result.ok) {
+      pages = pages?.filter(p => p.id !== id) ?? pages; box = box?.filter(p => p.id !== id) ?? box;
+      renderList(); listNote('공유 페이지를 완전히 삭제했어요.');
+    } else {
+      listNote(result.message);
+      if (result.status === 404) void loadList({force:true}).then(() => { if (owner === scope) listNote(result.message); });
+    }
   } finally { rowBusy = false; }
 }
 
@@ -686,7 +749,7 @@ root.addEventListener('click', event => {
   const d = target.dataset;
   if ('spNew' in d) { if (!busy) showEditor(null); return; }
   if ('spReload' in d) { void loadList({force:true}); return; }
-  if (d.spRowMenu) { ensureRowMenu().open(target); return; }
+  if (d.spRowMenu || d.spBoxMenu) { ensureRowMenu().open(target); return; }
   if (d.spOpen) { void openPage(d.spOpen); return; }
   if (!editing) return;
   if ('spClose' in d) { closeEditor(); return; }
@@ -775,6 +838,7 @@ root.addEventListener('keydown', event => {
   if (editing.open >= 0 && event.target.closest?.('.sp-block.is-editing')) { event.preventDefault(); closeBlock(); }
 });
 // One menu open at a time; a press outside closes them.
+root.addEventListener('toggle', event => { if (event.target.matches?.('details.sp-box')) boxOpen = event.target.open; }, true);
 root.addEventListener('toggle', event => { if (event.target.open && event.target.matches?.('details.sp-more,details.sp-slot')) closeMenus(event.target); }, true);
 document.addEventListener('click', event => {
   if (!editing) return;
@@ -800,7 +864,7 @@ window.addEventListener('kptu:session-changed', () => {
   const next = ownerScope();
   if (next === scope) return;
   dropDocEditor();
-  scope = next; epoch++; pages = null; listState = 'idle'; editing = null; layer = null; busy = false;
+  scope = next; epoch++; pages = null; box = null; boxOpen = false; listState = 'idle'; editing = null; layer = null; busy = false;
   editorView.replaceChildren(); editorView.hidden = true; editorView.classList.remove('is-full'); listView.hidden = false;
   delete view.dataset.spEditing; view.removeAttribute('data-sp-full');
   renderList();

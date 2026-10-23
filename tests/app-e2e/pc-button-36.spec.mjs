@@ -107,6 +107,7 @@ test('PC 1280: 공유 페이지 큰 버튼([새 공유 페이지]·[다시 불�
  await page.route(`${SB}/rest/v1/app_share_pages**`,route=>{
   if(route.request().method()!=='GET')return route.fallback();
   const id=new URL(route.request().url()).searchParams.get('id');
+  if(new URL(route.request().url()).searchParams.get('status')==='eq.archived')return route.fulfill({status:200,contentType:'application/json',body:'[]'});
   if(!id&&listFails)return route.fulfill({status:500,contentType:'application/json',body:'{"message":"fixture"}'});
   return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([row])});
  });
