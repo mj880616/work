@@ -37,12 +37,12 @@ for(const width of [1280,1440]){
  test(`PC ${width}: [HWP 편집] 아래 한 줄, 오른쪽에서 위로 열림(아래끝 맞춤·잘림 없음), 두 묶음 2열·새 탭, 바깥·Esc로 닫힘`,async({page})=>{
   const {errors}=await open(page,width);
   await expect(row(page)).toBeVisible();await expect(row(page)).toHaveText(/자주 가는 링크\s*›/);
-  // The row is the last menu row (right before the sidebar spacer), directly under whichever menu row comes before it.
-  // It does not depend on [쓰기]: when [쓰기] leaves the sidebar the row stays at the same place in the list.
-  expect(await row(page).evaluate(el=>el.nextElementSibling?.classList.contains('sidebar-spacer'))).toBe(true);
-  const prev=await row(page).evaluate(el=>{let p=el.previousElementSibling;while(p&&!p.getClientRects().length)p=p.previousElementSibling;const r=p.getBoundingClientRect();return {y:r.y,height:r.height}});
+  // UI-사이드바링크아래: the row sits at the very bottom of the sidebar, after the spacer, with empty space between the menu and it.
+  expect(await row(page).evaluate(el=>el.previousElementSibling?.classList.contains('sidebar-spacer'))).toBe(true);
+  const hwp0=await page.locator('#appView>.app-nav [data-view="hwp"]').boundingBox(),nav0=await page.locator('#appView>.app-nav').boundingBox();
   const r=await row(page).boundingBox();
-  expect(r.y).toBeGreaterThanOrEqual(prev.y+prev.height-1);expect(r.y).toBeLessThan(prev.y+prev.height+12);
+  expect(r.y).toBeGreaterThan(hwp0.y+hwp0.height+40);
+  expect(nav0.y+nav0.height-(r.y+r.height)).toBeLessThanOrEqual(20);
   await expect(row(page)).toHaveAttribute('aria-expanded','false');
   await row(page).click();
   await expect(panel(page)).toBeVisible();await expect(row(page)).toHaveAttribute('aria-expanded','true');
@@ -78,6 +78,17 @@ for(const width of [1280,1440]){
   expect(errors).toEqual([]);
  });
 }
+
+test('PC 1280×560: 메뉴가 길어도 줄은 마지막 메뉴 바로 아래(겹치지 않음), 창은 줄 오른쪽에서 위로 열림',async({page})=>{
+ const {errors}=await open(page,1280,{height:560});
+ await row(page).scrollIntoViewIfNeeded();
+ const hwp=await page.locator('#appView>.app-nav [data-view="hwp"]').boundingBox(),r=await row(page).boundingBox();
+ expect(r.y).toBeGreaterThanOrEqual(hwp.y+hwp.height-1);
+ await row(page).click();await expect(panel(page)).toBeVisible();
+ const p=await panel(page).boundingBox();
+ expect(p.x).toBeGreaterThanOrEqual(r.x+r.width);expect(p.y).toBeGreaterThanOrEqual(0);expect(p.y+p.height).toBeLessThanOrEqual(560);
+ expect(errors).toEqual([]);
+});
 
 test('PC 1280 짧은 창(높이 520): 줄이 아래쪽이라도 창 위끝이 화면 안, 아래끝은 줄 아래끝 이내',async({page})=>{
  const {errors}=await open(page,1280,{height:520});
@@ -186,11 +197,11 @@ test('저장된 목록이 틀린 모양이면 믿지 않고 초기 링크(편집
  expect(errors).toEqual([]);
 });
 
-test('PC 1280: [쓰기]가 사이드바에 없어도 줄은 같은 자리(목록 끝)에 남고 창이 그대로 열린다',async({page})=>{
+test('PC 1280: 줄은 사이드바 맨 아래에 있고 창이 그대로 열린다',async({page})=>{
  const {errors}=await open(page,1280);
  await expect(page.locator('#appView>.app-nav .nav-write')).toHaveCount(0);
  const hwp=await page.locator('#appView>.app-nav [data-view="hwp"]').boundingBox(),r=await row(page).boundingBox();
- expect(r.y).toBeGreaterThanOrEqual(hwp.y+hwp.height-1);expect(r.y).toBeLessThan(hwp.y+hwp.height+12);
+ expect(r.y).toBeGreaterThan(hwp.y+hwp.height+40);
  await row(page).click();await expect(panel(page)).toBeVisible();
  const p=await panel(page).boundingBox();expect(Math.abs((p.y+p.height)-(r.y+r.height))).toBeLessThanOrEqual(1.5);
  expect(errors).toEqual([]);

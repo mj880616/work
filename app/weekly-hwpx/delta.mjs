@@ -4,7 +4,8 @@
 // 2) applyPatch: AI(또는 사람)가 낸 "고칠 목록"을 바탕에 적용. 목록은 줄 단위 add/replace/remove만, 내 줄만, 바꿀 줄 원문이 정확히
 //    있어야 함. 맞지 않는 항목은 적용하지 않고 rejected로 돌려준다(사람이 확인). 바뀐/더한 줄은 changed 표시(파란 글씨).
 // 3) diffRows: 두 판의 내 줄을 줄 단위로 비교(같음/더함/뺌) — 비교 메모와 "지난주에 고친 문구를 또 고치지 않기" 검사에 씀.
-// 4) personalReportFromTeam: 상집보고 전체 구조(W3 확대)의 개인본 바탕 — 요약 표 내 줄, 내 담당 조직 줄, 요청 표는 직전 주 그대로 + "이번 주 확인 필요".
+// 4) personalReportFromTeam: 상집보고 전체 구조(W3 확대)의 개인본 바탕 — 요약 표 내 줄, 내 담당 조직 줄. 요청 표는 비워 두고
+//    그 주에 저장한 요청 줄로 채운다(WEEKLY-임원요청정리, app/weekly-exec-requests.js — 지난주 줄은 걸러서 가져옴).
 import {lineText, isChanged} from './report.mjs';
 
 const key = (area, row) => `${area.join('')}›${(row.task ?? []).join('')}`;
@@ -59,10 +60,10 @@ export function personalFromTeam(teamSummary, me) {
 
 // 상집보고 전체 구조의 개인본 바탕(다음 주 초안의 출발점).
 // - 요약 표: personalFromTeam(내 줄만, 틀 그대로)
-// - 1. 요청사항 표: 재료(임원 일정 배정·논의 요청 기록)가 아직 없으므로 직전 주 확정본 그대로 두고 확인 필요 표시 줄을 단다.
+// - 1. 요청사항 표: 비운다. 직전 주 확정본을 그대로 옮기지 않는다(WEEKLY-임원요청정리, 2026-10-23 사용자 요청) — 화면이 그 주 요청 줄
+//   (지난주 줄 가운데 날짜가 안 지났고 내 사업장·사업과 관련된 줄 + 직접 넣은 줄, weekly-exec-requests.js formRequests)로 채운다.
 // - 4. 산하조직 현황: 내 담당 조직(myOrgs) 줄만, 확정본 순서대로. 글은 확정본 그대로(지난주 소식이 바탕, 바뀐 것만 고침).
 // - 3. 투쟁 사업장 현황: 내 담당 조직이면 남김. 집회·농성 표, 2) 세부 내용(회의 결과 상자), 5. 주요 일정은 매주 새로 쓰므로 비움.
-export const REQUEST_CHECK_NOTE = '※ 직전 주 확정본 그대로임 — 이번 주 확인 필요';
 const sameName = (a, b) => norm(a) === norm(b);
 export const isMyOrg = (org, myOrgs) => myOrgs.some(name => sameName(name, [].concat(org).join('')));
 // 내 담당 조직 줄만 남김. 확정본 줄 테두리(borders)를 따라가고, 바로 위 줄이 빠진 줄은 cutAbove(위 선 닫기, report.mjs pairGrid).
@@ -71,17 +72,33 @@ function keepOrgRows(rows, myOrgs) {
   return kept.map((r, i) => ({org: [...r.org], status: r.status.map(lineText), ...(r.borders ? {borders: [...r.borders]} : {}),
     ...(Number.isInteger(r.src) ? {src: r.src, cutAbove: i === 0 ? r.src !== 0 : kept[i - 1].src !== r.src - 1} : {})}));
 }
-export function personalReportFromTeam(team, me, {myOrgs = [], title = '', date = ''} = {}) {
+// WEEKLY-출력정리 ②(2026-10-23 사용자 요청 12:25): 4. 산하조직 현황 표는 내 담당 조직(약속된 조직) 전부를 정해진 순서로 늘 둔다.
+// 확정본에 줄이 없는 조직도 조직명만 채우고 현황 칸은 빈 줄로 남긴다(취합 담당이 표를 그대로 복사해 모으므로 줄 수·순서가 매주 같아야 함).
+// 순서: 조직보고 순서(가나다순 — 공항철도지부, 김포도시철도지부, 대구교통공사노동조합 … 지티엑스에이운영지부, 이름 비교는 ko 정렬).
+// 확정본에 같은 조직 줄이 여럿이면 확정본 순서대로 모두 그 조직 자리에 둔다. orgList = [{name, aliases}](my-organizations.js 결과).
+// 3. 2) 투쟁 사업장 현황은 투쟁 중인 사업장만 적는 표라 지금처럼 확정본에 있는 내 담당 조직 줄만 둔다.
+export const reportOrgOrder = orgList => [...orgList].sort((a, b) => String(a?.name ?? '').localeCompare(String(b?.name ?? ''), 'ko'));
+function allOrgRows(rows, orgList) {
+  const list = rows ?? [], used = new Set(), picked = [];
+  for (const org of reportOrgOrder(orgList)) {
+    const names = [org.name, ...(Array.isArray(org.aliases) ? org.aliases : [])].map(n => String(n ?? '').trim()).filter(Boolean);
+    const hits = list.filter((r, i) => !used.has(i) && names.some(n => sameName(n, [].concat(r.org).join(''))));
+    for (const r of hits) used.add(list.indexOf(r));
+    if (hits.length) picked.push(...hits); else picked.push({org: [String(org.name ?? '').trim()], status: []});
+  }
+  return picked.map((r, i) => ({org: [...r.org], status: r.status.map(lineText), ...(r.borders ? {borders: [...r.borders]} : {}),
+    ...(Number.isInteger(r.src) ? {src: r.src, cutAbove: i === 0 ? r.src !== 0 : picked[i - 1].src !== r.src - 1} : {})}));
+}
+export function personalReportFromTeam(team, me, {myOrgs = [], orgList = null, title = '', date = ''} = {}) {
   return {
     title, date,
-    requests: structuredClone(team.requests ?? []),
-    requestNote: (team.requests ?? []).length ? REQUEST_CHECK_NOTE : undefined,
+    requests: [],
     schedule: [],
     summary: personalFromTeam(team.summary ?? [], me),
     details: [],
     rallies: [],
     sites: keepOrgRows(team.sites, myOrgs),
-    orgs: keepOrgRows(team.orgs, myOrgs),
+    orgs: orgList ? allOrgRows(team.orgs, orgList) : keepOrgRows(team.orgs, myOrgs),
     orgNotes: [],
     calendar: [],
     calendarNotes: [],

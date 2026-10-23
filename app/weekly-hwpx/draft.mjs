@@ -60,8 +60,9 @@ export function resolveMe(team, profileName) {
   return found ? {me: found, from: 'confirmed'} : {me: String(profileName ?? '').trim(), from: 'profile'};
 }
 
-export function startDraft(team, {me, myOrgs = [], title, date}) {
-  return personalReportFromTeam(team, me, {myOrgs, title: title ?? team.title ?? '', date});
+// orgList(선택): 내 담당 조직 [{name, aliases}] — 주면 4. 산하조직 현황 표에 그 조직 전부를 조직보고 순서로 둔다(delta.mjs allOrgRows).
+export function startDraft(team, {me, myOrgs = [], orgList = null, title, date}) {
+  return personalReportFromTeam(team, me, {myOrgs, orgList, title: title ?? team.title ?? '', date});
 }
 
 // 고칠 줄(내 담당 요약 표 줄). index = effectiveOwners 순서(assembleDraft가 같은 순서로 찾는다).
