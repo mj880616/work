@@ -137,7 +137,7 @@ function setupMeetingNamePicker(select,input,match,use,{current='',names=meeting
 }
 // 다른 화면(자료실 회의 고르기 등)이 쓰는 회의 이름표도 회의 화면과 같은 차수·짧은 이름·회의 시각 규칙(MEET-결과정리 ①③).
 function meetingDisplay(m){return {name:meetingName(m)||'회의명 미지정',meta:meetingRowMeta(m)}}
-window.KPTUMeetingNames={installPicker:installMeetingNamePicker,setupPicker:setupMeetingNamePicker,label:m=>{const {name,meta}=meetingDisplay(m);return [name,...meta].join(' · ')}};
+window.KPTUMeetingNames={installPicker:installMeetingNamePicker,choices:meetingNameChoices,setupPicker:setupMeetingNamePicker,label:m=>{const {name,meta}=meetingDisplay(m);return [name,...meta].join(' · ')}};
 // MEET-결과정리 ②: 종류마다 서로 다른 색 칸(meeting-columns.js assignMeetingColors). 회의 목록이 바뀔 때만 다시 나눈다.
 let meetingColorCache={source:null,slots:new Map()};
 function meetingColor(name){const key=meetingNameKey(name);if(!key)return '#808080';if(meetingColorCache.source!==meetings)meetingColorCache={source:meetings,slots:assignMeetingColors(meetings,{nameOf:meetingName,keyOf:meetingNameKey})};const slot=meetingColorCache.slots.get(key);return meetingPaletteColor(slot??nameHash(key)%MEETING_HUES)}

@@ -100,6 +100,7 @@
 #meetingModal .meeting-create-modes{margin:0 0 var(--kptu-space-3)}
 /* MTG-사업보고말바꾸기: [회의] 칸이 아니면 회의명 고르기(목록)를 숨기고 제목 한 칸만 둔다. [파일·글로 만들기]는 회의를 만드는 길이라 [회의] 칸에서만 보인다. */
 #meetingModal:not([data-report-kind="meeting"]) :is(#meetingNameSelect,#meetingNameMatch,.meeting-create-modes){display:none}
+#meetingRoundDetailModal:not([data-report-kind="meeting"]) :is(#mrdEditNameSelect,#mrdEditNameMatch){display:none}
 #meetingModal:not([data-create-mode="files"]) #mffPanel,
 #meetingModal[data-create-mode="files"] .modal-card>:is(fieldset.meeting-entry-section,#saveMeetingBtn,#meetingStatus){display:none}
 #mffPanel .mtg-group{margin-bottom:var(--kptu-space-2)}

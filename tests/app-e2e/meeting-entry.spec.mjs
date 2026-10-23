@@ -257,10 +257,11 @@ test('meeting material upload attempts every selected file and reports partial f
     }
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([meeting])});
   });
-  await page.route(`${SB}/functions/v1/meeting-files**`,async route=>{
+  // MEET-파일AI분류: 새 사업 보고의 자료도 자료실 올리기와 같은 library-files 요청으로 올린다(meeting_id 칸으로 연결).
+  await page.route(`${SB}/functions/v1/library-files**`,async route=>{
     uploadCount++;
     if(uploadCount===2)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'upload failed'})});
-    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({id:'doc-1'})});
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,document:{id:'00000000-0000-4000-8000-00000000000'+uploadCount,meeting_id:'meeting-files'}})});
   });
 
   await page.locator('#newMeetingBtn').click();
@@ -1017,7 +1018,8 @@ test('meeting integration keeps project auto-selection and one direct render pat
   expect(detail).not.toContain('mrdAiDraft');
   expect(team).toContain('series_name:title');
   expect(team).toContain('transcript_text:transcript');
-  expect(team).toContain("/functions/v1/meeting-files");
+  expect(team).toContain("uploadFileForMeeting");
+  expect(read('app/library-upload.js')).toContain("fd.append('meeting_id',target.id)");
   expect(project).toContain("window.KPTUReportEntry.open({targets:[{kind:'project',id:current.id}]");
   expect(project).toContain('s.value=project.id');
   expect(files).toContain('file.size>100*1024*1024');

@@ -5,6 +5,8 @@
 export const PC_QUERY='(min-width:1024px)';
 export const NONE_KEY='__none__';
 // UI-회의자료표시(2026-10-20): 회의에 붙은 자료가 있으면 개수 없이 이 문구만 보인다(폰 목록). 없으면 표시 없음. PC 3단 가운데 줄에는 보이지 않는다(MEET-결과3단).
+import {reportKindOf} from './report-kinds.mjs';
+import {reportWords} from './report-words.mjs';
 export const MEETING_DOCS_LABEL='회의자료 있음';
 
 const time=m=>{const t=new Date(m?.meeting_at).getTime();return Number.isFinite(t)?t:-Infinity};
@@ -115,16 +117,17 @@ export function resultText(m){if(m?.transcript_text!=null&&String(m.transcript_t
 // MTG-사업보고 4단계: kindLabel(칸 글자, 예: '언론')이 오면 메타 줄 맨 앞에 'X 칸'으로 보인다(data-report-kind-label).
 // UI-중복제목삭제: 이 칸은 PC(≥1024)에서만 그려지고 상단 줄이 이미 "회의 이름 차수"를 보이므로, 머리에는 제목 줄이 없고 메타 줄(칸·시각·프로젝트)과 ⋯만 둔다.
 export function resultHtml(m,{kindLabel='',when='',project='',legacyTitle='',docs=[],fileLine,tasksHtml=''}){
+  const words=reportWords(reportKindOf(m));
   const meta=[legacyTitle&&hasRound(m)?`기존 제목: ${legacyTitle}`:'',when,m?.location&&String(m.location).trim()?`장소 ${String(m.location).trim()}`:'',project?`연결 ${project}`:''].filter(Boolean);
   const notes=String(m?.notes||'');
-  const files=docs.length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mcol-file',end:`<button class="file-line-open" type="button" data-meeting-doc="${esc(d.id)}" aria-label="${esc(name)} 내려받기"></button>`})}).join(''):'<p class="mcol-empty">회의자료가 없습니다.</p>';
+  const files=docs.length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mcol-file',end:`<button class="file-line-open" type="button" data-meeting-doc="${esc(d.id)}" aria-label="${esc(name)} 내려받기"></button>`})}).join(''):`<p class="mcol-empty">${esc(words.materialsEmpty)}</p>`;
   return `<header class="mcol-result-head"><div class="mcol-result-title">${meta.length||kindLabel?`<p class="mcol-result-meta">${kindLabel?`<span data-report-kind-label>${esc(kindLabel)} 칸</span>`:''}${meta.map(x=>`<span>${esc(x)}</span>`).join('')}</p>`:''}</div>`
     +`<button type="button" class="icon-btn mcol-more" data-meeting-more="${esc(m.id)}" aria-label="사업 보고 관리" aria-haspopup="true" aria-expanded="false" aria-controls="mcolMenu"><span aria-hidden="true">⋯</span></button></header>`
     +`<div class="mcol-result-body">`
-    +`<section class="mcol-block" aria-labelledby="mcolTextHead"><h4 id="mcolTextHead">결과 원문</h4><div class="mcol-text">${esc(resultText(m))}</div></section>`
+    +`<section class="mcol-block" aria-labelledby="mcolTextHead"><h4 id="mcolTextHead">${esc(words.textLabel)}</h4><div class="mcol-text">${esc(resultText(m))}</div></section>`
     +(notes.trim()?`<section class="mcol-block" aria-labelledby="mcolNotesHead"><h4 id="mcolNotesHead">특이사항</h4><div class="mcol-text mcol-notes">${esc(notes)}</div></section>`:'')
     +`<section class="mcol-block" aria-labelledby="mcolTasksHead"><h4 id="mcolTasksHead">후속 할 일</h4><div id="mcolTasks" class="mcol-tasks" aria-live="polite">${tasksHtml}</div></section>`
-    +`<section class="mcol-block" aria-labelledby="mcolDocsHead"><h4 id="mcolDocsHead">회의자료</h4><div class="mcol-files">${files}</div></section>`
+    +`<section class="mcol-block" aria-labelledby="mcolDocsHead"><h4 id="mcolDocsHead">${esc(words.materials)}</h4><div class="mcol-files">${files}</div></section>`
     +`</div>`;
 }
 // 후속 할 일 읽기 줄: 동그라미(완료면 채움)·이름·기한. 누르는 곳 없음(고칠 때는 ⋯ → 수정).
