@@ -34,7 +34,7 @@ async function mockApp(page,state){
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
     if(path==='/functions/v1/library-files'){
       const raw=(req.postDataBuffer()||Buffer.from('')).toString('utf8');
-      const names=[...raw.matchAll(/name="([^"]+)"/g)].map(m=>m[1]);
+      const names=[...raw.matchAll(/(?<![a-z])name="([^"]+)"/g)].map(m=>m[1]);
       const field=name=>raw.match(new RegExp(`name="${name}"\\r\\n\\r\\n([^\\r]*)`))?.[1]??null;
       const fileName=raw.match(/filename="([^"]*)"/)?.[1]||'file';
       state.log.push('replace');state.replaces.push({names,id:field('replace_document_id'),fileName});

@@ -412,6 +412,8 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // TASK-추가창파일: 할 일 등록 창·Google 할 일 추가 창의 메모 아래에 [파일 붙이기] 줄(숨은 파일 칸·안내 글자)이 생겼다.
   // 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다(기존 요소는 하나도 빼지 않는다).
   for(const [id,memo] of [['eventTaskFiles','#eventDescription'],['gtNewFiles','#gtEditNotes']]){if(!await page.locator('#'+id).count())continue;const html=await page.locator('#'+id).evaluate(el=>el.outerHTML);if(await original.locator(memo).count())await original.locator(memo).evaluate((el,html)=>el.closest('label').insertAdjacentHTML('afterend',html),html)}
+  // LIB-수정파일교체: 자료 [수정] 창 맨 위에 파일 줄(현재 파일·[파일 교체]·[이전 파일 ▾]·숨은 파일 칸)이 생겼다. 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다(기존 요소는 하나도 빼지 않는다).
+  {const html=await page.locator('#libraryEditFile').evaluate(el=>el.outerHTML);await original.locator('#libraryEditTitle').evaluate((el,html)=>el.closest('label').insertAdjacentHTML('beforebegin',html),html)}
   const before=await d6bSnapshot(original,d6bCurrentSelectors),after=await d6bSnapshot(page,d6bCurrentSelectors);
   // Line 202: main styled #ps3Objective by this rule; the same header line (#ps3Summary) keeps that font size.
   const headerRow=before[d6bSelectors.indexOf(d6bProgressLine)];
