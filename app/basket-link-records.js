@@ -125,7 +125,7 @@ function recordMenu(host){
 // on the exact previous summary. [AI 요약] never saves and never replaces typed text without [이걸로 바꾸기]; any automatic
 // filler must send expected NULL, so a summary a person saved (non-NULL) makes it fail with SUMMARY_CHANGED instead of overwriting.
 const LINK_KINDS=['basket','note'];
-export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=()=>true,onUpdated=()=>{},onRemoved=()=>{},onOpenNote=null},rt=window.KPTURuntime){
+export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=()=>true,onUpdated=()=>{},onRemoved=()=>{},onOpenNote=null,onBig=null},rt=window.KPTURuntime){
   const states=new Map();let epoch=0;
   const valid=(state,run,owner)=>run===epoch&&states.get(state.id)===state&&owner===scope(rt)&&isCurrent()&&host.isConnected;
   function clear(){epoch++;states.clear();host.querySelectorAll('[data-link-summary-form]').forEach(form=>form.remove());host.querySelectorAll('.basket-link-record [data-basket-link-menu]').forEach(button=>button.disabled=false);host.querySelectorAll('[data-link-action-status]').forEach(status=>{status.textContent='';status.hidden=true;});}
@@ -135,7 +135,7 @@ export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=
     const existing=formFor(id);if(existing){existing.querySelector('textarea')?.focus();return;}
     const row=[...host.querySelectorAll('[data-basket-link]')].find(row=>row.dataset.basketLink===id);if(!row)return;
     const state={id,expected:record.summary??null,busy:false,needsReview:false,latest:null,ai:newAiState(),aiTarget:null};states.set(id,state);
-    row.insertAdjacentHTML('beforeend',`<form data-enter-save data-link-summary-form="${escape(id)}"><details data-link-summary-original><summary>원문 전체 보기</summary><pre class="basket-link-original">${escape(record.raw_text??'')}</pre></details><label>기록 요약<textarea data-link-summary-input rows="3"></textarea></label><p data-link-summary-status role="status" aria-live="polite"></p><div data-link-summary-latest hidden></div><button type="button" class="secondary" data-link-summary-current hidden>최신 요약 확인</button><div class="basket-link-actions"><button type="submit" class="primary" data-link-summary-save aria-keyshortcuts="Control+Enter" title="Ctrl+Enter로 저장">저장</button><button type="button" class="ghost" data-link-summary-cancel>취소</button></div></form>`);
+    row.insertAdjacentHTML('beforeend',`<form data-enter-save data-link-summary-form="${escape(id)}"><details data-link-summary-original><summary>원문 전체 보기</summary><pre class="basket-link-original">${escape(record.raw_text??'')}</pre></details><label>기록 요약<textarea data-link-summary-input rows="3"></textarea></label><p data-link-summary-status role="status" aria-live="polite"></p><div data-link-summary-latest hidden></div><button type="button" class="secondary" data-link-summary-current hidden>최신 요약 확인</button><div class="basket-link-actions">${onBig?'<button type="button" class="secondary" data-link-summary-big aria-haspopup="dialog" aria-label="크게" title="큰 창에서 수정"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>':''}<button type="submit" class="primary" data-link-summary-save aria-keyshortcuts="Control+Enter" title="Ctrl+Enter로 저장">저장</button><button type="button" class="ghost" data-link-summary-cancel>취소</button></div></form>`);
     const form=formFor(id),input=form.querySelector('textarea');input.value=record.summary??'';input.focus();
     void aiGate(state,form,record);
   }
@@ -258,6 +258,7 @@ export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=
     const button=event.target.closest?.('button');if(!button||!host.contains(button))return;
     if(button.dataset.basketLinkMenu){if(!button.disabled)recordMenu(host).open(button);return;}
     const form=button.closest('[data-link-summary-form]'),state=form&&states.get(form.dataset.linkSummaryForm);if(!state||state.busy)return;
+    if(button.hasAttribute('data-link-summary-big')){onBig?.(form.querySelector('textarea'));return;}
     if(button.hasAttribute('data-link-summary-ai-run')){void runAi(state,form);return;}
     if(button.hasAttribute('data-link-summary-ai-apply')||button.hasAttribute('data-link-summary-ai-dismiss')){applyAi(state,form,button.hasAttribute('data-link-summary-ai-apply'));return;}
     if(button.hasAttribute('data-link-summary-cancel')){states.delete(state.id);form.remove();}
