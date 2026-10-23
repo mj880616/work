@@ -113,3 +113,6 @@ a.wd-doc-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2p
   #appView #teamView #wdModal.wd-docked .gt-linked .gt-row .gt-main b{font-size:var(--ds-text-row);font-weight:var(--ds-weight-regular);line-height:1.4}
 }
 #wdDocs .wd-head{align-items:center}#wdDocs .wd-head>div:first-child{flex:0 0 auto}#wdDocs.drop-active{outline:2px dashed var(--kptu-info);outline-offset:-4px;border-radius:var(--kptu-radius-md)}
+/* MTG-사업보고 6단계: 사업 보고 줄은 누르는 줄(button)이라 자료 줄의 글 모양을 그대로 쓰고 버튼 기본 모양만 지운다 */
+button.wd-doc-main{width:100%;margin:0;border:0;border-radius:var(--kptu-radius-none,0);background:transparent;box-shadow:none;font:inherit;text-align:left;cursor:pointer}
+button.wd-doc-main:hover{background:var(--kptu-surface-subtle)}
