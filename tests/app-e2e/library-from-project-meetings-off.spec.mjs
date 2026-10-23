@@ -14,13 +14,13 @@ for(const width of [390,1280])test(`프로젝트 상세 → 자료 전체 보기
   const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
   const s=baseState();s.docs.push({id:'meeting-doc',workspace_id:s.workspace.id,project_id:'child-a1',title:'회의 연결 자료',meeting_id:'meeting-0',category:'회의자료'});await mockApp(page,s);await signIn(page,`${appOrigin}/app/?view=library`);
   await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));await expect(page.locator('#documentList .lu-row').first()).toBeAttached();
-  // 자료실에서 [전체]로 모든 칩을 켜 둔 채 나간다(고른 상태가 남아 있어도 프로젝트에서 들어오면 같은 기본 상태).
-  await chip(page,'all').click();await expect(offChips(page)).toHaveCount(0);
+  // 자료실에 들어올 때는 서버에 기억해 둔 칩 상태(LIB-보기기억). 기억이 없으면 기본(회의만 꺼짐)이고, 프로젝트에서 들어와도 같다.
+  await expect(offChips(page)).toHaveText(['회의']);
   await page.evaluate(()=>window.KPTURouter.go('projects'));await expect(page.locator('#projectsView')).toBeVisible();
   await page.locator('[data-ps3-project="child-a1"]').first().click();await expectProjectDetail(page,'child-a1');
   await page.locator('[data-ps3-library]').click();
   await expect(page.locator('#libraryView')).toBeVisible();await expect(page.locator('#documentProject')).toHaveJSProperty('value','child-a1');
-  await expect(offChips(page)).toHaveText(['전체','회의']);await expect(chip(page,'회의')).toHaveAttribute('aria-pressed','false');
+  await expect(offChips(page)).toHaveText(['회의']);await expect(chip(page,'회의')).toHaveAttribute('aria-pressed','false');
   await expect(page.locator('#libraryCategoryFilter [aria-pressed="true"]')).not.toHaveCount(0);
   await expect(page.locator('[data-lu-document="doc-a1"]')).toBeVisible();expect(await ids(page)).not.toContain('meeting-doc');
   expect(await ids(page)).toEqual(['doc-a1']);

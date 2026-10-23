@@ -42,8 +42,8 @@ for(const width of [390,1000])test(`공용 알약 필터·2단 프로젝트·키
   // LIB-토글트리: 프로젝트 칩 줄 대신 트리. 1단 토글의 자료 수는 그 아래 2·3단 자료까지 센다(PRJ-3단 결정 2와 같은 범위).
   await expect(libraryNodeHead(page,'p:top-a').locator('.lu-node-count')).toHaveText('3');
   await libraryNodeHead(page,'p:top-a').click();await expect(libraryNodeHead(page,'p:child-a1')).toBeVisible();await expect(libraryNodeHead(page,'p:child-a1').locator('.lu-node-count')).toHaveText('2');
-  // 머리 줄은 32px 얇은 줄, 누르는 범위 44px.
-  expect(Math.round((await libraryNodeHead(page,'p:top-a').boundingBox()).height)).toBe(32);
+  // 머리 줄은 36px 얇은 줄(LIB-목록간격: 32 → 36px), 누르는 범위 44px.
+  expect(Math.round((await libraryNodeHead(page,'p:top-a').boundingBox()).height)).toBe(36);
   expect(await libraryNodeHead(page,'p:top-a').evaluate(n=>parseFloat(getComputedStyle(n,'::after').height))).toBe(44);
   // 키보드: 토글 머리에서 Enter로 펴고 접는다.
   await libraryNodeHead(page,'p:child-a1').focus();await page.keyboard.press('Enter');await expect(page.locator('[data-lu-document="doc-a1"]')).toBeVisible();await expect(page.locator('[data-lu-document="meeting-doc"]')).toBeVisible();

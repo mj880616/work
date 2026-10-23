@@ -144,7 +144,8 @@ for(const width of [390,1280])test(`자료실: 종류 색(확장자, 없으면 D
  // 다섯 종류와 회색은 서로 다른 색.
  expect(new Set(await Promise.all(['pdf','hwp','xls','doc','ppt'].map(k=>token(page,'--ds-file-'+k+'-ink')).concat([token(page,'--ds-kind-other-ink')]))).size).toBe(6);
  await rowText(page,rows.locator('.lu-row-title'));await metaText(page,rows.locator('.lu-row-date'));
- for(const row of await rows.all())expect((await row.boundingBox()).height).toBeGreaterThanOrEqual(44);
+ // LIB-목록간격(2026-10-23): PC 자료 줄은 위아래 여백이 절반이라 한 줄 높이(27px 이상)이고, 폰은 두 줄이라 44px 이상.
+ for(const row of await rows.all())expect((await row.boundingBox()).height).toBeGreaterThanOrEqual(width<761?44:27);
  const box=await look(page.locator('#libraryListCard'));expect(box.borderWidth).toBe(await lineWidth(page));expect(box.radius).toBe('12px');
  expect((await look(rows.nth(1))).borderWidth).toBe(await lineWidth(page));
  // 버튼·필터: 한 높이, 채운 버튼은 [+ 자료] 하나, 고른 필터는 테마 주 색(UI-선택표시통일).
