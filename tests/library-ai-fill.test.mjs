@@ -17,6 +17,10 @@ test('originAfterEdit: edited AI fields become user; other records stay; old DB 
   assert.equal(m.originAfterEdit({title:'x'},['title']),null);
   // Same key order as jsonb returns, so the edit save check compares equal.
   assert.deepEqual(Object.keys(m.originAfterEdit({field_origin:{document_date:'ai'}},['title','source','category'])),['title','source','category','document_date']);
+  // LIB-AI분류보완: a project the AI linked becomes user when the person changes it; a link without a record stays unmarked
+  // (the DB before 20261023120000 would refuse the key, and an unrecorded link is already treated as the person's own).
+  assert.deepEqual(m.originAfterEdit({field_origin:{project_id:'ai'}},['project_id']),{project_id:'user'});
+  assert.deepEqual(m.originAfterEdit({field_origin:{}},['project_id']),{});
 });
 
 test('fillLibraryDocument: reads text first, then one fill call; never throws; refreshes the list only when something changed',async()=>{
@@ -60,28 +64,46 @@ test('untidyFields: only empty / file-name / 기타 / out-of-list fields; user a
 });
 
 test('tidyCandidates: needs the field_origin column, skips just-uploaded, tried and already tidy documents',()=>{
-  const docs=[row(1),row(2,{created_at:JUST}),row(3),row(4,{title:'정리됨',source:'a',document_date:'2026-01-01',category:'교섭'}),{...row(5),id:'bad'}];
+  const docs=[row(1),row(2,{created_at:JUST}),row(3),row(4,{title:'정리됨',source:'a',document_date:'2026-01-01',category:'교섭',project_id:'p',organization_id:'o'}),{...row(5),id:'bad'}];
   const {field_origin,...noColumn}=row(6);void field_origin;
   const out=m.tidyCandidates([...docs,noColumn],{tried:new Set([DOC(3)]),categories:CATS,now:NOW}).map(d=>d.id);
   assert.deepEqual(out,[DOC(1)]);
 });
 
-function fakeRt({tried=[],triedFails=false,textDelay=0,textLog=[]}={}){
+function fakeRt({tried=[],nameOnly=[],triedFails=false,textDelay=0,textLog=[]}={}){
   return {api:async(path,o)=>{
-    if(path.startsWith('/rest/v1/app_library_tidy_attempts')){if(triedFails)throw Object.assign(new Error('missing'),{status:404});return tried.map(id=>({document_id:id}))}
+    if(path.startsWith('/rest/v1/app_library_tidy_attempts'))throw new Error('the old attempt table is no longer read');
+    if(path.startsWith('/rest/v1/app_library_classify_attempts')){if(triedFails)throw Object.assign(new Error('missing'),{status:404});
+      assert.match(path,/select=document_id,with_text/);return [...tried.map(id=>({document_id:id,with_text:true})),...nameOnly.map(id=>({document_id:id,with_text:false}))]}
     if(path==='/functions/v1/document-actions'){textLog.push({id:o.body.document_id,start:Date.now()});if(textDelay)await new Promise(r=>setTimeout(r,textDelay));return {ok:true}}
     throw new Error('unexpected '+path);
   }};
 }
 
-test('autoTidyLibrary: 10 per request, at most 3 requests per run, mode tidy with ids only, refreshes when something changed',async()=>{
-  const docs=Array.from({length:45},(_,i)=>row(i+1));
+test('autoTidyLibrary: 10 per request, at most 8 requests per run, mode tidy with ids only, refreshes when something changed',async()=>{
+  const docs=Array.from({length:95},(_,i)=>row(i+1));
   const sent=[];let changed=0;
   const call=async body=>{sent.push(body);return {ok:true,data:{ok:true,kind:'library_fill',mode:'tidy',updated:2}}};
   const r=await m.autoTidyLibrary(docs,{rt:fakeRt(),call,workspace:'ws',categories:CATS,now:NOW,onChanged:()=>changed++});
+  assert.equal(m.TIDY_MAX_BATCHES,8);
   assert.deepEqual(sent.map(b=>[b.kind,b.mode,b.document_ids.length,Object.keys(b).sort().join(',')]),
-    [['library_fill','tidy',10,'document_ids,kind,mode'],['library_fill','tidy',10,'document_ids,kind,mode'],['library_fill','tidy',10,'document_ids,kind,mode']]);
-  assert.deepEqual(r,{sent:30,updated:6,stop:null});assert.equal(changed,3);
+    Array.from({length:8},()=>['library_fill','tidy',10,'document_ids,kind,mode']));
+  assert.deepEqual(r,{sent:80,updated:16,stop:null});assert.equal(changed,8);
+});
+
+test('LIB-AI분류보완 candidates: empty links count, hand links and removed links do not; name-only attempts come back once text is ready',()=>{
+  const linked={project_id:'p',organization_id:'o'};
+  const tidy={title:'정리됨',source:'a',document_date:'2026-01-01',category:'교섭'};
+  assert.deepEqual(m.openLinks(row(1)),['project_id','organization_id']);
+  assert.deepEqual(m.openLinks(row(1,linked)),[]);
+  // A link the person removed keeps its 'ai' record; an edit-form save locks the project (it has a project field) but not the organization.
+  assert.deepEqual(m.openLinks(row(1,{field_origin:{organization_id:'ai'}})),['project_id']);
+  assert.deepEqual(m.openLinks(row(1,{classification_note:'사용자 수정'})),['organization_id']);
+  assert.deepEqual(m.legacyUserFields('사용자 수정'),['title','document_date','source','category','project_id']);
+  const docs=[row(1,{...tidy,...linked}),row(2,{...tidy}),row(3,{...tidy,...linked}),row(4,{...tidy,...linked,extraction_status:'pending'}),row(5)];
+  const tried=new Map([[DOC(3),false],[DOC(4),false],[DOC(5),true]]);
+  // 1: nothing to do. 2: empty links. 3: tried by file name, text now ready → once more. 4: still no text → wait. 5: tried with text → never.
+  assert.deepEqual(m.tidyCandidates(docs,{tried,categories:CATS,now:NOW}).map(d=>d.id),[DOC(2),DOC(3)]);
 });
 
 test('autoTidyLibrary: a tried document is never sent again; nothing to do sends nothing',async()=>{
