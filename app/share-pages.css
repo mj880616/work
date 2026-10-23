@@ -8,8 +8,14 @@
 #appView #pagesView .sp-status:empty{ display:none; }
 #appView #pagesView :is(.sp-empty,.sp-hint){ margin:6px 0; font-size:var(--ds-text-meta); line-height:1.6; color:var(--kptu-muted); }
 #appView #pagesView .sp-list{ list-style:none; margin:0; padding:0; overflow:hidden; background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); }
+#appView #pagesView .sp-list li{ display:flex; align-items:center; }
 #appView #pagesView .sp-list li + li{ border-top:var(--ds-line-width) solid var(--ds-line); }
 #appView #pagesView .sp-row{ box-sizing:border-box; display:flex; align-items:center; gap:10px; width:100%; min-height:var(--kptu-touch-target,44px); margin:0; padding:var(--ds-row-pad-y) var(--ds-row-pad-x); border:0; border-radius:0; background:transparent; color:var(--kptu-ink); font:inherit; text-align:left; cursor:pointer; }
+#appView #pagesView .sp-row{ flex:1 1 0; width:auto; min-width:0; }
+/* 줄 오른쪽 ⋯(삭제 메뉴): 누르는 범위 44px, 보이는 건 글자만. 메뉴 창 모양은 ui-standard.css의 .task-inline-menu를 그대로 쓴다. */
+#appView #pagesView .sp-row-more{ flex:none; box-sizing:border-box; width:44px; height:44px; min-height:44px; margin:0; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; color:var(--kptu-muted); font-size:20px; line-height:1; cursor:pointer; }
+#appView #pagesView .sp-row-more:hover{ background:var(--kptu-surface-subtle); }
+#appView #pagesView .sp-row-more:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
 #appView #pagesView .sp-row:hover{ background:var(--kptu-surface-subtle); }
 #appView #pagesView .sp-row:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
 #appView #pagesView .sp-row-title{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); }

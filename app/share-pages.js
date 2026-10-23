@@ -4,6 +4,9 @@
 // SHARE-전체편집: a page that is one 글(doc) block — every new page — opens as a full writing screen (renderFull): one thin
 // line (‹ · 초안/게시 · 프로젝트 · 링크 · 저장), the editor's button row, a big title and the text, over the whole content area.
 // A page with old blocks (한 줄 현황 …) keeps the block editor below (설계 4.2, [새 편집기로 바꾸기]).
+// SHARE-페이지삭제: each list line has a ⋯ (right-click on a PC opens the same menu: context-menu.js) with [삭제]. Delete = keep the
+// record and set status 'archived' (share-pages-archive.mjs): it leaves the list and the public link stops (share-page-read shows only
+// 'published'); links, photo records and photo files are untouched. One confirmation, then 5 seconds of [되돌리기].
 // Storage is the owner-RLS tables from PR 1 through the shared runtime (authenticated REST); no new RPC.
 // A link value (token) is read from the DB only when [복사] is pressed and goes straight to the clipboard: it is never
 // drawn, kept in this module, logged or stored in the browser. Lists read only id·label·expiry·off·created.
@@ -13,6 +16,9 @@ import {renderBlock} from './sr-render.mjs';
 import {copyText} from './md-editor.js';
 import {createDocEditor} from './ed-editor.js';
 import {createSharePhotos, shareIdOf, SHARE_PHOTO_MAX} from './share-photos.js';
+import {createAnchoredMenu} from './anchored-menu.js';
+import {offerUndoNotice} from './basket-record-delete.js';
+import {archiveFilter, archiveConfirmText, archivePatch, undoPatch, shortTitle} from './share-pages-archive.mjs';
 
 (() => {
 if (window.KPTUSharePages) return;
@@ -73,7 +79,9 @@ function renderList() {
   if (pages?.length) body.push(el('ul', {class:'sp-list', 'aria-label':'내 공유 페이지'}, pages.map(page => el('li', {},
     el('button', {type:'button', class:'sp-row', dataset:{spOpen:page.id}},
       el('span', {class:'sp-row-title', text:page.title || '제목 없음'}),
-      el('span', {class:`sp-pill ${page.status === 'published' ? 'is-on' : ''}`, text:page.status === 'published' ? '게시' : '초안'}))))));
+      el('span', {class:`sp-pill ${page.status === 'published' ? 'is-on' : ''}`, text:page.status === 'published' ? '게시' : '초안'})),
+    el('button', {type:'button', class:'sp-row-more', dataset:{spRowMenu:page.id}, 'aria-label':`${shortTitle(page.title)} 더 보기`,
+      'aria-haspopup':'true', 'aria-expanded':'false', 'aria-controls':'spRowMenu'}, el('span', {'aria-hidden':'true', text:'⋯'}))))));
   listView.replaceChildren(head, status, ...body);
   view.dataset.sharePagesReady = '1';
 }
@@ -82,7 +90,7 @@ async function loadList({force = false} = {}) {
   const run = ++epoch, owner = scope;
   listState = 'loading'; renderList();
   try {
-    const rows = await rt.api(`/rest/v1/app_share_pages?workspace_id=eq.${q(workspaceId())}&select=id,title,status,project_id,updated_at&order=updated_at.desc`, {singleFlight:false});
+    const rows = await rt.api(`/rest/v1/app_share_pages?workspace_id=eq.${q(workspaceId())}&select=id,title,status,project_id,updated_at&${archiveFilter}&order=updated_at.desc`, {singleFlight:false});
     if (run !== epoch || owner !== scope) return;
     if (!Array.isArray(rows)) throw new Error('bad list');
     pages = rows; listState = 'ready';
@@ -91,6 +99,44 @@ async function loadList({force = false} = {}) {
     listState = 'error';
   }
   renderList();
+}
+
+// ── delete = archive (SHARE-페이지삭제) ──
+let rowMenu = null, rowBusy = false;
+function ensureRowMenu() {
+  return rowMenu ||= createAnchoredMenu({id:'spRowMenu', className:'task-inline-menu sp-row-menu', label:'공유 페이지 관리', historyKey:'kptuSharePageMenu',
+    key:t => t.dataset.spRowMenu, canOpen:() => !rowBusy && !editing,
+    render:() => '<button type="button" class="task-inline-danger" data-sp-row-action="delete">삭제</button>',
+    onAction:(button, active) => { if (button.dataset.spRowAction === 'delete') void archivePage(active.id); }});
+}
+const listNote = text => { const node = listView.querySelector('[data-sp-list-status]'); if (node) node.textContent = text; };
+async function archivePage(id) {
+  const page = pages?.find(p => p.id === id);
+  if (!page || rowBusy) return;
+  if (!window.confirm(archiveConfirmText(page))) return;
+  const owner = scope, wasStatus = page.status, wasUpdated = page.updated_at;
+  rowBusy = true; listNote('삭제하는 중…');
+  try {
+    const rows = await rt.api(`/rest/v1/app_share_pages?${archivePatch.where(id, workspaceId(), wasUpdated)}&select=id,updated_at`,
+      {method:'PATCH', prefer:'return=representation', body:archivePatch.body(new Date().toISOString())});
+    if (owner !== scope) return;
+    if (!Array.isArray(rows) || rows.length !== 1) { listNote('다른 곳에서 바뀐 페이지예요. 목록을 다시 불러왔어요.'); void loadList({force:true}); return; }
+    const archivedAt = rows[0].updated_at;
+    pages = pages.filter(p => p.id !== id); renderList(); listNote('');
+    offerUndoNotice({text:wasStatus === 'published' ? '공유 페이지를 삭제했어요. 링크도 열리지 않아요.' : '공유 페이지를 삭제했어요.', onUndo:async () => {
+      if (owner !== scope) return {status:'stale'};
+      try {
+        const back = await rt.api(`/rest/v1/app_share_pages?${undoPatch.where(id, workspaceId(), archivedAt)}&select=id`,
+          {method:'PATCH', prefer:'return=representation', body:undoPatch.body(wasStatus, wasUpdated)});
+        if (owner !== scope) return {status:'stale'};
+        if (!Array.isArray(back) || back.length !== 1) return {status:'failed', message:'되돌리지 못했어요. 목록을 다시 불러와 확인해 주세요.'};
+        void loadList({force:true});
+        return {status:'restored', message:'삭제한 공유 페이지를 되돌렸어요.'};
+      } catch (e) { return {status:'failed', message:message(e, '되돌리지 못했어요. 다시 시도해 주세요.')}; }
+    }});
+  } catch (e) {
+    if (owner === scope) listNote(message(e, '삭제하지 못했어요. 다시 시도해 주세요.'));
+  } finally { rowBusy = false; }
 }
 
 // ── editor ──
@@ -640,6 +686,7 @@ root.addEventListener('click', event => {
   const d = target.dataset;
   if ('spNew' in d) { if (!busy) showEditor(null); return; }
   if ('spReload' in d) { void loadList({force:true}); return; }
+  if (d.spRowMenu) { ensureRowMenu().open(target); return; }
   if (d.spOpen) { void openPage(d.spOpen); return; }
   if (!editing) return;
   if ('spClose' in d) { closeEditor(); return; }

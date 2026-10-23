@@ -246,9 +246,10 @@ export async function readWeekDocuments(start, rt = window.KPTURuntime) {
   return capped(await rt.api(`/rest/v1/app_documents?workspace_id=eq.${encode(workspace(rt))}&created_at=gte.${encode(from)}&created_at=lt.${encode(to)}&select=id,title,file_name,category,meeting_id,created_at&order=created_at.asc,id.asc&limit=${WEEK_READ_CAP}`));
 }
 // 공유 페이지: share pages of this workspace changed (updated_at) in the week. Title and state only, never the blocks.
+// SHARE-페이지삭제: a deleted (archived) page is left out.
 export async function readWeekSharePages(start, rt = window.KPTURuntime) {
   const from = dayStartIso(weekDays(start)[0]), to = dayStartIso(shiftWeek(start, 1));
-  return capped(await rt.api(`/rest/v1/app_share_pages?workspace_id=eq.${encode(workspace(rt))}&updated_at=gte.${encode(from)}&updated_at=lt.${encode(to)}&select=id,title,status,updated_at&order=updated_at.asc,id.asc&limit=${WEEK_READ_CAP}`));
+  return capped(await rt.api(`/rest/v1/app_share_pages?workspace_id=eq.${encode(workspace(rt))}&updated_at=gte.${encode(from)}&updated_at=lt.${encode(to)}&status=neq.archived&select=id,title,status,updated_at&order=updated_at.asc,id.asc&limit=${WEEK_READ_CAP}`));
 }
 
 // One day's share of each material, already in display order.
