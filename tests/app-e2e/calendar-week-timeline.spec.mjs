@@ -9,7 +9,6 @@ const ev=(id,start,end,extra={})=>({id,title:'QA 시간표 '+id,calendarId:'qa-c
 async function open(page,width,events,now){
   await page.setViewportSize({width,height:900});
   await openEmphasisFixture(page,{view:'week',events,...(now?{now}:{})});
-  await page.evaluate(()=>window.__KPTU_CALENDAR_PERSISTENCE_READY__);
   await expect(page.locator('#calendarWeek')).toBeVisible();
 }
 // 한 번의 페이지 작업에서 칸 위치를 모두 읽는다(늦게 온 할 일 목록으로 다시 그려져도 값이 섞이지 않게).

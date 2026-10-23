@@ -7,7 +7,6 @@ const saved=prefs=>prefs.value?.calendar_view??null;
 async function open(page,width=1280,view='default',events){
   await page.setViewportSize({width,height:844});
   const result=await openEmphasisFixture(page,{view,...(events?{events}:{})});
-  await page.evaluate(()=>window.__KPTU_CALENDAR_PERSISTENCE_READY__);
   return result;
 }
 test('PC default week has Monday through Sunday and one KST seven-day request',async({page})=>{
