@@ -175,11 +175,16 @@
 | 32 | `basket-files` | Web2(바구니 첨부·사진 글자 읽기·메모 삭제 시 첨부 휴지통·일기 사진 보기) | v5 | 2026-10-18 (승인 버튼) | false | work (`bd7a19d0bee95c25906bc41e04144d8e5bdef255`, #641 main, owner 전용 `action=photo` 추가). v4→v5·JWT 유지, 비로그인 POST 401·OPTIONS 200(사용자 실행 보고). 되돌리기 ref `34874eff5eb3a83db94cdec5001bcec4ea4b1f9b`(v4 소스, #543) |
 | 33 | `share-page-read` | Web1 공유 페이지 읽기(SHARE-현장공유) | 배포 대기 | 없음 | false | work (PR 1 서버, 운영 미배포) |
 | 34 | `ai-assist` | Web2 서버 AI 도우미(AI-서버연동, S1은 연결 요약만) | 배포 대기 | 없음 | **true** | work (S1 코드·시험, 운영 미배포) |
+| 35 | `share-page-media` | Web2 공유 페이지 사진 올리기·보기 주소·지우기(ED-통합편집기 ②) | 배포 대기 | 없음 | **true** | work (코드·시험, 운영 미배포) |
 
 `share-page-read`(33행)는 **배포 대기**이며 운영 합계 32개에 넣지 않는다. 링크를 받은 사람은 로그인하지 않으므로 `verify_jwt=false`를 선택한다(2026-10-20 사용자 결정 S1: 읽기는 Web1 새 주소 + 긴 링크 값).
 인증 대신 함수 코드가 링크 값(16진수 64자)의 sha256 지문으로 링크 행 하나를 찾고, 꺼짐·기한·게시 상태를 확인한 뒤 그 페이지의 제목·블록만 돌려준다. 그 밖은 모두 같은 404다.
 서버 키는 함수 안에서만 쓰며 DB에서 service_role은 링크 지문·기한·끔과 페이지 id·제목·블록·상태 칸만 SELECT할 수 있다(링크 원문·workspace·쓰기 불가, migration `20261020005000`).
 CORS는 `https://work.bokdoong.com`만, 응답은 `no-store`·`noindex`. 첫 배포는 DB 적용 뒤 `first_deploy=true`·`verify_jwt=false`·`expect_unauth_401=false`(공개 읽기라 비로그인 POST 401 검사 대상 아님)로 한다.
+
+`share-page-media`(35행)는 **배포 대기**이며 운영 합계 32개에 넣지 않는다(ED-통합편집기 ②, `docs/design/unified-editor.md` 5절). 신규 함수라 첫 배포는 `first_deploy=true`·`verify_jwt=true`다.
+로그인한 소유자만 부르므로 `verify_jwt=true`를 선택하고, 코드에서도 Auth 서버로 로그인을 다시 확인한다. 소유 확인과 사진 기록 읽기·쓰기는 호출자의 로그인 토큰으로 DB가 한다(owner RLS, migration `20261023110000`). 서버 키는 비공개 버킷 `share-page-media`의 저장·삭제·짧은 주소 발급에만 쓴다.
+JPEG만(3MB 이하), 머리 구간에 EXIF·XMP·IPTC가 있으면 거절한다. 되돌리기: 화면이 이 함수를 쓰지 않는 상태 유지(화면 PR은 마지막 단계), 필요 시 사용자가 대시보드에서 삭제를 판단한다(자동 삭제 없음). 배포 순서: DB(`20261023110000`) → 대시보드에서 비공개 버킷 생성(정책 없음) → `share-page-media`(first_deploy) → `share-page-read`(사진 주소 추가, 되돌리기 = 이전 SHA 재배포) → 화면 merge.
 
 `ai-assist`(34행)는 **배포 대기**이며 운영 합계 32개에 넣지 않는다(AI-서버연동 S1, `docs/design/ai-server.md` 결정 D1~D13).
 화면에서 로그인한 소유자만 부르고 예약 호출이 없으므로 `verify_jwt=true`를 선택한다. 함수 코드도 Auth 서버로 로그인을 다시 확인하고, 본인 `app_workspace_members` 행이 `owner`인 작업공간 하나만 쓴다(`private.app_is_workspace_owner`와 같은 기준, 화면이 보낸 작업공간 값은 받지 않음).

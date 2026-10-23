@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
+import {expectProjectTitle} from './helpers/screen-title.mjs';
 // PRJ-순서바꾸기 (2026-10-21 요청함 01:01·01:10 승인): 같은 상위 아래 형제끼리 순서를 바꾼다. PC는 프로젝트 목록에서 끌어다 놓기,
 // 폰은 목록 머리 [순서 바꾸기] 모드의 줄별 ↑ ↓(2026-10-22 변경: 상세 ⋯ 안 위로·아래로는 없앰). 저장은 기존 app_spaces.sort_order(소유자 PATCH, DB 변경 없음). 정한 순서는 프로젝트 화면·
 // 기록할 곳·할 일 연결·업무일지·주간 정리(한글 파일)가 모두 같은 목록(project-catalog.js)에서 읽는다. 순서 규칙과 업무일지·주간 정리
@@ -40,13 +41,12 @@ const listIds=page=>page.locator('#projectGrid .ps3-plist [data-ps3-project]').e
 const row=(page,id)=>page.locator(`#projectGrid .ps3-plist [data-ps3-project="${id}"]`);
 const orderRow=(page,id)=>page.locator(`#projectGrid .ps3-plist [data-ps3-order-row="${id}"]`);
 const orderIds=page=>page.locator('#projectGrid .ps3-plist [data-ps3-order-row]').evaluateAll(xs=>xs.map(x=>x.dataset.ps3OrderRow));
-const title=page=>page.locator('#ps3Title');
 const catalogIds=page=>page.evaluate(()=>KPTUProjectCatalog.snapshot().tree.map(x=>x.project.id));
 const optionIds=page=>page.evaluate(()=>{const d=document.createElement('select');d.innerHTML=KPTUProjectCatalog.options('',false);return [...d.options].map(o=>o.value)});
 
 test('PC 1280: drag a row onto a sibling saves sort_order and every list shows the new order; a non-sibling drop does nothing',async({page})=>{
  const {state,errors}=await fixture(page);
- await clickView(page,'projects');await expect(title(page)).toHaveText('합성 정책 사업');
+ await clickView(page,'projects');await expectProjectTitle(page,'합성 정책 사업');
  expect(await listIds(page)).toEqual(['pa','pc','pd','pg','pb','pe']);
  // PC orders by drag only: no [순서 바꾸기] button, and the detail ⋯ menu has no 위로·아래로.
  await expect(page.locator('#ps3OrderBtn')).toHaveCount(0);
@@ -119,7 +119,7 @@ test('phone 390: [순서 바꾸기] mode moves projects with ↑ ↓ among sibli
  // [완료] returns the ordinary list: rows open the detail again, and the detail ⋯ menu has no 위로·아래로.
  await toggle.click();await expect(toggle).toHaveText('순서 바꾸기');
  expect(await listIds(page)).toEqual(['pa','pg','pc','pd','pe','pb']);await expect(page.locator('#projectGrid [data-ps3-order-row]')).toHaveCount(0);
- await row(page,'pb').click();await expect(title(page)).toHaveText('합성 조직 사업');
+ await row(page,'pb').click();await expectProjectTitle(page,'합성 조직 사업');
  const more=page.locator('#ps3Menu details.ps3-more');await more.locator('summary').click();
  await expect(more.locator('.ps3-more-panel button')).toHaveText(['완료','수정','보관','삭제']);
  await expect(more.locator('[data-ps3-move-project]')).toHaveCount(0);
@@ -156,7 +156,7 @@ test('PC 1280: 기록할 곳 (home [업데이트]) and 할 일 연결 list proje
  const {errors}=await fixture(page);
  // 할 일 연결 read once before the move (its list is kept for the visit): it must not keep the old order.
  expect(await taskLinkIds(page)).toEqual(['pa','pc','pd','pg','pb','pe']);
- await clickView(page,'projects');await expect(title(page)).toHaveText('합성 정책 사업');
+ await clickView(page,'projects');await expectProjectTitle(page,'합성 정책 사업');
  await row(page,'pe').dragTo(row(page,'pa'),{targetPosition:{x:40,y:4}});
  await expect.poll(()=>listIds(page)).toEqual(['pe','pa','pc','pd','pg','pb']);
  await clickView(page,'home');

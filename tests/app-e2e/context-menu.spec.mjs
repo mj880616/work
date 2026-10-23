@@ -4,6 +4,7 @@ import { clickView } from './helpers/shell-navigation.mjs';
 import { loginEntry } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { appOrigin } from './helpers/test-origin.mjs';
+import {expectProjectTitle} from './helpers/screen-title.mjs';
 
 // UI-우클릭메뉴 (2026-10-22 사용자 확정): on a PC (761px~) a right-click on a card or record opens that card's own ⋯ menu at the
 // pointer (context-menu.js; same items, same handlers). The browser's own menu stays inside inputs, with a text selection, and on
@@ -187,7 +188,7 @@ test('1280 update row: right-click on a link inside the card keeps the browser m
   const at = await rightClickAt(page, row, 0.3, 0.5); await expectAtPointer(page, menu, at);
 });
 test('1280 project detail: a record line that is itself a link (next to its ⋯) still opens the ⋯ menu', async ({ page }) => {
-  await projectFixture(page); await clickView(page, 'projects'); await expect(page.locator('#ps3Title')).toHaveText('합성 정책 사업');
+  await projectFixture(page); await clickView(page, 'projects'); await expectProjectTitle(page,'합성 정책 사업');
   const rec = page.locator('#ps3Body [data-basket-link="l-p"]'), menu = page.locator('#ps3RecordMenu');
   await expect(rec.locator('a[href]')).toHaveCount(1);
   await rec.locator('[data-ps3-record-menu]').click(); await expect(menu).toBeVisible(); await page.keyboard.press('Escape'); await expect(menu).toBeHidden();
@@ -248,8 +249,8 @@ test('390 task card: a later render with the same markup keeps the rows on scree
 // ---- project detail: <details> ⋯ and a progress record's ⋯ ----
 test('1280 project detail: right-click on the detail head opens the ⋯ panel at the pointer; Esc and outside press close it', async ({ page }) => {
   const { errors } = await projectFixture(page); await watch(page);
-  await clickView(page, 'projects'); await expect(page.locator('#ps3Title')).toHaveText('합성 정책 사업');
-  const head = page.locator('#ps3Title'), more = page.locator('#ps3Menu details.ps3-more'), panel = more.locator('.ps3-more-panel');
+  await clickView(page, 'projects'); await expectProjectTitle(page,'합성 정책 사업');
+  const head = page.locator('#ps3Title,#ps3Summary').first(), more = page.locator('#ps3Menu details.ps3-more'), panel = more.locator('.ps3-more-panel');
   const at = await rightClickAt(page, head, 0.2, 0.5);
   await expect(more).toHaveAttribute('open', ''); await expect(panel).toBeVisible();
   expect(await labels(panel)).toEqual(['완료', '수정', '보관', '삭제']);
@@ -265,7 +266,7 @@ test('1280 project detail: right-click on the detail head opens the ⋯ panel at
 });
 test('1280 project detail: a record line opens the record ⋯ menu; browser menu stays inside the record input', async ({ page }) => {
   await projectFixture(page); await watch(page);
-  await clickView(page, 'projects'); await expect(page.locator('#ps3Title')).toHaveText('합성 정책 사업');
+  await clickView(page, 'projects'); await expectProjectTitle(page,'합성 정책 사업');
   const rec = page.locator('#ps3Body [data-basket-link="l-p"]'), menu = page.locator('#ps3RecordMenu');
   await rec.locator('[data-ps3-record-menu]').click(); await expect(menu).toBeVisible(); const viaButton = await labels(menu); await page.keyboard.press('Escape'); await expect(menu).toBeHidden();
   const at = await rightClickAt(page, rec, 0.5, 0.5); await expectAtPointer(page, menu, at); expect(await labels(menu)).toEqual(viaButton);
@@ -277,7 +278,7 @@ test('390 project detail: right-click changes nothing', async ({ page }) => {
   await projectFixture(page, { width: 390 }); await watch(page);
   await clickView(page, 'projects');
   const first = page.locator('#projectGrid [data-ps3-project="pa"]').first(); await first.click();
-  await expect(page.locator('#ps3Title')).toHaveText('합성 정책 사업');
-  await rightClickAt(page, page.locator('#ps3Title'), 0.2, 0.5);
+  await expectProjectTitle(page,'합성 정책 사업');
+  await rightClickAt(page, page.locator('#ps3Title,#ps3Summary').first(), 0.2, 0.5);
   await expect(page.locator('#ps3Menu details.ps3-more')).not.toHaveAttribute('open', ''); expect(await kept(page)).toEqual([true]);
 });

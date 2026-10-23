@@ -51,6 +51,8 @@
 #appView #diaryView .diary-panel-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
 #appView #diaryView .diary-panel-head h3{ margin:0; font-size:var(--ds-text-section); font-weight:var(--ds-weight-medium); color:var(--ds-kind-diary-ink); }
 #appView #diaryView .diary-panel-head h3:focus{ outline:none; }
+/* UI-중복제목삭제: PC 상단 줄이 날짜를 이미 보이므로 머리줄에 제목이 없고 [×]만 남아 오른쪽 끝에 둔다. */
+#appView #diaryView .diary-panel-head > :only-child{ margin-left:auto; }
 #appView #diaryView .diary-muted{ margin:0; color:var(--kptu-muted); font-size:var(--ds-text-row); }
 #appView #diaryView .diary-star-note{ padding:24px 8px; text-align:center; background:var(--kptu-surface-subtle); border-radius:var(--ds-radius-control); }
 #appView #diaryView .diary-source{ box-sizing:border-box; display:inline-grid; grid-auto-flow:column; grid-auto-columns:1fr; align-self:flex-start; height:var(--ds-compact-height); background:var(--kptu-surface);

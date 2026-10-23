@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
+import {expectProjectTitle} from './helpers/screen-title.mjs';
 // UI-모바일업데이트겹쳐보기: on a phone a tapped record first comes up as a card over the detail; its full-open button continues as before.
 const viaSheet=async page=>{if((page.viewportSize()?.width||0)>760)return;const sheet=page.locator('#kptuRecordSheet');await expect(sheet).toBeVisible();await sheet.locator('[data-record-sheet-full]').click()};
 // UI-PC프로젝트좌우(2026-10-20 사용자 확정, 시안 A): PC(≥1024) 프로젝트 화면은 왼쪽 목록 + 오른쪽 상세(같은 상세 창을 칸에 옮겨 씀).
@@ -40,7 +41,6 @@ async function fixture(page,{width=1280,blockStorage=false}={}){
  return {f,state,errors};
 }
 const pane=page=>page.locator('#ps3DetailPane');
-const title=page=>page.locator('#ps3Title');
 const basketLine=page=>page.locator('#ps3Body [data-basket-link="l-p"] a[data-ps3-basket-note]');
 // The record's place on screen: equal before and after a return means the same scroll.
 const top=locator=>locator.evaluate(el=>Math.round(el.getBoundingClientRect().top));
@@ -56,7 +56,7 @@ async function scrollToRecord(page,locator){
 test('PC 1280: list on the left, the first project on the right without a dialog; rows switch the pane and children stay indented',async({page})=>{
  const {state,errors}=await fixture(page);
  await clickView(page,'projects');
- await expect(title(page)).toHaveText('합성 정책 사업');
+ await expectProjectTitle(page,'합성 정책 사업');
  const modal=page.locator('#ps3DetailModal');
  await expect(pane(page).locator('#ps3DetailModal')).toBeVisible();
  await expect(modal).toHaveAttribute('role','region');await expect(modal).not.toHaveAttribute('aria-modal','true');
@@ -76,7 +76,7 @@ test('PC 1280: list on the left, the first project on the right without a dialog
  for(const id of ['#ps3-progress [data-ps3-record-input]','#ps3-children','#ps3-tasks','#ps3-documents'])await expect(page.locator('#ps3Body '+id)).toBeVisible();
  // Another row: the pane changes, the URL is replaced (no history entry), the row shows the selection.
  const length=await page.evaluate(()=>history.length);
- await page.locator('#projectGrid .ps3-plist [data-ps3-project="pb"]').click();await expect(title(page)).toHaveText('합성 조직 사업');
+ await page.locator('#projectGrid .ps3-plist [data-ps3-project="pb"]').click();await expectProjectTitle(page,'합성 조직 사업');
  await expect(page.locator('#projectGrid .ps3-plist [data-ps3-project="pb"]')).toHaveAttribute('aria-current','true');await expect(main).not.toHaveAttribute('aria-current','true');
  expect(await page.evaluate(()=>history.length)).toBe(length);expect(new URL(page.url()).searchParams.get('project')).toBe('pb');
  // "+ 프로젝트" is the small button height.
@@ -84,47 +84,47 @@ test('PC 1280: list on the left, the first project on the right without a dialog
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
  // Next time the projects screen opens on this device, the last project shows first.
  await clickView(page,'home');await expect(page.locator('#ps3DetailModal')).toBeHidden();
- await clickView(page,'projects');await expect(title(page)).toHaveText('합성 조직 사업');
- await page.reload();await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});await clickView(page,'projects');await expect(title(page)).toHaveText('합성 조직 사업');
+ await clickView(page,'projects');await expectProjectTitle(page,'합성 조직 사업');
+ await page.reload();await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});await clickView(page,'projects');await expectProjectTitle(page,'합성 조직 사업');
  expect(state.patches).toEqual([]);expect(errors).toEqual([]);
 });
 
 test('PC 1280: a blocked browser storage still opens the first project',async({page})=>{
  const {errors}=await fixture(page,{blockStorage:true});
- await clickView(page,'projects');await expect(title(page)).toHaveText('합성 정책 사업');
- await page.locator('#projectGrid .ps3-plist [data-ps3-project="pb"]').click();await expect(title(page)).toHaveText('합성 조직 사업');
- await clickView(page,'home');await clickView(page,'projects');await expect(title(page)).toHaveText('합성 정책 사업');expect(errors).toEqual([]);
+ await clickView(page,'projects');await expectProjectTitle(page,'합성 정책 사업');
+ await page.locator('#projectGrid .ps3-plist [data-ps3-project="pb"]').click();await expectProjectTitle(page,'합성 조직 사업');
+ await clickView(page,'home');await clickView(page,'projects');await expectProjectTitle(page,'합성 정책 사업');expect(errors).toEqual([]);
 });
 
 test('PC 1280: the right pane keeps the detail actions — ⋯ (complete, edit, archive, delete), child list and parent link',async({page})=>{
  const {state,errors}=await fixture(page);
- await clickView(page,'projects');await expect(title(page)).toHaveText('합성 정책 사업');
+ await clickView(page,'projects');await expectProjectTitle(page,'합성 정책 사업');
  const more=page.locator('#ps3Menu details.ps3-more');await more.locator('summary').click();await expect(more).toHaveAttribute('open','');
  expect(await more.locator('.ps3-more-panel button').allTextContents()).toEqual(['완료','수정','보관','삭제']);
  await more.locator('[data-ps3-toggle-done]').click();await expect.poll(()=>state.patches.map(p=>p.body.status)).toEqual(['done']);
  await expect(more.locator('[data-ps3-toggle-done]')).toHaveText('완료 취소');await expect(page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]')).toHaveAttribute('aria-current','true');
  await more.locator('summary').click();await expect(more).toHaveAttribute('open','');
  await more.locator('[data-ps3-edit-project]').click();await expect(page.locator('#ps3CreateModal')).toBeVisible();await expect(page.locator('#ps3CreateName')).toHaveValue('합성 정책 사업');
- await page.locator('[data-ps3-close="ps3CreateModal"]').click();await expect(page.locator('#ps3CreateModal')).toBeHidden();await expect(title(page)).toHaveText('합성 정책 사업');
+ await page.locator('[data-ps3-close="ps3CreateModal"]').click();await expect(page.locator('#ps3CreateModal')).toBeHidden();await expectProjectTitle(page,'합성 정책 사업');
  // Child list in the body → the child in the same pane; its parent link sits above the title.
- await page.locator('#ps3-children [data-ps3-project="pc"]').click();await expect(title(page)).toHaveText('합성 하위 토론회');
+ await page.locator('#ps3-children [data-ps3-project="pc"]').click();await expectProjectTitle(page,'합성 하위 토론회');
  await expect(page.locator('#ps3Hierarchy .ps3-parent-link')).toHaveText('← 합성 정책 사업');await expect(page.locator('#projectGrid .ps3-plist [data-ps3-project="pc"]')).toHaveAttribute('aria-current','true');
- await page.locator('#ps3Hierarchy .ps3-parent-link').click();await expect(title(page)).toHaveText('합성 정책 사업');
+ await page.locator('#ps3Hierarchy .ps3-parent-link').click();await expectProjectTitle(page,'합성 정책 사업');
  await expect(pane(page).locator('#ps3DetailModal')).toBeVisible();expect(errors).toEqual([]);
 });
 
 test('PC 1280: a 🧺 record opens the update with "← (project)으로 돌아가기"; the button and back return to the same project and scroll',async({page})=>{
  const {errors}=await fixture(page);
- await clickView(page,'projects');await expect(title(page)).toHaveText('합성 정책 사업');
- await page.locator('#projectGrid .ps3-plist [data-ps3-project="pb"]').click();await expect(title(page)).toHaveText('합성 조직 사업');
- await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();await expect(title(page)).toHaveText('합성 정책 사업');
+ await clickView(page,'projects');await expectProjectTitle(page,'합성 정책 사업');
+ await page.locator('#projectGrid .ps3-plist [data-ps3-project="pb"]').click();await expectProjectTitle(page,'합성 조직 사업');
+ await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();await expectProjectTitle(page,'합성 정책 사업');
  const before=await scrollToRecord(page,basketLine(page));expect(await pane(page).evaluate(el=>el.scrollTop)).toBeGreaterThan(100);
  for(const how of ['button','back','browser']){
   await basketLine(page).click();await viaSheet(page);
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
   const back=page.locator('#basketView [data-basket-return]');await expect(back).toHaveText('← 합성 정책 사업으로 돌아가기');
   if(how==='button')await back.click();else await goBack(page,how);
-  await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('projects');await expect(title(page)).toHaveText('합성 정책 사업');
+  await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('projects');await expectProjectTitle(page,'합성 정책 사업');
   await expect(pane(page).locator('#ps3DetailModal')).toBeVisible();await expect.poll(()=>top(basketLine(page))).toBe(before);
  }
  // A note opened from the basket list itself has no return line.
@@ -143,7 +143,7 @@ test('phone 390: list and detail dialog stay; the update shows "← 프로젝트
  const {errors}=await fixture(page,{width:390});
  await clickView(page,'projects');await expect(page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]')).toBeVisible();
  await expect(pane(page)).toBeHidden();await expect(page.locator('#ps3DetailModal')).toBeHidden();
- await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();await expect(title(page)).toHaveText('합성 정책 사업');
+ await page.locator('#projectGrid .ps3-plist [data-ps3-project="pa"]').click();await expectProjectTitle(page,'합성 정책 사업');
  const modal=page.locator('#ps3DetailModal');await expect(modal).toHaveAttribute('aria-modal','true');await expect(modal).toHaveAttribute('role','dialog');
  expect(await modal.evaluate(el=>el.parentElement===document.body)).toBe(true);
  const before=await scrollToRecord(page,basketLine(page));
@@ -153,7 +153,7 @@ test('phone 390: list and detail dialog stay; the update shows "← 프로젝트
   const back=page.locator('#basketView [data-basket-return]');await expect(back).toHaveText('← 프로젝트로 돌아가기');
   const b=await back.boundingBox();expect(b.height).toBeGreaterThanOrEqual(44);
   if(how==='button')await back.click();else await goBack(page,how);
-  await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('projects');await expect(modal).toBeVisible();await expect(title(page)).toHaveText('합성 정책 사업');
+  await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('projects');await expect(modal).toBeVisible();await expectProjectTitle(page,'합성 정책 사업');
   await expect(modal).toHaveAttribute('aria-modal','true');await expect.poll(()=>top(basketLine(page))).toBe(before);
  }
  // The dialog still closes with × and back, back to the list.
@@ -163,7 +163,7 @@ test('phone 390: list and detail dialog stay; the update shows "← 프로젝트
 
 test('PC 1024: the list keeps its minimum width, the pane takes the rest, nothing overflows sideways',async({page})=>{
  const {errors}=await fixture(page,{width:1024});
- await clickView(page,'projects');await expect(title(page)).toHaveText('합성 정책 사업');
+ await clickView(page,'projects');await expectProjectTitle(page,'합성 정책 사업');
  const list=await page.locator('#projectGrid .ps3-plist').boundingBox(),right=await pane(page).boundingBox();
  expect(list.width).toBeGreaterThanOrEqual(239);expect(right.width).toBeGreaterThan(list.width);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);expect(errors).toEqual([]);

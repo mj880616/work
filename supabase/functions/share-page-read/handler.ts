@@ -18,7 +18,31 @@ export type SharePageRow = {
 export type ShareReader = {
   linkByHash(hash: string): Promise<ShareLinkRow | null>;
   pageById(id: string): Promise<SharePageRow | null>;
+  // ED-통합편집기 ②: 이 페이지 소속으로 기록된 사진만(page_id로 거른다). 주소는 짧게(SIGN_SECONDS) 발급한다.
+  mediaForPage?(pageId: string, ids: string[]): Promise<{ id: string; storage_path: string }[]>;
+  signMedia?(path: string, seconds: number): Promise<string | null>;
 };
+export const SIGN_SECONDS = 300;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const MAX_MEDIA = 60;
+
+// 글 블록(doc) 안 사진 칸의 src "share:<id>"를 모은다(중복 없이, 60개까지). 모양이 달라도 오류 없이 건너뛴다.
+export function sharePhotoIds(blocks: unknown[]): string[] {
+  const found = new Set<string>();
+  const walk = (node: unknown, depth: number) => {
+    if (!node || typeof node !== "object" || depth > 40 || found.size >= MAX_MEDIA) return;
+    if (Array.isArray(node)) { for (const n of node) walk(n, depth + 1); return; }
+    const o = node as Record<string, unknown>;
+    if (o.type === "image" && o.attrs && typeof o.attrs === "object") {
+      const src = (o.attrs as Record<string, unknown>).src;
+      if (typeof src === "string" && src.startsWith("share:") && UUID.test(src.slice(6))) found.add(src.slice(6));
+    }
+    if (Array.isArray(o.content)) walk(o.content, depth + 1);
+    if (o.doc) walk(o.doc, depth + 1);
+  };
+  for (const b of blocks) if (b && typeof b === "object" && (b as Record<string, unknown>).type === "doc") walk((b as Record<string, unknown>).doc, 0);
+  return [...found];
+}
 
 export const ALLOWED_ORIGINS = new Set(["https://work.bokdoong.com"]);
 export const MAX_BODY_BYTES = 1024;
@@ -132,7 +156,18 @@ export function createShareReadHandler(
       const page = await reader.pageById(link.page_id);
       if (!page || page.id !== link.page_id || page.status !== "published") return notFound();
       if (typeof page.title !== "string" || !Array.isArray(page.blocks)) return notFound();
-      return reply({ ok: true, page: { title: page.title, blocks: page.blocks } }, 200);
+      // 사진 주소: 링크가 살아 있고 게시된 페이지일 때만, 그 페이지 소속으로 기록된 사진에만 만든다. 사진 쪽 문제는 글 읽기를 막지 않는다.
+      const media: Record<string, string> = {};
+      const ids = reader.mediaForPage && reader.signMedia ? sharePhotoIds(page.blocks) : [];
+      if (ids.length) {
+        try {
+          for (const row of await reader.mediaForPage!(link.page_id, ids)) {
+            const url = await reader.signMedia!(row.storage_path, SIGN_SECONDS);
+            if (url) media[row.id] = url;
+          }
+        } catch { log("share_page_media_unavailable"); }
+      }
+      return reply({ ok: true, page: { title: page.title, blocks: page.blocks }, ...(ids.length ? { media } : {}) }, 200);
     } catch {
       log("share_page_read_unavailable");
       return reply({ error: "unavailable" }, 503);

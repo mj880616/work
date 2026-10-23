@@ -381,3 +381,17 @@
 - 글자 크기·글꼴 자유 지정, 위·아래 첨자, 줄 간격, 찾기·바꾸기(구글·한글 Ctrl+F·H): 조치 없음(위 이유) 또는 별도 과제 제안.
 - 표 칸 바탕색: 한글·구글 있음. 형광펜과 같은 이름 방식으로 넣을 수 있으나 이번 범위(요청 목록)에 없어 제안만.
 - 폰 길게 누르기: 안드로이드 크롬·삼성 인터넷은 길게 누르기가 `contextmenu`로 오지만 글자 선택 손잡이가 함께 뜰 수 있다(실기기 확인 필요).
+
+---
+
+## 10. ② 공유 사진 보관 구현 기록 (2026-10-23, PR 한 개에 파일·시험 전부, 운영 적용은 아직)
+
+설계 5·6절 ② 그대로 만들었고, 아래만 정했다. 결정 7(5분)·8(긴 변 1600px JPEG)은 추천안(가)대로다.
+
+- **DB**(`20261023110000_share_page_media`, 정지 지점): 새 표 `app_share_page_media`(id, workspace_id, page_id, 저장 경로, 가로·세로·바이트) 하나. owner RLS 한 개, anon·PUBLIC 없음. authenticated는 읽기·삭제와 INSERT 7칸만(UPDATE 없음). service_role은 id·page_id·저장 경로 읽기만(공유 읽기 Edge용). 저장 경로는 `페이지 id/사진 id.jpg` 한 모양만 받는 CHECK. 짝 파일 5개(snapshot·precheck·postcheck·rollback·summary). rollback은 사진 기록이 있으면 멈춤. 버킷은 migration이 아니라 대시보드에서 만든다(설정값은 아래).
+- **버킷**(정지 지점, 사용자가 대시보드): 이름 `share-page-media`, **Public 끔**, 파일 크기 제한 3MB, 허용 형식 `image/jpeg`, `storage.objects` 정책은 **하나도 만들지 않음**(서버 키만 접근).
+- **Edge `share-page-media`**(신규, verify_jwt=true, 정지 지점): POST 한 문(multipart 올리기 / JSON `sign`·`delete`). 소유 확인·기록 읽기·쓰기는 로그인 토큰으로 DB(owner RLS)가 한다 → 화면이 보낸 페이지 id를 믿지 않는다. 서버 키는 버킷 저장·삭제·서명 주소에만. JPEG 시작 표시·3MB·그림 크기 1~8000px 확인, 머리 구간에 EXIF·XMP(APP1)·IPTC(APP13)가 있으면 422로 거절(바이트 검사).
+- **Edge `share-page-read`**(변경, 정지 지점): 링크·기한·게시 상태를 통과한 뒤에만, 글 블록 안 `share:<id>` 중 **그 페이지 소속으로 기록된 것**에 5분 서명 주소를 만들어 `media:{id:주소}`로 함께 돌려준다. 사진이 없으면 `media` 키 자체가 없고, 사진 조회가 실패해도 글 읽기는 그대로 성공한다. 링크가 꺼졌거나 초안이면 지금처럼 404(주소 발급 없음).
+- **화면**: `app/share-photos.js`(브라우저 쪽: `shrinkPhoto(redraw:true, 1600px)` → Edge 올리기 → `share:<id>`, 보기 주소는 메모리에만), 편집기 `[사진]` 버튼·끌어 놓기·붙여넣기(공유 페이지 글쓰기에서만, `photos` 옵션이 있을 때), 한 페이지 40장. 저장 안 한 새 페이지는 "먼저 저장" 안내. `ed-render.mjs`는 주소가 https로 넘어온 사진만 `<img>`(`loading=lazy`, `referrerpolicy=no-referrer`)로 그리고 없으면 자리 그대로. Web1 CSP `img-src`에 Supabase 주소 한 곳만 추가(`share/index.html`, Cloudflare 설정 아님).
+- **배포 순서**: DB 적용 → 버킷 만들기 → `share-page-media` 첫 배포(`first_deploy=true`, `verify_jwt=true`) → `share-page-read` 배포 → 이 화면 PR merge. 되돌리기: 화면 revert(이미 올린 사진은 비공개 버킷에 남고 Web1에서는 자리로 보임), `share-page-read`는 이전 SHA 재배포, 새 함수는 화면이 안 쓰는 상태 유지, DB는 rollback(사진 기록이 있으면 멈춤).
+- **남은 것**(이 PR 밖): 페이지·사진을 지울 때 버킷 파일 정리(지금은 기록 표 행만 cascade, 편집기에서 사진을 지워도 파일은 남음 — 후속 `purge` 동작 제안), 사진 설명(alt) 입력, 다른 글 사진 가져오기(5.3, ③ 단계와 함께).

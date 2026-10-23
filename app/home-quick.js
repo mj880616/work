@@ -1,6 +1,6 @@
 import {basketOcrFor} from './basket-ocr-runtime.js';
 import { createChoiceSheet, projectRows } from './choice-sheet.js';
-import { readPlaces, placeSheetHtml, placeValue, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, rememberPlace, linkFailText } from './update-places.js';
+import { readPlaces, placeSheetHtml, placeValue, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, saveUpdateWithFiles, rememberPlace, linkFailText, fileFailText } from './update-places.js';
 import { createGoogleTask } from './quick-save.js';
 import { createNote, validateNoteText, createNoteDoc, noteTitleFromText } from './basket-data.js';
 import { createUploadBatch, uploadBatch, uploadNoteFiles, mountBasketPicker, fileTitle } from './basket-upload.js';
@@ -27,12 +27,14 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   if(taskOnly)mode='task';
   if(noteOnly)mode='note';
   const toBasket=()=>mode==='update'&&!places.length;
-  // Whether the clip and drop take files for this save: a basket update, or a note (NOTE-파일붙이기).
+  // Whether the clip and drop take files for this save: an update (basket or chosen places), or a note (NOTE-파일붙이기).
+  // BUG-업데이트첨부연결: choosing an organization or a project keeps the clip, the drop and the files already chosen; [추가]
+  // saves them as the basket would and then links/files them there (update-places.js saveUpdateWithFiles).
   // TASK-추가창파일: a new task too, once the task-file table answers (as ⋯ → 파일 붙이기); they go up after Google made the task.
   // TEST-홈빠른입력안정화: while this load's task-file table answer for [할 일] is not in, the clip's place is kept (unseen,
   // unusable), so the input does not narrow once the answer comes (PC: [📎 첨부] sits left of [추가]). A no frees the place.
   let taskFilesOn=false,taskFilesWait=false;
-  const takesFiles=()=>noteOnly||toBasket()||(mode==='task'&&taskFilesOn);
+  const takesFiles=()=>noteOnly||mode==='update'||(mode==='task'&&taskFilesOn);
   // UPD-여러곳고르기: places is the list chosen on the 기록할 곳 sheet (in the order picked; empty is the basket).
   const currentPlaces=()=>places.map(p=>({...p}));
   const setPlaces=list=>{places=placeList(list);};
@@ -54,14 +56,14 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   // MD-표시보완: a pasted complete HTML document (ChatGPT HTML) becomes a .html attachment of this memo through the
   // same upload path as the clip; the text keeps a short mark. Nothing is saved until [추가].
   input.addEventListener('paste',e=>{
-    if(!(noteOnly||toBasket())||saving||input.readOnly)return;
+    if(!(noteOnly||mode==='update')||saving||input.readOnly)return;
     const found=extractHtmlDocument(e.clipboardData?.getData('text/plain')||'');if(!found)return;
     e.preventDefault();
     if(utf8Bytes(found.html)>HTML_MAX_BYTES){status.textContent='HTML 문서가 2MB를 넘어 붙여 넣지 않았어요. 더 짧게 만들어 달라고 한 뒤 다시 붙여 넣어 주세요.';return;}
     if(!pickerFiles.add([new File([found.html],htmlFileName(),{type:'text/html'})]))return;
     input.setRangeText([found.before,HTML_MARK,found.after].filter(Boolean).join('\n'),input.selectionStart,input.selectionEnd,'end');
     input.dispatchEvent(new Event('input',{bubbles:true}));
-    status.textContent='HTML 문서를 첨부 파일로 바꿨어요. [추가]를 누르면 바구니에 저장돼요.';
+    status.textContent=toBasket()||noteOnly?'HTML 문서를 첨부 파일로 바꿨어요. [추가]를 누르면 바구니에 저장돼요.':'HTML 문서를 첨부 파일로 바꿨어요. [추가]를 누르면 고른 곳 자료로 넣어요.';
   });
   box.querySelector('[data-quick-new-note]').onclick=()=>{if(saving)return;if((input.value||upload.entries.some(e=>e.kind!=='success'))&&!window.confirm('바구니에서 저장 여부를 확인한 후 새 업데이트를 입력할까요? 현재 입력과 파일 선택은 비워집니다.'))return;upload=createUploadBatch();input.value='';status.textContent='';paint();input.focus();};
   // UI-버튼크기: 홈은 세 모드 모두 한 줄 높이에서 시작해 글에 맞춰 늘고 5줄에서 멈춘다(그 뒤는 칸 안 스크롤). 바구니 화면은 CSS 높이 그대로.
@@ -70,7 +72,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     pickerFiles.render();
     // A saved or unconfirmed note keeps its text; say why and offer the reset next to the input.
     // A note's files are always settled by its own save (the batch is emptied after it), so the note input never locks.
-    const locked=toBasket()&&(!!upload.note_id||!!upload.blocked);input.readOnly=locked;box.querySelector('[data-quick-lock]').hidden=!locked;
+    const locked=mode==='update'&&(!!upload.note_id||!!upload.blocked);input.readOnly=locked;box.querySelector('[data-quick-lock]').hidden=!locked;
     box.querySelector('[data-quick-lock-reason]').textContent=!locked?'':upload.blocked?'앞선 저장 결과를 확인하지 못해 입력창을 잠갔어요. 바구니 목록에서 저장 여부를 확인하고, 새로 쓰려면 ‘새 업데이트 입력’을 눌러 주세요.':'업데이트 글은 이미 저장되어 남은 첨부만 다시 저장할 수 있어요. 새로 쓰려면 ‘새 업데이트 입력’을 눌러 주세요.';
     box.dataset.mode=noteOnly?'note':toBasket()?'basket':mode; input.rows=1; const targetName=placesLabel({projects:projectChoices,orgs:orgChoices},places);
     input.placeholder=noteOnly?'노트를 입력하세요':mode==='task'?'할 일을 입력하세요':toBasket()?(basketOnly?'업데이트를 입력하세요':'업데이트 입력(바구니에 저장)'):(targetName||'담당조직')+' 기록을 입력하세요';
@@ -228,34 +230,38 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     const fail=message=>{status.textContent=message;return {ok:false,message};};
     if(saving)return {ok:false,message:'저장 중이에요.'};
     // UI-빈입력안내: no text is a small hint line right under the input (not an error, no red); typing removes it.
-    if(!input.value.trim()&&!(toBasket()&&upload.entries.length)){const message='글을 입력해 주세요.';status.textContent='';hint.textContent=message;return {ok:false,message};}
+    if(!input.value.trim()&&!(mode==='update'&&upload.entries.length)){const message='글을 입력해 주세요.';status.textContent='';hint.textContent=message;return {ok:false,message};}
     if(toBasket()||places.length>1){if(!upload.entries.length){try{validateNoteText(input.value);}catch(e){return fail(e.message);}}}
-    // Organization and project records have no attachment column: attachments go only to the basket.
-    if(!toBasket()&&upload.entries.length)return fail('첨부는 바구니로만 저장돼요. ▾에서 바구니를 고르거나 첨부를 빼 주세요.');
+    // BUG-업데이트첨부연결: organization and project records have no attachment column, so an update with files and chosen
+    // places goes up as a basket update first and is then linked and filed there (saveUpdateWithFiles), as the basket would.
+    const withFiles=!toBasket()&&upload.entries.length>0;
     const ctx=window.KPTURuntime.context.read(),owner=ctx?.user?.id;if(!owner)return {ok:false,message:'로그인 정보를 확인하지 못했어요.'};
-    const saveMode=toBasket()?'basket':mode,text=saveMode==='basket'?input.value:input.value.trim(),workspace=ctx.workspace?.id,batch=upload,generation=uploadGeneration;const isCurrent=()=>{const c=window.KPTURuntime.context.read();return c?.user?.id===owner&&c?.workspace?.id===workspace&&batch===upload&&window.KPTURouter.current===view;};
+    const saveMode=toBasket()?'basket':withFiles?'files':mode,text=saveMode==='update'?input.value.trim():input.value,workspace=ctx.workspace?.id,batch=upload,generation=uploadGeneration;const isCurrent=()=>{const c=window.KPTURuntime.context.read();return c?.user?.id===owner&&c?.workspace?.id===workspace&&batch===upload&&window.KPTURouter.current===view;};
     // The native guard belongs to this save, even after the view comes back.
     let invalidated=false,sessionEpoch;
     const token={current:()=>{if(invalidated)return false;const session=window.KPTURuntime.session.read();if(generation!==uploadGeneration||!isCurrent()||sessionEpoch!==window.KPTURuntime.session.epoch()||session?.user?.id!==owner||!session?.access_token)invalidated=true;return !invalidated;}};
-    const ocr=saveMode==='basket'&&batch.entries.length?basketOcrFor({isCurrent:token.current}):null;
+    const ocr=saveMode!=='update'&&batch.entries.length?basketOcrFor({isCurrent:token.current}):null;
     if(ocr?.enabled){sessionEpoch=window.KPTURuntime.session.epoch();pendingOcr=token;}
     saving=true;status.textContent='';hint.textContent='';
     box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=true);pickerFiles.render();
     try{
-      const result=saveMode==='basket'?(batch.entries.length?await uploadBatch(batch,{raw_text:text,isCurrent,ocr,onChange:()=>{if(isCurrent())paint();},onOcrChange:value=>{if(isCurrent()&&token.current()&&!value.ok)status.textContent=value.result_unknown?'사진은 저장했습니다. 글자 읽기 결과는 바구니에서 확인해 주세요.':value.ocr_saved?'사진과 글자는 저장했습니다. 임시 문서 정리는 바구니에서 확인해 주세요.':value.text?'사진은 저장했습니다. 이전 글자는 유지했습니다. 읽기 결과와 임시 문서 정리는 바구니에서 확인해 주세요.':'사진은 저장했습니다. 글자는 읽지 못했습니다.';}}):await createNote({raw_text:text})):await saveUpdate({places:currentPlaces(),text,owner});
+      const onChange=()=>{if(isCurrent())paint();},onOcrChange=value=>{if(isCurrent()&&token.current()&&!value.ok)status.textContent=value.result_unknown?'사진은 저장했습니다. 글자 읽기 결과는 바구니에서 확인해 주세요.':value.ocr_saved?'사진과 글자는 저장했습니다. 임시 문서 정리는 바구니에서 확인해 주세요.':value.text?'사진은 저장했습니다. 이전 글자는 유지했습니다. 읽기 결과와 임시 문서 정리는 바구니에서 확인해 주세요.':'사진은 저장했습니다. 글자는 읽지 못했습니다.';};
+      const sameOwner=()=>{const c=window.KPTURuntime.context.read();return c?.user?.id===owner&&c?.workspace?.id===workspace;};
+      const result=saveMode==='basket'?(batch.entries.length?await uploadBatch(batch,{raw_text:text,isCurrent,ocr,onChange,onOcrChange}):await createNote({raw_text:text})):saveMode==='files'?await saveUpdateWithFiles({places:currentPlaces(),text,batch,isCurrent,sameOwner,ocr,onChange,onOcrChange}):await saveUpdate({places:currentPlaces(),text,owner});
       if(!isCurrent())return {ok:false,message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
-      if(saveMode==='basket'&&!batch.blocked&&batch.entries.every(entry=>entry.kind==='success'))upload=createUploadBatch();
+      if(saveMode!=='update'&&!batch.blocked&&batch.entries.every(entry=>entry.kind==='success'))upload=createUploadBatch();
       // UI-기록할곳되돌리기: after an organization or project record is added, the next input goes to the basket again; the places
       // stay first on the sheet's 최근 line (update-places.js). A failed save keeps the places (catch below) for another try.
       // UPD-여러곳고르기: with two or more places the update is one basket note linked to each; when the links are refused the
       // note is still saved in the basket, so the input is emptied (no second note on a retry) and the line says what to do.
-      const linkFailed=!!result?.linkError;
+      // BUG-업데이트첨부연결: with files, a refused link or filing leaves the update saved in the basket; the line says which.
+      const linkFailed=!!result?.linkError,fileFailed=saveMode==='files'&&result?.filed?.ok===false;
       if(saveMode!=='basket'){rememberPlace(currentPlaces());setPlaces([]);}
       input.value='';expanded=false;paint();if(saveMode==='basket'||result?.note)onSaved(result?.note||result);
-      if(linkFailed)status.textContent=linkFailText;
-      const toast=document.querySelector('#toast');toast.textContent=linkFailed?'바구니에 저장했습니다.':saveMode==='basket'?'바구니에 저장했습니다.':'기록을 저장했습니다.';toast.classList.remove('hidden');clearTimeout(save.toastTimer);save.toastTimer=setTimeout(()=>toast.classList.add('hidden'),3200);
+      if(linkFailed||fileFailed)status.textContent=[linkFailed?linkFailText:'',fileFailed?[fileFailText,result.filed.message].filter(Boolean).join(' '):''].filter(Boolean).join(' ');
+      const toast=document.querySelector('#toast');toast.textContent=linkFailed||fileFailed||saveMode==='basket'?'바구니에 저장했습니다.':saveMode==='files'?(text.trim()?'기록과 자료를 저장했습니다.':'자료로 넣었습니다.'):'기록을 저장했습니다.';toast.classList.remove('hidden');clearTimeout(save.toastTimer);save.toastTimer=setTimeout(()=>toast.classList.add('hidden'),3200);
       choicesFlight=null;
-      return linkFailed?{ok:true,linkError:result.linkError}:{ok:true};
+      return linkFailed||fileFailed?{ok:true,linkError:result.linkError||'',fileError:fileFailed?(result.filed.message||'FILES'):''}:{ok:true};
     }catch(e){const message=e.message||'저장하지 못했습니다.';if(isCurrent())status.textContent=message;return {ok:false,message};}
     finally{if(pendingOcr===token)pendingOcr=null;saving=false;box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=false);paint();}
   }

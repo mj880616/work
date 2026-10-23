@@ -46,19 +46,20 @@ function show(nodes, title) {
 async function start() {
   const token = tokenFromHash(location.hash) || (location.hash ? null : tokenFromSearch(location.search));
   if (!token) { show(renderClosed()); return; }
-  let page;
+  let page, media = null;
   try {
     const response = await fetch(ENDPOINT, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({token}),
       cache:'no-store', credentials:'omit', referrerPolicy:'no-referrer'});
     const data = response.ok ? await response.json() : null;
     if (!data || !data.ok || !data.page || typeof data.page.title !== 'string' || !Array.isArray(data.page.blocks)) throw new Error('closed');
     page = data.page;
+    media = data.media && typeof data.media === 'object' ? data.media : null;
   } catch {
     show(renderClosed());
     return;
   }
   // Drawing is outside the try above: a drawing problem is not a closed link (renderPage keeps each block apart).
-  show(renderPage(page), page.title);
+  show(renderPage(page, media), page.title);
 }
 if (main) {
   moveSearchTokenToHash();

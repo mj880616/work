@@ -23,7 +23,7 @@ async function measure(page,id,{edit=false}={}){
   const save=footer?.querySelector('button.primary');
   const before={save:save?visible(save):null};
   card.scrollTop=card.scrollHeight;
-  const title=head.querySelector('h2'),after={head:visible(title.getBoundingClientRect().height?title:head),close:visible(close),save:save?visible(save):null,headTop:Math.round(head.getBoundingClientRect().top-card.getBoundingClientRect().top),scrolled:card.scrollTop>0};
+  const title=head.querySelector('h2')||head,/* UI-중복제목삭제: 붙은 프로젝트 상세는 제목 줄이 없어 머리 줄 전체를 본다 */after={head:visible(title.getBoundingClientRect().height?title:head),close:visible(close),save:save?visible(save):null,headTop:Math.round(head.getBoundingClientRect().top-card.getBoundingClientRect().top),scrolled:card.scrollTop>0};
   filler.remove();card.scrollTop=0;
   if(edit){document.querySelector('#mrdView')?.classList.remove('hidden');document.querySelector('#mrdEditor')?.classList.add('hidden');}
   m.classList.add('hidden');m.setAttribute('aria-hidden','true');

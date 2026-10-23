@@ -3,6 +3,7 @@ import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {expectProjectDetail} from './helpers/project-detail.mjs';
 import {openWriteFromEntry} from './helpers/write-opener.mjs';
+import {expectProjectTitle} from './helpers/screen-title.mjs';
 // UI-크게첨부(2026-10-20 사용자 결정): (a) 조직 상세·프로젝트 상세의 업데이트 입력에도 [크게]. 같은 큰 편집 창(write-window.js)이
 // 그 조직·프로젝트를 미리 고른 채 열리고, 저장하면 그 조직·프로젝트 기록으로 저장된 뒤 닫힌다. (b) 큰 편집 창에서도 [📎 첨부]
 // (바구니 첨부 부품 basket-upload.js 그대로). 첨부는 바구니로 저장할 때만 — 조직·프로젝트 기록이나 노트로 저장할 때 첨부가 있으면
@@ -71,7 +72,7 @@ for(const width of [390,1280]){
  test(`프로젝트 상세 [크게]: 그 프로젝트가 고른 채 열리고, 저장하면 그 프로젝트 기록으로 저장·닫힘 ${width}`,async({page})=>{
   const f=await fixture(page,width);
   await clickView(page,'projects');await page.locator('#projectGrid .ps3-plist [data-ps3-project="p"]').click();
-  await expectProjectDetail(page,'p');await expect(page.locator('#ps3Title')).toContainText('테스트 프로젝트');
+  await expectProjectDetail(page,'p');await expectProjectTitle(page,'테스트 프로젝트',{contains:true});
   const form=page.locator('#ps3-progress [data-ps3-record-input]'),big=form.locator('[data-ps3-record-big]');
   await expect(big).toBeVisible();await expect(big).toHaveAccessibleName('큰 창에서 쓰기');
   const [i,b,s]=await Promise.all([form.locator('input').boundingBox(),big.boundingBox(),form.getByRole('button',{name:'기록',exact:true}).boundingBox()]);
@@ -98,7 +99,7 @@ for(const width of [390,1280]){
   expect(f.errors).toEqual([]);
  });
 
- test(`큰 편집 창 [📎 첨부]: 바구니(또는 노트)로 저장할 때만, 조직 기록으로 저장하면 기존 안내 ${width}`,async({page})=>{
+ test(`큰 편집 창 [📎 첨부]: 조직을 골라도 파일이 남고, 바구니로 저장하면 글과 함께 올라감 ${width}`,async({page})=>{
   const f=await fixture(page,width);
   // Menu [쓰기]: the window's own file batch.
   await openWriteFromEntry(page,width);
@@ -113,11 +114,10 @@ for(const width of [390,1280]){
   await e.locator('.md-editor-text').fill('파일과 함께 쓰는 업데이트');
   await chooseFile(page,clip);
   await expect(clip.locator('[data-basket-count]')).toHaveText('1');await expect(e.locator('[data-basket-file]')).toHaveCount(1);
-  // An organization record with a file: the existing rule, nothing saved.
+  // BUG-업데이트첨부연결: choosing an organization keeps the file and the clip (saving there: update-attach-target.spec.mjs).
   await e.locator('[data-md-kind-menu]').click();await page.locator('#mdPlaceSheet').getByRole('button',{name:'테스트 조직',exact:true}).first().click();await page.locator('#mdPlaceSheet').getByRole('button',{name:'저장',exact:true}).click();
   await expect(e.locator('[data-md-kind="update"]')).toHaveText('테스트 조직');
-  await e.locator('[data-md-save-icon]').click();
-  await expect(e.locator('.md-editor-status')).toHaveText('첨부는 바구니로만 저장돼요. ▾에서 바구니를 고르거나 첨부를 빼 주세요.');
+  await expect(clip).toBeVisible();await expect(clip.locator('[data-basket-count]')).toHaveText('1');await expect(e.locator('[data-basket-file]')).toHaveCount(1);
   expect([f.orgs,f.notes,f.uploads.length]).toEqual([[],[],0]);
   // Back to the basket: the text and file go through the basket upload path (one request with the text), then it closes.
   await e.locator('[data-md-kind="update"]').click();
