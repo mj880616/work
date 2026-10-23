@@ -11,10 +11,13 @@
 //     기존 [Drive에서 열기]와 같다.
 // ⋯ 메뉴에는 어느 파일이든 [Drive에서 열기]와 [내려받기]를 둘 다 둔다(menuItemsHtml).
 import {fileKind} from './meeting-compact.js';
-import {driveFileUrl} from './task-files.js';
 
 const PHOTO_TYPE = /^image\/(jpeg|png|webp|gif)$/i;
 const PHOTO_EXT = /\.(jpe?g|png|webp|gif)$/i;
+// Drive 보기 주소(번호가 올바를 때만). 할 일 첨부(task-files.js)도 이것을 다시 내보내 쓴다.
+export function driveFileUrl(id) {
+  return typeof id === 'string' && /^[A-Za-z0-9_-]{1,255}$/.test(id) ? `https://drive.google.com/file/d/${id}/view` : '';
+}
 const DRIVE_ID = /^[A-Za-z0-9_-]{1,255}$/;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 

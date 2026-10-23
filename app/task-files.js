@@ -3,15 +3,13 @@
 // file in the task's notes, so the Google Tasks app shows a link. Detaching or deleting the task never deletes the Drive file.
 // Deploy order: google-tasks Edge first, then the table. The menu item and file names appear only once the table answers,
 // so an older Edge never gets an attach request.
-import { fileAttrs } from './file-actions.js'; // FILE-누르면동작: 이름 누르기·작은 버튼 처리는 file-actions.js 전역 클릭 처리
+import { fileAttrs, driveFileUrl } from './file-actions.js'; // FILE-누르면동작: 이름 누르기·작은 버튼 처리는 file-actions.js 전역 클릭 처리
 const endpoint = action => `/functions/v1/google-tasks?action=${encodeURIComponent(action)}`;
 export const MAX_TASK_FILES = 10;
 export const MAX_TASK_FILE_BYTES = 100 * 1024 * 1024;
 const LIST_CHUNK = 50;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-export function driveFileUrl(id) {
-  return typeof id === 'string' && /^[A-Za-z0-9_-]{1,255}$/.test(id) ? `https://drive.google.com/file/d/${id}/view` : '';
-}
+export { driveFileUrl };
 
 // task id -> files (attach order), read from the link table with the owner's session (owner RLS).
 // Throws when the table is not there yet (migration not applied): the caller then hides the menu item and names.
