@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ORG-쟁의단계 시안</title>
+<style>
+:root{
+  --kptu-bg:#f3f1ea;--kptu-surface:#fffefa;--kptu-surface-subtle:#f7f5ee;
+  --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--kptu-faint:#8f8c7f;
+  --kptu-border:#e2ddd0;--kptu-border-strong:#cfc8b6;
+  --kptu-primary:#5c6a35;--kptu-primary-ink:#47532a;--kptu-primary-soft:#eef0e1;--kptu-on-primary:#fff;
+  --ds-kind-basket-soft:#fdeedb;--ds-kind-basket-ink:#8f4708;
+  --ds-kind-other-soft:#efede6;--ds-kind-other-ink:#55534a;
+  --ds-kind-journal-soft:#e3f1e6;--ds-kind-journal-ink:#2a6537;
+  --ds-line:var(--kptu-border-strong);
+}
+@media (prefers-color-scheme:dark){:root{
+  --kptu-bg:#161613;--kptu-surface:#1f1f1b;--kptu-surface-subtle:#292924;--kptu-ink:#ebe9e1;--kptu-muted:#b1aea2;--kptu-faint:#938f84;
+  --kptu-border:#34332d;--kptu-border-strong:#4a4840;--kptu-primary:#b4c385;--kptu-primary-ink:#c2d095;--kptu-primary-soft:#2c3120;--kptu-on-primary:#161613;
+  --ds-kind-basket-soft:#3a2816;--ds-kind-basket-ink:#f3b77e;--ds-kind-other-soft:#2d2c27;--ds-kind-other-ink:#cbc8bd;--ds-kind-journal-soft:#1c3022;--ds-kind-journal-ink:#9fd2a9;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--kptu-bg);color:var(--kptu-ink);font:13px/1.45 system-ui,"Noto Sans KR","Malgun Gothic",sans-serif;padding:12px}
+h1{font-size:14px;font-weight:500;margin:0 0 8px;color:var(--kptu-muted)}
+.wrap{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
+.label{font-size:12px;color:var(--kptu-muted);margin:0 0 4px}
+.phone{width:390px;max-width:100%;background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:12px;padding:10px 12px}
+.paper{width:520px;max-width:100%;background:#fff;color:#222;border:.5px solid #bbb;padding:10px 12px;font-size:12px}
+h2{font-size:15px;font-weight:500;margin:0}
+h3{font-size:13px;font-weight:500;margin:10px 0 4px;color:var(--kptu-primary-ink)}
+small,.mu{color:var(--kptu-muted);font-size:12px}
+.row{display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:.5px solid var(--kptu-border)}
+.row:last-child{border-bottom:0}
+.row b{font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tag{font-size:11px;padding:1px 7px;border-radius:999px;background:var(--ds-kind-basket-soft);color:var(--ds-kind-basket-ink);white-space:nowrap}
+.tag.end{background:var(--ds-kind-journal-soft);color:var(--ds-kind-journal-ink)}
+.stage{display:flex;align-items:center;gap:6px;margin:8px 0 2px}
+.stage span.k{color:var(--kptu-muted);font-size:12px;white-space:nowrap}
+select,input[type=date]{height:30px;font:inherit;color:var(--kptu-ink);background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:8px;padding:0 6px;min-width:0}
+select{flex:1}
+input[type=date]{width:118px}
+button{height:30px;font:inherit;font-weight:500;color:var(--kptu-ink);background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:8px;padding:0 10px}
+details{margin-top:4px}
+summary{font-size:12px;color:var(--kptu-muted);cursor:pointer}
+details div{font-size:12px;padding:2px 0 0 10px;color:var(--kptu-muted)}
+.sum{margin:6px 0 0;color:var(--kptu-ink)}
+.sec{margin-top:10px;padding-top:6px;border-top:.5px solid var(--kptu-border)}
+table{border-collapse:collapse;width:100%;font-size:12px}
+td,th{border:1px solid #999;padding:3px 6px;vertical-align:top;text-align:left;font-weight:400}
+th{background:#eee;font-weight:500}
+td.o{width:34%}
+.auto{color:#1a56a8}
+.note{font-size:11px;color:#777;margin-top:4px}
+</style>
+</head>
+<body>
+<h1>ORG-쟁의단계 시안 (가짜 조직 이름 · 저장 안 됨)</h1>
+<div class="wrap">
+
+<div>
+<p class="label">(가) 폰 담당조직 화면 — 조직 상세</p>
+<div class="phone">
+  <h2>○○공사지부</h2>
+  <p class="mu" style="margin:2px 0 0">철도·도시철도 · 담당 나</p>
+  <div class="stage"><span class="k">쟁의 단계</span>
+    <select aria-label="쟁의 단계"><option>없음</option><option>교섭 중</option><option selected>쟁의발생결의</option><option>조정신청</option><option>조정종료</option><option>찬반투표</option><option>쟁의행위</option><option>타결</option><option>종료</option></select>
+    <input type="date" value="2026-10-20" aria-label="단계 날짜">
+    <button type="button">저장</button></div>
+  <details><summary>단계 이력 3</summary>
+    <div>10.20 쟁의발생결의</div><div>09.12 교섭 중</div><div>09.01 없음</div></details>
+  <p class="sum">쟁의발생결의 후 조정신청 준비 중.</p>
+
+  <h3>담당조직 목록</h3>
+  <div class="row"><b>○○공사지부</b><span class="tag">쟁의발생결의</span></div>
+  <div class="row"><b>△△철도지부</b><span class="tag">쟁의행위</span></div>
+  <div class="row"><b>□□교통공사지부</b><span class="tag end">타결</span></div>
+  <div class="row"><b>◇◇운영지부</b></div>
+  <div class="row"><b>◎◎센터지부</b></div>
+  <p class="note" style="color:var(--kptu-faint)">단계가 없음인 조직은 아무것도 안 붙음. 목록 태그는 투쟁 중 + 이번 주 타결만.</p>
+</div>
+</div>
+
+<div>
+<p class="label">(나) 주간보고 3. 투쟁 사업 › 2) 투쟁 사업장 현황 — 자동 채움 초안</p>
+<div class="paper">
+  <table>
+    <tr><th>조직명</th><th>현황</th></tr>
+    <tr><td class="o">○○공사지부</td><td><span class="auto">- 쟁의발생결의(10.20)</span><br>- (직전 확정본 현황 줄 그대로, 직접 고침)</td></tr>
+    <tr><td class="o">△△철도지부</td><td><span class="auto">- 쟁의행위(10.14)</span><br>- (직전 확정본 현황 줄 그대로, 직접 고침)</td></tr>
+    <tr><td class="o">□□교통공사지부</td><td><span class="auto">- 타결(10.21)</span></td></tr>
+  </table>
+  <p class="note">파란 글씨 = 앱이 단계에서 채운 첫 줄. ◇◇운영지부·◎◎센터지부는 단계가 없음이라 표에 안 나옴. □□교통공사지부는 타결한 주만 한 번 보이고 다음 주부터 빠짐.</p>
+  <div class="sec" style="font-family:system-ui,sans-serif;color:#222">
+    <span class="tag">고칠 목록</span>
+    <div class="row"><b>◇◇운영지부</b><span class="mu">직전 확정본에 있던 줄 — 지울까요?</span></div>
+  </div>
+</div>
+</div>
+
+</div>
+</body>
+</html>
