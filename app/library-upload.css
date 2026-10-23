@@ -75,7 +75,7 @@
   #appView #libraryView #documentList .lu-more-trigger{grid-area:menu}
   #appView #libraryView #documentList .lu-file-kind{grid-area:kind;display:block;width:auto;min-width:0;height:auto;padding:0;background:transparent;font-size:11px;font-weight:var(--ds-weight-medium,500);line-height:18px}
   #appView #libraryView #documentList .lu-row-tag{grid-area:tag;min-width:0}
-  #appView #libraryView #documentList .lu-row-tag .doc-category-tag{display:inline;height:auto;padding:0;border-radius:0;background:transparent;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-regular,400);line-height:18px;text-align:left}
+  #appView #libraryView #documentList .lu-row-tag .doc-category-tag{display:inline;height:auto;padding:0;background:transparent;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-regular,400);line-height:18px;text-align:left}
   #appView #libraryView #documentList .lu-expand{display:none}
 }
 /* B안 펼치기: 잘린 줄에만 ⋯ 왼쪽 작은 꺾쇠. 펼친 줄은 이름 전체를 여러 줄로 보이고 꺾쇠를 위로 돌린다. */
