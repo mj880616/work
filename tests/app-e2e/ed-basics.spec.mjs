@@ -510,6 +510,51 @@ test.describe('폰 390', () => {
     await expect(box.locator('tr')).toHaveCount(3);
   });
 
+  test('표 메뉴 [넓게][좁게][고르게](폰): 커서 열만 바뀌고, 최소 폭에서 멈추고, 저장 후에도 유지되고, 되돌리기', async ({page}) => {
+    const box = await open(page, ed1(table(2, 3, () => ({colwidth: [90]}))));
+    const widths = async () => (await content(page))[0].content[0].content.map(c => c.attrs.colwidth[0]);
+    const colMenu = async index => {
+      const cell = box.locator('tr').first().locator('th').nth(index), r = await cell.boundingBox();
+      await cell.tap();
+      await cell.dispatchEvent('contextmenu', {clientX: r.x + 10, clientY: r.y + 10, bubbles: true, cancelable: true});
+      const ctx = page.getByRole('menu', {name: '표 칸 메뉴'});
+      await expect(ctx).toBeVisible();
+      const c = await ctx.boundingBox();
+      expect(c.x).toBeGreaterThanOrEqual(0);
+      expect(c.x + c.width).toBeLessThanOrEqual(390);
+      return ctx;
+    };
+    // [넓게]: only the cursor's column (the middle one) grows by about 20px.
+    let ctx = await colMenu(1);
+    await expect(ctx.getByRole('group', {name: '열 너비'})).toBeVisible();
+    await ctx.getByRole('menuitem', {name: '열 넓게'}).tap();
+    expect(await widths()).toEqual([90, 110, 90]);
+    // The same colwidth sits on every row's cells.
+    expect((await content(page))[0].content[1].content.map(c => c.attrs.colwidth[0])).toEqual([90, 110, 90]);
+    // [좁게]: back down, and it stops at the smallest width.
+    for (let i = 0; i < 8; i++) { ctx = await colMenu(1); await ctx.getByRole('menuitem', {name: '열 좁게'}).tap(); }
+    const narrow = await widths();
+    expect(narrow[0]).toBe(90); expect(narrow[2]).toBe(90);
+    expect(narrow[1]).toBeGreaterThanOrEqual(24); expect(narrow[1]).toBeLessThanOrEqual(40);
+    ctx = await colMenu(1);
+    await ctx.getByRole('menuitem', {name: '열 좁게'}).tap();
+    expect(await widths()).toEqual(narrow);
+    // [고르게]: all columns the same width (the total stays).
+    ctx = await colMenu(0);
+    await ctx.getByRole('menuitem', {name: '열 너비 고르게'}).tap();
+    const even = await widths();
+    expect(Math.max(...even) - Math.min(...even)).toBeLessThanOrEqual(2);
+    expect(Math.abs(even.reduce((a, b) => a + b, 0) - narrow.reduce((a, b) => a + b, 0))).toBeLessThanOrEqual(2);
+    // ↶ goes back one step (the widths before [고르게]).
+    const saved = await value(page);
+    await tool(page, '되돌리기').tap();
+    expect(await widths()).toEqual(narrow);
+    // The saved form reopened keeps the widths.
+    await open(page, saved);
+    expect(await widths()).toEqual(even);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+
   test('[표] 격자는 폰에서도 눌러 고름', async ({page}) => {
     const box = await open(page);
     await tool(page, '넣을 것 고르기').tap();
