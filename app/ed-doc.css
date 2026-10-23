@@ -25,6 +25,27 @@
 .ed-hl-pink{background:var(--ds-project-pink-soft)}.ed-hl-orange{background:var(--ds-project-orange-soft)}
 .ed-doc .ed-quote{margin:.4em 0 .8em;padding:2px 0 2px 14px;border-left:3px solid var(--kptu-border-strong);color:var(--kptu-muted)}
 .ed-doc .ed-ul,.ed-doc .ed-ol{margin:0 0 .6em;padding-left:1.5em}
+.ed-doc .ed-ol{padding-left:1.9em}
+/* ED-서식줄펼침: 목록 모양. 저장된 모양(marker)은 클래스 ed-ul-<이름>·ed-ol-<이름>, 저장된 모양이 없으면 ed-ul-auto·ed-ol-auto로
+   깊이에 따라 자동(글머리 • → ◦ → ▪, 번호 1. → 1) → (1) → ①). 내보내기(ed-text.mjs)도 같은 모양·같은 자동 순서를 쓴다. */
+@counter-style ed-b-disc{system:cyclic;symbols:"\2022";suffix:" "}
+@counter-style ed-b-dash{system:cyclic;symbols:"-";suffix:" "}
+@counter-style ed-b-circle{system:cyclic;symbols:"\25E6";suffix:" "}
+@counter-style ed-b-square{system:cyclic;symbols:"\25AA";suffix:" "}
+@counter-style ed-o-decimal{system:extends decimal;suffix:". "}
+@counter-style ed-o-paren{system:extends decimal;suffix:") "}
+@counter-style ed-o-parens{system:extends decimal;prefix:"(";suffix:") "}
+@counter-style ed-o-circled{system:fixed;symbols:"①" "②" "③" "④" "⑤" "⑥" "⑦" "⑧" "⑨" "⑩" "⑪" "⑫" "⑬" "⑭" "⑮" "⑯" "⑰" "⑱" "⑲" "⑳" "㉑" "㉒" "㉓" "㉔" "㉕" "㉖" "㉗" "㉘" "㉙" "㉚" "㉛" "㉜" "㉝" "㉞" "㉟" "㊱" "㊲" "㊳" "㊴" "㊵" "㊶" "㊷" "㊸" "㊹" "㊺" "㊻" "㊼" "㊽" "㊾" "㊿";suffix:" ";fallback:ed-o-decimal}
+@counter-style ed-o-hangul{system:fixed;symbols:"가" "나" "다" "라" "마" "바" "사" "아" "자" "차" "카" "타" "파" "하";suffix:". ";fallback:ed-o-decimal}
+.ed-doc ul.ed-ul-disc,.ed-doc ul.ed-ul-auto{list-style-type:ed-b-disc}
+.ed-doc ul.ed-ul-dash{list-style-type:ed-b-dash}
+.ed-doc ul.ed-ul-circle,.ed-doc ul ul.ed-ul-auto{list-style-type:ed-b-circle}
+.ed-doc ul.ed-ul-square,.ed-doc ul ul ul.ed-ul-auto{list-style-type:ed-b-square}
+.ed-doc ol.ed-ol-decimal,.ed-doc ol.ed-ol-auto{list-style-type:ed-o-decimal}
+.ed-doc ol.ed-ol-paren,.ed-doc ol ol.ed-ol-auto{list-style-type:ed-o-paren}
+.ed-doc ol.ed-ol-parens,.ed-doc ol ol ol.ed-ol-auto{list-style-type:ed-o-parens}
+.ed-doc ol.ed-ol-circled,.ed-doc ol ol ol ol.ed-ol-auto{list-style-type:ed-o-circled}
+.ed-doc ol.ed-ol-hangul{list-style-type:ed-o-hangul}
 .ed-doc li>.ed-p{margin:0 0 .15em}
 .ed-doc .ed-hr{height:0;margin:1.2em 0;border:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
 .ed-doc .ed-code{margin:.4em 0 .8em;padding:10px 12px;overflow-x:auto;border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface-subtle);font-size:13px;line-height:1.5;white-space:pre}
@@ -65,26 +86,49 @@
 .ed-tools .ed-gap{margin-left:6px}
 /* SHARE-전체편집: 폰보다 넓으면 넘치는 버튼은 줄 끝 [⋯] 아래 줄로(가로 스크롤 막대 없음). 폰은 손가락으로 가로 밀기(막대 숨김). */
 .ed-bar .ed-more[hidden]{display:none}
-.ed-tools .ed-more{margin-left:auto;font-weight:700}
+.ed-tools .ed-more{margin-left:auto}
+/* ED-서식줄펼침: [⌄]([⌃]) 상자 없이 같은 작은 크기, 열려 있는 동안만 옅은 바탕 */
+.ed-bar .ed-more,.ed-bar .ed-more:hover,.ed-bar .ed-more[aria-expanded="true"]{border-color:transparent}
+.ed-bar .ed-more[aria-expanded="true"]{background:var(--kptu-surface-subtle);color:var(--kptu-ink)}
+.ed-more .ed-chevron{display:block;margin:0 auto;transition:transform .12s}
+.ed-more[aria-expanded="true"] .ed-chevron{transform:rotate(180deg)}
+.ed-caret{font-size:.85em;opacity:.7}
 /* 폰: [⋯]는 가로로 미는 줄의 오른쪽 끝에 붙어 늘 보인다 */
 @media(max-width:760px){.ed-tools .ed-more{position:sticky;right:0;background:var(--kptu-surface);box-shadow:-6px 0 6px -4px var(--kptu-surface)}}
 .ed-more-menu{flex-wrap:wrap;overflow:visible;padding-top:4px;padding-bottom:4px}
 .ed-more-menu .ed-gap{margin-left:0}
 .ed-note{display:flex;align-items:center;padding:0 8px;min-height:32px;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 .ed-note[hidden]{display:none}
-/* 펼침 줄: 기호·색·정렬·표 격자·링크 */
-.ed-sym-menu,.ed-color-menu,.ed-highlight-menu{flex-wrap:wrap;overflow:visible;padding-top:4px;padding-bottom:4px}
-.ed-sym-menu button{min-width:32px;font-size:15px}
+/* 펼침 상자(popover): 누른 버튼 바로 아래에 본문 위로 뜬다(본문은 밀리지 않음). 위치·화면 안 맞춤은 ed-editor.js placePop이 한다. */
+.ed-pop{position:fixed;z-index:40;display:flex;flex-direction:column;align-items:stretch;gap:2px;min-height:0;width:max-content;min-width:128px;padding:4px;overflow:auto;overscroll-behavior:contain;border:var(--ds-line-width,1px) solid var(--kptu-border-strong);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);box-shadow:var(--kptu-shadow-float)}
+.ed-pop[hidden]{display:none}
+.ed-bar .ed-pop button{display:flex;align-items:center;gap:8px;width:100%;height:var(--ds-compact-height-sm,28px);padding:0 8px;border-color:transparent;text-align:left}
+.ed-bar .ed-pop button:hover,.ed-bar .ed-pop button:focus-visible{background:var(--kptu-surface-subtle)}
+.ed-bar .ed-pop button[aria-pressed="true"]{background:var(--kptu-surface-subtle);border-color:transparent;color:var(--kptu-ink)}
+.ed-pop .ed-check{margin-left:auto;padding-left:10px;visibility:hidden;color:var(--kptu-primary-ink)}
+.ed-pop button[aria-pressed="true"] .ed-check{visibility:visible}
+.ed-pop .ed-opt-text{flex:1 1 auto}
+.ed-pop svg{flex:0 0 auto}
+/* 기호 상자: 작은 칸을 줄바꿈해 늘어놓는다 */
+.ed-sym-menu{flex-direction:row;flex-wrap:wrap;max-width:240px}
+.ed-bar .ed-sym-menu button{width:auto;justify-content:center;min-width:32px;padding:0 6px;font-size:15px}
+.ed-color-menu,.ed-highlight-menu{min-width:150px}
+/* 목록 ▾·번호 ▾: 고를 모양마다 두 줄 미리보기 */
+.ed-bar .ed-list-menu button[data-ed-list-marker]{height:auto;min-height:40px;padding:3px 8px}
+.ed-list-prev{display:flex;flex-direction:column;gap:1px;min-width:5.5em;font-size:var(--ds-text-meta,12px);line-height:1.35;text-align:left}
+.ed-bar .ed-list-menu .ed-list-off{border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-radius:0 0 6px 6px;margin-top:2px;color:var(--kptu-muted)}
+.ed-bar .ed-pop button[hidden]{display:none}
 .ed-sym-menu button.is-next{border-color:var(--kptu-primary)}
 .ed-bar [data-ed-cmd="color"][data-ed-now]:not([data-ed-now=""]),.ed-bar [data-ed-cmd="highlight"][data-ed-now]:not([data-ed-now=""]){border-color:var(--kptu-border-strong)}
-.ed-grid-menu{gap:10px;padding-top:6px;padding-bottom:6px}
+.ed-grid-menu{flex-direction:row;align-items:center;gap:10px;padding:8px}
 .ed-grid{display:grid;grid-template-columns:repeat(var(--ed-grid-cols,8),18px);gap:3px}
-.ed-bar .ed-grid button{width:18px;min-width:0;height:18px;padding:0;border:var(--ds-line-width,1px) solid var(--kptu-border-strong);border-radius:3px;background:var(--kptu-surface)}
+.ed-bar .ed-grid button{display:block;width:18px;min-width:0;height:18px;padding:0;border:var(--ds-line-width,1px) solid var(--kptu-border-strong);border-radius:3px;background:var(--kptu-surface)}
 .ed-bar .ed-grid button::after{display:none}
 .ed-bar .ed-grid button.is-on{background:var(--kptu-primary-soft);border-color:var(--kptu-primary)}
 .ed-grid-size{font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);min-width:3.5em}
-.ed-link-menu{gap:6px}
-.ed-link-input{flex:1 1 220px;min-width:0;max-width:420px;height:var(--ds-compact-height-sm,28px);box-sizing:border-box;padding:0 8px;border:var(--ds-line-width,1px) solid var(--kptu-border-strong);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px)}
+.ed-link-menu{flex-direction:row;align-items:center;gap:6px;padding:6px;width:min(340px,calc(100vw - 16px))}
+.ed-link-input{flex:1 1 160px;min-width:0;height:var(--ds-compact-height-sm,28px);box-sizing:border-box;padding:0 8px;border:var(--ds-line-width,1px) solid var(--kptu-border-strong);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px)}
+.ed-bar .ed-link-menu button{width:auto}
 .ed-bar [data-ed-link-ok]{border-color:var(--kptu-primary);color:var(--kptu-primary-ink)}
 .ed-bar [data-ed-link-off][hidden]{display:none}
 .ed-suggest{display:flex;align-items:center;gap:6px;padding:0 8px;min-height:var(--kptu-touch-target,44px);border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
@@ -102,6 +146,9 @@
 .ed-input.resize-cursor{cursor:col-resize}
 .ed-input .ed-table-grip{position:absolute;left:0;top:0;width:12px;height:12px;border:var(--ds-line-width,1px) solid var(--kptu-border-strong);border-radius:3px;background:var(--kptu-surface);cursor:pointer;opacity:.6}
 .ed-input .ed-table-grip:hover{opacity:1;border-color:var(--kptu-primary)}
+/* 표 테두리를 누르면 표 전체가 골라진다: 테두리 위에서 손 모양 + 옅은 테두리 */
+.ed-input .ed-table-wrap.is-edge,.ed-input .ed-table-wrap.is-edge *{cursor:pointer}
+.ed-input .ed-table-wrap.is-edge table{outline:2px solid var(--kptu-primary-soft);outline-offset:1px}
 .ed-input .ed-table-wrap:has(.selectedCell) .ed-table-grip{opacity:1;background:var(--kptu-primary-soft);border-color:var(--kptu-primary)}
 /* 표·구분선·사진 앞뒤에 칠 수 있는 자리(gapcursor): 깜박이는 가로선 */
 .ed-input .ProseMirror-gapcursor{display:none;pointer-events:none;position:absolute}

@@ -15,6 +15,10 @@ export const BODY_STYLES = ['body1', 'body2', 'body3'];
 export const DEFAULT_BODY = 'body2';
 // ED-기본기보강: right and justify join left and center (left is saved as no align). indent: 들여쓰기 steps 1–8 (0 = none).
 export const ALIGNS = ['left', 'center', 'right', 'justify'];
+// ED-서식줄펼침: list marker shapes. A list's `marker` is one of these names, or absent (= automatic by nesting depth:
+// bullets • ◦ ▪ ▪…, numbers 1. → 1) → (1) → ① → ①…). Saved on the list node, read the same by every reader and export.
+export const BULLET_MARKERS = ['disc', 'dash', 'circle', 'square'];
+export const ORDER_MARKERS = ['decimal', 'paren', 'parens', 'circled', 'hangul'];
 export const MARKS = ['strong', 'em', 'underline', 'strike', 'link', 'color', 'highlight'];
 // 글자색·형광펜: a short fixed list of names (never a raw color), drawn by ed-doc.css from theme tokens so dark mode and the
 // Web1 reader follow the theme. [value, label].
@@ -94,7 +98,12 @@ function attrsOf(type, a) {
     var hi = intIn(a.indent, 0, LIMITS.indent, 0); if (hi) h.indent = hi;
     return h;
   }
-  if (type === 'ordered_list') return {order:intIn(a.order, 0, 99999, 1)};
+  if (type === 'ordered_list') {
+    var ol = {order:intIn(a.order, 0, 99999, 1)};
+    if (ORDER_MARKERS.indexOf(a.marker) >= 0) ol.marker = a.marker;
+    return ol;
+  }
+  if (type === 'bullet_list') return BULLET_MARKERS.indexOf(a.marker) >= 0 ? {marker:a.marker} : null;
   if (type === 'image') {
     var img = {src:typeof a.src === 'string' && PHOTO_SRC.test(a.src) ? a.src : null, alt:cleanString(a.alt).slice(0, LIMITS.alt)};
     var ia = alignOf(a.align); if (ia) img.align = ia;
@@ -273,4 +282,25 @@ export function nextCircled(current, earlier) {
     if (lead) return circled(circledValue(lead[1]) + 1) || circled(1);
   }
   return circled(1);
+}
+
+// ── list markers (ED-서식줄펼침) ──
+// What a list shows before each item. kind: 'bullet' | 'ordered'; marker: a saved name or empty (automatic); depth: how many
+// lists of the same kind hold this one (0 = outermost); n: the item's number (ordered only).
+var BULLET_GLYPH = {disc:'\u2022', dash:'-', circle:'\u25E6', square:'\u25AA'};
+var HANGUL_ORDER = '\uAC00\uB098\uB2E4\uB77C\uB9C8\uBC14\uC0AC\uC544\uC790\uCC28\uCE74\uD0C0\uD30C\uD558';
+export function autoMarker(kind, depth) {
+  var d = depth > 0 ? depth : 0;
+  if (kind === 'ordered') return ['decimal', 'paren', 'parens', 'circled'][d > 3 ? 3 : d];
+  return ['disc', 'circle', 'square'][d > 2 ? 2 : d];
+}
+export function bulletGlyph(marker, depth) { return BULLET_GLYPH[marker] || BULLET_GLYPH[autoMarker('bullet', depth)]; }
+// The text before an ordered item, e.g. "1." "1)" "(1)" "①" "가." (a number past what a shape can count falls back to "n.").
+export function orderedLabel(marker, depth, n) {
+  var m = ORDER_MARKERS.indexOf(marker) >= 0 ? marker : autoMarker('ordered', depth);
+  if (m === 'paren') return n + ')';
+  if (m === 'parens') return '(' + n + ')';
+  if (m === 'circled') return circled(n) || (n + '.');
+  if (m === 'hangul') return n >= 1 && n <= HANGUL_ORDER.length ? HANGUL_ORDER.charAt(n - 1) + '.' : n + '.';
+  return n + '.';
 }

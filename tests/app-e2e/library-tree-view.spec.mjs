@@ -55,8 +55,8 @@ for(const width of [390,1280])test(`프로젝트 트리: 맨 위 단만, 자료 
   await expect(libraryNodeHead(page,'p:orphan-1').locator('.lu-node-count')).toHaveText('0');
   // 자료가 없는 하위(산자부 대응)는 숨긴다.
   await expect(libraryNode(page,'p:child-a2')).toHaveCount(0);
-  // 접힌 줄은 32px 얇은 줄, 누르는 범위 44px.
-  expect(Math.round((await a.boundingBox()).height)).toBe(32);
+  // 접힌 줄은 36px 얇은 줄(LIB-목록간격 ②: 32 → 36px, 줄 간격 조금 넓게), 누르는 범위 44px.
+  expect(Math.round((await a.boundingBox()).height)).toBe(36);
   // 펼치기: 하위 프로젝트 토글이 먼저, 그다음 이 단의 파일. 하위의 색 점은 같은 색의 연한 톤.
   await a.click();await expect(libraryNode(page,'p:top-a')).toHaveAttribute('open','');
   await expect(libraryNodeHead(page,'p:child-a1').locator('.lu-pdot')).toHaveAttribute('data-tone','soft');
@@ -110,7 +110,11 @@ for(const width of [390,1280])test(`검색·종류 거르기: 맞는 토글만 �
   const chip=name=>page.locator(`#libraryCategoryFilter [data-lu-category="${name}"]`);
   for(const name of ['투쟁','교육','선전','정책','기타'])await chip(name).click();
   expect(await tops(page)).toEqual(['p:top-a']);expect(await visibleRows(page)).toEqual(['a1-1']);
-  await chip('all').click();await chip('all').click();
+  // LIB-거르기전체: 일부 켜짐에서 [전체] 한 번 = 모두 켬(거르기 풀림), 한 번 더 = 모두 끔(빈 목록 한 줄), 또 한 번 = 모두 켬.
+  await chip('all').click();
+  expect(await tops(page)).toEqual(['p:top-a','p:top-b','p:orphan-1','p:none']);
+  await chip('all').click();expect(await tops(page)).toEqual([]);await expect(page.locator('#documentList .empty')).toHaveText('고른 종류 없음');
+  await chip('all').click();
   expect(await tops(page)).toEqual(['p:top-a','p:top-b','p:orphan-1','p:none']);
   // 맞는 자료가 없으면 빈 안내.
   await page.locator('#documentSearch').fill('없는 검색어');await expect(page.locator('#documentList .empty')).toHaveText('자료가 없습니다.');await expect(page.locator('#libraryExpandAll')).toBeDisabled();

@@ -16,6 +16,7 @@ on:
       - 'tests/app-e2e/library-upload-failure-fixture.html'
       - 'tests/app-e2e/library-upload-failure.spec.mjs'
       - '.github/workflows/runtime-recovery-e2e.yml'
+      - '.github/actions/setup-playwright/**'
   pull_request:
     branches:
       - main
@@ -30,6 +31,7 @@ on:
       - 'tests/app-e2e/library-upload-failure-fixture.html'
       - 'tests/app-e2e/library-upload-failure.spec.mjs'
       - '.github/workflows/runtime-recovery-e2e.yml'
+      - '.github/actions/setup-playwright/**'
   workflow_dispatch:
 
 permissions:
@@ -48,9 +50,7 @@ jobs:
           package-manager-cache: false
 
       - name: Install Playwright
-        run: |
-          npm install --no-save @playwright/test@1.55.0
-          npx playwright install --with-deps chromium
+        uses: ./.github/actions/setup-playwright
 
       - name: Start static app server
         run: |

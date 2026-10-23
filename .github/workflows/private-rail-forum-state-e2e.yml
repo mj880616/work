@@ -7,12 +7,14 @@ on:
       - 'private-rail/forum-0929/**'
       - 'tests/app-e2e/private-rail-forum-state.spec.mjs'
       - '.github/workflows/private-rail-forum-state-e2e.yml'
+      - '.github/actions/setup-playwright/**'
   push:
     branches: [main]
     paths:
       - 'private-rail/forum-0929/**'
       - 'tests/app-e2e/private-rail-forum-state.spec.mjs'
       - '.github/workflows/private-rail-forum-state-e2e.yml'
+      - '.github/actions/setup-playwright/**'
 
 permissions:
   contents: read
@@ -28,9 +30,7 @@ jobs:
           node-version: 20
           package-manager-cache: false
       - name: Install Playwright
-        run: |
-          npm install --no-save @playwright/test@1.55.0
-          npx playwright install --with-deps chromium
+        uses: ./.github/actions/setup-playwright
       - name: Start static server
         run: |
           python3 -m http.server 8123 >/tmp/forum-state-e2e-http.log 2>&1 &

@@ -21,7 +21,7 @@ async function press(page, name) {
   if (await onRow.count() && await onRow.isVisible()) return onRow.click();
   const more = page.locator('.ed-more');
   if ((await more.getAttribute('aria-expanded')) !== 'true') await more.click();
-  await menu(page, '서식 더보기').getByRole('button', {name, exact: true}).click();
+  await menu(page, '서식 더 보기').getByRole('button', {name, exact: true}).click();
 }
 const para = (text, attrs = {style: 'body2'}) => ({type: 'paragraph', attrs, ...(text ? {content: [{type: 'text', text}]} : {})});
 const ed1 = (...nodes) => ({v: 'ed1', doc: {type: 'doc', content: nodes}});
@@ -72,7 +72,8 @@ test.describe('PC 1280', () => {
     // In a list: Tab nests the item instead.
     await page.keyboard.press('End'); await page.keyboard.press('Enter');
     await page.keyboard.type('하나');
-    await tool(page, '글머리 목록').click();
+    await tool(page, '글머리 목록 고르기').click();
+    await menu(page, '글머리 목록').getByRole('button', {name: '글머리 •', exact: true}).click();
     await page.keyboard.press('Enter'); await page.keyboard.type('둘');
     await page.keyboard.press('Tab');
     await expect(box.locator('ul ul li')).toHaveText('둘');
@@ -295,7 +296,7 @@ test.describe('PC 1280', () => {
     await expect(box).toBeFocused();
   });
 
-  test('표 고르기·지우기: 모서리 손잡이로 전체 선택 → Delete, 여러 칸 끌어 고르면 내용만 지움, ↶로 복구', async ({page}) => {
+  test('표 선택·지우기: 모서리 손잡이로 전체 선택 → Delete, 여러 칸 끌어 고르면 내용만 지움, ↶로 복구', async ({page}) => {
     const box = await open(page, ed1(para('앞'), table(2, 3)));
     // Several cells chosen: Backspace empties them, the table stays.
     const a = await box.locator('td').nth(0).boundingBox(), b = await box.locator('td').nth(2).boundingBox();
@@ -417,11 +418,11 @@ test.describe('PC 1280', () => {
   test('서식 줄: 자주 쓰는 것만 밖, 나머지는 [⋯] 안; 한 줄, 작은 버튼', async ({page}) => {
     await open(page);
     const row = page.locator('.ed-tools');
-    await expect(row.getByRole('button')).toHaveText(['본문 2 ▾', '굵게', '기울임', '밑줄', '글자색', '형광펜', '왼쪽 ▾', '목록', '번호', '표', '링크', '·', '※', '→', '①', '↶', '↷', '⋯']);
+    await expect(row.getByRole('button')).toHaveText(['본문 2 ▾', '굵게', '기울임', '밑줄', '글자색 ▾', '형광펜 ▾', '왼쪽 ▾', '목록 ▾', '번호 ▾', '표 ▾', '링크', '· ▾', '※ ▾', '→ ▾', '① ▾', '↶', '↷', '']);
     expect(await row.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
     for (const h of await row.locator('button:visible').evaluateAll(l => l.map(b => Math.round(b.getBoundingClientRect().height)))) expect(h).toBeLessThanOrEqual(28);
     await page.locator('.ed-more').click();
-    await expect(menu(page, '서식 더보기').getByRole('button')).toHaveText(['취소선', '인용', '구분선', '들여쓰기', '내어쓰기', '서식 지우기', '글자만 붙여넣기', '「」']);
+    await expect(menu(page, '서식 더 보기').getByRole('button')).toHaveText(['취소선', '인용', '구분선', '들여쓰기', '내어쓰기', '서식 지우기', '글자만 붙여넣기', '「」 ▾']);
     await page.screenshot({path: 'test-results/ed-basics-1280.png'});
   });
 });
@@ -442,7 +443,7 @@ test.describe('폰 390', () => {
     expect(m.x + m.width).toBeLessThanOrEqual(rowBox.x + rowBox.width + 1);
     expect(m.x).toBeGreaterThan(rowBox.x + rowBox.width - 60);
     await more.tap();
-    await expect(menu(page, '서식 더보기')).toBeVisible();
+    await expect(menu(page, '서식 더 보기')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({path: 'test-results/ed-basics-390.png'});
   });

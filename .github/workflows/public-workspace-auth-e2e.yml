@@ -7,12 +7,14 @@ on:
       - 'app/**'
       - 'tests/app-e2e/public-workspace-auth.spec.mjs'
       - '.github/workflows/public-workspace-auth-e2e.yml'
+      - '.github/actions/setup-playwright/**'
   push:
     branches: [main]
     paths:
       - 'app/**'
       - 'tests/app-e2e/public-workspace-auth.spec.mjs'
       - '.github/workflows/public-workspace-auth-e2e.yml'
+      - '.github/actions/setup-playwright/**'
 
 permissions:
   contents: read
@@ -27,9 +29,7 @@ jobs:
           node-version: 24
           package-manager-cache: false
       - name: Install Playwright
-        run: |
-          npm install --no-save @playwright/test@1.55.0
-          npx playwright install --with-deps chromium
+        uses: ./.github/actions/setup-playwright
       - name: Start static app server
         run: |
           python3 -m http.server 8123 >/tmp/kptu-auth-gate-http.log 2>&1 &

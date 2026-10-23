@@ -67,16 +67,19 @@ for(const width of [390,1280])test(`분류 칩: 기본은 회의만 꺼짐, 여�
   const {errors}=await boot(page,width);
   const group=page.locator('#libraryCategoryFilter');await expect(group).toHaveAttribute('role','group');
   await expect(group.getByRole('button')).toHaveText(['전체','교섭','투쟁','교육','선전','정책','회의','기타']);
-  await expect(group.locator('[aria-pressed="false"]')).toHaveText(['전체','회의']);
+  // LIB-거르기전체: 처음엔 [회의]만 꺼져 [전체]는 일부 켜짐(mixed).
+  await expect(group.locator('[aria-pressed="false"]')).toHaveText(['회의']);await expect(chip(page,'all')).toHaveAttribute('aria-pressed','mixed');
   expect(await ids(page)).not.toContain('meeting');await expect(rows(page)).toHaveCount(7);
   // 여러 개: 교섭·기타를 끄면 그 둘만 빠지고, 회의를 켜면 함께 보인다.
   await chip(page,'교섭').click();await chip(page,'기타').click();
   await expect(chip(page,'교섭')).toHaveAttribute('aria-pressed','false');await expect(chip(page,'기타')).toHaveAttribute('aria-pressed','false');
   expect((await ids(page)).sort()).toEqual(['dated-prefix','policy','short']);
   await chip(page,'회의').click();expect((await ids(page)).sort()).toEqual(['dated-prefix','meeting','policy','short']);
-  // [전체]: 모두 켬 → 다시 누르면 기본 상태(회의만 꺼짐).
-  await chip(page,'all').click();await expect(group.locator('[aria-pressed="false"]')).toHaveCount(0);await expect(rows(page)).toHaveCount(8);
-  await chip(page,'all').click();await expect(group.locator('[aria-pressed="false"]')).toHaveText(['전체','회의']);await expect(rows(page)).toHaveCount(7);
+  // [전체](LIB-거르기전체): 일부 켜짐 → 누르면 모두 켬 → 다시 누르면 모두 끔(고른 종류 없음) → 누르면 모두 켬. 기본 상태는 [회의]를 다시 끄면 된다.
+  await chip(page,'all').click();await expect(chip(page,'all')).toHaveAttribute('aria-pressed','true');await expect(group.locator('[aria-pressed="false"]')).toHaveCount(0);await expect(rows(page)).toHaveCount(8);
+  await chip(page,'all').click();await expect(chip(page,'all')).toHaveAttribute('aria-pressed','false');await expect(group.locator('[aria-pressed="true"]')).toHaveCount(0);await expect(rows(page)).toHaveCount(0);await expect(page.locator('#documentList')).toHaveText('고른 종류 없음');
+  await chip(page,'all').click();await expect(rows(page)).toHaveCount(8);
+  await chip(page,'회의').click();await expect(group.locator('[aria-pressed="false"]')).toHaveText(['회의']);await expect(rows(page)).toHaveCount(7);
   // 검색은 칩을 따르고, 꺼진 분류에 걸린 자료는 목록 아래에 알린다. [켜기]는 그 분류만 켠다.
   await page.locator('#documentSearch').fill('가상');
   expect((await ids(page)).sort()).toEqual(['dated-prefix','long','prefixed']);
@@ -87,12 +90,16 @@ for(const width of [390,1280])test(`분류 칩: 기본은 회의만 꺼짐, 여�
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });
 
-test('분류 칩: 들어올 때마다 기본 상태, 다른 화면이 특정 자료·담당조직으로 열면 모두 켬',async({page})=>{
+test('분류 칩: 들어올 때는 서버에 기억해 둔 상태(없으면 기본), 다른 화면이 특정 자료·담당조직으로 열면 모두 켬(저장 안 함)',async({page})=>{
   const {errors}=await boot(page,1280);
   await chip(page,'all').click();await expect(chip(page,'회의')).toHaveAttribute('aria-pressed','true');
   // 자료실에 머문 채 다시 그리기(로그인 정보 갱신·같은 화면 다시 열기)는 들어오기가 아니므로 고른 칩을 지킨다.
   await page.evaluate(()=>window.KPTURouter.go('library',{source:'session',updateUrl:false}));await page.evaluate(()=>window.KPTURouter.go('library'));
   await expect(page.locator('#libraryCategoryFilter [aria-pressed="false"]')).toHaveCount(0);expect(await ids(page)).toContain('meeting');
+  // LIB-보기기억: 다른 화면에 갔다 와도 마지막으로 고른 상태(모두 켬)가 서버 기억에서 돌아온다. 회의만 끄면 그 상태가 기억된다.
+  await page.evaluate(()=>window.KPTURouter.go('home'));await expect(page.locator('#homeView')).toBeVisible();
+  await page.evaluate(()=>window.KPTURouter.go('library'));await expect(chip(page,'회의')).toHaveAttribute('aria-pressed','true');expect(await ids(page)).toContain('meeting');
+  await chip(page,'회의').click();await expect(chip(page,'회의')).toHaveAttribute('aria-pressed','false');
   await page.evaluate(()=>window.KPTURouter.go('home'));await expect(page.locator('#homeView')).toBeVisible();
   await page.evaluate(()=>window.KPTURouter.go('library'));await expect(chip(page,'회의')).toHaveAttribute('aria-pressed','false');expect(await ids(page)).not.toContain('meeting');
   // 다른 화면에서 회의 자료 하나를 짚어 열면(바구니 등): 그 자료가 보이도록 모두 켜고 그 줄에 초점.
@@ -103,8 +110,8 @@ test('분류 칩: 들어올 때마다 기본 상태, 다른 화면이 특정 자
   await page.evaluate(()=>window.KPTURouter.go('home'));await expect(page.locator('#homeView')).toBeVisible();
   await page.evaluate(()=>{window.KPTULibrary.showOrganization('org-1','가상 지부');window.KPTURouter.go('library')});
   await expect(page.locator('#libraryOrganizationFilter')).toBeVisible();await expect(page.locator('#libraryCategoryFilter [aria-pressed="false"]')).toHaveCount(0);
-  // 그다음 평소처럼 들어오면 다시 기본 상태.
-  await page.evaluate(()=>window.KPTURouter.go('home'));await page.evaluate(()=>window.KPTURouter.go('library'));await expect(page.locator('#libraryCategoryFilter [aria-pressed="false"]')).toHaveText(['전체','회의']);
+  // 그다음 평소처럼 들어오면 기억해 둔 상태(위에서 모두 켠 채 열린 것은 저장하지 않았으므로 [회의]만 꺼짐).
+  await page.evaluate(()=>window.KPTURouter.go('home'));await page.evaluate(()=>window.KPTURouter.go('library'));await expect(page.locator('#libraryCategoryFilter [aria-pressed="false"]')).toHaveText(['회의']);
   expect(errors).toEqual([]);
 });
 

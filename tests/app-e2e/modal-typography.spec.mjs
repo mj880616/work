@@ -86,7 +86,8 @@ const newStandard=p=>p.evaluate(()=>{
   // ORG-PC좌우: 담당조직 화면 오른쪽 칸(#wdDetailPane)도 같은 상세 창(#wdModal)을 옮긴 것이다.
   if(!e.checkVisibility()||e.closest('#calendarGrid,#calendarWeek,.md-body,.a11y-only,#ps3DetailPane,#wdDetailPane'))continue;
   const s=getComputedStyle(e),text=[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim());
-  if(text&&!['400','500'].includes(s.fontWeight))bad.push([e.tagName,e.className,s.fontWeight].join(' '));
+  // LIB-목록간격(2026-10-23 사용자 확정 11:02): 자료실 트리의 맨 위 단 이름(프로젝트·'프로젝트 없음')만 굵게(700) — 두 가지 굵기 기준의 유일한 예외.
+  if(text&&!['400','500'].includes(s.fontWeight)&&!(s.fontWeight==='700'&&e.matches('summary[data-lu-top] > .lu-node-name')))bad.push([e.tagName,e.className,s.fontWeight].join(' '));
   if(e.matches('button.primary,button.secondary,button.mini,.filter-chips button,.w1p-filter')&&!e.matches('.icon-btn,#newEventBtn,#newTaskBtn,#newProjectBtn,#newDocumentBtn,.calendar-toolbar *')&&(innerWidth>760||!e.matches('.so-add-link,#newMeetingBtn'))){
    // UI-버튼크기: 필터 칩·보조 버튼([분류 수정])은 32px, 나머지 버튼은 46px.
    const h=Math.round(e.getBoundingClientRect().height),want=e.matches('.filter-chips button,.w1p-filter,#manageLibraryBtn')?32:(innerWidth>=1024&&e.matches('#newMeetingBtn,#sharePagesRoot button'))||e.matches('[data-sp-new]')?36:46;// UI-버튼줄이기: [새 공유 페이지]는 폰도 36px.// UI-PC회의·UI-PC버튼36: PC 목록 머리 추가 버튼은 입력칸 높이(36px).
@@ -193,12 +194,12 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
         await expect(group).toHaveAttribute('role','group');
         const toggles=group.locator('button[aria-pressed]');
         await expect(toggles).toHaveCount(8);
-        await expect(group.locator('button[aria-pressed="false"]')).toHaveText(['전체','회의']);
+        await expect(group.locator('button[aria-pressed="false"]')).toHaveText(['회의']);await expect(group.locator('button[aria-pressed="mixed"]')).toHaveText(['전체']);// LIB-거르기전체
         for(const toggle of await toggles.all()){
-          const on=await toggle.getAttribute('aria-pressed')==='true';
+          const pressedValue=await toggle.getAttribute('aria-pressed'),on=pressedValue==='true',mixed=pressedValue==='mixed';
           const [fontSize,fontWeight,,minHeight,paddingLeft,paddingRight,color,background,radius]=await toggle.evaluate(style);
           expect([fontSize,fontWeight,minHeight,paddingLeft,paddingRight,radius],name+' category chip style').toEqual(['13px','500','32px','12px','12px','999px']);
-          expect([color,background],name+' category chip color').toEqual(on?[tokens['--ds-select-ink'],tokens['--ds-select-bg']]:[tokens['--kptu-muted'],tokens['--kptu-surface']]);
+          expect([color,background],name+' category chip color').toEqual(on?[tokens['--ds-select-ink'],tokens['--ds-select-bg']]:mixed?[tokens['--kptu-ink'],tokens['--kptu-surface']]:[tokens['--kptu-muted'],tokens['--kptu-surface']]);
           expect((await toggle.boundingBox()).height,name+' category chip height').toBe(32);
           expect(await toggle.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),name+' category chip touch').toBe(44);
         }
