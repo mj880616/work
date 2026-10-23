@@ -1,4 +1,5 @@
 // ORG-쟁의단계: 쟁의 단계 목록·조직별 이력의 읽기·저장(서버 저장만, 기기 저장 없음). 판정은 org-dispute-stage-model.mjs 한 곳.
+// 읽기는 쓰기를 하지 않는다(보기만 해서 운영 데이터가 바뀌지 않게). 기본 단계 11개는 명진이 단계를 저장하거나 관리 창을 처음 열 때 ensureSeeded가 채운다.
 // 표는 app_dispute_stages(단계 목록)·app_suborganization_dispute_stages(이력)·함수 app_dispute_stage_delete(지우기).
 // 표가 아직 없는 운영(DB 적용 전)에서는 status:'preparing'으로 돌려주고 화면은 '준비 중' 한 줄만 보인다.
 import {seedRows, sortStages, defaultStage, latestRow, stageNameProblem} from './org-dispute-stage-model.mjs';
@@ -30,12 +31,6 @@ async function readPages(path, rt) {
 async function readAll(workspaceId, rt) {
   const stagePath = `/rest/v1/app_dispute_stages?workspace_id=eq.${enc(workspaceId)}&select=${SELECT_STAGES}&order=sort_order.asc,created_at.asc,id.asc`;
   let stages = await readPages(stagePath, rt);
-  if (!defaultStage(stages)) {
-    // 처음 열 때: 기본 단계 줄을 가장 먼저 넣은 11개를 한 번에(원자적). 이미 있는 이름은 건너뛴다.
-    await rt.api('/rest/v1/app_dispute_stages?on_conflict=workspace_id,name', {method: 'POST', body: seedRows(workspaceId), prefer: 'resolution=ignore-duplicates,return=minimal'});
-    stages = await readPages(stagePath, rt);
-    if (!defaultStage(stages)) throw new Error('기본 단계를 준비하지 못했어요.');
-  }
   const history = await readPages(`/rest/v1/app_suborganization_dispute_stages?select=${SELECT_HISTORY}&order=stage_date.desc,created_at.desc,id.desc`, rt);
   return {stages: sortStages(stages), histories: groupHistory(history)};
 }
@@ -43,6 +38,17 @@ export function groupHistory(rows) {
   const map = new Map();
   for (const row of rows) (map.get(row.organization_id) ?? map.set(row.organization_id, []).get(row.organization_id)).push(row);
   return map;
+}
+
+// 기본 단계가 없으면 기본 단계 줄을 맨 앞에 둔 11개를 한 번에(원자적) 넣고 다시 읽는다. 이미 있는 이름은 건너뛴다(두 화면이 동시에 해도 안전).
+export async function ensureSeeded({rt = window.KPTURuntime, workspaceId} = {}) {
+  let state = await loadDisputeState({rt, workspaceId});
+  if (state.status !== 'ready') throw new Error('단계를 준비하지 못했어요.');
+  if (defaultStage(state.stages)) return state;
+  await rt.api('/rest/v1/app_dispute_stages?on_conflict=workspace_id,name', {method: 'POST', body: seedRows(workspaceId), prefer: 'resolution=ignore-duplicates,return=minimal'});
+  state = await loadDisputeState({rt, workspaceId, force: true});
+  if (state.status !== 'ready' || !defaultStage(state.stages)) throw new Error('기본 단계를 준비하지 못했어요.');
+  return state;
 }
 
 // 상태 읽기. status: 'ready' | 'preparing'(표 없음) | 'error'. 같은 로그인·업무공간에서는 저장본을 먼저 주고 force로 다시 읽는다.

@@ -9,11 +9,11 @@ const orgs=[
  {id:'oa',workspace_id:'w',name:'합성 가 지부',active:true,created_by:owner,updated_at:stamp},
  {id:'ob',workspace_id:'w',name:'합성 나 지부',active:true,created_by:owner,updated_at:stamp}
 ];
-async function fixture(page,{width,tables=true}){
+async function fixture(page,{width,tables=true,seeded=true}){
  await page.setViewportSize({width,height:900});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const f=await openHome(page);
- const db={stages:defaultStageRows(),history:[],rpc:[],patches:[],seq:0};
+ const db={stages:seeded?defaultStageRows():[],history:[],rpc:[],patches:[],seq:0};
  const json=(route,data,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
  await page.route(SB+'/rest/v1/app_suborganizations?**',route=>{const q=new URL(route.request().url()).searchParams,id=q.get('id');return json(route,id?orgs.filter(o=>'eq.'+o.id===id):orgs)});
  await page.route(SB+'/rest/v1/app_suborganization_assignees?**',route=>{const q=new URL(route.request().url()).searchParams;return json(route,q.get('user_id')?[{user_id:owner}]:orgs.map(o=>({organization_id:o.id,user_id:owner})))});
@@ -23,8 +23,8 @@ async function fixture(page,{width,tables=true}){
   const req=route.request(),url=new URL(req.url());
   if(!tables)return json(route,{code:'PGRST205',message:'Could not find the table in the schema cache'},404);
   if(req.method()==='GET')return json(route,db.stages);
-  if(req.method()==='POST'){const b=req.postDataJSON();db.stages.push({id:'stage-new-'+(++db.seq),is_default:false,is_struggle:false,is_ending:false,created_at:'2026-10-06T00:00:00Z',...b});return json(route,[],201)}
-  if(req.method()==='PATCH'){const id=url.searchParams.get('id').slice(3),b=req.postDataJSON();db.patches.push({id,...b});Object.assign(db.stages.find(s=>s.id===id),b);return json(route,[],204)}
+  if(req.method()==='POST'){for(const b of [].concat(req.postDataJSON()))db.stages.push({id:'stage-new-'+(++db.seq),is_default:false,is_struggle:false,is_ending:false,created_at:'2026-10-06T00:00:00Z',...b});return json(route,[],201)}
+  if(req.method()==='PATCH'){const id=url.searchParams.get('id').slice(3),b=req.postDataJSON();db.patches.push({id,...b});Object.assign(db.stages.find(s=>s.id===id),b);return json(route,[])}
   return route.continue();
  });
  await page.route(/\/rest\/v1\/app_suborganization_dispute_stages(\?|$)/,async route=>{
@@ -32,7 +32,7 @@ async function fixture(page,{width,tables=true}){
   if(!tables)return json(route,{message:'x'},404);
   if(req.method()==='GET')return json(route,db.history);
   if(req.method()==='POST'){const b=req.postDataJSON();db.history.push({id:'h-'+(++db.seq),created_at:`2026-10-06T00:00:${String(db.seq).padStart(2,'0')}Z`,...b});return json(route,[],201)}
-  if(req.method()==='DELETE'){const id=url.searchParams.get('id').slice(3);db.history=db.history.filter(h=>h.id!==id);return json(route,[],204)}
+  if(req.method()==='DELETE'){const id=url.searchParams.get('id').slice(3);db.history=db.history.filter(h=>h.id!==id);return json(route,[])}
   return route.continue();
  });
  await page.route(SB+'/rest/v1/rpc/app_dispute_stage_delete',async route=>{
@@ -94,7 +94,6 @@ for(const width of [390,1280])test(`단계 저장·이력·목록 꼬리표 ${wi
 
 for(const width of [390,1280])test(`쟁의 단계 관리: 추가·이름·투쟁 중·순서·지우기(기본 단계로 이동) ${width}px`,async({page})=>{
  const {db,errors}=await fixture(page,{width});
- await openOrg(page,'oa',width);
  await clickView(page,'team');
  await page.locator('#soTeamMore').click();
  await page.locator('#soTeamMenu [data-so-stage-manage]').click();
@@ -158,11 +157,34 @@ test('조직이 없는 단계를 지울 때는 알림 없이 한 번 확인 뒤 
 
 for(const width of [390,1280])test(`표가 아직 없을 때는 '준비 중' 한 줄이고 화면은 그대로 ${width}px`,async({page})=>{
  const {errors}=await fixture(page,{width,tables:false});
+ await clickView(page,'team');
+ await page.locator('#soTeamMore').click();await page.locator('#soTeamMenu [data-so-stage-manage]').click();
+ await expect(page.locator('#soStageBody [data-stage-preparing]')).toBeVisible();
+ await page.locator('#soStageModal button[aria-label="닫기"]').click();await expect(page.locator('#soStageModal')).toBeHidden();
  await openOrg(page,'oa',width);
  await expect(page.locator('#wdStage [data-stage-preparing]')).toHaveText('준비 중');
  await expect(page.locator('#wdStage select')).toHaveCount(0);
- await expect(page.locator('#soOrganizationList .so-stage-tag')).toHaveCount(0);await expect(row(page,'ob')).toBeVisible();
- await page.locator('#soTeamMore').click();await page.locator('#soTeamMenu [data-so-stage-manage]').click();
- await expect(page.locator('#soStageBody [data-stage-preparing]')).toBeVisible();
+ await expect(page.locator('#soOrganizationList .so-stage-tag')).toHaveCount(0);
  expect(errors).toEqual([]);
+});
+
+for(const width of [390,1280])test(`기본 단계가 아직 없을 때: 보기만 해서는 쓰지 않고, 저장할 때 11개가 채워진다 ${width}px`,async({page})=>{
+ const {db,errors}=await fixture(page,{width,seeded:false});
+ await openOrg(page,'oa',width);
+ await expect(page.locator('#wdStage [data-stage-select] option')).toHaveCount(11);
+ await expect(stageSelect(page)).toHaveValue('seed:교섭 시작 전');
+ expect(db.stages).toEqual([]);
+ await stageSelect(page).selectOption({label:'쟁의발생 결의'});
+ await page.locator('#wdStage [data-stage-save]').click();
+ await expect(page.locator('#wdStage [data-stage-msg]')).toHaveText('저장했어요.');
+ expect(db.stages).toHaveLength(11);expect(db.stages[0]).toMatchObject({name:'교섭 시작 전',is_default:true});
+ expect(db.history).toHaveLength(1);expect(db.history[0]).toMatchObject({stage_name:'쟁의발생 결의',stage_id:db.stages[2].id});
+ await expect(row(page,'oa').locator('.so-stage-tag')).toHaveText('쟁의발생 결의');
+ expect(errors).toEqual([]);
+});
+test('기본 단계가 없을 때 관리 창을 처음 열면 11개를 채운다',async({page})=>{
+ const {db}=await fixture(page,{width:390,seeded:false});
+ await clickView(page,'team');expect(db.stages).toEqual([]);
+ await page.locator('#soTeamMore').click();await page.locator('#soTeamMenu [data-so-stage-manage]').click();
+ await expect(page.locator('#soStageModal .stg-row')).toHaveCount(11);expect(db.stages[0]).toMatchObject({is_default:true});
 });
