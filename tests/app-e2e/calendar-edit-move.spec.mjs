@@ -35,7 +35,9 @@ async function open(page,{view='list',recurring=false,partial=false,timed=false}
         }
       }
       if(action==='event'){state.reads++;if(state.readGate)await state.readGate;if(state.readFail)return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'합성 조회 실패'})});return ok({event:state.event,eventColors:{}})}
-      return ok({connected:true,enabled:true,selected:['source','target'],calendars,events:[state.event],colors:{},eventColors:{}});
+      // Like the real Edge: status has no events; only action=events does (an event on screen = the events read was applied).
+      const status={connected:true,enabled:true,selected:['source','target'],calendars,colors:{},eventColors:{}};
+      return ok(action==='events'?{...status,events:[state.event]}:status);
     }
     if(url.pathname==='/functions/v1/google-tasks')return ok({connected:true,authorized:true,tasks:[],links:[],meeting_links:[]});
     return ok([]);

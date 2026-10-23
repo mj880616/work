@@ -37,7 +37,9 @@ async function open(page,view='week'){
         return ok({ok:true,moved:false,event:{...ev}});
       }
       if(action==='event')return ok({event:state.events.find(e=>e.id===url.searchParams.get('eventId')&&e.calendarId===url.searchParams.get('calendarId')),eventColors:{}});
-      return ok({connected:true,enabled:true,selected:['own','ro'],calendars,events:state.events.map(e=>({...e})),colors:{},eventColors:{}});
+      // Like the real Edge: status has no events; only action=events does.
+      const status={connected:true,enabled:true,selected:['own','ro'],calendars,colors:{},eventColors:{}};
+      return ok(action==='events'?{...status,events:state.events.map(e=>({...e}))}:status);
     }
     if(url.pathname==='/functions/v1/google-tasks')return ok({connected:true,authorized:true,tasks:[],links:[],meeting_links:[]});
     return ok([]);
@@ -45,6 +47,8 @@ async function open(page,view='week'){
   await page.goto(loginEntry(BASE+'/app/?view=calendar'));
   await signInWithSession(page,'qa@example.org');
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
+  // Both ready promises are set by background modules, so wait for them to exist before awaiting them.
+  await expect.poll(()=>page.evaluate(()=>!!window.__KPTU_CALENDAR_PERSISTENCE_READY__)).toBe(true);
   await page.evaluate(()=>Promise.all([window.__KPTU_CALENDAR_PERSISTENCE_READY__,new Promise(r=>{const t=setInterval(()=>{if(window.__KPTU_CALENDAR_DRAG_READY__){clearInterval(t);r()}},20)})]));
   return state;
 }
