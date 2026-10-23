@@ -169,10 +169,10 @@ const PHONE_ORDER = ['style', 'strong', 'dotNow', 'symDot', ...GROUP_KEYS, 'undo
 function setLabel(b, text) {
   if (b.dataset.edLabel === text) return;
   b.dataset.edLabel = text;
-  const m = /^(.*) ▾$/.exec(text);
+  const m = /^(.*?) ?▾$/.exec(text);
   if (!m) { b.textContent = text; return; }
   const caret = document.createElement('span');
-  caret.className = 'ed-caret'; caret.setAttribute('aria-hidden', 'true'); caret.textContent = ' ▾';
+  caret.className = 'ed-caret'; caret.setAttribute('aria-hidden', 'true'); caret.textContent = m[1] ? ' ▾' : '▾';
   b.replaceChildren(m[1], caret);
 }
 function btn(label, data, aria) {
@@ -1003,7 +1003,8 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     const t = trigger.getBoundingClientRect(), size = pop.getBoundingClientRect();
     const below = view0.t + view0.h - bottomRoom - t.bottom - gap, above = t.top - view0.t - side - gap;
     const underneath = size.height <= below || below >= above, room = Math.max(80, Math.floor(underneath ? below : above));
-    const top = underneath ? t.bottom + gap : t.top - gap - Math.min(size.height, room);
+    // (A button inside a scrolled group popover can sit above the screen's top: the popover stays on the screen.)
+    const top = Math.max(view0.t + side, underneath ? t.bottom + gap : t.top - gap - Math.min(size.height, room));
     pop.style.maxHeight = `${room}px`;
     const left = Math.max(view0.l + side, Math.min(t.left, view0.l + view0.w - side - size.width));
     pop.style.left = `${Math.round(left)}px`; pop.style.top = `${Math.round(top)}px`;

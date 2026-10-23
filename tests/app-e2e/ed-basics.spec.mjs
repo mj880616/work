@@ -430,20 +430,26 @@ test.describe('PC 1280', () => {
 test.describe('폰 390', () => {
   test.use({viewport: {width: 390, height: 844}, hasTouch: true, isMobile: true});
 
-  test('서식 줄은 한 줄 가로 밀기, [⋯]는 오른쪽 끝에 늘 보임, 페이지는 옆으로 안 밀림', async ({page}) => {
+  // ED-서식줄묶음: the phone row is grouped: [본문 2 ▾][굵게][·][▾][글자 ▾][문단 ▾][넣기 ▾][기호 ▾][↶][↷]; no [⌄]; one line down to 344px.
+  test('서식 줄은 묶음 한 줄(344px까지 한 줄), 묶음 안에 모든 버튼, 페이지는 옆으로 안 밀림', async ({page}) => {
     await open(page);
-    const row = page.locator('.ed-tools'), more = page.locator('.ed-more');
+    const row = page.locator('.ed-tools');
     expect(await row.evaluate(el => getComputedStyle(el).flexWrap)).toBe('nowrap');
-    expect(await row.evaluate(el => el.scrollWidth > el.clientWidth)).toBe(true);
-    const rowBox = await row.boundingBox();
-    let m = await more.boundingBox();
-    expect(m.x + m.width).toBeLessThanOrEqual(rowBox.x + rowBox.width + 1);
-    await row.evaluate(el => { el.scrollLeft = 0; });
-    m = await more.boundingBox();
-    expect(m.x + m.width).toBeLessThanOrEqual(rowBox.x + rowBox.width + 1);
-    expect(m.x).toBeGreaterThan(rowBox.x + rowBox.width - 60);
-    await more.tap();
-    await expect(menu(page, '서식 더 보기')).toBeVisible();
+    await expect(row.getByRole('button')).toHaveText(['본문 2 ▾', '굵게', '·', '▾', '글자 ▾', '문단 ▾', '넣기 ▾', '기호 ▾', '↶', '↷']);
+    await expect(page.locator('.ed-more')).toBeHidden();
+    for (const width of [390, 360, 344]) {
+      await page.setViewportSize({width, height: 844});
+      await expect.poll(() => row.evaluate(el => el.scrollWidth - el.clientWidth), `row at ${width}`).toBeLessThanOrEqual(0);
+      expect(await row.locator('button:visible').evaluateAll(l => new Set(l.map(b => Math.round(b.getBoundingClientRect().top))).size)).toBe(1);
+    }
+    const GROUPS = {'글자 서식 고르기': ['기울임', '밑줄', '취소선', '글자색 ▾', '형광펜 ▾', '서식 지우기'],
+      '문단 서식 고르기': ['정렬 왼쪽 ▾', '목록 ▾', '번호 ▾', '들여쓰기', '내어쓰기', '인용', '구분선'],
+      '넣을 것 고르기': ['표 ▾', '링크', '글자만 붙여넣기'], '기호 고르기': ['※ ▾', '→ ▾', '① ▾', '「」 ▾']};
+    for (const [name, texts] of Object.entries(GROUPS)) {
+      await row.getByRole('button', {name, exact: true}).tap();
+      await expect(page.locator('.ed-pop:not([hidden])').first().getByRole('button')).toHaveText(texts);
+      await page.keyboard.press('Escape');
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({path: 'test-results/ed-basics-390.png'});
   });
@@ -465,8 +471,8 @@ test.describe('폰 390', () => {
 
   test('[표] 격자는 폰에서도 눌러 고름', async ({page}) => {
     const box = await open(page);
-    await page.locator('.ed-tools').evaluate(el => { el.scrollLeft = el.scrollWidth; });
-    await tool(page, '표 넣기').tap();
+    await tool(page, '넣을 것 고르기').tap();
+    await page.locator('.ed-pop:not([hidden])').getByRole('button', {name: '표 넣기', exact: true}).tap();
     await menu(page, '표 크기 고르기').getByRole('button', {name: '2줄 3칸 표'}).tap();
     await expect(box.locator('tr')).toHaveCount(2);
     await expect(box.locator('tr').first().locator('th')).toHaveCount(3);

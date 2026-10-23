@@ -183,3 +183,4 @@
 .ed-group-menu .ed-gap{margin-left:0}
 .ed-bar .ed-group-menu button{justify-content:flex-start}
 .ed-bar .ed-group-menu button[aria-pressed="true"]::before{content:"✓";color:var(--kptu-primary-ink);margin-right:2px}
+.ed-grouped .ed-tools [data-ed-cmd="symDot"] .ed-caret{font-size:1em;opacity:1}
