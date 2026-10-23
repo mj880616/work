@@ -20,7 +20,7 @@
 6. **기존 공유 페이지 블록(진행 단계 막대·일정표 등)** — **가. 옛 블록은 그대로 보이고 고칠 수 있게 두고, 새 글은 새 편집기 칸 하나로. 원하면 [새 편집기로 바꾸기] 버튼으로 옮김(추천)** · 나. 모두 새 편집기로 바꿈(진행 단계 막대 모양은 번호 목록으로 바뀜).
 7. **공유 사진이 링크를 끈 뒤 언제 안 보이나** — **가. 5분 안(사진 주소를 5분짜리로 발급, 추천)** · 나. 즉시(사진마다 서버가 매번 확인해 내려 줌, 느리고 서버 부담 큼).
 8. **공유 사진 크기** — **가. 긴 변 1600px, JPEG(추천)** · 나. 2048px(일기와 같음) · 다. 1280px.
-9. **업데이트에 서식 저장** — **가. 바구니 업데이트(미분류)는 서식까지 저장, 담당조직·프로젝트 기록으로 바로 보내는 업데이트는 글자만 저장(추천, 주간보고·업무일지가 글자만 읽음)** · 나. 모든 업데이트에 서식 저장(조직·프로젝트 표 2개 DB 변경 추가).
+9. **업데이트에 서식 저장** — 가. 바구니 업데이트(미분류)는 서식까지 저장, 담당조직·프로젝트 기록으로 바로 보내는 업데이트는 글자만 저장 · **나. 모든 업데이트에 서식 저장(조직·프로젝트 표 2개 DB 변경 추가) — 사용자 결정(2026-10-22 16:00, 10-23 17:21 재확인)**. 주간보고·업무일지로 들어갈 때는 글자만(11.3).
 10. **일기** — **가. 글 칸만 새 편집기로 바꾸고 사진 달력·사진 넘기기는 지금 그대로(추천)** · 나. 글 사이에 사진도 넣기(사진 위치 저장 추가).
 11. **노트 '마크다운' 체크(10/21 17:53 요청, #898로 이미 완료)** — **가. ③ 노트 단계가 끝나면 체크 칸을 없애고 이 과제에 합침(추천)** · 나. 체크 칸을 계속 둠. 자세히 7절.
 12. **표 기능 범위(첫 버전)** — **가. 칸 추가·삭제, 머리줄, 칸 합치기 없음(추천)** · 나. 칸 합치기까지.
@@ -145,7 +145,7 @@
 | --- | --- | --- | --- |
 | 공유 페이지 | `app_share_pages.blocks`에 새 블록 종류 `{"type":"doc","doc":{...}}` | 없음(공유 페이지는 글자 소비처 없음) | **있음**: blocks check에 `doc` 추가(6종→7종), 크기 한도 검토 |
 | 노트·일기·바구니 업데이트(`app_notes`) | 새 칸 `doc jsonb null`(null = 옛 글자 원본) | `raw_text` = 구조에서 꺼낸 글자 | **있음**: 칸 추가 + 크기 check. 권한은 기존 표 권한·owner RLS 그대로(새 정책 없음) |
-| 담당조직·프로젝트 업데이트 | 결정 9 가: 저장 안 함(글자만) | 지금처럼 | 없음 |
+| 담당조직·프로젝트 업데이트 | 결정 9 나: 새 칸 `doc jsonb null`(11.3) | `raw_text`·`summary` = 구조에서 꺼낸 글자 | **있음**: 표 2개에 칸 추가(11.3) |
 
 - `metadata` jsonb에 넣는 방법도 있지만(DB 변경 없음), `metadata`는 고정·폴더·할 일·일지 표시 등 여러 곳이 키별 동시 수정 보호(guard)를 걸고 쓰는 칸이라(사실: `saveNoteDoc`의 guard 줄) 큰 문서를 섞으면 충돌·크기 위험이 커진다. **새 칸을 추천한다.**
 - 크기: 노트 `raw_text` 10만 자 한도는 글자에 그대로 둔다. `doc`은 예: `octet_length(doc::text) <= 1MB`(사진은 식별자뿐이라 충분, 추정).
@@ -254,7 +254,7 @@
 
 ### ④ 업데이트
 
-- 홈·바구니 한 줄 입력창은 그대로. ⤢ 크게 쓰기(`write-window.js`)와 업데이트 수정 큰 창(`basket.js`)을 새 편집기로. 바구니 업데이트(app_notes kind=basket)는 ③의 `doc` 칸을 함께 씀(DB 추가 변경 없음). 담당조직·프로젝트로 바로 보내는 업데이트는 결정 9 가면 글자만 저장(편집기는 쓰되 저장 직전 글자 꺼내기).
+- 홈·바구니 한 줄 입력창은 그대로. ⤢ 크게 쓰기(`write-window.js`)와 업데이트 수정 큰 창(`basket.js`)을 새 편집기로. 바구니 업데이트(app_notes kind=basket)는 ③의 `doc` 칸을 함께 씀(DB 추가 변경 없음). 담당조직·프로젝트로 바로 보내는 업데이트도 결정 9 나로 서식까지 저장(11절에서 범위·순서를 다시 정함).
 - ④가 끝나면 `md-editor.js`의 마크다운 글 칸·`md-editor-ops.mjs`는 쓰는 곳이 없어짐 → 삭제는 사용처 확인 뒤 별도 정리 PR. 옛 글 읽기용 `markdown-view.js`는 유지.
 
 ### 그 뒤 (이 과제 밖, 원장 제안)
@@ -403,3 +403,158 @@
 - 한계: 칸 하나 최소 32px, 표는 글 폭을 넘지 않는다(끄는 중에도). Esc로 취소. 끄는 동안 표 테두리가 따라온다.
 - 읽는 화면(공유 페이지 공개 읽기·Web1)은 이미 `colwidth` 합과 비율을 그리므로(`ed-render.mjs`) 읽는 쪽·서버(DB check·`share-page-read`) 변경 없음.
 - 손가락 끌기는 만들지 않았다(손잡이는 터치 화면에서 숨김). 이유: 칸 폭 끌기(prosemirror-tables `columnResizing`)가 마우스 이벤트(mousedown·mousemove)만 받고 터치 끌기를 처리하지 않으며, 폰에서는 표를 끌면 화면 스크롤·긴 누르기 메뉴와 겹친다. 후보: 폰 [열 넓게][열 좁게] 버튼(사용자 결정 대기).
+
+---
+
+## 11. ED-③ 편집기 하나로 (2026-10-23 설계, 코드 변경 없음)
+
+기준 main `4d08521`(#1055). 이 절은 설계만 한다(앱·DB·Edge 변경 없음). 6절 ③·④의 순서를 아래로 **대체**한다.
+
+- **명진 결정(사실)**: 노트·일기·업데이트와 담당조직·프로젝트 기록의 [크게](옛 큰 쓰기 창)를 모두 새 편집기(`app/ed-editor.js` 계열) 하나로 바꾸고, 옛 큰 창은 지운다. 결정 9 = 나(2026-10-22 16:00, 10-23 17:21 재확인): 노트·일기·업데이트·기록은 **서식까지 저장**, 주간보고·업무일지로 들어갈 때는 **글자만**. 시작 조건 "표 크기 끌기가 끝난 뒤"(10-23 15:48)는 #1054 merge(`404a0bd4`)로 충족.
+- **가정**: 편집기의 붙여넣기 버튼 이름은 열린 PR #1062(ED-붙여넣기이름)가 고치는 중이며, 이 설계는 그 이름을 **'서식 없이 붙여넣기'**로 쓴다(지금 main은 '글자만 붙여넣기', `ed-editor.js` 140행).
+- 표시: 사실 = 저장소 코드·migration으로 확인, 추정 = 확인 못 한 짐작(운영 DB는 조회하지 않음).
+
+### 11.1 옛 큰 창을 부르는 곳 전수 (사실, grep 근거)
+
+옛 큰 창 = `app/md-editor.js`의 `openMarkdownEditor`(창 id `#mdEditor`, 마크다운 `textarea` + 서식 줄). 직접 부르는 곳 4곳, 그 위에 덧씌운 쓰기 창 `write-window.js`의 `openWriteWindow`를 부르는 곳 6곳 = **화면에서 여는 입구 10곳**이다.
+
+근거 명령: `grep -rn "openMarkdownEditor\|openWriteWindow\|import('./md-editor.js')\|import('./write-window.js')" app --include=*.js --include=*.mjs`(외부 라이브러리 폴더 제외).
+
+**가. 열기 입구 10곳**
+
+| # | 화면·버튼 | 파일·함수(행) | 부르는 것 | 저장 경로(지금) | 저장 표·칸 |
+| --- | --- | --- | --- | --- | --- |
+| 1 | PC 상단 줄 [+ 추가] → [업데이트]·[노트] | `topbar-actions.js` `openWriter`(214, 부름 221·478) | `openWriteWindow` | 쓰기 창 자체 저장(`update-places.js` `saveUpdate`/`saveUpdateWithFiles`, `basket-data.js` `createNoteDoc`) | `app_notes`(basket·note) 또는 아래 5·6 표 |
+| 2 | 홈 빠른 입력 [크게] | `home-quick.js` `bigBtn.onclick`(319, 부름 326), `mountQuick` from `home-read.js` 654 | `openWriteWindow` | `updateVia` → 홈 입력의 `save()`(241) | 같음 |
+| 3 | 바구니 업데이트 입력 [크게] | 같은 `home-quick.js`(319·326), `mountQuick({basketOnly})` from `basket.js` 298 | `openWriteWindow` | 같음 | 같음 |
+| 4 | 바구니 노트 입력 [크게] | `home-quick.js` 318(`noteOnly` → `onBig`) → `basket-notes.js` `openNew`(255, 부름 259) | `openWriteWindow`(노트 먼저 고름) | `createNoteDoc` | `app_notes`(note) |
+| 5 | 업데이트(바구니 메모) 읽기 → 수정 → [큰 창에서 수정] | `basket.js` `openBigWriter`(762, 부름 766; 버튼 `data-basket-big-write`, 924) | `openMarkdownEditor` | `saveEdit` → `updateNote` | `app_notes.raw_text`(basket) |
+| 6 | 노트 읽기 → 수정 → [큰 창에서 수정] | `basket-notes.js` `openBigWriter`(309, 부름 318; 버튼 `data-note-big-write`, 602) | `openMarkdownEditor`(`keepOpen`, 마크다운 체크) | `save` → `saveNoteDoc` | `app_notes.title·raw_text·metadata.markdown`(note) |
+| 7 | 담당조직 상세 맨 위 입력 [크게] | `workplace-detail.js` `wdOpenBig`(198, 부름 199; 버튼 `#wdInboxBig`, 296) | `openWriteWindow`(이 조직 고름) | `saveOrganizationUpdate`(`quick-save.js` 6) | `app_suborganization_updates.raw_text` |
+| 8 | 담당조직 기록 ⋯ → [수정] → ⤢ | `workplace-detail.js` `wdBigField`(164, 부름 169; 버튼 `data-wd-field-big`, 178·191) | `openMarkdownEditor`(저장 없음, 칸에 되돌려 줌) | 칸의 [저장] → `wdUpSave`(183) PATCH | `app_suborganization_updates.raw_text` |
+| 9 | 담당조직 기록 중 연결 기록(바구니 업데이트 연결) 요약 수정 → ⤢ | `basket-link-records.js` `mountLinkSummaryEditor`의 `onBig`(128·261) → `workplace-detail.js` 98 → `wdBigField` | `openMarkdownEditor`(8과 같은 함수) | `updateLinkSummary` RPC `app_basket_update_link_summary`(2000자) | `app_record_links.summary` |
+| 10 | 프로젝트 상세 기록 입력 [크게] | `project-system-v3.js` `openRecordBig`(639, 부름 645; 버튼 `data-ps3-record-big`, 391·802) | `openWriteWindow`(이 프로젝트 고름) | `saveProjectProgress`(`quick-save.js` 23) | `app_project_progress_updates.summary` |
+
+- 프로젝트 쪽 연결 기록 요약 수정(`project-system-v3.js` 419 `mountLinkSummaryEditor`)은 `onBig`을 넘기지 않아 ⤢가 없다(사실). 프로젝트 기록 ⋯ [수정](`project-system-v3.js` 427)은 한 줄 `input`(500자)이고 ⤢가 없다(사실).
+- 일기(`diary.js` 237 `textarea[data-diary-text]`)는 옛 큰 창을 쓰지 않는다(사실). 새 편집기로 바꾸는 대상이지만 "큰 창 호출"은 아니다.
+
+**나. 큰 창이 열려 있는지만 보는 곳(지우기 PR에서 함께 바꿀 곳)**: `#mdEditor:not(.hidden)` 검사 — `home-quick.js` 318·320, `workplace-detail.js` 165·168·198, `project-system-v3.js` 640, `topbar-actions.js` 215. `history.state?.kptuOverlay==='mdEditor'` — `topbar-actions.js` 228. 상태 줄 `#mdEditor .md-editor-status` — `write-window.js` 57, `basket.js` 773, `basket-notes.js` 308.
+
+**다. 큰 창 모듈의 다른 내보내기를 쓰는 곳(큰 창이 아니므로 지우면 안 됨)**: `copyText`(`md-editor.js` 103) — `journal.js` 39, `todo-radar.js` 14, `share-pages.js` 13, `basket.js` 24, `basket-notes.js` 13. → 삭제 PR 전에 `copyText`를 작은 공용 파일(예: `app/copy-text.js`)로 옮긴다.
+
+**라. 큰 창 전용 부품(삭제 대상 후보)**: `md-editor.js`(566줄)·`md-editor.css`·`md-editor-ops.mjs`·`md-toolbar-layout.mjs`, 시험 `tests/md-editor.test.mjs`·`tests/md-toolbar-groups.test.mjs`·`tests/app-e2e/md-editor.spec.mjs`·`md-editor-pc-tabs.spec.mjs`·`helpers/md-tools.mjs`, CI 목록(`.github/workflows/app-smoke-check.yml` 152), `view-loader.js` 23의 `md-editor.css`, `ui-standard.css`의 `.md-editor`·`html.md-editor-open` 규칙(669~717·895~896·1192~1196). `md-editor`·`#mdEditor`를 쓰는 E2E는 27개 파일(`grep -rln "md-editor\|mdEditor\|write-window\|openWriteWindow" tests`) — 단계마다 새 편집기 기준으로 고친다.
+- **남기는 것**: `toolbar-pop.js`(새 편집기도 씀, `ed-editor.js` 서식 줄 묶음 공용 — 지금은 두 편집기가 함께 씀), `md-telegram.mjs`(`basket.js` 25·`basket-notes.js` 16·`note-preview.mjs` 4가 옛 글 복사에 씀), `md-hangul.mjs`, `markdown-view.js`(옛 글자 행 읽기용: `basket.js`·`basket-notes.js`·`record-sheet.js`·`text-clamp.js`), `note-markdown.mjs`(옛 글 판정·`ed-editor.js` 붙여넣기 판정).
+
+### 11.2 창 껍데기: 새 편집기를 담을 "쓰기 창" 하나
+
+- 지금 새 편집기(`createDocEditor`, `ed-editor.js` 216)는 **글 칸 부품**뿐이고 창 껍데기(머리줄·저장 아이콘·닫기 확인·폰 하단 탭·PC 메뉴 옆 배치·뒤로 가기 기록·내보내기 시트·[업데이트 ▾ | 노트]·노트 제목·폴더·[📎 첨부])는 옛 `md-editor.js`에만 있다(사실).
+- 설계 2.3의 방향(껍데기는 옮겨 쓰고 글 칸만 갈아 끼움)대로, **새 파일 `app/ed-window.js` 하나**가 껍데기를 맡는다: `md-editor.js`의 껍데기 코드를 그대로 옮기고 `textarea`·마크다운 서식 줄·미리보기 자리에 `createDocEditor`를 넣는다. 옛 창과 새 창이 한동안 함께 있으므로 창 id는 `#edWindow`, 뒤로 가기 기록 키도 따로 둔다(둘이 동시에 열리지 않게 "열려 있나" 검사는 둘 다 보게 공용 함수 `bigWindowOpen()` 하나로 모은다).
+- 계약(여는 쪽이 저장)은 그대로: 여는 쪽은 `{value, text}`(구조 + 꺼낸 글자)를 받아 기존 저장 함수에 넘긴다. `[마크다운]` 체크·[쓰기|미리보기] 전환은 새 창에 두지 않는다(결정 11 가: 서식이 구조로 보이므로 미리보기가 필요 없음).
+- `write-window.js`는 `openMarkdownEditor` 대신 새 창을 부르도록 한 곳만 바꾸면 1~4·7·10 입구 6곳이 함께 넘어간다(사실: 6곳 모두 `openWriteWindow`를 거침).
+
+### 11.3 저장 형식
+
+**원칙(3.1 그대로)**: 구조 `{"v":"ed1","doc":{…}}`가 원본, 글자는 저장할 때마다 `ed-text.mjs` `toPlain`으로 꺼낸 사본. 지금 글자를 읽는 곳(검색 RPC·AI·업무일지·주간보고·Drive 요약·연결 요약·미리보기)은 **하나도 바꾸지 않는다** — 이것이 "주간보고·업무일지는 글자만"을 지키는 방법이다.
+
+**DB 변경: 필요하다(판단).** 표 3개에 같은 모양의 칸 하나씩.
+
+| 표 | 새 칸 | 글자 칸(그대로) | 크기 검사 |
+| --- | --- | --- | --- |
+| `app_notes`(note·basket·diary; work 행은 쓰지 않음) | `doc jsonb null` | `raw_text`(note 10만 자, 나머지 2만 자 — 기존 check 그대로) | `doc is null or (jsonb_typeof(doc)='object' and doc->>'v'='ed1' and jsonb_typeof(doc->'doc'->'content')='array' and octet_length(doc::text) <= 1048576)` |
+| `app_suborganization_updates` | `doc jsonb null` | `raw_text` | 같음 |
+| `app_project_progress_updates` | `doc jsonb null` | `summary` | 같음 |
+
+- `metadata`에 넣지 않는 이유는 3.3과 같다(여러 저장이 키별 보호 조건으로 쓰는 칸). 조직·프로젝트 두 표는 `metadata` 칸이 있는지도 저장소에서 확인되지 않는다(사실: 두 표의 `create table`은 저장소 migration에 없음, `docs/design/basket-update-merge.md` 69행).
+- 권한: 새 정책·grant 없음. 세 표 모두 기존 owner RLS(`task12a_owner_all` 등) 아래 표 단위 권한이라 새 칸도 그 안이다(사실: `app_notes`는 표 단위 grant; 조직·프로젝트 표는 `20260925084844_task12a_sole_owner_db.sql` 116·179행의 정책). **추정**: 운영에서 칸 단위 grant를 쓰고 있지 않은지 precheck에서 확인한다.
+- 검색 RPC `app_search_records`의 사전 확인은 칸 **개수**를 센다(`20261022150000` 19·30·36행 `attname in (...)) <> N`). 새 칸 이름이 그 목록에 없으므로 개수에 영향 없다(사실). 함수 자체는 `raw_text`·`summary`를 읽으므로 바꾸지 않는다.
+- `app_record_links.summary`(입구 9, 2000자 RPC)는 **서식 저장 대상에서 뺀다**(추천, 결정 E): 연결 요약은 짧은 한 줄 요약이고 RPC·검사를 바꿔야 해서 비용이 크다. 새 창은 열되 "서식 없이" 모드(11.4)로 글자만 돌려준다.
+- **migration 하나**(DB PR 맨 앞): 세 표에 칸 + check(`not valid` 없이, 기존 행은 모두 null이라 바로 통과). 짝 파일 5개(snapshot·precheck·postcheck·rollback·summary). rollback = 세 칸 삭제 — 그 전에 `doc`이 있는 행이 있으면 멈춤(서식이 사라지므로), 강제 rollback이어도 `raw_text`·`summary`에 글자가 남아 내용은 유지. 승인형 DB workflow로 적용(확장 규칙 안: 칸·check 추가, 권한 변경 없음 — 받지 않으면 폰 경로 C).
+
+**기존 글자 데이터와의 호환(지우거나 바꾸지 않음, 읽을 때 변환)**
+
+- `doc`이 null인 행 = 옛 글자 원본. 읽기 화면은 지금 방식 그대로(노트 `markdown-view`/쓴 그대로, 조직·프로젝트 기록 `previewLines`·`text-clamp.js`). 화면 코드가 되돌려져도 옛 글은 그대로 읽힌다.
+- 새 창으로 열 때만 메모리에서 변환: 노트는 `noteMarkdown`이 켜짐이면 `markdownToDoc`, 꺼짐이면 줄마다 문단. **업데이트·조직·프로젝트 기록·일기는 마크다운 해석 없이 글자 그대로**(이 글들은 마크다운 체크가 없고 사람이 쓴 `1.`·`-`·날짜가 많음).
+- **줄바꿈 보존(측정)**: 지금 `plainToDoc`(`ed-markdown.mjs` 109)은 줄마다 문단을 만들어, 열고 바로 저장하면 `toPlain`이 문단 사이에 빈 줄을 넣는다(`"2026.10.21. 교섭\n- 사측 안 제시\n\n다음 주 재교섭"` → 줄 사이에 빈 줄이 하나 더 생김). 업무일지는 `raw_text` 첫 줄, 주간보고·Drive 요약은 글자 전체를 쓰므로, 고치지 않은 글의 글자가 바뀌면 안 된다. → **빈 줄로 나뉜 덩어리를 문단 하나로, 덩어리 안 줄바꿈은 `hard_break`로** 바꾸는 `plainToDocKeep`을 새로 둔다(이 세션에서 같은 규칙으로 만들어 `toPlain` 결과가 원문과 같음을 확인, 측정). 노트 이외 옛 글은 모두 이 함수로 연다.
+- **열기만 해서는 DB에 쓰지 않는다.** 저장할 때 `doc` + 새 글자를 한 번에 PATCH. 고치지 않고 [저장]을 누르면 지금처럼 "바뀐 것 없음"으로 끝낸다(글자가 같으면 쓰지 않음).
+- 백업(4.1-1): 마크다운 노트는 저장 때 `raw_text`에서 기호가 빠지므로, **노트 화면 PR 전**에 note·basket·diary와 조직·프로젝트 기록의 `id, raw_text|summary, updated_at` 백업 표를 승인형 workflow 백업 단계로 한 번 만든다(비공개, 권한 회수). 업데이트·기록은 `plainToDocKeep` 덕에 글자가 바뀌지 않지만, 같은 백업에 함께 넣는다(비용이 작음).
+
+**글자만 뽑는 지점(주간보고·업무일지로 넘길 때)**
+
+- 뽑는 곳은 **저장하는 순간 한 곳**(새 창 → 여는 쪽 저장 함수가 `toPlain(doc)`을 `raw_text`/`summary`에 넣음)뿐이다. 읽는 쪽은 모두 그 글자를 그대로 읽는다(사실 확인한 소비처):
+  - 업무일지: `journal-data.js` 216·225·357(`app_suborganization_updates.raw_text` 첫 줄, `app_project_progress_updates.summary`), 노트는 제목만.
+  - 주간보고: `journal-weekly.js`·`weekly-hwpx/`가 `journal-data.js`가 모은 글자를 씀(사실: `summaryLine`, 88).
+  - Drive 요약: `supabase/functions/drive-summary/core.mjs` 73·81·276(`raw_text`), `app/drive-summary.js` 12·16.
+  - AI: `supabase/functions/ai-assist/handler.ts` 657·686·701·1333·1533·1555(`raw_text`·`summary`).
+  - 검색: `app_search_records`(`raw_text`·`summary`).
+- 그래서 **Edge·서버 함수 변경 없음**. 서식이 필요한 주간보고(굵게·표를 HWP로)는 이 과제 밖(6절 "그 뒤").
+- 글자 길이: 조직 기록 `raw_text`·프로젝트 `summary`의 운영 길이 제한은 저장소에서 확인되지 않는다(추정: 프로젝트 화면 입력은 `maxlength="500"`, `project-system-v3.js` 391·427). 새 창은 저장 전 `toPlain` 길이를 기존 화면 한도(노트 10만·업데이트 2만·프로젝트 기록 500 → 결정 F)로 검사한다.
+
+**글자만 고치는 옛 경로(구조와 어긋남 방지, 3.1)**: 행에 `doc`이 있는데 글자만 바꾸는 경로가 남으면 서식과 글자가 어긋난다. 단계 PR마다 아래를 정리한다 — 그 경로로 고치면 `doc`을 null로 함께 지우거나(서식 버림, 확인 문구), 그 경로도 새 창을 쓰게 한다.
+
+| 경로 | 위치(사실) | 처리 |
+| --- | --- | --- |
+| 업데이트 수정 칸 `textarea` | `basket.js` `startEdit`·`saveEdit` → `updateNote` | 수정 칸 자체를 새 편집기로(PR 3) |
+| 노트 수정 칸 `textarea`·`saveNoteDoc`·`patchKind`·`moveToNote` | `basket-notes.js`·`basket-data.js` 179·195 | 수정 칸을 새 편집기로, `moveToNote`·`moveToBasket`은 `doc`을 그대로 옮김(같은 행) |
+| 조직 기록 수정 칸 | `workplace-detail.js` `wdUpEdit`·`wdUpSave`(176·183) | 칸을 새 편집기로(PR 5) |
+| 프로젝트 기록 ⋯ [수정] 한 줄 칸 | `project-system-v3.js` 427·`mutateProgressRecord` 431 | `doc`이 있는 기록은 새 창으로 열기(PR 5) |
+| 일기 글 칸 | `diary.js` 237·`saveDiaryText`(`diary-data.js` 108) | 새 편집기로(PR 4) |
+| `basket-files` Edge 업로드 | `supabase/functions/basket-files/handler.ts` 149~209 | 새 행만 만듦(`doc` null) → 첨부와 함께 저장한 업데이트는 그 뒤 `doc`을 한 번 PATCH(PR 3에서 확인) |
+| 홈·바구니 한 줄 입력 [추가] | `home-quick.js` `save` | 한 줄 입력은 그대로 글자만(`doc` null) — 새 글이라 어긋남 없음 |
+
+### 11.4 단계별 PR
+
+모든 PR: merge 전 사용자 승인, `docs/roadmap.md` 수정 없음(본문 "원장 반영"), DB 적용은 정지 지점. 앞 PR merge 뒤 시작(줄 세우기는 AGENTS.md 2절).
+
+| 순서 | PR | 범위 | 시험 | 정지·되돌리기 |
+| --- | --- | --- | --- | --- |
+| 0 | **ED③-DB** | migration 하나: 세 표 `doc jsonb null` + check, 짝 파일 5개. 같은 PR에 백업 SQL(백업 표 만들기·권한 회수)도 짝 파일로 | migration 정적 시험(`tests/` 기존 migration 검사), precheck가 칸 없음·정책 그대로 확인 | **정지**: 승인형 DB workflow 적용 → postcheck. rollback = 칸 삭제(`doc` 있는 행 있으면 멈춤) |
+| 1 | **ED③-창** | `app/ed-window.js`(껍데기, 11.2) + `plainToDocKeep` + `copyText`를 `app/copy-text.js`로 옮김(다른 5곳 import만 바꿈) + `bigWindowOpen()` 공용 검사. **아직 아무 입구도 연결하지 않음**(시험 화면만) | Node: `plainToDocKeep`→`toPlain` 원문 같음(빈 줄·`1.`·`-`·날짜·끝 공백), E2E 고정 화면: 열기·닫기 확인·Ctrl+Enter 저장·폰 하단 탭 누르면 먼저 닫힘·뒤로 가기 한 번에 닫힘·자판 열림 때 서식 줄 위치 | 되돌리기 = revert(화면 영향 없음) |
+| 2 | **ED③-노트** | 노트 쓰기·수정·[큰 창에서 수정](입구 4·6, 그리고 1의 [노트])·읽기 화면을 새 창·`ed-render`로. `saveNoteDoc`이 `doc` 함께 저장(기존 보호 조건 그대로). `[마크다운]` 체크 칸 제거(결정 11 가, 값은 지우지 않음). 텔레그램·한글 복사는 `doc`이 있으면 `ed-text`(`toTelegram`·`toHangul`), 없으면 옛 `md-*` | E2E: 옛 마크다운 노트 열기→저장 시 `raw_text` 기호 제거·`doc` 저장, 옛 쓴 그대로 노트 열기→고치지 않고 저장 시 아무것도 안 씀, 표·색 저장 후 다시 열기, 폴더·고정·첨부가 그대로, 다른 탭에서 바뀐 노트 저장 거절 | 백업(0) 적용 확인 뒤 merge. 되돌리기 = revert(`doc` 있는 노트는 옛 화면에서 `raw_text`로 보임) |
+| 3 | **ED③-업데이트** | `write-window.js`를 새 창으로(입구 1·2·3과 7·10의 "바구니로 저장" 갈래), 업데이트 수정 칸·[큰 창에서 수정](입구 5)·읽기 화면. `createNote`·`updateNote`·`saveUpdate`·`saveUpdateWithFiles`에 `doc` 인자 | E2E: 홈 [크게]→바구니 저장, 여러 곳 고르기 저장, 첨부와 함께 저장 뒤 `doc`이 붙음, 수정 칸 저장, 홈 한 줄 [추가]는 `doc` null, 업무일지 첫 줄이 꺼낸 글자 | 되돌리기 = revert |
+| 4 | **ED③-일기** | 일기 글 칸(결정 10 가: 사진 달력·넘기기는 그대로), `saveDiaryText`에 `doc`. `ai_export_allowed=false` 그대로 | E2E: 일기 열기·저장·사진 코멘트 그대로, 옛 일기 고치지 않고 닫기 | 되돌리기 = revert |
+| 5 | **ED③-기록** | 담당조직 기록(입구 7의 이 조직 저장 갈래·8·9)과 프로젝트 기록(입구 10의 이 프로젝트 저장 갈래, ⋯ [수정])을 새 창으로. `saveOrganizationUpdate`·`saveProjectProgress`·`wdUpSave`·`mutateProgressRecord`에 `doc`. 기록 목록은 `doc`이 있으면 `ed-render`(접기 규칙 `text-clamp.js` 그대로), 연결 요약(9)은 서식 없이 모드 | E2E: 조직 [크게]→저장→목록에 서식, 업무일지·주간보고 미리보기는 글자만, 기록 수정 동시 저장 거절, 프로젝트 기록 500자 검사 | 되돌리기 = revert(목록은 글자로 보임) |
+| 6 | **ED③-옛창삭제** | 11.1 라 목록 삭제, 나의 검사·키를 새 창 것으로, E2E 27개 파일 정리, CI 목록·`view-loader.js`·`ui-standard.css` 규칙 정리. `md-telegram`·`md-hangul`·`markdown-view`·`note-markdown`·`toolbar-pop`은 남김 | 전체 E2E·`loader-cache-check`·`grep -rn "openMarkdownEditor\|#mdEditor\|md-editor" app tests`가 0건(남기는 파일 제외) | 되돌리기 = revert |
+
+- 3과 5는 같은 `write-window.js`를 지나므로 **3 → 5 순서 고정**(5는 3의 head 위가 아니라 3 merge 뒤 main에서 시작).
+- 2~5는 서로 다른 화면이라 사용자가 하나씩 폰에서 확인할 수 있다. 각 PR은 해당 입구만 새 창으로 바꾸고 나머지는 옛 창을 계속 쓴다(두 창 공존 기간).
+
+### 11.5 위험
+
+- **동시 편집·자동 저장 충돌**
+  - 지금 큰 창에는 자동 저장이 없다(사실: `md-editor.js`·`ed-editor.js`에 타이머 저장 없음). 새 창에도 **자동 저장을 넣지 않는다**(저장은 저장 아이콘·Ctrl+Enter만). 넣으면 노트 `metadata` 보호 조건과 경합하고 글자만 읽는 곳이 반쯤 쓴 글을 읽는다.
+  - 노트는 `saveNoteDoc`이 `updated_at`·폴더·고정·할 일 보호 조건으로 저장하므로 다른 기기에서 바뀌면 거절된다(사실, `basket-data.js` 186). 업데이트 `updateNote`(31)·조직 `wdUpSave`·프로젝트 `mutateProgressRecord`는 `updated_at` 조건이 **없다**(사실) → 두 기기에서 같은 기록을 고치면 나중 저장이 앞 저장을 덮는다(지금도 같음). `doc`과 글자는 한 PATCH라 서로 어긋나지는 않는다. 보호 조건 추가는 범위 밖 제안(결정 G).
+  - 저장 중 창이 닫히거나 화면이 바뀌면 여는 쪽 `same()` 검사(지금 코드)가 막는다 — 새 창도 같은 계약.
+  - 저장 안 한 글: 옛 창처럼 이 탭 메모리에만(브라우저 저장소 금지), 닫을 때 "저장 안 하고 닫을까요?".
+- **모바일(갤럭시 폴드·삼성 인터넷)**
+  - 뒤로 가기: 새 창도 `.modal` + `data-kptu-history-all`로 기록 1개(`mobile-modal-history.js`). 새 편집기 안의 작은 상자(글자색·표 칸 메뉴·⌄)는 지금 기록을 쓰지 않는다(사실: `ed-editor.js`·`toolbar-pop.js`에 history 없음) → 상자가 열린 채 뒤로 가기를 누르면 **창 전체가 닫힐 수 있다**. ED③-창 PR에서 "상자가 열려 있으면 뒤로 가기는 상자만 닫음"을 `KPTURouter.layer`로 맞춘다(BUG-뒤로가기 규칙).
+  - 하단바 가림: 옛 창은 폰에서 하단 탭 위에서 끝나고 자판이 열리면 공용 자판 상태(`KPTUA11y.keyboard`)를 따른다. 새 편집기의 상자는 `visualViewport`로 화면 안에 놓인다(사실, `ed-editor.js` 1064·1136). 창 껍데기를 옮길 때 서식 줄 상자·표 칸 메뉴가 하단 탭·[저장] 줄에 가리지 않는지 폴드 접힘(약 344px)·펼침(약 673px) 두 폭에서 E2E로 본다.
+  - 삼성 인터넷 한글 조합: 실기기 확인 목록(①a)을 노트 PR 뒤 한 번 더(삼성 키보드 + 표 칸, 목록 안 백스페이스).
+  - 폴드 펼침 폭(약 673px)은 "폰"(760px 이하) 규칙이라 서식 줄 묶음(ED-서식줄묶음)이 그대로 적용된다(사실).
+- **붙여넣기**
+  - 기본 붙여넣기는 허용 목록 서식 유지(9.3). 카톡·텔레그램에서 복사한 글은 글자만 들어오므로 그대로. AI 답변 마크다운은 [서식으로 바꾸기] 한 번(결정 3 가).
+  - 한글·워드에서 붙인 표·색은 허용 목록으로 걸러지고, 큰 표는 `LIMITS`(칸 20, 글자 20만)에 걸릴 수 있다 — 넘으면 저장 전 안내.
+  - '서식 없이 붙여넣기'(#1062 이름)는 클립보드 읽기 허락이 막히면 Ctrl+Shift+V 안내(사실, 938행). 삼성 인터넷은 클립보드 읽기 허락 창이 다르게 뜰 수 있음(추정, 실기기 확인).
+  - 사진·파일 붙여넣기: `photos`가 없는 노트·업데이트에서는 넣지 않고 안내(사실). 노트·업데이트 본문 사이 사진(`drive:`)은 이 과제 밖(결정 10 가와 같은 이유), 첨부는 지금처럼 [📎 첨부].
+- **두 형식 공존**: 2~5 사이 화면마다 새/옛이 섞인다. 읽기는 `doc` 유무로 갈라 그리므로 깨지지 않는다. 옛 창으로 `doc` 있는 행을 고치는 경로가 남지 않게 11.3 표를 PR마다 확인.
+- **글자 변화**: 마크다운 노트만 저장 때 `raw_text`가 바뀐다(백업으로 대비). 업데이트·기록·일기는 `plainToDocKeep`으로 고치지 않은 줄은 그대로.
+- **불러오는 크기**: 새 창은 열 때 편집기 묶음(약 80KB gzip)을 받는다. 홈 [크게]를 처음 누를 때 약간 늦을 수 있음(추정) → 홈 진입 뒤 쉬는 시간에 미리 받기는 범위 밖 제안.
+
+### 11.6 명진에게 물을 결정
+
+굵은 것이 추천이다. "전부 추천대로"라고 답해도 된다.
+
+- **A. 옛 큰 창이 사라지는 순서** — **가. 노트 → 업데이트 → 일기 → 조직·프로젝트 기록 순으로 하나씩 바꾸고, 다 바뀐 뒤 옛 창을 지움(추천: 화면마다 폰에서 확인 가능)** · 나. 한 번에 전부 바꿈(확인할 것이 한꺼번에 몰림).
+- **B. 마크다운으로 쓴 옛 노트를 새 창에서 저장하면 기호(`##`, `**`)는 서식으로 바뀌고 글자 사본에서는 기호가 빠짐** — **가. 그렇게 함 + 바꾸기 전 전체를 한 번 따로 보관(추천)** · 나. 옛 노트는 손대지 않고 새 노트만 새 창.
+- **C. 미리보기 버튼** — **가. 없앰(추천: 새 창은 쓰는 화면이 곧 보이는 모양)** · 나. 남김.
+- **D. 고치지 않은 옛 글을 열었다 닫을 때** — **가. 아무것도 저장하지 않음(추천)** · 나. 열 때 새 형식으로 바로 바꿔 저장.
+- **E. 연결된 업데이트의 "요약"(담당조직 기록 안 연결 기록의 짧은 요약)** — **가. 새 창으로 열되 서식 없이 글자만 저장(추천: 한 줄 요약이고, 서식까지 하려면 서버 함수도 바꿔야 함)** · 나. 요약도 서식 저장.
+- **F. 프로젝트 기록 길이** — 지금 프로젝트 기록 입력은 500자까지다. **가. 새 창에서도 500자(추천: 업무일지·주간보고 한 줄 모양 유지)** · 나. 업데이트처럼 2만 자로 늘림.
+- **G. 두 기기에서 같은 기록을 동시에 고칠 때** — 지금 업데이트·조직·프로젝트 기록은 나중 저장이 앞 저장을 덮는다(노트만 막음). **가. 이번에는 그대로 두고 별도 작업으로 올림(추천: 범위가 커짐)** · 나. 이번에 함께 막음.
+- **열린 결정(다른 세션에서 답 대기, 여기서는 정하지 않음)**: 큰 쓰기 창 [📎 첨부]를 서식 줄 아이콘 규칙에 맞출지. 새 창 껍데기(11.2)는 그 답을 따르도록 [📎 첨부] 자리만 비워 두고, 답이 나오면 ED③-창 또는 ED③-노트 PR에 반영한다.
+- 이미 대기 중인 관련 결정(이 설계는 결과에 영향받지 않음): ED-폰표칸버튼, 편집기 ⌄ 펼침 기억(SET #1052).
+
+### 11.7 범위 밖 발견(고치지 않음)
+
+- 업데이트 `updateNote`·조직 기록 `wdUpSave`·프로젝트 기록 `mutateProgressRecord`에 `updated_at` 보호 조건이 없어 두 기기 동시 수정 때 나중 저장이 덮는다(11.5, 결정 G).
+- `app_suborganization_updates`·`app_project_progress_updates`의 표 정의·길이 check가 저장소 migration에 없다(운영에만 있음, 추정). ED③-DB precheck에서 칸 목록·제약을 읽어 snapshot에 남길 것.
+- `ed-markdown.mjs` `plainToDoc`은 줄마다 문단이라 `toPlain`과 왕복하면 빈 줄이 늘어난다(측정). 지금은 쓰는 화면이 없어(시험만) 영향 없음 — ED③-창에서 `plainToDocKeep`을 추가하고 `plainToDoc`의 쓰임은 시험만 남는지 확인.
