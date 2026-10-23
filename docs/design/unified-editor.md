@@ -431,7 +431,7 @@
 | 5 | 업데이트(바구니 메모) 읽기 → 수정 → [큰 창에서 수정] | `basket.js` `openBigWriter`(762, 부름 766; 버튼 `data-basket-big-write`, 924) | `openMarkdownEditor` | `saveEdit` → `updateNote` | `app_notes.raw_text`(basket) |
 | 6 | 노트 읽기 → 수정 → [큰 창에서 수정] | `basket-notes.js` `openBigWriter`(309, 부름 318; 버튼 `data-note-big-write`, 602) | `openMarkdownEditor`(`keepOpen`, 마크다운 체크) | `save` → `saveNoteDoc` | `app_notes.title·raw_text·metadata.markdown`(note) |
 | 7 | 담당조직 상세 맨 위 입력 [크게] | `workplace-detail.js` `wdOpenBig`(198, 부름 199; 버튼 `#wdInboxBig`, 296) | `openWriteWindow`(이 조직 고름) | `saveOrganizationUpdate`(`quick-save.js` 6) | `app_suborganization_updates.raw_text` |
-| 8 | 담당조직 기록 ⋯ → [수정] → ⤢ | `workplace-detail.js` `wdBigField`(164, 부름 169; 버튼 `data-wd-field-big`, 178·191) | `openMarkdownEditor`(저장 없음, 칸에 되돌려 줌) | 칸의 [저장] → `wdUpSave`(183) PATCH | `app_suborganization_updates.raw_text` |
+| 8 | 담당조직 기록 ⋯ → [수정] → ⤢ | `workplace-detail.js` `wdBigField`(164, 부름 169; 버튼 `data-wd-field-big`, 178·191) | `openMarkdownEditor`(저장 없음, 칸에 되돌려 줌) | 칸의 [저장] → `wdUpSave`(181) PATCH | `app_suborganization_updates.raw_text` |
 | 9 | 담당조직 기록 중 연결 기록(바구니 업데이트 연결) 요약 수정 → ⤢ | `basket-link-records.js` `mountLinkSummaryEditor`의 `onBig`(128·261) → `workplace-detail.js` 98 → `wdBigField` | `openMarkdownEditor`(8과 같은 함수) | `updateLinkSummary` RPC `app_basket_update_link_summary`(2000자) | `app_record_links.summary` |
 | 10 | 프로젝트 상세 기록 입력 [크게] | `project-system-v3.js` `openRecordBig`(639, 부름 645; 버튼 `data-ps3-record-big`, 391·802) | `openWriteWindow`(이 프로젝트 고름) | `saveProjectProgress`(`quick-save.js` 23) | `app_project_progress_updates.summary` |
 
@@ -495,7 +495,7 @@
 | --- | --- | --- |
 | 업데이트 수정 칸 `textarea` | `basket.js` `startEdit`·`saveEdit` → `updateNote` | 수정 칸 자체를 새 편집기로(PR 3) |
 | 노트 수정 칸 `textarea`·`saveNoteDoc`·`patchKind`·`moveToNote` | `basket-notes.js`·`basket-data.js` 179·195 | 수정 칸을 새 편집기로, `moveToNote`·`moveToBasket`은 `doc`을 그대로 옮김(같은 행) |
-| 조직 기록 수정 칸 | `workplace-detail.js` `wdUpEdit`·`wdUpSave`(176·183) | 칸을 새 편집기로(PR 5) |
+| 조직 기록 수정 칸 | `workplace-detail.js` `wdUpEdit`·`wdUpSave`(174·181) | 칸을 새 편집기로(PR 5) |
 | 프로젝트 기록 ⋯ [수정] 한 줄 칸 | `project-system-v3.js` 427·`mutateProgressRecord` 431 | `doc`이 있는 기록은 새 창으로 열기(PR 5) |
 | 일기 글 칸 | `diary.js` 237·`saveDiaryText`(`diary-data.js` 108) | 새 편집기로(PR 4) |
 | `basket-files` Edge 업로드 | `supabase/functions/basket-files/handler.ts` 149~209 | 새 행만 만듦(`doc` null) → 첨부와 함께 저장한 업데이트는 그 뒤 `doc`을 한 번 PATCH(PR 3에서 확인) |
