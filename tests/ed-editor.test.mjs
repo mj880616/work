@@ -225,3 +225,37 @@ test('exports keep list marker shapes: 한글 copy (text and html), telegram, an
   assert.ok(plain.includes('1. 가')&&plain.includes('1. 나')&&plain.includes('1. 라'));
   assert.ok(plain.includes('가. 마')&&plain.includes('- 아')&&plain.includes('- 사'));
 });
+
+// ED-서식줄묶음 (2026-10-23 사용자 13:16): 폰 서식 줄은 [본문 2 ▾][굵게][·][▾][글자 ▾][문단 ▾][넣기 ▾][기호 ▾][↶][↷] 한 줄이고,
+// 지금 있는 모든 버튼이 묶음 안에 같은 버튼(같은 명령)으로 들어 있다. 브라우저 없이 소스의 표를 읽어 구성·순서·빠짐을 본다.
+const edSource=readFileSync('app/ed-editor.js','utf8');
+const tableOf=name=>{const m=new RegExp(`const ${name} = (\\[[\\s\\S]*?\\n?\\]);`).exec(edSource);assert.ok(m,name);return Function(`'use strict';const GROUP_KEYS=['gText','gPara','gInsert','gSym'];return (${m[1]})`)();};
+test('phone toolbar: one grouped row in the requested order, every button still reachable once',()=>{
+  const phone=tableOf('PHONE_ORDER'),groups=tableOf('GROUPS');
+  assert.deepEqual(phone,['style','strong','dotNow','symDot','gText','gPara','gInsert','gSym','undo','redo']);
+  assert.deepEqual(groups.map(g=>[g[0],g[1]]),[['gText','글자 ▾'],['gPara','문단 ▾'],['gInsert','넣기 ▾'],['gSym','기호 ▾']]);
+  const items=Object.fromEntries(groups.map(g=>[g[0],g[3]]));
+  assert.deepEqual(items.gText,['em','underline','strike','color','highlight','clear']);
+  assert.deepEqual(items.gPara,['align','bullet','ordered','indent','outdent','quote','rule']);
+  assert.deepEqual(items.gInsert,['table','photo','link','plainPaste']);
+  assert.deepEqual(items.gSym,['symNote','symArrow','symCircled','symBracket']);
+  // Every existing button (the row and the [⌄] list) is on the phone row or in exactly one group, none twice.
+  const tables=edSource.slice(edSource.indexOf('const BUTTONS = ['),edSource.indexOf('const ALIGNS'));
+  const keys=[...tables.matchAll(/\['(\w+)', '[^']*', (?:'[^']*'|null)(?:, '\w+')?\]/g)].map(m=>m[1]);
+  const existing=keys.filter(k=>!['rowBefore','rowAfter','colBefore','colAfter','rowDel','colDel','merge','split','head','fit','select','tableDel'].includes(k)&&!/^g[A-Z]/.test(k));
+  const placed=[...phone.filter(k=>!/^g[A-Z]|^dotNow$/.test(k)),...Object.values(items).flat()];
+  assert.equal(new Set(placed).size,placed.length,'no button twice');
+  assert.deepEqual([...new Set(existing)].filter(k=>!placed.includes(k)),[],'no button lost on a phone');
+});
+test('phone toolbar: grouping only moves the same button nodes (no copies, so each runs its old command)',()=>{
+  const fn=/function setGrouped\(on\)[\s\S]*?\n  \}\n/.exec(edSource)[0];
+  assert.match(fn,/tools\.replaceChildren\(\.\.\.PHONE_ORDER\.map\(k => buttons\[k\]\)/);
+  assert.match(fn,/panels\[key\]\.replaceChildren\(\.\.\.items\.map\(k => buttons\[k\]\)/);
+  assert.doesNotMatch(fn,/btn\(|createElement|cloneNode/);
+  assert.match(fn,/tools\.replaceChildren\(\.\.\.homeTools, more\)/);
+  assert.match(fn,/panels\.more\.replaceChildren\(\.\.\.homeMore\)/);
+  // The [·] puts a dot in through the same sign path as the dot list; the group buttons open through the same panel switch.
+  assert.match(edSource,/buttons\.dotNow = btn\('·', \{edSym: '·'/);
+  assert.match(edSource,/gText: 'gText', gPara: 'gPara', gInsert: 'gInsert', gSym: 'gSym'/);
+  assert.match(edSource,/matchMedia\('\(max-width: 760px\)'\)/);
+});
