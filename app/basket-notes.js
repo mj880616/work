@@ -112,7 +112,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
 
   // UI-상단줄제목: the open note's title goes to the PC top line's place (topbar-actions.js kptu:where-item); null drops it.
-  const sendWhere = name => window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'basket', name}}));
+  const sendWhere = name => window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'basket', name, kind:'note'}}));
   const fields = () => ({title: detail.querySelector('[data-note-title-input]'), body: detail.querySelector('[data-basket-text]'), markdown: detail.querySelector('[data-note-markdown]')});
   // NOTE-마크다운선택: the [마크다운] box counts as a change too.
   const textDirty = () => { if (!selected || !editing) return false; const f = fields(); return f.title.value !== (selected.title || '') || f.body.value !== normalize(selected.raw_text) || f.markdown.checked !== noteMarkdown(selected); };
