@@ -5,7 +5,7 @@ import {createHash} from 'node:crypto';
 import {prepareMigration} from '../../scripts/ops/db-migration-plan.mjs';
 
 // ED-통합편집기 ②: share photo keeping. Real handlers, synthetic stores (no Supabase, no production).
-const {createShareMediaHandler,inspectJpeg,usedPhotoIds,MAX_BYTES,PRUNE_MAX}=await import('../../supabase/functions/share-page-media/handler.ts');
+const {createShareMediaHandler,inspectJpeg,usedPhotoIds,MAX_BYTES,PRUNE_MAX,PURGE_ROUNDS}=await import('../../supabase/functions/share-page-media/handler.ts');
 const {createShareReadHandler,sharePhotoIds,SIGN_SECONDS}=await import('../../supabase/functions/share-page-read/handler.ts');
 const PAGE='30000000-0000-4000-8000-000000000001',OTHER='30000000-0000-4000-8000-000000000002',WS='20000000-0000-4000-8000-000000000001';
 const P1='40000000-0000-4000-8000-000000000001',P2='40000000-0000-4000-8000-000000000002',P3='40000000-0000-4000-8000-000000000003';
@@ -40,6 +40,8 @@ function media(){
   async putFile(p,b){state.files.set(p,b);return true;},
   async removeFile(p){state.calls.push('remove');if(state.failFile.has(p))return false;state.files.delete(p);return true;},
   async signFile(p,s){return state.files.has(p)?`https://x.supabase.co/storage/v1/object/sign/share-page-media/${p}?token=t&s=${s}`:null;},
+  async listFiles(folder){state.calls.push('list:'+folder);if(state.failList)return null;return [...state.files.keys()].filter(p=>p.startsWith(folder+'/')).map(p=>p.slice(folder.length+1));},
+  async deletePage(t,id){state.calls.push('deletePage');if(!owns(t)||!state.pages.has(id))return 0;state.pages.delete(id);for(const [k,r] of state.rows)if(r.page_id===id)state.rows.delete(k);return 1;},
  };
  return {state,handler:createShareMediaHandler(deps,{newId:()=>P1,log:()=>{}})};
 }
@@ -79,7 +81,7 @@ test('media: no login, a stranger, a foreign page, EXIF, oversize and wrong shap
 });
 test('media: a row that cannot be saved removes the file again',async()=>{
  const {state}=media();
- const h=createShareMediaHandler({userId:async()=>'u',pageWorkspace:async()=>WS,insertRow:async()=>false,rowsFor:async()=>[],rowById:async()=>null,deleteRow:async()=>true,pageBlocks:async()=>[],rowsForPage:async()=>[],
+ const h=createShareMediaHandler({userId:async()=>'u',pageWorkspace:async()=>WS,insertRow:async()=>false,rowsFor:async()=>[],rowById:async()=>null,deleteRow:async()=>true,pageBlocks:async()=>[],rowsForPage:async()=>[],listFiles:async()=>[],deletePage:async()=>0,
   putFile:async(p,b)=>{state.files.set(p,b);return true;},removeFile:async p=>{state.files.delete(p);return true;},signFile:async()=>null},{newId:()=>P1,log:()=>{}});
  assert.equal((await upload(h)).status,503);assert.equal(state.files.size,0);
 });
@@ -141,6 +143,71 @@ test('delete: the file goes first; if it cannot, the record stays (no record-les
  put(state,P1);state.failFile.add(`${PAGE}/${P1}.jpg`);
  assert.equal((await json(handler,{action:'delete',id:P1})).status,503);
  assert.equal(state.rows.has(P1),true);
+});
+// SHARE-페이지삭제: purge_page removes a whole page for good: its photo files first, then the page row (links and photo records go by cascade).
+test('purge_page: owner removes every photo file of the page (recorded and record-less), then the page; other pages untouched',async()=>{
+ const {state,handler}=media();
+ put(state,P1);put(state,P2);put(state,'40000000-0000-4000-8000-000000000009',OTHER);state.pages.set(OTHER,WS);
+ state.files.set(`${PAGE}/${P3}.jpg`,new Uint8Array([1])); // uploaded, record never saved
+ state.files.set(`${PAGE}/.emptyFolderPlaceholder`,new Uint8Array([0])); // not a photo name: left alone
+ const r=await json(handler,{action:'purge_page',page_id:PAGE});
+ assert.equal(r.status,200);assert.deepEqual(await r.json(),{ok:true,removed:2});
+ assert.equal(state.pages.has(PAGE),false);
+ assert.deepEqual([...state.rows.keys()],['40000000-0000-4000-8000-000000000009']);
+ assert.deepEqual([...state.files.keys()].sort(),[`${OTHER}/40000000-0000-4000-8000-000000000009.jpg`,`${PAGE}/.emptyFolderPlaceholder`].sort());
+ // order: every file removal comes before the page row delete
+ const firstDelete=state.calls.indexOf('deletePage');assert.ok(firstDelete>0);
+ assert.equal(state.calls.slice(0,firstDelete).filter(c=>c==='remove').length,3);
+ // already gone: the second call answers 404 and touches nothing
+ assert.equal((await json(handler,{action:'purge_page',page_id:PAGE})).status,404);
+});
+test('purge_page: a photo file that cannot be removed keeps the page and the remaining records; the next call finishes',async()=>{
+ const {state,handler}=media();
+ put(state,P1);put(state,P2);state.failFile.add(`${PAGE}/${P2}.jpg`);
+ const r=await json(handler,{action:'purge_page',page_id:PAGE});
+ assert.equal(r.status,503);assert.deepEqual(await r.json(),{error:'unavailable',removed:1,failed:1});
+ assert.equal(state.pages.has(PAGE),true);assert.equal(state.rows.has(P2),true);assert.equal(state.rows.has(P1),false);
+ assert.equal(state.calls.includes('deletePage'),false);
+ state.failFile.clear();
+ assert.equal((await json(handler,{action:'purge_page',page_id:PAGE})).status,200);
+ assert.equal(state.pages.has(PAGE),false);assert.equal(state.files.size,0);assert.equal(state.rows.size,0);
+});
+test('purge_page: a bucket list failure or a record-less file that stays keeps the page',async()=>{
+ const {state,handler}=media();
+ state.files.set(`${PAGE}/${P3}.jpg`,new Uint8Array([1]));state.failList=true;
+ assert.equal((await json(handler,{action:'purge_page',page_id:PAGE})).status,503);
+ assert.equal(state.pages.has(PAGE),true);
+ state.failList=false;state.failFile.add(`${PAGE}/${P3}.jpg`);
+ assert.equal((await json(handler,{action:'purge_page',page_id:PAGE})).status,503);
+ assert.equal(state.pages.has(PAGE),true);assert.equal(state.calls.includes('deletePage'),false);
+});
+test('purge_page: more photos than one call reads leaves the page for the next call (no page row deleted while records remain)',async()=>{
+ const {state,handler}=media();
+ const total=PRUNE_MAX*PURGE_ROUNDS+3;
+ for(let i=0;i<total;i++)put(state,`41000000-0000-4000-8000-${String(i).padStart(12,'0')}`);
+ assert.equal((await json(handler,{action:'purge_page',page_id:PAGE})).status,503);
+ assert.equal(state.pages.has(PAGE),true);assert.equal(state.rows.size,3);
+ assert.equal((await json(handler,{action:'purge_page',page_id:PAGE})).status,200);
+ assert.equal(state.pages.has(PAGE),false);assert.equal(state.files.size,0);
+});
+test('purge_page: no login, a stranger, a foreign page and a bad id remove nothing',async()=>{
+ const {state,handler}=media();
+ put(state,P1);
+ assert.equal((await json(handler,{action:'purge_page',page_id:PAGE},'')).status,401);
+ assert.equal((await json(handler,{action:'purge_page',page_id:PAGE},'nobody')).status,401);
+ assert.equal((await json(handler,{action:'purge_page',page_id:PAGE},'other')).status,404);
+ assert.equal((await json(handler,{action:'purge_page',page_id:OTHER})).status,404);
+ for(const bad of ['x','../'+PAGE,PAGE+'/..',''])assert.equal((await json(handler,{action:'purge_page',page_id:bad})).status,400);
+ assert.equal(state.pages.has(PAGE),true);assert.equal(state.rows.size,1);assert.equal(state.files.size,1);
+ assert.equal(state.calls.filter(c=>c==='remove'||c==='deletePage'||c.startsWith('list:')).length,0);
+});
+test('purge_page index: page row delete goes through the caller token (owner RLS), the bucket is listed only in the page folder',()=>{
+ const index=readFileSync('supabase/functions/share-page-media/index.ts','utf8');
+ assert.match(index,/asUser\(token\)\.from\("app_share_pages"\)\.delete\(\)\.eq\("id", pageId\)/);
+ assert.match(index,/admin\.storage\.from\(BUCKET\)\.list\(folder/);
+ assert.doesNotMatch(index,/admin\.from\(/);
+ const handler=readFileSync('supabase/functions/share-page-media/handler.ts','utf8');
+ assert.match(handler,/deps\.listFiles\(pageId\)/);
 });
 const doc=(...srcs)=>({type:'doc',v:'ed1',doc:{type:'doc',content:srcs.map(src=>({type:'image',attrs:{src,alt:''}}))}});
 function reader(blocks,{status='published',dead=false}={}){
