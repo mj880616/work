@@ -335,6 +335,42 @@ test.describe('PC 1280', () => {
     await expect(page.locator('.ed-input hr')).toHaveCount(0);
   });
 
+  test('표 크기 끌기: 오른쪽 아래 손잡이로 표 전체가 같은 비율로 커지고, 편집기 폭을 넘지 않고, 읽는 쪽도 같은 크기', async ({page}) => {
+    const box = await open(page, ed1(table(2, 3)));
+    const tbl = box.locator('table').first();
+    await tbl.hover();
+    const handle = box.locator('.ed-table-resize').first();
+    await expect(handle).toBeVisible();
+    expect(await handle.evaluate(el => getComputedStyle(el).cursor)).toBe('nwse-resize');
+    const before = await tbl.boundingBox();
+    const h = await handle.boundingBox();
+    const x = h.x + h.width / 2, y = h.y + h.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x - 60, y, {steps: 6});
+    await expect(box.locator('.ed-table-wrap').first()).toHaveClass(/is-resizing/);
+    await page.mouse.up();
+    const widths = (await content(page))[0].content[0].content.map(c => c.attrs.colwidth[0]);
+    expect(widths.every(w => w >= 32)).toBe(true);
+    const small = await tbl.boundingBox();
+    expect(small.width).toBeLessThan(before.width - 40);
+    const total = widths.reduce((a, b) => a + b, 0);
+    expect(Math.abs(total - small.width)).toBeLessThanOrEqual(3);
+    // Grow far past the editor: stops at the text width.
+    const h2 = await handle.boundingBox();
+    await page.mouse.move(h2.x + h2.width / 2, h2.y + h2.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(h2.x + 3000, h2.y + h2.height / 2, {steps: 6});
+    await page.mouse.up();
+    const big = await tbl.boundingBox(), editor = await box.boundingBox();
+    expect(big.width).toBeGreaterThan(small.width + 40);
+    expect(big.x + big.width).toBeLessThanOrEqual(editor.x + editor.width + 1);
+    // The reader draws the same total width.
+    await page.evaluate(() => window.renderOut());
+    const read = await page.locator('#out table').first().boundingBox();
+    expect(Math.abs(read.width - big.width)).toBeLessThanOrEqual(3);
+  });
+
   test('칸 폭 끌기: 저장되고, 읽는 쪽도 같은 비율; 두 번 누르면 글자에 맞춤; [글자에 맞추기]로 원래대로', async ({page}) => {
     const box = await open(page, ed1(table(2, 3)));
     const th = box.locator('th').first();
