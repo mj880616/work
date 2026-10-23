@@ -19,6 +19,7 @@
 //   calendarNotes: ['※ 1.8.(목) 담당 A 휴가'],
 // }
 // 줄은 글자 또는 {text, changed}. changed 줄은 양식 안의 "바뀐 글" 글자 모양(같은 크기·글꼴의 파란 글씨)으로 쓴다.
+// progress·status 옆의 paras(선택)는 줄마다 확정본 문단 모양 번호(왼쪽 여백·들여쓰기, WEEKLY-한글파일다듬기 ⑥). 없으면 칸 견본 모양.
 import {el, clone, kid, kids, walk, textOf} from './xml.mjs';
 import {readXml, setXml, clonePkg, headerStyles} from './hwpx.mjs';
 import {readPrototypes, renumber, isBoxTable, FORM_LABELS, BOX_LABELS, REQUEST_HEAD, SUMMARY_HEAD, RALLY_HEAD, SITE_HEAD, ORG_HEAD, SCHEDULE_HEAD} from './template.mjs';
@@ -30,7 +31,17 @@ export const isChanged = line => typeof line === 'object' && line !== null && !!
 
 // ── 읽기 ─────────────────────────────────────────────────────────────
 const cellLines = tc => kids(kid(tc, 'hp:subList'), 'hp:p').map(p => textOf(p).replace(/\s+$/, ''));
+// WEEKLY-한글파일다듬기 ⑥(#1034 남은 위험): 칸 줄마다의 문단 모양 번호(paraPrIDRef — 왼쪽 여백·들여쓰기). 확정본에서 줄마다 들여쓰기가 달랐는데
+// 생성기가 칸 견본 문단 하나(첫 줄 모양)로 모든 줄을 써서 들여쓰기가 사라졌다. 이제 바탕 줄에 이 번호를 같이 들고 다닌다(paras, 줄과 같은 순서).
+const cellParas = tc => kids(kid(tc, 'hp:subList'), 'hp:p').map(p => p.attrs.paraPrIDRef ?? null);
 const trimLines = lines => { const out = [...lines]; while (out.length && !out[out.length - 1].trim()) out.pop(); while (out.length && !out[0].trim()) out.shift(); return out; };
+// 줄과 문단 모양을 같이 다듬는다(앞뒤 빈 줄 빼기) → {lines, paras}
+const trimPair = (lines = [], paras = []) => {
+  let a = 0, b = lines.length;
+  while (b > a && !String(lines[b - 1]).trim()) b--;
+  while (a < b && !String(lines[a]).trim()) a++;
+  return {lines: lines.slice(a, b), paras: paras.slice(a, b)};
+};
 const addr = tc => ({row: Number(kid(tc, 'hp:cellAddr').attrs.rowAddr), col: Number(kid(tc, 'hp:cellAddr').attrs.colAddr), rs: Number(kid(tc, 'hp:cellSpan').attrs.rowSpan), cs: Number(kid(tc, 'hp:cellSpan').attrs.colSpan)});
 
 // 표를 논리 열(머리 칸 = 열)로 읽는다. → {head:[글], rows:[[{lines, start, rs}|null]]} (null = 위 칸에 합쳐진 자리)
@@ -45,8 +56,8 @@ export function readTable(tbl) {
       const i = logical(a.col);
       if (i < 0 || a.row < 1) continue;
       const slot = rows[a.row - 1];
-      if (slot[i]) slot[i].lines.push(...cellLines(tc)); // 숨은 좁은 열 등으로 한 논리 열에 칸이 둘이면 이어 붙인다
-      else slot[i] = {lines: cellLines(tc), rs: a.rs, start: true, border: tc.attrs.borderFillIDRef};
+      if (slot[i]) { slot[i].lines.push(...cellLines(tc)); slot[i].paras.push(...cellParas(tc)); } // 숨은 좁은 열 등으로 한 논리 열에 칸이 둘이면 이어 붙인다
+      else slot[i] = {lines: cellLines(tc), paras: cellParas(tc), rs: a.rs, start: true, border: tc.attrs.borderFillIDRef};
     }
   }
   return {head: headCells.map(h => h.lines.join('').trim()), rows};
@@ -71,7 +82,7 @@ export function findTables(pkg) {
 // 2열 표(조직명 | 현황 등) → [{org, status, borders, src}]. borders = 칸마다 확정본의 테두리 번호(양식의 줄별 굵은 구분선·
 // 바깥 테두리를 그대로 따르기 위해), src = 확정본 표에서 몇 번째 줄인지(머리 줄 뺌).
 export function pairsFromTable(t) {
-  return t.rows.map(([a, b], src) => ({org: trimLines(a?.lines ?? []), status: trimLines(b?.lines ?? []), borders: [a?.border ?? null, b?.border ?? null], src}))
+  return t.rows.map(([a, b], src) => { const st = trimPair(b?.lines, b?.paras); return {org: trimLines(a?.lines ?? []), status: st.lines, paras: st.paras, borders: [a?.border ?? null, b?.border ?? null], src}; })
     .filter(r => r.org.length || r.status.length);
 }
 export function ralliesFromTable(t) {
@@ -97,17 +108,24 @@ export function summaryFromTable(t) {
   for (const row of t.rows) {
     const [a, task, progress, owner] = row;
     if (a || !area) { area = {area: trimLines(a?.lines ?? ['']), rows: []}; areas.push(area); }
-    area.rows.push({task: task ? trimLines(task.lines) : null, progress: progress ? trimLines(progress.lines) : [], owner: owner ? trimLines(owner.lines) : null});
+    const pr = trimPair(progress?.lines, progress?.paras);
+    area.rows.push({task: task ? trimLines(task.lines) : null, progress: pr.lines, paras: pr.paras, owner: owner ? trimLines(owner.lines) : null});
   }
   return areas;
 }
 
+// WEEKLY-한글파일다듬기 ⑥(#1034 남은 위험 '참석자만 남은 빈 일정 줄'): 확정본 표에서 시간/내용/장소 칸 하나가 여러 줄에 걸쳐 합쳐져 있고
+// 참석 칸만 줄마다 따로인 경우(행사 하나에 참석자 줄이 여럿), 아래 줄은 내용 칸이 없는(합쳐진) 자리라 전에는 {what:'', who:[…]} 줄로 읽혔다.
+// 그 줄이 그대로 옮겨지거나(#1034 전 요청 표 통째 복사) 만들어지면 '내용 없이 참석자만 있는 줄'이 되었다. 이제 내용 칸이 위 칸에 합쳐진
+// 줄의 참석자는 위 줄(같은 행사)의 참석자에 붙인다. 내용 칸이 실제로 빈 칸인 줄은 지금처럼 따로 읽는다(만들 때 참석자 칸은 비움, requestGrid).
 export function requestsFromTable(t) {
   const days = [];
   for (const [day, what, who] of t.rows) {
     if (day || !days.length) days.push({day: trimLines(day?.lines ?? ['']).join(' '), items: []});
+    const items = days[days.length - 1].items;
+    if (!what && !day && items.length) { items[items.length - 1].who.push(...trimLines(who?.lines ?? [])); continue; }
     const item = {what: trimLines(what?.lines ?? []).join(' '), who: trimLines(who?.lines ?? [])};
-    if (item.what || item.who.length) days[days.length - 1].items.push(item);
+    if (item.what || item.who.length) items.push(item);
   }
   return days.filter(d => d.day || d.items.length);
 }
@@ -139,8 +157,12 @@ export function findChangedCharPr(header, baseId) {
   return hit?.attrs.id ?? null;
 }
 
+// 확정본 줄의 문단 모양(line.para)을 그대로 쓴 문단. plainParagraphs가 표내부 스타일로 바꿀 때 이 모양(들여쓰기)은 남긴다(번호 달린 모양만 바꿈).
+const KEPT_PARA = new WeakSet();
 function paragraph(proto, line, changedCharPr) {
   const p = el('hp:p', {...proto.attrs});
+  const para = line && typeof line === 'object' ? line.para : null;
+  if (para != null && para !== '') { p.attrs.paraPrIDRef = String(para); KEPT_PARA.add(p); }
   const baseRun = kids(proto, 'hp:run').find(r => !r.children.some(c => c.name === 'hp:secPr')) ?? kids(proto, 'hp:run')[0];
   const text = line == null ? '' : lineText(line);
   const charPr = isChanged(line) && changedCharPr ? changedCharPr : baseRun.attrs.charPrIDRef;
@@ -192,13 +214,15 @@ function spans(column) {
   return out;
 }
 
+// 줄 + 줄마다 문단 모양 번호 → 문단을 만들 줄({text, changed?, para}). 번호가 없는 줄은 그대로(칸 견본 모양).
+export const withParas = (lines = [], paras = []) => lines.map((line, i) => (paras?.[i] != null && paras[i] !== '' ? {...(typeof line === 'string' ? {text: line} : line), para: String(paras[i])} : line));
 export function summaryGrid(summary) {
   const cols = [[], [], [], []];
   for (const area of summary) {
     area.rows.forEach((row, i) => {
       cols[0].push(i === 0 ? {lines: area.area} : null);
       cols[1].push(row.task === null ? null : {lines: row.task});
-      cols[2].push({lines: row.progress});
+      cols[2].push({lines: withParas(row.progress, row.paras)});
       cols[3].push(row.owner === null ? null : {lines: row.owner});
     });
   }
@@ -251,8 +275,17 @@ export function pairGrid(list, tools) {
     if (!tools?.known(id)) return undefined;
     return row.cutAbove ? tools.closeTop(id) : id;
   };
-  const out = list.map(row => [{lines: row.org, rs: 1, border: border(row, 0)}, {lines: row.status, rs: 1, border: border(row, 1)}]);
+  const out = list.map(row => [{lines: row.org, rs: 1, border: border(row, 0)}, {lines: withParas(row.status, row.paras), rs: 1, border: border(row, 1)}]);
   return out.length ? out : [[{lines: [], rs: 1}, {lines: [], rs: 1}]];
+}
+
+// 줄의 문단 모양 번호는 양식 머리(header.xml)에 있는 것만 쓴다(없는 번호는 견본 모양으로). 새 문단 모양은 만들지 않는다.
+function withKnownParas(data, known) {
+  const fix = paras => (Array.isArray(paras) ? paras.map(id => (id != null && known.has(String(id)) ? String(id) : null)) : paras);
+  const out = {...data};
+  if (data.summary) out.summary = data.summary.map(a => ({...a, rows: a.rows.map(r => ({...r, paras: fix(r.paras)}))}));
+  for (const k of ['orgs', 'sites']) if (data[k]) out[k] = data[k].map(r => ({...r, paras: fix(r.paras)}));
+  return out;
 }
 
 // 회의 결과 상자: 견본(1줄 2칸)을 칸 이름 수만큼 늘린다.
@@ -289,7 +322,7 @@ export function plainParagraphs(root, header) {
   const clean = style => [style?.paraPr, base?.paraPr].find(id => id != null && !numbered(id));
   const visit = (node, inCell) => {
     if (node.name === 'hp:p' && inCell) {
-      if (cellStyle && node.attrs.styleIDRef !== cellStyle.id) { node.attrs.styleIDRef = cellStyle.id; if (!numbered(cellStyle.paraPr)) node.attrs.paraPrIDRef = cellStyle.paraPr; }
+      if (cellStyle && node.attrs.styleIDRef !== cellStyle.id) { node.attrs.styleIDRef = cellStyle.id; if (!numbered(cellStyle.paraPr) && !KEPT_PARA.has(node)) node.attrs.paraPrIDRef = cellStyle.paraPr; }
       if (numbered(node.attrs.paraPrIDRef)) { const id = clean(styles.find(st => st.id === node.attrs.styleIDRef)); if (id != null) node.attrs.paraPrIDRef = id; }
     }
     for (const c of node.children ?? []) if (c && typeof c === 'object' && 'name' in c) visit(c, inCell || node.name === 'hp:tc');
@@ -304,6 +337,7 @@ export function buildReport(template, data, {sectionTitles = DEFAULT_SECTIONS} =
   const pkg = clonePkg(template);
   const {sec, protos} = readPrototypes(pkg);
   const header = readXml(pkg, 'Contents/header.xml');
+  data = withKnownParas(data, new Set(paraNumbering(header).keys()));
   const cellCharPr = kids(tableProto(protos.summaryTable).cellPara, 'hp:run')[0]?.attrs.charPrIDRef;
   const changed = findChangedCharPr(header, cellCharPr);
   const borders = borderTools(header);

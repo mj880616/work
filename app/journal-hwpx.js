@@ -1,7 +1,7 @@
 // WEEKLY-한글초안 2단계: 업무일지 [주간 정리]의 [주간보고 한글 파일 만들기] (docs/design/weekly-hwpx-draft.md 8절 2단계).
 // 지난주 팀 확정본(자료실 "주간보고 확정본" 최신 또는 기기 파일) → 내 칸 바탕 → 이번 주 기록을 줄 옆에 보여 주고 사람이 붙이기·고치기
 // → .hwpx 내려받기 / [HWP로 받기] / [확정]하면 자료실(Drive)에 저장. AI 없음.
-// - 파일은 이 기기 안에서만 다룬다. HWP 5 ↔ .hwpx 바꾸기는 HWP 편집기와 같은 칸막이 엔진(hwp-frame.js, sandbox iframe —
+// - 파일은 이 기기 안에서만 다룬다(화면 안내문에는 쓰지 않음, WEEKLY-한글파일다듬기 ①). HWP 5 ↔ .hwpx 바꾸기는 HWP 편집기와 같은 칸막이 엔진(hwp-frame.js, sandbox iframe —
 //   Web2 창·로그인 정보에 닿지 못함)이 하고, 표 읽기·빈 서식·보고서 만들기는 weekly-hwpx/*.mjs(외부 라이브러리 없음)가 한다.
 //   서버로 가는 것은 자료실 확정본 열기(기존 document-actions hwp-open, owner 확인)와 [확정] 저장(기존 library-files)뿐이다.
 // - 내 담당 조직은 my-organizations.js(내 프로필 → 담당 사업장)에서 받는다. 담당 팀원 칸의 내 이름은 직전 주 확정본에 쓴 표기,
@@ -25,11 +25,16 @@ import {carryOver, carryCutoff, formRequests, formDay, mergeCarried} from './wee
 const CONFIRMED_CATEGORY = '주간보고 확정본';
 const encode = encodeURIComponent;
 const TEXT = Object.freeze({
-  intro: '지난주 팀 확정본을 바탕으로 내 칸만 채운 한글 파일을 만들어요. 파일은 이 기기 안에서만 만들고, [확정]을 누를 때만 자료실(Drive)에 저장해요.',
+  // WEEKLY-한글파일다듬기 ①(2026-10-23 사용자 요청 11:35): 안내문 쉽게, 바탕 확정본이 있을 때·없을 때 따로.
+  intro: '지난주 팀 확정본을 바탕으로 내 칸만 고친 한글 파일을 만들어요. [확정]을 눌러야 자료실에 저장돼요.',
+  introNoBase: `지난주 팀 확정본이 없어요. 자료실에 ‘${CONFIRMED_CATEGORY}’으로 올리거나, 내 컴퓨터에서 골라 주세요.`,
+  checking: '자료실에서 지난주 팀 확정본을 찾는 중이에요.',
   noBrowser: '이 브라우저는 한글 파일 만들기(압축)를 지원하지 않아요. 최신 크롬·사파리·엣지에서 열어 주세요.',
   noConfirmed: `자료실에 "${CONFIRMED_CATEGORY}" 분류 자료가 없어요. 팀 확정본을 그 분류로 올리거나 [기기에서 파일 고르기]를 써 주세요.`,
   readFailed: '자료실을 읽지 못했어요. 잠시 뒤 다시 시도하거나 [기기에서 파일 고르기]를 써 주세요.',
-  engineFailed: 'HWP 파일을 바꾸지 못했어요. 한글에서 .hwpx로 저장한 파일을 골라 주세요. 아무것도 바뀌지 않았어요.',
+  // WEEKLY-한글파일다듬기 ②: 자동 변환(칸막이 편집기 엔진)이 안 될 때만. 괄호 안은 다음에 원인을 좁히려는 짧은 이유(시간 초과 등).
+  engineFailed: '이 파일은 옛 한글 형식(.hwp)이라 쓸 수 없어요. 한글에서 열어 ‘다른 이름으로 저장’ → 파일 형식 HWPX로 저장한 뒤 다시 골라 주세요.',
+  locked: '암호가 걸린 한글 파일이라 열 수 없어요. 한글에서 암호를 푼 뒤 ‘다른 이름으로 저장’ → 파일 형식 HWPX로 저장해 다시 골라 주세요.',
   notHwp: 'HWP(.hwp) 또는 한글 파일(.hwpx)만 고를 수 있어요.',
   tooBig: '30MB가 넘는 파일은 열지 않아요.',
   noMine: '담당 팀원 칸에서 이 이름을 찾지 못했어요. 이름을 확인해 주세요(요약 표는 틀만 들어가요).',
@@ -87,7 +92,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, rt = window.KPT
   const doc = host.ownerDocument;
   const el = (tag, cls, text) => { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
   const button = (text, data, cls = 'mini') => { const b = el('button', cls, text); b.type = 'button'; b.dataset[data] = ''; return b; };
-  let state = null, engine = null, lib = null, run = 0;
+  let state = null, engine = null, lib = null, run = 0, confirmed = undefined, sourceRun = 0;
   const start = button('주간보고 한글 파일 만들기', 'hwpxStart', 'secondary');
   const panel = el('section', 'journal-hwpx-panel'); panel.hidden = true; panel.setAttribute('aria-labelledby', 'journalHwpxTitle');
   const title = el('h4', 'journal-heading', '주간보고 한글 파일(.hwpx)'); title.id = 'journalHwpxTitle'; title.tabIndex = -1;
@@ -102,7 +107,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, rt = window.KPT
   const lazy = () => lib || (lib = Promise.all([import('./weekly-hwpx/draft.mjs'), import('./hwp-drive.js')]).then(([draft, drive]) => ({draft, drive})));
 
   function close(message = '') {
-    run++; state = null; engine?.close(); engine = null;
+    run++; sourceRun++; state = null; engine?.close(); engine = null;
     panel.hidden = true; start.hidden = false; body.replaceChildren(); say(message);
   }
   async function open() {
@@ -112,21 +117,38 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, rt = window.KPT
     renderSource();
     title.focus();
   }
+  // 바탕 고르기: 자료실에 "주간보고 확정본"이 있으면 [자료실 최신 … 쓰기](채운 버튼)가 앞, 없으면 그 버튼은 흐리게(누를 수 없음) 두고
+  // [기기에서 파일 고르기]가 앞(WEEKLY-한글파일다듬기 ①). 찾은 자료는 [쓰기]를 누를 때 다시 찾지 않고 그대로 연다. 자료실을 읽지 못하면
+  // [쓰기]를 누를 수 있게 두어 다시 시도한다(누르면 그때 다시 찾음).
   function renderSource() {
+    run++;
+    const mine = ++sourceRun;
+    confirmed = undefined;
     const file = el('input'); file.type = 'file'; file.accept = '.hwp,.hwpx'; file.hidden = true; file.dataset.hwpxFile = '';
     const pick = button('기기에서 파일 고르기', 'hwpxPick');
     pick.addEventListener('click', () => file.click());
     file.addEventListener('change', () => { const f = file.files?.[0]; file.value = ''; if (f) fromFile(f); });
+    const library = button(`자료실 최신 "${CONFIRMED_CATEGORY}" 쓰기`, 'hwpxLibrary', 'primary');
+    library.disabled = true;
+    const intro = el('p', 'journal-muted', TEXT.checking); intro.id = 'journalHwpxIntro'; intro.dataset.hwpxIntro = '';
+    library.setAttribute('aria-describedby', intro.id);
     const row = el('div', 'journal-hwpx-actions');
-    row.append(button(`자료실 최신 "${CONFIRMED_CATEGORY}" 쓰기`, 'hwpxLibrary', 'primary'), pick, file, button('닫기', 'hwpxClose'));
-    body.replaceChildren(el('p', 'journal-muted', TEXT.intro), row);
+    row.append(library, pick, file, button('닫기', 'hwpxClose'));
+    body.replaceChildren(intro, row);
+    latestConfirmed(rt).then(found => ({found}), () => ({failed:true})).then(({found = null, failed = false}) => {
+      if (mine !== sourceRun || !library.isConnected) return;
+      confirmed = failed ? undefined : found;
+      if (found || failed) { library.disabled = false; intro.textContent = TEXT.intro; return; }
+      intro.textContent = TEXT.introNoBase;
+      row.prepend(pick);
+    });
   }
 
   async function fromLibrary() {
     const mine = ++run;
     say('자료실에서 확정본을 찾는 중…');
     try {
-      const found = await latestConfirmed(rt);
+      const found = confirmed !== undefined ? confirmed : await latestConfirmed(rt);
       if (mine !== run) return;
       if (!found) { say(TEXT.noConfirmed, 'error'); return; }
       const {drive} = await lazy();
@@ -152,10 +174,23 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, rt = window.KPT
     const {draft} = await lazy();
     try {
       let hwpx = bytes;
-      if (format !== 'hwpx') {
+      // WEEKLY-한글파일다듬기 ②: 이름이 아니라 내용으로 고른다. 내용이 HWPX(ZIP)면 이름이 .hwp여도 엔진 없이 열고, 암호 걸린 HWP 5는 엔진에
+      // 넣지 않는다(숨은 칸막이 안에서 암호 묻는 창이 답을 기다리다 시간 초과로 끝나기 때문). 한글 파일이 아니면 고를 수 있는 파일 안내.
+      const kind = draft.hwpKind(bytes);
+      if (!kind) { if (mine === run) say(TEXT.notHwp, 'error'); return; }
+      if (kind !== 'hwpx') {
+        if (draft.hwp5Header(bytes)?.password) { say(TEXT.locked, 'error'); return; }
         say('HWP를 한글 파일(.hwpx)로 바꾸는 중…(처음엔 조금 걸려요)');
         engine ||= createEngine();
-        try { hwpx = await engine.toHwpx(bytes, name); } catch { if (mine === run) say(TEXT.engineFailed, 'error'); return; }
+        try { hwpx = await engine.toHwpx(bytes, name); }
+        catch (error) {
+          const why = draft.engineReason(error);
+          console.warn('weekly hwpx: HWP conversion failed', why);
+          // A converter that did not start or ran out of time is not kept: the next try makes a new one.
+          if (why !== '파일을 열지 못함') { engine?.close(); engine = null; }
+          if (mine === run) say(`${TEXT.engineFailed} (${why})`, 'error');
+          return;
+        }
         if (mine !== run) return;
       }
       const pkg = await draft.openConfirmed(hwpx);
@@ -181,7 +216,12 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, rt = window.KPT
     state.rows = draft.editableRows(state.base, state.me);
     state.orgs = draft.editableOrgs(state.base, 'orgs');
     state.sites = draft.editableOrgs(state.base, 'sites');
-    state.edits = {summary:new Map(state.rows.map(r => [r.index, [...r.lines]])), orgs:new Map(state.orgs.map(r => [r.index, [...r.lines]])), sites:new Map(state.sites.map(r => [r.index, [...r.lines]]))};
+    // WEEKLY-한글파일다듬기 ⑤: 바탕 줄 가운데 보고일 기준 지난 날짜의 '…예정'은 '예정'만 뺀 채로 시작한다(바탕과 달라 파란 글씨가 됨).
+    // 바뀐 줄은 화면 위쪽 접힌 목록(renderEdit)에서 확인한다. 칸에서 다시 고칠 수 있다.
+    const day = reportDay(state.start), plans = [];
+    const start = (section, list, label) => new Map(list.map(r => { const p = draft.pastPlanLines(r.lines, day); for (const c of p.changed) plans.push({...c, where:label(r)}); return [r.index, p.lines]; }));
+    state.edits = {summary:start('summary', state.rows, r => `${r.area} › ${r.task || '—'}`), orgs:start('orgs', state.orgs, r => r.org), sites:start('sites', state.sites, r => r.org)};
+    state.plans = plans;
     state.built = null;
   }
 
@@ -266,12 +306,21 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, rt = window.KPT
       list.replaceChildren(...items.map((item, n) => {
         const li = el('li');
         li.append(el('span', 'journal-weekly-day', item.day ? shortDay(item.day) : '요약'), el('span', 'journal-weekly-label', `${item.from}: `), doc.createTextNode(item.text + ' '));
-        const targets = item.section === 'summary' ? state.rows.map(r => [`summary:${r.index}`, `${r.area} › ${r.task}`]) : state.orgs.map(r => [`orgs:${r.index}`, r.org]);
+        const targets = item.section === 'summary'
+          ? state.rows.map(r => ({value:`summary:${r.index}`, label:`${r.area} › ${r.task}`, names:[r.area, r.task], kind:'row'}))
+          : state.orgs.map(r => ({value:`orgs:${r.index}`, label:r.org, names:[r.org, ...(state.aliases.get(r.org) ?? [])], kind:'org'}));
         if (!targets.length) return li;
+        // WEEKLY-한글파일다듬기 ③: 맨 앞 '줄 고르기'(빈 값). 이름이 가장 가까운 줄 하나만 미리 고르고, 없거나 애매하면 빈 값 — 그때 [붙이기]는
+        // 줄을 고르기 전엔 누를 수 없다. (전에는 빈 값이 없어 목록 첫 줄이 기본으로 골라져 있었다.)
         const pickId = `journalHwpxPick-${n}`;
-        const select = el('select', 'journal-hwpx-target'); select.id = pickId; select.setAttribute('aria-label', '붙일 줄');
-        for (const [value, label] of targets) { const o = el('option', '', label); o.value = value; select.append(o); }
+        const select = el('select', 'journal-hwpx-target'); select.id = pickId; select.setAttribute('aria-label', '붙일 줄'); select.dataset.hwpxPick = '';
+        const none = el('option', '', '줄 고르기'); none.value = ''; select.append(none);
+        for (const t of targets) { const o = el('option', '', t.label); o.value = t.value; select.append(o); }
+        select.value = state.draft.nearestTarget(item.from, targets);
         const add = button('붙이기', 'hwpxAppend'); add.dataset.hwpxText = item.text; add.dataset.hwpxPickFrom = pickId;
+        add.setAttribute('aria-label', `붙이기: ${item.text}`);
+        add.disabled = !select.value;
+        select.addEventListener('change', () => { add.disabled = !select.value; });
         li.append(select, add);
         return li;
       }));
@@ -308,6 +357,13 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, rt = window.KPT
       : `내 담당 조직 ${s.context.organizations.length}곳(내 프로필 → 담당 사업장 기준)`;
     const o = el('p', 'journal-muted', orgLine); o.dataset.hwpxOrgs = ''; parts.push(o);
     const req = el('p', 'journal-muted', ''); req.dataset.hwpxRequests = ''; parts.push(req);
+    if (s.plans?.length) {
+      const plans = el('details', 'journal-hwpx-plans'); plans.dataset.hwpxPlans = '';
+      plans.append(el('summary', '', `보고일(${formDay(reportDay(s.start))})보다 지난 날짜의 '예정' ${s.plans.length}줄에서 '예정'만 뺐어요(파란 글씨).`));
+      const list = el('ul', 'journal-hwpx-material');
+      for (const c of s.plans) { const li = el('li'); li.append(el('span', 'journal-weekly-label', `${c.where}: `), doc.createTextNode(`${c.from.trim()} → ${c.to.trim()}`)); list.append(li); }
+      plans.append(list); parts.push(plans);
+    }
     parts.push(el('p', 'journal-muted', '1. 2) 주요 일정과 세부 내용·집회 표는 비워요. 바탕과 다른 줄은 파란 글씨가 돼요.'));
     const cal = el('p', 'journal-muted', ''); cal.dataset.hwpxCalendar = ''; parts.push(cal);
     const loading = el('p', 'journal-muted', '이번 주 기록을 불러오는 중이에요. 다 오면 줄 옆에 보여요.'); loading.dataset.hwpxLoading = ''; loading.hidden = true; parts.push(loading);
@@ -345,7 +401,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, rt = window.KPT
     if (state.built) return state.built;
     const data = draft.assembleDraft({...state.base, date:state.date, requests:formRequests(requestRows().items), ...scheduleForm(getWeek().model?.calendar, state.me)}, state.edits);
     const bytes = await draft.buildHwpx(state.template, data);
-    state.built = {bytes, changed:draft.changedCount(data), name:draft.fileNameFor(reportDay(state.start))};
+    // 파일 이름: 주간보고_보고일8자리_이름.hwpx — 이름은 로그인 사용자의 표시 이름(프로필 이름, 없으면 로그인 정보의 표시 이름; readContext).
+    state.built = {bytes, changed:draft.changedCount(data), name:draft.fileNameFor(reportDay(state.start), state.context.me)};
     return state.built;
   }
   async function doBuild() {
@@ -389,8 +446,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, rt = window.KPT
     if (b.matches('[data-hwpx-start]')) open();
     else if (b.matches('[data-hwpx-close]')) { close(); start.focus(); }
     else if (b.matches('[data-hwpx-library]')) fromLibrary();
-    else if (b.matches('[data-hwpx-restart]')) { run++; state = null; say(''); renderSource(); }
-    else if (b.matches('[data-hwpx-append]')) { const key = b.dataset.hwpxTarget || doc.getElementById(b.dataset.hwpxPickFrom)?.value; append(key, b.dataset.hwpxText); say('붙였어요. 칸에서 고칠 수 있어요.'); }
+    else if (b.matches('[data-hwpx-restart]')) { state = null; say(''); renderSource(); }
+    else if (b.matches('[data-hwpx-append]')) { const key = b.dataset.hwpxTarget || doc.getElementById(b.dataset.hwpxPickFrom)?.value; if (!key) return; append(key, b.dataset.hwpxText); say('붙였어요. 칸에서 고칠 수 있어요.'); }
     else if (!state) return;
     else if (b.matches('[data-hwpx-build]')) doBuild();
     else if (b.matches('[data-hwpx-hwp]')) doHwp();
