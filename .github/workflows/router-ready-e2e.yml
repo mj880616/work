@@ -10,6 +10,7 @@ on:
       - 'app/index.html'
       - 'tests/app-e2e/app-initial-paint.spec.mjs'
       - '.github/workflows/router-ready-e2e.yml'
+      - '.github/actions/setup-playwright/**'
 
 permissions:
   contents: read
@@ -41,9 +42,7 @@ jobs:
             echo 'router returned to delayed route restoration'; exit 1
           fi
       - name: Install Playwright
-        run: |
-          npm install --no-save @playwright/test@1.55.0
-          npx playwright install --with-deps chromium
+        uses: ./.github/actions/setup-playwright
       - name: Start static app server
         run: |
           python3 -m http.server 8123 >/tmp/kptu-router-e2e-http.log 2>&1 &

@@ -61,11 +61,22 @@ jobs:
       - name: Check press archive paths and newest listing
         working-directory: candidate
         run: node --test scripts/publication-content.test.mjs
+      # 설치 절차는 후보 PR이 아니라 신뢰하는 base 커밋의 공유 action을 쓴다(후보가 설치 단계 코드를 바꾸지 못하게).
+      - name: Check out trusted install action from base
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: trusted
+          sparse-checkout: .github/actions/setup-playwright
+          persist-credentials: false
+      # pull_request_target에서 후보 코드를 돌리므로 브라우저 캐시는 복원만 하고 저장하지 않는다(캐시 오염 방지).
       - name: Install press browser test
-        working-directory: candidate
-        run: |
-          npm install --no-save --no-package-lock @playwright/test@1.55.0
-          npx playwright install --with-deps chromium
+        uses: ./trusted/.github/actions/setup-playwright
+        with:
+          working-directory: candidate
+          npm-flags: --no-save --no-package-lock
+          save-cache: 'false'
       - name: Start local press test server
         working-directory: candidate
         run: |
