@@ -1222,6 +1222,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   const resize = typeof ResizeObserver === 'function' ? new ResizeObserver(queueFit) : null;
   resize?.observe(tools);
   // ED-서식줄묶음: a phone gets the grouped row; wider screens get the full row back (the same button nodes move to and fro).
+  const pair = document.createElement('span'); pair.className = 'ed-pair'; pair.setAttribute('role', 'group');
   function setGrouped(on) {
     if (on === grouped) return;
     closePanels();
@@ -1229,7 +1230,9 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     grouped = on;
     root.classList.toggle('ed-grouped', on);
     if (on) {
-      tools.replaceChildren(...PHONE_ORDER.map(k => buttons[k]).filter(Boolean), more);
+      // [·] and [▾] sit in one pair so the row's spacing treats them as a single block.
+      pair.replaceChildren(buttons.dotNow, buttons.symDot);
+      tools.replaceChildren(...PHONE_ORDER.map(k => k === 'dotNow' ? pair : k === 'symDot' ? null : buttons[k]).filter(Boolean), more);
       for (const [key, , , items] of GROUPS) panels[key].replaceChildren(...items.map(k => buttons[k]).filter(Boolean));
       panels.more.replaceChildren();
       setLabel(buttons.symDot, '▾'); buttons.symDot.setAttribute('aria-label', '점 기호 고르기');
