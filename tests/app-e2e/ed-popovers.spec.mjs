@@ -82,7 +82,13 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
         expect((await rect(box)).top, `${name} text`).toBe(textTop);
         // A press outside (in the text) closes it.
         // (at the right side of the text, away from the popover that may cover the middle)
-        await box.click({position: {x: viewport.width - 30, y: 150}});
+        // (A wide popover, like the table grid, can cover that spot on a phone: then press just below it, still inside the text box.)
+        const bx = await rect(box);
+        const covered = (x, y) => x >= p.left && x <= p.right && y >= p.top && y <= p.bottom;
+        let at = {x: viewport.width - 30, y: bx.top + 150};
+        if (covered(at.x, at.y)) at = {x: at.x, y: Math.min(p.bottom + 12, bx.bottom - 4)};
+        expect(covered(at.x, at.y), `${name} outside spot is free`).toBe(false);
+        await box.click({position: {x: at.x - bx.left, y: at.y - bx.top}});
         await expect(pop, `${name} outside`).toBeHidden();
         // (On a phone the button sits in a group popover that the outside press closed too, so look it up even when hidden.)
         await expect(page.locator('.ed-bar').getByRole('button', {name, exact: true, includeHidden: true}), `${name} outside expanded`).toHaveAttribute('aria-expanded', 'false');
