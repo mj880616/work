@@ -37,6 +37,24 @@ run_limited() {
   return "$rc"
 }
 
+# 러너 기본 apt 미러 선택(mirror+file)을 건너뛰고 Canonical 미러를 직접 쓴다.
+use_direct_mirror() {
+  local f
+  for f in /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list; do
+    [ -f "$f" ] && sudo sed -i -E 's#mirror\+file:/etc/apt/apt-mirrors\.txt#http://archive.ubuntu.com/ubuntu/#g' "$f"
+  done
+  return 0
+}
+
+# 주어진 패키지가 모두 설치되어 있으면 0.
+all_installed() {
+  local pkg
+  for pkg in "$@"; do
+    dpkg-query -W -f='${db:Status-Status}' "$pkg" 2>/dev/null | grep -qx installed || return 1
+  done
+  return 0
+}
+
 cmd_package() {
   # shellcheck disable=SC2086
   run_limited "npm install @playwright/test@${PW_VERSION}" 300 \
@@ -79,6 +97,18 @@ cmd_os_deps() {
 
   echo "설치가 필요한 OS 패키지 ${#missing[@]}개: ${missing[*]}"
   echo "::notice title=Playwright 필요한 OS 패키지 ${#missing[@]}개::${missing[*]}"
+  # 이전 실행이 받아 둔 deb 캐시가 있으면 네트워크 없이 설치한다(미러에 닿지 않으므로 멈출 일이 없다).
+  local deb_dir="${PW_DEB_DIR:-$HOME/.cache/playwright-os-debs}"
+  if compgen -G "$deb_dir/*.deb" >/dev/null; then
+    echo "캐시된 deb $(ls "$deb_dir"/*.deb | wc -l)개로 설치를 시도합니다."
+    if run_limited "dpkg -i (캐시된 deb)" 90 sudo env DEBIAN_FRONTEND=noninteractive dpkg -i "$deb_dir"/*.deb && all_installed "${missing[@]}"; then
+      echo "캐시된 deb 설치 완료(apt 사용 안 함)."
+      return 0
+    fi
+    echo "::warning title=캐시된 deb 설치 실패::apt로 새로 받습니다."
+    sudo dpkg --configure -a >/dev/null 2>&1 || true
+  fi
+
   # 느리거나 멈춘 미러에 매달리지 않도록 apt 자체 연결 시간 상한과 재시도를 둔다.
   printf '%s\n' \
     'Acquire::http::Timeout "20";' \
@@ -87,17 +117,26 @@ cmd_os_deps() {
     | sudo tee /etc/apt/apt.conf.d/99-ci-network-limits >/dev/null
 
   # 한 번 멈췄다면 같은 미러·같은 잠금에 계속 매달리는 대신 끊고 한 번만 다시 시도한다(시험 재시도와 무관한 설치 단계 한정).
+  # 관측: 멈춤은 러너 기본 미러 선택(mirror+file) 경유 '패키지 받기'에서 났다. 두 번째 시도는 archive.ubuntu.com을 직접 쓴다.
   # 받기(download-only)와 설치(dpkg)를 나눠, 멈춘 곳이 미러인지 설치인지 단계 이름으로 드러나게 한다.
   local attempt apt_opts=(-o DPkg::Lock::Timeout=30)
   for attempt in 1 2; do
-    # 앞 시도가 설치 도중 끊겼다면 dpkg 상태를 먼저 정리한다.
-    [ "$attempt" -gt 1 ] && run_limited "dpkg --configure -a" 60 sudo dpkg --configure -a
+    if [ "$attempt" -gt 1 ]; then
+      # 앞 시도가 설치 도중 끊겼다면 dpkg 상태를 먼저 정리하고, 미러를 직접 주소로 바꾼다.
+      run_limited "dpkg --configure -a" 60 sudo dpkg --configure -a
+      use_direct_mirror
+    fi
+    sudo apt-get clean
     if run_limited "apt-get update (시도 ${attempt}/2)" 90 sudo apt-get "${apt_opts[@]}" update \
-      && run_limited "apt-get 패키지 받기 (시도 ${attempt}/2)" 120 \
-        sudo env DEBIAN_FRONTEND=noninteractive apt-get "${apt_opts[@]}" install -y --no-install-recommends --download-only "${missing[@]}" \
-      && run_limited "apt-get 설치 (시도 ${attempt}/2)" 120 \
+      && run_limited "apt-get 패키지 받기 (시도 ${attempt}/2)" 75 \
+        sudo env DEBIAN_FRONTEND=noninteractive apt-get "${apt_opts[@]}" install -y --no-install-recommends --download-only "${missing[@]}"; then
+      # 받은 deb를 캐시 폴더에 보관한다(다음 실행은 apt 없이 설치). 저장 여부는 workflow 단계가 정한다.
+      mkdir -p "$deb_dir" && sudo cp /var/cache/apt/archives/*.deb "$deb_dir"/ 2>/dev/null && sudo chown -R "$(id -u):$(id -g)" "$deb_dir"
+      if [ -n "${GITHUB_OUTPUT:-}" ] && compgen -G "$deb_dir/*.deb" >/dev/null; then echo "debs_ready=true" >> "$GITHUB_OUTPUT"; fi
+      if run_limited "apt-get 설치 (시도 ${attempt}/2)" 120 \
         sudo env DEBIAN_FRONTEND=noninteractive apt-get "${apt_opts[@]}" install -y --no-install-recommends "${missing[@]}"; then
-      return 0
+        return 0
+      fi
     fi
     echo "apt 단계가 실패했습니다(시도 ${attempt}/2)."
   done
