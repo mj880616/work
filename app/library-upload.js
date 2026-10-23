@@ -439,8 +439,10 @@ function luSyncPicks(){
   if(bar)bar.hidden=!on;
   document.querySelector('#libraryListCard')?.classList.toggle('lu-selecting',on);
   if(btn)btn.hidden=on;
-  const newBtn=document.querySelector('#newDocumentBtn');if(newBtn)newBtn.hidden=on;
-  if(!on)return;
+  const barEl=document.querySelector('#librarySelectBar');
+  if(!on){barEl?.querySelector('.filter-chips')?.remove();return}
+  // 전체 칩은 거르기 칩과 같은 공용 모양(.filter-chips)이라 선택 모드일 때만 그린다.
+  if(barEl&&!barEl.querySelector('#librarySelectAll')){barEl.insertAdjacentHTML('afterbegin','<div class="filter-chips filter-chips-small quick-mode-group" role="group" aria-label="전체 선택"><button id="librarySelectAll" class="quick-pill-button" type="button" role="checkbox" aria-checked="false" aria-controls="documentList">전체</button></div>')}
   const ids=luVisibleIds(),list=document.querySelector('#documentList');
   for(const c of list?.querySelectorAll('[data-lu-pick]')||[])c.checked=luSel.has(c.dataset.luPick);
   for(const c of list?.querySelectorAll('[data-lu-pick-node]')||[]){const nodeIds=nodeDocumentIds(luTreeNode(c.dataset.luPickNode));c.checked=allSelected(luSel,nodeIds);c.indeterminate=someSelected(luSel,nodeIds)}
@@ -504,7 +506,7 @@ function luBindSelect(){
   if(!list||list.dataset.luSelBound)return;list.dataset.luSelBound='1';
   list.addEventListener('click',luOnPickClick,true);list.addEventListener('keydown',luOnPickKey,true);
   document.querySelector('#librarySelectBtn')?.addEventListener('click',luSelStart);
-  document.querySelector('#librarySelectAll')?.addEventListener('click',luSelAll);
+  document.querySelector('#librarySelectBar')?.addEventListener('click',e=>{if(e.target.closest('#librarySelectAll'))luSelAll()});
   document.querySelector('#librarySelectDelete')?.addEventListener('click',luSelDelete);
   document.querySelector('#librarySelectCancel')?.addEventListener('click',luSelStop);
   window.addEventListener('kptu:view-changed',event=>{if(luSel&&!luSelBusy&&event.detail?.view!=='library'){luSel=null;luSyncPicks()}});

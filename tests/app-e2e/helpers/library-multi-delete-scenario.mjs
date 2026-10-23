@@ -93,7 +93,7 @@ export async function run(page,base,width,check,{shot=null}={}){
   await page.locator('#librarySelectCancel').click();
   check(await page.locator('#documentList .lu-pick').count(),0,'boxes gone');
   check(await page.locator('#librarySelectBar').isVisible(),false,'bar hidden');
-  check(await page.locator('#newDocumentBtn').isVisible(),true,'register button back');
+  check(await page.locator('#librarySelectBtn').isVisible(),true,'select button back');
   check(state.errors,[],'no page errors');
   return state;
 }
