@@ -1,5 +1,5 @@
 /* PROFILE-화면정리: 칸 제목 한 가지 크기, 칸 간격 8px, 안내문 없음. 크기·글자는 --ds-* 토큰만 쓴다(UI-버튼기준). */
-.ps-profile-grid{display:grid;gap:8px;max-width:760px}
+.ps-profile-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;max-width:760px}
 #profileView .ps-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;max-width:760px}
 #profileView .ps-head h2{margin:0;flex:1;min-width:0;font-size:var(--ds-text-title);line-height:1.35;font-weight:var(--ds-weight-medium,600)}
 #profileView .ps-state{color:var(--kptu-muted);font-size:var(--ds-text-meta);white-space:nowrap}
