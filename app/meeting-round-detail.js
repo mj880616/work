@@ -210,9 +210,11 @@ async function mrdSaveEdit(){
   // 회의명도 짧은 이름도 그대로면 예전 이름 칸(title·series_name)은 건드리지 않는다. 회의명을 바꾸면 지금처럼 두 칸을 그 이름으로 맞추되, 짧은 이름이 있으면 title은 짧은 이름.
   const shortName=document.querySelector('#mrdEditShortName').value.trim(),renamed=name!==mrdMeetingName(mrdCurrent),shortChanged=shortName!==mrdShortNameStart(mrdCurrent);
   if(renamed||shortChanged){const wantTitle=shortName&&shortName!==name?shortName:name;if(renamed||wantTitle!==String(mrdCurrent.title||'').trim())body.title=wantTitle;if(renamed||name!==String(mrdCurrent.series_name||'').trim())body.series_name=name}
-  if(await locationAvailable().catch(()=>false)){const loc=document.querySelector('#mrdEditLocation').value.trim();if(loc!==String(mrdCurrent.location||'').trim())body.location=loc||null}
+  const locNow=document.querySelector('#mrdEditLocation').value.trim(),locStart=String(mrdCurrent.location||'').trim();
   const a={body,draft:mrdEditDraft(),pending:true,state:'pending'};a.done=new Promise(resolve=>a.finish=resolve);e.request=a;mrdEditAttempts.set(key,a);
   const btn=document.querySelector('#mrdSaveEdit'),label=btn.textContent;btn.disabled=true;btn.textContent='저장 중…';mrdEditNotice(e,'저장 중…');
+  // 장소 칸이 서버에 있는지 확인하는 기다림은 반드시 위의 저장 잠금(pending) 뒤에 둔다. 앞에 두면 그 사이 두 번째 누름이 잠금을 통과해 두 번 저장된다.
+  if(await locationAvailable().catch(()=>false)&&locNow!==locStart)body.location=locNow||null;
   try{
     const rows=await mrdApi(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(e.id)}&workspace_id=eq.${encodeURIComponent(e.scope.workspace)}&select=*`,{method:'PATCH',body,prefer:'return=representation',expectedSessionEpoch:e.scope.epoch});
     const row=mrdEditRow(e,rows,body);a.state='confirmed';if(!mrdEditSameScope(e.scope))return;if(mrdEditAttempts.get(key)===a)mrdEditAttempts.delete(key);

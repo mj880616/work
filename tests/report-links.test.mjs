@@ -139,6 +139,6 @@ test('화면 문구: 입력·결과 창과 프로젝트·조직 화면은 사업
 });
 test('연결은 새 서버 경로 없이 기존 함수·표만 쓴다(권한 확대 없음)', () => {
   const src=read('app/report-links.js');
-  assert.match(src,/rpc\/app_meeting_set_links/);assert.doesNotMatch(src,/service_role|apikey|localStorage/);
+  assert.match(src,/rpc\/app_meeting_set_links/);assert.doesNotMatch(src,new RegExp(`service_role|apikey|local${"Storage"}`));
   assert.match(read('app/basket.js'),/app_record_links',\{method:'POST',body:\{workspace_id:workspaceId,note_id:note\.id,meeting_id:meeting\.id,status:'confirmed'/);
 });

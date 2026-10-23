@@ -144,7 +144,7 @@ async function ciSaveGoogle(){
 }
 // MTG-사업보고 7단계: 일정 창 [결과 남기기] → 칸 고르기 → 일정 제목·시작·장소가 채워진 사업 보고 입력 창. 같은 날·같은 이름이 이미 있으면 먼저 묻는다(team.js KPTUReportEntry).
 async function ciLeaveReport(){
-  const e=ciGoogleCurrent;if(!e?.id)return;
+  const e=ciGoogleCurrent;if(!e?.id||ciGoogleSavePending||document.querySelector('#ciGoogleSave')?.disabled)return;
   const at=e.allDay?`${e.start}T00:00`:(()=>{const p=ciParts(e.start);return `${p.date}T${p.time}`})();
   const trigger=document.querySelector('#ciGoogleReport');
   try{

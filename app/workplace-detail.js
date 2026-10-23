@@ -75,7 +75,7 @@ async function wdReportUnlink(mid){
     offerUndoNotice({text:'연결을 해제했어요. 사업 보고는 남아요.',onUndo:async()=>{const back=await restoreTargets(mid,r.previous);if(!back.ok)return {status:'failed',message:back.message||'되돌리지 못했어요.'};window.dispatchEvent(new CustomEvent('kptu:meetings-changed',{detail:{meeting_id:mid}}));return {status:'restored',message:'연결을 되돌렸어요.'}}});
   }catch(e){wdToast(e.message||'연결을 해제하지 못했습니다.')}
 }
-async function wdReportOpen(mid){try{const {openReport}=await import('./report-links.js');await openReport(mid)}catch(e){console.error('org report open',e);wdToast('사업 보고를 열지 못했습니다.')}}
+async function wdReportOpen(mid){try{const {openReport}=await import('./report-open.js');await openReport(mid)}catch(e){console.error('org report open',e);wdToast('사업 보고를 열지 못했습니다.')}}
 async function wdReportAddNew(){const id=wdTargetId;if(!id||!wdOrg?.canEdit)return;try{const loader=window.KPTUViewLoader;if(!loader?.isLoaded?.('meetings'))await loader?.load?.('meetings');if(!window.KPTUReportEntry)throw new Error('x');await window.KPTUReportEntry.open({targets:[{kind:'organization',id}],trigger:document.activeElement})}catch{wdToast('기능을 불러오지 못했습니다.')}}
 function wdReportClick(e){
   const b=e.target.closest?.('#wdReports button');if(!b)return;

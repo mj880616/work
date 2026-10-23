@@ -11,7 +11,8 @@ import {previewLines} from './note-preview.mjs';
 import {readRecordPages,readLinkRecords,recordMark,recordText,isNoteRecord,mountLinkSummaryEditor} from './basket-link-records.js';
 import {categoryTag,loadDocumentCategories} from './document-categories.js';
 import {disconnectWithUndo,offerUndoNotice} from './basket-record-delete.js';
-import {readLinkedReports,readAllReports,readReportTargets,changeOneTarget,restoreTargets,openReport} from './report-links.js';
+import {readLinkedReports,readAllReports,readReportTargets,changeOneTarget,restoreTargets} from './report-links.js';
+import {openReport} from './report-open.js';
 import {reportTitle,reportKindTag,sameTarget} from './report-links-model.mjs';
 import {requestBasketNote,requestBasketNoteFrom,requestNoteDocOpen,requestNoteDocFrom,takeBasketReturn,basketNoteHref} from './basket-note-tasks.js';
 (()=>{

@@ -56,7 +56,7 @@ test('담당조직 상세 맨 위는 조직명과 입력칸 하나, 저장 버�
   await expect(page.locator('#wdUpdateCurrent,#wdCurrentModal,#wdAddItem,#wdItemModal,#warRaw,#warSaveRaw')).toHaveCount(0);
   await expect(page.locator('#wdDeleteOrg')).toHaveCount(0);
   const order=await page.locator('#wdModal .wd-card').evaluate(card=>[...card.querySelectorAll(':scope > .wd-sec')].map(sec=>sec.querySelector('h3')?.firstChild?.textContent?.trim()));
-  expect(order).toEqual(['할 일','자료','기록','연도별 타임라인','기본 정보 · 소속 · 이전 요약']);
+  expect(order).toEqual(['할 일','자료','사업 보고','기록','연도별 타임라인','기본 정보 · 소속 · 이전 요약']);
   const pos=await page.locator('#wdModal .wd-card').evaluate(card=>({
     title:card.querySelector('#wdTitle').getBoundingClientRect().top,
     input:card.querySelector('#wdInboxText').getBoundingClientRect().top,

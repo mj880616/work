@@ -96,14 +96,6 @@ export async function changeOneTarget(meetingId,target,mode,rt=rtOf()){
   return {...result,previous:current};
 }
 
-// 사업 보고 결과 창을 연다(프로젝트·조직 화면 위에 겹쳐 열림, 프로젝트 화면의 회의 열기와 같은 길).
-export async function openReport(id){
-  await window.KPTUViewLoader?.prepare?.('meetings');
-  await import('./meeting-round-detail.js');
-  if(!(await window.__KPTU_MEETING_ROUND_DETAIL_READY__))throw new Error('report detail unavailable');
-  await window.KPTUMeetingRoundDetail.open(id);
-}
-
 // 5초 되돌리기: 해제 전 연결 목록으로 다시 맞춘다(그 사이 사업 보고가 바뀌었으면 최신 버전으로 읽어 다시 맞춘다).
 export async function restoreTargets(meetingId,targets,rt=rtOf()){
   const row=(await rt.api(`/rest/v1/app_meetings?id=eq.${enc(meetingId)}&workspace_id=eq.${enc(workspaceOf(rt))}&select=id,updated_at`))?.[0];
