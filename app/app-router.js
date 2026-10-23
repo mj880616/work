@@ -3,7 +3,7 @@
   const hooks=new Map();
   const VIEW_PARAM='view';
   const NAV_ALIAS={messages:'home',myspace:'home'};
-  const MENU_SHEET_VIEWS=['meetings','library','hwp','media','pages'];
+  const MENU_SHEET_VIEWS=['meetings','library','hwp','media','pages','ledger'];
   // Retired addresses that now open another view (HWP 편집기 시험판 ?view=hwp-lab → ?view=hwp).
   const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings'};
   // MTG-사업보고: the 회의 screen (#meetingsView) is written as ?view=reports in the address; the old ?view=meetings still opens it.

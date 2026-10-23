@@ -1,4 +1,4 @@
-// AI-서버연동 S7-b: [원장] 화면(?view=ledger, 내 프로필 → 계정 → [원장]). 이 모듈이 #ledgerRoot의 유일한 renderer다.
+// AI-서버연동 S7-b: [원장] 화면(?view=ledger, 사이드바·메뉴 판 [원장]). 이 모듈이 #ledgerRoot의 유일한 renderer다.
 // 흐름: 파일 올리기(시트 탭별 CSV / xlsx 한 개 / Claude 가져오기 파일) → 브라우저 안 검사(ledger-import-model.mjs) →
 // 고정 목록 대응표 확인 → [해 보기](DB에 남지 않음) → [적용](묶음 하나, 한 거래) → 숫자 확인 → [확인] 또는 [되돌리기].
 // 파일 원문은 서버로 보내지 않고 로그에도 남기지 않는다. DB에는 검사를 통과한 행만 app_import_ledger_apply RPC로 보낸다.
