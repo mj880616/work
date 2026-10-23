@@ -1,8 +1,9 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
+import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 // UI-칸폭조절(2026-10-22 요청·승인): PC(≥1024) 할 일·프로젝트·담당조직 화면의 왼쪽 목록 칸과 오른쪽 상세 칸 사이 경계선을
-// 마우스로 끌어 폭을 바꾼다(공용 app/split-resize.js). 기본 1/3 : 2/3, 화면별로 이 기기에 기억, 칸 최소 폭(왼쪽 240·오른쪽 360),
+// 마우스로 끌어 폭을 바꾼다(공용 app/split-resize.js). 기본 1/3 : 2/3, 화면별로 서버(프로필 view_prefs.split_ratio)에 기억, 칸 최소 폭(왼쪽 240·오른쪽 360),
 // 경계선을 두 번 누르면 기본으로, 사이드바를 숨겨도 비율 유지, 키보드(경계선에 초점 → ←→), role=separator·aria-valuenow.
 const SCREENS={
  tasks:{container:'#gtTaskSection',list:'#gtTaskSection .gt-cols',pane:'#gtDetailPane',ready:async page=>{
@@ -13,7 +14,9 @@ const SCREENS={
  projects:{container:'#projectGrid',list:'#projectGrid>.ps3-plist',pane:'#ps3DetailPane',ready:async page=>{await expect(page.locator('#ps3DetailPane #ps3DetailModal')).toBeVisible()}},
  team:{container:'#soTeamSection',list:'#soOrganizationList',pane:'#wdDetailPane',ready:async page=>{await expect(page.locator('#wdDetailPane #wdModal')).toBeVisible()}},
 };
-const stored=(page,name)=>page.evaluate(n=>localStorage.getItem('kptu-split-ratio:'+n),name);
+// 서버를 흉내 낸 상태(open()이 시험마다 새로 만든다). 쓰기는 0.4초 모아 가므로 바뀐 뒤의 값은 expect.poll로 본다.
+let prefs;
+const stored=(page,name)=>prefs.value?.split_ratio?.[name]??null;
 async function measure(page,s){
  const l=await page.locator(s.list).boundingBox(),p=await page.locator(s.pane).boundingBox();
  return {list:l.width,pane:p.width,ratio:l.width/(l.width+p.width),gapOk:p.x>=l.x+l.width-1};
@@ -26,9 +29,10 @@ async function dragTo(page,handle,x){
 }
 // Target x for a left share r of the space the two panes share (content box minus the gap).
 const xFor=(page,s,r)=>page.evaluate(([sel,r])=>{const c=document.querySelector(sel),st=getComputedStyle(c),g=parseFloat(st.columnGap)||0,b=c.getBoundingClientRect(),left=b.left+(parseFloat(st.paddingLeft)||0),w=c.clientWidth-(parseFloat(st.paddingLeft)||0)-(parseFloat(st.paddingRight)||0)-g;return left+r*w+g/2},[s.container,r]);
-async function open(page,name,width){
+async function open(page,name,width,options={}){
  await page.setViewportSize({width,height:860});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ prefs=await installViewPrefsServer(page,null,options);
  await openHome(page);await clickView(page,name);await SCREENS[name].ready(page);await settle(page);
  return errors;
 }
@@ -51,7 +55,7 @@ for(const width of [1280,1440,1920]){
    await dragTo(page,handle,await xFor(page,s,0.5));
    m=await measure(page,s);expect(Math.abs(m.ratio-0.5)).toBeLessThan(0.02);
    await expect(handle).toHaveAttribute('aria-valuenow','50');
-   expect(Math.abs(Number(await stored(page,name))-0.5)).toBeLessThan(0.02);
+   await expect.poll(()=>Math.abs(Number(stored(page,name))-0.5)).toBeLessThan(0.02);
    expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
 
    // 사이드바 숨김(UI-상단줄): 본문이 넓어져도 비율은 그대로, 다시 보여도 그대로.
@@ -76,13 +80,13 @@ for(const width of [1280,1440,1920]){
    // 두 번 누르면 기본 1/3으로, 기억도 지운다.
    await handle.dblclick();await settle(page);
    m=await measure(page,s);expect(Math.abs(m.ratio-1/3)).toBeLessThan(0.02);await expect(handle).toHaveAttribute('aria-valuenow','33');
-   expect(await stored(page,name)).toBeNull();
+   await expect.poll(()=>stored(page,name)).toBeNull();
 
    // 키보드: 경계선에 초점 → → 한 번에 2%씩, ← 되돌림, Home은 최소 폭.
    await handle.focus();await expect(handle).toBeFocused();
    for(let i=0;i<5;i++)await page.keyboard.press('ArrowRight');await settle(page);
    m=await measure(page,s);expect(Math.abs(m.ratio-(1/3+0.1))).toBeLessThan(0.02);
-   expect(Math.abs(Number(await stored(page,name))-(1/3+0.1))).toBeLessThan(0.02);
+   await expect.poll(()=>Math.abs(Number(stored(page,name))-(1/3+0.1))).toBeLessThan(0.02);
    await page.keyboard.press('ArrowLeft');await settle(page);
    expect(Math.abs((await measure(page,s)).ratio-(1/3+0.08))).toBeLessThan(0.02);
    await page.keyboard.press('Home');await settle(page);expect((await measure(page,s)).list).toBeLessThan(250);
@@ -91,9 +95,8 @@ for(const width of [1280,1440,1920]){
  }
 }
 
-test('저장소가 막혀도 기본 1/3으로 그리고 끌기는 된다(기억만 없음)',async({page})=>{
- await page.addInitScript(()=>{const deny=()=>{throw new DOMException('blocked','SecurityError')};const s=Storage.prototype,get=s.getItem,set=s.setItem,rm=s.removeItem;s.getItem=function(k){return String(k).startsWith('kptu-split-ratio:')?deny():get.call(this,k)};s.setItem=function(k,v){return String(k).startsWith('kptu-split-ratio:')?deny():set.call(this,k,v)};s.removeItem=function(k){return String(k).startsWith('kptu-split-ratio:')?deny():rm.call(this,k)}});
- const s=SCREENS.projects;const errors=await open(page,'projects',1280);
+test('서버 값을 읽거나 저장하지 못해도 기본 1/3으로 그리고 끌기는 된다(기억만 없음)',async({page})=>{
+ const s=SCREENS.projects;const errors=await open(page,'projects',1280,{failRead:true,failWrite:true});
  const handle=page.locator(`${s.container}>.split-resize-handle`);
  expect(Math.abs((await measure(page,s)).ratio-1/3)).toBeLessThan(0.02);
  await dragTo(page,handle,await xFor(page,s,0.5));expect(Math.abs((await measure(page,s)).ratio-0.5)).toBeLessThan(0.02);

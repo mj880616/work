@@ -26,7 +26,8 @@ async function mockApp(page,state){
       return ok({tasks:[],needs_reconnect:false});
     }
     if(path==='/functions/v1/push-notifications')return ok({enabled:false,web_enabled:false,native_enabled:false,public_key:'qa'});
-    if(path==='/functions/v1/meeting-files'&&method==='POST'){state.fileUploads++;return ok({ok:true,document:{id:`doc-${state.fileUploads}`}})}
+    // MEET-파일AI분류: 새 사업 보고의 자료도 자료실 올리기와 같은 library-files 요청(meeting_id로 연결)으로 올라간다.
+    if((path==='/functions/v1/library-files'||path==='/functions/v1/meeting-files')&&method==='POST'){state.fileUploads++;return ok({ok:true,document:{id:`00000000-0000-4000-8000-00000000000${state.fileUploads}`,meeting_id:'meeting-1'}})}
     if(path.startsWith('/functions/v1/'))return ok({});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
     if(path==='/rest/v1/app_workspace_members'){
@@ -141,8 +142,12 @@ test('meeting materials keep multiple upload and the existing 100MB per-file ser
   expect(html).toContain('id="meetingFiles" type="file" multiple');
   // UI-회의결과창정리: 창 설명은 "자료실에도 자동 등록"만 남기고, 100MB 제한은 고를 때·저장할 때 안내한다.
   expect(html).toContain('자료실에도 자동 등록');
-  expect(readFileSync('app/team.js','utf8')).toContain('회의자료는 파일당 100MB까지 첨부할 수 있습니다.');
-  expect(readFileSync('app/meeting-round-detail.js','utf8')).toContain('회의자료는 파일당 100MB까지 첨부할 수 있습니다.');
+  // MTG-사업보고말바꾸기: 새 사업 보고 창의 안내는 칸 글자(회의 칸 '회의자료', 다른 칸 '자료') + '는 파일당 100MB…'로 조립된다.
+  expect(readFileSync('app/team.js','utf8')).toContain("+'는 파일당 100MB까지 첨부할 수 있습니다.'");
+  expect(readFileSync('app/report-words.mjs','utf8')).toContain("materials:'회의자료'");
+  // MEET-파일AI분류: 사업 보고 상세의 자료 올리기는 자료실 올리기 창이 맡으므로 100MB 안내·제한도 그 창의 것이다.
+  expect(readFileSync('app/library-upload.js','utf8')).toContain('현재 자료실은 파일당 100MB까지 지원합니다.');
+  expect(readFileSync('app/library-upload.js','utf8')).toContain('const LU_MAX_FILE_BYTES=100*1024*1024');
   expect(edge).toContain('file.size>100*1024*1024');
   expect(edge).toContain('파일당 100MB까지 지원합니다.');
 });

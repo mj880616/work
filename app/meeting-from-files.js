@@ -243,7 +243,7 @@ async function saveGroup(g,scope){
       const next=appendResult(current.transcript_text,combined);
       if(next!==String(current.transcript_text||'')){
         const rows=await api(`/rest/v1/app_meetings?id=eq.${encodeURIComponent(meetingId)}&workspace_id=eq.${encodeURIComponent(scope.workspace)}&select=id`,{method:'PATCH',prefer:'return=representation',body:{transcript_text:next,updated_at:new Date().toISOString()}});
-        if(!Array.isArray(rows)||rows.length!==1)throw new Error('회의 결과 저장을 확인하지 못했습니다.');
+        if(!Array.isArray(rows)||rows.length!==1)throw new Error('사업 보고 저장을 확인하지 못했습니다.');
       }
     }
     markText(meetingId);
@@ -300,6 +300,8 @@ function reset(){
   hwp?.close();hwp=null;readQueue=Promise.resolve();
   paint();
 }
+// 사업 보고 칸을 [회의]가 아닌 것으로 바꾸면 이 길(회의 만들기)은 닫고 직접 쓰기로 돌아간다.
+window.addEventListener('kptu:report-entry-kind',e=>{if(e.detail?.kind!=='meeting'&&mode()==='files')setMode('manual')});
 window.addEventListener('kptu:dialog-opened',e=>{if(e.detail?.modal?.id!=='meetingModal'||saving)return;install();reset();setMode('manual')});
 window.addEventListener('kptu:dialog-closed',e=>{if(e.detail?.modal?.id!=='meetingModal'||saving)return;generation++;hwp?.close();hwp=null;readQueue=Promise.resolve()});
 window.addEventListener('kptu:before-reload',e=>{if(saving)e.preventDefault();else if(files.length||textItems.length)e.detail.otherDraft=true});

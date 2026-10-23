@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { installViewPrefsServer, leftoverDeviceKeys } from './helpers/view-prefs-server.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { expectNoteTitle } from './helpers/note-title.mjs';
@@ -252,18 +253,17 @@ test('a note written while a folder is shown goes into that folder', async ({ pa
   expect(f.errors).toEqual([]);
 });
 
-// UI-노트폴더 기억: the last chosen folder is kept on this device only (one key per signed-in user under the per-owner cache
-// prefix), restored after another screen / a reload, falls back to [전체] without a message when the folder is gone, and is
-// dropped on sign-out or owner change. Storage keys are read through the browser context so this file needs no storage grant.
-const folderKeys = async page => (await page.context().storageState()).origins.flatMap(o => o.localStorage).filter(i => i.name.includes('note-folder')).map(i => [i.name, i.value]);
+// UI-노트폴더 기억 (SET-보기선택서버저장): the last chosen folder is kept on the server with the other view choices (profile view_prefs.note_folder,
+// view-prefs.js; no device storage), restored after another screen / a reload, and falls back to [전체] without a message when the folder is gone.
 const backToNotes = async page => { await page.evaluate(() => window.KPTURouter.go('basket')); await chooseBasketKind(page,'note'); };
 const two = row => [row('n1', '가 노트', '2026-10-16T01:00:00Z', { folder: '자료 폴더' }), row('n2', '나 노트', '2026-10-12T01:00:00Z', { folder: '다른 폴더' }), row('n3', '다 노트', '2026-10-10T01:00:00Z')];
-test('the chosen folder is remembered per user on this device: other screen, reload, deleted folder, sign-out', async ({ page }) => {
+test('the chosen folder is remembered on the server: other screen, reload, deleted folder', async ({ page }) => {
+  const prefs = await installViewPrefsServer(page);
   const f = await fixture(page, 1280, two);
-  expect(await folderKeys(page)).toEqual([['kptu_owner_cache:note-folder-v1:home-test', 'all']]);
+  expect(prefs.value?.note_folder ?? 'all').toBe('all');
   await chip(page, '자료 폴더').click();
   expect(await titles(page)).toEqual(['가 노트']);
-  expect(await folderKeys(page)).toEqual([['kptu_owner_cache:note-folder-v1:home-test', 'f:자료 폴더']]);
+  await expect.poll(() => prefs.value?.note_folder).toBe('f:자료 폴더');
   // Another screen and back: the same folder.
   // The calendar screen loads on first use and switches to itself when ready; wait for that before going back, so its late
   // switch cannot land after [노트] (it would cover the list and leave the address on the calendar for the reload).
@@ -285,16 +285,16 @@ test('the chosen folder is remembered per user on this device: other screen, rel
   await backToNotes(page);
   await expect(chip(page, '자료 폴더')).toBeChecked();
   expect(await titles(page)).toEqual(['가 노트']);
-  // Another user on the same device never sees it: the key goes with the owner change.
-  await page.evaluate(() => window.KPTURuntime.session.write({ access_token: 'token-b', refresh_token: 'token-b', expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: 'other-user' } }));
-  await expect.poll(() => folderKeys(page)).toEqual([]);
+  expect(await leftoverDeviceKeys(page)).toEqual([]);
   expect(f.errors).toEqual([]);
 });
 
-test('a remembered folder that no longer exists opens at [전체] quietly; sign-out leaves no key', async ({ page }) => {
+test('a remembered folder that no longer exists opens at [전체] quietly and the server value follows', async ({ page }) => {
+  const prefs = await installViewPrefsServer(page);
   const f = await fixture(page, 390, two);
   await chip(page, '자료 폴더').click();
-  expect(await folderKeys(page)).toEqual([['kptu_owner_cache:note-folder-v1:home-test', 'f:자료 폴더']]);
+  await expect(chip(page, '자료 폴더')).toBeChecked();
+  await expect.poll(() => prefs.value?.note_folder).toBe('f:자료 폴더');
   // The folder is gone (its only note was moved out elsewhere) before the app is opened again.
   f.rows.find(r => r.id === 'n1').metadata = {};
   await page.reload({ waitUntil: 'domcontentloaded' });
@@ -303,14 +303,12 @@ test('a remembered folder that no longer exists opens at [전체] quietly; sign-
   await expect(chip(page, '전체')).toBeChecked();
   expect(await titles(page)).toEqual(['가 노트', '나 노트', '다 노트']);
   await expect(page.locator('[data-note-folder-status]')).toBeHidden();
-  expect(await folderKeys(page)).toEqual([['kptu_owner_cache:note-folder-v1:home-test', 'all']]);
-  await page.evaluate(() => window.KPTURuntime.session.write(null));
-  await expect.poll(() => folderKeys(page)).toEqual([]);
+  await expect.poll(() => prefs.value?.note_folder).toBe('all');
   expect(f.errors).toEqual([]);
 });
 
-test('when the browser blocks storage the note list still works', async ({ page }) => {
-  await page.addInitScript(() => { const deny = () => { throw new DOMException('blocked', 'SecurityError'); }; const s = Storage.prototype, get = s.getItem, set = s.setItem; s.getItem = function (k) { return String(k).includes('note-folder') ? deny() : get.call(this, k); }; s.setItem = function (k, v) { return String(k).includes('note-folder') ? deny() : set.call(this, k, v); }; });
+test('when the server value cannot be read or saved the note list still works', async ({ page }) => {
+  await installViewPrefsServer(page, null, { failRead: true, failWrite: true });
   const f = await fixture(page, 1280, two);
   await chip(page, '자료 폴더').click();
   expect(await titles(page)).toEqual(['가 노트']);

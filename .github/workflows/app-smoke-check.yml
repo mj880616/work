@@ -134,7 +134,7 @@ jobs:
         run: node --test tests/basket-data.test.mjs tests/basket-upload.test.mjs tests/basket-ocr-text.test.mjs tests/basket-ocr.test.mjs tests/basket-ocr-runtime.test.mjs tests/basket-classification.test.mjs tests/basket-ai-handoff.test.mjs tests/basket-link-records.test.mjs tests/basket-record-delete.test.mjs tests/basket-manual-link.test.mjs tests/basket-ai-summary.test.mjs tests/todo-radar-data.test.mjs tests/basket-note-tasks.test.mjs tests/basket-record-summary-guide.test.mjs tests/basket-library-send.test.mjs tests/meeting-basket-send.test.mjs tests/diary-data.test.mjs tests/journal-data.test.mjs tests/journal-weekly.test.mjs tests/journal-org-summary.test.mjs tests/journal-meeting-kinds.test.mjs tests/project-order.test.mjs tests/basket-file-docs.test.mjs tests/document-categories.test.mjs tests/basket-note-pin.test.mjs tests/update-requests.test.mjs tests/update-journal.test.mjs tests/task-files.test.mjs tests/library-ai-fill.test.mjs tests/quick-links.test.mjs
 
       - name: Check library toggle tree model
-        run: node --test tests/library-tree.test.mjs tests/library-view-pref.test.mjs tests/library-upload-organization.test.mjs
+        run: node --test tests/library-tree.test.mjs tests/library-view-pref.test.mjs tests/view-prefs.test.mjs tests/theme-bootstrap.test.mjs tests/library-upload-organization.test.mjs
 
       - name: Check Drive copy refresh batching after saves
         run: node --test tests/drive-summary-refresh.test.mjs
@@ -300,7 +300,10 @@ jobs:
           grep -q "g.openEditor(null,{links:\[{project_id:current.id}\]})" app/project-system-v3.js
           if grep -q "할 일은 하위 프로젝트에 연결됩니다" app/project-system-v3.js; then echo 'top-level project task guard returned'; exit 1; fi
           grep -q "data-mrd-meeting" app/team.js
-          grep -q "/functions/v1/meeting-files" app/team.js
+          # MEET-파일AI분류: 새 사업 보고의 자료도 자료실 올리기(library-files, meeting_id 연결)로 올린다. meeting-files Edge는 meeting-from-files.js가 계속 쓴다.
+          grep -q "uploadFileForMeeting" app/team.js
+          grep -q "fd.append('meeting_id',target.id)" app/library-upload.js
+          grep -q "/functions/v1/meeting-files" app/meeting-from-files.js
           grep -q 'id="meetingTranscript"' app/index.html
           grep -q 'id="meetingNotes"' app/index.html
           grep -q 'id="meetingFiles" type="file" multiple' app/index.html

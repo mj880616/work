@@ -29,7 +29,7 @@
 // 한글 IME: nothing here changes the document while a composition is running. A button pressed during one lets the press blur
 // the box first (that ends the composition), then runs and puts focus back.
 import {TEXT_STYLES, DEFAULT_BODY, BODY_STYLES, TEXT_COLORS, HIGHLIGHTS, LIMITS, cleanDoc, emptyDoc, safeHref, nextCircled,
-  circled, widthsOfRow, tableLayout, BULLET_MARKERS, ORDER_MARKERS, autoMarker, bulletGlyph, orderedLabel} from './ed-schema.mjs';
+  circled, widthsOfRow, tableLayout, scaleWidths, BULLET_MARKERS, ORDER_MARKERS, autoMarker, bulletGlyph, orderedLabel} from './ed-schema.mjs';
 import {looksLikeMarkdown} from './note-markdown.mjs';
 import {markdownToDoc} from './ed-markdown.mjs';
 import {toPlain} from './ed-text.mjs';
@@ -453,18 +453,69 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       return tr.docChanged ? tr : null;
     },
   });
+  // ED-표크기끌기: a small handle at the table's bottom right corner. Dragging it with the mouse scales every column by the
+  // same factor (shares stay; the table is as wide as the columns' sum, never wider than the text, never under MIN_COL per
+  // column), the border follows while dragging, and letting go saves the new colwidths (one undo step). The saved size is
+  // the cells' colwidth, which every reader already draws, so nothing else changes. Fingers do not drag it (see the report).
+  const MIN_COL = 32;
+  function paintWidths(tv, widths) {
+    const lay = tableLayout(widths);
+    [...tv.colgroup.children].forEach((col, i) => { col.style.width = lay ? lay.cols[i] : ''; });
+    tv.table.style.width = lay ? `${lay.width}px` : '';
+  }
+  function startTableResize(tv, event) {
+    if (event.pointerType !== 'mouse' || event.button !== 0) return;
+    event.preventDefault(); event.stopPropagation();
+    let t = tableAt(view.state, view.posAtDOM(tv.contentDOM, 0));
+    if (!t) return;
+    freezeColumns(t);
+    t = tableAt(view.state, view.posAtDOM(tv.contentDOM, 0));
+    const start = widthsOf(t), startTotal = start.reduce((a, b) => a + b, 0), startX = event.clientX;
+    if (!start.length || !startTotal) return;
+    const room = Math.max(textWidth(), startTotal);
+    let latest = {widths: start, total: startTotal};
+    tv.dom.classList.add('is-resizing');
+    tv.resizer.setPointerCapture?.(event.pointerId);
+    const move = e => {
+      latest = scaleWidths(start, startTotal + (e.clientX - startX), {min: MIN_COL, max: room});
+      paintWidths(tv, latest.widths);
+    };
+    const finish = save => {
+      tv.resizer.removeEventListener('pointermove', move);
+      tv.resizer.removeEventListener('pointerup', up);
+      tv.resizer.removeEventListener('pointercancel', cancel);
+      window.removeEventListener('keydown', esc, true);
+      tv.dom.classList.remove('is-resizing');
+      try { tv.resizer.releasePointerCapture?.(event.pointerId); } catch { /* already released */ }
+      const now = tableAt(view.state, view.posAtDOM(tv.contentDOM, 0));
+      if (save && now && latest.widths.join() !== start.join()) { view.dispatch(setWidths(view.state.tr, now, latest.widths)); say('표 크기를 바꿨어요.'); }
+      else tv.layout();
+    };
+    const up = () => finish(true), cancel = () => finish(false);
+    const esc = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(false); } };
+    tv.resizer.addEventListener('pointermove', move);
+    tv.resizer.addEventListener('pointerup', up);
+    tv.resizer.addEventListener('pointercancel', cancel);
+    window.addEventListener('keydown', esc, true);
+  }
+
   // The table as drawn in the editor: the same layout readers use (ed-render.mjs, ed-schema.mjs tableLayout), plus a small
-  // grip at its top left corner that selects the whole table.
+  // grip at its top left corner that selects the whole table and a handle at its bottom right corner that resizes it.
   class TableView {
     constructor(node) {
       this.node = node;
       this.dom = document.createElement('div'); this.dom.className = 'tableWrapper ed-table-wrap';
       this.grip = document.createElement('span'); this.grip.className = 'ed-table-grip'; this.grip.contentEditable = 'false';
       this.grip.setAttribute('aria-hidden', 'true'); this.grip.title = '표 전체 선택';
+      this.box = document.createElement('div'); this.box.className = 'ed-table-box';
+      this.resizer = document.createElement('span'); this.resizer.className = 'ed-table-resize'; this.resizer.contentEditable = 'false';
+      this.resizer.setAttribute('aria-hidden', 'true'); this.resizer.title = '끌어서 표 크기 바꾸기';
+      this.resizer.addEventListener('pointerdown', e => startTableResize(this, e));
       this.table = document.createElement('table'); this.table.className = 'ed-table';
       this.colgroup = this.table.appendChild(document.createElement('colgroup'));
       this.contentDOM = this.table.appendChild(document.createElement('tbody'));
-      this.dom.append(this.grip, this.table);
+      this.box.append(this.table, this.resizer);
+      this.dom.append(this.grip, this.box);
       this.layout();
     }
     layout() {
@@ -478,8 +529,8 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       this.table.style.width = lay ? `${lay.width}px` : '';
     }
     update(node) { if (node.type !== this.node.type) return false; this.node = node; this.layout(); return true; }
-    ignoreMutation(record) { return record.type === 'attributes' && (record.target === this.dom || record.target === this.table || this.colgroup.contains(record.target)) || this.grip.contains(record.target); }
-    stopEvent(event) { return this.grip.contains(event.target); }
+    ignoreMutation(record) { return record.type === 'attributes' && (record.target === this.dom || record.target === this.box || record.target === this.table || this.colgroup.contains(record.target) || this.resizer.contains(record.target)) || this.grip.contains(record.target) || this.resizer.contains(record.target); }
+    stopEvent(event) { return this.grip.contains(event.target) || this.resizer.contains(event.target); }
   }
 
   // ── keys ──
@@ -1127,6 +1178,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   let pointerKind = 'mouse', edgeWrap = null;
   const edgeWidth = () => pointerKind === 'touch' || pointerKind === 'pen' ? 12 : 4;
   function tableEdgeAt(x, y, target) {
+    if (target?.closest?.('.ed-table-resize')) return null;
     const wrap = target?.closest?.('.ed-table-wrap');
     const table = wrap && wrap.querySelector('table');
     if (!table || !view.dom.contains(wrap)) return null;

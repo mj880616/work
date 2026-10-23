@@ -3,13 +3,13 @@ import {renderList,stopList} from './calendar-list-view.js';
 import {renderWeek,resetWeekScroll} from './calendar-week-view.js';
 import {dayItems,calendarDateKey} from './calendar-day-items.js';
 import {dayKey,ranges} from './home-read-model.js';
-// Owns view choice, list/week ranges and list pagination. Storage is local to this device/browser.
-const STORAGE_KEY='kptu-calendar-view';
+import {viewPrefs} from './view-prefs.js';
+// Owns view choice, list/week ranges and list pagination. The choice is remembered on the server (view-prefs.js, profile view_prefs).
 const desktop=matchMedia('(min-width:1024px)');
 const today=()=>seoulDayStart(new Date());
 const defaultView=()=>desktop.matches?'week':'list';
 let preference=null;
-try{const saved=localStorage.getItem(STORAGE_KEY);if(saved==='list'||saved==='week'||saved==='month')preference=saved}catch{}
+{const saved=viewPrefs.get('calendar_view');if(saved==='list'||saved==='week'||saved==='month')preference=saved}
 const effectiveView=()=>!desktop.matches&&preference==='week'?'list':preference||defaultView();
 let view=effectiveView();
 const thisWeek=()=>new Date(ranges().weekStart);
@@ -36,7 +36,7 @@ function render(next){
 }
 const paint=()=>window.__KPTU_RENDER_CALENDAR__?.();
 function reset(){revision++;pendingDays=0;days=14;busy=false;error=false}
-function select(next){if(next==='week'&&!desktop.matches)return;preference=next;try{localStorage.setItem(STORAGE_KEY,next)}catch{}if(next===view)return;view=next;reset();paint();window.KPTUCalendarPersistence?.refresh()}
+function select(next){if(next==='week'&&!desktop.matches)return;preference=next;viewPrefs.set('calendar_view',next);if(next===view)return;view=next;reset();paint();window.KPTUCalendarPersistence?.refresh()}
 function move(delta){if(view==='month')return false;reset();const cursor=view==='week'?weekStart:start;cursor.setTime(addSeoulDays(cursor,delta*(view==='week'?7:14)).getTime());paint();window.KPTUCalendarPersistence?.refresh();return true}
 function begin(){busy=true;error=false;paint();return revision}
 function finish(at,ok){if(at!==revision||view==='month')return;busy=false;error=!ok;if(ok&&pendingDays){days=pendingDays;pendingDays=0}paint()}

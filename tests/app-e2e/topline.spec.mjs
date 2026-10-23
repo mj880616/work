@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
+import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 // UI-상단줄(2026-10-22 요청함 07:53·07:54): PC(≥1024) 모든 화면 위 얇은 줄
 // [사이드바 숨김] [←][→] [지금 위치] [검색칸 자리] [+ 추가] [계정 ▾]. 사이드바를 숨기면 본문이 넓어지고 이 기기에 기억한다.
 // ←→는 앱 안 이동 기록(좌우 화면에서 고른 항목 포함)이며 브라우저 기록을 움직이지 않는다. 폰·중간 폭은 그대로. 이름은 모두 합성 값.
@@ -45,8 +46,9 @@ test('PC: the top line sits above every screen in order, the account moved there
  expect(errors).toEqual([]);
 });
 
-test('PC: hiding the sidebar widens the body, is remembered on this device, and survives blocked storage',async({page})=>{
+test('PC: hiding the sidebar widens the body and is remembered on the server',async({page})=>{
  await page.setViewportSize({width:1280,height:800});
+ const prefs=await installViewPrefsServer(page);
  await openHome(page);
  await show(page,'journal');
  const before=await width(page,'#journalView');
@@ -57,19 +59,18 @@ test('PC: hiding the sidebar widens the body, is remembered on this device, and 
  await expect(toggle(page)).toBeFocused();
  const after=await width(page,'#journalView');
  expect(after).toBeGreaterThan(before+140);
- expect(await page.evaluate(()=>localStorage.getItem('kptu-nav-collapsed'))).toBe('1');
+ await expect.poll(()=>prefs.value?.nav_collapsed).toBe(true);
  await page.reload();
  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
  await expect(page.locator('#appView>.app-nav')).toBeHidden();
  await toggle(page).click();
  await expect(page.locator('#appView>.app-nav')).toBeVisible();
- expect(await page.evaluate(()=>localStorage.getItem('kptu-nav-collapsed'))).toBeNull();
+ await expect.poll(()=>prefs.value?.nav_collapsed??null).toBeNull();
 });
 
-test('PC: blocked storage keeps the sidebar shown and the toggle still works',async({page})=>{
+test('PC: an unreadable or unsaveable server value keeps the sidebar shown and the toggle still works',async({page})=>{
  await page.setViewportSize({width:1280,height:800});
- await page.addInitScript(()=>{const s=Storage.prototype,get=s.getItem,set=s.setItem,rm=s.removeItem,deny=()=>{throw new DOMException('blocked','SecurityError')};
-  s.getItem=function(k){return k==='kptu-nav-collapsed'?deny():get.call(this,k)};s.setItem=function(k,v){return k==='kptu-nav-collapsed'?deny():set.call(this,k,v)};s.removeItem=function(k){return k==='kptu-nav-collapsed'?deny():rm.call(this,k)}});
+ await installViewPrefsServer(page,{nav_collapsed:true},{failRead:true,failWrite:true});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await openHome(page);
  await expect(page.locator('#appView>.app-nav')).toBeVisible();
@@ -165,7 +166,7 @@ test('PC: [+ 추가] opens the existing windows for 업데이트·할 일·노�
 
 test('phone and mid width keep their own shell: no top line, the sidebar toggle does nothing there',async({page})=>{
  await page.setViewportSize({width:390,height:800});
- await page.addInitScript(()=>{try{localStorage.setItem('kptu-nav-collapsed','1')}catch{}});
+ await installViewPrefsServer(page,{nav_collapsed:true});
  await openHome(page);
  await expect(line(page)).toBeHidden();
  await expect(page.locator('.mobile-tabs')).toBeVisible();

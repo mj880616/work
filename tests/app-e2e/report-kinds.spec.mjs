@@ -84,7 +84,10 @@ for(const width of [390,1280])test(`${width}: [전체]에서 [+] → 칸 고르�
   if(width<=760)expect(await noSideScroll(page)).toBe(true);
   // 창 안에서 칸을 바꿀 수 있다.
   await pick.getByRole('radio',{name:'국회',exact:true}).click();await expect(pick.getByRole('radio',{name:'국회',exact:true})).toHaveAttribute('aria-checked','true');
-  await page.locator('#meetingNameSelect').selectOption('__other__');
+  // MTG-사업보고말바꾸기: 회의가 아닌 칸은 '제목'·'원문'·'자료' 말을 쓰고 회의명 고르기·차수·짧은 이름이 없다.
+  await expect(page.locator('#meetingNameSelect')).toBeHidden();await expect(page.locator('#meetingShortName')).toBeHidden();
+  await expect(page.locator('#meetingTitleLabel')).toHaveText('제목');await expect(page.locator('[data-rw="meetingResultLegend"]')).toHaveText('내용');
+  await expect(page.locator('#meetingMaterialsHead')).toHaveText('자료');await expect(page.locator('.meeting-create-modes')).toBeHidden();
   await page.locator('#meetingTitle').fill('합성 의원실 면담');await fillDateTime(page,'#meetingAt','2026-10-22T10:00');
   await page.locator('#meetingTranscript').fill('합성 면담 결과');await page.locator('#saveMeetingBtn').click();
   await expect.poll(()=>s.meetingWrites.at(-1)?.activity_kind).toBe('assembly');
@@ -99,6 +102,7 @@ for(const width of [390,1280])test(`${width}: [전체]에서 [+] → 칸 고르�
   await chip(page,'회의').click();await page.locator('#newMeetingBtn').click();
   await expect(page.locator('#meetingKindPick').getByRole('radio',{name:'회의',exact:true})).toHaveAttribute('aria-checked','true');
   await expect(page.locator('#meetingRoundNo')).toBeVisible();
+  await expect(page.locator('#meetingTitleLabel')).toHaveText('회의명');await expect(page.locator('[data-rw="meetingResultLegend"]')).toHaveText('회의 결과');await expect(page.locator('#meetingTextLabel')).toHaveText('회의 결과 원문');
   expect(errors).toEqual([]);
 });
 
