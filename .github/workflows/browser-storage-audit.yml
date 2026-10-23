@@ -141,6 +141,8 @@ jobs:
               # ED-② 공유 사진: 사진 id·공유 사진 주소가 기기 저장소에 하나도 남지 않음을 확인하는 읽기 전용 단언(저장 사용 없음).
               'tests/app-e2e/share-pages-photo.spec.mjs':[r'^\s*'+re.escape("expect(await page.evaluate(id => Object.entries(localStorage).concat(Object.entries(sessionStorage)).filter(([k, v]) => (k + v).includes(id) || /share-page|share:/.test(k + v)).map(([k]) => k), PHOTO)).toEqual([]);")+r'\s*$'],
               'tests/app-e2e/auth-handoff.spec.mjs':[r'localStorage\.getItem\(key\),SESSION'],
+              # LIB-보기기억 시험: 자료실 보기는 서버(프로필 library_view)에만 저장하므로 브라우저 저장소에 관련 키가 하나도 없음을 읽기만 해서 확인한다.
+              'tests/app-e2e/library-list-filters.spec.mjs':[r'^\s*'+re.escape('expect(await page.evaluate(()=>Object.keys(localStorage).concat(Object.keys(sessionStorage)).filter(k=>/library|group|categor|filter/i.test(k)))).toEqual([]);')+r'\s*$'],
               # LIB: exact read-only assertion that disclosure never creates storage keys.
               'tests/app-e2e/library-row-list.spec.mjs':[r'^\s*'+re.escape('const storageKeys=()=>page.evaluate(()=>({local:Object.keys(localStorage).sort(),session:Object.keys(sessionStorage).sort()}));')+r'\s*$'],
               # Active-saver tests: read-only privacy observation and a synthetic adapter

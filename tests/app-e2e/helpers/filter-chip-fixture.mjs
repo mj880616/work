@@ -64,7 +64,21 @@ async function mockApp(page,state){
     if(path.startsWith('/functions/v1/'))return ok({});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:'workspace-1',user_id:state.user.id,role:'owner',workspace:state.workspace,created_at:now()}]);
-    if(path==='/rest/v1/app_profiles')return ok([{user_id:state.user.id,display_name:'자료실 관리자'}]);
+    if(path==='/rest/v1/app_profiles'){
+      // 자료실 보기 기억(LIB-보기기억): 내 프로필 행의 library_view 칸. state.libraryViewMissing이면 칸이 아직 없는 서버(적용 전)처럼 400.
+      if(method==='PATCH'){
+        if(state.libraryViewMissing)return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'42703',message:'column app_profiles.library_view does not exist'})});
+        (state.profilePatches||(state.profilePatches=[])).push(body);
+        if(state.libraryViewFail)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'fail'})});
+        if(body&&'library_view' in body)state.libraryView=body.library_view;
+        return ok([{user_id:state.user.id,display_name:'자료실 관리자',library_view:state.libraryView??null}]);
+      }
+      if(state.libraryViewMissing&&url.searchParams.get('select')?.includes('library_view'))return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'42703',message:'column app_profiles.library_view does not exist'})});
+      (state.profileReads||(state.profileReads=[])).push(url.search);
+      return ok([{user_id:state.user.id,display_name:'자료실 관리자',library_view:state.libraryView??null}]);
+    }
+    if(path==='/rest/v1/app_library_folders'&&method==='GET')return ok(state.folders||[]);
+    if(path==='/rest/v1/app_library_folder_items'&&method==='GET')return ok(state.folderItems||[]);
     if(path==='/rest/v1/app_workspaces')return ok([state.workspace]);
     if(path==='/rest/v1/app_spaces'){
       if(method==='GET'){
