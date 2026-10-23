@@ -256,7 +256,7 @@
 #libraryListCard .lu-select-btn::after,#libraryListCard .lu-select-act::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 #libraryListCard .lu-select-btn:hover,#libraryListCard .lu-select-act:hover:not(:disabled){color:var(--kptu-ink)}
 #libraryListCard .lu-select-act:disabled{opacity:.45}
-#libraryListCard .lu-select-act#librarySelectDelete:not(:disabled){color:var(--kptu-danger,#a33a3a);font-weight:700}
+#libraryListCard .lu-select-act#librarySelectDelete:not(:disabled){color:var(--kptu-danger);font-weight:700}
 #libraryListCard .lu-select-btn[hidden],#libraryListCard .lu-head-actions > [hidden]{display:none}
 .lu-select-bar{display:flex;align-items:center;justify-content:flex-start;gap:4px;min-width:0;flex:1}
 #libraryListCard .lu-select-bar > *{flex:none;margin:0}
