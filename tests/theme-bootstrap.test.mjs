@@ -20,8 +20,9 @@ for(const path of ['app/index.html','app/login/index.html']){
 }
 test('loader applies the saved theme before the first screen is shown',()=>{
  const loader=readFileSync('app/loader-v2.js','utf8');
- const apply=loader.indexOf("viewPrefs?.get('theme')"),reveal=loader.indexOf("bootView.classList.remove('hidden')");
+ const apply=loader.indexOf("viewPrefs?.get('theme')"),reveal=loader.indexOf("app?.classList.add('kptu-shell-ready')"),owner=loader.indexOf("if(teamState!=='workspace')return;");
  assert.ok(loader.includes("import('./view-prefs.js')"));
- assert.ok(apply>0&&reveal>apply,'theme must be applied before bootView is revealed');
+ assert.ok(owner>0&&apply>owner,'prefs are read only after the owner is confirmed');
+ assert.ok(apply>0&&reveal>apply,'theme must be applied before the app screen is revealed');
  assert.doesNotMatch(loader,/MutationObserver/);
 });

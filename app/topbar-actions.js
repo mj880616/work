@@ -320,8 +320,10 @@ function setNavCollapsed(hidden,{save=true}={}){
   if(save)viewPrefs.set('nav_collapsed',hidden?true:null);
   window.dispatchEvent(new CustomEvent('kptu:nav-collapsed',{detail:{hidden}}));
 }
-const navStored=viewPrefs.get('nav_collapsed')===true;
-setNavCollapsed(navStored,{save:false});
+setNavCollapsed(false,{save:false});
+// 서버 값은 앱 화면 공개 전에 한 번 도착한다(loader-v2.js가 기다림): 그때 한 번만 맞춘다.
+window.addEventListener('kptu:view-prefs-ready',()=>setNavCollapsed(viewPrefs.get('nav_collapsed')===true,{save:false}),{once:true});
+if(viewPrefs.status()==='ok')setNavCollapsed(viewPrefs.get('nav_collapsed')===true,{save:false});
 navToggle?.addEventListener('click',()=>setNavCollapsed(!appView?.classList.contains('nav-collapsed')));
 // ② ← →: the app's own record of screens moved through (and the item chosen on a left-list / right-detail screen). It never
 // reads or moves browser history: a step is an ordinary KPTURouter.go (the same as a menu click), so the router stays the one

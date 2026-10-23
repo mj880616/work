@@ -4,8 +4,8 @@
 // 자주 가는 링크·분류 목록과 같은 방식으로 기존 owner RLS를 지나 내 행만 읽고 쓴다. 새 표·새 함수·권한 변경 없음.
 //
 // 흐름
-// - 읽기: 로그인 확인 직후 loader가 한 번 load()를 시작하고, 첫 화면(bootView)을 공개하기 전에 기다려 테마를 적용한다
-//   (app/ARCHITECTURE.md 시작 순서). 늦게 도착한 값으로 화면을 다시 덮지 않는다. 읽기가 실패·지연되면 이번 접속은 기본값이다.
+// - 읽기: 업무공간 소유자 확인 직후 loader가 한 번 load()하고, 앱 화면 공개(kptu-shell-ready) 전에 기다려 테마를 적용한다
+//   (app/ARCHITECTURE.md 시작 순서). 끝나면 kptu:view-prefs-ready 알림을 보내 먼저 불러온 셸(왼쪽 메뉴)이 한 번 맞춘다. 늦게 도착한 값으로 화면을 다시 덮지 않는다. 읽기가 실패·지연되면 이번 접속은 기본값이다.
 // - 옮기기: 처음 읽을 때 이 기기에 옛 값이 있고 서버에 같은 칸이 없으면 그 값을 쓰고(화면은 사용자가 고른 대로) 서버에 한 번 올린 뒤
 //   기기 값을 지운다. 서버에 이미 값이 있으면 서버가 이기고 기기 값은 지운다. 서버를 못 읽으면 기기 값은 그대로 두어 다음에 다시 옮긴다.
 //   옛 키 읽기·지우기는 이 파일 LEGACY 목록에만 있다(옮기기가 끝나면 이 목록과 감사 허용 줄을 지운다).
@@ -141,7 +141,7 @@ export function createViewPrefs({ runtime = () => globalThis.window?.KPTURuntime
       state = 'ok';
       if (Object.keys(move).length) { prefs = applyChanges(prefs, move); queue(move); }
       return state;
-    })();
+    })().finally(() => { try { globalThis.window?.dispatchEvent?.(new CustomEvent('kptu:view-prefs-ready', { detail: { status: state } })); } catch { /* 알림만 */ } });
     return loading;
   }
   function queue(map) {
