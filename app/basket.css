@@ -168,3 +168,12 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #appView #basketView .basket-read-text.md-body :is(table,pre,.md-math-block,.md-mermaid-figure){ clear:right; }
 #appView #basketView .basket-read-text.md-body :is(td,th){ overflow-wrap:normal; word-break:keep-all; }
 #appView #basketView .basket-read-text.md-body table{ -webkit-overflow-scrolling:touch; }
+
+/* NOTE-추가폴더표시: 노트 입력칸의 [폴더 ▾]. UI-버튼기준 보조 작은 버튼(보이는 32px·누르는 범위 44px). PC는 [추가] 앞, 폰은 입력칸 위 한 줄. */
+#appView #basketView .home-quick button.home-quick-folder { position:relative; flex:0 1 auto; box-sizing:border-box; max-width:10em; height:var(--ds-compact-height, 32px); min-height:var(--ds-compact-height, 32px); margin:0; padding:0 var(--ds-compact-pad-x, 12px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:inherit; font-size:var(--ds-compact-text, 13px); line-height:1; font-weight:var(--ds-weight-medium, 500); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width, 1px) solid var(--ds-line, var(--kptu-border)); border-radius:var(--ds-radius-control, 8px); }
+#appView #basketView .home-quick button.home-quick-folder[hidden] { display:none; }
+#appView #basketView .home-quick button.home-quick-folder::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target, 44px) / 2); height:var(--kptu-touch-target, 44px); }
+#appView #basketView .home-quick button.home-quick-folder:hover { background:var(--kptu-primary-soft); }
+#basketView .home-quick .home-quick-folder-row { display:flex; justify-content:flex-start; order:1; }
+#basketView .home-quick .home-quick-folder-row[hidden] { display:none; }
+@media(min-width:761px) { #appView #basketView .home-quick .home-quick-entry > button.home-quick-folder { align-self:flex-start; margin-top:2px; } }
