@@ -218,8 +218,11 @@ test('library secondary action does not open its card, while card body opens the
   await expect(page.locator('#libraryEditModal')).toBeVisible();
   await expect(page).toHaveURL(/library-upload-failure-fixture\.html$/);
   await page.locator('#libraryEditClose').click();
-  await card.locator('h3').click();
-  await expect(page).toHaveURL(`${appOrigin}/tests/app-e2e/library-open-fixture.html`);
+  // FILE-누르면동작: 파일 없이 주소만 있는 자료는 새 탭으로 연다(같은 탭을 떠나지 않는다).
+  const [tab]=await Promise.all([page.waitForEvent('popup'),card.locator('h3').click()]);
+  await expect(tab).toHaveURL(`${appOrigin}/tests/app-e2e/library-open-fixture.html`);
+  await tab.close();
+  await expect(page).toHaveURL(/library-upload-failure-fixture\.html$/);
 });
 
 test('revoked Google Drive token starts reconnect through the canonical function entry and keeps the record',async({page})=>{
