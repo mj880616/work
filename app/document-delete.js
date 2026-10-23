@@ -49,7 +49,8 @@ async function maybeReconnectDrive(e,api,role,{isCurrent,expectedSessionEpoch}){
   }catch(err){if(isCurrent())alert(luDeleteErrorMessage(err));return false}
 }
 
-export async function deleteDocument(d,{api,role,maybeReconnect,expectedSessionEpoch=null,isCurrent=()=>true}={}){
+// bulk에 {}를 넘기면(LIB-여러개삭제) 확인·안내 창 없이 같은 서버 요청만 보내고, 결과를 bulk.ok / bulk.stop(로그인·Drive 문제로 멈춰야 함)에 적는다.
+export async function deleteDocument(d,{api,role,maybeReconnect,expectedSessionEpoch=null,isCurrent=()=>true,bulk=null}={}){
   if(!d||!isCurrent())return false;
   const {id,project_id,meeting_id}=d;
   // Only concurrent calls share this lock; it is neither a retry record nor
@@ -60,7 +61,7 @@ export async function deleteDocument(d,{api,role,maybeReconnect,expectedSessionE
   const token={};
   documents.set(id,token);
   try{
-    if(!isCurrent()||!confirm(`“${d.file_name||d.title}” 자료 등록을 삭제할까요?\n파일도 Drive 휴지통으로 이동할 수 있습니다. 삭제 결과에서 원본 보존 여부를 확인해 주세요.`)||!isCurrent())return false;
+    if(!isCurrent()||(!bulk&&!confirm(`“${d.file_name||d.title}” 자료 등록을 삭제할까요?\n파일도 Drive 휴지통으로 이동할 수 있습니다. 삭제 결과에서 원본 보존 여부를 확인해 주세요.`))||!isCurrent())return false;
     let data;
     try{
       data=await api('/functions/v1/document-actions',{method:'POST',body:{action:'delete',document_id:id},refreshSession:false,expectedSessionEpoch});
@@ -74,6 +75,7 @@ export async function deleteDocument(d,{api,role,maybeReconnect,expectedSessionE
       }
     }catch(e){
       if(!isCurrent())return false;
+      if(bulk){bulk.stop=sessionError(e)||driveAuthError(e);return false}
       alert(luDeleteErrorMessage(e));
       if(!isCurrent())return false;
       if(!unconfirmedOutcome(e)&&!sessionError(e)&&driveAuthError(e)){
@@ -86,6 +88,7 @@ export async function deleteDocument(d,{api,role,maybeReconnect,expectedSessionE
     }
     const message=luDeleteSuccessMessage(data);
     if(!isCurrent())return false;
+    if(bulk){if(!message)return false;bulk.ok=true;return true}
     alert(message||unknownDeleteMessage);
     if(!message||!isCurrent())return false;
     window.dispatchEvent(new CustomEvent('kptu:documents-changed',{detail:{project_id:project_id||null,meeting_id:meeting_id||null}}));
