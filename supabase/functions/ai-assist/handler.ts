@@ -1017,7 +1017,9 @@ async function runLedgerCandidates(ctx: Ctx, deps: RadarDeps): Promise<Response>
 
 // ---- 자료실 빈 칸 채우기(library_fill, LIB-AI자동분류) -----------------------------------------------------------
 
-const LIBRARY_SELECT = "id,workspace_id,title,category,source,document_date,file_name,mime_type,created_at,updated_at,field_origin,extracted_text,extraction_status,classification_note,project_id,organization_id";
+const LIBRARY_SELECT_BASE = "id,workspace_id,title,category,source,document_date,file_name,mime_type,created_at,updated_at,field_origin,extracted_text,extraction_status,classification_note,project_id,organization_id";
+// LIB-수정파일교체: 파일이 바뀌어 AI 분류를 한 번 다시 해야 하는 자료의 표시(reclassify_needed). 이 칸이 없는 DB(적용 전)이면 칸 없이 읽는다(표시 없음).
+const LIBRARY_SELECT = `${LIBRARY_SELECT_BASE},reclassify_needed`;
 
 // jsonb가 돌려주는 키 순서(짧은 것 먼저, 같으면 바이트 순)로 맞춘다. 화면의 저장 확인 비교와 같은 모양.
 const canonicalOrigin = (o: Record<string, string>) =>
@@ -1025,15 +1027,22 @@ const canonicalOrigin = (o: Record<string, string>) =>
 
 async function readLibraryDocs(ctx: Ctx, ids: string[]) {
   let rows: unknown;
+  const read = (select: string) => rest(ctx, `app_documents?id=in.(${ids.join(",")})&workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&select=${select}&limit=${ids.length + 1}`);
   try {
-    rows = await rest(ctx, `app_documents?id=in.(${ids.join(",")})&workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&select=${LIBRARY_SELECT}&limit=${ids.length + 1}`);
+    try {
+      rows = await read(LIBRARY_SELECT);
+    } catch (e) {
+      // reclassify_needed 칸만 없는 DB(교체 DB 적용 전)면 그 칸 없이 다시 읽는다. 그래도 400이면 아래에서 준비 안 됨.
+      if ((e as Error)?.message !== "rest_400") throw e;
+      rows = await read(LIBRARY_SELECT_BASE);
+    }
   } catch (e) {
     // 칸이 아직 없으면(DB 적용 전) PostgREST가 400으로 거절한다.
     if ((e as Error)?.message === "rest_400") throw new Fail(503, "library_not_ready");
     throw new Fail(503, "library_unavailable");
   }
   if (!Array.isArray(rows) || rows.length > ids.length) throw new Fail(503, "library_unavailable");
-  const docs: (DocRow & { updated_at: string | null; text: string; legacy_user: OriginField[] })[] = [];
+  const docs: (DocRow & { updated_at: string | null; text: string; legacy_user: OriginField[]; reclassify: boolean })[] = [];
   for (const raw of rows as Record<string, unknown>[]) {
     const id = String(raw.id ?? "").toLowerCase();
     if (!ids.includes(id) || String(raw.workspace_id ?? "").toLowerCase() !== ctx.workspaceId) continue;
@@ -1047,6 +1056,8 @@ async function readLibraryDocs(ctx: Ctx, ids: string[]) {
       project_id: str(raw.project_id)?.toLowerCase() ?? null, organization_id: str(raw.organization_id)?.toLowerCase() ?? null,
       text: raw.extraction_status === "ready" && typeof raw.extracted_text === "string" ? raw.extracted_text : "",
       legacy_user: legacyUserFields(raw.classification_note),
+      // 파일이 바뀐 자료: 글자 읽기가 끝난 뒤(ready·error)에만 다시 본다. 글자가 아직 없으면 표시를 그대로 두고 다음에 본다.
+      reclassify: raw.reclassify_needed === true && (raw.extraction_status === "ready" || raw.extraction_status === "error"),
     });
   }
   return docs;
@@ -1164,7 +1175,9 @@ async function runLibraryFill(ctx: Ctx, input: LibraryFillInput, deps: RadarDeps
     const old = Number.isFinite(created) && started - created > LIBRARY_FILL_WINDOW_MS;
     const prior = attempts?.get(doc.id);
     const upgrade = input.mode === "tidy" && prior === false && !!doc.text;
-    const eligible = input.mode === "fill" ? fresh : input.mode === "tidy" ? old && (prior === undefined || upgrade) : true;
+    // 파일 교체(reclassify): tidy가 같은 규칙(정리 안 된 칸만·'user' 제외·연결은 빈 것만)으로 올린 시각·시도 기록과 상관없이 한 번 다시 본다.
+    const replaced = input.mode === "tidy" && doc.reclassify;
+    const eligible = input.mode === "fill" ? fresh : input.mode === "tidy" ? replaced || (old && (prior === undefined || upgrade)) : true;
     let fields: OriginField[] = eligible ? fillableFields(doc, input.mode === "tidy" ? "propose" : input.mode, input.keep, categories) : [];
     if (input.mode === "tidy") {
       fields = fields.filter((f) => !doc.legacy_user.includes(f));
@@ -1187,6 +1200,18 @@ async function runLibraryFill(ctx: Ctx, input: LibraryFillInput, deps: RadarDeps
     : {};
   const withText = (doc: { text: string }) => !!doc.text;
   const work = targets.filter((t) => t.fields.length);
+  // 파일이 바뀐 자료(reclassify_needed)는 이번 tidy가 끝나면 표시를 끈다(AI가 바쁘거나 시간 초과로 못 끝낸 경우는 켜 둔 채 다음에 다시 본다).
+  const replacedIds = input.mode === "tidy" ? targets.filter((t) => t.eligible && t.doc.reclassify).map((t) => t.doc.id) : [];
+  const clearReclassify = async () => {
+    if (!replacedIds.length) return;
+    try {
+      await rest(ctx, `app_documents?id=in.(${replacedIds.join(",")})&workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&reclassify_needed=eq.true`, {
+        method: "PATCH", prefer: "return=minimal", body: { reclassify_needed: false },
+      });
+    } catch {
+      deps.log("library_reclassify_clear_failed");
+    }
+  };
   // tidy에서 할 일이 없는 대상 자료도 시도 기록만 남긴다(다음에 다시 보내지 않음). AI는 부르지 않는다.
   const emptyItems = (): ClassifyItem[] => targets.filter((t) => t.eligible && !t.fields.length)
     .map((t) => ({ document_id: t.doc.id, updated_at: t.doc.updated_at ?? "", with_text: withText(t.doc), changes: {} }));
@@ -1195,6 +1220,7 @@ async function runLibraryFill(ctx: Ctx, input: LibraryFillInput, deps: RadarDeps
     if (input.mode === "tidy" && empty.length) {
       try { await applyClassify(ctx, crypto.randomUUID(), empty); } catch { deps.log("library_tidy_mark_failed"); }
     }
+    await clearReclassify();
     if (input.mode === "fill" && attempts) {
       await recordFillAttempts(ctx, targets.filter((t) => t.eligible).map((t) => ({ document_id: t.doc.id, with_text: withText(t.doc), changed: 0 })), deps.log);
     }
@@ -1245,6 +1271,7 @@ async function runLibraryFill(ctx: Ctx, input: LibraryFillInput, deps: RadarDeps
       const items = [...work.map((t) => ({ document_id: t.doc.id, updated_at: t.doc.updated_at ?? "", with_text: withText(t.doc), changes: {} })), ...emptyItems()];
       try { await applyClassify(ctx, crypto.randomUUID(), items); }
       catch { deps.log("library_tidy_mark_failed"); }
+      await clearReclassify();
     }
     // fill: 사용자가 넣은 칸 표시만은 남긴다(값은 그대로). 실패해도 자료 등록 자체는 이미 끝났다.
     if (input.mode === "fill") {
@@ -1279,6 +1306,7 @@ async function runLibraryFill(ctx: Ctx, input: LibraryFillInput, deps: RadarDeps
     let saved;
     try { saved = await applyClassify(ctx, crypto.randomUUID(), items); }
     catch (e) { deps.log("library_tidy_save_failed"); throw e instanceof Fail ? e : new Fail(503, "library_unavailable"); }
+    await clearReclassify();
     deps.log("library_tidy_done", { documents: files.length, updated: saved.documents, fields: saved.fields, moved: saved.moved });
     return json({ ok: true, kind: "library_fill", mode: "tidy", updated: saved.documents, fields: saved.fields, skipped: docs.length - saved.documents });
   }

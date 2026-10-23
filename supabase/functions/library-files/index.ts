@@ -83,6 +83,44 @@ async function inferTitleFromFile(file:File,model:string){
   try{const p=JSON.parse(outputText(r));return String(p.title||'').trim()||null}catch{return null}
 }
 
+// LIB-수정파일교체: 같은 자료 행(app_documents)의 파일만 새 파일로 바꾼다. 제목·분류·출처·날짜·설명·태그·프로젝트·사업 보고·담당조직·칸별 기록·분류 메모는 건드리지 않는다.
+// 옛 파일은 Drive에서 지우지 않고 previous_files에 위치를 남긴다. 자료·업무공간은 서버가 DB에서 읽어 확인한다(화면 값 불신). 새 파일 기록이 실패하면 이번 요청이 올린 새 파일만 정리한다.
+const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const PREVIOUS_FILES_MAX=50;
+async function replaceDocument(workspaceId:string,file:File,documentId:string){
+  if(!UUID_RE.test(documentId))throw new UploadError('교체할 자료를 확인할 수 없습니다.',{code:'invalid_request',stage:'validate'});
+  const {data:doc,error:readError}=await admin.from('app_documents').select('id,workspace_id,file_id,file_name,mime_type,file_size,drive_url,previous_files').eq('id',documentId).maybeSingle();
+  // previous_files 칸이 없는 DB(적용 전)이면 읽기 자체가 실패한다. 파일은 올리지 않고 끝낸다.
+  if(readError){console.error('library-files replace read failed',{code:readError.code});throw new UploadError('파일 교체를 지금은 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.',{status:503,code:'replace_unavailable',stage:'db_read'})}
+  if(!doc||doc.workspace_id!==workspaceId)throw new UploadError('교체할 자료를 찾을 수 없습니다.',{status:404,code:'document_not_found',stage:'project'});
+  const previous=Array.isArray(doc.previous_files)?doc.previous_files:[];
+  if(doc.file_id&&previous.length>=PREVIOUS_FILES_MAX)throw new UploadError('이 자료는 파일을 교체한 횟수가 한도('+PREVIOUS_FILES_MAX+'번)에 도달했습니다.',{status:409,code:'too_many_replacements',stage:'validate'});
+  const token=await driveToken();
+  const folder=await ensureLibrary(workspaceId,token);
+  const df=await upload(file,folder,token);
+  const now=new Date().toISOString();
+  const oldEntry=doc.file_id?{file_id:doc.file_id,file_name:doc.file_name??null,mime_type:doc.mime_type??null,file_size:doc.file_size??null,drive_url:doc.drive_url??null,replaced_at:now}:null;
+  const patch={
+    file_id:df.id,drive_url:df.webViewLink||`https://drive.google.com/file/d/${df.id}/view`,file_name:file.name,mime_type:file.type||df.mimeType||'application/octet-stream',file_size:file.size,
+    previous_files:oldEntry?[...previous,oldEntry]:previous,reclassify_needed:true,
+    extracted_text:null,extraction_status:null,extraction_error:null,extracted_at:null,updated_at:now
+  };
+  // 읽은 뒤 파일이 바뀌었으면(다른 교체·삭제) 0행이 바뀌고 건너뛴다.
+  let q=admin.from('app_documents').update(patch).eq('id',documentId).eq('workspace_id',workspaceId);
+  q=doc.file_id?q.eq('file_id',doc.file_id):q.is('file_id',null);
+  const {data:rows,error}=await q.select('*');
+  if(error){
+    console.error('library-files replace update failed',{code:error.code,message:error.message,file_id:df.id});
+    await discardUploadedFile(df.id,token);
+    throw new UploadError(GENERIC_FAILURE,{status:500,code:'document_record_failed',stage:'db_update',retryable:true});
+  }
+  if(!Array.isArray(rows)||rows.length!==1||rows[0]?.id!==documentId||rows[0]?.file_id!==df.id){
+    await discardUploadedFile(df.id,token);
+    throw new UploadError('자료의 파일이 그 사이 바뀌었습니다. 자료실을 새로 읽은 뒤 다시 시도해 주세요.',{status:409,code:'document_changed',stage:'db_update'});
+  }
+  return json({ok:true,replaced:true,document:rows[0]});
+}
+
 Deno.serve(async(req:Request)=>{
   if(req.method==='OPTIONS')return new Response('ok',{headers:cors});
   try{
@@ -98,6 +136,8 @@ Deno.serve(async(req:Request)=>{
     if(file.size>100*1024*1024)throw new UploadError('현재 자료실 파일은 100MB까지 지원합니다.',{status:413,code:'file_too_large',stage:'validate'});
 
     const wm=await workspaceFor(user.id);
+    const replaceId=String(form.get('replace_document_id')||'').trim();
+    if(replaceId)return await replaceDocument(wm.workspace_id,file,replaceId);
     let projectId=String(form.get('project_id')||'').trim()||null;
     let meetingId=String(form.get('meeting_id')||'').trim()||null;
     if(meetingId){
