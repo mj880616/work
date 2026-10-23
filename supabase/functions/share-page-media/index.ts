@@ -59,6 +59,17 @@ Deno.serve(createShareMediaHandler({
     const { error } = await admin.storage.from(BUCKET).remove([path]);
     return !error;
   },
+  async listFiles(folder) {
+    // 이 페이지 폴더만(folder는 handler가 확인한 page_id). 한 번 1000개까지, handler가 빌 때까지 다시 읽는다.
+    const { data, error } = await admin.storage.from(BUCKET).list(folder, { limit: 1000 });
+    return error || !data ? null : data.map((f) => String(f.name));
+  },
+  async deletePage(token, pageId) {
+    // owner RLS(사용자 토큰): 내 페이지가 아니면 0행. 링크·사진 기록은 FK on delete cascade로 함께 지워진다.
+    const { data, error } = await asUser(token).from("app_share_pages").delete().eq("id", pageId).select("id");
+    if (error) throw new Error("page delete failed");
+    return (data || []).length;
+  },
   async signFile(path, seconds) {
     const { data, error } = await admin.storage.from(BUCKET).createSignedUrl(path, seconds);
     return error || !data ? null : data.signedUrl;
