@@ -3,8 +3,11 @@
 // - 저장소: owner RLS 표 app_weekly_exec_requests(migration 20261023140000) — [주간 정리]가 보는 주(월요일)마다 1행, 줄 목록 items(jsonb)와
 //   "직전 주 확정본에서 한 번 가져온 시각" carried_at. 지우기 권한은 없다(줄을 다 지워도 빈 목록으로 남아 다시 가져오지 않음).
 // - 지난주에서 가져오기(carryOver): 직전 주 확정본 요청 표의 줄 가운데 ① 날짜가 기준일(상집 보고일과 오늘 중 늦은 날) 이후이고(그날 포함)
-//   ② 내용·장소 글에 내 담당 사업장 이름·별칭 또는 내 사업(진행 중인 프로젝트, 확정본의 내 담당 줄 사업영역·세부 과제) 이름이 들어 있는
-//   줄만 남긴다. 날짜를 읽지 못한 줄, 요일이 날짜와 다른 줄, 이름이 짧아(사업장 2자·사업 3자 미만) 확신할 수 없는 줄은 뺀다.
+//   ② 내가 요청한 줄 — (가) 내 '임원 요청' 기록(업데이트의 임원 일정 배정 요청 표시 metadata.requests=exec_schedule, 또는 글에
+//   '임원 요청'·'임원 일정 배정 요청'·'참석 요청'을 쓴 업데이트·조직·사업 기록, 2026-10-23 사용자 12:43)이 그 줄을 가리키거나(행사 이름이
+//   기록 글에 그대로 있거나, 기록 글에 그 날짜(M.D·M/D·M월 D일)와 행사 이름 낱말이 함께 있음) (나) 내용·장소 글에 내 담당 사업장 이름·별칭
+//   또는 내 사업(진행 중인 프로젝트, 확정본의 내 담당 줄 사업영역·세부 과제) 이름이 든 줄만 남긴다. 날짜를 읽지 못한 줄, 요일이 날짜와
+//   다른 줄, 이름이 짧아(사업장 2자·사업 3자 미만) 확신할 수 없는 줄은 뺀다.
 //   가져온 줄은 carried=true — 화면에만 '지난주에서' 표시, 한글 파일·복사에는 표시 없이 같은 모양으로 나간다.
 // - 표가 아직 없으면(REST 404) {missing:true} — 화면은 입력칸 없이 안내하고, 한글 파일 요청 표는 걸러 낸 줄만 쓴다(저장 없음).
 // 브라우저 저장소에 아무것도 두지 않는다.
@@ -127,12 +130,28 @@ export function relatedNames({orgs = [], projects = []} = {}) {
   return [...new Set(keys)];
 }
 export const relates = (item, keys) => { const text = nameKey(`${item.time} ${item.what} ${item.place}`); return keys.some(key => text.includes(key)); };
+// 내 '임원 요청' 기록 글: 표시(exec_schedule)가 있거나 글에 그 말을 쓴 기록. (표시를 켜는 버튼은 UI-요청버튼삭제로 없고 글에 쓴다.)
+export const EXEC_WORDS = /임원\s*(?:일정\s*배정\s*)?요청|참석\s*요청/;
+export const isExecRecord = ({text = '', requests = []} = {}) => requests.includes('exec_schedule') || EXEC_WORDS.test(String(text));
+const GENERIC = new Set(['임원', '요청', '참석', '일정', '배정', '행사', '회의', '종일', '오전', '오후']);
+const dayPatterns = day => { const {m, d} = dayParts(day); return [new RegExp(`(^|[^0-9])${m}\\s*[./]\\s*${d}([^0-9]|$)`), new RegExp(`${m}\\s*월\\s*${d}\\s*일`)]; };
+// A confirmed row I asked for: a request record names its event (the whole event name, 4자 이상), or holds its date with a word of it.
+export function requestedBy(item, texts) {
+  const name = nameKey(item.what), words = String(item.what).split(/[\s/·,()[\]]+/).map(nameKey).filter(w => [...w].length >= 2 && !GENERIC.has(w));
+  const days = [item.day, ...(item.until && item.until !== item.day ? [item.until] : [])].flatMap(dayPatterns);
+  return texts.some(raw => {
+    const text = String(raw ?? ''), key = nameKey(text);
+    if ([...name].length >= 4 && key.includes(name)) return true;
+    return days.some(re => re.test(text)) && words.some(w => key.includes(w));
+  });
+}
 // The cutoff: rows from this day on stay (the report day, or today when the report is written late).
 export const carryCutoff = (reportDay, today) => (String(today) > String(reportDay) ? String(today) : String(reportDay));
 // requests: the confirmed report's request table (report.mjs requestsFromTable: [{day:'10.21.(수)', items:[{what, who:[]}]}]).
 // Returns {items (carried=true), counts:{kept, past, unrelated, unread}}.
-export function carryOver(requests, {cutoff, near = cutoff, orgs = [], projects = [], makeId = newId} = {}) {
-  const keys = relatedNames({orgs, projects}), items = [], counts = {kept:0, past:0, unrelated:0, unread:0};
+// requested: my '임원 요청' record texts (isExecRecord). counts.requested = rows kept because a request record points at them.
+export function carryOver(requests, {cutoff, near = cutoff, orgs = [], projects = [], requested = [], makeId = newId} = {}) {
+  const keys = relatedNames({orgs, projects}), items = [], counts = {kept:0, requested:0, past:0, unrelated:0, unread:0};
   for (const group of Array.isArray(requests) ? requests : []) {
     const when = parseFormDay(group?.day, near);
     for (const entry of group?.items ?? []) {
@@ -140,8 +159,9 @@ export function carryOver(requests, {cutoff, near = cutoff, orgs = [], projects 
       if (!when || !parts.what) { counts.unread++; continue; }
       if ((when.until ?? when.day) < cutoff) { counts.past++; continue; }
       const draft = {...when, ...parts, who:(entry.who ?? []).map(one).filter(Boolean).join(', '), carried:true};
-      if (!relates(draft, keys)) { counts.unrelated++; continue; }
-      try { items.push(cleanItem(draft, {id:makeId()})); counts.kept++; } catch { counts.unread++; }
+      const asked = requested.length > 0 && requestedBy(draft, requested);
+      if (!asked && !relates(draft, keys)) { counts.unrelated++; continue; }
+      try { items.push(cleanItem(draft, {id:makeId()})); counts.kept++; if (asked) counts.requested++; } catch { counts.unread++; }
     }
   }
   return {items:sortItems(items).slice(0, EXEC_MAX_ROWS), counts};

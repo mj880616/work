@@ -1356,6 +1356,17 @@ for(const width of [390,1280])test(`[주간 정리] 임원 참석 요청 표: �
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
+// 12:43 ①: 내 '임원 요청' 기록(업데이트 글의 "임원 요청" — 표시 버튼은 없고 글에 씀)이 가리키는 지난주 줄은 담당 조직·사업 이름이 없어도 남는다.
+test('[주간보고 한글 파일 만들기] 지난주 요청 줄: 내 임원 요청 기록이 가리키는 줄도 가져온다 1280',async({page})=>{
+ const f=await hwpxFixture(page,{width:1280});
+ f.rows.push({id:'b-exec',workspace_id:'w',kind:'basket',title:null,journal_day:null,raw_text:'10/14 남의 모임 행사에 본부장 임원 요청함',occurred_at:'2026-10-02T01:00:00Z',created_at:at,updated_at:at,archived_at:null,ai_export_allowed:true,attachments:[],metadata:{}});
+ await openJournal(page,1280);await openWeekly(page);
+ await openDraft(page);
+ const ask=weekly(page,'ask');
+ await expect(ask.locator('tbody tr .journal-weekly-what')).toHaveText(['10:00 / 가상 노동조합 결의대회 / 가상 광장 지난주에서','15:00 / 남의 모임 행사 / 어딘가 지난주에서']);
+ await expect(hwpx(page).locator('[data-hwpx-requests]')).toContainText('지난주 확정본에서 2줄을 가져왔어요(뺀 줄: 지난 날짜 1).');
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
 test('[주간 정리] 임원 참석 요청 표 화면 모양(PC 1280): 작은 버튼, 고치기 줄 — 화면 사진',async({page},info)=>{
  const f=await weeklyFixture(page,{width:1280});
  f.exec.rows.push({id:'x0',workspace_id:'w',week_start:'2026-10-05',carried_at:'2026-10-06T01:00:00Z',updated_at:'2026-10-06T01:00:00Z',items:[

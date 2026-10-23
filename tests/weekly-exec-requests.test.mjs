@@ -7,7 +7,7 @@ import {openHwpx, packHwpx, validateHwpx} from '../app/weekly-hwpx/hwpx.mjs';
 import {readReport} from '../app/weekly-hwpx/report.mjs';
 import {prepareConfirmed, openConfirmed, startDraft, assembleDraft, buildHwpx} from '../app/weekly-hwpx/draft.mjs';
 import {parseFormDay, splitWhat, carryOver, carryCutoff, cleanItem, readItems, sortItems, mergeCarried, formRequests, requestLine,
-  relatedNames, readExecRequests, changeExecRequests, EXEC_MAX_ROWS} from '../app/weekly-exec-requests.js';
+  relatedNames, readExecRequests, changeExecRequests, EXEC_MAX_ROWS, isExecRecord, requestedBy} from '../app/weekly-exec-requests.js';
 
 // WEEKLY-임원요청정리: 주간보고 1. 요청사항 › 1) 임원 일정 배정·논의 요청 줄(app/weekly-exec-requests.js). 이름·조직·사업은 모두 가짜.
 const REPORT_DAY = '2026-10-26', TODAY = '2026-10-23';
@@ -33,12 +33,25 @@ test('지난주에서 가져오기: 지난 날짜·관련 없는 조직·짧은 
     ['2026-10-28', undefined, '', '가상 공공 사업 토론회', '가상 회관', '가상 임원 갑, 가상 임원 정', true],
     ['2026-10-31', '2026-11-01', '종일', '가상 노동조합 수련회', '가상 수련원', '가상 임원 갑', true],
   ]);
-  assert.deepEqual(counts, {kept:3, past:1, unrelated:2, unread:2});
+  assert.deepEqual(counts, {kept:3, requested:0, past:1, unrelated:2, unread:2});
   // 짧은 이름('가'·'교육')은 쓰지 않는다.
   assert.deepEqual(relatedNames(NAMES), ['가상노동조합', '가상공공사업']);
   // 늦게 쓰면(오늘이 보고일 뒤) 오늘이 기준: 10/26 줄도 빠진다.
   assert.equal(carryCutoff(REPORT_DAY, '2026-10-27'), '2026-10-27');
   assert.deepEqual(carryOver(CONFIRMED, {cutoff:'2026-10-27', near:REPORT_DAY, ...NAMES, makeId}).items.map(i => i.day), ['2026-10-28', '2026-10-31']);
+});
+
+test('내 임원 요청 기록이 가리키는 줄도 남긴다: 행사 이름 그대로, 또는 날짜 + 행사 낱말(표시 exec_schedule 또는 글의 "임원 요청"·"참석 요청")', () => {
+  assert.equal(isExecRecord({text:'가상 모임 결의대회 위원장 참석 요청'}), true);
+  assert.equal(isExecRecord({text:'아무 말', requests:['exec_schedule']}), true);
+  assert.equal(isExecRecord({text:'논의 필요', requests:['discussion']}), false);
+  const requested = ['10/26 다른 모임 행사 본부장 임원 요청', '다음 주 가상 노동조합 행사'];
+  const {items, counts} = carryOver(CONFIRMED, {cutoff:REPORT_DAY, near:REPORT_DAY, orgs:[], projects:[], requested, makeId});
+  // 담당 사업장·사업 이름 없이도, 10/26 + '다른 모임'(낱말)이 함께 있는 기록이 그 줄을 가리킨다. 날짜만 같거나 낱말만 같은 줄은 아님.
+  assert.deepEqual(items.map(i => [i.day, i.what]), [['2026-10-26', '다른 모임 행사']]);
+  assert.equal(counts.requested, 1);
+  assert.equal(requestedBy({day:'2026-10-28', what:'가상 공공 사업 토론회'}, ['10.2 가상 토론회 참석 요청']), false); // 10.2 ≠ 10.28
+  assert.equal(requestedBy({day:'2026-10-28', what:'가상 공공 사업 토론회'}, ['가상 공공 사업 토론회 임원 요청']), true);
 });
 
 test('남는 줄이 없으면 빈 목록(머리만 있는 표), 담당 사업장·사업이 없으면 아무것도 가져오지 않음', () => {

@@ -12,7 +12,8 @@
 //   1. 2) 주요 일정(본부 주요 일정)은 기준이 정해지지 않아 비운다.
 // - ■ 일시·파일 이름·자료 날짜는 상집 보고일(보고 있는 주의 다음 월요일, journal-data.js reportDay)로 한다(2026-10-21 사용자 결정).
 // - 1. 요청사항 표(WEEKLY-임원요청정리, 2026-10-23): 직전 주 확정본을 그대로 옮기지 않는다. 확정본을 읽으면 그 요청 표에서 날짜가
-//   기준일(상집 보고일, 늦게 쓰면 오늘) 이후이고 내 담당 사업장(이름·별칭)·내 사업(진행 중인 프로젝트, 확정본의 내 담당 줄) 이름이 든 줄만
+//   기준일(상집 보고일, 늦게 쓰면 오늘) 이후이고 내가 요청한 줄 — 내 '임원 요청' 기록(업데이트 표시·글)이 가리키거나 내 담당 사업장(이름·별칭)·
+//   내 사업(진행 중인 프로젝트, 확정본의 내 담당 줄) 이름이 든 줄만
 //   골라(weekly-exec-requests.js carryOver) journal.js에 넘기고(onCarry — 그 주에 한 번만 서버에 더함), 파일의 요청 표는 [주간 정리]
 //   1. 요청사항 › 1) 표에 저장된 그 주 줄로 채운다(표 준비 전이면 고른 줄만). '지난주에서' 표시는 화면에만 있고 파일에는 없다.
 // - 이 상자 하나만 이 모듈이 그린다(journal.js는 자리만 주고 주·자료가 바뀌면 알려 줌). 브라우저 저장소에 아무것도 두지 않는다.
@@ -189,7 +190,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, rt = window.KPT
     const s = state, day = reportDay(week.start), cutoff = carryCutoff(day, todayKey());
     const orgs = s.context.orgFallback || s.context.orgFailed ? [] : s.myOrgs;
     const projects = [...(week.projects ?? []), ...s.rows.flatMap(r => [r.area, r.task])];
-    const {items, counts} = carryOver(s.team.requests ?? [], {cutoff, near:day, orgs, projects});
+    const {items, counts} = carryOver(s.team.requests ?? [], {cutoff, near:day, orgs, projects, requested:week.requested ?? []});
     s.carry = {items, counts, cutoff, status:onCarry ? 'saving' : 'unsaved', added:0};
     if (!onCarry) return;
     const mine = s;
@@ -214,7 +215,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, rt = window.KPT
       : c.status === 'saving' ? '지난주 확정본에서 고른 줄을 저장하는 중이에요.'
       : c.status === 'failed' ? '지난주에서 고른 줄을 저장하지 못했어요. 파일에는 고른 줄만 넣어요.'
       : `지난주 확정본에서 ${c.items.length}줄을 골랐어요${dropped ? `(뺀 줄: ${dropped})` : ''}. 저장 칸 준비 전이라 이 파일에만 넣어요.`;
-    note.textContent = `1. 요청사항 표: ${rows.items.length}줄(위 "1) 임원 일정 배정·논의 요청" 표 그대로). ${took} 기준: ${formDay(c.cutoff)}부터, 내 담당 사업장·사업 관련 줄만.`;
+    note.textContent = `1. 요청사항 표: ${rows.items.length}줄(위 "1) 임원 일정 배정·논의 요청" 표 그대로). ${took} 기준: ${formDay(c.cutoff)}부터, 내 '임원 요청' 기록이 가리키거나 내 담당 사업장·사업 관련 줄만.`;
   }
   const areas = {};
   function lineBox(section, row, label) {

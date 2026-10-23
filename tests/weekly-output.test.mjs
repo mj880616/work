@@ -6,7 +6,7 @@ import {makeFakeReport} from '../scripts/weekly-hwpx/fixture.mjs';
 import {openHwpx, packHwpx, validateHwpx, readXml, setXml, headerStyles} from '../app/weekly-hwpx/hwpx.mjs';
 import {walk, kid, kids, textOf} from '../app/weekly-hwpx/xml.mjs';
 import {extractBlankTemplate} from '../app/weekly-hwpx/template.mjs';
-import {buildReport, readReport, findTables, paraNumbering, CELL_STYLE} from '../app/weekly-hwpx/report.mjs';
+import {buildReport, readReport, findTables, paraNumbering, CELL_STYLE, CHANGED_COLOR} from '../app/weekly-hwpx/report.mjs';
 import {personalReportFromTeam, reportOrgOrder} from '../app/weekly-hwpx/delta.mjs';
 
 // WEEKLY-출력정리 (2026-10-23 사용자 지적 12:25): 주간보고 한글 파일 출력 ① 표 칸 문단 자동 번호 없음 + 표내부(Ctrl+8) ② 산하조직 표는
@@ -15,7 +15,7 @@ const fake = () => makeFakeReport(openHwpx(new Uint8Array(readFileSync(SAMPLE)),
 const sectionOf = pkg => readXml(pkg, 'Contents/section0.xml');
 
 // 팀 확정본에서 칸 첫 문단이 한글 "문단 번호"(paraPr hh:heading type=NUMBER)였던 경우를 만든다: 문단 모양 6번에 번호를 달고, 모든 표의
-// 내용 칸 첫 문단과 '바탕글' 문단 하나를 그 모양으로 바꾼다.
+// 내용 칸 첫 문단을 그 모양으로 바꾼다.
 function numberedConfirmed() {
   const pkg = fake();
   const header = readXml(pkg, 'Contents/header.xml');
@@ -26,8 +26,6 @@ function numberedConfirmed() {
     const p = kids(kid(tc, 'hp:subList'), 'hp:p')[0];
     if (p) p.attrs.paraPrIDRef = '6';
   }
-  const body = kids(sec.root, 'hp:p').find(p => p.attrs.styleIDRef === '0' && !textOf(p).trim());
-  body.attrs.paraPrIDRef = '6';
   setXml(pkg, 'Contents/section0.xml', sec);
   return pkg;
 }
@@ -46,7 +44,7 @@ test('① 표 칸 문단: 확정본 칸이 번호 문단이어도 출력은 번�
   assert.ok(protoCells.some(tc => kids(kid(tc, 'hp:subList'), 'hp:p')[0].attrs.paraPrIDRef === '6'));
   const data = {title: '가짜 주간보고', date: '2026년 10월 26일(월)', requests: [{day: '10.28.(수)', items: [{what: '10:00 / 가짜 행사', who: ['가짜 임원 갑', '가짜 임원 을']}]}],
     summary: [{area: ['가짜영역'], rows: [{task: ['가짜과제'], progress: ['- 가짜 진행', '- 가짜 계획'], owner: ['가짜담당']}]}],
-    sites: [{org: ['가짜조직 갑'], status: SITE_LINES}], orgs: [{org: ['가짜조직 갑'], status: ['- 가짜 소식 하나', '- 가짜 소식 둘']}],
+    sites: [{org: ['가짜조직 갑'], status: SITE_LINES}], orgs: [{org: ['가짜조직 갑'], status: ['- 가짜 소식 하나', {text: '- 가짜 바뀐 소식', changed: true}]}],
     details: [{heading: '(1) 가짜 회의', box: [{label: '제목', lines: ['가짜 회의']}, {label: '내용', lines: ['1. 가짜 안건', '- 가짜 결정']}]}],
     rallies: [{when: ['10.28.(수)'], name: ['가짜 집회'], attend: ['가짜 인원']}], schedule: ['- 가짜 본부 일정'],
     calendar: [{day: '10.27.(화)', items: [{what: '10:00 / 가짜 일정', who: ['가짜담당']}]}], calendarNotes: ['※ 10.30.(금) 가짜담당 연차']};
@@ -60,8 +58,15 @@ test('① 표 칸 문단: 확정본 칸이 번호 문단이어도 출력은 번�
     assert.equal(p.attrs.styleIDRef, cellStyle.id, '표 칸 문단 스타일 = 표내부');
     assert.equal(numbering.get(p.attrs.paraPrIDRef) ?? 'NONE', 'NONE', '표 칸 문단에 자동 번호 없음');
   }
-  // 표 밖 문단도 번호 문단 모양을 쓰지 않는다.
-  for (const p of [...walk(sec.root)].filter(n => n.name === 'hp:p')) assert.equal(numbering.get(p.attrs.paraPrIDRef) ?? 'NONE', 'NONE');
+  // 표 밖 문단(제목·바탕글)은 양식 문단 모양 그대로(손대지 않음). 바뀐 줄 파란 글씨(글자 모양)는 그대로 남는다.
+  const outside = [...walk(sec.root)].filter(n => n.name === 'hp:p' && !cellParas.includes(n));
+  assert.ok(outside.some(p => p.attrs.styleIDRef === '2') && outside.every(p => p.attrs.styleIDRef !== cellStyle.id || p.attrs.paraPrIDRef !== '6'));
+  assert.deepEqual(new Set(outside.map(p => p.attrs.paraPrIDRef)), new Set(kids(sectionOf(template).root, 'hp:p').slice(0, 6).map(p => p.attrs.paraPrIDRef)));
+  // 이번 주 바뀐 줄의 파란 글씨(양식 안 '바뀐 글' 글자 모양)는 그대로: 칸 문단 모양만 바꾸고 글자 모양은 두기 때문.
+  const blue = new Set([...walk(readXml(pkg, 'Contents/header.xml').root)].filter(n => n.name === 'hh:charPr' && n.attrs.textColor?.toUpperCase() === CHANGED_COLOR).map(n => n.attrs.id));
+  const runOf = text => [...walk(sec.root)].find(n => n.name === 'hp:run' && kids(n, 'hp:t').some(t => t.children[0]?.text === text));
+  assert.ok(blue.has(runOf('- 가짜 바뀐 소식').attrs.charPrIDRef));
+  assert.ok(!blue.has(runOf('- 가짜 소식 하나').attrs.charPrIDRef));
   // 글은 쓴 그대로(자기 표시 '1.'·'-'·들여쓰기 공백), 한 줄 = 한 문단.
   const site = findTables(pkg).site;
   assert.deepEqual(site.rows[0][1].lines, SITE_LINES);
@@ -105,4 +110,12 @@ test('② 4. 산하조직 현황: 내 담당 조직은 확정본에 줄이 없�
   // 내용을 아무것도 찾지 못한 주에도 줄 수·순서가 같다.
   const quiet = personalReportFromTeam({...team, orgs: []}, '가짜담당 갑', {orgList});
   assert.deepEqual(quiet.orgs.map(o => [o.org.join(''), o.status]), [['가짜 새 조직', []], ['가짜조직 가', []], ['가짜조직 갑', []], ['가짜조직 병', []]]);
+});
+
+test('⑦ 5. 주요 일정 표: 일정 없는 날 줄은 시간/내용/장소·참석자 칸이 모두 비어 있다', () => {
+  const template = extractBlankTemplate(fake());
+  const calendar = [{day: '10.26.(월)', items: []}, {day: '10.27.(화)', items: [{what: '10:00 / 가짜 일정', who: ['가짜담당']}]}, {day: '10.28.(수)', items: [{what: '', who: ['가짜담당']}]}];
+  const {pkg} = buildReport(template, {title: 't', date: 'd', calendar});
+  const t = findTables(pkg).schedule;
+  assert.deepEqual(t.rows.map(r => r.map(c => c?.lines.join('') ?? null)), [['10.26.(월)', '', ''], ['10.27.(화)', '10:00 / 가짜 일정', '가짜담당'], ['10.28.(수)', '', '']]);
 });

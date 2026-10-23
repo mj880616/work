@@ -9,7 +9,7 @@
 //     {task: ['세부 과제 A-1'], progress: ['- 진행 A', {text: '- 바뀐 줄', changed: true}], owner: ['담당 A']},
 //     {task: null, progress: [...], owner: null}, // null = 위 칸과 합친 칸(세로 병합)
 //   ]}],
-//   requestNote: '※ …',                          // 요청 표 아래 표시 줄(선택, 예: 직전 주 그대로라 이번 주 확인 필요)
+//   (안내·확인 표시 줄은 한글 파일에 넣지 않는다 — 화면에만, WEEKLY-출력정리 2026-10-23 12:43)
 //   details: [{heading: '(1) 회의 A', box: [{label: '제목', lines: ['회의 A']}, {label: '내용', lines: ['- 내용 A']}]}],
 //   rallies: [{when: [], name: [], attend: []}],  // 3. 투쟁 사업 › 1) 집회·농성 등
 //   sites: [{org: ['조직 A'], status: ['- 현황 A']}],  // 3. › 2) 투쟁 사업장 현황
@@ -211,7 +211,8 @@ export function requestGrid(requests) {
   const rows = [];
   for (const day of requests) {
     const items = day.items.length ? day.items : [{what: '', who: []}];
-    items.forEach((item, i) => rows.push([i === 0 ? {lines: [day.day]} : null, {lines: [item.what]}, {lines: item.who}]));
+    // 내용 없는 줄(일정 없는 날)은 참석자 칸도 비운다(WEEKLY-출력정리 ⑦, 2026-10-23 12:43).
+    items.forEach((item, i) => rows.push([i === 0 ? {lines: [day.day]} : null, {lines: [item.what]}, {lines: String(item.what ?? '').trim() ? item.who : []}]));
   }
   if (!rows.length) rows.push([{lines: []}, {lines: []}, {lines: []}]);
   const cols = [0, 1, 2].map(c => spans(rows.map(r => r[c])));
@@ -270,9 +271,10 @@ function fillBox(anchor, box, changedCharPr) {
 // WEEKLY-출력정리 ①(2026-10-23 사용자 지적 12:25): 칸 문단은 자동 번호·글머리표 없이 표내부 스타일(Ctrl+8, docs/hwp-style-map.md 2절)로 쓴다.
 // 원인: 칸 견본 문단은 확정본의 그 칸 첫 문단 속성(paraPrIDRef)을 그대로 복제한다. 확정본 칸 첫 문단이 한글 "문단 번호"(paraPr의
 // hh:heading type=NUMBER·BULLET·OUTLINE)였으면 그 칸에 쓰는 모든 줄이 1. 2. 3.… 번호를 달았다(글에 이미 '1. 개요'·'- …' 표시가 있어 겹침).
-// 고침: 모든 표 칸 문단은 styleIDRef = 표내부. 문단 모양은 견본 것을 쓰되 번호·글머리표가 있으면 그 스타일의 기본 문단 모양(번호 없는 것)으로
-// 바꾼다(가운데 맞춤 같은 견본 모양은 번호가 없을 때만 남음). 표 밖 문단도 번호 달린 문단 모양이면 같은 규칙. 새 문단 모양은 만들지 않는다
-// (스타일 기본 모양에도 번호가 있으면 바탕글 기본 모양, 그것도 있으면 그대로 둠).
+// 고침: 모든 표 칸 문단(요청·요약·집회·투쟁 사업장·산하조직·주요 일정 표, 회의 결과 상자)은 styleIDRef = 표내부. 문단 모양은 견본 것을 쓰되
+// 번호·글머리표가 있으면 표내부 스타일의 기본 문단 모양(번호 없는 것)으로 바꾼다(가운데 맞춤 같은 견본 모양은 번호가 없을 때만 남음).
+// 새 문단 모양은 만들지 않는다(표내부 기본 모양에도 번호가 있으면 바탕글 기본 모양, 그것도 있으면 그대로 둠). 글자 모양(바뀐 줄 파란 글씨)은
+// 건드리지 않는다. 표 밖 문단(1. / 1) / (1) / ① 제목·바탕글)은 양식 그대로 둔다(2026-10-23 사용자 확인 12:26).
 export const CELL_STYLE = '표내부';
 const NUMBERED = new Set(['NUMBER', 'BULLET', 'OUTLINE']);
 export function paraNumbering(header) {
@@ -286,10 +288,8 @@ export function plainParagraphs(root, header) {
   const cellStyle = styles.find(st => st.name === CELL_STYLE), base = styles.find(st => st.id === '0') ?? styles[0];
   const clean = style => [style?.paraPr, base?.paraPr].find(id => id != null && !numbered(id));
   const visit = (node, inCell) => {
-    if (node.name === 'hp:p') {
-      if (inCell && cellStyle) {
-        if (node.attrs.styleIDRef !== cellStyle.id) { node.attrs.styleIDRef = cellStyle.id; if (!numbered(cellStyle.paraPr)) node.attrs.paraPrIDRef = cellStyle.paraPr; }
-      }
+    if (node.name === 'hp:p' && inCell) {
+      if (cellStyle && node.attrs.styleIDRef !== cellStyle.id) { node.attrs.styleIDRef = cellStyle.id; if (!numbered(cellStyle.paraPr)) node.attrs.paraPrIDRef = cellStyle.paraPr; }
       if (numbered(node.attrs.paraPrIDRef)) { const id = clean(styles.find(st => st.id === node.attrs.styleIDRef)); if (id != null) node.attrs.paraPrIDRef = id; }
     }
     for (const c of node.children ?? []) if (c && typeof c === 'object' && 'name' in c) visit(c, inCell || node.name === 'hp:tc');
@@ -319,7 +319,6 @@ export function buildReport(template, data, {sectionTitles = DEFAULT_SECTIONS} =
     paragraph(protos.big, S.requests),
     paragraph(protos.small, S.requestTable),
     fillTable(protos.requestTable, requestGrid(data.requests ?? []), changed),
-    ...(data.requestNote ? [paragraph(protos.note, {text: data.requestNote, changed: true}, changed)] : []),
     paragraph(protos.small, ''), // 사용자가 한글에서 더한 빈 줄(요청 표와 "2) 주요 일정" 사이, 작은 제목 문단)
     paragraph(protos.small, S.schedule),
     ...lines(protos.body, data.schedule),
@@ -369,7 +368,7 @@ export const DEFAULT_SECTIONS = Object.freeze({
 
 // 보고 자료 안의 모든 글(검사용)
 export function reportTexts(data) {
-  const out = [data.title, data.date, data.requestNote, ...(data.schedule ?? []), ...(data.orgNotes ?? []), ...(data.calendarNotes ?? [])];
+  const out = [data.title, data.date, ...(data.schedule ?? []), ...(data.orgNotes ?? []), ...(data.calendarNotes ?? [])];
   for (const d of [...(data.requests ?? []), ...(data.calendar ?? [])]) { out.push(d.day); for (const i of d.items) out.push(i.what, ...i.who); }
   for (const a of data.summary ?? []) { out.push(...a.area); for (const r of a.rows) out.push(...(r.task ?? []), ...r.progress.map(lineText), ...(r.owner ?? [])); }
   for (const d of data.details ?? []) { out.push(d.heading); for (const b of d.box ?? []) out.push(b.label, ...b.lines.map(lineText)); }

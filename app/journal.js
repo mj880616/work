@@ -38,7 +38,7 @@ import {loadDocumentCategories} from './document-categories.js';
 import {formatSeoulTime, seoulParts} from './meeting-time.js';
 import {copyText} from './md-editor.js';
 import {offerUndoNotice, closeUndoNotice} from './basket-record-delete.js';
-import {requestTagsHtml, normalizeRequests} from './update-requests.js';
+import {requestTagsHtml, normalizeRequests, noteRequests} from './update-requests.js';
 import {recordMark} from './basket-link-records.js';
 import {requestBasketNoteFrom, requestNoteDocFrom, requestTaskOpen, takeBasketReturn} from './basket-note-tasks.js';
 import {weeklySummary, renderWeekly, weeklyReportText} from './journal-weekly.js';
@@ -46,7 +46,7 @@ import {mountWeeklyHwpx} from './journal-hwpx.js';
 import {readKinds, changeKind} from './journal-meeting-kinds.js';
 import {mountRadar} from './todo-radar.js';
 import {readOrgSummaries, saveEditedSummary, requestOrgSummaries, resultMessage, cleanEdited} from './journal-org-summary.js';
-import {readExecRequests, changeExecRequests, cleanItem, mergeCarried} from './weekly-exec-requests.js';
+import {readExecRequests, changeExecRequests, cleanItem, mergeCarried, isExecRecord} from './weekly-exec-requests.js';
 
 // ORG-묶음순서: the shared organization order (window.KPTUOrganizationOrder) orders the 조직 소식 sections.
 await import('./organization-order.js').catch(() => {});
@@ -341,8 +341,18 @@ function renderWeekly_() {
 // WEEKLY-한글초안 2단계: [주간보고 한글 파일 만들기] — journal-hwpx.js owns that box; it reads the shown week's grouping.
 // WEEKLY-임원요청정리: it also gets the active project names (carry-over matching) and hands back last week's filtered request rows.
 const projectNames = () => (materials.catalog?.status === 'ok' ? materials.catalog.items.map(entry => entry?.project?.name).filter(Boolean) : []);
+// My '임원 요청' records (the update mark exec_schedule, or the words written in an update / organization / project record): the
+// carry-over keeps last week's rows they point at. Only what this screen already read (the basket once a visit, the week's records).
+const ok_ = key => (materials[key]?.status === 'ok' ? materials[key].items : null);
+function execRecordTexts() {
+  const out = [];
+  for (const note of ok_('basket')?.notes ?? []) if (isExecRecord({text:note?.raw_text, requests:noteRequests(note)})) out.push(String(note.raw_text ?? ''));
+  for (const row of ok_('orgUpdates') ?? []) if (isExecRecord({text:row?.raw_text})) out.push(String(row.raw_text));
+  for (const row of ok_('projectUpdates') ?? []) if (isExecRecord({text:row?.summary})) out.push(String(row.summary));
+  return out;
+}
 const hwpx = mountWeeklyHwpx($('[data-journal-hwpx]'), {rt, onCopy: () => copyDraft(), onCarry: (week, items) => carryRequests(week, items),
-  getWeek: () => ({start, projects:projectNames(), model:weeklySummary({start, lines, linesState, materials, doneDays, kinds})})});
+  getWeek: () => ({start, projects:projectNames(), requested:execRecordTexts(), model:weeklySummary({start, lines, linesState, materials, doneDays, kinds})})});
 function renderMode() {
   root.dataset.journalMode = mode;
   root.querySelectorAll('[data-journal-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.journalMode === mode)));
