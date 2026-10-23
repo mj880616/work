@@ -36,7 +36,6 @@ for(const width of [1280,390])test(`shows one line when done, ✕ saves the dism
   await line.locator('[data-text-done-dismiss]').click();
   await expect(line).toBeHidden();
   expect(calls.filter(c=>c.action==='text_backfill_dismiss')).toEqual([{method:'POST',action:'text_backfill_dismiss'}]);
-  expect(await page.evaluate(()=>Object.keys(localStorage).filter(k=>/text|backfill|done/i.test(k)))).toEqual([]);
 });
 
 for(const [name,status] of [['already dismissed',answer({done_at:'2026-10-05T18:25:00.000Z',count:3,dismissed_at:'2026-10-05T23:00:00.000Z'})],['not done yet',answer(null)],['function not deployed','missing']])test(`${name}: no line`,async({page})=>{

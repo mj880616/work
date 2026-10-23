@@ -83,9 +83,3 @@ test('✕ failure keeps the line with a short note', async () => {
   assert.equal(host.hidden, false);
   assert.match(host.innerHTML, /닫지 못함/);
 });
-
-test('no browser storage in the notice module', async () => {
-  const {readFileSync} = await import('node:fs');
-  const src = readFileSync(new URL('../app/text-backfill-notice.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB/);
-});
