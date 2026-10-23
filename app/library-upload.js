@@ -470,7 +470,7 @@ async function luSelDelete(){
   if(!luSel||luSelBusy||!luSel.size)return;
   const scope=luDeleteScope();
   if(!scope){alert('로그인 세션을 확인하지 못했습니다. 다시 로그인한 뒤 자료 목록과 원본 상태를 먼저 확인해 주세요.');return}
-  const ids=[...luSel].filter(id=>luDocuments.some(d=>d.id===id));
+  const shown=luVisibleIds(),ids=[...luSel].filter(id=>luDocuments.some(d=>d.id===id)).sort((a,b)=>shown.indexOf(a)-shown.indexOf(b));// 화면에 보이는 차례로
   if(!ids.length)return;
   if(!confirm(confirmText(ids.length)))return;
   const token=Object.freeze({id:'bulk',scope:Object.freeze(scope)});luDeleteTokens.add(token);
