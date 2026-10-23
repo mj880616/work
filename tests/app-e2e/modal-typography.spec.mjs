@@ -397,6 +397,13 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   if(width>=1024){const html=await page.locator('#wdModal').evaluate(el=>el.outerHTML);await original.locator('#wdModal').evaluate((el,html)=>{el.outerHTML=html},html)}
   else{const orgDocs=await page.locator('#wdModal #wdDocs').evaluate(el=>el.outerHTML);
   await original.locator('#wdModal #wdTasks').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),orgDocs);}
+  // MTG-사업보고 6단계(PR #1042): 담당조직 상세에 [사업 보고] 묶음이 생겼다(폰 쪽만 — PC는 위에서 상세 전체를 옮긴다).
+  if(width<1024){const reports=await page.locator('#wdModal #wdReports').evaluate(el=>el.outerHTML);await original.locator('#wdModal #wdDocs').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),reports)}
+  // 사업 보고 만들기·수정 창: '프로젝트' 고르기가 [연결할 곳 ▾](+ 숨은 프로젝트 칸)으로 바뀌고 장소 칸이 생겼다. 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
+  for(const [project,places,location] of [['meetingProject','meetingPlaces','meetingLocationRow'],['mrdEditProject','mrdEditPlaces','mrdEditLocationRow']]){
+   const parts=await page.locator('#'+places).evaluate((el,location)=>{const label=el.closest('label');return [label.outerHTML+label.nextElementSibling.outerHTML,document.getElementById(location).outerHTML]},location);
+   await original.locator('#'+project).evaluate((el,[html,loc])=>{const label=el.closest('label'),box=label.parentElement;label.outerHTML=html;box.insertAdjacentHTML('afterend',loc)},parts);
+  }
   const manageParts=await page.locator('#libraryManageModal').evaluate(el=>[el.querySelector('#libraryCategoryEditor').outerHTML,el.querySelector('.library-manage-title').outerHTML].join(''));
   await original.locator('#libraryManageList').evaluate((el,html)=>el.insertAdjacentHTML('beforebegin',html),manageParts);
   // TASK-추가창파일: 할 일 등록 창·Google 할 일 추가 창의 메모 아래에 [파일 붙이기] 줄(숨은 파일 칸·안내 글자)이 생겼다.

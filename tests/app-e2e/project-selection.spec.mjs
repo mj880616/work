@@ -33,7 +33,7 @@ async function signIn(page,view,writes){
     if(path==='/rest/v1/app_profiles')return ok([{user_id:owner,display_name:'Test Owner'}]);
     if(path==='/rest/v1/app_spaces')return ok(url.searchParams.has('owner_id')?spaces.filter(row=>row.owner_id===owner):spaces);
     if(path==='/rest/v1/app_meetings'){
-      if(method==='PATCH'){writes.meeting=request.postDataJSON();return ok([{id:meeting.id}])}
+      if(method==='PATCH'){writes.meeting=request.postDataJSON();return ok([{...meeting,...writes.meeting}])}
       return ok([meeting]);
     }
     if(path==='/rest/v1/app_events'){
@@ -84,8 +84,13 @@ test('meeting edit retains an excluded project unless changed',async({page})=>{
   await expect(select.locator('option[value="legacy"]')).toHaveAttribute('disabled','');
   await expect(select.locator('option[value="legacy"]')).toContainText('이전 공간');
   for(const id of ['archived','hidden-child','other-owner'])await expect(select.locator(`option[value="${id}"]`)).toHaveCount(0);
+  const setLinks=[];page.on('request',r=>{if(r.url().includes('/rest/v1/rpc/app_meeting_set_links'))setLinks.push(r.url())});
   await page.locator('#mrdSaveEdit').click();
-  await expect.poll(()=>writes.meeting?.project_id).toBe('legacy');
+  // MTG-사업보고 6단계: 연결은 [연결할 곳]·app_meeting_set_links 한 곳에서만 바꾼다. 연결을 고치지 않은 수정 저장은 project_id를 보내지 않아 'legacy'가 서버에 그대로 남는다.
+  await expect.poll(()=>writes.meeting).toBeTruthy();
+  expect(writes.meeting).not.toHaveProperty('project_id');
+  await expect(page.locator('#mrdEditor')).toBeHidden();
+  expect(setLinks).toEqual([]);
 });
 
 test('calendar never reads Web2 events or opens its edit dialog',async({page})=>{

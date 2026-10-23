@@ -243,7 +243,7 @@ test('a Google follow-up failure leaves the saved meeting available without anot
   await page.locator('#saveMeetingBtn').click();
   await expect(page.locator('#meetingModal')).toBeHidden();
   await expect(page.locator('#meetingList :is([data-mrd-meeting="meeting-saved"],[data-meeting-round="meeting-saved"])')).toBeVisible();
-  await expect(page.locator('#toast')).toContainText('회의 결과는 저장됐습니다.');
+  await expect(page.locator('#toast')).toContainText('사업 보고는 저장됐습니다.');
   expect(creates).toBe(1);
 });
 
@@ -275,7 +275,7 @@ test('meeting material upload attempts every selected file and reports partial f
 
   await expect.poll(()=>meetingSaved).toBe(true);
   await expect.poll(()=>uploadCount).toBe(2);
-  await expect(page.locator('#toast')).toContainText('회의 결과는 저장했습니다. 회의자료 1개 저장 · 1개 실패');
+  await expect(page.locator('#toast')).toContainText('사업 보고는 저장했습니다. 회의자료 1개 저장 · 1개 실패');
 });
 
 // UI-PC회의: 아래 줄 목록 시험은 폰·중간 폭(1024 미만)의 그리는 방식이다. PC(≥1024)의 열 배치는 meeting-columns.spec.mjs.
@@ -402,7 +402,7 @@ test('new meeting suggests the next round from loaded names without extra reques
   await title.fill('없는 회의');
   await expect(round).toHaveValue('');
   await title.fill('ALPHATEAM');
-  await expect(page.locator('#meetingNameMatch')).toContainText('같은 회의가 있습니다');
+  await expect(page.locator('#meetingNameMatch')).toContainText('같은 이름이 있습니다');
   await page.locator('#meetingNameUseMatch').click();
   await expect(round).toHaveValue('8');
   await round.fill('14');
@@ -430,7 +430,7 @@ test('name choices group whitespace variants by latest spelling and suggest thei
   expect(await stripe(page.locator('[data-mrd-meeting="recent"]'))).toBe(await stripe(page.locator('[data-mrd-meeting="old"]')));
   let requests=0;page.on('request',request=>{if(request.url().startsWith(SB))requests++});
   await page.locator('#newMeetingBtn').click();
-  await expect(page.locator('#meetingNameSelect option')).toHaveText(['회의명 선택','주간 회의','월간회의','기타(직접 입력)']);
+  await expect(page.locator('#meetingNameSelect option')).toHaveText(['이름 선택','주간 회의','월간회의','기타(직접 입력)']);
   await page.locator('#meetingNameSelect').selectOption({label:'주간 회의'});
   await expect(page.locator('#meetingRoundNo')).toHaveValue('8');
   await expect(page.locator('#meetingTitle')).toHaveValue('주간 회의');
@@ -443,7 +443,7 @@ test('custom name match offers the recent spelling and choosing it fills the rou
   await page.locator('#newMeetingBtn').click();
   await page.locator('#meetingNameSelect').selectOption('__other__');
   await page.locator('#meetingTitle').fill(' 주간회의 ');
-  await expect(page.locator('#meetingNameMatch')).toContainText('같은 회의가 있습니다: 주간 회의');
+  await expect(page.locator('#meetingNameMatch')).toContainText('같은 이름이 있습니다: 주간 회의');
   await page.locator('#meetingNameUseMatch').click();
   await expect(page.locator('#meetingNameSelect')).toHaveValue('주간 회의');
   await expect(page.locator('#meetingRoundNo')).toHaveValue('4');
@@ -938,7 +938,7 @@ test('Google editor displays and retains meeting links while a meeting-only task
   await expect.poll(()=>actions,{timeout:15000}).toContain('overview');
   await expect(page.locator('#gtTaskBody [data-google-task="linked-google"]')).toBeVisible({timeout:15000});
   await page.locator('[data-gt-edit="linked-google"]').click();
-  await expect(page.locator('#gtMeetingLinks')).toContainText('회의: 궤도협의회');
+  await expect(page.locator('#gtMeetingLinks')).toContainText('사업 보고: 궤도협의회');
   await expect(page.locator('#gtEditLinkBody input[value="p:main"]')).toBeChecked();
   await page.locator('#gtEditNotes').fill('회의 연결을 유지하는 수정');await page.locator('#gtSaveBtn').click();
   await expect.poll(()=>update).not.toBeNull();
@@ -966,6 +966,8 @@ test('changing a meeting project leaves existing Google follow-up links untouche
     }
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([current])});
   });
+  let setLinksCalls=0;
+  await page.route(`${SB}/rest/v1/rpc/app_meeting_set_links`,route=>{setLinksCalls++;return route.fulfill({status:404,contentType:'application/json',body:JSON.stringify({code:'PGRST202',message:'Could not find the function public.app_meeting_set_links'})})});
   await page.route(`${SB}/functions/v1/google-tasks**`,route=>{
     const action=new URL(route.request().url()).searchParams.get('action');
     if(action==='link'||action==='unlink')linkChanges++;
@@ -980,7 +982,8 @@ test('changing a meeting project leaves existing Google follow-up links untouche
   await page.locator('#mrdEditPlaces').click();await page.locator('#reportPlacesSheet').getByRole('button',{name:/하위/}).first().click();await page.locator('#reportPlacesSheet').getByRole('button',{name:'저장',exact:true}).click();
   await page.locator('#mrdSaveEdit').click();
   await expect(page.locator('#mrdTasks [data-mrd-task="existing"]')).toBeVisible();
-  expect(current.project_id).toBe('child');
+  await expect.poll(()=>current.project_id).toBe('child');
+  expect(setLinksCalls).toBe(1);
   await expect(page.locator('#mrdEditor')).toBeHidden();
   expect(linkedReads).toBe(readsBeforeSave);
   expect(linkChanges).toBe(0);
@@ -1015,7 +1018,7 @@ test('meeting integration keeps project auto-selection and one direct render pat
   expect(team).toContain('series_name:title');
   expect(team).toContain('transcript_text:transcript');
   expect(team).toContain("/functions/v1/meeting-files");
-  expect(project).toContain("meeting:['meetings','newMeetingBtn','meetingPlaces']");
+  expect(project).toContain("window.KPTUReportEntry.open({targets:[{kind:'project',id:current.id}]");
   expect(project).toContain('s.value=project.id');
   expect(files).toContain('file.size>100*1024*1024');
   expect(css).toContain("meeting-ui.css");

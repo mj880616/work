@@ -5,13 +5,14 @@ import {createChoiceSheet} from './choice-sheet.js';
 import {readPlaces,placeSources,placeSheetHtml,placeValue,placeList,togglePlace,choiceCountText,placeName,PLACE_LIMIT} from './update-places.js';
 import {pickerLine,pickableReports} from './report-links-model.mjs';
 import {seoulParts} from './meeting-time.js';
+import {reportRuntime} from './report-links.js';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let placesSheet=null,placesActive=null,placesCache=null,placesCacheOwner='';
-const owner=()=>window.KPTURuntime?.context?.read?.()?.user?.id||'';
+const owner=()=>reportRuntime()?.context?.read?.()?.user?.id||'';
 
 // 고를 수 있는 곳(담당조직·프로젝트) 목록. 한 번 읽으면 사용자가 같은 동안 기억한다(이름표 그리기에도 쓴다).
-export async function loadReportPlaces(rt=window.KPTURuntime){
+export async function loadReportPlaces(rt=reportRuntime()){
   if(placesCache&&placesCacheOwner===owner())return placesCache;
   await Promise.all([import('./organization-order.js'),import('./project-catalog.js')]);
   const read=await readPlaces(placeSources(rt),{rt});

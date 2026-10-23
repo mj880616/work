@@ -605,7 +605,7 @@ test('[주간보고 초안 복사]: 양식 순서(1 → 2 → 4 → 5 → 참고
  const part=title=>{const at=lines.indexOf(title);return lines.slice(at+1,lines.indexOf('',at));};
  expect(part('1. 요청사항')).toEqual(['1) 임원 일정 배정·논의 요청 (일 | 시간/내용/장소 | 참석 요청)','(요청 없음)','2) 주요 일정: (비워 둠) 본부 주요 일정 — 기자회견·주요 회의·토론회·집회·교육 등, 특정 사업장·반복 일정 제외. 자동 채우기는 나중에']);
  // 2. 사업: 프로젝트 기록(프로젝트 트리 — 이 fixture에서는 홈 모의 트리의 사업영역 한 개) → 회의·행사 결과.
- expect(part('2. 기본·영역·의제 사업')).toEqual(['1) 요약','◦ 테스트 프로젝트','- 10월 6일(화) 진행상황 업데이트','2) 세부 내용 — 회의·행사 결과','- 10월 6일(화) 14:00 가상 기자회견','- 10월 8일(목) 10:00 운영위원회 3차']);
+ expect(part('2. 기본·영역·의제 사업')).toEqual(['1) 요약','◦ 테스트 프로젝트','- 10월 6일(화) 진행상황 업데이트','2) 세부 내용 — 회의·활동 결과','- 10월 6일(화) 14:00 가상 기자회견','- 10월 8일(목) 10:00 운영위원회 3차']);
  expect(text).not.toContain('미분류: 가상 사업');
  // 4. 산하 조직 현황: 조직 이름별, 업데이트 하나는 한 줄.
  expect(part('4. 산하 조직 현황')).toEqual(['1) 요약','◦ 가상 노동조합','- 10월 6일(화) 안녕하세요 위원장님','◦ 나 지역 모임','- 10월 6일(화) 조직 화면에서 쓴 업데이트','- 10월 7일(수) 수요일 0시 기록','◦ 미분류','- 10월 6일(화) 현장 간담회 메모']);
@@ -1026,7 +1026,7 @@ test('[주간 정리] 주 넘기기: 빈 주는 칸마다 빈 안내, [이번 �
  await expect(page.locator('#journalRoot [data-journal-days]')).toBeHidden();
  await expect(weekly(page,'summary').locator('[data-journal-weekly-empty]')).toHaveText('이 주 프로젝트 기록이 없어요.');
  await expect(weekly(page,'summary').locator('table')).toHaveCount(0);
- await expect(weekly(page,'meetings').locator('[data-journal-weekly-empty]')).toHaveText('이 주 회의·행사가 없어요.');
+ await expect(weekly(page,'meetings').locator('[data-journal-weekly-empty]')).toHaveText('이 주 회의·활동이 없어요.');
  await expect(weekly(page,'orgs').locator('[data-journal-weekly-empty]')).toHaveText('이 주 조직 소식이 없어요.');
  await expect(weekly(page,'ask').locator('[data-journal-exec-empty]')).toHaveText('요청 줄이 없어요.');
  // 참고: 다음 주 자료(10/12 0시 KST)만 상자, 나머지는 '기록 없는 묶음' 한 줄.
@@ -1058,7 +1058,7 @@ test('[주간 정리] 일부 읽기 실패: 못 읽은 칸만 안내·[다시 �
  await expect(weekly(page,'orgs').locator('[data-journal-failed]')).toHaveText('조직 소식 일부를 불러오지 못했어요.');
  // 바구니에서 온 조직 소식은 그대로 보인다.
  await expect(weekly(page,'orgs').locator('[data-journal-org] > .journal-org-name')).toHaveText(['가상 노동조합','미분류']);
- await expect(weekly(page,'meetings').locator('[data-journal-failed]')).toHaveText('회의·행사 결과을(를) 불러오지 못했어요.');
+ await expect(weekly(page,'meetings').locator('[data-journal-failed]')).toHaveText('회의·활동 결과을(를) 불러오지 못했어요.');
  await expect(weekly(page,'summary')).toContainText('프로젝트 순서를 불러오지 못해 프로젝트 이름별로 보여요.');
  await expect(weekly(page,'summary').locator('table')).toHaveCount(0);
  await expect(weekly(page,'summary').locator('[data-journal-weekly-others] [data-journal-org]')).toHaveCount(5);
@@ -1548,7 +1548,7 @@ test('[주간 정리] 회의 종류: 이 주 회의가 모두 뺀 종류면 줄 
  const f=await kindsFixture(page,{width:1280,list:['가상기자회견','운영위원회','새회의종류','궤도집행국회의','본부집행위']});
  await openJournal(page,1280);await openWeekly(page);
  await expect(kindLines(page)).toHaveCount(0);
- await expect(weekly(page,'meetings').locator('[data-journal-weekly-empty]')).toHaveText('이 주 회의·행사는 모두 주간보고에서 뺀 종류예요.');
+ await expect(weekly(page,'meetings').locator('[data-journal-weekly-empty]')).toHaveText('이 주 회의·활동은 모두 주간보고에서 뺀 종류예요.');
  await expect(weekly(page,'meetings').locator('[data-journal-kinds-off] li')).toHaveCount(5);
  await weekly(page,'meetings').locator('[data-journal-kind-off="가상기자회견"] button').click();
  await expectKindTexts(page,['10월 6일(화)14:00 가상 기자회견']);

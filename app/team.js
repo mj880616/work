@@ -11,7 +11,7 @@ import {pickReportKind,saveReportKind} from './report-kind-sheet.js';
 import {placeAnchored,followAnchor,clearAnchored} from './anchored-popup.js';
 import {mountSplitResize} from './split-resize.js';
 import {targetList,targetsLabel,firstProjectId} from './report-links-model.mjs';
-import {saveReportTargets,readAllReportTargets,locationAvailable,LEGACY_NOTE} from './report-links.js';
+import {saveReportTargets,readAllReportTargets,locationAvailable,noteLocationFromMeetings,LEGACY_NOTE} from './report-links.js';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
 const SESSION_KEY='kptu_collab_session_v1';
@@ -234,6 +234,7 @@ function targetNameOf(t){return (t.kind==='project'?projectName(t.id):orgNames.g
 function reportTargetsOf(m){return reportTargetMap.get(m?.id)||(m?.project_id?[{kind:'project',id:m.project_id}]:[])}
 function reportLinkLabel(m){return targetsLabel(reportTargetsOf(m),targetNameOf)}
 async function loadReportLinks(){
+  noteLocationFromMeetings(meetings); // 장소 칸이 서버에 있는지: 이미 읽은 사업 보고 줄(select=*)로 정한다. 입력 창을 열 때 새 요청을 보내지 않는다.
   try{
     const [map,orgs]=await Promise.all([readAllReportTargets(meetings),api('/rest/v1/app_suborganizations?workspace_id=eq.'+workspace.id+'&select=id,name&limit=1000')]);
     reportTargetMap=map;orgNames=new Map((orgs||[]).map(o=>[o.id,o.name]));

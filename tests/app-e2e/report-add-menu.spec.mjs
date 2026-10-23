@@ -8,7 +8,7 @@ async function addItems(page){await topAdd(page).click();await expect(menu(page)
 test('PC 1280: [+ 추가] lists 일기 and 공유 페이지 after 일정',async({page})=>{
  await page.setViewportSize({width:1280,height:800});
  await openHome(page);
- expect(await addItems(page)).toEqual(['업데이트','할 일','노트','일정','일기','공유 페이지']);
+ expect(await addItems(page)).toEqual(['업데이트','할 일','노트','일정','일기','공유 페이지','사업 보고']);
 });
 
 // 폰(390)에는 상단 줄이 없다(PC 전용). 폰의 일기·공유 페이지는 [메뉴]/[일정] 길 그대로다.
