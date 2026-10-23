@@ -214,7 +214,7 @@ test('meeting edit save sends one request on double press and unlocks after fail
   Object.assign(state.meetingRow,state.lastMeetingBody);
   await page.locator('#mrdEditNotes').fill('확인 중 추가 입력');reads=state.meetingReads;
   await page.locator('#mrdEditStatus').getByRole('button',{name:'저장 결과 확인',exact:true}).click();
-  await expect(page.locator('#mrdEditStatus')).toContainText('제출한 회의 정보는 확인했습니다.');
+  await expect(page.locator('#mrdEditStatus')).toContainText('제출한 내용은 확인했습니다.');
   expect(state.meetingReads).toBe(reads+1);expect(state.writes.meeting).toBe(4);
   await expect(page.locator('#mrdEditor')).toBeVisible();
   await expect(page.locator('#mrdEditNotes')).toHaveValue('확인 중 추가 입력');
