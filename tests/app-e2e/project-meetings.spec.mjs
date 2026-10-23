@@ -42,7 +42,7 @@ for(const width of [390,1280])test(`project detail lists its own meetings newest
  const {reads,errors}=await fixture(page,width);
  await openProject(page,width);
  const box=page.locator('#ps3-meetings');
- await expect(box.locator('.ps3-section-head h3')).toHaveText('회의 7');
+ await expect(box.locator('.ps3-section-head h3')).toHaveText('사업 보고 7');
  // Owner-scoped read of this project only (RLS stays as it is): no child project and no unlinked meeting.
  const q=reads.find(r=>r.project_id==='eq.p');expect(q).toBeTruthy();expect(q.order).toBe('meeting_at.desc.nullslast,created_at.desc');expect(q.select).toBe('id,title,series_name,round_no,meeting_at');
  expect(reads.some(r=>r.project_id?.startsWith('in.'))).toBe(false);
@@ -81,10 +81,10 @@ test('a project with no meetings shows the section with 0 and no rows; a child p
  await fixture(page,1280);
  await clickView(page,'projects');
  await page.locator('#projectGrid .ps3-plist [data-ps3-project="child"]').click();await expectProjectDetail(page,'child');
- await expect(page.locator('#ps3-meetings .ps3-section-head h3')).toHaveText('회의 1');
+ await expect(page.locator('#ps3-meetings .ps3-section-head h3')).toHaveText('사업 보고 1');
  await expect(rows(page)).toHaveCount(1);await expect(rows(page)).toContainText('합성 하위 회의');
  await page.route(SB+'/rest/v1/app_meetings?**',route=>route.fulfill({json:[]}));
  await page.locator('#projectGrid .ps3-plist [data-ps3-project="p"]').click();await expectProjectDetail(page,'p');
- await expect(page.locator('#ps3-meetings .ps3-section-head h3')).toHaveText('회의 0');await expect(rows(page)).toHaveCount(0);
+ await expect(page.locator('#ps3-meetings .ps3-section-head h3')).toHaveText('사업 보고 0');await expect(rows(page)).toHaveCount(0);
  await expect(page.locator('#ps3-meetings .ps3-meetings-more')).toHaveCount(0);
 });

@@ -67,7 +67,7 @@ async function expectCanonical(select){
 test('new meeting uses the project catalog tree while calendar has no project selector',async({page})=>{
   await signIn(page,'meetings',{});
   await page.locator('#newMeetingBtn').click();
-  await expectCanonical(page.locator('#meetingProject'));
+  await expect(page.locator('#meetingPlaces')).toBeVisible();
   await page.locator('#meetingModal [data-close]').click();
   await clickView(page,'calendar');
   await expect(page.locator('#calendarView')).toBeVisible();

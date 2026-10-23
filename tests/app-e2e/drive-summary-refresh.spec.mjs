@@ -119,7 +119,7 @@ for(const [name,width] of [['PC',1280],['phone',390]])test(`app meeting save ref
   await fillDateTime(page,'#meetingAt','2026-10-21T12:30');
   await page.locator('#meetingTranscript').fill('Mock transcript');
   await page.locator('#saveMeetingBtn').click();
-  await expect(page.locator('#toast')).toContainText('회의 결과를 저장했습니다.');
+  await expect(page.locator('#toast')).toContainText('사업 보고를 저장했습니다.');
   await page.clock.fastForward(WAIT-5000);expect(calls).toBe(0);
   await page.clock.fastForward(5000);await expect.poll(()=>calls).toBe(1);
   await page.clock.fastForward(WAIT*4);expect(calls).toBe(1);

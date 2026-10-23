@@ -66,7 +66,7 @@ for(const width of [390,1280]){
   await go(page,'calendar');await page.locator('#newEventBtn').click();await expect(page.locator('#eventModal')).toBeVisible();
   await modalSave(page,'#eventModal','#saveEventBtn','일정 [저장]');await page.keyboard.press('Escape');await expect(page.locator('#eventModal')).toBeHidden();
   await go(page,'meetings');await page.locator('#newMeetingBtn').click();await expect(page.locator('#meetingModal')).toBeVisible();
-  await modalSave(page,'#meetingModal','#saveMeetingBtn','[회의 결과 저장]');await page.keyboard.press('Escape');await expect(page.locator('#meetingModal')).toBeHidden();
+  await modalSave(page,'#meetingModal','#saveMeetingBtn','[사업 보고 저장]');await page.keyboard.press('Escape');await expect(page.locator('#meetingModal')).toBeHidden();
   await go(page,'library');await page.locator('#newDocumentBtn').click();await expect(page.locator('#documentModal')).toBeVisible();
   await modalSave(page,'#documentModal','#saveDocumentBtn','자료 [등록]');await page.keyboard.press('Escape');await expect(page.locator('#documentModal')).toBeHidden();
   await go(page,'projects');await page.locator('#newProjectBtn').click();await expect(page.locator('#ps3CreateModal')).toBeVisible();

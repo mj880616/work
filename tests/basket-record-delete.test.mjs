@@ -43,7 +43,7 @@ test('note delete targets exactly that note id and workspace; links go by cascad
   const rt=rtFor(async(path,options={})=>{calls.push({path,...options});if(options.method==='DELETE')return [{id:'n1'}];return path.includes('app_notes')?[{id:'n1',attachments:[]}]:[{id:'l1',organization_id:'o'},{id:'l2',meeting_id:'m'}];});
   const {result,calls:asked}=await withConfirm(true,()=>mod.deleteNoteOriginal('n1',{rt}));
   assert.equal(result.status,'deleted');assert.equal(result.message,'업데이트를 지웠어요.');
-  assert.match(asked[0],/조직·프로젝트 1곳/);assert.match(asked[0],/회의·자료실 연결 1곳/);assert.doesNotMatch(asked[0],/첨부/);
+  assert.match(asked[0],/조직·프로젝트 1곳/);assert.match(asked[0],/사업 보고·자료실 연결 1곳/);assert.doesNotMatch(asked[0],/첨부/);
   const writes=calls.filter(call=>call.method==='DELETE');
   assert.equal(writes.length,1);
   const url=q(writes[0].path);

@@ -68,7 +68,7 @@ test('meeting create modal exposes the task 9 fields only',async({page})=>{
   await expect(page.locator('#meetingModal')).toBeVisible();
   for(const id of ['meetingTitle','meetingRoundNo','meetingAt','meetingProject','meetingTranscript','meetingNotes','meetingFiles','meetingActionList'])await expect(page.locator('#'+id)).toBeAttached();
   await expect(page.locator('#meetingSeriesName')).toHaveCount(0);
-  await expect(page.locator('#meetingModal legend')).toHaveText(['기본정보','회의 결과','첨부·후속']);
+  await expect(page.locator('#meetingModal legend')).toHaveText(['기본정보','결과','첨부·후속']);
   await expect(page.locator('#meetingFiles')).toHaveAttribute('multiple','');
   // UI-회의결과창정리: 후속 할 일은 입력 한 줄(입력칸 + [기한 ▾] + [추가])로 시작하고, 넣은 할 일 줄은 아직 없다.
   await expect(page.locator('#meetingActionLine')).toBeVisible();
@@ -116,7 +116,7 @@ test('new meeting creates a Google follow-up linked to the meeting and project',
   await fillMeetingName(page,'궤도협의회 집행위원회');
   await page.locator('#meetingRoundNo').fill('8');
   await fillDateTime(page,'#meetingAt','2026-09-25T14:00');
-  await page.locator('#meetingProject').selectOption('child');
+  await page.locator('#meetingPlaces').click();await page.locator('#reportPlacesSheet').getByRole('button',{name:/하위/}).first().click();await page.locator('#reportPlacesSheet').getByRole('button',{name:'저장',exact:true}).click();
   const raw='  첫 줄\n둘째 줄\n마지막 줄  ';
   await page.locator('#meetingTranscript').fill(raw);
   await page.locator('#meetingNotes').fill('특이사항\n둘째 줄');
@@ -221,7 +221,7 @@ test('failed meeting create restores its save button for a retry',async({page})=
   await page.locator('#saveMeetingBtn').click();
   await expect(page.locator('#meetingStatus')).toHaveClass(/error/);
   await expect(page.locator('#saveMeetingBtn')).toBeEnabled();
-  await expect(page.locator('#saveMeetingBtn')).toHaveText('회의 결과 저장');
+  await expect(page.locator('#saveMeetingBtn')).toHaveText('사업 보고 저장');
   await page.locator('#saveMeetingBtn').click();
   await expect(page.locator('#meetingModal')).toBeHidden();
   expect(posts).toBe(2);
@@ -516,7 +516,7 @@ for(const width of [320,360,390,768,1000]){
     expect(await select.locator('[role=radio]').first().evaluate(el=>el.getBoundingClientRect().height)).toBe(32);
     if(width<=760){
       expect(await button.evaluate(el=>getComputedStyle(el).position)).toBe('fixed');expect(btn.width).toBe(36);expect(btn.height).toBe(36);
-      await expect(button).toHaveAttribute('aria-label','회의 결과 등록');
+      await expect(button).toHaveAttribute('aria-label','사업 보고 등록');
     }else{
       expect(btn.height).toBeCloseTo(46,0);
       expect(btn.x+btn.width).toBeCloseTo(h.x+h.width,0);
@@ -977,7 +977,7 @@ test('changing a meeting project leaves existing Google follow-up links untouche
   // PC 3단(MEET-결과3단)은 오른쪽 결과도 후속 할 일을 읽으므로, 창을 연 뒤의 읽기 수를 기준으로 저장 때 다시 읽지 않는지 본다.
   const readsBeforeSave=linkedReads;expect(readsBeforeSave).toBeGreaterThanOrEqual(1);
   await page.locator('#mrdEdit').click();
-  await page.locator('#mrdEditProject').selectOption('child');
+  await page.locator('#mrdEditPlaces').click();await page.locator('#reportPlacesSheet').getByRole('button',{name:/하위/}).first().click();await page.locator('#reportPlacesSheet').getByRole('button',{name:'저장',exact:true}).click();
   await page.locator('#mrdSaveEdit').click();
   await expect(page.locator('#mrdTasks [data-mrd-task="existing"]')).toBeVisible();
   expect(current.project_id).toBe('child');
@@ -1015,7 +1015,7 @@ test('meeting integration keeps project auto-selection and one direct render pat
   expect(team).toContain('series_name:title');
   expect(team).toContain('transcript_text:transcript');
   expect(team).toContain("/functions/v1/meeting-files");
-  expect(project).toContain("meeting:['meetings','newMeetingBtn','meetingProject']");
+  expect(project).toContain("meeting:['meetings','newMeetingBtn','meetingPlaces']");
   expect(project).toContain('s.value=project.id');
   expect(files).toContain('file.size>100*1024*1024');
   expect(css).toContain("meeting-ui.css");

@@ -4,7 +4,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
-const labels={library:['newDocumentBtn','+ 자료','+ 자료 등록'],meetings:['newMeetingBtn','+ 회의','+ 회의 결과'],projects:['newProjectBtn','+ 프로젝트','+ 프로젝트']};
+const labels={library:['newDocumentBtn','+ 자료','+ 자료 등록'],meetings:['newMeetingBtn','+ 사업 보고','+ 사업 보고'],projects:['newProjectBtn','+ 프로젝트','+ 프로젝트']};
 async function boot(page,view){
   await page.route('**/*',route=>{
     const u=new URL(route.request().url()),p=u.pathname;
