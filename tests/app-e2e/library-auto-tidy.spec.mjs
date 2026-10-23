@@ -11,16 +11,17 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
 const DOC_ID=n=>`e0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const CATS=['교섭','투쟁','교육','선전','정책','회의','기타'];
+const WS_ID='b0000000-0000-4000-8000-000000000001';
 const OLD='2026-09-01T00:00:00Z';
 
 function makeDocs(count,over={}){
-  return Array.from({length:count},(_,i)=>({id:DOC_ID(i+1),workspace_id:'workspace-1',project_id:null,title:`2026_요구안_${i+1}`,category:'기타',source:null,
+  return Array.from({length:count},(_,i)=>({id:DOC_ID(i+1),workspace_id:WS_ID,project_id:null,title:`2026_요구안_${i+1}`,category:'기타',source:null,
     document_date:null,file_name:`2026_요구안_${i+1}.hwp`,tags:[],created_at:OLD,updated_at:OLD,field_origin:{},extraction_status:'ready',...(over[i+1]||{})}));
 }
 function baseState(docs,{aiMode='ok',attemptsMode='ok',tried=[]}={}){
   return {
     user:{id:'user-1',email:'owner@example.org',user_metadata:{display_name:'자료실 관리자'}},
-    workspace:{id:'workspace-1',slug:'team',name:'웹2'},
+    workspace:{id:WS_ID,slug:'team',name:'웹2'},
     docs,aiMode,attemptsMode,tried:new Set(tried),aiCalls:[],texts:[],patches:[],otherWrites:[],held:[],
   };
 }
@@ -66,7 +67,7 @@ async function mockApp(page,state){
       return ok([...state.tried].map(id=>({document_id:id})));
     }
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
-    if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:'workspace-1',user_id:state.user.id,role:'owner',workspace:state.workspace,created_at:now()}]);
+    if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:WS_ID,user_id:state.user.id,role:'owner',workspace:state.workspace,created_at:now()}]);
     if(path==='/rest/v1/app_profiles')return ok([{user_id:state.user.id,display_name:'자료실 관리자',document_categories:CATS}]);
     if(path==='/rest/v1/app_workspaces')return ok([state.workspace]);
     if(path==='/rest/v1/app_meetings')return ok([]);
