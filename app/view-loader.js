@@ -79,6 +79,8 @@ async function calendar(){
     module('./calendar-mobile-ui.js','__KPTU_CALENDAR_MOBILE_UI_READY__'),
     module('./calendar-day-overflow.js','__KPTU_CALENDAR_DAY_OVERFLOW_READY__')
   ]);
+  // CAL-끌어옮기기: PC 마우스 끌기. 저장은 위 calendar-interactions-v2.js의 수정 경로를 쓴다.
+  background(module('./calendar-drag.js','__KPTU_CALENDAR_DRAG_READY__'));
   window.__KPTU_RENDER_CALENDAR__?.();
   const google=module('./calendar-persistence.js','__KPTU_CALENDAR_PERSISTENCE_READY__');
   background(google);

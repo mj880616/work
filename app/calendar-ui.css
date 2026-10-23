@@ -236,6 +236,23 @@
 .cwv-bands .cmv-event.cwv-clipped:hover>.cwv-tip,.cwv-bands .cmv-event.cwv-clipped:focus-visible>.cwv-tip{display:block}
 #calendarWeek .cal-event.cmv-event{box-sizing:border-box;height:44px;min-height:44px;line-height:16px;font-size:12px;padding:0 6px;margin:0 2px}
 #calendarWeek .cmv-event-time{font-size:12px}
+/* CAL-끌어옮기기(PC 마우스): 끌 수 있는 일정은 잡기 커서, 아래·오른쪽 끝 6px는 길이 손잡이. 끄는 동안 원래 카드는 흐리게, 옮겨 갈 자리에
+   점선 상자 + 바뀔 시간(calendar-week-view.js·calendar-month-view.js가 그림). 막힌 자리(시간↔종일)는 빨간 점선. */
+@media (min-width:1024px) and (pointer:fine){
+  #calendarWeek [data-drag],#calendarGrid [data-drag]{cursor:grab;touch-action:none;user-select:none}
+  .cwv-resize{position:absolute;left:0;right:0;bottom:0;height:6px;cursor:ns-resize}
+  .cwv-band-resize{position:absolute;top:0;bottom:0;right:0;width:6px;cursor:ew-resize}
+}
+#calendarWeek.cwv-dragging,#calendarGrid.cmv-dragging{cursor:grabbing;user-select:none}
+#calendarWeek.cwv-dragging .cwv-tip{display:none!important}
+.cwv-drag-source,.cmv-drag-source{opacity:.4}
+.cwv-drag-preview{position:absolute;z-index:4;left:1px;right:1px;box-sizing:border-box;padding:1px 4px;border:2px dashed var(--kptu-primary);border-radius:var(--kptu-radius-sm);background:color-mix(in srgb,var(--kptu-primary-soft) 80%,transparent);color:var(--kptu-primary-ink);font-size:12px;line-height:15px;font-weight:700;pointer-events:none;overflow:hidden;white-space:nowrap}
+.cwv-bands .cwv-drag-preview{position:relative;left:auto;right:auto;height:44px;margin:0 2px;display:flex;align-items:center}
+.cwv-drag-preview.cwv-drag-blocked{border-color:var(--kptu-danger);color:var(--kptu-danger)}
+.cwv-drag-preview.cwv-drag-saving{opacity:.7}
+.cal-cell.cmv-drop{position:relative;outline:2px solid var(--kptu-primary);outline-offset:-2px;background:var(--kptu-primary-soft)}
+.cal-cell.cmv-drop.cmv-drop-blocked{outline-color:var(--kptu-danger)}
+.cmv-drop-label{position:absolute;right:4px;top:2px;font-size:11px;line-height:14px;font-weight:700;color:var(--kptu-primary-ink);pointer-events:none}
 .calendar-view-switch button[hidden]{display:none}
 
 /* D-월간3줄: counts share the date header, never reserve an event footer. */
