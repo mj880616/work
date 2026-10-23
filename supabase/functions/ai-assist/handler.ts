@@ -28,7 +28,7 @@
 //   업무 기록·이름 목록은 서버가 내 로그인으로 읽는다(일기·보관·AI 제외 업데이트 빼고). 답은 제안으로만 돌려주고 저장하지 않는다.
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import {
-  dedupeKey, packSources, parseTodoRadar, radarMaterial, RADAR_MAX_OUTPUT_TOKENS, TODO_RADAR_INSTRUCTIONS, TODO_RADAR_SCHEMA,
+  dedupeKey, packSources, parseTodoRadar, radarMaterial, RADAR_MAX_OUTPUT_TOKENS, buildTodoRadarInstructions, cleanProfile, TODO_RADAR_SCHEMA,
   type RadarSource,
 } from "./todo-radar.ts";
 import {
@@ -710,6 +710,16 @@ async function loadRadarSources(ctx: Ctx, sinceIso: string): Promise<{ sources: 
   return { sources, partial };
 }
 
+// 기록 주인의 이름·직책은 호출한 사람의 토큰으로 자기 프로필 행에서 읽는다(owner RLS). 못 읽어도 찾기는 계속한다(이름 없이 '기록 주인'으로).
+async function readRadarProfile(ctx: Ctx) {
+  try {
+    const rows = await rest(ctx, `app_profiles?user_id=eq.${encodeURIComponent(ctx.userId)}&select=display_name,job_title&limit=1`);
+    return cleanProfile(Array.isArray(rows) ? (rows[0] as Record<string, unknown> | undefined) : null);
+  } catch {
+    return cleanProfile(null);
+  }
+}
+
 type RadarDeps = { env: Env; now: () => number; sleep: (ms: number) => Promise<void>; log: Log; doFetch: typeof fetch };
 
 async function runTodoRadar(ctx: Ctx, input: TodoRadarInput, deps: RadarDeps): Promise<Response> {
@@ -766,12 +776,13 @@ async function runTodoRadar(ctx: Ctx, input: TodoRadarInput, deps: RadarDeps): P
       throw new Fail(503, "usage_unavailable");
     }
     const material = radarMaterial(packed, today);
+    const profile = await readRadarProfile(ctx);
     const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
       model: config.model,
       store: false,
       max_output_tokens: RADAR_MAX_OUTPUT_TOKENS,
       input: [
-        { role: "developer", content: TODO_RADAR_INSTRUCTIONS },
+        { role: "developer", content: buildTodoRadarInstructions(profile) },
         { role: "user", content: material },
       ],
       text: { format: { type: "json_schema", name: "todo_radar", strict: true, schema: TODO_RADAR_SCHEMA } },
@@ -835,7 +846,7 @@ async function runTodoRadar(ctx: Ctx, input: TodoRadarInput, deps: RadarDeps): P
       deps.log("radar_cleanup_failed");
     }
     // 기록에는 숫자만 남긴다(재료·후보 글 없음).
-    deps.log("todo_radar_done", { sources: packed.length, found: parsed.items.length, added, dropped: parsed.dropped, promises: promises.length, partial });
+    deps.log("todo_radar_done", { sources: packed.length, found: parsed.items.length, added, dropped: parsed.dropped, excluded_owner: parsed.excluded_owner, promises: promises.length, partial });
     return json({ ok: true, kind: "todo_radar", added, found: rows.length, partial, checked_at: new Date(started).toISOString(), promises });
   } finally {
     await release();
