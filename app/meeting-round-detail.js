@@ -3,6 +3,7 @@ import {meetingInputValue,toMeetingISO,seoulDateKey} from './meeting-time.js';
 import {formatMeetingWhen} from './meeting-when.js';
 import {bindDateTimeFields} from './time-input.js';
 import {createAnchoredMenu} from './anchored-menu.js';
+import {pressFile} from './file-actions.js';
 import {selectedResultText,sendMeetingToBasket} from './meeting-basket-send.js';
 import {dueText,fileLine,bindDue,paintDue,bindDropTarget} from './meeting-compact.js';
 import {reportKindOf,reportKindLabel} from './report-kinds.mjs';
@@ -85,12 +86,13 @@ async function mrdTaskClick(e){
   }
 }
 async function mrdDeleteTask(t,trigger){const meeting=mrdCurrent,epoch=mrdRequestEpoch;if(!t||!meeting||!confirm(`“${t.title}” Google 할 일을 삭제할까요?`))return;if(trigger)trigger.disabled=true;try{await mrdApi(mrdTaskEndpoint('delete'),{method:'POST',body:{action:'delete',task_id:t.id,task_list_id:t.taskListId||null}});window.dispatchEvent(new CustomEvent('kptu:tasks-changed'));if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id)await mrdOpenMeeting(meeting.id)}catch(err){if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id){alert(err.message||String(err));if(trigger)trigger.disabled=false}}}
-async function mrdDownload(id){try{const d=await mrdApi('/functions/v1/workspace-drive?action=download-token',{method:'POST',body:{document_id:id}});location.href=d.url}catch(e){alert(e.message)}}
+// FILE-누르면동작: 자료 줄을 누르면 종류별 동작(file-actions.js). docs는 이 창이 그린 자료 목록.
+async function mrdDownload(id,docs=[]){const d=docs.find(x=>x.id===id);if(!d)return;await pressFile({name:d.file_name||d.title||'',mime:d.mime_type||'',documentId:d.file_id?d.id:'',driveId:d.file_id||'',driveUrl:d.drive_url||''},{api:mrdApi,onError:m=>alert(m)})}
 function mrdRenderMaterials(docs){
     // UI-회의결과창정리: 파일 한 줄(종류·이름·크기). 이름을 누르면 내려받고, ×는 기존 삭제 확인을 거친다.
-    document.querySelector('#mrdMaterials').innerHTML=(docs||[]).length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mrd-file-row',end:`<button class="file-line-open" type="button" data-mrd-download="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 내려받기"></button><button class="icon-btn file-line-x" type="button" data-mrd-delete-document="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 삭제">×</button>`})}).join(''):`<p class="mtg-empty">${mrdEsc(reportWords(reportKindOf(mrdCurrent)).materialsEmpty)}</p>`;
+    document.querySelector('#mrdMaterials').innerHTML=(docs||[]).length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mrd-file-row',end:`<button class="file-line-open" type="button" data-mrd-download="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 열기"></button><button class="icon-btn file-line-x" type="button" data-mrd-delete-document="${mrdEsc(d.id)}" aria-label="${mrdEsc(name)} 삭제">×</button>`})}).join(''):`<p class="mtg-empty">${mrdEsc(reportWords(reportKindOf(mrdCurrent)).materialsEmpty)}</p>`;
     document.querySelectorAll('[data-mrd-delete-document]').forEach(b=>b.onclick=e=>{e.stopPropagation();return mrdDeleteMaterial(b,docs)});
-    document.querySelectorAll('[data-mrd-download]').forEach(b=>b.onclick=e=>{e.stopPropagation();mrdDownload(b.dataset.mrdDownload)});
+    document.querySelectorAll('[data-mrd-download]').forEach(b=>b.onclick=e=>{e.stopPropagation();mrdDownload(b.dataset.mrdDownload,docs)});
 }
 async function mrdDeleteMaterial(button,docs){
   if(button.disabled)return;

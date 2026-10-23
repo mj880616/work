@@ -32,7 +32,7 @@ for(const width of [390,1280])test(`sending an attachment registers it once and 
  // UI-바구니상세개편: the result is a short notice; the file's size line says it is in the library, and the small
  // [자료실로 보내기] link becomes [자료실에서 보기] (no button to press again).
  await expect(page.locator('#toast')).toHaveText('자료실로 보냈어요. 바구니와 같은 Drive 원본을 씁니다.');await expect(f.result('drive-a')).toHaveCount(0);
- await expect(f.meta('drive-a')).toHaveText('2.0 KB · 자료실에 있음 ✓');await expect(a.getByRole('button')).toHaveCount(0);
+ await expect(f.meta('drive-a')).toHaveText('2.0 KB · 자료실에 있음 ✓');await expect(a.getByRole('button')).toHaveText(['내려받기']);
  await expect(a.getByRole('link',{name:'회의 사진.jpg 자료실에서 보기'})).toHaveAttribute('data-basket-library-open','doc-drive-a');
  expect(f.sends).toEqual([{action:'register-basket-attachment',note_id:n,drive_file_id:'drive-a'}]);
  await expect.poll(()=>f.changed.length).toBe(1);
@@ -86,7 +86,7 @@ test(`an unknown result (${name}) is reported and never sent again`,async({page}
  await expect(f.meta('drive-a')).toHaveText('2.0 KB · 자료실에서 확인해 주세요');
  const card=await page.locator('[data-basket-file-card="drive-a"] .basket-file-body').boundingBox(),line=await f.result('drive-a').boundingBox();
  expect(line.y).toBeGreaterThanOrEqual(card.y+card.height-1);
- await expect(a.getByRole('button')).toHaveCount(0);await expect(a.getByRole('link')).toHaveText(['Drive에서 열기']);
+ await expect(a.getByRole('button')).toHaveText(['내려받기']);await expect(a.getByRole('link')).toHaveText(['Drive에서 열기']);
  await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>setTimeout(r,50))));
  expect(f.sends).toHaveLength(1);expect(f.changed).toEqual([]);
  // The other attachment is independent.

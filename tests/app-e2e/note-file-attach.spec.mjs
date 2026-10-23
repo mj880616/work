@@ -133,7 +133,7 @@ for (const width of [390, 1280]) {
     let asked = '';
     page.once('dialog', d => { asked = d.message(); d.accept(); });
     await press(page, more, width);
-    await expect(page.locator('#noteDocMenu button')).toHaveCount(1);
+    await expect(page.locator('#noteDocMenu button')).toHaveText(['Drive에서 열기', '내려받기', '빼기']);
     await expect(page.locator('#noteDocMenu [data-note-file-detach]')).toHaveText('빼기');
     await press(page, page.locator('#noteDocMenu [data-note-file-detach]'), width);
     await expect(page.locator('#toast')).toHaveText('파일을 노트에서 뺐어요. Drive에는 그대로 있어요.');
@@ -209,3 +209,22 @@ for (const width of [390, 1280]) {
     expect(f.errors).toEqual([]);
   });
 }
+
+// FILE-누르면동작: 노트 첨부 줄을 누르면 종류별 동작(PDF = Drive 보기 새 탭, HWP = 내려받기 주소), ⋯에는 둘 다 있다.
+test('note file line: PDF opens the Drive view in a new tab, HWP starts the Drive download, ⋯ has both for any file', async ({page, context}) => {
+  await context.route('https://drive.google.com/**', r => r.fulfill({status: 200, contentType: 'text/html', body: 'ok'}));
+  const f = await fixture(page, 1280);
+  await press(page, page.locator('[data-note-row="n-files"]'), 1280);
+  const cards = page.locator('[data-note-attachments] .file-line');
+  await expect(cards).toHaveCount(2);
+  let [tab] = await Promise.all([context.waitForEvent('page'), cards.nth(0).locator('.file-line-main').click()]);
+  await tab.waitForURL('https://drive.google.com/file/d/drive_a/view'); await tab.close();
+  [tab] = await Promise.all([context.waitForEvent('page'), cards.nth(1).locator('.file-line-main').click()]);
+  await tab.waitForURL('https://drive.google.com/uc?export=download&id=drive_b'); await tab.close();
+  // ⋯: Drive에서 열기 and 내려받기 for a PDF too.
+  await press(page, cards.nth(0).getByRole('button', {name: '교섭 요구안.pdf 메뉴'}), 1280);
+  await expect(page.locator('#noteDocMenu button')).toHaveText(['Drive에서 열기', '내려받기', '빼기']);
+  [tab] = await Promise.all([context.waitForEvent('page'), page.locator('#noteDocMenu [data-file-menu="download"]').click()]);
+  await tab.waitForURL('https://drive.google.com/uc?export=download&id=drive_a'); await tab.close();
+  expect(f.writes).toEqual([]); expect(f.errors).toEqual([]);
+});

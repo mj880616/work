@@ -1,4 +1,5 @@
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
+import {fileAttrs,menuItemsHtml} from './file-actions.js';
 import {syncMoreToggle,bindMoreToggle} from './text-clamp.js';
 import {previewLines,markdownSource} from './note-preview.mjs';
 import {formatSeoulTime,seoulParts} from './meeting-time.js';
@@ -101,8 +102,8 @@ async function wdRefreshLinks(){const id=wdTargetId,epoch=wdEpoch;if(!id)return;
 // UI-바구니첨부메모 PR 3 ⑨⑩: 이 조직에 붙은 자료(app_documents.organization_id). 프로젝트 상세의 [자료] 묶음과 같은 모양: 최근 5개 + "전체 N개 보기 ›".
 // 파일은 자료실(Drive)에 하나뿐이고 여기는 붙어 있다는 표시만이다. 줄 ⋯ 의 [조직에서 빼기]는 붙임만 풀고 자료·파일은 그대로 둔다.
 const WD_DOC_ROWS=5;
-function wdReadDocs(id){return readRecordPages(`/rest/v1/app_documents?organization_id=eq.${encodeURIComponent(id)}&workspace_id=eq.${encodeURIComponent(wdWorkspace)}&select=id,title,file_name,category,document_date,drive_url,created_at&order=document_date.desc.nullslast,created_at.desc,id.asc`,wdRecordRt)}
-function wdDocRow(x,can){const title=x.title||x.file_name||'파일',main=`<b>${wdE(title)}</b><small>${categoryTag(x.category)}${x.document_date?' '+wdE(x.document_date):''}</small>`;return `<div class="wd-doc-row" data-wd-doc="${wdE(x.id)}">${x.drive_url?`<a class="wd-doc-main" href="${wdE(x.drive_url)}" target="_blank" rel="noopener">${main}</a>`:`<div class="wd-doc-main">${main}</div>`}${can?`<details class="wd-doc-more"><summary class="icon-btn" aria-label="자료 관리: ${wdE(title)}">⋯</summary><div class="wd-doc-panel" role="group" aria-label="자료 관리"><button type="button" data-wd-doc-remove="${wdE(x.id)}">조직에서 빼기</button></div></details>`:''}</div>`}
+function wdReadDocs(id){return readRecordPages(`/rest/v1/app_documents?organization_id=eq.${encodeURIComponent(id)}&workspace_id=eq.${encodeURIComponent(wdWorkspace)}&select=id,title,file_name,mime_type,file_id,category,document_date,drive_url,created_at&order=document_date.desc.nullslast,created_at.desc,id.asc`,wdRecordRt)}
+function wdDocRow(x,can){const fa={name:x.file_name||x.title||'',mime:x.mime_type||'',documentId:x.file_id?x.id:'',driveId:x.file_id||'',driveUrl:x.drive_url||''},title=x.title||x.file_name||'파일',main=`<b>${wdE(title)}</b><small>${categoryTag(x.category)}${x.document_date?' '+wdE(x.document_date):''}</small>`;return `<div class="wd-doc-row" data-wd-doc="${wdE(x.id)}">${x.drive_url?`<a class="wd-doc-main" href="${wdE(x.drive_url)}" target="_blank" rel="noopener"${fileAttrs(fa,{press:true})}>${main}</a>`:`<div class="wd-doc-main">${main}</div>`}${can?`<details class="wd-doc-more"><summary class="icon-btn" aria-label="자료 관리: ${wdE(title)}">⋯</summary><div class="wd-doc-panel" role="group" aria-label="자료 관리">${menuItemsHtml(fa,{attrs:fileAttrs(fa),attr:'data-fa-menu'})}<button type="button" data-wd-doc-remove="${wdE(x.id)}">조직에서 빼기</button></div></details>`:''}</div>`}
 function wdRenderDocs(){
   const box=document.querySelector('#wdDocBody');if(!box||wdOrg?.id!==wdTargetId)return;
   const can=!!wdOrg?.canEdit,rows=wdDocs.slice(0,WD_DOC_ROWS),count=document.querySelector('#wdDocs [data-wd-doc-count]');

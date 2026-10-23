@@ -16,6 +16,8 @@ import { mountQuick } from './home-quick.js';
 import { toTelegram } from './md-telegram.mjs';
 import { driveFileUrl, fileSize, createUploadBatch, uploadNoteFiles, mountBasketPicker } from './basket-upload.js';
 import { fileLine } from './meeting-compact.js';
+import { pressFile, downloadFile, openInDrive, menuItemsHtml } from './file-actions.js';
+import { openPhotoView } from './photo-view.js';
 import { attachmentName } from './attachment-name.mjs';
 import { paintHtmlAttachments } from './html-frame.js';
 import { placeAnchored, followAnchor, clearAnchored, isWide } from './anchored-popup.js';
@@ -137,6 +139,14 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     ['data-note-pin', notePinnedAt(note) ? '고정 해제' : '고정'], ['data-note-folder-move', '폴더로 옮기기'], ['data-note-edit', '수정'],
     ...(from === 'detail' ? [['data-basket-link-open', '연결하기'], ['data-note-to-basket', '바구니로 돌리기']] : []),
     ['data-note-delete', '삭제', 'basket-menu-danger']];
+  // FILE-누르면동작: a stored attachment as the shared file shape (file-actions.js).
+  const noteFile = (note, fileId) => { const f = (note?.attachments || []).find(x => x.drive_file_id === fileId); return f ? {name: attachmentName(f), mime: f.mime_type, driveId: fileId, noteId: note.id} : null; };
+  const fileFail = text => say(text);
+  function pressNoteFile(el) {
+    const file = noteFile(selected, el.closest('[data-note-file]')?.dataset.noteFile); if (!file) return;
+    void pressFile(file, {viewPhoto: () => openPhotoView({row: selected, file: selected.attachments.find(x => x.drive_file_id === file.driveId), trigger: el}), onError: fileFail});
+  }
+  host.addEventListener('keydown', e => { const el = e.target.closest?.('[data-note-file] .file-line-main'); if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pressNoteFile(el); } });
   function closeMenu({focus = false} = {}) {
     if (!menu) return null;
     const closed = menu, el = menuEl(); menu = null; closed.stop();
@@ -152,7 +162,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     closeMenu();
     const el = menuEl();
     el.setAttribute('aria-label', from === 'folder' ? '폴더 메뉴' : from === 'file' ? '첨부 파일 메뉴' : '노트 메뉴');
-    el.innerHTML = menuItems(note, from).map(([attr, label, cls]) => `<button type="button" ${attr}${cls ? ` class="${cls}"` : ''}>${label}</button>`).join('');
+    el.innerHTML = (from === 'file' ? menuItemsHtml(noteFile(note, fileId)) : '') + menuItems(note, from).map(([attr, label, cls]) => `<button type="button" ${attr}${cls ? ` class="${cls}"` : ''}>${label}</button>`).join('');
     el.hidden = false;
     const place = () => placeAnchored(el, trigger, {maxWidth: 220, maxHeight: 320});
     place();
@@ -182,12 +192,15 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     box.innerHTML = `${folder ? `<span class="note-meta-folder" data-note-meta-folder>폴더 ${esc(folder)}</span>` : ''}${tags ? `<span class="basket-note-state">${tags}</span>` : `<span class="basket-note-state"><span class="basket-state-text">${esc(noteState(selected, links).status === '확정' ? '분류 완료' : '연결 없음')}</span></span>`}<time>고친 날 ${esc(day(selected.updated_at))}</time>`;
     // UI-일기손질 ⑥: each attachment is the shared file line (meeting-compact.js) with a small [Drive에서 열기] at its end.
     // NOTE-파일붙이기: and a ⋯ after it whose one item, [빼기], takes the file off this note (the Drive file stays).
-    detail.querySelector('[data-note-attachments]').innerHTML = (selected.attachments || []).map(file => {
+    // FILE-누르면동작: pressing the line acts by kind (file-actions.js); the small [Drive에서 열기] stays and the ⋯ holds [Drive에서 열기] [내려받기] [빼기].
+    const attBox = detail.querySelector('[data-note-attachments]');
+    attBox.innerHTML = (selected.attachments || []).map(file => {
       const url = driveFileUrl(file.drive_file_id), name = attachmentName(file);
       const link = url ? `<a class="file-line-link" href="${url}" target="_blank" rel="noopener noreferrer" aria-label="${esc(name)} Drive에서 열기">Drive에서 열기</a>` : '<span class="file-line-state">링크를 확인할 수 없습니다.</span>';
       const more = `<button type="button" class="basket-icon-button note-file-more" data-note-file-more="${esc(file.drive_file_id)}" aria-label="${esc(name)} 메뉴" title="메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button>`;
       return fileLine({name, meta:fileSize(file.size_bytes), cls:'note-file-line', end:link + more, attrs:` data-note-file="${esc(file.drive_file_id)}"`});
     }).join('');
+    attBox.querySelectorAll('.file-line-main').forEach(el => { el.setAttribute('role', 'button'); el.tabIndex = 0; });
   }
   // UI-상단줄제목: with the PC top line (1024px~) the open note's title is already in the place, so the head has no title line of its
   // own there (the element is not made); below that width it is made, as before.
@@ -573,6 +586,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       return;
     }
     const note = notes.find(n => n.id === from.noteId); if (!note) return;
+    if (b.dataset.fileMenu) { const file = noteFile(note, from.fileId); if (file) { if (b.dataset.fileMenu === 'open') openInDrive(file, {onError: fileFail}); else void downloadFile(file, {onError: fileFail}); } return; }
     if (b.hasAttribute('data-note-file-detach')) void detachFile(note, from.fileId);
     else if (b.hasAttribute('data-note-copy')) void telegram(note);
     else if (b.hasAttribute('data-note-pin')) void pin(note);
@@ -583,6 +597,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else if (b.hasAttribute('data-note-delete')) void remove(note.id);
   }
   host.addEventListener('click', e => {
+    const line = e.target.closest('[data-note-file] .file-line-main'); if (line && host.contains(line)) { closeMenu(); pressNoteFile(line); return; }
     const b = e.target.closest('button'); if (!b || b.disabled || !host.contains(b)) return;
     if (b.closest('#noteDocMenu')) { const from = closeMenu({focus:true}); if (from && !busy) menuAction(b, from); return; }
     if (b.hasAttribute('data-note-more')) { if (!busy && selected && !editing) openMenu(b, selected, 'detail'); return; }

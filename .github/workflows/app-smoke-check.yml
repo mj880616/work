@@ -17,6 +17,7 @@ on:
       - 'tests/meeting-compact.test.mjs'
       - 'tests/basket-data.test.mjs'
       - 'tests/task-files.test.mjs'
+      - 'tests/file-actions.test.mjs'
       - 'tests/drive-summary-refresh.test.mjs'
       - 'tests/basket-classification.test.mjs'
       - 'tests/basket-ai-handoff.test.mjs'
@@ -66,6 +67,7 @@ on:
       - 'tests/meeting-compact.test.mjs'
       - 'tests/basket-data.test.mjs'
       - 'tests/task-files.test.mjs'
+      - 'tests/file-actions.test.mjs'
       - 'tests/drive-summary-refresh.test.mjs'
       - 'tests/basket-classification.test.mjs'
       - 'tests/basket-ai-handoff.test.mjs'
@@ -131,7 +133,7 @@ jobs:
         run: node --test tests/home-read-model.test.mjs tests/home-read-cache.test.mjs tests/data-freshness.test.mjs tests/collection-status.test.mjs
 
       - name: Check basket data and sequential file uploads
-        run: node --test tests/basket-data.test.mjs tests/basket-upload.test.mjs tests/basket-ocr-text.test.mjs tests/basket-ocr.test.mjs tests/basket-ocr-runtime.test.mjs tests/basket-classification.test.mjs tests/basket-ai-handoff.test.mjs tests/basket-link-records.test.mjs tests/basket-record-delete.test.mjs tests/basket-manual-link.test.mjs tests/basket-ai-summary.test.mjs tests/todo-radar-data.test.mjs tests/basket-note-tasks.test.mjs tests/basket-record-summary-guide.test.mjs tests/basket-library-send.test.mjs tests/meeting-basket-send.test.mjs tests/diary-data.test.mjs tests/journal-data.test.mjs tests/journal-weekly.test.mjs tests/journal-org-summary.test.mjs tests/journal-meeting-kinds.test.mjs tests/project-order.test.mjs tests/basket-file-docs.test.mjs tests/document-categories.test.mjs tests/basket-note-pin.test.mjs tests/update-requests.test.mjs tests/update-journal.test.mjs tests/task-files.test.mjs tests/library-ai-fill.test.mjs tests/quick-links.test.mjs
+        run: node --test tests/basket-data.test.mjs tests/basket-upload.test.mjs tests/basket-ocr-text.test.mjs tests/basket-ocr.test.mjs tests/basket-ocr-runtime.test.mjs tests/basket-classification.test.mjs tests/basket-ai-handoff.test.mjs tests/basket-link-records.test.mjs tests/basket-record-delete.test.mjs tests/basket-manual-link.test.mjs tests/basket-ai-summary.test.mjs tests/todo-radar-data.test.mjs tests/basket-note-tasks.test.mjs tests/basket-record-summary-guide.test.mjs tests/basket-library-send.test.mjs tests/meeting-basket-send.test.mjs tests/diary-data.test.mjs tests/journal-data.test.mjs tests/journal-weekly.test.mjs tests/journal-org-summary.test.mjs tests/journal-meeting-kinds.test.mjs tests/project-order.test.mjs tests/basket-file-docs.test.mjs tests/document-categories.test.mjs tests/basket-note-pin.test.mjs tests/update-requests.test.mjs tests/update-journal.test.mjs tests/task-files.test.mjs tests/file-actions.test.mjs tests/library-ai-fill.test.mjs tests/quick-links.test.mjs
 
       - name: Check library toggle tree model
         run: node --test tests/library-tree.test.mjs tests/library-view-pref.test.mjs tests/view-prefs.test.mjs tests/theme-bootstrap.test.mjs tests/library-upload-organization.test.mjs

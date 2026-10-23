@@ -88,7 +88,7 @@ for (const width of [390, 1280]) {
     // Size in KB/MB; small text links with an icon under the name and size, 44px to press.
     await expect(photo.locator('.basket-file-meta')).toHaveText('120.6 KB');
     await expect(card.locator('[data-basket-file-card="drive-pdf"] .basket-file-meta')).toHaveText('3.0 MB');
-    await expect(card.locator('[data-basket-file-card="drive-hwp"] .basket-file-links > *')).toHaveText(['Drive에서 열기', '자료실로 보내기', '편집']);
+    await expect(card.locator('[data-basket-file-card="drive-hwp"] .basket-file-links > *')).toHaveText(['Drive에서 열기', '내려받기', '자료실로 보내기', '편집']);
     const nameBox = await photo.locator('.basket-file-meta').boundingBox();
     for (const link of await photo.locator('.basket-file-link').all()) {
       const b = await link.boundingBox(); expect(b.y).toBeGreaterThanOrEqual(nameBox.y + nameBox.height - 1); expect(b.height).toBeGreaterThanOrEqual(44);
