@@ -11,6 +11,7 @@
 import {openHwpxAsync, packHwpxAsync, validateHwpxAsync} from './hwpx.mjs';
 import {extractBlankTemplate, assertBlank} from './template.mjs';
 import {readReport, buildReport, reportWords, lineText} from './report.mjs';
+import {matchOrgs, matchOrg, orgAllNames, sameOrgName} from '../org-name-match.mjs';
 import {personalReportFromTeam, effectiveOwners, isMine, ownerNotation} from './delta.mjs';
 
 // 브라우저 기본 압축(CompressionStream 'deflate-raw'). Node 20에도 있어 시험이 같은 길을 쓴다.
@@ -139,10 +140,26 @@ export const fileNameFor = (day, name = '', ext = 'hwpx') => {
 // 요약 줄은 세부 과제(끝 이름)가 맞으면 2점, 사업영역(앞 이름)이 맞으면 1점. 조직 약칭(…노조 ↔ …노동조합)은 ORG-별칭 과제에서 별칭으로 잇는다.
 const nameKey = s => String(s ?? '').normalize('NFC').toLowerCase().replace(/[\s·‧․.,()[\]{}<>「」『』'"“”‘’\-–_/]/g, '');
 const sameOrWithin = (a, b) => !!a && !!b && (a === b || (Math.min([...a].length, [...b].length) >= 3 && (a.includes(b) || b.includes(a))));
+// 확정본 조직 줄 이름 → 붙일 줄 후보의 이름들: 줄에 적힌 이름 + (줄이 내 담당 조직 하나에 딱 맞으면) 그 조직의 정식 이름·별칭.
+export const rowNames = (rowText, organizations) => {
+  const org = matchOrg(rowText, organizations);
+  return [...new Set([String(rowText ?? ''), ...(org ? orgAllNames(org) : [])])];
+};
 export function nearestTarget(from, targets) {
   const parts = String(from ?? '').split('›').map(nameKey).filter(Boolean);
   if (!parts.length) return '';
   const last = parts.at(-1), first = parts.length > 1 ? parts[0] : null;
+  // 조직 줄(ORG-별칭): 정식 이름·별칭·자동 규칙(org-name-match.mjs)으로 딱 한 곳이 맞으면 그 줄, 둘 이상 맞으면 자동으로 고르지 않는다(''). 하나도 안 맞을 때만 아래 '품으면 맞음'.
+  const orgTargets = targets.filter(t => t.kind === 'org');
+  if (orgTargets.length) {
+    const orgs = orgTargets.map(t => ({value: t.value, name: (t.names ?? [])[0] ?? '', aliases: (t.names ?? []).slice(1)}));
+    const hits = new Map();
+    for (const raw of String(from ?? '').split('›')) for (const o of matchOrgs(raw.trim(), orgs)) hits.set(o.value, o);
+    // 같은 조직 줄이 확정본에 여럿이면(이름이 같거나 자동 규칙으로 같음) 첫 줄. 서로 다른 조직 둘 이상이면 고르지 않음.
+    const found = [...hits.values()];
+    if (found.length && found.every(o => sameOrgName(o.name, found[0].name))) return found[0].value;
+    if (found.length) return '';
+  }
   const scored = targets.map(t => {
     const names = (t.names ?? []).map(nameKey).filter(Boolean);
     if (t.kind === 'row') {
@@ -227,6 +244,15 @@ export const editableOrgs = (base, section = 'orgs') => (base[section] ?? []).ma
 // 사업영역 줄 기록(1단)은 그 사업영역의 내 첫 줄에. 이름이 맞지 않는 기록은 unmatched(사람이 줄을 골라 붙임).
 // 조직: 조직 이름(별칭 포함)이 같은 줄에.
 export const candidateLine = item => `- ${item.issue && item.label ? `${item.label.split(' › ').slice(1).join(' › ')}: ` : ''}${item.text}`;
+function matchSectionRow(name, aliasList, rows, sections) {
+  const me = {name, aliases: aliasList};
+  const found = rows.filter(r => matchOrgs(r.org, [me]).length);
+  if (!found.length) return null;
+  const same = found.every(r => sameOrgName(r.org, found[0].org));
+  if (!same) return null;
+  // 이 줄 이름이 기록 쪽 다른 조직에도 맞으면 애매 — 정식 이름이 같은 조직이 있으면 그쪽이 우선(matchOrgs)
+  return matchOrgs(found[0].org, sections).length === 1 ? found[0] : null;
+}
 export function weekMaterial(model, rows, orgs, {aliases = new Map()} = {}) {
   const byRow = new Map(rows.map(r => [r.index, []]));
   const unmatched = [];
@@ -240,9 +266,11 @@ export function weekMaterial(model, rows, orgs, {aliases = new Map()} = {}) {
   for (const other of model?.summary?.others ?? []) for (const item of other.items) unmatched.push({day: item.day, text: `- ${item.text}`, from: other.name});
   const byOrg = new Map(orgs.map(o => [o.index, []]));
   const orgUnmatched = [];
+  const allSections = (model?.orgs?.sections ?? []).map(sec => ({name: sec.name, aliases: aliases.get(sec.name) ?? []}));
   for (const section of model?.orgs?.sections ?? []) {
-    const names = [section.name, ...(aliases.get(section.name) ?? [])].map(norm);
-    const hit = orgs.find(o => names.includes(norm(o.org)));
+    // ORG-별칭: 확정본 조직 줄과 기록의 조직을 정식 이름·별칭·자동 규칙(org-name-match.mjs)으로 잇는다. 줄이 둘 이상의 서로 다른 조직에 맞거나,
+    // 이 조직이 서로 다른 이름의 줄 둘 이상에 맞으면 잇지 않고 '줄 고르기'(orgUnmatched)로 넘긴다. 같은 이름 줄이 여럿이면 첫 줄(전과 같음).
+    const hit = matchSectionRow(section.name, aliases.get(section.name) ?? [], orgs, allSections);
     // JOURNAL-조직현황AI요약: an organization with a summary offers its summary lines (no day) instead of the raw records.
     const summary = String(section.summary?.text ?? '').split('\n').map(s => s.trim()).filter(Boolean);
     const lines = summary.length ? summary.map(text => ({day: '', text: `- ${text}`, from: section.name, summary: true}))
