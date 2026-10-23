@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PROFILE-화면정리 시안</title>
+<style>
+:root{
+  --kptu-bg:#f3f1ea;--kptu-surface:#fffefa;--kptu-surface-subtle:#f7f5ee;
+  --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--kptu-faint:#8f8c7f;
+  --kptu-border:#e2ddd0;--kptu-border-strong:#cfc8b6;
+  --kptu-primary:#5c6a35;--kptu-primary-ink:#47532a;--kptu-primary-soft:#eef0e1;--kptu-on-primary:#fff;
+  --kptu-danger:#9a3a2e;--kptu-info-soft:#e8eef3;
+  --ds-line:var(--kptu-border-strong);
+}
+@media (prefers-color-scheme:dark){:root{
+  --kptu-bg:#161613;--kptu-surface:#1f1f1b;--kptu-surface-subtle:#292924;--kptu-ink:#ebe9e1;--kptu-muted:#b1aea2;--kptu-faint:#938f84;
+  --kptu-border:#34332d;--kptu-border-strong:#4a4840;--kptu-primary:#b4c385;--kptu-primary-ink:#c2d095;--kptu-primary-soft:#2c3120;--kptu-on-primary:#161613;
+  --kptu-danger:#e0988c;--kptu-info-soft:#222c33;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--kptu-bg);color:var(--kptu-ink);font:13px/1.45 system-ui,"Noto Sans KR","Malgun Gothic",sans-serif;padding:12px}
+h1{font-size:14px;font-weight:500;margin:0 0 8px;color:var(--kptu-muted)}
+.wrap{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
+.label{font-size:12px;color:var(--kptu-muted);margin:0 0 4px}
+.phone{width:390px;max-width:100%;background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:12px;padding:10px 12px}
+.pc{width:1280px;max-width:100%;background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:8px;display:flex;overflow:hidden;min-height:520px}
+.side{width:176px;flex:none;background:var(--kptu-surface-subtle);border-right:.5px solid var(--ds-line);padding:10px 6px;display:flex;flex-direction:column}
+.side a{display:block;padding:5px 8px;border-radius:6px;color:var(--kptu-ink);font-size:13px}
+.side a.on{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink)}
+.side a.new{outline:1px dashed var(--kptu-primary);outline-offset:-1px}
+.side .sp{flex:1}
+.side .ql{border-top:.5px solid var(--kptu-border-strong);padding:6px 8px 2px;color:var(--kptu-muted);font-size:12px}
+.main{flex:1;min-width:0}
+.topline{height:40px;border-bottom:.5px solid var(--kptu-border);display:flex;align-items:center;gap:8px;padding:0 12px;color:var(--kptu-muted);font-size:12px}
+.topline .gap{flex:1}
+.body{padding:10px 14px;max-width:760px}
+h2{font-size:15px;font-weight:500;margin:0}
+h3{font-size:13px;font-weight:500;margin:0 0 4px;color:var(--kptu-primary-ink)}
+.mu{color:var(--kptu-muted);font-size:12px}
+.box{border:.5px solid var(--kptu-border);border-radius:8px;padding:8px 10px;margin-top:8px;background:var(--kptu-surface)}
+.head{display:flex;align-items:center;gap:8px}
+.head .gap{flex:1}
+.fld{display:flex;gap:6px;align-items:center}
+.fld input{height:30px;font:inherit;color:var(--kptu-ink);background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:8px;padding:0 8px;min-width:0;flex:1}
+.fld.big input{height:40px}
+.fld.big{flex-direction:column;align-items:stretch;gap:2px}
+.fld.big label{font-size:12px;color:var(--kptu-muted)}
+button{height:30px;font:inherit;font-weight:500;color:var(--kptu-ink);background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:8px;padding:0 10px}
+button.pri{background:var(--kptu-primary);color:var(--kptu-on-primary);border-color:var(--kptu-primary)}
+button.pri[disabled]{opacity:.45}
+button.sm{height:28px;font-size:12px;padding:0 9px}
+button.old{height:44px;padding:0 18px;font-size:15px;font-weight:700}
+.old.box{padding:14px;border-radius:12px}
+.chip{display:inline-block;padding:5px 9px;margin:0 6px 6px 0;border:1px solid var(--kptu-border);border-radius:999px;background:var(--kptu-surface-subtle);font-weight:700}
+.grp{font-size:11px;color:var(--kptu-muted);margin:6px 0 0;padding-top:4px;border-top:.5px solid var(--kptu-border)}
+.grp:first-child{border-top:0;margin-top:0}
+.cols{columns:2;column-gap:20px}
+.cols .grp{break-after:avoid}
+.row{display:flex;align-items:center;gap:8px;height:30px;font-size:13px}
+.row .cb{width:14px;height:14px;border:1px solid var(--kptu-border-strong);border-radius:3px;display:inline-grid;place-items:center;flex:none;font-size:10px;line-height:1}
+.row.on .cb{background:var(--kptu-primary);border-color:var(--kptu-primary);color:var(--kptu-on-primary)}
+.row .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .go{color:var(--kptu-faint)}
+.tc{font-size:12px;color:var(--kptu-faint);margin-top:2px}
+.note{font-size:11px;color:var(--kptu-muted);margin:6px 0 0}
+.state{font-size:12px;color:var(--kptu-muted)}
+.end{display:flex;align-items:center;gap:8px;margin-top:8px}
+.red{color:var(--kptu-danger)}
+</style>
+</head>
+<body>
+<h1>PROFILE-화면정리 시안 (가짜 이름 · 저장 안 됨 · 점선 테두리는 새로 생기는 자리)</h1>
+<div class="wrap">
+
+<div>
+<p class="label">(가) 폰 390 · 지금 모습(대략)</p>
+<div class="phone">
+  <div class="head"><div><h2>내 프로필</h2><div class="mu">내 기본 정보와 담당 업무를 확인합니다.</div></div><span class="gap"></span><button class="pri old">프로필 저장</button></div>
+  <div class="old box"><h3 style="font-size:16px">기본 정보</h3>
+    <div class="fld big"><label>이름</label><input value="홍길동"></div>
+    <div class="fld big" style="margin-top:6px"><label>직책</label><input value="부팀장"></div></div>
+  <div class="old box"><h3 style="font-size:16px">담당 사업장</h3><div class="mu">내가 담당하는 산하조직을 추가·삭제하고 한 번에 저장합니다.</div>
+    <div class="fld" style="margin:6px 0"><button class="old" style="padding:0 10px">추가</button><button class="old" style="padding:0 10px">삭제</button><button class="pri old" style="padding:0 10px" disabled>저장</button></div>
+    <span class="chip">○○지하철노조</span><span class="chip">○○철도노조</span><span class="chip">○○9호선지부</span><span class="chip">○○경전철지부</span>
+    <div class="note">조직명을 누르면 해당 조직의 정보와 현황을 확인할 수 있습니다. 추가·삭제할 항목을 선택한 뒤 저장하면 반영됩니다.</div></div>
+  <div class="old box"><h3 style="font-size:16px">맡은 프로젝트</h3><div class="mu">주간보고의 사업요약표에 보고되는 개인 프로젝트입니다. 앱 프로젝트 권한과는 별도로 관리됩니다.</div>
+    <div class="mu" style="margin:6px 0">등록된 보고 프로젝트가 없습니다.</div>
+    <div class="fld big"><input placeholder="프로젝트명"></div><div class="fld big" style="margin-top:4px"><input placeholder="설명(선택)"></div>
+    <button class="old" style="margin-top:6px">+ 프로젝트</button></div>
+  <div class="old box"><h3 style="font-size:16px">계정</h3>
+    <div class="fld" style="gap:6px"><button class="old" style="padding:0 12px">내 공간</button><button class="old" style="padding:0 12px">원장</button><button class="sm">로그아웃</button></div></div>
+  <p class="note">저장 버튼 3개(프로필·사업장·프로젝트) + 프로젝트 줄마다 [저장][삭제]. 칸 제목 크기는 칸마다 다름(여기서는 기본 정보만 크게 보임).</p>
+</div></div>
+
+<div>
+<p class="label">(나) 폰 390 · 바뀐 모습</p>
+<div class="phone">
+  <div class="head"><h2>내 프로필</h2><span class="gap"></span><span class="state">바뀐 것 2곳</span><button class="pri sm">저장</button></div>
+  <div class="box"><h3>기본 정보</h3>
+    <div class="fld"><input value="홍길동" aria-label="이름"><input value="부팀장" aria-label="직책" style="flex:.8"></div></div>
+  <div class="box"><div class="head"><h3 style="margin:0">담당 사업장</h3><span class="gap"></span><span class="state">4곳 선택</span></div>
+    <div style="margin-top:4px">
+      <div class="grp">철도</div>
+      <div class="row on"><span class="cb">✓</span><span class="nm">○○철도노조</span><span class="go">›</span></div>
+      <div class="grp">지하철</div>
+      <div class="row on"><span class="cb">✓</span><span class="nm">○○지하철노조</span><span class="go">›</span></div>
+      <div class="row"><span class="cb"></span><span class="nm">△△교통공사노조</span><span class="go">›</span></div>
+      <div class="grp">민자철도</div>
+      <div class="row"><span class="cb"></span><span class="nm">○○선지부</span><span class="go">›</span></div>
+      <div class="row"><span class="cb"></span><span class="nm">△△공항철도지부</span><span class="go">›</span></div>
+      <div class="grp">민간도시철도</div>
+      <div class="row on"><span class="cb">✓</span><span class="nm">○○9호선지부</span><span class="go">›</span></div>
+      <div class="row on"><span class="cb">✓</span><span class="nm">○○경전철지부</span><span class="go">›</span></div>
+    </div></div>
+  <div class="box"><h3>계정</h3><div class="fld"><button class="sm">내 공간</button><button class="sm red">로그아웃</button></div></div>
+  <p class="note">원장은 사이드바 메뉴로(폰은 [메뉴] 판). 맡은 프로젝트 칸 없음. 안내문 없음. 목록은 실제로는 전체 조직(13곳+)이며 여기서는 일부만.</p>
+</div></div>
+
+<div style="width:100%">
+<p class="label">(다) PC 1280 · 바뀐 모습 (사이드바에 원장 메뉴)</p>
+<div class="pc">
+  <nav class="side" aria-label="메뉴">
+    <a>홈</a><a>바구니</a><a>일정</a><a>프로젝트</a><a>사업 보고</a><a>자료실</a><a>성명·보도자료</a><a>공유 페이지</a><a>담당조직</a><a>HWP 편집</a>
+    <a class="new">원장</a>
+    <span class="sp"></span><div class="ql">자주 가는 링크 ›</div>
+  </nav>
+  <div class="main">
+    <div class="topline"><span>◧</span><span>←</span><span>→</span><span>내 프로필</span><span class="gap"></span><span>[+ 추가]</span><span>[계정 ▾]</span></div>
+    <div class="body">
+      <div class="head"><h2>내 프로필</h2><span class="gap"></span><span class="state">바뀐 것 없음</span><button class="pri sm" disabled>저장</button></div>
+      <div class="box"><h3>기본 정보</h3><div class="fld" style="max-width:420px"><input value="홍길동" aria-label="이름"><input value="부팀장" aria-label="직책" style="flex:.8"></div></div>
+      <div class="box"><div class="head"><h3 style="margin:0">담당 사업장</h3><span class="gap"></span><span class="state">4곳 선택</span></div>
+        <div class="cols" style="margin-top:4px">
+          <div class="grp">철도</div>
+          <div class="row on"><span class="cb">✓</span><span class="nm">○○철도노조</span><span class="go">›</span></div>
+          <div class="grp">지하철</div>
+          <div class="row on"><span class="cb">✓</span><span class="nm">○○지하철노조</span><span class="go">›</span></div>
+          <div class="row"><span class="cb"></span><span class="nm">△△교통공사노조</span><span class="go">›</span></div>
+          <div class="grp">민자철도</div>
+          <div class="row"><span class="cb"></span><span class="nm">○○선지부</span><span class="go">›</span></div>
+          <div class="row"><span class="cb"></span><span class="nm">△△공항철도지부</span><span class="go">›</span></div>
+          <div class="grp">민간도시철도</div>
+          <div class="row on"><span class="cb">✓</span><span class="nm">○○9호선지부</span><span class="go">›</span></div>
+          <div class="row on"><span class="cb">✓</span><span class="nm">○○경전철지부</span><span class="go">›</span></div>
+        </div></div>
+      <div class="box"><h3>계정</h3><div class="fld" style="max-width:240px"><button class="sm">내 공간</button><button class="sm red">로그아웃</button></div></div>
+    </div>
+  </div>
+</div></div>
+
+</div>
+</body>
+</html>
