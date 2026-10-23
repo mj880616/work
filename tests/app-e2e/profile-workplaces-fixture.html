@@ -32,7 +32,7 @@ window.KPTURuntime={session:{ensure:async()=>true},api:async(path,opts={})=>{
  const hit=state.fail.find(x=>x.method===method&&path.startsWith(x.path)&&(!x.org||path.includes(x.org)||JSON.stringify(opts.body??null).includes(x.org)));if(hit)throw new Error('mock failure');
  if(path==='/auth/v1/user')return clone(state.user);
  if(path.includes('/app_workspace_members?'))return [{workspace_id:state.workspace}];
- if(path.includes('/app_profiles?'))return clone(state.profile);
+ if(path.includes('/app_profiles?')&&method==='GET')return clone(state.profile);
  if(path.includes('/app_suborganizations?')&&method==='GET')return clone(state.organizations);
  if(path.includes('/app_suborganization_assignees?')&&method==='GET')return clone(state.assignments);
  if(path.includes('/app_profile_workplaces?')&&method==='GET')return clone(state.workplaces);

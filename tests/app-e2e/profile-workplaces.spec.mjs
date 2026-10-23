@@ -146,7 +146,7 @@ test('프로필 저장이 실패하면 사업장은 건드리지 않고 입력�
   await page.fill('#psName','실패이름');
   await page.locator('.ps-org-pick',{hasText:'한국가스공사노조'}).click();
   await page.click('#psSave');
-  await expect(page.locator('#toast')).toContainText('프로필은 저장하지 못했어요');
+  await expect(page.locator('#toast')).toContainText('프로필과 담당 사업장 1곳은 저장하지 못했어요');
   expect((await calls(page)).some(c=>c.startsWith('POST'))).toBeFalsy();
   await expect(page.locator('#psName')).toHaveValue('실패이름');
   await expect(page.locator('[data-ps-org-check="org-b"]')).toBeChecked();
