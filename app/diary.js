@@ -100,7 +100,7 @@ function selectDay(day, {focus = false} = {}) {
   days.querySelectorAll('[data-diary-day]').forEach(cell => cell.setAttribute('aria-pressed', String(cell.dataset.diaryDay === day)));
   renderDetail();
   dayLayer ||= window.KPTURouter?.layer?.open('diary-day', {close:() => { closeDetail({fromBack:true}); return true; }}) || null;
-  requestAnimationFrame(() => { detail.scrollIntoView({block:'nearest', behavior:'smooth'}); if (focus) detail.querySelector('h3')?.focus(); });
+  requestAnimationFrame(() => { detail.scrollIntoView({block:'nearest', behavior:'smooth'}); if (focus) (detail.querySelector('h3') || detail.querySelector('[data-diary-detail-close]'))?.focus(); });
 }
 // BUG-오늘버튼: [오늘] goes to this month (when needed) and chooses today, opening its detail like a tap on the day.
 // Today already chosen stays as it is. Another month first loads this month, then chooses today if still here.
@@ -110,18 +110,34 @@ function goToday() {
   cursor = {year:t.year, month:t.month}; closeDetail();
   loadMonth().then(() => { if (!edit && !selected && loadedMonth === monthKey() && monthKey() === monthOf(day)) selectDay(day); });
 }
+// UI-상단줄제목: the open day goes to the PC top line's place (kptu:where-item, topbar-actions.js); null drops it.
+const sendWhere = name => window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'diary', name}}));
+// UI-중복제목삭제: with the PC top line (1024px~) the open day is already named there, so the day panel's head has no title line of its own
+// there (the element is not made; the panel is named by aria-label instead). Below that width the head keeps its title, as before.
+const toplineWide = window.matchMedia?.('(min-width:1024px)');
+function syncDetailTitle() {
+  const head = selected && detail.querySelector('.diary-panel-head'); if (!head) return;
+  let title = head.querySelector('#diaryDetailTitle');
+  if (toplineWide?.matches) { title?.remove(); detail.removeAttribute('aria-labelledby'); detail.setAttribute('aria-label', longDay(selected)); return; }
+  if (!title) { title = document.createElement('h3'); title.id = 'diaryDetailTitle'; title.tabIndex = -1; head.prepend(title); }
+  detail.removeAttribute('aria-label'); detail.setAttribute('aria-labelledby', 'diaryDetailTitle');
+  title.textContent = longDay(selected);
+}
+toplineWide?.addEventListener?.('change', syncDetailTitle);
 function closeDetail({fromBack = false} = {}) {
   closeViewer({fromBack, restore:false});
-  selected = null; detail.hidden = true; detail.replaceChildren();
+  selected = null; sendWhere(null); detail.hidden = true; detail.replaceChildren();
   days.querySelectorAll('[aria-pressed="true"]').forEach(cell => cell.setAttribute('aria-pressed', 'false'));
   const opened = dayLayer; dayLayer = null; if (!fromBack) opened?.close();
   renderList();
 }
 function renderDetail() {
   if (!selected) return;
+  sendWhere(longDay(selected));
   const row = rows.get(selected), photos = diaryPhotos(row), text = diaryText(row);
   detail.hidden = false; list.hidden = true;
-  detail.innerHTML = `<div class="diary-panel-head"><h3 id="diaryDetailTitle" tabindex="-1">${esc(longDay(selected))}</h3><button type="button" class="icon-btn" data-diary-detail-close aria-label="날짜 닫기">×</button></div>${row ? `<div class="diary-source" role="group" aria-label="사진 보기"><button type="button" data-diary-source="all" aria-pressed="${source === 'all'}">전체</button><button type="button" data-diary-source="star" aria-pressed="${source === 'star'}">별표</button></div><div data-diary-photos></div>${text ? `<div class="diary-text" data-diary-text-view>${esc(text)}</div>` : ''}<div class="diary-actions"><button type="button" class="secondary" data-diary-edit>수정</button><button type="button" class="secondary diary-danger" data-diary-delete>일기 지우기</button></div>` : `<p class="diary-muted">이 날 일기가 없어요.</p>`}`;
+  detail.innerHTML = `<div class="diary-panel-head"><button type="button" class="icon-btn" data-diary-detail-close aria-label="날짜 닫기">×</button></div>${row ? `<div class="diary-source" role="group" aria-label="사진 보기"><button type="button" data-diary-source="all" aria-pressed="${source === 'all'}">전체</button><button type="button" data-diary-source="star" aria-pressed="${source === 'star'}">별표</button></div><div data-diary-photos></div>${text ? `<div class="diary-text" data-diary-text-view>${esc(text)}</div>` : ''}<div class="diary-actions"><button type="button" class="secondary" data-diary-edit>수정</button><button type="button" class="secondary diary-danger" data-diary-delete>일기 지우기</button></div>` : `<p class="diary-muted">이 날 일기가 없어요.</p>`}`;
+  syncDetailTitle();
   const host = detail.querySelector('[data-diary-photos]');
   if (!host) return;
   if (source === 'star') { host.innerHTML = '<p class="diary-muted diary-star-note" data-diary-star-note>원드라이브 연결 뒤 쓸 수 있어요</p>'; return; }
@@ -425,7 +441,7 @@ window.addEventListener('kptu:session-changed', () => {
   owner = ownerScope(rt); epoch++;
   closeViewer({fromBack:true, restore:false});
   if (edit) { releasePending(); edit = null; editor.hidden = true; editor.replaceChildren(); cal.hidden = false; $('.diary-head').hidden = false; $('[data-diary-new]').hidden = false; status.hidden = false; }
-  editLayer = null; dayLayer = null; selected = null; detail.hidden = true; rows = new Map(); loadedMonth = ''; renderMonth();
+  editLayer = null; dayLayer = null; selected = null; sendWhere(null); detail.hidden = true; rows = new Map(); loadedMonth = ''; renderMonth();
 });
 function enter() {
   const day = takeRequestedDay(rt);

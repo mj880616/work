@@ -11,8 +11,9 @@
 // an edge fits that column to its letters; Tab goes to the next cell (the last cell's Tab adds a row). A table, rule or photo
 // is never a dead end: the text always ends with an empty line, and a gap cursor lets one type before or after any of them.
 // Backspace on the line below a table first selects the table, a second press removes it (↶ brings it back).
-// [사진] waits for ② (공유 사진 보관: DB·버킷·Edge): no button until then; a dropped or pasted picture or file is not put in
-// and a short note says so. Saved photo places from before still show.
+// [사진] (ED-②) exists only where the opener passes `photos` (share pages: share-photos.js keeps each photo in a private bucket
+// and gives a short address to show it). Without `photos` there is no button, and a dropped or pasted picture or file is not put
+// in (a short note says so). A saved photo place (src null) still shows as a place.
 // Decisions (2026-10-22 사용자, 설계 0절): no format while typing (no input rules: "1. " "- " "# " stay letters); a paste of
 // plain letters goes in as typed, one paragraph per line, and when it looks like markdown a small [서식으로 바꾸기] converts
 // that pasted part once (undo puts the letters back). [①] opens ①~⑩ (the next number after the nearest one is marked).
@@ -117,7 +118,7 @@ const BUTTONS = [
   ['color', '글자색', '글자색 고르기', 'paint'], ['highlight', '형광펜', '형광펜 고르기', 'paint'],
   ['align', '왼쪽 ▾', '정렬 고르기', 'align'],
   ['bullet', '목록', '글머리 목록', 'list'], ['ordered', '번호', '번호 목록', 'list'],
-  ['table', '표', '표 넣기', 'insert'], ['link', '링크', '링크 넣기', 'insert'],
+  ['table', '표', '표 넣기', 'insert'], ['photo', '사진', '사진 넣기', 'insert'], ['link', '링크', '링크 넣기', 'insert'],
   ['symDot', '·', '점 기호 고르기', 'sym'], ['symNote', '※', '참고 기호 고르기', 'sym'], ['symArrow', '→', '화살표 고르기', 'sym'], ['symCircled', '①', '동그라미 번호 고르기', 'sym'],
   ['undo', '↶', '되돌리기', 'history'], ['redo', '↷', '다시하기', 'history'],
 ];
@@ -160,7 +161,8 @@ function panel(className, label) {
 // label: the text box's accessible name. head: an optional node put between the button row and the text box (a title).
 // Returns {getValue(), getText(), isEmpty(), focus(), destroy(), view, root}.
 // getText() is the letters for raw_text (ed-text.mjs toPlain): the opener saves structure and letters together (설계 3.1).
-export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null} = {}) {
+// photos: null, or {add(file) -> {src}, url(src) -> address|null, max} (share pages, ED-②).
+export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null, photos = null} = {}) {
   const pm = await loadEditorLib();
   const schema = buildSchema(pm);
   const N = schema.nodes, M = schema.marks;
@@ -179,6 +181,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     symDot: 'symDot', symNote: 'symNote', symArrow: 'symArrow', symCircled: 'symCircled', symBracket: 'symBracket'};
   let lastGroup = null;
   for (const [key, text, aria, group] of BUTTONS) {
+    if (key === 'photo' && !photos) continue;
     const b = btn(text, {edCmd: key, edGroup: group}, aria);
     if (lastGroup && group !== lastGroup) b.classList.add('ed-gap');
     lastGroup = group;
@@ -509,6 +512,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   const isFileTransfer = data => !!data && ([...(data.types || [])].includes('Files') || (data.files && data.files.length > 0));
   const view = new pm.EditorView(box, {
     state,
+    nodeViews: {image: node => photoView(node)},
     attributes: {class: 'ed-doc ed-input', role: 'textbox', 'aria-multiline': 'true', 'aria-label': label, spellcheck: 'false',
       ...(placeholder ? {'data-placeholder': placeholder} : {})},
     transformPastedHTML: cleanPastedHtml,
@@ -532,14 +536,15 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       const text = data?.getData('text/plain') || '';
       const html = data?.getData('text/html') || '';
       // A copied picture or file (no letters with it) is not put in until ② (공유 사진 보관).
-      if (isFileTransfer(data) && !text && !html) { notePhotoLater(); return true; }
+      if (isFileTransfer(data) && !text && !html) { photosFrom(data.files); return true; }
       // Decide after the paste lands: mark its range when the letters look like markdown and no formatted copy came with them.
       pendingPaste = !html && looksLikeMarkdown(text) ? {text, before: v.state.selection.from, size: v.state.doc.content.size} : null;
       return false;
     },
     handleDrop(v, event, slice, moved) {
       if (moved || !isFileTransfer(event.dataTransfer)) return false;
-      notePhotoLater();
+      event.preventDefault();
+      photosFrom(event.dataTransfer.files);
       return true;
     },
     handleDOMEvents: {
@@ -802,7 +807,62 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     note.textContent = text; note.hidden = false;
     clearTimeout(noteTimer); noteTimer = setTimeout(() => { note.hidden = true; }, 5000);
   }
-  const notePhotoLater = () => showNote('사진·파일은 아직 글에 넣을 수 없어요. 공유 사진 보관이 생기면 넣을 수 있어요.');
+  const notePhotoLater = () => showNote(photos ? '사진 파일만 넣을 수 있어요.' : '이 글에는 사진·파일을 넣을 수 없어요. 공유 페이지 글쓰기에서 사진을 넣을 수 있어요.');
+  // A photo in the text: our own id only. A saved place (no src) or a photo without an address shows as a place.
+  function photoView(node) {
+    const dom = document.createElement('figure');
+    dom.contentEditable = 'false';
+    const src = node.attrs.src;
+    const place = text => {
+      dom.className = 'ed-photo is-place ed-center'; dom.dataset.alt = node.attrs.alt;
+      const mark = document.createElement('span'); mark.className = 'ed-photo-mark'; mark.textContent = text;
+      dom.replaceChildren(mark);
+      if (node.attrs.alt) { const cap = document.createElement('figcaption'); cap.className = 'ed-photo-cap'; cap.textContent = node.attrs.alt; dom.append(cap); }
+    };
+    if (!src || !photos) { place(src ? '사진' : '사진 자리'); return {dom}; }
+    place('사진을 불러오는 중…');
+    let gone = false;
+    photos.url(src).then(address => {
+      if (gone) return;
+      if (!address) { place('사진을 불러오지 못했어요'); return; }
+      const img = document.createElement('img');
+      img.className = 'ed-photo-img'; img.alt = node.attrs.alt || ''; img.referrerPolicy = 'no-referrer'; img.decoding = 'async';
+      img.addEventListener('error', () => { if (!gone) place('사진을 불러오지 못했어요'); });
+      img.src = address;
+      dom.className = 'ed-photo ed-center'; dom.replaceChildren(img);
+    }).catch(() => { if (!gone) place('사진을 불러오지 못했어요'); });
+    return {dom, destroy() { gone = true; }};
+  }
+  const photoCount = () => { let n = 0; view.state.doc.descendants(x => { if (x.type === N.image && x.attrs.src) n++; }); return n; };
+  // Photos one at a time, each put in after the one before. A failure stops the rest and says why; the ones in stay.
+  async function photosFrom(list) {
+    const files = [...(list || [])];
+    if (!photos) { notePhotoLater(); return; }
+    const pictures = files.filter(f => /^image\//.test(f.type || ''));
+    if (!pictures.length) { notePhotoLater(); return; }
+    const room = (photos.max || 40) - photoCount();
+    if (pictures.length > room) { showNote(`사진은 한 페이지에 ${photos.max || 40}장까지 넣을 수 있어요.`); if (room <= 0) return; pictures.length = room; }
+    let done = 0;
+    try {
+      for (const file of pictures) {
+        say(`사진 올리는 중… (${done + 1}/${pictures.length})`);
+        const {src} = await photos.add(file);
+        if (view.isDestroyed) return;
+        insertBlock(N.image.create({src, alt: ''}));
+        done++;
+      }
+      say(`사진 ${done}장을 넣었어요. 저장해야 받는 사람에게 보여요.`);
+    } catch (e) {
+      say(''); showNote((e && e.message) || '사진을 올리지 못했어요.');
+    }
+  }
+  const pickPhotos = () => {
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'image/*'; input.multiple = true; input.hidden = true;
+    input.addEventListener('change', () => { const files = [...input.files]; input.remove(); void photosFrom(files); }, {once: true});
+    input.addEventListener('cancel', () => input.remove(), {once: true});
+    root.append(input); input.click();
+  };
 
   const RUN = {
     strong: () => pm.toggleMark(M.strong)(view.state, view.dispatch),
@@ -812,6 +872,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     quote: toggleQuote,
     bullet: () => toggleList(N.bullet_list), ordered: () => toggleList(N.ordered_list),
     rule: () => insertBlock(N.horizontal_rule.create()),
+    photo: () => pickPhotos(),
     indent: () => pm.chainCommands(pm.sinkListItem(N.list_item), indentBy(1))(view.state, view.dispatch),
     outdent: () => pm.chainCommands(pm.liftListItem(N.list_item), indentBy(-1))(view.state, view.dispatch),
     clear: () => clearFormat(view.state, view.dispatch),

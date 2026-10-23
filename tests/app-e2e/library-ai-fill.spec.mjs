@@ -19,7 +19,8 @@ function baseState(){
     user:{id:'user-1',email:'owner@example.org',user_metadata:{display_name:'자료실 관리자'}},
     workspace:{id:'workspace-1',slug:'team',name:'웹2'},
     docs:[{id:DOC_ID(90),workspace_id:'workspace-1',project_id:null,title:'기존 자료',category:'정책',source:'기존 출처',document_date:'2026-09-01',
-      file_name:'old.pdf',tags:[],created_at:'2026-09-01T00:00:00Z',updated_at:'2026-09-01T00:00:00Z',field_origin:{}}],
+      // Links marked as the person's (LIB-AI분류보완: an old document with an empty link would otherwise go to the background sweep).
+      file_name:'old.pdf',tags:[],created_at:'2026-09-01T00:00:00Z',updated_at:'2026-09-01T00:00:00Z',field_origin:{project_id:'user',organization_id:'user'}}],
     uploads:[],patches:[],texts:[],fills:[],aiMode:'ok',
   };
 }
@@ -42,7 +43,7 @@ async function mockApp(page,state){
       state.uploads.push(row);state.docs.push(row);
       return ok({ok:true,document:row});
     }
-    if(path==='/functions/v1/document-actions'){state.texts.push(body);return ok({ok:true,status:'ready',reason:'ok'})}
+    if(path==='/functions/v1/document-actions'){state.texts.push(body);const d=state.docs.find(x=>x.id===body?.document_id);if(d)d.extraction_status='ready';return ok({ok:true,status:'ready',reason:'ok'})}
     if(path==='/functions/v1/ai-assist'){
       state.fills.push(body);
       if(state.aiMode==='fail')return ok({ok:false,error:'ai_busy',message:'x'},503);
@@ -65,7 +66,7 @@ async function mockApp(page,state){
     if(path==='/rest/v1/app_meetings')return ok([]);
     if(path==='/rest/v1/app_documents'){
       const id=eq(url,'id');
-      if(method==='GET')return ok(state.docs.filter(x=>!id||x.id===id));
+      if(method==='GET')return ok(state.docs.filter(x=>(!id||x.id===id)&&(!url.searchParams.has('or')||!['ready','error'].includes(x.extraction_status))));
       if(method==='PATCH'){
         state.patches.push({id,body});
         const rows=state.docs.filter(row=>row.id===id);rows.forEach(row=>Object.assign(row,body||{}));

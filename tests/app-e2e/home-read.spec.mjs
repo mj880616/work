@@ -3,6 +3,7 @@ import { test, expect } from "@playwright/test";
 import { openHome } from './helpers/home-entry.mjs';
 import { loginEntry } from "./helpers/login-entry.mjs";
 import { mkdirSync, writeFileSync } from "node:fs";
+import {expectProjectTitle} from './helpers/screen-title.mjs';
 const app = `${appOrigin}/app/`,
   SB = "https://xmlkxfjeagycwttklxjw.supabase.co";
 for (const width of [390, 1440])
@@ -208,7 +209,7 @@ test("home chips open the existing project detail dialog", async ({page}) => {
   await page.setViewportSize({width:390,height:1000});await openHome(page);
   await page.locator('[data-home-project="child"]').click();
   await expect(page.locator('#ps3DetailModal')).toBeVisible();
-  await expect(page.locator('#ps3Title')).toHaveText('자식 프로젝트');
+  await expectProjectTitle(page,'자식 프로젝트');
   await page.locator('[data-ps3-close="ps3DetailModal"]').click();
   await expect(page.locator('#ps3DetailModal')).toBeHidden();
   await expect(page.locator('#homeView')).toBeVisible();

@@ -32,6 +32,8 @@
 .ed-doc .ed-photo{display:flex;flex-direction:column;align-items:center;gap:4px;margin:.6em auto .9em;padding:18px 12px;max-width:420px;border:1px dashed var(--kptu-border-strong);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface-subtle);color:var(--kptu-muted);text-align:center}
 .ed-doc .ed-photo-mark{font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,600)}
 .ed-doc .ed-photo-cap{font-size:var(--ds-text-meta,12px)}
+.ed-doc .ed-photo:not(.is-place){gap:4px;padding:0;max-width:100%;border:0;background:none}
+.ed-doc .ed-photo-img{display:block;max-width:100%;height:auto;border-radius:var(--ds-radius-control,8px)}
 .ed-doc .ed-table-wrap,.ed-doc .tableWrapper{margin:.4em 0 .9em;overflow-x:auto}
 .ed-doc table{border-collapse:collapse;min-width:50%}
 /* 칸 폭을 끌어 정한 표: 저장된 폭 합만큼(글 폭보다 넓지 않게), 칸은 그 비율(ed-schema.mjs tableLayout, 읽는 쪽과 같은 배치) */

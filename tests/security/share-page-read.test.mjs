@@ -114,6 +114,7 @@ test('index reads only the needed columns with the server key kept inside the fu
  assert.match(index,/Deno\.env\.get\("SUPABASE_SERVICE_ROLE_KEY"\)/);
  assert.match(index,/\.select\("page_id,token_hash,expires_at,disabled_at"\)\s*\.eq\("token_hash", hash\)/);
  assert.match(index,/\.select\("id,title,blocks,status"\)\s*\.eq\("id", id\)/);
+ assert.match(index,/\.select\("id,storage_path"\)\s*\.eq\("page_id", pageId\)/);
  assert.doesNotMatch(index,/select\("\*"\)|\.insert\(|\.update\(|\.delete\(|\.rpc\(|token"|workspace_id/);
 });
 test('verify_jwt=false is registered for share-page-read in section 5 with the reason',()=>{

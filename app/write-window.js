@@ -4,9 +4,10 @@
 // - 노트: a kind=note row; its title is the first line (as menu [쓰기] always did). [마크다운] starts off (NOTE-마크다운선택).
 // Saving is 저장하고 닫기. Every save is an existing owner-RLS path; an opener may route the update through its own save
 // (the home input keeps its attachments that way). Texts that already exist (memo·note edit) keep their own editor call.
-// UI-크게첨부: under the text, [📎 첨부] (the basket's own picker part, basket-upload.js) while 업데이트 is chosen. Files go only
-// with a basket update (the existing rule): the home input hands in its own file batch, every other opener uses one this window
-// keeps and sends through the same basket upload path (uploadBatch → basket-files) as the home input.
+// UI-크게첨부: under the text, [📎 첨부] (the basket's own picker part, basket-upload.js) while 업데이트 is chosen. The home input
+// hands in its own file batch, every other opener uses one this window keeps and sends through the same basket upload path
+// (uploadBatch → basket-files) as the home input. BUG-업데이트첨부연결: with places chosen the files still go (as a basket update
+// linked to those places, its files put into their documents: update-places.js saveUpdateWithFiles).
 // NOTE-파일붙이기: with [노트] chosen the same [📎 첨부] sits at the end of the format row; the note is made first, then its files
 // go up with its id (uploadNoteFiles; basket-files puts them in Drive "노트 첨부"). A note may be files only (titled by the first
 // file's name). The opener's batch is emptied after that save (upload.reset).
@@ -14,7 +15,7 @@ import { openMarkdownEditor } from './md-editor.js';
 import { createChoiceSheet } from './choice-sheet.js';
 import { createNoteDoc, noteTitleFromText, validateNoteText } from './basket-data.js';
 import { createUploadBatch, uploadBatch, uploadNoteFiles, mountBasketPicker, fileTitle } from './basket-upload.js';
-import { readPlaces, placeSources, placeSheetHtml, keepPlaces, samePlace, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, rememberPlace, linkFailText } from './update-places.js';
+import { readPlaces, placeSources, placeSheetHtml, keepPlaces, samePlace, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, saveUpdateWithFiles, rememberPlace, linkFailText, fileFailText } from './update-places.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
 let sheet = null, active = null;
@@ -37,12 +38,14 @@ export const savedMessage = (saved) => saved.kind === 'note' ? '노트로 저장
 // kind: 'update' | 'note' (preselected). place: null (basket), {kind, id} or a list of them (UPD-여러곳고르기). places: the opener's already read lists (optional).
 // sources: reads for the place lists (default: the window's own). updateVia(text, places): the opener's own update save, resolving
 // {ok:true} or {ok:false, message}, or undefined to leave that place to this window's own save.
+// noteFolder (optional, NOTE-추가폴더표시): {label(), open(trigger)} adds the note's [폴더 ▾] button beside the title box; the opener owns the
+// choice and its picker and calls the returned editor's paint() after it changed.
 // own: {place, name} — the opener's own record (organization·project detail). It keeps its name and stays chosen even when the
 // place lists do not offer it. upload: {getBatch(), isBusy(), onChange()} — the opener's own file batch (the home input); without
 // it the window keeps its own. onPlace(places) after [저장] in the sheet. onSaved({kind, place, places, name, id}) after a save
 // (place: the one place when exactly one was chosen); onClose(text, {saved, places}) when it closes.
 export function openWriteWindow({text = '', kind = 'update', place = null, places = null, title = '쓰기', draft = true, sources = null,
-  rt = window.KPTURuntime, updateVia = null, own = null, upload = null, onInput = null, onPlace = () => {}, onSaved = () => {}, onClose = () => {}} = {}) {
+  rt = window.KPTURuntime, updateVia = null, own = null, noteFolder = null, upload = null, onInput = null, onPlace = () => {}, onSaved = () => {}, onClose = () => {}} = {}) {
   const owner = rt.session.read()?.user?.id;
   let editor = null, saved = null, flight = null, closed = false, busy = false, picker = null, ownBatch = upload ? null : createUploadBatch();
   const batch = () => upload ? upload.getBatch() : ownBatch;
@@ -77,9 +80,11 @@ export function openWriteWindow({text = '', kind = 'update', place = null, place
   async function saveOwn(value, target) {
     // The batch is the opener's own (upload) or this window's; the file list has one owner, whichever opened the window.
     const files = batch();
-    if (target.length || !files.entries.length) return saveUpdate({places:target, text:value, owner}, rt);
-    const result = await uploadBatch(files, {raw_text:value, rt, isCurrent:() => rt.session.read()?.user?.id === owner, onChange:() => picker?.render()});
-    if (upload && !files.blocked && files.entries.every(entry => entry.kind === 'success')) upload.reset?.();
+    if (!files.entries.length) return saveUpdate({places:target, text:value, owner}, rt);
+    // BUG-업데이트첨부연결: files with chosen places go up as a basket update, then are linked and filed there (update-places.js).
+    const isCurrent = () => rt.session.read()?.user?.id === owner, onChange = () => picker?.render();
+    const result = target.length ? await saveUpdateWithFiles({places:target, text:value, batch:files, isCurrent, sameOwner:isCurrent, onChange}, rt) : await uploadBatch(files, {raw_text:value, rt, isCurrent, onChange});
+    if (!files.blocked && files.entries.every(entry => entry.kind === 'success')) { if (upload) upload.reset?.(); else ownBatch = createUploadBatch(); }
     return result;
   }
   async function run(value, chosen, {title: heading = '', markdown = false} = {}) {
@@ -102,12 +107,13 @@ export function openWriteWindow({text = '', kind = 'update', place = null, place
         }
       } else {
         const target = [...state.chosen], label = name();
-        if (target.length && count) return {ok:false, message:'첨부는 바구니로만 저장돼요. ▾에서 바구니를 고르거나 첨부를 빼 주세요.'};
-        if (!(!target.length && count)) { if (!value.trim()) return {ok:false, message:'글을 입력해 주세요.'}; if (!target.length || target.length > 1) validateNoteText(value); }
+        // BUG-업데이트첨부연결: files go along with any place (the basket, or chosen places through the basket's own paths).
+        if (!count) { if (!value.trim()) return {ok:false, message:'글을 입력해 주세요.'}; if (!target.length || target.length > 1) validateNoteText(value); }
         let result = updateVia ? await updateVia(value, target) : undefined;
         if (result === undefined) result = await saveOwn(value, target);
         if (result?.ok === false) return result;
-        if (result?.linkError) warning = linkFailText;
+        const fileError = result?.fileError || (result?.filed?.ok === false ? result.filed.message || 'FILES' : '');
+        if (result?.linkError || fileError) warning = [result?.linkError ? linkFailText : '', fileError ? fileFailText : ''].filter(Boolean).join(' ');
         saved = {kind:'update', place:target.length === 1 ? target[0] : null, places:target, name:label};
         // UI-기록할곳되돌리기: places picked here (not the opener's own record alone) come first on the 최근 line next time.
         if (!(target.length === 1 && ownPlace && samePlace(target[0], ownPlace))) rememberPlace(target);
@@ -125,7 +131,7 @@ export function openWriteWindow({text = '', kind = 'update', place = null, place
       onError:message => state.say(message)});
   }};
   // NOTE-마크다운선택: [노트] shows the [마크다운] box, off for a new note; an update is always markdown (no box).
-  editor = openMarkdownEditor({text, title, draft, onInput, attach, markdown:{value:false, show:chosen => chosen === 'note'}, noteTitle:{kind:'note', label:'노트 제목', placeholder:'노트 제목(비우면 본문 첫 줄)'},
+  editor = openMarkdownEditor({text, title, draft, onInput, attach, folder:noteFolder ? {show:chosen => chosen === 'note', label:noteFolder.label, open:noteFolder.open} : null, markdown:{value:false, show:chosen => chosen === 'note'}, noteTitle:{kind:'note', label:'노트 제목', placeholder:'노트 제목(비우면 본문 첫 줄)'},
     kinds:{label:'저장할 곳', value:kind, options:[['update', '업데이트'], ['note', '노트']], text:value => value === 'update' && state.chosen.length ? name() || null : null,
       menu:{value:'update', aria:() => state.chosen.length && name() ? '기록할 곳 선택: ' + name() : '기록할 곳 선택', open:trigger => void placeSheet().open('place', trigger)}},
     placeholder:chosen => chosen === 'note' ? '노트 본문을 쓰세요' : state.chosen.length ? `${name() || '고른 곳'} 기록을 입력하세요` : '업데이트 입력(바구니에 저장)',

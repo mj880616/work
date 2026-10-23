@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { openHome } from './helpers/home-entry.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
+import {expectProjectTitle,projectColorDot} from './helpers/screen-title.mjs';
 
 // PRJ-색: the real app runs in Chromium; only the Supabase REST boundary is synthetic.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -76,8 +77,8 @@ for(const scheme of ['light','dark'])test(`PRJ-색 list dots: chosen color, chil
   if(capture)await page.screenshot({path:`${dir}/list-390-${scheme}.png`});
   // Detail header: dot before the title, hierarchy and ⋯ menu unchanged.
   await page.locator('[data-ps3-project="green-kid"]').click();
-  await expect(page.locator('#ps3Title')).toHaveText('초록 하위');
-  await expect(page.locator('#ps3Title .ps3-color-dot')).toHaveAttribute('data-tone','soft');
+  await expectProjectTitle(page,'초록 하위');
+  await expect(await projectColorDot(page)).toHaveAttribute('data-tone','soft');
   await expect(page.locator('#ps3Hierarchy .ps3-parent-link')).toContainText('초록 메인');
   await expect(page.locator('#ps3Menu details.ps3-more')).toHaveCount(1);
   if(capture)await page.screenshot({path:`${dir}/detail-child-390-${scheme}.png`});
@@ -102,10 +103,10 @@ test('PRJ-색 create: 8 labelled 44px choices, saved as a color key; child creat
   await page.locator('#ps3CreateParent').selectOption('green');await expect(field).toBeHidden();
   await page.locator('#ps3CreateParent').selectOption('');await expect(field).toBeVisible();
   await page.locator('#ps3CreateSave').click();
-  await expect(page.locator('#ps3Title')).toHaveText('파랑 프로젝트');
+  await expectProjectTitle(page,'파랑 프로젝트');
   const created=state.calls('app_spaces','POST')[0].body;
   expect(created.metadata.color).toBe('blue');expect(created.visibility).toBe('private');
-  await expect(page.locator('#ps3Title .ps3-color-dot')).toHaveAttribute('data-color','blue');
+  await expect(await projectColorDot(page)).toHaveAttribute('data-color','blue');
   // Child creation from the detail child list: no picker, no color written.
   await page.locator('[data-ps3-close="ps3DetailModal"]').click();
   await page.locator('[data-ps3-project="green"]').first().click();
@@ -113,20 +114,20 @@ test('PRJ-색 create: 8 labelled 44px choices, saved as a color key; child creat
   await expect(page.locator('#ps3CreateHeading')).toHaveText('하위 프로젝트 만들기');
   await expect(field).toBeHidden();
   await page.locator('#ps3CreateName').fill('새 하위');await page.locator('#ps3CreateSave').click();
-  await expect(page.locator('#ps3Title')).toHaveText('새 하위');
+  await expectProjectTitle(page,'새 하위');
   const child=state.calls('app_spaces','POST')[1].body;
   expect(child.parent_id).toBe('green');expect('color' in child.metadata).toBe(false);
-  await expect(page.locator('#ps3Title .ps3-color-dot')).toHaveAttribute('data-color','green');
-  await expect(page.locator('#ps3Title .ps3-color-dot')).toHaveAttribute('data-tone','soft');
+  await expect(await projectColorDot(page)).toHaveAttribute('data-color','green');
+  await expect(await projectColorDot(page)).toHaveAttribute('data-tone','soft');
 });
 
 test('PRJ-색 create without a choice writes no color and shows gray',async({page})=>{
   const state=await fixture(page);
   await page.locator('#newProjectBtn').click();
   await page.locator('#ps3CreateName').fill('색 안 고름');await page.locator('#ps3CreateSave').click();
-  await expect(page.locator('#ps3Title')).toHaveText('색 안 고름');
+  await expectProjectTitle(page,'색 안 고름');
   expect('color' in state.calls('app_spaces','POST')[0].body.metadata).toBe(false);
-  await expect(page.locator('#ps3Title .ps3-color-dot')).toHaveAttribute('data-color','gray');
+  await expect(await projectColorDot(page)).toHaveAttribute('data-color','gray');
 });
 
 test('PRJ-색 edit: current color is selected, arrow keys change it, other metadata is kept',async({page})=>{

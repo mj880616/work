@@ -138,6 +138,8 @@ jobs:
               ],
               # UI-노트폴더 기억: read-only observation of the note-folder key through the browser context's saved state.
               'tests/app-e2e/basket-note-folder.spec.mjs':[r'^\s*'+re.escape("const folderKeys = async page => (await page.context().storageState()).origins.flatMap(o => o.localStorage).filter(i => i.name.includes('note-folder')).map(i => [i.name, i.value]);")+r'\s*$'],
+              # ED-② 공유 사진: 사진 id·공유 사진 주소가 기기 저장소에 하나도 남지 않음을 확인하는 읽기 전용 단언(저장 사용 없음).
+              'tests/app-e2e/share-pages-photo.spec.mjs':[r'^\s*'+re.escape("expect(await page.evaluate(id => Object.entries(localStorage).concat(Object.entries(sessionStorage)).filter(([k, v]) => (k + v).includes(id) || /share-page|share:/.test(k + v)).map(([k]) => k), PHOTO)).toEqual([]);")+r'\s*$'],
               'tests/app-e2e/auth-handoff.spec.mjs':[r'localStorage\.getItem\(key\),SESSION'],
               # LIB: exact read-only assertion that disclosure never creates storage keys.
               'tests/app-e2e/library-row-list.spec.mjs':[r'^\s*'+re.escape('const storageKeys=()=>page.evaluate(()=>({local:Object.keys(localStorage).sort(),session:Object.keys(sessionStorage).sort()}));')+r'\s*$'],

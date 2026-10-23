@@ -18,6 +18,11 @@
 //     바꾸기 전 원래 값은 DB 함수 app_library_auto_tidy_apply가 백업 표에 남기고 같은 트랜잭션에서 바꾼다. AI에 한 번 보낸 자료는
 //     시도 기록(app_library_tidy_attempts)이 있어 다시 보내지 않는다.
 //   칸별 안쪽 기록 field_origin('ai'·'user')은 화면에 보이지 않는다. 'user' 칸은 어느 쪽도 쓰지 않는다.
+//   LIB-AI분류보완(2026-10-23): fill·tidy가 파일 글자로 비어 있는 프로젝트·담당조직 연결도 채운다(연결 후보는 내 목록에서 서버가 고르고
+//   ID는 서버가 바꿔 넣음). 시도 기록은 app_library_classify_attempts(자료마다 1행, 글자로 판단했는지 with_text)로 옮겼다:
+//   기존 자료는 한 번씩 다시 보고(연결 판단), 파일 이름만으로 본 자료는 글자가 들어오면 한 번 더 본다. tidy 저장은
+//   app_library_classify_apply(백업·연결 검사·시도 기록 한 트랜잭션), 되돌리기는 app_library_classify_revert(_since).
+//   이 표가 없으면(DB 적용 전) fill은 예전처럼 글 칸 4개만, tidy는 library_not_ready.
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import {
   dedupeKey, packSources, parseTodoRadar, radarMaterial, RADAR_MAX_OUTPUT_TOKENS, TODO_RADAR_INSTRUCTIONS, TODO_RADAR_SCHEMA,
@@ -29,8 +34,9 @@ import {
 } from "./ledger-candidates.ts";
 import {
   type DocRow, fillableFields, LIBRARY_FIELDS, LIBRARY_FILL_INSTRUCTIONS, LIBRARY_FILL_SCHEMA, LIBRARY_FILL_WINDOW_MS,
-  LIBRARY_MAX_OUTPUT_TOKENS, LIBRARY_PROPOSE_BATCH, legacyUserFields, type LibraryField, libraryMaterial, type MaterialFile, parseLibraryFill,
-  proposalsFor, readOrigin, validCategories,
+  LIBRARY_MAX_OUTPUT_TOKENS, LIBRARY_PROPOSE_BATCH, legacyUserFields, type LibraryField, libraryMaterial, type LinkOptions, type MaterialFile,
+  NO_LINKS, openLinkFields, organizationOptions, type OriginField, parseLibraryFill, projectOptions, proposalsFor, readOrigin, upgradeTextFields,
+  validCategories,
 } from "./library-fill.ts";
 import {
   type OrgMaterial, ORG_SUMMARY_INSTRUCTIONS, ORG_SUMMARY_MAX_ORGS, ORG_SUMMARY_MAX_OUTPUT_TOKENS, ORG_SUMMARY_SCHEMA, orgSummaryMaterial,
@@ -962,7 +968,7 @@ async function runLedgerCandidates(ctx: Ctx, deps: RadarDeps): Promise<Response>
 
 // ---- 자료실 빈 칸 채우기(library_fill, LIB-AI자동분류) -----------------------------------------------------------
 
-const LIBRARY_SELECT = "id,workspace_id,title,category,source,document_date,file_name,mime_type,created_at,updated_at,field_origin,extracted_text,extraction_status,classification_note";
+const LIBRARY_SELECT = "id,workspace_id,title,category,source,document_date,file_name,mime_type,created_at,updated_at,field_origin,extracted_text,extraction_status,classification_note,project_id,organization_id";
 
 // jsonb가 돌려주는 키 순서(짧은 것 먼저, 같으면 바이트 순)로 맞춘다. 화면의 저장 확인 비교와 같은 모양.
 const canonicalOrigin = (o: Record<string, string>) =>
@@ -978,7 +984,7 @@ async function readLibraryDocs(ctx: Ctx, ids: string[]) {
     throw new Fail(503, "library_unavailable");
   }
   if (!Array.isArray(rows) || rows.length > ids.length) throw new Fail(503, "library_unavailable");
-  const docs: (DocRow & { updated_at: string | null; text: string; legacy_user: LibraryField[] })[] = [];
+  const docs: (DocRow & { updated_at: string | null; text: string; legacy_user: OriginField[] })[] = [];
   for (const raw of rows as Record<string, unknown>[]) {
     const id = String(raw.id ?? "").toLowerCase();
     if (!ids.includes(id) || String(raw.workspace_id ?? "").toLowerCase() !== ctx.workspaceId) continue;
@@ -989,6 +995,7 @@ async function readLibraryDocs(ctx: Ctx, ids: string[]) {
       id, workspace_id: ctx.workspaceId, title: str(raw.title), category: str(raw.category), source: str(raw.source),
       document_date: str(raw.document_date), file_name: str(raw.file_name), mime_type: str(raw.mime_type), created_at: str(raw.created_at),
       updated_at: str(raw.updated_at), field_origin: origin,
+      project_id: str(raw.project_id)?.toLowerCase() ?? null, organization_id: str(raw.organization_id)?.toLowerCase() ?? null,
       text: raw.extraction_status === "ready" && typeof raw.extracted_text === "string" ? raw.extracted_text : "",
       legacy_user: legacyUserFields(raw.classification_note),
     });
@@ -1005,23 +1012,50 @@ async function readCategories(ctx: Ctx): Promise<string[]> {
   }
 }
 
-// tidy: 이미 AI에 보낸 자료(시도 기록). 표가 없으면(DB 적용 전) library_not_ready.
-async function readTidyAttempts(ctx: Ctx, ids: string[]): Promise<Set<string>> {
+// 분류 시도 기록(LIB-AI분류보완): 자료 id → 그때 글자로 판단했는지(with_text). 표가 없으면(DB 적용 전) null.
+async function readClassifyAttempts(ctx: Ctx, ids: string[]): Promise<Map<string, boolean> | null> {
   let rows: unknown;
   try {
-    rows = await rest(ctx, `app_library_tidy_attempts?document_id=in.(${ids.join(",")})&workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&select=document_id&limit=${ids.length + 1}`);
+    rows = await rest(ctx, `app_library_classify_attempts?document_id=in.(${ids.join(",")})&workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&select=document_id,with_text&limit=${ids.length + 1}`);
   } catch (e) {
-    if (["rest_400", "rest_404"].includes((e as Error)?.message)) throw new Fail(503, "library_not_ready");
+    if (["rest_400", "rest_404"].includes((e as Error)?.message)) return null;
     throw new Fail(503, "library_unavailable");
   }
   if (!Array.isArray(rows) || rows.length > ids.length) throw new Fail(503, "library_unavailable");
-  return new Set((rows as Record<string, unknown>[]).map((r) => String(r?.document_id ?? "").toLowerCase()));
+  return new Map((rows as Record<string, unknown>[]).map((r) => [String(r?.document_id ?? "").toLowerCase(), r?.with_text === true]));
 }
 
-type TidyItem = { document_id: string; updated_at: string; changes: Record<string, string> };
-// tidy 저장: 백업·바꾸기·시도 기록을 DB 함수 하나(한 트랜잭션)로. 함수가 없으면(DB 적용 전) library_not_ready.
-async function applyTidy(ctx: Ctx, batch: string, items: TidyItem[]) {
-  const r = await ctx.doFetch(`${ctx.sb}/rest/v1/rpc/app_library_auto_tidy_apply`, {
+// AI가 한 번이라도 쓴 연결(백업 행이 있음, 되돌린 것 포함): "자료id:칸". 못 읽으면 null(그때는 연결을 채우지 않는다).
+async function readLinkBackups(ctx: Ctx, ids: string[]): Promise<Set<string> | null> {
+  try {
+    const rows = await rest(ctx, `app_library_tidy_backups?document_id=in.(${ids.join(",")})&workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&field=in.(project_id,organization_id)&select=document_id,field&limit=100`);
+    if (!Array.isArray(rows) || rows.length >= 100) return null;
+    return new Set((rows as Record<string, unknown>[]).map((r) => `${String(r?.document_id ?? "").toLowerCase()}:${String(r?.field ?? "")}`));
+  } catch {
+    return null;
+  }
+}
+
+// 연결 후보: 내 프로젝트(app_spaces, owner)·담당조직(app_suborganizations). 로그인 토큰으로 읽어 owner RLS가 그대로 걸린다.
+// 못 읽으면 연결 없이(글 칸만) 진행한다.
+async function readLinkOptions(ctx: Ctx, log: Log): Promise<LinkOptions> {
+  try {
+    const ws = encodeURIComponent(ctx.workspaceId);
+    const [spaces, orgs] = await Promise.all([
+      rest(ctx, `app_spaces?workspace_id=eq.${ws}&owner_id=eq.${encodeURIComponent(ctx.userId)}&select=id,name,parent_id,status,metadata&order=sort_order.asc,created_at.asc&limit=500`),
+      rest(ctx, `app_suborganizations?workspace_id=eq.${ws}&select=id,name,active&order=name.asc&limit=500`),
+    ]);
+    return { projects: projectOptions(spaces), organizations: organizationOptions(orgs) };
+  } catch {
+    log("library_links_unavailable");
+    return NO_LINKS;
+  }
+}
+
+type ClassifyItem = { document_id: string; updated_at: string; with_text: boolean; changes: Record<string, string> };
+// tidy 저장: 백업·바꾸기(연결은 비어 있을 때만, 같은 업무공간 확인)·시도 기록을 DB 함수 하나(한 트랜잭션)로.
+async function applyClassify(ctx: Ctx, batch: string, items: ClassifyItem[]) {
+  const r = await ctx.doFetch(`${ctx.sb}/rest/v1/rpc/app_library_classify_apply`, {
     method: "POST",
     headers: { apikey: ctx.anon, Authorization: `Bearer ${ctx.token}`, "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({ p_batch: batch, p_items: items }),
@@ -1034,6 +1068,21 @@ async function applyTidy(ctx: Ctx, batch: string, items: TidyItem[]) {
   const out = await readBoundedJson(r, { maxBytes: 64 * 1024 }) as Record<string, unknown> | null;
   const n = (v: unknown) => (Number.isSafeInteger(v) && (v as number) >= 0 ? v as number : 0);
   return { documents: n(out?.documents), fields: n(out?.fields), moved: n(out?.moved) };
+}
+
+// fill 뒤 시도 기록(막 올린 자료를 나중 정리에서 다시 보내지 않게). 이미 있으면 그대로 둔다. 실패해도 채우기 결과는 그대로.
+async function recordFillAttempts(ctx: Ctx, rows: { document_id: string; with_text: boolean; changed: number }[], log: Log) {
+  if (!rows.length) return;
+  try {
+    const batch = crypto.randomUUID();
+    await rest(ctx, "app_library_classify_attempts?on_conflict=document_id", {
+      method: "POST",
+      prefer: "resolution=ignore-duplicates,return=minimal",
+      body: rows.map((r) => ({ document_id: r.document_id, workspace_id: ctx.workspaceId, batch_id: batch, with_text: r.with_text, changed: Math.min(6, r.changed) })),
+    });
+  } catch {
+    log("library_attempt_record_failed");
+  }
 }
 
 // 바꿀 칸만 저장한다. 읽은 뒤 사용자가 고쳤으면(updated_at이 달라짐) 0행이 바뀌고 건너뛴다.
@@ -1055,23 +1104,51 @@ async function runLibraryFill(ctx: Ctx, input: LibraryFillInput, deps: RadarDeps
   const docs = await readLibraryDocs(ctx, input.document_ids);
   if (!docs.length) throw new Fail(404, "not_found");
   const categories = await readCategories(ctx);
-  // fill은 막 올린 자료만. tidy는 그 반대(올린 지 1시간 지난 자료만, 막 올린 자료는 fill이 맡음)이고 AI에 이미 보낸 자료는 뺀다.
-  const tried = input.mode === "tidy" ? await readTidyAttempts(ctx, docs.map((d) => d.id)) : new Set<string>();
+  // 분류 시도 기록. tidy는 이 표가 있어야 하고, fill은 없으면 예전처럼 글 칸 4개만 채운다(연결·시도 기록 없음).
+  const attempts = input.mode === "propose" ? null : await readClassifyAttempts(ctx, docs.map((d) => d.id));
+  if (input.mode === "tidy" && !attempts) throw new Fail(503, "library_not_ready");
+  // fill은 막 올린 자료만. tidy는 그 반대(올린 지 1시간 지난 자료만, 막 올린 자료는 fill이 맡음).
+  // tidy 대상: 아직 분류 시도가 없는 자료, 또는 파일 이름만으로 판단했던 자료(with_text=false)에 이제 글자가 있을 때(upgrade, 한 번).
   const targets = docs.map((doc) => {
     const created = timeOf(doc.created_at);
     const fresh = Number.isFinite(created) && started - created <= LIBRARY_FILL_WINDOW_MS && created - started <= 300000;
     const old = Number.isFinite(created) && started - created > LIBRARY_FILL_WINDOW_MS;
-    const skip = input.mode === "fill" ? !fresh : input.mode === "tidy" ? !old || tried.has(doc.id) : false;
-    const fields = skip ? [] : fillableFields(doc, input.mode === "tidy" ? "propose" : input.mode, input.keep, categories)
-      .filter((f) => input.mode !== "tidy" || !doc.legacy_user.includes(f));
-    return { doc, fields };
+    const prior = attempts?.get(doc.id);
+    const upgrade = input.mode === "tidy" && prior === false && !!doc.text;
+    const eligible = input.mode === "fill" ? fresh : input.mode === "tidy" ? old && (prior === undefined || upgrade) : true;
+    let fields: OriginField[] = eligible ? fillableFields(doc, input.mode === "tidy" ? "propose" : input.mode, input.keep, categories) : [];
+    if (input.mode === "tidy") {
+      fields = fields.filter((f) => !doc.legacy_user.includes(f));
+      if (upgrade) for (const f of upgradeTextFields(doc, doc.legacy_user)) if (!fields.includes(f)) fields.push(f);
+    }
+    return { doc, fields, eligible };
   });
+  // 연결: 시도 기록 표가 있을 때(DB 적용 뒤)만, 비어 있는 연결이 있는 대상 자료가 있을 때만 목록을 읽는다.
+  let links: LinkOptions = NO_LINKS;
+  if (attempts && targets.some((t) => t.eligible && (!t.doc.project_id || !t.doc.organization_id))) {
+    const touched = await readLinkBackups(ctx, targets.filter((t) => t.eligible).map((t) => t.doc.id));
+    if (touched) {
+      links = await readLinkOptions(ctx, deps.log);
+      for (const t of targets) if (t.eligible) t.fields.push(...openLinkFields(t.doc, links, t.doc.legacy_user, touched));
+    }
+  }
   // 올릴 때 사용자가 넣은 칸(keep)은 AI가 실패해도 'user'로 남긴다(다음 정리 목록에서도 빠지게).
   const keepMarks = (doc: DocRow) => input.mode === "fill"
     ? Object.fromEntries(input.keep.filter((f) => doc.field_origin[f] !== "user").map((f) => [f, "user"]))
     : {};
+  const withText = (doc: { text: string }) => !!doc.text;
   const work = targets.filter((t) => t.fields.length);
+  // tidy에서 할 일이 없는 대상 자료도 시도 기록만 남긴다(다음에 다시 보내지 않음). AI는 부르지 않는다.
+  const emptyItems = (): ClassifyItem[] => targets.filter((t) => t.eligible && !t.fields.length)
+    .map((t) => ({ document_id: t.doc.id, updated_at: t.doc.updated_at ?? "", with_text: withText(t.doc), changes: {} }));
   if (!work.length) {
+    const empty = emptyItems();
+    if (input.mode === "tidy" && empty.length) {
+      try { await applyClassify(ctx, crypto.randomUUID(), empty); } catch { deps.log("library_tidy_mark_failed"); }
+    }
+    if (input.mode === "fill" && attempts) {
+      await recordFillAttempts(ctx, targets.filter((t) => t.eligible).map((t) => ({ document_id: t.doc.id, with_text: withText(t.doc), changed: 0 })), deps.log);
+    }
     return json({ ok: true, kind: "library_fill", mode: input.mode, updated: 0, skipped: docs.length, proposals: input.mode === "propose" ? [] : undefined });
   }
   const config = aiConfig(deps.env);
@@ -1086,7 +1163,12 @@ async function runLibraryFill(ctx: Ctx, input: LibraryFillInput, deps: RadarDeps
     throw new Fail(503, "usage_unavailable");
   }
   const files: MaterialFile[] = work.map((t, i) => ({ ref: `d${i + 1}`, doc: t.doc, text: t.doc.text }));
-  const material = libraryMaterial(files, categories);
+  // 연결 칸이 있는 자료가 있을 때만 프로젝트·조직 이름 목록을 보낸다(필요한 것만 보냄).
+  const sentLinks: LinkOptions = {
+    projects: work.some((t) => t.fields.includes("project_id")) ? links.projects : [],
+    organizations: work.some((t) => t.fields.includes("organization_id")) ? links.organizations : [],
+  };
+  const material = libraryMaterial(files, categories, sentLinks);
   const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
     model: config.model,
     store: false,
@@ -1105,13 +1187,14 @@ async function runLibraryFill(ctx: Ctx, input: LibraryFillInput, deps: RadarDeps
       deps.log("usage_record_failed");
     }
   }
-  const parsed = result.ok ? parseLibraryFill(result.raw, files.map((f) => f.ref), categories, today) : null;
+  const parsed = result.ok ? parseLibraryFill(result.raw, files.map((f) => f.ref), categories, today, sentLinks) : null;
   if (!result.ok || !parsed) {
     const code = result.ok ? "ai_invalid_response" : result.code;
     deps.log(code);
     // tidy: AI 답이 틀린 형식이면 같은 자료를 다시 보내도 같을 가능성이 커서 시도 기록만 남긴다(값은 그대로). 바쁨·시간 초과는 남기지 않는다.
     if (input.mode === "tidy" && result.ok) {
-      try { await applyTidy(ctx, crypto.randomUUID(), work.map((t) => ({ document_id: t.doc.id, updated_at: t.doc.updated_at ?? "", changes: {} }))); }
+      const items = [...work.map((t) => ({ document_id: t.doc.id, updated_at: t.doc.updated_at ?? "", with_text: withText(t.doc), changes: {} })), ...emptyItems()];
+      try { await applyClassify(ctx, crypto.randomUUID(), items); }
       catch { deps.log("library_tidy_mark_failed"); }
     }
     // fill: 사용자가 넣은 칸 표시만은 남긴다(값은 그대로). 실패해도 자료 등록 자체는 이미 끝났다.
@@ -1138,26 +1221,28 @@ async function runLibraryFill(ctx: Ctx, input: LibraryFillInput, deps: RadarDeps
   }
 
   if (input.mode === "tidy") {
-    // 서버가 다시 고른 칸(정리 안 된 칸·'user' 아님)에 대한 검사 통과 값만. 값이 없어도 시도 기록은 남긴다(같은 자료 다시 안 보냄).
-    const items: TidyItem[] = files.map((f) => {
+    // 서버가 다시 고른 칸(정리 안 된 칸·'user' 아님·비어 있는 연결)에 대한 검사 통과 값만. 값이 없어도 시도 기록은 남긴다(같은 자료 다시 안 보냄).
+    const items: ClassifyItem[] = [...files.map((f) => {
       const t = work.find((w) => w.doc.id === f.doc.id)!;
       const changes = Object.fromEntries(proposalsFor(t.doc, t.fields, parsed.get(f.ref) ?? {}, "propose").map((p) => [p.field, p.to]));
-      return { document_id: t.doc.id, updated_at: t.doc.updated_at ?? "", changes };
-    });
+      return { document_id: t.doc.id, updated_at: t.doc.updated_at ?? "", with_text: withText(t.doc), changes };
+    }), ...emptyItems()];
     let saved;
-    try { saved = await applyTidy(ctx, crypto.randomUUID(), items); }
+    try { saved = await applyClassify(ctx, crypto.randomUUID(), items); }
     catch (e) { deps.log("library_tidy_save_failed"); throw e instanceof Fail ? e : new Fail(503, "library_unavailable"); }
     deps.log("library_tidy_done", { documents: files.length, updated: saved.documents, fields: saved.fields, moved: saved.moved });
     return json({ ok: true, kind: "library_fill", mode: "tidy", updated: saved.documents, fields: saved.fields, skipped: docs.length - saved.documents });
   }
 
   let updated = 0, skipped = docs.length - files.length;
+  const records: { document_id: string; with_text: boolean; changed: number }[] = [];
   for (const t of targets) {
     const f = files.find((x) => x.doc.id === t.doc.id);
     const changes = f ? proposalsFor(t.doc, t.fields, parsed.get(f.ref) ?? {}, "fill") : [];
     const marks: Record<string, string> = { ...keepMarks(t.doc) };
     const patch: Record<string, unknown> = {};
     for (const c of changes) { patch[c.field] = c.to; marks[c.field] = "ai"; }
+    if (t.eligible) records.push({ document_id: t.doc.id, with_text: withText(t.doc), changed: changes.length });
     if (!Object.keys(marks).length) { if (f) skipped++; continue; }
     patch.field_origin = canonicalOrigin({ ...t.doc.field_origin, ...marks });
     try {
@@ -1168,6 +1253,7 @@ async function runLibraryFill(ctx: Ctx, input: LibraryFillInput, deps: RadarDeps
       throw new Fail(503, "library_unavailable");
     }
   }
+  if (attempts) await recordFillAttempts(ctx, records, deps.log);
   // 기록에는 숫자만(자료 글·AI 답 없음).
   deps.log("library_fill_done", { documents: docs.length, updated, skipped });
   return json({ ok: true, kind: "library_fill", mode: "fill", updated, skipped });

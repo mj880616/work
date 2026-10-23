@@ -39,7 +39,7 @@
 .basket-link-menu button:focus-visible{outline:2px solid var(--kptu-primary);outline-offset:2px}
 #wdUpdates .basket-link-actions :is(button,a),#wdUpdates [data-link-summary-current],#wdUpdates [data-wd-link-retry]{min-height:44px;display:inline-flex;align-items:center;padding:6px 10px;box-sizing:border-box}
 #wdUpdates [data-link-summary-form]{margin-top:10px;padding-top:10px;border-top:1px solid var(--kptu-border)}
-#wdUpdates [data-link-summary-input]{display:block;width:100%;max-width:100%;box-sizing:border-box;white-space:pre-wrap;resize:vertical}
+#wdUpdates [data-link-summary-input]{display:block;width:100%;max-width:100%;box-sizing:border-box;white-space:pre-wrap;resize:none}
 #wdUpdates :is(button,a,textarea):focus-visible{outline:2px solid var(--kptu-primary);outline-offset:2px}
 
 #wdUpdates [data-link-summary-original] > summary{min-height:44px;align-content:center;cursor:pointer}
@@ -85,10 +85,11 @@ a.wd-doc-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2p
 #wdUpdates .wd-up-more{width:44px;height:44px;min-height:44px;margin:-6px -6px 0 0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:20px;line-height:1;cursor:pointer}
 #wdUpdates .wd-up-more:hover{background:var(--kptu-surface-subtle)}
 #wdUpdates .wd-up-editor{display:grid;gap:6px;margin-top:4px}
-#wdUpdates .wd-up-editor textarea{width:100%;box-sizing:border-box;min-height:96px;resize:vertical;font:inherit;font-size:var(--kptu-text-body);line-height:1.55}
+#wdUpdates .wd-up-editor textarea{width:100%;box-sizing:border-box;min-height:96px;resize:none;font:inherit;font-size:var(--kptu-text-body);line-height:1.55}
 #wdUpdates .wd-up-editor .status:empty{display:none}
 #wdUpdates .wd-up-edit-actions{display:flex;justify-content:flex-end;gap:8px}
 #wdUpdates .wd-up-edit-actions button{min-height:44px;padding:6px 14px}
+#wdUpdates :is(.wd-up-edit-actions [data-wd-field-big],[data-link-summary-form] [data-link-summary-big]){display:inline-flex;align-items:center;justify-content:center;min-width:44px;margin-right:auto;padding:6px 10px;color:var(--kptu-muted)}
 
 /* ORG-PC상세정리 (요청 14:10, PC 상세 칸만 — 761~1023px·폰 상세 창은 그대로).
    ② 입력칸 안 오른쪽 아래 ⤢(프로젝트 상세 [큰 창에서 쓰기]와 같은 방식, 보조 32px·누르는 범위 44px), [저장]은 작은 버튼(32px, UI-버튼기준).

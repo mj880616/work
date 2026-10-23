@@ -1,11 +1,12 @@
 // ED-통합편집기 ①a: draws a saved document (ed1) as reading DOM, without the editor library. Web2 read views and the Web1
-// share page reader (through sr-render.mjs) use this one drawing, with the look in ed-doc.css (class names ed-*).
+// page reader (through sr-render.mjs) use this one drawing, with the look in ed-doc.css (class names ed-*).
 // Safety: the document is cleaned first (ed-schema.mjs cleanDoc, an allowlist); everything is drawn with createElement and
-// textContent; links open only http(s)·mailto in a new tab with noopener; no image is fetched (a photo is a place with its
-// description until ② gives share photos their own short-lived address).
+// textContent; links open only http(s)·mailto in a new tab with noopener. A shared-page photo is drawn as an image only when
+// the reader passes a short-lived https address for that id (ED-② the Web1 reader gets them from the page-read function); without
+// one it stays a place with its description. Nothing else is ever fetched.
 // The Web1 reader imports this file, so it keeps to syntax older Samsung Internet parses: no ?. ?? replaceChildren
 // structuredClone .at( (BUG-공유페이지삼성). Class and id names never contain "share".
-import {cleanDoc, safeHref, widthsOfRow, tableLayout} from './ed-schema.mjs';
+import {cleanDoc, safeHref, widthsOfRow, tableLayout, pagePhotoId} from './ed-schema.mjs';
 
 function make(tag, className, text) {
   var node = document.createElement(tag);
@@ -19,6 +20,14 @@ function withAlign(node, attrs) {
   if (attrs && attrs.indent > 0) node.classList.add('ed-indent-' + attrs.indent);
   return node;
 }
+// The address handed in for one photo src, only when it is an https address.
+function photoAddress(src) {
+  var id = pagePhotoId(src);
+  if (!id || !MEDIA) return '';
+  var url = Object.prototype.hasOwnProperty.call(MEDIA, id) ? MEDIA[id] : '';
+  return typeof url === 'string' && url.indexOf('https://') === 0 ? url : '';
+}
+var MEDIA = null;
 var MARK_TAG = {strong:'strong', em:'em', underline:'u', strike:'s'};
 
 function inline(parent, list) {
@@ -66,6 +75,19 @@ function block(n) {
       return pre;
     }
     case 'image': {
+      var address = photoAddress(a.src);
+      if (address) {
+        var pic = withAlign(make('figure', 'ed-photo'), {align:'center'});
+        var img = make('img', 'ed-photo-img');
+        img.alt = a.alt || '';
+        img.setAttribute('loading', 'lazy');
+        img.setAttribute('decoding', 'async');
+        img.setAttribute('referrerpolicy', 'no-referrer');
+        img.src = address;
+        pic.appendChild(img);
+        if (a.alt) pic.appendChild(make('figcaption', 'ed-photo-cap', a.alt));
+        return pic;
+      }
       var fig = withAlign(make('figure', 'ed-photo is-place'), {align:'center'});
       fig.setAttribute('role', 'img');
       fig.setAttribute('aria-label', a.alt ? '사진: ' + a.alt : '사진');
@@ -113,9 +135,11 @@ function blocks(parent, list) {
 }
 
 // The document as one <div class="ed-doc">. A value that is not a document draws an empty box.
-export function renderDoc(value) {
+// media: {photo id: https address} for the photos of this page, or nothing.
+export function renderDoc(value, media) {
   var box = make('div', 'ed-doc');
   var clean = cleanDoc(value);
-  if (clean) blocks(box, clean.doc.content);
+  MEDIA = media && typeof media === 'object' ? media : null;
+  try { if (clean) blocks(box, clean.doc.content); } finally { MEDIA = null; }
   return box;
 }

@@ -1,8 +1,8 @@
 import {seoulDateKey} from './meeting-time.js';
 // CAL-주간시간표: PC 주간 보기의 시간표 위치 계산만 맡는다(DOM 없음). 그리기는 calendar-week-view.js 하나가 한다.
-// 1시간 = HOUR px, 0~24시를 항상 모두 펼친다. 화면은 START_HOUR(7시)부터 보이게 시작하고(startTop),
-// 0~7시는 위로 스크롤해서 본다(7시 눈금 글자가 고정 줄에 가리지 않게 TOP_PAD만큼 여유). 그 주에 7시 전에 시작하는 일정은 early(개수·가장 이른 위치)로 알려 준다.
-export const HOUR=48,MIN_HEIGHT=18,START_HOUR=7,TOP_PAD=8;
+// 1시간 = HOUR px, 0~24시를 항상 모두 펼친다. 화면은 START_HOUR(7시)부터 보이게 시작하고(startTop = 7시 선의 위치),
+// 0~7시는 위로 스크롤해서 본다. 7시 선이 고정 줄 바로 밑에 붙고, 시간 눈금 글자는 자기 선 아래쪽에 놓인다.
+export const HOUR=48,MIN_HEIGHT=18,START_HOUR=7;
 const PAD=2,TIME_LINE=16,TITLE_LINE=15;
 const dayStartMs=key=>Date.parse(key+'T00:00:00+09:00');
 const parseEnd=value=>{
@@ -24,12 +24,9 @@ export function weekTimeline(days){
   const y=minute=>Math.min(1440,Math.max(0,minute))/60*HOUR;
   const height=Math.round(y(1440));
   const ticks=[];for(let h=0;h<24;h++)ticks.push({hour:h,top:y(h*60)});
-  const placed=new Map();let earlyCount=0,earlyTop=null;
-  for(const day of days){
-    placed.set(day.date,layoutDay(day,y));
-    for(const ev of day.events){const m=eventMinutes(ev,day.date);if(m.start<START_HOUR*60){earlyCount++;const top=y(m.start);if(earlyTop===null||top<earlyTop)earlyTop=top}}
-  }
-  return {height,ticks,y,startTop:y(START_HOUR*60)-TOP_PAD,early:{count:earlyCount,top:earlyTop},place:key=>placed.get(key)||new Map()};
+  const placed=new Map();
+  for(const day of days)placed.set(day.date,layoutDay(day,y));
+  return {height,ticks,y,startTop:y(START_HOUR*60),place:key=>placed.get(key)||new Map()};
 }
 // 겹침 열 나누기: 서로 이어 겹치는 일정 묶음마다 빈 열에 차례로 넣고, 묶음의 열 수로 폭을 나눈다.
 function layoutDay(day,y){

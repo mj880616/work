@@ -86,7 +86,8 @@ export function hwpxSectionText(xml: string): string {
 }
 
 async function inflateRaw(data: Uint8Array, max: number): Promise<Uint8Array> {
-  const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  // Type-only cast for the strict Deno check (drive-summary bundles this file too); no runtime change.
+  const stream = new Blob([data as Uint8Array<ArrayBuffer>]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
   const reader = stream.getReader(), parts: Uint8Array[] = [];
   let size = 0;
   try {

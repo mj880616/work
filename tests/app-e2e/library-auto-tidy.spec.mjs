@@ -1,6 +1,8 @@
 // LIB-자동정리 (docs/design/library-ai-fill.md 6절): opening the library quietly asks the server to tidy the not-yet-tidy
 // fields of old documents — no button, no progress text, no AI marker — and never waits for it before showing the list.
 // The mock ai-assist applies the server rules (only untidy, non-user fields; tried documents skipped). No real Supabase/Drive/OpenAI.
+// LIB-AI분류보완: the tried record is app_library_classify_attempts (with_text); empty project/organization links also make a document a
+// candidate, so documents meant to be "done" here mark both links as the person's.
 import { appOrigin } from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
@@ -11,16 +13,18 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
 const DOC_ID=n=>`e0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const CATS=['교섭','투쟁','교육','선전','정책','회의','기타'];
+const WS_ID='b0000000-0000-4000-8000-000000000001';
 const OLD='2026-09-01T00:00:00Z';
+const LINKS_DONE={project_id:'user',organization_id:'user'};
 
 function makeDocs(count,over={}){
-  return Array.from({length:count},(_,i)=>({id:DOC_ID(i+1),workspace_id:'workspace-1',project_id:null,title:`2026_요구안_${i+1}`,category:'기타',source:null,
+  return Array.from({length:count},(_,i)=>({id:DOC_ID(i+1),workspace_id:WS_ID,project_id:null,organization_id:null,title:`2026_요구안_${i+1}`,category:'기타',source:null,
     document_date:null,file_name:`2026_요구안_${i+1}.hwp`,tags:[],created_at:OLD,updated_at:OLD,field_origin:{},extraction_status:'ready',...(over[i+1]||{})}));
 }
 function baseState(docs,{aiMode='ok',attemptsMode='ok',tried=[]}={}){
   return {
     user:{id:'user-1',email:'owner@example.org',user_metadata:{display_name:'자료실 관리자'}},
-    workspace:{id:'workspace-1',slug:'team',name:'웹2'},
+    workspace:{id:WS_ID,slug:'team',name:'웹2'},
     docs,aiMode,attemptsMode,tried:new Set(tried),aiCalls:[],texts:[],patches:[],otherWrites:[],held:[],
   };
 }
@@ -35,7 +39,7 @@ async function mockApp(page,state){
     if(path==='/auth/v1/user')return ok(state.user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
-    if(path==='/functions/v1/document-actions'){state.texts.push(body);return ok({ok:true,status:'ready',reason:'ok'})}
+    if(path==='/functions/v1/document-actions'){state.texts.push(body);const d=state.docs.find(x=>x.id===body?.document_id);if(d)d.extraction_status='ready';return ok({ok:true,status:'ready',reason:'ok'})}
     if(path==='/functions/v1/ai-assist'){
       // Other screens (home) call ai-assist for their own kinds; only the library tidy is counted here.
       if(body?.kind!=='library_fill'||body?.mode!=='tidy')return ok({ok:false,error:'unsupported_kind',message:'x'},400);
@@ -61,17 +65,17 @@ async function mockApp(page,state){
       return ok({ok:true,kind:'library_fill',mode:'tidy',updated,fields:updated*4,skipped:body.document_ids.length-updated});
     }
     if(path.startsWith('/functions/v1/')){if(method!=='GET'&&method!=='OPTIONS')state.otherWrites.push(path);return ok({})}
-    if(path==='/rest/v1/app_library_tidy_attempts'){
+    if(path==='/rest/v1/app_library_classify_attempts'){
       if(state.attemptsMode==='missing')return route.fulfill({status:404,contentType:'application/json',body:JSON.stringify({code:'PGRST205'})});
-      return ok([...state.tried].map(id=>({document_id:id})));
+      return ok([...state.tried].map(id=>({document_id:id,with_text:true})));
     }
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
-    if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:'workspace-1',user_id:state.user.id,role:'owner',workspace:state.workspace,created_at:now()}]);
+    if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:WS_ID,user_id:state.user.id,role:'owner',workspace:state.workspace,created_at:now()}]);
     if(path==='/rest/v1/app_profiles')return ok([{user_id:state.user.id,display_name:'자료실 관리자',document_categories:CATS}]);
     if(path==='/rest/v1/app_workspaces')return ok([state.workspace]);
     if(path==='/rest/v1/app_meetings')return ok([]);
     if(path==='/rest/v1/app_documents'){
-      if(method==='GET')return ok(state.docs);
+      if(method==='GET')return ok(url.searchParams.has('or')?state.docs.filter(x=>!['ready','error'].includes(x.extraction_status)):state.docs);
       state.patches.push({method,body});return ok([]);
     }
     if(path.startsWith('/rest/v1/')){if(method!=='GET')state.otherWrites.push(`${method} ${path}`);return ok([])}
@@ -114,7 +118,7 @@ async function expectQuiet(page){
 
 for(const width of [390,1440]){
   test(`opening the library quietly tidies untidy old documents with no button or marker (${width})`,async({page})=>{
-    const state=baseState(makeDocs(3,{3:{title:'정리된 제목',category:'정책',source:'국토교통부',document_date:'2026-01-02'}}));
+    const state=baseState(makeDocs(3,{3:{title:'정리된 제목',category:'정책',source:'국토교통부',document_date:'2026-01-02',field_origin:LINKS_DONE}}));
     await boot(page,state,{width});
     // Document 3 is already tidy and is not sent; 1 and 2 go in one request with ids only.
     await expect.poll(()=>state.aiCalls.length).toBe(1);
@@ -133,7 +137,7 @@ for(const width of [390,1440]){
 }
 
 test('user fields and tried documents are not sent; reopening does not call AI for the same documents again',async({page})=>{
-  const state=baseState(makeDocs(4,{2:{field_origin:{title:'user',category:'user',source:'user',document_date:'user'}},3:{classification_note:'사용자 수정'}}),{tried:[DOC_ID(4)]});
+  const state=baseState(makeDocs(4,{2:{field_origin:{title:'user',category:'user',source:'user',document_date:'user',...LINKS_DONE}},3:{classification_note:'사용자 수정',field_origin:{organization_id:'user'}}}),{tried:[DOC_ID(4)]});
   await boot(page,state);
   await expect.poll(()=>state.aiCalls.length).toBe(1);
   expect(state.aiCalls[0].document_ids).toEqual([DOC_ID(1)]);
@@ -144,15 +148,15 @@ test('user fields and tried documents are not sent; reopening does not call AI f
   expect(state.aiCalls.length).toBe(1);
 });
 
-test('documents without stored text are read first (3 at a time), at most 3 requests of 10 per opening',async({page})=>{
-  const docs=makeDocs(35).map((d,i)=>i<4?{...d,extraction_status:'pending'}:d);
+test('documents without stored text are read first (3 at a time), at most 8 requests of 10 per opening',async({page})=>{
+  const docs=makeDocs(95).map((d,i)=>i<4?{...d,extraction_status:'pending'}:d);
   const state=baseState(docs);
   await boot(page,state);
-  await expect.poll(()=>state.aiCalls.length).toBe(3);
-  expect(state.aiCalls.map(c=>c.document_ids.length)).toEqual([10,10,10]);
+  await expect.poll(()=>state.aiCalls.length,{timeout:15000}).toBe(8);
+  expect(state.aiCalls.map(c=>c.document_ids.length)).toEqual(Array(8).fill(10));
   expect(state.texts.map(t=>t.document_id)).toEqual(docs.slice(0,4).map(d=>d.id));
   await page.waitForTimeout(300);
-  expect(state.aiCalls.length).toBe(3);
+  expect(state.aiCalls.length).toBe(8);
 });
 
 test('the list shows without waiting for AI; leaving the library stops further requests',async({page})=>{
@@ -200,4 +204,21 @@ test('before the DB is applied (no attempts table) nothing is sent to AI',async(
   await page.waitForTimeout(600);
   expect(state.aiCalls).toEqual([]);
   await expectQuiet(page);
+});
+
+// SEARCH-전체검색 ② 기존 자료 글자 채우기: 자료실을 열 때 아직 안 읽은 자료를 한 번에 5개씩만, 화면 표시 없이 읽는다.
+test('opening the library reads at most 5 unread documents at a time, quietly, and not again for the same ones',async({page})=>{
+  const docs=makeDocs(12,{}).map(d=>({...d,title:'정리된 제목 '+d.id,category:'정책',source:'국토교통부',document_date:'2026-01-02',extraction_status:'pending',field_origin:LINKS_DONE}));
+  const state=baseState(docs);
+  await boot(page,state);
+  await expect.poll(()=>state.texts.length).toBe(5);
+  expect(state.texts.map(t=>t.document_id)).toEqual(docs.slice(0,5).map(d=>d.id));
+  await page.waitForTimeout(300);
+  expect(state.texts.length).toBe(5);
+  await expectQuiet(page);
+  await leave(page);await reopen(page);
+  await expect.poll(()=>state.texts.length).toBe(10);
+  await page.waitForTimeout(300);
+  expect(state.texts.length).toBe(10);
+  expect(state.otherWrites).toEqual([]);
 });

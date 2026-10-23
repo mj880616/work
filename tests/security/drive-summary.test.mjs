@@ -599,7 +599,7 @@ test('status read: returns only the three folder values, never names, IDs, links
   assert.equal(response.status, 200);
   assert.deepEqual(result, { ok: true, checked_at: now.toISOString(), copy: {
     state: 'found', last_success_at: '2026-10-03T04:17:00.000Z', last_failure_at: '2026-10-02T21:17:05.120Z', last_failure_code: 'DRIVE_UPLOAD_FAILED',
-  }, collectors: { telegram: null, transcript: null } });
+  }, collectors: { telegram: null, transcript: null }, text_backfill: null });
   assert.doesNotMatch(JSON.stringify(result), /FORBIDDEN|folder"|docs\.google|읽기용 사본|kptu_/);
   assert.equal(writes(h).length, 0, 'no create, upload, or status PATCH');
   assert.equal(h.uploads.length, 0); assert.equal(h.patches.length, 0);
