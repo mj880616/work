@@ -252,9 +252,11 @@ export function cleanValues(p: Record<string, unknown>, categories: string[], to
   if (source) out.source = source;
   const category = typeof p.category === "string" ? p.category.trim() : "";
   if (categories.includes(category)) out.category = category;
-  const project = typeof p.project === "string" ? links.projects.find((o) => o.ref === p.project.trim()) : undefined;
+  const projectRef = typeof p.project === "string" ? p.project.trim() : "";
+  const project = projectRef ? links.projects.find((o) => o.ref === projectRef) : undefined;
   if (project) out.project_id = project.id;
-  const organization = typeof p.organization === "string" ? links.organizations.find((o) => o.ref === p.organization.trim()) : undefined;
+  const organizationRef = typeof p.organization === "string" ? p.organization.trim() : "";
+  const organization = organizationRef ? links.organizations.find((o) => o.ref === organizationRef) : undefined;
   if (organization) out.organization_id = organization.id;
   return out;
 }
