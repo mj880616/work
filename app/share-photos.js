@@ -2,6 +2,8 @@
 // diary-data.js shrinkPhoto with redraw), then sent to the Edge function share-page-media, which keeps it in a private bucket
 // and answers with "share:<id>". The editor shows it through a short signed address that only the signed-in owner can ask for.
 // Nothing is kept in this browser: ids live in the saved page, addresses are asked for again when they run out.
+// SHARE-사진같이지우기: a photo taken out of the page is removed from the bucket by the same Edge function (prune), which decides
+// from the page as saved in the DB which photos are still used; the browser has no rights on the bucket.
 import {shrinkPhoto} from './diary-data.js';
 
 export const SHARE_PHOTO_EDGE = 1600;
@@ -21,6 +23,8 @@ const fail = (status, fallback = '사진을 올리지 못했어요. 잠시 뒤 �
 // getPageId(): the saved page's id, or null before the first save. The page is saved once first (the photo belongs to a page).
 export function createSharePhotos({rt = window.KPTURuntime, getPageId, fetcher = globalThis.fetch.bind(globalThis), shrink = shrinkPhoto, now = Date.now} = {}) {
   const cache = new Map(); // id -> {url, at}; memory only, never saved
+  const inflight = new Set(); // uploads not answered yet (prune waits for them, so a photo being put in is never taken as unused)
+  const seen = new Set(); // photo ids this page has shown or put in while open (memory only)
   async function call(body, headers = {}) {
     if (!(await rt.session.ensure())) throw fail(401);
     const token = rt.session.read()?.access_token;
@@ -35,7 +39,7 @@ export function createSharePhotos({rt = window.KPTURuntime, getPageId, fetcher =
     if (!response.ok || !data || !data.ok) throw fail(response.status);
     return data;
   }
-  async function add(file) {
+  async function upload(file) {
     const pageId = getPageId();
     if (!pageId) throw new Error('사진은 페이지를 한 번 저장한 뒤 넣을 수 있어요. 먼저 [저장]을 눌러 주세요.');
     const jpeg = await shrink(file, {edge: SHARE_PHOTO_EDGE, quality: 0.86, redraw: true});
@@ -43,7 +47,39 @@ export function createSharePhotos({rt = window.KPTURuntime, getPageId, fetcher =
     fd.set('page_id', pageId);
     fd.set('image', jpeg, 'photo.jpg');
     const data = await call(fd);
+    const id = shareIdOf(data.src);
+    if (id) seen.add(id);
     return {src: data.src};
+  }
+  // Counted from the first moment (shrinking included), so a prune asked meanwhile waits for it.
+  function add(file) {
+    const job = upload(file);
+    inflight.add(job);
+    job.then(() => inflight.delete(job), () => inflight.delete(job));
+    return job;
+  }
+  // Ids the page had when opened or saved (so a photo taken out later can be noticed).
+  function note(ids) { for (const id of ids) seen.add(id); }
+  // After a save or when the editor closes: if a photo seen here is no longer kept, ask the server to remove the unused ones of this
+  // page (file, then record). keepNow() gives the ids still in the editor (read after uploads in progress are answered).
+  // Never throws: a failure only leaves the record, and the next prune removes it again.
+  // The first prune of an opened page runs even when nothing was taken out here (one call per opened page), so a file left by an
+  // earlier failure, a closed tab or a crash before saving is removed then (swept); after that, only when a photo was taken out.
+  let swept = false;
+  async function prune(keepNow = () => []) {
+    while (inflight.size) {
+      await Promise.allSettled([...inflight]);
+      await new Promise(resolve => setTimeout(resolve, 0)); // let the editor put the answered photo in before reading what it keeps
+    }
+    const pageId = getPageId();
+    const keep = [...new Set(keepNow())];
+    if (!pageId || (swept && ![...seen].some(id => !keep.includes(id)))) return {skipped: true};
+    try {
+      const data = await call(JSON.stringify({action: 'prune', page_id: pageId, keep: keep.slice(0, 200)}), {'Content-Type': 'application/json'});
+      // Something left (a file the bucket did not remove): keep the ids, so the next save or close asks again.
+      if (!data.failed) { swept = true; for (const id of [...seen]) if (!keep.includes(id)) { seen.delete(id); cache.delete(id); } }
+      return {removed: data.removed || 0, failed: data.failed || 0};
+    } catch { return {error: true}; }
   }
   // Fresh addresses for the given photo ids (one request for the ones that are missing or old).
   async function urls(ids) {
@@ -70,5 +106,5 @@ export function createSharePhotos({rt = window.KPTURuntime, getPageId, fetcher =
     queue.ids.add(id);
     return queue.done.then(map => map[id] || null);
   }
-  return {add, url, urls};
+  return {add, url, urls, note, prune};
 }

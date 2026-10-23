@@ -46,3 +46,60 @@ test('url: photos asked in the same moment share one request; an address is reus
   t += 9 * 60 * 1000; await photos.url('share:' + ID); assert.equal(bodies.length, 2);
   assert.equal(await photos.url('drive:abc'), null); assert.equal(bodies.length, 2);
 });
+// SHARE-사진같이지우기: the browser only asks; share-page-media decides from the saved page and removes file and record.
+const prunable = (answers = []) => {
+  const bodies = [];
+  const fetcher = async (u, init) => {
+    if (typeof init.body !== 'string') return reply({ok: true, id: ID2, src: 'share:' + ID2});
+    const b = JSON.parse(init.body); bodies.push(b);
+    return reply(answers.shift() || {ok: true, removed: 1, failed: 0});
+  };
+  return {bodies, fetcher};
+};
+test('prune: asks once a photo seen here is not kept; sends only the page id and kept ids', async () => {
+  const {bodies, fetcher} = prunable();
+  const photos = createSharePhotos({rt, getPageId: () => PAGE, fetcher});
+  photos.note([ID]);
+  assert.deepEqual(await photos.prune(() => [ID]), {removed: 1, failed: 0}); // first one also sweeps what an earlier failure left
+  assert.deepEqual(bodies.at(-1), {action: 'prune', page_id: PAGE, keep: [ID]});
+  assert.deepEqual(await photos.prune(() => [ID]), {skipped: true}); // nothing taken out since
+  assert.equal(bodies.length, 1);
+  assert.deepEqual(await photos.prune(() => []), {removed: 1, failed: 0});
+  assert.deepEqual(bodies.at(-1), {action: 'prune', page_id: PAGE, keep: []});
+});
+test('prune: an unsaved page sends nothing; a page with no photo asks once (sweep) and then not again', async () => {
+  const {bodies, fetcher} = prunable([{ok: true, removed: 0, failed: 0}]);
+  assert.deepEqual(await createSharePhotos({rt, getPageId: () => null, fetcher}).prune(() => []), {skipped: true});
+  assert.equal(bodies.length, 0);
+  const plain = createSharePhotos({rt, getPageId: () => PAGE, fetcher});
+  assert.deepEqual(await plain.prune(() => []), {removed: 0, failed: 0});
+  assert.deepEqual(await plain.prune(() => []), {skipped: true});
+  assert.equal(bodies.length, 1);
+});
+test('prune: a failure does not throw and asks again next time', async () => {
+  const {bodies, fetcher} = prunable([{ok: true, removed: 0, failed: 1}]);
+  const photos = createSharePhotos({rt, getPageId: () => PAGE, fetcher});
+  photos.note([ID]);
+  assert.deepEqual(await photos.prune(() => []), {removed: 0, failed: 1});
+  assert.deepEqual(await photos.prune(() => []), {removed: 1, failed: 0}); // left one asked again
+  const down = createSharePhotos({rt, getPageId: () => PAGE, fetcher: async () => { throw new Error('net'); }});
+  down.note([ID]);
+  assert.deepEqual(await down.prune(() => []), {error: true});
+});
+test('prune: waits for a photo still being uploaded, then reads what the editor keeps', async () => {
+  let release; const gate = new Promise(r => { release = r; });
+  const bodies = [];
+  const fetcher = async (u, init) => {
+    if (typeof init.body !== 'string') { await gate; return reply({ok: true, id: ID2, src: 'share:' + ID2}); }
+    bodies.push(JSON.parse(init.body)); return reply({ok: true, removed: 0, failed: 0});
+  };
+  const photos = createSharePhotos({rt, getPageId: () => PAGE, shrink: async f => f, fetcher});
+  photos.note([ID]);
+  const inEditor = [ID];
+  const adding = photos.add(new File(['x'], 'a.jpg')).then(({src}) => inEditor.push(src.slice(6)));
+  const pruning = photos.prune(() => [...inEditor]);
+  await new Promise(r => setTimeout(r, 5));
+  assert.equal(bodies.length, 0);
+  release(); await adding; await pruning;
+  assert.deepEqual(bodies, [{action: 'prune', page_id: PAGE, keep: [ID, ID2]}]);
+});
