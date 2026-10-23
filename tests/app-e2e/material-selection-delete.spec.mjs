@@ -53,7 +53,7 @@ async function boot(page,width){
       state.uploads.push({path,raw});
       if(state.hold)await new Promise(resolve=>state.release=resolve);
       const name=raw.match(/filename="([^"]+)"/)?.[1];
-      const doc={id:'uploaded-'+state.uploads.length,workspace_id:'ws',file_name:name,title:name,tags:[],meeting_id:path.endsWith('meeting-files')?meeting.id:null};
+      const doc={id:'uploaded-'+state.uploads.length,workspace_id:'ws',file_name:name,title:name,tags:[],meeting_id:path.endsWith('meeting-files')||raw.includes('name="meeting_id"')?meeting.id:null};
       state.docs.push(doc);
       return ok({ok:true,document:doc});
     }
@@ -183,36 +183,35 @@ for(const width of [390,1280]){
     state.hold=false;state.release();
     await expect(page.locator('#meetingModal')).toBeHidden();
     expect(state.uploads).toHaveLength(1);
-    expect(state.uploads[0].path).toBe('/functions/v1/meeting-files');
+    // MEET-파일AI분류: 새 사업 보고의 자료도 자료실 올리기와 같은 요청(meeting_id로 연결)이다.
+    expect(state.uploads[0].path).toBe('/functions/v1/library-files');
+    expect(state.uploads[0].raw).toContain('name="meeting_id"');
     expect(state.uploads[0].raw).toContain('keep.pdf');
     expect(state.uploads[0].raw).not.toContain('remove.pdf');
     expect(state.errors).toEqual([]);
   });
 
-  // UI-회의결과창정리: 파일을 고르면 바로 올라간다([업로드] 버튼 없음). 차례를 기다리는 파일은 ×로 뺄 수 있다.
-  test(`meeting detail uploads picked files right away and drops a waiting file on × ${width}px`,async({page})=>{
+  // MEET-파일AI분류: 사업 보고 상세의 자료 [+]는 담당조직·프로젝트와 같은 자료실 올리기 창을 연다. 대기 파일은 ×로 뺄 수 있고 [등록]하면 meeting_id로 이 사업 보고에 붙는다.
+  test(`meeting detail [+] opens the shared library upload window and attaches to the report ${width}px`,async({page})=>{
     const state=await boot(page,width);
     await openMeetingResult(page,'meeting-1');
     await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
-    await expect(page.locator('#mrdUpload')).toHaveCount(0);
-    state.hold=true;
-    await page.locator('#mrdFiles').setInputFiles([file('detail-keep.pdf'),file('detail-remove.pdf')]);
-    await expect.poll(()=>state.uploads.length).toBe(1);
-    const rows=page.locator('#mrdSelectedFiles .file-line');
-    await expect(rows).toHaveCount(2);
-    await expect(rows.nth(0).locator('.file-kind')).toHaveText('PDF');
-    await expect(rows.nth(0).locator('.file-line-progress')).toHaveCount(1);
-    await expect(page.getByRole('button',{name:'detail-keep.pdf 선택 취소',exact:true})).toHaveCount(0);
-    expect(await selectionDraft(page)).toBe(true);
+    await expect(page.locator('#mrdFiles')).toHaveCount(0);
+    await page.locator('#mrdPickFiles').click();
+    await expect(page.locator('#documentModal')).toBeVisible();
+    await expect(page.locator('#libraryUploadMeeting')).toContainText('사업 보고');
+    await page.locator('#libraryFileInput').setInputFiles([file('detail-keep.pdf'),file('detail-remove.pdf')]);
+    await expect(page.locator('[data-lu-upload-file]')).toHaveCount(2);
     await page.getByRole('button',{name:'detail-remove.pdf 선택 취소',exact:true}).click();
-    await expect(rows).toHaveCount(1);
-    state.hold=false;state.release();
-    await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(3);
-    await expect(page.locator('#mrdSelectedFiles .file-line')).toHaveCount(0);
-    expect(state.uploads).toHaveLength(1);
+    await expect(page.locator('[data-lu-upload-file]')).toHaveCount(1);
+    await page.locator('#saveDocumentBtn').click();
+    await expect(page.locator('#documentModal')).toBeHidden();
+    await expect.poll(()=>state.uploads.length).toBe(1);
+    expect(state.uploads[0].path).toBe('/functions/v1/library-files');
+    expect(state.uploads[0].raw).toContain('name="meeting_id"');
     expect(state.uploads[0].raw).toContain('detail-keep.pdf');
     expect(state.uploads[0].raw).not.toContain('detail-remove.pdf');
-    expect(await selectionDraft(page)).toBe(false);
+    await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(3);
     expect(state.errors).toEqual([]);
   });
 }
@@ -259,8 +258,10 @@ async function openUploadScreen(page,screen){
   }
   await openMeetingResult(page,'meeting-1');
   await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
-  // 회의 결과 창 회의자료는 고르면 바로 올라가므로 따로 누를 저장 버튼이 없다.
-  return {input:'#mrdFiles',save:null,rows:'#mrdSelectedFiles > div',status:'#mrdStatus'};
+  // MEET-파일AI분류: 사업 보고 상세의 [+]는 자료실 올리기 창을 연다(저장 버튼 [등록]).
+  await page.locator('#mrdPickFiles').click();
+  await expect(page.locator('#documentModal')).toBeVisible();
+  return {input:'#libraryFileInput',save:'#saveDocumentBtn',rows:'[data-lu-upload-file]',status:'#documentStatus'};
 }
 const READ_ERROR='파일을 읽지 못했습니다. 파일을 다시 선택해 주세요.';
 for(const width of [390,1280])for(const screen of ['library','new meeting','meeting detail']){

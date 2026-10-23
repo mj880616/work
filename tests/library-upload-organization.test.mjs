@@ -37,7 +37,7 @@ test('linkUploadedDocument: unverified or failed results are false, never throw;
 test('library-upload.js: project upload path unchanged (link only when an organization target is set; each open clears it; server fields unchanged)',()=>{
   const s=readFileSync(new URL('../app/library-upload.js',import.meta.url),'utf8');
   assert.match(s,/if\(luUploadOrg&&!\(await linkUploadedDocument\(/);
-  assert.match(s,/newDocument\.addEventListener\('click',\(\)=>\{luResetUploadSelection\(\);luRenderUploadProject\(''\);luSetUploadOrg\(null\)\},true\)/);
+  assert.match(s,/newDocument\.addEventListener\('click',\(\)=>\{luResetUploadSelection\(\);luRenderUploadProject\(''\);luSetUploadOrg\(null\);luSetUploadMeeting\(null\)\},true\)/);
   assert.match(s,/startUploadForOrganization:luStartUploadForOrganization/);
   // The same upload request and AI fill as the project path.
   assert.match(s,/luAiFill\(d\.document\.id,fd\)/);

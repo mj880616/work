@@ -98,6 +98,11 @@
    #meetingModal[data-create-mode](meeting-from-files.js가 정함) 하나로만 정한다. 묶음 표는 회의별 한 줄(날짜·종류·차수·자료·결과),
    직접 골라야 하는 줄은 주황 테두리, 결과가 없는 줄은 빨간 글자 "결과를 더해 주세요". 줄을 누르면 고칠 칸과 파일이 펼쳐진다. */
 #meetingModal .meeting-create-modes{margin:0 0 var(--kptu-space-3)}
+/* MEET-파일AI분류: 사업 보고 상세의 자료 [+]가 자료실 올리기 창(#documentModal)을 위에 연다. 이 창의 맨 앞 규칙은 프로젝트 화면 CSS에만 있어 회의 화면에서 먼저 열면 상세 창 뒤로 깔렸다(× 눌림 막힘). 같은 값(51)을 회의 화면에도 둔다. */
+#documentModal:not(.hidden){z-index:51}
+/* MTG-사업보고말바꾸기: [회의] 칸이 아니면 회의명 고르기(목록)를 숨기고 제목 한 칸만 둔다. [파일·글로 만들기]는 회의를 만드는 길이라 [회의] 칸에서만 보인다. */
+#meetingModal:not([data-report-kind="meeting"]) :is(#meetingNameSelect,#meetingNameMatch,.meeting-create-modes){display:none}
+#meetingRoundDetailModal:not([data-report-kind="meeting"]) :is(#mrdEditNameSelect,#mrdEditNameMatch){display:none}
 #meetingModal:not([data-create-mode="files"]) #mffPanel,
 #meetingModal[data-create-mode="files"] .modal-card>:is(fieldset.meeting-entry-section,#saveMeetingBtn,#meetingStatus){display:none}
 #mffPanel .mtg-group{margin-bottom:var(--kptu-space-2)}

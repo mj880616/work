@@ -300,7 +300,10 @@ jobs:
           grep -q "g.openEditor(null,{links:\[{project_id:current.id}\]})" app/project-system-v3.js
           if grep -q "할 일은 하위 프로젝트에 연결됩니다" app/project-system-v3.js; then echo 'top-level project task guard returned'; exit 1; fi
           grep -q "data-mrd-meeting" app/team.js
-          grep -q "/functions/v1/meeting-files" app/team.js
+          # MEET-파일AI분류: 새 사업 보고의 자료도 자료실 올리기(library-files, meeting_id 연결)로 올린다. meeting-files Edge는 meeting-from-files.js가 계속 쓴다.
+          grep -q "uploadFileForMeeting" app/team.js
+          grep -q "fd.append('meeting_id',target.id)" app/library-upload.js
+          grep -q "/functions/v1/meeting-files" app/meeting-from-files.js
           grep -q 'id="meetingTranscript"' app/index.html
           grep -q 'id="meetingNotes"' app/index.html
           grep -q 'id="meetingFiles" type="file" multiple' app/index.html
