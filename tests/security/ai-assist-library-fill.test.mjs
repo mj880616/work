@@ -23,7 +23,7 @@ const doc=(n,over={})=>({id:id(n),workspace_id:WS,title:'251020_요구안_최종
   file_name:'251020_요구안_최종.hwpx',mime_type:'application/octet-stream',created_at:JUST,updated_at:JUST,field_origin:{},
   extracted_text:'2026년 임금교섭 요구안\n공공운수노조\n2026. 10. 20.',extraction_status:'ready',project_id:null,organization_id:null,...over});
 
-function harness({docs=[doc(1)],openai=[()=>respond(answer([fill()]))],usage=[],categories=null,patchStatus=0,missingColumn=false,attempts=[],classifyMissing=false,rpcStatus=0,spaces=[],orgs=[],backups=[]}={}){
+function harness({docs=[doc(1)],openai=[()=>respond(answer([fill()]))],usage=[],categories=null,patchStatus=0,missingColumn=false,attempts=[],classifyMissing=false,rpcStatus=0,spaces=[],orgs=[],backups=[],noReclassify=false}={}){
   const calls={openai:[],rest:[],patches:[],logs:[],rpcs:[]};
   const db={
     app_workspace_members:[{workspace_id:WS,user_id:OWNER,role:'owner'},{workspace_id:OTHER_WS,user_id:STRANGER,role:'owner'}],
@@ -53,6 +53,7 @@ function harness({docs=[doc(1)],openai=[()=>respond(answer([fill()]))],usage=[],
     const uid=users[bearer];assert.ok(uid,'REST only with the caller session token');
     const table=url.pathname.replace('/rest/v1/','');calls.rest.push({table,method,query:url.search});
     if(table==='app_documents'&&missingColumn)return respond({message:'column app_documents.field_origin does not exist'},400);
+    if(table==='app_documents'&&noReclassify&&method==='GET'&&url.searchParams.get('select').includes('reclassify_needed'))return respond({message:'column app_documents.reclassify_needed does not exist'},400);
     if(classifyMissing&&(table==='app_library_classify_attempts'||table==='rpc/app_library_classify_apply'))return respond({message:'not found'},404);
     if(table==='app_library_classify_attempts'&&method==='POST'){
       // fill record: insert, ignore duplicates (Prefer resolution=ignore-duplicates).
@@ -461,4 +462,55 @@ test('categories: renamed 교섭·합의 counts as tidy; the AI guide covers pre
   assert.equal(lib.needsTidy({...doc(1),category:'보도자료'},'category',cats),true);
   for(const word of ['소식지·웹자보','= 선전','성명서·보도자료','= 성명·보도자료','= 공문','합의서','= 교섭·합의','투쟁명령','교육자료'])
     assert.ok(lib.LIBRARY_FILL_INSTRUCTIONS.includes(word),word);
+});
+
+// ---- LIB-수정파일교체: 파일이 바뀐 자료(reclassify_needed)는 tidy가 한 번 다시 본다 ----
+test('replaced file: a tried, old document flagged reclassify_needed is re-judged once — empty fields only, user fields untouched, flag cleared',async()=>{
+  const docs=[old(1,{reclassify_needed:true,title:'고친 제목',field_origin:{title:'user'},source:'국토교통부',category:'정책',document_date:null,
+    file_name:'새 파일.hwpx',extracted_text:'2026년 임금교섭 요구안\n공공운수노조\n2026. 10. 20.'})];
+  const {handler,calls,db}=harness({docs,attempts:[{document_id:id(1),workspace_id:WS,batch_id:id(99),with_text:true,changed:2}]});
+  const res=await post(handler,tidyReq([id(1)]));
+  assert.equal(res.status,200);assert.deepEqual(await res.json(),{ok:true,kind:'library_fill',mode:'tidy',updated:1,fields:1,skipped:0});
+  const d=db.app_documents[0];
+  assert.deepEqual([d.title,d.source,d.category,d.document_date],['고친 제목','국토교통부','정책','2026-10-20']);
+  assert.deepEqual(calls.rpcs[0].p_items[0].changes,{document_date:'2026-10-20'});
+  assert.equal(d.reclassify_needed,false,'flag cleared after the pass');
+  assert.deepEqual(calls.patches.map(p=>p.body),[{reclassify_needed:false}]);
+  assert.match(calls.patches[0].query,/reclassify_needed=eq\.true/);
+  // The same document is not sent again.
+  const again=await (await post(handler,tidyReq([id(1)]))).json();
+  assert.equal(again.updated,0);assert.equal(calls.openai.length,1);
+});
+
+test('replaced file: a document that is not flagged and was already tried is still never re-sent; a flagged one just uploaded is handled by tidy too',async()=>{
+  {const {handler,calls}=harness({docs:[old(1)],attempts:[{document_id:id(1),workspace_id:WS,batch_id:id(99),with_text:true,changed:0}]});
+   await post(handler,tidyReq([id(1)]));assert.equal(calls.openai.length,0);assert.equal(calls.patches.length,0);}
+  {const {handler,calls,db}=harness({docs:[doc(1,{reclassify_needed:true})]});
+   const body=await (await post(handler,tidyReq([id(1)]))).json();
+   assert.equal(body.updated,1);assert.equal(calls.openai.length,1);assert.equal(db.app_documents[0].reclassify_needed,false);}
+});
+
+test('replaced file: the new text must be read first — until then nothing is sent and the flag stays',async()=>{
+  const {handler,calls,db}=harness({docs:[old(1,{reclassify_needed:true,extraction_status:null,extracted_text:null})],attempts:[{document_id:id(1),workspace_id:WS,batch_id:id(99),with_text:true,changed:0}]});
+  const body=await (await post(handler,tidyReq([id(1)]))).json();
+  assert.equal(body.updated,0);assert.equal(calls.openai.length,0);assert.equal(calls.patches.length,0);assert.equal(db.app_documents[0].reclassify_needed,true);
+});
+
+test('replaced file: nothing left to fill or an invalid AI answer still clears the flag (no loop); AI busy keeps it for next time',async()=>{
+  const full={title:'확정 제목',source:'국토교통부',category:'정책',document_date:'2026-10-01',reclassify_needed:true};
+  const tried=[{document_id:id(1),workspace_id:WS,batch_id:id(99),with_text:true,changed:0}];
+  {const {handler,calls,db}=harness({docs:[old(1,full)],attempts:tried});
+   await post(handler,tidyReq([id(1)]));assert.equal(calls.openai.length,0);assert.equal(db.app_documents[0].reclassify_needed,false);}
+  {const {handler,db}=harness({docs:[old(1,{reclassify_needed:true})],attempts:tried,openai:[()=>respond({status:'completed',output:[{type:'message',content:[{type:'output_text',text:'nope'}]}],usage:{}})]});
+   const r=await post(handler,tidyReq([id(1)]));assert.equal(r.status,502);assert.equal(db.app_documents[0].reclassify_needed,false);}
+  {const {handler,db}=harness({docs:[old(1,{reclassify_needed:true})],attempts:tried,openai:[()=>respond({},500)]});
+   const r=await post(handler,tidyReq([id(1)]));assert.equal(r.status,503);assert.equal(db.app_documents[0].reclassify_needed,true);}
+});
+
+test('replaced file: before the replace DB column exists the read falls back to the old select and tidy works as before',async()=>{
+  const {handler,calls,db}=harness({docs:[old(1)],noReclassify:true});
+  const body=await (await post(handler,tidyReq([id(1)]))).json();
+  assert.equal(body.updated,1);assert.equal(calls.patches.length,0);
+  assert.equal(calls.rest.filter(r=>r.table==='app_documents'&&r.method==='GET').length,2,'one 400 then the old select');
+  assert.equal(db.app_documents[0].title,'2026년 임금교섭 요구안');
 });
