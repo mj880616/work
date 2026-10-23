@@ -2,9 +2,10 @@ import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 
-test.beforeEach(async({page})=>{await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}})});
+test.beforeEach(async({page})=>{await installViewPrefsServer(page,{calendar_view:'month'})});
 import { writeFileSync } from 'node:fs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
 // Google Calendar 로딩 성능 측정(mock). Google API는 Edge Function 내부에서 호출되므로
 // Edge 호출 1회를 아래 모델로 Google 요청으로 환산한다(현재 Edge 코드 기준).

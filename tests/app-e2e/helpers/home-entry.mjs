@@ -2,6 +2,7 @@ import { expect } from '@playwright/test';
 import { loginEntry } from './login-entry.mjs';
 import {testOrigin} from './test-origin.mjs';
 import { signInWithSession } from './session-login.mjs';
+import { installViewPrefsServer } from './view-prefs-server.mjs';
 const app=testOrigin+'/app/',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // Normalized Google Tasks create representation, matching the existing Edge contract.
 export function createdTaskReply(body,{id='new',linkError=null}={}){return{ok:true,task:{id,taskListId:'@default',taskListTitle:'내 할 일',title:body.title,notes:body.notes||'',due:body.due||null,status:'needsAction',source:'google-task'},links:linkError?[]:(body.links||[]).map(link=>({...link,status:'confirmed'})),meeting_links:[],...(linkError?{link_error:linkError}:{})}}
@@ -10,6 +11,8 @@ export async function openHome(
   { delay = 0, delays = {}, holds = {}, fail = "", connected = true, calendarWarning = "", query = "", milestones = true, beforeLoad = null } = {},
 ) {
   await page.clock.setFixedTime(new Date("2026-10-06T01:00:00Z"));
+  // SET-보기선택서버저장: 화면 선택(빠른 입력 모드·메뉴 접기·달력 보기 등)은 서버 프로필에 저장되므로 시험도 흉내 낸 서버를 쓴다(새로고침 뒤에도 이어짐).
+  const prefs = await installViewPrefsServer(page);
   const requests = [],
     user = { id: "home-test", email: "home@example.org" },
     tasks = [
@@ -202,6 +205,7 @@ export async function openHome(
     timeout: 20000,
   });
   return {
+    prefs,
     requests,
     tasks,
     links,

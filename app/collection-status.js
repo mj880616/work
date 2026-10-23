@@ -7,6 +7,7 @@
 // 함수가 아직 배포 전(405·CORS 실패)이거나 표가 없으면(404) 그 줄을 조용히 숨기고, 확인할 수 있는 줄이 하나도 없으면 칸을 숨긴다.
 // 내용·파일 이름·링크는 받지도 그리지도 않는다. 한 탭에서 10분에 한 번만 묻는다.
 import {formatSeoulTime, seoulParts, seoulDateKey} from './meeting-time.js';
+import {viewPrefs} from './view-prefs.js';
 
 const HOUR = 3600000;
 // telegram: 회사 PC 수집이 messages/<YYYY-MM>/에 만드는 가장 최근 메시지 파일 시각(업무방 매일 07:30 1회 → 하루+2시간 여유로 26시간). call: 전사 폴더 최근 파일 시각(통화가 없는 주말을 넘기도록 72시간).
@@ -157,16 +158,13 @@ let cache = null; // {scope, at, raw} — memory only, this tab.
 // 맨 아래 '수집 정상 ✓' 한 줄. 전체 칸은 폰 메뉴 창 안에도 둔다. PC(1024px 이상)는 오른쪽 칸 그대로.
 // 이 파일이 네 자리(카드·경고 줄·정상 줄·메뉴 창 칸)의 유일한 상태 소유자이자 렌더러다.
 const phoneQuery = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(max-width:1023px)') : null;
-// ✕ "오늘 하루 숨김"은 이 기기의 화면 설정(날짜 하나)이다. 소유자별 캐시 접두어 아래 두어 로그아웃·사용자 변경 때 함께 지워진다.
-const hideKey = rt => { const prefix = rt?.ownerCache?.prefix, owner = rt?.context?.read?.()?.user?.id; return prefix && owner ? `${prefix}collect-alert-hidden-v1:${owner}` : ''; };
+// ✕ "오늘 하루 숨김"은 화면 설정(날짜 하나)으로 서버 프로필에 기억한다(view-prefs.js). 읽지 못했으면 숨기지 않는다.
 let expanded = false;
 function hiddenToday(rt, now) {
-  if (!hideKey(rt)) return false;
-  try { return window.localStorage.getItem(hideKey(rt)) === seoulDateKey(now); } catch { return false; }
+  return viewPrefs.get('collect_hidden_on') === seoulDateKey(now);
 }
 function hideToday(rt, now) {
-  if (!hideKey(rt)) return;
-  try { window.localStorage.setItem(hideKey(rt), seoulDateKey(now)); } catch {}
+  viewPrefs.set('collect_hidden_on', seoulDateKey(now));
 }
 const cardHtml = (rows, titleId) => `<header><h3${titleId ? ` id="${titleId}"` : ''}>마지막 수집 시각</h3></header><ul class="collect-list">${rows}</ul>`;
 function menuHostFor(doc) {
