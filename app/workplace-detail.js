@@ -118,7 +118,7 @@ function wdRenderDocs(){
   const kinds=document.querySelector('#wdDocKinds');
   if(kinds){kinds.hidden=wdDocsError||!wdDocs.length;if(!kinds.hidden)renderCategoryChips(kinds,{names:documentCategories(),off:wdDocOff,label:'자료 종류 (여러 개 고르기)',controls:'wdDocBody',key:'docKind',onToggle:wdToggleDocKind})}
   if(wdDocsError){box.innerHTML='<div class="status error" role="status">자료를 불러오지 못했습니다. <button type="button" data-wd-doc-retry>다시 불러오기</button></div>';return}
-  box.innerHTML=(wdDocs.length?(rows.length?`<div class="wd-doc-lines">${rows.map(x=>wdDocRow(x,can)).join('')}</div>`:'<div class="empty compact" data-wd-doc-none>고른 종류 자료 없음</div>')+`<button type="button" class="wd-doc-all" data-wd-library>전체 ${wdDocs.length}개 보기 <span aria-hidden="true">›</span></button>`:'')+`<div class="status${wdDocNote.text?(wdDocNote.error?' error':' ok'):''}" data-wd-doc-state role="status">${wdE(wdDocNote.text)}</div>`;
+  box.innerHTML=(wdDocs.length?(rows.length?`<div class="wd-doc-lines">${rows.map(x=>wdDocRow(x,can)).join('')}</div>`:'<div class="empty compact" data-wd-doc-nokind>고른 종류 자료 없음</div>')+`<button type="button" class="wd-doc-all" data-wd-library>전체 ${wdDocs.length}개 보기 <span aria-hidden="true">›</span></button>`:'')+`<div class="status${wdDocNote.text?(wdDocNote.error?' error':' ok'):''}" data-wd-doc-state role="status">${wdE(wdDocNote.text)}</div>`;
 }
 async function wdRefreshDocs(){const id=wdTargetId,epoch=wdEpoch;if(!id||!wdRecordCurrent(id,epoch))return;const run=++wdDocsRun;try{const rows=await wdReadDocs(id);if(!wdRecordCurrent(id,epoch)||run!==wdDocsRun)return;wdDocs=rows;wdDocsError=false}catch{if(!wdRecordCurrent(id,epoch)||run!==wdDocsRun)return;wdDocsError=true}wdRenderDocs()}
 async function wdRemoveDoc(docId,btn){

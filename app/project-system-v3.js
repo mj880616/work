@@ -461,7 +461,7 @@ function docRow(x){const fa={name:x.file_name||x.title||'',mime:x.mime_type||'',
 // 처음엔 모두 켜져 있어 자료가 숨지 않는다. 거르는 건 줄 보이기뿐이라 위의 자료 수와 [전체 N개 보기]는 프로젝트 전체 자료 기준 그대로다.
 let docOff=new Set(),docOffFor='';
 function docOffSet(d){if(docOffFor!==d.p.id){docOffFor=d.p.id;docOff=new Set()}return docOff}
-function docListHtml(d){const off=docOffSet(d),rows=d.docs.filter(x=>!off.has(categoryOf(x.category))).slice(0,5);return d.docs.length?(rows.length?`<div class="ps3-lines">${rows.map(docRow).join('')}</div>`:'<div class="ps3-empty" data-ps3-doc-none>고른 종류 자료 없음</div>'):''}
+function docListHtml(d){const off=docOffSet(d),rows=d.docs.filter(x=>!off.has(categoryOf(x.category))).slice(0,5);return d.docs.length?(rows.length?`<div class="ps3-lines">${rows.map(docRow).join('')}</div>`:'<div class="ps3-empty" data-ps3-doc-nokind>고른 종류 자료 없음</div>'):''}
 function docsHtml(d){return `<section class="ps3-section" id="ps3-documents"><div class="ps3-section-head"><h3>${esc(moduleTitle(d,'documents','자료'))} ${count(d.docs.length)}</h3><div class="ps3-section-actions">${addPlus('자료 올리기','data-ps3-global="document"')}</div></div><div id="ps3DocKinds" class="doc-kind-chips"${d.docs.length?'':' hidden'}></div><div data-ps3-doc-list>${docListHtml(d)}</div>${d.docs.length?`<button type="button" class="ps3-text-btn ps3-docs-all" data-ps3-library>전체 ${d.docs.length}개 보기 <span aria-hidden="true">›</span></button>`:''}</section>`}
 // 종류 칩을 그리고 누르면 줄 목록만 다시 그린다(칩 단추는 그대로라 초점·터치가 유지됨).
 function mountDocKinds(d){
