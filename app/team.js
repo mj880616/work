@@ -282,7 +282,7 @@ function entryKind(){return isReportKind(meetingEntryKind)?meetingEntryKind:DEFA
 function paintEntryWords(){
   const kind=entryKind(),w=reportWords(kind),meeting=isMeetingKind(kind),set=(sel,text)=>{const el=$(sel);if(el)el.textContent=text};
   const modal=$('#meetingModal');if(modal)modal.dataset.reportKind=kind;
-  set('#meetingTitleLabel',w.nameLabel);set('#meetingResultLegend',w.resultLegend);set('#meetingTextLabel',w.textLabel);set('#meetingMaterialsHead',w.materials);
+  set('#meetingTitleLabel',w.nameLabel);set('[data-rw="meetingResultLegend"]',w.resultLegend);set('#meetingTextLabel',w.textLabel);set('#meetingMaterialsHead',w.materials);
   const ta=$('#meetingTranscript');if(ta)ta.placeholder=w.textPlaceholder;
   $('#meetingPickFiles')?.setAttribute('aria-label',w.pickFiles);
   // 회의명 고르기·차수·짧은 이름은 [회의] 칸에서만 보인다. 다른 칸은 제목 한 칸.

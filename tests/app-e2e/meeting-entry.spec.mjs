@@ -68,7 +68,7 @@ test('meeting create modal exposes the task 9 fields only',async({page})=>{
   await expect(page.locator('#meetingModal')).toBeVisible();
   for(const id of ['meetingTitle','meetingRoundNo','meetingAt','meetingProject','meetingTranscript','meetingNotes','meetingFiles','meetingActionList'])await expect(page.locator('#'+id)).toBeAttached();
   await expect(page.locator('#meetingSeriesName')).toHaveCount(0);
-  await expect(page.locator('#meetingModal legend')).toHaveText(['기본정보','결과','첨부·후속']);
+  await expect(page.locator('#meetingModal legend')).toHaveText(['기본정보','회의 결과','첨부·후속']);
   await expect(page.locator('#meetingFiles')).toHaveAttribute('multiple','');
   // UI-회의결과창정리: 후속 할 일은 입력 한 줄(입력칸 + [기한 ▾] + [추가])로 시작하고, 넣은 할 일 줄은 아직 없다.
   await expect(page.locator('#meetingActionLine')).toBeVisible();

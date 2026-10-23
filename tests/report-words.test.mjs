@@ -45,7 +45,7 @@ test('team.js: 새 사업 보고의 자료도 자료실 올리기 요청, 입력
   assert.match(s,/uploadFileForMeeting/);assert.doesNotMatch(s,/functions\/v1\/meeting-files/);
   assert.match(s,/reportWords\(entryKind\(\)\)\.nameMissing/);
   const html=read('app/index.html');
-  assert.match(html,/id="meetingTitleLabel">회의명</);assert.match(html,/id="meetingResultLegend">회의 결과</);assert.match(html,/id="meetingTextLabel">회의 결과 원문</);
+  assert.match(html,/id="meetingTitleLabel">회의명</);assert.match(html,/data-rw="meetingResultLegend">회의 결과</);assert.match(html,/id="meetingTextLabel">회의 결과 원문</);
 });
 test('meeting-from-files.js는 회의를 만드는 길이라 meeting-files를 그대로 쓰고, 회의 칸이 아니면 닫힌다',()=>{
   const s=read('app/meeting-from-files.js');
