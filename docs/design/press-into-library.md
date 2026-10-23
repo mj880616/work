@@ -227,3 +227,4 @@ select document_categories from public.app_profiles where document_categories is
   - ① 더함 — **추천**(지침 글 한 줄, `ai-assist` 다음 배포 때 같이).
   - ② 지금 기준 그대로.
 - **확인**: 종류 목록에 '성명·보도자료'·'공문'을 이미 추가했는지(library-ai-fill §8.5). 안 했으면 가져오기 전에 1분.
+- 결정(2026-10-24 명진): Q1~Q6 모두 ① 추천안. 종류 목록 '성명·보도자료'·'공문' 추가 완료.
