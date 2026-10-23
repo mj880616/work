@@ -58,6 +58,18 @@ export async function fillLibraryDocument(id,{keep=[],rt=globalThis.window?.KPTU
   return {ok:true,updated};
 }
 
+// LIB-수정파일교체: 파일을 바꾼 자료를 새 파일 기준으로 한 번 다시 본다(글자 읽기 → ai-assist tidy). 서버가 정리 안 된 칸만 고르고(손으로 고친 칸·'user' 칸은 그대로,
+// 연결은 비어 있을 때만) 끝나면 자료의 reclassify_needed 표시를 끈다. 던지지 않는다. 화면에는 아무 표시도 없다.
+export async function reclassifyLibraryDocument(id,{rt=globalThis.window?.KPTURuntime,call=callAiAssist,notify=true}={}){
+  if(typeof id!=='string'||!UUID.test(id)||!rt?.api)return {ok:false,code:'invalid_request'};
+  await readText(id,rt);
+  const r=await call({kind:'library_fill',mode:'tidy',document_ids:[id]},{rt},CODES);
+  if(!r.ok)return {ok:false,code:r.code};
+  const updated=Number.isInteger(r.data?.updated)?r.data.updated:0;
+  if(updated&&notify&&typeof window!=='undefined')window.dispatchEvent(new CustomEvent('kptu:documents-changed'));
+  return {ok:true,updated};
+}
+
 // ---- LIB-자동정리 (docs/design/library-ai-fill.md 6절, 사용자 결정 2026-10-22 20:54) ----
 // 기존 자료의 정리 안 된 칸(사용자가 넣거나 고치지 않은 칸)을 버튼 없이 채운다. 화면에는 아무 표시도 없다(결정 ③).
 // 화면은 대상 후보를 고르고 서버(ai-assist library_fill mode tidy)에 자료 ID만 보낸다. 칸 판단·검사·백업·저장은 서버와 DB 함수가 다시 한다.
@@ -104,6 +116,8 @@ export function openLinks(doc){
 export function tidyCandidates(docs,{tried=new Set(),categories=[],now=Date.now()}={}){
   return (docs||[]).filter(doc=>{
     if(!doc||typeof doc.id!=='string'||!UUID.test(doc.id)||!Object.hasOwn(doc,'field_origin'))return false;
+    // 파일을 바꾼 자료(reclassify_needed): 올린 시각·시도 기록과 상관없이 한 번 다시 보낸다(서버가 끝나면 표시를 끈다). 창을 닫았거나 AI가 바빴을 때의 안전망.
+    if(doc.reclassify_needed===true)return true;
     const created=Date.parse(doc.created_at||'');
     if(!Number.isFinite(created)||now-created<=TIDY_FRESH_MS)return false;
     const id=doc.id.toLowerCase();

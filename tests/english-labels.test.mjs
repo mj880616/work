@@ -9,7 +9,7 @@ const inventory=[
   ['app/index.html','LIBRARY','자료 등록'],
   ['app/index.html','MEETING RESULT','사업 보고'],
   ['app/library-upload.js','LIBRARY','자료 분류 수정'],
-  ['app/library-upload.js','EDIT METADATA','자료 정보 수정'],
+  ['app/library-upload.js','EDIT METADATA','자료 수정'],
   ['app/meeting-round-detail.js','MEETING RESULT','사업 보고'],
   ['app/project-system-v3.js','PROJECT','프로젝트 만들기'],
   ['app/project-system-v3.js','DELETE PROJECT','프로젝트 삭제'],
