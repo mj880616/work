@@ -178,8 +178,8 @@ function photosFor(page) {
   if (photoPage !== page) { photoPage = page; photoApi = createSharePhotos({rt, getPageId: () => page.id || null}); mediaNow = {}; }
   return {add: file => photoApi.add(file), url: src => photoApi.url(src), max: SHARE_PHOTO_MAX};
 }
-function primeMedia(page) {
-  if (!page || !page.id) return;
+// The share:<id> photos in these blocks' 글 blocks.
+function photoIdsIn(blocks) {
   const ids = [];
   const walk = node => {
     if (!node || typeof node !== 'object') return;
@@ -187,7 +187,19 @@ function primeMedia(page) {
     if (node.type === 'image' && node.attrs && shareIdOf(node.attrs.src)) ids.push(shareIdOf(node.attrs.src));
     walk(node.content);
   };
-  for (const block of page.blocks) if (block.type === 'doc') walk(block.doc && block.doc.doc);
+  for (const block of Array.isArray(blocks) ? blocks : []) if (block && block.type === 'doc') walk(block.doc && block.doc.doc);
+  return ids;
+}
+// SHARE-사진같이지우기: after a save, or when the editor closes, the photos taken out of the page are removed from the private bucket
+// (file and record) by share-page-media, which reads the page as saved in the DB. Not waited for and never shown as an error:
+// a failure leaves the record, and the next save or close of this page asks again.
+function prunePhotos(page, keepNow) {
+  if (!page || !page.id || photoPage !== page || !photoApi) return;
+  void photoApi.prune(keepNow);
+}
+function primeMedia(page) {
+  if (!page || !page.id) return;
+  const ids = photoIdsIn(page.blocks);
   if (!ids.length || ids.every(id => id in mediaNow)) return;
   photosFor(page);
   const ask = ++mediaAsk;
@@ -413,6 +425,7 @@ function showEditor(page) {
     editing.focusOnOpen = page ? 'doc' : 'title';
   }
   editing.saved = snapshotOf(editing); sendWhere(editing.title.trim() || '제목 없음');
+  if (editing.id) { photosFor(editing); photoApi.note(photoIdsIn(editing.blocks)); }
   listView.hidden = true; editorView.hidden = false; view.dataset.spEditing = '1';
   layer ||= window.KPTURouter?.layer?.open('share-page-editor', {close:() => closeEditor({fromBack:true})}) || null;
   const focusDoc = editing.focusDoc || editing.mode === 'full';
@@ -424,7 +437,10 @@ function closeEditor({fromBack = false, force = false} = {}) {
   if (!editing) return true;
   if (busy && !force) return false;
   if (!force && dirty() && !window.confirm('저장하지 않은 내용이 있어요. 버리고 목록으로 돌아갈까요?')) return false;
+  const closing = editing;
   dropDocEditor();
+  // Changes are dropped here, so only the photos in the saved page stay (a photo put in and not saved is removed).
+  prunePhotos(closing, () => { try { return photoIdsIn(JSON.parse(closing.saved).blocks); } catch { return photoIdsIn(closing.blocks); } });
   const opened = layer; layer = null; editing = null; sendWhere(null);
   editorView.replaceChildren(); editorView.hidden = true; editorView.classList.remove('is-full'); listView.hidden = false;
   delete view.dataset.spEditing; view.removeAttribute('data-sp-full');
@@ -494,6 +510,8 @@ async function save() {
       const heading = editorView.querySelector('#spEditorTitle'); if (heading) heading.textContent = '공유 페이지 고치기';
       paintStatusButtons(); paintDirty();
       editorStatus(page.status === 'published' ? '저장했어요. 게시 중이에요.' : '저장했어요. 아직 초안이라 링크로는 안 보여요.');
+      // Keep what was saved and what the open editor has now (it may already be newer than what was sent).
+      prunePhotos(page, () => photoIdsIn(blocks).concat(editing === page && docEditor ? photoIdsIn([{type:'doc', doc:docEditor.getValue()}]) : []));
       return;
     }
     Object.assign(page, {id:row.id, title:row.title, status:row.status, project_id:row.project_id || null,
@@ -506,6 +524,7 @@ async function save() {
     renderEditor();
     editorStatus(page.status === 'published' ? '저장했어요. 게시 중이에요.' : '저장했어요. 아직 초안이라 링크로는 안 보여요.');
     editorView.querySelector('[data-sp-save]')?.focus({preventScroll:true});
+    prunePhotos(page, () => photoIdsIn(page.blocks));
   } catch (e) {
     if (editing === page) editorStatus(message(e, '저장하지 못했어요. 글은 그대로 있으니 다시 눌러 주세요.'));
   } finally {

@@ -5,7 +5,7 @@ import {createHash} from 'node:crypto';
 import {prepareMigration} from '../../scripts/ops/db-migration-plan.mjs';
 
 // ED-통합편집기 ②: share photo keeping. Real handlers, synthetic stores (no Supabase, no production).
-const {createShareMediaHandler,inspectJpeg,MAX_BYTES}=await import('../../supabase/functions/share-page-media/handler.ts');
+const {createShareMediaHandler,inspectJpeg,usedPhotoIds,MAX_BYTES,PRUNE_MAX}=await import('../../supabase/functions/share-page-media/handler.ts');
 const {createShareReadHandler,sharePhotoIds,SIGN_SECONDS}=await import('../../supabase/functions/share-page-read/handler.ts');
 const PAGE='30000000-0000-4000-8000-000000000001',OTHER='30000000-0000-4000-8000-000000000002',WS='20000000-0000-4000-8000-000000000001';
 const P1='40000000-0000-4000-8000-000000000001',P2='40000000-0000-4000-8000-000000000002',P3='40000000-0000-4000-8000-000000000003';
@@ -26,7 +26,7 @@ test('inspectJpeg accepts a plain redrawn JPEG and refuses EXIF, XMP, IPTC and n
 });
 
 function media(){
- const state={pages:new Map([[PAGE,WS]]),rows:new Map(),files:new Map(),tokens:{good:'u1',other:'u2'},calls:[]};
+ const state={pages:new Map([[PAGE,WS]]),blocks:new Map(),rows:new Map(),files:new Map(),failFile:new Set(),tokens:{good:'u1',other:'u2'},calls:[]};
  const owns=t=>t==='good';
  const deps={
   async userId(t){return state.tokens[t]??null;},
@@ -34,9 +34,11 @@ function media(){
   async insertRow(t,row){state.calls.push('insert');if(!owns(t))return false;state.rows.set(row.id,row);return true;},
   async rowsFor(t,pageId,ids){return owns(t)?[...state.rows.values()].filter(r=>r.page_id===pageId&&ids.includes(r.id)):[];},
   async rowById(t,id){return owns(t)?state.rows.get(id)??null:null;},
-  async deleteRow(t,id){state.rows.delete(id);return true;},
+  async deleteRow(t,id){if(state.failRow)return false;state.rows.delete(id);return true;},
+  async pageBlocks(t,id){return owns(t)&&state.pages.has(id)?(state.blocks.get(id)??[]):null;},
+  async rowsForPage(t,pageId,limit){return owns(t)?[...state.rows.values()].filter(r=>r.page_id===pageId).slice(0,limit):[];},
   async putFile(p,b){state.files.set(p,b);return true;},
-  async removeFile(p){state.files.delete(p);return true;},
+  async removeFile(p){state.calls.push('remove');if(state.failFile.has(p))return false;state.files.delete(p);return true;},
   async signFile(p,s){return state.files.has(p)?`https://x.supabase.co/storage/v1/object/sign/share-page-media/${p}?token=t&s=${s}`:null;},
  };
  return {state,handler:createShareMediaHandler(deps,{newId:()=>P1,log:()=>{}})};
@@ -77,11 +79,69 @@ test('media: no login, a stranger, a foreign page, EXIF, oversize and wrong shap
 });
 test('media: a row that cannot be saved removes the file again',async()=>{
  const {state}=media();
- const h=createShareMediaHandler({userId:async()=>'u',pageWorkspace:async()=>WS,insertRow:async()=>false,rowsFor:async()=>[],rowById:async()=>null,deleteRow:async()=>true,
+ const h=createShareMediaHandler({userId:async()=>'u',pageWorkspace:async()=>WS,insertRow:async()=>false,rowsFor:async()=>[],rowById:async()=>null,deleteRow:async()=>true,pageBlocks:async()=>[],rowsForPage:async()=>[],
   putFile:async(p,b)=>{state.files.set(p,b);return true;},removeFile:async p=>{state.files.delete(p);return true;},signFile:async()=>null},{newId:()=>P1,log:()=>{}});
  assert.equal((await upload(h)).status,503);assert.equal(state.files.size,0);
 });
 
+
+// SHARE-사진같이지우기: a photo taken out of the page goes with its file; the page as saved in the DB decides what is still used.
+const put=(state,id,page=PAGE)=>{const p=`${page}/${id}.jpg`;state.rows.set(id,{id,page_id:page,storage_path:p});state.files.set(p,new Uint8Array([1]));};
+const saved=(...ids)=>[{type:'summary',text:'x'},{type:'doc',doc:{v:'ed1',doc:{type:'doc',content:ids.map(id=>({type:'image',attrs:{src:'share:'+id,alt:''}}))}}}];
+test('prune: removes file and record of photos the saved page no longer uses, keeps used and kept ones, other pages untouched',async()=>{
+ const {state,handler}=media();
+ put(state,P1);put(state,P2);put(state,P3);put(state,'40000000-0000-4000-8000-000000000009',OTHER);
+ state.blocks.set(PAGE,saved(P1));
+ const r=await json(handler,{action:'prune',page_id:PAGE,keep:[P3]});
+ assert.equal(r.status,200);assert.deepEqual(await r.json(),{ok:true,removed:1,failed:0});
+ assert.deepEqual([...state.rows.keys()].sort(),[P1,P3,'40000000-0000-4000-8000-000000000009'].sort());
+ assert.equal(state.files.has(`${PAGE}/${P2}.jpg`),false);assert.equal(state.files.has(`${PAGE}/${P1}.jpg`),true);
+ assert.equal(state.files.has(`${OTHER}/40000000-0000-4000-8000-000000000009.jpg`),true);
+ // nothing left to remove: the same call again is harmless
+ assert.deepEqual(await (await json(handler,{action:'prune',page_id:PAGE,keep:[P3]})).json(),{ok:true,removed:0,failed:0});
+});
+test('prune: a file the bucket does not remove keeps its record, so the next prune removes it again',async()=>{
+ const {state,handler}=media();
+ put(state,P1);state.blocks.set(PAGE,saved());state.failFile.add(`${PAGE}/${P1}.jpg`);
+ assert.deepEqual(await (await json(handler,{action:'prune',page_id:PAGE})).json(),{ok:true,removed:0,failed:1});
+ assert.equal(state.rows.has(P1),true);assert.equal(state.files.has(`${PAGE}/${P1}.jpg`),true);
+ state.failFile.clear();
+ assert.deepEqual(await (await json(handler,{action:'prune',page_id:PAGE})).json(),{ok:true,removed:1,failed:0});
+ assert.equal(state.rows.size,0);assert.equal(state.files.size,0);
+});
+test('prune: no login, a stranger, a foreign page and wrong shapes remove nothing',async()=>{
+ const {state,handler}=media();
+ put(state,P1);state.blocks.set(PAGE,saved());
+ assert.equal((await json(handler,{action:'prune',page_id:PAGE},'')).status,401);
+ assert.equal((await json(handler,{action:'prune',page_id:PAGE},'nobody')).status,401);
+ assert.equal((await json(handler,{action:'prune',page_id:PAGE},'other')).status,404);
+ assert.equal((await json(handler,{action:'prune',page_id:OTHER})).status,404);
+ assert.equal((await json(handler,{action:'prune',page_id:'x'})).status,400);
+ assert.equal((await json(handler,{action:'prune',page_id:PAGE,keep:['../x']})).status,400);
+ assert.equal((await json(handler,{action:'prune',page_id:PAGE,keep:Array(201).fill(P1)})).status,400);
+ assert.equal(state.rows.size,1);assert.equal(state.files.size,1);
+});
+test('prune: a saved page too deep to read fully removes nothing (a used photo is never taken as unused)',async()=>{
+ const {state,handler}=media();
+ put(state,P1);
+ let node={type:'image',attrs:{src:'share:'+P1}};for(let i=0;i<90;i++)node={type:'blockquote',content:[node]};
+ state.blocks.set(PAGE,[{type:'doc',doc:{v:'ed1',doc:{type:'doc',content:[node]}}}]);
+ assert.equal((await json(handler,{action:'prune',page_id:PAGE})).status,409);
+ assert.equal(state.rows.size,1);assert.equal(state.files.size,1);
+});
+test('usedPhotoIds reads every share: photo of 글 blocks (no 60 cap), ignores other blocks and odd shapes',()=>{
+ const many=Array.from({length:80},(_,i)=>`40000000-0000-4000-8000-${String(i).padStart(12,'0')}`);
+ assert.equal(usedPhotoIds(saved(...many)).size,80);
+ assert.deepEqual([...usedPhotoIds([{type:'summary',text:'share:'+P1},{type:'doc',doc:{doc:{content:[{type:'image',attrs:{src:'https://x/'+P1}},null,5]}}}])],[]);
+ assert.equal(usedPhotoIds(null),null);assert.equal(usedPhotoIds({}),null);
+ assert.ok(PRUNE_MAX>=40);
+});
+test('delete: the file goes first; if it cannot, the record stays (no record-less file left behind)',async()=>{
+ const {state,handler}=media();
+ put(state,P1);state.failFile.add(`${PAGE}/${P1}.jpg`);
+ assert.equal((await json(handler,{action:'delete',id:P1})).status,503);
+ assert.equal(state.rows.has(P1),true);
+});
 const doc=(...srcs)=>({type:'doc',v:'ed1',doc:{type:'doc',content:srcs.map(src=>({type:'image',attrs:{src,alt:''}}))}});
 function reader(blocks,{status='published',dead=false}={}){
  const calls=[];
