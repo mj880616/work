@@ -9,6 +9,7 @@ on:
       - 'p/**'
       - 'tests/app-e2e/**'
       - '.github/workflows/app-e2e-check.yml'
+      - '.github/actions/setup-playwright/**'
   # main 대상 PR은 경로와 무관하게 시작해 browser-e2e 결과를 항상 남긴다.
   # 화면 시험이 필요한지는 아래 changes job이 변경 파일로 판정한다.
   pull_request:
@@ -80,9 +81,7 @@ jobs:
           package-manager-cache: false
 
       - name: Install Playwright
-        run: |
-          npm install --no-save @playwright/test@1.55.0
-          npx playwright install --with-deps chromium
+        uses: ./.github/actions/setup-playwright
 
       - name: Start static app server
         run: |

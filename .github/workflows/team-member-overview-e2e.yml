@@ -8,6 +8,7 @@ on:
       - 'tests/app-e2e/access-request-push.spec.mjs'
       - 'tests/app-e2e/solo-shell.spec.mjs'
       - '.github/workflows/team-member-overview-e2e.yml'
+      - '.github/actions/setup-playwright/**'
   push:
     branches: [main]
     paths:
@@ -16,6 +17,7 @@ on:
       - 'tests/app-e2e/access-request-push.spec.mjs'
       - 'tests/app-e2e/solo-shell.spec.mjs'
       - '.github/workflows/team-member-overview-e2e.yml'
+      - '.github/actions/setup-playwright/**'
 permissions:
   contents: read
 
@@ -29,8 +31,8 @@ jobs:
         with:
           node-version: 20
           package-manager-cache: false
-      - run: npm install --no-save @playwright/test@1.55.0
-      - run: npx playwright install --with-deps chromium
+      - name: Install Playwright
+        uses: ./.github/actions/setup-playwright
       - run: python3 -m http.server 8123 >/tmp/http.log 2>&1 &
       - run: node --test tests/domain/web2-auth-origin.test.mjs
       - run: npx playwright test tests/app-e2e/nonmember-access.spec.mjs tests/app-e2e/access-request-push.spec.mjs tests/app-e2e/solo-shell.spec.mjs --browser=chromium --workers=1 --reporter=line

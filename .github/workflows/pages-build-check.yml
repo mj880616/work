@@ -50,9 +50,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.compare_live
         run: node scripts/compare-pages.mjs --live "$RUNNER_TEMP/pages-out"
       - name: Install Playwright
-        run: |
-          npm install --no-save @playwright/test@1.55.0
-          npx playwright install --with-deps chromium
+        uses: ./.github/actions/setup-playwright
       - name: Serve build output
         run: |
           (cd "$RUNNER_TEMP/pages-out" && python3 -m http.server 8125 >"$RUNNER_TEMP/pages-http.log" 2>&1 &)

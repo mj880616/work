@@ -10,6 +10,7 @@ on:
       - 'app/styles.css'
       - 'tests/app-e2e/profile-workplaces*'
       - '.github/workflows/profile-single-render-check.yml'
+      - '.github/actions/setup-playwright/**'
   pull_request:
     branches: [main]
     paths:
@@ -19,6 +20,7 @@ on:
       - 'app/styles.css'
       - 'tests/app-e2e/profile-workplaces*'
       - '.github/workflows/profile-single-render-check.yml'
+      - '.github/actions/setup-playwright/**'
 
 permissions:
   contents: read
@@ -65,9 +67,8 @@ jobs:
         with:
           node-version: 20
           package-manager-cache: false
-      - run: |
-          npm install --no-save @playwright/test@1.55.0
-          npx playwright install --with-deps chromium
+      - name: Install Playwright
+        uses: ./.github/actions/setup-playwright
       - run: |
           python3 -m http.server 8123 >/tmp/profile-http.log 2>&1 &
           for i in $(seq 1 20); do

@@ -18,6 +18,7 @@ on:
       - 'tests/app-e2e/suborganization-filters.spec.mjs'
       - 'tests/app-e2e/suborganization-filters-*'
       - '.github/workflows/suborganization-filters-e2e.yml'
+      - '.github/actions/setup-playwright/**'
   push:
     branches: [main]
     paths:
@@ -35,6 +36,7 @@ on:
       - 'tests/app-e2e/suborganization-filters.spec.mjs'
       - 'tests/app-e2e/suborganization-filters-*'
       - '.github/workflows/suborganization-filters-e2e.yml'
+      - '.github/actions/setup-playwright/**'
 
 permissions:
   contents: read
@@ -82,9 +84,7 @@ jobs:
             echo 'assigned organization styles returned to dynamic injection'; exit 1
           fi
       - name: Install Playwright
-        run: |
-          npm install --no-save @playwright/test@1.55.0
-          npx playwright install --with-deps chromium
+        uses: ./.github/actions/setup-playwright
       - name: Start server
         run: python3 -m http.server 8123 >/tmp/kptu-suborg-http.log 2>&1 &
       - name: Run suborganization tests
