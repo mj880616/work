@@ -56,12 +56,12 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   const pickerHost=box.querySelector('[data-quick-file-picker]'),pickerWide=window.matchMedia('(min-width:761px)');
   const placePicker=()=>{if(pickerWide.matches)box.querySelector('[data-quick-save]').before(pickerHost);else box.querySelector('.home-quick-input-wrap').prepend(pickerHost);};
   pickerWide.addEventListener('change',placePicker);placePicker();
-  // NOTE-추가폴더표시: [폴더 ▾] sits just left of [추가] on a wide screen (after the clip); on a phone the docked box gets one small row above the input.
+  // NOTE-추가폴더표시: [폴더 ▾] sits right after the input on a wide screen (input → [폴더 ▾] → [📎 첨부] → [추가], each 8px apart); on a phone the docked box gets one small row above the input.
   const folderBtn=box.querySelector('[data-quick-folder]');
   if(!noteOnly)folderBtn.remove();
   else{
     const row=document.createElement('div');row.className='home-quick-folder-row';row.dataset.quickFolderRow='';box.querySelector('.home-quick-entry').before(row);
-    const placeFolder=()=>{if(pickerWide.matches)box.querySelector('[data-quick-save]').before(folderBtn);else row.append(folderBtn);row.hidden=pickerWide.matches;};
+    const placeFolder=()=>{if(pickerWide.matches)pickerHost.before(folderBtn);else row.append(folderBtn);row.hidden=pickerWide.matches;};
     pickerWide.addEventListener('change',placeFolder);placeFolder();
     folderBtn.onclick=()=>{if(saving)return;onFolder?.(folderBtn);};
   }
