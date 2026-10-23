@@ -192,6 +192,18 @@ const checkMark = () => { const c = document.createElement('span'); c.className 
 const svgEl = (tag, attrs) => { const e = document.createElementNS('http://www.w3.org/2000/svg', tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); return e; };
 // [⌄] (rotated to [⌃] while open by the stylesheet): a small chevron, drawn so no font has to carry the sign.
 const chevron = () => { const svg = svgEl('svg', {viewBox: '0 0 12 12', width: '12', height: '12', 'aria-hidden': 'true', focusable: 'false'}); svg.classList.add('ed-chevron'); svg.append(svgEl('path', {d: 'M2.5 4.5 6 8l3.5-3.5', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.6', 'stroke-linecap': 'round', 'stroke-linejoin': 'round'})); return svg; };
+// ED-사진링크아이콘: [사진] [링크] are icons on the row and icon + letters inside the phone's [넣기 ▾] list (the stylesheet hides the letters
+// on the row). Drawn in the site's own icon style (the 24-box stroke icons of the bottom menu: currentColor, round ends), shown at 16px.
+const ICON_PATHS = {
+  photo: [['path', {d: 'M4 5h16v14H4zM4 16l5-5 4 4 2-2 5 5'}], ['circle', {cx: '9', cy: '9.5', r: '1.3'}]],
+  link: [['path', {d: 'M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7'}]],
+};
+const toolIcon = key => {
+  const svg = svgEl('svg', {viewBox: '0 0 24 24', width: '16', height: '16', 'aria-hidden': 'true', focusable: 'false', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.7', 'stroke-linecap': 'round', 'stroke-linejoin': 'round'});
+  svg.classList.add('ed-tool-icon');
+  for (const [tag, attrs] of ICON_PATHS[key]) svg.append(svgEl(tag, attrs));
+  return svg;
+};
 // A 정렬 icon: four lines, each as long and as far over as the alignment puts it.
 const ALIGN_LINES = {left: [[1, 13], [1, 9], [1, 13], [1, 7]], center: [[1, 13], [3, 11], [1, 13], [4, 10]], right: [[1, 13], [5, 13], [1, 13], [7, 13]], justify: [[1, 13], [1, 13], [1, 13], [1, 13]]};
 const alignIcon = v => { const svg = svgEl('svg', {viewBox: '0 0 14 12', width: '14', height: '12', 'aria-hidden': 'true', focusable: 'false'}); ALIGN_LINES[v].forEach(([a, b], i) => svg.append(svgEl('path', {d: `M${a} ${1.5 + i * 3}H${b}`, stroke: 'currentColor', 'stroke-width': '1.3', 'stroke-linecap': 'round'}))); return svg; };
@@ -227,6 +239,10 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     lastGroup = group;
     if (OPENS[key]) { b.setAttribute('aria-haspopup', 'true'); b.setAttribute('aria-expanded', 'false'); }
     if (key === 'style') b.classList.add('ed-style');
+    if (ICON_PATHS[key]) {
+      const word = document.createElement('span'); word.className = 'ed-tool-word'; word.textContent = text;
+      b.replaceChildren(toolIcon(key), word); b.classList.add('ed-icon-btn'); b.title = aria;
+    }
     if (group === 'mark' || group === 'list') b.setAttribute('aria-pressed', 'false');
     buttons[key] = b; tools.append(b);
   }

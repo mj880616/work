@@ -455,6 +455,11 @@ test.describe('PC 1280', () => {
     await open(page);
     const row = page.locator('.ed-tools');
     await expect(row.getByRole('button')).toHaveText(['본문 2 ▾', '굵게', '기울임', '밑줄', '글자색 ▾', '형광펜 ▾', '왼쪽 ▾', '목록 ▾', '번호 ▾', '표 ▾', '링크', '· ▾', '※ ▾', '→ ▾', '① ▾', '↶', '↷', '']);
+    // ED-사진링크아이콘: [링크] is an icon with a hover name; its letters are not shown on the row.
+    const linkTool = row.getByRole('button', {name: '링크 넣기', exact: true});
+    await expect(linkTool).toHaveAttribute('title', '링크 넣기');
+    await expect(linkTool.locator('svg.ed-tool-icon')).toBeVisible();
+    await expect(linkTool.locator('.ed-tool-word')).toBeHidden();
     expect(await row.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
     for (const h of await row.locator('button:visible').evaluateAll(l => l.map(b => Math.round(b.getBoundingClientRect().height)))) expect(h).toBeLessThanOrEqual(28);
     await page.locator('.ed-more').click();

@@ -77,6 +77,9 @@
 .ed-bar button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:1px}
 .ed-bar button[aria-pressed="true"],.ed-bar button[aria-expanded="true"]{background:var(--kptu-primary-soft);border-color:var(--kptu-primary);color:var(--kptu-primary-ink)}
 .ed-bar button:disabled{opacity:.4;cursor:default}
+.ed-bar .ed-tools>.ed-icon-btn{display:inline-flex;align-items:center;justify-content:center;padding:0 6px}
+.ed-bar .ed-tool-icon{flex:0 0 auto;display:block}
+.ed-bar .ed-tools>.ed-icon-btn .ed-tool-word{display:none}
 .ed-bar .ed-style{min-width:72px;border-color:var(--ds-line,var(--kptu-border));justify-content:space-between}
 .ed-bar [data-ed-cmd="strong"]{font-weight:700}
 .ed-bar [data-ed-cmd="em"]{font-style:italic}
