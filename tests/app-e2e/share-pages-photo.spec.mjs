@@ -14,8 +14,8 @@ const WS = 'photo-workspace';
 const PID = '30000000-0000-4000-8000-000000000001';
 const PHOTO = '40000000-0000-4000-8000-000000000001';
 const SIGNED = `${SB}/storage/v1/object/sign/share-page-media/${PID}/${PHOTO}.jpg?token=t`;
-// A 4x3 PNG: any real picture the browser can open.
-const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAAFUlEQVR4nGP4z8Dwn4GBgYEBRIAAAC0cBPx1yJy8AAAAAElFTkSuQmCC', 'base64');
+// A 4x3 PNG with valid checksums (the browser must be able to decode it: a broken one is refused as an unreadable format).
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAAEElEQVR4nGM4YaMBRww4OQAZ7g4RX8PtlgAAAABJRU5ErkJggg==', 'base64');
 const docPage = text => ({id:PID, title:'사진 페이지', status:'published', project_id:null, updated_at:'2026-10-22T01:00:00.000Z', blocks:[
   {type:'doc', doc:{v:'ed1', doc:{type:'doc', content:[{type:'paragraph', attrs:{style:'body2'}, content:[{type:'text', text}]}]}}}]});
 
@@ -90,13 +90,13 @@ for (const width of [390, 1280]) test('[사진] on a saved page: redrawn JPEG wi
   const upload = state.edge.find(e => e.kind === 'upload');
   expect(upload).toMatchObject({pageId:PID, jpeg:true, hasExif:false});
   expect(upload.auth).toMatch(/^Bearer /);
-  await expect(editor.locator('.ed-status, [role=status]').first()).toBeVisible();
+  await expect(editor.locator('.ed-status')).toContainText('사진 1장을 넣었어요');
   await editor.getByRole('button', {name:'저장', exact:true}).click();
   await expect(editor.locator('[data-sp-status-line]')).toContainText('저장했어요');
   const saved = state.writes.at(-1).body.blocks[0].doc.doc.content;
   expect(saved.find(n => n.type === 'image').attrs.src).toBe('share:' + PHOTO);
   expect(JSON.stringify(state.writes)).not.toContain('https://');
-  expect(await page.evaluate(() => Object.keys(localStorage).concat(Object.keys(sessionStorage)).filter(k => /photo|share|media/i.test(k)))).toEqual([]);
+  expect(await page.evaluate(id => Object.entries(localStorage).concat(Object.entries(sessionStorage)).filter(([k, v]) => (k + v).includes(id) || /share-page|share:/.test(k + v)).map(([k]) => k), PHOTO)).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
   expect(errors).toEqual([]);
 });
