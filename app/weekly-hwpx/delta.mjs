@@ -6,6 +6,7 @@
 // 3) diffRows: 두 판의 내 줄을 줄 단위로 비교(같음/더함/뺌) — 비교 메모와 "지난주에 고친 문구를 또 고치지 않기" 검사에 씀.
 // 4) personalReportFromTeam: 상집보고 전체 구조(W3 확대)의 개인본 바탕 — 요약 표 내 줄, 내 담당 조직 줄. 요청 표는 비워 두고
 //    그 주에 저장한 요청 줄로 채운다(WEEKLY-임원요청정리, app/weekly-exec-requests.js — 지난주 줄은 걸러서 가져옴).
+import {sameOrgName, matchOrgs} from '../org-name-match.mjs';
 import {lineText, isChanged} from './report.mjs';
 
 const key = (area, row) => `${area.join('')}›${(row.task ?? []).join('')}`;
@@ -65,7 +66,8 @@ export function personalFromTeam(teamSummary, me) {
 //   (지난주 줄 가운데 날짜가 안 지났고 내 사업장·사업과 관련된 줄 + 직접 넣은 줄, weekly-exec-requests.js formRequests)로 채운다.
 // - 4. 산하조직 현황: 내 담당 조직(myOrgs) 줄만, 확정본 순서대로. 글은 확정본 그대로(지난주 소식이 바탕, 바뀐 것만 고침).
 // - 3. 투쟁 사업장 현황: 내 담당 조직이면 남김. 집회·농성 표, 2) 세부 내용(회의 결과 상자), 5. 주요 일정은 매주 새로 쓰므로 비움.
-const sameName = (a, b) => norm(a) === norm(b);
+// 조직 이름 비교는 org-name-match.mjs 한 곳(ORG-별칭: 노동조합↔노조, 지부·지회 접미, 띄어쓰기·가운뎃점 무시 + 별칭).
+const sameName = (a, b) => sameOrgName(a, b);
 export const isMyOrg = (org, myOrgs) => myOrgs.some(name => sameName(name, [].concat(org).join('')));
 // 내 담당 조직 줄만 남김. 확정본 줄 테두리(borders)를 따라가고, 바로 위 줄이 빠진 줄은 cutAbove(위 선 닫기, report.mjs pairGrid).
 function keepOrgRows(rows, myOrgs) {
@@ -81,9 +83,12 @@ function keepOrgRows(rows, myOrgs) {
 export const reportOrgOrder = orgList => [...orgList].sort((a, b) => String(a?.name ?? '').localeCompare(String(b?.name ?? ''), 'ko'));
 function allOrgRows(rows, orgList) {
   const list = rows ?? [], used = new Set(), picked = [];
-  for (const org of reportOrgOrder(orgList)) {
-    const names = [org.name, ...(Array.isArray(org.aliases) ? org.aliases : [])].map(n => String(n ?? '').trim()).filter(Boolean);
-    const hits = list.filter((r, i) => !used.has(i) && names.some(n => sameName(n, [].concat(r.org).join(''))));
+  const orgs = reportOrgOrder(orgList);
+  const text = r => [].concat(r.org).join('');
+  // 줄마다 맞는 조직이 정확히 하나일 때만 그 조직 자리에 둔다(정식 이름이 같으면 그 조직이 먼저). 둘 이상 맞으면(별칭이 겹침) 어느 쪽에도 잇지 않는다.
+  const owner = list.map(r => { const hits = matchOrgs(text(r), orgs); return hits.length === 1 ? hits[0] : null; });
+  for (const org of orgs) {
+    const hits = list.filter((r, i) => !used.has(i) && owner[i] === org);
     for (const r of hits) used.add(list.indexOf(r));
     if (hits.length) picked.push(...hits); else picked.push({org: [String(org.name ?? '').trim()], status: []});
   }

@@ -28,8 +28,9 @@ const ORG_TARGETS = ['공항철도지부', '부산지하철노조', '서울교�
 const ROW_TARGETS = [['기본 사업', '정책연구'], ['철도지하철', '궤도 공동투쟁 지원'], ['철도지하철', '민영화 저지'], ['조직', '신규 조직화']]
   .map((names, i) => ({value: `summary:${i}`, names, kind: 'row'}));
 test('③ 붙일 줄 기본값: 목록 첫 줄이 아니라 이름이 가장 가까운 줄, 없거나 애매하면 빈 값(줄 고르기)', () => {
-  // 사용자 지적 사례: 부산지하철노동조합·서울교통공사노동조합 기록이 첫 줄(공항철도지부)로 골라졌다 → 약칭(…노조)은 별칭 과제 전까지 빈 값.
-  assert.equal(nearestTarget('부산지하철노동조합', ORG_TARGETS), '');
+  // 사용자 지적 사례: 부산지하철노동조합·서울교통공사노동조합 기록이 첫 줄(공항철도지부)로 골라졌다 → 첫 줄이 아니라 같은 조직 줄(ORG-별칭: …노동조합 = …노조),
+  // 별칭·약칭이 없는 조직은 빈 값.
+  assert.equal(nearestTarget('부산지하철노동조합', ORG_TARGETS), 'orgs:1');
   assert.equal(nearestTarget('서울교통공사노동조합', ORG_TARGETS), '');
   // 이름을 품으면 맞음(띄어쓰기 무시)
   assert.equal(nearestTarget('부산 지하철노조', ORG_TARGETS), 'orgs:1');

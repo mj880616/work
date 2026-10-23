@@ -308,7 +308,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, rt = window.KPT
         li.append(el('span', 'journal-weekly-day', item.day ? shortDay(item.day) : '요약'), el('span', 'journal-weekly-label', `${item.from}: `), doc.createTextNode(item.text + ' '));
         const targets = item.section === 'summary'
           ? state.rows.map(r => ({value:`summary:${r.index}`, label:`${r.area} › ${r.task}`, names:[r.area, r.task], kind:'row'}))
-          : state.orgs.map(r => ({value:`orgs:${r.index}`, label:r.org, names:[r.org, ...(state.aliases.get(r.org) ?? [])], kind:'org'}));
+          : state.orgs.map(r => ({value:`orgs:${r.index}`, label:r.org, names:state.draft.rowNames(r.org, state.context.organizations), kind:'org'}));
         if (!targets.length) return li;
         // WEEKLY-한글파일다듬기 ③: 맨 앞 '줄 고르기'(빈 값). 이름이 가장 가까운 줄 하나만 미리 고르고, 없거나 애매하면 빈 값 — 그때 [붙이기]는
         // 줄을 고르기 전엔 누를 수 없다. (전에는 빈 값이 없어 목록 첫 줄이 기본으로 골라져 있었다.)
