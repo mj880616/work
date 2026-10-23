@@ -2,6 +2,7 @@ import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the 
 import {seoulInputValue,seoulDateKey,seoulClock,seoulDayStart,addSeoulDays,seoulDate,toSeoulISO} from './meeting-time.js';
 import {linkEventEnd,normalizeTime,paintTimeHint} from './time-input.js';
 import {googleSaveFailure,unknownRetryText,addressConfirmedText,calendarName,logSaveDetail} from './calendar-save-notice.js';
+import {updateBody,same as ciSameTimes} from './calendar-drag-model.js';
 let ciEndLink=null,ciGoogleCurrent=null,ciGoogleSavePending=false,ciGoogleOpenSeq=0,ciGoogleReadySeq=0,ciGoogleOwner=null,ciSaveRequest=null;const ciUncertain=new Map(),ciPendingWrites=new Map();
 function ciRuntime(){const rt=window.KPTURuntime;if(!rt?.session||!rt?.api)throw new Error('앱 런타임을 불러오지 못했습니다.');return rt}
 async function ciGoogleCall(action,{method='GET',body=null,params=null,expectedSessionEpoch=null}={}){const rt=ciRuntime();if(!(await rt.session.ensure()))throw new Error('로그인이 필요합니다.');const u=new URL(rt.config.url+'/functions/v1/google-calendar');if(action)u.searchParams.set('action',action);if(params)Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,String(v)));const d=await rt.api(u.toString(),{method,body,expectedSessionEpoch});if(d?.error)throw new Error(d.error||'Google Calendar 요청 실패');return d}
@@ -160,6 +161,43 @@ function ciCreateAt(d){const btn=document.querySelector('#newEventBtn');if(!btn)
 ciInject();
 let ciSessionEpoch=ciRuntime().session.epoch();window.addEventListener('kptu:session-changed',()=>{if(ciSessionEpoch===ciRuntime().session.epoch())return;ciSessionEpoch=ciRuntime().session.epoch();ciUncertain.clear();ciPendingWrites.clear();ciClose('#ciGoogleModal');ciGoogleCurrent=null});
 document.addEventListener('click',e=>{const g=e.target.closest?.('.cp-event[data-google-event]');if(g){e.preventDefault();e.stopImmediatePropagation();ciCloseDay(()=>ciOpenGoogle(g.dataset.googleEvent,g.dataset.googleCalendar));return}const cell=e.target.closest?.('#calendarGrid .cal-cell, #calendarWeek .cwv-day');if(!cell||window.KPTUCalendarMonthView?.suppressClick?.()||e.target.closest?.('.cal-event,.kptu-day-more,.cmv-date-list,.cmv-task-count,a,input,select,textarea'))return;const d=ciClickedDate(cell);if(d){e.preventDefault();e.stopPropagation();ciCreateAt(d)}},true);
+// CAL-끌어옮기기: 달력에서 끌어 놓은 시간·날짜를 수정 창 [변경사항 저장]과 같은 Edge google-calendar update-event로 저장한다.
+// Google에서 일정을 먼저 다시 읽어 제목·메모·장소·담당조직은 그대로 보내고(시간만 바뀜), 읽은 시간이 끌기 전 시간(expected)과
+// 다르면(다른 곳에서 바뀜) 쓰지 않는다. 수정 창과 같은 진행 중 저장·결과 모름 표시(ciPendingWrites·ciUncertain)를 함께 써서,
+// 끌기 저장 중에 수정 창을 열면 그 결과를 기다리고, 결과를 모르는 저장 뒤에는 수정 창이 Google 상태를 먼저 확인한다.
+// 반복 일정은 Google이 보여 준 그 회차(인스턴스 ID)만 바뀐다. 수정 창에도 '이후 전부' 선택은 없다.
+// 결과: {status:'saved',event,recurring} | 'gone' | 'changed' | 'busy' | 'rejected' | 'unknown' | 'stale', text = 화면 안내.
+async function ciSaveMoved(eventId,calendarId,expected,next){
+  const rt=ciRuntime(),owner=rt.session.read()?.user?.id,epoch=rt.session.epoch(),key=ciUncertainKey(eventId,calendarId);
+  const alive=()=>owner===ciRuntime().session.read()?.user?.id&&epoch===ciRuntime().session.epoch();
+  if(!owner)return {status:'rejected',text:'로그인이 풀려 옮기지 않았습니다.'};
+  if(ciPendingWrites.has(key))return {status:'busy',text:'이 일정의 앞선 저장이 끝난 뒤 다시 옮겨 주세요.'};
+  // 결과를 모르는 앞선 저장: 캘린더 이동이 섞였으면 수정 창의 위치 확인에 맡기고, 시간만이면 아래에서 Google을 먼저 읽어 끌기 전 시간과 비교한다.
+  if(ciUncertain.get(key)?.target)return {status:'busy',text:'앞선 저장 결과를 확인하지 못한 일정이라 옮기지 않았습니다. 일정을 열어 확인해 주세요.'};
+  const r={};r.done=new Promise(resolve=>{r.finish=resolve});ciPendingWrites.set(key,r);
+  let dispatched=false;
+  try{
+    if(window.KPTUCalendarPersistence?.fromCopy?.()){const seen=await window.KPTUCalendarPersistence.confirm(eventId,calendarId).catch(()=>'unknown');if(!alive())return {status:'stale'};if(seen==='gone')return {status:'gone',text:'삭제된 항목입니다. 다른 곳에서 지워져 목록에서 뺐습니다.'}}
+    let fresh;
+    try{fresh=(await ciGoogleCall('event',{expectedSessionEpoch:epoch,params:{eventId,calendarId}}))?.event}catch(e){if(!alive())return {status:'stale'};if(ciGoneError(e)){window.KPTUCalendarPersistence?.forget?.(eventId,calendarId);return {status:'gone',text:'삭제된 항목입니다. 다른 곳에서 지워져 목록에서 뺐습니다.'}}throw e}
+    if(!alive())return {status:'stale'};
+    if(fresh?.id!==eventId)throw new Error('Google 일정을 확인하지 못했습니다.');
+    if(!ciSameTimes(fresh,expected))return {status:'changed',text:'다른 곳에서 시간이 바뀐 일정이라 옮기지 않았습니다. 최신 시간으로 다시 불러옵니다.'};
+    const body=updateBody({...fresh,calendarId},next);
+    dispatched=true;ciUncertain.set(key,{source:calendarId,target:null});
+    const result=await ciGoogleCall('',{method:'POST',body,expectedSessionEpoch:epoch});
+    if(!alive())return {status:'stale'};
+    if(result?.ok!==true||result.event?.id!==eventId||result.event.calendarId!==calendarId)throw new Error('일정 저장 결과를 확인하지 못했습니다.');
+    ciUncertain.delete(key);window.KPTUCalendarPersistence?.put?.(result.event,calendarId);
+    window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()?.catch?.(()=>{});
+    return {status:'saved',event:result.event,recurring:!!fresh.recurring};
+  }catch(e){
+    if(!alive())return {status:'stale'};
+    const f=googleSaveFailure(e);logSaveDetail(f.detail);
+    if(dispatched&&f.kind==='rejected')ciUncertain.delete(key);
+    return f.kind==='rejected'?{status:'rejected',text:'옮기지 못했습니다. 일정은 그대로입니다.'}:{status:'unknown',text:'저장 결과를 확인하지 못했습니다. 달력을 다시 불러와 실제 시간을 보여 드립니다.'};
+  }finally{if(ciPendingWrites.get(key)===r)ciPendingWrites.delete(key);r.finish()}
+}
 // SEARCH-전체검색: a Google event found by search opens in the same edit window as a click on it in the calendar.
-window.KPTUCalendarEvents={open:(eventId,calendarId)=>{if(eventId)ciCloseDay(()=>ciOpenGoogle(String(eventId),calendarId||'primary'))}};
+window.KPTUCalendarEvents={open:(eventId,calendarId)=>{if(eventId)ciCloseDay(()=>ciOpenGoogle(String(eventId),calendarId||'primary'))},saveMove:ciSaveMoved,toast:ciToast};
 window.__KPTU_CALENDAR_INTERACTIONS_READY__=Promise.resolve(true);
