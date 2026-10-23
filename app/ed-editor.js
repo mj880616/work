@@ -1006,7 +1006,9 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     // (A button inside a scrolled group popover can sit above the screen's top: the popover stays on the screen.)
     const top = Math.max(view0.t + side, underneath ? t.bottom + gap : t.top - gap - Math.min(size.height, room));
     pop.style.maxHeight = `${room}px`;
-    const left = Math.max(view0.l + side, Math.min(t.left, view0.l + view0.w - side - size.width));
+    // (The left floor is the screen's side margin, or the button's own left when the button sits closer to the edge, so a popover
+    // under the first button of a tight phone row still starts on that button.)
+    const left = Math.max(view0.l + Math.min(side, Math.max(0, t.left - view0.l)), Math.min(t.left, view0.l + view0.w - side - size.width));
     pop.style.left = `${Math.round(left)}px`; pop.style.top = `${Math.round(top)}px`;
     // An ancestor with a transform or filter would make "fixed" relative to it: correct by what was really drawn.
     const drawn = pop.getBoundingClientRect();

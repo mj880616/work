@@ -177,7 +177,8 @@
    안쪽 여백만 줄인다. 묶음 안 버튼은 세로 목록(.ed-group-menu)에 같은 버튼이 옮겨 가 있고, 그 목록은 다른 펼침 상자(.ed-pop)와 같은 모양이다. */
 .ed-grouped .ed-tools{gap:1px;padding:0 2px;overflow-x:auto}
 .ed-grouped .ed-tools .ed-gap{margin-left:0}
-.ed-grouped .ed-tools button{min-width:20px;padding:0 3px}
+.ed-grouped .ed-tools{font-size:min(var(--ds-compact-text,13px),3.5vw)}
+.ed-grouped .ed-tools button{flex:0 1 auto;min-width:18px;padding:0 3px;font-size:inherit}
 .ed-grouped .ed-tools .ed-style{min-width:0;justify-content:center}
 .ed-grouped .ed-tools .ed-caret{font-size:.7em}
 .ed-group-menu .ed-gap{margin-left:0}
