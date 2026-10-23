@@ -277,8 +277,8 @@ function renderLinks() {
   if (!host || !editing) return;
   if (!editing.id) { host.replaceChildren(el('p', {class:'sp-hint', text:'링크는 페이지를 한 번 저장한 뒤 만들 수 있어요.'})); return; }
   const form = el('div', {class:'sp-link-form'},
-    el('label', {class:'sp-field'}, el('span', {text:'받는 사람 이름표'}),
-      el('input', {type:'text', class:'sp-input', maxLength:LIMITS.label, placeholder:'예: ○○지부', dataset:{spLinkLabel:''}})),
+    el('label', {class:'sp-field'}, el('span', {text:'받는 사람 이름표 (선택)'}),
+      el('input', {type:'text', class:'sp-input', maxLength:LIMITS.label, placeholder:'비워도 돼요 · 링크를 가진 누구나 봐요', dataset:{spLinkLabel:''}})),
     el('label', {class:'sp-field'}, el('span', {text:'기한 (선택, 비우면 없음)'}),
       el('input', {type:'date', class:'sp-input', dataset:{spLinkExpiry:''}})),
     el('button', {type:'button', class:'secondary', dataset:{spLinkCreate:''}, text:'링크 만들기'}));
@@ -548,7 +548,7 @@ async function createLink() {
     if (!Array.isArray(rows) || rows.length !== 1) throw new Error('no row');
     page.links = [...page.links, rows[0]]; page.linksState = 'ready';
     renderLinks();
-    linkStatus(`"${label}" 링크를 만들었어요. [복사]를 눌러 보내세요.`);
+    linkStatus(`${label ? `"${label}" ` : ''}링크를 만들었어요. [복사]를 눌러 보내세요.`);
     editorView.querySelector(`[data-sp-link-copy="${CSS.escape(rows[0].id)}"]`)?.focus();
   } catch (e) {
     if (editing === page) linkStatus(message(e, '링크를 만들지 못했어요.'));
