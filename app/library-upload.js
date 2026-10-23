@@ -1,6 +1,7 @@
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {renderFilterChips} from './filter-chips.js';
-import {readView,saveView,allState,afterAllTap} from './library-view-pref.js';
+import {readView,saveView} from './library-view-pref.js';
+import {renderCategoryChips,toggleCategoryOff} from './category-chips.js';
 import {nodeDocumentIds,toggleAll,allSelected,someSelected,pruneSelected,deleteSequentially,confirmText,resultText} from './library-select.js';
 import {GROUP_BY,GROUP_LABELS,buildTree,treeHtml,keys as luTreeKeys,matchedKeys,pathTo} from './library-tree.js';
 import {mountLibraryFolders} from './library-folders.js';
@@ -77,7 +78,7 @@ let luEntering=false;
 const luCategoryShown=name=>!luCategoryOff.has(name);
 // LIB-거르기전체(2026-10-23 사용자 확정 11:46): [전체]는 맨 앞 칩. 모두 켜졌으면 누르면 모두 끄고, 일부만 켜졌거나 모두 꺼졌으면 누르면 모두 켠다.
 // 일부만 켜진 상태는 칩이 반쯤 찬 모양(aria-pressed="mixed"). 모두 끄면 목록 자리에 '고른 종류 없음' 한 줄.
-function luToggleCategory(value){const names=documentCategories();luUserChangedView('categories');if(value==='all')luCategoryOff=afterAllTap(names,luCategoryOff);else if(luCategoryOff.has(value))luCategoryOff.delete(value);else luCategoryOff.add(value);luRenderLibrary()}
+function luToggleCategory(value){luUserChangedView('categories');luCategoryOff=toggleCategoryOff(documentCategories(),luCategoryOff,value);luRenderLibrary()}
 // 사용자가 묶기·종류 칩을 고르면 0.4초 뒤 서버에 기억한다(바꾼 칸만 새로 쓰고 나머지는 기억해 둔 값 그대로). 못 쓰면(칸이 아직 없음 등) 화면은 그대로 동작한다.
 function luUserChangedView(field){luViewHold=true;luViewPending.add(field);clearTimeout(luViewTimer);luViewTimer=setTimeout(luFlushView,400)}
 function luFlushView(){
@@ -107,18 +108,8 @@ async function luRefreshView(){
   if(changed)luRenderLibrary();
 }
 function luRenderCategoryFilter(){
-  const host=document.querySelector('#libraryCategoryFilter');if(!host)return;
-  const names=documentCategories(),state=allState(names,luCategoryOff);
-  host.classList.add('filter-chips','quick-mode-group','filter-chips-small');host.setAttribute('role','group');host.setAttribute('aria-label','자료 분류 (여러 개 고르기)');host.setAttribute('aria-controls','documentList');
-  const signature=JSON.stringify(names);
-  if(host._luSignature!==signature){
-    const focused=host.contains(document.activeElement)?document.activeElement?.dataset.luCategory:null;
-    host.replaceChildren(...['all',...names].map(value=>{const b=document.createElement('button');b.type='button';b.className='quick-pill-button';b.dataset.luCategory=value;b.textContent=value==='all'?'전체':value;return b}));
-    host._luSignature=signature;
-    if(focused)[...host.children].find(b=>b.dataset.luCategory===focused)?.focus({preventScroll:true});
-  }
-  for(const b of host.children)b.setAttribute('aria-pressed',b.dataset.luCategory==='all'?(state==='all'?'true':state==='none'?'false':'mixed'):String(luCategoryShown(b.dataset.luCategory)));
-  if(!host._luBound){host._luBound=true;host.addEventListener('click',e=>{const b=e.target.closest('[data-lu-category]');if(b?.parentElement===host)luToggleCategory(b.dataset.luCategory)})}
+  // LIB-조직프로젝트자료종류: 칩 그리기·상태 표시는 담당조직·프로젝트 상세의 [자료]와 함께 쓰는 category-chips.js 하나다.
+  renderCategoryChips(document.querySelector('#libraryCategoryFilter'),{names:documentCategories(),off:luCategoryOff,label:'자료 분류 (여러 개 고르기)',controls:'documentList',key:'luCategory',onToggle:luToggleCategory});
 }
 // UI-바구니첨부메모 PR 3 ⑩: 담당조직 상세의 "전체 N개 보기"로 열면 자료실을 그 조직으로 거른다(새 화면 없음). [전체]를 누르면 거르기를 푼다.
 function luRenderOrganizationFilter(){

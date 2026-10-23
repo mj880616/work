@@ -138,7 +138,7 @@ jobs:
         run: node --test tests/basket-data.test.mjs tests/basket-upload.test.mjs tests/basket-ocr-text.test.mjs tests/basket-ocr.test.mjs tests/basket-ocr-runtime.test.mjs tests/basket-classification.test.mjs tests/basket-ai-handoff.test.mjs tests/basket-link-records.test.mjs tests/basket-record-delete.test.mjs tests/basket-manual-link.test.mjs tests/basket-ai-summary.test.mjs tests/todo-radar-data.test.mjs tests/basket-note-tasks.test.mjs tests/basket-record-summary-guide.test.mjs tests/basket-library-send.test.mjs tests/meeting-basket-send.test.mjs tests/diary-data.test.mjs tests/journal-data.test.mjs tests/journal-weekly.test.mjs tests/journal-org-summary.test.mjs tests/journal-meeting-kinds.test.mjs tests/project-order.test.mjs tests/basket-file-docs.test.mjs tests/document-categories.test.mjs tests/basket-note-pin.test.mjs tests/update-requests.test.mjs tests/update-journal.test.mjs tests/task-files.test.mjs tests/file-actions.test.mjs tests/library-ai-fill.test.mjs tests/quick-links.test.mjs
 
       - name: Check library toggle tree model
-        run: node --test tests/library-tree.test.mjs tests/library-view-pref.test.mjs tests/view-prefs.test.mjs tests/theme-bootstrap.test.mjs tests/library-upload-organization.test.mjs
+        run: node --test tests/library-tree.test.mjs tests/library-view-pref.test.mjs tests/category-chips.test.mjs tests/view-prefs.test.mjs tests/theme-bootstrap.test.mjs tests/library-upload-organization.test.mjs
 
       - name: Check Drive copy refresh batching after saves
         run: node --test tests/drive-summary-refresh.test.mjs
@@ -465,7 +465,7 @@ jobs:
           grep -q ".ps3-plist" app/project-system-v3.css
           if grep -Eq "ps3-project-card|ps3-kind|ps3-archive-row" app/project-system-v3.js app/project-system-v3.css; then echo 'project list card layout returned'; exit 1; fi
           grep -q "ps3-more" app/project-system-v3.js
-          grep -q "d.docs.slice(0,5)" app/project-system-v3.js
+          grep -Fq "d.docs.filter(x=>!off.has(categoryOf(x.category))).slice(0,5)" app/project-system-v3.js
           if grep -Eq "data-ps3-nav|data-ps3-doc-filter|ps3DocSearch" app/project-system-v3.js; then echo 'removed project chip row or document filter returned'; exit 1; fi
           grep -q "app-icon.svg" app/project-system-v3.css
           if grep -Eq 'id="projectModal"|id="projectCreateModal"|projectModalTitle|projectUpdates|projectChecks|projectComments' app/index.html; then echo 'legacy project modal returned'; exit 1; fi

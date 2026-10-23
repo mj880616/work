@@ -1324,3 +1324,15 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
 .task-due-popup .task-due-form{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin:0; }
 .task-due-popup .task-due-input{ box-sizing:border-box; flex:1 1 140px; min-width:0; height:var(--ds-compact-height); min-height:var(--ds-compact-height); width:auto; max-width:100%; margin:0; padding:0 8px; font-size:var(--kptu-text-body); }
 .task-due-popup button.mini{ position:relative; flex:0 0 auto; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1; }
+
+/* ───────── LIB-조직프로젝트자료종류(2026-10-23 사용자 요청): 담당조직·프로젝트 상세 [자료] 위의 종류 칩 ─────────
+   자료실 [종류] 칩(#libraryCategoryFilter)과 같은 모양·같은 코드(category-chips.js). 한 줄 가로 스크롤, 보이는 높이 --ds-compact-height, 누르는 범위 44px.
+   고른 칩 = 회색 '그 밖' 색, 일부만 켜진 [전체] = 반쯤 찬 칩, 꺼진 칩 = 흐리게(자료실과 같은 값). 새 색·새 크기는 만들지 않는다. */
+html .doc-kind-chips:not([hidden]){ display:flex; flex-wrap:nowrap; align-items:center; gap:6px; width:auto; max-width:100%; min-width:0; min-height:var(--kptu-touch-target,44px); margin:0; padding:calc((var(--kptu-touch-target,44px) - var(--ds-compact-height)) / 2) 2px; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; background:transparent; border-radius:0; box-sizing:border-box; }
+html .doc-kind-chips::-webkit-scrollbar{ display:none; }
+html .doc-kind-chips button{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; width:auto; min-width:0; height:var(--ds-compact-height); min-height:var(--ds-compact-height); margin:0; padding:0 var(--ds-compact-pad-x); font-family:inherit; font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap; cursor:pointer; color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-chip-radius); box-shadow:none; -webkit-tap-highlight-color:transparent; }
+html .doc-kind-chips button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+html .doc-kind-chips button:focus-visible{ outline:2px solid var(--kptu-primary); outline-offset:-2px; }
+html .doc-kind-chips button[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
+html .doc-kind-chips button[aria-pressed="mixed"]{ color:var(--kptu-ink); background-color:var(--kptu-surface); background-image:linear-gradient(90deg,var(--ds-kind-other-soft) 50%,transparent 50%); border-color:var(--ds-kind-other-soft); }
+html .doc-kind-chips button[aria-pressed="false"]{ color:var(--kptu-muted); background:var(--kptu-surface); border-color:color-mix(in srgb,var(--ds-line) 50%,transparent); }
