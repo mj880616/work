@@ -29,6 +29,7 @@ function mockApp(page, state) {
       if (method === 'GET') {
         const id = url.searchParams.get('id')?.replace(/^eq\./, '');
         expect(url.searchParams.get('workspace_id')).toBe('eq.' + WS);
+        if (url.searchParams.get('status') === 'eq.archived') return ok(state.pages.filter(p => p.status === 'archived'));
         return ok(id ? state.pages.filter(p => p.id === id) : state.pages);
       }
       if (method === 'POST') {

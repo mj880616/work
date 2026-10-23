@@ -33,7 +33,7 @@ function mockApp(page, state) {
     if (path === '/rest/v1/app_profiles') return ok([{user_id:user.id, display_name:'QA'}]);
     if (path === '/rest/v1/app_share_pages') {
       expect(url.searchParams.get('workspace_id')).toBe('eq.' + WS);
-      if (method === 'GET') { const id = url.searchParams.get('id')?.replace(/^eq\./, ''); return ok(id ? state.pages.filter(p => p.id === id) : state.pages); }
+      if (method === 'GET') { const id = url.searchParams.get('id')?.replace(/^eq\./, ''); if (url.searchParams.get('status') === 'eq.archived') return ok(state.pages.filter(p => p.status === 'archived')); return ok(id ? state.pages.filter(p => p.id === id) : state.pages); }
       if (method === 'PATCH') {
         const body = request.postDataJSON();
         state.patches.push({url:url.search, body});

@@ -28,7 +28,7 @@ function mockApp(page, state) {
     if (path === '/rest/v1/app_workspaces') return ok([{id:WS, name:'웹2'}]);
     if (path === '/rest/v1/app_profiles') return ok([{user_id:user.id, display_name:'QA'}]);
     if (path === '/rest/v1/app_share_pages') {
-      if (method === 'GET') { const id = url.searchParams.get('id')?.replace(/^eq\./, ''); return ok(id ? state.pages.filter(p => p.id === id) : state.pages); }
+      if (method === 'GET') { const id = url.searchParams.get('id')?.replace(/^eq\./, ''); if (url.searchParams.get('status') === 'eq.archived') return ok(state.pages.filter(p => p.status === 'archived')); return ok(id ? state.pages.filter(p => p.id === id) : state.pages); }
       const body = request.postDataJSON();
       state.writes.push({method, body});
       if (method === 'POST') { const row = {id:'page-' + (state.pages.length + 1), ...body, updated_at:'2026-10-22T01:00:00.000Z'}; delete row.workspace_id; state.pages.push(row); return ok([row], 201); }
