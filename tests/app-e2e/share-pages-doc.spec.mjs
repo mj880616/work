@@ -69,7 +69,7 @@ for (const width of [390, 1280]) test('a new page is one 글 block on the full s
   await expect(box).toBeFocused();
   const tools = editor.locator('.ed-tools');
   await expect(tools).toBeVisible();
-  // Small buttons on one row; on a phone the row scrolls sideways (no bar), on PC every button fits (no bar, no ⋯).
+  // Small buttons on one row; on a phone the grouped row (ED-서식줄묶음) fits without sideways scrolling, on PC every button fits (no bar, no ⋯).
   const heights = await tools.locator('button:visible').evaluateAll(list => list.map(b => Math.round(b.getBoundingClientRect().height)));
   for (const h of heights) expect(h).toBeLessThanOrEqual(28);
   expect(await tools.evaluate(el => getComputedStyle(el).flexWrap)).toBe('nowrap');
@@ -77,7 +77,11 @@ for (const width of [390, 1280]) test('a new page is one 글 block on the full s
     expect(await tools.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
     // ED-기본기보강: [⋯] holds the less used buttons; on PC no row button is moved under it.
     await expect(editor.locator('.ed-more-menu [data-ed-moved]')).toHaveCount(0);
-  } else expect(await tools.evaluate(el => getComputedStyle(el).scrollbarWidth)).toBe('none');
+  } else {
+    expect(await tools.evaluate(el => getComputedStyle(el).scrollbarWidth)).toBe('none');
+    expect(await tools.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
+    await expect(tools.getByRole('button')).toHaveText(['본문 2 ▾', '굵게', '·', '▾', '글자 ▾', '문단 ▾', '넣기 ▾', '기호 ▾', '↶', '↷']);
+  }
   await page.keyboard.type('회의 결과');
   await editor.locator('.ed-style').click();
   await editor.locator('.ed-menu').getByRole('button', {name:'제목 2', exact:true}).click();
@@ -87,7 +91,8 @@ for (const width of [390, 1280]) test('a new page is one 글 block on the full s
   await tools.getByRole('button', {name:'굵게', exact:true}).click();
   await page.keyboard.type('굵게');
   await expect(box).toBeFocused();
-  await tools.getByRole('button', {name:'표 넣기', exact:true}).click();
+  if (width < 761) await tools.getByRole('button', {name:'넣을 것 고르기', exact:true}).click();
+  await editor.getByRole('button', {name:'표 넣기', exact:true}).click();
   await editor.getByRole('group', {name:'표 크기 고르기', exact:true}).getByRole('button', {name:'2줄 2칸 표', exact:true}).click();
   await page.keyboard.type('항목');
   await expect(box.locator('h3.ed-h2')).toHaveText('회의 결과');

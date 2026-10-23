@@ -12,31 +12,21 @@
 | Claude Code 웹 | 클라우드 | 코드·문서·테스트 | Supabase·production 접근 |
 | Codex CLI(PC) | 사용자 PC | 코드·문서·테스트, Supabase MCP(조회 전용, 이 프로젝트만), 커맨드센터에서 승인한 비밀값 없는 Edge 배포(§8) | 승인 없는 Edge 배포, Edge 삭제, DB 쓰기·migration·비밀값 변경, 허용된 Edge 배포 외 supabase CLI production 변경 |
 | Codex 웹 | 클라우드 | 📱 작업(코드·문서·테스트·PR 생성), 폰 경로 진단 코드·확인 SQL 작성, 승인형 Edge 배포 workflow 파일 작성(§8) | 운영 비밀값·DB 쓰기·Supabase 로그인·production 접근, workflow 실행·승인 |
-| 사용자 승인형 DB workflow(dry-run·apply·rollback 포함) | GitHub Actions `production-edge` | 커맨드센터가 `db-migration-apply.yml`을 main에서 시작(2026-10-21 사용자 결정) → 사용자 `production-edge` 승인 후 check·tx-probe 또는 지정 migration의 사전 확인·snapshot·시험 적용·백업·apply·사후 확인, rollback(§7) | 자동 실행, 비밀값 변경, AI 승인 |
+| 사용자 승인형 DB workflow(dry-run·apply·rollback 포함) | GitHub Actions `production-edge` | 커맨드센터가 `db-migration-apply.yml`을 main에서 시작 → 사용자 `production-edge` 승인 후 check·tx-probe 또는 지정 migration의 사전 확인·snapshot·시험 적용·백업·apply·사후 확인, rollback(§7) | 자동 실행, 비밀값 변경, AI 승인 |
 | 사용자 승인형 Edge workflow | GitHub Actions `production-edge` | 커맨드센터 승인 → 사용자 `edge-function-deploy.yml` 수동 실행 → `production-edge` 승인 후 지정 함수 배포·검증(§8) | 자동 배포, Edge 삭제, DB migration·비밀값 변경 |
 
 - **사용자가 커맨드센터에서 승인한 비밀값 없는 Edge 배포는 Codex 로컬에서 `supabase login --no-browser` 일회용 로그인으로 허용한다. 배포 직후 로그인 정보를 삭제한다. DB 쓰기·migration·비밀값 변경은 계속 Claude Code 로컬 또는 대시보드.** DB 적용은 §7의 기존 절차와 영구 금지를 그대로 따른다.
 - 도구 전환은 작업 사이에서만 한다. 한 브랜치·PR을 두 도구가 동시에 고치지 않는다.
 - production 조회·배포·적용이 웹 세션(Claude Code 웹·Codex 웹)에서 필요해지면 추측하지 말고 중단·보고한다.
-- 웹 세션에 production 토큰을 등록하도록 제안하지 않는다.
+- 운영 토큰은 GitHub `production-edge` environment 비밀값 `SUPABASE_ACCESS_TOKEN`과 변수 `SUPABASE_PROJECT_REF`에만 둔다(2026-10-10 사용자 결정, A안). 웹 세션·Codex 클라우드에는 등록하지 않고, 등록하도록 제안하지도 않는다(`docs/roadmap.md`의 OPS-클라우드복귀).
+- 급한 DB migration·비밀값 변경·Edge 삭제는 커맨드센터 승인 뒤 사용자가 대시보드에서 직접 처리한다(기존 임시 절에서 옮김).
 - Windows에서 supabase CLI는 `npx.cmd supabase`로 실행한다.
-
-### 2026-10-20까지 임시
-
-- Codex 클라우드는 코드·문서·테스트·PR 생성만 허용한다. 운영 비밀값 취급·DB 쓰기·Supabase 로그인·운영 접속은 하지 않는다.
-- Edge 배포는 **커맨드센터 승인 → 사용자가 `edge-function-deploy` workflow 실행 → `production-edge` 승인** 순서로만 한다. 기존 Codex 로컬의 커맨드센터 승인 후 `supabase login --no-browser` 일회용 로그인 배포(§8 예외)는 계속 허용한다.
-- DB migration·비밀값 변경·Edge 삭제는 금지한다. 급하면 커맨드센터 승인 뒤 사용자가 대시보드에서 직접 처리한다. §7의 영구 금지는 유지한다.
-- 아래 "폰 경로" C(커맨드센터 승인 → 사용자가 SQL Editor에서 직접 실행)는 위 DB migration 금지의 예외로 허용한다.
-- 운영 토큰은 GitHub `production-edge` environment 비밀값 `SUPABASE_ACCESS_TOKEN`에만 두며, Codex 클라우드 환경에는 등록하지 않는다. 프로젝트는 같은 environment의 변수 `SUPABASE_PROJECT_REF`로 지정한다.
-- 기한이 지나면 임시 절 정리를 검토하되, Edge·DB 사용자 승인형 workflow용으로 GitHub `production-edge` 비밀값 `SUPABASE_ACCESS_TOKEN`과 변수 `SUPABASE_PROJECT_REF`를 유지한다(2026-10-10 사용자 결정, A안). 웹 세션·Codex 클라우드에 운영 토큰을 등록하는 금지는 그대로 유지한다(`docs/roadmap.md`의 OPS-클라우드복귀).
 
 ### 폰 경로
 
 #### A. 원칙
 
-실기기 진단·DB 변경 확인·큰 화면 대조는 폰에서도 진행할 수 있다.
-AI 실수 위험은 감수하되 실행 전 확인·백업·되돌리기 경로를 항상 둔다.
-운영 키는 AI 환경(웹 세션·Codex 클라우드)에 두지 않는다.
+실기기 진단·DB 변경 확인·큰 화면 대조는 폰에서도 진행할 수 있다. 실행 전 확인·백업·되돌리기 경로를 항상 둔다(운영 키 금지는 §1).
 
 #### B. 실기기 진단(폰 브라우저)
 
@@ -74,9 +64,9 @@ AI 실수 위험은 감수하되 실행 전 확인·백업·되돌리기 경로�
 
 - 개발 작업 원장은 `docs/roadmap.md`다. 새 작업은 커맨드센터가 원장에 행을 추가한 뒤 시작한다.
 - 개발도구는 Drive 원장 직접쓰기 금지. 기준은 `docs/ai-work-system-source-of-truth.md`를 따른다.
-- 2026-10-21 변경: 원장 단일 작성자는 ChatGPT가 아니다(ChatGPT 예약 삭제, 원장 동결). 원장에 들어가는 문은 Web2에서 사용자가 확정하는 하나뿐이며, Claude·개발도구는 Web2·원장에 직접 쓰지 않는다.
+- 원장에 들어가는 문은 Web2에서 사용자가 확정하는 하나뿐이며, Claude·개발도구는 Web2·원장에 직접 쓰지 않는다(2026-10-21 변경: ChatGPT 단일 작성자 폐지).
 - **작업 PR은 `docs/roadmap.md`를 수정하지 않는다**(2026-10-17 사용자 결정, PR 간 충돌 줄이기). 대신 PR 본문 끝에 "원장 반영" 절(행 이름·상태·한 줄 요약·사용자 결정 사항)을 쓴다. 원장 갱신은 커맨드센터가 merge 뒤 문서 전용 PR로 한다.
-- 동시에 진행하는 코드 작업은 최대 6개, 같은 파일을 고치는 과제는 묶거나 순서를 둔다. 커맨드센터 운영 규칙(세션 운영·merge·요청함·보고·인계)은 `docs/command-center-ops.md`를 따른다(2026-10-21 사용자 결정).
+- 동시 세션 수·같은 파일 과제 묶기 등 커맨드센터 운영 규칙(세션 운영·merge·요청함·보고·인계)은 `docs/command-center-ops.md`를 따른다.
 - **줄 세우기**: 지시서가 "○○ PR 브랜치 위에서 시작"을 지정하면 최신 main 대신 그 PR의 head에서 브랜치를 만든다. 앞 PR이 main에 들어간 뒤에는 main을 merge만 하고(rebase·force push 금지), 앞 PR이 바뀌면 그 브랜치를 다시 merge해 맞춘다. 커맨드센터는 앞 PR → 뒤 PR 순서로 merge한다(2026-10-17 사용자 결정).
 - 공개 저장소이므로 원장·문서에 이메일, 계정명, 키, 토큰, 개인정보를 쓰지 않는다.
 
@@ -114,10 +104,9 @@ AI 실수 위험은 감수하되 실행 전 확인·백업·되돌리기 경로�
 
 ### 캐시 버전
 
-- `?v=`를 손으로 쓰지 않는다. 빌드가 붙인다. HTML·JS·CSS에서 저장소 안 파일은 번호 없는 경로로 부른다(예: `import('./view-loader.js')`, `<script src="./app.js" defer>`).
-- Pages 배포(`.github/workflows/pages-deploy.yml`) 때 `scripts/build-pages.mjs`가 그 경로마다 파일 내용 해시를 `?v=`로 붙이고 `app/asset-manifest.json`을 만든다. 파일 하나를 고치면 부르는 쪽 해시도 빌드가 `index.html`까지 이어 바꾼다. 목록 파일은 빌드 결과물에만 있고 저장소에 두지 않는다(`app/ARCHITECTURE.md` 1절).
-- CI(`loader-cache-check`)는 저장소 소스에 손으로 쓴 `?v=`가 있으면 실패한다. 저장소 밖 주소, 저장소에 없는 파일, 폴더 이름에 판 번호가 든 외부 라이브러리(`rhwp-0.8.7/` 등) 안쪽은 예외다.
-- 테스트(`tests/app-e2e/` 등)는 번호 없는 경로를 기대한다. 배포된 버전이 필요한 검사(새 버전 알림 등)는 빌드처럼 `app.js`에 버전을 붙인 화면을 띄워 검사한다(`tests/app-e2e/helpers/built-shell.mjs`).
+- `?v=`를 손으로 쓰지 않는다. HTML·JS·CSS에서 저장소 안 파일은 번호 없는 경로로 부르고(예: `import('./view-loader.js')`), Pages 배포 빌드(`scripts/build-pages.mjs`)가 파일 내용 해시를 붙인다(`app/ARCHITECTURE.md` 1절).
+- CI(`loader-cache-check`)는 손으로 쓴 `?v=`가 있으면 실패한다. 예외: 저장소 밖 주소, 저장소에 없는 파일, 폴더 이름에 판 번호가 든 외부 라이브러리(`rhwp-0.8.7/` 등) 안쪽.
+- 테스트는 번호 없는 경로를 기대한다. 배포된 버전이 필요한 검사는 `tests/app-e2e/helpers/built-shell.mjs`처럼 `app.js`에 버전을 붙인 화면을 띄운다.
 
 ## 5. 제품 구조 (Confirmed product structure)
 
@@ -153,7 +142,7 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포·삭제, Cloudfl
 
 ## 8. Edge Function 배포 (Claude Code 로컬 / 커맨드센터 승인 시 Codex 로컬 / 사용자 승인형 workflow)
 
-- 로컬 세션 manual mode 또는 사용자 승인형 `.github/workflows/edge-function-deploy.yml`로만 한다. 2026-10-20까지는 §1 임시 규칙을 우선 적용하며, 기존 Codex 로컬 예외는 유지한다.
+- 로컬 세션 manual mode 또는 사용자 승인형 `.github/workflows/edge-function-deploy.yml`로만 한다.
 - workflow 경로: 커맨드센터 승인 → 사용자가 수동 실행 → `production-edge` 승인. Codex 클라우드는 파일·PR만 준비하며 workflow를 실행하거나 environment를 승인하지 않는다. 승인자 설정은 사용자가 GitHub environment에서 관리한다.
 - workflow 입력 `function`은 기존 함수 폴더 이름(밑줄 시작·`_shared` 불가), `ref`는 배포할 커밋·브랜치(기본 `main`), `first_deploy`는 기본 `false`, `verify_jwt`는 `keep|true|false` 중 선택(기본 `keep`, 기존 배포는 `keep`만 허용), `expect_unauth_401`은 기본 `true`다. 공개 함수에서만 `false`로 지정해 POST 검사를 생략한다. 기존 함수는 배포 전 이전 운영 소스 SHA를 기록하며 되돌리기는 그 SHA를 `ref`에 넣어 같은 버튼·승인 절차로 재실행한다.
 - 신규 함수는 `first_deploy=true` + `verify_jwt` 명시(`true|false`) + `docs/web2-env6b-edge-source.md` 5절 표 사전 등록이 필요하다. 운영에 같은 이름이 없어야 하며 배포 후 정확히 1개·명시 JWT 정책·유효한 version·HTTP 검사를 확인한다. 이전 버전이 없으므로 되돌리기는 화면이 아직 이 함수를 쓰지 않는 상태 유지, 필요 시 사용자가 대시보드에서 함수 삭제 판단으로 안내하며 자동 삭제하지 않는다.

@@ -17,7 +17,18 @@ const open = async (page, doc) => {
 };
 const value = page => page.evaluate(() => window.ed.getValue());
 const content = async page => (await value(page)).doc.content;
-const tool = (page, name) => page.locator('.ed-tools').getByRole('button', {name, exact: true});
+// A button of the editor's bar (the row or, on a phone, a group popover: ED-서식줄묶음).
+const tool = (page, name) => page.locator('.ed-bar').getByRole('button', {name, exact: true});
+const GROUP_BUTTONS = ['글자 서식 고르기', '문단 서식 고르기', '넣을 것 고르기', '기호 고르기'];
+// On a phone most buttons sit in a group popover: open the group that holds this button (a no-op wider than a phone or when it shows).
+const showTool = async (page, locator) => {
+  if (page.viewportSize().width > 760 || await locator.isVisible()) return;
+  for (const g of GROUP_BUTTONS) {
+    await page.locator('.ed-tools').getByRole('button', {name: g, exact: true}).tap();
+    if (await locator.isVisible()) return;
+  }
+  throw new Error('the button is on no phone group');
+};
 const group = (page, name) => page.getByRole('group', {name, exact: true});
 const para = (text, attrs = {style: 'body2'}) => ({type: 'paragraph', attrs, ...(text ? {content: [{type: 'text', text}]} : {})});
 const ed1 = (...nodes) => ({v: 'ed1', doc: {type: 'doc', content: nodes}});
@@ -29,6 +40,7 @@ const rect = async locator => locator.evaluate(el => { const r = el.getBoundingC
 // Brings a button of the row into view (a phone swipes the row sideways) and returns it.
 const reveal = async (page, name) => {
   const b = tool(page, name);
+  await showTool(page, b);
   await b.evaluate(el => el.scrollIntoView({inline: 'center', block: 'nearest'}));
   return b;
 };
@@ -44,7 +56,7 @@ const OPENERS = [
 for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, false], ['폰 390', {width: 390, height: 844}, true]]) {
   test.describe(label, () => {
     test.use({viewport, hasTouch: touch, isMobile: touch});
-    const press = (locator) => touch ? locator.tap() : locator.click();
+    const press = async (locator) => { if (touch) { await showTool(locator.page(), locator); await locator.tap(); } else await locator.click(); };
 
     test('every opener: a small popover right under its button, over the text, inside the screen; outside press and Esc close it', async ({page}) => {
       const box = await open(page);
@@ -70,14 +82,22 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
         expect((await rect(box)).top, `${name} text`).toBe(textTop);
         // A press outside (in the text) closes it.
         // (at the right side of the text, away from the popover that may cover the middle)
-        await box.click({position: {x: viewport.width - 30, y: 150}});
+        // (A wide popover, like the table grid, can cover that spot on a phone: then press just below it, still inside the text box.)
+        const bx = await rect(box);
+        const covered = (x, y) => x >= p.left && x <= p.right && y >= p.top && y <= p.bottom;
+        let at = {x: viewport.width - 30, y: bx.top + 150};
+        if (covered(at.x, at.y)) at = {x: at.x, y: Math.min(p.bottom + 12, bx.bottom - 4)};
+        expect(covered(at.x, at.y), `${name} outside spot is free`).toBe(false);
+        await box.click({position: {x: at.x - bx.left, y: at.y - bx.top}});
         await expect(pop, `${name} outside`).toBeHidden();
-        await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+        // (On a phone the button sits in a group popover that the outside press closed too, so look it up even when hidden.)
+        await expect(page.locator('.ed-bar').getByRole('button', {name, exact: true, includeHidden: true}), `${name} outside expanded`).toHaveAttribute('aria-expanded', 'false');
         // Esc closes it, and the text box keeps (or gets back) the focus.
         await press(trigger);
         await expect(pop, `${name} reopen`).toBeVisible();
         await page.keyboard.press('Escape');
         await expect(pop, `${name} esc`).toBeHidden();
+        await expect(page.locator('.ed-bar').getByRole('button', {name, exact: true, includeHidden: true}), `${name} esc expanded`).toHaveAttribute('aria-expanded', 'false');
       }
     });
 
@@ -85,10 +105,13 @@ for (const [label, viewport, touch] of [['PC 1280', {width: 1280, height: 800}, 
       await open(page);
       for (const name of ['글 단계 고르기', '글자색 고르기', '형광펜 고르기', '정렬 고르기', '글머리 목록 고르기', '번호 목록 고르기', '표 넣기', '점 기호 고르기', '참고 기호 고르기', '화살표 고르기', '동그라미 번호 고르기']) {
         const b = tool(page, name);
+        await showTool(page, b);
         await expect(b, name).toContainText('▾');
         await expect(b.locator('.ed-caret'), name).toHaveAttribute('aria-hidden', 'true');
       }
       const more = page.locator('.ed-tools .ed-more');
+      // ED-서식줄묶음: a phone has no [⌄]; every button it held sits in a group popover (see the phone tests below).
+      if (touch) { await expect(more).toBeHidden(); return; }
       await expect(more).toHaveAttribute('title', '서식 더 보기');
       await expect(more).toHaveAttribute('aria-label', '서식 더 보기');
       const idle = await more.evaluate(el => { const c = getComputedStyle(el); return {h: Math.round(el.getBoundingClientRect().height), border: c.borderTopColor, bg: c.backgroundColor, rot: getComputedStyle(el.querySelector('svg')).transform}; });

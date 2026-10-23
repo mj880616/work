@@ -9,6 +9,12 @@
 // 19:24~19:33, 대조표 docs/design/unified-editor.md 9절): the often-used buttons stay on the row, the rest are under [⋯]:
 //   [본문 2 ▾] | 굵게 기울임 밑줄 | 글자색 ▾ 형광펜 ▾ | 정렬 ▾ | 목록 ▾ 번호 ▾ | 표 ▾ 링크 | · ※ → ① (each ▾) | ↶ ↷ | ⌄
 //   ⌄ = 취소선 인용 구분선 들여쓰기 내어쓰기 서식 지우기 글자만 붙여넣기 「」 (그리고 폭이 모자라 옮겨진 버튼)
+// ED-서식줄묶음 (2026-10-23 사용자 13:16): on a phone (max-width 760px) the same buttons are grouped so the row fits on one line:
+//   [본문 2 ▾] [굵게] [·] [▾] | [글자 ▾] [문단 ▾] [넣기 ▾] [기호 ▾] | [↶] [↷]   (no [⌄]; every button is still there, in a group popover)
+//   글자 ▾ = 기울임 밑줄 취소선 글자색 형광펜 서식 지우기 / 문단 ▾ = 정렬 목록 번호 들여쓰기 내어쓰기 인용 구분선
+//   넣기 ▾ = 표 사진 링크 글자만 붙여넣기 / 기호 ▾ = ※ → ① 「」 ([·] puts · in at once, the ▾ beside it picks a similar dot)
+// The grouped buttons are the same nodes (moved, so their commands and state stay); a button that opens choices (글자색, 정렬, 목록…)
+// opens its own popover under itself, over the group popover. Wider than a phone nothing changes.
 // [표] opens a grid to pick rows × columns; a table cell's right-click (a phone's long press) menu adds and removes rows and
 // columns, merges and splits cells; column edges drag (saved on the cells, read the same by every reader); a double click on
 // an edge fits that column to its letters; Tab goes to the next cell (the last cell's Tab adds a row). A table, rule or photo
@@ -149,15 +155,24 @@ const TABLE_TOOLS = [
   ['head', '머리줄', null], ['fit', '글자에 맞추기', '표 폭을 글자에 맞추기'], ['select', '표 선택', '표 전체 선택'], ['tableDel', '표 지우기', null],
 ];
 const GRID = {rows: 6, cols: 8};
+// ED-서식줄묶음: [key, label, aria, items (button keys, in order)] — a phone's grouped row (see the top of this file).
+const GROUPS = [
+  ['gText', '글자 ▾', '글자 서식 고르기', ['em', 'underline', 'strike', 'color', 'highlight', 'clear']],
+  ['gPara', '문단 ▾', '문단 서식 고르기', ['align', 'bullet', 'ordered', 'indent', 'outdent', 'quote', 'rule']],
+  ['gInsert', '넣기 ▾', '넣을 것 고르기', ['table', 'photo', 'link', 'plainPaste']],
+  ['gSym', '기호 ▾', '기호 고르기', ['symNote', 'symArrow', 'symCircled', 'symBracket']],
+];
+const GROUP_KEYS = GROUPS.map(g => g[0]);
+const PHONE_ORDER = ['style', 'strong', 'dotNow', 'symDot', ...GROUP_KEYS, 'undo', 'redo'];
 
 // A button's text. A label that ends in " ▾" gets a small caret of its own (hidden from screen readers).
 function setLabel(b, text) {
   if (b.dataset.edLabel === text) return;
   b.dataset.edLabel = text;
-  const m = /^(.*) ▾$/.exec(text);
+  const m = /^(.*?) ?▾$/.exec(text);
   if (!m) { b.textContent = text; return; }
   const caret = document.createElement('span');
-  caret.className = 'ed-caret'; caret.setAttribute('aria-hidden', 'true'); caret.textContent = ' ▾';
+  caret.className = 'ed-caret'; caret.setAttribute('aria-hidden', 'true'); caret.textContent = m[1] ? ' ▾' : '▾';
   b.replaceChildren(m[1], caret);
 }
 function btn(label, data, aria) {
@@ -202,7 +217,8 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   tools.className = 'ed-tools'; tools.setAttribute('role', 'toolbar'); tools.setAttribute('aria-label', '서식');
   const buttons = {};
   const OPENS = {style: 'style', color: 'color', highlight: 'highlight', align: 'align', bullet: 'bullet', ordered: 'ordered', table: 'grid', link: 'link',
-    symDot: 'symDot', symNote: 'symNote', symArrow: 'symArrow', symCircled: 'symCircled', symBracket: 'symBracket'};
+    symDot: 'symDot', symNote: 'symNote', symArrow: 'symArrow', symCircled: 'symCircled', symBracket: 'symBracket',
+    gText: 'gText', gPara: 'gPara', gInsert: 'gInsert', gSym: 'gSym'};
   let lastGroup = null;
   for (const [key, text, aria, group] of BUTTONS) {
     if (key === 'photo' && !photos) continue;
@@ -219,16 +235,28 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   more.classList.add('ed-more'); more.title = '서식 더 보기'; more.setAttribute('aria-haspopup', 'true'); more.setAttribute('aria-expanded', 'false');
   more.append(chevron());
   tools.append(more);
+  const homeTools = [...tools.children].filter(b => b !== more);
+  // ED-서식줄묶음: the phone's group buttons and the [·] that puts a dot in at once. They sit outside the row until a phone needs them.
+  for (const [key, text, aria] of GROUPS) {
+    const b = btn(text, {edCmd: key, edGroup: 'phone'}, aria);
+    b.setAttribute('aria-haspopup', 'true'); b.setAttribute('aria-expanded', 'false');
+    buttons[key] = b;
+  }
+  buttons.dotNow = btn('·', {edSym: '·', edGroup: 'phone'}, '점 넣기');
   const panels = {};
   panels.more = panel('ed-more-menu', '서식 더 보기');
+  const homeMore = [];
   for (const [key, text, aria] of MORE) {
     const b = btn(text, {edCmd: key, edFixed: ''}, aria);
+    homeMore.push(b);
     if (OPENS[key]) { b.setAttribute('aria-haspopup', 'true'); b.setAttribute('aria-expanded', 'false'); }
     if (key === 'strike' || key === 'quote') b.setAttribute('aria-pressed', 'false');
     buttons[key] = b; panels.more.append(b);
   }
   // Popovers (ed-pop): a vertical list with a ✓ on the current choice (글 단계·정렬·목록·번호), or a small block of swatches
   // and signs (글자색·형광펜·기호·표 격자). Each opens right under the button that was pressed.
+  // The group popovers hold the grouped buttons as a vertical list (filled by setGrouped).
+  for (const [key, , aria] of GROUPS) panels[key] = panel('ed-group-menu', aria.replace(/ 고르기$/, ''), true);
   panels.style = panel('ed-style-menu', '글 단계', true);
   for (const [v, text] of TEXT_STYLES) { const b = btn(text, {edStyle: v}); b.append(checkMark()); panels.style.append(b); }
   panels.color = panel('ed-color-menu', '글자색', true);
@@ -283,7 +311,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   note.className = 'ed-note'; note.hidden = true; note.setAttribute('role', 'status');
   const status = document.createElement('p');
   status.className = 'ed-status a11y-only'; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
-  const PANEL_ORDER = ['more', 'style', 'color', 'highlight', 'align', 'bullet', 'ordered', 'symDot', 'symNote', 'symArrow', 'symCircled', 'symBracket', 'grid', 'link'];
+  const PANEL_ORDER = ['more', ...GROUP_KEYS, 'style', 'color', 'highlight', 'align', 'bullet', 'ordered', 'symDot', 'symNote', 'symArrow', 'symCircled', 'symBracket', 'grid', 'link'];
   // The full-width rows (the [⌄] row, table tools, offers, notes) sit in the flow; popovers are placed on the screen.
   bar.append(tools, panels.more, tableRow, suggest, note, ...PANEL_ORDER.filter(k => k !== 'more').map(k => panels[k]));
   const box = document.createElement('div');
@@ -946,8 +974,20 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   }
 
   // ── panels ──
-  let openName = null;
+  let openName = null, grouped = false;
   const triggerOf = name => name === 'more' ? more : name === 'grid' ? buttons.table : buttons[name];
+  // The panel a panel's own button sits in ([⌄] row or a group popover), or null when the button is on the row: that one stays
+  // open under the panel opened from inside it, and a second press (or Esc) goes back to it.
+  const hostOf = name => {
+    const p = triggerOf(name)?.parentElement;
+    return ['more', ...GROUP_KEYS].find(k => panels[k] === p) || null;
+  };
+  const placeOpen = () => {
+    if (!openName) return;
+    const chain = [openName];
+    for (let h = hostOf(openName); h && !chain.includes(h); h = hostOf(h)) chain.unshift(h);
+    for (const n of chain) placePop(n);
+  };
   // A popover goes right under the button that opened it, over the text (the text does not move). It stays inside the visible
   // screen: moved left when it would pass the right edge, put above the button when there is no room below, and its own list
   // scrolls when neither fits. (A phone's bottom bar is kept clear, as the cell menu does.)
@@ -963,22 +1003,26 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     const t = trigger.getBoundingClientRect(), size = pop.getBoundingClientRect();
     const below = view0.t + view0.h - bottomRoom - t.bottom - gap, above = t.top - view0.t - side - gap;
     const underneath = size.height <= below || below >= above, room = Math.max(80, Math.floor(underneath ? below : above));
-    const top = underneath ? t.bottom + gap : t.top - gap - Math.min(size.height, room);
+    // (A button inside a scrolled group popover can sit above the screen's top: the popover stays on the screen.)
+    const top = Math.max(view0.t + side, underneath ? t.bottom + gap : t.top - gap - Math.min(size.height, room));
     pop.style.maxHeight = `${room}px`;
-    const left = Math.max(view0.l + side, Math.min(t.left, view0.l + view0.w - side - size.width));
+    // (The left floor is the screen's side margin, or the button's own left when the button sits closer to the edge, so a popover
+    // under the first button of a tight phone row still starts on that button.)
+    const left = Math.max(view0.l + Math.min(side, Math.max(0, t.left - view0.l)), Math.min(t.left, view0.l + view0.w - side - size.width));
     pop.style.left = `${Math.round(left)}px`; pop.style.top = `${Math.round(top)}px`;
     // An ancestor with a transform or filter would make "fixed" relative to it: correct by what was really drawn.
     const drawn = pop.getBoundingClientRect();
     if (Math.abs(drawn.left - left) > 1) pop.style.left = `${Math.round(left - (drawn.left - left))}px`;
     if (Math.abs(drawn.top - top) > 1) pop.style.top = `${Math.round(top - (drawn.top - top))}px`;
   }
-  const followPop = e => { if (openName && !(e && e.target && e.target.closest && e.target.closest('.ed-pop'))) placePop(openName); };
+  const followPop = e => { if (openName && !(e && e.target && e.target.closest && e.target.closest('.ed-pop'))) placeOpen(); };
   function openPanel(name) {
     const was = openName;
+    // The panels that hold the pressed panel's button stay open ([⌄] row or a group popover).
+    const hosts = new Set();
+    for (let h = name && hostOf(name); h && !hosts.has(h); h = hostOf(h)) hosts.add(h);
     for (const key of PANEL_ORDER) {
-      // [⌄] stays open while one of its own panels (괄호·단위) is open.
-      const keep = key === 'more' && name === 'symBracket' && buttons.symBracket.parentElement === panels.more;
-      const on = key === name || keep;
+      const on = key === name || hosts.has(key);
       panels[key].hidden = !on;
       triggerOf(key)?.setAttribute('aria-expanded', String(on));
     }
@@ -992,7 +1036,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       setTimeout(() => linkInput.focus(), 0);
     }
     if (name === 'grid') paintGrid(2, 2);
-    if (name) { paint(); placePop(name); }
+    if (name) { paint(); placeOpen(); }
     return was;
   }
   const closePanels = () => openPanel(null);
@@ -1132,7 +1176,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     if (!b || !bar.contains(b) || b.disabled) return;
     const d = b.dataset;
     if ('edMore' in d) { openPanel(openName === 'more' ? null : 'more'); return; }
-    if (d.edCmd && OPENS[d.edCmd]) { const name = OPENS[d.edCmd]; openPanel(openName === name ? (name === 'symBracket' ? 'more' : null) : name); return; }
+    if (d.edCmd && OPENS[d.edCmd]) { const name = OPENS[d.edCmd]; openPanel(openName === name ? hostOf(name) : name); return; }
     if (d.edStyle) { run(() => setTextStyle(d.edStyle)); closePanels(); return; }
     if (d.edListMarker) { const kind = d.edListKind, marker = d.edListMarker; closePanels(); run(() => setListStyle(kind, marker)); return; }
     if (d.edListOff) { closePanels(); run(liftList); return; }
@@ -1154,7 +1198,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     e.preventDefault();
     const name = openName, trigger = triggerOf(name);
     if (name === 'link') { closePanels(); view.focus(); return; }
-    openPanel(name === 'symBracket' && trigger.parentElement === panels.more ? 'more' : null);
+    openPanel(hostOf(name));
     (trigger.offsetParent ? trigger : more).focus();
   });
   // Wider than a phone the row never scrolls sideways: the buttons that do not fit move (the same nodes, so their state
@@ -1162,7 +1206,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   const phone = window.matchMedia ? window.matchMedia('(max-width: 760px)') : null;
   function fitTools() {
     for (const b of [...panels.more.querySelectorAll('[data-ed-moved]')]) { delete b.dataset.edMoved; tools.insertBefore(b, more); }
-    if (phone?.matches || !tools.clientWidth || tools.scrollWidth <= tools.clientWidth) return;
+    if (grouped || phone?.matches || !tools.clientWidth || tools.scrollWidth <= tools.clientWidth) return;
     const list = [...tools.children].filter(b => b !== more && b !== buttons.style);
     const firstFixed = panels.more.querySelector('[data-ed-fixed]');
     let front = firstFixed;
@@ -1177,7 +1221,29 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   const queueFit = () => { if (!fitFrame) fitFrame = requestAnimationFrame(() => { fitFrame = 0; fitTools(); }); };
   const resize = typeof ResizeObserver === 'function' ? new ResizeObserver(queueFit) : null;
   resize?.observe(tools);
-  phone?.addEventListener?.('change', queueFit);
+  // ED-서식줄묶음: a phone gets the grouped row; wider screens get the full row back (the same button nodes move to and fro).
+  function setGrouped(on) {
+    if (on === grouped) return;
+    closePanels();
+    for (const b of [...panels.more.querySelectorAll('[data-ed-moved]')]) { delete b.dataset.edMoved; tools.insertBefore(b, more); }
+    grouped = on;
+    root.classList.toggle('ed-grouped', on);
+    if (on) {
+      tools.replaceChildren(...PHONE_ORDER.map(k => buttons[k]).filter(Boolean), more);
+      for (const [key, , , items] of GROUPS) panels[key].replaceChildren(...items.map(k => buttons[k]).filter(Boolean));
+      panels.more.replaceChildren();
+      setLabel(buttons.symDot, '▾'); buttons.symDot.setAttribute('aria-label', '점 기호 고르기');
+    } else {
+      tools.replaceChildren(...homeTools, more);
+      panels.more.replaceChildren(...homeMore);
+      for (const key of GROUP_KEYS) panels[key].replaceChildren();
+      setLabel(buttons.symDot, '· ▾');
+    }
+    more.hidden = on;
+    paint(); queueFit();
+  }
+  const syncLayout = () => setGrouped(!!phone?.matches);
+  phone?.addEventListener?.('change', syncLayout);
 
   // ── state shown on the buttons ──
   function currentStyle(st) {
@@ -1210,7 +1276,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     for (const b of panels.highlight.querySelectorAll('[data-ed-highlight]')) b.setAttribute('aria-pressed', String(b.dataset.edHighlight === hl));
     const p = st.selection.$from.parent;
     const align = (st.selection instanceof pm.NodeSelection ? st.selection.node.attrs.align : p.attrs && p.attrs.align) || 'left';
-    setLabel(buttons.align, `${(ALIGNS.find(([v]) => v === align) || ALIGNS[0])[1]} ▾`);
+    setLabel(buttons.align, `${grouped ? '정렬 ' : ''}${(ALIGNS.find(([v]) => v === align) || ALIGNS[0])[1]} ▾`);
     for (const b of panels.align.querySelectorAll('[data-ed-align]')) b.setAttribute('aria-pressed', String(b.dataset.edAlign === align));
     buttons.quote.setAttribute('aria-pressed', String(inNode(st, N.blockquote) > 0));
     const li = inNode(st, N.list_item), around = listAround(st);
@@ -1246,6 +1312,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     const d = view.state.doc;
     return d.childCount === 1 && d.firstChild.type === N.paragraph && d.firstChild.content.size === 0;
   }
+  syncLayout();
   paint();
   fitTools();
   return {
@@ -1253,7 +1320,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     getText: () => toPlain(getValue()),
     focus: () => view.focus(),
     destroy() {
-      resize?.disconnect(); phone?.removeEventListener?.('change', queueFit); cancelAnimationFrame(fitFrame); clearTimeout(noteTimer);
+      resize?.disconnect(); phone?.removeEventListener?.('change', syncLayout); cancelAnimationFrame(fitFrame); clearTimeout(noteTimer);
       document.removeEventListener('pointerdown', outside, true);
       document.removeEventListener('keydown', escape);
       window.removeEventListener('pointerup', syncSelection, true);
