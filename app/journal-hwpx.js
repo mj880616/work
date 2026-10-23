@@ -16,11 +16,18 @@
 //   내 사업(진행 중인 프로젝트, 확정본의 내 담당 줄) 이름이 든 줄만
 //   골라(weekly-exec-requests.js carryOver) journal.js에 넘기고(onCarry — 그 주에 한 번만 서버에 더함), 파일의 요청 표는 [주간 정리]
 //   1. 요청사항 › 1) 표에 저장된 그 주 줄로 채운다(표 준비 전이면 고른 줄만). '지난주에서' 표시는 화면에만 있고 파일에는 없다.
+// - 5. 주요 일정 제목 확인(WEEKLY-일정다듬기, 2026-10-23 사용자 요청 12:43 ④⑤): 표 칸은 늘 '시간 / 내용 / 장소'(장소 없으면 '미정').
+//   [AI로 다듬기]를 누를 때만 서버 ai-assist(kind=schedule_titles)에 그 주와 일정 줄(날짜·시각·제목·장소)만 보내고, 업무 기록은 서버가 내
+//   로그인으로 읽는다. 답은 칸에 넣는 제안일 뿐 저장하지 않는다(파일을 만들 때만 씀). 원래 제목은 늘 옆에 보이고 칸에서 고칠 수 있다.
+//   그 모드가 없는 서버면 원래 제목 그대로 만든다. 본문(요약·투쟁 사업장·산하조직 칸)과 일정표가 같은 날 다른 시각이면 '다름' 목록으로만
+//   보인다(고치지 않음, weekly-hwpx/schedule.mjs scheduleMismatches).
 // - 이 상자 하나만 이 모듈이 그린다(journal.js는 자리만 주고 주·자료가 바뀌면 알려 줌). 브라우저 저장소에 아무것도 두지 않는다.
 import {selectMyOrganizations} from './my-organizations.js';
 import {shortDay, reportDay, todayKey} from './journal-data.js';
 import {scheduleForm} from './journal-weekly.js';
 import {carryOver, carryCutoff, formRequests, formDay, mergeCarried} from './weekly-exec-requests.js';
+import {scheduleItems, scheduleMismatches, titleRequest, titleAnswer, NO_PLACE} from './weekly-hwpx/schedule.mjs';
+import {callAiAssist, AI_SUMMARY_TEXT, aiSummaryRetryable} from './basket-ai-summary.js';
 
 const CONFIRMED_CATEGORY = '주간보고 확정본';
 const encode = encodeURIComponent;
@@ -38,6 +45,14 @@ const TEXT = Object.freeze({
   notHwp: 'HWP(.hwp) 또는 한글 파일(.hwpx)만 고를 수 있어요.',
   tooBig: '30MB가 넘는 파일은 열지 않아요.',
   noMine: '담당 팀원 칸에서 이 이름을 찾지 못했어요. 이름을 확인해 주세요(요약 표는 틀만 들어가요).',
+});
+// ai-assist schedule_titles 답의 일상어(없는 모드·배포 전이면 원래 제목 그대로 쓴다고 알림).
+const TITLE_TEXT = Object.freeze({
+  ...AI_SUMMARY_TEXT,
+  not_ready: 'AI 제목 다듬기는 아직 준비 중이에요. 원래 제목으로 만들어요.',
+  unsupported_kind: 'AI 제목 다듬기는 아직 준비 중이에요. 원래 제목으로 만들어요.',
+  daily_limit: '오늘 AI를 쓸 수 있는 횟수를 다 썼어요. 제목은 칸에서 직접 고쳐 주세요.',
+  monthly_limit: '이번 달 AI 한도에 닿았어요. 제목은 칸에서 직접 고쳐 주세요.',
 });
 const MAX_BYTES = 30 * 1024 * 1024;
 
@@ -200,7 +215,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, rt = window.KPT
       const week = getWeek();
       const who = draft.resolveMe(team, context.me);
       state = {draft, team, template, source, start:week.start, me:who.me, meFrom:who.from, date:draft.reportDate(reportDay(week.start)), context,
-        myOrgs:draft.orgNames(context.organizations), aliases:new Map(context.organizations.map(o => [o.name, Array.isArray(o.aliases) ? o.aliases : []])), edits:null, built:null, saved:null};
+        myOrgs:draft.orgNames(context.organizations), aliases:new Map(context.organizations.map(o => [o.name, Array.isArray(o.aliases) ? o.aliases : []])), edits:null, built:null, saved:null, titles:new Map(), titleKeys:'', titleRun:0};
       rebase();
       carry(week);
       say('');
@@ -264,7 +279,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, rt = window.KPT
     const name = el('label', 'journal-hwpx-label', label); name.htmlFor = id;
     const area = el('textarea', 'journal-hwpx-lines'); area.id = id; area.rows = Math.min(12, Math.max(3, row.lines.length + 1));
     area.value = state.edits[section].get(row.index).join('\n'); area.dataset.hwpxLines = '';
-    area.addEventListener('input', () => { state.edits[section].set(row.index, area.value.split('\n')); state.built = null; });
+    area.addEventListener('input', () => { state.edits[section].set(row.index, area.value.split('\n')); state.built = null; renderMismatches(); });
     areas[`${section}:${row.index}`] = area;
     const material = el('ul', 'journal-hwpx-material'); material.dataset.hwpxMaterial = `${section}:${row.index}`;
     box.append(name, area, material);
@@ -308,7 +323,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, rt = window.KPT
         li.append(el('span', 'journal-weekly-day', item.day ? shortDay(item.day) : '요약'), el('span', 'journal-weekly-label', `${item.from}: `), doc.createTextNode(item.text + ' '));
         const targets = item.section === 'summary'
           ? state.rows.map(r => ({value:`summary:${r.index}`, label:`${r.area} › ${r.task}`, names:[r.area, r.task], kind:'row'}))
-          : state.orgs.map(r => ({value:`orgs:${r.index}`, label:r.org, names:[r.org, ...(state.aliases.get(r.org) ?? [])], kind:'org'}));
+          : state.orgs.map(r => ({value:`orgs:${r.index}`, label:r.org, names:state.draft.rowNames(r.org, state.context.organizations), kind:'org'}));
         if (!targets.length) return li;
         // WEEKLY-한글파일다듬기 ③: 맨 앞 '줄 고르기'(빈 값). 이름이 가장 가까운 줄 하나만 미리 고르고, 없거나 애매하면 빈 값 — 그때 [붙이기]는
         // 줄을 고르기 전엔 누를 수 없다. (전에는 빈 값이 없어 목록 첫 줄이 기본으로 골라져 있었다.)
@@ -330,6 +345,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, rt = window.KPT
       : c.failed?.length ? '5. 주요 일정 표: 달력 일정을 불러오지 못해 날짜만 넣어요. [주간 정리]의 5. 주요 일정에서 [다시 시도]할 수 있어요.'
       : c.noCalendar ? "5. 주요 일정 표: '공공운수노조' 달력을 찾지 못해 날짜만 넣어요."
       : `5. 주요 일정 표: ${shortDay(c.days[0])}~${shortDay(c.days.at(-1))} 일정 ${c.rows.reduce((n, r) => n + r.items.length, 0)}개(참석자 = 내 이름)${c.vacations.length ? `, 휴가 ${c.vacations.length}개는 표 아래 ※ 줄` : ''}로 채워요.`;
+    renderTitles(c);
+    renderMismatches();
     const loading = model && ['summary', 'orgs'].some(k => model[k]?.loading);
     const note = body.querySelector('[data-hwpx-loading]');
     if (note) note.hidden = !loading;
@@ -385,6 +402,16 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, rt = window.KPT
     else orgs.append(el('p', 'journal-muted', '내 담당 조직 전부(가나다순). 확정본에 없던 조직은 현황 칸이 비어요.'));
     for (const row of s.orgs) orgs.append(lineBox('orgs', row, row.org));
     parts.push(orgs);
+    // 5. 주요 일정 — 제목 확인(WEEKLY-일정다듬기 ④)과 본문·일정표 다름(⑤). 목록은 달력 일정이 오면 renderTitles가 채운다.
+    const sched = el('section', 'journal-hwpx-part'); sched.dataset.hwpxPart = 'schedule'; sched.hidden = true;
+    const schedHead = el('div', 'journal-hwpx-schedule-head');
+    schedHead.append(el('h5', 'journal-weekly-sub', '5. 주요 일정 — 제목 확인'), button('AI로 다듬기', 'hwpxTitlesAi'));
+    const titleStatus = el('p', 'journal-muted'); titleStatus.dataset.hwpxTitlesStatus = ''; titleStatus.setAttribute('role', 'status'); titleStatus.setAttribute('aria-live', 'polite');
+    const titleList = el('ul', 'journal-hwpx-titles'); titleList.dataset.hwpxTitles = '';
+    const diff = el('details', 'journal-hwpx-plans'); diff.dataset.hwpxMismatch = ''; diff.hidden = true; diff.open = true;
+    diff.append(el('summary', ''), el('ul', 'journal-hwpx-material'));
+    sched.append(schedHead, titleStatus, titleList, diff);
+    parts.push(sched);
     const rest = el('section', 'journal-hwpx-part'); rest.dataset.hwpxUnmatched = ''; rest.hidden = true;
     rest.append(el('h5', 'journal-weekly-sub', '줄을 찾지 못한 이번 주 기록'), el('p', 'journal-muted', '이름이 확정본 줄과 달라요. 붙일 줄을 골라 주세요.'), el('ul', 'journal-hwpx-material'));
     parts.push(rest);
@@ -396,10 +423,98 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, rt = window.KPT
     renderRequestNote();
   }
 
+  // 일정 줄마다: 날짜·시각 · 원래 제목(늘 보임) · 고칠 제목 칸 · 장소 칸(비우면 '미정'). 칸 값은 state.titles(일정 키 → {title, place})에만
+  // 두고 파일을 만들 때 쓴다(저장하지 않음). 같은 일정 목록이면 다시 그리지 않아 쓰던 칸이 그대로다.
+  function renderTitles(calendar) {
+    const part = body.querySelector('[data-hwpx-part="schedule"]');
+    if (!part || !state) return;
+    const items = scheduleItems(calendar);
+    part.hidden = !items.length;
+    const keys = items.map(i => i.key).join('\n');
+    if (keys === state.titleKeys && part.querySelector('[data-hwpx-titles]').childElementCount === items.length) return;
+    state.titleKeys = keys;
+    state.titleItems = items;
+    const list = part.querySelector('[data-hwpx-titles]');
+    list.replaceChildren(...items.map((item, n) => {
+      const li = el('li', 'journal-hwpx-title'); li.dataset.hwpxTitle = item.key;
+      const o = state.titles.get(item.key), id = `journalHwpxTitle-${n}`;
+      const when = el('span', 'journal-weekly-day', `${item.label} ${item.time}`);
+      const origin = el('span', 'journal-hwpx-origin', `원래: ${item.title}${item.place ? ` / ${item.place}` : ''}`); origin.dataset.hwpxOrigin = '';
+      const title = el('input', 'journal-hwpx-title-input'); title.type = 'text'; title.id = id; title.value = o?.title ?? item.title; title.dataset.hwpxTitleInput = '';
+      title.setAttribute('aria-label', `${item.label} ${item.time} 일정 제목`);
+      const place = el('input', 'journal-hwpx-place-input'); place.type = 'text'; place.value = o?.place ?? item.place; place.placeholder = NO_PLACE; place.dataset.hwpxPlaceInput = '';
+      place.setAttribute('aria-label', `${item.label} ${item.time} 일정 장소(비우면 ${NO_PLACE})`);
+      const save = () => setTitle(item, title.value, place.value, li);
+      title.addEventListener('input', save); place.addEventListener('input', save);
+      const fields = el('div', 'journal-hwpx-title-fields'); fields.append(title, place);
+      li.append(when, origin, fields);
+      li.dataset.changed = o ? 'true' : 'false';
+      return li;
+    }));
+  }
+  function setTitle(item, title, place, li) {
+    const t = title.trim(), p = place.trim();
+    if ((t || item.title) === item.title && p === item.place) state.titles.delete(item.key);
+    else state.titles.set(item.key, {title:t || item.title, place:p});
+    if (li) li.dataset.changed = state.titles.has(item.key) ? 'true' : 'false';
+    state.built = null;
+    renderMismatches();
+  }
+  function renderMismatches() {
+    const box = body.querySelector('[data-hwpx-mismatch]');
+    if (!box || !state) return;
+    const sections = [
+      ...state.rows.map(r => ({where:`${r.area} › ${r.task || '—'}`, lines:state.edits.summary.get(r.index) ?? []})),
+      ...state.sites.map(r => ({where:r.org, lines:state.edits.sites.get(r.index) ?? []})),
+      ...state.orgs.map(r => ({where:r.org, lines:state.edits.orgs.get(r.index) ?? []})),
+    ];
+    const found = scheduleMismatches({sections, calendar:getWeek().model?.calendar, overrides:state.titles, orgs:state.context.organizations});
+    box.hidden = !found.length;
+    if (!found.length) return;
+    box.querySelector('summary').textContent = `본문과 일정표가 다른 곳 ${found.length}개 — 확인해 주세요(자동으로 고치지 않아요)`;
+    box.querySelector('ul').replaceChildren(...found.map(f => {
+      const li = el('li'); li.dataset.hwpxMismatchItem = f.day;
+      const cal = f.events.length ? `일정표: ${f.events.join(', ')}` : '일정표: 그날 일정 없음';
+      li.append(el('span', 'journal-weekly-day', shortDay(f.day)), el('span', 'journal-weekly-label', `${f.where}${f.sure ? '' : '(같은 일인지 확인)'}: `),
+        doc.createTextNode(`본문 ${f.body.join('·')} — ${cal}`));
+      return li;
+    }));
+  }
+  async function aiTitles(trigger) {
+    const s = state, items = s?.titleItems ?? [];
+    const note = body.querySelector('[data-hwpx-titles-status]');
+    if (!items.length || !note) return;
+    const mine = ++s.titleRun;
+    const {body: request, refs, more} = titleRequest(s.start, items);
+    trigger.disabled = true; trigger.setAttribute('aria-busy', 'true'); note.textContent = 'AI가 업무 기록을 보고 제목을 다듬는 중…';
+    let r;
+    try { r = await callAiAssist(request, {rt}, TITLE_TEXT); }
+    finally { if (trigger.isConnected) { trigger.disabled = false; trigger.removeAttribute('aria-busy'); } }
+    if (state !== s || mine !== s.titleRun) return;
+    if (!r.ok || r.data.week_start !== s.start) {
+      const code = r.ok ? 'ai_invalid_response' : r.code;
+      note.textContent = TITLE_TEXT[code] || TITLE_TEXT.internal_error; note.dataset.retry = String(aiSummaryRetryable(code)); return;
+    }
+    const answer = titleAnswer(r.data, refs);
+    let changed = 0;
+    // 사람이 이미 고친 칸은 건드리지 않는다. AI 제목이 원래와 같으면 그대로.
+    for (const item of items) {
+      const a = answer.get(item.key);
+      if (!a || s.titles.has(item.key)) continue;
+      if (a.title === item.title && (a.place || item.place) === item.place) continue;
+      s.titles.set(item.key, {title:a.title, place:a.place || item.place});
+      changed++;
+    }
+    s.titleKeys = ''; s.built = null;
+    renderTitles(getWeek().model?.calendar);
+    renderMismatches();
+    note.textContent = `${changed ? `${changed}개 일정 제목을 다듬었어요. 원래 제목과 비교해 칸에서 고쳐 주세요.` : '다듬을 제목이 없었어요.'}${more > 0 ? ` 한 번에 ${items.length - more}개까지라 ${more}개는 그대로예요.` : ''}${r.data.partial ? ' 기록이 많아 일부만 봤어요.' : ''}`;
+  }
+
   async function build() {
     const {draft} = state;
     if (state.built) return state.built;
-    const data = draft.assembleDraft({...state.base, date:state.date, requests:formRequests(requestRows().items), ...scheduleForm(getWeek().model?.calendar, state.me)}, state.edits);
+    const data = draft.assembleDraft({...state.base, date:state.date, requests:formRequests(requestRows().items), ...scheduleForm(getWeek().model?.calendar, state.me, state.titles)}, state.edits);
     const bytes = await draft.buildHwpx(state.template, data);
     // 파일 이름: 주간보고_보고일8자리_이름.hwpx — 이름은 로그인 사용자의 표시 이름(프로필 이름, 없으면 로그인 정보의 표시 이름; readContext).
     state.built = {bytes, changed:draft.changedCount(data), name:draft.fileNameFor(reportDay(state.start), state.context.me)};
@@ -452,6 +567,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, rt = window.KPT
     else if (b.matches('[data-hwpx-build]')) doBuild();
     else if (b.matches('[data-hwpx-hwp]')) doHwp();
     else if (b.matches('[data-hwpx-confirm]')) doConfirm(b);
+    else if (b.matches('[data-hwpx-titles-ai]')) aiTitles(b);
   });
 
   return {

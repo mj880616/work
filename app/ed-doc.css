@@ -173,3 +173,22 @@
 .ProseMirror-gapcursor{display:none}
 @media(min-width:761px){.ed-input{padding:22px 28px 30vh}}
 @media(max-width:760px){.ed-tools{scrollbar-width:none}.ed-tools::-webkit-scrollbar{display:none}}
+/* ED-서식줄묶음(폰 760px 이하): 서식 줄을 한 줄에 맞추려고 묶음 버튼(글자·문단·넣기·기호 ▾)으로 줄인다. 버튼 높이 28px·누르는 범위 44px 그대로,
+   안쪽 여백만 줄인다. 묶음 안 버튼은 세로 목록(.ed-group-menu)에 같은 버튼이 옮겨 가 있고, 그 목록은 다른 펼침 상자(.ed-pop)와 같은 모양이다. */
+.ed-grouped .ed-tools{gap:1px;padding:0 4px;justify-content:space-between;overflow-x:auto;font-size:var(--ds-compact-text,13px)}
+/* 글자는 13px 그대로 두고, 344px 근처로 정말 좁을 때만 12px로 줄인다. */
+@media(max-width:350px){.ed-grouped .ed-tools{font-size:var(--ds-text-meta,12px)}}
+.ed-grouped .ed-tools .ed-gap{margin-left:0}
+.ed-grouped .ed-tools button{flex:0 1 auto;min-width:20px;padding:0 3px;font-size:inherit}
+/* 버튼 겉모양 통일(UI-버튼기준): 줄 안 버튼은 모두 테두리 없이 두고 눌린 상태만 표시한다. */
+.ed-grouped .ed-tools .ed-style{min-width:0;justify-content:center;border-color:transparent}
+.ed-grouped .ed-tools .ed-caret{font-size:.7em}
+/* [·]와 [▾]: 붙은 두 칸 한 덩어리 */
+.ed-grouped .ed-tools .ed-pair{display:flex;flex:0 0 auto;align-items:center;border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface-subtle)}
+.ed-grouped .ed-tools .ed-pair button{flex:0 0 auto;min-width:20px}
+.ed-grouped .ed-tools .ed-pair button+button{border-left:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-top-left-radius:0;border-bottom-left-radius:0}
+.ed-grouped .ed-tools .ed-pair button:first-child{border-top-right-radius:0;border-bottom-right-radius:0}
+.ed-group-menu .ed-gap{margin-left:0}
+.ed-bar .ed-group-menu button{justify-content:flex-start}
+.ed-bar .ed-group-menu button[aria-pressed="true"]::before{content:"✓";color:var(--kptu-primary-ink);margin-right:2px}
+.ed-grouped .ed-tools [data-ed-cmd="symDot"] .ed-caret{font-size:1em;opacity:1}
