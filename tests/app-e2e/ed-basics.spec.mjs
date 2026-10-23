@@ -336,7 +336,7 @@ test.describe('PC 1280', () => {
   });
 
   test('표 크기 끌기: 오른쪽 아래 손잡이로 표 전체가 같은 비율로 커지고, 편집기 폭을 넘지 않고, 읽는 쪽도 같은 크기', async ({page}) => {
-    const box = await open(page, ed1(table(2, 3)));
+    const box = await open(page, ed1(table(2, 3, () => ({colwidth: [150]}))));
     const tbl = box.locator('table').first();
     await tbl.hover();
     const handle = box.locator('.ed-table-resize').first();
