@@ -182,3 +182,49 @@ test('library screen: auto tidy has no button, no progress text, no storage; lis
   const css=readFileSync(new URL('../app/library-upload.css',import.meta.url),'utf8');
   assert.ok(!/\.lt-|\.library-tidy/.test(css));
 });
+
+// ---- LIB-수정파일교체 ----
+test('reclassifyLibraryDocument: reads the new text first, then one tidy call with ids only; never throws; refreshes only when something changed',async()=>{
+  const calls=[],events=[];
+  globalThis.window={dispatchEvent:e=>events.push(e.type)};globalThis.CustomEvent=class{constructor(type){this.type=type}};
+  const rt={api:async(path,o)=>{calls.push(['api',path,o.body]);return {ok:true}}};
+  const call=async body=>{calls.push(['ai',body]);return {ok:true,data:{ok:true,kind:'library_fill',updated:1}}};
+  assert.deepEqual(await m.reclassifyLibraryDocument(ID,{rt,call}),{ok:true,updated:1});
+  assert.deepEqual(calls,[['api','/functions/v1/document-actions',{action:'document-text',document_id:ID}],['ai',{kind:'library_fill',mode:'tidy',document_ids:[ID]}]]);
+  assert.deepEqual(events,['kptu:documents-changed']);
+  events.length=0;
+  assert.deepEqual(await m.reclassifyLibraryDocument(ID,{rt,call:async()=>({ok:true,data:{updated:0}})}),{ok:true,updated:0});
+  assert.deepEqual(events,[]);
+  assert.deepEqual(await m.reclassifyLibraryDocument(ID,{rt:{api:async()=>{throw Error('down')}},call:async()=>({ok:false,code:'ai_busy'})}),{ok:false,code:'ai_busy'});
+  assert.deepEqual(await m.reclassifyLibraryDocument('nope',{rt,call}),{ok:false,code:'invalid_request'});
+  delete globalThis.window;delete globalThis.CustomEvent;
+});
+
+test('tidyCandidates: a document whose file was replaced (reclassify_needed) is a candidate even when tried or just uploaded; needs the field_origin column',()=>{
+  const docs=[row(1,{reclassify_needed:true,created_at:JUST,title:'정리됨',source:'a',document_date:'2026-01-01',category:'교섭',project_id:'p',organization_id:'o'}),row(2,{reclassify_needed:false,created_at:JUST}),row(3,{reclassify_needed:true})];
+  const {field_origin,...noColumn}=row(4,{reclassify_needed:true});void field_origin;
+  const out=m.tidyCandidates([...docs,noColumn],{tried:new Set([DOC(1),DOC(3)]),categories:CATS,now:NOW}).map(d=>d.id);
+  assert.deepEqual(out,[DOC(1),DOC(3)]);
+});
+
+test('replace file screen: renamed menu item, file line in the edit dialog, saved only on [수정 저장], hidden before the DB column, no storage',()=>{
+  const src=readFileSync(new URL('../app/library-upload.js',import.meta.url),'utf8');
+  assert.match(src,/data-lu-edit="\$\{luEsc\(id\)\}">수정<\/button>/);
+  assert.ok(!src.includes('>정보 수정<'));
+  assert.match(src,/<h2>자료 수정<\/h2>/);
+  assert.match(src,/function luReplaceReady\(d\)\{return !!d&&Object\.hasOwn\(d,'previous_files'\)\}/);
+  const start=src.indexOf('// LIB-수정파일교체'),end=src.indexOf('function luEditFields');
+  const block=src.slice(start,end);
+  assert.ok(block.length>1500);
+  for(const bad of ['local'+'Storage','session'+'Storage','indexed'+'DB'])assert.ok(!block.includes(bad),bad);
+  // The request carries the id of the document being edited and the file only; every other field of the row stays on the server.
+  assert.match(block,/fd\.append\('file',file\);fd\.append\('replace_document_id',editor\.id\);/);
+  assert.equal((block.match(/fd\.append\(/g)||[]).length,2);
+  // Order on save: file replace, then the info save only when a field changed, then the background re-judgement.
+  const save=src.slice(src.indexOf('async function luSaveEdit'),src.indexOf("window.addEventListener('kptu:view-changed'"));
+  assert.ok(save.indexOf('luReplaceStaged(editor,st)')<save.indexOf('luEditAttempts.set(key,request)'));
+  assert.match(save,/if\(!changed\.length\)\{luSetStatus\(st,'파일을 바꿨습니다\.',false\);luClose\('libraryEditModal'\)/);
+  assert.match(save,/if\(replaced\)luReclassify\(editor\.id\)/);
+  const css=readFileSync(new URL('../app/library-upload.css',import.meta.url),'utf8');
+  assert.match(css,/\.library-edit-prev>summary/);
+});
