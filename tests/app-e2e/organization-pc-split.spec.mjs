@@ -66,6 +66,8 @@ test('PC 1280: list 1/3 on the left, the first organization on the right without
  // The detail content is the same: input, tasks, documents, records, timeline, more.
  for(const id of ['#wdInboxText','#wdTasks','#wdDocs','#wdLog','#wdTime','#wdMore'])await expect(modal.locator(id)).toBeVisible();
  await expect(modal.locator('#wdUpdates')).toContainText('합성 기록 0');
+ // ORG-입력칸⤢만: no height-drag handle on the input; the ⤢ button is the only way to enlarge.
+ await expect(modal.locator('#wdInboxText')).toHaveCSS('resize','none');await expect(modal.locator('#wdInboxBig')).toBeVisible();
  // Another row: the pane changes in place, no history entry, the row shows the selection.
  const length=await page.evaluate(()=>history.length);
  await row(page,'ob').click();await expect(title(page)).toHaveText('합성 나 지부');
@@ -74,7 +76,7 @@ test('PC 1280: list 1/3 on the left, the first organization on the right without
  expect(await page.evaluate(()=>history.length)).toBe(length);
  // The same row again leaves the pane as it is.
  await row(page,'ob').click();await expect(title(page)).toHaveText('합성 나 지부');
- expect(await lastKeys(page)).toEqual([[`kptu_owner_cache:organization-last-v1:${owner}`,'ob']]);
+ await expect.poll(()=>lastKeys(page)).toEqual([[`kptu_owner_cache:organization-last-v1:${owner}`,'ob']]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
  // Next time the screen opens on this device, the last organization shows first: another screen and back, and a reload.
  await clickView(page,'home');await expect(page.locator('#wdModal')).toBeHidden();
@@ -88,7 +90,7 @@ test('PC 1280: sign-out and another user on this device drop the remembered orga
  const {errors}=await fixture(page);
  await clickView(page,'team');await expect(title(page)).toHaveText('합성 가 지부');
  await row(page,'oc').click();await expect(title(page)).toHaveText('합성 다 지부');
- expect(await lastKeys(page)).toEqual([[`kptu_owner_cache:organization-last-v1:${owner}`,'oc']]);
+ await expect.poll(()=>lastKeys(page)).toEqual([[`kptu_owner_cache:organization-last-v1:${owner}`,'oc']]);
  // Another user on the same device never sees it: the key goes with the owner change.
  await page.evaluate(()=>window.KPTURuntime.session.write({access_token:'token-b',refresh_token:'token-b',expires_at:Math.floor(Date.now()/1000)+3600,user:{id:'other-user'}}));
  await expect.poll(()=>lastKeys(page)).toEqual([]);
@@ -142,7 +144,7 @@ for(const width of [390,900])test(`${width}: list with the detail dialog as befo
  expect(await modal.evaluate(el=>el.parentElement===document.body)).toBe(true);
  await expect(row(page,'ob')).not.toHaveAttribute('aria-current','true');
  await modal.locator('[data-wd-close="wdModal"]').click();await expect(modal).toBeHidden();await expect(row(page,'oa')).toBeVisible();
- expect(await lastKeys(page)).toEqual([[`kptu_owner_cache:organization-last-v1:${owner}`,'ob']]);
+ await expect.poll(()=>lastKeys(page)).toEqual([[`kptu_owner_cache:organization-last-v1:${owner}`,'ob']]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);expect(errors).toEqual([]);
 });
 
