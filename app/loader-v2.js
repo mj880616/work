@@ -96,6 +96,7 @@
     import('./capabilities.js'),
     import('./pwa.js')
   ]);
+  document.body?.classList.remove('kptu-session-pending');
   const bootView=document.querySelector('#bootView');
   if(bootView){
     ['accessDeniedView','appView'].forEach(id=>document.querySelector('#'+id)?.classList.add('hidden'));

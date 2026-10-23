@@ -25,4 +25,5 @@ test('loader applies the saved theme before the first screen is shown',()=>{
  assert.ok(owner>0&&apply>owner,'prefs are read only after the owner is confirmed');
  assert.ok(apply>0&&reveal>apply,'theme must be applied before the app screen is revealed');
  assert.doesNotMatch(loader,/MutationObserver/);
+ assert.match(loader,/classList\.remove\('kptu-session-pending'\);\s*\n\s*const bootView=/,'the pending lock must still be released before the boot view');
 });
