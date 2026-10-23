@@ -35,4 +35,4 @@ jobs:
         uses: ./.github/actions/setup-playwright
       - run: python3 -m http.server 8123 >/tmp/http.log 2>&1 &
       - run: node --test tests/domain/web2-auth-origin.test.mjs
-      - run: npx playwright test tests/app-e2e/nonmember-access.spec.mjs tests/app-e2e/access-request-push.spec.mjs tests/app-e2e/solo-shell.spec.mjs --browser=chromium --workers=1 --reporter=line
+      - run: npx playwright test tests/app-e2e/nonmember-access.spec.mjs tests/app-e2e/access-request-push.spec.mjs tests/app-e2e/solo-shell.spec.mjs --browser=chromium --workers=1 --reporter=line,github

@@ -29,4 +29,4 @@ jobs:
           npm-flags: --no-save --no-package-lock
       - run: node --test personal/arsenal-match-archive/validate-archive.test.mjs personal/arsenal-match-archive/goals.test.mjs
       - run: node personal/arsenal-match-archive/validate-archive.mjs --baseline-ref ${{ github.event.pull_request.base.sha }}
-      - run: npx playwright test personal/arsenal-match-archive/archive.spec.mjs --browser=chromium --workers=1 --reporter=line
+      - run: npx playwright test personal/arsenal-match-archive/archive.spec.mjs --browser=chromium --workers=1 --reporter=line,github

@@ -88,4 +88,4 @@ jobs:
       - name: Start server
         run: python3 -m http.server 8123 >/tmp/kptu-suborg-http.log 2>&1 &
       - name: Run suborganization tests
-        run: npx playwright test tests/app-e2e/suborganization-filters.spec.mjs --browser=chromium --workers=1 --reporter=line
+        run: npx playwright test tests/app-e2e/suborganization-filters.spec.mjs --browser=chromium --workers=1 --reporter=line,github

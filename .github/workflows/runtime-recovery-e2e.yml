@@ -68,7 +68,7 @@ jobs:
           tests/app-e2e/runtime-recovery.spec.mjs
           tests/app-e2e/calendar-persistence-race.spec.mjs
           tests/app-e2e/library-upload-failure.spec.mjs
-          --browser=chromium --workers=1 --reporter=line
+          --browser=chromium --workers=1 --reporter=line,github
 
       - name: Upload Playwright report on failure
         if: failure()
