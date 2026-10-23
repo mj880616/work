@@ -253,22 +253,27 @@ test('a button pressed during a 한글 composition waits for it to end and does 
   expect(text).not.toMatch(/ㄴ/);
 });
 
-test('phone width: one row of small buttons scrolls sideways, page itself never scrolls sideways', async ({page}) => {
+// ED-서식줄묶음: a phone's row is the grouped one — every button fits one line, down to a folded phone's width (344px).
+test('phone width: the grouped row fits one line at 390, 360 and 344, page itself never scrolls sideways', async ({page}) => {
   await page.setViewportSize({width: 390, height: 844});
   await open(page);
   const row = page.locator('.ed-tools');
   const m = await row.evaluate(el => ({scroll: el.scrollWidth, client: el.clientWidth, wrap: getComputedStyle(el).flexWrap, overflow: getComputedStyle(el).overflowX}));
   expect(m.wrap).toBe('nowrap');
   expect(m.overflow).toBe('auto');
-  expect(m.scroll).toBeGreaterThan(m.client);
+  for (const width of [390, 360, 344]) {
+    await page.setViewportSize({width, height: 844});
+    await expect.poll(() => row.evaluate(el => el.scrollWidth - el.clientWidth), `row at ${width}`).toBeLessThanOrEqual(0);
+  }
+  await page.setViewportSize({width: 390, height: 844});
+  await expect(row.getByRole('button')).toHaveText(['본문 2 ▾', '굵게', '·', '▾', '글자 ▾', '문단 ▾', '넣기 ▾', '기호 ▾', '↶', '↷']);
   const heights = await row.locator('button:visible').evaluateAll(list => list.map(b => Math.round(b.getBoundingClientRect().height)));
   for (const h of heights) expect(h).toBeLessThanOrEqual(28);
   const tops = await row.locator('button:visible').evaluateAll(list => new Set(list.map(b => Math.round(b.getBoundingClientRect().top))).size);
   expect(tops).toBe(1);
-  // SHARE-전체편집: on a phone the row is swiped sideways, with no scroll bar. ED-기본기보강: [⋯] (less used buttons)
-  // stays at the row's right end; no button is moved under it on a phone.
+  // No scroll bar; [⌄] is gone on a phone (its buttons sit in the group popovers); nothing is moved under it.
   expect(await row.evaluate(el => getComputedStyle(el).scrollbarWidth)).toBe('none');
-  await expect(row.locator('.ed-more')).toBeVisible();
+  await expect(row.locator('.ed-more')).toBeHidden();
   await expect(page.locator('.ed-more-menu [data-ed-moved]')).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({path: 'test-results/ed-editor-390.png'});

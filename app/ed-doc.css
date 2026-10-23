@@ -173,3 +173,15 @@
 .ProseMirror-gapcursor{display:none}
 @media(min-width:761px){.ed-input{padding:22px 28px 30vh}}
 @media(max-width:760px){.ed-tools{scrollbar-width:none}.ed-tools::-webkit-scrollbar{display:none}}
+/* ED-서식줄묶음(폰 760px 이하): 서식 줄을 한 줄에 맞추려고 묶음 버튼(글자·문단·넣기·기호 ▾)으로 줄인다. 버튼 높이 28px·누르는 범위 44px 그대로,
+   안쪽 여백만 줄인다. 묶음 안 버튼은 세로 목록(.ed-group-menu)에 같은 버튼이 옮겨 가 있고, 그 목록은 다른 펼침 상자(.ed-pop)와 같은 모양이다. */
+.ed-grouped .ed-tools{gap:1px;padding:0 2px;overflow-x:auto}
+.ed-grouped .ed-tools .ed-gap{margin-left:0}
+.ed-grouped .ed-tools{font-size:min(var(--ds-compact-text,13px),3.5vw)}
+.ed-grouped .ed-tools button{flex:0 1 auto;min-width:18px;padding:0 3px;font-size:inherit}
+.ed-grouped .ed-tools .ed-style{min-width:0;justify-content:center}
+.ed-grouped .ed-tools .ed-caret{font-size:.7em}
+.ed-group-menu .ed-gap{margin-left:0}
+.ed-bar .ed-group-menu button{justify-content:flex-start}
+.ed-bar .ed-group-menu button[aria-pressed="true"]::before{content:"✓";color:var(--kptu-primary-ink);margin-right:2px}
+.ed-grouped .ed-tools [data-ed-cmd="symDot"] .ed-caret{font-size:1em;opacity:1}
