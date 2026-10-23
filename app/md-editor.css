@@ -159,6 +159,9 @@ html .modal.md-editor .md-pop button[aria-expanded="true"] { color:var(--kptu-pr
 html .modal.md-editor[data-md-grouped] .md-editor-tools { font-size:var(--ds-compact-text, 13px); }
 @media (max-width:359px) { html .modal.md-editor[data-md-grouped] :is(.md-editor-tools, .md-editor-md) { font-size:12px; } }
 html .modal.md-editor[data-md-grouped] .md-editor-tools button { flex:0 1 auto; min-width:18px; padding:0 3px; font-size:inherit; }
+/* 폰 서식 줄 버튼 모양(공유 페이지 편집기 ED-서식줄묶음과 같음, UI-버튼기준): 테두리 없이 두고 눌린(펼친) 상태만 배경으로 표시한다. */
+html .modal.md-editor[data-md-grouped] .md-editor-tools button { background:transparent; border-color:transparent; }
+html .modal.md-editor[data-md-grouped] .md-editor-tools button[aria-expanded="true"] { background:var(--kptu-primary-soft); }
 html .modal.md-editor .md-pop .basket-clip-picker { width:100%; height:auto; flex:none; }
 html .modal.md-editor .md-pop .basket-clip { display:flex; align-items:center; gap:8px; width:100%; height:var(--ds-compact-height-sm, 28px); min-height:0; padding:0 8px; box-sizing:border-box; font-size:var(--ds-compact-text, 13px); color:var(--kptu-ink); background:transparent; border:1px solid transparent; border-radius:var(--ds-radius-control, 8px); }
 html .modal.md-editor .md-pop .basket-clip-icon { flex:none; width:14px; height:14px; color:var(--kptu-link); }
