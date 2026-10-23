@@ -270,9 +270,11 @@ for(const width of [390,1280])test('공용 창: 제목 18px/500, 버튼 한 높�
  // 프로젝트 상세: 제목 18px, 위계(상위 링크는 제목 위)·⋯ 메뉴·접기(<details>)는 그대로.
  await view(page,'projects');await page.locator('[data-ps3-project="p1a"]').first().click();
  modal=page.locator('#ps3DetailModal');await expect(modal).toBeVisible();
- const t=await look(modal.locator('#ps3Title'));expect([t.fontSize,t.fontWeight]).toEqual(['18px','500']);
+ // UI-중복제목삭제: PC 오른쪽 칸(붙인 상세)은 상단 줄이 이름을 보이므로 제목 줄이 없다 - 창일 때만 제목 18px을 본다.
+ const dockedNow=await modal.evaluate(m=>m.dataset.ps3Docked==='1');
+ if(dockedNow)await expect(modal.locator('#ps3Title')).toHaveCount(0);else{const t=await look(modal.locator('#ps3Title'));expect([t.fontSize,t.fontWeight]).toEqual(['18px','500'])}
  const parent=modal.locator('.ps3-parent-link');await expect(parent).toBeVisible();
- expect((await parent.boundingBox()).y).toBeLessThan((await modal.locator('#ps3Title').boundingBox()).y);
+ expect((await parent.boundingBox()).y).toBeLessThan((await modal.locator(dockedNow?'#ps3Summary':'#ps3Title').boundingBox()).y);
  expect(await modal.locator('details.ps3-more,details[data-ps3-more],.ps3-head-actions details').count()).toBeGreaterThan(0);
  expect(errors).toEqual([]);
 });

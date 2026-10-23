@@ -9,6 +9,7 @@ import { calendarToday, addCalendarDays } from './helpers/calendar-today.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import {closeProjectDetail,expectProjectDetail,projectDetailDocked} from './helpers/project-detail.mjs';
+import {expectProjectTitle} from './helpers/screen-title.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -719,7 +720,7 @@ test('V3 mobile project creation, detail scrolling and linked document remain us
   await expect.poll(()=>state.spaces.find(x=>x.name==='QA 자동검사 프로젝트')?.id).toBeTruthy();
   const created=state.spaces.find(x=>x.name==='QA 자동검사 프로젝트');
   expect(created?.metadata?.project_system).toBe('v2');
-  await expect(page.locator('#ps3Title')).toHaveText('QA 자동검사 프로젝트');
+  await expectProjectTitle(page,'QA 자동검사 프로젝트');
   const width=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
   expect(width).toBeLessThanOrEqual(1);
   await openFold(page,'ps3-milestones');await page.locator('[data-ps3-add-milestone]').click();
@@ -786,12 +787,12 @@ test('V3 lists child projects with counts in the body and child returns to paren
   expect(state.restCalls.some(x=>x.name==='app_record_links'&&x.method==='GET')).toBeTruthy();
   expect(state.restCalls.some(x=>x.name==='app_tasks')).toBeFalsy();
   await row.click();
-  await expect(page.locator('#ps3Title')).toHaveText('9.29 민자철도 국회토론회');
+  await expectProjectTitle(page,'9.29 민자철도 국회토론회');
   // PRJ-3단: a second-level project keeps the child list with its + (a third level can be made there), and has no child yet.
   await expect(page.locator('#ps3-children [data-ps3-child]')).toBeVisible();await expect(page.locator('#ps3-children .ps3-child-link')).toHaveCount(0);
   await expect(page.locator('.ps3-parent-link')).toContainText('민자철도 정책·조직사업');
   await page.locator('.ps3-parent-link').click();
-  await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');
+  await expectProjectTitle(page,'민자철도 정책·조직사업');
 });
 
 for(const width of [360,390,1280])test(`D-project list header, hierarchy, metadata and navigation ${width}px`,async({page})=>{
@@ -835,8 +836,8 @@ for(const width of [360,390,1280])test(`D-project list header, hierarchy, metada
   const clipped=await list.locator('[data-ps3-project="main-2"] .ps3-prow-name').evaluate(e=>({clipped:e.scrollWidth>e.clientWidth,ellipsis:getComputedStyle(e).textOverflow}));expect(clipped).toEqual({clipped:true,ellipsis:'ellipsis'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
   expect(state.summaryQueries).toHaveLength(1);expect(state.summaryQueries[0]['milestones.limit']).toBe('1');expect(state.summaryQueries[0]['progress.limit']).toBe('1');expect(state.summaryQueries[0].select).toBe('id,milestones:app_project_milestones!project_id(start_at),progress:app_project_progress_updates!project_id(effective_on)');
-  await child.press('Enter');await expect(page.locator('#ps3Title')).toHaveText('9.29 민자철도 국회토론회');await closeProjectDetail(page);
-  await main.click();await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');await closeProjectDetail(page);
+  await child.press('Enter');await expectProjectTitle(page,'9.29 민자철도 국회토론회');await closeProjectDetail(page);
+  await main.click();await expectProjectTitle(page,'민자철도 정책·조직사업');await closeProjectDetail(page);
   await page.locator('#ps3ArchiveBtn').click();await expect(page.locator('#ps3ArchiveModal')).toBeVisible();await expect(page.locator('[data-ps3-restore="arch-1"]')).toBeVisible();
 });
 
@@ -859,7 +860,7 @@ test('D-project names appear before optional reads and survive failed metadata',
  await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);await clickView(page,'projects');
  await expect(page.locator('#projectGrid .ps3-plist [data-ps3-project]')).toHaveCount(2);await expect(page.locator('[data-ps3-total]')).toHaveText('프로젝트 1개');
  release();await expect.poll(()=>state.summaryQueries?.length).toBe(1);
- await page.locator('#projectGrid .ps3-plist [data-ps3-project="main-1"]').click();await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');
+ await page.locator('#projectGrid .ps3-plist [data-ps3-project="main-1"]').click();await expectProjectTitle(page,'민자철도 정책·조직사업');
 });
 
 for(const failure of ['tasks','dates','both'])test(`D-project ${failure} failure preserves names and other metadata`,async({page})=>{
@@ -872,7 +873,7 @@ for(const failure of ['tasks','dates','both'])test(`D-project ${failure} failure
  // UI-PC프로젝트좌우: on a PC the first project opens in the pane and its own detail read fills its D-day; the other row shows the failed list read.
  if(failure!=='tasks'){await expect.poll(()=>state.summaryQueries?.length).toBe(1);const listOnly=(await projectDetailDocked(page))?page.locator('#projectGrid .ps3-plist [data-ps3-project="child-1"]'):main;await expect(listOnly.locator('.ps3-prow-meta')).toBeEmpty();}
  await expect(page.locator('#projectGrid .ps3-plist [data-ps3-project]')).toHaveCount(2);
- await main.click();await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');
+ await main.click();await expectProjectTitle(page,'민자철도 정책·조직사업');
 });
 
 for(const width of [390,1280])test(`V3 generated dialogs expose consistent accessibility semantics ${width}`,async({page})=>{
@@ -945,7 +946,7 @@ test('V3 more menu and progress items use native keyboard disclosure behavior',a
   await expect(page.locator('#ps3DetailModal')).toBeVisible();
   await summary.click();
   await expect(menu).toHaveAttribute('open','');
-  await page.locator('#ps3Title').click();
+  await page.locator('#ps3Title,#ps3Summary').first().click();
   await expect(menu).not.toHaveAttribute('open','');
   // PRJ-기록입력: each record line is one keyboard button that opens 수정·삭제.
   const input=page.locator('#ps3-progress [data-ps3-record-input] input');
@@ -981,7 +982,7 @@ test('V3 creates and edits a project with the same final renderer',async({page})
   const saved=state.spaces.find(x=>x.id===made.id).metadata;
   expect(saved.start_on).toBe(today);
   expect(saved.end_on).toBe(end);
-  await expect(page.locator('#ps3Title')).toHaveText('인력확충 공동투쟁');
+  await expectProjectTitle(page,'인력확충 공동투쟁');
 });
 
 test('V3 edits and deletes a key schedule and shows the five most recent documents',async({page})=>{
@@ -1048,7 +1049,7 @@ test('V3 includes legacy child work areas under a V3 parent without changing the
   await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
   await expect(page.locator('#ps3-children [data-ps3-project="legacy-child"]')).toBeVisible();
   await page.locator('#ps3-children [data-ps3-project="legacy-child"]').click();
-  await expect(page.locator('#ps3Title')).toHaveText('국회토론회 준비');
+  await expectProjectTitle(page,'국회토론회 준비');
   await expect(page.locator('#ps3-tasks')).toContainText('발제 원고 취합');
 });
 
@@ -1109,7 +1110,7 @@ test('V3 completion changes status without deleting the project',async({page})=>
   await openMenu(page);await expect(control).toHaveText('완료');
   await control.click();
   await expect.poll(()=>state.spaces.find(x=>x.id==='main-1')?.status).toBe('done');
-  await expect(page.locator('#ps3Title')).toHaveText('민자철도 정책·조직사업');
+  await expectProjectTitle(page,'민자철도 정책·조직사업');
   // Wait for the detail re-render that follows the status change before reopening its menu.
   await expect(control).toHaveText('완료 취소');
   await expect(page.locator('#ps3Menu .ps3-more')).not.toHaveAttribute('open','');
@@ -1397,7 +1398,7 @@ for(const width of [390,1440])for(const fallback of [false,true])test(`D-3e reco
   for(const button of await panel.locator('button').all())expect((await button.boundingBox()).height).toBe(44);
   const rect=await panel.boundingBox();expect(rect.x).toBeGreaterThanOrEqual(0);expect(rect.x+rect.width).toBeLessThanOrEqual(width);
   await page.keyboard.press('Escape');await expect(panel).toBeHidden();await expect(trigger).toBeFocused();await expect(page.locator('#ps3DetailModal')).toBeVisible();
-  await trigger.click();await page.locator('#ps3Title').click();await expect(panel).toBeHidden();
+  await trigger.click();await page.locator('#ps3Title,#ps3Summary').first().click();await expect(panel).toBeHidden();
   await trigger.click();await item.locator('[data-ps3-record-menu="pr-2"]').click({position:{x:8,y:8}});await expect(trigger).toHaveAttribute('aria-expanded','false');await expect(panel).toBeVisible();
   await page.goBack();await expect(panel).toBeHidden();await expect(page.locator('#ps3DetailModal')).toBeVisible();
 });
