@@ -18,7 +18,18 @@ const OLD_SERVER = new Set(['document_id가 필요합니다.', 'Unknown action']
 const MIN_HEIGHT = 120, MAX_HEIGHT = 20000;
 const fail = (kind, message) => Object.assign(new Error(message), {kind});
 
-export async function openBasketHtml(noteId, fileId, {rt = window.KPTURuntime, fetcher = fetch, timeoutMs = 60000} = {}) {
+export async function openBasketHtml(noteId, fileId, options = {}) {
+  return requestHtml({note_id: noteId, drive_file_id: fileId}, options);
+}
+
+// PRESS-자료실편입: 자료실 자료(.html)도 같은 html-view로 읽는다(document_id). 자료실 .html을 아직 모르는 서버는
+// "바구니 메모의 첨부만" 거절을 보낸다 → notReady([Drive에서 열기] 안내).
+const LIBRARY_NOT_YET = new Set(['바구니 메모의 첨부만 화면으로 볼 수 있습니다.']);
+export async function openLibraryHtml(documentId, options = {}) {
+  return requestHtml({document_id: documentId}, {...options, notYet: LIBRARY_NOT_YET});
+}
+
+async function requestHtml(target, {rt = window.KPTURuntime, fetcher = fetch, timeoutMs = 60000, notYet = null} = {}) {
   if (!(await rt.session.ensure())) throw fail('session', HTML_FRAME_TEXT.session);
   const session = rt.session.read();
   if (!session?.access_token) throw fail('session', HTML_FRAME_TEXT.session);
@@ -28,7 +39,7 @@ export async function openBasketHtml(noteId, fileId, {rt = window.KPTURuntime, f
     response = await Promise.race([fetcher(rt.config.url + '/functions/v1/document-actions', {
       method: 'POST', cache: 'no-store',
       headers: {apikey: rt.config.key, Authorization: 'Bearer ' + session.access_token, 'Content-Type': 'application/json'},
-      body: JSON.stringify({action: 'html-view', note_id: noteId, drive_file_id: fileId}),
+      body: JSON.stringify({action: 'html-view', ...target}),
     }), deadline]);
   } catch (err) {
     throw err?.kind ? err : fail('failed', HTML_FRAME_TEXT.failed + ' 네트워크를 확인해 주세요.');
@@ -41,7 +52,8 @@ export async function openBasketHtml(noteId, fileId, {rt = window.KPTURuntime, f
   }
   if (response.status === 401) throw fail('session', HTML_FRAME_TEXT.session);
   // The gateway refuses these before the function runs; an older function does not know the action.
-  if ([403, 404, 405].includes(response.status) || OLD_SERVER.has(String(data?.error || ''))) throw fail('notReady', HTML_FRAME_TEXT.notReady);
+  const error = String(data?.error || '');
+  if ([403, 404, 405].includes(response.status) || OLD_SERVER.has(error) || notYet?.has(error)) throw fail('notReady', HTML_FRAME_TEXT.notReady);
   if (data?.code === 'FILE_TOO_LARGE') throw fail('tooLarge', HTML_FRAME_TEXT.tooLarge);
   throw fail('failed', [HTML_FRAME_TEXT.failed, data?.error].filter(Boolean).join(' '));
 }
@@ -72,7 +84,8 @@ function button(label, onClick) {
 }
 
 // Shows html in host. Returns {close()}. The frame never reaches Web2: no same-origin, no network, no top navigation.
-export function mountHtmlFrame(host, html, {title = 'ChatGPT HTML'} = {}) {
+// showTitle=false: 둘러싼 창 머리가 이미 제목을 보여 줄 때(자료실 HTML 보기) 같은 제목을 두 번 그리지 않는다.
+export function mountHtmlFrame(host, html, {title = 'ChatGPT HTML', showTitle = true} = {}) {
   listen();
   const box = document.createElement('div'), bar = document.createElement('div'), note = document.createElement('p');
   box.className = 'html-frame'; bar.className = 'html-frame-bar'; note.className = 'html-frame-note'; note.setAttribute('role', 'status');
@@ -118,7 +131,8 @@ export function mountHtmlFrame(host, html, {title = 'ChatGPT HTML'} = {}) {
   }
   const again = button('다시 보기', show);
   again.hidden = true;
-  bar.append(name, big, again);
+  if (showTitle) bar.append(name);
+  bar.append(big, again);
   box.append(bar, note);
   host.replaceChildren(box);
   show();
