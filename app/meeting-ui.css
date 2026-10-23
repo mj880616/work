@@ -228,3 +228,7 @@
   #meetingList .mcol-two .mcol-sep{flex:none;white-space:pre}
   #meetingList .mcol-two .mcol-kind-tag{flex:none;color:var(--kptu-ink)}
 }
+
+/* MTG-사업보고 6단계: [연결할 곳] 버튼(입력 칸과 같은 높이·너비, 고른 곳 이름이 길면 줄여 보임) */
+.meeting-places-btn{display:block;width:100%;min-height:var(--kptu-control-height,36px);box-sizing:border-box;padding:0 10px;text-align:left;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.report-kind-tag{display:inline-block;margin-right:4px;padding:0 5px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,4px);font-size:11px;line-height:16px;color:var(--kptu-muted);vertical-align:1px}
