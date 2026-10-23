@@ -204,6 +204,18 @@
 #appView #journalView .journal-hwpx-plans > summary{ cursor:pointer; font-size:var(--kptu-text-body); color:var(--kptu-muted); }
 #appView #journalView .journal-hwpx-plans > summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 #appView #journalView .journal-hwpx-plans > .journal-hwpx-material{ margin-top:4px; }
+/* WEEKLY-일정다듬기(2026-10-23 ④): 5. 주요 일정 제목 확인 — 줄마다 날짜·시각, 원래 제목(늘 보임, 흐린 글씨), 제목 칸·장소 칸(비우면 '미정').
+   고친 줄은 왼쪽 가는 선. 버튼은 위 공용 작은 버튼, 칸은 같은 본문 글자. 새 크기 값 없음(토큰만). */
+#appView #journalView .journal-hwpx-schedule-head{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+#appView #journalView .journal-hwpx-schedule-head > h5{ margin:0; }
+#appView #journalView .journal-hwpx-titles{ margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:6px; font-size:var(--kptu-text-body); }
+#appView #journalView .journal-hwpx-title{ display:flex; flex-direction:column; gap:2px; padding-left:8px; border-left:2px solid transparent; }
+#appView #journalView .journal-hwpx-title[data-changed="true"]{ border-left-color:var(--kptu-primary-ink); }
+#appView #journalView .journal-hwpx-origin{ color:var(--kptu-muted); overflow-wrap:anywhere; }
+#appView #journalView .journal-hwpx-title-fields{ display:flex; gap:6px; flex-wrap:wrap; }
+#appView #journalView .journal-hwpx-title-fields > input{ box-sizing:border-box; min-width:0; height:var(--ds-compact-height); font:inherit; font-size:var(--kptu-text-body); }
+#appView #journalView .journal-hwpx-title-input{ flex:3 1 220px; }
+#appView #journalView .journal-hwpx-place-input{ flex:1 1 120px; }
 /* 요약 표: 사업영역 | 세부 과제 | 진행 상황 및 이후 계획. 사업영역 칸은 세로로 합친다. 화면에는 담당 팀원 칸이 없고(한글 파일에만 둠 —
    JOURNAL-주간정리다듬기 ②) 그 폭만큼 진행 상황 칸이 넓다. */
 #appView #journalView .journal-weekly-table{ width:100%; border-collapse:collapse; table-layout:fixed; font-size:var(--kptu-text-body); line-height:1.5; }

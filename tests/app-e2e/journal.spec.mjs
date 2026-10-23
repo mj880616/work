@@ -1194,6 +1194,14 @@ for(const width of [390,1280])test(`[주간보고 한글 파일 만들기]: 자�
  await rest.getByRole('button',{name:/붙이기/}).click();
  await expect(rowBox(page,'사업영역 나 › 세부 과제 나-1').locator('textarea')).toHaveValue('- 지난주 나-1 진행\n- 가-2 화요일 기록');
  await rowBox(page,'가상 노동조합').locator('textarea').fill('- 지난주 조직 소식\n- 손으로 고친 조직 소식');
+ // WEEKLY-일정다듬기 ④: 5. 주요 일정 — 제목 확인. 줄마다 원래 제목이 보이고, 고친 제목·장소(비우면 '미정')가 파일에만 들어간다(저장 없음).
+ const titles=hwpx(page).locator('[data-hwpx-part="schedule"] [data-hwpx-title]');
+ await expect(titles).toHaveCount(2);
+ await expect(titles.locator('[data-hwpx-origin]')).toHaveText(['원래: 가상 다음 주 회의 / 가상 회의실','원래: 가상 수련회']);
+ await expect(titles.nth(1).locator('[data-hwpx-place-input]')).toHaveAttribute('placeholder','미정');
+ await titles.nth(0).locator('[data-hwpx-title-input]').fill('가상 노동조합 다음 주 점검 회의');
+ await expect(titles.nth(0)).toHaveAttribute('data-changed','true');
+ await expect(hwpx(page).locator('[data-hwpx-titles-ai]')).toBeVisible();
  // .hwpx 받기: 규격 검사 통과, 내 줄만 채워지고 바뀐 줄만 파란 글씨, 요청 표는 확정본 그대로.
  const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
  // WEEKLY-한글파일다듬기 ④: 주간보고_보고일8자리_이름(로그인 사용자 표시 이름 = 프로필 이름).
@@ -1212,8 +1220,8 @@ for(const width of [390,1280])test(`[주간보고 한글 파일 만들기]: 자�
  // 참석자 = 내 이름. 휴가는 표 아래 빈 줄 다음 "※ 날짜 이름 연차", 일기 표시 일정은 없다. 1. 2) 주요 일정은 비운다.
  const me=['가상 담당'];
  expect(report.calendar).toEqual([
-  {day:'10.12.(월)',items:[]},{day:'10.13.(화)',items:[{what:'10:30 / 가상 다음 주 회의 / 가상 회의실',who:me}]},{day:'10.14.(수)',items:[]},
-  {day:'10.14.(수) ~ 10.15.(목)',items:[{what:'종일 / 가상 수련회',who:me}]},
+  {day:'10.12.(월)',items:[]},{day:'10.13.(화)',items:[{what:'10:30 / 가상 노동조합 다음 주 점검 회의 / 가상 회의실',who:me}]},{day:'10.14.(수)',items:[]},
+  {day:'10.14.(수) ~ 10.15.(목)',items:[{what:'종일 / 가상 수련회 / 미정',who:me}]},
   ...['10.15.(목)','10.16.(금)','10.17.(토)','10.18.(일)','10.19.(월)','10.20.(화)','10.21.(수)','10.22.(목)','10.23.(금)','10.24.(토)','10.25.(일)'].map(day=>({day,items:[]}))]);
  const secText=new TextDecoder().decode(pkg.files.get('Contents/section0.xml'));
  expect(secText).toContain('<hp:t>※ 10.23.(금) 가상 담당 연차</hp:t>');
