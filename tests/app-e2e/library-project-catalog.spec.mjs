@@ -6,6 +6,7 @@ import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { expectProjectDetail, projectDetailDocked } from './helpers/project-detail.mjs';
 import {expandLibraryTree,focusLibraryProject,libraryNode} from './helpers/library-tree.mjs';
+import {expectProjectTitle,toplineItem} from './helpers/screen-title.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -335,7 +336,7 @@ test('project create, rename and archive refresh library selectors without reloa
   await page.locator('[data-ps3-edit-project]').click();
   await page.locator('#ps3CreateName').fill('이름 바뀐 하위 프로젝트');
   await page.locator('#ps3CreateSave').click();
-  await expect(page.locator('#ps3Title')).toHaveText('이름 바뀐 하위 프로젝트');
+  await expectProjectTitle(page,'이름 바뀐 하위 프로젝트');
   values=await optionsOf(page,'#docProject');
   expect(values.find(o=>o.value===created.id).text).toBe('　↳ 이름 바뀐 하위 프로젝트');
 
@@ -343,7 +344,7 @@ test('project create, rename and archive refresh library selectors without reloa
   const docked=await projectDetailDocked(page);
   await page.locator('[data-ps3-archive-project]').click();
   // UI-PC프로젝트좌우: the archived project's detail goes away — PC(≥1024) shows another project in the right pane, the dialog closes elsewhere.
-  if(docked){await expect(page.locator('#ps3Body')).not.toHaveAttribute('data-project',created.id);await expect(page.locator('#ps3Title')).not.toHaveText('이름 바뀐 하위 프로젝트');await expect(page.locator(`#projectGrid .ps3-plist [data-ps3-project="${created.id}"]`)).toHaveCount(0)}
+  if(docked){await expect(page.locator('#ps3Body')).not.toHaveAttribute('data-project',created.id);await expect(toplineItem(page)).not.toHaveText('이름 바뀐 하위 프로젝트');await expect(page.locator(`#projectGrid .ps3-plist [data-ps3-project="${created.id}"]`)).toHaveCount(0)}
   else await expect(page.locator('#ps3DetailModal')).toBeHidden();
   await page.waitForFunction(id=>![...document.querySelector('#docProject').options].some(o=>o.value===id),created.id);
   values=await optionsOf(page,'#docProject');

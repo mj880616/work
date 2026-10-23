@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {expectProjectDetail} from './helpers/project-detail.mjs';
+import {expectProjectTitle} from './helpers/screen-title.mjs';
 // PRJ-회의표시(2026-10-21 사용자 요청): 프로젝트 상세에 그 프로젝트에 연결된 회의 칸(최근 순, 회의 이름·차수·회의 날짜).
 // 줄을 누르면 회의 화면과 같은 회의 결과 창이 프로젝트 화면 위에 열린다. 하위 프로젝트의 회의는 넣지 않는다.
 // 이름은 모두 합성 값이다.
@@ -65,13 +66,13 @@ for(const width of [390,1280])test(`project detail lists its own meetings newest
  expect(reads.some(r=>r.id==='eq.mt-1')).toBe(true);
  await expect(page.locator('#projectsView')).toBeVisible();
  await page.locator('#mrdClose').click();await expect(dialog).toBeHidden();
- await expect(page.locator('#ps3DetailModal')).toBeVisible();await expect(page.locator('#ps3Title')).toHaveText('테스트 프로젝트');
+ await expect(page.locator('#ps3DetailModal')).toBeVisible();await expectProjectTitle(page,'테스트 프로젝트');
  await expect(first).toBeFocused();
  if(width<1024){
   // Phone: back closes the meeting result and leaves the project detail open.
   await first.click();await expect(dialog).toBeVisible();
   await page.goBack();await expect(dialog).toBeHidden();
-  await expect(page.locator('#ps3DetailModal')).toBeVisible();await expect(page.locator('#ps3Title')).toHaveText('테스트 프로젝트');
+  await expect(page.locator('#ps3DetailModal')).toBeVisible();await expectProjectTitle(page,'테스트 프로젝트');
  }
  expect(errors).toEqual([]);
 });

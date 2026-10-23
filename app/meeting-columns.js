@@ -86,7 +86,7 @@ export function columnsHtml(columns,{selectedKey,selectedId,colorOf,whenOf,resul
     +`<h3 class="mcol-head" id="mcolRoundsHead"><span class="mcol-dot" aria-hidden="true"></span><span class="mcol-name" title="${esc(label)}">${esc(label)}</span><span class="mcol-count" aria-label="${selected.meetings.length}건">${selected.meetings.length}</span></h3>`
     +`<ol class="mcol-cards">${rows}</ol>`
     +`</section></div>`
-    +`<section id="mcolResult" class="mcol-result" style="--meeting-color:${esc(colorOf(selected.name))}" aria-labelledby="mcolResultHead"${current?` data-meeting-result="${esc(current.id)}"`:''}>${current?resultHtml(current,{kindName:label}):''}</section>`
+    +`<section id="mcolResult" class="mcol-result" style="--meeting-color:${esc(colorOf(selected.name))}" aria-label="회의 결과"${current?` data-meeting-result="${esc(current.id)}"`:''}>${current?resultHtml(current,{kindName:label}):''}</section>`
     +`</div>`;
 }
 
@@ -104,7 +104,7 @@ export function listHtml(rows,{selectedId,label,nameOf,kindOf=()=>'',colorOf,whe
     +`<section id="mcolRounds" class="mcol-rounds" aria-labelledby="mcolRoundsHead">`
     +`<h3 class="mcol-head" id="mcolRoundsHead"><span class="mcol-name" title="${esc(label)}">${esc(label)}</span><span class="mcol-count" aria-label="${rows.length}건">${rows.length}</span></h3>`
     +`<ol class="mcol-cards">${items}</ol></section>`
-    +`<section id="mcolResult" class="mcol-result" style="--meeting-color:${esc(colorOf(current))}" aria-labelledby="mcolResultHead" data-meeting-result="${esc(current.id)}">${resultHtml(current)}</section>`
+    +`<section id="mcolResult" class="mcol-result" style="--meeting-color:${esc(colorOf(current))}" aria-label="회의 결과" data-meeting-result="${esc(current.id)}">${resultHtml(current)}</section>`
     +`</div>`;
 }
 
@@ -113,12 +113,12 @@ export function listHtml(rows,{selectedId,label,nameOf,kindOf=()=>'',colorOf,whe
 // 원문은 결과 창과 같은 규칙: 원문 → 옛 구조화 기록 → '기록 없음'.
 export function resultText(m){if(m?.transcript_text!=null&&String(m.transcript_text).length)return String(m.transcript_text);if(String(m?.decisions||'').trim())return `[기존 회의결과 기록]\n${m.decisions}`;return '기록 없음'}
 // MTG-사업보고 4단계: kindLabel(칸 글자, 예: '언론')이 오면 메타 줄 맨 앞에 'X 칸'으로 보인다(data-report-kind-label).
-// roundText: 머리의 차수 자리 글자(기본 roundLabel). 회의가 아닌 칸은 차수·짧은 이름이 없으면 비워 '차수 없음'을 보이지 않는다.
-export function resultHtml(m,{kindName,kindLabel='',roundText=roundLabel(m),when='',project='',legacyTitle='',docs=[],fileLine,tasksHtml=''}){
+// UI-중복제목삭제: 이 칸은 PC(≥1024)에서만 그려지고 상단 줄이 이미 "회의 이름 차수"를 보이므로, 머리에는 제목 줄이 없고 메타 줄(칸·시각·프로젝트)과 ⋯만 둔다.
+export function resultHtml(m,{kindLabel='',when='',project='',legacyTitle='',docs=[],fileLine,tasksHtml=''}){
   const meta=[legacyTitle&&hasRound(m)?`기존 제목: ${legacyTitle}`:'',when,project?`프로젝트 ${project}`:''].filter(Boolean);
   const notes=String(m?.notes||'');
   const files=docs.length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mcol-file',end:`<button class="file-line-open" type="button" data-meeting-doc="${esc(d.id)}" aria-label="${esc(name)} 내려받기"></button>`})}).join(''):'<p class="mcol-empty">회의자료가 없습니다.</p>';
-  return `<header class="mcol-result-head"><div class="mcol-result-title"><h3 id="mcolResultHead"><span class="mcol-dot" aria-hidden="true"></span><span class="mcol-name">${esc(kindName)}</span>${roundText?`<span class="mcol-result-round">${esc(roundText)}</span>`:''}</h3>${meta.length||kindLabel?`<p class="mcol-result-meta">${kindLabel?`<span data-report-kind-label>${esc(kindLabel)} 칸</span>`:''}${meta.map(x=>`<span>${esc(x)}</span>`).join('')}</p>`:''}</div>`
+  return `<header class="mcol-result-head"><div class="mcol-result-title">${meta.length||kindLabel?`<p class="mcol-result-meta">${kindLabel?`<span data-report-kind-label>${esc(kindLabel)} 칸</span>`:''}${meta.map(x=>`<span>${esc(x)}</span>`).join('')}</p>`:''}</div>`
     +`<button type="button" class="icon-btn mcol-more" data-meeting-more="${esc(m.id)}" aria-label="회의 결과 관리" aria-haspopup="true" aria-expanded="false" aria-controls="mcolMenu"><span aria-hidden="true">⋯</span></button></header>`
     +`<div class="mcol-result-body">`
     +`<section class="mcol-block" aria-labelledby="mcolTextHead"><h4 id="mcolTextHead">회의 결과 원문</h4><div class="mcol-text">${esc(resultText(m))}</div></section>`

@@ -97,13 +97,13 @@ test('오른쪽 결과(읽기용): 원문 규칙·특이사항·프로젝트·�
   assert.equal(resultText({}),'기록 없음');
   const fileLine=({name,meta,cls,end})=>`<div class="${cls}">${name} ${meta}${end}</div>`;
   const m={id:'x1',series_name:'가상협의회',title:'옛 제목 <b>',round_no:2,transcript_text:'<script>원문</script>',notes:'가상 특이사항'};
-  const html=resultHtml(m,{kindName:'가상협의회',when:'2026. 9. 1.',project:'가상 프로젝트',legacyTitle:'옛 제목 <b>',docs:[{id:'d1',title:'가상 안건지',file_name:'가상 안건지.hwp',file_size:20480}],fileLine,tasksHtml:'<ul></ul>'});
-  assert.match(html,/2차/);assert.match(html,/프로젝트 가상 프로젝트/);assert.match(html,/기존 제목: 옛 제목 &lt;b&gt;/);
+  const html=resultHtml(m,{when:'2026. 9. 1.',project:'가상 프로젝트',legacyTitle:'옛 제목 <b>',docs:[{id:'d1',title:'가상 안건지',file_name:'가상 안건지.hwp',file_size:20480}],fileLine,tasksHtml:'<ul></ul>'});
+  assert.match(html,/프로젝트 가상 프로젝트/);assert.doesNotMatch(html,/<h3|mcolResultHead|2차/);/* UI-중복제목삭제: 제목·차수 줄은 상단 줄이 보인다 */assert.match(html,/기존 제목: 옛 제목 &lt;b&gt;/);
   assert.match(html,/&lt;script&gt;원문&lt;\/script&gt;/);assert.doesNotMatch(html,/<script>/);
   assert.match(html,/가상 특이사항/);assert.match(html,/data-meeting-doc="d1"/);assert.match(html,/20KB/);
   assert.doesNotMatch(html,/<(input|textarea|select)\b/);
   assert.equal((html.match(/data-meeting-more=/g)||[]).length,1);
-  const bare=resultHtml({id:'x2',round_no:null},{kindName:'회의명 미지정',fileLine});
+  const bare=resultHtml({id:'x2',round_no:null},{fileLine});
   assert.match(bare,/회의자료가 없습니다/);assert.doesNotMatch(bare,/특이사항/);
   assert.match(tasksHtml(null),/불러오는 중/);assert.match(tasksHtml('error'),/불러오지 못했습니다/);assert.match(tasksHtml([]),/후속 할 일이 없습니다/);
   const tasks=tasksHtml([{title:'가상 할 일',status:'needsAction'},{title:'끝난 일',status:'completed'}],{dueOf:t=>t.status==='completed'?'':'10. 25.'});

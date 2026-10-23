@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import {expectJournalDay} from './helpers/screen-title.mjs';
 // JOURNAL-챙길것 1단계 / AI-서버연동 S5 / JOURNAL-챙길것화면: the "챙길 것" box on home (below 주요 일정) and above the journal day card.
 // One look everywhere: two lines per row, ✓ ✎ ✕ on the right, handled rows folded in '처리함 N ▸', 4 rows + 'N건 더 ›'.
 // app_todo_candidates, app_todo_radar_state and ai-assist kind=todo_radar are mocked. Synthetic IDs and text only.
@@ -292,7 +293,7 @@ for(const width of [390,1280])test(`journal: the same look — open rows with �
 test('journal hides the box when the tables are not applied',async({page})=>{
  const f=await fixture(page,{tables:false});
  await page.evaluate(()=>window.KPTURouter.go('journal'));
- await expect(page.locator('#journalRoot [data-journal-day-title]')).toBeVisible();
+ await expectJournalDay(page,/\d+월 \d+일/);
  await page.waitForTimeout(300);
  await expect(page.locator('#journalView [data-journal-radar]')).toBeHidden();
  expect(f.errors).toEqual([]);

@@ -1,6 +1,7 @@
 import {testOrigin} from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import {expectProjectTitle} from './helpers/screen-title.mjs';
 // BUG-바구니연결해제: the same disconnect on four screens — organization detail, project detail, basket list, note screen.
 // One confirmation ("○○ 연결을 해제할까요? 메모는 남아요"), one owner-RLS row delete, then 5 seconds of [되돌리기]
 // that re-links through the existing app_basket_confirm_links RPC.
@@ -162,7 +163,7 @@ for(const scheme of ['light','dark'])for(const width of [390,1280])test(`note sc
 test('note screen: tapping a chip opens that project; its 🧺 line opens back the note',async({page})=>{
  const f=await basket(page);await openList(page,1280);await page.locator('[data-basket-row="n"]').click();
  await page.locator('[data-basket-state] [data-basket-chip-open="l2"]').click();
- await expect(page.locator('#ps3DetailModal')).toBeVisible();await expect(page.locator('#ps3Title')).toContainText('테스트 프로젝트');expect(f.deleted).toEqual([]);expect(f.errors).toEqual([]);
+ await expect(page.locator('#ps3DetailModal')).toBeVisible();await expectProjectTitle(page,'테스트 프로젝트',{contains:true});expect(f.deleted).toEqual([]);expect(f.errors).toEqual([]);
 });
 
 test('a disconnect in an open detail re-reads the basket list underneath (shared event)',async({page})=>{

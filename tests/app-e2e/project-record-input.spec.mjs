@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { openHome } from './helpers/home-entry.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
+import {expectProjectTitle,projectColorDot} from './helpers/screen-title.mjs';
 
 // PRJ-기록입력: project detail redesign. The real app runs in Chromium; only the Supabase REST and Google Tasks boundaries are synthetic.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -71,7 +72,7 @@ async function fixture(page,{width=390,records=true,scheme='light'}={}){
   await page.evaluate(()=>window.__KPTU_PROJECT_V3_READY__);
   await expect(page.locator('#projectGrid[data-ps3-ready="1"]')).toBeVisible();
   await page.locator('[data-ps3-project="main"]').first().click();
-  await expect(page.locator('#ps3Title')).toHaveText('민자철도 대응');
+  await expectProjectTitle(page,'민자철도 대응');
   return state;
 }
 const capture=async(page,name)=>{if(process.env.PRJ_RECORD_CAPTURE!=='1')return;mkdirSync(dir,{recursive:true});await page.screenshot({path:`${dir}/${name}.png`,fullPage:true})};
@@ -79,14 +80,14 @@ const lines=page=>page.locator('#ps3-progress [data-ps3-records] > *');
 
 test('PRJ-기록입력 header: color dot + name, one summary line, no child-name listing',async({page})=>{
   await fixture(page);
-  await expect(page.locator('#ps3Title .ps3-color-dot')).toHaveAttribute('data-color','green');
+  await expect(await projectColorDot(page)).toHaveAttribute('data-color','green');
   // Summary: children · open tasks (Google answer) · D-n of the next milestone. No "진행 N", no stored description text.
   await expect(page.locator('#ps3Summary')).toHaveText('하위 2 · 할 일 2 · D-5');
   await expect(page.locator('.ps3-modal-head')).not.toContainText('- 하위 하나');
   await expect(page.locator('#ps3Summary')).not.toContainText('진행');
   // Child project: no "하위", and no D-n without an upcoming milestone.
   await page.locator('#ps3-children [data-ps3-project="kid-a"]').click();
-  await expect(page.locator('#ps3Title')).toHaveText('국회 토론회');
+  await expectProjectTitle(page,'국회 토론회');
   await expect(page.locator('#ps3Summary')).toHaveText('할 일 0');
   await expect(page.locator('#ps3Hierarchy .ps3-parent-link')).toContainText('민자철도 대응');
 });
