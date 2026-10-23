@@ -1,8 +1,14 @@
 import {addSeoulDays,seoulParts,formatSeoulTime} from './meeting-time.js';
-import {weekTimeline,dayMinute,TOP_PAD} from './calendar-week-timeline.js';
+import {weekTimeline,dayMinute} from './calendar-week-timeline.js';
 import {dayKey} from './home-read-model.js';
 import {dayItems,calendarDateKey,appendDayRows,captureDayFocus,restoreDayFocus,weekBands} from './calendar-day-items.js';
-let focusKey=null,clipWatch=null,nowTimer=null,scrollWatch=null,seen={key:null,top:0};
+let focusKey=null,clipWatch=null,nowTimer=null;
+// 7시 시작 위치: 처음 열 때·다른 주로 옮길 때·'오늘'을 누를 때만 맞춘다(pendingTop). 사용자가 스크롤한 뒤에는 건드리지 않는다.
+// 화면에 안 보이는 상태(display:none)에서는 스크롤 값이 0으로 눌리므로 값을 맞추지 않고 보류했다가, 보이게 되는 순간 한 번 맞춘다.
+let pendingTop=true,shownKey=null,startTop=0,boxHeight=0;
+export function resetWeekScroll(){pendingTop=true}
+const laidOut=box=>box.clientHeight>0;
+function applyStart(box){if(!pendingTop||!laidOut(box))return;box.scrollTop=startTop;pendingTop=false}
 // 주간 칸: 제목이 2줄을 넘어 잘린 일정만 말풍선(시간+전체 제목)을 보이게 표시한다. 화면 읽기는 본문 전체 제목을 그대로 읽으므로 말풍선은 가린다.
 function addTips(rows){
   for(const row of rows.querySelectorAll('.clv-event')){
@@ -14,10 +20,6 @@ function markClipped(box){
   for(const row of box.querySelectorAll('.cwv-items .clv-event')){const title=row.querySelector('.clv-title');row.classList.toggle('cwv-clipped',!!title&&(title.scrollHeight>title.clientHeight+1||title.scrollWidth>title.clientWidth+1))}
   // 종일·여러 날 띠: 제목이 한 줄에서 잘린 것만 같은 말풍선을 보인다.
   for(const row of box.querySelectorAll('.cwv-bands .cmv-event')){const title=row.querySelector('.cmv-event-title');row.classList.toggle('cwv-clipped',!!title&&title.scrollWidth>title.clientWidth+1)}
-}
-// 새벽(0~7시) 일정 알림: 그 위치가 화면 위로 벗어났을 때만 보인다. 스크롤 위치는 화면 상태라 저장하지 않는다.
-function syncEarly(box){
-  const chip=box.querySelector('.cwv-early');if(chip)chip.hidden=box.scrollTop<=Number(chip.dataset.top)+1;
 }
 // 지금 시각 빨간 선: 오늘 칸에만 하나. 1분마다 같은 선의 위치만 옮기고 주간을 다시 그리지 않는다.
 function placeNow(box,line){
@@ -34,8 +36,10 @@ function placeNow(box,line){
 // Sole owner of the week DOM; view/range state remains in calendar-view.js.
 export function renderWeek(options,{start,tasks}){
   const box=document.querySelector('#calendarWeek');if(!box)return;
+  // 같은 주를 다시 그릴 때는 보던 자리를 그대로 둔다(그리기 전에 읽어 둔다). 주가 바뀌었거나 안 보이는 상태면 7시 맞춤을 보류한다.
+  const key=calendarDateKey(start);if(shownKey!==key)pendingTop=true;if(!laidOut(box))pendingTop=true;
+  const kept=pendingTop?null:box.scrollTop;shownKey=key;
   focusKey=captureDayFocus(box,focusKey);box.replaceChildren();
-  if(!scrollWatch){scrollWatch=true;box.addEventListener('scroll',()=>{if(seen.key===box.dataset.week)seen.top=box.scrollTop;syncEarly(box)},{passive:true})}
   const {week,keys}=weekBands(options,start);
   box.style.setProperty('--cwv-band-height',`${week.laneCount*48}px`);
   // CAL-주간시간표: timed events per day first, so the whole week decides which early hours (0~7시) unfold.
@@ -43,7 +47,7 @@ export function renderWeek(options,{start,tasks}){
     return {date,items,timed:items.filter(e=>e.source==='google'&&!keys.has('google:'+e.calendarId+':'+e.id)).sort((a,b)=>a.start-b.start||String(a.title).localeCompare(String(b.title),'ko'))}});
   const line=weekTimeline(days.map(d=>({date:calendarDateKey(d.date),events:d.timed})));
   box.style.setProperty('--cwv-timeline-height',`${line.height}px`);
-  box.dataset.week=calendarDateKey(start);
+  box.dataset.week=key;startTop=line.startTop;
   for(let i=0;i<7;i++){
     const {date,items,timed}=days[i];
     const section=document.createElement('section');section.className='cwv-day';section.style.gridColumn=String(i+2);section.dataset.date=calendarDateKey(date);
@@ -77,7 +81,7 @@ export function renderWeek(options,{start,tasks}){
   }
   const axis=document.createElement('div');axis.className='cwv-axis';axis.setAttribute('aria-hidden','true');
   const ticks=document.createElement('div');ticks.className='cwv-axis-ticks';
-  for(const [n,tick] of line.ticks.entries()){const label=document.createElement('span');label.className='cwv-tick'+(n?'':' cwv-tick-top');label.style.top=tick.top+'px';label.textContent=tick.hour+'시';ticks.append(label)}
+  for(const tick of line.ticks){const label=document.createElement('span');label.className='cwv-tick';label.style.top=tick.top+'px';label.textContent=tick.hour+'시';ticks.append(label)}
   axis.append(ticks);box.append(axis);
   const bands=document.createElement('div');bands.className='cwv-bands';
   for(const seg of week.segments){
@@ -90,15 +94,8 @@ export function renderWeek(options,{start,tasks}){
   }
   bands.hidden=!week.segments.length;
   box.append(bands);
-  if(line.early.count){
-    const early=document.createElement('button');early.type='button';early.className='cwv-early';early.dataset.top=String(line.early.top);
-    early.textContent=`↑ 새벽 일정 ${line.early.count}`;early.setAttribute('aria-label',`0~7시 새벽 일정 ${line.early.count}개 보기`);
-    early.addEventListener('click',()=>{box.scrollTop=Math.max(0,line.early.top-TOP_PAD);early.hidden=true});
-    box.append(early);
-  }
   placeNow(box,line);restoreDayFocus(box,focusKey);
-  // 시간표는 처음·주를 옮길 때 7시부터 보이게 한다. 같은 주를 다시 그릴 때는 보던 자리를 그대로 둔다.
-  const key=box.dataset.week;box.scrollTop=seen.key===key?seen.top:line.startTop;seen={key,top:box.scrollTop};syncEarly(box);
+  if(pendingTop)applyStart(box);else if(kept!==null)box.scrollTop=kept;
   markClipped(box);
-  if(!clipWatch&&typeof ResizeObserver==='function'){clipWatch=new ResizeObserver(()=>{const current=document.querySelector('#calendarWeek');if(current)markClipped(current)});clipWatch.observe(box)}
+  if(!clipWatch&&typeof ResizeObserver==='function'){clipWatch=new ResizeObserver(()=>{const current=document.querySelector('#calendarWeek');if(!current)return;const was=boxHeight;boxHeight=current.clientHeight;if(!was&&boxHeight)pendingTop=true;applyStart(current);markClipped(current)});clipWatch.observe(box)}
 }

@@ -1,6 +1,6 @@
 import {seoulDayStart,seoulDate,seoulParts,addSeoulDays} from './meeting-time.js';
 import {renderList,stopList} from './calendar-list-view.js';
-import {renderWeek} from './calendar-week-view.js';
+import {renderWeek,resetWeekScroll} from './calendar-week-view.js';
 import {dayItems,calendarDateKey} from './calendar-day-items.js';
 import {dayKey,ranges} from './home-read-model.js';
 // Owns view choice, list/week ranges and list pagination. Storage is local to this device/browser.
@@ -43,7 +43,7 @@ function finish(at,ok){if(at!==revision||view==='month')return;busy=false;error=
 async function more(){if(view!=='list'||busy)return;pendingDays=pendingDays||(error?days:days+14);busy=true;error=false;paint();await window.KPTUCalendarPersistence?.refresh({appendPage:true})}
 window.KPTUCalendarView={render,range,move,begin,finish,cancel:()=>{revision++;pendingDays=0;busy=false;error=false;paint()},current:()=>view,setTasks:list=>{tasks=list;if(view!=='month')paint()},dayItems:date=>options?dayItems(options,date,tasks):[]};
 document.querySelectorAll('[data-calendar-view]').forEach(b=>b.addEventListener('click',()=>select(b.dataset.calendarView)));
-document.querySelector('#calendarTodayBtn')?.addEventListener('click',()=>{if(view!=='month'){if(view==='week')weekStart=thisWeek();else start=today();reset();paint();window.KPTUCalendarPersistence?.refresh()}else window.__KPTU_CALENDAR_TODAY__?.()});
+document.querySelector('#calendarTodayBtn')?.addEventListener('click',()=>{if(view!=='month'){if(view==='week'){weekStart=thisWeek();resetWeekScroll()}else start=today();reset();paint();window.KPTUCalendarPersistence?.refresh()}else window.__KPTU_CALENDAR_TODAY__?.()});
 
 function resizeView(){const next=effectiveView();if(next!==view){view=next;reset();paint();window.KPTUCalendarPersistence?.refresh()}else paint()}
 if(desktop.addEventListener)desktop.addEventListener('change',resizeView);else desktop.addListener(resizeView);

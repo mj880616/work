@@ -42,7 +42,7 @@ for(const width of [1280,1440,1920])test(`timetable places cards by time and len
   const tue=lineOf(g,'2026-10-13');expect(g.cards['two-pm'].top-tue.top).toBeCloseTo(14*HOUR,0);expect(g.cards['two-pm'].height).toBeCloseTo(HOUR,0);
   const fri=lineOf(g,'2026-10-16');expect(g.cards.half.top-fri.top).toBeCloseTo(18.5*HOUR,0);expect(g.cards.half.height).toBeCloseTo(HOUR/2,0);
   // 시간 눈금 9시는 9시 카드 윗변과 같은 높이에 있다(가로 보조선과 정렬).
-  const tick9=g.ticks.find(t=>t.text==='9시');expect(Math.abs(tick9.top+7-nine.top)).toBeLessThanOrEqual(2);
+  const tick9=g.ticks.find(t=>t.text==='9시');expect(Math.abs(tick9.top-2-nine.top)).toBeLessThanOrEqual(2);
   // 지금 선: 고정 시각 2026-10-15 12:00 KST, 오늘(목) 칸에만.
   expect(g.now?.date).toBe('2026-10-15');expect(g.now.color).toBe('rgb(180, 35, 24)');
   expect(g.now.top-thu.top).toBeCloseTo(12*HOUR,0);
@@ -84,10 +84,10 @@ for(const width of [1280,1440])test(`date row and all-day band stay put while th
     ev('nine','2026-10-15T09:00:00+09:00','2026-10-15T10:30:00+09:00'),
     ev('span','2026-10-14','2026-10-17',true)
   ]);
-  await expect.poll(()=>frame(page).then(f=>f.scrollTop)).toBeCloseTo(7*HOUR-8,0);
+  await expect.poll(()=>frame(page).then(f=>f.scrollTop)).toBeCloseTo(7*HOUR,0);
   const first=await frame(page);
   expect(first.firstTick).toBe('7시');
-  expect(first.max).toBeGreaterThan(7*HOUR-8);
+  expect(first.max).toBeGreaterThan(7*HOUR);
   // 시간표 윗변은 7시 높이만큼 위로 올라가 있다.
   await page.evaluate(()=>{document.querySelector('#calendarWeek').scrollTop=600});
   const moved=await frame(page);
@@ -108,44 +108,73 @@ for(const width of [1280,1440])test(`date row and all-day band stay put while th
 
 test('week change opens at 7시 again, and the same week keeps its scroll when redrawn',async({page})=>{
   await open(page,1440,[ev('nine','2026-10-15T09:00:00+09:00','2026-10-15T10:30:00+09:00'),ev('next','2026-10-22T09:00:00+09:00','2026-10-22T10:00:00+09:00')]);
-  await expect.poll(()=>frame(page).then(f=>f.scrollTop)).toBeCloseTo(7*HOUR-8,0);
+  await expect.poll(()=>frame(page).then(f=>f.scrollTop)).toBeCloseTo(7*HOUR,0);
   await page.evaluate(()=>{document.querySelector('#calendarWeek').scrollTop=100});
   await page.locator('#nextMonthBtn').click();await expect(page.locator('.cwv-day').first()).toHaveAttribute('data-date','2026-10-19');
-  await expect.poll(()=>frame(page).then(f=>f.scrollTop)).toBeCloseTo(7*HOUR-8,0);
+  await expect.poll(()=>frame(page).then(f=>f.scrollTop)).toBeCloseTo(7*HOUR,0);
   await page.locator('#prevMonthBtn').click();await expect(page.locator('.cwv-day').first()).toHaveAttribute('data-date','2026-10-12');
-  await expect.poll(()=>frame(page).then(f=>f.scrollTop)).toBeCloseTo(7*HOUR-8,0);
+  await expect.poll(()=>frame(page).then(f=>f.scrollTop)).toBeCloseTo(7*HOUR,0);
 });
 
-test('early events show a small "↑ 새벽 일정 N" chip that scrolls up to them',async({page})=>{
-  await open(page,1440,[
+test('no dawn badge, and a night event reaches the bottom of its column',async({page})=>{
+  await open(page,1280,[
     ev('dawn','2026-10-14T05:30:00+09:00','2026-10-14T06:30:00+09:00'),
     ev('zero','2026-10-16T00:30:00+09:00','2026-10-16T01:00:00+09:00'),
     ev('night','2026-10-16T22:00:00+09:00','2026-10-17T00:00:00+09:00')
   ]);
-  const chip=page.locator('#calendarWeek .cwv-early');
-  await expect(chip).toBeVisible();await expect(chip).toHaveText('↑ 새벽 일정 2');
-  const f=await frame(page);expect(f.firstTick).toBe('7시');
-  // 칩은 시간표를 내려도 고정 줄 바로 밑에 따라온다.
-  await page.evaluate(()=>{document.querySelector('#calendarWeek').scrollTop=700});
-  const at=await chip.boundingBox();expect(at.y).toBeGreaterThanOrEqual(f.capBottom);expect(at.y).toBeLessThan(f.capBottom+12);
-  await chip.click();
-  await expect(chip).toBeHidden();
-  const up=await frame(page);expect(up.scrollTop).toBeCloseTo(0.5*HOUR-8,0);
-  const zero=await page.locator('#calendarWeek [data-google-event="zero"]').boundingBox();
-  expect(zero.y).toBeGreaterThan(up.tl-1);expect(zero.y).toBeLessThan(up.tl+HOUR);
-  // 새벽 일정이 보이는 동안은 칩이 없고, 다시 내리면 돌아온다.
-  await page.evaluate(()=>{document.querySelector('#calendarWeek').scrollTop=7*48});
-  await expect(chip).toBeVisible();
-  // 다음 주에는 새벽 일정이 없으므로 칩이 없다.
-  await page.locator('#nextMonthBtn').click();await expect(page.locator('.cwv-day').first()).toHaveAttribute('data-date','2026-10-19');
   await expect(page.locator('#calendarWeek .cwv-early')).toHaveCount(0);
-});
-
-test('no early events, no chip; a night event reaches the bottom of its column',async({page})=>{
-  await open(page,1280,[ev('night','2026-10-16T22:00:00+09:00','2026-10-17T00:00:00+09:00')]);
-  await expect(page.locator('#calendarWeek .cwv-early')).toHaveCount(0);
+  await expect(page.locator('#calendarWeek')).not.toContainText('새벽 일정');
   const g=await geometry(page),fri=lineOf(g,'2026-10-16');
   expect(g.cards.night.top+g.cards.night.height).toBeCloseTo(fri.top+fri.height,0);
+});
+
+// CAL-주간고정보완: 7시 선이 고정 줄 바로 밑에 붙는다(빈 띠 없음). 열 때·주 이동·'오늘'에만 맞추고, 그 밖에는 사용자가 놓은 자리를 둔다.
+const edge=page=>page.evaluate(()=>{
+  const r=el=>el.getBoundingClientRect(),box=document.querySelector('#calendarWeek');
+  const day=document.querySelector('.cwv-day[data-date="2026-10-15"]');
+  const card=day.querySelector('.cwv-items [data-google-event]'),c=r(card),x=c.left+c.width/2;
+  const stickBottom=Math.max(r(day.querySelector('.cwv-header')).bottom,r(day.querySelector('.cwv-cap')).bottom);
+  let clip=null;for(let y=r(day.querySelector('.cwv-header')).top;y<c.bottom;y+=0.5){if(document.elementFromPoint(x,y)?.closest('.cwv-items [data-google-event]')){clip=y;break}}
+  const tl=r(day.querySelector('.cwv-timeline'));
+  return {scrollTop:box.scrollTop,stickBottom,clip,seven:tl.top+tl.height/24*7};
+});
+for(const [width,extra] of [[1280,[]],[1440,[ev('span','2026-10-14','2026-10-17',{allDay:true})]],[1920,[ev('span','2026-10-14','2026-10-17',{allDay:true}),ev('span2','2026-10-13','2026-10-15',{allDay:true})]]])
+test(`7시 line sits flush under the sticky rows and cards are clipped exactly there at ${width}${extra.length?' with '+extra.length+' all-day lane(s)':''}`,async({page})=>{
+  await open(page,width,[ev('long','2026-10-15T05:00:00+09:00','2026-10-15T20:00:00+09:00',{title:'Arsenal (2-2)'}),...extra]);
+  await expect.poll(()=>edge(page).then(f=>f.scrollTop)).toBe(7*HOUR);
+  let f=await edge(page);
+  expect(Math.abs(f.seven-f.stickBottom)).toBeLessThanOrEqual(1);// 7시 선 = 고정 줄 아래 끝
+  expect(f.clip).toBeCloseTo(f.stickBottom,0);// 카드가 가려지기 시작하는 곳 = 고정 줄 아래 끝(빈 띠 없음)
+  await page.evaluate(()=>{document.querySelector('#calendarWeek').scrollTop=300});
+  f=await edge(page);expect(f.clip).toBeCloseTo(f.stickBottom,0);
+});
+
+test('opens at 7시 on first open, next week and 오늘, and leaves the scroll alone otherwise',async({page})=>{
+  await open(page,1280,[ev('nine','2026-10-15T09:00:00+09:00','2026-10-15T10:30:00+09:00')]);
+  const top=()=>page.evaluate(()=>document.querySelector('#calendarWeek').scrollTop);
+  await expect.poll(top).toBe(7*HOUR);
+  // 사용자가 올려 본 자리는 그대로(같은 주를 다시 그려도).
+  await page.evaluate(()=>{document.querySelector('#calendarWeek').scrollTop=100});
+  await page.evaluate(()=>window.__KPTU_RENDER_CALENDAR__());
+  expect(await top()).toBe(100);
+  await page.locator('#nextMonthBtn').click();await expect(page.locator('.cwv-day').first()).toHaveAttribute('data-date','2026-10-19');
+  await expect.poll(top).toBe(7*HOUR);
+  await page.evaluate(()=>{document.querySelector('#calendarWeek').scrollTop=500});
+  await page.locator('#calendarTodayBtn').click();await expect(page.locator('.cwv-day').first()).toHaveAttribute('data-date','2026-10-12');
+  await expect.poll(top).toBe(7*HOUR);
+  // 같은 주에서 위로 올린 뒤 '오늘'을 눌러도 7시로 돌아온다.
+  await page.evaluate(()=>{document.querySelector('#calendarWeek').scrollTop=20});
+  await page.locator('#calendarTodayBtn').click();
+  await expect.poll(top).toBe(7*HOUR);
+});
+
+test('opens at 7시 when the calendar is first shown from another screen',async({page})=>{
+  await open(page,1280,[ev('nine','2026-10-15T09:00:00+09:00','2026-10-15T10:30:00+09:00')]);
+  await page.locator('nav >> text=홈').first().click();
+  await expect(page.locator('#calendarWeek')).toBeHidden();
+  await page.locator('nav >> text=달력').first().click();
+  await expect(page.locator('#calendarWeek')).toBeVisible();
+  await expect.poll(()=>page.evaluate(()=>document.querySelector('#calendarWeek').scrollTop)).toBe(7*HOUR);
 });
 
 test('midnight event is placed from 0시',async({page})=>{
