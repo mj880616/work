@@ -143,6 +143,8 @@ export async function copyText(text, {html = null} = {}) {
 // placeholder (optional): (kind) => the text box placeholder.
 // noteTitle (optional): {kind, label, placeholder} shows a one-line title box under the head while that kind is chosen; its
 // value goes to save.run as the third argument ({title}).
+// folder (optional, NOTE-추가폴더표시): {show?(kind), label(), open(trigger)} adds a small [폴더 이름 ▾] button at the end of the note title row
+// while show(kind) holds (default: the noteTitle kind). The opener owns the choice and its picker; paint() redraws the name.
 // attach (optional, UI-크게첨부): {mount({picker, files, drop}), show?(kind)} adds a row under the text for choosing files. The
 // opener mounts its own existing file part there (basket-upload.js mountBasketPicker) and keeps the files; this module only gives
 // the places. show(kind) hides the row for a kind that takes no files. inTools(kind) (NOTE-파일붙이기): the [📎 첨부] button goes
@@ -156,7 +158,7 @@ export async function copyText(text, {html = null} = {}) {
 // saved since then asks once. onClose then gets (text, {saved, markdown}): saved is true when nothing changed after the last save.
 // Returns {close({silent}), paint(), kind}: silent closes without calling onClose; paint() redraws labels after the opener's
 // state (the chosen place) changed.
-export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput = null, onClose = () => {}, save = null, draft = false, kinds = null, placeholder = null, noteTitle = null, attach = null, markdown = null, keepOpen = false} = {}) {
+export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput = null, onClose = () => {}, save = null, draft = false, kinds = null, placeholder = null, noteTitle = null, folder = null, attach = null, markdown = null, keepOpen = false} = {}) {
   current?.close({silent: true});
   const trigger = document.activeElement;
   const shell = document.createElement('div');
@@ -200,7 +202,8 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     if (saveButton) saveButton.setAttribute('aria-label', saveAria());
     const hint = placeholder?.(kind);
     if (hint != null) area.placeholder = hint;
-    if (titleRow) titleRow.hidden = kind !== noteTitle.kind;
+    if (titleRow) titleRow.hidden = titleWrap.hidden = kind !== noteTitle.kind;
+    if (folderBtn) { const label = folder.label?.() || '폴더 없음'; folderBtn.hidden = folder.show ? !folder.show(kind) : false; folderBtn.textContent = label + ' ▾'; folderBtn.title = '노트를 넣을 폴더: ' + label; folderBtn.setAttribute('aria-label', '노트를 넣을 폴더: ' + label + '. 누르면 다른 폴더를 고릅니다'); }
     if (attachRow) {
       const shown = attach.show ? !!attach.show(kind) : true, inTools = shown && !!attach.inTools?.(kind);
       if (inTools && pickerHost.parentNode !== tools) tools.append(pickerHost);
@@ -252,6 +255,12 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     titleBox.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); area.focus(); } });
     titleRow.append(caption, titleBox);
   }
+  // NOTE-추가폴더표시: the title row and the small [폴더 ▾] button share one bordered line (the box keeps the room it had).
+  const titleWrap = titleRow ? document.createElement('div') : null, folderBtn = titleRow && folder ? button('폴더 없음 ▾', {mdFolder: ''}) : null;
+  if (titleWrap) {
+    titleWrap.className = 'md-editor-title-wrap'; titleWrap.append(titleRow, ...(folderBtn ? [folderBtn] : []));
+    if (folderBtn) { folderBtn.className = 'md-editor-folder'; folderBtn.setAttribute('aria-haspopup', 'dialog'); }
+  }
   const status = document.createElement('p');
   status.className = 'md-editor-status'; status.setAttribute('role', 'status');
   // The file row (attach): [📎 첨부] and the chosen files, right under the text.
@@ -266,7 +275,7 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
   // The format row sits right under the head ([마크다운] box first, then the buttons); a choice row (제목·강조 상자·도식) opens under it.
   toolRow.className = 'md-editor-toolrow'; toolRow.append(...(mdRow ? [mdRow] : []), tools);
   bar.className = 'md-editor-bar'; bar.append(toolRow, menu);
-  shell.append(head, ...(titleRow ? [titleRow] : []), bar, panes, ...(attachRow ? [attachRow] : []), status);
+  shell.append(head, ...(titleWrap ? [titleWrap] : []), bar, panes, ...(attachRow ? [attachRow] : []), status);
 
   let mode = 'write', openMenu = null, timer = 0, closed = false, shown = null, saving = false, pendingAction = null, savedOnce = false;
   // What was last saved (keepOpen): the text, the title box and the markdown choice as they were.
@@ -406,6 +415,7 @@ export function openMarkdownEditor({text = '', title = '크게 쓰기', onInput 
     if (b.dataset.mdAction) run(b.dataset.mdAction, b.dataset.mdOption);
     else if (b.dataset.mdMode) setMode(b.dataset.mdMode);
     else if (b.dataset.mdKind) { if (!saving) setKind(b.dataset.mdKind); }
+    else if (b.hasAttribute('data-md-folder')) { if (!saving) folder.open(b); }
     else if (b.dataset.mdKindMenu) { if (!saving) { setKind(b.dataset.mdKindMenu); kinds.menu.open(b); } }
     else if (b.hasAttribute('data-md-export')) void exportChoices().open('export', copy);
     else if (b.hasAttribute('data-md-save-icon')) void runSave();

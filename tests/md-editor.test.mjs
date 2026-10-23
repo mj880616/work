@@ -104,7 +104,7 @@ test('the editor module is reusable: no basket imports, text and callbacks only,
   // BASKET-업데이트통합 PR 2: one save (the icon), draft/kinds/placeholder/noteTitle are labels and callbacks only.
   // UI-크게첨부: attach only hands the opener empty places for its own file part (mount); the module keeps no files.
   // NOTE-마크다운선택·NOTE-큰창저장유지: markdown is a label/choice only, keepOpen keeps the window after the opener's own save.
-  assert.match(src, /export function openMarkdownEditor\(\{text = '', title = '크게 쓰기', onInput = null, onClose = \(\) => \{\}, save = null, draft = false, kinds = null, placeholder = null, noteTitle = null, attach = null, markdown = null, keepOpen = false\} = \{\}\)/);
+  assert.match(src, /export function openMarkdownEditor\(\{text = '', title = '크게 쓰기', onInput = null, onClose = \(\) => \{\}, save = null, draft = false, kinds = null, placeholder = null, noteTitle = null, folder = null, attach = null, markdown = null, keepOpen = false\} = \{\}\)/);
   // NOTE-파일붙이기: the picker place may sit at the end of the format row (inTools); it is still an empty place the opener fills.
   assert.match(src, /attach\.mount\(\{picker: pickerHost, files: attachRow\.querySelector\('\[data-md-attach-files\]'\), drop: panes\}\)/);
   assert.match(src, /if \(inTools && pickerHost\.parentNode !== tools\) tools\.append\(pickerHost\);/);
@@ -134,7 +134,7 @@ test('editor head order and the bottom-tab leave question', () => {
   // × 닫기 → 저장 아이콘(모든 창에 하나, 저장하고 닫기) → [업데이트 ▾|노트] → [쓰기|미리보기] → 내보내기; (노트 제목 줄) → the format row before the text.
   assert.match(src, /head\.append\(name, done, \.\.\.\(saveButton \? \[saveButton\] : \[\]\), \.\.\.\(kindGroup \? \[kindGroup\] : \[\]\), modes, copy\)/);
   // UI-크게첨부: the optional file row sits under the text, above the status line.
-  assert.match(src, /shell\.append\(head, \.\.\.\(titleRow \? \[titleRow\] : \[\]\), bar, panes, \.\.\.\(attachRow \? \[attachRow\] : \[\]\), status\)/);
+  assert.match(src, /shell\.append\(head, \.\.\.\(titleWrap \? \[titleWrap\] : \[\]\), bar, panes, \.\.\.\(attachRow \? \[attachRow\] : \[\]\), status\)/);
   assert.match(src, /'저장 안 하고 닫을까요\?'/);
   assert.match(src, /\['stay', '계속 쓰기'\], \['leave', '저장 안 하고 이동'\]/);
   assert.match(src, /button\('', \{mdSaveIcon: ''\}, saveAria\(\)\)/);

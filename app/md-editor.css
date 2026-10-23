@@ -108,6 +108,13 @@ html .modal.md-editor .md-editor-tools .basket-clip-count { position:static; min
 /* 쓰기 창 [노트]: 머리줄 아래 제목 한 줄(비우면 본문 첫 줄이 제목). */
 .md-editor-title { display:block; border-bottom:1px solid var(--kptu-border); }
 .md-editor-title[hidden] { display:none; }
+/* NOTE-추가폴더표시: 제목 줄 끝의 작은 [폴더 ▾](UI-버튼기준 보조 32px, 누르는 범위 44px). 테두리 선은 줄 전체가 맡는다. */
+.md-editor-title-wrap { display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--kptu-border); background:var(--kptu-surface); }
+.md-editor-title-wrap[hidden] { display:none; }
+.md-editor-title-wrap > .md-editor-title { flex:1 1 auto; min-width:0; border-bottom:0; }
+html .modal.md-editor .md-editor-title-wrap > .md-editor-folder { position:relative; flex:0 1 auto; box-sizing:border-box; max-width:10em; height:var(--ds-compact-height, 32px); min-height:var(--ds-compact-height, 32px); margin:0 8px 0 0; padding:0 var(--ds-compact-pad-x, 12px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--ds-compact-text, 13px); line-height:1; font-weight:var(--ds-weight-medium, 500); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width, 1px) solid var(--ds-line, var(--kptu-border)); border-radius:var(--ds-radius-control, 8px); }
+.md-editor-title-wrap > .md-editor-folder[hidden] { display:none; }
+.md-editor-title-wrap > .md-editor-folder::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target, 44px) / 2); height:var(--kptu-touch-target, 44px); }
 html .modal.md-editor .md-editor-title input { box-sizing:border-box; display:block; width:100%; height:var(--kptu-touch-target, 44px); min-height:0; margin:0; padding:0 12px; border:0; border-radius:0; outline:none; box-shadow:none; font-family:inherit; font-size:16px; font-weight:700; color:var(--kptu-ink); background:var(--kptu-surface); }
 html .modal.md-editor .md-editor-title input:focus-visible { outline:2px solid var(--kptu-primary); outline-offset:-2px; }
 /* One row each; on a phone the row scrolls sideways instead of wrapping. */
