@@ -2,6 +2,8 @@ import {test,expect} from '@playwright/test';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
+// SET-보기선택서버저장: 보기 선택은 서버(프로필 view_prefs)에 저장된다. 시험은 그 서버를 흉내 낸 prefs 상태를 읽는다.
+const saved=prefs=>prefs.value?.calendar_view??null;
 async function open(page,width=1280,view='default',events){
   await page.setViewportSize({width,height:844});
   const result=await openEmphasisFixture(page,{view,...(events?{events}:{})});
@@ -30,17 +32,17 @@ test('PC default week has Monday through Sunday and one KST seven-day request',a
   for(let i=1;i<7;i++)expect(columns[i].left).toBeGreaterThan(columns[i-1].left);
 });
 for(const width of [360,390,686,1023])for(const view of ['default','week'])test(`narrow ${width} saved ${view} shows list without overwriting preference`,async({page})=>{
-  await open(page,width,view);
+  const {prefs}=await open(page,width,view);
   await expect(page.locator('#calendarList')).toBeVisible();
   await expect(page.locator('[data-calendar-view]:visible')).toHaveCount(2);
   await expect(page.getByRole('button',{name:'주간 보기',exact:true})).toHaveCount(0);
-  expect(await page.evaluate(()=>localStorage.getItem('kptu-calendar-view'))).toBe(view==='week'?'week':null);
+  expect(saved(prefs)).toBe(view==='week'?'week':null);expect(prefs.patches).toEqual([]);
   await page.reload();await expect(page.locator('#calendarList')).toBeVisible();
-  expect(await page.evaluate(()=>localStorage.getItem('kptu-calendar-view'))).toBe(view==='week'?'week':null);
+  expect(saved(prefs)).toBe(view==='week'?'week':null);expect(prefs.patches).toEqual([]);
   await page.getByRole('button',{name:'목록 보기',exact:true}).click();
-  expect(await page.evaluate(()=>localStorage.getItem('kptu-calendar-view'))).toBe('list');
+  await expect.poll(()=>saved(prefs)).toBe('list');
   await page.getByRole('button',{name:'월간 보기',exact:true}).click();
-  expect(await page.evaluate(()=>localStorage.getItem('kptu-calendar-view'))).toBe('month');
+  await expect.poll(()=>saved(prefs)).toBe('month');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(width);
 });
 for(const width of [1024,1280,1440])test(`PC ${width} has three buttons and seven vertical columns`,async({page})=>{
@@ -57,11 +59,11 @@ for(const [width,view,expected] of [[1280,'week','Week'],[360,'month','Grid'],[1
   });
 }
 test('1023 ↔ 1024 restores week, recalculates defaults and respects explicit choices',async({page})=>{
-  await open(page,1024,'week');await page.locator('#nextMonthBtn').click();
+  const {prefs}=await open(page,1024,'week');await page.locator('#nextMonthBtn').click();
   await expect(page.locator('.cwv-day').first()).toHaveAttribute('data-date','2026-10-19');
   await page.setViewportSize({width:1023,height:844});await expect(page.locator('#calendarList')).toBeVisible();
   await expect(page.locator('[data-calendar-view]:visible')).toHaveCount(2);
-  expect(await page.evaluate(()=>localStorage.getItem('kptu-calendar-view'))).toBe('week');
+  expect(saved(prefs)).toBe('week');
   await page.evaluate(()=>window.KPTUCalendarTasks.refresh());
   await page.setViewportSize({width:1024,height:844});await expect(page.locator('#calendarWeek')).toBeVisible();
   await expect(page.locator('[data-calendar-view]:visible')).toHaveCount(3);
@@ -71,10 +73,10 @@ test('1023 ↔ 1024 restores week, recalculates defaults and respects explicit c
   await page.setViewportSize({width:1023,height:844});await page.getByRole('button',{name:'월간 보기',exact:true}).click();
   await page.setViewportSize({width:1024,height:844});await expect(page.locator('#calendarGrid')).toBeVisible();
 });
-test('unsaved default responds to boundary changes without writing storage',async({page})=>{
-  await open(page,1023);await page.setViewportSize({width:1024,height:844});await expect(page.locator('#calendarWeek')).toBeVisible();
+test('unsaved default responds to boundary changes without writing the server',async({page})=>{
+  const {prefs}=await open(page,1023);await page.setViewportSize({width:1024,height:844});await expect(page.locator('#calendarWeek')).toBeVisible();
   await page.setViewportSize({width:1023,height:844});await expect(page.locator('#calendarList')).toBeVisible();
-  expect(await page.evaluate(()=>localStorage.getItem('kptu-calendar-view'))).toBe(null);
+  expect(saved(prefs)).toBe(null);expect(prefs.patches).toEqual([]);
 });
 test('week arrows move seven days, titles truncate across months and today resets to this week',async({page})=>{
   const {calls}=await open(page,1280,'week');

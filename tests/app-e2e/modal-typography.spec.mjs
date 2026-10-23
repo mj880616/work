@@ -3,13 +3,14 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import {expectProjectTitle} from './helpers/screen-title.mjs';
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'design-system-user',email:'design-system@example.org',user_metadata:{display_name:'Design QA'}};
 const workspace={id:'design-system-workspace',slug:'design-system',name:'웹2'};
 
 async function mockApp(page,{spaces=[],tasks=[],calendarEvents=[]}={}){
-  await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}});
+  await installViewPrefsServer(page,{calendar_view:'month'});
   await page.route(`${SB}/**`,async route=>{
     const url=new URL(route.request().url());
     const path=url.pathname;
@@ -267,6 +268,8 @@ for(const width of [390,1440])test('D-4b month task style contract moves to reta
  await page.setViewportSize({width,height:900});await boot(page);await view(page,'calendar');
    const dayOriginal=await browser.newPage({viewport:{width,height:900}});
    await baseline(dayOriginal,'5c81cfd845ee9d08f9e337ce1d0cb378d20c4169');await boot(dayOriginal);await view(dayOriginal,'calendar');
+   // The old build keeps the calendar view on this device; the current build reads it from the server (view_prefs). Pick month through the button in both.
+   await dayOriginal.locator('[data-calendar-view="month"]').click();
    for(const p of [page,dayOriginal]){
     const date=fixtureTaskDay();
     await expect.poll(()=>p.evaluate(date=>window.KPTUCalendarMonthView?.dayEvents(date).filter(e=>e.source==='task').length,date)).toBe(1);

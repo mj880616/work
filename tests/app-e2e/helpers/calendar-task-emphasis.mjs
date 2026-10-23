@@ -1,3 +1,4 @@
+import { installViewPrefsServer } from './view-prefs-server.mjs';
 import { expect } from '@playwright/test';
 import { loginEntry } from './login-entry.mjs';
 import { signInWithSession } from './session-login.mjs';
@@ -26,9 +27,9 @@ const EVENTS=[
     start:'2026-10-21',end:'2026-10-22',allDay:true,color:'#4285f4'}
 ];
 
-export async function openEmphasisFixture(page,{view="month",events=EVENTS,tasks=TASKS,now=NOW,orgs=[],links=[],projects=[],onLinks=null}={}){
+export async function openEmphasisFixture(page,{view="month",events=EVENTS,tasks=TASKS,now=NOW,orgs=[],links=[],projects=[],onLinks=null,prefsOptions={}}={}){
   const calls=[],external=[];
-  if(view!=="default")await page.addInitScript(v=>{try{localStorage.setItem("kptu-calendar-view",v)}catch{}},view);
+  const prefs=await installViewPrefsServer(page,view!=="default"?{calendar_view:view}:null,prefsOptions);
   await page.clock.setFixedTime(new Date(now));
   // Catch every remote request: all API responses are synthetic and no production request can leave the browser.
   await page.route('**/*',async route=>{
@@ -60,7 +61,7 @@ export async function openEmphasisFixture(page,{view="month",events=EVENTS,tasks
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
   if(view==="month")await expect(page.locator('.cal-cell[data-date="2026-10-20"] .cmv-task-count')).toBeVisible();
   if(view==="month")await expect(page.locator('#calendarGrid [data-google-event="blue-0"]')).toBeVisible();
-  return {calls,external};
+  return {calls,external,prefs};
 }
 
 export function taskChip(page,id,root='#calendarDayList'){

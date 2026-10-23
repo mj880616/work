@@ -186,7 +186,7 @@
   function checkRequestSession(expectedSessionEpoch){
     if(expectedSessionEpoch!=null&&expectedSessionEpoch!==sessionEpoch)throw new RuntimeError('로그인 상태가 바뀌어 요청을 중단했습니다.',{code:'session_changed',retryable:false});
   }
-  async function apiRequest(path,{method='GET',body=null,prefer='',auth=true,headers={},timeoutMs=config.timeoutMs,refreshSession=true,expectedSessionEpoch=null}={}){
+  async function apiRequest(path,{method='GET',body=null,prefer='',auth=true,headers={},timeoutMs=config.timeoutMs,refreshSession=true,expectedSessionEpoch=null,keepalive=false}={}){
     checkRequestSession(expectedSessionEpoch);
     if(auth&&refreshSession){
       let ensured;
@@ -208,7 +208,7 @@
       if(prefer)h.Prefer=prefer;
       const started=performance.now();
       try{
-        const response=await fetchWithTimeout(url,{method,headers:h,body:requestBody,cache:'no-store'},timeoutMs);
+        const response=await fetchWithTimeout(url,{method,headers:h,body:requestBody,cache:'no-store',...(keepalive?{keepalive:true}:{})},timeoutMs);
         window.__KPTU_STARTUP__?.request?.(url,performance.now()-started,response.status);
         return response;
       }catch(e){

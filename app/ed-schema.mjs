@@ -240,6 +240,36 @@ export function tableLayout(widths) {
   return {width:Math.round(total), cols:cols};
 }
 
+// ED-표크기끌기: the whole table's size is the sum of the saved column widths (colwidth), so dragging the table's bottom right
+// corner just scales every column by the same factor (shares stay). widths = px per column (all > 0), target = wanted px of the
+// whole table, bounds {min: narrowest column, max: widest table}. Returns {widths, total}: whole px, each column at least min
+// (and at most LIMITS.colWidth), the total kept between n × min and max, the shares as equal as whole pixels allow.
+export function scaleWidths(widths, target, bounds) {
+  var list = [], i, sum = 0, b = bounds || {}, min = intIn(b.min, 1, LIMITS.colWidth, 24);
+  for (i = 0; i < (widths || []).length; i++) { var w = Number(widths[i]); list.push(w > 0 ? w : min); sum += list[i]; }
+  if (!list.length) return {widths: [], total: 0};
+  var lo = list.length * min, hi = Math.max(lo, Math.min(Number(b.max) > 0 ? Number(b.max) : Infinity, list.length * LIMITS.colWidth));
+  var want = Math.max(lo, Math.min(hi, Number.isFinite(Number(target)) ? Number(target) : sum));
+  // Columns that would fall under the minimum stay at the minimum; the others share what is left in their old proportions.
+  var fixed = [], free = list.length, left = want, pass, changed = true;
+  for (i = 0; i < list.length; i++) fixed.push(false);
+  for (pass = 0; changed && pass < list.length; pass++) {
+    changed = false;
+    var freeSum = 0;
+    for (i = 0; i < list.length; i++) if (!fixed[i]) freeSum += list[i];
+    for (i = 0; i < list.length; i++) {
+      if (!fixed[i] && list[i] * left / freeSum < min) { fixed[i] = true; free--; left -= min; changed = true; break; }
+    }
+  }
+  var out = [], total = 0, freeSum2 = 0;
+  for (i = 0; i < list.length; i++) if (!fixed[i]) freeSum2 += list[i];
+  for (i = 0; i < list.length; i++) {
+    var v = fixed[i] ? min : Math.max(min, Math.round(list[i] * left / freeSum2));
+    v = Math.min(LIMITS.colWidth, v); out.push(v); total += v;
+  }
+  return {widths: out, total: total};
+}
+
 // Size of the saved form as JSON text (bytes), for the opener's own limits.
 export function docBytes(value) {
   try { return new TextEncoder().encode(JSON.stringify(value)).length; } catch (e) { return Infinity; }

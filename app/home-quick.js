@@ -1,3 +1,4 @@
+import { viewPrefs } from './view-prefs.js';
 import {basketOcrFor} from './basket-ocr-runtime.js';
 import { createChoiceSheet, projectRows } from './choice-sheet.js';
 import { readPlaces, placeSheetHtml, placeValue, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, saveUpdateWithFiles, rememberPlace, linkFailText, fileFailText } from './update-places.js';
@@ -23,7 +24,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   // [바구니] (a basket note, attachments allowed); with an organization or a project chosen it is that place's record, saved
   // through the same existing paths as before. toBasket() is that one rule; data-mode shows the effective kind (basket/update/task).
   let mode='update',saving=false,expanded=false,project='',places=[],pendingPlaces=[],due='',dateKind='',choicesFlight=null,choiceEpoch=0,projectChoices=[],orgChoices={recent:[],groups:[]};
-  try { const saved=basketOnly||taskOnly?null:window.localStorage.getItem('kptu-home-quick-mode'); mode=saved==='task'?'task':'update'; } catch {}
+  { const saved=basketOnly||taskOnly?null:viewPrefs.get('home_quick_mode'); mode=saved==='task'?'task':'update'; }
   if(taskOnly)mode='task';
   if(noteOnly)mode='note';
   // NOTE-추가폴더표시: the note input's [폴더 ▾] shows the folder a new note goes into (null = 폴더 없음). The note list owns the
@@ -160,7 +161,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   if(!noteOnly&&!basketOnly)onTaskFilesReady((owner,yes)=>{if(taskFilesOn||!owner||owner!==window.KPTURuntime.context.read()?.user?.id)return;if(yes)checkTaskFiles();else if(taskFilesWait)filesAnswer(false);});
   function setMode(next){
     mode=next;status.textContent='';hint.textContent='';
-    try{if(!basketOnly&&!taskOnly)window.localStorage.setItem('kptu-home-quick-mode',mode);}catch{}
+    if(!basketOnly&&!taskOnly&&(mode==='task'||mode==='update'))viewPrefs.set('home_quick_mode',mode);
     paint();checkTaskFiles();if(mode==='task'&&taskAttempt?.needsReview)taskNotice('앞선 저장 결과를 확인해 주세요. 입력은 유지했습니다.',{confirm:true});if(expanded&&mode==='task')void choices();
   }
   box.querySelectorAll('[data-quick-mode]').forEach(b=>b.onclick=()=>{if(!saving)setMode(b.dataset.quickMode);});

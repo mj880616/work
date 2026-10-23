@@ -142,7 +142,7 @@
 | # | 이름 | 제품 | 버전 | 마지막 배포(KST) | verify_jwt | 원본 |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | `auth-handoff` | Web2(안드로이드 로그인 전달) | v3 | 09-12 09:13 | false | work |
-| 2 | `document-actions` | Web2(자료실 동작·바구니 첨부 자료실 등록·HWP 편집 열기·덮어쓰기) | v8 | 2026-10-15 (승인 버튼) | **true** | work (`74c6fe700c33e81b54e86b80129a4a9c59a79a2c`, #554 main, `hwp-open`·`hwp-overwrite` 포함). v7→v8·JWT 유지·비로그인 POST 401·OPTIONS 200 성공(사용자 실행 보고, 같은 날 폰 확인 완료). 배포 전 운영 v7 출처 `85320da`(#546 main). 되돌리기 ref `85320da4909cd4bdabfe8a6764e52e0f942b03f0` |
+| 2 | `document-actions` | Web2(자료실 동작·바구니 첨부 자료실 등록·HWP 편집 열기·덮어쓰기) | v8 이후 갱신(버전 번호 미확인) | 2026-10-23 02:24 시작 (승인형 run #42) | **true** | **운영 소스 `afd50774`**(#1013 merge, 검색 ② 첨부 안 글자 읽기 포함; 승인형 workflow run #42 success, verify_jwt 값 변경 없음). 되돌리기 ref는 배포 전 운영 소스 SHA를 기록하지 못해 미확인(10/22 자료실 AI 분류 배포 `ec715971`이 직전 후보이나 확인 안 함). 이하는 v8 시점 기록: work (`74c6fe700c33e81b54e86b80129a4a9c59a79a2c`, #554 main, `hwp-open`·`hwp-overwrite` 포함). v7→v8·JWT 유지·비로그인 POST 401·OPTIONS 200 성공(사용자 실행 보고, 같은 날 폰 확인 완료). 배포 전 운영 v7 출처 `85320da`(#546 main). 되돌리기 ref `85320da4909cd4bdabfe8a6764e52e0f942b03f0` |
 | 3 | `document-ai-index` | Web2 | v3 | 09-16 15:44 | **true** | work |
 | 4 | `event-media` | Web2 | v5 | 09-25 20:58 | false | work |
 | 5 | `google-calendar` | Web2 | v15 | 10-01 | false | work |
@@ -171,22 +171,22 @@
 | 28 | `rtw-personal-write` | 읽생기 | v2 | 09-18 23:29 | false | read-think-write |
 | 29 | `rtw-recommend` | 읽생기 | v8 | 09-21 04:41 | false | read-think-write |
 | 30 | `rtw-url-import` | 읽생기 | v8 | 09-21 04:36 | **true** | read-think-write |
-| 31 | `drive-summary` | Web2(Drive 읽기용 사본, 배포됨) | v8 | 2026-10-14 (승인 버튼) | false | work (`0013c56160a62cf45dbd941462f54210104cd105`, #540 main, 사진 글자 Drive 사본 투영 포함). v7→v8·JWT 유지·POST401·OPTIONS204 성공(사용자 실행 보고). 되돌리기 ref `39f1dfec9cd978f9ea5e7c94bca120fb16a0a84e`(v7 소스, #507). v2 출처 미기록 |
+| 31 | `drive-summary` | Web2(Drive 읽기용 사본, 배포됨) | v8 이후 갱신(버전 번호 미확인) | 2026-10-23 12:29 시작 (승인형 run #45) | false | **운영 소스 `12acfbf8`**(#1028 merge, LIB-글자채우기야간 `text_backfill`; run #45 success, verify_jwt 값 변경 없음). 직전 운영 소스는 10/22 배포 `65c9a96c`(#926)로 추정(그 사이 다른 배포 기록은 못 찾았으나 확인하지 않음). 이하는 v8 시점 기록: work (`0013c56160a62cf45dbd941462f54210104cd105`, #540 main, 사진 글자 Drive 사본 투영 포함). v7→v8·JWT 유지·POST401·OPTIONS204 성공(사용자 실행 보고). 되돌리기 ref `39f1dfec9cd978f9ea5e7c94bca120fb16a0a84e`(v7 소스, #507). v2 출처 미기록 |
 | 32 | `basket-files` | Web2(바구니 첨부·사진 글자 읽기·메모 삭제 시 첨부 휴지통·일기 사진 보기) | v5 | 2026-10-18 (승인 버튼) | false | work (`bd7a19d0bee95c25906bc41e04144d8e5bdef255`, #641 main, owner 전용 `action=photo` 추가). v4→v5·JWT 유지, 비로그인 POST 401·OPTIONS 200(사용자 실행 보고). 되돌리기 ref `34874eff5eb3a83db94cdec5001bcec4ea4b1f9b`(v4 소스, #543) |
-| 33 | `share-page-read` | Web1 공유 페이지 읽기(SHARE-현장공유) | 배포 대기 | 없음 | false | work (PR 1 서버, 운영 미배포) |
-| 34 | `ai-assist` | Web2 서버 AI 도우미(AI-서버연동, S1은 연결 요약만) | 배포 대기 | 없음 | **true** | work (S1 코드·시험, 운영 미배포) |
-| 35 | `share-page-media` | Web2 공유 페이지 사진 올리기·보기 주소·지우기(ED-통합편집기 ②) | 배포 대기 | 없음 | **true** | work (코드·시험, 운영 미배포) |
+| 33 | `share-page-read` | Web1 공유 페이지 읽기(SHARE-현장공유) | 운영 배포됨(버전 번호 미확인) | 2026-10-23 11:02 시작 (승인형 run #44) | false | **운영 소스 `ab008dd4`**(ED-② 공유 사진, 사진 주소 응답 추가; run #44 success, 되돌리기 ref `778cbf4`, verify_jwt 값 변경 없음). work (PR 1 서버) |
+| 34 | `ai-assist` | Web2 서버 AI 도우미(AI-서버연동, S1은 연결 요약만) | 운영 배포됨(버전 번호 미확인) | 2026-10-23 18:21 시작 (승인형 run #48) | **true** | **운영 소스 `129d200b`**(#1048 주요 일정 제목 다듬기 `schedule_titles`; run #48 success, 되돌리기 ref `a9506005`, verify_jwt 값 변경 없음). 배포 이력(승인형 workflow): 10/22 `eed5df4f`(조직 요약) → `989a9528`(run #41) → 10/23 `a9506005`(run #46, 자료실 AI 분류 보완) → `129d200b`. work (S1 코드·시험) |
+| 35 | `share-page-media` | Web2 공유 페이지 사진 올리기·보기 주소·지우기(ED-통합편집기 ②) | 운영 배포됨(버전 번호 미확인) | 2026-10-23 17:21 시작 (승인형 run #47) | **true** | **운영 소스 `77a83215`**(#1044 사진 같이 지우기; run #47 success, 되돌리기 ref `ab008dd4`). 첫 배포는 10/23 10:35 시작 run #43(ref `ab008dd4`, `first_deploy=true`·verify_jwt=true). verify_jwt 값 변경 없음. work (코드·시험) |
 
-`share-page-read`(33행)는 **배포 대기**이며 운영 합계 32개에 넣지 않는다. 링크를 받은 사람은 로그인하지 않으므로 `verify_jwt=false`를 선택한다(2026-10-20 사용자 결정 S1: 읽기는 Web1 새 주소 + 긴 링크 값).
+`share-page-read`(33행)는 **2026-10-23 기준 운영 배포됨**(위 표 갱신; 아래 문단은 배포 전 설계 기록이며 합계 32개 계산에는 이번 갱신에서 반영하지 않았다 — 운영 조회 없음, 재계산 미확인). 링크를 받은 사람은 로그인하지 않으므로 `verify_jwt=false`를 선택한다(2026-10-20 사용자 결정 S1: 읽기는 Web1 새 주소 + 긴 링크 값).
 인증 대신 함수 코드가 링크 값(16진수 64자)의 sha256 지문으로 링크 행 하나를 찾고, 꺼짐·기한·게시 상태를 확인한 뒤 그 페이지의 제목·블록만 돌려준다. 그 밖은 모두 같은 404다.
 서버 키는 함수 안에서만 쓰며 DB에서 service_role은 링크 지문·기한·끔과 페이지 id·제목·블록·상태 칸만 SELECT할 수 있다(링크 원문·workspace·쓰기 불가, migration `20261020005000`).
 CORS는 `https://work.bokdoong.com`만, 응답은 `no-store`·`noindex`. 첫 배포는 DB 적용 뒤 `first_deploy=true`·`verify_jwt=false`·`expect_unauth_401=false`(공개 읽기라 비로그인 POST 401 검사 대상 아님)로 한다.
 
-`share-page-media`(35행)는 **배포 대기**이며 운영 합계 32개에 넣지 않는다(ED-통합편집기 ②, `docs/design/unified-editor.md` 5절). 신규 함수라 첫 배포는 `first_deploy=true`·`verify_jwt=true`다.
+`share-page-media`(35행)는 **2026-10-23 기준 운영 배포됨**(위 표 갱신; 아래는 배포 전 설계 기록, 합계 32개 재계산은 미확인)(ED-통합편집기 ②, `docs/design/unified-editor.md` 5절). 신규 함수라 첫 배포는 `first_deploy=true`·`verify_jwt=true`다.
 로그인한 소유자만 부르므로 `verify_jwt=true`를 선택하고, 코드에서도 Auth 서버로 로그인을 다시 확인한다. 소유 확인과 사진 기록 읽기·쓰기는 호출자의 로그인 토큰으로 DB가 한다(owner RLS, migration `20261023110000`). 서버 키는 비공개 버킷 `share-page-media`의 저장·삭제·짧은 주소 발급에만 쓴다.
 JPEG만(3MB 이하), 머리 구간에 EXIF·XMP·IPTC가 있으면 거절한다. 되돌리기: 화면이 이 함수를 쓰지 않는 상태 유지(화면 PR은 마지막 단계), 필요 시 사용자가 대시보드에서 삭제를 판단한다(자동 삭제 없음). 배포 순서: DB(`20261023110000`) → 대시보드에서 비공개 버킷 생성(정책 없음) → `share-page-media`(first_deploy) → `share-page-read`(사진 주소 추가, 되돌리기 = 이전 SHA 재배포) → 화면 merge.
 
-`ai-assist`(34행)는 **배포 대기**이며 운영 합계 32개에 넣지 않는다(AI-서버연동 S1, `docs/design/ai-server.md` 결정 D1~D13).
+`ai-assist`(34행)는 **운영 배포됨**(위 표 갱신: S1 이후 2026-10-22~23 여러 번 재배포; 아래는 첫 배포 전 설계 기록, 합계 32개 재계산은 미확인)(AI-서버연동 S1, `docs/design/ai-server.md` 결정 D1~D13).
 화면에서 로그인한 소유자만 부르고 예약 호출이 없으므로 `verify_jwt=true`를 선택한다. 함수 코드도 Auth 서버로 로그인을 다시 확인하고, 본인 `app_workspace_members` 행이 `owner`인 작업공간 하나만 쓴다(`private.app_is_workspace_owner`와 같은 기준, 화면이 보낸 작업공간 값은 받지 않음).
 서버 관리자 키를 쓰지 않고 재료·사용 기록을 호출한 사람의 로그인 토큰으로 읽고 써서 기존 소유자 RLS가 그대로 걸린다. OpenAI 열쇠는 새 이름 `WEB2_OPENAI_API_KEY`만 읽는다(옛 `OPENAI_API_KEY`는 읽지 않음).
 첫 배포는 S2(열쇠 등록) 뒤 `first_deploy=true`·`verify_jwt=true`·`expect_unauth_401=true`로 한다. 이전 버전이 없으므로 되돌리기는 화면(S4)이 아직 부르지 않는 상태 유지, 필요하면 사용자가 대시보드에서 삭제를 판단한다.
