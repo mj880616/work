@@ -1,10 +1,11 @@
-// share-page-media: 공유 페이지 사진 올리기·보기 주소·지우기(ED-통합편집기 ②, verify_jwt=true).
+// share-page-media: 공유 페이지 사진 올리기·보기 주소·지우기·정리(ED-통합편집기 ②, SHARE-사진같이지우기, verify_jwt=true).
 // 로그인한 소유자만. 소유 확인은 화면이 보낸 값이 아니라 DB의 owner RLS가 한다(사용자 토큰으로 질의: 내 페이지가 아니면 행이 안 보인다).
 // 사진 파일은 비공개 버킷에만 둔다(서버 키는 저장소 읽기·쓰기에만 쓴다). 위치 정보가 든 JPEG(EXIF·XMP)는 거절한다.
 
 export const MAX_BYTES = 3 * 1024 * 1024;
 export const MAX_BODY_BYTES = MAX_BYTES + 64 * 1024;
 export const SIGN_SECONDS = 600;
+export const PRUNE_MAX = 100; // 한 번에 정리하는 사진 수(남은 것은 다음 정리 때)
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export type MediaRow = { id: string; page_id: string; storage_path: string };
@@ -16,6 +17,8 @@ export type MediaDeps = {
   rowsFor(token: string, pageId: string, ids: string[]): Promise<MediaRow[]>;
   rowById(token: string, id: string): Promise<MediaRow | null>;
   deleteRow(token: string, id: string): Promise<boolean>;
+  pageBlocks(token: string, pageId: string): Promise<unknown[] | null>; // owner RLS가 보이는 페이지의 저장된 블록만
+  rowsForPage(token: string, pageId: string, limit: number): Promise<MediaRow[]>;
   putFile(path: string, bytes: Uint8Array): Promise<boolean>;
   removeFile(path: string): Promise<boolean>;
   signFile(path: string, seconds: number): Promise<string | null>;
@@ -55,6 +58,29 @@ export function inspectJpeg(b: Uint8Array): JpegInfo | null {
     i += 2 + len;
   }
   return null;
+}
+
+// 저장된 블록의 글(doc) 블록 안 사진 칸 src "share:<id>"를 모두 모은다. 정리(prune)가 "쓰는 사진"을 빠뜨리면 쓰는 사진을 지우게 되므로
+// 개수 제한 없이 끝까지 보고, 모양을 다 읽지 못하면(너무 깊음) null을 돌려 아무것도 지우지 않게 한다.
+const MAX_DEPTH = 80;
+export function usedPhotoIds(blocks: unknown): Set<string> | null {
+  if (!Array.isArray(blocks)) return null;
+  const found = new Set<string>();
+  let ok = true;
+  const walk = (node: unknown, depth: number) => {
+    if (!ok || !node || typeof node !== "object") return;
+    if (depth > MAX_DEPTH) { ok = false; return; }
+    if (Array.isArray(node)) { for (const n of node) walk(n, depth + 1); return; }
+    const o = node as Record<string, unknown>;
+    if (o.type === "image" && o.attrs && typeof o.attrs === "object") {
+      const src = (o.attrs as Record<string, unknown>).src;
+      if (typeof src === "string" && src.startsWith("share:") && UUID.test(src.slice(6))) found.add(src.slice(6));
+    }
+    if (Array.isArray(o.content)) walk(o.content, depth + 1);
+    if (o.doc) walk(o.doc, depth + 1);
+  };
+  for (const b of blocks) if (b && typeof b === "object" && (b as Record<string, unknown>).type === "doc") walk((b as Record<string, unknown>).doc, 0);
+  return ok ? found : null;
 }
 
 export function createShareMediaHandler(deps: MediaDeps, options: { newId?: () => string; log?: (code: string) => void } = {}) {
@@ -113,9 +139,32 @@ export function createShareMediaHandler(deps: MediaDeps, options: { newId?: () =
         if (!UUID.test(id)) return reply({ error: "bad_request" }, 400);
         const row = await deps.rowById(token, id);
         if (!row) return reply({ error: "not_found" }, 404);
+        // 파일 먼저, 기록은 그다음. 파일을 못 지우면 기록이 남아 다음 정리(prune) 때 다시 지운다(기록 없는 파일이 남지 않게).
+        if (!(await deps.removeFile(row.storage_path))) return reply({ error: "unavailable" }, 503);
         if (!(await deps.deleteRow(token, id))) return reply({ error: "unavailable" }, 503);
-        await deps.removeFile(row.storage_path);
         return reply({ ok: true }, 200);
+      }
+
+      // SHARE-사진같이지우기: 이 페이지의 저장된 글에서 더는 쓰지 않는 사진의 파일과 기록을 지운다.
+      // 무엇을 쓰는지는 화면이 아니라 DB에 저장된 블록으로 정한다. keep은 아직 저장 안 한 편집 화면에 남아 있는 사진 id(지울 대상에서 빼기만 함).
+      if (body.action === "prune") {
+        const pageId = String(body.page_id || "");
+        const keep = Array.isArray(body.keep) ? body.keep.map(String) : [];
+        if (!UUID.test(pageId) || keep.length > 200 || !keep.every((x) => UUID.test(x))) return reply({ error: "bad_request" }, 400);
+        const blocks = await deps.pageBlocks(token, pageId);
+        if (blocks === null) return reply({ error: "not_found" }, 404);
+        const used = usedPhotoIds(blocks);
+        if (!used) return reply({ error: "unreadable" }, 409);
+        for (const id of keep) used.add(id);
+        let removed = 0, failed = 0;
+        for (const row of await deps.rowsForPage(token, pageId, PRUNE_MAX)) {
+          if (row.page_id !== pageId || used.has(row.id)) continue;
+          // 파일 먼저 지우고 기록을 지운다. 어느 쪽이든 실패하면 기록이 남아 다음 정리 때 다시 시도한다.
+          if (await deps.removeFile(row.storage_path) && await deps.deleteRow(token, row.id)) removed++;
+          else failed++;
+        }
+        if (failed) log("share_page_media_prune_left");
+        return reply({ ok: true, removed, failed }, 200);
       }
       return reply({ error: "bad_request" }, 400);
     } catch {
