@@ -290,9 +290,11 @@ test('the chosen folder is remembered on the server: other screen, reload, delet
 });
 
 test('a remembered folder that no longer exists opens at [전체] quietly and the server value follows', async ({ page }) => {
-  const prefs = await installViewPrefsServer(page, { note_folder: 'f:자료 폴더' });
+  const prefs = await installViewPrefsServer(page);
   const f = await fixture(page, 390, two);
+  await chip(page, '자료 폴더').click();
   await expect(chip(page, '자료 폴더')).toBeChecked();
+  await expect.poll(() => prefs.value?.note_folder).toBe('f:자료 폴더');
   // The folder is gone (its only note was moved out elsewhere) before the app is opened again.
   f.rows.find(r => r.id === 'n1').metadata = {};
   await page.reload({ waitUntil: 'domcontentloaded' });

@@ -15,7 +15,7 @@ async function mockApp(page){
   await page.route(`${SB}/**`,async route=>{
     const u=new URL(route.request().url()),p=u.pathname;
     const ok=x=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(x??null)});
-    if(p==='/auth/v1/token')return ok({access_token:'nav-access',refresh_token:'nav-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600});
+    if(p==='/auth/v1/token')return ok({access_token:'nav-access',refresh_token:'nav-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user});
     if(p==='/auth/v1/user')return ok(user);
     if(p==='/auth/v1/logout')return ok({});
     if(p==='/rest/v1/app_workspace_members')return ok([{workspace_id:workspace.id,user_id:user.id,role:'owner'}]);

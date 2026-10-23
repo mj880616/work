@@ -21,7 +21,7 @@ async function mockApp(page){
   await page.route(`${SB}/**`,async route=>{
     const req=route.request(),url=new URL(req.url()),path=url.pathname;
     const ok=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data??null)});
-    if(path==='/auth/v1/token')return ok({access_token:'mobile-access',refresh_token:'mobile-refresh',expires_in:3600,expires_at:Math.floor(await page.evaluate(() => Date.now())/1000)+3600});
+    if(path==='/auth/v1/token')return ok({access_token:'mobile-access',refresh_token:'mobile-refresh',expires_in:3600,expires_at:Math.floor(await page.evaluate(() => Date.now())/1000)+3600,user});
     if(path==='/auth/v1/user')return ok(user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar'){
