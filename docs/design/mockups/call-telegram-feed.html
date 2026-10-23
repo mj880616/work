@@ -117,6 +117,15 @@ details.full[open] summary .ar{display:inline-block;transform:rotate(180deg)}
 .note{font-size:11px;color:var(--kptu-faint);margin:6px 0 0;max-width:780px}
 .filtered{padding:10px 12px;font-size:12.5px}
 .filtered p{margin:0 0 4px}
+.badge{display:inline-block;font-size:10.5px;padding:0 5px;border-radius:4px;background:var(--pin-soft);color:var(--pin-ink);margin-left:6px;vertical-align:1px}
+.script.one{display:block;padding:2px 0;color:var(--kptu-ink)}
+/* PC 사이드바 */
+.shell{display:grid;grid-template-columns:150px 1fr}
+.side{display:flex;flex-direction:column;border-right:.5px solid var(--kptu-border);background:var(--kptu-surface-subtle);padding:8px 0;min-height:420px;font-size:12.5px}
+.side .si{padding:5px 14px;color:var(--kptu-muted)}
+.side .sp{flex:1}
+.side .sep{border-top:.5px solid var(--kptu-border);margin:4px 0}
+.side .si.on{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-weight:500}
 </style>
 </head>
 <body>
@@ -150,7 +159,7 @@ details.full[open] summary .ar{display:inline-block;transform:rotate(180deg)}
    <div class="head"><span class="back">‹ 통화</span><button class="more" style="margin-left:auto" aria-label="메뉴">⋯</button></div>
    <div class="detail">
     <p class="dt">교섭 일정 다음 주 화요일로 조정</p>
-    <p class="meta">10. 23. (목) 16:42 · 7분 12초 · ○○지부</p>
+    <p class="meta">10. 23. (목) 16:42 · ○○지부</p>
     <p class="points-k">핵심내용</p>
     <ul class="points">
      <li>3차 교섭 10. 28.(화) 14:00로 변경<span class="st plan">예정</span></li>
@@ -164,12 +173,12 @@ details.full[open] summary .ar{display:inline-block;transform:rotate(180deg)}
  </div>
 
  <div>
-  <p class="label">상세 (전문 펼침)</p>
+  <p class="label">상세 (전문 펼침 · 화자 구분이 생긴 뒤의 모양)</p>
   <div class="phone">
    <div class="head"><span class="back">‹ 통화</span><button class="more" style="margin-left:auto" aria-label="메뉴">⋯</button></div>
    <div class="detail">
     <p class="dt">교섭 일정 다음 주 화요일로 조정</p>
-    <p class="meta">10. 23. (목) 16:42 · 7분 12초 · ○○지부</p>
+    <p class="meta">10. 23. (목) 16:42 · ○○지부</p>
     <p class="points-k">핵심내용</p>
     <ul class="points">
      <li>3차 교섭 10. 28.(화) 14:00로 변경<span class="st plan">예정</span></li>
@@ -177,7 +186,7 @@ details.full[open] summary .ar{display:inline-block;transform:rotate(180deg)}
      <li>인력 충원 12명 요구안 유지<span class="st">확정</span></li>
      <li>A가 위원장 보고 뒤 다시 연락</li>
     </ul>
-    <details class="full" open><summary>전문 접기 <span class="ar">▾</span></summary>
+    <details class="full" open><summary>전문 접기 <span class="ar">▾</span><span class="badge">화자 구분은 전사 수정 뒤(새 통화부터)</span></summary>
      <div class="script">
       <p><b>상대</b><span>네, 사측에서 목요일은 어렵다고 해서요.</span></p>
       <p class="me"><b>나</b><span>그럼 다음 주 화요일 두 시는 어때요?</span></p>
@@ -185,6 +194,27 @@ details.full[open] summary .ar{display:inline-block;transform:rotate(180deg)}
       <p class="me"><b>나</b><span>요구안 12명은 그대로 가는 거죠?</span></p>
       <p><b>상대</b><span>네, 그대로요. 위원장님께 보고하고 다시 연락드릴게요.</span></p>
      </div>
+    </details>
+   </div>
+  </div>
+ </div>
+
+ <div>
+  <p class="label">상세 (전문 펼침 · 지금 전사본: 줄바꿈 없는 한 문단)</p>
+  <div class="phone">
+   <div class="head"><span class="back">‹ 통화</span><button class="more" style="margin-left:auto" aria-label="메뉴">⋯</button></div>
+   <div class="detail">
+    <p class="dt">교섭 일정 다음 주 화요일로 조정</p>
+    <p class="meta">10. 23. (목) 16:42 · ○○지부</p>
+    <p class="points-k">핵심내용</p>
+    <ul class="points">
+     <li>3차 교섭 10. 28.(화) 14:00로 변경<span class="st plan">예정</span></li>
+     <li>사측 안 서면 회신 10. 27.(월)까지<span class="st plan">예정</span></li>
+     <li>인력 충원 12명 요구안 유지<span class="st">확정</span></li>
+     <li>A가 위원장 보고 뒤 다시 연락</li>
+    </ul>
+    <details class="full" open><summary>전문 접기 <span class="ar">▾</span><span class="badge">화자 구분은 전사 수정 뒤</span></summary>
+     <div class="script one">네 사측에서 목요일은 어렵다고 해서요 그럼 다음 주 화요일 두 시는 어때요 그건 된다고 했어요 서면 회신은 월요일까지 준대요 요구안 12명은 그대로 가는 거죠 네 그대로요 위원장님께 보고하고 다시 연락드릴게요</div>
     </details>
    </div>
   </div>
@@ -202,7 +232,7 @@ details.full[open] summary .ar{display:inline-block;transform:rotate(180deg)}
  </div>
 
 </div>
-<p class="note">⋯ 메뉴(제안): 조직 바꾸기 · 프로젝트 연결 · 전문 지우기(Web2 사본만) · Drive 원본 열기 · 목록에서 지우기. 날짜·숫자·예정/확정은 AI가 바꾸지 않고 그대로 옮깁니다.</p>
+<p class="note">⋯ 메뉴(제안): 조직 바꾸기 · 프로젝트 연결 · 전문 지우기(Web2 사본만) · Drive 원본 열기 · 목록에서 지우기. 제목·핵심내용·상대(조직)는 기존 통화 분석 파일에서 그대로 가져옵니다(예정=약속 후보, 확정=결정 후보). 통화 길이는 분석 파일에 없어 표시하지 않습니다.</p>
 </div>
 
 <!-- (나) 폰 텔레그램 -->
@@ -269,8 +299,10 @@ details.full[open] summary .ar{display:inline-block;transform:rotate(180deg)}
 <div class="section">
 <h2>(다) PC 1280 — 목록 1/3 · 상세/원문 2/3</h2>
 
-<p class="label">통화</p>
+<p class="label">통화 (왼쪽 사이드바 맨 아래에 통화 · 텔레그램 소식. 위 메뉴 이름은 예시)</p>
 <div class="pc" style="margin-bottom:14px">
+<div class="shell">
+<div class="side"><div class="si">홈</div><div class="si">캘린더</div><div class="si">프로젝트</div><div class="si">자료실</div><div class="si">회의</div><div class="si">바구니</div><div class="sp"></div><div class="sep"></div><div class="si on">통화</div><div class="si">텔레그램 소식</div></div>
  <div class="split">
   <div class="l">
    <div class="head"><span class="t">통화</span><a class="right linkish" href="#filtered">개인 통화 3건 걸러짐 ›</a></div>
@@ -288,7 +320,7 @@ details.full[open] summary .ar{display:inline-block;transform:rotate(180deg)}
    <div class="head" style="justify-content:flex-end"><button class="more" aria-label="메뉴">⋯</button></div>
    <div class="detail" style="max-width:760px">
     <p class="dt">교섭 일정 다음 주 화요일로 조정</p>
-    <p class="meta">10. 23. (목) 16:42 · 7분 12초 · ○○지부</p>
+    <p class="meta">10. 23. (목) 16:42 · ○○지부</p>
     <p class="points-k">핵심내용</p>
     <ul class="points">
      <li>3차 교섭 10. 28.(화) 14:00로 변경<span class="st plan">예정</span></li>
@@ -296,20 +328,25 @@ details.full[open] summary .ar{display:inline-block;transform:rotate(180deg)}
      <li>인력 충원 12명 요구안 유지<span class="st">확정</span></li>
      <li>A가 위원장 보고 뒤 다시 연락</li>
     </ul>
-    <details class="full"><summary>전문 펼치기 <span class="ar">▾</span></summary>
-     <div class="script">
+    <details class="full" open><summary>전문 접기 <span class="ar">▾</span><span class="badge">화자 구분은 전사 수정 뒤</span></summary>
+     <div class="script one">네 사측에서 목요일은 어렵다고 해서요 그럼 다음 주 화요일 두 시는 어때요 그건 된다고 했어요 서면 회신은 월요일까지 준대요 요구안 12명은 그대로 가는 거죠 네 그대로요 위원장님께 보고하고 다시 연락드릴게요</div>
+    </details>
+    <p class="points-k" style="margin-top:10px">전사 수정 뒤(새 통화부터)의 모양</p>
+    <div class="script">
       <p><b>상대</b><span>네, 사측에서 목요일은 어렵다고 해서요.</span></p>
       <p class="me"><b>나</b><span>그럼 다음 주 화요일 두 시는 어때요?</span></p>
       <p><b>상대</b><span>그건 된다고 했어요. 서면 회신은 월요일까지 준대요.</span></p>
-     </div>
-    </details>
+    </div>
    </div>
   </div>
  </div>
 </div>
+</div>
 
 <p class="label">텔레그램 소식 (줄에 마우스를 올리면 ⋯ · 오른쪽 클릭 또는 ⋯ → 그 자리 바로 아래 메뉴)</p>
 <div class="pc pcfeed">
+<div class="shell">
+<div class="side"><div class="si">홈</div><div class="si">캘린더</div><div class="si">프로젝트</div><div class="si">자료실</div><div class="si">회의</div><div class="si">바구니</div><div class="sp"></div><div class="sep"></div><div class="si">통화</div><div class="si on">텔레그램 소식</div></div>
  <div class="split">
   <div class="l">
    <div class="head"><span class="t">텔레그램 소식</span><span class="sub">오늘 412개 중 중요한 9개 · 방 5곳</span><select aria-label="방 거르기"><option>모든 방</option></select></div>
@@ -340,6 +377,7 @@ details.full[open] summary .ar{display:inline-block;transform:rotate(180deg)}
    </div>
   </div>
  </div>
+</div>
 </div>
 <p class="note">PC 목록에서는 마우스를 올린 줄에만 ⋯가 보입니다(시안에서는 첫 줄에 메뉴가 펼쳐진 모습을 고정해 보여 줌). 폰에는 ⋯가 없습니다.</p>
 </div>
