@@ -19,11 +19,16 @@ async function press(page, name) {
   const onRow = tool(page, name);
   if (await onRow.count() && await onRow.isVisible()) return onRow.click();
   if ((await page.locator('.ed-more').getAttribute('aria-expanded')) !== 'true') await page.locator('.ed-more').click();
-  await page.getByRole('group', {name: '서식 더보기', exact: true}).getByRole('button', {name, exact: true}).click();
+  await page.getByRole('group', {name: '서식 더 보기', exact: true}).getByRole('button', {name, exact: true}).click();
 }
 const pick = async (page, opener, group, sign) => {
   await tool(page, opener).click();
   await page.getByRole('group', {name: group, exact: true}).getByRole('button', {name: `${sign} 넣기`, exact: true}).click();
+};
+// 목록 ▾ / 번호 ▾: open the popover under the button and pick a marker shape (aria-label "글머리 •" / "번호 1.").
+const listPick = async (page, kind, label) => {
+  await tool(page, kind === 'bullet' ? '글머리 목록 고르기' : '번호 목록 고르기').click();
+  await page.getByRole('group', {name: kind === 'bullet' ? '글머리 목록' : '번호 목록', exact: true}).getByRole('button', {name: label, exact: true}).click();
 };
 const nextCircled = async page => {
   await tool(page, '동그라미 번호 고르기').click();
@@ -80,6 +85,9 @@ test('bold, italic, underline, strike toggle on the selection and show as presse
   const box = await open(page);
   await page.keyboard.type('굵고 기울고');
   await page.keyboard.press('Shift+Home');
+  // The editor learns of the browser's selection a moment later (selectionchange). A press before that used to mark an empty
+  // cursor (CI flake: the first letters had no marks). Pressing right away is covered in ed-popovers.spec.mjs; here, wait.
+  await expect.poll(async () => page.evaluate(() => window.ed.view.state.selection.empty)).toBe(false);
   for (const name of ['굵게', '기울임', '밑줄', '취소선']) {
     await press(page, name);
     await expect(page.locator('.ed-bar').getByRole('button', {name, exact: true, includeHidden: true})).toHaveAttribute('aria-pressed', 'true');
@@ -111,12 +119,13 @@ test('· ※ → put their sign; ① marks the next number after the nearest one
 test('lists, quote and rule; undo and redo', async ({page}) => {
   const box = await open(page);
   await page.keyboard.type('항목');
-  await tool(page, '글머리 목록').click();
+  await listPick(page, 'bullet', '글머리 •');
   await expect(box.locator('ul li')).toHaveCount(1);
-  await tool(page, '번호 목록').click();
+  await listPick(page, 'ordered', '번호 1.');
   await expect(box.locator('ol li')).toHaveCount(1);
-  await expect(tool(page, '번호 목록')).toHaveAttribute('aria-pressed', 'true');
-  await tool(page, '번호 목록').click();
+  await expect(tool(page, '번호 목록 고르기')).toHaveAttribute('aria-pressed', 'true');
+  await tool(page, '번호 목록 고르기').click();
+  await page.getByRole('group', {name: '번호 목록', exact: true}).getByRole('button', {name: '목록 풀기'}).click();
   await expect(box.locator('ol')).toHaveCount(0);
   await press(page, '인용');
   await expect(box.locator('blockquote')).toHaveCount(1);
@@ -148,7 +157,7 @@ test('table: insert, type in cells, add and remove rows and columns, head row', 
   await expect(box.locator('table tr')).toHaveCount(2);
   const tools = page.locator('.ed-table-tools');
   await expect(tools).toBeVisible();
-  await expect(tools.getByRole('button')).toHaveText(['위에 줄', '아래에 줄', '왼쪽에 칸', '오른쪽에 칸', '줄 삭제', '칸 삭제', '칸 합치기', '칸 나누기', '머리줄', '글자에 맞추기', '표 고르기', '표 지우기']);
+  await expect(tools.getByRole('button')).toHaveText(['위에 줄', '아래에 줄', '왼쪽에 칸', '오른쪽에 칸', '줄 삭제', '칸 삭제', '칸 합치기', '칸 나누기', '머리줄', '글자에 맞추기', '표 선택', '표 지우기']);
   await page.keyboard.type('가');
   await page.keyboard.press('Tab');
   await page.keyboard.type('나');
@@ -295,7 +304,7 @@ test('narrow PC width: buttons that do not fit go under [⋯], no sideways scrol
   await page.keyboard.type('가나다');
   await more.click();
   await expect(more).toHaveAttribute('aria-expanded', 'true');
-  const menu = page.getByRole('group', {name: '서식 더보기'});
+  const menu = page.getByRole('group', {name: '서식 더 보기'});
   await menu.getByRole('button', {name: '되돌리기', exact: true}).click();
   await expect(box).toBeFocused();
   expect((await value(page)).doc.content[0].content).toBeUndefined();
