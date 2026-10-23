@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {openMdTool} from './helpers/md-tools.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 import {openWriteFromEntry} from './helpers/write-opener.mjs';
 // BASKET-업데이트통합 PR 2: 쓰기·노트 [+]·홈 [크게] 어디서 열어도 같은 편집 창. 저장 아이콘 옆 [업데이트 ▾ | 노트],
@@ -128,7 +129,9 @@ test('attachments in the home input stay when an organization is chosen in the w
  expect(f.notes).toEqual([]);expect(f.orgs).toEqual([]);expect(uploads).toEqual([]);
  // NOTE-파일붙이기: as a note, the note is made first and the home input's file goes up with its id; the home input empties.
  await e.locator('[data-md-kind="note"]').click();
- await expect(e.locator('.md-editor-tools [data-basket-clip]')).toBeVisible();
+ // MD-서식줄묶음: on a phone the [📎 첨부] is a row of the [넣기 ▾] list; wider than that it ends the format row.
+ if(width<761){await openMdTool(e,'파일 첨부');await expect(e.locator('.md-pop [data-basket-clip]')).toBeVisible();}
+ else await expect(e.locator('.md-editor-tools [data-basket-clip]')).toBeVisible();
  await e.locator('[data-md-save-icon]').click();await expect(page.locator('#mdEditor')).toHaveCount(0);
  expect(f.notes).toEqual([{workspace_id:'w',kind:'note',title:'첨부와 함께',raw_text:'첨부와 함께',metadata:{markdown:false}}]);
  expect(uploads).toHaveLength(1);expect(uploads[0]).toContain('filename="메모.txt"');expect(uploads[0]).toMatch(/name="note_id"\r\n\r\n/);expect(uploads[0]).not.toContain('name="raw_text"');

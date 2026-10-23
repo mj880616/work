@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import {openMdTool} from './helpers/md-tools.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { noteMenuAction } from './helpers/note-menu.mjs';
 import { basketKindButton } from './helpers/basket-kind.mjs';
@@ -159,13 +160,18 @@ for (const width of [390, 1280]) {
     await noteMenuAction(page, 'data-note-edit', {width});
     await press(page, page.locator('[data-note-big-write]'), width);
     const e = page.locator('#mdEditor'); await expect(e).toBeVisible();
-    const tools = e.locator('.md-editor-tools'), clip = tools.getByRole('button', {name: '파일 첨부', exact: true});
+    // MD-서식줄묶음: on a phone the clip is a row of the [넣기 ▾] list (opened first); wider than that it ends the format row.
+    const tools = e.locator('.md-editor-tools'), clip = e.getByRole('button', {name: '파일 첨부', exact: true});
+    if (width < 761) await openMdTool(e, '파일 첨부');
     await expect(clip).toBeVisible();
-    // The last item of the format row, the same 28px buttons (44px touch area).
-    expect(await tools.evaluate(el => el.lastElementChild.matches('[data-md-attach-picker]'))).toBe(true);
-    const [cb, bb] = await Promise.all([clip.boundingBox(), tools.locator('[data-md-action]').first().boundingBox()]);
-    expect(cb.height).toBe(28); expect(Math.abs(cb.height - bb.height)).toBeLessThanOrEqual(1);
-    expect(await clip.evaluate(el => parseFloat(getComputedStyle(el, '::after').height))).toBe(44);
+    if (width < 761) await expect(e.locator('.md-pop').getByRole('button', {name: '파일 첨부', exact: true})).toBeVisible();
+    else {
+      // The last item of the format row, the same 28px buttons (44px touch area).
+      expect(await tools.evaluate(el => el.lastElementChild.matches('[data-md-attach-picker]'))).toBe(true);
+      const [cb, bb] = await Promise.all([clip.boundingBox(), tools.locator('[data-md-action]').first().boundingBox()]);
+      expect(cb.height).toBe(28); expect(Math.abs(cb.height - bb.height)).toBeLessThanOrEqual(1);
+      expect(await clip.evaluate(el => parseFloat(getComputedStyle(el, '::after').height))).toBe(44);
+    }
     // No file chosen: no empty strip under the text.
     await expect(e.locator('.md-editor-attach')).toBeHidden();
     const chooser = page.waitForEvent('filechooser'); await clip.click(); await (await chooser).setFiles([fileBuffer('참고 자료.pdf')]);

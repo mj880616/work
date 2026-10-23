@@ -104,9 +104,11 @@ for(const width of [390,1280]){
   await openWriteFromEntry(page,width);
   const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();
   const tools=editor.locator('.md-editor-tools');
-  const buttons=await tools.locator('button').all();expect(buttons.length).toBeGreaterThan(10);
+  const buttons=await tools.locator('button').all();// MD-서식줄묶음: a phone has the 7 grouped buttons; wider screens the whole row.
+  expect(buttons.length).toBeGreaterThan(width<761?6:10);
   for(const b of buttons){const m=await b.evaluate(el=>{const r=el.getBoundingClientRect(),a=getComputedStyle(el,'::after');return {h:r.height,hit:a.height,font:getComputedStyle(el).fontSize};});
    expect(m.h).toBe(28);expect(m.hit).toBe('44px');expect(m.font).toBe('13px');}
+  // (359px and narrower phones use 12px; this test's phone is wider.)
   // The row is the press height (44px), right under the head and above the text.
   const [head,row,text]=await Promise.all([editor.locator('.md-editor-head'),tools,editor.locator('.md-editor-text')].map(l=>l.boundingBox()));
   expect(Math.round(row.height)).toBe(44);expect(Math.abs(row.y-(head.y+head.height))).toBeLessThan(2);expect(text.y).toBeGreaterThanOrEqual(row.y+row.height-1);
@@ -115,7 +117,7 @@ for(const width of [390,1280]){
   for(const y of [fb.y+fb.height/2-21,fb.y+fb.height/2+21])expect(await page.evaluate(([x,y])=>document.elementFromPoint(x,y)?.closest('button')?.dataset.mdAction,[fb.x+fb.width/2,y])).toBe('heading-menu');
   // The choice row under it follows the same size.
   await tap(page,editor.getByRole('button',{name:'제목 단계 고르기',exact:true}),width);
-  const choices=editor.locator('.md-editor-menu button');await expect(choices).toHaveText(['제목 1','제목 2','제목 3']);
+  const choices=width<761?editor.getByRole('group',{name:'제목 단계 고르기'}).getByRole('button'):editor.locator('.md-editor-menu button');await expect(choices).toHaveText(['제목 1','제목 2','제목 3']);
   for(const b of await choices.all())expect((await b.boundingBox()).height).toBe(28);
   expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
  });

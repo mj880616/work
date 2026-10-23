@@ -1,6 +1,7 @@
 import {testOrigin} from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 import {noteAction} from './helpers/basket-more.mjs';
+import {openMdTool,mdChoices} from './helpers/md-tools.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 // MD-편집기 1단계: 바구니 메모 수정 화면의 [큰 창에서 수정](옛 [크게 쓰기], UI-디자인손질 8)이 전체 화면 편집기를 열고, 도구 막대가 마크다운 기호를 넣고,
 // [쓰기|미리보기](폰)·나란히(넓은 화면) 미리보기가 기존 표시 모듈로 그려지며, 닫으면 글이 수정 칸으로 돌아가
@@ -39,6 +40,8 @@ async function openEditor(page,width){
  await expect(editor).toBeVisible();await expect(editor).toHaveAttribute('role','dialog');
  return {detail,editor,area:editor.locator('textarea.md-editor-text'),preview:editor.locator('.md-editor-preview')};
 }
+// A format button: on a phone the group that holds it is opened first (MD-서식줄묶음).
+async function mdPress(page,editor,name,width){const t=await openMdTool(editor,name);await press(page,t,width);}
 const tool=(editor,name)=>editor.getByRole('button',{name,exact:true});
 // Puts the caret (or a selection) in the editor without a keyboard event.
 const select=(area,from,to=from)=>area.evaluate((el,[a,b])=>{el.focus();el.setSelectionRange(a,b);},[from,to]);
@@ -53,32 +56,33 @@ for(const width of [390,1280]){
   const box=await editor.boundingBox();expect(box.y).toBe(0);
   if(width<761){expect(box.x).toBe(0);expect(Math.round(box.width)).toBe(width);const tabs=await page.locator('.mobile-tabs').boundingBox();expect(Math.round(box.height)).toBe(Math.round(tabs.y));expect(Math.round(tabs.y+tabs.height)).toBe(860);}
   else{const side=await page.locator('#appView>.app-nav').boundingBox();expect(box.x).toBeGreaterThanOrEqual(side.x+side.width);expect(Math.round(box.x+box.width)).toBe(width);expect(Math.round(box.height)).toBe(860);}
-  // Toolbar: one row right under the head; on a phone the row scrolls sideways.
+  // Toolbar: one row right under the head; on a phone it is the grouped row.
   // UI-버튼작게 ②: buttons are 28px to the eye with a 44px press area (::after).
   const tools=editor.locator('.md-editor-tools');
   for(const b of await tools.locator('button').all()){const r=await b.boundingBox();expect(r.height).toBe(28);expect(await b.evaluate(el=>getComputedStyle(el,'::after').height)).toBe('44px');}
   const toolsBox=await tools.boundingBox(),headBox=await editor.locator('.md-editor-head').boundingBox(),areaBox=await area.boundingBox();
   expect(Math.abs(toolsBox.y-(headBox.y+headBox.height))).toBeLessThan(8);expect(areaBox.y).toBeGreaterThanOrEqual(toolsBox.y+toolsBox.height);
-  if(width<761)expect(await tools.evaluate(el=>el.scrollWidth>el.clientWidth&&getComputedStyle(el).flexWrap==='nowrap')).toBe(true);
+  // MD-서식줄묶음: on a phone the grouped row fits on one line (no sideways scroll, every button on the same line).
+  if(width<761)expect(await tools.evaluate(el=>el.scrollWidth<=el.clientWidth&&new Set([...el.children].map(b=>Math.round(b.getBoundingClientRect().top))).size===1)).toBe(true);
 
   // 제목 1 on the caret's line.
-  await select(area,2);await press(page,tool(editor,'제목 단계 고르기'),width);await press(page,tool(editor,'제목 1'),width);
+  await select(area,2);await mdPress(page,editor,'제목 단계 고르기',width);await mdPress(page,editor,'제목 1',width);
   await expect(area).toHaveValue('# 처음 메모');
   // 굵게 wraps the selected word; 되돌리기·다시하기 go through the browser's own history.
   // A toolbar press never takes focus from the text, so the phone keyboard stays open.
   await area.evaluate(el=>{el.__blurs=0;el.addEventListener('blur',()=>el.__blurs++);});
-  await select(area,2,4);await press(page,tool(editor,'굵게'),width);await expect(area).toHaveValue('# **처음** 메모');
+  await select(area,2,4);await mdPress(page,editor,'굵게',width);await expect(area).toHaveValue('# **처음** 메모');
   await expect(area).toBeFocused();expect(await area.evaluate(el=>el.__blurs)).toBe(0);
-  await press(page,tool(editor,'되돌리기'),width);await expect(area).toHaveValue('# 처음 메모');
-  await press(page,tool(editor,'다시하기'),width);await expect(area).toHaveValue('# **처음** 메모');
+  await mdPress(page,editor,'되돌리기',width);await expect(area).toHaveValue('# 처음 메모');
+  await mdPress(page,editor,'다시하기',width);await expect(area).toHaveValue('# **처음** 메모');
   // Block tools go after the caret's line with a blank line around them.
   const end=async()=>select(area,(await area.inputValue()).length);
-  await end();await area.pressSequentially('\n\n');await press(page,tool(editor,'글머리 목록'),width);await area.pressSequentially('할 일');
-  await end();await area.pressSequentially('\n');await press(page,tool(editor,'체크 목록'),width);
-  await end();await press(page,tool(editor,'표 틀 넣기'),width);
-  await end();await press(page,tool(editor,'강조 상자 종류 고르기'),width);await expect(editor.locator('.md-editor-menu button')).toHaveText(['참고','팁','중요','경고','주의']);await press(page,tool(editor,'경고'),width);
-  await end();await press(page,tool(editor,'Mermaid 도식 틀 고르기'),width);await expect(editor.locator('.md-editor-menu button')).toHaveText(['흐름도','순서도','타임라인']);await press(page,tool(editor,'흐름도'),width);
-  await end();await press(page,tool(editor,'구분선'),width);
+  await end();await area.pressSequentially('\n\n');await mdPress(page,editor,'글머리 목록',width);await area.pressSequentially('할 일');
+  await end();await area.pressSequentially('\n');await mdPress(page,editor,'체크 목록',width);
+  await end();await mdPress(page,editor,'표 틀 넣기',width);
+  await end();await mdPress(page,editor,'강조 상자 종류 고르기',width);await expect(mdChoices(editor,'강조 상자 종류 고르기',width)).toHaveText(['참고','팁','중요','경고','주의']);await mdPress(page,editor,'경고',width);
+  await end();await mdPress(page,editor,'Mermaid 도식 틀 고르기',width);await expect(mdChoices(editor,'Mermaid 도식 틀 고르기',width)).toHaveText(['흐름도','순서도','타임라인']);await mdPress(page,editor,'흐름도',width);
+  await end();await mdPress(page,editor,'구분선',width);
   const value=await area.inputValue();
   expect(value).toContain('# **처음** 메모\n\n- 할 일');expect(value).toContain('- 할 일\n- [ ] \n');expect(value).toContain('| 항목 | 내용 | 비고 |\n| --- | --- | --- |');
   expect(value).toContain('> [!WARNING]\n> 내용');expect(value).toContain('```mermaid\nflowchart TD');expect(value.trimEnd().endsWith('---')).toBe(true);
@@ -249,4 +253,32 @@ test('md editor follows dark mode through the theme tokens',async({page},info)=>
  expect(await preview.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe(colors.want.surface);
  await page.screenshot({path:info.outputPath('md-editor-dark-390.png')});
  expect(seen.external).toEqual([]);expect(seen.errors).toEqual([]);
+});
+
+// MD-서식줄묶음: a folded phone's format row is one line, the buttons spread over the whole row, a group opens right under the pressed button.
+for(const width of [344,360,390])test(`phone format row: grouped on one line, spread over the row, group list under the pressed button ${width}`,async({page})=>{
+ await page.setViewportSize({width,height:860});const seen=await fixture(page);
+ const {editor,area}=await openEditor(page,width);
+ const tools=editor.locator('.md-editor-tools');
+ await expect(tools.locator('button')).toHaveText(['제목 ▾','굵게','글자 ▾','문단 ▾','넣기 ▾','↶','↷']);
+ const row=await tools.evaluate(el=>{const t=el.getBoundingClientRect(),kids=[...el.children].map(b=>b.getBoundingClientRect());return {fits:el.scrollWidth<=el.clientWidth,tops:new Set(kids.map(r=>Math.round(r.top))).size,left:kids[0].left-t.left,right:t.right-kids[kids.length-1].right,font:getComputedStyle(el.children[0]).fontSize};});
+ expect(row.fits).toBe(true);expect(row.tops).toBe(1);
+ // The spare width is spread between the buttons: both ends of the row sit close to the row's edges.
+ expect(row.left).toBeLessThanOrEqual(8);expect(row.right).toBeLessThanOrEqual(8);
+ expect(row.font).toBe(width<360?'12px':'13px');
+ // A group opens right under its button, inside the screen; the buttons in it are the same buttons as the wide row's.
+ const group=editor.getByRole('button',{name:'넣을 것 고르기',exact:true});await press(page,group,width);
+ const list=editor.getByRole('group',{name:'넣을 것'});await expect(list).toBeVisible();
+ await expect(list.getByRole('button')).toHaveText(['표','강조 상자 ▾','도식 ▾']);
+ const [g,l]=await Promise.all([group.boundingBox(),list.boundingBox()]);
+ expect(l.y).toBeGreaterThanOrEqual(g.y+g.height);expect(l.y-(g.y+g.height)).toBeLessThanOrEqual(12);expect(l.x).toBeGreaterThanOrEqual(0);expect(l.x+l.width).toBeLessThanOrEqual(width);
+ await press(page,list.getByRole('button',{name:'표 틀 넣기',exact:true}),width);
+ await expect(list).toBeHidden();expect(await area.inputValue()).toContain('| 항목 | 내용 | 비고 |');
+ // A choice inside a group opens its own list under itself; Esc goes back to the group, then closes.
+ await press(page,group,width);await press(page,list.getByRole('button',{name:'강조 상자 종류 고르기',exact:true}),width);
+ await expect(editor.getByRole('group',{name:'강조 상자 종류 고르기'}).getByRole('button')).toHaveText(['참고','팁','중요','경고','주의']);
+ await page.keyboard.press('Escape');await expect(editor.getByRole('group',{name:'강조 상자 종류 고르기'})).toBeHidden();await expect(list).toBeVisible();
+ await page.keyboard.press('Escape');await expect(list).toBeHidden();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(seen.errors).toEqual([]);
 });
