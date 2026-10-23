@@ -1,0 +1,72 @@
+name: Setup Playwright
+description: >-
+  Playwright(@playwright/test)와 브라우저를 설치한다. 브라우저 파일은 Playwright 버전별로 캐시하고,
+  OS 패키지는 빠진 것만 apt로 받으며, 단계마다 시간 상한을 둬서 멈추면 빠르게 실패한다.
+
+inputs:
+  version:
+    description: '@playwright/test 정확한 버전. 모든 workflow가 이 기본값을 같이 쓴다.'
+    required: false
+    default: '1.55.0'
+  browsers:
+    description: 설치할 브라우저(공백으로 구분)
+    required: false
+    default: chromium
+  working-directory:
+    description: npm install과 playwright를 실행할 폴더
+    required: false
+    default: '.'
+  npm-flags:
+    description: npm install에 덧붙일 옵션
+    required: false
+    default: '--no-save'
+  save-cache:
+    description: >-
+      'true'면 캐시 미스일 때 브라우저 캐시를 저장한다. 신뢰할 수 없는 PR 코드를 실행하는
+      pull_request_target 같은 곳에서는 'false'로 두어 캐시 오염을 막는다(복원만 한다).
+    required: false
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - name: Install @playwright/test
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        PW_VERSION: ${{ inputs.version }}
+        PW_NPM_FLAGS: ${{ inputs.npm-flags }}
+      run: bash "$GITHUB_ACTION_PATH/setup.sh" package
+
+    - name: Restore Playwright browser cache
+      id: browser-cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      env:
+        SEGMENT_DOWNLOAD_TIMEOUT_MINS: '3'
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-browsers-${{ runner.os }}-${{ runner.arch }}-${{ inputs.version }}-${{ inputs.browsers }}
+
+    - name: Download Playwright browsers (cache miss)
+      if: steps.browser-cache.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        PW_VERSION: ${{ inputs.version }}
+        PW_BROWSERS: ${{ inputs.browsers }}
+      run: bash "$GITHUB_ACTION_PATH/setup.sh" browsers
+
+    - name: Save Playwright browser cache
+      if: steps.browser-cache.outputs.cache-hit != 'true' && inputs.save-cache == 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-browsers-${{ runner.os }}-${{ runner.arch }}-${{ inputs.version }}-${{ inputs.browsers }}
+
+    - name: Install missing Playwright OS packages
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        PW_VERSION: ${{ inputs.version }}
+        PW_BROWSERS: ${{ inputs.browsers }}
+      run: bash "$GITHUB_ACTION_PATH/setup.sh" os-deps
