@@ -168,7 +168,10 @@ for(const width of [390,1280])test(`organization documents show each kind and fi
  await expect(section.locator('.wd-doc-main b')).toHaveText(['합성 교섭 일정','합성 공문 회신','합성 성명서','합성 교육 안내','합성 국토부 지침']);
  await expect(section.locator('[data-wd-doc-count]')).toHaveText('7');
  await expect(section.getByRole('button',{name:'전체 7개 보기'})).toBeVisible();
- // [전체] turns everything off (empty line) and then everything on.
+ // [전체] while only some are on turns all on; pressed again (all on) it turns all off (empty line) and then everything on.
+ await tap(page,chip(host,'전체'),width);
+ await expect(chip(host,'전체')).toHaveAttribute('aria-pressed','true');
+ await expect(chip(host,'투쟁')).toHaveAttribute('aria-pressed','true');
  await tap(page,chip(host,'전체'),width);
  await expect(section.locator('[data-wd-doc-nokind]')).toHaveText('고른 종류 자료 없음');
  await expect(chip(host,'전체')).toHaveAttribute('aria-pressed','false');
