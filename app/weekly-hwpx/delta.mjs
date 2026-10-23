@@ -52,6 +52,7 @@ export function personalFromTeam(teamSummary, me) {
       return {
         task: row.task === null ? null : [...row.task],
         progress: mine ? row.progress.map(lineText) : [],
+        paras: mine ? [...(row.paras ?? [])] : [],
         owner: row.owner === null ? null : mine ? [...row.owner] : [],
       };
     }),
@@ -69,7 +70,7 @@ export const isMyOrg = (org, myOrgs) => myOrgs.some(name => sameName(name, [].co
 // 내 담당 조직 줄만 남김. 확정본 줄 테두리(borders)를 따라가고, 바로 위 줄이 빠진 줄은 cutAbove(위 선 닫기, report.mjs pairGrid).
 function keepOrgRows(rows, myOrgs) {
   const kept = (rows ?? []).filter(r => isMyOrg(r.org, myOrgs));
-  return kept.map((r, i) => ({org: [...r.org], status: r.status.map(lineText), ...(r.borders ? {borders: [...r.borders]} : {}),
+  return kept.map((r, i) => ({org: [...r.org], status: r.status.map(lineText), paras: [...(r.paras ?? [])], ...(r.borders ? {borders: [...r.borders]} : {}),
     ...(Number.isInteger(r.src) ? {src: r.src, cutAbove: i === 0 ? r.src !== 0 : kept[i - 1].src !== r.src - 1} : {})}));
 }
 // WEEKLY-출력정리 ②(2026-10-23 사용자 요청 12:25): 4. 산하조직 현황 표는 내 담당 조직(약속된 조직) 전부를 정해진 순서로 늘 둔다.
@@ -86,7 +87,7 @@ function allOrgRows(rows, orgList) {
     for (const r of hits) used.add(list.indexOf(r));
     if (hits.length) picked.push(...hits); else picked.push({org: [String(org.name ?? '').trim()], status: []});
   }
-  return picked.map((r, i) => ({org: [...r.org], status: r.status.map(lineText), ...(r.borders ? {borders: [...r.borders]} : {}),
+  return picked.map((r, i) => ({org: [...r.org], status: r.status.map(lineText), paras: [...(r.paras ?? [])], ...(r.borders ? {borders: [...r.borders]} : {}),
     ...(Number.isInteger(r.src) ? {src: r.src, cutAbove: i === 0 ? r.src !== 0 : picked[i - 1].src !== r.src - 1} : {})}));
 }
 export function personalReportFromTeam(team, me, {myOrgs = [], orgList = null, title = '', date = ''} = {}) {

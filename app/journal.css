@@ -191,6 +191,19 @@
 #appView #journalView .journal-hwpx-material:empty{ display:none; }
 #appView #journalView .journal-hwpx-material li > .mini,
 #appView #journalView .journal-hwpx-material li > select{ margin-left:4px; vertical-align:middle; }
+/* WEEKLY-한글파일다듬기 ①(2026-10-23 사용자 요청 11:35): 이 상자의 모든 버튼(위 줄 [주간보고 한글 파일 만들기]·[복사], 바탕 고르기 줄,
+   붙이기, 아래 [한글 파일 만들기(.hwpx)]·[HWP로 받기]·[확정]·[처음부터]·[닫기])은 UI-버튼기준의 작은 버튼 하나로 맞춘다: 보이는 높이
+   --ds-compact-height(32px)·글자 --ds-compact-text(13px)·500. 채운 버튼(primary)도 색만 다르고 크기는 같다. 누르는 범위 44px은 ::after.
+   붙일 줄 고르기 칸도 같은 줄의 [붙이기]와 같은 높이. 새 크기 값 없음(토큰만). */
+#appView #journalView .journal-hwpx :is(button.mini,button.primary,button.secondary){ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center;
+  height:var(--ds-compact-height); min-height:var(--ds-compact-height); margin-top:0; margin-bottom:0; padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap; }
+#appView #journalView .journal-hwpx :is(button.mini,button.primary,button.secondary)::after{ content:""; position:absolute; inset:auto; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+#appView #journalView .journal-hwpx button.mini{ color:var(--kptu-ink); }
+#appView #journalView .journal-hwpx button:disabled{ opacity:.45; cursor:not-allowed; }
+#appView #journalView .journal-hwpx-target{ box-sizing:border-box; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 8px; font-size:var(--ds-compact-text); }
+#appView #journalView .journal-hwpx-plans > summary{ cursor:pointer; font-size:var(--kptu-text-body); color:var(--kptu-muted); }
+#appView #journalView .journal-hwpx-plans > summary:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+#appView #journalView .journal-hwpx-plans > .journal-hwpx-material{ margin-top:4px; }
 /* 요약 표: 사업영역 | 세부 과제 | 진행 상황 및 이후 계획. 사업영역 칸은 세로로 합친다. 화면에는 담당 팀원 칸이 없고(한글 파일에만 둠 —
    JOURNAL-주간정리다듬기 ②) 그 폭만큼 진행 상황 칸이 넓다. */
 #appView #journalView .journal-weekly-table{ width:100%; border-collapse:collapse; table-layout:fixed; font-size:var(--kptu-text-body); line-height:1.5; }
