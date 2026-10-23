@@ -40,4 +40,4 @@ jobs:
           cat /tmp/kptu-auth-gate-http.log
           exit 1
       - name: Run Web2 anonymous auth gate flow
-        run: npx playwright test tests/app-e2e/public-workspace-auth.spec.mjs --browser=chromium --workers=1 --reporter=line
+        run: npx playwright test tests/app-e2e/public-workspace-auth.spec.mjs --browser=chromium --workers=1 --reporter=line,github

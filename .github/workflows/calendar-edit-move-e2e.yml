@@ -46,4 +46,4 @@ jobs:
       - name: Install Playwright
         uses: ./.github/actions/setup-playwright
       - run: python3 -m http.server 8123 >/tmp/calendar-edit-move-http.log 2>&1 &
-      - run: npx playwright test tests/app-e2e/calendar-edit-move.spec.mjs tests/app-e2e/calendar-personalization.spec.mjs tests/app-e2e/save-lock.spec.mjs tests/app-e2e/save-lock-2-org.spec.mjs tests/app-e2e/calendar-modal-close.spec.mjs --browser=chromium --workers=1 --reporter=line
+      - run: npx playwright test tests/app-e2e/calendar-edit-move.spec.mjs tests/app-e2e/calendar-personalization.spec.mjs tests/app-e2e/save-lock.spec.mjs tests/app-e2e/save-lock-2-org.spec.mjs tests/app-e2e/calendar-modal-close.spec.mjs --browser=chromium --workers=1 --reporter=line,github

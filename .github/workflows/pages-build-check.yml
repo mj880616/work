@@ -61,4 +61,4 @@ jobs:
           cat "$RUNNER_TEMP/pages-http.log"
           exit 1
       - name: Boot built output in the browser
-        run: npx playwright test tests/build-pages --browser=chromium --workers=1 --reporter=line
+        run: npx playwright test tests/build-pages --browser=chromium --workers=1 --reporter=line,github
