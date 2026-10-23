@@ -210,7 +210,9 @@ test('5. 주요 일정 in the .hwpx form: 14 day rows (empty days keep their dat
   assert.deepEqual(f.calendar.map(d => d.day), ['10.12.(월)', '10.10.(토) ~ 10.12.(월)', '10.13.(화)', '10.13.(화) ~ 10.14.(수)', '10.14.(수)', '10.15.(목)', '10.16.(금)', '10.17.(토)', '10.18.(일)',
     '10.19.(월)', '10.20.(화)', '10.21.(수)', '10.22.(목)', '10.23.(금)', '10.24.(토)', '10.25.(일)']);
   assert.deepEqual(f.calendar[0].items, []);
-  assert.deepEqual(f.calendar[2].items, [{what:'종일 / 가상 종일 행사', who:['가상 담당']}, {what:'09:00 / 가상 아침 일정', who:['가상 담당']}, {what:'10:30 / 가상 회의 / 가상 장소', who:['가상 담당']}]);
+  // WEEKLY-일정다듬기 ③: the form cell is always "시간 / 내용 / 장소" — no place is '미정' (the screen table keeps the calendar text).
+  assert.deepEqual(f.calendar[2].items, [{what:'종일 / 가상 종일 행사 / 미정', who:['가상 담당']}, {what:'09:00 / 가상 아침 일정 / 미정', who:['가상 담당']}, {what:'10:30 / 가상 회의 / 가상 장소', who:['가상 담당']}]);
+  assert.deepEqual(w.calendar.rows[1].items.map(i => i.what), ['종일 / 가상 종일 행사', '09:00 / 가상 아침 일정', '10:30 / 가상 회의 / 가상 장소']);
   assert.deepEqual(f.calendarNotes, ['※ 10.16.(금) 가상 담당 오후 반차', '※ 10.19.(월)~10.21.(수) 가상 담당 여름 휴가', '※ 10.23.(금) 가상 담당 연차']);
   // Without a name the cells stay empty; a failed read keeps the 14 dates with empty cells and no vacation line.
   assert.deepEqual(m.scheduleForm(w.calendar, '').calendar[2].items[0].who, []);

@@ -25,6 +25,7 @@ import {weekDays, workLines, shortDay, reportDay, tasksOn, pendingOn, meetingsOn
 import {requestTagsHtml, requestPrefix} from './update-requests.js';
 import {seoulDateKey, addSeoulDays, seoulClock} from './meeting-time.js';
 import {meetingKindKey, meetingKindName, reportsMeeting, validKindKey} from './journal-meeting-kinds.js';
+import {itemWhat} from './weekly-hwpx/schedule.mjs';
 import {formDay, dayParts, dayLabel, whatCell, requestLine, sortItems, EXEC_HEAD, EXEC_LIMITS, EXEC_MAX_ROWS, CARRIED_TAG} from './weekly-exec-requests.js';
 
 // The reads behind each part (journal.js materials keys; 'lines' is the journal's own lines read).
@@ -141,15 +142,17 @@ export function upcomingSchedule(events, start) {
     const title = String(event.title || '').trim() || '(제목 없음)';
     if (isVacation(event)) { vacations.push({first, last, title}); continue; }
     const time = event.allDay ? '종일' : seoulClock(event.start), place = String(event.location || '').trim();
-    list.push({day:first < from ? from : first, first, last, multi:first !== last, allDay:!!event.allDay, at:event.allDay ? 0 : Date.parse(event.start), title,
-      what:[time, title, place].filter(Boolean).join(' / ')});
+    // key: the event's own id (WEEKLY-일정다듬기 — the .hwpx title check keeps what was confirmed per event); time/title/place: the parts
+    // of the form cell (weekly-hwpx/schedule.mjs formWhat). `what` stays the screen and copy text as before.
+    list.push({day:first < from ? from : first, first, last, multi:first !== last, allDay:!!event.allDay, at:event.allDay ? 0 : Date.parse(event.start), title, time, place,
+      key:key || `${first}|${time}|${title}`, what:[time, title, place].filter(Boolean).join(' / ')});
   }
   list.sort((a, b) => a.day.localeCompare(b.day) || a.multi - b.multi || (a.multi && a.last.localeCompare(b.last)) || b.allDay - a.allDay || a.at - b.at || a.title.localeCompare(b.title, 'ko'));
   const rows = [];
   for (const item of list) {
     const label = span(item.first, item.last, formDay, ' ~ ');
     const row = rows.at(-1)?.label === label ? rows.at(-1) : (rows.push({day:item.day, label, items:[]}), rows.at(-1));
-    row.items.push({what:item.what, multi:item.multi});
+    row.items.push({what:item.what, multi:item.multi, key:item.key, time:item.time, title:item.title, place:item.place});
   }
   vacations.sort((a, b) => a.first.localeCompare(b.first) || a.last.localeCompare(b.last));
   return {days, rows, vacations, noCalendar:hasReportCalendar(events) === false};
@@ -159,15 +162,17 @@ export const vacationLine = vacations => vacations?.length ? `※ 휴가: ${vaca
 // The form's 5. 주요 일정 table (weekly-hwpx report.mjs calendar/calendarNotes): every one of the 14 days in a row of its own, as
 // the personal reports write it (a day without an event keeps its date with empty cells), a several-day event on its own row
 // after its first day, 참석자 = my name. Vacations become "※ 10.23.(금) 이름 연차" lines under the table.
-export function scheduleForm(calendar, me = '') {
+// WEEKLY-일정다듬기 ③(2026-10-23 사용자 요청 12:43 ④): the cell is always "시간 / 내용 / 장소" (no place → '미정'); titles·places the owner
+// confirmed on the .hwpx screen (overrides: Map(event key → {title, place})) replace the calendar's (weekly-hwpx/schedule.mjs itemWhat).
+export function scheduleForm(calendar, me = '', overrides = null) {
   const who = me ? [me] : [];
   const out = [];
   const ready = calendar && !calendar.loading && !calendar.failed?.length;
   for (const day of calendar?.days || []) {
     const rows = ready ? calendar.rows.filter(r => r.day === day) : [];
     const single = rows.filter(r => !r.items[0]?.multi);
-    out.push({day:formDay(day), items:single.flatMap(r => r.items.map(i => ({what:i.what, who:[...who]})))});
-    for (const r of rows.filter(r => r.items[0]?.multi)) out.push({day:r.label, items:r.items.map(i => ({what:i.what, who:[...who]}))});
+    out.push({day:formDay(day), items:single.flatMap(r => r.items.map(i => ({what:itemWhat(i, overrides), who:[...who]})))});
+    for (const r of rows.filter(r => r.items[0]?.multi)) out.push({day:r.label, items:r.items.map(i => ({what:itemWhat(i, overrides), who:[...who]}))});
   }
   const notes = ready ? calendar.vacations.map(v => `※ ${span(v.first, v.last, formDay, '~')} ${me && !v.title.includes(me) ? `${me} ` : ''}${v.title}`) : [];
   return {calendar:out, calendarNotes:notes};
