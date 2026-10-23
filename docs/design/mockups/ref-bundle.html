@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>REF-참고묶음 시안</title>
+<style>
+:root{
+  --kptu-bg:#f3f1ea;--kptu-surface:#fffefa;--kptu-surface-subtle:#f7f5ee;
+  --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--kptu-faint:#8f8c7f;
+  --kptu-border:#e2ddd0;--kptu-border-strong:#cfc8b6;
+  --kptu-primary:#5c6a35;--kptu-primary-ink:#47532a;--kptu-primary-soft:#eef0e1;--kptu-on-primary:#fff;
+  --ds-kind-other-soft:#efede6;--ds-kind-other-ink:#55534a;
+  --ds-kind-ref-soft:#e6ecf2;--ds-kind-ref-ink:#3b5671;
+  --ds-line:var(--kptu-border-strong);
+}
+@media (prefers-color-scheme:dark){:root{
+  --kptu-bg:#161613;--kptu-surface:#1f1f1b;--kptu-surface-subtle:#292924;--kptu-ink:#ebe9e1;--kptu-muted:#b1aea2;--kptu-faint:#938f84;
+  --kptu-border:#34332d;--kptu-border-strong:#4a4840;--kptu-primary:#b4c385;--kptu-primary-ink:#c2d095;--kptu-primary-soft:#2c3120;--kptu-on-primary:#161613;
+  --ds-kind-other-soft:#2d2c27;--ds-kind-other-ink:#cbc8bd;--ds-kind-ref-soft:#1f2a35;--ds-kind-ref-ink:#a9c2da;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--kptu-bg);color:var(--kptu-ink);font:13px/1.45 system-ui,"Noto Sans KR","Malgun Gothic",sans-serif;padding:12px}
+h1{font-size:14px;font-weight:500;margin:0 0 8px;color:var(--kptu-muted)}
+.wrap{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
+.label{font-size:12px;color:var(--kptu-muted);margin:0 0 4px}
+.phone{width:390px;max-width:100%;background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:12px;padding:10px 12px}
+.pc{width:760px;max-width:100%;background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:10px;display:grid;grid-template-columns:240px 1fr;overflow:hidden}
+.pc>div{padding:8px 10px;min-width:0}
+.pc>div+div{border-left:.5px solid var(--kptu-border)}
+h2{font-size:14px;font-weight:500;margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.head{display:flex;align-items:center;gap:6px;padding-bottom:6px;border-bottom:.5px solid var(--kptu-border)}
+.mu{color:var(--kptu-muted);font-size:12px}
+.fa{color:var(--kptu-faint);font-size:12px}
+.row{display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:.5px solid var(--kptu-border);min-width:0}
+.row:last-child{border-bottom:0}
+.row b{font-weight:400;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row.sel{background:var(--kptu-primary-soft);margin:0 -10px;padding:6px 10px}
+.row .n{font-size:12px;color:var(--kptu-muted);white-space:nowrap}
+button{height:32px;font:inherit;color:var(--kptu-ink);background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:8px;padding:0 10px;white-space:nowrap}
+button.sm{height:26px;padding:0 8px;font-size:12px}
+button.ic{width:28px;height:26px;padding:0;border:0;background:none;color:var(--kptu-muted)}
+button.on{background:var(--ds-kind-other-soft);border-color:var(--ds-line)}
+button.pri{background:var(--kptu-primary);color:var(--kptu-on-primary);border-color:var(--kptu-primary)}
+.btns{display:flex;gap:6px;margin:8px 0}
+.memo{padding:6px 0 8px;border-bottom:.5px solid var(--kptu-border)}
+.memo p{margin:2px 0}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:1px 8px;border-radius:999px;background:var(--ds-kind-other-soft);color:var(--ds-kind-other-ink);white-space:nowrap}
+.chip.ref{background:var(--ds-kind-ref-soft);color:var(--ds-kind-ref-ink)}
+.chip x{font-style:normal;opacity:.7}
+.sheet{margin-top:8px;border:.5px solid var(--ds-line);border-radius:12px 12px 0 0;padding:6px 10px 8px;background:var(--kptu-surface)}
+.grip{width:36px;height:4px;border-radius:2px;background:var(--kptu-border-strong);margin:0 auto 6px}
+.sheet .t{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.sheet .t b{font-weight:500;flex:1}
+.ck{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:.5px solid var(--kptu-border)}
+.ck:last-child{border-bottom:0}
+.ck i{width:16px;height:16px;border:.5px solid var(--ds-line);border-radius:4px;flex:none;display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-size:11px}
+.ck.on i{background:var(--kptu-primary);border-color:var(--kptu-primary);color:var(--kptu-on-primary)}
+.ck span{flex:1}
+.grp{font-size:12px;color:var(--kptu-muted);margin:8px 0 2px}
+.foot{display:flex;justify-content:flex-end;gap:6px;margin-top:8px}
+.target{border-top:.5px solid var(--kptu-border);padding-top:6px;margin-top:6px}
+.target .h{display:flex;align-items:center;gap:6px}
+.target .h b{font-weight:500;font-size:12px;flex:1}
+textarea,input[type=text]{width:100%;font:inherit;color:var(--kptu-ink);background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:8px;padding:5px 8px}
+textarea{height:46px;resize:none;font-size:12px}
+.item{padding:6px 0;border-bottom:.5px solid var(--kptu-border);display:flex;gap:8px;align-items:flex-start}
+.item:last-child{border-bottom:0}
+.item .d{font-size:12px;color:var(--kptu-muted);width:38px;flex:none;padding-top:1px}
+.item .x{flex:1;min-width:0}
+.item .x p{margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .x small{color:var(--kptu-faint);font-size:12px}
+.rename{display:flex;gap:6px;align-items:center;padding:6px 0;border-bottom:.5px solid var(--kptu-border)}
+.rename input{height:32px;flex:1}
+.menu{position:relative}
+.pop{position:absolute;right:0;top:28px;z-index:2;background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:8px;min-width:140px;padding:4px 0;font-size:13px}
+.pop div{padding:6px 12px}
+.pop div.dim{color:var(--kptu-faint)}
+.cap{font-size:12px;color:var(--kptu-muted);margin:10px 0 2px}
+.wk{background:var(--kptu-surface-subtle);border-radius:8px;padding:6px 8px;font-size:12px;margin-top:8px}
+.wk s{color:var(--kptu-faint)}
+.tabs{display:flex;gap:4px;overflow:auto;margin:6px 0}
+.tabs button{flex:none}
+</style>
+</head>
+<body>
+<h1>REF-참고묶음 시안 (가짜 이름·가짜 글 · 저장 안 됨)</h1>
+<div class="wrap">
+
+<!-- (가) 폰: 바구니 업데이트 [연결하기]에 '참고' 묶음 -->
+<section>
+<p class="label">(가) 폰 390 · 바구니 업데이트 [연결하기]</p>
+<div class="phone">
+  <div class="head"><span class="mu">‹ 바구니</span><h2></h2><button class="ic" aria-label="더보기">⋯</button></div>
+  <div class="memo">
+    <p>본부 정책국 공문: 공공기관 총인건비 제도개선 토론회 11.5(수) 14:00 국회 소회의실, 지부별 참석 2명 요청</p>
+    <p class="fa">10.23 09:12</p>
+  </div>
+  <div class="btns"><button>담당조직 ▾</button><button>프로젝트 ▾</button><button class="on">참고 ▾</button></div>
+
+  <div class="target">
+    <div class="h"><span class="chip ref">참고</span><b>공공기관사업(본부)</b><button class="ic" aria-label="빼기">×</button></div>
+    <textarea placeholder="요약(비워도 됨)"></textarea>
+  </div>
+
+  <div class="sheet" aria-label="참고 묶음 고르기">
+    <div class="grip"></div>
+    <div class="t"><b>참고 묶음</b><button class="ic" aria-label="닫기">×</button></div>
+    <div class="ck"><i></i><span>공공운수노조</span><span class="fa">12</span></div>
+    <div class="ck on"><i>✓</i><span>공공기관사업(본부)</span><span class="fa">8</span></div>
+    <div class="ck"><i></i><span>기타 조직</span><span class="fa">21</span></div>
+  </div>
+  <div class="foot"><button>취소</button><button class="pri">연결</button></div>
+
+  <p class="cap">홈 [업데이트 ▾] 기록할 곳 시트 — 맨 아래 덩어리</p>
+  <div class="sheet" style="border-radius:12px">
+    <div class="grp">최근</div>
+    <div class="tabs"><button class="sm">가람지부</button><button class="sm">노선안전 TF</button><button class="sm">기타 조직</button></div>
+    <div class="grp">담당조직 · 프로젝트</div>
+    <div class="ck"><i></i><span class="fa">… (지금과 같음)</span></div>
+    <div class="grp">참고</div>
+    <div class="ck"><i></i><span>공공운수노조</span></div>
+    <div class="ck"><i></i><span>공공기관사업(본부)</span></div>
+    <div class="ck on"><i>✓</i><span>기타 조직</span></div>
+  </div>
+
+  <p class="cap">연결 뒤 업데이트 화면</p>
+  <div class="memo" style="border-bottom:0"><span class="chip ref">참고 · 공공기관사업(본부) <x>×</x></span> <span class="fa">10.23</span></div>
+</div>
+</section>
+
+<!-- (나) 참고 묶음 화면 -->
+<section>
+<p class="label">(나) 참고 묶음 화면 · PC 두 칸(폰은 목록 → 상세)</p>
+<div class="pc">
+  <div>
+    <div class="head"><h2>참고 묶음</h2>
+      <div class="menu"><button class="ic" aria-label="묶음 메뉴">⋯</button>
+        <div class="pop"><div>묶음 더하기</div><div>순서 바꾸기</div></div></div>
+    </div>
+    <div class="row"><b>공공운수노조</b><span class="n">12 · 10.22</span></div>
+    <div class="row sel"><b>공공기관사업(본부)</b><span class="n">8 · 10.23</span></div>
+    <div class="row"><b>기타 조직</b><span class="n">21 · 10.21</span></div>
+    <div class="row"><b>한울교통공사지부</b><span class="n">0</span></div>
+  </div>
+  <div>
+    <div class="head"><h2>공공기관사업(본부)</h2>
+      <div class="menu"><button class="ic" aria-label="묶음 메뉴">⋯</button></div>
+    </div>
+    <div class="rename"><input type="text" value="공공기관사업(본부)" aria-label="묶음 이름"><button class="sm">저장</button><button class="sm">취소</button></div>
+    <div class="item"><span class="d">10.23</span><div class="x"><p>공공기관 총인건비 제도개선 토론회 11.5 14:00 국회, 지부별 2명</p><small>업데이트</small></div><button class="ic" aria-label="더보기">⋯</button></div>
+    <div class="item"><span class="d">10.21</span><div class="x"><p>본부 정책국: 직무급 도입 기관 현황 조사 회신 10.31까지</p><small>업데이트 · 파일 1</small></div><button class="ic" aria-label="더보기">⋯</button></div>
+    <div class="item"><span class="d">10.17</span><div class="x"><p>경영평가 편람 개정안 설명회 자료 공유</p><small>노트</small></div>
+      <div class="menu"><button class="ic" aria-label="더보기">⋯</button><div class="pop" style="top:24px"><div>업데이트 열기</div><div>연결 해제</div><div class="dim">조직으로 옮기기 (나중)</div></div></div></div>
+    <div class="item"><span class="d">10.14</span><div class="x"><p>공공기관 노정협의 실무협의 결과 요지</p><small>업데이트</small></div><button class="ic" aria-label="더보기">⋯</button></div>
+  </div>
+</div>
+<p class="cap">상세 머리 ⋯ = [이름 바꾸기] · [묶음 지우기](붙은 소식 0개일 때만). 위 입력 줄은 [이름 바꾸기]를 누른 모습. 들어가는 곳(추천): 담당조직 목록 맨 아래 한 줄 "참고 묶음 ›".</p>
+
+<div class="phone" style="margin-top:12px">
+  <p class="label" style="margin:0">업무일지 [주간 정리] · 하루 카드에서의 차이</p>
+  <div class="wk">
+    <b style="font-weight:500">[주간 정리] 4. 산하 조직 현황</b><br>
+    가람지부 · 단협 본교섭 4차 10.22<br>
+    <s>미분류 · 공공기관 총인건비 제도개선 토론회…</s> ← 참고에 붙인 소식은 들어가지 않음([복사]·한글 파일도 같음)
+  </div>
+  <div class="wk">
+    <b style="font-weight:500">하루 카드 › 그 밖의 기록 ▸ (접힘)</b><br>
+    참고 · 공공기관사업(본부) · 공공기관 총인건비 제도개선 토론회…
+  </div>
+</div>
+</section>
+
+</div>
+</body>
+</html>
