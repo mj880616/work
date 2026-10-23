@@ -1,4 +1,5 @@
 import { expect } from '@playwright/test';
+import {DEFAULT_STAGES} from '../../../app/org-dispute-stage-model.mjs';
 import { loginEntry } from './login-entry.mjs';
 import {testOrigin} from './test-origin.mjs';
 import { signInWithSession } from './session-login.mjs';
@@ -6,6 +7,7 @@ import { installViewPrefsServer } from './view-prefs-server.mjs';
 const app=testOrigin+'/app/',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // Normalized Google Tasks create representation, matching the existing Edge contract.
 export function createdTaskReply(body,{id='new',linkError=null}={}){return{ok:true,task:{id,taskListId:'@default',taskListTitle:'내 할 일',title:body.title,notes:body.notes||'',due:body.due||null,status:'needsAction',source:'google-task'},links:linkError?[]:(body.links||[]).map(link=>({...link,status:'confirmed'})),meeting_links:[],...(linkError?{link_error:linkError}:{})}}
+export const defaultStageRows=()=>DEFAULT_STAGES.map((row,i)=>({id:'stage-'+(i+1),...row,sort_order:i+1,created_at:'2026-10-01T00:00:00Z'}));
 export async function openHome(
   page,
   { delay = 0, delays = {}, holds = {}, fail = "", connected = true, calendarWarning = "", query = "", milestones = true, beforeLoad = null } = {},
@@ -109,6 +111,9 @@ export async function openHome(
           workspace: { id: "w", name: "QA", slug: "kptu-work" },
         },
       ]);
+    // ORG-쟁의단계: 기본 단계가 이미 채워진 빈 이력(조직 상세 줄이 처음 열 때 쓰기를 하지 않게). 단계 시험은 자기 경로로 다시 가로챈다.
+    if (p === "/rest/v1/app_dispute_stages" && req.method() === "GET") return ok(defaultStageRows());
+    if (p === "/rest/v1/app_suborganization_dispute_stages" && req.method() === "GET") return ok([]);
     const latency=delays[a] ?? delays[p.split('/').pop()] ?? (p.includes('/functions/')?delay:0);
     const holdKey=p.endsWith('app_record_links')&&u.searchParams.get('note_id')==='not.is.null'?'basket-record-links':p.split('/').pop();
     await (holds[a] ?? holds[holdKey]);
