@@ -89,8 +89,8 @@ test('조직 소식 in the organization order (named, then 그 외, then 미분�
   assert.deepEqual(w.notes.memos.items, [{day:'2026-10-08', text:'일지에 남긴 메모'}]);
   assert.deepEqual(w.notes.docs.items.map(i => i.day), ['2026-10-06']);
   assert.deepEqual(w.notes.shares.items.map(i => i.day), ['2026-10-07']);
-  // No 요청사항 material is gathered (#859; the input waits for decision W).
-  assert.equal('requests' in w, false);
+  // 1. 요청사항 › 1) is the week's saved request rows (WEEKLY-임원요청정리); not read yet here, so it is loading.
+  assert.equal(w.requests.loading, true);
 });
 
 test('an empty week: every part is ready and empty', async () => {
@@ -131,42 +131,49 @@ test('a tree deeper than 3단 puts the deeper record on its 세부 과제 row', 
 // WEEKLY-주요일정 (2026-10-21 사용자 결정): 5. 주요 일정 = the two weeks (Monday to Sunday twice) from the Monday after the shown
 // week; a vacation is a "※ 휴가" line, not a row; an event marked 일기·비공개 is left out. Fake titles and places only.
 const upcoming = [
-  {id:'u1', calendarId:'c', title:'가상 회의', location:'가상 장소', start:'2026-10-13T10:30:00+09:00', end:'2026-10-13T12:00:00+09:00'},
-  {id:'u1', calendarId:'c', title:'가상 회의', location:'가상 장소', start:'2026-10-13T10:30:00+09:00', end:'2026-10-13T12:00:00+09:00'},
-  {id:'u2', calendarId:'c', title:'가상 아침 일정', start:'2026-10-13T09:00:00+09:00', end:'2026-10-13T09:30:00+09:00'},
-  {id:'u3', calendarId:'c', title:'가상 수련회', location:'가상 연수원', allDay:true, start:'2026-10-13', end:'2026-10-15'},
-  {id:'u4', calendarId:'c', title:'가상 종일 행사', allDay:true, start:'2026-10-13', end:'2026-10-14'},
-  {id:'u5', calendarId:'c', title:'연차', allDay:true, start:'2026-10-23', end:'2026-10-24'},
-  {id:'u6', calendarId:'c', title:'여름 휴가', allDay:true, start:'2026-10-19', end:'2026-10-22'},
-  {id:'u7', calendarId:'c', title:'오후 반차', start:'2026-10-16T13:00:00+09:00', end:'2026-10-16T18:00:00+09:00'},
-  {id:'u8', calendarId:'c', title:'일기 쓰기', start:'2026-10-14T21:00:00+09:00', end:'2026-10-14T22:00:00+09:00'},
-  {id:'u9', calendarId:'c', title:'가상 약속', description:'비공개', start:'2026-10-15T19:00:00+09:00', end:'2026-10-15T20:00:00+09:00'},
-  {id:'u10', calendarId:'c', title:'이번 주 일정', start:'2026-10-11T10:00:00+09:00', end:'2026-10-11T11:00:00+09:00'},
-  {id:'u11', calendarId:'c', title:'셋째 주 일정', start:'2026-10-26T00:00:00+09:00', end:'2026-10-26T01:00:00+09:00'},
-  {id:'u12', calendarId:'c', title:'걸친 출장', allDay:true, start:'2026-10-10', end:'2026-10-13'},
-  {id:'u13', calendarId:'c', title:'가상 마지막 날', start:'2026-10-25T23:00:00+09:00', end:'2026-10-25T23:30:00+09:00'},
+  {id:'u1', calendarId:'c', calendarName:'공공운수노조', title:'가상 회의', location:'가상 장소', start:'2026-10-13T10:30:00+09:00', end:'2026-10-13T12:00:00+09:00'},
+  {id:'u1', calendarId:'c', calendarName:'공공운수노조', title:'가상 회의', location:'가상 장소', start:'2026-10-13T10:30:00+09:00', end:'2026-10-13T12:00:00+09:00'},
+  {id:'u2', calendarId:'c', calendarName:'공공운수노조', title:'가상 아침 일정', start:'2026-10-13T09:00:00+09:00', end:'2026-10-13T09:30:00+09:00'},
+  {id:'u3', calendarId:'c', calendarName:'공공운수노조', title:'가상 수련회', location:'가상 연수원', allDay:true, start:'2026-10-13', end:'2026-10-15'},
+  {id:'u4', calendarId:'c', calendarName:'공공운수노조', title:'가상 종일 행사', allDay:true, start:'2026-10-13', end:'2026-10-14'},
+  {id:'u5', calendarId:'c', calendarName:'공공운수노조', title:'연차', allDay:true, start:'2026-10-23', end:'2026-10-24'},
+  {id:'u6', calendarId:'c', calendarName:'공공운수노조', title:'여름 휴가', allDay:true, start:'2026-10-19', end:'2026-10-22'},
+  {id:'u7', calendarId:'c', calendarName:'공공운수노조', title:'오후 반차', start:'2026-10-16T13:00:00+09:00', end:'2026-10-16T18:00:00+09:00'},
+  {id:'u8', calendarId:'c', calendarName:'공공운수노조', title:'일기 쓰기', start:'2026-10-14T21:00:00+09:00', end:'2026-10-14T22:00:00+09:00'},
+  {id:'u9', calendarId:'c', calendarName:'공공운수노조', title:'가상 약속', description:'비공개', start:'2026-10-15T19:00:00+09:00', end:'2026-10-15T20:00:00+09:00'},
+  {id:'u10', calendarId:'c', calendarName:'공공운수노조', title:'이번 주 일정', start:'2026-10-11T10:00:00+09:00', end:'2026-10-11T11:00:00+09:00'},
+  {id:'u11', calendarId:'c', calendarName:'공공운수노조', title:'셋째 주 일정', start:'2026-10-26T00:00:00+09:00', end:'2026-10-26T01:00:00+09:00'},
+  {id:'u12', calendarId:'c', calendarName:'공공운수노조', title:'걸친 출장', allDay:true, start:'2026-10-10', end:'2026-10-13'},
+  {id:'u13', calendarId:'c', calendarName:'공공운수노조', title:'가상 마지막 날', start:'2026-10-25T23:00:00+09:00', end:'2026-10-25T23:30:00+09:00'},
 ];
 
-// RPT-개인일정빼기: the two personal calendars are left out by name (one list; the table and the .hwpx form share upcomingSchedule).
-test('5. 주요 일정: events of the two excluded calendars (by name) are left out, others stay', async () => {
+// WEEKLY-출력정리 ③: only the work calendar named '공공운수노조' (by name, case and spacing ignored); every other calendar — personal,
+// a match calendar, one whose name is unknown — is left out. One rule for the table and the .hwpx form (upcomingSchedule).
+test('5. 주요 일정: only events of the 공공운수노조 calendar; no such calendar → empty table and noCalendar', async () => {
   const m = await mod;
-  assert.deepEqual([...m.REPORT_EXCLUDED_CALENDARS], ['명진승지', 'arsenal 명진']);
+  assert.equal(m.REPORT_CALENDAR, '공공운수노조');
   const at = {start:'2026-10-13T10:00:00+09:00', end:'2026-10-13T11:00:00+09:00'};
-  const events = [
+  const events = Object.assign([
     {id:'a', calendarId:'x1', calendarName:'명진승지', title:'가상 개인', ...at},
     {id:'b', calendarId:'x2', calendarName:' Arsenal   명진 ', title:'가상 경기', ...at},
-    {id:'c', calendarId:'x3', calendarName:'가상 업무', title:'가상 업무 회의', ...at},
+    {id:'c', calendarId:'x3', calendarName:' 공공운수노조 ', title:'가상 업무 회의', ...at},
     {id:'d', calendarId:'x4', title:'이름 모름', ...at},
+    {id:'f', calendarId:'x5', calendarName:'가상 다른 달력', title:'가상 생일', ...at},
     {id:'e', calendarId:'x1', calendarName:'명진승지', title:'연차', allDay:true, start:'2026-10-14', end:'2026-10-15'},
-  ];
-  assert.equal(m.isExcludedCalendar(events[0]), true);
-  assert.equal(m.isExcludedCalendar(events[1]), true);
-  assert.equal(m.isExcludedCalendar(events[2]), false);
+  ], {calendarNames:['명진승지', 'Arsenal 명진', '공공운수노조', '가상 다른 달력']});
+  assert.equal(m.isReportCalendar(events[2]), true);
+  for (const i of [0, 1, 3, 4]) assert.equal(m.isReportCalendar(events[i]), false);
   const c = m.upcomingSchedule(events, '2026-10-05');
-  assert.deepEqual(c.rows.map(r => r.items.map(i => i.what)), [['10:00 / 가상 업무 회의', '10:00 / 이름 모름']]);
+  assert.deepEqual(c.rows.map(r => r.items.map(i => i.what)), [['10:00 / 가상 업무 회의']]);
   assert.deepEqual(c.vacations, []);
+  assert.equal(c.noCalendar, false);
   // The .hwpx form cells come from the same model.
-  assert.equal(JSON.stringify(m.scheduleForm(c, '나')).match(/가상 개인|가상 경기/), null);
+  assert.equal(JSON.stringify(m.scheduleForm(c, '나')).match(/가상 개인|가상 경기|이름 모름|가상 생일/), null);
+  // No 공공운수노조 calendar in the account: nothing is taken and the screen is told.
+  const none = m.upcomingSchedule(Object.assign(events.filter(e => e.id !== 'c'), {calendarNames:['명진승지', 'Arsenal 명진']}), '2026-10-05');
+  assert.deepEqual([none.rows, none.vacations, none.noCalendar], [[], [], true]);
+  assert.equal(m.scheduleForm(none, '나').calendar.length, 14);
+  assert.ok(m.scheduleForm(none, '나').calendar.every(d => !d.items.length));
 });
 
 test('5. 주요 일정: the two weeks after the shown week, form cells, vacations apart, 일기·비공개 left out', async () => {

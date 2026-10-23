@@ -205,6 +205,22 @@
 #appView #journalView .journal-weekly-schedule thead th:nth-child(1){ width:30%; }
 #appView #journalView .journal-weekly-schedule thead th:nth-child(2){ width:auto; }
 #appView #journalView .journal-weekly-schedule thead th:nth-child(3){ width:14%; }
+/* 1. 요청사항 › 1) 임원 일정 배정·논의 요청 표(WEEKLY-임원요청정리): 일 | 시간/내용/장소 | 참석 요청 + 줄마다 작은 [고치기].
+   지난주 확정본에서 가져온 줄은 작은 '지난주에서' 글자(화면에만). 고치기 줄은 표 안 한 칸에 칸들을 줄바꿈으로 놓는다(UI-버튼기준: 작은 버튼). */
+#appView #journalView .journal-exec-table thead th:nth-child(1){ width:24%; }
+#appView #journalView .journal-exec-table thead th:nth-child(2){ width:auto; }
+#appView #journalView .journal-exec-table thead th:nth-child(3){ width:24%; }
+#appView #journalView .journal-exec-table thead th:nth-child(4){ width:76px; }
+#appView #journalView .journal-exec-tools{ text-align:right; }
+#appView #journalView .journal-exec-carried{ display:inline-block; margin-left:2px; padding:0 5px; border-radius:var(--ds-chip-radius); background:var(--kptu-surface-subtle); color:var(--kptu-muted); font-size:var(--ds-text-meta); line-height:1.6; white-space:nowrap; vertical-align:baseline; }
+#appView #journalView .journal-exec-bar{ display:flex; align-items:center; gap:6px; margin-top:4px; }
+#appView #journalView .journal-exec-form{ display:flex; flex-wrap:wrap; gap:6px 8px; align-items:flex-end; }
+#appView #journalView .journal-exec-field{ display:flex; flex-direction:column; gap:2px; min-width:0; flex:1 1 140px; font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+#appView #journalView .journal-exec-field input{ box-sizing:border-box; width:100%; min-height:var(--ds-compact-height); font-size:var(--kptu-text-body); color:var(--kptu-ink); }
+#appView #journalView .journal-exec-time{ flex:0 1 96px; }
+#appView #journalView .journal-exec-what{ flex:2 1 220px; }
+#appView #journalView .journal-exec-form .journal-edit-actions{ flex:1 1 100%; }
+#appView #journalView .journal-exec-form input[aria-invalid="true"]{ border-color:var(--kptu-danger); }
 #appView #journalView .journal-weekly-vacation{ margin:0; font-size:var(--kptu-text-body); line-height:1.5; }
 /* ■ 일시(상집 보고일): 보고 있는 주의 다음 월요일. 한글 파일·초안 복사와 같은 날짜. */
 #appView #journalView .journal-weekly-date{ margin:0; font-size:var(--kptu-text-body); font-weight:var(--ds-weight-medium); color:var(--kptu-ink); }
@@ -224,6 +240,8 @@
   #appView #journalView .journal-weekly-area{ font-size:var(--ds-text-read); }
   #appView #journalView .journal-weekly-task{ font-weight:var(--ds-weight-medium); color:var(--kptu-muted); }
   #appView #journalView .journal-weekly-day{ min-width:0; }
+  #appView #journalView .journal-exec-tools{ text-align:left; }
+  #appView #journalView .journal-exec-who:empty{ display:none; }
 }
 /* PC: 1. 요청사항·2. 요약 표는 한 줄 전체, 4. 산하 조직 현황과 참고는 2칸으로 나란히. */
 @media(min-width:1024px){

@@ -11,10 +11,15 @@
 //   휴가는 표 아래 "※ 날짜 이름 연차" 줄로 쓴다(WEEKLY-주요일정, 2026-10-21 사용자 결정 — 금요일 작성·월요일 보고라 "보고 주 + 그다음 주").
 //   1. 2) 주요 일정(본부 주요 일정)은 기준이 정해지지 않아 비운다.
 // - ■ 일시·파일 이름·자료 날짜는 상집 보고일(보고 있는 주의 다음 월요일, journal-data.js reportDay)로 한다(2026-10-21 사용자 결정).
+// - 1. 요청사항 표(WEEKLY-임원요청정리, 2026-10-23): 직전 주 확정본을 그대로 옮기지 않는다. 확정본을 읽으면 그 요청 표에서 날짜가
+//   기준일(상집 보고일, 늦게 쓰면 오늘) 이후이고 내 담당 사업장(이름·별칭)·내 사업(진행 중인 프로젝트, 확정본의 내 담당 줄) 이름이 든 줄만
+//   골라(weekly-exec-requests.js carryOver) journal.js에 넘기고(onCarry — 그 주에 한 번만 서버에 더함), 파일의 요청 표는 [주간 정리]
+//   1. 요청사항 › 1) 표에 저장된 그 주 줄로 채운다(표 준비 전이면 고른 줄만). '지난주에서' 표시는 화면에만 있고 파일에는 없다.
 // - 이 상자 하나만 이 모듈이 그린다(journal.js는 자리만 주고 주·자료가 바뀌면 알려 줌). 브라우저 저장소에 아무것도 두지 않는다.
 import {selectMyOrganizations} from './my-organizations.js';
-import {shortDay, reportDay} from './journal-data.js';
+import {shortDay, reportDay, todayKey} from './journal-data.js';
 import {scheduleForm} from './journal-weekly.js';
+import {carryOver, carryCutoff, formRequests, formDay, mergeCarried} from './weekly-exec-requests.js';
 
 const CONFIRMED_CATEGORY = '주간보고 확정본';
 const encode = encodeURIComponent;
@@ -76,7 +81,7 @@ async function latestConfirmed(rt) {
 }
 
 // host: the box journal.js gives; getWeek(): {start, model} (model = journal-weekly.js weeklySummary of the shown week).
-export function mountWeeklyHwpx(host, {getWeek, onCopy, rt = window.KPTURuntime}) {
+export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, rt = window.KPTURuntime}) {
   if (!host) return null;
   const doc = host.ownerDocument;
   const el = (tag, cls, text) => { const n = doc.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
@@ -161,6 +166,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, rt = window.KPTURuntime}
       state = {draft, team, template, source, start:week.start, me:who.me, meFrom:who.from, date:draft.reportDate(reportDay(week.start)), context,
         myOrgs:draft.orgNames(context.organizations), aliases:new Map(context.organizations.map(o => [o.name, Array.isArray(o.aliases) ? o.aliases : []])), edits:null, built:null, saved:null};
       rebase();
+      carry(week);
       say('');
       renderEdit();
     } catch (error) {
@@ -170,7 +176,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, rt = window.KPTURuntime}
   // (Re)build my base from the team report for the current name; edits start from the base lines.
   function rebase() {
     const {draft, team} = state;
-    state.base = draft.startDraft(team, {me:state.me, myOrgs:state.myOrgs, date:state.date});
+    state.base = draft.startDraft(team, {me:state.me, myOrgs:state.myOrgs, orgList:state.context.orgFailed ? null : state.context.organizations, date:state.date});
     state.rows = draft.editableRows(state.base, state.me);
     state.orgs = draft.editableOrgs(state.base, 'orgs');
     state.sites = draft.editableOrgs(state.base, 'sites');
@@ -178,6 +184,38 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, rt = window.KPTURuntime}
     state.built = null;
   }
 
+  // Last week's request rows that are still to come and relate to my workplaces or projects (the rest are dropped).
+  function carry(week) {
+    const s = state, day = reportDay(week.start), cutoff = carryCutoff(day, todayKey());
+    const orgs = s.context.orgFallback || s.context.orgFailed ? [] : s.myOrgs;
+    const projects = [...(week.projects ?? []), ...s.rows.flatMap(r => [r.area, r.task])];
+    const {items, counts} = carryOver(s.team.requests ?? [], {cutoff, near:day, orgs, projects});
+    s.carry = {items, counts, cutoff, status:onCarry ? 'saving' : 'unsaved', added:0};
+    if (!onCarry) return;
+    const mine = s;
+    Promise.resolve(onCarry(week.start, items)).then(result => { if (state !== mine) return; Object.assign(mine.carry, result); renderRequestNote(); })
+      .catch(() => { if (state === mine) { mine.carry.status = 'failed'; renderRequestNote(); } });
+  }
+  // The rows the file's request table gets: the week's saved rows ([주간 정리] 1. 요청사항 › 1)), or the carried rows when the table
+  // is not there yet (or could not be read) — never last week's table as it was.
+  function requestRows() {
+    const r = getWeek().model?.requests, carried = state.carry?.items ?? [];
+    if (!r || r.loading || r.failed?.length || r.missing) return {items:carried, from:'carried'};
+    // While the carried rows are still being saved, the file already takes them (the same merge the save makes).
+    return {items:state.carry?.status === 'saving' ? mergeCarried(r.items, carried) : r.items, from:'saved'};
+  }
+  function renderRequestNote() {
+    const note = body.querySelector('[data-hwpx-requests]');
+    if (!note || !state?.carry) return;
+    const c = state.carry, n = c.counts, rows = requestRows();
+    const dropped = [n.past ? `지난 날짜 ${n.past}` : '', n.unrelated ? `관련 없음 ${n.unrelated}` : '', n.unread ? `날짜·내용을 못 읽음 ${n.unread}` : ''].filter(Boolean).join(', ');
+    const took = c.status === 'before' ? '이 주는 이미 지난주 줄을 가져와서 다시 가져오지 않았어요.'
+      : c.status === 'saved' ? `지난주 확정본에서 ${c.added}줄을 가져왔어요${dropped ? `(뺀 줄: ${dropped})` : ''}.`
+      : c.status === 'saving' ? '지난주 확정본에서 고른 줄을 저장하는 중이에요.'
+      : c.status === 'failed' ? '지난주에서 고른 줄을 저장하지 못했어요. 파일에는 고른 줄만 넣어요.'
+      : `지난주 확정본에서 ${c.items.length}줄을 골랐어요${dropped ? `(뺀 줄: ${dropped})` : ''}. 저장 칸 준비 전이라 이 파일에만 넣어요.`;
+    note.textContent = `1. 요청사항 표: ${rows.items.length}줄(위 "1) 임원 일정 배정·논의 요청" 표 그대로). ${took} 기준: ${formDay(c.cutoff)}부터, 내 담당 사업장·사업 관련 줄만.`;
+  }
   const areas = {};
   function lineBox(section, row, label) {
     const box = el('div', 'journal-hwpx-row'); box.dataset.hwpxRow = `${section}:${row.index}`;
@@ -240,6 +278,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, rt = window.KPTURuntime}
     const c = model?.calendar, cal = body.querySelector('[data-hwpx-calendar]');
     if (cal) cal.textContent = !c || c.loading ? '5. 주요 일정 표: 달력 일정을 불러오는 중이에요.'
       : c.failed?.length ? '5. 주요 일정 표: 달력 일정을 불러오지 못해 날짜만 넣어요. [주간 정리]의 5. 주요 일정에서 [다시 시도]할 수 있어요.'
+      : c.noCalendar ? "5. 주요 일정 표: '공공운수노조' 달력을 찾지 못해 날짜만 넣어요."
       : `5. 주요 일정 표: ${shortDay(c.days[0])}~${shortDay(c.days.at(-1))} 일정 ${c.rows.reduce((n, r) => n + r.items.length, 0)}개(참석자 = 내 이름)${c.vacations.length ? `, 휴가 ${c.vacations.length}개는 표 아래 ※ 줄` : ''}로 채워요.`;
     const loading = model && ['summary', 'orgs'].some(k => model[k]?.loading);
     const note = body.querySelector('[data-hwpx-loading]');
@@ -267,7 +306,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, rt = window.KPTURuntime}
       : s.context.orgFallback ? `담당 사업장이 지정되지 않아 모든 조직(${s.context.organizations.length}곳)을 내 조직으로 봤어요. 내 프로필 → 담당 사업장에서 정할 수 있어요.`
       : `내 담당 조직 ${s.context.organizations.length}곳(내 프로필 → 담당 사업장 기준)`;
     const o = el('p', 'journal-muted', orgLine); o.dataset.hwpxOrgs = ''; parts.push(o);
-    parts.push(el('p', 'journal-muted', '1. 요청사항 표는 직전 주 확정본 그대로 넣고 "이번 주 확인 필요" 표시를 달아요. 1. 2) 주요 일정과 세부 내용·집회 표는 비워요. 바탕과 다른 줄은 파란 글씨가 돼요.'));
+    const req = el('p', 'journal-muted', ''); req.dataset.hwpxRequests = ''; parts.push(req);
+    parts.push(el('p', 'journal-muted', '1. 2) 주요 일정과 세부 내용·집회 표는 비워요. 바탕과 다른 줄은 파란 글씨가 돼요.'));
     const cal = el('p', 'journal-muted', ''); cal.dataset.hwpxCalendar = ''; parts.push(cal);
     const loading = el('p', 'journal-muted', '이번 주 기록을 불러오는 중이에요. 다 오면 줄 옆에 보여요.'); loading.dataset.hwpxLoading = ''; loading.hidden = true; parts.push(loading);
 
@@ -284,7 +324,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, rt = window.KPTURuntime}
     }
     const orgs = el('section', 'journal-hwpx-part'); orgs.dataset.hwpxPart = 'orgs';
     orgs.append(el('h5', 'journal-weekly-sub', '4. 1) 산하조직 현황 — 내 담당 조직'));
-    if (!s.orgs.length) orgs.append(el('p', 'journal-muted', '확정본 산하조직 표에 내 담당 조직 줄이 없어요.'));
+    if (!s.orgs.length) orgs.append(el('p', 'journal-muted', '내 담당 조직이 없어요.'));
+    else orgs.append(el('p', 'journal-muted', '내 담당 조직 전부(가나다순). 확정본에 없던 조직은 현황 칸이 비어요.'));
     for (const row of s.orgs) orgs.append(lineBox('orgs', row, row.org));
     parts.push(orgs);
     const rest = el('section', 'journal-hwpx-part'); rest.dataset.hwpxUnmatched = ''; rest.hidden = true;
@@ -295,12 +336,13 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, rt = window.KPTURuntime}
     parts.push(actions);
     body.replaceChildren(...parts);
     renderMaterial();
+    renderRequestNote();
   }
 
   async function build() {
     const {draft} = state;
     if (state.built) return state.built;
-    const data = draft.assembleDraft({...state.base, date:state.date, ...scheduleForm(getWeek().model?.calendar, state.me)}, state.edits);
+    const data = draft.assembleDraft({...state.base, date:state.date, requests:formRequests(requestRows().items), ...scheduleForm(getWeek().model?.calendar, state.me)}, state.edits);
     const bytes = await draft.buildHwpx(state.template, data);
     state.built = {bytes, changed:draft.changedCount(data), name:draft.fileNameFor(reportDay(state.start))};
     return state.built;
@@ -358,7 +400,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, rt = window.KPTURuntime}
     // The shown week or the owner changed: a draft belongs to one week, so it closes.
     setWeek(week) { if (state && week !== state.start) close('주가 바뀌어 한글 파일 초안을 닫았어요.'); },
     // The week's reads landed: refresh only the candidates beside the rows (what was typed stays).
-    refresh() { if (state) state.built = null; renderMaterial(); },
+    refresh() { if (state) state.built = null; renderMaterial(); renderRequestNote(); },
     close,
   };
 }

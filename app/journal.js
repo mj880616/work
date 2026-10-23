@@ -46,6 +46,7 @@ import {mountWeeklyHwpx} from './journal-hwpx.js';
 import {readKinds, changeKind} from './journal-meeting-kinds.js';
 import {mountRadar} from './todo-radar.js';
 import {readOrgSummaries, saveEditedSummary, requestOrgSummaries, resultMessage, cleanEdited} from './journal-org-summary.js';
+import {readExecRequests, changeExecRequests, cleanItem, mergeCarried} from './weekly-exec-requests.js';
 
 // ORG-묶음순서: the shared organization order (window.KPTUOrganizationOrder) orders the 조직 소식 sections.
 await import('./organization-order.js').catch(() => {});
@@ -92,6 +93,9 @@ let editing = null;
 let mode = 'day';
 // JOURNAL-조직현황AI요약: the 4. 산하 조직 현황 summary controls of [주간 정리] (memory only; the summaries live in their table).
 let orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()};
+// WEEKLY-임원요청정리: the request table's edit row (memory only; the rows themselves are saved on the server).
+const freshExec = () => ({editing:null, draft:{}, status:'', error:false, invalid:'', saving:false});
+let execUi = freshExec();
 const current = (run, scope) => run === epoch && scope === ownerScope(rt);
 
 function renderWeek() {
@@ -327,12 +331,18 @@ function renderWeekly_() {
   for (const d of host.querySelectorAll('[data-journal-org-raw]')) { if (d.open) orgUi.open.add(d.dataset.journalOrgRaw); else orgUi.open.delete(d.dataset.journalOrgRaw); }
   const typing = host.querySelector('[data-journal-org-edit-input]'), focused = typing && typing === document.activeElement;
   if (typing && orgUi.editing?.id === typing.dataset.journalOrgEditInput) orgUi.editing.value = typing.value;
-  renderWeekly(host, weeklySummary({start, lines, linesState, materials, doneDays, kinds}), esc, orgUi);
+  // The request edit row keeps what is being typed and which field has the focus across redraws too.
+  const execFocus = execDraftFromScreen(host);
+  renderWeekly(host, weeklySummary({start, lines, linesState, materials, doneDays, kinds}), esc, orgUi, execUi);
   if (focused) host.querySelector('[data-journal-org-edit-input]')?.focus();
+  if (execFocus) host.querySelector(`[data-journal-exec-field="${execFocus}"]`)?.focus();
   hwpx?.refresh();
 }
 // WEEKLY-한글초안 2단계: [주간보고 한글 파일 만들기] — journal-hwpx.js owns that box; it reads the shown week's grouping.
-const hwpx = mountWeeklyHwpx($('[data-journal-hwpx]'), {rt, onCopy: () => copyDraft(), getWeek: () => ({start, model:weeklySummary({start, lines, linesState, materials, doneDays, kinds})})});
+// WEEKLY-임원요청정리: it also gets the active project names (carry-over matching) and hands back last week's filtered request rows.
+const projectNames = () => (materials.catalog?.status === 'ok' ? materials.catalog.items.map(entry => entry?.project?.name).filter(Boolean) : []);
+const hwpx = mountWeeklyHwpx($('[data-journal-hwpx]'), {rt, onCopy: () => copyDraft(), onCarry: (week, items) => carryRequests(week, items),
+  getWeek: () => ({start, projects:projectNames(), model:weeklySummary({start, lines, linesState, materials, doneDays, kinds})})});
 function renderMode() {
   root.dataset.journalMode = mode;
   root.querySelectorAll('[data-journal-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.journalMode === mode)));
@@ -364,6 +374,8 @@ const readers = {
   sharePages: () => readWeekSharePages(start, rt),
   // JOURNAL-조직현황AI요약: the week's saved organization summaries (a missing table reads as {missing:true}).
   orgSummaries: () => readOrgSummaries(start, rt),
+  // WEEKLY-임원요청정리: the week's request rows ({missing:true} before the table exists).
+  execRequests: () => readExecRequests(start, rt),
   // The project tree for [주간 정리] (read once per visit, like the basket). Without it records go under their project names.
   catalog: async () => {
     const c = rt.context.read(), catalog = window.KPTUProjectCatalog;
@@ -409,9 +421,9 @@ async function loadKinds(run, scope) {
 function loadWeek({shared = false} = {}) {
   const changedOwner = owner !== ownerScope(rt);
   const run = ++epoch, scope = owner = ownerScope(rt);
-  lines = new Map(); status.textContent = ''; editing = null; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()};
+  lines = new Map(); status.textContent = ''; editing = null; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; execUi = freshExec();
   if (changedOwner) hwpx?.close(); else hwpx?.setWeek(start);
-  const keys = shared ? Object.keys(readers) : ['events', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'orgSummaries'];
+  const keys = shared ? Object.keys(readers) : ['events', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'orgSummaries', 'execRequests'];
   for (const key of keys) materials[key] = {status:'loading'};
   if (shared || changedOwner) loadKinds(run, scope);
   render();
@@ -756,7 +768,109 @@ async function saveOrgEdit() {
 }
 root.addEventListener('keydown', event => {
   if (event.target.matches?.('[data-journal-org-edit-input]') && event.key === 'Escape' && !event.isComposing) { event.preventDefault(); closeOrgEdit(); }
+  if (event.target.matches?.('[data-journal-exec-field]') && !event.isComposing && event.keyCode !== 229) {
+    if (event.key === 'Escape') { event.preventDefault(); closeExecEdit(); }
+    else if (event.key === 'Enter') { event.preventDefault(); void saveExecEdit(); }
+  }
 });
+root.addEventListener('input', event => {
+  if (!event.target.matches?.('[data-journal-exec-field]') || !execUi.editing) return;
+  execUi.draft[event.target.dataset.journalExecField] = event.target.value;
+  if (execUi.invalid === event.target.dataset.journalExecField) { execUi.invalid = ''; event.target.removeAttribute('aria-invalid'); }
+});
+
+// WEEKLY-임원요청정리 ---- 1. 요청사항 › 1) 임원 일정 배정·논의 요청: rows saved with the week (weekly-exec-requests.js).
+function execDraftFromScreen(host) {
+  if (!execUi.editing) return '';
+  let focus = '';
+  for (const input of host.querySelectorAll('[data-journal-exec-field]')) {
+    execUi.draft[input.dataset.journalExecField] = input.value;
+    if (input === document.activeElement) focus = input.dataset.journalExecField;
+  }
+  return focus;
+}
+const execRead = () => (materials.execRequests?.status === 'ok' && !materials.execRequests.items?.missing ? materials.execRequests.items : null);
+const execRows = () => execRead()?.row?.items ?? [];
+function openExecEdit(id) {
+  if (execUi.saving || !execRead()) return;
+  const item = id === 'new' ? null : execRows().find(row => row.id === id);
+  if (id !== 'new' && !item) return;
+  execUi = {...freshExec(), editing:id, draft:item ? {day:item.day, until:item.until || '', time:item.time, what:item.what, place:item.place, who:item.who} : {day:'', until:'', time:'', what:'', place:'', who:''}};
+  renderWeekly_();
+  root.querySelector('[data-journal-exec-field="day"]')?.focus();
+}
+function closeExecEdit(message = '') {
+  const id = execUi.editing; execUi = {...freshExec(), status:message};
+  renderWeekly_();
+  (root.querySelector(`[data-journal-exec-edit="${id}"]`) || root.querySelector('[data-journal-exec-add]'))?.focus();
+}
+const execError = error => error?.status === 401 ? '로그인이 필요해요. 다시 로그인한 뒤 저장해 주세요.' : error?.code === 'changed' || error?.code === 'missing' || error?.code === 'too_many' ? error.message : '저장하지 못했어요. 다시 시도해 주세요.';
+// One change of the week's rows; the screen then shows the saved row the server sent back.
+async function writeExec(change, {carry = false} = {}) {
+  const run = epoch, scope = owner, week = start, read = execRead();
+  const result = await changeExecRequests({start:week, row:read?.row ?? null, change, carry}, rt);
+  if (!current(run, scope)) return {stale:true};
+  materials.execRequests = {status:'ok', items:{missing:false, row:result.row}};
+  return result;
+}
+async function saveExecEdit() {
+  if (!execUi.editing || execUi.saving) return;
+  execDraftFromScreen(root);
+  const id = execUi.editing;
+  let item;
+  try { item = cleanItem({...execUi.draft}, {id:id === 'new' ? undefined : id}); }
+  catch (error) { execUi.status = error.message; execUi.error = true; execUi.invalid = error.field || ''; renderWeekly_(); root.querySelector(`[data-journal-exec-field="${execUi.invalid || 'day'}"]`)?.focus(); return; }
+  execUi.saving = true; execUi.status = '저장하는 중…'; execUi.error = false; renderWeekly_();
+  try {
+    // An edited row is the owner's own now: the '지난주에서' mark goes.
+    const result = await writeExec(list => (id === 'new' ? [...list, item] : list.some(row => row.id === id) ? list.map(row => (row.id === id ? item : row)) : [...list, item]));
+    if (result.stale) return;
+    closeExecEdit(id === 'new' ? '요청 줄을 더했어요.' : '요청 줄을 고쳤어요.');
+  } catch (error) {
+    execUi.saving = false; execUi.status = execError(error); execUi.error = true; renderWeekly_();
+    root.querySelector('[data-journal-exec-field="what"]')?.focus();
+  }
+}
+// Removes the row right away and offers [되돌리기] for 5 seconds (the app's undo notice), like the journal lines.
+async function deleteExecRow(id) {
+  if (execUi.saving) return;
+  const removed = execRows().find(row => row.id === id);
+  if (!removed) return;
+  execUi.saving = true; execUi.status = '지우는 중…'; renderWeekly_();
+  try {
+    const result = await writeExec(list => list.filter(row => row.id !== id));
+    if (result.stale) return;
+  } catch (error) { execUi.saving = false; execUi.status = execError(error); execUi.error = true; renderWeekly_(); return; }
+  closeExecEdit('');
+  const scope = owner, week = start;
+  offerUndoNotice({text:'요청 줄을 지웠어요.', onUndo:async () => {
+    if (scope !== ownerScope(rt) || week !== start) return {status:'stale'};
+    try {
+      const back = await writeExec(list => (list.some(row => row.id === removed.id) ? null : [...list, removed]));
+      if (back.stale) return {status:'stale'};
+      renderWeekly_();
+      return {status:'restored', message:'지운 요청 줄을 되돌렸어요.'};
+    } catch (error) { return {status:'failed', message:execError(error)}; }
+  }});
+}
+// From the .hwpx box: last week's request rows that are still to come and relate to my workplaces/projects, once a week.
+// Returns {status:'saved'|'before'|'unsaved'|'failed'|'stale', added}.
+async function carryRequests(week, items) {
+  if (week !== start) return {status:'stale', added:0};
+  // Not read yet (or the read failed): read the week's rows once more first, so a saved week is not carried twice.
+  if (materials.execRequests?.status !== 'ok') { await loadGroup('execRequests', epoch, owner); if (week !== start) return {status:'stale', added:0}; }
+  const read = materials.execRequests;
+  if (read?.status !== 'ok' || read.items?.missing) return {status:'unsaved', added:0};
+  if (read.items.row?.carried_at) return {status:'before', added:0};
+  if (!items.length) return {status:'saved', added:0};
+  try {
+    let added = 0;
+    const result = await writeExec((list, row) => { if (row?.carried_at) return null; const next = mergeCarried(list, items); added = next.length - list.length; return next; }, {carry:true});
+    if (result.stale) return {status:'stale', added:0};
+    renderWeekly_();
+    return {status:result.skipped ? 'before' : 'saved', added:result.skipped ? 0 : added};
+  } catch { return {status:'failed', added:0}; }
+}
 root.addEventListener('click', event => {
   const button = event.target.closest('button');
   if (!button || !root.contains(button) || button.disabled) return;
@@ -772,6 +886,11 @@ root.addEventListener('click', event => {
   if (button.matches('[data-journal-org-edit-open]')) return openOrgEdit(button.dataset.journalOrgEditOpen);
   if (button.matches('[data-journal-org-edit-save]')) return saveOrgEdit();
   if (button.matches('[data-journal-org-edit-cancel]')) return closeOrgEdit();
+  if (button.matches('[data-journal-exec-add]')) return openExecEdit('new');
+  if (button.matches('[data-journal-exec-edit]')) return openExecEdit(button.dataset.journalExecEdit);
+  if (button.matches('[data-journal-exec-save]')) return void saveExecEdit();
+  if (button.matches('[data-journal-exec-cancel]')) return closeExecEdit();
+  if (button.matches('[data-journal-exec-delete]')) return void deleteExecRow(button.dataset.journalExecDelete);
   if (button.matches('[data-journal-kind-toggle]')) return toggleKind(button.dataset.journalKindToggle, button.dataset.journalKindHide === '1', button.dataset.journalKindName);
   if (button.matches('[data-journal-date]')) return selectDay(button.dataset.journalDate);
   if (button.matches('[data-journal-prev]')) return moveWeek(-1);
@@ -820,7 +939,7 @@ input.addEventListener('input', () => {
 window.addEventListener('kptu:session-changed', () => {
   if (owner === ownerScope(rt)) return;
   owner = ownerScope(rt); epoch++;
-  kinds = {status:'loading'}; drafts = new Map(); lines = new Map(); materials = {}; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; doneDays = DONE_TASK_DAYS; saving = false; editing = null; mode = 'day';
+  kinds = {status:'loading'}; drafts = new Map(); lines = new Map(); materials = {}; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; execUi = freshExec(); doneDays = DONE_TASK_DAYS; saving = false; editing = null; mode = 'day';
   pendingReturn = null; taskLine.close(); selfBusy = 0; othersOpen = false;
   start = weekStart(todayKey()); selected = todayKey();
   if (window.KPTURouter?.current === 'journal') enter();
