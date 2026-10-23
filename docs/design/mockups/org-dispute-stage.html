@@ -51,6 +51,14 @@ td,th{border:1px solid #999;padding:3px 6px;vertical-align:top;text-align:left;f
 th{background:#eee;font-weight:500}
 td.o{width:34%}
 .auto{color:#1a56a8}
+.mg .row{padding:5px 0}
+.mg .grip{color:var(--kptu-faint);cursor:grab;width:14px;text-align:center}
+.mg .nm{flex:1;min-width:0}
+.sw{font-size:11px;padding:1px 8px;border-radius:999px;border:.5px solid var(--ds-line);color:var(--kptu-faint);background:transparent;height:auto}
+.sw.on{background:var(--ds-kind-basket-soft);color:var(--ds-kind-basket-ink);border-color:transparent}
+.sw.end{background:var(--ds-kind-journal-soft);color:var(--ds-kind-journal-ink);border-color:transparent}
+.more{height:26px;padding:0 8px;border:0;background:transparent;color:var(--kptu-muted)}
+.add{margin-top:6px;height:28px;font-weight:400;color:var(--kptu-muted)}
 .note{font-size:11px;color:#777;margin-top:4px}
 </style>
 </head>
@@ -64,7 +72,7 @@ td.o{width:34%}
   <h2>○○공사지부</h2>
   <p class="mu" style="margin:2px 0 0">철도·도시철도 · 담당 나</p>
   <div class="stage"><span class="k">쟁의 단계</span>
-    <select aria-label="쟁의 단계"><option>없음</option><option>교섭 중</option><option selected>쟁의발생결의</option><option>조정신청</option><option>조정종료</option><option>찬반투표</option><option>쟁의행위</option><option>타결</option><option>종료</option></select>
+    <select aria-label="쟁의 단계"><option>없음</option><option>교섭 중</option><option selected>쟁의발생결의</option><option>조정신청</option><option>조정종료</option><option>찬반투표</option><option>쟁의행위</option><option>타결</option></select>
     <input type="date" value="2026-10-20" aria-label="단계 날짜">
     <button type="button">저장</button></div>
   <details><summary>단계 이력 3</summary>
@@ -77,7 +85,7 @@ td.o{width:34%}
   <div class="row"><b>□□교통공사지부</b><span class="tag end">타결</span></div>
   <div class="row"><b>◇◇운영지부</b></div>
   <div class="row"><b>◎◎센터지부</b></div>
-  <p class="note" style="color:var(--kptu-faint)">단계가 없음인 조직은 아무것도 안 붙음. 목록 태그는 투쟁 중 + 이번 주 타결만.</p>
+  <p class="note" style="color:var(--kptu-faint)">단계가 없음인 조직은 아무것도 안 붙음. 목록 태그는 투쟁 중 + 이번 주 끝남(타결)만. 선택지는 (다)에서 관리하는 목록.</p>
 </div>
 </div>
 
@@ -95,6 +103,26 @@ td.o{width:34%}
     <span class="tag">고칠 목록</span>
     <div class="row"><b>◇◇운영지부</b><span class="mu">직전 확정본에 있던 줄 — 지울까요?</span></div>
   </div>
+</div>
+</div>
+
+<div>
+<p class="label">(다) 폰 쟁의 단계 관리 — 담당조직 화면 ⋯ 메뉴 › 쟁의 단계 관리</p>
+<div class="phone mg">
+  <h2>쟁의 단계 관리</h2>
+  <div class="row"><span class="grip">⋮⋮</span><span class="nm">없음</span><button class="sw" type="button">투쟁 중</button><button class="more" type="button" aria-label="더보기">⋯</button></div>
+  <div class="row"><span class="grip">⋮⋮</span><span class="nm">교섭 중</span><button class="sw" type="button">투쟁 중</button><button class="more" type="button" aria-label="더보기">⋯</button></div>
+  <div class="row"><span class="grip">⋮⋮</span><span class="nm">쟁의발생결의</span><button class="sw on" type="button">투쟁 중</button><button class="more" type="button" aria-label="더보기">⋯</button></div>
+  <div class="row"><span class="grip">⋮⋮</span><span class="nm">조정신청</span><button class="sw on" type="button">투쟁 중</button><button class="more" type="button" aria-label="더보기">⋯</button></div>
+  <div class="row"><span class="grip">⋮⋮</span><span class="nm">조정종료</span><button class="sw on" type="button">투쟁 중</button><button class="more" type="button" aria-label="더보기">⋯</button></div>
+  <div class="row"><span class="grip">⋮⋮</span><span class="nm">찬반투표</span><button class="sw on" type="button">투쟁 중</button><button class="more" type="button" aria-label="더보기">⋯</button></div>
+  <div class="row"><span class="grip">⋮⋮</span><span class="nm">쟁의행위</span><button class="sw on" type="button">투쟁 중</button><button class="more" type="button" aria-label="더보기">⋯</button></div>
+  <div class="row"><span class="grip">⋮⋮</span><span class="nm">타결</span><button class="sw end" type="button">끝남</button><button class="more" type="button" aria-label="더보기">⋯</button></div>
+  <button class="add" type="button">+ 단계</button>
+  <details><summary>⋯ 눌렀을 때</summary>
+    <div>이름 바꾸기 · 지우기 · 끝남 켬/끔</div>
+    <div>지우기 막힘 예: “○○공사지부 외 2곳이 이 단계예요”</div></details>
+  <p class="note">‘투쟁 중’ 켠 단계에 있는 조직이 주간보고 표에 자동으로 들어감. 끝남은 그 주 한 번만 보이고 다음 주부터 빠짐. 줄 앞 ⋮⋮를 끌어 순서 바꿈. 이름을 바꾸거나 지워도 지난 이력 글자는 그대로.</p>
 </div>
 </div>
 
