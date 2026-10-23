@@ -13,6 +13,7 @@ import {extractBlankTemplate, assertBlank} from './template.mjs';
 import {readReport, buildReport, reportWords, lineText} from './report.mjs';
 import {matchOrgs, matchOrg, orgAllNames, sameOrgName} from '../org-name-match.mjs';
 import {personalReportFromTeam, effectiveOwners, isMine, ownerNotation} from './delta.mjs';
+import {sitePlan, isStageLine, stageOfOrg, weekOf} from '../org-dispute-stage-model.mjs';
 
 // 브라우저 기본 압축(CompressionStream 'deflate-raw'). Node 20에도 있어 시험이 같은 길을 쓴다.
 const pipe = (bytes, Kind) => new Response(new Blob([bytes]).stream().pipeThrough(new Kind('deflate-raw'))).arrayBuffer().then(b => new Uint8Array(b));
@@ -230,6 +231,39 @@ export function resolveMe(team, profileName) {
 // orgList(선택): 내 담당 조직 [{name, aliases}] — 주면 4. 산하조직 현황 표에 그 조직 전부를 조직보고 순서로 둔다(delta.mjs allOrgRows).
 export function startDraft(team, {me, myOrgs = [], orgList = null, title, date}) {
   return personalReportFromTeam(team, me, {myOrgs, orgList, title: title ?? team.title ?? '', date});
+}
+
+// ORG-쟁의단계 ②(2026-10-24 명진 결정): 3. 2) 투쟁 사업장 현황을 쟁의 단계에서 채운다. 판정은 org-dispute-stage-model.mjs 한 곳.
+//   - 투쟁 중인 내 담당 조직: 첫 줄 '- 쟁의발생 결의(10.20)'(단계(날짜), 파란 글씨) + 직전 확정본의 그 조직 현황 줄 그대로(앱이 이전에 채운 단계 줄만 새 줄로 바꿈).
+//     확정본에 줄이 없던 조직은 새 줄(조직명 + 첫 줄)을 표 끝에 더한다.
+//   - 이번 보고 주간에 끝난(끝남 표시 단계) 조직: 그 주 한 번만 '- 협약체결(10.24)' 한 줄. 다음 주부터는 단계가 지난 주라 빠진다.
+//   - 직전 확정본에 줄이 있었는데 더는 투쟁 중이 아니면 말없이 지우지 않고 fixes(고칠 목록 '지울까요?')로 알린다. 줄 자체는 그대로 둔다.
+// 단계를 읽지 못했으면(state.status !== 'ready') 아무것도 바꾸지 않는다(기존처럼 직전 확정본 줄 그대로).
+// 반환 {base(새 줄이 더해진 바탕), starts: Map(줄 번호 → 시작 줄들), fixes:[{index, org, stage}], plan}
+export function applySiteStages(base, {orgs = [], stages = [], histories = new Map(), weekStart} = {}) {
+  const none = {base, starts: new Map(), fixes: [], plan: []};
+  if (!weekStart || !orgs.length || !stages.length) return none;
+  const week = weekOf(weekStart);
+  const out = structuredClone(base);
+  const rows = out.sites ?? (out.sites = []);
+  const plan = sitePlan(orgs, histories, stages, week);
+  const starts = new Map(), claimed = new Set();
+  const rowOf = org => rows.findIndex((r, i) => !claimed.has(i) && matchOrgs([].concat(r.org).join(''), [org]).length > 0);
+  for (const item of plan) {
+    let index = rowOf(item.org);
+    if (index < 0) { rows.push({org: [String(item.org.name ?? '').trim()], status: [], paras: []}); index = rows.length - 1; }
+    claimed.add(index);
+    const old = rows[index].status.map(lineText);
+    starts.set(index, item.kind === 'ended' ? [item.line] : [item.line, ...old.filter(t => !isStageLine(t, stages))]);
+  }
+  const fixes = [];
+  rows.forEach((r, index) => {
+    if (claimed.has(index) || !r.status.map(lineText).some(t => String(t).trim())) return;
+    const org = orgs.find(o => matchOrgs([].concat(r.org).join(''), [o]).length > 0);
+    const cur = org ? stageOfOrg(org.id, histories, stages, {until: week.end}) : null;
+    fixes.push({index, org: [].concat(r.org).join(' '), stage: cur?.name ?? ''});
+  });
+  return {base: out, starts, fixes, plan};
 }
 
 // 고칠 줄(내 담당 요약 표 줄). index = effectiveOwners 순서(assembleDraft가 같은 순서로 찾는다).
