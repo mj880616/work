@@ -117,6 +117,12 @@ export async function readNoteDoc(id, rt = window.KPTURuntime) {
   if (!Array.isArray(rows)) throw new Error('노트를 확인하지 못했어요.');
   return rows.find(row => row?.id === id) || null;
 }
+// BUG-업데이트첨부연결: one basket update again (after its files went up, for its version and saved files). null when it is gone.
+export async function readBasketNote(id, rt = window.KPTURuntime) {
+  const rows = await rt.api(`/rest/v1/app_notes?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${workspace(rt)}&kind=eq.basket&select=id,raw_text,occurred_at,created_at,updated_at,archived_at,ai_export_allowed,attachments,metadata`, {singleFlight:false});
+  if (!Array.isArray(rows)) throw new Error('업데이트를 확인하지 못했어요.');
+  return rows.find(row => row?.id === id) || null;
+}
 // NOTE-파일붙이기 [빼기]: the file leaves this note only; the Drive file is never touched (no delete, no trash, no move).
 // The same owner-RLS PATCH as the other note writes: the row is read again and the PATCH only applies while it is still the
 // version read (updated_at — every attachment writer, basket-files included, moves it), so a file added meanwhile is never
