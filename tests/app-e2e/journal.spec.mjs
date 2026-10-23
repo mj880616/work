@@ -1123,6 +1123,9 @@ const rowBox=(page,label)=>hwpx(page).locator('.journal-hwpx-row').filter({has:p
 async function openDraft(page){
  await hwpx(page).locator('[data-hwpx-start]').click();
  await expect(hwpx(page).locator('#journalHwpxTitle')).toBeFocused();
+ // WEEKLY-한글파일다듬기 ①: 확정본이 있으면 쉬운 안내문 + [자료실 최신 … 쓰기]가 앞(찾는 동안은 흐림).
+ await expect(hwpx(page).locator('[data-hwpx-intro]')).toHaveText('지난주 팀 확정본을 바탕으로 내 칸만 고친 한글 파일을 만들어요. [확정]을 눌러야 자료실에 저장돼요.');
+ await expect(hwpx(page).locator('.journal-hwpx-actions button').first()).toHaveAttribute('data-hwpx-library','');
  await hwpx(page).locator('[data-hwpx-library]').click();
  await expect(rowBox(page,'사업영역 가 › 세부 과제 가-1').locator('textarea')).toHaveValue('- 지난주 가-1 진행');
 }
@@ -1161,13 +1164,20 @@ for(const width of [390,1280])test(`[주간보고 한글 파일 만들기]: 자�
  await expect(a1.locator('textarea')).toHaveValue('- 지난주 가-1 진행\n- 가-1 목요일 기록');
  // 짝 없는 기록은 줄을 골라 붙인다.
  const rest=hwpx(page).locator('[data-hwpx-unmatched] li').filter({hasText:'가-2 화요일 기록'});
+ // WEEKLY-한글파일다듬기 ③: 고르기 칸 맨 앞은 '줄 고르기'(빈 값). 기본값은 이름이 가까운 줄(같은 사업영역 가의 내 줄 하나), 첫 줄을 그냥 고르지 않는다.
+ await expect(rest.locator('select option').first()).toHaveText('줄 고르기');
+ await expect(rest.locator('select')).toHaveValue(/^summary:/);
+ await rest.locator('select').selectOption('');
+ await expect(rest.getByRole('button',{name:/붙이기/})).toBeDisabled();
  await rest.locator('select').selectOption({label:'사업영역 나 › 세부 과제 나-1'});
+ await expect(rest.getByRole('button',{name:/붙이기/})).toBeEnabled();
  await rest.getByRole('button',{name:/붙이기/}).click();
  await expect(rowBox(page,'사업영역 나 › 세부 과제 나-1').locator('textarea')).toHaveValue('- 지난주 나-1 진행\n- 가-2 화요일 기록');
  await rowBox(page,'가상 노동조합').locator('textarea').fill('- 지난주 조직 소식\n- 손으로 고친 조직 소식');
  // .hwpx 받기: 규격 검사 통과, 내 줄만 채워지고 바뀐 줄만 파란 글씨, 요청 표는 확정본 그대로.
  const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
- expect(download.suggestedFilename()).toBe('주간보고_20261012.hwpx');
+ // WEEKLY-한글파일다듬기 ④: 주간보고_보고일8자리_이름(로그인 사용자 표시 이름 = 프로필 이름).
+ expect(download.suggestedFilename()).toBe('주간보고_20261012_가상담당.hwpx');
  const {pkg,report}=await savedReport(download);
  expect(report.summary[0].rows.map(r=>r.progress)).toEqual([['- 지난주 가-1 진행','- 가-1 목요일 기록'],[]]);
  expect(report.summary[0].rows[1].owner).toEqual([]);
@@ -1196,13 +1206,18 @@ for(const width of [390,1280])test(`[주간보고 한글 파일 만들기]: 자�
  expect(blue.has(runOf('- 가-1 목요일 기록'))).toBe(true);
  expect(blue.has(runOf('- 지난주 가-1 진행'))).toBe(false);
  await expect(hwpx(page).locator('[data-hwpx-status]')).toContainText('바뀐 줄 3개');
+ // WEEKLY-한글파일다듬기 ①: 이 상자의 버튼은 모두 작은 버튼 하나(UI-버튼기준) — 같은 줄 버튼 높이·글자 크기가 같고, 채운 버튼도 크지 않다.
+ const sizes=await hwpx(page).locator('button:visible').evaluateAll(list=>list.map(b=>{const r=b.getBoundingClientRect(),c=getComputedStyle(b);return {name:b.textContent.trim(),h:Math.round(r.height*10)/10,size:c.fontSize};}));
+ expect(sizes.length).toBeGreaterThan(5);
+ for(const b of sizes){expect(b.h,b.name).toBeLessThanOrEqual(32.5);expect(b.size,b.name).toBe(sizes[0].size);}
+ expect(new Set(sizes.map(b=>b.h)).size).toBe(1);
  // [확정]: 한 번 묻고 library-files로 자료실에 저장(분류 "주간보고 개인본", 제목·날짜를 줘서 서버가 내용을 읽지 않음).
  page.once('dialog',d=>d.accept());
  await hwpx(page).locator('[data-hwpx-confirm]').click();
  await expect(hwpx(page).locator('[data-hwpx-status]')).toContainText('자료실에 "주간보고 개인본" 분류로 저장했어요');
  expect(f.sent.library).toHaveLength(1);
  const saved=f.sent.library[0];
- expect([saved.title,saved.category,saved.document_date,saved.file.file]).toEqual(['주간보고 2026년 10월 12일(월)','주간보고 개인본','2026-10-12','주간보고_20261012.hwpx']);
+ expect([saved.title,saved.category,saved.document_date,saved.file.file]).toEqual(['주간보고 2026년 10월 12일(월)','주간보고 개인본','2026-10-12','주간보고_20261012_가상담당.hwpx']);
  expect(Object.keys(saved).sort()).toEqual(['category','document_date','file','title']);
  expect(validateHwpx(new Uint8Array(saved.file.bytes),zlib).errors).toEqual([]);
  await expect(hwpx(page).locator('[data-hwpx-confirm]')).toBeDisabled();
@@ -1252,8 +1267,11 @@ test('[주간보고 한글 파일 만들기]: 자료실에 확정본이 없으�
  const f=await hwpxFixture(page,{width:1280,noConfirmed:true});
  await openJournal(page,1280);await openWeekly(page);
  await hwpx(page).locator('[data-hwpx-start]').click();
- await hwpx(page).locator('[data-hwpx-library]').click();
- await expect(hwpx(page).locator('[data-hwpx-status]')).toContainText('"주간보고 확정본" 분류 자료가 없어요');
+ // WEEKLY-한글파일다듬기 ①: 확정본이 없으면 안내문이 바뀌고 [자료실 최신 … 쓰기]는 흐리게(누를 수 없음), [기기에서 파일 고르기]가 앞.
+ await expect(hwpx(page).locator('[data-hwpx-intro]')).toHaveText('지난주 팀 확정본이 없어요. 자료실에 ‘주간보고 확정본’으로 올리거나, 내 컴퓨터에서 골라 주세요.');
+ await expect(hwpx(page).locator('[data-hwpx-library]')).toBeDisabled();
+ await expect(hwpx(page).locator('.journal-hwpx-actions button').first()).toHaveAttribute('data-hwpx-pick','');
+ await expect(hwpx(page)).not.toContainText('이 기기 안에서만');
  expect(f.sent.open).toEqual([]);
  // 기기 파일(.hwpx) → 고칠 칸
  await hwpx(page).locator('[data-hwpx-file]').setInputFiles({name:'team.hwpx',mimeType:'application/octet-stream',buffer:teamHwpx()});
@@ -1261,7 +1279,7 @@ test('[주간보고 한글 파일 만들기]: 자료실에 확정본이 없으�
  await expect(hwpx(page).locator('[data-hwpx-me]')).toHaveValue('가상 담당');
  // [HWP로 받기]: 같은 엔진이 HWP 5로 저장(OLE 머리)
  const [hwp]=await Promise.all([page.waitForEvent('download',{timeout:90000}),hwpx(page).locator('[data-hwpx-hwp]').click()]);
- expect(hwp.suggestedFilename()).toBe('주간보고_20261012.hwp');
+ expect(hwp.suggestedFilename()).toBe('주간보고_20261012_가상담당.hwp');
  const hwpBytes=readFileSync(await hwp.path());
  expect([...hwpBytes.subarray(0,4)]).toEqual([0xd0,0xcf,0x11,0xe0]);
  // 그 HWP를 다시 기기 파일로: 엔진이 .hwpx로 바꾼 뒤 같은 칸

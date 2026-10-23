@@ -106,7 +106,7 @@ test('보고서 만들기: 빈 서식의 글자·문단 모양·테두리만 쓰
   const back = readReport(openHwpx(bytes, zlib));
   assert.deepEqual(back.summary.map(a => [a.area, a.rows.length]), [[['가짜영역', '갑'], 2], [['가짜영역 을'], 1]]);
   assert.deepEqual(back.summary[0].rows[0].progress, DEMO_DATA.summary[0].rows[0].progress.map(lineText));
-  assert.deepEqual(back.summary[0].rows[1], {task: ['가짜과제 둘'], progress: [], owner: []});
+  assert.deepEqual(back.summary[0].rows[1], {task: ['가짜과제 둘'], progress: [], paras: [], owner: []});
   // 바뀐 줄만 파란 글씨
   const sec = readXml(pkg, 'Contents/section0.xml');
   const blue = [...walk(sec.root)].filter(n => n.name === 'hp:run' && n.attrs.charPrIDRef === changedCharPr).map(r => textOf({name: 'x', attrs: {}, children: [r]}));
