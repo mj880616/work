@@ -249,6 +249,7 @@ test('Web1 reader and the modules it loads keep to old-Samsung syntax and never 
   }
   const html = readFileSync('share/index.html', 'utf8');
   expect(html).toContain('<link rel="stylesheet" href="../app/ed-doc.css">');
-  // The reader CSP is unchanged: no outside images yet (share photos come in ②).
-  expect(html).toMatch(/img-src 'self';/);
+  // ED-②: the reader CSP lets pictures come only from this site and the project's own address (the short signed photo address); nothing else.
+  expect(html).toMatch(/img-src 'self' https:\/\/xmlkxfjeagycwttklxjw\.supabase\.co;/);
+  expect(html).toMatch(/default-src 'none'/);
 });

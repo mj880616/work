@@ -401,7 +401,7 @@ test.describe('PC 1280', () => {
     });
     const note = page.locator('.ed-note');
     await expect(note).toBeVisible();
-    await expect(note).toContainText('사진·파일은 아직');
+    await expect(note).toContainText('사진·파일을 넣을 수 없어요');
     // Drop a file.
     await page.evaluate(() => {
       const t = new DataTransfer();
