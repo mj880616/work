@@ -59,7 +59,7 @@
 
 #appView #pagesView .sp-links{ display:flex; flex-direction:column; gap:8px; padding:12px; background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); }
 #appView #pagesView .sp-links h3{ margin:0; font-size:var(--ds-text-section); color:var(--ds-section-ink); }
-#appView #pagesView .sp-link-form{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,180px) auto; gap:8px; align-items:end; }
+#appView #pagesView .sp-link-form{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,180px) auto; gap:8px; align-items:end; margin-bottom:12px; }
 #appView #pagesView .sp-link-list{ list-style:none; margin:0; padding:0; }
 #appView #pagesView .sp-link{ display:flex; align-items:center; gap:10px; min-height:var(--kptu-touch-target,44px); padding:6px 0; border-top:var(--ds-line-width) solid var(--ds-line); }
 #appView #pagesView .sp-link-main{ display:flex; flex-direction:column; flex:1 1 auto; min-width:0; }
@@ -127,7 +127,7 @@
   #appView #pagesView .sp-canvas-cap{ padding:10px 12px 0; }
   #appView #pagesView .sp-canvas-page{ padding:4px 12px; }
   #appView #pagesView .sp-canvas .sp-add{ padding:6px 12px 0; }
-  #appView #pagesView .sp-link-form{ grid-template-columns:1fr; }
+  #appView #pagesView .sp-link-form{ grid-template-columns:1fr; margin-bottom:20px; }
   #appView #pagesView .sp-link-form button{ justify-self:start; }
 }
 /* ED-통합편집기 ①b: 열린 글 블록은 새 편집기(ed-editor.js). 블록 안이라 큰 아래 여백은 줄이고, 버튼 줄은 블록 위에 붙인다. */
@@ -164,7 +164,7 @@
 #appView #pagesView .sp-links-pop[hidden]{ display:none; }
 #appView #pagesView .sp-links-pop-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
 #appView #pagesView .sp-links-pop-head h3{ margin:0; font-size:var(--ds-text-section); color:var(--ds-section-ink); }
-#appView #pagesView .sp-links-pop .sp-link-form{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+#appView #pagesView .sp-links-pop .sp-link-form{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); margin-bottom:20px; }
 #appView #pagesView .sp-links-pop .sp-link-form > button{ grid-column:1 / -1; justify-self:start; }
 
 /* 편집기: 버튼 줄은 맨 위 줄 바로 아래에 붙어 따라오고, 제목·본문은 좌우 여백만 두고 꽉 채운다. */
