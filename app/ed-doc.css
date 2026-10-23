@@ -149,6 +149,14 @@
 /* 표 테두리를 누르면 표 전체가 골라진다: 테두리 위에서 손 모양 + 옅은 테두리 */
 .ed-input .ed-table-wrap.is-edge,.ed-input .ed-table-wrap.is-edge *{cursor:pointer}
 .ed-input .ed-table-wrap.is-edge table{outline:2px solid var(--kptu-primary-soft);outline-offset:1px}
+/* 표 크기 끌기(ED-표크기끌기): 표 오른쪽 아래 모서리의 작은 손잡이. 마우스로 끌면 표 전체가 같은 비율로 커지고 작아진다(끄는 동안 테두리가 따라옴). 손가락 끌기는 없어 터치 화면에서는 감춘다 */
+.ed-input .ed-table-box{position:relative;width:max-content;max-width:100%}
+.ed-input .ed-table-resize{position:absolute;right:0;bottom:0;width:10px;height:10px;border:var(--ds-line-width,1px) solid var(--kptu-border-strong);border-radius:2px;background:var(--kptu-surface);cursor:nwse-resize;opacity:0;touch-action:none}
+.ed-input .ed-table-wrap:hover .ed-table-resize,.ed-input .ed-table-wrap:focus-within .ed-table-resize,.ed-input .ed-table-wrap.is-resizing .ed-table-resize{opacity:.7}
+.ed-input .ed-table-resize:hover,.ed-input .ed-table-wrap.is-resizing .ed-table-resize{opacity:1;border-color:var(--kptu-primary)}
+.ed-input .ed-table-wrap.is-resizing,.ed-input .ed-table-wrap.is-resizing *{cursor:nwse-resize;user-select:none}
+.ed-input .ed-table-wrap.is-resizing table{outline:2px solid var(--kptu-primary);outline-offset:1px}
+@media (pointer:coarse){.ed-input .ed-table-resize{display:none}}
 .ed-input .ed-table-wrap:has(.selectedCell) .ed-table-grip{opacity:1;background:var(--kptu-primary-soft);border-color:var(--kptu-primary)}
 /* 표·구분선·사진 앞뒤에 칠 수 있는 자리(gapcursor): 깜박이는 가로선 */
 .ed-input .ProseMirror-gapcursor{display:none;pointer-events:none;position:absolute}
