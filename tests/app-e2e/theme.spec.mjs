@@ -4,6 +4,7 @@ import {clickView,accountButton} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import { installViewPrefsServer, leftoverDeviceKeys } from './helpers/view-prefs-server.mjs';
 import {closeProjectDetail,expectProjectDetail,projectDetailDocked} from './helpers/project-detail.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -42,36 +43,32 @@ async function signIn(page){
 }
 
 
-const THEME_STORAGE_KEY='kptu-theme';
+// SET-보기선택서버저장: 화면 색은 서버(프로필 view_prefs.theme)에 저장된다. 로그인 전 화면은 늘 기본(올리브)이고, 로그인 뒤 첫 화면을 공개하기 전에 저장된 색이 적용된다.
 const primary={olive:'#5c6a35',navy:'#263f5f',terracotta:'#a8582a',sand:'#4a3d33'};
 const readPrimary=page=>page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-primary').trim());
 for(const stored of [null,'olive','navy','terracotta','sand','invalid']){
- test('first paint and reload retain '+stored,async({page})=>{
-  await page.addInitScript(({value,THEME_STORAGE_KEY})=>{if(value===null)localStorage.removeItem(THEME_STORAGE_KEY);else localStorage.setItem(THEME_STORAGE_KEY,value);
-   window.firstThemeFrame=new Promise(resolve=>requestAnimationFrame(()=>resolve(getComputedStyle(document.documentElement).getPropertyValue('--kptu-primary').trim())));
-  },{value:stored,THEME_STORAGE_KEY});
+ test('login is olive; the saved color is applied before the app opens and after reload: '+stored,async({page})=>{
+  await installViewPrefsServer(page,stored===null?null:{theme:stored});
   await page.goto(`${appOrigin}/app/login/`);
   const expected=primary[stored]||primary.olive;
-  expect(await page.evaluate(()=>window.firstThemeFrame)).toBe(expected);
-  expect(await readPrimary(page)).toBe(expected);
-  await page.reload();expect(await readPrimary(page)).toBe(expected);
+  expect(await readPrimary(page)).toBe(primary.olive);
   await mockApp(page);await signIn(page);
-  expect(await page.evaluate(()=>window.firstThemeFrame)).toBe(expected);
-  await page.reload();await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
-  expect(await page.evaluate(()=>window.firstThemeFrame)).toBe(expected);
   expect(await readPrimary(page)).toBe(expected);
+  await page.reload();await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
+  expect(await readPrimary(page)).toBe(expected);
+  expect(await leftoverDeviceKeys(page)).toEqual([]);
  });
 }
-test('blocked theme storage starts olive without theme errors',async({page})=>{
+test('blocked browser storage starts olive without theme errors',async({page})=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.addInitScript(THEME_STORAGE_KEY=>Object.defineProperty(window,'localStorage',{get(){throw Error(THEME_STORAGE_KEY+' storage blocked')}}),THEME_STORAGE_KEY);
+ await page.addInitScript(()=>Object.defineProperty(window,'localStorage',{get(){throw Error('theme storage blocked')}}));
  await page.goto(`${appOrigin}/app/login/`);
  expect(await readPrimary(page)).toBe(primary.olive);
  expect(errors.filter(x=>x.includes('storage blocked'))).toEqual([]);
 });
 for(const width of [390,1440]){
  test('theme dialog selection, navigation and dismissal at '+width,async({page})=>{
-  await page.setViewportSize({width,height:900});await mockApp(page);
+  await page.setViewportSize({width,height:900});const prefs=await installViewPrefsServer(page);await mockApp(page);
   await page.goto(`${appOrigin}/app/?view=calendar`);
   await signIn(page);await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
   const account=accountButton(page);
@@ -87,7 +84,7 @@ for(const width of [390,1440]){
    expect(await option.evaluate(el=>el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
    await option.click();expect(await readPrimary(page)).toBe(color);
    await expect(option).toHaveAttribute('aria-pressed','true');
-   expect(await page.evaluate(THEME_STORAGE_KEY=>localStorage.getItem(THEME_STORAGE_KEY),THEME_STORAGE_KEY)).toBe(theme);
+   await expect.poll(()=>prefs.value?.theme).toBe(theme);
    expect(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
    await page.keyboard.press('Escape');await expect(dialog).toBeHidden();await expect(account).toBeFocused();
@@ -109,13 +106,12 @@ test('direct color guard and its regression cases pass',async()=>{
  execFileSync(process.execPath,['--test','tests/hardcoded-colors.test.mjs','tests/theme-bootstrap.test.mjs'],{stdio:'pipe'});
 });
 
-test('blocked theme write still applies and does not save profile',async({page})=>{
- await page.setViewportSize({width:1440,height:900});await mockApp(page);
+test('failed theme save still applies and does not write the profile elsewhere',async({page})=>{
+ await page.setViewportSize({width:1440,height:900});await installViewPrefsServer(page,null,{failWrite:true});await mockApp(page);
  await page.goto(`${appOrigin}/app/?view=calendar`);await signIn(page);
  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
  const writes=[];page.on('request',r=>{if(r.url().includes('/rest/v1/')&&r.method()!=='GET')writes.push(r.url())});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.evaluate(()=>{const original=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='kptu-theme')throw Error('theme write blocked');return original.call(this,key,value)}});
  await accountButton(page).click();await page.locator('#sidebarThemeBtn').click();await page.locator('[data-theme-choice="navy"]').click();
  expect(await readPrimary(page)).toBe(primary.navy);expect(errors).toEqual([]);expect(writes).toEqual([]);
 });
@@ -156,7 +152,7 @@ test('390px drawer keeps account actions and dismissal without switching views',
 for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)){
  test('D-3b route colors '+theme+' at '+width,async({page})=>{
   await page.setViewportSize({width,height:900});
-  await page.addInitScript(({theme,THEME_STORAGE_KEY})=>localStorage.setItem(THEME_STORAGE_KEY,theme),{theme,THEME_STORAGE_KEY});
+  await installViewPrefsServer(page,{theme});
   await mockApp(page,{spaces:[{id:'theme-project',workspace_id:workspace.id,name:'Theme fixture',status:'active',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2},visibility:'private'}]});
   await page.route('https://raw.githubusercontent.com/**',route=>route.fulfill({status:200,body:'<p>Fixture</p>'}));
   await page.goto(`${appOrigin}/app/?view=calendar`);await signIn(page);
@@ -204,8 +200,8 @@ for(const theme of Object.keys(primary)){
  test('D-3b followup toast warning and focus colors '+theme,async({page})=>{
   const {readFileSync}=await import('node:fs');
   const warningStyle=readFileSync('app/calendar-health.js','utf8').match(/st.textContent=`([\s\S]*?)`/)[1];
-  await page.addInitScript(({theme,THEME_STORAGE_KEY})=>localStorage.setItem(THEME_STORAGE_KEY,theme),{theme,THEME_STORAGE_KEY});
   await page.goto(`${appOrigin}/app/login/`);
+  await page.evaluate(theme=>document.documentElement.setAttribute('data-theme',theme),theme);
   await page.addStyleTag({content:warningStyle});
   await page.evaluate(()=>{const host=document.createElement('div');host.innerHTML='<div class="toast" id="followupToast">Fixture</div><div id="googleCalendarWarning">Fixture <a href="#">Link</a></div><input id="followupFocus">';document.body.append(host)});
   const token=async name=>page.evaluate(name=>{const probe=document.createElement('i');probe.style.color='var('+name+')';document.body.append(probe);const color=getComputedStyle(probe).color;probe.remove();return color},name);

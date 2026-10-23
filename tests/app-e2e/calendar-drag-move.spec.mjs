@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
 import {signInWithSession} from './helpers/session-login.mjs';
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
 // CAL-끌어옮기기: PC 주간·월간에서 일정을 마우스로 끌면 수정 창과 같은 update-event로 저장되고, [되돌리기]는 원래 시간으로 같은 경로로 다시 저장한다.
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
@@ -15,7 +16,7 @@ async function open(page,view='week'){
     {id:'band',calendarId:'own',title:'종일 시험',start:'2026-10-22',end:'2026-10-23',allDay:true,description:'',location:'',organizationIds:[],recurring:false,source:'google'}
   ]};
   await page.clock.setFixedTime(new Date('2026-10-20T00:00:00Z'));
-  await page.addInitScript(v=>localStorage.setItem('kptu-calendar-view',v),view);
+  await installViewPrefsServer(page,{calendar_view:view});
   await page.route('**/*',async route=>{
     const req=route.request(),url=new URL(req.url());
     if(url.origin===BASE)return route.continue();

@@ -1,3 +1,4 @@
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 // OPS-수집점검: home "마지막 수집 시각" card (app/collection-status.js). drive-summary GET ?action=status and
@@ -160,8 +161,8 @@ test('phone: one thin warning line opens the full card, ✕ hides it for today, 
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:'test-results/home-collect-menu-390.png'});
 });
-test('phone: blocked device storage still shows the warning and ✕ hides it for this view',async({page})=>{
-  await page.addInitScript(()=>{const get=Storage.prototype.getItem,set=Storage.prototype.setItem,hit=k=>String(k).includes('collect-alert-hidden');Storage.prototype.getItem=function(k){if(hit(k))throw new Error('blocked');return get.call(this,k)};Storage.prototype.setItem=function(k,v){if(hit(k))throw new Error('blocked');return set.call(this,k,v)}});
+test('phone: an unreadable or unsaveable server value still shows the warning and ✕ hides it for this view',async({page})=>{
+  await installViewPrefsServer(page,null,{failRead:true,failWrite:true});
   await fixture(page,{width:390,copy:staleTelegram});
   const alert=page.locator('[data-home-collect-alert]');
   await expect(alert).toBeVisible();

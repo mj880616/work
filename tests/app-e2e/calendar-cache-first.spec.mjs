@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { appOrigin } from './helpers/test-origin.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
 // CAL-저장본먼저 (2026-10-22 user request): the calendar list and month, the home 오늘 일정 and the task list show this device's
 // saved copy at once with a small "새로 불러오는 중" line, then replace it wholesale with Google's answer. Without a copy they say
@@ -83,7 +84,7 @@ const fresh=page=>page.locator('#calendarFreshness');
 for(const viewport of [{width:390,height:844},{width:1280,height:900}]){
   test.describe(`calendar list at ${viewport.width}px`,()=>{
     test.use({viewport});
-    test.beforeEach(async({page})=>{await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','list')}catch{}})});
+    test.beforeEach(async({page})=>{await installViewPrefsServer(page,{calendar_view:'list'})});
 
     test('saved copy shows at once, then the fresh answer replaces it wholesale',async({page})=>{
       const state=newState();await mock(page,state);
@@ -151,7 +152,7 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}]){
 
 for(const viewport of [{width:390,height:844},{width:1280,height:900}])test.describe(`saved copy follow-ups at ${viewport.width}px`,()=>{
   test.use({viewport});
-  test.beforeEach(async({page})=>{await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','list')}catch{}})});
+  test.beforeEach(async({page})=>{await installViewPrefsServer(page,{calendar_view:'list'})});
 
   // UI-버튼기준 (2026-10-22): the [다시 시도] of the 최신 아님 line is a small text button next to the notice, not a full-size button.
   for(const [view,line] of [['calendar','#calendarFreshness'],['home','[data-home-fresh]'],['tasks','#gtTaskSection [data-gt-fresh]']])test(`the retry of the 최신 아님 line is a small text button in ${view}`,async({page})=>{
@@ -284,7 +285,7 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}])test.desc
   });
 
   test('month view shows the copy first and replaces it with the fresh answer',async({page})=>{
-    await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}});
+    await installViewPrefsServer(page,{calendar_view:'month'});
     const state=newState();await mock(page,state);
     await signIn(page,'calendar');
     const grid=page.locator('#calendarGrid');
@@ -301,7 +302,7 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}])test.desc
   });
 
   test('month view without a copy says 불러오는 중 until the first answer',async({page})=>{
-    await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}});
+    await installViewPrefsServer(page,{calendar_view:'month'});
     const state=newState();state.hold=true;await mock(page,state);
     await signIn(page,'calendar');
     await expect(fresh(page)).toHaveText('불러오는 중…');

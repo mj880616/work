@@ -2,9 +2,10 @@ import { appOrigin } from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 
 // Existing month-view regressions choose month explicitly.
-test.beforeEach(async({page})=>{await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}})});
+test.beforeEach(async({page})=>{await installViewPrefsServer(page,{calendar_view:'month'})});
 import { loginEntry } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 
@@ -14,7 +15,7 @@ async function mockApp(page){
   await page.route(`${SB}/**`,async route=>{
     const u=new URL(route.request().url()),p=u.pathname;
     const ok=x=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(x??null)});
-    if(p==='/auth/v1/token')return ok({access_token:'nav-access',refresh_token:'nav-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600});
+    if(p==='/auth/v1/token')return ok({access_token:'nav-access',refresh_token:'nav-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user});
     if(p==='/auth/v1/user')return ok(user);
     if(p==='/auth/v1/logout')return ok({});
     if(p==='/rest/v1/app_workspace_members')return ok([{workspace_id:workspace.id,user_id:user.id,role:'owner'}]);
@@ -28,7 +29,7 @@ async function mockApp(page){
 }
 
 async function login(page){
-  await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}});
+  await installViewPrefsServer(page,{calendar_view:'month'});
   await page.goto(loginEntry(`${appOrigin}/app/?view=calendar`));
   await signInWithSession(page,'nav@example.org');
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
@@ -207,7 +208,7 @@ test('Chromium page scale releases calendar touch action and restores it after z
   const context=await browser.newContext({viewport:{width:412,height:844},isMobile:true,hasTouch:true});
   const page=await context.newPage();
   try{
-    await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}});
+    await installViewPrefsServer(page,{calendar_view:'month'});
     await mockApp(page);
     await login(page);
     await expect(page.locator('#calendarGrid')).toBeVisible();
