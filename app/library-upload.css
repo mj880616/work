@@ -250,3 +250,19 @@
 #appView #libraryView .lu-node-head.lu-drop-before{border-top:2px solid var(--kptu-primary-ink);margin-top:-2px}
 #appView #libraryView .lu-node-head.lu-drop-after{border-bottom:2px solid var(--kptu-primary-ink);margin-bottom:-2px}
 #appView #libraryView .lu-node-head.lu-drop-no{opacity:.55;cursor:no-drop}
+
+/* LIB-여러개삭제: [선택] 모드. 버튼은 UI-버튼기준(글자 버튼·28px, 누르는 범위 44px), 전체 칩은 거르기 칩과 같은 모양. */
+#libraryListCard .lu-select-btn,#libraryListCard .lu-select-act{position:relative;height:var(--ds-compact-height-sm,28px);min-height:0;padding:0 8px;border:0;background:transparent;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-regular,400);white-space:nowrap}
+#libraryListCard .lu-select-btn::after,#libraryListCard .lu-select-act::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+#libraryListCard .lu-select-btn:hover,#libraryListCard .lu-select-act:hover:not(:disabled){color:var(--kptu-ink)}
+#libraryListCard .lu-select-act:disabled{opacity:.45}
+#libraryListCard .lu-select-act#librarySelectDelete:not(:disabled){color:var(--kptu-danger,#a33a3a);font-weight:700}
+.lu-select-bar{display:flex;align-items:center;gap:8px;min-width:0;flex:1}
+.lu-select-bar[hidden]{display:none}
+.lu-select-bar .filter-chips{flex:none}
+.lu-select-count{font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);white-space:nowrap}
+.lu-select-bar .lu-select-act:first-of-type{margin-left:auto}
+#libraryListCard.lu-selecting > .add-list-head > h2{display:none}
+.lu-row.lu-row-picking{position:relative;padding-left:26px}
+.lu-pick{position:absolute;left:4px;top:50%;width:16px;height:16px;margin:-8px 0 0;accent-color:var(--kptu-primary-ink)}
+.lu-pick.lu-pick-node{position:static;flex:none;margin:0 2px 0 0}
