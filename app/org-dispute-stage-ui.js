@@ -1,8 +1,8 @@
 // ORG-쟁의단계 화면: ① 조직 상세의 '쟁의 단계' 한 줄(선택 + 달력 날짜 + 저장, 접힌 단계 이력) ② 쟁의 단계 관리 창.
 // 데이터는 org-dispute-stage.js, 판정은 org-dispute-stage-model.mjs 한 곳. 표가 없으면(DB 적용 전) '준비 중' 한 줄만 보인다.
 import {seoulDateKey} from './meeting-time.js';
-import {loadDisputeState, peekDisputeState, saveOrgStage, addStage, renameStage, setStageFlag, reorderStages, deleteStage} from './org-dispute-stage.js';
-import {stageOfOrg, sortStages, historyLines, reorderChanges, orgsAtStageText, stageNameProblem, STAGE_NAME_LIMIT} from './org-dispute-stage-model.mjs';
+import {loadDisputeState, ensureSeeded, peekDisputeState, saveOrgStage, addStage, renameStage, setStageFlag, reorderStages, deleteStage} from './org-dispute-stage.js';
+import {stageOfOrg, sortStages, historyLines, reorderChanges, orgsAtStageText, stageNameProblem, STAGE_NAME_LIMIT, DEFAULT_STAGES} from './org-dispute-stage-model.mjs';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const today = () => seoulDateKey(Date.now());
@@ -24,13 +24,15 @@ export function paintStageLine(opts) {
 }
 export function clearStageLine() { if (line) line.host.replaceChildren(); line = null; }
 
+// 기본 단계가 아직 DB에 없으면(처음 쓰기 전) 선택지는 기본 11개 그대로 보여 주고(값 'seed:이름'), 저장할 때 ensureSeeded가 채운다.
+const lineStages = state => state.stages.length ? sortStages(state.stages) : DEFAULT_STAGES.map(s => ({...s, id: 'seed:' + s.name}));
 function paintLine() {
   if (!line) return;
   const {host, orgId, canEdit} = line, state = peekDisputeState();
   if (!state) { host.innerHTML = '<span class="wd-stage-k">쟁의 단계</span><span class="wd-stage-note">불러오는 중…</span>'; return; }
   if (state.status === 'preparing') { host.innerHTML = '<span class="wd-stage-k">쟁의 단계</span><span class="wd-stage-note" data-stage-preparing>준비 중</span>'; return; }
   if (state.status === 'error') { host.innerHTML = '<span class="wd-stage-k">쟁의 단계</span><span class="wd-stage-note" role="alert">불러오지 못했어요</span><button type="button" class="wd-stage-btn" data-stage-retry>다시 시도</button>'; return; }
-  const stages = sortStages(state.stages), cur = stageOfOrg(orgId, state.histories, stages);
+  const stages = lineStages(state), cur = stageOfOrg(orgId, state.histories, stages);
   const draft = line.draft, stageId = draft?.stageId ?? cur.stage?.id ?? '', date = draft?.date ?? cur.date;
   const rows = state.histories.get(orgId) ?? [], hist = historyLines(rows, 20);
   const options = stages.map(s => `<option value="${esc(s.id)}"${s.id === stageId ? ' selected' : ''}>${esc(s.name)}</option>`).join('');
@@ -46,7 +48,7 @@ function updateSave() {
   if (!line) return;
   const state = peekDisputeState(); if (!state || state.status !== 'ready') return;
   const btn = line.host.querySelector('[data-stage-save]'); if (!btn) return;
-  const cur = stageOfOrg(line.orgId, state.histories, state.stages);
+  const cur = stageOfOrg(line.orgId, state.histories, lineStages(state));
   const select = line.host.querySelector('[data-stage-select]'), date = line.host.querySelector('[data-stage-date]');
   const changed = select.value !== (cur.stage?.id ?? '') || date.value !== cur.date;
   btn.disabled = line.busy || !changed || !date.value;
@@ -54,12 +56,15 @@ function updateSave() {
 
 async function saveLine() {
   if (!line || line.busy) return;
-  const state = peekDisputeState(), host = line.host, mine = line;
-  const stage = state?.stages.find(s => s.id === host.querySelector('[data-stage-select]').value), date = host.querySelector('[data-stage-date]').value;
-  if (!stage || !date) return;
+  let state = peekDisputeState(); const host = line.host, mine = line;
+  const picked = host.querySelector('[data-stage-select]').value, date = host.querySelector('[data-stage-date]').value;
+  if (!state || !picked || !date) return;
   line.busy = true; host.querySelector('[data-stage-save]').disabled = true;
   setMsg('저장하는 중…');
   try {
+    if (picked.startsWith('seed:')) state = await ensureSeeded({rt: line.rt, workspaceId: line.workspaceId});
+    const stage = picked.startsWith('seed:') ? state.stages.find(s => s.name === picked.slice(5)) : state.stages.find(s => s.id === picked);
+    if (!stage) throw new Error('단계를 찾지 못했어요.');
     await saveOrgStage({rt: line.rt, workspaceId: line.workspaceId, orgId: line.orgId, stage, date, history: state.histories.get(line.orgId) ?? []});
     if (line === mine) { line.draft = null; line.busy = false; line.msg = {text: '저장했어요.', error: false}; paintLine(); }
   } catch (e) {
@@ -77,7 +82,7 @@ function bindLine(host) {
     if (!line) return;
     const select = e.target.closest('[data-stage-select]'), date = e.target.closest('[data-stage-date]');
     const state = peekDisputeState(); if (!state) return;
-    const cur = stageOfOrg(line.orgId, state.histories, state.stages);
+    const cur = stageOfOrg(line.orgId, state.histories, lineStages(state));
     if (select) {
       const input = host.querySelector('[data-stage-date]');
       // 다른 단계를 고르면 날짜는 오늘로(직접 고친 날짜가 없을 때). 원래 단계로 돌아오면 원래 날짜.
@@ -107,7 +112,8 @@ export function openStageManager({workspaceId, rt = window.KPTURuntime, orgNames
   m.classList.remove('hidden'); m.setAttribute('aria-hidden', 'false');
   window.KPTUA11y?.dialog.activate(m, {trigger, initialFocus: '#soStageBody', onRequestClose: closeStageManager});
   paintManager();
-  void loadDisputeState({rt, workspaceId, force: true}).then(() => { if (mgr) paintManager(); });
+  const mine = mgr;
+  void loadDisputeState({rt, workspaceId, force: true}).then(state => state.status === 'ready' ? ensureSeeded({rt, workspaceId}) : state).catch(e => { if (mgr === mine) say(errText(e), true); }).then(() => { if (mgr === mine) paintManager(); });
 }
 export function closeStageManager() {
   const m = document.querySelector('#' + MODAL); if (!m) return;
