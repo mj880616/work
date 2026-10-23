@@ -399,6 +399,7 @@ const GROUP_HEAD={schedule:{name:'일정',view:'calendar'},basket:{name:'바구�
 const VIEW_NAMES={home:'홈',basket:'바구니',calendar:'달력',tasks:'할 일',journal:'업무일지',diary:'일기',projects:'프로젝트',library:'자료실',meetings:'사업 보고',media:'성명·보도자료',pages:'공유 페이지',team:'담당조직',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',search:'검색'};
 const whereList=topline?.querySelector('[data-topline-where]');
 let basketKind=null;
+const whereItems=new Map();
 function paintWhere(view=window.KPTURouter?.current){
   if(!whereList)return;
   // Home only: the date sits beside the location (the PC counterpart of the phone header date); view-loader fills its text.
@@ -409,7 +410,8 @@ function paintWhere(view=window.KPTURouter?.current){
   parts.push({name:view==='basket'&&basketKind?(basketKind==='note'?'노트':'업데이트'):VIEW_NAMES[view]||''});
   // The item open on the right of a left-list / right-detail screen goes last ("담당조직 › 조직명"); the screen word before it
   // is plain text (it would only go to the screen already shown).
-  if(whereItem&&whereItem.view===view)parts.push({name:whereItem.name,item:true});
+  const itemKey=view==='basket'?`basket:${basketKind==='note'?'note':'memo'}`:view;
+  if(whereItems.has(itemKey))parts.push({name:whereItems.get(itemKey),item:true});
   whereList.replaceChildren(...parts.map((part,i)=>{
     const li=document.createElement('li');
     if(i<parts.length-1&&part.go){const b=document.createElement('button');b.type='button';b.className='topline-where-link';b.dataset.toplineGo=part.go;b.textContent=part.name;li.append(b)}
@@ -429,14 +431,15 @@ whereList?.addEventListener('click',event=>{
 window.addEventListener('kptu:basket-kind',event=>{basketKind=event.detail?.kind||null;paintWhere()});
 // ORG-PC상세정리 (요청 14:06 "상단 줄에 지금 연 것 이름"): a screen names the item it shows on the right with
 // kptu:where-item {view, name}; {view, name:null} drops it. Sent by 담당조직 (workplace-detail.js) and 바구니 › 노트 (basket-notes.js, the open note's title).
-let whereItem=null;
+// UI-상단줄제목: one name per screen (a Map), so a screen keeps its name while another screen is shown and gets it back on return; only the
+// current screen's name is drawn. Every screen's title goes through this one event and this one painter.
 window.addEventListener('kptu:where-item',event=>{
-  const view=event.detail?.view,name=String(event.detail?.name??'').trim();
+  const view=event.detail?.view,name=String(event.detail?.name??'').trim(),key=event.detail?.kind?`${view}:${event.detail.kind}`:view;
   if(!view)return;
-  if(name)whereItem={view,name};else if(whereItem?.view===view)whereItem=null;else return;
+  if(name){if(whereItems.get(key)===name)return;whereItems.set(key,name)}else if(!whereItems.delete(key))return;
   paintWhere();
 });
-window.addEventListener('kptu:session-changed',()=>{if(whereItem){whereItem=null;paintWhere()}});
+window.addEventListener('kptu:session-changed',()=>{if(whereItems.size){whereItems.clear();paintWhere()}});
 paintWhere();
 // [+ 추가]: 업데이트·할 일·노트·일정 open the existing windows, each through its existing opener (no new save path):
 // 업데이트·노트 = the menu [쓰기] window; 일정 = [+ 일정 등록]; 할 일 = the same window on its [할 일] side (as the home input's [+]).

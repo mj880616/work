@@ -202,9 +202,46 @@ test('readMissingTexts (backfill, prepared only): lists unread documents of this
   assert.equal((await dtr.readMissingTexts({rt:{api:async()=>[],context:{read:()=>({})}}})).stop,'invalid_request');
   assert.equal((await dtr.readMissingTexts({rt:{...rt,api:async()=>{throw new Error('x')}}})).stop,'list_failed');
 });
-test('the backfill helper is not wired to any screen (prepared only, runs after approval)',async()=>{
+test('readMissingTexts skip: documents already sent in this session are not sent again, and the cap still holds',async()=>{
+  const ids=[1,2,3,4].map(n=>'e0000000-0000-4000-8000-0000000000d'+n);
+  const sent=[],urls=[];
+  const rt={context:{read:()=>({workspace:{id:WS_ID}})},api:async(path,o={})=>{if(path.startsWith('/rest/v1/')){urls.push(path);return ids.map(id=>({id}))}sent.push(o.body.document_id);return Promise.reject(new Error('x'))}};
+  const skip=new Set();
+  assert.equal((await dtr.readMissingTexts({rt,limit:2,skip})).asked,2);
+  assert.equal((await dtr.readMissingTexts({rt,limit:2,skip})).asked,2);
+  assert.equal((await dtr.readMissingTexts({rt,limit:2,skip})).asked,0);
+  assert.deepEqual(sent,ids);
+  assert.equal(new URL('https://x'+urls[1]).searchParams.get('limit'),'4');
+});
+test('startAutoTextRead: at most 5 per start, one run at a time, quiet on failure, stops when the screen is left, halts when everything failed',async()=>{
+  const mk=n=>Array.from({length:n},(_,i)=>({id:'e0000000-0000-4000-8000-0000000001'+String(i).padStart(2,'0')}));
+  const rows=mk(20);let sent=[],release=null,fail=false;
+  const rt={context:{read:()=>({workspace:{id:WS_ID}})},api:async(path,o={})=>{
+    if(path.startsWith('/rest/v1/'))return rows.filter(r=>!sent.includes(r.id)||fail);
+    sent.push(o.body.document_id);if(release)await release;if(fail)throw new Error('x');return {ok:true,status:'ready'}}};
+  // Hard cap 5 even when asked for more.
+  const r1=await dtr.startAutoTextRead({rt,scopeKey:'s1',limit:99});
+  assert.equal(r1.asked,5);assert.equal(sent.length,5);
+  // Already running: the second start is skipped (null), nothing extra is sent.
+  let gate;release=new Promise(r=>{gate=r});
+  const a=dtr.startAutoTextRead({rt,scopeKey:'s1'});
+  assert.equal(dtr.startAutoTextRead({rt,scopeKey:'s1'}),null);
+  gate();release=null;assert.equal((await a).asked,5);assert.equal(sent.length,10);
+  // Screen left before the first request: nothing sent.
+  assert.equal(dtr.startAutoTextRead({rt,scopeKey:'s2',isCurrent:()=>false}),null);
+  // Left in the middle: stops before the next request.
+  let cur=true;const before=sent.length;
+  const mid=await dtr.startAutoTextRead({rt:{...rt,api:async(p,o)=>{const r=await rt.api(p,o);if(!p.startsWith('/rest/'))cur=false;return r}},scopeKey:'s3',isCurrent:()=>cur});
+  assert.equal(mid.stop,'stale');assert.equal(sent.length-before,1);
+  // Everything failed: quiet (no throw), and no more starts for this scope.
+  fail=true;const f=await dtr.startAutoTextRead({rt,scopeKey:'s4'});
+  assert.equal(f.failed,f.asked);assert.ok(f.asked>0);
+  assert.equal(dtr.startAutoTextRead({rt,scopeKey:'s4'}),null);
+  assert.ok(dtr.startAutoTextRead({rt,scopeKey:'s5'}));
+});
+test('the auto text read is wired only to the library screen, next to the auto tidy',async()=>{
   const {readdirSync,readFileSync:rf}=await import('node:fs');
   const dir=new URL('../app/',import.meta.url);
-  const users=readdirSync(dir).filter(f=>/\.(m?js|html)$/.test(f)&&f!=='document-text-read.js').filter(f=>rf(new URL(f,dir),'utf8').includes('readMissingTexts'));
-  assert.deepEqual(users,[]);
+  const users=readdirSync(dir).filter(f=>/\.(m?js|html)$/.test(f)&&f!=='document-text-read.js').filter(f=>/readMissingTexts|startAutoTextRead/.test(rf(new URL(f,dir),'utf8')));
+  assert.deepEqual(users,['library-upload.js']);
 });

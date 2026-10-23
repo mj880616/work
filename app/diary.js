@@ -110,15 +110,18 @@ function goToday() {
   cursor = {year:t.year, month:t.month}; closeDetail();
   loadMonth().then(() => { if (!edit && !selected && loadedMonth === monthKey() && monthKey() === monthOf(day)) selectDay(day); });
 }
+// UI-상단줄제목: the open day goes to the PC top line's place (kptu:where-item, topbar-actions.js); null drops it.
+const sendWhere = name => window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'diary', name}}));
 function closeDetail({fromBack = false} = {}) {
   closeViewer({fromBack, restore:false});
-  selected = null; detail.hidden = true; detail.replaceChildren();
+  selected = null; sendWhere(null); detail.hidden = true; detail.replaceChildren();
   days.querySelectorAll('[aria-pressed="true"]').forEach(cell => cell.setAttribute('aria-pressed', 'false'));
   const opened = dayLayer; dayLayer = null; if (!fromBack) opened?.close();
   renderList();
 }
 function renderDetail() {
   if (!selected) return;
+  sendWhere(longDay(selected));
   const row = rows.get(selected), photos = diaryPhotos(row), text = diaryText(row);
   detail.hidden = false; list.hidden = true;
   detail.innerHTML = `<div class="diary-panel-head"><h3 id="diaryDetailTitle" tabindex="-1">${esc(longDay(selected))}</h3><button type="button" class="icon-btn" data-diary-detail-close aria-label="날짜 닫기">×</button></div>${row ? `<div class="diary-source" role="group" aria-label="사진 보기"><button type="button" data-diary-source="all" aria-pressed="${source === 'all'}">전체</button><button type="button" data-diary-source="star" aria-pressed="${source === 'star'}">별표</button></div><div data-diary-photos></div>${text ? `<div class="diary-text" data-diary-text-view>${esc(text)}</div>` : ''}<div class="diary-actions"><button type="button" class="secondary" data-diary-edit>수정</button><button type="button" class="secondary diary-danger" data-diary-delete>일기 지우기</button></div>` : `<p class="diary-muted">이 날 일기가 없어요.</p>`}`;
@@ -425,7 +428,7 @@ window.addEventListener('kptu:session-changed', () => {
   owner = ownerScope(rt); epoch++;
   closeViewer({fromBack:true, restore:false});
   if (edit) { releasePending(); edit = null; editor.hidden = true; editor.replaceChildren(); cal.hidden = false; $('.diary-head').hidden = false; $('[data-diary-new]').hidden = false; status.hidden = false; }
-  editLayer = null; dayLayer = null; selected = null; detail.hidden = true; rows = new Map(); loadedMonth = ''; renderMonth();
+  editLayer = null; dayLayer = null; selected = null; sendWhere(null); detail.hidden = true; rows = new Map(); loadedMonth = ''; renderMonth();
 });
 function enter() {
   const day = takeRequestedDay(rt);

@@ -351,6 +351,17 @@ sidebarKinds.addEventListener('change',paintKindSwitch);paintKindSwitch();
 const switchRow=root.querySelector('.basket-switch-row');
 // UI-일기손질 ⑥: the [메모 | 노트] row and the list head have one painter. They show only while a list is on screen;
 // an open memo or note draws its own "‹ 바구니"/"‹ 노트" head in that place instead.
+// BASKET-드롭제목: a memo's title is its first line; a memo with only files is titled by its first file (a name cut by the old upload reader shows cleaned,
+// and one with nothing left is just "파일"/"사진", attachment-name.mjs). The list row and the PC top line (UI-상단줄제목) use this one function.
+const memoLines=note=>String(note.raw_text||'').split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
+function memoTitle(note){
+  const lines=memoLines(note),file=note.attachments?.[0];
+  const fileTitle=file?[String(file.mime_type||'').startsWith('image/')?'사진':'파일',attachmentName(file,'')].filter(Boolean).join(' · '):'';
+  return lines[0]||fileTitle||'업데이트';
+}
+// UI-상단줄제목: the open update's title goes to the PC top line's place (kptu:where-item, topbar-actions.js); null drops it. Notes send their own (basket-notes.js).
+// The place is keyed by screen, so the update's and the note's titles are told apart by the side that is open (only one detail is open at a time).
+const sendMemoWhere=name=>window.dispatchEvent(new CustomEvent('kptu:where-item',{detail:{view:'basket',name,kind:'memo'}}));
 function paintListChrome(){const open=!!selected||noteDocs.isOpen();switchRow.hidden=open;listHead.hidden=open;}
 const noteDocs=mountNotes(noteHost,{esc,rt,onOpenChange:()=>paintListChrome(),onMovedToBasket:()=>void refresh()});
 // UI-PC메모노트: the PC sidebar's [업데이트]·[노트] under [바구니] show which side is open; this module owns the kind, so it paints them.
@@ -493,9 +504,7 @@ function renderList() {
   const visible = visibleNotes(notes, links, filter, docs, place, sub);
   root.querySelector('[data-basket-rows]').innerHTML = visible.map(note => {
     const state = noteState(note, links, docs);
-    const lines=String(note.raw_text||'').split(/\r?\n/).map(line=>line.trim()).filter(Boolean),file=note.attachments?.[0];
-    // BASKET-드롭제목: a memo with only files is titled by its first file; a name cut by the old upload reader shows cleaned, and one with nothing left is just "파일"/"사진" (attachment-name.mjs).
-    const fileTitle=file?[String(file.mime_type||'').startsWith('image/')?'사진':'파일',attachmentName(file,'')].filter(Boolean).join(' · '):'',title=lines[0]||fileTitle||'업데이트';
+    const lines=memoLines(note),title=memoTitle(note);
     // BUG-바구니연결해제: links are chips under the row button (a button cannot hold the × button).
     const chips = [...confirmedLinks(note.id).map(link => linkChip(link)), ...filedChips(note)].join('') + taskPlaceLine(note);
     return `<div class="basket-row-item" data-basket-row-item="${esc(note.id)}"><button type="button" class="basket-row-copy" data-basket-row-copy="${esc(note.id)}" aria-label="${esc([...title].slice(0,40).join(''))} 복사"${String(note.raw_text||'').trim()?'':' hidden'}>${COPY_ICON}</button><button type="button" class="basket-row-more" data-basket-row-more="${esc(note.id)}" aria-label="${esc([...title].slice(0,40).join(''))} 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="basketRowMenu"><span aria-hidden="true">⋯</span></button><button type="button" class="basket-row" data-basket-row="${esc(note.id)}"><b class="basket-title">${esc([...title].slice(0,80).join(''))}</b>${lines.length>1?`<span class="basket-preview">${esc([...lines.slice(1).join(' ')].slice(0,120).join(''))}</span>`:''}<time>${esc(time(note))}</time><span>${esc(rowState(note, state))}${note.attachments?.length ? ' · 첨부 ' + note.attachments.length + '개' : ''}</span>${requestTagsHtml(noteRequests(note), esc)}</button>${chips ? `<div class="basket-row-links" role="group" aria-label="연결된 곳">${chips}</div>` : ''}</div>`;
@@ -518,7 +527,7 @@ function closeDetail({focus = true, force = false, cleanAddress = true, fromBack
   if (!force && !dirty() && manualDraft() && !window.confirm('작성 중인 연결·할 일 입력을 버리고 목록으로 돌아갈까요?')) return false;
   handoff.close();
   bigWriter?.close({silent:true}); closePhoto({restore:false});
-  const id = selected?.id; if(id&&cleanAddress)clearNoteAddress(); ++epoch; selected = null;editing=false;setNoteMenu(false);manual.reset();ocrViewScope=null; upload=createUploadBatch();pickerFiles=null; detail.replaceChildren(); detail.hidden = true; list.hidden = false; paintListChrome();paintHandoffScope();
+  const id = selected?.id; if(id&&cleanAddress)clearNoteAddress(); ++epoch; selected = null;sendMemoWhere(null);editing=false;setNoteMenu(false);manual.reset();ocrViewScope=null; upload=createUploadBatch();pickerFiles=null; detail.replaceChildren(); detail.hidden = true; list.hidden = false; paintListChrome();paintHandoffScope();
   const layer = noteLayer; noteLayer = null; if (!fromBack) layer?.close();
   if (id && window.KPTURouter.current === 'basket') window.scrollTo({top:listScroll, behavior:'instant'});
   if (focus) (root.querySelector(`[data-basket-row="${CSS.escape(id || '')}"]`) || root.querySelector(`[data-basket-filter="${filter}"]`))?.focus({preventScroll:true});
@@ -535,6 +544,7 @@ function paintStateLine() {
 }
 function paintDetailState() {
   if (!selected) return;
+  sendMemoWhere(memoTitle(selected));
   paintStateLine();
   paintAttachments();paintNoteTasks();
   detail.querySelector('[data-basket-archive]').textContent = selected.archived_at ? '보관 해제' : '보관';

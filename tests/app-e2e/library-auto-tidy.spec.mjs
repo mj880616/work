@@ -11,16 +11,17 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
 const DOC_ID=n=>`e0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const CATS=['교섭','투쟁','교육','선전','정책','회의','기타'];
+const WS_ID='b0000000-0000-4000-8000-000000000001';
 const OLD='2026-09-01T00:00:00Z';
 
 function makeDocs(count,over={}){
-  return Array.from({length:count},(_,i)=>({id:DOC_ID(i+1),workspace_id:'workspace-1',project_id:null,title:`2026_요구안_${i+1}`,category:'기타',source:null,
+  return Array.from({length:count},(_,i)=>({id:DOC_ID(i+1),workspace_id:WS_ID,project_id:null,title:`2026_요구안_${i+1}`,category:'기타',source:null,
     document_date:null,file_name:`2026_요구안_${i+1}.hwp`,tags:[],created_at:OLD,updated_at:OLD,field_origin:{},extraction_status:'ready',...(over[i+1]||{})}));
 }
 function baseState(docs,{aiMode='ok',attemptsMode='ok',tried=[]}={}){
   return {
     user:{id:'user-1',email:'owner@example.org',user_metadata:{display_name:'자료실 관리자'}},
-    workspace:{id:'workspace-1',slug:'team',name:'웹2'},
+    workspace:{id:WS_ID,slug:'team',name:'웹2'},
     docs,aiMode,attemptsMode,tried:new Set(tried),aiCalls:[],texts:[],patches:[],otherWrites:[],held:[],
   };
 }
@@ -35,7 +36,7 @@ async function mockApp(page,state){
     if(path==='/auth/v1/user')return ok(state.user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
-    if(path==='/functions/v1/document-actions'){state.texts.push(body);return ok({ok:true,status:'ready',reason:'ok'})}
+    if(path==='/functions/v1/document-actions'){state.texts.push(body);const d=state.docs.find(x=>x.id===body?.document_id);if(d)d.extraction_status='ready';return ok({ok:true,status:'ready',reason:'ok'})}
     if(path==='/functions/v1/ai-assist'){
       // Other screens (home) call ai-assist for their own kinds; only the library tidy is counted here.
       if(body?.kind!=='library_fill'||body?.mode!=='tidy')return ok({ok:false,error:'unsupported_kind',message:'x'},400);
@@ -66,12 +67,12 @@ async function mockApp(page,state){
       return ok([...state.tried].map(id=>({document_id:id})));
     }
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
-    if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:'workspace-1',user_id:state.user.id,role:'owner',workspace:state.workspace,created_at:now()}]);
+    if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:WS_ID,user_id:state.user.id,role:'owner',workspace:state.workspace,created_at:now()}]);
     if(path==='/rest/v1/app_profiles')return ok([{user_id:state.user.id,display_name:'자료실 관리자',document_categories:CATS}]);
     if(path==='/rest/v1/app_workspaces')return ok([state.workspace]);
     if(path==='/rest/v1/app_meetings')return ok([]);
     if(path==='/rest/v1/app_documents'){
-      if(method==='GET')return ok(state.docs);
+      if(method==='GET')return ok(url.searchParams.has('or')?state.docs.filter(x=>!['ready','error'].includes(x.extraction_status)):state.docs);
       state.patches.push({method,body});return ok([]);
     }
     if(path.startsWith('/rest/v1/')){if(method!=='GET')state.otherWrites.push(`${method} ${path}`);return ok([])}
@@ -200,4 +201,21 @@ test('before the DB is applied (no attempts table) nothing is sent to AI',async(
   await page.waitForTimeout(600);
   expect(state.aiCalls).toEqual([]);
   await expectQuiet(page);
+});
+
+// SEARCH-전체검색 ② 기존 자료 글자 채우기: 자료실을 열 때 아직 안 읽은 자료를 한 번에 5개씩만, 화면 표시 없이 읽는다.
+test('opening the library reads at most 5 unread documents at a time, quietly, and not again for the same ones',async({page})=>{
+  const docs=makeDocs(12,{}).map(d=>({...d,title:'정리된 제목 '+d.id,category:'정책',source:'국토교통부',document_date:'2026-01-02',extraction_status:'pending'}));
+  const state=baseState(docs);
+  await boot(page,state);
+  await expect.poll(()=>state.texts.length).toBe(5);
+  expect(state.texts.map(t=>t.document_id)).toEqual(docs.slice(0,5).map(d=>d.id));
+  await page.waitForTimeout(300);
+  expect(state.texts.length).toBe(5);
+  await expectQuiet(page);
+  await leave(page);await reopen(page);
+  await expect.poll(()=>state.texts.length).toBe(10);
+  await page.waitForTimeout(300);
+  expect(state.texts.length).toBe(10);
+  expect(state.otherWrites).toEqual([]);
 });
