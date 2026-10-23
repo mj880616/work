@@ -159,3 +159,38 @@ test('PC 1280: an organization opened over another screen stays a dialog and goe
  await clickView(page,'team');await expect(title(page)).toHaveText('합성 다 지부');await expect(pane(page).locator('#wdModal')).toBeVisible();
  expect(errors).toEqual([]);
 });
+
+// ORG-입력칸⤢통일: the record edit box and the 요약 edit box in the 담당조직 detail behave like the input box above them: no
+// height-drag handle, ⤢ (the shared full-screen editor) is the only way to enlarge. Same at desktop and phone width.
+for(const width of [1280,390])test(`${width}: record edit and 요약 edit boxes have no resize handle; ⤢ opens the big editor and hands the text back`,async({page})=>{
+ const {state,errors}=await fixture(page,{width});
+ await clickView(page,'team');
+ if(width<1024)await row(page,'oa').click();
+ await expect(title(page)).toHaveText('합성 가 지부');
+ const modal=page.locator('#wdModal'),editor=page.locator('#mdEditor');
+ await expect(modal.locator('#wdInboxText')).toHaveCSS('resize','none');await expect(modal.locator('#wdInboxBig')).toBeVisible();
+ // 1) The edit box of a record.
+ const rec=modal.locator('[data-wd-up="u-0"]');await scrollToRecord(page,rec);
+ await rec.locator('[data-wd-up-menu]').click();await page.locator('#wdUpMenu').getByRole('button',{name:'수정'}).click();
+ const box=rec.locator('[data-wd-up-input]');await expect(box).toBeFocused();await expect(box).toHaveCSS('resize','none');
+ const bigBtn=rec.locator('[data-wd-field-big]');await expect(bigBtn).toBeVisible();await expect(bigBtn).toHaveAccessibleName('크게');
+ await bigBtn.click();await expect(editor.locator('.md-editor-text')).toHaveValue('합성 기록 0');
+ await editor.locator('.md-editor-text').fill('합성 기록 0 큰 창에서 고침');
+ await expect(box).toHaveValue('합성 기록 0 큰 창에서 고침');
+ await editor.locator('[data-close="mdEditor"]').click();await expect(editor).toHaveCount(0);
+ await expect(box).toHaveValue('합성 기록 0 큰 창에서 고침');await expect(box).toBeFocused();
+ expect(state.writes).toEqual([]);
+ await rec.locator('[data-wd-up-cancel]').click();await expect(rec.locator('[data-wd-up-edit]')).toHaveCount(0);
+ // 2) The 요약 box of a linked record.
+ const link=modal.locator('[data-basket-link="l-o"]');await scrollToRecord(page,link);
+ await link.getByRole('button',{name:'바구니 기록 메뉴'}).click();await page.locator('#basketLinkMenu').getByRole('button',{name:'요약 수정',exact:true}).click();
+ const sum=link.locator('[data-link-summary-input]');await expect(sum).toBeFocused();await expect(sum).toHaveCSS('resize','none');
+ const sumBig=link.locator('[data-link-summary-big]');await expect(sumBig).toBeVisible();await expect(sumBig).toHaveAccessibleName('크게');
+ await sumBig.click();await expect(editor.locator('.md-editor-text')).toHaveValue('합성 조직 연결 요약');
+ await editor.locator('.md-editor-text').fill('합성 요약 큰 창에서 고침');
+ await expect(sum).toHaveValue('합성 요약 큰 창에서 고침');
+ await editor.locator('[data-close="mdEditor"]').click();await expect(editor).toHaveCount(0);
+ await expect(sum).toHaveValue('합성 요약 큰 창에서 고침');await expect(sum).toBeFocused();
+ expect(state.writes).toEqual([]);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);expect(errors).toEqual([]);
+});
