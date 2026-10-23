@@ -40,11 +40,22 @@ Deno.serve(createShareMediaHandler({
     const { error } = await asUser(token).from("app_share_page_media").delete().eq("id", id);
     return !error;
   },
+  async pageBlocks(token, pageId) {
+    const { data, error } = await asUser(token).from("app_share_pages").select("blocks").eq("id", pageId).maybeSingle();
+    if (error) throw new Error("page lookup failed");
+    return data ? (Array.isArray(data.blocks) ? data.blocks : []) : null;
+  },
+  async rowsForPage(token, pageId, limit) {
+    const { data, error } = await asUser(token).from("app_share_page_media").select("id,page_id,storage_path").eq("page_id", pageId).order("created_at").limit(limit);
+    if (error) throw new Error("media lookup failed");
+    return (data || []) as MediaRow[];
+  },
   async putFile(path, bytes) {
     const { error } = await admin.storage.from(BUCKET).upload(path, bytes, { contentType: "image/jpeg", upsert: false, cacheControl: "300" });
     return !error;
   },
   async removeFile(path) {
+    // 이미 없는 파일은 오류 없이 빈 목록으로 끝난다(다시 지워도 같은 결과).
     const { error } = await admin.storage.from(BUCKET).remove([path]);
     return !error;
   },
