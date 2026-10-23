@@ -7,7 +7,6 @@ import {openHwpx, packHwpx, readXml, setXml, validateHwpx} from '../app/weekly-h
 import {writeZipAsync, readZipAsync, readZip, writeZip} from '../app/weekly-hwpx/zip.mjs';
 import {clone, kid, kids, walk, el} from '../app/weekly-hwpx/xml.mjs';
 import {readReport, findTables, lineText, isChanged, CHANGED_COLOR} from '../app/weekly-hwpx/report.mjs';
-import {REQUEST_CHECK_NOTE} from '../app/weekly-hwpx/delta.mjs';
 import {browserZlib, prepareConfirmed, openConfirmed, startDraft, editableRows, editableOrgs, weekMaterial, assembleDraft,
   buildHwpx, changedCount, reportDate, fileNameFor, orgNames, candidateLine, resolveMe} from '../app/weekly-hwpx/draft.mjs';
 import {ownerNotation} from '../app/weekly-hwpx/delta.mjs';
@@ -28,14 +27,14 @@ test('브라우저 압축(CompressionStream)으로 묶고 연 .hwpx가 Node 압�
   assert.equal(pkg.order[0], 'mimetype');
 });
 
-test('확정본 → 내 칸 바탕: 내 담당 줄만, 요청 표 그대로 + 확인 필요, 내 담당 조직(my-organizations.js) 줄만', async () => {
+test('확정본 → 내 칸 바탕: 내 담당 줄만, 요청 표는 비움(그 주 요청 줄로 채움), 내 담당 조직(my-organizations.js) 줄만', async () => {
   const {team, template} = prepareConfirmed(await openConfirmed(fakeBytes()));
   assert.equal(team.title, '가짜팀 주간보고(시험용)');
   const mine = selectMyOrganizations(ORGS, [{organization_id: 'o1'}, {organization_id: 'o3'}]);
   const base = startDraft(team, {me: ME, myOrgs: orgNames(mine.organizations), date: reportDate('2026-01-05')});
   assert.equal(base.date, '2026년 1월 5일(월)');
   assert.equal(base.title, team.title);
-  assert.equal(base.requestNote, REQUEST_CHECK_NOTE);
+  assert.deepEqual([base.requests, base.requestNote], [[], undefined]);
   assert.deepEqual(base.orgs.map(o => o.org), [['가짜조직 갑'], ['가짜조직 병']]); // 별칭·띄어쓰기 무시
   const rows = editableRows(base, ME);
   assert.deepEqual(rows.map(r => r.task), ['가짜과제 하나', '가짜과제 둘', '가짜과제 셋']);
@@ -64,7 +63,7 @@ test('고친 줄만 파란 글씨, 바탕 그대로인 줄은 검은 글씨. 만
   assert.deepEqual(back.summary[0].rows[0].progress, ['- 가짜 진행 하나 완료', '- 가짜 계획 하나 바뀜', '- 가짜 새 줄']);
   assert.deepEqual(back.summary[0].rows[1].progress, []); // 남의 줄은 빈칸
   assert.deepEqual(back.orgs.map(o => o.org), [['가짜조직 갑']]);
-  assert.deepEqual(back.requests, team.requests);
+  assert.deepEqual(back.requests, []); // 요청 표는 그 주 요청 줄로만 채운다(여기서는 넣지 않음)
   // 파란 글씨: 양식 안의 바뀐 글 글자 모양만, 바탕 그대로인 줄은 표 칸 글자 모양
   const header = readXml(pkg, 'Contents/header.xml');
   const blue = new Set([...walk(header.root)].filter(n => n.name === 'hh:charPr' && n.attrs.textColor?.toUpperCase() === CHANGED_COLOR).map(n => n.attrs.id));

@@ -7,7 +7,7 @@ import {parseXml, toXml, walk, textOf} from '../app/weekly-hwpx/xml.mjs';
 import {openHwpx, packHwpx, validateHwpx, readXml, setText, headerStyles, REQUIRED_PARTS} from '../app/weekly-hwpx/hwpx.mjs';
 import {extractBlankTemplate, assertBlank, FORM_LABELS, readPrototypes, PROTO_ORDER} from '../app/weekly-hwpx/template.mjs';
 import {buildReport, readReport, reportTexts, lineText, isChanged} from '../app/weekly-hwpx/report.mjs';
-import {personalFromTeam, personalReportFromTeam, applyPatch, applyReportPatch, diffLines, diffRows, isMine, REQUEST_CHECK_NOTE} from '../app/weekly-hwpx/delta.mjs';
+import {personalFromTeam, personalReportFromTeam, applyPatch, applyReportPatch, diffLines, diffRows, isMine} from '../app/weekly-hwpx/delta.mjs';
 import {estimateLines, layoutTable, headerMetrics} from '../app/weekly-hwpx/layout.mjs';
 import {kid, kids} from '../app/weekly-hwpx/xml.mjs';
 import {makeFakeReport, FAKE_TEXTS, DEMO_DATA, STYLE_TABLE} from '../scripts/weekly-hwpx/fixture.mjs';
@@ -208,11 +208,12 @@ test('사용자가 한글에서 고친 서식: 제목·일시 사이 빈 줄, �
   assert.equal(JSON.stringify(tbl), before);
 });
 
-test('전체 구조 개인본 바탕: 요청 표는 직전 주 그대로 + 확인 필요, 조직 줄은 내 담당만, 매주 새로 쓰는 표는 비움', () => {
+test('전체 구조 개인본 바탕: 요청 표는 비움(직전 주를 그대로 옮기지 않음, 표시 줄 없음), 조직 줄은 내 담당만, 매주 새로 쓰는 표는 비움', () => {
   const team = readReport(fake());
   const mine = personalReportFromTeam(team, '가짜담당 갑', {myOrgs: ['가짜조직 갑', '가짜조직병'], title: 't', date: 'd'});
-  assert.deepEqual(mine.requests, team.requests);
-  assert.equal(mine.requestNote, REQUEST_CHECK_NOTE);
+  assert.ok(team.requests.length > 0);
+  assert.deepEqual(mine.requests, []);
+  assert.equal(mine.requestNote, undefined);
   assert.deepEqual(mine.orgs.map(o => o.org), [['가짜조직 갑'], ['가짜조직 병']]); // 띄어쓰기 차이 무시, 확정본 순서
   assert.deepEqual(mine.sites.map(o => o.org), [['가짜조직 갑'], ['가짜조직 병']]);
   assert.deepEqual([mine.details, mine.rallies, mine.calendar], [[], [], []]);
@@ -220,11 +221,10 @@ test('전체 구조 개인본 바탕: 요청 표는 직전 주 그대로 + 확�
   const {pkg} = buildReport(extractBlankTemplate(fake()), mine);
   assert.deepEqual(validateHwpx(packHwpx(pkg, zlib), zlib).errors, []);
   const sec = readXml(pkg, 'Contents/section0.xml');
-  assert.ok(textOf(sec.root).includes(REQUEST_CHECK_NOTE));
+  assert.ok(!textOf(sec.root).includes('직전 주 확정본 그대로임'));
+  for (const d of team.requests) for (const i of d.items) assert.ok(!textOf(sec.root).includes(i.what), '지난주 요청 줄은 그대로 들어가지 않음');
   assert.ok(!textOf(sec.root).includes('가짜 소식 을')); // 남의 담당 조직 글은 들어가지 않음
   assert.ok(!textOf(sec.root).includes('가짜 회의 갑')); // 지난주 회의 결과 상자는 들어가지 않음
-  // 요청 표가 비어 있던 주에는 확인 필요 줄도 없다
-  assert.equal(personalReportFromTeam({...team, requests: []}, '가짜담당 갑').requestNote, undefined);
 });
 
 test('전체 구조 고칠 목록: 내 담당 조직 줄만 고치고, 일정·회의 결과는 더하기만', () => {
