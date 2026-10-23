@@ -327,7 +327,7 @@ from public.app_documents group by 1 order by 1;
 ```
 
 2. 시작 시각을 적어 둔다(되돌리기 기준): `select now();`
-3. 진행 확인: 자료실을 열 때마다 1번 SQL의 `ready`·`error` 수가 5개씩 늘어난다.
+3. 진행 확인: 자료실을 열 때마다, 그리고 매일 밤(8.7절) 1번 SQL의 `ready`·`error` 수가 늘어난다.
 4. 확인(읽기 전용): `select count(*) from public.app_documents where extracted_at >= '<2번 시각>';`
 
 되돌리기(채우기로 바뀐 칸만 비움, 자료·파일·다른 칸은 그대로. SQL Editor 새 창, 끝이 `commit;`인지 확인):
@@ -356,3 +356,18 @@ commit;
 - 엑셀은 첫 시트만, 스캔 PDF는 Drive 변환 OCR 품질에 따른다. 25MB 넘는 파일은 Drive 변환 한도(50MB) 안이면 읽는다.
 - HWP 원본 덮어쓰기 뒤 글자는 옛 글자로 남는다(8.1).
 - 화면은 업로드 직후 읽기를 기다리지 않으므로 올린 직후 몇 초~수십 초는 파일 안 글자로 찾히지 않는다.
+
+### 8.7 매일 밤 서버가 채우기 (LIB-글자채우기야간)
+
+사용자 결정(2026-10-23 10:35): 자료실을 열 때만이 아니라 **서버가 매일 밤 몇 개씩 알아서** 읽고, 예전 자료가 다 끝나면 알려 준다.
+
+- 어디서 도나: 새 예약 장치를 만들지 않고 기존 방식을 그대로 쓴다. GitHub 예약 실행 `.github/workflows/library-text-nightly.yml`(매일 03:23 KST, Drive 사본 갱신 `drive-summary-refresh.yml`과 같은 모양)이 `scripts/ops/library-text-nightly.mjs`로 Edge `drive-summary`의 `POST ?action=text_backfill`을 최대 4번 차례로 부른다. 한 번에 자료 최대 5개 → **하룻밤 최대 20개**. 남은 것이 없거나 지금 읽을 것이 없으면 그 밤은 멈춘다.
+- 왜 `drive-summary`인가: 예약 호출은 로그인(JWT)이 없다. `document-actions`는 `verify_jwt=true`라 게이트에서 막히고, 그 설정을 바꾸는 것은 인증 경계 변경이다. `drive-summary`는 이미 `verify_jwt=false` + 예약 비밀값(`DRIVE_SUMMARY_CRON_SECRET`, SHA-256 고정 길이 비교)으로 예약 호출을 받고, 같은 Drive 연결·서버 키를 쓰며, 결과를 남길 Drive 사본 폴더 `appProperties`도 갖고 있다. 새 함수·새 비밀값·새 표·migration이 필요 없다.
+- 인증: `?action=text_backfill`은 **예약 비밀값만** 받는다(사용자 JWT·수집 신호 비밀값은 401). 업무공간은 서버가 slug `kptu-work`로 정하고 요청에서 받지 않는다. 서버 키(service role)는 Edge 안에서만 쓰며, 읽는 칸은 자료 ID·파일 ID·파일 이름·형식·크기·글자 상태, 쓰는 칸은 `app_documents`의 글자 4칸(`extracted_text`·`extraction_status`·`extraction_error`·`extracted_at`)뿐이고 모든 요청에 `workspace_id` 조건이 붙는다. RLS·권한·grant 변경 없음. 응답은 건수·단계 코드만(파일 이름·ID·글자 없음).
+- 읽기: `document-actions` `document-text`와 같은 한 곳(`_shared/document-text.ts`)을 `index.ts`가 주입한다(`supabase/functions/drive-summary/text-backfill.mjs`). 대상·순서는 화면과 같다(파일 있음, `ready`·`error`가 아님, 최근 것부터). Drive 토큰을 먼저 받고, 안 되면 아무 행도 건드리지 않고 멈춘다(자료 탓이 아님). 45초가 지나면 새 자료를 시작하지 않는다(파일 하나 최악 약 90초 + 45초 < Edge 150초).
+- 못 읽는 파일이 막지 않게: 읽기 전에 그 행에 "밤 시도 중"(`extraction_status='pending'`, `extraction_error='nightly_try'`, `extracted_at`=시각)을 남기고, 끝나면 `ready`/`error`로 바꾼다. 형식·크기·변환 거절 같은 읽기 실패는 지금처럼 바로 `error`. 함수가 파일 도중 끊겨 표시가 **30분 넘게** 남으면 다음 실행이 다시 읽지 않고 `error`(`gave_up`)로 끝낸다 — 한 파일 때문에 매일 밤 멈추는 일이 없다. 30분 안의 표시는 다른 호출이 읽는 중으로 보고 건너뛴다. 표시·결과 쓰기는 조건부라 그 사이 화면이 먼저 끝낸 자료를 덮지 않는다.
+- "다 끝남" 판단·홈 한 줄: 한 번 부른 뒤 남은 수(파일 있음·`ready`/`error` 아님)가 0이면 Drive 사본 폴더 `appProperties`에 `text_backfill_done_at`(처음 0이 된 시각, 한 번만)과 `text_backfill_count`(그때 `ready` 수)를 자기 열쇠만 PATCH한다(사본·수집·원장 열쇠와 겹치지 않음). 홈 수집 칸이 이미 부르는 `GET ?action=status`(소유자 JWT, 탭에서 10분에 한 번) 응답에 `text_backfill:{done_at,count,dismissed_at}`가 더해지고, 홈 위쪽에 작은 한 줄 **"예전 자료 글자 읽기 끝남 (N개)"**(`app/text-backfill-notice.js`, 그 줄의 유일한 렌더러)이 나온다. ✕는 `POST ?action=text_backfill_dismiss`(소유자 JWT만)로 `text_backfill_dismissed_at`을 서버에 남긴다 — 브라우저 저장소 없음, 다른 기기에서도 다시 안 나옴. 함수 배포 전·실패면 줄은 조용히 숨는다. 사본 폴더가 없으면(사본 갱신이 매일 만듦) 끝 기록만 못 하고 읽기는 계속된다(`done_error`).
+- 다 끝난 뒤: 예약은 계속 돈다. 남은 것이 없으면 한 번 묻고 끝나며(목록 1번·개수 2번), 올리기 직후 읽기가 실패해 남은 새 자료도 그날 밤 채워진다. 끝 시각은 처음 한 번만 기록하므로 줄이 다시 나오지 않는다.
+- 자료실을 열 때 5개씩(8.4): **유지를 추천**. 이미 쓰는 동작이고, 명진이 자료실을 쓰는 날은 더 빨리 끝난다. 두 경로는 같은 조건·같은 결과 칸을 쓰고, 밤 경로는 조건부 쓰기라 겹쳐도 덮지 않는다. 화면 경로가 도중에 끊긴 자료는 밤 경로가 정리한다. 없애려면 `library-upload.js`의 `luStartTextRead` 호출 두 곳만 지우면 된다(별도 작은 PR).
+- 되돌리기: 8.4의 되돌리기 SQL이 그대로 맞는다(`extracted_at` 기준, 밤 시도 표시도 `extracted_at`을 남김). 밤 예약을 멈추려면 GitHub Actions에서 "Library text nightly" workflow를 끄거나(Disable workflow), 이 workflow 파일을 지우는 PR. Edge는 이전 운영 소스로 재배포.
+- 시험: `tests/security/drive-summary-text-backfill.test.mjs`(인증·범위·네 칸만·끊긴 표시·겹침·실패 멈춤·시간 예산·끝 기록·닫기), `tests/security/library-text-nightly.test.mjs`(스크립트·예약 모양), `tests/text-backfill-notice.test.mjs`·`tests/app-e2e/text-backfill-notice.spec.mjs`(홈 한 줄·요청 공유·서버 닫기).

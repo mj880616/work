@@ -338,6 +338,14 @@
 .collect-alert-close { flex:0 0 auto; width:var(--ds-compact-height-sm,28px); height:var(--ds-compact-height-sm,28px); padding:0; color:var(--kptu-muted); }
 .collect-alert-line button:focus-visible { outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
 .home-collect-ok { margin:4px 0 0; text-align:center; font-size:var(--ds-text-meta,12px); line-height:1.5; color:var(--kptu-muted); }
+/* LIB-글자채우기야간: 홈 위쪽 '예전 자료 글자 읽기 끝남 (N개)' 한 줄(text-backfill-notice.js). 작은 글자 줄 + ✕(누르는 범위 44px은 ::after). */
+.home-text-done[hidden] { display:none; }
+.home-text-done { display:flex; align-items:center; gap:6px; min-width:0; min-height:var(--ds-compact-height,32px); margin:0; padding:0 4px 0 10px; border-radius:var(--ds-radius-control,8px); background:var(--kptu-success-soft,var(--kptu-surface-subtle)); font-size:var(--ds-text-meta,12px); line-height:1.5; color:var(--kptu-ink); }
+.text-done-label { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.text-done-failed { flex:0 0 auto; color:var(--kptu-warning); }
+.text-done-close { position:relative; flex:0 0 auto; width:var(--ds-compact-height-sm,28px); height:var(--ds-compact-height-sm,28px); margin:0; padding:0; border:0; background:transparent; color:var(--kptu-muted); font:inherit; cursor:pointer; }
+.text-done-close::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+.text-done-close:focus-visible { outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
 .home-collect h3 { font-size:16px; margin:0; line-height:1.5; }
 .mobile-menu-collect { margin:8px 0; padding:10px 12px; border:1px solid var(--kptu-border); border-radius:var(--ds-radius-box,12px); background:var(--kptu-surface); }
 .mobile-menu-collect header { margin-bottom:6px; }

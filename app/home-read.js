@@ -2,6 +2,7 @@ import { readRecordPages } from './basket-link-records.js';
 import { mountQuick } from './home-quick.js';
 import { mountRadar } from './todo-radar.js';
 import { mountCollectionStatus } from './collection-status.js';
+import { mountTextBackfillNotice } from './text-backfill-notice.js';
 import { createHomeCache } from './home-read-cache.js';
 import { paintFreshness } from './data-freshness.js';
 import { createTaskInline, moreButtonHtml } from './task-inline.js';
@@ -54,7 +55,8 @@ let epoch = 0,
   calendarState = null,
   imports = null,
   radarMount = null,
-  collectMount = null;
+  collectMount = null,
+  textDoneMount = null;
 const metrics = {
   shellAt:
     window.__KPTU_STARTUP__?.marks.requestedShellVisible || performance.now(),
@@ -138,7 +140,7 @@ function shell() {
   // JOURNAL-챙길것: 챙길 것 sits below 주요 일정. todo-radar.js is the only renderer inside that card; it stays hidden until
   // the candidate table and the server function answer (not deployed yet = hidden).
   // HOME-수집경보: 폰·중간 폭의 경고 한 줄(본문 맨 위)과 '수집 정상 ✓' 한 줄(맨 아래)도 collection-status.js가 그린다.
-  host.innerHTML = `<div data-home-column="main"><div class="home-collect-alert" data-home-collect-alert hidden></div>${['calendar','tasks','meetings'].map(section).join('')}</div><div data-home-column="aside">${section('dday')}<section class="home-card home-radar" data-home-card="radar" hidden></section><section class="home-card home-collect" data-home-card="collect" aria-labelledby="home-collect-title" hidden></section></div><p class="home-collect-ok" data-home-collect-ok role="status" hidden></p>`;
+  host.innerHTML = `<div data-home-column="main"><div class="home-collect-alert" data-home-collect-alert hidden></div><p class="home-text-done" data-home-text-done role="status" hidden></p>${['calendar','tasks','meetings'].map(section).join('')}</div><div data-home-column="aside">${section('dday')}<section class="home-card home-radar" data-home-card="radar" hidden></section><section class="home-card home-collect" data-home-card="collect" aria-labelledby="home-collect-title" hidden></section></div><p class="home-collect-ok" data-home-collect-ok role="status" hidden></p>`;
   host.querySelector('[data-home-column="main"]').prepend(quick);
   focused?.focus({ preventScroll: true });
   radarMount?.destroy();
@@ -148,6 +150,10 @@ function shell() {
   collectMount?.destroy();
   collectMount = mountCollectionStatus(card('collect'), { alert: host.querySelector('[data-home-collect-alert]'), okLine: host.querySelector('[data-home-collect-ok]') });
   collectMount?.refresh();
+  // LIB-글자채우기야간: '예전 자료 글자 읽기 끝남 (N개)' 한 줄. text-backfill-notice.js is the only renderer; same status answer as above.
+  textDoneMount?.destroy();
+  textDoneMount = mountTextBackfillNotice(host.querySelector('[data-home-text-done]'));
+  textDoneMount?.refresh();
   arrangeHome();
   root.querySelector('[data-home-timing]')?.remove();
   if(new URLSearchParams(location.search).get('homeTiming')==='1'){

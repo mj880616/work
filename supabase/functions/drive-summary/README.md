@@ -110,3 +110,17 @@
 - 부르는 쪽: `app/ledger-export.js`(Web2를 열고 2분 뒤 7일 지났으면 자동 + [원장] 화면 [지금 Drive로 내보내기]), `.github/workflows/ledger-export-check.yml`(월 07:43 KST, `scripts/ops/ledger-export-check.mjs`로 상태만 점검, 8일 넘거나 최근 실패면 workflow 실패).
 - 시험: `node --test tests/security/drive-summary-ledger-export.test.mjs tests/security/ledger-export-check.test.mjs tests/ledger-export-model.test.mjs`, 화면 `tests/app-e2e/ledger-export.spec.mjs`.
 - 배포: 같은 함수 재배포(verify_jwt=false 유지). 새 비밀값 없음(`SUPABASE_ANON_KEY`는 Edge 기본 제공). 되돌리기: 이전 운영 소스(main `9c0bbf9`, v14)로 재배포.
+
+## LIB-글자채우기야간 (예전 자료 글자 매일 밤 읽기)
+
+설계: `docs/design/global-search.md` 8.7절. 코드: `text-backfill.mjs`(순수 로직) + `core.mjs`(경로) + `index.ts`(`_shared/document-text.ts` 주입).
+
+- `POST ?action=text_backfill`: **예약 비밀값만**(`x-drive-summary-cron-secret`). 사용자 JWT·수집 신호 비밀값은 401. 업무공간은 slug `kptu-work`로 서버가 정한다. 읽기 함수가 주입되지 않았으면 `SERVER_CONFIG_MISSING`.
+- 이 함수에서 **유일한 DB 쓰기**: `app_documents` 글자 4칸(`extracted_text`·`extraction_status`·`extraction_error`·`extracted_at`)만, service role, 모든 요청에 `workspace_id` 조건. 한 번에 최대 5개, 45초 지나면 새 자료 시작 안 함. 읽기 전 "밤 시도 중"(`pending`+`nightly_try`) 표시, 30분 넘게 남은 표시는 `error`(`gave_up`)로 끝냄. Drive 토큰을 먼저 받고 실패하면 아무것도 표시하지 않는다.
+- 남은 수가 0이면 사본 폴더 `appProperties`에 `text_backfill_done_at`(한 번만)·`text_backfill_count`만 PATCH. 폴더가 없으면 만들지 않고 `done_error: COPY_FOLDER_MISSING`(응답은 ok).
+- 응답: `{ok, asked, ready, error, gave_up, skipped, remaining, stop, done_at, done_error?}`. 실패는 단계 코드만.
+- `POST ?action=text_backfill_dismiss`: 소유자 JWT만(예약 비밀값 401). 끝 기록이 없으면 409 `NOT_DONE`, 폴더가 없으면 409 `COPY_FOLDER_MISSING`. `text_backfill_dismissed_at`만 PATCH. 자료는 건드리지 않는다.
+- `GET ?action=status` 응답에 `text_backfill: {done_at, count, dismissed_at} | null`(엄격한 모양 통과값만).
+- 부르는 쪽: `.github/workflows/library-text-nightly.yml`(매일 03:23 KST, `scripts/ops/library-text-nightly.mjs`, 최대 4번), 홈 `app/text-backfill-notice.js`.
+- 배포: 같은 함수 재배포(`verify_jwt=false` 유지). 새 비밀값 없음(`DRIVE_SUMMARY_CRON_SECRET` 이미 두 곳에 있음). 되돌리기: 직전 운영 소스로 재배포.
+
