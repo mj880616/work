@@ -146,7 +146,7 @@ jobs:
         run: node --test tests/meeting-file-parse.test.mjs tests/pdf-lib-pin.test.mjs
 
       - name: Meeting card time, kind colors and PC layout
-        run: node --test tests/meeting-when.test.mjs tests/meeting-columns.test.mjs tests/report-kinds.test.mjs
+        run: node --test tests/meeting-when.test.mjs tests/meeting-columns.test.mjs tests/report-kinds.test.mjs tests/report-links.test.mjs
 
       - name: Markdown display pin and safety unit tests
         run: node --test tests/markdown-view.test.mjs tests/md-editor.test.mjs tests/html-frame.test.mjs tests/note-markdown.test.mjs

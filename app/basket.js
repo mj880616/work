@@ -1,5 +1,6 @@
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {basketOcrFor} from './basket-ocr-runtime.js';
+import {seoulInputValue} from './meeting-time.js';
 import {effectiveOcrText} from './basket-ocr-text.mjs';
 import { mountQuick } from './home-quick.js';
 import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js';
@@ -108,7 +109,7 @@ const rowMenuEl=root.querySelector('#basketRowMenu');
 let rowMenu=null;
 // UI-모바일노트복사메뉴: on a phone the row has no [복사] button; [복사] is the first item of this menu (PC keeps the button).
 function rowMenuItems(note){
-  return [...(!isWide()&&String(note.raw_text||'').trim()?[['copy','복사']]:[]),['edit','수정'],...(note.archived_at||note.ai_export_allowed!==true?[]:[['link','연결하기']]),['task','할 일 만들기'],['to-note','노트로 옮기기'],...journalItem(note),['delete','삭제','basket-menu-danger']];
+  return [...(!isWide()&&String(note.raw_text||'').trim()?[['copy','복사']]:[]),['edit','수정'],...(note.archived_at||note.ai_export_allowed!==true?[]:[['link','연결하기']]),['task','할 일 만들기'],['to-note','노트로 옮기기'],['to-report','사업 보고로 옮기기'],...journalItem(note),['delete','삭제','basket-menu-danger']];
 }
 // BASKET-일지로남기기: [업무일지에 남기기] for an update that went to no organization and no project; [업무일지에서 빼기] once kept.
 function journalItem(note){
@@ -395,11 +396,23 @@ function rowMenuAction(act,noteId){
   handoff.close();hideHandoffNotice();
   if(act==='delete'){void deleteFromList(noteId);return;}
   if(act==='journal'||act==='unjournal'){void keepInJournal(noteId,act==='journal');return;}
+  if(act==='to-report'){void moveToReport(note,rowMenuEl.querySelector('button')||root);return;}
   if(act==='to-note'&&!window.confirm(`‘${[...suggestNoteTitle(note).replace(/[\r\n]+/g,' ').trim()||'이 업데이트'].slice(0,40).join('')}’을(를) 노트로 옮길까요?`))return;
   openDetail(noteId,{edit:act==='edit'});
   if(selected?.id!==noteId)return;
   if(act==='link'||act==='task'){const message=manual.open(act);detail.querySelector('[data-basket-status]').textContent=message||'';}
   else if(act==='to-note')void saveToNote();
+}
+// MTG-사업보고 7단계 [사업 보고로 옮기기]: 칸 고르기 → 일시=업데이트 날짜, 결과=업데이트 글이 채워진 사업 보고 입력 창. 저장되면 업데이트 → 사업 보고 연결 한 줄을
+// 소유자 RLS 아래 REST 로 더한다(새 DB 변경 없음). 업데이트는 지우지 않아 첨부도 그대로이고, 바구니에서는 '분류됨'으로 칩에 사업 보고 이름이 보인다.
+async function moveToReport(note,trigger){
+  try{
+    await window.KPTUViewLoader?.prepare?.('meetings');
+    if(!window.KPTUReportEntry)throw new Error('missing');
+    const workspaceId=rt.context.read()?.workspace?.id;
+    await window.KPTUReportEntry.open({text:String(note.raw_text||''),at:seoulInputValue(note.occurred_at||note.created_at),trigger,
+      onSaved:async meeting=>{await rt.api('/rest/v1/app_record_links',{method:'POST',body:{workspace_id:workspaceId,note_id:note.id,meeting_id:meeting.id,status:'confirmed'}});window.dispatchEvent(new Event('kptu:basket-links-changed'));void refresh()}});
+  }catch(error){console.error('basket to report',error);listStatus.textContent='사업 보고 입력 창을 열지 못했어요. 다시 시도해 주세요.'}
 }
 async function deleteFromList(id){
   if(busy||selected)return;

@@ -114,7 +114,7 @@ export function pageProblem({title, blocks}) {
 
 export function labelProblem(label) {
   const text = String(label == null ? '' : label).trim();
-  if (!text) return '받는 사람 이름표를 입력해 주세요(예: ○○지부).';
+  if (!text) return '';  // 이름표는 비워도 된다(누구에게 준 링크인지 구분하는 용도일 뿐, 보는 사람을 제한하지 않는다).
   if (length(text) > LIMITS.label) return `이름표는 ${LIMITS.label}자까지예요.`;
   if (hasControl(text)) return '이름표에 쓸 수 없는 글자가 있어요.';
   return '';

@@ -42,17 +42,18 @@ for(const width of [390,1280])test(`project detail lists its own meetings newest
  const {reads,errors}=await fixture(page,width);
  await openProject(page,width);
  const box=page.locator('#ps3-meetings');
- await expect(box.locator('.ps3-section-head h3')).toHaveText('회의 7');
+ await expect(box.locator('.ps3-section-head h3')).toHaveText('사업 보고 7');
  // Owner-scoped read of this project only (RLS stays as it is): no child project and no unlinked meeting.
- const q=reads.find(r=>r.project_id==='eq.p');expect(q).toBeTruthy();expect(q.order).toBe('meeting_at.desc.nullslast,created_at.desc');expect(q.select).toBe('id,title,series_name,round_no,meeting_at');
+ const q=reads.find(r=>r.project_id==='eq.p');expect(q).toBeTruthy();expect(q.order).toBe('meeting_at.desc.nullslast,created_at.desc');expect(q.select).toBe('id,title,series_name,round_no,meeting_at,created_at,updated_at,activity_kind,project_id');
  expect(reads.some(r=>r.project_id?.startsWith('in.'))).toBe(false);
  await expect(box).not.toContainText('합성 하위 회의');await expect(box).not.toContainText('합성 무소속 회의');
  // The newest five are shown; the rest fold under "나머지 2개 보기" (native disclosure).
  await expect(box.locator(':scope > .ps3-lines [data-ps3-meeting]')).toHaveCount(5);
- await expect(rows(page).first()).toContainText('합성 정례 회의');await expect(rows(page).first()).toContainText('7차 · 2026. 9. 28.');
- await expect(rows(page).nth(1).locator('b')).toHaveText('합성 간담회');await expect(rows(page).nth(1).locator('small')).toHaveText('2026. 9. 25.');
+ // MTG-사업보고 6단계: 줄은 [종류] 꼬리표 + 이름·차수, 아래 작은 글자는 날짜.
+ await expect(rows(page).first().locator('[data-report-kind-tag]')).toHaveText('회의');await expect(rows(page).first().locator('b')).toContainText('합성 정례 회의 7차');await expect(rows(page).first().locator('small')).toHaveText('2026. 9. 28.');
+ await expect(rows(page).nth(1).locator('[data-report-kind-tag]')).toHaveText('회의');await expect(rows(page).nth(1).locator('b')).toHaveText('회의합성 간담회');await expect(rows(page).nth(1).locator('small')).toHaveText('2026. 9. 25.');
  const more=box.locator('.ps3-meetings-more');await expect(more).not.toHaveAttribute('open','');
- await expect(more.locator('summary')).toHaveText('나머지 2개 보기');await more.locator('summary').click();
+ await expect(more.locator(':scope > summary')).toHaveText('나머지 2개 보기');await more.locator(':scope > summary').click();
  await expect(more.locator('[data-ps3-meeting]')).toHaveCount(2);await expect(more.locator('[data-ps3-meeting]').last()).toContainText('2차');
  // The section comes after 자료 and before the folded 주요 일정·메모; rows are 44px buttons inside the page width.
  const order=await page.locator('#ps3Body').evaluate(b=>[...b.children].map(x=>x.id));
@@ -81,10 +82,10 @@ test('a project with no meetings shows the section with 0 and no rows; a child p
  await fixture(page,1280);
  await clickView(page,'projects');
  await page.locator('#projectGrid .ps3-plist [data-ps3-project="child"]').click();await expectProjectDetail(page,'child');
- await expect(page.locator('#ps3-meetings .ps3-section-head h3')).toHaveText('회의 1');
+ await expect(page.locator('#ps3-meetings .ps3-section-head h3')).toHaveText('사업 보고 1');
  await expect(rows(page)).toHaveCount(1);await expect(rows(page)).toContainText('합성 하위 회의');
  await page.route(SB+'/rest/v1/app_meetings?**',route=>route.fulfill({json:[]}));
  await page.locator('#projectGrid .ps3-plist [data-ps3-project="p"]').click();await expectProjectDetail(page,'p');
- await expect(page.locator('#ps3-meetings .ps3-section-head h3')).toHaveText('회의 0');await expect(rows(page)).toHaveCount(0);
+ await expect(page.locator('#ps3-meetings .ps3-section-head h3')).toHaveText('사업 보고 0');await expect(rows(page)).toHaveCount(0);
  await expect(page.locator('#ps3-meetings .ps3-meetings-more')).toHaveCount(0);
 });

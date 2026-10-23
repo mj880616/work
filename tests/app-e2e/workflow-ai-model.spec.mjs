@@ -93,7 +93,7 @@ test('new meeting stores raw result exactly and creates linked Google follow-up 
   const special='특이사항 첫 줄\n특이사항 둘째 줄';
   await page.locator('#meetingTitle').fill('회의 단순화 검증');
   await fillDateTime(page,'#meetingAt','2026-09-24T11:00');
-  await page.locator('#meetingProject').selectOption('main-1');
+  await page.locator('#meetingPlaces').click();await page.locator('#reportPlacesSheet').getByRole('button',{name:/상위 프로젝트/}).first().click();await page.locator('#reportPlacesSheet').getByRole('button',{name:'저장',exact:true}).click();
   await page.locator('#meetingRoundNo').fill('9');
   await page.locator('#meetingTranscript').fill(raw);
   await page.locator('#meetingNotes').fill(special);

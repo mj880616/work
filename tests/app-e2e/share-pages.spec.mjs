@@ -146,9 +146,8 @@ for (const width of [390, 1280]) test('make a share page on the full screen: sav
   await editor.getByRole('button', {name:'링크', exact:true}).click();
   await expect(linksPanel).toBeVisible();
 
-  // Links: label required, then make, copy (token read only on demand), off.
-  await editor.getByRole('button', {name:'링크 만들기', exact:true}).click();
-  await expect(editor.locator('[data-sp-link-status]')).toContainText('이름표를 입력');
+  // Links: label is optional (empty case: tests/share-pages-label.test.mjs), then make, copy (token read only on demand), off.
+  await expect(editor.locator('[data-sp-link-label]')).toHaveAttribute('placeholder', '비워도 돼요 · 링크를 가진 누구나 봐요');
   await editor.locator('[data-sp-link-label]').fill('○○지부');
   await editor.getByRole('button', {name:'링크 만들기', exact:true}).click();
   await expect(editor.locator('[data-sp-link-status]')).toContainText('"○○지부" 링크를 만들었어요');

@@ -171,7 +171,7 @@ for(const width of [390,1000])test(`회의: 줄 단위 목록·회의 색 점·�
  expect(dot).toEqual({w:'8px',bg:chip,radius:'50%'});
  const box=await look(page.locator('#meetingsListCard'));expect(box.borderWidth).toBe(await lineWidth(page));expect(box.radius).toBe('12px');
  // UI-선택표시통일: 폰의 [+ 회의]는 동그란 [+](버튼 모양 검사 밖), PC는 채운 버튼 하나.
- expect(await sameButtons(page,page.locator('#meetingsView'))).toEqual(width<761?[]:['+ 회의 결과']);
+ expect(await sameButtons(page,page.locator('#meetingsView'))).toEqual(width<761?[]:['+ 사업 보고']);
  // 필터 고르기는 그대로 동작.
  await page.locator('#meetingTypeFilter [data-filter-value="정책위원회"]').click();
  await expect(rows).toHaveCount(1);await expect(rows.first().locator('h3')).toHaveText('정책위원회');

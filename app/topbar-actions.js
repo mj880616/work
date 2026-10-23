@@ -447,7 +447,7 @@ paintWhere();
 // 업데이트·노트 = the menu [쓰기] window; 일정 = [+ 일정 등록]; 할 일 = the same window on its [할 일] side (as the home input's [+]).
 // 일기·공유 페이지 (MTG-사업보고 1단계) = the router opens the screen, then that screen's own [새 일기] / [새 공유 페이지] button is pressed (no new save path).
 const addButton=topline?.querySelector('[data-quick-add]');
-const ADD_ITEMS=[['update','업데이트'],['task','할 일'],['note','노트'],['event','일정'],['diary','일기'],['page','공유 페이지']];
+const ADD_ITEMS=[['update','업데이트'],['task','할 일'],['note','노트'],['event','일정'],['diary','일기'],['page','공유 페이지'],['report','사업 보고']];
 async function openEventWindow(task){
   try{
     await window.KPTUDeferredFeatures?.loadView?.('calendar');
@@ -478,6 +478,7 @@ if(addButton){
         if(kind==='update'||kind==='note')void openWriter(kind);
         else if(kind==='diary')void openScreenNewButton('diary','[data-diary-new]');
         else if(kind==='page')void openScreenNewButton('pages','[data-sp-new]');
+        else if(kind==='report')void openScreenNewButton('meetings','#newMeetingBtn');
         else void openEventWindow(kind==='task');
       }});
     addButton.addEventListener('click',()=>menu.open(addButton));

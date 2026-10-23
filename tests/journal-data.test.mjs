@@ -575,7 +575,7 @@ test('weekly draft with the hub groups: form order, project records in 요약, t
   const rows = text.split('\n');
   // Project records go to 2. 1) 요약 (a project outside the tree under its name), the rest under 참고 in the tab's order.
   assert.deepEqual(partOf(text, '2. 기본·영역·의제 사업'), ['1) 요약', '◦ 사업영역 밖 · 가상 사업', '- 10월 6일(화) 사업으로 보낸 메모', '- 10월 6일(화) 진행 기록',
-    '2) 세부 내용 — 회의·행사 결과', '(이 주 회의·행사 없음)']);
+    '2) 세부 내용 — 회의·활동 결과', '(이 주 회의·활동 없음)']);
   assert.deepEqual(partOf(text, '참고'), ['◦ 한 줄', '- 10월 6일(화) 한 줄', '◦ 끝낸 할 일', '- 10월 6일(화) 끝낸 일',
     '◦ 할 일 예정', '- 10월 6일(화) 가 예정', '- 10월 6일(화) 나 예정', '- 10월 7일(수) 다음 날 예정',
     '◦ 자료실 새 자료', '- 10월 5일(월) [교육] 전날 23:59', '- 10월 6일(화) [교섭] 교섭 요구안', '- 10월 6일(화) [기타] 회의록.hwp · 회의자료', '- 10월 7일(수) [교육] 다음 날 0시',

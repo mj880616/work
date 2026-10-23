@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import {openMdTool} from './helpers/md-tools.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { noteMenuAction } from './helpers/note-menu.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
@@ -103,10 +104,10 @@ for(const width of [390,1280]){
   const [a,e]=await Promise.all([area.boundingBox(),editor.boundingBox()]);expect(e.width-a.width).toBeLessThan(2);
   // The format row stays; letter buttons put their letters in.
   await area.fill('사과');
-  await editor.getByRole('button',{name:'글머리 목록'}).click();await expect(area).toHaveValue('- 사과');
-  await editor.getByRole('button',{name:'번호 목록'}).click();await expect(area).toHaveValue('1. 사과');
-  await editor.getByRole('button',{name:'체크 목록'}).click();await expect(area).toHaveValue('☐ 사과');
-  await editor.getByRole('button',{name:'구분선',exact:true}).click();await expect(area).toHaveValue('☐ 사과\n\n────\n');
+  await (await openMdTool(editor,'글머리 목록')).click();await expect(area).toHaveValue('- 사과');
+  await (await openMdTool(editor,'번호 목록')).click();await expect(area).toHaveValue('1. 사과');
+  await (await openMdTool(editor,'체크 목록')).click();await expect(area).toHaveValue('☐ 사과');
+  await (await openMdTool(editor,'구분선')).click();await expect(area).toHaveValue('☐ 사과\n\n────\n');
   // 굵게 needs markdown: it asks first. [그대로 두기] changes nothing.
   const ask=page.locator('#mdMarkdownSheet');
   await area.fill('굵은 말');await area.selectText();
@@ -118,8 +119,10 @@ for(const width of [390,1280]){
   await editor.getByRole('button',{name:'제목 단계 고르기'}).click();
   await expect(ask).toHaveAttribute('open','');
   await ask.getByRole('button',{name:'마크다운 켜고 적용',exact:true}).click();
-  await expect(box).toBeChecked();await expect(editor.locator('.md-editor-menu')).toBeVisible();
-  await editor.locator('.md-editor-menu').getByRole('button',{name:'제목 2'}).click();
+  await expect(box).toBeChecked();
+  // MD-서식줄묶음: the 제목 choices open under the button on a phone, as a row under the format row when wider.
+  const headings=width<761?editor.getByRole('group',{name:'제목 단계 고르기'}):editor.locator('.md-editor-menu');await expect(headings).toBeVisible();
+  await headings.getByRole('button',{name:'제목 2'}).click();
   await expect(area).toHaveValue('## 굵은 말');await expect(area).toHaveAccessibleName('마크다운 원문');
   if(width>=1024)await expect(editor.locator('.md-editor-preview h2')).toHaveText('굵은 말');
   else await expect(editor.locator('.md-editor-modes')).toBeVisible();

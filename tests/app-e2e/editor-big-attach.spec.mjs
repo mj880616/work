@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {openMdTool} from './helpers/md-tools.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {expectProjectDetail} from './helpers/project-detail.mjs';
@@ -109,7 +110,9 @@ for(const width of [390,1280]){
   const cb=await clip.boundingBox(),text=await e.locator('.md-editor-text').boundingBox();
   expect(cb.height).toBe(32);expect(await clip.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);expect(cb.y).toBeGreaterThanOrEqual(text.y+text.height-1);
   // NOTE-파일붙이기: [노트] moves the same [📎 첨부] to the end of the format row; [업데이트] puts it back under the text.
-  await e.locator('[data-md-kind="note"]').click();await expect(e.locator('.md-editor-tools').getByRole('button',{name:'파일 첨부',exact:true})).toBeVisible();
+  await e.locator('[data-md-kind="note"]').click();
+  if(width<761){await openMdTool(e,'파일 첨부');await expect(e.locator('.md-pop').getByRole('button',{name:'파일 첨부',exact:true})).toBeVisible();}
+  else await expect(e.locator('.md-editor-tools').getByRole('button',{name:'파일 첨부',exact:true})).toBeVisible();
   await e.locator('[data-md-kind="update"]').click();await expect(e.locator('.md-editor-attach').getByRole('button',{name:'파일 첨부',exact:true})).toBeVisible();
   await e.locator('.md-editor-text').fill('파일과 함께 쓰는 업데이트');
   await chooseFile(page,clip);
