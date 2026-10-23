@@ -40,7 +40,7 @@ export const RECORD_DELETE_TEXT=Object.freeze({
 export function noteDeleteConfirmText({places=0,otherLinks=0,attachments=0}={}){
   return ['업데이트 원문을 지웁니다.',
     `연결된 조직·프로젝트 ${places}곳에서도 사라집니다.`,
-    otherLinks?`회의·자료실 연결 ${otherLinks}곳도 함께 사라집니다.`:'',
+    otherLinks?`사업 보고·자료실 연결 ${otherLinks}곳도 함께 사라집니다.`:'',
     attachments?`첨부 파일 ${attachments}개는 Drive 휴지통으로 옮깁니다(30일 안에 복구 가능).`:''].filter(Boolean).join(' ');
 }
 // NOTE-파일붙이기 (2026-10-22 사용자 결정): deleting a note (kind=note) removes the note and its links only; its files stay in
@@ -48,7 +48,7 @@ export function noteDeleteConfirmText({places=0,otherLinks=0,attachments=0}={}){
 export function noteDocDeleteConfirmText({places=0,otherLinks=0,attachments=0}={}){
   return ['노트 원문을 지웁니다.',
     `연결된 조직·프로젝트 ${places}곳에서도 사라집니다.`,
-    otherLinks?`회의·자료실 연결 ${otherLinks}곳도 함께 사라집니다.`:'',
+    otherLinks?`사업 보고·자료실 연결 ${otherLinks}곳도 함께 사라집니다.`:'',
     attachments?`첨부 파일 ${attachments}개는 노트에서만 빠지고 Drive에는 그대로 남아요.`:''].filter(Boolean).join(' ');
 }
 export const NOTE_DOC_DELETED=Object.freeze({plain:'노트를 지웠어요.',files:'노트를 지웠어요. 첨부 파일은 Drive에 그대로 남아 있어요.'});

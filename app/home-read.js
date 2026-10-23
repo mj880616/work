@@ -105,7 +105,7 @@ const cards = {
   dday: ["주요 일정", ""],
   calendar: ["오늘 일정", "calendar", "달력"],
   tasks: ["오늘 할 일", "tasks", "할 일"],
-  meetings: ["회의 후속", "meetings", "회의"],
+  meetings: ["사업 보고 후속", "meetings", "사업 보고"],
 };
 const desktopHome = window.matchMedia('(min-width:1024px)');
 function arrangeHome() {
@@ -267,7 +267,7 @@ function taskRowHtml(id, title, done, meta, followUp = false) {
   // HOME-모바일정리②: 회의 후속이기도 한 오늘 할 일은 여기 한 번만 나오고 작은 꼬리표를 단다.
   // TASK-바로처리통일: 줄 오른쪽 ⋯(공용 task-inline.js: 내일로·기한 바꾸기·고치기·지우기, 끝낸 줄은 다시 할 일로·고치기).
   const ready = !!google?.taskState(id)?.task;
-  return `<div class="home-task ${done ? "completed" : ""}" data-home-task="${esc(id)}" data-task-inline-row><button type="button" class="gt-check" data-home-toggle="${esc(id)}" ${ready ? "" : "disabled"} aria-label="${done ? "완료 취소" : "완료"}" aria-pressed="${done}"></button><button type="button" class="home-task-text" data-home-edit="${esc(id)}" aria-label="${name} 수정"><span class="home-title">${name}</span>${followUp ? '<span class="home-tag" data-home-followup-tag>회의 후속</span>' : ""}${meta ? `<small>${meta}</small>` : ""}</button>${moreButtonHtml({id, name:title || "제목 없음", attr:"homeTaskMenu", menuId:"homeTaskMenu", className:"home-task-more"}).replace('<button ', ready ? '<button ' : '<button disabled ')}</div>`;
+  return `<div class="home-task ${done ? "completed" : ""}" data-home-task="${esc(id)}" data-task-inline-row><button type="button" class="gt-check" data-home-toggle="${esc(id)}" ${ready ? "" : "disabled"} aria-label="${done ? "완료 취소" : "완료"}" aria-pressed="${done}"></button><button type="button" class="home-task-text" data-home-edit="${esc(id)}" aria-label="${name} 수정"><span class="home-title">${name}</span>${followUp ? '<span class="home-tag" data-home-followup-tag>사업 보고 후속</span>' : ""}${meta ? `<small>${meta}</small>` : ""}</button>${moreButtonHtml({id, name:title || "제목 없음", attr:"homeTaskMenu", menuId:"homeTaskMenu", className:"home-task-more"}).replace('<button ', ready ? '<button ' : '<button disabled ')}</div>`;
 }
 const isFollowUp = (id) => linksReady
   ? links.some((l) => l.google_task_id === id && l.meeting_id && l.status === "confirmed")
@@ -284,7 +284,7 @@ function taskRows(rows, meeting = false) {
             .filter((l) => l.meeting_id)
             .map((l) => {
               const m = meetings.find((m) => m.id === l.meeting_id);
-              return m?.series_name || m?.title || "회의 연결";
+              return m?.series_name || m?.title || "사업 보고 연결";
             })
         : ls.flatMap((l) =>
             [
@@ -335,8 +335,8 @@ function renderTasks({ includeMeetings = true } = {}) {
       taskRows(follow, true),
       follow.length,
     );
-  else empty("meetings", "회의 후속 없음", true);
-  saveCopy('meetings',{rows:follow.map(x=>({id:x.task.id,title:x.task.title,meetingName:links.filter(l=>l.google_task_id===x.task.id&&l.meeting_id&&l.status==='confirmed').map(l=>meetings.find(m=>m.id===l.meeting_id)?.series_name||meetings.find(m=>m.id===l.meeting_id)?.title||'회의 연결').join(' · ')}))});
+  else empty("meetings", "사업 보고 후속 없음", true);
+  saveCopy('meetings',{rows:follow.map(x=>({id:x.task.id,title:x.task.title,meetingName:links.filter(l=>l.google_task_id===x.task.id&&l.meeting_id&&l.status==='confirmed').map(l=>meetings.find(m=>m.id===l.meeting_id)?.series_name||meetings.find(m=>m.id===l.meeting_id)?.title||'사업 보고 연결').join(' · ')}))});
 }
 function renderDday(rows){
   const today=dayKey();
@@ -358,7 +358,7 @@ function restoreCopies(){
   if(copies.meetings){
     const rows=copies.meetings.rows;
     if(rows.length)paint('meetings',rows.map(r=>taskRowHtml(r.id,r.title,false,esc(r.meetingName))).join(''),rows.length);
-    else empty('meetings','회의 후속 없음',true);
+    else empty('meetings','사업 보고 후속 없음',true);
   }
 }
 const calendarAuthError=e=>Number(e?.status||0)===401||Number(e?.status||0)===403||/연결되지|재인증|권한|invalid_grant|unauthori[sz]ed|invalid.?credentials/i.test(String(e?.message||e));

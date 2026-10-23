@@ -119,7 +119,7 @@ test('폰 390: 상세 창은 그대로(제목 줄, [크게]·[저장] 한 줄, �
  expect(await menu.evaluate(m=>!!m.closest('#wdModal'))).toBe(true);
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(modal).toBeVisible();
  const order=await modal.locator('.wd-card').evaluate(card=>[...card.querySelectorAll(':scope > .wd-sec')].map(sec=>sec.id||sec.querySelector('h3')?.textContent?.trim()));
- expect(order.slice(0,3)).toEqual(['wdTasks','wdDocs','wdLog']);
+ expect(order.slice(0,4)).toEqual(['wdTasks','wdDocs','wdReports','wdLog']);
  await expect(modal.locator('#wdDocBody .empty')).toHaveCount(0);
  expect(errors).toEqual([]);
 });

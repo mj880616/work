@@ -338,7 +338,7 @@ for(const width of [390,1280]){
       await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
       const edit=async()=>{await expandLibraryTree(page);await page.locator('[data-lu-menu="doc-archived"]').click();await page.locator('[data-lu-edit="doc-archived"]').click();await expect(page.locator('#libraryEditModal')).toBeVisible();await expect(page.locator('#libraryEditMeeting option')).toHaveCount(3)};
       await edit();
-      const meeting=page.getByRole('combobox',{name:'회의',exact:true});
+      const meeting=page.getByRole('combobox',{name:'사업 보고',exact:true});
       await expect(meeting).toHaveValue('');
       expect(await meeting.locator('option').evaluateAll(opts=>opts.map(o=>o.value))).toEqual(['','recent','older']);
       const labels=await meeting.locator('option').allTextContents();

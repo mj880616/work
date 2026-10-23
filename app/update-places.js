@@ -96,7 +96,7 @@ function usedPlaces(places) {
 // heading and its organizations follow one per line with a check box. Many may be chosen; the sheet marks them (choice-sheet.js multi).
 // UI-기록할곳창PC: the organizations and the projects are each one column block (data-sheet-col); on a wide PC (1024px~) the sheet
 // sets them side by side under the 최근 line (choice-sheet.js wide, choice-sheet.css). Phones and middle widths keep them stacked.
-export function placeSheetHtml(places, chosen, esc) {
+export function placeSheetHtml(places, chosen, esc, {basket: withBasket = true} = {}) {
   const list = placeList(chosen), picked = value => value === 'basket' ? !list.length : list.some(p => placeValue(p) === value);
   const chip = (value, name) => `<button type="button" class="home-choice-chip" data-sheet-value="${esc(value)}" aria-pressed="${picked(value)}">${esc(name)}</button>`;
   const row = x => projectRow(x, picked('project:' + x.project.id) ? 'project:' + x.project.id : null, esc, {value:'project:' + x.project.id});
@@ -106,7 +106,9 @@ export function placeSheetHtml(places, chosen, esc) {
   const all = orgs.groups.flat();
   const recent = [...used.map(p => p.kind === 'project' ? chip(placeValue(p), placeName(places, p)) : chip(p.id, all.find(o => o.id === p.id)?.name || '')),
     ...orgs.recent.filter(o => !usedIds.has(o.id)).slice(0, Math.max(0, Math.max(3, orgs.recent.length) - usedIds.size)).map(o => chip(o.id, o.name))];
-  return `<div data-sheet-recent-block data-sheet-hide-on-search><p class="home-choice-label">최근</p><div class="home-choice-group home-choice-group-plain">${basket}<span data-sheet-recent class="home-choice-inline">${recent.join('')}</span></div></div><div class="home-choice-col" data-sheet-col="orgs"><p class="home-choice-label" data-sheet-label-of="all">담당조직</p><div data-sheet-all data-sheet-part="all">${orgGroupRows(orgs.groups, o => orgRow(o, picked(o.id), esc))}</div></div>${projects.length ? `<div class="home-choice-col" data-sheet-col="projects"><p class="home-choice-label" data-sheet-label-of="projects">프로젝트</p><div data-sheet-projects data-sheet-part="projects">${projects.map(row).join('')}</div></div>` : ''}`;
+  // MTG-사업보고 6단계: 사업 보고의 [연결할 곳]은 바구니(미분류)가 없는 같은 창이다({basket:false}). 최근 줄은 고를 곳이 있을 때만.
+  const recentBlock = withBasket || recent.length ? `<div data-sheet-recent-block data-sheet-hide-on-search><p class="home-choice-label">최근</p><div class="home-choice-group home-choice-group-plain">${withBasket ? basket : ''}<span data-sheet-recent class="home-choice-inline">${recent.join('')}</span></div></div>` : '';
+  return `${recentBlock}<div class="home-choice-col" data-sheet-col="orgs"><p class="home-choice-label" data-sheet-label-of="all">담당조직</p><div data-sheet-all data-sheet-part="all">${orgGroupRows(orgs.groups, o => orgRow(o, picked(o.id), esc))}</div></div>${projects.length ? `<div class="home-choice-col" data-sheet-col="projects"><p class="home-choice-label" data-sheet-label-of="projects">프로젝트</p><div data-sheet-projects data-sheet-part="projects">${projects.map(row).join('')}</div></div>` : ''}`;
 }
 export { projectRows };
 // Text-only save of one update. owner is the signed-in user (the record's created_by/author_id, checked again by RLS).

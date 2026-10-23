@@ -6,7 +6,7 @@
 //   2. 기본·영역·의제 사업 — 1) 요약: 사업영역(1단 project) → 세부 과제(2단) → 진행 상황 및 이후 계획. The screen has no 담당 팀원
 //      column (JOURNAL-주간정리다듬기 ②, 2026-10-22); the .hwpx keeps the form's column and fills it (journal-hwpx.js). Records follow the project tree and its order (project-catalog tree, PRJ-3단); a 3단 (사안) record sits on its
 //      2단 row as "세부과제 › 사안: 내용", a 2단 record as "세부과제: 내용", a 1단 record on the area's own row (project-3-levels.md
-//      3절 D, 8절 ④). 2) 세부 내용: 회의·행사 결과 by the meeting's date.
+//      3절 D, 8절 ④). 2) 세부 내용: 회의·활동 결과 by the meeting's date.
 //   1. 2) 주요 일정 — 본부 주요 일정 (the headquarters' press conferences, main meetings, forums, rallies, trainings; not one
 //      workplace's own nor repeating ones). Its rule is not settled yet, so the box only says what goes there (2026-10-21).
 //   4. 산하 조직 현황 — 조직 소식 in the app's organization order (13 조직 묶음, then 그 외, then 미분류; ORG-묶음순서 PR 864).
@@ -179,7 +179,7 @@ export function scheduleForm(calendar, me = '', overrides = null) {
 }
 
 // The whole week in report order. lines: Map(day → journal row) or null when they could not be read.
-// kinds: JOURNAL-회의종류표시 — {status:'ok', list} = the kinds left out of 회의·행사 결과 (journal-meeting-kinds.js); {status:'loading'} keeps
+// kinds: JOURNAL-회의종류표시 — {status:'ok', list} = the kinds left out of 회의·활동 결과 (journal-meeting-kinds.js); {status:'loading'} keeps
 // that part "loading" until the list is read; anything else (not given, unreadable) reports every meeting as before.
 export function weeklySummary({start, lines, linesState = 'ok', materials = {}, doneDays = DONE_TASK_DAYS, today = todayKey(), kinds = null}) {
   const days = weekDays(start), m = {...materials, lines:{status:linesState === 'loading' ? 'loading' : linesState === 'ok' ? 'ok' : 'failed', items:lines}};
@@ -193,7 +193,7 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
     return {...placeRecords(records, tree), ordered:!!tree, count:records.length, failed:s.failed};
   });
 
-  // 회의·행사 결과: a meeting whose kind (series name, else title, without spaces, lower-case) is in my "not reported" list is left out
+  // 회의·활동 결과: a meeting whose kind (series name, else title, without spaces, lower-case) is in my "not reported" list is left out
   // here, in the draft copy and wherever else this grouping is used. Items carry their kind so the screen can offer the switch;
   // `hidden` = the kinds left out this week (name, count) so they can be put back; `editable` only when the list was read.
   const meetings = part('meetings', () => {
@@ -258,7 +258,7 @@ export const orgSummaryLines = text => String(text ?? '').split('\n').map(line =
 // ---- [주간보고 초안 복사] (2026-10-21 사용자 승인: 날짜순이 아니라 양식 순서) ----
 // The same grouping as the tab, as text in the form's order: 1. 요청사항 → 2. 사업 → 4. 산하 조직 → 5. 주요 일정 → 참고. A part
 // that is still loading or failed says so in its place, and the end names what could not be read.
-const LABELS = Object.freeze({requests:'임원 일정 배정·논의 요청', summary:'프로젝트 기록', meetings:'회의·행사 결과', orgs:'조직 소식', calendar:'달력 일정', lines:'한 줄'});
+const LABELS = Object.freeze({requests:'임원 일정 배정·논의 요청', summary:'프로젝트 기록', meetings:'회의·활동 결과', orgs:'조직 소식', calendar:'달력 일정', lines:'한 줄'});
 export function weeklyReportText(model) {
   const {days} = model, out = [`주간 업무일지 ${shortDay(days[0])} ~ ${shortDay(days[6])}`, `■ 일시 : ${reportDateText(model.start)}`, ''];
   const item = (i, text = i.text) => `- ${shortDay(i.day)} ${requestPrefix(i.requests)}${text}`;
@@ -277,8 +277,8 @@ export function weeklyReportText(model) {
     for (const other of s.others) { out.push(`◦ ${s.ordered ? '사업영역 밖 · ' : ''}${other.name}`); for (const i of other.items) out.push(item(i)); }
     if (!s.count && !s.failed.some(k => k !== 'catalog')) out.push('(이 주 프로젝트 기록 없음)');
   }
-  out.push('2) 세부 내용 — 회의·행사 결과');
-  if (!note('meetings', model.meetings)) { for (const i of model.meetings.items) out.push(item(i)); if (!model.meetings.items.length) out.push('(이 주 회의·행사 없음)'); }
+  out.push('2) 세부 내용 — 회의·활동 결과');
+  if (!note('meetings', model.meetings)) { for (const i of model.meetings.items) out.push(item(i)); if (!model.meetings.items.length) out.push('(이 주 회의·활동 없음)'); }
   out.push('', '4. 산하 조직 현황', '1) 요약');
   // An organization with a summary (JOURNAL-조직현황AI요약) gives its summary lines (no day); the others give their records.
   if (!note('orgs', model.orgs)) {
@@ -405,8 +405,8 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}) {
     if (!s.count && !s.failed.some(k => k !== 'catalog')) summary.append(empty('이 주 프로젝트 기록이 없어요.'));
     if (s.ordered && s.quiet.length && s.count) { const q = muted(`이 주 기록 없는 사업영역: ${s.quiet.join(', ')}`); q.dataset.journalWeeklyQuiet = ''; summary.append(q); }
   }
-  const meet = block('meetings', '2) 세부 내용 — 회의·행사 결과');
-  if (!status(meet, model.meetings, '회의·행사 결과') && !model.meetings.failed.length) {
+  const meet = block('meetings', '2) 세부 내용 — 회의·활동 결과');
+  if (!status(meet, model.meetings, '회의·활동 결과') && !model.meetings.failed.length) {
     const mt = model.meetings, off = mt.hidden || [];
     if (mt.items.length) {
       const list = itemList(mt.items);
@@ -421,7 +421,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}) {
         more.append(summaryEl, toggle); li.append(more);
       });
       meet.append(list);
-    } else meet.append(empty(off.length ? '이 주 회의·행사는 모두 주간보고에서 뺀 종류예요.' : '이 주 회의·행사가 없어요.'));
+    } else meet.append(empty(off.length ? '이 주 회의·활동은 모두 주간보고에서 뺀 종류예요.' : '이 주 회의·활동이 없어요.'));
     if (off.length) {
       const box = el('div', 'journal-kinds-off'); box.dataset.journalKindsOff = '';
       box.append(el('p', 'journal-muted', '주간보고에서 뺀 회의 종류(이 주)'));

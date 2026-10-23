@@ -144,7 +144,7 @@ test('PC: [+ 추가] opens the existing windows for 업데이트·할 일·노�
  await openHome(page);
  const add=page.locator('[data-quick-add]'),menu=page.locator('#toplineAddMenu');
  await add.click();await expect(menu).toBeVisible();
- await expect(menu.locator('button')).toHaveText(['업데이트','할 일','노트','일정','일기','공유 페이지']);
+ await expect(menu.locator('button')).toHaveText(['업데이트','할 일','노트','일정','일기','공유 페이지','사업 보고']);
  await expect(menu.locator('button').first()).toBeFocused();
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(add).toBeFocused();
  // 업데이트 / 노트: the shared write window, preselected.

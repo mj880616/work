@@ -16,7 +16,7 @@ test("phone: a task in both 오늘 할 일 and 회의 후속 shows once with a �
   await expect(meetingsCard(page)).toContainText("기한 없는 후속");
   await linkTodayToMeeting(page, control);
   const today = tasksCard(page).locator('[data-home-task="today"]');
-  await expect(today.locator("[data-home-followup-tag]")).toHaveText("회의 후속");
+  await expect(today.locator("[data-home-followup-tag]")).toHaveText("사업 보고 후속");
   await expect(tasksCard(page).locator("[data-home-followup-tag]")).toHaveCount(1);
   await expect(page.locator('#homeView [data-home-task="today"]')).toHaveCount(1);
   await expect(meetingsCard(page)).toBeVisible();

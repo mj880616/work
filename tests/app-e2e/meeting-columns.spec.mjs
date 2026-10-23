@@ -62,7 +62,7 @@ for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 
   await expect(page.locator('#meetingRoundDetailModal')).toBeHidden();
   // 오른쪽은 읽기용: 입력칸·저장 버튼 없음, 고치는 곳은 머리의 ⋯ 하나.
   await expect(result(page).locator('input,textarea,select,[contenteditable="true"]')).toHaveCount(0);
-  await expect(result(page).locator('button:not(.file-line-open)')).toHaveCount(1);await expect(result(page).locator('[data-meeting-more]')).toHaveAttribute('aria-label','회의 결과 관리');
+  await expect(result(page).locator('button:not(.file-line-open)')).toHaveCount(1);await expect(result(page).locator('[data-meeting-more]')).toHaveAttribute('aria-label','사업 보고 관리');
   // 종류를 고르면 가운데에 그 회의의 차수 전부(최신 위), 오른쪽은 그 종류의 가장 최근 차수. 가운데 줄에는 "회의자료 있음"이 없다(날짜·시간만).
   await kind(page,'궤도협의회').click();
   await expect(kind(page,'궤도협의회')).toHaveAttribute('aria-current','true');await expect(kind(page,'노사협의회')).not.toHaveAttribute('aria-current','true');
@@ -129,7 +129,7 @@ test('PC 오른쪽 결과: 후속 할 일(읽기)·프로젝트·회의자료 �
   const routes=()=>page.route('**/functions/v1/google-tasks**',route=>{const url=new URL(route.request().url());const action=url.searchParams.get('action');if(action==='linked'){reads.push(url.searchParams.get('meeting_id'));const id=url.searchParams.get('meeting_id');return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({tasks:id==='labor-2'?[{id:'t1',title:'가상 후속 할 일',due:'2026-10-25T00:00:00Z',status:'needsAction'},{id:'t2',title:'끝난 가상 할 일',status:'completed'}]:[]})})}return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,tasks:[]})})});
   await open(page,s,1440,900,{routes});
   await expect(result(page)).toHaveAttribute('data-meeting-result','labor-2');
-  await expect(result(page).locator('.mcol-result-meta')).toContainText('프로젝트 가상 프로젝트');
+  await expect(result(page).locator('.mcol-result-meta')).toContainText('연결 가상 프로젝트');
   await expect(result(page).locator('.mcol-task')).toHaveCount(2);
   await expect(result(page).locator('.mcol-task').first()).toContainText('가상 후속 할 일');await expect(result(page).locator('.mcol-task').first().locator('.mcol-task-due')).toHaveText('10. 25. (일)');
   await expect(result(page).locator('.mcol-task.completed')).toContainText('끝난 가상 할 일');
@@ -172,7 +172,7 @@ test('PC: 차수가 많으면 가운데 목록만, 종류가 많으면 왼쪽 �
 
 test('PC ④: [+ 회의 결과]는 화면에 하나, 왼쪽에서 고른 종류를 미리 고른 기존 만들기 창(회의명 미지정은 비운 채)',async({page})=>{
   const s=columnState();await open(page,s,1440);
-  await expect(page.locator('#meetingsView button:visible').filter({hasText:'회의 결과'})).toHaveCount(1);
+  await expect(page.locator('#meetingsView button:visible').filter({hasText:'사업 보고'})).toHaveCount(1);
   await kind(page,'궤도협의회').click();await page.locator('#newMeetingBtn').click();
   await expect(page.locator('#meetingModal')).toBeVisible();
   await expect(page.locator('#meetingNameSelect')).toHaveValue('궤도협의회');await expect(page.locator('#meetingTitle')).toHaveValue('궤도협의회');
