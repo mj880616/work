@@ -211,13 +211,13 @@ test('narrow PC (1024): format buttons that do not fit go under [⋯] with no si
   const errors = await signIn(page, state);
   await page.locator('.sp-row').first().click();
   const editor = page.locator('[data-sp-editor]');
-  const tools = editor.locator('.ed-tools'), more = tools.getByRole('button', {name:'서식 더보기', exact:true});
+  const tools = editor.locator('.ed-tools'), more = tools.getByRole('button', {name:'서식 더 보기', exact:true});
   await expect(more).toBeVisible();
   expect(await tools.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
   await page.keyboard.press('Control+End');
   await page.keyboard.type(' 더함');
   await more.click();
-  await editor.getByRole('group', {name:'서식 더보기'}).getByRole('button', {name:'되돌리기', exact:true}).click();
+  await editor.getByRole('group', {name:'서식 더 보기'}).getByRole('button', {name:'되돌리기', exact:true}).click();
   await expect(editor.getByRole('textbox', {name:'본문', exact:true})).toHaveText('처음 글');
   expect(errors).toEqual([]);
 });

@@ -1,11 +1,14 @@
 // ED-통합편집기 ①a: the one rich-text editor part (블로그 글쓰기형, docs/design/unified-editor.md 2.3), built on the vendored
 // ProseMirror bundle (app/editor-lib, loaded only when an editor opens). It edits one document in one box and saves nothing:
 // the opener reads getValue() (the cleaned saved form {v:'ed1', doc}) and stores it its own way, as md-editor.js does.
-// Button row (small 28px buttons, 44px press area; a phone swipes the one row sideways with [⋯] kept at its right end;
-// wider than a phone, buttons that do not fit move under [⋯], so no sideways scroll bar). ED-기본기보강 (2026-10-22 사용자
+// Button row (small 28px buttons, 44px press area; a phone swipes the one row sideways with [⌄] kept at its right end;
+// wider than a phone, buttons that do not fit move under [⌄], so no sideways scroll bar). ED-서식줄펼침 (2026-10-23 사용자
+// 11:06~11:10): every button that opens choices carries a small ▾ and opens a small popover right under itself (overlaying the
+// text, closed by a press outside or Esc, kept inside the screen); [⌄] ([⌃] while open) is the only button that opens a
+// full-width row (the less used buttons). ED-기본기보강 (2026-10-22 사용자
 // 19:24~19:33, 대조표 docs/design/unified-editor.md 9절): the often-used buttons stay on the row, the rest are under [⋯]:
-//   [본문 2 ▾] | 굵게 기울임 밑줄 | 글자색 형광펜 | 정렬 ▾ | 목록 번호 | 표 링크 | · ※ → ① | ↶ ↷ | ⋯
-//   ⋯ = 취소선 인용 구분선 들여쓰기 내어쓰기 서식 지우기 글자만 붙여넣기 「」 (그리고 폭이 모자라 옮겨진 버튼)
+//   [본문 2 ▾] | 굵게 기울임 밑줄 | 글자색 ▾ 형광펜 ▾ | 정렬 ▾ | 목록 ▾ 번호 ▾ | 표 ▾ 링크 | · ※ → ① (each ▾) | ↶ ↷ | ⌄
+//   ⌄ = 취소선 인용 구분선 들여쓰기 내어쓰기 서식 지우기 글자만 붙여넣기 「」 (그리고 폭이 모자라 옮겨진 버튼)
 // [표] opens a grid to pick rows × columns; a table cell's right-click (a phone's long press) menu adds and removes rows and
 // columns, merges and splits cells; column edges drag (saved on the cells, read the same by every reader); a double click on
 // an edge fits that column to its letters; Tab goes to the next cell (the last cell's Tab adds a row). A table, rule or photo
@@ -20,7 +23,7 @@
 // 한글 IME: nothing here changes the document while a composition is running. A button pressed during one lets the press blur
 // the box first (that ends the composition), then runs and puts focus back.
 import {TEXT_STYLES, DEFAULT_BODY, BODY_STYLES, TEXT_COLORS, HIGHLIGHTS, LIMITS, cleanDoc, emptyDoc, safeHref, nextCircled,
-  circled, widthsOfRow, tableLayout} from './ed-schema.mjs';
+  circled, widthsOfRow, tableLayout, BULLET_MARKERS, ORDER_MARKERS, autoMarker, bulletGlyph, orderedLabel} from './ed-schema.mjs';
 import {looksLikeMarkdown} from './note-markdown.mjs';
 import {markdownToDoc} from './ed-markdown.mjs';
 import {toPlain} from './ed-text.mjs';
@@ -61,10 +64,13 @@ function buildSchema(pm) {
         parseDOM: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].map(tag => ({tag, getAttrs: el => ({level: headingLevel(el), align: alignOf(el), indent: indentOf(el)})})),
         toDOM: n => [`h${n.attrs.level + 1}`, {class: blockClass(`ed-h ed-h${n.attrs.level}`, n.attrs)}, 0]},
       blockquote: {group: 'block', content: 'block+', defining: true, parseDOM: [{tag: 'blockquote'}], toDOM: () => ['blockquote', {class: 'ed-quote'}, 0]},
-      bullet_list: {group: 'block', content: 'list_item+', parseDOM: [{tag: 'ul'}], toDOM: () => ['ul', {class: 'ed-ul'}, 0]},
-      ordered_list: {group: 'block', content: 'list_item+', attrs: {order: {default: 1}},
-        parseDOM: [{tag: 'ol', getAttrs: el => ({order: el.hasAttribute('start') ? (+el.getAttribute('start') || 1) : 1})}],
-        toDOM: n => ['ol', n.attrs.order === 1 ? {class: 'ed-ol'} : {class: 'ed-ol', start: n.attrs.order}, 0]},
+      // ED-서식줄펼침: `marker` is a shape name (ed-schema.mjs BULLET_MARKERS·ORDER_MARKERS) or null = automatic by nesting depth.
+      bullet_list: {group: 'block', content: 'list_item+', attrs: {marker: {default: null}},
+        parseDOM: [{tag: 'ul', getAttrs: el => ({marker: nameFrom(el, 'ed-ul', BULLET_MARKERS)})}],
+        toDOM: n => ['ul', {class: `ed-ul ed-ul-${n.attrs.marker || 'auto'}`}, 0]},
+      ordered_list: {group: 'block', content: 'list_item+', attrs: {order: {default: 1}, marker: {default: null}},
+        parseDOM: [{tag: 'ol', getAttrs: el => ({order: el.hasAttribute('start') ? (+el.getAttribute('start') || 1) : 1, marker: nameFrom(el, 'ed-ol', ORDER_MARKERS)})}],
+        toDOM: n => ['ol', n.attrs.order === 1 ? {class: `ed-ol ed-ol-${n.attrs.marker || 'auto'}`} : {class: `ed-ol ed-ol-${n.attrs.marker || 'auto'}`, start: n.attrs.order}, 0]},
       list_item: {content: 'paragraph block*', defining: true, parseDOM: [{tag: 'li'}], toDOM: () => ['li', 0]},
       horizontal_rule: {group: 'block', parseDOM: [{tag: 'hr'}], toDOM: () => ['hr', {class: 'ed-hr'}]},
       code_block: {group: 'block', content: 'text*', marks: '', code: true, defining: true,
@@ -115,17 +121,17 @@ function cleanPastedHtml(html) {
 const BUTTONS = [
   ['style', '본문 2 ▾', '글 단계 고르기', 'style'],
   ['strong', '굵게', null, 'mark'], ['em', '기울임', null, 'mark'], ['underline', '밑줄', null, 'mark'],
-  ['color', '글자색', '글자색 고르기', 'paint'], ['highlight', '형광펜', '형광펜 고르기', 'paint'],
+  ['color', '글자색 ▾', '글자색 고르기', 'paint'], ['highlight', '형광펜 ▾', '형광펜 고르기', 'paint'],
   ['align', '왼쪽 ▾', '정렬 고르기', 'align'],
-  ['bullet', '목록', '글머리 목록', 'list'], ['ordered', '번호', '번호 목록', 'list'],
-  ['table', '표', '표 넣기', 'insert'], ['photo', '사진', '사진 넣기', 'insert'], ['link', '링크', '링크 넣기', 'insert'],
-  ['symDot', '·', '점 기호 고르기', 'sym'], ['symNote', '※', '참고 기호 고르기', 'sym'], ['symArrow', '→', '화살표 고르기', 'sym'], ['symCircled', '①', '동그라미 번호 고르기', 'sym'],
+  ['bullet', '목록 ▾', '글머리 목록 고르기', 'list'], ['ordered', '번호 ▾', '번호 목록 고르기', 'list'],
+  ['table', '표 ▾', '표 넣기', 'insert'], ['photo', '사진', '사진 넣기', 'insert'], ['link', '링크', '링크 넣기', 'insert'],
+  ['symDot', '· ▾', '점 기호 고르기', 'sym'], ['symNote', '※ ▾', '참고 기호 고르기', 'sym'], ['symArrow', '→ ▾', '화살표 고르기', 'sym'], ['symCircled', '① ▾', '동그라미 번호 고르기', 'sym'],
   ['undo', '↶', '되돌리기', 'history'], ['redo', '↷', '다시하기', 'history'],
 ];
 const MORE = [
   ['strike', '취소선', null], ['quote', '인용', null], ['rule', '구분선', null],
   ['indent', '들여쓰기', null], ['outdent', '내어쓰기', null], ['clear', '서식 지우기', null],
-  ['plainPaste', '글자만 붙여넣기', null], ['symBracket', '「」', '괄호·단위 기호 고르기'],
+  ['plainPaste', '글자만 붙여넣기', null], ['symBracket', '「」 ▾', '괄호·단위 기호 고르기'],
 ];
 const ALIGNS = [['left', '왼쪽'], ['center', '가운데'], ['right', '오른쪽'], ['justify', '양쪽']];
 // Signs that open a row of similar signs (사용자 19:33: 비슷한 기호 펼치기). The first one is the button's own sign.
@@ -140,22 +146,40 @@ const TABLE_TOOLS = [
   ['rowBefore', '위에 줄', '위에 줄 넣기'], ['rowAfter', '아래에 줄', '아래에 줄 넣기'],
   ['colBefore', '왼쪽에 칸', '왼쪽에 칸 넣기'], ['colAfter', '오른쪽에 칸', '오른쪽에 칸 넣기'],
   ['rowDel', '줄 삭제', null], ['colDel', '칸 삭제', null], ['merge', '칸 합치기', null], ['split', '칸 나누기', null],
-  ['head', '머리줄', null], ['fit', '글자에 맞추기', '표 폭을 글자에 맞추기'], ['select', '표 고르기', '표 전체 고르기'], ['tableDel', '표 지우기', null],
+  ['head', '머리줄', null], ['fit', '글자에 맞추기', '표 폭을 글자에 맞추기'], ['select', '표 선택', '표 전체 선택'], ['tableDel', '표 지우기', null],
 ];
 const GRID = {rows: 6, cols: 8};
 
+// A button's text. A label that ends in " ▾" gets a small caret of its own (hidden from screen readers).
+function setLabel(b, text) {
+  if (b.dataset.edLabel === text) return;
+  b.dataset.edLabel = text;
+  const m = /^(.*) ▾$/.exec(text);
+  if (!m) { b.textContent = text; return; }
+  const caret = document.createElement('span');
+  caret.className = 'ed-caret'; caret.setAttribute('aria-hidden', 'true'); caret.textContent = ' ▾';
+  b.replaceChildren(m[1], caret);
+}
 function btn(label, data, aria) {
   const b = document.createElement('button');
-  b.type = 'button'; b.textContent = label;
+  b.type = 'button'; setLabel(b, label);
   Object.assign(b.dataset, data);
   if (aria) b.setAttribute('aria-label', aria);
   return b;
 }
-function panel(className, label) {
+// popover: a small box placed under its button (placePop), not a full-width row.
+function panel(className, label, popover = false) {
   const p = document.createElement('div');
-  p.className = `ed-menu ${className}`; p.hidden = true; p.setAttribute('role', 'group'); p.setAttribute('aria-label', label);
+  p.className = `ed-menu ${popover ? 'ed-pop ' : ''}${className}`; p.hidden = true; p.setAttribute('role', 'group'); p.setAttribute('aria-label', label);
   return p;
 }
+const checkMark = () => { const c = document.createElement('span'); c.className = 'ed-check'; c.setAttribute('aria-hidden', 'true'); c.textContent = '✓'; return c; };
+const svgEl = (tag, attrs) => { const e = document.createElementNS('http://www.w3.org/2000/svg', tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); return e; };
+// [⌄] (rotated to [⌃] while open by the stylesheet): a small chevron, drawn so no font has to carry the sign.
+const chevron = () => { const svg = svgEl('svg', {viewBox: '0 0 12 12', width: '12', height: '12', 'aria-hidden': 'true', focusable: 'false'}); svg.classList.add('ed-chevron'); svg.append(svgEl('path', {d: 'M2.5 4.5 6 8l3.5-3.5', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.6', 'stroke-linecap': 'round', 'stroke-linejoin': 'round'})); return svg; };
+// A 정렬 icon: four lines, each as long and as far over as the alignment puts it.
+const ALIGN_LINES = {left: [[1, 13], [1, 9], [1, 13], [1, 7]], center: [[1, 13], [3, 11], [1, 13], [4, 10]], right: [[1, 13], [5, 13], [1, 13], [7, 13]], justify: [[1, 13], [1, 13], [1, 13], [1, 13]]};
+const alignIcon = v => { const svg = svgEl('svg', {viewBox: '0 0 14 12', width: '14', height: '12', 'aria-hidden': 'true', focusable: 'false'}); ALIGN_LINES[v].forEach(([a, b], i) => svg.append(svgEl('path', {d: `M${a} ${1.5 + i * 3}H${b}`, stroke: 'currentColor', 'stroke-width': '1.3', 'stroke-linecap': 'round'}))); return svg; };
 
 // Mounts an editor into host. value: a saved form (or null for an empty one). onChange(value): after each change.
 // label: the text box's accessible name. head: an optional node put between the button row and the text box (a title).
@@ -177,7 +201,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   bar.className = 'ed-bar';
   tools.className = 'ed-tools'; tools.setAttribute('role', 'toolbar'); tools.setAttribute('aria-label', '서식');
   const buttons = {};
-  const OPENS = {style: 'style', color: 'color', highlight: 'highlight', align: 'align', table: 'grid', link: 'link',
+  const OPENS = {style: 'style', color: 'color', highlight: 'highlight', align: 'align', bullet: 'bullet', ordered: 'ordered', table: 'grid', link: 'link',
     symDot: 'symDot', symNote: 'symNote', symArrow: 'symArrow', symCircled: 'symCircled', symBracket: 'symBracket'};
   let lastGroup = null;
   for (const [key, text, aria, group] of BUTTONS) {
@@ -190,35 +214,53 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     if (group === 'mark' || group === 'list') b.setAttribute('aria-pressed', 'false');
     buttons[key] = b; tools.append(b);
   }
-  const more = btn('⋯', {edMore: ''}, '서식 더보기');
-  more.classList.add('ed-more'); more.setAttribute('aria-haspopup', 'true'); more.setAttribute('aria-expanded', 'false');
+  // [⌄] / [⌃]: no box, the same small size; a light highlight while open (stylesheet). The one button that opens a full row.
+  const more = btn('', {edMore: ''}, '서식 더 보기');
+  more.classList.add('ed-more'); more.title = '서식 더 보기'; more.setAttribute('aria-haspopup', 'true'); more.setAttribute('aria-expanded', 'false');
+  more.append(chevron());
   tools.append(more);
   const panels = {};
-  panels.more = panel('ed-more-menu', '서식 더보기');
+  panels.more = panel('ed-more-menu', '서식 더 보기');
   for (const [key, text, aria] of MORE) {
     const b = btn(text, {edCmd: key, edFixed: ''}, aria);
     if (OPENS[key]) { b.setAttribute('aria-haspopup', 'true'); b.setAttribute('aria-expanded', 'false'); }
     if (key === 'strike' || key === 'quote') b.setAttribute('aria-pressed', 'false');
     buttons[key] = b; panels.more.append(b);
   }
-  panels.style = panel('ed-style-menu', '글 단계');
-  for (const [v, text] of TEXT_STYLES) panels.style.append(btn(text, {edStyle: v}));
-  panels.color = panel('ed-color-menu', '글자색');
-  panels.color.append(btn('색 없음', {edColor: ''}));
-  for (const [v, text] of TEXT_COLORS) { const b = btn('', {edColor: v}, `글자색 ${text}`); b.append(Object.assign(document.createElement('span'), {className: `ed-c ed-c-${v}`, textContent: '가'}), ` ${text}`); panels.color.append(b); }
-  panels.highlight = panel('ed-highlight-menu', '형광펜');
-  panels.highlight.append(btn('형광펜 없음', {edHighlight: ''}));
-  for (const [v, text] of HIGHLIGHTS) { const b = btn('', {edHighlight: v}, `형광펜 ${text}`); b.append(Object.assign(document.createElement('mark'), {className: `ed-hl ed-hl-${v}`, textContent: text})); panels.highlight.append(b); }
-  panels.align = panel('ed-align-menu', '정렬');
-  for (const [v, text] of ALIGNS) panels.align.append(btn(text, {edAlign: v}, `${text} 정렬`));
+  // Popovers (ed-pop): a vertical list with a ✓ on the current choice (글 단계·정렬·목록·번호), or a small block of swatches
+  // and signs (글자색·형광펜·기호·표 격자). Each opens right under the button that was pressed.
+  panels.style = panel('ed-style-menu', '글 단계', true);
+  for (const [v, text] of TEXT_STYLES) { const b = btn(text, {edStyle: v}); b.append(checkMark()); panels.style.append(b); }
+  panels.color = panel('ed-color-menu', '글자색', true);
+  { const b = btn('색 없음', {edColor: ''}); b.append(checkMark()); panels.color.append(b); }
+  for (const [v, text] of TEXT_COLORS) { const b = btn('', {edColor: v}, `글자색 ${text}`); b.append(Object.assign(document.createElement('span'), {className: `ed-c ed-c-${v}`, textContent: '가'}), ` ${text}`, checkMark()); panels.color.append(b); }
+  panels.highlight = panel('ed-highlight-menu', '형광펜', true);
+  { const b = btn('형광펜 없음', {edHighlight: ''}); b.append(checkMark()); panels.highlight.append(b); }
+  for (const [v, text] of HIGHLIGHTS) { const b = btn('', {edHighlight: v}, `형광펜 ${text}`); b.append(Object.assign(document.createElement('mark'), {className: `ed-hl ed-hl-${v}`, textContent: text}), checkMark()); panels.highlight.append(b); }
+  panels.align = panel('ed-align-menu', '정렬', true);
+  for (const [v, text] of ALIGNS) { const b = btn('', {edAlign: v}, `${text} 정렬`); b.append(alignIcon(v), Object.assign(document.createElement('span'), {className: 'ed-opt-text', textContent: text}), checkMark()); panels.align.append(b); }
+  // 목록 ▾ / 번호 ▾: each choice shows two lines of what it will look like; [목록 풀기] takes the item out of the list.
+  for (const kind of ['bullet', 'ordered']) {
+    panels[kind] = panel(`ed-list-menu ed-${kind}-menu`, kind === 'bullet' ? '글머리 목록' : '번호 목록', true);
+    for (const marker of kind === 'bullet' ? BULLET_MARKERS : ORDER_MARKERS) {
+      const sign = n => kind === 'bullet' ? bulletGlyph(marker, 0) : orderedLabel(marker, 0, n);
+      const b = btn('', {edListKind: kind, edListMarker: marker}, `${kind === 'bullet' ? '글머리' : '번호'} ${sign(1)}`);
+      const prev = document.createElement('span'); prev.className = 'ed-list-prev';
+      for (const n of [1, 2]) { const line = document.createElement('span'); line.textContent = `${sign(n)} 항목`; prev.append(line); }
+      b.append(prev, checkMark());
+      panels[kind].append(b);
+    }
+    const off = btn('목록 풀기', {edListOff: kind}); off.classList.add('ed-list-off');
+    panels[kind].append(off);
+  }
   for (const key of ['symDot', 'symNote', 'symArrow', 'symBracket']) {
-    panels[key] = panel('ed-sym-menu', buttons[key].getAttribute('aria-label').replace(/ 고르기$/, ''));
+    panels[key] = panel('ed-sym-menu', buttons[key].getAttribute('aria-label').replace(/ 고르기$/, ''), true);
     for (const sign of SYMBOLS[key]) panels[key].append(btn(sign, {edSym: sign}, `${sign} 넣기`));
   }
-  panels.symCircled = panel('ed-sym-menu', '동그라미 번호');
+  panels.symCircled = panel('ed-sym-menu', '동그라미 번호', true);
   for (const sign of CIRCLED_PICK) panels.symCircled.append(btn(sign, {edSym: sign}, `${sign} 넣기`));
   // [표]: a grid of rows × columns; the picked size shows beside it.
-  panels.grid = panel('ed-grid-menu', '표 크기 고르기');
+  panels.grid = panel('ed-grid-menu', '표 크기 고르기', true);
   const grid = document.createElement('div'); grid.className = 'ed-grid';
   grid.style.setProperty('--ed-grid-cols', String(GRID.cols));
   for (let r = 1; r <= GRID.rows; r++) for (let c = 1; c <= GRID.cols; c++) grid.append(btn('', {edGridR: String(r), edGridC: String(c)}, `${r}줄 ${c}칸 표`));
@@ -226,7 +268,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   panels.grid.append(grid, gridSize);
   // [링크]: one address box.
   // Its address box is put in only while the row is open (no hidden input sits in the page otherwise).
-  panels.link = panel('ed-link-menu', '링크');
+  panels.link = panel('ed-link-menu', '링크', true);
   const linkInput = Object.assign(document.createElement('input'), {type: 'url', className: 'ed-link-input', placeholder: 'https://…', autocomplete: 'off'});
   linkInput.setAttribute('aria-label', '링크 주소'); linkInput.spellcheck = false;
   const linkOk = btn('넣기', {edLinkOk: ''}, '링크 넣기 확인'), linkOff = btn('링크 빼기', {edLinkOff: ''});
@@ -241,8 +283,9 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   note.className = 'ed-note'; note.hidden = true; note.setAttribute('role', 'status');
   const status = document.createElement('p');
   status.className = 'ed-status a11y-only'; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
-  const PANEL_ORDER = ['more', 'style', 'color', 'highlight', 'align', 'symDot', 'symNote', 'symArrow', 'symCircled', 'symBracket', 'grid', 'link'];
-  bar.append(tools, ...PANEL_ORDER.map(k => panels[k]), tableRow, suggest, note);
+  const PANEL_ORDER = ['more', 'style', 'color', 'highlight', 'align', 'bullet', 'ordered', 'symDot', 'symNote', 'symArrow', 'symCircled', 'symBracket', 'grid', 'link'];
+  // The full-width rows (the [⌄] row, table tools, offers, notes) sit in the flow; popovers are placed on the screen.
+  bar.append(tools, panels.more, tableRow, suggest, note, ...PANEL_ORDER.filter(k => k !== 'more').map(k => panels[k]));
   const box = document.createElement('div');
   box.className = 'ed-box';
   // The table cell menu (right click, a phone's long press): a small floating list, closed by Esc or a press outside.
@@ -389,7 +432,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       this.node = node;
       this.dom = document.createElement('div'); this.dom.className = 'tableWrapper ed-table-wrap';
       this.grip = document.createElement('span'); this.grip.className = 'ed-table-grip'; this.grip.contentEditable = 'false';
-      this.grip.setAttribute('aria-hidden', 'true'); this.grip.title = '표 전체 고르기';
+      this.grip.setAttribute('aria-hidden', 'true'); this.grip.title = '표 전체 선택';
       this.table = document.createElement('table'); this.table.className = 'ed-table';
       this.colgroup = this.table.appendChild(document.createElement('colgroup'));
       this.contentDOM = this.table.appendChild(document.createElement('tbody'));
@@ -407,7 +450,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       this.table.style.width = lay ? `${lay.width}px` : '';
     }
     update(node) { if (node.type !== this.node.type) return false; this.node = node; this.layout(); return true; }
-    ignoreMutation(record) { return record.type === 'attributes' && (record.target === this.table || this.colgroup.contains(record.target)) || this.grip.contains(record.target); }
+    ignoreMutation(record) { return record.type === 'attributes' && (record.target === this.dom || record.target === this.table || this.colgroup.contains(record.target)) || this.grip.contains(record.target); }
     stopEvent(event) { return this.grip.contains(event.target); }
   }
 
@@ -461,7 +504,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       const map = pm.TableMap.get(other);
       dispatch(state.tr.setSelection(pm.CellSelection.create(state.doc, at + 1 + map.map[0], at + 1 + map.map[map.map.length - 1])).scrollIntoView());
     } else dispatch(state.tr.setSelection(pm.NodeSelection.create(state.doc, at)).scrollIntoView());
-    say(other.type === N.table ? '표를 골랐어요. 한 번 더 누르면 지워요.' : '골랐어요. 한 번 더 누르면 지워요.');
+    say(other.type === N.table ? '표를 선택했어요. 한 번 더 누르면 지워요.' : '선택했어요. 한 번 더 누르면 지워요.');
     return true;
   };
   // ↑ in a table's first row / ↓ in its last row: out of the table. When no line is there (the table starts the text, or
@@ -639,15 +682,31 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     return true;
   }
   const inNode = (st, type) => { const $f = st.selection.$from; for (let d = $f.depth; d > 0; d--) if ($f.node(d).type === type) return d; return -1; };
-  function toggleList(type) {
-    const st = view.state, depth = inNode(st, N.list_item);
+  // 목록 ▾ / 번호 ▾: puts the cursor's lines into a list of this kind with this marker shape. In a list of the same kind only
+  // the shape changes; in a list of the other kind the list changes in place (nesting stays). Items nested later (Tab) get no
+  // saved shape, so they follow the automatic order by depth (1. → 1) → (1) → ①, • → ◦ → ▪).
+  function setListStyle(kind, marker) {
+    const st = view.state, type = kind === 'ordered' ? N.ordered_list : N.bullet_list, depth = inNode(st, N.list_item);
     if (depth > 0) {
-      const list = st.selection.$from.node(depth - 1);
-      if (list.type === type) return pm.liftListItem(N.list_item)(st, view.dispatch);
-      // The other list kind: change the list in place.
-      return view.dispatch(st.tr.setNodeMarkup(st.selection.$from.before(depth - 1), type));
+      const $f = st.selection.$from, list = $f.node(depth - 1), at = $f.before(depth - 1);
+      if (list.type === type) {
+        if (list.attrs.marker !== marker) view.dispatch(st.tr.setNodeMarkup(at, null, {...list.attrs, marker}));
+        return;
+      }
+      view.dispatch(st.tr.setNodeMarkup(at, type, {marker}));
+      return;
     }
-    return pm.wrapInList(type)(st, view.dispatch);
+    pm.wrapInList(type, {marker})(st, view.dispatch);
+  }
+  const liftList = () => pm.liftListItem(N.list_item)(view.state, view.dispatch);
+  // The list around the cursor: its kind, shape shown (saved, or automatic for its depth) and depth among lists of its kind.
+  function listAround(st) {
+    const li = inNode(st, N.list_item);
+    if (li < 1) return null;
+    const $f = st.selection.$from, list = $f.node(li - 1), kind = list.type === N.ordered_list ? 'ordered' : 'bullet';
+    let depth = 0;
+    for (let d = li - 2; d > 0; d--) if ($f.node(d).type === list.type) depth++;
+    return {kind, depth, marker: list.attrs.marker || autoMarker(kind, depth)};
   }
   function toggleQuote() {
     const st = view.state;
@@ -709,7 +768,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     if (depth < 0) return;
     const $f = st.selection.$from, table = $f.node(depth), start = $f.start(depth), map = pm.TableMap.get(table);
     view.dispatch(st.tr.setSelection(pm.CellSelection.create(st.doc, start + map.map[0], start + map.map[map.map.length - 1])));
-    say('표를 골랐어요. Delete나 Backspace로 지워요.');
+    say('표를 선택했어요. Delete나 Backspace로 지워요.');
   }
   function tableCmd(key) {
     const st = view.state;
@@ -870,7 +929,6 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     underline: () => pm.toggleMark(M.underline)(view.state, view.dispatch),
     strike: () => pm.toggleMark(M.strike)(view.state, view.dispatch),
     quote: toggleQuote,
-    bullet: () => toggleList(N.bullet_list), ordered: () => toggleList(N.ordered_list),
     rule: () => insertBlock(N.horizontal_rule.create()),
     photo: () => pickPhotos(),
     indent: () => pm.chainCommands(pm.sinkListItem(N.list_item), indentBy(1))(view.state, view.dispatch),
@@ -890,10 +948,35 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   // ── panels ──
   let openName = null;
   const triggerOf = name => name === 'more' ? more : name === 'grid' ? buttons.table : buttons[name];
+  // A popover goes right under the button that opened it, over the text (the text does not move). It stays inside the visible
+  // screen: moved left when it would pass the right edge, put above the button when there is no room below, and its own list
+  // scrolls when neither fits. (A phone's bottom bar is kept clear, as the cell menu does.)
+  function placePop(name) {
+    const pop = panels[name], trigger = triggerOf(name);
+    if (!pop || !pop.classList.contains('ed-pop') || pop.hidden || !trigger) return;
+    const vv = window.visualViewport;
+    const view0 = {l: vv ? vv.offsetLeft : 0, t: vv ? vv.offsetTop : 0, w: vv ? vv.width : innerWidth, h: vv ? vv.height : innerHeight};
+    const gap = 4, side = 8, bottomRoom = view0.w <= 760 ? 72 : 12;
+    pop.style.maxHeight = ''; pop.style.maxWidth = '';
+    if (pop.getBoundingClientRect().width > view0.w - side * 2) pop.style.maxWidth = `${Math.max(120, view0.w - side * 2)}px`;
+    pop.style.left = '0px'; pop.style.top = '0px';
+    const t = trigger.getBoundingClientRect(), size = pop.getBoundingClientRect();
+    const below = view0.t + view0.h - bottomRoom - t.bottom - gap, above = t.top - view0.t - side - gap;
+    const underneath = size.height <= below || below >= above, room = Math.max(80, Math.floor(underneath ? below : above));
+    const top = underneath ? t.bottom + gap : t.top - gap - Math.min(size.height, room);
+    pop.style.maxHeight = `${room}px`;
+    const left = Math.max(view0.l + side, Math.min(t.left, view0.l + view0.w - side - size.width));
+    pop.style.left = `${Math.round(left)}px`; pop.style.top = `${Math.round(top)}px`;
+    // An ancestor with a transform or filter would make "fixed" relative to it: correct by what was really drawn.
+    const drawn = pop.getBoundingClientRect();
+    if (Math.abs(drawn.left - left) > 1) pop.style.left = `${Math.round(left - (drawn.left - left))}px`;
+    if (Math.abs(drawn.top - top) > 1) pop.style.top = `${Math.round(top - (drawn.top - top))}px`;
+  }
+  const followPop = e => { if (openName && !(e && e.target && e.target.closest && e.target.closest('.ed-pop'))) placePop(openName); };
   function openPanel(name) {
     const was = openName;
     for (const key of PANEL_ORDER) {
-      // [⋯] stays open while one of its own panels (괄호·단위) is open.
+      // [⌄] stays open while one of its own panels (괄호·단위) is open.
       const keep = key === 'more' && name === 'symBracket' && buttons.symBracket.parentElement === panels.more;
       const on = key === name || keep;
       panels[key].hidden = !on;
@@ -909,7 +992,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       setTimeout(() => linkInput.focus(), 0);
     }
     if (name === 'grid') paintGrid(2, 2);
-    if (name) paint();
+    if (name) { paint(); placePop(name); }
     return was;
   }
   const closePanels = () => openPanel(null);
@@ -965,11 +1048,21 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     else if (e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) { e.preventDefault(); items[(i + 1) % items.length]?.focus(); }
     else if (e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey)) { e.preventDefault(); items[(i - 1 + items.length) % items.length]?.focus(); }
   });
+  // A press anywhere outside the button row and its popovers (the text included) closes the open one.
   const outside = e => {
     if (!ctx.hidden && !ctx.contains(e.target)) closeCtx(false);
-    if (openName && !bar.contains(e.target) && !view.dom.contains(e.target)) closePanels();
+    if (openName && !bar.contains(e.target)) closePanels();
   };
   document.addEventListener('pointerdown', outside, true);
+  // Esc closes it even when the focus is not in the text box or on a button.
+  const escape = e => { if (e.key === 'Escape' && openName && !root.contains(e.target)) { closePanels(); } };
+  document.addEventListener('keydown', escape);
+  // A popover follows its button when the page, the screen or the sideways button row moves.
+  window.addEventListener('scroll', followPop, true);
+  window.addEventListener('resize', followPop);
+  window.visualViewport?.addEventListener('resize', followPop);
+  window.visualViewport?.addEventListener('scroll', followPop);
+  tools.addEventListener('scroll', followPop);
 
   view.dom.addEventListener('mousedown', e => { if (e.button === 0) pointerHeld = true; });
   const release = () => { if (pointerHeld) { pointerHeld = false; paint(); } };
@@ -984,9 +1077,53 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     view.focus();
   });
 
+  // ED-서식줄펼침: pressing a table's outer border (top, left, bottom) chooses the whole table. The pointer shows a hand and the
+  // table gets a faint outline while it is over the border. A finger gets a wider strip (a phone has [표 선택] too). The right
+  // border is the last column's width handle, so a press there still drags the column.
+  let pointerKind = 'mouse', edgeWrap = null;
+  const edgeWidth = () => pointerKind === 'touch' || pointerKind === 'pen' ? 12 : 4;
+  function tableEdgeAt(x, y, target) {
+    const wrap = target?.closest?.('.ed-table-wrap');
+    const table = wrap && wrap.querySelector('table');
+    if (!table || !view.dom.contains(wrap)) return null;
+    const rs = pm.columnResizingPluginKey.getState(view.state);
+    if (rs && rs.activeHandle >= 0) return null;
+    const r = table.getBoundingClientRect(), w = edgeWidth();
+    const insideX = x >= r.left - w && x <= r.right - w, insideY = y >= r.top - w && y <= r.bottom + w;
+    if (!insideX || !insideY) return null;
+    const onEdge = Math.abs(y - r.top) <= w || Math.abs(y - r.bottom) <= w || Math.abs(x - r.left) <= w;
+    return onEdge ? wrap : null;
+  }
+  const setEdge = wrap => {
+    if (wrap === edgeWrap) return;
+    edgeWrap?.classList.remove('is-edge');
+    edgeWrap = wrap; wrap?.classList.add('is-edge');
+  };
+  view.dom.addEventListener('pointerdown', e => { pointerKind = e.pointerType || 'mouse'; }, true);
+  view.dom.addEventListener('pointermove', e => { if (e.pointerType === 'mouse' && !pointerHeld) setEdge(tableEdgeAt(e.clientX, e.clientY, e.target)); });
+  view.dom.addEventListener('pointerleave', () => setEdge(null));
+  view.dom.addEventListener('mousedown', e => {
+    if (e.button !== 0 || e.target.closest?.('.ed-table-grip')) return;
+    const wrap = tableEdgeAt(e.clientX, e.clientY, e.target);
+    if (!wrap) return;
+    e.preventDefault(); e.stopPropagation();
+    const pos = view.posAtDOM(wrap.querySelector('td,th'), 0);
+    view.dispatch(view.state.tr.setSelection(pm.TextSelection.near(view.state.doc.resolve(pos))));
+    selectWholeTable();
+    view.focus();
+  }, true);
+
   // Pressing a button keeps the text box focused (the phone keyboard stays), except during a composition (see run) and
   // in the link box (it takes the focus to type).
-  const keepFocus = e => { const b = e.target.closest('button'); if (b && !view.composing && view.hasFocus()) e.preventDefault(); };
+  // ED-서식줄펼침: the editor learns of the browser's own selection change (Shift+Home, Shift+arrows, a drag) a moment after it
+  // happens (selectionchange). A button pressed in that moment used to act on the old, empty selection (굵게 set as a typing
+  // style instead of on the chosen letters). So a press first reads the browser's selection into the editor.
+  const syncSelection = () => { if (view.isDestroyed || view.composing) return; try { view.domObserver.forceFlush(); view.domObserver.flush(); } catch { /* reads on the next selectionchange */ } };
+  // The same read after a key is let go or a press ends, in case the browser's own selectionchange was missed or ignored
+  // (the editor then kept the old cursor although letters were chosen on screen).
+  view.dom.addEventListener('keyup', syncSelection);
+  window.addEventListener('pointerup', syncSelection, true);
+  const keepFocus = e => { const b = e.target.closest('button'); if (b && !view.composing && view.hasFocus()) { syncSelection(); e.preventDefault(); } };
   bar.addEventListener('pointerdown', keepFocus);
   bar.addEventListener('mousedown', keepFocus);
   ctx.addEventListener('mousedown', e => e.preventDefault());
@@ -997,6 +1134,8 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     if ('edMore' in d) { openPanel(openName === 'more' ? null : 'more'); return; }
     if (d.edCmd && OPENS[d.edCmd]) { const name = OPENS[d.edCmd]; openPanel(openName === name ? (name === 'symBracket' ? 'more' : null) : name); return; }
     if (d.edStyle) { run(() => setTextStyle(d.edStyle)); closePanels(); return; }
+    if (d.edListMarker) { const kind = d.edListKind, marker = d.edListMarker; closePanels(); run(() => setListStyle(kind, marker)); return; }
+    if (d.edListOff) { closePanels(); run(liftList); return; }
     if ('edColor' in d) { run(() => setNamedMark(M.color, d.edColor)); closePanels(); return; }
     if ('edHighlight' in d) { run(() => setNamedMark(M.highlight, d.edHighlight)); closePanels(); return; }
     if (d.edAlign) { run(() => setAlign(d.edAlign)); closePanels(); return; }
@@ -1062,7 +1201,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   function paint() {
     const st = view.state, style = currentStyle(st);
     const label = (TEXT_STYLES.find(([v]) => v === style) || [null, st.selection.$from.parent.type === N.code_block ? '코드' : '단계'])[1];
-    buttons.style.textContent = `${label} ▾`;
+    setLabel(buttons.style, `${label} ▾`);
     for (const b of panels.style.querySelectorAll('[data-ed-style]')) b.setAttribute('aria-pressed', String(b.dataset.edStyle === style));
     for (const key of ['strong', 'em', 'underline', 'strike']) buttons[key].setAttribute('aria-pressed', String(markActive(st, M[key])));
     const color = namedMark(st, M.color), hl = namedMark(st, M.highlight);
@@ -1071,12 +1210,16 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     for (const b of panels.highlight.querySelectorAll('[data-ed-highlight]')) b.setAttribute('aria-pressed', String(b.dataset.edHighlight === hl));
     const p = st.selection.$from.parent;
     const align = (st.selection instanceof pm.NodeSelection ? st.selection.node.attrs.align : p.attrs && p.attrs.align) || 'left';
-    buttons.align.textContent = `${(ALIGNS.find(([v]) => v === align) || ALIGNS[0])[1]} ▾`;
+    setLabel(buttons.align, `${(ALIGNS.find(([v]) => v === align) || ALIGNS[0])[1]} ▾`);
     for (const b of panels.align.querySelectorAll('[data-ed-align]')) b.setAttribute('aria-pressed', String(b.dataset.edAlign === align));
     buttons.quote.setAttribute('aria-pressed', String(inNode(st, N.blockquote) > 0));
-    const li = inNode(st, N.list_item), listType = li > 0 ? st.selection.$from.node(li - 1).type : null;
-    buttons.bullet.setAttribute('aria-pressed', String(listType === N.bullet_list));
-    buttons.ordered.setAttribute('aria-pressed', String(listType === N.ordered_list));
+    const li = inNode(st, N.list_item), around = listAround(st);
+    buttons.bullet.setAttribute('aria-pressed', String(around?.kind === 'bullet'));
+    buttons.ordered.setAttribute('aria-pressed', String(around?.kind === 'ordered'));
+    for (const kind of ['bullet', 'ordered']) {
+      for (const b of panels[kind].querySelectorAll('[data-ed-list-marker]')) b.setAttribute('aria-pressed', String(around?.kind === kind && around.marker === b.dataset.edListMarker));
+      panels[kind].querySelector('[data-ed-list-off]').hidden = around?.kind !== kind;
+    }
     buttons.outdent.disabled = !(li > 0 || (p.attrs && p.attrs.indent > 0));
     buttons.undo.disabled = pm.undoDepth(st) === 0; buttons.redo.disabled = pm.redoDepth(st) === 0;
     buttons.link.setAttribute('aria-pressed', String(!!linkAt(st)));
@@ -1112,6 +1255,12 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     destroy() {
       resize?.disconnect(); phone?.removeEventListener?.('change', queueFit); cancelAnimationFrame(fitFrame); clearTimeout(noteTimer);
       document.removeEventListener('pointerdown', outside, true);
+      document.removeEventListener('keydown', escape);
+      window.removeEventListener('pointerup', syncSelection, true);
+      window.removeEventListener('scroll', followPop, true);
+      window.removeEventListener('resize', followPop);
+      window.visualViewport?.removeEventListener('resize', followPop);
+      window.visualViewport?.removeEventListener('scroll', followPop);
       window.removeEventListener('mouseup', release, true);
       view.destroy(); root.remove();
     },
