@@ -78,7 +78,7 @@ for(const width of [390,1280])test(`단계 저장·이력·목록 꼬리표 ${wi
  // 같은 단계를 다시 저장하면 날짜만 고친 것(줄이 늘지 않음)
  await line.locator('[data-stage-date]').fill('2026-10-03');await line.locator('[data-stage-save]').click();
  await expect(line.locator('[data-stage-save]')).toBeDisabled();
- expect(db.history).toHaveLength(1);expect(db.history[0].stage_date).toBe('2026-10-03');
+ await expect.poll(()=>db.history.length).toBe(1);expect(db.history[0].stage_date).toBe('2026-10-03');
  // 끝남: 이번 주(10.5~10.11)에 끝나면 꼬리표, 지난 주에 끝난 건 없음
  await stageSelect(page).selectOption({label:'협약체결'});await line.locator('[data-stage-date]').fill('2026-10-05');await line.locator('[data-stage-save]').click();
  await expect(line.locator('summary')).toHaveText('단계 이력 2');
