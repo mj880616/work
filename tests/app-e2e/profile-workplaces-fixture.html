@@ -1,4 +1,4 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>profile workplaces fixture</title><link rel="stylesheet" href="../../app/profile-settings.css?fixture=2"><style>.hidden{display:none}.app-nav{display:flex;gap:6px}.panel{padding:12px}.toast{position:fixed;bottom:5px}</style></head><body>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>profile workplaces fixture</title><link rel="stylesheet" href="../../app/theme-tokens.css"><link rel="stylesheet" href="../../app/profile-settings.css?fixture=3"><style>.hidden{display:none}.app-nav{display:flex;gap:6px}.panel{padding:12px}.toast{position:fixed;bottom:5px}</style></head><body>
 <nav class="app-nav"><button data-view="team">팀</button></nav>
 <div id="appView"></div><button id="userBadge" type="button">테스터</button><div id="toast" class="toast hidden"></div>
 <script>
@@ -9,13 +9,15 @@ const state=window.__state={
  organizations:[
   {id:'org-a',name:'철도노조',aliases:['철도'],active:true},
   {id:'org-b',name:'한국가스공사노조',aliases:['가스공사'],active:true},
-  {id:'org-c',name:'비활성조직',aliases:[],active:false}
+  {id:'org-c',name:'비활성조직',aliases:[],active:false},
+  {id:'org-d',name:'전국철도노동조합',aliases:[],active:true},
+  {id:'org-e',name:'서울교통공사노동조합',aliases:[],active:true}
  ],
  workplaces:[
   {id:'pw-a',user_id:'u1',organization_id:'org-a',full_name:'철도노조',aliases:['철도'],sort_order:0,created_at:'2026-09-01T00:00:00Z'},
   {id:'pw-legacy',user_id:'u1',organization_id:null,full_name:'과거 담당기관',aliases:[],sort_order:10,created_at:'2025-01-01T00:00:00Z'}
  ],
- projects:[],calls:[],events:0,reloads:0,memberReloads:0
+ fail:[],calls:[],events:0,reloads:0,memberReloads:0
 };
 function clone(v){return JSON.parse(JSON.stringify(v))}
 function orgFromPath(path){const m=path.match(/organization_id=eq\.([^&]+)/);return m?decodeURIComponent(m[1]):null}
@@ -27,10 +29,10 @@ window.__KPTU_RELOAD_TEAM_MEMBERS__=()=>{state.memberReloads++};
 window.addEventListener('kptu:suborganization-updated',()=>state.events++);
 window.KPTURuntime={session:{ensure:async()=>true},api:async(path,opts={})=>{
  const method=opts.method||'GET';state.calls.push({path,method,body:clone(opts.body??null)});
+ const hit=state.fail.find(x=>x.method===method&&path.startsWith(x.path)&&(!x.org||path.includes(x.org)||JSON.stringify(opts.body??null).includes(x.org)));if(hit)throw new Error('mock failure');
  if(path==='/auth/v1/user')return clone(state.user);
  if(path.includes('/app_workspace_members?'))return [{workspace_id:state.workspace}];
- if(path.includes('/app_profiles?'))return clone(state.profile);
- if(path.includes('/app_profile_report_projects?'))return clone(state.projects);
+ if(path.includes('/app_profiles?')&&method==='GET')return clone(state.profile);
  if(path.includes('/app_suborganizations?')&&method==='GET')return clone(state.organizations);
  if(path.includes('/app_suborganization_assignees?')&&method==='GET')return clone(state.assignments);
  if(path.includes('/app_profile_workplaces?')&&method==='GET')return clone(state.workplaces);
@@ -53,5 +55,6 @@ window.KPTURuntime={session:{ensure:async()=>true},api:async(path,opts={})=>{
  throw new Error('Unhandled mock '+method+' '+path);
 }};
 </script>
-<script type="module" src="../../app/profile-settings.js?fixture=3"></script>
+<script src="../../app/organization-order.js"></script>
+<script type="module" src="../../app/profile-settings.js?fixture=4"></script>
 </body></html>
