@@ -1,3 +1,4 @@
+import { viewPrefs } from './view-prefs.js';
 // UI-칸폭조절(2026-10-22 사용자 요청·승인): the one draggable boundary between a PC left list and its right detail pane.
 // Shared part: the 할 일·프로젝트·담당조직 screens mount it now, and later screens (공유 페이지 편집 폭) reuse it as is.
 // - The grid stays owned by each screen's CSS (grid-template-columns uses var(--ds-split-list) / var(--ds-split-detail),
@@ -5,13 +6,11 @@
 //   container grows or shrinks (PC sidebar hidden/shown, UI-상단줄) and nothing else of the layout changes.
 // - Default 1/3 : 2/3. Each pane keeps a minimum width (--ds-split-list-min / --ds-split-detail-min); a stored ratio that no
 //   longer fits is only clamped for drawing and stays stored.
-// - The chosen ratio is remembered per screen on this device only (a screen setting, not user content): key
-//   kptu-split-ratio:<name>. Blocked or missing storage only means the default ratio.
+// - The chosen ratio is remembered per screen on the server (view-prefs.js, profile view_prefs.split_ratio.<name>; SET-보기선택서버저장).
+//   An unread or missing value only means the default ratio.
 // - Mouse/pen drag, double click (double tap) returns to the default, keyboard: focus the boundary, ←/→ (Home/End = ends).
 //   role=separator with aria-valuenow (left pane share in %).
-const STORE_PREFIX='kptu-split-ratio:';
 const DEFAULT_RATIO=1/3,STEP=0.02;
-const storeKey=name=>STORE_PREFIX+name;
 const mounted=new WeakMap();
 // Screens asked to mount while not in the two-column layout; retried when the window reaches PC width.
 const pending=new Map();let pcQuery=null;
@@ -23,8 +22,8 @@ function waitForPc(o){
 }
 let sheet=false;
 
-function readRatio(name){try{const v=Number(localStorage.getItem(storeKey(name)));return v>0&&v<1?v:null}catch{return null}}
-function writeRatio(name,ratio){try{if(ratio==null)localStorage.removeItem(storeKey(name));else localStorage.setItem(storeKey(name),String(Math.round(ratio*10000)/10000))}catch{}}
+function readRatio(name){const v=viewPrefs.getSplit(name);return v>0&&v<1?v:null}
+function writeRatio(name,ratio){viewPrefs.setSplit(name,ratio==null?null:Math.round(ratio*10000)/10000)}
 const px=(el,prop,fallback)=>{const v=parseFloat(getComputedStyle(el).getPropertyValue(prop));return Number.isFinite(v)?v:fallback};
 
 // The handle's look lives here so every screen that mounts it gets the same boundary without loading another stylesheet.

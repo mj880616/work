@@ -3,13 +3,14 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import {expectProjectTitle} from './helpers/screen-title.mjs';
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'design-system-user',email:'design-system@example.org',user_metadata:{display_name:'Design QA'}};
 const workspace={id:'design-system-workspace',slug:'design-system',name:'웹2'};
 
 async function mockApp(page,{spaces=[],tasks=[],calendarEvents=[]}={}){
-  await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}});
+  await installViewPrefsServer(page,{calendar_view:'month'});
   await page.route(`${SB}/**`,async route=>{
     const url=new URL(route.request().url());
     const path=url.pathname;

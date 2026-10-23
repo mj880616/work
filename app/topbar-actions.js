@@ -1,3 +1,4 @@
+import {viewPrefs} from './view-prefs.js';
 (()=>{
 'use strict';
 if(window.__KPTU_TOPBAR_ACTIONS__)return;
@@ -306,8 +307,7 @@ const topline=document.querySelector('[data-app-topline]'),appView=document.quer
 const sidebarAccount=accounts.find(account=>account.panel.id==='sidebarAccountPanel');
 // The PC account trigger lives at the right end of the top line (it was the last row of the sidebar). Same node and handlers.
 topline?.querySelector('[data-topline-account]')?.append(sidebarAccount?.host||document.createComment('no account'));
-// ① Sidebar hide. A device preference only (no user content), so it lives in this browser; a blocked storage just means "shown".
-const NAV_KEY='kptu-nav-collapsed';
+// ① Sidebar hide. Remembered on the server with the other view choices (view-prefs.js, profile view_prefs); unread or missing means "shown".
 const navToggle=topline?.querySelector('[data-nav-toggle]');
 function paintNavToggle(){
   const hidden=!!appView?.classList.contains('nav-collapsed');
@@ -317,10 +317,10 @@ function paintNavToggle(){
 }
 function setNavCollapsed(hidden,{save=true}={}){
   appView?.classList.toggle('nav-collapsed',hidden);paintNavToggle();
-  if(save){try{if(hidden)localStorage.setItem(NAV_KEY,'1');else localStorage.removeItem(NAV_KEY)}catch{}}
+  if(save)viewPrefs.set('nav_collapsed',hidden?true:null);
   window.dispatchEvent(new CustomEvent('kptu:nav-collapsed',{detail:{hidden}}));
 }
-let navStored=false;try{navStored=localStorage.getItem(NAV_KEY)==='1'}catch{}
+const navStored=viewPrefs.get('nav_collapsed')===true;
 setNavCollapsed(navStored,{save:false});
 navToggle?.addEventListener('click',()=>setNavCollapsed(!appView?.classList.contains('nav-collapsed')));
 // ② ← →: the app's own record of screens moved through (and the item chosen on a left-list / right-detail screen). It never
@@ -523,7 +523,7 @@ modal?.addEventListener('click',event=>{
   const theme=option.dataset.themeChoice;
   if(!['olive','navy','terracotta','sand'].includes(theme))return;
   document.documentElement.dataset.theme=theme;
-  try{localStorage.setItem('kptu-theme',theme)}catch{}
+  viewPrefs.set('theme',theme);
   syncThemeColor();
   selected();
 });

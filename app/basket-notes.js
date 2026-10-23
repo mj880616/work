@@ -1,3 +1,4 @@
+import { viewPrefs } from './view-prefs.js';
 // MEMO-노트: the [노트] side of the basket tab. Notes are app_notes rows with kind=note (20261017052234), read and
 // written through the existing owner-RLS REST paths in basket-data.js; there is no new save path.
 // This module owns everything drawn into its host: list (search, newest change first) → read → edit. The list's own input
@@ -42,13 +43,12 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   let layer = null, listScroll = 0;
   // UI-노트폴더: the folder row's choice ('all' · 'none' · 'f:<name>'), folders made from the folder ⋯ that hold no note yet
   // (this screen's memory only: a folder is kept by the notes in it), and an unfinished rename/delete ([다시 시도]).
-  // The choice is also kept on this device only (never the server): one string per signed-in user under the per-owner cache
-  // prefix that KPTURuntime drops on sign-out or owner change. A missing/deleted folder falls back to [전체] without a message.
+  // The choice is kept on the server with the other view choices (view-prefs.js, profile view_prefs.note_folder; SET-보기선택서버저장).
+  // A missing/deleted folder falls back to [전체] without a message.
   let folderView = 'all', draftFolders = [], folderJob = null, viewRestored = false;
   const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
-  const viewKey = () => { let id = ''; try { id = rt.context.read()?.user?.id || ''; } catch {} return id ? 'kptu_owner_cache:note-folder-v1:' + id : ''; };
-  const saveView = () => { const key = viewKey(); if (!key) return; try { localStorage.setItem(key, folderView); } catch {} };
-  const readView = () => { const key = viewKey(); if (!key) return 'all'; try { const v = localStorage.getItem(key); return typeof v === 'string' && /^(all|none|f:.+)$/.test(v) ? v : 'all'; } catch { return 'all'; } };
+  const saveView = () => { viewPrefs.set('note_folder', folderView); };
+  const readView = () => { const v = viewPrefs.get('note_folder'); return typeof v === 'string' && /^(all|none|f:.+)$/.test(v) ? v : 'all'; };
   host.innerHTML = `<div data-note-list><div class="home-quick-placeholder" aria-hidden="true"></div><div class="note-list-head"><label class="note-search"><span class="a11y-only">노트 검색</span><input type="search" data-note-search placeholder="노트 검색" autocomplete="off" enterkeyhint="search"></label></div><div class="note-folder-bar" data-note-folder-bar><div class="note-folder-filter" data-note-folder-filter></div><button type="button" class="basket-icon-button note-folder-more" data-note-folder-more aria-label="폴더 메뉴" title="폴더 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button></div><p class="note-folder-status" data-note-folder-status role="status" hidden></p><button type="button" class="secondary" data-note-folder-retry hidden>다시 시도</button><p data-note-list-status role="status"></p><button type="button" class="secondary" data-note-search-all hidden>전체에서 찾기</button><button type="button" data-note-retry hidden>다시 시도</button><div data-note-rows id="noteRows"></div></div><div data-note-detail hidden></div><div id="noteDocMenu" class="basket-more-menu note-pop-menu" role="group" aria-label="노트 메뉴" hidden></div>`;
   // BASKET-노트입력창 (2026-10-22 사용자 결정): notes are added like updates — the same input box at the top of the list on a PC
   // and docked above the tabs on a phone — instead of the old [+ 노트] (phone: floating ⊕).

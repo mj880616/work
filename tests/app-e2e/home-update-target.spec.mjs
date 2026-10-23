@@ -1,3 +1,4 @@
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 // UI-홈업데이트선택: [업데이트 ▾] picks one of 담당조직 or 프로젝트; each saves through its own existing path.
@@ -66,8 +67,8 @@ for(const width of [390,1280])test(`saving without a place puts the update in th
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 test('an old [바구니] tab memory opens as [업데이트]',async({page})=>{
- // Synthetic read stub (as in home-quick.spec.mjs): the remembered tab reads back as the old value 'basket'; nothing is stored.
- await page.addInitScript(()=>{const read=Storage.prototype.getItem;Storage.prototype.getItem=function(key){return key==='kptu-home-quick-mode'?'basket':read.call(this,key);};});
+ // The server holds the old value 'basket' (no longer a valid mode): it is ignored and the box opens as [업데이트].
+ await installViewPrefsServer(page,{home_quick_mode:'basket'});
  await openHome(page);const q=quick(page);
  await expect(q).toHaveAttribute('data-mode','basket');await expect(q.locator('[data-quick-mode="update"]')).toHaveAttribute('aria-pressed','true');
  await expect(q.locator('[data-quick-mode="basket"]')).toHaveCount(0);

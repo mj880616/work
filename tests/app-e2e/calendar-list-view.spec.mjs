@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { openEmphasisFixture } from './helpers/calendar-task-emphasis.mjs';
 test.use({timezoneId:'Asia/Seoul'});
-async function open(page,width=360,view='default'){
+async function open(page,width=360,view='default',prefsOptions={}){
   await page.setViewportSize({width,height:844});
-  return openEmphasisFixture(page,{view});
+  return openEmphasisFixture(page,{view,prefsOptions});
 }
 test('phone defaults to 14 date groups with empty days and separate tasks',async({page})=>{
   await open(page);
@@ -34,7 +34,7 @@ for(const view of ['invalid'])test(`saved ${view} falls back on phone`,async({pa
   await expect(page.locator('#calendarList')).toBeVisible();
 });
 test('chosen view survives reload; PC defaults to week',async({page})=>{
-  await open(page,1280);
+  const {prefs}=await open(page,1280);
   await expect(page.locator('#calendarWeek')).toBeVisible();
   await page.getByRole('button',{name:'목록 보기',exact:true}).click();
   await expect(page.locator('#calendarList')).toBeVisible();
@@ -43,7 +43,7 @@ test('chosen view survives reload; PC defaults to week',async({page})=>{
   await page.getByRole('button',{name:'월간 보기',exact:true}).click();
   await page.reload();
   await expect(page.locator('#calendarGrid')).toBeVisible();
-  expect(await page.evaluate(()=>localStorage.getItem('kptu-calendar-view'))).toBe('month');
+  await expect.poll(()=>prefs.value?.calendar_view).toBe('month');
 });
 
 test('failed next page keeps the shown days and retries the same 14 day interval',async({page})=>{
@@ -115,11 +115,10 @@ test('background task refresh keeps the focused list control',async({page})=>{
   await page.evaluate(()=>window.KPTUCalendarTasks.refresh());
   await expect(page.locator('.clv-day[data-date="2026-10-20"] .clv-tasks')).toBeFocused();
 });
-test('storage denied still opens the phone default and permits switching',async({page})=>{
-  await page.addInitScript(()=>{const get=Storage.prototype.getItem,set=Storage.prototype.setItem;Storage.prototype.getItem=function(key){if(key==='kptu-calendar-view')throw new Error('QA storage denied');return get.call(this,key)};Storage.prototype.setItem=function(key,value){if(key==='kptu-calendar-view')throw new Error('QA storage denied');return set.call(this,key,value)}});
-  await open(page);await expect(page.locator('#calendarList')).toBeVisible();
+test('unreadable server value still opens the phone default and permits switching',async({page})=>{
+  const {prefs}=await open(page,360,'default',{failRead:true,failWrite:true});await expect(page.locator('#calendarList')).toBeVisible();
   await page.getByRole('button',{name:'월간 보기',exact:true}).click();
-  await expect(page.locator('#calendarGrid')).toBeVisible();
+  await expect(page.locator('#calendarGrid')).toBeVisible();expect(prefs.reads).toBeGreaterThan(0);
 });
 
 test('list today and query boundaries agree with home in another browser timezone',async({browser})=>{

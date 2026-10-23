@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -9,7 +10,7 @@ test.use({timezoneId:'Asia/Seoul',viewport:{width:360,height:844}});
 async function open(page,{view='list',recurring=false,partial=false,timed=false}={}){
   const state={writes:[],reads:0,event:{id:'move-event',title:'합성 이동 시험',calendarId:'source',...(timed?{start:'2026-10-20T01:00:00.000Z',end:'2026-10-20T02:00:00.000Z',allDay:false}:{start:'2026-10-20',end:'2026-10-21',allDay:true}),color:null,colorId:null,organizationIds:['org-a'],recurring,source:'google'}};
   await page.clock.setFixedTime(new Date('2026-10-20T03:00:00Z'));
-  await page.addInitScript(view=>localStorage.setItem('kptu-calendar-view',view),view);
+  await installViewPrefsServer(page,{calendar_view:view});
   await page.route('**/*',async route=>{
     const req=route.request(),url=new URL(req.url());
     if(url.origin===BASE)return route.continue();
