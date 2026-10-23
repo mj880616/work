@@ -4,7 +4,9 @@
 // UPD-여러곳고르기: several places can be chosen at once (an array; empty is the basket). Two or more → one basket update linked
 // to every chosen place through the basket's own [연결하기] path (app_basket_confirm_links: owner RLS, INVOKER, 1~20 places, all
 // or none), so the update is one original shown in each place's records, as a linked basket update already is.
-import { createNote } from './basket-data.js';
+import { createNote, readBasketNote } from './basket-data.js';
+import { uploadBatch } from './basket-upload.js';
+import { putFilesIntoTargets } from './basket-file-docs.js';
 import { saveOrganizationUpdate, saveProjectProgress } from './quick-save.js';
 import { projectRows, projectRow, orgGroupRows, orgRow } from './choice-sheet.js';
 import { confirmLinks } from './basket-classification.js';
@@ -132,6 +134,45 @@ export async function saveUpdate({place, places, text, owner}, rt = window.KPTUR
 }
 export const MULTI_REASON = '직접 연결'; // the same reason as the basket [연결하기] (basket-manual-link.js)
 export const linkFailText = '업데이트는 바구니에 저장했지만 고른 곳에 연결하지 못했어요. 바구니에서 [연결하기]로 다시 연결해 주세요.';
+export const fileFailText = '파일은 바구니에 저장했지만 고른 곳 자료로 넣지 못했어요. 바구니에서 [연결하기]로 다시 넣어 주세요.';
+// BUG-업데이트첨부연결: an update with files and one or more chosen places gives the same result as saving it in the basket and
+// then using the basket's [연결하기] / [자료로 넣기] on it — through those same paths, nothing new on the server:
+// ① the text and files go up as one basket update (uploadBatch → basket-files, photo text reading included); a failed file
+//    throws and leaves the batch tied to that update, so [추가] again sends only what is left (the basket's own rule);
+// ② with text, the update is linked to every chosen place (app_basket_confirm_links: owner RLS, all or none), so it is one
+//    original shown in each place's records with its files; files only (no text) make no record, as [자료로 넣기];
+// ③ the files become the first chosen project's and the first chosen organization's documents (putFilesIntoTargets:
+//    document-actions register-basket-attachment + the owner-RLS app_documents update). A document belongs to one project and
+//    one organization, so further places of the same kind show the files through the linked update only.
+// A refused link or filing leaves the update (and files) saved in the basket; {linkError, filed} says which, never a retry.
+export async function saveUpdateWithFiles({places, text, batch, isCurrent = () => true, sameOwner = () => true, ocr, onChange, onOcrChange}, rt = window.KPTURuntime) {
+  const list = placeList(places);
+  if (!list.length) throw new Error('기록할 곳을 골라 주세요.');
+  if (list.length > PLACE_LIMIT) throw new Error(`한 번에 ${PLACE_LIMIT}곳까지 고를 수 있어요.`);
+  await uploadBatch(batch, {raw_text:text, rt, isCurrent, ...(ocr ? {ocr} : {}), ...(onChange ? {onChange} : {}), ...(onOcrChange ? {onOcrChange} : {})});
+  const noteId = batch.note_id;
+  window.dispatchEvent(new CustomEvent('kptu:basket-note-created'));
+  let note = null, linkError = '', filed = null;
+  try { note = await readBasketNote(noteId, rt); } catch { note = null; }
+  if (!sameOwner()) return {note:{id:noteId}, linkError:'STALE', filed:null, stale:true};
+  if (String(text || '').trim()) {
+    if (!note) linkError = 'NOTE_MISSING';
+    else {
+      try {
+        const result = await confirmLinks(noteId, note.updated_at, list.map(p => ({kind:p.kind, target_id:p.id, reason:MULTI_REASON})), rt);
+        if (result?.ok !== true) linkError = result?.error || 'UNKNOWN';
+      } catch (error) { linkError = error?.message || 'UNKNOWN'; }
+      if (!linkError) window.dispatchEvent(new CustomEvent('kptu:basket-links-changed'));
+    }
+  }
+  const project = list.find(p => p.kind === 'project') || null, organization = list.find(p => p.kind === 'organization') || null;
+  const files = note?.attachments || batch.attachments || [];
+  if (sameOwner() && files.length) {
+    try { filed = await putFilesIntoTargets({noteId, files, projectId:project?.id || null, organizationId:organization?.id || null, rt, expectedSessionEpoch:rt.session.epoch(), isCurrent:sameOwner}); }
+    catch { filed = {ok:false, kind:'unknown', message:''}; }
+  }
+  return {note:note || {id:noteId}, linkError, filed};
+}
 // Reads for a screen without the home's shared flights (the write window).
 export function placeSources(rt = window.KPTURuntime) {
   const ctx = () => rt.context.read();

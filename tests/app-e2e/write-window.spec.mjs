@@ -115,7 +115,7 @@ for(const width of [390,1280]){
  });
 }
 
-test('attachments in the home input go with a basket update or a note, never with an organization record',async({page})=>{
+test('attachments in the home input stay when an organization is chosen in the window, and go with a note',async({page})=>{
  const f=await fixture(page,1280),q=quick(page),uploads=[];
  await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/basket-files',r=>{const raw=r.request().postDataBuffer()?.toString('utf8')||'';uploads.push(raw);const id=raw.match(/name="note_id"\r\n\r\n([^\r]+)/)?.[1];return r.fulfill({json:{ok:true,note_id:id,attachments:[{drive_file_id:'f1',file_name:'메모.txt',mime_type:'text/plain',size_bytes:6}]}});});
  await q.locator('#quickBasketFiles').setInputFiles({name:'메모.txt',mimeType:'text/plain',buffer:Buffer.from('합성')});
@@ -123,8 +123,8 @@ test('attachments in the home input go with a basket update or a note, never wit
  await q.locator('[data-quick-big]').click();
  const e=editor(page);await expect(e).toBeVisible();
  await e.locator('[data-md-kind-menu]').click();await sheet(page).getByRole('button',{name:'테스트 조직',exact:true}).first().click();await sheet(page).getByRole('button',{name:'저장',exact:true}).click();
- await e.locator('[data-md-save-icon]').click();
- await expect(e.locator('.md-editor-status')).toHaveText('첨부는 바구니로만 저장돼요. ▾에서 바구니를 고르거나 첨부를 빼 주세요.');
+ // BUG-업데이트첨부연결: the file stays with the organization chosen (saving there: update-attach-target.spec.mjs).
+ await expect(e.locator('[data-basket-file]')).toHaveCount(1);
  expect(f.notes).toEqual([]);expect(f.orgs).toEqual([]);expect(uploads).toEqual([]);
  // NOTE-파일붙이기: as a note, the note is made first and the home input's file goes up with its id; the home input empties.
  await e.locator('[data-md-kind="note"]').click();
