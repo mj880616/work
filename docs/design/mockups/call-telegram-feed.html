@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>통화·텔레그램 소식 시안</title>
+<style>
+:root{
+  --kptu-bg:#f3f1ea;--kptu-surface:#fffefa;--kptu-surface-subtle:#f7f5ee;
+  --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--kptu-faint:#8f8c7f;
+  --kptu-border:#e2ddd0;--kptu-border-strong:#cfc8b6;
+  --kptu-primary:#5c6a35;--kptu-primary-ink:#47532a;--kptu-primary-soft:#eef0e1;
+  --ds-line:var(--kptu-border-strong);
+  --room1:#5f7486;--room1-soft:#e7ecf0;
+  --room2:#7a6a4f;--room2-soft:#f0ebe1;
+  --room3:#5d7a62;--room3-soft:#e5eee6;
+  --room4:#82626a;--room4-soft:#f1e7e9;
+  --room5:#6b6889;--room5-soft:#eae9f1;
+  --room6:#7a7440;--room6-soft:#efeedd;
+  --pin-soft:#f6f0dc;--pin-ink:#76642a;
+}
+@media (prefers-color-scheme:dark){:root{
+  --kptu-bg:#161613;--kptu-surface:#1f1f1b;--kptu-surface-subtle:#292924;--kptu-ink:#ebe9e1;--kptu-muted:#b1aea2;--kptu-faint:#938f84;
+  --kptu-border:#34332d;--kptu-border-strong:#4a4840;--kptu-primary:#b4c385;--kptu-primary-ink:#c2d095;--kptu-primary-soft:#2c3120;
+  --room1:#a7bccd;--room1-soft:#263039;--room2:#cdb991;--room2-soft:#332c20;--room3:#a6c6ab;--room3-soft:#223026;
+  --room4:#d3aab4;--room4-soft:#352529;--room5:#b4b1d4;--room5-soft:#2a2938;--room6:#c9c38a;--room6-soft:#302e1c;
+  --pin-soft:#332d1a;--pin-ink:#e0c97f;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--kptu-bg);color:var(--kptu-ink);font:13px/1.45 system-ui,"Noto Sans KR","Malgun Gothic",sans-serif;padding:12px 16px}
+h1{font-size:14px;font-weight:500;margin:0 0 4px;color:var(--kptu-muted)}
+.lead{font-size:12px;color:var(--kptu-faint);margin:0 0 12px}
+.wrap{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
+.label{font-size:12px;color:var(--kptu-muted);margin:0 0 4px}
+.phone{width:390px;max-width:100%;background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:12px;overflow:hidden}
+.pc{width:1280px;max-width:100%;background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:10px;overflow:hidden}
+.section{margin-bottom:22px}
+h2{font-size:13px;font-weight:500;margin:0 0 8px;color:var(--kptu-primary-ink)}
+.mu{color:var(--kptu-muted)} .fa{color:var(--kptu-faint)}
+.sm{font-size:12px} .xs{font-size:11px}
+
+/* 머리줄 */
+.head{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:.5px solid var(--kptu-border);min-height:38px}
+.head .t{font-size:14px;font-weight:500}
+.head .sub{font-size:12px;color:var(--kptu-muted);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.head .right{margin-left:auto;font-size:12px;color:var(--kptu-muted);white-space:nowrap}
+.linkish{font-size:12px;color:var(--kptu-muted);text-decoration:none;white-space:nowrap}
+select{height:26px;font:inherit;font-size:12px;color:var(--kptu-ink);background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:6px;padding:0 4px}
+.back{font-size:13px;color:var(--kptu-muted)}
+.more{width:26px;height:26px;border:0;background:transparent;color:var(--kptu-muted);font-size:16px;line-height:1;border-radius:6px;padding:0}
+
+/* 통화 목록 */
+.day{font-size:11px;color:var(--kptu-faint);padding:8px 12px 2px;letter-spacing:.02em}
+.call{display:flex;align-items:baseline;gap:8px;padding:6px 12px;border-bottom:.5px solid var(--kptu-border)}
+.call .tm{font-size:12px;color:var(--kptu-muted);font-variant-numeric:tabular-nums;width:38px;flex:none}
+.call .ti{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.call .org{font-size:11px;color:var(--kptu-muted);white-space:nowrap}
+.call.sel{background:var(--kptu-primary-soft)}
+
+/* 통화 상세 */
+.detail{padding:10px 12px 12px}
+.detail .dt{font-size:15px;font-weight:500;margin:0}
+.detail .meta{font-size:12px;color:var(--kptu-muted);margin:2px 0 8px}
+.points{background:var(--kptu-surface-subtle);border:.5px solid var(--kptu-border);border-radius:8px;padding:6px 10px 6px 22px;margin:0 0 8px}
+.points li{margin:2px 0}
+.points .st{font-size:11px;padding:0 5px;border-radius:4px;background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);margin-left:4px}
+.points .st.plan{background:var(--room2-soft);color:var(--room2)}
+.points-k{font-size:11px;color:var(--kptu-faint);margin:0 0 2px}
+details.full summary{font-size:12px;color:var(--kptu-muted);cursor:pointer;list-style:none}
+details.full summary::-webkit-details-marker{display:none}
+details.full[open] summary .ar{display:inline-block;transform:rotate(180deg)}
+.script{margin-top:6px;font-size:12.5px}
+.script p{margin:0;padding:3px 0;display:flex;gap:8px}
+.script b{font-weight:500;color:var(--kptu-muted);width:28px;flex:none}
+.script p.me b{color:var(--kptu-primary-ink)}
+
+/* 텔레그램 */
+.pinbar{display:flex;gap:6px;align-items:center;padding:5px 12px;background:var(--pin-soft);color:var(--pin-ink);font-size:12px;border-bottom:.5px solid var(--kptu-border);white-space:nowrap;overflow:hidden}
+.pinbar .pt{overflow:hidden;text-overflow:ellipsis}
+.pinbar .cnt{margin-left:auto;font-size:11px}
+.feed{padding:0 0 8px}
+.feed .day{text-align:center;padding:10px 0 4px}
+.msg{position:relative;display:flex;gap:8px;padding:4px 12px;align-items:flex-start}
+.dot{width:26px;height:26px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;margin-top:2px}
+.bub{flex:1;min-width:0;background:var(--kptu-surface-subtle);border:.5px solid var(--kptu-border);border-radius:4px 10px 10px 10px;padding:5px 9px 4px}
+.bub .rn{font-size:11px;font-weight:500;margin-bottom:1px}
+.bub .tx{font-size:12.5px}
+.bub .ft{display:flex;justify-content:flex-end;gap:6px;font-size:10.5px;color:var(--kptu-faint);margin-top:2px}
+.msg.sel .bub{border-color:var(--kptu-border-strong);background:var(--kptu-primary-soft)}
+.msg .hov{position:absolute;right:16px;top:6px;display:none;width:22px;height:22px;border:.5px solid var(--kptu-border);background:var(--kptu-surface);border-radius:6px;color:var(--kptu-muted);font-size:14px;line-height:18px;text-align:center}
+.pc .msg:hover .hov,.msg.showhov .hov{display:block}
+.r1 .dot{background:var(--room1-soft);color:var(--room1)} .r1 .rn{color:var(--room1)}
+.r2 .dot{background:var(--room2-soft);color:var(--room2)} .r2 .rn{color:var(--room2)}
+.r3 .dot{background:var(--room3-soft);color:var(--room3)} .r3 .rn{color:var(--room3)}
+.r4 .dot{background:var(--room4-soft);color:var(--room4)} .r4 .rn{color:var(--room4)}
+.r5 .dot{background:var(--room5-soft);color:var(--room5)} .r5 .rn{color:var(--room5)}
+.menu{position:absolute;z-index:2;background:var(--kptu-surface);border:.5px solid var(--kptu-border-strong);border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.12);padding:3px 0;min-width:120px;font-size:12.5px}
+.menu div{padding:5px 12px}
+.menu div+div{border-top:.5px solid var(--kptu-border)}
+.menu .fa{font-size:11px}
+.sheet{border-top:.5px solid var(--kptu-border-strong);background:var(--kptu-surface);padding:4px 0 8px;font-size:13px}
+.sheet .grab{width:32px;height:3px;border-radius:2px;background:var(--kptu-border-strong);margin:2px auto 4px}
+.sheet div.it{padding:8px 16px}
+.sheet div.it+div.it{border-top:.5px solid var(--kptu-border)}
+.raw{padding:8px 14px}
+.raw .rm{padding:4px 0;border-bottom:.5px solid var(--kptu-border);font-size:12.5px;display:flex;gap:8px}
+.raw .rm:last-child{border-bottom:0}
+.raw .rm .who{color:var(--kptu-muted);width:18px;flex:none}
+.raw .rm .at{color:var(--kptu-faint);font-size:11px;font-variant-numeric:tabular-nums;width:36px;flex:none}
+
+/* PC 1/3 · 2/3 */
+.split{display:grid;grid-template-columns:1fr 2fr;min-height:420px}
+.split>.l{border-right:.5px solid var(--kptu-border);min-width:0}
+.split>.r{min-width:0}
+.tabs{display:flex;gap:14px;padding:6px 12px;border-bottom:.5px solid var(--kptu-border);font-size:12.5px;color:var(--kptu-muted)}
+.tabs .on{color:var(--kptu-ink);font-weight:500;border-bottom:1.5px solid var(--kptu-primary);padding-bottom:2px}
+.note{font-size:11px;color:var(--kptu-faint);margin:6px 0 0;max-width:780px}
+.filtered{padding:10px 12px;font-size:12.5px}
+.filtered p{margin:0 0 4px}
+</style>
+</head>
+<body>
+<h1>통화 · 텔레그램 소식 시안 (CALL-통화메뉴 · TG-소식메뉴)</h1>
+<p class="lead">모든 이름·방·내용은 지어낸 예시입니다. 저장 안 됨. 설계: docs/design/call-telegram-feed.md</p>
+
+<!-- (가) 폰 통화 -->
+<div class="section">
+<h2>(가) 폰 390 — 통화</h2>
+<div class="wrap">
+
+ <div>
+  <p class="label">목록</p>
+  <div class="phone">
+   <div class="head"><span class="t">통화</span><a class="right linkish" href="#filtered">개인 통화 3건 걸러짐 ›</a></div>
+   <div class="day">10. 23. (목)</div>
+   <div class="call"><span class="tm">16:42</span><span class="ti">교섭 일정 다음 주 화요일로 조정</span><span class="org">○○지부</span></div>
+   <div class="call"><span class="tm">14:05</span><span class="ti">자료집 원고 마감 확인</span><span class="org">△△본부</span></div>
+   <div class="call"><span class="tm">10:18</span><span class="ti">현장 인력 공백 상황 보고</span><span class="org">□□지회</span></div>
+   <div class="day">10. 22. (수)</div>
+   <div class="call"><span class="tm">18:30</span><span class="ti">기자회견 장소·시간 확정</span><span class="org">○○지부</span></div>
+   <div class="call"><span class="tm">11:02</span><span class="ti">공문 회신 기한 문의</span><span class="org">◇◇기관</span></div>
+   <div class="day">10. 21. (화)</div>
+   <div class="call"><span class="tm">15:47</span><span class="ti">임시총회 안건 초안 의견</span><span class="org">△△본부</span></div>
+  </div>
+ </div>
+
+ <div>
+  <p class="label">상세 (전문 접힘)</p>
+  <div class="phone">
+   <div class="head"><span class="back">‹ 통화</span><button class="more" style="margin-left:auto" aria-label="메뉴">⋯</button></div>
+   <div class="detail">
+    <p class="dt">교섭 일정 다음 주 화요일로 조정</p>
+    <p class="meta">10. 23. (목) 16:42 · 7분 12초 · ○○지부</p>
+    <p class="points-k">핵심내용</p>
+    <ul class="points">
+     <li>3차 교섭 10. 28.(화) 14:00로 변경<span class="st plan">예정</span></li>
+     <li>사측 안 서면 회신 10. 27.(월)까지<span class="st plan">예정</span></li>
+     <li>인력 충원 12명 요구안 유지<span class="st">확정</span></li>
+     <li>A가 위원장 보고 뒤 다시 연락</li>
+    </ul>
+    <details class="full"><summary>전문 펼치기 <span class="ar">▾</span></summary></details>
+   </div>
+  </div>
+ </div>
+
+ <div>
+  <p class="label">상세 (전문 펼침)</p>
+  <div class="phone">
+   <div class="head"><span class="back">‹ 통화</span><button class="more" style="margin-left:auto" aria-label="메뉴">⋯</button></div>
+   <div class="detail">
+    <p class="dt">교섭 일정 다음 주 화요일로 조정</p>
+    <p class="meta">10. 23. (목) 16:42 · 7분 12초 · ○○지부</p>
+    <p class="points-k">핵심내용</p>
+    <ul class="points">
+     <li>3차 교섭 10. 28.(화) 14:00로 변경<span class="st plan">예정</span></li>
+     <li>사측 안 서면 회신 10. 27.(월)까지<span class="st plan">예정</span></li>
+     <li>인력 충원 12명 요구안 유지<span class="st">확정</span></li>
+     <li>A가 위원장 보고 뒤 다시 연락</li>
+    </ul>
+    <details class="full" open><summary>전문 접기 <span class="ar">▾</span></summary>
+     <div class="script">
+      <p><b>상대</b><span>네, 사측에서 목요일은 어렵다고 해서요.</span></p>
+      <p class="me"><b>나</b><span>그럼 다음 주 화요일 두 시는 어때요?</span></p>
+      <p><b>상대</b><span>그건 된다고 했어요. 서면 회신은 월요일까지 준대요.</span></p>
+      <p class="me"><b>나</b><span>요구안 12명은 그대로 가는 거죠?</span></p>
+      <p><b>상대</b><span>네, 그대로요. 위원장님께 보고하고 다시 연락드릴게요.</span></p>
+     </div>
+    </details>
+   </div>
+  </div>
+ </div>
+
+ <div id="filtered">
+  <p class="label">"개인 통화 3건 걸러짐 ›" 누름 (추천안: 개수만)</p>
+  <div class="phone">
+   <div class="head"><span class="back">‹ 통화</span><span class="t" style="margin-left:4px">걸러진 통화</span></div>
+   <div class="filtered">
+    <p>최근 7일 개인 2건 · 애매 1건</p>
+    <p class="mu sm">Web2에는 옮기지 않았습니다. 원본은 Drive 통화 녹음/전사 폴더에 있습니다.</p>
+   </div>
+  </div>
+ </div>
+
+</div>
+<p class="note">⋯ 메뉴(제안): 조직 바꾸기 · 프로젝트 연결 · 전문 지우기(Web2 사본만) · Drive 원본 열기 · 목록에서 지우기. 날짜·숫자·예정/확정은 AI가 바꾸지 않고 그대로 옮깁니다.</p>
+</div>
+
+<!-- (나) 폰 텔레그램 -->
+<div class="section">
+<h2>(나) 폰 390 — 텔레그램 소식</h2>
+<div class="wrap">
+
+ <div>
+  <p class="label">목록 (짧게 누르면 원문, 길게 누르면 메뉴)</p>
+  <div class="phone">
+   <div class="head"><span class="t">텔레그램 소식</span><span class="sub">오늘 412개 중 중요한 9개 · 방 5곳</span><select aria-label="방 거르기"><option>모든 방</option><option>○○지부 단톡</option></select></div>
+   <div class="pinbar"><span class="pt">△△본부 간부방 · 임시총회 11. 6. 확정, 안건 3개</span><span class="cnt">고정 2</span></div>
+   <div class="feed">
+    <div class="day">10. 23. (목)</div>
+    <div class="msg r1"><span class="dot">○</span><div class="bub"><div class="rn">○○지부 단톡</div><div class="tx">3차 교섭 10. 28.(화)로 미뤄짐. 사측 서면 회신 월요일까지.</div><div class="ft"><span>16:50</span><span>원문 14</span></div></div></div>
+    <div class="msg r2"><span class="dot">△</span><div class="bub"><div class="rn">△△본부 간부방</div><div class="tx">자료집 원고 금요일 18시 마감. 빠진 지부 2곳에 다시 요청하기로.</div><div class="ft"><span>14:12</span><span>원문 8</span></div></div></div>
+    <div class="msg r3"><span class="dot">□</span><div class="bub"><div class="rn">□□지회 현장방</div><div class="tx">야간 근무 인력 2명 공백, 대체 인력 미정. 사진 3장 공유.</div><div class="ft"><span>09:40</span><span>원문 21</span></div></div></div>
+    <div class="day">10. 22. (수)</div>
+    <div class="msg r4"><span class="dot">◇</span><div class="bub"><div class="rn">◇◇ 연대방</div><div class="tx">공동 기자회견 10. 24. 11시 ○○ 앞으로 확정.</div><div class="ft"><span>19:05</span><span>원문 6</span></div></div></div>
+    <div class="msg r5"><span class="dot">☆</span><div class="bub"><div class="rn">☆☆ 정책방</div><div class="tx">기관 경영평가 지침 개정안 공유됨. 인건비 항목 바뀐 부분 검토 요청.</div><div class="ft"><span>10:31</span><span>원문 4</span></div></div></div>
+   </div>
+  </div>
+ </div>
+
+ <div>
+  <p class="label">길게 누름 → 아래에서 메뉴 (⋯ 없음)</p>
+  <div class="phone">
+   <div class="head"><span class="t">텔레그램 소식</span><span class="sub">오늘 412개 중 중요한 9개 · 방 5곳</span><select aria-label="방 거르기"><option>모든 방</option></select></div>
+   <div class="pinbar"><span class="pt">△△본부 간부방 · 임시총회 11. 6. 확정, 안건 3개</span><span class="cnt">고정 2</span></div>
+   <div class="feed">
+    <div class="day">10. 23. (목)</div>
+    <div class="msg r1 sel"><span class="dot">○</span><div class="bub"><div class="rn">○○지부 단톡</div><div class="tx">3차 교섭 10. 28.(화)로 미뤄짐. 사측 서면 회신 월요일까지.</div><div class="ft"><span>16:50</span><span>원문 14</span></div></div></div>
+    <div class="msg r2"><span class="dot">△</span><div class="bub"><div class="rn">△△본부 간부방</div><div class="tx">자료집 원고 금요일 18시 마감. 빠진 지부 2곳에 다시 요청하기로.</div><div class="ft"><span>14:12</span><span>원문 8</span></div></div></div>
+   </div>
+   <div class="sheet"><div class="grab"></div>
+    <div class="it">고정</div>
+    <div class="it">지우기 <span class="fa xs">목록에서만 · 원문은 Drive에</span></div>
+    <div class="it">원문 보기</div>
+   </div>
+  </div>
+ </div>
+
+ <div>
+  <p class="label">짧게 누름 → 원문</p>
+  <div class="phone">
+   <div class="head"><span class="back">‹ 소식</span><span class="sub" style="margin-left:4px">○○지부 단톡 · 10. 23. · 원문 14</span><button class="more" aria-label="메뉴">⋯</button></div>
+   <div class="raw">
+    <div class="rm"><span class="at">16:31</span><span class="who">A</span><span>사측에서 목요일 어렵다고 연락 왔습니다</span></div>
+    <div class="rm"><span class="at">16:33</span><span class="who">B</span><span>그럼 언제로요?</span></div>
+    <div class="rm"><span class="at">16:40</span><span class="who">A</span><span>다음 주 화요일 두 시로 잡혔어요</span></div>
+    <div class="rm"><span class="at">16:41</span><span class="who">C</span><span>서면 회신은요?</span></div>
+    <div class="rm"><span class="at">16:44</span><span class="who">A</span><span>월요일까지 준답니다</span></div>
+    <div class="rm"><span class="at">16:50</span><span class="who">B</span><span>확인했습니다</span></div>
+    <div class="rm fa"><span class="at"></span><span class="who"></span><span class="xs">… 8개 더</span></div>
+   </div>
+  </div>
+ </div>
+
+</div>
+<p class="note">방 색은 방마다 정해진 톤다운 색 6개 중 하나(늘 같은 색). 고정·지운 상태는 서버에 저장되어 폰·PC가 같음. 잡담·인사·"확인했습니다"만 있는 묶음은 소식으로 만들지 않습니다.</p>
+</div>
+
+<!-- (다) PC -->
+<div class="section">
+<h2>(다) PC 1280 — 목록 1/3 · 상세/원문 2/3</h2>
+
+<p class="label">통화</p>
+<div class="pc" style="margin-bottom:14px">
+ <div class="split">
+  <div class="l">
+   <div class="head"><span class="t">통화</span><a class="right linkish" href="#filtered">개인 통화 3건 걸러짐 ›</a></div>
+   <div class="day">10. 23. (목)</div>
+   <div class="call sel"><span class="tm">16:42</span><span class="ti">교섭 일정 다음 주 화요일로 조정</span><span class="org">○○지부</span></div>
+   <div class="call"><span class="tm">14:05</span><span class="ti">자료집 원고 마감 확인</span><span class="org">△△본부</span></div>
+   <div class="call"><span class="tm">10:18</span><span class="ti">현장 인력 공백 상황 보고</span><span class="org">□□지회</span></div>
+   <div class="day">10. 22. (수)</div>
+   <div class="call"><span class="tm">18:30</span><span class="ti">기자회견 장소·시간 확정</span><span class="org">○○지부</span></div>
+   <div class="call"><span class="tm">11:02</span><span class="ti">공문 회신 기한 문의</span><span class="org">◇◇기관</span></div>
+   <div class="day">10. 21. (화)</div>
+   <div class="call"><span class="tm">15:47</span><span class="ti">임시총회 안건 초안 의견</span><span class="org">△△본부</span></div>
+  </div>
+  <div class="r">
+   <div class="head" style="justify-content:flex-end"><button class="more" aria-label="메뉴">⋯</button></div>
+   <div class="detail" style="max-width:760px">
+    <p class="dt">교섭 일정 다음 주 화요일로 조정</p>
+    <p class="meta">10. 23. (목) 16:42 · 7분 12초 · ○○지부</p>
+    <p class="points-k">핵심내용</p>
+    <ul class="points">
+     <li>3차 교섭 10. 28.(화) 14:00로 변경<span class="st plan">예정</span></li>
+     <li>사측 안 서면 회신 10. 27.(월)까지<span class="st plan">예정</span></li>
+     <li>인력 충원 12명 요구안 유지<span class="st">확정</span></li>
+     <li>A가 위원장 보고 뒤 다시 연락</li>
+    </ul>
+    <details class="full"><summary>전문 펼치기 <span class="ar">▾</span></summary>
+     <div class="script">
+      <p><b>상대</b><span>네, 사측에서 목요일은 어렵다고 해서요.</span></p>
+      <p class="me"><b>나</b><span>그럼 다음 주 화요일 두 시는 어때요?</span></p>
+      <p><b>상대</b><span>그건 된다고 했어요. 서면 회신은 월요일까지 준대요.</span></p>
+     </div>
+    </details>
+   </div>
+  </div>
+ </div>
+</div>
+
+<p class="label">텔레그램 소식 (줄에 마우스를 올리면 ⋯ · 오른쪽 클릭 또는 ⋯ → 그 자리 바로 아래 메뉴)</p>
+<div class="pc pcfeed">
+ <div class="split">
+  <div class="l">
+   <div class="head"><span class="t">텔레그램 소식</span><span class="sub">오늘 412개 중 중요한 9개 · 방 5곳</span><select aria-label="방 거르기"><option>모든 방</option></select></div>
+   <div class="pinbar"><span class="pt">△△본부 간부방 · 임시총회 11. 6. 확정</span><span class="cnt">고정 2</span></div>
+   <div class="feed">
+    <div class="day">10. 23. (목)</div>
+    <div class="msg r1 sel showhov"><span class="dot">○</span><div class="bub"><div class="rn">○○지부 단톡</div><div class="tx">3차 교섭 10. 28.(화)로 미뤄짐. 사측 서면 회신 월요일까지.</div><div class="ft"><span>16:50</span><span>원문 14</span></div></div><span class="hov">⋯</span>
+     <div class="menu" style="right:16px;top:30px"><div>고정</div><div>지우기 <span class="fa">목록에서만</span></div><div>원문 보기</div></div>
+    </div>
+    <div class="msg r2" style="margin-top:2px"><span class="dot">△</span><div class="bub"><div class="rn">△△본부 간부방</div><div class="tx">자료집 원고 금요일 18시 마감. 빠진 지부 2곳에 다시 요청하기로.</div><div class="ft"><span>14:12</span><span>원문 8</span></div></div><span class="hov">⋯</span></div>
+    <div class="msg r3"><span class="dot">□</span><div class="bub"><div class="rn">□□지회 현장방</div><div class="tx">야간 근무 인력 2명 공백, 대체 인력 미정.</div><div class="ft"><span>09:40</span><span>원문 21</span></div></div><span class="hov">⋯</span></div>
+    <div class="day">10. 22. (수)</div>
+    <div class="msg r4"><span class="dot">◇</span><div class="bub"><div class="rn">◇◇ 연대방</div><div class="tx">공동 기자회견 10. 24. 11시 ○○ 앞으로 확정.</div><div class="ft"><span>19:05</span><span>원문 6</span></div></div><span class="hov">⋯</span></div>
+   </div>
+  </div>
+  <div class="r">
+   <div class="head"><span class="sub">○○지부 단톡 · 10. 23. (목) · 원문 14</span></div>
+   <div class="raw" style="max-width:760px">
+    <div class="rm"><span class="at">16:31</span><span class="who">A</span><span>사측에서 목요일 어렵다고 연락 왔습니다</span></div>
+    <div class="rm"><span class="at">16:33</span><span class="who">B</span><span>그럼 언제로요?</span></div>
+    <div class="rm"><span class="at">16:40</span><span class="who">A</span><span>다음 주 화요일 두 시로 잡혔어요</span></div>
+    <div class="rm"><span class="at">16:41</span><span class="who">C</span><span>서면 회신은요?</span></div>
+    <div class="rm"><span class="at">16:44</span><span class="who">A</span><span>월요일까지 준답니다</span></div>
+    <div class="rm"><span class="at">16:47</span><span class="who">C</span><span>요구안 12명은 유지죠?</span></div>
+    <div class="rm"><span class="at">16:48</span><span class="who">A</span><span>네 그대로 갑니다</span></div>
+    <div class="rm"><span class="at">16:50</span><span class="who">B</span><span>확인했습니다</span></div>
+    <div class="rm fa"><span class="at"></span><span class="who"></span><span class="xs">… 6개 더</span></div>
+   </div>
+  </div>
+ </div>
+</div>
+<p class="note">PC 목록에서는 마우스를 올린 줄에만 ⋯가 보입니다(시안에서는 첫 줄에 메뉴가 펼쳐진 모습을 고정해 보여 줌). 폰에는 ⋯가 없습니다.</p>
+</div>
+
+</body>
+</html>
