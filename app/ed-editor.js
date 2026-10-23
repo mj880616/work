@@ -29,7 +29,7 @@
 // 한글 IME: nothing here changes the document while a composition is running. A button pressed during one lets the press blur
 // the box first (that ends the composition), then runs and puts focus back.
 import {TEXT_STYLES, DEFAULT_BODY, BODY_STYLES, TEXT_COLORS, HIGHLIGHTS, LIMITS, cleanDoc, emptyDoc, safeHref, nextCircled,
-  circled, widthsOfRow, tableLayout, scaleWidths, BULLET_MARKERS, ORDER_MARKERS, autoMarker, bulletGlyph, orderedLabel} from './ed-schema.mjs';
+  circled, widthsOfRow, tableLayout, scaleWidths, stepWidths, evenWidths, BULLET_MARKERS, ORDER_MARKERS, autoMarker, bulletGlyph, orderedLabel} from './ed-schema.mjs';
 import {looksLikeMarkdown} from './note-markdown.mjs';
 import {markdownToDoc} from './ed-markdown.mjs';
 import {toPlain} from './ed-text.mjs';
@@ -338,6 +338,13 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   const ctx = document.createElement('div');
   ctx.className = 'ed-ctx'; ctx.hidden = true; ctx.setAttribute('role', 'menu'); ctx.setAttribute('aria-label', '표 칸 메뉴');
   for (const [key, text, aria] of TABLE_TOOLS) { const b = btn(text, {edTable: key}, aria); b.setAttribute('role', 'menuitem'); ctx.append(b); }
+  // ED-폰표칸버튼: one small row "열 너비 · [넓게][좁게][고르게]" (a phone cannot drag a column edge).
+  const colRow = document.createElement('div'); colRow.className = 'ed-ctx-cols'; colRow.setAttribute('role', 'group'); colRow.setAttribute('aria-label', '열 너비');
+  const colLabel = document.createElement('span'); colLabel.textContent = '열 너비 ·'; colRow.append(colLabel);
+  for (const [key, text, aria] of [['wider', '넓게', '열 넓게'], ['narrower', '좁게', '열 좁게'], ['even', '고르게', '열 너비 고르게']]) {
+    const b = btn(text, {edColw: key}, aria); b.setAttribute('role', 'menuitem'); colRow.append(b);
+  }
+  ctx.append(colRow);
   const measure = document.createElement('div');
   measure.className = 'ed-doc ed-measure'; measure.setAttribute('aria-hidden', 'true');
   root.append(bar, ...(head ? [head] : []), box, status, ctx, measure);
@@ -883,6 +890,29 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     if (cmds[key] && !cmds[key](st, view.dispatch) && (key === 'merge' || key === 'split'))
       say(key === 'merge' ? '합칠 칸을 끌어서 둘 이상 골라 주세요.' : '나눌 수 있는 합친 칸이 아니에요.');
   }
+  // ED-폰표칸버튼: [넓게] [좁게] change the cursor's column by STEP px, [고르게] makes all columns the same; saved as the cells'
+  // colwidth (one undo step), like the corner handle. A full table gives the room from its widest other column.
+  const COL_STEP = 20;
+  function columnWidthCmd(kind) {
+    const st = view.state, depth = inNode(st, N.table);
+    if (depth < 0) return;
+    const sel = st.selection, $f = sel instanceof pm.CellSelection ? sel.$anchorCell : sel.$from;
+    let t = {node: $f.node(depth), pos: $f.before(depth), start: $f.start(depth)};
+    let cellDepth = -1;
+    for (let d = $f.depth; d > depth; d--) if ($f.node(d).type === N.table_cell || $f.node(d).type === N.table_header) { cellDepth = d; break; }
+    if (cellDepth < 0) return;
+    const col = pm.TableMap.get(t.node).colCount($f.before(cellDepth) - t.start);
+    freezeColumns(t);
+    const now = tableAt(view.state, t.pos);
+    if (!now) return;
+    t = now;
+    const start = widthsOf(t);
+    const next = kind === 'even' ? evenWidths(start, MIN_COL)
+      : stepWidths(start, col, kind === 'wider' ? COL_STEP : -COL_STEP, {min: MIN_COL, room: textWidth()});
+    if (next.join() === start.join()) { say(kind === 'wider' ? '더 넓힐 수 없어요.' : kind === 'narrower' ? '더 좁힐 수 없어요.' : '이미 같은 너비예요.'); return; }
+    view.dispatch(setWidths(view.state.tr, t, next));
+    say(kind === 'even' ? '열 너비를 고르게 했어요.' : '열 너비를 바꿨어요.');
+  }
   // [머리줄]: the table's first row is the head row, or not (wherever the cursor is in the table).
   function toggleHeadRow() {
     const st = view.state, depth = inNode(st, N.table);
@@ -1153,6 +1183,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     const b = e.target.closest('button');
     if (!b || b.disabled) return;
     closeCtx(false);
+    if (b.dataset.edColw) { run(() => columnWidthCmd(b.dataset.edColw)); return; }
     run(() => tableCmd(b.dataset.edTable));
   });
   ctx.addEventListener('keydown', e => {

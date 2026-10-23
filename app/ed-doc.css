@@ -173,6 +173,9 @@
 .ed-ctx[hidden]{display:none}
 .ed-ctx button{height:var(--ds-compact-height-sm,28px);padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px);text-align:left;cursor:pointer}
 .ed-ctx button:hover,.ed-ctx button:focus-visible{background:var(--kptu-surface-subtle);outline:none}
+.ed-ctx-cols{display:flex;align-items:center;gap:2px;margin-top:2px;padding:4px 6px 0 10px;border-top:var(--ds-line-width,1px) solid var(--kptu-border-strong);font-size:var(--ds-compact-text,13px);color:var(--kptu-ink)}
+.ed-ctx-cols span{margin-right:2px;white-space:nowrap}
+.ed-ctx-cols button{padding:0 8px}
 .ed-ctx button:disabled{opacity:.4;cursor:default}
 .ProseMirror{position:relative;word-wrap:break-word;white-space:pre-wrap;white-space:break-spaces;-webkit-font-variant-ligatures:none;font-variant-ligatures:none;font-feature-settings:"liga" 0}
 .ProseMirror pre{white-space:pre-wrap}
