@@ -4,7 +4,7 @@ import {signInWithSession} from './helpers/session-login.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {csvFiles,xlsxBytes} from '../ledger-import-fixture.mjs';
 
-// AI-서버연동 S7-b: [원장] 화면. 내 프로필 → 계정 → [원장](?view=ledger). 원장 표가 없으면 "원장 표 준비 전"만,
+// AI-서버연동 S7-b: [원장] 화면. 사이드바·메뉴 판 [원장](?view=ledger). 원장 표가 없으면 "원장 표 준비 전"만,
 // 있으면 올리기 → 검사 요약 → 대응표 확인 → 해 보기 → 적용 → 숫자 확인 → 되돌리기·확인. 시트는 합성(09xx ID, 가상 이름).
 // Supabase는 시험 상태로 대신한다. RPC로 가는 내용에 파일 원문(머리줄·민감 제외 행)이 없는지도 본다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -82,13 +82,19 @@ const csvUploads=()=>csvFiles().map(f=>({name:f.name,mimeType:'text/csv',buffer:
 const summaryRow=(page,tab)=>page.locator(`[data-lg-summary] tr[data-lg-tab="${tab}"] td`);
 
 for(const [name,width] of [['PC',1440],['phone',390]]){
- test(`원장 표가 없으면 [원장]은 "원장 표 준비 전"만 보인다; 내 프로필 → [원장] 입구 (${name} ${width}px)`,async({page})=>{
+ test(`원장 표가 없으면 [원장]은 "원장 표 준비 전"만 보인다; 사이드바·메뉴 판 [원장] 입구 (${name} ${width}px)`,async({page})=>{
   test.setTimeout(60000);
   await page.setViewportSize({width,height:900});
   await mockApp(page,{tables:false});
+  // PROFILE-1: [원장]은 프로필 계정 칸이 아니라 사이드바(PC)·[메뉴] 판(폰)에서 연다.
   await signIn(page,'profile');
   await expect(page.locator('#profileView')).toBeVisible({timeout:15000});
-  await page.locator('#psLedgerEntry').click();
+  await expect(page.locator('#psLedgerEntry')).toHaveCount(0);
+  await expect(page.locator('#profileView').getByRole('button',{name:'원장'})).toHaveCount(0);
+  await page.evaluate(()=>window.KPTURouter.go('home'));
+  await expect(page.locator('#homeView')).toBeVisible({timeout:15000});
+  if(width>=1024)await page.locator('#appView>.app-nav').getByRole('button',{name:'원장',exact:true}).click();
+  else{await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu nav').getByRole('button',{name:'원장',exact:true}).click()}
   await expect(page.locator('#ledgerView')).toBeVisible({timeout:15000});
   await expect(page).toHaveURL(/view=ledger/);
   await expect(page.locator('[data-ledger-notice="not-ready"]')).toContainText('원장 표 준비 전');
@@ -96,7 +102,7 @@ for(const [name,width] of [['PC',1440],['phone',390]]){
   await expect(page.locator('#ledgerRoot [data-lg-action]')).toHaveCount(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
   await page.goBack();
-  await expect(page.locator('#profileView')).toBeVisible();
+  await expect(page.locator('#homeView')).toBeVisible();
  });
 
  test(`올리기 → 검사 요약 → 대응표 확인 → 해 보기 → 적용 → 숫자 확인 → 되돌리기 (${name} ${width}px)`,async({page})=>{
