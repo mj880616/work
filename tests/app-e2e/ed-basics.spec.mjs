@@ -153,7 +153,7 @@ test.describe('PC 1280', () => {
     await expect(box.locator('u')).toHaveCount(1);
   });
 
-  test('붙여넣기: 서식 있는 글은 허용 서식만 유지, [글자만 붙여넣기]·Ctrl+Shift+V는 글자만', async ({page, context}) => {
+  test('붙여넣기: 서식 있는 글은 허용 서식만 유지, [서식 없이 붙여넣기]·Ctrl+Shift+V는 글자만', async ({page, context}) => {
     const box = await open(page);
     await paste(page, {'text/html': '<p><b>굵</b> <span style="color:#f00">빨강</span> <mark>표시</mark></p>', 'text/plain': '굵 빨강 표시'});
     await expect(box.locator('strong')).toHaveText('굵');
@@ -163,7 +163,7 @@ test.describe('PC 1280', () => {
     await page.keyboard.press('Enter');
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await page.evaluate(() => navigator.clipboard.writeText('**글자만** 1. 그대로'));
-    await press(page, '글자만 붙여넣기');
+    await press(page, '서식 없이 붙여넣기');
     await expect(box).toContainText('**글자만** 1. 그대로');
     expect(await box.locator('p').last().locator('strong').count()).toBe(0);
   });
@@ -463,7 +463,7 @@ test.describe('PC 1280', () => {
     expect(await row.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
     for (const h of await row.locator('button:visible').evaluateAll(l => l.map(b => Math.round(b.getBoundingClientRect().height)))) expect(h).toBeLessThanOrEqual(28);
     await page.locator('.ed-more').click();
-    await expect(menu(page, '서식 더 보기').getByRole('button')).toHaveText(['취소선', '인용', '구분선', '들여쓰기', '내어쓰기', '서식 지우기', '글자만 붙여넣기', '「」 ▾']);
+    await expect(menu(page, '서식 더 보기').getByRole('button')).toHaveText(['취소선', '인용', '구분선', '들여쓰기', '내어쓰기', '서식 지우기', '서식 없이 붙여넣기', '「」 ▾']);
     await page.screenshot({path: 'test-results/ed-basics-1280.png'});
   });
 });
@@ -485,7 +485,7 @@ test.describe('폰 390', () => {
     }
     const GROUPS = {'글자 서식 고르기': ['기울임', '밑줄', '취소선', '글자색 ▾', '형광펜 ▾', '서식 지우기'],
       '문단 서식 고르기': ['정렬 왼쪽 ▾', '목록 ▾', '번호 ▾', '들여쓰기', '내어쓰기', '인용', '구분선'],
-      '넣을 것 고르기': ['표 ▾', '링크', '글자만 붙여넣기'], '기호 고르기': ['※ ▾', '→ ▾', '① ▾', '「」 ▾']};
+      '넣을 것 고르기': ['표 ▾', '링크', '서식 없이 붙여넣기'], '기호 고르기': ['※ ▾', '→ ▾', '① ▾', '「」 ▾']};
     for (const [name, texts] of Object.entries(GROUPS)) {
       await row.getByRole('button', {name, exact: true}).tap();
       await expect(page.locator('.ed-pop:not([hidden])').first().getByRole('button')).toHaveText(texts);

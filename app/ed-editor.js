@@ -8,11 +8,11 @@
 // full-width row (the less used buttons). ED-기본기보강 (2026-10-22 사용자
 // 19:24~19:33, 대조표 docs/design/unified-editor.md 9절): the often-used buttons stay on the row, the rest are under [⋯]:
 //   [본문 2 ▾] | 굵게 기울임 밑줄 | 글자색 ▾ 형광펜 ▾ | 정렬 ▾ | 목록 ▾ 번호 ▾ | 표 ▾ 링크 | · ※ → ① (each ▾) | ↶ ↷ | ⌄
-//   ⌄ = 취소선 인용 구분선 들여쓰기 내어쓰기 서식 지우기 글자만 붙여넣기 「」 (그리고 폭이 모자라 옮겨진 버튼)
+//   ⌄ = 취소선 인용 구분선 들여쓰기 내어쓰기 서식 지우기 서식 없이 붙여넣기 「」 (그리고 폭이 모자라 옮겨진 버튼)
 // ED-서식줄묶음 (2026-10-23 사용자 13:16): on a phone (max-width 760px) the same buttons are grouped so the row fits on one line:
 //   [본문 2 ▾] [굵게] [·] [▾] | [글자 ▾] [문단 ▾] [넣기 ▾] [기호 ▾] | [↶] [↷]   (no [⌄]; every button is still there, in a group popover)
 //   글자 ▾ = 기울임 밑줄 취소선 글자색 형광펜 서식 지우기 / 문단 ▾ = 정렬 목록 번호 들여쓰기 내어쓰기 인용 구분선
-//   넣기 ▾ = 표 사진 링크 글자만 붙여넣기 / 기호 ▾ = ※ → ① 「」 ([·] puts · in at once, the ▾ beside it picks a similar dot)
+//   넣기 ▾ = 표 사진 링크 서식 없이 붙여넣기 / 기호 ▾ = ※ → ① 「」 ([·] puts · in at once, the ▾ beside it picks a similar dot)
 // The grouped buttons are the same nodes (moved, so their commands and state stay); a button that opens choices (글자색, 정렬, 목록…)
 // opens its own popover under itself, over the group popover. Wider than a phone nothing changes.
 // [표] opens a grid to pick rows × columns; a table cell's right-click (a phone's long press) menu adds and removes rows and
@@ -134,10 +134,11 @@ const BUTTONS = [
   ['symDot', '· ▾', '점 기호 고르기', 'sym'], ['symNote', '※ ▾', '참고 기호 고르기', 'sym'], ['symArrow', '→ ▾', '화살표 고르기', 'sym'], ['symCircled', '① ▾', '동그라미 번호 고르기', 'sym'],
   ['undo', '↶', '되돌리기', 'history'], ['redo', '↷', '다시하기', 'history'],
 ];
+const PLAIN_PASTE_HINT = '복사한 글의 색·크기·표는 빼고 글자만 붙여요 (Ctrl+Shift+V)';
 const MORE = [
   ['strike', '취소선', null], ['quote', '인용', null], ['rule', '구분선', null],
   ['indent', '들여쓰기', null], ['outdent', '내어쓰기', null], ['clear', '서식 지우기', null],
-  ['plainPaste', '글자만 붙여넣기', null], ['symBracket', '「」 ▾', '괄호·단위 기호 고르기'],
+  ['plainPaste', '서식 없이 붙여넣기', null], ['symBracket', '「」 ▾', '괄호·단위 기호 고르기'],
 ];
 const ALIGNS = [['left', '왼쪽'], ['center', '가운데'], ['right', '오른쪽'], ['justify', '양쪽']];
 // Signs that open a row of similar signs (사용자 19:33: 비슷한 기호 펼치기). The first one is the button's own sign.
@@ -267,6 +268,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     homeMore.push(b);
     if (OPENS[key]) { b.setAttribute('aria-haspopup', 'true'); b.setAttribute('aria-expanded', 'false'); }
     if (key === 'strike' || key === 'quote') b.setAttribute('aria-pressed', 'false');
+    if (key === 'plainPaste') { b.title = PLAIN_PASTE_HINT; b.setAttribute('aria-description', PLAIN_PASTE_HINT); }
     buttons[key] = b; panels.more.append(b);
   }
   // Popovers (ed-pop): a vertical list with a ✓ on the current choice (글 단계·정렬·목록·번호), or a small block of swatches
@@ -935,7 +937,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   }
   async function plainPaste() {
     let text = '';
-    try { text = await navigator.clipboard.readText(); } catch { showNote('복사한 글을 읽지 못했어요. Ctrl+Shift+V(폰은 길게 눌러 "글자만 붙여넣기")로 넣어 주세요.'); return; }
+    try { text = await navigator.clipboard.readText(); } catch { showNote('복사한 글을 읽지 못했어요. Ctrl+Shift+V(폰은 길게 눌러 "서식 없이 붙여넣기")로 넣어 주세요.'); return; }
     if (!text) return;
     view.focus();
     view.pasteText(text);
