@@ -38,12 +38,14 @@ export const savedMessage = (saved) => saved.kind === 'note' ? '노트로 저장
 // kind: 'update' | 'note' (preselected). place: null (basket), {kind, id} or a list of them (UPD-여러곳고르기). places: the opener's already read lists (optional).
 // sources: reads for the place lists (default: the window's own). updateVia(text, places): the opener's own update save, resolving
 // {ok:true} or {ok:false, message}, or undefined to leave that place to this window's own save.
+// noteFolder (optional, NOTE-추가폴더표시): {label(), open(trigger)} adds the note's [폴더 ▾] button beside the title box; the opener owns the
+// choice and its picker and calls the returned editor's paint() after it changed.
 // own: {place, name} — the opener's own record (organization·project detail). It keeps its name and stays chosen even when the
 // place lists do not offer it. upload: {getBatch(), isBusy(), onChange()} — the opener's own file batch (the home input); without
 // it the window keeps its own. onPlace(places) after [저장] in the sheet. onSaved({kind, place, places, name, id}) after a save
 // (place: the one place when exactly one was chosen); onClose(text, {saved, places}) when it closes.
 export function openWriteWindow({text = '', kind = 'update', place = null, places = null, title = '쓰기', draft = true, sources = null,
-  rt = window.KPTURuntime, updateVia = null, own = null, upload = null, onInput = null, onPlace = () => {}, onSaved = () => {}, onClose = () => {}} = {}) {
+  rt = window.KPTURuntime, updateVia = null, own = null, noteFolder = null, upload = null, onInput = null, onPlace = () => {}, onSaved = () => {}, onClose = () => {}} = {}) {
   const owner = rt.session.read()?.user?.id;
   let editor = null, saved = null, flight = null, closed = false, busy = false, picker = null, ownBatch = upload ? null : createUploadBatch();
   const batch = () => upload ? upload.getBatch() : ownBatch;
@@ -129,7 +131,7 @@ export function openWriteWindow({text = '', kind = 'update', place = null, place
       onError:message => state.say(message)});
   }};
   // NOTE-마크다운선택: [노트] shows the [마크다운] box, off for a new note; an update is always markdown (no box).
-  editor = openMarkdownEditor({text, title, draft, onInput, attach, markdown:{value:false, show:chosen => chosen === 'note'}, noteTitle:{kind:'note', label:'노트 제목', placeholder:'노트 제목(비우면 본문 첫 줄)'},
+  editor = openMarkdownEditor({text, title, draft, onInput, attach, folder:noteFolder ? {show:chosen => chosen === 'note', label:noteFolder.label, open:noteFolder.open} : null, markdown:{value:false, show:chosen => chosen === 'note'}, noteTitle:{kind:'note', label:'노트 제목', placeholder:'노트 제목(비우면 본문 첫 줄)'},
     kinds:{label:'저장할 곳', value:kind, options:[['update', '업데이트'], ['note', '노트']], text:value => value === 'update' && state.chosen.length ? name() || null : null,
       menu:{value:'update', aria:() => state.chosen.length && name() ? '기록할 곳 선택: ' + name() : '기록할 곳 선택', open:trigger => void placeSheet().open('place', trigger)}},
     placeholder:chosen => chosen === 'note' ? '노트 본문을 쓰세요' : state.chosen.length ? `${name() || '고른 곳'} 기록을 입력하세요` : '업데이트 입력(바구니에 저장)',

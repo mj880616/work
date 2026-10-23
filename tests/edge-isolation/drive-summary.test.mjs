@@ -7,7 +7,7 @@ import {checkDriveSummaryIsolation} from '../../scripts/check-drive-summary-isol
 
 test('functions-only deployment copy passes Deno check and bundle for the real drive-summary graph',{timeout:120000},async()=>{
   const result=await checkDriveSummaryIsolation();
-  assert.equal(result.modules,8); // 바구니 원문 제거로 _shared/basket-ocr-text.mjs 의존이 빠져 9 -> 8
+  assert.equal(result.modules,10); // 바구니 원문 제거로 9 -> 8, LIB-글자채우기야간 text-backfill.mjs·_shared/document-text.ts로 8 -> 10
   assert.ok(result.bundleBytes>0);
 });
 

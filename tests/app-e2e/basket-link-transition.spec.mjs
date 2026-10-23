@@ -1,6 +1,7 @@
 import {testOrigin} from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 import {linkAction} from './helpers/basket-link-menu.mjs';
+import {expectProjectTitle} from './helpers/screen-title.mjs';
 test.use({hasTouch:true});
 const fixture=testOrigin+'/tests/app-e2e/basket-link-detail-fixture.html';
 const host=kind=>kind==='organization'?'#wdUpdates':'#ps3-progress [data-ps3-records]';
@@ -64,7 +65,7 @@ async function queuedProjectMenu(page){
 async function releaseMenu(page){await page.evaluate(async()=>{window.dispatchEvent(new PopStateEvent('popstate',{state:history.state}));for(let i=0;i<20;i++)await Promise.resolve();});}
 test('queued project record-menu render cannot replace a newer project or its editor',async({page})=>{
  await queuedProjectMenu(page);await page.evaluate(()=>KPTUProjects.open(__transition.a));await releaseMenu(page);
- await expect(page.locator('#ps3Title')).toHaveText('합성 프로젝트');await expect(page.locator('#ps3Body')).toHaveAttribute('data-project',await page.evaluate(()=>__transition.a));await expect(page.locator(`${host('project')} [data-basket-link]`)).toHaveCount(2);expect(new URL(page.url()).searchParams.get('project')).toBe(await page.evaluate(()=>__transition.a));
+ await expectProjectTitle(page,'합성 프로젝트');await expect(page.locator('#ps3Body')).toHaveAttribute('data-project',await page.evaluate(()=>__transition.a));await expect(page.locator(`${host('project')} [data-basket-link]`)).toHaveCount(2);expect(new URL(page.url()).searchParams.get('project')).toBe(await page.evaluate(()=>__transition.a));
  await expect(page.locator(host('project'))).toContainText('연결 요약');await expect(page.locator(`${host('project')} [data-basket-link] a`).first()).toHaveAttribute('href',/view=basket&note=/);await expect(page.locator('#ps3Body [data-link-summary-edit],#ps3Body [data-link-summary-input]')).toHaveCount(0);
 });
 for(const action of ['route close','session'])test(`queued project record-menu render retires on ${action}`,async({page})=>{

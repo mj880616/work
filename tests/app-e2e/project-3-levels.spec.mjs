@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
+import {expectProjectTitle,projectColorDot} from './helpers/screen-title.mjs';
 // PRJ-3단(docs/design/project-3-levels.md, 2026-10-21 승인: 최대 3단). 2단 제한은 화면에만 있었다(사실). 이제 화면이 3단(상위 → 하위 → 그 아래)까지
 // 허용하고 4단 이상·자기 자신·자기 아래로 옮기기는 화면에서 막는다(DB 트리거는 이번에 넣지 않음). 깊어진 단계 표시: 프로젝트 목록 들여쓰기 트리,
 // 3단 상세는 하위 칸 없음, 기록할 곳 창은 검색으로 걸러질 때만 "1단 › 2단", 자료실 "세부" 줄에 2·3단 함께(큰 프로젝트를 고르면 아래 자료도 함께).
@@ -33,7 +34,6 @@ async function fixture(page,{width=1280}={}){
  await page.reload();await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
  return {state,errors};
 }
-const title=page=>page.locator('#ps3Title');
 const row=(page,id)=>page.locator(`#projectGrid .ps3-plist [data-ps3-project="${id}"]`);
 const pad=el=>el.evaluate(n=>parseFloat(getComputedStyle(n).paddingLeft));
 const size=el=>el.evaluate(n=>parseFloat(getComputedStyle(n.querySelector('.kptu-list-name')).fontSize));
@@ -48,7 +48,7 @@ async function forceParent(page,id){await page.locator('#ps3CreateParent').evalu
 
 test('PC 1280: the list is an indented tree to the third level; the third level has no child list and a two-step parent line',async({page})=>{
  const {state,errors}=await fixture(page);
- await clickView(page,'projects');await expect(title(page)).toHaveText('합성 정책 사업');
+ await clickView(page,'projects');await expectProjectTitle(page,'합성 정책 사업');
  await expect(page.locator('#projectGrid .ps3-plist [data-ps3-project]')).toHaveCount(6);
  await expect(row(page,'pc')).toHaveAttribute('data-ps3-depth','1');await expect(row(page,'pd')).toHaveAttribute('data-ps3-depth','2');
  // Tree order: the third level right under its parent.
@@ -58,16 +58,16 @@ test('PC 1280: the list is an indented tree to the third level; the third level 
  // Every level under a main project shows its color in the soft tone.
  for(const id of ['pc','pd']){await expect(row(page,id).locator('.ps3-color-dot')).toHaveAttribute('data-color','green');await expect(row(page,id).locator('.ps3-color-dot')).toHaveAttribute('data-tone','soft')}
  // Second level: child list with + and the third level in it; "하위 1" in the summary.
- await row(page,'pc').click();await expect(title(page)).toHaveText('합성 하위 토론회');
+ await row(page,'pc').click();await expectProjectTitle(page,'합성 하위 토론회');
  await expect(page.locator('#ps3-children [data-ps3-project="pd"]')).toBeVisible();await expect(page.locator('#ps3-children [data-ps3-child]')).toBeVisible();
  await expect(page.locator('#ps3Summary')).toContainText('하위 1');
  // Third level: no child list, no "하위", the parent line is 1단 › 2단 and each part opens that project.
- await page.locator('#ps3-children [data-ps3-project="pd"]').click();await expect(title(page)).toHaveText('합성 세부 사안');
+ await page.locator('#ps3-children [data-ps3-project="pd"]').click();await expectProjectTitle(page,'합성 세부 사안');
  await expect(page.locator('#ps3-children')).toHaveCount(0);await expect(page.locator('#ps3Summary')).not.toContainText('하위');
  await expect(page.locator('#ps3Hierarchy .ps3-parent-link')).toHaveText(['← 합성 정책 사업','합성 하위 토론회']);
- await expect(page.locator('#ps3Title .ps3-color-dot')).toHaveAttribute('data-tone','soft');
- await page.locator('#ps3Hierarchy .ps3-parent-link').nth(1).click();await expect(title(page)).toHaveText('합성 하위 토론회');
- await page.locator('#ps3Hierarchy .ps3-parent-link').first().click();await expect(title(page)).toHaveText('합성 정책 사업');
+ await expect(await projectColorDot(page)).toHaveAttribute('data-tone','soft');
+ await page.locator('#ps3Hierarchy .ps3-parent-link').nth(1).click();await expectProjectTitle(page,'합성 하위 토론회');
+ await page.locator('#ps3Hierarchy .ps3-parent-link').first().click();await expectProjectTitle(page,'합성 정책 사업');
  // A main project counts every level under it before delete.
  const more=page.locator('#ps3Menu details.ps3-more');await more.locator('summary').click();await more.locator('[data-ps3-delete-project]').click();
  await expect(page.locator('#ps3DeleteMessage')).toContainText('하위 프로젝트 2개');
@@ -76,7 +76,7 @@ test('PC 1280: the list is an indented tree to the third level; the third level 
 
 test('PC 1280: a third level is made from the second level’s +; the parent list offers only the first two levels',async({page})=>{
  const {state,errors}=await fixture(page);
- await clickView(page,'projects');await row(page,'pf').click();await expect(title(page)).toHaveText('합성 교섭 준비');
+ await clickView(page,'projects');await row(page,'pf').click();await expectProjectTitle(page,'합성 교섭 준비');
  await page.locator('#ps3-children [data-ps3-child]').click();await expect(page.locator('#ps3CreateModal')).toBeVisible();
  await expect(page.locator('#ps3CreateParent')).toHaveValue('pf');
  // First and second levels, in tree order; never a third level (that would make a fourth).
@@ -85,14 +85,14 @@ test('PC 1280: a third level is made from the second level’s +; the parent lis
  await page.locator('#ps3CreateName').fill('합성 교섭 사안');await page.locator('#ps3CreateSave').click();
  await expect.poll(()=>state.writes.filter(x=>x.method==='POST').length).toBe(1);
  expect(state.writes[0].body.parent_id).toBe('pf');
- await expect(title(page)).toHaveText('합성 교섭 사안');await expect(page.locator('#ps3-children')).toHaveCount(0);
+ await expectProjectTitle(page,'합성 교섭 사안');await expect(page.locator('#ps3-children')).toHaveCount(0);
  await expect(row(page,'p-new-6')).toHaveAttribute('data-ps3-depth','2');
  expect(errors).toEqual([]);
 });
 
 test('PC 1280: moves that would make a fourth level or a cycle are not offered and are refused on save',async({page})=>{
  const {state,errors}=await fixture(page);
- await clickView(page,'projects');await expect(title(page)).toHaveText('합성 정책 사업');
+ await clickView(page,'projects');await expectProjectTitle(page,'합성 정책 사업');
  // A main project with two levels under it can go nowhere but the top.
  await openEdit(page,'pa');expect(await parentValues(page)).toEqual(['']);
  // Under its own grandchild (a cycle): refused, nothing written.
@@ -122,7 +122,7 @@ test('phone 390: the same tree, and the third level opens in the dialog without 
  await clickView(page,'projects');await expect(row(page,'pd')).toBeVisible();
  // The list may be redrawn once after the read; compare on the drawn rows.
  await expect.poll(async()=>await pad(row(page,'pd'))-await pad(row(page,'pc'))).toBeGreaterThan(0);
- await row(page,'pd').click();await expect(title(page)).toHaveText('합성 세부 사안');
+ await row(page,'pd').click();await expectProjectTitle(page,'합성 세부 사안');
  await expect(page.locator('#ps3DetailModal')).toHaveAttribute('aria-modal','true');await expect(page.locator('#ps3-children')).toHaveCount(0);
  await expect(page.locator('#ps3Hierarchy .ps3-parent-link')).toHaveText(['← 합성 정책 사업','합성 하위 토론회']);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);expect(errors).toEqual([]);

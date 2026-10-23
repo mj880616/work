@@ -24,6 +24,7 @@ export function readTextLater(document,options){
 
 // ---- 기존 자료 채우기(backfill) ----
 // 자료실을 열 때 뒤에서 조용히 소량씩 돈다(startAutoTextRead, library-upload.js가 LIB-자동정리와 같은 자리에서 부른다). 건수 확인·되돌리기 SQL은 docs/design/global-search.md 8.4절.
+// 서버도 매일 밤 같은 조건으로 몇 개씩 읽는다(drive-summary ?action=text_backfill, 8.7절). 두 경로는 같은 결과 칸을 쓰고 밤 경로는 조건부로 써서 덮지 않는다.
 // 아직 한 번도 읽지 않은 자료(extraction_status가 ready·error가 아닌 것)만 최근 것부터 limit개, 한 번에 하나씩 읽는다.
 // 결과 {asked,ready,error,failed,stop}. 던지지 않는다. isCurrent()가 거짓이면(로그아웃·화면 이동) 다음 요청을 보내지 않는다.
 export const BACKFILL_MAX=50;

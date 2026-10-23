@@ -4,6 +4,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
 import {closeProjectDetail} from './helpers/project-detail.mjs';
+import {expectProjectTitle} from './helpers/screen-title.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const sourceHead=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
@@ -93,7 +94,7 @@ function observation(label,state){console.info('Project RED source observation',
 
 test('normal fixture: Project edit preserves metadata and uses the current renderer',async({page})=>{
   const state=await fixture(page);await editProject(page);await page.locator('#ps3CreateName').fill('정상 수정');await page.locator('#ps3CreateSave').click();
-  await expect(page.locator('#ps3CreateModal')).toBeHidden();await expect(page.locator('#ps3Title')).toHaveText('정상 수정');
+  await expect(page.locator('#ps3CreateModal')).toBeHidden();await expectProjectTitle(page,'정상 수정');
   expect(state.tables.app_spaces[0].metadata.business).toEqual({keep:'exact'});expect(state.calls('app_spaces','PATCH')).toHaveLength(1);
 });
 test('normal fixture: exact author/project filters return only the requested existing memo',async({page})=>{

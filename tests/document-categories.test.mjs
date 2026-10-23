@@ -144,3 +144,18 @@ test('the basket library chips follow the current list', () => {
   assert.deepEqual(visibleNotes([note], [], 'classified', docs, 'library', '홍보').map(n => n.id), ['n']);
   resetDocumentCategories();
 });
+
+test('2026-10-23 list change: 교섭 and 교섭·합의 read as the same category; press and official letters have their own when listed', () => {
+  resetDocumentCategories();
+  // Before the person renames the list, an AI value 교섭·합의 still shows as 교섭.
+  assert.equal(categoryOf('교섭·합의'), '교섭');
+  assert.equal(categoryOf('보도자료'), '선전');
+  const NEW = ['교섭·합의', '투쟁', '교육', '선전', '성명·보도자료', '공문', '정책', '회의', '기타'];
+  assert.equal(setDocumentCategories(NEW), true);
+  for (const [stored, shown] of [['교섭', '교섭·합의'], ['교섭자료', '교섭·합의'], ['보도자료', '성명·보도자료'], ['성명·논평', '성명·보도자료'], ['취재요청', '성명·보도자료'],
+    ['선전·언론자료', '선전'], ['공문', '공문'], ['constructor', '기타'], ['교육자료', '교육']])
+    assert.equal(categoryOf(stored), shown, stored);
+  // Stored values are not rewritten: a rename of 교섭·합의 carries the old stored name along.
+  assert.deepEqual(storedValuesOf('교섭·합의', [{ category: '교섭' }, { category: '교섭자료' }, { category: '공문' }]), ['교섭', '교섭자료']);
+  resetDocumentCategories();
+});

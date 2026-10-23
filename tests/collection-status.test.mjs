@@ -51,6 +51,7 @@ test('render: checkable rows with time, uncheckable rows say 확인 불가, noth
 });
 
 test('readStatus: owner GET status without session refresh; 404 table and failed function hide quietly', async () => {
+  mod.resetCollectionCache();
   const {rt, calls} = fakeRt({copy:new Error('Failed to fetch'), radar:missing});
   assert.deepEqual(await mod.readStatus(rt), {copy:null, radar:null, collectors:null});
   assert.equal(calls[0].path, '/functions/v1/drive-summary?action=status');
@@ -125,6 +126,7 @@ test('render: collector lines show time, 24h count for calls, and warnings; old 
   assert.match(mod.renderRows({copy:{at:iso(now - H)}, radar:null, collectors:null}, now), /data-collect="call" data-collect-state="unknown"[^]*확인 불가/);
 });
 test('readStatus: one status call feeds both copy and collectors', async () => {
+  mod.resetCollectionCache(); // the status answer is shared per tab and owner for 10 minutes (text-backfill-notice.js reads it too)
   const {rt, calls} = fakeRt({copy:{ok:true, copy:{state:'found', last_success_at:iso(now - H), last_failure_at:null}, collectors:{telegram:beat(1), transcript:null}}, radar:[]});
   const raw = await mod.readStatus(rt);
   assert.equal(calls.filter(c => c.path.startsWith('/functions/v1/drive-summary')).length, 1);

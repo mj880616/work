@@ -21,16 +21,17 @@ const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.s
 const fill=(over={})=>({ref:'d1',title:'2026년 임금교섭 요구안',document_date:'2026-10-20',source:'공공운수노조',category:'교섭',...over});
 const doc=(n,over={})=>({id:id(n),workspace_id:WS,title:'251020_요구안_최종',category:'기타',source:null,document_date:null,
   file_name:'251020_요구안_최종.hwpx',mime_type:'application/octet-stream',created_at:JUST,updated_at:JUST,field_origin:{},
-  extracted_text:'2026년 임금교섭 요구안\n공공운수노조\n2026. 10. 20.',extraction_status:'ready',...over});
+  extracted_text:'2026년 임금교섭 요구안\n공공운수노조\n2026. 10. 20.',extraction_status:'ready',project_id:null,organization_id:null,...over});
 
-function harness({docs=[doc(1)],openai=[()=>respond(answer([fill()]))],usage=[],categories=null,patchStatus=0,missingColumn=false,attempts=[],tidyMissing=false,rpcStatus=0}={}){
+function harness({docs=[doc(1)],openai=[()=>respond(answer([fill()]))],usage=[],categories=null,patchStatus=0,missingColumn=false,attempts=[],classifyMissing=false,rpcStatus=0,spaces=[],orgs=[],backups=[]}={}){
   const calls={openai:[],rest:[],patches:[],logs:[],rpcs:[]};
   const db={
     app_workspace_members:[{workspace_id:WS,user_id:OWNER,role:'owner'},{workspace_id:OTHER_WS,user_id:STRANGER,role:'owner'}],
     app_documents:structuredClone(docs),
     app_profiles:[{user_id:OWNER,document_categories:categories??['교섭','투쟁','교육','선전','정책','회의','기타']}],
     app_ai_daily_usage:structuredClone(usage),
-    app_library_tidy_attempts:structuredClone(attempts),app_library_tidy_backups:[],
+    app_library_classify_attempts:structuredClone(attempts),app_library_tidy_backups:structuredClone(backups),
+    app_spaces:structuredClone(spaces),app_suborganizations:structuredClone(orgs),
   };
   const users={'owner-token':OWNER,'stranger-token':STRANGER};
   const wsOwner={[WS]:OWNER,[OTHER_WS]:STRANGER};
@@ -52,10 +53,17 @@ function harness({docs=[doc(1)],openai=[()=>respond(answer([fill()]))],usage=[],
     const uid=users[bearer];assert.ok(uid,'REST only with the caller session token');
     const table=url.pathname.replace('/rest/v1/','');calls.rest.push({table,method,query:url.search});
     if(table==='app_documents'&&missingColumn)return respond({message:'column app_documents.field_origin does not exist'},400);
-    if(tidyMissing&&(table==='app_library_tidy_attempts'||table==='rpc/app_library_auto_tidy_apply'))return respond({message:'not found'},404);
-    if(table==='rpc/app_library_auto_tidy_apply'){
+    if(classifyMissing&&(table==='app_library_classify_attempts'||table==='rpc/app_library_classify_apply'))return respond({message:'not found'},404);
+    if(table==='app_library_classify_attempts'&&method==='POST'){
+      // fill record: insert, ignore duplicates (Prefer resolution=ignore-duplicates).
+      const rows=JSON.parse(init.body);calls.records=(calls.records||[]).concat(rows);
+      for(const r of rows){assert.ok(visible(table,r,uid),'attempt for own workspace only');if(!db.app_library_classify_attempts.some(a=>a.document_id===r.document_id))db.app_library_classify_attempts.push(r);}
+      return new Response(null,{status:201});
+    }
+    if(table==='rpc/app_library_classify_apply'){
       // Synthetic stand-in for the DB function (the real one is tested on PostgreSQL in tests/auth-handoff/library-auto-tidy.test.mjs):
-      // per document, skip when updated_at moved, refuse 'user' fields, back up then change, record the attempt.
+      // per document, skip when updated_at moved, refuse 'user' fields and replacing a link, back up then change, record the attempt
+      // (an earlier attempt without text is upgraded once).
       assert.equal(method,'POST');const body=JSON.parse(init.body);calls.rpcs.push(body);
       if(rpcStatus)return respond({},rpcStatus);
       let documents=0,fields=0,moved=0;
@@ -65,12 +73,17 @@ function harness({docs=[doc(1)],openai=[()=>respond(answer([fill()]))],usage=[],
         let n=0;
         for(const [f,v] of Object.entries(item.changes)){
           assert.notEqual(d.field_origin[f],'user','server sent a user field');
+          if(['project_id','organization_id'].includes(f)){assert.equal(d[f]??null,null,'server tried to replace a link');
+            const list=f==='project_id'?db.app_spaces:db.app_suborganizations;assert.ok(list.some(r=>r.id===v&&r.workspace_id===d.workspace_id),'link outside the workspace');}
           if(d[f]===v)continue;
           db.app_library_tidy_backups.push({batch_id:body.p_batch,document_id:d.id,field:f,old_value:d[f],old_origin:d.field_origin[f]??null,new_value:v});
           d[f]=v;d.field_origin={...d.field_origin,[f]:'ai'};n++;
         }
         if(n){documents++;fields+=n;d.updated_at='2026-10-22T03:00:01Z';}
-        if(!db.app_library_tidy_attempts.some(a=>a.document_id===d.id))db.app_library_tidy_attempts.push({document_id:d.id,workspace_id:d.workspace_id,batch_id:body.p_batch,changed:n});
+        assert.equal(typeof item.with_text,'boolean');
+        const prev=db.app_library_classify_attempts.find(a=>a.document_id===d.id);
+        if(!prev)db.app_library_classify_attempts.push({document_id:d.id,workspace_id:d.workspace_id,batch_id:body.p_batch,with_text:item.with_text,changed:n});
+        else if(!prev.with_text)Object.assign(prev,{batch_id:body.p_batch,with_text:item.with_text,changed:n});
       }
       return respond({documents,fields,moved});
     }
@@ -84,7 +97,10 @@ function harness({docs=[doc(1)],openai=[()=>respond(answer([fill()]))],usage=[],
       const body=JSON.parse(init.body);calls.patches.push({query:url.search,body});
       if(patchStatus)return respond({},patchStatus);
       // Database CHECK (20261022100000): field_origin keys and values.
-      if(body.field_origin){const o=body.field_origin;assert.ok(Object.keys(o).every(k=>lib.LIBRARY_FIELDS.includes(k))&&Object.values(o).every(v=>v==='ai'||v==='user'),'field_origin check');}
+      if(body.field_origin){const o=body.field_origin;assert.ok(Object.keys(o).every(k=>lib.ORIGIN_FIELDS.includes(k))&&Object.values(o).every(v=>v==='ai'||v==='user'),'field_origin check');}
+      // Owner policy + workspace trigger: a link must be a project / organization of the same workspace.
+      if(body.project_id&&!db.app_spaces.some(r=>r.id===body.project_id&&r.workspace_id===WS))return respond({code:'23514'},400);
+      if(body.organization_id&&!db.app_suborganizations.some(r=>r.id===body.organization_id&&r.workspace_id===WS))return respond({code:'42501'},403);
       const rows=db.app_documents.filter(r=>visible(table,r,uid)&&matches(r,url));
       rows.forEach(r=>Object.assign(r,body));
       return respond(rows.map(r=>({id:r.id})));
@@ -248,7 +264,8 @@ test('pure helpers: needsTidy, validDocDate, readOrigin',()=>{
   assert.equal(lib.validDocDate('2026-10-20',TODAY),'2026-10-20');
   for(const v of ['2026-13-01','1970-01-01','2030-01-01','2026/10/20',''])assert.equal(lib.validDocDate(v,TODAY),null,v);
   assert.deepEqual(lib.readOrigin({title:'ai'}),{title:'ai'});
-  for(const v of [null,[],{title:'x'},{project_id:'ai'}])assert.equal(lib.readOrigin(v),null);
+  assert.deepEqual(lib.readOrigin({project_id:'ai',organization_id:'user'}),{project_id:'ai',organization_id:'user'});
+  for(const v of [null,[],{title:'x'},{project_id:'x'},{meeting_id:'ai'}])assert.equal(lib.readOrigin(v),null);
 });
 
 // ---- LIB-자동정리: mode tidy (기존 자료, 버튼 없음) ----
@@ -267,11 +284,11 @@ test('tidy: untidy fields of an old document are changed through the backup func
   assert.equal(calls.patches.length,0);assert.equal(calls.rpcs.length,1);
   const rpc=calls.rpcs[0];
   assert.match(rpc.p_batch,/^[0-9a-f-]{36}$/);
-  assert.deepEqual(rpc.p_items,[{document_id:id(1),updated_at:OLD,changes:{title:'2026년 임금교섭 요구안',document_date:'2026-10-20',source:'공공운수노조',category:'교섭'}}]);
+  assert.deepEqual(rpc.p_items,[{document_id:id(1),updated_at:OLD,with_text:true,changes:{title:'2026년 임금교섭 요구안',document_date:'2026-10-20',source:'공공운수노조',category:'교섭'}}]);
   assert.deepEqual(db.app_library_tidy_backups.map(b=>[b.field,b.old_value,b.new_value]),[
     ['title','251020_요구안_최종','2026년 임금교섭 요구안'],['document_date',null,'2026-10-20'],['source',null,'공공운수노조'],['category','기타','교섭']]);
   assert.ok(db.app_library_tidy_backups.every(b=>b.batch_id===rpc.p_batch));
-  assert.equal(db.app_library_tidy_attempts.length,1);
+  assert.deepEqual(db.app_library_classify_attempts.map(a=>[a.document_id,a.with_text]),[[id(1),true]]);
 });
 
 test('tidy: user fields and meaningful values are never sent or changed; only untidy fields',async()=>{
@@ -294,7 +311,7 @@ test('tidy: documents edited before field_origin existed (사용자 수정 / 사
 });
 
 test('tidy: a document already tried is never sent to AI again; just-uploaded documents are left to fill',async()=>{
-  const {handler,calls}=harness({docs:[old(1),doc(2)],attempts:[{document_id:id(1),workspace_id:WS,batch_id:id(99),changed:0}]});
+  const {handler,calls}=harness({docs:[old(1),doc(2)],attempts:[{document_id:id(1),workspace_id:WS,batch_id:id(99),with_text:true,changed:0}]});
   const body=await (await post(handler,tidyReq([id(1),id(2)]))).json();
   assert.deepEqual(body,{ok:true,kind:'library_fill',mode:'tidy',updated:0,skipped:2});
   assert.equal(calls.openai.length,0);assert.equal(calls.rpcs.length,0);
@@ -311,15 +328,15 @@ test('tidy: an invalid AI answer records the attempt only (no value change); bus
   {const {handler,db,calls}=harness({docs:[old(1)],openai:[()=>respond({status:'completed',output:[{type:'message',content:[{type:'output_text',text:'nope'}]}],usage:{}})]});
    const r=await post(handler,tidyReq([id(1)]));assert.equal(r.status,502);
    assert.deepEqual(calls.rpcs.map(b=>b.p_items.map(i=>i.changes)),[[{}]]);
-   assert.equal(db.app_library_tidy_attempts.length,1);assert.equal(db.app_documents[0].title,'251020_요구안_최종');}
+   assert.equal(db.app_library_classify_attempts.length,1);assert.equal(db.app_documents[0].title,'251020_요구안_최종');}
   {const {handler,calls,db}=harness({docs:[old(1)],openai:[()=>respond({},500)]});
-   const r=await post(handler,tidyReq([id(1)]));assert.equal(r.status,503);assert.equal(calls.rpcs.length,0);assert.equal(db.app_library_tidy_attempts.length,0);}
+   const r=await post(handler,tidyReq([id(1)]));assert.equal(r.status,503);assert.equal(calls.rpcs.length,0);assert.equal(db.app_library_classify_attempts.length,0);}
 });
 
 test('tidy: same limits as fill (daily 50); before the DB is applied → library_not_ready and AI is not called',async()=>{
   {const {handler,calls}=harness({docs:[old(1)],usage:[{workspace_id:WS,user_id:OWNER,day:TODAY,requests:50,input_tokens:0,output_tokens:0}]});
    const r=await post(handler,tidyReq([id(1)]));assert.equal(r.status,429);assert.equal((await r.json()).error,'daily_limit');assert.equal(calls.openai.length,0);assert.equal(calls.rpcs.length,0);}
-  {const {handler,calls}=harness({docs:[old(1)],tidyMissing:true});
+  {const {handler,calls}=harness({docs:[old(1)],classifyMissing:true});
    const r=await post(handler,tidyReq([id(1)]));assert.equal(r.status,503);assert.equal((await r.json()).error,'library_not_ready');assert.equal(calls.openai.length,0);}
   {const {handler}=harness({docs:[old(1)],rpcStatus:500});
    const r=await post(handler,tidyReq([id(1)]));assert.equal(r.status,503);assert.equal((await r.json()).error,'library_unavailable');}
@@ -337,4 +354,111 @@ test('tidy: injected text in a document is only material; values are validated b
     openai:[()=>respond(answer([fill({title:'<b>요구안</b>',category:'해킹',document_date:'2099-01-01',source:'x'.repeat(61)})]))]});
   await post(handler,tidyReq([id(1)]));
   assert.deepEqual(calls.rpcs[0].p_items[0].changes,{title:'요구안'});
+});
+
+// ---- LIB-AI분류보완: projects and organizations from the file text; hand links never touched; text arriving later ----
+const P=n=>`c0000000-0000-4000-8000-${String(n).padStart(12,'0')}`,O=n=>`d0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+const V2={project_system:'v2'};
+const SPACES=[
+  {id:P(1),workspace_id:WS,owner_id:OWNER,name:'2026 임금교섭',parent_id:null,status:'active',metadata:V2},
+  {id:P(2),workspace_id:WS,owner_id:OWNER,name:'요구안 마련',parent_id:P(1),status:'active',metadata:{}},
+  {id:P(3),workspace_id:WS,owner_id:OWNER,name:'끝난 사업',parent_id:null,status:'archived',metadata:V2},
+  {id:P(4),workspace_id:WS,owner_id:OWNER,name:'옛 공간(프로젝트 아님)',parent_id:null,status:'active',metadata:{}},
+  {id:P(5),workspace_id:OTHER_WS,owner_id:STRANGER,name:'남의 프로젝트',parent_id:null,status:'active',metadata:V2},
+];
+const ORGS=[{id:O(1),workspace_id:WS,name:'한빛지부',active:true},{id:O(2),workspace_id:WS,name:'안 쓰는 조직',active:false},{id:O(3),workspace_id:OTHER_WS,name:'남의 조직',active:true}];
+const linked=(over={})=>fill({project:'p2',organization:'o1',...over});
+
+test('classify fill: empty project and organization are linked from the file text; the model only sees names and short refs',async()=>{
+  const {handler,calls,db}=harness({spaces:SPACES,orgs:ORGS,openai:[()=>respond(answer([linked()]))]});
+  const res=await post(handler,fillReq());
+  assert.equal(res.status,200);
+  const d=db.app_documents[0];
+  assert.equal(d.project_id,P(2));assert.equal(d.organization_id,O(1));
+  assert.deepEqual(d.field_origin,{title:'ai',source:'ai',category:'ai',project_id:'ai',document_date:'ai',organization_id:'ai'});
+  const material=JSON.parse(calls.openai[0].input[1].content);
+  // Only the owner's active projects (new project system and its children) and active organizations; no ids are sent.
+  assert.deepEqual(material.projects,[{ref:'p1',name:'2026 임금교섭'},{ref:'p2',name:'2026 임금교섭 › 요구안 마련'}]);
+  assert.deepEqual(material.organizations,[{ref:'o1',name:'한빛지부'}]);
+  assert.doesNotMatch(calls.openai[0].input[1].content,/[0-9a-f]{8}-[0-9a-f]{4}-/);
+  for(const c of calls.rest.filter(c=>['app_spaces','app_suborganizations'].includes(c.table)))assert.match(c.query,new RegExp(`workspace_id=eq.${WS}`));
+  assert.ok(calls.rest.some(c=>c.table==='app_spaces'&&c.query.includes(`owner_id=eq.${OWNER}`)));
+  // The attempt is recorded, so the background sweep does not send the same document again.
+  assert.deepEqual(db.app_library_classify_attempts.map(a=>[a.document_id,a.with_text,a.changed]),[[id(1),true,6]]);
+  assert.match(LIB_SCHEMA_TEXT(),/"project"/);
+});
+const LIB_SCHEMA_TEXT=()=>JSON.stringify(lib.LIBRARY_FILL_SCHEMA);
+
+test('classify: a project chosen at upload, a link the person removed, an edit-form save and an AI-written link are never touched',async()=>{
+  const docs=[doc(1,{project_id:P(1)}),doc(2,{field_origin:{organization_id:'ai'}}),doc(3,{classification_note:'사용자 수정',created_at:OLD,updated_at:OLD}),doc(4,{created_at:OLD,updated_at:OLD})];
+  {const {handler,calls,db}=harness({docs:docs.slice(0,2),spaces:SPACES,orgs:ORGS,openai:[()=>respond(answer([linked({ref:'d1',project:'p2'}),linked({ref:'d2',project:'p1'})]))]});
+   await post(handler,fillReq([id(1),id(2)]));
+   assert.equal(db.app_documents[0].project_id,P(1),'upload choice kept');assert.equal(db.app_documents[0].organization_id,O(1));
+   assert.equal(db.app_documents[1].organization_id,null,'removed link stays removed');assert.equal(db.app_documents[1].project_id,P(1));
+   assert.ok(calls.patches.every(p=>!(p.query.includes(id(1))&&'project_id' in p.body)));}
+  {const {handler,calls,db}=harness({docs:docs.slice(2),spaces:SPACES,orgs:ORGS,backups:[{document_id:id(4),workspace_id:WS,field:'project_id',batch_id:id(98)}],
+     openai:[()=>respond(answer([linked({ref:'d1'}),linked({ref:'d2'})]))]});
+   await post(handler,tidyReq([id(3),id(4)]));
+   const [a,b]=calls.rpcs[0].p_items;
+   // Edit-form save (사용자 수정): the four text fields and the project are the person's; only the organization is open.
+   assert.deepEqual(a.changes,{organization_id:O(1)});
+   // An earlier AI link (backup row, even reverted) is not filled again.
+   assert.ok(!('project_id' in b.changes));assert.equal(b.changes.organization_id,O(1));
+   assert.equal(db.app_documents[1].project_id,null);}
+});
+
+test('classify: AI ids are never trusted — unknown, foreign, archived or raw-id refs are dropped before any write',async()=>{
+  for(const project of ['p9',P(5),P(3),'p3',P(1),'']){
+    const {handler,calls,db}=harness({spaces:SPACES,orgs:ORGS,openai:[()=>respond(answer([linked({project,organization:'o2'})]))]});
+    assert.equal((await post(handler,fillReq())).status,200);
+    assert.equal(db.app_documents[0].project_id,null,project);assert.equal(db.app_documents[0].organization_id,null);
+    assert.ok(calls.patches.every(p=>!('project_id' in p.body)&&!('organization_id' in p.body)));
+  }
+});
+
+test('classify tidy: name-only attempts come back once text is ready (AI fields re-judged, user fields kept); otherwise never re-sent',async()=>{
+  const nameOnly=old(1,{title:'파일 이름으로 본 제목',field_origin:{title:'ai',source:'user'},source:'내 출처',category:'정책'});
+  const waiting=old(2,{extracted_text:null,extraction_status:'pending'}),final=old(3);
+  const attempts=[id(1),id(2)].map(d=>({document_id:d,workspace_id:WS,batch_id:id(97),with_text:false,changed:1})).concat({document_id:id(3),workspace_id:WS,batch_id:id(97),with_text:true,changed:0});
+  const {handler,calls,db}=harness({docs:[nameOnly,waiting,final],attempts,openai:[()=>respond(answer([fill({title:'글자로 본 제목',source:'다른 곳'})]))]});
+  await post(handler,tidyReq([id(1),id(2),id(3)]));
+  assert.equal(JSON.parse(calls.openai[0].input[1].content).files.length,1);
+  assert.deepEqual(calls.rpcs[0].p_items,[{document_id:id(1),updated_at:OLD,with_text:true,changes:{title:'글자로 본 제목',document_date:'2026-10-20'}}]);
+  assert.equal(db.app_documents[0].source,'내 출처');
+  assert.deepEqual(db.app_library_classify_attempts.find(a=>a.document_id===id(1)).with_text,true);
+});
+
+test('classify tidy: an old document with nothing left to do is recorded without calling AI',async()=>{
+  const done=old(1,{title:'정리된 제목',category:'정책',source:'국토교통부',document_date:'2026-01-02',project_id:P(1),organization_id:O(1)});
+  const {handler,calls,db}=harness({docs:[done],spaces:SPACES,orgs:ORGS});
+  const body=await (await post(handler,tidyReq([id(1)]))).json();
+  assert.equal(body.updated,0);assert.equal(calls.openai.length,0);
+  assert.deepEqual(calls.rpcs.map(r=>r.p_items),[[{document_id:id(1),updated_at:OLD,with_text:true,changes:{}}]]);
+  assert.equal(db.app_library_classify_attempts.length,1);
+});
+
+test('classify: before the DB is applied fill keeps the old four-field behaviour (no link read, no link write, no record)',async()=>{
+  const {handler,calls,db}=harness({classifyMissing:true,spaces:SPACES,orgs:ORGS,openai:[()=>respond(answer([linked()]))]});
+  assert.equal((await post(handler,fillReq())).status,200);
+  assert.equal(db.app_documents[0].project_id,null);assert.equal(db.app_documents[0].title,'2026년 임금교섭 요구안');
+  assert.ok(!calls.rest.some(c=>['app_spaces','app_suborganizations','app_library_tidy_backups'].includes(c.table)));
+  assert.deepEqual(Object.keys(db.app_documents[0].field_origin).sort(),['category','document_date','source','title']);
+  assert.equal(JSON.parse(calls.openai[0].input[1].content).projects,undefined);
+});
+
+test('classify: text sent to AI is bounded (8,000 chars for one file, 12,000 in total) and only the front part',async()=>{
+  const long='가'.repeat(20000);
+  assert.equal(JSON.parse(lib.libraryMaterial([{ref:'d1',doc:doc(1),text:long}],['기타'])).files[0].text.length,8000);
+  const ten=Array.from({length:10},(_,i)=>({ref:`d${i+1}`,doc:doc(i+1),text:long}));
+  const files=JSON.parse(lib.libraryMaterial(ten,['기타'])).files;
+  assert.ok(files.every(f=>f.text.length===1200));assert.equal(files.reduce((n,f)=>n+f.text.length,0),12000);
+});
+
+test('categories: renamed 교섭·합의 counts as tidy; the AI guide covers press, official letters, agreements, struggle and education',()=>{
+  const cats=['교섭·합의','투쟁','교육','선전','성명·보도자료','공문','정책','회의','기타'];
+  assert.equal(lib.needsTidy({...doc(1),category:'교섭'},'category',cats),false);
+  assert.equal(lib.needsTidy({...doc(1),category:'교섭·합의'},'category',[...lib.DEFAULT_CATEGORIES]),false);
+  assert.equal(lib.needsTidy({...doc(1),category:'보도자료'},'category',cats),true);
+  for(const word of ['소식지·웹자보','= 선전','성명서·보도자료','= 성명·보도자료','= 공문','합의서','= 교섭·합의','투쟁명령','교육자료'])
+    assert.ok(lib.LIBRARY_FILL_INSTRUCTIONS.includes(word),word);
 });

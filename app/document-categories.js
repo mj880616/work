@@ -1,17 +1,23 @@
-// UI-바구니첨부메모: 자료 분류 목록. 기본은 7개(교섭·투쟁·교육·선전·정책·회의·기타)이고, 내 목록은 내 프로필의
+// UI-바구니첨부메모: 자료 분류 목록. 기본은 7개(교섭·투쟁·교육·선전·정책·회의·기타 = DB 칸 기본값)이고, 내 목록은 내 프로필의
 // document_categories 칸에 저장된다(PR 2b). 이 모듈이 그 목록을 읽어 두는 유일한 곳이며(새 저장소 없음), 화면은 여기서만 목록을 얻는다.
 // 저장된 자료의 값은 바꾸지 않고 화면에서만 목록의 이름으로 대응해 보여 준다(B1). 예전 자동분류 12개 이름(library-files)은 아래 표로 대응하고,
-// 표에 없는 값은 목록의 이름으로 시작하면 그 분류, 아니면 '기타'로 본다.
+// 표에 없는 값은 목록의 이름으로 시작하면 그 분류, 아니면 '기타'로 본다. 자료실·담당조직·프로젝트 [자료] 꼬리표가 모두 이 목록 하나를 쓴다.
+// 서버 AI(supabase/functions/ai-assist/library-fill.ts DEFAULT_CATEGORIES·RENAMED_CATEGORIES)도 같은 목록·같은 옛 이름 규칙을 쓴다.
 // 추가·이름 바꾸기·삭제는 DB 함수 app_document_category_add/rename/delete만 부른다. 소유자·권한 판정은 함수와 RLS가 한다.
+// 2026-10-23 사용자 요청('교섭' → '교섭·합의', '성명·보도자료'·'공문' 추가)은 내 목록(프로필)에서 바꾼다(분류 목록 편집 = 기존 함수).
+// 기본값은 DB 칸 기본값과 같게 둔다(목록을 못 읽을 때만 쓰임). 옛 이름·새 이름은 아래 LEGACY로 같은 꼬리표가 된다.
 export const DEFAULT_DOCUMENT_CATEGORIES=Object.freeze(['교섭','투쟁','교육','선전','정책','회의','기타']);
 export const LOCKED_CATEGORY='기타';
 export const CATEGORY_NAME_LIMIT=20;
+// 저장된 값 → 보여 줄 분류(앞의 것부터, 지금 목록에 있는 첫 이름). 저장된 자료 값은 다시 쓰지 않는다.
+// '교섭'↔'교섭·합의'는 이름만 바뀐 같은 분류(내 목록이 아직 옛 이름이어도, 새 이름이어도 같은 꼬리표).
 const LEGACY=Object.freeze({
-  교섭자료:'교섭',
-  교육자료:'교육',
-  보도자료:'선전',취재요청:'선전','성명·논평':'선전','선전·언론자료':'선전',
-  국회자료:'정책',정부자료:'정책','토론회·발제자료':'정책',
-  회의자료:'회의',회의결과:'회의',
+  교섭:['교섭·합의'],'교섭·합의':['교섭'],
+  교섭자료:['교섭·합의','교섭'],
+  교육자료:['교육'],
+  보도자료:['성명·보도자료','선전'],취재요청:['성명·보도자료','선전'],'성명·논평':['성명·보도자료','선전'],'선전·언론자료':['선전'],
+  국회자료:['정책'],정부자료:['정책'],'토론회·발제자료':['정책'],
+  회의자료:['회의'],회의결과:['회의'],
 });
 let current=DEFAULT_DOCUMENT_CATEGORIES,currentOwner='';
 let flight=null,loadedOwner='';
@@ -66,8 +72,8 @@ if(typeof window!=='undefined')window.addEventListener('kptu:session-changed',()
 export function categoryOf(value){
   const name=String(value??'').trim();
   if(current.includes(name))return name;
-  const legacy=LEGACY[name];
-  if(legacy&&current.includes(legacy))return legacy;
+  const legacy=(Object.hasOwn(LEGACY,name)?LEGACY[name]:[]).find(category=>current.includes(category));
+  if(legacy)return legacy;
   // 직접 적은 값(예: 정책자료)은 목록의 이름으로 시작하면 그 분류로 본다(여러 개면 가장 긴 이름).
   let best='';
   for(const category of current)if(category!==LOCKED_CATEGORY&&name.startsWith(category)&&category.length>best.length)best=category;

@@ -19,7 +19,8 @@ function baseState(){
     user:{id:'user-1',email:'owner@example.org',user_metadata:{display_name:'자료실 관리자'}},
     workspace:{id:'workspace-1',slug:'team',name:'웹2'},
     docs:[{id:DOC_ID(90),workspace_id:'workspace-1',project_id:null,title:'기존 자료',category:'정책',source:'기존 출처',document_date:'2026-09-01',
-      file_name:'old.pdf',tags:[],created_at:'2026-09-01T00:00:00Z',updated_at:'2026-09-01T00:00:00Z',field_origin:{}}],
+      // Links marked as the person's (LIB-AI분류보완: an old document with an empty link would otherwise go to the background sweep).
+      file_name:'old.pdf',tags:[],created_at:'2026-09-01T00:00:00Z',updated_at:'2026-09-01T00:00:00Z',field_origin:{project_id:'user',organization_id:'user'}}],
     uploads:[],patches:[],texts:[],fills:[],aiMode:'ok',
   };
 }

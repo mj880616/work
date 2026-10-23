@@ -33,16 +33,22 @@ for(const width of [390,1280]){
   });
 }
 
-test('1280: 빠른 기한 버튼은 바로 저장(내일·모레·다음주=오늘+7일·기한 없음)',async({page})=>{
+test('1280: 빠른 기한 버튼은 바로 저장(오늘·내일·모레·다음주=오늘+7일·기한 없음, 기한이 있어도 오늘이 맨 앞에 보인다)',async({page})=>{
   const tasks=[task('a','2026-10-08')];
   const calls=await open(page,1280,tasks);
   await page.locator('[data-gt-edit="a"]').click();
   const quick=page.locator('#gtDetailPane .gt-due-quick');
-  await expect(quick.locator('button')).toHaveText(['내일','모레','다음주','기한 없음']);
+  await expect(quick.locator('button')).toHaveText(['오늘','내일','모레','다음주','기한 없음']);
+  // [↵ 저장](UI-버튼기준 ④): 제목 줄의 작은 버튼(32px)이고 [오늘] 맨 앞 줄과 함께 한 줄에 들어간다. 글칸에 초점이 있어야 ↵ 안내가 붙는다.
+  await page.locator('#gtEditTitle').focus();
+  const save=await page.locator('#gtSaveBtn').boundingBox();
+  expect(save.height).toBeLessThanOrEqual(33);
+  expect(await quick.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
+  if(process.env.SHOT_DIR)await page.screenshot({path:`${process.env.SHOT_DIR}/task-today-after-1280.png`});
   const field=await page.locator('#gtEditDue').boundingBox(),first=await quick.locator('button').first().boundingBox();
   expect(field.width).toBeLessThan(200);expect(first.x).toBeGreaterThan(field.x+field.width-1);
   expect(first.height).toBeLessThanOrEqual(34);
-  for(const [label,due] of [['내일','2026-10-09'],['모레','2026-10-10'],['다음주','2026-10-15'],['기한 없음',null]]){
+  for(const [label,due] of [['내일','2026-10-09'],['모레','2026-10-10'],['다음주','2026-10-15'],['오늘','2026-10-08'],['기한 없음',null],['오늘','2026-10-08']]){
     const before=calls.filter(c=>c.action==='update').length;
     await quick.getByRole('button',{name:label,exact:true}).click();
     await expect.poll(()=>calls.filter(c=>c.action==='update').length).toBe(before+1);

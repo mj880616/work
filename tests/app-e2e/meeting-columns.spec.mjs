@@ -5,6 +5,7 @@ import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {selectMeetingRound,openMeetingResult} from './helpers/meeting-open.mjs';
+import {toplineItem} from './helpers/screen-title.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -29,6 +30,7 @@ const kinds=page=>page.locator('#meetingList .mcol-kinds [data-meeting-kind]');
 const kindNames=page=>page.locator('#meetingList .mcol-kinds .mcol-name');
 const kind=(page,key)=>page.locator(`#meetingList [data-meeting-kind="${key}"]`);
 const detail=page=>page.locator('#meetingList .mcol-rounds');
+// UI-중복제목삭제: 결과 칸 머리에는 제목·차수 줄이 없다 - 이름과 차수는 상단 줄(사업 보고 › 이름 차수)이 보인다.
 const result=page=>page.locator('#meetingList #mcolResult');
 const round=(page,id)=>page.locator(`#meetingList [data-meeting-round="${id}"]`);
 
@@ -54,7 +56,7 @@ for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 
   // 처음 열면 가장 최근 차수(노사협의회 2차)가 오른쪽에 바로 보인다. 창은 열리지 않는다.
   await expect(round(page,'labor-2')).toHaveAttribute('aria-current','true');
   await expect(result(page)).toHaveAttribute('data-meeting-result','labor-2');
-  await expect(result(page).locator('h3')).toContainText('노사협의회');await expect(result(page).locator('h3 .mcol-result-round')).toHaveText('2차');
+  await expect(toplineItem(page)).toHaveText('노사협의회 2차');await expect(result(page).locator('h3')).toHaveCount(0);
   await expect(result(page).locator('.mcol-result-meta')).toContainText('2026. 10. 12. 오후 02:30');
   await expect(result(page).locator('.mcol-text').first()).toHaveText('가상 노사협의회 2차 결과 원문\n둘째 줄');
   await expect(page.locator('#meetingRoundDetailModal')).toBeHidden();
@@ -76,7 +78,7 @@ for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 
   await round(page,'rail-5').click();
   await expect(round(page,'rail-5')).toHaveAttribute('aria-current','true');await expect(round(page,'rail-6')).not.toHaveAttribute('aria-current','true');
   await expect(round(page,'rail-5')).toBeFocused();
-  await expect(result(page)).toHaveAttribute('data-meeting-result','rail-5');await expect(result(page).locator('h3 .mcol-result-round')).toHaveText('5차');
+  await expect(result(page)).toHaveAttribute('data-meeting-result','rail-5');await expect(toplineItem(page)).toContainText('5차');
   await expect(result(page).locator('.mcol-file')).toHaveCount(0);await expect(result(page)).toContainText('회의자료가 없습니다.');
   await expect(result(page).locator('.mcol-notes')).toHaveCount(0);
   await expect(page.locator('#meetingRoundDetailModal')).toBeHidden();
@@ -226,7 +228,7 @@ test('① 카드 시각: 직접 지정 → 회의 결과 글의 일시 → 날�
   // 직접 지정한 시각은 그대로.
   await expect(round(page,'rail-6').locator('.mcol-when')).toHaveText('9. 6. 오전 10:00');
   // 오른쪽 결과 머리와 결과 창 머리 글자도 같은 규칙(연도 포함), 짧은 이름을 앞에.
-  await derived.click();await expect(result(page).locator('h3 .mcol-result-round')).toHaveText('파생 간담회');await expect(result(page).locator('.mcol-result-meta')).toContainText('2026. 10. 19. 오후 02:00');
+  await derived.click();await expect(toplineItem(page)).toContainText('파생 간담회');await expect(result(page).locator('.mcol-result-meta')).toContainText('2026. 10. 19. 오후 02:00');
   await openMeetingResult(page,'rail-derived');await expect(page.locator('#mrdMeta')).toContainText('파생 간담회');await expect(page.locator('#mrdMeta')).toContainText('2026. 10. 19. 오후 02:00');
   await expect(page.locator('#mrdMeta')).not.toContainText('기존 제목');
   // 수정 창의 짧은 이름 칸: 지금 짧은 이름이 들어 있고, 바꾸면 제목(title)만 바뀐다(종류 이름·저장된 시각은 그대로).
@@ -235,7 +237,7 @@ test('① 카드 시각: 직접 지정 → 회의 결과 글의 일시 → 날�
   await expect.poll(()=>s.meetingWrites.at(-1)?.title).toBe('파생 토론회');
   expect(s.meetingWrites.at(-1).series_name).toBeUndefined();expect(s.meetingWrites.at(-1).meeting_at).toBe('2026-10-18T15:00:00.000Z');
   await page.locator('#mrdClose').click();
-  await expect(round(page,'rail-derived').locator('.mcol-round')).toHaveText('파생 토론회');await expect(result(page).locator('h3 .mcol-result-round')).toHaveText('파생 토론회');
+  await expect(round(page,'rail-derived').locator('.mcol-round')).toHaveText('파생 토론회');await expect(toplineItem(page)).toContainText('파생 토론회');
   // 짧은 이름을 비우면 제목은 종류 이름과 같게 → 다시 '차수 없음'.
   await openMeetingResult(page,'rail-derived');await page.locator('#mrdEdit').click();await page.locator('#mrdEditShortName').fill('');await page.locator('#mrdSaveEdit').click();
   await expect.poll(()=>s.meetingWrites.at(-1)?.title).toBe('궤도협의회');await page.locator('#mrdClose').click();

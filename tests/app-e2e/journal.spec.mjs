@@ -8,6 +8,7 @@ import { makeFakeReport } from '../../scripts/weekly-hwpx/fixture.mjs';
 import { openHwpx, packHwpx, validateHwpx, readXml } from '../../app/weekly-hwpx/hwpx.mjs';
 import { extractBlankTemplate } from '../../app/weekly-hwpx/template.mjs';
 import { buildReport, readReport, CHANGED_COLOR } from '../../app/weekly-hwpx/report.mjs';
+import {expectJournalDay} from './helpers/screen-title.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // JOURNAL-주간정리다듬기 ①(2026-10-22 사용자 결정): 위 줄 [주간보고 초안 복사]는 없어졌다. 초안 복사는 [주간 정리]의
 // [주간보고 한글 파일 만들기] 옆 [복사] 하나다. 이 도우미는 [주간 정리]로 가서 [복사]를 누르고, 복사 안내가 뜬 뒤 [하루]로 돌아온다.
@@ -248,7 +249,7 @@ for(const width of [390,1280]){
   const green=await page.evaluate(()=>{const e=document.createElement('span');e.style.backgroundColor='var(--ds-kind-journal-ink)';document.body.append(e);const c=getComputedStyle(e).backgroundColor;e.remove();return c;});
   expect(await date(page,'2026-10-05').locator('[data-journal-dot]').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe(green);
   // 고른 날: 맨 위 "오늘 한 줄" 입력칸, 그 아래 재료.
-  await expect(page.locator('#journalRoot [data-journal-day-title]')).toHaveText('10월 6일 화요일');
+  await expectJournalDay(page,'10월 6일 화요일');
   const input=page.locator('#journalRoot [data-journal-input]');
   await expect(input).toHaveValue('');await expect(input).toBeEnabled();
   expect(await page.evaluate(()=>{const l=document.querySelector('[data-journal-line]').getBoundingClientRect(),m=document.querySelector('[data-journal-materials]').getBoundingClientRect();return l.bottom<=m.top;})).toBe(true);
@@ -988,7 +989,7 @@ for(const width of [390,1440])test(`[주간 정리] 탭: 상집보고 순서(1. 
  // [하루]로 돌아오면 날짜 줄·하루 카드 그대로.
  await page.locator('#journalRoot [data-journal-mode="day"]').click();
  await expect(page.locator('#journalRoot [data-journal-weekly-root]')).toBeHidden();
- await expect(page.locator('#journalRoot [data-journal-day-title]')).toHaveText('10월 6일 화요일');
+ await expectJournalDay(page,'10월 6일 화요일');
  await expect(group(page,'orgs').locator('li')).toHaveCount(2);
  await expect(page.locator('#journalRoot [data-journal-input]')).toBeEnabled();
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
@@ -1538,7 +1539,7 @@ const flashed=(page,sel)=>expect.poll(()=>page.evaluate(s=>{const e=document.que
 // 하루 카드가 다 읽힌 뒤(불러오는 중 없음)에 누른다.
 const settled=async page=>{await expect(page.locator('#journalRoot [data-journal-day]')).not.toContainText('불러오는 중');await expect(page.locator('#journalRoot [data-journal-others-count]')).not.toHaveText('불러오는 중…');};
 const backToJournal=async(page,{pressed,scroll})=>{
- await expect(page.locator('#journalView')).toBeVisible();await expect(page.locator('#journalRoot [data-journal-day-title]')).toHaveText('10월 6일 화요일');
+ await expect(page.locator('#journalView')).toBeVisible();await expectJournalDay(page,'10월 6일 화요일');
  await expect(page.locator('#wdModal:not(.hidden),#ps3DetailModal:not(.hidden)')).toHaveCount(0);
  await expect(pressed).toBeFocused();
  await expect.poll(()=>page.evaluate(()=>Math.round(scrollY))).toBe(scroll);
@@ -1581,7 +1582,7 @@ for(const width of [390,1280])test(`[업무일지] 누르면 원본: 담당조�
  await expect(page.locator('[data-basket-text]')).toHaveValue(GREETING);
 
  await page.goBack();
- await expect(page.locator('#journalView')).toBeVisible();await expect(page.locator('#journalRoot [data-journal-day-title]')).toHaveText('10월 6일 화요일');
+ await expect(page.locator('#journalView')).toBeVisible();await expectJournalDay(page,'10월 6일 화요일');
  // ⑤ 회의·활동 결과 → 그 회의 결과(PC 회의 화면 오른쪽 칸, 폰 회의 결과 창).
  await itemTexts(page,'activities').first().click();
  if(width>=1024){await expect(page.locator('#meetingsView')).toBeVisible();await expect(page.locator('#meetingList #mcolResult')).toHaveAttribute('data-meeting-result','m1');}

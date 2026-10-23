@@ -67,8 +67,7 @@ const length = text => [...String(text ?? '')].length;
 root.innerHTML = `<div class="journal-head"><div class="journal-mode-switch" role="group" aria-label="업무일지 보기"><button type="button" data-journal-mode="day" aria-pressed="true">하루</button><button type="button" data-journal-mode="week" aria-pressed="false">주간 정리</button></div><div class="journal-week-nav"><button type="button" class="mini" data-journal-prev aria-label="이전 주">‹</button><b data-journal-title aria-live="polite"></b><button type="button" class="mini" data-journal-next aria-label="다음 주">›</button><button type="button" class="mini" data-journal-today>이번 주</button></div></div>
 <p class="journal-status" data-journal-status role="status" aria-live="polite"></p>
 <div class="journal-days" data-journal-days role="group" aria-label="이번 주 날짜"></div>
-<section class="journal-day" data-journal-day aria-labelledby="journalDayTitle">
-<h3 id="journalDayTitle" tabindex="-1" data-journal-day-title></h3>
+<section class="journal-day" data-journal-day>
 <form class="journal-line" data-journal-line data-enter-save novalidate><label class="journal-heading" for="journalLineInput">오늘 한 줄</label><div class="journal-line-row"><textarea id="journalLineInput" rows="2" data-journal-input data-enter-field="single" placeholder="오늘 한 일을 한 줄로 남겨 보세요" aria-describedby="journalLineCount journalLineStatus"></textarea><button type="submit" class="primary" data-journal-save>저장</button></div><div class="journal-line-meta"><small id="journalLineCount" data-journal-count></small><p id="journalLineStatus" class="journal-line-status" data-journal-line-status role="status" aria-live="polite"></p></div></form>
 <ol class="journal-lines" data-journal-lines aria-label="이 날 한 줄 목록"></ol>
 <section class="journal-tasks" data-journal-tasks aria-label="할 일과 한 일"></section>
@@ -112,8 +111,20 @@ function renderWeek() {
     return button;
   }));
 }
+// UI-중복제목삭제: with the PC top line (1024px~) the chosen day is already named there ("일정 › 업무일지 › 10월 6일 화요일"), so the day card has no
+// title line of its own there (the element is not made; the card is named by aria-label instead). Below that width the line is made, as before.
+const toplineWide = window.matchMedia?.('(min-width:1024px)');
+function syncDayTitle() {
+  const box = $('[data-journal-day]'); if (!box) return;
+  let title = box.querySelector('[data-journal-day-title]');
+  if (toplineWide?.matches) { title?.remove(); box.removeAttribute('aria-labelledby'); box.setAttribute('aria-label', longDay(selected)); return; }
+  if (!title) { title = document.createElement('h3'); title.id = 'journalDayTitle'; title.tabIndex = -1; title.dataset.journalDayTitle = ''; box.prepend(title); }
+  box.removeAttribute('aria-label'); box.setAttribute('aria-labelledby', 'journalDayTitle');
+  title.textContent = longDay(selected);
+}
+toplineWide?.addEventListener?.('change', syncDayTitle);
 function renderLine({keepStatus = false} = {}) {
-  $('[data-journal-day-title]').textContent = longDay(selected);
+  syncDayTitle();
   // UI-상단줄제목: the chosen day goes to the PC top line's place (kptu:where-item, topbar-actions.js).
   window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'journal', name:longDay(selected)}}));
   input.value = drafts.get(selected) ?? '';

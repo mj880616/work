@@ -53,7 +53,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // BASKET-노트입력창 (2026-10-22 사용자 결정): notes are added like updates — the same input box at the top of the list on a PC
   // and docked above the tabs on a phone — instead of the old [+ 노트] (phone: floating ⊕).
   const quick = mountQuick({root:host.querySelector('[data-note-list]'), esc, noteOnly:true, view:'basket', idPrefix:'basketNote',
-    onSaved:saved => noteAdded(saved, {open:false}), onBig:(text, upload) => openNew(text, upload)});
+    onSaved:saved => noteAdded(saved, {open:false}), onBig:(text, upload) => openNew(text, upload), onFolder:trigger => { void addFolderSheet.open('add', trigger); }});
   const list = host.querySelector('[data-note-list]'), detail = host.querySelector('[data-note-detail]'), status = host.querySelector('[data-note-list-status]');
   // UI-노트고정: pinned notes first, then by last change.
   const sorted = () => sortNotes(notes);
@@ -76,7 +76,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
 
   function renderList() {
-    paintFolders();
+    paintFolders(); quick.setFolder(addTarget());
     const visible = sorted().filter(inView).filter(matches), showFolder = folderView === 'all';
     host.querySelector('[data-note-rows]').innerHTML = visible.map(note => {
       // UI-노트메뉴정리: a note without a title shows the start of its body in the title place; the preview is plain letters
@@ -256,7 +256,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (selected || busy || bigWriter) return;
     const owner = scope();
     // NOTE-파일붙이기: the window's [📎 첨부] works on the note input's own files (a saved note empties them).
-    bigWriter = openWriteWindow({text, kind:'note', title:'새 노트', rt, upload, onClose:(value, {saved}) => {
+    bigWriter = openWriteWindow({text, kind:'note', title:'새 노트', rt, upload, noteFolder:{label:() => addTarget() || '폴더 없음', open:trigger => { void addFolderSheet.open('add', trigger); }}, onClose:(value, {saved}) => {
       bigWriter = null;
       if (owner !== scope()) return;
       quick.setText(saved ? '' : value);
@@ -265,10 +265,11 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       quick.focus();
     }});
   }
-  // A new note (input [추가] or the write window): with one folder shown it goes into that folder; the list is read again.
+  // A new note (input [추가] or the write window) goes into the folder named on the input's [폴더 ▾] (addTarget): the folder chip
+  // that is shown, unless another one was picked there; the list is read again.
   // From the write window it then opens; from the input the list stays (like an update added in the basket).
   function noteAdded(saved, {open}) {
-    const into = viewFolder(), owner = scope();
+    const into = addTarget(), owner = scope();
     if (into) { void putNewNote(saved, into, owner, open); return; }
     if (open) pendingOpen = saved.id;
     void refresh();
@@ -418,6 +419,20 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     render:() => { const now = noteFolder(folderTarget);
       return {title:'폴더로 옮기기', html:[...folders().map(name => folderRow('f:' + name, name, now === name)), folderRow('none', '폴더 없음', !now), folderRow('new', '+ 새 폴더', false)].join('')}; },
     onSelect:(kind, value) => { const note = folderTarget; void folderSheet.close().then(() => chooseFolder(note, value)); }});
+  // NOTE-추가폴더표시: the folder a NEW note goes into. It follows the folder chip (a folder chip → that folder; [전체]·[폴더 없음] → none).
+  // The input's [폴더 ▾] (and the same button in the write window) picks another one for new notes; the pick is kept while that chip stays
+  // selected (addPick.view; any other chip drops it), so the next add goes to the same place, and a different chip starts over from the chip. A deleted or
+  // renamed pick falls back to the chip. Nothing is stored: this is the screen's memory only.
+  let addPick = null;
+  const addTarget = () => {
+    if (addPick && addPick.view !== folderView) addPick = null;
+    return addPick && (addPick.folder === null || folders().includes(addPick.folder)) ? addPick.folder : viewFolder();
+  };
+  const addFolderSheet = createChoiceSheet({id:'noteAddFolderChoice', titleId:'noteAddFolderChoiceTitle', historyKey:'noteAddFolderSheet',
+    canOpen:() => !busy && host.isConnected, choices:async () => {},
+    render:() => { const now = addTarget();
+      return {title:'새 노트를 넣을 폴더', html:[...folders().map(name => folderRow('f:' + name, name, now === name)), folderRow('none', '폴더 없음', !now)].join('')}; },
+    onSelect:(kind, value) => { addPick = {view:folderView, folder:value.startsWith('f:') ? value.slice(2) : null}; quick.setFolder(addTarget()); bigWriter?.paint?.(); }});
   const askFolderName = (text, value = '') => window.prompt(`${text} (${NOTE_FOLDER_LIMITS.name}자까지)`, value);
   const applySaved = (id, saved) => {
     notes = notes.map(n => n.id === id ? {...n, metadata:saved.metadata, updated_at:saved.updated_at} : n);
@@ -605,7 +620,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     // openId: a note just moved here from the basket opens once the list is read.
     show({openId = null} = {}) { void preloadMarkdown(); pendingOpen = openId; if (!selected) void refresh(); },
     close,
-    reset() { closeMenu(); void folderSheet.close(); folderTarget = null; folderView = 'all'; viewRestored = false; draftFolders = []; folderJob = null; folderSay(''); const opened = layer; layer = null; opened?.close(); ++epoch; bigWriter?.close({silent:true}); bigWriter = null; selected = null; sendWhere(null); editing = false; busy = false; manual.reset(); notes = []; links = []; loaded = false; query = ''; detail.replaceChildren(); detail.hidden = true; list.hidden = false; host.querySelector('[data-note-search]').value = ''; host.querySelector('[data-note-rows]').replaceChildren(); status.textContent = ''; onOpenChange(false); },
+    reset() { closeMenu(); void folderSheet.close(); void addFolderSheet.close(); addPick = null; folderTarget = null; folderView = 'all'; viewRestored = false; draftFolders = []; folderJob = null; folderSay(''); const opened = layer; layer = null; opened?.close(); ++epoch; bigWriter?.close({silent:true}); bigWriter = null; selected = null; sendWhere(null); editing = false; busy = false; manual.reset(); notes = []; links = []; loaded = false; query = ''; detail.replaceChildren(); detail.hidden = true; list.hidden = false; host.querySelector('[data-note-search]').value = ''; host.querySelector('[data-note-rows]').replaceChildren(); status.textContent = ''; onOpenChange(false); },
     isBusy: () => busy,
     hasDraft: () => textDirty() || (!!selected && manual.hasDraft()),
     isOpen: () => !!selected,

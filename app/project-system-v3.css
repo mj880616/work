@@ -187,7 +187,7 @@
 .ps3-color-dot[data-color="gray"][data-tone="soft"]{background:var(--ds-project-gray-soft)}
 .ps3-prow .kptu-list-row-main{grid-template-columns:8px minmax(0,1fr) auto 24px;gap:10px}
 @media(max-width:650px){.ps3-prow .kptu-list-row-main{grid-template-columns:8px minmax(0,1fr) auto 20px}}
-#ps3Title .ps3-color-dot{vertical-align:middle;margin:0 8px 0 0;position:relative;top:-1px}
+#ps3Title .ps3-color-dot,#ps3Summary>.ps3-color-dot{vertical-align:middle;margin:0 8px 0 0;position:relative;top:-1px}
 /* 고르기: 동그라미 8개, 누르는 범위 44px, 고른 색은 바깥 고리. 하위 프로젝트(상위 선택)면 숨김. */
 .ps3-color-field{display:grid;gap:4px;margin:0 0 var(--kptu-space-3,12px)}
 .ps3-color-field[hidden]{display:none}
