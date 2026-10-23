@@ -4,6 +4,7 @@ import {createBasketReader} from './basket-read.mjs';
 import {createHtmlBudget} from './html-budget.mjs';
 import { LedgerError, LEDGER_LIMITS, LEDGER_TITLE, readLedger, buildBackup, renderLedgerDocument, ledgerStatus, backupsToTrash, kstDate, backupName } from './ledger-export.mjs';
 import { basketState, prepareBasket, selectBasketOrganizations, BASKET_LIMITS } from './basket.mjs';
+import { runTextBackfill, textBackfillStatus, TextBackfillError, DONE_AT, DONE_COUNT, DISMISSED_AT } from './text-backfill.mjs';
 export { basketState, BASKET_LIMITS };
 const WORKSPACE = 'kptu-work';
 const DAY = 86400000, KST = 9 * 3600000, PAGE = 500;
@@ -208,7 +209,9 @@ export function collectorStatus(appProperties) {
   return out;
 }
 
-export function createHandler({ env, fetcher = fetch, now = () => new Date() }) {
+// createTextReader(driveToken) → {extract(file)}: index.ts injects _shared/document-text.ts (LIB-글자채우기야간). Without it the
+// nightly text path answers SERVER_CONFIG_MISSING; every other path is unchanged.
+export function createHandler({ env, fetcher = fetch, now = () => new Date(), createTextReader = null }) {
   // No global cached tokens, database state, or caller-selected workspace/Drive IDs.
   async function checked(url, init, code) {
     let response;
@@ -478,9 +481,9 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date() }) 
       if (!ownerId) throw new SummaryError('UNAUTHORIZED', 401);
       const token = await accessToken();
       const folder = await findFile(token, 'folder');
-      if (!folder) return json({ ok: true, checked_at: checkedAt(), copy: { state: 'none', last_success_at: null, last_failure_at: null, last_failure_code: null }, collectors: collectorStatus(null) });
+      if (!folder) return json({ ok: true, checked_at: checkedAt(), copy: { state: 'none', last_success_at: null, last_failure_at: null, last_failure_code: null }, collectors: collectorStatus(null), text_backfill: null });
       await assertPrivate(token, folder.id);
-      return json({ ok: true, checked_at: checkedAt(), copy: folderStatus(folder.appProperties), collectors: collectorStatus(folder.appProperties) });
+      return json({ ok: true, checked_at: checkedAt(), copy: folderStatus(folder.appProperties), collectors: collectorStatus(folder.appProperties), text_backfill: textBackfillStatus(folder.appProperties) });
     } catch (error) {
       const code = error instanceof SummaryError ? error.message : 'STATUS_FAILED';
       return json({ ok: false, error: code, checked_at: checkedAt() }, error instanceof SummaryError ? error.status : 502);
@@ -513,6 +516,78 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date() }) 
       return json({ ok: false, error: code }, error instanceof SummaryError ? error.status : 502);
     }
   }
+  // LIB-글자채우기야간: POST ?action=text_backfill. The cron secret only (no JWT path: the nightly workflow has no user).
+  // Reads up to 5 unfinished documents of the fixed workspace with the same reader as document-actions and writes only the
+  // four text columns (service role, server side, workspace-scoped filters). When nothing is left it records the done time and
+  // the read count on the copy folder (its own keys only). Counts and stage codes only leave the server.
+  const service = () => ({ apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` });
+  const backfillDb = {
+    get: path => checked(`${env.SUPABASE_URL}/rest/v1/${path}`, { headers: service() }, 'DB_READ_FAILED'),
+    async patch(path, body) {
+      const rows = await checked(`${env.SUPABASE_URL}/rest/v1/${path}`, {
+        method: 'PATCH', headers: { ...service(), 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: JSON.stringify(body),
+      }, 'DB_WRITE_FAILED');
+      if (!Array.isArray(rows)) throw new SummaryError('DB_WRITE_FAILED');
+      return rows;
+    },
+    async head(path) {
+      let response;
+      try { response = await fetcher(`${env.SUPABASE_URL}/rest/v1/${path}`, { method: 'HEAD', headers: { ...service(), Prefer: 'count=exact' }, signal: AbortSignal.timeout(30000) }); }
+      catch { throw new SummaryError('DB_READ_FAILED'); }
+      const total = /\/(\d{1,9})$/.exec(response.headers.get('Content-Range') || '');
+      if (!response.ok || !total) throw new SummaryError('DB_READ_FAILED');
+      return Number(total[1]);
+    },
+  };
+  async function textBackfill(req) {
+    try {
+      if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY || typeof createTextReader !== 'function') throw new SummaryError('SERVER_CONFIG_MISSING');
+      if (req.headers.get('x-drive-summary-cron-secret') === null) throw new SummaryError('UNAUTHORIZED', 401);
+      const { workspaceId, ownerId } = await authorize(req);
+      if (ownerId) throw new SummaryError('UNAUTHORIZED', 401);
+      // Token first: a Drive outage stops here, before any document is marked (it is not the file's fault).
+      const token = await accessToken();
+      const result = await runTextBackfill({ db: backfillDb, reader: createTextReader(async () => token), workspaceId, now });
+      let doneAt = null, doneError = null;
+      if (result.remaining === 0) {
+        try {
+          const folder = await findFile(token, 'folder');
+          if (!folder) throw new SummaryError('COPY_FOLDER_MISSING', 409);
+          await assertPrivate(token, folder.id);
+          doneAt = textBackfillStatus(folder.appProperties)?.done_at || null;
+          if (!doneAt) {
+            doneAt = now().toISOString();
+            await recordStatus(token, folder, { [DONE_AT]: doneAt, [DONE_COUNT]: String(result.ready_total) });
+          }
+        } catch (error) { doneAt = null; doneError = error instanceof SummaryError ? error.message : 'DONE_RECORD_FAILED'; }
+      }
+      return json({ ok: true, asked: result.asked, ready: result.ready, error: result.error, gave_up: result.gave_up, skipped: result.skipped,
+        remaining: result.remaining, stop: result.stop, done_at: doneAt, ...(doneError ? { done_error: doneError } : {}) });
+    } catch (error) {
+      const known = error instanceof SummaryError || error instanceof TextBackfillError;
+      return json({ ok: false, error: known ? error.message : 'TEXT_BACKFILL_FAILED' }, known ? error.status : 502);
+    }
+  }
+  // POST ?action=text_backfill_dismiss: the home line's ✕. Owner JWT only; records the dismissed time on the copy folder.
+  async function textBackfillDismiss(req) {
+    try {
+      if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) throw new SummaryError('SERVER_CONFIG_MISSING');
+      if (req.headers.get('x-drive-summary-cron-secret') !== null) throw new SummaryError('UNAUTHORIZED', 401);
+      const { ownerId } = await authorize(req);
+      if (!ownerId) throw new SummaryError('UNAUTHORIZED', 401);
+      const token = await accessToken();
+      const folder = await findFile(token, 'folder');
+      if (!folder) throw new SummaryError('COPY_FOLDER_MISSING', 409);
+      await assertPrivate(token, folder.id);
+      if (!textBackfillStatus(folder.appProperties)) throw new SummaryError('NOT_DONE', 409);
+      const dismissedAt = now().toISOString();
+      await recordStatus(token, folder, { [DISMISSED_AT]: dismissedAt });
+      return json({ ok: true, dismissed_at: dismissedAt });
+    } catch (error) {
+      const code = error instanceof SummaryError ? error.message : 'DISMISS_FAILED';
+      return json({ ok: false, error: code }, error instanceof SummaryError ? error.status : 502);
+    }
+  }
   const actionOf = req => { try { return new URL(req.url).searchParams.get('action'); } catch { return null; } };
   return async req => {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
@@ -522,6 +597,8 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date() }) 
     // A collector secret never reaches the copy rebuild path, even next to another credential.
     if (req.headers.get('x-collector-heartbeat-secret') !== null) return json({ ok: false, error: 'UNAUTHORIZED', updated_at: null, documents: {} }, 401);
     if (actionOf(req) === 'ledger_export') return ledgerExport(req);
+    if (actionOf(req) === 'text_backfill') return textBackfill(req);
+    if (actionOf(req) === 'text_backfill_dismiss') return textBackfillDismiss(req);
     let token, folder;
     const documents = {};
     try {

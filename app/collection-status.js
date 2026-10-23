@@ -74,17 +74,33 @@ export function radarFromRows(rows) {
   return {at:rows[0].last_success_at, failedAt:null};
 }
 
-const isOwner = rt => {
+export const isOwner = rt => {
   const c = rt?.context?.read?.(), s = rt?.session?.read?.();
   return !!s?.access_token && c?.user?.id === s?.user?.id && c?.workspace?.slug === 'kptu-work' && c?.membership?.role === 'owner';
 };
 const scopeOf = rt => { const c = rt?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 
+// drive-summary GET ?action=status is shared with the home "예전 자료 글자 읽기 끝남" line (text-backfill-notice.js):
+// one request per tab and owner scope for 10 minutes (memory only). A failure is cached as null like the card cache.
+let driveStatus = null; // {scope, at, promise}
+export function readDriveStatus(rt) {
+  const scope = scopeOf(rt), at = Date.now();
+  if (driveStatus && driveStatus.scope === scope && at - driveStatus.at < CACHE_MS) return driveStatus.promise;
+  const promise = rt.api('/functions/v1/drive-summary?action=status', {refreshSession:false, singleFlight:false, timeoutMs:30000}).catch(() => null);
+  driveStatus = {scope, at, promise};
+  return promise;
+}
+// After a server write the caller already knows the new value (e.g. the dismissed time): keep the shared answer in step.
+export function updateDriveStatus(rt, change) {
+  if (!driveStatus || driveStatus.scope !== scopeOf(rt)) return;
+  driveStatus.promise = driveStatus.promise.then(data => (data && typeof data === 'object' ? change(data) : data));
+}
+
 // Each read failing (not deployed, 404, network) → null, never thrown.
 export async function readStatus(rt) {
   const workspace = rt.context.read()?.workspace?.id;
   const [status, radar] = await Promise.all([
-    rt.api('/functions/v1/drive-summary?action=status', {refreshSession:false, singleFlight:false, timeoutMs:30000}).catch(() => null),
+    readDriveStatus(rt),
     workspace
       ? rt.api(`/rest/v1/app_todo_radar_state?workspace_id=eq.${encodeURIComponent(workspace)}&select=last_success_at&limit=1`, {singleFlight:false}).then(radarFromRows, () => null)
       : Promise.resolve(null),
@@ -220,4 +236,4 @@ export function mountCollectionStatus(host, {rt = window.KPTURuntime, now = () =
   }
   return {refresh, destroy() { alive = false; run++; alert?.removeEventListener('click', onClick); phoneQuery?.removeEventListener?.('change', onMedia); }};
 }
-export function resetCollectionCache() { cache = null; }
+export function resetCollectionCache() { cache = null; driveStatus = null; }

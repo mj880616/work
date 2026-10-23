@@ -1,0 +1,37 @@
+name: Library text nightly
+
+# LIB-글자채우기야간: 예전 자료의 파일 안 글자를 매일 밤 조금씩(최대 5개 × 4번) 서버가 읽어 둔다.
+# drive-summary-refresh.yml과 같은 방식(GitHub 예약 + 같은 비밀값 DRIVE_SUMMARY_CRON_SECRET, 이미 두 곳에 등록됨).
+# 시각(KST): 03:23. 정각은 GitHub 예약이 몰려 늦어지므로 23분. 다 끝난 뒤에도 매일 돌며 남은 것이 없으면 한 번 묻고 끝난다.
+on:
+  schedule:
+    - cron: '23 18 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: library-text-nightly
+  cancel-in-progress: false
+
+jobs:
+  read:
+    if: github.repository == 'mj880616/work'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: scripts/ops
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Read old library documents' text
+        env:
+          DRIVE_SUMMARY_CRON_SECRET: ${{ secrets.DRIVE_SUMMARY_CRON_SECRET }}
+        run: node scripts/ops/library-text-nightly.mjs
