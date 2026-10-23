@@ -97,14 +97,14 @@
   .topline-add-menu button:hover,.topline-add-menu button:focus-visible{background:var(--kptu-primary-soft);outline:none}
 }
 
-/* UI-자주가는링크 (PC 1024px~): 사이드바 [쓰기] 아래 '자주 가는 링크 ›' 줄과 그 줄 오른쪽에서 위로 열리는 작은 창(quick-links.js).
+/* UI-자주가는링크 (PC 1024px~): 사이드바 맨 아래(메뉴와 빈 공간을 두고, 창이 짧아 메뉴가 길면 메뉴 바로 아래) '자주 가는 링크 ›' 줄과 그 줄 오른쪽에서 위로 열리는 작은 창(quick-links.js).
    버튼은 UI-버튼기준의 작은 버튼(32px, 누르는 범위 44px)만 쓰고 채운 버튼은 편집의 [저장] 하나. 폰·761~1023px에는 줄이 없다. */
 #appView>.app-nav .nav-quick-links{display:none}
 .quick-links-panel[hidden]{display:none!important}
 @media (min-width:1024px){
   /* UI-상단줄제목: 열린 노트 머리줄은 제목 줄이 없어 [복사]·[⋯]를 오른쪽 끝에 둔다. */
   #appView #basketView .note-head-main{justify-content:flex-end}
-  #appView>.app-nav .nav-quick-links{display:flex;align-items:center;justify-content:space-between;gap:6px}
+  #appView>.app-nav .nav-quick-links{display:flex;align-items:center;justify-content:space-between;gap:6px;flex:0 0 auto;border-top:var(--ds-line-width,1px) solid var(--kptu-border);border-radius:0 0 var(--kptu-radius-md) var(--kptu-radius-md)}
   #appView>.app-nav .nav-quick-links span{color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
   .quick-links-panel{position:fixed;z-index:60;inset:auto;margin:0;box-sizing:border-box;padding:10px 12px 8px;border:var(--ds-line-width,1px) solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto;overscroll-behavior:contain}
   .quick-links-panel .ql-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 6px}
