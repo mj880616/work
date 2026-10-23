@@ -60,9 +60,9 @@ function block(n) {
     case 'paragraph': return withAlign(inline(make('p', 'ed-p ed-' + (a.style || 'body2')), n.content), a);
     case 'heading': return withAlign(inline(make('h' + (a.level + 1), 'ed-h ed-h' + a.level), n.content), a);
     case 'blockquote': return blocks(make('blockquote', 'ed-quote'), n.content);
-    case 'bullet_list': return blocks(make('ul', 'ed-ul'), n.content);
+    case 'bullet_list': return blocks(make('ul', 'ed-ul ed-ul-' + (a.marker || 'auto')), n.content);
     case 'ordered_list': {
-      var ol = blocks(make('ol', 'ed-ol'), n.content);
+      var ol = blocks(make('ol', 'ed-ol ed-ol-' + (a.marker || 'auto')), n.content);
       if (a.order && a.order !== 1) ol.setAttribute('start', String(a.order));
       return ol;
     }

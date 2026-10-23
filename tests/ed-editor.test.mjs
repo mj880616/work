@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {readFileSync,readdirSync} from 'node:fs';
 import MarkdownIt from '../app/markdown-lib/markdown-it-15.0.2/markdown-it.esm.min.mjs';
-import {cleanDoc,emptyDoc,isEmptyDoc,safeHref,nextCircled,circled,circledValue,docBytes,TEXT_STYLES} from '../app/ed-schema.mjs';
+import {orderedLabel,bulletGlyph,autoMarker,cleanDoc,emptyDoc,isEmptyDoc,safeHref,nextCircled,circled,circledValue,docBytes,TEXT_STYLES} from '../app/ed-schema.mjs';
 import {toPlain,toTelegram,toHangul,RULE_TEXT} from '../app/ed-text.mjs';
 import {markdownToDoc,plainToDoc} from '../app/ed-markdown.mjs';
 // ED-통합편집기 ①a: 편집기 라이브러리 반입(버전 한 곳·해시·라이선스·같은 주소만), 저장 형식 ed1 정리(허용 목록),
@@ -42,7 +42,8 @@ test('the editor loads only same-origin files; readers never load the editor bun
   const strip=s=>s.replace(/^\s*\/\/.*$/gm,'');
   const editor=strip(readFileSync('app/ed-editor.js','utf8'));
   // No outside address (the link box's "https://…" hint and the https:// it puts before "example.org" name no host).
-  assert.doesNotMatch(editor,/https?:\/\/[a-z0-9]/i);
+  // (The SVG namespace name for the drawn icons is an identifier, not an address anything is loaded from.)
+  assert.doesNotMatch(editor.replaceAll('http://www.w3.org/2000/svg',''),/https?:\/\/[a-z0-9]/i);
   assert.doesNotMatch(editor,/\?v=/);
   assert.doesNotMatch(editor,/innerHTML\s*=/);
   for(const file of ['app/ed-render.mjs','app/ed-schema.mjs','app/ed-text.mjs','app/ed-markdown.mjs']){
@@ -185,4 +186,42 @@ test('plainToDoc: one paragraph per line, numbers and dashes stay letters',()=>{
   const v=plainToDoc('1. 하나\n\n- 둘\n2026.10.21. 회의');
   assert.deepEqual(v.doc.content.map(n=>n.type),['paragraph','paragraph','paragraph','paragraph']);
   assert.equal(toPlain(v),'1. 하나\n\n\n\n- 둘\n\n2026.10.21. 회의'.replace(/\n{3,}/g,'\n\n'));
+});
+
+const li=(...c)=>({type:'list_item',content:c});
+test('list marker shapes: kept by cleanDoc, unknown names dropped',()=>{
+  const v=cleanDoc(doc(
+    {type:'ordered_list',attrs:{order:1,marker:'hangul'},content:[li(p('가'))]},
+    {type:'bullet_list',attrs:{marker:'square'},content:[li(p('나'))]},
+    {type:'bullet_list',attrs:{marker:'star'},content:[li(p('다'))]},
+    {type:'ordered_list',attrs:{marker:'roman'},content:[li(p('라'))]}));
+  assert.deepEqual(v.doc.content.map(n=>n.attrs?.marker),['hangul','square',undefined,undefined]);
+});
+
+test('list marker labels and the automatic order by depth',()=>{
+  assert.deepEqual(['decimal','paren','parens','circled','hangul'].map(m=>orderedLabel(m,0,2)),['2.','2)','(2)','②','나.']);
+  assert.equal(orderedLabel('hangul',0,15),'15.');
+  assert.deepEqual([0,1,2,3,4].map(d=>orderedLabel(null,d,1)),['1.','1)','(1)','①','①']);
+  assert.deepEqual([0,1,2,3].map(d=>bulletGlyph(null,d)),['•','◦','▪','▪']);
+  assert.deepEqual(['disc','dash','circle','square'].map(m=>bulletGlyph(m,0)),['•','-','◦','▪']);
+  assert.equal(autoMarker('ordered',9),'circled');
+});
+
+test('exports keep list marker shapes: 한글 copy (text and html), telegram, and plain only when a shape is saved',()=>{
+  const nested=doc(
+    {type:'ordered_list',content:[li(p('가'),{type:'ordered_list',content:[li(p('나'),{type:'ordered_list',content:[li(p('다'),{type:'ordered_list',content:[li(p('라'))]})]})]})]},
+    {type:'ordered_list',attrs:{order:1,marker:'hangul'},content:[li(p('마')),li(p('바'))]},
+    {type:'bullet_list',attrs:{marker:'dash'},content:[li(p('사'))]},
+    {type:'bullet_list',content:[li(p('아'),{type:'bullet_list',content:[li(p('자'),{type:'bullet_list',content:[li(p('차'))]})]})]});
+  const h=toHangul(nested);
+  for(const line of ['1. 가','1) 나','(1) 다','① 라','가. 마','나. 바','- 사','• 아','◦ 자','▪ 차']){
+    assert.ok(h.text.includes(line),`text ${line}`);
+    assert.ok(h.html.includes(line),`html ${line}`);
+  }
+  assert.ok(toTelegram(nested).includes('① 라'));
+  assert.ok(toTelegram(nested).includes('• 아'));
+  // raw_text (search, AI) keeps the old "1. " and "- " unless a shape was chosen.
+  const plain=toPlain(nested);
+  assert.ok(plain.includes('1. 가')&&plain.includes('1. 나')&&plain.includes('1. 라'));
+  assert.ok(plain.includes('가. 마')&&plain.includes('- 아')&&plain.includes('- 사'));
 });
