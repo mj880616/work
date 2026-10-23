@@ -1,4 +1,5 @@
 import {seoulDateKey,seoulParts,seoulDate,seoulDayStart,addSeoulDays,seoulClock,formatSeoulTime} from './meeting-time.js';
+import {canDrag,dayDiff as dragDayDiff} from './calendar-drag-model.js';
 (()=>{
   if(window.KPTUCalendarMonthView)return;
   const DAY_MS=86400000;
@@ -10,6 +11,8 @@ import {seoulDateKey,seoulParts,seoulDate,seoulDayStart,addSeoulDays,seoulClock,
   let layoutSize={width:document.documentElement.clientWidth,height:document.documentElement.clientHeight};
   // Google tasks by due date (CAL-할일). calendar-tasks.js owns this list and hands it over with setTasks().
   let tasks=[],tasksSig='';
+  // CAL-끌어옮기기(PC 월간): 끄는 동안 옮겨 갈 날짜 칸 표시도 이 renderer가 그린다. 상태는 calendar-drag.js가 setDrag로 넘긴다(메모리만).
+  let drag=null;
 
   const pad=n=>String(n).padStart(2,'0');
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -241,7 +244,7 @@ import {seoulDateKey,seoulParts,seoulDate,seoulDayStart,addSeoulDays,seoulClock,
       const dayCaps=mq760.matches?Array.from({length:7},(_,col)=>laneCap(Math.max(0,...week.segments.filter(seg=>seg.startCol<=col&&seg.endCol>=col).map(seg=>seg.lane+1)),layout)):Array(7).fill(lanes);
       week.segments.forEach(seg=>{
         if(!mq760.matches){
-          if(seg.lane<lanes)layer.appendChild(eventButton(seg));
+          if(seg.lane<lanes){const button=eventButton(seg);if(mq1024.matches&&canDrag(seg.ev.calendarId,options.googleState))button.dataset.drag='day';layer.appendChild(button)}
           else for(let col=seg.startCol;col<=seg.endCol;col++)hidden[col]++;
           return;
         }
@@ -266,9 +269,23 @@ import {seoulDateKey,seoulParts,seoulDate,seoulDayStart,addSeoulDays,seoulClock,
       wrap.append(dayGrid,layer);weeksBox.appendChild(wrap);
     });
     grid.appendChild(weeksBox);
+    paintDrag(grid);
     window.__KPTU_MONTH_VIEW_RANGE__={start:new Date(range.start),end:new Date(range.end),weeks:range.weeks,days:range.days};
     return true;
   }
+  function paintDrag(grid){
+    grid.querySelectorAll('.cmv-drop').forEach(el=>el.classList.remove('cmv-drop','cmv-drop-blocked'));
+    grid.querySelectorAll('.cmv-drop-label').forEach(el=>el.remove());
+    grid.querySelectorAll('.cmv-drag-source').forEach(el=>el.classList.remove('cmv-drag-source'));
+    grid.classList.toggle('cmv-dragging',!!drag);
+    if(!drag)return;
+    grid.querySelectorAll('[data-google-event]').forEach(el=>{if(el.dataset.googleEvent===drag.key.id&&el.dataset.googleCalendar===drag.key.calendarId)el.classList.add('cmv-drag-source')});
+    const first=key(drag.next.start),last=key(drag.next.allDay?addSeoulDays(drag.next.end,-1):new Date(Math.max(dateOnly(drag.next.start).getTime(),Date.parse(drag.next.end)-1)));
+    const cells=[...grid.querySelectorAll('.cal-cell[data-date]')].filter(c=>dragDayDiff(first,c.dataset.date)>=0&&dragDayDiff(c.dataset.date,last)>=0);
+    cells.forEach(c=>c.classList.add('cmv-drop',...(drag.blocked?['cmv-drop-blocked']:[])));
+    if(cells[0]){const tag=document.createElement('span');tag.className='cmv-drop-label';tag.setAttribute('aria-hidden','true');tag.textContent=drag.label||'';cells[0].append(tag)}
+  }
+  function setDrag(next){drag=next;const grid=document.querySelector('#calendarGrid');if(grid)paintDrag(grid)}
   // Menu gestures belong to mobile-swipe-navigation.js. Only guard the release click here,
   // including events and overflow, without consuming touch events or restricting browser pan.
   function bindTouchGuard(){
@@ -326,7 +343,7 @@ import {seoulDateKey,seoulParts,seoulDate,seoulDayStart,addSeoulDays,seoulClock,
   if(mq760.addEventListener)mq760.addEventListener('change',forceRerender);else mq760.addListener?.(forceRerender);
   document.addEventListener('toggle',event=>{if(event.target?.id==='googleCalendarPanel')forceRerender()},true);
 
-  window.KPTUCalendarMonthView={render,googleColor,normalizeGoogle,segmentWeeks,eventButton,visibleRange,setNavigate,suppressClick,setTasks,taskButton,dayEvents:date=>last?dayEvents(allEvents(last),date):[]};
+  window.KPTUCalendarMonthView={render,setDrag,googleColor,normalizeGoogle,segmentWeeks,eventButton,visibleRange,setNavigate,suppressClick,setTasks,taskButton,dayEvents:date=>last?dayEvents(allEvents(last),date):[]};
   if(window.__KPTU_CALENDAR_MOVE_MONTH__)setNavigate(window.__KPTU_CALENDAR_MOVE_MONTH__);
   window.__KPTU_CALENDAR_MONTH_VIEW_READY__=Promise.resolve(true);
 })();
