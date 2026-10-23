@@ -54,7 +54,8 @@ test('PC: 잘린 이름만 펼치기 버튼, 그 줄만 펼치고 열지 않음,
   // 키보드로도 접고 편다. 버튼의 Enter는 자료를 열지 않는다.
   await expand.focus();await page.keyboard.press('Enter');await expect(expand).toHaveAttribute('aria-expanded','false');await expect(title).toHaveCSS('white-space','nowrap');expect(page.url()).toBe(url);
   expect(errors).toEqual([]);
-  await title.click();await expect(page).toHaveURL(/library-open-fixture/);
+  // FILE-누르면동작: 이 자료는 HWP이지만 자료 번호·Drive 파일 번호 없이 drive_url만 있어 내려받을 길이 없다 → 주소를 새 탭으로 연다. 이 화면은 그대로.
+  const [tab]=await Promise.all([page.waitForEvent('popup'),title.click()]);await expect(tab).toHaveURL(/library-open-fixture/);await tab.close();expect(page.url()).toBe(url);
 });
 
 test('PC 중간 폭(900px)도 한 줄 배치·가로 넘침 없음',async({page})=>{

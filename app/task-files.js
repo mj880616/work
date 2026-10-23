@@ -3,14 +3,13 @@
 // file in the task's notes, so the Google Tasks app shows a link. Detaching or deleting the task never deletes the Drive file.
 // Deploy order: google-tasks Edge first, then the table. The menu item and file names appear only once the table answers,
 // so an older Edge never gets an attach request.
+import { fileAttrs, driveFileUrl } from './file-actions.js'; // FILE-누르면동작: 이름 누르기·작은 버튼 처리는 file-actions.js 전역 클릭 처리
 const endpoint = action => `/functions/v1/google-tasks?action=${encodeURIComponent(action)}`;
 export const MAX_TASK_FILES = 10;
 export const MAX_TASK_FILE_BYTES = 100 * 1024 * 1024;
 const LIST_CHUNK = 50;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-export function driveFileUrl(id) {
-  return typeof id === 'string' && /^[A-Za-z0-9_-]{1,255}$/.test(id) ? `https://drive.google.com/file/d/${id}/view` : '';
-}
+export { driveFileUrl };
 
 // task id -> files (attach order), read from the link table with the owner's session (owner RLS).
 // Throws when the table is not there yet (migration not applied): the caller then hides the menu item and names.
@@ -62,7 +61,7 @@ export async function detachTaskFile(taskId, driveFileId, {rt = window.KPTURunti
 // Small names under a task row; each opens the file in Drive.
 export function fileLinksHtml(files) {
   if (!files?.length) return '';
-  return `<div class="gt-files">${files.map(f => `<a class="gt-file" href="${esc(driveFileUrl(f.drive_file_id))}" target="_blank" rel="noopener noreferrer" aria-label="첨부 파일 열기: ${esc(f.file_name)}">${esc(f.file_name)}</a>`).join('')}</div>`;
+  return `<div class="gt-files">${files.map(f => `<a class="gt-file" href="${esc(driveFileUrl(f.drive_file_id))}" target="_blank" rel="noopener noreferrer" ${fileAttrs({name: f.file_name, driveId: f.drive_file_id}, {press: true})} aria-label="첨부 파일 열기: ${esc(f.file_name)}">${esc(f.file_name)}</a>`).join('')}</div>`;
 }
 
 // The dialog behind ⋯ → 파일 붙이기: current files with [빼기], a picker, and a status line. The owner of the task list
@@ -107,7 +106,7 @@ function paint() {
   m.querySelector('[data-gt-files-task]').textContent = s.task.title || '제목 없음';
   const list = m.querySelector('[data-gt-files-list]');
   list.innerHTML = s.files.length
-    ? s.files.map(f => `<li><a class="gt-file" href="${esc(driveFileUrl(f.drive_file_id))}" target="_blank" rel="noopener noreferrer">${esc(f.file_name)}</a><button type="button" class="mini" data-gt-file-detach="${esc(f.drive_file_id)}" aria-label="${esc(f.file_name)} 빼기"${s.busy ? ' disabled' : ''}>빼기</button></li>`).join('')
+    ? s.files.map(f => `<li><a class="gt-file" href="${esc(driveFileUrl(f.drive_file_id))}" target="_blank" rel="noopener noreferrer" ${fileAttrs({name: f.file_name, driveId: f.drive_file_id}, {press: true})}>${esc(f.file_name)}</a><button type="button" class="mini" data-fa-menu="open"${fileAttrs({name: f.file_name, driveId: f.drive_file_id})} aria-label="${esc(f.file_name)} Drive에서 열기">Drive에서 열기</button><button type="button" class="mini" data-fa-menu="download"${fileAttrs({name: f.file_name, driveId: f.drive_file_id})} aria-label="${esc(f.file_name)} 내려받기">내려받기</button><button type="button" class="mini" data-gt-file-detach="${esc(f.drive_file_id)}" aria-label="${esc(f.file_name)} 빼기"${s.busy ? ' disabled' : ''}>빼기</button></li>`).join('')
     : '<li class="gt-files-empty">붙인 파일이 없습니다.</li>';
   list.querySelectorAll('[data-gt-file-detach]').forEach(b => { b.onclick = () => void detach(b.dataset.gtFileDetach); });
   const pick = m.querySelector('[data-gt-files-pick]');
@@ -272,3 +271,4 @@ export function mountNewTaskFilePick(host, {isBusy = () => false, onError = () =
     render,
   };
 }
+

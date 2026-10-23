@@ -20,23 +20,24 @@ async function fixture(page,width,reply){
  await page.evaluate(()=>window.KPTURouter.go('basket'));await showBasketRow(page,n);
  const row=page.locator(`[data-basket-row="${n}"]`);if(width<761)await row.tap();else await row.click();
  await expect(page.locator('[data-basket-read-text]')).toBeVisible();
- return {home,errors,sends,changed,box:id=>page.locator(`[data-basket-library="${id}"]`),meta:id=>page.locator(`[data-basket-file-card="${id}"] .basket-file-meta`),result:id=>page.locator(`[data-basket-library-status="${id}"]`)};
+ return {home,errors,sends,changed,box:id=>page.locator(`[data-basket-library="${id}"]`),send:id=>page.locator(`[data-basket-library="${id}"] [data-basket-library-send="${id}"]`),download:id=>page.locator(`[data-basket-library="${id}"] [data-basket-file-download="${id}"]`),meta:id=>page.locator(`[data-basket-file-card="${id}"] .basket-file-meta`),result:id=>page.locator(`[data-basket-library-status="${id}"]`)};
 }
 const press=async(page,locator,width)=>{await expect(locator).toBeVisible();if(width<761)await locator.tap();else await locator.click();};
 
 for(const width of [390,1280])test(`sending an attachment registers it once and shows the library state ${width}`,async({page},info)=>{
  const f=await fixture(page,width,(route,body)=>route.fulfill({json:{ok:true,result:body.drive_file_id==='drive-a'?'created':'exists',document:{id:'doc-'+body.drive_file_id,title:'x'}}}));
  const a=f.box('drive-a'),b=f.box('drive-b');
- await expect(a.getByRole('button')).toHaveText('자료실로 보내기');await expect(b.getByRole('button')).toHaveText('자료실로 보내기');
- await press(page,a.getByRole('button'),width);
+ await expect(a.getByRole('button')).toHaveText(['내려받기','자료실로 보내기']);await expect(b.getByRole('button')).toHaveText(['내려받기','자료실로 보내기']);
+ await expect(f.send('drive-a')).toHaveText('자료실로 보내기');await expect(f.send('drive-b')).toHaveText('자료실로 보내기');
+ await press(page,f.send('drive-a'),width);
  // UI-바구니상세개편: the result is a short notice; the file's size line says it is in the library, and the small
  // [자료실로 보내기] link becomes [자료실에서 보기] (no button to press again).
  await expect(page.locator('#toast')).toHaveText('자료실로 보냈어요. 바구니와 같은 Drive 원본을 씁니다.');await expect(f.result('drive-a')).toHaveCount(0);
- await expect(f.meta('drive-a')).toHaveText('2.0 KB · 자료실에 있음 ✓');await expect(a.getByRole('button')).toHaveCount(0);
+ await expect(f.meta('drive-a')).toHaveText('2.0 KB · 자료실에 있음 ✓');await expect(a.getByRole('button')).toHaveText(['내려받기']);
  await expect(a.getByRole('link',{name:'회의 사진.jpg 자료실에서 보기'})).toHaveAttribute('data-basket-library-open','doc-drive-a');
  expect(f.sends).toEqual([{action:'register-basket-attachment',note_id:n,drive_file_id:'drive-a'}]);
  await expect.poll(()=>f.changed.length).toBe(1);
- await press(page,b.getByRole('button'),width);
+ await press(page,f.send('drive-b'),width);
  await expect(page.locator('#toast')).toHaveText('이미 자료실에 있어요.');await expect(f.meta('drive-b')).toHaveText('4.0 KB · 자료실에 있음 ✓');
  await expect(b.getByRole('link',{name:'안내문.pdf 자료실에서 보기'})).toHaveAttribute('data-basket-library-open','doc-drive-b');
  expect(f.sends).toHaveLength(2);expect(f.changed).toHaveLength(1);
@@ -54,7 +55,7 @@ for(const width of [390,1280])test(`자료실에서 보기 opens the library at 
  const f=await fixture(page,width,route=>route.fulfill({json:{ok:true,result:'created',document:{id:'doc-drive-a',title:'회의 사진.jpg'}}}));
  await page.route(SB+'/rest/v1/app_documents?**',r=>r.fulfill({json:[{id:'doc-other',workspace_id:'w',title:'다른 자료',file_name:'other.pdf',project_id:null,meeting_id:null,created_at:stamp},{id:'doc-drive-a',workspace_id:'w',title:'회의 사진.jpg',file_name:'회의 사진.jpg',project_id:null,meeting_id:null,created_at:stamp}]}));
  const a=f.box('drive-a');
- await press(page,a.getByRole('button'),width);
+ await press(page,f.send('drive-a'),width);
  const link=a.getByRole('link',{name:'회의 사진.jpg 자료실에서 보기'});
  await expect(link).toHaveAttribute('href','./?view=library');
  await press(page,link,width);
@@ -67,9 +68,9 @@ for(const width of [390,1280])test(`자료실에서 보기 opens the library at 
 test('an older server refuses before any change and the button stays usable',async({page})=>{
  const f=await fixture(page,390,route=>route.fulfill({status:400,json:{error:'document_id가 필요합니다.'}}));
  const a=f.box('drive-a');
- await press(page,a.getByRole('button'),390);
+ await press(page,f.send('drive-a'),390);
  await expect(f.result('drive-a')).toHaveText('자료실 보내기가 아직 준비되지 않았어요. 아무것도 바뀌지 않았어요.');
- await expect(a.getByRole('button')).toBeEnabled();await expect(a.getByRole('button')).toHaveText('자료실로 보내기');
+ await expect(f.send('drive-a')).toBeEnabled();await expect(f.send('drive-a')).toHaveText('자료실로 보내기');
  expect(f.sends).toHaveLength(1);expect(f.changed).toEqual([]);
  // Notes and links are not written by this flow.
  expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
@@ -79,26 +80,26 @@ for(const [name,reply] of [['503 result unknown',route=>route.fulfill({status:50
 test(`an unknown result (${name}) is reported and never sent again`,async({page})=>{
  const f=await fixture(page,390,reply);
  const a=f.box('drive-a');
- await press(page,a.getByRole('button'),390);
+ await press(page,f.send('drive-a'),390);
  await expect(f.result('drive-a')).toHaveText('자료실로 보냈는지 확인하지 못했어요. 다시 보내지 말고 자료실 목록에서 먼저 확인해 주세요.');
  // A state in the size line, not a button: there is nothing to press again and no document to link (only Drive).
  // The refusal/unknown line stays readable under the file (one line, not a passing notice).
  await expect(f.meta('drive-a')).toHaveText('2.0 KB · 자료실에서 확인해 주세요');
  const card=await page.locator('[data-basket-file-card="drive-a"] .basket-file-body').boundingBox(),line=await f.result('drive-a').boundingBox();
  expect(line.y).toBeGreaterThanOrEqual(card.y+card.height-1);
- await expect(a.getByRole('button')).toHaveCount(0);await expect(a.getByRole('link')).toHaveText(['Drive에서 열기']);
+ await expect(a.getByRole('button')).toHaveText(['내려받기']);await expect(a.getByRole('link')).toHaveText(['Drive에서 열기']);
  await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>setTimeout(r,50))));
  expect(f.sends).toHaveLength(1);expect(f.changed).toEqual([]);
  // The other attachment is independent.
- await expect(f.box('drive-b').getByRole('button')).toBeEnabled();
+ await expect(f.send('drive-b')).toBeEnabled();
 });
 
 test('a slow send keeps the button off and a result after an account switch is not shown',async({page})=>{
  let release;const gate=new Promise(r=>release=r);
  const f=await fixture(page,390,async route=>{await gate;return route.fulfill({json:{ok:true,result:'created',document:{id:'doc-a',title:'x'}}});});
  const a=f.box('drive-a');
- await press(page,a.getByRole('button'),390);
- await expect(a.getByRole('button')).toHaveText('보내는 중…');await expect(a.getByRole('button')).toBeDisabled();
+ await press(page,f.send('drive-a'),390);
+ await expect(f.send('drive-a')).toHaveText('보내는 중…');await expect(f.send('drive-a')).toBeDisabled();
  await page.evaluate(()=>{const rt=window.KPTURuntime;const c=rt.context.read();rt.context.set({...c,workspace:{...c.workspace,id:'other-workspace'}});window.dispatchEvent(new CustomEvent('kptu:session-changed',{detail:{session:rt.session.read()}}));});
  const done=page.waitForResponse(r=>r.url().includes('/functions/v1/document-actions'));release();await done;
  await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>setTimeout(r,50))));
@@ -114,12 +115,12 @@ test('a newly sent attachment is filled in the background like an upload',async(
   :route.fulfill({json:{ok:true,result:body.drive_file_id==='drive-a'?'created':'exists',document:{id:body.drive_file_id==='drive-a'?DOC:'doc-b',title:'x'}}}));
  // Registered after the home fixture's catch-all so this route wins (Playwright uses the latest matching route).
  await page.route(SB+'/functions/v1/ai-assist',async route=>{fills.push(route.request().postDataJSON());return route.fulfill({status:503,json:{ok:false,error:'ai_busy',message:'x'}});});
- await press(page,f.box('drive-a').getByRole('button'),390);
+ await press(page,f.send('drive-a'),390);
  await expect(page.locator('#toast')).toHaveText('자료실로 보냈어요. 바구니와 같은 Drive 원본을 씁니다.');
  await expect.poll(()=>fills.length).toBe(1);
  expect(fills[0]).toEqual({kind:'library_fill',mode:'fill',document_ids:[DOC],keep:[]});
  expect(f.sends).toEqual([{action:'register-basket-attachment',note_id:n,drive_file_id:'drive-a'},{action:'document-text',document_id:DOC}]);
- await press(page,f.box('drive-b').getByRole('button'),390);
+ await press(page,f.send('drive-b'),390);
  await expect(page.locator('#toast')).toHaveText('이미 자료실에 있어요.');
  await page.waitForTimeout(300);expect(fills.length).toBe(1);
  await expect(f.meta('drive-a')).toHaveText('2.0 KB · 자료실에 있음 ✓');

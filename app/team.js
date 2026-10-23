@@ -3,6 +3,7 @@ import {renderFilterChips} from './filter-chips.js';
 import {formatMeetingTime,toMeetingISO,seoulParts,seoulDate,seoulDateKey,seoulClock} from './meeting-time.js';
 import './time-input.js';
 import {fileLine,bindDropTarget,dueText} from './meeting-compact.js';
+import {pressFile} from './file-actions.js';
 import {PC_QUERY,NONE_KEY,sortRecentFirst,MEETING_DOCS_LABEL,meetingColumns,columnsHtml,listHtml,pickMeeting,resultHtml,tasksHtml,assignMeetingColors,meetingPaletteColor,nameHash,MEETING_HUES,roundLabel,hasRound,meetingShortName} from './meeting-columns.js';
 import {formatMeetingWhen} from './meeting-when.js';
 import {ALL_KINDS,DEFAULT_KIND,REPORT_KINDS,isReportKind,reportKindOf,reportKindLabel,reportKindChips,filterByReportKind} from './report-kinds.mjs';
@@ -195,7 +196,8 @@ document.addEventListener('keydown',e=>{if(meetingMenu&&e.key==='Escape'&&docume
 function newMeetingName(){if(!meetingPc?.matches||reportChip!==DEFAULT_KIND)return '';const c=selectedMeetingColumn();return c&&c.key!==NONE_KEY?c.name:''}
 function suggestMeetingRound(){if(meetingRoundEdited||entryKind()!==DEFAULT_KIND)return;const key=meetingNameKey($('#meetingTitle')?.value),round=$('#meetingRoundNo');if(!round)return;let max=0;for(const m of meetings){const value=Number(m.round_no);if(key&&meetingNameKey(meetingName(m))===key&&Number.isSafeInteger(value)&&value>max)max=value}round.value=max?String(max+1):''}
 let meetingRoundEdited=false;
-async function downloadMeetingDocument(id){try{const d=await api('/functions/v1/workspace-drive?action=download-token',{method:'POST',body:{document_id:id}});location.href=d.url}catch(e){toast(e.message||'회의자료를 열지 못했습니다.')}}
+// FILE-누르면동작: 회의자료 줄을 누르면 종류별 동작(file-actions.js).
+async function downloadMeetingDocument(id){const d=documents.find(x=>x.id===id);if(!d){toast('회의자료를 열지 못했습니다.');return}await pressFile({name:d.file_name||d.title||'',mime:d.mime_type||'',documentId:d.file_id?d.id:'',driveId:d.file_id||'',driveUrl:d.drive_url||''},{api,onError:m=>toast(m||'회의자료를 열지 못했습니다.')})}
 function renderPages(){window.KPTUWeb1Board?.render?.()}
 function openModal(id,{trigger=document.activeElement,initialFocus=null,onRequestClose=null}={}){const m=$('#'+id);if(!m)return;m.classList.remove('hidden');m.setAttribute('aria-hidden','false');window.KPTUA11y?.dialog.activate(m,{trigger,initialFocus,onRequestClose:onRequestClose||(()=>closeModal(id))})}
 function closeModal(id,{restoreFocus=true}={}){const m=$('#'+id);if(!m)return;m.classList.add('hidden');m.setAttribute('aria-hidden','true');window.KPTUA11y?.dialog.deactivate(m,{restoreFocus,fallbackFocus:'#appView .view-panel:not(.hidden) h2'})}

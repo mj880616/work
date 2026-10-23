@@ -118,7 +118,7 @@ async function boot(page,{width=390,main=false}={}){
     id:'row-'+i,workspace_id:'workspace-1',project_id:'top-a',title:i===0?'긴 자료 제목 '.repeat(30):'자료 '+i,
     file_name:'sample.'+ext,category:'정책자료',document_date:i===5?null:'2026-10-06',
     source:'목록에 표시하지 않을 출처',file_size:2048,description:'목록에 표시하지 않을 요약',tags:['검색태그'],
-    drive_url:`${appOrigin}/tests/app-e2e/library-open-fixture.html`,created_at:'2026-10-06T00:00:00Z'
+    drive_url:`${appOrigin}/tests/app-e2e/library-open-fixture.html`,created_at:'2026-10-06T00:00:00Z',...(i===1?{file_id:'drive-row-1'}:{})
   }));
   await mockApp(page,state);await signIn(page,`${appOrigin}/app/?view=library`);
   await expect(page.locator('[data-lu-document]')).toHaveCount(10);
@@ -193,8 +193,11 @@ for(const width of [390,1440]){
     await page.mouse.click(r.x-4,r.y+r.height/2);await expect(page.locator('.lu-more-panel')).toBeVisible();await expect(page).toHaveURL(url);
   });
   test('library row click and Enter use the existing open path '+width,async({page,browser})=>{
-    await boot(page,{width});await page.locator('[data-lu-document="row-0"]').click();await expect(page).toHaveURL(/library-open-fixture/);
-    const keyboard=await browser.newPage();await boot(keyboard,{width});await keyboard.locator('[data-lu-document="row-0"]').focus();await keyboard.keyboard.press('Enter');await expect(keyboard).toHaveURL(/library-open-fixture/);await keyboard.close();
+    await boot(page,{width});
+    // FILE-누르면동작: 파일 없이 주소만 있는 자료는 새 탭으로 연다(같은 탭을 떠나지 않는다).
+    const [tab]=await Promise.all([page.waitForEvent('popup'),page.locator('[data-lu-document="row-0"]').click()]);await expect(tab).toHaveURL(/library-open-fixture/);await tab.close();await expect(page).toHaveURL(/view=library/);
+    const keyboard=await browser.newPage();await boot(keyboard,{width});await keyboard.locator('[data-lu-document="row-0"]').focus();
+    const [tab2]=await Promise.all([keyboard.waitForEvent('popup'),keyboard.keyboard.press('Enter')]);await expect(tab2).toHaveURL(/library-open-fixture/);await keyboard.close();
   });
   test('library menu keeps download, edit and confirmed trash deletion '+width,async({page})=>{
     const state=await boot(page,{width});
@@ -207,7 +210,7 @@ for(const width of [390,1440]){
     await page.locator('[data-lu-delete]').click();await expect(page.locator('.lu-more-panel')).toBeHidden();expect(state.deletes).toHaveLength(0);
     await menu(page);const dialogs=[];const acceptDelete=async d=>{dialogs.push(d.type());if(d.type()==='confirm')expect(d.message()).toContain('자료 등록을 삭제할까요?');else expect(d.message()).toBe('자료 등록을 삭제했습니다. Drive 파일 처리 결과는 확인하지 못했습니다. 원본 상태를 직접 확인해 주세요.');await d.accept()};page.on('dialog',acceptDelete);await page.locator('[data-lu-delete]').click();await expect(page.locator('[data-lu-document="row-0"]')).toHaveCount(0);
     expect(state.deletes).toEqual([{action:'delete',document_id:'row-0'}]);expect(dialogs).toEqual(['confirm','alert']);page.off('dialog',acceptDelete);
-    await menu(page,'row-1');await page.locator('[data-lu-download]').click();await expect(page).toHaveURL(/library-open-fixture.*download=1/);
+    await menu(page,'row-1');await expect(page.locator('.lu-more-panel button').filter({hasText:/^(Drive에서 열기|내려받기)$/})).toHaveText(['Drive에서 열기','내려받기']);await page.locator('[data-lu-download]').click();await expect(page).toHaveURL(/library-open-fixture.*download=1/);
     expect(state.downloads).toEqual([{document_id:'row-1'}]);
   });
 }

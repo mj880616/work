@@ -124,7 +124,7 @@ test('PC 오른쪽 결과: 후속 할 일(읽기)·프로젝트·회의자료 �
   const s=columnState();
   s.spaces.push({id:'project-meet',workspace_id:s.workspace.id,name:'가상 프로젝트',status:'active',parent_id:null,sort_order:99,owner_id:s.user.id});
   Object.assign(s.meetings.find(m=>m.id==='labor-2'),{project_id:'project-meet'});
-  s.docs.push({id:'labor-doc',workspace_id:s.workspace.id,project_id:null,title:'가상 안건지',file_name:'가상 안건지.hwp',file_size:20480,meeting_id:'labor-2',category:'회의자료',tags:[]});
+  s.docs.push({id:'labor-doc',workspace_id:s.workspace.id,project_id:null,title:'가상 안건지',file_name:'가상 안건지.hwp',file_id:'drive-labor-doc',file_size:20480,meeting_id:'labor-2',category:'회의자료',tags:[]});
   const reads=[];s.downloads=[];
   const routes=()=>page.route('**/functions/v1/google-tasks**',route=>{const url=new URL(route.request().url());const action=url.searchParams.get('action');if(action==='linked'){reads.push(url.searchParams.get('meeting_id'));const id=url.searchParams.get('meeting_id');return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({tasks:id==='labor-2'?[{id:'t1',title:'가상 후속 할 일',due:'2026-10-25T00:00:00Z',status:'needsAction'},{id:'t2',title:'끝난 가상 할 일',status:'completed'}]:[]})})}return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,tasks:[]})})});
   await open(page,s,1440,900,{routes});

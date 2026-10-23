@@ -24,6 +24,8 @@ import { CHATGPT_HTML_REQUEST } from './chatgpt-html.mjs';
 import { openMarkdownEditor, copyText } from './md-editor.js';
 import { toTelegram } from './md-telegram.mjs';
 import { photoElement } from './diary-data.js';
+import { openPhotoView, closePhotoView } from './photo-view.js';
+import { pressFile, downloadFile, driveDownloadUrl } from './file-actions.js';
 import { fileKind } from './meeting-compact.js';
 import { attachmentName } from './attachment-name.mjs';
 
@@ -63,6 +65,7 @@ const RAW_ICON = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="t
 const LINK_ICONS = {
   drive: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5M11.5 9.5v3a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   library: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M2.5 5.5h11v7a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1zM1.5 2.5h13v3h-13zM6.5 8.5h3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg>',
+  download: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M8 2.5v8M4.5 7.5 8 11l3.5-3.5M2.5 13.5h11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   edit: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M10.5 2.5l3 3-8 8h-3v-3z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
 };
 const time = note => { const d = new Date(note.occurred_at); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul',dateStyle:'medium',timeStyle:'short'}).format(d); };
@@ -637,6 +640,7 @@ function fileRow(file){
   const inLibrary=['created','exists'].includes(sent?.kind),meta=[fileSize(file.size_bytes),inLibrary?'자료실에 있음 ✓':sent?.kind==='unknown'?'자료실에서 확인해 주세요':''].filter(Boolean).join(' · ');
   const link=(icon,label)=>`${LINK_ICONS[icon]}<span>${label}</span>`;
   const open=url?`<a class="basket-file-link" href="${url}" target="_blank" rel="noopener noreferrer" aria-label="${esc(name)} Drive에서 열기">${link('drive','Drive에서 열기')}</a>`:'<span class="basket-file-link-off">링크를 확인할 수 없습니다.</span>';
+  const save=driveDownloadUrl(id)?`<button type="button" class="basket-file-link" data-basket-file-download="${esc(id)}" aria-label="${esc(name)} 내려받기">${link('download','내려받기')}</button>`:'';
   const sending=sent?.kind==='sending';
   const library=!id?'':inLibrary?(doc?`<a class="basket-file-link" href="${esc(libraryHref)}" data-basket-library-open="${esc(doc)}" aria-label="${esc(name)} 자료실에서 보기">${link('library','자료실에서 보기')}</a>`:'')
     :sent?.kind==='unknown'?'':`<button type="button" class="basket-file-link" data-basket-library-send="${esc(id)}" aria-label="${esc(name)} ${sending?'보내는 중…':'자료실로 보내기'}"${sending?' disabled':''}>${link('library',sending?'보내는 중…':'자료실로 보내기')}</button>`;
@@ -646,28 +650,14 @@ function fileRow(file){
     :`<span class="basket-file-thumb basket-file-kind file-kind" data-kind="${esc(kind.key)}" aria-hidden="true">${esc(kind.label)}</span>`;
   // A sent or already-there result is a short notice (sendToLibrary); a refusal or an unknown result stays as one line here.
   const message=sent?.message&&!inLibrary?`<p class="basket-library-result" role="status" data-basket-library-status="${esc(id)}">${esc(sent.message)}</p>`:'';
-  return `<div class="basket-file" data-basket-file-card="${esc(id)}">${thumb}<div class="basket-file-body"><b class="basket-file-name">${esc(name)}</b><small class="basket-file-meta">${esc(meta)}</small><div class="basket-file-links" data-basket-library="${esc(id)}"${editing?' hidden':''}>${open}${library}${hwp}</div></div>${ocrMarkup(file)}${message}</div>`;
+  return `<div class="basket-file" data-basket-file-card="${esc(id)}">${thumb}<div class="basket-file-body"><b class="basket-file-name" role="button" tabindex="0" data-basket-file-press="${esc(id)}">${esc(name)}</b><small class="basket-file-meta">${esc(meta)}</small><div class="basket-file-links" data-basket-library="${esc(id)}"${editing?' hidden':''}>${open}${save}${library}${hwp}</div></div>${ocrMarkup(file)}${message}</div>`;
 }
-// The large photo: a full-screen view over the screen with ×, Esc and phone Back (one router layer), as the diary does.
-let photoView=null;
+// The large photo: shared view (photo-view.js) with ×, Esc and phone Back (one router layer), as the diary does.
 function openPhoto(fileId,trigger){
-  const file=selected?.attachments?.find(f=>f.drive_file_id===fileId);if(!file||photoView)return;
-  const box=document.createElement('div');box.className='basket-photo-view';box.dataset.basketPhotoView='';
-  box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');const shown=attachmentName(file,'사진');box.setAttribute('aria-label',shown);
-  box.innerHTML=`<div class="basket-photo-bar"><span class="basket-photo-name">${esc(shown)}</span><button type="button" class="basket-photo-close" data-basket-photo-close aria-label="크게 보기 닫기">×</button></div><div class="basket-photo-stage"></div>`;
-  box.querySelector('.basket-photo-stage').append(photoElement(selected,file,'large',{label:shown,rt}));
-  box.addEventListener('click',e=>{if(e.target.closest('[data-basket-photo-close]')||e.target===box.querySelector('.basket-photo-stage'))closePhoto();});
-  box.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closePhoto();}});
-  document.body.append(box);
-  photoView={box,trigger,layer:window.KPTURouter?.layer?.open('basket-photo',{close:()=>{closePhoto({fromBack:true});return true;}})||null};
-  box.querySelector('[data-basket-photo-close]').focus();
+  const file=selected?.attachments?.find(f=>f.drive_file_id===fileId);if(!file)return;
+  openPhotoView({row:selected,file,trigger,rt});
 }
-function closePhoto({fromBack=false,restore=true}={}){
-  if(!photoView)return;
-  const {box,trigger,layer}=photoView;photoView=null;box.remove();
-  if(!fromBack)layer?.close();
-  if(restore&&trigger?.isConnected)trigger.focus();
-}
+const closePhoto=closePhotoView;
 async function sendToLibrary(fileId) {
   if (!selected || editing || busy) return;
   const key=libraryKey(fileId),prior=librarySends.get(key)?.kind;if(['sending','created','exists','unknown'].includes(prior))return;
@@ -887,9 +877,27 @@ async function reloadDetail() {
   catch(e){if(run===epoch&&owner===scope())detail.querySelector('[data-basket-status]').textContent='업데이트를 다시 불러오지 못했어요. 다시 시도해 주세요.';}
   finally{busy=false;detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el=>el.disabled=false);pickerFiles?.render();paintOcrControls();}
 }
+// FILE-누르면동작: 파일 이름을 누르면 종류별 동작(file-actions.js), [내려받기]는 종류와 상관없이 내려받기.
+function basketFile(fileId){
+  const f=selected?.attachments?.find(x=>x.drive_file_id===fileId);
+  return f?{name:attachmentName(f),mime:f.mime_type,driveId:fileId,noteId:selected.id}:null;
+}
+const fileFail=text=>showToast(text);
+function pressBasketFile(el){
+  const file=basketFile(el.dataset.basketFilePress);if(!file)return;
+  void pressFile(file,{viewPhoto:()=>openPhoto(file.driveId,el),onError:fileFail});
+}
+root.addEventListener('keydown', e => {
+  const el=e.target.closest?.('[data-basket-file-press]');
+  if(el&&!noteHost.contains(el)&&(e.key==='Enter'||e.key===' ')){e.preventDefault();pressBasketFile(el);}
+});
 root.addEventListener('click', e => {
   // The note side handles its own buttons (basket-notes.js).
   if(noteHost.contains(e.target))return;
+  const press=e.target.closest('[data-basket-file-press]');
+  if(press){pressBasketFile(press);return;}
+  const save=e.target.closest('[data-basket-file-download]');
+  if(save){const file=basketFile(save.dataset.basketFileDownload);if(file)void downloadFile(file,{onError:fileFail});return;}
   if(!guardOcrPrivacy())return;
   const b = e.target.closest('button'); if (!b||b.disabled) return;
   // Navigation cancels this handoff's read, but never releases another operation's lock.

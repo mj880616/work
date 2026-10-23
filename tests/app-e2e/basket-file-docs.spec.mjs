@@ -92,8 +92,8 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`a memo 
  await expect(hwp.locator('.basket-file-meta')).toHaveText('2.0 KB · 자료실에 있음 ✓');
  await expect(pdf.locator('.file-kind')).toHaveText('PDF');await expect(pdf.locator('.basket-file-meta')).toHaveText('4.0 KB');
  // ③④ UI-바구니상세개편: under the name and size, small text links with icons (no buttons, no file ⋯).
- await expect(hwp.locator('.basket-file-links > *')).toHaveText(['Drive에서 열기','자료실에서 보기','편집']);
- await expect(pdf.locator('.basket-file-links > *')).toHaveText(['Drive에서 열기','자료실로 보내기']);
+ await expect(hwp.locator('.basket-file-links > *')).toHaveText(['Drive에서 열기','내려받기','자료실에서 보기','편집']);
+ await expect(pdf.locator('.basket-file-links > *')).toHaveText(['Drive에서 열기','내려받기','자료실로 보내기']);
  await expect(detail.locator('[data-basket-file-more]')).toHaveCount(0);
  await expect(hwp.getByRole('link',{name:'임단협 요구안.hwp 자료실에서 보기'})).toBeVisible();
  // Small text to the eye (12px, an icon before it, no box), and the press area is 44px high.
@@ -112,7 +112,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`a memo 
  // ⑤ sending shows the library state in the file line, without the "자료실로 보냈어요" sentence.
  await tap(page,pdf.getByRole('button',{name:'공문.pdf 자료실로 보내기'}),width);
  await expect(pdf.locator('.basket-file-meta')).toHaveText('4.0 KB · 자료실에 있음 ✓');
- await expect(pdf.locator('.basket-file-links > *')).toHaveText(['Drive에서 열기','자료실에서 보기']);
+ await expect(pdf.locator('.basket-file-links > *')).toHaveText(['Drive에서 열기','내려받기','자료실에서 보기']);
  await expect(detail).not.toContainText('자료실로 보냈어요');
  expect(f.sends).toEqual([{action:'register-basket-attachment',note_id:ONLY,drive_file_id:'drive-pdf'}]);
  expect(f.errors).toEqual([]);
