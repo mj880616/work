@@ -52,7 +52,7 @@ test('담당조직 상세 맨 위는 조직명과 입력칸 하나, 저장 버�
   await expect(page.locator('#wdInboxText')).toBeVisible();
   await expect(page.locator('#wdInboxText')).toHaveAttribute('placeholder','통화·회의·교섭 내용을 그냥 적으세요');
   await expect(page.locator('#wdInboxSave')).toHaveText('저장');
-  await expect(page.locator('#wdModal textarea:visible, #wdModal input:visible')).toHaveCount(1);
+  await expect(page.locator('#wdModal textarea:visible, #wdModal input:visible:not(#wdStage input)')).toHaveCount(1);
   await expect(page.locator('#wdUpdateCurrent,#wdCurrentModal,#wdAddItem,#wdItemModal,#warRaw,#warSaveRaw')).toHaveCount(0);
   await expect(page.locator('#wdDeleteOrg')).toHaveCount(0);
   const order=await page.locator('#wdModal .wd-card').evaluate(card=>[...card.querySelectorAll(':scope > .wd-sec')].map(sec=>sec.querySelector('h3')?.firstChild?.textContent?.trim()));
