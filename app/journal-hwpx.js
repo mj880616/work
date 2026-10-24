@@ -31,6 +31,8 @@
 //   기억으로 뺀 일정은 맨 아래 접힌 "기억으로 뺀 일정 N개"에 [이번 주만 넣기](임시저장 kept). 순서: 이번 주 임시저장 > 기억 > 달력.
 //   [확정]이 성공하면 "다음 주에도 쓸까요?" 목록(달력 제목과 다르게 확정한 일정·뺀 일정, 체크된 채, 2자 이하 제목은 풀어 둠)에서
 //   [기억하기]를 누른 것만 기억한다. 확정하지 않고 받기만 한 주는 기억하지 않는다. 달력 원본은 건드리지 않는다.
+// - 같은 draft의 docs 칸(WEEKLY-자료요약 화면 ②, [주간 정리]의 자료 줄 고침)은 이 상자가 고치지 않고 읽은 그대로 다시 실어 보낸다.
+//   [처음부터]도 docs는 남긴다.
 // - 이 상자 하나만 이 모듈이 그린다(journal.js는 자리만 주고 주·자료가 바뀌면 알려 줌). 브라우저 저장소에 아무것도 두지 않는다.
 import {selectMyOrganizations} from './my-organizations.js';
 import {loadDisputeState} from './org-dispute-stage.js';
@@ -39,7 +41,7 @@ import {scheduleForm} from './journal-weekly.js';
 import {carryOver, carryCutoff, formRequests, formDay, mergeCarried} from './weekly-exec-requests.js';
 import {scheduleItems, scheduleMismatches, titleRequest, titleAnswer, NO_PLACE} from './weekly-hwpx/schedule.mjs';
 import {callAiAssist, AI_SUMMARY_TEXT, aiSummaryRetryable} from './basket-ai-summary.js';
-import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft} from './weekly-draft-store.js';
+import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, draftDocs, keepDocsOnly} from './weekly-draft-store.js';
 import {isDropped, defaultTitle, visibleCalendar, effectiveOverrides, memoryCandidates, withEntries, withUsed, changeMemory} from './weekly-schedule-memory.js';
 
 const CONFIRMED_CATEGORY = '주간보고 확정본';
@@ -760,7 +762,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     const cells = new Map([...s.cellAt].map(([id, at]) => [id, s.edits[at.section].get(at.index) ?? []]));
     const typedMe = s.meFrom === 'typed';
     return makeDraft({base:s.baseInfo ? {...s.baseInfo, digest:s.digest} : null, me:typedMe ? s.me : '', meFrom:typedMe ? 'typed' : '', date:s.date === s.defaultDate ? '' : s.date, cells, initial:s.initial,
-      keep:s.store?.keep ?? [], titles:s.titles, drops:s.drops, confirmed:s.store?.confirmed ?? null});
+      keep:s.store?.keep ?? [], titles:s.titles, drops:s.drops, docs:s.docs ?? [], confirmed:s.store?.confirmed ?? null});
   }
   // Put a draft's cells into the current base by name; what does not fit is kept aside (shown folded, saved again as it was).
   function placeCells(s, d) {
@@ -777,7 +779,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     if (me !== s.me) { s.me = me; rebase(); }
     s.date = d.date || s.defaultDate;
     const placed = placeCells(s, d);
-    s.titles = placed.titles; s.drops = placed.drops; s.titleKeys = '';
+    s.titles = placed.titles; s.drops = placed.drops; s.docs = draftDocs(d); s.titleKeys = '';
     return placed;
   }
   async function attachDraft(s, baseInfo, saved) {
@@ -789,6 +791,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     s.store.known = saved.row;
     const d = saved.row?.draft;
     s.store.last = d ?? null;
+    s.docs = draftDocs(d);
     s.store.savedAt = saved.row?.saved_at ?? null;
     if (hasContent(d)) {
       applyDraft(s, d);
@@ -934,7 +937,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
   async function clearSaved(saved, week, box) {
     if (!window.confirm('이 주 임시저장본을 지우고 처음부터 할까요?')) return;
     try {
-      const r = await writeWeekDraft({start:week, known:saved, draft:null}, rt);
+      const r = await writeWeekDraft({start:week, known:saved, draft:keepDocsOnly(saved.draft)}, rt);
       if (r.conflict) { say('다른 기기가 그사이 임시저장했어요. 상자를 닫았다 다시 열어 확인해 주세요.', 'error'); return; }
       weekDraft = null; box.remove(); say('임시저장본을 지웠어요.');
     } catch { say('임시저장본을 지우지 못했어요. 잠시 뒤 다시 해 주세요.', 'error'); }
@@ -948,7 +951,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
       clearTimeout(st.timer); st.dirty = false;
       await st.flight;
       try {
-        const r = await writeWeekDraft({start:s.start, known:st.known ?? {exists:true, saved_at:null}, draft:null}, rt);
+        const r = await writeWeekDraft({start:s.start, known:st.known ?? {exists:true, saved_at:null}, draft:keepDocsOnly(st.known?.draft ?? st.last)}, rt);
         if (r.conflict) { say('다른 기기가 그사이 임시저장했어요. 다시 [처음부터]를 눌러 주세요.', 'error'); st.known = r.row; return; }
       } catch { say('임시저장본을 지우지 못했어요. 잠시 뒤 다시 해 주세요.', 'error'); st.dirty = true; return; }
     }
