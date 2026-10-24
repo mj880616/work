@@ -46,8 +46,10 @@ export const latestRow = rows => (rows?.length ? sortHistory(rows)[0] : null);
 // 한 조직의 현재 단계. histories: 조직 id → 이력 줄들. 반환 {row, stage, name, date, kind}
 // kind: 'struggle'(투쟁 중으로 봄) | 'ended'(끝남) | 'quiet'(그 밖: 교섭 시작 전·교섭 중·이력만 남은 지워진 단계).
 // 이력이 없으면 기본 단계(교섭 시작 전)로 읽는다. 단계가 지워져 id가 빈 줄은 투쟁 중도 끝남도 아니다.
-export function stageOfOrg(orgId, histories, stages) {
-  const rows = histories instanceof Map ? histories.get(orgId) : histories?.[orgId];
+// until(선택, 'YYYY-MM-DD'): 그 날까지의 이력만 본다(지난 주 보고 때 그 주 끝 단계).
+export function stageOfOrg(orgId, histories, stages, {until = ''} = {}) {
+  const all = histories instanceof Map ? histories.get(orgId) : histories?.[orgId];
+  const rows = until ? (all ?? []).filter(r => String(r.stage_date) <= until) : all;
   const row = latestRow(rows);
   const byId = new Map((stages ?? []).map(s => [s.id, s]));
   if (!row) {
@@ -108,4 +110,22 @@ export function orgsAtStageText(names) {
   const list = (names ?? []).filter(Boolean);
   if (!list.length) return '';
   return list.length === 1 ? `${list[0]} 1곳이 이 단계예요.` : `${list[0]} 외 ${list.length - 1}곳이 이 단계예요.`;
+}
+
+// ───── 주간보고 투쟁 사업장 표 (ORG-쟁의단계 ②) ─────
+// 보고 주간(week = {start,end})에 표에 나갈 조직: 투쟁 중은 매주, 끝남은 끝난 주 한 번. 보고 주간 끝날까지의 이력으로 판정한다.
+// orgs: 내 담당 조직 [{id,name,aliases}]. 반환 [{org, kind:'struggle'|'ended', line:'- 쟁의발생 결의(10.20)', name}] (orgs 순서)
+export function sitePlan(orgs, histories, stages, week) {
+  const out = [];
+  for (const org of orgs ?? []) {
+    const cur = stageOfOrg(org.id, histories, stages, {until: week.end});
+    const kind = reportKind(cur, week);
+    if (kind) out.push({org, kind, line: `- ${stageLabel(cur)}`, name: cur.name});
+  }
+  return out;
+}
+// 앱이 이전에 채운 단계 줄('- 조정 신청(10.10)')인지: 이번 줄로 바꿀 때 겹쳐 남기지 않는다.
+export function isStageLine(text, stages) {
+  const m = /^\s*-\s*(.+?)\((\d{1,2}\.\d{1,2})\)\s*$/.exec(String(text ?? ''));
+  return !!m && (stages ?? []).some(s => String(s.name).trim() === m[1].trim());
 }
