@@ -26,7 +26,7 @@
 /* 버튼(8-9c2): 높이 하나(--ds-control-height = 홈 빠른 입력 [추가] 높이)·모서리 8px·13px·굵기 500, 그림자·그라데이션 없음.
    종류는 넷만: ① 채운 버튼(계정 테마색, 화면당 1개) ② 종류 색(연한 바탕 + 진한 글자) ③ 흰 바탕 + 0.5px 테두리(기본) ④ 빨간 테두리(삭제).
    목록 행·첨부 클립·× 아이콘·글자 링크·글 본문 안 요소·고르기 시트의 칩은 버튼 모양이 아니므로 뺀다. */
-#appView #basketView :is(button:not(.basket-row,.basket-clip,.icon-btn,.quick-text-link,.home-basket-link,.home-quick-big,.basket-icon-button,.basket-row-copy,.basket-row-more,.basket-file-thumb,.basket-file-link,.basket-photo-view *,.md-body *,.md-share-cards *,.home-choice-sheet *,.basket-more-menu *),[data-basket-attachments] a:where(:not(.basket-file-link))):where(:not([hidden])),
+#appView #basketView :is(button:not(.basket-row,.basket-return-btn,.basket-clip,.icon-btn,.quick-text-link,.home-basket-link,.home-quick-big,.basket-icon-button,.basket-row-copy,.basket-row-more,.basket-file-thumb,.basket-file-link,.basket-photo-view *,.md-body *,.md-share-cards *,.home-choice-sheet *,.basket-more-menu *),[data-basket-attachments] a:where(:not(.basket-file-link))):where(:not([hidden])),
 #appView #homeView .home-quick :is(.home-quick-modes button,.home-quick-save,.home-quick-new-note,[data-quick-options] button):where(:not([hidden])){
   box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:6px;
   height:auto; min-height:var(--ds-compact-height); max-width:100%; margin:0; padding:0 var(--ds-compact-pad-x);
@@ -37,8 +37,8 @@
 /* UI-버튼전수조사(2026-10-24 사용자 결정): 기본 버튼은 작은 버튼(보이는 --ds-compact-height 32px). 누르는 범위 44px은
    .primary·.secondary·.ghost·.mini는 base-ui.css ::after, 알약 칩·연결 칸·수정 줄은 각자의 ::after가 맡는다. 그 밖의 버튼(이름표 없는 [취소]·[다시 시도] 등)은
    아래 ::after(base-ui.css와 같은 식, :where()로 우선순위 0)가 맡는다. */
-:where(#appView #basketView) :where(button:not([class]),button.quick-pill-primary,button.basket-return-btn,button.ai-summary-run,button.basket-manual-record-toggle):where(:not(.basket-more-menu *,.home-choice-sheet *,.md-body *)){ position:relative; }
-:where(#appView #basketView) :where(button:not([class]),button.quick-pill-primary,button.basket-return-btn,button.ai-summary-run,button.basket-manual-record-toggle):where(:not(.basket-more-menu *,.home-choice-sheet *,.md-body *))::after{ content:""; position:absolute; inset:min(0px,calc((100% - var(--kptu-touch-target,44px)) / 2)); min-width:var(--kptu-touch-target,44px); min-height:var(--kptu-touch-target,44px); }
+:where(#appView #basketView) :where(button:not([class]),button.quick-pill-primary,button.ai-summary-run,button.basket-manual-record-toggle):where(:not(.basket-more-menu *,.home-choice-sheet *,.md-body *)){ position:relative; }
+:where(#appView #basketView) :where(button:not([class]),button.quick-pill-primary,button.ai-summary-run,button.basket-manual-record-toggle):where(:not(.basket-more-menu *,.home-choice-sheet *,.md-body *))::after{ content:""; position:absolute; inset:min(0px,calc((100% - var(--kptu-touch-target,44px)) / 2)); min-width:var(--kptu-touch-target,44px); min-height:var(--kptu-touch-target,44px); }
 /* ① 채운 버튼: 빠른 입력 [추가], 읽기 [연결하기], 수정 [수정 저장], 패널 안 확정 버튼. 위 기본 규칙과 같은 우선순위로 맞춰 뒤에서 덮는다.
    UI-버튼전수조사: 채운 버튼(주 동작)은 입력칸 높이 --kptu-control-height(36px). 줄 안 작은 버튼으로 정한 곳(연결 칸·수정 줄)은 그 규칙이 이긴다. */
 #appView :is(#homeView,#basketView) :is(.home-quick button.home-quick-save,button.primary,button.quick-pill-primary,button[data-basket-save]){ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); }

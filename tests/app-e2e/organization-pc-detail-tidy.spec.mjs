@@ -109,7 +109,7 @@ test('폰 390: 상세 창은 그대로(제목 줄, [크게]·[저장] 한 줄, �
  await expect(modal.locator('.modal-head')).toBeVisible();await expect(page.locator('#wdTitle')).toHaveText('합성 가 지부');
  const big=modal.locator('#wdInboxBig'),save=modal.locator('#wdInboxSave');
  await expect(big).toHaveText('크게');await expect(big.locator('.wd-inbox-big-label')).toBeVisible();
- const b=await box(big),s=await box(save);expect(b.h).toBe(36);expect(s.h).toBe(36);expect(Math.abs(b.top-s.top)).toBeLessThanOrEqual(1);
+ const b=await box(big),s=await box(save);expect(b.h).toBe(32);expect(s.h).toBe(36);expect(Math.abs((b.top+b.h/2)-(s.top+s.h/2))).toBeLessThanOrEqual(1);/* UI-버튼전수조사: [크게]는 보조 32px, [저장] 36px, 같은 줄 가운데 */
  await expect(modal.locator('#wdTaskBody [data-google-task]')).toHaveCount(2);
  // TASK-바로처리통일: 폰은 줄마다 ⋯가 늘 보이고 [연결 해제]는 그 안(창 안에서 열림).
  for(const m of await modal.locator('#wdTaskBody [data-gt-linked-more]').all())await expect(m).toBeVisible();

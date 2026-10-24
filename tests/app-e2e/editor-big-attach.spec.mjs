@@ -44,8 +44,8 @@ for(const width of [390,1280]){
    const t=await page.locator('#wdInboxText').boundingBox();
    expect(b.x+b.width).toBeLessThanOrEqual(t.x+t.width);expect(b.y+b.height).toBeLessThanOrEqual(t.y+t.height);expect(s.y).toBeGreaterThanOrEqual(t.y+t.height);
   }else{
-   // The small input row: [크게] beside [저장], same height, one line, nothing cut off.
-   expect(Math.abs(b.y-s.y)).toBeLessThanOrEqual(1);expect(Math.abs(b.height-s.height)).toBeLessThanOrEqual(1);expect(b.x+b.width).toBeLessThanOrEqual(s.x);
+   // The small input row: [크게] beside [저장], one line, nothing cut off. UI-버튼전수조사: [크게]는 보조 32px·[저장] 36px, 세로 가운데가 같다.
+   expect(Math.abs((b.y+b.height/2)-(s.y+s.height/2))).toBeLessThanOrEqual(1);expect(b.height).toBe(32);expect(s.height).toBe(36);expect(b.x+b.width).toBeLessThanOrEqual(s.x);
    expect(await big.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
   }
   await page.locator('#wdInboxText').fill('통화 내용 첫 줄\n둘째 줄');

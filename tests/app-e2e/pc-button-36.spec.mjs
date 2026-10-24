@@ -65,7 +65,7 @@ async function measure(locator){
  });
 }
 // 글자 크기는 바꾸지 않는다(업무일지 [저장]은 원래 12px): 높이·누르는 범위만 본다.
-async function pcButton(locator,label){const m=await measure(locator);expect(m.height,label).toBe(36);expect(m.touch,label).toBeGreaterThanOrEqual(44);expect(m.above,label+' touch above').toBe(true);expect(m.below,label+' touch below').toBe(true);return m;}
+async function pcButton(locator,label,want=36){const m=await measure(locator);expect(m.height,label).toBe(want);expect(m.touch,label).toBeGreaterThanOrEqual(44);expect(m.above,label+' touch above').toBe(true);expect(m.below,label+' touch below').toBe(true);return m;}
 // UI-PC프로젝트좌우(2026-10-20 사용자 확정): PC 프로젝트 화면 [+ 프로젝트]는 왼쪽 목록 머리의 낮은 버튼(--ds-compact-height 32px), 누르는 범위 44px 그대로.
 async function pcCompact(locator,label){const m=await measure(locator);expect(m.height,label).toBe(32);expect(m.touch,label).toBeGreaterThanOrEqual(44);expect(m.above,label+' touch above').toBe(true);expect(m.below,label+' touch below').toBe(true);return m;}
 
@@ -99,7 +99,7 @@ test('PC 1280: 큰 버튼은 회의 [+ 회의 결과]와 같은 36px, 옆 입력
  expect(errors).toEqual([]);
 });
 
-test('PC 1280: 공유 페이지 큰 버튼([새 공유 페이지]·[다시 불러오기]·[저장]·[링크 만들기])도 36px, 작은 보조 버튼은 그대로',async({page})=>{
+test('PC 1280: 공유 페이지 채운 버튼은 36px, 보조 버튼([다시 불러오기]·[링크 만들기] 등)은 32px(UI-버튼전수조사)',async({page})=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  let listFails=true;
  const row={id:'sp-fixture',title:'Fixture share',status:'draft',project_id:null,blocks:[{type:'summary',text:'fixture'}],updated_at:'2026-10-20T01:00:00.000Z'};
@@ -113,10 +113,10 @@ test('PC 1280: 공유 페이지 큰 버튼([새 공유 페이지]·[다시 불�
  });
  await open(page,'pages');
  const root=page.locator('#sharePagesRoot');
- await pcButton(root.locator('[data-sp-new]'),'새 공유 페이지');await pcButton(root.locator('[data-sp-reload]'),'목록 다시 불러오기');
+ await pcButton(root.locator('[data-sp-new]'),'새 공유 페이지');await pcButton(root.locator('[data-sp-reload]'),'목록 다시 불러오기',32);
  listFails=false;await root.locator('[data-sp-reload]').click();
  await root.locator('[data-sp-open="sp-fixture"]').click();
- await pcButton(root.locator('[data-sp-save]'),'공유 페이지 저장');await pcButton(root.locator('[data-sp-link-create]'),'링크 만들기');
+ await pcButton(root.locator('[data-sp-save]'),'공유 페이지 저장',await root.locator('[data-sp-save]').evaluate(el=>el.matches('.primary')?36:32));await pcButton(root.locator('[data-sp-link-create]'),'링크 만들기',await root.locator('[data-sp-link-create]').evaluate(el=>el.matches('.primary')?36:32));
  expect((await measure(root.locator('[data-sp-add-block]').first())).height).toBe(32);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
  expect(errors).toEqual([]);

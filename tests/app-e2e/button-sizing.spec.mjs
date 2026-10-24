@@ -125,7 +125,7 @@ for(const width of [390,760,761,1440])test('calendar controls paint 32px with re
  expect(painted.font).toBe('13px');expect(painted.radius).toBe('8px');
  expect((await button.innerText()).replace(/\s+/g,' ').trim()).toBe(width<=760?'+':'+ 일정 등록');
  if(width<=760){expect(rect.width).toBeGreaterThanOrEqual(45);expect(rect.width).toBeLessThanOrEqual(47);}
- else{const pad=width>=1024?'12px':'14px';expect(painted.paddingLeft).toBe(pad);expect(painted.paddingRight).toBe(pad);}
+ else{const pad='12px';/* UI-버튼전수조사: 머리줄 버튼은 작은 버튼 여백(--ds-compact-pad-x) */expect(painted.paddingLeft).toBe(pad);expect(painted.paddingRight).toBe(pad);}
  const original=await browser.newPage({viewport:{width,height:900}});
  await baseline(original,'8d9a30626b11c0826def8393cefdf65934489d2f');await boot(original);await view(original,'calendar');
  for(const selector of ['#prevMonthBtn','#nextMonthBtn']){
@@ -190,6 +190,6 @@ for(const width of [390,1440])test('D-button Google event editor delete and save
  await page.clock.setFixedTime(new Date('2026-10-05T03:00:00Z'));await page.setViewportSize({width,height:900});
  await boot(page,[],[{id:'size-event',calendarId:'primary',title:'Fixture event',start:'2026-10-05',end:'2026-10-06',allDay:true,color:'#7986cb'}]);
  await view(page,'calendar');const chip=page.locator('.cp-event[data-google-event="size-event"]').first();await expect(chip).toBeVisible();await chip.click();
- await expect(page.locator('#ciGoogleDelete')).toBeEnabled();await dsStandard(page,'#ciGoogleDelete');await dsStandard(page,'#ciGoogleSave');
+ await expect(page.locator('#ciGoogleDelete')).toBeEnabled();await dsStandard(page,'#ciGoogleDelete',32);await dsStandard(page,'#ciGoogleSave',36);
  expect(await page.locator('#ciGoogleModal .modal-card').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
 });
