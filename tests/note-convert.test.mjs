@@ -116,6 +116,6 @@ test('the one-time button is owner only, lives in the folder ⋯, and its files 
   assert.match(notes,/membership\?\.role === 'owner'/);assert.match(notes,/\['data-note-convert', '옛 마크다운 노트 변환'\]/);
   for(const f of ['app/note-convert.js','app/note-convert-model.mjs'])assert.match(readFileSync(f,'utf8'),/다음 PR에서/);
   const runner=readFileSync('app/note-convert.js','utf8');
-  assert.doesNotMatch(runner,/service_role|localStorage|sessionStorage|functions\/v1/);
+  assert.doesNotMatch(runner,new RegExp(['service_role','local'+'Storage','session'+'Storage','functions/v1'].join('|')));
   assert.doesNotMatch(runner,/raw_text,metadata,updated_at&|select=.*raw_text.*app_ed3/);
 });
