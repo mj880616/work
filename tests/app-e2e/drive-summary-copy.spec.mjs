@@ -8,8 +8,8 @@ for(const raw of ['\n 첫 줄\n\n\t끝  ','\r\n\tCRLF\r끝  ','  <script>문자<
  const data={organizations:[],organizationUpdates:[],projects:[],workstreams:[],progress:[],milestones:[],taskLinks:[],documents:[],meetings:[],notes:notes(raw),noteLinks:[]};
  const html=renderDocuments(data,now).project;
  await page.setContent(html);
- await expect(page.getByRole('heading',{name:'정리함'})).toBeVisible();
- await expect(page.getByText('정리함 미분류 메모 1건 (내용은 Web2 바구니에서 확인)')).toBeVisible();
+ await expect(page.getByRole('heading',{name:'바구니'})).toBeVisible();
+ await expect(page.getByText('바구니 미분류 메모 1건 (내용은 Web2 바구니에서 확인)')).toBeVisible();
  expect(await page.locator('pre').count()).toBe(0);
  expect(await page.locator('a').count()).toBe(0);
  expect(await page.locator('script').count()).toBe(0);

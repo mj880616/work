@@ -195,7 +195,7 @@ test('an archived update leaves 연결하기 out of its row menu, as the detail 
   await page.locator('[data-basket-filter="archived"]').click();
   await expect(rowMore(page, B)).toBeVisible();
   await rowMore(page, B).click();
-  await expect(menu(page).locator('button')).toHaveText(['수정', '할 일 만들기', '노트로 옮기기', '사업 보고로 옮기기', '보류로', '삭제']);
+  await expect(menu(page).locator('button')).toHaveText(['수정', '할 일 만들기', '노트로 옮기기', '사업 보고로 옮기기', '보류 해제', '삭제']);
   await page.keyboard.press('Escape'); await expect(menu(page)).toBeHidden();
   expect(f.errors).toEqual([]);
 });

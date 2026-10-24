@@ -54,7 +54,7 @@ for(const width of [390,1280])test(`approved summaries stay in organization and 
  f.note.archived_at=stamp;f.note.ai_export_allowed=false;await org(page);await expect(page.locator('#wdUpdates')).toContainText('한빛지부, 기자회견 취소 확인');await page.locator('#wdUpdates a[data-basket-link-open]').first().click();
  // UI-모바일업데이트겹쳐보기: on a phone the tap shows the record as a card over the detail; [바구니에서 열기] then opens the basket.
  if(width<=760){const sheet=page.locator('#kptuRecordSheet');await expect(sheet).toBeVisible();await expect(sheet.locator('[data-record-sheet-text]')).toHaveText(f.note.raw_text);await expect(page.locator('#wdModal')).toBeVisible();await sheet.getByRole('button',{name:'정리함에서 열기'}).click()}
- await expect(page.locator('#wdModal')).toBeHidden();await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await expect(page.locator('[data-basket-archive]')).toHaveText('보관 해제');expect(f.errors).toEqual([]);
+ await expect(page.locator('#wdModal')).toBeHidden();await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await expect(page.locator('[data-basket-archive]')).toHaveText('보류 해제');expect(f.errors).toEqual([]);
 });
 test('a summary saved after leaving detail keeps home clean and is retrievable from the organization without restoring the old editor',async({page})=>{
  const f=await fixture(page);await connect(page);await org(page);const row=page.locator('#wdUpdates [data-basket-link]');await linkAction(row,'요약 수정');await row.locator('textarea').fill('늦게 저장된 승인 요약');

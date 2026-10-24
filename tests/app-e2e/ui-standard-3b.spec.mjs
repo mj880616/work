@@ -78,7 +78,7 @@ test('폰 하단 탭 6칸: 정리함 색 아이콘, [메뉴] 탭이 메뉴 창�
  const menuTab=page.locator('#mobileMenuTab');await expect(menuTab).toHaveAttribute('aria-expanded','false');
  await menuTab.click();await expect(page.locator('#mobileMenu')).toBeVisible();await expect(menuTab).toHaveAttribute('aria-expanded','true');
  // 바구니는 하단 탭으로 옮겨 메뉴 창에서 뺐다. UI-디자인손질 4: 큰 칸 [쓰기]·회의·자료실·HWP 편집·성명·보도자료(한 칸)·게시판.
- await expect(page.locator('#mobileMenu nav button:visible')).toHaveText(['사업 보고','자료실','HWP 편집','성명·보도자료','공유 페이지','원장','통화','텔레그램 소식']);
+ await expect(page.locator('#mobileMenu nav button:visible')).toHaveText(['노트','사업 보고','자료실','HWP 편집','성명·보도자료','공유 페이지','원장','통화','텔레그램 소식']);
  await page.keyboard.press('Escape');await expect(page.locator('#mobileMenu')).toBeHidden();await expect(menuTab).toBeFocused();await expect(menuTab).toHaveAttribute('aria-expanded','false');
  await menuTab.click();await page.locator('#mobileMenu [data-view="library"]').click();await loaded(page,'library');await expect(page.locator('#mobileMenu')).toBeHidden();
  await page.locator('.mobile-tabs [data-view="basket"]').click();await loaded(page,'basket');await expect(page.locator('.mobile-tabs [data-view="basket"]')).toHaveAttribute('aria-current','page');
@@ -241,9 +241,9 @@ test('정리함: [⋯] 작은 메뉴(목록을 밀지 않음·Esc·바깥·키�
  await page.mouse.click(30,400);await expect(menu).toBeHidden();await expect(more).toHaveAttribute('aria-expanded','false');
  await more.focus();await page.keyboard.press('Enter');await page.keyboard.press('Tab');await page.keyboard.press('Tab');await expect(menu).toBeHidden();
  // 입력칸: 하단 탭 바로 위 한 줄, 테두리 하나, 손잡이 없음, 첨부 클립 그대로.
- // UI-버튼작게 ③: 입력칸은 아래 탭 위 전환 줄([메모 | 노트]) 바로 위.
+ // UI-버튼작게 ③ + BASKET-정리함이름: 입력칸은 아래 탭 바로 위(아래 전환 줄이었던 [메모 | 노트]는 [노트] 독립 메뉴로 옮겨 없다).
  const quick=basket.locator('[data-basket-list] .home-quick'),input=quick.locator('[data-quick-input]');
- expect(Math.round((await box(quick)).bottom)).toBe(Math.round((await box(page.locator('.mobile-tabs'))).top)-44);
+ expect(Math.round((await box(quick)).bottom)).toBe(Math.round((await box(page.locator('.mobile-tabs'))).top));
  await expect(input).toHaveCSS('height','46px');await expect(input).toHaveCSS('resize','none');await expect(quick).toHaveCSS('border-left-width','0px');await expect(quick).toHaveCSS('border-bottom-width','0px');
  await expect(quick.locator('.basket-clip')).toBeVisible();
  expect(errors).toEqual([]);
@@ -286,7 +286,7 @@ for(const width of [1280,761])test(`정리함: 넓은 화면 ${width}에서 [⋯
  await expect(basket.locator('.basket-switch-row [data-basket-more]')).toHaveCount(1);
  await expect(basket.locator('[data-basket-filter]')).toHaveText(['미분류 2','분류 완료','보류']);
  await expect(basket.locator('[data-basket-filter="classified"]')).toHaveAttribute('data-basket-filter','classified');
- const m=await box(more),last=await box(basket.locator('[data-basket-filter="archived"]')),kind=await box(basket.locator('.basket-filters')),row=await box(basket.locator('.basket-switch-row')),head=await box(basket.locator(':scope > .basket-head'));
+ const m=await box(more),last=await box(basket.locator('[data-basket-filter="archived"]')),kind=await box(basket.locator('[data-update-filters]')),row=await box(basket.locator('.basket-switch-row')),head=await box(basket.locator(':scope > .basket-head'));
  expect(m.top).toBeGreaterThanOrEqual(head.bottom-1);
  expect(Math.abs((m.top+m.bottom)/2-(kind.top+kind.bottom)/2)).toBeLessThanOrEqual(24);
  expect(m.left).toBeGreaterThan(last.right);expect(Math.abs(m.right-row.right)).toBeLessThanOrEqual(2);

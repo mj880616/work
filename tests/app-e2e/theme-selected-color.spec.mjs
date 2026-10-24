@@ -51,7 +51,7 @@ test('PC 1280: 이동 뒤에도 사이드바에 채워진 항목은 지금 화�
  await nav(page).locator('.nav-btn[data-view="projects"]').click();await expect(page.locator('#projectsView')).toBeVisible();await seen('프로젝트');
  await expect(nav(page).locator('.nav-btn.active')).toHaveCount(1);
  // 바구니 [노트] → 다른 화면.
- await nav(page).locator('.nav-sub[aria-label="정리함"]').getByRole('button',{name:'노트',exact:true}).click();await expect(page.locator('#basketView')).toBeVisible();await seen('노트');
+ await nav(page).locator('.nav-btn[data-basket-kind-nav="note"]').click();await expect(page.locator('#basketView')).toBeVisible();await seen('노트');
  await nav(page).locator('.nav-btn[data-view="team"]').click();await expect(page.locator('#teamView')).toBeVisible();await seen('담당조직');
  expect(errors).toEqual([]);
 });
@@ -77,10 +77,10 @@ for(const theme of ['olive','terracotta']){
  });
 }
 
-test('폰 390: 메뉴 판 타일 여덟이 같은 모양이고 낮다(CALL·TG: 통화·텔레그램 소식 추가)',async({page})=>{
+test('폰 390: 메뉴 판 타일 아홉이 같은 모양이고 낮다(CALL·TG: 통화·텔레그램 소식 추가)',async({page})=>{
  const errors=await open(page,390);
  await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu .mobile-menu-panel')).toBeVisible();
- const tiles=page.locator('#mobileMenu .mobile-menu-panel nav button');await expect(tiles).toHaveCount(8);
+ const tiles=page.locator('#mobileMenu .mobile-menu-panel nav button');await expect(tiles).toHaveCount(9);
  const look=await tiles.evaluateAll(els=>els.map(e=>{const s=getComputedStyle(e);return {bg:s.backgroundColor,color:s.color,border:s.borderTopColor,h:Math.round(e.getBoundingClientRect().height)}}));
  for(const t of look){expect(t).toEqual(look[0]);expect(t.h).toBeLessThanOrEqual(60);expect(t.h).toBeGreaterThanOrEqual(44)}
  expect(errors).toEqual([]);

@@ -744,7 +744,7 @@
 #appView #calendarView .calendar-toolbar .calendar-view-switch button[hidden]{ display:none; }
 
 /* ② 필터·날짜 고르기(알약 칩): 바구니 [미분류·분류·보류]와 [분류] 아래 분류된 곳 칩, 자료실 프로젝트·자료 분류, 회의 종류, 성명·보도자료 종류, 할 일 [프로젝트 ▾]·[오늘]·[내일]·[날짜]. */
-#appView #basketView .basket-switch-row .basket-filters,
+#appView #basketView .basket-switch-row .basket-filters:not([hidden]),
 #appView #homeView .home-quick [data-quick-task-options]:not([hidden]),
 #appView #mediaView .w1p-filters:not([hidden]){ display:flex; flex-wrap:wrap; align-items:center; gap:12px 6px; width:auto; max-width:100%; margin:0; padding:0; background:transparent; border:0; border-radius:0; }
 #appView :is(#libraryView,#meetingsView,#basketView) .filter-chips:not([hidden]){ display:flex; flex-wrap:nowrap; align-items:center; gap:6px; min-height:var(--kptu-touch-target,44px); padding:calc((var(--kptu-touch-target,44px) - var(--ds-compact-height)) / 2) 2px; }
@@ -793,6 +793,7 @@
 /* ③ 전환·필터 한 줄: 바구니 [업데이트 | 노트] 오른쪽에 [미분류·분류·보류](넘치면 다음 줄). 목록이 숨으면(노트·읽기·분류 창) 필터도 숨는다. */
 #appView #basketView .basket-switch-row:not([hidden]){ display:flex; flex-wrap:wrap; align-items:center; gap:12px 10px; min-height:var(--kptu-touch-target,44px); margin:0 0 8px; }
 #appView #basketView:has(> [data-basket-list][hidden]) .basket-switch-row .basket-filters{ display:none; }
+#appView #basketView .basket-filters[hidden]{ display:none; }
 /* UI-바구니거르기: [분류]를 고르면 바로 아래 한 줄에 분류된 곳 칩 [전체·담당조직·프로젝트·자료실·할 일](공용 filter-chips.js, 자료실·회의와 같은 알약).
    넘치면 옆으로 밀어 본다. 목록이 숨으면(노트·읽기·분류 창) 함께 숨는다. */
 #appView #basketView > .basket-place-filter:not([hidden]){ width:auto; max-width:100%; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; margin:-8px 0 4px; background:transparent; border-radius:0; }
