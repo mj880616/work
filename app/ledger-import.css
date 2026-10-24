@@ -167,3 +167,40 @@
 @media(hover:hover){ #appView #ledgerView .lg-text-btn:hover:not(:disabled){ text-decoration:underline; } }
 #appView #ledgerView .lb-auto{ color:var(--kptu-primary-ink); }
 #appView #ledgerView .lb-detail-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:8px; min-width:0; }
+/* LEDGER-화면정리·LEDGER-수정요청(2026-10-24): 첫 화면 칸(안 지킨 약속·추적 중·칩·최근 자동), 이야기 타임라인, [+ 기록하기], 고치기 칸.
+   값은 공용 토큰만. 보조 버튼은 작은 크기(UI-버튼기준), 누르는 범위 44px. 큰 채운 버튼은 고치기 칸의 [반영] 하나. */
+#appView #ledgerView .lb-add{ position:relative; flex:none; box-sizing:border-box; height:var(--ds-compact-height); margin:0; padding:0 var(--ds-compact-pad-x); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap; cursor:pointer; }
+#appView #ledgerView .lb-add::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+#appView #ledgerView .lb-add:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+#appView #ledgerView .lb-sec{ margin:12px 0 0; min-width:0; }
+#appView #ledgerView .lb-sec:first-child{ margin-top:4px; }
+#appView #ledgerView .lb-sec-h{ display:flex; align-items:baseline; gap:6px; margin:0 0 4px; font-size:var(--ds-text-section); font-weight:var(--ds-weight-medium); color:var(--kptu-muted); }
+#appView #ledgerView .lb-sec-h:focus{ outline:none; }
+#appView #ledgerView .lb-sec-n{ font-size:var(--ds-text-meta); font-weight:var(--ds-weight-regular); color:var(--kptu-faint); font-variant-numeric:tabular-nums; }
+#appView #ledgerView [data-lb-sec="overdue"] .lbr-summary{ color:var(--kptu-danger); }
+#appView #ledgerView .lb-topics{ display:flex; flex-wrap:wrap; gap:6px; margin:4px 0; }
+#appView #ledgerView .lb-topic{ position:relative; box-sizing:border-box; display:inline-flex; align-items:center; gap:4px; height:var(--ds-compact-height-sm); margin:0; padding:0 10px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-chip-radius); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:var(--ds-text-meta); line-height:1; white-space:nowrap; cursor:pointer; }
+#appView #ledgerView .lb-topic::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+#appView #ledgerView .lb-topic:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+#appView #ledgerView .lb-topic-n{ color:var(--kptu-faint); font-variant-numeric:tabular-nums; }
+#appView #ledgerView [data-lb-chips="topic"] .lb-topic{ border-style:dashed; }
+#appView #ledgerView .lb-story-head{ display:flex; align-items:center; gap:8px; margin:4px 0 8px; min-width:0; }
+#appView #ledgerView .lb-story-head .lb-sec-h{ margin:0; color:var(--kptu-ink); }
+/* 이야기: 세로 선 하나에 줄마다 점. 줄은 목록과 같은 모양(종류 꼬리표·제목·날짜), 누르면 같은 상세. */
+#appView #ledgerView .lb-timeline{ position:relative; list-style:none; margin:0; padding:0 0 0 18px; }
+#appView #ledgerView .lb-timeline::before{ content:""; position:absolute; left:6px; top:6px; bottom:6px; width:2px; border-radius:1px; background:var(--ds-line); }
+#appView #ledgerView .lb-timeline > .lb-item{ position:relative; border-top:0; }
+#appView #ledgerView .lb-timeline > .lb-item::before{ content:""; position:absolute; left:-16px; top:13px; width:8px; height:8px; border-radius:50%; background:var(--kptu-surface); border:2px solid var(--kptu-primary); box-sizing:border-box; }
+#appView #ledgerView .lb-manual{ color:var(--kptu-ink); }
+#appView #ledgerView .lf-card{ display:flex; flex-direction:column; gap:8px; }
+#appView #ledgerView .lf-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; min-width:0; }
+#appView #ledgerView .lf-h{ margin:0; font-size:var(--ds-text-section); font-weight:var(--ds-weight-medium); overflow-wrap:anywhere; }
+#appView #ledgerView .lf-text{ box-sizing:border-box; width:100%; min-height:56px; padding:8px var(--ds-control-pad-x); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:var(--ds-text-read); line-height:1.6; resize:vertical; }
+#appView #ledgerView .lf-text:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+#appView #ledgerView :is(.lf-row,.lf-actions){ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+#appView #ledgerView .lf-hint{ font-size:var(--ds-text-meta); }
+#appView #ledgerView .lf-preview{ display:flex; flex-direction:column; gap:8px; padding:10px 12px; border-radius:var(--ds-radius-box); background:var(--kptu-surface-subtle); }
+#appView #ledgerView .lf-lines{ margin:0; padding-left:18px; font-size:var(--ds-text-read); line-height:1.6; color:var(--kptu-ink); overflow-wrap:anywhere; }
+@media (max-width:760px){
+  #appView #ledgerView .lb-bar{ flex-wrap:wrap; }
+}

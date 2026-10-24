@@ -27,6 +27,8 @@
 //   이미 있는 "자료별 AI 요약 표" app_document_ai_index에 'b1:' 지문 행으로 저장한다(내 로그인 토큰, owner RLS). 옛 행('b1:' 아님)은
 //   덮어쓰지 않는다(그 자료는 요약 없이 제목만, Q1 ①). 같은 글자 지문의 요약이 이미 있으면 AI 없이 복사한다.
 //   예전 자료(Q4 ②): tidy가 올린 날 제한 없이 오래된 것부터, 하루 AI 한도 안에서 나눠 채운다(LIBRARY_BRIEF_BACKFILL_UNTIL).
+// 원장 고치기 미리보기(kind=ledger_fix, LEDGER-수정요청): 일상어 한 줄 → 원장 수정 요청 모양. AI 답은 다시 검사하고 DB 해 보기로 전·후만
+//   돌려준다(서버는 반영하지 않음). 교섭·전략(S2) 기록은 AI에 보내지 않는다.
 // 주요 일정 제목 다듬기(kind=schedule_titles, WEEKLY-일정다듬기 ④): 주간보고 한글 파일 '5. 주요 일정 — 제목 확인'의 [AI로 다듬기]를 누를 때만.
 //   화면은 주(월요일)와 일정 줄(참조·날짜·시각·달력 제목·장소, 30개까지)만 보낸다(이 쓰임만 몸통 20KB, 나머지는 2KB 그대로).
 //   업무 기록·이름 목록은 서버가 내 로그인으로 읽는다(일기·보관·AI 제외 업데이트 빼고). 답은 제안으로만 돌려주고 저장하지 않는다.
@@ -58,6 +60,10 @@ import {
   addDays as addDayKeys, packScheduleRecords, parseScheduleRequest, parseScheduleTitles, SCHEDULE_BODY_BYTES, SCHEDULE_MAX_OUTPUT_TOKENS,
   SCHEDULE_MAX_NAMES, SCHEDULE_TITLES_INSTRUCTIONS, SCHEDULE_TITLES_SCHEMA, scheduleMaterial, type ScheduleEvent, type ScheduleRecord,
 } from "./schedule-titles.ts";
+import {
+  fixMaterial, fixRequest, FIX_MAX_OUTPUT_TOKENS, FIX_KNOWN_RECORDS, type FixName, type FixRecord, LEDGER_FIX_INSTRUCTIONS, LEDGER_FIX_SCHEMA,
+  parseFixRequest, parseLedgerFix, sendableRecord,
+} from "./ledger-fix.ts";
 
 export type Env = (name: string) => string | undefined;
 export type Log = (code: string, detail?: Record<string, unknown>) => void;
@@ -80,7 +86,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 50회. 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 50;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, ledger_auto: 16, library_fill: 50, org_summary: 50, schedule_titles: 20 });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20 });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -133,6 +139,9 @@ export const MESSAGES: Readonly<Record<string, string>> = Object.freeze({
   ledger_unavailable: "원장 후보를 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   ledger_busy: "원장 자동 기록이 이미 돌고 있어요. 잠시 뒤 다시 시도해 주세요.",
   ledger_record_failed: "원장에 기록하지 못했어요. 다음에 다시 시도해요.",
+  ledger_fix_sensitive: "교섭·전략 기록은 AI로 고치지 않아요. Claude 수정안을 붙여 넣어 주세요.",
+  ledger_fix_inactive: "이미 대체됐거나 폐기된 기록이에요.",
+  ledger_fix_rejected: "원장 형식에 맞지 않아 미리보기를 만들지 못했어요. 문장을 바꿔 다시 써 주세요.",
   library_not_ready: "자료 정보 채우기가 아직 준비되지 않았어요.",
   library_unavailable: "자료를 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   org_summary_not_ready: "조직 현황 요약 기능이 아직 준비되지 않았어요.",
@@ -333,6 +342,7 @@ type LinkSummaryInput = { kind: "link_summary"; source: LinkSource; target_kind:
 type TodoRadarInput = { kind: "todo_radar"; mode: "auto" | "again" };
 type LedgerCandidatesInput = { kind: "ledger_candidates" };
 type LedgerAutoInput = { kind: "ledger_auto" };
+type LedgerFixInput = { kind: "ledger_fix"; text: string; target: string | null };
 type OrgSummaryInput = { kind: "org_summary"; week_start: string; organization_ids: string[] };
 type ScheduleTitlesInput = { kind: "schedule_titles"; week_start: string; events: ScheduleEvent[] };
 
@@ -379,7 +389,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LedgerAutoInput | LibraryFillInput | OrgSummaryInput | ScheduleTitlesInput {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | ScheduleTitlesInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -395,6 +405,12 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | Ledger
   if (b.kind === "ledger_auto") {
     if (Object.keys(b).join(",") !== "kind") throw new Fail(400, "invalid_request");
     return { kind: "ledger_auto" };
+  }
+  // 원장 고치기(ledger_fix): 일상어 한 줄(500자)과, 기록 상세에서 열었으면 그 기록의 고정 ID만. 미리보기만 돌려주고 반영하지 않는다.
+  if (b.kind === "ledger_fix") {
+    const parsed = parseFixRequest(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    return { kind: "ledger_fix", ...parsed };
   }
   if (b.kind === "library_fill") return parseLibraryFillRequest(b);
   if (b.kind === "org_summary") return parseOrgSummaryRequest(b);
@@ -1445,6 +1461,123 @@ async function runLedgerAuto(ctx: Ctx, deps: RadarDeps): Promise<Response> {
   }
 }
 
+// ---- 쓰임 ledger_fix: 원장 고치기 미리보기(LEDGER-수정요청, docs/design/ledger-auto-record.md 7절·10절 4번) -----------------------------
+// 화면은 일상어 한 줄과(⋯ [고치기]면) 그 기록 ID만 보낸다. 서버가 내 로그인으로 대상·최근 기록·조직·주제를 읽고 AI 한 번,
+// 답을 믿지 않는 입력으로 다시 검사(ledger-fix.ts)해 수정 요청 모양을 만든 뒤 DB 함수 해 보기(p_dry_run=true)로 전·후만 받는다.
+// 서버는 반영하지 않는다. [반영]은 화면이 같은 요청을 사용자 손으로 app_apply_ledger_fix(p_dry_run=false)에 한 번 보낸다.
+const FIX_RECORD_COLS = "ledger_id,kind,title,summary,validity,sensitivity,date_start,date_precision,event_status,decision_type,counterparty,commitment_status,follow_up_on,importance";
+const toFixRecords = (rows: Record<string, unknown>[]): FixRecord[] => rows
+  .filter((r) => typeof r.ledger_id === "string" && typeof r.kind === "string" && typeof r.title === "string" && typeof r.validity === "string" && typeof r.sensitivity === "string")
+  .map((r) => ({
+    ledger_id: r.ledger_id as string, kind: r.kind as string, title: r.title as string, summary: typeof r.summary === "string" ? r.summary : "",
+    validity: r.validity as string, sensitivity: r.sensitivity as string, date_start: typeof r.date_start === "string" ? r.date_start : null,
+    date_precision: typeof r.date_precision === "string" ? r.date_precision : "unknown", event_status: typeof r.event_status === "string" ? r.event_status : null,
+    decision_type: typeof r.decision_type === "string" ? r.decision_type : null, counterparty: typeof r.counterparty === "string" ? r.counterparty : null,
+    commitment_status: typeof r.commitment_status === "string" ? r.commitment_status : null, follow_up_on: typeof r.follow_up_on === "string" ? r.follow_up_on : null,
+    importance: typeof r.importance === "string" ? r.importance : "normal",
+  }));
+const toNames = (rows: Record<string, unknown>[]): FixName[] => rows
+  .filter((r) => typeof r.ledger_id === "string" && /^[A-Z]{2,6}-\d{4,6}$/.test(r.ledger_id) && typeof r.name === "string" && r.name.trim() !== "")
+  .map((r) => ({ id: r.ledger_id as string, name: (r.name as string).trim() }));
+
+async function runLedgerFix(ctx: Ctx, input: LedgerFixInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const today = kstDay(started);
+  const ws = encodeURIComponent(ctx.workspaceId);
+  const read = async (path: string) => {
+    try {
+      const rows = await rest(ctx, path);
+      if (!Array.isArray(rows)) throw new Error("shape");
+      return rows as Record<string, unknown>[];
+    } catch (e) {
+      if ((e as Error)?.message === "rest_404") throw new Fail(503, "ledger_not_ready");
+      throw new Fail(503, "ledger_unavailable");
+    }
+  };
+  let target: FixRecord | null = null;
+  if (input.target) {
+    const rows = toFixRecords(await read(`app_ledger_records?workspace_id=eq.${ws}&ledger_id=eq.${encodeURIComponent(input.target)}&select=${FIX_RECORD_COLS}&limit=2`));
+    if (rows.length !== 1 || rows[0].ledger_id !== input.target) throw new Fail(404, "not_found");
+    target = rows[0];
+    if (!["current", "needs_check", "fulfilled"].includes(target.validity)) throw new Fail(409, "ledger_fix_inactive");
+    // 교섭·전략(S2) 기록은 AI에 보내지 않는다(ledger_auto와 같은 기준). Claude 수정안 붙여 넣기 길은 화면에 그대로 있다.
+    if (!sendableRecord(target)) throw new Fail(422, "ledger_fix_sensitive");
+  }
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+  const budget = await checkBudget(ctx, "ledger_fix", started, config.price);
+  const known = toFixRecords(await read(`app_ledger_records?workspace_id=eq.${ws}&validity=in.(current,needs_check,fulfilled)&sensitivity=in.(S0,S1)&select=${FIX_RECORD_COLS}&order=updated_at.desc&limit=${FIX_KNOWN_RECORDS}`))
+    .filter(sendableRecord);
+  const orgs = toNames(await read(`app_ledger_organizations?workspace_id=eq.${ws}&status=eq.active&select=ledger_id,name&order=name.asc&limit=200`));
+  const topics = toNames(await read(`app_ledger_topics?workspace_id=eq.${ws}&status=eq.active&select=ledger_id,name&order=sort_order.asc,name.asc&limit=100`));
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch {
+    throw new Fail(503, "usage_unavailable");
+  }
+  const material = fixMaterial(input.text, today, target, known, orgs, topics);
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: FIX_MAX_OUTPUT_TOKENS,
+    input: [
+      { role: "developer", content: LEDGER_FIX_INSTRUCTIONS },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "ledger_fix", strict: true, schema: LEDGER_FIX_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: FIX_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  if (!result.ok) {
+    deps.log(result.code);
+    const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
+    throw new Fail(status, result.code);
+  }
+  const records = new Map<string, FixRecord>(known.map((r) => [r.ledger_id, r]));
+  if (target) records.set(target.ledger_id, target);
+  const parsed = parseLedgerFix(outputText(result.raw, 64 * 1024), {
+    today, target, records, orgs: new Set(orgs.map((o) => o.id)), topics: new Set(topics.map((t) => t.id)),
+  });
+  if (!parsed) {
+    deps.log("ai_invalid_response");
+    throw new Fail(502, "ai_invalid_response");
+  }
+  if (!parsed.items.length) {
+    deps.log("ledger_fix_unclear", { dropped: parsed.dropped });
+    return json({ ok: true, kind: "ledger_fix", request: null, preview: [], question: parsed.question || "무엇을 고칠지 알아듣지 못했어요. 기록 이름과 바뀐 내용을 함께 써 주세요." });
+  }
+  // DB 해 보기: 대상 존재·이미 대체·칸 규칙을 DB가 한 번 더 본다. 아무것도 남지 않는다.
+  const request = fixRequest(parsed.items);
+  let dry: unknown;
+  try {
+    dry = await ledgerRpc(ctx, "app_apply_ledger_fix", { p_workspace_id: ctx.workspaceId, p_request: request, p_dry_run: true });
+  } catch (e) {
+    if (e instanceof LedgerRpcError) {
+      if (e.status === 404) throw new Fail(503, "ledger_not_ready");
+      if (e.dbCode === "LEDGER_FIX_NOT_OWNER") throw new Fail(403, "forbidden");
+      if (e.dbCode === "LEDGER_FIX_TARGET_INACTIVE") throw new Fail(409, "ledger_fix_inactive");
+      if (e.dbCode && /^LEDGER_(FIX|AUTO)_/.test(e.dbCode)) {
+        deps.log("ledger_fix_rejected", { reason: e.dbCode });
+        throw new Fail(422, "ledger_fix_rejected");
+      }
+    }
+    throw new Fail(503, "ledger_unavailable");
+  }
+  const d = (dry ?? {}) as Record<string, unknown>;
+  if (d.dry_run !== true || !Array.isArray(d.items) || d.items.length !== parsed.items.length) throw new Fail(503, "ledger_unavailable");
+  deps.log("ledger_fix_preview", { items: parsed.items.length, dropped: parsed.dropped });
+  return json({ ok: true, kind: "ledger_fix", request, preview: d.items, question: parsed.question });
+}
+
 // ---- 자료실 빈 칸 채우기(library_fill, LIB-AI자동분류) -----------------------------------------------------------
 
 const LIBRARY_SELECT_BASE = "id,workspace_id,title,category,source,document_date,file_name,mime_type,created_at,updated_at,field_origin,extracted_text,extraction_status,classification_note,project_id,organization_id";
@@ -2277,6 +2410,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "todo_radar") return await runTodoRadar(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "ledger_candidates") return await runLedgerCandidates(ctx, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "ledger_auto") return await runLedgerAuto(ctx, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "ledger_fix") return await runLedgerFix(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "library_fill") return await runLibraryFill(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "org_summary") return await runOrgSummary(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "schedule_titles") return await runScheduleTitles(ctx, input, { env: deps.env, now, sleep, log, doFetch });

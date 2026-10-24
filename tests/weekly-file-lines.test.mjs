@@ -48,3 +48,21 @@ test('fileVerdict: repeat upload folds, record match folds or marks, an attachme
   const item = m.fileItem(d, '2026-10-06', {verdict:'same', reason:'record'});
   assert.equal(m.isFolded(item), true); assert.deepEqual(m.shownItems([item]), []);
 });
+
+// 화면 ②: 그 주 고침(draft.docs) — 고친 줄은 그 주 글만, 뺀 자료는 '뺀 자료', 접힌 자료 [넣기]는 보이는 줄로.
+test('자료 줄 고침 적용: 고치기·빼기·넣기와 칸 안 자리', async () => {
+  const f = await import('../app/weekly-file-lines.mjs');
+  const item = {day:'2026-10-06', text:'제목 — 요약', requests:[], file:{id:'d1', verdict:'new', reason:'', same:1}};
+  const folded = {...item, file:{...item.file, verdict:'same', reason:'record'}};
+  assert.equal(f.applyDocEdit(item, undefined), item);
+  const edited = f.applyDocEdit(item, {text:'고친 줄'});
+  assert.deepEqual([edited.text, edited.file.original, edited.file.edited, f.fileBucket(edited)], ['고친 줄', '제목 — 요약', true, 'items']);
+  assert.equal(f.fileBucket(f.applyDocEdit(item, {drop:true})), 'dropped');
+  assert.equal(f.fileBucket(folded), 'folded');
+  const kept = f.applyDocEdit(folded, {keep:true});
+  assert.deepEqual([f.fileBucket(kept), kept.file.kept], ['items', true]);
+  // 넣은 뒤 빼면 '뺀 자료'. 새 자료에 keep은 아무 일 없음.
+  assert.equal(f.fileBucket(f.applyDocEdit(folded, {keep:true, drop:true})), 'dropped');
+  assert.equal(f.applyDocEdit(item, {keep:true}).file.kept, undefined);
+  assert.deepEqual(f.shownItems([item, folded, kept, f.applyDocEdit(item, {drop:true})]).map(i => i.file.verdict), ['new', 'same']);
+});

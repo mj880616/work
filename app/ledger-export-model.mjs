@@ -61,15 +61,15 @@ export function exportResult(data) {
 }
 
 const CODE_TEXT = {
-  NOT_DEPLOYED: '서버 준비 전입니다(drive-summary 재배포 뒤 쓸 수 있음).',
-  LEDGER_NOT_READY: '원장 표가 아직 없습니다.',
+  NOT_DEPLOYED: '서버 준비 전이에요.',
+  LEDGER_NOT_READY: '원장 준비 전이에요.',
   DRIVE_PUBLIC_SHARING_FOUND: 'Drive 사본 폴더나 파일에 공개 공유가 있어 멈췄습니다. Drive에서 "일반 액세스: 제한됨"으로 바꾼 뒤 다시 하세요.',
   DRIVE_CONFIG_MISSING: 'Google Drive 연결이 없습니다.',
   DRIVE_TOKEN_FAILED: 'Google Drive 연결을 확인하지 못했습니다.',
   DRIVE_DUPLICATE_MARKERS: 'Drive에 같은 표시의 파일이 둘 있어 멈췄습니다.',
-  LEDGER_DOC_LIMIT: '백업 JSON은 올렸지만 읽기용 문서가 너무 커서 목록을 싣지 못했습니다.',
+  LEDGER_DOC_LIMIT: '백업 파일은 올렸지만 읽기용 문서가 너무 커서 목록을 싣지 못했어요.',
   LEDGER_READ_LIMIT: '원장 행이 너무 많아 내보내지 않았습니다.',
   FORBIDDEN: '이 작업공간의 소유자만 내보낼 수 있습니다.',
   UNAUTHORIZED: '로그인이 필요합니다.',
 };
-export const failureText = code => CODE_TEXT[code] || `내보내지 못했습니다(단계 ${code || '알 수 없음'}). 잠시 뒤 다시 시도하세요.`;
+export const failureText = code => CODE_TEXT[code] || `내보내지 못했어요(단계 ${code || '알 수 없음'}). 잠시 뒤 다시 시도해 주세요.`;

@@ -38,7 +38,8 @@ for(const width of [1280,1440]){
   const {errors}=await open(page,width);
   await expect(row(page)).toBeVisible();await expect(row(page)).toHaveText(/자주 가는 링크\s*›/);
   // UI-사이드바링크아래: the row sits at the very bottom of the sidebar, after the spacer, with empty space between the menu and it.
-  expect(await row(page).evaluate(el=>el.previousElementSibling?.classList.contains('sidebar-spacer'))).toBe(true);
+  // CALL·TG: [통화]·[텔레그램 소식]이 빈 공간과 이 줄 사이에 있다(맨 아래 묶음).
+  expect(await row(page).evaluate(el=>{const a=el.previousElementSibling,b=a?.previousElementSibling;return [b?.dataset.view,a?.dataset.view,b?.previousElementSibling?.classList.contains('sidebar-spacer')]})).toEqual(['calls','telegram',true]);
   const hwp0=await page.locator('#appView>.app-nav [data-view="hwp"]').boundingBox(),nav0=await page.locator('#appView>.app-nav').boundingBox();
   const r=await row(page).boundingBox();
   expect(r.y).toBeGreaterThan(hwp0.y+hwp0.height+40);
