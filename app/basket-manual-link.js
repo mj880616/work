@@ -3,6 +3,7 @@ import {confirmLinks,ERROR_TEXT} from './basket-classification.js';
 import {validateLinkSummary,isBlankLinkSummary,readRecordPages} from './basket-link-records.js';
 import {selectBasketOrganizations} from './basket-ai-handoff.js';
 import {createChoiceSheet,projectRows,projectRow,orgGroupRows,orgRow} from './choice-sheet.js';
+import {readReferenceBundles} from './reference-bundles-data.js';
 import {createGoogleTask} from './quick-save.js';
 import {dayKey} from './home-read-model.js';
 import {noteTaskEntry,recordNoteTask} from './basket-note-tasks.js';
@@ -13,7 +14,8 @@ import {aiSummaryAllowed,aiSummaryMarkup,appliedText,newAiState,placeAiSummary,r
 export const MANUAL_LINK_REASON='직접 연결';
 export const MANUAL_LINK_LIMIT=20;
 export const TASK_LIMITS=Object.freeze({title:1024,notes:8192});
-const KIND_NAME={organization:'담당조직',project:'프로젝트'};
+// REF-참고묶음: 'reference' = a reference bundle (app_reference_bundles, link column bundle_id). It is never report material.
+const KIND_NAME={organization:'담당조직',project:'프로젝트',reference:'참고'};
 const MANUAL_ERROR_TEXT=Object.freeze({
   NOTE_CHANGED:'업데이트가 그사이 바뀌었어요. 최신 업데이트를 다시 불러왔어요. 원문을 확인하고 다시 [연결]을 눌러 주세요.',
   NOTE_ARCHIVED:'보관된 업데이트는 연결할 수 없어요. 보관을 해제한 뒤 연결해 주세요.',
@@ -47,6 +49,7 @@ export function linkedDestinations(noteId,links){
     if(l.note_id!==noteId||!['confirmed','suggested'].includes(l.status))continue;
     if(l.organization_id)out.set(linkKey('organization',l.organization_id),l.status);
     if(l.project_id)out.set(linkKey('project',l.project_id),l.status);
+    if(l.bundle_id)out.set(linkKey('reference',l.bundle_id),l.status);
   }
   return out;
 }
@@ -69,15 +72,17 @@ export async function readManualChoices(rt=window.KPTURuntime){
   const c=rt.context.read(),workspaceId=c?.workspace?.id,userId=c?.user?.id;
   if(!workspaceId||!userId)throw Error('업무 공간을 확인할 수 없어요.');
   await Promise.all([import('./project-catalog.js'),import('./organization-order.js')]);
-  const [catalog,rows,assignees]=await Promise.all([
+  const [catalog,rows,assignees,bundles]=await Promise.all([
     window.KPTUProjectCatalog.load({workspaceId,userId,force:true}),
     readRecordPages(`/rest/v1/app_suborganizations?workspace_id=eq.${encodeURIComponent(workspaceId)}&select=id,name,active&order=id.asc`,rt),
     readRecordPages(`/rest/v1/app_suborganization_assignees?user_id=eq.${encodeURIComponent(userId)}&select=organization_id&order=organization_id.asc`,rt).catch(()=>[]),
+    // REF-참고묶음: the reference bundles (owner RLS). A failed read leaves [참고 ▾] with nothing to choose; the rest still works.
+    readReferenceBundles(rt).catch(()=>[]),
   ]);
   const after=rt.context.read();
   if(catalog.workspaceId!==workspaceId||catalog.userId!==userId||after?.workspace?.id!==workspaceId||after?.user?.id!==userId)throw Error('업무 공간이 바뀌었어요. 다시 눌러 주세요.');
   const order=window.KPTUOrganizationOrder,organizations=order.forPicker(selectBasketOrganizations(rows,assignees).organizations);
-  return {owner:`${userId}:${workspaceId}`,organizations,organizationNames:new Map(rows.map(row=>[row.id,row.name])),groups:order.groups(organizations),projects:window.KPTUProjectCatalog.tree(catalog.projects).filter(x=>x.project.status==='active')};
+  return {owner:`${userId}:${workspaceId}`,organizations,organizationNames:new Map(rows.map(row=>[row.id,row.name])),groups:order.groups(organizations),projects:window.KPTUProjectCatalog.tree(catalog.projects).filter(x=>x.project.status==='active'),bundles};
 }
 
 // One link panel and one task form inside the basket read view. basket.js keeps
@@ -98,7 +103,8 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
   const fileTargets=()=>{const has=fileState().files.length>0;return {project:has?link.targets.find(t=>t.kind==='project')||null:null,organization:has?link.targets.find(t=>t.kind==='organization')||null:null};};
   const projectName=id=>choices?.projects.find(x=>x.project.id===id)?.project.name||window.KPTUProjectCatalog?.describe?.(id)?.name||'다른 프로젝트';
   const organizationName=id=>choices?.organizationNames?.get(id)||choices?.organizations.find(o=>o.id===id)?.name||'다른 조직';
-  const placeName={project:projectName,organization:organizationName};
+  const bundleName=id=>choices?.bundles?.find(b=>b.id===id)?.name||'참고 묶음';
+  const placeName={project:projectName,organization:organizationName,reference:bundleName};
   async function loadChoices(){
     if(choices&&choices.owner===scope())return choices;
     if(choicesFlight)return choicesFlight;
@@ -118,6 +124,9 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
       const chip=o=>{const name=o.name||'이름 없는 조직',state=done.get(linkKey('organization',o.id));return state?doneItem(state,name,'home-choice-row','style="--home-choice-depth:0"'):orgRow(o,picked.has(linkKey('organization',o.id)),esc);};
       const row=x=>{const state=done.get(linkKey('project',x.project.id));if(!state){const pressed=picked.has(linkKey('project',x.project.id));return projectRow(x,pressed?x.project.id:null,esc);}return doneItem(state,x.project.name||'이름 없는 프로젝트','home-choice-row',`style="--home-choice-depth:${x.depth}" title="${esc(x.project.name||'')}"`);};
       if(kind==='organization')return {title:'담당조직 선택',search:'조직 이름 검색',html:choices.groups.some(g=>g.length)?orgGroupRows(choices.groups,chip):'<p class="home-choice-label">고를 수 있는 담당조직이 없어요.</p>'};
+      // REF-참고묶음 (질문 3: an update may be in an organization and a bundle at once): bundles are rows with a check box, like organizations.
+      const ref=b=>{const name=b.name||'이름 없는 묶음',state=done.get(linkKey('reference',b.id));return state?doneItem(state,name,'home-choice-row','style="--home-choice-depth:0"'):orgRow(b,picked.has(linkKey('reference',b.id)),esc);};
+      if(kind==='reference')return {title:'참고 묶음 선택',search:'묶음 이름 검색',html:choices.bundles?.length?choices.bundles.map(ref).join(''):'<p class="home-choice-label">고를 수 있는 참고 묶음이 없어요.</p>'};
       return {title:'프로젝트 선택',search:'프로젝트 이름 검색',html:choices.projects.length?choices.projects.map(row).join(''):'<p class="home-choice-label">고를 수 있는 프로젝트가 없어요.</p>'};
     },
     onSelect:(kind,value)=>{
@@ -126,8 +135,9 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
       const existing=link.targets.find(t=>t.kind===kind&&t.id===value);
       if(!existing){
         if(link.targets.length>=MANUAL_LINK_LIMIT){link.status=`한 번에 ${MANUAL_LINK_LIMIT}곳까지 연결할 수 있어요.`;paint();return;}
-        const name=kind==='organization'?choices.organizations.find(o=>o.id===value)?.name:choices.projects.find(x=>x.project.id===value)?.project.name;
-        link.targets.push({kind,id:value,name:name||'이름 없는 곳',summary:'',record:!filesOnly(note()),ai:newAiState()});link.status='';
+        const name=kind==='organization'?choices.organizations.find(o=>o.id===value)?.name:kind==='reference'?choices.bundles?.find(b=>b.id===value)?.name:choices.projects.find(x=>x.project.id===value)?.project.name;
+        // A reference link is the whole point of picking a bundle, so it is always made (no [기록도 남기기] choice for it).
+        link.targets.push({kind,id:value,name:name||'이름 없는 곳',summary:'',record:kind==='reference'||!filesOnly(note()),ai:newAiState()});link.status='';
       }
       paint();
       // The sheet returns focus to its trigger once its history entry is gone; the new summary is
@@ -137,7 +147,7 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
     onError:error=>{const message=error?.message||'고를 목록을 불러오지 못했어요. 다시 눌러 주세요.';if(mode==='link')link.status=message;else if(task)task.status=message;paint();}
   });
   function targetFiles(t){
-    const {files,docs}=fileState();if(!files.length)return '';
+    const {files,docs}=fileState();if(!files.length||t.kind==='reference')return '';
     const into=fileTargets()[t.kind];
     if(into?.id!==t.id)return `<p class="basket-manual-file-note">파일은 ${esc(into?.name||'')} 한 곳에만 들어가요.</p>`;
     const column=t.kind+'_id';
@@ -149,10 +159,10 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
     const done=[...linked().keys()].length,only=filesOnly(n);
     return `<section class="basket-manual" data-manual-link data-enter-save aria-labelledby="basketManualLinkTitle"><h3 id="basketManualLinkTitle">${only?'조직·프로젝트 자료로 넣기':'조직·프로젝트에 연결'}</h3>
 ${only?'':`<details data-manual-original><summary>원문 전체 보기</summary><div class="basket-classification-original">${esc(n.raw_text||'')}</div></details>`}
-<div class="basket-actions"><button type="button" data-manual-pick="organization" aria-haspopup="dialog" aria-expanded="false">담당조직 고르기 ▾</button><button type="button" data-manual-pick="project" aria-haspopup="dialog" aria-expanded="false">프로젝트 고르기 ▾</button></div>
+<div class="basket-actions"><button type="button" data-manual-pick="organization" aria-haspopup="dialog" aria-expanded="false">담당조직 고르기 ▾</button><button type="button" data-manual-pick="project" aria-haspopup="dialog" aria-expanded="false">프로젝트 고르기 ▾</button><button type="button" data-manual-pick="reference" aria-haspopup="dialog" aria-expanded="false">참고 ▾</button></div>
 ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 수 없어요.</p>`:''}
 <p class="basket-manual-hint">${only?'담당조직이나 프로젝트를 고르면 파일을 그 자료로 넣어요. 진행상황과 기록에는 남지 않아요.':'고른 곳마다 요약을 직접 쓸 수 있어요(선택). 비워 두면 업데이트 본문이 기록에 보여요.'}</p>
-<div data-manual-targets>${link.targets.map(t=>{const key=linkKey(t.kind,t.id);return `<div class="basket-manual-target" data-manual-target="${esc(key)}"><div class="basket-manual-target-head"><b>${esc(KIND_NAME[t.kind]+' · '+t.name)}</b><button type="button" data-manual-remove="${esc(key)}" aria-label="${esc(t.name)} 빼기">빼기</button></div>${targetFiles(t)}${only?`<button type="button" class="basket-manual-record-toggle" data-manual-record="${esc(key)}" aria-pressed="${t.record}">기록도 남기기</button>`:''}${t.record?`<label class="basket-text-label basket-manual-summary">기록 요약 (선택 · 비우면 업데이트 본문이 기록에 보여요)<textarea data-manual-summary="${esc(key)}" rows="3" maxlength="2000" spellcheck="false" placeholder="일시·장소·누가·숫자를 빠짐없이">${esc(t.summary)}</textarea></label>${aiSummaryAllowed(n)?aiSummaryMarkup(t.ai,key,'data-manual',esc):''}`:''}</div>`;}).join('')}</div>
+<div data-manual-targets>${link.targets.map(t=>{const key=linkKey(t.kind,t.id);return `<div class="basket-manual-target" data-manual-target="${esc(key)}"><div class="basket-manual-target-head"><b>${esc(KIND_NAME[t.kind]+' · '+t.name)}</b><button type="button" data-manual-remove="${esc(key)}" aria-label="${esc(t.name)} 빼기">빼기</button></div>${targetFiles(t)}${only&&t.kind!=='reference'?`<button type="button" class="basket-manual-record-toggle" data-manual-record="${esc(key)}" aria-pressed="${t.record}">기록도 남기기</button>`:''}${t.record?`<label class="basket-text-label basket-manual-summary">${t.kind==='reference'?'요약 (선택 · 비우면 업데이트 본문이 보여요)':'기록 요약 (선택 · 비우면 업데이트 본문이 기록에 보여요)'}<textarea data-manual-summary="${esc(key)}" rows="3" maxlength="2000" spellcheck="false" placeholder="일시·장소·누가·숫자를 빠짐없이">${esc(t.summary)}</textarea></label>${t.kind!=='reference'&&aiSummaryAllowed(n)?aiSummaryMarkup(t.ai,key,'data-manual',esc):''}`:''}</div>`;}).join('')}</div>
 <p data-manual-status role="status">${esc(link.status)}</p>
 <div class="basket-actions"><button type="button" class="quick-pill-primary" data-manual-confirm data-enter-save-submit>${confirmLabel(n)}</button><button type="button" data-manual-cancel>취소</button></div></section>`;
   }
@@ -197,7 +207,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
   // AI-서버연동 S4: ask ai-assist for one summary. It only fills the box (or offers a proposal); [연결] still saves.
   async function runAi(key){
     const n=note(),t=link.targets.find(x=>linkKey(x.kind,x.id)===key);
-    if(mode!=='link'||!n||!t||!t.record||t.ai.busy||!aiSummaryAllowed(n))return;
+    if(mode!=='link'||!n||!t||!t.record||t.kind==='reference'||t.ai.busy||!aiSummaryAllowed(n))return;
     const run=++t.ai.run,owner=scope(),id=n.id;
     Object.assign(t.ai,{busy:true,status:'',retry:false,proposal:''});paint();
     const result=await requestLinkSummary({noteId:id,targetKind:t.kind,targetId:t.id},{rt});

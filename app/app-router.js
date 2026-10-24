@@ -2,7 +2,8 @@
   if(window.KPTURouter)return;
   const hooks=new Map();
   const VIEW_PARAM='view';
-  const NAV_ALIAS={messages:'home',myspace:'home'};
+  // REF-참고묶음: the 참고 묶음 screen is entered from the organization list, so the 담당조직 menu item stays marked there.
+  const NAV_ALIAS={messages:'home',myspace:'home',reference:'team'};
   const MENU_SHEET_VIEWS=['meetings','library','hwp','media','pages','ledger'];
   // Retired addresses that now open another view (HWP 편집기 시험판 ?view=hwp-lab → ?view=hwp).
   const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings'};
