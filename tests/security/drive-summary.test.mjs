@@ -37,7 +37,7 @@ function harness(options = {}) {
       assert.equal(method, 'GET', 'DB must be read-only');
       const table = url.pathname.split('/').at(-1);
       if (['app_project_milestones', 'app_project_workstreams', 'app_project_progress_updates'].includes(table)) {
-        assert.match(url.searchParams.get('select'), /project:app_spaces!project_id!inner\(workspace_id\)/);
+        assert.match(url.searchParams.get('select'), /project:app_spaces!project_id!inner\(workspace_id,deleted_at\)/);
       }
       if (table === 'app_workspace_members') {
         assert.equal(url.searchParams.get('select'), 'user_id,role');
@@ -294,6 +294,21 @@ function harness(options = {}) {
     const select = h.calls.find(c => c.url.pathname.endsWith('/app_spaces')).url.searchParams.get('select');
     assert.match(select, /project_system:metadata->>project_system/);
     assert.doesNotMatch(select, /(?:^|,)metadata(?:,|$)/);
+  });
+  test('휴지통 프로젝트(하위 포함)와 그 진행 자료는 요약에서 빠진다', async () => {
+    const trashed = { deleted_at: '2026-10-24T01:00:00Z', deleted_root_id: 'trash' };
+    const h = harness({ data: {
+      app_spaces: [...fixture.app_spaces, { id: 'trash', name: 'TRASHED_PROJECT_NAME', project_system: 'v2', status: 'active', parent_id: null, sort_order: 3, ...trashed }, { id: 'trash-child', name: 'TRASHED_CHILD_NAME', parent_id: 'trash', status: 'active', sort_order: 4, ...trashed }],
+      app_project_workstreams: [...fixture.app_project_workstreams, { id: 'tw', project_id: 'trash', phase: 'consultation', title: 'TRASHED_WORKSTREAM', sort_order: 1, project: { workspace_id: 'ws', ...trashed } }],
+      app_project_milestones: [...fixture.app_project_milestones, { id: 'tm', project_id: 'trash', title: 'TRASHED_MILESTONE', start_at: '2026-10-06T01:00:00Z', project: { workspace_id: 'ws', ...trashed } }],
+    } });
+    assert.equal((await h.request({ Authorization: 'Bearer valid-owner' })).status, 200);
+    assert.doesNotMatch(h.uploads[1].body, /TRASHED_/);
+    assert.match(h.uploads[1].body, /가상 프로젝트/);
+    for (const t of ['app_spaces', 'app_project_workstreams', 'app_project_progress_updates', 'app_project_milestones']) {
+      const u = h.calls.find(c => c.url.pathname.endsWith('/' + t)).url.searchParams;
+      assert.equal(u.get(t === 'app_spaces' ? 'deleted_at' : 'project.deleted_at'), 'is.null', t);
+    }
   });
   test('authenticated admin/member roles are denied and cannot read source data', async () => {
     for (const role of ['admin', 'member', 'manager', 'editor']) {
