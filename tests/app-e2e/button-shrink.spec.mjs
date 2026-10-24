@@ -93,7 +93,7 @@ for(const width of [390,1280]){
    const input=await measure(page.locator('#wdInboxText')),big=await check(page.locator('#wdInboxBig'),32,'조직 ⤢');await check(page.locator('#wdInboxSave'),32,'조직 [저장]');
    expect(big.bottom).toBeLessThanOrEqual(input.bottom);expect(big.right).toBeLessThanOrEqual(input.right);expect(big.top).toBeGreaterThan(input.top);
   }else{
-   const big=await check(page.locator('#wdInboxBig'),36,'조직 [크게]'),save=await check(page.locator('#wdInboxSave'),36,'조직 [저장]');expect(big.top).toBe(save.top);
+   const big=await check(page.locator('#wdInboxBig'),32,'조직 [크게]'),save=await check(page.locator('#wdInboxSave'),36,'조직 [저장]');expect(Math.abs((big.top+big.bottom)/2-(save.top+save.bottom)/2)).toBeLessThanOrEqual(1);/* UI-버튼전수조사: [크게] 보조 32px */
    await expect(page.locator('#wdModal .gt-linked').getByRole('button',{name:/연결 해제/})).toHaveCount(0);
   }
   await noWideScroll(page);expect(errors).toEqual([]);

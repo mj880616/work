@@ -112,7 +112,7 @@ for(const width of [390,1440]){
       await expect(button).toHaveAttribute('aria-label','일정 등록');
       if(width!==390){
         expect((await button.innerText()).replace(/\s+/g,' ').trim()).toBe('+ 일정 등록');
-        expect((await button.boundingBox()).height).toBe(width>=1024?32:46); // UI-PC다듬기묶음: PC(≥1024)는 같은 줄 [오늘]·보기 전환과 같은 32px
+        expect((await button.boundingBox()).height).toBe(32);/* UI-버튼전수조사: 중간 폭도 32px */ // UI-PC다듬기묶음: PC(≥1024)는 같은 줄 [오늘]·보기 전환과 같은 32px
       }
       await button.click();
       await expect(page.locator('#eventModal')).toBeVisible();

@@ -412,8 +412,9 @@ for(const width of [360,390,412,870,1280]){
   const boxes=[];
   for(const name of ['큰 창에서 수정','저장','취소']){
    const b=bar.getByRole('button',{name,exact:true});await expect(b).toBeVisible();
-   const m=await b.evaluate(el=>{const r=el.getBoundingClientRect();return {top:r.top,left:r.left,right:r.right,height:r.height,cut:el.scrollWidth>el.clientWidth+1};});
-   expect(m.cut,name).toBe(false);expect(m.height,name).toBeGreaterThanOrEqual(44);boxes.push(m);
+   // UI-버튼전수조사(2026-10-24): 보이는 높이는 작은 버튼 32px(채운 [저장]은 36px), 누르는 범위(::after)는 44px.
+   const m=await b.evaluate(el=>{const r=el.getBoundingClientRect(),a=getComputedStyle(el,'::after');return {top:r.top+r.height/2,left:r.left,right:r.right,height:r.height,touch:a.content==='none'?r.height:Math.max(r.height,parseFloat(a.height)||0,parseFloat(a.minHeight)||0),cut:el.scrollWidth>el.clientWidth+1};});
+   expect(m.cut,name).toBe(false);expect(m.height,name).toBe(name==='저장'?36:32);expect(m.touch,name).toBeGreaterThanOrEqual(44);boxes.push(m);
   }
   expect(boxes[1].top).toBe(boxes[0].top);expect(boxes[2].top).toBe(boxes[0].top);
   expect(boxes[0].left).toBeLessThan(boxes[1].left);expect(boxes[1].left).toBeLessThan(boxes[2].left);
