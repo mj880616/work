@@ -44,6 +44,8 @@ function harness({openai=null,summaries=[],usage=[],missing=false,fail={}}={}){
       {id:id(21),workspace_id:WS,note_id:id(11),organization_id:ORG_A,status:'confirmed',summary:null},
       {id:id(22),workspace_id:WS,note_id:id(12),organization_id:ORG_A,status:'confirmed',summary:null},
       {id:id(23),workspace_id:WS,note_id:id(13),organization_id:ORG_A,status:'confirmed',summary:null},
+      // REF-참고묶음: a reference-bundle link (no organization) is never organization material.
+      {id:id(24),workspace_id:WS,note_id:id(10),organization_id:null,bundle_id:'e0000000-0000-4000-8000-000000000001',status:'confirmed',summary:'REF_BUNDLE_SUMMARY'},
     ],
     app_documents:[{id:id(30),workspace_id:WS,file_id:'fileB1',organization_id:ORG_B}],
     app_ai_daily_usage:structuredClone(usage),
@@ -144,7 +146,7 @@ test('owner: one OpenAI call with the week\'s records per organization, summarie
   assert.ok(a.records.some(r=>r.type==='업데이트'&&r.files?.[0]==='투표 공고문.hwp'));
   assert.deepEqual(sent.organizations[1].records,[{type:'업데이트',date:'10.20.(화)',files:['나 지회 단협안.pdf']}]);
   // Greetings and contacts are taken out before sending; excluded, archived, diary, other weeks and other workspaces never go.
-  for(const hidden of ['안녕하세요','수고하셨습니다','010-1234-5678','EXCLUDED_TEXT','ARCHIVED_TEXT','SECRET_DIARY','OLD_WEEK_TEXT','FOREIGN_ORG_TEXT',OWNER,WS,ORG_A,id(10)])
+  for(const hidden of ['안녕하세요','수고하셨습니다','010-1234-5678','EXCLUDED_TEXT','ARCHIVED_TEXT','SECRET_DIARY','OLD_WEEK_TEXT','FOREIGN_ORG_TEXT','REF_BUNDLE_SUMMARY',OWNER,WS,ORG_A,id(10)])
     assert.ok(!material.includes(hidden),hidden+' must not be sent');
   const notesQuery=calls.rest.find(c=>c.table==='app_notes').query;
   assert.match(notesQuery,/kind=eq\.basket/);assert.match(notesQuery,/archived_at=is\.null/);assert.match(notesQuery,/ai_export_allowed=is\.true/);
