@@ -21,11 +21,13 @@ function makeDocs(count,over={}){
   return Array.from({length:count},(_,i)=>({id:DOC_ID(i+1),workspace_id:WS_ID,project_id:null,organization_id:null,title:`2026_요구안_${i+1}`,category:'기타',source:null,
     document_date:null,file_name:`2026_요구안_${i+1}.hwp`,tags:[],created_at:OLD,updated_at:OLD,field_origin:{},extraction_status:'ready',...(over[i+1]||{})}));
 }
-function baseState(docs,{aiMode='ok',attemptsMode='ok',tried=[]}={}){
+// WEEKLY-자료요약 화면 ①: briefs = 자료별 AI 요약 표(app_document_ai_index)에 행이 있는 자료 id. 기본은 모든 자료에 이미 요약이 있음
+// (예전 시험의 뜻 그대로). 요약이 없는 자료는 정리가 끝났어도 요약 후보로 보내진다(아래 시험). 가짜 서버는 보낸 자료 중 글자가 있는 것에 행을 만든다.
+function baseState(docs,{aiMode='ok',attemptsMode='ok',tried=[],briefs=docs.map(d=>d.id)}={}){
   return {
     user:{id:'user-1',email:'owner@example.org',user_metadata:{display_name:'자료실 관리자'}},
     workspace:{id:WS_ID,slug:'team',name:'웹2'},
-    docs,aiMode,attemptsMode,tried:new Set(tried),aiCalls:[],texts:[],patches:[],otherWrites:[],held:[],
+    docs,aiMode,attemptsMode,tried:new Set(tried),briefs:new Set(briefs),briefReads:[],aiCalls:[],texts:[],patches:[],otherWrites:[],held:[],
   };
 }
 const AI_TITLE=n=>`2026년 임금교섭 요구안 ${n}`;
@@ -48,6 +50,7 @@ async function mockApp(page,state){
       if(state.aiMode==='limit')return ok({ok:false,error:'daily_limit',message:'x'},429);
       if(state.aiMode==='missing')return route.fulfill({status:404,contentType:'application/json',body:'{}'});
       let updated=0;
+      for(const id of body.document_ids)if(state.docs.find(d=>d.id===id)?.extraction_status==='ready')state.briefs.add(id);
       for(const id of body.document_ids){
         const doc=state.docs.find(d=>d.id===id);if(!doc||state.tried.has(id))continue;
         state.tried.add(id);
@@ -69,6 +72,7 @@ async function mockApp(page,state){
       if(state.attemptsMode==='missing')return route.fulfill({status:404,contentType:'application/json',body:JSON.stringify({code:'PGRST205'})});
       return ok([...state.tried].map(id=>({document_id:id,with_text:true})));
     }
+    if(path==='/rest/v1/app_document_ai_index'){state.briefReads.push(Object.fromEntries(url.searchParams));return ok([...state.briefs].map(document_id=>({document_id})))}
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:WS_ID,user_id:state.user.id,role:'owner',workspace:state.workspace,created_at:now()}]);
     if(path==='/rest/v1/app_profiles')return ok([{user_id:state.user.id,display_name:'자료실 관리자',document_categories:CATS}]);
@@ -221,4 +225,21 @@ test('opening the library reads at most 5 unread documents at a time, quietly, a
   await page.waitForTimeout(300);
   expect(state.texts.length).toBe(10);
   expect(state.otherWrites).toEqual([]);
+});
+
+// WEEKLY-자료요약 화면 ① (설계 2.2절 Q4 ②): 이미 정리·시도가 끝난 예전 자료도 요약 표에 행이 없으면 한 번 보낸다(오래된 것부터, 정리할 자료 뒤).
+// 요약이 생기면(가짜 서버가 행을 만듦) 다시 열어도 보내지 않는다. 옛 요약 행이 있는 자료(행 있음)와 글자 없는 자료는 보내지 않는다.
+test('already tidied old documents without a summary row are sent once for the summary, oldest first; not again after the row exists',async({page})=>{
+  const done={title:'정리된 제목',category:'정책',source:'국토교통부',document_date:'2026-01-02',field_origin:LINKS_DONE};
+  const docs=makeDocs(5,{1:{...done,created_at:'2026-08-20T00:00:00Z'},2:{...done,created_at:'2026-08-01T00:00:00Z'},3:{...done},4:{...done,extraction_status:'empty'},5:{}});
+  const state=baseState(docs,{tried:[DOC_ID(1),DOC_ID(2),DOC_ID(3),DOC_ID(4)],briefs:[DOC_ID(3),DOC_ID(5)]});
+  await boot(page,state);
+  await expect.poll(()=>state.aiCalls.length).toBe(1);
+  expect(state.aiCalls[0]).toEqual({kind:'library_fill',mode:'tidy',document_ids:[DOC_ID(5),DOC_ID(2),DOC_ID(1)]});
+  expect(state.briefReads[0]).toMatchObject({workspace_id:`eq.${WS_ID}`,select:'document_id'});
+  await expectQuiet(page);
+  await leave(page);await reopen(page);
+  await page.waitForTimeout(400);
+  expect(state.aiCalls.length).toBe(1);
+  expect(state.patches).toEqual([]);expect(state.otherWrites).toEqual([]);
 });
