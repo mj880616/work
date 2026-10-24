@@ -3,17 +3,17 @@ import {enterLogin} from './helpers/login-entry.mjs';
 import {signInWithSession} from './helpers/session-login.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 
-// AI-서버연동 S7-d: [원장] 화면의 Drive 내보내기 칸(app/ledger-export.js, #ledgerExportRoot). drive-summary는 시험 응답으로 대신한다.
-// 상태(GET ?action=ledger_status) → 마지막 내보내기 표시 → [지금 Drive로 내보내기](POST ?action=ledger_export, 본문 없음) → 결과·문서 링크.
-// 옛 함수(배포 전)는 상태 읽기가 405 → 칸이 숨는다. 시작 직후에는 상태를 묻지 않는다(2분 뒤 자동 점검).
+// AI-서버연동 S7-d → LEDGER-자동기록 3단계: [원장] 화면 맨 위 Claude용 사본 상태 한 줄(app/ledger-export.js, #ledgerExportRoot).
+// [지금 Drive로 내보내기] 버튼과 칸은 없앴다(2026-10-24 결정). 평소 "Claude용 사본 … 갱신", 멈췄을 때만 경고 + [다시 시도](POST ?action=ledger_export, 본문 없음).
+// 옛 함수(배포 전)는 상태 읽기가 405 → 줄이 숨는다. drive-summary는 시험 응답으로 대신한다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'ledger-e-user',email:'ledger-e@example.org',user_metadata:{display_name:'Ledger QA'}};
 const workspace={id:'ledger-e-workspace',slug:'kptu-work',name:'웹2'};
 const DOC='https://docs.google.com/document/d/virtual-ledger-doc/edit';
 
-async function mockApp(page,{deployed=true,exportFail=false}={}){
+async function mockApp(page,{deployed=true,exportFail=false,stalled=false}={}){
  const calls=[];
- let ledger={state:'found',last_success_at:'2026-10-20T00:00:00.000Z',last_failure_at:null,last_failure_code:null};
+ let ledger={state:'found',last_success_at:'2026-10-20T00:00:00.000Z',last_failure_at:stalled?'2026-10-21T00:00:00.000Z':null,last_failure_code:stalled?'DRIVE_TOKEN_FAILED':null};
  await page.route(`${SB}/**`,async route=>{
   const request=route.request(),url=new URL(request.url()),path=url.pathname,method=request.method();
   const ok=(data,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(data??null)});
@@ -25,7 +25,7 @@ async function mockApp(page,{deployed=true,exportFail=false}={}){
    if(method==='GET'&&url.searchParams.get('action')==='ledger_status')return ok({ok:true,checked_at:new Date().toISOString(),ledger});
    if(method==='POST'&&url.searchParams.get('action')==='ledger_export'){
     if(exportFail){ledger={...ledger,last_failure_at:new Date().toISOString(),last_failure_code:'DRIVE_PUBLIC_SHARING_FOUND'};return ok({ok:false,error:'DRIVE_PUBLIC_SHARING_FOUND',exported_at:null,failure_recorded:true},403);}
-    const at=new Date().toISOString();ledger={...ledger,last_success_at:at};
+    const at=new Date().toISOString();ledger={...ledger,last_success_at:at,last_failure_at:null,last_failure_code:null};
     return ok({ok:true,exported_at:at,counts:{app_ledger_records:4},keep:8,trim_failed:0,documents:{ledger:DOC}});
    }
    return ok({ok:false},405);
@@ -53,42 +53,40 @@ async function signIn(page){
 }
 const noSideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth);
 
-for(const [name,width] of [['PC',1440],['phone',390]]){
- test(`원장 Drive 내보내기: 마지막 시각 → [지금 Drive로 내보내기] → 결과·문서 링크 (${name} ${width}px)`,async({page})=>{
+for(const [name,width] of [['PC',1280],['phone',390]]){
+ test(`원장 사본 상태 한 줄: 평소 갱신 시각만, 내보내기 버튼·칸 없음 (${name} ${width}px)`,async({page})=>{
   test.setTimeout(60000);
   await page.setViewportSize({width,height:900});
   const calls=await mockApp(page);
   await signIn(page);
   const box=page.locator('#ledgerExportRoot');
   await expect(box).toBeVisible({timeout:15000});
-  await expect(box.locator('[data-le-last]')).toContainText('마지막 내보내기');
-  const button=box.locator('[data-le-action="export"]');
-  await expect(button).toHaveText('지금 Drive로 내보내기');
-  await button.click();
-  await expect(box.locator('[data-le-message]')).toContainText('원장 기록 4건',{timeout:10000});
-  await expect(box.locator('[data-le-message] a')).toHaveAttribute('href',DOC);
-  const posts=calls.filter(c=>c.method==='POST');
-  expect(posts).toHaveLength(1);
-  expect(posts[0].action).toBe('ledger_export');
-  expect(posts[0].body).toBeNull();
-  expect(calls.filter(c=>c.method==='POST'&&c.action!=='ledger_export')).toHaveLength(0);
+  await expect(box.locator('[data-le-line="ok"]')).toContainText('Claude용 사본');
+  await expect(box.locator('[data-le-line="ok"]')).toContainText('갱신');
+  await expect(box.locator('button')).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'지금 Drive로 내보내기'})).toHaveCount(0);
+  await expect(box.locator('h3')).toHaveCount(0);
+  expect(calls.filter(c=>c.method==='POST')).toHaveLength(0);
   expect(await noSideScroll(page)).toBe(true);
  });
 }
 
-test('원장 Drive 내보내기: 실패는 단계별 안내, 옛 함수(배포 전)면 칸이 숨고 자동 내보내기도 없음',async({page})=>{
+test('원장 사본 상태 한 줄: 멈췄을 때만 경고와 [다시 시도], 누르면 내보내기 한 번(본문 없음)',async({page})=>{
  test.setTimeout(60000);
- const calls=await mockApp(page,{exportFail:true});
+ const calls=await mockApp(page,{stalled:true});
  await signIn(page);
  const box=page.locator('#ledgerExportRoot');
- await expect(box).toBeVisible({timeout:15000});
- await box.locator('[data-le-action="export"]').click();
- await expect(box.locator('[data-le-message]')).toContainText('공개 공유',{timeout:10000});
- await expect(box.locator('[data-le-last]')).toContainText('최근 실패');
- expect(calls.filter(c=>c.method==='POST')).toHaveLength(1);
+ const line=box.locator('[data-le-line="stalled"]');
+ await expect(line).toContainText('멈췄어요',{timeout:15000});
+ await line.getByRole('button',{name:'다시 시도'}).click();
+ await expect(box.locator('[data-le-line="ok"]')).toBeVisible({timeout:10000});
+ const posts=calls.filter(c=>c.method==='POST');
+ expect(posts).toHaveLength(1);
+ expect(posts[0].action).toBe('ledger_export');
+ expect(posts[0].body).toBeNull();
 });
 
-test('원장 Drive 내보내기: 배포 전 함수면 칸을 숨기고 POST를 보내지 않음',async({page})=>{
+test('원장 사본 상태 한 줄: 배포 전 함수면 줄을 숨기고 POST를 보내지 않음',async({page})=>{
  test.setTimeout(60000);
  const calls=await mockApp(page,{deployed:false});
  await signIn(page);
