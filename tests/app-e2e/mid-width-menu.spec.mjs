@@ -51,7 +51,7 @@ for(const width of [761,820,900,1023])for(const fontSize of [null,24,40])test(`m
     let item=page.locator('.app-nav').getByRole('button',{name:label,exact:true});
     if(!await item.count()){await trigger.click();item=page.locator('#mobileMenu nav').getByRole('button',{name:label,exact:true})}
     await item.click();await expect(page.locator('#mobileMenu')).toBeHidden();
-    const view=({'홈':'home','정리함':'basket','일정':'calendar','할 일':'tasks','업무일지':'journal','일기':'diary','프로젝트':'projects','자료실':'library','사업 보고':'meetings','성명·보도자료':'media','공유 페이지':'pages','담당조직':'team','HWP 편집':'hwp','원장':'ledger','통화':'calls','텔레그램 소식':'telegram'})[label];
+    const view=({'홈':'home','정리함':'basket','노트':'basket','일정':'calendar','할 일':'tasks','업무일지':'journal','일기':'diary','프로젝트':'projects','자료실':'library','사업 보고':'meetings','성명·보도자료':'media','공유 페이지':'pages','담당조직':'team','HWP 편집':'hwp','원장':'ledger','통화':'calls','텔레그램 소식':'telegram'})[label];
     await expect(page.locator('#'+view+'View')).toBeVisible();
     if(label==='성명·보도자료')await expect(page.locator('.app-nav [data-view="media"],#mobileMenu nav .nav-btn[data-view="media"]')).toHaveAttribute('aria-current','page');
   }
