@@ -73,6 +73,18 @@ async function mockApp(page,state){
       if(t.missing)return route.fulfill({status:404,contentType:'application/json',body:JSON.stringify({code:'PGRST202',message:'Could not find the function '+path.split('/').pop()+' in the schema cache'})});
       const fail=message=>route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'P0001',message})});
       t.items??=[];
+      // TRASH-화면2: 담당조직·사업 보고 종류. t.oldFunction이면 DB 적용 전의 옛 함수(프로젝트만 알고 다른 종류는 TRASH_KIND_UNKNOWN으로 거절)를 흉내 낸다.
+      const otherKind=body?.p_kind&&body.p_kind!=='project'?body.p_kind:'';
+      if(otherKind){
+        if(t.oldFunction)return fail('TRASH_KIND_UNKNOWN');
+        t.others??={organization:[],report:[]};t.others[otherKind]??=[];const list=t.others[otherKind];
+        if(path.endsWith('app_trash_list'))return ok(list.map(x=>({kind:otherKind,...x})));
+        const hit=list.find(x=>x.id===body?.p_id);
+        if(!hit)return fail('TRASH_NOT_FOUND');
+        t.others[otherKind]=list.filter(x=>x.id!==hit.id);
+        t.done??=[];t.done.push({fn:path.split('/').pop(),kind:otherKind,id:hit.id});
+        return ok({ok:true,kind:otherKind,id:hit.id});
+      }
       if(path.endsWith('app_trash_list'))return ok(t.items.filter(x=>x.deleted_root_id===x.id).map(x=>({kind:'project',id:x.id,workspace_id:x.workspace_id,name:x.name,parent_id:x.parent_id,deleted_at:x.deleted_at,child_count:t.items.filter(c=>c.deleted_root_id===x.id&&c.id!==x.id).length,parent_in_trash:t.items.some(p=>p.id===x.parent_id)})));
       const root=t.items.find(x=>x.id===body?.p_id&&x.deleted_root_id===x.id);
       if(!root)return fail('TRASH_NOT_FOUND');
@@ -1142,6 +1154,48 @@ test('TRASH 2단계: 휴지통 탭에서 되돌리고, ⋯ 안 영구 삭제는 
   await expect.poll(()=>state.spaces.some(x=>x.id==='child-1')).toBe(true);
   await expect(page.locator('#ps3ArchiveList')).toContainText('휴지통이 비어 있습니다');
   expect(state.trash.calls.map(c=>c.fn)).toContain('app_trash_purge');
+});
+
+test('TRASH-화면2: 휴지통 탭에 담당조직·사업 보고가 함께 보이고, 되돌리기·영구 삭제(확인창)가 종류에 맞게 간다',async({page})=>{
+  const state=baseState();
+  state.trash={items:[],others:{
+    organization:[{id:'org-t1',workspace_id:state.workspace.id,name:'합성 휴지통 조직',deleted_at:'2026-10-25T03:00:00Z'}],
+    report:[{id:'rep-t1',workspace_id:state.workspace.id,title:'합성 보고',series_name:'합성 정례회의',round_no:4,meeting_at:'2026-10-20T01:00:00Z',activity_kind:'meeting',deleted_at:'2026-10-25T02:00:00Z'}],
+  }};
+  await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);
+  await clickView(page,'projects');
+  const button=page.locator('#ps3ArchiveBtn');
+  await expect(button).toHaveText('휴지통 2');
+  await button.click();
+  await expect(page.locator('#ps3ArchiveHeading')).toHaveText('휴지통');
+  const org=page.locator('[data-ps3-trash-row="org-t1"]'),rep=page.locator('[data-ps3-trash-row="rep-t1"]');
+  await expect(org).toContainText('합성 휴지통 조직');await expect(org).toContainText('담당조직');
+  await expect(rep).toContainText('합성 정례회의 4회');await expect(rep).toContainText('사업 보고');
+  // 영구 삭제: 종류에 맞는 확인창, 취소하면 그대로, 확인하면 그 종류로 간다.
+  await rep.locator('summary').click();
+  let asked='';page.once('dialog',d=>{asked=d.message();d.dismiss()});
+  await rep.locator('[data-ps3-trash-purge]').click();
+  await expect.poll(()=>asked).toContain('사업 보고를 영구 삭제할까요');
+  expect(state.trash.others.report.length).toBe(1);
+  await rep.locator('summary').click();
+  page.once('dialog',d=>d.accept());await rep.locator('[data-ps3-trash-purge]').click();
+  await expect.poll(()=>state.trash.others.report.length).toBe(0);
+  await org.locator('[data-ps3-trash-restore]').click();
+  await expect.poll(()=>state.trash.others.organization.length).toBe(0);
+  expect(state.trash.done).toEqual([{fn:'app_trash_purge',kind:'report',id:'rep-t1'},{fn:'app_trash_restore',kind:'organization',id:'org-t1'}]);
+  await expect(page.locator('#ps3ArchiveList')).toContainText('휴지통이 비어 있습니다');
+});
+
+test('TRASH-화면2: 프로젝트 휴지통만 준비되고 담당조직·사업 보고는 아직이면(DB 적용 전) 그 둘만 준비 중이라고 알린다',async({page})=>{
+  const state=baseState();
+  const main=state.spaces.find(x=>x.id==='main-1');
+  state.spaces=state.spaces.filter(x=>x.id!=='main-1'&&x.id!=='child-1');
+  state.trash={oldFunction:true,items:[{...main,deleted_at:'2026-10-24T03:00:00Z',deleted_root_id:'main-1'}]};
+  await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);
+  await clickView(page,'projects');
+  await page.locator('#ps3ArchiveBtn').click();
+  await expect(page.locator('[data-ps3-trash-row="main-1"]')).toBeVisible();
+  await expect(page.locator('[data-ps3-trash-pending]')).toHaveText('담당조직·사업 보고 휴지통은 준비 중입니다.');
 });
 
 test('TRASH 2단계: 휴지통 함수가 아직 없으면 삭제는 지금 문구로 바로 지워지고 휴지통 자리에는 준비 중만 보인다',async({page})=>{
