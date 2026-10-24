@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { DEFAULT_AI_MODEL, withReasoning } from '../_shared/ai-model.ts';
+import { AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, withReasoning } from '../_shared/ai-model.ts';
+import { outputText } from '../_shared/openai-responses.ts';
 import { HwpxReader, hwpToText } from 'npm:@ssabrojs/hwpxjs';
 import { readMultipartForm } from '../_shared/multipart.ts';
 
@@ -58,7 +59,6 @@ function autoDate(name:string){let m=name.match(/(20\d{2})[._-]?(0[1-9]|1[0-2])[
 function classify(text:string){const n=String(text||'');let category='기타';const rules:any=[[/보도자료/,'보도자료'],[/취재요청/,'취재요청'],[/성명|논평/,'성명·논평'],[/회의결과|회의록/,'회의결과'],[/회의|집행위|상집|중집|대표자회의|간담회/,'회의자료'],[/토론회|발제|발제문/,'토론회·발제자료'],[/교육|강의|수련회/,'교육자료'],[/교섭|임단협|단협/,'교섭자료'],[/국회|법안|의안|국정감사|국감/,'국회자료'],[/지침|고시|정부|기재부|재경부|국토부|행안부|고용노동부|노동부/,'정부자료'],[/기자회견|집회|선전|웹자보|카드뉴스/,'선전·언론자료']];for(const [re,c] of rules){if(re.test(n)){category=c;break}}const sourceCandidates=['공공운수노조','민주노총','국토교통부','국토부','기획재정부','기재부','재정경제부','재경부','행정안전부','행안부','고용노동부','노동부','국회','철도노조','궤도협의회'];const source=sourceCandidates.find(x=>n.includes(x))||null;const keywords=['총인건비','정원','인력','인력확충','2인1조','민자철도','철도','지하철','안전','기능개혁','통폐합','산별','필수유지','성과연봉제','임금','교섭','파업','외주화','민영화','운영기준','국감','공공기관','육아휴직'];const tags=keywords.filter(k=>n.includes(k));return {category,source,tags,document_date:autoDate(n)}}
 function norm(s:string){return s.toLowerCase().replace(/\s+/g,'').replace(/[^0-9a-z가-힣]/g,'')}
 function bytesToDataUrl(bytes:Uint8Array,mime:string){let bin='';for(let i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode(...bytes.subarray(i,Math.min(i+0x8000,bytes.length)));return `data:${mime||'application/octet-stream'};base64,${btoa(bin)}`}
-function outputText(r:any){for(const item of r.output||[]){if(item.type==='message'){for(const c of item.content||[]){if(c.type==='output_text'&&c.text)return c.text}}}return r.output_text||''}
 // 본문 기반 제목은 best-effort다. 응답이 늦으면 파일명 제목으로 계속 진행한다.
 const TITLE_AI_TIMEOUT_MS=20000;
 async function openAI(body:any){const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+OPENAI,'Content-Type':'application/json'},body:JSON.stringify(withReasoning(body)),signal:AbortSignal.timeout(TITLE_AI_TIMEOUT_MS)});const d=await r.json();if(!r.ok)throw new Error(d?.error?.message||'AI 요청에 실패했습니다.');return d}
@@ -69,8 +69,8 @@ async function inferTitleFromText(text:string,fileName:string,model:string){
   const fallback=firstLikelyTitle(text);
   if(!OPENAI)return fallback;
   const schema={type:'object',properties:{title:{type:'string'}},required:['title'],additionalProperties:false};
-  const r=await openAI({model,store:false,max_output_tokens:180,input:[{role:'developer',content:'업무 자료의 제목을 식별한다. 표지·첫 페이지·문서 머리말에 실제 제목이 있으면 그것을 우선한다. 파일관리용 표현(최종, 수정본, 확정, 인쇄용, 사본, 버전번호)은 제거한다. 실제 제목이 명시되지 않았다면 문서 내용만 근거로 80자 이내의 간결한 제목을 만든다. 없는 사실을 추가하지 않는다.'},{role:'user',content:`파일명: ${fileName}\n\n문서 앞부분:\n${String(text).slice(0,18000)}`}],text:{format:{type:'json_schema',name:'document_title',strict:true,schema}}});
-  try{const p=JSON.parse(outputText(r));return String(p.title||'').trim()||fallback}catch{return fallback}
+  const r=await openAI({model,store:false,max_output_tokens:180+AI_REASONING_TOKEN_HEADROOM,input:[{role:'developer',content:'업무 자료의 제목을 식별한다. 표지·첫 페이지·문서 머리말에 실제 제목이 있으면 그것을 우선한다. 파일관리용 표현(최종, 수정본, 확정, 인쇄용, 사본, 버전번호)은 제거한다. 실제 제목이 명시되지 않았다면 문서 내용만 근거로 80자 이내의 간결한 제목을 만든다. 없는 사실을 추가하지 않는다.'},{role:'user',content:`파일명: ${fileName}\n\n문서 앞부분:\n${String(text).slice(0,18000)}`}],text:{format:{type:'json_schema',name:'document_title',strict:true,schema}}});
+  try{const p=JSON.parse(outputText(r)??'');return String(p.title||'').trim()||fallback}catch{return fallback}
 }
 async function inferTitleFromFile(file:File,model:string){
   if(file.size>25*1024*1024)return null;
@@ -80,8 +80,8 @@ async function inferTitleFromFile(file:File,model:string){
   if(['hwp','hwpx'].includes(e)){try{return await inferTitleFromText(await extractHwpText(bytes,file.name),file.name,model)}catch{return null}}
   if(!OPENAI||!(e==='pdf'||mime==='application/pdf'||['doc','docx','ppt','pptx'].includes(e)))return null;
   const schema={type:'object',properties:{title:{type:'string'}},required:['title'],additionalProperties:false};
-  const r=await openAI({model,store:false,max_output_tokens:180,input:[{role:'developer',content:'업무 자료의 제목을 식별한다. 표지·첫 페이지에 실제 제목이 있으면 그것을 우선한다. 파일관리용 표현(최종, 수정본, 확정, 인쇄용, 사본, 버전번호)은 제거한다. 실제 제목이 명시되지 않았다면 문서 내용만 근거로 80자 이내의 간결한 제목을 만든다. 없는 사실을 추가하지 않는다.'},{role:'user',content:[{type:'input_text',text:`파일명: ${file.name}\n문서의 실제 제목을 찾아라.`},{type:'input_file',filename:file.name,file_data:bytesToDataUrl(bytes,mime),detail:'auto'}]}],text:{format:{type:'json_schema',name:'document_title',strict:true,schema}}});
-  try{const p=JSON.parse(outputText(r));return String(p.title||'').trim()||null}catch{return null}
+  const r=await openAI({model,store:false,max_output_tokens:180+AI_REASONING_TOKEN_HEADROOM,input:[{role:'developer',content:'업무 자료의 제목을 식별한다. 표지·첫 페이지에 실제 제목이 있으면 그것을 우선한다. 파일관리용 표현(최종, 수정본, 확정, 인쇄용, 사본, 버전번호)은 제거한다. 실제 제목이 명시되지 않았다면 문서 내용만 근거로 80자 이내의 간결한 제목을 만든다. 없는 사실을 추가하지 않는다.'},{role:'user',content:[{type:'input_text',text:`파일명: ${file.name}\n문서의 실제 제목을 찾아라.`},{type:'input_file',filename:file.name,file_data:bytesToDataUrl(bytes,mime),detail:'auto'}]}],text:{format:{type:'json_schema',name:'document_title',strict:true,schema}}});
+  try{const p=JSON.parse(outputText(r)??'');return String(p.title||'').trim()||null}catch{return null}
 }
 
 // LIB-수정파일교체: 같은 자료 행(app_documents)의 파일만 새 파일로 바꾼다. 제목·분류·출처·날짜·설명·태그·프로젝트·사업 보고·담당조직·칸별 기록·분류 메모는 건드리지 않는다.
@@ -142,7 +142,7 @@ Deno.serve(async(req:Request)=>{
     let projectId=String(form.get('project_id')||'').trim()||null;
     let meetingId=String(form.get('meeting_id')||'').trim()||null;
     if(meetingId){
-      const {data:meeting}=await admin.from('app_meetings').select('id,workspace_id,project_id,created_by').eq('id',meetingId).maybeSingle();
+      const {data:meeting}=await admin.from('app_meetings').select('id,workspace_id,project_id,created_by').eq('id',meetingId).is('deleted_at',null).maybeSingle(); // TRASH-Edge거르기2: 휴지통 사업 보고에는 자료를 붙이지 않는다
       if(!meeting||meeting.workspace_id!==wm.workspace_id)throw new UploadError('회의를 찾을 수 없습니다.',{status:404,code:'meeting_not_found',stage:'project'});
       if(meeting.project_id){if(!projectId)projectId=meeting.project_id;if(meeting.created_by!==user.id)await canEditProject(user.id,meeting.project_id)}
       else if(meeting.created_by!==user.id&&!['owner','admin','editor'].includes(wm.role))throw new UploadError('회의자료 등록 권한이 없습니다.',{status:403,code:'forbidden',stage:'authorize'});

@@ -57,3 +57,9 @@ test('meeting file upload requires the sole workspace owner and keeps caller RLS
   assert.match(source, /userDb\.from\(['"]app_documents['"]\)\.insert/);
   assert.doesNotMatch(source, /admin\.from\(['"]app_documents['"]\)\.insert/);
 });
+
+test('document-ai-index imports the HWP package by name so the function boots (OPTIONS must not fail)', () => {
+  const src = read('document-ai-index');
+  assert.match(src, /import \{ HwpxReader, hwpToText \} from ['"]npm:@ssabrojs\/hwpxjs['"]/);
+  assert.doesNotMatch(src, /import HwpxReader/);
+});
