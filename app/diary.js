@@ -222,6 +222,7 @@ const cleanLive = () => { const out = {}; for (const [id, text] of Object.entrie
 // The text changed since the editor opened (or since the last save). Opening an old diary writes nothing: it is converted in memory.
 const textChanged = () => !!edit?.field && JSON.stringify(edit.field.getValue()) !== edit.baseJson;
 const dirty = () => !!edit && (edit.pending.length > 0 || textChanged() || commentsChanged());
+const EDITOR_LOADING = '편집기를 불러오는 중…';
 async function openEditor(day) {
   if (edit) return;
   let row = rows.get(day) || null;
@@ -232,7 +233,7 @@ async function openEditor(day) {
     host:document.createElement('div'), field:null, baseJson:'', startDoc:diaryStartDoc(row), baseRaw:row ? row.raw_text : null, baseDoc:row ? row.doc ?? null : null, hadRow:!!row};
   edit.host.className = 'diary-doc-host'; edit.host.dataset.diaryText = '';
   cal.hidden = true; detail.hidden = true; list.hidden = true; $('[data-diary-new]').hidden = true; $('.diary-head').hidden = true; status.hidden = true;
-  renderEditor('편집기를 불러오는 중…');
+  renderEditor(EDITOR_LOADING);
   editLayer ||= window.KPTURouter?.layer?.open('diary-edit', {close:() => closeEditor({fromBack:true})}) || null;
   requestAnimationFrame(() => editor.querySelector('h3')?.focus());
   edit.mounting = mountField(edit);
@@ -253,7 +254,8 @@ async function mountField(session) {
     if (session.startDoc !== used) field.setValue(session.startDoc);
     session.field = field; session.baseJson = JSON.stringify(field.getValue());
     if (session.pendingMerge) { field.setValue(session.pendingMerge); session.pendingMerge = null; }
-    if (!session.busy) setEditorStatus('');
+    // Clear only our own loading line: a notice shown meanwhile (e.g. the 20-photo limit) stays.
+    if (!session.busy && editor.querySelector('[data-diary-editor-status]')?.textContent === EDITOR_LOADING) setEditorStatus('');
   } catch { if (edit === session) setEditorStatus('편집기를 불러오지 못했어요. 닫고 다시 열어 주세요.'); }
 }
 function dropField() {
