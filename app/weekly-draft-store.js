@@ -31,6 +31,7 @@ const sameLines = (a, b) => JSON.stringify(cleanLines(a)) === JSON.stringify(cle
 
 // ---- 고친 값 → draft ----
 // cells: Map cellId → 지금 줄 글, initial: Map cellId → 바탕(처음) 줄 글. 바탕과 같은 칸은 저장하지 않는다.
+// me는 고친 이름일 때만(meFrom='typed'), date는 바탕(보고일)과 다를 때만 넘긴다(아니면 '').
 // keep: 이번 바탕에 넣지 못한 저장 칸(버리지 않고 다시 저장). titles: Map event → {title, place}.
 export function makeDraft({base = null, me = '', meFrom = '', date = '', cells = new Map(), initial = new Map(), keep = [], titles = new Map(), confirmed = null} = {}) {
   const rows = [];
@@ -46,8 +47,8 @@ export function makeDraft({base = null, me = '', meFrom = '', date = '', cells =
   if (confirmed) out.confirmed = confirmed;
   return out;
 }
-// 바탕 그대로·고친 것 없음(이름·일시가 바탕과 같고 고친 칸·일정이 없음).
-export const emptyDraft = (draft, {me = '', date = ''} = {}) => !draft || (!draft.rows?.length && !draft.titles?.length && !draft.confirmed && (draft.me ?? '') === me && (draft.date ?? '') === date);
+// 저장할 만한 내용: 고친 칸·일정, 고친 이름·일시, [확정] 표시.
+export const hasContent = d => !!d && !!(d.rows?.length || d.titles?.length || (d.me_from === 'typed' && d.me) || d.date || d.confirmed);
 
 // 서버에서 읽은 draft를 모양대로만 받아들인다(모르는 것·틀린 것은 버림 — 서버는 형태·크기만 본다).
 export function readDraft(raw) {
@@ -75,36 +76,35 @@ export function placeDraft(draft, ids) {
 }
 
 // ---- 3자 비교 (마지막으로 같았던 판 · 이 기기 · 서버) ----
-// 칸 단위 값: me, date, 줄 칸(row:…), 일정(title:…). 없는 칸 = 바탕 그대로(null).
+// 칸 단위 값: 고친 이름(me, me_from='typed'일 때만), 고친 일시(date, 비어 있지 않을 때만), 줄 칸(row:…), 일정(title:…).
+// 없는 칸 = 바탕 그대로(null). 일시는 바탕(보고일)과 같으면 화면이 ''로 넘긴다.
 export function draftCells(draft) {
   const out = new Map();
   if (!draft) return out;
-  out.set('me', draft.me ?? ''); out.set('date', draft.date ?? '');
+  if (draft.me_from === 'typed' && draft.me) out.set('me', draft.me);
+  if (draft.date) out.set('date', draft.date);
   for (const r of draft.rows ?? []) out.set(`row:${cellId(r.section, r.key, r.n)}`, cleanLines(r.lines));
   for (const t of draft.titles ?? []) out.set(`title:${t.event}`, {title:t.title, place:t.place});
   return out;
 }
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+export const sameDraft = (a, b) => { const x = draftCells(a), y = draftCells(b); return x.size === y.size && [...x].every(([k, v]) => same(v, y.get(k))); };
 // mine·theirs·base: draft(또는 null). 한쪽만 고친 칸은 합치고, 양쪽이 다르게 고친 칸은 conflicts(합친 판에는 서버 값을 둔다 —
-// 고를 때까지 그 칸은 덮어쓰지 않음). 반환 {draft(합친 판), conflicts:[{cell, mine, theirs}]}.
+// 사람이 고를 때까지). 반환 {draft(합친 판), conflicts:[{cell, mine, theirs}]} (값 null = 바탕 그대로).
 export function merge3(base, mine, theirs) {
   const b = draftCells(base), m = draftCells(mine), t = draftCells(theirs);
-  // 없는 칸 = 바탕 그대로(null). 임시저장이 비워진 쪽(null)의 이름·일시는 "안 고침"으로 본다.
-  const keys = new Set([...b.keys(), ...m.keys(), ...t.keys()]);
+  const keys = [...new Set([...b.keys(), ...m.keys(), ...t.keys()])].sort();
   const merged = new Map(), conflicts = [];
   for (const k of keys) {
-    const bv = b.get(k) ?? null, plain = k === 'me' || k === 'date';
-    const mv = m.has(k) ? m.get(k) : (plain && !mine ? bv : null);
-    const tv = t.has(k) ? t.get(k) : (plain && !theirs ? bv : null);
-    if (same(mv, tv)) { if (mv != null) merged.set(k, mv); continue; }
-    if (same(mv, bv)) { if (tv != null) merged.set(k, tv); continue; }
-    if (same(tv, bv)) { if (mv != null) merged.set(k, mv); continue; }
-    conflicts.push({cell:k, mine:mv, theirs:tv});
-    if (tv != null) merged.set(k, tv);
+    const bv = b.get(k) ?? null, mv = m.get(k) ?? null, tv = t.get(k) ?? null;
+    let v;
+    if (same(mv, tv) || same(tv, bv)) v = mv;
+    else if (same(mv, bv)) v = tv;
+    else { conflicts.push({cell:k, mine:mv, theirs:tv}); v = tv; }
+    if (v != null) merged.set(k, v);
   }
-  const pick = theirs ?? mine ?? base ?? {};
-  const out = {v:DRAFT_VERSION, base:mine?.base ?? pick.base ?? null, me:merged.get('me') ?? mine?.me ?? pick.me ?? '', me_from:mine?.me_from ?? pick.me_from ?? '',
-    date:merged.get('date') ?? mine?.date ?? pick.date ?? '', rows:[], titles:[]};
+  const out = {v:DRAFT_VERSION, base:mine?.base ?? theirs?.base ?? base?.base ?? null,
+    me:merged.get('me') ?? '', me_from:merged.has('me') ? 'typed' : '', date:merged.get('date') ?? '', rows:[], titles:[]};
   for (const [k, v] of merged) {
     if (k.startsWith('row:')) { const {section, key, n} = parseCellId(k.slice(4)); out.rows.push({section, key, n, lines:v}); }
     else if (k.startsWith('title:')) out.titles.push({event:k.slice(6), title:v.title, place:v.place});
