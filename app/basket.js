@@ -69,7 +69,7 @@ const LINK_ICONS = {
   edit: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M10.5 2.5l3 3-8 8h-3v-3z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
 };
 const time = note => { const d = new Date(note.occurred_at); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul',dateStyle:'medium',timeStyle:'short'}).format(d); };
-root.innerHTML = `<div class="basket-head"><h2>바구니</h2><div class="basket-toolbar basket-more" data-basket-more-wrap><button type="button" class="basket-more-trigger" data-basket-more aria-label="더보기" aria-expanded="false" aria-controls="basketMoreMenu"><span aria-hidden="true">⋯</span><span class="basket-more-label" aria-hidden="true"> 더보기</span></button><div id="basketMoreMenu" class="basket-more-menu" role="group" aria-label="바구니 더보기" hidden><button type="button" data-handoff-copy>AI 분류 요청</button><button type="button" data-chatgpt-request-copy>GPT 답변 가져오기</button></div></div></div><div class="basket-switch-row"><div class="basket-kind-switch" role="group" aria-label="업데이트·노트 보기" data-basket-kind-switch><button type="button" data-basket-kind="memo" aria-pressed="true">업데이트</button><button type="button" data-basket-kind="note" aria-pressed="false">노트</button></div><div class="basket-filters quick-mode-group" role="group" aria-label="바구니 보기"><button type="button" class="quick-pill-button" data-basket-filter="unclassified">미분류<span class="basket-filter-count" data-basket-filter-count></span></button><button type="button" class="quick-pill-button" data-basket-filter="classified">분류 완료</button><button type="button" class="quick-pill-button" data-basket-filter="archived">보류</button></div></div><div class="basket-place-filter" data-basket-place-filter hidden></div><div class="basket-place-filter basket-sub-filter" data-basket-sub-filter hidden></div><p data-basket-handoff-scope role="status" hidden></p><div data-handoff-host></div><div data-basket-list><div class="home-quick-placeholder" aria-hidden="true"></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><div data-basket-rows id="basketRows"></div><div id="basketRowMenu" class="basket-more-menu basket-row-pop-menu" role="group" aria-label="업데이트 메뉴" hidden></div></div><div data-basket-detail hidden></div><div data-classification-host></div><div class="note-host" data-note-host hidden></div>`;
+root.innerHTML = `<div class="basket-head"><h2>바구니</h2><div class="basket-toolbar basket-more" data-basket-more-wrap><button type="button" class="basket-more-trigger" data-basket-more aria-label="더보기" aria-expanded="false" aria-controls="basketMoreMenu"><span aria-hidden="true">⋯</span><span class="basket-more-label" aria-hidden="true"> 더보기</span></button><div id="basketMoreMenu" class="basket-more-menu" role="group" aria-label="바구니 더보기" hidden><button type="button" data-handoff-copy>AI 분류 요청</button><button type="button" data-chatgpt-request-copy>GPT 답변 가져오기</button></div></div></div><div class="basket-switch-row"><div class="basket-kind-switch" role="group" aria-label="업데이트·노트 보기" data-basket-kind-switch><button type="button" data-basket-kind="memo" aria-pressed="true">업데이트</button><button type="button" data-basket-kind="note" aria-pressed="false">노트</button></div><div class="basket-filters quick-mode-group" role="group" aria-label="바구니 보기"><button type="button" class="quick-pill-button" data-basket-filter="unclassified">미분류<span class="basket-filter-count" data-basket-filter-count></span></button><button type="button" class="quick-pill-button" data-basket-filter="classified">분류 완료</button><button type="button" class="quick-pill-button" data-basket-filter="archived">보류</button></div></div><div class="basket-place-filter" data-basket-place-filter hidden></div><div class="basket-place-filter basket-sub-filter" data-basket-sub-filter hidden></div><button type="button" class="quick-text-link basket-ref-open" data-basket-ref-open data-goto="reference" hidden>참고 묶음 화면 ›</button><p data-basket-handoff-scope role="status" hidden></p><div data-handoff-host></div><div data-basket-list><div class="home-quick-placeholder" aria-hidden="true"></div><p data-basket-list-status role="status"></p><button type="button" data-basket-retry hidden>다시 시도</button><div data-basket-rows id="basketRows"></div><div id="basketRowMenu" class="basket-more-menu basket-row-pop-menu" role="group" aria-label="업데이트 메뉴" hidden></div></div><div data-basket-detail hidden></div><div data-classification-host></div><div class="note-host" data-note-host hidden></div>`;
 // Keep the basket heading available to assistive navigation; the shell owns
 // the visible mobile title at the same 760px breakpoint as the shared header.
 const basketTitle=root.querySelector('.basket-head > h2'),mobileTitle=window.matchMedia('(max-width:760px)');
@@ -321,9 +321,10 @@ const classification = mountClassification(root.querySelector('[data-classificat
 // Shared by 분류 결과 입력 and the manual link panel: show the confirmed
 // destinations at once, then replace them with one fresh read.
 async function linksConfirmed(noteId,targets){
-  for(const target of targets){const key=target.kind==='project'?'project_id':'organization_id';
+  // REF-참고묶음: a reference target is the link column bundle_id and its name object 'bundle' (as basket-data.js reads it).
+  for(const target of targets){const key=target.kind==='project'?'project_id':target.kind==='reference'?'bundle_id':'organization_id',named=target.kind==='reference'?'bundle':target.kind;
     if(!links.some(l=>l.note_id===noteId&&l[key]===target.target_id&&l.status==='confirmed'))
-      links.push({note_id:noteId,status:'confirmed',[key]:target.target_id,[target.kind]:{name:target.name}});
+      links.push({note_id:noteId,status:'confirmed',[key]:target.target_id,[named]:{name:target.name}});
   }
   renderList();if(selected?.id===noteId)paintDetailState();
   const owner=scope();
@@ -467,12 +468,14 @@ function paintHandoffScope(){
 }
 // UI-디자인손질 6: each confirmed link is a colored-dot chip. BUG-바구니연결해제: organization and project
 // chips get × (disconnect, 44px target); on the note screen the chip itself opens that place.
-// Meeting, library and reference (REF-참고묶음, 참고 묶음) chips stay plain: their links cannot be put back by the existing link path.
+// Meeting and library chips stay plain: their links cannot be put back by the existing link path.
+// REF-참고묶음 화면 2: a reference chip ("참고: ○○") gets × too (restoreRecordLink takes kind 'reference'), and on the note screen
+// it opens that bundle on the 참고 묶음 screen.
 const chipKinds=[['project','프로젝트'],['organization','담당조직'],['meeting','사업 보고'],['document','자료실'],['bundle','참고']];
 const confirmedLinks = noteId => links.filter(l => l.note_id === noteId && l.status === 'confirmed');
 function chipInfo(link) {
   const [kind, label] = chipKinds.find(([key]) => link[key + '_id']) || ['other', '연결'];
-  return {kind, label, name: link[kind]?.name || link[kind]?.title || link[kind]?.series_name || '연결 대상 없음', removable: !!link.id && (kind === 'organization' || kind === 'project')};
+  return {kind, label, name: link[kind]?.name || link[kind]?.title || link[kind]?.series_name || '연결 대상 없음', removable: !!link.id && (kind === 'organization' || kind === 'project' || kind === 'bundle')};
 }
 function linkChip(link, {open = false} = {}) {
   const {kind, label, name, removable} = chipInfo(link);
@@ -498,8 +501,10 @@ function paintPlaceFilter() {
 // UI-바구니거르기2: [담당조직]/[프로젝트] → one row of names ([모든 ○○ N] + places holding a memo, most first),
 // [자료실] → the 7 document categories. [전체]·[할 일] have none. Same shared chips, same memory-only choice.
 const subFilter = root.querySelector('[data-basket-sub-filter]');
-const SUB_LABELS = {organization:'조직', project:'프로젝트', library:'자료 분류'};
+const SUB_LABELS = {organization:'조직', project:'프로젝트', reference:'참고 묶음', library:'자료 분류'};
 function paintSubFilter() {
+  // REF-참고묶음 화면 2: [분류] › [참고] also offers the 참고 묶음 screen (a text link under the bundle names).
+  root.querySelector('[data-basket-ref-open]').hidden = !(filter === 'classified' && place === 'reference');
   const options = filter === 'classified' ? placeSubOptions(notes, links, docs, place) : null;
   subFilter.hidden = !options;
   if (!options) { sub = 'all'; return; }
@@ -979,6 +984,11 @@ async function unlinkChip(linkId) {
 // Note screen chip: open that organization or project over the basket, as home does.
 async function openChipPlace(linkId) {
   const link = links.find(l => l.id === linkId); if (!link) return;
+  if (link.bundle_id) {
+    try { await window.KPTUViewLoader.load('reference'); await window.KPTUReference.open(link.bundle_id); }
+    catch { if (selected?.id === link.note_id) detail.querySelector('[data-basket-status]').textContent = '참고 묶음을 열지 못했어요. 다시 시도해 주세요.'; }
+    return;
+  }
   const project = !!link.project_id;
   try {
     await window.KPTUViewLoader.load(project ? 'projects' : 'team');

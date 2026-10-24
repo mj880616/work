@@ -35,7 +35,8 @@ const routeStyles={
   hwp:['./hwp-lab.css','./ui-standard.css'],
   profile:['./profile-settings.css','./ui-standard.css'],
   ledger:['./ledger-import.css','./ui-standard.css'],
-  search:['./filter-chips.css','./global-search.css','./ui-standard.css']
+  search:['./filter-chips.css','./global-search.css','./ui-standard.css'],
+  reference:['./reference-bundles.css','./ui-standard.css']
 };
 async function prepare(view){
   const key=normalize(view);
@@ -169,7 +170,9 @@ async function profile(){ await organizationOrder(); await module('./profile-set
 async function ledger(){ await module('./ledger-import.js','__KPTU_LEDGER_IMPORT_READY__'); await Promise.all([module('./ledger-candidates.js','__KPTU_LEDGER_CANDIDATES_READY__'),module('./ledger-browse.js','__KPTU_LEDGER_BROWSE_READY__'),module('./ledger-export.js','__KPTU_LEDGER_EXPORT_READY__')]); void window.KPTULedgerExport?.open?.(); return {ok:true} }
 // SEARCH-전체검색: 상단 줄 검색칸·결과 창·검색 결과 화면(?view=search)·폰 메뉴 검색 입구. loader-v2가 첫 화면 뒤에 한 번 불러온다.
 async function search(){ await module('./global-search.js','__KPTU_GLOBAL_SEARCH_READY__'); return {ok:true} }
-const loaders={home,basket,calendar,tasks,journal,diary,projects,library,meetings,media,pages,team:organizations,hwp:hwpLab,profile,ledger,search};
+// REF-참고묶음 화면 2: 참고 묶음(?view=reference, 입구는 담당조직 목록 맨 아래·바구니 "참고" 칩). loadAll에 넣지 않고 처음 열 때만 불러온다.
+async function reference(){ await module('./reference-bundles.js'); return {ok:true} }
+const loaders={home,basket,calendar,tasks,journal,diary,projects,library,meetings,media,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference};
 // Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp, 새 주소 ?view=reports → meetings 화면). The router uses the same map.
 const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings'};
 function normalize(view){
