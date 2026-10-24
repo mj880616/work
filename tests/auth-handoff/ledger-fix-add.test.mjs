@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL only. No Supabase, Google or production credentials. All data synthetic (09xx ids, made-up names).
-// LEDGER-수정요청 DB: 20261024190000_ledger_fix_add — app_apply_ledger_fix also takes do:'add' (a new record the owner enters by hand,
+// LEDGER-수정요청 DB: 20261024200000_ledger_fix_add — app_apply_ledger_fix also takes do:'add' (a new record the owner enters by hand,
 // from the [+ 기록하기] box). Same signature, INVOKER, authenticated only. replace/retire/add_source unchanged. Undo via app_undo_ledger_fix.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -14,7 +14,7 @@ import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A} from './basket4-fixture.mjs';
 import {prepareMigration,toDryRun,checkSQL} from '../../scripts/ops/db-migration-plan.mjs';
 import {runMigrationPlan} from '../../scripts/ops/db-migration-run.mjs';
-const version='20261024190000',name='ledger_fix_add',stem=version+'_'+name;
+const version='20261024200000',name='ledger_fix_add',stem=version+'_'+name;
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 const root=new URL('../../',import.meta.url).pathname;
 for(const key of Object.keys(process.env))if(key.startsWith('PG'))delete process.env[key];
