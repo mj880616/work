@@ -9,7 +9,8 @@ export const KIND_HINT = Object.freeze({
   decision: '채택·기각·보류 등 정한 내용(원장의 결정)', evidence: '법령·통계·합의문 등 뒷받침 자료(원장의 근거)',
   commitment: '상대가 하기로 한 일, 후속확인일이 있음(원장의 약속)' });
 export const VALIDITY_LABEL = Object.freeze({ current: '현재유효', fulfilled: '이행완료', superseded: '대체', retired: '폐기', needs_check: '확인필요' });
-export const SENSITIVITY_LABEL = Object.freeze({ S0: 'S0 공개 가능', S1: 'S1 내부 업무', S2: 'S2 교섭·전략' });
+// 화면 글자만 쉬운 말로(값 S0~S2는 그대로, 설계 8.3절).
+export const SENSITIVITY_LABEL = Object.freeze({ S0: '공개 가능', S1: '내부', S2: '교섭·전략' });
 export const IMPORTANCE_LABEL = Object.freeze({ very_high: '매우높음', high: '높음', normal: '보통', low: '낮음' });
 export const EVENT_STATUS_LABEL = Object.freeze({ tracking: '추적중', watching: '관찰', closed: '종료', on_hold: '보류' });
 export const DECISION_TYPE_LABEL = Object.freeze({ adopted: '채택', rejected: '기각', on_hold: '보류', changed: '변경' });
@@ -239,8 +240,10 @@ export function changeInfo(rows) {
   for (const r of Array.isArray(rows) ? rows : []) {
     if (!r || !UUID.test(String(r.record_id)) || !ACTIONS.includes(r.action) || !['auto', 'correction'].includes(r.route)) continue;
     const id = String(r.record_id);
-    const it = out.get(id) || { auto: false, runId: null, notes: [] };
+    const it = out.get(id) || { auto: false, manual: false, runId: null, notes: [] };
     if (r.action === 'created' && r.route === 'auto') { it.auto = true; if (UUID.test(String(r.run_id || ''))) it.runId = String(r.run_id); }
+    // 사용자가 직접 넣거나 고쳐서 생긴 기록(수정 요청 route=correction이 만든 기록): "직접" 꼬리표.
+    if (r.action === 'created' && r.route === 'correction') it.manual = true;
     const note = typeof r.note === 'string' ? r.note.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, 300) : '';
     if (note) it.notes.push(note);
     out.set(id, it);
@@ -249,6 +252,7 @@ export function changeInfo(rows) {
 }
 // 자동 기록 행의 첫 줄 글(변경 기록 note가 없을 때): "자동 기록".
 export const AUTO_TAG = '자동';
+export const MANUAL_TAG = '직접';
 
 // [틀린 기록으로 표시]의 이유(사람이 고름). 수정 요청 함수 app_apply_ledger_fix의 retire로 보낸다(폐기, 지우지 않음).
 export const RETIRE_REASONS = Object.freeze([['wrong', '사실과 달라요'], ['duplicate', '같은 기록이 이미 있어요'], ['not_ledger', '원장에 둘 일이 아니에요']]);
@@ -267,4 +271,36 @@ export function undoErrorText(e) {
   if (/TARGET_INACTIVE/.test(m)) return '이미 대체됐거나 폐기된 기록이에요.';
   if (/NOT_OWNER|42501/.test(m) || e?.status === 401 || e?.status === 403) return '로그인한 소유자만 할 수 있어요.';
   return '저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.';
+}
+
+// ---------- LEDGER-화면정리(명진 요청 2026-10-24 07:17): 첫 화면 칸과 이야기(타임라인) ----------
+// 검색·조건이 하나라도 걸렸으면 결과 목록, 아니면 첫 화면(안 지킨 약속·추적 중·조직/주제 칩·최근 자동 기록).
+export function isSearching(filters) {
+  const f = { ...freshFilters(), ...(filters || {}) };
+  return !!(String(f.q || '').trim() || f.kinds.length || f.from || f.to || f.organization || f.topic || f.scope !== 'work' || f.inactive);
+}
+// 확인일이 오늘(서울)보다 며칠 지났나. 지나지 않았거나 날짜가 아니면 0.
+export function overdueDays(day, now = new Date()) {
+  if (!isDay(day)) return 0;
+  const diff = Math.round((Date.parse(seoulToday(now) + 'T00:00:00Z') - Date.parse(day + 'T00:00:00Z')) / 86400000);
+  return diff > 0 ? diff : 0;
+}
+export const seoulDay = seoulToday;
+// 안 지킨 약속 한 줄의 뒤쪽 글: "가 사측 · 확인일 10/30 · 5일 지남".
+export function overdueLabel(r, now = new Date()) {
+  const n = overdueDays(r?.follow_up_on, now);
+  const d = isDay(r?.follow_up_on) ? `확인일 ${Number(r.follow_up_on.slice(5, 7))}/${Number(r.follow_up_on.slice(8, 10))}` : '';
+  return [typeof r?.counterparty === 'string' ? r.counterparty.trim() : '', d, n ? `${n}일 지남` : ''].filter(Boolean).join(' · ');
+}
+// 이야기는 시간순(오래된 것 먼저), 날짜 없는 기록은 끝에. 같은 날은 고정 ID 순.
+export function storySort(rows) {
+  const key = r => (isDay(r?.date_start) ? r.date_start : '9999-99-99');
+  return [...(Array.isArray(rows) ? rows : [])].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : String(a.ledger_id).localeCompare(String(b.ledger_id))));
+}
+// 칩: [{id, name, count}] 많은 순, 같으면 이름 순. ids는 기록마다 붙은 조직·주제 id 목록(중복 가능).
+export function chipList(ids, names) {
+  const count = new Map();
+  for (const id of ids) if (UUID.test(String(id || ''))) count.set(String(id), (count.get(String(id)) || 0) + 1);
+  return [...count].map(([id, n]) => ({ id, name: names.get(id) || '', count: n })).filter(c => c.name)
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ko'));
 }

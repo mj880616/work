@@ -61,7 +61,8 @@ async function mockApp(page,{server=true}={}){
   if(path==='/rest/v1/app_ledger_records'){
    const id=url.searchParams.get('id')||'';
    if(id.startsWith('eq.'))return ok(db.records.filter(r=>r.id===id.slice(3)));
-   if(id.startsWith('in.')){const ids=id.slice(4,-1).split(',');return ok(db.records.filter(r=>ids.includes(r.id)&&(url.searchParams.get('kind')!=='eq.commitment'||r.kind==='commitment')).map(({id,ledger_id,title,kind})=>({id,ledger_id,title,kind})));}
+   const live=url.searchParams.get('validity');
+   if(id.startsWith('in.')){const ids=id.slice(4,-1).split(',');return ok(db.records.filter(r=>ids.includes(r.id)&&(url.searchParams.get('kind')!=='eq.commitment'||r.kind==='commitment')&&(!live||live.slice(4,-1).split(',').includes(r.validity))));}
    if(url.searchParams.get('select')==='updated_at')return ok(db.records.slice(-1).map(r=>({updated_at:r.updated_at})));
    return ok([]);
   }
@@ -117,7 +118,7 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
   await expect.poll(()=>autoCalls(db).length,{timeout:10000}).toBe(1);
   expect(JSON.parse(autoCalls(db)[0])).toEqual({kind:'ledger_auto'});
 
-  const row=page.locator('[data-lb-row]').filter({hasText:'COM-0951'});
+  const row=page.locator('[data-lb-row]').filter({hasText:'가상 기관 자료 회신 약속'});
   await expect(row).toBeVisible({timeout:10000});
   await expect(row.locator('[data-lb-auto]')).toHaveText('자동');
   await expect(row).toContainText('확인필요');
@@ -133,7 +134,7 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
   await expect.poll(()=>db.undo.length).toBe(1);
   expect(db.undo[0]).toEqual({p_run_id:RUN});
   await expect(page.locator('[data-lb-notice]')).toContainText('이번 자동 기록을 취소했어요');
-  await expect(page.locator('[data-lb-row]').filter({hasText:'COM-0951'})).toHaveCount(0,{timeout:10000});
+  await expect(page.locator('[data-lb-row]').filter({hasText:'가상 기관 자료 회신 약속'})).toHaveCount(0,{timeout:10000});
   // 원장이 바뀌어 사본 갱신이 10분 뒤 한 번 예약된다.
   await page.clock.fastForward(WAIT+1000);
   await expect.poll(()=>db.exports.length,{timeout:10000}).toBeGreaterThanOrEqual(1);
@@ -147,7 +148,7 @@ test('원장 자동 기록: ‹원문›을 누르면 그 업데이트가 열린
  await saveUpdate(page);
  await page.clock.fastForward(WAIT);
  await expect.poll(()=>autoCalls(db).length,{timeout:10000}).toBe(1);
- const row=page.locator('[data-lb-row]').filter({hasText:'COM-0951'});
+ const row=page.locator('[data-lb-row]').filter({hasText:'가상 기관 자료 회신 약속'});
  await row.locator('[data-lb-action="open"]').click();
  await row.getByRole('button',{name:'‹원문›'}).click();
  await expect(page.locator('#basketView')).toBeVisible({timeout:15000});

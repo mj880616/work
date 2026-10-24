@@ -133,7 +133,7 @@ test('변경 기록 → 자동 꼬리표·실행 번호·한 줄 글, 틀린 기
     { record_id: U(2), action: 'source_added', route: 'auto', run_id: U(9), note: '' },
     { record_id: 'x', action: 'created', route: 'auto' }, { record_id: U(3), action: 'bad', route: 'auto' },
   ]);
-  assert.deepEqual(m.get(U(1)), { auto: true, runId: U(9), notes: ['자동 기록 · 2026-10-24'] });
+  assert.deepEqual(m.get(U(1)), { auto: true, manual: false, runId: U(9), notes: ['자동 기록 · 2026-10-24'] });
   assert.equal(m.get(U(2)).auto, false);
   assert.equal(m.size, 2);
   assert.deepEqual(retireRequest('EVT-0901', 'duplicate'), { format: 'kptu-ledger-fix', version: 1, received_from: 'user', items: [{ target: 'EVT-0901', do: 'retire', reason: '같은 기록이 이미 있어요' }] });
