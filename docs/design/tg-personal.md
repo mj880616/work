@@ -1,3 +1,5 @@
+> **보류 — 10/25 명진 결정으로 단순안 채택**(별도 표·메뉴 없이 기존 소식 AI 지시만 고침). 이 설계와 `20261025030000_tg_personal_days` migration은 쓰지 않는다.
+
 # 개인 텔레그램 방 AI 요약 설계 (TG-개인대화)
 
 설계 문서다. 앱 코드, DB, Edge, Apps Script, workflow는 이 PR에서 바꾸지 않는다. DB는 별도 PR(`feat/tg-personal-db`)이고, 서버·화면·Apps Script는 뒤 세션이다. 운영 DB와 Drive는 보지 않았다.
