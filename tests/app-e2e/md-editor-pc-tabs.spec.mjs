@@ -46,8 +46,9 @@ test('1280: [쓰기]를 열어도 왼쪽 세로 메뉴가 보이고 누를 수 �
  await expect(editor).toHaveAttribute('data-md-nav','side');
  // 메뉴의 모든 탭이 보이고 가운데 점이 편집기 밖(실제로 눌림)에 있다.
  // UI-PC일정묶음: the sub rows (바구니·일정 아래) count as tabs too.
+ // 창이 짧으면 사이드바가 스크롤된다(UI-사이드바링크아래). 맨 아래 묶음은 사이드바 안에서 굴려 본 뒤 잰다.
  for(const tab of await nav(page).locator(':is(.nav-btn,.nav-sub-btn):visible').all()){
-  const r=await rect(tab);
+  await tab.evaluate(el=>el.scrollIntoView({block:'nearest'}));const r=await rect(tab);
   expect(await tab.evaluate((el,[x,y])=>document.elementFromPoint(x,y)?.closest('.nav-btn,.nav-sub-btn')===el,[r.x+r.w/2,r.y+r.h/2]),await tab.textContent()).toBe(true);
  }
  // 대화상자 이름·역할은 그대로, 메뉴를 쓰는 동안은 모달이 아니다.

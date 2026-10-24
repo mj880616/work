@@ -155,3 +155,56 @@ test('칸 준비 전(표 404, 칸 400)은 missing — 화면은 "준비 중"으�
   assert.equal(f.calls.length, 0);
   await assert.rejects(readWeekDraft('2026-1-1', f.rt));
 });
+
+// WEEKLY-자료요약 화면 ② (docs/design/weekly-file-summary.md 6절): 자료 줄 고침 draft.docs — 모양 검사·바꾸기·3자 비교·[처음부터]에도 남김·조건부 쓰기.
+test('자료 줄 고침 docs: 모양대로만 받고, 하나씩 바꾸고, 빈 고침은 지운다', async () => {
+  const d = await import('../app/weekly-draft-store.js');
+  assert.deepEqual(d.cleanDocEdit({id:'a', text:' 두\n줄 ', extra:1}), {id:'a', text:'두 줄'});
+  assert.equal(d.cleanDocEdit({id:'a'}), null);
+  assert.equal(d.cleanDocEdit({id:'a', text:'가'.repeat(201)}), null);
+  assert.equal(d.cleanDocEdit({id:'a', drop:'yes'}), null);
+  assert.deepEqual(d.draftDocs({docs:[{id:'a', drop:true}, {id:'a', keep:true}, null, {id:''}]}), [{id:'a', drop:true}]);
+  let draft = d.withDocEdit(null, 'a', {drop:true});
+  assert.deepEqual(draft.docs, [{id:'a', drop:true}]);
+  assert.equal(draft.v, 1);
+  draft = d.withDocEdit(draft, 'b', {text:'고친 줄'});
+  draft = d.withDocEdit(draft, 'a', {drop:null});
+  assert.deepEqual(draft.docs, [{id:'b', text:'고친 줄'}]);
+  assert.deepEqual([...d.docEdits(draft)], [['b', {text:'고친 줄'}]]);
+  // readDraft·makeDraft가 docs를 지나 보낸다(한글 파일 상자 저장이 지우지 않게).
+  assert.deepEqual(d.readDraft(JSON.parse(JSON.stringify(draft))).docs, [{id:'b', text:'고친 줄'}]);
+  assert.deepEqual(d.makeDraft({docs:draft.docs}).docs, [{id:'b', text:'고친 줄'}]);
+  assert.equal('docs' in d.makeDraft({}), false);
+  // [처음부터]: 상자 칸은 비우고 docs만 남김, 없으면 null.
+  assert.deepEqual(d.keepDocsOnly({...draft, rows:[{section:'orgs', key:'k', n:0, lines:['x']}]}), {v:1, base:null, me:'', me_from:'', date:'', rows:[], titles:[], docs:[{id:'b', text:'고친 줄'}]});
+  assert.equal(d.keepDocsOnly({v:1, rows:[]}), null);
+  // 3자 비교: 한쪽만 고친 자료는 합치고, 같은 자료를 다르게 고치면 묻는다(칸 열쇠 doc:<id>).
+  const base = d.withDocEdit(null, 'c', {text:'처음'}), mine = d.withDocEdit(base, 'a', {drop:true}), theirs = d.withDocEdit(base, 'c', {text:'다른 기기'});
+  assert.deepEqual(d.merge3(base, mine, theirs).draft.docs, [{id:'a', drop:true}, {id:'c', text:'다른 기기'}]);
+  const clash = d.merge3(base, d.withDocEdit(base, 'c', {text:'이 기기'}), theirs);
+  assert.deepEqual(clash.conflicts, [{cell:'doc:c', mine:{text:'이 기기'}, theirs:{text:'다른 기기'}}]);
+});
+
+test('자료 줄 고침 쓰기: 다시 읽고 docs만 바꿔 draft_saved_at 조건 PATCH, 그사이 다른 저장이 있으면 다시 읽고 한 번 더, 칸이 없으면 missing', async () => {
+  const d = await import('../app/weekly-draft-store.js');
+  const server = {row:{id:'r', draft:{v:1, base:null, me:'', me_from:'', date:'', rows:[{section:'orgs', key:'가', n:0, lines:['x']}], titles:[]}, draft_saved_at:'2026-10-06T01:00:00.000Z'}, calls:[], bump:false};
+  const rt = {context:{read:() => ({workspace:{id:'w'}})}, async api(url, opts = {}) {
+    server.calls.push({url, method:opts.method ?? 'GET', body:opts.body});
+    if (!opts.method) return [server.row];
+    if (server.bump) { server.bump = false; server.row = {...server.row, draft_saved_at:'2026-10-06T02:00:00.000Z', draft:{...server.row.draft, titles:[{event:'e', title:'t', place:''}]}}; return []; }
+    const guard = decodeURIComponent(url.match(/draft_saved_at=eq\.([^&]+)/)?.[1] ?? '');
+    if (guard !== server.row.draft_saved_at) return [];
+    server.row = {...server.row, ...opts.body}; return [server.row];
+  }};
+  const known = (await d.readWeekDraft('2026-10-05', rt)).row;
+  server.bump = true;
+  const r = await d.changeWeekDocs({start:'2026-10-05', known, change:draft => d.withDocEdit(draft, 'f1', {drop:true})}, rt);
+  assert.equal(r.ok, true);
+  // 다른 저장(일정 제목)과 상자의 칸은 그대로, docs만 더해졌다. updated_at은 보내지 않는다.
+  assert.deepEqual(server.row.draft.titles, [{event:'e', title:'t', place:''}]);
+  assert.deepEqual(server.row.draft.rows, [{section:'orgs', key:'가', n:0, lines:['x']}]);
+  assert.deepEqual(server.row.draft.docs, [{id:'f1', drop:true}]);
+  assert.ok(server.calls.filter(c => c.method === 'PATCH').every(c => !('updated_at' in c.body)));
+  const missing = {context:rt.context, async api() { throw Object.assign(new Error('x'), {status:400, message:'column draft does not exist'}); }};
+  assert.deepEqual(await d.changeWeekDocs({start:'2026-10-05', change:x => x}, missing), {missing:true});
+});
