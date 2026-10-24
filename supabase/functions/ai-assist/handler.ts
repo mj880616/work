@@ -328,7 +328,7 @@ async function readBody(req: Request): Promise<unknown> {
 export const LINK_TARGET_KINDS = Object.freeze(["organization", "project", "reference"] as const);
 type LinkTargetKind = typeof LINK_TARGET_KINDS[number];
 // 재료: 업데이트 본문(note), 업데이트 첨부 글자(files, note_id + use:"files"), 사업 보고(meeting), 자료(document).
-type LinkSource = { type: "note" | "files"; note_id: string } | { type: "meeting"; meeting_id: string } | { type: "document"; document_id: string };
+type LinkSource = { type: "note"; note_id: string } | { type: "files"; note_id: string } | { type: "meeting"; meeting_id: string } | { type: "document"; document_id: string };
 type LinkSummaryInput = { kind: "link_summary"; source: LinkSource; target_kind: LinkTargetKind; target_id: string };
 type TodoRadarInput = { kind: "todo_radar"; mode: "auto" | "again" };
 type LedgerCandidatesInput = { kind: "ledger_candidates" };
@@ -428,7 +428,8 @@ function parseLinkSummaryRequest(b: Record<string, unknown>): LinkSummaryInput {
   const targetKind = b.target_kind as LinkTargetKind;
   if (targetKind === "reference" && type !== "note" && type !== "files") throw new Fail(400, "invalid_request");
   const id = sourceId.toLowerCase();
-  const source: LinkSource = type === "meeting" ? { type, meeting_id: id } : type === "document" ? { type, document_id: id } : { type, note_id: id };
+  const source: LinkSource = type === "meeting" ? { type: "meeting", meeting_id: id } : type === "document" ? { type: "document", document_id: id }
+    : type === "files" ? { type: "files", note_id: id } : { type: "note", note_id: id };
   return { kind: "link_summary", source, target_kind: targetKind, target_id: b.target_id.toLowerCase() };
 }
 
