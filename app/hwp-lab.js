@@ -208,7 +208,7 @@ async function openDrive(target){
     watchEdits();
     const notes=[
       file.info.format==='hwpx'?'HWPX 원본은 새 HWP 파일로만 저장해요.':'',
-      file.info.shared?'이 파일은 바구니와 자료실이 같은 원본을 써요.':'',
+      file.info.shared?'이 파일은 정리함과 자료실이 같은 원본을 써요.':'',
     ].filter(Boolean).join(' ');
     status(`${file.info.file_name} · ${result?.pageCount??'?'}쪽을 열었어요. ${notes?notes+' ':''}고친 뒤 [새 파일로 저장]을 누르세요.`,'ok');
   }catch(err){
@@ -251,7 +251,7 @@ async function overwrite(){
   const shown=drive;
   if(!shown?.info?.can_overwrite||busy||shown.lockOverwrite)return;
   const lines=[`원본 "${shown.info.file_name}"을 지금 고친 내용으로 바꿔요.`,'바꾸기 전 원본 사본을 Drive "Web2 편집 백업" 폴더에 보관해요.'];
-  if(shown.info.shared)lines.push('바구니와 자료실 양쪽에 반영돼요.');
+  if(shown.info.shared)lines.push('정리함과 자료실 양쪽에 반영돼요.');
   if(!window.confirm([...lines,'덮어쓸까요?'].join('\n')))return;
   busy=true;sync();
   try{

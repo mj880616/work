@@ -24,7 +24,7 @@ export async function openBasketHtml(noteId, fileId, options = {}) {
 
 // PRESS-자료실편입: 자료실 자료(.html)도 같은 html-view로 읽는다(document_id). 자료실 .html을 아직 모르는 서버는
 // "바구니 메모의 첨부만" 거절을 보낸다 → notReady([Drive에서 열기] 안내).
-const LIBRARY_NOT_YET = new Set(['바구니 메모의 첨부만 화면으로 볼 수 있습니다.']);
+const LIBRARY_NOT_YET = new Set(['정리함 메모의 첨부만 화면으로 볼 수 있습니다.']);
 export async function openLibraryHtml(documentId, options = {}) {
   return requestHtml({document_id: documentId}, {...options, notYet: LIBRARY_NOT_YET});
 }

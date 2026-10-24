@@ -33,7 +33,7 @@ function toast(message) {
   const box = document.querySelector('#toast'); if (!box) return;
   box.textContent = message; box.classList.remove('hidden'); clearTimeout(toast.timer); toast.timer = setTimeout(() => box.classList.add('hidden'), 3200);
 }
-export const savedMessage = (saved) => saved.kind === 'note' ? '노트로 저장했어요.' : saved.places?.length || saved.place ? `${saved.name || '고른 곳'} 기록에 저장했어요.` : '바구니에 저장했어요.';
+export const savedMessage = (saved) => saved.kind === 'note' ? '노트로 저장했어요.' : saved.places?.length || saved.place ? `${saved.name || '고른 곳'} 기록에 저장했어요.` : '정리함에 저장했어요.';
 
 // kind: 'update' | 'note' (preselected). place: null (basket), {kind, id} or a list of them (UPD-여러곳고르기). places: the opener's already read lists (optional).
 // sources: reads for the place lists (default: the window's own). updateVia(text, places): the opener's own update save, resolving
@@ -72,7 +72,7 @@ export function openWriteWindow({text = '', kind = 'update', place = null, place
     },
     choose() {
       state.chosen = [...state.pending]; onPlace(state.chosen); editor?.paint();
-      state.say(state.chosen.length ? `${name()} 기록에 저장돼요.` : '바구니에 저장돼요.');
+      state.say(state.chosen.length ? `${name()} 기록에 저장돼요.` : '정리함에 저장돼요.');
     },
   };
   const name = () => placesLabel(state.places, state.chosen, p => ownPlace && samePlace(p, ownPlace) ? own.name || '' : '');
@@ -134,8 +134,8 @@ export function openWriteWindow({text = '', kind = 'update', place = null, place
   editor = openMarkdownEditor({text, title, draft, onInput, attach, folder:noteFolder ? {show:chosen => chosen === 'note', label:noteFolder.label, open:noteFolder.open} : null, markdown:{value:false, show:chosen => chosen === 'note'}, noteTitle:{kind:'note', label:'노트 제목', placeholder:'노트 제목(비우면 본문 첫 줄)'},
     kinds:{label:'저장할 곳', value:kind, options:[['update', '업데이트'], ['note', '노트']], text:value => value === 'update' && state.chosen.length ? name() || null : null,
       menu:{value:'update', aria:() => state.chosen.length && name() ? '기록할 곳 선택: ' + name() : '기록할 곳 선택', open:trigger => void placeSheet().open('place', trigger)}},
-    placeholder:chosen => chosen === 'note' ? '노트 본문을 쓰세요' : state.chosen.length ? `${name() || '고른 곳'} 기록을 입력하세요` : '업데이트 입력(바구니에 저장)',
-    save:{aria:chosen => chosen === 'note' ? '새 노트로 저장' : state.chosen.length ? `${name() || '고른 곳'} 기록으로 저장` : '바구니에 새 업데이트로 저장', run},
+    placeholder:chosen => chosen === 'note' ? '노트 본문을 쓰세요' : state.chosen.length ? `${name() || '고른 곳'} 기록을 입력하세요` : '업데이트 입력(정리함에 저장)',
+    save:{aria:chosen => chosen === 'note' ? '새 노트로 저장' : state.chosen.length ? `${name() || '고른 곳'} 기록으로 저장` : '정리함에 새 업데이트로 저장', run},
     onClose:value => { closed = true; if (active === state) active = null; sheet?.dismiss(); onClose(value, {saved, places:[...state.chosen]}); }});
   active = state;
   if (state.chosen.length && !state.places) void state.load().catch(() => {});

@@ -315,7 +315,7 @@ function openSourceNote(event){
 function paintSourceNote(task){
   const box=document.querySelector('#gtSourceNote');if(!box)return;
   const note=task?.id?sourceNoteOf(task.id):'';
-  box.classList.toggle('hidden',!note);box.innerHTML=note?`이 할 일은 바구니 업데이트에서 만들었습니다. <a href="${esc(basketNoteHref(note))}" data-gt-source-note="${esc(note)}">출처 업데이트</a>`:'';
+  box.classList.toggle('hidden',!note);box.innerHTML=note?`이 할 일은 정리함 업데이트에서 만들었습니다. <a href="${esc(basketNoteHref(note))}" data-gt-source-note="${esc(note)}">출처 업데이트</a>`:'';
   box.querySelector('[data-gt-source-note]')?.addEventListener('click',openSourceNote);
 }
 // TASK-파일붙이기: task id -> attached files, read once per list load. A failure (older Edge, no table) hides the menu item and names.

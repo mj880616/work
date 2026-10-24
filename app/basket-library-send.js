@@ -5,7 +5,7 @@
 // response) is an unknown result that the person checks in the library.
 const OLD_SERVER=new Set(['document_id가 필요합니다.','Unknown action']);
 export const LIBRARY_SEND_TEXT={
-  created:'자료실로 보냈어요. 바구니와 같은 Drive 원본을 씁니다.',
+  created:'자료실로 보냈어요. 정리함과 같은 Drive 원본을 씁니다.',
   exists:'이미 자료실에 있어요.',
   unknown:'자료실로 보냈는지 확인하지 못했어요. 다시 보내지 말고 자료실 목록에서 먼저 확인해 주세요.',
   notReady:'자료실 보내기가 아직 준비되지 않았어요. 아무것도 바뀌지 않았어요.',

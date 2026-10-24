@@ -51,7 +51,7 @@ async function find(mode) {
   return shared.finding;
 }
 
-function openSource(c) {
+export function openSource(c) {
   const go = view => window.KPTURouter?.go?.(view, {source:'delegated'});
   if (c.source_kind === 'basket') { requestBasketNote(c.source_id, rt); go('basket'); return; }
   if (c.source_kind === 'note') { requestNoteDocOpen(c.source_id, rt); go('basket'); return; }

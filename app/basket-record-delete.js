@@ -32,7 +32,7 @@ export const RECORD_DELETE_TEXT=Object.freeze({
   RESTORED:'연결을 되돌렸어요.',
   RESTORE_FAILED:'연결을 되돌리지 못했어요. 업데이트에서 [연결하기]로 다시 이어 주세요.',
   RESTORE_NOTE_MISSING:'업데이트를 찾을 수 없어 연결을 되돌리지 못했어요.',
-  RESTORE_ARCHIVED:'보관된 업데이트라 연결을 되돌리지 못했어요. 보관을 해제한 뒤 다시 이어 주세요.',
+  RESTORE_ARCHIVED:'보류한 업데이트라 연결을 되돌리지 못했어요. 보류를 해제한 뒤 다시 이어 주세요.',
   RESTORE_AI_EXCLUDED:'AI 제외로 표시된 업데이트라 연결을 되돌리지 못했어요.',
   RESTORE_TARGET:'연결했던 곳을 찾거나 고를 수 없어 되돌리지 못했어요.',
 });

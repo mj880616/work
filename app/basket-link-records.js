@@ -95,7 +95,7 @@ export async function updateLinkSummary(id,expected,summary,rt=window.KPTURuntim
 const UPDATE_ICON='<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M5 6.5h6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
 const NOTE_ICON='<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M3.5 2.5h6l3 3v8h-9z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9.5 2.5v3h3M5.5 8.5h5M5.5 11h3.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 export const isNoteRecord=row=>row?.note_kind==='note';
-export function recordMark(row,className='record-mark'){const note=isNoteRecord(row);return `<span class="${className}" data-record-mark="${note?'note':'update'}" role="img" aria-label="${note?'노트':'바구니 업데이트'}">${note?NOTE_ICON:UPDATE_ICON}</span>`;}
+export function recordMark(row,className='record-mark'){const note=isNoteRecord(row);return `<span class="${className}" data-record-mark="${note?'note':'update'}" role="img" aria-label="${note?'노트':'정리함 업데이트'}">${note?NOTE_ICON:UPDATE_ICON}</span>`;}
 // A note record shows the summary written when it was linked, else the note's title, else its opening text.
 // BUG-미리보기기호: every line is shown as plain letters (no #·|·** marks, no &#x20; entities); the stored text is unchanged.
 export const recordText=row=>row.summary!=null?previewText(row.summary):(isNoteRecord(row)&&String(row.title||'').trim()?previewText(row.title):noteExcerpt(row.raw_text));
@@ -106,7 +106,7 @@ export const recordMarkdownSource=row=>markdownSource(row.summary!=null?row.summ
 export function linkRecordHtml(row){
   const date=Number.isFinite(Date.parse(row.occurred_at))?formatSeoulTime(row.occurred_at,{year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}):'';
   const kind=row.organization_id?'organization':'project',note=isNoteRecord(row),href=note?'./?view=basket':`./?view=basket&note=${encodeURIComponent(row.note_id)}`;
-  return `<div class="basket-link-record" data-basket-link="${escape(row.id)}" data-basket-link-note="${escape(row.note_id)}" data-basket-link-kind="${kind}" data-basket-link-note-kind="${note?'note':'basket'}"><div class="basket-link-line"><a class="basket-link-open" href="${escape(href)}" data-basket-link-open="${escape(row.note_id)}"><small>${recordMark(row,'basket-link-mark')} ${note?'노트 연결':'바구니 연결'} · <time>${escape(date)}</time></small><p data-link-summary-text${recordMarkdownSource(row)?` data-md-raw="${escape(recordMarkdownSource(row))}"`:''}>${escape(recordText(row)||'요약 없음')}</p></a><button type="button" class="basket-link-more" data-basket-link-menu="${escape(row.id)}" aria-label="바구니 기록 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="basketLinkMenu"><span aria-hidden="true">⋯</span></button></div><p data-link-action-status role="status" aria-live="polite" hidden></p></div>`;
+  return `<div class="basket-link-record" data-basket-link="${escape(row.id)}" data-basket-link-note="${escape(row.note_id)}" data-basket-link-kind="${kind}" data-basket-link-note-kind="${note?'note':'basket'}"><div class="basket-link-line"><a class="basket-link-open" href="${escape(href)}" data-basket-link-open="${escape(row.note_id)}"><small>${recordMark(row,'basket-link-mark')} ${note?'노트 연결':'정리함 연결'} · <time>${escape(date)}</time></small><p data-link-summary-text${recordMarkdownSource(row)?` data-md-raw="${escape(recordMarkdownSource(row))}"`:''}>${escape(recordText(row)||'요약 없음')}</p></a><button type="button" class="basket-link-more" data-basket-link-menu="${escape(row.id)}" aria-label="정리함 기록 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="basketLinkMenu"><span aria-hidden="true">⋯</span></button></div><p data-link-action-status role="status" aria-live="polite" hidden></p></div>`;
 }
 
 // One menu panel for every mounted record host (created on first use inside the open dialog).
@@ -114,7 +114,7 @@ const mountedHosts=new Map();let linkMenu=null;
 const hostOf=trigger=>[...mountedHosts.keys()].find(host=>host.contains(trigger));
 function recordMenu(host){
   if(linkMenu)return linkMenu;
-  linkMenu=createAnchoredMenu({id:'basketLinkMenu',className:'basket-link-menu',label:'바구니 기록 관리',historyKey:'kptuBasketLinkMenu',parent:host.closest('.modal')||document.body,
+  linkMenu=createAnchoredMenu({id:'basketLinkMenu',className:'basket-link-menu',label:'정리함 기록 관리',historyKey:'kptuBasketLinkMenu',parent:host.closest('.modal')||document.body,
     key:trigger=>trigger.dataset.basketLinkMenu,canOpen:trigger=>!!hostOf(trigger)&&!trigger.disabled,
     // UI-기록아이콘: a note's line offers [노트 열기]·[연결 해제]·[요약 수정] (the note itself is managed on the note screen, so no
     // [원문 삭제]). UI-연결요약수정: [요약 수정] changes only this link's summary, never the note.

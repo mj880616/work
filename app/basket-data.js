@@ -328,8 +328,8 @@ export function setNoteFolder(note, name, rt = window.KPTURuntime, {from} = {}) 
 }
 export function moveToBasket(note, rt = window.KPTURuntime) {
   const text = String(note?.raw_text || '');
-  if (!text.trim() && !note?.attachments?.length) throw new Error('본문과 첨부가 없는 노트는 바구니로 돌릴 수 없어요. 본문을 먼저 써 주세요.');
-  if ([...text].length > 20000) throw new Error('바구니 업데이트는 20,000자까지라 이 노트는 돌릴 수 없어요. 본문을 줄여 주세요.');
+  if (!text.trim() && !note?.attachments?.length) throw new Error('본문과 첨부가 없는 노트는 정리함으로 돌릴 수 없어요. 본문을 먼저 써 주세요.');
+  if ([...text].length > 20000) throw new Error('정리함 업데이트는 20,000자까지라 이 노트는 돌릴 수 없어요. 본문을 줄여 주세요.');
   if (!plainObject(note?.metadata) || !Object.hasOwn(note.metadata, 'folder')) return patchKind(note.id, 'note', {kind:'basket', title:null}, rt);
   return moveFolderNoteToBasket(note, rt);
 }
@@ -360,7 +360,7 @@ export function noteState(note, links, docs = []) {
   });
   const filed = filedProjects(note, docs), filedOrgs = filedOrganizations(note, docs);
   destinations.push(...filedOrgs.map(o => `담당조직 자료: ${o.name}`), ...filed.map(p => `프로젝트 자료: ${p.name}`));
-  return {status:note.archived_at ? '보관' : confirmed.length || filed.length || filedOrgs.length ? '확정' : links.some(l => l.note_id === note.id && l.status === 'suggested') ? '분류 제안됨' : '미분류', destinations};
+  return {status:note.archived_at ? '보류' : confirmed.length || filed.length || filedOrgs.length ? '확정' : links.some(l => l.note_id === note.id && l.status === 'suggested') ? '분류 제안됨' : '미분류', destinations};
 }
 // UI-바구니거르기: where a classified memo went, from what is already read (no stored state):
 // confirmed record links by target kind, [자료로 넣기] documents (a project's library documents, so both
