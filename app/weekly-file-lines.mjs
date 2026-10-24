@@ -100,5 +100,19 @@ export function fileVerdict(doc, {records = [], attached = new Set()} = {}) {
 // 화면·복사·한글 파일 후보가 같이 쓰는 항목: {day, text, requests:[], file:{id, verdict, reason, same}}. 접힌 항목(verdict 'same')은
 // 화면의 "기록과 같아 뺀 자료 N"에만 보이고 복사·한글 파일 후보에는 들어가지 않는다.
 export const fileItem = (doc, day, verdict) => ({day, text:fileText(doc), requests:[], file:{id:doc.id, verdict:verdict.verdict, reason:verdict.reason, same:doc.same || 1}});
-export const isFolded = item => item?.file?.verdict === 'same';
-export const shownItems = items => (items || []).filter(item => !isFolded(item));
+// 화면 ②(설계 6절): 그 주 임시저장 draft.docs의 고침 — drop(뺌), text(고친 줄, 그 주 보고 글만·자료 요약은 그대로), keep(접힌 자료를 넣음).
+export const isFolded = item => item?.file?.verdict === 'same' && !item.file.kept && !item.file.dropped;
+export const isDroppedFile = item => !!item?.file?.dropped;
+export const shownItems = items => (items || []).filter(item => !isFolded(item) && !isDroppedFile(item));
+// 고침 하나를 항목에 단다(edit 없으면 그대로). 고친 줄이면 원래 줄은 file.original에 남는다.
+export function applyDocEdit(item, edit) {
+  if (!item?.file || !edit) return item;
+  const file = {...item.file};
+  let text = item.text;
+  if (edit.text) { file.original = item.text; file.edited = true; text = edit.text; }
+  if (edit.keep && file.verdict === 'same') file.kept = true;
+  if (edit.drop) file.dropped = true;
+  return {...item, text, file};
+}
+// 칸 안 자리: 'dropped'(뺀 자료 N) | 'folded'(기록과 같아 뺀 자료 N) | 'items'(보이는 줄).
+export const fileBucket = item => (isDroppedFile(item) ? 'dropped' : isFolded(item) ? 'folded' : 'items');

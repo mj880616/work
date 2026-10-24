@@ -20,14 +20,14 @@ export function itemWhat(item, overrides) {
   return formWhat({time: item.time, title: o && one(o.title) ? o.title : item.title, place: o && o.place !== undefined ? o.place : item.place});
 }
 
-// 확인 목록에 보일 일정(휴가 빼고, 표 순서 그대로). [{key, day, label, time, title, place, multi}]
+// 확인 목록에 보일 일정(휴가 빼고, 표 순서 그대로). [{key, day, label, time, title, place, multi, memo?}] — memo = 주간보고 기억(weekly-schedule-memory.js)
 export function scheduleItems(calendar) {
   const out = [], seen = new Set();
   if (!calendar || calendar.loading || calendar.failed?.length) return out;
   for (const row of calendar.rows ?? []) for (const item of row.items ?? []) {
     if (item.time === undefined || !item.key || seen.has(item.key)) continue;
     seen.add(item.key);
-    out.push({key: item.key, day: row.day, label: row.label, time: item.time, title: item.title, place: item.place, multi: !!item.multi});
+    out.push({key: item.key, day: row.day, label: row.label, time: item.time, title: item.title, place: item.place, multi: !!item.multi, ...(item.memo ? {memo: item.memo} : {})});
   }
   return out;
 }
