@@ -352,7 +352,7 @@ async function renderGrid({isCurrent=()=>true}={}){
  if(old){const top=old.scrollTop;old.replaceWith(list);list.scrollTop=top}else grid.prepend(list);
  if(!$('#ps3DetailPane'))grid.insertAdjacentHTML('beforeend','<aside id="ps3DetailPane" class="ps3-pane" aria-label="프로젝트 상세"><p class="ps3-pane-empty">왼쪽에서 프로젝트를 고르면 여기에 보입니다.</p></aside>');
  const actions=list.querySelector('.add-list-head .ps3-project-toolbar');
- if(archiveBtn){paintArchiveBtn();actions.append(archiveBtn);void syncTrash()}if(add)actions.append(add);
+ if(archiveBtn){paintArchiveBtn();actions.append(archiveBtn);if(trash.state!==TRASH_STATE.MISSING)void syncTrash()}if(add)actions.append(add);
  if(orderAvailable())actions.prepend(orderToggle());
  const key=JSON.stringify(spaces.map(p=>[p.id,p.name,p.parent_id,p.status,p.sort_order,p.updated_at]));
  if(key!==lastSpacesKey){lastSpacesKey=key;window.dispatchEvent(new CustomEvent('kptu:project-spaces-updated',{detail:{workspaceId:wid,userId:user.id,spaces}}))}

@@ -66,6 +66,24 @@ async function mockApp(page,state){
       return ok({connected:true,authorized:true,needs_reconnect:false,tasks:state.gtasks,pending_scope:'all'});
     }
     if(path.startsWith('/functions/v1/'))return ok({});
+    // TRASH-삭제휴지통 2단계: state.trash가 있으면 휴지통 함수(app_trash_*)와 [삭제]의 휴지통 이동을 흉내 낸다.
+    // state.trash.missing이면 함수가 아직 없는 운영(404 PGRST202)을 흉내 낸다.
+    if(path.startsWith('/rest/v1/rpc/app_trash_')&&state.trash){
+      const t=state.trash;t.calls??=[];t.calls.push({fn:path.split('/').pop(),body});
+      if(t.missing)return route.fulfill({status:404,contentType:'application/json',body:JSON.stringify({code:'PGRST202',message:'Could not find the function '+path.split('/').pop()+' in the schema cache'})});
+      const fail=message=>route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'P0001',message})});
+      t.items??=[];
+      if(path.endsWith('app_trash_list'))return ok(t.items.filter(x=>x.deleted_root_id===x.id).map(x=>({kind:'project',id:x.id,workspace_id:x.workspace_id,name:x.name,parent_id:x.parent_id,deleted_at:x.deleted_at,child_count:t.items.filter(c=>c.deleted_root_id===x.id&&c.id!==x.id).length,parent_in_trash:t.items.some(p=>p.id===x.parent_id)})));
+      const root=t.items.find(x=>x.id===body?.p_id&&x.deleted_root_id===x.id);
+      if(!root)return fail('TRASH_NOT_FOUND');
+      if(path.endsWith('app_trash_restore')){
+        if(t.items.some(p=>p.id===root.parent_id))return fail('TRASH_PARENT_IN_TRASH');
+        const back=t.items.filter(x=>x.deleted_root_id===root.id);t.items=t.items.filter(x=>x.deleted_root_id!==root.id);
+        for(const x of back){const {deleted_at,deleted_root_id,...row}=x;state.spaces.push(row)}
+        return ok({ok:true,kind:'project',id:root.id,restored:back.length});
+      }
+      if(path.endsWith('app_trash_purge')){t.items=t.items.filter(x=>x.deleted_root_id!==root.id);return ok({ok:true,kind:'project',id:root.id})}
+    }
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:state.workspace.id,user_id:state.user.id,role:'owner',created_at:now()}]);
     if(path==='/rest/v1/app_profiles')return ok([{user_id:state.user.id,display_name:'프로젝트 관리자'}]);
@@ -87,7 +105,16 @@ async function mockApp(page,state){
       }
       if(method==='POST'){const row={...(body||{}),id:`project-${state.spaces.length+1}`,created_at:now(),updated_at:now()};state.spaces.push(row);return ok([row])}
       if(method==='PATCH'){const id=eq(url,'id'),row=state.spaces.find(x=>x.id===id);if(row)Object.assign(row,body||{});return ok(req.headers()['prefer']?.includes('return=representation')?(row?[row]:[]):[])}
-      if(method==='DELETE'){const id=eq(url,'id');state.spaces=state.spaces.filter(x=>x.id!==id&&x.parent_id!==id);return ok([])}
+      if(method==='DELETE'){
+        const id=eq(url,'id');
+        if(state.trash&&!state.trash.missing){
+          const ids=new Set([id]);for(let n=0;n<10;n++)for(const x of state.spaces)if(ids.has(x.parent_id))ids.add(x.id);
+          state.trash.items??=[];const at=now();
+          for(const x of state.spaces.filter(x=>ids.has(x.id)))state.trash.items.push({...x,deleted_at:at,deleted_root_id:id});
+          state.spaces=state.spaces.filter(x=>!ids.has(x.id));return ok([]);
+        }
+        state.spaces=state.spaces.filter(x=>x.id!==id&&x.parent_id!==id);return ok([])
+      }
     }
     const table=(name,arr,key='project_id')=>{
       if(path!==`/rest/v1/${name}`)return false;
@@ -1045,6 +1072,102 @@ test('V3 exposes project delete in final renderer',async({page})=>{
   await page.locator('[data-ps3-delete-project]').click();await expect(page.locator('#ps3DeleteModal')).toBeVisible();
   await page.locator('#ps3DeleteConfirm').click();await expect.poll(()=>state.spaces.some(x=>x.id==='main-1')).toBeFalsy();
   await expect(page.locator('#ps3DetailModal')).toBeHidden();
+});
+
+const UNLINK_TABLES=['app_meetings','app_documents','app_pages'];
+async function deleteMain(page){
+  await openMenu(page);await page.locator('[data-ps3-delete-project]').click();
+  await expect(page.locator('#ps3DeleteModal')).toBeVisible();
+}
+
+test('TRASH 2단계: 휴지통을 쓸 수 있으면 삭제는 휴지통 이동이고 연결 끊기 요청이 없으며 [되돌리기]로 돌아온다',async({page})=>{
+  const state=baseState();state.trash={items:[]};await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
+  await expect(page.locator('#ps3DetailModal')).toBeVisible({timeout:10000});
+  await deleteMain(page);
+  const message=page.locator('#ps3DeleteMessage');
+  await expect(message).toContainText('휴지통으로 옮깁니다');await expect(message).toContainText('하위 프로젝트 1개도 함께 옮겨지고');
+  await expect(message).toContainText('연결된 기록은 그대로 남습니다');await expect(message).toContainText('휴지통에서 되돌릴 수 있습니다');
+  await expect(page.locator('#ps3DeleteNote')).toBeHidden();
+  await page.locator('#ps3DeleteConfirm').click();
+  await expect.poll(()=>state.spaces.some(x=>x.id==='main-1'||x.id==='child-1')).toBeFalsy();
+  expect(state.trash.items.map(x=>x.id).sort()).toEqual(['child-1','main-1']);
+  expect(state.restCalls.filter(c=>UNLINK_TABLES.includes(c.name)&&c.method==='PATCH')).toEqual([]);
+  const notice=page.locator('[data-undo-notice]');
+  await expect(notice).toContainText('휴지통으로 옮겼습니다');
+  await notice.locator('[data-undo-action]').click();
+  await expect.poll(()=>state.spaces.map(x=>x.id).sort().join()).toBe('child-1,main-1');
+  expect(state.trash.items).toEqual([]);
+});
+
+test('TRASH 2단계: 휴지통 탭에서 되돌리고, ⋯ 안 영구 삭제는 확인창을 거치며, 상위가 휴지통이면 먼저 되돌리라고 안내한다',async({page})=>{
+  const state=baseState();
+  const at='2026-10-24T03:00:00Z',main=state.spaces.find(x=>x.id==='main-1'),child=state.spaces.find(x=>x.id==='child-1');
+  const extra={...main,id:'solo-1',name:'합성 단독 사업',parent_id:null,sort_order:50};
+  // main-1(하위 1개)와 solo-1은 각자 맨 위로 휴지통에 있다. child-1은 먼저 따로 지워져 상위가 휴지통인 줄이다.
+  state.spaces=[];
+  state.trash={items:[{...main,deleted_at:at,deleted_root_id:'main-1'},{...child,deleted_at:'2026-10-24T02:00:00Z',deleted_root_id:'child-1'},{...extra,deleted_at:'2026-10-24T01:00:00Z',deleted_root_id:'solo-1'}]};
+  await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);
+  await clickView(page,'projects');
+  const button=page.locator('#ps3ArchiveBtn');
+  await expect(button).toHaveText('휴지통 3');
+  await button.click();
+  await expect(page.locator('#ps3ArchiveModal')).toBeVisible();
+  await expect(page.locator('#ps3ArchiveHeading')).toHaveText('휴지통');
+  const rows=page.locator('[data-ps3-trash-row]');
+  await expect(rows).toHaveCount(3);
+  await expect(rows.first()).toContainText('민자철도 정책·조직사업');await expect(rows.first()).toContainText('하위 1개');
+  const orphan=page.locator('[data-ps3-trash-row="child-1"]');
+  await expect(orphan).toContainText('상위 프로젝트를 먼저 되돌려 주세요');
+  await expect(orphan.locator('[data-ps3-trash-restore]')).toBeDisabled();
+  // 영구 삭제: 확인창을 거치고, 취소하면 그대로다.
+  const solo=page.locator('[data-ps3-trash-row="solo-1"]');
+  await solo.locator('summary').click();
+  let asked='';page.once('dialog',d=>{asked=d.message();d.dismiss()});
+  await solo.locator('[data-ps3-trash-purge]').click();
+  await expect.poll(()=>asked).toContain('영구 삭제할까요');
+  expect(asked).toContain('프로젝트 연결만 풀립니다');expect(asked).toContain('되돌릴 수 없습니다');
+  expect(state.trash.items.some(x=>x.id==='solo-1')).toBe(true);
+  await solo.locator('summary').click();
+  page.once('dialog',d=>d.accept());await solo.locator('[data-ps3-trash-purge]').click();
+  await expect.poll(()=>state.trash.items.some(x=>x.id==='solo-1')).toBe(false);
+  expect(state.spaces.some(x=>x.id==='solo-1')).toBe(false);
+  await expect(rows).toHaveCount(2);
+  // 되돌리기: 상위가 먼저 돌아오면 아래 줄도 풀린다.
+  await page.locator('[data-ps3-trash-restore="main-1"]').click();
+  await expect.poll(()=>state.spaces.some(x=>x.id==='main-1')).toBe(true);
+  await expect(page.locator('[data-ps3-trash-restore="child-1"]')).toBeEnabled();
+  await page.locator('[data-ps3-trash-restore="child-1"]').click();
+  await expect.poll(()=>state.spaces.some(x=>x.id==='child-1')).toBe(true);
+  await expect(page.locator('#ps3ArchiveList')).toContainText('휴지통이 비어 있습니다');
+  expect(state.trash.calls.map(c=>c.fn)).toContain('app_trash_purge');
+});
+
+test('TRASH 2단계: 휴지통 함수가 아직 없으면 삭제는 지금 문구로 바로 지워지고 휴지통 자리에는 준비 중만 보인다',async({page})=>{
+  const state=baseState();state.trash={missing:true};
+  state.spaces.push({...state.spaces[0],id:'arch-1',name:'합성 보관 사업',parent_id:null,status:'archived',sort_order:60});
+  await mockApp(page,state);await page.goto(testOrigin+'/app/?project=main-1');await signIn(page);
+  await expect(page.locator('#ps3DetailModal')).toBeVisible({timeout:10000});
+  await deleteMain(page);
+  const message=page.locator('#ps3DeleteMessage');
+  await expect(message).toContainText('삭제합니다');await expect(message).toContainText('하위 프로젝트 1개도 함께 삭제됩니다');
+  await expect(page.locator('#ps3DeleteModal')).not.toContainText('휴지통');
+  await expect(page.locator('#ps3DeleteNote')).toContainText('프로젝트 연결만 해제함');
+  await expect(page.locator('#ps3DeleteConfirm')).toHaveText('삭제');
+  await page.locator('#ps3DeleteConfirm').click();
+  await expect.poll(()=>state.spaces.some(x=>x.id==='main-1')).toBeFalsy();
+  await expect(page.locator('#toast')).toHaveText('프로젝트를 삭제했습니다.');
+  await expect(page.locator('[data-undo-notice]')).toHaveCount(0);
+  await clickView(page,'projects');
+  const button=page.locator('#ps3ArchiveBtn');
+  await expect(button).toHaveText('보관 1');
+  await button.click();
+  await expect(page.locator('#ps3ArchiveModal')).toBeVisible();
+  await expect(page.locator('[data-ps3-restore="arch-1"]')).toBeVisible();
+  await page.locator('[data-ps3-archive-tab="trash"]').click();
+  await expect(page.locator('#ps3ArchiveList')).toHaveText('휴지통은 준비 중입니다.');
+  await expect(page.locator('[data-ps3-trash-row]')).toHaveCount(0);
+  await page.locator('[data-ps3-archive-tab="archive"]').click();
+  await expect(page.locator('[data-ps3-restore="arch-1"]')).toBeVisible();
 });
 
 test('V3 includes legacy child work areas under a V3 parent without changing their IDs',async({page})=>{
