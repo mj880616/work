@@ -1,7 +1,7 @@
 import { viewPrefs } from './view-prefs.js';
 import {basketOcrFor} from './basket-ocr-runtime.js';
 import { createChoiceSheet, projectRows } from './choice-sheet.js';
-import { readPlaces, placeSheetHtml, placeValue, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, saveUpdateWithFiles, rememberPlace, linkFailText, fileFailText } from './update-places.js';
+import { readPlaces, placeSheetHtml, placeValue, keepPlaces, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, saveUpdateWithFiles, rememberPlace, linkFailText, fileFailText } from './update-places.js';
 import { createGoogleTask } from './quick-save.js';
 import { createNote, validateNoteText, createNoteDoc, noteTitleFromText } from './basket-data.js';
 import { createUploadBatch, uploadBatch, uploadNoteFiles, mountBasketPicker, fileTitle } from './basket-upload.js';
@@ -23,7 +23,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   // BASKET-업데이트통합 PR 1: the home box has two modes, [업데이트 ▾] and [할 일]. [업데이트] with no place chosen is the old
   // [바구니] (a basket note, attachments allowed); with an organization or a project chosen it is that place's record, saved
   // through the same existing paths as before. toBasket() is that one rule; data-mode shows the effective kind (basket/update/task).
-  let mode='update',saving=false,expanded=false,project='',places=[],pendingPlaces=[],due='',dateKind='',choicesFlight=null,choiceEpoch=0,projectChoices=[],orgChoices={recent:[],groups:[]};
+  let mode='update',saving=false,expanded=false,project='',places=[],pendingPlaces=[],due='',dateKind='',choicesFlight=null,choiceEpoch=0,projectChoices=[],orgChoices={recent:[],groups:[]},bundleChoices=[];
   { const saved=basketOnly||taskOnly?null:viewPrefs.get('home_quick_mode'); mode=saved==='task'?'task':'update'; }
   if(taskOnly)mode='task';
   if(noteOnly)mode='note';
@@ -41,6 +41,8 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   const takesFiles=()=>noteOnly||mode==='update'||(mode==='task'&&taskFilesOn);
   // UPD-여러곳고르기: places is the list chosen on the 기록할 곳 sheet (in the order picked; empty is the basket).
   const currentPlaces=()=>places.map(p=>({...p}));
+  // The lists the 기록할 곳 sheet offers (REF-참고묶음: with the reference bundles at the bottom).
+  const placeChoices=()=>({projects:projectChoices,orgs:orgChoices,bundles:bundleChoices});
   const setPlaces=list=>{places=placeList(list);};
   let taskAttempt=null,taskRequest=null,taskSequence=0,taskReading=false,taskSessionEpoch=window.KPTURuntime.session.epoch();
   let upload = createUploadBatch(),uploadGeneration=0,pendingOcr=null;
@@ -88,7 +90,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     const locked=mode==='update'&&(!!upload.note_id||!!upload.blocked);input.readOnly=locked;box.querySelector('[data-quick-lock]').hidden=!locked;
     box.querySelector('[data-quick-lock-reason]').textContent=!locked?'':upload.blocked?'앞선 저장 결과를 확인하지 못해 입력창을 잠갔어요. 바구니 목록에서 저장 여부를 확인하고, 새로 쓰려면 ‘새 업데이트 입력’을 눌러 주세요.':'업데이트 글은 이미 저장되어 남은 첨부만 다시 저장할 수 있어요. 새로 쓰려면 ‘새 업데이트 입력’을 눌러 주세요.';
     if(noteOnly){const f=box.querySelector('[data-quick-folder]'),label=folderName||'폴더 없음';f.hidden=false;f.textContent=label+' ▾';f.title='노트를 넣을 폴더: '+label;f.setAttribute('aria-label','노트를 넣을 폴더: '+label+'. 누르면 다른 폴더를 고릅니다');}
-    box.dataset.mode=noteOnly?'note':toBasket()?'basket':mode; input.rows=1; const targetName=placesLabel({projects:projectChoices,orgs:orgChoices},places);
+    box.dataset.mode=noteOnly?'note':toBasket()?'basket':mode; input.rows=1; const targetName=placesLabel(placeChoices(),places);
     input.placeholder=noteOnly?(folderName?`${folderName}에 노트 추가`:'노트를 입력하세요'):mode==='task'?'할 일을 입력하세요':toBasket()?(basketOnly?'업데이트를 입력하세요':'업데이트 입력(바구니에 저장)'):(targetName||'담당조직')+' 기록을 입력하세요';
     const filesWait=!takesFiles()&&taskFilesWait&&mode==='task';
     box.querySelector('[data-quick-file-picker]').hidden=!takesFiles()&&!filesWait;box.querySelector('[data-quick-file-picker]').toggleAttribute('data-quick-files-wait',filesWait);
@@ -115,9 +117,9 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
       // BASKET-업데이트통합: the same place lists (and three recent organizations) as the write window (update-places.js).
       const read=await readPlaces(dependencies,{isCurrent:()=>run===choiceEpoch});
       if(!read||run!==choiceEpoch)return;
-      projectChoices=read.projects;orgChoices=read.orgs;
+      projectChoices=read.projects;orgChoices=read.orgs;bundleChoices=read.bundles||[];
       if(!projectChoices.some(x=>x.project.id===project))project='';
-      places=places.filter(p=>p.kind==='project'?projectChoices.some(x=>x.project.id===p.id):orgChoices.groups.flat().some(o=>o.id===p.id));
+      places=keepPlaces(placeChoices(),places);
       paint();picker.render();
     })().catch(e=>{if(run===choiceEpoch){choicesFlight=null;status.textContent=e.message||'선택 목록을 불러오지 못했습니다.';}});
     return choicesFlight;
@@ -131,7 +133,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
       // BASKET-업데이트통합: [바구니(미분류)] (no place) is the first chip, on the recent line (update-places.js, shared with the write window).
       // UPD-여러곳고르기: the 기록할 곳 sheet keeps many; presses mark a pending list that only [저장] makes the input's (onCommit).
       if(kind==='org')pendingPlaces=currentPlaces();
-      return {title:kind==='org'?'기록할 곳 선택':'프로젝트 선택',search:kind==='org'?'조직·프로젝트 이름 검색':'프로젝트 이름 검색',split:kind==='org',html:kind==='org'?placeSheetHtml({projects:projectChoices,orgs:orgChoices},pendingPlaces,esc):projectRows(projectChoices,project,esc)};
+      return {title:kind==='org'?'기록할 곳 선택':'프로젝트 선택',search:kind==='org'?'조직·프로젝트 이름 검색':'프로젝트 이름 검색',split:kind==='org',html:kind==='org'?placeSheetHtml(placeChoices(),pendingPlaces,esc):projectRows(projectChoices,project,esc)};
     },
     multi:kind=>kind==='org'?{pressed:value=>value==='basket'?!pendingPlaces.length:pendingPlaces.some(p=>placeValue(p)===value),label:choiceCountText(pendingPlaces)}:null,
     onSelect:(kind,value)=>{if(kind==='org'){const next=togglePlace(pendingPlaces,value);if(next)pendingPlaces=next;else status.textContent=`한 번에 ${PLACE_LIMIT}곳까지 고를 수 있어요.`;return;}project=value;paint();},
@@ -322,7 +324,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     // The editor's styles come with the basket view's (as menu [쓰기] does).
     let ww;try{[ww]=await Promise.all([import('./write-window.js'),window.KPTUViewLoader?.prepare?.('basket')]);}catch{status.textContent='큰 창을 열지 못했어요. 다시 눌러 주세요.';return;}
     if(owner!==quickScope()||saving)return;
-    const places=projectChoices.length||orgChoices.groups.length?{projects:projectChoices,orgs:orgChoices}:null;
+    const places=projectChoices.length||orgChoices.groups.length?placeChoices():null;
     ww.openWriteWindow({text:input.value,kind:'update',place:currentPlaces(),places,draft:false,title:'크게 쓰기',sources:dependencies?.orgs?dependencies:null,
       // UI-크게첨부: the window's [📎 첨부] works on this input's own file batch, so files chosen in either place go together.
       upload:fileHandle,

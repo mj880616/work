@@ -226,3 +226,15 @@ test('restore after an account switch reports stale and writes nothing',async()=
   const rt=rtFor(async path=>{if(path.startsWith('/rest/v1/app_notes')){state.ctx={user:{id:'other'},workspace:{id:'ws 2'}};return [{id:'n1',updated_at:'t'}];}rpc++;return {ok:true};},state);
   assert.deepEqual(await mod.restoreRecordLink({noteId:'n1',kind:'project',targetId:'p1'},{rt}),{status:'stale'});assert.equal(rpc,0);assert.deepEqual(events,[]);
 });
+
+// REF-참고묶음 화면 2: a reference bundle link (bundle_id) is put back as kind 'reference' through the same RPC.
+test('restore re-links a reference bundle as kind reference; the link kind helpers name the bundle',async()=>{
+  events.length=0;const calls=[];
+  const rt=rtFor(async(path,options={})=>{calls.push({path,...options});if(path.startsWith('/rest/v1/app_notes'))return [{id:'n1',updated_at:'2026-10-24T01:00:00Z'}];return {ok:true,created:1,existing:0};});
+  const result=await mod.restoreRecordLink({noteId:'n1',kind:'reference',targetId:'b1',summary:'참고 요약'},{rt});
+  assert.deepEqual(result,{status:'restored',message:'연결을 되돌렸어요.'});
+  assert.deepEqual(calls[1].body.p_targets,[{kind:'reference',target_id:'b1',reason:'직접 연결',summary:'참고 요약'}]);
+  assert.equal(mod.linkRestoreKind({bundle_id:'b1'}),'reference');assert.equal(mod.linkRestoreTarget({bundle_id:'b1'}),'b1');
+  assert.equal(mod.linkRestoreKind({organization_id:'o1'}),'organization');assert.equal(mod.linkRestoreKind({project_id:'p1'}),'project');
+  assert.equal(mod.linkRestoreTarget({project_id:'p1'}),'p1');
+});
