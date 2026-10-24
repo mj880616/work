@@ -151,12 +151,17 @@ test('opened and closed untouched: the editor value equals the start, so no save
   }
 });
 
-test('the write window opens no screen yet: no other app file imports it', () => {
-  const files = ['topbar-actions.js', 'home-quick.js', 'basket-notes.js', 'basket.js', 'write-window.js', 'workplace-detail.js', 'project-system-v3.js', 'diary.js', 'home-read.js', 'journal.js'];
+// ED③ 노트 (설계 11.4 순서 2): only the note screens open the new window (through note-window.js). Updates, diary and records keep the old one
+// until their own PRs.
+test('the new write window is opened by the note screens only (note-window.js); the other screens keep the old one', () => {
+  const files = ['home-quick.js', 'basket.js', 'write-window.js', 'workplace-detail.js', 'project-system-v3.js', 'diary.js', 'home-read.js', 'journal.js', 'basket-notes.js', 'topbar-actions.js'];
   for (const f of files) {
     const src = readFileSync(`app/${f}`, 'utf8');
-    assert.ok(!/ed-window/.test(src), f);
+    assert.ok(!/ed-window\.js/.test(src), f);
   }
+  assert.match(readFileSync('app/note-window.js', 'utf8'), /from '\.\/ed-window\.js'/);
+  assert.match(readFileSync('app/basket-notes.js', 'utf8'), /import\('\.\/note-window\.js'\)/);
+  assert.match(readFileSync('app/topbar-actions.js', 'utf8'), /import\('\.\/note-window\.js'\)/);
 });
 
 test('the old editor still exports copyText (moved to copy-text.js) and both windows are counted by bigWindowOpen', () => {

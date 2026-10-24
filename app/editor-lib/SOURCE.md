@@ -15,10 +15,11 @@ ED-통합편집기용(설계 `docs/design/unified-editor.md` 2.2). `node scripts
 | prosemirror-keymap | 1.2.3 | MIT | `sha512-4HucRlpiLd1IPQQXNqeo81BGtkY8Ai5smHhKW9jjPKRc2wQIxksg7Hl1tTI2IfT2B/LgX6bfYvXxEpJl7aKYKw==` |
 | prosemirror-tables | 1.8.5 | MIT | `sha512-V/0cDCsHKHe/tfWkeCmthNUcEp1IVO3p6vwN8XtwE9PZQLAZJigbw3QoraAdfJPir4NKJtNvOB8oYGKRl+t0Dw==` |
 | prosemirror-gapcursor | 1.4.1 | MIT | `sha512-pMdYaEnjNMSwl11yjEGtgTmLkR08m/Vl+Jj443167p9eB3HVQKhYCc4gmHVDsLPODfZfjr/MmirsdyZziXbQKw==` |
+| prosemirror-inputrules | 1.5.1 | MIT | `sha512-7wj4uMjKaXWAQ1CDgxNzNtR9AlsuwzHfdFH1ygEHA2KHF2DOEaXl1CJfNPAKCg9qNEh4rum975QLaCiQPyY6Fw==` |
 | prosemirror-schema-list | 1.5.1 | MIT | `sha512-927lFx/uwyQaGwJxLWCZRkjXG0p48KpMj6ueoYiu4JX05GGuGcgzAy62dfiV8eFZftgyBUvLx76RsMe20fJl+Q==` |
 | orderedmap | 2.1.1 | MIT | `sha512-TvAWxi0nDe1j/rtMcWcIj94+Ffe6n7zhow33h40SKxmsmozs6dz/e+EajymfoFcHd7sxNn8yHM8839uixMOV6g==` |
 | rope-sequence | 1.3.4 | MIT | `sha512-UT5EDe2cu2E/6O4igUr5PSFs23nvvukicWHx6GnOPlHAiiYbzNuCRQCuiUdHJQcqKalLKlrYJnjY0ySGsXNQXQ==` |
 | w3c-keyname | 2.2.8 | MIT | `sha512-dpojBhNsCNN7T82Tm7k26A6G9ML3NkhDsnw9n/eoxSRlVBB4CEtIQ/KTCLI2Fwf3ataSXRhYFkQi3SlnFwPvPQ==` |
 
-- 묶기: esbuild 0.28.2(고정)로 `scripts/editor/entry.mjs`를 한 파일 ESM(`pm-ed1-1.1.0/prosemirror.min.mjs`, 247.5 KiB)로 묶었다. 각 패키지 라이선스 전문은 같은 폴더 `LICENSE`.
+- 묶기: esbuild 0.28.2(고정)로 `scripts/editor/entry.mjs`를 한 파일 ESM(`pm-ed1-1.2.0/prosemirror.min.mjs`, 250.2 KiB)로 묶었다. 각 패키지 라이선스 전문은 같은 폴더 `LICENSE`.
 - 불러오는 시점: 새 편집기를 열 때만(`app/ed-editor.js`). 읽기 화면(Web1 공유 페이지 포함)은 이 묶음을 받지 않는다(`app/ed-render.mjs`).

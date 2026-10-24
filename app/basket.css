@@ -191,3 +191,6 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .note-convert-actions { position:sticky; bottom:-16px; display:flex; justify-content:flex-end; gap:8px; padding:8px 0 0; background:var(--kptu-surface); }
 .note-convert-skipped { display:inline; }
 @media(max-width:760px){ .note-convert-pair { grid-template-columns:1fr; } }
+/* ED③ 노트: 노트 수정 칸의 본문은 새 편집기(ed-editor.js, 모양은 ed-doc.css). 칸 테두리만 둘러 옛 textarea 자리와 같은 폭·높이로 둔다. */
+#basketView .note-editor .note-body-field { display:block; min-width:0; margin:6px 0 0; border:1px solid var(--kptu-border); border-radius:8px; background:var(--kptu-surface); }
+#basketView .note-editor .note-body-field .ed-editor .ProseMirror { min-height:14em; }

@@ -172,10 +172,10 @@ for(const width of [390,1280])test(`바구니 업데이트 수정 [큰 창에서
  expect(f.errors).toEqual([]);
 });
 
-// BUG-폰바구니첨부: the note list's own input hands its file batch to the write window (no updateVia). Switching 노트 → 업데이트 there
-// and saving to the basket must send that batch through the basket upload path once (it used to be dropped silently on the way,
-// the text saved without the file), and the input's file list empties afterwards. [노트] sends the files with the new note.
-for(const width of [390,1280])test(`노트 입력칸의 파일: [크게]에서 [업데이트]로 바꿔 저장하면 첨부 업로드 1회·입력칸 비움, [노트]면 노트에 붙음 ${width}`,async({page})=>{
+// BUG-폰바구니첨부 → ED③ 노트: the note list's own input hands its file batch to the note's new big window (#edWindow). That window
+// writes a note only (no [업데이트] switch; an update is written from the update input), and [저장] sends the input's files with the new
+// note (its id), once; the input's file list empties afterwards.
+for(const width of [390,1280])test(`노트 입력칸의 파일: [크게] 새 노트 창에서 저장하면 노트에 붙고 입력칸 비움 ${width}`,async({page})=>{
  const f=await fixture(page,width);
  await page.evaluate(()=>window.KPTURouter.go('basket'));
  const note=page.locator('#basketView [data-basket-kind="note"]:visible');
@@ -185,26 +185,15 @@ for(const width of [390,1280])test(`노트 입력칸의 파일: [크게]에서 [
  const q=page.locator('#basketView [data-note-list] [data-quick-big]:visible').first();
  const qclip=page.locator('#basketView [data-note-list] [data-quick-file-picker] [data-basket-clip]');
  await page.locator('#basketView [data-note-list] [data-quick-input]').click();
- await chooseFile(page,qclip,'n.txt');await expect(qclip.locator('[data-basket-count]')).toHaveText('1');
- await q.click();
- const e=editor(page);await expect(e).toBeVisible();
- await expect(e.locator('[data-basket-file]')).toHaveCount(1);
- // 노트 → 업데이트 (the order of the report): the list still holds the one file.
- await e.locator('[data-md-kind="update"]').click();
- await expect(e.locator('[data-basket-file]')).toHaveCount(1);
- await e.locator('.md-editor-text').fill('노트 입력칸에서 쓴 업데이트');
- await e.locator('[data-md-save-icon]').click();
- await expect(page.locator('#mdEditor')).toHaveCount(0);
- await expect(page.locator('#toast')).toContainText('바구니에 저장했어요.');
- expect(f.uploads).toHaveLength(1);expect(f.uploads[0]).toContain('name="raw_text"');expect(f.uploads[0]).toContain(Buffer.from('노트 입력칸에서 쓴 업데이트').toString('latin1'));expect(f.uploads[0]).toContain('filename="n.txt"');
- expect(f.notes).toEqual([]);
- await expect(qclip.locator('[data-basket-count]')).toBeHidden();await expect(page.locator('#basketView [data-note-list] [data-basket-file]')).toHaveCount(0);
- // [노트] with a file: the note is made, then its file goes up with the note id.
  await chooseFile(page,qclip,'m.txt');await expect(qclip.locator('[data-basket-count]')).toHaveText('1');
- await q.click();await expect(e).toBeVisible();
- await e.locator('.md-editor-text').fill('파일 붙은 노트');
- await e.locator('[data-md-save-icon]').click();
- await expect(page.locator('#mdEditor')).toHaveCount(0);
- expect(f.notes).toHaveLength(1);expect(f.uploads).toHaveLength(2);expect(f.uploads[1]).toContain('filename="m.txt"');expect(f.uploads[1]).toContain('name="note_id"');
+ await q.click();
+ const e=page.locator('#edWindow');await expect(e).toBeVisible();
+ await expect(e.locator('[data-edw-attach] [data-basket-file]')).toHaveCount(1);
+ await expect(e.locator('[data-md-kind]')).toHaveCount(0);
+ const text=e.locator('.ed-window-body .ProseMirror');await text.click();await page.keyboard.insertText('파일 붙은 노트');
+ await e.locator('[data-edw-save]').click();
+ await expect(page.locator('#edWindow')).toHaveCount(0);
+ expect(f.notes).toHaveLength(1);expect(f.uploads).toHaveLength(1);expect(f.uploads[0]).toContain('filename="m.txt"');expect(f.uploads[0]).toContain('name="note_id"');
+ await expect(qclip.locator('[data-basket-count]')).toBeHidden();
  expect(f.errors).toEqual([]);
 });

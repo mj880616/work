@@ -23,7 +23,8 @@
 // [사진] (ED-②) exists only where the opener passes `photos` (share pages: share-photos.js keeps each photo in a private bucket
 // and gives a short address to show it). Without `photos` there is no button, and a dropped or pasted picture or file is not put
 // in (a short note says so). A saved photo place (src null) still shows as a place.
-// Decisions (2026-10-22 사용자, 설계 0절): no format while typing (no input rules: "1. " "- " "# " stay letters); a paste of
+// Decisions (2026-10-22 사용자, 설계 0절): no format while typing (no input rules: "1. " "- " "# " stay letters) — except where the
+// opener asks for shortcuts (ED③ 노트, 2026-10-24 결정 2: see createDocEditor's shortcuts); a paste of
 // plain letters goes in as typed, one paragraph per line, and when it looks like markdown a small [서식으로 바꾸기] converts
 // that pasted part once (undo puts the letters back). [①] opens ①~⑩ (the next number after the nearest one is marked).
 // 한글 IME: nothing here changes the document while a composition is running. A button pressed during one lets the press blur
@@ -34,11 +35,12 @@ import {looksLikeMarkdown} from './note-markdown.mjs';
 import {markdownToDoc} from './ed-markdown.mjs';
 import {toPlain} from './ed-text.mjs';
 
-const LIB = './editor-lib/pm-ed1-1.1.0/prosemirror.min.mjs';
+const LIB = './editor-lib/pm-ed1-1.2.0/prosemirror.min.mjs';
 const MARKDOWN_IT = './markdown-lib/markdown-it-15.0.2/markdown-it.esm.min.mjs';
 let pmPromise = null, mdPromise = null;
 export const loadEditorLib = () => (pmPromise ||= import(LIB));
-const loadMarkdownIt = () => (mdPromise ||= import(MARKDOWN_IT).then(({default: MarkdownIt}) => {
+// The editor's markdown-it (html off, safe links only). Exported for ED③ 노트: an old markdown note opens through the same conversion.
+export const loadMarkdownIt = () => (mdPromise ||= import(MARKDOWN_IT).then(({default: MarkdownIt}) => {
   const md = new MarkdownIt({html: false, linkify: true, breaks: true, typographer: false});
   md.linkify.set({fuzzyEmail: false});
   md.validateLink = url => !!safeHref(url);
@@ -216,7 +218,11 @@ const alignIcon = v => { const svg = svgEl('svg', {viewBox: '0 0 14 12', width: 
 // photos: null, or {add(file) -> {src}, url(src) -> address|null, max} (share pages, ED-②).
 // onBox(open): ED③-창 — told (once per change, after the current event) when a small box (a button row panel, the 글자색·표 크기 list, the table cell menu)
 // opens or the last one closes, so a window can give the phone's back button to the box first. closeBoxes() closes them all and returns true when one was open.
-export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null, photos = null, onBox = null} = {}) {
+// shortcuts: ED③ 노트 (2026-10-24 명진 결정 2) — true turns on the engine's own markdown shortcuts (prosemirror-inputrules) at the start of a
+// line: "## " "### " → 제목 2·3, "- " "* " → 목록, "1. " → 번호 목록, "> " → 인용, and **글자** → 굵게. One undo (Backspace right after, or ↶)
+// puts the typed marks back. The engine does not run a rule while a 한글 composition is going on (it waits for the composed text). Off
+// by default: the share page editor stays as before (결정 2 가 there: no format while typing).
+export async function createDocEditor({host, value = null, onChange = null, label = '본문', placeholder = '', head = null, photos = null, onBox = null, shortcuts = false} = {}) {
   const pm = await loadEditorLib();
   const schema = buildSchema(pm);
   const N = schema.nodes, M = schema.marks;
@@ -650,8 +656,26 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     Delete: pm.chainCommands(removeWholeTable, chooseNeighbour(1)),
     'Mod-Backspace': removeWholeTable,
   };
+  // ED③ 노트 shortcuts (only with shortcuts: true). Headings and lists stay what the buttons make (body style, automatic markers).
+  // A list or quote is not started inside a table cell, a list item or a code block (only a plain top-level line).
+  const topLine = $s => $s.depth === 1 && $s.parent.type === N.paragraph;
+  const onlyTop = rule => { const handler = rule.handler; rule.handler = (st, match, from, to) => topLine(st.doc.resolve(from)) ? handler(st, match, from, to) : null; return rule; };
+  const shortcutRules = shortcuts ? [
+    onlyTop(pm.textblockTypeInputRule(/^(#{2,3})\s$/, N.heading, m => ({level: m[1].length}))),
+    onlyTop(pm.wrappingInputRule(/^\s*([-*])\s$/, N.bullet_list)),
+    onlyTop(pm.wrappingInputRule(/^(1)\.\s$/, N.ordered_list, m => ({order: +m[1]}), (m, node) => node.childCount + node.attrs.order === +m[1])),
+    onlyTop(pm.wrappingInputRule(/^\s*>\s$/, N.blockquote)),
+    new pm.InputRule(/\*\*([^*\s](?:[^*]*[^*\s])?)\*\*$/, (st, match, from, to) => {
+      const text = match[1], tr = st.tr;
+      tr.replaceWith(from, to, st.schema.text(text, [...st.doc.resolve(from).marks(), M.strong.create()]));
+      return tr.removeStoredMark(M.strong);
+    }),
+  ] : [];
+  // One undo after a shortcut (Backspace right after it, Ctrl+Z or [↶]) gives the typed marks back as letters, "## " included.
+  const shortcutKeys = shortcuts ? {Backspace: pm.undoInputRule, 'Mod-z': pm.chainCommands(pm.undoInputRule, pm.undo)} : null;
   const plugins = [resizePlugin, pm.columnResizing({handleWidth: 6, cellMinWidth: 32, defaultCellMinWidth: 48, View: TableView}),
-    pm.history(), pm.keymap(keys), pm.keymap(pm.baseKeymap), pm.gapCursor(), pm.tableEditing(), pastePlugin, endLinePlugin];
+    pm.history(), ...(shortcuts ? [pm.inputRules({rules: shortcutRules}), pm.keymap(shortcutKeys)] : []),
+    pm.keymap(keys), pm.keymap(pm.baseKeymap), pm.gapCursor(), pm.tableEditing(), pastePlugin, endLinePlugin];
   let state = pm.EditorState.create({doc, plugins});
   const fix = pm.fixTables(state);
   if (fix) state = state.apply(fix.setMeta('addToHistory', false));
@@ -1063,7 +1087,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     indent: () => pm.chainCommands(pm.sinkListItem(N.list_item), indentBy(1))(view.state, view.dispatch),
     outdent: () => pm.chainCommands(pm.liftListItem(N.list_item), indentBy(-1))(view.state, view.dispatch),
     clear: () => clearFormat(view.state, view.dispatch),
-    undo: () => pm.undo(view.state, view.dispatch), redo: () => pm.redo(view.state, view.dispatch),
+    undo: () => (shortcuts ? pm.chainCommands(pm.undoInputRule, pm.undo) : pm.undo)(view.state, view.dispatch), redo: () => pm.redo(view.state, view.dispatch),
   };
   function run(fn) {
     // During a 한글 composition, wait for it to end (the press blurred the box) before changing the document.
@@ -1441,6 +1465,14 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   return {
     view, root, getValue, isEmpty, closeBoxes, hasBox: boxOpen,
     getText: () => toPlain(getValue()),
+    // ED③ 노트: put a whole saved form in (the big window hands its text back to the note's edit field). A fresh undo history.
+    setValue(next) {
+      const clean = cleanDoc(next) || emptyDoc();
+      let d; try { d = pm.Node.fromJSON(schema, clean.doc); d.check(); } catch { return false; }
+      let st = pm.EditorState.create({doc: d, plugins});
+      if (!endsOpen(st.doc)) st = st.apply(st.tr.insert(st.doc.content.size, N.paragraph.create({style: DEFAULT_BODY})).setMeta('addToHistory', false));
+      view.updateState(st); paint(); return true;
+    },
     focus: () => view.focus(),
     destroy() {
       resize?.disconnect(); phone?.removeEventListener?.('change', syncLayout); cancelAnimationFrame(fitFrame); clearTimeout(noteTimer);

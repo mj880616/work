@@ -30,7 +30,9 @@ export async function createNote({raw_text, ai_export_allowed, occurred_at}, rt 
 }
 export async function updateNote(id, changes, rt = window.KPTURuntime) {
   const body = {updated_at:new Date().toISOString()};
-  if (Object.hasOwn(changes, 'raw_text')) body.raw_text = validateNoteText(changes.raw_text);
+  // ED③ 노트 (설계 3.1·11.3): this is a letters-only edit (the update screen's text box). A row that carries a saved form (doc, e.g. a note
+  // moved back to the basket) would then keep a form that no longer matches its letters, so the form is dropped with the same write.
+  if (Object.hasOwn(changes, 'raw_text')) { body.raw_text = validateNoteText(changes.raw_text); body.doc = null; }
   if (Object.hasOwn(changes, 'ai_export_allowed')) body.ai_export_allowed = changes.ai_export_allowed;
   if (Object.hasOwn(changes, 'archived_at')) body.archived_at = changes.archived_at;
   return savedRow(await rt.api(`/rest/v1/app_notes?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${workspace(rt)}`, {method:'PATCH', prefer:'return=representation', body}));
@@ -107,7 +109,8 @@ export function filedProjects(note, docs = []) {
   return [...seen.values()];
 }
 // MEMO-노트: notes are listed by the day they were last changed.
-const NOTE_FIELDS = 'id,title,raw_text,occurred_at,created_at,updated_at,archived_at,ai_export_allowed,attachments,metadata';
+// ED③ 노트: doc = the new editor's saved form ({v:'ed1', doc}; null = a note written before it, shown the old way).
+const NOTE_FIELDS = 'id,title,raw_text,occurred_at,created_at,updated_at,archived_at,ai_export_allowed,attachments,metadata,doc';
 export function readNoteDocs(rt = window.KPTURuntime) {
   return readKind('note', NOTE_FIELDS, 'updated_at.desc,id.desc', rt);
 }
@@ -167,8 +170,9 @@ export function noteTitleFromText(text) {
 }
 // [노트] [+] and menu [쓰기]: a new kind=note row through the same owner-RLS insert as createNote.
 // NOTE-마크다운선택: markdown (true/false) is the window's [마크다운] box, kept in the row's existing metadata jsonb (metadata.markdown).
-export async function createNoteDoc({title, raw_text, markdown}, rt = window.KPTURuntime) {
-  const body = {kind:'note', title:validateNoteTitle(title), raw_text:validateNoteBody(raw_text), ...(typeof markdown === 'boolean' ? {metadata:{markdown}} : {})};
+// ED③ 노트: doc (optional) is the new editor's saved form; raw_text is then the letters taken out of it (ed-text.mjs toPlain).
+export async function createNoteDoc({title, raw_text, markdown, doc}, rt = window.KPTURuntime) {
+  const body = {kind:'note', title:validateNoteTitle(title), raw_text:validateNoteBody(raw_text), ...(typeof markdown === 'boolean' ? {metadata:{markdown}} : {}), ...(doc ? {doc} : {})};
   const workspace_id = rt.context.read()?.workspace?.id;
   workspace(rt);
   return savedRow(await rt.api('/rest/v1/app_notes', {method:'POST', prefer:'return=representation', body:{workspace_id, ...body}}));
@@ -176,8 +180,20 @@ export async function createNoteDoc({title, raw_text, markdown}, rt = window.KPT
 // markdown (optional, NOTE-마크다운선택): true/false to keep as metadata.markdown with the text. Without it the save is the same
 // PATCH as before. With it the row is read again and the other metadata keys are kept: the PATCH only applies while the row is
 // still the version read (updated_at and the keys the other metadata writers guard), as the pin and folder writes do.
-export async function saveNoteDoc(id, {title, raw_text, markdown}, rt = window.KPTURuntime) {
+// ED③ 노트: with doc (the new editor's saved form) and version (the updated_at of the version the editor opened), title, letters and doc are
+// written together in one PATCH that applies only while the row is still that version (a note changed in another tab or device is
+// refused, code note_changed, nothing overwritten). metadata is not written, so pin, folder and the other keys stay as they are
+// (a pin or folder write does not move updated_at, so it never blocks this save either).
+export async function saveNoteDoc(id, {title, raw_text, markdown, doc, version}, rt = window.KPTURuntime) {
   const body = {title:validateNoteTitle(title), raw_text:validateNoteBody(raw_text)};
+  if (doc !== undefined) {
+    if (!doc || typeof doc !== 'object') throw new Error('노트 서식을 확인해 주세요.');
+    if (typeof version !== 'string' || !Number.isFinite(Date.parse(version))) throw Object.assign(new Error('노트를 다시 불러온 뒤 저장해 주세요.'), {code:'note_changed'});
+    const where = `/rest/v1/app_notes?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${workspace(rt)}&kind=eq.note&updated_at=eq.${encodeURIComponent(version)}&select=${NOTE_FIELDS}`;
+    const saved = await rt.api(where, {method:'PATCH', prefer:'return=representation', body:{...body, doc, updated_at:new Date().toISOString()}});
+    if (!Array.isArray(saved) || saved.length !== 1) throw Object.assign(new Error('노트가 그사이 바뀌었어요. 다시 불러온 뒤 저장해 주세요.'), {code:'note_changed'});
+    return saved[0];
+  }
   if (typeof markdown !== 'boolean') return patchKind(id, 'note', body, rt);
   const base = `/rest/v1/app_notes?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${workspace(rt)}&kind=eq.note`;
   const rows = await rt.api(`${base}&select=id,updated_at,metadata`, {singleFlight:false});

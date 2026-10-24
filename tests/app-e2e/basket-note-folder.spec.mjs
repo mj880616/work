@@ -3,6 +3,7 @@ import { installViewPrefsServer, leftoverDeviceKeys } from './helpers/view-prefs
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { expectNoteTitle } from './helpers/note-title.mjs';
+import { edWin, edWinText, typeInto } from './helpers/note-editor.mjs';
 
 // UI-노트폴더 1단계 (docs/design/note-folders.md): a note's folder is metadata.folder in its existing row (no database change).
 // The note list has one folder row under the search box ([전체] [folders…] [폴더 없음] + ⋯), the note ⋯ has [폴더로 옮기기],
@@ -241,10 +242,11 @@ test('a note written while a folder is shown goes into that folder', async ({ pa
   await chip(page, '자료 폴더').click();
   // BASKET-노트입력창: [크게] on the note input opens the same write window (was [+ 노트]).
   await page.locator('[data-note-list] [data-quick-big]').click();
-  const editor = page.locator('#mdEditor');
-  await editor.locator('[data-md-title]').fill('새 자료 노트');
-  await editor.locator('.md-editor-text').fill('본문');
-  await editor.locator('[data-md-save-icon]').click();
+  // ED③ 노트: the note's new big window (title row, new editor).
+  const editor = edWin(page);
+  await editor.locator('[data-edw-title]').fill('새 자료 노트');
+  await typeInto(page, edWinText(page), '본문');
+  await editor.locator('[data-edw-save]').click();
   await expectNoteTitle(page,'새 자료 노트');
   await expect(page.locator('[data-note-meta-folder]')).toHaveText('폴더 자료 폴더');
   expect(f.writes.map(w => w.method || 'PATCH')).toEqual(['POST', 'PATCH']);

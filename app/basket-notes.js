@@ -3,18 +3,20 @@ import { viewPrefs } from './view-prefs.js';
 // written through the existing owner-RLS REST paths in basket-data.js; there is no new save path.
 // This module owns everything drawn into its host: list (search, newest change first) → read → edit. The list's own input
 // (BASKET-노트입력창: the basket update input, home-quick.js, in its note mode) adds a note; its [크게] opens the shared
-// write window (write-window.js) with [노트] chosen.
+// note window (note-window.js, ED③ 노트).
 // basket.js owns the [메모 | 노트] switch and decides when this host is shown.
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import { readNoteDocs, readNoteDoc, detachNoteFile, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, sortNotes, notePinnedAt, setNotePinned, noteFolder, noteFolders, newFolderName, setNoteFolder, validateFolderName, NOTE_FOLDER_LIMITS } from './basket-data.js';
 import { deleteNoteOriginal, noteDocDeleteConfirmText } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';
 import { renderMarkdownInto, showPlainText, preloadMarkdown } from './markdown-view.js';
-import { openMarkdownEditor, copyText } from './md-editor.js';
-import { openWriteWindow } from './write-window.js';
+import { copyText } from './copy-text.js';
+import { bigWindowOpen } from './big-window-open.js';
+// ED③ 노트: the note's body is the new editor (note-body.js); its big window is note-window.js (the old md-editor window is not used here).
+import { paintDoc, docCopy, mountEditField, notePhotos } from './note-body.js';
+import { prepareSave } from './ed-window-model.mjs';
 import { mountQuick } from './home-quick.js';
-import { toTelegram } from './md-telegram.mjs';
-import { driveFileUrl, fileSize, createUploadBatch, uploadNoteFiles, mountBasketPicker } from './basket-upload.js';
+import { driveFileUrl, fileSize, createUploadBatch, uploadNoteFiles } from './basket-upload.js';
 import { fileLine } from './meeting-compact.js';
 import { pressFile, downloadFile, openInDrive, menuItemsHtml } from './file-actions.js';
 import { openPhotoView } from './photo-view.js';
@@ -22,7 +24,7 @@ import { attachmentName } from './attachment-name.mjs';
 import { paintHtmlAttachments } from './html-frame.js';
 import { placeAnchored, followAnchor, clearAnchored, isWide } from './anchored-popup.js';
 import { notePreview, noteCopyPayload } from './note-preview.mjs';
-import { noteMarkdown, storedMarkdown } from './note-markdown.mjs';
+import { noteMarkdown } from './note-markdown.mjs';
 import { renderFilterChips } from './filter-chips.js';
 import { createChoiceSheet } from './choice-sheet.js';
 import { basketNoteOrigin, basketReturnHtml } from './basket-note-tasks.js';
@@ -38,7 +40,6 @@ function showToast(message, ms = 3200) {
   toast.textContent = message; toast.classList.remove('hidden');
   clearTimeout(showToast.timer); showToast.timer = setTimeout(() => toast.classList.add('hidden'), ms);
 }
-const normalize = value => String(value ?? '').replace(/\r\n?/g, '\n');
 export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = () => {}, onMovedToBasket = () => {}}) {
   let linkOpen = false, notes = [], links = [], selected = null, editing = false, busy = false, epoch = 0, query = '', loaded = false, bigWriter = null, pendingOpen = null;
   // BUG-뒤로가기: an opened note is one router layer, so Back returns to the list at the same scroll.
@@ -115,9 +116,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
 
   // UI-상단줄제목: the open note's title goes to the PC top line's place (topbar-actions.js kptu:where-item); null drops it.
   const sendWhere = name => window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'basket', name, kind:'note'}}));
-  const fields = () => ({title: detail.querySelector('[data-note-title-input]'), body: detail.querySelector('[data-basket-text]'), markdown: detail.querySelector('[data-note-markdown]')});
-  // NOTE-마크다운선택: the [마크다운] box counts as a change too.
-  const textDirty = () => { if (!selected || !editing) return false; const f = fields(); return f.title.value !== (selected.title || '') || f.body.value !== normalize(selected.raw_text) || f.markdown.checked !== noteMarkdown(selected); };
+  // ED③ 노트: the body is the new editor (field, mounted by startEdit); the [마크다운] box is gone (결정 11 가; metadata.markdown is kept).
+  let field = null, fieldBase = null;
+  const fields = () => ({title: detail.querySelector('[data-note-title-input]')});
+  const textDirty = () => { if (!selected || !editing) return false; const f = fields(); return f.title.value !== (selected.title || '') || !!field?.isChanged(); };
   // A note with only HTML hides its empty body box; focus then goes to the HTML area (or, with other files only, the file cards).
   const readFocus = () => { const text = detail.querySelector('[data-basket-read-text]'), views = detail.querySelector('[data-basket-html-views]');
     return !text.hidden ? text : views.childElementCount ? views : detail.querySelector('[data-note-attachments]'); };
@@ -230,6 +232,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     text.hidden = !raw && (htmlCount > 0 || files > 0);
     text.classList.toggle('basket-read-empty', !raw);
     if (!raw) return showPlainText(text, htmlCount || files ? '' : '본문이 없는 노트입니다.');
+    // ED③ 노트: a note saved in the new editor reads its saved form (ed-render: headings, tables, colours, photos of this note).
+    if (paintDoc(text, selected, {rt})) return;
     showPlainText(text, raw);
     // NOTE-마크다운선택: a note with 마크다운 off is shown exactly as written (no list, heading or indent made from its lines).
     text.dataset.noteView = noteMarkdown(selected) ? 'markdown' : 'plain';
@@ -249,10 +253,10 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     // returns to that project or organization, like an update opened from there) and shows "← (name)으로 돌아가기".
     const from = !!selected && !!basketNoteOrigin(selected.id, rt);
     if (!from) layer ||= window.KPTURouter?.layer?.open('basket-notedoc', {close: () => !busy && close({fromBack:true})}) || null;
-    ++epoch; editing = false; linkOpen = false; list.hidden = true; detail.hidden = false; onOpenChange(true);
+    ++epoch; dropField(); editing = false; linkOpen = false; list.hidden = true; detail.hidden = false; onOpenChange(true);
     // UI-엔터저장: title Enter / body Ctrl+Enter (PC) save through the shared rule (enter-save.js).
     detail.dataset.enterSave = '[data-note-save]';
-    detail.innerHTML = `<div class="basket-detail-head"><button type="button" class="basket-back" data-note-close aria-label="노트 목록으로"><span aria-hidden="true">‹</span> 노트</button><div class="note-head-main" data-note-head-main><button type="button" class="basket-icon-button" data-note-telegram aria-label="복사" title="복사">${COPY_ICON}</button><button type="button" class="basket-icon-button basket-more-trigger" data-note-more aria-label="이 노트 메뉴" title="메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button></div></div><div class="basket-read note-read" data-note-read><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="노트 본문"></div><div class="basket-html-views" data-basket-html-views tabindex="-1" role="region" aria-label="HTML 첨부 화면"></div><p class="basket-note-meta" data-note-meta></p></div><div class="basket-editor note-editor" data-note-editor hidden><label class="basket-text-label">노트 제목<input type="text" data-note-title-input autocomplete="off" enterkeyhint="done"></label><label class="note-md-toggle"><input type="checkbox" data-note-markdown> 마크다운</label><label class="basket-text-label">본문<textarea data-basket-text rows="14"></textarea></label></div><div data-note-attachments class="note-files" tabindex="-1" role="region" aria-label="첨부 파일"></div><button type="button" data-note-reload hidden>노트 다시 불러오기</button><div data-basket-manual hidden></div><div class="basket-actions note-edit-actions" data-note-edit-actions hidden><button type="button" class="secondary" data-note-big-write>큰 창에서 수정</button><button type="button" class="primary" data-note-save>저장</button><button type="button" data-note-cancel>취소</button></div><p data-basket-status role="status"></p>`;
+    detail.innerHTML = `<div class="basket-detail-head"><button type="button" class="basket-back" data-note-close aria-label="노트 목록으로"><span aria-hidden="true">‹</span> 노트</button><div class="note-head-main" data-note-head-main><button type="button" class="basket-icon-button" data-note-telegram aria-label="복사" title="복사">${COPY_ICON}</button><button type="button" class="basket-icon-button basket-more-trigger" data-note-more aria-label="이 노트 메뉴" title="메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="noteDocMenu">${MORE_ICON}</button></div></div><div class="basket-read note-read" data-note-read><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="노트 본문"></div><div class="basket-html-views" data-basket-html-views tabindex="-1" role="region" aria-label="HTML 첨부 화면"></div><p class="basket-note-meta" data-note-meta></p></div><div class="basket-editor note-editor" data-note-editor hidden><label class="basket-text-label">노트 제목<input type="text" data-note-title-input autocomplete="off" enterkeyhint="done"></label><div class="note-body-field" data-note-body-field role="group" aria-label="본문"></div></div><div data-note-attachments class="note-files" tabindex="-1" role="region" aria-label="첨부 파일"></div><button type="button" data-note-reload hidden>노트 다시 불러오기</button><div data-basket-manual hidden></div><div class="basket-actions note-edit-actions" data-note-edit-actions hidden><button type="button" class="secondary" data-note-big-write>큰 창에서 수정</button><button type="button" class="primary" data-note-save>저장</button><button type="button" data-note-cancel>취소</button></div><p data-basket-status role="status"></p>`;
     if (from) detail.querySelector('.basket-detail-head')?.insertAdjacentHTML('afterend', basketReturnHtml(selected.id, rt));
     manual.attach(detail.querySelector('[data-basket-manual]'));
   }
@@ -263,22 +267,23 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     paintRead(); paintMeta(); paintMode();
     if (focus) readFocus().focus();
   }
-  // [크게] on the note input (BASKET-업데이트통합 PR 2 → BASKET-노트입력창): the one write window (write-window.js) with [노트]
-  // preselected — the same window as menu [쓰기] — on the input's text. It saves through createNoteDoc (or, switched to 업데이트,
-  // the basket or a chosen place) and closes; a saved note then opens here in its read view. Text closed without saving
-  // (× or phone back) goes back into the input (this tab's memory only, never browser storage).
-  function openNew(text = '', upload = null) {
-    if (selected || busy || bigWriter) return;
+  // ED③ 노트: the new big window (note-window.js) with a title row, [폴더 ▾], [📎 첨부] and the line shortcuts. It saves a note (createNoteDoc
+  // with its saved form) and closes; the saved note then opens here in its read view. Text closed without saving goes back into the input
+  // as letters (this tab's memory only, never browser storage).
+  async function openNew(text = '', upload = null) {
+    if (selected || busy || bigWriter || bigWindowOpen()) return;
     const owner = scope();
+    const {openNoteWindow} = await import('./note-window.js');
+    if (owner !== scope() || selected || bigWriter) return;
     // NOTE-파일붙이기: the window's [📎 첨부] works on the note input's own files (a saved note empties them).
-    bigWriter = openWriteWindow({text, kind:'note', title:'새 노트', rt, upload, noteFolder:{label:() => addTarget() || '폴더 없음', open:trigger => { void addFolderSheet.open('add', trigger); }}, onClose:(value, {saved}) => {
+    bigWriter = openNoteWindow({text, title:'새 노트', rt, upload, noteFolder:{label:() => addTarget() || '폴더 없음', open:trigger => { void addFolderSheet.open('add', trigger); }}, onClose:({saved, text:value}) => {
       bigWriter = null;
       if (owner !== scope()) return;
       quick.setText(saved ? '' : value);
       if (saved?.kind === 'note') { noteAdded(saved, {open:true}); return; }
-      if (saved) { onMovedToBasket(); return; }
       quick.focus();
     }});
+    if (bigWriter) bigWriter.paint = () => bigWriter?.paintFolder?.();
   }
   // A new note (input [추가] or the write window) goes into the folder named on the input's [폴더 ▾] (addTarget): the folder chip
   // that is shown, unless another one was picked there; the list is read again.
@@ -293,7 +298,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (!selected) return true;
     if (!force && textDirty() && !window.confirm('고치던 노트를 버리고 목록으로 돌아갈까요?')) return false;
     if (!force && !textDirty() && manual.hasDraft() && !window.confirm('작성 중인 연결 입력을 버리고 목록으로 돌아갈까요?')) return false;
-    bigWriter?.close({silent:true}); bigWriter = null;
+    bigWriter?.close({silent:true}); bigWriter = null; dropField();
     closeMenu(); const id = selected.id; ++epoch; selected = null; editing = false; manual.reset();
     detail.replaceChildren(); detail.hidden = true; list.hidden = false; sendWhere(null); onOpenChange(false); renderList();
     const opened = layer; layer = null; if (!fromBack) opened?.close();
@@ -301,68 +306,95 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (focus) ((id ? host.querySelector(`[data-note-row="${CSS.escape(id)}"]`) : null) || host.querySelector('[data-note-search]'))?.focus({preventScroll:true});
     return true;
   }
-  function startEdit() {
+  // ED③ 노트: [수정] opens the note in the new editor (an old note without doc is converted in memory only; nothing is written by opening).
+  // The note's version (updated_at) at that moment is the save's guard: a note changed in another tab or device is refused (note_changed).
+  async function startEdit() {
     if (!selected || editing || busy) return;
-    editing = true; const f = fields(); f.title.value = selected.title || ''; f.body.value = normalize(selected.raw_text); f.markdown.checked = noteMarkdown(selected); say('');
+    editing = true; const f = fields(), id = selected.id, run = epoch; f.title.value = selected.title || ''; say('');
+    fieldBase = selected.updated_at;
     paintMode(); f.title.focus();
+    const host = detail.querySelector('[data-note-body-field]');
+    try {
+      const made = await mountEditField(host, selected, {photos:photosFor(id)});
+      if (run !== epoch || !editing || selected?.id !== id || !host.isConnected) { made.destroy(); return; }
+      field?.destroy(); field = made;
+    } catch { if (run === epoch && editing) say('편집기를 열지 못했어요. 다시 눌러 주세요.'); }
   }
+  const dropField = () => { field?.destroy(); field = null; fieldBase = null; };
   function finishEdit({force = false} = {}) {
     if (!selected || !editing) return;
     if (!force && textDirty() && !window.confirm('고치던 내용을 버리고 읽기 화면으로 돌아갈까요?')) return;
     bigWriter?.close({silent:true}); bigWriter = null;
+    dropField();
     editing = false; if (!force) say(''); paintRead(); paintMode(); readFocus().focus();
   }
-  // MD-편집기: the shared full-screen editor works on the body field and its [마크다운] box. Its one save icon is this view's
-  // own [저장] (save below). NOTE-큰창저장유지: it only saves — the window stays and says 저장했어요; ✕ closes it (asking once
-  // when something changed after the last save). Closed right after a save, the note shows its read view; otherwise the text
-  // goes back to the edit field as before.
-  // NOTE-파일붙이기: [📎 첨부] at the end of the format row. Chosen files go up with this note's id when the window's save is
-  // pressed (after the text), through the basket-files upload (Drive "노트 첨부"); the cards under the note then show them.
-  let bigFiles = null, bigPicker = null;
+  // Photos in the text (사진·링크 넣기): a picture goes up as one of this note's attachments (Drive "노트 첨부", owner only) and is put in
+  // as drive:<file id>. The note is read again afterwards so its cards and the editor see the new file.
+  function photosFor(id) {
+    return notePhotos({rt, getNote:() => selected?.id === id ? selected : null, upload: async files => {
+      const note = selected?.id === id ? selected : null; if (!note) throw new Error('노트가 바뀌어 사진을 넣지 못했어요.');
+      const batch = createUploadBatch(id, note.attachments || []);
+      batch.entries = [...files].map(file => ({file, kind:'pending', label:'대기'}));
+      await uploadNoteFiles(id, batch, {rt, isCurrent:() => selected?.id === id});
+      const row = await readNoteDoc(id, rt);
+      if (row && selected?.id === id) {
+        // The new file moved the note's version: the edit keeps its guard on that new version (the photo upload is this edit's own change).
+        if (fieldBase && Date.parse(row.updated_at) > Date.parse(fieldBase)) fieldBase = row.updated_at;
+        notes = notes.map(n => n.id === id ? row : n); selected = row; renderList(); paintMeta();
+      }
+      return row?.attachments || batch.attachments;
+    }});
+  }
+  // [큰 창에서 수정] (NOTE-큰창저장유지): the same edit in the new big window (note-window.js). Its save icon is this view's own save
+  // (stay: the window stays and says 저장했어요); ✕ closes it (asking once when something changed after the last save). Closed right
+  // after a save, the note shows its read view; otherwise the window's text goes back into the edit field.
+  // NOTE-파일붙이기: [📎 첨부] under the text; chosen files go up with this note's id after the text is saved.
+  let bigFiles = null;
   const pendingFiles = () => bigFiles ? bigFiles.entries.filter(entry => entry.kind !== 'success').length : 0;
-  const editorSay = text => { const p = document.querySelector('#mdEditor .md-editor-status'); if (p) p.textContent = text; };
-  function openBigWriter() {
-    const {body: field, markdown: box} = fields(), id = selected?.id;
-    if (!selected || !editing || busy || !field) return;
-    const same = () => editing && selected?.id === id && field.isConnected;
+  async function openBigWriter() {
+    const id = selected?.id;
+    if (!selected || !editing || busy || !field || bigWriter || bigWindowOpen()) return;
+    const same = () => editing && selected?.id === id && !!field;
     bigFiles = createUploadBatch(id, selected.attachments || []);
-    const attach = {show:() => true, inTools:() => true, pending:pendingFiles, mount({picker, files, drop}) {
-      bigPicker = mountBasketPicker(picker, {id:'mdNoteAttachFiles', filesHost:files, dropTarget:drop, getBatch:() => bigFiles,
-        isBusy:() => busy, isActive:() => same(), onChange:() => editorSay(''), onError:editorSay});
-    }};
-    bigWriter = openMarkdownEditor({text:field.value, title:'큰 창에서 수정', keepOpen:true, attach,
-      markdown:{value:box.checked, onChange: on => { if (same()) box.checked = on; }},
-      save:{aria:'노트 저장', run: async (value, kind, {markdown}) => { if (!same()) return {ok:false, message:'수정 화면이 바뀌어 저장하지 못했어요.'}; field.value = value; box.checked = markdown; return save({stay:true}); }},
-      onInput: value => { if (same()) field.value = value; },
-      onClose: (value, {saved, markdown} = {}) => {
-        bigWriter = null; bigFiles = null; bigPicker = null; if (!same()) return;
-        field.value = value; if (typeof markdown === 'boolean') box.checked = markdown;
+    const {openNoteEditWindow} = await import('./note-window.js');
+    if (!same() || bigWriter) return;
+    bigWriter = openNoteEditWindow({value:field.getValue(), photos:photosFor(id),
+      attach:{getBatch:() => bigFiles, isBusy:() => busy},
+      save: async value => { if (!same()) return {ok:false, message:'수정 화면이 바뀌어 저장하지 못했어요.'}; field.setValue(value); return save({stay:true}); },
+      onClose: ({value, saved} = {}) => {
+        bigWriter = null; bigFiles = null; if (!same()) return;
+        field.setValue(value);
         if (saved && !textDirty()) finishEdit({force:true}); else field.focus();
       }});
   }
   // save() resolves {ok:true} or {ok:false, message}; the big window's save icon waits for it (same path as [저장]).
   // stay (the big window): the edit stays open after the save (NOTE-큰창저장유지); the window shows the message.
+  // ED③ 노트: title, the letters taken out of the saved form (raw_text, for search·AI·journal) and the saved form (doc) go in one guarded write.
   async function save({stay = false} = {}) {
     if (!selected || !editing || busy) return {ok:false, message:'지금은 저장할 수 없어요.'};
+    if (!field) return {ok:false, message:'편집기를 여는 중이에요. 잠시 뒤 다시 눌러 주세요.'};
     const f = fields(), files = stay ? pendingFiles() : 0;
     if (!textDirty() && !files) { if (stay) return {ok:true, message:'저장했어요'}; showToast('저장된 노트입니다.'); finishEdit({force:true}); return {ok:true}; }
     if (!textDirty()) return await saveFiles();
-    // NOTE-마크다운선택: the box is kept in metadata.markdown when it differs from what is stored (or nothing is stored yet).
-    const changes = {title:f.title.value, raw_text:f.body.value, ...(storedMarkdown(selected) !== f.markdown.checked ? {markdown:f.markdown.checked} : {})};
+    const prep = prepareSave({value:field.getValue(), limit:100000});
+    if (!prep.ok) { say(prep.message); return {ok:false, message:prep.message}; }
+    const changes = {title:f.title.value, raw_text:prep.text, doc:prep.value, version:fieldBase};
     try { validateNoteTitle(changes.title); validateNoteBody(changes.raw_text); } catch (error) { say(error.message); return {ok:false, message:error.message}; }
     const id = selected.id, run = ++epoch, owner = scope(); lock(true); say('저장 중…');
     try {
       const note = await saveNoteDoc(id, changes, rt);
       if (run !== epoch || owner !== scope()) return {ok:false, message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
-      notes = notes.map(n => n.id === id ? note : n); selected = note; renderList(); paintMeta();
+      notes = notes.map(n => n.id === id ? note : n); selected = note; fieldBase = note.updated_at; field.markSaved(); renderList(); paintMeta();
       if (stay && files) { lock(false); return await saveFiles({textSaved:true}); }
       if (stay) { say(''); return {ok:true, message:'저장했어요'}; }
       finishEdit({force:true}); say(''); showToast('노트를 저장했습니다.');
       return {ok:true};
     } catch (error) {
       if (run !== epoch || owner !== scope()) return {ok:false, message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
-      say('저장하지 못했어요. 다시 시도해 주세요.');
-      return {ok:false, message:'저장하지 못했어요. 다시 눌러 주세요.'};
+      const changed = error?.code === 'note_changed', message = changed ? error.message : '저장하지 못했어요. 다시 눌러 주세요.';
+      say(changed ? message : '저장하지 못했어요. 다시 시도해 주세요.');
+      if (changed) detail.querySelector('[data-note-reload]').hidden = false;
+      return {ok:false, message};
     } finally { if (run === epoch) lock(false); else busy = false; }
   }
   // The big window's files, after its text (if any) was saved. The note is read again afterwards so the cards and the list show
@@ -372,14 +404,15 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const id = selected.id, batch = bigFiles, run = ++epoch, owner = scope(), current = () => run === epoch && owner === scope() && selected?.id === id;
     lock(true); say('');
     let error = null;
-    try { await uploadNoteFiles(id, batch, {rt, isCurrent:current, onChange:() => bigPicker?.render()}); }
+    try { await uploadNoteFiles(id, batch, {rt, isCurrent:current, onChange:() => bigWriter?.renderFiles?.()}); }
     catch (e) { error = e; }
     let row = null;
     try { row = current() ? await readNoteDoc(id, rt) : null; } catch {}
     if (run === epoch) lock(false); else busy = false;
     if (!current()) return {ok:false, message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
     if (row) { notes = notes.map(n => n.id === id ? row : n); selected = row; renderList(); paintMeta(); }
-    if (bigFiles === batch) { bigFiles = createUploadBatch(id, (row || selected).attachments || []); bigPicker?.render(); }
+    if (bigFiles === batch) { bigFiles = createUploadBatch(id, (row || selected).attachments || []); bigWriter?.renderFiles?.(); }
+    if (row && fieldBase && Date.parse(row.updated_at) > Date.parse(fieldBase)) fieldBase = row.updated_at;
     if (error) return {ok:false, message:`${textSaved ? '글은 저장했지만 ' : ''}첨부를 올리지 못했어요. ${error.message || ''}`.trim()};
     return {ok:true, message:textSaved ? '글과 첨부를 저장했어요' : '첨부를 저장했어요'};
   }
@@ -431,7 +464,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     finally { busy = false; }
   }
   async function telegram(note = selected) {
-    const payload = noteCopyPayload(note); if (!payload) return;
+    // ED③ 노트: a note with doc copies the new editor's 텔레그램 letters (ed-text toTelegram); without, the old conversion.
+    const payload = docCopy(note) || noteCopyPayload(note); if (!payload) return;
     const ok = await copyText(payload.text);
     showToast(ok ? payload.done : '복사하지 못했어요. 다시 눌러 주세요.');
   }
@@ -664,7 +698,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     // openId: a note just moved here from the basket opens once the list is read.
     show({openId = null} = {}) { void preloadMarkdown(); pendingOpen = openId; if (!selected) void refresh(); },
     close,
-    reset() { closeMenu(); void folderSheet.close(); void addFolderSheet.close(); addPick = null; folderTarget = null; folderView = 'all'; viewRestored = false; draftFolders = []; folderJob = null; folderSay(''); const opened = layer; layer = null; opened?.close(); ++epoch; bigWriter?.close({silent:true}); bigWriter = null; selected = null; sendWhere(null); editing = false; busy = false; manual.reset(); notes = []; links = []; loaded = false; query = ''; detail.replaceChildren(); detail.hidden = true; list.hidden = false; host.querySelector('[data-note-search]').value = ''; host.querySelector('[data-note-rows]').replaceChildren(); status.textContent = ''; onOpenChange(false); },
+    reset() { closeMenu(); void folderSheet.close(); void addFolderSheet.close(); addPick = null; folderTarget = null; folderView = 'all'; viewRestored = false; draftFolders = []; folderJob = null; folderSay(''); const opened = layer; layer = null; opened?.close(); ++epoch; bigWriter?.close({silent:true}); bigWriter = null; dropField(); selected = null; sendWhere(null); editing = false; busy = false; manual.reset(); notes = []; links = []; loaded = false; query = ''; detail.replaceChildren(); detail.hidden = true; list.hidden = false; host.querySelector('[data-note-search]').value = ''; host.querySelector('[data-note-rows]').replaceChildren(); status.textContent = ''; onOpenChange(false); },
     isBusy: () => busy,
     hasDraft: () => textDirty() || (!!selected && manual.hasDraft()),
     isOpen: () => !!selected,

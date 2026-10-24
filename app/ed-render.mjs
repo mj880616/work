@@ -89,6 +89,9 @@ function block(n) {
         return pic;
       }
       var fig = withAlign(make('figure', 'ed-photo is-place'), {align:'center'});
+      // ED③ 노트: a note photo (drive:<file id>) is drawn as a place here; the owner-only note screen fills it from the note's own
+      // attachments (basket-notes.js). The id is not an address, and Web1 never has such photos.
+      if (typeof a.src === 'string' && a.src.indexOf('drive:') === 0) fig.setAttribute('data-ed-drive', a.src.slice(6));
       fig.setAttribute('role', 'img');
       fig.setAttribute('aria-label', a.alt ? '사진: ' + a.alt : '사진');
       fig.appendChild(make('span', 'ed-photo-mark', '사진'));

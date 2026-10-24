@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { expectNoteTitle } from './helpers/note-title.mjs';
+import { edWin, edWinText, typeInto } from './helpers/note-editor.mjs';
 
 // NOTE-추가폴더표시 (2026-10-23 사용자 요청 10:42·10:43): the note input shows which folder a NEW note goes into as a small
 // [폴더 ▾] button ("개발 ▾" / "폴더 없음 ▾"), the placeholder says "<폴더>에 노트 추가", and the button opens a small list right under
@@ -124,22 +125,19 @@ for (const width of [1280, 390]) test(`the write window has the same [폴더 ▾
   const f = await fixture(page, width, three);
   await press(page, chip(page, '개발'), width);
   await press(page, page.locator('[data-note-list] [data-quick-big]'), width);
-  const editor = page.locator('#mdEditor');
-  const wb = editor.locator('[data-md-folder]');
+  // ED③ 노트: the note's new big window. It writes a note only (no [업데이트|노트] switch), so its [폴더 ▾] is always there.
+  const editor = edWin(page);
+  const wb = editor.locator('[data-edw-folder]');
   await expect(wb).toHaveText('개발 ▾');
   expect((await wb.boundingBox()).height).toBeLessThanOrEqual(36);
-  // Switching to 업데이트 hides it (a record has no folder).
-  await editor.getByRole('button', { name: '업데이트', exact: true }).first().click();
-  await expect(wb).toBeHidden();
-  await editor.getByRole('button', { name: '노트', exact: true }).click();
-  await expect(wb).toBeVisible();
+  await expect(editor.getByRole('button', { name: '업데이트', exact: true })).toHaveCount(0);
   await press(page, wb, width);
   await expect(sheet(page)).toBeVisible();
   await press(page, sheet(page).getByRole('button', { name: '회의', exact: true }), width);
   await expect(wb).toHaveText('회의 ▾');
-  await editor.locator('[data-md-title]').fill('창에서 쓴 노트');
-  await editor.locator('.md-editor-text').fill('본문');
-  await editor.locator('[data-md-save-icon]').click();
+  await editor.locator('[data-edw-title]').fill('창에서 쓴 노트');
+  await typeInto(page, edWinText(page), '본문');
+  await editor.locator('[data-edw-save]').click();
   await expectNoteTitle(page, '창에서 쓴 노트');
   await expect(page.locator('[data-note-meta-folder]')).toHaveText('폴더 회의');
   expect(f.writes.map(w => w.method || 'PATCH')).toEqual(['POST', 'PATCH']);

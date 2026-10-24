@@ -95,13 +95,16 @@ for(const width of [390,1280]){
   // [수정] → [취소] keeps the frames (read once per opened note, not sent again).
   await noteMenuAction(page,'data-note-edit',{width});
   await expect(detail.locator('[data-note-read]')).toBeHidden();
-  await expect(detail.locator('[data-basket-text]')).toHaveValue('## 요약\n\n- 첫 줄');
+  // ED③ 노트: the edit field is the new editor, opened from the old markdown letters (heading + list).
+  await expect(detail.locator('[data-note-body-field] .ProseMirror .ed-h2')).toHaveText('요약');
+  await expect(detail.locator('[data-note-body-field] .ProseMirror li')).toHaveText('첫 줄');
   await press(page,detail.locator('[data-note-cancel]'),width);
   await expect(detail.locator('[data-basket-html-views] iframe')).toHaveCount(2);
   expect(f.htmlCalls).toHaveLength(2);
   // Saving a new body keeps the frames under the new text.
   await noteMenuAction(page,'data-note-edit',{width});
-  await detail.locator('[data-basket-text]').fill('새 본문');
+  const field=detail.locator('[data-note-body-field] .ProseMirror');await expect(field).toBeVisible();
+  await field.click();await page.keyboard.press('Control+A');await page.keyboard.insertText('새 본문');
   await press(page,detail.locator('[data-note-save]'),width);
   await expect(page.locator('#toast')).toContainText('노트를 저장했습니다.');
   await expect(detail.locator('[data-basket-read-text]')).toContainText('새 본문');
