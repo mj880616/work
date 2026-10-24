@@ -156,3 +156,14 @@
 #appView #ledgerView .lc-more > summary{ list-style:none; }
 #appView #ledgerView .lc-more > summary::-webkit-details-marker{ display:none; }
 #appView #ledgerView .lc-more-panel{ position:absolute; right:0; top:calc(100% + 4px); z-index:5; display:flex; flex-direction:column; gap:6px; padding:8px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); background:var(--kptu-surface); }
+/* LEDGER-자동기록 3단계: 맨 위 Claude용 사본 상태 한 줄(버튼 없음, 멈췄을 때만 경고 + [다시 시도] 글자 링크),
+   "자동" 꼬리표, 근거 ‹원문› 글자 링크, 상세 ⋯ 메뉴 자리. 값은 공용 토큰만(UI-버튼기준: 안내 줄 안 보조 버튼은 글자 버튼, 누르는 범위 44px). */
+#appView #ledgerView .lg-copy-line{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
+#appView #ledgerView .lg-copy-line.is-stalled{ color:var(--kptu-danger); }
+#appView #ledgerView .lg-text-btn{ position:relative; display:inline-flex; align-items:center; height:var(--ds-compact-height-sm); margin:0; padding:0 4px; border:0; background:transparent; color:var(--kptu-primary-ink); font:inherit; font-size:var(--ds-text-meta); font-weight:var(--ds-weight-medium); line-height:1; cursor:pointer; }
+#appView #ledgerView .lg-text-btn::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+#appView #ledgerView .lg-text-btn:disabled{ opacity:.45; cursor:default; }
+#appView #ledgerView .lg-text-btn:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+@media(hover:hover){ #appView #ledgerView .lg-text-btn:hover:not(:disabled){ text-decoration:underline; } }
+#appView #ledgerView .lb-auto{ color:var(--kptu-primary-ink); }
+#appView #ledgerView .lb-detail-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:8px; min-width:0; }

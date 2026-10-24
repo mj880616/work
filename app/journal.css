@@ -178,6 +178,12 @@
 #appView #journalView .journal-hwpx-part{ display:flex; flex-direction:column; gap:8px; }
 #appView #journalView .journal-hwpx-panel .journal-muted{ margin:0; font-size:var(--kptu-text-body); }
 #appView #journalView .journal-hwpx-actions{ display:flex; flex-wrap:wrap; gap:8px; }
+/* WEEKLY-임시저장: 상자 머리 한 줄(임시저장 시각·저장 중·저장 못 함 [다시]·준비 중), 다시 열기 안내, 넣지 못한 칸(줄바꿈 그대로). */
+#appView #journalView .journal-hwpx-draft{ margin:0; display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:var(--kptu-text-meta); color:var(--kptu-muted); }
+#appView #journalView .journal-hwpx-draft[data-kind="error"]{ color:var(--kptu-danger); }
+#appView #journalView .journal-hwpx-resume{ display:flex; flex-direction:column; gap:6px; padding:8px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); background:var(--kptu-surface); }
+#appView #journalView .journal-hwpx-resume > p{ margin:0; font-size:var(--kptu-text-body); overflow-wrap:anywhere; }
+#appView #journalView [data-hwpx-unplaced] li{ white-space:pre-wrap; overflow-wrap:anywhere; }
 #appView #journalView .journal-hwpx-fields{ display:flex; flex-wrap:wrap; gap:8px 12px; }
 #appView #journalView .journal-hwpx-field{ display:flex; flex-direction:column; gap:2px; font-size:var(--kptu-text-body); min-width:0; flex:1 1 200px; }
 #appView #journalView .journal-hwpx-field input,
@@ -376,6 +382,8 @@
 #appView #journalView .journal-org-raw[open] > summary::before{ transform:rotate(90deg); }
 #appView #journalView .journal-org-tools .mini{ margin-left:-8px; }
 #appView #journalView .journal-org-tools .journal-org-edited + .mini{ margin-left:0; }
+/* LEDGER-자동기록: 하루 카드 재료 위 "새로 기록된 약속 N" 한 줄(기존 줄 버튼 모양 그대로). */
+#appView #journalView .journal-ledger-line{ margin:0; }
 /* WEEKLY-자료요약 화면 ①: [주간 정리] 자료 줄 — 작은 '자료' 꼬리표(요청 표 '지난주에서'와 같은 모양), 누르면 자료실이 열리는 글(글자 버튼, 테두리 없음),
    작은 표시('비슷한 기록 있음'·'같은 파일 N번'). 접힘은 조직 '원문' 접힘(.journal-org-raw)을 그대로 쓴다. 새 크기 값 없음(UI-버튼기준, 토큰만). */
 #appView #journalView .journal-file-tag{ display:inline-block; padding:0 5px; border-radius:var(--ds-chip-radius); background:var(--kptu-surface-subtle); color:var(--kptu-muted); font-size:var(--ds-text-meta); line-height:1.6; white-space:nowrap; vertical-align:baseline; }

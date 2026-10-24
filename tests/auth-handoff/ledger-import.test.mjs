@@ -11,6 +11,7 @@ import {randomBytes} from 'node:crypto';
 import {createServer} from 'node:net';
 import EmbeddedPostgres from 'embedded-postgres';
 import pg from 'pg';
+import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A,WS_B} from './basket4-fixture.mjs';
 import {prepareMigration,checkSQL} from '../../scripts/ops/db-migration-plan.mjs';
 import {readInputFiles,analyze,numberCheck} from '../../app/ledger-import-model.mjs';
@@ -31,7 +32,7 @@ test('S7-b ledger import functions: files, prechecks, dry-run, apply, duplicate 
  let cluster,pool,adminPool,database='postgres',port,password;
  if(externalPort){
   port=Number(externalPort);database='ledgerimp_'+randomBytes(4).toString('hex');
-  adminPool=new pg.Pool({host:'127.0.0.1',port,user:'postgres',database:'postgres',ssl:false});
+  adminPool=trackPool(new pg.Pool({host:'127.0.0.1',port,user:'postgres',database:'postgres',ssl:false}));
   await adminPool.query('create database '+database);
   for(const role of ['anon','authenticated','public_probe','service_role'])await adminPool.query(`drop role if exists ${role}`).catch(()=>{});
  }else{
@@ -41,7 +42,7 @@ test('S7-b ledger import functions: files, prechecks, dry-run, apply, duplicate 
   await cluster.initialise();await cluster.start();
  }
  try{
-  pool=new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database,ssl:false});
+  pool=trackPool(new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database,ssl:false}));
   await pool.query(fixture);
   const schema=await read('supabase/migrations/20261021082000_ledger_schema.sql');
   const migration=await read('supabase/migrations/'+stem+'.sql'),rollbackSQL=await read('docs/'+stem+'.rollback.sql');
@@ -215,8 +216,8 @@ test('S7-b ledger import functions: files, prechecks, dry-run, apply, duplicate 
    assert.equal(post['functions and history agree'],'예');assert.equal(post['ledger functions unchanged (6)'],'예');assert.equal(post['ledger tables still RLS (10)'],'예');
   });
  }finally{
-  await pool?.end();
-  if(adminPool){await adminPool.query(`drop database if exists ${database} with (force)`).catch(()=>{});await adminPool.end();}
+  await closePool(pool);
+  if(adminPool){await adminPool.query(`drop database if exists ${database} with (force)`).catch(()=>{});await closePool(adminPool);}
   await cluster?.stop();
  }
 });

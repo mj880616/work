@@ -11,6 +11,7 @@ import {randomBytes} from 'node:crypto';
 import {createServer} from 'node:net';
 import EmbeddedPostgres from 'embedded-postgres';
 import pg from 'pg';
+import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A,WS_B,ORG_A,ORG_B} from './basket4-fixture.mjs';
 import {checkSQL} from '../../scripts/ops/db-migration-plan.mjs';
 const version='20261022140000',name='weekly_org_summaries',stem=version+'_'+name;
@@ -25,7 +26,7 @@ test('weekly org summaries: migration, owner-only RLS, column grants, edited kep
  await cluster.initialise();await cluster.start();
  let pool;
  try{
-  pool=new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database:'postgres',ssl:false});
+  pool=trackPool(new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database:'postgres',ssl:false}));
   await pool.query(fixture);
   const migration=await read('supabase/migrations/'+stem+'.sql'),rollbackSQL=await read('docs/'+stem+'.rollback.sql');
   const precheck=await read('docs/'+stem+'.precheck.sql'),postcheck=await read('docs/'+stem+'.postcheck.sql'),snapshot=await read('docs/'+stem+'.snapshot.sql');
@@ -93,7 +94,7 @@ test('weekly org summaries: migration, owner-only RLS, column grants, edited kep
    await pool.query(migration);assert.equal(await history(),1);
   });
  }finally{
-  await pool?.end();
+  await closePool(pool);
   await cluster.stop();
  }
 });

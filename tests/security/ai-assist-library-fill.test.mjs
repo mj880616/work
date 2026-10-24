@@ -573,7 +573,7 @@ test('brief fill: requested in the same call and saved as a b1: row (fingerprint
   const row=db.app_document_ai_index[0];
   assert.equal(row.document_id,id(1));assert.equal(row.workspace_id,WS);assert.equal(row.content_hash,await hashOf(TEXT));
   assert.equal(row.summary,'A 지부 임금교섭 요구안. 기본급 5% 인상 요구, 10.28.(화) 1차 교섭 예정.');
-  assert.deepEqual(row.keywords,[]);assert.equal(row.chunk_count,0);assert.equal(row.summary_model,'gpt-5.6-luna');
+  assert.deepEqual(row.keywords,[]);assert.equal(row.chunk_count,0);assert.equal(row.summary_model,'gpt-6-luna');
   assert.equal(db.app_documents[0].title,'2026년 임금교섭 요구안','the other fields are filled as before');
   assert.ok(!calls.logs.some(l=>JSON.stringify(l).includes('기본급')),'no summary text in logs');
 });

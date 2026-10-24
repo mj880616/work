@@ -105,7 +105,7 @@ test('owner gets a link summary candidate; nothing is saved except usage numbers
   assert.equal(o.url,'https://api.openai.com/v1/responses');
   assert.equal(o.headers.get('Authorization'),`Bearer ${FAKE_KEY}`);
   assert.equal(o.body.store,false);
-  assert.equal(o.body.model,'gpt-5.6-luna');
+  assert.equal(o.body.model,'gpt-6-luna');
   assert.equal(o.body.tools,undefined,'no tools are given to the model');
   assert.equal(o.body.text.format.type,'json_schema');assert.equal(o.body.text.format.strict,true);
   assert.deepEqual(o.body.input.map(m=>m.role),['developer','user']);
