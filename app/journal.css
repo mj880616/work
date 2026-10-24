@@ -399,3 +399,6 @@
 #appView #journalView .journal-hwpx-remember-pick{ display:inline-flex; align-items:baseline; gap:4px; flex-wrap:wrap; }
 #appView #journalView .journal-weekly-memory > summary{ cursor:pointer; }
 #appView #journalView .journal-weekly-memory .journal-kinds-off-list li{ overflow-wrap:anywhere; }
+/* WEEKLY-자료요약 화면 ②: 자료 줄 [고치기] 한 줄 칸(줄 자리에서), ⋯ 안 작은 버튼은 회의 종류 ⋯와 같은 모양. */
+#appView #journalView .journal-file-edit{ display:inline-flex; flex-wrap:wrap; align-items:center; gap:4px; max-width:100%; }
+#appView #journalView .journal-file-edit > input{ box-sizing:border-box; flex:1 1 220px; min-width:0; height:var(--ds-compact-height); font:inherit; font-size:var(--kptu-text-body); }
