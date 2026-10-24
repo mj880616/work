@@ -127,8 +127,8 @@ export const newAiState=()=>({busy:false,status:'',retry:false,proposal:'',run:0
 // cls: extra classes for the host's own small-button look (the 사업 보고 window uses 'mini secondary').
 export function aiSummaryMarkup(state,key,attr,esc,{label:name='AI 요약',slot='ai',aria='AI 요약 만들기',waiting='',cls=''}={}){
   const k=esc(key),p=`${attr}-${slot}`,label=state.retry&&!state.busy?'다시 시도':name;
-  if(waiting&&!state.busy)return `<div class="ai-summary" data-ai-summary><div class="ai-summary-row"><span class="ai-summary-status" ${p}-status role="status" aria-live="polite">${esc(waiting)}</span></div></div>`;
-  return `<div class="ai-summary" data-ai-summary><div class="ai-summary-row"><button type="button" class="ai-summary-run${cls?' '+esc(cls):''}" ${p}-run="${k}" aria-label="${state.retry&&!state.busy?esc(name)+' 다시 시도':esc(aria)}"${state.busy?' disabled aria-busy="true"':''}>${esc(label)}</button><span class="ai-summary-status" ${p}-status role="status" aria-live="polite">${esc(state.busy?'요약 만드는 중…':state.status)}</span></div>`
+  if(waiting&&!state.busy)return `<div class="ai-summary" data-ai-summary data-ai-slot="${esc(slot)}"><div class="ai-summary-row"><span class="ai-summary-status" ${p}-status role="status" aria-live="polite">${esc(waiting)}</span></div></div>`;
+  return `<div class="ai-summary" data-ai-summary data-ai-slot="${esc(slot)}"><div class="ai-summary-row"><button type="button" class="ai-summary-run${cls?' '+esc(cls):''}" ${p}-run="${k}" aria-label="${state.retry&&!state.busy?esc(name)+' 다시 시도':esc(aria)}"${state.busy?' disabled aria-busy="true"':''}>${esc(label)}</button><span class="ai-summary-status" ${p}-status role="status" aria-live="polite">${esc(state.busy?'요약 만드는 중…':state.status)}</span></div>`
     +(state.proposal&&!state.busy?`<div class="ai-summary-proposal" ${p}-proposal><p class="ai-summary-proposal-label">AI 제안</p><p class="ai-summary-proposal-text">${esc(state.proposal)}</p><div class="ai-summary-actions"><button type="button"${cls?` class="${esc(cls)}"`:''} ${p}-apply="${k}">이걸로 바꾸기</button><button type="button"${cls?` class="${esc(cls)}"`:''} ${p}-dismiss="${k}">제안 닫기</button></div></div>`:'')
     +'</div>';
 }
@@ -154,7 +154,7 @@ export function placeDefaultSummary(current,text){
   const value=typeof text==='string'&&validSummary(text)?text:'';
   return value&&isBlankSummary(current)?value:current??'';
 }
-// 자료 올릴 때 만든 한두 줄 요약(app_document_ai_index 'b1:' 행, #1108·#1116) 하나를 owner RLS로 읽는다. 없으면 ''(그때는 [AI 요약]).
+// 자료 올릴 때 만든 한두 줄 요약(app_document_ai_index 'b1:' 행, PR 1108·1116) 하나를 owner RLS로 읽는다. 없으면 ''(그때는 [AI 요약]).
 export async function readDocumentBrief(documentId,{rt=globalThis.window?.KPTURuntime}={}){
   const ws=rt?.context?.read?.()?.workspace?.id;
   if(typeof documentId!=='string'||!UUID.test(documentId)||typeof ws!=='string'||!ws||!rt?.api)return '';
