@@ -6,11 +6,13 @@
 //   [마크다운]을 끈 노트(쓴 그대로)는 바꾸지 않는다 — 새 화면이 열 때 글자 그대로 연다(plainToDocKeep, 글자가 바뀌지 않음).
 // 백업 조건: app_ed3_text_backups에 그 노트의 행이 있고, 백업 때 고친 시각이 지금 노트의 고친 시각과 같아야 한다(백업 뒤 고친 노트는
 //   원본이 백업에 없으므로 건너뜀). 저장도 같은 조건(updated_at=백업 값, doc 비어 있음)으로만 한다.
-// 바꾸기: 편집기의 [서식으로 바꾸기]와 같은 markdownToDoc(같은 markdown-it 설정), 글자 사본은 toPlain. 고친 시각(updated_at)은 그대로 둔다
+// 바꾸기: 편집기의 [서식으로 바꾸기]와 같은 markdownToDoc(같은 markdown-it 설정), 글자 사본은 toPlain. 그 전에 지금 읽기 화면과 같은
+//   guardDateLines(markdown-render.mjs)를 거쳐 "2026. 10. 21."로 시작하는 줄이 번호 목록이 되지 않게 한다(지금 보이는 그대로). 고친 시각(updated_at)은 그대로 둔다
 //   (변환은 사람이 고친 것이 아니다: 목록 순서·"고친 날"이 바뀌지 않고, 되돌릴 때 "변환 뒤 손대지 않은 노트"를 고친 시각으로 가려낸다).
 // 확인 필요: 바꾼 글자 사본에서 원문의 글자(기호·링크 주소 제외)가 하나라도 빠지면 바꾸지 않고 목록에 남긴다(예: [a]: 주소 같은 참조 줄).
 import {noteMarkdown} from './note-markdown.mjs';
 import {markdownToDoc} from './ed-markdown.mjs';
+import {guardDateLines} from './markdown-render.mjs';
 import {toPlain} from './ed-text.mjs';
 import {cleanDoc} from './ed-schema.mjs';
 import {jsonbBytes, DOC_MAX_BYTES} from './ed-window-model.mjs';
@@ -33,6 +35,8 @@ export function readableLetters(raw) {
   return String(raw ?? '').replace(/\r\n?/g, '\n')
     .replace(/(!?\[[^\]\n]*\])\((?:[^()\s]+|\([^()\s]*\))*(?:\s+"[^"\n]*")?\)/g, '$1')
     .replace(/^(\s{0,3}(?:`{3,}|~{3,}))[^\n]*$/gm, '$1')
+    .replace(/^\s{0,3}\[[^\]\n]+\]:[ \t]*\S+.*$/gm, '')
+    .replace(/\]\[[^\]\n]*\]/g, ']')
     .replace(/^(\s*(?:>\s*)+)\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]/gim, '$1');
 }
 // The letters of `raw` (as read) that the converted text does not have, e.g. "가×1". [] when nothing is lost.
@@ -48,7 +52,7 @@ const plainObject = value => !!value && typeof value === 'object' && !Array.isAr
 export function convertNote(md, note) {
   const raw = String(note?.raw_text ?? '');
   let doc;
-  try { doc = cleanDoc(markdownToDoc(md, raw)); } catch { return {ok:false, reason:'convert'}; }
+  try { doc = cleanDoc(markdownToDoc(md, guardDateLines(raw))); } catch { return {ok:false, reason:'convert'}; }
   if (!doc) return {ok:false, reason:'convert'};
   const text = toPlain(doc);
   if (text.length > NOTE_TEXT_MAX) return {ok:false, reason:'too_long'};

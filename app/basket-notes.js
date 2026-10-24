@@ -611,11 +611,11 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       if (b.hasAttribute('data-note-folder-new')) newFolder();
       else if (b.hasAttribute('data-note-folder-rename')) renameFolder();
       else if (b.hasAttribute('data-note-folder-delete')) deleteFolder();
+      else if (b.hasAttribute('data-note-convert')) void convertOld();
       return;
     }
     const note = notes.find(n => n.id === from.noteId); if (!note) return;
     if (b.dataset.fileMenu) { const file = noteFile(note, from.fileId); if (file) { if (b.dataset.fileMenu === 'open') openInDrive(file, {onError: fileFail}); else void downloadFile(file, {onError: fileFail}); } return; }
-    if (b.hasAttribute('data-note-convert')) { void convertOld(); return; }
     if (b.hasAttribute('data-note-file-detach')) void detachFile(note, from.fileId);
     else if (b.hasAttribute('data-note-copy')) void telegram(note);
     else if (b.hasAttribute('data-note-pin')) void pin(note);
