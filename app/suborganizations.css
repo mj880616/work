@@ -77,8 +77,11 @@
 #appView #teamView>.so-team-head{position:static;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:var(--ds-compact-height);margin:0 0 8px}
 #appView #teamView>.so-team-head .so-team-title{margin:0;font-size:var(--ds-text-title);font-weight:var(--ds-weight-medium);line-height:1.4}
 #appView #teamView>.so-team-head{flex:0 0 auto}
+/* 화면 오른쪽 끝에 붙으므로 누르는 범위는 위아래로만 넓힌다(좌우로 넓히면 화면이 옆으로 6px 넘친다). */
+#appView #teamView>.so-team-head .so-team-more::after{inset:-6px 0;width:auto;min-width:0;left:0;right:0}
 @media(max-width:760px){
   #appView #teamView>.so-team-head{justify-content:flex-end;min-height:var(--kptu-touch-target,44px);margin:calc(-1 * (var(--kptu-touch-target,44px) + 12px)) 0 12px;pointer-events:none}
   #appView #teamView>.so-team-head .so-team-title{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   #appView #teamView>.so-team-head .so-team-more{pointer-events:auto;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);font-size:22px}
+  #appView #teamView>.so-team-head .so-team-more::after{content:none}
 }
