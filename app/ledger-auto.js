@@ -8,11 +8,9 @@
 // - 원장이 바뀌면 kptu:ledger-changed(목록 다시 읽기)와 KPTULedgerExport.changed()(Drive 사본 자동 갱신 예약)를 알린다.
 // 상태는 이 탭 메모리에만 있다(브라우저 저장소 없음).
 import { affectsLedger, createAutoBatcher, START_DELAY_MS } from './ledger-auto-model.mjs';
-import { callAiAssist, AI_SUMMARY_PATH, AI_SUMMARY_TEXT } from './basket-ai-summary.js';
+import { callAiAssist, AI_SUMMARY_PATH } from './basket-ai-summary.js';
 
 const AUTO_TIMEOUT_MS = 120000;
-// 이 흐름이 따로 아는 서버 코드(문구는 쓰지 않음, 화면 표시 없음).
-const CODES = Object.freeze({ ...AI_SUMMARY_TEXT, ledger_busy: '', ledger_record_failed: '' });
 
 function install(win) {
   const rt = win.KPTURuntime;
@@ -22,7 +20,7 @@ function install(win) {
     return !!s?.access_token && c?.user?.id === s?.user?.id && c?.workspace?.slug === 'kptu-work' && c?.membership?.role === 'owner';
   };
   const call = async ({ leaving }) => {
-    if (!leaving) return callAiAssist({ kind: 'ledger_auto' }, { rt, timeoutMs: AUTO_TIMEOUT_MS }, CODES);
+    if (!leaving) return callAiAssist({ kind: 'ledger_auto' }, { rt, timeoutMs: AUTO_TIMEOUT_MS });
     const token = rt.session.read()?.access_token;
     if (!token) return { ok: false, code: 'session_required' };
     await fetch(rt.config.url + AI_SUMMARY_PATH, { method: 'POST', cache: 'no-store', keepalive: true,
