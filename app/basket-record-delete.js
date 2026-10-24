@@ -176,7 +176,8 @@ const RESTORE_ERROR={NOTE_MISSING:'RESTORE_NOTE_MISSING',NOTE_WORKSPACE:'RESTORE
 export async function restoreRecordLink({noteId,kind,targetId,summary=null},{rt=window.KPTURuntime}={}){
   const key=`restore:${noteId}:${kind}:${targetId}`;
   if(pending.has(key))return {status:'busy',message:RECORD_DELETE_TEXT.BUSY};
-  if(!noteId||!targetId||!['organization','project'].includes(kind))return {status:'failed',message:RECORD_DELETE_TEXT.RESTORE_FAILED};
+  // REF-참고묶음: kind 'reference' re-links a reference bundle (bundle_id) through the same RPC.
+  if(!noteId||!targetId||!['organization','project','reference'].includes(kind))return {status:'failed',message:RECORD_DELETE_TEXT.RESTORE_FAILED};
   pending.add(key);
   const owner=scope(rt),notify=()=>{if(owner===scope(rt))window.dispatchEvent(new Event('kptu:basket-links-changed'));};
   try{
@@ -222,15 +223,18 @@ export function offerUndoNotice({text=RECORD_DELETE_TEXT.DISCONNECTED,onUndo,ms=
   return box;
 }
 
+// Which place a link row points at, in the confirm-links RPC's words (a reference bundle is 'reference', column bundle_id).
+export const linkRestoreKind=link=>link?.organization_id?'organization':link?.bundle_id?'reference':'project';
+export const linkRestoreTarget=link=>link?.organization_id||link?.bundle_id||link?.project_id||null;
 // The four screens' disconnect: one confirmation, one row delete, then 5 seconds to undo.
-// link = {id,note_id,organization_id|project_id,summary}; name = the place's name.
+// link = {id,note_id,organization_id|project_id|bundle_id,summary}; name = the place's name.
 export async function disconnectWithUndo(link,{name='',rt=window.KPTURuntime,isCurrent=()=>true,onRestored=()=>{}}={}){
   const result=await disconnectRecordLink(link.id,{name,rt,isCurrent});
   if(result.status==='deleted'){
-    const owner=scope(rt),kind=link.organization_id?'organization':'project';
+    const owner=scope(rt),kind=linkRestoreKind(link);
     offerUndoNotice({text:`${String(name||'').trim()||'이'} 연결을 해제했어요. 업데이트는 남아요.`,onUndo:async()=>{
       if(owner!==scope(rt))return {status:'stale'};
-      const restored=await restoreRecordLink({noteId:link.note_id,kind,targetId:link[kind+'_id'],summary:link.summary??null},{rt});
+      const restored=await restoreRecordLink({noteId:link.note_id,kind,targetId:linkRestoreTarget(link),summary:link.summary??null},{rt});
       if(restored.status==='restored')onRestored(restored);
       return restored;
     }});
