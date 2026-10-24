@@ -184,6 +184,7 @@ function unpinAt() { if (pinnedAt) { delete pinnedAt.getBoundingClientRect; pinn
 let hold = null, swallowClick = false;
 function bindHold(root) {
   root.addEventListener('pointerdown', e => {
+    swallowClick = false;
     if (e.pointerType !== 'touch') return;
     const item = e.target.closest('[data-tg-item]'); if (!item || state.busy) return;
     const x = e.clientX, y = e.clientY;
@@ -199,7 +200,8 @@ function bindHold(root) {
   root.addEventListener('pointermove', cancel); root.addEventListener('pointerup', cancel); root.addEventListener('pointercancel', cancel);
   // The phone's own long-press menu (copy, select) does not open over a bubble; text elsewhere keeps it.
   root.addEventListener('contextmenu', e => { if (e.target.closest('[data-tg-item]') && (e.pointerType === 'touch' || phone.matches)) e.preventDefault(); });
-  root.addEventListener('click', e => { if (swallowClick) { swallowClick = false; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+  // On the window, before the open menu's own outside-press handler (document), so the lift does not close the menu just opened.
+  window.addEventListener('click', e => { if (swallowClick && root.contains(e.target)) { swallowClick = false; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
 }
 
 function bind() {

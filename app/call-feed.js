@@ -88,7 +88,9 @@ function paintDetail() {
   }
   const r = rowOf(state.selected);
   if (!r) { box.innerHTML = '<p class="feed-empty feed-pane-empty">왼쪽에서 통화를 고르면 핵심내용이 보여요.</p>'; return; }
-  const org = orgName(state.orgs, r.organization_id), who = [org, r.counterpart && !String(r.counterpart).startsWith(org || '\u0000') ? r.counterpart : ''].filter(Boolean).join(' · ') || r.counterpart || '';
+  // 상대 표기가 이미 '소속조직 이름 직책'이면 그것만, 아니면 조직 · 상대.
+  const org = orgName(state.orgs, r.organization_id), cp = String(r.counterpart || '');
+  const who = cp && org && cp.startsWith(org) ? cp : [org, cp].filter(Boolean).join(' · ');
   const meta = [dayLabel(r.day), hhmm(r.occurred_at), who].filter(Boolean).join(' · ');
   const points = readPoints(r.points);
   const pointsHtml = points.length ? `<p class="feed-k">핵심내용</p><ul class="feed-points" data-cf-points>${points.map(p => `<li>${esc(p.text)}${p.tag ? `<span class="feed-tag feed-tag-${p.kind}">${esc(p.tag)}</span>` : ''}</li>`).join('')}</ul>` : '<p class="feed-faint">핵심내용이 없어요.</p>';
