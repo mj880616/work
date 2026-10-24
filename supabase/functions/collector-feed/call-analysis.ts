@@ -1,6 +1,8 @@
 // collector-feed 통화: 기존 통화 분석 파일(검토__…md, Gemini가 이미 만든 것)을 읽기만 한다. AI를 부르지 않는다.
 // (docs/design/call-telegram-feed.md 1.3·3.2·3.4·4.2·4.5절, Q10~Q13)
-// 기준 형식: 명진의 통화 분석 v3.2(2026-10-24 명진 결정 — 분석 앱 스크립트는 요청함 밖 Claude 대화에서만 고친다. #1111의 3.3 수정안은 쓰지 않음).
+// 기준 형식: 명진의 통화 분석 v3.3(2026-10-24 19:30 적용). 3.1·3.2 파일도 새 칸 없이 그대로 읽는다.
+// v3.3 새 칸: speaker_labels({"화자1": "나", "화자2": "소속 이름 직책"} 한 줄 JSON — 전사 줄 앞 `화자N:`을 이 값으로 바꿔 저장),
+//   counterparty_name·counterparty_title·counterparty_organization(상대 표시의 첫째 재료), 애매한 통화(is_work_related "" + status "애매")는 개수만.
 // - 앞머리(frontmatter): analysis_version(3.x만), status, is_work_related(true/false), call_title('조직 · 사람 직함 · 주제'),
 //   related_organizations(["담당조직 정식 이름", …]), recording_datetime, source_txt_id, source_txt_name, analysis_model, analysis_at.
 // - 구분: is_work_related=true → 업무, false 또는 status '개인' → 개인, 칸 없음(옛 3.1·비어 있음) → 구분 없음. status '분석실패' → failed.
@@ -213,13 +215,44 @@ export function speakerSplit(transcript: string): boolean {
   return lines.some((l) => /^(나|화자\s?1)\s*[:：]/.test(l));
 }
 
+// speaker_labels: {"화자1": "나", "화자2": "소속 이름 직책"}. 한 줄 JSON. 키는 `화자N`만, 값은 문자열("" 포함)만 받는다. 모양이 다르면 빈 표.
+export function speakerLabelsOf(value: unknown): Record<string, string> {
+  if (typeof value !== "string" || value.length > 2000 || !value.trim().startsWith("{")) return {};
+  try {
+    const obj = JSON.parse(value);
+    if (!obj || typeof obj !== "object" || Array.isArray(obj)) return {};
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+      if (!/^화자\d{1,2}$/.test(k) || typeof v !== "string") continue;
+      // 줄 머리 `이름: 글` 모양을 깨지 않도록 쌍점을 뺀다. 번호 모양은 쓰지 않는다.
+      const label = cleanLine(v.replace(/[:：]/g, " "), 60);
+      if (label && !hasPhone(label)) out[k] = label;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+// 전사 줄 머리의 `화자N:`을 표의 이름으로 바꾼다. 표에 없거나 빈 값이면 `화자N` 그대로, 줄 가운데 글은 건드리지 않는다.
+export function applySpeakerLabels(transcript: string, labels: Record<string, string>): string {
+  if (!Object.keys(labels).length) return transcript;
+  return transcript.split(/\r?\n/).map((line) => {
+    const m = /^(\s*)(화자)\s?(\d{1,2})(\s*[:：]\s*)(.*)$/.exec(line);
+    const label = m ? labels[`화자${Number(m[3])}`] : undefined;
+    return m && label ? `${m[1]}${label}: ${m[5]}` : line;
+  }).join("\n");
+}
+
 export const KNOWN_VERSION = /^3\.\d{1,3}$/;
 
 // 구분(v3.2): is_work_related=true → 업무, false 또는 status '개인' → 개인, 칸이 없거나 비어 있음 → 구분 없음.
+// v3.3: 애매한 통화는 is_work_related ""(빈 문자열) + status "애매" — 개수만 센다(요약은 파일에 있다).
 export function workKind(meta: Record<string, string>): "business" | "personal" | "unsure" {
   const flag = (meta.is_work_related ?? "").trim().toLowerCase();
   const status = (meta.status ?? "").replace(/\s/g, "");
   if (status === "개인" || flag === "false") return "personal";
+  if (status === "애매") return "unsure";
   if (flag === "true") return "business";
   return "unsure";
 }
@@ -319,6 +352,15 @@ export function parseCall(input: { ref: string; analysis_md: string; transcript:
       }
     }
   }
+  // v3.3 상대 칸(counterparty_*): 있으면 위 추정보다 우선한다. 소속(counterparty_organization)은 담당조직과 딱 하나 맞을 때만 조직 연결 후보가 된다.
+  const cpName = cleanLine(meta.counterparty_name, 60), cpTitle = cleanLine(meta.counterparty_title, 60);
+  const cpOrgText = cleanLine(meta.counterparty_organization, 80);
+  const cpOrg = cpOrgText ? matchOrg(cpOrgText, active) : null;
+  if (cpName && !hasPhone(cpName) && !EMPTY_ITEM.test(cpName)) {
+    const title2 = cpTitle && !hasPhone(cpTitle) && !EMPTY_ITEM.test(cpTitle) ? cpTitle : "";
+    counterpart = cleanLine([cpOrg?.name ?? cpOrgText ?? "", cpName, title2].filter(Boolean).join(" "), CALL_LIMITS.counterpart);
+  }
+  if (cpOrg) counterpartOrg = cpOrg.id;
   // 조직: related_organizations가 담당조직 하나로만 모이면 그것, 아니면 상대 글에서 맞춘 조직.
   const related = oneOrg(relatedOrgNames(meta.related_organizations), active);
   const organization_id = related ? related.id : counterpartOrg;
@@ -333,7 +375,7 @@ export function parseCall(input: { ref: string; analysis_md: string; transcript:
     counterpart,
     organization_id,
     speaker_split: transcript ? speakerSplit(transcript) : false,
-    raw_text: transcript || null,
+    raw_text: transcript ? applySpeakerLabels(transcript, speakerLabelsOf(meta.speaker_labels)) : null,
     model: cleanLine(meta.analysis_model, CALL_LIMITS.model),
     judged_at: judged === null ? null : new Date(judged).toISOString(),
   };

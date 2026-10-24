@@ -9,7 +9,7 @@ import {spawnSync} from 'node:child_process';
 // 지어낸 OpenAI로 돌린다. 네트워크 없음. 비밀값·열쇠는 고정 가짜 글자. 사람·조직·방·번호는 모두 지어낸 것이다.
 const {createCollectorFeedHandler,secretMatches,DAILY_LIMITS,MONTHLY_LIMIT_KRW,SECRET_MIN_CHARS}=
   await import('../../supabase/functions/collector-feed/handler.ts');
-const {parseCall,counterpartOf,speakerSplit,transcriptName,parseKstDateTime}=await import('../../supabase/functions/collector-feed/call-analysis.ts');
+const {parseCall,counterpartOf,speakerSplit,transcriptName,parseKstDateTime,speakerLabelsOf,applySpeakerLabels,workKind}=await import('../../supabase/functions/collector-feed/call-analysis.ts');
 const {parseTelegram}=await import('../../supabase/functions/collector-feed/telegram.ts');
 const {DEFAULT_PRICE_IN_KRW_PER_MTOK}=await import('../../supabase/functions/_shared/ai-model.ts');
 
@@ -268,6 +268,45 @@ test('v3.2 업무: 제목은 call_title, 조직은 related_organizations(담당�
   // 화자 구분이 없는 전사는 한 문단 그대로
   assert.equal(p({},'네 위원장님 교섭 일정 건으로 전화드렸습니다').speaker_split,false);
   assert.equal(p({},'나: 교섭 건입니다\n가상노동조합 홍길동 위원장: 네').speaker_split,true);
+});
+
+test('CALL-통화v3.3: 화자 이름표·상대 칸·애매 통화, 옛 3.1·3.2 파일 호환(지어낸 이름)',()=>{
+  const orgs=[{id:ORG,name:'가상노동조합',aliases:['가상노조']},{id:ORG2,name:'예시지부',aliases:[]}];
+  const TR='화자1: 안녕하세요 교섭 건입니다\n화자2: 네 말씀하세요\n화자1: 감사합니다';
+  const p=(o,tr='')=>parseCall({ref:'SRCFAKE0001aa',analysis_md:analysis(o),transcript:tr},orgs,NOW);
+  // 3.3 표본: 이름표 적용, 상대 칸이 추정보다 우선, 소속이 담당조직 이름과 맞으면 조직 연결 후보
+  const v33=p({version:'3.3',extraFront:['speaker_labels: {"화자1": "나", "화자2": "예시지부 김가상 지부장"}','counterparty_name: "김가상"','counterparty_title: "지부장"','counterparty_organization: "예시지부"'].join('\n'),related:null},TR);
+  assert.equal(v33.kind,'business');
+  assert.equal(v33.raw_text,'나: 안녕하세요 교섭 건입니다\n예시지부 김가상 지부장: 네 말씀하세요\n나: 감사합니다');
+  assert.equal(v33.speaker_split,true);
+  assert.equal(v33.counterpart,'예시지부 김가상 지부장');assert.equal(v33.organization_id,ORG2);
+  // 소속이 담당조직과 맞지 않으면 글로만 표시하고 조직은 연결하지 않는다
+  const noOrg=p({version:'3.3',extraFront:'counterparty_name: "이가상"\ncounterparty_title: "국장"\ncounterparty_organization: "모르는기관"',related:null,head:'',title:'교섭 일정'});
+  assert.equal(noOrg.counterpart,'모르는기관 이가상 국장');assert.equal(noOrg.organization_id,null);
+  // 소속만 있고 이름이 없으면 상대 글은 비우고 조직만(담당조직과 맞을 때)
+  const orgOnly=p({version:'3.3',extraFront:'counterparty_name: ""\ncounterparty_title: ""\ncounterparty_organization: "가상노조"',related:null,head:'',title:'교섭 일정'});
+  assert.equal(orgOnly.counterpart,null);assert.equal(orgOnly.organization_id,ORG);
+  // 이름표 값이 "상대"·""·칸 없음이면: "상대"는 그대로, 비었거나 없으면 화자N 그대로
+  const partial=p({version:'3.3',extraFront:'speaker_labels: {"화자1": "나", "화자2": ""}'},TR);
+  assert.equal(partial.raw_text,'나: 안녕하세요 교섭 건입니다\n화자2: 네 말씀하세요\n나: 감사합니다');
+  assert.equal(p({version:'3.3',extraFront:'speaker_labels: {"화자1": "나", "화자2": "상대"}'},TR).raw_text.split('\n')[1],'상대: 네 말씀하세요');
+  // 이름표 모양이 깨졌거나 이상한 키·값이면 쓰지 않는다(전사는 그대로)
+  for(const bad of ['speaker_labels: {깨짐','speaker_labels: []','speaker_labels: {"화자1": 3, "나": "x", "화자9x": "y"}']) assert.equal(p({version:'3.3',extraFront:bad},TR).raw_text,TR,bad);
+  // 이름표 값의 쌍점은 줄 머리 모양을 깨지 않게 뺀다
+  assert.equal(applySpeakerLabels('화자1: 가\n화자2: 나',speakerLabelsOf('{"화자1": "홍: 길동", "화자2": "예시 김가상"}')),'홍 길동: 가\n예시 김가상: 나');
+  // 3.1·3.2 표본: 새 칸이 없어도 그대로(전사에 화자N이 있어도 바꾸지 않음), 상대는 기존 방식
+  const v32=p({version:'3.2'},TR);
+  assert.equal(v32.kind,'business');assert.equal(v32.raw_text,TR);assert.equal(v32.counterpart,'가상노동조합 홍길동 위원장');assert.equal(v32.organization_id,ORG);
+  const v31=p({version:'3.1',work:null,related:null,title:null,head:''},TR);
+  assert.equal(v31.kind,'unsure');
+  // 애매 표본: is_work_related "" + status "애매" → 개수만(unsure). 업무로 읽지 않는다
+  const amb=p({version:'3.3',work:'""',status:'애매'},TR);
+  assert.equal(amb.kind,'unsure');assert.equal(amb.day,'2026-10-24');
+  assert.equal(workKind({is_work_related:'',status:'애매'}),'unsure');
+  assert.equal(workKind({is_work_related:'true',status:'검토대기'}),'business');
+  assert.equal(workKind({is_work_related:'false',status:'개인'}),'personal');
+  // 3.3 개인
+  assert.equal(p({version:'3.3',work:'false',status:'개인'},TR).kind,'personal');
 });
 
 test('통화 call_skip: 앱 스크립트가 거른 수만 더한다. 같은 원본은 두 번 저장하지 않는다',async()=>{
