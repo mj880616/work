@@ -125,7 +125,7 @@ export function sections(body: string): Record<string, string[]> {
 
 const EMPTY_ITEM = /^(없음|해당\s*없음|특이\s*사항\s*없음|n\/?a|-|—|확인\s*불가|미상|불명)\.?$/i;
 // 절 안의 점 목록. `- `, `* `, `• `, `1. ` 머리를 떼고, "없음"류는 뺀다.
-export function bullets(lines: string[] | undefined, max = CALL_LIMITS.point): string[] {
+export function bullets(lines: string[] | undefined, max: number = CALL_LIMITS.point): string[] {
   const out: string[] = [];
   for (const line of lines ?? []) {
     const stripped = line.replace(/^\s*(?:[-*•·]|\d{1,2}[.)])\s+/, "").replace(/^\s*>\s?/, "");
