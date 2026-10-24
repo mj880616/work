@@ -7,5 +7,5 @@ union all select 'ledger table',c.relname::text,c.relrowsecurity::text||':'||coa
   from pg_class c where c.relnamespace='public'::regnamespace and c.relkind='r' and c.relname like 'app\_ledger\_%'
 union all select 'ledger policies',c.relname::text,md5(coalesce(string_agg(p.polname::text||p.polcmd::text||p.polpermissive::text||p.polroles::text||coalesce(pg_get_expr(p.polqual,p.polrelid),'')||coalesce(pg_get_expr(p.polwithcheck,p.polrelid),''),',' order by p.polname),''))
   from pg_class c join pg_policy p on p.polrelid=c.oid where c.relnamespace='public'::regnamespace and c.relname like 'app\_ledger\_%' group by c.relname
-union all select 'history',version,name from supabase_migrations.schema_migrations where version in('20261024120000','20261024190000')
+union all select 'history',version,name from supabase_migrations.schema_migrations where version in('20261024120000','20261024200000')
 order by 1,2;
