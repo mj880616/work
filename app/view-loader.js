@@ -27,7 +27,7 @@ const routeStyles={
   journal:['./journal.css','./todo-radar.css','./view-wide.css','./ui-standard.css'],
   diary:['./diary.css','./view-wide.css','./ui-standard.css'],
   projects:['./project-system-v3.css','./record-sheet.css','./markdown-view.css','./forum-flow-polish.css','./google-tasks.css','./ui-standard.css'],
-  library:['./filter-chips.css','./library-upload.css','./compact-list.css','./ui-standard.css'],
+  library:['./filter-chips.css','./library-upload.css','./compact-list.css','./markdown-view.css','./ui-standard.css'],
   meetings:['./filter-chips.css','./choice-sheet.css','./meeting-ui.css','./google-tasks.css','./ui-standard.css'],
   media:['./web1-press.css','./ui-standard.css'],
   pages:['./web1-board.css','./sr-blocks.css','./ed-doc.css','./share-pages.css','./ui-standard.css'],

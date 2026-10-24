@@ -63,3 +63,21 @@ test('⋯ 메뉴 항목과 줄 속성: 어느 파일이든 두 항목, 이름은
   assert.equal(menuItemsHtml({}), '');
   assert.match(fileAttrs(file, {press: true}), / data-fa-press$/);
 });
+
+// PRESS-자료실편입 2단계: viewHtml을 준 화면(자료실)의 .html 자료는 칸막이 보기로, 그 밖은 지금 규칙 그대로.
+test('pressFile: .html library document goes to viewHtml; without viewHtml or document id it downloads as before', async () => {
+  let shown = null;
+  const viewHtml = file => { shown = file; };
+  assert.equal(await pressFile({name: '2025-01-22-a.html', documentId: 'd1', driveId: 'f1'}, {viewHtml}), 'html');
+  assert.equal(shown.documentId, 'd1');
+  assert.equal(await pressFile({name: 'PAGE.HTM', documentId: 'd2', driveId: 'f2'}, {viewHtml}), 'html');
+  shown = null;
+  const api = async () => ({url: 'https://example.invalid/x'});
+  const hadLocation = 'location' in globalThis, saved = globalThis.location;
+  globalThis.location = {href: ''};
+  try {
+    assert.equal(await pressFile({name: 'c.html', documentId: 'd3', driveId: 'f3'}, {api}), 'download', 'no viewHtml: same as before');
+    assert.equal(await pressFile({name: 'c.html', driveId: 'f4'}, {viewHtml, api}), 'download', 'no document id: not a library document');
+  } finally { if (hadLocation) globalThis.location = saved; else delete globalThis.location; }
+  assert.equal(shown, null);
+});

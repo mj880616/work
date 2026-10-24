@@ -2,6 +2,7 @@
 // - PDF: Drive 보기 주소를 새 탭으로 연다(앱에는 PDF 보기 화면이 없고, Drive 보기가 곧 PDF 보기).
 // - HWP·HWPX: Drive 미리보기를 거치지 않고 내려받기가 바로 시작된다.
 // - 사진(jpeg·png·webp·gif): 사진 크게 보기(photo-view.js). 노트 번호가 없는 곳(자료실·할 일 등)은 Drive 보기를 새 탭으로 연다.
+// - HTML(.html·.htm, 자료실 자료): 화면 안 칸막이로 본다(viewHtml을 준 화면만, PRESS-자료실편입). 칸막이가 없는 화면은 내려받기.
 // - 그 밖(엑셀·워드 등): 내려받기.
 // 내려받기 두 길(둘 다 서버가 Content-Disposition으로 원래 이름을 준다):
 //   · 자료실 자료(app_documents 번호가 있음): workspace-drive download-token → 5분짜리 한 번 쓰는 주소. 서버가
@@ -73,7 +74,10 @@ export async function downloadFile(file, {api = (...a) => window.KPTURuntime.api
 }
 
 // 파일 줄을 눌렀을 때. file: {name, mime, documentId?, driveId?, driveUrl?, noteId?}. viewPhoto(file)는 사진 크게 보기를 가진 화면만 준다.
-export async function pressFile(file, {viewPhoto = null, api, onError = () => {}} = {}) {
+// viewHtml(file)는 HTML 칸막이 보기를 가진 화면(자료실)만 준다. 그 화면의 .html 자료는 내려받지 않고 화면 안 칸막이로 본다(PRESS-자료실편입).
+export const isHtmlFile = file => /\.html?$/i.test(String(file?.name || ''));
+export async function pressFile(file, {viewPhoto = null, viewHtml = null, api, onError = () => {}} = {}) {
+  if (typeof viewHtml === 'function' && file?.documentId && isHtmlFile(file)) { viewHtml(file); return 'html'; }
   const kind = clickKind(file);
   if (kind === 'photo' && typeof viewPhoto === 'function') { viewPhoto(file); return 'photo'; }
   if (kind === 'photo' || kind === 'pdf') {

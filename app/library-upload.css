@@ -281,3 +281,28 @@
 #appView #libraryView #documentList .lu-row.lu-row-picking{position:relative;padding-left:28px}
 #appView #libraryView #documentList .lu-pick{position:absolute;left:4px;top:50%;width:16px;height:16px;min-height:0;margin:-8px 0 0;padding:0;accent-color:var(--kptu-primary-ink)}
 #appView #libraryView #documentList .lu-pick.lu-pick-node{position:relative;z-index:1;top:auto;left:auto;flex:none;margin:0 2px 0 0}
+
+/* PRESS-자료실편입 2단계(1회용, Contract PR에서 지움): [옛 성명·보도자료 가져오기]는 [선택]과 같은 글자 버튼(28px·누르는 범위 44px), 진행 한 줄은 작은 글씨. */
+#libraryListCard .lu-press-import{position:relative;flex:none;margin:0 0 0 auto;height:var(--ds-compact-height-sm,28px);min-height:0;padding:0 8px;border:0;background:transparent;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-regular,400);white-space:nowrap}
+#libraryListCard .lu-press-import::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+#libraryListCard .lu-press-import:hover:not(:disabled){color:var(--kptu-ink)}
+#libraryListCard .lu-press-import:disabled{opacity:.45}
+#libraryListCard.lu-selecting .lu-press-import{display:none}
+.lu-press-import-status{margin:0 0 6px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);overflow-wrap:anywhere}
+.lu-press-import-status.error{color:var(--kptu-danger)}
+.lu-press-import-status[hidden]{display:none}
+.lu-press-import-failed{display:inline}
+.lu-press-import-failed summary{display:inline;cursor:pointer;color:var(--kptu-ink)}
+.lu-press-import-failed ul{margin:4px 0 0;padding-left:1.2em;color:var(--kptu-muted)}
+
+/* PRESS-자료실편입 2단계: 자료실 .html 보기 창(칸막이는 html-frame.js). 안내 한 줄·[Drive에서 열기]는 작은 글자 버튼. */
+.lu-html-card .modal-head{margin-bottom:var(--kptu-space-2)}
+.lu-html-card .modal-head h2{font-size:var(--ds-text-title,16px);overflow-wrap:anywhere}
+.lu-html-status{margin:0 0 6px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.lu-html-status[hidden],.lu-html-drive[hidden]{display:none}
+.lu-html-drive{position:relative;height:var(--ds-compact-height-sm,28px);min-height:0;margin:0 0 6px;padding:0 8px;border:0;background:transparent;color:var(--kptu-primary-ink);font-size:var(--ds-text-meta,12px);white-space:nowrap}
+.lu-html-drive::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+.lu-html-body .html-frame{margin:0;padding:0;border:0}
+.lu-html-body .html-frame-bar{gap:4px}
+#libraryHtmlModal .lu-html-body .html-frame-bar button.secondary{position:relative;height:var(--ds-compact-height-sm,28px);min-height:0;padding:0 8px;border:0;background:transparent;box-shadow:none;color:var(--kptu-primary-ink);font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-regular,400)}
+#libraryHtmlModal .lu-html-body .html-frame-bar button[hidden]{display:none}
