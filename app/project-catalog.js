@@ -1,5 +1,6 @@
 import {isProject,select,active,archived,tops,kids,tree,basketProjects} from './project-catalog-model.mjs';
 import {compareOrder,ordered,siblings,reorderPlan} from './project-order.mjs';
+import {foldedSet,partitionTree} from './project-fold.mjs';
 (()=>{
 'use strict';
 if(window.KPTUProjectCatalog)return;
@@ -8,8 +9,9 @@ if(window.KPTUProjectCatalog)return;
 const selectOrdered=spaces=>ordered(select(spaces));
 const topsOrdered=projects=>tops(ordered(projects));
 const kidsOrdered=(projects,p)=>kids(ordered(projects),p);
-const treeOrdered=projects=>tree(ordered(projects));
-const basketOrdered=projects=>basketProjects(ordered(projects));
+// PRJ-목록접어두기: 접힌 프로젝트(스스로 접었거나 상위가 접힘)는 어느 목록에서나 맨 아래로 가고 folded 표시가 붙는다. 빠지지는 않는다.
+const treeOrdered=projects=>{const rows=ordered(projects),folded=foldedSet(rows),parts=partitionTree(tree(rows),folded);return [...parts.open,...parts.folded.map(r=>({...r,folded:true}))]};
+const basketOrdered=projects=>{const rows=ordered(projects),folded=foldedSet(rows),all=basketProjects(rows);return [...all.filter(x=>!folded.has(x.id)),...all.filter(x=>folded.has(x.id)).map(x=>({...x,folded:true}))]};
 const label=(name,depth)=>depth>0?'　'.repeat(depth)+'↳ '+name:name;
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -19,7 +21,7 @@ function publish({workspaceId,userId,spaces}){
   const rows=Array.isArray(spaces)?spaces:[];
   version+=1;
   state={workspaceId,userId,spaces:rows,projects:selectOrdered(rows),loaded:true};
-  const next=JSON.stringify([workspaceId,userId,rows.map(p=>[p.id,p.name,p.parent_id,p.status,p.sort_order,p.updated_at,isProject(p)])]);
+  const next=JSON.stringify([workspaceId,userId,rows.map(p=>[p.id,p.name,p.parent_id,p.status,p.sort_order,p.updated_at,isProject(p),p.metadata?.folded===true])]);
   if(next!==key){key=next;window.dispatchEvent(new CustomEvent('kptu:project-catalog-updated',{detail:{workspaceId,userId}}))}
   return snapshot()
 }
@@ -58,7 +60,7 @@ function options(selected='',includeBlank=true){
   const rows=treeOrdered(state.projects);
   const current=selected?describe(selected):null;
   const retained=current&&current.kind!=='active'?`<option value="${escape(selected)}" selected disabled>[현재 연결·선택 불가] ${escape(current.name||selected)}</option>`:'';
-  return (includeBlank?'<option value="">프로젝트 없음</option>':'')+retained+rows.map(({project,depth})=>`<option value="${escape(project.id)}"${project.id===selected?' selected':''}>${escape(label(project.name||'이름 없는 프로젝트',depth))}</option>`).join('')
+  return (includeBlank?'<option value="">프로젝트 없음</option>':'')+retained+rows.map(({project,depth,folded})=>`<option value="${escape(project.id)}"${folded?' class="kptu-folded-option" data-folded="1"':''}${project.id===selected?' selected':''}>${escape(label(project.name||'이름 없는 프로젝트',depth))}</option>`).join('')
 }
 function reset(){epoch+=1;flight=null;key='';state={workspaceId:null,userId:null,spaces:[],projects:[],loaded:false}}
 // A token refresh writes the session again for the same owner: keep the catalog and a read in flight for that owner (before

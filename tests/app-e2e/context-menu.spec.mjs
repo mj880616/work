@@ -253,7 +253,7 @@ test('1280 project detail: right-click on the detail head opens the ⋯ panel at
   const head = page.locator('#ps3Title,#ps3Summary').first(), more = page.locator('#ps3Menu details.ps3-more'), panel = more.locator('.ps3-more-panel');
   const at = await rightClickAt(page, head, 0.2, 0.5);
   await expect(more).toHaveAttribute('open', ''); await expect(panel).toBeVisible();
-  expect(await labels(panel)).toEqual(['완료', '수정', '보관', '삭제']);
+  expect(await labels(panel)).toEqual(['완료', '수정', '아래로 접기', '보관', '삭제']);
   const b = await box(panel); expect(Math.abs(b.x - at.x)).toBeLessThanOrEqual(12); expect(b.x + b.width).toBeLessThanOrEqual(1280); expect(b.y + b.height).toBeLessThanOrEqual(800);
   expect(Math.min(Math.abs(b.y - at.y), Math.abs(b.y + b.height - at.y))).toBeLessThanOrEqual(12);
   expect(await kept(page)).toEqual([false]);
