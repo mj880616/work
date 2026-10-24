@@ -269,7 +269,7 @@ async function workspaceId(db: Db) {
 }
 
 async function readOrgs(db: Db, ws: string): Promise<OrgRow[]> {
-  const rows = await db.get(`app_suborganizations?workspace_id=eq.${ws}&select=id,workspace_id,name,aliases,active&order=name.asc&limit=500`);
+  const rows = await db.get(`app_suborganizations?workspace_id=eq.${ws}&deleted_at=is.null&select=id,workspace_id,name,aliases,active&order=name.asc&limit=500`); // TRASH-Edge거르기2: 휴지통 조직에는 소식을 붙이지 않는다
   return rows
     .filter((r) => typeof r.id === "string" && String(r.workspace_id).toLowerCase() === ws && typeof r.name === "string")
     .map((r) => ({

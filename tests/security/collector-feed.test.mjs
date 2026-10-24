@@ -217,6 +217,20 @@ test('통화 업무: AI 없이 분석 파일만 읽어 저장(제목·점·상�
   assert.equal(h.day(TODAY,'call').kept_count,1);assert.equal(h.day(TODAY,'call').total_count,1);assert.equal(h.day(TODAY,'call').batch_count,1);
 });
 
+test('TRASH-Edge거르기2: 휴지통에 든 담당조직에는 통화 소식을 붙이지 않는다(서버 키는 RLS를 건너뛰므로 deleted_at을 직접 거른다)',async()=>{
+  const live=harness();await live.send('call',callBody());
+  assert.equal(live.db.app_feed_items[0].organization_id,ORG,'휴지통이 아니면 그대로 붙는다');
+  const h=harness();
+  h.db.app_suborganizations.find(r=>r.id===ORG).deleted_at='2026-10-25T01:00:00Z';
+  const r=await h.send('call',callBody());
+  assert.equal((await r.json()).kept,1);
+  const row=h.db.app_feed_items[0];
+  assert.equal(row.organization_id,null,'휴지통 조직 id는 저장하지 않는다');
+  const orgReads=h.calls.rest.filter(c=>c.table==='app_suborganizations');
+  assert.ok(orgReads.length>0);
+  assert.ok(orgReads.every(c=>new URL(c.url).searchParams.get('deleted_at')==='is.null'),'담당조직을 읽는 요청마다 deleted_at=is.null');
+});
+
 test('통화 개인·구분 없음은 개수만(행 없음), 버전·모양이 다르면 판정 실패',async()=>{
   const cases=[[{work:'false'},'personal_count'],[{work:null,status:'개인',title:'개인 통화',related:'[]'},'personal_count'],
     [{work:null},'unsure_count'],[{work:'""'},'unsure_count'],[{work:'모름'},'unsure_count'],
