@@ -328,14 +328,14 @@ function renderDay() {
   others.addEventListener('toggle', () => { othersOpen = others.open; });
   // LEDGER-자동기록: 그날 원장에 자동으로 기록된 약속이 있을 때만 한 줄(누르면 원장 화면의 약속 목록). 0건·못 읽음은 줄 없음.
   const promises = materials.ledgerPromises?.status === 'ok' ? materials.ledgerPromises.items.get(selected) || 0 : 0;
-  const parts = [report, others];
+  const blocks = [report, others];
   if (promises > 0) {
     const line = document.createElement('p');
     line.className = 'journal-muted journal-ledger-line'; line.dataset.journalLedger = '';
     line.innerHTML = `<button type="button" class="journal-item-open" data-journal-ledger-open>새로 기록된 약속 ${promises}</button>`;
-    parts.unshift(line);
+    blocks.unshift(line);
   }
-  host.replaceChildren(...parts);
+  host.replaceChildren(...blocks);
 }
 // JOURNAL-챙길것: the box above the day card shows the candidates found in the chosen day's records (todo-radar.js draws it).
 // It belongs to the [하루] side; [주간 정리] hides it.
