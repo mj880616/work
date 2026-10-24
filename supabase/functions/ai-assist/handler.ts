@@ -23,10 +23,15 @@
 //   기존 자료는 한 번씩 다시 보고(연결 판단), 파일 이름만으로 본 자료는 글자가 들어오면 한 번 더 본다. tidy 저장은
 //   app_library_classify_apply(백업·연결 검사·시도 기록 한 트랜잭션), 되돌리기는 app_library_classify_revert(_since).
 //   이 표가 없으면(DB 적용 전) fill은 예전처럼 글 칸 4개만, tidy는 library_not_ready.
+//   WEEKLY-자료요약 2단계(2026-10-24, docs/design/weekly-file-summary.md 2·3·8.2절): 같은 호출에 한두 줄 요약(brief)을 더해
+//   이미 있는 "자료별 AI 요약 표" app_document_ai_index에 'b1:' 지문 행으로 저장한다(내 로그인 토큰, owner RLS). 옛 행('b1:' 아님)은
+//   덮어쓰지 않는다(그 자료는 요약 없이 제목만, Q1 ①). 같은 글자 지문의 요약이 이미 있으면 AI 없이 복사한다.
+//   예전 자료(Q4 ②): tidy가 올린 날 제한 없이 오래된 것부터, 하루 AI 한도 안에서 나눠 채운다(LIBRARY_BRIEF_BACKFILL_UNTIL).
 // 주요 일정 제목 다듬기(kind=schedule_titles, WEEKLY-일정다듬기 ④): 주간보고 한글 파일 '5. 주요 일정 — 제목 확인'의 [AI로 다듬기]를 누를 때만.
 //   화면은 주(월요일)와 일정 줄(참조·날짜·시각·달력 제목·장소, 30개까지)만 보낸다(이 쓰임만 몸통 20KB, 나머지는 2KB 그대로).
 //   업무 기록·이름 목록은 서버가 내 로그인으로 읽는다(일기·보관·AI 제외 업데이트 빼고). 답은 제안으로만 돌려주고 저장하지 않는다.
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
+import { aiConfigFrom, callOpenAi as callSharedOpenAi, estimateKrw, tokenCount, type OpenAiResult } from "../_shared/openai-responses.ts";
 import {
   dedupeKey, packSources, parseTodoRadar, radarMaterial, RADAR_MAX_OUTPUT_TOKENS, buildTodoRadarInstructions, cleanProfile, TODO_RADAR_SCHEMA,
   type RadarSource,
@@ -36,7 +41,7 @@ import {
   parseLedgerCandidates, type KnownEvent,
 } from "./ledger-candidates.ts";
 import {
-  type DocRow, fillableFields, LIBRARY_FIELDS, LIBRARY_FILL_INSTRUCTIONS, LIBRARY_FILL_SCHEMA, LIBRARY_FILL_WINDOW_MS,
+  BRIEF_HASH, briefHash, cleanBrief, LIBRARY_BRIEF_BACKFILL_UNTIL, type DocRow, fillableFields, LIBRARY_FIELDS, LIBRARY_FILL_INSTRUCTIONS, LIBRARY_FILL_SCHEMA, LIBRARY_FILL_WINDOW_MS,
   LIBRARY_MAX_OUTPUT_TOKENS, LIBRARY_PROPOSE_BATCH, legacyUserFields, type LibraryField, libraryMaterial, type LinkOptions, type MaterialFile,
   NO_LINKS, openLinkFields, organizationOptions, type OriginField, parseLibraryFill, projectOptions, proposalsFor, readOrigin, upgradeTextFields,
   validCategories,
@@ -91,8 +96,6 @@ const OPENAI_RESPONSE_BYTES = 256 * 1024;
 const DB_RESPONSE_BYTES = 1024 * 1024;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const MODEL = /^[a-z0-9][a-z0-9._-]{0,63}$/;
-const PRICE = /^\d{1,6}(\.\d{1,4})?$/;
 // 기존 validateLinkSummary(app/basket-link-records.js)와 같은 빈칸 문자 집합.
 const ONLY_WHITESPACE = /^[\u0009-\u000d \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]*$/u;
 
@@ -164,11 +167,7 @@ export function seoulDays(nowMs: number) {
   return { day, monthStart, nextMonthStart };
 }
 
-export function estimateKrw(inputTokens: number, outputTokens: number, price: { input: number; output: number }) {
-  return (inputTokens * price.input + outputTokens * price.output) / 1_000_000;
-}
-
-const tokenCount = (v: unknown) => (typeof v === "number" && Number.isSafeInteger(v) && v >= 0 ? v : 0);
+export { estimateKrw };
 
 // AI 답(믿지 않는 입력)을 검사한다. 형식이 하나라도 틀리면 null.
 export function parseLinkSummary(raw: unknown): string | null {
@@ -395,19 +394,9 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | Ledger
   };
 }
 
+// 열쇠·모델·가격 읽기는 공용 모듈(_shared/openai-responses.ts)이 한다. 값(열쇠 이름·기본 모델·가격)은 이 파일의 상수.
 function aiConfig(env: Env) {
-  const key = env(KEY_NAME) ?? "";
-  const model = (env("WEB2_AI_MODEL") ?? "").trim() || DEFAULT_MODEL;
-  const pin = (env("WEB2_AI_PRICE_IN_KRW_PER_MTOK") ?? "").trim();
-  const pout = (env("WEB2_AI_PRICE_OUT_KRW_PER_MTOK") ?? "").trim();
-  if (!key.trim() || /\s/.test(key) || !MODEL.test(model)) return null;
-  if ((pin && !PRICE.test(pin)) || (pout && !PRICE.test(pout))) return null;
-  const price = {
-    input: pin ? Number(pin) : DEFAULT_PRICE_IN_KRW_PER_MTOK,
-    output: pout ? Number(pout) : DEFAULT_PRICE_OUT_KRW_PER_MTOK,
-  };
-  if (!(price.input > 0) || !(price.output > 0)) return null;
-  return { key, model, price };
+  return aiConfigFrom(env, { keyName: KEY_NAME, model: DEFAULT_MODEL, priceIn: DEFAULT_PRICE_IN_KRW_PER_MTOK, priceOut: DEFAULT_PRICE_OUT_KRW_PER_MTOK });
 }
 
 async function authenticate(req: Request, sb: string, anon: string, doFetch: typeof fetch) {
@@ -534,53 +523,15 @@ async function writeUsage(ctx: Ctx, day: string, requests: number, input: number
   });
 }
 
-type OpenAiResult =
-  | { ok: true; raw: unknown; usage: { input: number; output: number } }
-  | { ok: false; code: string; charged: boolean };
-
-async function callOpenAi(
+// OpenAI 호출 1번 + 잠깐 막힘 1번 재시도는 공용 모듈이 한다(collector-feed와 같은 길).
+function callOpenAi(
   deps: { doFetch: typeof fetch; sleep: (ms: number) => Promise<void>; log: Log },
   key: string,
   body: unknown,
 ): Promise<OpenAiResult> {
-  for (let attempt = 0; attempt < 2; attempt++) {
-    let r: Response;
-    try {
-      r = await deps.doFetch(OPENAI_URL, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(OPENAI_TIMEOUT_MS),
-      });
-    } catch (e) {
-      const name = (e as { name?: string })?.name;
-      if (name === "TimeoutError" || name === "AbortError") return { ok: false, code: "ai_timeout", charged: true };
-      deps.log("openai_network_error");
-      if (attempt === 0) { await deps.sleep(RETRY_DELAY_MS); continue; }
-      return { ok: false, code: "ai_busy", charged: false };
-    }
-    if (r.status === 429 || r.status >= 500) {
-      try { await r.body?.cancel(); } catch { /* ignore */ }
-      deps.log("openai_retryable", { status: r.status });
-      // 잠깐 막힘은 서버가 1번만 다시 시도한다(4.7).
-      if (attempt === 0) { await deps.sleep(RETRY_DELAY_MS); continue; }
-      return { ok: false, code: "ai_busy", charged: false };
-    }
-    if (!r.ok) {
-      try { await r.body?.cancel(); } catch { /* ignore */ }
-      deps.log("openai_rejected", { status: r.status });
-      return { ok: false, code: r.status === 401 || r.status === 403 ? "ai_not_configured" : "ai_invalid_response", charged: false };
-    }
-    let raw: unknown;
-    try {
-      raw = await readBoundedJson(r, { maxBytes: OPENAI_RESPONSE_BYTES });
-    } catch {
-      return { ok: false, code: "ai_invalid_response", charged: true };
-    }
-    const u = (raw as { usage?: Record<string, unknown> })?.usage ?? {};
-    return { ok: true, raw, usage: { input: tokenCount(u.input_tokens), output: tokenCount(u.output_tokens) } };
-  }
-  return { ok: false, code: "ai_busy", charged: false };
+  return callSharedOpenAi(deps, key, body, {
+    url: OPENAI_URL, timeoutMs: OPENAI_TIMEOUT_MS, retryDelayMs: RETRY_DELAY_MS, maxResponseBytes: OPENAI_RESPONSE_BYTES,
+  });
 }
 
 // ---- 쓰임 2: 챙길 것 찾기(todo_radar) ----------------------------------------------------------------------------
@@ -1158,6 +1109,69 @@ async function saveLibraryFill(ctx: Ctx, doc: DocRow & { updated_at: string | nu
   return Array.isArray(out) && out.length === 1;
 }
 
+// ---- 한두 줄 요약(brief, WEEKLY-자료요약) ----
+const BRIEF_TABLE = "app_document_ai_index";
+type BriefRow = { document_id: string; content_hash: string | null; summary: string; summary_model: string | null };
+const readBriefRows = (raw: unknown, ws: string): BriefRow[] => (Array.isArray(raw) ? raw as Record<string, unknown>[] : [])
+  .filter((r) => isUuid(r?.document_id) && (r.workspace_id === undefined || String(r.workspace_id).toLowerCase() === ws))
+  .map((r) => ({
+    document_id: String(r.document_id).toLowerCase(),
+    content_hash: typeof r.content_hash === "string" ? r.content_hash : null,
+    summary: typeof r.summary === "string" ? r.summary : "",
+    summary_model: typeof r.summary_model === "string" ? r.summary_model : null,
+  }));
+
+// 자료 id → 요약 표 행. 표를 못 읽으면(DB 모양이 다르거나 권한 없음) null — 그때는 요약을 만들지도 쓰지도 않는다(채우기는 그대로).
+async function readBriefs(ctx: Ctx, ids: string[], log: Log): Promise<Map<string, BriefRow> | null> {
+  try {
+    const rows = await rest(ctx, `${BRIEF_TABLE}?document_id=in.(${ids.join(",")})&workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&select=document_id,workspace_id,content_hash,summary,summary_model&limit=${ids.length + 1}`);
+    if (!Array.isArray(rows) || rows.length > ids.length) { log("library_brief_unavailable"); return null; }
+    return new Map(readBriefRows(rows, ctx.workspaceId).map((r) => [r.document_id, r]));
+  } catch {
+    log("library_brief_unavailable");
+    return null;
+  }
+}
+
+// 같은 글자 지문의 'b1:' 요약(다른 자료, 같은 파일을 두 번 올린 경우). 지문 → 요약 행. 못 읽으면 빈 목록(그때는 AI로 만든다).
+async function readBriefsByHash(ctx: Ctx, hashes: string[]): Promise<Map<string, BriefRow>> {
+  const out = new Map<string, BriefRow>();
+  if (!hashes.length) return out;
+  try {
+    const rows = await rest(ctx, `${BRIEF_TABLE}?content_hash=in.(${hashes.join(",")})&workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&select=document_id,workspace_id,content_hash,summary,summary_model&order=indexed_at.asc&limit=100`);
+    for (const r of readBriefRows(rows, ctx.workspaceId)) {
+      if (!r.content_hash || !BRIEF_HASH.test(r.content_hash) || !hashes.includes(r.content_hash) || out.has(r.content_hash)) continue;
+      if (cleanBrief(r.summary) !== r.summary) continue; // 검사에 맞지 않는 글은 복사하지 않는다
+      out.set(r.content_hash, r);
+    }
+  } catch { /* 복사 없이 진행 */ }
+  return out;
+}
+
+// 요약 한 행 저장. 행이 없던 자료는 넣기(그 사이 다른 행이 생겼으면 그대로 둠), 'b1:' 행이 있던 자료는 그 지문일 때만 고친다.
+// 옛 행('b1:' 아님)은 이 함수에 오지 않는다(호출 전에 거름). 실패는 기록만(채우기 결과는 그대로).
+async function writeBrief(ctx: Ctx, docId: string, prior: BriefRow | undefined, hash: string, summary: string, model: string | null, nowMs: number, log: Log) {
+  const stamp = new Date(nowMs).toISOString();
+  const body = { content_hash: hash, summary, keywords: [], chunk_count: 0, summary_model: model, indexed_at: stamp, updated_at: stamp };
+  try {
+    if (prior) {
+      if (!prior.content_hash || !BRIEF_HASH.test(prior.content_hash)) return false;
+      await rest(ctx, `${BRIEF_TABLE}?document_id=eq.${docId}&workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&content_hash=eq.${encodeURIComponent(prior.content_hash)}`, {
+        method: "PATCH", prefer: "return=minimal", body,
+      });
+    } else {
+      await rest(ctx, `${BRIEF_TABLE}?on_conflict=document_id`, {
+        method: "POST", prefer: "resolution=ignore-duplicates,return=minimal",
+        body: { document_id: docId, workspace_id: ctx.workspaceId, ...body },
+      });
+    }
+    return true;
+  } catch {
+    log("library_brief_save_failed");
+    return false;
+  }
+}
+
 async function runLibraryFill(ctx: Ctx, input: LibraryFillInput, deps: RadarDeps): Promise<Response> {
   const started = deps.now();
   const today = kstDay(started);
@@ -1183,8 +1197,34 @@ async function runLibraryFill(ctx: Ctx, input: LibraryFillInput, deps: RadarDeps
       fields = fields.filter((f) => !doc.legacy_user.includes(f));
       if (upgrade) for (const f of upgradeTextFields(doc, doc.legacy_user)) if (!fields.includes(f)) fields.push(f);
     }
-    return { doc, fields, eligible };
+    // 요약 대상 창: fill은 막 올린 자료, tidy는 올린 지 1시간 지난 자료(올린 날 제한 없음, Q4 ②)와 파일을 바꾼 자료. propose는 요약하지 않는다.
+    const briefWindow = input.mode === "fill" ? fresh : input.mode === "tidy" ? old || replaced : false;
+    return { doc, fields, eligible, briefWindow, brief: false, hash: "" };
   });
+  // 한두 줄 요약: 글자가 있고, 요약 표를 읽을 수 있고, 행이 없거나 'b1:' 행의 지문이 지금 글자와 다를 때만. 옛 행('b1:' 아님)은 건드리지 않는다.
+  const briefCandidates = targets.filter((t) => t.briefWindow && !!t.doc.text);
+  const briefs = briefCandidates.length ? await readBriefs(ctx, briefCandidates.map((t) => t.doc.id), deps.log) : null;
+  if (briefs) {
+    for (const t of briefCandidates) {
+      const prior = briefs.get(t.doc.id);
+      if (prior && (!prior.content_hash || !BRIEF_HASH.test(prior.content_hash))) continue;
+      t.hash = await briefHash(t.doc.text);
+      if (prior && prior.content_hash === t.hash) continue;
+      t.brief = true;
+    }
+  }
+  // 같은 지문의 요약이 다른 자료에 이미 있으면(같은 파일 다시 올림) AI 없이 복사한다.
+  let copied = 0;
+  const wanted = targets.filter((t) => t.brief);
+  if (wanted.length) {
+    const byHash = await readBriefsByHash(ctx, [...new Set(wanted.map((t) => t.hash))]);
+    for (const t of wanted) {
+      const src = byHash.get(t.hash);
+      if (!src || src.document_id === t.doc.id) continue;
+      t.brief = false;
+      if (await writeBrief(ctx, t.doc.id, briefs!.get(t.doc.id), t.hash, src.summary, src.summary_model, deps.now(), deps.log)) copied++;
+    }
+  }
   // 연결: 시도 기록 표가 있을 때(DB 적용 뒤)만, 비어 있는 연결이 있는 대상 자료가 있을 때만 목록을 읽는다.
   let links: LinkOptions = NO_LINKS;
   if (attempts && targets.some((t) => t.eligible && (!t.doc.project_id || !t.doc.organization_id))) {
@@ -1199,7 +1239,9 @@ async function runLibraryFill(ctx: Ctx, input: LibraryFillInput, deps: RadarDeps
     ? Object.fromEntries(input.keep.filter((f) => doc.field_origin[f] !== "user").map((f) => [f, "user"]))
     : {};
   const withText = (doc: { text: string }) => !!doc.text;
-  const work = targets.filter((t) => t.fields.length);
+  // 할 일: 채울 칸이 있거나 요약이 필요한 자료. tidy는 올린 날이 오래된 것부터(예전 자료 채우기 순서).
+  let work = targets.filter((t) => t.fields.length || t.brief);
+  if (input.mode === "tidy") work.sort((a, b) => (timeOf(a.doc.created_at) || 0) - (timeOf(b.doc.created_at) || 0));
   // 파일이 바뀐 자료(reclassify_needed)는 이번 tidy가 끝나면 표시를 끈다(AI가 바쁘거나 시간 초과로 못 끝낸 경우는 켜 둔 채 다음에 다시 본다).
   const replacedIds = input.mode === "tidy" ? targets.filter((t) => t.eligible && t.doc.reclassify).map((t) => t.doc.id) : [];
   const clearReclassify = async () => {
@@ -1213,6 +1255,7 @@ async function runLibraryFill(ctx: Ctx, input: LibraryFillInput, deps: RadarDeps
     }
   };
   // tidy에서 할 일이 없는 대상 자료도 시도 기록만 남긴다(다음에 다시 보내지 않음). AI는 부르지 않는다.
+  // 요약만 하는 자료도 분류 대상(eligible)이면 여기서 시도 기록을 남긴다(분류 대상이 아니면 시도 기록을 건드리지 않음).
   const emptyItems = (): ClassifyItem[] => targets.filter((t) => t.eligible && !t.fields.length)
     .map((t) => ({ document_id: t.doc.id, updated_at: t.doc.updated_at ?? "", with_text: withText(t.doc), changes: {} }));
   if (!work.length) {
@@ -1224,6 +1267,7 @@ async function runLibraryFill(ctx: Ctx, input: LibraryFillInput, deps: RadarDeps
     if (input.mode === "fill" && attempts) {
       await recordFillAttempts(ctx, targets.filter((t) => t.eligible).map((t) => ({ document_id: t.doc.id, with_text: withText(t.doc), changed: 0 })), deps.log);
     }
+    if (copied) deps.log("library_brief_copied", { documents: copied });
     return json({ ok: true, kind: "library_fill", mode: input.mode, updated: 0, skipped: docs.length, proposals: input.mode === "propose" ? [] : undefined });
   }
   const config = aiConfig(deps.env);
@@ -1232,12 +1276,39 @@ async function runLibraryFill(ctx: Ctx, input: LibraryFillInput, deps: RadarDeps
     throw new Fail(503, "ai_not_configured");
   }
   const budget = await checkBudget(ctx, "library_fill", started, config.price);
+  // 새 자료 몫 남기기(Q4 ②): 오늘 AI를 LIBRARY_BRIEF_BACKFILL_UNTIL회 이상 썼으면 tidy의 "요약만" 자료는 오늘 보내지 않는다(다음 날 이어서).
+  // 채울 칸이 있는 자료의 요약은 같은 호출이라 그대로 둔다. 남는 할 일이 없으면 기존 한도 응답(daily_limit)으로 오늘은 멈춘다.
+  if (input.mode === "tidy" && budget.requests >= LIBRARY_BRIEF_BACKFILL_UNTIL) {
+    const deferred = work.filter((t) => !t.fields.length);
+    if (deferred.length) {
+      work = work.filter((t) => t.fields.length);
+      deps.log("library_brief_deferred", { documents: deferred.length, used: budget.requests });
+      if (!work.length) {
+        const empty = emptyItems();
+        if (empty.length) { try { await applyClassify(ctx, crypto.randomUUID(), empty); } catch { deps.log("library_tidy_mark_failed"); } }
+        await clearReclassify();
+        throw new Fail(429, "daily_limit");
+      }
+    }
+  }
   try {
     await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
   } catch {
     throw new Fail(503, "usage_unavailable");
   }
-  const files: MaterialFile[] = work.map((t, i) => ({ ref: `d${i + 1}`, doc: t.doc, text: t.doc.text }));
+  const files: MaterialFile[] = work.map((t, i) => ({ ref: `d${i + 1}`, doc: t.doc, text: t.doc.text, brief: t.brief }));
+  // 요약 저장: 검사를 통과한 글(빈 글 = 요약할 것 없음, 다시 요청하지 않음). invalid=true면 AI 답 전체가 틀린 형식(tidy만 빈 글로 남김).
+  const saveBriefs = async (values: Map<string, { brief?: string }> | null) => {
+    let n = 0;
+    for (const f of files) {
+      const t = work.find((w) => w.doc.id === f.doc.id)!;
+      if (!t.brief) continue;
+      const brief = values ? values.get(f.ref)?.brief : "";
+      if (brief === undefined) continue; // 요약 칸이 없는 옛 모양 답
+      if (await writeBrief(ctx, t.doc.id, briefs?.get(t.doc.id), t.hash, brief, config.model, deps.now(), deps.log)) n++;
+    }
+    return n;
+  };
   // 연결 칸이 있는 자료가 있을 때만 프로젝트·조직 이름 목록을 보낸다(필요한 것만 보냄).
   const sentLinks: LinkOptions = {
     projects: work.some((t) => t.fields.includes("project_id")) ? links.projects : [],
@@ -1267,9 +1338,11 @@ async function runLibraryFill(ctx: Ctx, input: LibraryFillInput, deps: RadarDeps
     const code = result.ok ? "ai_invalid_response" : result.code;
     deps.log(code);
     // tidy: AI 답이 틀린 형식이면 같은 자료를 다시 보내도 같을 가능성이 커서 시도 기록만 남긴다(값은 그대로). 바쁨·시간 초과는 남기지 않는다.
+    // 요약도 같은 이유로 빈 글(요약할 것 없음)로 남긴다(다시 보내지 않음). fill은 남기지 않아 나중 tidy가 한 번 더 본다.
     if (input.mode === "tidy" && result.ok) {
-      const items = [...work.map((t) => ({ document_id: t.doc.id, updated_at: t.doc.updated_at ?? "", with_text: withText(t.doc), changes: {} })), ...emptyItems()];
-      try { await applyClassify(ctx, crypto.randomUUID(), items); }
+      await saveBriefs(null);
+      const items = [...work.filter((t) => t.fields.length).map((t) => ({ document_id: t.doc.id, updated_at: t.doc.updated_at ?? "", with_text: withText(t.doc), changes: {} })), ...emptyItems()];
+      if (items.length) try { await applyClassify(ctx, crypto.randomUUID(), items); }
       catch { deps.log("library_tidy_mark_failed"); }
       await clearReclassify();
     }
@@ -1296,15 +1369,20 @@ async function runLibraryFill(ctx: Ctx, input: LibraryFillInput, deps: RadarDeps
     return json({ ok: true, kind: "library_fill", mode: "propose", proposals });
   }
 
+  const briefsSaved = await saveBriefs(parsed);
+  if (briefsSaved || copied) deps.log("library_brief_done", { saved: briefsSaved, copied });
+
   if (input.mode === "tidy") {
     // 서버가 다시 고른 칸(정리 안 된 칸·'user' 아님·비어 있는 연결)에 대한 검사 통과 값만. 값이 없어도 시도 기록은 남긴다(같은 자료 다시 안 보냄).
-    const items: ClassifyItem[] = [...files.map((f) => {
+    // 요약만 한 자료는 분류 대상이면 emptyItems가 시도 기록을 남기고, 아니면 시도 기록을 건드리지 않는다.
+    const items: ClassifyItem[] = [...files.filter((f) => work.find((w) => w.doc.id === f.doc.id)!.fields.length).map((f) => {
       const t = work.find((w) => w.doc.id === f.doc.id)!;
       const changes = Object.fromEntries(proposalsFor(t.doc, t.fields, parsed.get(f.ref) ?? {}, "propose").map((p) => [p.field, p.to]));
       return { document_id: t.doc.id, updated_at: t.doc.updated_at ?? "", with_text: withText(t.doc), changes };
     }), ...emptyItems()];
-    let saved;
-    try { saved = await applyClassify(ctx, crypto.randomUUID(), items); }
+    // 요약만 한 묶음(분류 대상 없음)은 분류 함수를 부르지 않는다.
+    let saved = { documents: 0, fields: 0, moved: 0 };
+    if (items.length) try { saved = await applyClassify(ctx, crypto.randomUUID(), items); }
     catch (e) { deps.log("library_tidy_save_failed"); throw e instanceof Fail ? e : new Fail(503, "library_unavailable"); }
     await clearReclassify();
     deps.log("library_tidy_done", { documents: files.length, updated: saved.documents, fields: saved.fields, moved: saved.moved });
@@ -1417,6 +1495,31 @@ async function loadOrgMaterial(ctx: Ctx, week: string, orgs: Map<string, string>
     const chunk = fileIds.slice(i, i + IN_CHUNK).join(",");
     const docs = await readList(ctx, `app_documents?workspace_id=eq.${ws}&file_id=in.(${chunk})&organization_id=in.(${ids})&select=file_id,organization_id&limit=500`);
     for (const d of docs) for (const noteId of fileToNotes.get(String(d.file_id)) ?? []) addNote(String(d.organization_id).toLowerCase(), noteId, "");
+  }
+  // WEEKLY-자료요약: 그 주에 올린(created_at) 그 조직 자료의 한두 줄 요약. 'b1:' 행만, 서버 검사를 다시 통과한 글만. 회의자료는 빼고(Q3).
+  // 요약 표를 못 읽으면(DB 모양이 다름·권한 없음) 자료 요약 없이 진행한다(예전과 같은 재료).
+  try {
+    const weekDocs = await readList(ctx, `app_documents?workspace_id=eq.${ws}&organization_id=in.(${ids})&created_at=gte.${from}&created_at=lt.${to}&meeting_id=is.null&select=id,workspace_id,organization_id,title,file_name,created_at,meeting_id&order=created_at.asc&limit=${RADAR_READ_LIMIT}`);
+    full(weekDocs, RADAR_READ_LIMIT);
+    const byDoc = new Map<string, { org: string; at: number; title: string }>();
+    for (const d of weekDocs) {
+      const org = String(d.organization_id).toLowerCase(), at = timeOf(d.created_at);
+      if (!isUuid(d.id) || String(d.workspace_id).toLowerCase() !== ctx.workspaceId || !records.has(org) || !Number.isFinite(at) || d.meeting_id != null) continue;
+      const title = String((typeof d.title === "string" && d.title.trim()) ? d.title : d.file_name ?? "").trim();
+      byDoc.set(String(d.id).toLowerCase(), { org, at, title: [...title].slice(0, 120).join("") });
+    }
+    const docIds = [...byDoc.keys()];
+    for (let i = 0; i < docIds.length; i += IN_CHUNK) {
+      const rows = await rest(ctx, `${BRIEF_TABLE}?document_id=in.(${docIds.slice(i, i + IN_CHUNK).join(",")})&workspace_id=eq.${ws}&select=document_id,workspace_id,content_hash,summary,summary_model&limit=${IN_CHUNK + 1}`);
+      for (const b of readBriefRows(rows, ctx.workspaceId)) {
+        const d = byDoc.get(b.document_id);
+        const summary = b.content_hash && BRIEF_HASH.test(b.content_hash) ? cleanBrief(b.summary) : null;
+        if (!d || !summary) continue;
+        records.get(d.org)!.push({ day: kstDay(d.at), at: d.at, type: "file_summary", text: d.title ? `${d.title} — ${summary.replace(/\n/g, " ")}` : summary.replace(/\n/g, " ") });
+      }
+    }
+  } catch {
+    ctx.log("org_summary_briefs_unavailable");
   }
   return { records, partial };
 }

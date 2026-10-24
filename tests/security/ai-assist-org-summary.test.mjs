@@ -20,7 +20,7 @@ const answer=items=>({status:'completed',output:[{type:'message',content:[{type:
 const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
 const refOf=(o,name)=>JSON.parse(o.input[1].content).organizations.find(x=>x.name===name).ref;
 
-function harness({openai=null,summaries=[],usage=[],missing=false,fail={}}={}){
+function harness({openai=null,summaries=[],usage=[],missing=false,fail={},docs=[],briefs=[]}={}){
   const calls={openai:[],rest:[],logs:[]};
   const db={
     app_workspace_members:[{workspace_id:WS,user_id:OWNER,role:'owner'},{workspace_id:OTHER_WS,user_id:STRANGER,role:'owner'}],
@@ -44,8 +44,11 @@ function harness({openai=null,summaries=[],usage=[],missing=false,fail={}}={}){
       {id:id(21),workspace_id:WS,note_id:id(11),organization_id:ORG_A,status:'confirmed',summary:null},
       {id:id(22),workspace_id:WS,note_id:id(12),organization_id:ORG_A,status:'confirmed',summary:null},
       {id:id(23),workspace_id:WS,note_id:id(13),organization_id:ORG_A,status:'confirmed',summary:null},
+      // REF-참고묶음: a reference-bundle link (no organization) is never organization material.
+      {id:id(24),workspace_id:WS,note_id:id(10),organization_id:null,bundle_id:'e0000000-0000-4000-8000-000000000001',status:'confirmed',summary:'REF_BUNDLE_SUMMARY'},
     ],
-    app_documents:[{id:id(30),workspace_id:WS,file_id:'fileB1',organization_id:ORG_B}],
+    app_documents:[{id:id(30),workspace_id:WS,file_id:'fileB1',organization_id:ORG_B},...structuredClone(docs)],
+    app_document_ai_index:structuredClone(briefs),
     app_ai_daily_usage:structuredClone(usage),
     app_weekly_org_summaries:structuredClone(summaries),
   };
@@ -144,7 +147,7 @@ test('owner: one OpenAI call with the week\'s records per organization, summarie
   assert.ok(a.records.some(r=>r.type==='업데이트'&&r.files?.[0]==='투표 공고문.hwp'));
   assert.deepEqual(sent.organizations[1].records,[{type:'업데이트',date:'10.20.(화)',files:['나 지회 단협안.pdf']}]);
   // Greetings and contacts are taken out before sending; excluded, archived, diary, other weeks and other workspaces never go.
-  for(const hidden of ['안녕하세요','수고하셨습니다','010-1234-5678','EXCLUDED_TEXT','ARCHIVED_TEXT','SECRET_DIARY','OLD_WEEK_TEXT','FOREIGN_ORG_TEXT',OWNER,WS,ORG_A,id(10)])
+  for(const hidden of ['안녕하세요','수고하셨습니다','010-1234-5678','EXCLUDED_TEXT','ARCHIVED_TEXT','SECRET_DIARY','OLD_WEEK_TEXT','FOREIGN_ORG_TEXT','REF_BUNDLE_SUMMARY',OWNER,WS,ORG_A,id(10)])
     assert.ok(!material.includes(hidden),hidden+' must not be sent');
   const notesQuery=calls.rest.find(c=>c.table==='app_notes').query;
   assert.match(notesQuery,/kind=eq\.basket/);assert.match(notesQuery,/archived_at=is\.null/);assert.match(notesQuery,/ai_export_allowed=is\.true/);
@@ -250,4 +253,44 @@ test('source: no service role, no tools, logs carry numbers only',()=>{
   assert.doesNotMatch(all,/(?<!WEB2_)OPENAI_API_KEY"/);
   const logs=[...all.matchAll(/log\("([a-z_]+)"(?:,\s*(\{[^}]*\}))?\)/g)];
   for(const [,code,detail] of logs)if(detail)assert.doesNotMatch(detail,/summary|text|material|title|raw|name/,code);
+});
+
+// WEEKLY-자료요약 2단계: the week's documents linked to the organization add their checked one- or two-line summary as material.
+test('file summaries: b1: summaries of the week\'s documents of that organization are material; old rows, meeting files, other weeks and workspaces are not',async()=>{
+  const h='b1:'+'a'.repeat(32);
+  const docs=[
+    {id:id(40),workspace_id:WS,organization_id:ORG_C,title:'다 분회 단협 요구안',file_name:'x.hwp',created_at:TUE,meeting_id:null},
+    {id:id(41),workspace_id:WS,organization_id:ORG_C,title:'옛 요약 자료',file_name:'y.hwp',created_at:TUE,meeting_id:null},
+    {id:id(42),workspace_id:WS,organization_id:ORG_C,title:'회의자료',file_name:'z.hwp',created_at:TUE,meeting_id:id(99)},
+    {id:id(43),workspace_id:WS,organization_id:ORG_C,title:'지난주 자료',file_name:'w.hwp',created_at:LAST_WEEK,meeting_id:null},
+    {id:id(44),workspace_id:WS,organization_id:ORG_C,title:'',file_name:'제목없음.pdf',created_at:WED,meeting_id:null},
+    {id:id(45),workspace_id:WS,organization_id:ORG_C,title:'틀린 요약',file_name:'v.pdf',created_at:WED,meeting_id:null},
+  ];
+  const briefs=[
+    {document_id:id(40),workspace_id:WS,content_hash:h,summary:'기본급 5% 인상 요구.\n10.28.(화) 1차 교섭 예정.'},
+    {document_id:id(41),workspace_id:WS,content_hash:'legacy',summary:'OLD_INDEX_SUMMARY'},
+    {document_id:id(42),workspace_id:WS,content_hash:h,summary:'MEETING_FILE_SUMMARY'},
+    {document_id:id(43),workspace_id:WS,content_hash:h,summary:'LAST_WEEK_FILE_SUMMARY'},
+    {document_id:id(44),workspace_id:WS,content_hash:h,summary:'인력 충원안 검토.'},
+    {document_id:id(45),workspace_id:WS,content_hash:h,summary:'<b>BAD_SUMMARY</b>'},
+  ];
+  const {handler,calls}=harness({docs,briefs});
+  assert.equal((await post(handler,run([ORG_C]))).status,200);
+  const material=calls.openai[0].input[1].content,sent=JSON.parse(material);
+  assert.deepEqual(sent.organizations.map(o=>o.name),['다 분회']);
+  assert.deepEqual(sent.organizations[0].records,[
+    {type:'자료 요약',date:'10.20.(화)',text:'다 분회 단협 요구안 — 기본급 5% 인상 요구. 10.28.(화) 1차 교섭 예정.'},
+    {type:'자료 요약',date:'10.21.(수)',text:'제목없음.pdf — 인력 충원안 검토.'},
+  ]);
+  for(const hidden of ['OLD_INDEX_SUMMARY','MEETING_FILE_SUMMARY','LAST_WEEK_FILE_SUMMARY','BAD_SUMMARY'])assert.ok(!material.includes(hidden),hidden);
+  const q=calls.rest.find(c=>c.table==='app_documents'&&c.query.includes('created_at=gte.')).query;
+  assert.match(q,/meeting_id=is\.null/);assert.match(q,new RegExp(`workspace_id=eq\\.${WS}`));
+  assert.ok(calls.rest.filter(c=>c.table==='app_document_ai_index').every(c=>c.method==='GET'&&c.query.includes(`workspace_id=eq.${WS}`)));
+  assert.match(os.ORG_SUMMARY_INSTRUCTIONS,/'자료 요약'/);
+});
+
+test('file summaries: an unreadable summary table leaves the organization summary as before',async()=>{
+  const {handler,calls}=harness({fail:{app_document_ai_index:true},docs:[{id:id(40),workspace_id:WS,organization_id:ORG_A,title:'자료',file_name:'x',created_at:TUE,meeting_id:null}]});
+  assert.equal((await post(handler,run())).status,200);
+  assert.equal(calls.openai.length,1);assert.ok(calls.logs.some(l=>l.code==='org_summary_briefs_unavailable'));
 });
