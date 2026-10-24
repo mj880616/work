@@ -3,7 +3,7 @@ import { viewPrefs } from './view-prefs.js';
 // written through the existing owner-RLS REST paths in basket-data.js; there is no new save path.
 // This module owns everything drawn into its host: list (search, newest change first) → read → edit. The list's own input
 // (BASKET-노트입력창: the basket update input, home-quick.js, in its note mode) adds a note; its [크게] opens the shared
-// write window (write-window.js) with [노트] chosen.
+// note window (note-window.js, ED③ 노트).
 // basket.js owns the [메모 | 노트] switch and decides when this host is shown.
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import { readNoteDocs, readNoteDoc, detachNoteFile, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, sortNotes, notePinnedAt, setNotePinned, noteFolder, noteFolders, newFolderName, setNoteFolder, validateFolderName, NOTE_FOLDER_LIMITS } from './basket-data.js';
@@ -267,10 +267,6 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     paintRead(); paintMeta(); paintMode();
     if (focus) readFocus().focus();
   }
-  // [크게] on the note input (BASKET-업데이트통합 PR 2 → BASKET-노트입력창): the one write window (write-window.js) with [노트]
-  // preselected — the same window as menu [쓰기] — on the input's text. It saves through createNoteDoc (or, switched to 업데이트,
-  // the basket or a chosen place) and closes; a saved note then opens here in its read view. Text closed without saving
-  // (× or phone back) goes back into the input (this tab's memory only, never browser storage).
   // ED③ 노트: the new big window (note-window.js) with a title row, [폴더 ▾], [📎 첨부] and the line shortcuts. It saves a note (createNoteDoc
   // with its saved form) and closes; the saved note then opens here in its read view. Text closed without saving goes back into the input
   // as letters (this tab's memory only, never browser storage).

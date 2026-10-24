@@ -93,3 +93,23 @@ test('a new note is one owner-RLS insert of kind=note, checked before it is sent
   await assert.rejects(createNoteDoc({title:'제목', raw_text:'가'.repeat(100001)}, refuse), /100,000/);
   await assert.rejects(createNoteDoc({title:'제목', raw_text:''}, runtime(async () => [])), /저장 결과/);
 });
+
+// ED③ 노트: the new editor's save writes title + letters + doc in one PATCH guarded by the version the edit opened (updated_at),
+// never metadata; a row changed meanwhile is refused (note_changed) and nothing is overwritten. A new note may carry its doc.
+test('saveNoteDoc with doc: one PATCH, guarded by the opened version, no metadata; changed rows are refused', async () => {
+  const doc = {v:'ed1', doc:{type:'doc', content:[{type:'paragraph', content:[{type:'text', text:'본문'}]}]}};
+  const calls = [];
+  const rt = runtime(async (path, options = {}) => { calls.push({path, options}); return [{id:'n', ...options.body}]; });
+  const saved = await saveNoteDoc('n', {title:'제목', raw_text:'본문', doc, version:'2026-10-21T01:00:00Z'}, rt);
+  assert.equal(calls.length, 1);
+  const p = q(calls[0].path);
+  assert.equal(calls[0].options.method, 'PATCH');
+  assert.deepEqual([p.get('id'), p.get('workspace_id'), p.get('kind'), p.get('updated_at')], ['eq.n', 'eq.w', 'eq.note', 'eq.2026-10-21T01:00:00Z']);
+  assert.deepEqual(Object.keys(calls[0].options.body).sort(), ['doc', 'raw_text', 'title', 'updated_at']);
+  assert.deepEqual(saved.doc, doc);
+  await assert.rejects(saveNoteDoc('n', {title:'제목', raw_text:'본문', doc, version:'2026-10-21T01:00:00Z'}, runtime(async () => [])), e => e.code === 'note_changed');
+  await assert.rejects(saveNoteDoc('n', {title:'제목', raw_text:'본문', doc}, rt), e => e.code === 'note_changed');
+  const bodies = [];
+  await createNoteDoc({title:'새', raw_text:'본문', markdown:false, doc}, runtime(async (path, options) => { bodies.push(options.body); return [{id:'x', ...options.body}]; }));
+  assert.deepEqual(bodies[0].doc, doc);
+});
