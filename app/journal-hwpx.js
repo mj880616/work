@@ -23,6 +23,7 @@
 //   보인다(고치지 않음, weekly-hwpx/schedule.mjs scheduleMismatches).
 // - 이 상자 하나만 이 모듈이 그린다(journal.js는 자리만 주고 주·자료가 바뀌면 알려 줌). 브라우저 저장소에 아무것도 두지 않는다.
 import {selectMyOrganizations} from './my-organizations.js';
+import {loadDisputeState} from './org-dispute-stage.js';
 import {shortDay, reportDay, todayKey} from './journal-data.js';
 import {scheduleForm} from './journal-weekly.js';
 import {carryOver, carryCutoff, formRequests, formDay, mergeCarried} from './weekly-exec-requests.js';
@@ -93,7 +94,9 @@ async function readContext(rt) {
     rt.api(`/rest/v1/app_suborganization_assignees?user_id=eq.${encode(user)}&select=organization_id`).catch(() => []),
   ]);
   const mine = orgs ? selectMyOrganizations(orgs, assignees || []) : {organizations:[], fallback:true, failed:true};
-  return {me:String(profile?.[0]?.display_name || c?.user?.user_metadata?.display_name || '').trim(), organizations:mine.organizations, orgFallback:mine.fallback, orgFailed:!!mine.failed};
+  // ORG-쟁의단계 ②: 쟁의 단계(투쟁 사업장 표 자동 채움). 읽지 못해도 보고서는 기존처럼 만든다(stages.status로 한 줄 알림).
+  const stages = await loadDisputeState({rt, workspaceId:workspace, force:true}).catch(() => ({status:'error', stages:[], histories:new Map()}));
+  return {stages, me:String(profile?.[0]?.display_name || c?.user?.user_metadata?.display_name || '').trim(), organizations:mine.organizations, orgFallback:mine.fallback, orgFailed:!!mine.failed};
 }
 async function latestConfirmed(rt) {
   const workspace = rt.context.read()?.workspace?.id;
@@ -230,7 +233,10 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, rt = window.KPT
     state.base = draft.startDraft(team, {me:state.me, myOrgs:state.myOrgs, orgList:state.context.orgFailed ? null : state.context.organizations, date:state.date});
     state.rows = draft.editableRows(state.base, state.me);
     state.orgs = draft.editableOrgs(state.base, 'orgs');
-    state.sites = draft.editableOrgs(state.base, 'sites');
+    // ORG-쟁의단계 ②: 투쟁 사업장 표는 쟁의 단계에서 채운다(draft.applySiteStages). 단계를 읽지 못했으면 바탕 그대로.
+    const st = state.context.stages, stage = draft.applySiteStages(state.base, {orgs:state.context.orgFailed || state.context.orgFallback ? [] : state.context.organizations, stages:st?.status === 'ready' ? st.stages : [], histories:st?.histories, weekStart:state.start});
+    state.base = stage.base; state.stageFixes = stage.fixes;
+    state.sites = draft.editableOrgs(state.base, 'sites').map(r => stage.starts.has(r.index) ? {...r, lines:stage.starts.get(r.index)} : r);
     // WEEKLY-한글파일다듬기 ⑤: 바탕 줄 가운데 보고일 기준 지난 날짜의 '…예정'은 '예정'만 뺀 채로 시작한다(바탕과 달라 파란 글씨가 됨).
     // 바뀐 줄은 화면 위쪽 접힌 목록(renderEdit)에서 확인한다. 칸에서 다시 고칠 수 있다.
     const day = reportDay(state.start), plans = [];
@@ -380,6 +386,20 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, rt = window.KPT
       const list = el('ul', 'journal-hwpx-material');
       for (const c of s.plans) { const li = el('li'); li.append(el('span', 'journal-weekly-label', `${c.where}: `), doc.createTextNode(`${c.from.trim()} → ${c.to.trim()}`)); list.append(li); }
       plans.append(list); parts.push(plans);
+    }
+    // ORG-쟁의단계 ②: 투쟁 사업장 표를 쟁의 단계로 채웠는지(못 읽었으면 직전 확정본 줄 그대로) + 더는 투쟁 중이 아닌데 확정본에 있던 줄('지울까요?').
+    const stageState = s.context.stages?.status;
+    if (stageState && stageState !== 'ready') { const n = el('p', 'journal-muted', stageState === 'preparing' ? '쟁의 단계가 아직 준비 중이라 투쟁 사업장 표는 직전 확정본 그대로예요.' : '단계를 불러오지 못했어요. 투쟁 사업장 표는 직전 확정본 그대로예요.'); n.dataset.hwpxStageNote = stageState; parts.push(n); }
+    if (s.stageFixes?.length) {
+      const fix = el('details', 'journal-hwpx-plans'); fix.dataset.hwpxStageFix = ''; fix.open = true;
+      fix.append(el('summary', '', `고칠 목록: 직전 확정본에 있던 투쟁 사업장 줄 ${s.stageFixes.length}곳이 더는 투쟁 중이 아니에요. 지울까요?`));
+      const list = el('ul', 'journal-hwpx-material');
+      for (const f of s.stageFixes) {
+        const li = el('li'); li.dataset.hwpxStageFixRow = String(f.index);
+        li.append(el('span', 'journal-weekly-label', `${f.org}: `), doc.createTextNode(f.stage ? `지금 단계는 ‘${f.stage}’이에요. ` : ''));
+        const clear = button('줄 비우기', 'hwpxStageClear'); clear.dataset.hwpxIndex = String(f.index); li.append(clear); list.append(li);
+      }
+      fix.append(list); parts.push(fix);
     }
     parts.push(el('p', 'journal-muted', '1. 2) 주요 일정과 세부 내용·집회 표는 비워요. 바탕과 다른 줄은 파란 글씨가 돼요.'));
     const cal = el('p', 'journal-muted', ''); cal.dataset.hwpxCalendar = ''; parts.push(cal);
@@ -561,6 +581,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, rt = window.KPT
     if (b.matches('[data-hwpx-start]')) open();
     else if (b.matches('[data-hwpx-close]')) { close(); start.focus(); }
     else if (b.matches('[data-hwpx-library]')) fromLibrary();
+    else if (b.matches('[data-hwpx-stage-clear]') && state) { const index = Number(b.dataset.hwpxIndex); state.edits.sites.set(index, []); state.stageFixes = state.stageFixes.filter(f => f.index !== index); state.built = null; renderEdit(); say('줄을 비웠어요.'); }
     else if (b.matches('[data-hwpx-restart]')) { state = null; say(''); renderSource(); }
     else if (b.matches('[data-hwpx-append]')) { const key = b.dataset.hwpxTarget || doc.getElementById(b.dataset.hwpxPickFrom)?.value; if (!key) return; append(key, b.dataset.hwpxText); say('붙였어요. 칸에서 고칠 수 있어요.'); }
     else if (!state) return;
