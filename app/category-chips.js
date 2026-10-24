@@ -3,6 +3,13 @@
 // 칩은 '꺼 둔 종류 이름 모음(off)'으로 상태를 말한다: 꺼진 이름이 아닌 종류가 보인다. 저장은 이 모듈이 하지 않는다(부른 쪽이 정함).
 import {allState,afterAllTap} from './library-view-pref.js';
 
+// 담당조직·프로젝트 상세 [자료]가 처음 열릴 때 꺼 둘 종류(2026-10-24 명진 결정: '회의' 기본 켜짐).
+// 자료실은 '회의'만 꺼진 채 열리지만(library-upload.js LU_DEFAULT_OFF, 서버에 기억한 설정이 있으면 그것), 상세 두 곳은
+// 그 조직·프로젝트에 붙은 회의자료도 자료의 일부라 아무 종류도 끄지 않는다. 상세의 칩 상태는 저장하지 않으므로(열어 둔 동안만)
+// 자료실에 기억한 설정은 상세에 쓰이지 않고, 상세를 새로 열 때마다 이 기본값에서 시작한다.
+export const DETAIL_DEFAULT_OFF=Object.freeze([]);
+export const detailDefaultOff=()=>new Set(DETAIL_DEFAULT_OFF);
+
 // 칩 하나를 눌렀을 때의 새 off 모음. 'all'은 [전체]: 모두 켜졌으면 모두 끄고, 일부만 켜졌거나 모두 꺼졌으면 모두 켠다.
 export function toggleCategoryOff(names,off,value){
   if(value==='all')return afterAllTap(names,off);

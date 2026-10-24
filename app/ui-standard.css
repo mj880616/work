@@ -860,6 +860,18 @@
 .modal .file-line .file-line-open:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
 .modal .file-line:has(.file-line-open) :is(.file-kind,.file-line-main){pointer-events:none}
 .modal .modal-card.drop-active{outline:2px dashed var(--kptu-info);outline-offset:-6px}
+/* FILE-사업보고⋯(2026-10-24 사용자 결정): 사업 보고 자료 줄 끝 ⋯(meeting-columns.js fileMoreHtml). 담당조직·프로젝트 자료 줄의 ⋯
+   (workplace-detail.css .wd-doc-more)와 같은 <details> 모양·값. 누르기 자리(.file-line-open)보다 위에 놓고, 결과 창에서는 × 앞에 선다. */
+.file-line .file-line-more{position:relative;z-index:2;flex:none}
+.file-line .file-line-more>summary{list-style:none;cursor:pointer;display:grid;place-items:center;box-sizing:border-box;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);min-height:var(--kptu-touch-target,44px);margin:-4px 0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-muted);font-size:18px;line-height:1}
+.file-line .file-line-more>summary::-webkit-details-marker{display:none}
+.file-line .file-line-more>summary:hover{background:var(--kptu-surface-subtle);color:var(--kptu-ink)}
+.file-line .file-line-more>summary:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+.file-line .file-line-more-panel{position:absolute;right:0;top:calc(100% + 4px);z-index:8;min-width:148px;display:grid;padding:4px;background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);box-shadow:var(--kptu-shadow-float)}
+.file-line .file-line-more-panel button{min-height:44px;height:auto;width:auto;margin:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-ink);padding:0 12px;text-align:left;font-size:var(--kptu-text-meta);font-weight:600;white-space:nowrap}
+.file-line .file-line-more-panel button:hover,.file-line .file-line-more-panel button:focus-visible{background:var(--kptu-surface-subtle)}
+.modal .file-line:has(.file-line-more):has(.file-line-x) .file-line-open{right:calc(var(--kptu-touch-target,44px) * 2)}
+.modal .file-line:has(.file-line-more):not(:has(.file-line-x)) .file-line-open{right:var(--kptu-touch-target,44px)}
 
 /* UI-바구니첨부메모 ⑪: 자료 줄마다 작은 분류 꼬리표(교섭·투쟁·교육·선전·정책·회의·기타). 확장자 표시와 같은 회색 바탕. */
 .doc-category-tag{ display:inline-flex; align-items:center; box-sizing:border-box; height:20px; padding:0 6px; border-radius:var(--kptu-radius-pill,999px); font-size:var(--ds-text-meta,12px); font-weight:var(--ds-weight-medium,500); line-height:1; vertical-align:1px; color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }

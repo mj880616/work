@@ -2,7 +2,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {assignMeetingColors,meetingPaletteColor,MEETING_PALETTE,meetingColumns,columnsHtml,pickMeeting,resultHtml,resultText,tasksHtml,roundLabel,meetingShortName,NONE_KEY} from '../app/meeting-columns.js';
+import {assignMeetingColors,meetingPaletteColor,MEETING_PALETTE,meetingColumns,columnsHtml,pickMeeting,resultHtml,resultText,tasksHtml,roundLabel,meetingShortName,NONE_KEY,fileMoreHtml,meetingFileFile} from '../app/meeting-columns.js';
 
 const nameOf=m=>String(m?.series_name||m?.title||'').trim(),keyOf=n=>String(n||'').replace(/\s+/g,'').toLowerCase();
 const row=(name,day,extra={})=>({id:`${name}-${day}`,title:name,series_name:name,round_no:1,meeting_at:`2026-09-${String(day).padStart(2,'0')}T01:00:00Z`,...extra});
@@ -108,4 +108,21 @@ test('오른쪽 결과(읽기용): 원문 규칙·특이사항·프로젝트·�
   assert.match(tasksHtml(null),/불러오는 중/);assert.match(tasksHtml('error'),/불러오지 못했습니다/);assert.match(tasksHtml([]),/후속 할 일이 없습니다/);
   const tasks=tasksHtml([{title:'가상 할 일',status:'needsAction'},{title:'끝난 일',status:'completed'}],{dueOf:t=>t.status==='completed'?'':'10. 25.'});
   assert.equal((tasks.match(/class="mcol-task( completed)?"/g)||[]).length,2);assert.match(tasks,/completed[^]*끝난 일/);assert.match(tasks,/10\. 25\./);
+});
+
+// FILE-사업보고⋯(2026-10-24 명진 결정): 사업 보고 자료 줄에도 담당조직·프로젝트 자료 줄과 같은 ⋯([Drive에서 열기]·[내려받기], file-actions.js).
+test('사업 보고 자료 줄 ⋯: 자료실 자료면 두 항목, 줄 누르기 버튼은 그대로, 열 길이 없으면 ⋯ 없음',()=>{
+  const fileLine=({name,cls,end})=>`<div class="file-line ${cls}">${name}${end}</div>`;
+  const doc={id:'d1',title:'가상 안건지',file_name:'가상 <안건지>.hwp',mime_type:'application/x-hwp',file_id:'drive-d1',drive_url:'https://drive.google.com/file/d/drive-d1/view'};
+  assert.deepEqual(meetingFileFile(doc),{name:'가상 <안건지>.hwp',mime:'application/x-hwp',documentId:'d1',driveId:'drive-d1',driveUrl:'https://drive.google.com/file/d/drive-d1/view'});
+  const html=resultHtml({id:'x1',round_no:1},{docs:[doc],fileLine});
+  assert.match(html,/data-meeting-doc="d1"/);
+  assert.match(html,/<details class="file-line-more"><summary class="icon-btn" aria-label="파일 메뉴: 가상 &lt;안건지&gt;.hwp">⋯<\/summary>/);
+  assert.match(html,/data-fa-menu="open"[^>]*>Drive에서 열기<\/button><button[^>]*data-fa-menu="download"[^>]*>내려받기<\/button>/);
+  assert.match(html,/data-fa-doc="d1"/);assert.match(html,/data-fa-id="drive-d1"/);
+  // 파일 번호·주소가 없는 옛 행은 열 길도 내려받을 길도 없으니 ⋯를 그리지 않는다.
+  assert.equal(fileMoreHtml({id:'d2',title:'주소 없는 자료'}),'');
+  // 주소만 있는 링크 자료는 [Drive에서 열기]만.
+  const link=fileMoreHtml({id:'d3',title:'링크',drive_url:'https://drive.google.com/file/d/abc/view'});
+  assert.match(link,/data-fa-menu="open"/);assert.doesNotMatch(link,/data-fa-menu="download"/);
 });
