@@ -3,7 +3,7 @@
  *
  * 하는 일: 1시간마다 새 통화 전사 txt와 그 통화 분석 파일(검토__…md)을 찾아 Web2 서버(collector-feed)로 한 건씩 보낸다.
  *   - 개인 번호·연락처 목록(스크립트 속성 CALL_FEED_PERSONAL_LIST)에 있는 통화는 분석 파일을 읽지도 보내지도 않고 개수만 보낸다.
- *   - 분석이 아직 없으면 기다린다(24시간 넘게 없으면 건너뛴다).
+ *   - 분석이 아직 없으면 기다린다(3일 넘게 없으면 건너뛴다).
  *   - 어디까지 보냈는지는 이 스크립트의 스크립트 속성(CALL_FEED_STATE)에만 적는다. Drive 파일은 고치지 않는다.
  *     분석 파일의 status, Drive 파일 설명도 건드리지 않는다(Q13).
  *   - 시험 모드(기본 켬): 아무것도 보내지 않고 개수만 실행 로그에 적는다. 어디까지 보냈는지도 바꾸지 않는다.
@@ -33,7 +33,7 @@ var CALL_FEED_TRANSCRIPT_FOLDER = '전사';             // 기존 전사·분석
 var CALL_FEED_ANALYSIS_FOLDERS = ['검토대기', '검토완료'];
 var CALL_FEED_MAX_PER_RUN = 20;                       // 서버 하루 상한 50건 안에서 한 번에 보낼 수
 var CALL_FEED_TIME_LIMIT_MS = 4.5 * 60 * 1000;        // 앱 스크립트 6분 제한 전에 멈춘다
-var CALL_FEED_WAIT_ANALYSIS_MS = 24 * 3600 * 1000;    // 분석을 기다리는 시간
+var CALL_FEED_WAIT_ANALYSIS_MS = 72 * 3600 * 1000;    // 분석을 기다리는 시간(분석 스크립트가 OpenAI 요청 한도로 반나절 넘게 쉬는 경우가 있어 3일)
 var CALL_FEED_MAX_PENDING = 50;                       // 분석 대기 목록 크기 상한(넘치면 오래된 것부터 넘김)
 var CALL_FEED_MAX_ATTEMPTS = 3;                       // 서버·연결 실패를 다시 보내는 횟수
 // 서버 상한(collector-feed handler.ts·call-analysis.ts와 같은 값)
@@ -217,7 +217,7 @@ function callFeed_run() {
     return false;
   }
 
-  // 1) 먼저 대기 목록을 본다: 분석이 생겼으면 보내고 빼며, 24시간이 지났으면 넘김으로 세고 뺀다.
+  // 1) 먼저 대기 목록을 본다: 분석이 생겼으면 보내고 빼며, 3일이 지났으면 넘김으로 세고 뺀다.
   var stillPending = [], pendingChecked = pending.length;
   for (var p = 0; p < pending.length; p++) {
     if (stop || overLimit()) { stillPending.push(pending[p]); continue; }

@@ -302,9 +302,9 @@ test('분석 대기 통화: 다음 실행에서 분석이 생기면 한 번 보�
   assert.equal(third.sent.length,0,'같은 통화를 다시 보내거나 세지 않는다');
 });
 
-test('분석 대기 통화: 24시간이 지나도 분석이 없으면 넘김으로 세고 목록에서 뺀다',()=>{
+test('분석 대기 통화: 3일이 지나도 분석이 없으면 넘김으로 세고 목록에서 뺀다',()=>{
   const sc=waitScenario();
-  const pend=JSON.stringify({since:new Date(sc.tC).toISOString(),pending:[{id:'TXTWAIT0001aa',created:Date.now()-25*HOUR,tries:5}]});
+  const pend=JSON.stringify({since:new Date(sc.tC).toISOString(),pending:[{id:'TXTWAIT0001aa',created:Date.now()-73*HOUR,tries:5}]});
   const {env,store,sent,logs}=fakeEnv({props:{CALL_FEED_STATE:pend,CALL_FEED_TEST_MODE:'끔',COLLECTOR_FEED_SECRET:SECRET},custom:sc.custom});
   env.callFeed_run();
   assert.equal(sent.length,0);
@@ -321,7 +321,7 @@ test('대기 목록 정리·상한·판정(순수 함수)',()=>{
   assert.equal(t.keep.length,50);
   assert.deepEqual(t.dropped.map((e)=>e.id),['id0','id1','id2'],'가장 오래된 것부터 넘김');
   assert.equal(G.callFeedPendingTrim(many.slice(0,5),50).dropped.length,0);
-  const now=1e12, W=24*3600*1000;
+  const now=1e12, W=72*3600*1000;
   assert.equal(G.callFeedPendingDecision({created:now-1000},now,true),'send');
   assert.equal(G.callFeedPendingDecision({created:now-1000},now,false),'wait');
   assert.equal(G.callFeedPendingDecision({created:now-W},now,false),'expire');
