@@ -69,3 +69,21 @@ test('앱이 채운 첫 줄은 파란 글씨(바탕에 없는 줄), 나머지는
   const out = assembleDraft(r.base, {sites: new Map([[0, r.starts.get(0)]])});
   assert.deepEqual(out.sites[0].status, [{text: '- 쟁의발생 결의(10.20)', changed: true}, '- 조정회의 10.22 예정']);
 });
+
+// ORG-쟁의단계 다듬기(2026-10-24 11:05): 단계 기간이 표에 기간으로 나오고, 끝남 기간이 그 주에 걸치면 그 주에 나온다.
+const histP = (org, name, date, end, n = 1) => ({...hist(org, name, date, n), end_date: end});
+test('기간: 투쟁 중은 - 파업 찬반투표(10.20~10.22), 옛 단계 줄(기간 포함)은 새 줄로 바뀜', () => {
+  const r = run([histP('o1', '파업 찬반투표', '2026-10-20', '2026-10-22')]);
+  assert.deepEqual(r.starts.get(0), ['- 파업 찬반투표(10.20~10.22)', '- 조정회의 10.22 예정']);
+  const again = applySiteStages({...base(), sites: [{org: ['합성 가 지부'], status: ['- 파업 찬반투표(10.13~10.15)', '- 남길 줄'], paras: [null, null]}]},
+    {orgs, stages, histories: histories([histP('o1', '파업 찬반투표', '2026-10-20', '2026-10-22')]), weekStart: '2026-10-19'});
+  assert.deepEqual(again.starts.get(0), ['- 파업 찬반투표(10.20~10.22)', '- 남길 줄']);
+});
+test('끝남 기간이 걸친 주마다 한 줄(10.24~10.27 → 10.19 주와 10.26 주), 그다음 주는 빠지고 고칠 목록', () => {
+  const rows = [histP('o2', '협약체결', '2026-10-24', '2026-10-27')];
+  assert.deepEqual(run(rows).starts.get(1), ['- 협약체결(10.24~10.27)']);
+  assert.deepEqual(run(rows, '2026-10-26').starts.get(1), ['- 협약체결(10.24~10.27)']);
+  const later = run(rows, '2026-11-02');
+  assert.equal(later.starts.has(1), false);
+  assert.ok(later.fixes.some(f => f.index === 1));
+});

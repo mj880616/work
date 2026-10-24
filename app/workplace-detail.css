@@ -128,3 +128,16 @@ button.wd-doc-main:hover{background:var(--kptu-surface-subtle)}
 .wd-stage-btn::after{content:"";position:absolute;inset:-6px 0}
 .wd-stage-msg{flex:1 0 100%;color:var(--kptu-muted)}.wd-stage-msg:empty{display:none}.wd-stage-msg.error{color:var(--kptu-danger)}
 .wd-stage-hist{flex:1 0 100%;color:var(--kptu-muted)}.wd-stage-hist summary{cursor:pointer}.wd-stage-hist div{padding:1px 0 0 10px}
+/* ORG-쟁의단계 다듬기(2026-10-24 11:05): 저장 줄의 작은 [~ 끝 날짜]와 끝 날짜 칸, 이력 줄 ⋯ → 고치기·지우기. 새 요소만, 크기는 기존 토큰. */
+.wd-stage-tilde{flex:0 0 auto;color:var(--kptu-muted)}
+.wd-stage-end-btn{position:relative;flex:0 0 auto;height:var(--ds-compact-height-sm);min-height:0;padding:0 4px;border:0;background:transparent;color:var(--kptu-link);font-size:var(--ds-text-meta);cursor:pointer}
+.wd-stage-end-btn::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+.wd-stage-hist .wd-stage-hrow{padding:0 0 0 10px}
+.wd-stage-hline{display:flex;align-items:center;gap:6px;min-height:var(--ds-compact-height-sm)}
+.wd-stage-htext{flex:1 1 auto;min-width:0}
+.wd-stage-hmore{position:relative;flex:0 0 auto;width:var(--ds-compact-height-sm);height:var(--ds-compact-height-sm);min-height:0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);line-height:1;cursor:pointer}
+.wd-stage-hmore::after{content:"";position:absolute;top:0;bottom:0;left:calc(50% - var(--kptu-touch-target,44px) / 2);width:var(--kptu-touch-target,44px)}
+.wd-stage-hmore:hover,.wd-stage-hmore[aria-expanded="true"]{background:var(--kptu-surface-subtle)}
+.wd-stage-hsub{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;padding:2px 0 6px}
+.wd-stage-hsub .stg-link{min-height:var(--ds-compact-height-sm);padding:0 4px;border:0;background:transparent;color:var(--kptu-link);font-size:var(--ds-text-meta);cursor:pointer}
+.wd-stage-hsub .stg-link.danger{color:var(--kptu-danger)}

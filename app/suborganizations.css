@@ -41,10 +41,9 @@
   #wdDetailPane>#wdModal.wd-docked>.wd-card>.modal-head{display:none}
 }
 
-/* ORG-쟁의단계: 목록 맨 위 ⋯ 줄, 목록 줄 꼬리표(투쟁 중·이번 주 끝남만), 쟁의 단계 관리 창. 크고 굵은 버튼 없음(UI-버튼기준). */
+/* ORG-쟁의단계: 화면 제목 줄 ⋯(아래 .so-team-head), 목록 줄 꼬리표(투쟁 중·이번 주 끝남만), 쟁의 단계 관리 창. 크고 굵은 버튼 없음(UI-버튼기준). */
 #soOrganizationList{position:relative}
 .so-team-tools{position:absolute;top:2px;right:8px;z-index:1;display:flex}
-#soOrganizationList>.so-team-tools+.so-org-group .so-group-count{margin-right:30px}
 .so-team-tools .so-team-more{position:relative;width:var(--ds-compact-height);height:var(--ds-compact-height);min-height:0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:var(--ds-text-button);line-height:1;cursor:pointer}
 .so-team-tools .so-team-more::after{content:"";position:absolute;inset:-6px}
 .so-team-tools .so-team-more:hover,.so-team-tools .so-team-more[aria-expanded="true"]{background:var(--kptu-surface-subtle)}
@@ -73,3 +72,13 @@
 .stg-add{display:flex;align-items:center;gap:6px}
 .stg-add-btn{justify-self:start;height:var(--ds-compact-height-sm);min-height:0;padding:0 8px;border:0;background:transparent;color:var(--kptu-muted);font-size:var(--ds-text-meta);cursor:pointer}
 .stg-note,.stg-msg{margin:0;font-size:var(--ds-text-meta);color:var(--kptu-muted)}.stg-msg:empty{display:none}.stg-msg.error{color:var(--kptu-danger)}
+/* ORG-쟁의단계 다듬기 ③: 화면 전체 ⋯는 화면 제목 '담당조직' 줄 오른쪽(#soTeamHead). 761px~: 본문 제목 줄(바구니 머리줄과 같은 글자 크기),
+   폰: 위 머리줄 "담당조직" 오른쪽 자리로 올린다(바구니 .basket-head와 같은 방식, ☰가 빠진 자리). 크기 값은 기존 토큰만. */
+#appView #teamView>.so-team-head{position:static;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:var(--ds-compact-height);margin:0 0 8px}
+#appView #teamView>.so-team-head .so-team-title{margin:0;font-size:var(--ds-text-title);font-weight:var(--ds-weight-medium);line-height:1.4}
+#appView #teamView>.so-team-head{flex:0 0 auto}
+@media(max-width:760px){
+  #appView #teamView>.so-team-head{justify-content:flex-end;min-height:var(--kptu-touch-target,44px);margin:calc(-1 * (var(--kptu-touch-target,44px) + 12px)) 0 12px;pointer-events:none}
+  #appView #teamView>.so-team-head .so-team-title{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  #appView #teamView>.so-team-head .so-team-more{pointer-events:auto;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);font-size:22px}
+}

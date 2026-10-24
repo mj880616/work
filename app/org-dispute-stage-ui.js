@@ -1,19 +1,21 @@
 // ORG-쟁의단계 화면: ① 조직 상세의 '쟁의 단계' 한 줄(선택 + 달력 날짜 + 저장, 접힌 단계 이력) ② 쟁의 단계 관리 창.
 // 데이터는 org-dispute-stage.js, 판정은 org-dispute-stage-model.mjs 한 곳. 표가 없으면(DB 적용 전) '준비 중' 한 줄만 보인다.
 import {seoulDateKey} from './meeting-time.js';
-import {loadDisputeState, ensureSeeded, peekDisputeState, saveOrgStage, addStage, renameStage, setStageFlag, reorderStages, deleteStage} from './org-dispute-stage.js';
-import {stageOfOrg, sortStages, historyLines, reorderChanges, orgsAtStageText, stageNameProblem, STAGE_NAME_LIMIT, DEFAULT_STAGES} from './org-dispute-stage-model.mjs';
+import {loadDisputeState, ensureSeeded, peekDisputeState, saveOrgStage, editHistoryRow, deleteHistoryRow, PERIOD_PENDING, addStage, renameStage, setStageFlag, reorderStages, deleteStage} from './org-dispute-stage.js';
+import {stageOfOrg, sortStages, historyLines, reorderChanges, orgsAtStageText, stageNameProblem, periodProblem, STAGE_NAME_LIMIT, DEFAULT_STAGES} from './org-dispute-stage-model.mjs';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const today = () => seoulDateKey(Date.now());
 const errText = e => (e && e.message) || String(e || '');
 
 // ───────────── ① 조직 상세의 쟁의 단계 한 줄 ─────────────
-let line = null; // {host, orgId, orgName, workspaceId, canEdit, rt, draft:{stageId,date,dateTouched}, busy, msg:{text,error}, run}
+// 저장 줄: [단계 ▾] [날짜] [~ 끝 날짜](선택, 누르면 달력 칸) [저장]. 접힌 '단계 이력'의 줄마다 ⋯ → [고치기](단계·날짜·끝 날짜)·[지우기](한 번 더 확인).
+let line = null; // {host, orgId, orgName, workspaceId, canEdit, rt, draft:{stageId,date,end,endOpen,dateTouched}, hist:{id,mode,draft}, histOpen, busy, msg:{text,error}, run}
+const NO_HIST = {id: null, mode: null, draft: null};
 
 export function paintStageLine(opts) {
   const same = line && line.host === opts.host && line.orgId === opts.orgId;
-  line = {draft: null, busy: false, msg: {text: '', error: false}, ...(same ? {draft: line.draft, msg: line.msg} : {}), ...opts, run: (line?.run || 0) + 1};
+  line = {draft: null, hist: NO_HIST, histOpen: false, busy: false, msg: {text: '', error: false}, ...(same ? {draft: line.draft, msg: line.msg, hist: line.hist, histOpen: line.histOpen} : {}), ...opts, run: (line?.run || 0) + 1};
   bindLine(line.host);
   paintLine();
   const state = peekDisputeState();
@@ -34,14 +36,36 @@ function paintLine() {
   if (state.status === 'error') { host.innerHTML = '<span class="wd-stage-k">쟁의 단계</span><span class="wd-stage-note" role="alert">불러오지 못했어요</span><button type="button" class="wd-stage-btn" data-stage-retry>다시 시도</button>'; return; }
   const stages = lineStages(state), cur = stageOfOrg(orgId, state.histories, stages);
   const draft = line.draft, stageId = draft?.stageId ?? cur.stage?.id ?? '', date = draft?.date ?? cur.date;
+  const end = draft ? draft.end ?? '' : cur.end, endOpen = !!(draft?.endOpen || end);
   const rows = state.histories.get(orgId) ?? [], hist = historyLines(rows, 20);
-  const options = stages.map(s => `<option value="${esc(s.id)}"${s.id === stageId ? ' selected' : ''}>${esc(s.name)}</option>`).join('');
+  const options = (picked, list = stages) => list.map(s => `<option value="${esc(s.id)}"${s.id === picked ? ' selected' : ''}>${esc(s.name)}</option>`).join('');
+  const endControl = endOpen
+    ? `<span class="wd-stage-tilde" aria-hidden="true">~</span><input class="wd-stage-date" type="date" data-stage-end value="${esc(end)}" min="${esc(date)}" aria-label="끝 날짜(선택, 비우면 하루)">`
+    : '<button type="button" class="wd-stage-end-btn" data-stage-end-open aria-label="끝 날짜 넣기(선택)">~ 끝 날짜</button>';
   const controls = canEdit
-    ? `<select class="wd-stage-select" data-stage-select aria-label="쟁의 단계">${options}</select><input class="wd-stage-date" type="date" data-stage-date value="${esc(date)}" aria-label="단계 날짜"><button type="button" class="wd-stage-btn" data-stage-save disabled>저장</button>`
-    : `<span class="wd-stage-now">${esc(cur.name)}${cur.date ? ` · ${esc(cur.date)}` : ''}</span>`;
+    ? `<select class="wd-stage-select" data-stage-select aria-label="쟁의 단계">${options(stageId)}</select><input class="wd-stage-date" type="date" data-stage-date value="${esc(date)}" aria-label="단계 날짜">${endControl}<button type="button" class="wd-stage-btn" data-stage-save disabled>저장</button>`
+    : `<span class="wd-stage-now">${esc(cur.name)}${cur.date ? ` · ${esc(cur.date)}${cur.end && cur.end !== cur.date ? ` ~ ${esc(cur.end)}` : ''}` : ''}</span>`;
   host.innerHTML = `<span class="wd-stage-k">쟁의 단계</span>${controls}<span class="wd-stage-msg${line.msg.error ? ' error' : ''}" data-stage-msg role="${line.msg.error ? 'alert' : 'status'}">${esc(line.msg.text)}</span>`
-    + (hist.length ? `<details class="wd-stage-hist"><summary>단계 이력 ${hist.length}</summary>${hist.map(h => `<div>${esc(h.date)} ${esc(h.name)}</div>`).join('')}</details>` : '');
+    + (hist.length ? `<details class="wd-stage-hist" data-stage-hist${line.histOpen ? ' open' : ''}><summary>단계 이력 ${hist.length}</summary>${hist.map(h => histRowHtml(h, stages, canEdit)).join('')}</details>` : '');
   updateSave();
+}
+
+// 이력 한 줄: '11.3 ~ 11.5 파업 찬반투표' + ⋯. 고르면 그 줄 아래에 [고치기]·[지우기] → 고치기 칸 또는 지우기 확인.
+function histRowHtml(h, stages, canEdit) {
+  const ui = line.hist, mine = ui.id === h.id, busy = line.busy ? ' disabled' : '';
+  const label = `${h.date} ${h.name}`;
+  const more = canEdit ? `<button type="button" class="wd-stage-hmore" data-stage-hmore aria-label="${esc(label)} 메뉴" aria-expanded="${mine && !!ui.mode}">⋯</button>` : '';
+  let extra = '';
+  if (mine && ui.mode === 'menu') {
+    extra = `<div class="wd-stage-hsub"><button type="button" class="stg-link" data-stage-hedit${busy}>고치기</button><button type="button" class="stg-link danger" data-stage-hdel${busy}>지우기</button></div>`;
+  } else if (mine && ui.mode === 'edit') {
+    const d = ui.draft, list = stages.some(s => s.id === d.stageId) ? stages : [{id: d.stageId ?? '', name: h.name}, ...stages];
+    const opts = list.map(s => `<option value="${esc(s.id)}"${s.id === d.stageId ? ' selected' : ''}>${esc(s.name)}</option>`).join('');
+    extra = `<form class="wd-stage-hsub wd-stage-hform" data-stage-hform><select class="wd-stage-select" data-stage-hselect aria-label="고칠 단계">${opts}</select><input class="wd-stage-date" type="date" data-stage-hdate value="${esc(d.start)}" aria-label="고칠 날짜" required><span class="wd-stage-tilde" aria-hidden="true">~</span><input class="wd-stage-date" type="date" data-stage-hend value="${esc(d.end)}" min="${esc(d.start)}" aria-label="고칠 끝 날짜(선택, 비우면 하루)"><button type="submit" class="stg-link"${busy}>저장</button><button type="button" class="stg-link" data-stage-hcancel>취소</button></form>`;
+  } else if (mine && ui.mode === 'confirm') {
+    extra = `<div class="wd-stage-hsub stg-confirm" role="group" aria-label="이력 지우기 확인"><span>이 줄을 지울까요? 지금 단계는 남은 이력의 가장 나중 줄로 돌아가요.</span><button type="button" class="stg-link danger" data-stage-hdel-yes${busy}>지우기</button><button type="button" class="stg-link" data-stage-hcancel>취소</button></div>`;
+  }
+  return `<div class="wd-stage-hrow" data-stage-hrow="${esc(h.id)}"><div class="wd-stage-hline"><span class="wd-stage-htext">${esc(label)}</span>${more}</div>${extra}</div>`;
 }
 
 function updateSave() {
@@ -49,23 +73,25 @@ function updateSave() {
   const state = peekDisputeState(); if (!state || state.status !== 'ready') return;
   const btn = line.host.querySelector('[data-stage-save]'); if (!btn) return;
   const cur = stageOfOrg(line.orgId, state.histories, lineStages(state));
-  const select = line.host.querySelector('[data-stage-select]'), date = line.host.querySelector('[data-stage-date]');
-  const changed = select.value !== (cur.stage?.id ?? '') || date.value !== cur.date;
+  const select = line.host.querySelector('[data-stage-select]'), date = line.host.querySelector('[data-stage-date]'), end = line.host.querySelector('[data-stage-end]');
+  const changed = select.value !== (cur.stage?.id ?? '') || date.value !== cur.date || (end?.value ?? cur.end) !== cur.end;
   btn.disabled = line.busy || !changed || !date.value;
 }
 
 async function saveLine() {
   if (!line || line.busy) return;
   let state = peekDisputeState(); const host = line.host, mine = line;
-  const picked = host.querySelector('[data-stage-select]').value, date = host.querySelector('[data-stage-date]').value;
+  const picked = host.querySelector('[data-stage-select]').value, date = host.querySelector('[data-stage-date]').value, end = host.querySelector('[data-stage-end]')?.value || '';
   if (!state || !picked || !date) return;
+  const problem = periodProblem(date, end);
+  if (problem) { setMsg(problem, true); return; }
   line.busy = true; host.querySelector('[data-stage-save]').disabled = true;
   setMsg('저장하는 중…');
   try {
     if (picked.startsWith('seed:')) state = await ensureSeeded({rt: line.rt, workspaceId: line.workspaceId});
     const stage = picked.startsWith('seed:') ? state.stages.find(s => s.name === picked.slice(5)) : state.stages.find(s => s.id === picked);
     if (!stage) throw new Error('단계를 찾지 못했어요.');
-    await saveOrgStage({rt: line.rt, workspaceId: line.workspaceId, orgId: line.orgId, stage, date, history: state.histories.get(line.orgId) ?? []});
+    await saveOrgStage({rt: line.rt, workspaceId: line.workspaceId, orgId: line.orgId, stage, date, end, history: state.histories.get(line.orgId) ?? [], periodReady: state.periodReady !== false});
     if (line === mine) { line.draft = null; line.busy = false; line.msg = {text: '저장했어요.', error: false}; paintLine(); }
   } catch (e) {
     if (line === mine) { line.busy = false; line.msg = {text: `저장하지 못했어요. ${errText(e)}`, error: true}; paintLine(); }
@@ -76,10 +102,59 @@ function setMsg(text, error = false) {
   const el = line.host.querySelector('[data-stage-msg]'); if (el) { el.textContent = text; el.className = 'wd-stage-msg' + (error ? ' error' : ''); }
 }
 
+// 이력 고치기·지우기: 서버 저장 뒤 다시 읽어 그린다. 실패하면 그 줄의 칸을 그대로 두고 메시지만.
+async function runHist(action, ok) {
+  if (!line || line.busy) return;
+  const mine = line; mine.busy = true; setMsg('저장하는 중…'); paintLine();
+  try { await action(); if (line !== mine) return; mine.busy = false; mine.hist = NO_HIST; mine.msg = {text: ok, error: false}; }
+  catch (e) { if (line !== mine) return; mine.busy = false; mine.msg = {text: errText(e) || '저장하지 못했어요.', error: true}; }
+  paintLine();
+  queueMicrotask(() => { if (line === mine) (mine.host.querySelector('[data-stage-hist] summary'))?.focus({preventScroll: true}); });
+}
+const histFocus = sel => queueMicrotask(() => line?.host.querySelector(sel)?.focus({preventScroll: true}));
+function onHistClick(e, host) {
+  const row = e.target.closest('[data-stage-hrow]'), id = row?.dataset.stageHrow, t = sel => e.target.closest(sel);
+  if (!row || !line?.canEdit) return false;
+  const state = peekDisputeState(); if (!state || state.status !== 'ready') return true;
+  const h = (state.histories.get(line.orgId) ?? []).find(r => r.id === id); if (!h) return true;
+  const sel = `[data-stage-hrow="${CSS.escape(id)}"]`;
+  if (t('[data-stage-hmore]')) { line.hist = line.hist.id === id && line.hist.mode ? NO_HIST : {id, mode: 'menu', draft: null}; setMsg(''); paintLine(); histFocus(`${sel} [data-stage-hmore]`); return true; }
+  if (t('[data-stage-hcancel]')) { line.hist = NO_HIST; setMsg(''); paintLine(); histFocus(`${sel} [data-stage-hmore]`); return true; }
+  if (t('[data-stage-hedit]')) {
+    if (state.periodReady === false) { line.hist = NO_HIST; line.msg = {text: PERIOD_PENDING, error: true}; paintLine(); return true; }
+    line.hist = {id, mode: 'edit', draft: {stageId: h.stage_id, start: h.stage_date, end: h.end_date || ''}}; setMsg(''); paintLine(); histFocus(`${sel} [data-stage-hselect]`); return true;
+  }
+  if (t('[data-stage-hdel]')) { line.hist = {id, mode: 'confirm', draft: null}; setMsg(''); paintLine(); histFocus(`${sel} [data-stage-hdel-yes]`); return true; }
+  if (t('[data-stage-hdel-yes]')) { void runHist(() => deleteHistoryRow({rt: line.rt, workspaceId: line.workspaceId, id}), '이력 한 줄을 지웠어요.'); return true; }
+  return !!t('.wd-stage-hsub');
+}
+function onHistSubmit(e) {
+  const form = e.target.closest('[data-stage-hform]'); if (!form || !line) return;
+  e.preventDefault();
+  const state = peekDisputeState(); if (!state || state.status !== 'ready') return;
+  const id = form.closest('[data-stage-hrow]').dataset.stageHrow;
+  const stageId = form.querySelector('[data-stage-hselect]').value, date = form.querySelector('[data-stage-hdate]').value, end = form.querySelector('[data-stage-hend]').value;
+  line.hist = {id, mode: 'edit', draft: {stageId, start: date, end}};
+  const stage = state.stages.find(s => s.id === stageId);
+  if (!stage) { setMsg('지금 단계 목록에 있는 단계를 골라 주세요.', true); return; }
+  if (!date) { setMsg('날짜를 확인해 주세요.', true); return; }
+  const problem = periodProblem(date, end);
+  if (problem) { setMsg(problem, true); form.querySelector('[data-stage-hend]').focus(); return; }
+  void runHist(() => editHistoryRow({rt: line.rt, workspaceId: line.workspaceId, id, stage, date, end, periodReady: state.periodReady !== false}), '이력을 고쳤어요.');
+}
+
 function bindLine(host) {
   if (host.dataset.stageBound) return; host.dataset.stageBound = '1';
+  host.addEventListener('submit', onHistSubmit);
+  host.addEventListener('toggle', e => { if (line && e.target.matches?.('[data-stage-hist]')) line.histOpen = e.target.open; }, true);
+  host.addEventListener('input', e => {
+    if (!line || !e.target.closest('[data-stage-hform]')) return;
+    const form = e.target.closest('[data-stage-hform]');
+    line.hist = {...line.hist, draft: {stageId: form.querySelector('[data-stage-hselect]').value, start: form.querySelector('[data-stage-hdate]').value, end: form.querySelector('[data-stage-hend]').value}};
+    if (e.target.matches('[data-stage-hdate]')) form.querySelector('[data-stage-hend]').min = e.target.value;
+  });
   host.addEventListener('change', e => {
-    if (!line) return;
+    if (!line || e.target.closest('[data-stage-hform]')) return;
     const select = e.target.closest('[data-stage-select]'), date = e.target.closest('[data-stage-date]');
     const state = peekDisputeState(); if (!state) return;
     const cur = stageOfOrg(line.orgId, state.histories, lineStages(state));
@@ -88,10 +163,18 @@ function bindLine(host) {
       // 다른 단계를 고르면 날짜는 오늘로(직접 고친 날짜가 없을 때). 원래 단계로 돌아오면 원래 날짜.
       if (select.value !== (cur.stage?.id ?? '')) { if (!line.draft?.dateTouched) input.value = today(); } else if (!line.draft?.dateTouched) input.value = cur.date;
     }
-    line.draft = {stageId: host.querySelector('[data-stage-select]').value, date: host.querySelector('[data-stage-date]').value, dateTouched: !!date || !!line.draft?.dateTouched};
+    const endInput = host.querySelector('[data-stage-end]');
+    if (endInput) endInput.min = host.querySelector('[data-stage-date]').value;
+    line.draft = {stageId: host.querySelector('[data-stage-select]').value, date: host.querySelector('[data-stage-date]').value, end: endInput?.value ?? line.draft?.end ?? cur.end, endOpen: !!endInput, dateTouched: !!date || !!line.draft?.dateTouched};
     setMsg(''); updateSave();
   });
   host.addEventListener('click', e => {
+    if (onHistClick(e, host)) return;
+    if (e.target.closest('[data-stage-end-open]') && line) {
+      const state = peekDisputeState(), cur = state?.status === 'ready' ? stageOfOrg(line.orgId, state.histories, lineStages(state)) : null;
+      line.draft = {stageId: host.querySelector('[data-stage-select]')?.value ?? cur?.stage?.id ?? '', date: host.querySelector('[data-stage-date]')?.value ?? cur?.date ?? '', end: line.draft?.end ?? '', endOpen: true, dateTouched: !!line.draft?.dateTouched};
+      paintLine(); histFocus('[data-stage-end]'); return;
+    }
     if (e.target.closest('[data-stage-save]')) void saveLine();
     else if (e.target.closest('[data-stage-retry]') && line) { const mine = line; void loadDisputeState({rt: line.rt, workspaceId: line.workspaceId, force: true}).then(() => { if (line === mine) paintLine(); }); }
   });

@@ -9,11 +9,11 @@ const orgs=[
  {id:'oa',workspace_id:'w',name:'합성 가 지부',active:true,created_by:owner,updated_at:stamp},
  {id:'ob',workspace_id:'w',name:'합성 나 지부',active:true,created_by:owner,updated_at:stamp}
 ];
-async function fixture(page,{width,tables=true,seeded=true}){
+async function fixture(page,{width,tables=true,seeded=true,period=true}){
  await page.setViewportSize({width,height:900});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const f=await openHome(page);
- const db={stages:seeded?defaultStageRows():[],history:[],rpc:[],patches:[],seq:0};
+ const db={stages:seeded?defaultStageRows():[],history:[],rpc:[],patches:[],hpatches:[],hdeletes:[],seq:0};
  const json=(route,data,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
  await page.route(SB+'/rest/v1/app_suborganizations?**',route=>{const q=new URL(route.request().url()).searchParams,id=q.get('id');return json(route,id?orgs.filter(o=>'eq.'+o.id===id):orgs)});
  await page.route(SB+'/rest/v1/app_suborganization_assignees?**',route=>{const q=new URL(route.request().url()).searchParams;return json(route,q.get('user_id')?[{user_id:owner}]:orgs.map(o=>({organization_id:o.id,user_id:owner})))});
@@ -30,9 +30,12 @@ async function fixture(page,{width,tables=true,seeded=true}){
  await page.route(/\/rest\/v1\/app_suborganization_dispute_stages(\?|$)/,async route=>{
   const req=route.request(),url=new URL(req.url());
   if(!tables)return json(route,{message:'x'},404);
-  if(req.method()==='GET')return json(route,db.history);
-  if(req.method()==='POST'){const b=req.postDataJSON();db.history.push({id:'h-'+(++db.seq),created_at:`2026-10-06T00:00:${String(db.seq).padStart(2,'0')}Z`,...b});return json(route,[],201)}
-  if(req.method()==='DELETE'){const id=url.searchParams.get('id').slice(3);db.history=db.history.filter(h=>h.id!==id);return json(route,[])}
+  // DB 20261024170000 적용 전: end_date 칸이 없으면 PostgREST는 400(42703).
+  const noEnd=()=>json(route,{code:'42703',message:'column app_suborganization_dispute_stages.end_date does not exist'},400);
+  if(req.method()==='GET'){if(!period&&/end_date/.test(url.searchParams.get('select')||''))return noEnd();return json(route,period?db.history:db.history.map(({end_date,...h})=>h))}
+  if(req.method()==='POST'){const b=req.postDataJSON();if(!period&&'end_date' in b)return noEnd();if(b.end_date&&b.end_date<b.stage_date)return json(route,{code:'23514',message:'violates check constraint'},400);db.history.push({id:'h-'+(++db.seq),created_at:`2026-10-06T00:00:${String(db.seq).padStart(2,'0')}Z`,end_date:null,...b});return json(route,[],201)}
+  if(req.method()==='PATCH'){if(!period)return noEnd();const id=url.searchParams.get('id').slice(3),b=req.postDataJSON();db.hpatches.push({id,...b});const h=db.history.find(x=>x.id===id);if(!h)return json(route,[]);Object.assign(h,b);return json(route,[h])}
+  if(req.method()==='DELETE'){const id=url.searchParams.get('id').slice(3),gone=db.history.filter(h=>h.id===id);db.hdeletes.push(id);db.history=db.history.filter(h=>h.id!==id);return json(route,gone)}
   return route.continue();
  });
  await page.route(SB+'/rest/v1/rpc/app_dispute_stage_delete',async route=>{
@@ -187,4 +190,117 @@ test('기본 단계가 없을 때 관리 창을 처음 열면 11개를 채운다
  await clickView(page,'team');expect(db.stages).toEqual([]);
  await page.locator('#soTeamMore').click();await page.locator('#soTeamMenu [data-so-stage-manage]').click();
  await expect(page.locator('#soStageModal .stg-row')).toHaveCount(11);expect(db.stages[0]).toMatchObject({is_default:true});
+});
+
+// ORG-쟁의단계 다듬기(2026-10-24 11:05~11:08): ① 단계 기간(끝 날짜) ② 이력 한 줄 고치기·지우기 ③ 화면 전체 ⋯는 제목 '담당조직' 줄 오른쪽.
+for(const width of [390,1280])test(`단계 기간 저장: [~ 끝 날짜] → 이력 '11.3 ~ 11.5', 끝 < 시작은 저장 전에 막음 ${width}px`,async({page})=>{
+ const {db,errors}=await fixture(page,{width});
+ await openOrg(page,'oa',width);
+ const line=page.locator('#wdStage');
+ await expect(line.locator('[data-stage-end]')).toHaveCount(0);
+ await stageSelect(page).selectOption({label:'파업 찬반투표'});
+ await line.locator('[data-stage-date]').fill('2026-10-05');
+ await line.locator('[data-stage-end-open]').click();
+ await expect(line.locator('[data-stage-end]')).toBeFocused();
+ await expect(stageSelect(page)).toHaveValue('stage-6');await expect(line.locator('[data-stage-date]')).toHaveValue('2026-10-05');
+ await line.locator('[data-stage-end]').fill('2026-10-04');
+ await line.locator('[data-stage-save]').click();
+ await expect(line.locator('[data-stage-msg]')).toHaveText('끝 날짜는 시작 날짜와 같거나 뒤여야 해요.');
+ expect(db.history).toEqual([]);
+ await line.locator('[data-stage-end]').fill('2026-10-07');
+ await line.locator('[data-stage-save]').click();
+ await expect(line.locator('[data-stage-msg]')).toHaveText('저장했어요.');
+ expect(db.history).toHaveLength(1);expect(db.history[0]).toMatchObject({stage_name:'파업 찬반투표',stage_date:'2026-10-05',end_date:'2026-10-07'});
+ await expect(line.locator('[data-stage-end]')).toHaveValue('2026-10-07');
+ await line.locator('summary').click();
+ await expect(line.locator('[data-stage-hrow] .wd-stage-htext')).toHaveText(['10.5 ~ 10.7 파업 찬반투표']);
+ // 끝 날짜 없이 저장하면 하루(end_date 보내지 않음)
+ await stageSelect(page).selectOption({label:'쟁의중'});await line.locator('[data-stage-date]').fill('2026-10-08');await line.locator('[data-stage-end]').fill('');
+ await line.locator('[data-stage-save]').click();await expect(line.locator('[data-stage-msg]')).toHaveText('저장했어요.');
+ expect(db.history[1]).toMatchObject({stage_name:'쟁의중',stage_date:'2026-10-08',end_date:null});
+ await expect(line.locator('[data-stage-hrow] .wd-stage-htext').first()).toHaveText('10.8 쟁의중');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
+ expect(errors).toEqual([]);
+});
+
+for(const width of [390,1280])test(`이력 한 줄 ⋯ → 고치기(단계·날짜·끝 날짜)·지우기(한 번 더 확인), 현재 단계 다시 계산 ${width}px`,async({page})=>{
+ const {db,errors}=await fixture(page,{width});
+ db.history.push({id:'h-a',organization_id:'oa',stage_id:'stage-2',stage_name:'교섭 중',stage_date:'2026-09-20',end_date:null,created_at:'2026-09-20T00:00:00Z'},
+  {id:'h-b',organization_id:'oa',stage_id:'stage-3',stage_name:'쟁의발생 결의',stage_date:'2026-10-02',end_date:null,created_at:'2026-10-02T00:00:00Z'});
+ await openOrg(page,'oa',width);
+ const line=page.locator('#wdStage');
+ await expect(stageSelect(page)).toHaveValue('stage-3');await expect(row(page,'oa').locator('.so-stage-tag')).toHaveText('쟁의발생 결의');
+ await line.locator('summary').click();
+ const rowB=line.locator('[data-stage-hrow="h-b"]');
+ await rowB.locator('[data-stage-hmore]').click();
+ await expect(rowB.locator('.wd-stage-hsub button')).toHaveText(['고치기','지우기']);
+ // 고치기: 끝 < 시작은 막고, 바르게 고치면 PATCH 한 번
+ await rowB.locator('[data-stage-hedit]').click();
+ await expect(rowB.locator('[data-stage-hselect]')).toBeFocused();
+ await rowB.locator('[data-stage-hselect]').selectOption({label:'파업 찬반투표'});
+ await rowB.locator('[data-stage-hdate]').fill('2026-10-03');await rowB.locator('[data-stage-hend]').fill('2026-10-01');
+ await rowB.locator('button[type=submit]').click();
+ await expect(line.locator('[data-stage-msg]')).toHaveText('끝 날짜는 시작 날짜와 같거나 뒤여야 해요.');expect(db.hpatches).toEqual([]);
+ await rowB.locator('[data-stage-hend]').fill('2026-10-05');await rowB.locator('button[type=submit]').click();
+ await expect(line.locator('[data-stage-msg]')).toHaveText('이력을 고쳤어요.');
+ expect(db.hpatches).toEqual([{id:'h-b',stage_id:'stage-6',stage_name:'파업 찬반투표',stage_date:'2026-10-03',end_date:'2026-10-05'}]);
+ await expect(line.locator('[data-stage-hrow="h-b"] .wd-stage-htext')).toHaveText('10.3 ~ 10.5 파업 찬반투표');
+ await expect(stageSelect(page)).toHaveValue('stage-6');await expect(row(page,'oa').locator('.so-stage-tag')).toHaveText('파업 찬반투표');
+ await expect(line.locator('details')).toHaveAttribute('open','');
+ // 지우기: 확인 단계 → 취소하면 그대로, 확인하면 DELETE 한 번, 현재 단계는 남은 최신 줄(교섭 중)
+ await line.locator('[data-stage-hrow="h-b"] [data-stage-hmore]').click();await line.locator('[data-stage-hrow="h-b"] [data-stage-hdel]').click();
+ await expect(line.locator('[data-stage-hrow="h-b"] .stg-confirm')).toContainText('이 줄을 지울까요?');
+ await line.locator('[data-stage-hrow="h-b"] [data-stage-hcancel]').click();expect(db.hdeletes).toEqual([]);
+ await line.locator('[data-stage-hrow="h-b"] [data-stage-hmore]').click();await line.locator('[data-stage-hrow="h-b"] [data-stage-hdel]').click();
+ await line.locator('[data-stage-hrow="h-b"] [data-stage-hdel-yes]').click();
+ await expect(line.locator('[data-stage-msg]')).toHaveText('이력 한 줄을 지웠어요.');
+ expect(db.hdeletes).toEqual(['h-b']);
+ await expect(stageSelect(page)).toHaveValue('stage-2');await expect(row(page,'oa').locator('.so-stage-tag')).toHaveCount(0);
+ await expect(line.locator('summary')).toHaveText('단계 이력 1');
+ // 마지막 줄까지 지우면 기본 단계(교섭 시작 전)
+ await line.locator('[data-stage-hrow="h-a"] [data-stage-hmore]').click();await line.locator('[data-stage-hrow="h-a"] [data-stage-hdel]').click();await line.locator('[data-stage-hrow="h-a"] [data-stage-hdel-yes]').click();
+ await expect(stageSelect(page)).toHaveValue('stage-1');await expect(line.locator('details')).toHaveCount(0);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
+ expect(errors).toEqual([]);
+});
+
+for(const width of [390,1280])test(`끝 날짜 칸이 아직 없을 때(DB 적용 전): 읽기·하루짜리 저장은 그대로, 끝 날짜·고치기는 저장 시 안내 ${width}px`,async({page})=>{
+ const {db,errors}=await fixture(page,{width,period:false});
+ db.history.push({id:'h-a',organization_id:'oa',stage_id:'stage-3',stage_name:'쟁의발생 결의',stage_date:'2026-10-02',created_at:'2026-10-02T00:00:00Z'});
+ await openOrg(page,'oa',width);
+ const line=page.locator('#wdStage');
+ await expect(stageSelect(page)).toHaveValue('stage-3');
+ await expect(line.locator('[data-stage-end-open]')).toBeVisible(); // 숨기지 않음
+ await stageSelect(page).selectOption({label:'파업 찬반투표'});await line.locator('[data-stage-end-open]').click();await line.locator('[data-stage-end]').fill('2026-10-09');
+ await line.locator('[data-stage-save]').click();
+ await expect(line.locator('[data-stage-msg]')).toContainText('아직 준비 중');expect(db.history).toHaveLength(1);
+ await line.locator('[data-stage-end]').fill('');await line.locator('[data-stage-save]').click();
+ await expect(line.locator('[data-stage-msg]')).toHaveText('저장했어요.');expect(db.history).toHaveLength(2);expect('end_date' in db.history[1]).toBe(false);
+ await line.locator('summary').click();
+ await line.locator('[data-stage-hrow="h-a"] [data-stage-hmore]').click();await line.locator('[data-stage-hrow="h-a"] [data-stage-hedit]').click();
+ await expect(line.locator('[data-stage-msg]')).toContainText('아직 준비 중');await expect(line.locator('[data-stage-hform]')).toHaveCount(0);
+ expect(db.hpatches).toEqual([]);
+ expect(errors).toEqual([]);
+});
+
+for(const width of [390,900,1280])test(`화면 전체 ⋯(담당조직 메뉴)는 제목 '담당조직' 줄 오른쪽, 첫 묶음 머리줄에 붙지 않음 ${width}px`,async({page})=>{
+ const {errors}=await fixture(page,{width});
+ await clickView(page,'team');
+ const more=page.locator('#soTeamMore');await expect(more).toBeVisible();await expect(more).toHaveCount(1);
+ await expect(page.locator('#soOrganizationList #soTeamMore, .so-group-card #soTeamMore')).toHaveCount(0);
+ const m=await more.boundingBox(),group=await page.locator('#soOrganizationList .so-group-heading').first().boundingBox();
+ expect(m.y+m.height).toBeLessThanOrEqual(group.y); // 묶음 머리줄보다 위
+ if(width<=760){
+  // 폰: 위 머리줄의 화면 이름 "담당조직"과 같은 줄, 오른쪽 끝
+  const name=await page.locator('.mobile-shell-header [data-mobile-view-name]').boundingBox();
+  expect(Math.abs((m.y+m.height/2)-(name.y+name.height/2))).toBeLessThanOrEqual(6);
+  expect(m.x).toBeGreaterThan(name.x+name.width);
+ }else{
+  const title=page.locator('#soTeamHead .so-team-title');await expect(title).toHaveText('담당조직');await expect(title).toBeVisible();
+  const t=await title.boundingBox();expect(Math.abs((m.y+m.height/2)-(t.y+t.height/2))).toBeLessThanOrEqual(6);
+  const list=await page.locator('#soOrganizationList').boundingBox();expect(m.x+m.width).toBeGreaterThan(list.x+list.width-1); // 목록 칸 밖(화면 오른쪽)
+ }
+ await more.click();await expect(page.locator('#soTeamMenu [data-so-stage-manage]')).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
+ expect(errors).toEqual([]);
 });
