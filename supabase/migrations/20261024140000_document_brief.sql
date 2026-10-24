@@ -5,6 +5,7 @@ begin;
 --   지문 모양 b1: + 소문자 16진수 32자, 요약 글은 있음(빈 글 = 요약할 것 없음)·200자 이하·2줄 이하·줄마다 120자 이하,
 --   줄바꿈 밖 제어 문자 없음, 꺾쇠(<·>) 없음, keywords는 빈 목록, chunk_count는 0.
 -- 옛 행(document-ai-index가 쓴 긴 인덱싱 요약, b1:로 시작하지 않음)은 검사에 걸리지 않아 그대로 남는다(데이터 보존).
+-- 이미 b1: 행이 있는데(예: rollback 뒤 다시 적용) 모양이 틀리면 검사 추가가 실패해 전체가 취소된다(행을 고치지 않음).
 -- 권한: 표 grant·정책·RLS·트리거·함수 변경 없음. 기존 owner 정책 task12a_owner_all(자료 주인만)과 authenticated 권한 그대로.
 -- 주의: 이 표를 만든 migration은 저장소에 없다(migration 기록 이전 운영 표). 그래서 칸 모양·권한·정책을 먼저 확인하고,
 --   설계의 가정과 하나라도 다르면 아무것도 바꾸지 않고 멈춘다. authenticated의 SELECT·INSERT·UPDATE가 없으면 멈춘다(권한을 넓히지 않음).
@@ -52,8 +53,10 @@ begin
          where oid = to_regprocedure('private.app_is_owner_document(uuid)') and prosecdef)
      or exists (select 1 from pg_constraint
          where conrelid = 'public.app_document_ai_index'::regclass and conname = 'app_document_ai_index_brief_check')
-     -- 이 기능의 행은 아직 없어야 한다
-     or exists (select 1 from public.app_document_ai_index where left(content_hash, 3) = 'b1:') then
+     -- 칸 9개 밖에 기본값 없는 필수 칸이 있으면 요약 upsert가 실패한다 → 멈추고 따로 계획
+     or exists (select 1 from pg_attribute where attrelid = 'public.app_document_ai_index'::regclass and attnum > 0 and not attisdropped
+         and attnotnull and not atthasdef
+         and attname not in ('document_id', 'workspace_id', 'content_hash', 'summary', 'keywords', 'chunk_count', 'summary_model', 'indexed_at', 'updated_at')) then
     raise exception 'DOCUMENT_BRIEF_PREREQUISITE_CHANGED; stop';
   end if;
 end
