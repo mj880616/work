@@ -279,6 +279,11 @@ export function isSearching(filters) {
   const f = { ...freshFilters(), ...(filters || {}) };
   return !!(String(f.q || '').trim() || f.kinds.length || f.from || f.to || f.organization || f.topic || f.scope !== 'work' || f.inactive);
 }
+// 안 지킨 약속 읽기 경로: 원장 첫 화면(ledger-browse.js)과 모바일 홈 '놓친 약속'(home-fill.js)이 같은 조건을 쓴다.
+// 조건은 overdue()와 같다: 대기 중인 약속 + 후속확인일이 오늘(서울)보다 앞.
+export const LEDGER_ROW_COLS = 'id,ledger_id,kind,title,summary,date_start,date_end,date_precision,validity,sensitivity,counterparty,commitment_status,follow_up_on';
+export const overdueRecordsPath = (workspaceId, today, limit = 30) =>
+  `/rest/v1/app_ledger_records?workspace_id=eq.${encodeURIComponent(workspaceId)}&kind=eq.commitment&commitment_status=eq.waiting&validity=in.(current,needs_check)&follow_up_on=lt.${today}&select=${LEDGER_ROW_COLS}&order=follow_up_on.asc&limit=${limit}`;
 // 확인일이 오늘(서울)보다 며칠 지났나. 지나지 않았거나 날짜가 아니면 0.
 export function overdueDays(day, now = new Date()) {
   if (!isDay(day)) return 0;

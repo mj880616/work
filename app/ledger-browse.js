@@ -19,7 +19,7 @@ import {
   KIND_DISPLAY, KIND_HINT, KINDS, VALIDITY_LABEL, SENSITIVITY_LABEL, DOC_TYPE_LABEL, SCOPE_CHOICES, PAGE, MAX_LIMIT, QUERY_MAX,
   freshFilters, searchArgs, validResult, detailFields, sourceHref, linkLabel, rowView, activeConditions, clearCondition, countLabel,
   web2Source, web2OpenTarget, web2SourceLabel, changeInfo, AUTO_TAG, MANUAL_TAG, RETIRE_REASONS, retireRequest, undoErrorText,
-  isSearching, overdueLabel, seoulDay, storySort, chipList
+  isSearching, overdueLabel, seoulDay, storySort, chipList, overdueRecordsPath, LEDGER_ROW_COLS
 } from './ledger-browse-model.mjs';
 import { requestBasketNote, requestNoteDocOpen } from './basket-note-tasks.js';
 import { offerUndoNotice } from './basket-record-delete.js';
@@ -40,7 +40,7 @@ function fresh() {
     home: null, homeBusy: false, story: null };
 }
 const LIVE = 'validity=in.(current,needs_check,fulfilled)';
-const ROW_COLS = 'id,ledger_id,kind,title,summary,date_start,date_end,date_precision,validity,sensitivity,counterparty,commitment_status,follow_up_on';
+const ROW_COLS = LEDGER_ROW_COLS;
 
 // 화면 틀: 맨 위 사본 상태 한 줄 → 고치기·기록하기 칸(닫혀 있음) → 목록·검색. 칸마다 renderer는 하나(각 모듈).
 function installView() {
@@ -59,7 +59,7 @@ async function loadHome() {
   state.homeBusy = true; render();
   try {
     const [overdue, tracking, live, links, autos] = await Promise.all([
-      readRows(`/rest/v1/app_ledger_records?workspace_id=eq.${ws}&kind=eq.commitment&commitment_status=eq.waiting&validity=in.(current,needs_check)&follow_up_on=lt.${today}&select=${ROW_COLS}&order=follow_up_on.asc&limit=30`),
+      readRows(overdueRecordsPath(workspaceId(), today)),
       readRows(`/rest/v1/app_ledger_records?workspace_id=eq.${ws}&kind=eq.event&event_status=eq.tracking&validity=in.(current,needs_check)&scope=eq.work&select=${ROW_COLS}&order=updated_at.desc&limit=20`),
       rt.api(`/rest/v1/app_ledger_records?workspace_id=eq.${ws}&${LIVE}&scope=eq.work&select=id,topic_id&limit=5000`, { singleFlight: false }),
       rt.api(`/rest/v1/app_ledger_links?workspace_id=eq.${ws}&target_organization_id=not.is.null&select=record_id,target_organization_id&limit=5000`, { singleFlight: false }),
