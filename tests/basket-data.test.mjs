@@ -84,8 +84,8 @@ test('the basket read asks for these attachments\' documents and their project n
 
 // UI-바구니거르기: [미분류][분류][보류] and, under [분류], where the memo went.
 test('segments split unclassified, classified and on-hold memos; place chips follow links, filed documents and tasks',()=>{
- assert.deepEqual(BASKET_PLACES.map(([v])=>v),['all','organization','project','library','task','journal']);
- assert.deepEqual(BASKET_PLACES.map(([,l])=>l),['전체','담당조직','프로젝트','자료실','할 일','업무일지']);
+ assert.deepEqual(BASKET_PLACES.map(([v])=>v),['all','organization','project','reference','library','task','journal']);
+ assert.deepEqual(BASKET_PLACES.map(([,l])=>l),['전체','담당조직','프로젝트','참고','자료실','할 일','업무일지']);
  const task={task_id:'t1',task_list_id:'l',title:'할 일',created_at:'2026-10-18T00:00:00Z'};
  const notes=[
   {id:'org'},{id:'proj'},{id:'doc'},{id:'meet'},{id:'filed',attachments:[{drive_file_id:'drive-a'}]},
@@ -168,4 +168,34 @@ test('attachment names cut by the old upload reader display without the stray qu
  assert.equal(suggestNoteTitle({raw_text:'',attachments:[{file_name:'"'}]}),'');
  assert.equal(suggestNoteTitle({raw_text:'',attachments:[{file_name:'"회의록'}]}),'회의록');
  const original={file_name:'"'};attachmentName(original);assert.equal(original.file_name,'"');
+});
+
+// REF-참고묶음 화면 1: a reference-bundle link is a place ("참고: 묶음 이름"), read and shown only.
+test('REF-참고묶음: basket state "참고: ○○", [참고] place chip and bundle name chips; organization/project checks unchanged',async()=>{
+ const {noteHasOrgOrProject,LINK_KINDS}=await import('../app/basket-data.js');
+ const notes=[{id:'r1'},{id:'r2'},{id:'r3'},{id:'o'}];
+ const links=[
+  {note_id:'r1',status:'confirmed',bundle_id:'b1',bundle:{name:'가상 묶음 갑'}},
+  {note_id:'r2',status:'confirmed',bundle_id:'b1',bundle:{name:'가상 묶음 갑'}},{note_id:'r2',status:'confirmed',bundle_id:'b2',bundle:{name:'가상 묶음 을'}},
+  {note_id:'r3',status:'confirmed',bundle_id:'b2',bundle:null},
+  {note_id:'o',status:'confirmed',organization_id:'org',organization:{name:'가상 지부'}},
+ ];
+ assert.deepEqual(LINK_KINDS.at(-1),['bundle','참고']);
+ assert.deepEqual(noteState(notes[0],links),{status:'확정',destinations:['참고: 가상 묶음 갑']});
+ assert.deepEqual(noteState(notes[1],links).destinations,['참고: 가상 묶음 갑','참고: 가상 묶음 을']);
+ assert.deepEqual(noteState(notes[2],links).destinations,['연결 대상 없음']);
+ assert.deepEqual([...notePlaces(notes[0],links)],['reference']);
+ assert.equal(noteClassified(notes[0],links),true);
+ assert.deepEqual(visibleNotes(notes,links,'classified',[],'reference').map(n=>n.id),['r1','r2','r3']);
+ assert.deepEqual(visibleNotes(notes,links,'classified',[],'organization').map(n=>n.id),['o']);
+ assert.deepEqual(visibleNotes(notes,links,'classified',[],'reference','b2').map(n=>n.id),['r2','r3']);
+ assert.deepEqual(placeSubOptions(notes,links,[],'reference'),[{value:'all',label:'모든 참고 3'},{value:'b1',label:'가상 묶음 갑'},{value:'b2',label:'가상 묶음 을'}]);
+ // [업무일지에 남기기] stays possible: a reference is not an organization or a project.
+ assert.equal(noteHasOrgOrProject(notes[0],links),false);assert.equal(noteHasOrgOrProject(notes[3],links),true);
+});
+test('REF-참고묶음: the basket read asks for bundle_id and the bundle name in the same link read',async()=>{
+ const paths=[];const rt={context:{read:()=>({user:{id:'u'},workspace:{id:'w'}})},api:async path=>{paths.push(path);return path.includes('app_notes')?[{id:'n1'}]:[];}};
+ await readBasket(rt);
+ const link=paths.find(p=>p.includes('app_record_links'));const select=new URL(link,'https://x.invalid').searchParams.get('select');
+ assert.match(select,/(^|,)bundle_id(,|$)/);assert.match(select,/bundle:app_reference_bundles\(name\)/);
 });

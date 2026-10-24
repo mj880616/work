@@ -284,7 +284,7 @@ test('JOURNAL-하루개편: the day card — 할 일/한 일, 주간보고 재�
   };
   const card = m.dayCard(materials, '2026-10-06', {kinds:{status:'ok', list:['본부집행위']}});
   assert.deepEqual(card.report.map(g => g.label), ['회의·활동 결과', '사업 소식', '조직 소식']);
-  assert.deepEqual(card.others.map(g => g.label), ['일정', '자료실 새 자료', '공유 페이지', '노트로 옮긴 것', '기타 메모', '어디에도 안 보낸 업데이트']);
+  assert.deepEqual(card.others.map(g => g.label), ['일정', '자료실 새 자료', '공유 페이지', '노트로 옮긴 것', '기타 메모', '참고', '어디에도 안 보낸 업데이트']);
   // 회의·활동 결과: title, the result's first line ('' when none), the weekly-report kind switch as `hidden`, and where it opens.
   assert.deepEqual(card.report[0].items.map(i => [i.text, i.summary, i.hidden, i.open.type, i.open.id]), [
     ['08:30 운영위원회 3차', '옛 결정', false, 'meeting', 'm2'], ['11:00 기자회견', '결과 첫 줄', false, 'meeting', 'm1'], ['14:00 본부 집행위', '', true, 'meeting', 'm4']]);
@@ -294,7 +294,7 @@ test('JOURNAL-하루개편: the day card — 할 일/한 일, 주간보고 재�
   assert.deepEqual(card.tasks.failed, ['tasks']);
   // 조직 소식 has no '미분류': an update sent nowhere is 어디에도 안 보낸 업데이트, opening the basket update.
   assert.deepEqual(card.report[2].sections, []);
-  assert.deepEqual(card.others[5].items.map(i => [i.text, i.open]), [['첫 줄 메모', {type:'note', note:'b1'}], ['첨부 2개', {type:'note', note:'b2'}]]);
+  assert.deepEqual(card.others[6].items.map(i => [i.text, i.open]), [['첫 줄 메모', {type:'note', note:'b1'}], ['첨부 2개', {type:'note', note:'b2'}]]);
   assert.equal(m.othersCount(card.others), '일정 3 · 어디에도 안 보낸 업데이트 2');
   assert.equal(m.dayCard({}, '2026-10-06').tasks.loading, true);
   // 조직 소식 waits for its reads, then shows what it could read and names the failed one.
@@ -650,4 +650,66 @@ test('the weekly draft does not carry moved notes', async () => {
   const m = await mod;
   const materials = {movedNotes:{status:'ok', items:[{id:'a', title:'제목', occurred_at:'2026-10-06T01:00:00Z', moved_at:'2026-10-07T00:00:00Z'}]}};
   assert.doesNotMatch(await draftOf({start:'2026-10-05', lines:new Map(), materials, today:'2026-10-06'}), /노트: 제목/);
+});
+
+// REF-참고묶음 화면 1 (docs/design/ref-bundle.md 4절): a reference-bundle link (bundle_id) counts in "where it went" but in no
+// report group — not 조직 소식 (not even '미분류'), not 사업 소식, not 기타 메모, not [주간 정리]·[복사]·한글 파일 후보. The day card
+// shows it under 그 밖의 기록 › 참고 ("묶음 이름 · 첫 줄"). Fake names only.
+test('REF-참고묶음: an update put only in a reference bundle stays out of every report group and shows under the day card 참고', async () => {
+  const m = await mod, w = await weekly, d = await import('../app/weekly-hwpx/draft.mjs');
+  const B1 = 'e0000000-0000-4000-8000-000000000001', B2 = 'e0000000-0000-4000-8000-000000000002', OA = 'd0000000-0000-4000-8000-000000000001', PA = 'f0000000-0000-4000-8000-000000000001';
+  const basket = {notes:[
+    {id:'ref', raw_text:'가상 노조 전체 소식\n둘째', occurred_at:'2026-10-06T01:00:00Z'},
+    {id:'ref2', raw_text:'가상 두 묶음 소식', occurred_at:'2026-10-06T02:00:00Z'},
+    {id:'refmemo', raw_text:'가상 참고 겸 기타 메모', occurred_at:'2026-10-06T03:00:00Z', metadata:{journal_at:'2026-10-06T03:10:00Z'}},
+    {id:'both', raw_text:'가상 조직과 참고 둘 다', occurred_at:'2026-10-06T04:00:00Z'},
+    {id:'proj', raw_text:'가상 사업과 참고', occurred_at:'2026-10-06T05:00:00Z'},
+    {id:'none', raw_text:'가상 어디에도 안 보낸 것', occurred_at:'2026-10-06T06:00:00Z'},
+  ], links:[
+    {id:'l1', note_id:'ref', status:'confirmed', bundle_id:B1, bundle:{name:'가상 묶음 갑'}},
+    {id:'l2', note_id:'ref2', status:'confirmed', bundle_id:B1, bundle:{name:'가상 묶음 갑'}, summary:'가상 연결 요약'},
+    {id:'l3', note_id:'ref2', status:'confirmed', bundle_id:B2, bundle:{name:'가상 묶음 을'}},
+    {id:'l4', note_id:'refmemo', status:'confirmed', bundle_id:B2, bundle:{name:'가상 묶음 을'}},
+    {id:'l5', note_id:'both', status:'confirmed', bundle_id:B1, bundle:{name:'가상 묶음 갑'}},
+    {id:'l6', note_id:'both', status:'confirmed', organization_id:OA, organization:{name:'가상 지부'}},
+    {id:'l7', note_id:'proj', status:'confirmed', bundle_id:B2, bundle:{name:'가상 묶음 을'}},
+    {id:'l8', note_id:'proj', status:'confirmed', project_id:PA, project:{name:'가상 사업'}},
+    // A stored suggestion is not a place (as before).
+    {id:'l9', note_id:'none', status:'suggested', bundle_id:B1, bundle:{name:'가상 묶음 갑'}},
+  ], docs:[]};
+  const day = '2026-10-06', onlyRef = ['가상 노조 전체 소식', '가상 두 묶음 소식', '가상 연결 요약', '가상 참고 겸 기타 메모'];
+  const has = (list, words) => words.filter(word => JSON.stringify(list).includes(word));
+  // 조직 소식 ([주간 정리] keeps '미분류'): the reference-only ones are not '미분류'; the one also sent to an organization is there once.
+  const news = m.orgNewsOn({basket, orgUpdates:[]}, day);
+  assert.deepEqual(news.map(s => [s.name, s.items]), [['가상 지부', ['가상 조직과 참고 둘 다']], ['미분류', ['가상 어디에도 안 보낸 것']]]);
+  // 사업 소식 (projectRecordsOn) is unchanged: only the project link, once.
+  assert.deepEqual(m.projectRecordsOn({basket, projectUpdates:[]}, day).map(r => [r.id, r.name, r.text]), [[PA, '가상 사업', '가상 사업과 참고']]);
+  // 기타 메모 and 어디에도 안 보낸 업데이트 leave them out.
+  assert.deepEqual(m.journalMemosOn(basket, day), []);
+  assert.deepEqual(m.unsentUpdatesOn(basket, day).map(i => i.text), ['가상 어디에도 안 보낸 것']);
+  // 참고: one item per bundle, the link's summary when there is one; an update also sent to an organization or project is not here.
+  assert.deepEqual(m.referenceItemsOn(basket, day).map(i => [i.text, i.open]), [
+    ['가상 묶음 갑 · 가상 노조 전체 소식', {type:'note', note:'ref'}], ['가상 묶음 갑 · 가상 연결 요약', {type:'note', note:'ref2'}],
+    ['가상 묶음 을 · 가상 두 묶음 소식', {type:'note', note:'ref2'}], ['가상 묶음 을 · 가상 참고 겸 기타 메모', {type:'note', note:'refmemo'}]]);
+  // The day card: 참고 between 기타 메모 and 어디에도 안 보낸 업데이트, nothing of it in the report parts.
+  const materials = {basket:{status:'ok', items:basket}, orgUpdates:{status:'ok', items:[]}, projectUpdates:{status:'ok', items:[]}, meetings:{status:'ok', items:[]},
+    tasks:{status:'ok', items:[]}, events:{status:'ok', items:[]}, documents:{status:'ok', items:[]}, sharePages:{status:'ok', items:[]}, movedNotes:{status:'ok', items:[]}};
+  const card = m.dayCard(materials, day);
+  const refs = card.others.find(part => part.key === 'refs');
+  assert.equal(refs.label, '참고'); assert.equal(refs.items.length, 4);
+  assert.deepEqual(has(card.report, onlyRef), []);
+  assert.deepEqual(card.others.find(part => part.key === 'memos').items, []);
+  assert.equal(m.othersCount(card.others), '참고 4 · 어디에도 안 보낸 업데이트 1');
+  assert.deepEqual([...m.DAY_SOURCES.refs], ['basket']);
+  // [주간 정리] model, [복사] text and 한글 파일 후보 (weekMaterial): none of the reference-only text anywhere.
+  const model = w.weeklySummary({start:'2026-10-05', lines:new Map(), linesState:'ok', today:day, materials:{...materials, catalog:{status:'ok', items:[]}, upcoming:{status:'ok', items:[]}}});
+  assert.deepEqual(has(model, onlyRef), []);
+  assert.deepEqual(model.orgs.sections.map(s => s.name), ['가상 지부', '미분류']);
+  assert.deepEqual(model.notes.memos.items, []);
+  const text = w.weeklyReportText(model);
+  assert.deepEqual(has(text, [...onlyRef, '가상 묶음']), []);
+  assert.ok(text.includes('가상 조직과 참고 둘 다') && text.includes('가상 사업과 참고') && text.includes('가상 어디에도 안 보낸 것'));
+  const got = d.weekMaterial(model, [], [{index:0, org:'가상 지부', lines:[]}]);
+  assert.deepEqual(has([...got.byOrg.values(), got.orgUnmatched, got.unmatched], [...onlyRef, '가상 묶음']), []);
+  assert.deepEqual(got.byOrg.get(0).map(l => l.text), ['- 가상 조직과 참고 둘 다']);
 });

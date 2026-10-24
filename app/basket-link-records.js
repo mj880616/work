@@ -34,15 +34,20 @@ export async function readRecordPages(path,rt=window.KPTURuntime){
 // UI-기록아이콘: noteKinds ['basket','note'] also returns links made from a note (app_notes kind=note, linked by the same
 // app_basket_confirm_links through the note's [연결하기]); each row then carries note_kind and the note's title. The default stays
 // basket updates only, so every other reader (journal, drive summary, dates) is unchanged. No new table, policy or RPC.
+// REF-참고묶음 (docs/design/ref-bundle.md 4절): kind 'bundle' reads the confirmed links to reference bundles (bundle_id) with the same
+// one read and the same owner/workspace checks, for the coming 참고 screen. Without kind 'bundle' nothing changes: organization and
+// project links only, so a reference link never reaches an organization or project record list.
 export async function readLinkRecords({kind,targetIds,linkId,weekStart,weekEnd,dateOnly=false,noteKinds=['basket']}={},rt=window.KPTURuntime){
   const context=contextFor(rt),workspaceId=context?.workspace?.id;
   if(!context?.user?.id||!workspaceId)throw changed();
-  if(kind&&!['organization','project'].includes(kind))throw Error('연결할 곳을 확인해 주세요.');
+  if(kind&&!['organization','project','bundle'].includes(kind))throw Error('연결할 곳을 확인해 주세요.');
   if(targetIds&&!targetIds.length)return [];
   const kinds=noteKinds.filter(k=>['basket','note'].includes(k));if(!kinds.length)return [];const withNotes=kinds.includes('note');
-  const owner=scope(rt),encode=encodeURIComponent,target=kind==='organization'?'organization_id':'project_id';
-  const fields=dateOnly?'id,workspace_id,note_id,organization_id,project_id,status,note:app_notes!inner(id,workspace_id,occurred_at)':`id,workspace_id,summary,note_id,organization_id,project_id,status,note:app_notes!inner(id,workspace_id,occurred_at,raw_text${withNotes?',kind,title':''})`;
-  const base=`/rest/v1/app_record_links?workspace_id=eq.${encode(workspaceId)}&note.workspace_id=eq.${encode(workspaceId)}&note.kind=${kinds.length===1?'eq.'+kinds[0]:'in.('+kinds.join(',')+')'}&status=eq.confirmed&note_id=not.is.null&or=(organization_id.not.is.null,project_id.not.is.null)&select=${fields}&order=id.asc`;
+  const owner=scope(rt),encode=encodeURIComponent,bundle=kind==='bundle',target=kind==='organization'?'organization_id':bundle?'bundle_id':'project_id';
+  const columns=`organization_id,project_id${bundle?',bundle_id':''}`;
+  const fields=dateOnly?`id,workspace_id,note_id,${columns},status,note:app_notes!inner(id,workspace_id,occurred_at)`:`id,workspace_id,summary,note_id,${columns},status,note:app_notes!inner(id,workspace_id,occurred_at,raw_text${withNotes?',kind,title':''})`;
+  const places=bundle?'bundle_id=not.is.null':'or=(organization_id.not.is.null,project_id.not.is.null)';
+  const base=`/rest/v1/app_record_links?workspace_id=eq.${encode(workspaceId)}&note.workspace_id=eq.${encode(workspaceId)}&note.kind=${kinds.length===1?'eq.'+kinds[0]:'in.('+kinds.join(',')+')'}&status=eq.confirmed&note_id=not.is.null&${places}&select=${fields}&order=id.asc`;
   const batches=targetIds?Array.from({length:Math.ceil(targetIds.length/PAGE_SIZE)},(_,i)=>targetIds.slice(i*PAGE_SIZE,(i+1)*PAGE_SIZE)):[null];
   const rows=[];
   for(const ids of batches){
@@ -51,11 +56,12 @@ export async function readLinkRecords({kind,targetIds,linkId,weekStart,weekEnd,d
     if(owner!==scope(rt))throw changed();
     for(const row of page){
       const note=row.note;
-      if(row.workspace_id!==workspaceId||row.status!=='confirmed'||!row.note_id||!note||note.workspace_id!==workspaceId||note.id!==row.note_id||(!row.organization_id&&!row.project_id))continue;
+      if(row.workspace_id!==workspaceId||row.status!=='confirmed'||!row.note_id||!note||note.workspace_id!==workspaceId||note.id!==row.note_id)continue;
+      if(bundle?(!row.bundle_id||row.organization_id||row.project_id):(!row.organization_id&&!row.project_id))continue;
       if(linkId&&row.id!==linkId||kind&&!row[target]||targetIds&&!targetIds.includes(row[target]))continue;
       if(weekStart&&Date.parse(note.occurred_at)<Date.parse(weekStart)||weekEnd&&Date.parse(note.occurred_at)>=Date.parse(weekEnd))continue;
       const noteKind=withNotes&&note.kind==='note'?'note':'basket';if(!kinds.includes(noteKind))continue;
-      rows.push({id:row.id,...(dateOnly?{}:{summary:row.summary??null,raw_text:note.raw_text}),note_id:row.note_id,organization_id:row.organization_id,project_id:row.project_id,occurred_at:note.occurred_at,type:'basket',...(withNotes?{note_kind:noteKind,title:note.title??null}:{})});
+      rows.push({id:row.id,...(dateOnly?{}:{summary:row.summary??null,raw_text:note.raw_text}),note_id:row.note_id,organization_id:row.organization_id,project_id:row.project_id,...(bundle?{bundle_id:row.bundle_id}:{}),occurred_at:note.occurred_at,type:'basket',...(withNotes?{note_kind:noteKind,title:note.title??null}:{})});
     }
   }
   return rows;
