@@ -39,8 +39,13 @@ for (const width of [390, 1440])
     expect(requests.filter((r) => r.path === "/rest/v1/app_todo_radar_state").length).toBeLessThanOrEqual(1);
     expect(requests.filter((r) => r.path.endsWith("/functions/v1/drive-summary")).length).toBeLessThanOrEqual(1);
     expect(requests.filter((r) => r.path.endsWith("/functions/v1/drive-summary") && r.action !== "status")).toHaveLength(0);
+    // HOME-모바일홈채우기: 폰·중간 폭의 새 칸(놓친 약속 · 새 소식 수 · 정리 안 된 것)은 자기 예산을 가진다: 원장 1회, 소식 1회, 정리함 숫자용 읽기(업데이트·연결·자료)뿐.
+    const fillPaths = ["app_ledger_records", "app_feed_days", "app_notes", "app_record_links", "app_documents"];
+    const fillRequest = (r) => width < 1024 && fillPaths.some((x) => r.path.endsWith(x)) && (!r.path.endsWith("app_record_links") || r.query.includes("note_id"));
+    expect(requests.filter((r) => r.path.endsWith("app_ledger_records")).length).toBeLessThanOrEqual(1);
+    expect(requests.filter((r) => r.path.endsWith("app_feed_days")).length).toBeLessThanOrEqual(1);
     const dataRequests = requests.filter(
-      (r) => (r.path.includes("/rest/") || r.path.includes("/functions/")) && !radarRequest(r) && !collectRequest(r),
+      (r) => (r.path.includes("/rest/") || r.path.includes("/functions/")) && !radarRequest(r) && !collectRequest(r) && !fillRequest(r),
     );
     const basketRequests=requests.filter(r=>r.path.endsWith('app_record_links')&&r.query.includes('note_id=not.is.null'));
     expect(basketRequests).toHaveLength(0);

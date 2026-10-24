@@ -369,8 +369,8 @@
   [data-home-card="radar"] { display:none; }
   .home-summary { margin:0 0 2px; font-size:var(--ds-text-meta,12px); line-height:1.5; color:var(--kptu-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   #appView #homeView [data-home-column="main"] { gap:0; }
-  #appView #homeView [data-home-column="main"] > .home-card { border:0; border-radius:0; background:transparent; padding:6px 0; }
-  #appView #homeView [data-home-column="main"] > .home-card + .home-card { border-top:1px solid var(--kptu-border); }
+  #appView #homeView [data-home-column="main"] > .home-card:not([data-home-card="dday"]) { border:0; border-radius:0; background:transparent; padding:6px 0; }
+  #appView #homeView [data-home-column="main"] > .home-card:not([data-home-card="dday"],[data-home-card="calendar"]) { border-top:1px solid var(--kptu-border); }
   [data-home-column="main"] > .home-card header { min-height:24px; margin-bottom:2px; }
   [data-home-column="main"] > .home-card h3 { font-size:var(--ds-text-section,13px); line-height:1.5; }
   [data-home-column="main"] > .home-card header button { min-height:24px; padding:0; }
