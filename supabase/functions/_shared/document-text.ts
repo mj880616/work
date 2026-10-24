@@ -4,10 +4,19 @@
 // - HWPX: 내려받아 zip 안 Contents/section*.xml의 글자만 모은다(외부 라이브러리 없음).
 // - PDF·HWP·DOC·DOCX·RTF·ODT: Drive가 Google 문서로 바꾼 임시 사본을 text/plain으로 내보낸 뒤 사본을 지운다(OpenAI 비용 없음).
 //   Drive가 바꾸지 못하는 형식이면 글자 없음으로 끝난다.
+//   LIB-스캔글자읽기: PDF만 변환 요청에 한국어 OCR 언어(ocrLanguage=ko)를 준다(스캔 PDF의 글자). HWP·DOC·DOCX 등은 그대로.
 // - PPT·PPTX·ODP(SEARCH ②): 같은 방법으로 Google 프레젠테이션 임시 사본 → text/plain.
 // - XLS·XLSX·ODS(SEARCH ②): Google 스프레드시트 임시 사본 → text/csv. Drive 내보내기는 첫 시트만 준다(나머지 시트 글자는 없음).
-// - 사진·그 밖의 파일: 읽지 않는다(파일 이름으로만 판단, 사용자 결정 ④).
+// - 사진 JPEG·PNG(LIB-스캔글자읽기, 2026-10-24 결정): 바구니 사진과 같은 Drive 한국어 OCR(_shared/drive-ocr.ts)을 그대로 쓴다.
+//   같은 크기 상한(OCR_MAX_BYTES)·원본 비공개 확인·임시 문서 표시·임시 문서 지우기. 새 OCR 구현 없음, AI 비용 없음.
+//   읽기 단계 전체 PHOTO_READ_MS, 지우기 단계 PHOTO_CLEANUP_MS 안(합쳐 ~90초, 변환 경로 최악과 같음).
+// - 그 밖의 사진·파일: 읽지 않는다(파일 이름으로만 판단, 사용자 결정 ④).
 // 원본 Drive 파일은 읽기만 한다(이름·위치·내용 변경 없음, ⑦). 실패는 던지지 않고 {text:'', reason}으로 돌려준다.
+
+import { createDriveOcr, OCR_MAX_BYTES, OcrError, ocrMarkers } from "./drive-ocr.ts";
+
+// 사진 OCR 임시 문서 표시의 note·workspace 칸 값(바구니 기록 ID와 겹치지 않아 바구니 되찾기가 이 문서를 잡지 않는다).
+const OCR_MARK = "library-text";
 
 // 저장 상한. 자료 목록 화면 여러 곳이 app_documents를 select=*로 읽으므로 지금은 앞 12,000자만 둔다.
 // 전체 검색(docs/design/global-search.md ②)이 전체 글자가 필요하면, 그 PR에서 목록 읽기 칸을 좁힌 뒤 이 값만 올린다(옛 상한 50,000자).
@@ -18,11 +27,14 @@ export const HWPX_XML_MAX_BYTES = 20 * 1024 * 1024;
 export const EXPORT_MAX_BYTES = 1024 * 1024;
 export const CONVERT_MAX_BYTES = 50 * 1024 * 1024;
 export const TEMP_NAME = "Web2 글자 읽기 임시";
+export const PHOTO_MAX_BYTES = OCR_MAX_BYTES;
+export const PHOTO_READ_MS = 60000;
+export const PHOTO_CLEANUP_MS = 30000;
 const DRIVE = "https://www.googleapis.com/drive/v3/files";
 const DOC = "application/vnd.google-apps.document";
 const DRIVE_ID = /^[A-Za-z0-9_-]{1,255}$/;
 
-export type TextKind = "text" | "hwpx" | "convert" | "slides" | "sheet" | "none";
+export type TextKind = "text" | "hwpx" | "convert" | "slides" | "sheet" | "image" | "none";
 // 임시 사본 형식과 내보낼 글 형식. 원본은 그대로 두고 사본만 만들었다 지운다.
 const CONVERT: Record<"convert" | "slides" | "sheet", { target: string; exportMime: string }> = {
   convert: { target: DOC, exportMime: "text/plain" },
@@ -41,13 +53,21 @@ export function textKindOf(name: string, mime: string): TextKind {
   if (["pdf", "hwp", "doc", "docx", "rtf", "odt"].includes(e)) return "convert";
   if (["ppt", "pptx", "odp"].includes(e)) return "slides";
   if (["xls", "xlsx", "ods"].includes(e)) return "sheet";
+  if (["jpg", "jpeg", "png"].includes(e)) return "image";
   if (e) return "none";
   if (/^text\/(plain|markdown|csv|tab-separated-values)$/.test(m)) return "text";
   if (m === "application/hwp+zip" || m === "application/vnd.hancom.hwpx") return "hwpx";
   if (m === "application/pdf" || /msword|wordprocessingml|hwp|haansoft|rtf|opendocument\.text/.test(m)) return "convert";
   if (/ms-powerpoint|presentationml|opendocument\.presentation/.test(m)) return "slides";
   if (/ms-excel|spreadsheetml|opendocument\.spreadsheet/.test(m)) return "sheet";
+  if (m === "image/jpeg" || m === "image/png") return "image";
   return "none";
+}
+
+// 스캔 PDF만 OCR 언어를 준다(HWP·DOCX 등 다른 변환은 그대로).
+export function isPdf(name: string, mime: string): boolean {
+  const e = ext(name);
+  return e ? e === "pdf" : String(mime || "").toLowerCase() === "application/pdf";
 }
 
 // AI에 보낼 글 정리: 제어 문자 제거, 빈 줄 줄이기, 앞부분만(잘랐는지 함께 알림).
@@ -192,9 +212,9 @@ export function createDocumentText(deps: Deps) {
   }
 
   // Drive가 Google 문서(프레젠테이션·스프레드시트)로 바꾼 임시 사본을 글로 내보낸다. 사본은 성공·실패와 관계없이 지운다(원본은 그대로).
-  async function convert(fileId: string, token: string, kind: "convert" | "slides" | "sheet" = "convert"): Promise<string> {
+  async function convert(fileId: string, token: string, kind: "convert" | "slides" | "sheet" = "convert", ocr = false): Promise<string> {
     const { target, exportMime } = CONVERT[kind];
-    const r = await request(`${DRIVE}/${encodeURIComponent(fileId)}/copy?fields=id,mimeType`, token, {
+    const r = await request(`${DRIVE}/${encodeURIComponent(fileId)}/copy?fields=id,mimeType${ocr ? "&ocrLanguage=ko" : ""}`, token, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: TEMP_NAME, mimeType: target, appProperties: { web2_text_tmp: "1" } }),
@@ -220,20 +240,74 @@ export function createDocumentText(deps: Deps) {
     }
   }
 
+  // 사진 JPEG·PNG: 바구니와 같은 drive-ocr 흐름(원본 확인 → 한국어 OCR 임시 문서 → 글 내보내기 → 임시 문서 지우기).
+  // 원본은 읽기만 한다. 임시 문서는 원본과 같은 폴더에 생기고, 성공·실패와 관계없이 지운다(만들었는지 모르면 표시로 찾아 지운다).
+  const within = (ms: number): typeof fetch => {
+    const deadline = AbortSignal.timeout(ms);
+    return ((input: RequestInfo | URL, init: RequestInit = {}) =>
+      doFetch(input, { ...init, signal: init.signal ? AbortSignal.any([init.signal, deadline]) : deadline })) as typeof fetch;
+  };
+  async function photo(fileId: string, token: string): Promise<string> {
+    const readFetch = within(PHOTO_READ_MS), reading = createDriveOcr({ fetch: readFetch });
+    let folder = "", markers: Record<string, string> | null = null, tempId: string | null = null, unknown = false;
+    try {
+      const m = await readFetch(`${DRIVE}/${encodeURIComponent(fileId)}?fields=name,mimeType,size,parents`, {
+        headers: { Authorization: `Bearer ${token}` }, redirect: "error", signal: AbortSignal.timeout(30000),
+      });
+      if (!m.ok) { await m.body?.cancel().catch(() => {}); throw new Error("READ_FAILED"); }
+      const meta = await m.json().catch(() => null) as { name?: unknown; mimeType?: unknown; size?: unknown; parents?: unknown } | null;
+      const parents = Array.isArray(meta?.parents) ? meta.parents : [];
+      if (typeof meta?.mimeType !== "string" || !["image/jpeg", "image/png"].includes(meta.mimeType)) throw new Error("CONVERT_UNSUPPORTED");
+      if (typeof meta.size !== "string" || !/^\d{1,15}$/.test(meta.size)) throw new Error("READ_FAILED");
+      if (Number(meta.size) > PHOTO_MAX_BYTES) throw new Error("TOO_LARGE");
+      if (parents.length !== 1 || typeof parents[0] !== "string" || !DRIVE_ID.test(parents[0]) || typeof meta.name !== "string") throw new Error("READ_FAILED");
+      folder = parents[0];
+      const file = { drive_file_id: fileId, file_name: meta.name, mime_type: meta.mimeType, size_bytes: Number(meta.size) };
+      if (!(await reading.formats(token)).includes(file.mime_type)) throw new Error("CONVERT_UNSUPPORTED");
+      const source = await reading.source(file, folder, token);
+      const attempt = crypto.randomUUID();
+      markers = await ocrMarkers(OCR_MARK, OCR_MARK, fileId, attempt, new Date().toISOString(), source.version!);
+      try {
+        tempId = await reading.create(source, file, folder, markers, token);
+      } catch (e) {
+        unknown = e instanceof OcrError && e.unknown;
+        throw e;
+      }
+      await reading.temp(tempId, fileId, folder, markers, token);
+      return await reading.text(tempId, token);
+    } catch (e) {
+      if (e instanceof OcrError) {
+        throw new Error(e.code === "OCR_SOURCE_UNSUPPORTED" ? "CONVERT_UNSUPPORTED" : e.code === "OCR_TEXT_TOO_LONG" ? "TOO_LARGE" : "READ_FAILED");
+      }
+      throw e;
+    } finally {
+      if (markers && (tempId || unknown)) {
+        const cleaning = createDriveOcr({ fetch: within(PHOTO_CLEANUP_MS) });
+        try {
+          const id = tempId ?? await cleaning.find(folder, markers, token);
+          if (id) await cleaning.remove(id, fileId, folder, markers, token);
+        } catch {
+          log("document_text_temp_delete_failed");
+        }
+      }
+    }
+  }
+
   async function extract(file: DocumentFile): Promise<TextResult> {
     const none = (reason: string): TextResult => ({ text: "", source: "none", reason, cut: false });
     if (!DRIVE_ID.test(file.fileId)) return none("no_file");
     const kind = textKindOf(file.name, file.mime);
     if (kind === "none") return none("unsupported");
     const size = typeof file.size === "number" && Number.isSafeInteger(file.size) ? file.size : null;
-    const max = kind === "text" ? TEXT_FILE_MAX_BYTES : kind === "hwpx" ? HWPX_MAX_BYTES : CONVERT_MAX_BYTES;
+    const max = kind === "text" ? TEXT_FILE_MAX_BYTES : kind === "hwpx" ? HWPX_MAX_BYTES : kind === "image" ? PHOTO_MAX_BYTES : CONVERT_MAX_BYTES;
     if (size !== null && size > max) return none("too_large");
     let raw = "";
     try {
       const token = await deps.driveToken();
       if (kind === "text") raw = new TextDecoder("utf-8").decode(await download(file.fileId, token, max));
       else if (kind === "hwpx") raw = await hwpxText(await download(file.fileId, token, max));
-      else raw = await convert(file.fileId, token, kind);
+      else if (kind === "image") raw = await photo(file.fileId, token);
+      else raw = await convert(file.fileId, token, kind, kind === "convert" && isPdf(file.name, file.mime));
     } catch (e) {
       const code = e instanceof Error ? e.message : "";
       return none(code === "CONVERT_UNSUPPORTED" ? "unsupported" : code === "TOO_LARGE" || code === "HWPX_TOO_LARGE" ? "too_large" : "read_failed");
