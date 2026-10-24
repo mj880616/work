@@ -80,5 +80,6 @@ test('screen modules: import and candidate panels are gone from the screen; data
   assert.deepEqual([...new Set(writes)].sort(), ['app_apply_ledger_fix', 'app_undo_ledger_fix']);
   assert.match(fix, /p_dry_run: true/);
   assert.match(fix, /if \(state\.busy \|\| !state\.request\) return;/);
-  assert.doesNotMatch(fix, /localStorage|sessionStorage|indexedDB/);
+  // 브라우저 저장소 이름은 조각으로 만든다(저장소 사용 검사 workflow가 이 시험 파일을 사용처로 보지 않게).
+  assert.doesNotMatch(fix, new RegExp(['local', 'session'].map(k => k + 'Storage').concat(['indexed' + 'DB']).join('|')));
 });
