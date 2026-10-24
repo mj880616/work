@@ -33,7 +33,8 @@ const sameLines = (a, b) => JSON.stringify(cleanLines(a)) === JSON.stringify(cle
 // cells: Map cellId → 지금 줄 글, initial: Map cellId → 바탕(처음) 줄 글. 바탕과 같은 칸은 저장하지 않는다.
 // me는 고친 이름일 때만(meFrom='typed'), date는 바탕(보고일)과 다를 때만 넘긴다(아니면 '').
 // keep: 이번 바탕에 넣지 못한 저장 칸(버리지 않고 다시 저장). titles: Map event → {title, place}.
-export function makeDraft({base = null, me = '', meFrom = '', date = '', cells = new Map(), initial = new Map(), keep = [], titles = new Map(), confirmed = null} = {}) {
+// drops(WEEKLY-환류, 설계 3.4): Map event → 'drop'(이번 주에 뺀 일정) | 'keep'(기억으로 빠지는 일정을 이번 주만 넣음) → dropped·kept.
+export function makeDraft({base = null, me = '', meFrom = '', date = '', cells = new Map(), initial = new Map(), keep = [], titles = new Map(), drops = new Map(), confirmed = null} = {}) {
   const rows = [];
   for (const [id, lines] of cells) {
     if (initial.has(id) && sameLines(lines, initial.get(id))) continue;
@@ -44,11 +45,20 @@ export function makeDraft({base = null, me = '', meFrom = '', date = '', cells =
   for (const r of keep) if (!placed.has(cellId(r.section, r.key, r.n)) && !cells.has(cellId(r.section, r.key, r.n))) rows.push({section:r.section, key:r.key, n:r.n, lines:cleanLines(r.lines)});
   const out = {v:DRAFT_VERSION, base, me:String(me ?? ''), me_from:String(meFrom ?? ''), date:String(date ?? ''), rows,
     titles:[...titles].map(([event, t]) => ({event:String(event), title:String(t?.title ?? ''), place:String(t?.place ?? '')}))};
+  putDrops(out, drops);
   if (confirmed) out.confirmed = confirmed;
   return out;
 }
+// 뺀 일정·이번 주만 넣은 일정(있을 때만 칸을 둔다 — 없으면 옛 모양 그대로).
+function putDrops(out, drops) {
+  const dropped = [], kept = [];
+  for (const [event, how] of drops ?? []) (how === 'drop' ? dropped : how === 'keep' ? kept : []).push(String(event));
+  if (dropped.length) out.dropped = dropped;
+  if (kept.length) out.kept = kept;
+}
+const eventList = list => (Array.isArray(list) ? [...new Set(list.filter(e => typeof e === 'string' && e))] : []);
 // 저장할 만한 내용: 고친 칸·일정, 고친 이름·일시, [확정] 표시.
-export const hasContent = d => !!d && !!(d.rows?.length || d.titles?.length || (d.me_from === 'typed' && d.me) || d.date || d.confirmed);
+export const hasContent = d => !!d && !!(d.rows?.length || d.titles?.length || d.dropped?.length || d.kept?.length || (d.me_from === 'typed' && d.me) || d.date || d.confirmed);
 
 // 서버에서 읽은 draft를 모양대로만 받아들인다(모르는 것·틀린 것은 버림 — 서버는 형태·크기만 본다).
 export function readDraft(raw) {
@@ -60,6 +70,9 @@ export function readDraft(raw) {
   const base = raw.base && typeof raw.base === 'object' ? {from:raw.base.from === 'file' ? 'file' : 'library', ...(typeof raw.base.document_id === 'string' ? {document_id:raw.base.document_id} : {}),
     file_name:String(raw.base.file_name ?? ''), title:String(raw.base.title ?? ''), digest:String(raw.base.digest ?? '')} : null;
   const out = {v:DRAFT_VERSION, base, me:String(raw.me ?? ''), me_from:String(raw.me_from ?? ''), date:String(raw.date ?? ''), rows, titles};
+  const dropped = eventList(raw.dropped), kept = eventList(raw.kept).filter(e => !dropped.includes(e));
+  if (dropped.length) out.dropped = dropped;
+  if (kept.length) out.kept = kept;
   if (raw.confirmed && typeof raw.confirmed === 'object') out.confirmed = {document_id:String(raw.confirmed.document_id ?? ''), at:String(raw.confirmed.at ?? '')};
   return out;
 }
@@ -72,8 +85,11 @@ export function placeDraft(draft, ids) {
     const id = cellId(r.section, r.key, r.n);
     if (ids.has(id)) cells.set(id, cleanLines(r.lines)); else unplaced.push(r);
   }
-  return {cells, unplaced, titles:new Map((draft?.titles ?? []).map(t => [t.event, {title:t.title, place:t.place}]))};
+  return {cells, unplaced, titles:new Map((draft?.titles ?? []).map(t => [t.event, {title:t.title, place:t.place}])), drops:draftDrops(draft)};
 }
+
+// draft → Map(event → 'drop' | 'keep').
+export const draftDrops = draft => new Map([...(draft?.kept ?? []).map(e => [e, 'keep']), ...(draft?.dropped ?? []).map(e => [e, 'drop'])]);
 
 // ---- 3자 비교 (마지막으로 같았던 판 · 이 기기 · 서버) ----
 // 칸 단위 값: 고친 이름(me, me_from='typed'일 때만), 고친 일시(date, 비어 있지 않을 때만), 줄 칸(row:…), 일정(title:…).
@@ -85,6 +101,7 @@ export function draftCells(draft) {
   if (draft.date) out.set('date', draft.date);
   for (const r of draft.rows ?? []) out.set(`row:${cellId(r.section, r.key, r.n)}`, cleanLines(r.lines));
   for (const t of draft.titles ?? []) out.set(`title:${t.event}`, {title:t.title, place:t.place});
+  for (const [event, how] of draftDrops(draft)) out.set(`drop:${event}`, how);
   return out;
 }
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
@@ -109,6 +126,7 @@ export function merge3(base, mine, theirs) {
     if (k.startsWith('row:')) { const {section, key, n} = parseCellId(k.slice(4)); out.rows.push({section, key, n, lines:v}); }
     else if (k.startsWith('title:')) out.titles.push({event:k.slice(6), title:v.title, place:v.place});
   }
+  putDrops(out, new Map([...merged].filter(([k]) => k.startsWith('drop:')).map(([k, v]) => [k.slice(5), v])));
   const confirmed = mine?.confirmed ?? theirs?.confirmed;
   if (confirmed) out.confirmed = confirmed;
   return {draft:out, conflicts};

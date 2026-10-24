@@ -26,6 +26,7 @@ import {requestTagsHtml, requestPrefix} from './update-requests.js';
 import {seoulDateKey, addSeoulDays, seoulClock} from './meeting-time.js';
 import {meetingKindKey, meetingKindName, reportsMeeting, validKindKey} from './journal-meeting-kinds.js';
 import {itemWhat} from './weekly-hwpx/schedule.mjs';
+import {annotateCalendar, memoryTitle, idleWeeks} from './weekly-schedule-memory.js';
 import {formDay, dayParts, dayLabel, whatCell, requestLine, sortItems, EXEC_HEAD, EXEC_LIMITS, EXEC_MAX_ROWS, CARRIED_TAG} from './weekly-exec-requests.js';
 import {placeFiles, fileVerdict, fileItem, isFolded} from './weekly-file-lines.mjs';
 
@@ -166,15 +167,18 @@ export const vacationLine = vacations => vacations?.length ? `※ 휴가: ${vaca
 // after its first day, 참석자 = my name. Vacations become "※ 10.23.(금) 이름 연차" lines under the table.
 // WEEKLY-일정다듬기 ③(2026-10-23 사용자 요청 12:43 ④): the cell is always "시간 / 내용 / 장소" (no place → '미정'); titles·places the owner
 // confirmed on the .hwpx screen (overrides: Map(event key → {title, place})) replace the calendar's (weekly-hwpx/schedule.mjs itemWhat).
+// WEEKLY-환류: an event without an override takes its remembered title (item.memo, weekly-schedule-memory.js annotateCalendar); events
+// left out (remembered or this week only) are not in calendar.rows — a day left with none keeps its date and empty cells.
 export function scheduleForm(calendar, me = '', overrides = null) {
+  const what = i => { const own = overrides?.get?.(i.key), memo = own ? null : memoryTitle(i); return itemWhat(i, own || !memo ? overrides : new Map([[i.key, memo]])); };
   const who = me ? [me] : [];
   const out = [];
   const ready = calendar && !calendar.loading && !calendar.failed?.length;
   for (const day of calendar?.days || []) {
     const rows = ready ? calendar.rows.filter(r => r.day === day) : [];
     const single = rows.filter(r => !r.items[0]?.multi);
-    out.push({day:formDay(day), items:single.flatMap(r => r.items.map(i => ({what:itemWhat(i, overrides), who:[...who]})))});
-    for (const r of rows.filter(r => r.items[0]?.multi)) out.push({day:r.label, items:r.items.map(i => ({what:itemWhat(i, overrides), who:[...who]}))});
+    out.push({day:formDay(day), items:single.flatMap(r => r.items.map(i => ({what:what(i), who:[...who]})))});
+    for (const r of rows.filter(r => r.items[0]?.multi)) out.push({day:r.label, items:r.items.map(i => ({what:what(i), who:[...who]}))});
   }
   const notes = ready ? calendar.vacations.map(v => `※ ${span(v.first, v.last, formDay, '~')} ${me && !v.title.includes(me) ? `${me} ` : ''}${v.title}`) : [];
   return {calendar:out, calendarNotes:notes};
@@ -183,7 +187,9 @@ export function scheduleForm(calendar, me = '', overrides = null) {
 // The whole week in report order. lines: Map(day → journal row) or null when they could not be read.
 // kinds: JOURNAL-회의종류표시 — {status:'ok', list} = the kinds left out of 회의·활동 결과 (journal-meeting-kinds.js); {status:'loading'} keeps
 // that part "loading" until the list is read; anything else (not given, unreadable) reports every meeting as before.
-export function weeklySummary({start, lines, linesState = 'ok', materials = {}, doneDays = DONE_TASK_DAYS, today = todayKey(), kinds = null}) {
+// memory: WEEKLY-환류 — {status:'ok', list} = 주간보고 기억(weekly-schedule-memory.js), applied to 5. 주요 일정 (renamed, left out);
+// {status:'loading'} keeps that part loading; anything else = no memory (the calendar's titles as before).
+export function weeklySummary({start, lines, linesState = 'ok', materials = {}, doneDays = DONE_TASK_DAYS, today = todayKey(), kinds = null, memory = null}) {
   const days = weekDays(start), m = {...materials, lines:{status:linesState === 'loading' ? 'loading' : linesState === 'ok' ? 'ok' : 'failed', items:lines}};
   const part = (key, build) => { const s = state(m, WEEKLY_SOURCES[key]); return {key, ...s, ...(s.loading ? {} : build(s))}; };
   const perDay = (source, pick) => { const read = ok(m, source); return read ? days.flatMap(day => pick(read, day).map(text => ({day, text}))) : []; };
@@ -254,7 +260,10 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
     return {sections:[...sections.values()].sort(compareOrgSections), summaries};
   });
 
-  const calendar = part('calendar', () => upcomingSchedule(ok(m, 'upcoming'), start));
+  const calendar = part('calendar', () => memory?.status === 'loading' ? {loading:true}
+    : annotateCalendar(upcomingSchedule(ok(m, 'upcoming'), start), memory?.status === 'ok' ? memory.list : null));
+  // 주간보고 기억 목록(맨 아래 접힘): 일정 이름·일정 빼기(내 프로필 칸) + 회의 종류 빼기 전체(지금은 그 주에 걸린 것만 보이던 것).
+  const remembered = {ready:memory?.status === 'ok', entries:memory?.status === 'ok' ? memory.list : [], kinds:kinds?.status === 'ok' ? kinds.list : null, today};
   // 1. 요청사항 › 1) 임원 일정 배정·논의 요청: the week's saved rows (weekly-exec-requests.js readExecRequests → {missing, row}).
   const requests = part('requests', () => {
     const read = ok(m, 'execRequests');
@@ -273,7 +282,7 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
     shares:part('shares', () => ({items:perDay('sharePages', (read, day) => read.filter(page => seoulDay(page?.updated_at) === day).map(sharePageLine))})),
     memos:part('memos', () => ({items:perDay('basket', (read, day) => journalMemosOn(read, day))})),
   };
-  return {start, days, requests, summary, meetings, orgs, calendar, notes};
+  return {start, days, requests, summary, meetings, orgs, calendar, notes, remembered};
 }
 const seoulDay = value => value && Number.isFinite(Date.parse(value)) ? seoulDateKey(value) : '';
 
@@ -376,7 +385,7 @@ export const ORG_EDIT_MAX_LINES = 8;
 // execUi (WEEKLY-임원요청정리, journal.js keeps it): {editing:null | 'new' | row id, draft:{day, until, time, what, place, who},
 // status, error, invalid (field name), saving}.
 export const EXEC_FIELDS = Object.freeze([['day', '일', 'date'], ['until', '끝 날(여러 날이면)', 'date'], ['time', '시간', 'text'], ['what', '내용', 'text'], ['place', '장소', 'text'], ['who', '참석 요청', 'text']]);
-export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}) {
+export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi = {}) {
   const doc = host.ownerDocument;
   const el = (tag, cls, text) => { const node = doc.createElement(tag); if (cls) node.className = cls; if (text != null) node.textContent = text; return node; };
   const muted = text => el('p', 'journal-muted', text);
@@ -583,13 +592,18 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}) {
       for (const row of c.rows) row.items.forEach((item, index) => {
         const tr = el('tr'); tr.dataset.journalScheduleDay = row.day;
         if (!index) { const th = el('th', 'journal-weekly-area', row.label); th.scope = 'rowgroup'; th.rowSpan = row.items.length; tr.append(th); }
-        tr.append(el('td', 'journal-weekly-what', item.what), el('td', 'journal-weekly-owner'));
+        const what = el('td', 'journal-weekly-what', item.what);
+        if (item.memo?.title) { const tag = el('span', 'journal-exec-carried', MEMORY_TAG); tag.title = `원래 제목: ${item.title}`; tag.dataset.journalScheduleMemory = ''; what.append(' ', tag); }
+        tr.append(what, el('td', 'journal-weekly-owner'));
         body.append(tr);
       });
       table.append(body); cal.append(table);
     } else cal.append(empty('이 2주에 달력 일정이 없어요.'));
     const off = vacationLine(c.vacations);
     if (off) { const p = el('p', 'journal-weekly-vacation', off); p.dataset.journalWeeklyVacation = ''; cal.append(p); }
+    // 기억으로 뺀 일정은 늘 한 줄로 보인다(흔한 제목을 빼 다른 일정까지 빠지는 것을 알아보게, 설계 위험 2).
+    const gone = memoryDroppedItems(c);
+    if (gone.length) { const p = muted(`기억으로 뺀 일정 ${gone.length}개: ${gone.map(i => `${i.label} ${i.title}`).join(', ')} — 맨 아래 '주간보고 기억'에서 지울 수 있어요.`); p.dataset.journalScheduleMemoryDropped = String(gone.length); cal.append(p); }
     if (c.noCalendar) { const p = muted(`'${REPORT_CALENDAR}' 달력을 찾지 못해 표를 비워요. 달력 화면의 Google 달력 목록을 확인해 주세요.`); p.dataset.journalWeeklyNoCalendar = ''; cal.append(p); }
     cal.append(muted(`참석자 칸은 한글 파일에서 내 이름으로 채워요. '${REPORT_CALENDAR}' 달력 일정만 넣고, 일기·비공개 표시 일정은 빼요.`));
   }
@@ -607,7 +621,60 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}) {
   }
   if (quiet.length) { const q = muted(`기록 없는 묶음: ${quiet.join(', ')}`); q.classList.add('journal-empty'); q.dataset.journalWeeklyQuietNotes = ''; ref.append(q); }
 
-  host.replaceChildren(when, one, two, four, five, ref);
+  host.replaceChildren(when, one, two, four, five, ref, ...memoryBox(doc, el, model.remembered, memoryUi));
+}
+
+// WEEKLY-환류 (설계 3.7, Q6 ①): [주간 정리] 맨 아래 접힌 '주간보고 기억' — 일정 이름·일정 빼기(지우기)·회의 종류 빼기 전체(다시 올리기).
+// memoryUi (journal.js keeps it): {open, busy, status, error, undo:{entry}}. 기억 칸을 읽지 못했으면 일정 기억 줄은 없다.
+export const MEMORY_TAG = '기억';
+const memoryDroppedItems = c => (c?.allRows ?? []).flatMap(row => row.items.filter(i => i.memo?.drop).map(i => ({label:row.label, title:i.title})));
+const slash = day => { const [, m, d] = String(day ?? '').split('-'); return m ? `${Number(m)}/${Number(d)}` : ''; };
+function memoryBox(doc, el, r, ui = {}) {
+  if (!r || (!r.ready && !r.kinds)) return [];
+  const names = r.entries.filter(e => e.title), drops = r.entries.filter(e => e.drop), kinds = r.kinds ?? [];
+  const box = el('details', 'journal-weekly-chapter journal-weekly-memory'); box.dataset.journalWeeklyMemory = '';
+  if (ui.open) box.open = true;
+  const head = [r.ready ? `일정 이름 ${names.length}` : '', r.ready ? `일정 빼기 ${drops.length}` : '', r.kinds ? `회의 종류 빼기 ${kinds.length}` : ''].filter(Boolean).join(' · ');
+  const sum = el('summary'); sum.append(el('span', 'journal-heading', '주간보고 기억'), ' ', el('small', 'journal-others-count', head)); box.append(sum);
+  const used = e => `${e.used ? `마지막 적용 ${slash(e.used)}` : '아직 적용 안 됨'}${idleWeeks(e, r.today) >= 1 ? ` · ${idleWeeks(e, r.today)}주 안 쓰임` : ''}`;
+  const list = (title, entries, line) => {
+    const part = el('section', 'journal-weekly-part'); part.dataset.journalMemoryPart = title;
+    part.append(el('h5', 'journal-weekly-sub', title));
+    if (!entries.length) { part.append(el('p', 'journal-muted', '없어요.')); return part; }
+    const ul = el('ul', 'journal-kinds-off-list');
+    for (const e of entries) {
+      const li = el('li'); li.dataset.journalMemoryEntry = e.key;
+      li.append(el('span', null, line(e)), ' ', el('small', 'journal-muted', used(e)));
+      const del = el('button', 'mini', '지우기'); del.type = 'button'; del.dataset.journalMemoryDelete = e.key; del.disabled = !!ui.busy;
+      del.setAttribute('aria-label', `기억 지우기: ${e.origin}`); li.append(del); ul.append(li);
+    }
+    part.append(ul); return part;
+  };
+  if (r.ready) {
+    box.append(list('일정 이름', names, e => `${e.origin} → ${e.title}${e.place ? `(${e.place})` : ''}`), list('일정 빼기', drops, e => e.origin));
+  } else box.append(el('p', 'journal-muted', '일정 기억을 읽지 못했어요(준비 중이면 기억 없이 달력 제목 그대로 써요).'));
+  if (r.kinds) {
+    const part = el('section', 'journal-weekly-part'); part.dataset.journalMemoryPart = '회의 종류 빼기';
+    part.append(el('h5', 'journal-weekly-sub', '회의 종류 빼기'));
+    if (!kinds.length) part.append(el('p', 'journal-muted', '없어요.'));
+    else {
+      const ul = el('ul', 'journal-kinds-off-list');
+      for (const k of kinds) {
+        const li = el('li'); li.dataset.journalMemoryKind = k; li.append(el('span', null, k));
+        const back = el('button', 'mini', '다시 올리기'); back.type = 'button';
+        back.dataset.journalKindToggle = k; back.dataset.journalKindHide = '0'; back.dataset.journalKindName = k;
+        back.setAttribute('aria-label', `${k} 종류를 주간보고에 다시 올리기`); li.append(back); ul.append(li);
+      }
+      part.append(ul);
+    }
+    box.append(part);
+  }
+  const say = el('p', 'journal-line-status'); say.dataset.journalMemoryStatus = ''; say.setAttribute('role', 'status'); say.setAttribute('aria-live', 'polite');
+  if (ui.error) say.classList.add('journal-failed');
+  if (ui.status) say.append(ui.status);
+  if (ui.undo) { const undo = el('button', 'mini', '되돌리기'); undo.type = 'button'; undo.dataset.journalMemoryUndo = ''; undo.disabled = !!ui.busy; say.append(' ', undo); }
+  box.append(say);
+  return [box];
 }
 
 // 1. 요청사항 › 1) the request rows and their edit row. Returns the nodes for the box (table, edit row for a new line, tools, status).
