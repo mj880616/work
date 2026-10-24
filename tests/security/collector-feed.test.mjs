@@ -32,13 +32,19 @@ const GRANTS={
 };
 const COUNTERS=['total_count','kept_count','room_count','personal_count','unsure_count','failed_count','batch_count','ai_requests','ai_input_tokens','ai_output_tokens'];
 
-function analysis({version='3.2',work='업무',title='가상지부 3차 교섭 일정 변경',when='2026-10-24 09:30:00',ref='SRCFAKE0001aa',counterpart='- 이름: 홍길동\n- 직책: 위원장\n- 소속: 가상노조',extraFront='',summary='- 3차 교섭을 10. 28.(화) 14:00로 미루기로 함.\n- 사측 안은 서면으로 받기로 함.'}={}){
-  return ['---',`analysis_version: ${version}`,'status: 검토대기','source_type: 통화녹음',`source_txt_id: ${ref}`,'source_txt_name: 통화 홍길동_261024_093000.txt',
-    `recording_datetime: ${when}`,'analysis_model: gemini-fake','analysis_at: 2026-10-24 09:45:00','has_candidates: true',
-    work===null?'':`work_class: ${work}`,title===null?'':`call_title: ${title}`,extraFront,'---','',
-    '## 원본·자료유형·녹음일시','- 통화녹음','',`## 상대 이름·직책`,counterpart,'','## 판단 메모','- 판단메모비밀 내용','',
-    '## 핵심요약',summary,'','## 약속 후보','- 사측 안 서면 회신 10. 27.(월)까지','','## 결정 후보','- 인력 충원 12명 요구안 유지','',
-    '## 후속확인 필요사항','- 없음','','## 중요 원문','- 중요원문비밀 문장','','## AI 메모','- AI메모비밀'].filter(l=>l!==null).join('\n');
+// 명진의 통화 분석 v3.2(분석 앱 스크립트 analysisRenderMarkdown_)가 만드는 모양을 따른 지어낸 분석 파일.
+// work: is_work_related 값('true'|'false'|null=칸 없음). counterpart: 옛 모양 `## 상대 이름·직책` 절(null이면 절 없음).
+function analysis({version='3.2',work='true',status='검토대기',title='가상노조 위원장 · 3차 교섭 일정 변경',when='2026-10-24 09:30:00',ref='SRCFAKE0001aa',
+  counterpart=null,head='- 상대 이름: 홍길동\n- 상대 직책: 위원장\n- 주체 확인필요: 아니오',related='["가상노동조합"]',extraFront='',
+  summary='- 3차 교섭을 10. 28.(화) 14:00로 미루기로 함.\n- 사측 안은 서면으로 받기로 함.'}={}){
+  return ['---',`analysis_version: "${version}"`,`status: "${status}"`,'source_type: "통화녹음"',`source_txt_id: "${ref}"`,'source_txt_name: "통화 홍길동_261024_093000.txt"',
+    `recording_datetime: "${when}"`,'analysis_model: "gemini-fake"','analysis_at: "2026-10-24 09:45:00"','has_candidates: true',
+    work===null?null:`is_work_related: ${work}`,title===null?null:`call_title: "${title}"`,related===null?null:`related_organizations: [${related.slice(1,-1)}]`,extraFront,'---','',
+    `# ${title??'전사 분석 검토'}`,'','- 원본 전사: 통화 홍길동_261024_093000.txt','- 자료유형: 통화녹음',head,'',
+    ...(counterpart===null?[]:['## 상대 이름·직책',counterpart,'']),'## 판단 메모','- 판단메모비밀 내용','',
+    '## 핵심요약',summary,'','## 약속 후보','### 1. 사측 안 서면 회신 10. 27.(월)까지','- 주체: 사측 (상대측)','- 원문표현: “근거원문비밀”','',
+    '## 결정 후보','### 1. 인력 충원 12명 요구안 유지','- 범위·주체: 확인필요','- 후보 판단근거: 근거판단비밀','',
+    '## 후속확인 필요사항','- 없음','','## 중요 원문','- 중요원문비밀 문장','','## AI 메모','AI메모비밀'].filter(l=>l!==null).join('\n');
 }
 
 const openaiOk=(items)=>({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({items})}]}],usage:{input_tokens:5000,output_tokens:600}});
@@ -199,18 +205,21 @@ test('통화 업무: AI 없이 분석 파일만 읽어 저장(제목·점·상�
   assert.equal(h.calls.openai.length,0,'통화는 AI를 부르지 않는다');
   const row=h.db.app_feed_items[0];
   assert.equal(row.source,'call');assert.equal(row.day,TODAY);assert.equal(row.occurred_at,'2026-10-24T00:30:00.000Z');
-  assert.equal(row.title,'가상지부 3차 교섭 일정 변경');
+  assert.equal(row.title,'가상노조 위원장 · 3차 교섭 일정 변경');
   assert.deepEqual(row.points,['3차 교섭을 10. 28.(화) 14:00로 미루기로 함.','사측 안은 서면으로 받기로 함.','[확정] 인력 충원 12명 요구안 유지','[예정] 사측 안 서면 회신 10. 27.(월)까지']);
   assert.equal(row.counterpart,'가상노동조합 홍길동 위원장');assert.equal(row.organization_id,ORG);
   assert.equal(row.speaker_split,false);assert.match(row.raw_text,new RegExp(RAW_MARK));
   assert.equal(row.model,'gemini-fake');assert.equal(row.drive_url,'https://drive.google.com/file/d/SRCFAKE0001aa/view');
   assert.equal(row.source_ref,'SRCFAKE0001aa');
-  assert.doesNotMatch(JSON.stringify(row),/판단메모비밀|중요원문비밀|AI메모비밀/,'판단 메모·중요 원문·AI 메모는 가져오지 않는다');
+  assert.doesNotMatch(JSON.stringify(row),/판단메모비밀|중요원문비밀|AI메모비밀|근거원문비밀|근거판단비밀/,'판단 메모·중요 원문·AI 메모·후보 근거 줄은 가져오지 않는다');
   assert.equal(h.day(TODAY,'call').kept_count,1);assert.equal(h.day(TODAY,'call').total_count,1);assert.equal(h.day(TODAY,'call').batch_count,1);
 });
 
-test('통화 개인·애매·구분 없음은 개수만(행 없음), 버전·모양이 다르면 판정 실패',async()=>{
-  const cases=[[{work:'개인'},'personal_count'],[{work:'애매'},'unsure_count'],[{work:null},'unsure_count'],[{work:'기타'},'unsure_count'],
+test('통화 개인·구분 없음은 개수만(행 없음), 버전·모양이 다르면 판정 실패',async()=>{
+  const cases=[[{work:'false'},'personal_count'],[{work:null,status:'개인',title:'개인 통화',related:'[]'},'personal_count'],
+    [{work:null},'unsure_count'],[{work:'""'},'unsure_count'],[{work:'모름'},'unsure_count'],
+    [{version:'3.1',work:null,related:null},'unsure_count'],                        // 옛 3.1 파일: 새 칸 없음
+    [{status:'분석실패',work:null},'failed_count'],
     [{version:'4.0'},'failed_count'],[{version:'2.9'},'failed_count'],[{body:{analysis_md:'제목만 있는 글'}},'failed_count'],
     [{summary:'',title:null},'failed_count'],[{ref:'SRCOTHER0001'},'failed_count'],[{when:'2026-06-01 09:00:00'},'failed_count']];
   for(const [o,counter] of cases){
@@ -220,8 +229,43 @@ test('통화 개인·애매·구분 없음은 개수만(행 없음), 버전·모
     assert.equal(d.kept_count,0);
   }
   // 개인 통화는 원문이 어디에도 남지 않는다
-  const h=harness();await h.send('call',callBody({work:'개인'}));
+  const h=harness();await h.send('call',callBody({work:'false'}));
   assert.doesNotMatch(JSON.stringify(h.db)+h.calls.logs.join(''),new RegExp(RAW_MARK));
+});
+
+test('v3.2 업무: 제목은 call_title, 조직은 related_organizations(담당조직 하나와 확실히 맞을 때만), 상대는 머리 줄·제목에서 확실할 때만',()=>{
+  const orgs=[{id:ORG,name:'가상노동조합',aliases:['가상노조']},{id:ORG2,name:'예시지부',aliases:[]}];
+  const p=(o,tr='')=>parseCall({ref:'SRCFAKE0001aa',analysis_md:analysis(o),transcript:tr},orgs,NOW);
+  const base=p({});
+  assert.equal(base.kind,'business');assert.equal(base.title,'가상노조 위원장 · 3차 교섭 일정 변경');
+  assert.equal(base.counterpart,'가상노동조합 홍길동 위원장');assert.equal(base.organization_id,ORG);
+  assert.deepEqual(base.points,['3차 교섭을 10. 28.(화) 14:00로 미루기로 함.','사측 안은 서면으로 받기로 함.','[확정] 인력 충원 12명 요구안 유지','[예정] 사측 안 서면 회신 10. 27.(월)까지']);
+  assert.equal(base.speaker_split,false);
+  // related_organizations가 다른 담당조직이면 그것이 조직 연결 후보
+  assert.equal(p({related:'["예시지부"]'}).organization_id,ORG2);
+  // 두 조직에 걸치면 상대 글에서 맞춘 조직(제목의 가상노조)
+  assert.equal(p({related:'["예시지부", "가상노동조합"]'}).organization_id,ORG);
+  // 모르는 조직·깨진 목록·빈 목록이면 제목·상대에서만
+  assert.equal(p({related:'["모르는노조"]',title:'모르는노조 위원장 · 교섭',head:''}).organization_id,null);
+  assert.equal(p({related:'[깨짐',title:'교섭 일정',head:''}).organization_id,null);
+  // 상대 머리 줄이 없으면 call_title에서 확실할 때만(담당조직 + 사람 글)
+  const t=p({head:''});assert.equal(t.counterpart,'가상노동조합 위원장');
+  assert.equal(p({head:'',title:'교섭 일정 정리'}).counterpart,null,'조직 · 사람 · 주제 모양이 아니면 비운다');
+  assert.equal(p({head:'',title:'모르는노조 위원장 · 교섭'}).counterpart,null,'담당조직과 맞지 않으면 비운다');
+  assert.equal(p({head:'',title:'가상노조 · 교섭'}).counterpart,null,'사람 글이 없으면 비운다');
+  // 머리 줄이 '확인필요'·주체 확인필요 예이면 쓰지 않고 제목으로
+  assert.equal(p({head:'- 상대 이름: 확인필요\n- 상대 직책: 확인필요'}).counterpart,'가상노동조합 위원장');
+  assert.equal(p({head:'- 상대 이름: 김가상\n- 상대 직책: 국장\n- 주체 확인필요: 예',title:'교섭 일정'}).counterpart,null);
+  // 직책이 제목과 다르면 제목 조직을 붙이지 않는다
+  assert.equal(p({head:'- 상대 이름: 김가상\n- 상대 직책: 국장'}).counterpart,'김가상 국장');
+  // 옛 모양 `## 상대 이름·직책` 절이 있으면 그것(소속 칸 포함)
+  assert.equal(p({head:'',counterpart:'- 이름: 박가상\n- 직책: 지부장\n- 소속: 예시지부',related:'[]'}).counterpart,'예시지부 박가상 지부장');
+  // 핵심요약이 "없음" 문구면 점은 후보에서만, 제목은 call_title
+  const empty=p({summary:'- 장기적으로 남길 핵심요약 없음'});assert.equal(empty.kind,'business');
+  assert.deepEqual(empty.points,['[확정] 인력 충원 12명 요구안 유지','[예정] 사측 안 서면 회신 10. 27.(월)까지']);
+  // 화자 구분이 없는 전사는 한 문단 그대로
+  assert.equal(p({},'네 위원장님 교섭 일정 건으로 전화드렸습니다').speaker_split,false);
+  assert.equal(p({},'나: 교섭 건입니다\n가상노동조합 홍길동 위원장: 네').speaker_split,true);
 });
 
 test('통화 call_skip: 앱 스크립트가 거른 수만 더한다. 같은 원본은 두 번 저장하지 않는다',async()=>{
@@ -266,9 +310,10 @@ test('화자 표기(4.5절): 나/상대 표기·상대:·화자1/화자2 줄이�
   assert.equal(h.db.app_feed_items[0].speaker_split,true);
 });
 
-test('제목 없음(분석 안내문 수정 전 3.1 + work_class 있음)이면 핵심요약 첫 문장, 시간대 없는 녹음 일시는 한국 시각',()=>{
-  const p=parseCall({ref:'SRCFAKE0001aa',analysis_md:analysis({version:'3.1',title:null}),transcript:''},[],NOW);
+test('제목 없음(call_title 칸 없는 파일)이면 핵심요약 첫 문장, 시간대 없는 녹음 일시는 한국 시각',()=>{
+  const p=parseCall({ref:'SRCFAKE0001aa',analysis_md:analysis({title:null,head:''}),transcript:''},[],NOW);
   assert.equal(p.kind,'business');assert.equal(p.title,'3차 교섭을 10. 28.(화) 14:00로 미루기로 함.');assert.equal(p.raw_text,null);
+  assert.equal(p.counterpart,null);
   assert.equal(parseKstDateTime('2026-10-24 09:30:00'),Date.parse('2026-10-24T00:30:00Z'));
   assert.equal(parseKstDateTime('2026-10-24T09:30:00Z'),Date.parse('2026-10-24T09:30:00Z'));
   assert.equal(parseKstDateTime('2026-02-30 09:30'),null);
