@@ -292,7 +292,13 @@ async function runCall(db: Db, ws: string, input: CallInput, nowMs: number) {
   const dup = await db.get(`app_feed_items?workspace_id=eq.${ws}&source=eq.call&source_ref=eq.${input.ref}&select=source_ref&limit=1`);
   if (dup.length) return { ok: true, kept: 0, personal: 0, unsure: 0, failed: 0, duplicate: true };
   const parsed = parseCall(input, await readOrgs(db, ws), nowMs);
-  const day = parsed.day && parsed.day <= today && parsed.day >= addDays(today, -MAX_PAST_DAYS) ? parsed.day : today;
+  const inRange = !!parsed.day && parsed.day <= today && parsed.day >= addDays(today, -MAX_PAST_DAYS);
+  const day = inRange ? parsed.day! : today;
+  // 녹음 날짜가 받는 범위(오늘부터 92일 전까지) 밖이면 업무여도 저장하지 않고 판정 실패로 센다.
+  if (parsed.kind === "business" && !inRange) {
+    await addDay(db, ws, day, "call", { total_count: 1, failed_count: 1 }, nowMs);
+    return { ok: true, kept: 0, personal: 0, unsure: 0, failed: 1, duplicate: false };
+  }
   if (parsed.kind !== "business") {
     const delta: Delta = { total_count: 1 };
     if (parsed.kind === "personal") delta.personal_count = 1;
@@ -341,7 +347,8 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   const batch = (await sha256Hex(`${input.room_key}|${input.day}|${msgRefs}`)).slice(0, 32);
   const prefix = `tg:${batch}:`;
   const counts = (kept: number, failed = 0) => ({
-    total_count: input.total, kept_count: kept, room_count: input.part === 1 ? 1 : 0, failed_count: failed,
+    // 한 방이 여러 묶음(part)으로 나뉘면 그 방의 하루 메시지 수(total)·방 수는 첫 묶음에서만 센다.
+    total_count: input.part === 1 ? input.total : 0, kept_count: kept, room_count: input.part === 1 ? 1 : 0, failed_count: failed,
   });
   await claimBatch(db, ws, today, "telegram", nowMs);
   // 같은 묶음이 다시 오면 AI를 다시 부르지 않는다(저장 전에 먼저 확인).

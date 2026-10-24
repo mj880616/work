@@ -138,7 +138,8 @@ export function bullets(lines: string[] | undefined, max: number = CALL_LIMITS.p
 
 // 제목이 없을 때: 핵심요약 첫 점의 첫 문장(80자까지).
 export function firstSentence(text: string): string | null {
-  const m = /^(.+?(?:[.!?。](?=\s|$)|다\.|요\.))/.exec(text);
+  // 숫자 뒤 점(날짜 "10. 28.")에서는 끊지 않는다.
+  const m = /^(.+?(?:(?<!\d)[.!?。](?=\s|$)|다\.|요\.))/.exec(text);
   return cleanLine(m ? m[1] : text, CALL_LIMITS.title);
 }
 
