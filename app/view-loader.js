@@ -165,9 +165,9 @@ async function diary(){ await module('./diary.js'); return {ok:true} }
 async function hwpLab(){ await module('./hwp-lab.js','__KPTU_HWP_LAB_READY__'); return {ok:true} }
 // UI-프로필입구: [계정 ▾] → [내 프로필]. Like hwp, it stays out of loadAll; the module installs #profileView and loads its data on first open.
 async function profile(){ await organizationOrder(); await module('./profile-settings.js','__KPTU_PROFILE_SETTINGS_READY__'); return {ok:true} }
-// AI-서버연동 S7-b: [원장](사이드바·메뉴 판 [원장], ?view=ledger). loadAll에 넣지 않고 열 때만 가져오기 화면과 검사기를 불러온다.
-// S7-c: 같은 화면의 원장 후보 확정 칸과 목록·검색 칸(칸마다 모듈 하나). 표·함수가 없으면 각 칸이 조용히 숨는다.
-async function ledger(){ await module('./ledger-import.js','__KPTU_LEDGER_IMPORT_READY__'); await Promise.all([module('./ledger-candidates.js','__KPTU_LEDGER_CANDIDATES_READY__'),module('./ledger-browse.js','__KPTU_LEDGER_BROWSE_READY__'),module('./ledger-export.js','__KPTU_LEDGER_EXPORT_READY__')]); void window.KPTULedgerExport?.open?.(); return {ok:true} }
+// AI-서버연동 S7-b → LEDGER-화면정리: [원장](사이드바·메뉴 판 [원장], ?view=ledger). loadAll에 넣지 않고 열 때만 목록(화면 틀)·고치기 칸·사본 상태 줄을 불러온다.
+// 칸마다 모듈 하나(사본 상태 줄 ledger-export.js, 고치기·기록하기 ledger-fix.js, 목록·검색 ledger-browse.js). 표·함수가 없으면 각 칸이 조용히 숨는다.
+async function ledger(){ await module('./ledger-browse.js','__KPTU_LEDGER_BROWSE_READY__'); await Promise.all([module('./ledger-fix.js','__KPTU_LEDGER_FIX_READY__'),module('./ledger-export.js','__KPTU_LEDGER_EXPORT_READY__')]); void window.KPTULedgerExport?.open?.(); return {ok:true} }
 // SEARCH-전체검색: 상단 줄 검색칸·결과 창·검색 결과 화면(?view=search)·폰 메뉴 검색 입구. loader-v2가 첫 화면 뒤에 한 번 불러온다.
 async function search(){ await module('./global-search.js','__KPTU_GLOBAL_SEARCH_READY__'); return {ok:true} }
 // REF-참고묶음 화면 2: 참고 묶음(?view=reference, 입구는 담당조직 목록 맨 아래·바구니 "참고" 칩). loadAll에 넣지 않고 처음 열 때만 불러온다.

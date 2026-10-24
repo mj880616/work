@@ -90,7 +90,7 @@ test('원장 사본 상태 한 줄: 배포 전 함수면 줄을 숨기고 POST�
  test.setTimeout(60000);
  const calls=await mockApp(page,{deployed:false});
  await signIn(page);
- await expect(page.locator('#ledgerRoot')).toBeVisible();
+ await expect(page.locator('#ledgerBrowseRoot')).toBeAttached();
  await expect.poll(()=>calls.filter(c=>c.action==='ledger_status').length,{timeout:10000}).toBeGreaterThan(0);
  await expect(page.locator('#ledgerExportRoot')).toBeHidden();
  expect(calls.filter(c=>c.method==='POST')).toHaveLength(0);
