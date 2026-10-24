@@ -34,6 +34,7 @@ var CALL_FEED_ANALYSIS_FOLDERS = ['검토대기', '검토완료'];
 var CALL_FEED_MAX_PER_RUN = 20;                       // 서버 하루 상한 50건 안에서 한 번에 보낼 수
 var CALL_FEED_TIME_LIMIT_MS = 4.5 * 60 * 1000;        // 앱 스크립트 6분 제한 전에 멈춘다
 var CALL_FEED_WAIT_ANALYSIS_MS = 24 * 3600 * 1000;    // 분석을 기다리는 시간
+var CALL_FEED_MAX_PENDING = 50;                       // 분석 대기 목록 크기 상한(넘치면 오래된 것부터 넘김)
 var CALL_FEED_MAX_ATTEMPTS = 3;                       // 서버·연결 실패를 다시 보내는 횟수
 // 서버 상한(collector-feed handler.ts·call-analysis.ts와 같은 값)
 var CALL_FEED_ANALYSIS_MAX_BYTES = 64 * 1024;
@@ -142,14 +143,13 @@ function callFeed_run() {
   var nowMs = Date.now();
   var tally = { noClass: 0, personalList: 0, sent: 0, work: 0, personal: 0, unsure: 0, failed: 0, duplicate: 0, waiting: 0, skipped: 0, retry: 0 };
   var skipDays = test ? {} : state.skips;   // 시험 모드에서는 상태를 바꾸지 않는다
+  var pending = test ? callFeedPendingClean(state.pending) : state.pending;   // 분석을 기다리는 통화 목록(시험 모드에서는 저장하지 않는다)
   var cursor = Date.parse(state.since);
   var stop = '';
 
-  var files = callFeed_newTranscripts_(folders.transcript, cursor);
-  for (var i = 0; i < files.length; i++) {
-    if (Date.now() - started > CALL_FEED_TIME_LIMIT_MS) { stop = '시간 제한'; break; }
-    if (!test && tally.sent + tally.retry >= CALL_FEED_MAX_PER_RUN) { stop = '한 번에 보낼 수 도달'; break; }
-    var file = files[i].file, created = files[i].created, id = file.getId(), name = file.getName();
+  // 한 통화를 처리한다. 'done' = 끝남(보냄·거름·넘김), 'wait' = 분석 대기, 'stop' = 이번 실행을 멈춤(실패·상한·시간)
+  function handle(file, created) {
+    var id = file.getId(), name = file.getName();
     var info = callFeedTranscriptName(name);
     var day = info.day || callFeedKstDay(created);
 
@@ -157,28 +157,26 @@ function callFeed_run() {
     if (callFeedIsPersonal(info.contact, list)) {
       tally.personalList++;
       if (!test) skipDays[day] = (skipDays[day] || 0) + 1;
-      cursor = created;
-      continue;
+      return 'done';
     }
 
     var analysis = callFeed_findAnalysis_(folders.analysis, name, id);
-    if (!analysis) {
-      if (nowMs - created < CALL_FEED_WAIT_ANALYSIS_MS) { tally.waiting++; stop = '분석 대기'; break; }
+    var decision = callFeedPendingDecision({ created: created }, nowMs, !!analysis);
+    if (decision === 'wait') return 'wait';
+    if (decision === 'expire') {
       tally.skipped++;   // 분석이 끝내 안 생긴 통화(수동 처리 등)는 넘긴다
-      cursor = created;
-      continue;
+      return 'done';
     }
     var analysisMd = analysis.getBlob().getDataAsString('UTF-8');
     var transcript = file.getBlob().getDataAsString('UTF-8');
     var body = callFeedBuildCallBody({ ref: id, analysisMd: analysisMd, transcript: transcript, driveUrl: file.getUrl(), contact: info.contact, recordedAt: info.datetime });
-    if (!body) { tally.skipped++; cursor = created; continue; }   // 분석 파일이 너무 큼
+    if (!body) { tally.skipped++; return 'done'; }   // 분석 파일이 너무 큼
 
     if (test) {
       var cls = callFeedClass(analysisMd);
       if (cls === '실패') tally.failed++; else if (cls === '업무') tally.work++; else if (cls === '개인') tally.personal++; else tally.noClass++;
       tally.sent++;
-      cursor = created;
-      continue;
+      return 'done';
     }
 
     var res = callFeed_post_('call', body, secret);
@@ -189,47 +187,89 @@ function callFeed_run() {
       tally.work += out.kept || 0; tally.personal += out.personal || 0; tally.unsure += out.unsure || 0; tally.failed += out.failed || 0;
       tally.sent++;
       delete state.attempts[id];
-      cursor = created;
+      return 'done';
     } else if (verdict === 'auth') {
-      callFeed_saveProgress_(state, cursor, skipDays);
+      callFeed_saveProgress_(state, cursor, skipDays, pending);
       throw new Error('비밀값 불일치(401) — 스크립트 속성 값과 Supabase COLLECTOR_FEED_SECRET이 같은지 확인하세요.');
     } else if (verdict === 'limit') {
-      stop = '서버 하루 상한(429) — 다음 실행에서 이어 보냄'; break;
+      stop = '서버 하루 상한(429) — 다음 실행에서 이어 보냄';
+      return 'stop';
     } else if (verdict === 'drop') {
       tally.skipped++;   // 고쳐도 다시 될 일이 없는 거절(400·413). 넘긴다
       Logger.log('서버가 거절해 넘김(HTTP ' + res.code + (res.json && res.json.error ? ' ' + res.json.error : '') + ')');
-      cursor = created;
-    } else {
-      state.attempts[id] = (state.attempts[id] || 0) + 1;
-      tally.retry++;
-      if (state.attempts[id] >= CALL_FEED_MAX_ATTEMPTS) {
-        Logger.log(CALL_FEED_MAX_ATTEMPTS + '번 실패해 넘김(HTTP ' + res.code + ')');
-        delete state.attempts[id];
-        tally.skipped++;
-        cursor = created;
-      } else {
-        stop = '서버·연결 실패(HTTP ' + res.code + ') — 다음 실행에서 다시 보냄'; break;
-      }
+      return 'done';
+    }
+    state.attempts[id] = (state.attempts[id] || 0) + 1;
+    tally.retry++;
+    if (state.attempts[id] >= CALL_FEED_MAX_ATTEMPTS) {
+      Logger.log(CALL_FEED_MAX_ATTEMPTS + '번 실패해 넘김(HTTP ' + res.code + ')');
+      delete state.attempts[id];
+      tally.skipped++;
+      return 'done';
+    }
+    stop = '서버·연결 실패(HTTP ' + res.code + ') — 다음 실행에서 다시 보냄';
+    return 'stop';
+  }
+
+  function overLimit() {
+    if (Date.now() - started > CALL_FEED_TIME_LIMIT_MS) { stop = '시간 제한'; return true; }
+    if (!test && tally.sent + tally.retry >= CALL_FEED_MAX_PER_RUN) { stop = '한 번에 보낼 수 도달'; return true; }
+    return false;
+  }
+
+  // 1) 먼저 대기 목록을 본다: 분석이 생겼으면 보내고 빼며, 24시간이 지났으면 넘김으로 세고 뺀다.
+  var stillPending = [], pendingChecked = pending.length;
+  for (var p = 0; p < pending.length; p++) {
+    if (stop || overLimit()) { stillPending.push(pending[p]); continue; }
+    var pf = null;
+    try { pf = DriveApp.getFileById(pending[p].id); if (pf.isTrashed()) pf = null; } catch (e) { pf = null; }
+    if (!pf) { tally.skipped++; continue; }   // 파일이 없어짐(지움)
+    var pr = handle(pf, pending[p].created);
+    if (pr === 'wait') {
+      tally.waiting++;
+      stillPending.push({ id: pending[p].id, created: pending[p].created, tries: (pending[p].tries || 0) + 1 });
+    } else if (pr === 'stop') {
+      stillPending.push(pending[p]);
     }
   }
+  pending = stillPending;
+
+  // 2) 새 통화. 분석이 아직 없는 통화는 대기 목록에 넣고 진행 위치를 지나 뒤의 통화를 계속 본다.
+  var files = [];
+  if (!stop) files = callFeed_newTranscripts_(folders.transcript, cursor);
+  for (var i = 0; i < files.length; i++) {
+    if (overLimit()) break;
+    var r = handle(files[i].file, files[i].created);
+    if (r === 'stop') break;
+    if (r === 'wait') {
+      tally.waiting++;
+      pending.push({ id: files[i].file.getId(), created: files[i].created, tries: 1 });
+    }
+    cursor = files[i].created;
+  }
+
+  // 대기 목록이 너무 길면 가장 오래된 것부터 넘김으로 처리한다.
+  var trimmed = callFeedPendingTrim(pending, CALL_FEED_MAX_PENDING);
+  pending = trimmed.keep;
+  tally.skipped += trimmed.dropped.length;
 
   // 개인 목록으로 거른 수: 날짜마다 한 번씩 보낸다. 실패하면 남겨 두었다가 다음 실행에서 보낸다.
   if (!test) {
     Object.keys(skipDays).sort().forEach(function (d) {
       if (!callFeedDayInRange(d, nowMs)) { delete skipDays[d]; return; }
-      var r = callFeed_post_('call_skip', { day: d, personal: Math.min(skipDays[d], 500), short: 0 }, secret);
-      if (r.code === 200) delete skipDays[d];
-      else if (r.code === 400) delete skipDays[d];
+      var r2 = callFeed_post_('call_skip', { day: d, personal: Math.min(skipDays[d], 500), short: 0 }, secret);
+      if (r2.code === 200) delete skipDays[d];
+      else if (r2.code === 400) delete skipDays[d];
     });
-    callFeed_saveProgress_(state, cursor, skipDays);
+    callFeed_saveProgress_(state, cursor, skipDays, pending);
   }
 
   Logger.log([
-    (test ? '[시험 모드 — 보내지 않음] ' : '') + '전사 ' + files.length + '건 확인',
+    (test ? '[시험 모드 — 보내지 않음] ' : '') + '전사 ' + files.length + '건 확인' + (pendingChecked ? ' · 대기 목록 ' + pendingChecked + '건 다시 봄' : ''),
     '개인 목록으로 거름: ' + tally.personalList,
     (test ? '보낼 것: ' : '보냄: ') + tally.sent + ' (업무 ' + tally.work + ' · 개인 ' + tally.personal + ' · 애매 ' + tally.unsure +
       (test ? ' · 구분 없음(옛 분석·비어 있음) ' + tally.noClass + ' · 분석 실패 ' + tally.failed : ' · 판정 실패 ' + tally.failed + ' · 이미 있음 ' + tally.duplicate) + ')',
-    '분석 대기: ' + tally.waiting + ' · 넘김: ' + tally.skipped + (tally.retry ? ' · 다시 보낼 것: ' + tally.retry : ''),
+    '분석 대기: ' + tally.waiting + (tally.waiting ? '건(건너뛰고 계속)' : '') + ' · 대기 목록: ' + pending.length + '건 · 넘김: ' + tally.skipped + (tally.retry ? ' · 다시 보낼 것: ' + tally.retry : ''),
     stop ? '멈춘 이유: ' + stop : '끝까지 봄',
   ].join('\n'));
 }
@@ -244,16 +284,17 @@ function callFeed_loadState_() {
   var raw = PropertiesService.getScriptProperties().getProperty(CALL_FEED_STATE_KEY);
   var s = {};
   try { s = raw ? JSON.parse(raw) : {}; } catch (e) { s = {}; }
-  return { since: typeof s.since === 'string' ? s.since : '', attempts: s.attempts || {}, skips: s.skips || {} };
+  return { since: typeof s.since === 'string' ? s.since : '', attempts: s.attempts || {}, skips: s.skips || {}, pending: callFeedPendingClean(s.pending) };
 }
 
 function callFeed_saveState_(state) {
   PropertiesService.getScriptProperties().setProperty(CALL_FEED_STATE_KEY, JSON.stringify(state));
 }
 
-function callFeed_saveProgress_(state, cursorMs, skipDays) {
+function callFeed_saveProgress_(state, cursorMs, skipDays, pending) {
   state.since = new Date(Math.max(cursorMs, Date.parse(state.since) || 0)).toISOString();
   state.skips = skipDays;
+  state.pending = pending || [];
   callFeed_saveState_(state);
 }
 
@@ -489,6 +530,33 @@ function callFeedBuildCallBody(input) {
 }
 
 /** 서버 응답 코드 → 할 일. ok: 다음으로, auth: 멈추고 알림, limit: 다음 실행, drop: 넘김, retry: 다음 실행에 다시. */
+/** 상태에서 읽은 대기 목록을 정리한다: {id, created, tries}만 남기고, 같은 id는 하나로, 만든 시각 순으로. */
+function callFeedPendingClean(raw) {
+  var seen = {}, out = [];
+  (Array.isArray(raw) ? raw : []).forEach(function (e) {
+    if (!e || typeof e.id !== 'string' || !e.id || seen[e.id]) return;
+    var created = Number(e.created);
+    if (!isFinite(created) || created <= 0) return;
+    seen[e.id] = true;
+    out.push({ id: e.id, created: created, tries: Math.max(0, Math.floor(Number(e.tries)) || 0) });
+  });
+  out.sort(function (a, b) { return a.created - b.created; });
+  return out;
+}
+
+/** 대기 목록이 max건을 넘으면 가장 오래된 것부터 dropped(넘김)로 나눈다. */
+function callFeedPendingTrim(list, max) {
+  var clean = callFeedPendingClean(list);
+  var over = Math.max(0, clean.length - max);
+  return { keep: clean.slice(over), dropped: clean.slice(0, over) };
+}
+
+/** 대기 중인 통화 한 건의 다음 행동: 분석이 있으면 'send', 없고 기다릴 시간이 지났으면 'expire', 아니면 'wait'. */
+function callFeedPendingDecision(entry, nowMs, hasAnalysis) {
+  if (hasAnalysis) return 'send';
+  return nowMs - entry.created >= CALL_FEED_WAIT_ANALYSIS_MS ? 'expire' : 'wait';
+}
+
 function callFeedVerdict(code) {
   if (code === 200) return 'ok';
   if (code === 401) return 'auth';
@@ -1036,6 +1104,7 @@ if (typeof module !== 'undefined' && module.exports) {
     callFeedAnalysisName: callFeedAnalysisName, callFeedMinimalAnalysis: callFeedMinimalAnalysis,
     callFeedFrontmatter: callFeedFrontmatter, callFeedClass: callFeedClass,
     callFeedBuildCallBody: callFeedBuildCallBody, callFeedVerdict: callFeedVerdict,
+    callFeedPendingClean: callFeedPendingClean, callFeedPendingTrim: callFeedPendingTrim, callFeedPendingDecision: callFeedPendingDecision,
     tgFeedAddDays: tgFeedAddDays, tgFeedParseRooms: tgFeedParseRooms, tgFeedRoomMatch: tgFeedRoomMatch, tgFeedRoomPick: tgFeedRoomPick, tgFeedRoomInfo: tgFeedRoomInfo,
     tgFeedParseTime: tgFeedParseTime, tgFeedParseMessage: tgFeedParseMessage, tgFeedGroupDay: tgFeedGroupDay, tgFeedSenderName: tgFeedSenderName,
     tgFeedAssignSenders: tgFeedAssignSenders, tgFeedSplit: tgFeedSplit, tgFeedBuildBody: tgFeedBuildBody, tgFeedRoomState: tgFeedRoomState,
