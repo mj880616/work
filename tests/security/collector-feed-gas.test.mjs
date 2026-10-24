@@ -152,7 +152,7 @@ test('call_skip 몸통 모양은 서버와 같다({day, personal, short})',()=>{
 });
 
 // ---- 실행 흐름: 지어낸 Drive·스크립트 속성·UrlFetchApp로 callFeed_run을 돌린다 ----------------------------------
-function fakeEnv({props={},responses=[]}={}){
+function fakeEnv({props={},responses=[],custom=null}={}){
   const store={...props};
   const sent=[];
   const logs=[];
@@ -169,6 +169,7 @@ function fakeEnv({props={},responses=[]}={}){
     [G.callFeedAnalysisName('통화 홍길동_261024_093000.txt','TXTFAKE0001aa')]:file('a1','A1',T0,analysis().replace(REF,'TXTFAKE0001aa')),
     [G.callFeedAnalysisName('통화 가상 국장_261024_110000.txt','TXTFAKE0003cc')]:file('a3','A3',T0,analysis({isWork:null}).replace(REF,'TXTFAKE0003cc')),
   };
+  if(custom){const c=custom(file);transcripts.length=0;transcripts.push(...c.transcripts);for(const k of Object.keys(analyses))delete analyses[k];Object.assign(analyses,c.analyses);}
   const folder=(name,children={},files=[])=>({getName:()=>name,
     getFoldersByName:(n)=>iter(children[n]?[children[n]]:[]),
     searchFiles:()=>iter(files),getFilesByName:(n)=>iter(analyses[n]&&name==='검토대기'?[analyses[n]]:[]),getParents:()=>iter([])});
@@ -180,7 +181,7 @@ function fakeEnv({props={},responses=[]}={}){
     module:{exports:{}},
     Logger:{log:(m)=>logs.push(String(m))},
     PropertiesService:{getScriptProperties:()=>({getProperty:(k)=>k in store?store[k]:null,setProperty:(k,v)=>{store[k]=String(v);},deleteProperty:(k)=>{delete store[k];}})},
-    DriveApp:{getFolderById:()=>root},
+    DriveApp:{getFolderById:()=>root,getFileById:(id)=>{const f=transcripts.find((t)=>t.getId()===id);if(!f)throw new Error('없음');return f;}},
     Utilities:{formatDate:(d)=>d.toISOString().slice(0,19),getUuid:()=>'00000000-0000-4000-8000-000000000000'},
     UrlFetchApp:{fetch:(url,opt)=>{sent.push({url,opt});const r=responses.shift()??{code:200,body:{ok:true,kept:1,personal:0,unsure:0,failed:0,duplicate:false}};
       return {getResponseCode:()=>r.code,getContentText:()=>JSON.stringify(r.body??{})};}},
@@ -240,4 +241,89 @@ test('실행 흐름 — 서버 실패(503)면 그 건에서 멈추고 다음 실
   const c=fakeEnv({props:{...BASE,CALL_FEED_TEST_MODE:'끔'}});
   assert.throws(()=>c.env.callFeed_run(),/COLLECTOR_FEED_SECRET/);
   assert.equal(c.sent.length,0);
+});
+
+// ---- 분석 대기: 막히지 않고 건너뛰어 계속, 대기 목록에서 한 번씩만 처리 ----------------------------------
+const HOUR=3600*1000;
+// 가장 오래된 통화는 분석이 없고(방금 만든 것), 그 뒤 두 통화는 분석이 있다.
+const NOW0=Date.now();
+function waitScenario({analysisLater=false,ageH=1}={}){
+  const now=NOW0;
+  const tA=now-ageH*HOUR, tB=now-ageH*HOUR+1000, tC=now-ageH*HOUR+2000;
+  const nameA='통화 가상 갑_261024_090000.txt',nameB='통화 홍길동_261024_093000.txt',nameC='통화 가상 국장_261024_110000.txt';
+  return {tA,tB,tC,custom:(file)=>({
+    transcripts:[file(nameA,'TXTWAIT0001aa',tA,'대기 통화'),file(nameB,'TXTFAKE0001aa',tB,TRANSCRIPT),file(nameC,'TXTFAKE0003cc',tC,'애매 통화')],
+    analyses:{
+      [G.callFeedAnalysisName(nameB,'TXTFAKE0001aa')]:file('a2','A2',tB,analysis().replace(REF,'TXTFAKE0001aa')),
+      [G.callFeedAnalysisName(nameC,'TXTFAKE0003cc')]:file('a3','A3',tC,analysis({isWork:null}).replace(REF,'TXTFAKE0003cc')),
+      ...(analysisLater?{[G.callFeedAnalysisName(nameA,'TXTWAIT0001aa')]:file('a1','A1',tA,analysis({isWork:'false'}).replace(REF,'TXTWAIT0001aa'))}:{}),
+    }})};
+}
+const SINCE_OLD=JSON.stringify({since:new Date(Date.now()-48*HOUR).toISOString()});
+
+test('분석 대기 통화: 시험 모드는 건너뛰고 계속 세며, 진행 위치·대기 목록을 저장하지 않는다',()=>{
+  const sc=waitScenario();
+  const {env,store,sent,logs}=fakeEnv({props:{CALL_FEED_STATE:SINCE_OLD},custom:sc.custom});
+  env.callFeed_run();
+  assert.equal(store.CALL_FEED_STATE,SINCE_OLD);
+  assert.equal(sent.length,0);
+  const log=logs.join('\n');
+  assert.match(log,/분석 대기: 1건\(건너뛰고 계속\)/);
+  assert.match(log,/보낼 것: 2/);
+  assert.match(log,/끝까지 봄/);
+});
+
+test('분석 대기 통화: 실제 모드는 대기 목록에 넣고 뒤의 통화를 보낸다. 진행 위치는 끝까지 간다',()=>{
+  const sc=waitScenario();
+  const {env,store,sent,logs}=fakeEnv({props:{CALL_FEED_STATE:SINCE_OLD,CALL_FEED_TEST_MODE:'끔',COLLECTOR_FEED_SECRET:SECRET},custom:sc.custom});
+  env.callFeed_run();
+  assert.equal(sent.length,2,'뒤의 두 통화는 보낸다');
+  const st=JSON.parse(store.CALL_FEED_STATE);
+  assert.deepEqual(st.pending,[{id:'TXTWAIT0001aa',created:sc.tA,tries:1}]);
+  assert.equal(st.since,new Date(sc.tC).toISOString());
+  assert.match(logs.join('\n'),/대기 목록: 1건/);
+});
+
+test('분석 대기 통화: 다음 실행에서 분석이 생기면 한 번 보내고 목록에서 뺀다. 그 다음 실행에는 다시 보내지 않는다',()=>{
+  const sc=waitScenario();
+  const first=fakeEnv({props:{CALL_FEED_STATE:SINCE_OLD,CALL_FEED_TEST_MODE:'끔',COLLECTOR_FEED_SECRET:SECRET},custom:sc.custom});
+  first.env.callFeed_run();
+  const later=waitScenario({analysisLater:true});
+  const second=fakeEnv({props:{CALL_FEED_STATE:first.store.CALL_FEED_STATE,CALL_FEED_TEST_MODE:'끔',COLLECTOR_FEED_SECRET:SECRET},
+    responses:[{code:200,body:{ok:true,personal:1}}],custom:later.custom});
+  second.env.callFeed_run();
+  const calls=second.sent.filter((s)=>s.url.endsWith('action=call'));
+  assert.equal(calls.length,1);
+  assert.equal(JSON.parse(calls[0].opt.payload).ref,'TXTWAIT0001aa');
+  const st=JSON.parse(second.store.CALL_FEED_STATE);
+  assert.deepEqual(st.pending,[]);
+  const third=fakeEnv({props:{CALL_FEED_STATE:second.store.CALL_FEED_STATE,CALL_FEED_TEST_MODE:'끔',COLLECTOR_FEED_SECRET:SECRET},custom:later.custom});
+  third.env.callFeed_run();
+  assert.equal(third.sent.length,0,'같은 통화를 다시 보내거나 세지 않는다');
+});
+
+test('분석 대기 통화: 24시간이 지나도 분석이 없으면 넘김으로 세고 목록에서 뺀다',()=>{
+  const sc=waitScenario();
+  const pend=JSON.stringify({since:new Date(sc.tC).toISOString(),pending:[{id:'TXTWAIT0001aa',created:Date.now()-25*HOUR,tries:5}]});
+  const {env,store,sent,logs}=fakeEnv({props:{CALL_FEED_STATE:pend,CALL_FEED_TEST_MODE:'끔',COLLECTOR_FEED_SECRET:SECRET},custom:sc.custom});
+  env.callFeed_run();
+  assert.equal(sent.length,0);
+  assert.deepEqual(JSON.parse(store.CALL_FEED_STATE).pending,[]);
+  assert.match(logs.join('\n'),/넘김: 1/);
+});
+
+test('대기 목록 정리·상한·판정(순수 함수)',()=>{
+  const clean=plain(G.callFeedPendingClean([{id:'b',created:2,tries:1},{id:'a',created:1},{id:'a',created:9},{id:'',created:3},{id:'c',created:'x'},null,{id:'d',created:5,tries:-2}]));
+  assert.deepEqual(clean,[{id:'a',created:1,tries:0},{id:'b',created:2,tries:1},{id:'d',created:5,tries:0}]);
+  assert.deepEqual(plain(G.callFeedPendingClean(undefined)),[]);
+  const many=Array.from({length:53},(_,i)=>({id:'id'+i,created:i+1,tries:1}));
+  const t=plain(G.callFeedPendingTrim(many.slice().reverse(),50));
+  assert.equal(t.keep.length,50);
+  assert.deepEqual(t.dropped.map((e)=>e.id),['id0','id1','id2'],'가장 오래된 것부터 넘김');
+  assert.equal(G.callFeedPendingTrim(many.slice(0,5),50).dropped.length,0);
+  const now=1e12, W=24*3600*1000;
+  assert.equal(G.callFeedPendingDecision({created:now-1000},now,true),'send');
+  assert.equal(G.callFeedPendingDecision({created:now-1000},now,false),'wait');
+  assert.equal(G.callFeedPendingDecision({created:now-W},now,false),'expire');
+  assert.equal(G.callFeedPendingDecision({created:now-W},now,true),'send');
 });
