@@ -56,12 +56,13 @@ function harness({env={},openai=[()=>respond(openaiOk([{title:'교섭 일정 변
   const db={
     app_workspaces:[{id:WS,slug:'kptu-work'},{id:OTHER_WS,slug:'other-work'}],
     app_suborganizations:[{id:ORG,workspace_id:WS,name:'가상노동조합',aliases:['가상노조'],active:true},{id:ORG2,workspace_id:WS,name:'예시지부',aliases:[],active:true},{id:FOREIGN_ORG,workspace_id:OTHER_WS,name:'남의노조',aliases:[],active:true}],
-    app_spaces:[{id:PROJECT,workspace_id:WS,name:'가상 교섭 프로젝트',parent_id:null,status:'active',metadata:{project_system:'v2'}},{id:FOREIGN_PROJECT,workspace_id:OTHER_WS,name:'남의 프로젝트',parent_id:null,status:'active',metadata:{project_system:'v2'}}],
+    app_spaces:[{id:PROJECT,workspace_id:WS,name:'가상 교섭 프로젝트',parent_id:null,status:'active',metadata:{project_system:'v2'}},{id:FOREIGN_PROJECT,workspace_id:OTHER_WS,name:'남의 프로젝트',parent_id:null,status:'active',metadata:{project_system:'v2'}},{id:'e0000000-0000-4000-8000-000000000003',workspace_id:WS,name:'가상 휴지통 프로젝트',parent_id:null,status:'active',metadata:{project_system:'v2'},deleted_at:'2026-10-24T01:00:00Z',deleted_root_id:'e0000000-0000-4000-8000-000000000003'}],
     app_feed_items:structuredClone(items),
     app_feed_days:structuredClone(days),
   };
   const filters=url=>{const f=[];for(const [k,v] of url.searchParams){if(['select','limit','order','offset'].includes(k))continue;f.push([k,v]);}return f;};
   const match=(row,f)=>f.every(([k,v])=>{const i=v.indexOf('.'),op=v.slice(0,i),val=v.slice(i+1);
+    if(op==='is'&&val==='null')return row[k]==null;
     if(op==='eq')return String(row[k]??'')===val;if(op==='gte')return String(row[k])>=val;if(op==='lt')return String(row[k])<val;
     if(op==='like'){const re=new RegExp('^'+val.replace(/[.+?^${}()|[\]\\]/g,'\\$&').replace(/\*/g,'.*')+'$');return re.test(String(row[k]));}
     throw new Error('unexpected filter '+k+'='+v);});
@@ -329,7 +330,7 @@ test('텔레그램: 묶음마다 AI 한 번, 고른 소식만 저장(요약·근
   const req=h.calls.openai[0];
   assert.equal(req.store,false);assert.equal(req.model,'gpt-6-luna');assert.equal(req.text.format.strict,true);assert.equal(req.tools,undefined);
   const material=req.input[1].content;
-  assert.match(material,/m1 09:10 A: /);assert.match(material,/m2 09:12 B \(m1에 답\): /);assert.match(material,/o1=가상노동조합/);assert.match(material,/p1=가상 교섭 프로젝트/);
+  assert.match(material,/m1 09:10 A: /);assert.match(material,/m2 09:12 B \(m1에 답\): /);assert.match(material,/o1=가상노동조합/);assert.match(material,/p1=가상 교섭 프로젝트/);assert.doesNotMatch(material,/휴지통/,'휴지통 프로젝트는 선택지에서 뺀다');assert.match(h.calls.rest.find(c=>c.table==='app_spaces').url,/deleted_at=is\.null/);
   assert.doesNotMatch(material,new RegExp(ORG+'|'+PROJECT),'ID는 AI에 보내지 않는다');assert.doesNotMatch(material,/남의/);
   const row=h.db.app_feed_items[0];
   assert.equal(row.source,'telegram');assert.equal(row.room_key,'room-fake-1');assert.equal(row.room_label,'가상 업무방');

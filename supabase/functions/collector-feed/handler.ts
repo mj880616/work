@@ -366,7 +366,7 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   if (estimateKrw(used.input, used.output, config.price) >= MONTHLY_LIMIT_KRW) throw new Fail(429, "AI_MONTHLY_LIMIT");
 
   const orgs = organizationOptions(await readOrgs(db, ws));
-  const projects = projectOptions(await db.get(`app_spaces?workspace_id=eq.${ws}&select=id,name,parent_id,status,metadata&order=sort_order.asc,created_at.asc&limit=500`));
+  const projects = projectOptions(await db.get(`app_spaces?workspace_id=eq.${ws}&deleted_at=is.null&select=id,name,parent_id,status,metadata&order=sort_order.asc,created_at.asc&limit=500`));
   const material = telegramMaterial(input.day, input.room_label, input.messages, orgs, projects);
   // 부르기 전에 횟수를 먼저 센다(ai-assist와 같음).
   await addDay(db, ws, today, "telegram", { ai_requests: 1 }, nowMs);

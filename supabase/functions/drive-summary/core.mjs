@@ -264,17 +264,18 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date(), cr
   }
   async function readData(workspaceId, at, ownerId) {
     const window = kstWindow(at), scope = { workspace_id: `eq.${workspaceId}` };
-    const projectScope = { 'project.workspace_id': `eq.${workspaceId}` };
+    // 휴지통 프로젝트(deleted_at 있음, 하위 포함)는 요약에서 뺀다. 서버 키는 RLS를 건너뛰므로 직접 거른다.
+    const projectScope = { 'project.workspace_id': `eq.${workspaceId}`, 'project.deleted_at': 'is.null' };
     // Child tables have no workspace_id; !inner + referenced-workspace filter enforces scope.
     // Milestones also reference app_spaces via child_project_id; disambiguate the FK.
-    const projectSelect = columns => `${columns},project:app_spaces!project_id!inner(workspace_id)`;
+    const projectSelect = columns => `${columns},project:app_spaces!project_id!inner(workspace_id,deleted_at)`;
     const timeParams = (columns, scopeParams, column, start, end) => [
       ['select', columns], ...Object.entries(scopeParams), [column, `gte.${start}`], [column, `lte.${end}`],
     ];
     const [organizations, organizationUpdates, projects, workstreams, progress, milestones, taskLinks, documents, meetings] = await Promise.all([
       dbRows('app_suborganizations', { select: 'id,name,active,recent_month_summary', ...scope }),
       dbRows('app_suborganization_updates', timeParams('id,organization_id,raw_text,occurred_at,organization:app_suborganizations!organization_id!inner(workspace_id)', { 'organization.workspace_id': `eq.${workspaceId}` }, 'occurred_at', window.start, window.end)),
-      dbRows('app_spaces', { select: 'id,parent_id,name,status,sort_order,project_system:metadata->>project_system,management_version:metadata->>management_version', ...scope }),
+      dbRows('app_spaces', { select: 'id,parent_id,name,status,sort_order,project_system:metadata->>project_system,management_version:metadata->>management_version', ...scope, deleted_at: 'is.null' }),
       dbRows('app_project_workstreams', { select: projectSelect('id,project_id,phase,title,sort_order'), ...projectScope }),
       dbRows('app_project_progress_updates', timeParams(projectSelect('id,project_id,workstream_id,effective_on,status_label,summary,next_step'), projectScope, 'effective_on', window.startDate, window.today)),
       dbRows('app_project_milestones', { select: projectSelect('id,project_id,title,start_at'), ...projectScope, start_at: `gte.${window.start}` }),
