@@ -83,11 +83,11 @@ for(const width of [390,1280])test(`단계 저장·이력·목록 꼬리표 ${wi
  await stageSelect(page).selectOption({label:'협약체결'});await line.locator('[data-stage-date]').fill('2026-10-05');await line.locator('[data-stage-save]').click();
  await expect(line.locator('summary')).toHaveText('단계 이력 2');
  await expect(row(page,'oa').locator('.so-stage-tag')).toHaveText('협약체결');await expect(row(page,'oa').locator('.so-stage-tag')).toHaveClass(/is-end/);
- await stageSelect(page).selectOption({label:'종료'});await line.locator('[data-stage-date]').fill('2026-10-02');await line.locator('[data-stage-save]').click();
- await expect(line.locator('summary')).toHaveText('단계 이력 3');
+ await line.locator('[data-stage-date]').fill('2026-10-04');await line.locator('[data-stage-save]').click(); // 지난 주로 고치면 꼬리표가 빠짐
+ await expect(line.locator('summary')).toHaveText('단계 이력 2');
  await expect(row(page,'oa').locator('.so-stage-tag')).toHaveCount(0);
  await line.locator('summary').click();
- await expect(line.locator('details')).toContainText('10.2 종료');await expect(line.locator('details')).toContainText('10.5 협약체결');await expect(line.locator('details')).toContainText('10.3 쟁의발생 결의');
+ await expect(line.locator('details')).toContainText('10.4 협약체결');await expect(line.locator('details')).toContainText('10.3 쟁의발생 결의');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
  expect(errors).toEqual([]);
 });
