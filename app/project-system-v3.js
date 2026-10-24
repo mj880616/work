@@ -485,7 +485,6 @@ async function openMeetingRound(id){
 }
 // 분류 목록이 바뀌면(내 목록을 읽어 옴·이름 바꾸기·삭제) 열려 있는 [자료] 묶음의 분류 꼬리표만 다시 그린다.
 window.addEventListener('kptu:document-categories-changed',()=>{const box=$('#ps3-documents');if(box&&detail?.docs){box.outerHTML=docsHtml(detail);mountDocKinds(detail)}});
-function decisions(d){const all=[...d.decisions.map(x=>({kind:'결정',title:x.title,body:x.body,at:x.decided_at})),...d.meetings.map(x=>({kind:'회의',title:x.title,body:x.decisions||x.notes||'',at:x.meeting_at}))].sort((a,b)=>new Date(b.at)-new Date(a.at));return `<section class="ps3-section" id="ps3-decisions"><div class="ps3-section-head"><div><h3>${esc(moduleTitle(d,'decisions','회의·결정'))}</h3><p>회의 결과와 중요한 결정사항을 함께 봅니다.</p></div><button class="mini" data-ps3-global="meeting">+ 회의</button></div><div class="ps3-list">${all.length?all.map(x=>`<div class="ps3-row"><div class="ps3-row-main"><b><span class="ps3-phase">${x.kind}</span> ${esc(x.title)}</b><p>${esc(x.body||'')}</p><small>${x.kind==='회의'?formatMeetingTime(x.at):fmt(x.at)}</small></div></div>`).join(''):empty('회의·결정 기록이 없습니다.')}</div></section>`}
 // UI-프로젝트화면정리: the folded '메모' box is gone (notes live in the basket's [노트]); the stored project comments
 // (app_project_comments) are kept as they are and only no longer shown here.
 function pagesHtml(d){
