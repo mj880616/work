@@ -48,7 +48,8 @@ async function sameButtons(region,height,quickHeight=height){
   const label=await control.textContent();
   if(want){expect(s.height,label).toBeGreaterThanOrEqual(want.min);expect(s.height,label).toBeLessThanOrEqual(want.max);expect(s.radius,label).toBe(want.radius);expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),label).toBe(44);}
   // UI-PC버튼36: the quick input's [추가] is the input height on PC (quickHeight); other main buttons keep --ds-control-height.
-  else{const h=await control.evaluate(el=>el.matches('.home-quick-save'))?quickHeight:height;expect(Math.abs(s.height-h),label).toBeLessThanOrEqual(0.5);expect(s.radius,label).toBe('8px');}
+  // UI-버튼전수조사(2026-10-24): 46px(--ds-control-height) 버튼은 없앴다. 채운 버튼(주 동작)은 36px(--kptu-control-height), 나머지는 작은 버튼 32px. 누르는 범위 44px.
+  else{const h=await control.evaluate((el,q)=>el.matches('.home-quick-save')?q:el.matches('.primary,.quick-pill-primary,[data-basket-save]')?36:32,quickHeight);expect(Math.abs(s.height-h),label).toBeLessThanOrEqual(0.5);expect(s.radius,label).toBe('8px');expect(await control.evaluate(el=>{const r=el.getBoundingClientRect().height,a=getComputedStyle(el,'::after');return a.content==='none'?r:Math.max(r,parseFloat(a.height)||0,parseFloat(a.minHeight)||0)}),label+' 누르는 범위').toBeGreaterThanOrEqual(44);}
   expect(s.fontSize).toBe('13px');expect(s.fontWeight).toBe('500');expect(s.shadow).toBe('none');expect(s.image).toBe('none');
  }
  return shaped;
@@ -57,7 +58,7 @@ async function sameButtons(region,height,quickHeight=height){
 for(const width of [390,1280])test(`home and basket buttons share the [추가] height and four kinds ${width}`,async({page})=>{
  const errors=await open(page,width);
  const quick=page.locator('#homeView .home-quick'),save=quick.locator('[data-quick-save]');
- // UI-PC버튼36(2026-10-20): PC(≥1024) 빠른 입력 [추가]·입력칸은 입력칸 높이(--kptu-control-height 36px). 창·읽기·수정 화면 버튼은 그대로 --ds-control-height(46px).
+ // UI-PC버튼36(2026-10-20): PC(≥1024) 빠른 입력 [추가]·입력칸은 입력칸 높이(--kptu-control-height 36px). 토큰 --ds-control-height(46px)는 입력칸 등에 남아 있다(버튼은 UI-버튼전수조사로 36/32px).
  const height=parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--ds-control-height')));
  // UI-버튼줄이기 + HOME-모바일정리④: 빠른 입력 [추가]와 홈 입력칸은 폭과 상관없이 36px(--kptu-control-height).
  const quickHeight=parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-control-height'))),inputHeight=quickHeight;

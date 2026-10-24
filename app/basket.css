@@ -9,7 +9,7 @@
 #basketView button { min-height:44px; padding:8px 12px; font:inherit; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; cursor:pointer; }
 .basket-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .basket-head h2 { font-size:20px; }
-.basket-filters,.basket-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.basket-filters,.basket-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
 #basketView [aria-pressed="true"] { color:var(--kptu-primary-ink); background:var(--kptu-primary-soft); font-weight:700; }
 #basketView .basket-row { display:grid; width:100%; gap:6px; margin:10px 0; padding:14px; text-align:left; overflow-wrap:anywhere; }
 .basket-preview { white-space:pre-wrap; font-size:15px; }

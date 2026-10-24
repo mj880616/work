@@ -150,8 +150,9 @@ for(const width of [390,1280])test(`[자료로 넣기] puts the files into the p
  expect(f.errors).toEqual([]);
 });
 
-// UI-PC다듬기묶음 ④: [조직·프로젝트 자료로 넣기] 칸 버튼은 PC(≥1024)에서 작은 버튼 기준(보이는 32px, 누르는 범위 44px), 폰·중간 폭은 큰 버튼(46px) 그대로.
-for(const [width,painted] of [[1280,32],[1024,32],[900,46],[390,46]])test(`[자료로 넣기] panel buttons are small on PC only ${width}`,async({page})=>{
+// UI-PC다듬기묶음 ④: [조직·프로젝트 자료로 넣기] 칸 버튼은 작은 버튼 기준(보이는 32px, 누르는 범위 44px).
+// UI-버튼전수조사(2026-10-24): 폰·중간 폭도 같은 32px, 채운 [자료로 넣기]만 폰·중간 폭에서 36px(PC 칸은 원래대로 32px).
+for(const [width,painted] of [[1280,32],[1024,32],[900,32],[390,32]])test(`[자료로 넣기] panel buttons are small at every width ${width}`,async({page})=>{
  const f=await fixture(page,{width}),detail=await openNote(page,ONLY,width);
  await tap(page,detail.getByRole('button',{name:'연결하기'}),width);
  await pick(page,detail,'project','합성 임단협',width);
@@ -161,7 +162,7 @@ for(const [width,painted] of [[1280,32],[1024,32],[900,46],[390,46]])test(`[자�
  const measure=async locator=>{await locator.scrollIntoViewIfNeeded();return locator.evaluate(el=>{const r=el.getBoundingClientRect(),p=getComputedStyle(el,'::after'),x=r.left+r.width/2;return {h:r.height,touch:p.content!=='none'?parseFloat(p.height):r.height,above:document.elementFromPoint(x,r.top-4)?.closest('button')===el,below:document.elementFromPoint(x,r.bottom+4)?.closest('button')===el}})};
  const buttons={'담당조직 고르기':panel.locator('[data-manual-pick="organization"]'),'프로젝트 고르기':panel.locator('[data-manual-pick="project"]'),'빼기':target.locator('[data-manual-remove]'),'기록도 남기기':target.locator('[data-manual-record]'),'자료로 넣기':panel.locator('[data-manual-confirm]'),'취소':panel.locator('[data-manual-cancel]')};
  for(const [name,locator] of Object.entries(buttons)){
-  const m=await measure(locator);expect(m.h,name).toBe(painted);expect(m.touch,name).toBeGreaterThanOrEqual(44);
+  const m=await measure(locator);expect(m.h,name).toBe(name==='자료로 넣기'&&width<1024?36:painted);expect(m.touch,name).toBeGreaterThanOrEqual(44);
   if(width>=1024){expect(m.above,name+' 위 3px 누름').toBe(true);expect(m.below,name+' 아래 3px 누름').toBe(true)}
  }
  await expect(buttons['자료로 넣기']).toHaveText('자료로 넣기');

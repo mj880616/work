@@ -13,6 +13,8 @@
 #appView #diaryView .diary-month b{ min-width:7.5em; text-align:center; font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); }
 #appView #diaryView .diary-status{ margin:0; color:var(--kptu-muted); font-size:var(--ds-text-meta); }
 #appView #diaryView .diary-status:empty{ display:none; }
+/* UI-버튼전수조사(2026-10-24): 보조 버튼([다시 시도]·[사진 고르기]·[고치기]·[지우기])은 작은 버튼(보이는 32px·누르는 범위 44px은 base-ui.css ::after), 폭은 글자만큼. */
+#appView #diaryView button.secondary{ align-self:flex-start; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); }
 
 /* 한 달 달력: 사진 있는 날은 첫 사진이 칸을 채우고, 글만 있는 날은 테마 대표색 점. */
 #appView #diaryView .diary-week-head,#appView #diaryView .diary-days{ display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; }

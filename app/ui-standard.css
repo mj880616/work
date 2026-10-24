@@ -26,16 +26,23 @@
 /* 버튼(8-9c2): 높이 하나(--ds-control-height = 홈 빠른 입력 [추가] 높이)·모서리 8px·13px·굵기 500, 그림자·그라데이션 없음.
    종류는 넷만: ① 채운 버튼(계정 테마색, 화면당 1개) ② 종류 색(연한 바탕 + 진한 글자) ③ 흰 바탕 + 0.5px 테두리(기본) ④ 빨간 테두리(삭제).
    목록 행·첨부 클립·× 아이콘·글자 링크·글 본문 안 요소·고르기 시트의 칩은 버튼 모양이 아니므로 뺀다. */
-#appView #basketView :is(button:not(.basket-row,.basket-clip,.icon-btn,.quick-text-link,.home-basket-link,.home-quick-big,.basket-icon-button,.basket-row-copy,.basket-row-more,.basket-file-thumb,.basket-file-link,.basket-photo-view *,.md-body *,.md-share-cards *,.home-choice-sheet *,.basket-more-menu *),[data-basket-attachments] a:where(:not(.basket-file-link))):where(:not([hidden])),
+#appView #basketView :is(button:not(.basket-row,.basket-return-btn,.basket-clip,.icon-btn,.quick-text-link,.home-basket-link,.home-quick-big,.basket-icon-button,.basket-row-copy,.basket-row-more,.basket-file-thumb,.basket-file-link,.basket-photo-view *,.md-body *,.md-share-cards *,.home-choice-sheet *,.basket-more-menu *),[data-basket-attachments] a:where(:not(.basket-file-link))):where(:not([hidden])),
 #appView #homeView .home-quick :is(.home-quick-modes button,.home-quick-save,.home-quick-new-note,[data-quick-options] button):where(:not([hidden])){
   box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:6px;
-  height:auto; min-height:var(--ds-control-height); max-width:100%; margin:0; padding:4px var(--ds-control-pad-x);
+  height:auto; min-height:var(--ds-compact-height); max-width:100%; margin:0; padding:0 var(--ds-compact-pad-x);
   font-family:inherit; font-size:var(--ds-text-button); font-weight:var(--ds-weight-medium); line-height:1.3; text-align:center; text-decoration:none;
   color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control);
   box-shadow:none; background-image:none;
 }
-/* ① 채운 버튼: 빠른 입력 [추가], 읽기 [연결하기], 수정 [수정 저장], 패널 안 확정 버튼. 위 기본 규칙과 같은 우선순위로 맞춰 뒤에서 덮는다. */
+/* UI-버튼전수조사(2026-10-24 사용자 결정): 기본 버튼은 작은 버튼(보이는 --ds-compact-height 32px). 누르는 범위 44px은
+   .primary·.secondary·.ghost·.mini는 base-ui.css ::after, 알약 칩·연결 칸·수정 줄은 각자의 ::after가 맡는다. 그 밖의 버튼(이름표 없는 [취소]·[다시 시도] 등)은
+   아래 ::after(base-ui.css와 같은 식, :where()로 우선순위 0)가 맡는다. */
+:where(#appView #basketView) :where(button:not([class]),button.quick-pill-primary,button.ai-summary-run,button.basket-manual-record-toggle):where(:not(.basket-more-menu *,.home-choice-sheet *,.md-body *)){ position:relative; }
+:where(#appView #basketView) :where(button:not([class]),button.quick-pill-primary,button.ai-summary-run,button.basket-manual-record-toggle):where(:not(.basket-more-menu *,.home-choice-sheet *,.md-body *))::after{ content:""; position:absolute; inset:min(0px,calc((100% - var(--kptu-touch-target,44px)) / 2)); min-width:var(--kptu-touch-target,44px); min-height:var(--kptu-touch-target,44px); }
+/* ① 채운 버튼: 빠른 입력 [추가], 읽기 [연결하기], 수정 [수정 저장], 패널 안 확정 버튼. 위 기본 규칙과 같은 우선순위로 맞춰 뒤에서 덮는다.
+   UI-버튼전수조사: 채운 버튼(주 동작)은 입력칸 높이 --kptu-control-height(36px). 줄 안 작은 버튼으로 정한 곳(연결 칸·수정 줄)은 그 규칙이 이긴다. */
 #appView :is(#homeView,#basketView) :is(.home-quick button.home-quick-save,button.primary,button.quick-pill-primary,button[data-basket-save]){ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); }
+#appView #basketView :is(button.primary,button.quick-pill-primary,button[data-basket-save]):where(:not([hidden],.basket-row,.icon-btn)){ min-height:var(--kptu-control-height); }
 /* ② 종류 색: 바구니 읽기 화면 아래 버튼 줄은 종류 색 없이 세 버튼이 같은 기본 모양(UI-바구니상세버튼색). */
 /* 고른 쪽(UI-선택표시통일, 2026-10-17 사용자 결정 B): 전환 버튼·필터·날짜의 고른 쪽은 어디서든 회색(--ds-kind-other 옅은 바탕 + 진한 글자),
    안 고른 쪽은 흰 바탕(기본 ③). 고른 상태는 각 버튼의 aria-pressed/aria-checked가 기준이다. 홈 [업데이트 ▾]는 [업데이트]와 ▾ 두 버튼이 한 덩어리로 같이 칠해진다. */
@@ -142,11 +149,14 @@
 #appView :is(#calendarView,#tasksView,#projectsView) :is(button.primary,button.secondary,button.mini,a.mini):not(.calendar-toolbar *,.calendar-google-panel *,.icon-btn):where(:not([hidden])),
 #ps3DetailModal :is(button.primary,button.secondary,button.mini,a.mini,button.ghost):not(.icon-btn,.ps3-more-panel *):where(:not([hidden])){
   box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:6px;
-  height:var(--ds-control-height); min-height:var(--ds-control-height); max-width:100%; margin:0; padding:0 var(--ds-control-pad-x);
+  height:var(--ds-compact-height); min-height:var(--ds-compact-height); max-width:100%; margin:0; padding:0 var(--ds-compact-pad-x);
   font-family:inherit; font-size:var(--ds-text-button); font-weight:var(--ds-weight-medium); line-height:1.3; text-align:center; text-decoration:none; white-space:nowrap;
   color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control);
   box-shadow:none; background-image:none;
 }
+/* UI-버튼전수조사(2026-10-24): 위 기본은 작은 버튼 32px(누르는 범위 44px은 base-ui.css ::after). 채운 버튼(주 동작)은 36px. */
+#appView :is(#calendarView,#tasksView,#projectsView) button.primary:not(.calendar-toolbar *,.calendar-google-panel *,.icon-btn):where(:not([hidden])),
+#ps3DetailModal button.primary:not(.icon-btn,.ps3-more-panel *):where(:not([hidden])){ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
 /* 프로젝트 목록 [보관 n]은 버튼이 아니라 흐린 글자 링크(보통 굵기). */
 #appView #projectsView .ps3-plist button#ps3ArchiveBtn{ font-weight:var(--ds-weight-regular); }
 /* ① 채운 버튼(화면당 1개): [+ 할 일]·[+ 프로젝트]·상세 [할 일 추가]. */
@@ -159,14 +169,14 @@
 /* 머리줄 버튼은 위 기본 모양과 같되, 기존 간격(margin)은 그대로 둔다(누르는 영역 44px이 겹치지 않게). */
 #appView #calendarView .calendar-toolbar button:where(:not([hidden])){
   box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:6px;
-  height:var(--ds-control-height); min-height:var(--ds-control-height); max-width:100%; padding:0 var(--ds-control-pad-x);
+  height:var(--ds-compact-height); min-height:var(--ds-compact-height); max-width:100%; padding:0 var(--ds-compact-pad-x);
   font-family:inherit; font-size:var(--ds-text-button); font-weight:var(--ds-weight-medium); line-height:1.3; white-space:nowrap;
   color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control);
   box-shadow:none; background-image:none;
 }
 #appView #calendarView .calendar-toolbar :is(#prevMonthBtn,#nextMonthBtn){ padding:0; border:0; background:transparent; color:var(--kptu-muted); font-size:24px; line-height:1; }
 #appView #calendarView .calendar-toolbar #calendarTodayBtn{ padding:0 8px; }
-#appView #calendarView .calendar-toolbar .calendar-view-switch{ display:grid; grid-auto-flow:column; grid-auto-columns:var(--kptu-touch-target,44px); gap:0; padding:0; height:var(--ds-control-height); outline:var(--ds-line-width) solid var(--ds-line); outline-offset:calc(-1 * var(--ds-line-width)); border-radius:var(--ds-radius-control); }
+#appView #calendarView .calendar-toolbar .calendar-view-switch{ display:grid; grid-auto-flow:column; grid-auto-columns:var(--kptu-touch-target,44px); gap:0; padding:0; height:var(--ds-compact-height); outline:var(--ds-line-width) solid var(--ds-line); outline-offset:calc(-1 * var(--ds-line-width)); border-radius:var(--ds-radius-control); }
 #appView #calendarView .calendar-toolbar .calendar-view-switch button{ width:auto; min-width:0; padding:0; border:0; color:var(--kptu-muted); background:transparent; }
 #appView #calendarView .calendar-toolbar .calendar-view-switch button:first-child{ border-radius:var(--ds-radius-control) 0 0 var(--ds-radius-control); }
 #appView #calendarView .calendar-toolbar .calendar-view-switch button:last-child{ border-radius:0 var(--ds-radius-control) var(--ds-radius-control) 0; }
@@ -252,17 +262,19 @@
 
 /* 버튼: 높이 하나·모서리 8px·13px/500·흰 바탕 + 0.5px 테두리(기본). 목록 행·⋯ 아이콘은 버튼 모양이 아니므로 뺀다.
    목록 필터(프로젝트·자료 종류·회의명)는 홈 빠른 입력 탭과 같은 버튼 모양. */
-#appView :is(#teamView,#libraryView,#meetingsView) :is(button.primary,button.secondary,button.mini,a.mini,.filter-chips button):not(.icon-btn,.lu-more-panel *):where(:not([hidden])){
+#appView :is(#teamView,#libraryView,#meetingsView) :is(button.primary,button.secondary,button.mini,a.mini,.filter-chips button):not(.icon-btn,.lu-more-panel *,.doc-kind-chips *):where(:not([hidden])){
   box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:6px;
-  height:auto; min-height:var(--ds-control-height); max-width:100%; margin:0; padding:4px var(--ds-control-pad-x);
+  height:auto; min-height:var(--ds-compact-height); max-width:100%; margin:0; padding:0 var(--ds-compact-pad-x);
   font-family:inherit; font-size:var(--ds-text-button); font-weight:var(--ds-weight-medium); line-height:1.3; text-align:center; text-decoration:none; white-space:nowrap;
   color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control);
   box-shadow:none; background-image:none;
 }
 /* ① 채운 버튼(화면당 1개): [+ 자료]·[+ 회의 결과]. */
-#appView :is(#teamView,#libraryView,#meetingsView) button.primary:not(.icon-btn,.lu-more-panel *):where(:not([hidden])){ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); }
+#appView :is(#teamView,#libraryView,#meetingsView) button.primary:not(.icon-btn,.lu-more-panel *):where(:not([hidden])){ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); min-height:var(--kptu-control-height); }
+/* UI-버튼전수조사(2026-10-24): 위 기본은 작은 버튼 32px, 채운 버튼(주 동작)은 36px. 담당조직·프로젝트 상세 [자료] 위 종류 칩(.doc-kind-chips)은
+   이 규칙에서 빼서 자료실 종류 칩과 같은 알약 32px(아래 LIB-조직프로젝트자료종류)을 받는다. */
 /* ② 고른 필터는 회색(종류 색 '그 밖', UI-선택표시통일). 필터 묶음은 회색 알약 판 대신 버튼을 나란히(가로로 밀어 보기). */
-#appView :is(#libraryView,#meetingsView) .filter-chips{ gap:6px; padding:0; background:transparent; border-radius:0; min-height:var(--ds-control-height); }
+#appView :is(#libraryView,#meetingsView) .filter-chips{ gap:6px; padding:0; background:transparent; border-radius:0; min-height:var(--kptu-touch-target,44px); }
 #appView :is(#libraryView,#meetingsView) .filter-chips button[aria-checked="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
 #appView :is(#libraryView,#meetingsView) .filter-chips button::after{ content:none; }
 
@@ -314,7 +326,7 @@
 #appView #teamView .so-dot[data-so-recency="stale"]{ background:var(--ds-recency-stale); }
 @media(max-width:650px){
   #appView #teamView #soOrganizationList .kptu-list-row-main{ grid-template-columns:8px minmax(0,1fr) 20px; }
-  #appView #teamView .so-team-actions #soAddOrg{ min-height:var(--ds-control-height); padding:4px var(--ds-control-pad-x); font-size:var(--ds-text-button); }
+  #appView #teamView .so-team-actions #soAddOrg{ min-height:var(--kptu-control-height); padding:0 var(--ds-control-pad-x); font-size:var(--ds-text-button); }
 }
 
 /* ───────── 3단계 2부(8-9e-2): 폰 배치 ─────────
@@ -418,7 +430,7 @@
 .modal :is(button.primary,button.secondary,button.ghost,button.mini,a.mini,button.danger,button.wd-danger,button.ci-delete):not(.icon-btn,.ps3-more-panel *,.lu-more-panel *,.tl-menu-items *):where(:not([hidden])),
 .modal .event-create-modes button{
   box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:6px;
-  height:auto; min-height:var(--ds-control-height); max-width:100%; margin:0; padding:4px var(--ds-control-pad-x);
+  height:auto; min-height:var(--ds-compact-height); max-width:100%; margin:0; padding:0 var(--ds-compact-pad-x);
   font-family:inherit; font-size:var(--ds-text-button); font-weight:var(--ds-weight-medium); line-height:1.3; text-align:center; text-decoration:none; white-space:nowrap;
   color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control);
   box-shadow:none; background-image:none;
@@ -426,6 +438,9 @@
 /* ① 채운 버튼(화면·창당 1개): HWP [내 기기에 저장], 창의 저장·확정 버튼. */
 #appView #hwpView button.primary:not(.icon-btn):where(:not([hidden])),
 .modal button.primary:not(.icon-btn,.ps3-danger-btn,.ps3-more-panel *,.lu-more-panel *,.tl-menu-items *):where(:not([hidden])){ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); }
+/* UI-버튼전수조사(2026-10-24): 위 기본은 작은 버튼 32px(누르는 범위 44px은 base-ui.css ::after). 채운 버튼(창 주 동작·삭제 확인)은 36px. */
+#appView :is(#hwpView,#mediaView,#pagesView) button.primary:not(.icon-btn):where(:not([hidden])),
+.modal button.primary:not(.icon-btn,.ps3-more-panel *,.lu-more-panel *,.tl-menu-items *):where(:not([hidden])){ min-height:var(--kptu-control-height); }
 #appView #hwpView button.primary:not(.icon-btn):disabled{ opacity:.55; }
 /* ② 고른 필터·고른 종류(일정 창 [일정]·[할 일])는 회색(종류 색 '그 밖', UI-선택표시통일). */
 #appView #mediaView button.w1p-filter.active,.modal .event-create-modes [data-event-mode][aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
@@ -1118,7 +1133,8 @@
   #appView :is(#homeView,#basketView) .home-quick .home-quick-big,#appView :is(#tasksView,#homeView) .home-quick .home-quick-detail{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
   #appView #basketView .note-list-head .note-search input{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
   /* SHARE-현장공유 PR 2: 공유 페이지 화면의 큰 버튼([새 공유 페이지]·[저장]·[링크 만들기]·[다시 불러오기])도 같은 36px. 작은 보조 버튼(.sp-tool)은 그대로. */
-  #appView #pagesView .sp-root :is(button.primary,button.secondary):not(.icon-btn){ position:relative; height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+  #appView #pagesView .sp-root button.primary:not(.icon-btn){ position:relative; height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+  #appView #pagesView .sp-root button.secondary:not(.icon-btn){ position:relative; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); }
   #appView #pagesView .sp-root :is(button.primary,button.secondary):not(.icon-btn)::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
   #appView :is(#homeView,#basketView,#tasksView) .home-quick button.home-quick-save::after,
   #appView :is(#homeView,#basketView) .home-quick .home-quick-entry > [data-quick-file-picker] button.basket-clip::after,
@@ -1269,7 +1285,7 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
    (button.primary·secondary·ghost·mini) 또는 아래 ::after가 지킨다. */
 
 /* ① 창 안 주 동작 [저장]·[등록]·[회의 결과 저장] 등: 창 폭 전체(46px) → 글자 폭·36px, 오른쪽 아래. */
-.modal :is(#saveEventBtn,#saveTaskBtn,#saveMeetingBtn,#saveDocumentBtn,#ps3CreateSave,#libraryEditSave,#mffCreate,#soSaveOrg,#soSaveAssignees,#wdAffSave,#wdTimeSave,#wfMeetingGenerate):where(:not([hidden])){
+.modal :is(#saveEventBtn,#saveTaskBtn,#saveMeetingBtn,#saveDocumentBtn,#ps3CreateSave,#ps3DeleteConfirm,#libraryEditSave,#mffCreate,#soSaveOrg,#soSaveAssignees,#wdAffSave,#wdTimeSave,#wfMeetingGenerate):where(:not([hidden])){
   display:flex; width:max-content; max-width:100%; height:var(--kptu-control-height); min-height:var(--kptu-control-height); margin:var(--kptu-space-2) 0 0 auto; padding:0 var(--ds-control-pad-x);
 }
 /* ①-2 폰·중간 폭 할 일 수정 창 아래 [저장](이미 글자 폭): 46 → 36px. PC 상세 칸 제목 줄로 옮겨지면(.gt-pane-save) ④가 맡는다. */
@@ -1279,10 +1295,15 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
 :is(#eventModal,#gtTaskModal) .gt-pick .gt-pick-btn{
   height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1;
 }
-.modal #eventTaskProject{ display:inline-flex; width:auto; max-width:100%; justify-content:flex-start; }
-/* ③ 담당조직 상세 [크게][저장]: 36px. 프로젝트 상세 [기록]은 옆 입력칸과 한 높이(PRJ-화면다듬기)라 그대로 둔다. */
-#wdModal :is(#wdInboxSave,#wdInboxBig),
-#appView #teamView #wdModal :is(#wdInboxSave,#wdInboxBig){ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+.modal :is(#eventTaskProject,#meetingPlaces){ display:inline-flex; width:auto; max-width:100%; justify-content:flex-start; }
+/* UI-버튼전수조사: 사업 보고 창 [연결 안 함 ▾](고르기 버튼)도 일정 창 [프로젝트 선택 안 함 ▾]과 같이 작은 버튼·글자 폭. 길면 창 폭에서 말줄임. */
+.modal #meetingPlaces{ display:block; height:var(--ds-compact-height); min-height:var(--ds-compact-height); line-height:var(--ds-compact-height); padding-top:0; padding-bottom:0; }
+/* ③ 담당조직 상세 [저장]: 36px, [크게]는 보조 버튼이라 32px(UI-버튼전수조사 2026-10-24, PC 상세 칸 ⤢·프로젝트 상세 ⤢와 같은 값). 같은 줄 가운데 맞춤.
+   프로젝트 상세 [기록]은 옆 입력칸과 한 높이(PRJ-화면다듬기)라 그대로 둔다. */
+#wdModal #wdInboxSave,
+#appView #teamView #wdModal #wdInboxSave{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+#wdModal #wdInboxBig,
+#appView #teamView #wdModal:not(.wd-docked) #wdInboxBig{ align-self:center; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); }
 /* ④ PC 할 일 수정 칸(요청함 08:43): 기한 날짜 칸과 [내일][모레][다음주][기한 없음]을 같은 줄·같은 높이(36px)로, 윗선·아랫선을 맞춘다.
    제목 줄 [↵ 저장]은 작은 버튼(32px). */
 @media(min-width:1024px){

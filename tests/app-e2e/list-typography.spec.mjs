@@ -115,7 +115,7 @@ for(const width of [390,1440])test('D-3e archive and input roles preserve other 
   const before=await styles(original);if(selector==='#ps3ArchiveList .ps3-prow-meta'){before[0]='12px';before[2]='16px';before[4]='auto';before[6]='visible';before[7]='clip'}if(selector==='#ps3ArchiveList .ps3-prow-name'){before[0]='16px';before[1]='750';before[2]='21.6px'}if(selector==='#eventModal input'){before[0]='14px';before[2]='21.7px'}
   // UI-디자인기준 3/3 3부(8-9e-3): 창 제목 18px·500, 창 버튼은 높이 하나(46px)·13px·500, 창 입력칸 46px·글자 400.
   if(selector.endsWith(' h2')){before[0]='18px';before[1]='500';before[2]='25.2px'}
-  if(selector==='#ps3ArchiveModal button.mini'||selector==='#ps3CreateSave'){before[0]='13px';before[1]='500';before[2]='16.9px';before[4]=selector==='#ps3CreateSave'?'36px':'46px'}/* UI-버튼줄이기: 창 주 동작 36px */
+  if(selector==='#ps3ArchiveModal button.mini'||selector==='#ps3CreateSave'){before[0]='13px';before[1]='500';before[2]='16.9px';before[4]=selector==='#ps3CreateSave'?'36px':'32px'}/* UI-버튼줄이기: 창 주 동작 36px. UI-버튼전수조사: 창 보조 버튼 32px */
   if(selector==='#ps3ArchiveModal button.mini')before[3]=await page.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-ink)';document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c});// 기본 버튼 글자는 본문 색
   if(selector==='#eventModal input'){before[1]='400';before[4]='46px'}expect(await styles(page),selector).toEqual(before);
  }

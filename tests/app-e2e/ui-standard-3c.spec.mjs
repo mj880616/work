@@ -70,7 +70,8 @@ async function sameButtons(page,region,skip='.icon-btn'){
   // UI-버튼크기: 필터 칩(성명 종류)은 32px 알약, 전환 세그먼트(일정 창 [일정 | 할 일])는 32px 상자 안 칸. 둘 다 누르는 범위 44px.
   const kind=await control.evaluate(el=>el.matches('.w1p-filter')?'chip':el.matches('[data-event-mode]')?'segment':'button');
   // UI-버튼줄이기: 창 주 동작·HWP [내 기기에 저장]은 36px, 창 보조·HWP 보조는 32px.
-  const want=await control.evaluate(el=>el.matches('#hwpLabPick,#hwpLabUpload,#eventTaskProject,#gtDeleteBtn,#gtToggleBtn,.gt-pick-btn,.gt-pane-save')?32:el.matches('#hwpLabSave,#saveEventBtn,#saveTaskBtn,#gtSaveBtn,#saveMeetingBtn,#saveDocumentBtn,#ps3CreateSave,#libraryEditSave,#mffCreate,#soSaveOrg,#soSaveAssignees,#wdAffSave,#wdTimeSave,#wfMeetingGenerate,#wdInboxSave,#wdInboxBig')?36:46);
+  // UI-버튼전수조사(2026-10-24): 남은 46px 버튼도 기준으로 — 채운 버튼(주 동작)은 36px, 나머지는 작은 버튼 32px.
+  const want=await control.evaluate(el=>el.matches('#hwpLabPick,#hwpLabUpload,#eventTaskProject,#gtDeleteBtn,#gtToggleBtn,.gt-pick-btn,.gt-pane-save,#wdInboxBig')?32:el.matches('.primary,#hwpLabSave,#saveEventBtn,#saveTaskBtn,#gtSaveBtn,#saveMeetingBtn,#saveDocumentBtn,#ps3CreateSave,#libraryEditSave,#mffCreate,#soSaveOrg,#soSaveAssignees,#wdAffSave,#wdTimeSave,#wfMeetingGenerate,#wdInboxSave')?36:32);
   if(kind==='button'){expect(s.height,label).toBe(want);expect(s.radius,label).toBe('8px');}
   else{expect(s.height,label).toBeGreaterThanOrEqual(kind==='chip'?32:30);expect(s.height,label).toBeLessThanOrEqual(32);if(kind==='chip')expect(s.radius,label).toBe('999px');expect(await control.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),label).toBe(44);}
   expect(s.fontSize,label).toBe('13px');expect(s.fontWeight,label).toBe('500');expect(s.shadow,label).toBe('none');
@@ -284,7 +285,7 @@ test('일정 [Google Calendar] 설정 칸 버튼도 같은 기준(옛 !important
  await view(page,'calendar');
  await page.locator('.calendar-google-panel').evaluate(el=>el.open=true);
  const button=await look(page.locator('#googleConnectBtn'));
- expect([button.height,button.fontSize,button.fontWeight,button.radius]).toEqual([46,'13px','500','8px']);
+ expect([button.height,button.fontSize,button.fontWeight,button.radius]).toEqual([32,'13px','500','8px']);/* UI-버튼전수조사: 설정 칸 [연결]은 보조 32px */
  expect(await page.locator('#calendarCompactStyle').evaluate(el=>/#googleConnectBtn\{[^}]*!important/.test(el.textContent))).toBe(false);
  expect(errors).toEqual([]);
 });

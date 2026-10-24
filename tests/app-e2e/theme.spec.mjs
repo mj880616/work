@@ -240,8 +240,8 @@ for(const width of [390,1440])test('D-3c painted buttons and real 44px pointer t
   });
   expect(bounds.paintedHeight).toBe(painted);expect(bounds.width).toBeGreaterThanOrEqual(44);expect(bounds.height).toBeGreaterThanOrEqual(44);expect(bounds.hits.every(hit=>hit.same),selector+' '+JSON.stringify(bounds)).toBe(true);
  };
- // UI-디자인기준 2/3(8-9d): 일정 머리줄 버튼은 높이 하나(--ds-control-height 46px).
- await check('#prevMonthBtn',46);await check('#nextMonthBtn',46);await check('#newEventBtn',width<=760?36:width>=1024?32:46); // 8-9e-2: phone round [+] paints 36px; UI-PC다듬기묶음: PC(≥1024)는 같은 줄 [오늘]·보기 전환과 같은 32px
+ // UI-버튼전수조사(2026-10-24): 일정 머리줄 버튼은 보이는 높이 32px(--ds-compact-height, 누르는 범위 44px).
+ await check('#prevMonthBtn',32);await check('#nextMonthBtn',32);await check('#newEventBtn',width<=760?36:32); // 8-9e-2: phone round [+] paints 36px; UI-PC다듬기묶음: PC(≥1024)는 같은 줄 [오늘]·보기 전환과 같은 32px
  await page.locator('#newEventBtn').click();await expect(page.locator('#eventModal')).toBeVisible();
  await check('#eventModal .icon-btn',32);await check('#saveEventBtn',36);/* UI-버튼줄이기 *//* 8-9e-3: 창 버튼도 높이 하나 */
  const close=page.locator('#eventModal .icon-btn');await close.scrollIntoViewIfNeeded();const r=await close.boundingBox();
