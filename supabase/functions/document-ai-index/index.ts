@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { DEFAULT_AI_MODEL, withReasoning } from '../_shared/ai-model.ts';
-import HwpxReader, { hwpToText } from 'npm:@ssabrojs/hwpxjs';
+import { HwpxReader, hwpToText } from 'npm:@ssabrojs/hwpxjs';
 
 const SB=Deno.env.get('SUPABASE_URL')!;
 const SERVICE=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
