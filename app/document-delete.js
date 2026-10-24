@@ -1,5 +1,5 @@
 // 자료실과 회의 상세는 같은 확인·요청·오류 안내를 사용한다.
-const unknownDeleteMessage='삭제 결과를 확인하지 못했습니다. 다시 삭제하지 말고 자료실 목록 또는 회의자료를 다시 열어 확인해 주세요. Drive 원본 상태도 직접 확인해 주세요.';
+const unknownDeleteMessage='삭제 결과를 확인하지 못했습니다. 다시 삭제하지 말고 자료실 목록 또는 사업 보고 자료를 다시 열어 확인해 주세요. Drive 원본 상태도 직접 확인해 주세요.';
 const pendingDeletes=new Map();
 const modernFields=['drive_result','drive_preserved','reason'];
 const deletePhases=['token_delete_result','document_delete_result'];
