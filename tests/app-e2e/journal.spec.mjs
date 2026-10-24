@@ -1984,10 +1984,11 @@ test('[주간 정리] 조직 요약: 직접 쓴 요약은 edited로 새로 저�
 // ORG-쟁의단계 ②(2026-10-24 명진 결정): 3. 2) 투쟁 사업장 현황을 쟁의 단계로 채운다. 이 주(10.5~10.11): 투쟁 중은 첫 줄 '- 단계(M.D)' + 직전 확정본 줄 그대로,
 // 이번 주 끝남은 한 줄만, 직전 확정본에 있던 줄인데 더는 투쟁 중이 아니면 말없이 지우지 않고 '지울까요?' 고칠 목록. 단계를 못 읽으면 직전 확정본 그대로.
 const SITES_TEAM={sites:[{org:['가상 노동조합'],status:['- 조정 신청(9.28)','- 지난주 현황 줄']},{org:['나 지역 모임'],status:['- 지난 투쟁 소식']}]};
-async function stageFixture(page,width,{history,fail=false}){
+async function stageFixture(page,width,{history,fail=false,noEnd=false}){
  const f=await hwpxFixture(page,{width,team:SITES_TEAM});
  await page.route(/\/rest\/v1\/app_dispute_stages(\?|$)/,r=>fail?r.fulfill({status:500,json:{message:'QA failure'}}):r.fulfill({json:defaultStageRows()}));
- await page.route(/\/rest\/v1\/app_suborganization_dispute_stages(\?|$)/,r=>r.fulfill({json:history}));
+ // noEnd: DB 20261024170000 적용 전(end_date 칸 없음) → 끝 날짜를 고르면 400(42703).
+ await page.route(/\/rest\/v1\/app_suborganization_dispute_stages(\?|$)/,r=>noEnd&&/end_date/.test(new URL(r.request().url()).searchParams.get('select')||'')?r.fulfill({status:400,json:{code:'42703',message:'column app_suborganization_dispute_stages.end_date does not exist'}}):r.fulfill({json:history}));
  return f;
 }
 const hist=(org,stage,date)=>({id:`h-${org}-${date}`,organization_id:org,stage_id:stage,stage_name:defaultStageRows().find(r=>r.id===stage).name,stage_date:date,created_at:`${date}T00:00:00Z`});
@@ -2011,6 +2012,22 @@ for(const width of [390,1280])test(`주간보고 한글 파일: 더는 투쟁 �
  await fix.locator('[data-hwpx-stage-clear]').click();
  await expect(sites.locator('.journal-hwpx-row').filter({hasText:'나 지역 모임'}).locator('textarea')).toHaveValue('');
  await expect(hwpx(page).locator('[data-hwpx-stage-fix]')).toHaveCount(0);
+});
+// ORG-쟁의단계 다듬기(2026-10-24 11:05): 단계 기간. 이 주(10.5~10.11)에 기간이 걸친 끝남(10.2~10.6)은 이 주에 한 줄, 투쟁 중은 기간으로 표기.
+const histP=(org,stage,date,end)=>({...hist(org,stage,date),end_date:end});
+for(const width of [390,1280])test(`주간보고 한글 파일: 단계 기간 표기(- 파업 찬반투표(10.5~10.7))와 기간이 걸친 주의 끝남 ${width}`,async({page})=>{
+ await stageFixture(page,width,{history:[histP('o1','stage-6','2026-10-05','2026-10-07'),histP('o2','stage-10','2026-10-02','2026-10-06')]});
+ await openJournal(page,width);await openWeekly(page);await openDraft(page);
+ const sites=hwpx(page).locator('[data-hwpx-part="sites"]');
+ await expect(sites.locator('.journal-hwpx-row').filter({hasText:'가상 노동조합'}).locator('textarea')).toHaveValue('- 파업 찬반투표(10.5~10.7)\n- 지난주 현황 줄');
+ await expect(sites.locator('.journal-hwpx-row').filter({hasText:'나 지역 모임'}).locator('textarea')).toHaveValue('- 협약체결(10.2~10.6)');
+ await expect(hwpx(page).locator('[data-hwpx-stage-fix]')).toHaveCount(0);
+});
+test('주간보고 한글 파일: 끝 날짜 칸이 아직 없어도(DB 적용 전) 단계로 채움',async({page})=>{
+ await stageFixture(page,390,{history:[hist('o1','stage-3','2026-10-07')],noEnd:true});
+ await openJournal(page,390);await openWeekly(page);await openDraft(page);
+ await expect(hwpx(page).locator('[data-hwpx-stage-note]')).toHaveCount(0);
+ await expect(hwpx(page).locator('[data-hwpx-part="sites"] .journal-hwpx-row').filter({hasText:'가상 노동조합'}).locator('textarea')).toHaveValue('- 쟁의발생 결의(10.7)\n- 지난주 현황 줄');
 });
 test('주간보고 한글 파일: 단계를 읽지 못하면 직전 확정본 줄 그대로 + 한 줄 알림',async({page})=>{
  await stageFixture(page,390,{history:[],fail:true});
