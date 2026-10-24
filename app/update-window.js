@@ -14,7 +14,7 @@ import {createChoiceSheet} from './choice-sheet.js';
 import {validateNoteText, attachNoteDoc} from './basket-data.js';
 import {createUploadBatch, uploadBatch} from './basket-upload.js';
 import {attachRow} from './note-window.js';
-import {readPlaces, placeSources, placeSheetHtml, placeValue, keepPlaces, samePlace, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, saveUpdateWithFiles, rememberPlace, linkFailText, fileFailText, docFailText} from './update-places.js';
+import {readPlaces, placeSources, placeSheetHtml, placeValue, keepPlaces, samePlace, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, saveUpdateWithFiles, rememberPlace, linkFailText, fileFailText, docFailText, keepsFormat} from './update-places.js';
 
 export const UPDATE_TEXT_MAX = 20000;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
@@ -23,13 +23,6 @@ function toast(message) {
   box.textContent = message; box.classList.remove('hidden'); clearTimeout(toast.timer); toast.timer = setTimeout(() => box.classList.add('hidden'), 3200);
 }
 export const savedMessage = saved => saved.places?.length || saved.place ? `${saved.name || '고른 곳'} 기록에 저장했어요.` : '바구니에 저장했어요.';
-// Whether the saved form can be kept for these places: yes for the basket, two or more places (one basket update linked to each),
-// a reference bundle, or any save with files (also a basket update linked); no for one organization's or project's own record.
-export const keepsFormat = (places, fileCount = 0) => {
-  const list = placeList(places);
-  return !list.length || list.length > 1 || list[0].kind === 'reference' || fileCount > 0;
-};
-
 let sheet = null, active = null;
 function placeSheet() {
   sheet ||= createChoiceSheet({id:'edwPlaceSheet', titleId:'edwPlaceSheetTitle', historyKey:'kptuEdwPlace',
@@ -65,7 +58,7 @@ export function openUpdateWindow({text = '', doc = null, title = '쓰기', draft
   const ownPlace = own?.place || null;
   const say = message => { if (!closed) handle?.say(message); };
   const head = placeRow();
-  const files = attachRow({id:'edwUpdateAttach', getBatch:batch, isBusy:() => busy || !!upload?.isBusy?.(), say:message => { upload?.onChange?.(); say(message); }});
+  const files = attachRow({id:'edwUpdateAttach', getBatch:batch, isBusy:() => busy || !!upload?.isBusy?.(), say:message => { upload?.onChange?.(); say(message); paint(); }});
   const state = {
     places, chosen:placeList(place), pending:[],
     closed:() => closed,

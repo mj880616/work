@@ -151,17 +151,19 @@ test('opened and closed untouched: the editor value equals the start, so no save
   }
 });
 
-// ED③ 노트 (설계 11.4 순서 2): only the note screens open the new window (through note-window.js). Updates, diary and records keep the old one
-// until their own PRs.
-test('the new write window is opened by the note screens only (note-window.js); the other screens keep the old one', () => {
-  const files = ['home-quick.js', 'basket.js', 'write-window.js', 'workplace-detail.js', 'project-system-v3.js', 'diary.js', 'home-read.js', 'journal.js', 'basket-notes.js', 'topbar-actions.js'];
-  for (const f of files) {
-    const src = readFileSync(`app/${f}`, 'utf8');
-    assert.ok(!/ed-window\.js/.test(src), f);
-  }
+// ED③ 노트·업데이트 (설계 11.4 순서 2·3): the note screens (note-window.js) and the update entrances (update-window.js) open the new window.
+// An organization's or a project's own record input, the diary and the old write window itself keep the old one until their own PRs.
+test('the new write window is opened by the note and update screens only; the record screens keep the old one', () => {
+  const old = ['write-window.js', 'workplace-detail.js', 'project-system-v3.js', 'diary.js', 'home-read.js', 'journal.js'];
+  for (const f of old) assert.ok(!/ed-window\.js|update-window\.js|note-window\.js/.test(readFileSync(`app/${f}`, 'utf8')), f);
+  for (const f of ['home-quick.js', 'basket.js', 'basket-notes.js', 'topbar-actions.js']) assert.ok(!/ed-window\.js/.test(readFileSync(`app/${f}`, 'utf8')), f);
   assert.match(readFileSync('app/note-window.js', 'utf8'), /from '\.\/ed-window\.js'/);
+  assert.match(readFileSync('app/update-window.js', 'utf8'), /from '\.\/ed-window\.js'/);
   assert.match(readFileSync('app/basket-notes.js', 'utf8'), /import\('\.\/note-window\.js'\)/);
   assert.match(readFileSync('app/topbar-actions.js', 'utf8'), /import\('\.\/note-window\.js'\)/);
+  for (const f of ['home-quick.js', 'basket.js', 'topbar-actions.js']) assert.match(readFileSync(`app/${f}`, 'utf8'), /import\('\.\/update-window\.js'\)/, f);
+  // The update entrances no longer use the old windows; the home input still hands the old write window to the record screens only.
+  for (const f of ['home-quick.js', 'basket.js', 'topbar-actions.js']) assert.ok(!/openWriteWindow|openMarkdownEditor|write-window\.js/.test(readFileSync(`app/${f}`, 'utf8')), f);
 });
 
 test('the old editor still exports copyText (moved to copy-text.js) and both windows are counted by bigWindowOpen', () => {

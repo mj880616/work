@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {openWriteFromEntry} from './helpers/write-opener.mjs';
+import {typeInto} from './helpers/note-editor.mjs';
 // BUG-업데이트첨부연결(사용자 요청 2026-10-23 10:39·10:40): 홈 [업데이트 ▾]에서 담당조직·프로젝트를 골라도 첨부(📎·끌어 놓기)가
 // 그대로 되고, 고르기 전에 넣은 파일도 사라지지 않는다. [추가]하면 바구니에서 나중에 [연결하기]/[자료로 넣기]한 것과 같은 결과:
 // 글·파일은 바구니 업데이트 하나(basket-files) → 글이 있으면 고른 곳 모두에 확정 연결(app_basket_confirm_links) → 파일은 처음 고른
@@ -14,7 +15,7 @@ const quick=page=>page.locator('#homeView [data-home-quick]');
 const dialog=page=>page.getByRole('dialog');
 async function setup(page,width,{linkReply={ok:true,created:1,existing:0}}={}){
  await page.setViewportSize({width,height:width<761?844:800});await openHome(page);
- const f={uploads:[],notes:[],orgs:[],projects:[],links:[],sends:[],patches:[],docs:[],errors:[],note:null,linkReply};
+ const f={uploads:[],notes:[],orgs:[],projects:[],links:[],sends:[],patches:[],docs:[],docs2:[],errors:[],note:null,linkReply};
  page.on('pageerror',e=>f.errors.push(e.message));
  await page.route(SB+'/rest/v1/app_suborganizations?**',r=>r.fulfill({json:NAMES.map((name,i)=>({id:ID(i),name,active:true}))}));
  await page.route(SB+'/rest/v1/app_suborganization_assignees?**',r=>r.fulfill({json:NAMES.map((_,i)=>({organization_id:ID(i)}))}));
@@ -34,6 +35,8 @@ async function setup(page,width,{linkReply={ok:true,created:1,existing:0}}={}){
   const req=r.request(),url=new URL(req.url());
   if(req.method()==='POST'){const body=req.postDataJSON();f.notes.push(body);return r.fulfill({status:201,json:[{id:'note-'+f.notes.length,kind:'basket',updated_at:'2026-10-23T01:00:00Z',ai_export_allowed:true,archived_at:null,attachments:[],metadata:{},...body}]});}
   if(req.method()==='GET'&&url.searchParams.get('id')==='eq.note-up')return r.fulfill({json:f.note?[f.note]:[]});
+  // ED③ 업데이트: the saved form is put on the update the file upload made (only a basket row that has none yet).
+  if(req.method()==='PATCH'&&url.searchParams.get('doc')==='is.null'){f.docs2.push({id:url.searchParams.get('id'),body:req.postDataJSON()});return r.fulfill({json:[{id:url.searchParams.get('id').slice(3),updated_at:'2026-10-23T01:00:09Z'}]});}
   return r.fallback();
  });
  await page.route(SB+'/rest/v1/rpc/app_basket_confirm_links',r=>{f.links.push(r.request().postDataJSON());return r.fulfill({json:f.linkReply});});
@@ -153,10 +156,12 @@ test('첨부 없는 한 곳 저장은 예전 그대로 그 곳 기록 표(바구
 test('홈 [크게]에서 조직 + 홈 입력의 파일: 같은 결과(연결 + 자료), 창이 닫히고 입력·첨부 비움',async({page})=>{
  const {q,f}=await setup(page,1280);
  await q.locator('[data-quick-input]').fill('큰 창 기록');await choose(q,'큰창.txt');
- await q.locator('[data-quick-big]').click();const e=page.locator('#mdEditor');await expect(e).toBeVisible();
- await e.locator('[data-md-kind-menu]').click();const sheet=page.locator('#mdPlaceSheet');
+ await q.locator('[data-quick-big]').click();const e=page.locator('#edWindow');await expect(e).toBeVisible();
+ await e.locator('[data-edw-place]').click();const sheet=page.locator('#edwPlaceSheet');
  await sheet.locator('[data-sheet-all]').getByRole('button',{name:'시험지부',exact:true}).click();await sheet.getByRole('button',{name:'저장',exact:true}).click();
- await e.locator('[data-md-save-icon]').click();await expect(e).toHaveCount(0);
+ await e.locator('[data-edw-save]').click();await expect(e).toHaveCount(0);
+ // ED③ 업데이트: with files the update is made by the upload (letters), then its saved form is put on once.
+ expect(f.docs2).toHaveLength(1);expect(f.docs2[0].body.doc).toMatchObject({v:'ed1'});
  expect(f.uploads).toHaveLength(1);expect(f.links[0].p_targets).toEqual([{kind:'organization',target_id:ID(1),reason:'직접 연결'}]);
  expect(f.patches).toEqual([{id:'doc-drive-1',project_id:undefined,organization_id:ID(1)}]);
  await expect(q.locator('[data-quick-input]')).toHaveValue('');await expect(fileRows(q)).toHaveCount(0);await expect(q).toHaveAttribute('data-mode','basket');
@@ -165,12 +170,12 @@ test('홈 [크게]에서 조직 + 홈 입력의 파일: 같은 결과(연결 + �
 
 test('메뉴 [쓰기] 창의 자체 첨부 + 프로젝트: 같은 길로 연결 + 자료',async({page})=>{
  const {f}=await setup(page,1280);
- await openWriteFromEntry(page,1280);const e=page.locator('#mdEditor');await expect(e).toBeVisible();
- await e.locator('.md-editor-text').fill('쓰기 창 기록');
- await page.locator('#mdAttachFiles').setInputFiles({name:'쓰기.txt',mimeType:'text/plain',buffer:Buffer.from('합성')});
- await e.locator('[data-md-kind-menu]').click();const sheet=page.locator('#mdPlaceSheet');
+ await openWriteFromEntry(page,1280);const e=page.locator('#edWindow');await expect(e).toBeVisible();
+ await typeInto(page,e.locator('.ed-window-body .ProseMirror'),'쓰기 창 기록');
+ await page.locator('#edwUpdateAttach').setInputFiles({name:'쓰기.txt',mimeType:'text/plain',buffer:Buffer.from('합성')});
+ await e.locator('[data-edw-place]').click();const sheet=page.locator('#edwPlaceSheet');
  await sheet.locator('[data-sheet-projects]').getByRole('button',{name:'합성 프로젝트',exact:true}).click();await sheet.getByRole('button',{name:'저장',exact:true}).click();
- await e.locator('[data-md-save-icon]').click();await expect(e).toHaveCount(0);
+ await e.locator('[data-edw-save]').click();await expect(e).toHaveCount(0);
  await expect(page.locator('#toast')).toContainText('합성 프로젝트 기록에 저장했어요.');
  expect(f.uploads).toHaveLength(1);expect(f.links[0].p_targets).toEqual([{kind:'project',target_id:PID,reason:'직접 연결'}]);
  expect(f.patches).toEqual([{id:'doc-drive-1',project_id:PID,organization_id:undefined}]);expect(f.projects).toEqual([]);

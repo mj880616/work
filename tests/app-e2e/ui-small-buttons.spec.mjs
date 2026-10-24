@@ -3,7 +3,7 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {noteMenuAction} from './helpers/note-menu.mjs';
 import { chooseBasketKind, basketKindButton } from './helpers/basket-kind.mjs';
-import {openWriteFromEntry} from './helpers/write-opener.mjs';
+import {openOldWriteWindow} from './helpers/write-opener.mjs';
 // UI-버튼작게(2026-10-18 사용자 결정):
 // ① 바구니 노트·메모 읽기 화면 아래 버튼은 한 줄, 보이는 높이 32px(누르는 범위 44px), [연결하기]만 주 버튼 색. 첨부만 있는 메모도 같음. 노트는 UI-노트메뉴정리로 이 줄이 없어지고 [⋯] 안으로 들어갔다.
 // ② 메뉴 [쓰기] 큰 편집기 서식 도구줄 버튼은 보이는 높이 28px(누르는 범위 44px).
@@ -101,7 +101,7 @@ for(const width of [390,1280]){
 
  test(`② 쓰기 창 서식 도구줄 버튼 28px·누르는 범위 44px, 줄은 머리줄 바로 아래 ${width}`,async({page})=>{
   const f=await fixture(page,{width});
-  await openWriteFromEntry(page,width);
+  await openOldWriteWindow(page,width);
   const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();
   const tools=editor.locator('.md-editor-tools');
   const buttons=await tools.locator('button').all();// MD-서식줄묶음: a phone has the 7 grouped buttons; wider screens the whole row.
@@ -280,7 +280,7 @@ if(REVIEW){
    await page.locator('[data-note-close]').click();
    await go(page,'calendar');await page.waitForTimeout(300);await shot('calendar');
    await go(page,'diary');await expect(page.locator('#diaryRoot [data-diary-day="2026-10-06"]')).toBeVisible();await shot('diary');
-   await openWriteFromEntry(page,width);
+   await openOldWriteWindow(page,width);
    await expect(page.locator('#mdEditor')).toBeVisible();await shot('write');
   });
  }

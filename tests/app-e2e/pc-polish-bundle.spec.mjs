@@ -67,7 +67,7 @@ test('UI-PC다듬기묶음 ① PC 1280: 사이드바 맨 아래는 [HWP 편집]�
  expect(items.at(-5)).toBe('HWP 편집');expect(items.at(-4)).toBe('원장');expect(items.slice(-3,-1)).toEqual(['통화','텔레그램 소식']);expect(items.at(-1)).toMatch(/^자주 가는 링크/);expect(items).not.toContain('쓰기');
  await expect(page.locator('[data-menu-write]')).toHaveCount(0);
  await openWriteFromEntry(page,1280);
- await expect(page.locator('#mdEditor')).toBeVisible({timeout:10000});
+ await expect(page.locator('#edWindow')).toBeVisible({timeout:10000});
  expect(errors).toEqual([]);
 });
 

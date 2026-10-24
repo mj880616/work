@@ -74,7 +74,7 @@ for(const platform of ['browser','android'])test.describe(`Back closes the top o
  test('two stacked (memo, then its full-screen editor): Back twice closes them one by one',async({page})=>{
   const errors=await fixture(page);await enterBasket(page);
   await page.locator('[data-basket-row="n3"]').click();await noteAction(page,'[data-basket-edit]');
-  await page.locator('[data-basket-big-write]').click();await expect(page.locator('.modal.md-editor:not(.hidden)')).toBeVisible();
+  await page.locator('[data-basket-big-write]').click();await expect(page.locator('#edWindow:not(.hidden)')).toBeVisible();
   await expect(page.locator('.modal:not(.hidden)')).toHaveCount(1);
   await back(page);
   await expect(page.locator('.modal:not(.hidden)')).toHaveCount(0);await expect(page.locator('[data-basket-text]')).toBeVisible();expect(await view(page)).toBe('basket');

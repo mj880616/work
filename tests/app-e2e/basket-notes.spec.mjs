@@ -3,7 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { noteAction,showBasketRow} from './helpers/basket-more.mjs';
 import { noteMenuAction } from './helpers/note-menu.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
-import {openWriteFromEntry} from './helpers/write-opener.mjs';
+import {openOldWriteWindow} from './helpers/write-opener.mjs';
 import { expectNoteTitle } from './helpers/note-title.mjs';
 import { noteField, edWin, edWinText, typeInto } from './helpers/note-editor.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -307,7 +307,7 @@ test('note edit draft is protected when leaving with Escape',async({page})=>{
 
 // UI-키보드하단바: menu [쓰기] head in one row = [× 닫기] [메모|노트] [쓰기|미리보기] … [내보내기] [저장], 32px buttons.
 async function openWriter(page,width){
- await openWriteFromEntry(page,width);
+ await openOldWriteWindow(page,width);
  const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();return editor;
 }
 // The [업데이트 ▾|노트] box is the shared 32px segment (its buttons sit inside its 1px line); every other head button is 32px itself.
@@ -436,7 +436,7 @@ for(const width of [360,390,412,870,1280]){
 }
 
 // UI-노트편집버튼 ② (BASKET-업데이트통합 PR 2): the big window's one save icon sits right beside [닫기] and runs the opening screen's own [저장] (저장하고 닫기).
-// ED③ 노트: a note's big window is the new one (#edWindow, data-edw-save); an update's is still the old one (#mdEditor, data-md-save-icon).
+// ED③ 노트·업데이트: a note's and an update's big window is the new one (#edWindow, data-edw-save); the old one (#mdEditor, data-md-save-icon) is left for the record inputs.
 const SAVE_ICON='[data-md-save-icon]',EDW_SAVE='[data-edw-save]';
 async function headBox(locator){return locator.evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,height:r.height,after:getComputedStyle(el,'::after').height};});}
 async function expectIconNextToClose(editor,name){
@@ -506,14 +506,16 @@ for(const width of [390,1280]){
   await noteAction(page,'[data-basket-edit]');
   const detail=page.locator('[data-basket-detail]');
   await detail.locator('[data-basket-big-write]').click();
-  const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();
+  // ED③ 업데이트: an update's big window is the new one too. Letters and the saved form go in one PATCH that applies only to the version read.
+  const editor=edWin(page);await expect(editor).toBeVisible();
   await expectIconNextToClose(editor,'업데이트 저장');
-  await editor.locator('.md-editor-text').fill('큰 창에서 고친 메모');
-  await editor.locator(SAVE_ICON).click();
-  await expect(page.locator('#mdEditor')).toHaveCount(0);
+  await typeInto(page,edWinText(page),'큰 창에서 고친 메모');
+  await editor.locator(EDW_SAVE).click();
+  await expect(edWin(page)).toHaveCount(0);
   await expect(page.locator('#toast')).toContainText('수정한 글을 저장했습니다.');
   await expect(detail.locator('[data-basket-read-text]')).toContainText('큰 창에서 고친 메모');
-  expect(f.writes).toHaveLength(1);expect(f.writes[0].body).toMatchObject({raw_text:'큰 창에서 고친 메모'});expect(f.writes[0].query).toMatchObject({id:'eq.m1',workspace_id:'eq.w'});
+  expect(f.writes).toHaveLength(1);expect(f.writes[0].body).toMatchObject({raw_text:'큰 창에서 고친 메모'});expect(f.writes[0].body.doc).toMatchObject({v:'ed1'});
+  expect(f.writes[0].query).toMatchObject({id:'eq.m1',workspace_id:'eq.w',kind:'eq.basket',updated_at:'eq.2026-10-17T01:00:00Z'});
   expect(f.errors).toEqual([]);
  });
 }

@@ -6,6 +6,7 @@ import {enterLogin} from './helpers/login-entry.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import {openWriteFromEntry} from './helpers/write-opener.mjs';
+import {typeInto} from './helpers/note-editor.mjs';
 // UI-디자인손질(8-9e 후속): 메뉴 판(폰)·메뉴 [쓰기]·메모 [⋯]·상자 안쪽 여백·일정 하루 보기 할 일·담당조직 머리줄·
 // 성명·보도자료 제목·[AI 분류 요청]·앱 아이콘. Supabase 응답만 합성하고 실제 앱을 Chromium에서 누른다.
 test.use({locale:'ko-KR'});
@@ -112,8 +113,8 @@ test('쓰기 메뉴 없음: PC 사이드바·폰 메뉴 창·☰ 메뉴에 [쓰�
  // UI-PC일정묶음: 할 일·업무일지·일기는 [일정] 아래 하위 메뉴(달력·할 일·업무일지·일기)로.
  await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn:visible')).toHaveText(['달력','할 일','업무일지','일기']);
  await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['바구니','일정','프로젝트','사업 보고','자료실','성명·보도자료','공유 페이지','담당조직','HWP 편집','원장','통화','텔레그램 소식',/^자주 가는 링크/]);
- await openWriteFromEntry(page,1280);await expect(page.locator('#mdEditor')).toBeVisible();
- await page.keyboard.press('Escape');await expect(page.locator('#mdEditor')).toHaveCount(0);
+ await openWriteFromEntry(page,1280);await expect(page.locator('#edWindow')).toBeVisible();
+ await page.keyboard.press('Escape');await expect(page.locator('#edWindow')).toHaveCount(0);
  await page.setViewportSize({width:900,height:900});
  await page.locator('#mobileMenuOpen').click();await expect(page.locator('#mobileMenu [data-menu-write]')).toHaveCount(0);
  await page.setViewportSize({width:390,height:844});
@@ -127,34 +128,36 @@ test('폰 홈 입력칸의 ⤢가 보이고 누르면 쓰기 창이 열림 390',
  await page.evaluate(()=>window.KPTURouter.go('home'));
  const big=page.locator('#homeView [data-quick-big]:visible').first();await expect(big).toBeVisible();
  const r=await big.boundingBox();expect(r.width).toBeGreaterThanOrEqual(24);expect(r.height).toBeGreaterThanOrEqual(24);
- await openWriteFromEntry(page,390);await expect(page.locator('#mdEditor')).toBeVisible();
- await page.keyboard.press('Escape');await expect(page.locator('#mdEditor')).toHaveCount(0);
+ await openWriteFromEntry(page,390);await expect(page.locator('#edWindow')).toBeVisible();
+ await page.keyboard.press('Escape');await expect(page.locator('#edWindow')).toHaveCount(0);
 });
 
-for(const width of [1280])test(`빠른 추가 [업데이트] 쓰기 창: 빈 MD 편집기에서 저장 아이콘을 누르면 바구니 새 업데이트 하나(기존 저장 경로) ${width}`,async({page})=>{
+for(const width of [1280])test(`빠른 추가 [업데이트] 쓰기 창(ED③ 새 편집기): 빈 창에서 저장 아이콘을 누르면 바구니 새 업데이트 하나(글자 + 서식, 기존 저장 경로) ${width}`,async({page})=>{
  const {errors,state}=await boot(page,width);
  await view(page,'basket');
  await openWriteFromEntry(page,width);
- const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();
- await expect(editor.locator('h2')).toHaveText('쓰기');await expect(editor.locator('.md-editor-text')).toHaveValue('');await expect(editor.locator('.md-editor-text')).toBeFocused();
+ const editor=page.locator('#edWindow'),text=editor.locator('.ed-window-body .ProseMirror');await expect(editor).toBeVisible();
+ await expect(editor.locator('h2')).toHaveText('쓰기');await expect(text).toBeFocused();
  // Empty text is refused by the same validation as the basket input; nothing is sent.
- await editor.locator('[data-md-save-icon]').click();await expect(editor.locator('.md-editor-status')).toHaveText('글을 입력해 주세요.');expect(state.posts).toHaveLength(0);
- // Closing keeps the unsaved text in this tab for the next [쓰기].
- await editor.locator('.md-editor-text').fill('# 새 메모\n쓰기에서 저장');
- await editor.locator('[data-close="mdEditor"]').click();await expect(editor).toHaveCount(0);
+ await editor.locator('[data-edw-save]').click();await expect(editor.locator('.ed-window-status')).toHaveText('글을 입력해 주세요.');expect(state.posts).toHaveLength(0);
+ // Closing keeps the unsaved text in this tab for the next [+ 추가] → [업데이트].
+ await typeInto(page,text,'# 새 메모\n쓰기에서 저장');
+ await editor.locator('[data-close="edWindow"]').click();
+ // Unsaved text asks first; the answer is to close without saving.
+ await page.locator('#edwCloseSheet').getByRole('button',{name:'저장하지 않고 닫기',exact:true}).click();await expect(editor).toHaveCount(0);
  await expect(page.locator('#toast')).toContainText('빠른 추가의 [업데이트]로 다시 열면 이어서');
  await openWriteFromEntry(page,width);
- await expect(page.locator('#mdEditor .md-editor-text')).toHaveValue('# 새 메모\n쓰기에서 저장');
- await page.locator('#mdEditor [data-md-save-icon]').click();
- await expect(page.locator('#mdEditor')).toHaveCount(0);await expect(page.locator('#toast')).toContainText('바구니에 저장했어요.');
- expect(state.posts).toEqual([{workspace_id:ws.id,raw_text:'# 새 메모\n쓰기에서 저장'}]);
+ await expect(page.locator('#edWindow .ed-window-body .ProseMirror')).toContainText('쓰기에서 저장');
+ await page.locator('#edWindow [data-edw-save]').click();
+ await expect(page.locator('#edWindow')).toHaveCount(0);await expect(page.locator('#toast')).toContainText('바구니에 저장했어요.');
+ expect(state.posts).toHaveLength(1);expect(state.posts[0]).toMatchObject({workspace_id:ws.id,raw_text:'# 새 메모\n쓰기에서 저장'});expect(state.posts[0].doc).toMatchObject({v:'ed1'});
  // The basket list on screen shows the new note without leaving it.
  await showBasketRow(page,'10000000-0000-4000-8000-000000000099');
  await expect(page.locator('[data-basket-row="10000000-0000-4000-8000-000000000099"]')).toContainText('# 새 메모');
  // The next [쓰기] starts empty again.
  await openWriteFromEntry(page,width);
- await expect(page.locator('#mdEditor .md-editor-text')).toHaveValue('');
- await page.keyboard.press('Escape');await expect(page.locator('#mdEditor')).toHaveCount(0);
+ await expect(page.locator('#edWindow .ed-window-body .ProseMirror')).not.toContainText('쓰기에서 저장');
+ await page.keyboard.press('Escape');await expect(page.locator('#edWindow')).toHaveCount(0);
  expect(errors).toEqual([]);
 });
 
@@ -200,8 +203,8 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`메모 읽
  await more.click();await menu.locator('[data-basket-edit]').click();
  await expect(detail.locator('[data-basket-text]')).toBeFocused();await expect(more).toBeHidden();await expect(back).toBeVisible();
  await expect(detail.locator('[data-basket-big-write]')).toHaveText('큰 창에서 수정');
- await detail.locator('[data-basket-big-write]').click();await expect(page.locator('#mdEditor h2')).toHaveText('큰 창에서 수정');
- await page.locator('#mdEditor [data-close="mdEditor"]').click();await detail.locator('[data-basket-cancel]').click();
+ await detail.locator('[data-basket-big-write]').click();await expect(page.locator('#edWindow h2')).toHaveText('큰 창에서 수정');
+ await page.locator('#edWindow [data-close="edWindow"]').click();await detail.locator('[data-basket-cancel]').click();
  // 보관 still uses the same PATCH; the stored write_request metadata is never written or removed here.
  await more.click();await menu.locator('[data-basket-archive]').click();
  await expect.poll(()=>state.patches.length).toBe(1);expect(Object.keys(state.patches[0]).sort()).toEqual(['archived_at','updated_at']);

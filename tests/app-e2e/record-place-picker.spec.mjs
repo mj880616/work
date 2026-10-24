@@ -159,9 +159,9 @@ test('추가 없이 다른 화면에 다녀오거나 큰 창을 저장 없이 �
  await expect(q.locator('[data-quick-input]')).toHaveValue('합성 기록');
  // Big window: a place chosen inside it and closed without saving is not kept.
  await q.locator('[data-quick-org]').click();await dialog(page).locator('[data-sheet-all]').getByRole('button',{name:'공항철도지부',exact:true}).click();await dialog(page).getByRole('button',{name:'저장',exact:true}).click();
- await q.locator('[data-quick-big]').click();const e=page.locator('#mdEditor');await expect(e).toBeVisible();
- await expect(e.locator('[data-md-kind="update"]')).toHaveText('공항철도지부');
- await e.locator('[data-close="mdEditor"]').click();await expect(e).toHaveCount(0);
+ await q.locator('[data-quick-big]').click();const e=page.locator('#edWindow');await expect(e).toBeVisible();
+ await expect(e.locator('[data-edw-place]')).toContainText('공항철도지부');
+ await e.locator('[data-close="edWindow"]').click();await expect(e).toHaveCount(0);
  await expect(q).toHaveAttribute('data-mode','basket');await expect(q.locator('[data-quick-input]')).toHaveValue('합성 기록');
 });
 
