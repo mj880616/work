@@ -273,8 +273,9 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date(), cr
       ['select', columns], ...Object.entries(scopeParams), [column, `gte.${start}`], [column, `lte.${end}`],
     ];
     const [organizations, organizationUpdates, projects, workstreams, progress, milestones, taskLinks, documents, meetings] = await Promise.all([
-      dbRows('app_suborganizations', { select: 'id,name,active,recent_month_summary', ...scope }),
-      dbRows('app_suborganization_updates', timeParams('id,organization_id,raw_text,occurred_at,organization:app_suborganizations!organization_id!inner(workspace_id)', { 'organization.workspace_id': `eq.${workspaceId}` }, 'occurred_at', window.start, window.end)),
+      // TRASH-Edge거르기2: 서버 키는 RLS를 건너뛰므로 휴지통에 든 담당조직·사업 보고(deleted_at)는 여기서 직접 뺀다.
+      dbRows('app_suborganizations', { select: 'id,name,active,recent_month_summary', ...scope, deleted_at: 'is.null' }),
+      dbRows('app_suborganization_updates', timeParams('id,organization_id,raw_text,occurred_at,organization:app_suborganizations!organization_id!inner(workspace_id,deleted_at)', { 'organization.workspace_id': `eq.${workspaceId}`, 'organization.deleted_at': 'is.null' }, 'occurred_at', window.start, window.end)),
       dbRows('app_spaces', { select: 'id,parent_id,name,status,sort_order,project_system:metadata->>project_system,management_version:metadata->>management_version', ...scope, deleted_at: 'is.null' }),
       dbRows('app_project_workstreams', { select: projectSelect('id,project_id,phase,title,sort_order'), ...projectScope }),
       dbRows('app_project_progress_updates', timeParams(projectSelect('id,project_id,workstream_id,effective_on,status_label,summary,next_step'), projectScope, 'effective_on', window.startDate, window.today)),
@@ -282,7 +283,7 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date(), cr
       dbRows('app_record_links', { select: 'id,project_id', ...scope, project_id: 'not.is.null', google_task_id: 'not.is.null', task_completed: 'eq.false', status: 'eq.confirmed' }),
       dbRows('app_documents', { select: 'id,project_id', ...scope, project_id: 'not.is.null' }),
       // Strict metadata allowlist: transcript_text/notes/decisions are never selected.
-      dbRows('app_meetings', timeParams('id,series_name,title,meeting_at,round_no,project_id', scope, 'meeting_at', window.start, window.end)),
+      dbRows('app_meetings', timeParams('id,series_name,title,meeting_at,round_no,project_id', { ...scope, deleted_at: 'is.null' }, 'meeting_at', window.start, window.end)),
     ]);
     let organizationAssignees = [];
     try {
@@ -294,8 +295,8 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date(), cr
         if (!ownerId) throw new SummaryError('WORKSPACE_OWNER_UNAVAILABLE');
       }
       organizationAssignees = await dbRows('app_suborganization_assignees', {
-        select: 'organization_id,organization:app_suborganizations!organization_id!inner(workspace_id)',
-        order: 'organization_id.asc', user_id: `eq.${ownerId}`, 'organization.workspace_id': `eq.${workspaceId}`,
+        select: 'organization_id,organization:app_suborganizations!organization_id!inner(workspace_id,deleted_at)',
+        order: 'organization_id.asc', user_id: `eq.${ownerId}`, 'organization.workspace_id': `eq.${workspaceId}`, 'organization.deleted_at': 'is.null',
       });
     } catch { /* A failed/partial assignment read uses the full active guidance list. */ }
     return { organizationAssignees, organizations, organizationUpdates, projects, workstreams, progress, milestones, taskLinks, documents, meetings };
