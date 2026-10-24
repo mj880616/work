@@ -3,6 +3,8 @@ import { decodeOcrBytes, OCR_LIMITS } from "./basket-ocr-text.mjs";
 const DRIVE = "https://www.googleapis.com/drive/v3/files";
 const DOC = "application/vnd.google-apps.document";
 const MAX_BINARY = 104857600;
+// 자료실 사진 글자 읽기(_shared/document-text.ts)가 같은 상한을 쓴다. 바구니 동작은 그대로.
+export const OCR_MAX_BYTES = MAX_BINARY;
 const validId = (id: unknown): id is string =>
   typeof id === "string" && /^[A-Za-z0-9_-]{1,255}$/.test(id);
 export class OcrError extends Error {

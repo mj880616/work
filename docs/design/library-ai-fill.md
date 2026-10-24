@@ -39,8 +39,9 @@
 | --- | --- | --- |
 | txt·md·csv | 내려받아 UTF-8 | 없음 |
 | HWPX | 내려받아 zip 안 `Contents/section*.xml`의 글자(외부 라이브러리 없음) | 없음 |
-| PDF·HWP·DOC·DOCX·RTF·ODT | Drive가 Google 문서로 바꾼 **임시 사본**을 text/plain으로 내보낸 뒤 사본 삭제(성공·실패 모두) | 없음 |
-| 사진·그 밖 | 읽지 않음 → 파일 이름으로만 판단 | 없음 |
+| PDF·HWP·DOC·DOCX·RTF·ODT | Drive가 Google 문서로 바꾼 **임시 사본**을 text/plain으로 내보낸 뒤 사본 삭제(성공·실패 모두). PDF만 한국어 OCR 언어(`ocrLanguage=ko`)를 준다(LIB-스캔글자읽기, 스캔 PDF) | 없음 |
+| 사진 JPEG·PNG | 바구니 사진과 같은 Drive 한국어 OCR(`_shared/drive-ocr.ts`: 원본 비공개 확인 → 임시 문서 → 글 → 임시 문서 삭제, 크기 상한 100MB 그대로). 실패하면 빈 글자 → 파일 이름으로 판단(LIB-스캔글자읽기, 2026-10-24) | 없음 |
+| 그 밖 | 읽지 않음 → 파일 이름으로만 판단 | 없음 |
 
 - 저장 상한은 12,000자다. 자료 목록 화면 여러 곳(`library-upload.js`·`team.js`·`meeting-round-detail.js`·`project-system-v3.js`)이 `app_documents`를 `select=*`로 읽어서, 5만 자를 넣으면 목록 읽기가 그만큼 무거워진다. 전체 검색이 전체 글자가 필요하면 그 PR에서 목록 읽기 칸을 좁힌 뒤 `DOCUMENT_TEXT_CHARS` 값만 올린다(옛 상한 50,000자). **global-search.md 3.3의 "5만 자 상한 유지"와 다른 점**이며 이유는 이것이다.
 - 옛 `document-ai-index`(OpenAI로 PDF 읽기·옛 열쇠)는 되살리지 않았다. `library-files`도 고치지 않았다(글자 읽기는 올리기 뒤 화면 요청으로 붙임 — global-search.md 3.3의 "library-files 업로드 훅" 대신. 이유: 두 PR이 같은 Edge 파일을 동시에 고치지 않기, 올리기 응답 시간을 늘리지 않기).
