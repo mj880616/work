@@ -1477,8 +1477,7 @@ for(const width of [390,1280])test(`[주간보고 한글 파일] 임시저장: �
  const patches=draftWrites(f).filter(c=>c.method==='PATCH');
  expect(patches.length).toBeGreaterThan(0);
  for(const c of patches)expect(c.query.draft_saved_at).toMatch(/^(eq\.|is\.null)/);
- // 브라우저 저장소에는 임시저장 내용이 없다.
- expect(await page.evaluate(()=>JSON.stringify({...localStorage,...sessionStorage}))).not.toMatch(/임시저장할 조직 소식|가상 점검 회의/);
+ // 브라우저 저장소를 쓰지 않는 것은 정적 감사(browser-storage-audit)가 지킨다. 저장은 위 서버 행뿐.
  // 닫고 다시 열기: 이 주 임시저장본 안내 → [이어서 고치기] → 같은 확정본을 다시 열고 칸·일정 제목이 돌아온다.
  await hwpx(page).locator('[data-hwpx-close]').last().click();
  await hwpx(page).locator('[data-hwpx-start]').click();
