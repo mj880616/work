@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { makePlan } from '../../scripts/ops/db-workflow.mjs';
 
 // LEDGER-수정요청 DB. Expanded rules, single-approval flow; one function body widened (do:'add'), no widening of access.
-const version = '20261024190000';
+const version = '20261024200000';
 const name = 'ledger_fix_add';
 const file = `${version}_${name}.sql`;
 test('ledger fix add db: approval plan passes expanded rules without widening access', () => {
