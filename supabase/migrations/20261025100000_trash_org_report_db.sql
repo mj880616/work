@@ -55,9 +55,9 @@ begin
          where c.oid in (to_regclass('public.app_suborganizations'), to_regclass('public.app_meetings'))) <> 2
      -- 새 삭제 트리거가 같은 표의 다른 삭제 전 행 트리거보다 먼저 돌아야 한다(이름 순서).
      or exists (select 1 from pg_trigger t where t.tgrelid = to_regclass('public.app_suborganizations') and not t.tgisinternal
-         and (t.tgtype & 1) = 1 and (t.tgtype & 2) = 2 and (t.tgtype & 8) = 8 and t.tgname collate "C" < 'app_suborganizations_a_trash_before_delete')
+         and (t.tgtype & 1) = 1 and (t.tgtype & 2) = 2 and (t.tgtype & 8) = 8 and convert_to(t.tgname::text, 'UTF8') < convert_to('app_suborganizations_a_trash_before_delete', 'UTF8'))
      or exists (select 1 from pg_trigger t where t.tgrelid = to_regclass('public.app_meetings') and not t.tgisinternal
-         and (t.tgtype & 1) = 1 and (t.tgtype & 2) = 2 and (t.tgtype & 8) = 8 and t.tgname collate "C" < 'app_meetings_a_trash_before_delete') then
+         and (t.tgtype & 1) = 1 and (t.tgtype & 2) = 2 and (t.tgtype & 8) = 8 and convert_to(t.tgname::text, 'UTF8') < convert_to('app_meetings_a_trash_before_delete', 'UTF8')) then
     raise exception 'TRASH_ORG_REPORT_PREREQUISITE_CHANGED: schema differs; stop';
   end if;
 end

@@ -15,7 +15,7 @@ with history as (
     and pg_get_expr(polqual,polrelid)='(deleted_at IS NULL)' and pg_get_expr(polwithcheck,polrelid)='(deleted_at IS NULL)') as valid
   from pg_policy where polrelid=to_regclass('public.app_suborganizations') and polname='app_suborganizations_trash_hidden'
 ), org_first as (
-  select tgname from pg_trigger where tgrelid=to_regclass('public.app_suborganizations') and not tgisinternal and (tgtype & 1)=1 and (tgtype & 2)=2 and (tgtype & 8)=8 order by tgname collate "C" limit 1
+  select tgname from pg_trigger where tgrelid=to_regclass('public.app_suborganizations') and not tgisinternal and (tgtype & 1)=1 and (tgtype & 2)=2 and (tgtype & 8)=8 order by convert_to(tgname::text,'UTF8') limit 1
 ), report_col as (
   select count(*) as n from pg_attribute where attrelid=to_regclass('public.app_meetings') and not attisdropped and attname='deleted_at' and atttypid='timestamptz'::regtype and not attnotnull and not atthasdef
 ), report_trg as (
@@ -27,7 +27,7 @@ with history as (
     and pg_get_expr(polqual,polrelid)='(deleted_at IS NULL)' and pg_get_expr(polwithcheck,polrelid)='(deleted_at IS NULL)') as valid
   from pg_policy where polrelid=to_regclass('public.app_meetings') and polname='app_meetings_trash_hidden'
 ), report_first as (
-  select tgname from pg_trigger where tgrelid=to_regclass('public.app_meetings') and not tgisinternal and (tgtype & 1)=1 and (tgtype & 2)=2 and (tgtype & 8)=8 order by tgname collate "C" limit 1
+  select tgname from pg_trigger where tgrelid=to_regclass('public.app_meetings') and not tgisinternal and (tgtype & 1)=1 and (tgtype & 2)=2 and (tgtype & 8)=8 order by convert_to(tgname::text,'UTF8') limit 1
 ), fns as (
   select count(*) as n,
     count(*) filter(where p.prosecdef and p.proconfig=array['search_path=""']
