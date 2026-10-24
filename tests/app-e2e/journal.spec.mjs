@@ -1987,7 +1987,7 @@ const SITES_TEAM={sites:[{org:['가상 노동조합'],status:['- 조정 신청(9
 async function stageFixture(page,width,{history,fail=false,noEnd=false}){
  const f=await hwpxFixture(page,{width,team:SITES_TEAM});
  await page.route(/\/rest\/v1\/app_dispute_stages(\?|$)/,r=>fail?r.fulfill({status:500,json:{message:'QA failure'}}):r.fulfill({json:defaultStageRows()}));
- // noEnd: DB 20261024170000 적용 전(end_date 칸 없음) → 끝 날짜를 고르면 400(42703).
+ // noEnd: DB 20261024180000 적용 전(end_date 칸 없음) → 끝 날짜를 고르면 400(42703).
  await page.route(/\/rest\/v1\/app_suborganization_dispute_stages(\?|$)/,r=>noEnd&&/end_date/.test(new URL(r.request().url()).searchParams.get('select')||'')?r.fulfill({status:400,json:{code:'42703',message:'column app_suborganization_dispute_stages.end_date does not exist'}}):r.fulfill({json:history}));
  return f;
 }

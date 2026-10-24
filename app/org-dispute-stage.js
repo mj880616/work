@@ -2,7 +2,7 @@
 // 읽기는 쓰기를 하지 않는다(보기만 해서 운영 데이터가 바뀌지 않게). 기본 단계 11개는 명진이 단계를 저장하거나 관리 창을 처음 열 때 ensureSeeded가 채운다.
 // 표는 app_dispute_stages(단계 목록)·app_suborganization_dispute_stages(이력)·함수 app_dispute_stage_delete(지우기).
 // 표가 아직 없는 운영(DB 적용 전)에서는 status:'preparing'으로 돌려주고 화면은 '준비 중' 한 줄만 보인다.
-// 단계 기간(끝 날짜)·이력 한 줄 고치기는 DB 20261024170000(이력 표 end_date 칸·고치기 권한)이 있어야 한다. 칸이 없으면 읽기는 끝 날짜 없이 하고
+// 단계 기간(끝 날짜)·이력 한 줄 고치기는 DB 20261024180000(이력 표 end_date 칸·고치기 권한)이 있어야 한다. 칸이 없으면 읽기는 끝 날짜 없이 하고
 // (state.periodReady=false), 끝 날짜를 넣거나 이력을 고치려 할 때 저장 시 안내 한 줄로 알린다(칸을 숨기지 않는다).
 import {seedRows, sortStages, defaultStage, latestRow, stageNameProblem, periodProblem} from './org-dispute-stage-model.mjs';
 

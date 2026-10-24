@@ -30,7 +30,7 @@ async function fixture(page,{width,tables=true,seeded=true,period=true}){
  await page.route(/\/rest\/v1\/app_suborganization_dispute_stages(\?|$)/,async route=>{
   const req=route.request(),url=new URL(req.url());
   if(!tables)return json(route,{message:'x'},404);
-  // DB 20261024170000 적용 전: end_date 칸이 없으면 PostgREST는 400(42703).
+  // DB 20261024180000 적용 전: end_date 칸이 없으면 PostgREST는 400(42703).
   const noEnd=()=>json(route,{code:'42703',message:'column app_suborganization_dispute_stages.end_date does not exist'},400);
   if(req.method()==='GET'){if(!period&&/end_date/.test(url.searchParams.get('select')||''))return noEnd();return json(route,period?db.history:db.history.map(({end_date,...h})=>h))}
   if(req.method()==='POST'){const b=req.postDataJSON();db.hposts.push(b);if(!period&&'end_date' in b)return noEnd();if(b.end_date&&b.end_date<b.stage_date)return json(route,{code:'23514',message:'violates check constraint'},400);db.history.push({id:'h-'+(++db.seq),created_at:`2026-10-06T00:00:${String(db.seq).padStart(2,'0')}Z`,end_date:null,...b});return json(route,[],201)}
