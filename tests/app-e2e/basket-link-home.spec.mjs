@@ -1,7 +1,9 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 const ready=page=>page.waitForFunction(()=>window.KPTUHome?.metrics.readyAt);
-const recordReads=requests=>requests.filter(r=>r.path.endsWith('app_suborganization_updates')||r.path.endsWith('app_notes')||(r.path.endsWith('app_record_links')&&r.query.includes('note_id=not.is.null')));
+// HOME-모바일홈채우기: 폰·중간 폭(<1024)의 '정리 안 된 것' 숫자(inbox-count.js readInboxCount)는 정리함과 같은 읽기(app_notes·연결·자료)를 한 번 쓴다. 주간 기록 읽기는 어디서도 금지.
+const phoneInboxRead=(r,width)=>width<1024&&(r.path.endsWith('app_notes')||(r.path.endsWith('app_record_links')&&r.query.includes('note_id=not.is.null')));
+const recordReads=(requests,width=1280)=>requests.filter(r=>!phoneInboxRead(r,width)&&(r.path.endsWith('app_suborganization_updates')||r.path.endsWith('app_notes')||(r.path.endsWith('app_record_links')&&r.query.includes('note_id=not.is.null'))));
 for(const width of [390,1280])test(`home omits weekly records and unlinked shortcut without fetching record data ${width}`,async({page},info)=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.setViewportSize({width,height:900});const control=await openHome(page);await ready(page);
@@ -10,11 +12,11 @@ for(const width of [390,1280])test(`home omits weekly records and unlinked short
  await expect(page.locator('[data-home-card="tasks"]')).toContainText('오늘 항목');
  await expect(page.locator('[data-home-card="tasks"]')).toContainText('테스트 프로젝트');
  await expect(page.locator('[data-home-card="calendar"]')).toContainText('오전 일정');
- expect(recordReads(control.requests)).toEqual([]);
+ expect(recordReads(control.requests,width)).toEqual([]);
  expect(control.requests.filter(r=>r.path.endsWith('app_suborganization_assignees'))).toEqual([]);
  await page.reload();await ready(page);
  await expect(page.locator('[data-home-card="updates"],[data-home-unlinked]')).toHaveCount(0);
- expect(recordReads(control.requests)).toEqual([]);
+ expect(recordReads(control.requests,width)).toEqual([]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(errors).toEqual([]);
  await info.attach(`home-clean-${width}`,{body:await page.screenshot({fullPage:true}),contentType:'image/png'});
