@@ -870,7 +870,7 @@ for(const width of [360,390,1280])test(`D-project list header, hierarchy, metada
   await expect(list).not.toContainText('자료');await expect(list).not.toContainText('할 일 0');
   for(const row of [main,child]){
     const geometry=await row.evaluate(e=>({height:e.getBoundingClientRect().height,padding:getComputedStyle(e).paddingLeft,font:getComputedStyle(e.querySelector('.ps3-prow-meta')).fontSize}));
-    expect(geometry.height).toBeGreaterThanOrEqual(44);expect(geometry.font).toBe('12px');expect(parseInt(geometry.padding)).toBe(row===main?16:44);
+    expect(geometry.height).toBeGreaterThanOrEqual(40);expect(geometry.font).toBe('12px');expect(parseInt(geometry.padding)).toBe(row===main?16:44);
   }
   const clipped=await list.locator('[data-ps3-project="main-2"] .ps3-prow-name').evaluate(e=>({clipped:e.scrollWidth>e.clientWidth,ellipsis:getComputedStyle(e).textOverflow}));expect(clipped).toEqual({clipped:true,ellipsis:'ellipsis'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);

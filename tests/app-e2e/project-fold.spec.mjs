@@ -36,14 +36,16 @@ async function fixture(page,{width=1280,height=800,failPatch=false}={}){
 const listIds=page=>page.locator('#projectGrid .ps3-plist [data-ps3-project]').evaluateAll(xs=>xs.map(x=>x.dataset.ps3Project));
 const row=(page,id)=>page.locator(`#projectGrid .ps3-plist [data-ps3-project="${id}"]`);
 const menu=page=>page.locator('#ps3FoldMenu');
+// The menu ignores a second right-click within 600 ms of the previous open (Android long-press release guard), so retry instead of racing it.
+const openMenu=(page,id)=>expect(async()=>{await row(page,id).click({button:'right'});await expect(menu(page)).toBeVisible({timeout:700})}).toPass({timeout:10000});
 const optionIds=page=>page.evaluate(()=>{const d=document.createElement('select');d.innerHTML=KPTUProjectCatalog.options('',false);return [...d.options].map(o=>({v:o.value,dim:o.classList.contains('kptu-folded-option')}))});
 const foldWrites=state=>state.writes.map(w=>[w.id,w.body.metadata.folded===true]);
 
 test('PC 1280: right-click folds a project to the bottom line, opens dimmed, and 다시 위로 returns it; saved on the server',async({page})=>{
  const {state,errors}=await fixture(page);
  await clickView(page,'projects');await expectProjectTitle(page,'합성 정책 사업');
- await expect(page.locator('.ps3-fold')).toHaveCount(0);
- await row(page,'pe').click({button:'right'});
+ await expect(page.locator('#projectGrid .ps3-plist .ps3-fold')).toHaveCount(0);
+ await openMenu(page,'pe');
  await expect(menu(page).locator('button')).toHaveText(['아래로 접기']);
  await menu(page).locator('[data-ps3-fold-action="fold"]').click();
  await expect.poll(()=>foldWrites(state)).toEqual([['pe',true]]);
@@ -61,11 +63,11 @@ test('PC 1280: right-click folds a project to the bottom line, opens dimmed, and
  expect(await optionIds(page)).toEqual([{v:'pa',dim:false},{v:'pc',dim:false},{v:'pd',dim:false},{v:'pg',dim:false},{v:'pb',dim:false},{v:'pe',dim:true}]);
  await row(page,'pe').click();await expectProjectTitle(page,'합성 교섭 사업');
  // The detail ⋯ menu offers 다시 위로 for the same project.
- await row(page,'pe').click({button:'right'});
+ await openMenu(page,'pe');
  await menu(page).locator('[data-ps3-fold-action="unfold"]').click();
  await expect.poll(()=>foldWrites(state)).toEqual([['pe',true],['pe',false]]);
  expect(state.writes[1].body.metadata).toEqual({project_system:'v2',color:'orange'});
- await expect(page.locator('.ps3-fold')).toHaveCount(0);
+ await expect(page.locator('#projectGrid .ps3-plist .ps3-fold')).toHaveCount(0);
  expect(await listIds(page)).toEqual(['pa','pc','pd','pg','pb','pe']);
  expect(errors).toEqual([]);
 });
@@ -73,16 +75,16 @@ test('PC 1280: right-click folds a project to the bottom line, opens dimmed, and
 test('PC 1280: folding a big project folds its children with it; one child can be folded alone; the saved state survives a reload',async({page})=>{
  const {state,errors}=await fixture(page);
  await clickView(page,'projects');await expectProjectTitle(page,'합성 정책 사업');
- await row(page,'pg').click({button:'right'});
+ await openMenu(page,'pg');
  await menu(page).locator('[data-ps3-fold-action="fold"]').click();
  await expect.poll(()=>foldWrites(state)).toEqual([['pg',true]]);
  await expect(page.locator('.ps3-fold-label')).toHaveText('접어 둔 것 1');
- await row(page,'pa').click({button:'right'});
+ await openMenu(page,'pa');
  await menu(page).locator('[data-ps3-fold-action="fold"]').click();
  await expect.poll(()=>foldWrites(state)).toEqual([['pg',true],['pa',true]]);
  // Only the head names are listed; every child of 정책 사업 sits in the folded group.
  await expect(page.locator('.ps3-fold-label')).toHaveText('접어 둔 것 1');
- expect(await page.locator('.ps3-fold-body [data-ps3-project]').evaluateAll(xs=>xs.map(x=>x.dataset.ps3Project))).toEqual(['pa','pc','pd','pg']);
+ expect(await page.locator('#projectGrid .ps3-fold-body [data-ps3-project]').evaluateAll(xs=>xs.map(x=>x.dataset.ps3Project))).toEqual(['pa','pc','pd','pg']);
  expect((await optionIds(page)).map(o=>o.v)).toEqual(['pb','pe','pa','pc','pd','pg']);
  // A child folded only because its parent is folded has no 다시 위로 of its own (the parent brings all back).
  await page.locator('.ps3-fold-summary').click();
@@ -116,8 +118,8 @@ test('phone 390: long press opens the menu (fold and 순서 바꾸기), a short 
  await expect.poll(()=>foldWrites(state)).toEqual([['pb',true],['pe',true]]);
  await toggle.click();await expect(toggle).toHaveText('완료');
  await page.locator('.ps3-fold-summary').click();
- await expect(page.locator('.ps3-fold-body [data-ps3-order-row]')).toHaveCount(2);
- await page.locator('.ps3-fold-body [data-ps3-order-row="pe"] [data-ps3-order-move="-1"]').click();
+ await expect(page.locator('#projectGrid .ps3-fold-body [data-ps3-order-row]')).toHaveCount(2);
+ await page.locator('#projectGrid .ps3-fold-body [data-ps3-order-row="pe"] [data-ps3-order-move="-1"]').click();
  await expect.poll(()=>state.writes.filter(w=>'sort_order' in w.body).map(w=>[w.id,w.body.sort_order])).toEqual([['pe',20]]);
  expect(errors).toEqual([]);
 });
