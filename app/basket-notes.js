@@ -134,7 +134,9 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // chosen, [이름 바꾸기]·[폴더 지우기].
   // UI-모바일노트복사메뉴: on a phone a list row has no [복사] button; [복사] is the first item of its ⋯ menu (PC keeps the button).
   // NOTE-파일붙이기: a file card's ⋯ has one item, [빼기] (the link only; the Drive file stays).
-  const menuItems = (note, from) => from === 'file' ? [['data-note-file-detach', '빼기']] : from === 'folder' ? [['data-note-folder-new', '새 폴더'], ...(viewFolder() ? [['data-note-folder-rename', '폴더 이름 바꾸기'], ['data-note-folder-delete', '폴더 지우기', 'basket-menu-danger']] : [])] : [
+  // ED③ 1단계(1회용, 다음 PR에서 삭제): owner 로그인이면 폴더 ⋯ 맨 끝에 [옛 마크다운 노트 변환](note-convert.js).
+  const isOwner = () => rt.context.read()?.membership?.role === 'owner';
+  const menuItems = (note, from) => from === 'file' ? [['data-note-file-detach', '빼기']] : from === 'folder' ? [['data-note-folder-new', '새 폴더'], ...(viewFolder() ? [['data-note-folder-rename', '폴더 이름 바꾸기'], ['data-note-folder-delete', '폴더 지우기', 'basket-menu-danger']] : []), ...(isOwner() ? [['data-note-convert', '옛 마크다운 노트 변환']] : [])] : [
     ...(from === 'list' && !isWide() && noteCopyPayload(note) ? [['data-note-copy', '복사']] : []),
     ['data-note-pin', notePinnedAt(note) ? '고정 해제' : '고정'], ['data-note-folder-move', '폴더로 옮기기'], ['data-note-edit', '수정'],
     ...(from === 'detail' ? [['data-basket-link-open', '연결하기'], ['data-note-to-basket', '바구니로 돌리기']] : []),
@@ -402,6 +404,32 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       if (run === epoch && selected?.id === id) (detail.querySelector('[data-note-file-more]') || detail.querySelector('[data-note-attachments]'))?.focus({preventScroll:true});
     }
   }
+  // ED③ 1단계 [옛 마크다운 노트 변환] (1회용; note-convert.js 머리 설명). The list's status line shows n/N and the result; a list of skipped
+  // notes folds under it. The list is read again afterwards. Nothing runs without the person's [바꾸기 시작].
+  async function convertOld() {
+    if (busy || selected || !isOwner()) return;
+    const run = ++epoch, owner = scope(); busy = true; folderSay('준비 중…');
+    try {
+      const [{runNoteConvert, loadMarkdown, confirmWithCheck}, model, {safeHref}] = await Promise.all([import('./note-convert.js'), import('./note-convert-model.mjs'), import('./ed-schema.mjs')]);
+      const md = await loadMarkdown(safeHref);
+      const result = await runNoteConvert({api:(path, options) => rt.api(path, {singleFlight:false, ...options}), workspace:() => rt.context.read()?.workspace?.id, md,
+        confirm:info => { folderSay(''); return confirmWithCheck(info, {reasonText:model.reasonText}); },
+        onProgress:state => { if (run === epoch && owner === scope()) folderSay(model.progressText(state)); }});
+      if (owner !== scope()) return;
+      if (result.status === 'cancelled') { folderSay('변환을 시작하지 않았어요.'); return; }
+      folderSay(model.resultText(result));
+      const p = host.querySelector('[data-note-folder-status]');
+      if (result.skipped.length) {
+        const box = document.createElement('details'); box.className = 'note-convert-skipped'; box.dataset.noteConvertSkipped = '';
+        const head = document.createElement('summary'); head.textContent = `건너뛴 노트 ${result.skipped.length}개`;
+        const ul = document.createElement('ul');
+        for (const x of result.skipped) { const li = document.createElement('li'); li.textContent = `${x.title || '제목 없음'} — ${model.reasonText(x.reason, x.detail)}`; ul.append(li); }
+        box.append(head, ul); p.append(' ', box);
+      }
+      if (result.done) await refresh();
+    } catch (error) { if (owner === scope()) folderSay('변환하지 못했어요. ' + (error?.message || '')); }
+    finally { busy = false; }
+  }
   async function telegram(note = selected) {
     const payload = noteCopyPayload(note); if (!payload) return;
     const ok = await copyText(payload.text);
@@ -587,6 +615,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     }
     const note = notes.find(n => n.id === from.noteId); if (!note) return;
     if (b.dataset.fileMenu) { const file = noteFile(note, from.fileId); if (file) { if (b.dataset.fileMenu === 'open') openInDrive(file, {onError: fileFail}); else void downloadFile(file, {onError: fileFail}); } return; }
+    if (b.hasAttribute('data-note-convert')) { void convertOld(); return; }
     if (b.hasAttribute('data-note-file-detach')) void detachFile(note, from.fileId);
     else if (b.hasAttribute('data-note-copy')) void telegram(note);
     else if (b.hasAttribute('data-note-pin')) void pin(note);

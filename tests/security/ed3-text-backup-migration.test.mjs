@@ -8,7 +8,7 @@ import {prepareMigration} from '../../scripts/ops/db-migration-plan.mjs';
 const stem = '20261024190000_ed3_text_backup';
 test('ed3 text backup migration: private table, id/time columns only to the owner, expanded single-approval flow', () => {
   const code = readFileSync(`supabase/migrations/${stem}.sql`, 'utf8').replace(/--.*$/gm, '');
-  assert.doesNotMatch(code, /to\s+(?:anon|public)\b|security definer|create (?:or replace )?function|disable row level|alter policy|drop policy|rtw_|grant (?:insert|update|delete|all)/i);
+  assert.doesNotMatch(code, /\bto\s+(?:anon|public)\b|security definer|create (?:or replace )?function|disable row level|alter policy|drop policy|rtw_|grant (?:insert|update|delete|all)/i);
   assert.match(code, /revoke all on table public\.app_ed3_text_backups from public, anon, authenticated, service_role;/);
   assert.match(code, /grant select \(id, workspace_id, source, row_id, row_updated_at, backed_up_at\) on table public\.app_ed3_text_backups to authenticated;/);
   assert.equal((code.match(/\bgrant\b/gi) || []).length, 1);
