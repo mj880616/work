@@ -158,6 +158,7 @@ export async function saveUpdate({place, places, text, owner, doc = null}, rt = 
 }
 export const MULTI_REASON = '직접 연결'; // the same reason as the basket [연결하기] (basket-manual-link.js)
 export const linkFailText = '업데이트는 바구니에 저장했지만 고른 곳에 연결하지 못했어요. 바구니에서 [연결하기]로 다시 연결해 주세요.';
+export const docFailText = '글자는 저장했지만 서식은 저장하지 못했어요. 바구니에서 그 업데이트를 열어 다시 고쳐 저장해 주세요.';
 export const fileFailText = '파일은 바구니에 저장했지만 고른 곳 자료로 넣지 못했어요. 바구니에서 [연결하기]로 다시 넣어 주세요.';
 // BUG-업데이트첨부연결: an update with files and one or more chosen places gives the same result as saving it in the basket and
 // then using the basket's [연결하기] / [자료로 넣기] on it — through those same paths, nothing new on the server:

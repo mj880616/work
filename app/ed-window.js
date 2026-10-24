@@ -15,6 +15,7 @@
 //                  Over it the window says so and does not call save. The saved form is also kept under 1 MiB (the database check).
 //   textOnly     — the opener keeps letters only (연결 업데이트 요약): save gets value = null and the window says formats are not kept.
 //   draft        — a new text: anything written counts as a change (an old row opened to edit counts only what the person changed).
+//   saveUnchanged — ED③ 업데이트: the text was handed in by the opener's input (not yet saved anywhere), so [저장] sends it even when nothing was edited.
 //   keepOpen     — after a good save the window stays and says 저장했어요 (노트 큰 창).
 //   placeholder, label — the editor's hint and accessible name.
 //   head, foot   — ED③ 노트: the opener's own nodes above the text (a title row with [폴더 ▾]) and under it (the [📎 첨부] row). The opener owns them.
@@ -96,7 +97,7 @@ function closeChoices() {
   return closeSheet;
 }
 
-export function openEdWindow({title = '크게 쓰기', doc = null, text = '', convert = null, save = null, limit = 0, textOnly = false, draft = false, keepOpen = false,
+export function openEdWindow({title = '크게 쓰기', doc = null, text = '', convert = null, save = null, limit = 0, textOnly = false, draft = false, keepOpen = false, saveUnchanged = false,
   placeholder = '', label = '본문', head: headNode = null, foot = null, dirty = null, photos = null, shortcuts = false, onClose = () => {}} = {}) {
   // One big window at a time: this one is replaced; the old window (md-editor.js) is never closed from here, the opener must not open both.
   current?.close({silent: true});
@@ -162,7 +163,7 @@ export function openEdWindow({title = '크게 쓰기', doc = null, text = '', co
     if (!save || saving || closed || !editor) return;
     const value = editor.getValue();
     // A new text (draft) always goes to the opener's save, which says what is missing (제목이나 본문을 써 주세요) rather than closing quietly.
-    if (!draft && !isChanged(baseValue(), value) && !own()) {
+    if (!draft && !saveUnchanged && !isChanged(baseValue(), value) && !own()) {
       // Nothing was changed: nothing is written (설계 결정 D). A window that stays open says so; the others just close.
       if (keepOpen) say('바뀐 것이 없어요'); else close({saved: true});
       return;
