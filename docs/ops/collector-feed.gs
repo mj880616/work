@@ -703,7 +703,7 @@ function tgFeed_runCore_(isContinue) {
     }
     Logger.log([
       (test ? '[시험 모드 — 보내지 않음] ' : '') + '방 ' + tally.rooms + '개, 날짜 ' + tally.days + '건 확인',
-      '메시지: 글 있는 것 ' + tally.messages + '개 · 글 없는 것(첨부·시스템 제외 포함) ' + tally.noText + '개',
+      '메시지: 글 있는 것 ' + tally.messages + '개 · 글 없는 것(첨부만 있음) ' + tally.noText + '개',
       (test ? '보낼 묶음: ' : '보낸 묶음: ') + tally.parts + (test ? '' : ' (소식 ' + tally.kept + '개 저장 · 이미 있음 ' + tally.duplicate + ' · 넘김 ' + tally.skipped + ' · 3번 실패 ' + tally.failed + (tally.retry ? ' · 다시 보낼 것 ' + tally.retry : '') + ')'),
       found.missing.length ? '못 찾은 허용 방: ' + found.missing.join(' / ') : '허용 방 모두 찾음',
       stop ? '멈춘 이유: ' + stop : '끝까지 봄',
