@@ -22,8 +22,6 @@ lock table public.app_suborganizations, public.app_meetings in share row exclusi
 
 -- 사전 조건이 다르면 아무것도 바꾸지 않고 멈춘다.
 do $$
-declare
-  v_t text;
 begin
   if exists (select 1 from supabase_migrations.schema_migrations where version = '20261025100000')
      -- 앞 단계(프로젝트 휴지통)가 적용돼 있고 RPC 3개가 프로젝트 전용 모양이어야 한다.
