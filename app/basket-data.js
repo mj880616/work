@@ -178,16 +178,16 @@ export async function createNoteDoc({title, raw_text, markdown, doc}, rt = windo
 // markdown (optional, NOTE-마크다운선택): true/false to keep as metadata.markdown with the text. Without it the save is the same
 // PATCH as before. With it the row is read again and the other metadata keys are kept: the PATCH only applies while the row is
 // still the version read (updated_at and the keys the other metadata writers guard), as the pin and folder writes do.
-// ED③ 노트: with doc (the new editor's saved form) and base (the updated_at of the version the editor opened), title, letters and doc are
+// ED③ 노트: with doc (the new editor's saved form) and version (the updated_at of the version the editor opened), title, letters and doc are
 // written together in one PATCH that applies only while the row is still that version (a note changed in another tab or device is
 // refused, code note_changed, nothing overwritten). metadata is not written, so pin, folder and the other keys stay as they are
 // (a pin or folder write does not move updated_at, so it never blocks this save either).
-export async function saveNoteDoc(id, {title, raw_text, markdown, doc, base}, rt = window.KPTURuntime) {
+export async function saveNoteDoc(id, {title, raw_text, markdown, doc, version}, rt = window.KPTURuntime) {
   const body = {title:validateNoteTitle(title), raw_text:validateNoteBody(raw_text)};
   if (doc !== undefined) {
     if (!doc || typeof doc !== 'object') throw new Error('노트 서식을 확인해 주세요.');
-    if (typeof base !== 'string' || !Number.isFinite(Date.parse(base))) throw Object.assign(new Error('노트를 다시 불러온 뒤 저장해 주세요.'), {code:'note_changed'});
-    const where = `/rest/v1/app_notes?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${workspace(rt)}&kind=eq.note&updated_at=eq.${encodeURIComponent(base)}&select=${NOTE_FIELDS}`;
+    if (typeof version !== 'string' || !Number.isFinite(Date.parse(version))) throw Object.assign(new Error('노트를 다시 불러온 뒤 저장해 주세요.'), {code:'note_changed'});
+    const where = `/rest/v1/app_notes?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${workspace(rt)}&kind=eq.note&updated_at=eq.${encodeURIComponent(version)}&select=${NOTE_FIELDS}`;
     const saved = await rt.api(where, {method:'PATCH', prefer:'return=representation', body:{...body, doc, updated_at:new Date().toISOString()}});
     if (!Array.isArray(saved) || saved.length !== 1) throw Object.assign(new Error('노트가 그사이 바뀌었어요. 다시 불러온 뒤 저장해 주세요.'), {code:'note_changed'});
     return saved[0];

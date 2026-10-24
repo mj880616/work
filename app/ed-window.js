@@ -161,7 +161,8 @@ export function openEdWindow({title = '크게 쓰기', doc = null, text = '', co
   async function runSave() {
     if (!save || saving || closed || !editor) return;
     const value = editor.getValue();
-    if (!isChanged(baseValue(), value) && !own()) {
+    // A new text (draft) always goes to the opener's save, which says what is missing (제목이나 본문을 써 주세요) rather than closing quietly.
+    if (!draft && !isChanged(baseValue(), value) && !own()) {
       // Nothing was changed: nothing is written (설계 결정 D). A window that stays open says so; the others just close.
       if (keepOpen) say('바뀐 것이 없어요'); else close({saved: true});
       return;

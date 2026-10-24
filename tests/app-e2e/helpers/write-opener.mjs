@@ -1,19 +1,13 @@
-// UI-쓰기메뉴삭제: the menu has no [쓰기] any more. The same write window (write-window.js) opens from
-// the PC top line [+ 추가] → [업데이트], and below 1024px from the basket [노트] input's ⤢ (a draft window like the old menu one,
-// with [노트] preselected) after the basket's [노트] side is shown.
+// UI-쓰기메뉴삭제: the menu has no [쓰기] any more. The update write window (write-window.js) opens from the top line
+// [+ 추가] → [업데이트].
 export async function openWriteFromEntry(page,width){
-  if(width>=1024){
-    await page.locator('#appView>.app-topline [data-quick-add]').evaluate(b=>b.click());// no scroll-into-view: callers may test the scroll position
-    await page.locator('#toplineAddMenu [data-topline-add="update"]').evaluate(b=>b.click());
-    return;
-  }
-  if(await page.evaluate(()=>window.KPTURouter.current)!=='basket')await page.evaluate(()=>window.KPTURouter.go('basket'));
-  const note=page.locator('#basketView [data-basket-kind="note"]:visible');
-  // The [메모 | 노트] switch is hidden while a note's detail is open; then the note side is already showing.
-  const switchShown=await note.first().waitFor({timeout:3000}).then(()=>true,()=>false);
-  if(switchShown&&await note.first().getAttribute('aria-pressed')!=='true')await note.first().click();
-  await page.locator('#basketView [data-note-list] [data-quick-big]:visible').first().click();
-  // The old menu window started on [업데이트]; this one starts on [노트], so put it on [업데이트] too.
-  await page.locator('#mdEditor [data-md-kind="update"]').click();
-  await page.locator('#mdEditor .md-editor-text').focus();
+  // ED③ 노트: the note input's ⤢ now opens the note's own new window, so the draft update window (menu [쓰기]'s) is opened from the
+  // top line's [+ 추가] → [업데이트] action at every width (the top line is drawn on a phone too, only hidden there).
+  // Below 1024px the old way went through the basket screen first, and callers expect to start from there.
+  if(width<1024&&await page.evaluate(()=>window.KPTURouter.current)!=='basket'){await page.evaluate(()=>window.KPTURouter.go('basket'));await page.locator('#basketView [data-basket-list]').waitFor();}
+  // The old ⤢ press scrolled the page to the input (callers that scrolled first relied on that); the menu press does not, so go to the top.
+  if(width<1024)await page.evaluate(()=>window.scrollTo(0,0));
+  await page.locator('#appView>.app-topline [data-quick-add]').evaluate(b=>b.click());// no scroll-into-view: callers may test the scroll position
+  await page.locator('#toplineAddMenu [data-topline-add="update"]').evaluate(b=>b.click());
+  await page.locator('#mdEditor .md-editor-text').waitFor();
 }

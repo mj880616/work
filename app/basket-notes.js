@@ -382,7 +382,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (!textDirty()) return await saveFiles();
     const prep = prepareSave({value:field.getValue(), limit:100000});
     if (!prep.ok) { say(prep.message); return {ok:false, message:prep.message}; }
-    const changes = {title:f.title.value, raw_text:prep.text, doc:prep.value, base:fieldBase};
+    const changes = {title:f.title.value, raw_text:prep.text, doc:prep.value, version:fieldBase};
     try { validateNoteTitle(changes.title); validateNoteBody(changes.raw_text); } catch (error) { say(error.message); return {ok:false, message:error.message}; }
     const id = selected.id, run = ++epoch, owner = scope(); lock(true); say('저장 중…');
     try {
