@@ -61,6 +61,17 @@ function callFeed_setup() {
   callFeed_check();
 }
 
+/** 시험 모드에서만: 시작 시각을 24시간 전으로 당긴 뒤 한 번 돌려 최근 하루치 통화 개수를 바로 본다(보내지 않음). 시험 모드를 끄면 이 하루치도 함께 보낸다. */
+function callFeed_testLastDay() {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty(CALL_FEED_TEST_KEY) === '끔') throw new Error('시험 모드가 꺼져 있어 시작 시각을 당기지 않습니다. callFeed_testModeOn을 먼저 실행하세요.');
+  var state = callFeed_loadState_();
+  state.since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  callFeed_saveState_(state);
+  Logger.log('시작 시각을 24시간 전으로 당겼습니다: ' + state.since);
+  callFeed_run();
+}
+
 /** 설정 확인: 폴더·비밀값·목록이 제대로 들어갔는지 본다(값은 로그에 찍지 않는다). */
 function callFeed_check() {
   var props = PropertiesService.getScriptProperties();
@@ -537,6 +548,17 @@ function tgFeed_setup() {
   }
   if (!props.getProperty(TG_FEED_TEST_KEY)) props.setProperty(TG_FEED_TEST_KEY, '켬');
   tgFeed_check();
+}
+
+/** 시험 모드에서만: 시작 날짜를 어제(한국)로 당긴 뒤 한 번 돌려 어제 하루치 메시지 개수를 바로 본다(보내지 않음). 시험 모드를 끄면 어제치도 함께 보낸다. */
+function tgFeed_testLastDay() {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty(TG_FEED_TEST_KEY) === '끔') throw new Error('시험 모드가 꺼져 있어 시작 날짜를 당기지 않습니다. tgFeed_testModeOn을 먼저 실행하세요.');
+  var state = tgFeed_loadState_();
+  state.startDay = tgFeedAddDays(callFeedKstDay(Date.now()), -1);
+  tgFeed_saveState_(state);
+  Logger.log('시작 날짜를 어제로 당겼습니다: ' + state.startDay);
+  tgFeed_run();
 }
 
 /** 설정 확인: 폴더·비밀값·허용 방이 제대로 들어갔는지 본다(값은 로그에 찍지 않는다). */
