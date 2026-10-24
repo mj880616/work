@@ -4,7 +4,7 @@
   const VIEW_PARAM='view';
   // REF-참고묶음: the 참고 묶음 screen is entered from the organization list, so the 담당조직 menu item stays marked there.
   const NAV_ALIAS={messages:'home',myspace:'home',reference:'team'};
-  const MENU_SHEET_VIEWS=['meetings','library','hwp','media','pages','ledger'];
+  const MENU_SHEET_VIEWS=['meetings','library','hwp','media','pages','ledger','calls','telegram'];
   // Retired addresses that now open another view (HWP 편집기 시험판 ?view=hwp-lab → ?view=hwp).
   const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings'};
   // MTG-사업보고: the 회의 screen (#meetingsView) is written as ?view=reports in the address; the old ?view=meetings still opens it.

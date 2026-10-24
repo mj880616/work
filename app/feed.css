@@ -1,0 +1,118 @@
+/* CALL-통화메뉴·TG-소식메뉴 4단계: 통화(#callsView, call-feed.js)·텔레그램 소식(#telegramView, telegram-feed.js) 화면.
+   시안 docs/design/mockups/call-telegram-feed.html. 콤팩트한 줄, 작은 버튼(UI-버튼기준: 보조 --ds-compact-height, 채운 버튼은 [저장] 하나,
+   누르는 범위는 ::after로 --kptu-touch-target). 색은 --kptu-*·--ds-* 토큰만 쓴다(방 색 6개는 기존 --ds-kind-*·--ds-file-* 톤다운 짝).
+   PC(1024px~)는 왼쪽 목록 1/3 · 오른쪽 상세 2/3(--ds-split-*, split-resize.js), 폰·중간 폭은 목록 → 상세 한 칸. */
+.feed-view .feed-split{display:block;min-width:0}
+.feed-view .feed-list,.feed-view .feed-pane{min-width:0;box-sizing:border-box}
+.feed-view .feed-head{display:flex;align-items:center;gap:8px;min-height:var(--ds-compact-height);margin:0 0 4px;flex-wrap:wrap}
+.feed-view .feed-head-title{font-size:var(--ds-text-section);font-weight:var(--ds-weight-medium)}
+.feed-view .feed-head-sub{flex:1 1 auto;min-width:0;font-size:var(--ds-text-meta);color:var(--kptu-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.feed-view .feed-faint{font-size:var(--ds-text-meta);color:var(--kptu-muted)}
+.feed-view .feed-empty{margin:8px 0;font-size:var(--ds-text-meta);line-height:1.5;color:var(--kptu-muted)}
+.feed-view .feed-status{margin:4px 0;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
+.feed-view .feed-status:empty{display:none}
+.feed-view .feed-text-btn{position:relative;height:var(--ds-compact-height-sm);min-height:0;margin:0;padding:0 4px;border:0;background:transparent;color:var(--kptu-link);font:inherit;font-size:var(--ds-text-meta);cursor:pointer;white-space:nowrap}
+.feed-view .feed-text-btn::after{content:"";position:absolute;inset:-8px -4px}
+.feed-view .feed-text-btn[aria-current="true"]{color:var(--kptu-ink);font-weight:var(--ds-weight-medium)}
+.feed-view .feed-back{margin:0 0 0 -4px}
+.feed-view .feed-select{height:var(--ds-compact-height-sm);max-width:12em;margin:0;padding:0 4px;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-meta)}
+.feed-view .feed-more,.feed-view .feed-hov{position:relative;flex:none;width:var(--ds-compact-height);height:var(--ds-compact-height);min-height:0;margin:0;padding:0;border:0;border-radius:var(--ds-radius-control);background:transparent;color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-button);line-height:1;cursor:pointer}
+.feed-view .feed-more::after,.feed-view .feed-hov::after{content:"";position:absolute;inset:-6px}
+.feed-view .feed-more:hover,.feed-view .feed-more[aria-expanded="true"]{background:var(--kptu-surface-subtle)}
+.feed-view :is(.feed-more,.feed-hov,.feed-text-btn,.feed-small,.feed-call,.feed-bub,.feed-pinbar):focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+.feed-view .feed-small{position:relative;flex:none;height:var(--ds-compact-height);min-height:0;margin:0;padding:0 var(--ds-compact-pad-x);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text);cursor:pointer}
+.feed-view .feed-small::after{content:"";position:absolute;inset:-6px 0}
+.feed-view .feed-small.primary{border-color:var(--kptu-primary);background:var(--kptu-primary);color:var(--kptu-on-primary)}
+.feed-view .feed-small:disabled{opacity:.5;cursor:default}
+.feed-view .feed-pin{display:inline-block;margin-right:4px;padding:0 4px;border-radius:4px;background:var(--kptu-warning-soft);color:var(--kptu-warning);font-size:11px;font-weight:var(--ds-weight-regular);vertical-align:1px}
+
+/* 통화 목록: 날짜 구분 글자 → 줄 [시각 · 제목 · 조직] */
+.feed-view .feed-rows{border-top:var(--ds-line-width) solid var(--kptu-border)}
+.feed-view .feed-day{padding:8px 4px 2px;font-size:11px;color:var(--kptu-muted);letter-spacing:.02em}
+.feed-view .feed-call{display:flex;align-items:baseline;gap:8px;width:100%;min-height:var(--kptu-touch-target);margin:0;padding:6px 8px;border:0;border-bottom:var(--ds-line-width) solid var(--kptu-border);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-row);text-align:left;cursor:pointer;box-sizing:border-box}
+.feed-view .feed-call:hover{background:var(--kptu-surface-subtle)}
+.feed-view .feed-call.is-selected{background:var(--kptu-primary-soft)}
+.feed-view .feed-time{flex:none;width:38px;font-size:var(--ds-text-meta);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
+.feed-view .feed-title{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.feed-view .feed-org{flex:none;max-width:40%;font-size:11px;color:var(--kptu-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* 상세 */
+.feed-view .feed-detail-head{display:flex;align-items:center;gap:8px;min-height:var(--ds-compact-height)}
+.feed-view .feed-spacer{flex:1 1 auto}
+.feed-view .feed-detail-name{font-size:var(--ds-text-section);font-weight:var(--ds-weight-medium)}
+.feed-view .feed-detail{max-width:760px}
+.feed-view .feed-detail p{margin:0 0 6px}
+.feed-view .feed-detail-title{margin:2px 0 0;font-size:15px;font-weight:var(--ds-weight-medium);line-height:1.4}
+.feed-view .feed-meta{font-size:var(--ds-text-meta);color:var(--kptu-muted)}
+.feed-view .feed-k{margin:0 0 2px;font-size:11px;color:var(--kptu-muted)}
+.feed-view .feed-points{margin:0 0 8px;padding:6px 10px 6px 24px;border:var(--ds-line-width) solid var(--kptu-border);border-radius:var(--ds-radius-control);background:var(--kptu-surface-subtle);font-size:var(--ds-text-row);line-height:1.5}
+.feed-view .feed-points li{margin:2px 0}
+.feed-view .feed-tag{margin-left:4px;padding:0 5px;border-radius:4px;font-size:11px;white-space:nowrap}
+.feed-view .feed-tag-done{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink)}
+.feed-view .feed-tag-plan{background:var(--ds-kind-basket-soft);color:var(--ds-kind-basket-ink)}
+.feed-view .feed-tag-check{background:var(--ds-kind-note-soft);color:var(--ds-kind-note-ink)}
+.feed-view .feed-full summary{display:flex;align-items:center;gap:6px;min-height:var(--kptu-touch-target);font-size:var(--ds-text-meta);color:var(--kptu-muted);cursor:pointer;list-style:none}
+.feed-view .feed-full summary::-webkit-details-marker{display:none}
+.feed-view .feed-full[open] .feed-ar{transform:rotate(180deg)}
+.feed-view .feed-full .feed-ar{display:inline-block}
+.feed-view .feed-badge{padding:0 5px;border-radius:4px;background:var(--kptu-warning-soft);color:var(--kptu-warning);font-size:11px}
+.feed-view .feed-script{font-size:var(--ds-text-row);line-height:1.6}
+.feed-view .feed-script p{display:flex;gap:8px;margin:0;padding:3px 0}
+.feed-view .feed-script b{flex:none;max-width:40%;font-weight:var(--ds-weight-medium);color:var(--kptu-muted)}
+.feed-view .feed-script p.is-me b{color:var(--kptu-primary-ink)}
+.feed-view .feed-script-one{white-space:pre-wrap;overflow-wrap:anywhere}
+.feed-view .feed-sum{font-size:var(--ds-text-row)}
+
+/* 조직 연결 칸 */
+.feed-view .feed-link{display:grid;gap:6px;margin:6px 0 10px;padding:8px 10px;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-surface)}
+.feed-view .feed-link-row{display:flex;align-items:center;gap:8px}
+.feed-view .feed-link-label{font-size:var(--ds-text-meta);color:var(--kptu-muted)}
+.feed-view .feed-link-text{width:100%;min-height:72px;margin:0;padding:6px 8px;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--kptu-text-body);box-sizing:border-box;resize:vertical}
+.feed-view .feed-link-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px}
+.feed-view .feed-link-actions .feed-status{flex:1 1 auto;margin:0}
+
+/* 텔레그램: 고정 띠·가운데 날짜·말풍선 */
+.feed-view .feed-pinbar{display:flex;align-items:center;gap:6px;width:100%;min-height:var(--ds-compact-height);margin:0 0 2px;padding:4px 10px;border:0;border-radius:var(--ds-radius-control);background:var(--kptu-warning-soft);color:var(--kptu-warning);font:inherit;font-size:var(--ds-text-meta);text-align:left;cursor:pointer;box-sizing:border-box}
+.feed-view .feed-pt{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.feed-view .feed-cnt{flex:none;font-size:11px}
+.feed-view .feed-day-center{text-align:center;padding:10px 0 4px}
+.feed-view .feed-msg{position:relative;display:flex;align-items:flex-start;gap:8px;padding:3px 0;-webkit-touch-callout:none}
+.feed-view .feed-dot{flex:none;display:flex;align-items:center;justify-content:center;width:26px;height:26px;margin-top:2px;border-radius:50%;font-size:11px;font-weight:var(--ds-weight-medium)}
+.feed-view .feed-bub{display:block;flex:1 1 auto;min-width:0;margin:0;padding:5px 9px 4px;border:var(--ds-line-width) solid var(--kptu-border);border-radius:4px 10px 10px 10px;background:var(--kptu-surface-subtle);color:var(--kptu-ink);font:inherit;text-align:left;cursor:pointer;-webkit-user-select:none;user-select:none}
+.feed-view .feed-msg.is-selected .feed-bub{border-color:var(--kptu-border-strong);background:var(--kptu-primary-soft)}
+.feed-view .feed-rn{display:block;margin-bottom:1px;font-size:11px;font-weight:var(--ds-weight-medium)}
+.feed-view .feed-tx{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-size:var(--ds-text-row);line-height:1.45}
+.feed-view .feed-ft{display:flex;justify-content:flex-end;gap:6px;margin-top:2px;font-size:11px;color:var(--kptu-muted)}
+.feed-view .feed-hov{position:absolute;top:4px;right:4px;display:none;width:24px;height:24px;border:var(--ds-line-width) solid var(--kptu-border);background:var(--kptu-surface)}
+/* PC·중간 폭: 마우스를 올렸을 때·키보드 초점·메뉴가 열렸을 때만 ⋯. 폰에는 ⋯가 없다(길게 누르기). */
+@media(min-width:761px) and (hover:hover){.feed-view .feed-msg:hover .feed-hov{display:block}}
+@media(min-width:761px){.feed-view .feed-msg:focus-within .feed-hov,.feed-view .feed-hov[aria-expanded="true"]{display:block}}
+.feed-view .feed-r1 .feed-dot{background:var(--ds-file-hwp-soft);color:var(--ds-file-hwp-ink)}.feed-view .feed-r1 .feed-rn{color:var(--ds-file-hwp-ink)}
+.feed-view .feed-r2 .feed-dot{background:var(--ds-kind-basket-soft);color:var(--ds-kind-basket-ink)}.feed-view .feed-r2 .feed-rn{color:var(--ds-kind-basket-ink)}
+.feed-view .feed-r3 .feed-dot{background:var(--ds-kind-journal-soft);color:var(--ds-kind-journal-ink)}.feed-view .feed-r3 .feed-rn{color:var(--ds-kind-journal-ink)}
+.feed-view .feed-r4 .feed-dot{background:var(--ds-file-pdf-soft);color:var(--ds-file-pdf-ink)}.feed-view .feed-r4 .feed-rn{color:var(--ds-file-pdf-ink)}
+.feed-view .feed-r5 .feed-dot{background:var(--ds-kind-diary-soft);color:var(--ds-kind-diary-ink)}.feed-view .feed-r5 .feed-rn{color:var(--ds-kind-diary-ink)}
+.feed-view .feed-r6 .feed-dot{background:var(--ds-kind-other-soft);color:var(--ds-kind-other-ink)}.feed-view .feed-r6 .feed-rn{color:var(--ds-kind-other-ink)}
+.feed-view .feed-raw{margin-top:4px}
+.feed-view .feed-rm{display:flex;gap:8px;padding:4px 0;border-bottom:var(--ds-line-width) solid var(--kptu-border);font-size:var(--ds-text-row)}
+.feed-view .feed-rm:last-child{border-bottom:0}
+.feed-view .feed-at{flex:none;width:36px;font-size:11px;color:var(--kptu-muted);font-variant-numeric:tabular-nums}
+.feed-view .feed-who{flex:none;width:22px;color:var(--kptu-muted)}
+.feed-view .feed-rt{min-width:0;white-space:pre-wrap;overflow-wrap:anywhere}
+
+/* 메뉴(통화 ⋯·소식 ⋯·길게 누르기·오른쪽 클릭이 같은 판) */
+.feed-menu{position:fixed;inset:auto;margin:0;box-sizing:border-box;padding:4px;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);z-index:1600;overflow:auto}
+.feed-menu[hidden]{display:none}
+.feed-menu button{display:block;width:100%;height:var(--kptu-touch-target);min-height:var(--kptu-touch-target);padding:0 12px;text-align:left;border:0;border-radius:var(--ds-radius-control);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text);cursor:pointer}
+.feed-menu button:hover{background:var(--kptu-surface-subtle)}
+.feed-menu button:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+.feed-menu .feed-menu-danger{color:var(--kptu-danger)}
+.feed-menu .feed-faint{font-size:11px;color:var(--kptu-muted)}
+
+@media(min-width:1024px){
+  html:has(#appView .feed-view:not(.hidden)) main{padding-bottom:12px}
+  #appView .feed-view:not(.hidden){display:flex;flex-direction:column;height:calc(100vh - 24px - var(--kptu-topline-space,0px));height:calc(100dvh - 24px - var(--kptu-topline-space,0px));min-height:420px}
+  #appView .feed-view .feed-split{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:minmax(0,1fr);column-gap:var(--kptu-space-3)}
+  #appView .feed-view .feed-list{grid-column:1;grid-row:1;max-height:100%;overflow-y:auto;overscroll-behavior:contain}
+  #appView .feed-view .feed-pane{grid-column:2;grid-row:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-box);background:var(--kptu-surface)}
+}
