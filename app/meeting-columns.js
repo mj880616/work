@@ -7,6 +7,7 @@ export const NONE_KEY='__none__';
 // UI-회의자료표시(2026-10-20): 회의에 붙은 자료가 있으면 개수 없이 이 문구만 보인다(폰 목록). 없으면 표시 없음. PC 3단 가운데 줄에는 보이지 않는다(MEET-결과3단).
 import {reportKindOf} from './report-kinds.mjs';
 import {reportWords} from './report-words.mjs';
+import {fileAttrs,menuItemsHtml} from './file-actions.js';
 export const MEETING_DOCS_LABEL='회의자료 있음';
 
 const time=m=>{const t=new Date(m?.meeting_at).getTime();return Number.isFinite(t)?t:-Infinity};
@@ -114,13 +115,21 @@ export function listHtml(rows,{selectedId,label,nameOf,kindOf=()=>'',colorOf,whe
 // 회의 결과 원문, 특이사항(있을 때만), 후속 할 일(읽기만, 따로 불러옴), 회의자료(이름을 누르면 내려받기). 입력칸·저장 버튼 없음.
 // 원문은 결과 창과 같은 규칙: 원문 → 옛 구조화 기록 → '기록 없음'.
 export function resultText(m){if(m?.transcript_text!=null&&String(m.transcript_text).length)return String(m.transcript_text);if(String(m?.decisions||'').trim())return `[기존 회의결과 기록]\n${m.decisions}`;return '기록 없음'}
+// FILE-사업보고⋯(2026-10-24 사용자 결정): 사업 보고 자료 줄 끝의 ⋯ — 담당조직·프로젝트 자료 줄과 같은 <details> 메뉴에
+// file-actions.js의 [Drive에서 열기]·[내려받기](menuItemsHtml, 누르면 file-actions.js 전역 클릭 처리)를 둔다. 줄 누르기 동작은 그대로다.
+// 결과 창(meeting-round-detail.js)도 이 함수를 쓴다. 두 항목이 다 없으면(열 길·내려받을 길 없음) ⋯를 그리지 않는다.
+export function meetingFileFile(d){return {name:d?.file_name||d?.title||'',mime:d?.mime_type||'',documentId:d?.file_id?d.id:'',driveId:d?.file_id||'',driveUrl:d?.drive_url||''}}
+export function fileMoreHtml(d,name=d?.file_name||d?.title||'파일'){
+  const fa=meetingFileFile(d),items=menuItemsHtml(fa,{attrs:fileAttrs(fa),attr:'data-fa-menu'});
+  return items?`<details class="file-line-more"><summary class="icon-btn" aria-label="파일 메뉴: ${esc(name)}">⋯</summary><div class="file-line-more-panel" role="group" aria-label="파일 메뉴">${items}</div></details>`:'';
+}
 // MTG-사업보고 4단계: kindLabel(칸 글자, 예: '언론')이 오면 메타 줄 맨 앞에 'X 칸'으로 보인다(data-report-kind-label).
 // UI-중복제목삭제: 이 칸은 PC(≥1024)에서만 그려지고 상단 줄이 이미 "회의 이름 차수"를 보이므로, 머리에는 제목 줄이 없고 메타 줄(칸·시각·프로젝트)과 ⋯만 둔다.
 export function resultHtml(m,{kindLabel='',when='',project='',legacyTitle='',docs=[],fileLine,tasksHtml=''}){
   const words=reportWords(reportKindOf(m));
   const meta=[legacyTitle&&hasRound(m)?`기존 제목: ${legacyTitle}`:'',when,m?.location&&String(m.location).trim()?`장소 ${String(m.location).trim()}`:'',project?`연결 ${project}`:''].filter(Boolean);
   const notes=String(m?.notes||'');
-  const files=docs.length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mcol-file',end:`<button class="file-line-open" type="button" data-meeting-doc="${esc(d.id)}" aria-label="${esc(name)} 열기"></button>`})}).join(''):`<p class="mcol-empty">${esc(words.materialsEmpty)}</p>`;
+  const files=docs.length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mcol-file',end:`<button class="file-line-open" type="button" data-meeting-doc="${esc(d.id)}" aria-label="${esc(name)} 열기"></button>${fileMoreHtml(d,name)}`})}).join(''):`<p class="mcol-empty">${esc(words.materialsEmpty)}</p>`;
   return `<header class="mcol-result-head"><div class="mcol-result-title">${meta.length||kindLabel?`<p class="mcol-result-meta">${kindLabel?`<span data-report-kind-label>${esc(kindLabel)} 칸</span>`:''}${meta.map(x=>`<span>${esc(x)}</span>`).join('')}</p>`:''}</div>`
     +`<button type="button" class="icon-btn mcol-more" data-meeting-more="${esc(m.id)}" aria-label="사업 보고 관리" aria-haspopup="true" aria-expanded="false" aria-controls="mcolMenu"><span aria-hidden="true">⋯</span></button></header>`
     +`<div class="mcol-result-body">`

@@ -10,7 +10,7 @@ begin;
 -- 주의: 이 표를 만든 migration은 저장소에 없다(migration 기록 이전 운영 표). 그래서 칸 모양·권한·정책을 먼저 확인하고,
 --   설계의 가정과 하나라도 다르면 아무것도 바꾸지 않고 멈춘다. authenticated의 SELECT·INSERT·UPDATE가 없으면 멈춘다(권한을 넓히지 않음).
 -- 적용은 커맨드센터가 docs/ops-db-workflow.md "승인 한 번 흐름"으로만 한다(이 브랜치는 적용 직전 정지).
--- 짝: docs/20261024140000_document_brief.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
+-- 짝: docs/20261024150000_document_brief.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 lock table public.app_document_ai_index in share row exclusive mode;
@@ -18,7 +18,7 @@ lock table public.app_document_ai_index in share row exclusive mode;
 -- 사전 조건이 다르면 아무것도 바꾸지 않고 멈춘다.
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261024140000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261024150000')
      or (select count(*) from supabase_migrations.schema_migrations
          where version = '20261022100000' and name = 'library_ai_fill') <> 1
      or to_regclass('public.app_documents') is null
@@ -93,5 +93,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261024140000', 'document_brief', array['WEEKLY-자료요약: app_document_ai_index_brief_check (rows whose content_hash starts with b1: only), no new table/column/grant/policy']);
+values ('20261024150000', 'document_brief', array['WEEKLY-자료요약: app_document_ai_index_brief_check (rows whose content_hash starts with b1: only), no new table/column/grant/policy']);
 commit;

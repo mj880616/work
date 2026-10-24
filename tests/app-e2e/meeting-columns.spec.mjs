@@ -318,3 +318,53 @@ test('폰 390: 회의 목록은 최신 차수가 위(6차→1차), 시각이 같
   await expect(kindNames(page)).toHaveText(['노사협의회','궤도협의회']);
   await kind(page,'궤도협의회').click();await expect(detail(page).locator('.mcol-card .mcol-round')).toHaveText(['6차','5차','4차','3차','2차','1차']);
 });
+
+// FILE-사업보고⋯(2026-10-24 명진 결정): 사업 보고 자료 줄에도 담당조직·프로젝트 자료 줄과 같은 ⋯([Drive에서 열기]·[내려받기], file-actions.js).
+// 줄 전체를 누르면 지금처럼 종류별 동작(PDF는 Drive 보기 새 탭, HWP는 내려받기). ⋯는 그 누르기 자리 밖이라 누르면 메뉴만 열린다.
+// 내려받기는 화면 주소를 바꾸므로 각 시험의 맨 끝에 한 번만 본다(HWP 줄 누르기 = 내려받기는 위 'PC 오른쪽 결과' 시험이 본다).
+const fileState=()=>{const s=columnState();s.downloads=[];
+  s.docs.push({id:'labor-hwp',workspace_id:s.workspace.id,project_id:null,title:'가상 안건지',file_name:'가상 안건지.hwp',mime_type:'application/x-hwp',file_id:'drive-labor-hwp',drive_url:'https://drive.google.com/file/d/drive-labor-hwp/view',file_size:20480,meeting_id:'labor-2',category:'회의자료',tags:[]},
+    {id:'labor-pdf',workspace_id:s.workspace.id,project_id:null,title:'가상 공문',file_name:'가상 공문.pdf',mime_type:'application/pdf',file_id:'drive-labor-pdf',drive_url:'https://drive.google.com/file/d/drive-labor-pdf/view',file_size:4096,meeting_id:'labor-2',category:'회의자료',tags:[]});
+  return s};
+async function checkFileMenu(page,s,rows,width){
+  await page.context().route('https://drive.google.com/**',r=>r.fulfill({status:200,contentType:'text/html',body:'ok'}));
+  const row=rows.filter({hasText:'가상 안건지.hwp'}),pdf=rows.filter({hasText:'가상 공문.pdf'});
+  const more=row.locator('details.file-line-more'),summary=more.locator('summary');
+  await expect(summary).toBeVisible();await expect(summary).toHaveAccessibleName('파일 메뉴: 가상 안건지.hwp');
+  const box=await summary.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);
+  // 줄 누르기는 그대로: PDF 줄을 누르면 Drive 보기 새 탭(내려받기 없음).
+  const [view]=await Promise.all([page.waitForEvent('popup'),pdf.locator('.file-line-main').click({force:true})]);
+  await view.waitForURL('https://drive.google.com/file/d/drive-labor-pdf/view');await view.close();expect(s.downloads).toEqual([]);
+  // ⋯를 누르면 메뉴만 열리고 내려받기는 시작하지 않는다.
+  await summary.click();await expect(more).toHaveAttribute('open','');
+  const items=more.locator('.file-line-more-panel button');await expect(items).toHaveText(['Drive에서 열기','내려받기']);
+  for(const b of await items.all()){const r=await b.boundingBox();expect(r.height).toBeGreaterThanOrEqual(44);expect(r.x+r.width).toBeLessThanOrEqual(width+1)}
+  expect(s.downloads).toEqual([]);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
+  // [Drive에서 열기]: HWP라도 같은 파일의 Drive 보기를 새 탭으로 열고 메뉴는 닫힌다.
+  const [tab]=await Promise.all([page.waitForEvent('popup'),items.first().click()]);
+  await tab.waitForURL('https://drive.google.com/file/d/drive-labor-hwp/view');await tab.close();
+  await expect(more).not.toHaveAttribute('open','');expect(s.downloads).toEqual([]);
+  // [내려받기]: 자료실 자료라 서버 토큰 길(workspace-drive download-token). 화면 주소가 바뀌므로 맨 끝.
+  await summary.click();await more.locator('[data-fa-menu="download"]').click();
+  await expect.poll(()=>s.downloads.at(-1)?.document_id).toBe('labor-hwp');
+}
+
+test('PC 1280 오른쪽 결과 칸: 사업 보고 자료 줄 ⋯ [Drive에서 열기]·[내려받기], 줄 누르기는 그대로',async({page})=>{
+  const s=fileState();await open(page,s,1280);
+  // ⋯가 없는 옛 자료(파일 번호·주소 없음)는 메뉴 없이 줄만.
+  await selectMeetingRound(page,'rail-6');await expect(result(page).locator('.mcol-file')).toHaveCount(2);await expect(result(page).locator('.file-line-more')).toHaveCount(0);
+  await selectMeetingRound(page,'labor-2');await expect(result(page).locator('.mcol-file')).toHaveCount(2);
+  await checkFileMenu(page,s,result(page).locator('.mcol-file'),1280);
+});
+
+for(const width of [390,1280])test(`사업 보고 결과 창 ${width}: 자료 줄 ⋯ [Drive에서 열기]·[내려받기], ×·줄 누르기는 그대로`,async({page})=>{
+  const s=fileState();await open(page,s,width);
+  await openMeetingResult(page,'labor-2');
+  const rows=page.locator('#mrdMaterials .mrd-file-row'),row=rows.filter({hasText:'가상 안건지.hwp'});
+  await expect(row).toBeVisible();
+  // 한 줄 순서: 종류 · 이름 · ⋯ · ×. ⋯와 ×가 겹치지 않는다.
+  const x=row.locator('[data-mrd-delete-document]'),summary=row.locator('.file-line-more summary');
+  await expect(x).toBeVisible();const a=await summary.boundingBox(),b=await x.boundingBox();expect(a.x+a.width).toBeLessThanOrEqual(b.x+1);
+  await checkFileMenu(page,s,rows,width);
+});

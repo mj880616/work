@@ -1,7 +1,7 @@
 -- SELECT only. Works after apply (record + brief check) and after rollback/dry-run (no record + no brief check).
 -- The hash/count items must equal the precheck values of the same name (no grant, policy, trigger, index or other constraint change; no row added or removed).
 with history as (
-  select count(*) as n,count(*) filter(where name='document_brief') as named from supabase_migrations.schema_migrations where version='20261024140000'
+  select count(*) as n,count(*) filter(where name='document_brief') as named from supabase_migrations.schema_migrations where version='20261024150000'
 ), checks as (
   select count(*) as n,count(*) filter(where contype='c' and convalidated) as valid
   from pg_constraint where conrelid=to_regclass('public.app_document_ai_index') and conname='app_document_ai_index_brief_check'

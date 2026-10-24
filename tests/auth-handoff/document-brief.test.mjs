@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL only. No Supabase, Google or production credentials. All data synthetic.
-// WEEKLY-자료요약 1단계 DB: 20261024140000_document_brief — one check on app_document_ai_index that applies only to rows whose
+// WEEKLY-자료요약 1단계 DB: 20261024150000_document_brief — one check on app_document_ai_index that applies only to rows whose
 // content_hash starts with 'b1:'. Runs through the approved DB workflow runner (dry-run, apply), checks every precheck guard,
 // the owner upsert ai-assist will send, the b1: boundaries, old-shape rows passing, stranger/anon refusal, and the rollback.
 import test from 'node:test';
@@ -14,7 +14,7 @@ import pg from 'pg';
 import {fixture,OWNER,STRANGER,WS_A,WS_B} from './basket4-fixture.mjs';
 import {prepareMigration,checkSQL} from '../../scripts/ops/db-migration-plan.mjs';
 import {runMigrationPlan} from '../../scripts/ops/db-migration-run.mjs';
-const version='20261024140000',name='document_brief',stem=version+'_'+name;
+const version='20261024150000',name='document_brief',stem=version+'_'+name;
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 const root=new URL('../../',import.meta.url).pathname;
 for(const key of Object.keys(process.env))if(key.startsWith('PG'))delete process.env[key];
@@ -82,7 +82,7 @@ test('document brief: guards, dry-run, apply, b1: check only, owner-only, rollba
    assert.deepEqual(summary.map(l=>l.split(':')[0]),['무엇이 바뀌나','잘못되면','되돌리는 법']);
    const code=migration.replace(/--.*$/gm,'');
    assert.doesNotMatch(code,/security definer|create function|create table|create policy|alter policy|drop policy|row level|grant |revoke |update public|delete from public|add column|rtw_/i);
-   assert.match(migration.trim(),/^begin;/);assert.match(migration.trim(),/insert into supabase_migrations\.schema_migrations[\s\S]*'20261024140000', 'document_brief'[\s\S]*\);\ncommit;$/);
+   assert.match(migration.trim(),/^begin;/);assert.match(migration.trim(),/insert into supabase_migrations\.schema_migrations[\s\S]*'20261024150000', 'document_brief'[\s\S]*\);\ncommit;$/);
    assert.doesNotMatch(rollbackSQL.replace(/--.*$/gm,''),/delete from public|update public|truncate|cascade|grant |revoke |policy|drop column/i);
   });
   await t.test('precheck before apply: every assumption of design 8.1-1',()=>{

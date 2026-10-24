@@ -8,7 +8,7 @@ import {createAnchoredMenu} from './anchored-menu.js';
 import {recordSheetWanted,openRecordSheet} from './record-sheet.js';
 import {requestBasketNote,requestBasketNoteFrom,requestNoteDocOpen,requestNoteDocFrom,takeBasketReturn} from './basket-note-tasks.js';
 import {categoryTag,categoryOf,documentCategories,loadDocumentCategories} from './document-categories.js';
-import {renderCategoryChips,toggleCategoryOff} from './category-chips.js';
+import {renderCategoryChips,toggleCategoryOff,detailDefaultOff} from './category-chips.js';
 import {lastSeen} from './split-last.js';
 import {mountSplitResize} from './split-resize.js';
 import {bindDropTarget} from './meeting-compact.js';
@@ -107,12 +107,12 @@ const WD_DOC_ROWS=5;
 function wdReadDocs(id){return readRecordPages(`/rest/v1/app_documents?organization_id=eq.${encodeURIComponent(id)}&workspace_id=eq.${encodeURIComponent(wdWorkspace)}&select=id,title,file_name,mime_type,file_id,category,document_date,drive_url,created_at&order=document_date.desc.nullslast,created_at.desc,id.asc`,wdRecordRt)}
 function wdDocRow(x,can){const fa={name:x.file_name||x.title||'',mime:x.mime_type||'',documentId:x.file_id?x.id:'',driveId:x.file_id||'',driveUrl:x.drive_url||''},title=x.title||x.file_name||'파일',main=`<b>${wdE(title)}</b><small>${categoryTag(x.category)}${x.document_date?' '+wdE(x.document_date):''}</small>`;return `<div class="wd-doc-row" data-wd-doc="${wdE(x.id)}">${x.drive_url?`<a class="wd-doc-main" href="${wdE(x.drive_url)}" target="_blank" rel="noopener"${fileAttrs(fa,{press:true})}>${main}</a>`:`<div class="wd-doc-main">${main}</div>`}${can?`<details class="wd-doc-more"><summary class="icon-btn" aria-label="자료 관리: ${wdE(title)}">⋯</summary><div class="wd-doc-panel" role="group" aria-label="자료 관리">${menuItemsHtml(fa,{attrs:fileAttrs(fa),attr:'data-fa-menu'})}<button type="button" data-wd-doc-remove="${wdE(x.id)}">조직에서 빼기</button></div></details>`:''}</div>`}
 // LIB-조직프로젝트자료종류: [자료] 위의 종류 칩은 자료실과 같은 칩 코드(category-chips.js)이고, 꺼 둔 종류는 이 조직을 열어 두는 동안만 기억한다(저장 안 함).
-// 처음엔 모두 켜져 있어 자료가 숨지 않는다. 거르는 건 줄 보이기뿐이라 위의 자료 수와 [전체 N개 보기]는 이 조직의 전체 자료 기준 그대로다.
-let wdDocOff=new Set(),wdDocOffFor='';
+// 처음엔 모두 켜져 있어('회의' 포함, category-chips.js DETAIL_DEFAULT_OFF) 자료가 숨지 않는다. 거르는 건 줄 보이기뿐이라 위의 자료 수와 [전체 N개 보기]는 이 조직의 전체 자료 기준 그대로다.
+let wdDocOff=detailDefaultOff(),wdDocOffFor='';
 function wdToggleDocKind(value){wdDocOff=toggleCategoryOff(documentCategories(),wdDocOff,value);wdRenderDocs()}
 function wdRenderDocs(){
   const box=document.querySelector('#wdDocBody');if(!box||wdOrg?.id!==wdTargetId)return;
-  if(wdDocOffFor!==wdOrg.id){wdDocOffFor=wdOrg.id;wdDocOff=new Set()}
+  if(wdDocOffFor!==wdOrg.id){wdDocOffFor=wdOrg.id;wdDocOff=detailDefaultOff()}
   const can=!!wdOrg?.canEdit,shown=wdDocs.filter(x=>!wdDocOff.has(categoryOf(x.category))),rows=shown.slice(0,WD_DOC_ROWS),count=document.querySelector('#wdDocs [data-wd-doc-count]');
   if(count){count.textContent=wdDocsError?'':wdDocs.length;count.hidden=wdDocsError}
   const add=document.querySelector('#wdDocAdd');if(add)add.hidden=!can;

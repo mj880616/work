@@ -17,7 +17,7 @@
 -- expect: column grants hash = 기록
 -- expect: policies hash = 기록
 -- expect: triggers hash = 기록
-select 'new migration absent' as item,case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261024140000') then '예' else '아니오' end as value
+select 'new migration absent' as item,case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261024150000') then '예' else '아니오' end as value
 union all select 'prerequisite recorded',case when (select count(*) from supabase_migrations.schema_migrations where version='20261022100000' and name='library_ai_fill')=1 then '예' else '아니오' end
 union all select 'index table present',case when to_regclass('public.app_document_ai_index') is not null and to_regclass('public.app_documents') is not null then '예' else '아니오' end
 union all select 'nine columns with expected types',case when (select count(*) from pg_attribute where attrelid=to_regclass('public.app_document_ai_index') and attnum>0 and not attisdropped
