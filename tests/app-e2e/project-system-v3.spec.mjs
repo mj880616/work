@@ -1102,10 +1102,12 @@ test('TRASH 2단계: 휴지통을 쓸 수 있으면 삭제는 휴지통 이동�
 test('TRASH 2단계: 휴지통 탭에서 되돌리고, ⋯ 안 영구 삭제는 확인창을 거치며, 상위가 휴지통이면 먼저 되돌리라고 안내한다',async({page})=>{
   const state=baseState();
   const at='2026-10-24T03:00:00Z',main=state.spaces.find(x=>x.id==='main-1'),child=state.spaces.find(x=>x.id==='child-1');
+  const child2={...child,id:'child-2',name:'함께 지워진 하위',sort_order:20};
   const extra={...main,id:'solo-1',name:'합성 단독 사업',parent_id:null,sort_order:50};
-  // main-1(하위 1개)와 solo-1은 각자 맨 위로 휴지통에 있다. child-1은 먼저 따로 지워져 상위가 휴지통인 줄이다.
+  // main-1은 child-2와 함께 지워져(하위 1개) 맨 위로 휴지통에 있고, solo-1도 각자 맨 위다.
+  // child-1은 main-1보다 먼저 따로 지워졌으므로 main-1의 하위 개수에 안 세지고, 상위가 휴지통인 줄이다.
   state.spaces=[];
-  state.trash={items:[{...main,deleted_at:at,deleted_root_id:'main-1'},{...child,deleted_at:'2026-10-24T02:00:00Z',deleted_root_id:'child-1'},{...extra,deleted_at:'2026-10-24T01:00:00Z',deleted_root_id:'solo-1'}]};
+  state.trash={items:[{...main,deleted_at:at,deleted_root_id:'main-1'},{...child2,deleted_at:at,deleted_root_id:'main-1'},{...child,deleted_at:'2026-10-24T02:00:00Z',deleted_root_id:'child-1'},{...extra,deleted_at:'2026-10-24T01:00:00Z',deleted_root_id:'solo-1'}]};
   await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);
   await clickView(page,'projects');
   const button=page.locator('#ps3ArchiveBtn');

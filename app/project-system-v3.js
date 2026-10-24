@@ -352,7 +352,7 @@ async function renderGrid({isCurrent=()=>true}={}){
  if(old){const top=old.scrollTop;old.replaceWith(list);list.scrollTop=top}else grid.prepend(list);
  if(!$('#ps3DetailPane'))grid.insertAdjacentHTML('beforeend','<aside id="ps3DetailPane" class="ps3-pane" aria-label="프로젝트 상세"><p class="ps3-pane-empty">왼쪽에서 프로젝트를 고르면 여기에 보입니다.</p></aside>');
  const actions=list.querySelector('.add-list-head .ps3-project-toolbar');
- if(archiveBtn){paintArchiveBtn();actions.append(archiveBtn);if(trash.state!==TRASH_STATE.MISSING)void syncTrash()}if(add)actions.append(add);
+ if(archiveBtn){paintArchiveBtn(archiveBtn);actions.append(archiveBtn);if(trash.state!==TRASH_STATE.MISSING)void syncTrash()}if(add)actions.append(add);
  if(orderAvailable())actions.prepend(orderToggle());
  const key=JSON.stringify(spaces.map(p=>[p.id,p.name,p.parent_id,p.status,p.sort_order,p.updated_at]));
  if(key!==lastSpacesKey){lastSpacesKey=key;window.dispatchEvent(new CustomEvent('kptu:project-spaces-updated',{detail:{workspaceId:wid,userId:user.id,spaces}}))}
@@ -811,7 +811,7 @@ async function toggleProjectDone(){if(!current||!canManage(current))return;const
 async function renderArchiveList(){const box=$('#ps3ArchiveList'),rows=archived();if(!box)return;if(!rows.length){box.innerHTML=empty('보관한 프로젝트가 없습니다.');return}const under=p=>descendants(p);box.innerHTML=`<div class="ps3-plist">${rows.map(p=>listRowHtml(p,under(p),{open:false,trail:`<button type="button" class="mini ps3-prow-restore" data-ps3-restore="${p.id}">복구</button>`})).join('')}</div>`;void loadListSummaries([...listedProjects(),...rows.flatMap(p=>[p,...under(p).map(x=>x.project)])])}
 // 보관 모달 하나가 보관 탭과 휴지통 탭을 가진다. 그리기는 paintArchive 하나가 맡는다.
 function trashSig(){return trash.state+'|'+trash.rows.map(r=>`${r.id}:${r.child_count}:${r.parent_in_trash}`).join(',')}
-function paintArchiveBtn(){const b=$('#ps3ArchiveBtn');if(!b)return;const label=archiveButtonLabel({archived:archived().length,trashCount:trash.rows.length,trash:trash.state});b.textContent=label||'보관 0';b.hidden=!label}
+function paintArchiveBtn(el){const b=el||$('#ps3ArchiveBtn');if(!b)return;const label=archiveButtonLabel({archived:archived().length,trashCount:trash.rows.length,trash:trash.state});b.textContent=label||'보관 0';b.hidden=!label}
 function trashRowHtml(r){
  const meta=[date(r.deleted_at)+' 넣음',r.child_count?`하위 ${r.child_count}개`:''].filter(Boolean).map(esc).join(' · ');
  const hint=r.parent_in_trash?` · <span class="ps3-trash-hint">${esc(TRASH_TEXT.PARENT_FIRST)}</span>`:'';
