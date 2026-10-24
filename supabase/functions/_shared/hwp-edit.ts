@@ -1,4 +1,4 @@
-// HWP-편집기 2단계: document-actions `hwp-open`·`hwp-overwrite`. MD-표시보완: 읽기 전용 `html-view`(바구니 .html 첨부).
+// HWP-편집기 2단계: document-actions `hwp-open`·`hwp-overwrite`. MD-표시보완·PRESS-자료실편입: 읽기 전용 `html-view`(바구니 .html 첨부·자료실 .html 자료).
 // The file, its workspace and every Drive ID come from the server-read library row
 // or basket note, never from the client. Saving as a new file uses the existing
 // library-files / basket-files uploads; this module only reads and overwrites.
@@ -186,11 +186,9 @@ export function createHwpEdit(deps: Deps) {
       throw refuse("INVALID_REQUEST", "열 파일을 확인할 수 없습니다.");
     }
     if (want === "html") {
-      if (found.kind !== "basket") {
-        throw refuse("INVALID_REQUEST", "바구니 메모의 첨부만 화면으로 볼 수 있습니다.");
-      }
+      // PRESS-자료실편입: 바구니 첨부와 자료실 자료 모두. 둘 다 위에서 서버가 읽은 행과 owner 확인을 거쳤다.
       if (!isHtmlName(found.fileName)) {
-        throw refuse("NOT_HTML", "HTML 첨부만 화면으로 볼 수 있습니다.");
+        throw refuse("NOT_HTML", "HTML 파일만 화면으로 볼 수 있습니다.");
       }
       return { ...found, format: "html" };
     }
@@ -299,7 +297,7 @@ export function createHwpEdit(deps: Deps) {
   }
 
   // The bytes as text for the memo's sandboxed frame (html-frame.js adds the network-blocking policy).
-  // Same checks as open: the server-read note and attachment, a file the owner's Drive holds, one revision.
+  // Same checks as open: the server-read library row or note attachment, a file the owner's Drive holds, one revision.
   async function openHtml(userId: string, input: Record<string, unknown>) {
     const src = await source(userId, input, "html");
     const token = await deps.driveToken();
