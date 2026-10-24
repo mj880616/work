@@ -1,6 +1,7 @@
 // AI-서버연동 S7-c: 원장 후보의 모양 검사·표시·[고쳐서 확정] 내용 만들기(순수 함수, DOM·네트워크 없음).
 // 설계: docs/design/ledger-web2.md 4·15절, migration 20261021190000_ledger_candidates(확정 함수가 DB에서 한 번 더 검사).
-// 쓰는 곳: 후보 화면(app/ledger-candidates.js), 가져오기 화면의 Claude 후보 파일(app/ledger-import-model.mjs → [후보로 넣기]).
+// 쓰는 곳: LEDGER-화면정리(2026-10-24, 결정 ⑥)로 후보 화면·가져오기 화면은 지웠고, 지금은 DB 시험(tests/auth-handoff/ledger-candidates·ledger-import)이
+// 후보 파일 모양을 만들 때만 쓴다. 후보 표·데이터·확정 함수는 그대로다(남은 후보 정리는 roadmap PR-7).
 import { looksPersonal } from './ledger-import-model.mjs';
 import { KIND_LABEL, KIND_DISPLAY, KIND_HINT, dateLabel } from './ledger-browse-model.mjs';
 

@@ -1,5 +1,5 @@
 // S7-b 원장 가져오기 시험용 합성 시트(실제 원장 내용·조직·ID 아님). ID는 모두 09xx 번호대, 접두어는 가상.
-// 단위 시험(tests/ledger-import-model.test.mjs), DB 시험(tests/auth-handoff/ledger-import.test.mjs), 화면 시험(tests/app-e2e/ledger-import.spec.mjs)이 같이 쓴다.
+// 단위 시험(tests/ledger-import-model.test.mjs), DB 시험(tests/auth-handoff/ledger-import.test.mjs)(화면 시험은 LEDGER-화면정리로 가져오기 화면과 함께 지움)이 같이 쓴다.
 export const SHEET_TITLE = '가상 원장';
 const csv = rows => rows.map(r => r.map(c => /[",\n]/.test(c) ? `"${c.replaceAll('"', '""')}"` : c).join(',')).join('\r\n') + '\r\n';
 
