@@ -1087,7 +1087,7 @@ test('TRASH 2단계: 휴지통을 쓸 수 있으면 삭제는 휴지통 이동�
   const message=page.locator('#ps3DeleteMessage');
   await expect(message).toContainText('휴지통으로 옮깁니다');await expect(message).toContainText('하위 프로젝트 1개도 함께 옮겨지고');
   await expect(message).toContainText('연결된 기록은 그대로 남습니다');await expect(message).toContainText('휴지통에서 되돌릴 수 있습니다');
-  await expect(page.locator('#ps3DeleteNote')).toBeHidden();
+  await expect(page.locator('[data-ps3-delete-note]')).toBeHidden();
   await page.locator('#ps3DeleteConfirm').click();
   await expect.poll(()=>state.spaces.some(x=>x.id==='main-1'||x.id==='child-1')).toBeFalsy();
   expect(state.trash.items.map(x=>x.id).sort()).toEqual(['child-1','main-1']);
@@ -1151,7 +1151,7 @@ test('TRASH 2단계: 휴지통 함수가 아직 없으면 삭제는 지금 문�
   const message=page.locator('#ps3DeleteMessage');
   await expect(message).toContainText('삭제합니다');await expect(message).toContainText('하위 프로젝트 1개도 함께 삭제됩니다');
   await expect(page.locator('#ps3DeleteModal')).not.toContainText('휴지통');
-  await expect(page.locator('#ps3DeleteNote')).toContainText('프로젝트 연결만 해제함');
+  await expect(page.locator('[data-ps3-delete-note]')).toContainText('프로젝트 연결만 해제함');
   await expect(page.locator('#ps3DeleteConfirm')).toHaveText('삭제');
   await page.locator('#ps3DeleteConfirm').click();
   await expect.poll(()=>state.spaces.some(x=>x.id==='main-1')).toBeFalsy();

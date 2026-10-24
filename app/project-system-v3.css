@@ -106,7 +106,7 @@
 .ps3-archive-tabs button::after{content:"";position:absolute;inset:-8px -4px}
 .ps3-archive-tabs button[aria-pressed="true"]{color:var(--kptu-ink);font-weight:600;text-decoration:underline}
 .ps3-trash-hint{color:var(--kptu-danger)}
-#ps3ArchiveHint[hidden],#ps3DeleteNote[hidden]{display:none}
+[data-ps3-archive-hint][hidden],[data-ps3-delete-note][hidden]{display:none}
 @media(max-width:760px){
   .brand .leaf{width:38px!important;height:34px!important;background-size:34px 34px!important}
   .ps3-detail-card{padding:var(--kptu-space-4)}
