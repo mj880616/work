@@ -40,3 +40,36 @@
      (topbar-actions.js kptu:where-item). 제목(#wdTitle)은 칸의 이름(aria-labelledby)으로 남는다. */
   #wdDetailPane>#wdModal.wd-docked>.wd-card>.modal-head{display:none}
 }
+
+/* ORG-쟁의단계: 목록 맨 위 ⋯ 줄, 목록 줄 꼬리표(투쟁 중·이번 주 끝남만), 쟁의 단계 관리 창. 크고 굵은 버튼 없음(UI-버튼기준). */
+#soOrganizationList{position:relative}
+.so-team-tools{position:absolute;top:2px;right:8px;z-index:1;display:flex}
+#soOrganizationList>.so-team-tools+.so-org-group .so-group-count{margin-right:30px}
+.so-team-tools .so-team-more{position:relative;width:var(--ds-compact-height);height:var(--ds-compact-height);min-height:0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:var(--ds-text-button);line-height:1;cursor:pointer}
+.so-team-tools .so-team-more::after{content:"";position:absolute;inset:-6px}
+.so-team-tools .so-team-more:hover,.so-team-tools .so-team-more[aria-expanded="true"]{background:var(--kptu-surface-subtle)}
+.so-team-tools .so-team-more:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+.so-stage-tag{max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:1px 7px;border-radius:999px;background:var(--ds-kind-basket-soft);color:var(--ds-kind-basket-ink);font-size:var(--ds-text-meta);line-height:1.5}
+.so-stage-tag.is-end{background:var(--ds-kind-journal-soft);color:var(--ds-kind-journal-ink)}
+#appView #teamView #soOrganizationList .kptu-list-row-main.has-stage{grid-template-columns:8px minmax(0,1fr) auto 24px}
+@media(max-width:760px){#appView #teamView #soOrganizationList .kptu-list-row-main.has-stage{grid-template-columns:8px minmax(0,1fr) auto 20px}}
+.stg{display:grid;gap:6px}
+.stg-list{margin:0;padding:0;list-style:none}
+.stg-row{border-bottom:1px solid var(--kptu-border)}.stg-row:last-child{border-bottom:0}
+.stg-row.dragging{background:var(--kptu-primary-soft)}
+.stg-line{display:flex;align-items:center;gap:6px;min-height:var(--kptu-touch-target,44px)}
+.stg-grip{flex:0 0 auto;width:28px;height:var(--ds-compact-height);padding:0;border:0;background:transparent;color:var(--kptu-faint);font-size:var(--ds-text-meta);letter-spacing:-2px;cursor:grab;touch-action:none}
+.stg-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--ds-text-row)}
+.stg-tag{flex:0 0 auto;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
+.stg-sw{flex:0 0 auto;height:var(--ds-compact-height-sm);min-height:0;padding:0 8px;border:1px solid var(--kptu-border-strong);border-radius:999px;background:transparent;color:var(--kptu-faint);font-size:var(--ds-text-meta);cursor:pointer}
+.stg-sw.on{border-color:transparent;background:var(--ds-kind-basket-soft);color:var(--ds-kind-basket-ink)}
+.stg-sw.end{border-color:transparent;background:var(--ds-kind-journal-soft);color:var(--ds-kind-journal-ink)}
+.stg-more{flex:0 0 auto;position:relative;width:var(--ds-compact-height);height:var(--ds-compact-height);min-height:0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);cursor:pointer}
+.stg-more::after,.stg-grip::after{content:"";position:absolute;inset:-6px 0}.stg-grip{position:relative}
+.stg-sub{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:0 0 8px 34px;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
+.stg-link{min-height:var(--ds-compact-height-sm);padding:0 4px;border:0;background:transparent;color:var(--kptu-link);font-size:var(--ds-text-meta);cursor:pointer}
+.stg-link.danger{color:var(--kptu-danger)}
+.stg-input{flex:1 1 8em;min-width:0;height:var(--ds-compact-height);padding:0 8px;font-size:var(--ds-text-button)}
+.stg-add{display:flex;align-items:center;gap:6px}
+.stg-add-btn{justify-self:start;height:var(--ds-compact-height-sm);min-height:0;padding:0 8px;border:0;background:transparent;color:var(--kptu-muted);font-size:var(--ds-text-meta);cursor:pointer}
+.stg-note,.stg-msg{margin:0;font-size:var(--ds-text-meta);color:var(--kptu-muted)}.stg-msg:empty{display:none}.stg-msg.error{color:var(--kptu-danger)}

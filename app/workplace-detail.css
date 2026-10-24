@@ -116,3 +116,15 @@ a.wd-doc-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2p
 /* MTG-사업보고 6단계: 사업 보고 줄은 누르는 줄(button)이라 자료 줄의 글 모양을 그대로 쓰고 버튼 기본 모양만 지운다 */
 button.wd-doc-main{width:100%;margin:0;border:0;border-radius:var(--kptu-radius-none,0);background:transparent;box-shadow:none;font:inherit;text-align:left;cursor:pointer}
 button.wd-doc-main:hover{background:var(--kptu-surface-subtle)}
+
+/* ORG-쟁의단계: 이름 줄 바로 아래 '쟁의 단계' 한 줄(선택 + 달력 날짜 + 저장)과 접힌 단계 이력. 작은 글자·낮은 컨트롤(UI-버튼기준). */
+.wd-stage{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin:0 0 10px;font-size:var(--ds-text-meta)}
+.wd-stage:empty{display:none}
+.wd-stage-k{flex:0 0 auto;color:var(--kptu-muted)}
+.wd-stage-note,.wd-stage-now{color:var(--kptu-muted)}.wd-stage-now{color:var(--kptu-ink);font-size:var(--ds-text-row)}
+.wd-stage-select{flex:1 1 7em;min-width:0;height:var(--ds-compact-height);padding:0 6px;font-size:var(--ds-text-button)}
+.wd-stage-date{flex:0 0 auto;width:9.5em;height:var(--ds-compact-height);padding:0 6px;font-size:var(--ds-text-button)}
+.wd-stage-btn{position:relative;flex:0 0 auto;height:var(--ds-compact-height);min-height:0;padding:0 var(--ds-compact-pad-x);font-size:var(--ds-text-button)}
+.wd-stage-btn::after{content:"";position:absolute;inset:-6px 0}
+.wd-stage-msg{flex:1 0 100%;color:var(--kptu-muted)}.wd-stage-msg:empty{display:none}.wd-stage-msg.error{color:var(--kptu-danger)}
+.wd-stage-hist{flex:1 0 100%;color:var(--kptu-muted)}.wd-stage-hist summary{cursor:pointer}.wd-stage-hist div{padding:1px 0 0 10px}
