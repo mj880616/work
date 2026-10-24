@@ -1,5 +1,5 @@
 -- SELECT only. Works after apply (all 예, counts equal the precheck rows of the same source) and after rollback/dry-run (table and history absent).
--- No text is shown: only counts and yes/no.
+-- No text is shown: only counts and yes/no. The backup table is only named through to_regclass (this file also runs after the rollback).
 with t as (select to_regclass('public.app_ed3_text_backups') as b),
 history as (select count(*) filter(where name='ed3_text_backup') as named, count(*) as n from supabase_migrations.schema_migrations where version='20261024190000')
 select 'table and history agree' as item,case when
@@ -19,5 +19,10 @@ union all select 'nobody can read the text columns',case when (select b from t) 
 union all select 'nobody can write',case when (select b from t) is null or (
   not has_table_privilege('authenticated',(select b from t),'insert,update,delete,truncate') and not has_any_column_privilege('authenticated',(select b from t),'insert,update')
   and not has_table_privilege('service_role',(select b from t),'select,insert,update,delete,truncate')) then '예' else '아니오' end
-union all select 'backup rows per source',case when (select b from t) is null then 'absent' else (
-  select coalesce(string_agg(source||'='||n,' / ' order by source),'0') from (select source,count(*)::text n from public.app_ed3_text_backups group by source) s) end;
+-- The migration's own last check already stops unless every source row was copied (counts per source and the note text, metadata and time).
+-- Here the source row counts must equal the precheck values of the same name (nothing added or removed by the copy).
+union all select 'note rows',count(*)::text from public.app_notes where kind='note'
+union all select 'basket rows',count(*)::text from public.app_notes where kind='basket'
+union all select 'diary rows',count(*)::text from public.app_notes where kind='diary'
+union all select 'org update rows',count(*)::text from public.app_suborganization_updates
+union all select 'project record rows',count(*)::text from public.app_project_progress_updates;
