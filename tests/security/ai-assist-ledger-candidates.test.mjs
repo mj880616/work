@@ -202,7 +202,7 @@ test('limits: five runs a day, the shared daily total and the monthly budget sto
    assert.equal((await post(handler,run)).status,200);assert.equal(calls.openai.length,1);}
   {const {handler,calls}=harness({usage:[{workspace_id:WS,user_id:OWNER,day:TODAY,requests:DAILY_TOTAL_LIMIT,input_tokens:0,output_tokens:0}]});
    await expectError(await post(handler,run),429,'daily_limit');assert.equal(calls.openai.length,0);}
-  {const {handler,calls,db}=harness({usage:[{workspace_id:WS,user_id:OWNER,day:'2026-10-02',requests:1,input_tokens:50_000_000,output_tokens:0}]});
+  {const {handler,calls,db}=harness({usage:[{workspace_id:WS,user_id:OWNER,day:'2026-10-02',requests:1,input_tokens:120_000_000,output_tokens:0}]});
    await expectError(await post(handler,run),429,'monthly_limit');assert.equal(calls.openai.length,0);assert.equal(db.app_ledger_candidates.length,0);}
   {const {handler,calls}=harness({fail:{app_ai_daily_usage:'POST'}});
    await expectError(await post(handler,run),503,'usage_unavailable');assert.equal(calls.openai.length,0);}

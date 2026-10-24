@@ -11,6 +11,7 @@ const {createCollectorFeedHandler,secretMatches,DAILY_LIMITS,MONTHLY_LIMIT_KRW,S
   await import('../../supabase/functions/collector-feed/handler.ts');
 const {parseCall,counterpartOf,speakerSplit,transcriptName,parseKstDateTime}=await import('../../supabase/functions/collector-feed/call-analysis.ts');
 const {parseTelegram}=await import('../../supabase/functions/collector-feed/telegram.ts');
+const {DEFAULT_PRICE_IN_KRW_PER_MTOK}=await import('../../supabase/functions/_shared/ai-model.ts');
 
 const SB='https://synthetic.supabase.test';
 const FN=`${SB}/functions/v1/collector-feed`;
@@ -326,7 +327,7 @@ test('텔레그램: 묶음마다 AI 한 번, 고른 소식만 저장(요약·근
   assert.deepEqual(await r.json(),{ok:true,kept:1,personal:0,unsure:0,failed:0,duplicate:false});
   assert.equal(h.calls.openai.length,1);
   const req=h.calls.openai[0];
-  assert.equal(req.store,false);assert.equal(req.model,'gpt-5.6-luna');assert.equal(req.text.format.strict,true);assert.equal(req.tools,undefined);
+  assert.equal(req.store,false);assert.equal(req.model,'gpt-6-luna');assert.equal(req.text.format.strict,true);assert.equal(req.tools,undefined);
   const material=req.input[1].content;
   assert.match(material,/m1 09:10 A: /);assert.match(material,/m2 09:12 B \(m1에 답\): /);assert.match(material,/o1=가상노동조합/);assert.match(material,/p1=가상 교섭 프로젝트/);
   assert.doesNotMatch(material,new RegExp(ORG+'|'+PROJECT),'ID는 AI에 보내지 않는다');assert.doesNotMatch(material,/남의/);
@@ -376,7 +377,7 @@ test('텔레그램: 중요한 것 없음이면 행 없이 개수만, 글 없는 
 
 test('텔레그램 한 달 상한 6,000원(이 기능만 따로)과 하루 묶음 80개 상한',async()=>{
   assert.equal(MONTHLY_LIMIT_KRW,6000);
-  const tokens=Math.ceil(MONTHLY_LIMIT_KRW*1_000_000/350);
+  const tokens=Math.ceil(MONTHLY_LIMIT_KRW*1_000_000/DEFAULT_PRICE_IN_KRW_PER_MTOK);
   let h=harness({days:[{workspace_id:WS,day:'2026-10-03',source:'telegram',...Object.fromEntries(COUNTERS.map(k=>[k,0])),ai_input_tokens:tokens}]});
   let r=await h.send('telegram',tgBody());assert.equal(r.status,429);assert.equal((await r.json()).error,'AI_MONTHLY_LIMIT');assert.equal(h.calls.openai.length,0);
   // 지난달 사용량은 세지 않는다

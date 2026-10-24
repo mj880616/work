@@ -538,7 +538,7 @@ async function writeUsage(ctx: Ctx, day: string, requests: number, input: number
 function callOpenAi(
   deps: { doFetch: typeof fetch; sleep: (ms: number) => Promise<void>; log: Log },
   key: string,
-  body: unknown,
+  body: Record<string, unknown>,
 ): Promise<OpenAiResult> {
   return callSharedOpenAi(deps, key, body, {
     url: OPENAI_URL, timeoutMs: OPENAI_TIMEOUT_MS, retryDelayMs: RETRY_DELAY_MS, maxResponseBytes: OPENAI_RESPONSE_BYTES,

@@ -52,7 +52,7 @@
 - 자료실 올리기: Edge `library-files`(Drive "자료실" 폴더 + `app_documents` 행, 제목 추정에 OpenAI).
 - 자료 내려받기: Edge `workspace-drive` `download-token`(`app_documents` 전용, 5분 1회 토큰).
 - HWP 글자 읽기: `@ssabrojs/hwpxjs`(`meeting-ai-ingest/hwp-parser.mjs`, `document-ai-index`, `library-files`). PDF는 OpenAI `input_file`(`document-ai-index`).
-- OpenAI 호출: `https://api.openai.com/v1/responses`, `store:false`, 모델은 `app_ai_workspace_settings.default_model`(코드 기본값 `gpt-5.6-luna`). 운영 비밀값 `OPENAI_API_KEY`는 아직 등록 전으로 추정(원장 BASKET-AI자동정리).
+- OpenAI 호출: `https://api.openai.com/v1/responses`, `store:false`, 모델은 `app_ai_workspace_settings.default_model`(코드 기본값은 `supabase/functions/_shared/ai-model.ts`의 `DEFAULT_AI_MODEL`, 2026-10-24부터 `gpt-6-luna`). 운영 비밀값 `OPENAI_API_KEY`는 아직 등록 전으로 추정(원장 BASKET-AI자동정리).
 
 ## 2. 저장 위치 비교
 
