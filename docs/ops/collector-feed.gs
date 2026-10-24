@@ -40,6 +40,7 @@ var CALL_FEED_MAX_ATTEMPTS = 3;                       // 서버·연결 실패�
 var CALL_FEED_ANALYSIS_MAX_BYTES = 64 * 1024;
 var CALL_FEED_TOTAL_MAX_BYTES = 204800;
 var CALL_FEED_MAX_PAST_DAYS = 92;
+var CALL_FEED_RECENT_DAYS = 7;   // 녹음 날짜가 이보다 오래된 통화는 보내지 않고 넘긴다(명진 결정 10/25: 최근 일주일과 앞으로만)
 var CALL_FEED_KST_MS = 9 * 3600 * 1000;
 
 // ── 손으로 [실행]하는 함수 ───────────────────────────────────────────────
@@ -152,6 +153,9 @@ function callFeed_run() {
     var id = file.getId(), name = file.getName();
     var info = callFeedTranscriptName(name);
     var day = info.day || callFeedKstDay(created);
+
+    // 0단계: 녹음 날짜가 최근 일주일보다 오래된 통화는 분석을 기다리지 않고 넘긴다(옛 녹음을 한꺼번에 올린 경우)
+    if (callFeedTooOld(day, nowMs)) { tally.old = (tally.old || 0) + 1; return 'done'; }
 
     // 1단계: 개인 번호·연락처 목록(분석 파일을 읽지 않는다)
     if (callFeedIsPersonal(info.contact, list)) {
@@ -269,7 +273,7 @@ function callFeed_run() {
     '개인 목록으로 거름: ' + tally.personalList,
     (test ? '보낼 것: ' : '보냄: ') + tally.sent + ' (업무 ' + tally.work + ' · 개인 ' + tally.personal + ' · 애매 ' + tally.unsure +
       (test ? ' · 구분 없음(옛 분석·비어 있음) ' + tally.noClass + ' · 분석 실패 ' + tally.failed : ' · 판정 실패 ' + tally.failed + ' · 이미 있음 ' + tally.duplicate) + ')',
-    '분석 대기: ' + tally.waiting + (tally.waiting ? '건(건너뛰고 계속)' : '') + ' · 대기 목록: ' + pending.length + '건 · 넘김: ' + tally.skipped + (tally.retry ? ' · 다시 보낼 것: ' + tally.retry : ''),
+    '분석 대기: ' + tally.waiting + (tally.waiting ? '건(건너뛰고 계속)' : '') + ' · 대기 목록: ' + pending.length + '건 · 넘김: ' + tally.skipped + (tally.old ? ' · 일주일 넘은 옛 녹음 넘김: ' + tally.old : '') + (tally.retry ? ' · 다시 보낼 것: ' + tally.retry : ''),
     stop ? '멈춘 이유: ' + stop : '끝까지 봄',
   ].join('\n'));
 }
@@ -420,6 +424,14 @@ function callFeedAnalysisName(transcriptName, transcriptId) {
 }
 
 function callFeedKstDay(ms) { return new Date(ms + CALL_FEED_KST_MS).toISOString().slice(0, 10); }
+
+/** 녹음 날짜(한국 날짜)가 최근 CALL_FEED_RECENT_DAYS일보다 오래됐나. 날짜를 못 읽으면 오래된 것으로 보지 않는다. */
+function callFeedTooOld(day, nowMs) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day || '')) return false;
+  var today = callFeedKstDay(nowMs);
+  var oldest = new Date(Date.parse(today + 'T00:00:00Z') - CALL_FEED_RECENT_DAYS * 86400000).toISOString().slice(0, 10);
+  return day < oldest;
+}
 
 /** 서버가 받는 날짜 범위(오늘부터 92일 전까지)인가. */
 function callFeedDayInRange(day, nowMs) {
@@ -1100,7 +1112,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     callFeedNormalizeNumber: callFeedNormalizeNumber, callFeedNormalizeName: callFeedNormalizeName, callFeedParseList: callFeedParseList,
     callFeedTranscriptName: callFeedTranscriptName, callFeedIsPersonal: callFeedIsPersonal, callFeedKstDay: callFeedKstDay,
-    callFeedDayInRange: callFeedDayInRange, callFeedBytes: callFeedBytes, callFeedCapBytes: callFeedCapBytes,
+    callFeedDayInRange: callFeedDayInRange, callFeedTooOld: callFeedTooOld, callFeedBytes: callFeedBytes, callFeedCapBytes: callFeedCapBytes,
     callFeedAnalysisName: callFeedAnalysisName, callFeedMinimalAnalysis: callFeedMinimalAnalysis,
     callFeedFrontmatter: callFeedFrontmatter, callFeedClass: callFeedClass,
     callFeedBuildCallBody: callFeedBuildCallBody, callFeedVerdict: callFeedVerdict,
