@@ -31,6 +31,7 @@
 //   화면은 주(월요일)와 일정 줄(참조·날짜·시각·달력 제목·장소, 30개까지)만 보낸다(이 쓰임만 몸통 20KB, 나머지는 2KB 그대로).
 //   업무 기록·이름 목록은 서버가 내 로그인으로 읽는다(일기·보관·AI 제외 업데이트 빼고). 답은 제안으로만 돌려주고 저장하지 않는다.
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
+import { aiConfigFrom, callOpenAi as callSharedOpenAi, estimateKrw, tokenCount, type OpenAiResult } from "../_shared/openai-responses.ts";
 import {
   dedupeKey, packSources, parseTodoRadar, radarMaterial, RADAR_MAX_OUTPUT_TOKENS, buildTodoRadarInstructions, cleanProfile, TODO_RADAR_SCHEMA,
   type RadarSource,
@@ -95,8 +96,6 @@ const OPENAI_RESPONSE_BYTES = 256 * 1024;
 const DB_RESPONSE_BYTES = 1024 * 1024;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const MODEL = /^[a-z0-9][a-z0-9._-]{0,63}$/;
-const PRICE = /^\d{1,6}(\.\d{1,4})?$/;
 // 기존 validateLinkSummary(app/basket-link-records.js)와 같은 빈칸 문자 집합.
 const ONLY_WHITESPACE = /^[\u0009-\u000d \u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]*$/u;
 
@@ -168,11 +167,7 @@ export function seoulDays(nowMs: number) {
   return { day, monthStart, nextMonthStart };
 }
 
-export function estimateKrw(inputTokens: number, outputTokens: number, price: { input: number; output: number }) {
-  return (inputTokens * price.input + outputTokens * price.output) / 1_000_000;
-}
-
-const tokenCount = (v: unknown) => (typeof v === "number" && Number.isSafeInteger(v) && v >= 0 ? v : 0);
+export { estimateKrw };
 
 // AI 답(믿지 않는 입력)을 검사한다. 형식이 하나라도 틀리면 null.
 export function parseLinkSummary(raw: unknown): string | null {
@@ -399,19 +394,9 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | Ledger
   };
 }
 
+// 열쇠·모델·가격 읽기는 공용 모듈(_shared/openai-responses.ts)이 한다. 값(열쇠 이름·기본 모델·가격)은 이 파일의 상수.
 function aiConfig(env: Env) {
-  const key = env(KEY_NAME) ?? "";
-  const model = (env("WEB2_AI_MODEL") ?? "").trim() || DEFAULT_MODEL;
-  const pin = (env("WEB2_AI_PRICE_IN_KRW_PER_MTOK") ?? "").trim();
-  const pout = (env("WEB2_AI_PRICE_OUT_KRW_PER_MTOK") ?? "").trim();
-  if (!key.trim() || /\s/.test(key) || !MODEL.test(model)) return null;
-  if ((pin && !PRICE.test(pin)) || (pout && !PRICE.test(pout))) return null;
-  const price = {
-    input: pin ? Number(pin) : DEFAULT_PRICE_IN_KRW_PER_MTOK,
-    output: pout ? Number(pout) : DEFAULT_PRICE_OUT_KRW_PER_MTOK,
-  };
-  if (!(price.input > 0) || !(price.output > 0)) return null;
-  return { key, model, price };
+  return aiConfigFrom(env, { keyName: KEY_NAME, model: DEFAULT_MODEL, priceIn: DEFAULT_PRICE_IN_KRW_PER_MTOK, priceOut: DEFAULT_PRICE_OUT_KRW_PER_MTOK });
 }
 
 async function authenticate(req: Request, sb: string, anon: string, doFetch: typeof fetch) {
@@ -538,53 +523,15 @@ async function writeUsage(ctx: Ctx, day: string, requests: number, input: number
   });
 }
 
-type OpenAiResult =
-  | { ok: true; raw: unknown; usage: { input: number; output: number } }
-  | { ok: false; code: string; charged: boolean };
-
-async function callOpenAi(
+// OpenAI 호출 1번 + 잠깐 막힘 1번 재시도는 공용 모듈이 한다(collector-feed와 같은 길).
+function callOpenAi(
   deps: { doFetch: typeof fetch; sleep: (ms: number) => Promise<void>; log: Log },
   key: string,
   body: unknown,
 ): Promise<OpenAiResult> {
-  for (let attempt = 0; attempt < 2; attempt++) {
-    let r: Response;
-    try {
-      r = await deps.doFetch(OPENAI_URL, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(OPENAI_TIMEOUT_MS),
-      });
-    } catch (e) {
-      const name = (e as { name?: string })?.name;
-      if (name === "TimeoutError" || name === "AbortError") return { ok: false, code: "ai_timeout", charged: true };
-      deps.log("openai_network_error");
-      if (attempt === 0) { await deps.sleep(RETRY_DELAY_MS); continue; }
-      return { ok: false, code: "ai_busy", charged: false };
-    }
-    if (r.status === 429 || r.status >= 500) {
-      try { await r.body?.cancel(); } catch { /* ignore */ }
-      deps.log("openai_retryable", { status: r.status });
-      // 잠깐 막힘은 서버가 1번만 다시 시도한다(4.7).
-      if (attempt === 0) { await deps.sleep(RETRY_DELAY_MS); continue; }
-      return { ok: false, code: "ai_busy", charged: false };
-    }
-    if (!r.ok) {
-      try { await r.body?.cancel(); } catch { /* ignore */ }
-      deps.log("openai_rejected", { status: r.status });
-      return { ok: false, code: r.status === 401 || r.status === 403 ? "ai_not_configured" : "ai_invalid_response", charged: false };
-    }
-    let raw: unknown;
-    try {
-      raw = await readBoundedJson(r, { maxBytes: OPENAI_RESPONSE_BYTES });
-    } catch {
-      return { ok: false, code: "ai_invalid_response", charged: true };
-    }
-    const u = (raw as { usage?: Record<string, unknown> })?.usage ?? {};
-    return { ok: true, raw, usage: { input: tokenCount(u.input_tokens), output: tokenCount(u.output_tokens) } };
-  }
-  return { ok: false, code: "ai_busy", charged: false };
+  return callSharedOpenAi(deps, key, body, {
+    url: OPENAI_URL, timeoutMs: OPENAI_TIMEOUT_MS, retryDelayMs: RETRY_DELAY_MS, maxResponseBytes: OPENAI_RESPONSE_BYTES,
+  });
 }
 
 // ---- 쓰임 2: 챙길 것 찾기(todo_radar) ----------------------------------------------------------------------------
