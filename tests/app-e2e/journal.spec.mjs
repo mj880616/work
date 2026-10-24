@@ -2007,7 +2007,7 @@ for(const width of [390,1280])test(`주간보고 한글 파일: 더는 투쟁 �
  const sites=hwpx(page).locator('[data-hwpx-part="sites"]');
  await expect(sites.locator('.journal-hwpx-row').filter({hasText:'나 지역 모임'}).locator('textarea')).toHaveValue('- 지난 투쟁 소식');
  const fix=hwpx(page).locator('[data-hwpx-stage-fix]');await expect(fix).toBeVisible();
- await expect(fix.locator('li')).toHaveCount(1);await expect(fix.locator('li')).toContainText('나 지역 모임');await expect(fix.locator('li')).toContainText('지울까요');
+ await expect(fix.locator('li')).toHaveCount(1);await expect(fix.locator('li')).toContainText('나 지역 모임');await expect(fix).toContainText('지울까요');
  await fix.locator('[data-hwpx-stage-clear]').click();
  await expect(sites.locator('.journal-hwpx-row').filter({hasText:'나 지역 모임'}).locator('textarea')).toHaveValue('');
  await expect(hwpx(page).locator('[data-hwpx-stage-fix]')).toHaveCount(0);
