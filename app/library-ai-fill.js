@@ -116,7 +116,7 @@ export function openLinks(doc){
 // WEEKLY-자료요약 화면 ①(docs/design/weekly-file-summary.md 2.2절, Q4 ②): 이미 분류된 예전 자료도 글자가 있고(ready) 요약 표
 // (app_document_ai_index)에 행이 하나도 없으면 후보다 — 'b1:' 요약이 없는 자료. 옛 요약 행('b1:' 아님)이 있는 자료는 행이 있으므로
 // 빠진다(Q1 ①, 제목만). briefs: 요약 표에 행이 있는 자료 id의 Set, 표를 못 읽으면 null(그때는 요약 후보를 만들지 않는다).
-// 요약만 필요한 자료는 올린 날이 오래된 것부터 뒤에 붙인다(서버도 같은 순서·하루 몫 규칙으로 나눠 채운다, #1108).
+// 요약만 필요한 자료는 올린 날이 오래된 것부터 뒤에 붙인다(서버도 같은 순서·하루 몫 규칙으로 나눠 채운다, PR 1108).
 export function tidyCandidates(docs,{tried=new Set(),categories=[],now=Date.now(),briefs=null}={}){
   const briefOnly=[];
   const main=(docs||[]).filter(doc=>{
