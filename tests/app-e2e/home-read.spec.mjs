@@ -31,7 +31,8 @@ for (const width of [390, 1440])
     await page.waitForFunction(() => window.KPTUHome?.metrics?.readyAt);
     // JOURNAL-챙길것: the 챙길 것 card has its own budget: one candidate read and one ai-assist call (first open of the day).
     const radarRequest = (r) => r.path === "/rest/v1/app_todo_candidates" || r.path.endsWith("/functions/v1/ai-assist");
-    expect(requests.filter((r) => r.path === "/rest/v1/app_todo_candidates").length).toBeLessThanOrEqual(1);
+    // 폰·중간 폭(HOME-모바일홈채우기)은 '정리 안 된 것' 숫자가 후보를 한 번 더 읽는다(PC는 1회).
+    expect(requests.filter((r) => r.path === "/rest/v1/app_todo_candidates").length).toBeLessThanOrEqual(width < 1024 ? 2 : 1);
     expect(requests.filter((r) => r.path.endsWith("/functions/v1/ai-assist")).length).toBeLessThanOrEqual(1);
     // OPS-수집점검: the 마지막 수집 시각 card has its own budget: one status read and one radar state read.
     const collectRequest = (r) => r.path === "/rest/v1/app_todo_radar_state" || r.path.endsWith("/functions/v1/drive-summary");

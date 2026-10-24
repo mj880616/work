@@ -368,14 +368,13 @@
 @media (max-width: 1023px) {
   [data-home-card="radar"] { display:none; }
   .home-summary { margin:0 0 2px; font-size:var(--ds-text-meta,12px); line-height:1.5; color:var(--kptu-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  [data-home-column="main"] { gap:0; }
-  [data-home-column="main"] > .home-card { border:0; border-radius:0; background:transparent; padding:6px 0; }
-  [data-home-column="main"] > .home-card + .home-card { border-top:1px solid var(--kptu-border); }
+  #appView #homeView [data-home-column="main"] { gap:0; }
+  #appView #homeView [data-home-column="main"] > .home-card { border:0; border-radius:0; background:transparent; padding:6px 0; }
+  #appView #homeView [data-home-column="main"] > .home-card + .home-card { border-top:1px solid var(--kptu-border); }
   [data-home-column="main"] > .home-card header { min-height:24px; margin-bottom:2px; }
   [data-home-column="main"] > .home-card h3 { font-size:var(--ds-text-section,13px); line-height:1.5; }
   [data-home-column="main"] > .home-card header button { min-height:24px; padding:0; }
   [data-home-column="main"] > .home-card .home-status { margin:0; line-height:1.5; padding:2px 0; }
-  .home-event { padding:5px 0; }
   .home-fill .home-line { display:flex; align-items:center; gap:8px; min-width:0; padding:5px 0; font-size:var(--ds-text-row,13px); line-height:1.5; }
   .home-fill .home-line + .home-line { border-top:1px solid var(--kptu-border); }
   .home-fill .home-line time { flex:0 0 auto; min-width:3.2em; }
@@ -389,6 +388,4 @@
   .home-fill-inbox-line:focus-visible { outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
   #appView #homeView .home-more { position:relative; display:block; min-height:var(--ds-compact-height-sm,28px); margin:0; padding:0; border:0; background:transparent; color:var(--kptu-primary-ink); font-size:var(--ds-text-meta,12px); font-weight:700; text-align:left; cursor:pointer; }
   #appView #homeView .home-more::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
-  #appView #homeView .home-task .gt-check { margin-top:-6px; margin-bottom:-6px; }
-  #appView #homeView .home-task-text { padding:6px 0; }
 }
