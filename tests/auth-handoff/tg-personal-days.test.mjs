@@ -57,7 +57,7 @@ test('tg personal days: migration, owner-only RLS, column grants, no raw text, g
    assert.doesNotMatch(rollbackSQL.replace(/--.*$/gm,''),/delete from public|update public|truncate|cascade|grant |policy/i);
    const code=migration.replace(/--.*$/gm,'');
    assert.match(code,/^begin;\n/);assert.match(code,/\ncommit;\n$/);
-   assert.doesNotMatch(code,/security definer|disable row level|to anon|to public|rtw_|grant delete|grant all|drop policy|alter policy|with grant option|create trigger|create function|private\.[a-z_]+\(/i);
+   assert.doesNotMatch(code,/security definer|disable row level|to anon|to public|rtw_|grant delete|grant all|drop policy|alter policy|with grant option|create trigger|create function/i);
    assert.doesNotMatch(code.replace(/private\.app_is_workspace_owner/g,''),/private\./);
    assert.doesNotMatch(code,/raw_|app_feed_items|app_feed_days|search_records/i);
    assert.equal((code.match(/create policy [a-z_]+ on public\.app_tg_personal_days for all to authenticated/g)||[]).length,1);

@@ -51,7 +51,7 @@ create table public.app_tg_personal_days (
   constraint app_tg_personal_days_room_label_check check (
     char_length(btrim(room_label)) between 1 and 100 and room_label !~ '[[:cntrl:]]'),
   constraint app_tg_personal_days_one_line_check check (
-    char_length(btrim(one_line)) between 1 and 200 and one_line !~ '[\u0001-\u0009\u000b-\u001f\u007f]'),
+    char_length(btrim(one_line)) between 1 and 200 and one_line !~ '[[:cntrl:]]'),
   constraint app_tg_personal_days_remember_check check (
     jsonb_typeof(remember) = 'array'
     and jsonb_array_length(remember) <= 10
