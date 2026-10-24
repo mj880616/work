@@ -30,7 +30,9 @@ export async function createNote({raw_text, ai_export_allowed, occurred_at}, rt 
 }
 export async function updateNote(id, changes, rt = window.KPTURuntime) {
   const body = {updated_at:new Date().toISOString()};
-  if (Object.hasOwn(changes, 'raw_text')) body.raw_text = validateNoteText(changes.raw_text);
+  // ED③ 노트 (설계 3.1·11.3): this is a letters-only edit (the update screen's text box). A row that carries a saved form (doc, e.g. a note
+  // moved back to the basket) would then keep a form that no longer matches its letters, so the form is dropped with the same write.
+  if (Object.hasOwn(changes, 'raw_text')) { body.raw_text = validateNoteText(changes.raw_text); body.doc = null; }
   if (Object.hasOwn(changes, 'ai_export_allowed')) body.ai_export_allowed = changes.ai_export_allowed;
   if (Object.hasOwn(changes, 'archived_at')) body.archived_at = changes.archived_at;
   return savedRow(await rt.api(`/rest/v1/app_notes?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${workspace(rt)}`, {method:'PATCH', prefer:'return=representation', body}));

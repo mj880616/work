@@ -31,7 +31,7 @@ test('patch updates timestamp, sends only allowed fields and requires an RLS-vis
  let sent;const rt=runtime(async(path,options)=>{sent={path,options};return [{id:'n',...options.body}];});
  await updateNote('n',{raw_text:' 수정\n ',workspace_id:'forged',ai_export_allowed:false},rt);
  assert.match(sent.path,/id=eq.n&workspace_id=eq.w/);assert.equal(sent.options.method,'PATCH');
- assert.equal(sent.options.body.workspace_id,undefined);assert.equal(sent.options.body.raw_text,' 수정\n ');assert.ok(Date.parse(sent.options.body.updated_at));
+ assert.equal(sent.options.body.workspace_id,undefined);assert.equal(sent.options.body.raw_text,' 수정\n ');assert.equal(sent.options.body.doc,null,'a letters-only edit drops a saved form (ED③)');assert.ok(Date.parse(sent.options.body.updated_at));
  await assert.rejects(updateNote('n',{archived_at:null},runtime(async()=>[])),/권한|확인/);
  await assert.rejects(createNote({raw_text:'메모'},runtime(async()=>{throw Error('RLS 거부');})),/RLS 거부/);
 });
