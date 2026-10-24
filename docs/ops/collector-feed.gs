@@ -518,6 +518,7 @@ var TG_FEED_ROOT_FOLDER = '여기에_텔레그램_수집_폴더_주소_끝부분
 var TG_FEED_RAW_FOLDER = '원문';
 var TG_FEED_MESSAGES_FOLDER = 'messages';
 var TG_FEED_ROOMS_KEY = 'TG_FEED_ROOMS';        // 허용 업무방 목록(방 이름, 방 폴더 이름 전체, 또는 맨 앞 방 번호. 쉼표·줄바꿈으로 구분)
+var TG_FEED_ROOMS_EXCLUDE_KEY = 'TG_FEED_ROOMS_EXCLUDE'; // TG_FEED_ROOMS가 `*`(모든 방)일 때 뺄 방 목록(방 이름·폴더 이름·방 번호, 쉼표·줄바꿈 구분)
 var TG_FEED_TEST_KEY = 'TG_FEED_TEST_MODE';     // 없거나 '켬'이면 시험 모드. '끔'일 때만 실제로 보낸다
 var TG_FEED_STATE_KEY = 'TG_FEED_STATE';        // 어디까지 보냈는지(JSON)
 var TG_FEED_TIME_LIMIT_MS = 4.5 * 60 * 1000;    // 앱 스크립트 6분 제한 전에 새 일을 시작하지 않는다
@@ -763,12 +764,13 @@ function tgFeed_rooms_(wanted) {
   var root = DriveApp.getFolderById(TG_FEED_ROOT_FOLDER);
   var raw = callFeed_onlyChild_(root, TG_FEED_RAW_FOLDER);
   if (!raw) throw new Error('수집 폴더 안에 "' + TG_FEED_RAW_FOLDER + '" 폴더가 없습니다. 폴더 칸을 확인하세요.');
+  var exclude = tgFeedParseRooms(PropertiesService.getScriptProperties().getProperty(TG_FEED_ROOMS_EXCLUDE_KEY) || '');
   var rooms = [], matched = {};
   var it = raw.getFolders();
   while (it.hasNext()) {
     var f = it.next();
     var name = f.getName();
-    var hit = tgFeedRoomMatch(name, wanted);
+    var hit = tgFeedRoomPick(name, wanted, exclude);
     if (!hit) continue;
     var info = tgFeedRoomInfo(name);
     if (!info) { Logger.log('방 폴더 이름에서 방 번호를 읽지 못해 건너뜀: 허용 목록 ' + hit); continue; }
@@ -776,7 +778,8 @@ function tgFeed_rooms_(wanted) {
     rooms.push({ key: info.key, label: info.label, folder: f });
   }
   rooms.sort(function (a, b) { return a.key < b.key ? -1 : a.key > b.key ? 1 : 0; });
-  var missing = wanted.filter(function (w) { return !matched[w]; });
+  var missing = wanted.filter(function (w) { return w !== '*' && !matched[w]; });
+  if (wanted.indexOf('*') >= 0) Logger.log('모든 방 모드: ' + rooms.length + '개 방 (뺀 방 목록 ' + exclude.length + '개)');
   return { rooms: rooms, missing: missing };
 }
 
@@ -847,6 +850,13 @@ function tgFeedRoomMatch(folderName, wanted) {
     if (idm && idm[2] && wanted[i] === callFeedNormalizeName(idm[2])) return wanted[i];
   }
   return '';
+}
+
+/** 방 하나를 보낼지 정한다. 뺄 목록에 맞으면 ''. 허용 목록에 `*`가 있으면 '*', 아니면 허용 목록 대조 결과. */
+function tgFeedRoomPick(folderName, wanted, exclude) {
+  if (exclude && exclude.length && tgFeedRoomMatch(folderName, exclude)) return '';
+  if (wanted.indexOf('*') >= 0) return '*';
+  return tgFeedRoomMatch(folderName, wanted);
 }
 
 /** 방 폴더 이름 `<방 번호>_<표시 이름>` → 서버 room_key(방 번호)와 room_label(표시 이름, 100자까지). 번호를 못 읽으면 null. */
@@ -1026,7 +1036,7 @@ if (typeof module !== 'undefined' && module.exports) {
     callFeedAnalysisName: callFeedAnalysisName, callFeedMinimalAnalysis: callFeedMinimalAnalysis,
     callFeedFrontmatter: callFeedFrontmatter, callFeedClass: callFeedClass,
     callFeedBuildCallBody: callFeedBuildCallBody, callFeedVerdict: callFeedVerdict,
-    tgFeedAddDays: tgFeedAddDays, tgFeedParseRooms: tgFeedParseRooms, tgFeedRoomMatch: tgFeedRoomMatch, tgFeedRoomInfo: tgFeedRoomInfo,
+    tgFeedAddDays: tgFeedAddDays, tgFeedParseRooms: tgFeedParseRooms, tgFeedRoomMatch: tgFeedRoomMatch, tgFeedRoomPick: tgFeedRoomPick, tgFeedRoomInfo: tgFeedRoomInfo,
     tgFeedParseTime: tgFeedParseTime, tgFeedParseMessage: tgFeedParseMessage, tgFeedGroupDay: tgFeedGroupDay, tgFeedSenderName: tgFeedSenderName,
     tgFeedAssignSenders: tgFeedAssignSenders, tgFeedSplit: tgFeedSplit, tgFeedBuildBody: tgFeedBuildBody, tgFeedRoomState: tgFeedRoomState,
     tgFeedPendingDays: tgFeedPendingDays, tgFeedPartsToSkip: tgFeedPartsToSkip, tgFeedAfterPart: tgFeedAfterPart, tgFeedWindow: tgFeedWindow,
