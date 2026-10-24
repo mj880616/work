@@ -34,10 +34,11 @@ test('함수 코드 어디에도 gpt 모델 이름을 따로 적지 않는다(�
 
 test('OpenAI를 부르는 Web2 AI 함수는 모두 단일 출처를 불러 쓴다',()=>{
   const users=['_shared/openai-responses.ts','ai-assist/handler.ts','collector-feed/handler.ts',
-    'document-ai-index/index.ts','library-files/index.ts','meeting-ai-ingest/index.ts'];
+    'document-ai-index/index.ts','library-files/index.ts','meeting-ai-ingest/index.ts',
+    'meeting-ai-draft/index.ts','page-ai-draft/index.ts','team-ai/index.ts'];
   for(const rel of users)assert.match(readFileSync(join(ROOT,rel),'utf8'),/ai-model\.ts['"]/,rel);
-  // DB 설정 표를 읽는 세 함수: 표 값이 없을 때만 공용 기본값, 요청 몸통에 생각 수준을 붙인다.
-  for(const rel of users.slice(3)){
+  // DB 설정 표를 읽는 함수 중 표 값이 없을 때 공용 기본값을 쓰는 세 함수: 요청 몸통에 생각 수준을 붙인다.
+  for(const rel of users.slice(3,6)){
     const text=readFileSync(join(ROOT,rel),'utf8');
     assert.match(text,/default_model\s*\|\|\s*DEFAULT_AI_MODEL/,rel);
     assert.match(text,/JSON\.stringify\(withReasoning\(/,rel);
