@@ -327,3 +327,12 @@ test('대기 목록 정리·상한·판정(순수 함수)',()=>{
   assert.equal(G.callFeedPendingDecision({created:now-W},now,false),'expire');
   assert.equal(G.callFeedPendingDecision({created:now-W},now,true),'send');
 });
+
+test('최근 일주일보다 오래된 녹음은 보내지 않는다(명진 결정 10/25)',()=>{
+  const now=Date.parse('2026-10-25T03:00:00Z');
+  assert.equal(G.callFeedTooOld('2026-04-14',now),true);
+  assert.equal(G.callFeedTooOld('2026-10-17',now),true);
+  assert.equal(G.callFeedTooOld('2026-10-18',now),false);
+  assert.equal(G.callFeedTooOld('2026-10-25',now),false);
+  assert.equal(G.callFeedTooOld('',now),false,'날짜를 못 읽으면 넘기지 않는다');
+});
