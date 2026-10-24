@@ -70,7 +70,7 @@ function callFeed_check() {
   Logger.log([
     '전사 폴더: 찾음',
     '분석 폴더: ' + folders.analysis.length + '개 찾음(' + CALL_FEED_ANALYSIS_FOLDERS.join('·') + ')',
-    '비밀값: ' + (secretLength >= 32 ? '있음' : '없음 또는 너무 짧음 — 안내 3단계'),
+    '비밀값: ' + (secretLength >= 32 ? '있음' : '없음 또는 너무 짧음 — 안내 2단계'),
     '개인 목록: 번호 ' + list.numbers.length + '개, 이름 ' + list.names.length + '개',
     '시험 모드: ' + (callFeed_testMode_() ? '켬(보내지 않음)' : '끔(실제로 보냄)'),
     '시작 시각: ' + (callFeed_loadState_().since || '없음 — callFeed_setup을 먼저 실행'),
@@ -123,7 +123,7 @@ function callFeed_run() {
   var props = PropertiesService.getScriptProperties();
   var test = callFeed_testMode_();
   var secret = props.getProperty(CALL_FEED_SECRET_KEY) || '';
-  if (!test && secret.length < 32) throw new Error('스크립트 속성에 ' + CALL_FEED_SECRET_KEY + '가 없습니다. 안내 3단계를 먼저 하세요.');
+  if (!test && secret.length < 32) throw new Error('스크립트 속성에 ' + CALL_FEED_SECRET_KEY + '가 없습니다. 안내 2단계를 먼저 하세요.');
   var state = callFeed_loadState_();
   if (!state.since) throw new Error('시작 시각이 없습니다. callFeed_setup을 먼저 한 번 실행하세요.');
   var list = callFeedParseList(props.getProperty(CALL_FEED_LIST_KEY) || '');
