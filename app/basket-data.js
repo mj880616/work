@@ -360,7 +360,7 @@ export function noteState(note, links, docs = []) {
   });
   const filed = filedProjects(note, docs), filedOrgs = filedOrganizations(note, docs);
   destinations.push(...filedOrgs.map(o => `담당조직 자료: ${o.name}`), ...filed.map(p => `프로젝트 자료: ${p.name}`));
-  return {status:note.archived_at ? '보류' : confirmed.length || filed.length || filedOrgs.length ? '확정' : links.some(l => l.note_id === note.id && l.status === 'suggested') ? '분류 제안됨' : '미분류', destinations};
+  return {status:note.archived_at ? '보관' : confirmed.length || filed.length || filedOrgs.length ? '확정' : links.some(l => l.note_id === note.id && l.status === 'suggested') ? '분류 제안됨' : '미분류', destinations};
 }
 // UI-바구니거르기: where a classified memo went, from what is already read (no stored state):
 // confirmed record links by target kind, [자료로 넣기] documents (a project's library documents, so both

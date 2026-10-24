@@ -11,7 +11,7 @@ test('text validation rejects whitespace and over 20000 Unicode characters witho
 test('archive wins, only confirmed note links count, all destinations remain visible',()=>{
  const links=[{note_id:'n',status:'suggested',project:{name:'제안'}},{note_id:'n',status:'confirmed',project_id:'p',project:{name:'프로젝트'}},{note_id:'n',status:'confirmed',organization_id:'o',organization:null},{note_id:'other',status:'confirmed',project_id:'p',project:{name:'다른 메모'}}];
  assert.deepEqual(noteState({id:'n'},links),{status:'확정',destinations:['프로젝트: 프로젝트','연결 대상 없음']});
- assert.equal(noteState({id:'n',archived_at:'now'},links).status,'보류');
+ assert.equal(noteState({id:'n',archived_at:'now'},links).status,'보관');
  assert.equal(noteState({id:'new'},links).status,'미분류');
  const notes=[{id:'archived',archived_at:'now'},{id:'new'},{id:'n'}];
  assert.deepEqual(visibleNotes(notes,links,'unclassified').map(n=>n.id),['new']);
@@ -61,7 +61,7 @@ test('a memo whose files are a project document is classified, and follows where
  // Moved to another project: the line follows; taken out of every project: unclassified again.
  assert.deepEqual(filedProjects(note,[{file_id:'drive-a',project_id:'q',project:{name:'궤도'}}]),[{project_id:'q',name:'궤도'}]);
  assert.equal(noteState(note,[],[]).status,'미분류');
- assert.equal(noteState({...note,archived_at:'now'},[],docs).status,'보류');
+ assert.equal(noteState({...note,archived_at:'now'},[],docs).status,'보관');
  // Without docs the old two-argument calls behave as before.
  assert.equal(noteState(note,[]).status,'미분류');
 });

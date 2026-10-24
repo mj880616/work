@@ -485,7 +485,8 @@ async function saveToNote(){
     status.textContent='노트로 옮기지 못했어요. 다시 시도해 주세요.';
   }finally{if(busy){busy=false;detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el=>el.disabled=false);paintOcrControls();}}
 }
-const stateLabel=state=>({확정:'분류 완료', '분류 제안됨':'정리 제안 있음'})[state]||state;
+// 보류 = archived_at. noteState keeps the stored word '보관' (the Drive copy in drive-summary says the same, a server contract); the screen shows 보류.
+const stateLabel=state=>({확정:'분류 완료', '분류 제안됨':'정리 제안 있음', 보관:'보류'})[state]||state;
 // UI-바구니거르기: a memo with no link but a Google task made from it is classified ([분류]·[할 일]), not 미분류.
 // BASKET-일지로남기기: one kept as a work-journal memo says so (it can have a task too).
 const rowState=(note,state)=>state.status==='미분류'&&noteClassified(note,links,docs)?(noteJournalAt(note)?'업무일지 메모':'할 일 만듦'):stateLabel(state.status);
