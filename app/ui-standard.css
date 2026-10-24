@@ -1298,9 +1298,12 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
 .modal :is(#eventTaskProject,#meetingPlaces){ display:inline-flex; width:auto; max-width:100%; justify-content:flex-start; }
 /* UI-버튼전수조사: 사업 보고 창 [연결 안 함 ▾](고르기 버튼)도 일정 창 [프로젝트 선택 안 함 ▾]과 같이 작은 버튼·글자 폭. 길면 창 폭에서 말줄임. */
 .modal #meetingPlaces{ display:block; height:var(--ds-compact-height); min-height:var(--ds-compact-height); line-height:var(--ds-compact-height); padding-top:0; padding-bottom:0; }
-/* ③ 담당조직 상세 [크게][저장]: 36px. 프로젝트 상세 [기록]은 옆 입력칸과 한 높이(PRJ-화면다듬기)라 그대로 둔다. */
-#wdModal :is(#wdInboxSave,#wdInboxBig),
-#appView #teamView #wdModal :is(#wdInboxSave,#wdInboxBig){ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+/* ③ 담당조직 상세 [저장]: 36px, [크게]는 보조 버튼이라 32px(UI-버튼전수조사 2026-10-24, PC 상세 칸 ⤢·프로젝트 상세 ⤢와 같은 값). 같은 줄 가운데 맞춤.
+   프로젝트 상세 [기록]은 옆 입력칸과 한 높이(PRJ-화면다듬기)라 그대로 둔다. */
+#wdModal #wdInboxSave,
+#appView #teamView #wdModal #wdInboxSave{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+#wdModal #wdInboxBig,
+#appView #teamView #wdModal:not(.wd-docked) #wdInboxBig{ align-self:center; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); }
 /* ④ PC 할 일 수정 칸(요청함 08:43): 기한 날짜 칸과 [내일][모레][다음주][기한 없음]을 같은 줄·같은 높이(36px)로, 윗선·아랫선을 맞춘다.
    제목 줄 [↵ 저장]은 작은 버튼(32px). */
 @media(min-width:1024px){
