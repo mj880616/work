@@ -11,6 +11,7 @@ import {randomBytes} from 'node:crypto';
 import {createServer} from 'node:net';
 import EmbeddedPostgres from 'embedded-postgres';
 import pg from 'pg';
+import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A,WS_B} from './basket4-fixture.mjs';
 import {prepareMigration,checkSQL} from '../../scripts/ops/db-migration-plan.mjs';
 const version='20261021053502',name='prj_depth_guard',stem=version+'_'+name;
@@ -49,7 +50,7 @@ test('PRJ-3단 depth guard: prechecks, apply, 3 levels allowed, 4th level / cycl
  let cluster,pool,adminPool,database='postgres',port;
  if(externalPort){
   port=Number(externalPort);database='prj_depth_'+randomBytes(4).toString('hex');
-  adminPool=new pg.Pool({host:'127.0.0.1',port,user:'postgres',database:'postgres',ssl:false});
+  adminPool=trackPool(new pg.Pool({host:'127.0.0.1',port,user:'postgres',database:'postgres',ssl:false}));
   await adminPool.query('create database '+database);
   for(const role of ['anon','authenticated','public_probe','service_role'])await adminPool.query(`drop role if exists ${role}`).catch(()=>{});
  }else{
@@ -60,7 +61,7 @@ test('PRJ-3단 depth guard: prechecks, apply, 3 levels allowed, 4th level / cycl
   process.env.PRJ_DEPTH_PASSWORD=password;
  }
  try{
-  pool=new pg.Pool({host:'127.0.0.1',port,user:'postgres',password:process.env.PRJ_DEPTH_PASSWORD,database,ssl:false});
+  pool=trackPool(new pg.Pool({host:'127.0.0.1',port,user:'postgres',password:process.env.PRJ_DEPTH_PASSWORD,database,ssl:false}));
   await pool.query(fixture);await pool.query(spaces);
   const migration=await read('supabase/migrations/'+stem+'.sql'),rollbackSQL=await read('docs/'+stem+'.rollback.sql');
   const snapshot=await read('docs/'+stem+'.snapshot.sql'),precheck=await read('docs/'+stem+'.precheck.sql'),postcheck=await read('docs/'+stem+'.postcheck.sql');
@@ -191,8 +192,8 @@ test('PRJ-3단 depth guard: prechecks, apply, 3 levels allowed, 4th level / cycl
    assert.deepEqual((await pool.query(snapshot)).rows,before);
   });
  }finally{
-  if(pool)await pool.end();
+  await closePool(pool);
   if(cluster)await cluster.stop().catch(()=>{});
-  if(adminPool){await adminPool.query('drop database if exists '+database+' with (force)').catch(()=>{});for(const role of ['anon','authenticated','public_probe','service_role'])await adminPool.query(`drop role if exists ${role}`).catch(()=>{});await adminPool.end();}
+  if(adminPool){await adminPool.query('drop database if exists '+database+' with (force)').catch(()=>{});for(const role of ['anon','authenticated','public_probe','service_role'])await adminPool.query(`drop role if exists ${role}`).catch(()=>{});await closePool(adminPool);}
  }
 });

@@ -13,6 +13,7 @@ import {randomBytes} from 'node:crypto';
 import {createServer} from 'node:net';
 import EmbeddedPostgres from 'embedded-postgres';
 import pg from 'pg';
+import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A,WS_B,ORG_A,ORG_B} from './basket4-fixture.mjs';
 import {checkSQL} from '../../scripts/ops/db-migration-plan.mjs';
 import {validateExpanded,ExpandedRejection} from '../../scripts/ops/db-migration-expanded.mjs';
@@ -36,7 +37,7 @@ test('org dispute stage period: end date, history edit and delete, owner boundar
  const password=randomBytes(24).toString('hex'),cluster=new EmbeddedPostgres({databaseDir:directory,user:'postgres',password,port,persistent:false,createPostgresUser:false,initdbFlags:['--encoding=UTF8','--locale=C'],postgresFlags:['-h','127.0.0.1','-c','log_statement=none','-c','log_min_error_statement=panic'],onLog:()=>{},onError:()=>{}});
  let pool;
  try{
-  await cluster.initialise();await cluster.start();pool=new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database:'postgres',ssl:false});
+  await cluster.initialise();await cluster.start();pool=trackPool(new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database:'postgres',ssl:false}));
   await pool.query(fixture);await pool.query(prerequisites);
   await pool.query(await read('supabase/migrations/20261024100000_org_dispute_stage_db.sql'));
   const migration=await read('supabase/migrations/'+stem+'.sql');
@@ -179,7 +180,7 @@ test('org dispute stage period: end date, history edit and delete, owner boundar
    await assert.rejects(owner(c=>c.query("update public.app_suborganization_dispute_stages set stage_date='2026-10-02'")),{code:'42501'},'no edit after rollback');
   });
  }finally{
-  if(pool)await pool.end().catch(()=>{});
+  await closePool(pool);
   await cluster.stop().catch(()=>{});
  }
 });
