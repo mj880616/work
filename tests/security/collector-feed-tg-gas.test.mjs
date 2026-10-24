@@ -40,6 +40,8 @@ test('허용 방 목록: 폴더 이름 전체 또는 맨 앞 방 번호로 맞�
   assert.equal(G.tgFeedRoomMatch('777_가상 다른 방',wanted),'777');
   assert.equal(G.tgFeedRoomMatch('7777_가상 개인방',wanted),'','번호 앞부분만 같은 방은 맞지 않는다');
   assert.equal(G.tgFeedRoomMatch('999_개인 수집방',wanted),'');
+  assert.equal(G.tgFeedRoomMatch('-100555_가상 이름만 적은 방',['가상 이름만 적은 방']),'가상 이름만 적은 방','번호 뒤 방 이름 전체로도 맞는다');
+  assert.equal(G.tgFeedRoomMatch('-100555_가상 이름만 적은 방 2',['가상 이름만 적은 방']),'','방 이름 일부만 같으면 맞지 않는다');
   assert.deepEqual(plain(G.tgFeedRoomInfo('-100123_가상 업무방')),{key:'-100123',label:'가상 업무방'});
   assert.equal(G.tgFeedRoomInfo('이름만 있는 폴더'),null);
 });
