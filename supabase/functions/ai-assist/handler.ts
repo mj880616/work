@@ -980,7 +980,7 @@ async function runLedgerCandidates(ctx: Ctx, deps: RadarDeps): Promise<Response>
 
 // ---- 쓰임 ledger_auto: 원장 자동 기록(LEDGER-자동기록 2단계, docs/design/ledger-auto-record.md 3·4절·10절 2번) ------------
 // 화면은 {kind:"ledger_auto"}만 보낸다(원문·ID 없음). 서버가 명진 로그인 토큰으로 "아직 안 본 기록"만 읽고, AI 한 번, 답을 검사해
-// DB 함수 app_auto_ledger_begin → app_auto_ledger_record(한 거래)로 원장에 더한다. service_role을 쓰지 않는다(owner RLS·INVOKER 함수).
+// DB 함수 app_auto_ledger_begin → app_auto_ledger_record(한 거래)로 원장에 더한다. 서버 관리자 키를 쓰지 않는다(owner RLS·INVOKER 함수).
 // 자동 기록이 하는 일은 더하기(새 기록·변화로 이어 붙이기·근거 추가)와 이미 뽑은 기록 '확인필요' 표시뿐이다. 기존 기록을 고치거나 폐기하지 않는다.
 // 시작점: 처음 실행(자동 기록 실행 표의 가장 이른 시작) 30분 전부터 저장·고친 기록만 본다(켜기 전 기록은 보지 않음, 3.1).
 // 하루 16회(DB도 같은 숫자로 막음), 전체 하루 50회·월 한도는 다른 쓰임과 함께 센다. 새로 볼 원문이 없으면 실행도 AI도 만들지 않는다.
