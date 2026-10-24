@@ -27,6 +27,7 @@ import {seoulDateKey, addSeoulDays, seoulClock} from './meeting-time.js';
 import {meetingKindKey, meetingKindName, reportsMeeting, validKindKey} from './journal-meeting-kinds.js';
 import {itemWhat} from './weekly-hwpx/schedule.mjs';
 import {formDay, dayParts, dayLabel, whatCell, requestLine, sortItems, EXEC_HEAD, EXEC_LIMITS, EXEC_MAX_ROWS, CARRIED_TAG} from './weekly-exec-requests.js';
+import {placeFiles, fileVerdict, fileItem, isFolded} from './weekly-file-lines.mjs';
 
 // The reads behind each part (journal.js materials keys; 'lines' is the journal's own lines read).
 // 'upcoming' is the two-week calendar read of 5. 주요 일정 (journal-data.js readScheduleEvents).
@@ -61,7 +62,7 @@ export function placeRecords(records, tree) {
   const ordered = records.map((record, index) => ({record, index, node:nodes.get(record.id)}))
     .sort((a, b) => (a.node?.order ?? 0) - (b.node?.order ?? 0) || String(a.record.day).localeCompare(String(b.record.day)) || Date.parse(a.record.at) - Date.parse(b.record.at) || a.index - b.index);
   for (const {record, node} of ordered) {
-    const item = {day:record.day, text:record.text, requests:record.requests || []};
+    const item = {day:record.day, text:record.text, requests:record.requests || [], ...(record.file ? {file:record.file} : {})};
     if (!node) {
       const name = record.name || UNSORTED;
       if (!others.has(name)) others.set(name, []);
@@ -74,8 +75,9 @@ export function placeRecords(records, tree) {
     item.issue = !!node.issue;
     const key = node.task?.id || '';
     let row = node.area.rows.find(r => (r.task?.id || '') === key);
-    if (!row) { row = {task:node.task, items:[]}; node.area.rows.push(row); }
-    row.items.push(item);
+    if (!row) { row = {task:node.task, items:[], folded:[]}; node.area.rows.push(row); }
+    // WEEKLY-자료요약: 기록과 같아 접힌 자료 줄은 그 줄의 folded에만(화면의 "기록과 같아 뺀 자료 N"; 복사·한글 파일 후보에는 없음).
+    (isFolded(item) ? row.folded : row.items).push(item);
   }
   for (const area of areas) {
     const at = id => id ? [...nodes.values()].find(n => n.task?.id === id && !n.issue)?.order ?? Infinity : -1;
@@ -185,12 +187,20 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
   const days = weekDays(start), m = {...materials, lines:{status:linesState === 'loading' ? 'loading' : linesState === 'ok' ? 'ok' : 'failed', items:lines}};
   const part = (key, build) => { const s = state(m, WEEKLY_SOURCES[key]); return {key, ...s, ...(s.loading ? {} : build(s))}; };
   const perDay = (source, pick) => { const read = ok(m, source); return read ? days.flatMap(day => pick(read, day).map(text => ({day, text}))) : []; };
+  const files = weekFiles(m, days);
 
   const summary = part('summary', s => {
     const read = {basket:ok(m, 'basket'), projectUpdates:ok(m, 'projectUpdates')};
     const records = (read.basket || read.projectUpdates) ? days.flatMap(day => projectRecordsOn(read, day).map(r => ({...r, day}))) : [];
     const tree = ok(m, 'catalog');
-    return {...placeRecords(records, tree), ordered:!!tree, count:records.length, failed:s.failed};
+    // WEEKLY-자료요약: 프로젝트에만 연결된 자료 → 그 프로젝트 줄(placeRecords가 자리를 찾음). 같은 프로젝트의 그 주 기록과 비교한다.
+    const fileRecords = files.projects.map(({doc, id, name}) => {
+      const day = seoulDay(doc.created_at);
+      const item = fileItem(doc, day, fileVerdict(doc, {records:records.filter(r => r.id === id).map(r => r.text), attached:files.attachedProjects.get(id)}));
+      return {id, name, day, at:doc.created_at, text:item.text, requests:[], file:item.file};
+    });
+    const shown = fileRecords.filter(r => r.file.verdict !== 'same').length;
+    return {...placeRecords([...records, ...fileRecords], tree), ordered:!!tree, count:records.length + shown, failed:s.failed};
   });
 
   // 회의·활동 결과: a meeting whose kind (series name, else title, without spaces, lower-case) is in my "not reported" list is left out
@@ -214,9 +224,22 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
     const read = {basket:ok(m, 'basket'), orgUpdates:ok(m, 'orgUpdates')};
     const sections = new Map();
     if (s.failed.length < WEEKLY_SOURCES.orgs.length) for (const day of days) for (const section of orgNewsOn(read, day)) {
-      if (!sections.has(section.name)) sections.set(section.name, {name:section.name, items:[]});
+      if (!sections.has(section.name)) sections.set(section.name, {name:section.name, items:[], folded:[]});
       section.items.forEach((text, i) => sections.get(section.name).items.push({day, text, requests:section.tags?.[i] || []}));
     }
+    // 자료 읽기는 이 묶음의 재료가 아니다(읽는 중·실패면 자료 줄 없이 기록만, 자료는 '참고 › 자료실 새 자료'가 상태를 보여 줌).
+    // WEEKLY-자료요약: 담당조직에 연결된 자료 → 그 조직 칸에만(프로젝트에도 연결돼 있어도, Q3 ①). 내 담당이 아니면 '그 외'에 "조직 이름 · …".
+    // 비교는 그 칸의 그 주 기록(자료 줄을 넣기 전)과 한다. 같으면 접고, 날짜·올린 시각 순으로 기록 뒤에 둔다.
+    const recordsOf = new Map([...sections].map(([name, sec]) => [name, sec.items.map(item => item.text)]));
+    for (const {doc, id, name, others} of files.orgs) {
+      const key = others ? OTHERS : name, day = seoulDay(doc.created_at);
+      if (!sections.has(key)) sections.set(key, {name:key, items:[], folded:[]});
+      const item = fileItem(doc, day, fileVerdict(doc, {records:recordsOf.get(key) || [], attached:files.attachedOrgs.get(id)}));
+      if (others) item.text = `${name} · ${item.text}`;
+      const sec = sections.get(key);
+      (isFolded(item) ? sec.folded : sec.items).push(item);
+    }
+    for (const sec of sections.values()) sec.items.sort((a, b) => String(a.day).localeCompare(String(b.day)));
     const sm = m.orgSummaries, saved = sm?.status === 'ok' && !sm.items?.missing ? sm.items : null;
     const summaries = !sm || sm.status === 'loading' ? 'loading' : sm.status !== 'ok' ? 'failed' : sm.items?.missing ? 'missing' : 'ok';
     const ids = new Map();
@@ -245,13 +268,42 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
     // 할 일 예정 by due day in this week (the server sends overdue and up to 6 days ahead only).
     due:part('due', () => ({items:perDay('tasks', (read, day) => pendingOn(read, day).map(task => task.title || '(제목 없음)')),
       ...(days[6] > pendingCoverTo(today) ? {note:`할 일 예정은 오늘부터 ${PENDING_DAYS}일 안 마감만 모여요.`} : {})})),
-    docs:part('docs', () => ({items:perDay('documents', (read, day) => read.filter(doc => seoulDay(doc?.created_at) === day).map(documentLine))})),
+    // 조직 칸·프로젝트 줄로 간 자료는 여기서 뺀다(두 번 안 보이게). 회의자료·연결 없는 자료는 그대로.
+    docs:part('docs', () => ({items:perDay('documents', (read, day) => read.filter(doc => !files.placed.has(doc?.id) && seoulDay(doc?.created_at) === day).map(documentLine))})),
     shares:part('shares', () => ({items:perDay('sharePages', (read, day) => read.filter(page => seoulDay(page?.updated_at) === day).map(sharePageLine))})),
     memos:part('memos', () => ({items:perDay('basket', (read, day) => journalMemosOn(read, day))})),
   };
   return {start, days, requests, summary, meetings, orgs, calendar, notes};
 }
 const seoulDay = value => value && Number.isFinite(Date.parse(value)) ? seoulDateKey(value) : '';
+
+// WEEKLY-자료요약: 그 주 자료의 자리(weekly-file-lines.mjs placeFiles). 조직 이름은 조직 읽기(orgUpdates.orgs·mine), 프로젝트는 트리에서.
+// 그 칸에 이미 보이는 바구니 업데이트의 첨부 파일 id(조직·프로젝트별)도 모은다('비슷한 기록 있음' 판단). 읽지 못한 재료가 있으면
+// 그 자료는 지금처럼 '참고'에 남는다(어느 경우에도 빠지지 않음).
+function weekFiles(m, days) {
+  const docs = ok(m, 'documents') || [], updates = ok(m, 'orgUpdates'), tree = ok(m, 'catalog'), basket = ok(m, 'basket');
+  const names = new Map((updates?.orgs || []).map(org => [String(org.id).toLowerCase(), String(org.name || '').trim() || '조직']));
+  const projects = new Map((Array.isArray(tree) ? tree : []).map(({project}) => [String(project?.id), String(project?.name || '').trim() || '이름 없는 프로젝트']));
+  const week = docs.filter(doc => days.includes(seoulDay(doc?.created_at)));
+  const placed = placeFiles(week, {orgs:{names, mine:updates?.mine instanceof Set ? new Set([...updates.mine].map(id => String(id).toLowerCase())) : null}, projects});
+  const attachedOrgs = new Map(), attachedProjects = new Map();
+  const put = (map, id, file) => { if (!id || !file) return; const key = String(id); if (!map.has(key)) map.set(key, new Set()); map.get(key).add(String(file)); };
+  const byFile = new Map((basket?.docs || []).map(doc => [doc.file_id, doc]));
+  for (const memo of basket?.notes || []) {
+    if (!days.includes(seoulDay(memo?.occurred_at))) continue;
+    const files = (Array.isArray(memo.attachments) ? memo.attachments : []).map(f => String(f?.drive_file_id || '')).filter(Boolean);
+    if (!files.length) continue;
+    const links = (basket.links || []).filter(link => link.note_id === memo.id && link.status === 'confirmed');
+    const orgIds = new Set([...links.map(l => l.organization_id), ...files.map(f => byFile.get(f)?.organization_id)].filter(Boolean).map(id => String(id).toLowerCase()));
+    const projectIds = new Set([...links.filter(l => !l.organization_id).map(l => l.project_id), ...files.map(f => byFile.get(f)?.project_id)].filter(Boolean).map(String));
+    for (const file of files) { for (const id of orgIds) put(attachedOrgs, id, file); for (const id of projectIds) put(attachedProjects, id, file); }
+  }
+  // 같은 지문으로 합쳐 줄이 안 된 자료도 '참고'에 다시 나오지 않게 지문으로 같이 뺀다.
+  const placedHashes = new Set([...placed.orgs, ...placed.projects].map(p => p.doc.brief?.hash).filter(Boolean));
+  const placedIds = new Set([...placed.orgs, ...placed.projects].map(p => p.doc.id));
+  for (const doc of week) if (!doc.meeting_id && doc.brief?.hash && placedHashes.has(doc.brief.hash)) placedIds.add(doc.id);
+  return {orgs:placed.orgs, projects:placed.projects, placed:placedIds, attachedOrgs, attachedProjects};
+}
 
 export const orgSummaryLines = text => String(text ?? '').split('\n').map(line => line.trim()).filter(Boolean);
 
@@ -314,6 +366,7 @@ export function weeklyReportText(model) {
 }
 
 // ---- screen (called by journal.js only) ----
+export const FILE_TAG = '자료';
 export const NOTE_PARTS = Object.freeze([['lines', '한 줄'], ['tasks', '끝낸 할 일'], ['due', '할 일 예정'], ['docs', '자료실 새 자료'], ['shares', '공유 페이지'], ['memos', '기타 메모']]);
 // 1. 2) 주요 일정: what goes there (its rule is not settled; nothing is filled in yet).
 export const HQ_SCHEDULE_GUIDE = '본부 주요 일정 — 기자회견·주요 회의·토론회·집회·교육 등, 특정 사업장·반복 일정 제외. 자동 채우기는 나중에';
@@ -335,10 +388,26 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}) {
       li.append(dayTag(item.day));
       if (item.requests?.length) li.insertAdjacentHTML('beforeend', requestTagsHtml(item.requests, esc));
       if (item.label && (item.issue || !inTable)) li.append(el('span', 'journal-weekly-label', `${item.label}: `));
-      li.append(doc.createTextNode(line(item)));
+      if (item.file) fileLine(li, item, line(item)); else li.append(doc.createTextNode(line(item)));
       list.append(li);
     }
     return list;
+  };
+  // WEEKLY-자료요약: 자료 줄은 작은 '자료' 꼬리표(화면에만, Q5 ①) + 누르면 자료실의 그 자료가 열리는 글. 비슷한 기록이 있으면 작게 표시만.
+  function fileLine(li, item, text) {
+    li.dataset.journalWeeklyFile = item.file.id;
+    const tag = el('span', 'journal-file-tag', FILE_TAG); tag.dataset.journalFileTag = ''; li.append(tag, ' ');
+    const open = el('button', 'journal-file-open', text); open.type = 'button'; open.dataset.journalWeeklyFileOpen = item.file.id;
+    open.setAttribute('aria-label', `${text} (자료실에서 열기)`); li.append(open);
+    if (item.file.same > 1) { const n = el('span', 'journal-file-note', `같은 파일 ${item.file.same}번`); n.dataset.journalFileSame = ''; li.append(' ', n); }
+    if (item.file.verdict === 'similar') { const n = el('span', 'journal-file-note', '비슷한 기록 있음'); n.dataset.journalFileSimilar = ''; li.append(' ', n); }
+  }
+  // 기록과 같아 접은 자료: 칸 맨 아래 늘 보이는 접힘 한 줄("기록과 같아 뺀 자료 N"). 펼치면 그 자료 줄([넣기]는 화면 ②).
+  const foldedFiles = items => {
+    if (!items?.length) return null;
+    const box = el('details', 'journal-org-raw journal-file-folded'); box.dataset.journalFileFolded = String(items.length);
+    box.append(el('summary', null, `기록과 같아 뺀 자료 ${items.length}`), itemList(items));
+    return box;
   };
   // A part's own loading / failure line ([다시 시도] reads only what failed); the other parts are unaffected.
   const status = (box, part, label) => {
@@ -387,7 +456,9 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}) {
         const tr = el('tr'); tr.dataset.journalArea = area.name; tr.dataset.journalTask = row.task?.name || '';
         if (!index) { const th = el('th', 'journal-weekly-area', area.name); th.scope = 'rowgroup'; th.rowSpan = area.rows.length; tr.append(th); }
         tr.append(el('td', 'journal-weekly-task', row.task?.name || '—'));
-        const cell = el('td', 'journal-weekly-progress'); cell.append(itemList(row.items, true)); tr.append(cell);
+        const cell = el('td', 'journal-weekly-progress'); cell.append(itemList(row.items, true));
+        const fold = foldedFiles(row.folded); if (fold) cell.append(fold);
+        tr.append(cell);
         body.append(tr);
       });
       table.append(body); summary.append(table);
@@ -486,6 +557,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}) {
         raw.append(el('summary', null, `원문 ${section.items.length}건`), itemList(section.items));
         part.append(raw);
       } else part.append(itemList(section.items));
+      const fold = foldedFiles(section.folded); if (fold) part.append(fold);
       if (can && section.id && !editing) {
         const tools = el('div', 'journal-org-tools');
         if (section.summary?.edited) { const tag = el('span', 'journal-org-edited', '고친 요약'); tag.dataset.journalOrgEdited = ''; tools.append(tag); }

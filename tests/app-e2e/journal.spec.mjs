@@ -328,7 +328,7 @@ for(const width of [390,1280]){
   expect(f.reads.find(q=>q.table==='app_suborganization_updates')).toMatchObject({organization_id:'in.(o1,o2)',occurred_at:'gte.2026-10-04T15:00:00.000Z&lt.2026-10-11T15:00:00.000Z'});
   expect(f.reads.find(q=>q.table==='app_meetings')).toMatchObject({workspace_id:'eq.w',meeting_at:'gte.2026-10-04T15:00:00.000Z&lt.2026-10-11T15:00:00.000Z'});
   // 자료실·공유 페이지 읽기도 이 업무 공간·이번 주로 가리고, 칸을 줄이고(본문·블록 없음) 개수를 제한한다.
-  expect(f.reads.find(q=>q.table==='app_documents')).toMatchObject({workspace_id:'eq.w',created_at:'gte.2026-10-04T15:00:00.000Z&lt.2026-10-11T15:00:00.000Z',select:'id,title,file_name,category,meeting_id,created_at',limit:'300'});
+  expect(f.reads.find(q=>q.table==='app_documents')).toMatchObject({workspace_id:'eq.w',created_at:'gte.2026-10-04T15:00:00.000Z&lt.2026-10-11T15:00:00.000Z',select:'id,title,file_name,category,meeting_id,created_at,organization_id,project_id,file_id',limit:'300'});
   expect(f.reads.find(q=>q.table==='app_share_pages')).toMatchObject({workspace_id:'eq.w',updated_at:'gte.2026-10-04T15:00:00.000Z&lt.2026-10-11T15:00:00.000Z',select:'id,title,status,updated_at',limit:'300'});
   expect(f.reads.find(q=>q.table==='app_project_progress_updates')).toMatchObject({effective_on:'gte.2026-10-05&lte.2026-10-11'});
   expect(f.reads.find(q=>q.kind==='eq.work')).toMatchObject({journal_day:'gte.2026-10-05&lte.2026-10-11'});
@@ -2150,4 +2150,79 @@ test('주간보고 한글 파일: 단계를 읽지 못하면 직전 확정본 �
  await openJournal(page,390);await openWeekly(page);await openDraft(page);
  await expect(hwpx(page).locator('[data-hwpx-stage-note]')).toContainText('단계를 불러오지 못했어요');
  await expect(hwpx(page).locator('[data-hwpx-part="sites"] .journal-hwpx-row').filter({hasText:'가상 노동조합'}).locator('textarea')).toHaveValue('- 조정 신청(9.28)\n- 지난주 현황 줄');
+});
+
+// WEEKLY-자료요약 화면 ① (docs/design/weekly-file-summary.md 4·5절): 그 주 자료가 조직 칸·프로젝트 줄에 '자료' 꼬리표 + "제목 — 요약"으로,
+// 조직·프로젝트 둘 다 연결이면 조직 칸에만, 기록과 같으면 "기록과 같아 뺀 자료 N"으로 접히고, 회의자료는 '참고'에 남는다. 요약 표를 못 읽으면 제목만.
+const HASH=c=>'b1:'+c.repeat(32);
+const DOCID=n=>`f0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+async function fileFixture(page,{width,briefFail=false}={}){
+ const f=await weeklyFixture(page,{width});
+ f.more.docs.push(
+  {id:DOCID(1),workspace_id:'w',title:'가상 요구안',file_name:'r.hwp',category:'교섭자료',meeting_id:null,organization_id:'o1',project_id:'wa2',file_id:'F1',created_at:'2026-10-06T03:00:00Z'},
+  {id:DOCID(2),workspace_id:'w',title:'가-2 참고 자료',file_name:'g.pdf',category:'교육',meeting_id:null,organization_id:null,project_id:'wa2',file_id:'F2',created_at:'2026-10-07T03:00:00Z'},
+  {id:DOCID(3),workspace_id:'w',title:'나 모임 기록 사본',file_name:'n.hwp',category:'교육',meeting_id:null,organization_id:'o2',project_id:null,file_id:'F3',created_at:'2026-10-06T04:00:00Z'},
+ );
+ const briefs=[
+  {document_id:DOCID(1),workspace_id:'w',content_hash:HASH('a'),summary:'기본급 5% 인상 요구, 10.28.(화) 1차 교섭 예정'},
+  {document_id:DOCID(3),workspace_id:'w',content_hash:HASH('b'),summary:'조직 화면에서 쓴 업데이트'},
+ ];
+ const reads=[];
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_document_ai_index',async r=>{
+  const q=new URL(r.request().url()).searchParams;reads.push(Object.fromEntries(q));
+  if(r.request().method()!=='GET')return r.fulfill({status:500,json:{}});
+  if(briefFail)return r.fulfill({status:404,json:{code:'PGRST205'}});
+  const ids=(q.get('document_id')||'').replace(/^in\.\(|\)$/g,'').split(',').filter(Boolean);
+  const hashes=(q.get('content_hash')||'').startsWith('in.(')?q.get('content_hash').slice(4,-1).split(','):null;
+  return r.fulfill({json:briefs.filter(b=>ids.length?ids.includes(b.document_id):hashes?hashes.includes(b.content_hash):true)});
+ });
+ return {...f,briefReads:reads};
+}
+for(const width of [390,1280])test(`[주간 정리] 자료 요약: 조직 칸 우선·프로젝트 줄·'자료' 꼬리표·같으면 접기·참고에서 빼기, 복사 글에는 꼬리표 없음 ${width}`,async({page})=>{
+ const f=await fileFixture(page,{width});
+ await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
+ await openJournal(page,width);await openWeekly(page);
+ const orgs=weekly(page,'orgs');
+ const ga=orgs.locator('[data-journal-org="가상 노동조합"]');
+ const file=ga.locator(`li[data-journal-weekly-file="${DOCID(1)}"]`);
+ await expect(file).toHaveText('10월 6일(화)자료 가상 요구안 — 기본급 5% 인상 요구, 10.28.(화) 1차 교섭 예정');
+ await expect(file.locator('[data-journal-file-tag]')).toHaveText('자료');
+ await expect(file.locator('[data-journal-weekly-file-open]')).toHaveAccessibleName('가상 요구안 — 기본급 5% 인상 요구, 10.28.(화) 1차 교섭 예정 (자료실에서 열기)');
+ // 조직·프로젝트 둘 다 연결 → 조직 칸에만. 프로젝트만 연결 → 그 세부 과제 줄.
+ const summary=weekly(page,'summary');
+ await expect(summary).not.toContainText('가상 요구안');
+ await expect(summary.locator(`tr[data-journal-task="세부 과제 가-2"] li[data-journal-weekly-file="${DOCID(2)}"]`)).toHaveText('10월 7일(수)자료 가-2 참고 자료');
+ // 기록과 같은 자료는 그 칸 맨 아래 접힘 한 줄(늘 보임). 펼치면 그 자료 줄.
+ const nb=orgs.locator('[data-journal-org="나 지역 모임"]');
+ await expect(nb.locator(':scope > .journal-weekly-list li[data-journal-weekly-file]')).toHaveCount(0);
+ const fold=nb.locator('[data-journal-file-folded]');
+ await expect(fold.locator('summary')).toHaveText('기록과 같아 뺀 자료 1');
+ await expect(fold.locator('li')).toBeHidden();
+ await fold.locator('summary').click();
+ await expect(fold.locator(`li[data-journal-weekly-file="${DOCID(3)}"]`)).toBeVisible();
+ // '참고 › 자료실 새 자료': 조직·프로젝트로 간 자료는 빠지고, 연결 없는 자료·회의자료는 그대로.
+ await expect(weekly(page,'note-docs').locator('li')).toHaveText(['10월 6일(화)[교섭] 가상 교섭 요구안','10월 8일(목)[회의] 운영위 3차 자료 · 회의자료']);
+ // 요약 읽기는 이 주 자료 id로, 'b1:' 행만, 요약·지문 칸만(글자 없음).
+ expect(f.briefReads[0]).toMatchObject({workspace_id:'eq.w',content_hash:'like.b1:*',select:'document_id,content_hash,summary'});
+ // 터치·키보드: 누르는 범위와 가로 넘침.
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ // [복사]: "- 날짜 제목 — 요약", 꼬리표·접힌 자료 없음.
+ await page.locator('#journalRoot [data-hwpx-copy]').click();
+ const text=await page.evaluate(()=>navigator.clipboard.readText());
+ expect(text).toContain('- 10월 6일(화) 가상 요구안 — 기본급 5% 인상 요구, 10.28.(화) 1차 교섭 예정\n');
+ expect(text).toContain('- 10월 7일(수) 세부 과제 가-2: 가-2 참고 자료\n');
+ expect(text).not.toContain('나 모임 기록 사본');expect(text).not.toContain('자료 가상 요구안');
+ // 자료 줄을 누르면 자료실이 열린다.
+ await file.locator('[data-journal-weekly-file-open]').click();
+ await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('library');
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+
+test('[주간 정리] 자료 요약: 요약 표를 못 읽으면 조직 칸에 제목만, 화면은 깨지지 않는다',async({page})=>{
+ const f=await fileFixture(page,{width:1280,briefFail:true});
+ await openJournal(page,1280);await openWeekly(page);
+ await expect(weekly(page,'orgs').locator(`[data-journal-org="가상 노동조합"] li[data-journal-weekly-file="${DOCID(1)}"]`)).toHaveText('10월 6일(화)자료 가상 요구안');
+ await expect(weekly(page,'orgs').locator('[data-journal-file-folded]')).toHaveCount(0);
+ await expect(weekly(page,'note-docs').locator('[data-journal-failed]')).toHaveCount(0);
+ expect(f.errors).toEqual([]);
 });

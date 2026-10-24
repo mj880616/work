@@ -241,9 +241,44 @@ export async function readWeekMeetings(start, rt = window.KPTURuntime) {
 // document's own date (an old document would land on an old day). Title, file name, category and links only; capped.
 export const WEEK_READ_CAP = 300;
 const capped = rows => { if (!Array.isArray(rows)) throw new Error('read'); return Object.assign(rows, {capped:rows.length >= WEEK_READ_CAP}); };
+// WEEKLY-자료요약 화면 ① (docs/design/weekly-file-summary.md 3.1·4.3·5.1절): 담당조직·프로젝트 연결과 Drive 파일 id도 읽고, 그 주 자료의
+// 한두 줄 요약(자료별 AI 요약 표 app_document_ai_index의 'b1:' 행만)을 자료 id 목록으로 한 번 더 읽어 doc.brief = {summary, hash}로 붙인다.
+// 같은 글자 지문이 이 주보다 앞에 올린 다른 자료에 있으면 doc.repeat = true(다시 올림 — 화면이 접는다). 요약 읽기가 실패하면
+// 요약 없이 자료만 돌려준다(제목만 보임, 깨지지 않는 조건). 글자(extracted_text)·옛 요약 행('b1:' 아님)은 읽지 않는다.
+export const BRIEF_HASH_RE = /^b1:[0-9a-f]{32}$/;
 export async function readWeekDocuments(start, rt = window.KPTURuntime) {
-  const from = dayStartIso(weekDays(start)[0]), to = dayStartIso(shiftWeek(start, 1));
-  return capped(await rt.api(`/rest/v1/app_documents?workspace_id=eq.${encode(workspace(rt))}&created_at=gte.${encode(from)}&created_at=lt.${encode(to)}&select=id,title,file_name,category,meeting_id,created_at&order=created_at.asc,id.asc&limit=${WEEK_READ_CAP}`));
+  const from = dayStartIso(weekDays(start)[0]), to = dayStartIso(shiftWeek(start, 1)), ws = encode(workspace(rt));
+  const docs = capped(await rt.api(`/rest/v1/app_documents?workspace_id=eq.${ws}&created_at=gte.${encode(from)}&created_at=lt.${encode(to)}&select=id,title,file_name,category,meeting_id,created_at,organization_id,project_id,file_id&order=created_at.asc,id.asc&limit=${WEEK_READ_CAP}`));
+  try { await attachBriefs(docs, {ws, from, rt}); } catch { for (const doc of docs) { delete doc.brief; delete doc.repeat; } }
+  return docs;
+}
+async function attachBriefs(docs, {ws, from, rt}) {
+  const ids = docs.map(doc => doc?.id).filter(id => typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id));
+  if (!ids.length) return;
+  const byDoc = new Map();
+  for (const part of chunks(ids)) {
+    const rows = await rt.api(`/rest/v1/app_document_ai_index?workspace_id=eq.${ws}&document_id=${inList(part)}&content_hash=like.${encode('b1:*')}&select=document_id,content_hash,summary&limit=${part.length + 1}`);
+    if (!Array.isArray(rows)) throw new Error('read');
+    for (const row of rows) if (BRIEF_HASH_RE.test(String(row?.content_hash || '')) && typeof row.summary === 'string') byDoc.set(String(row.document_id).toLowerCase(), {summary:row.summary, hash:row.content_hash});
+  }
+  for (const doc of docs) { const brief = byDoc.get(String(doc?.id || '').toLowerCase()); if (brief) doc.brief = brief; }
+  // 다시 올림: 이 주 지문과 같은 지문의 다른 자료 중 이 주보다 앞에 올린 것이 있는지(자료 id만 읽음).
+  const hashes = [...new Set([...byDoc.values()].map(b => b.hash))];
+  if (!hashes.length) return;
+  const mine = new Set(ids.map(id => id.toLowerCase())), others = new Map();
+  for (const part of chunks(hashes)) {
+    const rows = await rt.api(`/rest/v1/app_document_ai_index?workspace_id=eq.${ws}&content_hash=${inList(part)}&select=document_id,content_hash&limit=${WEEK_READ_CAP}`);
+    if (!Array.isArray(rows)) throw new Error('read');
+    for (const row of rows) { const id = String(row?.document_id || '').toLowerCase(); if (id && !mine.has(id)) others.set(id, row.content_hash); }
+  }
+  if (!others.size) return;
+  const earlier = new Set();
+  for (const part of chunks([...others.keys()])) {
+    const rows = await rt.api(`/rest/v1/app_documents?workspace_id=eq.${ws}&id=${inList(part)}&created_at=lt.${encode(from)}&select=id&limit=${part.length + 1}`);
+    if (!Array.isArray(rows)) throw new Error('read');
+    for (const row of rows) earlier.add(others.get(String(row?.id || '').toLowerCase()));
+  }
+  for (const doc of docs) if (doc.brief && earlier.has(doc.brief.hash)) doc.repeat = true;
 }
 // 공유 페이지: share pages of this workspace changed (updated_at) in the week. Title and state only, never the blocks.
 // SHARE-페이지삭제: a deleted (archived) page is left out.
