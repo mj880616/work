@@ -27,7 +27,7 @@ function freshState(){return {owner:'',loaded:false,loading:false,error:'',bundl
 
 function install(){
   if($('#referenceView'))return;
-  $('#appView')?.insertAdjacentHTML('beforeend',`<section id="referenceView" class="view-panel hidden" aria-labelledby="rbTitle"><div class="rb-head"><h2 id="rbTitle">참고 묶음</h2></div><div class="rb-split" id="rbSplit"><div class="rb-list" id="rbList"></div><section class="rb-pane" id="rbDetail" aria-label="참고 묶음 상세"></section></div></section>`);
+  $('#appView')?.insertAdjacentHTML('beforeend',`<section id="referenceView" class="view-panel hidden" aria-labelledby="rbTitle"><h2 id="rbTitle" class="a11y-only">참고 묶음</h2><div class="rb-split" id="rbSplit"><div class="rb-list" id="rbList"></div><section class="rb-pane" id="rbDetail" aria-label="참고 묶음 상세"></section></div></section>`);
 }
 install();
 const view=()=>$('#referenceView');

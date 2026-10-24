@@ -1,8 +1,7 @@
 /* REF-참고묶음 화면 2: 참고 묶음 화면(#referenceView, reference-bundles.js가 유일한 renderer). 콤팩트한 줄 목록, 작은 버튼(UI-버튼기준:
    보조 버튼 --ds-compact-height, 저장은 작은 채운 버튼 하나, 누르는 범위는 ::after로 --kptu-touch-target). 값은 --kptu-*·--ds-* 토큰만 쓴다.
    PC(1024px~)는 왼쪽 목록 / 오른쪽 상세 두 칸(--ds-split-*, split-resize.js), 폰·중간 폭은 목록 → 상세 한 칸. */
-#referenceView .rb-head{display:flex;align-items:center;gap:8px;margin:0 0 8px}
-#referenceView .rb-head h2{margin:0;font-size:var(--ds-text-title);line-height:1.4;font-weight:var(--ds-weight-medium)}
+/* 화면 이름은 위 줄(PC 위치 줄 '담당조직 › 참고 묶음', 폰 머리줄)이 이미 보여 주므로 제목(#rbTitle)은 읽기 프로그램용으로만 둔다. */
 #referenceView .rb-split{display:block;min-width:0}
 #referenceView .rb-list,#referenceView .rb-pane{min-width:0;box-sizing:border-box}
 #referenceView .rb-list-head,#referenceView .rb-detail-head{display:flex;align-items:center;gap:8px;min-height:var(--ds-compact-height)}
