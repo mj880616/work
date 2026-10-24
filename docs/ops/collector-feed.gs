@@ -517,7 +517,7 @@ var TG_FEED_ROOT_FOLDER = '여기에_텔레그램_수집_폴더_주소_끝부분
 
 var TG_FEED_RAW_FOLDER = '원문';
 var TG_FEED_MESSAGES_FOLDER = 'messages';
-var TG_FEED_ROOMS_KEY = 'TG_FEED_ROOMS';        // 허용 업무방 목록(방 폴더 이름 또는 맨 앞 방 번호, 쉼표·줄바꿈으로 구분)
+var TG_FEED_ROOMS_KEY = 'TG_FEED_ROOMS';        // 허용 업무방 목록(방 이름, 방 폴더 이름 전체, 또는 맨 앞 방 번호. 쉼표·줄바꿈으로 구분)
 var TG_FEED_TEST_KEY = 'TG_FEED_TEST_MODE';     // 없거나 '켬'이면 시험 모드. '끔'일 때만 실제로 보낸다
 var TG_FEED_STATE_KEY = 'TG_FEED_STATE';        // 어디까지 보냈는지(JSON)
 var TG_FEED_TIME_LIMIT_MS = 4.5 * 60 * 1000;    // 앱 스크립트 6분 제한 전에 새 일을 시작하지 않는다
@@ -837,13 +837,14 @@ function tgFeedParseRooms(text) {
   return out;
 }
 
-/** 방 폴더 이름이 허용 목록에 있나. 목록의 한 줄이 폴더 이름 전체이거나 맨 앞 방 번호와 같으면 맞다. 맞은 목록 글을 돌려주고 아니면 ''. */
+/** 방 폴더 이름이 허용 목록에 있나. 목록의 한 줄이 폴더 이름 전체, 맨 앞 방 번호, 또는 번호 뒤 방 이름 전체와 같으면 맞다. 맞은 목록 글을 돌려주고 아니면 ''. */
 function tgFeedRoomMatch(folderName, wanted) {
   var name = callFeedNormalizeName(folderName);
-  var idm = /^(-?\d+)_/.exec(name);
+  var idm = /^(-?\d+)_(.*)$/.exec(name);
   for (var i = 0; i < wanted.length; i++) {
     if (wanted[i] === name) return wanted[i];
     if (idm && wanted[i] === idm[1]) return wanted[i];
+    if (idm && idm[2] && wanted[i] === callFeedNormalizeName(idm[2])) return wanted[i];
   }
   return '';
 }
