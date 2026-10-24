@@ -391,3 +391,11 @@
 #appView #journalView .journal-file-open:hover{ text-decoration:underline; }
 #appView #journalView .journal-file-open:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 #appView #journalView .journal-file-note{ color:var(--kptu-muted); font-size:var(--ds-text-meta); white-space:nowrap; }
+/* WEEKLY-환류: 5. 주요 일정 줄 머리(날짜·원래 제목·기억·[빼기]), 뺀 줄은 흐리게, [확정] 뒤 기억 후보, [주간 정리] 맨 아래 '주간보고 기억'. */
+#appView #journalView .journal-hwpx-title-head{ display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 6px; }
+#appView #journalView .journal-hwpx-title[data-dropped="true"] > .journal-hwpx-title-fields,
+#appView #journalView .journal-hwpx-title[data-dropped="true"] .journal-hwpx-origin{ opacity:.5; }
+#appView #journalView .journal-hwpx-title[data-dropped="true"] .journal-hwpx-origin{ text-decoration:line-through; }
+#appView #journalView .journal-hwpx-remember-pick{ display:inline-flex; align-items:baseline; gap:4px; flex-wrap:wrap; }
+#appView #journalView .journal-weekly-memory > summary{ cursor:pointer; }
+#appView #journalView .journal-weekly-memory .journal-kinds-off-list li{ overflow-wrap:anywhere; }

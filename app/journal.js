@@ -45,6 +45,7 @@ import {weeklySummary, renderWeekly, weeklyReportText} from './journal-weekly.js
 import {mountWeeklyHwpx} from './journal-hwpx.js';
 import {requestLibraryDocument} from './basket-library-send.js';
 import {readKinds, changeKind} from './journal-meeting-kinds.js';
+import {readMemory, changeMemory, withoutKey, withRestored} from './weekly-schedule-memory.js';
 import {mountRadar} from './todo-radar.js';
 import {readOrgSummaries, saveEditedSummary, requestOrgSummaries, resultMessage, cleanEdited} from './journal-org-summary.js';
 import {readExecRequests, changeExecRequests, cleanItem, mergeCarried, isExecRecord} from './weekly-exec-requests.js';
@@ -86,6 +87,8 @@ let lines = new Map(), linesState = 'loading';
 let materials = {};
 // JOURNAL-회의종류표시: my list of meeting kinds left out of the weekly report ({status:'loading'|'ok'|'unknown', list}); read once per visit.
 let kinds = {status:'loading'}, kindsBusy = false;
+// WEEKLY-환류: 주간보고 기억(내 프로필 칸 weekly_schedule_memory, weekly-schedule-memory.js) — read with the kinds; memoryUi = the folded list's state.
+let memory = {status:'loading'}, memoryUi = {open:false, busy:false, status:'', error:false, undo:null};
 let doneDays = DONE_TASK_DAYS; // days of finished tasks the Edge really covered (3 on an older Edge)
 let drafts = new Map(), saving = false;
 // The one line being edited in place: {day, index, before, value}.
@@ -355,7 +358,8 @@ function renderWeekly_() {
   if (typing && orgUi.editing?.id === typing.dataset.journalOrgEditInput) orgUi.editing.value = typing.value;
   // The request edit row keeps what is being typed and which field has the focus across redraws too.
   const execFocus = execDraftFromScreen(host);
-  renderWeekly(host, weeklySummary({start, lines, linesState, materials, doneDays, kinds}), esc, orgUi, execUi);
+  const memoryFold = host.querySelector('[data-journal-weekly-memory]'); if (memoryFold) memoryUi.open = memoryFold.open;
+  renderWeekly(host, weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory}), esc, orgUi, execUi, memoryUi);
   if (focused) host.querySelector('[data-journal-org-edit-input]')?.focus();
   if (execFocus) host.querySelector(`[data-journal-exec-field="${execFocus}"]`)?.focus();
   hwpx?.refresh();
@@ -374,7 +378,9 @@ function execRecordTexts() {
   return out;
 }
 const hwpx = mountWeeklyHwpx($('[data-journal-hwpx]'), {rt, onCopy: () => copyDraft(), onCarry: (week, items) => carryRequests(week, items),
-  getWeek: () => ({start, projects:projectNames(), requested:execRecordTexts(), model:weeklySummary({start, lines, linesState, materials, doneDays, kinds})})});
+  // [확정] 뒤 [기억하기]: the box wrote my profile's memory; the screen follows the saved list.
+  onMemory: list => { memory = {status:'ok', list}; renderWeekly_(); },
+  getWeek: () => ({start, projects:projectNames(), requested:execRecordTexts(), model:weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory})})});
 function renderMode() {
   root.dataset.journalMode = mode;
   root.querySelectorAll('[data-journal-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.journalMode === mode)));
@@ -456,6 +462,12 @@ async function loadKinds(run, scope) {
   if (run !== sharedEpoch || scope !== ownerScope(rt)) return;
   kinds = read; renderDay(); renderWeekly_();
 }
+async function loadMemory(run, scope) {
+  memory = {status:'loading'};
+  const read = await readMemory(rt);
+  if (run !== sharedEpoch || scope !== ownerScope(rt)) return;
+  memory = read; renderWeekly_(); hwpx?.refresh();
+}
 function loadWeek({shared = false} = {}) {
   const changedOwner = owner !== ownerScope(rt);
   const run = ++epoch, scope = owner = ownerScope(rt);
@@ -464,7 +476,7 @@ function loadWeek({shared = false} = {}) {
   if (changedOwner) hwpx?.close(); else hwpx?.setWeek(start);
   const keys = shared ? Object.keys(readers) : ['events', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'orgSummaries', 'execRequests', 'ledgerPromises'];
   for (const key of keys) materials[key] = {status:'loading'};
-  if (shared || changedOwner) loadKinds(sharedRun, scope);
+  if (shared || changedOwner) { loadKinds(sharedRun, scope); loadMemory(sharedRun, scope); memoryUi = {open:false, busy:false, status:'', error:false, undo:null}; }
   render();
   loadLines(run, scope);
   for (const key of keys) loadGroup(key, SHARED_KEYS.has(key) ? sharedRun : run, scope);
@@ -742,7 +754,7 @@ async function refreshTasks() {
 window.addEventListener('kptu:google-tasks-changed', () => { if (!selfBusy && window.KPTURouter?.current === 'journal') void refreshTasks(); });
 
 async function copyDraft() {
-  const text = weeklyReportText(weeklySummary({start, lines, linesState, materials, doneDays, kinds}));
+  const text = weeklyReportText(weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory}));
   const ok = await copyText(text);
   // movedNotes, catalog (the project order) and this week's events (the day card's 일정) are not draft material.
   const missing = Object.entries(materials).some(([key, state]) => !['movedNotes', 'catalog', 'events', 'orgSummaries'].includes(key) && state?.status !== 'ok');
@@ -761,10 +773,36 @@ async function toggleKind(key, hide, name) {
     renderDay(); renderWeekly_();
   } finally { kindsBusy = false; }
 }
+// WEEKLY-환류: '주간보고 기억'에서 [지우기] — 다시 읽고 그 항목만 빼서 내 프로필 칸에 쓴다. 바로 뒤 [되돌리기](몇 초)는 같은 항목을 다시 쓴다.
+let undoTimer = 0;
+async function changeMemoryFromList(change, done) {
+  if (memoryUi.busy || memory.status !== 'ok') return;
+  const scope = ownerScope(rt); memoryUi.busy = true; memoryUi.status = ''; memoryUi.error = false; renderWeekly_();
+  try {
+    const result = await changeMemory(change, rt);
+    if (scope !== ownerScope(rt)) return;
+    if (result.ok) { memory = {status:'ok', list:result.list}; done(); }
+    else { memoryUi.status = '저장하지 못했어요. 다시 시도해 주세요.'; memoryUi.error = true; memoryUi.undo = null; }
+  } finally { memoryUi.busy = false; renderWeekly_(); hwpx?.refresh(); }
+}
+function deleteMemory(key) {
+  const entry = memory.status === 'ok' ? memory.list.find(e => e.key === key) : null;
+  if (!entry) return;
+  return changeMemoryFromList(list => withoutKey(list, key), () => {
+    memoryUi.status = `‘${entry.origin}’ 기억을 지웠어요.`; memoryUi.undo = {entry};
+    clearTimeout(undoTimer); undoTimer = setTimeout(() => { if (memoryUi.undo?.entry === entry) { memoryUi.undo = null; memoryUi.status = ''; renderWeekly_(); } }, 8000);
+  });
+}
+function undoMemory() {
+  const entry = memoryUi.undo?.entry;
+  if (!entry) return;
+  clearTimeout(undoTimer);
+  return changeMemoryFromList(list => withRestored(list, entry), () => { memoryUi.status = `‘${entry.origin}’ 기억을 되돌렸어요.`; memoryUi.undo = null; });
+}
 // JOURNAL-조직현황AI요약 ----
 // [요약 만들기]: one ai-assist call with the week and the shown organizations' ids; then the saved summaries are read again.
 async function makeOrgSummaries() {
-  const model = weeklySummary({start, lines, linesState, materials, doneDays, kinds});
+  const model = weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory});
   const ids = (model.orgs.sections || []).map(section => section.id).filter(Boolean);
   if (orgUi.busy || !ids.length) return;
   const run = epoch, scope = owner, week = start;
@@ -776,7 +814,7 @@ async function makeOrgSummaries() {
   root.querySelector('[data-journal-org-ai-run]')?.focus();
 }
 function openOrgEdit(id) {
-  const section = weeklySummary({start, lines, linesState, materials, doneDays, kinds}).orgs.sections?.find(s => s.id === id);
+  const section = weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory}).orgs.sections?.find(s => s.id === id);
   if (!section || orgUi.editing?.saving) return;
   orgUi.editing = {id, name:section.name, value:section.summary?.text || '', status:'', invalid:false, saving:false};
   renderWeekly_();
@@ -930,6 +968,8 @@ root.addEventListener('click', event => {
   if (button.matches('[data-journal-exec-save]')) return void saveExecEdit();
   if (button.matches('[data-journal-exec-cancel]')) return closeExecEdit();
   if (button.matches('[data-journal-exec-delete]')) return void deleteExecRow(button.dataset.journalExecDelete);
+  if (button.matches('[data-journal-memory-delete]')) return void deleteMemory(button.dataset.journalMemoryDelete);
+  if (button.matches('[data-journal-memory-undo]')) return void undoMemory();
   if (button.matches('[data-journal-kind-toggle]')) return toggleKind(button.dataset.journalKindToggle, button.dataset.journalKindHide === '1', button.dataset.journalKindName);
   if (button.matches('[data-journal-date]')) return selectDay(button.dataset.journalDate);
   if (button.matches('[data-journal-prev]')) return moveWeek(-1);

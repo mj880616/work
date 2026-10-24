@@ -100,13 +100,12 @@ export function memoryCandidates(items, {titles, drops} = {}) {
   for (const item of items ?? []) {
     const key = scheduleMemoryKey(item.title), origin = one(item.title);
     const ownDrop = drops?.get?.(item.key);
-    if (item.memo?.drop && ownDrop !== 'keep') { used.add(item.memo.key); continue; }
-    const o = titles?.get?.(item.key);
-    if (!o && item.memo?.title) { used.add(item.memo.key); continue; }
-    if (!key || !okText(key, KEY_MAX) || !okText(origin, TITLE_MAX) || out.has(key)) continue;
-    const label = `${item.label} ${item.time}`;
-    if (ownDrop === 'drop') { out.set(key, {key, origin, drop:true, label, checked:[...key].length > 2}); continue; }
-    if (!o) continue;
+    if (item.memo?.drop) { if (ownDrop !== 'keep') used.add(item.memo.key); continue; }
+    const o = titles?.get?.(item.key), label = `${item.label} ${item.time}`;
+    const fits = key && okText(key, KEY_MAX) && okText(origin, TITLE_MAX) && !out.has(key);
+    if (ownDrop === 'drop') { if (fits) out.set(key, {key, origin, drop:true, label, checked:[...key].length > 2}); continue; }
+    if (!o) { if (item.memo?.title) used.add(item.memo.key); continue; }
+    if (!fits) continue;
     const title = one(o.title) || origin, place = one(o.place);
     if (title === one(item.title) && place === one(item.place)) continue; // 이번 주만 원래대로(또는 고치지 않음)
     const mt = memoryTitle(item);
