@@ -231,7 +231,7 @@ test('opening the library reads at most 5 unread documents at a time, quietly, a
 // 요약이 생기면(가짜 서버가 행을 만듦) 다시 열어도 보내지 않는다. 옛 요약 행이 있는 자료(행 있음)와 글자 없는 자료는 보내지 않는다.
 test('already tidied old documents without a summary row are sent once for the summary, oldest first; not again after the row exists',async({page})=>{
   const done={title:'정리된 제목',category:'정책',source:'국토교통부',document_date:'2026-01-02',field_origin:LINKS_DONE};
-  const docs=makeDocs(5,{1:{...done,created_at:'2026-08-20T00:00:00Z'},2:{...done,created_at:'2026-08-01T00:00:00Z'},3:{...done},4:{...done,extraction_status:'empty'},5:{}});
+  const docs=makeDocs(5,{1:{...done,created_at:'2026-08-20T00:00:00Z'},2:{...done,created_at:'2026-08-01T00:00:00Z'},3:{...done},4:{...done,extraction_status:'error'},5:{}});
   const state=baseState(docs,{tried:[DOC_ID(1),DOC_ID(2),DOC_ID(3),DOC_ID(4)],briefs:[DOC_ID(3),DOC_ID(5)]});
   await boot(page,state);
   await expect.poll(()=>state.aiCalls.length).toBe(1);
