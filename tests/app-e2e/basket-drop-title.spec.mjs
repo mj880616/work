@@ -55,7 +55,7 @@ test('a file dropped on the basket input on a PC keeps its whole name, as the [�
  await box.locator('[data-quick-input]').dispatchEvent('drop',{dataTransfer:dt});
  await expect(box.locator('[data-basket-file]')).toContainText(name);
  await box.locator('[data-quick-save]').click();
- await expect(page.locator('#toast')).toHaveText('바구니에 저장했습니다.');
+ await expect(page.locator('#toast')).toHaveText('정리함에 저장했습니다.');
  expect(f.uploads).toHaveLength(1);
  expect(f.uploads[0]).toContain(`filename="${name}"`);expect(f.uploads[0]).not.toContain('name="raw_text"');
  await expect(title(page,'dropped')).toHaveText(`파일 · ${name}`);

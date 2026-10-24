@@ -141,7 +141,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const menuItems = (note, from) => from === 'file' ? [['data-note-file-detach', '빼기']] : from === 'folder' ? [['data-note-folder-new', '새 폴더'], ...(viewFolder() ? [['data-note-folder-rename', '폴더 이름 바꾸기'], ['data-note-folder-delete', '폴더 지우기', 'basket-menu-danger']] : []), ...(isOwner() ? [['data-note-convert', '옛 마크다운 노트 변환']] : [])] : [
     ...(from === 'list' && !isWide() && noteCopyPayload(note) ? [['data-note-copy', '복사']] : []),
     ['data-note-pin', notePinnedAt(note) ? '고정 해제' : '고정'], ['data-note-folder-move', '폴더로 옮기기'], ['data-note-edit', '수정'],
-    ...(from === 'detail' ? [['data-basket-link-open', '연결하기'], ['data-note-to-basket', '바구니로 돌리기']] : []),
+    ...(from === 'detail' ? [['data-basket-link-open', '연결하기'], ['data-note-to-basket', '정리함으로 돌리기']] : []),
     ['data-note-delete', '삭제', 'basket-menu-danger']];
   // FILE-누르면동작: a stored attachment as the shared file shape (file-actions.js).
   const noteFile = (note, fileId) => { const f = (note?.attachments || []).find(x => x.drive_file_id === fileId); return f ? {name: attachmentName(f), mime: f.mime_type, driveId: fileId, noteId: note.id} : null; };
@@ -595,16 +595,16 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   async function toBasket() {
     if (!selected || editing || busy) return;
-    if (!window.confirm('이 노트를 바구니 업데이트로 돌릴까요? 제목은 지워지고 본문·첨부·연결은 그대로 남아요.')) return;
+    if (!window.confirm('이 노트를 정리함 업데이트로 돌릴까요? 제목은 지워지고 본문·첨부·연결은 그대로 남아요.')) return;
     const note = selected, run = ++epoch, owner = scope(); lock(true); say('');
     try {
       await moveToBasket(note, rt);
       if (run !== epoch || owner !== scope()) return;
       notes = notes.filter(n => n.id !== note.id); links = links.filter(l => l.note_id !== note.id);
-      busy = false; close({force:true, focus:false}); status.textContent = '바구니로 돌렸어요.'; onMovedToBasket(note.id);
+      busy = false; close({force:true, focus:false}); status.textContent = '정리함으로 돌렸어요.'; onMovedToBasket(note.id);
     } catch (error) {
       if (run !== epoch || owner !== scope()) return;
-      say(/바구니/.test(error?.message || '') ? error.message : '바구니로 돌리지 못했어요. 다시 시도해 주세요.');
+      say(/정리함/.test(error?.message || '') ? error.message : '정리함으로 돌리지 못했어요. 다시 시도해 주세요.');
     } finally { if (run === epoch && selected) lock(false); else busy = false; }
   }
   // [삭제] from the open note or from a list row: the same confirmation (what goes with it) and the same delete path.

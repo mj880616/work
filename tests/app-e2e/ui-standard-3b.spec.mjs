@@ -65,10 +65,10 @@ async function swipe(page,direction){
  await expect(page.locator('.kptu-swipe-panel')).toHaveCount(0);
 }
 
-test('폰 하단 탭 6칸: 바구니 색 아이콘, [메뉴] 탭이 메뉴 창을 열고 오른쪽 위 ☰는 없다',async({page})=>{
+test('폰 하단 탭 6칸: 정리함 색 아이콘, [메뉴] 탭이 메뉴 창을 열고 오른쪽 위 ☰는 없다',async({page})=>{
  const {errors}=await boot(page,390);
  const tabs=page.locator('.mobile-tabs > button');
- await expect(tabs).toHaveText(['홈','바구니','일정','프로젝트','담당조직','메뉴']);
+ await expect(tabs).toHaveText(['홈','정리함','일정','프로젝트','담당조직','메뉴']);
  for(const tab of await tabs.all()){const b=await box(tab);expect(b.width).toBeGreaterThanOrEqual(44);expect(b.height).toBeGreaterThanOrEqual(44);}
  // 8-9e-3(사용자 결정): 바구니 아이콘도 다른 탭과 같다 — 고르지 않으면 회색(흐린 색), 고르면 같은 선택 색. 바구니 종류 색(주황)은 쓰지 않는다.
  const tabColor=view=>page.locator(`.mobile-tabs [data-view="${view}"] svg`).evaluate(el=>getComputedStyle(el).color);
@@ -78,7 +78,7 @@ test('폰 하단 탭 6칸: 바구니 색 아이콘, [메뉴] 탭이 메뉴 창�
  const menuTab=page.locator('#mobileMenuTab');await expect(menuTab).toHaveAttribute('aria-expanded','false');
  await menuTab.click();await expect(page.locator('#mobileMenu')).toBeVisible();await expect(menuTab).toHaveAttribute('aria-expanded','true');
  // 바구니는 하단 탭으로 옮겨 메뉴 창에서 뺐다. UI-디자인손질 4: 큰 칸 [쓰기]·회의·자료실·HWP 편집·성명·보도자료(한 칸)·게시판.
- await expect(page.locator('#mobileMenu nav button:visible')).toHaveText(['사업 보고','자료실','HWP 편집','성명·보도자료','공유 페이지','원장','통화','텔레그램 소식']);
+ await expect(page.locator('#mobileMenu nav button:visible')).toHaveText(['노트','사업 보고','자료실','HWP 편집','성명·보도자료','공유 페이지','원장','통화','텔레그램 소식']);
  await page.keyboard.press('Escape');await expect(page.locator('#mobileMenu')).toBeHidden();await expect(menuTab).toBeFocused();await expect(menuTab).toHaveAttribute('aria-expanded','false');
  await menuTab.click();await page.locator('#mobileMenu [data-view="library"]').click();await loaded(page,'library');await expect(page.locator('#mobileMenu')).toBeHidden();
  await page.locator('.mobile-tabs [data-view="basket"]').click();await loaded(page,'basket');await expect(page.locator('.mobile-tabs [data-view="basket"]')).toHaveAttribute('aria-current','page');
@@ -216,7 +216,7 @@ test('홈: 입력칸은 하단 탭 바로 위, 그 위로 탭·버튼, 카드가
  expect(errors).toEqual([]);
 });
 
-test('바구니: [⋯] 작은 메뉴(목록을 밀지 않음·Esc·바깥·키보드), [메모 | 노트] 옆 필터 칩, 한 줄 입력칸',async({page})=>{
+test('정리함: [⋯] 작은 메뉴(목록을 밀지 않음·Esc·바깥·키보드), [메모 | 노트] 옆 필터 칩, 한 줄 입력칸',async({page})=>{
  const {errors}=await boot(page,390);
  await page.locator('.mobile-tabs [data-view="basket"]').click();await loaded(page,'basket');await expect(page.locator('[data-basket-row]')).toHaveCount(2);
  const basket=page.locator('#basketView'),more=basket.locator('[data-basket-more]'),menu=page.locator('#basketMoreMenu');
@@ -226,9 +226,9 @@ test('바구니: [⋯] 작은 메뉴(목록을 밀지 않음·Esc·바깥·키�
  await expect(handoffLine(page)).toBeHidden();
  const filters=basket.locator('[data-basket-filter]');await expect(filters).toHaveText(['미분류 2','분류 완료','보류']);
  // UI-버튼크기: 필터는 알약 칩(32px, 누르는 범위 44px), 폭 가득이 아니다.
- // UI-버튼작게 ③: 폰의 [메모 | 노트]는 아래 탭 바로 위 전환 줄로 내려가고, 위쪽 줄에는 필터만 왼쪽부터 남는다.
- const first=await box(filters.first()),last=await box(filters.last()),rows=await box(basket.locator('[data-basket-rows]')),kinds=await box(basket.locator('.basket-kind-switch'));
- expect(kinds.top).toBeGreaterThan(first.bottom);expect(Math.round(first.left)).toBe(Math.round(rows.left));
+ // BASKET-정리함이름: 폰의 [업데이트 | 챙길 것] 전환은 머리줄 오른쪽(필터 줄 위)에 있고, 필터 줄에는 필터만 왼쪽부터 남는다.
+ const first=await box(filters.first()),last=await box(filters.last()),rows=await box(basket.locator('[data-basket-rows]')),kinds=await box(basket.locator('.inbox-pane-switch'));
+ expect(kinds.bottom).toBeLessThanOrEqual(first.top+1);expect(Math.round(first.left)).toBe(Math.round(rows.left));
  expect(Math.round(first.height)).toBe(32);expect(last.right).toBeLessThanOrEqual(rows.right);
  const before=await box(filters.first());
  await more.click();await expect(menu).toBeVisible();await expect(more).toHaveAttribute('aria-expanded','true');
@@ -241,15 +241,15 @@ test('바구니: [⋯] 작은 메뉴(목록을 밀지 않음·Esc·바깥·키�
  await page.mouse.click(30,400);await expect(menu).toBeHidden();await expect(more).toHaveAttribute('aria-expanded','false');
  await more.focus();await page.keyboard.press('Enter');await page.keyboard.press('Tab');await page.keyboard.press('Tab');await expect(menu).toBeHidden();
  // 입력칸: 하단 탭 바로 위 한 줄, 테두리 하나, 손잡이 없음, 첨부 클립 그대로.
- // UI-버튼작게 ③: 입력칸은 아래 탭 위 전환 줄([메모 | 노트]) 바로 위.
+ // UI-버튼작게 ③ + BASKET-정리함이름: 입력칸은 아래 탭 바로 위(아래 전환 줄이었던 [메모 | 노트]는 [노트] 독립 메뉴로 옮겨 없다).
  const quick=basket.locator('[data-basket-list] .home-quick'),input=quick.locator('[data-quick-input]');
- expect(Math.round((await box(quick)).bottom)).toBe(Math.round((await box(page.locator('.mobile-tabs'))).top)-44);
+ expect(Math.round((await box(quick)).bottom)).toBe(Math.round((await box(page.locator('.mobile-tabs'))).top));
  await expect(input).toHaveCSS('height','46px');await expect(input).toHaveCSS('resize','none');await expect(quick).toHaveCSS('border-left-width','0px');await expect(quick).toHaveCSS('border-bottom-width','0px');
  await expect(quick.locator('.basket-clip')).toBeVisible();
  expect(errors).toEqual([]);
 });
 
-test('바구니 [분류 요청]: 조용히 복사 + 한 줄 알림 → [분류 결과 입력] 창이 아래에서, 닫고 다시 누르면 다시 복사',async({page})=>{
+test('정리함 [분류 요청]: 조용히 복사 + 한 줄 알림 → [분류 결과 입력] 창이 아래에서, 닫고 다시 누르면 다시 복사',async({page})=>{
  const {errors}=await boot(page,390);
  await page.context().grantPermissions(['clipboard-read','clipboard-write']);
  await page.locator('.mobile-tabs [data-view="basket"]').click();await loaded(page,'basket');await expect(page.locator('[data-basket-row]')).toHaveCount(2);
@@ -266,7 +266,7 @@ test('바구니 [분류 요청]: 조용히 복사 + 한 줄 알림 → [분류 �
  expect(errors).toEqual([]);
 });
 
-test('바구니: 메모가 없으면 가운데 회색 "아직 메모가 없어요"',async({page})=>{
+test('정리함: 메모가 없으면 가운데 회색 "아직 메모가 없어요"',async({page})=>{
  const {errors}=await boot(page,390,{notes:[]});
  await page.locator('.mobile-tabs [data-view="basket"]').click();await loaded(page,'basket');
  const empty=page.locator('#basketView [data-basket-list-status]');await expect(empty).toHaveText('아직 업데이트가 없어요');
@@ -277,7 +277,7 @@ test('바구니: 메모가 없으면 가운데 회색 "아직 메모가 없어�
 
 // UI-바구니머리줄: 너비가 760px을 넘으면(폴드를 펼쳐 "PC 화면으로 보기"한 폭 포함) [⋯ 더보기]는 제목줄이 아니라
 // [업데이트|노트 · 미분류 · 분류 완료 · 보류] 줄의 오른쪽 끝에 있고, 메뉴는 그 버튼 아래로 열린다. 760px 이하(폰)는 머리줄 그대로.
-for(const width of [1280,761])test(`바구니: 넓은 화면 ${width}에서 [⋯ 더보기]는 필터 줄 오른쪽 끝, 메뉴는 버튼 아래`,async({page})=>{
+for(const width of [1280,761])test(`정리함: 넓은 화면 ${width}에서 [⋯ 더보기]는 필터 줄 오른쪽 끝, 메뉴는 버튼 아래`,async({page})=>{
  const {errors}=await boot(page,width);
  await page.evaluate(()=>window.KPTURouter.go('basket'));await loaded(page,'basket');await expect(page.locator('[data-basket-row]')).toHaveCount(2);
  const basket=page.locator('#basketView'),more=basket.locator('[data-basket-more]'),menu=page.locator('#basketMoreMenu');
@@ -286,7 +286,7 @@ for(const width of [1280,761])test(`바구니: 넓은 화면 ${width}에서 [⋯
  await expect(basket.locator('.basket-switch-row [data-basket-more]')).toHaveCount(1);
  await expect(basket.locator('[data-basket-filter]')).toHaveText(['미분류 2','분류 완료','보류']);
  await expect(basket.locator('[data-basket-filter="classified"]')).toHaveAttribute('data-basket-filter','classified');
- const m=await box(more),last=await box(basket.locator('[data-basket-filter="archived"]')),kind=await box(basket.locator(width>=1024?'.basket-filters':'.basket-kind-switch')),row=await box(basket.locator('.basket-switch-row')),head=await box(basket.locator(':scope > .basket-head'));
+ const m=await box(more),last=await box(basket.locator('[data-basket-filter="archived"]')),kind=await box(basket.locator('[data-update-filters]')),row=await box(basket.locator('.basket-switch-row')),head=await box(basket.locator(':scope > .basket-head'));
  expect(m.top).toBeGreaterThanOrEqual(head.bottom-1);
  expect(Math.abs((m.top+m.bottom)/2-(kind.top+kind.bottom)/2)).toBeLessThanOrEqual(24);
  expect(m.left).toBeGreaterThan(last.right);expect(Math.abs(m.right-row.right)).toBeLessThanOrEqual(2);

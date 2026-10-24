@@ -58,7 +58,7 @@ for(const width of [1280,390])test(`project ${width}: a linked note joins the re
  await expectProjectTitle(page,'합성 정책 사업');
  const records=page.locator('#ps3-progress [data-ps3-records]'),up=records.locator('[data-basket-link="l-up"]'),nt=records.locator('[data-basket-link="l-note"]');
  await expect(nt).toBeVisible();await expect(up).toBeVisible();
- await expect(up.getByRole('img',{name:'바구니 업데이트'})).toBeVisible();await expect(up.locator('[data-record-mark="update"] svg')).toHaveCount(1);
+ await expect(up.getByRole('img',{name:'정리함 업데이트'})).toBeVisible();await expect(up.locator('[data-record-mark="update"] svg')).toHaveCount(1);
  await expect(nt.getByRole('img',{name:'노트'})).toBeVisible();await expect(nt.locator('[data-record-mark="note"] svg')).toHaveCount(1);
  // A note without a link summary shows its title.
  await expect(nt.locator('.ps3-rec-text')).toHaveText('합성 회의 준비 노트');await expect(up.locator('.ps3-rec-text')).toHaveText('합성 업데이트 연결 요약');
@@ -67,8 +67,8 @@ for(const width of [1280,390])test(`project ${width}: a linked note joins the re
  const order=await records.locator(':scope > [data-basket-link]').evaluateAll(xs=>xs.map(x=>x.dataset.basketLink));expect(order).toEqual(['l-note','l-up']);
  await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('26');
  // Its ⋯: [노트 열기]·[연결 해제]·[요약 수정]; the update's ⋯ is [업데이트 열기]·[연결 해제]·[요약 수정] (UI-연결요약수정).
- await nt.getByRole('button',{name:'바구니 기록 메뉴'}).click();const menu=page.locator('#ps3RecordMenu');await expect(menu.getByRole('button')).toHaveText(['노트 열기','연결 해제','요약 수정']);await page.keyboard.press('Escape');await expect(menu).toBeHidden();
- await up.getByRole('button',{name:'바구니 기록 메뉴'}).click();await expect(menu.getByRole('button')).toHaveText(['업데이트 열기','연결 해제','요약 수정']);await page.keyboard.press('Escape');
+ await nt.getByRole('button',{name:'정리함 기록 메뉴'}).click();const menu=page.locator('#ps3RecordMenu');await expect(menu.getByRole('button')).toHaveText(['노트 열기','연결 해제','요약 수정']);await page.keyboard.press('Escape');await expect(menu).toBeHidden();
+ await up.getByRole('button',{name:'정리함 기록 메뉴'}).click();await expect(menu.getByRole('button')).toHaveText(['업데이트 열기','연결 해제','요약 수정']);await page.keyboard.press('Escape');
  // The same link read asks for both kinds, nothing is written.
  expect(state.queries).toContain('in.(basket,note)');expect(state.writes).toEqual([]);expect(errors).toEqual([]);
 });

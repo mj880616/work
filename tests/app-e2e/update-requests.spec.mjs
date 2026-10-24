@@ -64,7 +64,7 @@ for (const width of [390, 1280]) test(`home and basket inputs have no request to
   await noToggles(q);
   await page.screenshot({ path: info.outputPath(`home-no-request-${width}.png`) });
   await press(page, q.locator('[data-quick-save]'), width);
-  await expect(page.locator('#toast')).toContainText('바구니에 저장했습니다.');
+  await expect(page.locator('#toast')).toContainText('정리함에 저장했습니다.');
   expect(f.writes).toHaveLength(1);
   // The word stays in the text; no marks are written.
   expect(f.writes[0].body).toMatchObject({ raw_text: '가상 간담회 일정 잡아 주세요 (임원 요청)' });
@@ -79,7 +79,7 @@ for (const width of [390, 1280]) test(`home and basket inputs have no request to
   // The basket screen's input has none either.
   await page.evaluate(() => window.KPTURouter.go('basket'));
   const bq = page.locator('#basketView [data-basket-list] [data-home-quick]');
-  await bq.locator('[data-quick-input]').focus(); await bq.locator('[data-quick-input]').fill('바구니 화면 입력');
+  await bq.locator('[data-quick-input]').focus(); await bq.locator('[data-quick-input]').fill('정리함 화면 입력');
   await noToggles(bq);
   await press(page, bq.locator('[data-quick-save]'), width);
   await expect.poll(() => f.writes.length).toBe(2);
@@ -140,7 +140,7 @@ test('an update saved with a file gets no follow-up request write', async ({ pag
   await q.locator('input[type=file]').setInputFiles([{ name: 'a.txt', mimeType: 'text/plain', buffer: Buffer.from('fake file') }]);
   await noToggles(q);
   await q.locator('[data-quick-save]').click();
-  await expect(page.locator('#toast')).toContainText('바구니에 저장했습니다.');
+  await expect(page.locator('#toast')).toContainText('정리함에 저장했습니다.');
   expect(uploads).toHaveLength(1);
   expect(f.writes).toHaveLength(0);
   expect(f.rows[0].metadata).toEqual({});

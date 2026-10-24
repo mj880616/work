@@ -48,25 +48,25 @@ test('project choice saves through the project progress table and organization c
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
  expect(projectBodies).toHaveLength(1);expect(orgBodies).toEqual([{organization_id:'o',raw_text:'조직 기록',created_by:'home-test'}]);
 });
-for(const width of [390,1280])test(`saving without a place puts the update in the basket; [바구니] in the sheet clears a chosen place ${width}`,async({page})=>{
+for(const width of [390,1280])test(`saving without a place puts the update in the basket; [정리함] in the sheet clears a chosen place ${width}`,async({page})=>{
  const {q}=await ready(page,width);
  const notes=[],orgBodies=[];
  await page.route(SB+'/rest/v1/app_notes**',r=>{if(r.request().method()!=='POST')return r.fallback();const body=r.request().postDataJSON();notes.push(body);return r.fulfill({json:[{id:'new-note',kind:'basket',occurred_at:'2026-10-06T01:00:00Z',...body}]});});
  await page.route(SB+'/rest/v1/app_suborganization_updates',r=>{orgBodies.push(r.request().postDataJSON());return r.fulfill({json:[]});});
- await expect(q).toHaveAttribute('data-mode','basket');await expect(q.locator('[data-quick-input]')).toHaveAttribute('placeholder','업데이트 입력(바구니에 저장)');
+ await expect(q).toHaveAttribute('data-mode','basket');await expect(q.locator('[data-quick-input]')).toHaveAttribute('placeholder','업데이트 입력(정리함에 저장)');
  await expect(q.locator('[data-quick-mode]')).toHaveText(['업데이트','할 일']);
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');await expect(dialog(page)).toBeHidden();
- await expect(page.locator('#toast')).toContainText('바구니에 저장했습니다.');
+ await expect(page.locator('#toast')).toContainText('정리함에 저장했습니다.');
  expect(notes).toHaveLength(1);expect(notes[0]).toMatchObject({raw_text:'기록 내용'});expect(orgBodies).toHaveLength(0);
- await q.locator('[data-quick-input]').fill('다시 바구니로');
+ await q.locator('[data-quick-input]').fill('다시 정리함으로');
  await q.locator('[data-quick-org]').click();await dialog(page).getByRole('button',{name:'테스트 조직',exact:true}).first().click();await dialog(page).getByRole('button',{name:'저장',exact:true}).click();await expect(q).toHaveAttribute('data-mode','update');
- await q.locator('[data-quick-org]').click();await expect(dialog(page).locator('[data-sheet-basket] button')).toHaveText('바구니(미분류)');
- await dialog(page).getByRole('button',{name:'바구니(미분류)',exact:true}).click();await dialog(page).getByRole('button',{name:'저장',exact:true}).click();await expect(q).toHaveAttribute('data-mode','basket');
+ await q.locator('[data-quick-org]').click();await expect(dialog(page).locator('[data-sheet-basket] button')).toHaveText('정리함(미분류)');
+ await dialog(page).getByRole('button',{name:'정리함(미분류)',exact:true}).click();await dialog(page).getByRole('button',{name:'저장',exact:true}).click();await expect(q).toHaveAttribute('data-mode','basket');
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
  expect(notes).toHaveLength(2);expect(orgBodies).toHaveLength(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
-test('an old [바구니] tab memory opens as [업데이트]',async({page})=>{
+test('an old [정리함] tab memory opens as [업데이트]',async({page})=>{
  // The server holds the old value 'basket' (no longer a valid mode): it is ignored and the box opens as [업데이트].
  await installViewPrefsServer(page,{home_quick_mode:'basket'});
  await openHome(page);const q=quick(page);

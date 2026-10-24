@@ -151,7 +151,7 @@ for (const width of [390, 1280]) {
     // The connection state stays under the body.
     await expect(detail.locator('[data-note-meta]')).toContainText('연결 없음');
     await press(page, detail.locator('[data-note-more]'), width);
-    await expect(menu(page).locator('button')).toHaveText(['고정', '폴더로 옮기기', '수정', '연결하기', '바구니로 돌리기', '삭제']);
+    await expect(menu(page).locator('button')).toHaveText(['고정', '폴더로 옮기기', '수정', '연결하기', '정리함으로 돌리기', '삭제']);
     const mm = await menu(page).boundingBox();
     expect(mm.y).toBeGreaterThanOrEqual(more.y + more.height - 1); expect(mm.x + mm.width).toBeLessThanOrEqual(width);
     await page.screenshot({ path: info.outputPath(`note-detail-menu-${width}.png`) });

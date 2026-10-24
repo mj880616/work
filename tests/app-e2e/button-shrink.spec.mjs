@@ -34,7 +34,7 @@ for(const width of [390,1280]){
   const errors=await boot(page,width);
   await check(page.locator('#homeView .home-quick [data-quick-save]'),36,'홈 [추가]');
   if(width<1024)await check(page.locator('#homeView .home-quick .home-quick-big'),32,'홈 [큰 창에서 쓰기]');
-  await go(page,'basket');await check(page.locator('#basketView [data-basket-list] .home-quick [data-quick-save]').first(),36,'바구니 [추가]');
+  await go(page,'basket');await check(page.locator('#basketView [data-basket-list] .home-quick [data-quick-save]').first(),36,'정리함 [추가]');
   await go(page,'tasks');await check(page.locator('#tasksView .home-quick [data-quick-save]'),36,'할 일 [추가]');
   if(width<1024)await check(page.locator('#tasksView .home-quick .home-quick-detail'),32,'할 일 [상세 설정으로 추가]');
   await page.locator('#tasksView .home-quick-detail').click();await expect(page.locator('#eventModal')).toBeVisible();
@@ -109,7 +109,7 @@ for(const width of [390,1280]){
  });
 
  // 자료가 있어야 보이는 화면(#957에서 못 본 곳): 바구니 파일 카드·⋯ 메뉴 창에 보이는 높이 35px 이상 버튼이 없음.
- test(`자료 화면 점검: 바구니 파일 카드·⋯ 메뉴 ${width}`,async({page})=>{
+ test(`자료 화면 점검: 정리함 파일 카드·⋯ 메뉴 ${width}`,async({page})=>{
   const HWP={drive_file_id:'drive-hwp',file_name:'가상 요구안.hwp',mime_type:'application/x-hwp',size_bytes:2048};
   const errors=await boot(page,width,p=>p.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_notes',r=>r.fulfill({json:[{id:'n1',workspace_id:'w',kind:'basket',occurred_at:stamp,updated_at:stamp,raw_text:'',ai_export_allowed:true,archived_at:null,attachments:[HWP],metadata:{}}]})));
   await go(page,'basket');await page.locator('[data-basket-row="n1"]').first().click();await expect(page.locator('[data-basket-file-card]').first()).toBeVisible();

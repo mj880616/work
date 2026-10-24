@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
-import { basketKindButton } from './helpers/basket-kind.mjs';
+import { basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';
 import { expectNoteTitle } from './helpers/note-title.mjs';
 
 // UI-업데이트목록메뉴: every update row has [복사] and [⋯] at its top right (same look and behavior as the note rows, UI-노트메뉴정리).
@@ -82,7 +82,7 @@ for (const width of [390, 1280]) {
     if (width < 761) { await press(page, rowMore(page, C), width); await expect(menu(page).getByRole('button', { name: '복사', exact: true })).toHaveCount(0); await expect(menu(page).locator('button').first()).toHaveText('수정'); await page.keyboard.press('Escape'); await expect(menu(page)).toBeHidden(); }
     await press(page, more, width);
     await expect(menu(page)).toBeVisible(); await expect(more).toHaveAttribute('aria-expanded', 'true');
-    await expect(menu(page).locator('button')).toHaveText([...(width < 761 ? ['복사'] : []), '수정', '연결하기', '할 일 만들기', '노트로 옮기기', '사업 보고로 옮기기', '업무일지에 남기기', '삭제']);
+    await expect(menu(page).locator('button')).toHaveText([...(width < 761 ? ['복사'] : []), '수정', '연결하기', '할 일 만들기', '노트로 옮기기', '사업 보고로 옮기기', '업무일지에 남기기', '보류로', '삭제']);
     await expect(menu(page).locator('button').last()).toHaveClass(/basket-menu-danger/);
     for (const b of await menu(page).locator('button').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
     const m = await menu(page).boundingBox();
@@ -165,7 +165,7 @@ for (const width of [390, 1280]) {
     answers.push(true);
     await choose(page, B, '노트로 옮기기', width);
     await expect(page.locator('#toast')).toHaveText('노트로 옮겼어요.');
-    await expect(page.locator('[data-basket-kind="note"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#basketView')).toHaveAttribute('data-kind','note');
     await expectNoteTitle(page,'합성 둘째 업데이트');
     expect(f.writes).toHaveLength(1);
     expect(f.writes[0].query).toMatchObject({ id: 'eq.' + B, kind: 'eq.basket' }); expect(f.writes[0].body).toMatchObject({ kind: 'note', title: '합성 둘째 업데이트' });
@@ -195,7 +195,7 @@ test('an archived update leaves 연결하기 out of its row menu, as the detail 
   await page.locator('[data-basket-filter="archived"]').click();
   await expect(rowMore(page, B)).toBeVisible();
   await rowMore(page, B).click();
-  await expect(menu(page).locator('button')).toHaveText(['수정', '할 일 만들기', '노트로 옮기기', '사업 보고로 옮기기', '삭제']);
+  await expect(menu(page).locator('button')).toHaveText(['수정', '할 일 만들기', '노트로 옮기기', '사업 보고로 옮기기', '보류 해제', '삭제']);
   await page.keyboard.press('Escape'); await expect(menu(page)).toBeHidden();
   expect(f.errors).toEqual([]);
 });

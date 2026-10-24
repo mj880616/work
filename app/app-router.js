@@ -190,17 +190,18 @@
     // selected look for every screen of its group but is the current page only on its own screen (달력), like [바구니]
     // over its sub rows. [달력] repeats the head's screen (data-goto), so it is marked as the current item, not a second page.
     const target=NAV_ALIAS[view]||view;
-    document.querySelectorAll('.app-nav .nav-btn,.app-nav .nav-sub-btn:is([data-view],[data-goto]),.mobile-tabs [data-view],.mobile-menu-panel [data-view]').forEach(btn=>{
-      const own=(btn.dataset.view||btn.dataset.goto)===target;
+    // BASKET-정리함이름: [노트] is its own menu item but lives on the basket panel (basket.js writes the side it shows to
+    // #basketView[data-kind]). On that side [정리함] is not the current page and [노트] is; on every other screen [노트] is not marked.
+    const noteMode=target==='basket'&&document.getElementById('basketView')?.dataset.kind==='note';
+    document.querySelectorAll('.app-nav .nav-btn,.app-nav .nav-sub-btn:is([data-view],[data-goto]),.mobile-tabs [data-view],.mobile-menu-panel :is([data-view],[data-basket-kind-nav])').forEach(btn=>{
+      const own=btn.dataset.basketKindNav?noteMode:(btn.dataset.view||btn.dataset.goto)===target&&!(noteMode&&btn.dataset.view==='basket');
       btn.classList.toggle('active',own||!!btn.dataset.navGroup?.split(' ').includes(target));
       if(own)btn.setAttribute('aria-current',btn.dataset.goto&&!btn.dataset.view?'true':'page');
       else btn.removeAttribute('aria-current');
     });
     // UI-테마선택색: the phone tab [메뉴] is the current item on every screen reached through the menu sheet.
     const menuTab=document.getElementById('mobileMenuTab');
-    if(menuTab){if(MENU_SHEET_VIEWS.includes(target))menuTab.setAttribute('aria-current','page');else menuTab.removeAttribute('aria-current')}
-    // Only the current screen is marked: a sub item of another group (basket 업데이트·노트) never keeps its mark after leaving.
-    if(target!=='basket')document.querySelectorAll('.app-nav [data-basket-kind-nav]').forEach(btn=>{btn.classList.remove('active');btn.removeAttribute('aria-current')});
+    if(menuTab){if(MENU_SHEET_VIEWS.includes(target)||noteMode)menuTab.setAttribute('aria-current','page');else menuTab.removeAttribute('aria-current')}
     // UI-PC사이드바: on the PC sidebar the top line (icon + 홈) is the home menu, so it carries the home selection.
     document.querySelectorAll('.app-nav .sidebar-brand').forEach(brand=>{
       const current=(NAV_ALIAS[view]||view)==='home';

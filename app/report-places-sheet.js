@@ -28,7 +28,7 @@ function ensurePlacesSheet(){
   placesSheet||=createChoiceSheet({id:'reportPlacesSheet',titleId:'reportPlacesSheetTitle',historyKey:'kptuReportPlaces',
     canOpen:()=>!!placesActive,choices:()=>loadReportPlaces().then(p=>{if(placesActive)placesActive.places=p}),
     render:()=>{if(placesActive)placesActive.pending=placeList(placesActive.chosen);return {title:'연결할 곳 선택',search:'조직·프로젝트 이름 검색',split:true,html:placeSheetHtml(placesActive?.places,placesActive?.pending,esc,{basket:false,references:false})}},
-    multi:()=>placesActive?{pressed:value=>placesActive.pending.some(p=>placeValue(p)===value),label:choiceCountText(placesActive.pending).replace('바구니(미분류) 선택됨','연결 안 함')}:null,
+    multi:()=>placesActive?{pressed:value=>placesActive.pending.some(p=>placeValue(p)===value),label:choiceCountText(placesActive.pending).replace('정리함(미분류) 선택됨','연결 안 함')}:null,
     onSelect:(kind,value)=>{if(!placesActive)return;const next=togglePlace(placesActive.pending,value);if(next)placesActive.pending=next;else placesActive.onLimit?.(`한 번에 ${PLACE_LIMIT}곳까지 고를 수 있어요.`)},
     onCommit:()=>{if(placesActive)placesActive.onCommit(placeList(placesActive.pending))},
     onError:error=>placesActive?.onLimit?.(error?.message||'연결할 곳을 불러오지 못했어요.')});

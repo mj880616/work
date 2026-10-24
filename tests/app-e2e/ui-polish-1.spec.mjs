@@ -72,9 +72,9 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  // The sheet sits right on top of the tab bar, full width, rounded top.
  await expect.poll(async()=>{const [sheet,tabs]=await Promise.all([rect(panel),rect(page.locator('.mobile-tabs'))]);return Math.abs(sheet.bottom-tabs.top)<=1&&sheet.left===0&&Math.round(sheet.right)===390;}).toBe(true);
  await expect(grip).toBeFocused();await expect(grip).toHaveAccessibleName('메뉴 닫기');
- // 큰 칸 3열(3줄): 사업 보고·자료실·HWP 편집 / 성명·보도자료·공유 페이지·원장 / 통화·텔레그램 소식. 성명과 보도자료는 한 칸.
+ // 큰 칸 3열(3줄): 노트·사업 보고·자료실 / HWP 편집·성명·보도자료·공유 페이지 / 원장 ·통화·텔레그램 소식. 성명과 보도자료는 한 칸.
  const tiles=page.locator('#mobileMenu nav button:visible');
- await expect(tiles).toHaveText(['사업 보고','자료실','HWP 편집','성명·보도자료','공유 페이지','원장','통화','텔레그램 소식']);
+ await expect(tiles).toHaveText(['노트','사업 보고','자료실','HWP 편집','성명·보도자료','공유 페이지','원장','통화','텔레그램 소식']);
  const boxes=await tiles.evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {x:Math.round(r.left),y:Math.round(r.top),h:r.height};}));
  expect(new Set(boxes.map(b=>b.y)).size).toBe(3);expect(new Set(boxes.map(b=>b.x)).size).toBe(3);
  for(const b of boxes)expect(b.h).toBeGreaterThanOrEqual(44);
@@ -112,14 +112,14 @@ test('쓰기 메뉴 없음: PC 사이드바·폰 메뉴 창·☰ 메뉴에 [쓰�
  // UI-PC사이드바: 홈은 맨 위 아이콘+"홈" 줄(따로 있던 [홈] 줄은 PC 사이드바에서 숨김), 게시판 → 공유 페이지.
  // UI-PC일정묶음: 할 일·업무일지·일기는 [일정] 아래 하위 메뉴(달력·할 일·업무일지·일기)로.
  await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn:visible')).toHaveText(['달력','할 일','업무일지','일기']);
- await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['바구니','일정','프로젝트','사업 보고','자료실','성명·보도자료','공유 페이지','담당조직','HWP 편집','원장','통화','텔레그램 소식',/^자주 가는 링크/]);
+ await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['정리함','노트','일정','프로젝트','사업 보고','자료실','성명·보도자료','공유 페이지','담당조직','HWP 편집','원장','통화','텔레그램 소식',/^자주 가는 링크/]);
  await openWriteFromEntry(page,1280);await expect(page.locator('#edWindow')).toBeVisible();
  await page.keyboard.press('Escape');await expect(page.locator('#edWindow')).toHaveCount(0);
  await page.setViewportSize({width:900,height:900});
  await page.locator('#mobileMenuOpen').click();await expect(page.locator('#mobileMenu [data-menu-write]')).toHaveCount(0);
  await page.setViewportSize({width:390,height:844});
  await page.locator('#mobileMenuTab').click();
- await expect(page.locator('#mobileMenu nav[aria-label="더 보기"] button')).toHaveText(['사업 보고','자료실','HWP 편집','성명·보도자료','공유 페이지','원장','통화','텔레그램 소식']);
+ await expect(page.locator('#mobileMenu nav[aria-label="더 보기"] button')).toHaveText(['노트','사업 보고','자료실','HWP 편집','성명·보도자료','공유 페이지','원장','통화','텔레그램 소식']);
  await expect(page.locator('#mobileMenu [data-menu-write]')).toHaveCount(0);
 });
 
@@ -132,7 +132,7 @@ test('폰 홈 입력칸의 ⤢가 보이고 누르면 쓰기 창이 열림 390',
  await page.keyboard.press('Escape');await expect(page.locator('#edWindow')).toHaveCount(0);
 });
 
-for(const width of [1280])test(`빠른 추가 [업데이트] 쓰기 창(ED③ 새 편집기): 빈 창에서 저장 아이콘을 누르면 바구니 새 업데이트 하나(글자 + 서식, 기존 저장 경로) ${width}`,async({page})=>{
+for(const width of [1280])test(`빠른 추가 [업데이트] 쓰기 창(ED③ 새 편집기): 빈 창에서 저장 아이콘을 누르면 정리함 새 업데이트 하나(글자 + 서식, 기존 저장 경로) ${width}`,async({page})=>{
  const {errors,state}=await boot(page,width);
  await view(page,'basket');
  await openWriteFromEntry(page,width);
@@ -149,7 +149,7 @@ for(const width of [1280])test(`빠른 추가 [업데이트] 쓰기 창(ED③ �
  await openWriteFromEntry(page,width);
  await expect(page.locator('#edWindow .ed-window-body .ProseMirror')).toContainText('쓰기에서 저장');
  await page.locator('#edWindow [data-edw-save]').click();
- await expect(page.locator('#edWindow')).toHaveCount(0);await expect(page.locator('#toast')).toContainText('바구니에 저장했어요.');
+ await expect(page.locator('#edWindow')).toHaveCount(0);await expect(page.locator('#toast')).toContainText('정리함에 저장했어요.');
  expect(state.posts).toHaveLength(1);expect(state.posts[0]).toMatchObject({workspace_id:ws.id,raw_text:'# 새 메모\n쓰기에서 저장'});expect(state.posts[0].doc).toMatchObject({v:'ed1'});
  // The basket list on screen shows the new note without leaving it.
  await showBasketRow(page,'10000000-0000-4000-8000-000000000099');
@@ -161,7 +161,7 @@ for(const width of [1280])test(`빠른 추가 [업데이트] 쓰기 창(ED③ �
  expect(errors).toEqual([]);
 });
 
-for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`메모 읽기·수정: "‹ 바구니", 이 메모의 [⋯] 메뉴, 큰 버튼 둘, 연결·날짜 한 줄 ${width}${dark?' 어두운 화면':''}`,async({page})=>{
+for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`메모 읽기·수정: "‹ 정리함", 이 메모의 [⋯] 메뉴, 큰 버튼 둘, 연결·날짜 한 줄 ${width}${dark?' 어두운 화면':''}`,async({page})=>{
  const {errors,state}=await boot(page,width,{dark});
  await view(page,'basket');
  const listMore=page.locator('[data-basket-more]');await expect(listMore).toBeVisible();
@@ -169,7 +169,7 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`메모 읽
  const detail=page.locator('[data-basket-detail]');await expect(detail.locator('[data-basket-read-text]')).toBeVisible();
  // The list menu (AI 분류 요청 등) is the list's only; the note has its own.
  await expect(listMore).toBeHidden();
- const back=detail.locator('.basket-back');await expect(back).toHaveText('‹ 바구니');await expect(back).toHaveAccessibleName('바구니 목록으로');
+ const back=detail.locator('.basket-back');await expect(back).toHaveText('‹ 정리함');await expect(back).toHaveAccessibleName('정리함 목록으로');
  if(width<761){
   await expect(page.locator('[data-mobile-view-name]')).toBeHidden();
   const [b,header]=await Promise.all([rect(back),rect(page.locator('.mobile-shell-header'))]);
@@ -192,7 +192,7 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`메모 읽
  // [⋯] = 수정·보관·삭제(빨강), keyboard and Esc. 원문 보기 is the small toggle icon near the text.
  const more=detail.locator('[data-basket-note-more]'),menu=detail.locator('#basketNoteMenu');
  await expect(menu).toBeHidden();await more.click();await expect(menu).toBeVisible();await expect(more).toHaveAttribute('aria-expanded','true');
- await expect(menu.locator('button')).toHaveText(['수정','보관','삭제']);
+ await expect(menu.locator('button')).toHaveText(['수정','보류로','삭제']);
  await expect(menu.locator('[data-basket-edit]')).toBeFocused();
  expect(await menu.locator('[data-basket-delete]').evaluate(el=>getComputedStyle(el).color)).toBe(await token('--kptu-danger'));
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(more).toBeFocused();await expect(detail.locator('[data-basket-read-text]')).toBeVisible();
@@ -213,7 +213,7 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`메모 읽
  expect(errors).toEqual([]);
 });
 
-test('바구니 목록 [⋯]: [AI 분류 요청], 누른 뒤 안내 문구',async({page,context})=>{
+test('정리함 목록 [⋯]: [AI 분류 요청], 누른 뒤 안내 문구',async({page,context})=>{
  await context.grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
  await boot(page,390);await view(page,'basket');
  await page.locator('[data-basket-more]').click();

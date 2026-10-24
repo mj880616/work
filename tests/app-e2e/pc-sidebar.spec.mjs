@@ -29,28 +29,27 @@ test('PC 1280: 맨 위 "홈" 줄이 홈 메뉴이고 고른 표시를 가진다;
  expect(errors).toEqual([]);
 });
 
-test('PC 1280: [바구니] 아래 [업데이트]·[노트]가 항상 보이고 그쪽을 연다',async({page})=>{
- const errors=await open(page,1280),sub=nav(page).locator('.nav-sub[aria-label="바구니"]');
- await expect(sub).toBeVisible();await expect(sub.getByRole('button')).toHaveText(['업데이트','노트']);
- const basket=await nav(page).locator('.nav-btn[data-view="basket"]').boundingBox(),first=await sub.getByRole('button').first().boundingBox();
- expect(first.y).toBeGreaterThan(basket.y);expect(first.x).toBeGreaterThan(basket.x);
- await sub.getByRole('button',{name:'노트',exact:true}).click();
+test('PC 1280: [노트]는 [정리함] 아래가 아니라 독립 메뉴 줄이고, 누르면 노트 쪽을 연다',async({page})=>{
+ const errors=await open(page,1280),basketRow=nav(page).locator('.nav-btn[data-view="basket"]'),noteRow=nav(page).locator('.nav-btn[data-basket-kind-nav="note"]');
+ await expect(nav(page).locator('.nav-sub[aria-label="정리함"]')).toHaveCount(0);
+ await expect(basketRow).toHaveText('정리함');await expect(noteRow).toBeVisible();await expect(noteRow).toHaveText('노트');
+ const b=await basketRow.boundingBox(),n=await noteRow.boundingBox();
+ expect(n.y).toBeGreaterThan(b.y);expect(Math.abs(n.x-b.x)).toBeLessThan(2);
+ await noteRow.click();
  await expect(page.locator('#basketView')).toBeVisible();
- await expect(page.locator('[data-basket-kind="note"]')).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-note-host]')).toBeVisible();
- await expect(sub.getByRole('button',{name:'노트',exact:true})).toHaveAttribute('aria-current','true');
- await expect(sub.getByRole('button',{name:'업데이트',exact:true})).not.toHaveAttribute('aria-current','true');
- await expect(nav(page).locator('.nav-btn[data-view="basket"]')).toHaveAttribute('aria-current','page');
- await sub.getByRole('button',{name:'업데이트',exact:true}).click();
- await expect(page.locator('[data-basket-kind="memo"]')).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-list]')).toBeVisible();
- await expect(sub.getByRole('button',{name:'업데이트',exact:true})).toHaveAttribute('aria-current','true');
- // The basket screen's own switch keeps the sidebar in step.
- await chooseBasketKind(page,'note');await expect(sub.getByRole('button',{name:'노트',exact:true})).toHaveAttribute('aria-current','true');
- // Leaving the basket clears the sub mark.
+ await expect(page.locator('#basketView')).toHaveAttribute('data-kind','note');await expect(page.locator('[data-note-host]')).toBeVisible();
+ await expect(noteRow).toHaveAttribute('aria-current','page');
+ await expect(basketRow).not.toHaveAttribute('aria-current','page');
+ await basketRow.click();
+ await expect(page.locator('#basketView')).toHaveAttribute('data-kind','memo');await expect(page.locator('[data-basket-list]')).toBeVisible();
+ await expect(basketRow).toHaveAttribute('aria-current','page');await expect(noteRow).not.toHaveAttribute('aria-current','page');
+ await chooseBasketKind(page,'note');await expect(noteRow).toHaveAttribute('aria-current','page');
+ // Leaving the basket clears the mark.
  await nav(page).locator('.nav-btn[data-view="calendar"]').click();await expect(page.locator('#calendarView')).toBeVisible();
- await expect(sub.locator('[aria-current]')).toHaveCount(0);
+ await expect(noteRow).not.toHaveAttribute('aria-current','page');
  // From another screen, [노트] opens the basket on the note side.
- await sub.getByRole('button',{name:'노트',exact:true}).click();await expect(page.locator('#basketView')).toBeVisible();
- await expect(page.locator('[data-basket-kind="note"]')).toHaveAttribute('aria-pressed','true');
+ await noteRow.click();await expect(page.locator('#basketView')).toBeVisible();
+ await expect(page.locator('#basketView')).toHaveAttribute('data-kind','note');
  expect(errors).toEqual([]);
 });
 
@@ -83,13 +82,10 @@ test('PC 1280: [일정] 아래 [달력]·[할 일]·[업무일지]·[일기], �
  const errors=await open(page,1280),head=nav(page).locator('.nav-btn[data-view="calendar"]'),sub=nav(page).locator('.nav-sub[aria-label="일정"]');
  await expect(head).toHaveText('일정');
  await expect(sub).toBeVisible();await expect(sub.getByRole('button')).toHaveText(['달력','할 일','업무일지','일기']);
- // 바로 아래, 들여 쓴 같은 모양(바구니 하위 메뉴와 같은 크기·글자).
- const basketSub=nav(page).locator('.nav-sub[aria-label="바구니"]');
+ // 바로 아래, 들여 쓴 하위 메뉴.
  const shape=loc=>loc.evaluate(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return {h:Math.round(r.height),x:Math.round(r.x),font:s.fontSize,weight:s.fontWeight,color:s.color};});
  const hb=await head.boundingBox(),first=await sub.getByRole('button').first().boundingBox();
  expect(first.y).toBeGreaterThan(hb.y);expect(first.x).toBeGreaterThan(hb.x);
- const a=await shape(sub.getByRole('button',{name:'할 일',exact:true})),b=await shape(basketSub.getByRole('button',{name:'노트',exact:true}));
- expect(a).toEqual(b);
  // 따로 있던 줄은 없다(사이드바 전체에서 화면마다 줄 하나).
  for(const view of ['tasks','journal','diary'])await expect(nav(page).locator(`[data-view="${view}"]`)).toHaveCount(1);
  await expect(nav(page).locator('.nav-btn[data-view="tasks"],.nav-btn[data-view="journal"],.nav-btn[data-view="diary"]')).toHaveCount(0);
@@ -143,10 +139,10 @@ test('"일지" → "업무일지": 사이드바·폰 전환 줄·화면, 주소(
  await expect(page.locator('#journalView .schedule-switch').getByRole('button')).toHaveText(['달력','할 일','업무일지','일기']);
  expect(await bare()).toBe(0);
  // 폰: 하단 탭 6칸·메뉴 판 항목은 그대로.
- await expect(page.locator('.mobile-tabs > button')).toHaveText(['홈','바구니','일정','프로젝트','담당조직','메뉴']);
+ await expect(page.locator('.mobile-tabs > button')).toHaveText(['홈','정리함','일정','프로젝트','담당조직','메뉴']);
  await expect(page.locator('.mobile-tabs [data-mobile-schedule-tab]')).toHaveAttribute('aria-current','page');
  await page.locator('#mobileMenuTab').click();
- expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['사업 보고','자료실','HWP 편집','성명·보도자료','공유 페이지','원장','통화','텔레그램 소식']);
+ expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['노트','사업 보고','자료실','HWP 편집','성명·보도자료','공유 페이지','원장','통화','텔레그램 소식']);
  await expect(nav(page)).toBeHidden();
  expect(errors).toEqual([]);
 });

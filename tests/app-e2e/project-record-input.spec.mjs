@@ -124,13 +124,13 @@ test('PRJ-기록입력 one list: new, old item records, items and 🧺 basket li
   const basket=lines(page).nth(1).locator('a');
   await expect(basket).toHaveAttribute('href','./?view=basket&note=note-1');
   // UI-기록아이콘: the mark is the update icon (an outline drawing), no longer 🧺.
-  await expect(basket.getByRole('img',{name:'바구니 업데이트'})).toBeVisible();await expect(basket.locator('[data-record-mark="update"] svg')).toHaveCount(1);await expect(lines(page).nth(1)).not.toContainText('🧺');
-  await expect(lines(page).nth(1).locator('button')).toHaveCount(1);await expect(lines(page).nth(1).getByRole('button',{name:'바구니 기록 메뉴'})).toBeVisible();
+  await expect(basket.getByRole('img',{name:'정리함 업데이트'})).toBeVisible();await expect(basket.locator('[data-record-mark="update"] svg')).toHaveCount(1);await expect(lines(page).nth(1)).not.toContainText('🧺');
+  await expect(lines(page).nth(1).locator('button')).toHaveCount(1);await expect(lines(page).nth(1).getByRole('button',{name:'정리함 기록 메뉴'})).toBeVisible();
   await expect(page.locator('#ps3Body [data-link-summary-edit],#ps3Body [data-link-disconnect],#ps3Body [data-link-note-delete],#ps3BasketLinks')).toHaveCount(0);
   await basket.click();
   // UI-모바일업데이트겹쳐보기: on a phone the line first comes up as a card over the detail; [바구니에서 열기] is the full open.
   const sheet=page.locator('#kptuRecordSheet');await expect(sheet).toBeVisible();await expect(page.locator('#ps3DetailModal')).toBeVisible();await expect(sheet.locator('[data-record-sheet-text]')).not.toBeEmpty();
-  await sheet.getByRole('button',{name:'바구니에서 열기'}).click();
+  await sheet.getByRole('button',{name:'정리함에서 열기'}).click();
   await expect(page.locator('#ps3DetailModal')).toBeHidden();
   await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('basket');
   expect(state.calls('app_record_links','PATCH').length+state.calls('app_record_links','DELETE').length).toBe(0);

@@ -25,7 +25,7 @@ export function luDeleteSuccessMessage(data){
   if(!data||typeof data!=='object'||Array.isArray(data)||data.ok!==true||data.error||unconfirmedOutcome(data))return null;
   if(modernFields.every(key=>!hasField(data,key)))return '자료 등록을 삭제했습니다. Drive 파일 처리 결과는 확인하지 못했습니다. 원본 상태를 직접 확인해 주세요.';
   if(!modernFields.every(key=>hasField(data,key)))return null;
-  if(data.drive_result==='preserved'&&data.drive_preserved===true&&['note_reference','private_basket_original'].includes(data.reason))return '자료 등록을 삭제했습니다. 바구니 원본 파일은 Drive에 보존했습니다.';
+  if(data.drive_result==='preserved'&&data.drive_preserved===true&&['note_reference','private_basket_original'].includes(data.reason))return '자료 등록을 삭제했습니다. 정리함 원본 파일은 Drive에 보존했습니다.';
   if(data.drive_preserved!==false||data.reason!=='ordinary_library')return null;
   switch(data.drive_result){
     case 'trashed':return '자료 등록을 삭제하고 파일을 Drive 휴지통으로 이동했습니다. 파일은 Drive 휴지통에서 확인해 주세요.';

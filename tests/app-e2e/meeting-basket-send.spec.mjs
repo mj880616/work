@@ -54,11 +54,11 @@ for(const width of [390,1280])test(`whole result goes to the basket as one memo 
   await page.setViewportSize({width,height:900});
   const f=await setup(page);
   const button=page.locator('#mrdToBasket');
-  await expect(button).toBeVisible();await expect(button).toHaveText('바구니에 담기');
+  await expect(button).toBeVisible();await expect(button).toHaveText('정리함에 담기');
   const box=await button.boundingBox();expect(box.height).toBeGreaterThanOrEqual(32);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await button.click();
-  await expect(page.locator('#mrdBasketStatus')).toHaveText('바구니에 담았어요.');
+  await expect(page.locator('#mrdBasketStatus')).toHaveText('정리함에 담았어요.');
   expect(f.posts).toHaveLength(1);
   expect(f.posts[0].workspace_id).toBe('meeting-ws');
   expect(f.posts[0].occurred_at).toBe('2026-09-17T10:00:00.000Z');
@@ -72,18 +72,18 @@ test('selected part only is sent and the label follows the selection',async({pag
   await select(page,'둘째','베타');
   await expect(button).toHaveText('선택한 글 담기');
   await button.click();
-  await expect(page.locator('#mrdBasketStatus')).toHaveText('바구니에 담았어요.');
+  await expect(page.locator('#mrdBasketStatus')).toHaveText('정리함에 담았어요.');
   expect(f.posts).toHaveLength(1);
   expect(f.posts[0].raw_text).toBe('출처: 시험 회의 2차 회의 (2026-09-17)\n\n둘째 줄 베타');
-  await expect(button).toHaveText('바구니에 담김');
+  await expect(button).toHaveText('정리함에 담김');
 });
 
 test('selection outside the result box is ignored',async({page})=>{
   const f=await setup(page);
   await page.evaluate(()=>{const s=getSelection(),r=document.createRange();r.selectNodeContents(document.querySelector('#mrdTitle'));s.removeAllRanges();s.addRange(r)});
-  await expect(page.locator('#mrdToBasket')).toHaveText('바구니에 담기');
+  await expect(page.locator('#mrdToBasket')).toHaveText('정리함에 담기');
   await page.locator('#mrdToBasket').click();
-  await expect(page.locator('#mrdBasketStatus')).toHaveText('바구니에 담았어요.');
+  await expect(page.locator('#mrdBasketStatus')).toHaveText('정리함에 담았어요.');
   expect(f.posts[0].raw_text).toContain('첫째 줄 알파');
 });
 
@@ -104,7 +104,7 @@ test('empty result disables the button and a failed save shows an error without 
   expect(f.posts).toHaveLength(1);
   f.setFail(false);
   await page.locator('#mrdToBasket').click();
-  await expect(page.locator('#mrdBasketStatus')).toHaveText('바구니에 담았어요.');
+  await expect(page.locator('#mrdBasketStatus')).toHaveText('정리함에 담았어요.');
   expect(f.posts).toHaveLength(2);
 });
 
@@ -117,7 +117,7 @@ test('keyboard can reach and press the button',async({page})=>{
   const f=await setup(page);
   await page.locator('#mrdToBasket').focus();
   await page.keyboard.press('Enter');
-  await expect(page.locator('#mrdBasketStatus')).toHaveText('바구니에 담았어요.');
+  await expect(page.locator('#mrdBasketStatus')).toHaveText('정리함에 담았어요.');
   expect(f.posts).toHaveLength(1);
 });
 
@@ -127,17 +127,17 @@ test('after a successful send the button is disabled and says it is in the baske
   const keys=async()=>JSON.stringify(await page.context().storageState());
   const before=await keys();
   await button.click();
-  await expect(page.locator('#mrdBasketStatus')).toHaveText('바구니에 담았어요.');
-  await expect(button).toBeDisabled();await expect(button).toHaveText('바구니에 담김');
+  await expect(page.locator('#mrdBasketStatus')).toHaveText('정리함에 담았어요.');
+  await expect(button).toBeDisabled();await expect(button).toHaveText('정리함에 담김');
   // 선택이 바뀌어도 담긴 표시는 그대로이고 다시 보내지 않는다.
   await select(page,'둘째','베타');
-  await expect(button).toBeDisabled();await expect(button).toHaveText('바구니에 담김');
+  await expect(button).toBeDisabled();await expect(button).toHaveText('정리함에 담김');
   expect(f.posts).toHaveLength(1);
   // 창을 닫았다 다시 열면 원래대로(기억은 MEET 2단계).
   await page.locator('#mrdClose').click();
   await openMeetingResult(page,'meeting-1');
   await expect(page.locator('#mrdResult')).toContainText('첫째 줄 알파');
-  await expect(button).toBeEnabled();await expect(button).toHaveText('바구니에 담기');
+  await expect(button).toBeEnabled();await expect(button).toHaveText('정리함에 담기');
   expect(await keys()).toBe(before);// 브라우저 저장소로 담김 표시를 흉내 내지 않는다.
 });
 
@@ -147,10 +147,10 @@ test('a failed send keeps the button pressable; it is disabled only while sendin
   f.setFail(true);
   await button.click();
   await expect(page.locator('#mrdBasketStatus')).toHaveClass(/error/);
-  await expect(button).toBeEnabled();await expect(button).toHaveText('바구니에 담기');
+  await expect(button).toBeEnabled();await expect(button).toHaveText('정리함에 담기');
   f.setFail(false);
   await button.click();
-  await expect(button).toHaveText('바구니에 담김');await expect(button).toBeDisabled();
+  await expect(button).toHaveText('정리함에 담김');await expect(button).toBeDisabled();
   expect(f.posts).toHaveLength(2);
 });
 
@@ -160,7 +160,7 @@ test('a slow send disables the button so a second press cannot double post',asyn
   const button=page.locator('#mrdToBasket');
   await button.click();
   await expect(button).toBeDisabled();
-  await expect(button).toHaveText('바구니에 담김');
+  await expect(button).toHaveText('정리함에 담김');
   expect(f.posts).toHaveLength(1);
 });
 

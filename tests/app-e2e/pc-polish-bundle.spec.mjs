@@ -74,7 +74,7 @@ test('UI-PC다듬기묶음 ① PC 1280: 사이드바 맨 아래는 [HWP 편집]�
 test('UI-PC다듬기묶음 ① 폰 390: ☰ 메뉴에 [쓰기]가 없고 회의부터 시작',async({page})=>{
  await boot(page,390);
  await page.locator('#mobileMenuTab').click();
- expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['사업 보고','자료실','HWP 편집','성명·보도자료','공유 페이지','원장','통화','텔레그램 소식']);
+ expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['노트','사업 보고','자료실','HWP 편집','성명·보도자료','공유 페이지','원장','통화','텔레그램 소식']);
 });
 
 for(const width of [1024,1280,1440,1920])test(`UI-PC다듬기묶음 ② PC ${width}: [+ 일정 등록]은 같은 줄 [오늘]·보기 전환과 같은 높이, 누르는 범위 44`,async({page})=>{
@@ -96,7 +96,7 @@ test('UI-PC다듬기묶음 ② 폰 390·중간 폭 900: [+ 일정 등록]은 폰
  const mid=await box(page.locator('#newEventBtn'));expect(mid.height).toBe(32);
 });
 
-for(const width of [1024,1280,1920])test(`UI-PC다듬기묶음 ③ PC ${width}: 바구니 업데이트·노트 본문이 사이드바 바로 옆 왼쪽에서 시작, 최대 폭 1100`,async({page})=>{
+for(const width of [1024,1280,1920])test(`UI-PC다듬기묶음 ③ PC ${width}: 정리함 업데이트·노트 본문이 사이드바 바로 옆 왼쪽에서 시작, 최대 폭 1100`,async({page})=>{
  await boot(page,width);
  await open(page,'basket');
  const nav=await box(page.locator('#appView>.app-nav'));
@@ -109,7 +109,7 @@ for(const width of [1024,1280,1920])test(`UI-PC다듬기묶음 ③ PC ${width}: 
  // 업데이트: 탭·입력창
  await check('업데이트');
  // BASKET-노트입력창: PC(≥1024)에는 화면 위 [업데이트 | 노트]가 없다(사이드바가 맡음).
- await expect(page.locator('#basketView .basket-kind-switch')).toBeHidden();
+ await expect(page.locator('#basketView .basket-kind-switch')).toHaveCount(0);
  for(const sel of ['#basketView [data-basket-list] [data-home-quick]']){const b=await box(page.locator(sel));expect(b.left-nav.right,sel).toBeLessThanOrEqual(48);}
  await chooseBasketKind(page,'note');
  await expect(page.locator('#basketView [data-note-search]')).toBeVisible();
@@ -120,7 +120,7 @@ for(const width of [1024,1280,1920])test(`UI-PC다듬기묶음 ③ PC ${width}: 
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
 });
 
-test('UI-PC다듬기묶음 ③ 폰 390·중간 폭 900: 바구니 본문 폭 규칙은 그대로(가운데 정렬 값 유지)',async({page})=>{
+test('UI-PC다듬기묶음 ③ 폰 390·중간 폭 900: 정리함 본문 폭 규칙은 그대로(가운데 정렬 값 유지)',async({page})=>{
  await boot(page,390);await open(page,'basket');
  const phone=await page.locator('#basketView').evaluate(el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return {max:s.maxWidth,left:r.left,right:innerWidth-r.right}});
  expect(phone.max).toBe('900px');expect(Math.abs(phone.left-phone.right)).toBeLessThanOrEqual(1);

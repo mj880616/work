@@ -118,12 +118,12 @@ test('overwrite asks once, says both sides change for a shared file, and sends t
     overwrite:(route,body,n)=>route.fulfill({headers:cors,json:{...replies[0],revision:'rev-'+(n+1)}}),
   });
   await editLibraryDocument(page,390);
-  await expect(status(page)).toHaveText(/이 파일은 바구니와 자료실이 같은 원본을 써요/,{timeout:60000});
+  await expect(status(page)).toHaveText(/이 파일은 정리함과 자료실이 같은 원본을 써요/,{timeout:60000});
   const dialogs=[];
   page.once('dialog',dialog=>{dialogs.push(dialog.message());void dialog.dismiss()});
   await press(page,page.getByRole('button',{name:'원본에 덮어쓰기'}),390);
   await expect.poll(()=>dialogs.length).toBe(1);
-  expect(dialogs[0]).toContain('바구니와 자료실 양쪽에 반영돼요.');
+  expect(dialogs[0]).toContain('정리함과 자료실 양쪽에 반영돼요.');
   expect(dialogs[0]).toContain('Web2 편집 백업');
   expect(f.sent.overwrite).toEqual([]);
 

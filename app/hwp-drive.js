@@ -119,14 +119,14 @@ export async function saveBasketCopy(target,bytes,{rt=window.KPTURuntime,fetcher
   form.append('file',new File([bytes],editedName(target.fileName),{type:'application/x-hwp'}));
   form.append('note_id',target.noteId);
   let response;
-  try{response=await send(rt,'/functions/v1/basket-files',form,{fetcher})}catch(error){return newFileOutcome({error},'바구니 업데이트')}
+  try{response=await send(rt,'/functions/v1/basket-files',form,{fetcher})}catch(error){return newFileOutcome({error},'정리함 업데이트')}
   const data=await readJson(response);
   if(response.ok&&data?.ok===true&&data.note_id===target.noteId&&Array.isArray(data.attachments)){
     try{window.dispatchEvent(new CustomEvent('kptu:api-saved',{detail:{path:'/functions/v1/basket-files',method:'POST',fields:['attachments'],action:'',projectLinked:false}}))}catch{/* A listener cannot undo a saved attachment. */}
     return {kind:'created',message:'같은 업데이트에 새 첨부로 추가했어요. 원본은 그대로예요.'};
   }
   if(response.status===409&&data?.code==='note_changed')return {kind:'refused',message:'업데이트가 그사이 바뀌어 첨부하지 않았어요. 아무것도 바뀌지 않았어요.'};
-  return newFileOutcome(response.ok?{status:0}:{status:response.status,data},'바구니 업데이트');
+  return newFileOutcome(response.ok?{status:0}:{status:response.status,data},'정리함 업데이트');
 }
 
 export async function overwriteHwp(target,bytes,info,{confirmShared=false,rt=window.KPTURuntime,fetcher}={}){
@@ -145,7 +145,7 @@ export async function overwriteHwp(target,bytes,info,{confirmShared=false,rt=win
     return {kind:'overwritten',revision:data.revision,md5:data.md5,message:`원본에 덮어썼어요. 고치기 전 사본은 Drive "Web2 편집 백업" 폴더에 "${data.backup.name}"으로 보관했어요.`};
   if(response.status===401)return {kind:'session',message:HWP_TEXT.session};
   if(response.status===409&&data?.code==='VERSION_CHANGED')return {kind:'changed',message:'연 뒤에 Drive의 원본이 바뀌어 덮어쓰지 않았어요. [새 파일로 저장]을 써 주세요.'};
-  if(response.status===409&&data?.code==='SHARED_CONFIRM_REQUIRED')return {kind:'shared',message:'바구니와 자료실이 같은 원본을 써요. 다시 [원본에 덮어쓰기]를 눌러 확인해 주세요. 아무것도 바뀌지 않았어요.'};
+  if(response.status===409&&data?.code==='SHARED_CONFIRM_REQUIRED')return {kind:'shared',message:'정리함과 자료실이 같은 원본을 써요. 다시 [원본에 덮어쓰기]를 눌러 확인해 주세요. 아무것도 바뀌지 않았어요.'};
   if(response.status===400&&OLD_SERVER.has(String(data?.error||'')))return {kind:'refused',message:HWP_TEXT.notReady};
   if([400,403,404,405,409].includes(response.status))return {kind:'refused',message:[HWP_TEXT.refused,data?.error].filter(Boolean).join(' ')};
   return {kind:'unknown',message:HWP_TEXT.overwriteUnknown};

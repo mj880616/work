@@ -2,7 +2,7 @@ import {showBasketRow} from './helpers/basket-more.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {noteMenuAction} from './helpers/note-menu.mjs';
-import { chooseBasketKind, basketKindButton } from './helpers/basket-kind.mjs';
+import { chooseBasketKind, basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';
 import {openOldWriteWindow} from './helpers/write-opener.mjs';
 // UI-버튼작게(2026-10-18 사용자 결정):
 // ① 바구니 노트·메모 읽기 화면 아래 버튼은 한 줄, 보이는 높이 32px(누르는 범위 44px), [연결하기]만 주 버튼 색. 첨부만 있는 메모도 같음. 노트는 UI-노트메뉴정리로 이 줄이 없어지고 [⋯] 안으로 들어갔다.
@@ -69,7 +69,7 @@ for(const width of [390,1280]){
   const surface=await paint(page,'backgroundColor','--kptu-surface');
   await go(page,'basket');
   // 노트 (UI-노트메뉴정리): 본문 아래 [수정][연결하기] 줄이 없다. 수정·연결하기는 맨 위 한 줄의 [⋯] 안에 있다.
-  await tap(page,basketKindButton(page,'note'),width);
+  await openKindMenu(page,'note');await tap(page,basketKindButton(page,'note'),width);
   await tap(page,page.locator('[data-note-row="n1"]'),width);
   await expect(page.locator('[data-note-read-actions]')).toHaveCount(0);
   await expect(page.locator('[data-note-detail]').getByRole('button',{name:'연결하기',exact:true})).toHaveCount(0);
@@ -123,7 +123,7 @@ for(const width of [390,1280]){
  });
 }
 
-test('③ 폰: 일정·바구니 전환은 아래 탭 바로 위 한 줄(알약 32px, 고른 쪽 테마 주 색), 고르면 화면이 바뀌고 [+]는 그 위',async({page})=>{
+test('③ 폰: 일정·정리함 전환은 아래 탭 바로 위 한 줄(알약 32px, 고른 쪽 테마 주 색), 고르면 화면이 바뀌고 [+]는 그 위',async({page})=>{
  const f=await fixture(page);
  const tabs=page.locator('#appView > .mobile-tabs'),tabsTop=(await tabs.boundingBox()).y;
  const gray=await paint(page,'backgroundColor','--ds-select-bg'),white=await paint(page,'backgroundColor','--kptu-surface');
@@ -140,7 +140,7 @@ test('③ 폰: 일정·바구니 전환은 아래 탭 바로 위 한 줄(알약 
   for(const [i,c] of cells.entries()){expect(c.h).toBeGreaterThanOrEqual(30);expect(c.h).toBeLessThanOrEqual(32);expect(c.hit).toBe(44);expect(c.hits).toEqual([true,true,true]);expect(c.bg).toBe(labels[i]===picked?gray:white);}
   expect(cells[0].radius).toBe('999px');
   // The row behind the pill is filled (nothing from the page shows through between the pill and the tabs).
-  expect(await page.evaluate(([x,y])=>!!document.elementFromPoint(x,y)?.closest('.schedule-switch,.basket-kind-switch'),[20,b.y+b.height/2])).toBe(true);
+  expect(await page.evaluate(([x,y])=>!!document.elementFromPoint(x,y)?.closest('.schedule-switch'),[20,b.y+b.height/2])).toBe(true);
   return b;
  }
  const fabOf={calendar:'#calendarView .calendar-toolbar #newEventBtn',diary:'#diaryRoot #newDiaryBtn'};
@@ -162,40 +162,39 @@ test('③ 폰: 일정·바구니 전환은 아래 탭 바로 위 한 줄(알약 
  await go(page,'tasks');const quickH=await page.locator('#tasksView .home-quick').evaluate(el=>Math.ceil(el.getBoundingClientRect().height));
  expect(await page.locator('#tasksView').evaluate(el=>getComputedStyle(el).paddingBottom)).toBe(`${quickH+44+16}px`);
  await go(page,'calendar');
- // 바구니: [메모] → [노트]; 메모·노트 목록 모두 입력칸이 전환 줄 바로 위(BASKET-노트입력창: 노트도 [+] 대신 같은 입력칸).
+ // 정리함: 업데이트 목록의 입력칸은 아래 탭 바로 위(전환 줄이 없으므로 그 자리가 비지 않는다). [노트]는 [메뉴] 안 독립 메뉴.
  await page.locator('.mobile-tabs [data-view="basket"]').tap();
- row=await dock('#basketView .basket-kind-switch',['업데이트','노트'],'업데이트');
- const quick=await page.locator('#basketView [data-basket-list] .home-quick').boundingBox();expect(Math.round(quick.y+quick.height)).toBe(Math.round(row.y-6));
- // Filters stay at the top, alone on their row.
+ await expect(page.locator('#basketView .basket-kind-switch')).toHaveCount(0);
+ const basketTabsTop=(await page.locator('.mobile-tabs').boundingBox()).y;
+ const quick=await page.locator('#basketView [data-basket-list] .home-quick').boundingBox();expect(quick.y+quick.height).toBeLessThanOrEqual(basketTabsTop+1);
+ // Filters stay at the top, alone on their row; the [업데이트 | 챙길 것] switch is at the top right.
  const filter=await page.locator('[data-basket-filter="unclassified"]').boundingBox();expect(filter.y).toBeLessThan(header.y+header.height+40);
- await page.locator('[data-basket-kind="note"]').tap();
+ await openKindMenu(page,'note');await basketKindButton(page,'note').tap();
  await expect(page.locator('[data-note-row="n1"]')).toBeVisible();
- row=await dock('#basketView .basket-kind-switch',['업데이트','노트'],'노트');
  await expect(page.locator('#basketView #newNoteBtn')).toHaveCount(0);
- const noteQuick=await page.locator('#basketView [data-note-list] .home-quick').boundingBox();expect(Math.round(noteQuick.y+noteQuick.height)).toBe(Math.round(row.y-6));
- // An opened note (head "‹ 노트") keeps the row hidden, as before (#660 ⑥); it comes back on close.
+ const noteQuick=await page.locator('#basketView [data-note-list] .home-quick').boundingBox();expect(noteQuick.y+noteQuick.height).toBeLessThanOrEqual(basketTabsTop+1);
+ // An opened note (head "‹ 노트") keeps the list head hidden, as before (#660 ⑥); it comes back on close.
  await page.locator('[data-note-row="n1"]').tap();await expect(page.locator('[data-note-close]')).toBeVisible();
- await expect(page.locator('#basketView .basket-kind-switch')).toBeHidden();
- await page.locator('[data-note-close]').tap();await expect(page.locator('#basketView .basket-kind-switch')).toBeVisible();
+ await page.locator('[data-note-close]').tap();await expect(page.locator('[data-note-row="n1"]')).toBeVisible();
  // The same for an opened memo.
- await page.locator('[data-basket-kind="memo"]').tap();await showBasketRow(page,'m1');
+ await basketKindButton(page,'memo').tap();await showBasketRow(page,'m1');
  await page.locator('[data-basket-row="m1"]').tap();await expect(page.locator('[data-basket-close]')).toBeVisible();
- await expect(page.locator('#basketView .basket-kind-switch')).toBeHidden();
+ await expect(page.locator('#basketView .inbox-pane-switch')).toBeHidden();
  expect(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-switch-dock').trim()||'0px')).toBe('0px');
- await page.locator('[data-basket-close]').tap();await expect(page.locator('#basketView .basket-kind-switch')).toBeVisible();
+ await page.locator('[data-basket-close]').tap();await expect(page.locator('#basketView .inbox-pane-switch')).toBeVisible();
  // One painter per screen: each switch is the screen's own element, there is no second copy anywhere.
- expect(await page.locator('.schedule-switch').count()).toBe(4);expect(await page.locator('.basket-kind-switch').count()).toBe(1);
+ expect(await page.locator('.schedule-switch').count()).toBe(4);expect(await page.locator('.basket-kind-switch').count()).toBe(0);
  for(const v of ['calendar','tasks','journal','diary'])expect(await page.locator(`#${v}View > .schedule-switch`).count()).toBe(1);
  expect(await noWideScroll(page)).toBe(true);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-test('③ 폰: 자판이 뜨면 전환 줄·아래 탭이 함께 숨고, 내려가면 둘 다 돌아온다(일정·바구니)',async({page})=>{
+test('③ 폰: 자판이 뜨면 전환 줄·아래 탭이 함께 숨고, 내려가면 둘 다 돌아온다(일정·정리함)',async({page})=>{
  const f=await fixture(page);
  const tabs=page.locator('#appView > .mobile-tabs');
  // 바구니 메모: 빠른 입력칸에 초점 → 자판.
  await page.locator('.mobile-tabs [data-view="basket"]').tap();
- const sw=page.locator('#basketView .basket-kind-switch');await expect(sw).toBeVisible();
+ const sw=page.locator('#appView > .mobile-tabs');await expect(sw).toBeVisible();
  await page.locator('#basketView [data-basket-list] .home-quick [data-quick-input]').focus();await keyboard(page,true);
  await expect(page.locator('body')).toHaveClass(/kptu-mobile-keyboard/);
  await expect(tabs).toBeHidden();await expect(sw).toBeHidden();
@@ -204,7 +203,7 @@ test('③ 폰: 자판이 뜨면 전환 줄·아래 탭이 함께 숨고, 내려�
  await keyboard(page,false);
  await expect(tabs).toBeVisible();await expect(sw).toBeVisible();
  // 노트 검색칸도 같은 공용 감지.
- await page.locator('[data-basket-kind="note"]').tap();await page.locator('[data-note-search]').focus();await keyboard(page,true);
+ await openKindMenu(page,'note');await basketKindButton(page,'note').tap();await page.locator('[data-note-search]').focus();await keyboard(page,true);
  await expect(tabs).toBeHidden();await expect(sw).toBeHidden();
  await keyboard(page,false);await expect(tabs).toBeVisible();await expect(sw).toBeVisible();await expect(page.locator('#basketView [data-note-list] .home-quick')).toBeVisible();
  // 일정 [일기]: 글 칸에 초점 → 자판.
@@ -222,7 +221,7 @@ test('③ 폰: 자판이 뜨면 전환 줄·아래 탭이 함께 숨고, 내려�
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-test('③ 폰: 전환 줄이 있는 바구니·일정에서 고르기 시트는 전환 줄 위에서 열리고, 고른 뒤 같은 자리 누름이 전환 줄로 가지 않음',async({page})=>{
+test('③ 폰: 전환 줄이 있는 정리함·일정에서 고르기 시트는 전환 줄 위에서 열리고, 고른 뒤 같은 자리 누름이 전환 줄로 가지 않음',async({page})=>{
  const f=await fixture(page);
  const settle=sheet=>sheet.evaluate(el=>Promise.all(el.getAnimations().map(a=>a.finished)));
  async function aboveRow(sheet,row){
@@ -252,14 +251,14 @@ test('③ 폰: 전환 줄이 있는 바구니·일정에서 고르기 시트는 
 
 // BASKET-노트입력창 (2026-10-22 사용자 결정): PC(≥1024)에는 바구니 화면 위 [업데이트 | 노트]가 없다 — 사이드바 [바구니] 아래
 // [업데이트]·[노트]가 맡는다. 필터 줄은 그대로 목록 위.
-test('③ PC 1280: 바구니 [업데이트|노트]는 사이드바가 맡고(화면 위 전환 없음), 일정 전환도 보이지 않음, [+]·아래 탭 없음',async({page})=>{
+test('③ PC 1280: 정리함 화면 위에 [업데이트|노트] 전환 없음([노트]는 사이드바 독립 줄), 일정 전환도 보이지 않음, [+]·아래 탭 없음',async({page})=>{
  const f=await fixture(page,{width:1280,height:900});
  await go(page,'basket');
- const sw=page.locator('#basketView .basket-kind-switch');await expect(sw).toBeHidden();
- const sub=page.locator('#appView > .app-nav [data-basket-kind-nav]');await expect(sub).toHaveText(['업데이트','노트']);
+ const sw=page.locator('#basketView .basket-kind-switch');await expect(sw).toHaveCount(0);
+ const sub=page.locator('#appView > .app-nav :is([data-view="basket"],[data-basket-kind-nav])');await expect(sub).toHaveText(['정리함','노트']);
  const filter=await page.locator('[data-basket-filter="unclassified"]').boundingBox(),rows=await page.locator('#basketView [data-basket-rows]').boundingBox();
  expect(filter.y+filter.height).toBeLessThanOrEqual(rows.y);
- await sub.nth(1).click();await expect(page.locator('[data-note-row="n1"]')).toBeVisible();await expect(sw).toBeHidden();
+ await sub.nth(1).click();await expect(page.locator('[data-note-row="n1"]')).toBeVisible();
  await sub.nth(0).click();await expect(page.locator('#basketView [data-basket-list]')).toBeVisible();
  await expect(page.locator('.mobile-tabs')).toBeHidden();
  for(const v of ['calendar','tasks']){await go(page,v);await expect(page.locator(`#${v}View .schedule-switch`)).toBeHidden();}
