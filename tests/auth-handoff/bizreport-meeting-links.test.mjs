@@ -10,6 +10,7 @@ import {randomBytes} from 'node:crypto';
 import {createServer} from 'node:net';
 import EmbeddedPostgres from 'embedded-postgres';
 import pg from 'pg';
+import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A,WS_B,PROJECT_A,PROJECT_A2,PROJECT_B,ORG_A,ORG_B,MEETING_A,MEETING_B} from './basket4-fixture.mjs';
 import {prepareMigration,toDryRun} from '../../scripts/ops/db-migration-plan.mjs';
 import {runMigrationPlan} from '../../scripts/ops/db-migration-run.mjs';
@@ -52,7 +53,7 @@ test('bizreport meeting links: precheck, dry-run, apply, function, owner/workspa
  const password=randomBytes(24).toString('hex'),cluster=new EmbeddedPostgres({databaseDir:directory,user:'postgres',password,port,persistent:false,createPostgresUser:false,initdbFlags:['--encoding=UTF8','--locale=C'],postgresFlags:['-h','127.0.0.1','-c','log_statement=none','-c','log_min_error_statement=panic'],onLog:()=>{},onError:()=>{}});
  let pool;
  try{
-  await cluster.initialise();await cluster.start();pool=new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database:'postgres',ssl:false});
+  await cluster.initialise();await cluster.start();pool=trackPool(new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database:'postgres',ssl:false}));
   await pool.query(fixture);
   for(const file of ['20260927103344_task_impl2_notes_record_links.sql','20260928123601_task_meeting_followup_record_links.sql'])await pool.query(await read('supabase/migrations/'+file));
   await pool.query(spaces);
@@ -198,6 +199,6 @@ test('bizreport meeting links: precheck, dry-run, apply, function, owner/workspa
    assert.throws(()=>prepareMigration({mode:'rollback',version,runId:'1',root}));
   });
  }finally{
-  if(pool)await pool.end();await cluster.stop().catch(()=>{});
+  await closePool(pool);await cluster.stop().catch(()=>{});
  }
 });

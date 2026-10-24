@@ -11,6 +11,7 @@ import {randomBytes} from 'node:crypto';
 import {createServer} from 'node:net';
 import EmbeddedPostgres from 'embedded-postgres';
 import pg from 'pg';
+import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A} from './basket4-fixture.mjs';
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 for(const key of Object.keys(process.env))if(key.startsWith('PG'))delete process.env[key];
@@ -20,7 +21,7 @@ test('share page delete: owner row delete cascades to links and photo records; s
  const password=randomBytes(24).toString('hex'),cluster=new EmbeddedPostgres({databaseDir:directory,user:'postgres',password,port,persistent:false,createPostgresUser:false,initdbFlags:['--encoding=UTF8','--locale=C'],postgresFlags:['-h','127.0.0.1','-c','log_statement=none','-c','log_min_error_statement=panic'],onLog:()=>{},onError:()=>{}});
  let pool;
  try{
-  await cluster.initialise();await cluster.start();pool=new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database:'postgres',ssl:false});
+  await cluster.initialise();await cluster.start();pool=trackPool(new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database:'postgres',ssl:false}));
   await pool.query(fixture);
   for(const stem of ['20261020005000_share_pages_links','20261022130000_share_pages_doc_block','20261023110000_share_page_media','20261023160000_share_pages_archived_status'])
    await pool.query(await read('supabase/migrations/'+stem+'.sql'));
@@ -51,5 +52,5 @@ test('share page delete: owner row delete cascades to links and photo records; s
    assert.equal((await owner(c=>c.query('delete from public.app_share_pages where id=$1 returning id',[id]))).rowCount,1);
    assert.equal(await count('app_share_pages',id),0);assert.equal(await count('app_share_page_links',id),0);assert.equal(await count('app_share_page_media',id),0);
   });
- }finally{await pool?.end();await cluster.stop().catch(()=>{});}
+ }finally{await closePool(pool);await cluster.stop().catch(()=>{});}
 });

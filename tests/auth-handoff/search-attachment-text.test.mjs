@@ -15,6 +15,7 @@ import {randomBytes,randomUUID} from 'node:crypto';
 import {createServer} from 'node:net';
 import EmbeddedPostgres from 'embedded-postgres';
 import pg from 'pg';
+import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A,WS_B,PROJECT_A} from './basket4-fixture.mjs';
 import {prepareMigration} from '../../scripts/ops/db-migration-plan.mjs';
 import {runMigrationPlan} from '../../scripts/ops/db-migration-run.mjs';
@@ -54,7 +55,7 @@ test('SEARCH ②: file text search migration — plans, guard, dry-run, apply, o
  let cluster,pool,adminPool,database='postgres',port,password='';
  if(externalPort){
   port=Number(externalPort);database='search2_'+randomBytes(4).toString('hex');
-  adminPool=new pg.Pool({host:'127.0.0.1',port,user:'postgres',database:'postgres',ssl:false});
+  adminPool=trackPool(new pg.Pool({host:'127.0.0.1',port,user:'postgres',database:'postgres',ssl:false}));
   await adminPool.query('create database '+database);
   for(const role of ['anon','authenticated','public_probe','service_role'])await adminPool.query(`drop role if exists ${role}`).catch(()=>{});
  }else{
@@ -64,7 +65,7 @@ test('SEARCH ②: file text search migration — plans, guard, dry-run, apply, o
   await cluster.initialise();await cluster.start();
  }
  try{
-  pool=new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database,ssl:false});
+  pool=trackPool(new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database,ssl:false}));
   await pool.query(fixture);
   await pool.query(extraSchema);
   for(const file of ['20260927103344_task_impl2_notes_record_links.sql','20260928123601_task_meeting_followup_record_links.sql','20261010120000_basket1_notes_links.sql',
@@ -201,8 +202,8 @@ test('SEARCH ②: file text search migration — plans, guard, dry-run, apply, o
    assert.equal(docs(await search({q:'단체협약'})).total,1);
   });
  }finally{
-  if(pool)await pool.end();
-  if(adminPool){await adminPool.query('drop database if exists '+database+' with (force)').catch(()=>{});await adminPool.end();}
+  await closePool(pool);
+  if(adminPool){await adminPool.query('drop database if exists '+database+' with (force)').catch(()=>{});await closePool(adminPool);}
   if(cluster)await cluster.stop().catch(()=>{});
  }
 });
