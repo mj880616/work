@@ -1,4 +1,10 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "model": "opusplan"
+  "model": "opusplan",
+  "permissions": {
+    "allow": [
+      "Bash(env -u GH_TOKEN gh api -X POST repos/mj880616/work/actions/workflows/db-migration-apply.yml/dispatches *)",
+      "Bash(env -u GH_TOKEN gh api -X POST repos/mj880616/work/actions/workflows/edge-function-deploy.yml/dispatches *)"
+    ]
+  }
 }
