@@ -178,6 +178,12 @@
 #appView #journalView .journal-hwpx-part{ display:flex; flex-direction:column; gap:8px; }
 #appView #journalView .journal-hwpx-panel .journal-muted{ margin:0; font-size:var(--kptu-text-body); }
 #appView #journalView .journal-hwpx-actions{ display:flex; flex-wrap:wrap; gap:8px; }
+/* WEEKLY-임시저장: 상자 머리 한 줄(임시저장 시각·저장 중·저장 못 함 [다시]·준비 중), 다시 열기 안내, 넣지 못한 칸(줄바꿈 그대로). */
+#appView #journalView .journal-hwpx-draft{ margin:0; display:flex; flex-wrap:wrap; align-items:center; gap:6px; font-size:var(--kptu-text-meta); color:var(--kptu-muted); }
+#appView #journalView .journal-hwpx-draft[data-kind="error"]{ color:var(--kptu-danger); }
+#appView #journalView .journal-hwpx-resume{ display:flex; flex-direction:column; gap:6px; padding:8px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); background:var(--kptu-surface); }
+#appView #journalView .journal-hwpx-resume > p{ margin:0; font-size:var(--kptu-text-body); overflow-wrap:anywhere; }
+#appView #journalView [data-hwpx-unplaced] li{ white-space:pre-wrap; overflow-wrap:anywhere; }
 #appView #journalView .journal-hwpx-fields{ display:flex; flex-wrap:wrap; gap:8px 12px; }
 #appView #journalView .journal-hwpx-field{ display:flex; flex-direction:column; gap:2px; font-size:var(--kptu-text-body); min-width:0; flex:1 1 200px; }
 #appView #journalView .journal-hwpx-field input,

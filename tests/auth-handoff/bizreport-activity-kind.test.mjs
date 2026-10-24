@@ -9,6 +9,7 @@ import {randomBytes} from 'node:crypto';
 import {createServer} from 'node:net';
 import EmbeddedPostgres from 'embedded-postgres';
 import pg from 'pg';
+import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A,WS_B,PROJECT_A,MEETING_A,MEETING_B} from './basket4-fixture.mjs';
 import {prepareMigration} from '../../scripts/ops/db-migration-plan.mjs';
 import {runMigrationPlan} from '../../scripts/ops/db-migration-run.mjs';
@@ -55,7 +56,7 @@ test('bizreport activity kind: read-only precheck, dry-run, apply, CHECK, owner 
  const password=randomBytes(24).toString('hex'),cluster=new EmbeddedPostgres({databaseDir:directory,user:'postgres',password,port,persistent:false,createPostgresUser:false,initdbFlags:['--encoding=UTF8','--locale=C'],postgresFlags:['-h','127.0.0.1','-c','log_statement=none','-c','log_min_error_statement=panic'],onLog:()=>{},onError:()=>{}});
  let pool;
  try{
-  await cluster.initialise();await cluster.start();pool=new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database:'postgres',ssl:false});
+  await cluster.initialise();await cluster.start();pool=trackPool(new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database:'postgres',ssl:false}));
   assert.match((await pool.query('show server_version')).rows[0].server_version,/^17\./);
   await pool.query(fixture);
   await pool.query(prerequisites);
@@ -139,6 +140,6 @@ test('bizreport activity kind: read-only precheck, dry-run, apply, CHECK, owner 
    const again=await run('apply','9705');assert.equal(again.ok,true,again.summary);
   });
  }finally{
-  if(pool)await pool.end();await cluster.stop().catch(()=>{});
+  await closePool(pool);await cluster.stop().catch(()=>{});
  }
 });

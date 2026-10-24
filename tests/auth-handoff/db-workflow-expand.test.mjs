@@ -12,6 +12,7 @@ import {randomBytes} from 'node:crypto';
 import {createServer} from 'node:net';
 import EmbeddedPostgres from 'embedded-postgres';
 import pg from 'pg';
+import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,WS_A} from './basket4-fixture.mjs';
 import {prepareMigration} from '../../scripts/ops/db-migration-plan.mjs';
 import {runMigrationPlan} from '../../scripts/ops/db-migration-run.mjs';
@@ -62,7 +63,7 @@ test('DB-승인형확장: today\'s six migrations through precheck → snapshot 
  let cluster,pool,adminPool,database='postgres',port,password;
  if(externalPort){
   port=Number(externalPort);database='dbwf_'+randomBytes(4).toString('hex');
-  adminPool=new pg.Pool({host:'127.0.0.1',port,user:'postgres',database:'postgres',ssl:false});
+  adminPool=trackPool(new pg.Pool({host:'127.0.0.1',port,user:'postgres',database:'postgres',ssl:false}));
   await adminPool.query('create database '+database);
   for(const role of ['anon','authenticated','public_probe','service_role'])await adminPool.query(`drop role if exists ${role}`).catch(()=>{});
  }else{
@@ -72,7 +73,7 @@ test('DB-승인형확장: today\'s six migrations through precheck → snapshot 
   await cluster.initialise();await cluster.start();
  }
  try{
-  pool=new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database,ssl:false});
+  pool=trackPool(new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database,ssl:false}));
   await pool.query(fixture);await pool.query(prerequisites);
   for(const [n,p] of [[1,null],[2,1],[3,2],[10,null],[11,10]])
    await pool.query('insert into public.app_spaces(id,workspace_id,name,parent_id) values($1,$2,$3,$4)',[id(n),WS_A,'시험 '+n,p==null?null:id(p)]);
@@ -182,8 +183,8 @@ test('DB-승인형확장: today\'s six migrations through precheck → snapshot 
    assert.deepEqual(r,{i:false,s:true,n:2});
   });
  }finally{
-  await pool?.end();
-  if(adminPool){await adminPool.query('drop database if exists '+database+' with (force)').catch(()=>{});await adminPool.end();}
+  await closePool(pool);
+  if(adminPool){await adminPool.query('drop database if exists '+database+' with (force)').catch(()=>{});await closePool(adminPool);}
   if(cluster)await cluster.stop();
  }
 });
