@@ -37,6 +37,7 @@ begin
 end
 $$;
 
+-- points 한 줄 300자 상한은 정규식 반복 한도(255) 때문에 151+150 두 조각으로 쓴다(301자 이상이면 거절).
 -- 소식·통화 한 줄. 화면에 그릴 때 room_label·title·summary·points·counterpart·raw_text는 글자로만 넣는다(바깥에서 온 글).
 -- counterpart: 통화 상대 표기(분석의 '상대 이름·직책' 절). 담당조직 이름과 확실히 맞으면 '소속조직 이름 직책' 모양.
 -- speaker_split: raw_text가 화자별 줄(`나:`/`<상대 표기>:`, 모르면 `상대:`, 헷갈리면 `화자1:`/`화자2:`)이면 true.
@@ -86,7 +87,7 @@ create table public.app_feed_items (
     and not jsonb_path_exists(points, 'strict $[*] ? (@.type() != "string")')
     and not jsonb_path_exists(points, '$[*] ? (!(@ like_regex "[^[:space:]]"))')
     and not jsonb_path_exists(points, '$[*] ? (@ like_regex "[\u0001-\u001f\u007f]")')
-    and not jsonb_path_exists(points, '$[*] ? (@ like_regex "^.{301}")')),
+    and not jsonb_path_exists(points, '$[*] ? (@ like_regex "^.{151}.{150}")')),
   constraint app_feed_items_counterpart_check check (
     counterpart is null or (char_length(btrim(counterpart)) between 1 and 100 and counterpart !~ '[[:cntrl:]]')),
   constraint app_feed_items_raw_text_check check (raw_text is null or octet_length(raw_text) between 1 and 204800),

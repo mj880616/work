@@ -109,6 +109,9 @@ test('call/telegram feed: migration, owner-only RLS, column grants, guard trigge
    ];
    for(const [row,label] of bad)await assert.rejects(server(c=>put(c,row,{source_ref:(row.source_ref||'x')})),{code:/^(23514|23502)$/},label);
    assert.equal(await count(),2);
+   await server(c=>put(c,CALL,{source_ref:'call:edge300',points:['가'.repeat(300)]}));
+   assert.equal(await count(),3,'300-character point is allowed');
+   await pool.query("delete from public.app_feed_items where source_ref='call:edge300'");
   });
   await t.test('guard: linked organization and projects must be in the same workspace, for every role',async()=>{
    await assert.rejects(server(c=>put(c,CALL,{source_ref:'call:o1',organization_id:ORG_B})),/FEED_LINK_SCOPE/);
