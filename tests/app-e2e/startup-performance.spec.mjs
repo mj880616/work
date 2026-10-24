@@ -101,7 +101,7 @@ test('requested route is resolved before view-specific feature loading', async (
   expect(source).not.toContain("const homeResult=await window.__KPTU_HOME_READY__");
   expect(source).not.toContain("if(requested&&requested!=='home')await loadFeatures()");
   expect(source).not.toContain("defer(()=>loadFeatures()");
-  expect(viewLoader).toContain("const loaders={home,basket,calendar,tasks,journal,diary,projects,library,meetings,media,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference}");
+  expect(viewLoader).toContain("const loaders={home,basket,calendar,tasks,journal,diary,projects,library,meetings,media,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,calls,telegram}");
 });
 
 test('direct feature URLs load one requested view and keep failures visible', async () => {

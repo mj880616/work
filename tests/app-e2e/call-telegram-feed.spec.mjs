@@ -109,6 +109,8 @@ for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세
  if(width>=1024){await expect(page.locator('[data-topline-where] [aria-current="page"]')).toHaveText('가상 교섭 일정 다음 주로 조정');await expect(detail.locator('[data-cf-title]')).toHaveCount(0);}
  else await expect(detail.locator('[data-cf-title]')).toHaveText('가상 교섭 일정 다음 주로 조정');
  // 전문은 접혀 있다가 펼치면 한 문단 + "화자 구분은 전사 수정 뒤".
+ // 전문(사본)이 도착하면 상세를 한 번 다시 그린다. 그 뒤에 누른다.
+ await expect(detail.locator('[data-cf-script],[data-cf-raw-empty]')).toHaveCount(1);
  const full=detail.locator('[data-cf-full]');await expect(full).not.toHaveAttribute('open','');
  await tap(page,full.locator('summary'),width);
  await expect(full.locator('[data-cf-script="one"]')).toContainText('사측에서 목요일은 어렵다고');
@@ -131,6 +133,7 @@ for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세
   await tap(page,view.locator(`[data-cf-row="${C2}"]`),width);
  }else await view.locator(`[data-cf-row="${C2}"]`).click();
  // 화자 구분이 있는 통화는 줄 단위.
+ await expect(detail.locator('[data-cf-script],[data-cf-raw-empty]')).toHaveCount(1);
  await tap(page,detail.locator('[data-cf-full] summary'),width);
  await expect(detail.locator('[data-cf-script="lines"] p')).toHaveText(['나원고 언제까지예요?','화자2금요일까지요.']);
  await expect(detail.locator('[data-cf-script="lines"] p.is-me b')).toHaveText('나');
