@@ -68,8 +68,9 @@ const listButtons={projects:['#ps3ArchiveBtn','#newProjectBtn'],calendar:['#goog
 async function muted(page){return page.evaluate(()=>{const el=document.createElement('span');el.style.color='var(--kptu-muted)';document.body.append(el);const value=getComputedStyle(el).color;el.remove();return value})}
 async function size(el){return el.evaluate(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return {height:r.height,font:s.fontSize,paddingLeft:s.paddingLeft,paddingRight:s.paddingRight,radius:s.borderRadius,weight:s.fontWeight,color:s.color,background:s.backgroundColor}})}
 async function standard(page,selector){const el=page.locator(selector);await expect(el).toBeVisible();await expect(el).toHaveCSS('font-size','12px');const s=await size(el);expect(s.height,selector).toBeGreaterThanOrEqual(35);expect(s.height,selector).toBeLessThanOrEqual(37);expect(s.paddingLeft).toBe('12px');expect(s.paddingRight).toBe('12px');if(!selector.includes('press-type'))expect(s.radius).toBe('8px');}
-// UI-디자인기준 2/3(8-9d): 일정·할 일·프로젝트의 버튼은 새 기준(높이 --ds-control-height 46px·13px·모서리 8px·굵기 500)으로 바뀌었다.
-async function dsStandard(page,selector,h=46){const el=page.locator(selector).first();await expect(el).toBeVisible();const s=await size(el);expect(s.height,selector).toBe(h);expect(s.font,selector).toBe('13px');expect(s.radius,selector).toBe('8px');expect(s.weight,selector).toBe('500');}
+// UI-디자인기준 2/3(8-9d): 일정·할 일·프로젝트의 버튼은 새 기준(13px·모서리 8px·굵기 500).
+// UI-버튼전수조사(2026-10-24): 높이는 보조 버튼 32px(--ds-compact-height), 채운 버튼(주 동작)은 36px(--kptu-control-height).
+async function dsStandard(page,selector,h){if(h===undefined)h=await page.locator(selector).first().evaluate(el=>el.matches('.primary')?36:32);const el=page.locator(selector).first();await expect(el).toBeVisible();const s=await size(el);expect(s.height,selector).toBe(h);expect(s.font,selector).toBe('13px');expect(s.radius,selector).toBe('8px');expect(s.weight,selector).toBe('500');}
 // UI-PC버튼36(2026-10-20): PC(≥1024) 목록 머리 추가 버튼은 입력칸 높이(--kptu-control-height 36px)·13px·8px·500, 누르는 범위 44px.
 async function pcAdd(page,selector){const el=page.locator(selector);await expect(el).toBeVisible();const s=await size(el);expect(s.height,selector).toBe(36);expect(s.font,selector).toBe('13px');expect(s.radius,selector).toBe('8px');expect(s.weight,selector).toBe('500');expect(await el.evaluate(n=>getComputedStyle(n,'::after').minHeight),selector).toBe('44px');}
 // UI-PC프로젝트좌우(2026-10-20 사용자 확정): PC(≥1024) [+ 프로젝트]는 왼쪽 목록 머리의 낮은 버튼(--ds-compact-height 32px)·13px·8px·500, 누르는 범위 44px.
@@ -105,7 +106,7 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
  for(const [name,selectors]of Object.entries({calendar:['#prevMonthBtn','#nextMonthBtn'],library:['#newDocumentBtn'],menu:['.app-nav [data-view="projects"]','#appView [data-account-open]']})){
   if(name!=='menu')for(const p of [page,original])await view(p,name);
   if(name==='library'){if(width<=760)await phoneFab(page,'#newDocumentBtn');else if(width>=1024)await pcAdd(page,'#newDocumentBtn');else await dsStandard(page,'#newDocumentBtn');continue}
-  if(name==='calendar'){for(const selector of selectors){const s=await size(page.locator(selector));expect(s,selector).toMatchObject({height:46,font:'24px',paddingLeft:'0px',paddingRight:'0px',color:await muted(page),background:'rgba(0, 0, 0, 0)'})}continue}
+  if(name==='calendar'){for(const selector of selectors){const s=await size(page.locator(selector));expect(s,selector).toMatchObject({height:32,font:'24px',paddingLeft:'0px',paddingRight:'0px',color:await muted(page),background:'rgba(0, 0, 0, 0)'})}continue}
   if(name==='menu'&&width<=760){await expect(page.locator('.mobile-tabs [data-mobile-schedule-tab]')).toHaveCSS('font-size','12px');await expect(page.locator('#mobileMenuTab')).toHaveCSS('min-height','44px');}else for(const selector of selectors){const before=await size(original.locator(selector).first());
    // 8-9e-3: PC 메뉴·[계정 ▾]는 13px·보통 굵기(400), 크기·색은 그대로.
    // UI-상단줄: the PC [계정 ▾] moved to the top line as a small button (32px visible, UI-버튼기준); its letters stay the menu's.
@@ -120,16 +121,16 @@ for(const width of [390,760,761,1440])test('calendar controls paint 32px with re
  const button=page.locator('#newEventBtn');await expect(button).toBeVisible();
  if(width<=760){await phoneFab(page,'#newEventBtn');await expect(button).toHaveAttribute('aria-label','일정 등록');return;}
  const painted=await size(button),rect=await button.boundingBox();
- expect(painted.height).toBe(width>=1024?32:46); // UI-PC다듬기묶음: PC(≥1024)는 같은 줄 [오늘]·보기 전환과 같은 32px
+ expect(painted.height).toBe(32); // UI-PC다듬기묶음: PC(≥1024)는 같은 줄 [오늘]·보기 전환과 같은 32px. UI-버튼전수조사: 중간 폭(761~1023)도 머리줄 버튼은 32px
  expect(painted.font).toBe('13px');expect(painted.radius).toBe('8px');
  expect((await button.innerText()).replace(/\s+/g,' ').trim()).toBe(width<=760?'+':'+ 일정 등록');
  if(width<=760){expect(rect.width).toBeGreaterThanOrEqual(45);expect(rect.width).toBeLessThanOrEqual(47);}
- else{const pad=width>=1024?'12px':'14px';expect(painted.paddingLeft).toBe(pad);expect(painted.paddingRight).toBe(pad);}
+ else{const pad='12px';/* UI-버튼전수조사: 머리줄 버튼은 작은 버튼 여백(--ds-compact-pad-x) */expect(painted.paddingLeft).toBe(pad);expect(painted.paddingRight).toBe(pad);}
  const original=await browser.newPage({viewport:{width,height:900}});
  await baseline(original,'8d9a30626b11c0826def8393cefdf65934489d2f');await boot(original);await view(original,'calendar');
  for(const selector of ['#prevMonthBtn','#nextMonthBtn']){
   const before=await size(original.locator(selector));
-  expect(await size(page.locator(selector))).toEqual({...before,height:46,font:'24px',paddingLeft:'0px',paddingRight:'0px',weight:'500',color:await muted(page),background:'rgba(0, 0, 0, 0)'});
+  expect(await size(page.locator(selector))).toEqual({...before,height:32,font:'24px',/* UI-버튼전수조사: 화살표 보이는 높이 32px(누르는 범위 44px) */paddingLeft:'0px',paddingRight:'0px',weight:'500',color:await muted(page),background:'rgba(0, 0, 0, 0)'});
   expect((await page.locator(selector).boundingBox()).width).toBe(width<=760?16:32);
  }
  const before=await size(original.locator('#newEventBtn'));
@@ -189,6 +190,6 @@ for(const width of [390,1440])test('D-button Google event editor delete and save
  await page.clock.setFixedTime(new Date('2026-10-05T03:00:00Z'));await page.setViewportSize({width,height:900});
  await boot(page,[],[{id:'size-event',calendarId:'primary',title:'Fixture event',start:'2026-10-05',end:'2026-10-06',allDay:true,color:'#7986cb'}]);
  await view(page,'calendar');const chip=page.locator('.cp-event[data-google-event="size-event"]').first();await expect(chip).toBeVisible();await chip.click();
- await expect(page.locator('#ciGoogleDelete')).toBeEnabled();await dsStandard(page,'#ciGoogleDelete');await dsStandard(page,'#ciGoogleSave');
+ await expect(page.locator('#ciGoogleDelete')).toBeEnabled();await dsStandard(page,'#ciGoogleDelete',32);await dsStandard(page,'#ciGoogleSave',36);
  expect(await page.locator('#ciGoogleModal .modal-card').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
 });

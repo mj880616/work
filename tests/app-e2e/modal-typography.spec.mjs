@@ -90,8 +90,8 @@ const newStandard=p=>p.evaluate(()=>{
   // LIB-목록간격(2026-10-23 사용자 확정 11:02): 자료실 트리의 맨 위 단 이름(프로젝트·'프로젝트 없음')만 굵게(700) — 두 가지 굵기 기준의 유일한 예외.
   if(text&&!['400','500'].includes(s.fontWeight)&&!(s.fontWeight==='700'&&e.matches('summary[data-lu-top] > .lu-node-name')))bad.push([e.tagName,e.className,s.fontWeight].join(' '));
   if(e.matches('button.primary,button.secondary,button.mini,.filter-chips button,.w1p-filter')&&!e.matches('.icon-btn,#newEventBtn,#newTaskBtn,#newProjectBtn,#newDocumentBtn,.calendar-toolbar *')&&(innerWidth>760||!e.matches('.so-add-link,#newMeetingBtn'))){
-   // UI-버튼크기: 필터 칩·보조 버튼([분류 수정])은 32px, 나머지 버튼은 46px.
-   const h=Math.round(e.getBoundingClientRect().height),want=e.matches('.filter-chips button,.w1p-filter,#manageLibraryBtn')?32:(innerWidth>=1024&&e.matches('#newMeetingBtn,#sharePagesRoot button'))||e.matches('[data-sp-new]')?36:46;// UI-버튼줄이기: [새 공유 페이지]는 폰도 36px.// UI-PC회의·UI-PC버튼36: PC 목록 머리 추가 버튼은 입력칸 높이(36px).
+   // UI-버튼크기: 필터 칩·보조 버튼([분류 수정])은 32px. UI-버튼전수조사: 채운 버튼은 36px, 나머지 버튼도 32px.
+   const h=Math.round(e.getBoundingClientRect().height),want=e.matches('.filter-chips button,.w1p-filter,#manageLibraryBtn')?32:e.matches('.primary')?36:32;/* UI-버튼전수조사(2026-10-24): 채운 버튼 36px, 나머지 32px(46px 버튼 없음) */// UI-버튼줄이기: [새 공유 페이지]는 폰도 36px.// UI-PC회의·UI-PC버튼36: PC 목록 머리 추가 버튼은 입력칸 높이(36px).
    if(h!==want||s.fontSize!=='13px')bad.push([e.tagName,e.id||e.className,h,s.fontSize].join(' '));
   }
  }
