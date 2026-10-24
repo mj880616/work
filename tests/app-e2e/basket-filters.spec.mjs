@@ -50,7 +50,8 @@ async function fixture(page,{width=390,scheme='light'}={}){
  });
  return {errors,writes};
 }
-async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){const b=await locator.boundingBox();await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);}else await locator.click();}
+// REF-참고묶음: with [참고] the place row is wider than a 390px phone and slides sideways (filter-chips.css); bring the chip into view first, as a finger would.
+async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.scrollIntoViewIfNeeded();const b=await locator.boundingBox();await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);}else await locator.click();}
 const rows=page=>page.locator('#basketView [data-basket-row]');
 const shown=page=>rows(page).evaluateAll(els=>els.map(el=>el.dataset.basketRow));
 async function capture(page,info,name){
