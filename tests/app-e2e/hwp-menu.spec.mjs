@@ -81,11 +81,11 @@ for(const width of [390,1280])test(`menu entry opens a device HWP and hands the 
   for(const id of ['#hwpLabPick','#hwpLabSave','#hwpLabUpload'])expect(await page.locator(id).evaluate(el=>parseFloat(getComputedStyle(el,'::after').minHeight))).toBeGreaterThanOrEqual(44);
   if(width<761){
     await expect(page.locator('[data-mobile-view-name]')).toHaveText('HWP 편집');
-    // [파일 선택] fills one row; the two save buttons share the next row in equal halves.
-    expect(Math.abs((save.y+save.h/2)-(upload.y+upload.h/2))).toBeLessThanOrEqual(1);// UI-버튼줄이기: 높이가 달라(36·32) 가운데로 비교
-    expect(Math.abs(save.w-upload.w)).toBeLessThanOrEqual(1);
-    expect(Math.abs(pick.x-save.x)).toBeLessThanOrEqual(1);
-    expect(Math.abs(pick.x+pick.w-(upload.x+upload.w))).toBeLessThanOrEqual(1);
+    // UI-버튼전수조사(2026-10-24): 폰도 버튼은 글자 폭으로 한 줄에 나란히(폭 전체·반반 칸 아님). 높이가 달라(36·32) 가운데로 비교.
+    for(const b of [save,upload])expect(Math.abs((b.y+b.h/2)-(pick.y+pick.h/2))).toBeLessThanOrEqual(1);
+    expect(pick.x).toBeLessThan(save.x);expect(save.x).toBeLessThan(upload.x);
+    for(const b of [pick,save,upload])expect(b.w).toBeLessThan(width/2);
+    expect(upload.x+upload.w).toBeLessThanOrEqual(width);
   }else{
     // Title and buttons share one row; the editor takes the content width and most of the window height.
     const title=await box(page.locator('#hwpLabTitle'));
