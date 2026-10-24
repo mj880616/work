@@ -50,7 +50,8 @@ async function fixture(page,{width=390,scheme='light'}={}){
  });
  return {errors,writes};
 }
-async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){const b=await locator.boundingBox();await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);}else await locator.click();}
+// REF-참고묶음: with [참고] the place row is wider than a 390px phone and slides sideways (filter-chips.css); bring the chip into view first, as a finger would.
+async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.scrollIntoViewIfNeeded();const b=await locator.boundingBox();await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);}else await locator.click();}
 const rows=page=>page.locator('#basketView [data-basket-row]');
 const shown=page=>rows(page).evaluateAll(els=>els.map(el=>el.dataset.basketRow));
 async function capture(page,info,name){
@@ -85,7 +86,7 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`[미분
  await tap(page,classified,width);await expect(classified).toHaveAttribute('aria-pressed','true');expect((await look(classified)).bg).toBe(gray);
  const places=page.locator('[data-basket-place-filter]');await expect(places).toBeVisible();
  await expect(places).toHaveAttribute('role','radiogroup');await expect(places).toHaveAttribute('aria-label','분류된 곳');
- await expect(places.getByRole('radio')).toHaveText(['전체','담당조직','프로젝트','자료실','할 일','업무일지']);
+ await expect(places.getByRole('radio')).toHaveText(['전체','담당조직','프로젝트','참고','자료실','할 일','업무일지']);
  await expect(places.locator('[aria-checked="true"]')).toHaveText('전체');
  // It sits right under the segment row, and above the list.
  const segBox=await seg.first().boundingBox(),placeBox=await places.boundingBox(),listBox=await page.locator('#basketView [data-basket-rows]').boundingBox();

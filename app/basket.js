@@ -467,8 +467,8 @@ function paintHandoffScope(){
 }
 // UI-디자인손질 6: each confirmed link is a colored-dot chip. BUG-바구니연결해제: organization and project
 // chips get × (disconnect, 44px target); on the note screen the chip itself opens that place.
-// Meeting and library chips stay plain: their links cannot be put back by the existing link path.
-const chipKinds=[['project','프로젝트'],['organization','담당조직'],['meeting','사업 보고'],['document','자료실']];
+// Meeting, library and reference (REF-참고묶음, 참고 묶음) chips stay plain: their links cannot be put back by the existing link path.
+const chipKinds=[['project','프로젝트'],['organization','담당조직'],['meeting','사업 보고'],['document','자료실'],['bundle','참고']];
 const confirmedLinks = noteId => links.filter(l => l.note_id === noteId && l.status === 'confirmed');
 function chipInfo(link) {
   const [kind, label] = chipKinds.find(([key]) => link[key + '_id']) || ['other', '연결'];

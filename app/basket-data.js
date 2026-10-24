@@ -51,7 +51,7 @@ async function readKind(kind, fields, order, rt) {
   // Read only links whose source is one of these notes, never task links.
   for (let start = 0; start < notes.length; start += PAGE_SIZE) {
     const ids = notes.slice(start, start + PAGE_SIZE).map(n => encodeURIComponent(n.id)).join(',');
-    links.push(...await pages(`/rest/v1/app_record_links?${scope}&note_id=in.(${ids})&select=id,note_id,status,summary,project_id,organization_id,meeting_id,document_id,project:app_spaces(name),organization:app_suborganizations(name),meeting:app_meetings!app_record_links_meeting_id_fkey(title,series_name),document:app_documents(title,category)&order=id.asc`, rt));
+    links.push(...await pages(`/rest/v1/app_record_links?${scope}&note_id=in.(${ids})&select=id,note_id,status,summary,project_id,organization_id,meeting_id,document_id,bundle_id,project:app_spaces(name),organization:app_suborganizations(name),meeting:app_meetings!app_record_links_meeting_id_fkey(title,series_name),document:app_documents(title,category),bundle:app_reference_bundles(name)&order=id.asc`, rt));
   }
   return {notes, links};
 }
@@ -306,10 +306,13 @@ async function moveFolderNoteToBasket(note, rt) {
   return saved[0];
 }
 // A memo counts as classified when it has a confirmed link or its files are a project's documents ([자료로 넣기]).
+// REF-참고묶음: a link to a reference bundle (bundle_id, app_reference_bundles) is a place too — "참고: 묶음 이름". It is never
+// report material (journal-data.js basketPlaces keeps it apart), but the update has gone somewhere, so it is '확정'.
+export const LINK_KINDS = Object.freeze([['project','프로젝트'], ['organization','담당조직'], ['meeting','사업 보고'], ['document','자료실'], ['bundle','참고']]);
 export function noteState(note, links, docs = []) {
   const confirmed = links.filter(l => l.note_id === note.id && l.status === 'confirmed');
   const destinations = confirmed.map(link => {
-    for (const [key, label] of [['project','프로젝트'], ['organization','담당조직'], ['meeting','사업 보고'], ['document','자료실']]) {
+    for (const [key, label] of LINK_KINDS) {
       if (!link[key + '_id']) continue;
       const name = link[key]?.name || link[key]?.title || link[key]?.series_name;
       return name ? `${label}: ${name}` : '연결 대상 없음';
@@ -324,7 +327,8 @@ export function noteState(note, links, docs = []) {
 // confirmed record links by target kind, [자료로 넣기] documents (a project's library documents, so both
 // 'project' and 'library'), Google tasks made from it (metadata.tasks, basket-note-tasks.js) and the work-journal memo
 // mark (metadata.journal_at, update-journal.js; place 'journal' = [업무일지]).
-export const BASKET_PLACES = Object.freeze([['all','전체'], ['organization','담당조직'], ['project','프로젝트'], ['library','자료실'], ['task','할 일'], ['journal','업무일지']]);
+// REF-참고묶음: [참고] = a confirmed link to a reference bundle (read and shown only; attaching comes with the next screen PR).
+export const BASKET_PLACES = Object.freeze([['all','전체'], ['organization','담당조직'], ['project','프로젝트'], ['reference','참고'], ['library','자료실'], ['task','할 일'], ['journal','업무일지']]);
 export function notePlaces(note, links, docs = []) {
   const places = new Set();
   for (const link of links) {
@@ -333,6 +337,7 @@ export function notePlaces(note, links, docs = []) {
     if (link.project_id) places.add('project');
     if (link.document_id) places.add('library');
     if (link.meeting_id) places.add('meeting');
+    if (link.bundle_id) places.add('reference');
   }
   if (filedProjects(note, docs).length) { places.add('project'); places.add('library'); }
   if (filedOrganizations(note, docs).length) { places.add('organization'); places.add('library'); }
@@ -368,7 +373,7 @@ export function visibleNotes(notes, links, filter, docs = [], place = 'all', sub
 // or one of the 7 document categories (document-categories.js). Everything comes from what the basket already reads:
 // confirmed links (their organization/project ids and names, a linked document's category) and [자료로 넣기]
 // documents (their project and category). [전체]·[할 일] have no second row.
-const SUB_PLACES = Object.freeze({organization:'모든 조직', project:'모든 프로젝트', library:'모든 자료'});
+const SUB_PLACES = Object.freeze({organization:'모든 조직', project:'모든 프로젝트', reference:'모든 참고', library:'모든 자료'});
 // The documents holding this memo's attachments ([자료로 넣기]), once each, in attachment order.
 function filedDocs(note, docs) {
   const byFile = new Map(docs.map(doc => [doc.file_id, doc])), seen = new Map();
@@ -386,6 +391,7 @@ function placeTargetNames(note, links, docs, place) {
     if (place === 'organization' && link.organization_id) targets.set(link.organization_id, link.organization?.name || '');
     if (place === 'project' && link.project_id) targets.set(link.project_id, link.project?.name || '');
     if (place === 'library' && link.document_id) targets.set(categoryOf(link.document?.category), '');
+    if (place === 'reference' && link.bundle_id) targets.set(link.bundle_id, link.bundle?.name || '');
   }
   for (const doc of filedDocs(note, docs)) {
     if (place === 'project' && doc.project_id && !targets.get(doc.project_id)) targets.set(doc.project_id, doc.project?.name || '');
@@ -408,7 +414,7 @@ export function placeSubOptions(notes, links, docs, place) {
   }
   const head = {value:'all', label:`${allLabel} ${inPlace.length}`};
   if (place === 'library') return [head, ...documentCategories().map(name => ({value:name, label:name}))];
-  const fallback = place === 'organization' ? '조직' : '프로젝트';
+  const fallback = place === 'organization' ? '조직' : place === 'reference' ? '참고 묶음' : '프로젝트';
   const rows = [...counts].map(([value, count]) => ({value, label:names.get(value) || fallback, count}));
   rows.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'ko'));
   return [head, ...rows.map(({value, label}) => ({value, label}))];
