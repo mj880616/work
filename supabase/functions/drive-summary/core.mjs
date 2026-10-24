@@ -275,7 +275,7 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date(), cr
     const [organizations, organizationUpdates, projects, workstreams, progress, milestones, taskLinks, documents, meetings] = await Promise.all([
       // TRASH-Edge거르기2: 서버 키는 RLS를 건너뛰므로 휴지통에 든 담당조직·사업 보고(deleted_at)는 여기서 직접 뺀다.
       dbRows('app_suborganizations', { select: 'id,name,active,recent_month_summary', ...scope, deleted_at: 'is.null' }),
-      dbRows('app_suborganization_updates', timeParams('id,organization_id,raw_text,occurred_at,organization:app_suborganizations!organization_id!inner(workspace_id,deleted_at)', { 'organization.workspace_id': `eq.${workspaceId}`, 'organization.deleted_at': 'is.null' }, 'occurred_at', window.start, window.end)),
+      dbRows('app_suborganization_updates', timeParams('id,organization_id,raw_text,occurred_at,organization:app_suborganizations!organization_id!inner(workspace_id)', { 'organization.workspace_id': `eq.${workspaceId}`, 'organization.deleted_at': 'is.null' }, 'occurred_at', window.start, window.end)),
       dbRows('app_spaces', { select: 'id,parent_id,name,status,sort_order,project_system:metadata->>project_system,management_version:metadata->>management_version', ...scope, deleted_at: 'is.null' }),
       dbRows('app_project_workstreams', { select: projectSelect('id,project_id,phase,title,sort_order'), ...projectScope }),
       dbRows('app_project_progress_updates', timeParams(projectSelect('id,project_id,workstream_id,effective_on,status_label,summary,next_step'), projectScope, 'effective_on', window.startDate, window.today)),
@@ -295,7 +295,7 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date(), cr
         if (!ownerId) throw new SummaryError('WORKSPACE_OWNER_UNAVAILABLE');
       }
       organizationAssignees = await dbRows('app_suborganization_assignees', {
-        select: 'organization_id,organization:app_suborganizations!organization_id!inner(workspace_id,deleted_at)',
+        select: 'organization_id,organization:app_suborganizations!organization_id!inner(workspace_id)',
         order: 'organization_id.asc', user_id: `eq.${ownerId}`, 'organization.workspace_id': `eq.${workspaceId}`, 'organization.deleted_at': 'is.null',
       });
     } catch { /* A failed/partial assignment read uses the full active guidance list. */ }
