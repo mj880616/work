@@ -16,7 +16,7 @@ export function createReportSummaries({host,nameOf,meetingId,rt}){
   function paint(focus=''){
     if(!host)return;
     host.hidden=!targets.length;
-    host.innerHTML=targets.map(t=>{const key=targetKey(t);return `<div class="report-link-summary" data-report-summary="${esc(key)}"><label class="basket-text-label">${esc(KIND_NAME[t.kind]+' · '+(nameOf(t)||''))} 요약 <span class="optional">선택 · 비우면 사업 보고 본문이 보여요</span><textarea data-report-summary-input="${esc(key)}" rows="2" maxlength="${SUMMARY_LIMIT}" spellcheck="false" placeholder="일시·장소·누가·숫자를 빠짐없이">${esc(text.get(key)??'')}</textarea></label>${aiSummaryMarkup(stateOf(key),key,'data-report',esc)}</div>`}).join('');
+    host.innerHTML=targets.map(t=>{const key=targetKey(t);return `<div class="report-link-summary" data-report-summary="${esc(key)}"><label class="basket-text-label">${esc(KIND_NAME[t.kind]+' · '+(nameOf(t)||''))} 요약 <span class="optional">선택 · 비우면 사업 보고 본문이 보여요</span><textarea data-report-summary-input="${esc(key)}" rows="2" maxlength="${SUMMARY_LIMIT}" spellcheck="false" placeholder="일시·장소·누가·숫자를 빠짐없이">${esc(text.get(key)??'')}</textarea></label>${aiSummaryMarkup(stateOf(key),key,'data-report',esc,{cls:'mini secondary'})}</div>`}).join('');
     if(focus)host.querySelector(focus)?.focus();
   }
   async function runAi(key){
