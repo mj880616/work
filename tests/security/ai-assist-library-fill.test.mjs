@@ -23,7 +23,9 @@ const doc=(n,over={})=>({id:id(n),workspace_id:WS,title:'251020_요구안_최종
   file_name:'251020_요구안_최종.hwpx',mime_type:'application/octet-stream',created_at:JUST,updated_at:JUST,field_origin:{},
   extracted_text:'2026년 임금교섭 요구안\n공공운수노조\n2026. 10. 20.',extraction_status:'ready',project_id:null,organization_id:null,...over});
 
-function harness({docs=[doc(1)],openai=[()=>respond(answer([fill()]))],usage=[],categories=null,patchStatus=0,missingColumn=false,attempts=[],classifyMissing=false,rpcStatus=0,spaces=[],orgs=[],backups=[],noReclassify=false}={}){
+function harness({docs=[doc(1)],openai=[()=>respond(answer([fill()]))],usage=[],categories=null,patchStatus=0,missingColumn=false,attempts=[],classifyMissing=false,rpcStatus=0,spaces=[],orgs=[],backups=[],noReclassify=false,briefs=null}={}){
+  // briefs=null: no summary table (the classification tests above stay about classification). Summary tests pass briefs:[...].
+  const briefMissing=briefs===null;
   const calls={openai:[],rest:[],patches:[],logs:[],rpcs:[]};
   const db={
     app_workspace_members:[{workspace_id:WS,user_id:OWNER,role:'owner'},{workspace_id:OTHER_WS,user_id:STRANGER,role:'owner'}],
@@ -32,6 +34,7 @@ function harness({docs=[doc(1)],openai=[()=>respond(answer([fill()]))],usage=[],
     app_ai_daily_usage:structuredClone(usage),
     app_library_classify_attempts:structuredClone(attempts),app_library_tidy_backups:structuredClone(backups),
     app_spaces:structuredClone(spaces),app_suborganizations:structuredClone(orgs),
+    app_document_ai_index:structuredClone(briefs??[]),
   };
   const users={'owner-token':OWNER,'stranger-token':STRANGER};
   const wsOwner={[WS]:OWNER,[OTHER_WS]:STRANGER};
@@ -87,6 +90,24 @@ function harness({docs=[doc(1)],openai=[()=>respond(answer([fill()]))],usage=[],
         else if(!prev.with_text)Object.assign(prev,{batch_id:body.p_batch,with_text:item.with_text,changed:n});
       }
       return respond({documents,fields,moved});
+    }
+    if(table==='app_document_ai_index'&&briefMissing)return respond({message:'not found'},404);
+    if(table==='app_document_ai_index'&&method!=='GET'){
+      // Owner policy task12a_owner_all + CHECK app_document_ai_index_brief_check (20261024150000) on b1: rows only.
+      const body=JSON.parse(init.body);calls.briefWrites=(calls.briefWrites||[]).concat({method,query:url.search,body});
+      const check=r=>{if(!String(r.content_hash||'').startsWith('b1:'))return;
+        assert.match(r.content_hash,/^b1:[0-9a-f]{32}$/);assert.equal(typeof r.summary,'string');assert.ok([...r.summary].length<=200);
+        assert.ok(r.summary.split('\n').length<=2);assert.ok(!/[^\n]{121}/u.test(r.summary));assert.ok(!/[\x01-\x09\x0b-\x1f\x7f<>]/.test(r.summary));
+        assert.deepEqual(r.keywords,[]);assert.equal(r.chunk_count,0);};
+      if(method==='POST'){
+        const d=db.app_documents.find(r=>r.id===body.document_id);assert.ok(d&&visible('app_documents',d,uid),'brief for own document only');
+        check(body);if(!db.app_document_ai_index.some(r=>r.document_id===body.document_id))db.app_document_ai_index.push(body);
+        return new Response(null,{status:201});
+      }
+      assert.equal(method,'PATCH');
+      const rows=db.app_document_ai_index.filter(r=>visible(table,r,uid)&&matches(r,url));
+      for(const r of rows){Object.assign(r,body);check(r);}
+      return new Response(null,{status:204});
     }
     if(table==='app_ai_daily_usage'&&method==='POST'){
       const body=JSON.parse(init.body);if(!visible(table,body,uid))return respond({},403);
@@ -513,4 +534,167 @@ test('replaced file: before the replace DB column exists the read falls back to 
   assert.equal(body.updated,1);assert.equal(calls.patches.length,0);
   assert.equal(calls.rest.filter(r=>r.table==='app_documents'&&r.method==='GET').length,2,'one 400 then the old select');
   assert.equal(db.app_documents[0].title,'2026년 임금교섭 요구안');
+});
+
+// ---- WEEKLY-자료요약 2단계: 한두 줄 요약(brief) ------------------------------------------------------------------------
+const {classificationFormat}=await import('../../app/basket-classification.js');
+const sum=(over={})=>fill({project:'',organization:'',brief:'A 지부 임금교섭 요구안. 기본급 5% 인상 요구, 10.28.(화) 1차 교섭 예정.',...over});
+const userAll={title:'user',document_date:'user',source:'user',category:'user'};
+const sentFiles=calls=>JSON.parse(calls.openai[0].input[1].content).files;
+const hashOf=text=>lib.briefHash(text);
+const TEXT='2026년 임금교섭 요구안\n공공운수노조\n2026. 10. 20.';
+const tried=n=>({document_id:id(n),workspace_id:WS,batch_id:'f0000000-0000-4000-8000-000000000001',with_text:true,changed:0});
+
+test('brief: the record-summary rule is the same sentence as the basket guide; the status words and job-title rule are in the AI guide',()=>{
+  assert.ok(classificationFormat(new Date('2026-10-24T00:00:00Z')).includes(lib.RECORD_SUMMARY_RULE),'basket guide and Edge constant must match word for word');
+  assert.ok(lib.LIBRARY_FILL_INSTRUCTIONS.includes(lib.RECORD_SUMMARY_RULE));
+  for(const w of ['예정','검토','확정','취소','진행','완료'])assert.ok(lib.LIBRARY_FILL_INSTRUCTIONS.includes(w),w);
+  assert.match(lib.LIBRARY_FILL_INSTRUCTIONS,/'예정'을 '진행'이나 '완료'로, '검토'를 '확정'으로 바꾸지 않는다/);
+  assert.match(lib.LIBRARY_FILL_INSTRUCTIONS,/사람 이름·연락처는 쓰지 않고 직책이나 조직으로/);
+  assert.match(lib.LIBRARY_FILL_INSTRUCTIONS,/명사형/);
+  assert.ok(lib.LIBRARY_FILL_SCHEMA.properties.items.items.required.includes('brief'));
+});
+
+test('brief: server check — 200 chars, 2 lines, 120 per line, no control characters or angle brackets; over the limit is dropped, not cut',()=>{
+  assert.equal(lib.cleanBrief(' A 지부 요구안.\r\n 10.28.(화) 교섭 예정. '),'A 지부 요구안.\n10.28.(화) 교섭 예정.');
+  assert.equal(lib.cleanBrief(''),'');assert.equal(lib.cleanBrief('\n \n'),'');
+  for(const bad of ['가'.repeat(121),'한 줄\n두 줄\n세 줄',('가'.repeat(110)+'\n').repeat(2).trim(),'요약 <b>굵게</b>','요약 > 화살표','요약\u0007벨','요약\u202e뒤집기',42,null])
+    assert.equal(lib.cleanBrief(bad),null,JSON.stringify(bad));
+  assert.equal(lib.cleanBrief('담당자 연락처 010-1234-5678, a@b.kr'),'담당자 연락처 (연락처), (연락처)');
+  // Status words pass through unchanged (the server never rewrites them).
+  assert.equal(lib.cleanBrief('10.28.(화) 1차 교섭 예정. 인력 충원안 검토 중.'),'10.28.(화) 1차 교섭 예정. 인력 충원안 검토 중.');
+});
+
+test('brief fill: requested in the same call and saved as a b1: row (fingerprint, keywords {}, chunk 0) with the owner token',async()=>{
+  const {handler,calls,db}=harness({briefs:[],openai:[()=>respond(answer([sum()]))]});
+  const res=await post(handler,fillReq());assert.equal(res.status,200);
+  assert.equal(calls.openai.length,1);assert.equal(sentFiles(calls)[0].brief,true);
+  assert.equal(calls.openai[0].text.format.schema.properties.items.items.properties.brief.type,'string');
+  const row=db.app_document_ai_index[0];
+  assert.equal(row.document_id,id(1));assert.equal(row.workspace_id,WS);assert.equal(row.content_hash,await hashOf(TEXT));
+  assert.equal(row.summary,'A 지부 임금교섭 요구안. 기본급 5% 인상 요구, 10.28.(화) 1차 교섭 예정.');
+  assert.deepEqual(row.keywords,[]);assert.equal(row.chunk_count,0);assert.equal(row.summary_model,'gpt-5.6-luna');
+  assert.equal(db.app_documents[0].title,'2026년 임금교섭 요구안','the other fields are filled as before');
+  assert.ok(!calls.logs.some(l=>JSON.stringify(l).includes('기본급')),'no summary text in logs');
+});
+
+test('brief: 예정·검토 in the file stay 예정·검토 in what is saved (server stores the checked text, never rewrites status words)',async()=>{
+  const text='가상 결의대회 계획\n10.30.(목) 결의대회 예정\n장소 변경 검토';
+  const brief='가상 결의대회 계획. 10.30.(목) 결의대회 예정, 장소 변경 검토.';
+  const {handler,db}=harness({briefs:[],docs:[doc(1,{extracted_text:text})],openai:[()=>respond(answer([sum({brief})]))]});
+  assert.equal((await post(handler,fillReq())).status,200);
+  const saved=db.app_document_ai_index[0].summary;
+  assert.equal(saved,brief);assert.match(saved,/예정/);assert.match(saved,/검토/);assert.doesNotMatch(saved,/진행|확정|완료/);
+});
+
+test('brief: an answer over the limit or with markup is saved as empty (nothing to summarise, not retried), never as the bad text',async()=>{
+  for(const brief of ['가'.repeat(201),'1줄\n2줄\n3줄','<script>x</script>'] ){
+    const {handler,db}=harness({briefs:[],openai:[()=>respond(answer([sum({brief})]))]});
+    assert.equal((await post(handler,fillReq())).status,200);
+    assert.equal(db.app_document_ai_index.length,1);assert.equal(db.app_document_ai_index[0].summary,'');
+  }
+});
+
+test('brief: a document whose fields are all the person\'s is still sent once — for the summary only — and nothing else is written',async()=>{
+  const {handler,calls,db}=harness({briefs:[],docs:[doc(1,{field_origin:userAll,title:'내 제목'})],openai:[()=>respond(answer([sum({title:'AI 제목'})]))]});
+  assert.equal((await post(handler,fillReq())).status,200);
+  assert.equal(calls.openai.length,1);assert.equal(sentFiles(calls)[0].brief,true);
+  assert.equal(db.app_documents[0].title,'내 제목');assert.equal(calls.patches.length,0);
+  assert.equal(db.app_document_ai_index.length,1);
+});
+
+test('brief: an old row (not b1:, written by document-ai-index) is never overwritten and the document is not summarised',async()=>{
+  const oldRow={document_id:id(1),workspace_id:WS,content_hash:'sha256-legacy',summary:'옛 인덱싱 요약 '.repeat(40),keywords:['교섭'],chunk_count:3,summary_model:'old',indexed_at:OLD,updated_at:OLD};
+  {const {handler,calls,db}=harness({docs:[doc(1,{field_origin:userAll})],briefs:[oldRow]});
+   assert.equal((await post(handler,fillReq())).status,200);
+   assert.equal(calls.openai.length,0,'nothing else to do → no AI');assert.equal(calls.briefWrites,undefined);
+   assert.deepEqual(db.app_document_ai_index,[oldRow]);}
+  {const {handler,calls,db}=harness({briefs:[oldRow]});
+   assert.equal((await post(handler,fillReq())).status,200);
+   assert.equal(sentFiles(calls)[0].brief,false);assert.equal(calls.briefWrites,undefined);assert.deepEqual(db.app_document_ai_index,[oldRow]);}
+});
+
+test('brief: the same file uploaded again (same text fingerprint) copies the existing summary with no AI call',async()=>{
+  const h=await hashOf(TEXT);
+  const first={document_id:id(2),workspace_id:WS,content_hash:h,summary:'먼저 올린 자료 요약.',keywords:[],chunk_count:0,summary_model:'m1',indexed_at:OLD,updated_at:OLD};
+  const {handler,calls,db}=harness({docs:[doc(1,{field_origin:userAll}),doc(2,{created_at:OLD,updated_at:OLD})],briefs:[first]});
+  assert.equal((await post(handler,fillReq())).status,200);
+  assert.equal(calls.openai.length,0,'AI 0 calls');
+  const copy=db.app_document_ai_index.find(r=>r.document_id===id(1));
+  assert.equal(copy.summary,'먼저 올린 자료 요약.');assert.equal(copy.content_hash,h);assert.equal(copy.summary_model,'m1');
+  assert.ok(calls.rest.some(c=>c.table==='app_document_ai_index'&&c.query.includes('content_hash=in.')&&c.query.includes(`workspace_id=eq.${WS}`)));
+});
+
+test('brief: an unchanged b1: row is not asked again; changed text re-summarises and updates only that b1: row',async()=>{
+  const h=await hashOf(TEXT);
+  {const {handler,calls}=harness({docs:[doc(1,{field_origin:userAll})],briefs:[{document_id:id(1),workspace_id:WS,content_hash:h,summary:'그대로.',keywords:[],chunk_count:0}]});
+   assert.equal((await post(handler,fillReq())).status,200);assert.equal(calls.openai.length,0);}
+  {const stale='b1:'+'0'.repeat(32);
+   const {handler,calls,db}=harness({docs:[doc(1,{field_origin:userAll})],briefs:[{document_id:id(1),workspace_id:WS,content_hash:stale,summary:'옛 글자의 요약.',keywords:[],chunk_count:0}],
+     openai:[()=>respond(answer([sum({brief:'새 글자의 요약.'})]))]});
+   assert.equal((await post(handler,fillReq())).status,200);
+   assert.equal(calls.briefWrites[0].method,'PATCH');assert.match(calls.briefWrites[0].query,new RegExp(`content_hash=eq.${stale.replace(':','%3A')}`));
+   assert.equal(db.app_document_ai_index[0].summary,'새 글자의 요약.');assert.equal(db.app_document_ai_index[0].content_hash,h);}
+});
+
+test('brief: photos, scans without text and unread files are never summarised; an unreadable summary table leaves fill as before',async()=>{
+  {const {handler,calls,db}=harness({briefs:[],docs:[doc(1,{extracted_text:null,extraction_status:'error'})]});
+   assert.equal((await post(handler,fillReq())).status,200);assert.equal(sentFiles(calls)[0].brief,false);assert.equal(db.app_document_ai_index.length,0);}
+  {const {handler,calls,db}=harness();
+   assert.equal((await post(handler,fillReq())).status,200);assert.equal(sentFiles(calls)[0].brief,false);
+   assert.equal(db.app_documents[0].title,'2026년 임금교섭 요구안');assert.ok(calls.logs.some(l=>l.code==='library_brief_unavailable'));}
+});
+
+test('brief backfill (Q4 ②): tidy summarises old documents with no age limit, oldest first, without touching their classification record',async()=>{
+  const docs=[doc(3,{created_at:'2026-03-01T00:00:00Z',updated_at:OLD,field_origin:userAll}),doc(1,{created_at:'2024-01-05T00:00:00Z',updated_at:OLD,field_origin:userAll}),
+    doc(2,{created_at:'2025-07-01T00:00:00Z',updated_at:OLD,field_origin:userAll,extracted_text:'두 번째 자료 글자'})];
+  const {handler,calls,db}=harness({briefs:[],docs,attempts:[tried(1),tried(2),tried(3)],openai:[()=>{
+    const files=JSON.parse(calls.openai.at(-1).input[1].content).files;return respond(answer(files.map(f=>sum({ref:f.ref,brief:`요약 ${f.ref}.`}))));}]});
+  const res=await post(handler,{kind:'library_fill',mode:'tidy',document_ids:[id(3),id(1),id(2)]});
+  assert.equal(res.status,200);assert.equal(calls.openai.length,1);
+  const files=sentFiles(calls);assert.deepEqual(files.map(f=>f.brief),[true,true,true]);
+  // Oldest upload first: d1 = 2024, d2 = 2025, d3 = 2026.
+  assert.deepEqual(['d1','d2','d3'].map(r=>db.app_document_ai_index.find(x=>x.summary===`요약 ${r}.`)?.document_id),[id(1),id(2),id(3)]);
+  assert.equal(calls.rpcs.length,0,'already-classified documents get no new classification record');
+  assert.equal(calls.patches.length,0);
+});
+
+test('brief backfill keeps room for new uploads: from 35 AI calls today tidy stops summary-only work (daily_limit); fill still summarises',async()=>{
+  assert.equal(lib.LIBRARY_BRIEF_BACKFILL_UNTIL,35);assert.equal(DAILY_LIMITS.library_fill,50);
+  const old=doc(1,{created_at:OLD,updated_at:OLD,field_origin:userAll});
+  const usage=n=>[{workspace_id:WS,user_id:OWNER,day:TODAY,requests:n,input_tokens:0,output_tokens:0}];
+  {const {handler,calls,db}=harness({briefs:[],docs:[old],attempts:[tried(1)],usage:usage(35)});
+   const r=await post(handler,{kind:'library_fill',mode:'tidy',document_ids:[id(1)]});
+   assert.equal(r.status,429);assert.equal((await r.json()).error,'daily_limit');assert.equal(calls.openai.length,0);
+   assert.equal(db.app_document_ai_index.length,0);assert.equal(db.app_ai_daily_usage[0].requests,35,'no call counted');}
+  {const {handler,calls}=harness({briefs:[],docs:[old],attempts:[tried(1)],usage:usage(34),openai:[()=>respond(answer([sum()]))]});
+   assert.equal((await post(handler,{kind:'library_fill',mode:'tidy',document_ids:[id(1)]})).status,200);assert.equal(calls.openai.length,1);}
+  {const {handler,calls,db}=harness({briefs:[],usage:usage(40),openai:[()=>respond(answer([sum()]))]});
+   assert.equal((await post(handler,fillReq())).status,200);assert.equal(calls.openai.length,1);assert.equal(db.app_document_ai_index.length,1);}
+  // A tidy batch with real classification work still goes; only the summary-only documents wait for tomorrow.
+  {const untidy=doc(2,{created_at:OLD,updated_at:OLD});
+   const {handler,calls,db}=harness({briefs:[],docs:[old,untidy],attempts:[tried(1)],usage:usage(36),openai:[()=>respond(answer([sum()]))]});
+   assert.equal((await post(handler,{kind:'library_fill',mode:'tidy',document_ids:[id(1),id(2)]})).status,200);
+   assert.equal(sentFiles(calls).length,1);assert.equal(db.app_document_ai_index.map(r=>r.document_id).join(),id(2));}
+  // The shared daily total (50) is unchanged.
+  {const {handler,calls}=harness({briefs:[],usage:usage(50)});const r=await post(handler,fillReq());assert.equal(r.status,429);assert.equal(calls.openai.length,0);}
+});
+
+test('brief tidy: an invalid AI answer stores an empty summary (not retried forever); busy stores nothing',async()=>{
+  const old=doc(1,{created_at:OLD,updated_at:OLD,field_origin:userAll});
+  {const {handler,db}=harness({briefs:[],docs:[old],attempts:[tried(1)],openai:[()=>respond({status:'completed',output:[{type:'message',content:[{type:'output_text',text:'not json'}]}],usage:{}})]});
+   assert.equal((await post(handler,{kind:'library_fill',mode:'tidy',document_ids:[id(1)]})).status,502);
+   assert.equal(db.app_document_ai_index[0].summary,'');}
+  {const {handler,db}=harness({briefs:[],docs:[old],attempts:[tried(1)],openai:[()=>respond({},500)]});
+   assert.equal((await post(handler,{kind:'library_fill',mode:'tidy',document_ids:[id(1)]})).status,503);
+   assert.equal(db.app_document_ai_index.length,0);}
+});
+
+test('brief: another workspace\'s summary is never read for copying or written',async()=>{
+  const h=await hashOf(TEXT);
+  const foreign={document_id:id(9),workspace_id:OTHER_WS,content_hash:h,summary:'남의 요약',keywords:[],chunk_count:0};
+  const {handler,calls,db}=harness({briefs:[foreign],openai:[()=>respond(answer([sum()]))]});
+  assert.equal((await post(handler,fillReq())).status,200);
+  assert.equal(calls.openai.length,1,'not copied from another workspace');
+  assert.ok(!db.app_document_ai_index.some(r=>r.document_id===id(1)&&r.summary==='남의 요약'));
 });

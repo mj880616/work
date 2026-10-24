@@ -2,6 +2,8 @@
 // 업무일지 [주간 정리] '4. 산하 조직 현황 > 1) 요약'에서 [요약 만들기]를 눌렀을 때만 부른다.
 // - 화면은 주(월요일)와 조직 ID만 보낸다. 재료는 서버가 내 로그인으로 읽는다(그 주 조직 기록, 그 조직에 연결한 업데이트와 연결 기록 요약,
 //   직전 주 요약). 일기·보관·AI 내보내기 비허용 업데이트는 읽지 않는다. 첨부는 파일 이름만 보낸다(내용은 읽지 않음).
+//   WEEKLY-자료요약(2026-10-24): 그 주에 올린, 그 조직에 연결된 자료의 한두 줄 요약('b1:' 요약 표 행)을 "자료 요약"으로 더한다.
+//   요약은 이미 서버가 검사해 저장한 글이고, 파일 원문은 보내지 않는다. 회의자료(meeting_id)는 화면 규칙(Q3)처럼 넣지 않는다.
 // - 재료마다 이번 실행에서만 쓰는 짧은 조직 참조(o1, o2 …)를 붙인다. 목록에 없는 참조의 답은 버린다.
 // - AI 답은 믿지 않는 입력: 키·개수·글자 수를 다시 검사하고, HTML·제어 문자·앞 기호를 지우고 같은 줄은 한 번만 남긴다.
 //   전화번호·이메일 같은 개인 연락처가 든 줄은 버린다.
@@ -17,7 +19,7 @@ export const ORG_SUMMARY_ORG_CHARS = 8000;
 export const ORG_SUMMARY_ITEM_CHARS = 2000;
 export const ORG_SUMMARY_MAX_OUTPUT_TOKENS = 3000;
 
-export type OrgRecord = { day: string; at: number; type: "org_update" | "update" | "link_summary"; text: string; files?: string[] };
+export type OrgRecord = { day: string; at: number; type: "org_update" | "update" | "link_summary" | "file_summary"; text: string; files?: string[] };
 export type OrgMaterial = { id: string; name: string; previous: string; records: OrgRecord[] };
 export type PackedOrg = OrgMaterial & { ref: string };
 
@@ -78,7 +80,7 @@ export function packOrgs(orgs: OrgMaterial[], { total = ORG_SUMMARY_INPUT_CHARS,
   return { packed, partial };
 }
 
-const TYPE_NAMES: Record<OrgRecord["type"], string> = { org_update: "조직 기록", update: "업데이트", link_summary: "연결 기록 요약" };
+const TYPE_NAMES: Record<OrgRecord["type"], string> = { org_update: "조직 기록", update: "업데이트", link_summary: "연결 기록 요약", file_summary: "자료 요약" };
 const WEEKDAY = "일월화수목금토";
 export const reportDay = (day: string) => {
   const [y, m, d] = day.split("-").map(Number);
@@ -109,6 +111,7 @@ export const ORG_SUMMARY_INSTRUCTIONS = [
   "같은 사안이 여러 기록·여러 날짜에 나오면 한 줄로 합치고, 날짜가 다르면 가장 늦은 기록을 따른다. 날짜는 M.D.(요일) 꼴로 쓴다.",
   "개인 이름·연락처·인사말·사적인 내용(건강·가족·개인 감정 등)은 쓰지 않는다. 사람은 직책이나 조직으로 쓴다(예: \"지부장\", \"사측\").",
   "files는 첨부 파일 이름일 뿐이다. 내용을 짐작하지 말고, 필요할 때만 \"○○ 자료 공유.\"처럼 이름만 쓴다.",
+  "type이 '자료 요약'인 기록은 그 조직에 올린 자료의 '제목 — 이미 요약된 글'이다. 요약에 쓰인 사실·숫자·날짜·진행 상태(예정·검토 등)를 바꾸지 말고, 다른 기록과 같은 사안이면 한 줄로 합친다.",
   "앞에 기호(-, •, ○, 1.)를 붙이지 않는다. HTML·링크·마크다운을 쓰지 않는다. 재료에 없는 사실·숫자·날짜·이름을 만들지 않는다.",
   "org는 organizations의 ref 값을 그대로 쓴다. 조직마다 한 항목이다.",
   "답은 정해진 JSON 형식 {\"items\": [{\"org\": 참조, \"lines\": [문자열]}]} 하나뿐이다.",

@@ -8,6 +8,9 @@
 //   + 분류 목록 + 내 프로젝트·담당조직 이름 목록(짧은 참조 p1·o1만, ID는 보내지 않음). 사진·못 읽은 파일은 파일 이름으로만.
 // - AI 답은 믿지 않는 입력: 키·종류·글자 수·날짜를 다시 검사하고, 분류는 사용자 분류 목록 안의 이름만,
 //   프로젝트·조직은 이번에 보낸 참조(서버가 owner 로그인 토큰으로 읽은 내 목록)만 받아 서버가 ID로 바꾼다. 모델이 ID를 만들 수 없다.
+// - 한두 줄 요약(brief, WEEKLY-자료요약 2단계, docs/design/weekly-file-summary.md 2·3절): 같은 호출의 답 칸 하나.
+//   글자가 있는 자료에만 요청(brief:true)하고, 서버가 줄 수·글자 수·제어 문자·꺾쇠를 다시 검사한다(넘으면 버림, 자르지 않음).
+//   저장은 handler가 이미 있는 "자료별 AI 요약 표"(app_document_ai_index)에 'b1:' 지문 행으로만 한다(옛 행은 건드리지 않음).
 
 export const LIBRARY_FIELDS = Object.freeze(["title", "document_date", "source", "category"] as const);
 export type LibraryField = typeof LIBRARY_FIELDS[number];
@@ -25,7 +28,8 @@ export const LIBRARY_DOC_CHARS = 8000;
 // 프로젝트·담당조직 목록은 각각 앞에서 80개까지, 이름(상위 › 하위 경로)은 80자까지. 그 밖은 AI에 보내지 않는다(연결 후보에서도 빠짐).
 export const LIBRARY_LINK_OPTIONS = 80;
 export const LIBRARY_LINK_NAME_CHARS = 80;
-export const LIBRARY_MAX_OUTPUT_TOKENS = 400;
+// 자료 하나의 답 상한. 한두 줄 요약(200자 안, 한국어 약 350토큰)이 더해져 400 → 750.
+export const LIBRARY_MAX_OUTPUT_TOKENS = 750;
 // 막 올린 자료만 바로 채운다(fill). 오래된 자료는 목록 만들기(propose)로만 다룬다.
 export const LIBRARY_FILL_WINDOW_MS = 60 * 60 * 1000;
 // 분류 목록의 기준은 내 목록(app_profiles.document_categories, 화면 app/document-categories.js와 같은 한 곳)이다. 이 기본값(DB 칸 기본값과 같음)은
@@ -140,6 +144,50 @@ export function upgradeTextFields(doc: DocRow, legacy: OriginField[]): LibraryFi
 }
 
 export const LIBRARY_PROPOSE_BATCH = 10;
+
+// ---- 한두 줄 요약(brief) ----
+// DB 검사(20261024150000_document_brief, app_document_ai_index_brief_check)와 같은 상한: 합계 200자, 2줄, 줄마다 120자,
+// 줄바꿈 밖 제어 문자 없음, 꺾쇠 없음. 지문은 'b1:' + 소문자 16진수 32자.
+export const BRIEF_TOTAL_CHARS = 200;
+export const BRIEF_MAX_LINES = 2;
+export const BRIEF_LINE_CHARS = 120;
+export const BRIEF_HASH_PREFIX = "b1:";
+export const BRIEF_HASH = /^b1:[0-9a-f]{32}$/;
+// 예전 자료 채우기(Q4 ②): 하루 AI 한도(전체 50회)는 그대로 두고, 그날 쓴 횟수가 이 값에 닿으면 "예전 자료 요약만" 하는 호출은
+// 그날 멈춘다(daily_limit). 남은 15회는 새로 올린 자료 채우기(fill)와 다른 AI 기능 몫이다. 새 자료(fill)는 이 값과 상관없이 늘 요약한다.
+export const LIBRARY_BRIEF_BACKFILL_UNTIL = 35;
+// 바구니 기록 요약 규칙(app/basket-classification.js classificationFormat)과 글자 그대로 같은 문장. 화면 JS와 Edge가 파일을 공유하지 못해
+// 시험(tests/security/ai-assist-library-fill.test.mjs)이 두 곳이 같은지 비교한다.
+export const RECORD_SUMMARY_RULE = "날짜·요일·시간·장소·주체·대상·숫자와 진행 상태(예정·검토·확정·취소)를 그대로 보존하세요. 예정이나 검토를 확정으로 바꾸지 마세요. 원문에 없는 사실을 만들거나 추측하지 마세요. 원문에 없는 날짜·요일·시간·장소·주체·대상·숫자·상태는 추가하지 마세요. '내용 공유'나 '일정 및 장소 안내'처럼 구체적인 사실이 없는 말만 쓰지 마세요.";
+// 상태 낱말은 원문 그대로(예정을 진행·완료로, 검토를 확정으로 바꾸지 않음). 시험이 이 낱말이 지침에 있는지 본다.
+export const BRIEF_STATUS_WORDS = Object.freeze(["예정", "검토", "확정", "취소", "진행", "완료"]);
+const BRIEF_STATUS_RULE = `진행 상태 낱말(${BRIEF_STATUS_WORDS.join("·")})은 원문에 쓰인 그대로 쓴다. '예정'을 '진행'이나 '완료'로, '검토'를 '확정'으로 바꾸지 않는다.`;
+
+// 개인 연락처(전화·이메일): org-summary.ts cleanOrgText와 같은 규칙으로 서버가 한 번 더 가린다.
+const BRIEF_PHONE = /(?:\+?82[-\s]?)?0\d{1,2}[-\s.]?\d{3,4}[-\s.]?\d{4}/g;
+const BRIEF_EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+
+// AI 답(또는 표에서 읽은 요약)의 검사. 통과하면 저장할 글, 빈 글이면 ""(요약할 것 없음), 상한을 넘거나 꺾쇠·제어 문자가 있으면 null(버림).
+export function cleanBrief(value: unknown): string | null {
+  if (typeof value !== "string" || (value as { isWellFormed?: () => boolean }).isWellFormed?.() === false) return null;
+  const text = value.replace(/\r\n?/g, "\n").replace(/\t/g, " ");
+  // 줄바꿈 밖 제어 문자·보이지 않는 방향/폭 문자·꺾쇠가 있으면 버린다(지우지 않음 — 지운 글이 뜻을 바꿀 수 있음).
+  if (/[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2028\u2029\u2060-\u2069<>]/.test(text)) return null;
+  const lines = text.split("\n").map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean)
+    .map((l) => l.replace(BRIEF_PHONE, "(연락처)").replace(BRIEF_EMAIL, "(연락처)"));
+  if (!lines.length) return "";
+  if (lines.length > BRIEF_MAX_LINES || lines.some((l) => chars(l) > BRIEF_LINE_CHARS)) return null;
+  const out = lines.join("\n");
+  return chars(out) > BRIEF_TOTAL_CHARS ? null : out;
+}
+
+// 글자 지문(설계 5.1): NFKC로 바꾸고 띄어쓰기·줄바꿈을 하나로 맞춘 뒤 SHA-256 앞 32자. 같은 파일을 두 번 올리면 같은 지문.
+export async function briefHash(text: string): Promise<string> {
+  const norm = String(text ?? "").normalize("NFKC").replace(/\s+/g, " ").trim();
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(norm)));
+  return BRIEF_HASH_PREFIX + [...digest].map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
+}
+
 export const LIBRARY_FILL_INSTRUCTIONS = [
   "너는 Web2 자료실에 올린 업무 자료의 정보 칸을 채우는 도우미다.",
   "사용자 메시지는 JSON 자료 하나다. files의 항목마다 ref(참조), name(파일 이름), type(형식), text(파일에서 읽은 글자 앞부분)가 있다. text가 비어 있으면 파일 이름만 보고 판단한다.",
@@ -150,8 +198,12 @@ export const LIBRARY_FILL_INSTRUCTIONS = [
   "category: categories 목록 중 하나를 그대로 고른다. 맞는 것이 없으면 '기타'. 목록에 그 이름이 있을 때의 기준: 소식지·웹자보·카드뉴스·홍보물 = 선전, 성명서·보도자료·논평·취재요청서 = 성명·보도자료, 기관에 보내거나 받은 공식 문서(공문·협조 요청·회신) = 공문, 합의서·교섭 요구안·교섭 결과 = 교섭·합의(목록에 '교섭'만 있으면 교섭), 투쟁 지침·투쟁명령(그림 포함) = 투쟁, 교육자료·강의안 = 교육. 기자회견문 = 성명·보도자료, 유인물·현수막 = 선전.",
   "project: projects 목록(ref와 이름, 이름은 '상위 › 하위')에서 자료 내용이 분명히 그 프로젝트의 일(같은 사업·교섭·투쟁·사안)일 때만 그 ref 하나를 쓴다. 여러 개가 맞으면 가장 좁은(하위) 것. 애매하거나 목록이 없으면 빈 글.",
   "organization: organizations 목록(ref와 이름)에서 자료를 만든 곳이거나 자료가 주로 다루는 조직이 분명할 때만 그 ref 하나를 쓴다. 애매하거나 목록이 없으면 빈 글. 목록에 없는 ref를 만들지 않는다.",
+  "brief: 파일 항목의 brief가 true일 때만 쓴다(false면 빈 글). 주간보고에 넣을 이 자료의 한두 줄 요약 — 이 자료가 무엇인지와 핵심 사실 하나. 1~2줄, 줄마다 120자 이내, 합계 200자 이내. 줄바꿈 말고 기호·꺾쇠·HTML을 쓰지 않는다. 요약할 내용이 없으면 빈 글.",
+  `brief 규칙: ${RECORD_SUMMARY_RULE}`,
+  `brief 규칙: ${BRIEF_STATUS_RULE}`,
+  "brief 규칙: 문장 끝은 명사형으로 맺는다(예: \"A 지부 임금교섭 요구안. 기본급 5% 인상·인력 충원 요구, 10.28.(화) 1차 교섭 예정.\"). \"~했다\", \"~합니다\", \"~함\", \"~임\"으로 끝내지 않는다. 사람 이름·연락처는 쓰지 않고 직책이나 조직으로 쓴다(예: \"지부장\", \"사측\").",
   "재료에 없는 사실을 만들지 않는다. 모르는 칸은 빈 글로 둔다. HTML·링크·마크다운을 쓰지 않는다.",
-  "files의 항목마다 같은 ref로 답 하나씩, 정해진 JSON 형식 {\"items\":[{\"ref\",\"title\",\"document_date\",\"source\",\"category\",\"project\",\"organization\"}]}으로만 답한다.",
+  "files의 항목마다 같은 ref로 답 하나씩, 정해진 JSON 형식 {\"items\":[{\"ref\",\"title\",\"document_date\",\"source\",\"category\",\"project\",\"organization\",\"brief\"}]}으로만 답한다.",
 ].join("\n");
 
 export const LIBRARY_FILL_SCHEMA = {
@@ -169,8 +221,9 @@ export const LIBRARY_FILL_SCHEMA = {
           category: { type: "string" },
           project: { type: "string" },
           organization: { type: "string" },
+          brief: { type: "string" },
         },
-        required: ["ref", "title", "document_date", "source", "category", "project", "organization"],
+        required: ["ref", "title", "document_date", "source", "category", "project", "organization", "brief"],
         additionalProperties: false,
       },
     },
@@ -179,7 +232,8 @@ export const LIBRARY_FILL_SCHEMA = {
   additionalProperties: false,
 };
 
-export type MaterialFile = { ref: string; doc: DocRow; text: string };
+// brief: 이 파일의 한두 줄 요약을 요청하는지(글자가 있고, 요약이 없거나 글자가 바뀐 자료만 true).
+export type MaterialFile = { ref: string; doc: DocRow; text: string; brief?: boolean };
 // 연결 후보: 서버가 owner 로그인 토큰으로 읽은 내 프로젝트·담당조직. AI에는 ref·name만 보내고 id는 서버에만 둔다.
 export type LinkOption = { ref: string; id: string; name: string };
 export type LinkOptions = { projects: LinkOption[]; organizations: LinkOption[] };
@@ -235,11 +289,13 @@ export function libraryMaterial(files: MaterialFile[], categories: string[], lin
       name: cut(String(f.doc.file_name ?? ""), 255),
       type: cut(String(f.doc.mime_type ?? ""), 127),
       text: cut(String(f.text ?? ""), share),
+      brief: f.brief === true && !!f.text,
     })),
   });
 }
 
-export type FillValues = Partial<Record<OriginField, string>>;
+// brief: 검사한 요약(""이면 요약할 것 없음 또는 검사 실패 — 다시 요청하지 않음). 답에 brief 키가 없는 옛 모양이면 없음(undefined).
+export type FillValues = Partial<Record<OriginField, string>> & { brief?: string };
 
 // 칸 하나의 값 검사. 빈 칸·검사 실패 칸은 빠진다. 프로젝트·조직은 이번에 보낸 참조만 서버의 ID로 바꾼다(모델 글을 ID로 쓰지 않음).
 export function cleanValues(p: Record<string, unknown>, categories: string[], today: string, links: LinkOptions = NO_LINKS): FillValues {
@@ -294,14 +350,19 @@ export function parseLibraryFill(raw: unknown, refs: string[], categories: strin
   for (const raw of list) {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
     const p = raw as Record<string, unknown>;
-    // 정해진 형식은 7개 키. 연결 두 키가 빠진 옛 모양(5개 키)은 연결 없음으로 받는다.
+    // 정해진 형식은 8개 키(요약 brief 포함). 요약이 빠진 옛 모양(7개 키)·연결 두 키도 빠진 옛 모양(5개 키)도 받는다.
     const shape = Object.keys(p).sort().join(",");
-    if (shape !== "category,document_date,organization,project,ref,source,title" && shape !== "category,document_date,ref,source,title") return null;
+    if (shape !== "brief,category,document_date,organization,project,ref,source,title" &&
+      shape !== "category,document_date,organization,project,ref,source,title" && shape !== "category,document_date,ref,source,title") return null;
     if (["ref", ...LIBRARY_FIELDS].some((f) => typeof p[f] !== "string")) return null;
     if (shape.includes("project") && (typeof p.project !== "string" || typeof p.organization !== "string")) return null;
+    if (shape.startsWith("brief") && typeof p.brief !== "string") return null;
     const ref = p.ref as string;
     if (!refs.includes(ref) || out.has(ref)) continue;
-    out.set(ref, cleanValues(p, categories, today, links));
+    const values = cleanValues(p, categories, today, links);
+    // 요약이 상한을 넘거나 꺾쇠·제어 문자가 있으면 버린다(빈 글 = 다시 요청하지 않음, tidy의 '틀린 답은 시도 기록만'과 같은 이유).
+    if (typeof p.brief === "string") values.brief = cleanBrief(p.brief) ?? "";
+    out.set(ref, values);
   }
   return out;
 }
