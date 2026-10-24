@@ -3,7 +3,7 @@
 -- (다른 칸·검사·정책·표 권한·다른 칸 권한·트리거·색인 변화 없음, 줄이 늘거나 줄지 않음).
 with t as (select to_regclass('public.app_suborganization_dispute_stages') as rel),
 history as (
-  select count(*) as n,count(*) filter(where name='org_dispute_stage_period') as named from supabase_migrations.schema_migrations where version='20261024170000'
+  select count(*) as n,count(*) filter(where name='org_dispute_stage_period') as named from supabase_migrations.schema_migrations where version='20261024180000'
 ), cols as (
   select count(*) as n from pg_attribute where attrelid=(select rel from t) and attname='end_date' and atttypid='date'::regtype and not attnotnull and not attisdropped
 ), checks as (

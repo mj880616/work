@@ -21,7 +21,7 @@ set local statement_timeout = '60s';
 
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261024170000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261024180000')
      or (select count(*) from supabase_migrations.schema_migrations where version = '20261024100000' and name = 'org_dispute_stage_db') <> 1
      or to_regclass('public.app_suborganization_dispute_stages') is null
      or to_regclass('public.app_dispute_stages') is null
@@ -92,5 +92,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261024170000', 'org_dispute_stage_period', array['ORG-쟁의단계 다듬기 DB: app_suborganization_dispute_stages.end_date date + CHECK (end_date >= stage_date); column grants insert(end_date), update(stage_id, stage_name, stage_date, end_date) to authenticated; restrictive update policy (same workspace stage, name copy); existing owner RLS unchanged']);
+values ('20261024180000', 'org_dispute_stage_period', array['ORG-쟁의단계 다듬기 DB: app_suborganization_dispute_stages.end_date date + CHECK (end_date >= stage_date); column grants insert(end_date), update(stage_id, stage_name, stage_date, end_date) to authenticated; restrictive update policy (same workspace stage, name copy); existing owner RLS unchanged']);
 commit;
