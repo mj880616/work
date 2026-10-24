@@ -154,40 +154,33 @@ for (const width of [390, 1280]) {
     expect(f.errors).toEqual([]);
   });
 
-  test(`big editor: [📎 첨부] at the end of the format row; save sends the file with the note id and shows its card ${width}`, async ({page}) => {
+  test(`big editor: [📎 첨부] under the text; save sends the file with the note id and shows its card ${width}`, async ({page}) => {
     const f = await fixture(page, width);
     await press(page, page.locator('[data-note-row="n-text"]'), width);
     await noteMenuAction(page, 'data-note-edit', {width});
+    await expect(page.locator('[data-note-detail] [data-note-body-field] .ProseMirror')).toBeVisible();
     await press(page, page.locator('[data-note-big-write]'), width);
-    const e = page.locator('#mdEditor'); await expect(e).toBeVisible();
-    // MD-서식줄묶음: on a phone the clip is a row of the [넣기 ▾] list (opened first); wider than that it ends the format row.
-    const tools = e.locator('.md-editor-tools'), clip = e.getByRole('button', {name: '파일 첨부', exact: true});
-    if (width < 761) await openMdTool(e, '파일 첨부');
+    // ED③ 노트: the note's new big window. [📎 첨부] is the row under the text (the new editor's format row has no file button).
+    const e = page.locator('#edWindow'); await expect(e).toBeVisible();
+    const row = e.locator('[data-edw-attach]'), clip = row.getByRole('button', {name: '파일 첨부', exact: true});
     await expect(clip).toBeVisible();
-    if (width < 761) await expect(e.locator('.md-pop').getByRole('button', {name: '파일 첨부', exact: true})).toBeVisible();
-    else {
-      // The last item of the format row, the same 28px buttons (44px touch area).
-      expect(await tools.evaluate(el => el.lastElementChild.matches('[data-md-attach-picker]'))).toBe(true);
-      const [cb, bb] = await Promise.all([clip.boundingBox(), tools.locator('[data-md-action]').first().boundingBox()]);
-      expect(cb.height).toBe(28); expect(Math.abs(cb.height - bb.height)).toBeLessThanOrEqual(1);
-      expect(await clip.evaluate(el => parseFloat(getComputedStyle(el, '::after').height))).toBe(44);
-    }
-    // No file chosen: no empty strip under the text.
-    await expect(e.locator('.md-editor-attach')).toBeHidden();
+    const cb = await clip.boundingBox();
+    expect(cb.height).toBe(32);
+    expect(await clip.evaluate(el => parseFloat(getComputedStyle(el, '::after').height))).toBe(44);
     const chooser = page.waitForEvent('filechooser'); await clip.click(); await (await chooser).setFiles([fileBuffer('참고 자료.pdf')]);
     await expect(clip.locator('[data-basket-count]')).toHaveText('1');
-    await expect(e.locator('.md-editor-attach [data-basket-file]')).toContainText('참고 자료.pdf');
+    await expect(row.locator('[data-basket-file]')).toContainText('참고 자료.pdf');
     expect(await noFrameWidth(page)).toBe(true);
     if (process.env.CAPTURE_DIR) await page.screenshot({path: `${process.env.CAPTURE_DIR}/note-big-editor-clip-${width}.png`});
-    await e.locator('[data-md-save-icon]').click();
-    await expect(e.locator('.md-editor-status')).toHaveText('첨부를 저장했어요');
+    await e.locator('[data-edw-save]').click();
+    await expect(e.locator('.ed-window-status')).toHaveText('첨부를 저장했어요');
     expect(f.uploads).toEqual([{noteId: 'n-text', name: '참고 자료.pdf', rawText: false}]);
     // Text was not changed: no text write; the window stays and its chosen-file list empties.
     expect(f.writes.filter(w => w.method !== 'GET')).toEqual([]);
-    await expect(e.locator('.md-editor-attach')).toBeHidden(); await expect(clip.locator('[data-basket-count]')).toBeHidden();
+    await expect(clip.locator('[data-basket-count]')).toBeHidden();
     // ✕ closes without asking (nothing left unsaved) and, as after any save there (NOTE-큰창저장유지), back to the read view
     // with the new card under the note.
-    await e.locator('[data-close="mdEditor"]').click(); await expect(page.locator('#mdEditor')).toHaveCount(0);
+    await e.locator('[data-close="edWindow"]').click(); await expect(page.locator('#edWindow')).toHaveCount(0);
     await expect(page.locator('[data-note-editor]')).toBeHidden();
     const cards = page.locator('[data-note-detail] [data-note-attachments] .file-line');
     await expect(cards).toHaveCount(1); await expect(cards.nth(0)).toContainText('참고 자료.pdf');
