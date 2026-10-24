@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 const { readMultipartForm } = await import('../../supabase/functions/_shared/multipart.ts');
-const { DEFAULT_AI_MODEL, withReasoning } = await import('../../supabase/functions/_shared/ai-model.ts');
+const { AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, withReasoning } = await import('../../supabase/functions/_shared/ai-model.ts');
+const { outputText } = await import('../../supabase/functions/_shared/openai-responses.ts');
 
 // LIB-수정파일교체: the real library-files handler, replace branch (replace_document_id), with mocked Supabase, Google Drive and AI. No network.
 // The same document row gets the new file; title/category/links/marks stay; the old Drive file is never deleted and is recorded in previous_files.
@@ -67,7 +68,7 @@ function harness({ rows = [baseDoc(), baseDoc({ id: OTHER, workspace_id: 'worksp
   let handler = null;
   const Deno = { env: { get: key => ({ SUPABASE_URL: 'https://sb.example', SUPABASE_SERVICE_ROLE_KEY: 'service', OPENAI_API_KEY: '' }[key]) }, serve: fn => { handler = fn; } };
   const quietConsole = { ...console, error: (...a) => calls.errors.push(a), warn: () => {}, log: () => {} };
-  new Function('Deno', 'createClient', 'HwpxReader', 'hwpToText', 'readMultipartForm', 'DEFAULT_AI_MODEL', 'withReasoning', 'fetch', 'console', SOURCE)(Deno, () => admin, class {}, async () => '', readMultipartForm, DEFAULT_AI_MODEL, withReasoning, fetchMock, quietConsole);
+  new Function('Deno', 'createClient', 'HwpxReader', 'hwpToText', 'readMultipartForm', 'AI_REASONING_TOKEN_HEADROOM', 'DEFAULT_AI_MODEL', 'outputText', 'withReasoning', 'fetch', 'console', SOURCE)(Deno, () => admin, class {}, async () => '', readMultipartForm, AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, outputText, withReasoning, fetchMock, quietConsole);
   return { handler, calls, rows };
 }
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });

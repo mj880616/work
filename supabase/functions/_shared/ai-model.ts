@@ -6,6 +6,8 @@
 //   Web2의 요약·분류·JSON 답에는 깊은 생각이 필요 없으므로 low로 명시한다.
 export const DEFAULT_AI_MODEL = "gpt-6-luna";
 export const AI_REASONING_EFFORT = "low";
+// 생각 토큰이 max_output_tokens에 포함되므로, 표 설정 함수들은 원래 상한에 이만큼 더해 보낸다(답이 중간에 잘려 비는 것을 막음).
+export const AI_REASONING_TOKEN_HEADROOM = 1500;
 // 1달러 = 1,400원 가정. 입력 0.10달러 → 140원, 출력 0.50달러 → 700원(100만 토큰당).
 export const DEFAULT_PRICE_IN_KRW_PER_MTOK = 140;
 export const DEFAULT_PRICE_OUT_KRW_PER_MTOK = 700;
