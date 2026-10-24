@@ -212,10 +212,23 @@ let writeDraft='',writerOpening=false;
 const writeToast=message=>{const toast=document.querySelector('#toast');if(!toast)return;toast.textContent=message;toast.classList.remove('hidden');clearTimeout(writeToast.timer);writeToast.timer=setTimeout(()=>toast.classList.add('hidden'),3200)};
 // kind: 'update' (menu [쓰기], top line [+ 추가] → 업데이트) or 'note' (top line → 노트). Same window, same draft, same saves.
 async function openWriter(kind='update'){
-  if(writerOpening||document.querySelector('#mdEditor:not(.hidden)')||window.__KPTU_TEAM_READY_STATE__!=='workspace')return;
+  if(writerOpening||document.querySelector('#mdEditor:not(.hidden),#edWindow:not(.hidden)')||window.__KPTU_TEAM_READY_STATE__!=='workspace')return;
   writerOpening=true;
   try{
     const owner=window.KPTURuntime?.session?.read?.()?.user?.id;
+    // ED③ 노트: [+ 추가] → [노트] opens the note's new big window (note-window.js: title, [📎 첨부], the new editor). The saved note opens on
+    // the basket's [노트] side. [업데이트] keeps the old write window until the update PR.
+    if(kind==='note'){
+      const [{openNoteWindow},{requestNoteDocOpen}]=await Promise.all([import('./note-window.js'),import('./basket-note-tasks.js'),window.KPTUViewLoader?.prepare?.('basket')]);
+      if(owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return;
+      openNoteWindow({text:'',title:'새 노트',onClose:({saved})=>{
+        if(saved?.kind!=='note')return;
+        requestNoteDocOpen(saved.id);
+        const go=()=>window.KPTURouter?.go('basket',{source:'delegated'});
+        if(history.state?.kptuOverlay==='edWindow')window.addEventListener('popstate',()=>queueMicrotask(go),{once:true});else go();
+      }});
+      return;
+    }
     const [{openWriteWindow},{requestNoteDocOpen}]=await Promise.all([import('./write-window.js'),import('./basket-note-tasks.js'),window.KPTUViewLoader?.prepare?.('basket')]);
     if(owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return;
     openWriteWindow({text:writeDraft,title:'쓰기',kind,onClose:(text,{saved})=>{

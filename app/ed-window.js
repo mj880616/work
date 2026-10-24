@@ -17,6 +17,9 @@
 //   draft        — a new text: anything written counts as a change (an old row opened to edit counts only what the person changed).
 //   keepOpen     — after a good save the window stays and says 저장했어요 (노트 큰 창).
 //   placeholder, label — the editor's hint and accessible name.
+//   head, foot   — ED③ 노트: the opener's own nodes above the text (a title row with [폴더 ▾]) and under it (the [📎 첨부] row). The opener owns them.
+//   dirty()      — ED③ 노트: the opener's own fields changed (title, chosen files). Counts as a change for saving and for the leave check.
+//   photos, shortcuts — passed to the editor (ed-editor.js createDocEditor): [사진] for this text, and the markdown line shortcuts.
 //   onClose({saved, changed, value, text}) — when it closes (not when silent): saved = the last save is still the latest, changed = there
 //                  are edits not saved, value/text = what was written, so the opener can keep an unsaved draft in this tab's memory.
 // Opening and closing without a change never calls save (설계 결정 D). One check for "a big window is open": big-window-open.js.
@@ -94,7 +97,7 @@ function closeChoices() {
 }
 
 export function openEdWindow({title = '크게 쓰기', doc = null, text = '', convert = null, save = null, limit = 0, textOnly = false, draft = false, keepOpen = false,
-  placeholder = '', label = '본문', onClose = () => {}} = {}) {
+  placeholder = '', label = '본문', head: headNode = null, foot = null, dirty = null, photos = null, shortcuts = false, onClose = () => {}} = {}) {
   // One big window at a time: this one is replaced; the old window (md-editor.js) is never closed from here, the opener must not open both.
   current?.close({silent: true});
   if (bigWindowOpen()) return null;
@@ -124,13 +127,15 @@ export function openEdWindow({title = '크게 쓰기', doc = null, text = '', co
   note.className = 'ed-window-note'; note.textContent = '이 칸은 글자만 저장돼요. 굵게·색·표 같은 서식은 저장되지 않아요.'; note.hidden = !textOnly;
   const status = document.createElement('p');
   status.className = 'ed-window-status'; status.setAttribute('role', 'status');
-  shell.append(head, body, note, status);
+  if (foot) foot.classList.add('ed-window-foot');
+  shell.append(head, body, ...(foot ? [foot] : []), note, status);
 
   let closed = false, saving = false, savedOnce = false, editor = null, baseline = JSON.stringify(start), asking = false, leavingTab = null, boxLayer = null;
   // A new text is compared with an empty page, an old row with what it was when it opened (the editor's own first value).
   const baseValue = () => draft ? emptyDoc() : baseline ? JSON.parse(baseline) : emptyDoc();
   const now = () => editor ? editor.getValue() : start;
-  const changed = () => !!editor && isChanged(baseValue(), now());
+  const own = () => { try { return !!dirty?.(); } catch { return false; } };
+  const changed = () => (!!editor && isChanged(baseValue(), now())) || own();
   const say = message => { if (!closed) status.textContent = message || ''; };
 
   // 761px~: the app's own menu stays beside (side) or above (top) the window; the window takes only the rest.
@@ -156,7 +161,7 @@ export function openEdWindow({title = '크게 쓰기', doc = null, text = '', co
   async function runSave() {
     if (!save || saving || closed || !editor) return;
     const value = editor.getValue();
-    if (!isChanged(baseValue(), value)) {
+    if (!isChanged(baseValue(), value) && !own()) {
       // Nothing was changed: nothing is written (설계 결정 D). A window that stays open says so; the others just close.
       if (keepOpen) say('바뀐 것이 없어요'); else close({saved: true});
       return;
@@ -265,7 +270,7 @@ export function openEdWindow({title = '크게 쓰기', doc = null, text = '', co
     if (share.getAttribute('aria-expanded') === 'true') exportSheet?.dismiss();
     if (leavingTab) { leavingTab = null; closeSheet?.dismiss(); }
     if (!asking && closeSheet && current === handle) closeSheet.dismiss();
-    const value = now(), result = {saved: (saved || savedOnce) && !isChanged(baseValue(), value), changed: isChanged(baseValue(), value) && !!editor, value, text: toPlain(value)};
+    const value = now(), mine = own(), result = {saved: (saved || savedOnce) && !isChanged(baseValue(), value) && !mine, changed: (isChanged(baseValue(), value) && !!editor) || mine, value, text: toPlain(value)};
     if (boxLayer) { const layer = boxLayer; boxLayer = null; layer.close(); }
     shell.classList.add('hidden'); shell.setAttribute('aria-hidden', 'true');
     window.KPTUA11y?.dialog.deactivate?.(shell, {restoreFocus: false});
@@ -293,7 +298,7 @@ export function openEdWindow({title = '크게 쓰기', doc = null, text = '', co
   handle.ready = (async () => {
     await ensureStyles();
     if (closed) return handle;
-    const made = await createDocEditor({host: body, value: start, label, placeholder, onBox});
+    const made = await createDocEditor({host: body, value: start, label, placeholder, onBox, head: headNode, photos, shortcuts});
     if (closed) { made.destroy(); return handle; }
     editor = made;
     // The editor's own first value is the baseline (its cleaning may differ in small ways from the converted one), so opening alone is "not changed".

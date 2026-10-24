@@ -317,7 +317,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   if(taskOnly)bigBtn.remove();
   // BASKET-노트입력창: the note input's [크게] opens the note list's own write window on this text (onBig, basket-notes.js).
   // The window works on this box's own file batch (as the home input's [크게] does); a note saved there empties it (reset).
-  else if(noteOnly)bigBtn.onclick=()=>{if(saving||document.querySelector('#mdEditor:not(.hidden)'))return;onBig?.(input.value,fileHandle);};
+  else if(noteOnly)bigBtn.onclick=()=>{if(saving||document.querySelector('#mdEditor:not(.hidden),#edWindow:not(.hidden)'))return;onBig?.(input.value,fileHandle);};
   else bigBtn.onclick=async()=>{
     if(saving||input.readOnly||document.querySelector('#mdEditor:not(.hidden)'))return;
     const owner=quickScope();

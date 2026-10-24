@@ -41,3 +41,14 @@ html .modal.ed-window .ed-window-head > button:focus-visible { outline:2px solid
 .ed-window-note[hidden] { display:none; }
 .ed-window-status { margin:0; padding:6px 12px; font-size:var(--kptu-text-meta, 12px); color:var(--kptu-muted); border-top:1px solid var(--kptu-border); }
 .ed-window-status:empty { display:none; }
+/* ED③ 노트: 창 아래 [📎 첨부] 줄(노트 첨부, 고른 파일 목록)과 글 위 제목 줄. 크기·색은 옛 큰 창(md-editor.css)의 것과 같다. */
+.ed-window-foot { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; min-height:var(--kptu-touch-target, 44px); padding:0 8px; border-top:1px solid var(--kptu-border); box-sizing:border-box; }
+.ed-window-foot [data-edw-attach-files] { flex:1 1 220px; min-width:0; max-height:30vh; overflow:auto; }
+html .modal.ed-window .ed-window-foot .basket-clip-picker { width:auto; height:auto; flex:0 0 auto; }
+html .modal.ed-window .ed-window-foot .basket-clip { position:relative; display:inline-flex; align-items:center; gap:4px; width:auto; height:var(--ds-compact-height, 32px); min-width:0; min-height:0; padding:0 var(--ds-compact-pad-x, 12px); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width, 1px) solid var(--ds-line, var(--kptu-border-strong)); border-radius:var(--ds-radius-control, 8px); font-size:var(--ds-compact-text, 13px); font-weight:var(--ds-weight-medium, 500); line-height:1; }
+html .modal.ed-window .ed-window-foot .basket-clip::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target, 44px) / 2); height:var(--kptu-touch-target, 44px); }
+html .modal.ed-window .ed-window-foot .basket-clip-icon { color:var(--kptu-link); }
+.edw-title-row { display:flex; align-items:center; gap:8px; padding:0 8px; border-bottom:1px solid var(--kptu-border); background:var(--kptu-surface); }
+html .modal.ed-window .edw-title-row input[data-edw-title] { flex:1 1 auto; min-width:0; box-sizing:border-box; height:var(--kptu-touch-target, 44px); margin:0; padding:0 4px; font:inherit; font-size:16px; font-weight:600; color:var(--kptu-ink); background:transparent; border:0; outline:none; }
+html .modal.ed-window .edw-title-row button[data-edw-folder] { position:relative; flex:0 1 auto; box-sizing:border-box; max-width:10em; height:var(--ds-compact-height, 32px); min-height:0; margin:0; padding:0 var(--ds-compact-pad-x, 12px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--ds-compact-text, 13px); line-height:1; font-weight:var(--ds-weight-medium, 500); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width, 1px) solid var(--ds-line, var(--kptu-border)); border-radius:var(--ds-radius-control, 8px); }
+html .modal.ed-window .edw-title-row button[data-edw-folder]::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target, 44px) / 2); height:var(--kptu-touch-target, 44px); }
