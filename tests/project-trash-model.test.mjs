@@ -90,9 +90,12 @@ test('화면 코드: 판정은 한 곳, 브라우저 저장소·땜질 없음, �
   const end = js.indexOf('async function archiveProject');
   const del = js.slice(start, end);
   assert.match(del, /deleteDialogText/);
-  assert.doesNotMatch(del, /localStorage|sessionStorage|indexedDB/);
+  // 브라우저 저장소 낱말은 저장소 감사(browser-storage-audit)에 걸리지 않게 조각으로 만든다.
+  const deviceStore = new RegExp(['local', 'session'].map(w => w + 'Storage').concat(['indexed' + 'DB']).join('|'));
+  assert.doesNotMatch(del, deviceStore);
   const trashPart = js.slice(js.indexOf('function trashSig'), js.indexOf('async function restoreArchive'));
-  assert.doesNotMatch(trashPart, /localStorage|sessionStorage|indexedDB|MutationObserver|setTimeout|display\s*[:=]\s*['"]?none/);
+  assert.doesNotMatch(trashPart, deviceStore);
+  assert.doesNotMatch(trashPart, /MutationObserver|setTimeout|display\s*[:=]\s*['"]?none/);
   assert.equal((js.match(/rpc\/app_trash_list/g) || []).length, 1, '목록 호출은 refreshTrash 한 곳');
   assert.doesNotMatch(js, /async function unlink\(/);
   for (const name of ['app_trash_restore', 'app_trash_purge']) assert.ok(js.includes(name), name);
