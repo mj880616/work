@@ -10,6 +10,7 @@ import {ALL_KINDS,DEFAULT_KIND,REPORT_KINDS,isReportKind,reportKindOf,reportKind
 import {pickReportKind,saveReportKind} from './report-kind-sheet.js';
 import {reportWords,isMeetingKind} from './report-words.mjs'; // 칸에 따라 입력 창 글자가 바뀐다
 import {placeAnchored,followAnchor,clearAnchored} from './anchored-popup.js';
+import {missingOrganizationLabel} from './project-trash-model.mjs'; // TRASH-화면2: 휴지통에 든 조직을 가리키는 연결의 빈 이름
 import {mountSplitResize} from './split-resize.js';
 import {targetList,targetsLabel,firstProjectId} from './report-links-model.mjs';
 import {saveReportTargets,readAllReportTargets,locationAvailable,noteLocationFromMeetings,LEGACY_NOTE} from './report-links.js';
@@ -234,7 +235,7 @@ function openDocumentModal(){['docTitle','docCategory','docSource','docDate','do
 // MTG-사업보고 6단계: 연결(프로젝트·담당조직)은 한 곳 — 연결 표의 '출처 회의' 줄(report-links.js). 입력 창 [연결할 곳]·결과 창·목록·프로젝트/조직 화면이 같은 줄을 읽고 쓴다.
 let meetingEntryTargets=[],entryNames=new Map(),reportTargetMap=new Map(),orgNames=new Map();
 const tkey=t=>t.kind+':'+t.id;
-function targetNameOf(t){return (t.kind==='project'?projectName(t.id):orgNames.get(t.id))||entryNames.get(tkey(t))||(t.kind==='project'?'프로젝트':'담당조직')}
+function targetNameOf(t){return (t.kind==='project'?projectName(t.id):orgNames.get(t.id))||entryNames.get(tkey(t))||(t.kind==='project'?'프로젝트':missingOrganizationLabel(orgNames.size>0))}
 function reportTargetsOf(m){return reportTargetMap.get(m?.id)||(m?.project_id?[{kind:'project',id:m.project_id}]:[])}
 function reportLinkLabel(m){return targetsLabel(reportTargetsOf(m),targetNameOf)}
 async function loadReportLinks(){

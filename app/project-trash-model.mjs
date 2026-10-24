@@ -1,16 +1,23 @@
-// TRASH-삭제휴지통 2단계: 프로젝트 휴지통 화면의 순수 규칙(화면·네트워크 없음). 시험이 직접 읽는다.
-// 서버 쪽은 app_trash_list / app_trash_restore / app_trash_purge (p_kind='project') 뿐이고, 이 파일은 그 응답과 오류를
-// 화면 글로 바꾸고 "휴지통을 쓸 수 있는가"를 한 곳에서 판정한다. 브라우저 저장소는 쓰지 않는다.
+// TRASH-삭제휴지통 2단계 + TRASH-화면2: 휴지통 화면의 순수 규칙(화면·네트워크 없음). 시험이 직접 읽는다.
+// 서버 쪽은 app_trash_list / app_trash_restore / app_trash_purge (p_kind = 프로젝트·담당조직·사업 보고) 뿐이고, 이 파일은
+// 그 응답과 오류를 화면 글로 바꾸고 "휴지통을 쓸 수 있는가"를 종류마다 한 곳에서 판정한다. 브라우저 저장소는 쓰지 않는다.
 
 export const TRASH_KIND = 'project';
+export const TRASH_KINDS = Object.freeze(['project', 'organization', 'report']);
+// 종류 이름(화면 글). 사업 보고는 화면 어디서나 '사업 보고'라고 부른다.
+export const TRASH_KIND_LABEL = Object.freeze({project: '프로젝트', organization: '담당조직', report: '사업 보고'});
 
 // 판정은 목록 호출 결과 하나로 한다. ready = 목록을 받음(함수가 있음), missing = 함수 없음(DB 미적용), failed = 그 밖의 실패.
 export const TRASH_STATE = Object.freeze({ UNKNOWN: 'unknown', READY: 'ready', MISSING: 'missing', FAILED: 'failed' });
 
-export function classifyTrashError(error) {
+// 판단 근거(DB 적용 전): 프로젝트 휴지통만 아는 옛 app_trash_list는 다른 종류를 받으면 TRASH_KIND_UNKNOWN(22023)으로 거절한다.
+// 그 신호는 "이 종류는 아직 휴지통이 없다"는 뜻이라 MISSING으로 본다. 그때 [삭제]를 보내면 휴지통이 아니라 진짜 삭제가 되므로
+// 화면은 삭제 요청을 보내지 않는다. 종류가 프로젝트일 때의 TRASH_KIND_UNKNOWN은 있을 수 없는 오류라 FAILED로 둔다.
+export function classifyTrashError(error, kind = TRASH_KIND) {
   const status = Number(error?.status || 0);
   const text = `${error?.message || ''} ${error?.code || ''} ${error?.details || ''}`;
   if (status === 404 || /PGRST202|Could not find the function|schema cache/i.test(text)) return TRASH_STATE.MISSING;
+  if (kind !== TRASH_KIND && /TRASH_KIND_UNKNOWN/.test(text)) return TRASH_STATE.MISSING;
   return TRASH_STATE.FAILED;
 }
 
@@ -19,19 +26,41 @@ export function classifyTrashList(data) {
   return Array.isArray(data) ? TRASH_STATE.READY : TRASH_STATE.MISSING;
 }
 
-export function normalizeTrashRows(data) {
+function reportTitle(row) {
+  const series = String(row.series_name || '').trim();
+  const title = String(row.title || '').trim();
+  const round = Number(row.round_no) > 0 ? ` ${Number(row.round_no)}회` : '';
+  return (series ? `${series}${round}` : title) || '이름 없는 사업 보고';
+}
+
+// kind를 주면 그 종류의 줄만, null을 주면 세 종류 모두. 줄마다 kind를 붙인다(프로젝트 줄 모양은 그대로).
+export function normalizeTrashRows(data, kind = TRASH_KIND) {
   if (!Array.isArray(data)) return [];
+  const want = (row) => (kind ? (row.kind || TRASH_KIND) === kind : TRASH_KINDS.includes(row.kind || TRASH_KIND));
   return data
-    .filter((row) => row && row.id && (row.kind || TRASH_KIND) === TRASH_KIND)
-    .map((row) => ({
-      id: String(row.id),
-      name: String(row.name || '').trim() || '이름 없음',
-      parent_id: row.parent_id || null,
-      deleted_at: row.deleted_at || null,
-      child_count: Math.max(0, Number(row.child_count) || 0),
-      parent_in_trash: row.parent_in_trash === true,
-    }))
+    .filter((row) => row && row.id && want(row))
+    .map((row) => {
+      const rowKind = row.kind || TRASH_KIND;
+      return {
+        id: String(row.id),
+        kind: rowKind,
+        name: rowKind === 'report' ? reportTitle(row) : String(row.name || '').trim() || '이름 없음',
+        parent_id: row.parent_id || null,
+        deleted_at: row.deleted_at || null,
+        child_count: Math.max(0, Number(row.child_count) || 0),
+        parent_in_trash: row.parent_in_trash === true,
+      };
+    })
     .sort((a, b) => String(b.deleted_at || '').localeCompare(String(a.deleted_at || '')) || a.id.localeCompare(b.id));
+}
+
+// 종류별로 따로 읽은 상태를 한 장으로 합친다. 하나라도 READY면 휴지통 탭을 연다(준비 중인 종류는 목록만 비어 있다).
+// READY가 하나도 없으면: FAILED가 있으면 FAILED(다시 시도), 아니면 MISSING.
+export function mergeTrashStates(states) {
+  const list = Object.values(states || {});
+  if (!list.length || list.includes(TRASH_STATE.UNKNOWN)) return TRASH_STATE.UNKNOWN;
+  if (list.includes(TRASH_STATE.READY)) return TRASH_STATE.READY;
+  return list.includes(TRASH_STATE.FAILED) ? TRASH_STATE.FAILED : TRASH_STATE.MISSING;
 }
 
 // 삭제 창 글. 휴지통을 쓸 수 있을 때만 휴지통 문구를 쓰고, 아니면 지금 동작(바로 지움)에 맞는 기존 문구를 쓴다.
@@ -56,6 +85,28 @@ export function deleteDialogText({ trash, name, isChild, childCount }) {
   };
 }
 
+// 담당조직·사업 보고 [삭제]의 글. 휴지통에 들어갔다는 안내는 목록으로 확인한 뒤에만 한다.
+export function otherDeleteText(kind, name) {
+  const shown = String(name || '').trim();
+  const q = shown ? `“${shown}” ` : '';
+  if (kind === 'organization') {
+    return {
+      confirm: `${q}담당조직을 휴지통으로 옮길까요?\n연결된 기록·담당자·타임라인은 그대로 남고, 휴지통에서 되돌릴 수 있습니다.`,
+      moved: '담당조직을 휴지통으로 옮겼습니다.',
+    };
+  }
+  return {
+    confirm: `${q}사업 보고를 휴지통으로 옮길까요?\n후속 할 일은 Google 할 일에 남고 자료 파일은 삭제하지 않습니다. 휴지통에서 되돌릴 수 있습니다.`,
+    moved: '사업 보고를 휴지통으로 옮겼습니다.',
+  };
+}
+
+// 휴지통 확인이 끝나기 전에는 삭제를 보내지 않는다. 이유별 글.
+export function otherDeleteBlockedText(kind, state) {
+  if (state === TRASH_STATE.MISSING) return `${TRASH_KIND_LABEL[kind]} 휴지통은 준비 중입니다. 준비가 끝나기 전에는 삭제할 수 없습니다.`;
+  return '휴지통 상태를 확인하지 못해 삭제하지 않았습니다. 잠시 뒤 다시 시도해 주세요.';
+}
+
 export const TRASH_TEXT = Object.freeze({
   MOVED: '휴지통으로 옮겼습니다.',
   DELETED: '프로젝트를 삭제했습니다.',
@@ -65,10 +116,14 @@ export const TRASH_TEXT = Object.freeze({
   PREPARING: '휴지통은 준비 중입니다.',
   LOAD_FAILED: '휴지통을 불러오지 못했습니다.',
   PARENT_FIRST: '상위 프로젝트를 먼저 되돌려 주세요.',
-  NOT_FOUND: '이미 휴지통에 없는 프로젝트입니다. 목록을 다시 불러왔습니다.',
+  NOT_FOUND: '이미 휴지통에 없습니다. 목록을 다시 불러왔습니다.',
   UNDO_DONE: '되돌렸습니다.',
   UNDO_FAILED: '되돌리지 못했습니다.',
+  NOT_CONFIRMED: '삭제 요청은 보냈지만 휴지통에서 확인하지 못했습니다. 보관 창의 휴지통을 확인해 주세요.',
+  NAME_TAKEN: '같은 이름이 이미 있어 되돌리지 못했습니다. 이름을 바꾼 뒤 다시 시도해 주세요.',
 });
+
+export const restoredText = (kind) => (kind === 'organization' ? '담당조직을 되돌렸습니다.' : kind === 'report' ? '사업 보고를 되돌렸습니다.' : TRASH_TEXT.RESTORED);
 
 // 서버 오류 코드(메시지 첫머리)를 화면 글로 바꾼다. 모르는 오류는 일반 문구로 둔다.
 export function trashErrorText(error, fallback = '처리하지 못했습니다. 다시 시도해 주세요.') {
@@ -76,12 +131,25 @@ export function trashErrorText(error, fallback = '처리하지 못했습니다. 
   if (/TRASH_PARENT_IN_TRASH/.test(message)) return TRASH_TEXT.PARENT_FIRST;
   if (/TRASH_NOT_FOUND/.test(message)) return TRASH_TEXT.NOT_FOUND;
   if (/TRASH_KIND_UNKNOWN/.test(message)) return fallback;
+  // 되돌릴 때 같은 이름이 이미 있어 막히는 경우(고유 제약 23505). 서버가 막으면 일상어로 안내한다.
+  if (error?.code === '23505' || /23505|duplicate key|unique constraint/i.test(`${message} ${error?.details || ''}`)) return TRASH_TEXT.NAME_TAKEN;
   return fallback;
 }
 
 export function purgeConfirmText(row) {
+  if (row.kind === 'organization') {
+    return `“${row.name}” 담당조직을 영구 삭제할까요?\n조직에 달린 기록·담당자·타임라인·쟁의단계와 메모·원장 연결이 함께 지워지며 되돌릴 수 없습니다.`;
+  }
+  if (row.kind === 'report') {
+    return `“${row.name}” 사업 보고를 영구 삭제할까요?\n보고에 달린 메모·원장 연결이 함께 지워지며 되돌릴 수 없습니다. 후속 할 일(Google 할 일)과 자료 파일은 지우지 않습니다.`;
+  }
   const kids = row.child_count ? `\n함께 든 하위 프로젝트 ${row.child_count}개도 지워집니다.` : '';
   return `“${row.name}” 프로젝트를 영구 삭제할까요?${kids}\n연결된 할 일·일정·사업 보고·자료·게시물은 지우지 않고 프로젝트 연결만 풀립니다. 프로젝트 전용 진행기록·주요 일정·의견은 함께 지워지며 되돌릴 수 없습니다.`;
+}
+
+// 휴지통에 들어간 담당조직을 가리키는 연결의 이름자리. 조직 목록을 이미 읽었는데 이 조직만 없으면 휴지통에 있다.
+export function missingOrganizationLabel(listLoaded) {
+  return listLoaded ? '휴지통의 담당조직' : '담당조직';
 }
 
 // 모달 위쪽 단추 줄(보관 / 휴지통) 이름. 보관이 없고 휴지통만 있으면 휴지통만 보인다.
