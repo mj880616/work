@@ -41,10 +41,12 @@ export const AI_SUMMARY_TEXT=Object.freeze({
   org_summary_unavailable:'조직 요약을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
   library_not_ready:'자료 정보 채우기가 아직 준비되지 않았어요.',
   library_unavailable:'자료를 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
+  text_pending:'글자 읽는 중이에요. 잠시 뒤 다시 눌러 주세요.',
+  no_file_text:'요약할 글자가 없어요. 직접 써 주세요.',
   internal_error:'AI 요청을 처리하지 못했어요. 다시 눌러 주세요.',
 });
 // 잠깐의 문제라 같은 버튼을 [다시 시도]로 보여 줄 코드.
-const RETRYABLE=new Set(['offline','auth_unavailable','usage_unavailable','read_unavailable','ai_busy','ai_timeout','ai_invalid_response','in_progress','radar_unavailable','ledger_unavailable','ledger_busy','org_summary_unavailable','internal_error']);
+const RETRYABLE=new Set(['offline','text_pending','auth_unavailable','usage_unavailable','read_unavailable','ai_busy','ai_timeout','ai_invalid_response','in_progress','radar_unavailable','ledger_unavailable','ledger_busy','org_summary_unavailable','internal_error']);
 export const aiSummaryRetryable=code=>RETRYABLE.has(code);
 
 // 서버가 거절하는 메모(일기·보관·AI 제외·빈 글)에서는 버튼을 보이지 않는다(서버가 다시 확인한다).
@@ -87,10 +89,23 @@ export async function callAiAssist(body,{rt=globalThis.window?.KPTURuntime,fetch
   return {ok:false,code:'internal_error'};
 }
 
+// UPD-요약부품통일·UPD-사진요약기록: one server use (link_summary) for every summary box. The material is one id:
+// noteId (update text; with use:'files' the text already read from its photos and files), meetingId (사업 보고), documentId (자료).
+// targetKind 'reference' (참고 묶음) is for updates only, as in app_basket_confirm_links.
+export const LINK_TARGET_KINDS=Object.freeze(['organization','project','reference']);
+export function linkSummaryBody({noteId,meetingId,documentId,use,targetKind,targetId}){
+  const given=[noteId,meetingId,documentId].filter(v=>v!==undefined&&v!==null);
+  if(given.length!==1||typeof given[0]!=='string'||!UUID.test(given[0])||typeof targetId!=='string'||!UUID.test(targetId)||!LINK_TARGET_KINDS.includes(targetKind))return null;
+  if(use!==undefined&&(use!=='files'||noteId==null))return null;
+  if(targetKind==='reference'&&noteId==null)return null;
+  const source=noteId!=null?{note_id:noteId,...(use?{use}:{})}:meetingId!=null?{meeting_id:meetingId}:{document_id:documentId};
+  return {kind:'link_summary',...source,target_kind:targetKind,target_id:targetId};
+}
 // Returns {ok:true,summary} or {ok:false,code,message,retry}. Never throws, never saves.
-export async function requestLinkSummary({noteId,targetKind,targetId},options={}){
-  if(typeof noteId!=='string'||!UUID.test(noteId)||typeof targetId!=='string'||!UUID.test(targetId)||!['organization','project'].includes(targetKind))return fail('invalid_request');
-  const r=await callAiAssist({kind:'link_summary',note_id:noteId,target_kind:targetKind,target_id:targetId},options);
+export async function requestLinkSummary(input,options={}){
+  const body=linkSummaryBody(input||{});
+  if(!body)return fail('invalid_request');
+  const r=await callAiAssist(body,options);
   if(!r.ok)return fail(r.code);
   if(validSummary(r.data.summary))return {ok:true,summary:r.data.summary};
   return fail('ai_invalid_response');
