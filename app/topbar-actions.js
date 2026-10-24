@@ -39,7 +39,7 @@ const midQuery=window.matchMedia('(min-width:761px) and (max-width:1023px)');
 const menuQuery=window.matchMedia('(max-width:1023px)');
 const appNav=document.querySelector('#appView>.app-nav'),drawerNav=mobilePanel?.querySelector('nav');
 const phoneOnly=[...drawerNav?.querySelectorAll('[data-view]')||[]];
-const midItems=['home','basket','calendar','tasks','journal','diary','projects','meetings','library','media','pages','team','hwp','ledger']
+const midItems=['home','basket','calendar','tasks','journal','diary','projects','meetings','library','media','pages','team','hwp','ledger','calls','telegram']
   .map(view=>appNav?.querySelector(`[data-view="${view}"]`)).filter(Boolean);
 const homes=new Map([...midItems,mobileTrigger].filter(Boolean).map(button=>{
   const anchor=document.createComment('navigation home');button.before(anchor);return [button,anchor];
@@ -202,7 +202,7 @@ window.addEventListener('kptu:view-changed',event=>{
   syncMenuLocation();
   const home=event.detail?.view==='home';
   document.querySelector('.mobile-shell-header [data-home-date]')?.toggleAttribute('hidden',!home);
-  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:'바구니',calendar:'일정',tasks:'일정',journal:'일정',diary:'일정',projects:'프로젝트',team:'담당조직',meetings:'사업 보고',library:'자료실',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',media:'성명·보도자료',pages:'공유 페이지',search:'검색',reference:'참고 묶음'})[event.detail?.view]||''}
+  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:'바구니',calendar:'일정',tasks:'일정',journal:'일정',diary:'일정',projects:'프로젝트',team:'담당조직',meetings:'사업 보고',library:'자료실',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',media:'성명·보도자료',pages:'공유 페이지',search:'검색',reference:'참고 묶음',calls:'통화',telegram:'텔레그램 소식'})[event.detail?.view]||''}
 });
 // Menu [쓰기] (UI-디자인손질 8, BASKET-업데이트통합 PR 2): the shared write window (write-window.js) opens empty with [업데이트 ▾ | 노트],
 // 업데이트 preselected and no place (= the basket). Each choice saves through its existing owner-RLS path and the window closes
@@ -411,7 +411,7 @@ paintTrail();
 // Where you are: group › screen. The group word goes to the group's first screen; the last word is the current page.
 const GROUPS={calendar:'schedule',tasks:'schedule',journal:'schedule',diary:'schedule',reference:'team'};
 const GROUP_HEAD={schedule:{name:'일정',view:'calendar'},basket:{name:'바구니',view:'basket'},team:{name:'담당조직',view:'team'}};
-const VIEW_NAMES={home:'홈',basket:'바구니',calendar:'달력',tasks:'할 일',journal:'업무일지',diary:'일기',projects:'프로젝트',library:'자료실',meetings:'사업 보고',media:'성명·보도자료',pages:'공유 페이지',team:'담당조직',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',search:'검색',reference:'참고 묶음'};
+const VIEW_NAMES={home:'홈',basket:'바구니',calendar:'달력',tasks:'할 일',journal:'업무일지',diary:'일기',projects:'프로젝트',library:'자료실',meetings:'사업 보고',media:'성명·보도자료',pages:'공유 페이지',team:'담당조직',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',search:'검색',reference:'참고 묶음',calls:'통화',telegram:'텔레그램 소식'};
 const whereList=topline?.querySelector('[data-topline-where]');
 let basketKind=null;
 const whereItems=new Map();

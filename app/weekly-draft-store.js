@@ -13,6 +13,10 @@ const encode = encodeURIComponent;
 export const DRAFT_VERSION = 1;
 export const DRAFT_MAX_BYTES = 204800; // 서버 CHECK와 같은 상한(글자로 200 KiB)
 export const SECTIONS = Object.freeze(['summary', 'orgs', 'sites']);
+// WEEKLY-자료요약 화면 ②(docs/design/weekly-file-summary.md 6절): [주간 정리] 자료 줄 [빼기]·[고치기]·[넣기]는 같은 draft의 docs 칸.
+//   docs: [{id, drop?:true, text?:'고친 줄'(한 줄·200자), keep?:true(기록과 같아 접힌 자료를 넣음)}]. 쓰는 곳은 [주간 정리](changeWeekDocs)뿐이고,
+//   한글 파일 상자는 읽은 docs를 그대로 다시 실어 보낸다(3자 비교 칸 열쇠 doc:<자료 id>).
+export const DOC_TEXT_MAX = 200;
 
 // ---- 칸 열쇠 ----
 const oneLine = s => String(s ?? '').replace(/\s+/g, ' ').trim();
@@ -33,7 +37,8 @@ const sameLines = (a, b) => JSON.stringify(cleanLines(a)) === JSON.stringify(cle
 // cells: Map cellId → 지금 줄 글, initial: Map cellId → 바탕(처음) 줄 글. 바탕과 같은 칸은 저장하지 않는다.
 // me는 고친 이름일 때만(meFrom='typed'), date는 바탕(보고일)과 다를 때만 넘긴다(아니면 '').
 // keep: 이번 바탕에 넣지 못한 저장 칸(버리지 않고 다시 저장). titles: Map event → {title, place}.
-export function makeDraft({base = null, me = '', meFrom = '', date = '', cells = new Map(), initial = new Map(), keep = [], titles = new Map(), confirmed = null} = {}) {
+// drops(WEEKLY-환류, 설계 3.4): Map event → 'drop'(이번 주에 뺀 일정) | 'keep'(기억으로 빠지는 일정을 이번 주만 넣음) → dropped·kept.
+export function makeDraft({base = null, me = '', meFrom = '', date = '', cells = new Map(), initial = new Map(), keep = [], titles = new Map(), drops = new Map(), docs = [], confirmed = null} = {}) {
   const rows = [];
   for (const [id, lines] of cells) {
     if (initial.has(id) && sameLines(lines, initial.get(id))) continue;
@@ -44,11 +49,52 @@ export function makeDraft({base = null, me = '', meFrom = '', date = '', cells =
   for (const r of keep) if (!placed.has(cellId(r.section, r.key, r.n)) && !cells.has(cellId(r.section, r.key, r.n))) rows.push({section:r.section, key:r.key, n:r.n, lines:cleanLines(r.lines)});
   const out = {v:DRAFT_VERSION, base, me:String(me ?? ''), me_from:String(meFrom ?? ''), date:String(date ?? ''), rows,
     titles:[...titles].map(([event, t]) => ({event:String(event), title:String(t?.title ?? ''), place:String(t?.place ?? '')}))};
+  putDrops(out, drops);
+  putDocs(out, docs);
   if (confirmed) out.confirmed = confirmed;
   return out;
 }
+// ---- 자료 줄 고침(docs) ----
+const oneDocLine = s => String(s ?? '').replace(/[\u0000-\u001f\u007f\u2028\u2029]/g, ' ').replace(/\s+/g, ' ').trim();
+// 항목 하나를 모양대로(모르는 칸·틀린 값은 버림). 빈 항목이면 null.
+export function cleanDocEdit(e) {
+  if (!e || typeof e !== 'object' || typeof e.id !== 'string' || !e.id || e.id.length > 100) return null;
+  const out = {id:e.id};
+  if (e.drop === true) out.drop = true;
+  const text = oneDocLine(e.text);
+  if (text && [...text].length <= DOC_TEXT_MAX) out.text = text;
+  if (e.keep === true) out.keep = true;
+  return Object.keys(out).length > 1 ? out : null;
+}
+export const draftDocs = draft => { const seen = new Set(), out = []; for (const e of Array.isArray(draft?.docs) ? draft.docs : []) { const c = cleanDocEdit(e); if (c && !seen.has(c.id)) { seen.add(c.id); out.push(c); } } return out; };
+function putDocs(out, docs) { const list = draftDocs({docs}); if (list.length) out.docs = list; }
+// draft → Map(자료 id → {drop?, text?, keep?}).
+export const docEdits = draft => new Map(draftDocs(draft).map(({id, ...rest}) => [id, rest]));
+// 자료 하나의 고침을 바꾼 draft(draft가 없으면 빈 임시저장으로 시작). patch = {drop?, text?, keep?}의 새 값(null·false = 그 칸 지움).
+export function withDocEdit(draft, id, patch) {
+  const base = draft ? {...draft} : {v:DRAFT_VERSION, base:null, me:'', me_from:'', date:'', rows:[], titles:[]};
+  const list = draftDocs(base), at = list.findIndex(e => e.id === id), cur = at >= 0 ? list[at] : {id};
+  const next = {...cur};
+  for (const [k, v] of Object.entries(patch ?? {})) { if (v === null || v === false || v === '' || v === undefined) delete next[k]; else next[k] = v; }
+  const clean = cleanDocEdit(next);
+  if (at >= 0) list.splice(at, 1);
+  if (clean) list.push(clean);
+  delete base.docs;
+  putDocs(base, list);
+  return base;
+}
+// [처음부터]: 상자에서 고친 것은 비우되 [주간 정리]의 자료 줄 고침은 남긴다(없으면 null = 임시저장 비움).
+export const keepDocsOnly = draft => { const docs = draftDocs(draft); return docs.length ? {v:DRAFT_VERSION, base:null, me:'', me_from:'', date:'', rows:[], titles:[], docs} : null; };
+// 뺀 일정·이번 주만 넣은 일정(있을 때만 칸을 둔다 — 없으면 옛 모양 그대로).
+function putDrops(out, drops) {
+  const dropped = [], kept = [];
+  for (const [event, how] of drops ?? []) (how === 'drop' ? dropped : how === 'keep' ? kept : []).push(String(event));
+  if (dropped.length) out.dropped = dropped;
+  if (kept.length) out.kept = kept;
+}
+const eventList = list => (Array.isArray(list) ? [...new Set(list.filter(e => typeof e === 'string' && e))] : []);
 // 저장할 만한 내용: 고친 칸·일정, 고친 이름·일시, [확정] 표시.
-export const hasContent = d => !!d && !!(d.rows?.length || d.titles?.length || (d.me_from === 'typed' && d.me) || d.date || d.confirmed);
+export const hasContent = d => !!d && !!(d.rows?.length || d.titles?.length || d.dropped?.length || d.kept?.length || (d.me_from === 'typed' && d.me) || d.date || d.confirmed);
 
 // 서버에서 읽은 draft를 모양대로만 받아들인다(모르는 것·틀린 것은 버림 — 서버는 형태·크기만 본다).
 export function readDraft(raw) {
@@ -60,6 +106,10 @@ export function readDraft(raw) {
   const base = raw.base && typeof raw.base === 'object' ? {from:raw.base.from === 'file' ? 'file' : 'library', ...(typeof raw.base.document_id === 'string' ? {document_id:raw.base.document_id} : {}),
     file_name:String(raw.base.file_name ?? ''), title:String(raw.base.title ?? ''), digest:String(raw.base.digest ?? '')} : null;
   const out = {v:DRAFT_VERSION, base, me:String(raw.me ?? ''), me_from:String(raw.me_from ?? ''), date:String(raw.date ?? ''), rows, titles};
+  const dropped = eventList(raw.dropped), kept = eventList(raw.kept).filter(e => !dropped.includes(e));
+  if (dropped.length) out.dropped = dropped;
+  if (kept.length) out.kept = kept;
+  putDocs(out, raw.docs);
   if (raw.confirmed && typeof raw.confirmed === 'object') out.confirmed = {document_id:String(raw.confirmed.document_id ?? ''), at:String(raw.confirmed.at ?? '')};
   return out;
 }
@@ -72,8 +122,11 @@ export function placeDraft(draft, ids) {
     const id = cellId(r.section, r.key, r.n);
     if (ids.has(id)) cells.set(id, cleanLines(r.lines)); else unplaced.push(r);
   }
-  return {cells, unplaced, titles:new Map((draft?.titles ?? []).map(t => [t.event, {title:t.title, place:t.place}]))};
+  return {cells, unplaced, titles:new Map((draft?.titles ?? []).map(t => [t.event, {title:t.title, place:t.place}])), drops:draftDrops(draft)};
 }
+
+// draft → Map(event → 'drop' | 'keep').
+export const draftDrops = draft => new Map([...(draft?.kept ?? []).map(e => [e, 'keep']), ...(draft?.dropped ?? []).map(e => [e, 'drop'])]);
 
 // ---- 3자 비교 (마지막으로 같았던 판 · 이 기기 · 서버) ----
 // 칸 단위 값: 고친 이름(me, me_from='typed'일 때만), 고친 일시(date, 비어 있지 않을 때만), 줄 칸(row:…), 일정(title:…).
@@ -85,6 +138,8 @@ export function draftCells(draft) {
   if (draft.date) out.set('date', draft.date);
   for (const r of draft.rows ?? []) out.set(`row:${cellId(r.section, r.key, r.n)}`, cleanLines(r.lines));
   for (const t of draft.titles ?? []) out.set(`title:${t.event}`, {title:t.title, place:t.place});
+  for (const [event, how] of draftDrops(draft)) out.set(`drop:${event}`, how);
+  for (const {id, ...rest} of draftDocs(draft)) out.set(`doc:${id}`, rest);
   return out;
 }
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
@@ -109,6 +164,8 @@ export function merge3(base, mine, theirs) {
     if (k.startsWith('row:')) { const {section, key, n} = parseCellId(k.slice(4)); out.rows.push({section, key, n, lines:v}); }
     else if (k.startsWith('title:')) out.titles.push({event:k.slice(6), title:v.title, place:v.place});
   }
+  putDrops(out, new Map([...merged].filter(([k]) => k.startsWith('drop:')).map(([k, v]) => [k.slice(5), v])));
+  putDocs(out, [...merged].filter(([k]) => k.startsWith('doc:')).map(([k, v]) => ({id:k.slice(4), ...v})));
   const confirmed = mine?.confirmed ?? theirs?.confirmed;
   if (confirmed) out.confirmed = confirmed;
   return {draft:out, conflicts};
@@ -170,4 +227,20 @@ export async function writeWeekDraft({start, known, draft, now = () => new Date(
   const again = await readWeekDraft(start, rt);
   if (again.missing) return {missing:true};
   return {conflict:true, row:again.row};
+}
+
+// [주간 정리] 자료 줄 고침 쓰기: 그 주 행을 다시 읽고 docs만 바꿔 draft_saved_at 조건으로 쓴다(다른 칸은 서버 것 그대로).
+// 그사이 다른 기기·한글 파일 상자가 저장했으면 다시 읽어 같은 바꿈을 한 번 더(세 번까지). known: 마지막으로 읽은 그 주 행({exists, draft, saved_at}).
+// 반환 {ok:true, row} | {missing:true}. 끝내 못 쓰면 오류.
+export async function changeWeekDocs({start, known = null, change}, rt = window.KPTURuntime) {
+  let row = known;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (!row) { const read = await readWeekDraft(start, rt); if (read.missing) return {missing:true}; row = read.row; }
+    const draft = change(row.draft);
+    const r = await writeWeekDraft({start, known:row, draft}, rt);
+    if (r.missing) return {missing:true};
+    if (r.ok) return {ok:true, row:{...r.row, draft:r.row.draft ?? readDraft(draft)}};
+    row = r.row;
+  }
+  throw Object.assign(new Error('changed'), {code:'changed'});
 }

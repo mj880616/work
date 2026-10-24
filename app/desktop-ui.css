@@ -106,6 +106,8 @@
   #appView #basketView .note-head-main{justify-content:flex-end}
   #appView>.app-nav .nav-quick-links{display:flex;align-items:center;justify-content:space-between;gap:6px;flex:0 0 auto;border-top:var(--ds-line-width,1px) solid var(--kptu-border);border-radius:0 0 var(--kptu-radius-md) var(--kptu-radius-md)}
   #appView>.app-nav .nav-quick-links span{color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
+  /* CALL-통화메뉴·TG-소식메뉴: [통화]·[텔레그램 소식]은 빈 공간 아래(맨 아래 묶음), 위쪽 가는 선으로 나눈다. */
+  #appView>.app-nav .nav-feed-first{border-top:var(--ds-line-width,1px) solid var(--kptu-border);border-radius:0 0 var(--kptu-radius-md) var(--kptu-radius-md)}
   .quick-links-panel{position:fixed;z-index:60;inset:auto;margin:0;box-sizing:border-box;padding:10px 12px 8px;border:var(--ds-line-width,1px) solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto;overscroll-behavior:contain}
   .quick-links-panel .ql-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 6px}
   .quick-links-panel h2{margin:0;font-size:var(--ds-text-row,13px);font-weight:var(--ds-weight-medium,500)}
