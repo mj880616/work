@@ -29,7 +29,7 @@ const seedDocs=()=>[
 ];
 const rank=(a,b,key)=>{const x=a[key]??null,y=b[key]??null;return x===y?0:x==null?1:y==null?-1:x<y?1:-1;};
 
-async function fixture(page,{width=390,scheme='light',docs=seedDocs(),categories=[...DEFAULT],profileFails=false}={}){
+async function fixture(page,{width=390,scheme='light',docs=seedDocs(),categories=[...DEFAULT],profileFails=false,libraryView=null}={}){
  await page.setViewportSize({width,height:900});await page.emulateMedia({colorScheme:scheme});
  await openHome(page);
  const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',e=>{if(e.type()==='error')errors.push(e.text());});
@@ -50,7 +50,7 @@ async function fixture(page,{width=390,scheme='light',docs=seedDocs(),categories
  await page.route(SB+'/rest/v1/app_profiles?**',route=>{
   server.profileReads++;
   if(server.profileFails)return route.fulfill({status:500,json:{message:'QA failure'}});
-  return route.fulfill({json:[{document_categories:server.categories}]});
+  return route.fulfill({json:[{document_categories:server.categories,...(libraryView?{library_view:libraryView}:{})}]});
  });
  // 서버 함수 흉내: migration 20261018112943의 규칙(앞뒤 공백 제거·중복·고정 '기타'·자료 분류 함께 바꾸기).
  const reply=(route,json)=>route.fulfill({json});
@@ -225,5 +225,49 @@ test('a project or organization with no documents shows no kind chips',async({pa
  const f=await fixture(page,{width:1280,docs:[]});
  await openOrg(page);
  await expect(page.locator('#wdDocKinds')).toBeHidden();
+ expect(f.errors).toEqual([]);
+});
+
+// 2026-10-24 명진 결정: 담당조직·프로젝트 상세 [자료]는 '회의'를 기본으로 켠 채 연다(회의자료가 처음부터 목록에 보임).
+// 자료실은 '회의'만 꺼진 채 열리고 고른 상태를 서버(library_view)에 기억하지만, 상세 칩은 저장하지 않아 그 기억을 쓰지 않는다.
+for(const width of [390,1280])test(`organization details open with 회의 on so meeting files show, even when the library remembers 회의 off ${width}`,async({page})=>{
+ const docs=[
+  doc('m1','합성 노사협의회 안건','회의자료','2026-10-09',{organization_id:O,project_id:P,meeting_id:'meeting-1'}),
+  doc('m2','합성 노사협의회 결과','회의결과','2026-10-08',{organization_id:O,project_id:P,meeting_id:'meeting-1'}),
+  ...seedDocs(),
+ ];
+ const f=await fixture(page,{width,docs,libraryView:{categories_off:['회의']}});
+ await openOrg(page);
+ let section=page.locator('#wdDocs'),host=section.locator('#wdDocKinds');
+ await expect(chip(host,'회의')).toHaveAttribute('aria-pressed','true');
+ await expect(chip(host,'전체')).toHaveAttribute('aria-pressed','true');
+ await expect(section.locator('.wd-doc-main b').first()).toHaveText('합성 노사협의회 안건');
+ await expect(section.locator('.wd-doc-main b').nth(1)).toHaveText('합성 노사협의회 결과');
+ await expect(kinds(section).first()).toHaveText('회의');
+ // 끄면 숨고, 다른 조직을 열었다 돌아오면 다시 기본(켜짐)에서 시작한다.
+ await tap(page,chip(host,'회의'),width);
+ await expect(section.locator('.wd-doc-main b').first()).toHaveText('합성 교섭 일정');
+ await page.evaluate(async id=>{await window.KPTUWorkplace.open(id)},O2);await expect(page.locator('#wdDocs .wd-doc-main b').first()).toHaveText('다른 조직 자료');
+ await openOrg(page);section=page.locator('#wdDocs');host=section.locator('#wdDocKinds');
+ await expect(chip(host,'회의')).toHaveAttribute('aria-pressed','true');
+ await expect(section.locator('.wd-doc-main b').first()).toHaveText('합성 노사협의회 안건');
+ expect(f.calls('app_profiles','PATCH')).toEqual([]);expect(f.errors).toEqual([]);
+});
+for(const width of [390,1280])test(`project details open with 회의 on so meeting files show, even when the library remembers 회의 off ${width}`,async({page})=>{
+ const docs=[
+  doc('m1','합성 노사협의회 안건','회의자료','2026-10-09',{organization_id:O,project_id:P,meeting_id:'meeting-1'}),
+  doc('m2','합성 노사협의회 결과','회의결과','2026-10-08',{organization_id:O,project_id:P,meeting_id:'meeting-1'}),
+  ...seedDocs(),
+ ];
+ const f=await fixture(page,{width,docs,libraryView:{categories_off:['회의']}});
+ await openProjectDetail(page);
+ const section=page.locator('#ps3-documents'),host=section.locator('#ps3DocKinds');
+ await expect(chip(host,'회의')).toHaveAttribute('aria-pressed','true');
+ await expect(section.locator('.ps3-doc-row b').first()).toHaveText('합성 노사협의회 안건');
+ await expect(section.locator('.ps3-doc-row b').nth(1)).toHaveText('합성 노사협의회 결과');
+ await tap(page,chip(host,'회의'),width);await expect(section.locator('.ps3-doc-row b').first()).toHaveText('합성 교섭 일정');
+ // 상세의 칩은 저장하지 않는다(자료실 기억을 바꾸지 않음).
+ expect(f.calls('app_profiles','PATCH')).toEqual([]);expect(f.calls('app_documents','PATCH')).toEqual([]);
+ expect(await noWideScroll(page)).toBe(true);
  expect(f.errors).toEqual([]);
 });
