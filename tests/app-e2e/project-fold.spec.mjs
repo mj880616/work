@@ -36,8 +36,8 @@ async function fixture(page,{width=1280,height=800,failPatch=false}={}){
 const listIds=page=>page.locator('#projectGrid .ps3-plist [data-ps3-project]').evaluateAll(xs=>xs.map(x=>x.dataset.ps3Project));
 const row=(page,id)=>page.locator(`#projectGrid .ps3-plist [data-ps3-project="${id}"]`);
 const menu=page=>page.locator('#ps3FoldMenu');
-// The menu ignores a second right-click within 600 ms of the previous open (Android long-press release guard), so retry instead of racing it.
-const openMenu=(page,id)=>expect(async()=>{await row(page,id).click({button:'right'});await expect(menu(page)).toBeVisible({timeout:700})}).toPass({timeout:10000});
+// Wait until the previous menu is fully closed (it closes through history), then right-click; retry once the list has re-rendered under the pointer.
+const openMenu=async(page,id)=>{await expect(menu(page)).toBeHidden();await expect(async()=>{await row(page,id).click({button:'right'});await expect(menu(page)).toBeVisible({timeout:700})}).toPass({timeout:10000})};
 const optionIds=page=>page.evaluate(()=>{const d=document.createElement('select');d.innerHTML=KPTUProjectCatalog.options('',false);return [...d.options].map(o=>({v:o.value,dim:o.classList.contains('kptu-folded-option')}))});
 const foldWrites=state=>state.writes.map(w=>[w.id,w.body.metadata.folded===true]);
 

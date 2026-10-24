@@ -625,9 +625,9 @@ function bindFoldMenu(){
   render:foldMenuHtml,
   onAction:(button,active)=>{const a=button.dataset.ps3FoldAction;if(a==='order')setOrderMode(true);else void setFold(active.id,a==='fold')}});
  const cancel=()=>{clearTimeout(pressTimer);pressTimer=0;pressStart=null};
- const open=t=>{menuAt=Date.now();foldMenu.open(t)};
+ const open=(t,touch=false)=>{if(touch)menuAt=Date.now();foldMenu.open(t)};
  document.addEventListener('contextmenu',e=>{const t=foldMenuTrigger(e);if(!t)return;e.preventDefault();cancel();if(!foldMenu.active&&Date.now()-menuAt>600)open(t)});
- document.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'||e.button>0)return;const t=foldMenuTrigger(e);if(!t)return;cancel();pressStart={x:e.clientX,y:e.clientY};pressTimer=setTimeout(()=>{pressTimer=0;pressStart=null;open(t)},500)},true);
+ document.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'||e.button>0)return;const t=foldMenuTrigger(e);if(!t)return;cancel();pressStart={x:e.clientX,y:e.clientY};pressTimer=setTimeout(()=>{pressTimer=0;pressStart=null;open(t,true)},500)},true);
  document.addEventListener('pointermove',e=>{if(!pressStart)return;const slop=window.KPTUMobileSwipeNavigation?.tapSlop||12;if(Math.abs(e.clientX-pressStart.x)>slop||Math.abs(e.clientY-pressStart.y)>slop)cancel()},true);
  for(const type of ['pointerup','pointercancel','scroll'])document.addEventListener(type,cancel,true);
  // 길게 눌러 메뉴가 열린 직후 손을 뗄 때의 눌림은 프로젝트를 여는 누름이 아니다.
