@@ -7,7 +7,7 @@ import {readReferenceBundles} from './reference-bundles-data.js';
 import {createGoogleTask} from './quick-save.js';
 import {dayKey} from './home-read-model.js';
 import {noteTaskEntry,recordNoteTask} from './basket-note-tasks.js';
-import {aiSummaryAllowed,aiSummaryMarkup,appliedText,newAiState,placeAiSummary,requestLinkSummary} from './basket-ai-summary.js';
+import {aiSummaryAllowed,aiSummaryMarkup,appliedText,attachmentTextState,newAiState,placeAiSummary,requestLinkSummary} from './basket-ai-summary.js';
 
 // BASKET-수동연결: the user picks destinations and writes each summary in the
 // basket read view. Writes reuse app_basket_confirm_links (owner RLS, INVOKER).
@@ -95,6 +95,8 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
   const scope=()=>{const c=rt.context.read();return `${c?.user?.id||''}:${c?.workspace?.id||''}`;};
   let host=null,mode=null,noteId=null,choices=null,choicesFlight=null,seq=0;
   let link={targets:[],status:''},task=null;
+  // One AI answer per update and place for [요약해서 기록으로]: pressing again reuses it instead of asking AI again.
+  const filesCache=new Map();
   const note=()=>{const n=getNote();return n&&n.id===noteId?n:null;};
   const linked=()=>linkedDestinations(noteId,getLinks());
   const fileState=()=>{const value=fileDocs?.read?.();return {files:Array.isArray(value?.files)?value.files:[],docs:value?.docs instanceof Map?value.docs:new Map()};};
@@ -137,7 +139,7 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
         if(link.targets.length>=MANUAL_LINK_LIMIT){link.status=`한 번에 ${MANUAL_LINK_LIMIT}곳까지 연결할 수 있어요.`;paint();return;}
         const name=kind==='organization'?choices.organizations.find(o=>o.id===value)?.name:kind==='reference'?choices.bundles?.find(b=>b.id===value)?.name:choices.projects.find(x=>x.project.id===value)?.project.name;
         // A reference link is the whole point of picking a bundle, so it is always made (no [기록도 남기기] choice for it).
-        link.targets.push({kind,id:value,name:name||'이름 없는 곳',summary:'',record:kind==='reference'||!filesOnly(note()),ai:newAiState()});link.status='';
+        link.targets.push({kind,id:value,name:name||'이름 없는 곳',summary:'',record:kind==='reference'||!filesOnly(note()),ai:newAiState(),files:newAiState()});link.status='';
       }
       paint();
       // The sheet returns focus to its trigger once its history entry is gone; the new summary is
@@ -154,6 +156,43 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
     const from=[...new Set(files.map(f=>docs.get(f.drive_file_id)?.[column]).filter(id=>id&&id!==t.id))].map(placeName[t.kind]);
     return `<p class="basket-manual-file-note" data-manual-file-note>파일 ${files.length}개를 이 ${KIND_NAME[t.kind]} 자료로 넣어요.${from.length?` ${esc(from.join(', '))}에서 옮겨요.`:''}</p>`;
   }
+  // UPD-사진요약기록: [요약해서 기록으로] — the text the server already read from this update's photos and files (사진 글자·한글·PDF),
+  // summarized once for this place and put in the record box. Only for 담당조직·프로젝트. No text → no button (the title shows the file);
+  // a photo still being read → '글자 읽는 중'. Works together with [자료로 넣기]: pressing it turns 기록 on for that place.
+  function filesMarkup(n,t,key){
+    if(t.kind==='reference')return '';
+    const state=attachmentTextState(n);if(state==='none')return '';
+    return aiSummaryMarkup(t.files,key,'data-manual',esc,{label:'요약해서 기록으로',slot:'files',aria:'사진·파일 글자를 요약해서 기록으로',waiting:state==='pending'?'글자 읽는 중':''});
+  }
+  async function runFilesAi(key){
+    const n=note(),t=link.targets.find(x=>linkKey(x.kind,x.id)===key);
+    if(mode!=='link'||!n||!t||t.kind==='reference'||t.files.busy||attachmentTextState(n)!=='ready')return;
+    if(!t.record){t.record=true;}
+    const cacheKey=n.id+'|'+key,reused=filesCache.get(cacheKey);
+    let result;
+    if(reused)result={ok:true,summary:reused};
+    else{
+      const run=++t.files.run,owner=scope(),id=n.id;
+      Object.assign(t.files,{busy:true,status:'',retry:false,proposal:''});paint();
+      result=await requestLinkSummary({noteId:id,use:'files',targetKind:t.kind,targetId:t.id},{rt});
+      if(t.files.run!==run||mode!=='link'||noteId!==id||owner!==scope()||!link.targets.includes(t))return;
+      t.files.busy=false;
+      if(result.ok)filesCache.set(cacheKey,result.summary);
+    }
+    const hadFocus=!document.activeElement||document.activeElement===document.body||host?.contains(document.activeElement);
+    if(!result.ok){t.files.status=result.message;t.files.retry=result.retry;paint();if(hadFocus)host?.querySelector(`[data-manual-files-run="${CSS.escape(key)}"]`)?.focus();return;}
+    const save=confirmLabel(n);
+    const placed=placeAiSummary(t.summary,result.summary,save);
+    if(placed.fill!==null)t.summary=placed.fill;
+    t.files.proposal=placed.proposal;t.files.status=placed.status;paint();
+    if(hadFocus)host?.querySelector(placed.fill!==null?`[data-manual-summary="${CSS.escape(key)}"]`:`[data-manual-files-apply="${CSS.escape(key)}"]`)?.focus();
+  }
+  function applyFilesAi(key,use){
+    const t=link.targets.find(x=>linkKey(x.kind,x.id)===key);if(!t||!t.files.proposal)return;
+    if(use){t.summary=t.files.proposal;t.files.status=appliedText(confirmLabel(note()));}else t.files.status='';
+    t.files.proposal='';paint();
+    host?.querySelector(use?`[data-manual-summary="${CSS.escape(key)}"]`:`[data-manual-files-run="${CSS.escape(key)}"]`)?.focus();
+  }
   function confirmLabel(n){return filesOnly(n)&&link.targets.every(t=>!t.record)?'자료로 넣기':'연결';}
   function linkMarkup(n){
     const done=[...linked().keys()].length,only=filesOnly(n);
@@ -162,7 +201,7 @@ ${only?'':`<details data-manual-original><summary>원문 전체 보기</summary>
 <div class="basket-actions"><button type="button" data-manual-pick="organization" aria-haspopup="dialog" aria-expanded="false">담당조직 고르기 ▾</button><button type="button" data-manual-pick="project" aria-haspopup="dialog" aria-expanded="false">프로젝트 고르기 ▾</button><button type="button" data-manual-pick="reference" aria-haspopup="dialog" aria-expanded="false">참고 ▾</button></div>
 ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 수 없어요.</p>`:''}
 <p class="basket-manual-hint">${only?'담당조직이나 프로젝트를 고르면 파일을 그 자료로 넣어요. 진행상황과 기록에는 남지 않아요.':'고른 곳마다 요약을 직접 쓸 수 있어요(선택). 비워 두면 업데이트 본문이 기록에 보여요.'}</p>
-<div data-manual-targets>${link.targets.map(t=>{const key=linkKey(t.kind,t.id);return `<div class="basket-manual-target" data-manual-target="${esc(key)}"><div class="basket-manual-target-head"><b>${esc(KIND_NAME[t.kind]+' · '+t.name)}</b><button type="button" data-manual-remove="${esc(key)}" aria-label="${esc(t.name)} 빼기">빼기</button></div>${targetFiles(t)}${only&&t.kind!=='reference'?`<button type="button" class="basket-manual-record-toggle" data-manual-record="${esc(key)}" aria-pressed="${t.record}">기록도 남기기</button>`:''}${t.record?`<label class="basket-text-label basket-manual-summary">${t.kind==='reference'?'요약 (선택 · 비우면 업데이트 본문이 보여요)':'기록 요약 (선택 · 비우면 업데이트 본문이 기록에 보여요)'}<textarea data-manual-summary="${esc(key)}" rows="3" maxlength="2000" spellcheck="false" placeholder="일시·장소·누가·숫자를 빠짐없이">${esc(t.summary)}</textarea></label>${t.kind!=='reference'&&aiSummaryAllowed(n)?aiSummaryMarkup(t.ai,key,'data-manual',esc):''}`:''}</div>`;}).join('')}</div>
+<div data-manual-targets>${link.targets.map(t=>{const key=linkKey(t.kind,t.id);return `<div class="basket-manual-target" data-manual-target="${esc(key)}"><div class="basket-manual-target-head"><b>${esc(KIND_NAME[t.kind]+' · '+t.name)}</b><button type="button" data-manual-remove="${esc(key)}" aria-label="${esc(t.name)} 빼기">빼기</button></div>${targetFiles(t)}${only&&t.kind!=='reference'?`<button type="button" class="basket-manual-record-toggle" data-manual-record="${esc(key)}" aria-pressed="${t.record}">기록도 남기기</button>`:''}${t.record?`<label class="basket-text-label basket-manual-summary">${t.kind==='reference'?'요약 (선택 · 비우면 업데이트 본문이 보여요)':'기록 요약 (선택 · 비우면 업데이트 본문이 기록에 보여요)'}<textarea data-manual-summary="${esc(key)}" rows="3" maxlength="2000" spellcheck="false" placeholder="일시·장소·누가·숫자를 빠짐없이">${esc(t.summary)}</textarea></label>${aiSummaryAllowed(n)?aiSummaryMarkup(t.ai,key,'data-manual',esc):''}`:''}${filesMarkup(n,t,key)}</div>`;}).join('')}</div>
 <p data-manual-status role="status">${esc(link.status)}</p>
 <div class="basket-actions"><button type="button" class="quick-pill-primary" data-manual-confirm data-enter-save-submit>${confirmLabel(n)}</button><button type="button" data-manual-cancel>취소</button></div></section>`;
   }
@@ -203,11 +242,12 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
     if(save&&task?.unknown)save.disabled=true;
     // A summary being made keeps only its own [AI 요약] locked; the rest of the panel stays usable.
     host.querySelectorAll('[data-manual-ai-run]').forEach(el=>{if(link.targets.find(t=>linkKey(t.kind,t.id)===el.dataset.manualAiRun)?.ai.busy)el.disabled=true;});
+    host.querySelectorAll('[data-manual-files-run]').forEach(el=>{if(link.targets.find(t=>linkKey(t.kind,t.id)===el.dataset.manualFilesRun)?.files.busy)el.disabled=true;});
   }
   // AI-서버연동 S4: ask ai-assist for one summary. It only fills the box (or offers a proposal); [연결] still saves.
   async function runAi(key){
     const n=note(),t=link.targets.find(x=>linkKey(x.kind,x.id)===key);
-    if(mode!=='link'||!n||!t||!t.record||t.kind==='reference'||t.ai.busy||!aiSummaryAllowed(n))return;
+    if(mode!=='link'||!n||!t||!t.record||t.ai.busy||!aiSummaryAllowed(n))return;
     const run=++t.ai.run,owner=scope(),id=n.id;
     Object.assign(t.ai,{busy:true,status:'',retry:false,proposal:''});paint();
     const result=await requestLinkSummary({noteId:id,targetKind:t.kind,targetId:t.id},{rt});
@@ -368,6 +408,9 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
       else if(b.dataset.manualAiRun)void runAi(b.dataset.manualAiRun);
       else if(b.dataset.manualAiApply)applyAi(b.dataset.manualAiApply,true);
       else if(b.dataset.manualAiDismiss)applyAi(b.dataset.manualAiDismiss,false);
+      else if(b.dataset.manualFilesRun)void runFilesAi(b.dataset.manualFilesRun);
+      else if(b.dataset.manualFilesApply)applyFilesAi(b.dataset.manualFilesApply,true);
+      else if(b.dataset.manualFilesDismiss)applyFilesAi(b.dataset.manualFilesDismiss,false);
       else if(b.hasAttribute('data-manual-confirm'))void confirm();
       else if(b.hasAttribute('data-manual-cancel')||b.hasAttribute('data-manual-task-cancel'))cancel();
       else if(b.hasAttribute('data-manual-task-save'))void saveTask();
