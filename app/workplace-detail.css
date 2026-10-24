@@ -141,3 +141,5 @@ button.wd-doc-main:hover{background:var(--kptu-surface-subtle)}
 .wd-stage-hsub{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;padding:2px 0 6px}
 .wd-stage-hsub .stg-link{min-height:var(--ds-compact-height-sm);padding:0 4px;border:0;background:transparent;color:var(--kptu-link);font-size:var(--ds-text-meta);cursor:pointer}
 .wd-stage-hsub .stg-link.danger{color:var(--kptu-danger)}
+/* UPD-요약부품통일 ①: 연결 줄에 쓴 요약을 사업 보고 줄 아래 한 줄로 먼저 보인다. */
+#wdReports .report-link-summary-line{display:block;color:var(--kptu-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

@@ -7,7 +7,7 @@ import {readReferenceBundles} from './reference-bundles-data.js';
 import {createGoogleTask} from './quick-save.js';
 import {dayKey} from './home-read-model.js';
 import {noteTaskEntry,recordNoteTask} from './basket-note-tasks.js';
-import {aiSummaryAllowed,aiSummaryMarkup,appliedText,attachmentTextState,newAiState,placeAiSummary,requestLinkSummary} from './basket-ai-summary.js';
+import {aiSummaryAllowed,aiSummaryMarkup,appliedText,attachmentTextState,newAiState,placeAiSummary,readDocumentBrief,requestLinkSummary} from './basket-ai-summary.js';
 
 // BASKET-수동연결: the user picks destinations and writes each summary in the
 // basket read view. Writes reuse app_basket_confirm_links (owner RLS, INVOKER).
@@ -168,8 +168,12 @@ export function mountManualLink({esc,rt=window.KPTURuntime,getNote,getLinks,isBu
     const n=note(),t=link.targets.find(x=>linkKey(x.kind,x.id)===key);
     if(mode!=='link'||!n||!t||t.kind==='reference'||t.files.busy||attachmentTextState(n)!=='ready')return;
     if(!t.record){t.record=true;}
-    const cacheKey=n.id+'|'+key,reused=filesCache.get(cacheKey);
-    let result;
+    const cacheKey=n.id+'|'+key;
+    let reused=filesCache.get(cacheKey),result;
+    // UPD-요약부품통일 ③: one file that is already a library document with its upload summary ('b1:', #1108·#1116) uses that summary
+    // as it is — no AI call. Several files are joined by AI into one summary.
+    if(!reused){const files=fileState().files;if(files.length===1){const doc=fileState().docs.get(files[0].drive_file_id);if(doc?.id){reused=await readDocumentBrief(doc.id,{rt});if(reused)filesCache.set(cacheKey,reused);}}}
+    if(mode!=='link'||note()?.id!==n.id||!link.targets.includes(t))return;
     if(reused)result={ok:true,summary:reused};
     else{
       const run=++t.files.run,owner=scope(),id=n.id;
