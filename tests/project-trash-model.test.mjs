@@ -5,6 +5,7 @@ import {readFileSync} from 'node:fs';
 import {
   TRASH_STATE, TRASH_TEXT, classifyTrashError, classifyTrashList, normalizeTrashRows,
   deleteDialogText, trashErrorText, purgeConfirmText, archiveButtonLabel, firstArchiveTab,
+  TRASH_KINDS, mergeTrashStates, otherDeleteText, otherDeleteBlockedText, restoredText, missingOrganizationLabel,
 } from '../app/project-trash-model.mjs';
 
 test('함수가 없을 때(404·PGRST202)는 missing, 그 밖의 실패는 failed', () => {
@@ -99,4 +100,83 @@ test('화면 코드: 판정은 한 곳, 브라우저 저장소·땜질 없음, �
   assert.equal((js.match(/rpc\/app_trash_list/g) || []).length, 1, '목록 호출은 refreshTrash 한 곳');
   assert.doesNotMatch(js, /async function unlink\(/);
   for (const name of ['app_trash_restore', 'app_trash_purge']) assert.ok(js.includes(name), name);
+});
+
+// ---- TRASH-화면2: 담당조직·사업 보고 ----
+test('DB 적용 전: 옛 함수가 담당조직·사업 보고 종류를 거절하면(TRASH_KIND_UNKNOWN) 준비 중, 프로젝트에서는 실패', () => {
+  const unknown = {status: 400, code: '22023', message: 'TRASH_KIND_UNKNOWN'};
+  assert.equal(classifyTrashError(unknown, 'organization'), TRASH_STATE.MISSING);
+  assert.equal(classifyTrashError(unknown, 'report'), TRASH_STATE.MISSING);
+  assert.equal(classifyTrashError(unknown, 'project'), TRASH_STATE.FAILED);
+  assert.equal(classifyTrashError(unknown), TRASH_STATE.FAILED);
+  assert.equal(classifyTrashError({status: 500, message: 'boom'}, 'report'), TRASH_STATE.FAILED);
+  assert.equal(classifyTrashError({status: 404, message: 'x'}, 'organization'), TRASH_STATE.MISSING);
+});
+
+test('종류별 줄 정리: 담당조직·사업 보고 이름, 종류 걸러내기', () => {
+  const data = [
+    {kind: 'project', id: 'p1', name: '합성 사업', deleted_at: '2026-10-20T01:00:00Z'},
+    {kind: 'organization', id: 'o1', name: ' 합성 조직 ', deleted_at: '2026-10-25T01:00:00Z'},
+    {kind: 'report', id: 'r1', title: '합성 보고', series_name: '합성 회의', round_no: 3, deleted_at: '2026-10-24T01:00:00Z'},
+    {kind: 'report', id: 'r2', title: '제목만', series_name: null, round_no: null, deleted_at: '2026-10-23T01:00:00Z'},
+    {kind: 'report', id: 'r3', title: '', deleted_at: '2026-10-22T01:00:00Z'},
+    {kind: 'other', id: 'x1', name: '모르는 종류'},
+  ];
+  assert.deepEqual(TRASH_KINDS, ['project', 'organization', 'report']);
+  assert.deepEqual(normalizeTrashRows(data, 'organization').map((r) => [r.id, r.name, r.kind]), [['o1', '합성 조직', 'organization']]);
+  const reports = normalizeTrashRows(data, 'report');
+  assert.deepEqual(reports.map((r) => r.name), ['합성 회의 3회', '제목만', '이름 없는 사업 보고']);
+  assert.deepEqual(normalizeTrashRows(data, null).map((r) => r.id), ['o1', 'r1', 'r2', 'r3', 'p1']);
+  assert.deepEqual(normalizeTrashRows(data).map((r) => r.id), ['p1'], '종류를 안 주면 예전처럼 프로젝트만');
+});
+
+test('종류별 상태 합치기: 하나라도 ready면 휴지통을 열고, 모두 준비 중이면 준비 중', () => {
+  const S = TRASH_STATE;
+  assert.equal(mergeTrashStates({project: S.READY, organization: S.MISSING, report: S.MISSING}), S.READY);
+  assert.equal(mergeTrashStates({project: S.MISSING, organization: S.MISSING, report: S.MISSING}), S.MISSING);
+  assert.equal(mergeTrashStates({project: S.FAILED, organization: S.MISSING, report: S.MISSING}), S.FAILED);
+  assert.equal(mergeTrashStates({project: S.READY, organization: S.UNKNOWN}), S.UNKNOWN);
+  assert.equal(mergeTrashStates({}), S.UNKNOWN);
+});
+
+test('담당조직·사업 보고 삭제 글: 휴지통으로, 준비 중이면 삭제할 수 없다고 알림', () => {
+  const org = otherDeleteText('organization', '합성 조직');
+  assert.match(org.confirm, /“합성 조직” 담당조직을 휴지통으로 옮길까요\?/);
+  assert.match(org.confirm, /휴지통에서 되돌릴 수 있습니다/);
+  assert.doesNotMatch(org.confirm, /삭제할까요/);
+  const report = otherDeleteText('report', '합성 보고');
+  assert.match(report.confirm, /사업 보고를 휴지통으로 옮길까요/);
+  assert.match(report.confirm, /Google 할 일에 남고 자료 파일은 삭제하지 않습니다/);
+  assert.match(otherDeleteBlockedText('organization', TRASH_STATE.MISSING), /담당조직 휴지통은 준비 중입니다.*삭제할 수 없습니다/);
+  assert.match(otherDeleteBlockedText('report', TRASH_STATE.MISSING), /사업 보고 휴지통은 준비 중/);
+  assert.match(otherDeleteBlockedText('report', TRASH_STATE.FAILED), /확인하지 못해 삭제하지 않았습니다/);
+});
+
+test('영구 삭제 확인·되돌림 글은 종류마다 맞고, 같은 이름 충돌은 일상어', () => {
+  assert.match(purgeConfirmText({kind: 'organization', name: '합성 조직'}), /“합성 조직” 담당조직을 영구 삭제할까요.*되돌릴 수 없습니다/s);
+  assert.match(purgeConfirmText({kind: 'report', name: '합성 보고'}), /“합성 보고” 사업 보고를 영구 삭제할까요.*Google 할 일/s);
+  assert.match(purgeConfirmText({kind: 'project', name: '합성', child_count: 1}), /프로젝트를 영구 삭제할까요/);
+  assert.equal(restoredText('organization'), '담당조직을 되돌렸습니다.');
+  assert.equal(restoredText('report'), '사업 보고를 되돌렸습니다.');
+  assert.equal(restoredText('project'), TRASH_TEXT.RESTORED);
+  assert.equal(trashErrorText({code: '23505', message: 'duplicate key value violates unique constraint'}), TRASH_TEXT.NAME_TAKEN);
+  assert.match(TRASH_TEXT.NAME_TAKEN, /같은 이름이 이미 있어/);
+  assert.equal(missingOrganizationLabel(true), '휴지통의 담당조직');
+  assert.equal(missingOrganizationLabel(false), '담당조직');
+});
+
+test('화면 코드: 조직·보고 삭제는 공용 동작 한 곳, 준비 중이면 DELETE를 보내지 않는 순서, 브라우저 저장소 없음', () => {
+  const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
+  const actions = read('../app/trash-actions.js');
+  const deviceStore = new RegExp(['local', 'session'].map((w) => w + 'Storage').concat(['indexed' + 'DB']).join('|'));
+  assert.doesNotMatch(actions, deviceStore);
+  // 목록 확인(READY) -> 확인창 -> 삭제 요청 -> 목록으로 다시 확인 순서.
+  const iList = actions.indexOf('readTrashKind(kind, rt)'), iAsk = actions.indexOf('ask(text.confirm)'), iRemove = actions.indexOf('await remove()');
+  assert.ok(iList > 0 && iList < iAsk && iAsk < iRemove, '확인 순서');
+  assert.match(actions, /first\.state !== TRASH_STATE\.READY/);
+  for (const [file, kind] of [['../app/suborganizations.js', 'organization'], ['../app/meeting-round-detail.js', 'report']]) {
+    const js = read(file);
+    assert.ok(js.includes(`deleteToTrash({kind:'${kind}'`), file);
+    assert.doesNotMatch(js, /담당조직을 삭제할까요|사업 보고를 삭제할까요/, file);
+  }
 });
