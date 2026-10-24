@@ -58,7 +58,29 @@ export function stageOfOrg(orgId, histories, stages, {until = ''} = {}) {
   }
   const stage = row.stage_id ? byId.get(row.stage_id) ?? null : null;
   const kind = !stage ? 'quiet' : stage.is_struggle ? 'struggle' : stage.is_ending ? 'ended' : 'quiet';
-  return {row, stage, name: stage?.name ?? row.stage_name, date: row.stage_date, kind};
+  return {row, stage, name: stage?.name ?? row.stage_name, date: row.stage_date, end: row.end_date || '', kind};
+}
+
+// ───── 단계 기간(끝 날짜, 2026-10-24 11:05 명진 결정) ─────
+// 이력 줄의 끝 날짜(end_date)는 선택 칸이다. 비우면 그 날 하루. 끝 ≥ 시작(DB 검사와 같은 규칙).
+export const endOf = row => (row?.end_date || row?.end || row?.stage_date || row?.date || '');
+export function periodProblem(start, end) {
+  if (!end) return '';
+  if (!isDate(end)) return '끝 날짜를 확인해 주세요.';
+  if (isDate(start) && end < start) return '끝 날짜는 시작 날짜와 같거나 뒤여야 해요.';
+  return '';
+}
+// 기간이 보고 주간(week = {start,end})과 겹치는지: 시작 ≤ 주 끝 이고 끝(없으면 시작) ≥ 주 시작.
+export function periodInWeek(start, end, week) {
+  if (!isDate(start) || !week) return false;
+  const last = isDate(end) ? end : start;
+  return start <= week.end && last >= week.start;
+}
+// 'M.D' 또는 'M.D~M.D'(sep로 사이 글자). 끝이 없거나 시작과 같으면 하루.
+export function periodText(start, end, sep = '~') {
+  const a = monthDay(start);
+  if (!a) return '';
+  return end && end !== start && monthDay(end) ? `${a}${sep}${monthDay(end)}` : a;
 }
 
 // 'YYYY-MM-DD' → 'M.D'
@@ -66,8 +88,8 @@ export function monthDay(date) {
   const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(String(date ?? ''));
   return m ? `${Number(m[1])}.${Number(m[2])}` : '';
 }
-// 단계(날짜) 모양: 쟁의발생 결의(10.20)
-export const stageLabel = cur => cur?.name ? (cur.date ? `${cur.name}(${monthDay(cur.date)})` : cur.name) : '';
+// 단계(날짜) 모양: 쟁의발생 결의(10.20), 기간이면 파업 찬반투표(11.3~11.5)
+export const stageLabel = cur => cur?.name ? (cur.date ? `${cur.name}(${periodText(cur.date, cur.end)})` : cur.name) : '';
 
 const addDays = (date, n) => new Date(Date.parse(date + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
 // 그 날이 든 주(월~일). 한국 날짜 문자열 기준.
@@ -79,10 +101,10 @@ export function weekOf(date) {
 export const inWeek = (date, week) => isDate(date) && !!week && date >= week.start && date <= week.end;
 
 // 현재 단계가 지금 표에 나가야 하는지. week = {start,end}: 보고 주간.
-//   투쟁 중 → 'struggle'(매주), 끝남 + 단계 날짜가 그 주 안 → 'ended'(그 주 한 번), 그 밖 → ''.
+//   투쟁 중 → 'struggle'(매주), 끝남 + 단계 기간이 그 주에 걸쳐 있음(끝 날짜 없으면 그 날 하루) → 'ended'(그 주에만), 그 밖 → ''.
 export function reportKind(cur, week) {
   if (cur?.kind === 'struggle') return 'struggle';
-  if (cur?.kind === 'ended' && inWeek(cur.date, week)) return 'ended';
+  if (cur?.kind === 'ended' && periodInWeek(cur.date, cur.end, week)) return 'ended';
   return '';
 }
 
@@ -102,8 +124,8 @@ export function reorderChanges(stages, id, toIndex) {
   return list.map((s, i) => ({id: s.id, sort_order: i + 1})).filter(change => change.sort_order !== stages.find(s => s.id === change.id)?.sort_order);
 }
 
-// 이력 목록(접힘 안): 최근 것부터 {date:'10.20', name}
-export const historyLines = (rows, limit = 20) => sortHistory(rows).slice(0, limit).map(r => ({id: r.id, date: monthDay(r.stage_date), name: r.stage_name}));
+// 이력 목록(접힘 안): 최근 것부터 {id, date:'11.3 ~ 11.5' 또는 '10.20', name, stageId, start, end}
+export const historyLines = (rows, limit = 20) => sortHistory(rows).slice(0, limit).map(r => ({id: r.id, date: periodText(r.stage_date, r.end_date, ' ~ '), name: r.stage_name, stageId: r.stage_id ?? null, start: r.stage_date, end: r.end_date || ''}));
 
 // 지우기 알림 글: ○○지부 외 N곳이 이 단계예요
 export function orgsAtStageText(names) {
@@ -113,8 +135,8 @@ export function orgsAtStageText(names) {
 }
 
 // ───── 주간보고 투쟁 사업장 표 (ORG-쟁의단계 ②) ─────
-// 보고 주간(week = {start,end})에 표에 나갈 조직: 투쟁 중은 매주, 끝남은 끝난 주 한 번. 보고 주간 끝날까지의 이력으로 판정한다.
-// orgs: 내 담당 조직 [{id,name,aliases}]. 반환 [{org, kind:'struggle'|'ended', line:'- 쟁의발생 결의(10.20)', name}] (orgs 순서)
+// 보고 주간(week = {start,end})에 표에 나갈 조직: 투쟁 중은 매주, 끝남은 그 기간이 걸친 주(끝 날짜 없으면 끝난 주 한 번). 보고 주간 끝날까지의 이력으로 판정한다.
+// orgs: 내 담당 조직 [{id,name,aliases}]. 반환 [{org, kind:'struggle'|'ended', line:'- 쟁의발생 결의(10.20)' 또는 '- 파업 찬반투표(11.3~11.5)', name}] (orgs 순서)
 export function sitePlan(orgs, histories, stages, week) {
   const out = [];
   for (const org of orgs ?? []) {
@@ -126,6 +148,6 @@ export function sitePlan(orgs, histories, stages, week) {
 }
 // 앱이 이전에 채운 단계 줄('- 조정 신청(10.10)')인지: 이번 줄로 바꿀 때 겹쳐 남기지 않는다.
 export function isStageLine(text, stages) {
-  const m = /^\s*-\s*(.+?)\((\d{1,2}\.\d{1,2})\)\s*$/.exec(String(text ?? ''));
+  const m = /^\s*-\s*(.+?)\((\d{1,2}\.\d{1,2})(?:\s*~\s*\d{1,2}\.\d{1,2})?\)\s*$/.exec(String(text ?? ''));
   return !!m && (stages ?? []).some(s => String(s.name).trim() === m[1].trim());
 }
