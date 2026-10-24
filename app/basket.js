@@ -5,7 +5,7 @@ import {effectiveOcrText} from './basket-ocr-text.mjs';
 import { mountQuick } from './home-quick.js';
 import { mountHandoff, selectHandoffNotes } from './basket-ai-handoff.js';
 import { mountClassification } from './basket-classification-ui.js';
-import { readBasket, updateNote, noteState, visibleNotes, filedProjects, filedOrganizations, moveToNote, suggestNoteTitle, BASKET_PLACES, noteClassified, placeSubOptions, canKeepInJournal } from './basket-data.js';
+import { readBasket, updateNote, saveUpdateDoc, readBasketNote, noteState, visibleNotes, filedProjects, filedOrganizations, moveToNote, suggestNoteTitle, BASKET_PLACES, noteClassified, placeSubOptions, canKeepInJournal } from './basket-data.js';
 import { noteJournalAt, setNoteJournal } from './update-journal.js';
 import { noteRequests, requestTagsHtml } from './update-requests.js';
 import { renderFilterChips } from './filter-chips.js';
@@ -21,7 +21,10 @@ import { isHwpName, requestHwpEdit } from './hwp-drive.js';
 import { renderMarkdownInto, showPlainText, preloadMarkdown, renderShareCards } from './markdown-view.js';
 import { paintHtmlAttachments } from './html-frame.js';
 import { CHATGPT_HTML_REQUEST } from './chatgpt-html.mjs';
-import { openMarkdownEditor, copyText } from './md-editor.js';
+import { copyText } from './copy-text.js';
+// ED③ 업데이트: an update saved in the new editor reads its saved form (ed-render) and copies from it; its big window is update-window.js.
+import { hasDoc } from './note-doc.mjs';
+import { paintDoc, docCopy } from './note-body.js';
 import { toTelegram } from './md-telegram.mjs';
 import { photoElement } from './diary-data.js';
 import { openPhotoView, closePhotoView } from './photo-view.js';
@@ -39,7 +42,7 @@ let loadingRun = 0;
 let notes = [], links = [], docs = [], filter = 'unclassified', place = 'all', sub = 'all', selected = null, editing = false, busy = false, epoch = 0, rawView = false;
 const scope = () => { const c = rt.context.read(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 let upload = createUploadBatch(), pickerFiles = null, handoffBusy = false;
-let quick=null, bigWriter=null, bigPicker=null;
+let quick=null, bigWriter=null, bigPicker=null, bigOpening=false;
 let currentScope = scope(), retainedForTraversal = false;
 // BUG-뒤로가기: an opened memo is one router layer, so Back returns to the list at the same scroll.
 let noteLayer = null, listScroll = 0;
@@ -58,7 +61,9 @@ function showToast(message, ms = 3200) {
 async function copyNote(note) {
   const text = String(note?.raw_text || '');
   if (!text.trim()) { showToast('복사할 글이 없어요.'); return; }
-  showToast(await copyText(toTelegram(text)) ? '복사했습니다' : '복사하지 못했어요. 다시 눌러 주세요.');
+  // ED③ 업데이트: an update with a saved form copies from it (ed-text), as the note does; the others keep the old conversion.
+  const copy = docCopy(note);
+  showToast(await copyText(copy ? copy.text : toTelegram(text)) ? '복사했습니다' : '복사하지 못했어요. 다시 눌러 주세요.');
 }
 const COPY_ICON = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M10.5 3.5v-.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
 const RAW_ICON = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M5.5 4.5 2 8l3.5 3.5M10.5 4.5 14 8l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -328,7 +333,7 @@ async function linksConfirmed(noteId,targets){
   }
   renderList();if(selected?.id===noteId)paintDetailState();
   const owner=scope();
-  try { const current=await readBasket();if(owner!==scope())return {ok:false,stale:true};notes=current.notes;links=current.links;docs=current.docs;renderList();
+  try { const current=await readBasket(undefined, {doc:true});if(owner!==scope())return {ok:false,stale:true};notes=current.notes;links=current.links;docs=current.docs;renderList();
     if(selected?.id===noteId){selected=notes.find(n=>n.id===noteId)||selected;paintDetailState();}
     return {ok:true}; }
   catch { return {ok:false}; }
@@ -699,13 +704,16 @@ function paintReadText() {
   text.classList.toggle('basket-read-empty', !raw); text.classList.toggle('basket-read-raw', !!raw && rawView);
   // ①: a memo with only attachments has no text box; its files lead the screen.
   text.hidden = filesOnly(selected);
-  const key = `${raw && rawView ? 'raw' : 'md'}:${raw}`;
+  const asDoc = !!raw && !rawView && hasDoc(selected);
+  const key = `${raw && rawView ? 'raw' : asDoc ? 'doc:' + selected.updated_at : 'md'}:${raw}`;
   if (readShown.get(text) === key) return;
   readShown.set(text, key);
   renderShareCards(detail.querySelector('[data-basket-share]'), raw);
   if (!raw) return showPlainText(text, filesOnly(selected) ? '' : '글 없이 첨부만 있는 업데이트입니다.');
   showPlainText(text, raw);
   if (rawView) return;
+  // ED③ 업데이트: the saved form is drawn instead of the letters (the 원문 toggle still shows the letters).
+  if (asDoc && paintDoc(text, selected, {rt})) return;
   const owner = scope();
   void renderMarkdownInto(text, raw, {isCurrent: () => owner === scope()}).then(result => { if (!result.ok && readShown.get(text) === key) readShown.delete(text); });
 }
@@ -717,6 +725,7 @@ function paintMode() {
   // The note menu is for reading; while editing the edit buttons and Esc take over.
   detail.querySelector('[data-basket-note-more-wrap]').hidden = editing; if (editing) setNoteMenu(false);
   detail.querySelector('.basket-editor').hidden = !editing; detail.querySelector('[data-basket-edit-actions]').hidden = !editing;
+  detail.querySelector('[data-basket-text]').readOnly = hasDoc(selected);
   detail.querySelectorAll('.basket-file-links').forEach(box => { box.hidden = editing; });
   detail.querySelector('.basket-card-tools').hidden = !String(selected.raw_text || '').trim();
   // ⑥: "미분류 · 날짜" sits under the files of an update with only attachments, else under the text.
@@ -751,28 +760,50 @@ function openDetail(id, {edit = false} = {}) {
   if (!noteLayer) { clearNoteAddress(); if (!basketNoteOrigin(selected.id, rt)) openNoteLayer(); }
   // Reading never opens the on-screen keyboard; only an explicit edit focuses the text.
   (editing ? detail.querySelector('[data-basket-text]') : readFocus()).focus();
+  openDocEdit();
 }
-// MD-편집기: [크게 쓰기] opens the shared full-screen editor on the edit field's text. Every change goes straight
-// back into the field, so [수정 저장]·취소·leaving the screen see the same text; saving stays the existing flow.
-function openBigWriter() {
+// ED③ 업데이트: [큰 창에서 수정] opens the update in the new editor (update-window.js). It starts from the saved form (doc), else from the
+// edit field's letters converted in memory (nothing is written by opening). The window's save icon is this view's own save (saveEdit):
+// the letters and the saved form go in one PATCH that applies only while the update is still the version read now (saveUpdateDoc), so an
+// update changed in another tab or device is refused. It saves and closes, and stays with a message on failure.
+async function openBigWriter() {
   const field = detail.querySelector('[data-basket-text]'), id = selected?.id;
-  if (!selected || !editing || busy || !field) return;
+  if (!selected || !editing || busy || !field || bigOpening) return;
   const same = () => editing && selected?.id === id && field.isConnected;
-  bigWriter = openMarkdownEditor({
-    text: field.value, title: '큰 창에서 수정',
-    // The one save icon is this view's own [수정 저장] (saveEdit): it saves and closes, and stays with a message on failure.
-    save: {aria: '업데이트 저장', run: async value => { if (!same()) return {ok:false, message:'수정 화면이 바뀌어 저장하지 못했어요.'}; field.value = value; return saveEdit(); }},
-    onInput: value => { if (same()) field.value = value; },
-    // UI-크게첨부: [📎 첨부] under the text is the same picker part on this screen's own file batch (upload), so a file chosen
-    // in the window is the same selection as on the edit screen and is saved by the existing attachment path.
-    attach: {mount: ({picker, files, drop}) => { bigPicker = mountBasketPicker(picker, {id:'mdAttachFiles', filesHost:files, dropTarget:drop, getBatch:() => upload, isActive:() => same(), isBusy:() => busy, onChange:() => pickerFiles?.render(), onError:message => { const s = document.querySelector('#mdEditor .md-editor-status'); if (s) s.textContent = message; }}); }},
-    onClose: value => { bigWriter = null; bigPicker = null; if (!same()) return; field.value = value; pickerFiles?.render(); field.focus(); },
-  });
+  const status = detail.querySelector('[data-basket-status]');
+  bigOpening = true;
+  try {
+    const [{openUpdateEditWindow}, fresh] = await Promise.all([import('./update-window.js'), readBasketNote(id, rt)]);
+    if (!same()) return;
+    const letters = value => String(value ?? '').replace(/\r\n?/g, '\n');
+    if (!fresh) { status.textContent = '업데이트를 찾지 못했어요. 목록을 다시 불러와 주세요.'; return; }
+    if (letters(fresh.raw_text) !== letters(selected.raw_text) || JSON.stringify(fresh.doc || null) !== JSON.stringify(selected.doc || null)) {
+      status.textContent = '다른 곳에서 바뀐 업데이트예요. 다시 불러온 뒤 고쳐 주세요.'; detail.querySelector('[data-basket-reload]').hidden = false; return;
+    }
+    const version = fresh.updated_at, withDoc = hasDoc(selected);
+    bigWriter = openUpdateEditWindow({
+      doc: withDoc ? selected.doc : null, text: field.value,
+      save: ({value, text}) => same() ? saveEdit({doc: value, text, version}) : Promise.resolve({ok: false, message: '수정 화면이 바뀌어 저장하지 못했어요.'}),
+      // UI-크게첨부: [📎 첨부] under the text is the same picker part on this screen's own file batch (upload), so a file chosen
+      // in the window is the same selection as on the edit screen and is saved by the existing attachment path.
+      attach: {getBatch: () => upload, isBusy: () => busy},
+      onClose: ({text, saved}) => { bigWriter = null; if (!same()) return; if (!saved && !withDoc) field.value = text; pickerFiles?.render(); field.focus(); },
+    });
+  } catch { if (same()) status.textContent = '큰 창을 열지 못했어요. 다시 눌러 주세요.'; }
+  finally { bigOpening = false; }
 }
 function startEdit() {
   if (!selected || editing) return;
   editing = true; detail.querySelector('[data-basket-text]').value = selected.raw_text; detail.querySelector('[data-basket-status]').textContent = '';
   paintMode(); pickerFiles?.render(); detail.querySelector('[data-basket-text]').focus();
+  openDocEdit();
+}
+// ED③ 업데이트: an update with a saved form is edited in the new editor only (the letters box would drop its formats): the big window opens
+// at once, and the box under it is read-only (paintMode).
+function openDocEdit() {
+  if (!selected || !editing || !hasDoc(selected)) return;
+  detail.querySelector('[data-basket-status]').textContent = '서식이 있는 글이에요. 큰 창에서 고쳐 주세요.';
+  void openBigWriter();
 }
 function finishEdit({force = false} = {}) {
   if (!selected || !editing) return;
@@ -791,7 +822,7 @@ async function refresh() {
   // UI-바구니첨부메모 PR 3: 자료실 분류 칩은 내 분류 목록을 따른다(목록이 오면 'kptu:document-categories-changed'로 다시 그린다).
   void loadDocumentCategories();
   try {
-    const result = await readBasket();
+    const result = await readBasket(undefined, {doc:true});
     if (run !== epoch || owner !== scope()) return;
     loadingRun = 0;
     notes = result.notes; links = result.links; docs = result.docs; renderList();
@@ -811,13 +842,15 @@ async function refresh() {
   }
 }
 // Resolves true when the change was saved, false when it was not (busy, no note, or the save failed).
+let patchFail = '';
 async function patch(changes, message, {read = false, keep = false} = {}) {
   if (busy || !selected) return false;
-  const id = selected.id, run = ++epoch, owner = scope(); busy = true;
+  const id = selected.id, run = ++epoch, owner = scope(); busy = true; patchFail = '';
   detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el => el.disabled = true);
   detail.querySelector('[data-basket-status]').textContent = '저장 중…';
   try {
-    const note = await updateNote(id, changes);
+    // ED③ 업데이트: with a saved form the letters and the form go together, only while the update is still the version the editor opened.
+    const note = changes.doc ? await saveUpdateDoc(id, {raw_text:changes.raw_text, doc:changes.doc, version:changes.version}) : await updateNote(id, changes);
     if (run !== epoch || owner !== scope()) return false;
     notes = notes.map(n => n.id === id ? note : n); selected = note;upload.attachments=note.attachments||[];
     // UI-바구니상세개편: a plain result is a short notice that goes away; guidance (what to press next) stays on the screen.
@@ -827,7 +860,8 @@ async function patch(changes, message, {read = false, keep = false} = {}) {
     return true;
   } catch (e) {
     if (run !== epoch || owner !== scope()) return false;
-    paintDetailState(); detail.querySelector('[data-basket-status]').textContent = '저장하지 못했어요. 다시 시도해 주세요.';
+    patchFail = e?.code === 'note_changed' ? e.message : '저장하지 못했어요. 다시 시도해 주세요.';
+    paintDetailState(); detail.querySelector('[data-basket-status]').textContent = patchFail;
     return false;
   } finally {
     busy = false; detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el => el.disabled = false);paintOcrControls();
@@ -878,7 +912,7 @@ async function reloadDetail() {
   if(dirty()&&!window.confirm('저장된 업데이트를 다시 불러올까요? 수정 중인 글과 미완료 파일 선택은 비워집니다.'))return;
   const id=selected.id,owner=scope(),run=++epoch;busy=true;
   detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el=>el.disabled=true);
-  try{const result=await readBasket();if(run!==epoch||owner!==scope())return;notes=result.notes;links=result.links;docs=result.docs;renderList();if(notes.some(n=>n.id===id))openDetail(id,{edit:editing});else closeDetail({force:true});}
+  try{const result=await readBasket(undefined, {doc:true});if(run!==epoch||owner!==scope())return;notes=result.notes;links=result.links;docs=result.docs;renderList();if(notes.some(n=>n.id===id))openDetail(id,{edit:editing});else closeDetail({force:true});}
   catch(e){if(run===epoch&&owner===scope())detail.querySelector('[data-basket-status]').textContent='업데이트를 다시 불러오지 못했어요. 다시 시도해 주세요.';}
   finally{busy=false;detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el=>el.disabled=false);pickerFiles?.render();paintOcrControls();}
 }
@@ -946,11 +980,16 @@ root.addEventListener('click', e => {
   else if (b.hasAttribute('data-basket-archive')) void patch({archived_at:selected.archived_at ? null : new Date().toISOString()}, selected.archived_at ? '보관을 해제했습니다.' : '보관했습니다.');
 });
 // [수정 저장] (and the big window's save icon): one path. Resolves {ok:true} or {ok:false, message}.
-async function saveEdit() {
+// extra: {doc, text, version} from the big window (the saved form and its letters); without it, the letters box is saved as before.
+async function saveEdit(extra = null) {
   if (!selected || !editing || busy) return {ok:false, message:'지금은 저장할 수 없어요.'};
   // textarea normalizes CR/CRLF on display; do not rewrite an unchanged original.
   // Selected files stay in the editor until they are saved or cancelled.
   const pendingFiles = upload.entries.some(e => e.kind !== 'success');
+  if (extra?.doc) {
+    const done = await patch({raw_text:extra.text, doc:extra.doc, version:extra.version}, pendingFiles ? '수정한 글을 저장했습니다. 선택한 첨부는 ‘첨부 저장’을 눌러 주세요.' : '수정한 글을 저장했습니다.', {read:!pendingFiles, keep:pendingFiles});
+    return done ? {ok:true} : {ok:false, message:patchFail || '저장하지 못했어요. 다시 눌러 주세요.'};
+  }
   if (!textDirty()) { if (pendingFiles) detail.querySelector('[data-basket-status]').textContent = '저장된 글입니다. 선택한 첨부는 ‘첨부 저장’을 눌러 주세요.'; else { showToast('저장된 글입니다.'); finishEdit({force:true}); } return {ok:true}; }
   const saved = await patch({raw_text:detail.querySelector('[data-basket-text]').value}, pendingFiles ? '수정한 글을 저장했습니다. 선택한 첨부는 ‘첨부 저장’을 눌러 주세요.' : '수정한 글을 저장했습니다.', {read:!pendingFiles, keep:pendingFiles});
   return saved ? {ok:true} : {ok:false, message:'저장하지 못했어요. 다시 눌러 주세요.'};
@@ -1001,7 +1040,7 @@ async function rereadLinks() {
   if (window.KPTURouter.current !== 'basket') return;
   const run = ++linkReadRun, owner = scope();
   try {
-    const result = await readBasket();
+    const result = await readBasket(undefined, {doc:true});
     if (run !== linkReadRun || owner !== scope()) return;
     // A repaint keeps focus on the same row or chip (or that note's row when its chip is gone).
     const active = root.contains(document.activeElement) ? document.activeElement : null;

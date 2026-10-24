@@ -204,20 +204,20 @@ window.addEventListener('kptu:view-changed',event=>{
   document.querySelector('.mobile-shell-header [data-home-date]')?.toggleAttribute('hidden',!home);
   const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:'바구니',calendar:'일정',tasks:'일정',journal:'일정',diary:'일정',projects:'프로젝트',team:'담당조직',meetings:'사업 보고',library:'자료실',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',media:'성명·보도자료',pages:'공유 페이지',search:'검색',reference:'참고 묶음',calls:'통화',telegram:'텔레그램 소식'})[event.detail?.view]||''}
 });
-// Menu [쓰기] (UI-디자인손질 8, BASKET-업데이트통합 PR 2): the shared write window (write-window.js) opens empty with [업데이트 ▾ | 노트],
-// 업데이트 preselected and no place (= the basket). Each choice saves through its existing owner-RLS path and the window closes
-// (저장하고 닫기). A saved note then opens on the basket's [노트] side. Text closed without saving stays in this tab's memory for
-// the next [쓰기] only (never in browser storage).
-let writeDraft='',writerOpening=false;
+// [+ 추가] (UI-디자인손질 8, BASKET-업데이트통합 PR 2, ED③): [업데이트] opens the update's big window (update-window.js) with no place (= the basket),
+// [노트] opens the note's (note-window.js). Each saves through its existing owner-RLS path and the window closes (저장하고 닫기). A saved
+// note then opens on the basket's [노트] side. Text closed without saving stays in this tab's memory for the next time only
+// (never in browser storage).
+let writeDraft='',writeDraftDoc=null,writerOpening=false;
 const writeToast=message=>{const toast=document.querySelector('#toast');if(!toast)return;toast.textContent=message;toast.classList.remove('hidden');clearTimeout(writeToast.timer);writeToast.timer=setTimeout(()=>toast.classList.add('hidden'),3200)};
-// kind: 'update' (menu [쓰기], top line [+ 추가] → 업데이트) or 'note' (top line → 노트). Same window, same draft, same saves.
+// kind: 'update' (top line [+ 추가] → 업데이트) or 'note' (top line → 노트).
 async function openWriter(kind='update'){
   if(writerOpening||document.querySelector('#mdEditor:not(.hidden),#edWindow:not(.hidden)')||window.__KPTU_TEAM_READY_STATE__!=='workspace')return;
   writerOpening=true;
   try{
     const owner=window.KPTURuntime?.session?.read?.()?.user?.id;
     // ED③ 노트: [+ 추가] → [노트] opens the note's new big window (note-window.js: title, [📎 첨부], the new editor). The saved note opens on
-    // the basket's [노트] side. [업데이트] keeps the old write window until the update PR.
+    // the basket's [노트] side.
     if(kind==='note'){
       const [{openNoteWindow},{requestNoteDocOpen}]=await Promise.all([import('./note-window.js'),import('./basket-note-tasks.js'),window.KPTUViewLoader?.prepare?.('basket')]);
       if(owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return;
@@ -229,19 +229,13 @@ async function openWriter(kind='update'){
       }});
       return;
     }
-    const [{openWriteWindow},{requestNoteDocOpen}]=await Promise.all([import('./write-window.js'),import('./basket-note-tasks.js'),window.KPTUViewLoader?.prepare?.('basket')]);
+    // ED③ 업데이트: [+ 추가] → [업데이트] opens the update's new big window (update-window.js). Unsaved writing stays in this tab's memory
+    // (the letters, and the saved form so the formats come back) for the next time.
+    const [{openUpdateWindow}]=await Promise.all([import('./update-window.js'),window.KPTUViewLoader?.prepare?.('basket')]);
     if(owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return;
-    openWriteWindow({text:writeDraft,title:'쓰기',kind,onClose:(text,{saved})=>{
-      if(saved){
-        writeDraft='';
-        if(saved.kind!=='note')return;
-        // The editor's own history entry steps back first; the basket opens after that (as other screens hand off a note).
-        requestNoteDocOpen(saved.id);
-        const go=()=>window.KPTURouter?.go('basket',{source:'delegated'});
-        if(history.state?.kptuOverlay==='mdEditor')window.addEventListener('popstate',()=>queueMicrotask(go),{once:true});else go();
-        return;
-      }
-      writeDraft=text.trim()?text:'';
+    openUpdateWindow({text:writeDraft,doc:writeDraftDoc,title:'쓰기',onClose:(text,{saved,value})=>{
+      if(saved){writeDraft='';writeDraftDoc=null;return}
+      writeDraft=text.trim()?text:'';writeDraftDoc=writeDraft?value:null;
       if(writeDraft)writeToast('저장하지 않은 글은 빠른 추가의 [업데이트]로 다시 열면 이어서 쓸 수 있어요.');
     }});
   }catch(error){console.error('menu write',error);writeToast('쓰기 화면을 열지 못했어요. 다시 시도해 주세요.')}
@@ -258,7 +252,7 @@ document.querySelector('#appView>.app-nav [data-quick-links]')?.addEventListener
   const trigger=event.currentTarget;
   try{const quickLinks=await import('./quick-links.js');quickLinks.open(trigger);}catch(error){console.error('quick links',error);writeToast('자주 가는 링크를 열지 못했어요. 다시 시도해 주세요.')}
 });
-window.addEventListener('kptu:session-changed',()=>{writeDraft=''});
+window.addEventListener('kptu:session-changed',()=>{writeDraft='';writeDraftDoc=null});
 syncMobile();
 syncMidNavigation();
 function closeAccount(then,fromBack=false){

@@ -3,7 +3,7 @@ import {openMdTool} from './helpers/md-tools.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {expectProjectDetail} from './helpers/project-detail.mjs';
-import {openWriteFromEntry} from './helpers/write-opener.mjs';
+import {openOldWriteWindow} from './helpers/write-opener.mjs';
 import {expectProjectTitle} from './helpers/screen-title.mjs';
 // UI-크게첨부(2026-10-20 사용자 결정): (a) 조직 상세·프로젝트 상세의 업데이트 입력에도 [크게]. 같은 큰 편집 창(write-window.js)이
 // 그 조직·프로젝트를 미리 고른 채 열리고, 저장하면 그 조직·프로젝트 기록으로 저장된 뒤 닫힌다. (b) 큰 편집 창에서도 [📎 첨부]
@@ -102,8 +102,8 @@ for(const width of [390,1280]){
 
  test(`큰 편집 창 [📎 첨부]: 조직을 골라도 파일이 남고, 바구니로 저장하면 글과 함께 올라감 ${width}`,async({page})=>{
   const f=await fixture(page,width);
-  // Menu [쓰기]: the window's own file batch.
-  await openWriteFromEntry(page,width);
+  // The old write window (still the organization's and the project's own [크게]; ED③ 업데이트 moved the top line and the home input to the new one: update-window.spec.mjs): the window's own file batch.
+  await openOldWriteWindow(page,width);
   const e=editor(page);await expect(e).toBeVisible();
   const clip=e.getByRole('button',{name:'파일 첨부',exact:true});await expect(clip).toBeVisible();
   // The same small button as the head (32px painted, 44px touch area) under the text, not covering it.
@@ -138,17 +138,18 @@ for(const width of [390,1280]){
   const f=await fixture(page,width),q=page.locator('#homeView [data-home-quick]');
   await q.locator('[data-quick-input]').fill('홈 업데이트');
   await q.locator('[data-quick-big]').click();
-  const e=editor(page);await expect(e).toBeVisible();
+  const e=page.locator('#edWindow');await expect(e).toBeVisible();
   const clip=e.getByRole('button',{name:'파일 첨부',exact:true});
   await chooseFile(page,clip,'b.txt');
   await expect(clip.locator('[data-basket-count]')).toHaveText('1');
-  // Closing without saving: the file stays with the home input (one batch).
-  await e.locator('[data-close="mdEditor"]').click();await expect(page.locator('#mdEditor')).toHaveCount(0);
+  // Closing without saving: the file stays with the home input (one batch). The window asks first (a file was chosen).
+  await e.locator('[data-close="edWindow"]').click();
+  await page.locator('#edwCloseSheet').getByRole('button',{name:'저장하지 않고 닫기',exact:true}).click();await expect(page.locator('#edWindow')).toHaveCount(0);
   await expect(q.getByRole('button',{name:'파일 첨부',exact:true}).locator('[data-basket-count]')).toHaveText('1');
   await q.locator('[data-quick-big]').click();await expect(e).toBeVisible();
   await expect(e.locator('[data-basket-file]')).toHaveCount(1);
-  await e.locator('[data-md-save-icon]').click();
-  await expect(page.locator('#mdEditor')).toHaveCount(0);
+  await e.locator('[data-edw-save]').click();
+  await expect(page.locator('#edWindow')).toHaveCount(0);
   expect(f.uploads).toHaveLength(1);expect(f.uploads[0]).toContain('filename="b.txt"');
   expect(f.errors).toEqual([]);
  });
@@ -162,10 +163,11 @@ for(const width of [390,1280])test(`바구니 업데이트 수정 [큰 창에서
  await page.locator('[data-basket-note-more]').click();await page.locator('[data-basket-edit]').click();
  const detail=page.locator('[data-basket-detail]');
  await detail.locator('[data-basket-big-write]').click();
- const e=editor(page);await expect(e).toBeVisible();
+ const e=page.locator('#edWindow');await expect(e).toBeVisible();
  const clip=e.getByRole('button',{name:'파일 첨부',exact:true});await expect(clip).toBeVisible();
  await chooseFile(page,clip,'c.txt');await expect(clip.locator('[data-basket-count]')).toHaveText('1');
- await e.locator('[data-close="mdEditor"]').click();await expect(page.locator('#mdEditor')).toHaveCount(0);
+ await e.locator('[data-close="edWindow"]').click();
+ await page.locator('#edwCloseSheet').getByRole('button',{name:'저장하지 않고 닫기',exact:true}).click();await expect(page.locator('#edWindow')).toHaveCount(0);
  // The same selection on the edit screen; nothing uploaded until the existing [첨부 저장].
  await expect(detail.locator('.basket-edit-actions').getByRole('button',{name:'파일 첨부',exact:true}).locator('[data-basket-count]')).toHaveText('1');
  await expect(detail.locator('[data-basket-file]')).toHaveCount(1);expect(f.uploads).toHaveLength(0);

@@ -52,6 +52,6 @@ for (const width of [360, 390, 1280]) test(`update edit buttons [첨부][큰 창
   expect(new Set(tops).size).toBe(1);
   // [취소] keeps its meaning: it asks before dropping the chosen file, and [큰 창에서 수정] still opens the big window.
   page.once('dialog', d => d.dismiss());await bar.locator('[data-basket-cancel]').click();await expect(bar).toBeVisible();
-  await bar.locator('[data-basket-big-write]').click();await expect(page.locator('#mdEditor')).toBeVisible();
+  await bar.locator('[data-basket-big-write]').click();await expect(page.locator('#edWindow')).toBeVisible();
   expect(errors).toEqual([]);
 });

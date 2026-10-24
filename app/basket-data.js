@@ -22,11 +22,33 @@ function savedRow(rows) {
   if (!Array.isArray(rows) || rows.length !== 1) throw new Error('저장 결과를 확인할 수 없습니다. 접근 권한을 확인해 주세요.');
   return rows[0];
 }
-export async function createNote({raw_text, ai_export_allowed, occurred_at}, rt = window.KPTURuntime) {
+// ED③ 업데이트: doc (optional) is the new editor's saved form, written with the letters in the same insert (설계 3.1·11.3).
+export async function createNote({raw_text, ai_export_allowed, occurred_at, doc}, rt = window.KPTURuntime) {
   validateNoteText(raw_text);
   const workspace_id = rt.context.read()?.workspace?.id;
   workspace(rt);
-  return savedRow(await rt.api('/rest/v1/app_notes', {method:'POST', prefer:'return=representation', body:{workspace_id, raw_text, ...(ai_export_allowed === undefined ? {} : {ai_export_allowed}), ...(occurred_at === undefined ? {} : {occurred_at})}}));
+  return savedRow(await rt.api('/rest/v1/app_notes', {method:'POST', prefer:'return=representation', body:{workspace_id, raw_text, ...(doc ? {doc} : {}), ...(ai_export_allowed === undefined ? {} : {ai_export_allowed}), ...(occurred_at === undefined ? {} : {occurred_at})}}));
+}
+// ED③ 업데이트: an update made with files is created by the basket-files upload (letters only); its saved form is put on afterwards.
+// Only a basket row that has no saved form yet takes it (doc is null), so a form already there is never replaced. The letters are
+// not touched. A refusal throws; the caller says the letters are saved and the formats are not.
+export async function attachNoteDoc(id, doc, rt = window.KPTURuntime) {
+  if (!doc || typeof doc !== 'object') return null;
+  const saved = await rt.api(`/rest/v1/app_notes?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${workspace(rt)}&kind=eq.basket&doc=is.null&select=id,updated_at`, {method:'PATCH', prefer:'return=representation', body:{doc}});
+  if (!Array.isArray(saved) || saved.length !== 1) throw new Error('서식을 저장하지 못했어요.');
+  return saved[0];
+}
+// ED③ 업데이트: the update's big window (and its edit) saves the saved form with the letters in one PATCH that applies only while the
+// row is still the version the editor opened (updated_at): an update changed in another tab or device is refused (code note_changed),
+// nothing is overwritten. Same contract as saveNoteDoc for notes.
+export async function saveUpdateDoc(id, {raw_text, doc, version}, rt = window.KPTURuntime) {
+  validateNoteText(raw_text);
+  if (!doc || typeof doc !== 'object') throw new Error('서식을 확인해 주세요.');
+  if (typeof version !== 'string' || !Number.isFinite(Date.parse(version))) throw Object.assign(new Error('업데이트를 다시 불러온 뒤 저장해 주세요.'), {code:'note_changed'});
+  const where = `/rest/v1/app_notes?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${workspace(rt)}&kind=eq.basket&updated_at=eq.${encodeURIComponent(version)}`;
+  const saved = await rt.api(where, {method:'PATCH', prefer:'return=representation', body:{raw_text, doc, updated_at:new Date().toISOString()}});
+  if (!Array.isArray(saved) || saved.length !== 1) throw Object.assign(new Error('업데이트가 그사이 바뀌었어요. 다시 불러온 뒤 저장해 주세요.'), {code:'note_changed'});
+  return saved[0];
 }
 export async function updateNote(id, changes, rt = window.KPTURuntime) {
   const body = {updated_at:new Date().toISOString()};
@@ -57,8 +79,9 @@ async function readKind(kind, fields, order, rt) {
   }
   return {notes, links};
 }
-export async function readBasket(rt = window.KPTURuntime) {
-  const result = await readKind('basket', 'id,raw_text,occurred_at,created_at,updated_at,archived_at,ai_export_allowed,attachments,metadata', 'occurred_at.desc,id.desc', rt);
+// doc: also read each update's saved form (the basket screen shows it; the journal and the hand-off read letters only).
+export async function readBasket(rt = window.KPTURuntime, {doc = false} = {}) {
+  const result = await readKind('basket', 'id,raw_text,' + (doc ? 'doc,' : '') + 'occurred_at,created_at,updated_at,archived_at,ai_export_allowed,attachments,metadata', 'occurred_at.desc,id.desc', rt);
   return {...result, docs: await readFiledDocs(result.notes, rt)};
 }
 // BUG-자료넣기미분류: [자료로 넣기] puts a memo's files into a project or an organization as library documents
@@ -122,7 +145,7 @@ export async function readNoteDoc(id, rt = window.KPTURuntime) {
 }
 // BUG-업데이트첨부연결: one basket update again (after its files went up, for its version and saved files). null when it is gone.
 export async function readBasketNote(id, rt = window.KPTURuntime) {
-  const rows = await rt.api(`/rest/v1/app_notes?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${workspace(rt)}&kind=eq.basket&select=id,raw_text,occurred_at,created_at,updated_at,archived_at,ai_export_allowed,attachments,metadata`, {singleFlight:false});
+  const rows = await rt.api(`/rest/v1/app_notes?id=eq.${encodeURIComponent(id)}&workspace_id=eq.${workspace(rt)}&kind=eq.basket&select=id,raw_text,doc,occurred_at,created_at,updated_at,archived_at,ai_export_allowed,attachments,metadata`, {singleFlight:false});
   if (!Array.isArray(rows)) throw new Error('업데이트를 확인하지 못했어요.');
   return rows.find(row => row?.id === id) || null;
 }

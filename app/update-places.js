@@ -4,7 +4,7 @@
 // UPD-여러곳고르기: several places can be chosen at once (an array; empty is the basket). Two or more → one basket update linked
 // to every chosen place through the basket's own [연결하기] path (app_basket_confirm_links: owner RLS, INVOKER, 1~20 places, all
 // or none), so the update is one original shown in each place's records, as a linked basket update already is.
-import { createNote, readBasketNote } from './basket-data.js';
+import { createNote, readBasketNote, attachNoteDoc } from './basket-data.js';
 import { uploadBatch } from './basket-upload.js';
 import { putFilesIntoTargets } from './basket-file-docs.js';
 import { saveOrganizationUpdate, saveProjectProgress } from './quick-save.js';
@@ -134,9 +134,11 @@ export { projectRows };
 // chosen: one place, null, or a list. None → a basket note; one → that place's own record (unchanged); two or more → one basket
 // note linked to every place at once (app_basket_confirm_links, the basket [연결하기] path; the database refuses all or none).
 // When the links are refused the note stays in the basket (nothing is lost or doubled): {note, linkError} says so to the caller.
-export async function saveUpdate({place, places, text, owner}, rt = window.KPTURuntime) {
+// ED③ 업데이트: doc (optional) is the new editor's saved form. It goes only onto the basket note (no place, or two or more places);
+// one organization's or project's record keeps letters only until those records have their own new window (설계 11.4 순서 5).
+export async function saveUpdate({place, places, text, owner, doc = null}, rt = window.KPTURuntime) {
   const list = placeList(places ?? place);
-  if (!list.length) return createNote({raw_text:text}, rt);
+  if (!list.length) return createNote({raw_text:text, ...(doc ? {doc} : {})}, rt);
   // REF-참고묶음: a reference bundle has no record table, so one bundle alone also goes the basket-update-and-link way below.
   if (list.length === 1 && list[0].kind !== 'reference') {
     const [one] = list;
@@ -144,7 +146,7 @@ export async function saveUpdate({place, places, text, owner}, rt = window.KPTUR
     return saveOrganizationUpdate({organization_id:one.id, raw_text:text.trim(), created_by:owner}, rt);
   }
   if (list.length > PLACE_LIMIT) throw new Error(`한 번에 ${PLACE_LIMIT}곳까지 고를 수 있어요.`);
-  const note = await createNote({raw_text:text}, rt);
+  const note = await createNote({raw_text:text, ...(doc ? {doc} : {})}, rt);
   let linkError = '';
   try {
     const result = await confirmLinks(note.id, note.updated_at, list.map(p => ({kind:p.kind, target_id:p.id, reason:MULTI_REASON})), rt);
@@ -156,6 +158,13 @@ export async function saveUpdate({place, places, text, owner}, rt = window.KPTUR
 }
 export const MULTI_REASON = '직접 연결'; // the same reason as the basket [연결하기] (basket-manual-link.js)
 export const linkFailText = '업데이트는 바구니에 저장했지만 고른 곳에 연결하지 못했어요. 바구니에서 [연결하기]로 다시 연결해 주세요.';
+// ED③ 업데이트: whether the new editor's saved form can be kept for these places: yes for the basket, two or more places (one basket update
+// linked to each), a reference bundle, or any save with files (also a basket update linked); no for one organization's or project's own record.
+export const keepsFormat = (places, fileCount = 0) => {
+  const list = placeList(places);
+  return !list.length || list.length > 1 || list[0].kind === 'reference' || fileCount > 0;
+};
+export const docFailText = '글자는 저장했지만 서식은 저장하지 못했어요. 바구니에서 그 업데이트를 열어 다시 고쳐 저장해 주세요.';
 export const fileFailText = '파일은 바구니에 저장했지만 고른 곳 자료로 넣지 못했어요. 바구니에서 [연결하기]로 다시 넣어 주세요.';
 // BUG-업데이트첨부연결: an update with files and one or more chosen places gives the same result as saving it in the basket and
 // then using the basket's [연결하기] / [자료로 넣기] on it — through those same paths, nothing new on the server:
@@ -167,13 +176,16 @@ export const fileFailText = '파일은 바구니에 저장했지만 고른 곳 �
 //    document-actions register-basket-attachment + the owner-RLS app_documents update). A document belongs to one project and
 //    one organization, so further places of the same kind show the files through the linked update only.
 // A refused link or filing leaves the update (and files) saved in the basket; {linkError, filed} says which, never a retry.
-export async function saveUpdateWithFiles({places, text, batch, isCurrent = () => true, sameOwner = () => true, ocr, onChange, onOcrChange}, rt = window.KPTURuntime) {
+export async function saveUpdateWithFiles({places, text, batch, doc = null, isCurrent = () => true, sameOwner = () => true, ocr, onChange, onOcrChange}, rt = window.KPTURuntime) {
   const list = placeList(places);
   if (!list.length) throw new Error('기록할 곳을 골라 주세요.');
   if (list.length > PLACE_LIMIT) throw new Error(`한 번에 ${PLACE_LIMIT}곳까지 고를 수 있어요.`);
   await uploadBatch(batch, {raw_text:text, rt, isCurrent, ...(ocr ? {ocr} : {}), ...(onChange ? {onChange} : {}), ...(onOcrChange ? {onOcrChange} : {})});
   const noteId = batch.note_id;
   window.dispatchEvent(new CustomEvent('kptu:basket-note-created'));
+  // ED③ 업데이트: the letters are saved by now; the saved form is put on after (a refusal leaves the letters, and says so: docError).
+  let docError = false;
+  if (doc && String(text || '').trim()) { try { await attachNoteDoc(noteId, doc, rt); } catch { docError = true; } }
   let note = null, linkError = '', filed = null;
   try { note = await readBasketNote(noteId, rt); } catch { note = null; }
   if (!sameOwner()) return {note:{id:noteId}, linkError:'STALE', filed:null, stale:true};
@@ -196,7 +208,7 @@ export async function saveUpdateWithFiles({places, text, batch, isCurrent = () =
     try { filed = await putFilesIntoTargets({noteId, files, projectId:project?.id || null, organizationId:organization?.id || null, rt, expectedSessionEpoch:rt.session.epoch(), isCurrent:sameOwner}); }
     catch { filed = {ok:false, kind:'unknown', message:''}; }
   }
-  return {note:note || {id:noteId}, linkError, filed};
+  return {note:note || {id:noteId}, linkError, filed, docError};
 }
 // Reads for a screen without the home's shared flights (the write window).
 export function placeSources(rt = window.KPTURuntime) {

@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {openWriteFromEntry} from './helpers/write-opener.mjs';
+import {typeInto} from './helpers/note-editor.mjs';
 // UPD-여러곳고르기: 홈 [업데이트 ▾] "기록할 곳 선택" 창에서 담당조직·프로젝트를 여러 곳 고른다.
 // 누르면 체크만 되고 창은 열린 채, 아래 'N곳 선택됨' + [취소] [저장], [저장]을 눌러야 닫히고 반영. 바구니(미분류)는 다른 곳과 함께
 // 고를 수 없다. 여러 곳이면 입력창 버튼이 '첫 곳 이름 외 N'. 저장은 바구니 업데이트 1건 + 기존 [연결하기] 경로
@@ -128,30 +129,31 @@ test('연결이 거절되면 업데이트는 바구니에 남고 안내(두 번 
 
 test('큰 창(쓰기)의 ▾도 같은 여러 곳 고르기, 저장하면 한 번에 연결',async({page})=>{
  const {q,f}=await setup(page,1280);
- await q.locator('[data-quick-big]').click();const e=page.locator('#mdEditor');await expect(e).toBeVisible();
- await e.locator('[data-md-kind-menu]').click();const sheet=page.locator('#mdPlaceSheet');await expect(sheet).toBeVisible();
+ await q.locator('[data-quick-big]').click();const e=page.locator('#edWindow');await expect(e).toBeVisible();
+ await e.locator('[data-edw-place]').click();const sheet=page.locator('#edwPlaceSheet');await expect(sheet).toBeVisible();
  await sheet.locator('[data-sheet-all]').getByRole('button',{name:'대구교통공사노동조합',exact:true}).click();
  await sheet.locator('[data-sheet-all]').getByRole('button',{name:'공항철도지부',exact:true}).click();
  await expect(sheet).toBeVisible();await expect(sheet.locator('[data-sheet-count]')).toHaveText('2곳 선택됨');
  await sheet.getByRole('button',{name:'저장',exact:true}).click();await expect(sheet).toBeHidden();
- await expect(e.locator('[data-md-kind="update"]')).toHaveText('대구교통공사노동조합 외 1');
+ await expect(e.locator('[data-edw-place]')).toContainText('대구교통공사노동조합 외 1');
  // The home input follows the window's choice.
  await expect(q.locator('[data-quick-mode="update"]')).toHaveText('대구교통공사노동조합 외 1');
- await e.locator('[data-md-save-icon]').click();await expect(e).toHaveCount(0);
- expect(f.notes).toHaveLength(1);expect(f.links).toHaveLength(1);expect(f.links[0].p_targets.map(t=>t.target_id)).toEqual([ID(3),ID(5)]);
+ await e.locator('[data-edw-save]').click();await expect(e).toHaveCount(0);
+ // ED③ 업데이트: with two or more places the basket update keeps the saved form with its letters.
+ expect(f.notes).toHaveLength(1);expect(f.notes[0].doc).toMatchObject({v:'ed1'});expect(f.links).toHaveLength(1);expect(f.links[0].p_targets.map(t=>t.target_id)).toEqual([ID(3),ID(5)]);
  await expect(q).toHaveAttribute('data-mode','basket');
 });
 
 test('빠른 추가 [업데이트]도 같은 창: 여러 곳 저장은 바구니 1건 + 연결',async({page})=>{
  const {f}=await setup(page,1280);
- await openWriteFromEntry(page,1280);const e=page.locator('#mdEditor');await expect(e).toBeVisible();
- await e.locator('.md-editor-text').fill('쓰기 여러 곳');
- await e.locator('[data-md-kind-menu]').click();const sheet=page.locator('#mdPlaceSheet');
+ await openWriteFromEntry(page,1280);const e=page.locator('#edWindow');await expect(e).toBeVisible();
+ await typeInto(page,e.locator('.ed-window-body .ProseMirror'),'쓰기 여러 곳');
+ await e.locator('[data-edw-place]').click();const sheet=page.locator('#edwPlaceSheet');
  await sheet.locator('[data-sheet-all]').getByRole('button',{name:'전국철도노동조합',exact:true}).click();
  await sheet.locator('[data-sheet-projects]').getByRole('button',{name:'합성 프로젝트',exact:true}).click();
  await sheet.getByRole('button',{name:'저장',exact:true}).click();
- await expect(e.locator('[data-md-kind="update"]')).toHaveText('전국철도노동조합 외 1');
- await e.locator('[data-md-save-icon]').click();await expect(e).toHaveCount(0);
+ await expect(e.locator('[data-edw-place]')).toContainText('전국철도노동조합 외 1');
+ await e.locator('[data-edw-save]').click();await expect(e).toHaveCount(0);
  await expect(page.locator('#toast')).toContainText('전국철도노동조합 외 1 기록에 저장했어요.');
  expect(f.notes).toEqual([expect.objectContaining({raw_text:'쓰기 여러 곳'})]);expect(f.links[0].p_targets).toEqual([{kind:'organization',target_id:ID(0),reason:'직접 연결'},{kind:'project',target_id:PID,reason:'직접 연결'}]);
 });

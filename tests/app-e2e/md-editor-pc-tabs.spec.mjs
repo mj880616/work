@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { noteAction } from './helpers/basket-more.mjs';
-import {openWriteFromEntry} from './helpers/write-opener.mjs';
+import {openOldWriteWindow,openOldBigEditorOnBasketField} from './helpers/write-opener.mjs';
 // UI-쓰기창PC탭유지: 넓은 화면(761px~)에서 쓰기 창(메뉴 [쓰기])과 고치기 창("큰 창에서 수정")은 앱 탭을 덮지 않는다.
 // 1024px~는 왼쪽 세로 메뉴 옆, 761~1023px는 위쪽 한 줄 메뉴 아래에서만 열린다. 폰(760px 이하)은 하단 탭 위에서 끝나는 기존 동작 그대로.
 // 탭을 누르면 폰 하단 탭과 같은 규칙(글 있으면 "저장 안 하고 닫을까요?", 빈 글은 바로 이동, 고치기는 글을 수정 칸에 돌려줌)이 적용된다.
@@ -31,7 +31,7 @@ const navTab=(page,view)=>view==='home'?nav(page).locator('.sidebar-brand:visibl
 const current=page=>page.evaluate(()=>window.KPTURouter.current);
 const goView=async(page,view)=>{await page.evaluate(view=>window.KPTURouter.go(view),view);await expect.poll(()=>current(page)).toBe(view);};
 async function openWriter(page){
- await openWriteFromEntry(page,1280);
+ await openOldWriteWindow(page,1280);
  const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();return editor;
 }
 const rect=l=>l.evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,r:r.right,b:r.bottom,w:r.width,h:r.height};});
@@ -111,7 +111,7 @@ test('1280: 고치기로 연 편집기도 탭을 가리지 않고, 탭을 누르
  await goView(page,'basket');await page.locator('[data-basket-row="m1"]').click();
  const detail=page.locator('[data-basket-detail]');
  await noteAction(page,'[data-basket-edit]');
- await detail.getByRole('button',{name:'큰 창에서 수정',exact:true}).click();
+ await openOldBigEditorOnBasketField(page);
  const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();
  expect(overlaps(await rect(editor),await rect(nav(page)))).toBe(false);
  await expect(editor.locator('.md-editor-kinds')).toHaveCount(0);
@@ -164,7 +164,7 @@ test('900(761~1023): 위쪽 한 줄 메뉴 아래에서만 열린다. 스크롤�
  await goView(page,'basket');
  await page.evaluate(()=>{const tall=document.createElement('div');tall.style.height='3000px';document.querySelector('#appView').append(tall);window.scrollTo(0,300);});
  // 이 폭에는 메뉴의 [쓰기]가 없어 바구니 입력칸의 ⤢로 연다.
- await openWriteFromEntry(page,900);
+ await openOldWriteWindow(page,900);
  const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();
  await expect(editor).toHaveAttribute('data-md-nav','top');
  const top=await rect(nav(page)),box=await rect(editor);
@@ -179,7 +179,7 @@ test('900(761~1023): 위쪽 한 줄 메뉴 아래에서만 열린다. 스크롤�
 
 test('390 폰: 기존 그대로 — 화면 전체 폭, 하단 탭 6칸 위에서 끝나고 모달',async({page})=>{
  const f=await fixture(page,{width:390,height:844});
- await openWriteFromEntry(page,390);
+ await openOldWriteWindow(page,390);
  const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();
  const box=await rect(editor),tabs=await rect(page.locator('.mobile-tabs'));
  expect(box.x).toBe(0);expect(box.y).toBe(0);expect(Math.round(box.w)).toBe(390);expect(Math.round(box.b)).toBe(Math.round(tabs.y));
@@ -205,7 +205,7 @@ test('1280 → 390 → 1280: 창 크기를 바꾸면 자리를 다시 잡는다'
 if(REVIEW)for(const [width,height,dark] of [[1280,800,false],[1280,800,true],[900,700,false],[390,844,false]])test(`캡처 ${width}${dark?' 다크':''}`,async({page})=>{
  if(dark)await page.emulateMedia({colorScheme:'dark'});
  await fixture(page,{width,height});
- await openWriteFromEntry(page,width);
+ await openOldWriteWindow(page,width);
  const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();
  await editor.locator('.md-editor-text').fill('# 회의 정리\n\n- **기본급** 인상\n- 수당 정비\n\n> [!NOTE]\n> 다음 주 확인');
  await editor.locator('.md-editor-text').evaluate(el=>el.blur());

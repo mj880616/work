@@ -1,9 +1,9 @@
 import { viewPrefs } from './view-prefs.js';
 import {basketOcrFor} from './basket-ocr-runtime.js';
 import { createChoiceSheet, projectRows } from './choice-sheet.js';
-import { readPlaces, placeSheetHtml, placeValue, keepPlaces, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, saveUpdateWithFiles, rememberPlace, linkFailText, fileFailText } from './update-places.js';
+import { readPlaces, placeSheetHtml, placeValue, keepPlaces, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, saveUpdateWithFiles, rememberPlace, linkFailText, fileFailText, docFailText } from './update-places.js';
 import { createGoogleTask } from './quick-save.js';
-import { createNote, validateNoteText, createNoteDoc, noteTitleFromText } from './basket-data.js';
+import { createNote, validateNoteText, createNoteDoc, noteTitleFromText, attachNoteDoc } from './basket-data.js';
 import { createUploadBatch, uploadBatch, uploadNoteFiles, mountBasketPicker, fileTitle } from './basket-upload.js';
 import { extractHtmlDocument, htmlFileName, utf8Bytes, HTML_MAX_BYTES, HTML_MARK } from './chatgpt-html.mjs';
 import { dayKey } from './home-read-model.js';
@@ -240,7 +240,8 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     finally{attempt.pending=false;if(taskRequest===r&&taskScopeCurrent(r)&&r.token===taskSequence){taskRequest=null;saving=false;taskControls(false);paint()}}
   }
   // Resolves {ok:true} or {ok:false, message}; the write window's save icon ([크게]) waits for it (same path as [추가]).
-  async function save(){
+  // doc (ED③ 업데이트): the new big window's saved form, kept with the letters on the basket update (never on one organization's or project's own record).
+  async function save({doc=null}={}){
     if(mode==='task')return saveTask();
     if(noteOnly)return saveNote();
     const fail=message=>{status.textContent=message;return {ok:false,message};};
@@ -263,7 +264,9 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     try{
       const onChange=()=>{if(isCurrent())paint();},onOcrChange=value=>{if(isCurrent()&&token.current()&&!value.ok)status.textContent=value.result_unknown?'사진은 저장했습니다. 글자 읽기 결과는 바구니에서 확인해 주세요.':value.ocr_saved?'사진과 글자는 저장했습니다. 임시 문서 정리는 바구니에서 확인해 주세요.':value.text?'사진은 저장했습니다. 이전 글자는 유지했습니다. 읽기 결과와 임시 문서 정리는 바구니에서 확인해 주세요.':'사진은 저장했습니다. 글자는 읽지 못했습니다.';};
       const sameOwner=()=>{const c=window.KPTURuntime.context.read();return c?.user?.id===owner&&c?.workspace?.id===workspace;};
-      const result=saveMode==='basket'?(batch.entries.length?await uploadBatch(batch,{raw_text:text,isCurrent,ocr,onChange,onOcrChange}):await createNote({raw_text:text})):saveMode==='files'?await saveUpdateWithFiles({places:currentPlaces(),text,batch,isCurrent,sameOwner,ocr,onChange,onOcrChange}):await saveUpdate({places:currentPlaces(),text,owner});
+      let result=saveMode==='basket'?(batch.entries.length?await uploadBatch(batch,{raw_text:text,isCurrent,ocr,onChange,onOcrChange}):await createNote({raw_text:text,...(doc?{doc}:{})})):saveMode==='files'?await saveUpdateWithFiles({places:currentPlaces(),text,batch,doc,isCurrent,sameOwner,ocr,onChange,onOcrChange}):await saveUpdate({places:currentPlaces(),text,owner,doc});
+      // ED③ 업데이트: an update with files is made by the upload (letters); its saved form is put on after. A refusal leaves the letters saved.
+      if(saveMode==='basket'&&batch.entries.length&&doc&&text.trim()&&result?.note_id){try{await attachNoteDoc(result.note_id,doc)}catch{result={...result,docError:true}}}
       if(!isCurrent())return {ok:false,message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
       if(saveMode!=='update'&&!batch.blocked&&batch.entries.every(entry=>entry.kind==='success'))upload=createUploadBatch();
       // UI-기록할곳되돌리기: after an organization or project record is added, the next input goes to the basket again; the places
@@ -271,13 +274,13 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
       // UPD-여러곳고르기: with two or more places the update is one basket note linked to each; when the links are refused the
       // note is still saved in the basket, so the input is emptied (no second note on a retry) and the line says what to do.
       // BUG-업데이트첨부연결: with files, a refused link or filing leaves the update saved in the basket; the line says which.
-      const linkFailed=!!result?.linkError,fileFailed=saveMode==='files'&&result?.filed?.ok===false;
+      const linkFailed=!!result?.linkError,fileFailed=saveMode==='files'&&result?.filed?.ok===false,docFailed=!!result?.docError;
       if(saveMode!=='basket'){rememberPlace(currentPlaces());setPlaces([]);}
       input.value='';expanded=false;paint();if(saveMode==='basket'||result?.note)onSaved(result?.note||result);
-      if(linkFailed||fileFailed)status.textContent=[linkFailed?linkFailText:'',fileFailed?[fileFailText,result.filed.message].filter(Boolean).join(' '):''].filter(Boolean).join(' ');
-      const toast=document.querySelector('#toast');toast.textContent=linkFailed||fileFailed||saveMode==='basket'?'바구니에 저장했습니다.':saveMode==='files'?(text.trim()?'기록과 자료를 저장했습니다.':'자료로 넣었습니다.'):'기록을 저장했습니다.';toast.classList.remove('hidden');clearTimeout(save.toastTimer);save.toastTimer=setTimeout(()=>toast.classList.add('hidden'),3200);
+      if(linkFailed||fileFailed||docFailed)status.textContent=[linkFailed?linkFailText:'',fileFailed?[fileFailText,result.filed.message].filter(Boolean).join(' '):'',docFailed?docFailText:''].filter(Boolean).join(' ');
+      const toast=document.querySelector('#toast');toast.textContent=linkFailed||fileFailed||docFailed||saveMode==='basket'?'바구니에 저장했습니다.':saveMode==='files'?(text.trim()?'기록과 자료를 저장했습니다.':'자료로 넣었습니다.'):'기록을 저장했습니다.';toast.classList.remove('hidden');clearTimeout(save.toastTimer);save.toastTimer=setTimeout(()=>toast.classList.add('hidden'),3200);
       choicesFlight=null;
-      return linkFailed||fileFailed?{ok:true,linkError:result.linkError||'',fileError:fileFailed?(result.filed.message||'FILES'):''}:{ok:true};
+      return linkFailed||fileFailed||docFailed?{ok:true,linkError:result.linkError||'',fileError:fileFailed?(result.filed.message||'FILES'):'',docError:docFailed}:{ok:true};
     }catch(e){const message=e.message||'저장하지 못했습니다.';if(isCurrent())status.textContent=message;return {ok:false,message};}
     finally{if(pendingOcr===token)pendingOcr=null;saving=false;box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=false);paint();}
   }
@@ -309,9 +312,9 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     finally{saving=false;box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=false);paint();}
   }
   box.querySelector('[data-quick-save]').onclick=()=>void save();
-  // BASKET-업데이트통합 PR 2: [크게] opens the one write window (write-window.js) on this input's text and chosen place.
-  // 업데이트 saves through this box's own save() (its attachments and photo text reading go along); 노트 saves a note.
-  // Saving closes the window (저장하고 닫기); closing without saving hands the text back to this input.
+  // ED③ 업데이트: [크게] opens the update's new big window (update-window.js) on this input's text and chosen place. The window's [저장] saves
+  // through this box's own save() (its attachments and photo text reading go along) and hands it the saved form; a note is written from the
+  // note input's [크게] (note-window.js). Saving closes the window (저장하고 닫기); closing without saving hands the letters back to this input.
   const bigBtn=box.querySelector('[data-quick-big]');
   const fileHandle={getBatch:()=>upload,isBusy:()=>saving,onChange:()=>paint(),reset:()=>{upload=createUploadBatch();paint();}};
   if(taskOnly)bigBtn.remove();
@@ -319,22 +322,20 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   // The window works on this box's own file batch (as the home input's [크게] does); a note saved there empties it (reset).
   else if(noteOnly)bigBtn.onclick=()=>{if(saving||document.querySelector('#mdEditor:not(.hidden),#edWindow:not(.hidden)'))return;onBig?.(input.value,fileHandle);};
   else bigBtn.onclick=async()=>{
-    if(saving||input.readOnly||document.querySelector('#mdEditor:not(.hidden)'))return;
+    if(saving||input.readOnly||document.querySelector('#mdEditor:not(.hidden),#edWindow:not(.hidden)'))return;
     const owner=quickScope();
-    // The editor's styles come with the basket view's (as menu [쓰기] does).
-    let ww;try{[ww]=await Promise.all([import('./write-window.js'),window.KPTUViewLoader?.prepare?.('basket')]);}catch{status.textContent='큰 창을 열지 못했어요. 다시 눌러 주세요.';return;}
+    // The editor's styles come with the basket view's (as the top line [+ 추가] does).
+    let uw;try{[uw]=await Promise.all([import('./update-window.js'),window.KPTUViewLoader?.prepare?.('basket')]);}catch{status.textContent='큰 창을 열지 못했어요. 다시 눌러 주세요.';return;}
     if(owner!==quickScope()||saving)return;
     const places=projectChoices.length||orgChoices.groups.length?placeChoices():null;
-    ww.openWriteWindow({text:input.value,kind:'update',place:currentPlaces(),places,draft:false,title:'크게 쓰기',sources:dependencies?.orgs?dependencies:null,
+    uw.openUpdateWindow({text:input.value,draft:false,place:currentPlaces(),places,title:'크게 쓰기',sources:dependencies?.orgs?dependencies:null,
       // UI-크게첨부: the window's [📎 첨부] works on this input's own file batch, so files chosen in either place go together.
       upload:fileHandle,
-      onInput:value=>{input.value=value;},
       // The basket screen's input has no ▾: a place chosen in the window is used for that one save only.
       // The window may have read the place lists itself (the home had not yet): read them here too so the button says the names.
       onPlace:list=>{if(basketOnly)return;setPlaces(list);if(mode!=='update')setMode('update');else paint();if(list.length&&!orgChoices.groups.length&&!projectChoices.length)void choices();},
-      updateVia:async(value,list)=>{input.value=value;setPlaces(list);if(mode!=='update')setMode('update');try{return await save();}finally{if(basketOnly){setPlaces([]);paint();}}},
-      onSaved:saved=>{if(saved.kind==='note'){input.value='';expanded=false;paint();}},
-      onClose:(value,{saved})=>{if(!saved){input.value=value;resetChoices();paint();}input.focus({preventScroll:true});}});
+      updateVia:async(letters,list,doc)=>{input.value=letters;setPlaces(list);if(mode!=='update')setMode('update');try{return await save({doc});}finally{if(basketOnly){setPlaces([]);paint();}}},
+      onClose:(letters,{saved})=>{if(!saved){input.value=letters;resetChoices();paint();}input.focus({preventScroll:true});}});
   };
   // UI-할일빠른추가상세: [할 일] 화면의 입력 칸 안 오른쪽 끝 [+]는 새 창 없이 일정 화면의 기존 [할 일 등록] 창(프로젝트·날짜 등)을 연다.
   // 입력한 글은 그 창의 제목으로 미리 채운다. 입력 칸 글은 그 창에서 저장될 때 비운다(같은 글이 두 번 남지 않게). 저장 경로는 기존 그대로.
