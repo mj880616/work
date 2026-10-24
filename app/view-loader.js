@@ -36,7 +36,9 @@ const routeStyles={
   profile:['./profile-settings.css','./ui-standard.css'],
   ledger:['./ledger-import.css','./ui-standard.css'],
   search:['./filter-chips.css','./global-search.css','./ui-standard.css'],
-  reference:['./reference-bundles.css','./ui-standard.css']
+  reference:['./reference-bundles.css','./ui-standard.css'],
+  calls:['./choice-sheet.css','./feed.css','./ui-standard.css'],
+  telegram:['./choice-sheet.css','./feed.css','./ui-standard.css']
 };
 async function prepare(view){
   const key=normalize(view);
@@ -172,7 +174,10 @@ async function ledger(){ await module('./ledger-browse.js','__KPTU_LEDGER_BROWSE
 async function search(){ await module('./global-search.js','__KPTU_GLOBAL_SEARCH_READY__'); return {ok:true} }
 // REF-참고묶음 화면 2: 참고 묶음(?view=reference, 입구는 담당조직 목록 맨 아래·바구니 "참고" 칩). loadAll에 넣지 않고 처음 열 때만 불러온다.
 async function reference(){ await module('./reference-bundles.js'); return {ok:true} }
-const loaders={home,basket,calendar,tasks,journal,diary,projects,library,meetings,media,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference};
+// CALL-통화메뉴·TG-소식메뉴: [통화](?view=calls)·[텔레그램 소식](?view=telegram), 사이드바 맨 아래·폰 메뉴 판. loadAll에 넣지 않고 열 때만 불러온다.
+async function calls(){ await organizationOrder(); await module('./call-feed.js'); return {ok:true} }
+async function telegram(){ await organizationOrder(); await module('./telegram-feed.js'); return {ok:true} }
+const loaders={home,basket,calendar,tasks,journal,diary,projects,library,meetings,media,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,calls,telegram};
 // Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp, 새 주소 ?view=reports → meetings 화면). The router uses the same map.
 const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings'};
 function normalize(view){
