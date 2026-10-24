@@ -4,7 +4,7 @@
 // 파일 원문은 서버로 보내지 않고 로그에도 남기지 않는다. DB에는 검사를 통과한 행만 app_import_ledger_apply RPC로 보낸다.
 // 원장 표(20261021082000)가 없으면 "원장 표 준비 전", 가져오기 함수(20261021150000)가 없으면 "가져오기 기능 준비 전"만 보인다.
 // 원장 후보 확정(#ledgerCandidatesRoot, ledger-candidates.js)과 목록·검색(#ledgerBrowseRoot, ledger-browse.js)은 S7-c 모듈이,
-// Drive 내보내기(#ledgerExportRoot, ledger-export.js)는 S7-d 모듈이 각자 그린다.
+// 맨 위 Claude용 사본 상태 한 줄(#ledgerExportRoot, ledger-export.js)은 그 모듈이 각자 그린다(LEDGER-자동기록: 내보내기 버튼 없음).
 import {readInputFiles, analyze, numberCheck, TABS} from './ledger-import-model.mjs';
 import {candidateFilePayload} from './ledger-candidate-model.mjs';
 import {KIND_DISPLAY, KIND_HINT, KINDS} from './ledger-browse-model.mjs';
@@ -39,7 +39,7 @@ const workspaceId = () => rt?.context?.read?.()?.workspace?.id || null;
 
 function installView() {
   if (document.querySelector('#ledgerView')) return;
-  document.querySelector('#appView')?.insertAdjacentHTML('beforeend', `<section id="ledgerView" class="view-panel hidden" aria-labelledby="ledgerTitle"><div class="section-head"><div><h2 id="ledgerTitle">원장</h2><p>업무 원장(${KINDS.map(k => KIND_DISPLAY[k]).join('·')}·출처·조직)을 Web2로 옮기고 확인하는 화면입니다.</p></div></div><div class="lg-root"><div id="ledgerRoot" class="lg-root"></div><div id="ledgerCandidatesRoot" class="lg-root" hidden></div><div id="ledgerBrowseRoot" class="lg-root" hidden></div><div id="ledgerExportRoot" class="lg-root" hidden></div></div></section>`);
+  document.querySelector('#appView')?.insertAdjacentHTML('beforeend', `<section id="ledgerView" class="view-panel hidden" aria-labelledby="ledgerTitle"><div class="section-head"><div><h2 id="ledgerTitle">원장</h2><p>업무 원장(${KINDS.map(k => KIND_DISPLAY[k]).join('·')}·출처·조직)을 Web2로 옮기고 확인하는 화면입니다.</p></div></div><div class="lg-root"><div id="ledgerExportRoot" class="lg-root" hidden></div><div id="ledgerRoot" class="lg-root"></div><div id="ledgerCandidatesRoot" class="lg-root" hidden></div><div id="ledgerBrowseRoot" class="lg-root" hidden></div></div></section>`);
 }
 
 function friendly(error) {

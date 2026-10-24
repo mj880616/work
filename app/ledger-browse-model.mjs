@@ -203,3 +203,68 @@ export function clearCondition(filters, key) {
   return f;
 }
 export const countLabel = (n, limit) => (n >= limit ? `최근 ${limit}건` : `${n}건`);
+
+// ---------- LEDGER-자동기록 3단계(설계 docs/design/ledger-auto-record.md 3.3·8.1·9.2절) ----------
+// 출처 위치 web2:<종류>:<id> → {kind, id}. 종류는 자동 기록 재료 여섯만(서버 ai-assist ledger-auto.ts web2Location과 같은 모양).
+export const WEB2_SOURCE_KINDS = Object.freeze(['basket', 'note', 'work', 'meeting', 'org_update', 'project_update']);
+export const WEB2_SOURCE_NAME = Object.freeze({ basket: '업데이트', note: '노트', work: '업무일지 한 줄', meeting: '사업 보고', org_update: '담당조직 기록', project_update: '프로젝트 기록' });
+export function web2Source(location) {
+  const m = /^web2:([a-z_]+):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String(location ?? '').trim());
+  if (!m || !WEB2_SOURCE_KINDS.includes(m[1])) return null;
+  return { kind: m[1], id: m[2].toLowerCase() };
+}
+// 원문을 여는 곳(전체 검색의 openTarget과 같은 모양: 각 화면의 기존 여는 함수). 원문 행이 없으면 null(지워졌거나 보관됨).
+export function web2OpenTarget(src, row) {
+  if (!src || !row) return null;
+  if (src.kind === 'basket') return row.archived_at ? null : { view: 'basket', note: 'memo', id: src.id };
+  if (src.kind === 'note') return row.archived_at ? null : { view: 'basket', note: 'doc', id: src.id };
+  if (src.kind === 'work') return isDay(row.journal_day) ? { view: 'journal', day: row.journal_day } : null;
+  if (src.kind === 'meeting') return { view: 'meetings', id: src.id };
+  if (src.kind === 'org_update') return UUID.test(String(row.organization_id || '')) ? { view: 'team', id: String(row.organization_id) } : null;
+  if (src.kind === 'project_update') return UUID.test(String(row.project_id || '')) ? { view: 'projects', id: String(row.project_id) } : null;
+  return null;
+}
+// 근거 줄 글: "업데이트 · 10/22", "사업 보고 · 가 지부 3차 · 10/21".
+export function web2SourceLabel(src, source) {
+  const name = WEB2_SOURCE_NAME[src?.kind] || 'Web2 기록';
+  const m = /\(([^()]{1,80})\)\s*$/.exec(String(source?.title ?? ''));
+  const date = isDay(source?.source_date) ? `${Number(source.source_date.slice(5, 7))}/${Number(source.source_date.slice(8, 10))}` : '';
+  return [name, m ? m[1].trim() : '', date].filter(Boolean).join(' · ');
+}
+
+// 변경 기록(app_ledger_record_changes) 행 → 기록별 {auto, runId, notes}. 모양이 틀린 행은 버린다(DB 응답도 믿지 않음).
+const ACTIONS = ['created', 'source_added', 'needs_check', 'replaced', 'retired'];
+export function changeInfo(rows) {
+  const out = new Map();
+  for (const r of Array.isArray(rows) ? rows : []) {
+    if (!r || !UUID.test(String(r.record_id)) || !ACTIONS.includes(r.action) || !['auto', 'correction'].includes(r.route)) continue;
+    const id = String(r.record_id);
+    const it = out.get(id) || { auto: false, runId: null, notes: [] };
+    if (r.action === 'created' && r.route === 'auto') { it.auto = true; if (UUID.test(String(r.run_id || ''))) it.runId = String(r.run_id); }
+    const note = typeof r.note === 'string' ? r.note.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, 300) : '';
+    if (note) it.notes.push(note);
+    out.set(id, it);
+  }
+  return out;
+}
+// 자동 기록 행의 첫 줄 글(변경 기록 note가 없을 때): "자동 기록".
+export const AUTO_TAG = '자동';
+
+// [틀린 기록으로 표시]의 이유(사람이 고름). 수정 요청 함수 app_apply_ledger_fix의 retire로 보낸다(폐기, 지우지 않음).
+export const RETIRE_REASONS = Object.freeze([['wrong', '사실과 달라요'], ['duplicate', '같은 기록이 이미 있어요'], ['not_ledger', '원장에 둘 일이 아니에요']]);
+export function retireRequest(ledgerId, reasonKey) {
+  const reason = (RETIRE_REASONS.find(([k]) => k === reasonKey) || [])[1];
+  if (!reason || !/^[A-Z]{2,6}-[0-9]{4,6}$/.test(String(ledgerId || ''))) return null;
+  return { format: 'kptu-ledger-fix', version: 1, received_from: 'user', items: [{ target: ledgerId, do: 'retire', reason }] };
+}
+// DB 함수 거절 → 일상어(코드 글자는 화면에 쓰지 않음).
+export function undoErrorText(e) {
+  const m = String(e?.message || '');
+  if (e?.status === 404 || /PGRST202|42883/.test(m)) return '되돌리기 준비 전이에요.';
+  if (/UNDO_CHANGED/.test(m)) return '그 뒤에 고친 기록이 있어 되돌리지 않았어요.';
+  if (/UNDO_REFERENCED/.test(m)) return '다른 기록이 이 기록을 가리키고 있어 되돌리지 않았어요.';
+  if (/UNDO_NOT_DONE|UNDO_NOT_APPLIED/.test(m)) return '이미 되돌렸어요.';
+  if (/TARGET_INACTIVE/.test(m)) return '이미 대체됐거나 폐기된 기록이에요.';
+  if (/NOT_OWNER|42501/.test(m) || e?.status === 401 || e?.status === 403) return '로그인한 소유자만 할 수 있어요.';
+  return '저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.';
+}
