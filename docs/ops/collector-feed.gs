@@ -164,7 +164,7 @@ function callFeed_run() {
 
     if (test) {
       var cls = callFeedClass(analysisMd);
-      if (cls === '실패') tally.failed++; else if (cls === '업무') tally.work++; else if (cls === '개인') tally.personal++; else if (cls === '애매') tally.unsure++; else tally.noClass++;
+      if (cls === '실패') tally.failed++; else if (cls === '업무') tally.work++; else if (cls === '개인') tally.personal++; else tally.noClass++;
       tally.sent++;
       cursor = created;
       continue;
@@ -217,7 +217,7 @@ function callFeed_run() {
     (test ? '[시험 모드 — 보내지 않음] ' : '') + '전사 ' + files.length + '건 확인',
     '개인 목록으로 거름: ' + tally.personalList,
     (test ? '보낼 것: ' : '보냄: ') + tally.sent + ' (업무 ' + tally.work + ' · 개인 ' + tally.personal + ' · 애매 ' + tally.unsure +
-      (test ? ' · 구분 없음(분석 안내문 수정 전) ' + tally.noClass + ' · 분석 실패 ' + tally.failed : ' · 판정 실패 ' + tally.failed + ' · 이미 있음 ' + tally.duplicate) + ')',
+      (test ? ' · 구분 없음(옛 분석·비어 있음) ' + tally.noClass + ' · 분석 실패 ' + tally.failed : ' · 판정 실패 ' + tally.failed + ' · 이미 있음 ' + tally.duplicate) + ')',
     '분석 대기: ' + tally.waiting + ' · 넘김: ' + tally.skipped + (tally.retry ? ' · 다시 보낼 것: ' + tally.retry : ''),
     stop ? '멈춘 이유: ' + stop : '끝까지 봄',
   ].join('\n'));
@@ -421,79 +421,19 @@ function callFeedFrontmatter(md) {
 }
 
 /**
- * 분석 파일의 구분: '업무' | '개인' | '애매' | '구분없음' | '실패'.
- * - work_class 칸(안내문 수정 3.3부터)을 그대로 쓴다.
- * - work_class가 없는 3.2 파일: is_work_related: false(개인 기록 파일)만 '개인'으로 본다. 나머지는 '구분없음'(서버는 애매로 센다).
+ * 분석 파일의 구분: '업무' | '개인' | '구분없음' | '실패'. 기준은 명진의 통화 분석 v3.2(2026-10-24 명진 결정)이다.
+ * - is_work_related: true → '업무'. false 또는 status: "개인"(개인 기록 파일) → '개인'.
+ * - 칸이 없거나 비어 있음(옛 3.1 파일, 애매해서 비워 둔 것) → '구분없음'(보내지 않고 서버가 개수로만 센다).
  * - 분석 스크립트가 남긴 "분석실패" 기록은 '실패'.
  */
 function callFeedClass(md) {
   var meta = callFeedFrontmatter(md);
-  if (meta.status === '분석실패') return '실패';
-  var w = (meta.work_class || '').replace(/\s/g, '');
-  if (w === '업무' || w === '개인' || w === '애매') return w;
-  if (!w && String(meta.is_work_related).trim() === 'false') return '개인';
+  var status = String(meta.status || '').replace(/\s/g, '');
+  if (status === '분석실패') return '실패';
+  var flag = String(meta.is_work_related || '').trim().toLowerCase();
+  if (status === '개인' || flag === 'false') return '개인';
+  if (flag === 'true') return '업무';
   return '구분없음';
-}
-
-/** `## 상대 이름·직책` 절의 `- 이름: …`, `- 직책: …`, `- 소속: …`. */
-function callFeedCounterpartFields(md) {
-  var lines = String(md || '').split(/\r?\n/), inSection = false, out = { name: '', role: '', org: '' };
-  for (var i = 0; i < lines.length; i++) {
-    var h = /^\s{0,3}#{1,6}\s+(.+?)\s*$/.exec(lines[i]);
-    if (h) { inSection = h[1].replace(/[\s·‧・/:：()（）]/g, '') === '상대이름직책'; continue; }
-    if (!inSection) continue;
-    var kv = /^\s*[-*]\s*(이름|직책|소속)\s*[:：]\s*(.+?)\s*$/.exec(lines[i]);
-    if (!kv) continue;
-    var key = kv[1] === '이름' ? 'name' : kv[1] === '직책' ? 'role' : 'org';
-    if (!out[key]) out[key] = kv[2];
-  }
-  return out;
-}
-
-/**
- * 전문 줄 머리에 쓸 상대 표기(Q11): `소속조직 이름 직책`. 이름을 모르면 '상대'.
- * 줄 머리 모양을 깨는 글자(콜론·줄바꿈)와 번호처럼 보이는 글은 쓰지 않는다. 60자까지.
- */
-function callFeedCounterpartLabel(fields, contact) {
-  var clean = function (v) {
-    var s = callFeedNfc(v).replace(/[\u0000-\u001f\u007f:：]/g, ' ').replace(/\*\*|__/g, '').replace(/\s+/g, ' ').trim();
-    return /^(없음|확인\s*필요|확인\s*불가|미상|불명|-)$/.test(s) ? '' : s;
-  };
-  var name = clean(fields && fields.name), role = clean(fields && fields.role), org = clean(fields && fields.org);
-  // 분석에 이름이 없으면 전사 파일 이름의 연락처 이름(번호가 아닐 때만)을 쓴다.
-  if (!name && contact && !callFeedNormalizeNumber(contact)) { name = clean(contact); role = ''; }
-  if (!name || /\d{3,}/.test(name + role + org)) return '상대';
-  var parts = [];
-  if (org && name.indexOf(org) < 0) parts.push(org);
-  parts.push(name);
-  if (role && role !== org && name.indexOf(role) < 0) parts.push(role);
-  var label = parts.join(' ');
-  return label.length > 60 ? label.slice(0, 60).trim() : label;
-}
-
-/**
- * 화자 구분 전사(`화자1: …` / `화자2: …` 줄)의 머리를 바꾼다(Q11).
- * speakerMe(분석 앞머리 speaker_me)가 화자1 또는 화자2이고 화자가 정확히 둘일 때만:
- *   나인 쪽 → `나:`, 다른 쪽 → 상대 표기. 그 밖(한 문단, 화자 셋 이상, 모름)은 손대지 않는다.
- */
-function callFeedRelabelSpeakers(transcript, speakerMe, counterpartLabel) {
-  var text = String(transcript == null ? '' : transcript);
-  if (speakerMe !== '화자1' && speakerMe !== '화자2') return text;
-  var lines = text.split(/\r?\n/), seen = {}, count = 0;
-  for (var i = 0; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
-    var m = /^(화자\d{1,2})\s*:\s/.exec(lines[i]);
-    if (!m) return text;
-    if (!seen[m[1]]) { seen[m[1]] = true; count++; }
-  }
-  if (count !== 2 || !seen['화자1'] || !seen['화자2']) return text;
-  var other = speakerMe === '화자1' ? '화자2' : '화자1';
-  var label = counterpartLabel || '상대';
-  return lines.map(function (line) {
-    var m = /^(화자\d{1,2})\s*:/.exec(line);
-    if (!m) return line;
-    return (m[1] === speakerMe ? '나' : m[1] === other ? label : m[1]) + ':' + line.slice(m[0].length);
-  }).join('\n');
 }
 
 /**
@@ -501,12 +441,12 @@ function callFeedRelabelSpeakers(transcript, speakerMe, counterpartLabel) {
  * 녹음 시각이 없으면 전사 파일 이름의 날짜·시각(fallbackDatetime)을 쓴다(서버가 그 날짜에 센다).
  * 분석 스크립트가 남긴 "분석실패" 기록은 버전 칸을 빼서 서버가 판정 실패로 세게 한다.
  */
-var CALL_FEED_MIN_KEYS = ['analysis_version', 'source_txt_id', 'recording_datetime', 'work_class'];
+var CALL_FEED_MIN_KEYS = ['analysis_version', 'source_txt_id', 'recording_datetime', 'is_work_related'];
 function callFeedMinimalAnalysis(md, fallbackDatetime) {
   var meta = callFeedFrontmatter(md), lines = ['---'];
   if (!meta.recording_datetime && fallbackDatetime) meta.recording_datetime = fallbackDatetime;
   var cls = callFeedClass(md);
-  if (cls === '개인' || cls === '애매') meta.work_class = cls; else delete meta.work_class;
+  if (cls === '개인') meta.is_work_related = 'false'; else delete meta.is_work_related;
   CALL_FEED_MIN_KEYS.forEach(function (k) {
     if (cls === '실패' && k === 'analysis_version') return;
     if (meta.hasOwnProperty(k)) lines.push(k + ': "' + String(meta[k]).replace(/["\\\r\n]/g, ' ') + '"');
@@ -517,21 +457,19 @@ function callFeedMinimalAnalysis(md, fallbackDatetime) {
 
 /**
  * 서버 POST ?action=call 몸통 {ref, analysis_md, transcript, drive_url}(handler.ts parseCallBody와 같은 칸만).
- * - 분석의 work_class가 '업무'일 때만 분석 전체와 전사를 보낸다(전사 줄 머리는 callFeedRelabelSpeakers로 바꿈).
- * - 개인·애매·구분 없음은 앞머리 몇 칸만 보내고 전사는 빈 글로 보낸다(서버는 개수만 센다).
+ * - 분석이 '업무'(is_work_related: true)일 때만 분석 전체와 전사를 보낸다. 전사는 고치지 않고 그대로 보낸다
+ *   (화자 구분은 전사 스크립트가 직접 `나:`/상대 표기로 쓰게 요청함 방에 요청한다. 서버가 줄 모양으로 알아본다).
+ * - 개인·구분 없음은 앞머리 몇 칸만 보내고 전사는 빈 글로 보낸다(서버는 개수만 센다).
  * - 분석 파일이 64 KB를 넘으면 null(보내지 않음). 합계 200 KB를 넘으면 전사를 자른다.
  */
 function callFeedBuildCallBody(input) {
   var analysisMd = callFeedNfc(input.analysisMd);
   if (!analysisMd.trim() || callFeedBytes(analysisMd) > CALL_FEED_ANALYSIS_MAX_BYTES) return null;
-  var meta = callFeedFrontmatter(analysisMd);
   var body;
   if (callFeedClass(analysisMd) !== '업무') {
     body = { ref: String(input.ref), analysis_md: callFeedMinimalAnalysis(analysisMd, input.recordedAt), transcript: '' };
   } else {
-    var label = callFeedCounterpartLabel(callFeedCounterpartFields(analysisMd), input.contact);
-    var transcript = callFeedRelabelSpeakers(callFeedNfc(input.transcript).trim(), meta.speaker_me, label);
-    transcript = callFeedCapBytes(transcript, CALL_FEED_TOTAL_MAX_BYTES - callFeedBytes(analysisMd));
+    var transcript = callFeedCapBytes(callFeedNfc(input.transcript).trim(), CALL_FEED_TOTAL_MAX_BYTES - callFeedBytes(analysisMd));
     body = { ref: String(input.ref), analysis_md: analysisMd, transcript: transcript };
   }
   var url = input.driveUrl;
@@ -555,8 +493,7 @@ if (typeof module !== 'undefined' && module.exports) {
     callFeedTranscriptName: callFeedTranscriptName, callFeedIsPersonal: callFeedIsPersonal, callFeedKstDay: callFeedKstDay,
     callFeedDayInRange: callFeedDayInRange, callFeedBytes: callFeedBytes, callFeedCapBytes: callFeedCapBytes,
     callFeedAnalysisName: callFeedAnalysisName, callFeedMinimalAnalysis: callFeedMinimalAnalysis,
-    callFeedFrontmatter: callFeedFrontmatter, callFeedClass: callFeedClass, callFeedCounterpartFields: callFeedCounterpartFields,
-    callFeedCounterpartLabel: callFeedCounterpartLabel, callFeedRelabelSpeakers: callFeedRelabelSpeakers,
+    callFeedFrontmatter: callFeedFrontmatter, callFeedClass: callFeedClass,
     callFeedBuildCallBody: callFeedBuildCallBody, callFeedVerdict: callFeedVerdict,
   };
 }
