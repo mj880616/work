@@ -12,6 +12,7 @@ import {randomBytes} from 'node:crypto';
 import {createServer} from 'node:net';
 import EmbeddedPostgres from 'embedded-postgres';
 import pg from 'pg';
+import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A,ORG_A,PROJECT_A} from './basket4-fixture.mjs';
 const stem='20261023232000_project_records_policies_authenticated',edStem='20261023233000_ed_format_columns';
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
@@ -43,7 +44,7 @@ test('project records policies: PUBLIC -> authenticated, same conditions, ED③ 
  const password=randomBytes(24).toString('hex'),cluster=new EmbeddedPostgres({databaseDir:directory,user:'postgres',password,port,persistent:false,createPostgresUser:false,initdbFlags:['--encoding=UTF8','--locale=C'],postgresFlags:['-h','127.0.0.1','-c','log_statement=none','-c','log_min_error_statement=panic'],onLog:()=>{},onError:()=>{}});
  let pool;
  try{
-  await cluster.initialise();await cluster.start();pool=new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database:'postgres',ssl:false});
+  await cluster.initialise();await cluster.start();pool=trackPool(new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database:'postgres',ssl:false}));
   await pool.query(fixture);
   for(const file of ['20260927103344_task_impl2_notes_record_links.sql','20260928123601_task_meeting_followup_record_links.sql'])await pool.query(await read('supabase/migrations/'+file));
   await pool.query(`create table public.app_documents(id uuid primary key,workspace_id uuid);alter table public.app_spaces add column owner_id uuid default '${OWNER}',add column name text,add column parent_id uuid,add column status text default 'active',add column metadata jsonb default '{"project_system":"v2"}';grant select,update on public.app_spaces to authenticated;alter table public.app_spaces enable row level security;create policy synthetic_spaces_owner on public.app_spaces for all to authenticated using(private.app_is_workspace_owner(workspace_id)) with check(private.app_is_workspace_owner(workspace_id));`);
@@ -141,6 +142,6 @@ test('project records policies: PUBLIC -> authenticated, same conditions, ED③ 
    assert.equal(v((await pool.query(precheck)).rows)['authenticated-only policies count'],'4');
   });
  }finally{
-  if(pool)await pool.end();await cluster.stop().catch(()=>{});
+  await closePool(pool);await cluster.stop().catch(()=>{});
  }
 });

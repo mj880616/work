@@ -10,6 +10,7 @@ import {randomBytes} from 'node:crypto';
 import {createServer} from 'node:net';
 import EmbeddedPostgres from 'embedded-postgres';
 import pg from 'pg';
+import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A,WS_B,PROJECT_A,PROJECT_B,ORG_A,ORG_B} from './basket4-fixture.mjs';
 import {prepareMigration,checkSQL} from '../../scripts/ops/db-migration-plan.mjs';
 const version='20261024140000',name='call_tg_feed',stem=version+'_'+name;
@@ -32,7 +33,7 @@ test('call/telegram feed: migration, owner-only RLS, column grants, guard trigge
  let pool;
  try{
   await cluster.initialise();await cluster.start();
-  pool=new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database:'postgres',ssl:false});
+  pool=trackPool(new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database:'postgres',ssl:false}));
   await pool.query(fixture);
   const migration=await read('supabase/migrations/'+stem+'.sql'),rollbackSQL=await read('docs/'+stem+'.rollback.sql');
   const precheck=await read('docs/'+stem+'.precheck.sql'),postcheck=await read('docs/'+stem+'.postcheck.sql'),snapshot=await read('docs/'+stem+'.snapshot.sql');
@@ -163,7 +164,7 @@ test('call/telegram feed: migration, owner-only RLS, column grants, guard trigge
    for(const r of (await pool.query(postcheck)).rows)assert.equal(r.ok,'예',r.item);
   });
  }finally{
-  await pool?.end();
+  await closePool(pool);
   await cluster?.stop();
  }
 });

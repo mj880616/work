@@ -12,6 +12,7 @@ import {randomBytes} from 'node:crypto';
 import {createServer} from 'node:net';
 import EmbeddedPostgres from 'embedded-postgres';
 import pg from 'pg';
+import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A,WS_B} from './basket4-fixture.mjs';
 import {createShareReadHandler} from '../../supabase/functions/share-page-read/handler.ts';
 const base='20261020005000_share_pages_links',version='20261023160000',name='share_pages_archived_status',stem=version+'_'+name;
@@ -23,7 +24,7 @@ test('share pages archived status: guard, pair files, hidden page stops the link
  const password=randomBytes(24).toString('hex'),cluster=new EmbeddedPostgres({databaseDir:directory,user:'postgres',password,port,persistent:false,createPostgresUser:false,initdbFlags:['--encoding=UTF8','--locale=C'],postgresFlags:['-h','127.0.0.1','-c','log_statement=none','-c','log_min_error_statement=panic'],onLog:()=>{},onError:()=>{}});
  let pool;
  try{
-  await cluster.initialise();await cluster.start();pool=new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database:'postgres',ssl:false});
+  await cluster.initialise();await cluster.start();pool=trackPool(new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database:'postgres',ssl:false}));
   await pool.query(fixture);
   await pool.query(await read('supabase/migrations/'+base+'.sql'));
   const migration=await read('supabase/migrations/'+stem+'.sql'),rollback=await read('docs/'+stem+'.rollback.sql');
@@ -112,5 +113,5 @@ test('share pages archived status: guard, pair files, hidden page stops the link
    await pool.query(migration);
    assert.equal(items((await pool.query(postcheck)).rows)['status check and history agree'],'예');
   });
- }finally{await pool?.end();await cluster.stop().catch(()=>{});}
+ }finally{await closePool(pool);await cluster.stop().catch(()=>{});}
 });
