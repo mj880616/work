@@ -52,12 +52,13 @@ export const MONTHLY_LIMIT_KRW = 6000;
 // 내용 날짜는 오늘(한국 날짜)부터 92일 전까지만 받는다(미래 날짜·오래된 날짜 거절).
 export const MAX_PAST_DAYS = 92;
 
-// AI 설정은 ai-assist와 같은 열쇠·모델·가격 기본값(설계 4.4절). 값은 ai-assist/handler.ts와 같게 둔다.
+// AI 설정은 ai-assist와 같은 열쇠·모델·가격 기본값(설계 4.4절). 모델·가격은 _shared/ai-model.ts 한 곳.
 export const OPENAI_URL = "https://api.openai.com/v1/responses";
 export const KEY_NAME = "WEB2_OPENAI_API_KEY";
-export const DEFAULT_MODEL = "gpt-5.6-luna";
-export const DEFAULT_PRICE_IN_KRW_PER_MTOK = 350;
-export const DEFAULT_PRICE_OUT_KRW_PER_MTOK = 2800;
+// 모델·가격 기본값은 _shared/ai-model.ts 한 곳(운영 값은 WEB2_AI_MODEL·WEB2_AI_PRICE_*로 바꿀 수 있음).
+import { DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
+export { DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK };
+export const DEFAULT_MODEL = DEFAULT_AI_MODEL;
 export const OPENAI_TIMEOUT_MS = 45000;
 export const RETRY_DELAY_MS = 1000;
 const OPENAI_RESPONSE_BYTES = 256 * 1024;

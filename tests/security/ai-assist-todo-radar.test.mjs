@@ -211,7 +211,7 @@ test('auto: skipped without OpenAI when already found today; again: runs; daily 
 });
 
 test('monthly budget stops before OpenAI; usage write failure fails closed',async()=>{
-  {const {handler,calls,db}=harness({usage:[{workspace_id:WS,user_id:OWNER,day:'2026-10-02',requests:1,input_tokens:50_000_000,output_tokens:0}]});
+  {const {handler,calls,db}=harness({usage:[{workspace_id:WS,user_id:OWNER,day:'2026-10-02',requests:1,input_tokens:120_000_000,output_tokens:0}]});
    await expectError(await post(handler,find()),429,'monthly_limit');assert.equal(calls.openai.length,0);assert.equal(db.app_todo_candidates.length,0);}
   {const {handler,calls,db}=harness({fail:{app_ai_daily_usage:'POST'}});
    await expectError(await post(handler,find()),503,'usage_unavailable');assert.equal(calls.openai.length,0);assert.equal(db.app_todo_radar_state[0].running_since,null,'lock released');}

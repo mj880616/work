@@ -237,7 +237,7 @@ test('input and limits: only week + organization ids, a Monday, no foreign organ
    assert.ok(!calls.openai[0].input[1].content.includes('남의 조직'));assert.ok(db.app_weekly_org_summaries.every(r=>r.organization_id===ORG_A));}
   {const {handler,calls}=harness({usage:[{workspace_id:WS,user_id:OWNER,day:'2026-10-22',requests:DAILY_TOTAL_LIMIT,input_tokens:0,output_tokens:0}]});
    await expectError(await post(handler,run()),429,'daily_limit');assert.equal(calls.openai.length,0);}
-  {const {handler,calls}=harness({usage:[{workspace_id:WS,user_id:OWNER,day:'2026-10-02',requests:1,input_tokens:50_000_000,output_tokens:0}]});
+  {const {handler,calls}=harness({usage:[{workspace_id:WS,user_id:OWNER,day:'2026-10-02',requests:1,input_tokens:120_000_000,output_tokens:0}]});
    await expectError(await post(handler,run()),429,'monthly_limit');assert.equal(calls.openai.length,0);}
   {const {handler,calls}=harness({missing:true});await expectError(await post(handler,run()),503,'org_summary_not_ready');assert.equal(calls.openai.length,0);}
   {const {handler,calls}=harness({fail:{app_weekly_org_summaries:'POST'}});

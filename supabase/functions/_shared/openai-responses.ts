@@ -1,8 +1,9 @@
 // Web2 서버 AI 공용 호출(OpenAI Responses). ai-assist와 collector-feed가 같은 길을 쓴다(새 AI 경로를 따로 만들지 않음).
 // - 열쇠·모델·가격 설정 읽기(aiConfigFrom)와 호출 1번 + 잠깐 막힘 1번 재시도(callOpenAi)만 둔다.
 // - 오류 원문·재료 글·AI 답은 로그에 넣지 않는다. 로그는 단계 코드와 HTTP 상태 숫자뿐이다.
-// - 상수(열쇠 이름, 기본 모델, 가격, 시간 한도)는 부르는 쪽이 넘긴다. ai-assist의 값은 ai-assist/handler.ts에 그대로 있다.
+// - 기본 모델·생각 수준·가격 기본값은 _shared/ai-model.ts 한 곳에서 정한다. 열쇠 이름·시간 한도는 부르는 쪽이 넘긴다.
 import { readBoundedJson } from "./bounded-json.mjs";
+import { withReasoning } from "./ai-model.ts";
 
 export type Env = (name: string) => string | undefined;
 export type Log = (code: string, detail?: Record<string, unknown>) => void;
@@ -47,7 +48,7 @@ export type CallOptions = { url: string; timeoutMs: number; retryDelayMs: number
 export async function callOpenAi(
   deps: { doFetch: typeof fetch; sleep: (ms: number) => Promise<void>; log: Log },
   key: string,
-  body: unknown,
+  body: Record<string, unknown>,
   options: CallOptions,
 ): Promise<OpenAiResult> {
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -56,7 +57,7 @@ export async function callOpenAi(
       r = await deps.doFetch(options.url, {
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify(withReasoning(body)),
         signal: AbortSignal.timeout(options.timeoutMs),
       });
     } catch (e) {
