@@ -1,5 +1,5 @@
 // Fresh local PostgreSQL 17 only. No Supabase, Google or production credentials. All data synthetic.
-// ORG-쟁의단계 다듬기 DB: 20261024170000_org_dispute_stage_period — end_date column + CHECK (end >= start) on the history table,
+// ORG-쟁의단계 다듬기 DB: 20261024180000_org_dispute_stage_period — end_date column + CHECK (end >= start) on the history table,
 // column grants insert(end_date) / update(stage_id, stage_name, stage_date, end_date) to authenticated only, one restrictive update policy
 // (same checks as insert), existing owner policy untouched, guarded rollback.
 // The approved DB workflow refuses a grant on an existing table (grant-existing), so the file is applied as written (SQL Editor, phone path C);
@@ -16,7 +16,7 @@ import pg from 'pg';
 import {fixture,OWNER,STRANGER,WS_A,WS_B,ORG_A,ORG_B} from './basket4-fixture.mjs';
 import {checkSQL} from '../../scripts/ops/db-migration-plan.mjs';
 import {validateExpanded,ExpandedRejection} from '../../scripts/ops/db-migration-expanded.mjs';
-const version='20261024170000',name='org_dispute_stage_period',stem=version+'_'+name;
+const version='20261024180000',name='org_dispute_stage_period',stem=version+'_'+name;
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 for(const key of Object.keys(process.env))if(key.startsWith('PG'))delete process.env[key];
 const ORG_A2='23000000-0000-4000-8000-000000000011';
@@ -69,7 +69,7 @@ test('org dispute stage period: end date, history edit and delete, owner boundar
    assert.deepEqual(code.match(/create policy \w+/gi),['create policy dispute_stage_history_stage_ws_update']);
    assert.match(code,/as restrictive\s+for update to authenticated/);
    assert.doesNotMatch(code,/security definer|create (or replace )?function|create table|alter policy|drop policy|row level security|\brevoke\b|to anon|to public|to service_role|rtw_|grant delete|grant all|\bnot valid\b/i);
-   assert.match(code,/insert into supabase_migrations\.schema_migrations \(version, name, statements\)\s*values \('20261024170000', 'org_dispute_stage_period', array\['[^']*'\]\);\s*commit;\s*$/);
+   assert.match(code,/insert into supabase_migrations\.schema_migrations \(version, name, statements\)\s*values \('20261024180000', 'org_dispute_stage_period', array\['[^']*'\]\);\s*commit;\s*$/);
    // The approved workflow refuses this file (existing table grant): the PR states SQL Editor (phone path C).
    assert.throws(()=>validateExpanded(migration,{version,name}),e=>e instanceof ExpandedRejection&&e.reason==='grant-existing');
    const rb=rollbackSQL.replace(/--.*$/gm,'');

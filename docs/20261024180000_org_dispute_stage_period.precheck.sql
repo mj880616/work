@@ -18,7 +18,7 @@
 -- expect: recent migrations = 기록
 with t as (select to_regclass('public.app_suborganization_dispute_stages') as rel)
 select 'prerequisite recorded' as item,case when (select count(*) from supabase_migrations.schema_migrations where version='20261024100000' and name='org_dispute_stage_db')=1 then '예' else '아니오' end as value
-union all select 'new migration absent',case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261024170000') then '예' else '아니오' end
+union all select 'new migration absent',case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261024180000') then '예' else '아니오' end
 union all select 'history and stage tables exist',case when (select rel from t) is not null and to_regclass('public.app_dispute_stages') is not null then '예' else '아니오' end
 union all select 'end date column count',(select count(*) from pg_attribute where attrelid=(select rel from t) and attname='end_date' and not attisdropped)::text
 union all select 'end date check count',(select count(*) from pg_constraint where conrelid=(select rel from t) and conname='app_suborganization_dispute_stages_end_date_check')::text

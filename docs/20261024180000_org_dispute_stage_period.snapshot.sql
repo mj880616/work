@@ -8,5 +8,5 @@ union all select 'index',ic.relname,pg_get_indexdef(x.indexrelid) from t join pg
 union all select 'policy',p.polname::text,p.polcmd::text||p.polroles::text||p.polpermissive::text||coalesce(pg_get_expr(p.polqual,p.polrelid),'')||coalesce(pg_get_expr(p.polwithcheck,p.polrelid),'') from t join pg_policy p on p.polrelid=t.rel
 union all select 'trigger',g.tgname::text,g.tgenabled::text||':'||pg_get_triggerdef(g.oid) from t join pg_trigger g on g.tgrelid=t.rel and not g.tgisinternal
 union all select 'table privileges',c.relname::text,c.relowner::text||':'||c.relrowsecurity::text||':'||c.relforcerowsecurity::text||':'||coalesce(c.relacl::text,'none') from t join pg_class c on c.oid=t.rel
-union all select 'history',version,name from supabase_migrations.schema_migrations where version in ('20261024100000','20261024170000')
+union all select 'history',version,name from supabase_migrations.schema_migrations where version in ('20261024100000','20261024180000')
 order by 1,2;
