@@ -107,6 +107,8 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 /* 쓰기·고치기: 사진 고르기를 맨 앞에. */
 #appView #diaryView .diary-field{ display:flex; flex-direction:column; gap:4px; font-size:var(--ds-text-meta); color:var(--kptu-muted); }
 #appView #diaryView .diary-field textarea{ min-height:120px; font-size:var(--ds-text-read); color:var(--kptu-ink); }
+#appView #diaryView .diary-doc-host{ min-height:120px; min-width:0; color:var(--kptu-ink); }
+#appView #diaryView .diary-text.is-doc{ white-space:normal; }
 #appView #diaryView .diary-pick{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
 #appView #diaryView .diary-pick small{ color:var(--kptu-muted); font-size:var(--ds-text-meta); }
 #appView #diaryView .diary-thumbs{ display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:8px 6px; }

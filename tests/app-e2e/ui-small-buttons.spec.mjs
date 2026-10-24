@@ -215,7 +215,7 @@ test('③ 폰: 자판이 뜨면 전환 줄·아래 탭이 함께 숨고, 내려�
  // The editor focuses its heading one frame after it opens: wait for it, or that focus can land after ours and the
  // keyboard check sees a heading (not a text field) focused.
  await expect(page.locator('#diaryRoot #diaryEditorTitle')).toBeFocused();
- const text=page.locator('#diaryRoot [data-diary-text]');await expect(text).toBeVisible();await text.focus();await expect(text).toBeFocused();await keyboard(page,true);
+ const text=page.locator('#diaryRoot [data-diary-text] .ProseMirror');await expect(text).toBeVisible();await text.focus();await expect(text).toBeFocused();await keyboard(page,true);
  await expect(tabs).toBeHidden();await expect(diarySwitch).toBeHidden();
  await keyboard(page,false);await expect(tabs).toBeVisible();await expect(diarySwitch).toBeVisible();
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
