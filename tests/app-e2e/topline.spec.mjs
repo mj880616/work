@@ -135,9 +135,9 @@ test('PC: where shows group › screen and the group word opens the group',async
  await expect(page.locator('#calendarView')).toBeVisible();
  await expect(where(page).locator('[aria-current="page"]')).toHaveText('달력');
  await page.locator('#appView>.app-nav [data-basket-kind-nav="note"]').click();
- await expect(where(page)).toHaveText(/바구니\s*›?\s*노트/);
- await where(page).getByRole('button',{name:'바구니'}).click();
- await expect(where(page)).toHaveText(/바구니\s*›?\s*업데이트/);
+ await expect(where(page).locator('li')).toHaveText(['노트']);
+ await page.locator('#appView>.app-nav .nav-btn[data-view="basket"]').click();
+ await expect(where(page).locator('li')).toHaveText(['정리함']);
 });
 
 test('PC: [+ 추가] opens the existing windows for 업데이트·할 일·노트·일정',async({page})=>{
@@ -153,7 +153,7 @@ test('PC: [+ 추가] opens the existing windows for 업데이트·할 일·노�
  {
   await add.click();await menu.getByRole('button',{name:'업데이트'}).click();
   const editor=page.locator('#edWindow');await expect(editor).toBeVisible();
-  await expect(editor.locator('[data-edw-place]')).toContainText('바구니(미분류)');
+  await expect(editor.locator('[data-edw-place]')).toContainText('정리함(미분류)');
   await expect(editor.locator('.ed-window-body .ProseMirror')).toBeVisible();await expect(editor.locator('[data-md-kind]')).toHaveCount(0);
   await page.keyboard.press('Escape');await expect(page.locator('#edWindow')).toHaveCount(0);
  }

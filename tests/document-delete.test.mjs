@@ -37,8 +37,8 @@ test('shared deletion sends one existing request without refresh/replay and sign
 });
 
 const successes=[
-  [{ok:true,drive_result:'preserved',drive_preserved:true,reason:'note_reference'},'자료 등록을 삭제했습니다. 바구니 원본 파일은 Drive에 보존했습니다.'],
-  [{ok:true,drive_result:'preserved',drive_preserved:true,reason:'private_basket_original'},'자료 등록을 삭제했습니다. 바구니 원본 파일은 Drive에 보존했습니다.'],
+  [{ok:true,drive_result:'preserved',drive_preserved:true,reason:'note_reference'},'자료 등록을 삭제했습니다. 정리함 원본 파일은 Drive에 보존했습니다.'],
+  [{ok:true,drive_result:'preserved',drive_preserved:true,reason:'private_basket_original'},'자료 등록을 삭제했습니다. 정리함 원본 파일은 Drive에 보존했습니다.'],
   [{ok:true,drive_result:'trashed',drive_preserved:false,reason:'ordinary_library'},'자료 등록을 삭제하고 파일을 Drive 휴지통으로 이동했습니다. 파일은 Drive 휴지통에서 확인해 주세요.'],
   [{ok:true,drive_result:'already_trashed',drive_preserved:false,reason:'ordinary_library'},'자료 등록을 삭제했습니다. 파일은 이미 Drive 휴지통에 있었습니다.'],
   [{ok:true,drive_result:'missing',drive_preserved:false,reason:'ordinary_library'},'자료 등록을 삭제했습니다. 연결된 Drive 파일은 찾을 수 없었습니다.'],

@@ -182,7 +182,7 @@ for(const width of [390,1000])test(`회의: 줄 단위 목록·회의 색 점·�
  expect(errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`프로젝트 목록 오른쪽은 D-day 하나·목록 글자 통일·바구니 칸 제목 ${width}`,async({page})=>{
+for(const width of [390,1280])test(`프로젝트 목록 오른쪽은 D-day 하나·목록 글자 통일·정리함 칸 제목 ${width}`,async({page})=>{
  const {calls,errors}=await boot(page,width);
  await view(page,'projects');
  const list=page.locator('#projectGrid .ps3-plist');

@@ -85,7 +85,7 @@ for (const width of [390, 1280]) {
     const f = await fixture(page, width);
     // A plain update offers the item before 삭제; it leaves 미분류 at once and the 5-second undo notice appears.
     await press(page, rowMore(page, A), width);
-    await expect(rowMenu(page).locator('button')).toHaveText([...(width < 761 ? ['복사'] : []), '수정', '연결하기', '할 일 만들기', '노트로 옮기기', '사업 보고로 옮기기', '업무일지에 남기기', '삭제']);
+    await expect(rowMenu(page).locator('button')).toHaveText([...(width < 761 ? ['복사'] : []), '수정', '연결하기', '할 일 만들기', '노트로 옮기기', '사업 보고로 옮기기', '업무일지에 남기기', '보류로', '삭제']);
     await press(page, rowMenu(page).getByRole('button', { name: '업무일지에 남기기', exact: true }), width);
     await expect(row(page, A)).toHaveCount(0);
     await expect(row(page, B)).toBeVisible();
@@ -105,7 +105,7 @@ for (const width of [390, 1280]) {
     await expect(row(page, A)).toBeVisible();
     await press(page, page.locator('[data-basket-place-filter]').getByRole('radio', { name: '전체' }), width);
     await press(page, rowMore(page, C), width);
-    await expect(rowMenu(page).locator('button')).toHaveText([...(width < 761 ? ['복사'] : []), '수정', '연결하기', '할 일 만들기', '노트로 옮기기', '사업 보고로 옮기기', '삭제']);
+    await expect(rowMenu(page).locator('button')).toHaveText([...(width < 761 ? ['복사'] : []), '수정', '연결하기', '할 일 만들기', '노트로 옮기기', '사업 보고로 옮기기', '보류로', '삭제']);
     await page.keyboard.press('Escape'); await expect(rowMenu(page)).toBeHidden();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (SHOT_DIR && width === 390) await page.screenshot({ path: `${SHOT_DIR}/journal-memo-basket-390.png` });
@@ -135,7 +135,7 @@ for (const width of [390, 1280]) {
     await expect(row(page, B)).toBeVisible(); await expect(row(page, A)).toHaveCount(0);
     await press(page, page.locator('[data-basket-filter="classified"]'), width);
     await press(page, rowMore(page, A), width);
-    await expect(rowMenu(page).locator('button')).toHaveText([...(width < 761 ? ['복사'] : []), '수정', '연결하기', '할 일 만들기', '노트로 옮기기', '사업 보고로 옮기기', '업무일지에서 빼기', '삭제']);
+    await expect(rowMenu(page).locator('button')).toHaveText([...(width < 761 ? ['복사'] : []), '수정', '연결하기', '할 일 만들기', '노트로 옮기기', '사업 보고로 옮기기', '업무일지에서 빼기', '보류로', '삭제']);
     await press(page, rowMenu(page).getByRole('button', { name: '업무일지에서 빼기', exact: true }), width);
     await expect(row(page, A)).toHaveCount(0);
     await expect(notice(page)).toContainText('업무일지에서 뺐어요.');
@@ -158,12 +158,12 @@ for (const width of [390, 1280]) {
     const detail = page.locator('[data-basket-detail]'), more = detail.locator('[data-basket-note-more]'), menu = detail.locator('#basketNoteMenu');
     await expect(detail.locator('[data-basket-state]')).toHaveText('미분류');
     await press(page, more, width);
-    await expect(menu.getByRole('button')).toHaveText(['수정', '보관', '업무일지에 남기기', '삭제']);
+    await expect(menu.getByRole('button')).toHaveText(['수정', '보류로', '업무일지에 남기기', '삭제']);
     await press(page, menu.getByRole('button', { name: '업무일지에 남기기', exact: true }), width);
     await expect(detail.locator('[data-basket-state]')).toHaveText('업무일지 메모');
     await expect(more).toBeFocused();
     await press(page, more, width);
-    await expect(menu.getByRole('button')).toHaveText(['수정', '보관', '업무일지에서 빼기', '삭제']);
+    await expect(menu.getByRole('button')).toHaveText(['수정', '보류로', '업무일지에서 빼기', '삭제']);
     await page.keyboard.press('Escape');
     // [되돌리기] removes the mark again (one more guarded write); the update is 미분류 again.
     await press(page, notice(page).getByRole('button', { name: '되돌리기' }), width);
@@ -175,7 +175,7 @@ for (const width of [390, 1280]) {
     await press(page, page.locator('[data-basket-filter="classified"]'), width);
     await press(page, row(page, C), width);
     await press(page, more, width);
-    await expect(menu.getByRole('button')).toHaveText(['수정', '보관', '삭제']);
+    await expect(menu.getByRole('button')).toHaveText(['수정', '보류로', '삭제']);
     expect(f.errors).toEqual([]);
   });
 }

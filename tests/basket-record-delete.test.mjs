@@ -204,7 +204,7 @@ test(`restore re-links the same place ${summary?'with':'without'} its summary`,a
   assert.deepEqual(events,['kptu:basket-links-changed']);
 });
 
-for(const [error,message] of [['NOTE_ARCHIVED','보관된 업데이트라 연결을 되돌리지 못했어요. 보관을 해제한 뒤 다시 이어 주세요.'],['AI_EXCLUDED','AI 제외로 표시된 업데이트라 연결을 되돌리지 못했어요.'],['TARGET_UNSELECTABLE','연결했던 곳을 찾거나 고를 수 없어 되돌리지 못했어요.'],['SUGGESTED_EXISTS','연결을 되돌리지 못했어요. 업데이트에서 [연결하기]로 다시 이어 주세요.']])
+for(const [error,message] of [['NOTE_ARCHIVED','보류한 업데이트라 연결을 되돌리지 못했어요. 보류를 해제한 뒤 다시 이어 주세요.'],['AI_EXCLUDED','AI 제외로 표시된 업데이트라 연결을 되돌리지 못했어요.'],['TARGET_UNSELECTABLE','연결했던 곳을 찾거나 고를 수 없어 되돌리지 못했어요.'],['SUGGESTED_EXISTS','연결을 되돌리지 못했어요. 업데이트에서 [연결하기]로 다시 이어 주세요.']])
 test(`restore refusal ${error} explains and sends nothing else`,async()=>{
   events.length=0;const calls=[];
   const rt=rtFor(async(path,options={})=>{calls.push(path);return path.startsWith('/rest/v1/app_notes')?[{id:'n1',updated_at:'t'}]:{ok:false,error,created:0,existing:0};});

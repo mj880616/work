@@ -103,7 +103,7 @@ test('창이 열린 채 폭을 바꾸면 넓은 배치와 위아래 배치가 �
  expect(await sheet.getByRole('searchbox').evaluate(el=>!!el.closest('header'))).toBe(true);
 });
 
-for(const width of [390,1280])test(`조직에 추가하면 다음 입력은 바구니로, 방금 쓴 곳은 최근 맨 앞 ${width}`,async({page})=>{
+for(const width of [390,1280])test(`조직에 추가하면 다음 입력은 정리함으로, 방금 쓴 곳은 최근 맨 앞 ${width}`,async({page})=>{
  const q=await setup(page,{width,height:width<761?844:800,projects:2});const orgBodies=[],projectBodies=[],notes=[];
  await page.route(SB+'/rest/v1/app_suborganization_updates',r=>{orgBodies.push(r.request().postDataJSON());return r.fulfill({json:[]});});
  await page.route(SB+'/rest/v1/app_project_progress_updates',r=>{projectBodies.push(r.request().postDataJSON());return r.fulfill({json:[]});});
@@ -113,11 +113,11 @@ for(const width of [390,1280])test(`조직에 추가하면 다음 입력은 바�
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
  expect(orgBodies).toEqual([{organization_id:'o8',raw_text:'합성 기록',created_by:'home-test'}]);
  // Back to the basket at once.
- await expect(q).toHaveAttribute('data-mode','basket');await expect(q.locator('[data-quick-input]')).toHaveAttribute('placeholder','업데이트 입력(바구니에 저장)');
+ await expect(q).toHaveAttribute('data-mode','basket');await expect(q.locator('[data-quick-input]')).toHaveAttribute('placeholder','업데이트 입력(정리함에 저장)');
  await expect(q.locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택');
  // The place just used is first on the 최근 line (after [바구니(미분류)]), not chosen.
  await q.locator('[data-quick-org]').click();const sheet=dialog(page);
- await expect(sheet.locator('[data-sheet-basket] [aria-pressed="true"]')).toHaveText('바구니(미분류)');
+ await expect(sheet.locator('[data-sheet-basket] [aria-pressed="true"]')).toHaveText('정리함(미분류)');
  await expect(sheet.locator('[data-sheet-recent] [data-sheet-value]')).toHaveText(['공항철도지부','서해선지부','서울교통공사노동조합']);
  await sheet.locator('[data-sheet-recent]').getByRole('button',{name:'공항철도지부',exact:true}).click();await sheet.getByRole('button',{name:'저장',exact:true}).click();
  await expect(q.locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택: 공항철도지부');
@@ -133,8 +133,8 @@ for(const width of [390,1280])test(`조직에 추가하면 다음 입력은 바�
  await expect(sheet.locator('[data-sheet-recent] [aria-pressed="true"]')).toHaveCount(0);
  await page.keyboard.press('Escape');await expect(sheet).toBeHidden();
  // The next add with nothing chosen goes to the basket.
- await q.locator('[data-quick-input]').fill('바구니 기록');await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
- expect(notes).toHaveLength(1);expect(notes[0]).toMatchObject({raw_text:'바구니 기록'});expect(orgBodies).toHaveLength(1);expect(projectBodies).toHaveLength(1);
+ await q.locator('[data-quick-input]').fill('정리함 기록');await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
+ expect(notes).toHaveLength(1);expect(notes[0]).toMatchObject({raw_text:'정리함 기록'});expect(orgBodies).toHaveLength(1);expect(projectBodies).toHaveLength(1);
 });
 
 test('추가가 실패하면 고른 곳과 글을 그대로 두어 다시 누르면 같은 곳에 저장',async({page})=>{
@@ -148,7 +148,7 @@ test('추가가 실패하면 고른 곳과 글을 그대로 두어 다시 누르
  expect(bodies.map(b=>b.organization_id)).toEqual(['o5','o5']);await expect(q).toHaveAttribute('data-mode','basket');
 });
 
-test('추가 없이 다른 화면에 다녀오거나 큰 창을 저장 없이 닫으면 다음 입력은 바구니',async({page})=>{
+test('추가 없이 다른 화면에 다녀오거나 큰 창을 저장 없이 닫으면 다음 입력은 정리함',async({page})=>{
  const q=await setup(page,{width:1280,height:800,projects:2});
  await q.locator('[data-quick-org]').click();await dialog(page).locator('[data-sheet-all]').getByRole('button',{name:'서해선지부',exact:true}).click();await dialog(page).getByRole('button',{name:'저장',exact:true}).click();
  await expect(q).toHaveAttribute('data-mode','update');

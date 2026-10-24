@@ -33,11 +33,11 @@ async function fixture(page, width) {
 const where = page => page.locator('[data-topline-where]');
 for (const width of [1280, 1440]) test(`PC ${width}: 노트를 열면 상단 줄 위치에 제목, 닫으면 지움, 제목 수정 반영, 본문 위 제목 줄 없음`, async ({ page }) => {
   const f = await fixture(page, width);
-  await expect(where(page).locator('li')).toHaveText(['바구니', '노트']);
+  await expect(where(page).locator('li')).toHaveText(['노트']);
   await page.locator('[data-note-row="n-a"]').click();
   const detail = page.locator('[data-note-detail]');
   await expect(detail).toBeVisible();
-  await expect(where(page).locator('li')).toHaveText(['바구니', '노트', '합성 회의 준비 메모']);
+  await expect(where(page).locator('li')).toHaveText(['노트', '합성 회의 준비 메모']);
   await expect(where(page).locator('[aria-current="page"]')).toHaveText('합성 회의 준비 메모');
   // The title appears nowhere else above the body: no title element in the head; back · copy · ⋯ stay.
   await expect(detail.locator('[data-note-read-title]')).toHaveCount(0);
@@ -57,14 +57,14 @@ for (const width of [1280, 1440]) test(`PC ${width}: 노트를 열면 상단 줄
   await clickView(page, 'home');
   await expect(where(page).locator('li')).toHaveText(['홈']);
   await page.evaluate(() => window.KPTURouter.go('basket'));
-  await expect(where(page).locator('li')).toHaveText(['바구니', '업데이트']);
+  await expect(where(page).locator('li')).toHaveText(['정리함']);
   await chooseBasketKind(page, 'note');
-  await expect(where(page).locator('li')).toHaveText(['바구니', '노트']);
+  await expect(where(page).locator('li')).toHaveText(['노트']);
   // Close: the place drops the title.
   await page.locator('[data-note-row="n-a"]').click();
   await expect(where(page).locator('[aria-current="page"]')).toHaveText('합성 회의 준비 메모 v2');
   await detail.locator('[data-note-close]').click();
-  await expect(where(page).locator('li')).toHaveText(['바구니', '노트']);
+  await expect(where(page).locator('li')).toHaveText(['노트']);
   // A long title: one line with an ellipsis, the whole title on hover, the line does not wrap or grow.
   await page.locator('[data-note-row="n-b"]').click();
   const last = where(page).locator('[aria-current="page"]');
@@ -72,9 +72,9 @@ for (const width of [1280, 1440]) test(`PC ${width}: 노트를 열면 상단 줄
   await expect(last).toHaveAttribute('title', LONG);
   const fit = await last.evaluate(el => ({ clipped: el.scrollWidth > el.clientWidth, ellipsis: getComputedStyle(el).textOverflow, h: document.querySelector('.app-topline').getBoundingClientRect().height }));
   expect(fit.clipped).toBe(true); expect(fit.ellipsis).toBe('ellipsis'); expect(fit.h).toBeLessThan(60);
-  // Switching to 업데이트 closes the note and clears the place.
-  await page.locator('#appView > .app-nav [data-basket-kind-nav="memo"]:visible').first().click();
-  await expect(where(page).locator('li')).toHaveText(['바구니', '업데이트']);
+  // Going to 정리함 closes the note and clears the place.
+  await page.locator('#appView > .app-nav [data-view="basket"]:visible').first().click();
+  await expect(where(page).locator('li')).toHaveText(['정리함']);
   expect(f.errors).toEqual([]);
 });
 

@@ -115,7 +115,7 @@ test('폰 390: 입력 칸은 전환 줄 바로 위, 자판이 뜨면 탭·전환
  expect(f.errors).toEqual([]);
 });
 
-test('PC 1280: 입력 칸은 목록 위(바구니 PC와 같은 자리), 고정 아님',async({page})=>{
+test('PC 1280: 입력 칸은 목록 위(정리함 PC와 같은 자리), 고정 아님',async({page})=>{
  const f=await fixture(page,{width:1280,height:900});
  await go(page,'tasks');
  const q=quick(page);await expect(q).toBeVisible();

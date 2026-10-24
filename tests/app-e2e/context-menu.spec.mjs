@@ -15,7 +15,7 @@ const APP_ORIGIN = appOrigin;
 const NOW = '2026-09-28T03:00:00.000Z';
 
 const pstamp='2026-09-15T01:00:00Z';
-const pnote={id:'10000000-0000-4000-8000-0000000000aa',workspace_id:'w',kind:'basket',occurred_at:pstamp,updated_at:pstamp,raw_text:'합성 바구니 원문',ai_export_allowed:true,archived_at:null,attachments:[]};
+const pnote={id:'10000000-0000-4000-8000-0000000000aa',workspace_id:'w',kind:'basket',occurred_at:pstamp,updated_at:pstamp,raw_text:'합성 정리함 원문',ai_export_allowed:true,archived_at:null,attachments:[]};
 const pspaces=[
  {id:'pa',workspace_id:'w',owner_id:'home-test',name:'합성 정책 사업',status:'active',sort_order:10,metadata:{project_system:'v2',color:'green'}},
  {id:'pc',workspace_id:'w',owner_id:'home-test',name:'합성 하위 토론회',parent_id:'pa',status:'active',sort_order:20,metadata:{project_system:'v2'}},

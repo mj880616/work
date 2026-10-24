@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
-import { basketKindButton } from './helpers/basket-kind.mjs';
+import { basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';
 import { noteMenuAction } from './helpers/note-menu.mjs';
 // ED③ 노트: 사진 넣기 in a note (the same [사진] button as share pages). The picture goes up as one of the note's attachments through the
 // note's own basket-files upload (Drive "노트 첨부", owner only), is put in the text as drive:<file id>, and is shown through the owner-only
@@ -36,7 +36,7 @@ async function fixture(page,width,doc=null){
   return r.fulfill({json:{ok:true,note_id:row.id,attachments:row.attachments}});
  });
  await page.evaluate(()=>window.KPTURouter.go('basket'));
- const kind=basketKindButton(page,'note');await expect(kind).toBeVisible();await kind.click();
+ await openKindMenu(page,'note');const kind=basketKindButton(page,'note');await expect(kind).toBeVisible();await kind.click();
  await expect(page.locator('[data-note-row="n-text"]')).toBeVisible();
  return {notes,writes,uploads,photos,errors};
 }

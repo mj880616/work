@@ -1,8 +1,19 @@
-// BASKET-노트입력창: on a PC (≥1024px) the basket screen draws no [업데이트 | 노트] switch; the sidebar's [바구니] → [업데이트]·[노트]
-// changes sides there. Below that (phone, mid width) the switch stays. This presses whichever one is on screen.
+// BASKET-정리함이름: [노트] is its own menu item. On a PC (≥1024px) it is a row of the sidebar; on a phone it is a row of the [메뉴] sheet
+// (the bottom tab [메뉴] opens it). [정리함] is the sidebar row or the bottom tab. The screen draws no [업데이트 | 노트] switch any more.
 export function basketKindButton(page, kind) {
-  return page.locator(`#basketView [data-basket-kind="${kind}"]:visible, #appView > .app-nav [data-basket-kind-nav="${kind}"]:visible`).first();
+  return kind === 'note'
+    ? page.locator('#appView > .app-nav [data-basket-kind-nav="note"]:visible, #mobileMenu:not([hidden]) [data-basket-kind-nav="note"]:visible').first()
+    : page.locator('#appView > .app-nav [data-view="basket"]:visible, .mobile-tabs [data-view="basket"]:visible').first();
+}
+// On a phone the [노트] row is inside the [메뉴] sheet: open the sheet first (a no-op when the sidebar row is on screen).
+export async function openKindMenu(page, kind) {
+  if (kind !== 'note') return;
+  if (await page.locator('#appView > .app-nav [data-basket-kind-nav="note"]:visible').count()) return;
+  if (await page.locator('#mobileMenu:not([hidden])').count()) return;
+  await page.locator('#mobileMenuTab:visible, #mobileMenuOpen:visible').first().click();
+  await page.locator('#mobileMenu:not([hidden]) [data-basket-kind-nav="note"]').waitFor();
 }
 export async function chooseBasketKind(page, kind) {
+  await openKindMenu(page, kind);
   await basketKindButton(page, kind).click();
 }

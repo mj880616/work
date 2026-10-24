@@ -40,7 +40,7 @@ for(const width of [390,1280]){
   await big.click();
   const e=win(page);await expect(e).toBeVisible();
   await expect(text(page)).toContainText('홈에서 쓰던 업데이트');
-  await expect(e.locator('[data-edw-place]')).toContainText('바구니(미분류)');
+  await expect(e.locator('[data-edw-place]')).toContainText('정리함(미분류)');
   await expect(e.locator('[data-edw-save]')).toHaveAccessibleName('업데이트로 저장');
   await expect(e.locator('[data-md-kind]')).toHaveCount(0);
   expect(await fits(page)).toBe(true);
@@ -53,7 +53,7 @@ for(const width of [390,1280]){
   await big.click();await expect(text(page)).toContainText('큰 창에서 고친 업데이트');
   await win(page).locator('[data-edw-save]').click();
   await expect(win(page)).toHaveCount(0);
-  await expect(page.locator('#toast')).toContainText('바구니에 저장');
+  await expect(page.locator('#toast')).toContainText('정리함에 저장');
   await expect(q.locator('[data-quick-input]')).toHaveValue('');
   expect(f.notes).toHaveLength(1);expect(f.notes[0]).toMatchObject({workspace_id:'w',raw_text:'큰 창에서 고친 업데이트'});expect(f.notes[0].doc).toMatchObject({v:'ed1'});
   expect(f.orgs).toEqual([]);expect(f.projects).toEqual([]);
@@ -78,7 +78,7 @@ for(const width of [390,1280]){
   await q.locator('[data-quick-input]').fill('프로젝트 진행');
   await q.locator('[data-quick-big]').click();await expect(e).toBeVisible();
   await e.locator('[data-edw-place]').click();await expect(sheet(page)).toBeVisible();
-  await expect(sheet(page).locator('[data-sheet-basket] button')).toHaveText('바구니(미분류)');
+  await expect(sheet(page).locator('[data-sheet-basket] button')).toHaveText('정리함(미분류)');
   await sheet(page).locator('[data-sheet-projects]').getByRole('button',{name:'테스트 프로젝트',exact:true}).click();
   // UPD-여러곳고르기: the press only marks it; [저장] keeps it (the home input went back to the basket after the add above).
   await expect(sheet(page)).toBeVisible();await expect(sheet(page).locator('[data-sheet-count]')).toHaveText('1곳 선택됨');
@@ -96,10 +96,10 @@ for(const width of [390,1280]){
   expect(f.errors).toEqual([]);
  });
 
- test(`[+ 추가] → [업데이트]: [기록할 곳 ▾]에서 조직을 고르면 글자만, 다시 바구니면 서식까지 ${width}`,async({page})=>{
+ test(`[+ 추가] → [업데이트]: [기록할 곳 ▾]에서 조직을 고르면 글자만, 다시 정리함면 서식까지 ${width}`,async({page})=>{
   const f=await fixture(page,width);
   const e=await openWriter(page,width);
-  await expect(e.locator('[data-edw-place]')).toContainText('바구니(미분류)');
+  await expect(e.locator('[data-edw-place]')).toContainText('정리함(미분류)');
   await expect(e.locator('[data-edw-place-hint]')).toBeHidden();
   await typeInto(page,text(page),'쓰기에서 조직으로');
   await e.locator('[data-edw-place]').click();await expect(sheet(page)).toBeVisible();
@@ -111,10 +111,10 @@ for(const width of [390,1280]){
   expect(f.orgs).toEqual([{organization_id:'o',raw_text:'쓰기에서 조직으로',created_by:'home-test'}]);expect(f.notes).toEqual([]);
   // The next [+ 추가] → [업데이트] starts again at the basket, and a basket save carries the form.
   const again=await openWriter(page,width);
-  await expect(again.locator('[data-edw-place]')).toContainText('바구니(미분류)');
-  await typeInto(page,text(page),'바구니 업데이트');
+  await expect(again.locator('[data-edw-place]')).toContainText('정리함(미분류)');
+  await typeInto(page,text(page),'정리함 업데이트');
   await again.locator('[data-edw-save]').click();await expect(win(page)).toHaveCount(0);
-  expect(f.notes).toHaveLength(1);expect(f.notes[0]).toMatchObject({workspace_id:'w',raw_text:'바구니 업데이트'});expect(f.notes[0].doc).toMatchObject({v:'ed1'});expect(f.notes[0].kind).toBeUndefined();
+  expect(f.notes).toHaveLength(1);expect(f.notes[0]).toMatchObject({workspace_id:'w',raw_text:'정리함 업데이트'});expect(f.notes[0].doc).toMatchObject({v:'ed1'});expect(f.notes[0].kind).toBeUndefined();
   expect(f.errors).toEqual([]);
  });
 }

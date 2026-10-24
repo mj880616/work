@@ -229,7 +229,7 @@ test('폰: 참고 묶음 목록 → 상세, 뒤로 가기 한 칸이면 목록�
  expect(f.errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`홈 [업데이트 ▾] 기록할 곳 시트: 맨 아래 참고 덩어리, 참고만 고르면 바구니 업데이트 + 참고 연결 ${width}`,async({page})=>{
+for(const width of [390,1280])test(`홈 [업데이트 ▾] 기록할 곳 시트: 맨 아래 참고 덩어리, 참고만 고르면 정리함 업데이트 + 참고 연결 ${width}`,async({page})=>{
  const f=await fixture(page,{width});
  const posted=[];
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_notes',r=>{if(r.request().method()!=='POST')return r.fallback();const body=r.request().postDataJSON();posted.push(body);return r.fulfill({status:201,json:[{id:'10000000-0000-4000-8000-0000000000b1',workspace_id:'w',kind:'basket',occurred_at:stamp,created_at:stamp,updated_at:stamp,archived_at:null,ai_export_allowed:true,attachments:[],metadata:{},...body}]});});

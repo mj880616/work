@@ -14,7 +14,7 @@ async function ready(page,kind){
  return {errors,host,ids,menu:page.locator(kind==='organization'?'#basketLinkMenu':'#ps3RecordMenu')};
 }
 async function openEditor(page,row,menu,width){
- const more=row.getByRole('button',{name:'바구니 기록 메뉴'});
+ const more=row.getByRole('button',{name:'정리함 기록 메뉴'});
  if(width<761)await more.tap();else await more.click();
  // The menu opens at the ⋯ it came from (anchored menu, #773).
  await expect(menu).toBeVisible();const [a,m]=await Promise.all([more.boundingBox(),menu.boundingBox()]);expect(Math.min(Math.abs(m.y-(a.y+a.height)),Math.abs(m.y+m.height-a.y))).toBeLessThanOrEqual(12);expect(m.x+m.width).toBeGreaterThanOrEqual(a.x);
@@ -91,6 +91,6 @@ test('project: an open summary draft asks before closing, and disconnect waits f
  await expect(input).toHaveValue('닫기 전 초안');
  // A refresh of the record list keeps the open draft.
  await page.evaluate(()=>window.dispatchEvent(new Event('kptu:basket-links-changed')));await expect(input).toHaveValue('닫기 전 초안');
- await row.getByRole('button',{name:'바구니 기록 메뉴'}).click();await menu.getByRole('button',{name:'연결 해제'}).click();
+ await row.getByRole('button',{name:'정리함 기록 메뉴'}).click();await menu.getByRole('button',{name:'연결 해제'}).click();
  expect((await writes(page)).filter(w=>w.table==='app_record_links')).toEqual([]);await expect(row).toHaveCount(1);
 });

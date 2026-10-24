@@ -65,7 +65,7 @@ async function drop(page,q,name){
 }
 const fileRows=q=>q.locator('[data-quick-files] [data-basket-file]');
 
-for(const width of [390,1280])test(`첨부 → 조직 고르기: 파일이 남고, [추가]하면 조직 기록(연결) + 조직 자료, 뒤에 바구니·첨부 비움 ${width}`,async({page})=>{
+for(const width of [390,1280])test(`첨부 → 조직 고르기: 파일이 남고, [추가]하면 조직 기록(연결) + 조직 자료, 뒤에 정리함·첨부 비움 ${width}`,async({page})=>{
  const {q,f}=await setup(page,width);
  await q.locator('[data-quick-input]').fill('합성 조직 소식');
  await choose(q,'회의자료.txt');await expect(fileRows(q)).toHaveCount(1);
@@ -123,7 +123,7 @@ for(const width of [390,1280])test(`여러 곳 + 파일 두 개: 연결은 고�
  expect(f.errors).toEqual([]);
 });
 
-test('글 없이 파일만 + 조직: 기록(연결) 없이 자료로만 넣는다(바구니 [자료로 넣기]와 같음)',async({page})=>{
+test('글 없이 파일만 + 조직: 기록(연결) 없이 자료로만 넣는다(정리함 [자료로 넣기]와 같음)',async({page})=>{
  const {q,f}=await setup(page,1280);
  await choose(q,'자료만.txt');
  await q.locator('[data-quick-org]').click();await org(page,'합성노동조합').click();await save(page).click();
@@ -134,18 +134,18 @@ test('글 없이 파일만 + 조직: 기록(연결) 없이 자료로만 넣는�
  expect(f.errors).toEqual([]);
 });
 
-test('연결이 거절되면 업데이트·파일은 바구니에 남고 안내, 다시 보내지 않음',async({page})=>{
+test('연결이 거절되면 업데이트·파일은 정리함에 남고 안내, 다시 보내지 않음',async({page})=>{
  const {q,f}=await setup(page,1280,{linkReply:{ok:false,error:'TARGET_UNSELECTABLE',created:0,existing:0}});
  await q.locator('[data-quick-input]').fill('거절될 기록');await choose(q,'파일.txt');
  await q.locator('[data-quick-org]').click();await org(page,'시험지부').click();await save(page).click();
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
  await expect(q.locator('[data-quick-status]')).toContainText('고른 곳에 연결하지 못했어요');
- await expect(page.locator('#toast')).toContainText('바구니에 저장했습니다.');
+ await expect(page.locator('#toast')).toContainText('정리함에 저장했습니다.');
  expect(f.uploads).toHaveLength(1);expect(f.links).toHaveLength(1);
  await expect(q).toHaveAttribute('data-mode','basket');await expect(fileRows(q)).toHaveCount(0);
 });
 
-test('첨부 없는 한 곳 저장은 예전 그대로 그 곳 기록 표(바구니·연결 없음)',async({page})=>{
+test('첨부 없는 한 곳 저장은 예전 그대로 그 곳 기록 표(정리함·연결 없음)',async({page})=>{
  const {q,f}=await setup(page,1280);
  await q.locator('[data-quick-input]').fill('첨부 없는 기록');
  await q.locator('[data-quick-org]').click();await org(page,'시험지부').click();await save(page).click();

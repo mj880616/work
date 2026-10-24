@@ -28,7 +28,7 @@ const menuItems=(page,id)=>page.locator(`#${id} button`).allTextContents();
 
 for(const width of [390,1280])test(`organization detail: line opens the note, ⋯ disconnects with one confirmation, [되돌리기] re-links ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:900});const {errors,host,ids}=await ready(page,'organization'),row=host.locator(`[data-basket-link="${ids.link}"]`);
- const more=row.getByRole('button',{name:'바구니 기록 메뉴'});
+ const more=row.getByRole('button',{name:'정리함 기록 메뉴'});
  const box=await more.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await tap(page,more,width);await expect(page.locator('#basketLinkMenu')).toBeVisible();
@@ -53,12 +53,12 @@ test('organization detail: tapping the line (or [메모 열기]) opens the origi
  await row.locator('a[data-basket-link-open]').click();await expect(page.locator('#wdModal')).toBeHidden();
  expect(await page.evaluate(()=>window.__went)).toEqual([['basket',{source:'delegated'}]]);
  await page.evaluate(()=>window.KPTUWorkplace.open(window.__detailState.ids.org));await expect(host.locator('[data-basket-link]')).toHaveCount(2);
- await host.locator(`[data-basket-link="${ids.nullLink}"]`).getByRole('button',{name:'바구니 기록 메뉴'}).click();await page.locator('#basketLinkMenu').getByRole('button',{name:'업데이트 열기'}).click();
+ await host.locator(`[data-basket-link="${ids.nullLink}"]`).getByRole('button',{name:'정리함 기록 메뉴'}).click();await page.locator('#basketLinkMenu').getByRole('button',{name:'업데이트 열기'}).click();
  await expect(page.locator('#wdModal')).toBeHidden();expect(await page.evaluate(()=>window.__went.length)).toBe(2);expect(await deletes(page)).toEqual([]);expect(errors).toEqual([]);
 });
 
 test('organization detail: cancelling the confirmation changes nothing and returns focus to ⋯',async({page})=>{
- const {errors,host,ids}=await ready(page,'organization'),row=host.locator(`[data-basket-link="${ids.link}"]`),more=row.getByRole('button',{name:'바구니 기록 메뉴'});
+ const {errors,host,ids}=await ready(page,'organization'),row=host.locator(`[data-basket-link="${ids.link}"]`),more=row.getByRole('button',{name:'정리함 기록 메뉴'});
  page.once('dialog',d=>d.dismiss());await more.click();await page.locator('#basketLinkMenu').getByRole('button',{name:'연결 해제'}).click();
  await expect(more).toBeFocused();await expect(more).toBeEnabled();await expect(host.locator('[data-basket-link]')).toHaveCount(2);await expect(undo(page)).toHaveCount(0);
  expect(await deletes(page)).toEqual([]);expect(await page.evaluate(()=>window.__linkEvents)).toBe(0);expect(errors).toEqual([]);
@@ -67,7 +67,7 @@ test('organization detail: cancelling the confirmation changes nothing and retur
 for(const width of [390,1280])test(`project detail: 🧺 ⋯ holds [업데이트 열기]·[연결 해제]·[요약 수정]; the notice ends after 5 seconds ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:900});const {errors,host,ids}=await ready(page,'project'),row=host.locator(`[data-basket-link="${ids.link}"]`);
  await expect(row.locator('a[data-ps3-basket-note]')).toHaveAttribute('href',/view=basket&note=/);
- const more=row.getByRole('button',{name:'바구니 기록 메뉴'}),box=await more.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);
+ const more=row.getByRole('button',{name:'정리함 기록 메뉴'}),box=await more.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);
  await expect(host.locator('[data-link-summary-edit],[data-link-note-delete]')).toHaveCount(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await tap(page,more,width);await expect(page.locator('#ps3RecordMenu')).toBeVisible();expect(await menuItems(page,'ps3RecordMenu')).toEqual(['업데이트 열기','연결 해제','요약 수정']);
@@ -82,7 +82,7 @@ for(const width of [390,1280])test(`project detail: 🧺 ⋯ holds [업데이트
 });
 
 test('project detail: [되돌리기] re-links the same project with its summary; a cancelled confirmation sends nothing',async({page})=>{
- const {errors,host,ids}=await ready(page,'project'),row=host.locator(`[data-basket-link="${ids.link}"]`),more=row.getByRole('button',{name:'바구니 기록 메뉴'});
+ const {errors,host,ids}=await ready(page,'project'),row=host.locator(`[data-basket-link="${ids.link}"]`),more=row.getByRole('button',{name:'정리함 기록 메뉴'});
  page.once('dialog',d=>d.dismiss());await more.click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'연결 해제'}).click();
  await expect(more).toBeFocused();expect(await deletes(page)).toEqual([]);await expect(undo(page)).toHaveCount(0);
  accept(page);await more.click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'연결 해제'}).click();await expect(row).toHaveCount(0);
@@ -91,9 +91,9 @@ test('project detail: [되돌리기] re-links the same project with its summary;
  expect(await confirms(page)).toEqual([{p_note_id:ids.note,p_note_updated_at:'2026-10-11T01:30:00Z',p_targets:[{kind:'project',target_id:ids.project,reason:'직접 연결',summary:'연결 요약'}]}]);
  // A refused undo (here: the note was archived meanwhile) is said plainly and changes nothing.
  await page.evaluate(()=>{window.__detailState.confirmError='NOTE_ARCHIVED'});const again=host.locator('[data-basket-link]').first();
- accept(page);await again.getByRole('button',{name:'바구니 기록 메뉴'}).click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'연결 해제'}).click();await expect(host.locator('[data-basket-link]')).toHaveCount(1);
+ accept(page);await again.getByRole('button',{name:'정리함 기록 메뉴'}).click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'연결 해제'}).click();await expect(host.locator('[data-basket-link]')).toHaveCount(1);
  await page.locator('#ps3DetailModal [data-undo-notice]').getByRole('button',{name:'되돌리기'}).click();
- await expect(page.locator('#ps3DetailModal [data-undo-notice]')).toContainText('보관된 업데이트라 연결을 되돌리지 못했어요.');await expect(host.locator('[data-basket-link]')).toHaveCount(1);
+ await expect(page.locator('#ps3DetailModal [data-undo-notice]')).toContainText('보류한 업데이트라 연결을 되돌리지 못했어요.');await expect(host.locator('[data-basket-link]')).toHaveCount(1);
  await host.locator('a[data-ps3-basket-note]').first().click();await expect(page.locator('#ps3DetailModal')).toBeHidden();expect(await page.evaluate(()=>window.__went)).toEqual([['basket',{source:'delegated'}]]);
  expect(errors).toEqual([]);
 });
@@ -177,7 +177,7 @@ for(const scheme of ['light','dark'])test(`detail screens in the app: ⋯ menu a
  await page.emulateMedia({colorScheme:scheme});await page.setViewportSize({width:390,height:900});const f=await basket(page);await openList(page,390);
  await page.evaluate(async()=>{await window.KPTUViewLoader.load('team');await window.KPTUWorkplace.open('o');});
  const org=page.locator('#wdUpdates [data-basket-link="l1"]');await expect(org).toBeVisible();await expect(org).toContainText('조직 요약');
- await org.getByRole('button',{name:'바구니 기록 메뉴'}).click();await expect(page.locator('#basketLinkMenu')).toBeVisible();
+ await org.getByRole('button',{name:'정리함 기록 메뉴'}).click();await expect(page.locator('#basketLinkMenu')).toBeVisible();
  await page.screenshot({path:shot(info,`org-menu-390-${scheme}.png`)});
  accept(page);await page.locator('#basketLinkMenu').getByRole('button',{name:'연결 해제'}).click();await expect(org).toHaveCount(0);
  await expect(page.locator('#wdModal [data-undo-notice]')).toBeVisible();await page.screenshot({path:shot(info,`org-undo-390-${scheme}.png`)});
@@ -185,7 +185,7 @@ for(const scheme of ['light','dark'])test(`detail screens in the app: ⋯ menu a
  await page.locator('[data-wd-close="wdModal"]').click();await expect(page.locator('#wdModal')).toBeHidden();
  await page.evaluate(async()=>{await window.KPTUViewLoader.load('projects');await window.KPTUProjects.open('p');});
  const project=page.locator('#ps3-progress [data-basket-link="l2"]');await expect(project).toBeVisible();
- await project.getByRole('button',{name:'바구니 기록 메뉴'}).click();await expect(page.locator('#ps3RecordMenu')).toBeVisible();
+ await project.getByRole('button',{name:'정리함 기록 메뉴'}).click();await expect(page.locator('#ps3RecordMenu')).toBeVisible();
  await page.screenshot({path:shot(info,`project-menu-390-${scheme}.png`)});
  accept(page);await page.locator('#ps3RecordMenu').getByRole('button',{name:'연결 해제'}).click();await expect(project).toHaveCount(0);
  await expect(page.locator('#ps3DetailModal [data-undo-notice]')).toBeVisible();await page.screenshot({path:shot(info,`project-undo-390-${scheme}.png`)});

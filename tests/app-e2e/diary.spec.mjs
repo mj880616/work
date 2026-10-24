@@ -10,7 +10,7 @@ const at='2026-10-05T01:00:00Z';
 const photo=(id,name=id+'.jpg')=>({drive_file_id:id,file_name:name,mime_type:'image/jpeg',size_bytes:1200});
 function store(){
  return [
-  {id:'b1',workspace_id:'w',kind:'basket',title:null,journal_day:null,raw_text:'합성 바구니 메모',occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:true,attachments:[],metadata:{}},
+  {id:'b1',workspace_id:'w',kind:'basket',title:null,journal_day:null,raw_text:'합성 정리함 메모',occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:true,attachments:[],metadata:{}},
   {id:'d3',workspace_id:'w',kind:'diary',title:null,journal_day:'2026-10-03',raw_text:'가을 산책 DIARY_TEXT_SECRET',occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:false,attachments:[photo('pa'),photo('pb')],metadata:{}},
   {id:'d4',workspace_id:'w',kind:'diary',title:null,journal_day:'2026-10-04',raw_text:'글만 쓴 날',occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:false,attachments:[],metadata:{}},
  ];
@@ -349,7 +349,7 @@ test('폰 뒤로가기: 쓰기 창 → 날짜 순서로 닫힘',async({page})=>{
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-test('일기는 바구니 목록·AI 분류 요청 복사에 나오지 않는다',async({page})=>{
+test('일기는 정리함 목록·AI 분류 요청 복사에 나오지 않는다',async({page})=>{
  const f=await fixture(page);
  await page.evaluate(()=>{window.__copied=[];const keep=t=>{window.__copied.push(String(t));return Promise.resolve();};navigator.clipboard.writeText=keep;navigator.clipboard.write=async items=>keep(await (await items[0].getType('text/plain')).text());});
  await page.evaluate(()=>window.KPTURouter.go('basket'));
@@ -358,7 +358,7 @@ test('일기는 바구니 목록·AI 분류 요청 복사에 나오지 않는다
  await openBasketMore(page);await page.locator('#basketMoreMenu [data-handoff-copy]').click();
  await expect.poll(()=>page.evaluate(()=>window.__copied.length)).toBeGreaterThan(0);
  const copied=await page.evaluate(()=>window.__copied.join('\n'));
- expect(copied).toContain('합성 바구니 메모');expect(copied).not.toContain('DIARY_TEXT_SECRET');expect(copied).not.toContain('글만 쓴 날');
+ expect(copied).toContain('합성 정리함 메모');expect(copied).not.toContain('DIARY_TEXT_SECRET');expect(copied).not.toContain('글만 쓴 날');
  expect(f.errors).toEqual([]);
 });
 

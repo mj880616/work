@@ -21,13 +21,13 @@ for(const width of [390,1280])test(`home omits weekly records and unlinked short
 });
 for(const width of [390,1280])test(`record mutation events no longer reload home records or disturb the draft ${width}`,async({page})=>{
  await page.setViewportSize({width,height:900});const control=await openHome(page);await ready(page);
- const input=page.locator('[data-quick-input]');await input.fill('보존할 바구니 메모');const before=control.requests.length;
+ const input=page.locator('[data-quick-input]');await input.fill('보존할 정리함 메모');const before=control.requests.length;
  await page.evaluate(async()=>{
   dispatchEvent(new CustomEvent('kptu:basket-links-changed'));
   dispatchEvent(new CustomEvent('kptu:api-saved',{detail:{path:'/rest/v1/app_suborganization_updates'}}));
   await new Promise(resolve=>requestAnimationFrame(resolve));
  });
- await expect(input).toHaveValue('보존할 바구니 메모');await expect(input).toBeFocused();
+ await expect(input).toHaveValue('보존할 정리함 메모');await expect(input).toBeFocused();
  expect(control.requests.slice(before)).toEqual([]);
  await expect(page.locator('[data-home-card="updates"],[data-home-unlinked]')).toHaveCount(0);
 });

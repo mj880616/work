@@ -7,7 +7,7 @@ test.use({hasTouch:true});
 const fixture=testOrigin+'/tests/app-e2e/basket-link-detail-fixture.html',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // BUG-바구니연결해제: one wording on every screen, naming the place. Actions live in the line's ⋯ (helpers/basket-link-menu.mjs).
 const DISCONNECT={organization:'합성 담당조직 연결을 해제할까요? 업데이트는 남아요'};
-const more=row=>row.getByRole('button',{name:'바구니 기록 메뉴'});
+const more=row=>row.getByRole('button',{name:'정리함 기록 메뉴'});
 async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.scrollIntoViewIfNeeded();const b=await locator.boundingBox();await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);}else await locator.click();}
 // basket-files note-delete model: trash count comes from the test, the note and its links go away like the real cascade.
 const CORS={'access-control-allow-origin':'*','access-control-allow-headers':'authorization, x-client-info, apikey, content-type','access-control-allow-methods':'GET, POST, OPTIONS'};

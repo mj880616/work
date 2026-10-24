@@ -263,7 +263,7 @@ test('calendar date cells, events and overflow use menu swipes and the first-men
     }
     await setScale(page,1);
   }
-  for(const selector of ['#calendarGrid .cal-cell','.cp-event','.kptu-day-more'])for(const [dx,destination] of [[-170,'projects'],[170,'basket']]){ // 8-9e-2: 홈·바구니·일정·프로젝트·담당조직
+  for(const selector of ['#calendarGrid .cal-cell','.cp-event','.kptu-day-more'])for(const [dx,destination] of [[-170,'projects'],[170,'basket']]){ // 8-9e-2: 홈·정리함·일정·프로젝트·담당조직
     await page.evaluate(()=>KPTURouter.go('calendar',{source:'test'}));
     await expect(page.locator(selector).first()).toBeVisible();
     await touchSequence(page,selector,{dx,releaseClick:true});
