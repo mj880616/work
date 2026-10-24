@@ -112,7 +112,7 @@ test('destination read reuses owner-scoped catalog and includes only active visi
 test('handoff example and both organization and project proposals round trip',()=>{
  const format=classificationFormat(now);
  assert.doesNotMatch(format,/library|google_task|write_request_candidate/);
- assert.match(format,/kind는 organization\(담당조직\), project\(프로젝트\) 두 종류만 쓰세요/);
+ assert.match(format,/kind는 organization\(담당조직\), project\(프로젝트\), reference\(참고 묶음\) 세 종류만 쓰세요/);
  assert.deepEqual(parseAIAnswer(format),{schema_version:1,copied_at:stamp,items:[]});
  const organization=proposal();organization.items[0].destinations[0].kind='organization';
  assert.deepEqual(parseAIAnswer('짧은 정리\n```json\n'+JSON.stringify(organization)+'\n```'),organization);

@@ -1,15 +1,20 @@
 import { ordered } from './project-order.mjs';
+import { sortBundles } from './reference-bundles-data.js';
 // Untrusted AI proposals live only in memory. Never render reason as markup.
 export const CLASSIFICATION_LIMITS = Object.freeze({bytes:1048576, items:100, targets:20, reason:2000, depth:7, compared:5});
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const VERDICTS = Object.freeze(['new','duplicate','changed']);
-const kinds = new Set(['organization','project','library','write_request_candidate','google_task']);
+const kinds = new Set(['organization','project','reference','library','write_request_candidate','google_task']);
+// REF-참고묶음 (docs/design/ref-bundle.md 5절): 'reference' = a reference bundle (app_reference_bundles, link column bundle_id).
+// Like organization/project it needs a UUID and is checked against the live bundle list; it is never report material.
+export const LINK_KINDS = Object.freeze(['organization','project','reference']);
+export const LINK_COLUMN = Object.freeze({organization:'organization_id',project:'project_id',reference:'bundle_id'});
 export const ERROR_TEXT = Object.freeze({RESULT_UNKNOWN:'결과를 확인하지 못했어요. 다시 확인을 눌러 현재 연결을 확인해 주세요.',NOTE_MISSING:'업데이트를 찾거나 열 수 없어요.',NOTE_WORKSPACE:'다른 업무 공간의 업데이트예요.',NOTE_ARCHIVED:'보관된 업데이트예요.',AI_EXCLUDED:'AI에게 맡기지 않기로 한 업데이트예요.',NOTE_CHANGED:'업데이트가 바뀌었어요. AI에게 다시 맡겨 주세요.',TARGET_MISSING:'연결할 곳을 찾거나 열 수 없어요.',TARGET_WORKSPACE:'다른 업무 공간에 있는 곳이에요.',TARGET_UNSELECTABLE:'지금은 선택할 수 없는 곳이에요.',ALREADY_CONFIRMED:'이미 연결됨',NEXT_STAGE:'아직 지원하지 않는 항목',FUNCTION_UNAVAILABLE:'연결 기능 준비 중',INVALID_TARGETS:'연결할 곳을 다시 확인해 주세요.',INVALID_INPUT:'업데이트 정보가 맞지 않아요. AI에게 다시 맡겨 주세요.',PERMISSION_DENIED:'이 내용을 열거나 연결할 권한이 없어요.',SUGGESTED_EXISTS:'이미 제안된 연결이 있어요. 현재 연결을 확인해 주세요.'});
 // The handoff instructions use the parser's limits and a canonical valid shape.
 // These keys belong in the copied AI instructions, never in screen errors.
 export function classificationFormat(now) {
   const example={schema_version:1,copied_at:now.toISOString(),items:[]};
-  return `답은 다음 순서로 써 주세요.\n① 사람이 읽는 짧은 정리: 메모 첫 줄 → 목적지 이름 · 기록 요약\n② 아래 문장을 그대로 써 주세요.\n아래 블록을 복사해서 바구니의 '분류 결과 입력'에 붙여 넣으세요\n③ 아래 형식의 json 코드 블록을 정확히 하나 써 주세요.\n사람이 읽는 정리와 블록이 다르면 블록이 기준입니다.\n\n\`\`\`json\n${JSON.stringify(example,null,2)}\n\`\`\`\nproject는 {"kind":"project", "target_id":"프로젝트 ID", "reason":"기록 요약"}로 제안하세요.\nitems에 정리할 메모마다 {"note_id":"메모 ID", "note_updated_at":"메모의 updated_at", "destinations":[{"kind":"organization", "target_id":"목적지 ID", "reason":"기록 요약"}]}를 넣으세요.\nkind는 organization(담당조직), project(프로젝트) 두 종류만 쓰세요. schema_version은 1, copied_at은 위 시각을 그대로 쓰세요. ID와 updated_at은 아래 목록의 값을 그대로 쓰세요.\nreason은 기록 요약입니다. 원문에 있는 핵심 내용을 한 줄로 짧게 정리하고, 날짜·요일·시간·장소·주체·대상·숫자와 진행 상태(예정·검토·확정·취소)를 그대로 보존하세요. 예정이나 검토를 확정으로 바꾸지 마세요. 원문에 없는 사실을 만들거나 추측하지 마세요. 원문에 없는 날짜·요일·시간·장소·주체·대상·숫자·상태는 추가하지 마세요. '내용 공유'나 '일정 및 장소 안내'처럼 구체적인 사실이 없는 말만 쓰지 마세요.\n합성 원문: 한빛지부 10/20 10:00 시청 앞 광장 기자회견 예정 참석30명\n좋은 기록 요약: 한빛지부, 10/20 10:00 시청 앞 광장 기자회견 예정, 참석 30명\n나쁜 기록 요약: 한빛지부 기자회견 일정 및 장소 안내\n나쁜 요약은 원문의 날짜·시간·장소·예정 상태·참석 인원을 빠뜨렸습니다. 합성 예의 사실은 아래 메모의 요약에 넣지 마세요.\n메모는 최대 ${CLASSIFICATION_LIMITS.items}개, 메모당 목적지는 최대 ${CLASSIFICATION_LIMITS.targets}개, 기록 요약은 1~${CLASSIFICATION_LIMITS.reason}자, 블록은 최대 ${CLASSIFICATION_LIMITS.bytes}바이트입니다. copied_at과 note_updated_at은 시간대가 포함된 시각을 그대로 쓰고, 같은 메모나 같은 항목 이름을 중복해서 쓰지 마세요. 메모 본문은 답에 다시 싣지 마세요.`;
+  return `답은 다음 순서로 써 주세요.\n① 사람이 읽는 짧은 정리: 메모 첫 줄 → 목적지 이름 · 기록 요약\n② 아래 문장을 그대로 써 주세요.\n아래 블록을 복사해서 바구니의 '분류 결과 입력'에 붙여 넣으세요\n③ 아래 형식의 json 코드 블록을 정확히 하나 써 주세요.\n사람이 읽는 정리와 블록이 다르면 블록이 기준입니다.\n\n\`\`\`json\n${JSON.stringify(example,null,2)}\n\`\`\`\nproject는 {"kind":"project", "target_id":"프로젝트 ID", "reason":"기록 요약"}로 제안하세요.\nitems에 정리할 메모마다 {"note_id":"메모 ID", "note_updated_at":"메모의 updated_at", "destinations":[{"kind":"organization", "target_id":"목적지 ID", "reason":"기록 요약"}]}를 넣으세요.\nkind는 organization(담당조직), project(프로젝트), reference(참고 묶음) 세 종류만 쓰세요. reference(참고 묶음)는 담당조직·프로젝트 어디에도 맞지 않을 때만 제안하세요. 노조 전체·공공기관 사업 전반·담당이 아닌 조직의 소식이 여기에 해당합니다. 담당조직·프로젝트와 함께 쓰지 마세요. schema_version은 1, copied_at은 위 시각을 그대로 쓰세요. ID와 updated_at은 아래 목록의 값을 그대로 쓰세요.\nreason은 기록 요약입니다. 원문에 있는 핵심 내용을 한 줄로 짧게 정리하고, 날짜·요일·시간·장소·주체·대상·숫자와 진행 상태(예정·검토·확정·취소)를 그대로 보존하세요. 예정이나 검토를 확정으로 바꾸지 마세요. 원문에 없는 사실을 만들거나 추측하지 마세요. 원문에 없는 날짜·요일·시간·장소·주체·대상·숫자·상태는 추가하지 마세요. '내용 공유'나 '일정 및 장소 안내'처럼 구체적인 사실이 없는 말만 쓰지 마세요.\n합성 원문: 한빛지부 10/20 10:00 시청 앞 광장 기자회견 예정 참석30명\n좋은 기록 요약: 한빛지부, 10/20 10:00 시청 앞 광장 기자회견 예정, 참석 30명\n나쁜 기록 요약: 한빛지부 기자회견 일정 및 장소 안내\n나쁜 요약은 원문의 날짜·시간·장소·예정 상태·참석 인원을 빠뜨렸습니다. 합성 예의 사실은 아래 메모의 요약에 넣지 마세요.\n메모는 최대 ${CLASSIFICATION_LIMITS.items}개, 메모당 목적지는 최대 ${CLASSIFICATION_LIMITS.targets}개, 기록 요약은 1~${CLASSIFICATION_LIMITS.reason}자, 블록은 최대 ${CLASSIFICATION_LIMITS.bytes}바이트입니다. copied_at과 note_updated_at은 시간대가 포함된 시각을 그대로 쓰고, 같은 메모나 같은 항목 이름을 중복해서 쓰지 마세요. 메모 본문은 답에 다시 싣지 마세요.`;
 }
 export function parseAIAnswer(input) {
   const source=String(input);
@@ -92,7 +97,7 @@ export function parseClassification(input) {
       if(Object.hasOwn(target,'verdict'))check(VERDICTS.includes(target.verdict),'모르는 verdict',target,'verdict');
       if(Object.hasOwn(target,'compared_link_ids'))check(Array.isArray(target.compared_link_ids)&&target.compared_link_ids.length<=CLASSIFICATION_LIMITS.compared&&target.compared_link_ids.every(id=>typeof id==='string'&&uuid.test(id)),'비교한 기록 ID 형식 오류',target,'compared_link_ids');
       check(typeof target.reason==='string'&&[...target.reason].length>=1&&[...target.reason].length<=2000,'이유는 1~2,000자입니다.',target,'reason');
-      if(['organization','project'].includes(target.kind))check(typeof target.target_id==='string'&&uuid.test(target.target_id),'목적지 UUID 형식 오류',target,'target_id');
+      if(LINK_KINDS.includes(target.kind))check(typeof target.target_id==='string'&&uuid.test(target.target_id),'목적지 UUID 형식 오류',target,'target_id');
       else if(target.target_id!==undefined&&target.target_id!==null)check(typeof target.target_id==='string'&&/^[A-Za-z0-9_-]{1,255}$/.test(target.target_id),'4b 대상 ID 형식 오류',target,'target_id');
       if(typeof target.target_id==='string'&&uuid.test(target.target_id))target.target_id=target.target_id.toLowerCase();
       if(Array.isArray(target.compared_link_ids))target.compared_link_ids=target.compared_link_ids.map(id=>id.toLowerCase());
@@ -125,15 +130,16 @@ export function judgeVerdict(target,sentRecords=[]) {
   if(!ok)return {verdict:'new',comparedLinkIds:[],verdictNoBasis:true};
   return {verdict,comparedLinkIds:[...ids],verdictNoBasis:false,...(verdict==='duplicate'?{excluded:true,excludedReason:'already_recorded'}:{})};
 }
-export function previewClassification(proposal,{workspaceId,userId,notes,links,projects,organizations,sentRecords=[]}) {
+// bundles: the reference bundles (readClassificationSnapshot). A reference suggestion is checked by name and workspace like an organization.
+export function previewClassification(proposal,{workspaceId,userId,notes,links,projects,organizations,bundles=[],sentRecords=[]}) {
   const visible=selectableProjects(projects.filter(p=>p.workspace_id===workspaceId&&p.owner_id===userId));
   return proposal.items.map(item=>{
     const note=notes.find(n=>n.id===item.note_id);
     const error=!note?'NOTE_MISSING':note.workspace_id!==workspaceId?'NOTE_WORKSPACE':note.archived_at?'NOTE_ARCHIVED':note.ai_export_allowed!==true?'AI_EXCLUDED':timestampKey(note.updated_at)!==timestampKey(item.note_updated_at)?'NOTE_CHANGED':null;
     return {item,note,error,destinations:item.destinations.map(target=>{
-      const supported=['organization','project'].includes(target.kind), rows=target.kind==='organization'?organizations:projects;
+      const supported=LINK_KINDS.includes(target.kind), rows=target.kind==='organization'?organizations:target.kind==='reference'?bundles:projects;
       const destination=supported?rows.find(d=>d.id===target.target_id):null;
-      const existing=supported?links.find(l=>l.note_id===item.note_id&&l.status==='confirmed'&&l[target.kind==='project'?'project_id':'organization_id']===target.target_id):null;
+      const existing=supported?links.find(l=>l.note_id===item.note_id&&l.status==='confirmed'&&l[LINK_COLUMN[target.kind]]===target.target_id):null;
       const targetError=!supported?'NEXT_STAGE':!destination?'TARGET_MISSING':destination.workspace_id!==workspaceId?'TARGET_WORKSPACE':target.kind==='project'&&!visible.has(destination.id)?'TARGET_UNSELECTABLE':existing&&!existing.id?'ALREADY_CONFIRMED':null;
       return {...target,...judgeVerdict(target,sentRecords),...(supported?{summary:existing?.summary??null,action:existing?'update':'create',linkId:existing?.id??null,expectedSummary:existing?.summary??null}:{}),name:destination?.name||'이름을 확인할 수 없어요.',error:!supported?'NEXT_STAGE':error||targetError};
     })};
@@ -147,10 +153,13 @@ export async function readClassificationSnapshot(proposal,rt=window.KPTURuntime)
   // can be distinguished from a missing/inaccessible note without broad reads.
   const [notes,links,projects,organizations]=await Promise.all([
     ids?readPages(`/rest/v1/app_notes?id=in.(${ids})&kind=eq.basket&select=id,workspace_id,raw_text,updated_at,archived_at,ai_export_allowed&order=id.asc`,rt):[],
-    ids?readPages(`/rest/v1/app_record_links?note_id=in.(${ids})&select=id,note_id,status,summary,organization_id,project_id&order=id.asc`,rt):[],
+    ids?readPages(`/rest/v1/app_record_links?note_id=in.(${ids})&select=id,note_id,status,summary,organization_id,project_id,bundle_id&order=id.asc`,rt):[],
     readPages('/rest/v1/app_spaces?select=id,workspace_id,owner_id,name,parent_id,status,metadata,sort_order,created_at&order=id.asc',rt),
     readPages('/rest/v1/app_suborganizations?select=id,workspace_id,name&order=id.asc',rt)
-  ]);return {workspaceId,userId,notes,links,projects,organizations};
+  ]);
+  // REF-참고묶음: the reference bundles (owner RLS). A failed read leaves reference suggestions unconfirmable (TARGET_MISSING); the rest still works.
+  const bundles=sortBundles(await readPages(`/rest/v1/app_reference_bundles?workspace_id=eq.${encodeURIComponent(workspaceId)}&select=id,workspace_id,name,sort_order,created_at&order=sort_order.asc,created_at.asc,id.asc`,rt).catch(()=>[]));
+  return {workspaceId,userId,notes,links,projects,organizations,bundles};
 }
 export async function confirmLinks(noteId,updatedAt,targets,rt=window.KPTURuntime) {
   try{return await rt.api('/rest/v1/rpc/app_basket_confirm_links',{method:'POST',body:{p_note_id:noteId,p_note_updated_at:updatedAt,p_targets:targets.map(t=>({kind:t.kind,target_id:t.target_id,reason:t.reason,...(Object.hasOwn(t,'summary')?{summary:t.summary}:{})}))}});}
