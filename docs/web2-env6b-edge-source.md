@@ -176,6 +176,7 @@
 | 33 | `share-page-read` | Web1 공유 페이지 읽기(SHARE-현장공유) | 운영 배포됨(버전 번호 미확인) | 2026-10-23 11:02 시작 (승인형 run #44) | false | **운영 소스 `ab008dd4`**(ED-② 공유 사진, 사진 주소 응답 추가; run #44 success, 되돌리기 ref `778cbf4`, verify_jwt 값 변경 없음). work (PR 1 서버) |
 | 34 | `ai-assist` | Web2 서버 AI 도우미(AI-서버연동, S1은 연결 요약만) | 운영 배포됨(버전 번호 미확인) | 2026-10-24 08:21 시작 (승인형 run #53) | **true** | **운영 소스 `64986f3`**(PRESS 서버 #1098 AI 분류 지침 한 줄; 되돌리기 ref `daed2e7b`; run #53 success, verify_jwt 값 변경 없음). 이전 기록: **운영 소스 `129d200b`**(#1048 주요 일정 제목 다듬기 `schedule_titles`; run #48 success, 되돌리기 ref `a9506005`, verify_jwt 값 변경 없음). 배포 이력(승인형 workflow): 10/22 `eed5df4f`(조직 요약) → `989a9528`(run #41) → 10/23 `a9506005`(run #46, 자료실 AI 분류 보완) → `129d200b`. work (S1 코드·시험) |
 | 35 | `share-page-media` | Web2 공유 페이지 사진 올리기·보기 주소·지우기·페이지 완전 삭제(`purge_page`, SHARE-페이지삭제)(ED-통합편집기 ②) | 운영 배포됨(버전 번호 미확인) | 2026-10-23 17:21 시작 (승인형 run #47) | **true** | **운영 소스 `77a83215`**(#1044 사진 같이 지우기; run #47 success, 되돌리기 ref `ab008dd4`). 첫 배포는 10/23 10:35 시작 run #43(ref `ab008dd4`, `first_deploy=true`·verify_jwt=true). verify_jwt 값 변경 없음. work (코드·시험) |
+| 36 | `collector-feed` | Web2 수집 받기(CALL-통화메뉴·TG-소식메뉴 2단계, 앱 스크립트가 통화 분석·텔레그램 묶음을 보냄) | 배포 대기 | 없음 | false | work (코드·시험, 첫 배포 전) |
 
 `share-page-read`(33행)는 **2026-10-23 기준 운영 배포됨**(위 표 갱신; 아래 문단은 배포 전 설계 기록이며 합계 32개 계산에는 이번 갱신에서 반영하지 않았다 — 운영 조회 없음, 재계산 미확인). 링크를 받은 사람은 로그인하지 않으므로 `verify_jwt=false`를 선택한다(2026-10-20 사용자 결정 S1: 읽기는 Web1 새 주소 + 긴 링크 값).
 인증 대신 함수 코드가 링크 값(16진수 64자)의 sha256 지문으로 링크 행 하나를 찾고, 꺼짐·기한·게시 상태를 확인한 뒤 그 페이지의 제목·블록만 돌려준다. 그 밖은 모두 같은 404다.
@@ -190,6 +191,11 @@ JPEG만(3MB 이하), 머리 구간에 EXIF·XMP·IPTC가 있으면 거절한다.
 화면에서 로그인한 소유자만 부르고 예약 호출이 없으므로 `verify_jwt=true`를 선택한다. 함수 코드도 Auth 서버로 로그인을 다시 확인하고, 본인 `app_workspace_members` 행이 `owner`인 작업공간 하나만 쓴다(`private.app_is_workspace_owner`와 같은 기준, 화면이 보낸 작업공간 값은 받지 않음).
 서버 관리자 키를 쓰지 않고 재료·사용 기록을 호출한 사람의 로그인 토큰으로 읽고 써서 기존 소유자 RLS가 그대로 걸린다. OpenAI 열쇠는 새 이름 `WEB2_OPENAI_API_KEY`만 읽는다(옛 `OPENAI_API_KEY`는 읽지 않음).
 첫 배포는 S2(열쇠 등록) 뒤 `first_deploy=true`·`verify_jwt=true`·`expect_unauth_401=true`로 한다. 이전 버전이 없으므로 되돌리기는 화면(S4)이 아직 부르지 않는 상태 유지, 필요하면 사용자가 대시보드에서 삭제를 판단한다.
+
+`collector-feed`(36행)는 **배포 대기**다(CALL-통화메뉴·TG-소식메뉴 2단계, `docs/design/call-telegram-feed.md` 4.4절). 부르는 쪽은 명진 계정의 Google 앱 스크립트라 사용자 로그인(JWT)이 없으므로 `verify_jwt=false`를 선택한다.
+대신 함수 코드가 `x-collector-feed-secret` 헤더를 새 비밀값 `COLLECTOR_FEED_SECRET`(32자 이상)과 SHA-256 고정 길이로 비교한다(`drive-summary` heartbeat와 같은 방식, 비밀값은 따로). 비밀값 미설정·짧음·불일치, `Authorization` 헤더(사용자 JWT), 예약·heartbeat 비밀 헤더가 붙은 요청은 모두 401이다.
+업무공간은 서버가 `kptu-work`로 정하고 요청 값은 받지 않는다. DB는 service role로 쓰되 migration `20261024140000_call_tg_feed`의 칸별 grant 안(소식 줄 넣기·중복 확인 세 칸 읽기, 하루 숫자 읽기·넣기·숫자 칸 고치기)만 쓴다.
+첫 배포는 DB 적용(run #65) 뒤 `first_deploy=true`·`verify_jwt=false`·`expect_unauth_401=true`(비밀 헤더 없는 POST는 401)로 한다. 되돌리기: 비밀값을 지우면 입구가 바로 닫힌다. 화면·앱 스크립트가 아직 이 함수를 쓰지 않으므로 그동안 영향은 없다. 함수 삭제는 사용자가 대시보드에서 판단한다(자동 삭제 없음).
 
 `basket-files`는 2026-10-10 사용자 승인형 #475 신규 배포 경로로 최초 배포 완료했다.
 version 1, verify_jwt=false, 비로그인 POST 401, OPTIONS 200, source b466910.
