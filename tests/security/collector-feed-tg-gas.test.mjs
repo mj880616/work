@@ -167,3 +167,10 @@ test('서버 응답 → 할 일',()=>{
   assert.equal(v(503,'AI_UNAVAILABLE'),'retry');assert.equal(v(502,'AI_INVALID_RESPONSE'),'retry');
   assert.equal(v(504,'AI_TIMEOUT'),'retry');assert.equal(v(0),'retry');assert.equal(v(500),'retry');
 });
+
+test('텔레그램 실패 로그에 서버 오류 코드가 그대로 찍힌다(503 원인 확인용)',()=>{
+  const tg=source.slice(source.indexOf('텔레그램 보내기 (TG-소식메뉴 3-나)'),source.indexOf('// node 시험에서만'));
+  const withCode="(res.json && res.json.error ? ' ' + res.json.error : '')";
+  assert.ok(tg.includes("stop = '서버·연결 실패(HTTP ' + res.code + "+withCode),'다시 보낼 때 멈춤 사유');
+  assert.ok(tg.includes("' 묶음 ' + (p + 1) + ' (HTTP ' + res.code + "+withCode+" + ')');"),'3번 실패 로그');
+});

@@ -690,7 +690,7 @@ function tgFeed_runCore_(isContinue) {
           } else {
             state.attempts[akey] = attempt;
             if (attempt >= TG_FEED_MAX_ATTEMPTS) {
-              Logger.log(TG_FEED_MAX_ATTEMPTS + '번 실패해 넘김: ' + room.key + ' ' + day + ' 묶음 ' + (p + 1) + ' (HTTP ' + res.code + ')');
+              Logger.log(TG_FEED_MAX_ATTEMPTS + '번 실패해 넘김: ' + room.key + ' ' + day + ' 묶음 ' + (p + 1) + ' (HTTP ' + res.code + (res.json && res.json.error ? ' ' + res.json.error : '') + ')');
               tally.failed++;
               delete state.attempts[akey];
               rs = tgFeedAfterPart(rs, day, p, parts.length);
@@ -699,7 +699,7 @@ function tgFeed_runCore_(isContinue) {
             } else {
               tally.retry++;
               tgFeed_saveState_(state);
-              stop = '서버·연결 실패(HTTP ' + res.code + ') — 10분 뒤 같은 묶음을 다시 보냄'; resumable = true; break;
+              stop = '서버·연결 실패(HTTP ' + res.code + (res.json && res.json.error ? ' ' + res.json.error : '') + ') — 10분 뒤 같은 묶음을 다시 보냄'; resumable = true; break;
             }
           }
         }
