@@ -142,7 +142,7 @@ Deno.serve(async(req:Request)=>{
     let projectId=String(form.get('project_id')||'').trim()||null;
     let meetingId=String(form.get('meeting_id')||'').trim()||null;
     if(meetingId){
-      const {data:meeting}=await admin.from('app_meetings').select('id,workspace_id,project_id,created_by').eq('id',meetingId).maybeSingle();
+      const {data:meeting}=await admin.from('app_meetings').select('id,workspace_id,project_id,created_by').eq('id',meetingId).is('deleted_at',null).maybeSingle(); // TRASH-Edge거르기2: 휴지통 사업 보고에는 자료를 붙이지 않는다
       if(!meeting||meeting.workspace_id!==wm.workspace_id)throw new UploadError('회의를 찾을 수 없습니다.',{status:404,code:'meeting_not_found',stage:'project'});
       if(meeting.project_id){if(!projectId)projectId=meeting.project_id;if(meeting.created_by!==user.id)await canEditProject(user.id,meeting.project_id)}
       else if(meeting.created_by!==user.id&&!['owner','admin','editor'].includes(wm.role))throw new UploadError('회의자료 등록 권한이 없습니다.',{status:403,code:'forbidden',stage:'authorize'});

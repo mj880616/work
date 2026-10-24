@@ -16,7 +16,7 @@ import {disconnectWithUndo,offerUndoNotice} from './basket-record-delete.js';
 import {readLinkedReports,readAllReports,readReportTargets,changeOneTarget,restoreTargets} from './report-links.js';
 import {openReport} from './report-open.js';
 import {reportTitle,reportKindTag,sameTarget} from './report-links-model.mjs';
-import {TRASH_KIND,TRASH_STATE,TRASH_TEXT,classifyTrashError,classifyTrashList,normalizeTrashRows,deleteDialogText,trashErrorText,purgeConfirmText,archiveButtonLabel,firstArchiveTab} from './project-trash-model.mjs';
+import {TRASH_KIND,TRASH_KINDS,TRASH_KIND_LABEL,TRASH_STATE,TRASH_TEXT,classifyTrashError,classifyTrashList,normalizeTrashRows,mergeTrashStates,restoredText,deleteDialogText,trashErrorText,purgeConfirmText,archiveButtonLabel,firstArchiveTab} from './project-trash-model.mjs';
 import {requestBasketNote,requestBasketNoteFrom,requestNoteDocOpen,requestNoteDocFrom,takeBasketReturn,basketNoteHref} from './basket-note-tasks.js';
 (()=>{
 'use strict';
@@ -35,7 +35,8 @@ const CONTENT_TYPES={text:'글',status:'현황',metrics:'지표',table:'표',tim
 let user=null,membership=null,wid=null,members=[],profiles=[],spaces=[],projects=[],current=null,detail=null,editingProject=null,editingMilestone=null,editingWs=null,lastSpacesKey='',detailEpoch=0,projectEpoch=0,googleCalendarState=null;
 // TRASH-삭제휴지통 2단계: 휴지통 상태의 유일한 주인. 서버(app_trash_list)에서만 채우고 브라우저에는 저장하지 않는다.
 // state는 이 한 곳에서만 정한다(ready=목록 받음, missing=함수 없음, failed=그 밖 실패).
-let trash={state:TRASH_STATE.UNKNOWN,rows:[],tab:'archive',busy:false},trashFlight=null;
+// TRASH-화면2: trash.state는 프로젝트 종류의 상태(프로젝트 [삭제] 판정용, 예전 그대로), trash.merged는 세 종류를 합친 상태(보관 창 탭·단추용), trash.kinds는 종류별 상태.
+let trash={state:TRASH_STATE.UNKNOWN,merged:TRASH_STATE.UNKNOWN,kinds:{},rows:[],tab:'archive',busy:false},trashFlight=null;
 // Save attempts outlive a closed/replaced editor, but never the authenticated tab.
 // An unknown create cannot become a fresh create by changing its title or DOM.
 const saveEditors=new Map(),saveAttempts=new Map();let saveSequence=0,projectRuntimeEpoch=rt.session.epoch();
@@ -352,7 +353,7 @@ async function renderGrid({isCurrent=()=>true}={}){
  if(old){const top=old.scrollTop;old.replaceWith(list);list.scrollTop=top}else grid.prepend(list);
  if(!$('#ps3DetailPane'))grid.insertAdjacentHTML('beforeend','<aside id="ps3DetailPane" class="ps3-pane" aria-label="프로젝트 상세"><p class="ps3-pane-empty">왼쪽에서 프로젝트를 고르면 여기에 보입니다.</p></aside>');
  const actions=list.querySelector('.add-list-head .ps3-project-toolbar');
- if(archiveBtn){paintArchiveBtn(archiveBtn);actions.append(archiveBtn);if(trash.state!==TRASH_STATE.MISSING)void syncTrash()}if(add)actions.append(add);
+ if(archiveBtn){paintArchiveBtn(archiveBtn);actions.append(archiveBtn);if(trash.merged!==TRASH_STATE.MISSING)void syncTrash()}if(add)actions.append(add);
  if(orderAvailable())actions.prepend(orderToggle());
  const key=JSON.stringify(spaces.map(p=>[p.id,p.name,p.parent_id,p.status,p.sort_order,p.updated_at]));
  if(key!==lastSpacesKey){lastSpacesKey=key;window.dispatchEvent(new CustomEvent('kptu:project-spaces-updated',{detail:{workspaceId:wid,userId:user.id,spaces}}))}
@@ -810,35 +811,43 @@ async function archiveProject(){if(!current)return;const ch=descendants(current,
 async function toggleProjectDone(){if(!current||!canManage(current))return;const next=current.status==='done'?'active':'done';try{await api(`/rest/v1/app_spaces?id=eq.${encodeURIComponent(current.id)}`,{method:'PATCH',body:{status:next,updated_at:new Date().toISOString()}});await renderGrid();await refreshDetail();toast(next==='done'?'프로젝트를 완료했습니다.':'프로젝트를 다시 진행합니다.')}catch(e){console.error('project status update failed',e);toast('프로젝트 상태를 변경하지 못했습니다.')}}
 async function renderArchiveList(){const box=$('#ps3ArchiveList'),rows=archived();if(!box)return;if(!rows.length){box.innerHTML=empty('보관한 프로젝트가 없습니다.');return}const under=p=>descendants(p);box.innerHTML=`<div class="ps3-plist">${rows.map(p=>listRowHtml(p,under(p),{open:false,trail:`<button type="button" class="mini ps3-prow-restore" data-ps3-restore="${p.id}">복구</button>`})).join('')}</div>`;void loadListSummaries([...listedProjects(),...rows.flatMap(p=>[p,...under(p).map(x=>x.project)])])}
 // 보관 모달 하나가 보관 탭과 휴지통 탭을 가진다. 그리기는 paintArchive 하나가 맡는다.
-function trashSig(){return trash.state+'|'+trash.rows.map(r=>`${r.id}:${r.child_count}:${r.parent_in_trash}`).join(',')}
-function paintArchiveBtn(el){const b=el||$('#ps3ArchiveBtn');if(!b)return;const label=archiveButtonLabel({archived:archived().length,trashCount:trash.rows.length,trash:trash.state});b.textContent=label||'보관 0';b.hidden=!label}
+function trashSig(){return trash.merged+'|'+TRASH_KINDS.map(k=>trash.kinds[k]||'').join(',')+'|'+trash.rows.map(r=>`${r.kind}:${r.id}:${r.child_count}:${r.parent_in_trash}`).join(',')}
+function paintArchiveBtn(el){const b=el||$('#ps3ArchiveBtn');if(!b)return;const label=archiveButtonLabel({archived:archived().length,trashCount:trash.rows.length,trash:trash.merged});b.textContent=label||'보관 0';b.hidden=!label}
 function trashRowHtml(r){
- const meta=[date(r.deleted_at)+' 넣음',r.child_count?`하위 ${r.child_count}개`:''].filter(Boolean).map(esc).join(' · ');
+ const meta=[r.kind===TRASH_KIND?'':TRASH_KIND_LABEL[r.kind],date(r.deleted_at)+' 넣음',r.child_count?`하위 ${r.child_count}개`:''].filter(Boolean).map(esc).join(' · ');
  const hint=r.parent_in_trash?` · <span class="ps3-trash-hint">${esc(TRASH_TEXT.PARENT_FIRST)}</span>`:'';
  return `<div class="ps3-restore-line ps3-trash-line" data-ps3-trash-row="${esc(r.id)}"><div class="ps3-prow-main kptu-list-row"><span class="kptu-list-row-main"><span class="ps3-prow-name kptu-list-name">${esc(r.name)}</span><span class="ps3-prow-meta kptu-list-summary">${meta}${hint}</span></span></div><button type="button" class="mini ps3-prow-restore" data-ps3-trash-restore="${esc(r.id)}"${r.parent_in_trash?' disabled':''}>되돌리기</button><details class="ps3-more ps3-line-more"><summary class="icon-btn" aria-label="휴지통 관리: ${esc(r.name)}">⋯</summary><div class="ps3-more-panel" role="group" aria-label="휴지통 관리"><button type="button" class="ps3-danger" data-ps3-trash-purge="${esc(r.id)}">영구 삭제</button></div></details></div>`
 }
 function paintTrashList(box){
- if(trash.state===TRASH_STATE.MISSING){box.innerHTML=empty(TRASH_TEXT.PREPARING);return}
- if(trash.state===TRASH_STATE.FAILED){box.innerHTML=`${empty(TRASH_TEXT.LOAD_FAILED)}<button type="button" class="mini" data-ps3-trash-retry>다시 시도</button>`;return}
- box.innerHTML=trash.rows.length?`<div class="ps3-plist">${trash.rows.map(trashRowHtml).join('')}</div>`:empty(TRASH_TEXT.EMPTY)
+ if(trash.merged===TRASH_STATE.MISSING){box.innerHTML=empty(TRASH_TEXT.PREPARING);return}
+ if(trash.merged===TRASH_STATE.FAILED){box.innerHTML=`${empty(TRASH_TEXT.LOAD_FAILED)}<button type="button" class="mini" data-ps3-trash-retry>다시 시도</button>`;return}
+ // 일부 종류만 아직 준비 전(DB 적용 전)이면 그 종류만 '준비 중'이라고 한 줄 알린다.
+ const pending=TRASH_KINDS.filter(k=>trash.kinds[k]===TRASH_STATE.MISSING).map(k=>TRASH_KIND_LABEL[k]);
+ const note=pending.length?`<p class="muted" data-ps3-trash-pending>${esc(pending.join('·'))} 휴지통은 준비 중입니다.</p>`:'';
+ box.innerHTML=(trash.rows.length?`<div class="ps3-plist">${trash.rows.map(trashRowHtml).join('')}</div>`:empty(TRASH_TEXT.EMPTY))+note
 }
 function paintArchive(){
  const box=$('#ps3ArchiveList'),tabs=$('#ps3ArchiveTabs'),hint=$('[data-ps3-archive-hint]'),head=$('#ps3ArchiveHeading');if(!box||!tabs)return;
- const known=trash.state!==TRASH_STATE.UNKNOWN,tab=known?trash.tab:'archive';
+ const known=trash.merged!==TRASH_STATE.UNKNOWN,tab=known?trash.tab:'archive';
  tabs.hidden=!known;
  tabs.querySelectorAll('[data-ps3-archive-tab]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.ps3ArchiveTab===tab)));
  head.textContent=tab==='trash'?'휴지통':'보관한 프로젝트';
- hint.hidden=tab==='trash'&&trash.state!==TRASH_STATE.READY;
- hint.textContent=tab==='trash'?'삭제한 프로젝트입니다. 자동으로 비우지 않으며, 영구 삭제는 직접 누를 때만 됩니다.':'삭제하지 않고 목록에서만 숨긴 프로젝트입니다.';
+ hint.hidden=tab==='trash'&&trash.merged!==TRASH_STATE.READY;
+ hint.textContent=tab==='trash'?'삭제한 프로젝트·담당조직·사업 보고입니다. 자동으로 비우지 않으며, 영구 삭제는 직접 누를 때만 됩니다.':'삭제하지 않고 목록에서만 숨긴 프로젝트입니다.';
  if(tab==='trash')paintTrashList(box);else void renderArchiveList()
 }
 async function refreshTrash(){
  if(trashFlight)return trashFlight;
  const epoch=projectEpoch,run=(async()=>{
-  let state,rows=[];
-  try{const data=await api('/rest/v1/rpc/app_trash_list',{method:'POST',body:{p_kind:TRASH_KIND},singleFlight:false});state=classifyTrashList(data);rows=normalizeTrashRows(data)}
-  catch(e){state=classifyTrashError(e)}
-  if(epoch===projectEpoch){trash.state=state;trash.rows=rows}
+  // 종류마다 따로 읽는다. 한 종류가 아직 없어도(DB 적용 전) 다른 종류는 그대로 보인다.
+  const got=await Promise.all(TRASH_KINDS.map(async kind=>{
+   try{const data=await api('/rest/v1/rpc/app_trash_list',{method:'POST',body:{p_kind:kind},singleFlight:false});return{kind,state:classifyTrashList(data),rows:normalizeTrashRows(data,kind)}}
+   catch(e){return{kind,state:classifyTrashError(e,kind),rows:[]}}
+  }));
+  if(epoch===projectEpoch){
+   trash.kinds=Object.fromEntries(got.map(g=>[g.kind,g.state]));trash.state=trash.kinds[TRASH_KIND];trash.merged=mergeTrashStates(trash.kinds);
+   trash.rows=got.flatMap(g=>g.rows).sort((x,y)=>String(y.deleted_at||'').localeCompare(String(x.deleted_at||''))||x.id.localeCompare(y.id))
+  }
   return trash.state
  })();
  trashFlight=run;try{return await run}finally{if(trashFlight===run)trashFlight=null}
@@ -849,23 +858,25 @@ async function syncTrash(){
  if(trashSig()!==before&&!$('#ps3ArchiveModal')?.classList.contains('hidden'))paintArchive()
 }
 async function reloadAfterTrash(){const epoch=projectEpoch;await syncTrash();if(epoch!==projectEpoch)return;await renderGrid();if(epoch===projectEpoch&&splitWanted())void resumeProjects()}
-async function trashRestore(id){
- try{await api('/rest/v1/rpc/app_trash_restore',{method:'POST',body:{p_kind:TRASH_KIND,p_id:id},singleFlight:false});return{ok:true}}
+async function trashRestore(id,kind=TRASH_KIND){
+ try{await api('/rest/v1/rpc/app_trash_restore',{method:'POST',body:{p_kind:kind,p_id:id},singleFlight:false});return{ok:true}}
  catch(e){return{ok:false,message:trashErrorText(e,TRASH_TEXT.UNDO_FAILED)}}
 }
+// 담당조직·사업 보고를 되돌리거나 영구 삭제하면 그 화면도 다시 읽게 알린다(프로젝트는 reloadAfterTrash가 그린다).
+function tellOtherViews(kind){if(kind==='organization')window.dispatchEvent(new Event('kptu:suborganization-updated'));else if(kind==='report')window.dispatchEvent(new CustomEvent('kptu:meetings-changed'))}
 async function restoreFromTrash(id){
- if(trash.busy)return;trash.busy=true;
- try{const r=await trashRestore(id);toast(r.ok?TRASH_TEXT.RESTORED:r.message)}finally{trash.busy=false}
- await reloadAfterTrash();paintArchive()
+ const row=trash.rows.find(x=>x.id===id);if(!row||trash.busy)return;trash.busy=true;
+ try{const r=await trashRestore(id,row.kind);toast(r.ok?restoredText(row.kind):r.message)}finally{trash.busy=false}
+ tellOtherViews(row.kind);await reloadAfterTrash();paintArchive()
 }
 async function purgeFromTrash(id){
  const row=trash.rows.find(x=>x.id===id);if(!row||trash.busy)return;
  if(!confirm(purgeConfirmText(row)))return;
  trash.busy=true;
- try{await api('/rest/v1/rpc/app_trash_purge',{method:'POST',body:{p_kind:TRASH_KIND,p_id:id},singleFlight:false});toast(TRASH_TEXT.PURGED)}
+ try{await api('/rest/v1/rpc/app_trash_purge',{method:'POST',body:{p_kind:row.kind,p_id:id},singleFlight:false});toast(TRASH_TEXT.PURGED)}
  catch(e){toast(trashErrorText(e,'영구 삭제하지 못했습니다. 다시 시도해 주세요.'))}
  finally{trash.busy=false}
- await reloadAfterTrash();paintArchive()
+ tellOtherViews(row.kind);await reloadAfterTrash();paintArchive()
 }
 function openArchive(){trash.tab=firstArchiveTab({archived:archived().length});paintArchive();openModal('ps3ArchiveModal');void syncTrash()}
 async function restoreArchive(id){await api(`/rest/v1/app_spaces?id=eq.${id}`,{method:'PATCH',body:{status:'active',updated_at:new Date().toISOString()}});await loadProjects();paintArchive();await renderGrid();toast('프로젝트를 복구했습니다.')}
@@ -912,7 +923,7 @@ function resetProjectSession(){orderMode=false;closeRecordMenu();disposeBasketEd
   projectEpoch+=1;detailEpoch+=1;saveEditors.clear();saveAttempts.clear();projectRuntimeEpoch=rt.session.epoch();
   user=null;membership=null;wid=null;members=[];profiles=[];spaces=[];projects=[];
   current=null;detail=null;basketTargetId=null;basketPending=false;editingProject=null;editingMilestone=null;editingWs=null;googleCalendarState=null;
-  lastSpacesKey='';summaryRun++;listCounts={};trash={state:TRASH_STATE.UNKNOWN,rows:[],tab:'archive',busy:false};trashFlight=null;
+  lastSpacesKey='';summaryRun++;listCounts={};trash={state:TRASH_STATE.UNKNOWN,merged:TRASH_STATE.UNKNOWN,kinds:{},rows:[],tab:'archive',busy:false};trashFlight=null;
   document.querySelectorAll('#ps3DetailModal,#ps3CreateModal,#ps3WorkstreamModal,#ps3MilestoneModal,#ps3DeleteModal,#ps3ArchiveModal').forEach(m=>{m.classList.add('hidden');m.setAttribute('aria-hidden','true')});
   const detailEl=$('#ps3DetailModal');if(detailEl&&docked()){document.body.append(detailEl);detailEl.classList.remove('ps3-docked');detailEl.setAttribute('role','dialog');detailEl.setAttribute('aria-modal','true');delete detailEl.dataset.ps3Docked}
   const grid=$('#projectGrid');if(grid){const toolbar=$('#projectsView>.section-head .ps3-project-toolbar');for(const button of [$('#ps3ArchiveBtn'),$('#newProjectBtn')])if(button&&grid.contains(button))toolbar?.append(button);grid.dataset.ps3Ready='0';grid.innerHTML=''}

@@ -746,3 +746,34 @@ test('status read: stored collector values with a bad shape are dropped', () => 
   }), { telegram: null, transcript: { last_at: '2026-10-03T10:00:00.000Z', count: null, reported_at: '2026-10-03T10:00:00.000Z' } });
   assert.deepEqual(core.collectorStatus(null), { telegram: null, transcript: null });
 });
+
+// TRASH-Edge거르기2: 서버 키는 RLS를 건너뛰므로 휴지통의 담당조직·사업 보고(deleted_at)를 읽기에서 직접 뺀다. 이름은 모두 가짜다.
+test('휴지통의 담당조직·사업 보고와 그 조직의 기록·담당 지정은 사본에 들어가지 않는다', async () => {
+  const gone = '2026-10-25T01:00:00Z', at = '2026-10-01T01:00:00Z';
+  const h = harness({ data: {
+    app_suborganizations: [
+      { id: 'org', name: '합성 살아있는 조직', active: true },
+      { id: 'org-trash', name: '합성 휴지통 조직', active: true, deleted_at: gone },
+    ],
+    app_suborganization_updates: [
+      { id: 'u-live', organization_id: 'org', occurred_at: at, raw_text: 'LIVE_RECORD' },
+      { id: 'u-trash', organization_id: 'org-trash', occurred_at: at, raw_text: 'TRASH_RECORD', organization: { workspace_id: 'ws', deleted_at: gone } },
+    ],
+    app_suborganization_assignees: [
+      { organization_id: 'org-trash', user_id: 'owner', organization: { workspace_id: 'ws', deleted_at: gone } },
+    ],
+    app_meetings: [
+      { id: 'm-live', project_id: 'p', series_name: '합성 살아있는 회의', title: 't', meeting_at: at, round_no: 1 },
+      { id: 'm-trash', project_id: 'p', series_name: '합성 휴지통 회의', title: 't', meeting_at: at, round_no: 2, deleted_at: gone },
+    ],
+  } });
+  assert.equal((await h.request({ Authorization: 'Bearer valid-owner' })).status, 200);
+  const body = h.uploads.map(u => u.body).join('');
+  assert.match(body, /합성 살아있는 조직/); assert.match(body, /LIVE_RECORD/); assert.match(body, /합성 살아있는 회의/);
+  assert.doesNotMatch(body, /합성 휴지통 조직|TRASH_RECORD|합성 휴지통 회의/);
+  const q = table => h.calls.find(c => c.url.pathname.endsWith(`/${table}`)).url.searchParams;
+  assert.equal(q('app_suborganizations').get('deleted_at'), 'is.null');
+  assert.equal(q('app_meetings').get('deleted_at'), 'is.null');
+  assert.equal(q('app_suborganization_updates').get('organization.deleted_at'), 'is.null');
+  assert.equal(q('app_suborganization_assignees').get('organization.deleted_at'), 'is.null');
+});
