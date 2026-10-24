@@ -499,11 +499,11 @@ test('hub reads: new documents and changed share pages of the week, this workspa
   // The week in Korea time: Monday 00:00 KST up to (not including) next Monday 00:00 KST.
   assert.deepEqual(doc.getAll('created_at'), ['gte.2026-10-04T15:00:00.000Z', 'lt.2026-10-11T15:00:00.000Z']);
   assert.deepEqual(share.getAll('updated_at'), ['gte.2026-10-04T15:00:00.000Z', 'lt.2026-10-11T15:00:00.000Z']);
-  assert.equal(doc.get('select'), 'id,title,file_name,category,meeting_id,created_at');
+  assert.equal(doc.get('select'), 'id,title,file_name,category,meeting_id,created_at,organization_id,project_id,file_id');
   assert.equal(share.get('select'), 'id,title,status,updated_at');
   for (const q of [doc, share]) { assert.equal(q.get('limit'), String(m.WEEK_READ_CAP)); assert.equal(/blocks|content|text|\*/.test(q.get('select')), false); }
   assert.equal(docs.capped, false);
-  const full = await m.readWeekDocuments('2026-10-05', runtime(() => Array.from({length:m.WEEK_READ_CAP}, (_, i) => ({id:`d${i}`}))));
+  const full = await m.readWeekDocuments('2026-10-05', runtime(path => path.startsWith('/rest/v1/app_documents?') ? Array.from({length:m.WEEK_READ_CAP}, (_, i) => ({id:`d${i}`})) : []));
   assert.equal(full.capped, true);
   await assert.rejects(m.readWeekSharePages('2026-10-05', runtime(() => ({message:'x'}))));
 });
@@ -712,4 +712,31 @@ test('REF-참고묶음: an update put only in a reference bundle stays out of ev
   const got = d.weekMaterial(model, [], [{index:0, org:'가상 지부', lines:[]}]);
   assert.deepEqual(has([...got.byOrg.values(), got.orgUnmatched, got.unmatched], [...onlyRef, '가상 묶음']), []);
   assert.deepEqual(got.byOrg.get(0).map(l => l.text), ['- 가상 조직과 참고 둘 다']);
+});
+
+// WEEKLY-자료요약 화면 ①: 그 주 자료의 'b1:' 요약을 자료 id 목록으로 한 번 더 읽고, 같은 지문의 예전 자료가 있으면 repeat. 못 읽으면 제목만.
+test('readWeekDocuments: b1 summaries by document id (summary table, b1 only), repeat when an earlier upload has the same fingerprint, a failed summary read keeps the documents', async () => {
+  const m = await mod;
+  const D = n => `d0000000-0000-4000-8000-${String(n).padStart(12, '0')}`, H = c => 'b1:' + c.repeat(32);
+  const docs = [{id:D(1), created_at:'2026-10-06T00:00:00Z'}, {id:D(2), created_at:'2026-10-07T00:00:00Z'}, {id:D(3), created_at:'2026-10-07T00:00:00Z'}];
+  const rt = runtime(path => {
+    const q = new URL(path, 'https://x.invalid').searchParams;
+    if (path.startsWith('/rest/v1/app_documents?') && q.has('created_at') && q.get('id')) return [{id:D(9)}];
+    if (path.startsWith('/rest/v1/app_documents?')) return docs.map(d => ({...d}));
+    if (q.get('content_hash') === 'like.b1:*') return [{document_id:D(1), content_hash:H('a'), summary:'가상 요구안. 10.28.(화) 1차 교섭 예정'}, {document_id:D(2), content_hash:H('b'), summary:'둘째'}, {document_id:D(3), content_hash:'old', summary:'옛 긴 요약'}];
+    if (path.startsWith('/rest/v1/app_document_ai_index?')) return [{document_id:D(1), content_hash:H('a')}, {document_id:D(9), content_hash:H('b')}];
+    return [];
+  });
+  const out = await m.readWeekDocuments('2026-10-05', rt);
+  assert.deepEqual(out.map(d => d.brief?.summary ?? null), ['가상 요구안. 10.28.(화) 1차 교섭 예정', '둘째', null]);
+  assert.deepEqual(out.map(d => !!d.repeat), [false, true, false]);
+  const [read, idx, hashes, earlier] = rt.calls.map(params);
+  assert.equal(idx.get('select'), 'document_id,content_hash,summary'); assert.equal(idx.get('workspace_id'), 'eq.w');
+  assert.equal(idx.get('document_id'), `in.(${D(1)},${D(2)},${D(3)})`);
+  assert.equal(hashes.get('select'), 'document_id,content_hash'); assert.equal(hashes.get('content_hash'), `in.(${H('a')},${H('b')})`);
+  assert.equal(earlier.get('id'), `in.(${D(9)})`); assert.equal(earlier.get('created_at'), 'lt.2026-10-04T15:00:00.000Z'); assert.equal(earlier.get('select'), 'id');
+  for (const q of [read, idx, hashes, earlier]) assert.equal(/extracted_text|\*/.test(q.get('select')), false);
+  // the summary table cannot be read → the documents as they are (title only), never a failure of the documents read
+  const plain = await m.readWeekDocuments('2026-10-05', runtime(path => { if (path.startsWith('/rest/v1/app_documents?')) return docs.map(d => ({...d})); throw Object.assign(new Error('x'), {status:404}); }));
+  assert.deepEqual(plain.map(d => [d.id, d.brief, d.repeat]), docs.map(d => [d.id, undefined, undefined]));
 });
