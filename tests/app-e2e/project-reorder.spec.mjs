@@ -51,7 +51,7 @@ test('PC 1280: drag a row onto a sibling saves sort_order and every list shows t
  // PC orders by drag only: no [순서 바꾸기] button, and the detail ⋯ menu has no 위로·아래로.
  await expect(page.locator('#ps3OrderBtn')).toHaveCount(0);
  const pcMore=page.locator('#ps3Menu details.ps3-more');await pcMore.locator('summary').click();
- await expect(pcMore.locator('.ps3-more-panel button')).toHaveText(['완료','수정','보관','삭제']);
+ await expect(pcMore.locator('.ps3-more-panel button')).toHaveText(['완료','수정','아래로 접기','보관','삭제']);
  await expect(pcMore.locator('[data-ps3-move-project]')).toHaveCount(0);await pcMore.locator('summary').click();
  await expect(row(page,'pa')).toHaveAttribute('draggable','true');await expect(row(page,'pd')).not.toHaveAttribute('draggable','true');
  // 1단 교섭 사업 → before 정책 사업 (upper half of the row).
@@ -85,7 +85,7 @@ test('phone 390: [순서 바꾸기] mode moves projects with ↑ ↓ among sibli
  // A phone list row is not draggable and the list head carries the small button (32px tall, 44px to press).
  await expect(row(page,'pa')).not.toHaveAttribute('draggable','true');
  const toggle=page.locator('#ps3OrderBtn');await expect(toggle).toHaveText('순서 바꾸기');await expect(toggle).toHaveAttribute('aria-pressed','false');
- expect((await toggle.boundingBox()).height).toBe(32);
+ expect((await toggle.boundingBox()).height).toBeLessThan(24);
  expect(await page.locator('#projectGrid .ps3-plist [data-ps3-order-row]').count()).toBe(0);
  if(SHOT)await page.screenshot({path:SHOT+'/prj-order-phone-390-list.png'});
  await toggle.click();
@@ -121,7 +121,7 @@ test('phone 390: [순서 바꾸기] mode moves projects with ↑ ↓ among sibli
  expect(await listIds(page)).toEqual(['pa','pg','pc','pd','pe','pb']);await expect(page.locator('#projectGrid [data-ps3-order-row]')).toHaveCount(0);
  await row(page,'pb').click();await expectProjectTitle(page,'합성 조직 사업');
  const more=page.locator('#ps3Menu details.ps3-more');await more.locator('summary').click();
- await expect(more.locator('.ps3-more-panel button')).toHaveText(['완료','수정','보관','삭제']);
+ await expect(more.locator('.ps3-more-panel button')).toHaveText(['완료','수정','아래로 접기','보관','삭제']);
  await expect(more.locator('[data-ps3-move-project]')).toHaveCount(0);
  if(SHOT)await page.screenshot({path:SHOT+'/prj-order-phone-390-menu.png'});
  expect(state.writes.every(w=>!('parent_id' in w.body))).toBe(true);

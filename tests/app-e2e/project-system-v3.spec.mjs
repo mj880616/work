@@ -981,7 +981,7 @@ test('V3 more menu and progress items use native keyboard disclosure behavior',a
   await summary.focus();
   await page.keyboard.press('Enter');
   await expect(menu).toHaveAttribute('open','');
-  await expect(menu.locator('.ps3-more-panel button')).toHaveText(['완료','수정','보관','삭제']);
+  await expect(menu.locator('.ps3-more-panel button')).toHaveText(['완료','수정','아래로 접기','보관','삭제']);
   await page.keyboard.press('Tab');
   await expect(menu.locator('[data-ps3-toggle-done]')).toBeFocused();
   await page.keyboard.press('Escape');

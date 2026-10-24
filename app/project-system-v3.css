@@ -306,9 +306,9 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
 .ps3-plist .kptu-list-row.ps3-drop-before,.ps3-plist .kptu-list-row.ps3-drop-after{background-image:linear-gradient(var(--kptu-primary),var(--kptu-primary));background-size:100% 2px;background-repeat:no-repeat;background-position:top}
 .ps3-plist .kptu-list-row.ps3-drop-after{background-position:bottom}
 /* PRJ-순서바꾸기(폰): [순서 바꾸기] 작은 버튼(32px, 누르는 범위 44px) → 줄마다 ↑ ↓(누르는 범위 44px). */
-#appView #projectsView .ps3-plist .ps3-order-toggle{position:relative;box-sizing:border-box;height:var(--ds-compact-height);min-height:var(--ds-compact-height);margin:0;padding:0 var(--ds-compact-pad-x);font-size:var(--ds-compact-text);line-height:1;white-space:nowrap;color:var(--kptu-ink);background:var(--kptu-surface);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-md)}
-#appView #projectsView .ps3-plist .ps3-order-toggle[aria-pressed="true"]{background:var(--kptu-primary-soft);border-color:var(--kptu-primary)}
-#appView #projectsView .ps3-plist .ps3-order-toggle::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+#appView #projectsView .ps3-plist .ps3-order-toggle{position:relative;box-sizing:border-box;margin:0;padding:0;border:0;background:transparent;font-size:12px;font-weight:400;line-height:1;white-space:nowrap;color:var(--kptu-muted);text-decoration:underline;cursor:pointer}
+#appView #projectsView .ps3-plist .ps3-order-toggle[aria-pressed="true"]{color:var(--kptu-primary);font-weight:600}
+#appView #projectsView .ps3-plist .ps3-order-toggle::after{content:"";position:absolute;left:-6px;right:-6px;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 #appView #projectsView .ps3-plist .ps3-order-line>.kptu-list-row{min-width:0}
 #appView #projectsView .ps3-plist .ps3-order-move{flex:none;box-sizing:border-box;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);min-width:var(--kptu-touch-target,44px);min-height:var(--kptu-touch-target,44px);margin:0;padding:0;font-size:18px;line-height:1;color:var(--kptu-ink);background:transparent;border:0;border-radius:var(--kptu-radius-md)}
 #appView #projectsView .ps3-plist .ps3-order-move:disabled{color:var(--kptu-faint);opacity:.45;cursor:default}
@@ -328,3 +328,17 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
 #ps3DetailModal .ps3-section .ps3-add-plus{margin-right:0}
 /* UPD-요약부품통일 ①: 연결 줄에 쓴 요약을 사업 보고 줄 아래 한 줄로 먼저 보인다. */
 #ps3-meetings .report-link-summary-line{display:block;color:var(--kptu-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* PRJ-목록접어두기: 줄 높이를 촘촘하게(누르는 범위는 줄 전체), 접어 둔 것은 맨 아래 한 줄로 접히고 펼치면 흐리게 보인다. */
+#appView #projectsView .ps3-plist .kptu-list-row{min-height:40px;padding-top:4px;padding-bottom:4px;-webkit-touch-callout:none}
+#appView #projectsView .ps3-plist .ps3-fold{border-top:1px solid var(--kptu-border)}
+.ps3-fold-summary{display:flex;align-items:center;gap:6px;min-height:40px;padding:0 var(--kptu-space-4);cursor:pointer;list-style:none;color:var(--kptu-muted);font-size:var(--ds-compact-text,13px)}
+.ps3-fold-summary::-webkit-details-marker{display:none}
+.ps3-fold-summary::before{content:"▸";flex:none}
+.ps3-fold[open]>.ps3-fold-summary::before{content:"▾"}
+.ps3-fold-label{flex:none;white-space:nowrap}
+.ps3-fold-names{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps3-fold[open]>.ps3-fold-summary .ps3-fold-names{display:none}
+.ps3-fold-summary:focus-visible{outline:2px solid var(--kptu-primary);outline-offset:-2px}
+.ps3-fold-body{opacity:.6}
+.kptu-folded-option{color:var(--kptu-muted)}
