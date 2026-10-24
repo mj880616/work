@@ -71,11 +71,10 @@ export type AiAssistDeps = {
 
 export const OPENAI_URL = "https://api.openai.com/v1/responses";
 export const KEY_NAME = "WEB2_OPENAI_API_KEY";
-// 작은 모델 하나로 시작(D3). 운영 값은 WEB2_AI_MODEL로 바꿀 수 있고, 없으면 이 기본값.
-export const DEFAULT_MODEL = "gpt-5.6-luna";
-// 가격 가정(문서 9절): 입력 100만 토큰 0.25달러, 출력 100만 토큰 2달러, 1달러 1,400원. S2에서 가격표로 다시 확인.
-export const DEFAULT_PRICE_IN_KRW_PER_MTOK = 350;
-export const DEFAULT_PRICE_OUT_KRW_PER_MTOK = 2800;
+// 모델·가격 기본값은 _shared/ai-model.ts 한 곳(운영 값은 WEB2_AI_MODEL·WEB2_AI_PRICE_*로 바꿀 수 있음).
+import { DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
+export { DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK };
+export const DEFAULT_MODEL = DEFAULT_AI_MODEL;
 // Web2 월 추정 한도(D4 ②). OpenAI 쪽 월 한도(약 2만 원, D4 ①)보다 먼저 멈춘다.
 export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 50회. 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
