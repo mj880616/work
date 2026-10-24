@@ -228,3 +228,36 @@ test('replace file screen: renamed menu item, file line in the edit dialog, save
   const css=readFileSync(new URL('../app/library-upload.css',import.meta.url),'utf8');
   assert.match(css,/\.library-edit-prev>summary/);
 });
+
+// WEEKLY-자료요약 화면 ①: 이미 분류된 예전 자료도 'b1:' 요약이 없으면(요약 표에 행이 없고 글자가 ready) 후보 — 오래된 것부터 뒤에.
+test('tidyCandidates: an already tidied old document without any summary row is a brief candidate, oldest first; an old summary row keeps it out',()=>{
+  const done={title:'정리됨',source:'a',document_date:'2026-01-01',category:'교섭',project_id:'p',organization_id:'o'};
+  const docs=[row(1,{...done,created_at:'2026-09-10T00:00:00Z'}),row(2,{...done,created_at:'2026-08-01T00:00:00Z'}),row(3,{...done}),
+    row(4,{...done,extraction_status:'empty'}),row(5,{...done,created_at:JUST}),row(6),row(7,{...done})];
+  const tried=new Set([DOC(1),DOC(2),DOC(3),DOC(4),DOC(5),DOC(7)]);
+  // 3: a 'b1:' row or an old row — both are rows in the table → out. 4: no text. 5: just uploaded (fill). 6: untidy → first. 7: no row → brief.
+  const briefs=new Set([DOC(3)]);
+  assert.deepEqual(m.tidyCandidates(docs,{tried,categories:CATS,now:NOW,briefs}).map(d=>d.id),[DOC(6),DOC(2),DOC(7),DOC(1)]);
+  // the summary table could not be read → the old rule only
+  assert.deepEqual(m.tidyCandidates(docs,{tried,categories:CATS,now:NOW,briefs:null}).map(d=>d.id),[DOC(6)]);
+  assert.equal(m.needsBrief(row(1),new Set()),true);assert.equal(m.needsBrief(row(1),null),false);
+});
+
+test('autoTidyLibrary: reads the summary table ids once (document_id only) and sends brief-only documents; a failed read sends none of them',async()=>{
+  const done={title:'정리됨',source:'a',document_date:'2026-01-01',category:'교섭',project_id:'p',organization_id:'o'};
+  const docs=[row(1,done),row(2,done)];
+  const paths=[];
+  const rt=ok=>({api:async path=>{paths.push(path);
+    if(path.startsWith('/rest/v1/app_library_classify_attempts'))return [{document_id:DOC(1),with_text:true},{document_id:DOC(2),with_text:true}];
+    if(path.startsWith('/rest/v1/app_document_ai_index')){if(!ok)throw new Error('x');return [{document_id:DOC(1)}]}
+    if(path==='/functions/v1/document-actions')return {ok:true};
+    throw new Error('unexpected '+path)}});
+  const sent=[];const call=async b=>{sent.push(b);return {ok:true,data:{updated:0}}};
+  await m.autoTidyLibrary(docs,{rt:rt(true),call,workspace:'ws',categories:CATS,now:NOW});
+  assert.deepEqual(sent.map(b=>b.document_ids),[[DOC(2)]]);
+  const read=paths.find(p=>p.startsWith('/rest/v1/app_document_ai_index'));
+  assert.match(read,/workspace_id=eq\.ws/);assert.match(read,/select=document_id&/);
+  sent.length=0;
+  await m.autoTidyLibrary(docs,{rt:rt(false),call,workspace:'ws',categories:CATS,now:NOW});
+  assert.equal(sent.length,0);
+});

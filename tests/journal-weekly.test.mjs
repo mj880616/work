@@ -255,3 +255,47 @@ test('■ 일시 = 상집 보고일: the Monday after the shown week (tab, draft
   const text = m.weeklyReportText(m.weeklySummary({...base, materials:materials()}));
   assert.equal(text.split('\n')[1], '■ 일시 : 2026년 10월 12일(월)');
 });
+
+// WEEKLY-자료요약 화면 ①: 자료 → 조직 칸(우선)·프로젝트 줄, 기록과 같으면 접음, '참고'에서는 뺌, 복사·한글 파일 후보는 "- 제목 — 요약".
+test('자료 요약: organization cell first, project row, folded when the same as a record, out of 참고, in the copy and the 한글 candidates', async () => {
+  const m = await mod, draft = await import('../app/weekly-hwpx/draft.mjs');
+  const H = c => 'b1:' + c.repeat(32);
+  const updates = Object.assign([...orgUpdates, {id:'u3', organization_id:'o1', organization:{name:'가 조직'}, occurred_at:'2026-10-09T02:00:00Z', raw_text:'가 조직 10.30. 결의대회 개최 예정'}], {mine:new Set(['o1', 'o2']), orgs:[{id:'o1', name:'가 조직'}, {id:'o2', name:'나 조직'}, {id:'o9', name:'다른 조직'}]});
+  const docs = [
+    {id:'f1', title:'가 조직 요구안', organization_id:'o1', project_id:'A2', created_at:'2026-10-06T02:00:00Z', brief:{summary:'기본급 5% 인상 요구, 10.28.(화) 1차 교섭 예정', hash:H('a')}},
+    {id:'f2', title:'가 조직 기록 사본', organization_id:'o1', created_at:'2026-10-09T03:00:00Z', brief:{summary:'가 조직 10.30. 결의대회 개최 예정', hash:H('b')}},
+    {id:'f3', title:'A-2 자료', project_id:'A2', created_at:'2026-10-07T02:00:00Z'},
+    {id:'f4', title:'회의 자료', organization_id:'o1', meeting_id:'m1', created_at:'2026-10-07T03:00:00Z'},
+    {id:'f5', title:'담당 밖 자료', organization_id:'o9', created_at:'2026-10-08T03:00:00Z', brief:{summary:'담당 밖 요약', hash:H('c')}},
+    {id:'f6', title:'가 조직 요구안(다시)', organization_id:'o1', created_at:'2026-10-08T04:00:00Z', brief:{summary:'같은 파일', hash:H('a')}},
+  ];
+  const w = m.weeklySummary({...base, materials:{...materials(), orgUpdates:ok(updates), documents:ok(docs)}});
+  const ga = w.orgs.sections.find(s => s.name === '가 조직');
+  assert.deepEqual(ga.items.map(i => i.text), ['가 조직 요구안 — 기본급 5% 인상 요구, 10.28.(화) 1차 교섭 예정', '가 조직 기록', '가 조직 10.30. 결의대회 개최 예정']);
+  assert.deepEqual(ga.items[0].file, {id:'f1', verdict:'new', reason:'', same:2});
+  assert.deepEqual(ga.folded.map(i => [i.file.id, i.file.reason]), [['f2', 'record']]);
+  assert.ok(w.orgs.sections.find(s => s.name === '그 외').items.some(i => i.text === '다른 조직 · 담당 밖 자료 — 담당 밖 요약'));
+  // f1 has a project too, but shows only in its organization (Q3 ①); f3 is on the A-2 row.
+  const a2 = w.summary.areas.find(a => a.name === '사업영역 A').rows.find(r => r.task?.name === '세부 과제 A-2');
+  assert.deepEqual(a2.items.map(i => i.text), ['A-2 기록', 'A-2 자료']);
+  // 참고 keeps only the meeting file (and nothing that went to a cell, nor the merged re-upload f6)
+  assert.deepEqual(w.notes.docs.items.map(i => i.text), ['[기타] 회의 자료 · 회의자료']);
+  const text = m.weeklyReportText(w);
+  assert.ok(text.includes('- 10월 6일(화) 가 조직 요구안 — 기본급 5% 인상 요구, 10.28.(화) 1차 교섭 예정\n'));
+  assert.ok(text.includes('- 10월 7일(수) 세부 과제 A-2: A-2 자료\n'));
+  assert.equal(text.includes('가 조직 기록 사본'), false); assert.equal(text.includes('(자료)'), false); assert.equal(text.includes('같은 파일 2번') || text.includes('비슷한 기록'), false);
+  const material = draft.weekMaterial(w, [], [{index:0, org:'가 조직', lines:[]}]);
+  assert.deepEqual(material.byOrg.get(0).map(l => l.text), ['- 가 조직 요구안 — 기본급 5% 인상 요구, 10.28.(화) 1차 교섭 예정', '- 가 조직 기록', '- 가 조직 10.30. 결의대회 개최 예정']);
+  assert.ok(material.unmatched.some(l => l.text === '- 세부 과제 A-2: A-2 자료' || l.text === '- A-2 자료'));
+});
+
+test('자료 요약: without the documents read (loading or failed) the cells show their records as before; without the org list files stay in 참고', async () => {
+  const m = await mod;
+  const docs = [{id:'f1', title:'가 조직 요구안', organization_id:'o1', created_at:'2026-10-06T02:00:00Z'}];
+  const loading = m.weeklySummary({...base, materials:{...materials(), documents:{status:'loading'}}});
+  assert.equal(loading.orgs.loading, false);
+  assert.deepEqual(loading.orgs.sections.find(s => s.name === '가 조직').items.map(i => i.text), ['가 조직 기록']);
+  // orgUpdates has no `orgs` list here → the file cannot be placed → 참고 (title only, never lost)
+  const plain = m.weeklySummary({...base, materials:{...materials(), documents:ok(docs)}});
+  assert.deepEqual(plain.notes.docs.items.map(i => i.text), ['[기타] 가 조직 요구안']);
+});

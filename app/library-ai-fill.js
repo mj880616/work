@@ -113,17 +113,35 @@ export function openLinks(doc){
 // 후보: DB에 칸별 기록 칸이 있는 행이고(적용 전이면 빈 목록), 올린 지 1시간 지났고(막 올린 자료는 fill이 맡음),
 // 분류 시도 기록이 없으면서 정리 안 된 칸이나 비어 있는 연결이 있거나, 파일 이름만으로 판단했던 자료에 이제 글자가 있는(ready) 자료.
 // tried: Map(자료 id → 그때 글자로 판단했는지) 또는 Set(모두 끝난 것으로 봄).
-export function tidyCandidates(docs,{tried=new Set(),categories=[],now=Date.now()}={}){
-  return (docs||[]).filter(doc=>{
+// WEEKLY-자료요약 화면 ①(docs/design/weekly-file-summary.md 2.2절, Q4 ②): 이미 분류된 예전 자료도 글자가 있고(ready) 요약 표
+// (app_document_ai_index)에 행이 하나도 없으면 후보다 — 'b1:' 요약이 없는 자료. 옛 요약 행('b1:' 아님)이 있는 자료는 행이 있으므로
+// 빠진다(Q1 ①, 제목만). briefs: 요약 표에 행이 있는 자료 id의 Set, 표를 못 읽으면 null(그때는 요약 후보를 만들지 않는다).
+// 요약만 필요한 자료는 올린 날이 오래된 것부터 뒤에 붙인다(서버도 같은 순서·하루 몫 규칙으로 나눠 채운다, PR 1108).
+export function tidyCandidates(docs,{tried=new Set(),categories=[],now=Date.now(),briefs=null}={}){
+  const briefOnly=[];
+  const main=(docs||[]).filter(doc=>{
     if(!doc||typeof doc.id!=='string'||!UUID.test(doc.id)||!Object.hasOwn(doc,'field_origin'))return false;
     // 파일을 바꾼 자료(reclassify_needed): 올린 시각·시도 기록과 상관없이 한 번 다시 보낸다(서버가 끝나면 표시를 끈다). 창을 닫았거나 AI가 바빴을 때의 안전망.
     if(doc.reclassify_needed===true)return true;
     const created=Date.parse(doc.created_at||'');
     if(!Number.isFinite(created)||now-created<=TIDY_FRESH_MS)return false;
     const id=doc.id.toLowerCase();
-    if(tried.has(id))return tried instanceof Map&&tried.get(id)===false&&doc.extraction_status==='ready';
-    return untidyFields(doc,categories).length>0||openLinks(doc).length>0;
+    const needs=tried.has(id)?tried instanceof Map&&tried.get(id)===false&&doc.extraction_status==='ready':untidyFields(doc,categories).length>0||openLinks(doc).length>0;
+    if(needs)return true;
+    if(needsBrief(doc,briefs))briefOnly.push(doc);
+    return false;
   });
+  briefOnly.sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at)||String(a.id).localeCompare(String(b.id)));
+  return [...main,...briefOnly];
+}
+// 요약 후보(후보 고르기용, 서버가 글자 지문으로 다시 판단한다): 글자가 있고 요약 표에 그 자료의 행이 없을 때.
+export const needsBrief=(doc,briefs)=>briefs instanceof Set&&doc?.extraction_status==='ready'&&!briefs.has(String(doc.id).toLowerCase());
+// 요약 표에 행이 있는 자료 id(내 업무공간). 못 읽으면 null — 요약 후보 없이 예전 규칙대로만 보낸다.
+async function readBriefIds(rt,workspace){
+  try{
+    const rows=await rt.api('/rest/v1/app_document_ai_index?workspace_id=eq.'+encodeURIComponent(workspace)+'&select=document_id&limit=5000',{refreshSession:false,singleFlight:false});
+    return Array.isArray(rows)?new Set(rows.map(r=>String(r?.document_id||'').toLowerCase()).filter(Boolean)):null;
+  }catch{return null}
 }
 // 글자 읽기가 필요한 자료: 아직 한 번도 읽지 않은 자료만(ready·error는 이미 읽어 본 것이라 다시 부르지 않는다).
 export const needsText=doc=>!['ready','error'].includes(doc?.extraction_status);
@@ -157,7 +175,8 @@ export async function autoTidyLibrary(docs,{rt=globalThis.window?.KPTURuntime,ca
     if(!(docs||[]).some(doc=>doc&&Object.hasOwn(doc,'field_origin')))return {...out,stop:'library_not_ready'};
     const tried=await readTried(rt,workspace);
     if(!tried)return {...out,stop:'library_not_ready'};
-    const list=tidyCandidates(docs,{tried,categories,now});
+    const briefs=await readBriefIds(rt,workspace);
+    const list=tidyCandidates(docs,{tried,categories,now,briefs});
     for(let i=0;i<Math.min(list.length,TIDY_BATCH*TIDY_MAX_BATCHES);i+=TIDY_BATCH){
       if(!isCurrent())return {...out,stop:'stale'};
       const batch=list.slice(i,i+TIDY_BATCH);
