@@ -247,7 +247,7 @@
 #meetingRoundDetailModal .ai-summary-row,#meetingRoundDetailModal .ai-summary-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:6px; }
 #meetingRoundDetailModal .ai-summary-status { min-width:0; font-size:var(--kptu-text-meta,13px); color:var(--kptu-muted); overflow-wrap:anywhere; }
 #meetingRoundDetailModal .ai-summary-status:empty { display:none; }
-#meetingRoundDetailModal .ai-summary-proposal { margin-top:8px; padding:8px 10px; border:1px dashed var(--kptu-border); border-radius:8px; }
+#meetingRoundDetailModal .ai-summary-proposal { margin-top:8px; padding:8px 10px; border:1px dashed var(--kptu-border); border-radius:var(--kptu-radius-md); }
 #meetingRoundDetailModal .ai-summary-proposal p { margin:4px 0; }
 #meetingRoundDetailModal .ai-summary-proposal-label { color:var(--kptu-muted); font-size:var(--kptu-text-meta,13px); }
 #meetingRoundDetailModal .ai-summary-proposal-text { white-space:pre-wrap; overflow-wrap:anywhere; }
