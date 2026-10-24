@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { DEFAULT_AI_MODEL, withReasoning } from '../_shared/ai-model.ts';
 import { HwpxReader, hwpToText } from 'npm:@ssabrojs/hwpxjs';
 import { readMultipartForm } from '../_shared/multipart.ts';
 
@@ -60,8 +61,8 @@ function bytesToDataUrl(bytes:Uint8Array,mime:string){let bin='';for(let i=0;i<b
 function outputText(r:any){for(const item of r.output||[]){if(item.type==='message'){for(const c of item.content||[]){if(c.type==='output_text'&&c.text)return c.text}}}return r.output_text||''}
 // 본문 기반 제목은 best-effort다. 응답이 늦으면 파일명 제목으로 계속 진행한다.
 const TITLE_AI_TIMEOUT_MS=20000;
-async function openAI(body:any){const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+OPENAI,'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(TITLE_AI_TIMEOUT_MS)});const d=await r.json();if(!r.ok)throw new Error(d?.error?.message||'AI 요청에 실패했습니다.');return d}
-async function workspaceModel(workspaceId:string){const {data}=await admin.from('app_ai_workspace_settings').select('default_model').eq('workspace_id',workspaceId).maybeSingle();return data?.default_model||'gpt-5.6-luna'}
+async function openAI(body:any){const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+OPENAI,'Content-Type':'application/json'},body:JSON.stringify(withReasoning(body)),signal:AbortSignal.timeout(TITLE_AI_TIMEOUT_MS)});const d=await r.json();if(!r.ok)throw new Error(d?.error?.message||'AI 요청에 실패했습니다.');return d}
+async function workspaceModel(workspaceId:string){const {data}=await admin.from('app_ai_workspace_settings').select('default_model').eq('workspace_id',workspaceId).maybeSingle();return data?.default_model||DEFAULT_AI_MODEL}
 async function extractHwpText(bytes:Uint8Array,name:string){if(ext(name)==='hwp')return String(await hwpToText(bytes)).slice(0,18000);const reader=new HwpxReader();const ab=bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength);await reader.loadFromArrayBuffer(ab as ArrayBuffer);return String(await reader.extractText()).slice(0,18000)}
 function firstLikelyTitle(text:string){const lines=String(text||'').replace(/\r/g,'').split('\n').map(x=>x.trim()).filter(x=>x.length>=4&&x.length<=120);return lines.find(x=>/[가-힣A-Za-z]/.test(x)&&!/^[-–—•·※*\d\s.()]+$/.test(x))||null}
 async function inferTitleFromText(text:string,fileName:string,model:string){

@@ -86,7 +86,7 @@
 - 작업지시 배경에는 "회사 PC 수집기가 두 가지를 모두 저장한다"고 되어 있었다. 저장소 문서에서는 **텔레그램만 회사 PC**이고 **통화 전사는 앱 스크립트**다. 이 문서는 저장소 문서와 커맨드센터 확인 사실을 기준으로 한다.
 - Web2가 이 파일들을 읽는 경로는 지금 **없다**. 홈 화면 "마지막 수집 시각" 칸이 받는 것은 시각과 건수뿐이다(`drive-summary` `?action=status`의 `collectors`).
 - Web2의 Drive 권한은 `drive.file` 하나다(`docs/design/drive-tree-permission-check.md` 1절). 바깥 프로그램이 만든 파일은 못 읽는다. BASKET-수집연동 행(2026-10-20 #796 조사)과 OPS-수집점검 행에서도 같은 판단이었다.
-- 바구니 AI의 현재 모습: `ai-assist`(OpenAI Responses, 기본 모델 `gpt-5.6-luna`, 비밀값 `WEB2_OPENAI_API_KEY`)가 사용자 로그인 토큰으로 동작한다. 연결 요약, 챙길 것, 원장 후보, 자료실 채우기, 조직 요약, 일정 제목 다듬기를 처리한다. 비용 장치는 한 달 상한 `MONTHLY_LIMIT_KRW = 15000`과 `app_ai_daily_usage` 기록이다. 챙길 것 찾기는 이미 회의 `transcript_text`를 재료로 읽는다.
+- 바구니 AI의 현재 모습: `ai-assist`(OpenAI Responses, 기본 모델 `gpt-6-luna`(단일 출처 `_shared/ai-model.ts`), 비밀값 `WEB2_OPENAI_API_KEY`)가 사용자 로그인 토큰으로 동작한다. 연결 요약, 챙길 것, 원장 후보, 자료실 채우기, 조직 요약, 일정 제목 다듬기를 처리한다. 비용 장치는 한 달 상한 `MONTHLY_LIMIT_KRW = 15000`과 `app_ai_daily_usage` 기록이다. 챙길 것 찾기는 이미 회의 `transcript_text`를 재료로 읽는다.
 - 원장의 BASKET-수집연동 원래 요청(10/14)은 "둘 다 바구니 미분류로, 원문은 Drive, 바구니에는 출처·날짜·상대·원문 링크"였다. 이 문서는 그 요청을 **두 메뉴 + 바구니 AI 재료**로 바꾼다. 명진 님이 Q1 추천안으로 확정했다.
 - OPS-텔레그램상태파일: 원장에는 아직 행이 없다. 2026-10-23 사용자 결정은 A안(회사 PC 수집기가 실행마다 상태를 남김)이다. Drive에 수집 상태 파일이 이미 있으니 건수는 거기서도 얻을 수 있다(8절).
 
