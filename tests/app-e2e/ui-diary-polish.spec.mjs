@@ -143,14 +143,14 @@ test('③ no write button under the date; [+] writes the chosen day, an existing
  await expect(detail.getByText('이 날 일기 쓰기')).toHaveCount(0);
  await plus.click();
  await expect(editor.locator('[data-diary-date]')).toHaveValue('2026-10-02');
- await expect(editor.locator('[data-diary-text]')).toHaveValue('');
+ await expect(editor.locator('[data-diary-text] .ProseMirror')).toHaveText('');
  await page.goBack();await expect(editor).toBeHidden();
  // A day that has a diary: [+] opens it to edit.
  await page.locator('#diaryRoot [data-diary-day="2026-10-04"]').click();
  await expect(detail).toContainText('글만 쓴 날');
  await plus.click();
  await expect(editor.locator('[data-diary-date]')).toHaveValue('2026-10-04');
- await expect(editor.locator('[data-diary-text]')).toHaveValue('글만 쓴 날');
+ await expect(editor.locator('[data-diary-text] .ProseMirror')).toHaveText('글만 쓴 날');
  await page.goBack();await expect(editor).toBeHidden();
  // Nothing chosen: today.
  if(await detail.isVisible())await page.locator('#diaryRoot [data-diary-detail-close]').click();

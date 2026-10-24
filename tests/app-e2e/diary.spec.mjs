@@ -2,6 +2,10 @@ import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { openBasketMore } from './helpers/basket-more.mjs';
 import {expectDiaryDay} from './helpers/screen-title.mjs';
+import {typeInto} from './helpers/note-editor.mjs';
+// ED③ 일기: the day's text is the new editor ([data-diary-text] .ProseMirror). Typing goes through the editor like a person (select all, type).
+const field=ed=>ed.locator('[data-diary-text] .ProseMirror');
+const plain={useInnerText:true};
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // JOURNAL-일기 1차: [일정] [달력|할 일|일지|일기]. The mock keeps one app_notes store, honours PostgREST filters and
 // the diary checks the database has (kind=diary needs journal_day and ai_export_allowed=false, text or a photo, one per day),
@@ -253,7 +257,7 @@ test('쓰기 — 글만 / 둘 다: 글만이면 점, 둘 다면 사진과 글',a
  await expect(page.locator('#diaryRoot [data-diary-detail] button.primary')).toHaveCount(0);
  await page.locator('#diaryRoot #newDiaryBtn').click();
  const ed=page.locator('#diaryRoot [data-diary-editor]');await expect(ed.locator('[data-diary-date]')).toHaveValue('2026-10-01');
- await ed.locator('[data-diary-text]').fill('글만 남긴 하루');await ed.locator('[data-diary-save]').click();
+ await typeInto(page,field(ed),'글만 남긴 하루');await ed.locator('[data-diary-save]').click();
  await expect(cell(page,'2026-10-01').locator('[data-diary-dot]')).toBeVisible();
  expect(f.writes.filter(w=>w.method==='POST').at(-1).body).toMatchObject({kind:'diary',journal_day:'2026-10-01',raw_text:'글만 남긴 하루',ai_export_allowed:false});
  expect(f.uploads).toHaveLength(0);
@@ -261,7 +265,7 @@ test('쓰기 — 글만 / 둘 다: 글만이면 점, 둘 다면 사진과 글',a
  await page.locator('#diaryRoot #newDiaryBtn').click();
  await ed.locator('[data-diary-date]').fill('2026-10-02');
  await ed.locator('[data-diary-input]').setInputFiles(await photoFiles(page,1,{w:800,h:600}));
- await ed.locator('[data-diary-text]').fill('사진과 글');await ed.locator('[data-diary-save]').click();
+ await typeInto(page,field(ed),'사진과 글');await ed.locator('[data-diary-save]').click();
  await expect(cell(page,'2026-10-02').locator('img')).toBeVisible();
  await expect(page.locator('#diaryRoot [data-diary-text-view]')).toHaveText('사진과 글');
  expect(f.uploads.at(-1).size).toEqual({width:800,height:600});
@@ -274,25 +278,25 @@ test('같은 날은 하나: [+]는 있는 날을 고치기로, 날짜를 있는 
  await cell(page,'2026-10-03').click();
  await page.locator('#diaryRoot #newDiaryBtn').click();
  const ed=page.locator('#diaryRoot [data-diary-editor]');
- await expect(ed.locator('h3')).toHaveText('일기 수정');await expect(ed.locator('[data-diary-text]')).toHaveValue('가을 산책 DIARY_TEXT_SECRET');
+ await expect(ed.locator('h3')).toHaveText('일기 수정');await expect(field(ed)).toHaveText('가을 산책 DIARY_TEXT_SECRET',plain);
  await expect(ed.locator('[data-diary-date]')).toBeDisabled();await expect(ed.locator('[data-diary-thumb]')).toHaveCount(2);
- await ed.locator('[data-diary-text]').fill('가을 산책, 고쳐 씀');await ed.locator('[data-diary-save]').click();
+ await typeInto(page,field(ed),'가을 산책, 고쳐 씀');await ed.locator('[data-diary-save]').click();
  await expect(page.locator('#diaryRoot [data-diary-text-view]')).toHaveText('가을 산책, 고쳐 씀');
  expect(f.writes.filter(w=>w.method==='POST')).toHaveLength(0);
  expect(f.writes.at(-1)).toMatchObject({method:'PATCH',query:{kind:'eq.diary',id:'eq.d3'},body:{raw_text:'가을 산책, 고쳐 씀'}});
  // 새로 쓰다 날짜를 이미 있는 날로 바꾸면 고치기로 열리고 쓰던 글은 아래에 붙는다.
  await page.locator('#diaryRoot [data-diary-detail-close]').click();
  await page.locator('#diaryRoot #newDiaryBtn').click();await expect(ed.locator('h3')).toHaveText('일기 쓰기');
- await ed.locator('[data-diary-text]').fill('덧붙일 말');await ed.locator('[data-diary-date]').fill('2026-10-04');
+ await typeInto(page,field(ed),'덧붙일 말');await ed.locator('[data-diary-date]').fill('2026-10-04');
  await expect(ed.locator('h3')).toHaveText('일기 수정');await expect(ed.locator('[data-diary-editor-status]')).toHaveText('이 날 일기가 이미 있어 수정으로 열었어요.');
- await expect(ed.locator('[data-diary-text]')).toHaveValue('글만 쓴 날\n\n덧붙일 말');
+ await expect(field(ed)).toHaveText('글만 쓴 날 덧붙일 말',plain);
  page.once('dialog',d=>d.accept());await ed.locator('[data-diary-editor-close]').click();
  // 다른 곳에서 먼저 같은 날을 만들었으면(409) 저장하지 않고 고치기로 연다.
- await page.locator('#diaryRoot #newDiaryBtn').click();await ed.locator('[data-diary-text]').fill('늦게 쓴 글');
+ await page.locator('#diaryRoot #newDiaryBtn').click();await typeInto(page,field(ed),'늦게 쓴 글');
  f.rows.push({id:'d6',workspace_id:'w',kind:'diary',title:null,journal_day:'2026-10-06',raw_text:'다른 기기에서 쓴 글',occurred_at:at,created_at:at,updated_at:at,archived_at:null,ai_export_allowed:false,attachments:[],metadata:{}});
  await ed.locator('[data-diary-save]').click();
  await expect(ed.locator('h3')).toHaveText('일기 수정');await expect(ed.locator('[data-diary-editor-status]')).toHaveText('이 날 일기가 이미 있어요. 수정으로 열게요.');
- await expect(ed.locator('[data-diary-text]')).toHaveValue('다른 기기에서 쓴 글\n\n늦게 쓴 글');
+ await expect(field(ed)).toHaveText('다른 기기에서 쓴 글 늦게 쓴 글',plain);
  expect(f.rows.filter(r=>r.journal_day==='2026-10-06')).toHaveLength(1);
  expect(f.errors).toEqual([]);
 });
@@ -473,7 +477,7 @@ for(const width of [390,1280]){
   const inputs=ed.locator('[data-diary-comment]');await expect(inputs).toHaveCount(2);
   await expect(inputs.first()).toHaveAttribute('maxlength','200');await expect(inputs.first()).toHaveAttribute('aria-label','사진 1 코멘트');
   // 글만 고치면 metadata는 건드리지 않는다.
-  await ed.locator('[data-diary-text]').fill('글만 고침');await ed.locator('[data-diary-save]').click();
+  await typeInto(page,field(ed),'글만 고침');await ed.locator('[data-diary-save]').click();
   await expect(page.locator('#diaryRoot [data-diary-text-view]')).toHaveText('글만 고침');
   expect(f.writes.every(w=>!('metadata' in (w.body||{})))).toBe(true);
   // 코멘트 쓰기: 사진 1·2에 달고, 사진 1은 앞뒤 공백과 줄바꿈을 한 줄로 정리.

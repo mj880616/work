@@ -8,6 +8,10 @@ import {readDiaryMonth, readDiaryDay, createDiary, saveDiaryText, removeDiaryPho
   diaryPhotos, diaryText, takeRequestedDay, todayKey, ownerScope, validateDiaryText, DIARY_MAX_PHOTOS, DIARY_COMMENT_MAX,
   photoComments, cleanComments, saveDiaryComments} from './diary-data.js';
 import {deleteNoteOriginal} from './basket-record-delete.js';
+// ED③ 일기: the day's text is the new editor (ed-editor.js) inside this panel; the read view draws its saved form (ed-render). The photos,
+// their comments, the calendar and the swipe stay as they were. Letters (raw_text) are still saved with it for every other reader.
+import {renderDoc} from './ed-render.mjs';
+import {diaryHasDoc, diaryStartDoc, joinDiaryDocs, diaryDocToStore, diaryDocError} from './diary-doc.mjs';
 
 (() => {
 if (window.KPTUDiary) return;
@@ -136,8 +140,10 @@ function renderDetail() {
   sendWhere(longDay(selected));
   const row = rows.get(selected), photos = diaryPhotos(row), text = diaryText(row);
   detail.hidden = false; list.hidden = true;
-  detail.innerHTML = `<div class="diary-panel-head"><button type="button" class="icon-btn" data-diary-detail-close aria-label="날짜 닫기">×</button></div>${row ? `<div class="diary-source" role="group" aria-label="사진 보기"><button type="button" data-diary-source="all" aria-pressed="${source === 'all'}">전체</button><button type="button" data-diary-source="star" aria-pressed="${source === 'star'}">별표</button></div><div data-diary-photos></div>${text ? `<div class="diary-text" data-diary-text-view>${esc(text)}</div>` : ''}<div class="diary-actions"><button type="button" class="secondary" data-diary-edit>수정</button><button type="button" class="secondary diary-danger" data-diary-delete>일기 지우기</button></div>` : `<p class="diary-muted">이 날 일기가 없어요.</p>`}`;
+  detail.innerHTML = `<div class="diary-panel-head"><button type="button" class="icon-btn" data-diary-detail-close aria-label="날짜 닫기">×</button></div>${row ? `<div class="diary-source" role="group" aria-label="사진 보기"><button type="button" data-diary-source="all" aria-pressed="${source === 'all'}">전체</button><button type="button" data-diary-source="star" aria-pressed="${source === 'star'}">별표</button></div><div data-diary-photos></div>${text ? `<div class="diary-text${diaryHasDoc(row) ? ' is-doc' : ''}" data-diary-text-view>${diaryHasDoc(row) ? '' : esc(text)}</div>` : ''}<div class="diary-actions"><button type="button" class="secondary" data-diary-edit>수정</button><button type="button" class="secondary diary-danger" data-diary-delete>일기 지우기</button></div>` : `<p class="diary-muted">이 날 일기가 없어요.</p>`}`;
   syncDetailTitle();
+  const view = detail.querySelector('[data-diary-text-view]');
+  if (view && diaryHasDoc(row)) view.replaceChildren(renderDoc(row.doc));
   const host = detail.querySelector('[data-diary-photos]');
   if (!host) return;
   if (source === 'star') { host.innerHTML = '<p class="diary-muted diary-star-note" data-diary-star-note>원드라이브 연결 뒤 쓸 수 있어요</p>'; return; }
@@ -213,31 +219,58 @@ function closeViewer({fromBack = false, restore = true} = {}) {
 const commentsChanged = () => { const now = cleanLive(), was = edit.startComments; const keys = new Set([...Object.keys(now), ...Object.keys(was)]); return [...keys].some(key => (now[key] || '') !== (was[key] || '')); };
 // The typed comments of the photos already on the day, trimmed to one line; an over-long one is cut by cleanComments' error.
 const cleanLive = () => { const out = {}; for (const [id, text] of Object.entries(edit.comments)) { const line = String(text ?? '').replace(/\s+/g, ' ').trim(); if (line) out[id] = line; } return out; };
-const dirty = () => !!edit && (edit.pending.length > 0 || editor.querySelector('[data-diary-text]')?.value !== edit.startText || commentsChanged());
+// The text changed since the editor opened (or since the last save). Opening an old diary writes nothing: it is converted in memory.
+const textChanged = () => !!edit?.field && JSON.stringify(edit.field.getValue()) !== edit.baseJson;
+const dirty = () => !!edit && (edit.pending.length > 0 || textChanged() || commentsChanged());
 async function openEditor(day) {
   if (edit) return;
   let row = rows.get(day) || null;
   if (!row && loadedMonth !== monthOf(day)) {
     try { row = await readDiaryDay(day, rt); } catch { row = null; }
   }
-  edit = {day, row, pending:[], busy:false, startText:diaryText(row), comments:photoComments(row), startComments:photoComments(row)};
+  edit = {day, row, pending:[], busy:false, comments:photoComments(row), startComments:photoComments(row),
+    host:document.createElement('div'), field:null, baseJson:'', startDoc:diaryStartDoc(row), baseRaw:row ? row.raw_text : null, baseDoc:row ? row.doc ?? null : null, hadRow:!!row};
+  edit.host.className = 'diary-doc-host'; edit.host.dataset.diaryText = '';
   cal.hidden = true; detail.hidden = true; list.hidden = true; $('[data-diary-new]').hidden = true; $('.diary-head').hidden = true; status.hidden = true;
-  renderEditor();
+  renderEditor('편집기를 불러오는 중…');
   editLayer ||= window.KPTURouter?.layer?.open('diary-edit', {close:() => closeEditor({fromBack:true})}) || null;
   requestAnimationFrame(() => editor.querySelector('h3')?.focus());
+  edit.mounting = mountField(edit);
+}
+// A small box of the editor (글자색, 표 칸 메뉴, ⌄) takes the phone's back button first, like the big window.
+let boxLayer = null;
+function onBox(open) {
+  if (open) boxLayer ||= window.KPTURouter?.layer?.open('diary-edit-box', {close:() => { boxLayer = null; edit?.field?.closeBoxes(); return true; }}) || null;
+  else if (boxLayer) { const layer = boxLayer; boxLayer = null; layer.close(); }
+}
+async function mountField(session) {
+  try {
+    const {createDocEditor} = await import('./ed-editor.js');
+    if (edit !== session) return;
+    const used = session.startDoc;
+    const field = await createDocEditor({host:session.host, value:used, label:'일기 글', placeholder:'오늘 있었던 일을 적어 보세요(사진만 남겨도 돼요)', shortcuts:true, onBox});
+    if (edit !== session) { field.destroy(); return; }
+    if (session.startDoc !== used) field.setValue(session.startDoc);
+    session.field = field; session.baseJson = JSON.stringify(field.getValue());
+    if (session.pendingMerge) { field.setValue(session.pendingMerge); session.pendingMerge = null; }
+    if (!session.busy) setEditorStatus('');
+  } catch { if (edit === session) setEditorStatus('편집기를 불러오지 못했어요. 닫고 다시 열어 주세요.'); }
+}
+function dropField() {
+  if (boxLayer) { const layer = boxLayer; boxLayer = null; layer.close(); }
+  try { edit?.field?.destroy(); } catch { /* the editor is gone with the panel */ }
 }
 function renderEditor(message = '') {
   const {row, day} = edit, photos = diaryPhotos(row), count = photos.length + edit.pending.length;
-  const text = editor.querySelector('[data-diary-text]')?.value ?? edit.startText;
   editor.hidden = false;
   editor.innerHTML = `<div class="diary-panel-head"><h3 id="diaryEditorTitle" tabindex="-1">${row ? '일기 수정' : '일기 쓰기'}</h3><button type="button" class="icon-btn" data-diary-editor-close aria-label="일기 창 닫기">×</button></div>
 <label class="diary-field"><span>날짜</span><input type="date" data-diary-date value="${esc(day)}" min="2000-01-01" max="2100-12-31"${row ? ' disabled' : ''}></label>
 <div class="diary-pick"><input id="diaryPhotoInput" class="a11y-only" type="file" accept="image/*" multiple tabindex="-1" aria-hidden="true" data-diary-input><button type="button" class="secondary" data-diary-pick aria-controls="diaryPhotoInput"${count >= DIARY_MAX_PHOTOS ? ' disabled' : ''}>사진 고르기</button><small data-diary-count>${count}/${DIARY_MAX_PHOTOS}장 · 긴 변 2048px로 줄여 올려요</small></div>
 <div class="diary-thumbs" data-diary-thumbs></div>
-<label class="diary-field"><span>글</span><textarea data-diary-text rows="6" placeholder="오늘 있었던 일을 적어 보세요(사진만 남겨도 돼요)"></textarea></label>
+<div class="diary-field"><span id="diaryTextLabel">글</span><div data-diary-doc-slot></div></div>
 <p class="diary-editor-status" data-diary-editor-status role="status" aria-live="polite"></p>
 <div class="diary-actions"><button type="button" class="primary" data-diary-save data-enter-save-submit>저장</button>${row ? '<button type="button" class="secondary diary-danger" data-diary-delete>일기 지우기</button>' : ''}</div>`;
-  editor.querySelector('[data-diary-text]').value = text;
+  editor.querySelector('[data-diary-doc-slot]').replaceWith(edit.host);
   const thumbs = editor.querySelector('[data-diary-thumbs]');
   // Each photo has a one-line optional comment under it (max 200 chars), typed text kept in edit state across redraws.
   const commentInput = (value, label, attribute, key) => {
@@ -264,7 +297,8 @@ function renderEditor(message = '') {
   });
   thumbs.hidden = !count;
   setEditorStatus(message);
-  editor.querySelectorAll('button,input,textarea').forEach(control => { if (edit.busy && !control.matches('[data-diary-editor-close]')) control.disabled = true; });
+  editor.querySelectorAll('button,input,textarea').forEach(control => { if (edit.busy && !control.matches('[data-diary-editor-close]') && !edit.host.contains(control)) control.disabled = true; });
+  edit.host.toggleAttribute('inert', !!edit.busy);
 }
 const setEditorStatus = message => { const line = editor.querySelector('[data-diary-editor-status]'); if (line) line.textContent = message; };
 function releasePending() { edit?.pending.forEach(entry => URL.revokeObjectURL(entry.url)); }
@@ -272,7 +306,7 @@ function closeEditor({fromBack = false, force = false} = {}) {
   if (!edit) return true;
   if (edit.busy) return false;
   if (!force && dirty() && !window.confirm('쓰던 일기를 저장하지 않고 닫을까요?')) return false;
-  releasePending(); edit = null; editor.hidden = true; editor.replaceChildren();
+  releasePending(); dropField(); edit = null; editor.hidden = true; editor.replaceChildren();
   cal.hidden = false; renderList(); $('[data-diary-new]').hidden = false; $('.diary-head').hidden = false; status.hidden = false;
   const opened = editLayer; editLayer = null; if (!fromBack) opened?.close();
   if (selected) renderDetail();
@@ -298,24 +332,31 @@ async function changeDay(day) {
 }
 // A typed text is kept: appended below the day's saved text.
 function adoptExisting(row, message) {
-  const typed = editor.querySelector('[data-diary-text]')?.value || '';
-  const saved = diaryText(row);
-  edit.row = row; edit.day = row.journal_day; edit.startText = saved; edit.comments = photoComments(row); edit.startComments = photoComments(row);
+  const typedValue = edit.field?.getValue() || null, typedText = (edit.field?.getText() || '').trim();
+  const saved = diaryStartDoc(row), savedText = diaryText(row).trim();
+  edit.row = row; edit.day = row.journal_day; edit.startDoc = saved; edit.comments = photoComments(row); edit.startComments = photoComments(row);
+  edit.baseRaw = row.raw_text; edit.baseDoc = row.doc ?? null; edit.hadRow = true;
   rows.set(row.journal_day, row);
   renderEditor(message);
-  editor.querySelector('[data-diary-text]').value = typed.trim() && typed !== saved ? (saved ? `${saved}\n\n${typed}` : typed) : saved;
+  const merged = typedText && typedText !== savedText ? joinDiaryDocs(saved, typedValue) : null;
+  if (edit.field) {
+    edit.field.setValue(saved); edit.baseJson = JSON.stringify(edit.field.getValue());
+    if (merged) edit.field.setValue(merged);
+  } else if (merged) edit.pendingMerge = merged;
 }
 async function save() {
   if (!edit || edit.busy) return;
-  const text = editor.querySelector('[data-diary-text]').value, day = edit.day;
-  try { validateDiaryText(text); cleanComments(edit.comments, diaryPhotos(edit.row)); edit.pending.forEach(entry => cleanComments({x:entry.comment}, [{drive_file_id:'x'}])); } catch (error) { return setEditorStatus(error.message); }
+  // [저장] pressed while the editor is still loading waits for it (a text field that is not there yet can not be saved from).
+  if (!edit.field) { const session = edit; await session.mounting; if (edit !== session || !edit.field) return edit && setEditorStatus('편집기를 불러오지 못했어요. 닫고 다시 열어 주세요.'); }
+  const text = edit.field.getText(), value = edit.field.getValue(), changed = textChanged(), day = edit.day;
+  try { validateDiaryText(text); const bad = diaryDocError(diaryDocToStore(value, text)); if (bad) throw new Error(bad); cleanComments(edit.comments, diaryPhotos(edit.row)); edit.pending.forEach(entry => cleanComments({x:entry.comment}, [{drive_file_id:'x'}])); } catch (error) { return setEditorStatus(error.message); }
   if (!text.trim() && !edit.pending.length && !diaryPhotos(edit.row).length) return setEditorStatus('사진이나 글을 넣어 주세요.');
   const run = owner, mine = () => run === ownerScope(rt) && !!edit;
   edit.busy = true; renderEditor('저장하는 중…');
   let created = false, result = {done:0};
   try {
     if (!edit.row) {
-      try { edit.row = await createDiary({day, text}, rt); created = true; }
+      try { edit.row = await createDiary({day, text, doc:value}, rt); created = true; }
       catch (error) {
         if (error?.code !== 'diary_exists') throw error;
         const existing = await readDiaryDay(day, rt);
@@ -340,16 +381,21 @@ async function save() {
       // Nothing could be attached to a photo-only day: remove the empty row again.
       await dropEmptyDiary(fresh, rt).catch(() => {});
       fresh = null; edit.row = null;
-    } else if (fresh && fresh.raw_text !== desired && (desired || fresh.attachments?.length)) {
-      fresh = await saveDiaryText(fresh, text, rt);
+    } else if (fresh && (created ? fresh.raw_text !== desired : changed) && (desired || fresh.attachments?.length)) {
+      // A diary that was there when the editor opened is written only while its text is still what the editor opened: a diary changed on
+      // another device is refused, nothing is overwritten (the phone shows the newer one after closing).
+      if (!created && edit.hadRow && (fresh.raw_text !== edit.baseRaw || JSON.stringify(fresh.doc ?? null) !== JSON.stringify(edit.baseDoc ?? null))) {
+        rows.set(day, fresh);
+        throw Object.assign(new Error('일기 글이 그사이 다른 곳에서 바뀌었어요. 쓴 글을 복사해 두고, 닫았다가 다시 열어 확인해 주세요.'), {code:'note_changed'});
+      }
+      fresh = await saveDiaryText(fresh, text, rt, {doc:value, strict:true});
     }
     if (fresh) fresh = await saveDiaryComments(fresh, comments, rt);
-    if (fresh) { rows.set(day, fresh); edit.row = fresh; edit.startText = diaryText(fresh); edit.comments = photoComments(fresh); edit.startComments = photoComments(fresh); } else rows.delete(day);
+    if (fresh) { rows.set(day, fresh); edit.row = fresh; edit.baseRaw = fresh.raw_text; edit.baseDoc = fresh.doc ?? null; edit.hadRow = true; edit.baseJson = JSON.stringify(value); edit.comments = photoComments(fresh); edit.startComments = photoComments(fresh); } else rows.delete(day);
     edit.busy = false;
     if (result.failed) {
       const done = result.done ? `${result.done}장은 올렸어요. ` : '';
       renderEditor(`${done}'${result.failed}'부터 올리지 못했어요. ${result.message} 남은 사진은 [저장]을 다시 누르면 이어서 올려요.`);
-      editor.querySelector('[data-diary-text]').value = text;
       return renderMonth();
     }
     closeEditor({force:true});
@@ -360,13 +406,11 @@ async function save() {
     if (!edit) return;
     edit.busy = false;
     renderEditor(error?.status === 401 ? '로그인이 필요해요. 다시 로그인한 뒤 저장해 주세요.' : error?.message && !error.status ? error.message : '일기를 저장하지 못했어요. 다시 시도해 주세요.');
-    editor.querySelector('[data-diary-text]').value = text;
   }
 }
 async function removePhoto(fileId) {
   if (!edit?.row || edit.busy) return;
   if (!window.confirm('이 사진을 일기에서 뺄까요? Drive "Web2 바구니" 폴더의 파일은 그대로 남아요.')) return;
-  const text = editor.querySelector('[data-diary-text]').value;
   edit.busy = true; renderEditor('사진을 빼는 중…');
   try {
     const row = await removeDiaryPhoto(edit.row, fileId, rt);
@@ -376,7 +420,6 @@ async function removePhoto(fileId) {
   } catch (error) {
     edit.busy = false; renderEditor(error?.message && !error.status ? error.message : '사진을 빼지 못했어요. 다시 시도해 주세요.');
   }
-  editor.querySelector('[data-diary-text]').value = text;
 }
 async function removeDiary(row) {
   if (!row || edit?.busy) return;
@@ -410,7 +453,7 @@ root.addEventListener('click', event => {
   if (button.matches('[data-diary-delete]')) return removeDiary(edit ? edit.row : rows.get(selected));
   if (button.matches('[data-diary-editor-close]')) return closeEditor();
   if (button.matches('[data-diary-pick]')) return editor.querySelector('[data-diary-input]')?.click();
-  if (button.matches('[data-diary-unpick]')) { const [entry] = edit.pending.splice(Number(button.dataset.diaryUnpick), 1); if (entry) URL.revokeObjectURL(entry.url); const text = editor.querySelector('[data-diary-text]').value; renderEditor(); editor.querySelector('[data-diary-text]').value = text; return; }
+  if (button.matches('[data-diary-unpick]')) { const [entry] = edit.pending.splice(Number(button.dataset.diaryUnpick), 1); if (entry) URL.revokeObjectURL(entry.url); renderEditor(); return; }
   if (button.matches('[data-diary-remove]')) return removePhoto(button.dataset.diaryRemove);
   if (button.matches('[data-diary-save]')) return save();
 });
@@ -420,7 +463,7 @@ root.addEventListener('input', event => {
   else if (event.target.matches('[data-diary-pending-comment]')) { const entry = edit.pending[Number(event.target.dataset.diaryPendingComment)]; if (entry) entry.comment = event.target.value; }
 });
 root.addEventListener('change', event => {
-  if (event.target.matches('[data-diary-input]')) { const files = [...event.target.files || []]; event.target.value = ''; if (files.length && edit) { const text = editor.querySelector('[data-diary-text]').value; pick(files); editor.querySelector('[data-diary-text]').value = text; } }
+  if (event.target.matches('[data-diary-input]')) { const files = [...event.target.files || []]; event.target.value = ''; if (files.length && edit) pick(files); }
   if (event.target.matches('[data-diary-date]')) changeDay(event.target.value);
 });
 
@@ -440,7 +483,7 @@ window.addEventListener('kptu:session-changed', () => {
   if (owner === ownerScope(rt)) return;
   owner = ownerScope(rt); epoch++;
   closeViewer({fromBack:true, restore:false});
-  if (edit) { releasePending(); edit = null; editor.hidden = true; editor.replaceChildren(); cal.hidden = false; $('.diary-head').hidden = false; $('[data-diary-new]').hidden = false; status.hidden = false; }
+  if (edit) { releasePending(); dropField(); edit = null; editor.hidden = true; editor.replaceChildren(); cal.hidden = false; $('.diary-head').hidden = false; $('[data-diary-new]').hidden = false; status.hidden = false; }
   editLayer = null; dayLayer = null; selected = null; sendWhere(null); detail.hidden = true; rows = new Map(); loadedMonth = ''; renderMonth();
 });
 function enter() {
