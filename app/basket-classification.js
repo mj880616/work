@@ -1,5 +1,4 @@
 import { ordered } from './project-order.mjs';
-import { sortBundles } from './reference-bundles-data.js';
 // Untrusted AI proposals live only in memory. Never render reason as markup.
 export const CLASSIFICATION_LIMITS = Object.freeze({bytes:1048576, items:100, targets:20, reason:2000, depth:7, compared:5});
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -158,7 +157,8 @@ export async function readClassificationSnapshot(proposal,rt=window.KPTURuntime)
     readPages('/rest/v1/app_suborganizations?select=id,workspace_id,name&order=id.asc',rt)
   ]);
   // REF-참고묶음: the reference bundles (owner RLS). A failed read leaves reference suggestions unconfirmable (TARGET_MISSING); the rest still works.
-  const bundles=sortBundles(await readPages(`/rest/v1/app_reference_bundles?workspace_id=eq.${encodeURIComponent(workspaceId)}&select=id,workspace_id,name,sort_order,created_at&order=sort_order.asc,created_at.asc,id.asc`,rt).catch(()=>[]));
+  // The order is reference-bundles-data.js sortBundles' order, asked of the server (importing it would close an import cycle).
+  const bundles=await readPages(`/rest/v1/app_reference_bundles?workspace_id=eq.${encodeURIComponent(workspaceId)}&select=id,workspace_id,name,sort_order,created_at&order=sort_order.asc,created_at.asc,id.asc`,rt).catch(()=>[]);
   return {workspaceId,userId,notes,links,projects,organizations,bundles};
 }
 export async function confirmLinks(noteId,updatedAt,targets,rt=window.KPTURuntime) {
