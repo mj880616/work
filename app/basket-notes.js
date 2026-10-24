@@ -175,8 +175,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
 
   async function linked(noteId, targets) {
     for (const target of targets) {
-      const key = target.kind === 'project' ? 'project_id' : 'organization_id';
-      if (!links.some(l => l.note_id === noteId && l[key] === target.target_id && l.status === 'confirmed')) links.push({note_id:noteId, status:'confirmed', [key]:target.target_id, [target.kind]:{name:target.name}});
+      const key = target.kind === 'project' ? 'project_id' : target.kind === 'reference' ? 'bundle_id' : 'organization_id', named = target.kind === 'reference' ? 'bundle' : target.kind;
+      if (!links.some(l => l.note_id === noteId && l[key] === target.target_id && l.status === 'confirmed')) links.push({note_id:noteId, status:'confirmed', [key]:target.target_id, [named]:{name:target.name}});
     }
     renderList(); if (selected?.id === noteId) paintMeta();
     const owner = scope();

@@ -15,7 +15,7 @@ import { openMarkdownEditor } from './md-editor.js';
 import { createChoiceSheet } from './choice-sheet.js';
 import { createNoteDoc, noteTitleFromText, validateNoteText } from './basket-data.js';
 import { createUploadBatch, uploadBatch, uploadNoteFiles, mountBasketPicker, fileTitle } from './basket-upload.js';
-import { readPlaces, placeSources, placeSheetHtml, keepPlaces, samePlace, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, saveUpdateWithFiles, rememberPlace, linkFailText, fileFailText } from './update-places.js';
+import { readPlaces, placeSources, placeSheetHtml, placeValue, keepPlaces, samePlace, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, saveUpdateWithFiles, rememberPlace, linkFailText, fileFailText } from './update-places.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
 let sheet = null, active = null;
@@ -24,7 +24,7 @@ function placeSheet() {
     canOpen:() => !!active && !active.closed(), choices:() => active.load(),
     // UPD-여러곳고르기: a press only marks (pending); [저장] keeps the marks, every other close drops them.
     render:() => { if (active) active.pending = [...active.chosen]; return {title:'기록할 곳 선택', search:'조직·프로젝트 이름 검색', split:true, html:placeSheetHtml(active?.places, active?.pending, esc)}; },
-    multi:() => active ? {pressed:value => value === 'basket' ? !active.pending.length : active.pending.some(p => (p.kind === 'project' ? 'project:' + p.id : p.id) === value), label:choiceCountText(active.pending)} : null,
+    multi:() => active ? {pressed:value => value === 'basket' ? !active.pending.length : active.pending.some(p => placeValue(p) === value), label:choiceCountText(active.pending)} : null,
     onSelect:(kind, value) => active?.toggle(value), onCommit:() => active?.choose(),
     onError:error => active?.say(error?.message || '기록할 곳을 불러오지 못했어요.')});
   return sheet;

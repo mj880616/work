@@ -69,7 +69,8 @@ async function sameButtons(page,region){
  for(const control of await region.locator('button:visible').all()){
   // 8-9e-2: on phones the add button is the floating round [+] and 담당조직 추가 is a small text link (ui-standard-3b).
   // ORG-PC좌우: the organization detail on the right of the PC 담당조직 screen keeps the detail's own buttons (as in its dialog).
-  if(await control.evaluate(el=>el.matches('.icon-btn,.kptu-list-row,[data-ps3-project]')||!!el.closest('#wdDetailPane')||innerWidth<761&&el.matches('#newDocumentBtn,#newMeetingBtn,.so-add-link')))continue;
+  // REF-참고묶음 화면 2: the 참고 묶음 › entry at the bottom of the organization list is a list row (44px, no box), not a button.
+  if(await control.evaluate(el=>el.matches('.icon-btn,.kptu-list-row,.so-reference-entry,[data-ps3-project]')||!!el.closest('#wdDetailPane')||innerWidth<761&&el.matches('#newDocumentBtn,#newMeetingBtn,.so-add-link')))continue;
   const s=await look(control),label=(await control.textContent()).trim();
   // UI-버튼크기: 필터 칩(자료실·회의)은 32px 알약, 보조 버튼([분류 수정])은 32px. 둘 다 누르는 범위 44px. 나머지는 46px·8px.
   // LIB-토글트리: [모두 펴기/접기]·[N건 더]는 안내 줄 안의 작은 글자 버튼(28px, 테두리 없음, 누르는 범위 44px, UI-버튼기준).
