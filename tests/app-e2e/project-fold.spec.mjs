@@ -84,7 +84,8 @@ test('PC 1280: folding a big project folds its children with it; one child can b
  await expect.poll(()=>foldWrites(state)).toEqual([['pg',true],['pa',true]]);
  // Only the head names are listed; every child of 정책 사업 sits in the folded group.
  await expect(page.locator('.ps3-fold-label')).toHaveText('접어 둔 것 1');
- expect(await page.locator('#projectGrid .ps3-fold-body [data-ps3-project]').evaluateAll(xs=>xs.map(x=>x.dataset.ps3Project))).toEqual(['pa','pc','pd','pg']);
+ // The label stays '1' before and after (pg alone, then the whole 정책 사업), so wait on the rows themselves, not the label.
+ await expect.poll(()=>page.locator('#projectGrid .ps3-fold-body [data-ps3-project]').evaluateAll(xs=>xs.map(x=>x.dataset.ps3Project))).toEqual(['pa','pc','pd','pg']);
  expect((await optionIds(page)).map(o=>o.v)).toEqual(['pb','pe','pa','pc','pd','pg']);
  // A child folded only because its parent is folded has no 다시 위로 of its own (the parent brings all back).
  await page.locator('.ps3-fold-summary').click();
