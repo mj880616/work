@@ -47,6 +47,7 @@ import {readKinds, changeKind} from './journal-meeting-kinds.js';
 import {mountRadar} from './todo-radar.js';
 import {readOrgSummaries, saveEditedSummary, requestOrgSummaries, resultMessage, cleanEdited} from './journal-org-summary.js';
 import {readExecRequests, changeExecRequests, cleanItem, mergeCarried, isExecRecord} from './weekly-exec-requests.js';
+import {readAutoPromises} from './journal-ledger.js';
 
 // ORG-묶음순서: the shared organization order (window.KPTUOrganizationOrder) orders the 조직 소식 sections.
 await import('./organization-order.js').catch(() => {});
@@ -325,7 +326,16 @@ function renderDay() {
   body.append(...shown.map(part => partBox(part, {heading:'h5'})));
   others.append(body);
   others.addEventListener('toggle', () => { othersOpen = others.open; });
-  host.replaceChildren(report, others);
+  // LEDGER-자동기록: 그날 원장에 자동으로 기록된 약속이 있을 때만 한 줄(누르면 원장 화면의 약속 목록). 0건·못 읽음은 줄 없음.
+  const promises = materials.ledgerPromises?.status === 'ok' ? materials.ledgerPromises.items.get(selected) || 0 : 0;
+  const parts = [report, others];
+  if (promises > 0) {
+    const line = document.createElement('p');
+    line.className = 'journal-muted journal-ledger-line'; line.dataset.journalLedger = '';
+    line.innerHTML = `<button type="button" class="journal-item-open" data-journal-ledger-open>새로 기록된 약속 ${promises}</button>`;
+    parts.unshift(line);
+  }
+  host.replaceChildren(...parts);
 }
 // JOURNAL-챙길것: the box above the day card shows the candidates found in the chosen day's records (todo-radar.js draws it).
 // It belongs to the [하루] side; [주간 정리] hides it.
@@ -397,6 +407,8 @@ const readers = {
   orgSummaries: () => readOrgSummaries(start, rt),
   // WEEKLY-임원요청정리: the week's request rows ({missing:true} before the table exists).
   execRequests: () => readExecRequests(start, rt),
+  // LEDGER-자동기록: 이 주에 자동으로 원장에 들어온 약속 수(날별). 표가 없으면 빈 값.
+  ledgerPromises: () => readAutoPromises(start, rt),
   // The project tree for [주간 정리] (read once per visit, like the basket). Without it records go under their project names.
   catalog: async () => {
     const c = rt.context.read(), catalog = window.KPTUProjectCatalog;
@@ -449,7 +461,7 @@ function loadWeek({shared = false} = {}) {
   const sharedRun = shared || changedOwner ? ++sharedEpoch : sharedEpoch;
   lines = new Map(); status.textContent = ''; editing = null; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; execUi = freshExec();
   if (changedOwner) hwpx?.close(); else hwpx?.setWeek(start);
-  const keys = shared ? Object.keys(readers) : ['events', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'orgSummaries', 'execRequests'];
+  const keys = shared ? Object.keys(readers) : ['events', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'orgSummaries', 'execRequests', 'ledgerPromises'];
   for (const key of keys) materials[key] = {status:'loading'};
   if (shared || changedOwner) loadKinds(sharedRun, scope);
   render();
@@ -985,6 +997,16 @@ function enter(detail) {
   loadWeek({shared:true});
 }
 window.KPTURouter?.on?.('journal', enter);
+// LEDGER-자동기록: "새로 기록된 약속 N" → 원장 화면(약속만).
+root.addEventListener('click', async event => {
+  if (!event.target.closest?.('[data-journal-ledger-open]')) return;
+  event.preventDefault();
+  try {
+    await window.KPTUViewLoader?.load?.('ledger');
+    window.KPTULedgerBrowse?.show?.({kinds:['commitment']});
+    window.KPTURouter?.go?.('ledger', {source:'delegated'});
+  } catch (e) { console.error('journal ledger open', e?.name || 'Error'); }
+});
 // A renamed category list (자료실 분류) shows on the next draw of 자료실 새 자료.
 window.addEventListener('kptu:document-categories-changed', () => { if (materials.documents?.status === 'ok') { renderDay(); renderWeekly_(); } });
 // SEARCH-전체검색: a search result line of 업무일지 opens that day (its week, then the day).

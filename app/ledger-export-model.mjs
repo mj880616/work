@@ -1,9 +1,14 @@
-// AI-서버연동 S7-d: 원장 매주 Drive 내보내기의 순수 판단(app/ledger-export.js가 쓴다). DOM·네트워크 없음.
+// AI-서버연동 S7-d: 원장 Drive 내보내기의 순수 판단(app/ledger-export.js가 쓴다). DOM·네트워크 없음.
+// LEDGER-자동기록 3단계(설계 docs/design/ledger-auto-record.md 6절): 매주 자동 + 수동 버튼 대신, 원장이 바뀌면 10분 묶어 한 번(한 시간에 한 번까지),
+// 앱을 열 때 마지막 성공이 하루 넘었고 그 뒤 원장이 바뀌었으면 한 번. 화면은 상태 한 줄(멈췄을 때만 경고).
 const HOUR = 3600000, DAY = 24 * HOUR;
 export const WEEK_MS = 7 * DAY;
 export const RETRY_AFTER_FAILURE_MS = DAY; // 실패 뒤에는 하루 지나야 자동으로 다시 시도한다.
 export const CHECK_EVERY_MS = 6 * HOUR;    // 한 탭에서 상태를 묻는 간격.
 export const START_DELAY_MS = 2 * 60 * 1000; // 시작 요청(홈 읽기)과 겹치지 않게 연 뒤 2분 기다렸다 묻는다.
+export const DAY_MS = DAY;
+export const CHANGE_WAIT_MS = 10 * 60 * 1000; // 원장이 바뀐 뒤 10분 묶어 한 번
+export const MIN_GAP_MS = HOUR;                // 한 시간에 한 번을 넘지 않는다
 const ISO = /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/, CODE = /^[A-Z][A-Z0-9_]{0,63}$/;
 const time = v => (typeof v === 'string' && v.length <= 40 && ISO.test(v) && Number.isFinite(Date.parse(v))) ? Date.parse(v) : null;
 
@@ -15,11 +20,33 @@ export function ledgerFromStatus(data) {
   return { state: l.state, successAt: time(l.last_success_at), failedAt, code: failedAt !== null && typeof l.last_failure_code === 'string' && CODE.test(l.last_failure_code) ? l.last_failure_code : null };
 }
 
-// 매주 1회: 마지막 성공이 7일 넘었거나 없으면 내보낸다. 더 최근 실패가 있으면 하루 기다린다.
-export function exportDue(status, now) {
+const failedLast = s => s.failedAt !== null && (s.successAt === null || s.failedAt > s.successAt);
+
+// 앱을 열 때 한 번: 마지막 성공이 하루 넘었고 그 뒤 원장이 바뀌었으면(lastChangeAt: 원장 기록의 가장 늦은 updated_at, 모르면 null) 내보낸다.
+// 바뀐 시각을 모르면 옛 규칙(7일)으로만. 더 최근 실패가 있으면 하루 기다린다.
+export function exportDue(status, now, lastChangeAt = null) {
   if (!status) return false;
-  if (status.failedAt !== null && (status.successAt === null || status.failedAt > status.successAt) && now - status.failedAt < RETRY_AFTER_FAILURE_MS) return false;
-  return status.successAt === null || now - status.successAt >= WEEK_MS;
+  if (failedLast(status) && now - status.failedAt < RETRY_AFTER_FAILURE_MS) return false;
+  if (status.successAt === null) return true;
+  if (now - status.successAt >= WEEK_MS) return true;
+  return lastChangeAt !== null && lastChangeAt > status.successAt && now - status.successAt >= DAY;
+}
+
+// 원장이 바뀐 뒤 언제 부를까: 10분 묶되 마지막 시도에서 한 시간이 안 지났으면 그때까지 미룬다.
+export function nextExportDelay(lastAttemptAt, now) {
+  const gap = lastAttemptAt === null ? 0 : lastAttemptAt + MIN_GAP_MS - now;
+  return Math.max(CHANGE_WAIT_MS, gap);
+}
+
+// 상태 한 줄: 평소 {stalled:false, text:'Claude용 사본 10/23 14:20 갱신'}, 멈춤 {stalled:true, since}.
+// 멈춤 = 마지막 실패가 성공보다 최근, 또는 원장이 바뀐 뒤 하루 넘게 성공 없음.
+export function copyState(status, now, lastChangeAt = null) {
+  if (!status) return null;
+  if (failedLast(status)) return { stalled: true, since: status.successAt ?? status.failedAt, code: status.code };
+  if (lastChangeAt !== null && (status.successAt === null || lastChangeAt > status.successAt) && now - lastChangeAt >= DAY) {
+    return { stalled: true, since: status.successAt ?? lastChangeAt, code: null };
+  }
+  return { stalled: false, at: status.successAt };
 }
 
 // POST ?action=ledger_export 답. 옛 함수(배포 전)는 action을 몰라 사본 갱신 답(updated_at)을 준다 → not_deployed.

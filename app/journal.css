@@ -376,3 +376,5 @@
 #appView #journalView .journal-org-raw[open] > summary::before{ transform:rotate(90deg); }
 #appView #journalView .journal-org-tools .mini{ margin-left:-8px; }
 #appView #journalView .journal-org-tools .journal-org-edited + .mini{ margin-left:0; }
+/* LEDGER-자동기록: 하루 카드 재료 위 "새로 기록된 약속 N" 한 줄(기존 줄 버튼 모양 그대로). */
+#appView #journalView .journal-ledger-line{ margin:0; }

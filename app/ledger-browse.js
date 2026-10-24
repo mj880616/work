@@ -3,10 +3,18 @@
 // 화면(S7-c 정리): 검색칸 하나만 늘 보이고 나머지 조건은 [조건 ▾] 안(처음엔 접힘, 펼침 상태는 저장하지 않음). 걸린 조건은 칩, ✕로 하나씩 해제.
 // 걸러보기: 종류·기간·조직·주제·범위·대체/폐기 포함. 행을 누르면 상세(칸·근거·출처·연결)를 로그인 토큰으로 읽는다(읽기만).
 // 원장 표 또는 검색 RPC가 없으면(404) 칸 전체를 조용히 숨긴다. 다른 칸이 원장을 바꾸면 kptu:ledger-changed로 다시 읽는다.
+// LEDGER-자동기록 3단계(설계 docs/design/ledger-auto-record.md 3.3·8.1·9.2절): 자동으로 들어온 기록에 "자동" 꼬리표(변경 기록 표
+// app_ledger_record_changes, owner RLS 읽기), 확인필요 표시, 근거 web2:<종류>:<id> → ‹원문›(각 화면의 기존 여는 함수, 원문이 없으면
+// "원문이 지워졌어요"), 상세 ⋯ [틀린 기록으로 표시](app_apply_ledger_fix retire, 이유 선택, 직후 [되돌리기] = app_undo_ledger_fix)와
+// 자동 기록이면 [이번 자동 기록 취소](app_auto_ledger_undo). 쓰기는 이 DB 함수 셋뿐이고 모두 SECURITY INVOKER(owner RLS 그대로).
+// 변경 기록 표나 함수가 없으면(배포 전) 꼬리표·메뉴만 없고 목록은 그대로 보인다.
 import {
   KIND_DISPLAY, KIND_HINT, KINDS, VALIDITY_LABEL, SENSITIVITY_LABEL, DOC_TYPE_LABEL, SCOPE_CHOICES, PAGE, MAX_LIMIT, QUERY_MAX,
-  freshFilters, searchArgs, validResult, detailFields, sourceHref, linkLabel, rowView, activeConditions, clearCondition, countLabel
+  freshFilters, searchArgs, validResult, detailFields, sourceHref, linkLabel, rowView, activeConditions, clearCondition, countLabel,
+  web2Source, web2OpenTarget, web2SourceLabel, changeInfo, AUTO_TAG, RETIRE_REASONS, retireRequest, undoErrorText
 } from './ledger-browse-model.mjs';
+import { requestBasketNote, requestNoteDocOpen } from './basket-note-tasks.js';
+import { offerUndoNotice } from './basket-record-delete.js';
 
 const rt = window.KPTURuntime;
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -20,7 +28,7 @@ let bound = false;
 let seq = 0;
 function fresh() {
   return { phase: 'loading', organizations: [], topics: [], filters: freshFilters(), limit: PAGE, rows: [], busy: false, error: '',
-    openId: null, details: new Map(), detailBusy: '', detailError: '', condOpen: false };
+    openId: null, details: new Map(), detailBusy: '', detailError: '', condOpen: false, changes: new Map(), acting: '', actError: '', notice: '' };
 }
 
 async function search() {
@@ -32,6 +40,8 @@ async function search() {
     const rows = await rt.api('/rest/v1/rpc/app_ledger_search', { method: 'POST', body: built.args, singleFlight: false });
     if (mine !== seq) return;
     state.rows = (Array.isArray(rows) ? rows : []).filter(validResult);
+    state.changes = await readChanges(state.rows.map(r => r.id));
+    if (mine !== seq) return;
     state.phase = 'ready';
   } catch (e) {
     if (mine !== seq) return;
@@ -49,6 +59,20 @@ async function loadLists() {
   ]);
   state.organizations = (orgs || []).filter(o => UUID.test(String(o.id)));
   state.topics = (topics || []).filter(t => UUID.test(String(t.id)));
+}
+
+// 목록 기록들의 변경 기록(자동·수정 요청). 표가 없거나 못 읽으면 빈 값(꼬리표만 없음).
+async function readChanges(ids) {
+  const list = ids.filter(id => UUID.test(String(id)));
+  if (!list.length) return new Map();
+  try {
+    const rows = [];
+    for (let i = 0; i < list.length; i += 100) {
+      const part = await rt.api(`/rest/v1/app_ledger_record_changes?workspace_id=eq.${q(workspaceId())}&record_id=in.(${list.slice(i, i + 100).map(q).join(',')})&select=record_id,action,route,run_id,note&order=created_at.asc&limit=1000`, { singleFlight: false });
+      if (Array.isArray(part)) rows.push(...part);
+    }
+    return changeInfo(rows);
+  } catch { return new Map(); }
 }
 
 let loading = null;
@@ -96,15 +120,90 @@ async function readDetail(id) {
     meetings: new Map(meetings.map(m => [m.id, m.series_name || m.title || '']))
   };
   const sourceById = new Map(sources.map(s => [s.id, s]));
+  const originals = await readOriginals(sources);
   const topicName = state.topics.find(t => t.id === record.topic_id)?.name || '';
   const sup = names.records.get(record.superseded_by);
   return {
     record,
     fields: detailFields(record, { topicName, supersededBy: sup ? `${sup.ledger_id} ${sup.title}` : '' }),
-    sources: recordSources.map(rs => ({ ...rs, source: sourceById.get(rs.source_id) || null })),
+    sources: recordSources.map(rs => ({ ...rs, source: sourceById.get(rs.source_id) || null, original: originalOf(sourceById.get(rs.source_id), originals) })),
     links: [...outLinks.map(l => linkLabel(l, names, 'out')), ...inLinks.map(l => linkLabel(l, names, 'in'))]
   };
 }
+// 근거가 Web2 기록이면 그 원문이 아직 있는지 종류별로 한 번씩 읽는다(owner RLS). 못 읽으면 '모름'(링크 없이 글자만).
+const ORIGINAL_READ = {
+  notes: ids => `/rest/v1/app_notes?workspace_id=eq.${q(workspaceId())}&id=in.(${ids})&select=id,kind,archived_at,journal_day`,
+  meeting: ids => `/rest/v1/app_meetings?workspace_id=eq.${q(workspaceId())}&id=in.(${ids})&select=id`,
+  org_update: ids => `/rest/v1/app_suborganization_updates?id=in.(${ids})&select=id,organization_id`,
+  project_update: ids => `/rest/v1/app_project_progress_updates?id=in.(${ids})&select=id,project_id`
+};
+const tableOf = kind => (['basket', 'note', 'work'].includes(kind) ? 'notes' : kind);
+async function readOriginals(sources) {
+  const want = new Map();
+  for (const s of sources) { const w = web2Source(s.location); if (w) { const t = tableOf(w.kind); want.set(t, [...(want.get(t) || []), w.id]); } }
+  const found = new Map(), failed = new Set();
+  await Promise.all([...want].map(async ([table, ids]) => {
+    try {
+      const rows = await rt.api(ORIGINAL_READ[table]([...new Set(ids)].map(q).join(',')), { singleFlight: false });
+      for (const r of Array.isArray(rows) ? rows : []) if (UUID.test(String(r?.id))) found.set(String(r.id).toLowerCase(), r);
+    } catch { failed.add(table); }
+  }));
+  return { found, failed };
+}
+function originalOf(source, originals) {
+  const w = web2Source(source?.location);
+  if (!w) return null;
+  if (originals.failed.has(tableOf(w.kind))) return { src: w, label: web2SourceLabel(w, source), target: null, gone: false };
+  const target = web2OpenTarget(w, originals.found.get(w.id));
+  return { src: w, label: web2SourceLabel(w, source), target, gone: !target };
+}
+// ‹원문› 열기: 전체 검색과 같은 길(각 화면의 기존 여는 함수).
+async function openOriginal(target) {
+  const r = window.KPTURouter; if (!r || !target) return;
+  try {
+    await window.KPTUViewLoader?.load?.(target.view);
+    if (target.view === 'basket') { if (target.note === 'doc') requestNoteDocOpen(target.id); else requestBasketNote(target.id); r.go('basket', { source: 'delegated' }); }
+    else if (target.view === 'journal') { r.go('journal', { source: 'delegated' }); window.KPTUJournal?.show?.(target.day); }
+    else if (target.view === 'projects') { r.go('projects', { source: 'delegated' }); await window.KPTUProjects?.open?.(target.id); }
+    else if (target.view === 'team') { r.go('team', { source: 'delegated' }); await window.KPTUWorkplace?.open?.(target.id); }
+    else if (target.view === 'meetings') { r.go('meetings', { source: 'delegated' }); await window.__KPTU_MEETING_ROUND_DETAIL_READY__; await window.KPTUMeetingRoundDetail?.open?.(target.id); }
+  } catch (e) { console.error('ledger original open', e?.name || 'Error'); }
+}
+
+// ---------- 되돌리기 ----------
+const changedLedger = () => { try { window.dispatchEvent(new CustomEvent('kptu:ledger-changed', { detail: { source: 'browse' } })); } catch { /* 다음 열기에 */ } window.KPTULedgerExport?.changed?.(); };
+async function act(key, job) {
+  if (state.acting) return;
+  state.acting = key; state.actError = ''; state.notice = ''; render();
+  try { await job(); }
+  catch (e) { state.actError = undoErrorText(e); }
+  state.acting = ''; render();
+}
+function retireRecord(row, reasonKey) {
+  const body = retireRequest(row?.ledger_id, reasonKey);
+  if (!body) return;
+  return act('retire', async () => {
+    const out = await rt.api('/rest/v1/rpc/app_apply_ledger_fix', { method: 'POST', body: { p_workspace_id: workspaceId(), p_request: body, p_dry_run: false }, singleFlight: false });
+    const fix = typeof out?.fix_request_id === 'string' && UUID.test(out.fix_request_id) ? out.fix_request_id : null;
+    state.openId = null; changedLedger();
+    if (fix) offerUndoNotice({ text: `${row.ledger_id}을(를) 틀린 기록으로 표시했어요.`, onUndo: async () => {
+      try { await rt.api('/rest/v1/rpc/app_undo_ledger_fix', { method: 'POST', body: { p_fix_request_id: fix }, singleFlight: false }); }
+      catch (e) { return { message: undoErrorText(e) }; }
+      changedLedger();
+      return { message: '되돌렸어요.' };
+    } });
+  });
+}
+function undoRun(runId) {
+  if (!UUID.test(String(runId || ''))) return;
+  return act('run', async () => {
+    const out = await rt.api('/rest/v1/rpc/app_auto_ledger_undo', { method: 'POST', body: { p_run_id: runId }, singleFlight: false });
+    state.openId = null; changedLedger();
+    const n = Number.isInteger(out?.records_retired) ? out.records_retired : null;
+    state.notice = `이번 자동 기록을 취소했어요${n !== null ? `(기록 ${n}건 폐기)` : ''}.`;
+  });
+}
+
 async function toggleDetail(id) {
   if (state.openId === id) { state.openId = null; render(); return; }
   state.openId = id; state.detailError = '';
@@ -135,7 +234,8 @@ function render() {
   else box.innerHTML = resultsHtml();
   root.querySelector('#lbStatus').textContent = state.busy ? '찾는 중…' : state.phase === 'ready' ? countLabel(state.rows.length, state.limit) : '';
   root.querySelector('#lbChips').innerHTML = chipsHtml();
-  root.querySelector('#lbError').innerHTML = state.error ? `<p class="lg-error" role="alert">${esc(state.error)}</p>` : '';
+  root.querySelector('#lbError').innerHTML = (state.error ? `<p class="lg-error" role="alert">${esc(state.error)}</p>` : '')
+    + (state.notice ? `<p class="lg-note" role="status" data-lb-notice>${esc(state.notice)}</p>` : '');
 }
 
 const SEARCH_ICON = '<svg class="lb-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 10.5 14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
@@ -195,7 +295,8 @@ function resultsHtml() {
 function rowHtml(r) {
   const open = state.openId === r.id;
   const v = rowView(r);
-  const tags = [v.status ? `<span class="lb-state">${esc(v.status)}</span>` : '',
+  const tags = [state.changes.get(r.id)?.auto ? `<span class="lb-state lb-auto" data-lb-auto>${AUTO_TAG}</span>` : '',
+    v.status ? `<span class="lb-state">${esc(v.status)}</span>` : '',
     r.validity && r.validity !== 'current' ? `<span class="lb-state">${esc(VALIDITY_LABEL[r.validity] || r.validity)}</span>` : '',
     r.sensitivity === 'S2' ? `<span class="lb-state">${esc(SENSITIVITY_LABEL.S2)}</span>` : ''].join('');
   return `<li class="lb-item${open ? ' is-open' : ''}" data-lb-row="${esc(r.id)}" data-lb-kind="${esc(r.kind)}">
@@ -216,13 +317,27 @@ function detailHtml(id) {
   const sources = d.sources.length ? `<ul class="lg-list" data-lb-sources>${d.sources.map(s => {
     const src = s.source;
     if (!src) return '<li>(읽을 수 없는 출처)</li>';
+    if (s.original) {
+      const o = s.original, at = state.openId;
+      const open = o.target ? ` <button type="button" class="lg-text-btn" data-lb-action="original" data-lb-id="${esc(at)}" data-lb-src="${esc(s.id)}">‹원문›</button>` : o.gone ? ' <span class="lg-muted" data-lb-gone>원문이 지워졌어요</span>' : '';
+      return `<li data-lb-web2="${esc(o.src.kind)}">${esc(o.label)}${open}</li>`;
+    }
     const href = sourceHref(src);
     const title = href ? `<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(src.title)}</a>` : esc(src.title);
     const meta = [DOC_TYPE_LABEL[src.doc_type] || '', src.source_date || '', s.locator ? `근거위치 ${s.locator}` : '', !href && src.location ? src.location : '', src.status === 'retired' ? '폐기' : ''].filter(Boolean).map(esc).join(' · ');
     return `<li><b>${esc(src.ledger_id)}</b> ${title}${meta ? `<span class="lg-samples">${meta}</span>` : ''}</li>`;
   }).join('')}</ul>` : '<p class="lg-note">연결된 출처가 없습니다.</p>';
   const links = d.links.length ? `<ul class="lg-list" data-lb-links>${d.links.map(l => `<li>${l.dir === 'in' ? '← ' : ''}<b>${esc(l.relation)}</b> ${l.ledgerId && l.kind === 'record' ? `<button type="button" class="lg-tool" data-lb-action="find" data-lb-q="${esc(l.ledgerId)}">${esc(l.ledgerId)}</button> ` : l.ledgerId ? `${esc(l.ledgerId)} ` : ''}${esc(l.title)}${l.kind === 'project' ? ' <span class="lg-muted">(Web2 프로젝트)</span>' : l.kind === 'meeting' ? ' <span class="lg-muted">(Web2 회의)</span>' : ''}</li>`).join('')}</ul>` : '<p class="lg-note">연결이 없습니다.</p>';
-  return `${summary}${fields}<h5>근거·출처</h5>${sources}<h5>연결</h5>${links}`;
+  const info = state.changes.get(id), row = state.rows.find(r => r.id === id) || d.record;
+  const notes = info?.notes?.length ? `<p class="lg-note" data-lb-change>${info.notes.map(esc).join(' · ')}</p>` : '';
+  const live = ['current', 'needs_check', 'fulfilled'].includes(d.record.validity);
+  const items = [
+    live ? `<p class="lg-note">틀린 기록으로 표시(폐기, 지우지 않음)</p>${RETIRE_REASONS.map(([k, l]) => `<button type="button" class="lg-tool lg-danger" data-lb-action="retire" data-lb-id="${esc(id)}" data-lb-reason="${k}"${state.acting ? ' disabled' : ''}>${esc(l)}</button>`).join('')}` : '',
+    info?.auto && info.runId ? `<button type="button" class="lg-tool lg-danger" data-lb-action="undo-run" data-lb-run="${esc(info.runId)}"${state.acting ? ' disabled' : ''}>${state.acting === 'run' ? '취소하는 중…' : '이번 자동 기록 취소'}</button>` : ''
+  ].filter(Boolean).join('');
+  const menu = items ? `<details class="lc-more lb-more"><summary class="lg-tool" aria-label="기록 관리: ${esc(row.ledger_id)}">⋯</summary><div class="lc-more-panel" role="group" aria-label="기록 관리">${items}</div></details>` : '';
+  const err = state.actError ? `<p class="lg-error" role="alert" data-lb-act-error>${esc(state.actError)}</p>` : '';
+  return `${menu || notes ? `<div class="lb-detail-top">${notes || '<span></span>'}${menu}</div>` : ''}${err}${summary}${fields}<h5>근거·출처</h5>${sources}<h5>연결</h5>${links}`;
 }
 
 function readForm(root) {
@@ -263,6 +378,18 @@ function bind() {
     else if (action === 'unset') { readForm(root()); state.filters = clearCondition(state.filters, button.dataset.lbKey || ''); render(); run(); root().querySelector('#lbCondBtn')?.focus?.(); }
     else if (action === 'clear') { state.filters = freshFilters(); render(); run(); }
     else if (action === 'reload') void load();
+    else if (action === 'original') {
+      const d = state.details.get(button.dataset.lbId), s = d?.sources.find(x => x.id === button.dataset.lbSrc);
+      if (s?.original?.target) void openOriginal(s.original.target);
+    }
+    else if (action === 'retire') {
+      const row = state.rows.find(r => r.id === button.dataset.lbId) || state.details.get(button.dataset.lbId)?.record;
+      const label = (RETIRE_REASONS.find(([k]) => k === button.dataset.lbReason) || [])[1];
+      if (row && label && window.confirm(`${row.ledger_id}을(를) 틀린 기록으로 표시할까요? (${label}) 지우지 않고 폐기로 남깁니다.`)) void retireRecord(row, button.dataset.lbReason);
+    }
+    else if (action === 'undo-run') {
+      if (window.confirm('이번 자동 기록 전체를 취소할까요? 그때 들어온 기록은 폐기로 남고, 다른 기록에 붙인 근거는 뗍니다.')) void undoRun(button.dataset.lbRun);
+    }
     else if (action === 'find') { state.filters = { ...freshFilters(), q: button.dataset.lbQ || '', inactive: true, scope: 'all' }; render(); run(); }
   });
   window.addEventListener('kptu:ledger-changed', () => { if (state.phase !== 'hidden' || document.querySelector('#ledgerBrowseRoot')) void load(); });
@@ -273,7 +400,8 @@ window.addEventListener('kptu:session-changed', () => { state = fresh(); if (doc
 async function boot() {
   bind();
   await load();
-  window.KPTULedgerBrowse = { reload: load };
+  // 업무일지 "새로 기록된 약속 N"에서: 약속만 보이게 거른 뒤 화면을 연다(목록은 열 때 읽음).
+  window.KPTULedgerBrowse = { reload: load, show: ({ kinds = [] } = {}) => { state.filters = { ...freshFilters(), kinds: kinds.filter(k => KINDS.includes(k)) }; state.openId = null; state.condOpen = false; } };
   return true;
 }
 window.__KPTU_LEDGER_BROWSE_READY__ = boot().catch(err => { console.error('ledger browse init', err?.name || 'error'); return false; });
