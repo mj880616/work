@@ -148,12 +148,19 @@ test('PC: [+ 추가] opens the existing windows for 업데이트·할 일·노�
  await expect(menu.locator('button')).toHaveText(['업데이트','할 일','노트','일정','일기','공유 페이지','사업 보고']);
  await expect(menu.locator('button').first()).toBeFocused();
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(add).toBeFocused();
- // 업데이트 / 노트: the shared write window, preselected.
- for(const [name,kind] of [['업데이트','update'],['노트','note']]){
-  await add.click();await menu.getByRole('button',{name}).click();
+ // 업데이트: the shared write window, preselected. 노트 (ED③ 노트): the note's new big window (title row, new editor, no [업데이트|노트] switch).
+ {
+  await add.click();await menu.getByRole('button',{name:'업데이트'}).click();
   const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();
-  await expect(editor.locator(`[data-md-kind="${kind}"]`)).toHaveAttribute('aria-pressed','true');
+  await expect(editor.locator('[data-md-kind="update"]')).toHaveAttribute('aria-pressed','true');
   await page.keyboard.press('Escape');await expect(editor).toBeHidden();
+ }
+ {
+  await add.click();await menu.getByRole('button',{name:'노트'}).click();
+  const win=page.locator('#edWindow');await expect(win).toBeVisible();await expect(win).toHaveAccessibleName('새 노트');
+  await expect(win.locator('[data-edw-title]')).toBeVisible();await expect(win.locator('.ed-window-body .ProseMirror')).toBeVisible();
+  await expect(win.locator('[data-md-kind]')).toHaveCount(0);
+  await page.keyboard.press('Escape');await expect(page.locator('#edWindow')).toHaveCount(0);
  }
  // 일정 / 할 일: the existing event window, on its own side.
  for(const [name,mode] of [['일정','event'],['할 일','task']]){

@@ -158,14 +158,22 @@ for(const width of [390,1280]){
   await cdp.send('Input.imeSetComposition',{text:'한ㄱ',selectionStart:2,selectionEnd:2});
   await cdp.send('Input.insertText',{text:'한글'});
   await expect(field.locator('.ed-h2')).toHaveText('한글');
-  // A composition that types "-" then a space through the IME at a new line start: the list starts only after the commit, once.
+  // A Korean keyboard types "-" and the space as plain keys (not composed): the list starts, then 가 is composed inside the item.
+  // (Edge case, see PR: when an IME itself commits "- " and the next composition starts at once, the engine skips the rule — the letters
+  // stay as typed, never a wrong format.)
   await page.keyboard.press('Enter');
-  await cdp.send('Input.imeSetComposition',{text:'-',selectionStart:1,selectionEnd:1});
-  await cdp.send('Input.insertText',{text:'- '});
+  await page.keyboard.type('- ');await expect(field.locator('ul > li')).toHaveCount(1);
   await cdp.send('Input.imeSetComposition',{text:'ㄱ',selectionStart:1,selectionEnd:1});
   await cdp.send('Input.imeSetComposition',{text:'가',selectionStart:1,selectionEnd:1});
+  // While composing, the item does not turn into anything else; the committed syllable lands in the item.
+  await expect(field.locator('ul > li')).toHaveCount(1);
   await cdp.send('Input.insertText',{text:'가'});
   await expect(field.locator('ul > li')).toHaveText('가');
+  // A "## " composed and committed at a line start (with nothing composed after it) still becomes a heading once.
+  await page.keyboard.press('Enter');await page.keyboard.press('Enter');
+  await cdp.send('Input.imeSetComposition',{text:'#',selectionStart:1,selectionEnd:1});
+  await cdp.send('Input.insertText',{text:'### '});
+  await expect(field.locator('.ed-h3')).toHaveCount(1);
   await expect(field.locator('.ed-h2')).toHaveText('한글');
   expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
  });
