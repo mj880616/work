@@ -696,7 +696,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
   // 후보는 확정한 그 순간의 값으로 정한다(그 뒤에 고친 칸은 다음 확정 때). 기억 칸을 읽지 못한 주(준비 전 포함)는 묻지 않는다.
   function offerMemory(s) {
     const r = getWeek().model?.remembered;
-    if (!r?.ready) { s.remember = {status:'off'}; renderRemember(); return; }
+    if (!r?.ready) return; // 칸이 없거나 읽지 못하면 기억 없음 — 지금처럼(묻지 않음)
     const {candidates, used} = memoryCandidates(scheduleItems(fullCalendar()), {titles:s.titles, drops:s.drops});
     const day = reportDay(s.start);
     s.remember = {status:candidates.length ? 'ask' : 'none', candidates, used, day};
@@ -718,7 +718,6 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     if (!box) return;
     box.hidden = !m || m.status === 'none';
     if (box.hidden) { box.replaceChildren(); return; }
-    if (m.status === 'off') { box.replaceChildren(el('p', 'journal-muted', '주간보고 기억 칸을 읽지 못해 이번 주 일정 이름·빼기는 기억하지 않아요.')); return; }
     if (m.status === 'saved') { const p = el('p', 'journal-muted', `${m.saved}개를 기억했어요. 다음 주 초안에 먼저 넣어요([주간 정리] 맨 아래 ‘주간보고 기억’에서 지울 수 있어요).`); p.dataset.hwpxRememberDone = ''; box.replaceChildren(p); return; }
     const fold = el('details', 'journal-hwpx-plans'); fold.open = true; fold.dataset.hwpxRememberAsk = '';
     fold.append(el('summary', '', `다음 주에도 쓸까요? 달력 제목과 다르게 확정한 일정·뺀 일정 ${m.candidates.length}개`));

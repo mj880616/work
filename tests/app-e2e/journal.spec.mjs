@@ -1564,6 +1564,118 @@ test('[주간보고 한글 파일] 임시저장 칸이 아직 없으면(DB 적�
  expect(f.writes).toEqual([]);expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
 });
 
+// WEEKLY-환류 (docs/design/weekly-draft-feedback.md 3절): 5. 주요 일정 [빼기]·제목 고치기 → [확정] 뒤 "다음 주에도 쓸까요?"에서 [기억하기] →
+// 내 프로필 칸(weekly_schedule_memory) 하나만 PATCH → 다음 주에는 같은 원래 제목 일정에 기억한 이름이 먼저 들어가고 뺀 일정은 빠진다
+// ([이번 주만 넣기]로 그 주만 되살림) → [주간 정리] 맨 아래 '주간보고 기억'에서 [지우기]·[되돌리기]. 달력 원본은 그대로. 이름은 모두 합성.
+async function memoryFixture(page,options={}){
+ const f=await hwpxFixture(page,options),profile={memory:options.memory??[],patches:[]};
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_profiles',async r=>{
+  const req=r.request(),q=new URL(req.url()).searchParams;
+  if(req.method()==='GET'&&q.get('select')==='weekly_schedule_memory')return r.fulfill({json:[{weekly_schedule_memory:profile.memory}]});
+  if(req.method()==='PATCH'){const body=req.postDataJSON();profile.patches.push({user_id:q.get('user_id'),body});profile.memory=body.weekly_schedule_memory;return r.fulfill({json:[{weekly_schedule_memory:profile.memory}]});}
+  return r.fallback();
+ });
+ // 보고 주(10/5) 일정표(10/12~10/25)에는 회의·수련회, 그다음 주(10/12) 일정표(10/19~11/1)에는 같은 원래 제목의 회차와 남는 일정 하나.
+ const events=[
+  {id:'next',title:'가상 다음 주 회의',location:'가상 회의실',start:'2026-10-13T10:30:00+09:00',end:'2026-10-13T11:30:00+09:00',calendarId:'c'},
+  {id:'camp',title:'가상 수련회',allDay:true,start:'2026-10-14',end:'2026-10-16',calendarId:'c'},
+  {id:'next2',title:'가상 다음 주 회의',location:'가상 회의실',start:'2026-10-27T10:30:00+09:00',end:'2026-10-27T11:30:00+09:00',calendarId:'c'},
+  {id:'camp2',title:'가상 수련회',allDay:true,start:'2026-10-28',end:'2026-10-29',calendarId:'c'},
+  {id:'plain',title:'가상 남는 일정',start:'2026-10-29T14:00:00+09:00',end:'2026-10-29T15:00:00+09:00',calendarId:'c'},
+ ];
+ await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/google-calendar',async r=>{
+  const q=new URL(r.request().url()).searchParams;
+  if(q.get('action')!=='events')return r.fallback();
+  const instant=v=>Date.parse(/T/.test(v)?v:v+'T00:00:00+09:00'),min=Date.parse(q.get('timeMin')),max=Date.parse(q.get('timeMax'));
+  return r.fulfill({json:{events:events.filter(e=>!q.has('timeMin')||(instant(e.start)<max&&instant(e.end)>min))}});
+ });
+ return {...f,profile};
+}
+const titleRow=(page,title)=>hwpx(page).locator('[data-hwpx-part="schedule"] [data-hwpx-title]').filter({has:page.locator('[data-hwpx-origin]',{hasText:`원래: ${title}`})});
+for(const width of [390,1280])test(`[주간보고 기억] [빼기]·이름 고치기 → [확정] 뒤 [기억하기] → 다음 주 초안·화면에 먼저 적용 → [주간 정리]에서 지우기·되돌리기 ${width}`,async({page})=>{
+ const f=await memoryFixture(page,{width});
+ await openJournal(page,width);await openWeekly(page);
+ await openDraft(page);
+ await titleRow(page,'가상 다음 주 회의').locator('[data-hwpx-title-input]').fill('가상 점검 회의');
+ await titleRow(page,'가상 수련회').locator('[data-hwpx-title-drop]').click();
+ await expect(titleRow(page,'가상 수련회')).toHaveAttribute('data-dropped','true');
+ await expect(titleRow(page,'가상 수련회').locator('[data-hwpx-title-put]')).toHaveText('다시 넣기');
+ // 이번 주 빼기는 임시저장(dropped)에 들어간다.
+ await expect.poll(()=>f.exec.rows.find(r=>r.week_start==='2026-10-05')?.draft?.dropped,{timeout:15000}).toEqual(['c:camp']);
+ // 파일: 고친 이름, 뺀 수련회 줄은 없다.
+ const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ const {report}=await savedReport(download);
+ const cells=report.calendar.flatMap(d=>d.items.map(i=>i.what));
+ expect(cells).toEqual(['10:30 / 가상 점검 회의 / 가상 회의실']);
+ expect(report.calendar.some(d=>/~/.test(d.day))).toBe(false);
+ expect(f.profile.patches).toEqual([]);
+ // [확정] → 다음 주에도 쓸까요? (체크된 채) → [기억하기]: 이 칸 하나만 PATCH.
+ page.once('dialog',d=>d.accept());
+ await hwpx(page).locator('[data-hwpx-confirm]').click();
+ const ask=hwpx(page).locator('[data-hwpx-remember-ask]');
+ await expect(ask.locator('summary')).toHaveText('다음 주에도 쓸까요? 달력 제목과 다르게 확정한 일정·뺀 일정 2개');
+ await expect(ask.locator('[data-hwpx-remember-item]')).toHaveText([/가상 다음 주 회의 → 가상 점검 회의$/,/가상 수련회 → 빼기$/]);
+ await expect(ask.locator('[data-hwpx-remember-check]')).toHaveCount(2);
+ for(const c of await ask.locator('[data-hwpx-remember-check]').all())await expect(c).toBeChecked();
+ await ask.locator('[data-hwpx-remember-go]').click();
+ await expect(hwpx(page).locator('[data-hwpx-remember-done]')).toContainText('2개를 기억했어요.');
+ expect(f.profile.patches).toEqual([{user_id:'eq.home-test',body:{weekly_schedule_memory:[
+  {key:'가상다음주회의',origin:'가상 다음 주 회의',title:'가상 점검 회의',saved:'2026-10-12'},
+  {key:'가상수련회',origin:'가상 수련회',drop:true,saved:'2026-10-12'}]}}]);
+ // [주간 정리] 5. 주요 일정 화면도 같은 기억(이 주 회차에도 적용).
+ const cal=weekly(page,'calendar');
+ await expect(cal.locator('tbody .journal-weekly-what')).toHaveText(['10:30 / 가상 점검 회의 / 가상 회의실 기억']);
+ await expect(cal.locator('[data-journal-schedule-memory-dropped]')).toContainText('기억으로 뺀 일정 1개: 10.14.(수) ~ 10.15.(목) 가상 수련회');
+ // 다음 주: 같은 원래 제목 회차에 기억한 이름이 먼저, 수련회는 빠진다.
+ await page.locator('#journalRoot [data-journal-next]').click();
+ await expect(cal.locator('tbody .journal-weekly-what')).toHaveText(['10:30 / 가상 점검 회의 / 가상 회의실 기억','14:00 / 가상 남는 일정']);
+ await expect(cal.locator('[data-journal-schedule-memory-dropped]')).toContainText('10.28.(수) 가상 수련회');
+ await openDraft(page);
+ await expect(titleRow(page,'가상 다음 주 회의').locator('[data-hwpx-title-input]')).toHaveValue('가상 점검 회의');
+ await expect(titleRow(page,'가상 다음 주 회의').locator('[data-hwpx-memory-tag]')).toHaveText('기억');
+ await expect(titleRow(page,'가상 수련회')).toHaveCount(0);
+ const fold=hwpx(page).locator('[data-hwpx-memory-dropped]');
+ await expect(fold.locator('summary')).toHaveText('기억으로 뺀 일정 1개');
+ await fold.locator('summary').click();
+ await fold.locator('[data-hwpx-title-keep]').click();
+ await expect(titleRow(page,'가상 수련회')).toBeVisible();
+ await expect(fold).toBeHidden();
+ const [next]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ const {report:nextReport}=await savedReport(next);
+ expect(nextReport.calendar.flatMap(d=>d.items.map(i=>i.what))).toEqual(['10:30 / 가상 점검 회의 / 가상 회의실','종일 / 가상 수련회 / 미정','14:00 / 가상 남는 일정 / 미정']);
+ await expect.poll(()=>f.exec.rows.find(r=>r.week_start==='2026-10-12')?.draft?.kept,{timeout:15000}).toEqual(['c:camp2']);
+ // 기억 목록: 일정 이름·일정 빼기, [지우기] → 다시 읽고 그 항목만 빼서 PATCH, [되돌리기].
+ await hwpx(page).locator('[data-hwpx-close]').last().click();
+ const box=page.locator('#journalRoot [data-journal-weekly-memory]');
+ await expect(box.locator('summary')).toContainText('주간보고 기억 일정 이름 1 · 일정 빼기 1');
+ await box.locator('summary').click();
+ await expect(box.locator('[data-journal-memory-entry]')).toHaveText([/가상 다음 주 회의 → 가상 점검 회의/,/가상 수련회/]);
+ await box.locator('[data-journal-memory-delete="가상다음주회의"]').click();
+ await expect(box.locator('[data-journal-memory-status]')).toContainText('‘가상 다음 주 회의’ 기억을 지웠어요.');
+ expect(f.profile.memory.map(e=>e.key)).toEqual(['가상수련회']);
+ await expect(cal.locator('tbody .journal-weekly-what').first()).toHaveText('10:30 / 가상 다음 주 회의 / 가상 회의실');
+ await expect(box).toHaveJSProperty('open',true);
+ await box.locator('[data-journal-memory-undo]').click();
+ await expect(box.locator('[data-journal-memory-status]')).toContainText('되돌렸어요');
+ expect(f.profile.memory.map(e=>e.key)).toEqual(['가상수련회','가상다음주회의']);
+ await expect(cal.locator('tbody .journal-weekly-what').first()).toHaveText('10:30 / 가상 점검 회의 / 가상 회의실 기억');
+ expect(f.profile.patches.every(p=>Object.keys(p.body).join()==='weekly_schedule_memory'&&p.user_id==='eq.home-test')).toBe(true);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+test('[주간보고 기억] 칸이 아직 없으면(읽지 못함) 기억 없이 지금처럼 — [확정] 뒤 묻지 않고 기억 목록에도 일정 줄 없음 1280',async({page})=>{
+ const f=await hwpxFixture(page,{width:1280});
+ await openJournal(page,1280);await openWeekly(page);
+ await openDraft(page);
+ await hwpx(page).locator('[data-hwpx-part="schedule"] [data-hwpx-title]').first().locator('[data-hwpx-title-drop]').click();
+ page.once('dialog',d=>d.accept());
+ await hwpx(page).locator('[data-hwpx-confirm]').click();
+ await expect(hwpx(page).locator('[data-hwpx-status]')).toContainText('자료실에 "주간보고 개인본" 분류로 저장했어요');
+ await expect(hwpx(page).locator('[data-hwpx-remember]')).toBeHidden();
+ await expect(page.locator('#journalRoot [data-journal-weekly-memory] [data-journal-memory-entry]')).toHaveCount(0);
+ expect(f.errors).toEqual([]);
+});
+
 // JOURNAL-회의종류표시: 회의 종류(series_name → title, 띄어쓰기 없음·소문자)가 내 프로필의 "주간보고에 올리지 않을 종류" 목록에 있으면
 // [주간 정리] 2) 회의·행사 결과와 초안 복사에서 빠진다. 목록에 없는 종류(새 종류)·행사는 올라간다. 줄 옆 ⋯ 로 종류별 빼기/다시 올리기 —
 // 저장은 내 프로필 행의 이 칸 하나만 PATCH. 목록을 못 읽으면(옛 응답) 전부 올린다.
