@@ -13,7 +13,7 @@ async function fixture(page,{width,tables=true,seeded=true,period=true}){
  await page.setViewportSize({width,height:900});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const f=await openHome(page);
- const db={stages:seeded?defaultStageRows():[],history:[],rpc:[],patches:[],hpatches:[],hdeletes:[],seq:0};
+ const db={stages:seeded?defaultStageRows():[],history:[],rpc:[],patches:[],hpatches:[],hdeletes:[],hposts:[],seq:0};
  const json=(route,data,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
  await page.route(SB+'/rest/v1/app_suborganizations?**',route=>{const q=new URL(route.request().url()).searchParams,id=q.get('id');return json(route,id?orgs.filter(o=>'eq.'+o.id===id):orgs)});
  await page.route(SB+'/rest/v1/app_suborganization_assignees?**',route=>{const q=new URL(route.request().url()).searchParams;return json(route,q.get('user_id')?[{user_id:owner}]:orgs.map(o=>({organization_id:o.id,user_id:owner})))});
@@ -33,7 +33,7 @@ async function fixture(page,{width,tables=true,seeded=true,period=true}){
   // DB 20261024170000 적용 전: end_date 칸이 없으면 PostgREST는 400(42703).
   const noEnd=()=>json(route,{code:'42703',message:'column app_suborganization_dispute_stages.end_date does not exist'},400);
   if(req.method()==='GET'){if(!period&&/end_date/.test(url.searchParams.get('select')||''))return noEnd();return json(route,period?db.history:db.history.map(({end_date,...h})=>h))}
-  if(req.method()==='POST'){const b=req.postDataJSON();if(!period&&'end_date' in b)return noEnd();if(b.end_date&&b.end_date<b.stage_date)return json(route,{code:'23514',message:'violates check constraint'},400);db.history.push({id:'h-'+(++db.seq),created_at:`2026-10-06T00:00:${String(db.seq).padStart(2,'0')}Z`,end_date:null,...b});return json(route,[],201)}
+  if(req.method()==='POST'){const b=req.postDataJSON();db.hposts.push(b);if(!period&&'end_date' in b)return noEnd();if(b.end_date&&b.end_date<b.stage_date)return json(route,{code:'23514',message:'violates check constraint'},400);db.history.push({id:'h-'+(++db.seq),created_at:`2026-10-06T00:00:${String(db.seq).padStart(2,'0')}Z`,end_date:null,...b});return json(route,[],201)}
   if(req.method()==='PATCH'){if(!period)return noEnd();const id=url.searchParams.get('id').slice(3),b=req.postDataJSON();db.hpatches.push({id,...b});const h=db.history.find(x=>x.id===id);if(!h)return json(route,[]);Object.assign(h,b);return json(route,[h])}
   if(req.method()==='DELETE'){const id=url.searchParams.get('id').slice(3),gone=db.history.filter(h=>h.id===id);db.hdeletes.push(id);db.history=db.history.filter(h=>h.id!==id);return json(route,gone)}
   return route.continue();
@@ -80,10 +80,12 @@ for(const width of [390,1280])test(`단계 저장·이력·목록 꼬리표 ${wi
  await expect(row(page,'oa').locator('.so-stage-tag')).toHaveText('쟁의발생 결의');await expect(row(page,'ob').locator('.so-stage-tag')).toHaveCount(0);
  // 같은 단계를 다시 저장하면 날짜만 고친 것(줄이 늘지 않음)
  await line.locator('[data-stage-date]').fill('2026-10-03');await line.locator('[data-stage-save]').click();
- await expect(line.locator('[data-stage-save]')).toBeDisabled();
- await expect.poll(()=>db.history.length).toBe(1);expect(db.history[0].stage_date).toBe('2026-10-03');
+ // 저장이 끝날 때까지(새 줄 넣기 → 옛 줄 지우기 → 다시 읽기) 기다린 뒤 다음 조작을 한다. 끝나기 전에 고르면 다시 그리기가 고른 값을 덮는다(기존 시험의 간헐 실패 원인).
+ await expect(line.locator('[data-stage-msg]')).toHaveText('저장했어요.');await expect(line.locator('[data-stage-save]')).toBeDisabled();
+ expect(db.history).toHaveLength(1);expect(db.history[0].stage_date).toBe('2026-10-03');
  // 끝남: 이번 주(10.5~10.11)에 끝나면 꼬리표, 지난 주에 끝난 건 없음
  await stageSelect(page).selectOption({label:'협약체결'});await line.locator('[data-stage-date]').fill('2026-10-05');await line.locator('[data-stage-save]').click();
+ await expect(line.locator('[data-stage-msg]')).toHaveText('저장했어요.');
  await expect(line.locator('summary')).toHaveText('단계 이력 2');
  await expect(row(page,'oa').locator('.so-stage-tag')).toHaveText('협약체결');await expect(row(page,'oa').locator('.so-stage-tag')).toHaveClass(/is-end/);
  await line.locator('[data-stage-date]').fill('2026-10-04');await line.locator('[data-stage-save]').click(); // 지난 주로 고치면 꼬리표가 빠짐
@@ -275,7 +277,7 @@ for(const width of [390,1280])test(`끝 날짜 칸이 아직 없을 때(DB 적�
  await line.locator('[data-stage-save]').click();
  await expect(line.locator('[data-stage-msg]')).toContainText('아직 준비 중');expect(db.history).toHaveLength(1);
  await line.locator('[data-stage-end]').fill('');await line.locator('[data-stage-save]').click();
- await expect(line.locator('[data-stage-msg]')).toHaveText('저장했어요.');expect(db.history).toHaveLength(2);expect('end_date' in db.history[1]).toBe(false);
+ await expect(line.locator('[data-stage-msg]')).toHaveText('저장했어요.');expect(db.history).toHaveLength(2);expect('end_date' in db.hposts.at(-1)).toBe(false);
  await line.locator('summary').click();
  await line.locator('[data-stage-hrow="h-a"] [data-stage-hmore]').click();await line.locator('[data-stage-hrow="h-a"] [data-stage-hedit]').click();
  await expect(line.locator('[data-stage-msg]')).toContainText('아직 준비 중');await expect(line.locator('[data-stage-hform]')).toHaveCount(0);
