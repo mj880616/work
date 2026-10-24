@@ -80,3 +80,73 @@ test('이름 검사·지우기 알림 글', () => {
   assert.equal(orgsAtStageText(['가지부', '나지부', '다지부']), '가지부 외 2곳이 이 단계예요.');
   assert.equal(orgsAtStageText([]), '');
 });
+
+// ORG-쟁의단계 다듬기(2026-10-24 11:05): 단계 기간(끝 날짜). 판정은 모델 한 곳.
+import {periodProblem, periodInWeek, periodText, endOf, isStageLine, sitePlan} from '../app/org-dispute-stage-model.mjs';
+const prow = (n, org, name, date, end, at = '2026-10-20T00:00:00Z') => ({...row(n, org, name, date, at), end_date: end ?? null});
+
+test('기간: 끝 날짜는 선택, 끝 ≥ 시작, 표기 11.3 ~ 11.5', () => {
+  assert.equal(periodProblem('2026-11-03', ''), '');
+  assert.equal(periodProblem('2026-11-03', '2026-11-03'), '');
+  assert.equal(periodProblem('2026-11-03', '2026-11-05'), '');
+  assert.match(periodProblem('2026-11-03', '2026-11-02'), /같거나 뒤/);
+  assert.match(periodProblem('2026-11-03', '2026-13-40'), /확인/);
+  assert.equal(periodText('2026-11-03', '2026-11-05'), '11.3~11.5');
+  assert.equal(periodText('2026-11-03', '2026-11-05', ' ~ '), '11.3 ~ 11.5');
+  assert.equal(periodText('2026-11-03', ''), '11.3');
+  assert.equal(periodText('2026-11-03', '2026-11-03'), '11.3');
+  assert.equal(endOf({stage_date: '2026-11-03', end_date: null}), '2026-11-03');
+  assert.equal(endOf({stage_date: '2026-11-03', end_date: '2026-11-05'}), '2026-11-05');
+  const h = new Map([['a', [prow(1, 'a', '파업 찬반투표', '2026-11-03', '2026-11-05')]]]);
+  assert.deepEqual(historyLines(h.get('a')).map(l => [l.date, l.name, l.start, l.end]), [['11.3 ~ 11.5', '파업 찬반투표', '2026-11-03', '2026-11-05']]);
+  const cur = stageOfOrg('a', h, stages);
+  assert.equal(cur.end, '2026-11-05');
+  assert.equal(stageLabel(cur), '파업 찬반투표(11.3~11.5)');
+});
+
+test('기간이 그 주에 걸쳐 있으면 진행 중(주 경계 포함)', () => {
+  const week = weekOf('2026-11-04'); // 11.2~11.8
+  assert.equal(periodInWeek('2026-11-03', '2026-11-05', week), true);
+  assert.equal(periodInWeek('2026-10-30', '2026-11-02', week), true);  // 앞 주에서 시작해 월요일에 끝
+  assert.equal(periodInWeek('2026-11-08', '2026-11-12', week), true);  // 일요일에 시작
+  assert.equal(periodInWeek('2026-10-26', '2026-11-20', week), true);  // 주를 통째로 덮음
+  assert.equal(periodInWeek('2026-10-26', '2026-11-01', week), false); // 앞 주에 끝남
+  assert.equal(periodInWeek('2026-11-09', '2026-11-10', week), false);
+  assert.equal(periodInWeek('2026-11-04', '', week), true);            // 끝 날짜 없음 = 하루
+  assert.equal(periodInWeek('2026-11-01', '', week), false);
+});
+
+test('끝남 단계는 기간이 걸친 주마다 표에 나오고, 투쟁 중은 매주(기간과 무관)', () => {
+  const cur = (name, date, end) => stageOfOrg('a', new Map([['a', [prow(1, 'a', name, date, end)]]]), stages);
+  // 협약체결 10.30~11.3: 10.26 주와 11.2 주 둘 다, 11.9 주는 빠짐
+  assert.equal(reportKind(cur('협약체결', '2026-10-30', '2026-11-03'), weekOf('2026-10-26')), 'ended');
+  assert.equal(reportKind(cur('협약체결', '2026-10-30', '2026-11-03'), weekOf('2026-11-02')), 'ended');
+  assert.equal(reportKind(cur('협약체결', '2026-10-30', '2026-11-03'), weekOf('2026-11-09')), '');
+  // 끝 날짜 없음: 기존처럼 끝난 주 한 번
+  assert.equal(reportKind(cur('협약체결', '2026-10-30', null), weekOf('2026-11-02')), '');
+  assert.equal(reportKind(cur('파업 찬반투표', '2026-08-01', '2026-08-03'), weekOf('2026-11-02')), 'struggle');
+  // 목록 꼬리표도 같은 판정
+  assert.deepEqual(listTag(cur('협약체결', '2026-10-30', '2026-11-03'), '2026-11-02'), {kind: 'ended', text: '협약체결'});
+});
+
+test('주간보고 줄: 기간이면 - 파업 찬반투표(11.3~11.5), 앱이 채운 옛 기간 줄도 단계 줄로 알아봄', () => {
+  const orgs = [{id: 'a', name: '합성 가 지부'}];
+  const plan = sitePlan(orgs, new Map([['a', [prow(1, 'a', '파업 찬반투표', '2026-11-03', '2026-11-05')]]]), stages, weekOf('2026-11-04'));
+  assert.deepEqual(plan.map(p => [p.kind, p.line]), [['struggle', '- 파업 찬반투표(11.3~11.5)']]);
+  assert.equal(isStageLine('- 파업 찬반투표(11.3~11.5)', stages), true);
+  assert.equal(isStageLine('- 파업 찬반투표(11.3 ~ 11.5)', stages), true);
+  assert.equal(isStageLine('- 쟁의발생 결의(10.20)', stages), true);
+  assert.equal(isStageLine('- 조정회의(11.3~11.5)', stages), false);
+});
+
+test('이력 고치기·지우기 뒤 현재 단계는 남은 이력의 최신 줄(다 지우면 기본 단계)', () => {
+  const rows = [prow(1, 'a', '교섭 중', '2026-10-01', null, '2026-10-01T00:00:00Z'), prow(2, 'a', '쟁의중', '2026-10-20', null, '2026-10-20T00:00:00Z')];
+  assert.equal(stageOfOrg('a', new Map([['a', rows]]), stages).name, '쟁의중');
+  // 고치기: 쟁의중 줄 날짜를 앞으로 옮기면 교섭 중이 현재
+  const edited = [rows[0], {...rows[1], stage_date: '2026-09-20'}];
+  assert.equal(stageOfOrg('a', new Map([['a', edited]]), stages).name, '교섭 중');
+  // 지우기
+  assert.equal(stageOfOrg('a', new Map([['a', [rows[0]]]]), stages).name, '교섭 중');
+  const none = stageOfOrg('a', new Map([['a', []]]), stages);
+  assert.equal(none.name, '교섭 시작 전'); assert.equal(none.kind, 'quiet');
+});

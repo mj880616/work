@@ -112,7 +112,7 @@ test('destination read reuses owner-scoped catalog and includes only active visi
 test('handoff example and both organization and project proposals round trip',()=>{
  const format=classificationFormat(now);
  assert.doesNotMatch(format,/library|google_task|write_request_candidate/);
- assert.match(format,/kind는 organization\(담당조직\), project\(프로젝트\) 두 종류만 쓰세요/);
+ assert.match(format,/kind는 organization\(담당조직\), project\(프로젝트\), reference\(참고 묶음\) 세 종류만 쓰세요/);
  assert.deepEqual(parseAIAnswer(format),{schema_version:1,copied_at:stamp,items:[]});
  const organization=proposal();organization.items[0].destinations[0].kind='organization';
  assert.deepEqual(parseAIAnswer('짧은 정리\n```json\n'+JSON.stringify(organization)+'\n```'),organization);
@@ -243,14 +243,17 @@ const photo=(changes={})=>({drive_file_id:'source',file_name:'photo.jpg',mime_ty
 const photoOcr=(changes={})=>({state:'done',attempt_id:'40000000-0000-4000-8000-000000000001',original_file_id:'source',cleanup_state:'deleted',temp_document_id:'private-temp',text:' 認識した字\r\n<そのまま> ',...changes});
 const budgetPhotos=()=>Array.from({length:16},(_,index)=>photo({drive_file_id:'source-'+index,file_name:'photo-'+index+'.jpg',ocr:photoOcr({original_file_id:'source-'+index,temp_document_id:'private-temp-'+index,text:'😀'.repeat(16384)})}));
 
+const OLD_KIND_SENTENCE='kind는 organization(담당조직), project(프로젝트) 두 종류만 쓰세요.';
+const REFERENCE_KIND_SENTENCE='kind는 organization(담당조직), project(프로젝트), reference(참고 묶음) 세 종류만 쓰세요. reference(참고 묶음)는 담당조직·프로젝트 어디에도 맞지 않을 때만 제안하세요. 노조 전체·공공기관 사업 전반·담당이 아닌 조직의 소식이 여기에 해당합니다. 담당조직·프로젝트와 함께 쓰지 마세요.';
 test('complete no-OCR handoff bytes match the actual approved base including fallback guidance',()=>{
  // Captured before OCR implementation from main9235, identical to approved #528 product51.
  const rows=[note(n,{raw_text:' 原文\r\n\r\n末尾  ',attachments:[photo({file_name:'写真.jpg',body:'PRIVATE_BODY'}),{drive_file_id:'document',file_name:'議事.pdf',mime_type:'application/pdf',size_bytes:10}]}),note('10000000-0000-4000-8000-000000000002',{raw_text:'第二のメモ\n',updated_at:'2026-10-11T01:02:03.123456+00:00'})];
  const projects=[{id:p,name:'合成プロジェクト'}],orgs=[{id:'30000000-0000-4000-8000-000000000001',name:'合成組織'}];
  // UI-디자인기준 3/3: only the paste-button name in one guide sentence changed ('AI 정리 결과 넣기' -> '분류 결과 입력').
  // Reverting that name must still give the approved base bytes and hash.
- for(const [fallback,bytes,hash,baseBytes,baseHash] of [[false,3413,'162e7c431296f094a4253ba04249cf14505a3261765b5ac2fe5118f42078eaab',3416,'1affa40d45af7be157c82aece05b6b39917245a96e7f0325194b6cba49c732ad'],[true,3480,'351b016b6fdaa69a0a3c0af42c2fe33ce965adf46c2f9d73400024112f48d59b',3483,'891a548ee0fb576aca1a2097ba67a09a99c96f94d80b4732f5a199ac8fc56930']]){
-  const text=buildHandoff(rows,projects,orgs,now,fallback),base=text.split("'분류 결과 입력'").join("'AI 정리 결과 넣기'");
+ for(const [fallback,bytes,hash,baseBytes,baseHash] of [[false,3707,'145d329e41526212a2ee5ed4a4662fe1b76d7507c45e5a09212daca169274005',3416,'1affa40d45af7be157c82aece05b6b39917245a96e7f0325194b6cba49c732ad'],[true,3774,'8571abb4b3bf7400e19140e26e9bf0bd70b9268c8fb37889b62872044b9f1e40',3483,'891a548ee0fb576aca1a2097ba67a09a99c96f94d80b4732f5a199ac8fc56930']]){
+  // REF-참고묶음 AI: only the kind sentence changed (reference added). Undoing it, too, must still give the approved base.
+  const text=buildHandoff(rows,projects,orgs,now,fallback),base=text.split("'분류 결과 입력'").join("'AI 정리 결과 넣기'").split(REFERENCE_KIND_SENTENCE).join(OLD_KIND_SENTENCE);
   assert.equal(Buffer.byteLength(text),bytes);assert.equal(createHash('sha256').update(text).digest('hex'),hash);
   assert.equal(Buffer.byteLength(base),baseBytes);assert.equal(createHash('sha256').update(base).digest('hex'),baseHash);
  }

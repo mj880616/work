@@ -2,16 +2,23 @@
 // 읽기는 쓰기를 하지 않는다(보기만 해서 운영 데이터가 바뀌지 않게). 기본 단계 11개는 명진이 단계를 저장하거나 관리 창을 처음 열 때 ensureSeeded가 채운다.
 // 표는 app_dispute_stages(단계 목록)·app_suborganization_dispute_stages(이력)·함수 app_dispute_stage_delete(지우기).
 // 표가 아직 없는 운영(DB 적용 전)에서는 status:'preparing'으로 돌려주고 화면은 '준비 중' 한 줄만 보인다.
-import {seedRows, sortStages, defaultStage, latestRow, stageNameProblem} from './org-dispute-stage-model.mjs';
+// 단계 기간(끝 날짜)·이력 한 줄 고치기는 DB 20261024180000(이력 표 end_date 칸·고치기 권한)이 있어야 한다. 칸이 없으면 읽기는 끝 날짜 없이 하고
+// (state.periodReady=false), 끝 날짜를 넣거나 이력을 고치려 할 때 저장 시 안내 한 줄로 알린다(칸을 숨기지 않는다).
+import {seedRows, sortStages, defaultStage, latestRow, stageNameProblem, periodProblem} from './org-dispute-stage-model.mjs';
 
 const enc = encodeURIComponent;
 const SELECT_STAGES = 'id,name,sort_order,is_struggle,is_ending,is_default,created_at';
-const SELECT_HISTORY = 'id,organization_id,stage_id,stage_name,stage_date,created_at';
+const SELECT_HISTORY_BASE = 'id,organization_id,stage_id,stage_name,stage_date,created_at';
+const SELECT_HISTORY = SELECT_HISTORY_BASE + ',end_date';
+export const PERIOD_PENDING = '끝 날짜·이력 고치기는 아직 준비 중이에요(DB 적용 전). 끝 날짜 없이는 지금도 저장할 수 있어요.';
 let cache = null; // {owner, workspace, state}
 let flight = null;
 
 const ownerOf = rt => rt?.context?.read?.()?.user?.id || '';
 const missingTable = e => e?.status === 404 || e?.status === 400 && /relation|PGRST20[0-9]|schema cache/i.test(String(e?.message));
+// 끝 날짜 칸이 아직 없을 때 PostgREST가 돌려주는 400(42703 없는 칸 / PGRST204 schema cache).
+const missingEnd = e => e?.status === 400 && /end_date/i.test(String(e?.message));
+const deniedEdit = e => e?.status === 403 || /42501|permission denied/i.test(String(e?.message));
 const notify = () => window.dispatchEvent(new CustomEvent('kptu:dispute-stages-changed'));
 
 export const peekDisputeState = () => cache?.state ?? null;
@@ -31,8 +38,11 @@ async function readPages(path, rt) {
 async function readAll(workspaceId, rt) {
   const stagePath = `/rest/v1/app_dispute_stages?workspace_id=eq.${enc(workspaceId)}&select=${SELECT_STAGES}&order=sort_order.asc,created_at.asc,id.asc`;
   let stages = await readPages(stagePath, rt);
-  const history = await readPages(`/rest/v1/app_suborganization_dispute_stages?select=${SELECT_HISTORY}&order=stage_date.desc,created_at.desc,id.desc`, rt);
-  return {stages: sortStages(stages), histories: groupHistory(history)};
+  const historyPath = select => `/rest/v1/app_suborganization_dispute_stages?select=${select}&order=stage_date.desc,created_at.desc,id.desc`;
+  let history, periodReady = true;
+  try { history = await readPages(historyPath(SELECT_HISTORY), rt); }
+  catch (e) { if (!missingEnd(e)) throw e; periodReady = false; history = await readPages(historyPath(SELECT_HISTORY_BASE), rt); }
+  return {stages: sortStages(stages), histories: groupHistory(history), periodReady};
 }
 export function groupHistory(rows) {
   const map = new Map();
@@ -68,12 +78,18 @@ export async function loadDisputeState({rt = window.KPTURuntime, workspaceId, fo
   return promise;
 }
 
-// 이력 한 줄 저장. 같은 단계를 다시 저장하면 날짜만 고친 것: 새 줄을 먼저 넣고 같은 단계의 지금 줄을 지운다(고치기 권한이 없어서).
-export async function saveOrgStage({rt = window.KPTURuntime, workspaceId, orgId, stage, date, history = []}) {
+// 이력 한 줄 저장. 같은 단계를 다시 저장하면 날짜만 고친 것: 새 줄을 먼저 넣고 같은 단계의 지금 줄을 지운다(DB 고치기 권한 전에도 같은 동작).
+// end(선택, 'YYYY-MM-DD'): 끝 날짜. 비우면 하루. 끝 ≥ 시작은 여기서 먼저 보고, DB 검사도 같은 규칙으로 거절한다.
+export async function saveOrgStage({rt = window.KPTURuntime, workspaceId, orgId, stage, date, end = '', history = [], periodReady = true}) {
   if (!stage?.id || !orgId || !/^\d{4}-\d{2}-\d{2}$/.test(date || '')) throw new Error('단계와 날짜를 확인해 주세요.');
+  const problem = periodProblem(date, end);
+  if (problem) throw new Error(problem);
+  if (end && !periodReady) throw new Error(PERIOD_PENDING);
   const last = latestRow(history);
-  if (last && last.stage_id === stage.id && last.stage_date === date) return false;
-  await rt.api('/rest/v1/app_suborganization_dispute_stages', {method: 'POST', body: {organization_id: orgId, stage_id: stage.id, stage_name: stage.name, stage_date: date}, prefer: 'return=minimal'});
+  if (last && last.stage_id === stage.id && last.stage_date === date && (last.end_date || '') === (end || '')) return false;
+  try {
+    await rt.api('/rest/v1/app_suborganization_dispute_stages', {method: 'POST', body: {organization_id: orgId, stage_id: stage.id, stage_name: stage.name, stage_date: date, ...(end ? {end_date: end} : {})}, prefer: 'return=minimal'});
+  } catch (e) { if (missingEnd(e)) throw new Error(PERIOD_PENDING); throw e; }
   if (last && last.stage_id === stage.id) {
     await rt.api(`/rest/v1/app_suborganization_dispute_stages?id=eq.${enc(last.id)}`, {method: 'DELETE'}).catch(() => { /* 같은 단계 줄이 둘 남을 뿐이라 다음 읽기에서 맞춰 보인다 */ });
   }
@@ -82,6 +98,27 @@ export async function saveOrgStage({rt = window.KPTURuntime, workspaceId, orgId,
 }
 
 const reload = (rt, workspaceId) => loadDisputeState({rt, workspaceId, force: true});
+
+// 이력 한 줄 고치기(단계·날짜·끝 날짜). 서버가 소유자·같은 업무공간 단계·이름 사본을 다시 검사한다(좁히기 정책). 현재 단계는 다시 읽어 계산한다.
+export async function editHistoryRow({rt = window.KPTURuntime, workspaceId, id, stage, date, end = '', periodReady = true}) {
+  if (!periodReady) throw new Error(PERIOD_PENDING);
+  if (!id || !stage?.id || !/^\d{4}-\d{2}-\d{2}$/.test(date || '')) throw new Error('단계와 날짜를 확인해 주세요.');
+  const problem = periodProblem(date, end);
+  if (problem) throw new Error(problem);
+  let rows;
+  try {
+    rows = await rt.api(`/rest/v1/app_suborganization_dispute_stages?id=eq.${enc(id)}`, {method: 'PATCH', body: {stage_id: stage.id, stage_name: stage.name, stage_date: date, end_date: end || null}, prefer: 'return=representation'});
+  } catch (e) { if (missingEnd(e) || deniedEdit(e)) throw new Error(PERIOD_PENDING); throw e; }
+  if (!Array.isArray(rows) || rows.length !== 1) { await reload(rt, workspaceId); throw new Error('고치지 못했어요. 이력을 다시 불러왔어요.'); }
+  return reload(rt, workspaceId);
+}
+// 이력 한 줄 지우기. 현재 단계는 남은 이력의 최신 줄로 다시 계산된다(다 지우면 기본 단계).
+export async function deleteHistoryRow({rt = window.KPTURuntime, workspaceId, id}) {
+  if (!id) throw new Error('지울 줄을 찾지 못했어요.');
+  const rows = await rt.api(`/rest/v1/app_suborganization_dispute_stages?id=eq.${enc(id)}`, {method: 'DELETE', prefer: 'return=representation'});
+  if (!Array.isArray(rows) || rows.length !== 1) { await reload(rt, workspaceId); throw new Error('지우지 못했어요. 이력을 다시 불러왔어요.'); }
+  return reload(rt, workspaceId);
+}
 
 export async function addStage({rt = window.KPTURuntime, workspaceId, name, stages}) {
   const problem = stageNameProblem(name, stages);
