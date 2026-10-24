@@ -43,7 +43,7 @@ async function mockApp(page,{server=true}={}){
   const lid=p.get('ledger_id');if(lid&&lid.startsWith('in.'))rows=rows.filter(r=>lid.slice(4,-1).split(',').includes(r.ledger_id));
   return rows;
  };
- // 수정 요청 함수(모양: 20261024120000 + 20261024190000). replace = 새 기록 + 옛 기록 대체됨. add = 새 기록.
+ // 수정 요청 함수(모양: 20261024120000 + 20261024200000). replace = 새 기록 + 옛 기록 대체됨. add = 새 기록.
  const applyFix=(req,dry)=>{
   const items=[];let n=db.records.length;
   const made=[];
