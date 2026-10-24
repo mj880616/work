@@ -4,6 +4,7 @@
 // time, and are shown through its owner-only photo view (GET ?action=photo). No browser storage, no new save path.
 import {seoulDateKey} from './meeting-time.js';
 import {uploadBasketFile, driveFileUrl} from './basket-upload.js';
+import {diaryDocToStore, diaryDocError} from './diary-doc.mjs';
 
 export const DIARY_MAX_PHOTOS = 20;
 export const DIARY_TEXT_MAX = 20000;
@@ -12,7 +13,8 @@ export const DIARY_COMMENT_MAX = 200;
 // app_notes_raw_text_check needs text or an attachment. A photo-only day is created with this one space, and the
 // space is cleared again as soon as its first photo is attached (or the empty row is removed if none could be).
 const HOLD_TEXT = ' ';
-const FIELDS = 'id,journal_day,raw_text,attachments,metadata,updated_at';
+// ED③ 일기: doc = the new editor's saved form (null = a diary written before it, opened converted in memory; diary-doc.mjs).
+const FIELDS = 'id,journal_day,raw_text,doc,attachments,metadata,updated_at';
 const encode = encodeURIComponent;
 const dayKey = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -91,11 +93,13 @@ export async function readDiaryDay(day, rt = window.KPTURuntime) {
   return Array.isArray(rows) ? rows[0] || null : null;
 }
 // The same day twice is refused by app_notes_journal_day_unique (409); the screen then opens that day to edit.
-export async function createDiary({day, text = ''}, rt = window.KPTURuntime) {
+export async function createDiary({day, text = '', doc = null}, rt = window.KPTURuntime) {
   validateDiaryText(text);
+  const form = diaryDocToStore(doc, text);
+  const bad = diaryDocError(form); if (bad) throw new Error(bad);
   const workspace_id = workspace(rt);
   try {
-    return one(await rt.api('/rest/v1/app_notes', {method:'POST', prefer:'return=representation', body:{workspace_id, kind:'diary', journal_day:checkDay(day), raw_text:text.trim() ? text : HOLD_TEXT, ai_export_allowed:false}}));
+    return one(await rt.api('/rest/v1/app_notes', {method:'POST', prefer:'return=representation', body:{workspace_id, kind:'diary', journal_day:checkDay(day), raw_text:text.trim() ? text : HOLD_TEXT, ...(form ? {doc:form} : {}), ai_export_allowed:false}}));
   } catch (error) {
     if (error?.status === 409) throw Object.assign(new Error('이 날 일기가 이미 있어요. 수정으로 열게요.'), {code:'diary_exists'});
     throw error;
@@ -105,10 +109,18 @@ function patch(row, body, rt, {strict = false} = {}) {
   const guard = strict ? `&updated_at=eq.${encode(row.updated_at)}` : '';
   return rt.api(`${base(rt)}&id=eq.${encode(row.id)}${guard}`, {method:'PATCH', prefer:'return=representation', body:{...body, updated_at:new Date().toISOString()}});
 }
-export async function saveDiaryText(row, text, rt = window.KPTURuntime) {
+// doc: the new editor's saved form written with the letters in one PATCH (null = no form). Without the doc option this is a letters-only
+// write, so a row that carries a form drops it with the same write (the form must never differ from its letters).
+// strict: the write applies only while the row is still the version given (updated_at); a diary changed on another device is refused (note_changed).
+export async function saveDiaryText(row, text, rt = window.KPTURuntime, {doc, strict = false} = {}) {
   validateDiaryText(text);
   if (!text.trim() && !row.attachments?.length) throw new Error('사진이나 글을 넣어 주세요.');
-  return one(await patch(row, {raw_text:text.trim() ? text : ''}, rt));
+  const body = {raw_text:text.trim() ? text : ''};
+  if (doc !== undefined) { const form = diaryDocToStore(doc, text); const bad = diaryDocError(form); if (bad) throw new Error(bad); body.doc = form; }
+  else if (row.doc) body.doc = null;
+  const rows = await patch(row, body, rt, {strict});
+  if (strict && Array.isArray(rows) && !rows.length) throw Object.assign(new Error('일기가 그사이 바뀌었어요. 다시 불러온 뒤 저장해 주세요.'), {code:'note_changed'});
+  return one(rows);
 }
 // The photo leaves this day only; its Drive file stays in the "Web2 바구니" folder (no server trash path for one file).
 export async function removeDiaryPhoto(row, fileId, rt = window.KPTURuntime) {

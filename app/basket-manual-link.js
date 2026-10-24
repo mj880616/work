@@ -18,7 +18,7 @@ export const TASK_LIMITS=Object.freeze({title:1024,notes:8192});
 const KIND_NAME={organization:'담당조직',project:'프로젝트',reference:'참고'};
 const MANUAL_ERROR_TEXT=Object.freeze({
   NOTE_CHANGED:'업데이트가 그사이 바뀌었어요. 최신 업데이트를 다시 불러왔어요. 원문을 확인하고 다시 [연결]을 눌러 주세요.',
-  NOTE_ARCHIVED:'보관된 업데이트는 연결할 수 없어요. 보관을 해제한 뒤 연결해 주세요.',
+  NOTE_ARCHIVED:'보류한 업데이트는 연결할 수 없어요. 보류를 해제한 뒤 연결해 주세요.',
   AI_EXCLUDED:'AI 제외로 표시된 업데이트라 지금은 연결할 수 없어요.',
   ALREADY_CONFIRMED:'이미 연결된 곳이 있어요. 고른 곳을 확인해 주세요.',
   SUGGESTED_EXISTS:'이미 제안된 연결이 있어요. 고른 곳을 확인해 주세요.',

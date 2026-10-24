@@ -48,7 +48,7 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`빠른 입
  await expect(options).toBeHidden();await expect(box.locator('[data-quick-options]')).toBeHidden();
  await expect(box).not.toContainText('담당조직 기록');
  await expect(update).toHaveText('업데이트');await expect(org).toHaveText('▾');await expect(org).toHaveAccessibleName('기록할 곳 선택');
- await expect(input).toHaveAttribute('placeholder','업데이트 입력(바구니에 저장)');
+ await expect(input).toHaveAttribute('placeholder','업데이트 입력(정리함에 저장)');
  const u=await update.boundingBox(),g=await org.boundingBox();
  expect(Math.abs(g.x-(u.x+u.width))).toBeLessThanOrEqual(1);expect(Math.abs(g.y-u.y)).toBeLessThanOrEqual(1);
  // UI-버튼크기: ▾는 작은 세그먼트 칸(보이는 높이 32px 이하)이고, 누르는 범위(::after)는 위아래·오른쪽으로 늘려 44×44px.
@@ -108,7 +108,7 @@ for(const dark of [false,true])test(`눌림 색: 탭 하이라이트 없음, :ac
  await box.locator('[data-quick-mode="update"]').click();
  expect(await pressed('#homeView [data-quick-mode="task"]')).toEqual({...g,tap:'rgba(0, 0, 0, 0)'});
  await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('#basketView [data-basket-filter="classified"]')).toBeVisible();
- expect(await pressed('#basketView [data-basket-kind="note"]')).toEqual({...g,tap:'rgba(0, 0, 0, 0)'});
+ expect(await pressed('#basketView [data-inbox-pane="todo"]')).toEqual({...g,tap:'rgba(0, 0, 0, 0)'});
  expect(await pressed('#basketView [data-basket-filter="classified"]')).toEqual({...g,tap:'rgba(0, 0, 0, 0)'});
  expect(errors).toEqual([]);
 });

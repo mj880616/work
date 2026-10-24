@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openMdTool} from './helpers/md-tools.mjs';
+import {chooseBasketKind} from './helpers/basket-kind.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {expectProjectDetail} from './helpers/project-detail.mjs';
@@ -100,7 +101,7 @@ for(const width of [390,1280]){
   expect(f.errors).toEqual([]);
  });
 
- test(`큰 편집 창 [📎 첨부]: 조직을 골라도 파일이 남고, 바구니로 저장하면 글과 함께 올라감 ${width}`,async({page})=>{
+ test(`큰 편집 창 [📎 첨부]: 조직을 골라도 파일이 남고, 정리함으로 저장하면 글과 함께 올라감 ${width}`,async({page})=>{
   const f=await fixture(page,width);
   // The old write window (still the organization's and the project's own [크게]; ED③ 업데이트 moved the top line and the home input to the new one: update-window.spec.mjs): the window's own file batch.
   await openOldWriteWindow(page,width);
@@ -125,10 +126,10 @@ for(const width of [390,1280]){
   // Back to the basket: the text and file go through the basket upload path (one request with the text), then it closes.
   await e.locator('[data-md-kind="update"]').click();
   await e.locator('[data-md-kind-menu]').click();await page.locator('#mdPlaceSheet [data-sheet-basket] button').click();await page.locator('#mdPlaceSheet').getByRole('button',{name:'저장',exact:true}).click();
-  await expect(e.locator('[data-md-save-icon]')).toHaveAccessibleName('바구니에 새 업데이트로 저장');
+  await expect(e.locator('[data-md-save-icon]')).toHaveAccessibleName('정리함에 새 업데이트로 저장');
   await e.locator('[data-md-save-icon]').click();
   await expect(page.locator('#mdEditor')).toHaveCount(0);
-  await expect(page.locator('#toast')).toContainText('바구니에 저장했어요.');
+  await expect(page.locator('#toast')).toContainText('정리함에 저장했어요.');
   expect(f.uploads).toHaveLength(1);expect(f.uploads[0]).toContain('name="raw_text"');expect(f.uploads[0]).toContain('filename="a.txt"');
   expect(f.notes).toEqual([]);expect(f.orgs).toEqual([]);
   expect(f.errors).toEqual([]);
@@ -155,7 +156,7 @@ for(const width of [390,1280]){
  });
 }
 
-for(const width of [390,1280])test(`바구니 업데이트 수정 [큰 창에서 수정] [📎 첨부]: 수정 화면과 같은 파일 선택, 저장은 기존 [첨부 저장] ${width}`,async({page})=>{
+for(const width of [390,1280])test(`정리함 업데이트 수정 [큰 창에서 수정] [📎 첨부]: 수정 화면과 같은 파일 선택, 저장은 기존 [첨부 저장] ${width}`,async({page})=>{
  const f=await fixture(page,width);
  await page.route('**/rest/v1/app_notes**',r=>r.request().method()==='GET'?r.fulfill({json:[{id:'n',kind:'basket',raw_text:'고칠 업데이트',occurred_at:'2026-10-06',attachments:[]}]}):r.fallback());
  await page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click();
@@ -180,10 +181,8 @@ for(const width of [390,1280])test(`바구니 업데이트 수정 [큰 창에서
 for(const width of [390,1280])test(`노트 입력칸의 파일: [크게] 새 노트 창에서 저장하면 노트에 붙고 입력칸 비움 ${width}`,async({page})=>{
  const f=await fixture(page,width);
  await page.evaluate(()=>window.KPTURouter.go('basket'));
- const note=page.locator('#basketView [data-basket-kind="note"]:visible');
- // The basket shows one side at a time: [메모 | 노트] below 1024px, the side nav's [노트] on a PC.
- if(width<1024){await note.first().waitFor();if(await note.first().getAttribute('aria-pressed')!=='true')await note.first().click();}
- else await page.locator('#appView>.app-nav [data-basket-kind-nav="note"]').evaluate(b=>b.click());
+ // [노트] is its own menu item: the sidebar row on a PC, the [메뉴] sheet row on a phone.
+ await chooseBasketKind(page,'note');
  const q=page.locator('#basketView [data-note-list] [data-quick-big]:visible').first();
  const qclip=page.locator('#basketView [data-note-list] [data-quick-file-picker] [data-basket-clip]');
  await page.locator('#basketView [data-note-list] [data-quick-input]').click();

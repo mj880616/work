@@ -61,13 +61,10 @@ const noteAdd=page=>page.locator('[data-note-list] [data-quick-save]');
 for(const width of [390,1280]){
  test(`[메모 | 노트] switch lists notes by last change with search, no dot and link chip ${width}`,async({page})=>{
   await page.setViewportSize({width,height:900});const f=await fixture(page);
-  const memo=page.locator('[data-basket-kind="memo"]'),note=page.locator('[data-basket-kind="note"]');
-  await expect(memo).toHaveAttribute('aria-pressed','true');await expect(note).toHaveAttribute('aria-pressed','false');
-  // BASKET-노트입력창: a PC (≥1024) has no switch on the screen (the sidebar's [업데이트]·[노트] change sides); a phone keeps it.
-  if(width<1024){const [a,b]=await Promise.all([memo.boundingBox(),note.boundingBox()]);expect(Math.abs(a.width-b.width)).toBeLessThan(1);}
-  else{await expect(page.locator('[data-basket-kind-switch]')).toBeHidden();}
+  // BASKET-정리함이름: the screen has no [업데이트 | 노트] switch on any width; [노트] is its own menu item.
+  await expect(page.locator('#basketView')).toHaveAttribute('data-kind','memo');await expect(page.locator('[data-basket-kind-switch]')).toHaveCount(0);
   await chooseBasketKind(page,'note');
-  await expect(note).toHaveAttribute('aria-pressed','true');await expect(page.locator('[data-basket-list]')).toBeHidden();
+  await expect(page.locator('#basketView')).toHaveAttribute('data-kind','note');await expect(page.locator('[data-basket-list]')).toBeHidden();
   await expect(noteList(page)).toHaveCount(2);
   await expect(noteList(page).nth(0)).toContainText('임금협상 정리');await expect(noteList(page).nth(1)).toContainText('오래된 노트');
   // BASKET-노트입력창: no blue dot before a note title (a pinned note keeps its pin).
@@ -117,7 +114,7 @@ for(const width of [390,1280]){
   expect(f.writes[0].body.doc.v).toBe('ed1');expect(f.writes[0].body.metadata).toBeUndefined();
   await expect(detail.locator('[data-basket-read-text]')).toHaveAttribute('data-note-view','doc');
   await detail.locator('[data-note-close]').click();
-  if(width<1024)await expect(page.locator('[data-basket-kind-switch]')).toBeVisible();else await expect(page.locator('[data-basket-kind-switch]')).toBeHidden();
+  await expect(page.locator('[data-basket-kind-switch]')).toHaveCount(0);
   await expect(noteList(page).nth(0)).toContainText('임금협상 정리 v2');
   expect(f.errors).toEqual([]);
  });
@@ -131,14 +128,14 @@ for(const width of [390,1280]){
   await page.locator('[data-basket-read-actions] [data-basket-to-note]').click();
   await expect(page.locator('[data-basket-to-note-form]')).toHaveCount(0);
   await expect(page.locator('#toast')).toHaveText('노트로 옮겼어요.');
-  await expect(page.locator('[data-basket-kind="note"]')).toHaveAttribute('aria-pressed','true');
+  await expect(page.locator('#basketView')).toHaveAttribute('data-kind','note');
   await expectNoteTitle(page,'회의 준비 메모 첫 줄');
   expect(f.writes[0].query).toMatchObject({id:'eq.m1',workspace_id:'eq.w'});expect(f.writes[0].body).toMatchObject({kind:'note',title:'회의 준비 메모 첫 줄'});
   expect(f.rows.find(r=>r.id==='m1').raw_text).toBe('회의 준비 메모 첫 줄\n둘째 줄 내용');
   // Back to the basket from the note menu, after a confirmation.
   page.once('dialog',d=>d.accept());
   await page.locator('[data-note-more]').click();await page.locator('#noteDocMenu [data-note-to-basket]').click();
-  await expect(page.locator('[data-note-list-status]')).toHaveText('바구니로 돌렸어요.');
+  await expect(page.locator('[data-note-list-status]')).toHaveText('정리함으로 돌렸어요.');
   expect(f.writes[1].query).toMatchObject({id:'eq.m1',kind:'eq.note'});expect(f.writes[1].body).toMatchObject({kind:'basket',title:null});
   await expect(noteList(page)).toHaveCount(2);
   await chooseBasketKind(page,'memo');
@@ -177,10 +174,10 @@ for(const width of [390,1280]){
   }
   const listTop=(await noteList(page).nth(0).boundingBox()).y;
   if(width<=760){
-   // Phone: docked above the bottom tabs and the [업데이트 | 노트] row, like the update input.
+   // Phone: docked above the bottom tabs, like the update input.
    const dock=await page.locator('[data-note-list] [data-home-quick]').evaluate(el=>({position:getComputedStyle(el).position,bottom:el.getBoundingClientRect().bottom}));
    expect(dock.position).toBe('fixed');
-   const sw=await page.locator('#basketView .basket-kind-switch').boundingBox();expect(dock.bottom).toBeLessThanOrEqual(sw.y+1);
+   const tabsBox=await page.locator('.mobile-tabs').boundingBox();expect(dock.bottom).toBeLessThanOrEqual(tabsBox.y+1);
   }else{
    // PC: the top row of the note list, above the notes (like the update input).
    expect(ib.y).toBeLessThan(listTop);
@@ -289,7 +286,7 @@ test('a note without body cannot go back to the basket and nothing is written',a
  await expect(page.locator('[data-note-detail] [data-basket-read-text]')).toHaveText('본문이 없는 노트입니다.');
  page.once('dialog',d=>d.accept());
  await page.locator('[data-note-more]').click();await page.locator('#noteDocMenu [data-note-to-basket]').click();
- await expect(page.locator('[data-note-detail] [data-basket-status]')).toContainText('바구니로 돌릴 수 없어요');
+ await expect(page.locator('[data-note-detail] [data-basket-status]')).toContainText('정리함으로 돌릴 수 없어요');
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
@@ -336,7 +333,7 @@ for(const width of [390,1280]){
   await expect(page.locator('#mdEditor')).toHaveCount(0);
   expect(f.writes).toEqual([{method:'POST',body:{workspace_id:'w',kind:'note',title:'회의 정리',raw_text:'# 회의 정리\n\n- 다음 일정 확인',metadata:{markdown:true}}}]);
   const detail=page.locator('[data-note-detail]');
-  await expect(page.locator('[data-basket-kind="note"]')).toHaveAttribute('aria-pressed','true');
+  await expect(page.locator('#basketView')).toHaveAttribute('data-kind','note');
   await expectNoteTitle(page,'회의 정리');
   await expect(detail.locator('[data-basket-read-text] h1')).toHaveText('회의 정리');
   await detail.locator('[data-note-close]').click();
@@ -350,15 +347,15 @@ for(const width of [390,1280]){
 test('menu [쓰기] → [업데이트] still saves one basket memo (no kind, no title)',async({page})=>{
  await page.setViewportSize({width:390,height:900});const f=await fixture(page);
  const editor=await openWriter(page,390);
- await expect(editor.locator('[data-md-save-icon]')).toHaveAttribute('aria-label','바구니에 새 업데이트로 저장');
+ await expect(editor.locator('[data-md-save-icon]')).toHaveAttribute('aria-label','정리함에 새 업데이트로 저장');
  await editor.locator('.md-editor-text').fill('쓰기 메모');
  await editor.locator('[data-md-save-icon]').click();
- await expect(page.locator('#mdEditor')).toHaveCount(0);await expect(page.locator('#toast')).toContainText('바구니에 저장했어요.');
+ await expect(page.locator('#mdEditor')).toHaveCount(0);await expect(page.locator('#toast')).toContainText('정리함에 저장했어요.');
  expect(f.writes).toEqual([{method:'POST',body:{workspace_id:'w',raw_text:'쓰기 메모'}}]);
  await chooseBasketKind(page,'memo');
  await showBasketRow(page,'m-created');
  await expect(page.locator('[data-basket-row="m-created"]')).toContainText('쓰기 메모');
- await expect(page.locator('[data-basket-kind="memo"]')).toHaveAttribute('aria-pressed','true');
+ await expect(page.locator('#basketView')).toHaveAttribute('data-kind','memo');
  expect(f.errors).toEqual([]);
 });
 

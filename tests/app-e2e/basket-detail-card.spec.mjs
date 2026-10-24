@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
-import { basketKindButton } from './helpers/basket-kind.mjs';
+import { basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';
 import { expectNoteTitle } from './helpers/note-title.mjs';
 
 // UI-바구니상세개편: an update's detail is one card — text (with a small 원문 toggle and [복사] beside it), state·time,
@@ -73,7 +73,7 @@ for (const width of [390, 1280]) {
     for (const b of ab) { expect(Math.round(b.y)).toBe(Math.round(ab[0].y)); expect(b.y + b.height).toBeLessThanOrEqual(box.y + box.height); }
     // ⋯ keeps 수정·보관·삭제 only.
     await press(page, page.locator('[data-basket-note-more]'), width);
-    await expect(page.locator('#basketNoteMenu button')).toHaveText(['수정', '보관', '업무일지에 남기기', '삭제']);
+    await expect(page.locator('#basketNoteMenu button')).toHaveText(['수정', '보류로', '업무일지에 남기기', '삭제']);
     await page.keyboard.press('Escape');
     // Photo: a small preview through the owner-only photo view (never a public or Drive share address).
     const photo = card.locator('[data-basket-file-card="drive-photo"]');
@@ -144,7 +144,7 @@ for (const width of [390, 1280]) {
     await expect(toast(page)).toHaveText('복사했습니다'); expect(await copied(page)).toBe('교섭 결과 공유\n• 다음 회의 10/27');
     // Notes: the row and the read view copy the same way (title as the first line).
     await press(page, page.locator('[data-basket-close]'), width);
-    await press(page, basketKindButton(page,'note'), width);
+    await openKindMenu(page,'note');await press(page, basketKindButton(page,'note'), width);
     if (width >= 761) await press(page, page.locator('[data-note-row-copy="n-titled"]'), width);
     else {
       await expect(page.locator('[data-note-row-copy="n-titled"]')).toBeHidden();
@@ -173,7 +173,7 @@ for (const width of [390, 1280]) {
     await press(page, detail.locator('[data-basket-read-actions] [data-basket-to-note]'), width);
     await expect(page.locator('[data-basket-to-note-form]')).toHaveCount(0);
     await expect(toast(page)).toHaveText('노트로 옮겼어요.');
-    await expect(page.locator('[data-basket-kind="note"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#basketView')).toHaveAttribute('data-kind','note');
     await expectNoteTitle(page,'교섭 결과 공유');
     const move = f.writes.at(-1);
     expect(move.query).toMatchObject({ id: 'eq.' + U, kind: 'eq.basket' }); expect(move.body).toMatchObject({ kind: 'note', title: '교섭 결과 공유' });
@@ -185,7 +185,7 @@ for (const width of [390, 1280]) {
     const f = await fixture(page, width);
     // A note saved without a title elsewhere (older rows, other tools): the list shows the body's first line instead.
     f.rows.push({ id: 'n-untitled', workspace_id: 'w', kind: 'note', title: '', raw_text: '제목 없이 쓴 아주 긴 노트의 첫 줄입니다 '.repeat(4) + '\n둘째 줄', occurred_at: stamp, created_at: stamp, updated_at: '2026-10-06T02:00:00Z', archived_at: null, ai_export_allowed: true, attachments: [], metadata: {} });
-    await press(page, basketKindButton(page,'note'), width);
+    await openKindMenu(page,'note');await press(page, basketKindButton(page,'note'), width);
     const title = page.locator('[data-note-row="n-untitled"] .basket-title-text');
     await expect(title).toHaveText(/^제목 없이 쓴 아주 긴 노트의 첫 줄입니다/);
     await expect(page.locator('[data-note-row="n-untitled"] .basket-preview')).toHaveText('둘째 줄');

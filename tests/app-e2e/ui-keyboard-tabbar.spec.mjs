@@ -45,13 +45,13 @@ for(const width of [390,1280]){
   const f=await fixture(page,{width});
   const editor=await openWriter(page,width);
   const items=await head(editor);
-  expect(items.map(i=>i.name)).toEqual(['저장하지 않고 닫기','바구니에 새 업데이트로 저장','저장할 곳','보기','내보내기'].filter(n=>width<1024||n!=='보기'));
+  expect(items.map(i=>i.name)).toEqual(['저장하지 않고 닫기','정리함에 새 업데이트로 저장','저장할 곳','보기','내보내기'].filter(n=>width<1024||n!=='보기'));
   await expect(editor.locator('.md-editor-kinds button')).toHaveText(['업데이트','▾','노트']);
   if(width<1024)await expect(editor.locator('.md-editor-modes button')).toHaveText(['쓰기','미리보기']);
   // One row: every item on the same line, left to right, 32px tall; the icon buttons are 32×32 with a 44px press area.
   for(const i of items){expect(i.h,i.name).toBe(32);expect(Math.abs(i.y-items[0].y),i.name).toBeLessThan(2);}
   for(let n=1;n<items.length;n++)expect(items[n].x).toBeGreaterThan(items[n-1].x);
-  for(const name of ['저장하지 않고 닫기','바구니에 새 업데이트로 저장','내보내기']){
+  for(const name of ['저장하지 않고 닫기','정리함에 새 업데이트로 저장','내보내기']){
    const b=editor.getByRole('button',{name,exact:true});
    expect((await b.boundingBox()).width).toBe(32);
    expect(await b.evaluate(el=>[getComputedStyle(el,'::after').width,getComputedStyle(el,'::after').height])).toEqual(['44px','44px']);
@@ -173,7 +173,7 @@ test('쓰기 창 저장 아이콘(업데이트)·[내보내기] 시트는 그대
  await expect(sheet.locator('[data-sheet-value]')).toHaveText(['텔레그램용 복사','한글용 복사','HWP 파일로 받기']);
  await page.keyboard.press('Escape');await expect(sheet).not.toHaveAttribute('open','');
  await editor.locator('[data-md-save-icon]').click();
- await expect(page.locator('#mdEditor')).toHaveCount(0);await expect(page.locator('#toast')).toContainText('바구니에 저장했어요.');
+ await expect(page.locator('#mdEditor')).toHaveCount(0);await expect(page.locator('#toast')).toContainText('정리함에 저장했어요.');
  expect(f.writes).toEqual([{method:'POST',body:{workspace_id:'w',raw_text:'쓰기 메모'}}]);
  await expect(tabs(page)).toBeVisible();
  expect(f.errors).toEqual([]);

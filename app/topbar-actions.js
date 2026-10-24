@@ -38,9 +38,10 @@ const closeControl=()=>mobilePanel?.querySelector('[data-mobile-menu-close]')||m
 const midQuery=window.matchMedia('(min-width:761px) and (max-width:1023px)');
 const menuQuery=window.matchMedia('(max-width:1023px)');
 const appNav=document.querySelector('#appView>.app-nav'),drawerNav=mobilePanel?.querySelector('nav');
-const phoneOnly=[...drawerNav?.querySelectorAll('[data-view]')||[]];
-const midItems=['home','basket','calendar','tasks','journal','diary','projects','meetings','library','media','pages','team','hwp','ledger','calls','telegram']
-  .map(view=>appNav?.querySelector(`[data-view="${view}"]`)).filter(Boolean);
+const phoneOnly=[...drawerNav?.querySelectorAll('[data-view],[data-basket-kind-nav]')||[]];
+// BASKET-정리함이름: the sidebar's [노트] row follows [정리함] (data-basket-kind-nav, not a screen of its own) in the 761~1023px row too.
+const midItems=['home','basket','note','calendar','tasks','journal','diary','projects','meetings','library','media','pages','team','hwp','ledger','calls','telegram']
+  .map(view=>appNav?.querySelector(view==='note'?'[data-basket-kind-nav="note"]':`[data-view="${view}"]`)).filter(Boolean);
 const homes=new Map([...midItems,mobileTrigger].filter(Boolean).map(button=>{
   const anchor=document.createComment('navigation home');button.before(anchor);return [button,anchor];
 }));
@@ -59,8 +60,9 @@ function syncMenuLocation(){
   if(!midActive)return;
   const view=window.KPTURouter?.current||window.KPTURouter?.detect?.();
   let overflowCurrent=false;
+  const noteMode=view==='basket'&&document.getElementById('basketView')?.dataset.kind==='note';
   midItems.forEach(button=>{
-    const current=button.dataset.view===view;
+    const current=button.dataset.basketKindNav?noteMode:button.dataset.view===view&&!(noteMode&&view==='basket');
     button.classList.toggle('active',current);
     if(current)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
     if(current&&button.parentElement===drawerNav)overflowCurrent=true;
@@ -202,7 +204,7 @@ window.addEventListener('kptu:view-changed',event=>{
   syncMenuLocation();
   const home=event.detail?.view==='home';
   document.querySelector('.mobile-shell-header [data-home-date]')?.toggleAttribute('hidden',!home);
-  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:'바구니',calendar:'일정',tasks:'일정',journal:'일정',diary:'일정',projects:'프로젝트',team:'담당조직',meetings:'사업 보고',library:'자료실',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',media:'성명·보도자료',pages:'공유 페이지',search:'검색',reference:'참고 묶음',calls:'통화',telegram:'텔레그램 소식'})[event.detail?.view]||''}
+  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'정리함',calendar:'일정',tasks:'일정',journal:'일정',diary:'일정',projects:'프로젝트',team:'담당조직',meetings:'사업 보고',library:'자료실',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',media:'성명·보도자료',pages:'공유 페이지',search:'검색',reference:'참고 묶음',calls:'통화',telegram:'텔레그램 소식'})[event.detail?.view]||''}
 });
 // [+ 추가] (UI-디자인손질 8, BASKET-업데이트통합 PR 2, ED③): [업데이트] opens the update's big window (update-window.js) with no place (= the basket),
 // [노트] opens the note's (note-window.js). Each saves through its existing owner-RLS path and the window closes (저장하고 닫기). A saved
@@ -241,9 +243,9 @@ async function openWriter(kind='update'){
   }catch(error){console.error('menu write',error);writeToast('쓰기 화면을 열지 못했어요. 다시 시도해 주세요.')}
   finally{writerOpening=false}
 }
-// UI-PC메모노트: PC sidebar [바구니] → [업데이트]·[노트] (always shown). Each opens the basket on that side through the basket's
-// own one-shot hand-off (basket-note-tasks.js); the basket screen itself and the phone stay as they are.
-document.querySelectorAll('#appView>.app-nav [data-basket-kind-nav]').forEach(button=>button.addEventListener('click',async()=>{
+// BASKET-정리함이름: [노트] is its own menu item (PC sidebar row, phone [메뉴] sheet row). It opens the note side through the basket's
+// own one-shot hand-off (basket-note-tasks.js); [정리함] (data-view="basket") always opens the update/챙길 것 side.
+document.querySelectorAll('#appView [data-basket-kind-nav]').forEach(button=>button.addEventListener('click',async()=>{
   try{const {requestBasketKind}=await import('./basket-note-tasks.js');requestBasketKind(button.dataset.basketKindNav);}catch(error){console.error('basket kind',error)}
   window.KPTURouter?.go('basket',{source:'delegated'});
 }));
@@ -404,8 +406,8 @@ window.addEventListener('kptu:session-changed',()=>{trail.entries=[];trail.index
 paintTrail();
 // Where you are: group › screen. The group word goes to the group's first screen; the last word is the current page.
 const GROUPS={calendar:'schedule',tasks:'schedule',journal:'schedule',diary:'schedule',reference:'team'};
-const GROUP_HEAD={schedule:{name:'일정',view:'calendar'},basket:{name:'바구니',view:'basket'},team:{name:'담당조직',view:'team'}};
-const VIEW_NAMES={home:'홈',basket:'바구니',calendar:'달력',tasks:'할 일',journal:'업무일지',diary:'일기',projects:'프로젝트',library:'자료실',meetings:'사업 보고',media:'성명·보도자료',pages:'공유 페이지',team:'담당조직',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',search:'검색',reference:'참고 묶음',calls:'통화',telegram:'텔레그램 소식'};
+const GROUP_HEAD={schedule:{name:'일정',view:'calendar'},team:{name:'담당조직',view:'team'}};
+const VIEW_NAMES={home:'홈',basket:'정리함',calendar:'달력',tasks:'할 일',journal:'업무일지',diary:'일기',projects:'프로젝트',library:'자료실',meetings:'사업 보고',media:'성명·보도자료',pages:'공유 페이지',team:'담당조직',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',search:'검색',reference:'참고 묶음',calls:'통화',telegram:'텔레그램 소식'};
 const whereList=topline?.querySelector('[data-topline-where]');
 let basketKind=null;
 const whereItems=new Map();
@@ -414,9 +416,10 @@ function paintWhere(view=window.KPTURouter?.current){
   // Home only: the date sits beside the location (the PC counterpart of the phone header date); view-loader fills its text.
   topline.querySelector('[data-topline-date]')?.toggleAttribute('hidden',view!=='home');
   const parts=[];
-  const groupKey=GROUPS[view]||(view==='basket'&&basketKind?'basket':null);
+  const groupKey=GROUPS[view]||null;
   if(groupKey)parts.push({name:GROUP_HEAD[groupKey].name,go:GROUP_HEAD[groupKey].view});
-  parts.push({name:view==='basket'&&basketKind?(basketKind==='note'?'노트':'업데이트'):VIEW_NAMES[view]||''});
+  // BASKET-정리함이름: 정리함 and 노트 are two menu items, so the top line names the one shown (no group word).
+  parts.push({name:view==='basket'&&basketKind==='note'?'노트':VIEW_NAMES[view]||''});
   // The item open on the right of a left-list / right-detail screen goes last ("담당조직 › 조직명"); the screen word before it
   // is plain text (it would only go to the screen already shown).
   const itemKey=view==='basket'?`basket:${basketKind==='note'?'note':'memo'}`:view;
@@ -430,14 +433,13 @@ function paintWhere(view=window.KPTURouter?.current){
 }
 whereList?.addEventListener('click',event=>{
   const go=event.target.closest('[data-topline-go]')?.dataset.toplineGo;if(!go)return;
-  // 바구니 › 노트: the group word opens the basket on its first side (업데이트), through the basket's own hand-off.
-  if(go==='basket'&&window.KPTURouter?.current==='basket'){
-    import('./basket-note-tasks.js').then(({requestBasketKind})=>{requestBasketKind('memo');window.KPTURouter?.go('basket',{source:'delegated'})}).catch(error=>console.error('where basket',error));
-    return;
-  }
   window.KPTURouter?.go(go,{source:'delegated'});
 });
-window.addEventListener('kptu:basket-kind',event=>{basketKind=event.detail?.kind||null;paintWhere()});
+window.addEventListener('kptu:basket-kind',event=>{
+  basketKind=event.detail?.kind||null;paintWhere();
+  // The phone header names the side shown (정리함 / 노트).
+  const name=document.querySelector('[data-mobile-view-name]');if(name&&window.KPTURouter?.current==='basket')name.textContent=basketKind==='note'?'노트':'정리함';
+});
 // ORG-PC상세정리 (요청 14:06 "상단 줄에 지금 연 것 이름"): a screen names the item it shows on the right with
 // kptu:where-item {view, name}; {view, name:null} drops it. Sent by 담당조직 (workplace-detail.js) and 바구니 › 노트 (basket-notes.js, the open note's title).
 // UI-상단줄제목: one name per screen (a Map), so a screen keeps its name while another screen is shown and gets it back on return; only the

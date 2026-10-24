@@ -55,6 +55,18 @@ export async function readOpenCandidates(rt = window.KPTURuntime) {
     return {ok:true, rows:clean(rows)};
   } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
 }
+// BASKET-정리함이름: the 정리함's [챙길 것] side shows what is still open and, under its other chips, what was sent to a task or
+// ignored (newest decision first). Two reads so a long history of handled rows never pushes an open row out of the list.
+export async function readInboxCandidates(rt = window.KPTURuntime) {
+  try {
+    const base = `/rest/v1/app_todo_candidates?workspace_id=eq.${encode(workspace(rt))}`;
+    const [open, handled] = await Promise.all([
+      rt.api(`${base}&status=eq.open&select=${FIELDS}&order=created_at.desc,id.asc&limit=100`, {singleFlight:false}),
+      rt.api(`${base}&status=in.(tasked,dismissed)&select=${FIELDS}&order=decided_at.desc.nullslast,id.asc&limit=100`, {singleFlight:false}),
+    ]);
+    return {ok:true, rows:[...clean(open), ...clean(handled)]};
+  } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
+}
 // JOURNAL-챙길것화면 ⑤: home shows what is still open and, folded below, what was handled since `since` (today's start).
 export async function readHomeCandidates(since, rt = window.KPTURuntime) {
   if (!Number.isFinite(Date.parse(since))) return {ok:false};

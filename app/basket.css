@@ -132,9 +132,30 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .basket-html-views:empty { display:none; }
 .basket-html-message { margin:0 0 12px; color:var(--kptu-muted); }
 
-/* MEMO-노트: 바구니 탭 맨 위 [메모 | 노트]. 두 칸 반반, 고른 쪽은 회색(UI-선택표시통일 결정), 안 고른 쪽은 흰 바탕. */
-#basketView .basket-kind-switch:not([hidden]) { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; width:100%; max-width:240px; margin:0 0 8px; }
-#appView #basketView .basket-kind-switch [aria-pressed="true"] { color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
+/* BASKET-정리함이름: 머리줄 오른쪽 작은 전환 [업데이트 n | 챙길 것 n](모양은 ui-standard.css의 공용 세그먼트). 숫자는 처리 안 한 것만. */
+#basketView .basket-head .inbox-pane-switch { margin-left:auto; }
+#basketView .inbox-pane-count { margin-left:3px; color:var(--kptu-muted); font-variant-numeric:tabular-nums; }
+#basketView .inbox-pane-switch [aria-pressed="true"] .inbox-pane-count { color:inherit; }
+/* [챙길 것] 쪽을 보는 동안 업데이트 쪽에만 있는 줄은 없다(한 곳이 두 쪽을 그리지 않고, 쪽 전환이 hidden 대신 이 표시로 가린다). */
+#appView #basketView[data-pane="todo"] > :is([data-basket-place-filter],[data-basket-sub-filter],[data-basket-ref-open],[data-basket-handoff-scope],[data-handoff-host],[data-basket-list],[data-classification-host]) { display:none; }
+/* 챙길 것 줄: 왼쪽 출처(작은 글자 버튼) · 가운데 글 · 오른쪽 작은 [할 일로][무시](UI-버튼기준: 보이는 32px, 누르는 범위 44px, 두 버튼 크기 같음). */
+#basketView .inbox-todo-host:not([hidden]) { display:block; margin:4px 0 0; }
+#basketView .inbox-todo-list { display:flex; flex-direction:column; margin:0; padding:0; list-style:none; }
+#basketView .inbox-todo-row { display:flex; flex-direction:column; gap:2px; min-width:0; padding:8px 0; border-top:var(--ds-line-width) solid var(--ds-line); }
+#basketView .inbox-todo-row:first-child { border-top:0; }
+#basketView .inbox-todo-line { display:flex; align-items:center; gap:8px; min-width:0; flex-wrap:wrap; }
+#basketView .inbox-todo-text { display:flex; flex-direction:column; flex:1 1 12em; min-width:0; }
+#basketView .inbox-todo-summary { font-size:14px; line-height:1.5; color:var(--kptu-ink); overflow-wrap:anywhere; }
+#basketView .inbox-todo-meta,#basketView .inbox-todo-status,#basketView .inbox-todo-empty,#basketView .inbox-todo-done { margin:0; font-size:var(--ds-text-meta); line-height:1.5; color:var(--kptu-muted); overflow-wrap:anywhere; }
+#basketView .inbox-todo-status:empty { display:none; }
+#basketView .inbox-todo-row[data-inbox-todo-status="tasked"] .inbox-todo-summary,#basketView .inbox-todo-row[data-inbox-todo-status="dismissed"] .inbox-todo-summary { color:var(--kptu-muted); text-decoration:line-through; }
+#appView #basketView button.inbox-todo-source { position:relative; flex:0 0 auto; box-sizing:border-box; width:auto; max-width:8em; height:var(--ds-compact-height-sm); min-height:0; margin:0; padding:0 8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:inherit; font-size:var(--ds-text-meta); color:var(--kptu-muted); background:var(--kptu-surface-subtle); border:0; border-radius:var(--ds-chip-radius); cursor:pointer; }
+#appView #basketView .inbox-todo-actions { display:inline-flex; flex:0 0 auto; gap:8px; margin-left:auto; }
+#appView #basketView button.inbox-todo-btn { position:relative; box-sizing:border-box; width:auto; min-width:0; height:var(--ds-compact-height); min-height:0; margin:0; padding:0 var(--ds-compact-pad-x); font:inherit; font-size:var(--ds-compact-text); line-height:1; white-space:nowrap; color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); cursor:pointer; }
+#appView #basketView button.inbox-todo-btn:disabled { opacity:.6; cursor:default; }
+#appView #basketView button.inbox-todo-link { position:relative; min-height:0; margin:0; padding:0; font:inherit; font-size:var(--ds-text-meta); color:var(--kptu-primary-ink); background:transparent; border:0; cursor:pointer; }
+#appView #basketView :is(button.inbox-todo-source,button.inbox-todo-btn,button.inbox-todo-link)::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+#basketView .inbox-todo-below { display:flex; gap:8px; margin-top:2px; }
 #basketView .note-host { --ds-section-ink:var(--ds-kind-note-ink); }
 /* [노트] 위쪽: 검색칸 + [+ 노트]. 폰에서는 [+ 노트]가 다른 화면과 같은 동그란 [+]로 뜬다(ui-standard.css). */
 .note-list-head { display:flex; align-items:center; gap:8px; margin:8px 0; }

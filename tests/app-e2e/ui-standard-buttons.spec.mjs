@@ -35,9 +35,8 @@ async function sameButtons(region,height,quickHeight=height){
   // UI-버튼크기: 주 동작 버튼만 [추가] 높이(46px). 전환(홈 [업데이트 ▾|할 일]·바구니 [메모|노트])은 32px 상자 안 칸으로
   // 바깥쪽 모서리만 8px, 필터([미분류·전체·보관])는 32px 알약, PC [⋯ 더보기]는 32px 보조 버튼. 작은 것은 누르는 범위(::after) 44px.
   const want=await control.evaluate(el=>{
-   const seg=el.closest('.home-quick-modes,.basket-kind-switch');
-   // UI-버튼작게 ③: 폰 바구니 [메모|노트]는 아래 탭 위 알약 세그먼트(바깥 모서리 999px).
-   const r=seg?.matches('.basket-kind-switch')&&innerWidth<761?'999px':'8px';
+   const seg=el.closest('.home-quick-modes,.inbox-pane-switch');
+   const r='8px';
    if(seg){const cells=[...seg.querySelectorAll('button')],i=cells.indexOf(el);return {min:30,max:32,radius:i===0?`${r} 0px 0px ${r}`:i===cells.length-1?`0px ${r} ${r} 0px`:'0px'};}
    // UI-버튼작게 ①: 읽기 화면 아래 버튼은 한 줄 32px. UI-업데이트편집한줄: 수정 화면 버튼 줄과 [첨부 저장]도 32px.
    if(el.closest('.basket-read-actions,.basket-edit-actions')||el.matches('[data-basket-upload]'))return {min:32,max:32,radius:'8px'};

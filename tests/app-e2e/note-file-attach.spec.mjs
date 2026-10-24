@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import {openMdTool} from './helpers/md-tools.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { noteMenuAction } from './helpers/note-menu.mjs';
-import { basketKindButton } from './helpers/basket-kind.mjs';
+import { basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';
 import { expectNoteTitle } from './helpers/note-title.mjs';
 // NOTE-파일붙이기 (2026-10-22 사용자 결정): files on notes.
 // - The note input bar has the clip ([📎]); [추가] makes the note first, then its files go up with its id (basket-files, which puts
@@ -62,7 +62,7 @@ async function fixture(page, width) {
   });
   await page.route(SB + '/functions/v1/document-actions', r => { functions.push(r.request().url()); return r.fulfill({status: 500, json: {}}); });
   await page.evaluate(() => window.KPTURouter.go('basket'));
-  await press(page, basketKindButton(page, 'note'), width);
+  await openKindMenu(page,'note');await press(page, basketKindButton(page, 'note'), width);
   await expect(page.locator('[data-note-row="n-files"]')).toBeVisible();
   return {notes, writes, uploads, functions, errors};
 }

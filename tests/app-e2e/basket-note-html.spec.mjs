@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import {noteMenuAction} from './helpers/note-menu.mjs';
-import { basketKindButton } from './helpers/basket-kind.mjs';
+import { basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';
 import { expectNoteTitle } from './helpers/note-title.mjs';
 // BUG-노트HTML표시: a note's .html attachment (ChatGPT HTML) shows in the same sandboxed frame as the memo read view
 // (html-frame.js, document-actions `html-view`), so a note made only of HTML no longer says "본문이 없는 노트입니다.".
@@ -48,7 +48,7 @@ async function press(page,locator,width){
  // Phone: a real touch tap (Playwright waits for the element to be stable, even if the list repaints).
  if(width<761)await locator.tap();else await locator.click();
 }
-const openNote=async(page,id,width)=>{await press(page,basketKindButton(page,'note'),width);await press(page,page.locator(`[data-note-row="${id}"]`),width);return page.locator('[data-note-detail]');};
+const openNote=async(page,id,width)=>{await openKindMenu(page,'note');await press(page,basketKindButton(page,'note'),width);await press(page,page.locator(`[data-note-row="${id}"]`),width);return page.locator('[data-note-detail]');};
 
 for(const width of [390,1280]){
  test(`a note with only an .html attachment shows it in the sandboxed frame, no "no body" sentence ${width}`,async({page})=>{

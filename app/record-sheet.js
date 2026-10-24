@@ -38,16 +38,16 @@ function install(){
 export function openRecordSheet({row,place='',trigger=null,onOpenFull=null}={}){
   if(!row)return false;
   const sheet=install();if(state)close({focus:false,immediate:true});
-  const note=isNoteRecord(row),summary=recordText(row)||'',raw=String(row.raw_text??''),title=note&&String(row.title||'').trim()?row.title:(note?'노트':'바구니 업데이트');
+  const note=isNoteRecord(row),summary=recordText(row)||'',raw=String(row.raw_text??''),title=note&&String(row.title||'').trim()?row.title:(note?'노트':'정리함 업데이트');
   const date=Number.isFinite(Date.parse(row.occurred_at))?formatSeoulTime(row.occurred_at,{year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}):'';
   sheet.querySelector('[data-record-sheet-title]').innerHTML=`${recordMark(row,'record-sheet-mark')} <span>${escape(title)}</span>`;
-  sheet.querySelector('[data-record-sheet-meta]').textContent=[note?'노트 연결':'바구니 연결',date,place].filter(Boolean).join(' · ');
+  sheet.querySelector('[data-record-sheet-meta]').textContent=[note?'노트 연결':'정리함 연결',date,place].filter(Boolean).join(' · ');
   const showSummary=row.summary!=null&&String(row.summary).trim()&&String(row.summary).trim()!==raw.trim();
   sheet.querySelector('[data-record-sheet-body]').innerHTML=`${showSummary?`<p class="record-sheet-summary"><b>기록 요약</b> ${escape(summary)}</p>`:''}<div class="record-sheet-text" data-record-sheet-text>${raw.trim()?escape(raw):'<span class="record-sheet-empty">내용 없음</span>'}</div>`;
   // BUG-미리보기기호: the opened sheet shows the written text as headings and tables (the plain text stays until the view is ready).
   const textBox=sheet.querySelector('[data-record-sheet-text]');
   if(textBox&&raw.trim()&&markdownSource(raw))import('./markdown-view.js').then(view=>view.renderMarkdownInto(textBox,raw,{isCurrent:()=>state?.row===row})).catch(()=>{});
-  const full=sheet.querySelector('[data-record-sheet-full]');full.textContent=note?'노트 열기':'바구니에서 열기';full.hidden=typeof onOpenFull!=='function';
+  const full=sheet.querySelector('[data-record-sheet-full]');full.textContent=note?'노트 열기':'정리함에서 열기';full.hidden=typeof onOpenFull!=='function';
   state={row,trigger,onOpenFull,drag:null};
   const card=sheet.querySelector('[data-record-sheet-card]');card.style.transform='';card.scrollTop=0;
   sheet.classList.remove('hidden');sheet.setAttribute('aria-hidden','false');

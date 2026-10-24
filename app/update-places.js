@@ -44,7 +44,7 @@ export function togglePlace(chosen, value) {
   if (at >= 0) return list.filter((_, i) => i !== at);
   return list.length >= PLACE_LIMIT ? null : [...list, place];
 }
-export const choiceCountText = chosen => { const n = placeList(chosen).length; return n ? `${n}곳 선택됨` : '바구니(미분류) 선택됨'; };
+export const choiceCountText = chosen => { const n = placeList(chosen).length; return n ? `${n}곳 선택됨` : '정리함(미분류) 선택됨'; };
 
 // sources: {projects(), orgs(), assignments(), bundles()?} — the home passes its shared reads; the write window reads them itself.
 // Returns {projects:[tree rows of active projects], orgs:{recent, groups}, bundles:[reference bundles]} with the three most recent
@@ -111,7 +111,7 @@ export function placeSheetHtml(places, chosen, esc, {basket: withBasket = true, 
   const list = placeList(chosen), picked = value => value === 'basket' ? !list.length : list.some(p => placeValue(p) === value);
   const chip = (value, name) => `<button type="button" class="home-choice-chip" data-sheet-value="${esc(value)}" aria-pressed="${picked(value)}">${esc(name)}</button>`;
   const row = x => projectRow(x, picked('project:' + x.project.id) ? 'project:' + x.project.id : null, esc, {value:'project:' + x.project.id});
-  const basket = `<span data-sheet-basket class="home-choice-inline">${chip('basket', '바구니(미분류)')}</span>`;
+  const basket = `<span data-sheet-basket class="home-choice-inline">${chip('basket', '정리함(미분류)')}</span>`;
   const orgs = places?.orgs || {recent:[], groups:[]}, projects = places?.projects || [];
   const used = usedPlaces(places), usedIds = new Set(used.filter(p => p.kind === 'organization').map(p => p.id));
   const all = orgs.groups.flat();
@@ -157,15 +157,15 @@ export async function saveUpdate({place, places, text, owner, doc = null}, rt = 
   return {note, linkError};
 }
 export const MULTI_REASON = '직접 연결'; // the same reason as the basket [연결하기] (basket-manual-link.js)
-export const linkFailText = '업데이트는 바구니에 저장했지만 고른 곳에 연결하지 못했어요. 바구니에서 [연결하기]로 다시 연결해 주세요.';
+export const linkFailText = '업데이트는 정리함에 저장했지만 고른 곳에 연결하지 못했어요. 정리함에서 [연결하기]로 다시 연결해 주세요.';
 // ED③ 업데이트: whether the new editor's saved form can be kept for these places: yes for the basket, two or more places (one basket update
 // linked to each), a reference bundle, or any save with files (also a basket update linked); no for one organization's or project's own record.
 export const keepsFormat = (places, fileCount = 0) => {
   const list = placeList(places);
   return !list.length || list.length > 1 || list[0].kind === 'reference' || fileCount > 0;
 };
-export const docFailText = '글자는 저장했지만 서식은 저장하지 못했어요. 바구니에서 그 업데이트를 열어 다시 고쳐 저장해 주세요.';
-export const fileFailText = '파일은 바구니에 저장했지만 고른 곳 자료로 넣지 못했어요. 바구니에서 [연결하기]로 다시 넣어 주세요.';
+export const docFailText = '글자는 저장했지만 서식은 저장하지 못했어요. 정리함에서 그 업데이트를 열어 다시 고쳐 저장해 주세요.';
+export const fileFailText = '파일은 정리함에 저장했지만 고른 곳 자료로 넣지 못했어요. 정리함에서 [연결하기]로 다시 넣어 주세요.';
 // BUG-업데이트첨부연결: an update with files and one or more chosen places gives the same result as saving it in the basket and
 // then using the basket's [연결하기] / [자료로 넣기] on it — through those same paths, nothing new on the server:
 // ① the text and files go up as one basket update (uploadBatch → basket-files, photo text reading included); a failed file

@@ -87,7 +87,7 @@ test('PC 1280: 큰 버튼은 회의 [+ 회의 결과]와 같은 36px, 옆 입력
  expect(ti.height).toBe(36);expect(td.height).toBe(36);expect(td.touch).toBeGreaterThanOrEqual(44);expect(Math.abs(ti.top-ts.top)).toBeLessThanOrEqual(0.5);
  // 바구니: [추가]·[📎 첨부] 36px(여러 줄 업데이트 칸 높이는 그대로). 노트(BASKET-노트입력창): [+ 노트] 대신 같은 입력칸의 [추가] 36px, 검색칸 36px.
  await open(page,'basket');const bq=page.locator('#basketView [data-basket-list] [data-home-quick]');
- await pcButton(bq.locator('[data-quick-save]'),'바구니 추가');await pcButton(bq.getByRole('button',{name:'파일 첨부',exact:true}),'바구니 첨부');
+ await pcButton(bq.locator('[data-quick-save]'),'정리함 추가');await pcButton(bq.getByRole('button',{name:'파일 첨부',exact:true}),'정리함 첨부');
  await chooseBasketKind(page,'note');
  const nb=await pcButton(page.locator('#basketView [data-note-list] [data-quick-save]'),'노트 추가'),ns=await measure(page.locator('#basketView [data-note-search]'));
  expect(ns.height).toBe(36);

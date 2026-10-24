@@ -143,14 +143,14 @@ test('③ no write button under the date; [+] writes the chosen day, an existing
  await expect(detail.getByText('이 날 일기 쓰기')).toHaveCount(0);
  await plus.click();
  await expect(editor.locator('[data-diary-date]')).toHaveValue('2026-10-02');
- await expect(editor.locator('[data-diary-text]')).toHaveValue('');
+ await expect(editor.locator('[data-diary-text] .ProseMirror')).toHaveText('');
  await page.goBack();await expect(editor).toBeHidden();
  // A day that has a diary: [+] opens it to edit.
  await page.locator('#diaryRoot [data-diary-day="2026-10-04"]').click();
  await expect(detail).toContainText('글만 쓴 날');
  await plus.click();
  await expect(editor.locator('[data-diary-date]')).toHaveValue('2026-10-04');
- await expect(editor.locator('[data-diary-text]')).toHaveValue('글만 쓴 날');
+ await expect(editor.locator('[data-diary-text] .ProseMirror')).toHaveText('글만 쓴 날');
  await page.goBack();await expect(editor).toBeHidden();
  // Nothing chosen: today.
  if(await detail.isVisible())await page.locator('#diaryRoot [data-diary-detail-close]').click();
@@ -203,7 +203,7 @@ for(const width of [390,1280])test(`⑥ an opened note draws only "‹ 노트" (
  // Back to the list: the switch is drawn again.
  await back.click();
  // BASKET-노트입력창: a PC (≥1024) draws no switch at all (the sidebar changes sides); a phone draws it again.
- if(width<1024)await expect(page.locator('[data-basket-kind="note"]')).toBeVisible();else await expect(page.locator('[data-basket-kind-switch]')).toBeHidden();await expect(page.locator('[data-note-row="n1"]')).toBeVisible();
+ await expect(page.locator('[data-basket-kind-switch]')).toHaveCount(0);await expect(page.locator('[data-note-row="n1"]')).toBeVisible();
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
@@ -214,7 +214,7 @@ test('⑥ a memo opened from the list hides the switch the same way, and it come
  await page.locator('[data-basket-row="m1"]').click();
  await expect(page.locator('[data-basket-close]')).toBeVisible();await expect(page.locator('#basketView .basket-switch-row')).toBeHidden();
  await page.locator('[data-basket-close]').click();
- await expect(page.locator('#basketView .basket-switch-row')).toBeVisible();await expect(page.locator('[data-basket-kind="memo"]')).toBeVisible();
+ await expect(page.locator('#basketView .basket-switch-row')).toBeVisible();await expect(page.locator('[data-inbox-pane="update"]')).toBeVisible();
  expect(f.errors).toEqual([]);
 });
 

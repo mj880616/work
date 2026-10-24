@@ -9,7 +9,7 @@ const viaSheet=async page=>{if((page.viewportSize()?.width||0)>760)return;const 
 // 돌아오기: 상세의 🧺 기록 → 업데이트 화면의 "← (이름)으로 돌아가기"·뒤로 가기·탭 → 같은 프로젝트(담당조직)·같은 스크롤.
 // 이름은 모두 합성 값이다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-09-15T01:00:00Z';
-const note={id:'10000000-0000-4000-8000-0000000000aa',workspace_id:'w',kind:'basket',occurred_at:stamp,updated_at:stamp,raw_text:'합성 바구니 원문',ai_export_allowed:true,archived_at:null,attachments:[]};
+const note={id:'10000000-0000-4000-8000-0000000000aa',workspace_id:'w',kind:'basket',occurred_at:stamp,updated_at:stamp,raw_text:'합성 정리함 원문',ai_export_allowed:true,archived_at:null,attachments:[]};
 const spaces=[
  {id:'pa',workspace_id:'w',owner_id:'home-test',name:'합성 정책 사업',status:'active',sort_order:10,metadata:{project_system:'v2',color:'green'}},
  {id:'pc',workspace_id:'w',owner_id:'home-test',name:'합성 하위 토론회',parent_id:'pa',status:'active',sort_order:20,metadata:{project_system:'v2'}},

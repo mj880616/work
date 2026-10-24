@@ -6,7 +6,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 // 상세의 기록 → 업데이트 화면에서 "← (조직)으로 돌아가기"·뒤로 가기 → 같은 조직·같은 스크롤. 761~1023px·폰은 목록 + 상세 창.
 // 이름은 모두 합성 값이다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',stamp='2026-09-15T01:00:00Z',owner='home-test';
-const note={id:'10000000-0000-4000-8000-0000000000bb',workspace_id:'w',kind:'basket',occurred_at:stamp,updated_at:stamp,raw_text:'합성 조직 바구니 원문',ai_export_allowed:true,archived_at:null,attachments:[]};
+const note={id:'10000000-0000-4000-8000-0000000000bb',workspace_id:'w',kind:'basket',occurred_at:stamp,updated_at:stamp,raw_text:'합성 조직 정리함 원문',ai_export_allowed:true,archived_at:null,attachments:[]};
 // The first two are in the 철도 group order (organization-order.js); the rest fall in "그 외" by name.
 const orgs=[
  {id:'oa',workspace_id:'w',name:'합성 가 지부',active:true,created_by:owner,updated_at:stamp},
@@ -183,7 +183,7 @@ for(const width of [1280,390])test(`${width}: record edit and 요약 edit boxes 
  await rec.locator('[data-wd-up-cancel]').click();await expect(rec.locator('[data-wd-up-edit]')).toHaveCount(0);
  // 2) The 요약 box of a linked record.
  const link=modal.locator('[data-basket-link="l-o"]');await scrollToRecord(page,link);
- await link.getByRole('button',{name:'바구니 기록 메뉴'}).click();await page.locator('#basketLinkMenu').getByRole('button',{name:'요약 수정',exact:true}).click();
+ await link.getByRole('button',{name:'정리함 기록 메뉴'}).click();await page.locator('#basketLinkMenu').getByRole('button',{name:'요약 수정',exact:true}).click();
  const sum=link.locator('[data-link-summary-input]');await expect(sum).toBeFocused();await expect(sum).toHaveCSS('resize','none');
  const sumBig=link.locator('[data-link-summary-big]');await expect(sumBig).toBeVisible();await expect(sumBig).toHaveAccessibleName('크게');
  await sumBig.click();await expect(editor.locator('.md-editor-text')).toHaveValue('합성 조직 연결 요약');

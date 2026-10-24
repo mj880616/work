@@ -81,7 +81,7 @@ test('phone: organization linked record opens as a card over the detail; ✕, ba
  const sheet=page.locator('#kptuRecordSheet');
  await line.click();await expect(sheet).toBeVisible();await expect(modal).toBeVisible();
  await expect(sheet.locator('[data-record-sheet-text]')).toHaveText('보관 원문 <script> 합성 내용');
- await expect(sheet).toContainText('합성 담당조직');await expect(sheet.getByRole('button',{name:'바구니에서 열기'})).toBeVisible();
+ await expect(sheet).toContainText('합성 담당조직');await expect(sheet.getByRole('button',{name:'정리함에서 열기'})).toBeVisible();
  expect(await page.evaluate(()=>window.__went)).toEqual([]);
  const box=await sheet.locator('[data-record-sheet-card]').boundingBox();expect(box.y+box.height).toBeLessThanOrEqual(844+1);expect(box.width).toBeGreaterThan(380);
  await shot(page,'org-record-sheet-phone');
@@ -102,7 +102,7 @@ test('phone: organization linked record opens as a card over the detail; ✕, ba
  await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBe('wdModal');
  expect(await page.evaluate(()=>window.__went)).toEqual([]);
  // [바구니에서 열기] hands over to the existing full open once the card is gone.
- await line.click();await sheet.getByRole('button',{name:'바구니에서 열기'}).click();
+ await line.click();await sheet.getByRole('button',{name:'정리함에서 열기'}).click();
  await expect(sheet).toBeHidden();await expect(modal).toBeHidden();await expect.poll(()=>page.evaluate(()=>window.__went)).toEqual(['basket']);
 });
 
@@ -116,7 +116,7 @@ test('phone: project linked record opens as a card over project detail and Esc c
  await shot(page,'project-record-sheet-phone');
  await page.keyboard.press('Escape');await expect(sheet).toBeHidden();await expect(modal).toBeVisible();await expect(line).toBeFocused();
  await line.click();await expect(sheet).toBeVisible();await page.evaluate(()=>history.back());await expect(sheet).toBeHidden();await expect(modal).toBeVisible();
- await line.click();await sheet.getByRole('button',{name:'바구니에서 열기'}).click();await expect.poll(()=>page.evaluate(()=>window.__went)).toEqual(['basket']);await expect(modal).toBeHidden();
+ await line.click();await sheet.getByRole('button',{name:'정리함에서 열기'}).click();await expect.poll(()=>page.evaluate(()=>window.__went)).toEqual(['basket']);await expect(modal).toBeHidden();
 });
 
 test('wide screen keeps the full open for a linked record (no card)',async({page})=>{

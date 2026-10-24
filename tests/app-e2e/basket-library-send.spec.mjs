@@ -32,7 +32,7 @@ for(const width of [390,1280])test(`sending an attachment registers it once and 
  await press(page,f.send('drive-a'),width);
  // UI-바구니상세개편: the result is a short notice; the file's size line says it is in the library, and the small
  // [자료실로 보내기] link becomes [자료실에서 보기] (no button to press again).
- await expect(page.locator('#toast')).toHaveText('자료실로 보냈어요. 바구니와 같은 Drive 원본을 씁니다.');await expect(f.result('drive-a')).toHaveCount(0);
+ await expect(page.locator('#toast')).toHaveText('자료실로 보냈어요. 정리함과 같은 Drive 원본을 씁니다.');await expect(f.result('drive-a')).toHaveCount(0);
  await expect(f.meta('drive-a')).toHaveText('2.0 KB · 자료실에 있음 ✓');await expect(a.getByRole('button')).toHaveText(['내려받기']);
  await expect(a.getByRole('link',{name:'회의 사진.jpg 자료실에서 보기'})).toHaveAttribute('data-basket-library-open','doc-drive-a');
  expect(f.sends).toEqual([{action:'register-basket-attachment',note_id:n,drive_file_id:'drive-a'}]);
@@ -116,7 +116,7 @@ test('a newly sent attachment is filled in the background like an upload',async(
  // Registered after the home fixture's catch-all so this route wins (Playwright uses the latest matching route).
  await page.route(SB+'/functions/v1/ai-assist',async route=>{fills.push(route.request().postDataJSON());return route.fulfill({status:503,json:{ok:false,error:'ai_busy',message:'x'}});});
  await press(page,f.send('drive-a'),390);
- await expect(page.locator('#toast')).toHaveText('자료실로 보냈어요. 바구니와 같은 Drive 원본을 씁니다.');
+ await expect(page.locator('#toast')).toHaveText('자료실로 보냈어요. 정리함과 같은 Drive 원본을 씁니다.');
  await expect.poll(()=>fills.length).toBe(1);
  expect(fills[0]).toEqual({kind:'library_fill',mode:'fill',document_ids:[DOC],keep:[]});
  expect(f.sends).toEqual([{action:'register-basket-attachment',note_id:n,drive_file_id:'drive-a'},{action:'document-text',document_id:DOC}]);
