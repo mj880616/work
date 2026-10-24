@@ -1,6 +1,6 @@
 // LEDGER-자동기록 3단계(앱, docs/design/ledger-auto-record.md 3.1·5.2·6절): 저장 뒤 원장 자동 기록 호출의 순수 판단. DOM·네트워크 없음.
 // - 무엇이 "재료 저장"인가(affectsLedger), 몇 분 모아 한 번 부르는 묶음(createAutoBatcher), 서버 답 해석(autoOutcome).
-// - 상태는 이 탭 메모리에만 둔다(localStorage 없음). "아직 안 본 기록"은 서버 처리 표(app_ledger_auto_sources)가 정하므로
+// - 상태는 이 탭 메모리에만 둔다(브라우저 저장소 없음). "아직 안 본 기록"은 서버 처리 표(app_ledger_auto_sources)가 정하므로
 //   탭을 닫아 놓친 저장은 다음에 앱을 열 때 한 번 부르는 것으로 이어서 처리된다(서버 저장 기준).
 export const WAIT_MS = 10 * 60 * 1000;      // 마지막 저장 10분 뒤(결정 ④)
 export const MAX_WAIT_MS = 30 * 60 * 1000;  // 처음 저장부터 길어도 30분

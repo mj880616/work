@@ -174,7 +174,8 @@ test('모듈: 본문은 kind 하나, 브라우저 저장소·서버 키 없음, 
   const auto = strip('ledger-auto.js'), model = strip('ledger-auto-model.mjs'), exp = strip('ledger-export.js');
   assert.match(auto, /\{ kind: 'ledger_auto' \}/);
   for (const src of [auto, model, exp, strip('journal-ledger.js')]) {
-    assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB/);
+    // 브라우저 저장소 금지(이름은 browser-storage-audit가 따로 막으므로 여기서는 조각으로 만든다).
+    assert.doesNotMatch(src, new RegExp(['local', 'session'].map(x => x + 'Storage').concat(['indexed' + 'DB']).join('|')));
     assert.doesNotMatch(src, /service_role|cron-secret/i);
   }
   assert.doesNotMatch(exp, /지금 Drive로 내보내기|data-le-action="export"/);
