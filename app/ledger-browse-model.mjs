@@ -133,7 +133,7 @@ export function linkLabel(link, names, dir) {
     return { relation: rel, kind: 'organization', ledgerId: o?.ledger_id || '', title: o?.name || '(읽을 수 없는 조직)', dir };
   }
   if (link.target_project_id) return { relation: rel, kind: 'project', ledgerId: '', title: names.projects.get(link.target_project_id) || '(Web2 프로젝트)', dir };
-  if (link.target_meeting_id) return { relation: rel, kind: 'meeting', ledgerId: '', title: names.meetings.get(link.target_meeting_id) || '(Web2 회의)', dir };
+  if (link.target_meeting_id) return { relation: rel, kind: 'meeting', ledgerId: '', title: names.meetings.get(link.target_meeting_id) || '(Web2 사업 보고)', dir };
   return { relation: rel, kind: 'other', ledgerId: '', title: '', dir };
 }
 

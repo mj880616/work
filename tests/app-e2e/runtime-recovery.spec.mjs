@@ -245,7 +245,7 @@ test('session changes during initial ensure reject before the save dispatch',asy
 // Consumer lifecycle probes compose actual runtime/router/a11y/modules and app
 // DOM in the existing runtime fixture. Shell Auth bootstrap is excluded because
 // its independent identity listener navigates away on B/null snapshots.
-const DELETE_UNKNOWN='삭제 결과를 확인하지 못했습니다. 다시 삭제하지 말고 자료실 목록 또는 회의자료를 다시 열어 확인해 주세요. Drive 원본 상태도 직접 확인해 주세요.';
+const DELETE_UNKNOWN='삭제 결과를 확인하지 못했습니다. 다시 삭제하지 말고 자료실 목록 또는 사업 보고 자료를 다시 열어 확인해 주세요. Drive 원본 상태도 직접 확인해 주세요.';
 const DELETE_LEGACY='자료 등록을 삭제했습니다. Drive 파일 처리 결과는 확인하지 못했습니다. 원본 상태를 직접 확인해 주세요.';
 const DELETE_DRIVE='Google Drive 연결을 확인해 주세요. 다시 삭제하기 전에 자료 목록과 원본 상태를 먼저 확인해 주세요.';
 const appMarkup=readFileSync(new URL('../../app/index.html',import.meta.url),'utf8');
