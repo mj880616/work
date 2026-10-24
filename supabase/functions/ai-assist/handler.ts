@@ -4,7 +4,7 @@
 // 기존 소유자 전용 RLS(private.app_is_workspace_owner)가 그대로 걸린다.
 // 열쇠는 WEB2_OPENAI_API_KEY만 읽는다(옛 OPENAI_API_KEY는 읽지 않음, 결정 D2).
 // 쓰임 1(연결 요약, kind=link_summary), 쓰임 2(챙길 것 찾기, kind=todo_radar, S5), 쓰임 3(원장 후보 만들기,
-// kind=ledger_candidates, S7-c)만 처리하고 나머지 kind는 거절한다.
+// kind=ledger_candidates, S7-c), 원장 자동 기록(kind=ledger_auto, LEDGER-자동기록 2단계) 등 아래 쓰임만 처리하고 나머지 kind는 거절한다.
 // 연결 요약 답은 후보일 뿐 저장하지 않는다. 저장은 화면의 기존 저장 경로(app_basket_confirm_links 등)가 한다.
 // 챙길 것 찾기는 후보만 owner RLS 표 app_todo_candidates에 "대기"로 더한다(요약·출처·짧은 근거만, 원문 없음).
 // 할 일 만들기·원장 쓰기는 하지 않는다. 상대 약속(COM)은 저장하지 않고 응답으로만 돌려준다(화면 [원장으로 복사]).
@@ -31,7 +31,7 @@
 //   화면은 주(월요일)와 일정 줄(참조·날짜·시각·달력 제목·장소, 30개까지)만 보낸다(이 쓰임만 몸통 20KB, 나머지는 2KB 그대로).
 //   업무 기록·이름 목록은 서버가 내 로그인으로 읽는다(일기·보관·AI 제외 업데이트 빼고). 답은 제안으로만 돌려주고 저장하지 않는다.
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
-import { aiConfigFrom, callOpenAi as callSharedOpenAi, estimateKrw, tokenCount, type OpenAiResult } from "../_shared/openai-responses.ts";
+import { aiConfigFrom, callOpenAi as callSharedOpenAi, estimateKrw, outputText, tokenCount, type OpenAiResult } from "../_shared/openai-responses.ts";
 import {
   dedupeKey, packSources, parseTodoRadar, radarMaterial, RADAR_MAX_OUTPUT_TOKENS, buildTodoRadarInstructions, cleanProfile, TODO_RADAR_SCHEMA,
   type RadarSource,
@@ -40,6 +40,10 @@ import {
   candidateRow, LEDGER_CANDIDATES_INSTRUCTIONS, LEDGER_CANDIDATES_SCHEMA, LEDGER_KNOWN_EVENTS, LEDGER_MAX_OUTPUT_TOKENS, ledgerMaterial,
   parseLedgerCandidates, type KnownEvent,
 } from "./ledger-candidates.ts";
+import {
+  AUTO_KNOWN_DAYS, AUTO_KNOWN_RECORDS, AUTO_MAX_OUTPUT_TOKENS, AUTO_SOURCE_KINDS, autoMaterial, buildAutoBatch, type AutoSource, type KnownRecord,
+  LEDGER_AUTO_INSTRUCTIONS, LEDGER_AUTO_SCHEMA, packAuto, type PackedAuto, parseLedgerAuto, sendable, sourceKey, web2Location,
+} from "./ledger-auto.ts";
 import {
   BRIEF_HASH, briefHash, cleanBrief, LIBRARY_BRIEF_BACKFILL_UNTIL, type DocRow, fillableFields, LIBRARY_FIELDS, LIBRARY_FILL_INSTRUCTIONS, LIBRARY_FILL_SCHEMA, LIBRARY_FILL_WINDOW_MS,
   LIBRARY_MAX_OUTPUT_TOKENS, LIBRARY_PROPOSE_BATCH, legacyUserFields, type LibraryField, libraryMaterial, type LinkOptions, type MaterialFile,
@@ -77,7 +81,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 50회. 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 50;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, library_fill: 50, org_summary: 50, schedule_titles: 20 });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, ledger_auto: 16, library_fill: 50, org_summary: 50, schedule_titles: 20 });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -128,6 +132,8 @@ export const MESSAGES: Readonly<Record<string, string>> = Object.freeze({
   radar_unavailable: "챙길 것 기록을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   ledger_not_ready: "원장 후보 기능이 아직 준비되지 않았어요.",
   ledger_unavailable: "원장 후보를 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+  ledger_busy: "원장 자동 기록이 이미 돌고 있어요. 잠시 뒤 다시 시도해 주세요.",
+  ledger_record_failed: "원장에 기록하지 못했어요. 다음에 다시 시도해요.",
   library_not_ready: "자료 정보 채우기가 아직 준비되지 않았어요.",
   library_unavailable: "자료를 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   org_summary_not_ready: "조직 현황 요약 기능이 아직 준비되지 않았어요.",
@@ -315,6 +321,7 @@ async function readBody(req: Request): Promise<unknown> {
 type LinkSummaryInput = { kind: "link_summary"; note_id: string; target_kind: "organization" | "project"; target_id: string };
 type TodoRadarInput = { kind: "todo_radar"; mode: "auto" | "again" };
 type LedgerCandidatesInput = { kind: "ledger_candidates" };
+type LedgerAutoInput = { kind: "ledger_auto" };
 type OrgSummaryInput = { kind: "org_summary"; week_start: string; organization_ids: string[] };
 type ScheduleTitlesInput = { kind: "schedule_titles"; week_start: string; events: ScheduleEvent[] };
 
@@ -361,7 +368,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LibraryFillInput | OrgSummaryInput | ScheduleTitlesInput {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LedgerAutoInput | LibraryFillInput | OrgSummaryInput | ScheduleTitlesInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -372,6 +379,11 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | Ledger
   if (b.kind === "ledger_candidates") {
     if (Object.keys(b).join(",") !== "kind") throw new Fail(400, "invalid_request");
     return { kind: "ledger_candidates" };
+  }
+  // 원장 자동 기록도 글·ID 없이 kind 하나만 보낸다(재료·작업공간은 서버가 로그인 토큰으로 정함).
+  if (b.kind === "ledger_auto") {
+    if (Object.keys(b).join(",") !== "kind") throw new Fail(400, "invalid_request");
+    return { kind: "ledger_auto" };
   }
   if (b.kind === "library_fill") return parseLibraryFillRequest(b);
   if (b.kind === "org_summary") return parseOrgSummaryRequest(b);
@@ -964,6 +976,356 @@ async function runLedgerCandidates(ctx: Ctx, deps: RadarDeps): Promise<Response>
   // 기록에는 숫자만 남긴다(재료·후보 글 없음).
   deps.log("ledger_candidates_done", { sources: packed.length, found: parsed.items.length, added, dropped: parsed.dropped, excluded: parsed.excluded, partial });
   return json({ ok: true, kind: "ledger_candidates", added, found: rows.length, excluded: parsed.excluded, partial, checked_at: checkedAt });
+}
+
+// ---- 쓰임 ledger_auto: 원장 자동 기록(LEDGER-자동기록 2단계, docs/design/ledger-auto-record.md 3·4절·10절 2번) ------------
+// 화면은 {kind:"ledger_auto"}만 보낸다(원문·ID 없음). 서버가 명진 로그인 토큰으로 "아직 안 본 기록"만 읽고, AI 한 번, 답을 검사해
+// DB 함수 app_auto_ledger_begin → app_auto_ledger_record(한 거래)로 원장에 더한다. 서버 관리자 키를 쓰지 않는다(owner RLS·INVOKER 함수).
+// 자동 기록이 하는 일은 더하기(새 기록·변화로 이어 붙이기·근거 추가)와 이미 뽑은 기록 '확인필요' 표시뿐이다. 기존 기록을 고치거나 폐기하지 않는다.
+// 시작점: 처음 실행(자동 기록 실행 표의 가장 이른 시작) 30분 전부터 저장·고친 기록만 본다(켜기 전 기록은 보지 않음, 3.1).
+// 하루 16회(DB도 같은 숫자로 막음), 전체 하루 50회·월 한도는 다른 쓰임과 함께 센다. 새로 볼 원문이 없으면 실행도 AI도 만들지 않는다.
+
+export const LEDGER_AUTO_DAILY = 16;
+export const LEDGER_AUTO_START_GRACE_MS = 30 * 60000;
+const AUTO_READ_LIMIT = 200;
+
+class LedgerRpcError extends Error {
+  status: number;
+  dbCode: string | null;
+  constructor(status: number, dbCode: string | null) {
+    super(dbCode ?? `rpc_${status}`);
+    this.status = status;
+    this.dbCode = dbCode;
+  }
+}
+
+// DB 함수 호출(로그인 토큰). 오류 원문은 기록·응답에 넣지 않고 LEDGER_ 코드만 꺼낸다.
+async function ledgerRpc(ctx: Ctx, name: string, args: Record<string, unknown>): Promise<unknown> {
+  let r: Response;
+  try {
+    r = await ctx.doFetch(`${ctx.sb}/rest/v1/rpc/${name}`, {
+      method: "POST",
+      headers: { apikey: ctx.anon, Authorization: `Bearer ${ctx.token}`, "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(args),
+    });
+  } catch {
+    throw new LedgerRpcError(0, null);
+  }
+  let body: unknown = null;
+  try { body = await readBoundedJson(r, { maxBytes: 64 * 1024 }); } catch { body = null; }
+  if (!r.ok) {
+    const msg = (body as { message?: unknown } | null)?.message;
+    const code = typeof msg === "string" ? (msg.match(/^(LEDGER_[A-Z0-9_]{1,60})/)?.[1] ?? null) : null;
+    throw new LedgerRpcError(r.status, code);
+  }
+  return body;
+}
+
+type AutoRunInfo = { floorMs: number; runsToday: number };
+
+// 실행 표(owner RLS)에서 시작점과 오늘 횟수. DB와 같은 기준: AI를 부르지 않고 실패한 실행(토큰 0)은 세지 않는다.
+async function readAutoRuns(ctx: Ctx, nowMs: number): Promise<AutoRunInfo> {
+  const ws = encodeURIComponent(ctx.workspaceId);
+  const dayStart = new Date(Date.parse(kstDay(nowMs) + "T00:00:00+09:00")).toISOString();
+  let first: unknown, today: unknown;
+  try {
+    first = await rest(ctx, `app_ledger_auto_runs?workspace_id=eq.${ws}&select=started_at&order=started_at.asc&limit=1`);
+    today = await rest(ctx, `app_ledger_auto_runs?workspace_id=eq.${ws}&started_at=gte.${encodeURIComponent(dayStart)}&select=status,tokens_in,tokens_out&limit=100`);
+  } catch (e) {
+    if ((e as Error)?.message === "rest_404") throw new Fail(503, "ledger_not_ready");
+    throw new Fail(503, "ledger_unavailable");
+  }
+  if (!Array.isArray(first) || !Array.isArray(today)) throw new Fail(503, "ledger_unavailable");
+  const firstAt = timeOf((first[0] as Record<string, unknown> | undefined)?.started_at);
+  const runsToday = (today as Record<string, unknown>[]).filter((r) => !(r.status === "failed" && tokenCount(r.tokens_in) === 0 && tokenCount(r.tokens_out) === 0)).length;
+  return { floorMs: (Number.isFinite(firstAt) ? firstAt : nowMs) - LEDGER_AUTO_START_GRACE_MS, runsToday };
+}
+
+// 재료 여섯(업데이트·노트·업무일지 한 줄·사업 보고·담당조직 기록·프로젝트 기록). 일기·보관·AI 내보내기 비허용은 읽는 조건에서 빼고 한 번 더 확인.
+// stamp는 처리 표에 적는 "본 때의 시각": 노트·사업 보고는 updated_at, 담당조직 기록은 occurred_at, 프로젝트 기록은 created_at(고친 시각 칸을 읽지 않음).
+async function loadAutoSources(ctx: Ctx, sinceIso: string): Promise<{ sources: AutoSource[]; partial: boolean }> {
+  const ws = encodeURIComponent(ctx.workspaceId), since = encodeURIComponent(sinceIso);
+  const sources: AutoSource[] = [];
+  let partial = false;
+  const full = (rows: unknown[], limit = AUTO_READ_LIMIT) => { if (rows.length >= limit) partial = true; };
+
+  const notes = await readList(ctx, `app_notes?workspace_id=eq.${ws}&kind=in.(basket,note,work)&archived_at=is.null&ai_export_allowed=is.true&updated_at=gte.${since}&select=id,workspace_id,kind,title,raw_text,occurred_at,updated_at,journal_day,archived_at,ai_export_allowed&order=updated_at.desc&limit=${AUTO_READ_LIMIT}`);
+  full(notes);
+  for (const n of notes) {
+    if (!isUuid(n.id) || String(n.workspace_id).toLowerCase() !== ctx.workspaceId) continue;
+    if (!["basket", "note", "work"].includes(String(n.kind)) || n.archived_at != null || n.ai_export_allowed !== true) continue;
+    const text = [typeof n.title === "string" ? n.title : "", typeof n.raw_text === "string" ? n.raw_text : ""].filter(Boolean).join("\n");
+    const at = timeOf(n.updated_at);
+    if (!text || !Number.isFinite(at)) continue;
+    const day = n.kind === "work" && typeof n.journal_day === "string" && DAY_RE.test(n.journal_day) ? n.journal_day
+      : kstDay(n.kind === "basket" && Number.isFinite(timeOf(n.occurred_at)) ? timeOf(n.occurred_at) : at);
+    sources.push({ kind: n.kind as "basket" | "note" | "work", id: n.id.toLowerCase(), stamp: n.updated_at as string, day, at, text });
+  }
+
+  const meetings = await readList(ctx, `app_meetings?workspace_id=eq.${ws}&updated_at=gte.${since}&select=id,workspace_id,title,series_name,meeting_at,transcript_text,activity_kind,updated_at&order=updated_at.desc&limit=50`);
+  full(meetings, 50);
+  for (const m of meetings) {
+    if (!isUuid(m.id) || String(m.workspace_id).toLowerCase() !== ctx.workspaceId || typeof m.transcript_text !== "string") continue;
+    const at = timeOf(m.updated_at), when = timeOf(m.meeting_at);
+    if (!Number.isFinite(at)) continue;
+    const label = typeof m.series_name === "string" && m.series_name.trim() ? m.series_name : typeof m.title === "string" ? m.title : "";
+    sources.push({ kind: "meeting", id: m.id.toLowerCase(), stamp: m.updated_at as string, day: kstDay(Number.isFinite(when) ? when : at), at,
+      text: m.transcript_text, label, activity_kind: typeof m.activity_kind === "string" ? m.activity_kind : null });
+  }
+
+  const orgs = await readList(ctx, `app_suborganizations?workspace_id=eq.${ws}&select=id,workspace_id,name&order=id.asc&limit=500`);
+  const orgName = new Map(orgs.filter((o) => isUuid(o.id) && String(o.workspace_id).toLowerCase() === ctx.workspaceId)
+    .map((o) => [String(o.id).toLowerCase(), typeof o.name === "string" ? o.name : ""]));
+  const orgIds = [...orgName.keys()];
+  for (let i = 0; i < orgIds.length; i += IN_CHUNK) {
+    const ids = orgIds.slice(i, i + IN_CHUNK).join(",");
+    const rows = await readList(ctx, `app_suborganization_updates?organization_id=in.(${ids})&occurred_at=gte.${since}&select=id,organization_id,occurred_at,raw_text&order=occurred_at.desc&limit=${AUTO_READ_LIMIT}`);
+    full(rows);
+    for (const u of rows) {
+      const org = String(u.organization_id).toLowerCase(), at = timeOf(u.occurred_at);
+      if (!isUuid(u.id) || !orgName.has(org) || typeof u.raw_text !== "string" || !Number.isFinite(at)) continue;
+      sources.push({ kind: "org_update", id: u.id.toLowerCase(), stamp: u.occurred_at as string, day: kstDay(at), at, text: u.raw_text, label: orgName.get(org), organization_id: org });
+    }
+  }
+
+  const spaces = await readList(ctx, `app_spaces?workspace_id=eq.${ws}&owner_id=eq.${encodeURIComponent(ctx.userId)}&select=id,workspace_id,name,owner_id&order=id.asc&limit=500`);
+  const projectName = new Map(spaces.filter((p) => isUuid(p.id) && String(p.workspace_id).toLowerCase() === ctx.workspaceId && String(p.owner_id).toLowerCase() === ctx.userId)
+    .map((p) => [String(p.id).toLowerCase(), typeof p.name === "string" ? p.name : ""]));
+  const projectIds = [...projectName.keys()];
+  for (let i = 0; i < projectIds.length; i += IN_CHUNK) {
+    const ids = projectIds.slice(i, i + IN_CHUNK).join(",");
+    const rows = await readList(ctx, `app_project_progress_updates?project_id=in.(${ids})&created_at=gte.${since}&select=id,project_id,summary,effective_on,created_at&order=created_at.desc&limit=${AUTO_READ_LIMIT}`);
+    full(rows);
+    for (const u of rows) {
+      const project = String(u.project_id).toLowerCase(), at = timeOf(u.created_at);
+      if (!isUuid(u.id) || !projectName.has(project) || typeof u.summary !== "string" || !Number.isFinite(at)) continue;
+      const day = typeof u.effective_on === "string" && DAY_RE.test(u.effective_on) ? u.effective_on : kstDay(at);
+      sources.push({ kind: "project_update", id: u.id.toLowerCase(), stamp: u.created_at as string, day, at, text: u.summary, label: projectName.get(project), project_id: project });
+    }
+  }
+  return { sources, partial };
+}
+
+// 처리 표(app_ledger_auto_sources)에 없거나, 본 뒤 고쳐진(stamp가 더 늦은) 원문만 남긴다.
+async function unseenSources(ctx: Ctx, sources: AutoSource[]): Promise<AutoSource[]> {
+  const ws = encodeURIComponent(ctx.workspaceId);
+  const seen = new Map<string, number>();
+  for (const kind of AUTO_SOURCE_KINDS) {
+    const ids = sources.filter((s) => s.kind === kind).map((s) => s.id);
+    for (let i = 0; i < ids.length; i += IN_CHUNK) {
+      let rows: unknown;
+      try {
+        rows = await rest(ctx, `app_ledger_auto_sources?workspace_id=eq.${ws}&source_kind=eq.${kind}&source_id=in.(${ids.slice(i, i + IN_CHUNK).join(",")})&select=source_kind,source_id,seen_updated_at&limit=${IN_CHUNK}`);
+      } catch (e) {
+        if ((e as Error)?.message === "rest_404") throw new Fail(503, "ledger_not_ready");
+        throw new Fail(503, "ledger_unavailable");
+      }
+      if (!Array.isArray(rows)) throw new Fail(503, "ledger_unavailable");
+      for (const r of rows as Record<string, unknown>[]) {
+        if (r.source_kind !== kind || !isUuid(r.source_id)) continue;
+        seen.set(`${kind}:${String(r.source_id).toLowerCase()}`, timeOf(r.seen_updated_at));
+      }
+    }
+  }
+  return sources.filter((s) => {
+    const at = seen.get(sourceKey(s));
+    if (at === undefined) return true;
+    const stamp = timeOf(s.stamp);
+    return !Number.isFinite(at) || (Number.isFinite(stamp) && stamp > at);
+  });
+}
+
+const quoteIn = (values: string[]) => values.map((v) => `"${v.replace(/["\\,()]/g, "")}"`).join(",");
+const RECORD_COLS = "id,ledger_id,title,kind,validity,sensitivity";
+const toKnown = (rows: Record<string, unknown>[]): (KnownRecord & { id: string })[] => rows
+  .filter((r) => isUuid(r.id) && typeof r.ledger_id === "string" && typeof r.title === "string" && typeof r.kind === "string"
+    && typeof r.validity === "string" && typeof r.sensitivity === "string")
+  .map((r) => ({ id: String(r.id).toLowerCase(), ledger_id: r.ledger_id as string, title: r.title as string, kind: r.kind as string,
+    validity: r.validity as string, sensitivity: r.sensitivity as string }));
+
+// 중복 2·3겹 재료: 원문마다 이미 뽑은 기록, 같은 담당조직·프로젝트(없으면 최근)의 현재유효 기록(사건·결정·약속, 90일, 80건).
+// S2 기록은 읽어도 AI 재료에는 넣지 않는다(sendable). 원장 조직 대응표도 함께(연결 줄용).
+async function readAutoContext(ctx: Ctx, packed: PackedAuto[], nowMs: number) {
+  const ws = encodeURIComponent(ctx.workspaceId);
+  const read = async (path: string) => {
+    try {
+      const rows = await rest(ctx, path);
+      if (!Array.isArray(rows)) throw new Error("shape");
+      return rows as Record<string, unknown>[];
+    } catch (e) {
+      if ((e as Error)?.message === "rest_404") throw new Fail(503, "ledger_not_ready");
+      throw new Fail(503, "ledger_unavailable");
+    }
+  };
+  const orgs = await read(`app_ledger_organizations?workspace_id=eq.${ws}&status=eq.active&suborganization_id=not.is.null&select=id,ledger_id,suborganization_id&limit=1000`);
+  const orgBySuborg = new Map<string, string>(), orgUuidBySuborg = new Map<string, string>();
+  for (const o of orgs) {
+    if (typeof o.ledger_id !== "string" || !isUuid(o.suborganization_id) || !isUuid(o.id)) continue;
+    orgBySuborg.set(String(o.suborganization_id).toLowerCase(), o.ledger_id);
+    orgUuidBySuborg.set(String(o.suborganization_id).toLowerCase(), String(o.id).toLowerCase());
+  }
+
+  // 2겹: 원문 위치(web2:<종류>:<id>) → 출처 → 기록-출처 → 기록.
+  const prior = new Map<string, KnownRecord[]>();
+  const locs = packed.map((s) => web2Location(s));
+  const srcByLoc = new Map<string, string>();
+  for (let i = 0; i < locs.length; i += IN_CHUNK) {
+    const rows = await read(`app_ledger_sources?workspace_id=eq.${ws}&status=eq.active&location=in.(${encodeURIComponent(quoteIn(locs.slice(i, i + IN_CHUNK)))})&select=id,location&limit=200`);
+    for (const r of rows) if (isUuid(r.id) && typeof r.location === "string") srcByLoc.set(String(r.id).toLowerCase(), r.location);
+  }
+  const srcIds = [...srcByLoc.keys()];
+  const lines: { record: string; loc: string }[] = [];
+  for (let i = 0; i < srcIds.length; i += IN_CHUNK) {
+    const rows = await read(`app_ledger_record_sources?workspace_id=eq.${ws}&source_id=in.(${srcIds.slice(i, i + IN_CHUNK).join(",")})&select=record_id,source_id&limit=1000`);
+    for (const r of rows) if (isUuid(r.record_id) && srcByLoc.has(String(r.source_id).toLowerCase())) lines.push({ record: String(r.record_id).toLowerCase(), loc: srcByLoc.get(String(r.source_id).toLowerCase())! });
+  }
+  const priorIds = [...new Set(lines.map((l) => l.record))];
+  const byId = new Map<string, KnownRecord>();
+  for (let i = 0; i < priorIds.length; i += IN_CHUNK) {
+    for (const r of toKnown(await read(`app_ledger_records?workspace_id=eq.${ws}&id=in.(${priorIds.slice(i, i + IN_CHUNK).join(",")})&select=${RECORD_COLS}&limit=${IN_CHUNK}`))) byId.set(r.id, r);
+  }
+  const keyByLoc = new Map(packed.map((s) => [web2Location(s), sourceKey(s)]));
+  for (const l of lines) {
+    const rec = byId.get(l.record), key = keyByLoc.get(l.loc);
+    if (!rec || !key) continue;
+    const list = prior.get(key) ?? [];
+    if (!list.some((x) => x.ledger_id === rec.ledger_id)) list.push(rec);
+    prior.set(key, list);
+  }
+
+  // 3겹: 같은 담당조직·프로젝트에 걸린 최근 현재유효 기록, 모자라면 최근 기록으로 채움.
+  const since = encodeURIComponent(new Date(nowMs - AUTO_KNOWN_DAYS * 86400000).toISOString());
+  const recentFilter = `validity=eq.current&kind=in.(event,decision,commitment)&scope=eq.work&sensitivity=in.(S0,S1)&updated_at=gte.${since}`;
+  const orgUuids = [...new Set(packed.map((s) => s.organization_id ? orgUuidBySuborg.get(s.organization_id) : undefined).filter(Boolean) as string[])];
+  const projectIds = [...new Set(packed.map((s) => s.kind === "project_update" ? s.project_id : null).filter(isUuid))];
+  const linked = new Set<string>();
+  for (const [col, ids] of [["target_organization_id", orgUuids], ["target_project_id", projectIds]] as const) {
+    for (let i = 0; i < ids.length; i += IN_CHUNK) {
+      const rows = await read(`app_ledger_links?workspace_id=eq.${ws}&${col}=in.(${ids.slice(i, i + IN_CHUNK).join(",")})&select=record_id&limit=500`);
+      for (const r of rows) if (isUuid(r.record_id)) linked.add(String(r.record_id).toLowerCase());
+    }
+  }
+  const related: KnownRecord[] = [];
+  const add = (list: KnownRecord[]) => { for (const r of list) if (related.length < AUTO_KNOWN_RECORDS && !related.some((x) => x.ledger_id === r.ledger_id)) related.push(r); };
+  const linkedIds = [...linked];
+  for (let i = 0; i < linkedIds.length && related.length < AUTO_KNOWN_RECORDS; i += IN_CHUNK) {
+    add(toKnown(await read(`app_ledger_records?workspace_id=eq.${ws}&id=in.(${linkedIds.slice(i, i + IN_CHUNK).join(",")})&${recentFilter}&select=${RECORD_COLS}&order=updated_at.desc&limit=${IN_CHUNK}`)));
+  }
+  if (related.length < AUTO_KNOWN_RECORDS) {
+    add(toKnown(await read(`app_ledger_records?workspace_id=eq.${ws}&${recentFilter}&select=${RECORD_COLS}&order=updated_at.desc&limit=${AUTO_KNOWN_RECORDS}`)));
+  }
+  return { prior, related: related.filter(sendable), orgBySuborg };
+}
+
+// 실행을 실패로 닫는다(이미 끝났으면 바뀌지 않음). 못 닫아도 DB가 2분 뒤 정리한다.
+async function failAutoRun(ctx: Ctx, runId: string, code: string, used: { input: number; output: number }, nowMs: number, log: Log) {
+  try {
+    await rest(ctx, `app_ledger_auto_runs?id=eq.${encodeURIComponent(runId)}&workspace_id=eq.${encodeURIComponent(ctx.workspaceId)}&status=eq.running`, {
+      method: "PATCH", prefer: "return=minimal",
+      body: { status: "failed", finished_at: new Date(nowMs).toISOString(), fail_code: code, tokens_in: Math.min(used.input, 100000000), tokens_out: Math.min(used.output, 100000000) },
+    });
+  } catch {
+    log("ledger_auto_close_failed");
+  }
+}
+
+const autoRpcFail = (e: unknown): Fail => {
+  if (e instanceof LedgerRpcError) {
+    if (e.dbCode === "LEDGER_AUTO_DAILY_LIMIT") return new Fail(429, "daily_limit");
+    if (e.dbCode === "LEDGER_AUTO_BUSY") return new Fail(409, "ledger_busy");
+    if (e.dbCode === "LEDGER_AUTO_NOT_OWNER") return new Fail(403, "forbidden");
+    if (e.status === 404) return new Fail(503, "ledger_not_ready");
+  }
+  return new Fail(503, "ledger_unavailable");
+};
+
+async function runLedgerAuto(ctx: Ctx, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const today = kstDay(started);
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+  const runs = await readAutoRuns(ctx, started);
+  if (runs.runsToday >= DAILY_LIMITS.ledger_auto) throw new Fail(429, "daily_limit");
+  const loaded = await loadAutoSources(ctx, new Date(runs.floorMs).toISOString());
+  const fresh = await unseenSources(ctx, loaded.sources);
+  const packedResult = packAuto(fresh);
+  const packed = packedResult.packed;
+  const partial = loaded.partial || packedResult.partial;
+  // 새로 볼 원문이 없으면 실행도 AI도 없다(하루 횟수에 세지 않음).
+  if (!packed.length) return json({ ok: true, kind: "ledger_auto", skipped: true, partial });
+  const budget = await checkBudget(ctx, "ledger_auto", started, config.price);
+
+  let begun: unknown;
+  try {
+    begun = await ledgerRpc(ctx, "app_auto_ledger_begin", { p_workspace_id: ctx.workspaceId });
+  } catch (e) {
+    throw autoRpcFail(e);
+  }
+  const runId = (begun as { run_id?: unknown } | null)?.run_id;
+  if (!isUuid(runId)) throw new Fail(503, "ledger_unavailable");
+
+  let used = { input: 0, output: 0 };
+  try {
+    const context = await readAutoContext(ctx, packed, started);
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+    } catch {
+      throw new Fail(503, "usage_unavailable");
+    }
+    const material = autoMaterial(packed, context.prior, context.related, today);
+    const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+      model: config.model,
+      store: false,
+      max_output_tokens: AUTO_MAX_OUTPUT_TOKENS,
+      input: [
+        { role: "developer", content: LEDGER_AUTO_INSTRUCTIONS },
+        { role: "user", content: material },
+      ],
+      text: { format: { type: "json_schema", name: "ledger_auto", strict: true, schema: LEDGER_AUTO_SCHEMA } },
+    });
+    used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: AUTO_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+    if (used.input || used.output) {
+      try {
+        await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+      } catch {
+        deps.log("usage_record_failed");
+      }
+    }
+    if (!result.ok) {
+      deps.log(result.code);
+      const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
+      throw new Fail(status, result.code);
+    }
+    const parsed = parseLedgerAuto(outputText(result.raw, 128 * 1024), packed, context.prior, context.related, today);
+    if (!parsed) {
+      deps.log("ai_invalid_response");
+      throw new Fail(502, "ai_invalid_response");
+    }
+    const batch = buildAutoBatch(parsed, packed, context.orgBySuborg, used);
+    let out: unknown;
+    try {
+      out = await ledgerRpc(ctx, "app_auto_ledger_record", { p_run_id: runId, p_batch: batch });
+    } catch (e) {
+      throw autoRpcFail(e);
+    }
+    const o = (out ?? {}) as Record<string, unknown>;
+    if (o.ok !== true) {
+      // DB가 거래 전체를 취소하고 실행을 failed로 남겼다(처리 표는 그대로 → 다음 실행이 다시 본다).
+      const reason = typeof o.error === "string" && /^LEDGER_[A-Z0-9_]{1,60}$/.test(o.error) ? o.error : "LEDGER_AUTO_ERROR";
+      deps.log("ledger_auto_rejected", { reason });
+      return json({ ok: false, error: "ledger_record_failed", message: MESSAGES.ledger_record_failed, reason }, 503);
+    }
+    const counts = Object.fromEntries(["sources_seen", "records_new", "changes_linked", "sources_added", "needs_check", "skipped", "excluded"]
+      .map((k) => [k, tokenCount(o[k])]));
+    deps.log("ledger_auto_done", { ...counts, items: parsed.items.length, outdated: parsed.outdated.length, dropped: parsed.dropped, partial });
+    return json({ ok: true, kind: "ledger_auto", run_id: runId, ...counts, partial });
+  } catch (e) {
+    await failAutoRun(ctx, runId, e instanceof Fail ? `LEDGER_AUTO_${e.code.toUpperCase()}`.slice(0, 80) : "LEDGER_AUTO_ERROR", used, deps.now(), deps.log);
+    throw e;
+  }
 }
 
 // ---- 자료실 빈 칸 채우기(library_fill, LIB-AI자동분류) -----------------------------------------------------------
@@ -1797,6 +2159,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       const input = parseRequest(await readBody(req));
       if (input.kind === "todo_radar") return await runTodoRadar(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "ledger_candidates") return await runLedgerCandidates(ctx, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "ledger_auto") return await runLedgerAuto(ctx, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "library_fill") return await runLibraryFill(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "org_summary") return await runOrgSummary(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "schedule_titles") return await runScheduleTitles(ctx, input, { env: deps.env, now, sleep, log, doFetch });
