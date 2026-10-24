@@ -76,7 +76,11 @@ export function mountHomeFill({main, rt = window.KPTURuntime}) {
     state.missed = m.ok ? 'ok' : 'failed'; state.missedRows = m.rows; state.news = news; state.inbox = inboxN;
     paintMissed(); paintSummary(); paintInbox();
   }
-  void refresh();
+  // PC 홈은 이 칸들을 그리지 않으므로 읽지도 않는다. 폭이 좁아질 때 처음 한 번 읽는다.
+  let loaded = false;
+  const load = () => { if (loaded || mq.matches) return; loaded = true; void refresh(); };
+  mq.addEventListener('change', load);
+  load();
 
   return {
     // home-read.js가 읽은 숫자. null = 아직 모르거나 읽을 수 없음(요약에서 뺀다).
@@ -85,6 +89,6 @@ export function mountHomeFill({main, rt = window.KPTURuntime}) {
     // rows: 내일 일정 목록, null: 달력을 읽지 못함(연결 전 등).
     setTomorrow(rows) { state.tomorrow = rows === null ? 'unavailable' : rows; paintTomorrow(); },
     refresh,
-    destroy() { alive = false; mq.removeEventListener('change', apply); summary.remove(); missed.remove(); inbox.remove(); tomorrow.remove(); }
+    destroy() { alive = false; mq.removeEventListener('change', apply); mq.removeEventListener('change', load); summary.remove(); missed.remove(); inbox.remove(); tomorrow.remove(); }
   };
 }
