@@ -326,3 +326,5 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
 #ps3DetailModal .ps3-section+.ps3-section{border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));padding-top:var(--kptu-space-3)}
 /* The section no longer has side padding, so the small + keeps its 44px touch area inside the section's right edge. */
 #ps3DetailModal .ps3-section .ps3-add-plus{margin-right:0}
+/* UPD-요약부품통일 ①: 연결 줄에 쓴 요약을 사업 보고 줄 아래 한 줄로 먼저 보인다. */
+#ps3-meetings .report-link-summary-line{display:block;color:var(--kptu-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

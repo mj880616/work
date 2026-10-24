@@ -25,7 +25,8 @@ export function targetsFromLinkRows(rows){
   for(const row of Array.isArray(rows)?rows:[]){
     const t=row?.project_id?{kind:KIND_PROJECT,id:row.project_id}:row?.organization_id?{kind:KIND_ORGANIZATION,id:row.organization_id}:null;
     if(!t||out.some(x=>sameTarget(x,t)))continue;
-    out.push({...t,linkId:row.id??null,hasSummary:typeof row.summary==='string'&&row.summary.trim()!==''});
+    const summary=typeof row.summary==='string'&&row.summary.trim()!==''?row.summary:null;
+    out.push({...t,linkId:row.id??null,hasSummary:!!summary,summary});
   }
   return out;
 }
@@ -36,11 +37,24 @@ export function withTarget(targets,target){
   return list.length>=TARGET_LIMIT?null:[...list,t];
 }
 export const withoutTarget=(targets,target)=>targetList(targets).filter(x=>!sameTarget(x,target));
-// app_meeting_set_links 의 p_targets. 요약은 보내지 않는다(요약 없이 다시 고르면 기존 보낸 기록을 지킨다 — DB 규칙).
-export function rpcTargets(targets){
+// app_meeting_set_links 의 p_targets. 요약은 summaries(곳 → 글)에 글이 있는 곳만 보낸다.
+// 요약 없이 보내면 그 곳의 기존 요약을 지킨다(DB 규칙) — 빈 칸은 '지금 요약 그대로'(새 곳이면 요약 없음 = 사업 보고 본문).
+// UPD-요약부품통일 ①: 요약 칸에 쓴 글(또는 [AI 요약])이 연결 줄의 summary 가 되고, 조직·프로젝트 기록 줄과 주간보고가 그것을 먼저 쓴다.
+export const SUMMARY_LIMIT=2000;
+export function rpcTargets(targets,summaries=null){
   const list=targetList(targets);
   if(list.length>TARGET_LIMIT)throw new RangeError(`한 번에 ${TARGET_LIMIT}곳까지 연결할 수 있어요.`);
-  return list.map(t=>({kind:t.kind,target_id:t.id}));
+  return list.map(t=>{
+    const text=summaries instanceof Map?summaries.get(targetKey(t)):null;
+    const clean=typeof text==='string'?text.trim():'';
+    if(clean&&[...clean].length>SUMMARY_LIMIT)throw new RangeError(`요약은 ${SUMMARY_LIMIT.toLocaleString('ko-KR')}자까지 쓸 수 있어요.`);
+    return clean?{kind:t.kind,target_id:t.id,summary:clean}:{kind:t.kind,target_id:t.id};
+  });
+}
+// 저장할 것이 있는지: 곳이 바뀌었거나, 요약 칸 글이 지금 저장된 요약과 다르고 비어 있지 않을 때.
+export function summariesChanged(targets,summaries,saved){
+  if(!(summaries instanceof Map))return false;
+  return targetList(targets).some(t=>{const v=String(summaries.get(targetKey(t))||'').trim();return !!v&&v!==String(saved?.get?.(targetKey(t))||'').trim()});
 }
 export const firstProjectId=targets=>targetList(targets).find(t=>t.kind===KIND_PROJECT)?.id||null;
 export const validId=value=>typeof value==='string'&&UUID.test(value);
@@ -78,7 +92,7 @@ export function linkedReportRows(linkRows,legacyRows=[]){
   const byId=new Map();
   for(const row of Array.isArray(linkRows)?linkRows:[]){
     const m=row?.report;
-    if(m?.id&&!byId.has(m.id))byId.set(m.id,{...m,linkId:row.id??null,linked:true});
+    if(m?.id&&!byId.has(m.id))byId.set(m.id,{...m,linkId:row.id??null,linked:true,linkSummary:typeof row.summary==='string'&&row.summary.trim()?row.summary:null});
   }
   for(const m of Array.isArray(legacyRows)?legacyRows:[])if(m?.id&&!byId.has(m.id))byId.set(m.id,{...m,linkId:null,linked:false});
   return [...byId.values()].sort(byRecent);

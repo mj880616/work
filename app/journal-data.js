@@ -232,9 +232,18 @@ export async function readProjectUpdates(start, rt = window.KPTURuntime) {
 // JOURNAL-하루개편: the day card shows one line of each meeting's result under its title, so the result text (transcript_text,
 // else the older decisions — the meeting screen's own order, meeting-columns.js resultText) comes with the week's meetings.
 // A week has a handful of meetings; the text stays in this screen's memory only and is never stored.
+// UPD-요약부품통일 ①: the summaries written on its 프로젝트·담당조직 links (app_record_links, 출처 회의) come along as link_summaries,
+// so the weekly line uses a written summary before the result's first line. If that embed cannot be read, the plain read is used.
+const MEETING_FIELDS = 'id,title,series_name,round_no,meeting_at,transcript_text,decisions,activity_kind';
+const MEETING_LINKS = 'links:app_record_links!app_record_links_source_meeting_id_fkey(summary,status)';
 export async function readWeekMeetings(start, rt = window.KPTURuntime) {
   const from = dayStartIso(weekDays(start)[0]), to = dayStartIso(shiftWeek(start, 1));
-  return pages(`/rest/v1/app_meetings?workspace_id=eq.${encode(workspace(rt))}&meeting_at=gte.${encode(from)}&meeting_at=lt.${encode(to)}&select=id,title,series_name,round_no,meeting_at,transcript_text,decisions,activity_kind&order=meeting_at.asc,id.asc`, rt);
+  const path = fields => `/rest/v1/app_meetings?workspace_id=eq.${encode(workspace(rt))}&meeting_at=gte.${encode(from)}&meeting_at=lt.${encode(to)}&select=${fields}&order=meeting_at.asc,id.asc`;
+  let rows;
+  try { rows = await pages(path(`${MEETING_FIELDS},${MEETING_LINKS}`), rt); }
+  catch (error) { if (Number(error?.status) !== 400) throw error; return pages(path(MEETING_FIELDS), rt); }
+  return rows.map(({links, ...meeting}) => ({...meeting, link_summaries:(Array.isArray(links) ? links : [])
+    .filter(l => l?.status === 'confirmed' && typeof l.summary === 'string' && l.summary.trim()).map(l => l.summary)}));
 }
 
 // 자료실 새 자료: documents of this workspace added (created_at) in the week — the day they were put in the library, not the
@@ -487,7 +496,7 @@ export const moveTaskToTomorrow = (task, rt = window.KPTURuntime, today = todayK
 // the screen shows "결과 아직 없음"); hidden = a kind left out of the weekly report (app_profiles.weekly_hidden_meeting_kinds,
 // journal-meeting-kinds.js; the screen dims it and says '보고 안 함'). hidden list null/unknown → nothing is dimmed.
 export const ACTIVITY_SOURCES = Object.freeze(['meetings']);
-const meetingResult = meeting => firstLine(meeting?.transcript_text) || firstLine(meeting?.decisions);
+const meetingResult = meeting => firstLine(meeting?.link_summaries?.[0]) || firstLine(meeting?.transcript_text) || firstLine(meeting?.decisions);
 export function activityResultsOn(materials, day, hiddenKinds = null) {
   const meetings = materials?.meetings?.status === 'ok' ? materials.meetings.items : [];
   return meetingsOn(meetings, day).map(meeting => ({text:meetingLine(meeting), summary:meetingResult(meeting),
