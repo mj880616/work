@@ -65,7 +65,7 @@ export async function readLinkedReports(target,rt=rtOf()){
   // 연결 줄과 옛 project_id 읽기는 서로 기다리지 않는다(상세 화면 다시 읽기가 한 번 왕복으로 끝나게).
   const readLinked=(async()=>{
     try{
-      if(await linksAvailable(rt))return {rows:await rt.api(`/rest/v1/app_record_links?workspace_id=eq.${enc(ws)}&source_meeting_id=not.is.null&status=eq.confirmed&${col}=eq.${enc(target.id)}&select=id,report:app_meetings!${FK}(${REPORT_FIELDS})&order=id.asc`),available:true};
+      if(await linksAvailable(rt))return {rows:await rt.api(`/rest/v1/app_record_links?workspace_id=eq.${enc(ws)}&source_meeting_id=not.is.null&status=eq.confirmed&${col}=eq.${enc(target.id)}&select=id,summary,report:app_meetings!${FK}(${REPORT_FIELDS})&order=id.asc`),available:true};
     }catch(error){if(!isMissingColumn(error))throw error}
     return {rows:[],available:false};
   })();
@@ -78,9 +78,9 @@ export async function readAllReports(rt=rtOf()){
   return rt.api(`/rest/v1/app_meetings?workspace_id=eq.${enc(workspaceOf(rt))}&select=${REPORT_FIELDS}&order=meeting_at.desc.nullslast,created_at.desc&limit=200`);
 }
 // 고른 곳으로 '그대로 맞추기'. meeting: {id, updated_at}. 반환 {ok, updated_at?, legacy?, skippedOrgs?, error?, message?}.
-export async function saveReportTargets(meeting,targets,rt=rtOf()){
+export async function saveReportTargets(meeting,targets,rt=rtOf(),summaries=null){
   const list=targetList(targets);
-  let body;try{body=rpcTargets(list)}catch(e){return {ok:false,error:'INVALID_TARGETS',message:e.message}}
+  let body;try{body=rpcTargets(list,summaries)}catch(e){return {ok:false,error:'INVALID_TARGETS',message:e.message}}
   try{
     const r=await rt.api('/rest/v1/rpc/app_meeting_set_links',{method:'POST',body:{p_meeting_id:meeting.id,p_meeting_updated_at:meeting.updated_at,p_targets:body}});
     if(r?.ok===true)return {ok:true,updated_at:r.updated_at||null,created:r.created,removed:r.removed};

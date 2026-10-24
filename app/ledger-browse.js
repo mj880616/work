@@ -8,10 +8,18 @@
 // "원문이 지워졌어요"), 상세 ⋯ [틀린 기록으로 표시](app_apply_ledger_fix retire, 이유 선택, 직후 [되돌리기] = app_undo_ledger_fix)와
 // 자동 기록이면 [이번 자동 기록 취소](app_auto_ledger_undo). 쓰기는 이 DB 함수 셋뿐이고 모두 SECURITY INVOKER(owner RLS 그대로).
 // 변경 기록 표나 함수가 없으면(배포 전) 꼬리표·메뉴만 없고 목록은 그대로 보인다.
+// LEDGER-화면정리(명진 요청 2026-10-24 07:17, 결정 ⑥): 이 모듈이 [원장] 화면 틀(#ledgerView)도 만든다(옛 가져오기 모듈에서 옮김).
+//   가져오기·가져온 묶음 칸과 원장 후보 칸은 화면에서 지웠다(표·데이터·함수는 그대로). 위에서부터: 검색(조직·주제·사람) /
+//   상대가 안 지킨 약속(며칠째·확인일 지남) / 지금 추적 중인 일 / 조직별·주제별 칩 / 최근 자동으로 기록됨. 검색·조건이 걸리면 결과 목록.
+//   칩을 누르면 그 이야기를 시간순 한 줄씩(세로 선 타임라인), 줄을 누르면 근거·출처(‹원문›) 상세가 펼쳐진다.
+//   목록 줄에는 고정 ID·'현재유효' 같은 말을 쓰지 않는다(상세 안에만). 종류는 작은 꼬리표, 자동·직접 꼬리표.
+//   [+ 기록하기]와 상세 ⋯ [고치기]는 원장 고치기 칸(app/ledger-fix.js, #ledgerFixRoot)을 연다.
+// 첫 화면 칸 읽기는 owner RLS REST뿐(새 RPC 없음): 안 지킨 약속·추적 중 사건·칩 집계·최근 자동 기록.
 import {
   KIND_DISPLAY, KIND_HINT, KINDS, VALIDITY_LABEL, SENSITIVITY_LABEL, DOC_TYPE_LABEL, SCOPE_CHOICES, PAGE, MAX_LIMIT, QUERY_MAX,
   freshFilters, searchArgs, validResult, detailFields, sourceHref, linkLabel, rowView, activeConditions, clearCondition, countLabel,
-  web2Source, web2OpenTarget, web2SourceLabel, changeInfo, AUTO_TAG, RETIRE_REASONS, retireRequest, undoErrorText
+  web2Source, web2OpenTarget, web2SourceLabel, changeInfo, AUTO_TAG, MANUAL_TAG, RETIRE_REASONS, retireRequest, undoErrorText,
+  isSearching, overdueLabel, seoulDay, storySort, chipList
 } from './ledger-browse-model.mjs';
 import { requestBasketNote, requestNoteDocOpen } from './basket-note-tasks.js';
 import { offerUndoNotice } from './basket-record-delete.js';
@@ -28,10 +36,80 @@ let bound = false;
 let seq = 0;
 function fresh() {
   return { phase: 'loading', organizations: [], topics: [], filters: freshFilters(), limit: PAGE, rows: [], busy: false, error: '',
-    openId: null, details: new Map(), detailBusy: '', detailError: '', condOpen: false, changes: new Map(), acting: '', actError: '', notice: '' };
+    openId: null, details: new Map(), detailBusy: '', detailError: '', condOpen: false, changes: new Map(), acting: '', actError: '', notice: '',
+    home: null, homeBusy: false, story: null };
+}
+const LIVE = 'validity=in.(current,needs_check,fulfilled)';
+const ROW_COLS = 'id,ledger_id,kind,title,summary,date_start,date_end,date_precision,validity,sensitivity,counterparty,commitment_status,follow_up_on';
+
+// 화면 틀: 맨 위 사본 상태 한 줄 → 고치기·기록하기 칸(닫혀 있음) → 목록·검색. 칸마다 renderer는 하나(각 모듈).
+function installView() {
+  if (document.querySelector('#ledgerView')) return;
+  document.querySelector('#appView')?.insertAdjacentHTML('beforeend', `<section id="ledgerView" class="view-panel hidden" aria-label="원장"><div class="lg-root"><div id="ledgerExportRoot" class="lg-root" hidden></div><div id="ledgerFixRoot" class="lg-root" hidden></div><div id="ledgerBrowseRoot" class="lg-root" hidden></div></div></section>`);
+}
+
+// ---------- 첫 화면 칸(검색이 없을 때) ----------
+async function readRows(path) {
+  const rows = await rt.api(path, { singleFlight: false });
+  return (Array.isArray(rows) ? rows : []).filter(validResult);
+}
+async function loadHome() {
+  const ws = q(workspaceId()), today = seoulDay();
+  const mine = seq;
+  state.homeBusy = true; render();
+  try {
+    const [overdue, tracking, live, links, autos] = await Promise.all([
+      readRows(`/rest/v1/app_ledger_records?workspace_id=eq.${ws}&kind=eq.commitment&commitment_status=eq.waiting&validity=in.(current,needs_check)&follow_up_on=lt.${today}&select=${ROW_COLS}&order=follow_up_on.asc&limit=30`),
+      readRows(`/rest/v1/app_ledger_records?workspace_id=eq.${ws}&kind=eq.event&event_status=eq.tracking&validity=in.(current,needs_check)&scope=eq.work&select=${ROW_COLS}&order=updated_at.desc&limit=20`),
+      rt.api(`/rest/v1/app_ledger_records?workspace_id=eq.${ws}&${LIVE}&scope=eq.work&select=id,topic_id&limit=5000`, { singleFlight: false }),
+      rt.api(`/rest/v1/app_ledger_links?workspace_id=eq.${ws}&target_organization_id=not.is.null&select=record_id,target_organization_id&limit=5000`, { singleFlight: false }),
+      rt.api(`/rest/v1/app_ledger_record_changes?workspace_id=eq.${ws}&route=eq.auto&action=eq.created&select=record_id,created_at&order=created_at.desc&limit=30`, { singleFlight: false }).catch(() => [])
+    ]);
+    const liveIds = new Set((Array.isArray(live) ? live : []).map(r => String(r?.id || '')).filter(id => UUID.test(id)));
+    const orgNames = new Map(state.organizations.map(o => [String(o.id), o.name])), topicNames = new Map(state.topics.map(t => [String(t.id), t.name]));
+    const orgChips = chipList((Array.isArray(links) ? links : []).filter(l => liveIds.has(String(l?.record_id))).map(l => l.target_organization_id), orgNames);
+    const topicChips = chipList((Array.isArray(live) ? live : []).map(r => r?.topic_id), topicNames);
+    const autoIds = [...new Set((Array.isArray(autos) ? autos : []).map(c => String(c?.record_id || '')).filter(id => UUID.test(id)))].slice(0, 10);
+    const recent = autoIds.length ? await readRows(`/rest/v1/app_ledger_records?workspace_id=eq.${ws}&id=in.(${autoIds.map(q).join(',')})&${LIVE}&select=${ROW_COLS}&limit=10`) : [];
+    const order = new Map(autoIds.map((id, i) => [id, i]));
+    recent.sort((a, b) => order.get(a.id) - order.get(b.id));
+    const changes = await readChanges([...overdue, ...tracking, ...recent].map(r => r.id));
+    if (mine !== seq) return;
+    state.home = { overdue, tracking, orgChips, topicChips, recent };
+    for (const [k, v] of changes) state.changes.set(k, v);
+  } catch (e) {
+    if (mine !== seq) return;
+    if (isMissing(e)) state.phase = 'hidden';
+    else state.home = { error: true };
+  }
+  state.homeBusy = false; render();
+}
+
+// ---------- 이야기(칩 → 시간순 타임라인) ----------
+async function openStory(type, id) {
+  const list = type === 'organization' ? state.organizations : state.topics;
+  const item = list.find(x => String(x.id) === id);
+  if (!item) return;
+  state.story = { type, id, name: item.name, rows: null, error: '' };
+  state.openId = null;
+  const mine = ++seq;
+  render();
+  try {
+    const rows = await rt.api('/rest/v1/rpc/app_ledger_search', { method: 'POST', singleFlight: false, body: {
+      p_query: '', p_kinds: null, p_organization_id: type === 'organization' ? id : null, p_topic_id: type === 'topic' ? id : null,
+      p_date_from: null, p_date_to: null, p_scope: null, p_include_inactive: false, p_limit: MAX_LIMIT } });
+    if (mine !== seq || !state.story) return;
+    state.story.rows = storySort((Array.isArray(rows) ? rows : []).filter(validResult));
+    const changes = await readChanges(state.story.rows.map(r => r.id));
+    for (const [k, v] of changes) state.changes.set(k, v);
+  } catch { if (mine === seq && state.story) state.story.error = '이야기를 읽지 못했어요. 잠시 뒤 다시 시도해 주세요.'; }
+  if (mine === seq) render();
+  document.querySelector('#lbStoryTitle')?.focus?.({ preventScroll: true });
 }
 
 async function search() {
+  state.story = null;
+  if (!isSearching(state.filters)) { state.rows = []; state.phase = 'ready'; ++seq; await loadHome(); return; }
   const built = searchArgs(state.filters, state.limit);
   if (built.error) { state.error = built.error; render(); return; }
   const mine = ++seq;
@@ -40,7 +118,8 @@ async function search() {
     const rows = await rt.api('/rest/v1/rpc/app_ledger_search', { method: 'POST', body: built.args, singleFlight: false });
     if (mine !== seq) return;
     state.rows = (Array.isArray(rows) ? rows : []).filter(validResult);
-    state.changes = await readChanges(state.rows.map(r => r.id));
+    const changes = await readChanges(state.rows.map(r => r.id));
+    for (const [k, v] of changes) state.changes.set(k, v);
     if (mine !== seq) return;
     state.phase = 'ready';
   } catch (e) {
@@ -57,6 +136,7 @@ async function loadLists() {
     rt.api(`/rest/v1/app_ledger_organizations?workspace_id=eq.${ws}&status=eq.active&select=id,ledger_id,name&order=name.asc&limit=1000`, { singleFlight: false }),
     rt.api(`/rest/v1/app_ledger_topics?workspace_id=eq.${ws}&status=eq.active&select=id,ledger_id,name&order=sort_order.asc,name.asc&limit=500`, { singleFlight: false })
   ]);
+  if (!Array.isArray(orgs) || !Array.isArray(topics)) throw Object.assign(new Error('shape'), { status: 500 });
   state.organizations = (orgs || []).filter(o => UUID.test(String(o.id)));
   state.topics = (topics || []).filter(t => UUID.test(String(t.id)));
 }
@@ -82,8 +162,10 @@ function load() {
     if (state.phase !== 'ready') { state.phase = 'loading'; render(); }
     try { await loadLists(); }
     catch (e) { state.phase = isMissing(e) ? 'hidden' : 'error'; render(); return; }
-    state.details.clear();
+    state.details.clear(); state.changes.clear();
+    const story = state.story;
     await search();
+    if (story) await openStory(story.type, story.id);
   })().finally(() => { loading = null; });
   return loading;
 }
@@ -231,8 +313,8 @@ function render() {
   const box = root.querySelector('#lbResults');
   if (state.phase === 'loading') box.innerHTML = '<p class="lg-note" role="status">원장을 읽는 중…</p>';
   else if (state.phase === 'error') box.innerHTML = '<p class="lg-error" role="alert">원장을 읽지 못했습니다.</p><button type="button" class="lg-tool" data-lb-action="reload">다시 읽기</button>';
-  else box.innerHTML = resultsHtml();
-  root.querySelector('#lbStatus').textContent = state.busy ? '찾는 중…' : state.phase === 'ready' ? countLabel(state.rows.length, state.limit) : '';
+  else box.innerHTML = state.story ? storyHtml() : isSearching(state.filters) ? resultsHtml() : homeHtml();
+  root.querySelector('#lbStatus').textContent = state.busy ? '찾는 중…' : state.phase === 'ready' && !state.story && isSearching(state.filters) ? countLabel(state.rows.length, state.limit) : '';
   root.querySelector('#lbChips').innerHTML = chipsHtml();
   root.querySelector('#lbError').innerHTML = (state.error ? `<p class="lg-error" role="alert">${esc(state.error)}</p>` : '')
     + (state.notice ? `<p class="lg-note" role="status" data-lb-notice>${esc(state.notice)}</p>` : '');
@@ -246,8 +328,9 @@ function shellHtml() {
     <form id="lbForm" class="lb-form" role="search" novalidate>
       <div class="lb-bar">
         <h3 id="lbTitle" class="lb-h">원장</h3>
-        <label class="lb-search"><span class="lg-sr">찾을 말</span>${SEARCH_ICON}<input id="lbQuery" type="search" maxlength="${QUERY_MAX}" placeholder="${isPhone() ? '찾기' : '제목·요지·조직·주제로 찾기 (Enter)'}" autocomplete="off" enterkeyhint="search"></label>
+        <label class="lb-search"><span class="lg-sr">찾을 말</span>${SEARCH_ICON}<input id="lbQuery" type="search" maxlength="${QUERY_MAX}" placeholder="${isPhone() ? '조직·주제·사람으로 찾기' : '조직·주제·사람·내용으로 찾기 (Enter)'}" autocomplete="off" enterkeyhint="search"></label>
         <button type="button" class="lb-cond-btn" id="lbCondBtn" data-lb-action="cond" aria-expanded="false" aria-controls="lbCond">조건 <span aria-hidden="true">▾</span></button>
+        <button type="button" class="lb-add" data-lb-action="add">+ 기록하기</button>
       </div>
       <div class="lb-meta-row"><div id="lbChips" class="lb-chips" aria-label="걸린 조건"></div><p id="lbStatus" class="lb-count" role="status" aria-live="polite"></p></div>
       <div id="lbCond" class="lb-cond" hidden>
@@ -288,23 +371,54 @@ function syncForm(root) {
   options('#lbOrg', state.organizations, '전체'); options('#lbTopic', state.topics, '전체');
 }
 function resultsHtml() {
-  if (!state.rows.length) return `<p class="lg-note" data-lb-empty>${state.filters.q || state.filters.kinds.length || state.filters.organization || state.filters.topic || state.filters.from || state.filters.to ? '조건에 맞는 기록이 없습니다.' : '아직 원장 기록이 없습니다. 위에서 시트를 가져오거나 원장 후보를 확정하면 여기에 보입니다.'}</p>`;
-  return `<ul class="lb-list" data-lb-list>${state.rows.map(rowHtml).join('')}</ul>
+  if (!state.rows.length) return '<p class="lg-note" data-lb-empty>조건에 맞는 기록이 없어요.</p>';
+  return `<ul class="lb-list" data-lb-list>${state.rows.map(r => rowHtml(r)).join('')}</ul>
     ${state.rows.length >= state.limit && state.limit < MAX_LIMIT ? `<button type="button" class="lg-tool lb-more" data-lb-action="more" ${state.busy ? 'disabled' : ''}>더 보기</button>` : ''}`;
 }
-function rowHtml(r) {
+function section(key, title, body, count) {
+  return `<section class="lb-sec" data-lb-sec="${key}" aria-labelledby="lbSec-${key}"><h4 id="lbSec-${key}" class="lb-sec-h">${esc(title)}${count ? ` <span class="lb-sec-n">${count}</span>` : ''}</h4>${body}</section>`;
+}
+function homeHtml() {
+  const h = state.home;
+  if (!h) return '<p class="lg-note" role="status">원장을 읽는 중…</p>';
+  if (h.error) return '<p class="lg-error" role="alert">원장을 읽지 못했어요.</p><button type="button" class="lg-tool" data-lb-action="reload">다시 읽기</button>';
+  // 한 기록은 한 칸에만(앞 칸에 나온 기록은 뒤 칸에서 뺀다: 줄·상세 id가 겹치지 않게).
+  const shown = new Set();
+  const once = rows => rows.filter(r => !shown.has(r.id) && shown.add(r.id));
+  const list = (rows, extra) => `<ul class="lb-list">${rows.map(r => rowHtml(r, extra ? extra(r) : '')).join('')}</ul>`;
+  const overdue = once(h.overdue), tracking = once(h.tracking), recent = once(h.recent);
+  const chips = (type, list) => list.map(c => `<button type="button" class="lb-topic" data-lb-action="story" data-lb-type="${type}" data-lb-sid="${esc(c.id)}">${esc(c.name)} <span class="lb-topic-n">${c.count}</span></button>`).join('');
+  const empty = !overdue.length && !tracking.length && !h.orgChips.length && !h.topicChips.length && !recent.length;
+  if (empty) return '<p class="lg-note" data-lb-empty>아직 원장 기록이 없어요. 업데이트·사업 보고를 저장하면 자동으로 기록되고, [+ 기록하기]로 직접 넣을 수 있어요.</p>';
+  return [
+    overdue.length ? section('overdue', '상대가 안 지킨 약속', list(overdue, r => overdueLabel(r)), overdue.length) : '',
+    tracking.length ? section('tracking', '지금 추적 중인 일', list(tracking), tracking.length) : '',
+    h.orgChips.length || h.topicChips.length ? section('chips', '조직별·주제별', `${h.orgChips.length ? `<div class="lb-topics" data-lb-chips="organization" aria-label="조직">${chips('organization', h.orgChips)}</div>` : ''}${h.topicChips.length ? `<div class="lb-topics" data-lb-chips="topic" aria-label="주제">${chips('topic', h.topicChips)}</div>` : ''}`) : '',
+    recent.length ? section('recent', '최근 자동으로 기록됨', list(recent)) : ''
+  ].join('');
+}
+function storyHtml() {
+  const s = state.story;
+  const head = `<div class="lb-story-head"><button type="button" class="lg-text-btn" data-lb-action="home">‹ 원장</button><h4 id="lbStoryTitle" class="lb-sec-h" tabindex="-1">${esc(s.name)}</h4>${s.rows ? `<span class="lb-sec-n">${s.rows.length}</span>` : ''}</div>`;
+  if (s.error) return head + `<p class="lg-error" role="alert">${esc(s.error)}</p>`;
+  if (!s.rows) return head + '<p class="lg-note" role="status">이야기를 읽는 중…</p>';
+  if (!s.rows.length) return head + '<p class="lg-note" data-lb-empty>이 이야기에 남은 기록이 없어요.</p>';
+  return head + `<ol class="lb-timeline" data-lb-story="${esc(s.type)}">${s.rows.map(r => rowHtml(r)).join('')}</ol>`;
+}
+function rowHtml(r, extra = '') {
   const open = state.openId === r.id;
   const v = rowView(r);
-  const tags = [state.changes.get(r.id)?.auto ? `<span class="lb-state lb-auto" data-lb-auto>${AUTO_TAG}</span>` : '',
+  const info = state.changes.get(r.id);
+  const tags = [info?.auto ? `<span class="lb-state lb-auto" data-lb-auto>${AUTO_TAG}</span>` : info?.manual ? `<span class="lb-state lb-manual" data-lb-manual>${MANUAL_TAG}</span>` : '',
     v.status ? `<span class="lb-state">${esc(v.status)}</span>` : '',
     r.validity && r.validity !== 'current' ? `<span class="lb-state">${esc(VALIDITY_LABEL[r.validity] || r.validity)}</span>` : '',
     r.sensitivity === 'S2' ? `<span class="lb-state">${esc(SENSITIVITY_LABEL.S2)}</span>` : ''].join('');
   return `<li class="lb-item${open ? ' is-open' : ''}" data-lb-row="${esc(r.id)}" data-lb-kind="${esc(r.kind)}">
     <button type="button" class="lb-head" data-lb-action="open" data-lb-id="${esc(r.id)}" aria-expanded="${open}" aria-controls="lbDetail-${esc(r.id)}">
       <span class="lbr-1"><span class="lbr-kind" data-kind="${esc(r.kind)}">${esc(KIND_DISPLAY[r.kind])}</span><span class="lbr-title">${esc(v.title)}</span>${tags}${v.date ? `<span class="lbr-date" title="${esc(v.dateFull)}">${esc(v.date)}</span>` : ''}</span>
-      <span class="lbr-2"><span class="lbr-summary">${esc(v.summary)}</span><span class="lbr-id">${esc(r.ledger_id)}</span></span>
+      <span class="lbr-2"><span class="lbr-summary">${esc(extra || v.summary)}</span></span>
     </button>
-    ${open ? `<div class="lb-detail" id="lbDetail-${esc(r.id)}" tabindex="-1" role="region" aria-label="${esc(r.ledger_id)} 상세">${detailHtml(r.id)}</div>` : ''}
+    ${open ? `<div class="lb-detail" id="lbDetail-${esc(r.id)}" tabindex="-1" role="region" aria-label="${esc(v.title)} 상세">${detailHtml(r.id)}</div>` : ''}
   </li>`;
 }
 function detailHtml(id) {
@@ -312,7 +426,7 @@ function detailHtml(id) {
   const d = state.details.get(id);
   if (!d) return `<p class="lg-error" role="alert">${esc(state.detailError || '상세를 읽지 못했습니다.')}</p>`;
   const summary = d.record.summary ? `<p class="lb-text">${esc(d.record.summary)}</p>` : '';
-  const orgs = (state.rows.find(r => r.id === id)?.organizations || []).filter(Boolean);
+  const orgs = (allRows().find(r => r.id === id)?.organizations || []).filter(Boolean);
   const fields = `<dl class="lb-fields">${(orgs.length ? [...d.fields, ['조직', orgs.join(', ')]] : d.fields).map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`;
   const sources = d.sources.length ? `<ul class="lg-list" data-lb-sources>${d.sources.map(s => {
     const src = s.source;
@@ -328,10 +442,11 @@ function detailHtml(id) {
     return `<li><b>${esc(src.ledger_id)}</b> ${title}${meta ? `<span class="lg-samples">${meta}</span>` : ''}</li>`;
   }).join('')}</ul>` : '<p class="lg-note">연결된 출처가 없습니다.</p>';
   const links = d.links.length ? `<ul class="lg-list" data-lb-links>${d.links.map(l => `<li>${l.dir === 'in' ? '← ' : ''}<b>${esc(l.relation)}</b> ${l.ledgerId && l.kind === 'record' ? `<button type="button" class="lg-tool" data-lb-action="find" data-lb-q="${esc(l.ledgerId)}">${esc(l.ledgerId)}</button> ` : l.ledgerId ? `${esc(l.ledgerId)} ` : ''}${esc(l.title)}${l.kind === 'project' ? ' <span class="lg-muted">(Web2 프로젝트)</span>' : l.kind === 'meeting' ? ' <span class="lg-muted">(Web2 회의)</span>' : ''}</li>`).join('')}</ul>` : '<p class="lg-note">연결이 없습니다.</p>';
-  const info = state.changes.get(id), row = state.rows.find(r => r.id === id) || d.record;
+  const info = state.changes.get(id), row = d.record;
   const notes = info?.notes?.length ? `<p class="lg-note" data-lb-change>${info.notes.map(esc).join(' · ')}</p>` : '';
   const live = ['current', 'needs_check', 'fulfilled'].includes(d.record.validity);
   const items = [
+    live ? `<button type="button" class="lg-tool" data-lb-action="fix" data-lb-id="${esc(id)}"${state.acting ? ' disabled' : ''}>고치기</button>` : '',
     live ? `<p class="lg-note">틀린 기록으로 표시(폐기, 지우지 않음)</p>${RETIRE_REASONS.map(([k, l]) => `<button type="button" class="lg-tool lg-danger" data-lb-action="retire" data-lb-id="${esc(id)}" data-lb-reason="${k}"${state.acting ? ' disabled' : ''}>${esc(l)}</button>`).join('')}` : '',
     info?.auto && info.runId ? `<button type="button" class="lg-tool lg-danger" data-lb-action="undo-run" data-lb-run="${esc(info.runId)}"${state.acting ? ' disabled' : ''}>${state.acting === 'run' ? '취소하는 중…' : '이번 자동 기록 취소'}</button>` : ''
   ].filter(Boolean).join('');
@@ -340,6 +455,7 @@ function detailHtml(id) {
   return `${menu || notes ? `<div class="lb-detail-top">${notes || '<span></span>'}${menu}</div>` : ''}${err}${summary}${fields}<h5>근거·출처</h5>${sources}<h5>연결</h5>${links}`;
 }
 
+function allRows() { return [...state.rows, ...(state.story?.rows || []), ...(state.home?.overdue || []), ...(state.home?.tracking || []), ...(state.home?.recent || [])]; }
 function readForm(root) {
   const f = state.filters;
   f.q = root.querySelector('#lbQuery').value;
@@ -383,7 +499,7 @@ function bind() {
       if (s?.original?.target) void openOriginal(s.original.target);
     }
     else if (action === 'retire') {
-      const row = state.rows.find(r => r.id === button.dataset.lbId) || state.details.get(button.dataset.lbId)?.record;
+      const row = state.details.get(button.dataset.lbId)?.record;
       const label = (RETIRE_REASONS.find(([k]) => k === button.dataset.lbReason) || [])[1];
       if (row && label && window.confirm(`${row.ledger_id}을(를) 틀린 기록으로 표시할까요? (${label}) 지우지 않고 폐기로 남깁니다.`)) void retireRecord(row, button.dataset.lbReason);
     }
@@ -391,6 +507,13 @@ function bind() {
       if (window.confirm('이번 자동 기록 전체를 취소할까요? 그때 들어온 기록은 폐기로 남고, 다른 기록에 붙인 근거는 뗍니다.')) void undoRun(button.dataset.lbRun);
     }
     else if (action === 'find') { state.filters = { ...freshFilters(), q: button.dataset.lbQ || '', inactive: true, scope: 'all' }; render(); run(); }
+    else if (action === 'story') void openStory(button.dataset.lbType === 'topic' ? 'topic' : 'organization', button.dataset.lbSid || '');
+    else if (action === 'home') { state.story = null; state.openId = null; ++seq; render(); void loadHome(); }
+    else if (action === 'add') window.KPTULedgerFix?.open?.({});
+    else if (action === 'fix') {
+      const d = state.details.get(button.dataset.lbId);
+      if (d?.record) { button.closest('details')?.removeAttribute('open'); window.KPTULedgerFix?.open?.({ target: d.record.ledger_id, title: rowView(d.record).title }); }
+    }
   });
   window.addEventListener('kptu:ledger-changed', () => { if (state.phase !== 'hidden' || document.querySelector('#ledgerBrowseRoot')) void load(); });
   window.KPTURouter?.on?.('ledger', () => { void load(); });
@@ -398,10 +521,11 @@ function bind() {
 
 window.addEventListener('kptu:session-changed', () => { state = fresh(); if (document.querySelector('#ledgerBrowseRoot') && workspaceId()) void load(); });
 async function boot() {
+  installView();
   bind();
   await load();
   // 업무일지 "새로 기록된 약속 N"에서: 약속만 보이게 거른 뒤 화면을 연다(목록은 열 때 읽음).
-  window.KPTULedgerBrowse = { reload: load, show: ({ kinds = [] } = {}) => { state.filters = { ...freshFilters(), kinds: kinds.filter(k => KINDS.includes(k)) }; state.openId = null; state.condOpen = false; } };
+  window.KPTULedgerBrowse = { reload: load, show: ({ kinds = [] } = {}) => { state.filters = { ...freshFilters(), kinds: kinds.filter(k => KINDS.includes(k)) }; state.openId = null; state.condOpen = false; state.story = null; } };
   return true;
 }
 window.__KPTU_LEDGER_BROWSE_READY__ = boot().catch(err => { console.error('ledger browse init', err?.name || 'error'); return false; });

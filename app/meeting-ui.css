@@ -239,3 +239,15 @@
 /* MTG-사업보고 6단계: [연결할 곳] 버튼(입력 칸과 같은 높이·너비, 고른 곳 이름이 길면 줄여 보임) */
 .meeting-places-btn{display:block;width:100%;min-height:var(--kptu-control-height,36px);box-sizing:border-box;padding:0 10px;text-align:left;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .report-kind-tag{display:inline-block;margin-right:4px;padding:0 5px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,4px);font-size:11px;line-height:16px;color:var(--kptu-muted);vertical-align:1px}
+
+/* UPD-요약부품통일 ①: 사업 보고 수정 창의 곳마다 요약 칸 + 작은 [AI 요약](바구니 연결 칸과 같은 모양). */
+#meetingRoundDetailModal .report-link-summaries { display:grid; gap:10px; margin-top:8px; }
+#meetingRoundDetailModal .report-link-summary textarea { box-sizing:border-box; width:100%; min-height:64px; }
+#meetingRoundDetailModal .report-link-summary button.mini { width:auto; min-width:0; flex:none; box-sizing:border-box; height:var(--ds-compact-height,32px); min-height:var(--ds-compact-height,32px); margin:0; padding:0 var(--ds-compact-pad-x,12px); font-size:var(--ds-compact-text,13px); line-height:1; white-space:nowrap; }
+#meetingRoundDetailModal .ai-summary-row,#meetingRoundDetailModal .ai-summary-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:6px; }
+#meetingRoundDetailModal .ai-summary-status { min-width:0; font-size:var(--kptu-text-meta,13px); color:var(--kptu-muted); overflow-wrap:anywhere; }
+#meetingRoundDetailModal .ai-summary-status:empty { display:none; }
+#meetingRoundDetailModal .ai-summary-proposal { margin-top:8px; padding:8px 10px; border:1px dashed var(--kptu-border); border-radius:var(--kptu-radius-md); }
+#meetingRoundDetailModal .ai-summary-proposal p { margin:4px 0; }
+#meetingRoundDetailModal .ai-summary-proposal-label { color:var(--kptu-muted); font-size:var(--kptu-text-meta,13px); }
+#meetingRoundDetailModal .ai-summary-proposal-text { white-space:pre-wrap; overflow-wrap:anywhere; }

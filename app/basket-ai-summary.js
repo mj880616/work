@@ -37,6 +37,9 @@ export const AI_SUMMARY_TEXT=Object.freeze({
   ledger_unavailable:'원장 후보를 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
   ledger_busy:'원장 자동 기록이 이미 돌고 있어요. 잠시 뒤 다시 시도해 주세요.',
   ledger_record_failed:'원장에 기록하지 못했어요. 다음에 다시 시도해요.',
+  ledger_fix_sensitive:'교섭·전략 기록은 AI로 고치지 않아요. Claude 수정안을 붙여 넣어 주세요.',
+  ledger_fix_inactive:'이미 대체됐거나 폐기된 기록이에요.',
+  ledger_fix_rejected:'원장 형식에 맞지 않아 미리보기를 만들지 못했어요. 문장을 바꿔 다시 써 주세요.',
   org_summary_not_ready:'조직 요약은 아직 준비 중이에요.',
   org_summary_unavailable:'조직 요약을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
   library_not_ready:'자료 정보 채우기가 아직 준비되지 않았어요.',
@@ -120,11 +123,47 @@ export function placeAiSummary(current,summary,save='저장'){
 }
 export const newAiState=()=>({busy:false,status:'',retry:false,proposal:'',run:0});
 
-// One small control row under a summary box, shared by the basket link panel and the summary editor.
+// One small control row under a summary box, shared by the basket link panel, the summary editor and the 사업 보고 link form.
 // attr: the data attribute prefix the host already uses (so its focus keeping and click routing work).
-export function aiSummaryMarkup(state,key,attr,esc){
-  const k=esc(key),label=state.busy?'AI 요약':state.retry?'다시 시도':'AI 요약';
-  return `<div class="ai-summary" data-ai-summary><div class="ai-summary-row"><button type="button" class="ai-summary-run" ${attr}-ai-run="${k}" aria-label="${state.retry&&!state.busy?'AI 요약 다시 시도':'AI 요약 만들기'}"${state.busy?' disabled aria-busy="true"':''}>${label}</button><span class="ai-summary-status" ${attr}-ai-status role="status" aria-live="polite">${esc(state.busy?'요약 만드는 중…':state.status)}</span></div>`
-    +(state.proposal&&!state.busy?`<div class="ai-summary-proposal" ${attr}-ai-proposal><p class="ai-summary-proposal-label">AI 제안</p><p class="ai-summary-proposal-text">${esc(state.proposal)}</p><div class="ai-summary-actions"><button type="button" ${attr}-ai-apply="${k}">이걸로 바꾸기</button><button type="button" ${attr}-ai-dismiss="${k}">제안 닫기</button></div></div>`:'')
+// slot: a second row on the same box uses its own attribute names (UPD-사진요약기록 [요약해서 기록으로] = slot 'files-ai').
+// waiting: a fixed note shown instead of the button (for example '글자 읽는 중'), so the person sees why it cannot run yet.
+// cls: extra classes for the host's own small-button look (the 사업 보고 window uses 'mini secondary').
+export function aiSummaryMarkup(state,key,attr,esc,{label:name='AI 요약',slot='ai',aria='AI 요약 만들기',waiting='',cls=''}={}){
+  const k=esc(key),p=`${attr}-${slot}`,label=state.retry&&!state.busy?'다시 시도':name;
+  if(waiting&&!state.busy)return `<div class="ai-summary" data-ai-summary data-ai-slot="${esc(slot)}"><div class="ai-summary-row"><span class="ai-summary-status" ${p}-status role="status" aria-live="polite">${esc(waiting)}</span></div></div>`;
+  return `<div class="ai-summary" data-ai-summary data-ai-slot="${esc(slot)}"><div class="ai-summary-row"><button type="button" class="ai-summary-run${cls?' '+esc(cls):''}" ${p}-run="${k}" aria-label="${state.retry&&!state.busy?esc(name)+' 다시 시도':esc(aria)}"${state.busy?' disabled aria-busy="true"':''}>${esc(label)}</button><span class="ai-summary-status" ${p}-status role="status" aria-live="polite">${esc(state.busy?'요약 만드는 중…':state.status)}</span></div>`
+    +(state.proposal&&!state.busy?`<div class="ai-summary-proposal" ${p}-proposal><p class="ai-summary-proposal-label">AI 제안</p><p class="ai-summary-proposal-text">${esc(state.proposal)}</p><div class="ai-summary-actions"><button type="button"${cls?` class="${esc(cls)}"`:''} ${p}-apply="${k}">이걸로 바꾸기</button><button type="button"${cls?` class="${esc(cls)}"`:''} ${p}-dismiss="${k}">제안 닫기</button></div></div>`:'')
     +'</div>';
+}
+
+// UPD-사진요약기록: whether an update's attachments already have text the server can summarize (no AI, no request).
+// 'ready' = a photo with read text, or a non-photo file (한글·PDF; the server checks the library text and may answer no_file_text);
+// 'pending' = a photo is still being read; 'none' = nothing to read (then the screen shows only the title, no button).
+const PHOTO_TYPES=new Set(['image/jpeg','image/png']);
+export function attachmentTextState(note){
+  if(!note||typeof note!=='object'||note.kind==='diary'||note.archived_at||note.ai_export_allowed!==true)return 'none';
+  const files=Array.isArray(note.attachments)?note.attachments:[];let ready=false,pending=false;
+  for(const f of files){
+    if(!f||typeof f!=='object')continue;
+    if(!PHOTO_TYPES.has(f.mime_type)){ready=true;continue;}
+    const o=f.ocr;if(o?.state==='reading')pending=true;else if(o?.state==='done'&&typeof o.text==='string'&&!ONLY_WHITESPACE.test(o.text))ready=true;
+  }
+  return pending?'pending':ready?'ready':'none';
+}
+
+// UPD-요약부품통일 ②③: a summary that already exists (통화·텔레그램 핵심내용, 자료 올릴 때 만든 'b1:' 요약) is the box's starting
+// text, without calling AI again. It follows the same rule as an AI answer: an empty box takes it, a box with text keeps its text.
+export function placeDefaultSummary(current,text){
+  const value=typeof text==='string'&&validSummary(text)?text:'';
+  return value&&isBlankSummary(current)?value:current??'';
+}
+// 자료 올릴 때 만든 한두 줄 요약(app_document_ai_index 'b1:' 행, PR 1108·1116) 하나를 owner RLS로 읽는다. 없으면 ''(그때는 [AI 요약]).
+export async function readDocumentBrief(documentId,{rt=globalThis.window?.KPTURuntime}={}){
+  const ws=rt?.context?.read?.()?.workspace?.id;
+  if(typeof documentId!=='string'||!UUID.test(documentId)||typeof ws!=='string'||!ws||!rt?.api)return '';
+  try{
+    const rows=await rt.api(`/rest/v1/app_document_ai_index?workspace_id=eq.${encodeURIComponent(ws)}&document_id=eq.${encodeURIComponent(documentId)}&content_hash=like.${encodeURIComponent('b1:*')}&select=document_id,content_hash,summary&limit=2`);
+    const row=Array.isArray(rows)&&rows.length===1?rows[0]:null;
+    return row?.document_id===documentId&&/^b1:[0-9a-f]{32}$/.test(row.content_hash||'')&&validSummary(row.summary)?row.summary:'';
+  }catch{return '';}
 }

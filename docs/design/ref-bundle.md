@@ -130,7 +130,7 @@ index app_record_links_bundle_idx on (bundle_id) where bundle_id is not null
 - `parseClassification`의 허용 kind에 `reference`(UUID 필수), `previewClassification`이 묶음 목록으로 이름·업무공간을 확인한다.
 - 미리보기: 참고 제안 줄은 **체크가 꺼진 채** 보인다(조직·프로젝트 제안은 지금처럼 켜진 채). 명진이 체크하고 [선택 확정]을 눌러야만 저장된다(질문 5). 바꿔 고르기 선택칸(`destinationChoices`)에 참고 묶음도 들어간다.
 - DB에 `suggested` 줄을 새로 쓰지 않는다(지금처럼 제안은 화면 메모리에만). Edge·서버 AI 변경 없음.
-- [연결하기]의 연결 요약 AI(`ai-assist` `link_summary`)는 참고에는 붙이지 않는다(요약 칸은 비워도 됨, 손으로 쓸 수 있음).
+- ~~[연결하기]의 연결 요약 AI(`ai-assist` `link_summary`)는 참고에는 붙이지 않는다~~ → **2026-10-24 변경(UPD-요약부품통일 A, 명진 요청)**: 참고에도 담당조직·프로젝트와 같은 작은 [AI 요약]을 붙인다. 서버는 묶음 이름의 관점으로 요약한다(`docs/design/ai-server.md` 5.1 확장). 요약 칸은 여전히 비워도 된다.
 
 ## 6. 묶음 화면 위치
 

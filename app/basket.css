@@ -100,6 +100,8 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #basketView .basket-manual-date { position:absolute; opacity:0; width:1px; height:1px; pointer-events:none; }
 /* AI-서버연동 S4: [AI 요약] under each summary box. It only fills the box or shows a proposal; [연결] saves. */
 #basketView .ai-summary-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:6px; }
+/* UPD-사진요약기록: [요약해서 기록으로] row sits under [기록도 남기기]/[AI 요약]; 12px apart so the 44px press areas never overlap. */
+#basketView .ai-summary[data-ai-slot="files"] { margin-top:12px; }
 #basketView .ai-summary-status { min-width:0; font-size:13px; line-height:1.5; color:var(--kptu-muted); overflow-wrap:anywhere; }
 #basketView .ai-summary-status:empty { display:none; }
 #basketView .ai-summary-proposal { margin-top:8px; padding:8px 10px; border:1px dashed var(--kptu-border); border-radius:8px; }
