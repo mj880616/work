@@ -152,16 +152,19 @@ async function fixture(page,{width=390,height=900,fail={},oneLine=false,doneServ
  });
  // WEEKLY-임원요청정리: the week's request rows (app_weekly_exec_requests, one row a week; no DELETE grant). PATCH honours the
  // updated_at condition like PostgREST; exec.missing answers 404 (the table before the migration).
- const exec={rows:[],calls:[],missing:!!fail.execMissing,clock:0};
+ const exec={rows:[],calls:[],missing:!!fail.execMissing,draftMissing:!!fail.draftMissing,clock:0};
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_weekly_exec_requests',async r=>{
   const req=r.request(),q=new URL(req.url()).searchParams,method=req.method(),body=method==='GET'?null:req.postDataJSON();
   exec.calls.push({method,query:Object.fromEntries(q),body});
   if(exec.missing)return r.fulfill({status:404,json:{message:'relation does not exist'}});
   if(fail.execRequests&&method==='GET')return r.fulfill({status:500,json:{message:'QA failure'}});
-  const hit=()=>exec.rows.filter(row=>['workspace_id','week_start','updated_at'].every(k=>!q.has(k)||q.get(k)===`eq.${row[k]}`));
+  // WEEKLY-임시저장: draft_saved_at=eq.<값>/is.null 조건도 PostgREST처럼. 임시저장 쓰기는 updated_at을 보내지 않으므로 바꾸지 않는다(트리거 없음).
+  const hit=()=>exec.rows.filter(row=>['workspace_id','week_start','updated_at'].every(k=>!q.has(k)||q.get(k)===`eq.${row[k]}`)&&(!q.has('draft_saved_at')||(q.get('draft_saved_at')==='is.null'?row.draft_saved_at==null:q.get('draft_saved_at')===`eq.${row.draft_saved_at}`)));
+  if(exec.draftMissing&&body&&'draft' in body)return r.fulfill({status:400,json:{code:'PGRST204',message:"Could not find the 'draft' column of 'app_weekly_exec_requests' in the schema cache"}});
+  if(exec.draftMissing&&method==='GET'&&/draft/.test(q.get('select')||''))return r.fulfill({status:400,json:{code:'42703',message:'column app_weekly_exec_requests.draft does not exist'}});
   if(method==='GET')return r.fulfill({json:hit()});
-  if(method==='POST'){if(exec.rows.some(x=>x.week_start===body.week_start))return r.fulfill({status:409,json:{code:'23505'}});const row={id:'x'+exec.rows.length,carried_at:null,...body,updated_at:`2026-10-06T02:00:0${++exec.clock}Z`};exec.rows.push(row);return r.fulfill({status:201,json:[row]});}
-  if(method==='PATCH'){const rows=hit();for(const row of rows)Object.assign(row,body,{updated_at:`2026-10-06T02:00:0${++exec.clock}Z`});return r.fulfill({json:rows});}
+  if(method==='POST'){if(exec.rows.some(x=>x.week_start===body.week_start))return r.fulfill({status:409,json:{code:'23505'}});const row={id:'x'+exec.rows.length,carried_at:null,draft:null,draft_saved_at:null,...body,updated_at:`2026-10-06T02:00:0${++exec.clock}Z`};exec.rows.push(row);return r.fulfill({status:201,json:[row]});}
+  if(method==='PATCH'){const rows=hit();for(const row of rows)Object.assign(row,body,'updated_at' in body?{updated_at:`2026-10-06T02:00:0${++exec.clock}Z`}:{});return r.fulfill({json:rows});}
   return r.fulfill({status:405,json:{}});
  });
  const sources={events:!fail.events,tasks:!fail.tasks};
@@ -1447,6 +1450,119 @@ test('[주간 정리] 임원 참석 요청 표: 저장 칸이 아직 없으면(4
  expect(execWrites(f)).toEqual([]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.errors.filter(e=>!/404/.test(e))).toEqual([]);
+});
+
+// WEEKLY-임시저장 (docs/design/weekly-draft-feedback.md 2절): 한글 파일 상자에서 고친 칸·일정 제목은 2초 멈추면 그 주 요청 표 행의
+// draft 칸에 서버 저장(draft_saved_at 조건, updated_at 안 바꿈, 브라우저 저장소 없음). 다시 열면 [이어서 고치기]로 칸 이름대로 복원,
+// 다른 기기가 그사이 저장했으면 한쪽만 고친 칸은 합치고 같은 칸은 묻는다. 칸이 없으면 "임시저장은 준비 중". 이름·조직은 모두 합성.
+const draftWrites=f=>f.exec.calls.filter(c=>c.method!=='GET'&&c.body&&'draft' in c.body);
+const draftLine=page=>hwpx(page).locator('[data-hwpx-draft-status]');
+const orgRow=(page,name)=>hwpx(page).locator('[data-hwpx-part="orgs"] .journal-hwpx-row').filter({has:page.locator('label',{hasText:name})}).locator('textarea');
+for(const width of [390,1280])test(`[주간보고 한글 파일] 임시저장: 고치고 멈추면 서버에 저장 → 닫고 다시 열면 [이어서 고치기]로 복원 ${width}`,async({page})=>{
+ const f=await hwpxFixture(page,{width});
+ await openJournal(page,width);await openWeekly(page);
+ await openDraft(page);
+ await expect(draftLine(page)).toHaveText('고치면 서버에 임시저장해요.');
+ await orgRow(page,'가상 노동조합').fill('- 지난주 조직 소식\n- 임시저장할 조직 소식');
+ await hwpx(page).locator('[data-hwpx-part="schedule"] [data-hwpx-title]').nth(0).locator('[data-hwpx-title-input]').fill('가상 점검 회의');
+ await expect(draftLine(page)).toHaveText(/^임시저장 \d\d:\d\d$/,{timeout:15000});
+ const row=f.exec.rows.find(r=>r.week_start==='2026-10-05');
+ expect(row.draft.v).toBe(1);
+ // 칸 열쇠는 칸 이름(조직 이름), 고친 칸만. 일정은 일정 키. 바탕 = 자료실 확정본.
+ expect(row.draft.rows).toEqual([{section:'orgs',key:'가상 노동조합',n:0,lines:['- 지난주 조직 소식','- 임시저장할 조직 소식']}]);
+ expect(row.draft.titles).toEqual([{event:'c:next',title:'가상 점검 회의',place:'가상 회의실'}]);
+ expect(row.draft.base).toMatchObject({from:'library',document_id:'doc-team',file_name:'team.hwpx'});
+ // 임시저장 쓰기는 updated_at을 보내지 않고, 처음 쓰기 뒤엔 draft_saved_at 조건으로만 고친다.
+ for(const c of draftWrites(f))expect('updated_at' in c.body).toBe(false);
+ const patches=draftWrites(f).filter(c=>c.method==='PATCH');
+ expect(patches.length).toBeGreaterThan(0);
+ for(const c of patches)expect(c.query.draft_saved_at).toMatch(/^(eq\.|is\.null)/);
+ // 브라우저 저장소에는 임시저장 내용이 없다.
+ expect(await page.evaluate(()=>JSON.stringify({...localStorage,...sessionStorage}))).not.toMatch(/임시저장할 조직 소식|가상 점검 회의/);
+ // 닫고 다시 열기: 이 주 임시저장본 안내 → [이어서 고치기] → 같은 확정본을 다시 열고 칸·일정 제목이 돌아온다.
+ await hwpx(page).locator('[data-hwpx-close]').last().click();
+ await hwpx(page).locator('[data-hwpx-start]').click();
+ const resume=hwpx(page).locator('[data-hwpx-resume]');
+ await expect(resume).toContainText('이 주 임시저장본(');
+ await resume.locator('[data-hwpx-resume-go]').click();
+ await expect(orgRow(page,'가상 노동조합')).toHaveValue('- 지난주 조직 소식\n- 임시저장할 조직 소식');
+ await expect(hwpx(page).locator('[data-hwpx-resumed]')).toContainText('임시저장본(');
+ await expect(hwpx(page).locator('[data-hwpx-part="schedule"] [data-hwpx-title]').nth(0).locator('[data-hwpx-title-input]')).toHaveValue('가상 점검 회의');
+ await expect(draftLine(page)).toHaveText(/^임시저장 \d\d:\d\d$/);
+ expect(f.sent.open.at(-1)).toEqual({action:'hwp-open',document_id:'doc-team'});
+ const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ const {report}=await savedReport(download);
+ expect(report.orgs[0].status).toEqual(['- 지난주 조직 소식','- 임시저장할 조직 소식']);
+ // [처음부터]는 묻고 서버 임시저장을 비운다.
+ page.once('dialog',d=>d.accept());
+ await hwpx(page).locator('[data-hwpx-restart]').click();
+ await expect(hwpx(page).locator('[data-hwpx-status]')).toHaveText('임시저장본을 지웠어요.');
+ expect(row.draft).toBeNull();
+ await expect(hwpx(page).locator('[data-hwpx-resume]')).toHaveCount(0);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+test('[주간보고 한글 파일] 임시저장 두 기기: 다른 기기가 먼저 저장했으면 한쪽만 고친 칸은 합치고, 같은 칸은 [이 기기 것]/[다른 기기 것]으로 묻는다 1280',async({page})=>{
+ const f=await hwpxFixture(page,{width:1280});
+ await openJournal(page,1280);await openWeekly(page);
+ await openDraft(page);
+ await orgRow(page,'가상 노동조합').fill('- PC에서 고친 줄');
+ await expect(draftLine(page)).toHaveText(/^임시저장 /,{timeout:15000});
+ const row=f.exec.rows.find(r=>r.week_start==='2026-10-05'),before=row.draft_saved_at;
+ // 다른 기기(폰)가 같은 칸과 다른 칸(나 지역 모임)을 고쳐 저장했다.
+ row.draft={...row.draft,rows:[{section:'orgs',key:'가상 노동조합',n:0,lines:['- 폰에서 고친 줄']},{section:'orgs',key:'나 지역 모임',n:0,lines:['- 폰에서 쓴 나 모임 소식']}]};
+ row.draft_saved_at='2026-10-06T09:00:00.000Z';
+ // 이 기기에서 같은 칸을 또 고친다 → 조건부 쓰기 0행 → 다시 읽고 3자 비교.
+ await orgRow(page,'가상 노동조합').fill('- PC에서 다시 고친 줄');
+ const conflicts=hwpx(page).locator('[data-hwpx-conflicts]');
+ await expect(conflicts).toContainText('다른 기기에서도 고친 칸 1개',{timeout:15000});
+ await expect(conflicts.locator('[data-hwpx-conflict-item]')).toContainText('이 기기 ‘- PC에서 다시 고친 줄’ · 다른 기기 ‘- 폰에서 고친 줄’');
+ // 다른 기기만 고친 칸은 저절로 들어오고, 같은 칸은 고를 때까지 다른 기기 것.
+ await expect(orgRow(page,'나 지역 모임')).toHaveValue('- 폰에서 쓴 나 모임 소식');
+ await expect(orgRow(page,'가상 노동조합')).toHaveValue('- 폰에서 고친 줄');
+ expect(before).not.toBe(row.draft_saved_at);
+ await expect.poll(()=>row.draft.rows.map(r=>[r.key,r.lines]),{timeout:15000}).toEqual([['가상 노동조합',['- 폰에서 고친 줄']],['나 지역 모임',['- 폰에서 쓴 나 모임 소식']]]);
+ expect(draftWrites(f).some(c=>c.method==='PATCH'&&c.query.draft_saved_at==='eq.2026-10-06T09:00:00.000Z')).toBe(true);
+ await conflicts.locator('[data-hwpx-conflict-pick="mine"]').click();
+ await expect(hwpx(page).locator('[data-hwpx-conflicts]')).toHaveCount(0);
+ await expect(orgRow(page,'가상 노동조합')).toHaveValue('- PC에서 다시 고친 줄');
+ await expect.poll(()=>row.draft.rows.map(r=>[r.key,r.lines]),{timeout:15000}).toEqual([['가상 노동조합',['- PC에서 다시 고친 줄']],['나 지역 모임',['- 폰에서 쓴 나 모임 소식']]]);
+ await expect(draftLine(page)).toHaveText(/^임시저장 /);
+ expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+});
+test('[주간보고 한글 파일] 임시저장: 바탕이 바뀌어 이름이 없는 칸은 접어서 보여 주고 버리지 않는다 390',async({page})=>{
+ const f=await hwpxFixture(page,{width:390});
+ f.exec.rows.push({id:'x0',workspace_id:'w',week_start:'2026-10-05',carried_at:null,updated_at:'2026-10-06T01:00:00Z',items:[],draft_saved_at:'2026-10-06T03:00:00.000Z',draft:{v:1,
+  base:{from:'library',document_id:'doc-team',file_name:'team.hwpx',title:'가상 상집보고',digest:'0000000000000000'},me:'',me_from:'',date:'',titles:[],
+  rows:[{section:'orgs',key:'가상 노동조합',n:0,lines:['- 저장된 조직 소식']},{section:'summary',key:'없어진 사업›없어진 과제',n:0,lines:['- 옛 바탕에서 쓴 줄','- 둘째 줄']}]}});
+ await openJournal(page,390);await openWeekly(page);
+ await hwpx(page).locator('[data-hwpx-start]').click();
+ await hwpx(page).locator('[data-hwpx-resume] [data-hwpx-resume-go]').click();
+ await expect(orgRow(page,'가상 노동조합')).toHaveValue('- 저장된 조직 소식');
+ await expect(hwpx(page).locator('[data-hwpx-resumed]')).toContainText('바탕이 그때와 달라 이름이 맞는 칸만 넣었어요.');
+ const unplaced=hwpx(page).locator('[data-hwpx-unplaced]');
+ await expect(unplaced.locator('summary')).toContainText('넣지 못한 임시저장 칸 1개');
+ await unplaced.locator('summary').click();
+ await expect(unplaced.locator('li')).toContainText('요약 · 없어진 사업 › 없어진 과제: - 옛 바탕에서 쓴 줄');
+ // 다른 칸을 고쳐 다시 저장해도 넣지 못한 칸은 남는다.
+ await orgRow(page,'나 지역 모임').fill('- 새 소식');
+ await expect.poll(()=>f.exec.rows[0].draft.rows.map(r=>r.key),{timeout:15000}).toEqual(['가상 노동조합','나 지역 모임','없어진 사업›없어진 과제']);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(f.errors).toEqual([]);
+});
+test('[주간보고 한글 파일] 임시저장 칸이 아직 없으면(DB 적용 전) "준비 중" 한 줄로 지금처럼 동작한다 1280',async({page})=>{
+ const f=await hwpxFixture(page,{width:1280,fail:{draftMissing:true}});
+ await openJournal(page,1280);await openWeekly(page);
+ await openDraft(page);
+ await expect(draftLine(page)).toHaveText('임시저장은 준비 중이에요. 상자를 닫으면 고친 내용은 사라져요.');
+ await orgRow(page,'가상 노동조합').fill('- 저장 안 되는 줄');
+ await page.waitForTimeout(2600);
+ expect(draftWrites(f)).toEqual([]);
+ await expect(draftLine(page)).toHaveText('임시저장은 준비 중이에요. 상자를 닫으면 고친 내용은 사라져요.');
+ const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
+ const {report}=await savedReport(download);
+ expect(report.orgs[0].status).toEqual(['- 저장 안 되는 줄']);
+ expect(f.writes).toEqual([]);expect(f.errors.filter(e=>!/400/.test(e))).toEqual([]);
 });
 
 // JOURNAL-회의종류표시: 회의 종류(series_name → title, 띄어쓰기 없음·소문자)가 내 프로필의 "주간보고에 올리지 않을 종류" 목록에 있으면

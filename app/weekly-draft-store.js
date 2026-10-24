@@ -150,7 +150,9 @@ export async function readWeekDraft(start, rt = window.KPTURuntime) {
 export async function writeWeekDraft({start, known, draft, now = () => new Date().toISOString()}, rt = window.KPTURuntime) {
   if (!DAY.test(String(start))) throw new Error('week');
   if (draft && draftBytes(draft) > DRAFT_MAX_BYTES) throw Object.assign(new Error('임시저장이 너무 커요(200KB까지).'), {code:'too_big'});
-  const workspace = workspaceOf(rt), saved_at = now();
+  // 판 번호는 늘 앞 판보다 뒤(기기 시계가 같거나 늦어도 같은 값이 두 번 나오지 않게).
+  const workspace = workspaceOf(rt), at = now(), prev = Date.parse(known?.saved_at ?? '');
+  const saved_at = Number.isFinite(prev) && !(Date.parse(at) > prev) ? new Date(prev + 1).toISOString() : at;
   const body = {draft:draft ?? null, draft_saved_at:saved_at};
   try {
     if (!known?.exists) {

@@ -716,6 +716,8 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, rt = window.KPT
     const {draft: merged, conflicts} = merge3(st.last, mine, theirs);
     st.last = theirs ?? null;
     if (state !== s) return merged;
+    // Nothing came from the other side (e.g. a row made by the request table meanwhile): keep the box as it is.
+    if (!conflicts.length && sameDraft(merged, mine)) return mine;
     const focus = doc.activeElement?.id, at = [doc.activeElement?.selectionStart, doc.activeElement?.selectionEnd];
     applyDraft(s, merged);
     st.conflicts = [...st.conflicts.filter(c => !conflicts.some(n => n.cell === c.cell)), ...conflicts];
