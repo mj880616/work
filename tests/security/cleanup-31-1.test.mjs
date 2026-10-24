@@ -28,24 +28,28 @@ test('startup requests only the signed-in user profile', async () => {
   assert.match(profiles[0], /[?&]user_id=eq\.owner-1(?:&|$)/);
 });
 
-test('project deletion keeps other unlink requests and makes no app_events request', async () => {
-  const calls = [];
-  const context = vm.createContext({
-    current: {id: 'parent-1'}, detail: {},
-    // PRJ-3단(#850): deletion walks every level below (descendants), not just direct children.
-    descendants: () => [{project: {id: 'child-1'}}],
-    $: () => ({textContent: '', className: ''}),
-    api: async (path, options) => { calls.push({path, method: options.method}); return []; },
-    closeModal: () => {}, closeDetail: () => {}, splitWanted: () => false, clearUrl: () => {}, renderGrid: async () => {}, toast: () => {},
+// TRASH-삭제휴지통 2단계: 화면은 연결 끊기 요청을 보내지 않는다(서버 트리거가 같은 일을 하거나, 휴지통은 연결을 그대로 둔다).
+// 화면의 삭제는 app_spaces 한 줄 DELETE뿐이고, app_events는 건드리지 않는다.
+for (const ready of [false, true]) {
+  test(`project deletion sends only the project DELETE and makes no unlink or app_events request (trash ${ready ? 'ready' : 'not ready'})`, async () => {
+    const calls = [], toasts = [], undo = [];
+    const trash = {state: ready ? 'ready' : 'missing', rows: []};
+    const context = vm.createContext({
+      current: {id: 'parent-1'}, detail: {}, trash,
+      TRASH_STATE: {READY: 'ready', MISSING: 'missing'}, TRASH_TEXT: {MOVED: '옮김', DELETED: '삭제함'},
+      deleteDialogText: () => ({busy: '…'}),
+      $: () => ({textContent: '', className: ''}),
+      api: async (path, options) => { calls.push({path, method: options.method}); return []; },
+      refreshTrash: async () => { if (ready) trash.rows = [{id: 'parent-1'}]; },
+      offerUndoNotice: opts => undo.push(opts.text), trashRestore: async () => ({ok: true}), reloadAfterTrash: async () => {},
+      closeModal: () => {}, closeDetail: () => {}, splitWanted: () => false, clearUrl: () => {}, renderGrid: async () => {}, toast: text => toasts.push(text),
+    });
+    const src = read('project-system-v3.js');
+    vm.runInContext(`${functionSource(src, 'deleteProject')}; this.deleteProject=deleteProject`, context);
+    await context.deleteProject();
+    assert.equal(calls.filter(({path}) => path.includes('app_events')).length, 0);
+    assert.deepEqual(calls.map(({path, method}) => `${method} ${path}`), ['DELETE /rest/v1/app_spaces?id=eq.parent-1']);
+    // 휴지통 문구는 서버가 정말 휴지통에 넣은 것이 목록에서 확인될 때만 쓴다.
+    assert.deepEqual(ready ? undo : toasts, [ready ? '옮김' : '삭제함']);
   });
-  const src = read('project-system-v3.js');
-  vm.runInContext(`${functionSource(src, 'unlink')}; ${functionSource(src, 'deleteProject')}; this.deleteProject=deleteProject`, context);
-  await context.deleteProject();
-  assert.equal(calls.filter(({path}) => path.includes('app_events')).length, 0);
-  for (const id of ['child-1', 'parent-1']) {
-    for (const [table, field] of [['app_meetings','project_id'], ['app_documents','project_id'], ['app_pages','space_id']]) {
-      assert.ok(calls.some(({path, method}) => path === `/rest/v1/${table}?${field}=eq.${id}` && method === 'PATCH'));
-    }
-  }
-  assert.ok(calls.some(({path, method}) => path === '/rest/v1/app_spaces?id=eq.parent-1' && method === 'DELETE'));
-});
+}
