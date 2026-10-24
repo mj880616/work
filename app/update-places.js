@@ -10,13 +10,17 @@ import { putFilesIntoTargets } from './basket-file-docs.js';
 import { saveOrganizationUpdate, saveProjectProgress } from './quick-save.js';
 import { projectRows, projectRow, orgGroupRows, orgRow } from './choice-sheet.js';
 import { confirmLinks } from './basket-classification.js';
+import { readReferenceBundles } from './reference-bundles-data.js';
 
-// place: null (basket) | {kind:'organization'|'project', id}
+// place: null (basket) | {kind:'organization'|'project'|'reference', id}
+// REF-참고묶음: 'reference' is a reference bundle (app_reference_bundles). It has no record table of its own, so an update for it is
+// always a basket update linked to the bundle (saveUpdate below), never a report record.
 export const BASKET = null;
-export const placeValue = place => !place ? 'basket' : place.kind === 'project' ? 'project:' + place.id : place.id;
+export const placeValue = place => !place ? 'basket' : place.kind === 'project' ? 'project:' + place.id : place.kind === 'reference' ? 'reference:' + place.id : place.id;
 export function placeFromValue(value) {
   if (!value || value === 'basket') return BASKET;
   if (value.startsWith('project:')) return {kind:'project', id:value.slice(8)};
+  if (value.startsWith('reference:')) return {kind:'reference', id:value.slice(10)};
   return {kind:'organization', id:value};
 }
 export const samePlace = (a, b) => placeValue(a) === placeValue(b);
@@ -42,10 +46,13 @@ export function togglePlace(chosen, value) {
 }
 export const choiceCountText = chosen => { const n = placeList(chosen).length; return n ? `${n}곳 선택됨` : '바구니(미분류) 선택됨'; };
 
-// sources: {projects(), orgs(), assignments()} — the home passes its shared reads; the write window reads them itself.
-// Returns {projects:[tree rows of active projects], orgs:{recent, groups}} with the three most recent organizations first.
+// sources: {projects(), orgs(), assignments(), bundles()?} — the home passes its shared reads; the write window reads them itself.
+// Returns {projects:[tree rows of active projects], orgs:{recent, groups}, bundles:[reference bundles]} with the three most recent
+// organizations first. REF-참고묶음: the bundles are read here when the sources have none (owner RLS); a failed read only means
+// the 참고 block is not offered, so the organizations and projects can still be chosen.
 export async function readPlaces(sources, {rt = window.KPTURuntime, isCurrent = () => true} = {}) {
-  const [ps, os, as] = await Promise.all([sources.projects(), sources.orgs(), sources.assignments()]);
+  const bundleRead = (sources.bundles ? sources.bundles() : readReferenceBundles(rt)).catch(() => []);
+  const [ps, os, as, bs] = await Promise.all([sources.projects(), sources.orgs(), sources.assignments(), bundleRead]);
   if (!isCurrent()) return null;
   const ctx = rt.context.read(), order = window.KPTUOrganizationOrder;
   const eligible = order.forPicker(os.filter(o => as.some(a => a.organization_id === o.id)));
@@ -60,18 +67,20 @@ export async function readPlaces(sources, {rt = window.KPTURuntime, isCurrent = 
   if (!isCurrent()) return null;
   // PRJ-3단: each row also carries its parents' names ("1단 › 2단"), shown on third-level rows while searching (choice-sheet.js).
   const trail = [], projects = window.KPTUProjectCatalog.tree(ps).map(x => { trail.length = x.depth; const path = trail.join(' › '); trail.push(x.project.name || '이름 없는 프로젝트'); return {...x, path}; });
-  return {projects: projects.filter(x => x.project.status === 'active'), orgs: order.withRecent(eligible, recent.map(r => r.organization_id), 3)};
+  return {projects: projects.filter(x => x.project.status === 'active'), orgs: order.withRecent(eligible, recent.map(r => r.organization_id), 3), bundles: Array.isArray(bs) ? bs : []};
 }
 // A place that is no longer offered (organization unassigned, project archived) falls back to the basket.
 export function keepPlace(places, place) {
   if (!place || !places) return place;
   if (place.kind === 'project') return places.projects.some(x => x.project.id === place.id) ? place : BASKET;
+  if (place.kind === 'reference') return (places.bundles || []).some(b => b.id === place.id) ? place : BASKET;
   return places.orgs.groups.flat().some(o => o.id === place.id) ? place : BASKET;
 }
 export const keepPlaces = (places, chosen) => placeList(chosen).filter(place => keepPlace(places, place));
 export function placeName(places, place) {
   if (!place) return '';
   if (place.kind === 'project') return places?.projects.find(x => x.project.id === place.id)?.project.name || '';
+  if (place.kind === 'reference') return (places?.bundles || []).find(b => b.id === place.id)?.name || '';
   return places?.orgs.groups.flat().find(o => o.id === place.id)?.name || '';
 }
 // UPD-여러곳고르기 ⑥: what the input's button says — one place by its name, more as "첫 곳 이름 외 N" (in the order picked).
@@ -96,7 +105,9 @@ function usedPlaces(places) {
 // heading and its organizations follow one per line with a check box. Many may be chosen; the sheet marks them (choice-sheet.js multi).
 // UI-기록할곳창PC: the organizations and the projects are each one column block (data-sheet-col); on a wide PC (1024px~) the sheet
 // sets them side by side under the 최근 line (choice-sheet.js wide, choice-sheet.css). Phones and middle widths keep them stacked.
-export function placeSheetHtml(places, chosen, esc, {basket: withBasket = true} = {}) {
+// REF-참고묶음 (docs/design/ref-bundle.md 6절): the reference bundles are one more block at the very bottom (references:false leaves it
+// out, as the 사업 보고 [연결할 곳] does). On a wide PC it sits under the projects in the projects column.
+export function placeSheetHtml(places, chosen, esc, {basket: withBasket = true, references = true} = {}) {
   const list = placeList(chosen), picked = value => value === 'basket' ? !list.length : list.some(p => placeValue(p) === value);
   const chip = (value, name) => `<button type="button" class="home-choice-chip" data-sheet-value="${esc(value)}" aria-pressed="${picked(value)}">${esc(name)}</button>`;
   const row = x => projectRow(x, picked('project:' + x.project.id) ? 'project:' + x.project.id : null, esc, {value:'project:' + x.project.id});
@@ -104,11 +115,19 @@ export function placeSheetHtml(places, chosen, esc, {basket: withBasket = true} 
   const orgs = places?.orgs || {recent:[], groups:[]}, projects = places?.projects || [];
   const used = usedPlaces(places), usedIds = new Set(used.filter(p => p.kind === 'organization').map(p => p.id));
   const all = orgs.groups.flat();
-  const recent = [...used.map(p => p.kind === 'project' ? chip(placeValue(p), placeName(places, p)) : chip(p.id, all.find(o => o.id === p.id)?.name || '')),
+  const recent = [...used.filter(p => references || p.kind !== 'reference').map(p => p.kind !== 'organization' ? chip(placeValue(p), placeName(places, p)) : chip(p.id, all.find(o => o.id === p.id)?.name || '')),
     ...orgs.recent.filter(o => !usedIds.has(o.id)).slice(0, Math.max(0, Math.max(3, orgs.recent.length) - usedIds.size)).map(o => chip(o.id, o.name))];
   // MTG-사업보고 6단계: 사업 보고의 [연결할 곳]은 바구니(미분류)가 없는 같은 창이다({basket:false}). 최근 줄은 고를 곳이 있을 때만.
   const recentBlock = withBasket || recent.length ? `<div data-sheet-recent-block data-sheet-hide-on-search><p class="home-choice-label">최근</p><div class="home-choice-group home-choice-group-plain">${withBasket ? basket : ''}<span data-sheet-recent class="home-choice-inline">${recent.join('')}</span></div></div>` : '';
-  return `${recentBlock}<div class="home-choice-col" data-sheet-col="orgs"><p class="home-choice-label" data-sheet-label-of="all">담당조직</p><div data-sheet-all data-sheet-part="all">${orgGroupRows(orgs.groups, o => orgRow(o, picked(o.id), esc))}</div></div>${projects.length ? `<div class="home-choice-col" data-sheet-col="projects"><p class="home-choice-label" data-sheet-label-of="projects">프로젝트</p><div data-sheet-projects data-sheet-part="projects">${projects.map(row).join('')}</div></div>` : ''}`;
+  const bundles = references ? places?.bundles || [] : [];
+  const refs = bundles.length ? `<p class="home-choice-label" data-sheet-label-of="refs">참고</p><div data-sheet-refs data-sheet-part="refs">${bundles.map(b => referenceRow(b, picked('reference:' + b.id), esc)).join('')}</div>` : '';
+  const projectCol = projects.length ? `<div class="home-choice-col" data-sheet-col="projects"><p class="home-choice-label" data-sheet-label-of="projects">프로젝트</p><div data-sheet-projects data-sheet-part="projects">${projects.map(row).join('')}</div>${refs}</div>` : refs ? `<div class="home-choice-col" data-sheet-col="refs">${refs}</div>` : '';
+  return `${recentBlock}<div class="home-choice-col" data-sheet-col="orgs"><p class="home-choice-label" data-sheet-label-of="all">담당조직</p><div data-sheet-all data-sheet-part="all">${orgGroupRows(orgs.groups, o => orgRow(o, picked(o.id), esc))}</div></div>${projectCol}`;
+}
+// One reference bundle: the same row as an organization (check box, one per line), valued 'reference:<id>'.
+export function referenceRow(b, pressed, esc) {
+  const name = b.name || '이름 없는 묶음';
+  return `<button type="button" class="home-choice-row home-choice-pick" style="--home-choice-depth:0" data-depth="0" data-sheet-value="${esc('reference:' + b.id)}" aria-pressed="${!!pressed}" title="${esc(name)}"><span class="home-choice-check" aria-hidden="true"></span><span class="home-choice-name">${esc(name)}</span></button>`;
 }
 export { projectRows };
 // Text-only save of one update. owner is the signed-in user (the record's created_by/author_id, checked again by RLS).
@@ -118,7 +137,8 @@ export { projectRows };
 export async function saveUpdate({place, places, text, owner}, rt = window.KPTURuntime) {
   const list = placeList(places ?? place);
   if (!list.length) return createNote({raw_text:text}, rt);
-  if (list.length === 1) {
+  // REF-참고묶음: a reference bundle has no record table, so one bundle alone also goes the basket-update-and-link way below.
+  if (list.length === 1 && list[0].kind !== 'reference') {
     const [one] = list;
     if (one.kind === 'project') return saveProjectProgress({project_id:one.id, raw_text:text.trim(), created_by:owner}, rt);
     return saveOrganizationUpdate({organization_id:one.id, raw_text:text.trim(), created_by:owner}, rt);
@@ -157,11 +177,13 @@ export async function saveUpdateWithFiles({places, text, batch, isCurrent = () =
   let note = null, linkError = '', filed = null;
   try { note = await readBasketNote(noteId, rt); } catch { note = null; }
   if (!sameOwner()) return {note:{id:noteId}, linkError:'STALE', filed:null, stale:true};
-  if (String(text || '').trim()) {
+  // Files only (no text) make no organization or project record, as [자료로 넣기]; a reference bundle is linked either way (REF-참고묶음).
+  const linkTo = String(text || '').trim() ? list : list.filter(p => p.kind === 'reference');
+  if (linkTo.length) {
     if (!note) linkError = 'NOTE_MISSING';
     else {
       try {
-        const result = await confirmLinks(noteId, note.updated_at, list.map(p => ({kind:p.kind, target_id:p.id, reason:MULTI_REASON})), rt);
+        const result = await confirmLinks(noteId, note.updated_at, linkTo.map(p => ({kind:p.kind, target_id:p.id, reason:MULTI_REASON})), rt);
         if (result?.ok !== true) linkError = result?.error || 'UNKNOWN';
       } catch (error) { linkError = error?.message || 'UNKNOWN'; }
       if (!linkError) window.dispatchEvent(new CustomEvent('kptu:basket-links-changed'));
@@ -169,7 +191,8 @@ export async function saveUpdateWithFiles({places, text, batch, isCurrent = () =
   }
   const project = list.find(p => p.kind === 'project') || null, organization = list.find(p => p.kind === 'organization') || null;
   const files = note?.attachments || batch.attachments || [];
-  if (sameOwner() && files.length) {
+  // A reference bundle takes no documents: files go into a project's or an organization's documents only.
+  if (sameOwner() && files.length && (project || organization)) {
     try { filed = await putFilesIntoTargets({noteId, files, projectId:project?.id || null, organizationId:organization?.id || null, rt, expectedSessionEpoch:rt.session.epoch(), isCurrent:sameOwner}); }
     catch { filed = {ok:false, kind:'unknown', message:''}; }
   }

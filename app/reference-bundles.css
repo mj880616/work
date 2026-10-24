@@ -1,0 +1,60 @@
+/* REF-참고묶음 화면 2: 참고 묶음 화면(#referenceView, reference-bundles.js가 유일한 renderer). 콤팩트한 줄 목록, 작은 버튼(UI-버튼기준:
+   보조 버튼 --ds-compact-height, 저장은 작은 채운 버튼 하나, 누르는 범위는 ::after로 --kptu-touch-target). 값은 --kptu-*·--ds-* 토큰만 쓴다.
+   PC(1024px~)는 왼쪽 목록 / 오른쪽 상세 두 칸(--ds-split-*, split-resize.js), 폰·중간 폭은 목록 → 상세 한 칸. */
+#referenceView .rb-head{display:flex;align-items:center;gap:8px;margin:0 0 8px}
+#referenceView .rb-head h2{margin:0;font-size:var(--ds-text-title);line-height:1.4;font-weight:var(--ds-weight-medium)}
+#referenceView .rb-split{display:block;min-width:0}
+#referenceView .rb-list,#referenceView .rb-pane{min-width:0;box-sizing:border-box}
+#referenceView .rb-list-head,#referenceView .rb-detail-head{display:flex;align-items:center;gap:8px;min-height:var(--ds-compact-height)}
+#referenceView .rb-label{flex:1 1 auto;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
+#referenceView .rb-rows{display:grid;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-surface);overflow:hidden}
+#referenceView .rb-row{display:grid;grid-template-columns:minmax(0,1fr) auto 16px;align-items:center;gap:8px;width:100%;min-height:var(--kptu-touch-target);margin:0;padding:6px 12px;border:0;border-bottom:var(--ds-line-width) solid var(--kptu-border);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-row);text-align:left;cursor:pointer;box-sizing:border-box}
+#referenceView .rb-row:last-child{border-bottom:0}
+#referenceView button.rb-row:hover{background:var(--kptu-surface-subtle)}
+#referenceView .rb-row.is-selected{background:var(--kptu-primary-soft)}
+#referenceView .rb-row:focus-visible,#referenceView .rb-item-open:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+#referenceView .rb-order-row{grid-template-columns:minmax(0,1fr) auto auto}
+#referenceView .rb-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#referenceView .rb-meta{font-size:var(--ds-text-meta);color:var(--kptu-muted);white-space:nowrap}
+#referenceView .rb-chevron{color:var(--kptu-muted)}
+#referenceView .rb-more,#referenceView .rb-icon-btn{position:relative;flex:none;width:var(--ds-compact-height);height:var(--ds-compact-height);min-height:0;margin:0;padding:0;border:0;border-radius:var(--ds-radius-control);background:transparent;color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-button);line-height:1;cursor:pointer}
+#referenceView .rb-more::after,#referenceView .rb-icon-btn::after{content:"";position:absolute;inset:-6px}
+#referenceView .rb-more:hover,#referenceView .rb-more[aria-expanded="true"],#referenceView .rb-icon-btn:hover{background:var(--kptu-surface-subtle)}
+#referenceView .rb-more:focus-visible,#referenceView .rb-icon-btn:focus-visible,#referenceView .rb-small:focus-visible,#referenceView .rb-text-btn:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
+#referenceView .rb-icon-btn:disabled{opacity:.35;cursor:default}
+#referenceView .rb-small{position:relative;flex:none;height:var(--ds-compact-height);min-height:0;margin:0;padding:0 var(--ds-compact-pad-x);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text);font-weight:var(--ds-weight-medium);cursor:pointer}
+#referenceView .rb-small::after{content:"";position:absolute;inset:-6px 0}
+#referenceView .rb-small.primary{border-color:var(--kptu-primary);background:var(--kptu-primary);color:var(--kptu-on-primary)}
+#referenceView .rb-text-btn{position:relative;height:var(--ds-compact-height-sm);min-height:0;margin:0;padding:0 4px;border:0;background:transparent;color:var(--kptu-link);font:inherit;font-size:var(--ds-text-meta);cursor:pointer}
+#referenceView .rb-text-btn::after{content:"";position:absolute;inset:-8px -4px}
+#referenceView .rb-back{margin:0 0 4px -4px}
+#referenceView .rb-actions{display:flex;justify-content:flex-end;gap:8px;padding:8px 12px}
+#referenceView .rb-inline{display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0;margin:8px 0 0}
+#referenceView .rb-detail-head .rb-inline{margin:0}
+#referenceView .rb-input{flex:1 1 auto;min-width:0;height:var(--ds-compact-height);margin:0;padding:0 10px;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--kptu-text-body);box-sizing:border-box}
+#referenceView .rb-detail-name{flex:0 1 auto;min-width:0;margin:0;font-size:var(--ds-text-section);font-weight:var(--ds-weight-medium);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#referenceView .rb-detail-head .rb-meta{flex:1 1 auto}
+#referenceView .rb-status{margin:4px 0;min-height:0;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
+#referenceView .rb-status:empty{display:none}
+#referenceView .rb-empty{margin:8px 0;font-size:var(--ds-text-meta);line-height:1.5;color:var(--kptu-muted)}
+#referenceView .rb-items{margin:0;padding:0;list-style:none;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-surface);overflow:hidden}
+#referenceView .rb-item{display:flex;align-items:center;gap:4px;padding-right:6px;border-bottom:var(--ds-line-width) solid var(--kptu-border)}
+#referenceView .rb-item:last-child{border-bottom:0}
+#referenceView .rb-item-open{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;flex:1 1 auto;min-width:0;min-height:var(--kptu-touch-target);margin:0;padding:6px 12px;border:0;background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-row);text-align:left;cursor:pointer}
+#referenceView .rb-item-open:hover{background:var(--kptu-surface-subtle)}
+#referenceView .rb-date,#referenceView .rb-kind{font-size:var(--ds-text-meta);color:var(--kptu-muted);white-space:nowrap}
+#referenceView .rb-line{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rb-menu{position:fixed;inset:auto;margin:0;box-sizing:border-box;padding:4px;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);z-index:1600;overflow:auto}
+.rb-menu[hidden]{display:none}
+.rb-menu button{display:block;width:100%;height:var(--kptu-touch-target);min-height:var(--kptu-touch-target);padding:0 12px;text-align:left;border:0;border-radius:var(--ds-radius-control);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text);cursor:pointer}
+.rb-menu button:hover{background:var(--kptu-surface-subtle)}
+.rb-menu button:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+.rb-menu .rb-menu-danger{color:var(--kptu-danger)}
+@media(min-width:1024px){
+  html:has(#appView #referenceView:not(.hidden)) main{padding-bottom:12px}
+  #appView #referenceView:not(.hidden){display:flex;flex-direction:column;height:calc(100vh - 24px - var(--kptu-topline-space,0px));height:calc(100dvh - 24px - var(--kptu-topline-space,0px));min-height:420px}
+  #appView #referenceView .rb-split{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:minmax(0,1fr);column-gap:var(--kptu-space-3)}
+  #appView #referenceView .rb-list{grid-column:1;grid-row:1;align-self:start;max-height:100%;overflow-y:auto;overscroll-behavior:contain}
+  #appView #referenceView .rb-pane{grid-column:2;grid-row:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-box);background:var(--kptu-surface)}
+  #appView #referenceView .rb-pane .rb-items{border:0;border-top:var(--ds-line-width) solid var(--kptu-border);border-radius:0}
+}
