@@ -35,7 +35,8 @@ const group=(page,label)=>panel(page).getByRole('region',{name:label,exact:true}
 
 for(const width of [1280,1440]){
  test(`PC ${width}: [HWP 편집] 아래 한 줄, 오른쪽에서 위로 열림(아래끝 맞춤·잘림 없음), 두 묶음 2열·새 탭, 바깥·Esc로 닫힘`,async({page})=>{
-  const {errors}=await open(page,width);
+  // BASKET-PC메뉴: 사이드바가 두 줄(업데이트·챙길 것) 길어져 900px 높이에서는 맨 아래 줄이 보이는 칸 밖(사이드바 스크롤)이므로 1000px 높이로 시험한다.
+  const {errors}=await open(page,width,{height:1000});
   await expect(row(page)).toBeVisible();await expect(row(page)).toHaveText(/자주 가는 링크\s*›/);
   // UI-사이드바링크아래: the row sits at the very bottom of the sidebar, after the spacer, with empty space between the menu and it.
   // CALL·TG: [통화]·[텔레그램 소식]이 빈 공간과 이 줄 사이에 있다(맨 아래 묶음).
@@ -50,7 +51,7 @@ for(const width of [1280,1440]){
   await expect(group(page,'업무').getByRole('link')).toHaveText(WORK);
   await expect(group(page,'담당조직 홈페이지').getByRole('link')).toHaveText(ORG);
   // Upward, beside the row: left of the panel right of the row, bottom edge on the row's bottom edge, all inside the window.
-  const p=await panel(page).boundingBox(),vw=width,vh=900;
+  const p=await panel(page).boundingBox(),vw=width,vh=1000;
   expect(p.x).toBeGreaterThanOrEqual(r.x+r.width);
   expect(Math.abs((p.y+p.height)-(r.y+r.height))).toBeLessThanOrEqual(1.5);
   expect(p.y).toBeGreaterThanOrEqual(0);expect(p.x+p.width).toBeLessThanOrEqual(vw);expect(p.y+p.height).toBeLessThanOrEqual(vh);
@@ -199,7 +200,7 @@ test('저장된 목록이 틀린 모양이면 믿지 않고 초기 링크(편집
 });
 
 test('PC 1280: 줄은 사이드바 맨 아래에 있고 창이 그대로 열린다',async({page})=>{
- const {errors}=await open(page,1280);
+ const {errors}=await open(page,1280,{height:1000});
  await expect(page.locator('#appView>.app-nav .nav-write')).toHaveCount(0);
  const hwp=await page.locator('#appView>.app-nav [data-view="hwp"]').boundingBox(),r=await row(page).boundingBox();
  expect(r.y).toBeGreaterThan(hwp.y+hwp.height+40);

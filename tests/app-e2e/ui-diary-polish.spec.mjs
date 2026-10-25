@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {noteMenuAction} from './helpers/note-menu.mjs';
-import { chooseBasketKind } from './helpers/basket-kind.mjs';
+import { chooseBasketKind, basketPaneButton } from './helpers/basket-kind.mjs';
 // UI-일기손질: ① the shared round [+] never moves when a button is pressed (it used to jump while the finger was down,
 // because the swipe code put will-change:transform on the view panel and the fixed [+] then followed the panel),
 // ② today = filled purple circle on the day number, the chosen day = the cell border, ③ [+] in [일기] writes the chosen day,
@@ -208,7 +208,7 @@ test('⑥ a memo opened from the list hides the switch the same way, and it come
  await page.locator('[data-basket-row="m1"]').click();
  await expect(page.locator('[data-basket-close]')).toBeVisible();await expect(page.locator('#basketView .basket-switch-row')).toBeHidden();
  await page.locator('[data-basket-close]').click();
- await expect(page.locator('#basketView .basket-switch-row')).toBeVisible();await expect(page.locator('[data-inbox-pane="update"]')).toBeVisible();
+ await expect(page.locator('#basketView .basket-switch-row')).toBeVisible();await expect(basketPaneButton(page,'update')).toBeVisible();
  expect(f.errors).toEqual([]);
 });
 
