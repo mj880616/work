@@ -2,8 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { affectsLedger, autoOutcome, createAutoBatcher, WAIT_MS, MAX_WAIT_MS, RETRY_MS } from '../app/ledger-auto-model.mjs';
-import { web2Source, web2OpenTarget, web2SourceLabel, changeInfo, retireRequest, undoErrorText } from '../app/ledger-browse-model.mjs';
+import { affectsLedger, autoOutcome, callsRunDue, createAutoBatcher, WAIT_MS, MAX_WAIT_MS, RETRY_MS } from '../app/ledger-auto-model.mjs';
+import { web2Source, web2OpenTarget, web2SourceLabel, soleSourceRecords, sourceRetireRequest, changeInfo, retireRequest, undoErrorText } from '../app/ledger-browse-model.mjs';
 import { exportDue, copyState, nextExportDelay, ledgerFromStatus, DAY_MS, MIN_GAP_MS, CHANGE_WAIT_MS } from '../app/ledger-export-model.mjs';
 import { countByDay, kstDayStart } from '../app/journal-ledger.js';
 
@@ -182,4 +182,42 @@ test('모듈: 본문은 kind 하나, 브라우저 저장소·서버 키 없음, 
   assert.match(exp, /'\/functions\/v1\/drive-summary\?action=ledger_export'/);
   assert.doesNotMatch(exp, /body:/);
   assert.match(strip('loader-v2.js'), /import\('\.\/ledger-auto\.js'\)/);
+});
+
+test('통화 근거: web2:call:<id> → 통화 열기(지웠으면 원문 없음), 줄 글', () => {
+  assert.deepEqual(web2Source(`web2:call:${U(1)}`), { kind: 'call', id: U(1) });
+  assert.deepEqual(web2OpenTarget({ kind: 'call', id: U(1) }, { id: U(1), hidden_at: null }), { view: 'calls', id: U(1) });
+  assert.equal(web2OpenTarget({ kind: 'call', id: U(1) }, { id: U(1), hidden_at: '2026-10-25T00:00:00Z' }), null);
+  assert.equal(web2OpenTarget({ kind: 'call', id: U(1) }, undefined), null);
+  assert.equal(web2SourceLabel({ kind: 'call' }, { title: 'Web2 통화 2026-10-22 14:05 (가 지부)', source_date: '2026-10-22' }), '통화 · 가 지부 · 10/22');
+  assert.equal(web2SourceLabel({ kind: 'call' }, { title: 'Web2 통화 2026-10-22 14:05', source_date: '2026-10-22' }), '통화 · 10/22');
+  // 개인본·캘린더는 이 PR 범위 밖이라 아직 근거로 읽지 않는다.
+  assert.equal(web2Source(`web2:weekly_personal:${U(1)}`), null);
+  assert.equal(web2Source(`web2:calendar_ref:${U(1)}`), null);
+});
+
+test('원문 단위 틀림: 그 원문만 근거인 활성 기록만, 요청은 retire·최대 20', () => {
+  const S1 = U(1), S2 = U(2);
+  const links = [{ record_id: U(11), source_id: S1 }, { record_id: U(12), source_id: S1 }, { record_id: U(12), source_id: S2 }, { record_id: U(13), source_id: S1 }, { record_id: 'x', source_id: S1 }];
+  const recs = [{ id: U(11), ledger_id: 'COM-0951', validity: 'needs_check' }, { id: U(12), ledger_id: 'EVT-0952', validity: 'current' }, { id: U(13), ledger_id: 'DEC-0953', validity: 'retired' }];
+  assert.deepEqual(soleSourceRecords([S1], links, recs), ['COM-0951']);
+  assert.deepEqual(soleSourceRecords([S1, S2], links, recs), ['COM-0951', 'EVT-0952']);
+  assert.deepEqual(soleSourceRecords([], links, recs), []);
+  assert.deepEqual(soleSourceRecords([S1], null, null), []);
+  const req = sourceRetireRequest(['COM-0951', 'COM-0951', 'bad']);
+  assert.equal(req.received_from, 'user');
+  assert.deepEqual(req.items.map(i => [i.target, i.do]), [['COM-0951', 'retire']]);
+  assert.ok(req.items.every(i => i.reason.length <= 300));
+  assert.equal(sourceRetireRequest([]), null);
+  assert.equal(sourceRetireRequest(Array.from({ length: 21 }, (_, i) => `COM-${String(1000 + i)}`)), null);
+});
+
+test('통화 메뉴를 열 때 실행 여부: 마지막 호출 뒤 저장된 통화가 있을 때만', () => {
+  const rows = [{ created_at: '2026-10-25T01:00:00Z' }, { created_at: '2026-10-24T01:00:00Z' }];
+  assert.equal(callsRunDue(rows, 0), true);
+  assert.equal(callsRunDue(rows, Date.parse('2026-10-25T01:00:00Z')), false);
+  assert.equal(callsRunDue(rows, Date.parse('2026-10-25T00:59:00Z')), true);
+  assert.equal(callsRunDue([], 0), false);
+  assert.equal(callsRunDue([{ created_at: 'x' }, {}, null], 0), false);
+  assert.equal(callsRunDue(null, 0), false);
 });

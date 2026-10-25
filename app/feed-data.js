@@ -12,7 +12,7 @@ const workspaceOf = rt => { const id = ctx(rt)?.workspace?.id; if (!id) throw Er
 export const scopeOf = rt => { const c = ctx(rt); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 
 // raw_text is read only for the one row shown (it may be up to 200 KB).
-export const ITEM_FIELDS = 'id,workspace_id,source,day,occurred_at,room_key,room_label,title,summary,points,counterpart,speaker_split,raw_count,organization_id,project_id,drive_url,pinned_at,hidden_at,updated_at';
+export const ITEM_FIELDS = 'id,workspace_id,source,day,occurred_at,room_key,room_label,title,summary,points,counterpart,speaker_split,raw_count,organization_id,project_id,drive_url,pinned_at,hidden_at,created_at,updated_at';
 // The list keeps the last 120 days (and at most 600 rows); older ones stay in the table and in Drive.
 export const LIST_DAYS = 120;
 export const LIST_MAX = 600;
