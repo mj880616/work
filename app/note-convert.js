@@ -59,9 +59,9 @@ export async function runNoteConvert(deps) {
     state.index++;
     const result = convertNote(md, note);
     if (!result.ok) { skipped.push({id: note.id, title: note.title, reason: result.reason, detail: result.detail}); onProgress({...state}); continue; }
-    const guard = `id=eq.${enc(note.id)}&workspace_id=eq.${enc(ws)}&kind=eq.note&doc=is.null&updated_at=eq.${enc(note.updated_at)}`;
+    const guard = `workspace_id=eq.${enc(ws)}&kind=eq.note&doc=is.null&updated_at=eq.${enc(note.updated_at)}`;
     try {
-      const saved = await api(`/rest/v1/app_notes?${guard}&select=id`, {method: 'PATCH', prefer: 'return=representation', body: {doc: result.doc, raw_text: result.text}});
+      const saved = await api(`/rest/v1/app_notes?id=eq.${enc(note.id)}&${guard}&select=id`, {method: 'PATCH', prefer: 'return=representation', body: {doc: result.doc, raw_text: result.text}});
       if (Array.isArray(saved) && saved.length === 1) { state.done++; state.converted.push({id: note.id, title: note.title}); }
       else skipped.push({id: note.id, title: note.title, reason: 'moved'});
     } catch (error) {
