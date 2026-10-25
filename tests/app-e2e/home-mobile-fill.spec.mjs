@@ -68,8 +68,8 @@ test("phone: 정리 안 된 것 n건 줄은 정리함으로 간다", async ({ pa
     },
   });
   const line = page.locator(".home-fill-inbox-line");
-  await expect(line).toContainText("정리 안 된 것");
-  await expect(line).toContainText("건 ›");
+  await expect(card(page, "inbox").locator("h3")).toHaveText("정리 안 된 것");
+  await expect(line).toHaveText("1건 ›");
   await line.click();
   await expect(page.locator("#basketView")).toBeVisible();
 });
