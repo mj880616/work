@@ -228,3 +228,19 @@ test('ledger_fix: instructions map status words to the real status fields; those
     assert.equal(out.items.length,ok?1:0,JSON.stringify(it.changes));
   }
 });
+
+// LEDGER-반영기준점검: "약속보다는 할 일에서 챙기겠다" 같은 메모 말은 상태·확인일·상대 칸을 바꾸지 않는다는 지시문.
+test('ledger_fix: instructions keep memo-only words (will track elsewhere) from changing status, due day or counterparty',()=>{
+  const ins=fix.LEDGER_FIX_INSTRUCTIONS;
+  assert.match(ins,/메모 말은 상태를 바꾸지 않는다/);
+  assert.match(ins,/할 일·일정·다른 곳에서 챙기겠다.*note\(비고\)만 바꾼다/);
+  assert.match(ins,/commitment_status·event_status·follow_up_on·counterparty는 changes에 넣지 않는다/);
+  assert.match(ins,/분명히 말했을 때만 바꾼다/);
+  assert.match(ins,/애매하면 items를 비우고 question/);
+  // 앞의 상태 말 연결 규칙은 그대로.
+  assert.match(ins,/메모만 붙이지 말고 상태 칸을 바꾼다/);
+  // 메모만 바꾼 고치기(note 한 칸)는 서버 검사를 통과하고 상태 칸은 요청에 없다.
+  const out=fix.parseLedgerFix(JSON.stringify({items:[item({target:'COM-0901',changes:[{field:'note',value:'약속보다는 할 일에서 챙기겠다'}],reason:'메모 남김'})],question:''}),ctxOf());
+  assert.equal(out.items.length,1);
+  assert.deepEqual(Object.keys(out.items[0].set),['note']);
+});
