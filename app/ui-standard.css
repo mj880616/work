@@ -335,6 +335,8 @@
 
 /* 일정+할 일: [일정] 탭 위쪽의 [달력 | 할 일] 전환은 폰에서만 보인다. */
 #appView .schedule-switch{ display:none; }
+/* 정리함 [업데이트 | 챙길 것] 전환도 같다(BASKET-PC메뉴): PC(761px~)는 왼쪽 메뉴 [정리함] 아래 하위 줄이 맡으므로 화면 위에는 그리지 않는다. */
+@media(min-width:761px){ #appView #basketView > .basket-head > .inbox-pane-switch:not([hidden]){ display:none; } }
 /* 담당조직 추가 링크는 폰에서만(PC는 위쪽 [+ 담당조직] 그대로). */
 #appView #teamView .so-add-link{ display:none; }
 
@@ -556,6 +558,8 @@
   #appView > .app-nav .nav-sub-btn:hover{ background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
   #appView > .app-nav .nav-sub-btn.active{ color:var(--kptu-primary-ink); font-weight:var(--ds-weight-medium); }
   #appView > .app-nav .nav-sub-btn:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
+  /* BASKET-PC메뉴: [정리함] 하위 줄은 오른쪽 끝에 건수를 작게 둔다(건수는 정리함 화면 그림 한 곳이 채움). */
+  #appView > .app-nav .nav-sub-btn[data-basket-pane-nav]{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
   /* [계정 ▾]도 메뉴와 같은 글자(13px·400). */
   #appView > .app-nav .account-trigger{ font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); }
 }
@@ -1210,6 +1214,11 @@ html :is(
 html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):is(.active,[aria-current]):not(:has(+ .nav-sub)){ color:var(--ds-select-ink); background:var(--ds-select-bg); font-weight:var(--ds-weight-medium); }
 html #appView > .app-nav .nav-btn:has(+ .nav-sub):is(.active,[aria-current]){ color:var(--kptu-primary-ink); background:transparent; font-weight:var(--ds-weight-medium); }
 html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[aria-current]){ font-weight:var(--ds-weight-regular); }
+/* BASKET-PC메뉴: [정리함]은 [일정]처럼 아래 하위 줄([업데이트]·[챙길 것])의 머리다. 하위 줄이 현재 화면이고, 머리는 정리함 쪽 어디서든 묶음 표시(진한 글자)만 가진다. */
+#appView > .app-nav .nav-sub-count{ flex:none; margin-left:4px; color:var(--kptu-muted); font-size:var(--ds-text-meta,12px); font-variant-numeric:tabular-nums; }
+#appView > .app-nav .nav-sub-count:empty{ display:none; }
+#appView > .app-nav .active > .nav-sub-count{ color:inherit; }
+html #appView > .app-nav .nav-btn[data-nav-open]:has(+ .nav-sub){ color:var(--kptu-primary-ink); font-weight:var(--ds-weight-medium); }
 @media(hover:hover){
   html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[aria-current]):hover{ background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
   html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):is(.active,[aria-current]):not(:has(+ .nav-sub)):hover{ background:var(--ds-select-bg); color:var(--ds-select-ink); }

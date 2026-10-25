@@ -50,9 +50,10 @@ const midQuery=window.matchMedia('(min-width:761px) and (max-width:1023px)');
 const menuQuery=window.matchMedia('(max-width:1023px)');
 const appNav=document.querySelector('#appView>.app-nav'),drawerNav=mobilePanel?.querySelector('nav');
 const phoneOnly=[...drawerNav?.querySelectorAll('[data-view],[data-basket-kind-nav]')||[]];
-// BASKET-정리함이름: the sidebar's [노트] row follows [정리함] (data-basket-kind-nav, not a screen of its own) in the 761~1023px row too.
-const midItems=['home','basket','note','calendar','tasks','journal','diary','projects','meetings','library','media','pages','team','hwp','ledger','calls','telegram']
-  .map(view=>appNav?.querySelector(view==='note'?'[data-basket-kind-nav="note"]':`[data-view="${view}"]`)).filter(Boolean);
+// BASKET-정리함이름: [노트] (data-basket-kind-nav) and BASKET-PC메뉴 [업데이트]·[챙길 것] (data-basket-pane-nav) are not screens of their own; they sit in the 761~1023px row too.
+// BASKET-PC메뉴: the order is the sidebar's: 홈 / 정리함(업데이트·챙길 것) / 일정(달력·할 일·업무일지·일기) / 노트 / 프로젝트 …
+const midItems=['home','basket','pane:update','pane:todo','calendar','tasks','journal','diary','note','projects','meetings','library','media','pages','team','hwp','ledger','calls','telegram']
+  .map(key=>appNav?.querySelector(key==='note'?'[data-basket-kind-nav="note"]':key.startsWith('pane:')?`[data-basket-pane-nav="${key.slice(5)}"]`:`[data-view="${key}"]`)).filter(Boolean);
 const homes=new Map([...midItems,mobileTrigger].filter(Boolean).map(button=>{
   const anchor=document.createComment('navigation home');button.before(anchor);return [button,anchor];
 }));
@@ -73,7 +74,9 @@ function syncMenuLocation(){
   let overflowCurrent=false;
   const noteMode=view==='basket'&&document.getElementById('basketView')?.dataset.kind==='note';
   midItems.forEach(button=>{
-    const current=button.dataset.basketKindNav?noteMode:button.dataset.view===view&&!(noteMode&&view==='basket');
+    const paneNow=document.getElementById('basketView')?.dataset.pane==='todo'?'todo':'update';
+    // The [정리함] head is never the current page here: its sub item of the side shown is (like [일정] over [할 일]).
+    const current=button.dataset.basketKindNav?noteMode:button.dataset.basketPaneNav?view==='basket'&&!noteMode&&button.dataset.basketPaneNav===paneNow:button.hasAttribute('data-basket-head')?false:button.dataset.view===view&&!(noteMode&&view==='basket');
     button.classList.toggle('active',current);
     if(current)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
     if(current&&button.parentElement===drawerNav)overflowCurrent=true;
@@ -258,6 +261,12 @@ async function openWriter(kind='update'){
 }
 // BASKET-정리함이름: [노트] is its own menu item (PC sidebar row, phone [메뉴] sheet row). It opens the note side through the basket's
 // own one-shot hand-off (basket-note-tasks.js); [정리함] (data-view="basket") always opens the update/챙길 것 side.
+// BASKET-PC메뉴: [업데이트]·[챙길 것] under [정리함] open the same panel on that side through the router (the side is written to the address,
+// ?view=basket&pane=todo, and back goes to the previous side).
+document.querySelectorAll('#appView [data-basket-pane-nav]').forEach(button=>button.addEventListener('click',()=>{
+  window.KPTURouter?.go('basket',{source:'delegated',sub:button.dataset.basketPaneNav});
+}));
+window.addEventListener('kptu:basket-pane',()=>syncMenuLocation());
 document.querySelectorAll('#appView [data-basket-kind-nav]').forEach(button=>button.addEventListener('click',async()=>{
   try{const {requestBasketKind}=await import('./basket-note-tasks.js');requestBasketKind(button.dataset.basketKindNav);}catch(error){console.error('basket kind',error)}
   window.KPTURouter?.go('basket',{source:'delegated'});

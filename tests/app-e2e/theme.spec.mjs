@@ -178,10 +178,11 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
    await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
    expect(await readPrimary(page)).toBe(color);
    if(width<=760){if(['basket','calendar','tasks','projects','team'].includes(view))await matches('.mobile-tabs [aria-current]','color',color);}else{/* UI-테마선택색: 지금 화면 하나만 계정 색으로 채운다. 하위 묶음의 머리 항목은 채우지 않는다. */
-    const navBtn=page.locator('.app-nav .nav-btn.active').first();await expect(navBtn).toBeVisible();
+    // BASKET-PC메뉴: 정리함 쪽에서는 하위 줄([업데이트]·[챙길 것])이 지금 화면이므로 하위 줄도 함께 찾는다.
+    const navBtn=page.locator('.app-nav :is(.nav-btn,.nav-sub-btn).active').first();await expect(navBtn).toBeVisible();
     const group=await navBtn.evaluate(el=>el.nextElementSibling?.classList.contains('nav-sub')===true);
     if(group)await expect.poll(()=>navBtn.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
-    else await matches('.app-nav .nav-btn.active','backgroundColor',color);
+    else await matches('.app-nav :is(.nav-btn,.nav-sub-btn).active','backgroundColor',color);
    }
    if(view==='pages')await openLegacyBoard(page);/* SHARE PR 2: 옛 게시판 카드는 [이전 페이지] 안으로 접힘 */
    await matches(selector,property,expected);

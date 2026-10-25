@@ -9,6 +9,12 @@
   // MTG-사업보고: the 회의 screen (#meetingsView) is written as ?view=reports in the address; the old ?view=meetings still opens it.
   const URL_NAME={meetings:'reports'};
   const urlName=view=>URL_NAME[view]||view;
+  // BASKET-PC메뉴: a screen's own sides that the menu lists as sub items but that are not screens (정리함의 [챙길 것]) are written to the address as
+  // one more parameter (?view=basket&pane=todo), like the 일정 sub screens are written as their own ?view=. The default side has no parameter.
+  // The router owns the address and the history entries of it; the screen (basket.js) owns what is drawn and is told through the view hook
+  // (detail.sub) and, for a back/forward step inside the same screen, kptu:sub-changed.
+  const SUB_PARAMS={basket:{param:'pane',values:['todo']}};
+  const subName=(view,sub)=>SUB_PARAMS[view]?.values.includes(sub)?sub:null;
   const viewName=view=>VIEW_ALIAS[view]||view;
   let bound=false,routeEntry=null,returningTo=null,goSeq=0;
   // BUG-뒤로가기: the app's first entry in this document. Back below it leaves Web2.
@@ -57,11 +63,18 @@
     return viewExists('home')?'home':null;
   }
 
-  function syncUrl(view,{replace=false}={}){
+  function subFromUrl(view){
+    const rule=SUB_PARAMS[view];
+    return rule?subName(view,new URLSearchParams(location.search).get(rule.param)):null;
+  }
+
+  function syncUrl(view,{replace=false,sub=null}={}){
     if(!authenticatedShellReady()||!viewExists(view))return;
     const u=new URL(location.href);
     if(view==='home'&&!u.searchParams.has('project'))u.searchParams.delete(VIEW_PARAM);
     else u.searchParams.set(VIEW_PARAM,urlName(view));
+    for(const rule of Object.values(SUB_PARAMS))u.searchParams.delete(rule.param);
+    if(subName(view,sub))u.searchParams.set(SUB_PARAMS[view].param,sub);
     const next=u.pathname+(u.search||'')+u.hash;
     const current=location.pathname+location.search+location.hash;
     if(next===current)return;
@@ -192,8 +205,14 @@
     // BASKET-정리함이름: [노트] is its own menu item but lives on the basket panel (basket.js writes the side it shows to
     // #basketView[data-kind]). On that side [정리함] is not the current page and [노트] is; on every other screen [노트] is not marked.
     const noteMode=target==='basket'&&document.getElementById('basketView')?.dataset.kind==='note';
-    document.querySelectorAll('.app-nav .nav-btn,.app-nav .nav-sub-btn:is([data-view],[data-goto]),.mobile-menu-panel :is([data-view],[data-basket-kind-nav])').forEach(btn=>{
-      const own=btn.dataset.basketKindNav?noteMode:(btn.dataset.view||btn.dataset.goto)===target&&!(noteMode&&btn.dataset.view==='basket');
+    // BASKET-PC메뉴: [정리함] heads the sub items [업데이트]·[챙길 것] (data-basket-pane-nav, the side kept in #basketView[data-pane]). The sub item of the
+    // side shown is the current page; the head only carries the group look (data-nav-open) like [일정], so one page is current, not two.
+    const paneNow=document.getElementById('basketView')?.dataset.pane==='todo'?'todo':'update';
+    document.querySelectorAll('.app-nav .nav-btn,.app-nav .nav-sub-btn:is([data-view],[data-goto],[data-basket-pane-nav]),.mobile-menu-panel :is([data-view],[data-basket-kind-nav])').forEach(btn=>{
+      if(btn.hasAttribute('data-basket-head')){
+        btn.toggleAttribute('data-nav-open',target==='basket'&&!noteMode);btn.classList.remove('active');btn.removeAttribute('aria-current');return;
+      }
+      const own=btn.dataset.basketPaneNav?target==='basket'&&!noteMode&&btn.dataset.basketPaneNav===paneNow:btn.dataset.basketKindNav?noteMode:(btn.dataset.view||btn.dataset.goto)===target&&!(noteMode&&btn.dataset.view==='basket');
       btn.classList.toggle('active',own||!!btn.dataset.navGroup?.split(' ').includes(target));
       if(own)btn.setAttribute('aria-current',btn.dataset.goto&&!btn.dataset.view?'true':'page');
       else btn.removeAttribute('aria-current');
@@ -209,8 +228,8 @@
     });
   }
 
-  function go(view,{scroll=true,source='api',updateUrl=true,replaceUrl=false,allowUnloaded=false}={}){
-    view=viewName(view);
+  function go(view,{scroll=true,source='api',updateUrl=true,replaceUrl=false,allowUnloaded=false,sub=null}={}){
+    view=viewName(view);sub=subName(view,sub);
     if(!view||!authenticatedShellReady()||returningTo)return false;
     const lazy=window.KPTUViewLoader;
     // STAB-노트폴더시험: a view still loading switches only if nothing was opened after it was asked for. Otherwise a slow
@@ -221,7 +240,7 @@
       lazy.load(view).then(()=>{
         if(request!==goSeq)return false;
         if(source==='popstate'&&(requestedEntry?window.navigation?.currentEntry?.key!==requestedEntry:location.href!==requestedUrl))return false;
-        return go(view,{scroll,source:source==='popstate'?'popstate':'lazy-ready',updateUrl,replaceUrl,allowUnloaded:true});
+        return go(view,{scroll,source:source==='popstate'?'popstate':'lazy-ready',updateUrl,replaceUrl,allowUnloaded:true,sub});
       }).catch(err=>console.error('view lazy load',view,err));
       return false;
     }
@@ -235,13 +254,13 @@
     if(api.current!==view)forgetLayers();
     document.querySelectorAll('#appView .view-panel').forEach(panel=>panel.classList.toggle('hidden',panel!==target));
     syncNavigationState(view);
-    api.current=view;
+    api.current=view;api.sub=sub;
     const navBehavior=['restore','ready','session','popstate'].includes(source)?'auto':'smooth';
     requestAnimationFrame(()=>keepActiveNavigationVisible(view,{behavior:navBehavior}));
-    if(updateUrl&&(appReady()||authenticatedShellReady()))syncUrl(view,{replace:replaceUrl||source==='api'});
+    if(updateUrl&&(appReady()||authenticatedShellReady()))syncUrl(view,{replace:replaceUrl||source==='api',sub});
     rememberRoute();
     if(scroll)window.scrollTo({top:0,behavior:'instant'});
-    const detail={view,source,...(before.detail.retainBasketDraft?{retainBasketDraft:true}:{})};
+    const detail={view,source,sub,...(before.detail.retainBasketDraft?{retainBasketDraft:true}:{})};
     window.dispatchEvent(new CustomEvent('kptu:view-changed',{detail}));
     for(const fn of hooks.get(view)||[]){
       try{fn(detail)}catch(err){console.error('view hook',view,err)}
@@ -254,15 +273,18 @@
     const view=viewFromUrl();
     if(!view)return false;
     const written=new URLSearchParams(location.search).get(VIEW_PARAM);
-    if(written!==null&&written!==view&&written!==urlName(view))syncUrl(view,{replace:true});
+    if(written!==null&&written!==view&&written!==urlName(view))syncUrl(view,{replace:true,sub:subFromUrl(view)});
     const target=document.getElementById(view+'View');
+    const sub=subFromUrl(view);
     if(api.current===view&&target&&!target.classList.contains('hidden')){
+      // A back/forward step inside one screen can only change its side (?pane=): the screen is told, the rest stays.
+      if((api.sub||null)!==sub){api.sub=sub;window.dispatchEvent(new CustomEvent('kptu:sub-changed',{detail:{view,sub}}));}
       syncNavigationState(view);
       requestAnimationFrame(()=>keepActiveNavigationVisible(view,{behavior:'auto'}));
       rememberRoute();
       return true;
     }
-    return go(view,{scroll:false,source,updateUrl:false});
+    return go(view,{scroll:false,source,updateUrl:false,sub});
   }
 
   function on(view,fn){
@@ -306,9 +328,22 @@
     if(appReady())handleUiReady();
   }
 
+  // setSub: the screen shown changed its own side by itself (phone switch, 정리함의 [챙길 것]): one history entry for it, like a menu step.
+  // replace=true only corrects the address to what the screen really shows (a step it had to refuse).
+  function setSub(view,sub,{replace=false}={}){
+    if(api.current!==view||!SUB_PARAMS[view]||!authenticatedShellReady())return false;
+    sub=subName(view,sub);
+    if((api.sub||null)===sub&&subFromUrl(view)===sub)return true;
+    api.sub=sub;
+    syncUrl(view,{replace,sub});
+    rememberRoute();
+    syncNavigationState(view);
+    return true;
+  }
+
   // syncNavigation: repaint the menu marks for the current view (topbar-actions.js calls it when the 761~1023px row hands
   // its buttons back to the PC sidebar, whose [일정] head marks its whole group).
-  const api={current:null,go,on,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,layer:{open:openLayer},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
+  const api={current:null,sub:null,go,setSub,on,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,layer:{open:openLayer},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
   window.KPTURouter=api;
   window.addEventListener('kptu:app-ui-ready',handleUiReady);
   // currententrychange comes before popstate and names the entry left, so a traversal's

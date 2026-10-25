@@ -29,27 +29,50 @@ test('PC 1280: 맨 위 "홈" 줄이 홈 메뉴이고 고른 표시를 가진다;
  expect(errors).toEqual([]);
 });
 
-test('PC 1280: [노트]는 [정리함] 아래가 아니라 독립 메뉴 줄이고, 누르면 노트 쪽을 연다',async({page})=>{
+test('PC 1280: [정리함] 아래 하위 줄 [업데이트]·[챙길 것](건수), [노트]는 [일정] 다음 독립 줄, 누르면 노트 쪽을 연다',async({page})=>{
  const errors=await open(page,1280),basketRow=nav(page).locator('.nav-btn[data-view="basket"]'),noteRow=nav(page).locator('.nav-btn[data-basket-kind-nav="note"]');
- await expect(nav(page).locator('.nav-sub[aria-label="정리함"]')).toHaveCount(0);
- await expect(basketRow).toHaveText('정리함');await expect(noteRow).toBeVisible();await expect(noteRow).toHaveText('노트');
- const b=await basketRow.boundingBox(),n=await noteRow.boundingBox();
- expect(n.y).toBeGreaterThan(b.y);expect(Math.abs(n.x-b.x)).toBeLessThan(2);
+ const sub=nav(page).locator('.nav-sub[aria-label="정리함"]'),updateRow=sub.locator('[data-basket-pane-nav="update"]'),todoRow=sub.locator('[data-basket-pane-nav="todo"]');
+ await expect(basketRow).toHaveText('정리함');await expect(sub.locator('.nav-sub-btn')).toHaveText([/^업데이트/,/^챙길 것/]);
+ await expect(nav(page).locator('.nav-sub[aria-label="일정"] .nav-sub-btn')).toHaveText(['달력','할 일','업무일지','일기']);
+ await expect(noteRow).toBeVisible();await expect(noteRow).toHaveText('노트');
+ // 순서: 정리함 / 업데이트·챙길 것 / 일정 / 달력…일기 / 노트 / 프로젝트. 하위 줄은 일정 하위 줄과 같은 들여쓰기·같은 부품 클래스.
+ const ys=[];for(const l of [basketRow,updateRow,todoRow,nav(page).locator('.nav-btn[data-view="calendar"]'),nav(page).locator('.nav-sub[aria-label="일정"] [data-goto="calendar"]'),noteRow,nav(page).locator('.nav-btn[data-view="projects"]')])ys.push((await l.boundingBox()).y);
+ expect([...ys].sort((a,b)=>a-b)).toEqual(ys);
+ const u=await updateRow.boundingBox(),cal=await nav(page).locator('.nav-sub[aria-label="일정"] [data-goto="calendar"]').boundingBox(),n=await noteRow.boundingBox(),b=await basketRow.boundingBox();
+ expect(Math.abs(u.x-cal.x)).toBeLessThan(2);expect(u.x).toBeGreaterThan(b.x);expect(Math.abs(n.x-b.x)).toBeLessThan(2);
+ await expect(updateRow).toHaveClass(/nav-sub-btn/);
  await noteRow.click();
  await expect(page.locator('#basketView')).toBeVisible();
  await expect(page.locator('#basketView')).toHaveAttribute('data-kind','note');await expect(page.locator('[data-note-host]')).toBeVisible();
  await expect(noteRow).toHaveAttribute('aria-current','page');
- await expect(basketRow).not.toHaveAttribute('aria-current','page');
+ await expect(updateRow).not.toHaveAttribute('aria-current','page');await expect(basketRow).not.toHaveAttribute('data-nav-open','');
  await basketRow.click();
  await expect(page.locator('#basketView')).toHaveAttribute('data-kind','memo');await expect(page.locator('[data-basket-list]')).toBeVisible();
- await expect(basketRow).toHaveAttribute('aria-current','page');await expect(noteRow).not.toHaveAttribute('aria-current','page');
+ await expect(updateRow).toHaveAttribute('aria-current','page');await expect(noteRow).not.toHaveAttribute('aria-current','page');
+ await expect(basketRow).toHaveAttribute('data-nav-open','');await expect(basketRow).not.toHaveAttribute('aria-current','page');
  await chooseBasketKind(page,'note');await expect(noteRow).toHaveAttribute('aria-current','page');
  // Leaving the basket clears the mark.
  await nav(page).locator('.nav-btn[data-view="calendar"]').click();await expect(page.locator('#calendarView')).toBeVisible();
- await expect(noteRow).not.toHaveAttribute('aria-current','page');
+ await expect(noteRow).not.toHaveAttribute('aria-current','page');await expect(basketRow).not.toHaveAttribute('data-nav-open','');
  // From another screen, [노트] opens the basket on the note side.
  await noteRow.click();await expect(page.locator('#basketView')).toBeVisible();
  await expect(page.locator('#basketView')).toHaveAttribute('data-kind','note');
+ expect(errors).toEqual([]);
+});
+
+test('PC 1280: [챙길 것] 하위 줄은 챙길 것 쪽을 열고 고른 표시(같은 색)를 가지며, 화면 위에는 전환 줄이 없다',async({page})=>{
+ const errors=await open(page,1280),sub=nav(page).locator('.nav-sub[aria-label="정리함"]'),updateRow=sub.locator('[data-basket-pane-nav="update"]'),todoRow=sub.locator('[data-basket-pane-nav="todo"]');
+ await nav(page).locator('.nav-btn[data-view="basket"]').click();await expect(page.locator('#basketView')).toBeVisible();
+ await expect(page.locator('#basketView .inbox-pane-switch')).toBeHidden();
+ await expect(updateRow).toHaveAttribute('aria-current','page');
+ await todoRow.click();
+ await expect(page.locator('#basketView')).toHaveAttribute('data-pane','todo');await expect(page).toHaveURL(/[?&]view=basket(?:&|$)/);await expect(page).toHaveURL(/[?&]pane=todo(?:&|$)/);
+ await expect(todoRow).toHaveAttribute('aria-current','page');await expect(updateRow).not.toHaveAttribute('aria-current','page');
+ // 고른 항목의 색은 일정 하위 줄과 같다.
+ const colors=await todoRow.evaluate(el=>{const s=getComputedStyle(el);return [s.color,s.backgroundColor]});
+ await nav(page).locator('.nav-sub[aria-label="일정"] [data-view="tasks"]').click();await expect(page.locator('#tasksView')).toBeVisible();
+ expect(await nav(page).locator('.nav-sub[aria-label="일정"] [data-view="tasks"]').evaluate(el=>{const s=getComputedStyle(el);return [s.color,s.backgroundColor]})).toEqual(colors);
+ await expect(page).not.toHaveURL(/pane=/);
  expect(errors).toEqual([]);
 });
 

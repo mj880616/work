@@ -13,6 +13,9 @@ export async function openKindMenu(page, kind) {
   await page.locator('#mobileMenuTab:visible, #mobileMenuOpen:visible').first().click();
   await page.locator('#mobileMenu:not([hidden]) [data-basket-kind-nav="note"]').waitFor();
 }
+// BASKET-PC메뉴: the [업데이트 | 챙길 것] side buttons. PC (≥761px): the sidebar / top row sub items under [정리함]; phone: the screen's own switch above the tabs.
+export const basketPaneButton = (page, pane) =>
+  page.locator(`#appView > .app-nav [data-basket-pane-nav="${pane}"]:visible, #basketView [data-inbox-pane="${pane}"]:visible`).first();
 export async function chooseBasketKind(page, kind) {
   await openKindMenu(page, kind);
   await basketKindButton(page, kind).click();

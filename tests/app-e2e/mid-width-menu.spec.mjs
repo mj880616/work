@@ -22,7 +22,8 @@ async function open(page,url=app+'?view=home'){
   await signInWithSession(page,user.email);
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
 }
-const order=['홈','정리함','노트','일정','할 일','업무일지','일기','프로젝트','사업 보고','자료실','성명·보도자료','공유 페이지','담당조직','HWP 편집','원장','통화','텔레그램 소식'];
+// BASKET-PC메뉴: 홈 / 정리함(업데이트·챙길 것) / 일정(달력→일정, 할 일·업무일지·일기) / 노트 / 프로젝트 …
+const order=['홈','정리함','업데이트','챙길 것','일정','할 일','업무일지','일기','노트','프로젝트','사업 보고','자료실','성명·보도자료','공유 페이지','담당조직','HWP 편집','원장','통화','텔레그램 소식'];
 for(const width of [761,820,900,1023])for(const fontSize of [null,24,40])test(`mid menu is a reachable ordered prefix at ${width}px, font ${fontSize||'default'}`,async({page})=>{
   await page.setViewportSize({width,height:844});await open(page);
   const trigger=page.locator('#mobileMenuOpen');await expect(trigger).toBeVisible();
@@ -51,7 +52,7 @@ for(const width of [761,820,900,1023])for(const fontSize of [null,24,40])test(`m
     let item=page.locator('.app-nav').getByRole('button',{name:label,exact:true});
     if(!await item.count()){await trigger.click();item=page.locator('#mobileMenu nav').getByRole('button',{name:label,exact:true})}
     await item.click();await expect(page.locator('#mobileMenu')).toBeHidden();
-    const view=({'홈':'home','정리함':'basket','노트':'basket','일정':'calendar','할 일':'tasks','업무일지':'journal','일기':'diary','프로젝트':'projects','자료실':'library','사업 보고':'meetings','성명·보도자료':'media','공유 페이지':'pages','담당조직':'team','HWP 편집':'hwp','원장':'ledger','통화':'calls','텔레그램 소식':'telegram'})[label];
+    const view=({'홈':'home','정리함':'basket','업데이트':'basket','챙길 것':'basket','노트':'basket','일정':'calendar','할 일':'tasks','업무일지':'journal','일기':'diary','프로젝트':'projects','자료실':'library','사업 보고':'meetings','성명·보도자료':'media','공유 페이지':'pages','담당조직':'team','HWP 편집':'hwp','원장':'ledger','통화':'calls','텔레그램 소식':'telegram'})[label];
     await expect(page.locator('#'+view+'View')).toBeVisible();
     if(label==='성명·보도자료')await expect(page.locator('.app-nav [data-view="media"],#mobileMenu nav .nav-btn[data-view="media"]')).toHaveAttribute('aria-current','page');
   }
@@ -88,9 +89,10 @@ test('resize and font changes repartition; phone and PC return to their original
   expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['노트','사업 보고','자료실','HWP 편집','성명·보도자료','공유 페이지','원장','통화','텔레그램 소식']);await page.keyboard.press('Escape');
   await page.setViewportSize({width:1024,height:844});await expect(page.locator('#mobileMenuOpen')).toBeHidden();await expect(page.locator('.mobile-tabs')).toBeHidden();
   // UI-PC일정묶음: back on the PC sidebar, 할 일·업무일지·일기 are sub rows under [일정] again (with [달력] first).
-  expect(await page.locator('.app-nav .nav-btn:not(#mobileMenuOpen)').allTextContents()).toEqual(['홈','정리함','노트','일정','프로젝트','사업 보고','자료실','성명·보도자료','공유 페이지','담당조직','HWP 편집','원장','통화','텔레그램 소식','자주 가는 링크 ›']);
+  expect(await page.locator('.app-nav .nav-btn:not(#mobileMenuOpen)').allTextContents()).toEqual(['홈','정리함','일정','노트','프로젝트','사업 보고','자료실','성명·보도자료','공유 페이지','담당조직','HWP 편집','원장','통화','텔레그램 소식','자주 가는 링크 ›']);
+  expect(await page.locator('.app-nav .nav-sub[aria-label="정리함"] .nav-sub-btn:not(.nav-btn)').allTextContents()).toEqual(['업데이트','챙길 것']);
   expect(await page.locator('.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn:not(.nav-btn)').allTextContents()).toEqual(['달력','할 일','업무일지','일기']);
-  expect(await page.locator('.app-nav :is(.nav-btn,.nav-sub-btn[data-view]):not(#mobileMenuOpen)').allTextContents()).toEqual(['홈','정리함','노트','일정','할 일','업무일지','일기','프로젝트','사업 보고','자료실','성명·보도자료','공유 페이지','담당조직','HWP 편집','원장','통화','텔레그램 소식','자주 가는 링크 ›']);await expect(page.locator('.app-topline [data-account-open]')).toBeVisible();
+  expect(await page.locator('.app-nav :is(.nav-btn,.nav-sub-btn[data-view]):not(#mobileMenuOpen)').allTextContents()).toEqual(['홈','정리함','일정','할 일','업무일지','일기','노트','프로젝트','사업 보고','자료실','성명·보도자료','공유 페이지','담당조직','HWP 편집','원장','통화','텔레그램 소식','자주 가는 링크 ›']);await expect(page.locator('.app-topline [data-account-open]')).toBeVisible();
 });
 
 test('recalculation preserves keyboard focus and highlights the hidden combined media button',async({page})=>{

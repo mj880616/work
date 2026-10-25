@@ -381,7 +381,11 @@ function paintNavKind(){
 }
 window.addEventListener('kptu:view-changed',paintNavKind);
 const paneSwitch=root.querySelector('[data-inbox-pane-switch]'),todoHost=root.querySelector('[data-inbox-todo-host]'),todoChips=root.querySelector('[data-inbox-todo-chips]'),updateFilters=root.querySelector('[data-update-filters]');
-const paintPaneCount=(which,value)=>{const el=paneSwitch.querySelector(`[data-inbox-pane-count="${which}"]`);if(el)el.textContent=value===null||value===undefined?'':' '+value;};
+// The two numbers are drawn in two places from this one painter: the screen's own switch (phone) and the sidebar's sub items (BASKET-PC메뉴, PC; nothing is drawn for 0 or while loading).
+const paintPaneCount=(which,value)=>{
+  const el=paneSwitch.querySelector(`[data-inbox-pane-count="${which}"]`);if(el)el.textContent=value===null||value===undefined?'':' '+value;
+  document.querySelectorAll(`[data-nav-pane-count="${which}"]`).forEach(nav=>{nav.textContent=value?String(value):'';});
+};
 const todo=mountInboxTodos(todoHost,{rt,esc,chips:todoChips,onCount:value=>paintPaneCount('todo',value)});
 function showPane(next){
   pane=next;root.dataset.pane=pane;
@@ -390,12 +394,24 @@ function showPane(next){
   updateFilters.hidden=!memo;todoChips.hidden=memo;moreWrap.hidden=kind!=='memo';
   todo.show(!memo);
   if(memo)renderList();
+  window.KPTURouter?.syncNavigation?.();window.dispatchEvent(new CustomEvent('kptu:basket-pane',{detail:{pane}}));
 }
+// BASKET-PC메뉴: the side shown is written to the address (?view=basket&pane=todo) by the router; the default side has no parameter.
+const paneSub=()=>pane==='todo'?'todo':null;
 function setPane(next){
   if(next===pane||kind!=='memo'||busy||classification.isOpen()||selected)return;
   closeRowMenu();setMore(false);handoff.close();hideHandoffNotice();
-  showPane(next);
+  showPane(next);window.KPTURouter?.setSub?.('basket',paneSub());
 }
+// Back / forward between the sides of this screen (kptu:sub-changed from the router). A step the screen has to refuse (busy, open record) puts the address back.
+window.addEventListener('kptu:sub-changed',e=>{
+  if(e.detail?.view!=='basket')return;
+  const wanted=e.detail.sub==='todo'?'todo':'update';
+  if(wanted===pane)return;
+  if(kind!=='memo'||busy||classification.isOpen()||selected){window.KPTURouter?.setSub?.('basket',paneSub(),{replace:true});return;}
+  closeRowMenu();setMore(false);handoff.close();hideHandoffNotice();
+  showPane(wanted);
+});
 function showKind(next,{openId=null}={}){
   closeRowMenu();kind=next;root.dataset.kind=kind;
   basketTitle.textContent=kind==='note'?'노트':'정리함';
@@ -1130,11 +1146,11 @@ window.addEventListener('kptu:view-changed',e=>{
   if(e.detail?.retainBasketDraft){retainedForTraversal=true;return;}
   retainedForTraversal=false;clearNoteAddress();closeDetail({focus:false,force:true});noteDocs.close({focus:false,force:true});showKind('memo');showPane('update');
 });
-window.KPTURouter.on('basket', () => {
+window.KPTURouter.on('basket', detail => {
   void preloadMarkdown();
   const wanted = takeBasketNoteRequest(rt), wantedDoc = takeNoteDocRequest(rt), wantedKind = takeBasketKindRequest(rt);
-  if (busy || classification.isOpen() || noteDocs.isBusy() || noteDocs.hasDraft()) return;
-  noteDocs.close({focus:false,force:true}); showKind('memo'); showPane('update'); void todo.refresh();
+  if (busy || classification.isOpen() || noteDocs.isBusy() || noteDocs.hasDraft()) { window.KPTURouter.setSub('basket', paneSub(), {replace:true}); return; }
+  noteDocs.close({focus:false,force:true}); showKind('memo'); showPane(detail?.sub === 'todo' ? 'todo' : 'update'); void todo.refresh();
   filter = 'unclassified'; place = 'all'; sub = 'all'; renderList();
   // Keep the same editor and its unsaved text when returning from another view.
   if (dirty() || manualDraft()) { openNoteLayer({adoptOnly:true}); return; }
