@@ -29,7 +29,6 @@ const routeStyles={
   projects:['./project-system-v3.css','./record-sheet.css','./markdown-view.css','./forum-flow-polish.css','./google-tasks.css','./ui-standard.css'],
   library:['./filter-chips.css','./library-upload.css','./compact-list.css','./markdown-view.css','./ui-standard.css'],
   meetings:['./filter-chips.css','./choice-sheet.css','./meeting-ui.css','./google-tasks.css','./ui-standard.css'],
-  media:['./web1-press.css','./ui-standard.css'],
   pages:['./web1-board.css','./sr-blocks.css','./ed-doc.css','./share-pages.css','./ui-standard.css'],
   team:['./suborganizations.css','./workplace-detail.css','./markdown-view.css','./ed-doc.css','./record-sheet.css','./google-tasks.css','./ui-standard.css'],
   hwp:['./hwp-lab.css','./ui-standard.css'],
@@ -130,10 +129,6 @@ async function meetings(){
   await module('./meeting-from-files.js');
   return {ok:true}
 }
-async function media(){
-  await module('./web1-press.js','__KPTU_WEB1_PRESS_READY__');
-  return {ok:true}
-}
 async function pages(){
   // SHARE-현장공유 PR 2: my share pages (editor) on top, the old Web1 cards folded under "이전 페이지" below.
   await projectCatalog();
@@ -177,9 +172,9 @@ async function reference(){ await module('./reference-bundles.js'); return {ok:t
 // CALL-통화메뉴·TG-소식메뉴: [통화](?view=calls)·[텔레그램 소식](?view=telegram), 사이드바 맨 아래·폰 메뉴 판. loadAll에 넣지 않고 열 때만 불러온다.
 async function calls(){ await organizationOrder(); await module('./call-feed.js'); return {ok:true} }
 async function telegram(){ await organizationOrder(); await module('./telegram-feed.js'); return {ok:true} }
-const loaders={home,basket,calendar,tasks,journal,diary,projects,library,meetings,media,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,calls,telegram};
-// Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp, 새 주소 ?view=reports → meetings 화면). The router uses the same map.
-const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings'};
+const loaders={home,basket,calendar,tasks,journal,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,calls,telegram};
+// Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp, 새 주소 ?view=reports → meetings 화면, 옛 ?view=media(성명·보도자료) → 자료실). The router uses the same map.
+const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library'};
 function normalize(view){
   view=VIEW_ALIAS[view]||view;
   return loaders[view]?view:'home'
@@ -197,7 +192,7 @@ function load(view){
   return flight
 }
 async function loadAll(){
-  for(const view of ['home','basket','calendar','tasks','projects','library','meetings','media','pages','team'])await load(view);
+  for(const view of ['home','basket','calendar','tasks','projects','library','meetings','pages','team'])await load(view);
   return true
 }
 window.KPTUViewLoader={load,loadAll,prepare,normalize,isLoaded:view=>loaded.has(normalize(view))};

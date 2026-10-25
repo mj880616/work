@@ -323,7 +323,7 @@ for(const viewport of [
 ]){
   test(`core views do not overflow at ${viewport.width}`,async({page})=>{
     await boot(page,viewport);
-    for(const view of ['calendar','tasks','projects','library','meetings','media','pages','team']){
+    for(const view of ['calendar','tasks','projects','library','meetings','pages','team']){
       await clickView(page,view);
       const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
       expect(overflow,view).toBeLessThanOrEqual(1);

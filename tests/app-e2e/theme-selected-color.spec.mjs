@@ -66,8 +66,8 @@ for(const theme of ['olive','terracotta']){
   expect(await bg(cur.locator('svg'))).toBe(primary);expect(await fg(cur.locator('svg'))).toBe(on);expect(await fg(cur)).toBe(primary);
   expect(await bg(tabs.locator('button:not([aria-current]) svg').first())).toBe('rgba(0, 0, 0, 0)');
   // 메뉴로 닿는 화면 다섯: [메뉴]만 지금 화면.
-  for(const view of ['library','meetings','hwp','media','pages']){
-   await page.evaluate(v=>window.KPTURouter.go(v),view);await expect(page.locator(`#${view==='media'?'mediaView':view+'View'}`)).toBeVisible();
+  for(const view of ['library','meetings','hwp','pages']){
+   await page.evaluate(v=>window.KPTURouter.go(v),view);await expect(page.locator(`#${view}View`)).toBeVisible();
    await expect(tabs.locator('[aria-current="page"]')).toHaveCount(1);await expect(tabs.locator('#mobileMenuTab')).toHaveAttribute('aria-current','page');
    expect(await bg(tabs.locator('#mobileMenuTab svg'))).toBe(primary);
   }

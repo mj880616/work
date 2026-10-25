@@ -5,7 +5,13 @@
   // REF-참고묶음: the 참고 묶음 screen is entered from the organization list, so the 담당조직 menu item stays marked there.
   const NAV_ALIAS={messages:'home',myspace:'home',reference:'team'};
   // Retired addresses that now open another view (HWP 편집기 시험판 ?view=hwp-lab → ?view=hwp).
-  const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings'};
+  const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library'};
+  // PRESS-자료실편입: 옛 ?view=media(성명·보도자료 메뉴)는 자료실을 종류 '성명·보도자료' 하나만 켠 모아보기로 연다.
+  // 옛 주소가 가리킨 화면에 한 번만 건네는 요청이고(takeEntry), 거르는 일은 자료실이 한다. 새 저장소 없음.
+  const ALIAS_ENTRY={media:{view:'library',category:'성명·보도자료'}};
+  let entryRequest=null;
+  const noteAlias=raw=>{const entry=ALIAS_ENTRY[raw];if(entry)entryRequest={...entry,at:Date.now()}};
+  const takeEntry=view=>{const request=entryRequest;entryRequest=null;return request&&request.view===view&&Date.now()-request.at<60000?{category:request.category}:null};
   // MTG-사업보고: the 회의 screen (#meetingsView) is written as ?view=reports in the address; the old ?view=meetings still opens it.
   const URL_NAME={meetings:'reports'};
   const urlName=view=>URL_NAME[view]||view;
@@ -262,6 +268,7 @@
       rememberRoute();
       return true;
     }
+    noteAlias(written);
     return go(view,{scroll:false,source,updateUrl:false});
   }
 
@@ -308,7 +315,7 @@
 
   // syncNavigation: repaint the menu marks for the current view (topbar-actions.js calls it when the 761~1023px row hands
   // its buttons back to the PC sidebar, whose [일정] head marks its whole group).
-  const api={current:null,go,on,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,layer:{open:openLayer},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
+  const api={current:null,go,on,noteAlias,takeEntry,detect,bind,restoreFromUrl,keepActiveNavigationVisible,back,layer:{open:openLayer},syncNavigation:()=>{if(api.current)syncNavigationState(api.current)}};
   window.KPTURouter=api;
   window.addEventListener('kptu:app-ui-ready',handleUiReady);
   // currententrychange comes before popstate and names the entry left, so a traversal's

@@ -114,13 +114,13 @@ test('KST date crosses the day boundary independently of the browser timezone',a
   await page.clock.setFixedTime(new Date('2026-10-05T16:00:00Z'));await open(page);
   await expect(page.locator('#homeView [data-home-date]')).toHaveText('10월 6일 화요일');
 });
-test('drawer media item opens once and the account box has no copy-refresh row',async({page})=>{
+test('drawer library item opens once and the account box has no copy-refresh row',async({page})=>{
   await page.setViewportSize({width:390,height:844});await open(page);
-  // UI-디자인손질 4: 성명·보도자료 is one menu item; it opens the list with every kind and one header name.
+  // The retired 성명·보도자료 item is gone from the drawer; 자료실 opens with one header name.
   await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu [data-mobile-press]')).toHaveCount(0);
-  await page.locator('#mobileMenu [data-view="media"]').click();
-  await expect(page.locator('#mediaView [data-press-type="all"]')).toHaveClass(/active/);await expect(page.locator('[data-mobile-view-name]')).toHaveText('성명·보도자료');
-  await page.locator('#mediaView [data-press-type="release"]').click();await expect(page.locator('[data-mobile-view-name]')).toHaveText('성명·보도자료');
+  await expect(page.locator('#mobileMenu [data-view="media"]')).toHaveCount(0);
+  await page.locator('#mobileMenu [data-view="library"]').click();
+  await expect(page.locator('#libraryView')).toBeVisible();await expect(page.locator('[data-mobile-view-name]')).toHaveText('자료실');
   await page.goBack();await expect(page.locator('#homeView')).toBeVisible();
   let posts=0;await page.route(`${SB}/functions/v1/drive-summary`,r=>{posts++;return r.fulfill({contentType:'application/json',body:'{}'})});
   await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu [data-drive-summary-refresh]')).toHaveCount(0);

@@ -51,7 +51,7 @@ const menuQuery=window.matchMedia('(max-width:1023px)');
 const appNav=document.querySelector('#appView>.app-nav'),drawerNav=mobilePanel?.querySelector('nav');
 const phoneOnly=[...drawerNav?.querySelectorAll('[data-view],[data-basket-kind-nav]')||[]];
 // BASKET-정리함이름: the sidebar's [노트] row follows [정리함] (data-basket-kind-nav, not a screen of its own) in the 761~1023px row too.
-const midItems=['home','basket','note','calendar','tasks','journal','diary','projects','meetings','library','media','pages','team','hwp','ledger','calls','telegram']
+const midItems=['home','basket','note','calendar','tasks','journal','diary','projects','meetings','library','pages','team','hwp','ledger','calls','telegram']
   .map(view=>appNav?.querySelector(view==='note'?'[data-basket-kind-nav="note"]':`[data-view="${view}"]`)).filter(Boolean);
 const homes=new Map([...midItems,mobileTrigger].filter(Boolean).map(button=>{
   const anchor=document.createComment('navigation home');button.before(anchor);return [button,anchor];
@@ -217,7 +217,7 @@ window.addEventListener('kptu:view-changed',event=>{
   syncMenuLocation();
   const home=event.detail?.view==='home';
   document.querySelector('.mobile-shell-header [data-home-date]')?.toggleAttribute('hidden',!home);
-  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'정리함',calendar:'일정',tasks:'일정',journal:'일정',diary:'일정',projects:'프로젝트',team:'담당조직',meetings:'사업 보고',library:'자료실',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',media:'성명·보도자료',pages:'공유 페이지',search:'검색',reference:'참고 묶음',calls:'통화',telegram:'텔레그램 소식'})[event.detail?.view]||''}
+  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'정리함',calendar:'일정',tasks:'일정',journal:'일정',diary:'일정',projects:'프로젝트',team:'담당조직',meetings:'사업 보고',library:'자료실',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',pages:'공유 페이지',search:'검색',reference:'참고 묶음',calls:'통화',telegram:'텔레그램 소식'})[event.detail?.view]||''}
 });
 // [+ 추가] (UI-디자인손질 8, BASKET-업데이트통합 PR 2, ED③): [업데이트] opens the update's big window (update-window.js) with no place (= the basket),
 // [노트] opens the note's (note-window.js). Each saves through its existing owner-RLS path and the window closes (저장하고 닫기). A saved
@@ -420,7 +420,7 @@ paintTrail();
 // Where you are: group › screen. The group word goes to the group's first screen; the last word is the current page.
 const GROUPS={calendar:'schedule',tasks:'schedule',journal:'schedule',diary:'schedule',reference:'team'};
 const GROUP_HEAD={schedule:{name:'일정',view:'calendar'},team:{name:'담당조직',view:'team'}};
-const VIEW_NAMES={home:'홈',basket:'정리함',calendar:'달력',tasks:'할 일',journal:'업무일지',diary:'일기',projects:'프로젝트',library:'자료실',meetings:'사업 보고',media:'성명·보도자료',pages:'공유 페이지',team:'담당조직',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',search:'검색',reference:'참고 묶음',calls:'통화',telegram:'텔레그램 소식'};
+const VIEW_NAMES={home:'홈',basket:'정리함',calendar:'달력',tasks:'할 일',journal:'업무일지',diary:'일기',projects:'프로젝트',library:'자료실',meetings:'사업 보고',pages:'공유 페이지',team:'담당조직',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',search:'검색',reference:'참고 묶음',calls:'통화',telegram:'텔레그램 소식'};
 const whereList=topline?.querySelector('[data-topline-where]');
 let basketKind=null;
 const whereItems=new Map();

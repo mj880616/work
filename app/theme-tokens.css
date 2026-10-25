@@ -90,7 +90,7 @@
      1~8은 예전 8색과 같은 색 계열 순서(같은 이름은 예전과 비슷한 색), 9~16은 1~8 다음에 쓰는 추가 색. */
   --ds-meeting-1:#2880c9;--ds-meeting-2:#179920;--ds-meeting-3:#d941cf;--ds-meeting-4:#038283;--ds-meeting-5:#af7a0d;--ds-meeting-6:#8b4679;--ds-meeting-7:#324903;--ds-meeting-8:#3468fa;
   --ds-meeting-9:#29416f;--ds-meeting-10:#368c54;--ds-meeting-11:#7b0075;--ds-meeting-12:#758d14;--ds-meeting-13:#90844f;--ds-meeting-14:#5a14a6;--ds-meeting-15:#634303;--ds-meeting-16:#524ba5;
-  /* 3/3(8-9e-3) 칸막이(iframe) 바탕: HWP 편집기·성명·보도자료·게시판 본문은 다크 모드에서도 밝게 둔다. */
+  /* 3/3(8-9e-3) 칸막이(iframe) 바탕: HWP 편집기·게시판 본문은 다크 모드에서도 밝게 둔다. */
   --ds-frame-paper:#ffffff;
 }
 /* 다크 모드(3/3 8-9e-3에서 켬): 기기 설정이 어두우면 Web2 전체(창 포함)가 어두운 값으로 바뀐다.

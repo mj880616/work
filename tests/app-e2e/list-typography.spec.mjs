@@ -51,8 +51,6 @@ const samples={
  projects:[['.add-list-head [data-ps3-total]',12],['.ps3-prow-name',13],['.ps3-prow-meta',12],['button.primary',13]],
  // UI-디자인기준 3/3(8-9e-1): 회의·담당조직 목록 이름 13px, 상자 제목(섹션 이름) 13px, 버튼 13px(새 기준).
  meetings:[['.add-list-head h2',13],['.meeting-list-title h3',13],['.meeting-list-row p',12],['button.primary',13]],
- // UI-디자인기준 3/3 3부(8-9e-3): 성명·보도자료 목록 이름 13px·연도(섹션 이름) 13px·필터 버튼 13px·종류 표시 11px(자료실 종류 표시와 같음), 게시판 줄 이름 13px.
- media:[['.w1p-title',13],['.w1p-year>h3',13],['.w1p-filter',13],['.w1p-date',12],['.w1p-tag',11],['.w1p-publisher',12]],
  pages:[['.w1b-card h3',13],['.w1b-card p',14],['.badge',12],['.w1b-open',12]],
  // UI-디자인손질 3: the "N개 담당조직" line (.muted) is gone; the group heading carries the 12px meta text.
  // UI-조직추가숨김: the team menu's only button.secondary was the [+ 담당조직] add button, which is no longer drawn (team-list.spec asserts it is absent).
@@ -81,14 +79,9 @@ for(const width of [390,1440])test('D-3d list roles, C2 and excluded main fonts 
   // UI-PC회의: PC(≥1024) 회의는 유형별 열 — 열 제목(.mcol-name)·차수(.mcol-round) 13px, 날짜·자료(.mcol-meta) 12px.
   const list=name==='meetings'&&width>=1024?rows.map(([sel,size])=>[sel==='.meeting-list-title h3'?'.mcol-name':sel==='.meeting-list-row p'?'.mcol-meta':sel,size]).concat([['.mcol-round',13]]):rows;
   for(const [selector,size]of list){if(width<=760&&(name==='projects'||name==='meetings')&&selector==='button.primary')continue;const el=page.locator('#'+name+'View '+selector).first();await expect(el).toHaveCount(1);await expect(el).toHaveCSS('font-size',size+'px');}
-  const clip=await page.locator('#'+name+'View').evaluate(el=>({overflow:el.scrollWidth>el.clientWidth,buttons:[...el.querySelectorAll('button.primary,button.secondary,button.mini,.w1p-filter')].filter(b=>b.checkVisibility()&&!(innerWidth<=760&&['newEventBtn','newTaskBtn','newProjectBtn','newDocumentBtn','newMeetingBtn'].includes(b.id))).filter(b=>b.scrollWidth>b.clientWidth+1).map(b=>b.id||b.className)}));
+  const clip=await page.locator('#'+name+'View').evaluate(el=>({overflow:el.scrollWidth>el.clientWidth,buttons:[...el.querySelectorAll('button.primary,button.secondary,button.mini')].filter(b=>b.checkVisibility()&&!(innerWidth<=760&&['newEventBtn','newTaskBtn','newProjectBtn','newDocumentBtn','newMeetingBtn'].includes(b.id))).filter(b=>b.scrollWidth>b.clientWidth+1).map(b=>b.id||b.className)}));
   expect(clip).toEqual({overflow:false,buttons:[]});
  }
- await view(page,'media');
- const row=page.locator('.w1p-item').first();
- const geometry=await row.evaluate(el=>{const box=e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,bottom:r.bottom}};return {row:box(el),title:box(el.querySelector('.w1p-title')),tag:box(el.querySelector('.w1p-tag')),date:box(el.querySelector('.w1p-date')),publisher:getComputedStyle(el.querySelector('.w1p-publisher')).display}});
- if(width===390){expect(geometry.title.width/geometry.row.width).toBeGreaterThanOrEqual(.9);expect(geometry.publisher).toBe('none');expect(geometry.tag.bottom).toBeLessThanOrEqual(geometry.title.y);expect(geometry.date.bottom).toBeLessThanOrEqual(geometry.title.y);expect(Math.abs(geometry.tag.y-geometry.date.y)).toBeLessThan(8);}
- else{expect(geometry.publisher).not.toBe('none');expect(Math.abs(geometry.title.y-geometry.date.y)).toBeLessThan(8);}
  const original=await browser.newPage({viewport:{width,height:900}});await baseline(original);await boot(original);
  // UI-디자인기준 2/3(8-9d): 일정 제목 18px·일정/할 일 버튼 13px(새 기준). 3/3(8-9e-1): 자료실 상자 제목·버튼 13px.
  const selectors={calendar:['#monthTitle','#newEventBtn','#prevMonthBtn'],tasks:['#gtTaskBody'],library:['#libraryListCard h2','#libraryListCard button','#libraryView #manageLibraryBtn'],menu:['.app-nav [data-view="projects"]','#appView [data-account-open]']};
@@ -120,9 +113,4 @@ for(const width of [390,1440])test('D-3e archive and input roles preserve other 
   if(selector==='#eventModal input'){before[1]='400';before[4]='46px'}expect(await styles(page),selector).toEqual(before);
  }
  await original.close();
-});
-for(const width of [760,761])test('D-3d C2 boundary '+width,async({page})=>{
- await page.setViewportSize({width,height:900});await boot(page);await view(page,'media');
- if(width===760){await expect(page.locator('.w1p-head').first()).toBeHidden();await expect(page.locator('.w1p-publisher').first()).toBeHidden();await expect(page.locator('.w1p-item').first()).toHaveCSS('grid-template-areas','"tag date" "title title"');}
- else{await expect(page.locator('.w1p-head').first()).toBeVisible();await expect(page.locator('.w1p-publisher').first()).toBeVisible();await expect(page.locator('.w1p-item').first()).toHaveCSS('grid-template-areas','none');}
 });

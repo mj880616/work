@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {selectedMobileTab, mobileTabKey, paintMobileTabs, MENU_SHEET_VIEWS} from '../app/mobile-tab-selection.mjs';
 
 // UI-모바일메뉴순서: 폰 하단바에서 진하게 켜지는 칸은 언제나 하나. 결정 규칙을 한 곳에서 시험한다.
-const SCREENS = ['home', 'basket', 'calendar', 'tasks', 'journal', 'diary', 'projects', 'team', 'meetings', 'library', 'hwp', 'media', 'pages', 'ledger', 'calls', 'telegram', 'search', 'settings', null];
+const SCREENS = ['home', 'basket', 'calendar', 'tasks', 'journal', 'diary', 'projects', 'team', 'meetings', 'library', 'hwp', 'pages', 'ledger', 'calls', 'telegram', 'search', 'settings', null];
 
 test('메뉴 창이 열려 있으면 어느 화면에서든 [메뉴]만', () => {
   for (const view of SCREENS) for (const noteMode of [false, true]) assert.equal(selectedMobileTab({view, noteMode, menuOpen: true}), 'menu', `${view}/${noteMode}`);
