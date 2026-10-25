@@ -142,7 +142,7 @@ test('native final return and browser default both open home',async({page})=>{
   await expect(page.locator('#homeView')).toBeVisible();await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBe(null);
   await page.goto(app);await expect(page.locator('#homeView')).toBeVisible();
 });
-test('swipes visit exactly the five bottom tabs with home and team boundaries',async({page})=>{
+test('horizontal swipes never change the tab; the bottom tabs do',async({page})=>{
   await page.setViewportSize({width:390,height:844});await open(page);
   const swipe=async direction=>{
     const view=await page.evaluate(()=>KPTURouter.current);
@@ -153,11 +153,16 @@ test('swipes visit exactly the five bottom tabs with home and team boundaries',a
         Object.defineProperty(e,'touches',{value:type==='touchend'?[]:points});Object.defineProperty(e,'changedTouches',{value:points});el.dispatchEvent(e);
       }
     },direction);
+    await page.waitForTimeout(300);
   };
-  for(const view of tabs.slice(1)){await swipe('left');await expect(page.locator('#'+view+'View')).toBeVisible();await expect(page.locator('.kptu-swipe-panel')).toHaveCount(0)}
-  await swipe('left');await expect(page.locator('.kptu-swipe-panel')).toHaveCount(0);expect(await page.evaluate(()=>KPTURouter.current)).toBe('team');
-  for(const view of tabs.slice(0,-1).reverse()){await swipe('right');await expect(page.locator('#'+view+'View')).toBeVisible();await expect(page.locator('.kptu-swipe-panel')).toHaveCount(0)}
-  await swipe('right');await expect(page.locator('.kptu-swipe-panel')).toHaveCount(0);expect(await page.evaluate(()=>KPTURouter.current)).toBe('home');
+  // UI-밀기탭이동삭제: 어느 탭에서 어느 쪽으로 밀어도 화면은 그대로다.
+  for(const view of tabs){
+    await page.locator('.mobile-tabs [data-view="'+view+'"]').first().click();
+    await expect(page.locator('#'+view+'View')).toBeVisible();
+    await swipe('left');await swipe('right');
+    expect(await page.evaluate(()=>KPTURouter.current)).toBe(view);
+    await expect(page.locator('#'+view+'View')).toBeVisible();
+  }
 });
 
  test('mobile current view label and drawer close painted and touch sizes',async({page})=>{
