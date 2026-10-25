@@ -1186,7 +1186,43 @@ test('TRASH-화면2: 휴지통 탭에 담당조직·사업 보고가 함께 보�
   await expect(page.locator('#ps3ArchiveList')).toContainText('휴지통이 비어 있습니다');
 });
 
-test('TRASH-화면2: 프로젝트 휴지통만 준비되고 담당조직·사업 보고는 아직이면(DB 적용 전) 그 둘만 준비 중이라고 알린다',async({page})=>{
+test('TRASH-다른삭제 3단계: 휴지통 탭에 자료실 폴더가 프로젝트 이름·아래 폴더·자료 수와 함께 보이고, 되돌리기·영구 삭제(한 단 위로 안내)가 그 종류로 간다',async({page})=>{
+  const state=baseState();
+  state.trash={items:[],others:{
+    library_folder:[
+      {id:'lf-t1',workspace_id:state.workspace.id,name:'합성 폴더',project_id:'main-1',project_name:'합성 사업',parent_id:null,child_count:2,file_count:5,parent_in_trash:false,deleted_at:'2026-10-25T05:00:00Z'},
+      {id:'lf-t2',workspace_id:state.workspace.id,name:'합성 아래 폴더',project_id:null,project_name:'',parent_id:'lf-up',child_count:0,file_count:0,parent_in_trash:true,deleted_at:'2026-10-25T04:00:00Z'},
+    ],
+  }};
+  await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);
+  await clickView(page,'projects');
+  const button=page.locator('#ps3ArchiveBtn');
+  await expect(button).toHaveText('휴지통 2');
+  await button.click();
+  await expect(page.locator('#ps3ArchiveHeading')).toHaveText('휴지통');
+  await expect(page.locator('[data-ps3-archive-hint]')).toContainText('자료실 폴더');
+  const first=page.locator('[data-ps3-trash-row="lf-t1"]'),second=page.locator('[data-ps3-trash-row="lf-t2"]');
+  await expect(first).toContainText('합성 폴더');await expect(first).toContainText('자료실 폴더');await expect(first).toContainText('합성 사업');await expect(first).toContainText('하위 2개');await expect(first).toContainText('자료 5개');
+  await expect(second).toContainText('프로젝트 없음');
+  // 위 폴더가 아직 휴지통이면 먼저 되돌리라고 안내하고 [되돌리기]는 막힌다.
+  await expect(second).toContainText('상위 폴더를 먼저 되돌려 주세요');await expect(second.locator('[data-ps3-trash-restore]')).toBeDisabled();
+  // 영구 삭제: 폴더만 지워지고 안의 것은 한 단 위로 올라간다고 알리는 확인창. 취소하면 그대로.
+  await first.locator('summary').click();
+  let asked='';page.once('dialog',d=>{asked=d.message();d.dismiss()});
+  await first.locator('[data-ps3-trash-purge]').click();
+  await expect.poll(()=>asked).toContain('“합성 폴더” 폴더를 영구 삭제할까요');
+  expect(asked).toContain('아래 폴더 2개·자료 5개는 한 단 위로 올라갑니다');expect(asked).toContain('Drive 파일은 지우지 않으며');
+  expect(state.trash.others.library_folder.length).toBe(2);
+  await first.locator('summary').click();
+  // 되돌리기는 그 종류로 가고, 이미 열려 있는 자료실에는 폴더 표를 다시 읽으라고 알린다.
+  const told=await page.evaluate(()=>{window.__folderEvents=0;window.addEventListener('kptu:library-folders-changed',()=>{window.__folderEvents++});return true});expect(told).toBe(true);
+  await first.locator('[data-ps3-trash-restore]').click();
+  await expect.poll(()=>state.trash.others.library_folder.map(x=>x.id)).toEqual(['lf-t2']);
+  await expect.poll(()=>page.evaluate(()=>window.__folderEvents)).toBe(1);
+  expect(state.trash.done).toEqual([{fn:'app_trash_restore',kind:'library_folder',id:'lf-t1'}]);
+});
+
+test('TRASH-화면2: 프로젝트 휴지통만 준비되고 담당조직·사업 보고는 아직이면(DB 적용 전) 나머지 종류만 준비 중이라고 알린다',async({page})=>{
   const state=baseState();
   const main=state.spaces.find(x=>x.id==='main-1');
   state.spaces=state.spaces.filter(x=>x.id!=='main-1'&&x.id!=='child-1');
@@ -1195,7 +1231,7 @@ test('TRASH-화면2: 프로젝트 휴지통만 준비되고 담당조직·사업
   await clickView(page,'projects');
   await page.locator('#ps3ArchiveBtn').click();
   await expect(page.locator('[data-ps3-trash-row="main-1"]')).toBeVisible();
-  await expect(page.locator('[data-ps3-trash-pending]')).toHaveText('담당조직·사업 보고 휴지통은 준비 중입니다.');
+  await expect(page.locator('[data-ps3-trash-pending]')).toHaveText('담당조직·사업 보고·자료실 폴더 휴지통은 준비 중입니다.');
 });
 
 test('TRASH 2단계: 휴지통 함수가 아직 없으면 삭제는 지금 문구로 바로 지워지고 휴지통 자리에는 준비 중만 보인다',async({page})=>{

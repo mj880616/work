@@ -1,6 +1,6 @@
 import { appOrigin } from './helpers/test-origin.mjs';
 // LIB-토글트리 ③(docs/design/library-tree.md 6절): 자료실 전용 폴더 편집 — ⋯ 메뉴, 만들기·이름·위로/아래로·옮기기·지우기, 자료 폴더로/밖으로.
-// 저장은 소유자 RLS 표(app_library_folders·_items) REST뿐. 아래 가짜 서버는 DB 트리거와 같은 규칙(3단, 같은 틀, 지울 때 한 단 위로)을 흉내 낸다.
+// 저장은 소유자 RLS 표(app_library_folders·_items) REST뿐. 아래 가짜 서버는 DB 트리거와 같은 규칙(3단, 같은 틀)과 휴지통(TRASH-다른삭제 3단계: 지우면 그 폴더와 아래 폴더가 함께 휴지통으로, 자료 연결은 그대로)을 흉내 낸다.
 import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {expandLibraryTree,libraryNode,libraryNodeHead} from './helpers/library-tree.mjs';
@@ -9,11 +9,11 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const eq=(url,k)=>String(url.searchParams.get(k)||'').replace(/^eq\./,'');
 const doc=(id,project_id,extra={})=>({id,workspace_id:'workspace-1',project_id,title:'자료 '+id,file_name:id+'.pdf',category:'정책자료',tags:[],document_date:'2026-10-01',created_at:'2026-10-01T00:00:00Z',...extra});
 let seq=0;
-async function boot(page,width,{folders=[],items=[]}={}){
+async function boot(page,width,{folders=[],items=[],trashMode='ready'}={}){
   await page.setViewportSize({width,height:900});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!/Failed to load resource/.test(m.text()))errors.push(m.text())});
   const s=baseState();s.docs=[doc('a-1','top-a'),doc('a-2','top-a'),doc('a1-1','child-a1'),doc('n-1',null)];
-  s.folders=folders.map(f=>({workspace_id:'workspace-1',parent_id:null,sort_order:1024,created_at:'2026-10-01T00:00:00Z',...f}));s.items=items.map(x=>({workspace_id:'workspace-1',...x}));s.writes=[];
+  s.folders=folders.map(f=>({workspace_id:'workspace-1',parent_id:null,sort_order:1024,created_at:'2026-10-01T00:00:00Z',...f}));s.items=items.map(x=>({workspace_id:'workspace-1',...x}));s.writes=[];s.trash=[];s.trashMode=trashMode;s.rpc=[];
   await mockApp(page,s);
   const depth=id=>{let n=0,f=s.folders.find(x=>x.id===id);while(f){n++;f=f.parent_id?s.folders.find(x=>x.id===f.parent_id):null}return n};
   const height=id=>1+Math.max(0,...s.folders.filter(f=>f.parent_id===id).map(f=>height(f.id)));
@@ -25,7 +25,16 @@ async function boot(page,width,{folders=[],items=[]}={}){
     if(m==='POST'){if(body.parent_id&&depth(body.parent_id)>=3)return route.fulfill(reject('LIB_FOLDER_DEPTH: folders are limited to 3 levels'));s.folders.push({...body,id:'new-'+(++seq),created_at:new Date().toISOString()});return route.fulfill({status:201,body:''})}
     const f=s.folders.find(x=>x.id===eq(url,'id'));
     if(m==='PATCH'){if('parent_id'in body&&body.parent_id&&depth(body.parent_id)+height(f.id)>3)return route.fulfill(reject('LIB_FOLDER_DEPTH: folders are limited to 3 levels'));Object.assign(f,body);return route.fulfill({status:204,body:''})}
-    if(m==='DELETE'){for(const c of s.folders.filter(x=>x.parent_id===f.id))c.parent_id=f.parent_id;for(const it of s.items.filter(x=>x.folder_id===f.id))it.folder_id=f.parent_id;s.items=s.items.filter(x=>x.folder_id);s.folders=s.folders.filter(x=>x!==f);return route.fulfill({status:204,body:''})}
+    if(m==='DELETE'){const group=[f.id];for(let i=0;i<group.length;i++)for(const c of s.folders.filter(x=>x.parent_id===group[i]))group.push(c.id);s.trash.push({root:f.id,folders:s.folders.filter(x=>group.includes(x.id)),deleted_at:'2026-10-25T05:00:00Z'});s.folders=s.folders.filter(x=>!group.includes(x.id));return route.fulfill({status:204,body:''})}
+  });
+  // 휴지통 함수 흉내: trashMode 'missing'은 DB 적용 전(옛 함수가 이 종류를 모름), 'failed'는 일시 실패.
+  await page.route(`${SB}/rest/v1/rpc/app_trash_*`,route=>{
+    const req=route.request(),fn=new URL(req.url()).pathname.split('/').pop(),body=req.postDataJSON()||{};s.rpc.push({fn,kind:body.p_kind,id:body.p_id||null});
+    if(s.trashMode==='missing')return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'22023',message:'TRASH_KIND_UNKNOWN'})});
+    if(s.trashMode==='failed')return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'fail'})});
+    if(fn==='app_trash_list')return route.fulfill({json:s.trash.map(t=>{const r=t.folders.find(x=>x.id===t.root);return {kind:'library_folder',id:t.root,workspace_id:'workspace-1',name:r.name,project_id:r.project_id,project_name:'',parent_id:r.parent_id,deleted_at:t.deleted_at,child_count:t.folders.length-1,file_count:s.items.filter(x=>t.folders.some(f=>f.id===x.folder_id)).length,parent_in_trash:false}})});
+    const t=s.trash.find(x=>x.root===body.p_id);if(!t)return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'P0002',message:'TRASH_NOT_FOUND'})});
+    s.trash=s.trash.filter(x=>x!==t);s.folders.push(...t.folders);return route.fulfill({json:{ok:true,kind:'library_folder',id:t.root,restored:t.folders.length}});
   });
   await page.route(`${SB}/rest/v1/app_library_folder_items*`,route=>{
     const req=route.request(),url=new URL(req.url()),m=req.method(),body=(()=>{try{return req.postDataJSON()}catch{return null}})();
@@ -98,7 +107,7 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
     expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);
   });
 
-  test(`옮기기(같은 틀만·자기 아래 안 됨)·지우기 확인(안의 것은 한 단 위로)·자료를 폴더로/밖으로 ${width}`,async({page})=>{
+  test(`옮기기(같은 틀만·자기 아래 안 됨)·지우기(휴지통으로)·되돌리기·자료를 폴더로/밖으로 ${width}`,async({page})=>{
     const folders=[{id:'fa',project_id:'top-a',name:'가상 A',sort_order:1024},{id:'fb',project_id:'top-a',name:'가상 B',sort_order:2048},{id:'fb1',project_id:'top-a',parent_id:'fb',name:'가상 B-1',sort_order:0},{id:'fn',project_id:null,name:'가상 없음 폴더',sort_order:0}];
     const {s,errors}=await boot(page,width,{folders,items:[{document_id:'a-2',folder_id:'fb1'}]});
     await page.locator('#libraryExpandAll').click();
@@ -114,19 +123,26 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
     // 3단을 넘는 옮기기는 고를 곳에 없다: fb1은 이제 3단이라 메뉴의 '안에 폴더 만들기'가 없다.
     await page.locator('#libraryExpandAll').click();await page.locator('#libraryExpandAll').click();
     await press(page,menuOf(page,'f:fb1'),width);await expect(action(page,'안에 폴더 만들기')).toHaveCount(0);await page.keyboard.press('Escape');
-    // 지우기: 확인 창이 안의 폴더·자료 수와 '한 단 위로'를 알린다. 취소하면 아무것도 안 바뀐다.
+    // 지우기(휴지통으로): 확인 창이 아래 폴더·자료 수와 '함께 들어간다'를 알린다. 취소하면 아무것도 안 바뀐다.
     const before=s.writes.length;let message='';
     page.once('dialog',d=>{message=d.message();d.dismiss()});await press(page,menuOf(page,'f:fb'),width);await press(page,action(page,'폴더 지우기'),width);
-    await expect.poll(()=>message).toContain('가상 B 폴더를 지울까요?');expect(message).toContain('안의 폴더 1개는 한 단 위로 가요');expect(message).toContain('자료와 Drive 파일은 지워지지 않아요');expect(s.writes.length).toBe(before);
+    await expect.poll(()=>message).toContain('“가상 B” 폴더를 휴지통으로 옮길까요?');expect(message).toContain('아래 폴더 1개·자료 1개도 함께 들어가고');expect(message).toContain('자료와 Drive 파일은 지워지지 않고, 휴지통에서 되돌리면 원래대로');expect(message).not.toContain('한 단 위');expect(s.writes.length).toBe(before);
     page.once('dialog',d=>d.accept());await press(page,menuOf(page,'f:fb'),width);await press(page,action(page,'폴더 지우기'),width);
     await expect(libraryNode(page,'f:fb')).toHaveCount(0);
     expect(s.writes.at(-1)).toEqual({table:'folders',method:'DELETE',id:'fb',body:null});
-    // 안의 폴더(fb1)는 한 단 위(fa 안)로, 그 안의 자료는 그대로.
-    await expect(page.locator('#documentList details[data-lu-node="f:fa"] > .lu-node-body > details[data-lu-node="f:fb1"] [data-lu-document="a-2"]')).toBeAttached();
+    // 아래 폴더(fb1)도 함께 빠지고, 그 안의 자료(a-2)는 '폴더 없음' 자리에 나오지 않고 자료실 목록에서 함께 숨는다. 자료 연결은 그대로.
+    await expect(libraryNode(page,'f:fb1')).toHaveCount(0);await expect(page.locator('#documentList [data-lu-document="a-2"]')).toHaveCount(0);
+    expect(s.items).toEqual([{workspace_id:'workspace-1',document_id:'a-2',folder_id:'fb1'}]);
+    expect(s.trash.map(t=>[t.root,t.folders.map(f=>f.id)])).toEqual([['fb',['fb','fb1']]]);
+    // 안내 줄의 [되돌리기]: 서버가 묶음을 돌려놓고, 아래 폴더·자료가 원래 자리에 다시 보인다.
+    const undo=page.locator('[data-undo-notice]');await expect(undo).toContainText('폴더를 휴지통으로 옮겼습니다.');
+    await undo.locator('[data-undo-action]').click();
+    await expect.poll(()=>s.trash.length).toBe(0);expect(s.rpc.at(-1)).toEqual({fn:'app_trash_restore',kind:'library_folder',id:'fb'});
+    await expect(page.locator('#documentList details[data-lu-node="f:fa"] details[data-lu-node="f:fb"] details[data-lu-node="f:fb1"] [data-lu-document="a-2"]')).toBeAttached();
     // 자료 ⋯ → 폴더로 옮기기…: 같은 프로젝트 틀의 폴더만(지금 폴더 빼고), 경로 이름.
     await page.locator('#libraryExpandAll').click();if(await page.locator('#libraryExpandAll').getAttribute('data-lu-expand')!=='close')await page.locator('#libraryExpandAll').click();
     await press(page,page.locator('[data-lu-menu="a-1"]'),width);await press(page,page.locator('#luMorePanel [data-lu-file-folder="a-1"]'),width);
-    await expect(page.locator('#libraryFolderTargets [data-lu-target]')).toHaveText(['가상 A','가상 A › 가상 B-1']);
+    await expect(page.locator('#libraryFolderTargets [data-lu-target]')).toHaveText(['가상 A','가상 A › 가상 B','가상 A › 가상 B › 가상 B-1']);
     await press(page,page.locator('#libraryFolderTargets [data-lu-target="fb1"]'),width);await press(page,page.locator('#libraryFolderSave'),width);await expect(page.locator('#libraryFolderModal')).toBeHidden();
     expect(s.writes.at(-1)).toEqual({table:'items',method:'POST',id:null,body:{document_id:'a-1',folder_id:'fb1',workspace_id:'workspace-1'}});
     await expect(page.locator('#documentList details[data-lu-node="f:fb1"] [data-lu-document="a-1"]')).toBeAttached();
@@ -140,6 +156,23 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
     // 자료(app_documents)는 한 번도 쓰지 않았다.
     expect(s.patches).toEqual([]);
     expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);
+  });
+  test(`휴지통이 아직 준비 중이면(DB 적용 전) 폴더 지우기는 '준비 중'만 알리고 확인 창도 삭제 요청도 없다 ${width}`,async({page})=>{
+    const {s,errors}=await boot(page,width,{folders:[{id:'fa',project_id:'top-a',name:'가상 A',sort_order:1024}],items:[{document_id:'a-1',folder_id:'fa'}],trashMode:'missing'});
+    let asked=0;page.on('dialog',d=>{asked++;d.dismiss()});await page.locator('#libraryExpandAll').click();
+    await press(page,menuOf(page,'f:fa'),width);await press(page,action(page,'폴더 지우기'),width);
+    await expect(page.locator('#libraryFolderStatusLine')).toContainText('자료실 폴더 휴지통은 준비 중입니다');
+    expect(asked).toBe(0);expect(s.writes.filter(w=>w.method==='DELETE')).toEqual([]);expect(s.rpc.map(r=>r.fn)).toEqual(['app_trash_list']);
+    await expect(libraryNode(page,'f:fa')).toBeAttached();expect(s.folders.map(f=>f.id)).toEqual(['fa']);
+    expect(errors).toEqual([]);
+  });
+  test(`휴지통 상태를 읽지 못하면(일시 실패) 지우지 않고 다시 해 보라고 알린다 ${width}`,async({page})=>{
+    const {s,errors}=await boot(page,width,{folders:[{id:'fa',project_id:'top-a',name:'가상 A',sort_order:1024}],trashMode:'failed'});
+    let asked=0;page.on('dialog',d=>{asked++;d.dismiss()});await page.locator('#libraryExpandAll').click();
+    await press(page,menuOf(page,'f:fa'),width);await press(page,action(page,'폴더 지우기'),width);
+    await expect(page.locator('#libraryFolderStatusLine')).toContainText('휴지통 상태를 확인하지 못해 삭제하지 않았습니다');
+    expect(asked).toBe(0);expect(s.writes.filter(w=>w.method==='DELETE')).toEqual([]);
+    expect(errors.filter(e=>!/500/.test(e))).toEqual([]);
   });
 });
 
