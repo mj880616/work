@@ -16,6 +16,7 @@ begin;
 --     * 되돌리기: 같은 묶음 전체를 한 번에. 위 폴더가 아직 휴지통이면 거절(TRASH_PARENT_IN_TRASH), 휴지통에 있는 동안 위 폴더가 깊은 곳으로 옮겨져 3단을 넘으면 거절(LIB_FOLDER_DEPTH).
 --     * 영구 삭제: 지금의 폴더 지우기와 같다. 그 폴더만 지우고 안의 폴더·자료는 기존 lift 트리거가 한 단 위로 올린다. 함께 숨겨져 있던 하위 폴더는 올라간 자리를 따라 다시 보인다.
 --     소유자(private.app_is_workspace_owner)만. 영구 삭제는 명진이 휴지통에서 직접 누를 때만 일어난다. 자동 비우기는 없다.
+-- 주의: 한 번의 DELETE 요청에 같은 트리의 폴더를 둘 이상 담지 않는다(PostgreSQL이 같은 명령 안에서 이미 바뀐 행을 다시 지우지 못한다). 화면은 폴더 하나씩 지운다(LIB-토글트리 설계 3.4).
 -- 트리거 함수는 DEFINER이고 본문에서 public 표만 직접 부른다(private 함수 호출 없음). service_role 경로의 `42501 permission denied for schema private`
 -- (20261024210000_feed_item_guard_public 참고)를 만들지 않으며, service_role에 schema private 권한을 주지 않는다.
 -- anon·PUBLIC 권한 없음. 이 표를 service_role로 읽는 Edge Function은 없다(조사: supabase/functions에 app_library_folders 사용처 없음).
