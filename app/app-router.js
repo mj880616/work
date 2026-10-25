@@ -4,7 +4,6 @@
   const VIEW_PARAM='view';
   // REF-참고묶음: the 참고 묶음 screen is entered from the organization list, so the 담당조직 menu item stays marked there.
   const NAV_ALIAS={messages:'home',myspace:'home',reference:'team'};
-  const MENU_SHEET_VIEWS=['meetings','library','hwp','media','pages','ledger','calls','telegram'];
   // Retired addresses that now open another view (HWP 편집기 시험판 ?view=hwp-lab → ?view=hwp).
   const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings'};
   // MTG-사업보고: the 회의 screen (#meetingsView) is written as ?view=reports in the address; the old ?view=meetings still opens it.
@@ -193,15 +192,15 @@
     // BASKET-정리함이름: [노트] is its own menu item but lives on the basket panel (basket.js writes the side it shows to
     // #basketView[data-kind]). On that side [정리함] is not the current page and [노트] is; on every other screen [노트] is not marked.
     const noteMode=target==='basket'&&document.getElementById('basketView')?.dataset.kind==='note';
-    document.querySelectorAll('.app-nav .nav-btn,.app-nav .nav-sub-btn:is([data-view],[data-goto]),.mobile-tabs [data-view],.mobile-menu-panel :is([data-view],[data-basket-kind-nav])').forEach(btn=>{
+    document.querySelectorAll('.app-nav .nav-btn,.app-nav .nav-sub-btn:is([data-view],[data-goto]),.mobile-menu-panel :is([data-view],[data-basket-kind-nav])').forEach(btn=>{
       const own=btn.dataset.basketKindNav?noteMode:(btn.dataset.view||btn.dataset.goto)===target&&!(noteMode&&btn.dataset.view==='basket');
       btn.classList.toggle('active',own||!!btn.dataset.navGroup?.split(' ').includes(target));
       if(own)btn.setAttribute('aria-current',btn.dataset.goto&&!btn.dataset.view?'true':'page');
       else btn.removeAttribute('aria-current');
     });
-    // UI-테마선택색: the phone tab [메뉴] is the current item on every screen reached through the menu sheet.
-    const menuTab=document.getElementById('mobileMenuTab');
-    if(menuTab){if(MENU_SHEET_VIEWS.includes(target)||noteMode)menuTab.setAttribute('aria-current','page');else menuTab.removeAttribute('aria-current')}
+    // UI-모바일메뉴순서: the phone bottom tabs are marked in one place (mobile-tab-selection.mjs): exactly one is current —
+    // [메뉴] while its sheet is open, else the tab of this screen ([메뉴] for screens reached through the sheet).
+    window.KPTUMobileTabs?.paint(document,{view:target,noteMode});
     // UI-PC사이드바: on the PC sidebar the top line (icon + 홈) is the home menu, so it carries the home selection.
     document.querySelectorAll('.app-nav .sidebar-brand').forEach(brand=>{
       const current=(NAV_ALIAS[view]||view)==='home';

@@ -54,9 +54,9 @@
   #homeView h2[data-home-date]{display:none}
   .mobile-tabs{position:fixed;z-index:30;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));height:calc(56px + env(safe-area-inset-bottom));padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);box-sizing:border-box;background:var(--kptu-surface);border-top:1px solid var(--kptu-border)}
   .mobile-tabs button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:44px;min-width:44px;border:0;padding:0;background:transparent;color:var(--kptu-muted);font:inherit;font-size:12px;font-weight:400;line-height:1.2;cursor:pointer}
-  .mobile-tabs button[aria-current="page"],.mobile-tabs #mobileMenuTab[aria-expanded="true"]{color:var(--kptu-primary-ink);font-weight:700}
+  .mobile-tabs button[aria-current="page"]{color:var(--kptu-primary-ink);font-weight:700}
   .mobile-tabs svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-  .mobile-tabs :is([aria-current="page"],#mobileMenuTab[aria-expanded="true"]) svg{stroke-width:2.2}
+  .mobile-tabs [aria-current="page"] svg{stroke-width:2.2}
   .mobile-tabs button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
   body.kptu-mobile-keyboard .mobile-tabs{display:none}
 }

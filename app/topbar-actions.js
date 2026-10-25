@@ -1,4 +1,5 @@
 import {viewPrefs} from './view-prefs.js';
+import {repaintMobileTabs} from './mobile-tab-selection.mjs';
 (()=>{
 'use strict';
 if(window.__KPTU_TOPBAR_ACTIONS__)return;
@@ -32,6 +33,16 @@ const mobileAccount=accounts[0];
 const mobileTab=document.querySelector('#mobileMenuTab');
 const menuButton=()=>mobileTab?.getClientRects().length?mobileTab:mobileTrigger;
 let mobileOpen=false,mobileClosing=false,mobileOpener=null;
+// UI-모바일메뉴순서 (phone): the sheet opens scrolled to its bottom so the 메뉴 칸 next to the tab bar are seen without scrolling; a taller
+// sheet loses its upper part instead. It stays pinned while content above grows (수집 시각 arrives late) until the person scrolls up.
+let sheetPinned=false,sheetWatch=null;
+const pinSheet=()=>{if(sheetPinned&&mobileQuery.matches&&mobilePanel)mobilePanel.scrollTop=mobilePanel.scrollHeight};
+function watchSheet(){
+  sheetWatch?.disconnect();sheetPinned=true;pinSheet();
+  if(typeof ResizeObserver!=='function'||!mobilePanel)return;
+  sheetWatch=new ResizeObserver(pinSheet);sheetWatch.observe(mobilePanel);[...mobilePanel.children].forEach(child=>sheetWatch.observe(child));
+}
+
 // One close control: the × in the drawer head (761~1023px), drawn as the sheet's grip on a phone.
 const closeControl=()=>mobilePanel?.querySelector('[data-mobile-menu-close]')||mobilePanel;
 // Mid-width navigation reuses the original controls and the mobile dialog.
@@ -129,7 +140,7 @@ document.fonts?.addEventListener('loadingdone',syncMidNavigation);
 
 function closeMobile(then,fromBack=false){
   if(!mobileOpen){then?.();return}
-  mobileOpen=false;mobileClosing=true;resetDrag();mobileMenu.hidden=true;[mobileTrigger,mobileTab].forEach(button=>button?.setAttribute('aria-expanded','false'));
+  mobileOpen=false;mobileClosing=true;sheetWatch?.disconnect();sheetWatch=null;sheetPinned=false;resetDrag();mobileMenu.hidden=true;[mobileTrigger,mobileTab].forEach(button=>button?.setAttribute('aria-expanded','false'));repaintMobileTabs();
   window.KPTUA11y?.dialog.deactivate(mobilePanel,{restoreFocus:false});
   const opener=mobileOpener?.getClientRects().length?mobileOpener:menuButton();mobileOpener=null;
   const finish=()=>queueMicrotask(()=>{mobileClosing=false;if(opener.getClientRects().length)opener.focus({preventScroll:true});then?.()});
@@ -150,9 +161,10 @@ function openMobile(trigger){
   if(mobileClosing)return;
   if(mobileOpen){closeMobile();return}
   if(!menuQuery.matches||window.__KPTU_TEAM_READY_STATE__!=='workspace')return;
-  mobileOpen=true;mobileOpener=trigger;dragEndedAt=0;mobileMenu.hidden=false;trigger.setAttribute('aria-expanded','true');
-  history.pushState({...history.state,kptuMobileMenu:true},'',location.href);
+  mobileOpen=true;mobileOpener=trigger;dragEndedAt=0;mobileMenu.hidden=false;trigger.setAttribute('aria-expanded','true');repaintMobileTabs();
+  history.pushState({...history.state,kptuMobileMenu:true},'',location.href);watchSheet();
   window.KPTUA11y?.dialog.activate(mobilePanel,{trigger,initialFocus:closeControl(),onRequestClose:closeMobile});
+  pinSheet();
 }
 mobileTrigger?.addEventListener('click',()=>openMobile(mobileTrigger));
 mobileTab?.addEventListener('click',()=>openMobile(mobileTab));
@@ -191,6 +203,7 @@ const endDrag=event=>{
   if(drag.captured)dragEndedAt=performance.now();
   resetDrag();if(far&&event.type==='pointerup')closeMobile();
 };
+mobilePanel?.addEventListener('scroll',()=>{if(mobileOpen)sheetPinned=mobilePanel.scrollHeight-mobilePanel.scrollTop-mobilePanel.clientHeight<=2},{passive:true});
 mobilePanel?.addEventListener('pointerup',endDrag);
 mobilePanel?.addEventListener('pointercancel',endDrag);
 

@@ -63,7 +63,7 @@ test('mid drawer close, back, focus trap, theme and current overflow location',a
   const trigger=page.locator('#mobileMenuOpen'),drawer=page.locator('#mobileMenu');
   for(const close of ['close','outside','escape','back']){
     await trigger.focus();await page.keyboard.press('Enter');await expect(drawer).toBeVisible();await expect(page.locator('[data-mobile-menu-close]')).toBeFocused();
-    await page.keyboard.press('Shift+Tab');await expect(page.locator('#mobileMenu [data-kptu-logout]')).toBeFocused();await page.keyboard.press('Tab');await expect(page.locator('[data-mobile-menu-close]')).toBeFocused();
+    await page.keyboard.press('Shift+Tab');await expect(page.locator('#mobileMenu nav button:visible').last()).toBeFocused();await page.keyboard.press('Tab');await expect(page.locator('[data-mobile-menu-close]')).toBeFocused();
     if(close==='close')await page.locator('[data-mobile-menu-close]').click();
     if(close==='outside')await drawer.click({position:{x:10,y:400}});
     if(close==='escape')await page.keyboard.press('Escape');if(close==='back')await page.goBack();
