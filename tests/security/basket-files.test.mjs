@@ -71,7 +71,7 @@ async function harness(options={}) {
   const driveFetch=(url,init)=>{const u=new URL(url);return fetch(origin+u.pathname+u.search,init);};
   const admin={auth:{getUser:async()=>options.auth||{data:{user:{id:'synthetic-owner'}},error:null}},from:table=>{
     calls.tables.push(table);const filters=[];let mutation=null,returning=false,ignore=false;
-    const b={select:()=>{returning=true;return b;},eq:(k,v)=>{filters.push([k,v]);return b;},is:(k,v)=>{filters.push([k,v]);return b;},
+    const b={select:()=>{returning=true;return b;},eq:(k,v)=>{filters.push([k,v]);return b;},is:(k,v)=>{filters.push([k,v,'is']);return b;},
       update:payload=>{mutation={kind:'update',payload};return b;},insert:payload=>{mutation={kind:'insert',payload};return b;},
       upsert:(payload,opt)=>{mutation={kind:'upsert',payload};ignore=opt?.ignoreDuplicates;return b;},
       maybeSingle:()=>exec(true),single:()=>exec(true),then:(r,e)=>exec(false).then(r,e)};
@@ -84,7 +84,9 @@ async function harness(options={}) {
       else if(table==='app_drive_settings')data=state.settings;
       else if(table==='app_notes')data=state.note;
       else throw new Error('unexpected table '+table);
-      const match=data&&filters.every(([k,v])=>k==='attachments'?JSON.stringify(data[k])===v:data[k]===v);
+      // TRASH-다른삭제 5단계: is(칸, null)은 칸이 없거나 null이면 맞는다(휴지통 표시가 없는 노트). options.noTrashColumn = DB 적용 전(42703 거절).
+      if(table==='app_notes' && options.noTrashColumn && filters.some(([k,,op])=>k==='deleted_at'&&op==='is'))return {data:null,error:{code:'42703',message:'column app_notes.deleted_at does not exist'},status:400};
+      const match=data&&filters.every(([k,v,op])=>op==='is'?(data[k]??null)===v:k==='attachments'?JSON.stringify(data[k])===v:data[k]===v);
       if(mutation){
         calls.writes.push({table,...mutation,filters});
         if((table==='app_notes'&&options.saveError)||(table==='app_drive_settings'&&options.settingError))
@@ -146,6 +148,24 @@ test('existing note adds attachments while preserving raw text and AI flag',asyn
   assert.equal((await send(h,{fields:{note_id:NOTE,raw_text:'discard'}})).status,200);
   assert.equal(h.state.note.raw_text,'keep');assert.equal(h.state.note.ai_export_allowed,false);assert.equal(h.state.note.attachments.length,2);
 }));
+// TRASH-다른삭제 5단계: 서버 키(admin)로 읽는 노트에서 휴지통 노트를 뺀다.
+test('upload to a trashed note is refused as not found before any Drive access or write',async()=>using({note:{id:NOTE,workspace_id:WS,raw_text:'keep',attachments:[attachment('old')],updated_at:'old',deleted_at:'2026-10-26T00:00:00Z'}},async h=>{
+  const r=await send(h,{fields:{note_id:NOTE}});
+  assert.equal(r.status,404);assert.equal(r.body.code,'note_not_found');
+  assert.equal(h.calls.drive.length,0);assert.deepEqual(h.calls.writes,[]);assert.equal(h.state.note.attachments.length,1);
+}));
+test('a live note is read and saved with deleted_at is null; before the database has the column both retry once without it',async()=>{
+  await using({note:{id:NOTE,workspace_id:WS,raw_text:'keep',attachments:[attachment('old')],updated_at:'old'}},async h=>{
+    assert.equal((await send(h,{fields:{note_id:NOTE}})).status,200);
+    assert.deepEqual(h.calls.writes.map(w=>w.filters.some(([k,v,op])=>k==='deleted_at'&&v===null&&op==='is')),[true]);
+    assert.equal(h.state.note.attachments.length,2);
+  });
+  await using({noTrashColumn:true,note:{id:NOTE,workspace_id:WS,raw_text:'keep',attachments:[attachment('old')],updated_at:'old'}},async h=>{
+    assert.equal((await send(h,{fields:{note_id:NOTE}})).status,200);
+    assert.equal(h.calls.writes.length,1);assert.equal(h.calls.writes[0].filters.some(([k])=>k==='deleted_at'),false);
+    assert.equal(h.state.note.attachments.length,2);
+  });
+});
 test('file names with ; = quotes and Korean reach the note intact; path parts and bad bodies are refused (BASKET-파일명파싱)',async()=>{
   const raw=(cd,ct='multipart/form-data; boundary=B')=>new Request('https://synthetic.invalid/functions/v1/basket-files',{method:'POST',
     headers:{Authorization:'Bearer synthetic-user-token','Content-Type':ct},
