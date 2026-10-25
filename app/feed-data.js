@@ -192,3 +192,27 @@ export async function readLedgerSeen(id, rt = window.KPTURuntime) {
     return Array.isArray(rows) ? rows.length > 0 : null;
   } catch { return null; }
 }
+
+// ---------- CALL-손고치기 (docs/design/call-user-edit.md): 통화의 제목·조직·상대 이름·핵심내용을 손으로 고친 값.
+// 고친 값은 app_call_edits(소유자 읽기 전용)에 따로 있고 AI가 채운 칸은 그대로다. 쓰기는 DB 함수 app_call_edit 하나로만 한다.
+// Map(통화 ID → 사용자 값). 표가 아직 없으면(DB 적용 전) 위로 던져서 화면이 missingTable로 알아본다.
+export async function readCallEdits(rt = window.KPTURuntime) {
+  const ws = workspaceOf(rt);
+  const rows = await readRecordPages(`/rest/v1/app_call_edits?workspace_id=eq.${encode(ws)}&select=call_id,vals&order=call_id.asc`, rt);
+  return new Map(rows.filter(r => r?.call_id && r.vals && typeof r.vals === 'object').map(r => [r.call_id, r.vals]));
+}
+// patch 키: title · counterpart · organization_id (업무 통화만) · points · reset(고쳤던 칸 이름 배열 = AI 값으로).
+// {ok:true, changed, vals} 또는 {ok:false, error: GONE | INVALID | UNAVAILABLE | REFUSED | UNKNOWN}.
+export async function editCall(id, patch, rt = window.KPTURuntime) {
+  let data;
+  try { data = await rt.api('/rest/v1/rpc/app_call_edit', {method:'POST', body:{p_id:id, p_patch:patch}, singleFlight:false}); }
+  catch (error) {
+    const status = Number(error?.status) || 0, text = String(error?.message || '');
+    if (/CALL_NOT_FOUND/.test(text)) return {ok:false, error:'GONE'};
+    if (/CALL_EDIT_|FEED_LINK_SCOPE/.test(text)) return {ok:false, error:'INVALID'};
+    if (status === 404 || /PGRST202|Could not find the function/i.test(text)) return {ok:false, error:'UNAVAILABLE'};
+    return {ok:false, error:status >= 400 && status < 500 ? 'REFUSED' : 'UNKNOWN'};
+  }
+  if (data && typeof data === 'object' && data.ok === true && data.vals && typeof data.vals === 'object') return {ok:true, changed:data.changed === true, vals:data.vals};
+  return {ok:false, error:'UNKNOWN'};
+}
