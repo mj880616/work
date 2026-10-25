@@ -171,7 +171,7 @@ test('통화 1280: 지운 통화에서 원장에 들어간 기록 안내와 [원
  const f=await fixture(page,{width:1280});
  const S1='80000000-0000-4000-8000-000000000001',R1='81000000-0000-4000-8000-000000000001',R2='81000000-0000-4000-8000-000000000002',R3='81000000-0000-4000-8000-000000000003',S2='80000000-0000-4000-8000-000000000002';
  const reads=[],fixes=[];
- await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_ledger_sources',r=>{reads.push(decodeURIComponent(new URL(r.request().url()).searchParams.get('location')||''));return r.fulfill({json:[{id:S1}]});});
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_ledger_sources',r=>{reads.push(decodeURIComponent(new URL(r.request().url()).searchParams.get('location')||'').replace(/^eq\./,''));return r.fulfill({json:[{id:S1}]});});
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_ledger_record_sources',r=>{
   const q=new URL(r.request().url()).searchParams;
   if(q.get('source_id'))return r.fulfill({json:[{record_id:R1,source_id:S1},{record_id:R2,source_id:S1},{record_id:R3,source_id:S1}]});
