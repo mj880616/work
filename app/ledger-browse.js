@@ -555,7 +555,8 @@ function bind() {
   });
   document.addEventListener('change', e => {
     const r = root();
-    if (!r?.contains(e.target) || e.target.id === 'lbQuery') return;
+    // 검색 조건 칸(#lbForm)만. 바로가기 한 줄 입력 같은 다른 칸의 change는 목록을 다시 찾지 않는다(펼친 기록이 접히지 않게).
+    if (!r?.contains(e.target) || e.target.id === 'lbQuery' || !e.target.closest?.('#lbForm')) return;
     readForm(r); run();
   });
   document.addEventListener('input', e => {

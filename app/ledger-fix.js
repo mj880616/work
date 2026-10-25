@@ -65,6 +65,8 @@ async function preview() {
     let request, dry;
     if (input.mode === 'paste') {
       request = input.request;
+      const outside = anchoredViolation(request, state.target);
+      if (outside) { state.error = outside; return; }
       dry = await dryRun(request);
     } else {
       const r = await callAiAssist(serverBody(input.text, state.target));

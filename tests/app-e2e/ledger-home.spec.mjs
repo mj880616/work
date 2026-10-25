@@ -230,7 +230,7 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
   await row.locator('[data-lb-action="open"]').click();
   const detail=browse.locator('#lbDetail-'+u(1));
   await row.locator('summary[aria-label^="기록 관리"]').click();
-  await row.getByRole('button',{name:'내용 업데이트…',exact:true}).click();
+  await row.getByRole('menuitem',{name:'내용 업데이트…',exact:true}).click();
   const fix=page.locator('#ledgerFixRoot');
   await expect(fix).toBeVisible();
   await expect(fix.locator('#lfTitle')).toContainText('내용 업데이트 · 가상 나 지부 2차 교섭');
