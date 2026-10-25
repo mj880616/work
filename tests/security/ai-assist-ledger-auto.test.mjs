@@ -17,7 +17,7 @@ const SECRET='SECRET_DIARY_TEXT',S2_TITLE='가상 교섭 전략 S2 제목',NEGO=
 
 const answer=(items,outdated=[])=>({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({items,outdated})}]}],usage:{input_tokens:6000,output_tokens:500}});
 const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
-const item=(over={})=>({kind:'event',title:'가 지부 임금교섭 시작.',summary:'가 지부와 임금교섭 시작 합의.',date:'2026-10-20',sensitivity:'S1',source:'r1',event:'',same_as:'',counterparty:'',follow_up_on:'',decision_type:'',sure:true,...over});
+const item=(over={})=>({kind:'event',title:'가 지부 임금교섭 시작.',summary:'가 지부와 임금교섭 시작 합의.',date:'2026-10-20',sensitivity:'S1',source:'r1',event:'',same_as:'',counterparty:'',follow_up_on:'',decision_type:'',sure:true,reference:false,...over});
 const run={kind:'ledger_auto'};
 
 function harness({openai=null,runs=[{id:id(500),workspace_id:WS,status:'done',started_at:FIRST_RUN,tokens_in:1,tokens_out:1}],seen=[],usage=[],ledgerMissing=false,recordReply=null,beginError=null,fail={}}={}){
@@ -327,4 +327,35 @@ test('old ledger_candidates kind is unchanged and still accepted',async()=>{
   assert.match(src,/if \(input\.kind === "ledger_candidates"\) return await runLedgerCandidates/);
   assert.ok(!/SERVICE_ROLE_KEY|env\([^)]*SERVICE/.test(src.slice(src.indexOf('// ---- 쓰임 ledger_auto'),src.indexOf('// ---- 자료실 빈 칸 채우기'))),'no service role key in ledger_auto');
   assert.ok(!/SERVICE_ROLE/.test(src),'handler never reads a service role key');
+});
+
+// LEDGER-첫화면정리: 원장 대상은 공공기관사업팀 업무의 약속·결정·사건뿐. 바깥 기사·해외 사례·외국 단체 소개 같은 참고 자료는 원장에 넣지 않는다.
+test('reference material (outside articles, overseas cases, foreign union bodies) is never recorded: instructions say so and the server drops reference=true items',async()=>{
+  const ins=auto.LEDGER_AUTO_INSTRUCTIONS;
+  assert.match(ins,/공공기관사업팀 업무/);
+  assert.match(ins,/기사·보도자료·뉴스레터/);
+  assert.match(ins,/해외 사례.*외국 노조·사용자 단체/);
+  assert.match(ins,/참고·학습·벤치마킹용 자료/);
+  assert.match(ins,/reference는 .*true/);
+  const props=auto.LEDGER_AUTO_SCHEMA.properties.items.items;
+  assert.equal(props.properties.reference.type,'boolean');
+  assert.ok(props.required.includes('reference'));
+  const h=harness({openai:[o=>respond(answer([
+    item({source:refOf(o,'임금교섭 시작'),title:'가 지부 임금교섭 시작.'}),
+    item({source:refOf(o,'안건'),title:'AI 회사 개발자 행사 기능 공개.',summary:'기사 속 신기능 소개.',reference:true}),
+    item({source:refOf(o,'안건'),title:'해외 노조 연합 기술 연구소 소개.',summary:'외국 단체 소개.',reference:true,kind:'change',event:'EVT-0901'}),
+    item({source:refOf(o,'안건'),title:'기존 사건 근거 추가.',same_as:'EVT-0904',reference:true}),
+    item({source:refOf(o,'안건'),title:'다 프로젝트 안건 채택.',kind:'decision',decision_type:'adopted'}),
+  ]))]});
+  assert.equal((await post(h.handler,run)).status,200);
+  const b=batchOf(h);
+  assert.deepEqual(b.items.map(i=>i.title).sort(),['가 지부 임금교섭 시작.','다 프로젝트 안건 채택.']);
+  assert.ok(b.items.every(i=>i.op==='new'),'reference items add neither records nor sources');
+  assert.equal(b.excluded,0,'reference is not the S3·personal count');
+  assert.equal(h.calls.logs.find(l=>l.code==='ledger_auto_done').detail.reference,3);
+  // 순수 파서: reference 칸이 없거나 boolean이 아니면 그 항목만 버린다.
+  const packed=[{kind:'basket',id:id(1),stamp:RECENT,day:TODAY,at:Date.parse(RECENT),text:'x',ref:'r1'}];
+  const bad=item();delete bad.reference;
+  const out=auto.parseLedgerAuto(JSON.stringify({items:[bad,item({reference:'false'}),item({reference:false})],outdated:[]}),packed,new Map(),[],TODAY);
+  assert.equal(out.items.length,1);assert.equal(out.dropped,2);assert.equal(out.reference,0);
 });
