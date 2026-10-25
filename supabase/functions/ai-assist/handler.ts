@@ -1453,7 +1453,7 @@ async function runLedgerAuto(ctx: Ctx, deps: RadarDeps): Promise<Response> {
     }
     const counts = Object.fromEntries(["sources_seen", "records_new", "changes_linked", "sources_added", "needs_check", "skipped", "excluded"]
       .map((k) => [k, tokenCount(o[k])]));
-    deps.log("ledger_auto_done", { ...counts, items: parsed.items.length, outdated: parsed.outdated.length, dropped: parsed.dropped, partial });
+    deps.log("ledger_auto_done", { ...counts, items: parsed.items.length, outdated: parsed.outdated.length, dropped: parsed.dropped, reference: parsed.reference, partial });
     return json({ ok: true, kind: "ledger_auto", run_id: runId, ...counts, partial });
   } catch (e) {
     await failAutoRun(ctx, runId, e instanceof Fail ? `LEDGER_AUTO_${e.code.toUpperCase()}`.slice(0, 80) : "LEDGER_AUTO_ERROR", used, deps.now(), deps.log);
