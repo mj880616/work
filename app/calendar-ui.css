@@ -310,6 +310,3 @@
   #calendarView .calendar-toolbar #monthTitle,
   #calendarView.calendar-list-active .calendar-toolbar #monthTitle{box-sizing:border-box;flex:none;width:12.5em;min-width:12.5em;text-align:center;white-space:nowrap}
 }
-@media(max-width:760px){
-  #calendarView .calendar-title-compact{min-width:2.2em;justify-content:center}
-}
