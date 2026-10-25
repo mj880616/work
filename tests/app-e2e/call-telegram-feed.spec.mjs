@@ -261,6 +261,33 @@ test('텔레그램 390: 채팅방 모양, 길게 누르면 누른 자리 아래 
  expect(f.errors).toEqual([]);
 });
 
+// UI-모바일고르기칸: [모든 방 ⌄]은 휴대폰 기본 선택 창 대신 앱 목록(칸 바로 아래·칸과 같은 폭·뒤 화면 그대로)으로 열린다.
+for(const width of [390,1280])test(`텔레그램 ${width}: 모든 방 고르기는 칸 아래 앱 목록, 고르면 걸러지고 뒤로가기는 목록 닫기`,async({page})=>{
+ const f=await fixture(page,{width});
+ await openMenu(page,width,'텔레그램 소식');
+ const view=page.locator('#telegramView'),sel=view.locator('[data-tg-room]'),list=page.locator('#kptuSelectMenu');
+ await expect(sel).toBeVisible();
+ await sel.click();
+ await expect(list).toBeVisible();
+ await expect(list.getByRole('option')).toHaveText(['모든 방','가상지부 단톡','예시 간부방']);
+ const s=await sel.boundingBox(),m=await list.boundingBox();
+ expect(m.y).toBeGreaterThanOrEqual(s.y+s.height-1);expect(m.y-(s.y+s.height)).toBeLessThan(12);
+ expect(Math.abs(m.x-s.x)).toBeLessThan(2);expect(Math.abs(m.width-s.width)).toBeLessThan(2);
+ expect(await list.evaluate(e=>parseFloat(getComputedStyle(e.querySelector('[role=option]')).fontSize))).toBeGreaterThanOrEqual(14);
+ await expect(list.getByRole('option',{name:'모든 방'})).toHaveAttribute('aria-selected','true');
+ // 키보드: 아래 화살표 두 번 → Enter.
+ await page.keyboard.press('ArrowDown');await page.keyboard.press('ArrowDown');await page.keyboard.press('Enter');
+ await expect(list).toBeHidden();
+ await expect(sel).toHaveValue('room-b');
+ await expect(view.locator('[data-tg-item]')).toHaveCount(1);
+ // 다시 열고 바깥(머리 글자)을 누르면 닫히고, 열고 Esc도 닫는다. 뒤로가기는 목록만 닫고 화면은 그대로.
+ await sel.click();await expect(list).toBeVisible();
+ await page.keyboard.press('Escape');await expect(list).toBeHidden();
+ await sel.click();await expect(list).toBeVisible();
+ await page.goBack();await expect(list).toBeHidden();await expect(view).toBeVisible();await expect(page).toHaveURL(/view=telegram/);
+ expect(f.errors).toEqual([]);
+});
+
 // 마우스가 있는 PC(hover:hover). 터치 흉내를 끄고 본다(폰·폴드처럼 마우스가 없는 화면에는 ⋯가 없다).
 test.describe('마우스 PC',()=>{test.use({hasTouch:false});
 test('텔레그램 1280: 마우스를 올린 줄만 ⋯, 오른쪽 클릭은 누른 자리 메뉴, 지우기 저장, 원문은 오른쪽 2/3',async({page})=>{
