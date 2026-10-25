@@ -5,7 +5,7 @@ import {testOrigin} from './helpers/test-origin.mjs';
 
 // LEDGER-화면정리·LEDGER-수정요청(명진 요청 2026-10-24 07:17): [원장] 첫 화면과 고치기.
 // 위에서부터 검색 / 상대가 안 지킨 약속 / 지금 추적 중인 일 / 조직별·주제별 칩 / 최근 자동으로 기록됨. 칩 → 이야기(시간순 타임라인), 줄 → 근거·출처.
-// 기록 상세 ⋯ [고치기]·[+ 기록하기]: 일상어 한 줄 → ai-assist ledger_fix(모의) 미리보기 → [반영] 한 번(app_apply_ledger_fix p_dry_run=false) → 옛 기록 대체됨.
+// 기록 상세 ⋯ [내용 업데이트…](LEDGER-기록바로업데이트, 대상 고정)·[+ 기록하기]: 일상어 한 줄 → ai-assist ledger_fix(모의) 미리보기 → [반영] 한 번(app_apply_ledger_fix p_dry_run=false) → 옛 기록 대체됨.
 // Claude 수정안 덩어리는 같은 칸에 붙여 넣어 해 보기(p_dry_run=true) → [반영]. 가져오기·후보 칸은 없다. Supabase·ai-assist는 시험 응답(가상 값만).
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'ledger-h-user',email:'ledger-h@example.org',user_metadata:{display_name:'Ledger QA'}};
@@ -229,11 +229,11 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
   const row=browse.locator('[data-lb-sec="tracking"] [data-lb-row="'+u(1)+'"]');
   await row.locator('[data-lb-action="open"]').click();
   const detail=browse.locator('#lbDetail-'+u(1));
-  await detail.locator('summary[aria-label^="기록 관리"]').click();
-  await detail.getByRole('button',{name:'고치기',exact:true}).click();
+  await row.locator('summary[aria-label^="기록 관리"]').click();
+  await row.getByRole('menuitem',{name:'내용 업데이트…',exact:true}).click();
   const fix=page.locator('#ledgerFixRoot');
   await expect(fix).toBeVisible();
-  await expect(fix.locator('#lfTitle')).toContainText('고치기 · 가상 나 지부 2차 교섭');
+  await expect(fix.locator('#lfTitle')).toContainText('내용 업데이트 · 가상 나 지부 2차 교섭');
   await expect(fix.locator('#lfText')).toBeFocused();
   await fix.locator('#lfText').fill('나 지부 2차 교섭은 11/4가 아니라 11/5였음');
   // 미리보기 전에는 [반영]이 없다(바로 바뀌지 않음).
@@ -269,6 +269,171 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
   await notice.getByRole('button',{name:'되돌리기'}).click();
   await expect.poll(()=>db.undo.length).toBe(1);
   expect(db.undo[0]).toEqual({p_fix_request_id:u(801)});
+  expect(await noSideScroll(page)).toBe(true);
+ });
+
+ test(`⋯ 메뉴: 제목 줄 오른쪽 끝(빈 줄 없음) · 종류별 바로가기 · 구분선 · [틀린 기록으로 표시 ▸] 하위 목록 (${name} ${width}px)`,async({page})=>{
+  test.setTimeout(90000);
+  await page.setViewportSize({width,height:900});
+  const db=await mockApp(page);
+  await signIn(page);
+  const browse=page.locator('#ledgerBrowseRoot');
+  const row=browse.locator('[data-lb-sec="overdue"] [data-lb-row="'+u(3)+'"]');
+  await row.locator('[data-lb-action="open"]').click();
+  const kebab=row.locator('summary[aria-label^="기록 관리"]');
+  await expect(kebab).toBeVisible({timeout:10000});
+  // ⋯는 제목 첫 줄 안(행 머리 높이 안)에 있고, 상세 상자 맨 위에 ⋯만 있는 빈 줄이 없다(상세 첫 글이 ⋯ 줄이 아님).
+  const headBox=await row.locator('.lb-head').boundingBox(),kBox=await kebab.boundingBox();
+  expect(kBox.y).toBeGreaterThanOrEqual(headBox.y-1);
+  expect(kBox.y+kBox.height).toBeLessThanOrEqual(headBox.y+headBox.height+6);
+  expect(kBox.x+kBox.width).toBeGreaterThan(headBox.x+headBox.width-48);
+  await expect(row.locator('.lb-detail summary')).toHaveCount(0);
+  const detailBox=await row.locator('.lb-detail').boundingBox();
+  expect(detailBox.y).toBeLessThanOrEqual(headBox.y+headBox.height+4);
+  // 제목은 ⋯ 옆으로 비켜 있다(겹치지 않음).
+  const titleBox=await row.locator('.lbr-title').boundingBox();
+  expect(titleBox.x+titleBox.width).toBeLessThanOrEqual(kBox.x+2);
+  await kebab.click();
+  const menu=row.locator('.lb-menu');
+  await expect(menu).toBeVisible();
+  await expect(menu.locator('.lb-menu-item').filter({visible:true})).toHaveText(['지켜짐 · 종결','추적에서 빼기','내용 업데이트…','틀린 기록으로 표시 ▸']);
+  await expect(menu.locator('.lb-menu-sep')).toHaveCount(1);
+  await expect(menu.locator('.lg-danger')).toHaveCount(0);
+  expect((await menu.locator('.lb-menu-item').first().boundingBox()).height).toBeLessThanOrEqual(40);
+  // 하위 목록은 눌러야 보인다.
+  await expect(menu.getByRole('menuitem',{name:'사실과 달라요'})).toBeHidden();
+  await menu.locator('summary[data-lb-sub]').click();
+  await expect(menu.getByRole('menuitem').filter({hasText:/사실과 달라요|같은 기록이 이미 있어요|원장에 둘 일이 아니에요/})).toHaveCount(3);
+  expect(await noSideScroll(page)).toBe(true);
+  page.once('dialog',d=>d.accept());
+  await menu.getByRole('menuitem',{name:'사실과 달라요'}).click();
+  await expect.poll(()=>db.fix.length).toBe(1);
+  expect(db.fix[0].p_request.items).toEqual([{target:'COM-0901',do:'retire',reason:'사실과 달라요'}]);
+  await expect(browse.locator('[data-lb-sec="overdue"]')).toHaveCount(0,{timeout:10000});
+  // 일어난 일은 [추적 끝내기]만(약속 바로가기 없음), 변화·결정에는 바로가기가 없다.
+  const ev=browse.locator('[data-lb-sec="tracking"] [data-lb-row="'+u(1)+'"]');
+  await ev.locator('[data-lb-action="open"]').click();
+  await ev.locator('summary[aria-label^="기록 관리"]').click();
+  await expect(ev.locator('.lb-menu .lb-menu-item').filter({visible:true})).toHaveText(['추적 끝내기','내용 업데이트…','틀린 기록으로 표시 ▸']);
+ });
+
+ test(`약속 ⋯ [추적에서 빼기]: 한 줄 적고 [반영] → '상대가 안 지킨 약속'에서 바로 빠짐, 옛 기록은 대체됨으로 남고 [되돌리기] (${name} ${width}px)`,async({page})=>{
+  test.setTimeout(90000);
+  await page.setViewportSize({width,height:900});
+  const db=await mockApp(page);
+  await signIn(page);
+  const browse=page.locator('#ledgerBrowseRoot');
+  const row=browse.locator('[data-lb-sec="overdue"] [data-lb-row="'+u(3)+'"]');
+  await row.locator('[data-lb-action="open"]').click();
+  await row.locator('summary[aria-label^="기록 관리"]').click();
+  await row.getByRole('menuitem',{name:'추적에서 빼기',exact:true}).click();
+  const quick=row.locator('[data-lb-quick="drop"]');
+  await expect(quick).toContainText('이 약속을 추적에서 뺍니다.');
+  expect(db.fix).toHaveLength(0);
+  await quick.locator('[data-lb-quick-input]').fill('더 이상 추적 안 함');
+  await quick.getByRole('button',{name:'반영',exact:true}).click();
+  await expect.poll(()=>db.fix.length).toBe(1);
+  expect(db.fix[0]).toEqual({p_workspace_id:workspace.id,p_dry_run:false,p_request:{format:'kptu-ledger-fix',version:1,received_from:'user',
+   items:[{target:'COM-0901',do:'replace',set:{commitment_status:'cancelled',note:'추적에서 뺀 이유: 더 이상 추적 안 함'},reason:'추적에서 뺌 · 더 이상 추적 안 함'}]}});
+  expect(db.records.find(r=>r.id===u(3)).validity).toBe('superseded');
+  await expect(browse.locator('[data-lb-sec="overdue"]')).toHaveCount(0,{timeout:10000});
+  const notice=page.locator('[data-undo-notice]');
+  await expect(notice).toContainText('COM-0901을(를) 추적에서 뺐어요.');
+  await notice.getByRole('button',{name:'되돌리기'}).click();
+  await expect.poll(()=>db.undo.length).toBe(1);
+  expect(await noSideScroll(page)).toBe(true);
+ });
+
+ test(`약속 ⋯ [지켜짐 · 종결](결과 비워도 됨)과 일어난 일 ⋯ [추적 끝내기]: 목록에서 바로 빠짐 (${name} ${width}px)`,async({page})=>{
+  test.setTimeout(90000);
+  await page.setViewportSize({width,height:900});
+  const db=await mockApp(page);
+  await signIn(page);
+  const browse=page.locator('#ledgerBrowseRoot');
+  const row=browse.locator('[data-lb-sec="overdue"] [data-lb-row="'+u(3)+'"]');
+  await row.locator('[data-lb-action="open"]').click();
+  await row.locator('summary[aria-label^="기록 관리"]').click();
+  await row.getByRole('menuitem',{name:'지켜짐 · 종결',exact:true}).click();
+  await expect(row.locator('[data-lb-quick="fulfill"]')).toContainText('이 약속을 지켜짐으로 종결합니다.');
+  await row.getByRole('button',{name:'반영',exact:true}).click();
+  await expect.poll(()=>db.fix.length).toBe(1);
+  expect(db.fix[0].p_request.items).toEqual([{target:'COM-0901',do:'replace',set:{commitment_status:'fulfilled'},reason:'지켜져서 종결'}]);
+  await expect(browse.locator('[data-lb-sec="overdue"]')).toHaveCount(0,{timeout:10000});
+  const ev=browse.locator('[data-lb-sec="tracking"] [data-lb-row="'+u(1)+'"]');
+  await ev.locator('[data-lb-action="open"]').click();
+  await ev.locator('summary[aria-label^="기록 관리"]').click();
+  await ev.getByRole('menuitem',{name:'추적 끝내기',exact:true}).click();
+  await expect(ev.locator('[data-lb-quick="end"]')).toContainText('이 일의 추적을 끝냅니다.');
+  await ev.getByRole('button',{name:'반영',exact:true}).click();
+  await expect.poll(()=>db.fix.length).toBe(2);
+  expect(db.fix[1].p_request.items).toEqual([{target:'EVT-0901',do:'replace',set:{event_status:'closed'},reason:'추적을 끝냄'}]);
+  await expect(browse.locator('[data-lb-sec="tracking"]')).toHaveCount(0,{timeout:10000});
+ });
+
+ test(`⋯ [내용 업데이트…]: 대상이 그 기록으로 고정 · 상태·기한은 일상어 미리보기 · 반영 뒤 펼친 기록에 빨간 오류가 뜨지 않음 (${name} ${width}px)`,async({page})=>{
+  test.setTimeout(90000);
+  await page.setViewportSize({width,height:900});
+  const db=await mockApp(page);
+  await signIn(page);
+  const browse=page.locator('#ledgerBrowseRoot');
+  const row=browse.locator('[data-lb-sec="overdue"] [data-lb-row="'+u(3)+'"]');
+  await row.locator('[data-lb-action="open"]').click();
+  await row.locator('summary[aria-label^="기록 관리"]').click();
+  await row.getByRole('menuitem',{name:'내용 업데이트…',exact:true}).click();
+  const fix=page.locator('#ledgerFixRoot');
+  await expect(fix.locator('#lfTitle')).toContainText('내용 업데이트 · 가상 사측 자료 회신 약속');
+  // 대상이 고정: 다른 기록을 고치는 덩어리는 거절한다.
+  await fix.locator('#lfText').fill(JSON.stringify({format:'kptu-ledger-fix',version:1,items:[{target:'DEC-0901',do:'retire',reason:'잘못 뽑힘'}]}));
+  await fix.getByRole('button',{name:'미리보기'}).click();
+  await expect(fix.locator('[data-lf-error]')).toContainText('이 기록 하나만 업데이트할 수 있어요');
+  await expect(fix.getByRole('button',{name:'반영',exact:true})).toHaveCount(0);
+  // 기한을 바꾸는 글 → 일상어 한 줄.
+  const later=addDays(seoul(),10),laterLabel=Number(later.slice(5,7))+'/'+Number(later.slice(8,10));
+  await page.route('**/functions/v1/ai-assist',async route=>{
+   const body=route.request().postDataJSON();
+   const req={format:'kptu-ledger-fix',version:1,received_from:'user',items:[{do:'replace',target:body.target,set:{follow_up_on:later},reason:'기한 변경'}]};
+   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,kind:'ledger_fix',request:req,preview:[{target:body.target,do:'replace',reason:'기한 변경',changes:[{field:'follow_up_on',before:addDays(seoul(),-5),after:later}]}],question:''})});
+  });
+  await fix.locator('#lfText').fill('기한을 '+laterLabel+'로');
+  await fix.getByRole('button',{name:'미리보기'}).click();
+  await expect(fix.locator('[data-lf-preview] li')).toHaveText(['이 약속의 기한을 '+laterLabel+'로 바꿉니다. 옛 기록은 대체됨으로 남깁니다.']);
+  await page.evaluate(()=>{window.__sawDetailError=false;new MutationObserver(()=>{if(document.querySelector('#ledgerBrowseRoot .lb-detail .lg-error'))window.__sawDetailError=true;}).observe(document.body,{subtree:true,childList:true});});
+  await fix.getByRole('button',{name:'반영',exact:true}).click();
+  await expect.poll(()=>db.fix.length).toBe(1);
+  await expect(page.locator('[data-undo-notice]')).toContainText('원장에 반영했어요.');
+  // 기한이 미래로 바뀌어 '안 지킨 약속'에서 빠지고, 그동안 펼친 기록 자리에 빨간 오류는 한 번도 뜨지 않았다.
+  await expect(browse.locator('[data-lb-sec="overdue"]')).toHaveCount(0,{timeout:10000});
+  expect(await page.evaluate(()=>window.__sawDetailError)).toBe(false);
+ });
+
+ test(`검색 결과에서 펼친 기록: [반영] 뒤 원장을 다시 읽어도 그 자리에 빨간 오류 없이 상세를 다시 읽어 보여 줌 (${name} ${width}px)`,async({page})=>{
+  test.setTimeout(90000);
+  await page.setViewportSize({width,height:900});
+  const db=await mockApp(page);
+  await signIn(page);
+  const browse=page.locator('#ledgerBrowseRoot');
+  await browse.locator('#lbCondBtn').click();
+  await browse.locator('#lbInactive').check();
+  await browse.locator('#lbQuery').fill('사측');
+  await browse.locator('#lbQuery').press('Enter');
+  const row=browse.locator('[data-lb-row="'+u(3)+'"]');
+  await row.locator('[data-lb-action="open"]').click();
+  await expect(row.locator('.lb-detail .lb-fields')).toBeVisible({timeout:10000});
+  await row.locator('summary[aria-label^="기록 관리"]').click();
+  await row.getByRole('menuitem',{name:'내용 업데이트…',exact:true}).click();
+  const fix=page.locator('#ledgerFixRoot');
+  await fix.locator('#lfText').fill('날짜를 11/5로');
+  await fix.getByRole('button',{name:'미리보기'}).click();
+  await expect(fix.locator('[data-lf-preview]')).toBeVisible({timeout:10000});
+  await page.evaluate(()=>{window.__sawDetailError=false;new MutationObserver(()=>{if(document.querySelector('#ledgerBrowseRoot .lb-detail .lg-error'))window.__sawDetailError=true;}).observe(document.body,{subtree:true,childList:true});});
+  const searches=db.search.length;
+  await fix.getByRole('button',{name:'반영',exact:true}).click();
+  await expect.poll(()=>db.fix.length).toBe(1);
+  await expect.poll(()=>db.search.length,{timeout:10000}).toBeGreaterThan(searches);
+  // 옛 기록(대체됨)은 '지난 기록도 보기' 결과에 남아 있으므로 펼친 채로 상세를 다시 읽는다.
+  await expect(row.locator('.lb-detail .lb-fields')).toBeVisible({timeout:10000});
+  await expect(row.locator('.lb-detail .lg-error')).toHaveCount(0);
+  expect(await page.evaluate(()=>window.__sawDetailError)).toBe(false);
   expect(await noSideScroll(page)).toBe(true);
  });
 }

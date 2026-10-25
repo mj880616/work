@@ -128,9 +128,9 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
   await expect(detail.getByRole('button',{name:'‹원문›'})).toBeVisible();
   expect(await noSideScroll(page)).toBe(true);
 
-  await detail.locator('summary[aria-label^="기록 관리"]').click();
+  await row.locator('summary[aria-label^="기록 관리"]').click();
   page.once('dialog',d=>d.accept());
-  await detail.getByRole('button',{name:'이번 자동 기록 취소'}).click();
+  await row.getByRole('menuitem',{name:'이번 자동 기록 취소'}).click();
   await expect.poll(()=>db.undo.length).toBe(1);
   expect(db.undo[0]).toEqual({p_run_id:RUN});
   await expect(page.locator('[data-lb-notice]')).toContainText('이번 자동 기록을 취소했어요');

@@ -5,8 +5,9 @@
 //   덩어리 → 그대로 DB 함수 해 보기(app_apply_ledger_fix, p_dry_run=true).
 // 미리보기는 일상어 한 줄씩("날짜 11/4 → 11/5로 고침. 옛 기록은 대체됨으로 남김"). [반영] 한 번 = 미리본 그 요청을 p_dry_run=false로 한 번.
 // 미리보기 없이 바로 바뀌지 않는다. 입력을 고치면 미리보기를 지운다. 반영 직후 10초 [되돌리기] = app_undo_ledger_fix.
+// LEDGER-기록바로업데이트: 기록 상세 ⋯ [내용 업데이트…]로 열면 대상이 그 기록으로 고정된다(그 기록 하나를 고치거나 폐기하는 요청만 미리보기·반영, 그 밖은 거절).
 // 쓰기는 이 DB 함수 둘뿐(SECURITY INVOKER, owner RLS 그대로). 작성 중 글은 이 탭 메모리에만 있다(브라우저 저장소 없음).
-import { readInput, serverBody, targetsOf, previewLines, appliedText, fixErrorText, UNDO_MS, FIX_TEXT_MAX } from './ledger-fix-model.mjs';
+import { readInput, serverBody, targetsOf, previewLines, appliedText, fixErrorText, anchoredViolation, UNDO_MS, FIX_TEXT_MAX } from './ledger-fix-model.mjs';
 import { callAiAssist, AI_SUMMARY_TEXT } from './basket-ai-summary.js';
 import { offerUndoNotice } from './basket-record-delete.js';
 
@@ -16,6 +17,7 @@ const q = v => encodeURIComponent(v);
 const workspaceId = () => rt?.context?.read?.()?.workspace?.id || null;
 const LEDGER_ID = /^[A-Z]{2,6}-[0-9]{4,6}$/;
 // 일상어 고치기가 서버에 아직 없을 때(배포 전): 덩어리 붙여 넣기는 그대로 된다.
+const PLACEHOLDER_NEW = '예: 나 지부 2차 교섭은 11/4가 아니라 11/5였음 (Claude 수정안을 붙여 넣어도 돼요)';
 const NOT_READY = '일상어 고치기는 아직 준비 중이에요. Claude 수정안 덩어리를 붙여 넣으면 바로 해 볼 수 있어요.';
 
 let state = fresh();
@@ -34,11 +36,11 @@ function changedLedger() {
 async function readNames(request) {
   const ws = q(workspaceId());
   const ids = targetsOf(request);
-  const records = new Map(), topics = new Map();
+  const records = new Map(), topics = new Map(), kinds = new Map();
   try {
     if (ids.length) {
-      const rows = await rt.api(`/rest/v1/app_ledger_records?workspace_id=eq.${ws}&ledger_id=in.(${ids.map(q).join(',')})&select=ledger_id,title&limit=50`, { singleFlight: false });
-      for (const r of Array.isArray(rows) ? rows : []) if (typeof r?.ledger_id === 'string' && typeof r.title === 'string') records.set(r.ledger_id, r.title);
+      const rows = await rt.api(`/rest/v1/app_ledger_records?workspace_id=eq.${ws}&ledger_id=in.(${ids.map(q).join(',')})&select=ledger_id,title,kind&limit=50`, { singleFlight: false });
+      for (const r of Array.isArray(rows) ? rows : []) if (typeof r?.ledger_id === 'string' && typeof r.title === 'string') { records.set(r.ledger_id, r.title); if (typeof r.kind === 'string') kinds.set(r.ledger_id, r.kind); }
     }
     const wantsTopic = (request.items || []).some(i => i?.set && 'topic' in i.set);
     if (wantsTopic) {
@@ -46,7 +48,7 @@ async function readNames(request) {
       for (const t of Array.isArray(rows) ? rows : []) if (typeof t?.name === 'string') { topics.set(String(t.id), t.name); topics.set(String(t.ledger_id), t.name); }
     }
   } catch { /* 이름 없이 "그 기록" */ }
-  return { records, topics };
+  return { records, topics, kinds };
 }
 
 async function dryRun(request) {
@@ -63,6 +65,8 @@ async function preview() {
     let request, dry;
     if (input.mode === 'paste') {
       request = input.request;
+      const outside = anchoredViolation(request, state.target);
+      if (outside) { state.error = outside; return; }
       dry = await dryRun(request);
     } else {
       const r = await callAiAssist(serverBody(input.text, state.target));
@@ -76,6 +80,8 @@ async function preview() {
       dry = { dry_run: true, items: r.data.preview };
     }
     if (mine !== seq) return;
+    const outside = anchoredViolation(request, state.target);
+    if (outside) { state.error = outside; return; }
     const names = await readNames(request);
     const lines = previewLines(dry, names);
     if (mine !== seq) return;
@@ -118,7 +124,8 @@ function render() {
   if (!state.open) { root.innerHTML = ''; return; }
   if (!root.querySelector('[data-lf-shell]')) root.innerHTML = shellHtml();
   const title = root.querySelector('#lfTitle');
-  title.textContent = state.target ? `고치기 · ${state.targetTitle || '이 기록'}` : '기록하기';
+  title.textContent = state.target ? `내용 업데이트 · ${state.targetTitle || '이 기록'}` : '기록하기';
+  root.querySelector('#lfText').placeholder = state.target ? '예: 기한을 11/5로 / 더 이상 추적 안 함 / 지켜졌음' : PLACEHOLDER_NEW;
   const area = root.querySelector('#lfText');
   if (area !== document.activeElement && area.value !== state.text) area.value = state.text;
   area.disabled = state.busy === 'apply';
@@ -137,7 +144,7 @@ function shellHtml() {
   return `<section class="lg-card lf-card" data-lf-shell aria-labelledby="lfTitle">
     <div class="lf-head"><h3 id="lfTitle" class="lf-h">기록하기</h3><button type="button" class="lg-text-btn lf-close" data-lf-action="close" aria-label="기록하기 닫기">✕</button></div>
     <label class="lg-sr" for="lfText">고칠 내용 또는 새로 넣을 내용</label>
-    <textarea id="lfText" class="lf-text" rows="2" maxlength="60000" placeholder="예: 나 지부 2차 교섭은 11/4가 아니라 11/5였음 (Claude 수정안을 붙여 넣어도 돼요)" autocomplete="off"></textarea>
+    <textarea id="lfText" class="lf-text" rows="2" maxlength="60000" placeholder="${PLACEHOLDER_NEW}" autocomplete="off"></textarea>
     <div class="lf-row"><button type="button" class="secondary" data-lf-action="preview">미리보기</button><span class="lg-muted lf-hint">${FIX_TEXT_MAX}자까지 · 미리보기를 보고 [반영]해야 바뀌어요</span></div>
     <div id="lfStatus"></div>
     <div id="lfPreview"></div>

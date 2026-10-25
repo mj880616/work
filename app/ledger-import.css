@@ -152,10 +152,30 @@
 #appView #ledgerView :is(button.primary,button.secondary):disabled{ opacity:.45; }
 /* LEDGER-확정되돌리기: 최근 확정 칸의 ⋯ 메뉴(접는 <details>, 키보드 Enter·Space로 연다). */
 #appView #ledgerView .lc-confirmed-line{ display:flex; align-items:center; justify-content:space-between; gap:8px; min-width:0; }
-#appView #ledgerView .lc-more{ position:relative; flex:none; }
-#appView #ledgerView .lc-more > summary{ list-style:none; }
-#appView #ledgerView .lc-more > summary::-webkit-details-marker{ display:none; }
-#appView #ledgerView .lc-more-panel{ position:absolute; right:0; top:calc(100% + 4px); z-index:5; display:flex; flex-direction:column; gap:6px; padding:8px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); background:var(--kptu-surface); }
+/* LEDGER-기록바로업데이트: 상세 ⋯는 제목 첫 줄 오른쪽 끝(행 오른쪽 위에 고정, 열린 행의 제목·날짜는 그 옆으로 비켜 줄바꿈). 빈 줄·테두리 상자 없음.
+   메뉴는 다른 ⋯ 메뉴처럼 작은 글자 목록(큰 테두리 버튼·빨간 큰 글자 없음), 누른 자리 아래에서 열리고 하단 탭바에 가리지 않게 화면 안으로 스크롤. */
+#appView #ledgerView .lb-item{ position:relative; }
+#appView #ledgerView .lb-item.is-open > .lb-head{ padding-right:34px; }
+#appView #ledgerView .lb-kebab{ position:static; margin:0; }
+#appView #ledgerView .lb-kebab > summary{ list-style:none; }
+#appView #ledgerView .lb-kebab > summary::-webkit-details-marker{ display:none; }
+#appView #ledgerView .lb-kebab > .lb-more-btn{ position:absolute; top:2px; right:0; z-index:2; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:32px; height:32px; margin:0; padding:0; border:0; border-radius:var(--ds-radius-control); background:transparent; color:var(--kptu-muted); font:inherit; font-size:18px; line-height:1; cursor:pointer; }
+#appView #ledgerView .lb-kebab > .lb-more-btn:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
+@media(hover:hover){ #appView #ledgerView .lb-kebab > .lb-more-btn:hover{ background:var(--kptu-surface-subtle); } }
+#appView #ledgerView .lb-menu{ position:absolute; top:34px; right:0; z-index:5; box-sizing:border-box; display:flex; flex-direction:column; min-width:168px; max-width:min(86vw,260px); padding:4px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); background:var(--kptu-surface); box-shadow:var(--kptu-shadow-float); scroll-margin-bottom:96px; }
+#appView #ledgerView .lb-menu .lb-menu-item{ display:flex; align-items:center; justify-content:space-between; box-sizing:border-box; width:100%; height:36px; min-height:0; margin:0; padding:0 10px; border:0; border-radius:var(--ds-radius-control); background:transparent; color:var(--kptu-ink); font:inherit; font-size:var(--ds-text-meta); font-weight:var(--ds-weight-regular); text-align:left; white-space:nowrap; cursor:pointer; list-style:none; }
+#appView #ledgerView .lb-menu .lb-menu-item::-webkit-details-marker{ display:none; }
+#appView #ledgerView .lb-menu .lb-menu-item:disabled{ opacity:.45; cursor:default; }
+#appView #ledgerView .lb-menu .lb-menu-item:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
+@media(hover:hover){ #appView #ledgerView .lb-menu .lb-menu-item:hover:not(:disabled){ background:var(--kptu-surface-subtle); } }
+#appView #ledgerView .lb-menu-sep{ height:0; margin:4px 2px; border:0; border-top:var(--ds-line-width) solid var(--ds-line); }
+#appView #ledgerView .lb-sub-list{ display:flex; flex-direction:column; padding-left:10px; }
+/* 바로가기 한 줄 입력(결과·이유 한 줄, 비워도 됨). */
+#appView #ledgerView .lb-quick{ display:flex; flex-direction:column; gap:6px; margin:0; padding:8px 0 2px; }
+#appView #ledgerView .lb-quick-line{ margin:0; font-size:var(--ds-text-meta); color:var(--kptu-ink); }
+#appView #ledgerView .lb-quick-row{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+#appView #ledgerView .lb-quick-input{ flex:1 1 180px; min-width:0; box-sizing:border-box; height:var(--ds-compact-height); padding:0 var(--ds-control-pad-x); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:var(--ds-text-read); }
+#appView #ledgerView .lb-quick-input:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 /* LEDGER-자동기록 3단계: 맨 위 Claude용 사본 상태 한 줄(버튼 없음, 멈췄을 때만 경고 + [다시 시도] 글자 링크),
    "자동" 꼬리표, 근거 ‹원문› 글자 링크, 상세 ⋯ 메뉴 자리. 값은 공용 토큰만(UI-버튼기준: 안내 줄 안 보조 버튼은 글자 버튼, 누르는 범위 44px). */
 #appView #ledgerView .lg-copy-line{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
@@ -166,7 +186,6 @@
 #appView #ledgerView .lg-text-btn:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 @media(hover:hover){ #appView #ledgerView .lg-text-btn:hover:not(:disabled){ text-decoration:underline; } }
 #appView #ledgerView .lb-auto{ color:var(--kptu-primary-ink); }
-#appView #ledgerView .lb-detail-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:8px; min-width:0; }
 /* LEDGER-화면정리·LEDGER-수정요청(2026-10-24): 첫 화면 칸(안 지킨 약속·추적 중·칩·최근 자동), 이야기 타임라인, [+ 기록하기], 고치기 칸.
    값은 공용 토큰만. 보조 버튼은 작은 크기(UI-버튼기준), 누르는 범위 44px. 큰 채운 버튼은 고치기 칸의 [반영] 하나. */
 #appView #ledgerView .lb-add{ position:relative; flex:none; box-sizing:border-box; height:var(--ds-compact-height); margin:0; padding:0 var(--ds-compact-pad-x); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap; cursor:pointer; }
