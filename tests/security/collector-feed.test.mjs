@@ -29,6 +29,8 @@ const RAW_MARK='가상원문표식';
 const GRANTS={
   app_feed_items:{select:['workspace_id','source','source_ref'],insert:['workspace_id','source','day','occurred_at','room_key','room_label','title','summary','points','counterpart','speaker_split','raw_text','raw_count','organization_id','suggested_project_id','source_ref','drive_url','model','judged_at'],update:[]},
   app_feed_days:{select:'*',insert:['workspace_id','day','source','total_count','kept_count','room_count','personal_count','unsure_count','failed_count','batch_count','ai_requests','ai_input_tokens','ai_output_tokens','updated_at'],update:['total_count','kept_count','room_count','personal_count','unsure_count','failed_count','batch_count','ai_requests','ai_input_tokens','ai_output_tokens','updated_at']},
+  // migration 20261025200000_call_personal_box.sql: 개인 통화함은 칸별 넣기 + 중복 확인 두 칸 읽기뿐(전문 읽기·고치기·지우기 없음).
+  app_call_personal:{select:['workspace_id','source_ref'],insert:['workspace_id','kind','day','occurred_at','title','summary','points','counterpart','speaker_split','raw_text','source_ref','drive_url','model','judged_at'],update:[]},
   app_workspaces:{select:'*'},app_suborganizations:{select:'*'},app_spaces:{select:'*'},
 };
 const COUNTERS=['total_count','kept_count','room_count','personal_count','unsure_count','failed_count','batch_count','ai_requests','ai_input_tokens','ai_output_tokens'];
@@ -51,13 +53,14 @@ function analysis({version='3.2',work='true',status='검토대기',title='가상
 const openaiOk=(items)=>({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({items})}]}],usage:{input_tokens:5000,output_tokens:600}});
 const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
 
-function harness({env={},openai=[()=>respond(openaiOk([{title:'교섭 일정 변경',summary:'가상지부 교섭이 다음 주 화요일로 미뤄졌다.',refs:['m1','m2'],organization:'o1',project:'p1'}]))],days=[],items=[],dbFail=null}={}){
+function harness({env={},openai=[()=>respond(openaiOk([{title:'교섭 일정 변경',summary:'가상지부 교섭이 다음 주 화요일로 미뤄졌다.',refs:['m1','m2'],organization:'o1',project:'p1'}]))],days=[],items=[],personal=[],dbFail=null}={}){
   const calls={openai:[],rest:[],logs:[]};
   const db={
     app_workspaces:[{id:WS,slug:'kptu-work'},{id:OTHER_WS,slug:'other-work'}],
     app_suborganizations:[{id:ORG,workspace_id:WS,name:'가상노동조합',aliases:['가상노조'],active:true},{id:ORG2,workspace_id:WS,name:'예시지부',aliases:[],active:true},{id:FOREIGN_ORG,workspace_id:OTHER_WS,name:'남의노조',aliases:[],active:true}],
     app_spaces:[{id:PROJECT,workspace_id:WS,name:'가상 교섭 프로젝트',parent_id:null,status:'active',metadata:{project_system:'v2'}},{id:FOREIGN_PROJECT,workspace_id:OTHER_WS,name:'남의 프로젝트',parent_id:null,status:'active',metadata:{project_system:'v2'}},{id:'e0000000-0000-4000-8000-000000000003',workspace_id:WS,name:'가상 휴지통 프로젝트',parent_id:null,status:'active',metadata:{project_system:'v2'},deleted_at:'2026-10-24T01:00:00Z',deleted_root_id:'e0000000-0000-4000-8000-000000000003'}],
     app_feed_items:structuredClone(items),
+    app_call_personal:structuredClone(personal),
     app_feed_days:structuredClone(days),
   };
   const filters=url=>{const f=[];for(const [k,v] of url.searchParams){if(['select','limit','order','offset'].includes(k))continue;f.push([k,v]);}return f;};
@@ -87,6 +90,8 @@ function harness({env={},openai=[()=>respond(openaiOk([{title:'교섭 일정 변
         // 업무공간은 서버가 정한 것, 칸 상한·모양(migration check 흉내)
         assert.equal(body.workspace_id,WS);
         if(db.app_feed_items.some(r=>r.workspace_id===body.workspace_id&&r.source===body.source&&r.source_ref===body.source_ref))return respond({code:'23505'},409);
+        // DB 트리거 흉내: 같은 통화 원본이 개인 통화함에 있으면 업무 통화함에는 못 넣는다.
+        if(body.source==='call'&&db.app_call_personal.some(r=>r.workspace_id===body.workspace_id&&r.source_ref===body.source_ref))return respond({code:'23505'},409);
         assert.ok(!body.title||[...body.title].length<=80);assert.ok(!body.summary||[...body.summary].length<=400);
         assert.ok(Array.isArray(body.points)&&body.points.length<=8&&body.points.every(p=>typeof p==='string'&&[...p].length<=300));
         assert.ok(!body.counterpart||[...body.counterpart].length<=100);
@@ -95,6 +100,19 @@ function harness({env={},openai=[()=>respond(openaiOk([{title:'교섭 일정 변
         if(body.source==='call'){assert.equal(body.room_key,undefined);assert.ok(body.title);assert.equal(body.raw_count,0);}
         else{assert.ok(body.room_key&&body.room_label);assert.ok(!body.counterpart);assert.equal(body.speaker_split,false);}
         for(const id of [body.organization_id,body.suggested_project_id].filter(Boolean))assert.ok([ORG,ORG2,PROJECT].includes(id),'link outside workspace');
+      }
+      if(table==='app_call_personal'){
+        assert.equal(body.workspace_id,WS);
+        assert.ok(['personal','unsure'].includes(body.kind));
+        if(db.app_call_personal.some(r=>r.workspace_id===body.workspace_id&&r.source_ref===body.source_ref))return respond({code:'23505'},409);
+        if(db.app_feed_items.some(r=>r.workspace_id===body.workspace_id&&r.source==='call'&&r.source_ref===body.source_ref))return respond({code:'23505'},409);
+        assert.ok(body.title&&[...body.title].length<=80);assert.ok(!body.summary||[...body.summary].length<=400);
+        assert.ok(Array.isArray(body.points)&&body.points.length<=8&&body.points.every(p=>typeof p==='string'&&[...p].length<=300));
+        assert.ok(!body.counterpart||[...body.counterpart].length<=100);
+        assert.ok(body.raw_text===null||body.raw_text===undefined||new TextEncoder().encode(body.raw_text).length<=204800);
+        assert.match(body.source_ref,/^[A-Za-z0-9_.:-]{1,200}$/);
+        // 업무 기록으로 이어지는 칸은 개인 표에 아예 없다(허용 칸 목록에 없어 위 검사에서 이미 막힌다).
+        for(const k of ['organization_id','project_id','suggested_project_id','pinned_at','source','room_key','raw_count'])assert.ok(!(k in body),k);
       }
       if(table==='app_feed_days'&&db.app_feed_days.some(r=>r.workspace_id===body.workspace_id&&r.day===body.day&&r.source===body.source))return respond({code:'23505'},409);
       db[table].push({...body});return new Response(null,{status:201});
@@ -203,7 +221,7 @@ test('크기·형식 상한: 너무 큰 몸통·전사본, 깨진 JSON, 잘못�
 
 test('통화 업무: AI 없이 분석 파일만 읽어 저장(제목·점·상대·조직·전문), 필요한 절만 가져온다',async()=>{
   const h=harness();const r=await h.send('call',callBody());
-  assert.deepEqual(await r.json(),{ok:true,kept:1,personal:0,unsure:0,failed:0,duplicate:false});
+  assert.deepEqual(await r.json(),{ok:true,kept:1,personal:0,unsure:0,failed:0,duplicate:false,boxed:0});
   assert.equal(h.calls.openai.length,0,'통화는 AI를 부르지 않는다');
   const row=h.db.app_feed_items[0];
   assert.equal(row.source,'call');assert.equal(row.day,TODAY);assert.equal(row.occurred_at,'2026-10-24T00:30:00.000Z');
@@ -231,22 +249,100 @@ test('TRASH-Edge거르기2: 휴지통에 든 담당조직에는 통화 소식을
   assert.ok(orgReads.every(c=>new URL(c.url).searchParams.get('deleted_at')==='is.null'),'담당조직을 읽는 요청마다 deleted_at=is.null');
 });
 
-test('통화 개인·구분 없음은 개수만(행 없음), 버전·모양이 다르면 판정 실패',async()=>{
-  const cases=[[{work:'false'},'personal_count'],[{work:null,status:'개인',title:'개인 통화',related:'[]'},'personal_count'],
-    [{work:null},'unsure_count'],[{work:'""'},'unsure_count'],[{work:'모름'},'unsure_count'],
+test('통화 개수만 세는 경우: 요약 없는 옛 개인 기록·구분 없음·status 애매가 아닌 비어 있음은 줄 없이 개수만, 버전·모양이 다르면 판정 실패',async()=>{
+  const cases=[[{work:'false',summary:''},'personal_count'],[{work:null,status:'개인',title:'개인 통화',related:'[]',summary:''},'personal_count'],
+    [{work:null},'unsure_count'],[{work:'""'},'unsure_count'],[{work:'모름'},'unsure_count'],   // status 애매가 분명하지 않은 구분 없음은 요약이 있어도 개수만
     [{version:'3.1',work:null,related:null},'unsure_count'],                        // 옛 3.1 파일: 새 칸 없음
+    [{work:'""',status:'애매',summary:''},'unsure_count'],                          // 애매여도 요약이 없으면 줄을 만들 재료가 없다
     [{status:'분석실패',work:null},'failed_count'],
     [{version:'4.0'},'failed_count'],[{version:'2.9'},'failed_count'],[{body:{analysis_md:'제목만 있는 글'}},'failed_count'],
     [{summary:'',title:null},'failed_count'],[{ref:'SRCOTHER0001'},'failed_count'],[{when:'2026-06-01 09:00:00'},'failed_count']];
   for(const [o,counter] of cases){
     const h=harness();const r=await h.send('call',callBody(o));
-    assert.equal(r.status,200);assert.equal(h.db.app_feed_items.length,0,JSON.stringify(o));
+    assert.equal(r.status,200);assert.equal(h.db.app_feed_items.length,0,JSON.stringify(o));assert.equal(h.db.app_call_personal.length,0,JSON.stringify(o));
     const d=h.db.app_feed_days.find(x=>x.source==='call'&&x[counter]===1);assert.ok(d,`${counter} for ${JSON.stringify(o)}`);
     assert.equal(d.kept_count,0);
   }
-  // 개인 통화는 원문이 어디에도 남지 않는다
-  const h=harness();await h.send('call',callBody({work:'false'}));
+  // 개수만 센 통화는 원문이 어디에도 남지 않는다
+  const h=harness();await h.send('call',callBody({work:'false',summary:''}));
   assert.doesNotMatch(JSON.stringify(h.db)+h.calls.logs.join(''),new RegExp(RAW_MARK));
+});
+
+// v3.5 개인 분석: 개인도 요약을 남긴다. status 개인, is_work_related false, 조직 칸은 비어 있고 약속·결정·후속·중요 원문·애매 표현은 "- 없음".
+const personalMd=(o={})=>analysis({version:'3.5',work:'false',status:'개인',title:'가상친구 · 주말 약속 잡기',related:'[]',head:'',
+  summary:'- 이번 주말 점심을 같이 먹기로 함.\n- 장소는 나중에 다시 정하기로 함.',
+  extraFront:['speaker_labels: {"화자1": "나", "화자2": "가상친구"}','counterparty_name: "가상친구"','counterparty_title: ""','counterparty_organization: ""'].join('\n'),...o})
+  .replace(/## 약속 후보[\s\S]*?## 후속확인 필요사항/,'## 약속 후보\n- 없음\n\n## 결정 후보\n- 없음\n\n## 후속확인 필요사항');
+const PERSONAL_TR='화자1: 주말에 시간 돼?\n화자2: 응 점심 어때\n화자1: 좋아 '+RAW_MARK;
+
+test('CALL-개인통화함 2단계: 개인 통화는 요약·전문까지 개인 통화함(app_call_personal)에만 저장하고 업무 표·조직 연결은 만들지 않는다',async()=>{
+  const h=harness();
+  const r=await h.send('call',callBody({body:{analysis_md:personalMd(),transcript:PERSONAL_TR}}));
+  assert.deepEqual(await r.json(),{ok:true,kept:0,personal:1,unsure:0,failed:0,duplicate:false,boxed:1});
+  assert.equal(h.db.app_feed_items.length,0,'업무 표에는 아무것도 넣지 않는다');
+  assert.equal(h.db.app_call_personal.length,1);
+  const row=h.db.app_call_personal[0];
+  assert.equal(row.kind,'personal');assert.equal(row.day,TODAY);assert.equal(row.occurred_at,'2026-10-24T00:30:00.000Z');
+  assert.equal(row.title,'가상친구 · 주말 약속 잡기');
+  assert.deepEqual(row.points,['이번 주말 점심을 같이 먹기로 함.','장소는 나중에 다시 정하기로 함.'],'"- 없음" 절은 점이 되지 않는다');
+  assert.equal(row.counterpart,'가상친구');assert.equal(row.source_ref,'SRCFAKE0001aa');
+  assert.equal(row.raw_text,'나: 주말에 시간 돼?\n가상친구: 응 점심 어때\n나: 좋아 '+RAW_MARK);assert.equal(row.speaker_split,true);
+  assert.equal(row.model,'gemini-fake');assert.equal(row.drive_url,'https://drive.google.com/file/d/SRCFAKE0001aa/view');
+  assert.ok(!('organization_id' in row)&&!('summary' in row&&row.summary));
+  assert.equal(h.calls.openai.length,0,'개인 통화는 AI에 보내지 않는다');
+  // 하루 숫자: 받은 전사 수만 더하고, 개수만 세는 칸(personal_count)·업무 저장(kept_count)은 올리지 않는다
+  const d=h.day(TODAY,'call');assert.equal(d.total_count,1);assert.equal(d.kept_count,0);assert.equal(d.personal_count,0);assert.equal(d.batch_count,1);
+  // 같은 통화를 다시 보내면 중복
+  const again=await (await h.send('call',callBody({body:{analysis_md:personalMd(),transcript:PERSONAL_TR}}))).json();
+  assert.equal(again.duplicate,true);assert.equal(h.db.app_call_personal.length,1);
+  // 응답·로그에는 내용이 없다
+  assert.doesNotMatch(JSON.stringify(again)+h.calls.logs.join(''),new RegExp(RAW_MARK+'|가상친구'));
+});
+
+test('CALL-개인통화함 2단계: 애매 통화는 status 애매일 때만 kind unsure로 저장, 개인 요약의 상대 표기는 이름·직함만(조직을 맞추지 않음)',async()=>{
+  const h=harness();
+  const md=personalMd({status:'애매',work:'""',extraFront:'counterparty_name: "김가상"\ncounterparty_title: "팀장"\ncounterparty_organization: "가상노조"'});
+  const r=await (await h.send('call',callBody({body:{analysis_md:md,transcript:PERSONAL_TR}}))).json();
+  assert.deepEqual(r,{ok:true,kept:0,personal:0,unsure:1,failed:0,duplicate:false,boxed:1});
+  const row=h.db.app_call_personal[0];
+  assert.equal(row.kind,'unsure');assert.equal(row.counterpart,'김가상 팀장','담당조직과 이름이 맞아도 조직 연결·소속 표기를 만들지 않는다');
+  assert.equal(h.db.app_feed_items.length,0);
+  // 상대 칸이 없는 파일은 상대 절 → 본문 머리 줄 순서(옛 방식)로 읽고, 전화번호 모양이면 비운다
+  const g=harness();
+  await g.send('call',callBody({body:{analysis_md:personalMd({extraFront:'',head:'- 상대 이름: 이가상\n- 상대 직책: 친구\n- 주체 확인필요: 아니오'}),transcript:''}}));
+  assert.equal(g.db.app_call_personal[0].counterpart,'이가상 친구');assert.equal(g.db.app_call_personal[0].raw_text,null);
+  const ph=harness();
+  await ph.send('call',callBody({body:{analysis_md:personalMd({extraFront:'counterparty_name: "010-1234-5678"'}),transcript:''}}));
+  assert.equal(ph.db.app_call_personal[0].counterpart,null);
+});
+
+test('CALL-개인통화함 2단계: 중복 확인은 두 통화함을 모두 본다(업무에 있으면 개인에 못 넣고, 개인에 있으면 업무에 못 넣는다)',async()=>{
+  const inWork=harness({items:[{workspace_id:WS,source:'call',source_ref:'SRCFAKE0001aa',day:TODAY,title:'가상'}]});
+  const a=await (await inWork.send('call',callBody({body:{analysis_md:personalMd(),transcript:PERSONAL_TR}}))).json();
+  assert.equal(a.duplicate,true);assert.equal(inWork.db.app_call_personal.length,0);
+  const inBox=harness({personal:[{workspace_id:WS,kind:'personal',source_ref:'SRCFAKE0001aa',day:TODAY,title:'가상'}]});
+  const b=await (await inBox.send('call',callBody())).json();
+  assert.equal(b.duplicate,true);assert.equal(inBox.db.app_feed_items.length,0);
+  // 중복 확인은 읽기 두 칸(workspace_id, source_ref)만 쓴다(하네스가 grant 밖 칸을 막는다)
+  const reads=inBox.calls.rest.filter(c=>c.table==='app_call_personal');
+  assert.ok(reads.length>0&&reads.every(c=>c.method==='GET'));
+});
+
+test('CALL-개인통화함 2단계: 개인 통화가 많아도 업무 통화 저장이 하루 상한에 먼저 막히지 않는다(상한 200, 합산)',async()=>{
+  assert.equal(DAILY_LIMITS.call,200);
+  const h=harness({days:[{workspace_id:WS,day:TODAY,source:'call',...Object.fromEntries(COUNTERS.map(k=>[k,0])),batch_count:60}]});
+  const r=await h.send('call',callBody());assert.equal(r.status,200);assert.equal(h.db.app_feed_items.length,1);
+  const full=harness({days:[{workspace_id:WS,day:TODAY,source:'call',...Object.fromEntries(COUNTERS.map(k=>[k,0])),batch_count:200}]});
+  assert.equal((await full.send('call',callBody({body:{analysis_md:personalMd(),transcript:''}}))).status,429);
+  assert.equal(full.db.app_call_personal.length,0);
+});
+
+test('CALL-개인통화함 2단계: 개인 통화함 저장 경로는 개인 표를 읽지 않고(중복 확인 두 칸 제외) 업무 표 필드를 섞지 않는다',()=>{
+  const src=readFileSync(new URL('../../supabase/functions/collector-feed/handler.ts',import.meta.url),'utf8');
+  const uses=[...src.matchAll(/app_call_personal[^\n]*/g)].map(m=>m[0]);
+  assert.ok(uses.some(u=>/select=source_ref/.test(u)),'중복 확인은 source_ref 한 칸만 읽는다');
+  assert.ok(!/app_call_personal\?[^`]*select=[^`]*raw_text/.test(src),'전문을 읽지 않는다');
+  assert.ok(!/(patch|delete)\([^)]*app_call_personal/.test(src),'개인 표를 고치거나 지우지 않는다');
 });
 
 test('v3.2 업무: 제목은 call_title, 조직은 related_organizations(담당조직 하나와 확실히 맞을 때만), 상대는 머리 줄·제목에서 확실할 때만',()=>{
@@ -378,7 +474,7 @@ test('제목 없음(call_title 칸 없는 파일)이면 핵심요약 첫 문장,
 
 test('텔레그램: 묶음마다 AI 한 번, 고른 소식만 저장(요약·근거 원문·조직·추천 프로젝트), 하루 숫자·AI 사용량 기록',async()=>{
   const h=harness();const r=await h.send('telegram',tgBody());
-  assert.deepEqual(await r.json(),{ok:true,kept:1,personal:0,unsure:0,failed:0,duplicate:false});
+  assert.deepEqual(await r.json(),{ok:true,kept:1,personal:0,unsure:0,failed:0,duplicate:false,boxed:0});
   assert.equal(h.calls.openai.length,1);
   const req=h.calls.openai[0];
   assert.equal(req.store,false);assert.equal(req.model,'gpt-6-luna');assert.equal(req.text.format.strict,true);assert.equal(req.tools,undefined);

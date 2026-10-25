@@ -9,12 +9,18 @@
 // - 업무공간은 서버가 `kptu-work`로 정한다. 요청 몸통은 정해진 칸만 받고 workspace·owner 같은 칸이 있으면 400.
 // - DB는 service role로 쓰되 migration 20261024140000_call_tg_feed의 칸별 grant 안만 쓴다:
 //   app_feed_items = 넣기(고정·지우기·확정 프로젝트 칸 없음) + 중복 확인 세 칸 읽기, app_feed_days = 읽기·넣기·숫자 칸 고치기.
+//   app_call_personal(migration 20261025200000_call_personal_box) = 칸별 넣기 + 중복 확인 두 칸(workspace_id, source_ref) 읽기만. 전문 읽기·고치기·지우기 없음.
 //   소식 줄 고치기·지우기·원문 읽기는 하지 않는다. 담당조직·프로젝트 목록과 업무공간 id는 읽기만 한다(drive-summary와 같은 읽기).
 // 동작:
-// - POST ?action=call: 통화 분석 파일(이미 Gemini가 만든 것) 읽기만. AI 없음. 업무면 저장, 개인·애매·구분 없음은 개수만, 모양 다름은 판정 실패.
-// - POST ?action=call_skip: 앱 스크립트가 개인 번호·연락처 목록으로 거른 수(개수만).
+// - POST ?action=call: 통화 분석 파일(이미 Gemini가 만든 것) 읽기만. AI 없음. 업무면 업무 통화함(app_feed_items)에 저장.
+//   개인·애매(CALL-개인통화함 2단계)는 요약·전문까지 개인 통화함(app_call_personal, 소유자만 읽는 별도 표)에 저장한다. 업무 표에는 넣지 않는다.
+//   요약이 없는 옛 개인 기록·구분 없음은 개수만, 모양 다름은 판정 실패. 중복 확인은 두 표를 모두 본다(DB 트리거도 막는다).
+// - POST ?action=call_skip: 옛 보내기 스크립트가 개인 번호·연락처 목록으로 거른 수(개수만). 새 스크립트는 목록 통화도 ?action=call로 보낸다. 옛 스크립트 호환용으로 남긴다.
 // - POST ?action=telegram: 방 하나·하루치 묶음마다 AI 한 번(공용 모듈 _shared/openai-responses.ts). 실패·형식 틀림이면 아무것도 저장하지 않음.
 // - 하루 숫자는 app_feed_days에 더한다. 받은 요청 수(batch_count)·AI 사용량(ai_*)은 받은 날(한국 날짜) 줄, 나머지는 내용 날짜 줄.
+//   통화 숫자의 뜻(2단계 정리): total_count = 받은 전사 수(업무·개인함 저장·개수만 모두), kept_count = 업무 통화함에 저장한 줄,
+//   personal_count·unsure_count = 줄 없이 **개수만** 센 통화(요약 없는 옛 개인 기록 등. 개인 통화함에 저장한 통화는 세지 않는다: 그 수는 개인 표의 실제 줄 수),
+//   failed_count = 판정 실패.
 // 응답·로그에는 개수와 단계 코드만 넣는다. 원문·요약·이름·오류 원문은 넣지 않는다.
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { aiConfigFrom, callOpenAi, estimateKrw, outputText, tokenCount } from "../_shared/openai-responses.ts";
@@ -45,8 +51,10 @@ const FOREIGN_SECRET_HEADERS = ["x-drive-summary-cron-secret", "x-collector-hear
 export const MAX_BODY_BYTES = 240 * 1024;
 export const TRANSCRIPT_BYTES = 200 * 1024;
 export const RAW_TEXT_BYTES = 204800;
-// 하루 상한(설계 4.4절): 받은 날 기준 통화 50건, 텔레그램 묶음 80개. 넘으면 429.
-export const DAILY_LIMITS = Object.freeze({ call: 50, telegram: 80 });
+// 하루 상한(설계 4.4절): 받은 날 기준 통화 요청 200건, 텔레그램 묶음 80개. 넘으면 429.
+// 통화는 업무·개인이 한 줄(app_feed_days 'call')에 합산된다. 개인 통화 내용까지 보내게 되어 50에서 올렸다
+// (줄은 source 'call'·'telegram'만 허용하므로 업무·개인을 따로 세려면 DB 변경이 필요해 이번 단계에서는 올리기로 한다. 비밀값 인증 뒤의 남용 방지선이다).
+export const DAILY_LIMITS = Object.freeze({ call: 200, telegram: 80 });
 // 이 기능 한 달 AI 상한(Q7): 6,000원. ai-assist의 15,000원 상한과 따로 센다(app_feed_days.ai_*).
 export const MONTHLY_LIMIT_KRW = 6000;
 // 내용 날짜는 오늘(한국 날짜)부터 92일 전까지만 받는다(미래 날짜·오래된 날짜 거절).
@@ -287,26 +295,46 @@ async function claimBatch(db: Db, ws: string, today: string, source: "call" | "t
 
 // ---- 통화 ----------------------------------------------------------------------------------------------------------
 
+const callResult = (o: Partial<{ kept: number; personal: number; unsure: number; failed: number; duplicate: boolean; boxed: number }> = {}) =>
+  ({ ok: true, kept: 0, personal: 0, unsure: 0, failed: 0, duplicate: false, boxed: 0, ...o });
+
 async function runCall(db: Db, ws: string, input: CallInput, nowMs: number) {
   const today = kstDay(nowMs);
   await claimBatch(db, ws, today, "call", nowMs);
+  // 같은 원본은 업무·개인 두 통화함을 통틀어 한 번만(DB 트리거도 막는다).
   const dup = await db.get(`app_feed_items?workspace_id=eq.${ws}&source=eq.call&source_ref=eq.${input.ref}&select=source_ref&limit=1`);
-  if (dup.length) return { ok: true, kept: 0, personal: 0, unsure: 0, failed: 0, duplicate: true };
+  if (dup.length) return callResult({ duplicate: true });
+  const dupBox = await db.get(`app_call_personal?workspace_id=eq.${ws}&source_ref=eq.${input.ref}&select=source_ref&limit=1`);
+  if (dupBox.length) return callResult({ duplicate: true });
   const parsed = parseCall(input, await readOrgs(db, ws), nowMs);
   const inRange = !!parsed.day && parsed.day <= today && parsed.day >= addDays(today, -MAX_PAST_DAYS);
   const day = inRange ? parsed.day! : today;
   // 녹음 날짜가 받는 범위(오늘부터 92일 전까지) 밖이면 업무여도 저장하지 않고 판정 실패로 센다.
   if (parsed.kind === "business" && !inRange) {
     await addDay(db, ws, day, "call", { total_count: 1, failed_count: 1 }, nowMs);
-    return { ok: true, kept: 0, personal: 0, unsure: 0, failed: 1, duplicate: false };
+    return callResult({ failed: 1 });
   }
-  if (parsed.kind !== "business") {
-    const delta: Delta = { total_count: 1 };
-    if (parsed.kind === "personal") delta.personal_count = 1;
-    else if (parsed.kind === "unsure") delta.unsure_count = 1;
-    else delta.failed_count = 1;
-    await addDay(db, ws, day, "call", delta, nowMs);
-    return { ok: true, kept: 0, personal: delta.personal_count ?? 0, unsure: delta.unsure_count ?? 0, failed: delta.failed_count ?? 0, duplicate: false };
+  if (parsed.kind === "personal" || parsed.kind === "unsure") {
+    const flag = { personal: parsed.kind === "personal" ? 1 : 0, unsure: parsed.kind === "unsure" ? 1 : 0 };
+    const box = parsed.box;
+    if (box && inRange) {
+      const result = await db.insert("app_call_personal", {
+        workspace_id: ws, kind: parsed.kind, day: box.day, occurred_at: box.occurred_at, title: box.title, points: box.points,
+        counterpart: box.counterpart, speaker_split: box.speaker_split,
+        raw_text: box.raw_text === null ? null : capBytes(box.raw_text, RAW_TEXT_BYTES),
+        source_ref: input.ref, drive_url: input.drive_url, model: box.model, judged_at: box.judged_at,
+      });
+      if (result === "conflict") return callResult({ duplicate: true });
+      await addDay(db, ws, box.day, "call", { total_count: 1 }, nowMs);
+      return callResult({ ...flag, boxed: 1 });
+    }
+    // 줄을 만들 재료가 없는 통화(요약 없는 옛 개인 기록 등)는 개수만 센다.
+    await addDay(db, ws, day, "call", { total_count: 1, personal_count: flag.personal, unsure_count: flag.unsure }, nowMs);
+    return callResult(flag);
+  }
+  if (parsed.kind === "failed") {
+    await addDay(db, ws, day, "call", { total_count: 1, failed_count: 1 }, nowMs);
+    return callResult({ failed: 1 });
   }
   const result = await db.insert("app_feed_items", {
     workspace_id: ws, source: "call", day, occurred_at: parsed.occurred_at, title: parsed.title, points: parsed.points,
@@ -315,9 +343,9 @@ async function runCall(db: Db, ws: string, input: CallInput, nowMs: number) {
     raw_count: 0, organization_id: parsed.organization_id, source_ref: input.ref, drive_url: input.drive_url,
     model: parsed.model, judged_at: parsed.judged_at,
   });
-  if (result === "conflict") return { ok: true, kept: 0, personal: 0, unsure: 0, failed: 0, duplicate: true };
+  if (result === "conflict") return callResult({ duplicate: true });
   await addDay(db, ws, day, "call", { total_count: 1, kept_count: 1 }, nowMs);
-  return { ok: true, kept: 1, personal: 0, unsure: 0, failed: 0, duplicate: false };
+  return callResult({ kept: 1 });
 }
 
 async function runCallSkip(db: Db, ws: string, input: SkipInput, nowMs: number) {
@@ -325,7 +353,7 @@ async function runCallSkip(db: Db, ws: string, input: SkipInput, nowMs: number) 
   await addDay(db, ws, input.day, "call", {
     total_count: input.personal + input.short, personal_count: input.personal, unsure_count: input.short,
   }, nowMs);
-  return { ok: true, kept: 0, personal: input.personal, unsure: input.short, failed: 0, duplicate: false };
+  return callResult({ personal: input.personal, unsure: input.short });
 }
 
 // ---- 텔레그램 ------------------------------------------------------------------------------------------------------
@@ -354,11 +382,11 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   await claimBatch(db, ws, today, "telegram", nowMs);
   // 같은 묶음이 다시 오면 AI를 다시 부르지 않는다(저장 전에 먼저 확인).
   const dup = await db.get(`app_feed_items?workspace_id=eq.${ws}&source=eq.telegram&source_ref=like.${encodeURIComponent(prefix)}*&select=source_ref&limit=1`);
-  if (dup.length) return { ok: true, kept: 0, personal: 0, unsure: 0, failed: 0, duplicate: true };
+  if (dup.length) return callResult({ duplicate: true });
   // 글 있는 메시지가 없으면 AI에 보내지 않고 개수만 더한다(설계 3.2절).
   if (!input.messages.length) {
     await addDay(db, ws, input.day, "telegram", counts(0), nowMs);
-    return { ok: true, kept: 0, personal: 0, unsure: 0, failed: 0, duplicate: false };
+    return callResult();
   }
   const config = aiConfigFrom(deps.env, { keyName: KEY_NAME, model: DEFAULT_MODEL, priceIn: DEFAULT_PRICE_IN_KRW_PER_MTOK, priceOut: DEFAULT_PRICE_OUT_KRW_PER_MTOK });
   if (!config) throw new Fail(503, "AI_NOT_CONFIGURED");
@@ -408,7 +436,7 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
     if (r === "ok") kept++;
   }
   await addDay(db, ws, input.day, "telegram", counts(kept), nowMs);
-  return { ok: true, kept, personal: 0, unsure: 0, failed: 0, duplicate: false };
+  return callResult({ kept });
 }
 
 // ---- 입구 ----------------------------------------------------------------------------------------------------------
