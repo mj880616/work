@@ -4,6 +4,14 @@ import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 const {parse}=createRequire(new URL('../scripts/package.json',import.meta.url))('acorn');
+// 순수 가져오기(import)는 실제 모듈을 그대로 쓴다. 가짜로 흉내 내면 앱이 가져오기를 늘릴 때 시험이 낡는다 (STAB-단위시험등록).
+const {isMeetingKind,reportWords}=await import('../app/report-words.mjs');
+const {detailDefaultOff}=await import('../app/category-chips.js');
+const {originAfterEdit}=await import('../app/library-ai-fill.js');
+const {lastSeen}=await import('../app/split-last.js');
+const {reportKindOf}=await import('../app/report-kinds.mjs');
+const {createReportSummaries}=await import('../app/report-link-summaries.js');
+const pureModels={createReportSummaries,...await import('../app/meeting-when.js'),...await import('../app/report-kinds.mjs'),...await import('../app/report-words.mjs'),...await import('../app/report-links-model.mjs'),...await import('../app/record-doc.mjs'),...await import('../app/note-preview.mjs')};
 
 // Execute actual declarations unchanged; omit startup, imported presentation and events.
 // API/DOM here are synthetic. Active route/click behavior is covered by the browser spec.
@@ -55,11 +63,14 @@ function harness(file,{profile=true,affiliations=['tag-old']}={}){
     return options.prefer?.includes('return=representation')?(h.reply?h.reply(copy(rows),call):copy(rows)):null;
   };
   const document={querySelector:node,querySelectorAll:selector=>selector==='[data-wd-aff]:checked'?checked.map(value=>({value})):[],createElement:element,createTextNode:text=>({textContent:text}),addEventListener(){},body:{insertAdjacentHTML(){}},head:{appendChild(){}}};
-  const window={KPTURuntime:rt,__KPTU_START_TEAM_VIEW__:async()=>{},KPTUTeamData:{meetings:()=>db.app_meetings},KPTUMeetingNames:{label:m=>m.title,installPicker(){},setupPicker(_s,input,_m,_b,{current}){input.value=current;}},KPTUProjectCatalog:{snapshot:()=>({loaded:true,workspaceId:WS,userId:OWNER,tree:[]}),options:()=>'<option value="">프로젝트 없음</option>',label:n=>n,describe:()=>({kind:'active'})},KPTUA11y:{dialog:{activate(){},deactivate(){}}},dispatchEvent:e=>events.push(e.type),addEventListener(type,fn){(listeners.get(type)||listeners.set(type,[]).get(type)).push(fn);}};
-  const env={window,document,URL,URLSearchParams,structuredClone,console,Map,Set,Date,Promise,JSON,Event:class{constructor(type){this.type=type;}},CustomEvent:class{constructor(type,init){this.type=type;this.detail=init?.detail;}},formatSeoulTime:()=>stamp,formatMeetingTime:()=>stamp,meetingInputValue:v=>v?.slice(0,16),toMeetingISO:v=>new Date(v).toISOString(),seoulDateKey:()=> '2026-10-13',seoulParts:()=>({year:2026}),readRecordPages:(path,{api})=>api(path),readLinkRecords:async()=>[],linkRecordHtml:()=>'',mountLinkSummaryEditor:()=>({hasDraft:()=>false,dispose(){}}),confirm:()=>true,alert(){},queueMicrotask,setTimeout:()=>0,clearTimeout(){},
+  const window={getSelection:()=>({toString:()=>'',rangeCount:0,anchorNode:null}),KPTURuntime:rt,__KPTU_START_TEAM_VIEW__:async()=>{},KPTUTeamData:{meetings:()=>db.app_meetings},KPTUMeetingNames:{label:m=>m.title,choices:()=>[],installPicker(){},setupPicker(_s,input,_m,_b,{current}){input.value=current;}},KPTUProjectCatalog:{snapshot:()=>({loaded:true,workspaceId:WS,userId:OWNER,tree:[]}),options:()=>'<option value="">프로젝트 없음</option>',label:n=>n,describe:()=>({kind:'active'})},KPTUA11y:{dialog:{activate(){},deactivate(){}}},dispatchEvent:e=>events.push(e.type),addEventListener(type,fn){(listeners.get(type)||listeners.set(type,[]).get(type)).push(fn);}};
+  const env={...pureModels,readReportTargets:async()=>[],saveReportTargets:async()=>({ok:true}),locationAvailable:async()=>false,LEGACY_NOTE:'',mountSplitResize:()=>({dispose(){}}),loadDocumentCategories:async()=>[],lastSeen,reportKindOf,isMeetingKind,reportWords,detailDefaultOff,originAfterEdit,categoryOptions:selected=>'<option value="'+(selected||'')+'">'+(selected||'')+'</option>',window,document,URL,URLSearchParams,structuredClone,console,Map,Set,Date,Promise,JSON,Event:class{constructor(type){this.type=type;}},CustomEvent:class{constructor(type,init){this.type=type;this.detail=init?.detail;}},formatSeoulTime:()=>stamp,formatMeetingTime:()=>stamp,meetingInputValue:v=>v?.slice(0,16),toMeetingISO:v=>new Date(v).toISOString(),seoulDateKey:()=> '2026-10-13',seoulParts:()=>({year:2026}),readRecordPages:(path,{api})=>api(path),readLinkRecords:async()=>[],linkRecordHtml:()=>'',mountLinkSummaryEditor:()=>({hasDraft:()=>false,dispose(){}}),confirm:()=>true,alert(){},queueMicrotask,setTimeout:()=>0,clearTimeout(){},
     localStorage:{getItem:()=>null,setItem(){throw Error('private persistence forbidden');}},
   };
   h.privateStore=env.localStorage;
+  // 화면 그리기용 가져오기(import)는 이 시험의 대상이 아니다: 위에 따로 정하지 않은 이름은 아무것도 하지 않는 함수로 둔다.
+  // 앱이 가져오기를 늘려도 시험이 'X is not defined'로 깨지지 않게 하되, 저장 동작(PATCH·잠금)은 실제 선언 그대로 시험한다.
+  for(const node of parse(readFileSync(new URL('../app/'+file,import.meta.url),'utf8'),{ecmaVersion:'latest',sourceType:'module'}).body)if(node.type==='ImportDeclaration')for(const spec of node.specifiers)if(!(spec.local.name in env))env[spec.local.name]=()=>undefined;
   const ctx=vm.createContext(env);vm.runInContext(declarations(file),ctx);
   const source=readFileSync(new URL('../app/'+file,import.meta.url),'utf8');const ast=parse(source,{ecmaVersion:'latest',sourceType:'module'});function installSession(node){if(!node||typeof node!=='object')return;if(node.type==='CallExpression'&&node.callee?.object?.name==='window'&&node.callee?.property?.name==='addEventListener'&&['kptu:session-changed','kptu:view-changed'].includes(node.arguments?.[0]?.value)){vm.runInContext(source.slice(node.start,node.end),ctx);return}for(const value of Object.values(node))if(Array.isArray(value))value.forEach(installSession);else if(value&&typeof value==='object')installSession(value)}installSession(ast);h.emit=type=>listeners.get(type)?.forEach(fn=>fn({detail:{session}}));
   h.eval=code=>vm.runInContext(code,ctx);h.call=(name,...args)=>{env.args=args;return vm.runInContext(name+'(...args)',ctx);};

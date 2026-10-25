@@ -189,10 +189,28 @@ jobs:
         run: node --test tests/security/app-tasks-loaded-writes.test.mjs
 
       - name: Check domain routing and service worker registration
-        run: node --test tests/domain/bokdoong-router.test.mjs tests/domain/web2-pwa-registration.test.mjs tests/domain/read-oauth-return-bridge.test.mjs
+        run: node --test tests/domain/bokdoong-router.test.mjs tests/domain/web2-pwa-registration.test.mjs tests/domain/read-oauth-return-bridge.test.mjs tests/domain/supabase-origin.test.mjs
+
+      - name: Check home, inbox, quick save and trash units (STAB-단위시험등록)
+        run: node --test tests/home-fill-data.test.mjs tests/home-fill-model.test.mjs tests/inbox-count.test.mjs tests/inbox-promise.test.mjs tests/quick-save-session.test.mjs tests/trash-actions.test.mjs
+
+      - name: Check notes, editor tables and text units (STAB-단위시험등록)
+        run: node --test tests/basket-note-folder.test.mjs tests/chatgpt-html.test.mjs tests/diary-doc.test.mjs tests/ed-table-colbuttons.test.mjs tests/ed-table-resize.test.mjs tests/note-files.test.mjs tests/preview-text.test.mjs tests/report-words.test.mjs
+
+      - name: Check library, project, share and upload units (STAB-단위시험등록)
+        run: node --test tests/library-select.test.mjs tests/project-fold.test.mjs tests/share-pages-label.test.mjs tests/share-photos.test.mjs tests/summary-copy-model.test.mjs tests/text-backfill-notice.test.mjs tests/upload-file-copy.test.mjs
+
+      - name: Check hardcoded color baseline (STAB-단위시험등록)
+        run: node --test tests/hardcoded-colors.test.mjs
 
       - name: Install locked smoke parser
         run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
+
+      - name: Check save keeps other active edit open (needs the locked parser) (STAB-단위시험등록)
+        run: node --test tests/save-other-active.test.mjs
+
+      - name: Check every tests/ unit test is registered in a workflow (STAB-단위시험등록)
+        run: node scripts/check-test-registration.mjs
 
       - name: Check recursive app dependency graph
         run: |
