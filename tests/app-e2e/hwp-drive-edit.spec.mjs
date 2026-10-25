@@ -213,3 +213,55 @@ test('a changed Drive original is not overwritten and unsaved edits are not drop
   expect(f.sent.overwrite).toHaveLength(1);
   expect(f.errors).toEqual([]);
 });
+
+// LIB-편집열기느림: a slow open must not look frozen. The status names which of the two parallel jobs (the Drive file,
+// the editor files) is still running, and elapsed seconds appear in an aria-hidden piece after 3 seconds.
+test('a slow Drive download shows which step is running and the elapsed seconds, then the opened message',async({page})=>{
+  const f=await fixture(page,390,{open:async route=>{await new Promise(resolve=>setTimeout(resolve,5500));return opened(route,HWP,info())}});
+  await editLibraryDocument(page,390);
+  await expect(status(page)).toContainText('주간보고.hwp 여는 중… 파일 받는 중',{timeout:15000});
+  const elapsed=page.locator('#hwpLabStatus .hwp-lab-elapsed');
+  await expect(elapsed).toHaveText(/\(\d+초\)/,{timeout:15000});
+  await expect(elapsed).toHaveAttribute('aria-hidden','true');
+  await expect(status(page)).toHaveText('주간보고.hwp · 1쪽을 열었어요. 고친 뒤 [새 파일로 저장]을 누르세요.',{timeout:60000});
+  await expect(elapsed).toHaveCount(0);
+  expect(f.errors).toEqual([]);
+});
+
+// LIB-편집열기느림: records (does not judge) how long each step of opening an HWPX from Drive takes in CI and how many
+// bytes the editor frame downloads. Speed in CI is not the speed on a phone, so the only checks are structural:
+// no editor file is downloaded twice for one open.
+test('records the editor download size and step times for opening an HWPX from Drive',async({page},testInfo)=>{
+  const t0=performance.now(),marks={},frameRequests=[];
+  const at=(name,keepLast=false)=>{if(keepLast||marks[name]===undefined)marks[name]=Math.round(performance.now()-t0)};
+  page.on('request',request=>{
+    const url=new URL(request.url());
+    if(!url.pathname.includes('/app/hwp-lab/'))return;
+    frameRequests.push(request);
+    if(url.pathname.endsWith('/studio/index.html'))at('editorFrameRequested');
+  });
+  page.on('requestfinished',request=>{
+    const path=new URL(request.url()).pathname;
+    if(/rhwp_bg.*\.wasm$/.test(path))at('engineDownloaded');
+    if(path.endsWith('.woff2'))at('lastFontDownloaded',true);
+  });
+  const f=await fixture(page,1280,{open:route=>{at('driveRequestSent');return opened(route,HWPX,info({file_name:'주간보고.hwpx',format:'hwpx',size:HWPX.length,can_overwrite:false}))}});
+  at('start');
+  await editLibraryDocument(page,1280);
+  await expect(status(page)).toHaveText(/1쪽을 열었어요/,{timeout:90000});
+  at('documentShown');
+  const kinds={engine:0,script:0,font:0,other:0},urls=[];
+  let total=0;
+  for(const request of frameRequests){
+    const path=new URL(request.url()).pathname;
+    const size=Math.max(0,(await request.sizes().catch(()=>({responseBodySize:0}))).responseBodySize||0);
+    total+=size;urls.push(path);
+    kinds[/\.wasm$/.test(path)?'engine':/\.js$/.test(path)?'script':/\.woff2$/.test(path)?'font':'other']+=size;
+  }
+  const report={stepsMs:marks,editorFiles:urls.length,downloadedMB:Number((total/1048576).toFixed(2)),byKindMB:Object.fromEntries(Object.entries(kinds).map(([k,v])=>[k,Number((v/1048576).toFixed(2))])),fonts:urls.filter(p=>p.endsWith('.woff2')).map(p=>p.split('/').pop())};
+  console.log('[hwp-open-timing] '+JSON.stringify(report));
+  testInfo.annotations.push({type:'hwp-open-timing',description:JSON.stringify(report)});
+  expect(new Set(urls).size).toBe(urls.length);
+  expect(f.sent.open).toHaveLength(1);
+  expect(f.errors).toEqual([]);
+});
