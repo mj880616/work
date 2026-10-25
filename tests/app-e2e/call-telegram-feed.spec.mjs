@@ -128,7 +128,7 @@ for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세
  const copy=detail.locator('[data-cf-copy]');await expect(copy).toHaveCount(1);
  await tap(page,copy,width);
  await expect(detail.locator('[data-cf-detail-status]')).toHaveText('복사했어요');
- expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('예시지부 홍길동 위원장 · 가상 교섭 일정 다음 주로 조정\n10. 6. (화) 09:42\n\n- 가상 교섭 다음 주 화요일로 변경\n- 요구안 12명 유지 [확정]\n- 회신 10. 12.(월)까지 [예정]\n- 장소 다시 확인 [확인]');
+ expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('예시지부 · 홍길동 위원장 · 가상 교섭 일정 다음 주로 조정\n10. 6. (화) 09:42\n\n- 가상 교섭 다음 주 화요일로 변경\n- 요구안 12명 유지 [확정]\n- 회신 10. 12.(월)까지 [예정]\n- 장소 다시 확인 [확인]');
  // 폰의 '‹ 통화'는 본문 글자 크기(14px 이상)이고 누르는 자리가 글자보다 넓다.
  if(width<1024){const back=detail.locator('[data-cf-back]');await expect(back).toHaveText('‹ 통화');await expect(page.locator('.mobile-shell-header [data-mobile-view-name]')).toBeHidden();expect(await back.evaluate(e=>parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(14);}
  // 고정: ⋯ → 고정 → 서버에 pinned_at.
