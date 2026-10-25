@@ -5,7 +5,7 @@ import {callAiAssist} from './basket-ai-summary.js';
 import {reportKindOf, reportKindLabel} from './report-kinds.mjs';
 import {readReportTargets, saveReportTargets, reportRuntime} from './report-links.js';
 import {seoulDateKey} from './meeting-time.js';
-import {makeRef, windowOf, rankCandidates, buildRequest, sameCandidates, userVerdictPayload, linkPlan, mergeTarget, OVERLAP_WAIT_MS} from './overlap-model.mjs';
+import {makeRef, targetsOf, windowOf, rankCandidates, buildRequest, sameCandidates, userVerdictPayload, linkPlan, mergeTarget, OVERLAP_WAIT_MS} from './overlap-model.mjs';
 
 const enc = encodeURIComponent;
 const PER_KIND = 80;
@@ -14,18 +14,20 @@ const range = day => { const w = windowOf(day); return w && {from: enc(`${w.from
 const list = async (rt, path) => { try { const rows = await rt.api(path); return Array.isArray(rows) ? rows : []; } catch { return []; } };
 const workspaceOf = rt => rt.context?.read?.()?.workspace?.id || '';
 
-// 새 기록의 반대편 후보. 사업 보고 → 프로젝트 기록·담당조직 기록·프로젝트/조직에 연결된 업데이트. 프로젝트 기록 → 사업 보고.
+// 새 기록의 반대편 후보. 사업 보고 → 프로젝트 기록·담당조직 기록·프로젝트/조직에 연결된 업데이트. 프로젝트 기록·담당조직 기록·업데이트 → 사업 보고(이번 범위: 사업 보고가 한쪽에 낀 쌍).
 export async function readCandidates(record, rt = reportRuntime()) {
   const r = range(record.day), ws = enc(workspaceOf(rt));
   if (!r || !ws) return [];
-  if (record.kind === 'project_update') {
+  if (record.kind !== 'meeting') {
+    const mine = targetsOf(record);
     const rows = await list(rt, `/rest/v1/app_meetings?workspace_id=eq.${ws}&meeting_at=gte.${r.from}&meeting_at=lte.${r.to}&select=id,title,series_name,meeting_at,activity_kind,project_id&order=meeting_at.desc&limit=${PER_KIND}`);
     const ids = rows.map(x => x.id).filter(Boolean);
-    const links = ids.length ? await list(rt, `/rest/v1/app_record_links?workspace_id=eq.${ws}&source_meeting_id=in.(${ids.map(enc).join(',')})&status=eq.confirmed&select=source_meeting_id,project_id`) : [];
-    return rows.filter(x => x.id && x.meeting_at).map(m => {
-      const linked = links.some(l => l.source_meeting_id === m.id && l.project_id === record.target?.id) || m.project_id === record.target?.id;
-      return {ref: makeRef('meeting', m.id), kind: 'meeting', day: seoulDateKey(m.meeting_at), title: m.series_name || m.title || '', text: '', typeLabel: reportKindLabel(reportKindOf(m)),
-        target: linked && record.target ? record.target : null};
+    const links = ids.length ? await list(rt, `/rest/v1/app_record_links?workspace_id=eq.${ws}&source_meeting_id=in.(${ids.map(enc).join(',')})&status=eq.confirmed&select=source_meeting_id,project_id,organization_id`) : [];
+    // 이 업데이트를 이미 옮겨 담은 사업 보고는 같은 기록으로 이어져 있으니 묻지 않는다(구조적 증거).
+    const moved = record.kind === 'basket' && ids.length ? await list(rt, `/rest/v1/app_record_links?workspace_id=eq.${ws}&note_id=eq.${enc(record.id)}&meeting_id=in.(${ids.map(enc).join(',')})&select=meeting_id`) : [];
+    return rows.filter(x => x.id && x.meeting_at && !moved.some(l => l.meeting_id === x.id)).map(m => {
+      const hit = mine.find(t => t.kind === 'project' ? m.project_id === t.id || links.some(l => l.source_meeting_id === m.id && l.project_id === t.id) : links.some(l => l.source_meeting_id === m.id && l.organization_id === t.id));
+      return {ref: makeRef('meeting', m.id), kind: 'meeting', day: seoulDateKey(m.meeting_at), title: m.series_name || m.title || '', text: '', typeLabel: reportKindLabel(reportKindOf(m)), target: hit || null};
     });
   }
   const from = windowOf(record.day).from, to = windowOf(record.day).to;
@@ -77,7 +79,7 @@ export async function linkAndMark(record, candidate, rt = reportRuntime()) {
       const row = (await rt.api(`/rest/v1/app_meetings?id=eq.${enc(plan.meetingId)}&workspace_id=eq.${enc(workspaceOf(rt))}&select=id,updated_at`))?.[0];
       if (!row) return {ok: false};
       const merged = mergeTarget(await readReportTargets(row, rt), plan);
-      const summaries = merged.summary ? new Map([[`${plan.target.kind}:${plan.target.id}`, merged.summary]]) : null;
+      const summaries = merged.summary ? new Map(merged.summaryFor.map(t => [`${t.kind}:${t.id}`, merged.summary])) : null;
       if (merged.added || summaries) {
         const saved = await saveReportTargets(row, merged.targets, rt, summaries);
         if (!saved.ok) return {ok: false};

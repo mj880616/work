@@ -308,3 +308,30 @@ test('a material file is matched the same way, joins its result file, and the ki
   await expect(r.locator('summary')).toHaveAttribute('aria-label','2026-10-20, 본부 운영위원회, 38차, 자료 1개, 결과 있음, 새로 만들기');
   expect(f.errors).toEqual([]);
 });
+
+// MTG-기록겹침거르기 3단계: 파일·글로 새로 만든 사업 보고도 저장이 끝나면 같은 kptu:record-saved 알림을 낸다(겹침 확인은 이 알림을 받는다).
+// 같은 종류·차수 회의에 결과만 더한 경우는 새 기록이 아니므로 알리지 않는다.
+test('a meeting made from pasted text announces the saved record once; adding a result to an existing meeting announces nothing',async({page})=>{
+  const f=await fixture(page);
+  await page.evaluate(()=>{window.__recordSaved=[];window.addEventListener('kptu:record-saved',e=>window.__recordSaved.push(e.detail))});
+  await page.locator('#mffText').fill('제9차 중앙집행위원회 결과 2025.12.10\n- 승인');
+  await expect(create(page)).toHaveText('회의 1건 만들기',{timeout:30000});
+  await create(page).click();
+  await expect.poll(()=>f.posts.length).toBe(1);
+  await expect.poll(()=>page.evaluate(()=>window.__recordSaved.length)).toBe(1);
+  const saved=await page.evaluate(()=>window.__recordSaved);
+  expect(saved[0]).toMatchObject({kind:'meeting',id:'new-1',day:'2025-12-10',title:'중앙집행위원회'});
+  expect(saved[0].text).toContain('승인');
+  expect(f.errors).toEqual([]);
+});
+test('adding a result to an existing meeting is not a new record',async({page})=>{
+  const f=await fixture(page);
+  await page.evaluate(()=>{window.__recordSaved=[];window.addEventListener('kptu:record-saved',e=>window.__recordSaved.push(e.detail))});
+  await page.locator('#mffText').fill('제4차 중앙집행위원회 결과 2025.09.10\n- 추가 안건');
+  await expect(create(page)).toHaveText(/만들기/,{timeout:30000});
+  await create(page).click();
+  await expect.poll(()=>f.patches.length).toBe(1);
+  expect(f.posts).toEqual([]);
+  expect(await page.evaluate(()=>window.__recordSaved)).toEqual([]);
+  expect(f.errors).toEqual([]);
+});
