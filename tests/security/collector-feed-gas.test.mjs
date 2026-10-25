@@ -493,3 +493,122 @@ test('화자 번호: 0번부터 오면 분석·전사를 함께 1씩 올려 화�
   const keep=plain(G.callFeedBuildCallBody({ref:REF,analysisMd:analysis(),transcript:TRANSCRIPT}));
   assert.equal(keep.transcript,TRANSCRIPT,'1번부터 오면 건드리지 않는다');
 });
+
+// ── CALL-개인통화함 3단계: 지난 개인·애매 통화 다시 보내기(1회용 callFeed_resendPersonal) ──────────
+const REAL_R={CALL_FEED_TEST_MODE:'끔',COLLECTOR_FEED_SECRET:SECRET,CALL_FEED_PERSONAL_LIST:'010-1111-2222'};
+const noSummary=(md)=>md.replace(/## 핵심요약[\s\S]*?(?=## 약속 후보)/,'## 핵심요약\n- 없음\n\n');
+function resendScenario(extraPersonal=0){
+  const t=(h)=>NOW0-h*HOUR;
+  const nm={A:'통화 가상 친구_261024_093000.txt',B:'통화 홍길동_261024_100000.txt',C:'통화 가상 국장_261024_110000.txt',D:'통화 가상 이웃_261024_120000.txt',E:'통화 가상 대기_261024_130000.txt',F:'통화 가상 옛날_260101_090000.txt',L:'통화 010-1111-2222_261024_140000.txt'};
+  const at={A:t(10),B:t(9),C:t(8),D:t(7),E:t(6),F:t(5),L:t(4)};
+  const custom=(file)=>{
+    const transcripts=[file(nm.A,'TXTRSND0001aa',at.A,'개인 내용'),file(nm.B,'TXTRSND0002bb',at.B,TRANSCRIPT),file(nm.C,'TXTRSND0003cc',at.C,'애매 내용'),
+      file(nm.D,'TXTRSND0004dd',at.D,'요약 없는 개인'),file(nm.E,'TXTRSND0005ee',at.E,'분석 없음'),file(nm.F,'TXTRSND0006ff',at.F,'옛 녹음'),file(nm.L,'TXTRSND0007gg',at.L,'목록 통화')];
+    const analyses={
+      [G.callFeedAnalysisName(nm.A,'TXTRSND0001aa')]:file('a1','A1',at.A,analysis({version:'3.5',isWork:'false',status:'개인',title:'가상친구 · 주말 약속'}).replace(REF,'TXTRSND0001aa')),
+      [G.callFeedAnalysisName(nm.B,'TXTRSND0002bb')]:file('a2','A2',at.B,analysis().replace(REF,'TXTRSND0002bb')),
+      [G.callFeedAnalysisName(nm.C,'TXTRSND0003cc')]:file('a3','A3',at.C,analysis({version:'3.5',isWork:null,status:'애매'}).replace(REF,'TXTRSND0003cc')),
+      [G.callFeedAnalysisName(nm.D,'TXTRSND0004dd')]:file('a4','A4',at.D,noSummary(analysis({version:'3.4',isWork:'false',status:'개인'})).replace(REF,'TXTRSND0004dd')),
+      [G.callFeedAnalysisName(nm.F,'TXTRSND0006ff')]:file('a6','A6',at.F,analysis({version:'3.5',isWork:'false',status:'개인'}).replace(REF,'TXTRSND0006ff')),
+      [G.callFeedAnalysisName(nm.L,'TXTRSND0007gg')]:file('a7','A7',at.L,analysis().replace(REF,'TXTRSND0007gg')),
+    };
+    for(let i=0;i<extraPersonal;i++){
+      const n=`통화 가상 추가${i}_261024_15${String(i).padStart(2,'0')}00.txt`,id=`TXTMORE${String(i).padStart(4,'0')}zz`,c=NOW0-3*HOUR+i*1000;
+      transcripts.push(file(n,id,c,'추가 개인'));
+      analyses[G.callFeedAnalysisName(n,id)]=file('am'+i,'AM'+i,c,analysis({version:'3.5',isWork:'false',status:'개인'}).replace(REF,id));
+    }
+    return {transcripts,analyses};
+  };
+  return {custom,at};
+}
+const callsOf=(sent)=>sent.filter((s)=>s.url.endsWith('action=call'));
+
+test('다시 보내기 대상 판정: 개인·애매이고 핵심요약이 있을 때만. 업무·요약 없음·실패·구분 없음은 아님. 개인 번호 목록은 개인',()=>{
+  assert.equal(G.callFeedHasSummary(analysis()),true);
+  assert.equal(G.callFeedHasSummary(noSummary(analysis())),false);
+  assert.equal(G.callFeedHasSummary('---\nstatus: "개인"\n---\n# 제목\n'),false);
+  assert.equal(G.callFeedResendWanted(analysis({version:'3.5',isWork:'false',status:'개인'}),false),'개인');
+  assert.equal(G.callFeedResendWanted(analysis({version:'3.5',isWork:null,status:'애매'}),false),'애매');
+  assert.equal(G.callFeedResendWanted(analysis(),false),'', '업무 통화는 평소 보내기가 보낸다');
+  assert.equal(G.callFeedResendWanted(analysis(),true),'개인','개인 번호 목록 통화는 개인으로');
+  assert.equal(G.callFeedResendWanted(noSummary(analysis({isWork:'false',status:'개인'})),false),'');
+  assert.equal(G.callFeedResendWanted(analysis({isWork:'false',status:'분석실패'}),false),'');
+  assert.equal(G.callFeedResendWanted(analysis({isWork:null}),false),'', '구분 없음(옛 3.1)은 보내지 않는다');
+});
+
+test('다시 보내기 — 시험 모드(기본): 보내지 않고 보낼 개수만 적고 진행 위치도 적지 않는다. 로그에 이름·내용이 없다',()=>{
+  const sc=resendScenario();
+  const {env,store,sent,logs}=fakeEnv({props:{CALL_FEED_PERSONAL_LIST:'010-1111-2222'},custom:sc.custom});
+  env.callFeed_resendPersonal();
+  assert.equal(sent.length,0);
+  assert.equal(store.CALL_FEED_RESEND_STATE,undefined);
+  assert.equal(store.CALL_FEED_STATE,undefined);
+  const log=logs.join('\n');
+  assert.match(log,/시험 모드/);
+  assert.match(log,/보낼 것: 3 \(개인 2 · 애매 1\)/);
+  assert.match(log,/업무·요약 없음 2 · 분석 아직 없음 1 · 일주일 넘은 옛 녹음 1/);
+  assert.match(log,/끝까지 봄/);
+  assert.ok(!/홍길동|010|교섭|가상/.test(log));
+});
+
+test('다시 보내기 — 실제 모드: 개인·애매·개인 번호 목록 통화만 call로 보낸다. 서버가 막는 중복은 이미 있음으로 센다. 평소 진행 위치(CALL_FEED_STATE)는 건드리지 않는다',()=>{
+  const sc=resendScenario();
+  const baseState=JSON.stringify({since:'2026-10-23T00:00:00.000Z',backfillChecked:true});
+  const {env,store,sent,logs}=fakeEnv({props:{...REAL_R,CALL_FEED_STATE:baseState},custom:sc.custom,
+    responses:[{code:200,body:{ok:true,personal:1,boxed:1}},{code:200,body:{ok:true,unsure:1,boxed:1}},{code:200,body:{ok:true,duplicate:true}}]});
+  env.callFeed_resendPersonal();
+  const calls=callsOf(sent);
+  assert.equal(sent.length,3);
+  const bodies=calls.map((s)=>JSON.parse(s.opt.payload));
+  assert.deepEqual(bodies.map((b)=>b.ref),['TXTRSND0001aa','TXTRSND0003cc','TXTRSND0007gg']);
+  for(const s of calls){assert.equal(s.opt.headers['x-collector-feed-secret'],SECRET);assert.ok(!s.url.includes(SECRET)&&!s.opt.payload.includes(SECRET));}
+  assert.equal(parseCall(parseCallBody(bodies[0]),ORGS,NOW).kind,'personal');
+  assert.ok(parseCall(parseCallBody(bodies[0]),ORGS,NOW).box,'개인 통화함 줄로 읽힌다');
+  assert.equal(parseCall(parseCallBody(bodies[1]),ORGS,NOW).kind,'unsure');
+  const listCall=parseCall(parseCallBody(bodies[2]),ORGS,NOW);assert.equal(listCall.kind,'personal','분석이 업무라도 목록 통화는 개인으로');
+  assert.equal(store.CALL_FEED_STATE,baseState,'평소 보내기의 앞으로만 가는 진행 위치는 그대로');
+  assert.equal(JSON.parse(store.CALL_FEED_RESEND_STATE).from,sc.at.L);
+  const log=logs.join('\n');
+  assert.match(log,/보냄: 3 \(개인 2 · 애매 1\)/);assert.match(log,/개인 통화함에 새로 저장 2 · 이미 있음 1/);
+  // 다시 실행하면 이어서 한다: 더 볼 통화가 없다.
+  const again=fakeEnv({props:{...REAL_R,CALL_FEED_RESEND_STATE:store.CALL_FEED_RESEND_STATE},custom:sc.custom});
+  again.env.callFeed_resendPersonal();
+  assert.equal(again.sent.length,0);assert.match(again.logs.join('\n'),/끝까지 봄/);
+});
+
+test('다시 보내기: 한 번에 20건에서 멈추고 진행 위치를 적어 다음 실행에서 나머지만 보낸다. 서버 상한(429)에서는 그 통화 앞까지만 적는다',()=>{
+  const sc=resendScenario(20);   // 보낼 통화 3 + 20 = 23건
+  const first=fakeEnv({props:{...REAL_R},custom:sc.custom});
+  first.env.callFeed_resendPersonal();
+  const refs1=callsOf(first.sent).map((s)=>JSON.parse(s.opt.payload).ref);
+  assert.equal(refs1.length,20);
+  assert.match(first.logs.join('\n'),/한 번에 보낼 수 도달/);
+  const second=fakeEnv({props:{...REAL_R,CALL_FEED_RESEND_STATE:first.store.CALL_FEED_RESEND_STATE},custom:sc.custom});
+  second.env.callFeed_resendPersonal();
+  const refs2=callsOf(second.sent).map((s)=>JSON.parse(s.opt.payload).ref);
+  assert.equal(refs2.length,3);
+  assert.equal(new Set([...refs1,...refs2]).size,23,'겹침 없음');
+  // 429: 두 번째 통화에서 막히면 첫 통화까지만 적고, 다시 실행하면 막힌 통화부터 보낸다.
+  const lim=fakeEnv({props:{...REAL_R},custom:sc.custom,responses:[{code:200,body:{ok:true,boxed:1}},{code:429,body:{error:'LIMIT'}}]});
+  lim.env.callFeed_resendPersonal();
+  assert.equal(callsOf(lim.sent).length,2);
+  assert.equal(JSON.parse(lim.store.CALL_FEED_RESEND_STATE).from,sc.at.B,"보낸 A와 건너뛴 업무 통화 B까지");
+  assert.match(lim.logs.join('\n'),/서버 하루 상한\(429\)/);
+  const next=fakeEnv({props:{...REAL_R,CALL_FEED_RESEND_STATE:lim.store.CALL_FEED_RESEND_STATE},custom:sc.custom});
+  next.env.callFeed_resendPersonal();
+  assert.equal(JSON.parse(callsOf(next.sent)[0].opt.payload).ref,'TXTRSND0003cc');
+});
+
+test('다시 보내기: 비밀값이 없으면 시험 모드가 아닐 때 멈추고, 401이면 진행 위치를 적고 멈춘다. 진행 위치는 뒤로 가지 않는다',()=>{
+  const sc=resendScenario();
+  assert.throws(()=>fakeEnv({props:{CALL_FEED_TEST_MODE:'끔'},custom:sc.custom}).env.callFeed_resendPersonal(),/COLLECTOR_FEED_SECRET/);
+  const bad=fakeEnv({props:{...REAL_R},custom:sc.custom,responses:[{code:200,body:{ok:true,boxed:1}},{code:401,body:{}}]});
+  assert.throws(()=>bad.env.callFeed_resendPersonal(),/비밀값 불일치/);
+  assert.equal(JSON.parse(bad.store.CALL_FEED_RESEND_STATE).from,sc.at.B);
+  const ahead=fakeEnv({props:{...REAL_R,CALL_FEED_RESEND_STATE:JSON.stringify({from:sc.at.L})},custom:sc.custom});
+  ahead.env.callFeed_resendPersonal();
+  assert.equal(ahead.sent.length,0);
+  assert.equal(JSON.parse(ahead.store.CALL_FEED_RESEND_STATE).from,sc.at.L,'뒤로 가지 않는다');
+  ahead.env.callFeed_resendReset();
+  assert.equal(ahead.store.CALL_FEED_RESEND_STATE,undefined);
+});
