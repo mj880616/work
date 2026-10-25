@@ -118,6 +118,7 @@
   await Promise.all([
     import('./topbar-actions.js'),
     import('./context-menu.js'),
+    import('./select-menu.js'),
     import('./team.js')
   ]);
   const teamState=await window.__KPTU_TEAM_READY__;
