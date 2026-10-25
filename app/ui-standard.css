@@ -308,6 +308,7 @@
 #appView #libraryView .lu-file-kind[data-lu-kind="xls"]{ color:var(--ds-file-xls-ink); background:var(--ds-file-xls-soft); }
 #appView #libraryView .lu-file-kind[data-lu-kind="doc"]{ color:var(--ds-file-doc-ink); background:var(--ds-file-doc-soft); }
 #appView #libraryView .lu-file-kind[data-lu-kind="ppt"]{ color:var(--ds-file-ppt-ink); background:var(--ds-file-ppt-soft); }
+#appView #libraryView .lu-file-kind[data-lu-kind="img"]{ color:var(--ds-file-img-ink); background:var(--ds-file-img-soft); }
 
 /* 담당조직 목록(2026-10-16 사용자 결정): 이름 한 줄(보조 줄·할 일 수 없음), 오른쪽은 › 만, 줄 높이 44px.
    묶음 제목은 테마 색 12px, 오른쪽에 "N곳". 이름 왼쪽 8px 점은 마지막 기록이 며칠 전인지(KST)를 색으로:
@@ -850,6 +851,7 @@
 .file-kind[data-kind="xls"]{color:var(--ds-file-xls-ink);background:var(--ds-file-xls-soft)}
 .file-kind[data-kind="doc"]{color:var(--ds-file-doc-ink);background:var(--ds-file-doc-soft)}
 .file-kind[data-kind="ppt"]{color:var(--ds-file-ppt-ink);background:var(--ds-file-ppt-soft)}
+.file-kind[data-kind="img"]{color:var(--ds-file-img-ink);background:var(--ds-file-img-soft)}
 .file-line-main{flex:1 1 auto;display:flex;align-items:baseline;gap:6px;min-width:0}
 .file-line-main b{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--ds-text-row,13px);font-weight:var(--ds-weight-regular,400);line-height:1.4;color:var(--kptu-ink)}
 .file-line-main small{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--ds-text-meta,12px);color:var(--kptu-faint)}

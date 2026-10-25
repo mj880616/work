@@ -303,7 +303,8 @@ for(const width of [390,1280]){
       expect(await ids()).toEqual(['category-only','meeting-a','meeting-b']);
       await pressed('전체').click();await expect(rows).toHaveCount(5);
       await page.locator('#manageLibraryBtn').click();
-      await expect(page.locator('#libraryManageList [data-library-edit]')).toHaveCount(5);
+      await expect(page.locator('#libraryManageModal .dce')).toBeVisible();
+      await expect(page.locator('#libraryManageList, .library-manage-title, [data-library-edit]')).toHaveCount(0);
       await page.locator('#libraryManageClose').click();
       const storageKeys=()=>page.evaluate(()=>({local:Object.keys(localStorage).sort(),session:Object.keys(sessionStorage).sort()}));
       const before=await storageKeys();

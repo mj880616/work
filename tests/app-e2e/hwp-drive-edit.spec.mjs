@@ -69,7 +69,7 @@ async function editLibraryDocument(page,width){
   await expect(page.locator('#luMorePanel [data-lu-hwp-edit]')).toHaveCount(0);
   await page.keyboard.press('Escape');
   await press(page,page.locator(`[data-lu-menu="${DOC}"]`),width);
-  await expect(page.locator('#luMorePanel button').first()).toHaveText('편집');
+  await expect(page.locator('#luMorePanel button').first()).toHaveText(/^이름 바꾸기/);await expect(page.locator('#luMorePanel button').nth(1)).toHaveText('편집');
   await press(page,page.locator('#luMorePanel [data-lu-hwp-edit]'),width);
   await expect(page.locator('#hwpView')).toBeVisible();
 }
