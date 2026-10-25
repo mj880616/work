@@ -475,9 +475,8 @@ begin
   if (select count(*) from pg_constraint where conrelid = 'public.app_ledger_auto_sources'::regclass and conname = 'app_ledger_auto_sources_kind_check'
       and pg_get_constraintdef(oid) like '%''call''%' and pg_get_constraintdef(oid) like '%''weekly_personal''%'
       and pg_get_constraintdef(oid) like '%''calendar_ref''%' and pg_get_constraintdef(oid) like '%''project_update''%') <> 1
-     or not private.app_auto_ledger_source_kind_ok('call') or not private.app_auto_ledger_source_kind_ok('weekly_personal')
-     or not private.app_auto_ledger_source_kind_ok('calendar_ref') or not private.app_auto_ledger_source_kind_ok('basket')
-     or private.app_auto_ledger_source_kind_ok('telegram') or private.app_auto_ledger_source_kind_ok(null)
+     or (select count(*) from pg_proc where oid = to_regprocedure('private.app_auto_ledger_source_kind_ok(text)') and prosrc like '%''call''%' and prosrc like '%''weekly_personal''%'
+         and prosrc like '%''calendar_ref''%' and prosrc like '%''basket''%' and prosrc like '%''project_update''%' and prosrc not like '%telegram%') <> 1
      or (select count(*) from pg_proc where oid in (to_regprocedure('private.app_auto_ledger_source(uuid,jsonb)'), to_regprocedure('public.app_auto_ledger_record(uuid,jsonb)'))
          and not prosecdef and proconfig = array['search_path=""'] and prosrc like '%app_auto_ledger_source_kind_ok%'
          and prosrc not like '%''project_update''%' and coalesce(proacl::text, '') !~ '(^|[{,])(anon|service_role)?='
