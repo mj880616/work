@@ -87,7 +87,9 @@ async function openMenu(page,width,label){
   await page.locator('#mobileMenu nav').getByRole('button',{name:label,exact:true}).click();
  }
 }
-async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.scrollIntoViewIfNeeded();const b=await locator.boundingBox();await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);}else await locator.click();}
+// 폰은 손가락 탭(locator.tap): 누르기 전에 보이는지·자리가 멈췄는지·그 자리에서 눌리는지(다른 것에 덮이지 않았는지)를 시험 도구가 확인한다.
+// 좌표를 먼저 재고 따로 누르면 카드가 비켜서는 중(.18s)·목록이 다시 그려지는 중의 옛 자리를 누를 수 있다.
+async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761)await locator.tap();else await locator.click();}
 const noWideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 
 test('PC 1280: 사이드바 맨 아래 [통화]·[텔레그램 소식], 자주 가는 링크 바로 위',async({page})=>{
@@ -358,6 +360,8 @@ test('텔레그램 390: 오른쪽으로 밀면 [보관], 누르면 목록에서 
  await expect(swipeOf(view,T2)).not.toHaveAttribute('data-side',/.+/);await expect(view.locator('#tgDetail')).toBeHidden();
  // [보관] 누르기.
  await dragCard(page,row.locator('.feed-bub'),90);
+ await expect(row).toHaveAttribute('data-side','start');
+ await expect.poll(async()=>Math.round((await card.boundingBox()).x-x0)).toBe(72);
  await tap(page,row.locator('.feed-act-archive'),390);
  await expect.poll(()=>f.writes.filter(w=>w.id===T1&&w.body.state==='archived').length).toBe(1);
  await expect(view.locator(`[data-tg-item="${T1}"]`)).toHaveCount(0);
