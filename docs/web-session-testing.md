@@ -33,6 +33,17 @@ scripts/web-session-db-test.sh clean                       # 남은 postgres 프
 | 시험이 멈추거나 임시 폴더 남음 | 중간에 강제 종료 | `scripts/web-session-db-test.sh clean` |
 | `cannot read ...` | 저장소 상위 폴더가 일반 사용자에게 막힘 | 폴더 권한(`o+x`) 확인 |
 
+## 웹 세션에서 실패하는 시험과 이유
+
+아래 시험은 웹 세션(npm 레지스트리·외부 도구 접근이 막히고 의존성이 설치되지 않은 환경)에서만 실패한다. 시험은 그대로 두며, 실패해도 코드 결함이 아니다. (2026-10-25 clean main에서 확인)
+
+| 시험 | 웹 세션 실패 이유 | CI |
+| --- | --- | --- |
+| `tests/edge-isolation/ai-assist.test.mjs` (`real ai-assist graph checks/bundles with functions-only sources`) | `deno`가 없다(`spawnSync deno ENOENT`). Deno를 직접 받아 `DENO_BIN`으로 지정해도 `deno bundle`이 npm 레지스트리(`@esbuild/linux-x64`)를 받으려다 DNS 오류로 멈춘다. 그래프 검사까지는 통과한다 | `authz-security-check.yml`의 `static-authz-regression`이 Deno v2.9.6을 설치해 실행 |
+| `tests/basket-link-postgres-browser.test.mjs` | 파일 머리말대로 "로컬 증명 전용"이다. `playwright`·`embedded-postgres`·`pg`를 설치해 두어야 하며(`Cannot find package 'playwright'`), 설치·건너뜀을 시험이 하지 않는다 | 어느 workflow에도 등록되어 있지 않다(의도). 필요할 때 의존성을 설치한 로컬에서만 실행 |
+| `scripts/check-app-smoke-contract.test.mjs` | `acorn` 미설치(`Cannot find package 'acorn'`) | `app-smoke-check.yml`이 의존성 설치 후 실행 |
+| `tests/app-e2e/*.spec.mjs` (예: `save-other-active`) | 위 "하지 않는 일"대로 웹 세션에서 돌리지 않는다 | `app-e2e-check.yml`의 `browser-e2e` |
+
 ## 하지 않는 일
 
 - **Playwright 브라우저 E2E(`tests/app-e2e/`)는 웹 세션에서 돌리지 않는다.** CI(`browser-e2e` 등)에서 검증한다.

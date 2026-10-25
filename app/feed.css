@@ -41,7 +41,6 @@
 
 /* 상세 */
 .feed-view .feed-detail-head{display:flex;align-items:center;gap:8px;min-height:var(--ds-compact-height)}
-.feed-view .feed-spacer{flex:1 1 auto}
 .feed-view .feed-detail-name{font-size:var(--ds-text-section);font-weight:var(--ds-weight-medium)}
 .feed-view .feed-detail{max-width:760px}
 .feed-view .feed-detail p{margin:0 0 6px}
