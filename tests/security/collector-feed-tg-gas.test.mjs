@@ -129,7 +129,7 @@ test('만든 몸통이 서버 parseTelegramBody에서 그대로 읽힌다(묶음
 test('이어 하기 상태: 시작 날짜, 보낼 날짜 목록, 묶음 중간에서 이어 하기',()=>{
   const state={startDay:'2026-10-24',rooms:{},attempts:{}};
   const rs=plain(G.tgFeedRoomState(state,'-100123'));
-  assert.deepEqual(rs,{doneDay:'2026-10-23',partDay:'',partsDone:0});
+  assert.deepEqual(rs,{doneDay:'2026-10-23',backDay:'',partDay:'',partsDone:0});
   // 오늘(10/25) 08:10: 어제(10/24)까지만. 오늘은 아직 끝나지 않았다.
   assert.deepEqual(plain(G.tgFeedPendingDays(rs.doneDay,state.startDay,'2026-10-25')),['2026-10-24']);
   assert.deepEqual(plain(G.tgFeedPendingDays(rs.doneDay,state.startDay,'2026-10-24')),[],'시작한 날 당일에는 보낼 것이 없다');
@@ -142,16 +142,16 @@ test('이어 하기 상태: 시작 날짜, 보낼 날짜 목록, 묶음 중간�
   assert.equal(old[0],'2026-07-25');assert.equal(old.at(-1),'2026-10-24');
   // 묶음 3개 중 하나를 보내고 멈춤 → 다음 실행은 둘째부터
   let s=G.tgFeedAfterPart(rs,'2026-10-24',0,3);
-  assert.deepEqual(plain(s),{doneDay:'2026-10-23',partDay:'2026-10-24',partsDone:1});
+  assert.deepEqual(plain(s),{doneDay:'2026-10-23',backDay:'',partDay:'2026-10-24',partsDone:1});
   assert.equal(G.tgFeedPartsToSkip(s,'2026-10-24'),1);
   assert.equal(G.tgFeedPartsToSkip(s,'2026-10-25'),0,'다른 날짜 기록은 쓰지 않는다');
   s=G.tgFeedAfterPart(s,'2026-10-24',1,3);
   assert.equal(G.tgFeedPartsToSkip(s,'2026-10-24'),2);
   s=G.tgFeedAfterPart(s,'2026-10-24',2,3);
-  assert.deepEqual(plain(s),{doneDay:'2026-10-24',partDay:'',partsDone:0});
+  assert.deepEqual(plain(s),{doneDay:'2026-10-24',backDay:'',partDay:'',partsDone:0});
   assert.deepEqual(plain(G.tgFeedPendingDays(s.doneDay,state.startDay,'2026-10-25')),[],'같은 날은 두 번 보내지 않는다');
   // 저장된 상태가 깨져도 시작 날짜로 되돌아간다
-  assert.deepEqual(plain(G.tgFeedRoomState({startDay:'2026-10-24',rooms:{a:{doneDay:'엉터리',partsDone:-4}}},'a')),{doneDay:'2026-10-23',partDay:'',partsDone:0});
+  assert.deepEqual(plain(G.tgFeedRoomState({startDay:'2026-10-24',rooms:{a:{doneDay:'엉터리',partsDone:-4}}},'a')),{doneDay:'2026-10-23',backDay:'',partDay:'',partsDone:0});
 });
 
 test('파일 찾는 범위: 그 날 0시(한국)부터 3일, 월 폴더는 한국 달과 UTC 달',()=>{
@@ -176,4 +176,43 @@ test('텔레그램 실패 로그에 서버 오류 코드가 그대로 찍힌다(
   const withCode="(res.json && res.json.error ? ' ' + res.json.error : '')";
   assert.ok(tg.includes("stop = '서버·연결 실패(HTTP ' + res.code + "+withCode),'다시 보낼 때 멈춤 사유');
   assert.ok(tg.includes("' 묶음 ' + (p + 1) + ' (HTTP ' + res.code + "+withCode+" + ')');"),'3번 실패 로그');
+});
+
+// ---- 최근 7일 보충·상한 (feed-send) ----------------------------------------------------------------------------
+test('시작 날짜 앞 7일 보충: 방마다 따로 이어 하고, 평소 구간과 같은 날이 겹치지 않는다',()=>{
+  // 예전 설치: 시작 날짜 10/24, 오늘 10/25 08:10 → 보충 구간은 10/18~10/23, 평소 구간은 10/24(어제)
+  const state={startDay:'2026-10-24',backChecked:true,backFrom:'2026-10-18',rooms:{},attempts:{}};
+  const rs=plain(G.tgFeedRoomState(state,'-100123'));
+  assert.deepEqual(rs,{doneDay:'2026-10-23',backDay:'2026-10-17',partDay:'',partsDone:0});
+  const plan=plain(G.tgFeedPlanDays(rs,state,'2026-10-25'));
+  assert.deepEqual(plan.map((p)=>p.day),['2026-10-18','2026-10-19','2026-10-20','2026-10-21','2026-10-22','2026-10-23','2026-10-24']);
+  assert.deepEqual(plan.filter((p)=>p.back).map((p)=>p.day),['2026-10-18','2026-10-19','2026-10-20','2026-10-21','2026-10-22','2026-10-23']);
+  assert.equal(new Set(plan.map((p)=>p.day)).size,plan.length,'같은 날이 두 번 들어가지 않는다');
+  // 보충 구간의 날 하나를 끝내면 backDay만 앞으로 가고 doneDay는 그대로
+  let s=G.tgFeedAfterPart(rs,'2026-10-18',0,1,true);
+  assert.deepEqual(plain(s),{doneDay:'2026-10-23',backDay:'2026-10-18',partDay:'',partsDone:0});
+  // 묶음 중간에서 멈춰도 backDay·doneDay는 그대로, 날짜만 적는다
+  s=G.tgFeedAfterPart(s,'2026-10-19',0,2,true);
+  assert.deepEqual(plain(s),{doneDay:'2026-10-23',backDay:'2026-10-18',partDay:'2026-10-19',partsDone:1});
+  s=G.tgFeedAfterPart(s,'2026-10-19',1,2,true);
+  const st2={...state,rooms:{r:plain(s)}};
+  const plan2=plain(G.tgFeedPlanDays(plain(G.tgFeedRoomState(st2,'r')),st2,'2026-10-25'));
+  assert.deepEqual(plan2.map((p)=>p.day),['2026-10-20','2026-10-21','2026-10-22','2026-10-23','2026-10-24'],'끝낸 날은 다시 보내지 않는다');
+  // 평소 구간을 끝내면 doneDay만 앞으로
+  assert.deepEqual(plain(G.tgFeedAfterPart(rs,'2026-10-24',0,1,false)),{doneDay:'2026-10-24',backDay:'2026-10-17',partDay:'',partsDone:0});
+  // 보충 구간을 모두 끝낸 방, 보충이 필요 없는 설치(처음 설치·backFrom 없음)
+  const done={...state,rooms:{r:{doneDay:'2026-10-24',backDay:'2026-10-23'}}};
+  assert.deepEqual(plain(G.tgFeedPlanDays(plain(G.tgFeedRoomState(done,'r')),done,'2026-10-26')),[{day:'2026-10-25',back:false}]);
+  const fresh={startDay:'2026-10-18',backChecked:true,backFrom:'',rooms:{},attempts:{}};
+  assert.deepEqual(plain(G.tgFeedPlanDays(plain(G.tgFeedRoomState(fresh,'r')),fresh,'2026-10-25')).map((p)=>p.day),
+    ['2026-10-18','2026-10-19','2026-10-20','2026-10-21','2026-10-22','2026-10-23','2026-10-24']);
+  assert.ok(plain(G.tgFeedPlanDays(plain(G.tgFeedRoomState(fresh,'r')),fresh,'2026-10-25')).every((p)=>!p.back));
+  // 서버가 받는 92일보다 오래된 날은 뺀다
+  assert.deepEqual(plain(G.tgFeedBackfillDays('2026-01-01','2026-01-02','2026-01-04','2026-10-25')),[]);
+});
+
+test('한 번 실행에 보낼 묶음 상한이 있고, 넘으면 이어 하기로 나눈다. 처음 설치는 시작 날짜를 7일 전으로 적는다',()=>{
+  assert.match(source,/var TG_FEED_MAX_PARTS_PER_RUN = 30;/);
+  assert.match(source,/tally\.parts >= TG_FEED_MAX_PARTS_PER_RUN\) \{ stop = [^\n]*resumable = true; break; \}/);
+  assert.match(source,/state\.startDay = tgFeedAddDays\(callFeedKstDay\(Date\.now\(\)\), -TG_FEED_RECENT_DAYS\);/);
 });
