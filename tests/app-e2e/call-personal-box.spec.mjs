@@ -238,11 +238,12 @@ test('통화 1280: 개인→업무로 옮기면 그 한 건만 call_refill로 �
  await page.locator('#cfMenu').getByRole('button',{name:'업무 통화로 옮기기'}).click();
  await expect.poll(()=>f.moves).toEqual([{p_id:P1,p_to:'work'}]);
  await expect.poll(()=>f.refills).toEqual([{kind:'call_refill',id:P1}]);
+ // 안내 줄은 옮긴 그 자리(개인함)에서 보인다. 통화함을 바꾸면 안내 줄은 비워지는 것이 화면 규칙이므로(setBox) 바꾸기 전에 확인한다.
+ await expect(view.locator('[data-cf-status]')).toContainText('제목·조직·상대를 채웠어요');
  await view.locator('[data-cf-box="work"]').click();
  const row=view.locator(`[data-cf-row="${P1}"]`);
  await expect(row.locator('.feed-title')).toContainText('임금교섭 3차 일정 협의');
  await expect(row.locator('.feed-org')).toHaveText('예시지부 · 김가상 지부장');
- await expect(view.locator('[data-cf-status]')).toContainText('제목·조직·상대를 채웠어요');
  await row.click();
  await expect(view.locator('#cfDetail [data-cf-points] li')).toHaveText(['토요일 저녁 7시']);
  expect(f.refills.length).toBe(1);
