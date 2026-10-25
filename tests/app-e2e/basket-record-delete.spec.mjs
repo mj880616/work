@@ -114,10 +114,12 @@ test('a late disconnect result never paints into another opened organization',as
 });
 
 async function basket(page,{fail=0,mode='ok'}={}){
- const errors=[],writes=[],posts=[],trash=await noteTrash(page,SB,{mode:mode==='missing'?'missing':'ready'});page.on('pageerror',e=>errors.push(e.message));
+ const errors=[],writes=[],posts=[];page.on('pageerror',e=>errors.push(e.message));
  const notes=[{id:'n',workspace_id:'w',raw_text:'지울 메모\n둘째 줄',occurred_at:'2026-10-06T01:00:00Z',updated_at:'2026-10-06T01:00:00Z',ai_export_allowed:true,attachments:[{drive_file_id:'file_1',file_name:'회의.txt',size_bytes:12,mime_type:'text/plain'}]},{id:'keep',workspace_id:'w',raw_text:'남을 메모',occurred_at:'2026-10-05T01:00:00Z',updated_at:'2026-10-05T01:00:00Z',ai_export_allowed:true,attachments:[]}];
  const links=[{id:'l1',note_id:'n',workspace_id:'w',status:'confirmed',organization_id:'o',organization:{name:'합성 조직'}}];
  await openHome(page);
+ // 나중에 등록한 가로채기가 먼저 적용되므로, 홈 기본 응답을 깐 뒤에 휴지통 함수 흉내를 등록한다.
+ const trash=await noteTrash(page,SB,{mode:mode==='missing'?'missing':'ready'});
  await page.route(SB+'/rest/v1/app_notes**',r=>{const req=r.request(),u=new URL(req.url()),id=u.searchParams.get('id')?.slice(3);
   if(req.method()==='GET')return r.fulfill({json:id?notes.filter(n=>n.id===id):notes});
   if(req.method()==='DELETE'){writes.push(Object.fromEntries(u.searchParams));if(fail)return r.fulfill({status:fail,json:{message:'RLS 거부'}});const i=notes.findIndex(n=>n.id===id);const removed=i<0?[]:notes.splice(i,1);const parked=links.filter(l=>l.note_id===id);for(let j=links.length-1;j>=0;j--)if(links[j].note_id===id)links.splice(j,1);
