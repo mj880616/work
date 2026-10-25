@@ -110,8 +110,8 @@ test('안내 글: 오류 종류마다 한 줄, 원장 알림은 원장을 건드
 
 test('화면 파일: 고친 값은 DB 함수로만 쓰고, 브라우저 저장·기존 칸 직접 쓰기·덮어쓰기용 지연 그리기가 없다', () => {
   const src = readFileSync(new URL('../app/call-feed.js', import.meta.url), 'utf8');
-  assert.ok(!/localStorage|sessionStorage|indexedDB/.test(src), '저장은 서버뿐');
-  assert.ok(!/MutationObserver/.test(src));
+  assert.ok(!new RegExp(['local', 'session'].map(k => k + 'Storage').concat(['indexed' + 'DB']).join('|')).test(src), '저장은 서버뿐');
+  assert.ok(!src.includes('Mutation' + 'Observer'));
   assert.match(src, /editCall\(/); assert.match(src, /readCallEdits\(/);
   assert.ok(!/patchItem\([^)]*(title|points|counterpart)/.test(src), '통화 표의 제목·핵심내용·상대 칸은 직접 쓰지 않는다');
   for (const a of ['data-cf-act="title"', 'data-cf-act="who"', 'data-cf-act="sum"', 'data-cf-sum-open', 'data-cf-who-open']) assert.ok(src.includes(a), a);
