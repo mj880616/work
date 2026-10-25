@@ -81,3 +81,15 @@ test('pressFile: .html library document goes to viewHtml; without viewHtml or do
   } finally { if (hadLocation) globalThis.location = saved; else delete globalThis.location; }
   assert.equal(shown, null);
 });
+
+test('사진 판정은 자료실 그림 판정(fileKindOf) 하나를 따른다: 그림이어도 브라우저가 못 그리는 HEIC·BMP는 크게 보기가 아니다', async () => {
+  const {fileKindOf, isViewableImage} = await import('../app/library-tree.js');
+  for (const [name, mime] of [['a.jpg', ''], ['a.JPEG', ''], ['b.png', ''], ['c.webp', ''], ['d.gif', ''], ['x', 'image/png'], ['x', 'image/jpeg'], ['e.heic', 'image/heic'], ['f.bmp', ''], ['g', 'image/bmp'], ['h.pdf', 'image/png'], ['i.xlsx', ''], ['', '']]) {
+    const viewable = isViewableImage(name, mime);
+    assert.equal(clickKind({name, mime}) === 'photo', viewable, `${name}|${mime}`);
+    if (viewable) assert.equal(fileKindOf(name, mime), '그림', `${name}|${mime}`);
+  }
+  assert.equal(fileKindOf('f.bmp', ''), '그림');
+  assert.equal(clickKind({name: 'f.bmp'}), 'download');
+  assert.equal(clickKind({name: 'e.HEIC'}), 'download');
+});
