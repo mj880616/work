@@ -103,7 +103,7 @@ for(const width of [390,1280]){
     await boot(page,{width});
     await revealLibraryRow(page,DOC(1));
     await page.locator(`[data-lu-document="${DOC(1)}"] .lu-more-trigger`).click();
-    await expect(page.locator('[data-lu-edit]')).toHaveText('수정');
+    await expect(page.locator('[data-lu-edit]')).toHaveText('수정…');
     expect(await page.locator('#libraryView').innerText()).not.toContain('정보 수정');
     await page.locator('[data-lu-edit]').click();
     await expect(page.locator('#libraryEditModal h2').first()).toHaveText('자료 수정');

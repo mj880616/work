@@ -68,6 +68,8 @@
   --ds-file-xls-soft:#e1f2e5;--ds-file-xls-ink:#226b3a;
   --ds-file-doc-soft:#e4e8f4;--ds-file-doc-ink:#27386e;
   --ds-file-ppt-soft:#fcebdb;--ds-file-ppt-ink:#a14b10;
+  /* LIB-그림형식: 그림(JPG·PNG 등)은 톤다운 자주. */
+  --ds-file-img-soft:#f4e3ec;--ds-file-img-ink:#8a2f5e;
   /* 3/3(8-9e) 담당조직 마지막 기록 점: 7일 이내 초록·8~20일 주황·21일 이상 또는 기록 없음 빨강. */
   --ds-recency-fresh:#2f9254;--ds-recency-warn:#dc8a1c;--ds-recency-stale:#c8372b;
   /* 3/3 2부(8-9e-2) 폰 배치: 하단 탭 바로 위에 떠 있는 동그란 [+](보이는 크기 36px, 누르는 범위 --kptu-touch-target 44px)와 탭 사이 간격. */
@@ -121,6 +123,7 @@
     --ds-file-xls-soft:#1c3022;--ds-file-xls-ink:#9fd2a9;
     --ds-file-doc-soft:#22263b;--ds-file-doc-ink:#b4bff0;
     --ds-file-ppt-soft:#3a2816;--ds-file-ppt-ink:#f3b77e;
+    --ds-file-img-soft:#3a1f2d;--ds-file-img-ink:#eba6c8;
     --ds-recency-fresh:#86c79f;--ds-recency-warn:#e2b866;--ds-recency-stale:#f0918a;
     /* PRJ-색 어두운 값: 메인은 밝게, 하위용 -soft는 바탕 쪽으로 낮춘 톤. */
     --ds-project-green:#6cc28a;--ds-project-green-soft:#3f6b4c;
