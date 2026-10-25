@@ -109,8 +109,14 @@ function paintDetail() {
   const badge = raw && raw.raw_text && !raw.speaker_split ? '<span class="feed-badge">화자 구분은 전사 수정 뒤</span>' : '';
   const full = `<details class="feed-full" data-cf-full${state.rawOpen ? ' open' : ''}><summary>${state.rawOpen ? '전문 접기' : '전문 펼치기'} <span class="feed-ar" aria-hidden="true">▾</span>${badge}</summary>${script}</details>`;
   const link = state.link?.rowId === r.id ? linkBoxHtml(state.link, state.orgs, 'cf') : '';
-  box.innerHTML = `<div class="feed-detail-head">${back}<span class="feed-spacer"></span><button type="button" class="feed-more" data-cf-more aria-haspopup="true" aria-expanded="false" aria-label="통화 메뉴"${state.busy ? ' disabled' : ''}>${MORE}</button></div>
-<div class="feed-detail" data-cf-detail="${esc(r.id)}">${pc.matches ? '' : `<h3 class="feed-detail-title" data-cf-title>${esc(r.title || '(제목 없음)')}</h3>`}<p class="feed-meta" data-cf-meta>${esc(meta)}${r.pinned_at ? ' · 고정' : ''}</p>${link}${pointsHtml}${full}<p class="feed-status" data-cf-detail-status role="status">${statusHtml()}</p></div>`;
+  // UI-더보기제목줄: ⋯는 빈 줄을 따로 차지하지 않고 상세 첫 줄(폰은 제목, PC는 날짜·시간 줄) 오른쪽 끝에 둔다(공용 .kptu-title-line, base-ui.css).
+  const more = `<button type="button" class="feed-more" data-cf-more aria-haspopup="true" aria-expanded="false" aria-label="통화 메뉴"${state.busy ? ' disabled' : ''}>${MORE}</button>`;
+  const metaText = `${esc(meta)}${r.pinned_at ? ' · 고정' : ''}`;
+  const first = pc.matches
+    ? `<div class="kptu-title-line"><p class="feed-meta" data-cf-meta>${metaText}</p>${more}</div>`
+    : `<div class="kptu-title-line"><h3 class="feed-detail-title" data-cf-title>${esc(r.title || '(제목 없음)')}</h3>${more}</div><p class="feed-meta" data-cf-meta>${metaText}</p>`;
+  box.innerHTML = `${back ? `<div class="feed-detail-head">${back}</div>` : ''}
+<div class="feed-detail" data-cf-detail="${esc(r.id)}">${first}${link}${pointsHtml}${full}<p class="feed-status" data-cf-detail-status role="status">${statusHtml()}</p></div>`;
 }
 
 // ---------- actions

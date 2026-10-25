@@ -207,6 +207,12 @@ button:disabled,[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
    bottom row (.modal-action-footer) for popups, in the title line only for the PC task pane. */
 :where(.modal-card)>.modal-head:where(:not(.w1p-detail-head)){position:sticky;top:0;z-index:3;background:var(--kptu-surface);box-shadow:0 -24px 0 24px var(--kptu-surface)}
 
+/* UI-더보기제목줄: 상세의 ⋯는 혼자 한 줄을 차지하지 않고 제목(없으면 첫 줄) 오른쪽 끝에 둔다. 공용 규칙 하나:
+   <div class="kptu-title-line"><제목 또는 첫 줄 글자/><⋯ 버튼/></div>. 글자는 ⋯ 옆으로 비켜 줄바꿈하고, ⋯는 줄 위쪽에 붙는다. 색·크기는 각 화면의 ⋯ 버튼 규칙을 그대로 쓴다. */
+.kptu-title-line{display:flex;align-items:flex-start;gap:var(--kptu-space-2);min-width:0;margin:0 0 6px}
+.kptu-title-line>:first-child{flex:1 1 auto;min-width:0;margin:0;overflow-wrap:anywhere}
+.kptu-title-line>:not(:first-child){flex:none;margin-top:-4px}
+
 /* PRJ-화면다듬기: one 4-line text clamp (text-clamp.js). Open = .is-open; the organization record list adds a [더보기]/[접기] button under the text. */
 .kptu-clamp{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;line-clamp:4;overflow:hidden}
 .kptu-clamp.is-open{display:block;-webkit-line-clamp:unset;line-clamp:unset;overflow:visible}
