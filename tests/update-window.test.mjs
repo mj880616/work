@@ -2,9 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createNote, attachNoteDoc, saveUpdateDoc, updateNote, readBasket } from '../app/basket-data.js';
-import { keepsFormat, saveUpdate } from '../app/update-places.js';
+import { textLimitFor, saveUpdate } from '../app/update-places.js';
 
-// ED③ 업데이트 (설계 11.4 순서 3): the update's saved form (doc) goes with the letters onto the basket update only.
+// ED③ 업데이트 (설계 11.4 순서 3): the update's saved form (doc) goes with the letters onto the basket update (ED③ 기록: and one organization's or project's own record).
 const runtime = api => ({context:{read:() => ({workspace:{id:'w'}, user:{id:'u'}})}, api});
 const q = path => new URL(path, 'http://x').searchParams;
 const DOC = {v:'ed1', doc:{type:'doc', content:[{type:'paragraph', content:[{type:'text', text:'글'}]}]}};
@@ -58,22 +58,29 @@ test('the basket screen reads the saved form; the other readers of the basket ke
   assert.match(selects[1], /(^|,)doc(,|$)/);
 });
 
-test('the saved form is kept for the basket, several places, a bundle or files; one organization or project record keeps letters only', () => {
-  assert.equal(keepsFormat(null), true);
-  assert.equal(keepsFormat([]), true);
-  assert.equal(keepsFormat([{kind:'organization', id:'o'}, {kind:'project', id:'p'}]), true);
-  assert.equal(keepsFormat([{kind:'reference', id:'r'}]), true);
-  assert.equal(keepsFormat([{kind:'project', id:'p'}], 1), true);
-  assert.equal(keepsFormat({kind:'organization', id:'o'}), false);
-  assert.equal(keepsFormat([{kind:'project', id:'p'}]), false);
+test('one project record is a one-line summary (500 letters); every other place takes 20000', () => {
+  assert.equal(textLimitFor(null), 20000);
+  assert.equal(textLimitFor([]), 20000);
+  assert.equal(textLimitFor({kind:'organization', id:'o'}), 20000);
+  assert.equal(textLimitFor([{kind:'organization', id:'o'}]), 20000);
+  assert.equal(textLimitFor([{kind:'project', id:'p'}]), 500);
+  assert.equal(textLimitFor({kind:'project', id:'p'}), 500);
+  assert.equal(textLimitFor([{kind:'project', id:'p'}, {kind:'organization', id:'o'}]), 20000);
 });
 
-test('one organization or project record is saved as letters only even when a form is handed in', async () => {
+test('one organization or project record is saved with its saved form in the same insert; without a form the body is as before', async () => {
   const calls = [];
   const rt = {context:{read:() => ({workspace:{id:'w'}, user:{id:'u'}})}, api:async (path, options) => { calls.push({path, body:options?.body}); return [{id:'r'}]; }};
   await saveUpdate({places:[{kind:'organization', id:'o'}], text:'글', owner:'u', doc:DOC}, rt);
-  assert.ok(calls.length >= 1);
-  for (const c of calls) assert.ok(!('doc' in (c.body || {})), c.path);
+  await saveUpdate({places:[{kind:'project', id:'p'}], text:'글', owner:'u', doc:DOC}, rt);
+  await saveUpdate({places:[{kind:'organization', id:'o'}], text:'글', owner:'u'}, rt);
+  await saveUpdate({places:[{kind:'project', id:'p'}], text:'글', owner:'u'}, rt);
+  assert.equal(calls.length, 4);
+  assert.deepEqual(calls[0].body, {organization_id:'o', raw_text:'글', created_by:'u', doc:DOC});
+  assert.equal(calls[1].body.doc, DOC);
+  assert.equal(calls[1].body.summary, '글');
+  assert.deepEqual(calls[2].body, {organization_id:'o', raw_text:'글', created_by:'u'});
+  assert.ok(!('doc' in calls[3].body));
 });
 
 test('the update window has no switch to a note, no autosave and no browser storage; the entrances pass the form to the existing saves', () => {

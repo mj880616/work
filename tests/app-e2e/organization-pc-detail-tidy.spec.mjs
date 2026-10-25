@@ -69,8 +69,8 @@ for(const width of [1280,1440])test(`PC ${width}: 담당조직 상세 칸 정리
  expect(s.h).toBe(32);expect(await press(save)).toBeGreaterThanOrEqual(44);expect(s.top).toBeGreaterThanOrEqual(input.bottom);expect(s.w).toBeLessThan(140);
  // ⤢ and 저장 keep working: ⤢ opens the big window with the text; Ctrl+Enter in the input still saves through [저장].
  await modal.locator('#wdInboxText').fill('합성 큰 창 글');await big.click();
- await expect(page.locator('#mdEditor')).toBeVisible();await expect(page.locator('#mdEditor .md-editor-text')).toHaveValue('합성 큰 창 글');
- await page.keyboard.press('Escape');await expect(page.locator('#mdEditor')).toBeHidden();
+ await expect(page.locator('#edWindow')).toBeVisible();await expect(page.locator('#edWindow .ed-window-body .ProseMirror')).toContainText('합성 큰 창 글');
+ await page.locator('#edWindow [data-close="edWindow"]').click();await expect(page.locator('#edWindow')).toHaveCount(0);
  await expect(modal.locator('#wdInboxText')).toHaveValue('합성 큰 창 글');
  // ③ 할 일 줄마다 [연결 해제] 버튼은 없고 ⋯ 안에 있다. TASK-바로처리통일: PC는 마우스를 올렸거나 초점이 있는 줄에만 ⋯가 보인다.
  const rows=modal.locator('#wdTaskBody [data-google-task]');
