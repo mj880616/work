@@ -306,3 +306,10 @@
 .lu-html-body .html-frame-bar{gap:4px}
 #libraryHtmlModal .lu-html-body .html-frame-bar button.secondary{position:relative;height:var(--ds-compact-height-sm,28px);min-height:0;padding:0 8px;border:0;background:transparent;box-shadow:none;color:var(--kptu-primary-ink);font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-regular,400)}
 #libraryHtmlModal .lu-html-body .html-frame-bar button[hidden]{display:none}
+/* LIB-화면끌어놓기: 파일을 끌고 오는 동안만 보이는 얇은 점선 테두리 + 가운데 한 줄(덮개·색 채움 없음). 왼쪽 메뉴는 뺀 화면 전체. 놓은 뒤 진행·결과는 목록 맨 위 한 줄. */
+.lu-drop-overlay{position:fixed;top:0;bottom:0;z-index:40;box-sizing:border-box;margin:6px;border:2px dashed var(--kptu-info);border-radius:var(--kptu-radius-md);pointer-events:none;display:flex;align-items:center;justify-content:center}
+.lu-drop-overlay[hidden]{display:none}
+.lu-drop-hint{padding:4px 10px;border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-info);font-size:var(--ds-text-meta,12px);font-weight:700;border:1px solid var(--kptu-border)}
+.lu-drop-status{margin:0 0 6px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);overflow-wrap:anywhere}
+.lu-drop-status.error{color:var(--kptu-danger)}
+.lu-drop-status[hidden]{display:none}
