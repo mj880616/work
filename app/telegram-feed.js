@@ -130,7 +130,7 @@ function paintDetail() {
   else if (!raw.raw_text) lines = '<p class="feed-faint">Web2에 남은 원문이 없어요. 원본은 Drive에 있어요.</p>';
   else lines = `<div class="feed-raw" data-tg-raw>${telegramLines(raw.raw_text).map(l => `<div class="feed-rm"><span class="feed-at">${esc(l.at)}</span><span class="feed-who">${esc(l.who)}</span><span class="feed-rt">${l.forwarded ? '<span class="feed-faint">(전달)</span> ' : ''}${esc(l.text)}</span></div>`).join('')}</div>`;
   const link = state.link?.rowId === r.id ? linkBoxHtml(state.link, state.orgs, 'tg') : '';
-  box.innerHTML = `<div class="feed-detail-head">${back}<span class="feed-head-sub" data-tg-raw-sub>${esc(sub)}${r.pinned_at ? ' · 고정' : ''}</span><button type="button" class="feed-more" data-tg-detail-more aria-haspopup="true" aria-expanded="false" aria-label="소식 메뉴"${state.busy ? ' disabled' : ''}>${MORE}</button></div>
+  box.innerHTML = `<div class="feed-detail-head">${back}<span class="feed-head-sub" data-tg-raw-sub>${esc(sub)}${r.pinned_at ? ' · 고정' : ''}</span><button type="button" class="feed-more" data-tg-detail-more data-ctx="area" aria-haspopup="true" aria-expanded="false" aria-label="소식 메뉴"${state.busy ? ' disabled' : ''}>${MORE}</button></div>
 <div class="feed-detail" data-tg-detail="${esc(r.id)}"><div class="feed-sum-row"><p class="feed-sum">${esc(r.summary || '')}</p>${tgText(r) ? copyButtonHtml('data-tg-copy') : ''}</div>${link}${lines}<p class="feed-status" data-tg-detail-status role="status">${statusHtml()}</p></div>`;
 }
 

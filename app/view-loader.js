@@ -84,6 +84,8 @@ async function calendar(){
   ]);
   // CAL-끌어옮기기: PC 마우스 끌기. 저장은 위 calendar-interactions-v2.js의 수정 경로를 쓴다.
   background(module('./calendar-drag.js','__KPTU_CALENDAR_DRAG_READY__'));
+  // UI-우클릭전수: 일정 위 우클릭 메뉴(수정 창의 기능을 그대로 부름).
+  background(module('./calendar-context-menu.js'));
   window.__KPTU_RENDER_CALENDAR__?.();
   const google=module('./calendar-persistence.js','__KPTU_CALENDAR_PERSISTENCE_READY__');
   background(google);

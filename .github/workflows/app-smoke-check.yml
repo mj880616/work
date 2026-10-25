@@ -45,6 +45,7 @@ on:
       - 'tests/record-doc.test.mjs'
       - 'tests/home-read-model.test.mjs'
       - 'tests/english-labels.test.mjs'
+      - 'tests/context-menu-sites.test.mjs'
       - 'tests/ledger-import-model.test.mjs'
       - 'tests/ledger-import-fixture.mjs'
       - 'tests/ledger-browse-model.test.mjs'
@@ -105,6 +106,7 @@ on:
       - 'tests/record-doc.test.mjs'
       - 'tests/home-read-model.test.mjs'
       - 'tests/english-labels.test.mjs'
+      - 'tests/context-menu-sites.test.mjs'
       - 'tests/ledger-import-model.test.mjs'
       - 'tests/ledger-import-fixture.mjs'
       - 'tests/ledger-browse-model.test.mjs'
@@ -207,7 +209,7 @@ jobs:
         run: node --test tests/library-select.test.mjs tests/project-fold.test.mjs tests/share-pages-label.test.mjs tests/share-photos.test.mjs tests/summary-copy-model.test.mjs tests/text-backfill-notice.test.mjs tests/upload-file-copy.test.mjs
 
       - name: Check hardcoded color baseline (STAB-단위시험등록)
-        run: node --test tests/hardcoded-colors.test.mjs
+        run: node --test tests/hardcoded-colors.test.mjs tests/context-menu-sites.test.mjs
 
       - name: Install locked smoke parser
         run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
