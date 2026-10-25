@@ -1,10 +1,8 @@
 import {test,expect} from '@playwright/test';
-import {openMdTool} from './helpers/md-tools.mjs';
 import {chooseBasketKind} from './helpers/basket-kind.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {expectProjectDetail} from './helpers/project-detail.mjs';
-import {openOldWriteWindow} from './helpers/write-opener.mjs';
 import {typeInto,edWin,edWinText} from './helpers/note-editor.mjs';
 import {expectProjectTitle} from './helpers/screen-title.mjs';
 // UI-크게첨부(2026-10-20 사용자 결정): (a) 조직 상세·프로젝트 상세의 업데이트 입력에도 [크게]. ED③ 기록(순서 5)부터 업데이트의 새 큰 창
@@ -13,7 +11,6 @@ import {expectProjectTitle} from './helpers/screen-title.mjs';
 // 기존 안내. DB·Edge 변경 없음(기존 저장 경로만 부른다).
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const editor=page=>page.locator('#mdEditor');
 async function fixture(page,width){
  await page.setViewportSize({width,height:844});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
@@ -28,7 +25,7 @@ async function fixture(page,width){
  await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/basket-files',r=>{const body=r.request().postDataBuffer()?.toString('latin1')||'';uploads.push(body);return r.fulfill({json:{ok:true,note_id:'up-1',attachments:[{file_name:'a.txt',size_bytes:1,drive_file_id:'file_1',mime_type:'text/plain'}]}});});
  return {...home,errors,notes,orgs,projects,uploads};
 }
-const fits=page=>page.evaluate(()=>{const h=document.querySelector('#mdEditor .md-editor-head,#edWindow .ed-window-head');return !!h&&h.scrollWidth<=h.clientWidth&&document.documentElement.scrollWidth<=innerWidth;});
+const fits=page=>page.evaluate(()=>{const h=document.querySelector('#edWindow .ed-window-head');return !!h&&h.scrollWidth<=h.clientWidth&&document.documentElement.scrollWidth<=innerWidth;});
 async function chooseFile(page,trigger,name='a.txt'){
  const chooser=page.waitForEvent('filechooser');await trigger.click();
  await (await chooser).setFiles([{name,mimeType:'text/plain',buffer:Buffer.from('a')}]);
@@ -103,39 +100,7 @@ for(const width of [390,1280]){
   expect(f.errors).toEqual([]);
  });
 
- test(`큰 편집 창 [📎 첨부]: 조직을 골라도 파일이 남고, 정리함으로 저장하면 글과 함께 올라감 ${width}`,async({page})=>{
-  const f=await fixture(page,width);
-  // The old write window (still the organization's and the project's own [크게]; ED③ 업데이트 moved the top line and the home input to the new one: update-window.spec.mjs): the window's own file batch.
-  await openOldWriteWindow(page,width);
-  const e=editor(page);await expect(e).toBeVisible();
-  const clip=e.getByRole('button',{name:'파일 첨부',exact:true});await expect(clip).toBeVisible();
-  // The same small button as the head (32px painted, 44px touch area) under the text, not covering it.
-  const cb=await clip.boundingBox(),text=await e.locator('.md-editor-text').boundingBox();
-  expect(cb.height).toBe(32);expect(await clip.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);expect(cb.y).toBeGreaterThanOrEqual(text.y+text.height-1);
-  // NOTE-파일붙이기: [노트] moves the same [📎 첨부] to the end of the format row; [업데이트] puts it back under the text.
-  await e.locator('[data-md-kind="note"]').click();
-  if(width<761){await openMdTool(e,'파일 첨부');await expect(e.locator('.md-pop').getByRole('button',{name:'파일 첨부',exact:true})).toBeVisible();}
-  else await expect(e.locator('.md-editor-tools').getByRole('button',{name:'파일 첨부',exact:true})).toBeVisible();
-  await e.locator('[data-md-kind="update"]').click();await expect(e.locator('.md-editor-attach').getByRole('button',{name:'파일 첨부',exact:true})).toBeVisible();
-  await e.locator('.md-editor-text').fill('파일과 함께 쓰는 업데이트');
-  await chooseFile(page,clip);
-  await expect(clip.locator('[data-basket-count]')).toHaveText('1');await expect(e.locator('[data-basket-file]')).toHaveCount(1);
-  // BUG-업데이트첨부연결: choosing an organization keeps the file and the clip (saving there: update-attach-target.spec.mjs).
-  await e.locator('[data-md-kind-menu]').click();await page.locator('#mdPlaceSheet').getByRole('button',{name:'테스트 조직',exact:true}).first().click();await page.locator('#mdPlaceSheet').getByRole('button',{name:'저장',exact:true}).click();
-  await expect(e.locator('[data-md-kind="update"]')).toHaveText('테스트 조직');
-  await expect(clip).toBeVisible();await expect(clip.locator('[data-basket-count]')).toHaveText('1');await expect(e.locator('[data-basket-file]')).toHaveCount(1);
-  expect([f.orgs,f.notes,f.uploads.length]).toEqual([[],[],0]);
-  // Back to the basket: the text and file go through the basket upload path (one request with the text), then it closes.
-  await e.locator('[data-md-kind="update"]').click();
-  await e.locator('[data-md-kind-menu]').click();await page.locator('#mdPlaceSheet [data-sheet-basket] button').click();await page.locator('#mdPlaceSheet').getByRole('button',{name:'저장',exact:true}).click();
-  await expect(e.locator('[data-md-save-icon]')).toHaveAccessibleName('정리함에 새 업데이트로 저장');
-  await e.locator('[data-md-save-icon]').click();
-  await expect(page.locator('#mdEditor')).toHaveCount(0);
-  await expect(page.locator('#toast')).toContainText('정리함에 저장했어요.');
-  expect(f.uploads).toHaveLength(1);expect(f.uploads[0]).toContain('name="raw_text"');expect(f.uploads[0]).toContain('filename="a.txt"');
-  expect(f.notes).toEqual([]);expect(f.orgs).toEqual([]);
-  expect(f.errors).toEqual([]);
- });
+ // ED③ 순서 6: the old write window's [📎 첨부] test went with the window; the new window's file batch is in update-window.spec.mjs and update-attach-target.spec.mjs.
 
  test(`홈 [크게] [📎 첨부]: 홈 입력의 파일과 같은 묶음, 창에서 고른 파일이 홈 입력에도 보임 ${width}`,async({page})=>{
   const f=await fixture(page,width),q=page.locator('#homeView [data-home-quick]');
@@ -192,7 +157,6 @@ for(const width of [390,1280])test(`노트 입력칸의 파일: [크게] 새 노
  await q.click();
  const e=page.locator('#edWindow');await expect(e).toBeVisible();
  await expect(e.locator('[data-edw-attach] [data-basket-file]')).toHaveCount(1);
- await expect(e.locator('[data-md-kind]')).toHaveCount(0);
  const text=e.locator('.ed-window-body .ProseMirror');await text.click();await page.keyboard.insertText('파일 붙은 노트');
  await e.locator('[data-edw-save]').click();
  await expect(page.locator('#edWindow')).toHaveCount(0);

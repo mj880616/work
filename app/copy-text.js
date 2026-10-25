@@ -1,5 +1,4 @@
-// Copy letters (and, for 한글, HTML) to the clipboard. Moved out of md-editor.js (ED③-창) so the new write window and the note read view
-// can use it without loading the old editor; md-editor.js re-exports it, so every old import keeps working.
+// Copy letters (and, for 한글, HTML) to the clipboard. Shared by the write window and the read views.
 // Also used by the note read view's [텔레그램용 복사]. With html (8-11a [한글용 복사]) the clipboard gets both kinds:
 // text/html for programs that read formatting (한글 keeps bold and makes a real table) and text/plain for the rest.
 export async function copyText(text, {html = null} = {}) {

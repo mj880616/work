@@ -201,18 +201,6 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #basketView .home-quick .home-quick-folder-row { display:flex; justify-content:flex-start; order:1; }
 #basketView .home-quick .home-quick-folder-row[hidden] { display:none; }
 @media(min-width:761px) { #appView #basketView .home-quick .home-quick-entry > button.home-quick-folder { align-self:flex-start; margin-top:2px; } }
-/* ED③ 1단계(1회용): [옛 마크다운 노트 변환] 대조 창·건너뛴 목록. 다음 PR에서 note-convert.js와 함께 지운다. */
-.note-convert-dialog { width:min(960px, calc(100vw - 32px)); max-height:calc(100dvh - 32px); padding:16px; color:var(--kptu-ink); background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:8px; }
-.note-convert-dialog h3 { margin:0 0 4px; font-size:16px; }
-.note-convert-help { margin:0 0 12px; color:var(--kptu-muted); font-size:13px; }
-.note-convert-item { border-top:1px solid var(--kptu-border); padding:8px 0; }
-.note-convert-item h4 { margin:0 0 6px; font-size:14px; }
-.note-convert-pair { display:grid; grid-template-columns:1fr 1fr; gap:12px; min-width:0; }
-.note-convert-pair > * { min-width:0; max-height:320px; overflow:auto; margin:0; padding:8px; border:1px solid var(--kptu-border); border-radius:6px; background:var(--kptu-surface-subtle); font-size:13px; }
-.note-convert-old { white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; font-size:12px; }
-.note-convert-actions { position:sticky; bottom:-16px; display:flex; justify-content:flex-end; gap:8px; padding:8px 0 0; background:var(--kptu-surface); }
-.note-convert-skipped { display:inline; }
-@media(max-width:760px){ .note-convert-pair { grid-template-columns:1fr; } }
 /* ED③ 노트: 노트 수정 칸의 본문은 새 편집기(ed-editor.js, 모양은 ed-doc.css). 칸 테두리만 둘러 옛 textarea 자리와 같은 폭·높이로 둔다. */
 #basketView .note-editor .note-body-field { display:block; min-width:0; margin:6px 0 0; border:1px solid var(--kptu-border); border-radius:8px; background:var(--kptu-surface); }
 #basketView .note-editor .note-body-field .ed-editor .ProseMirror { min-height:14em; }

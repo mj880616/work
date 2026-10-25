@@ -16,7 +16,7 @@
 import {BLOCK_TYPES, ALL_TYPES, BLOCK_LABELS, ITEM_FIELDS, LIMITS, newBlock, newItem, moveBlock, normalizeBlocks, pageProblem,
   labelProblem, expiresAt, linkState, shareUrl, blockIsEmpty, blocksToDoc} from './share-pages-model.mjs';
 import {renderBlock} from './sr-render.mjs';
-import {copyText} from './md-editor.js';
+import {copyText} from './copy-text.js';
 import {createDocEditor} from './ed-editor.js';
 import {createSharePhotos, shareIdOf, SHARE_PHOTO_MAX} from './share-photos.js';
 import {createAnchoredMenu} from './anchored-menu.js';

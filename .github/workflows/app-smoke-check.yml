@@ -168,10 +168,10 @@ jobs:
         run: node --test tests/meeting-when.test.mjs tests/meeting-columns.test.mjs tests/report-kinds.test.mjs tests/report-links.test.mjs
 
       - name: Markdown display pin and safety unit tests
-        run: node --test tests/markdown-view.test.mjs tests/md-editor.test.mjs tests/html-frame.test.mjs tests/note-markdown.test.mjs tests/basket-notes-data.test.mjs
+        run: node --test tests/markdown-view.test.mjs tests/md-telegram.test.mjs tests/html-frame.test.mjs tests/note-markdown.test.mjs tests/basket-notes-data.test.mjs
 
       - name: Unified editor pin, saved form and text export unit tests (ED-통합편집기)
-        run: node --test tests/ed-editor.test.mjs tests/ed-window.test.mjs tests/update-window.test.mjs tests/record-doc.test.mjs tests/note-convert.test.mjs tests/note-doc.test.mjs
+        run: node --test tests/ed-editor.test.mjs tests/ed-window.test.mjs tests/update-window.test.mjs tests/record-doc.test.mjs tests/note-doc.test.mjs
 
       - name: Check English eyebrow cleanup
         run: node --test tests/english-labels.test.mjs

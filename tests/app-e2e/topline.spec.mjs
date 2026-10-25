@@ -154,14 +154,13 @@ test('PC: [+ 추가] opens the existing windows for 업데이트·할 일·노�
   await add.click();await menu.getByRole('button',{name:'업데이트'}).click();
   const editor=page.locator('#edWindow');await expect(editor).toBeVisible();
   await expect(editor.locator('[data-edw-place]')).toContainText('정리함(미분류)');
-  await expect(editor.locator('.ed-window-body .ProseMirror')).toBeVisible();await expect(editor.locator('[data-md-kind]')).toHaveCount(0);
+  await expect(editor.locator('.ed-window-body .ProseMirror')).toBeVisible();
   await page.keyboard.press('Escape');await expect(page.locator('#edWindow')).toHaveCount(0);
  }
  {
   await add.click();await menu.getByRole('button',{name:'노트'}).click();
   const win=page.locator('#edWindow');await expect(win).toBeVisible();await expect(win).toHaveAccessibleName('새 노트');
   await expect(win.locator('[data-edw-title]')).toBeVisible();await expect(win.locator('.ed-window-body .ProseMirror')).toBeVisible();
-  await expect(win.locator('[data-md-kind]')).toHaveCount(0);
   await page.keyboard.press('Escape');await expect(page.locator('#edWindow')).toHaveCount(0);
  }
  // 일정 / 할 일: the existing event window, on its own side.

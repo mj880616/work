@@ -1,6 +1,6 @@
 // ED-통합편집기 ①a: the one rich-text editor part (블로그 글쓰기형, docs/design/unified-editor.md 2.3), built on the vendored
 // ProseMirror bundle (app/editor-lib, loaded only when an editor opens). It edits one document in one box and saves nothing:
-// the opener reads getValue() (the cleaned saved form {v:'ed1', doc}) and stores it its own way, as md-editor.js does.
+// the opener reads getValue() (the cleaned saved form {v:'ed1', doc}) and stores it its own way.
 // Button row (small 28px buttons, 44px press area; a phone swipes the one row sideways with [⌄] kept at its right end;
 // wider than a phone, buttons that do not fit move under [⌄], so no sideways scroll bar). ED-서식줄펼침 (2026-10-23 사용자
 // 11:06~11:10): every button that opens choices carries a small ▾ and opens a small popover right under itself (overlaying the

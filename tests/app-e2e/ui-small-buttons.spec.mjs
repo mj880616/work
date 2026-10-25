@@ -3,10 +3,10 @@ import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {noteMenuAction} from './helpers/note-menu.mjs';
 import { chooseBasketKind, basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';
-import {openOldWriteWindow} from './helpers/write-opener.mjs';
+import {openWriteFromEntry} from './helpers/write-opener.mjs';
 // UI-버튼작게(2026-10-18 사용자 결정):
 // ① 바구니 노트·메모 읽기 화면 아래 버튼은 한 줄, 보이는 높이 32px(누르는 범위 44px), [연결하기]만 주 버튼 색. 첨부만 있는 메모도 같음. 노트는 UI-노트메뉴정리로 이 줄이 없어지고 [⋯] 안으로 들어갔다.
-// ② 메뉴 [쓰기] 큰 편집기 서식 도구줄 버튼은 보이는 높이 28px(누르는 범위 44px).
+// ② (옛 큰 창의 서식 도구줄 28px 시험은 창과 함께 지웠다.)
 // ③ 폰(760px 이하): 일정 [달력|할 일|일지|일기]·바구니 [메모|노트] 전환은 아래 탭 6칸 바로 위 한 줄(알약, 32px, 고른 쪽 회색).
 //    자판이 뜨면 아래 탭과 함께 숨고, 공용 [+]는 전환 줄 바로 위. 노트·메모를 연 동안은 보이지 않는다. PC는 그대로 위.
 // 캡처: UI_REVIEW_DIR=<폴더>가 있으면 390·1280 라이트·다크를 그 폴더에 남긴다(docs/review/ui-small-buttons/).
@@ -96,29 +96,6 @@ for(const width of [390,1280]){
   await expect(page.locator('[data-basket-file-card="drive-hwp"]')).toBeVisible();
   await readRow(page,page.locator('[data-basket-read-actions]'),['연결하기','할 일 만들기','노트로 옮기기'],width);
   expect(await noWideScroll(page)).toBe(true);
-  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
- });
-
- test(`② 쓰기 창 서식 도구줄 버튼 28px·누르는 범위 44px, 줄은 머리줄 바로 아래 ${width}`,async({page})=>{
-  const f=await fixture(page,{width});
-  await openOldWriteWindow(page,width);
-  const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();
-  const tools=editor.locator('.md-editor-tools');
-  const buttons=await tools.locator('button').all();// MD-서식줄묶음: a phone has the 7 grouped buttons; wider screens the whole row.
-  expect(buttons.length).toBeGreaterThan(width<761?6:10);
-  for(const b of buttons){const m=await b.evaluate(el=>{const r=el.getBoundingClientRect(),a=getComputedStyle(el,'::after');return {h:r.height,hit:a.height,font:getComputedStyle(el).fontSize};});
-   expect(m.h).toBe(28);expect(m.hit).toBe('44px');expect(m.font).toBe('13px');}
-  // (359px and narrower phones use 12px; this test's phone is wider.)
-  // The row is the press height (44px), right under the head and above the text.
-  const [head,row,text]=await Promise.all([editor.locator('.md-editor-head'),tools,editor.locator('.md-editor-text')].map(l=>l.boundingBox()));
-  expect(Math.round(row.height)).toBe(44);expect(Math.abs(row.y-(head.y+head.height))).toBeLessThan(2);expect(text.y).toBeGreaterThanOrEqual(row.y+row.height-1);
-  // The whole 44px press area of a visible button lands on that button.
-  const first=tools.locator('button').first(),fb=await first.boundingBox();
-  for(const y of [fb.y+fb.height/2-21,fb.y+fb.height/2+21])expect(await page.evaluate(([x,y])=>document.elementFromPoint(x,y)?.closest('button')?.dataset.mdAction,[fb.x+fb.width/2,y])).toBe('heading-menu');
-  // The choice row under it follows the same size.
-  await tap(page,editor.getByRole('button',{name:'제목 단계 고르기',exact:true}),width);
-  const choices=width<761?editor.getByRole('group',{name:'제목 단계 고르기'}).getByRole('button'):editor.locator('.md-editor-menu button');await expect(choices).toHaveText(['제목 1','제목 2','제목 3']);
-  for(const b of await choices.all())expect((await b.boundingBox()).height).toBe(28);
   expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
  });
 }
@@ -279,8 +256,8 @@ if(REVIEW){
    await page.locator('[data-note-close]').click();
    await go(page,'calendar');await page.waitForTimeout(300);await shot('calendar');
    await go(page,'diary');await expect(page.locator('#diaryRoot [data-diary-day="2026-10-06"]')).toBeVisible();await shot('diary');
-   await openOldWriteWindow(page,width);
-   await expect(page.locator('#mdEditor')).toBeVisible();await shot('write');
+   await openWriteFromEntry(page,width);
+   await expect(page.locator('#edWindow')).toBeVisible();await shot('write');
   });
  }
 }

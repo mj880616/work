@@ -42,7 +42,6 @@ for(const width of [390,1280]){
   await expect(text(page)).toContainText('홈에서 쓰던 업데이트');
   await expect(e.locator('[data-edw-place]')).toContainText('정리함(미분류)');
   await expect(e.locator('[data-edw-save]')).toHaveAccessibleName('업데이트로 저장');
-  await expect(e.locator('[data-md-kind]')).toHaveCount(0);
   expect(await fits(page)).toBe(true);
   // Closing without saving hands the letters back to the input.
   await typeInto(page,text(page),'큰 창에서 고친 업데이트');

@@ -1,4 +1,4 @@
-/* ED③-창: 새 쓰기 창(ed-window.js). 껍데기 규칙은 md-editor.css의 것을 그대로 옮겼고(색은 테마 토큰만), 글 칸은 새 편집기(ed-doc.css)가 맡는다.
+/* ED③-창: 새 쓰기 창(ed-window.js). 껍데기 규칙은 옛 큰 창(ED③ 순서 6에서 삭제)의 것을 옮겼고(색은 테마 토큰만), 글 칸은 새 편집기(ed-doc.css)가 맡는다.
    머리줄 한 줄: [× 닫기] [저장 아이콘] … [내보내기 아이콘]. 폰(760px 이하)은 앱 공용 하단 탭 위에서 끝나고, 자판이 열리면 탭이 숨고
    자판 바로 위까지 쓴다. 넓은 화면(761px~)은 앱 메뉴 옆(ed-window.js placeBesideNav가 --ed-window-left/top을 정함). */
 html.ed-window-open, html.ed-window-open body { overflow:hidden; }
@@ -41,7 +41,7 @@ html .modal.ed-window .ed-window-head > button:focus-visible { outline:2px solid
 .ed-window-note[hidden] { display:none; }
 .ed-window-status { margin:0; padding:6px 12px; font-size:var(--kptu-text-meta, 12px); color:var(--kptu-muted); border-top:1px solid var(--kptu-border); }
 .ed-window-status:empty { display:none; }
-/* ED③ 노트: 창 아래 [📎 첨부] 줄(노트 첨부, 고른 파일 목록)과 글 위 제목 줄. 크기·색은 옛 큰 창(md-editor.css)의 것과 같다. */
+/* ED③ 노트: 창 아래 [📎 첨부] 줄(노트 첨부, 고른 파일 목록)과 글 위 제목 줄. 크기·색은 옛 큰 창의 것을 옮긴 것이다. */
 .ed-window-foot { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; min-height:var(--kptu-touch-target, 44px); padding:0 8px; border-top:1px solid var(--kptu-border); box-sizing:border-box; }
 .ed-window-foot [data-edw-attach-files] { flex:1 1 220px; min-width:0; max-height:30vh; overflow:auto; }
 html .modal.ed-window .ed-window-foot .basket-clip-picker { width:auto; height:auto; flex:0 0 auto; }

@@ -1,4 +1,4 @@
-// BASKET-업데이트통합: where an "업데이트" goes, in one place for the home input and the shared write window (write-window.js).
+// BASKET-업데이트통합: where an "업데이트" goes, in one place for the home input and the shared write window (update-window.js).
 // No place → a basket note (미분류); an organization → that organization's record; a project → that project's progress record.
 // Every save is an existing owner-RLS path (createNote, saveOrganizationUpdate, saveProjectProgress); nothing new is written here.
 // UPD-여러곳고르기: several places can be chosen at once (an array; empty is the basket). Two or more → one basket update linked

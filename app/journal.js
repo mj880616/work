@@ -36,7 +36,7 @@ import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, chan
 import {createTaskInline} from './task-inline.js';
 import {loadDocumentCategories} from './document-categories.js';
 import {formatSeoulTime, seoulParts} from './meeting-time.js';
-import {copyText} from './md-editor.js';
+import {copyText} from './copy-text.js';
 import {offerUndoNotice, closeUndoNotice} from './basket-record-delete.js';
 import {requestTagsHtml, normalizeRequests, noteRequests} from './update-requests.js';
 import {recordMark} from './basket-link-records.js';

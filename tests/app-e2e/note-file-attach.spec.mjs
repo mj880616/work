@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import {openMdTool} from './helpers/md-tools.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { noteMenuAction } from './helpers/note-menu.mjs';
 import { basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';

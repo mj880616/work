@@ -11,7 +11,7 @@ import {readHomeCandidates, readWeekCandidates, findTodos, dismissCandidate, reo
   candidateToTask, validateTaskDraft, notPlanned, ledgerRequestText, radarScope, quickDue, dotDay, dueChoices,
   RADAR_SOURCE_LABEL, HOME_ROWS, TASK_TITLE_MAX} from './todo-radar-data.js';
 import {formatSeoulTime, seoulDateKey, seoulDayStart, addSeoulDays} from './meeting-time.js';
-import {copyText} from './md-editor.js';
+import {copyText} from './copy-text.js';
 import {offerUndoNotice} from './basket-record-delete.js';
 import {requestBasketNote, requestNoteDocOpen} from './basket-note-tasks.js';
 
