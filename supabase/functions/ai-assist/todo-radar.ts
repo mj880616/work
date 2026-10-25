@@ -19,6 +19,11 @@ export const RADAR_ITEM_CHARS = 4000;
 export const RADAR_MAX_SOURCES = 150;
 export const RADAR_MAX_OUTPUT_TOKENS = 2500;
 
+// 연결 종류: mine_project(기록 주인이 맡은 사업) / organization(담당조직). 이름만 보내고 ID는 보내지 않는다.
+export type RadarLink = { type: "mine_project" | "organization"; name: string };
+export const RADAR_LINKS_MAX = 6;
+export const RADAR_ALREADY_MAX = 20;
+
 export type RadarSource = {
   kind: SourceKind;
   id: string;
@@ -28,6 +33,9 @@ export type RadarSource = {
   label?: string; // 조직·프로젝트·회의 이름(짧게)
   project_id?: string | null;
   organization_id?: string | null;
+  // 사업 보고(meeting)만: 연결된 사업·담당조직 이름(판단 재료)과, 이 회의에서 이미 후보로 올린 한 줄(다시 올리지 않게).
+  links?: RadarLink[];
+  already?: string[];
 };
 export type PackedSource = RadarSource & { ref: string };
 
@@ -74,7 +82,10 @@ export function radarMaterial(packed: PackedSource[], today: string) {
   return JSON.stringify({
     today,
     records: packed.map((s) => ({
-      ref: s.ref, type: SOURCE_NAMES[s.kind], date: s.day, ...(s.label ? { place: s.label } : {}), text: s.text,
+      ref: s.ref, type: SOURCE_NAMES[s.kind], date: s.day, ...(s.label ? { place: s.label } : {}),
+      ...(s.links?.length ? { connected: s.links.slice(0, RADAR_LINKS_MAX).map((l) => ({ kind: l.type === "mine_project" ? "내 담당 사업" : "담당조직", name: cut(l.name, 100) })) } : {}),
+      ...(s.already?.length ? { already_handled: s.already.slice(0, RADAR_ALREADY_MAX).map((a) => cut(a, RADAR_SUMMARY_CHARS)) } : {}),
+      text: s.text,
     })),
   });
 }
@@ -104,6 +115,10 @@ export function buildTodoRadarInstructions(profile: RadarProfile = { name: null,
     "먼저 항목마다 '누가 해야 하는 일인가'를 판단해 owner에 적는다.",
     "owner=me: 기록 주인 본인이 해야 하는 일(본인이 맡은 일, 본인에게 온 요청·마감·준비·참석).",
     "owner=support: 일의 주체는 다른 쪽이지만 기록 주인이 담당자로서 확인·연락·지원할 부분이 글에 뚜렷한 경우. 이때 summary에는 그 확인·연락·지원 부분만 쓴다(예: \"연대 참가 조직 여부 확인.\").",
+    "회의(사업 보고) 기록에는 connected(그 회의가 연결된 사업·담당조직)가 붙을 수 있다. '내 담당 사업'은 기록 주인이 맡은 사업이고, '담당조직'은 우리 팀이 맡은 산하 조직·사업장이다.",
+    "회의 기록은 connected가 있거나 본문에 우리 팀·기록 주인 이름이 나오는 대목에서 기록 주인의 역할로 보이는 일만 고른다. 다른 사업·기관 전체의 일, 일반 논의, 다른 주체의 일은 other다.",
+    "회의 기록에서 기록 주인의 일인지 애매하면 owner=support로 올리되, evidence에 회의 결과의 어느 대목인지 짧게 쓴다.",
+    "records의 already_handled는 이미 후보로 올렸거나 처리한 항목이다. 같은 뜻이면 다시 만들지 않는다.",
     "owner=other: 조합원·현장 간부·지부·지부장·임원·다른 팀·상대 기관 등 다른 주체의 일. 기록 주인이 할 부분이 뚜렷하지 않으면 other.",
     "owner=unclear: 주체가 글에서 분명하지 않음. 추측으로 me로 만들지 않는다.",
     "기록 주인에게 돌려줄 일이 아닌 항목(other, unclear)도 owner를 정직하게 적어 돌려준다. 시스템이 걸러낸다.",
