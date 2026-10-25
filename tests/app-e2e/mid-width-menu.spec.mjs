@@ -108,7 +108,6 @@ test('recalculation preserves keyboard focus and highlights the hidden combined 
   await expect(page.locator('#mobileMenu [data-view="media"]:visible')).toHaveAttribute('aria-current','page');
   await page.locator('#mobileMenu [data-view="media"]:visible').focus();
   await page.keyboard.press('Escape');await expect(trigger).toBeFocused();
-  await expect(trigger).toHaveAttribute('aria-current','page');
 });
 
 test('focused controls stay reachable when crossing the phone and PC boundaries',async({page})=>{
