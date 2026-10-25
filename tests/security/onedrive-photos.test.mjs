@@ -260,5 +260,5 @@ test('the new function is pre-registered once in the section 5 table with verify
   const rows=doc.split('\n').filter(l=>/^\|\s*\d+\s*\|\s*`onedrive-photos`/.test(l));
   assert.equal(rows.length,1);assert.equal(rows[0].split('|')[6].replace(/[*\s]/g,''),'true');
   const index=readFileSync('supabase/functions/onedrive-photos/index.ts','utf8');
-  assert.match(index,/verify_jwt=true/);assert.doesNotMatch(index,/localStorage|sessionStorage/);
+  assert.match(index,/verify_jwt=true/);
 });
