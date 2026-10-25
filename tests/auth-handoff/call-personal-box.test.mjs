@@ -224,8 +224,8 @@ test('call personal box: separate table, atomic owner-checked moves, duplicate g
    for(const dir of ['supabase/functions','app','scripts','docs/ops','.github'])
     for(const f of await files(new URL('../../'+dir,import.meta.url).pathname))
      if(/\.(js|mjs|ts|gs|html|yml|yaml|json|sh)$/.test(f)&&(await readFile(f,'utf8')).includes('app_call_personal'))hits.push(f.replace(root,''));
-   // 2단계(collector-feed 저장)가 허용 목록에 들어왔다. 3단계 화면 PR이 통화 메뉴 화면을 더한다.
-   assert.deepEqual(hits,['supabase/functions/collector-feed/handler.ts'],'only the call menu screen and collector-feed may name the table');
+   // 2단계(collector-feed 저장)가 허용 목록에 들어왔다. 3단계 화면 PR이 통화 메뉴 화면의 읽기 파일(app/feed-data.js)을 더했다.
+   assert.deepEqual(hits,['supabase/functions/collector-feed/handler.ts','app/feed-data.js'],'only the call menu screen data file (feed-data.js) and collector-feed may name the table');
    const handler=await read('supabase/functions/ai-assist/handler.ts');
    const reads=[...handler.matchAll(/app_feed_items\?[^`"']*/g)].map(m=>m[0]);
    assert.ok(reads.length>=2);

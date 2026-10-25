@@ -48,6 +48,7 @@ async function fixture(page,{width=1280,missing=false,empty=false}={}){
    }
    return r.fulfill({status:405,json:{}});
   });
+  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_call_personal',r=>r.fulfill({json:[]}));
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_feed_days',r=>{
    if(missing)return r.fulfill({status:404,json:{code:'PGRST205'}});
    const q=new URL(r.request().url()).searchParams,src=decodeURIComponent((q.get('source')||'').slice(3));
@@ -97,8 +98,8 @@ for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세
  // 같은 날은 시각 내림차순.
  await expect(view.locator('[data-cf-row]')).toHaveCount(3);
  expect(await view.locator('[data-cf-row]').evaluateAll(els=>els.map(e=>e.dataset.cfRow))).toEqual([C1,C2,C3]);
- // 맨 위 오른쪽 걸러짐: 최근 7일 개인 3 + 애매 1 = 4건, 내용은 없다.
- await expect(view.locator('[data-cf-filtered]')).toHaveText('개인 통화 4건 걸러짐 ›');
+ // 맨 위 오른쪽 작은 '개인 통화함 n ›'(개인 통화함 줄이 없으면 0).
+ await expect(view.locator('[data-cf-box="personal"]')).toHaveText('개인 통화함 0 ›');
  expect(await noWideScroll(page)).toBe(true);
 
  await tap(page,first,width);
@@ -133,7 +134,7 @@ for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세
  // 고정: ⋯ → 고정 → 서버에 pinned_at.
  await tap(page,detail.locator('[data-cf-more]'),width);
  const menu=page.locator('#cfMenu');await expect(menu).toBeVisible();
- await expect(menu.locator('button')).toHaveText(['고정','조직 연결','요약 복사','Drive 원본 열기','지우기 목록에서만']);
+ await expect(menu.locator('button')).toHaveText(['고정','조직 연결','요약 복사','Drive 원본 열기','개인 통화로 옮기기','지우기 목록에서만']);
  await tap(page,menu.getByRole('button',{name:'고정',exact:true}),width);
  await expect.poll(()=>f.writes.filter(w=>w.id===C1&&w.body.pinned_at).length).toBe(1);
  await expect(detail.locator('[data-cf-meta]')).toContainText('· 고정');
@@ -166,17 +167,6 @@ for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세
  expect(f.errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`통화 ${width}: '개인 통화 n건 걸러짐 ›'은 개수와 안내만`,async({page})=>{
- const f=await fixture(page,{width});
- await openMenu(page,width,'통화');
- await tap(page,page.locator('#callsView [data-cf-filtered]'),width);
- const box=page.locator('#callsView [data-cf-filtered-detail]');
- await expect(box).toContainText('최근 7일 개인 3건 · 애매 1건 · 판정 실패 1건');
- await expect(box).toContainText('원본은 Drive 통화 녹음·전사 폴더에 있어요');
- if(width<1024){await page.goBack();await expect(page.locator('#cfList')).toBeVisible();}
- expect(f.errors).toEqual([]);
-});
-
 test('통화 1280: 조직 연결은 핵심내용을 요약 기본값으로, 저장하면 조직 칸과 조직 기록',async({page})=>{
  const f=await fixture(page,{width:1280});
  await openMenu(page,1280,'통화');
@@ -201,7 +191,7 @@ for(const width of [390,1280])test(`빈 상태 ${width}: 표가 없으면 '준�
  const f=await fixture(page,{width,missing:true});
  await openMenu(page,width,'통화');
  await expect(page.locator('#callsView [data-cf-empty="ready"]')).toHaveText('준비 중이에요. 통화 수집이 연결되면 여기에 보여요.');
- await expect(page.locator('#callsView [data-cf-filtered]')).toHaveCount(0);
+ await expect(page.locator('#callsView [data-cf-box]')).toHaveCount(0);
  await openMenu(page,width,'텔레그램 소식');
  await expect(page.locator('#telegramView [data-tg-empty="ready"]')).toHaveText('준비 중이에요. 텔레그램 수집이 연결되면 여기에 보여요.');
  expect(f.errors).toEqual([]);
@@ -210,7 +200,7 @@ test('빈 상태: 표는 있고 줄이 없으면 빈 한 줄',async({page})=>{
  const f=await fixture(page,{width:390,empty:true});
  await openMenu(page,390,'통화');
  await expect(page.locator('#callsView [data-cf-empty="none"]')).toHaveText('아직 받은 업무 통화가 없어요.');
- await expect(page.locator('#callsView [data-cf-filtered]')).toHaveText('개인 통화 0건 걸러짐 ›');
+ await expect(page.locator('#callsView [data-cf-box="personal"]')).toHaveText('개인 통화함 0 ›');
  await openMenu(page,390,'텔레그램 소식');
  await expect(page.locator('#telegramView [data-tg-empty="none"]')).toHaveText('아직 받은 텔레그램 소식이 없어요.');
  await expect(page.locator('#telegramView [data-tg-today]')).toHaveText('오늘 받은 소식 없음');

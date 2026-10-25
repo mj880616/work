@@ -111,6 +111,25 @@
 .feed-menu .feed-menu-danger{color:var(--kptu-danger)}
 .feed-menu .feed-faint{font-size:11px;color:var(--kptu-muted)}
 
+/* CALL-개인통화함 3단계: 개인 통화함 칩·확인할 통화·줄 ⋯·확인 안내 (색은 토큰만) */
+.feed-view .feed-chip{position:relative;flex:none;height:var(--ds-compact-height-sm);min-height:0;margin:0;padding:0 8px;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-surface-subtle);color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-meta);white-space:nowrap;cursor:pointer}
+.feed-view .feed-chip::after{content:"";position:absolute;inset:-8px -4px}
+.feed-view .feed-chip:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+.feed-view .feed-note{margin:0;padding:4px 8px;border-bottom:var(--ds-line-width) solid var(--kptu-border);font-size:11px;line-height:1.5;color:var(--kptu-muted)}
+.feed-view .feed-ask-head{padding:8px 8px 2px;font-size:11px;color:var(--kptu-muted)}
+.feed-view .feed-ask-rows{margin-bottom:4px}
+.feed-view .feed-callrow{position:relative;display:block}
+.feed-view .feed-callrow .feed-hov{top:50%;right:4px;transform:translateY(-50%)}
+.feed-view .feed-ask{display:flex;align-items:center;gap:4px;border-bottom:var(--ds-line-width) solid var(--kptu-border)}
+.feed-view .feed-ask .feed-call{flex:1 1 auto;width:auto;min-width:0;border-bottom:0}
+.feed-view .feed-ask-btns{display:flex;flex:none;gap:4px;padding-right:6px}
+.feed-view .feed-decide{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;padding:4px 8px;border-radius:var(--ds-radius-control);background:var(--kptu-warning-soft)}
+.feed-view .feed-decide .feed-faint{color:var(--kptu-warning)}
+.feed-view .feed-warn{display:grid;gap:6px;margin:0 0 8px;padding:8px 10px;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-warning-soft);color:var(--kptu-warning);font-size:var(--ds-text-meta);line-height:1.5}
+.feed-view .feed-warn p{margin:0}
+@media(min-width:761px) and (hover:hover){.feed-view .feed-callrow:hover .feed-hov{display:block}.feed-view .feed-callrow:hover .feed-org{visibility:hidden}}
+@media(min-width:761px){.feed-view .feed-callrow:focus-within .feed-hov,.feed-view .feed-callrow .feed-hov[aria-expanded="true"]{display:block}}
+
 @media(min-width:1024px){
   html:has(#appView .feed-view:not(.hidden)) main{padding-bottom:12px}
   #appView .feed-view:not(.hidden){display:flex;flex-direction:column;height:calc(100vh - 24px - var(--kptu-topline-space,0px));height:calc(100dvh - 24px - var(--kptu-topline-space,0px));min-height:420px}
