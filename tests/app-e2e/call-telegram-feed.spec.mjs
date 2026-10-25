@@ -117,10 +117,18 @@ for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세
  await expect(full.locator('.feed-badge')).toHaveText('화자 구분은 전사 수정 뒤');
  await expect(full.locator('summary')).toContainText('전문 접기');
 
+ // 핵심내용 제목 줄 오른쪽 [복사] → 클립보드에 제목·날짜·본문, 짧게 "복사했어요".
+ await page.context().grantPermissions(['clipboard-read','clipboard-write']);
+ const copy=detail.locator('[data-cf-copy]');await expect(copy).toHaveCount(1);
+ await tap(page,copy,width);
+ await expect(detail.locator('[data-cf-detail-status]')).toHaveText('복사했어요');
+ expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('예시지부 홍길동 위원장 · 가상 교섭 일정 다음 주로 조정\n10. 6. (화) 09:42\n\n- 가상 교섭 다음 주 화요일로 변경\n- 요구안 12명 유지 [확정]\n- 회신 10. 12.(월)까지 [예정]\n- 장소 다시 확인 [확인]');
+ // 폰의 '‹ 통화'는 본문 글자 크기(14px 이상)이고 누르는 자리가 글자보다 넓다.
+ if(width<1024){const back=detail.locator('[data-cf-back]');await expect(back).toHaveText('‹ 통화');expect(await back.evaluate(e=>parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(14);}
  // 고정: ⋯ → 고정 → 서버에 pinned_at.
  await tap(page,detail.locator('[data-cf-more]'),width);
  const menu=page.locator('#cfMenu');await expect(menu).toBeVisible();
- await expect(menu.locator('button')).toHaveText(['고정','조직 연결','전문 비우기 Web2 사본만','Drive 원본 열기','지우기 목록에서만']);
+ await expect(menu.locator('button')).toHaveText(['고정','조직 연결','요약 복사','Drive 원본 열기','지우기 목록에서만']);
  await tap(page,menu.getByRole('button',{name:'고정',exact:true}),width);
  await expect.poll(()=>f.writes.filter(w=>w.id===C1&&w.body.pinned_at).length).toBe(1);
  await expect(detail.locator('[data-cf-meta]')).toContainText('· 고정');
@@ -231,7 +239,7 @@ test('텔레그램 390: 채팅방 모양, 길게 누르면 누른 자리 아래 
   el.dispatchEvent(new PointerEvent('pointerup',o));el.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,clientX:x,clientY:y}));
  },{x,y});
  const menu=page.locator('#tgMenu');await expect(menu).toBeVisible();
- await expect(menu.locator('button')).toHaveText(['고정','지우기 목록에서만','원문 보기']);
+ await expect(menu.locator('button')).toHaveText(['고정','요약 복사','지우기 목록에서만','원문 보기']);
  const m=await menu.boundingBox();expect(m.y).toBeGreaterThanOrEqual(y);expect(m.y-y).toBeLessThan(40);
  // 길게 누른 뒤 손을 뗀 것으로는 원문이 열리지 않는다.
  await expect(view.locator('#tgDetail')).toBeHidden();

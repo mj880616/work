@@ -26,7 +26,7 @@
 #referenceView .rb-small.primary{border-color:var(--kptu-primary);background:var(--kptu-primary);color:var(--kptu-on-primary)}
 #referenceView .rb-text-btn{position:relative;height:var(--ds-compact-height-sm);min-height:0;margin:0;padding:0 4px;border:0;background:transparent;color:var(--kptu-link);font:inherit;font-size:var(--ds-text-meta);cursor:pointer}
 #referenceView .rb-text-btn::after{content:"";position:absolute;inset:-8px -4px}
-#referenceView .rb-back{margin:0 0 4px -4px}
+#referenceView .rb-back{margin:0 0 4px -8px}
 #referenceView .rb-actions{display:flex;justify-content:flex-end;gap:8px;padding:8px 12px}
 #referenceView .rb-inline{display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0;margin:8px 0 0}
 #referenceView .rb-detail-head .rb-inline{margin:0}

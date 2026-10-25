@@ -10,6 +10,8 @@ import {createAnchoredMenu} from './anchored-menu.js';
 import {mountSplitResize} from './split-resize.js';
 import {groupByDay, hhmm, dayLabel, telegramLines, telegramToday, telegramHeadText, roomsOf, roomTone, roomInitial, pinnedOf, missingTable, kstDay} from './feed-model.mjs';
 import {readFeed, readDays, readRaw, readOrganizations, setPinned, setHidden, scopeOf} from './feed-data.js';
+import {summaryCopyText} from './summary-copy-model.mjs';
+import {copyButtonHtml, copySummary} from './summary-copy.js';
 import {esc, newLinkBox, linkBoxHtml, openOrgPicker, saveLinkBox, orgName} from './feed-link.js';
 
 const rt = window.KPTURuntime;
@@ -90,7 +92,7 @@ function paintList() {
 function paintDetail() {
   const box = $('#tgDetail'), r = rowOf(state.selected);
   if (!r) { box.innerHTML = '<p class="feed-empty feed-pane-empty">왼쪽에서 소식을 누르면 원문이 보여요.</p>'; return; }
-  const back = pc.matches ? '' : '<button type="button" class="feed-text-btn feed-back" data-tg-back>‹ 소식</button>';
+  const back = pc.matches ? '' : '<button type="button" class="back-text" data-tg-back>‹ 소식</button>';
   const org = orgName(state.orgs, r.organization_id);
   const sub = [r.room_label, dayLabel(r.day), `원문 ${Number(r.raw_count) || 0}`, org].filter(Boolean).join(' · ');
   const raw = state.raw.get(r.id);
@@ -101,7 +103,7 @@ function paintDetail() {
   else lines = `<div class="feed-raw" data-tg-raw>${telegramLines(raw.raw_text).map(l => `<div class="feed-rm"><span class="feed-at">${esc(l.at)}</span><span class="feed-who">${esc(l.who)}</span><span class="feed-rt">${l.forwarded ? '<span class="feed-faint">(전달)</span> ' : ''}${esc(l.text)}</span></div>`).join('')}</div>`;
   const link = state.link?.rowId === r.id ? linkBoxHtml(state.link, state.orgs, 'tg') : '';
   box.innerHTML = `<div class="feed-detail-head">${back}<span class="feed-head-sub" data-tg-raw-sub>${esc(sub)}${r.pinned_at ? ' · 고정' : ''}</span><button type="button" class="feed-more" data-tg-detail-more aria-haspopup="true" aria-expanded="false" aria-label="소식 메뉴"${state.busy ? ' disabled' : ''}>${MORE}</button></div>
-<div class="feed-detail" data-tg-detail="${esc(r.id)}"><p class="feed-sum">${esc(r.summary || '')}</p>${link}${lines}<p class="feed-status" data-tg-detail-status role="status">${statusHtml()}</p></div>`;
+<div class="feed-detail" data-tg-detail="${esc(r.id)}"><div class="feed-sum-row"><p class="feed-sum">${esc(r.summary || '')}</p>${tgText(r) ? copyButtonHtml('data-tg-copy') : ''}</div>${link}${lines}<p class="feed-status" data-tg-detail-status role="status">${statusHtml()}</p></div>`;
 }
 
 // ---------- actions
@@ -147,6 +149,9 @@ function restore() {
     catch { if (current()) state.status = '되돌리지 못했어요. 다시 시도해 주세요.'; }
   });
 }
+const tgText = r => summaryCopyText({title:r.room_label, meta:[dayLabel(r.day), hhmm(r.occurred_at)].filter(Boolean).join(' '), body:[r.summary]});
+const say = text => { state.status = text; for (const el of view()?.querySelectorAll('[data-tg-status],[data-tg-detail-status]') || []) el.innerHTML = statusHtml(); };
+const copyTg = r => copySummary(tgText(r), {say, current:() => state.status});
 function startLink(r) { if (state.selected !== r.id) select(r.id); state.link = newLinkBox(r); paintDetail(); $('#tgDetail [data-tg-link-pick]')?.focus({preventScroll:true}); }
 function saveLink() {
   const r = rowOf(state.link?.rowId), box = state.link; if (!r || !box) return;
@@ -165,11 +170,11 @@ const menu = createAnchoredMenu({id:'tgMenu', className:'feed-menu', label:'소�
   render:id => {
     const r = rowOf(id.slice(id.indexOf(':') + 1)); if (!r) return '';
     const inDetail = id.startsWith('detail:');
-    return `<button type="button" data-tg-act="pin">${r.pinned_at ? '고정 풀기' : '고정'}</button><button type="button" class="feed-menu-danger" data-tg-act="hide">지우기 <span class="feed-faint">목록에서만</span></button>${inDetail ? '<button type="button" data-tg-act="link">조직 연결</button>' : '<button type="button" data-tg-act="raw">원문 보기</button>'}`;
+    return `<button type="button" data-tg-act="pin">${r.pinned_at ? '고정 풀기' : '고정'}</button>${tgText(r) ? '<button type="button" data-tg-act="copy">요약 복사</button>' : ''}<button type="button" class="feed-menu-danger" data-tg-act="hide">지우기 <span class="feed-faint">목록에서만</span></button>${inDetail ? '<button type="button" data-tg-act="link">조직 연결</button>' : '<button type="button" data-tg-act="raw">원문 보기</button>'}`;
   },
   onAction:(button, active) => {
     const r = rowOf(active.id.slice(active.id.indexOf(':') + 1)); if (!r) return; const act = button.dataset.tgAct;
-    if (act === 'pin') void pin(r); else if (act === 'hide') void hide(r); else if (act === 'raw') select(r.id); else if (act === 'link') startLink(r);
+    if (act === 'pin') void pin(r); else if (act === 'hide') void hide(r); else if (act === 'raw') select(r.id); else if (act === 'copy') void copyTg(r); else if (act === 'link') startLink(r);
   },
   onClose:() => unpinAt()});
 let pinnedAt = null;
@@ -213,6 +218,7 @@ function bind() {
     if (d.tgOpen) select(d.tgOpen);
     else if (d.tgMore) menu.open(b);
     else if (b.hasAttribute('data-tg-detail-more')) menu.open(b);
+    else if (b.hasAttribute('data-tg-copy')) { const r = rowOf(state.selected); if (r) void copyTg(r); }
     else if (b.hasAttribute('data-tg-back')) { if (!state.link || dropLink()) closeDetail(); }
     else if (b.hasAttribute('data-tg-retry')) void load();
     else if (b.hasAttribute('data-tg-undo')) void restore();

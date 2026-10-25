@@ -3,13 +3,15 @@
 // "개인 통화 n건 걸러짐 ›" (counts only — Web2 holds nothing of those calls). Detail: title, a small line (date · time · 조직/상대),
 // the core points box (`[확정]`·`[예정]`·`[확인]` heads read as small tags, feed-model.mjs), the transcript folded under
 // "전문 펼치기 ▾" (speaker lines when speaker_split, else one paragraph + "화자 구분은 전사 수정 뒤"), ⋯ top right
-// (고정 · 조직 연결 · 전문 비우기 · Drive 원본 열기 · 목록에서 지우기). PC (1024px~): list 1/3 · detail 2/3 (split-resize.js);
+// (고정 · 조직 연결 · 요약 복사 · Drive 원본 열기 · 목록에서 지우기); 핵심내용 제목 줄 오른쪽에 작은 [복사]. PC (1024px~): list 1/3 · detail 2/3 (split-resize.js);
 // phone: list, then the detail over it as one router layer (Back = one step). Data: feed-data.js (owner RLS REST only).
 import './enter-save.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {mountSplitResize} from './split-resize.js';
 import {groupByDay, hhmm, dayLabel, readPoints, speakerLines, callFiltered, missingTable, kstDay} from './feed-model.mjs';
-import {readFeed, readDays, readRaw, readOrganizations, setPinned, setHidden, clearRaw, scopeOf} from './feed-data.js';
+import {readFeed, readDays, readRaw, readOrganizations, setPinned, setHidden, scopeOf} from './feed-data.js';
+import {callCopyText} from './summary-copy-model.mjs';
+import {copyButtonHtml, copySummary} from './summary-copy.js';
 import {esc, newLinkBox, linkBoxHtml, openOrgPicker, saveLinkBox, orgName} from './feed-link.js';
 
 const rt = window.KPTURuntime;
@@ -26,6 +28,11 @@ function install() {
 }
 install();
 const view = () => $('#callsView');
+// 상대 표기가 이미 '소속조직 이름 직책'이면 그것만, 아니면 조직 · 상대.
+function whoOf(r) {
+  const org = orgName(state.orgs, r.organization_id), cp = String(r.counterpart || '');
+  return cp && org && cp.startsWith(org) ? cp : [org, cp].filter(Boolean).join(' · ');
+}
 const rowOf = id => state.rows.find(r => r.id === id) || null;
 
 // ---------- data
@@ -80,7 +87,7 @@ function paintList() {
 }
 const statusHtml = () => esc(state.status) + (undo ? ' <button type="button" class="feed-text-btn" data-cf-undo>되돌리기</button>' : '');
 function paintDetail() {
-  const box = $('#cfDetail'), back = pc.matches ? '' : '<button type="button" class="feed-text-btn feed-back" data-cf-back>‹ 통화</button>';
+  const box = $('#cfDetail'), back = pc.matches ? '' : '<button type="button" class="back-text" data-cf-back>‹ 통화</button>';
   if (state.mode === 'filtered') {
     const f = callFiltered(state.days, kstDay());
     box.innerHTML = `<div class="feed-detail-head">${back}${pc.matches ? '' : '<span class="feed-detail-name">걸러진 통화</span>'}</div><div class="feed-detail" data-cf-filtered-detail><p>최근 7일 개인 ${f.personal}건 · 애매 ${f.unsure}건${f.failed ? ` · 판정 실패 ${f.failed}건` : ''}</p><p class="feed-faint">Web2에는 옮기지 않았어요. 원본은 Drive 통화 녹음·전사 폴더에 있어요.</p></div>`;
@@ -88,12 +95,10 @@ function paintDetail() {
   }
   const r = rowOf(state.selected);
   if (!r) { box.innerHTML = '<p class="feed-empty feed-pane-empty">왼쪽에서 통화를 고르면 핵심내용이 보여요.</p>'; return; }
-  // 상대 표기가 이미 '소속조직 이름 직책'이면 그것만, 아니면 조직 · 상대.
-  const org = orgName(state.orgs, r.organization_id), cp = String(r.counterpart || '');
-  const who = cp && org && cp.startsWith(org) ? cp : [org, cp].filter(Boolean).join(' · ');
+  const who = whoOf(r);
   const meta = [dayLabel(r.day), hhmm(r.occurred_at), who].filter(Boolean).join(' · ');
   const points = readPoints(r.points);
-  const pointsHtml = points.length ? `<p class="feed-k">핵심내용</p><ul class="feed-points" data-cf-points>${points.map(p => `<li>${esc(p.text)}${p.tag ? `<span class="feed-tag feed-tag-${p.kind}">${esc(p.tag)}</span>` : ''}</li>`).join('')}</ul>` : '<p class="feed-faint">핵심내용이 없어요.</p>';
+  const pointsHtml = points.length ? `<div class="feed-k-row"><p class="feed-k">핵심내용</p>${copyButtonHtml('data-cf-copy')}</div><ul class="feed-points" data-cf-points>${points.map(p => `<li>${esc(p.text)}${p.tag ? `<span class="feed-tag feed-tag-${p.kind}">${esc(p.tag)}</span>` : ''}</li>`).join('')}</ul>` : '<p class="feed-faint">핵심내용이 없어요.</p>';
   const raw = state.raw.get(r.id);
   let script;
   if (!raw || raw.loading) script = '<p class="feed-faint" role="status">전문을 불러오는 중…</p>';
@@ -158,13 +163,8 @@ function restore() {
     catch { if (current()) state.status = '되돌리지 못했어요. 다시 시도해 주세요.'; }
   });
 }
-function clearTranscript(r) {
-  if (!window.confirm('Web2에 남은 전문 사본을 지울까요? 되돌릴 수 없어요. Drive 원본은 그대로예요.')) return;
-  return guarded(async current => {
-    try { const saved = await clearRaw(r.id, rt); if (!current()) return; if (!saved) return void await gone(); replaceRow(saved); state.raw.set(r.id, {raw_text:null}); state.status = '전문 사본을 지웠어요.'; }
-    catch { if (current()) state.status = '전문을 지우지 못했어요. 다시 시도해 주세요.'; }
-  });
-}
+const callText = r => callCopyText({who:whoOf(r), title:r.title, dayText:dayLabel(r.day), time:hhmm(r.occurred_at), points:r.points});
+const copyCall = r => copySummary(callText(r), {say, current:() => state.status});
 function startLink(r) { state.link = newLinkBox(r); paintDetail(); $('#cfDetail [data-cf-link-pick]')?.focus({preventScroll:true}); }
 function saveLink() {
   const r = rowOf(state.link?.rowId), box = state.link; if (!r || !box) return;
@@ -178,12 +178,11 @@ function saveLink() {
 const menu = createAnchoredMenu({id:'cfMenu', className:'feed-menu', label:'통화 메뉴', historyKey:'kptuCallMenu', key:() => 'detail',
   render:() => {
     const r = rowOf(state.selected); if (!r) return '';
-    const raw = state.raw.get(r.id);
-    return `<button type="button" data-cf-act="pin">${r.pinned_at ? '고정 풀기' : '고정'}</button><button type="button" data-cf-act="link">조직 연결</button>${raw?.raw_text ? '<button type="button" data-cf-act="clear">전문 비우기 <span class="feed-faint">Web2 사본만</span></button>' : ''}${r.drive_url ? '<button type="button" data-cf-act="drive">Drive 원본 열기</button>' : ''}<button type="button" class="feed-menu-danger" data-cf-act="hide">지우기 <span class="feed-faint">목록에서만</span></button>`;
+    return `<button type="button" data-cf-act="pin">${r.pinned_at ? '고정 풀기' : '고정'}</button><button type="button" data-cf-act="link">조직 연결</button>${callText(r) ? '<button type="button" data-cf-act="copy">요약 복사</button>' : ''}${r.drive_url ? '<button type="button" data-cf-act="drive">Drive 원본 열기</button>' : ''}<button type="button" class="feed-menu-danger" data-cf-act="hide">지우기 <span class="feed-faint">목록에서만</span></button>`;
   },
   onAction:button => {
     const r = rowOf(state.selected); if (!r) return; const act = button.dataset.cfAct;
-    if (act === 'pin') void pin(r); else if (act === 'hide') void hide(r); else if (act === 'clear') void clearTranscript(r); else if (act === 'link') startLink(r);
+    if (act === 'pin') void pin(r); else if (act === 'hide') void hide(r); else if (act === 'copy') void copyCall(r); else if (act === 'link') startLink(r);
     else if (act === 'drive' && /^https:\/\/(drive|docs)\.google\.com\//.test(r.drive_url || '')) window.open(r.drive_url, '_blank', 'noopener,noreferrer');
   }});
 
@@ -195,6 +194,7 @@ function bind() {
     if (d.cfRow) select(d.cfRow);
     else if (b.hasAttribute('data-cf-filtered')) showFiltered();
     else if (b.hasAttribute('data-cf-back')) { if (!state.link || dropLink()) closeDetail(); }
+    else if (b.hasAttribute('data-cf-copy')) { const r = rowOf(state.selected); if (r) void copyCall(r); }
     else if (b.hasAttribute('data-cf-retry')) void load();
     else if (b.hasAttribute('data-cf-undo')) void restore();
     else if (b.hasAttribute('data-cf-more')) menu.open(b);

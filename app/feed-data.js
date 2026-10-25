@@ -50,7 +50,6 @@ export async function patchItem(id, changes, rt = window.KPTURuntime) {
 }
 export const setPinned = (id, on, rt) => patchItem(id, {pinned_at:on ? new Date().toISOString() : null}, rt);
 export const setHidden = (id, on, rt) => patchItem(id, {hidden_at:on ? new Date().toISOString() : null}, rt);
-export const clearRaw = (id, rt) => patchItem(id, {raw_text:null}, rt);
 
 // Organizations for names and for the 조직 연결 box: every organization of the workspace (names of inactive ones are still shown on
 // old rows), plus which are mine (내 프로필 → 담당 사업장, the same rule as the 기록할 곳 sheet).
