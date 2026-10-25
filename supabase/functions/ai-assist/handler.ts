@@ -1276,7 +1276,10 @@ async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log): Promise<{ 
     const calls = await rest(ctx, `app_feed_items?workspace_id=eq.${ws}&source=eq.call&hidden_at=is.null&or=(created_at.gte.${callSince},moved_at.gte.${callSince})&select=id,workspace_id,title,points,day,occurred_at,organization_id,project_id,created_at,moved_at&order=created_at.desc&limit=${AUTO_READ_LIMIT}`);
     if (Array.isArray(calls) && calls.length && await callKindReady(ctx)) {
       full(calls);
-      for (const c of calls as Record<string, unknown>[]) {
+      // CALL-손고치기: 명진이 손으로 고친 제목·조직·핵심내용(app_call_edits)이 있으면 AI 값 대신 그 값을 재료로 쓴다. 표가 아직 없으면(DB 적용 전) 그대로 AI 값.
+      const userEdits = await readCallEdits(ctx, (calls as Record<string, unknown>[]).map((c) => c.id).filter(isUuid).map((id) => String(id).toLowerCase()));
+      for (const c0 of calls as Record<string, unknown>[]) {
+        const c = applyCallEdits(c0, isUuid(c0.id) ? userEdits.get(String(c0.id).toLowerCase()) : undefined);
         const created = timeOf(c.created_at), when = timeOf(c.occurred_at);
         // CALL-개인통화함 4단계: 개인함에서 옮겨 온 통화는 만든 시각(created_at)이 옛날이어도 옮긴 시각(moved_at)이 기간 안이면 재료로 본다. 본 시각(stamp)은 둘 중 늦은 것.
         const moved = timeOf(c.moved_at), stampAt = Number.isFinite(moved) && moved > created ? c.moved_at as string : c.created_at as string;
@@ -1298,6 +1301,34 @@ async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log): Promise<{ 
     log("ledger_auto_call_skipped");
   }
   return { sources, partial };
+}
+
+// CALL-손고치기: 사용자 값 모음 vals(키 title·points·organization_id만 재료로 쓴다. 상대 표기는 재료에 안 쓴다). 읽기 실패·표 없음은 빈 모음.
+async function readCallEdits(ctx: Ctx, ids: string[]): Promise<Map<string, Record<string, unknown>>> {
+  const out = new Map<string, Record<string, unknown>>();
+  const ws = encodeURIComponent(ctx.workspaceId);
+  try {
+    for (let i = 0; i < ids.length; i += IN_CHUNK) {
+      const rows = await rest(ctx, `app_call_edits?workspace_id=eq.${ws}&call_id=in.(${ids.slice(i, i + IN_CHUNK).join(",")})&select=call_id,vals&limit=${IN_CHUNK}`);
+      if (!Array.isArray(rows)) return out;
+      for (const r of rows as Record<string, unknown>[]) {
+        if (isUuid(r.call_id) && r.vals && typeof r.vals === "object" && !Array.isArray(r.vals)) out.set(String(r.call_id).toLowerCase(), r.vals as Record<string, unknown>);
+      }
+    }
+  } catch {
+    return new Map();
+  }
+  return out;
+}
+
+// 통화 줄에 사용자 값을 덮어 쓴 사본(원래 줄은 그대로). 키가 있는 칸만 사용자 값, 모양이 틀린 값은 무시하고 AI 값을 쓴다.
+export function applyCallEdits(row: Record<string, unknown>, vals?: Record<string, unknown>): Record<string, unknown> {
+  if (!vals) return row;
+  const out = { ...row };
+  if (typeof vals.title === "string" && vals.title.trim()) out.title = vals.title;
+  if (Array.isArray(vals.points) && vals.points.every((p) => typeof p === "string")) out.points = vals.points;
+  if (Object.hasOwn(vals, "organization_id") && (vals.organization_id === null || isUuid(vals.organization_id))) out.organization_id = vals.organization_id;
+  return out;
 }
 
 // 공통 DB(20261025110000_ledger_sources)가 운영에 들어갔는지: 그 PR의 새 표 하나를 읽어 본다(없으면 PostgREST 404). 아니면 DB 함수가 통화 종류를 거절해 실행 전체가 실패하므로 통화를 읽지 않는다.
