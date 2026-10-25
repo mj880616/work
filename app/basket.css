@@ -150,11 +150,13 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #basketView .inbox-todo-meta,#basketView .inbox-todo-status,#basketView .inbox-todo-empty,#basketView .inbox-todo-done { margin:0; font-size:var(--ds-text-meta); line-height:1.5; color:var(--kptu-muted); overflow-wrap:anywhere; }
 #basketView .inbox-todo-status:empty { display:none; }
 #basketView .inbox-todo-row[data-inbox-todo-status="tasked"] .inbox-todo-summary,#basketView .inbox-todo-row[data-inbox-todo-status="dismissed"] .inbox-todo-summary { color:var(--kptu-muted); text-decoration:line-through; }
-#appView #basketView button.inbox-todo-source { position:relative; flex:0 0 auto; box-sizing:border-box; width:auto; max-width:8em; height:var(--ds-compact-height-sm); min-height:0; margin:0; padding:0 8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:inherit; font-size:var(--ds-text-meta); color:var(--kptu-muted); background:var(--kptu-surface-subtle); border:0; border-radius:var(--ds-chip-radius); cursor:pointer; }
+#appView #basketView button.inbox-todo-source { position:relative; flex:0 0 auto; box-sizing:border-box; width:auto; max-width:100%; height:auto; min-height:var(--ds-compact-height-sm); margin:0; padding:0 8px; white-space:nowrap; font:inherit; font-size:var(--ds-text-meta); color:var(--kptu-muted); background:var(--kptu-surface-subtle); border:0; border-radius:var(--ds-chip-radius); cursor:pointer; }
 #appView #basketView .inbox-todo-actions { display:inline-flex; flex:0 0 auto; gap:8px; margin-left:auto; }
 #appView #basketView button.inbox-todo-btn { position:relative; box-sizing:border-box; width:auto; min-width:0; height:var(--ds-compact-height); min-height:0; margin:0; padding:0 var(--ds-compact-pad-x); font:inherit; font-size:var(--ds-compact-text); line-height:1; white-space:nowrap; color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); cursor:pointer; }
 #appView #basketView button.inbox-todo-btn:disabled { opacity:.6; cursor:default; }
 #appView #basketView button.inbox-todo-link { position:relative; min-height:0; margin:0; padding:0; font:inherit; font-size:var(--ds-text-meta); color:var(--kptu-primary-ink); background:transparent; border:0; cursor:pointer; }
+/* UI-표잘림전수: 출처 표는 '…'로 자르지 않는다. 폰에서는 줄바꿈한다. */
+@media(max-width:760px){#appView #basketView button.inbox-todo-source { white-space:normal; overflow-wrap:anywhere; text-align:left; }}
 #appView #basketView :is(button.inbox-todo-source,button.inbox-todo-btn,button.inbox-todo-link)::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 #appView #basketView .inbox-todo-tag { cursor:default; }
 #basketView .inbox-todo-below { display:flex; gap:8px; margin-top:2px; }

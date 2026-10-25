@@ -192,7 +192,7 @@ div.gt-main{cursor:default}
   #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-main b{font-size:var(--ds-text-row);line-height:1.4}
   #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-meta{display:flex;flex-wrap:wrap;gap:3px 6px;align-items:center;margin:0;font-size:var(--ds-text-meta);line-height:1.4}
   #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-due{flex:none}
-  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-tag{display:inline-block;max-width:100%;box-sizing:border-box;padding:0 6px;border-radius:var(--kptu-radius-pill);font-size:11px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ds-kind-other-ink);background:var(--ds-kind-other-soft)}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-tag{display:inline-block;max-width:100%;box-sizing:border-box;padding:0 6px;border-radius:var(--kptu-radius-pill);font-size:11px;line-height:18px;white-space:normal;overflow-wrap:anywhere;color:var(--ds-kind-other-ink);background:var(--ds-kind-other-soft)}
   #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-tag-project{color:var(--kptu-primary-ink);background:var(--kptu-primary-soft)}
   /* ⋯: 누르는 범위 44×44(목록 줄과 같음), 보이는 바탕은 32px. */
   #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-menu-trigger{width:44px;height:44px;min-width:44px;min-height:44px;padding:0;font-size:18px;line-height:44px}
