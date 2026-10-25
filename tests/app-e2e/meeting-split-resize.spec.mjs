@@ -62,11 +62,12 @@ for(const width of [1280,1440,1920]){
 
   // 첫 경계(종류|차수)를 끌면 종류와 차수만 바뀌고 결과 폭은 그대로.
   const resultBefore=m.result;
-  await dragTo(page,0,await xFor(page,0,0.25));
+  // 종류는 (종류+차수 몫 1/3) - (차수 최소 폭) 까지만 넓어진다. 가장 좁은 1280에서도 들어가는 0.19로 끈다.
+  await dragTo(page,0,await xFor(page,0,0.19));
   m=await widths(page);
-  expect(Math.abs(m.kinds/m.total-0.25)).toBeLessThan(0.01);expect(Math.abs(m.result-resultBefore)).toBeLessThanOrEqual(1.5);
+  expect(Math.abs(m.kinds/m.total-0.19)).toBeLessThan(0.01);expect(Math.abs(m.result-resultBefore)).toBeLessThanOrEqual(1.5);
   expect(Math.abs(m.kinds+m.rounds-(m.total/3))).toBeLessThanOrEqual(1.5);
-  await expect(handle(page,0)).toHaveAttribute('aria-valuenow','25');await expect(handle(page,1)).toHaveAttribute('aria-valuenow','33');
+  await expect(handle(page,0)).toHaveAttribute('aria-valuenow','19');await expect(handle(page,1)).toHaveAttribute('aria-valuenow','33');
   await expect.poll(()=>typeof stored()).toBe('number');
 
   // 둘째 경계(차수|결과)를 끌면 차수와 결과만 바뀌고 종류 폭은 그대로.
@@ -79,7 +80,8 @@ for(const width of [1280,1440,1920]){
 
   // 기억: 다른 종류를 고르거나(칸을 다시 그림) 새로 불러와도 같은 폭. 서버에 올라간 값은 0 초과 1 미만 숫자 하나.
   await page.locator('#meetingList [data-meeting-kind]').nth(1).click();await settle(page);
-  const kept=await widths(page);expect(Math.abs(kept.kinds-m.kinds)).toBeLessThanOrEqual(1.5);expect(Math.abs(kept.rounds-m.rounds)).toBeLessThanOrEqual(1.5);
+  const kept=await widths(page);// 서버 숫자 하나에 천분율로 담으므로 몇 px 안팎의 반올림 차이는 있다.
+  expect(Math.abs(kept.kinds-m.kinds)).toBeLessThanOrEqual(2.5);expect(Math.abs(kept.rounds-m.rounds)).toBeLessThanOrEqual(2.5);
   await expect.poll(()=>{const v=stored();return typeof v==='number'&&v>0&&v<1}).toBe(true);
   await page.reload();await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
   await expect(page.locator('#meetingList .mcol-layout>.split-resize-handle')).toHaveCount(2);await expect(page.locator('#meetingList #mcolTasks')).not.toContainText('불러오는 중');await settle(page);
@@ -101,11 +103,11 @@ for(const width of [1280,1440,1920]){
 
   // 키보드: 경계에 초점 → → 한 번에 2%, ← 되돌림, Home은 왼쪽 칸 최소 폭, End는 오른쪽 칸 최소 폭.
   await handle(page,0).focus();await expect(handle(page,0)).toBeFocused();
-  for(let i=0;i<5;i++)await page.keyboard.press('ArrowRight');await settle(page);
-  m=await widths(page);expect(Math.abs(m.kinds/m.total-(1/6+0.1))).toBeLessThan(0.01);expect(Math.abs(m.result/m.total-2/3)).toBeLessThan(0.01);
+  for(let i=0;i<2;i++)await page.keyboard.press('ArrowRight');await settle(page);
+  m=await widths(page);expect(Math.abs(m.kinds/m.total-(1/6+0.04))).toBeLessThan(0.01);expect(Math.abs(m.result/m.total-2/3)).toBeLessThan(0.01);
   await expect.poll(()=>typeof stored()).toBe('number');
   await page.keyboard.press('ArrowLeft');await settle(page);
-  expect(Math.abs((await widths(page)).kinds/m.total-(1/6+0.08))).toBeLessThan(0.01);
+  expect(Math.abs((await widths(page)).kinds/m.total-(1/6+0.02))).toBeLessThan(0.01);
   await page.keyboard.press('Home');await settle(page);expect((await widths(page)).kinds).toBeLessThan(130);
   await handle(page,1).focus();await page.keyboard.press('End');await settle(page);
   m=await widths(page);expect(m.result).toBeGreaterThanOrEqual(359);expect(m.result).toBeLessThan(370);
@@ -116,10 +118,10 @@ for(const width of [1280,1440,1920]){
 test('서버 값을 읽거나 저장하지 못해도 기본으로 그리고 끌기는 된다(기억만 없음)',async({page})=>{
  const errors=await open(page,1280,{failRead:true,failWrite:true});
  let m=await widths(page);expect(Math.abs(m.kinds/m.total-1/6)).toBeLessThan(0.01);
- await dragTo(page,0,await xFor(page,0,0.25));
- m=await widths(page);expect(Math.abs(m.kinds/m.total-0.25)).toBeLessThan(0.01);
+ await dragTo(page,0,await xFor(page,0,0.19));
+ m=await widths(page);expect(Math.abs(m.kinds/m.total-0.19)).toBeLessThan(0.01);
  await page.locator('#meetingList [data-meeting-kind]').nth(1).click();await settle(page);
- m=await widths(page);expect(Math.abs(m.kinds/m.total-0.25)).toBeLessThan(0.01);
+ m=await widths(page);expect(Math.abs(m.kinds/m.total-0.19)).toBeLessThan(0.01);
  expect(errors).toEqual([]);
 });
 
