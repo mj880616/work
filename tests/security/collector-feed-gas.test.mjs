@@ -103,13 +103,11 @@ test('업무 몸통: 서버 parseCallBody를 통과하고 parseCall이 업무로
   assert.equal(parseCall(parseCallBody(one),ORGS,NOW).speaker_split,false);
 });
 
-test('개인·구분 없음·분석 실패: 이름·요약·전사를 보내지 않고 서버가 개수로만 센다',()=>{
+test('구분 없음·분석 실패(옛 3.1·비어 있음): 이름·요약·전사를 보내지 않고 서버가 개수로만 센다',()=>{
   const cases=[
-    [analysis({isWork:'false'}),'personal','개인'],
-    [analysis({isWork:null,status:'개인'}),'personal','개인'],       // v3.2 개인 기록 파일 모양(status만으로도)
     [analysis({isWork:null}),'unsure','구분없음'],                   // 칸 없음
     [analysis({version:'3.1',isWork:null}),'unsure','구분없음'],     // 옛 3.1 파일
-    [analysis({isWork:'""'}),'unsure','구분없음'],                   // 비어 있음(애매)
+    [analysis({isWork:'""'}),'unsure','구분없음'],                   // 비어 있고 status가 애매가 아님
     [analysis({status:'분석실패',isWork:null}),'failed','실패'],
   ];
   for(const [md,kind,cls] of cases){
@@ -120,8 +118,57 @@ test('개인·구분 없음·분석 실패: 이름·요약·전사를 보내지 
     const parsed=parseCall(parseCallBody(body),ORGS,NOW);
     assert.equal(parsed.kind,kind,md.slice(0,80));
     if(kind!=='failed') assert.equal(parsed.day,'2026-10-24');
+    if(kind==='unsure') assert.equal(parsed.box,null,'요약을 보내지 않았으니 개인 통화함 줄이 되지 않는다');
   }
   assert.equal(G.callFeedClass(analysis()),'업무');
+});
+
+test('CALL-개인통화함 2단계: 개인·애매 통화도 요약·전문을 그대로 보내고 서버가 개인 통화함 줄로 읽는다',()=>{
+  const personal=analysis({version:'3.5',isWork:'false',status:'개인',title:'가상친구 · 주말 약속'});
+  const unsure=analysis({version:'3.5',isWork:'""',status:'애매',title:'가상친구 · 확인 필요'});
+  assert.equal(G.callFeedClass(personal),'개인');assert.equal(G.callFeedClass(unsure),'애매');
+  for(const [md,kind] of [[personal,'personal'],[unsure,'unsure']]){
+    const body=plain(G.callFeedBuildCallBody({ref:REF,analysisMd:md,transcript:TRANSCRIPT,contact:'홍길동',recordedAt:'2026-10-24 09:30:00'}));
+    assert.equal(body.analysis_md,md,'분석 파일은 고치지 않고 그대로');assert.equal(body.transcript,TRANSCRIPT,'전문도 그대로');
+    const parsed=parseCall(parseCallBody(body),ORGS,NOW);
+    assert.equal(parsed.kind,kind);assert.ok(parsed.box,'개인 통화함 줄 재료가 있다');
+    assert.match(parsed.box.title,/^가상친구 · /);assert.equal(parsed.box.raw_text,TRANSCRIPT);assert.equal(parsed.box.day,'2026-10-24');
+  }
+  // 요약이 없는 옛 개인 기록(3.2~3.4)은 보내도 서버가 줄을 만들지 않고 개수만 센다
+  const old=analysis({version:'3.4',isWork:'false',status:'개인'}).replace(/## 핵심요약\n[\s\S]*?\n\n## 약속 후보/,'## 핵심요약\n- 없음\n\n## 약속 후보');
+  const oldBody=plain(G.callFeedBuildCallBody({ref:REF,analysisMd:old,transcript:TRANSCRIPT}));
+  const oldParsed=parseCall(parseCallBody(oldBody),ORGS,NOW);
+  assert.equal(oldParsed.kind,'personal');assert.equal(oldParsed.box,null);
+});
+
+test('개인 번호 목록 통화: 분석이 업무라고 해도 개인으로 고쳐 보내 서버가 업무 통화함에 넣지 못한다. 분석 실패는 그대로',()=>{
+  const forced=(md,extra={})=>plain(G.callFeedBuildCallBody({ref:REF,analysisMd:md,transcript:TRANSCRIPT,forcePersonal:true,...extra}));
+  // 업무로 분석된 파일 → 개인
+  const biz=forced(analysis());
+  const parsed=parseCall(parseCallBody(biz),ORGS,NOW);
+  assert.equal(parsed.kind,'personal');assert.ok(parsed.box);assert.equal(parsed.box.raw_text,TRANSCRIPT);
+  assert.ok(!('organization_id' in parsed.box));
+  // 앞머리 두 줄만 바뀌고 나머지(본문 포함)는 그대로, 같은 칸이 두 번 나오지 않는다
+  const meta=G.callFeedFrontmatter(biz.analysis_md);
+  assert.equal(meta.status,'개인');assert.equal(meta.is_work_related,'false');
+  assert.equal(biz.analysis_md.split('\n').filter((l)=>/^(status|is_work_related)\s*:/.test(l)).length,2);
+  assert.equal(biz.analysis_md.slice(biz.analysis_md.indexOf('\n---\n',4)),analysis().slice(analysis().indexOf('\n---\n',4)),'본문은 그대로');
+  assert.equal(meta.call_title,G.callFeedFrontmatter(analysis()).call_title);
+  // 칸이 없던 옛 파일·애매·이미 개인인 파일도 개인으로
+  for(const md of [analysis({isWork:null}),analysis({version:'3.5',isWork:'""',status:'애매'}),analysis({isWork:'false',status:'개인'})]){
+    const b=forced(md);assert.equal(G.callFeedFrontmatter(b.analysis_md).status,'개인');
+    assert.equal(parseCall(parseCallBody(b),ORGS,NOW).kind,'personal');
+  }
+  // 요약이 없는 옛 파일은 개수만 센다(개인으로)
+  const noSummary=forced(analysis({isWork:null}).replace(/## 핵심요약\n[\s\S]*?\n\n## 약속 후보/,'## 핵심요약\n- 없음\n\n## 약속 후보'));
+  const ns=parseCall(parseCallBody(noSummary),ORGS,NOW);assert.equal(ns.kind,'personal');assert.equal(ns.box,null);
+  // 분석 실패 기록은 목록 통화여도 판정 실패로 센다
+  const failed=forced(analysis({status:'분석실패',isWork:null}));
+  assert.equal(parseCall(parseCallBody(failed),ORGS,NOW).kind,'failed');assert.equal(failed.transcript,'');
+  // 앞머리 없는 글·줄바꿈 CRLF
+  assert.equal(G.callFeedForcePersonal('제목만 있는 글'),'제목만 있는 글');
+  const crlf=G.callFeedForcePersonal(analysis().replace(/\n/g,'\r\n'));
+  assert.equal(G.callFeedFrontmatter(crlf).is_work_related,'false');
 });
 
 test('크기: 분석 파일이 64 KB를 넘으면 보내지 않고, 합계 200 KB를 넘으면 전사를 글자 경계에서 자른다',()=>{
@@ -170,6 +217,7 @@ function fakeEnv({props={},responses=[],custom=null}={}){
   ];
   const analyses={
     [G.callFeedAnalysisName('통화 홍길동_261024_093000.txt','TXTFAKE0001aa')]:file('a1','A1',T0,analysis().replace(REF,'TXTFAKE0001aa')),
+    [G.callFeedAnalysisName('통화 010-1111-2222_261024_100000.txt','TXTFAKE0002bb')]:file('a2','A2',T0,analysis({version:'3.5',isWork:'false',status:'개인',title:'가상친구 · 주말 약속'}).replace(REF,'TXTFAKE0002bb')),
     [G.callFeedAnalysisName('통화 가상 국장_261024_110000.txt','TXTFAKE0003cc')]:file('a3','A3',T0,analysis({isWork:null}).replace(REF,'TXTFAKE0003cc')),
   };
   if(custom){const c=custom(file);transcripts.length=0;transcripts.push(...c.transcripts);for(const k of Object.keys(analyses))delete analyses[k];Object.assign(analyses,c.analyses);}
@@ -205,31 +253,55 @@ test('실행 흐름 — 시험 모드(기본): 아무것도 보내지 않고, �
   assert.equal(store.CALL_FEED_STATE,BASE.CALL_FEED_STATE);
   const log=logs.join('\n');
   assert.match(log,/시험 모드/);
-  assert.match(log,/개인 목록으로 거름: 1/);
-  assert.match(log,/업무 1 · 개인 0 · 애매 0 · 구분 없음\(옛 분석·비어 있음\) 1/);
+  assert.match(log,/개인 번호 목록 통화: 1/);
+  assert.match(log,/업무 1 · 개인 1 · 애매 0 · 구분 없음\(옛 분석·비어 있음\) 1/);
   assert.ok(!/홍길동|010|교섭/.test(log),'로그에 이름·번호·내용이 없다');
 });
 
-test('실행 흐름 — 실제 모드: 업무·구분 없음은 한 건씩, 개인 목록은 날짜별 개수만. 비밀값은 헤더로만 가고 진행 위치가 앞으로 간다',()=>{
+test('실행 흐름 — 실제 모드: 업무·개인 목록·구분 없음 모두 한 건씩 call로 보낸다(목록 통화도 내용까지, call_skip 없음). 비밀값은 헤더로만 가고 진행 위치가 앞으로 간다',()=>{
   const {env,store,sent,logs}=fakeEnv({props:{...BASE,CALL_FEED_TEST_MODE:'끔',COLLECTOR_FEED_SECRET:SECRET},
-    responses:[{code:200,body:{ok:true,kept:1}},{code:200,body:{ok:true,unsure:1}},{code:200,body:{ok:true,personal:1}}]});
+    responses:[{code:200,body:{ok:true,kept:1}},{code:200,body:{ok:true,personal:1,boxed:1}},{code:200,body:{ok:true,unsure:1}}]});
   env.callFeed_run();
-  assert.deepEqual(sent.map((s)=>s.url.split('?')[1]),['action=call','action=call','action=call_skip']);
+  assert.deepEqual(sent.map((s)=>s.url.split('?')[1]),['action=call','action=call','action=call']);
   for(const s of sent){
     assert.equal(s.opt.headers['x-collector-feed-secret'],SECRET);
     assert.ok(!s.url.includes(SECRET)&&!s.opt.payload.includes(SECRET));
   }
-  const [work,unsure,skip]=sent.map((s)=>JSON.parse(s.opt.payload));
+  const [work,list,unsure]=sent.map((s)=>JSON.parse(s.opt.payload));
   assert.equal(parseCall(parseCallBody(work),ORGS,NOW).kind,'business');
   assert.equal(work.ref,'TXTFAKE0001aa');
+  // 개인 번호 목록 통화: 분석·전문(내용)을 보내고 서버가 개인 통화함 줄로 읽는다
+  assert.equal(list.ref,'TXTFAKE0002bb');assert.equal(list.transcript,'개인 통화 내용');
+  const lp=parseCall(parseCallBody(list),ORGS,NOW);assert.equal(lp.kind,'personal');assert.ok(lp.box);assert.equal(lp.box.raw_text,'개인 통화 내용');
+  // 구분 없음(옛 분석)은 개수만
   assert.equal(parseCall(parseCallBody(unsure),ORGS,NOW).kind,'unsure');
   assert.equal(unsure.transcript,'');
-  assert.deepEqual(skip,{day:'2026-10-24',personal:1,short:0});
-  assert.ok(!sent.some((s)=>s.opt.payload.includes('개인 통화 내용')),'개인 목록 통화의 내용은 보내지 않는다');
   const state=JSON.parse(store.CALL_FEED_STATE);
   assert.equal(state.since,new Date(Date.parse('2026-10-24T00:00:00Z')+3000).toISOString());
   assert.deepEqual(state.skips,{});
-  assert.match(logs.join('\n'),/끝까지 봄/);
+  const log=logs.join('\n');
+  assert.match(log,/끝까지 봄/);assert.match(log,/개인 통화함에 저장 1/);assert.ok(!/개인 통화 내용|010/.test(log));
+});
+
+test('개인 번호 목록 통화인데 분석이 업무로 나와도 개인으로 고쳐 보낸다. 분석이 3일 넘게 없으면 예전처럼 날짜별 개수만 센다(call_skip)',()=>{
+  const sc=(custom)=>fakeEnv({props:{...BASE,CALL_FEED_TEST_MODE:'끔',COLLECTOR_FEED_SECRET:SECRET},custom,
+    responses:[{code:200,body:{ok:true,personal:1,boxed:1}},{code:200,body:{ok:true,personal:1}}]});
+  const T0=Date.parse('2026-10-24T00:00:00Z');
+  // 업무로 분석된 목록 통화
+  const a=sc((file)=>({transcripts:[file('통화 010-1111-2222_261024_100000.txt','TXTFAKE0002bb',T0+2000,'개인 통화 내용')],
+    analyses:{[G.callFeedAnalysisName('통화 010-1111-2222_261024_100000.txt','TXTFAKE0002bb')]:file('a2','A2',T0,analysis().replace(REF,'TXTFAKE0002bb'))}}));
+  a.env.callFeed_run();
+  assert.equal(a.sent.length,1);
+  const body=JSON.parse(a.sent[0].opt.payload);
+  assert.equal(parseCall(parseCallBody(body),ORGS,NOW).kind,'personal','업무 통화함으로 가지 않는다');
+  // 분석이 끝내 없는 목록 통화(만든 지 3일 넘음)
+  const old=NOW0-80*3600*1000;
+  const b=fakeEnv({props:{...BASE,CALL_FEED_TEST_MODE:'끔',COLLECTOR_FEED_SECRET:SECRET,CALL_FEED_STATE:JSON.stringify({since:'2026-10-20T00:00:00.000Z',backfillChecked:true})},
+    custom:(file)=>({transcripts:[file('통화 010-1111-2222_261024_100000.txt','TXTFAKE0002bb',old,'개인 통화 내용')],analyses:{}}),responses:[{code:200,body:{ok:true,personal:1}}]});
+  b.env.callFeed_run();
+  assert.deepEqual(b.sent.map((s)=>s.url.split('?')[1]),['action=call_skip']);
+  assert.deepEqual(JSON.parse(b.sent[0].opt.payload),{day:'2026-10-24',personal:1,short:0});
+  assert.ok(!b.sent[0].opt.payload.includes('개인 통화 내용'));
 });
 
 test('실행 흐름 — 서버 실패(503)면 그 건에서 멈추고 다음 실행에 다시 보낸다. 401이면 오류로 알린다',()=>{
