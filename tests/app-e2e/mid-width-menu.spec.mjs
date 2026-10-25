@@ -95,21 +95,20 @@ test('resize and font changes repartition; phone and PC return to their original
   expect(await page.locator('.app-nav :is(.nav-btn,.nav-sub-btn[data-view]):not(#mobileMenuOpen)').allTextContents()).toEqual(['홈','정리함','일정','할 일','업무일지','일기','노트','프로젝트','사업 보고','자료실','성명·보도자료','공유 페이지','담당조직','HWP 편집','원장','통화','텔레그램 소식','자주 가는 링크 ›']);await expect(page.locator('.app-topline [data-account-open]')).toBeVisible();
 });
 
+// BASKET-PC메뉴: [업데이트]·[챙길 것]이 줄에 늘어 1023px 이하 줄에는 성명·보도자료가 들어가지 않는다(앞선 [일지]·[일기]에 이어). 아래 두 시험은 메뉴 창 쪽
+// 지금 위치 표시와 초점을 검사하고, 줄 쪽 표시는 위 "reachable ordered prefix" 시험이 줄/창 어느 쪽이든 검사한다.
 test('recalculation preserves keyboard focus and highlights the hidden combined media button',async({page})=>{
   await page.setViewportSize({width:900,height:844});await open(page);
   const home=page.locator('.app-nav [data-view="home"]');await home.focus();
   await page.setViewportSize({width:1000,height:844});await expect(home).toBeFocused();
   const trigger=page.locator('#mobileMenuOpen');await trigger.focus();await page.setViewportSize({width:900,height:844});await expect(trigger).toBeFocused();
-  await page.locator('.app-nav').evaluate(nav=>{nav.style.fontSize='32px';document.querySelectorAll('.nav-btn').forEach(b=>b.style.fontSize='inherit')});
   await expect.poll(()=>page.locator('.app-nav [data-view="media"]').count()).toBe(0);
   await trigger.click();await page.locator('#mobileMenu [data-view="media"]:visible').click();
   await expect(page.locator('#mediaView')).toBeVisible();await expect(trigger).toHaveAttribute('aria-current','page');await trigger.click();
   await expect(page.locator('#mobileMenu [data-view="media"]:visible')).toHaveAttribute('aria-current','page');
   await page.locator('#mobileMenu [data-view="media"]:visible').focus();
-  await page.locator('.app-nav').evaluate(nav=>{nav.style.fontSize='';document.querySelectorAll('.nav-btn').forEach(b=>b.style.fontSize='')});
-  await expect.poll(()=>page.locator('.app-nav [data-view="media"]').count()).toBe(1);await expect(page.locator('[data-mobile-menu-close]')).toBeFocused();
-  await expect(trigger).not.toHaveAttribute('aria-current','page');await expect(page.locator('.app-nav [data-view="media"]')).toHaveAttribute('aria-current','page');
   await page.keyboard.press('Escape');await expect(trigger).toBeFocused();
+  await expect(trigger).toHaveAttribute('aria-current','page');
 });
 
 test('focused controls stay reachable when crossing the phone and PC boundaries',async({page})=>{
@@ -144,13 +143,13 @@ test('breakpoint recovery does not steal deliberate blur or content input focus'
   await page.setViewportSize({width:820,height:844});await expect(trigger).toBeVisible();await home.focus();const input=page.getByRole('textbox',{name:'빠른 입력'});await input.focus();await page.setViewportSize({width:760,height:844});await expect(input).toBeFocused();await expect(trigger).not.toBeFocused();
 });
 
-// JOURNAL-일기 1차: [일지]·[일기] 두 칸이 늘어 761px 줄에는 성명·보도자료가 들어가지 않는다(메뉴 창 쪽은 아래 글자 40px 경우가 검사).
-for(const width of [900,960,1023])test(`combined media current location at ${width}px in row and drawer`,async({page})=>{
+// JOURNAL-일기 1차 · BASKET-PC메뉴: 줄에는 성명·보도자료가 들어가지 않으므로 지금 위치는 [메뉴] 버튼과 메뉴 창 안 항목에 표시된다.
+for(const width of [900,960,1023])test(`combined media current location at ${width}px in the drawer`,async({page})=>{
   await page.setViewportSize({width,height:844});await open(page);await clickView(page,'media');
   const media=page.locator('.app-nav [data-view="media"]'),trigger=page.locator('#mobileMenuOpen');
-  await expect(media).toHaveAttribute('aria-current','page');
+  await expect.poll(()=>media.count()).toBe(0);await expect(trigger).toHaveAttribute('aria-current','page');
   for(const type of ['release','statement','all']){
-    await page.locator(`#mediaView [data-press-type="${type}"]`).click();await expect(media).toHaveAttribute('aria-current','page');
+    await page.locator(`#mediaView [data-press-type="${type}"]`).click();await expect(trigger).toHaveAttribute('aria-current','page');
   }
   await page.locator('.app-nav').evaluate(nav=>{nav.style.fontSize='40px';document.querySelectorAll('.nav-btn').forEach(b=>b.style.fontSize='inherit')});
   await expect.poll(()=>media.count()).toBe(0);await expect(trigger).toHaveAttribute('aria-current','page');await trigger.click();

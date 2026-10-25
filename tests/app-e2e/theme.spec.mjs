@@ -302,7 +302,8 @@ for(const width of [390,760,761,1023,1024,1280,1439,1440])test('D-3c account mat
  await page.setViewportSize({width,height:900});await mockApp(page);await page.goto(`${appOrigin}/app/?view=calendar`);await signIn(page);
  if(width<=760){await accountButton(page).click();await expect(page.locator('#mobileMenu [data-theme-open]')).toHaveCSS('font-size','13px');/* 8-9e-3: 메뉴 줄 13px */await expect(page.locator('.mobile-tabs [data-mobile-schedule-tab]')).toHaveCSS('font-size','12px');return;}
  const styles=await page.evaluate(()=>{
-  const nav=getComputedStyle(document.querySelector('.app-nav [data-view="projects"]')),account=getComputedStyle(document.querySelector(innerWidth<1024?'#mobileMenuOpen':'.app-topline [data-account-open]'));
+  /* BASKET-PC메뉴: 좁은 한 줄 메뉴(761px)는 [업데이트]·[챙길 것]이 늘어 [프로젝트]가 [메뉴] 창으로 넘어갈 수 있으므로, 줄에 남은 고르지 않은 항목([홈])으로 비교한다. */
+  const nav=getComputedStyle(document.querySelector('.app-nav [data-view="projects"]')||document.querySelector('.app-nav [data-view="home"]')),account=getComputedStyle(document.querySelector(innerWidth<1024?'#mobileMenuOpen':'.app-topline [data-account-open]'));
   const keys=['fontSize','fontWeight','color'];return {nav:keys.map(k=>nav[k]),account:keys.map(k=>account[k])};
  });expect(styles.account).toEqual(styles.nav);
 });
