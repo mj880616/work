@@ -8,6 +8,7 @@ import { viewPrefs } from './view-prefs.js';
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import { readNoteDocs, readNoteDoc, detachNoteFile, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, sortNotes, notePinnedAt, setNotePinned, noteFolder, noteFolders, newFolderName, setNoteFolder, validateFolderName, NOTE_FOLDER_LIMITS } from './basket-data.js';
 import { deleteNoteOriginal, noteDocDeleteConfirmText } from './basket-record-delete.js';
+import { NOTE_TRASH_EVENT } from './project-trash-model.mjs';
 import { mountManualLink } from './basket-manual-link.js';
 import { renderMarkdownInto, showPlainText, preloadMarkdown } from './markdown-view.js';
 import { copyText } from './copy-text.js';
@@ -586,7 +587,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const current = () => run === epoch && owner === scope() && window.KPTURouter.current === 'basket' && (fromList ? !selected : selected?.id === id);
     let result;
     // NOTE-파일붙이기 (2026-10-22 사용자 결정): deleting a note removes it and its links; its files stay in Drive.
-    try { result = await deleteNoteOriginal(id, {rt, isCurrent:current, keepFiles:true, describe:noteDocDeleteConfirmText}); }
+    try { result = await deleteNoteOriginal(id, {rt, isCurrent:current, keepFiles:true, describe:noteDocDeleteConfirmText, trash:true, label:'노트'}); }
     catch { result = {status:'unknown', message:'결과를 확인하지 못했어요. 노트 다시 불러오기로 실제 상태를 확인해 주세요.'}; }
     finally { busy = false; }
     if (!current() || result.status === 'stale') return;
@@ -663,6 +664,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   });
   // Leaving the menu by keyboard, or pressing anywhere outside it and its ⋯, closes it.
   host.addEventListener('focusout', e => { const el = menuEl(); if (menu && e.relatedTarget && !el.contains(e.relatedTarget) && e.relatedTarget !== menu.trigger) closeMenu(); });
+  // TRASH-다른삭제 4단계: 휴지통에서 노트를 되돌리면(5초 되돌리기 포함) 열린 글이 없을 때 목록을 다시 읽는다.
+  window.addEventListener(NOTE_TRASH_EVENT, () => { if (!busy && loaded && !selected) void refresh(); });
   document.addEventListener('click', e => { if (menu && !menuEl().contains(e.target) && !menu.trigger.contains(e.target)) closeMenu(); });
 
   return {

@@ -1,11 +1,13 @@
 // TRASH-삭제휴지통 2단계 + TRASH-화면2: 휴지통 화면의 순수 규칙(화면·네트워크 없음). 시험이 직접 읽는다.
-// 서버 쪽은 app_trash_list / app_trash_restore / app_trash_purge (p_kind = 프로젝트·담당조직·사업 보고·자료실 폴더) 뿐이고, 이 파일은
+// 서버 쪽은 app_trash_list / app_trash_restore / app_trash_purge (p_kind = 프로젝트·담당조직·사업 보고·자료실 폴더·노트/업데이트) 뿐이고, 이 파일은
 // 그 응답과 오류를 화면 글로 바꾸고 "휴지통을 쓸 수 있는가"를 종류마다 한 곳에서 판정한다. 브라우저 저장소는 쓰지 않는다.
 
 export const TRASH_KIND = 'project';
-export const TRASH_KINDS = Object.freeze(['project', 'organization', 'report', 'library_folder']);
+export const TRASH_KINDS = Object.freeze(['project', 'organization', 'report', 'library_folder', 'note']);
+// 노트·업데이트를 휴지통에 넣거나 되돌리면 정리함·노트 화면이 목록을 다시 읽도록 알리는 이벤트 이름.
+export const NOTE_TRASH_EVENT = 'kptu:note-trash-changed';
 // 종류 이름(화면 글). 사업 보고는 화면 어디서나 '사업 보고'라고 부른다.
-export const TRASH_KIND_LABEL = Object.freeze({project: '프로젝트', organization: '담당조직', report: '사업 보고', library_folder: '자료실 폴더'});
+export const TRASH_KIND_LABEL = Object.freeze({project: '프로젝트', organization: '담당조직', report: '사업 보고', library_folder: '자료실 폴더', note: '노트·업데이트'});
 
 // 판정은 목록 호출 결과 하나로 한다. ready = 목록을 받음(함수가 있음), missing = 함수 없음(DB 미적용), failed = 그 밖의 실패.
 export const TRASH_STATE = Object.freeze({ UNKNOWN: 'unknown', READY: 'ready', MISSING: 'missing', FAILED: 'failed' });
@@ -33,6 +35,11 @@ function reportTitle(row) {
   return (series ? `${series}${round}` : title) || '이름 없는 사업 보고';
 }
 
+// 노트는 제목, 업데이트(바구니)는 본문 앞부분이 이름이다. 둘 다 비면 안내 글.
+function noteTitle(row) {
+  return String(row.title || '').trim() || String(row.preview || '').trim() || (Number(row.file_count) > 0 ? '첨부만 있는 업데이트' : '내용 없음');
+}
+
 // kind를 주면 그 종류의 줄만, null을 주면 모든 종류. 줄마다 kind를 붙인다(프로젝트 줄 모양은 그대로).
 export function normalizeTrashRows(data, kind = TRASH_KIND) {
   if (!Array.isArray(data)) return [];
@@ -44,12 +51,14 @@ export function normalizeTrashRows(data, kind = TRASH_KIND) {
       return {
         id: String(row.id),
         kind: rowKind,
-        name: rowKind === 'report' ? reportTitle(row) : String(row.name || '').trim() || '이름 없음',
+        name: rowKind === 'report' ? reportTitle(row) : rowKind === 'note' ? noteTitle(row) : String(row.name || '').trim() || '이름 없음',
         parent_id: row.parent_id || null,
         deleted_at: row.deleted_at || null,
         child_count: Math.max(0, Number(row.child_count) || 0),
         file_count: Math.max(0, Number(row.file_count) || 0),
         project_name: rowKind === 'library_folder' ? String(row.project_name || '').trim() : '',
+        note_kind: rowKind === 'note' ? (row.note_kind === 'note' ? 'note' : 'basket') : '',
+        link_count: Math.max(0, Number(row.link_count) || 0),
         parent_in_trash: row.parent_in_trash === true,
       };
     })
@@ -111,6 +120,21 @@ export function otherDeleteText(kind, name, detail = null) {
   };
 }
 
+// 노트·업데이트 [지우기]의 글. label = '노트' | '업데이트'. info = {places, otherLinks, attachments}(지우기 전에 읽은 연결·첨부 수).
+export function noteTrashConfirmText(info, label = '업데이트') {
+  const places = Number(info?.places) || 0;
+  const others = Number(info?.otherLinks) || 0;
+  const files = Number(info?.attachments) || 0;
+  const linked = [places ? `조직·프로젝트 ${places}곳` : '', others ? `사업 보고·자료실 연결 ${others}곳` : ''].filter(Boolean);
+  return [
+    `${label}를 휴지통으로 옮깁니다.`,
+    linked.length ? `연결된 ${linked.join('과 ')}은 지워지지 않고, 휴지통에 있는 동안 보이지 않습니다.` : '',
+    files ? `첨부 파일 ${files}개는 Drive에 그대로 남습니다.` : '',
+    '휴지통에서 되돌릴 수 있습니다.',
+  ].filter(Boolean).join(' ');
+}
+export const noteTrashedText = (label = '업데이트') => `${label}를 휴지통으로 옮겼습니다.`;
+
 // 휴지통 확인이 끝나기 전에는 삭제를 보내지 않는다. 이유별 글.
 export function otherDeleteBlockedText(kind, state) {
   if (state === TRASH_STATE.MISSING) return `${TRASH_KIND_LABEL[kind]} 휴지통은 준비 중입니다. 준비가 끝나기 전에는 삭제할 수 없습니다.`;
@@ -138,7 +162,7 @@ export const TRASH_TEXT = Object.freeze({
 // 위 단계가 아직 휴지통일 때 먼저 되돌리라는 안내(프로젝트는 상위 프로젝트, 자료실 폴더는 상위 폴더).
 export const parentFirstText = (kind) => (kind === 'library_folder' ? TRASH_TEXT.PARENT_FIRST_FOLDER : TRASH_TEXT.PARENT_FIRST);
 
-export const restoredText = (kind) => (kind === 'organization' ? '담당조직을 되돌렸습니다.' : kind === 'report' ? '사업 보고를 되돌렸습니다.' : kind === 'library_folder' ? '폴더를 되돌렸습니다.' : TRASH_TEXT.RESTORED);
+export const restoredText = (kind) => (kind === 'note' ? TRASH_TEXT.UNDO_DONE : kind === 'organization' ? '담당조직을 되돌렸습니다.' : kind === 'report' ? '사업 보고를 되돌렸습니다.' : kind === 'library_folder' ? '폴더를 되돌렸습니다.' : TRASH_TEXT.RESTORED);
 
 // 서버 오류 코드(메시지 첫머리)를 화면 글로 바꾼다. 모르는 오류는 일반 문구로 둔다.
 export function trashErrorText(error, fallback = '처리하지 못했습니다. 다시 시도해 주세요.') {
@@ -162,6 +186,11 @@ export function purgeConfirmText(row) {
   if (row.kind === 'library_folder') {
     const inside = [row.child_count ? `아래 폴더 ${row.child_count}개` : '', row.file_count ? `자료 ${row.file_count}개` : ''].filter(Boolean).join('·');
     return `“${row.name}” 폴더를 영구 삭제할까요?\n폴더만 지워지고${inside ? ` 안의 ${inside}는` : ' 안의 것은'} 한 단 위로 올라갑니다. 자료와 Drive 파일은 지우지 않으며 폴더는 되돌릴 수 없습니다.`;
+  }
+  if (row.kind === 'note') {
+    const label = row.note_kind === 'note' ? '노트' : '업데이트';
+    const links = row.link_count ? `연결 ${row.link_count}곳도 함께 지워집니다. ` : '';
+    return `“${row.name}” ${label}를 영구 삭제할까요?\n${links}되돌릴 수 없습니다. 첨부 파일은 Drive에 그대로 남습니다.`;
   }
   const kids = row.child_count ? `\n함께 든 하위 프로젝트 ${row.child_count}개도 지워집니다.` : '';
   return `“${row.name}” 프로젝트를 영구 삭제할까요?${kids}\n연결된 할 일·일정·사업 보고·자료·게시물은 지우지 않고 프로젝트 연결만 풀립니다. 프로젝트 전용 진행기록·주요 일정·의견은 함께 지워지며 되돌릴 수 없습니다.`;

@@ -229,7 +229,7 @@ export function mountLinkSummaryEditor(host,{getRecord,getName=()=>'',isCurrent=
     const run=epoch,owner=scope(rt),valid=()=>run===epoch&&owner===scope(rt)&&isCurrent()&&host.isConnected;
     acting.add(key);setRowBusy(rows,true);say(id,'처리 중…');
     let result;
-    try{result=note?await deleteNoteOriginal(row.dataset.basketLinkNote,{rt,isCurrent:valid}):await disconnectWithUndo(record,{name:getName(),rt,isCurrent:valid});}
+    try{result=note?await deleteNoteOriginal(row.dataset.basketLinkNote,{rt,isCurrent:valid,trash:true,label:row.dataset.basketLinkNoteKind==='note'?'노트':'업데이트'}):await disconnectWithUndo(record,{name:getName(),rt,isCurrent:valid});}
     catch{result={status:'unknown',message:'결과를 확인하지 못했어요. 목록을 다시 불러와 실제 상태를 확인해 주세요.'};}
     finally{acting.delete(key);}
     if(!valid()||result.status==='stale')return;

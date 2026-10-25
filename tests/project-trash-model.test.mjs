@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 import {
   TRASH_STATE, TRASH_TEXT, classifyTrashError, classifyTrashList, normalizeTrashRows,
   deleteDialogText, trashErrorText, purgeConfirmText, archiveButtonLabel, firstArchiveTab,
-  TRASH_KINDS, mergeTrashStates, otherDeleteText, otherDeleteBlockedText, restoredText, parentFirstText, missingOrganizationLabel,
+  TRASH_KINDS, NOTE_TRASH_EVENT, noteTrashConfirmText, noteTrashedText, TRASH_KIND_LABEL, mergeTrashStates, otherDeleteText, otherDeleteBlockedText, restoredText, parentFirstText, missingOrganizationLabel,
 } from '../app/project-trash-model.mjs';
 
 test('함수가 없을 때(404·PGRST202)는 missing, 그 밖의 실패는 failed', () => {
@@ -123,7 +123,7 @@ test('종류별 줄 정리: 담당조직·사업 보고 이름, 종류 걸러내
     {kind: 'library_folder', id: 'f1', name: ' 합성 폴더 ', project_name: '합성 사업', child_count: 2, file_count: 3, deleted_at: '2026-10-25T05:00:00Z'},
     {kind: 'other', id: 'x1', name: '모르는 종류'},
   ];
-  assert.deepEqual(TRASH_KINDS, ['project', 'organization', 'report', 'library_folder']);
+  assert.deepEqual(TRASH_KINDS, ['project', 'organization', 'report', 'library_folder', 'note']);
   assert.deepEqual(normalizeTrashRows(data, 'library_folder').map((r) => [r.id, r.name, r.kind, r.project_name, r.child_count, r.file_count]), [['f1', '합성 폴더', 'library_folder', '합성 사업', 2, 3]]);
   assert.deepEqual(normalizeTrashRows(data, 'organization').map((r) => [r.id, r.name, r.kind]), [['o1', '합성 조직', 'organization']]);
   const reports = normalizeTrashRows(data, 'report');
@@ -202,4 +202,34 @@ test('화면 코드: 조직·보고 삭제는 공용 동작 한 곳, 준비 중�
     assert.ok(js.includes(`deleteToTrash({kind:'${kind}'`), file);
     assert.doesNotMatch(js, /담당조직을 삭제할까요|사업 보고를 삭제할까요|폴더를 지울까요/, file);
   }
+});
+
+test('노트·업데이트 줄: 이름은 노트 제목·업데이트 본문 앞부분, 종류·첨부·연결 수를 함께 준다', () => {
+  const rows = normalizeTrashRows([
+    {kind: 'note', id: 'n1', note_kind: 'note', title: ' 합성 노트 ', preview: '본문', file_count: 1, link_count: 2, deleted_at: '2026-10-26T02:00:00Z'},
+    {kind: 'note', id: 'n2', note_kind: 'basket', title: null, preview: '합성 업데이트 본문', file_count: 0, link_count: 0, deleted_at: '2026-10-26T03:00:00Z'},
+    {kind: 'note', id: 'n3', note_kind: 'basket', title: null, preview: '', file_count: 2, deleted_at: '2026-10-26T01:00:00Z'},
+    {kind: 'note', id: 'n4', note_kind: 'basket', preview: '', file_count: 0, deleted_at: '2026-10-25T01:00:00Z'},
+    {kind: 'project', id: 'p1', name: '합성 프로젝트'},
+  ], 'note');
+  assert.deepEqual(rows.map((r) => [r.id, r.name, r.note_kind, r.file_count, r.link_count]), [
+    ['n2', '합성 업데이트 본문', 'basket', 0, 0], ['n1', '합성 노트', 'note', 1, 2], ['n3', '첨부만 있는 업데이트', 'basket', 2, 0], ['n4', '내용 없음', 'basket', 0, 0]]);
+  assert.equal(NOTE_TRASH_EVENT, 'kptu:note-trash-changed');
+  assert.equal(TRASH_KIND_LABEL.note, '노트·업데이트');
+  assert.equal(restoredText('note'), TRASH_TEXT.UNDO_DONE);
+});
+
+test('노트·업데이트 글: 확인창은 연결·첨부가 지워지지 않는다고 알리고, 영구 삭제는 연결이 함께 지워진다고 알린다', () => {
+  assert.equal(noteTrashConfirmText({places: 2, otherLinks: 1, attachments: 3}, '업데이트'),
+    '업데이트를 휴지통으로 옮깁니다. 연결된 조직·프로젝트 2곳과 사업 보고·자료실 연결 1곳은 지워지지 않고, 휴지통에 있는 동안 보이지 않습니다. 첨부 파일 3개는 Drive에 그대로 남습니다. 휴지통에서 되돌릴 수 있습니다.');
+  assert.equal(noteTrashConfirmText({places: 0, otherLinks: 0, attachments: 0}, '노트'), '노트를 휴지통으로 옮깁니다. 휴지통에서 되돌릴 수 있습니다.');
+  assert.equal(noteTrashedText('노트'), '노트를 휴지통으로 옮겼습니다.');
+  const purge = purgeConfirmText({kind: 'note', name: '합성', note_kind: 'basket', link_count: 2});
+  assert.match(purge, /“합성” 업데이트를 영구 삭제할까요/);
+  assert.match(purge, /연결 2곳도 함께 지워집니다/);
+  assert.match(purge, /첨부 파일은 Drive에 그대로 남습니다/);
+  assert.match(purgeConfirmText({kind: 'note', name: '합성', note_kind: 'note', link_count: 0}), /노트를 영구 삭제/);
+  // DB 적용 전(옛 함수)에는 노트·업데이트도 '준비 중'이라 삭제를 보내지 않는다.
+  assert.equal(classifyTrashError(Object.assign(new Error('TRASH_KIND_UNKNOWN'), {status: 400}), 'note'), TRASH_STATE.MISSING);
+  assert.match(otherDeleteBlockedText('note', TRASH_STATE.MISSING), /노트·업데이트 휴지통은 준비 중입니다/);
 });

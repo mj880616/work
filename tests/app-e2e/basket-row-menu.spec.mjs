@@ -16,7 +16,7 @@ const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co', stamp = '2026-10-06T01:00
 const A = '10000000-0000-4000-8000-0000000000a1', B = '10000000-0000-4000-8000-0000000000b2', C = '10000000-0000-4000-8000-0000000000c3';
 async function fixture(page, width, {archived = null} = {}) {
   await page.setViewportSize({ width, height: 900 });
-  const errors = [], writes = [], posts = [];
+  const errors = [], writes = [], posts = [], trash = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   await openHome(page);
@@ -31,19 +31,17 @@ async function fixture(page, width, {archived = null} = {}) {
     const pick = row => (!q.get('kind') || 'eq.' + row.kind === q.get('kind')) && (!q.get('id') || 'eq.' + row.id === q.get('id'));
     if (req.method() === 'GET') { if (q.get('metadata')) return r.fulfill({ json: [] }); return r.fulfill({ json: rows.filter(pick).slice(Number(q.get('offset') || 0)) }); }
     if (req.method() === 'PATCH') { const body = req.postDataJSON(); writes.push({ query: Object.fromEntries(q), body }); const hit = rows.filter(pick); hit.forEach(row => Object.assign(row, body)); return r.fulfill({ json: hit }); }
+    // TRASH-다른삭제 4단계: 서버의 삭제 가로채기를 흉내 낸다. DELETE는 글을 휴지통 목록으로 옮기고 빈 응답을 준다.
+    if (req.method() === 'DELETE') { const hit = rows.filter(pick); posts.push(Object.fromEntries(q)); hit.forEach(row => { rows.splice(rows.indexOf(row), 1); trash.push(row); }); return r.fulfill({ json: [] }); }
     return r.fulfill({ status: 500, json: {} });
   });
+  await page.route(SB + '/rest/v1/rpc/app_trash_list', r => r.fulfill({ json: trash.map(row => ({ kind: 'note', id: row.id, note_kind: row.kind, title: row.title, preview: row.raw_text, file_count: row.attachments.length, link_count: 0, deleted_at: '2026-10-26T01:00:00Z' })) }));
   await page.route(SB + '/rest/v1/app_record_links?**', r => { const q = new URL(r.request().url()).searchParams; return q.has('note_id') || q.has('google_task_id') ? r.fulfill({ json: [] }) : r.fallback(); });
   for (const t of ['app_documents', 'app_suborganizations', 'app_suborganization_assignees', 'app_spaces']) await page.route(SB + '/rest/v1/' + t + '?**', r => r.fulfill({ json: [] }));
-  await page.route(u => u.href === SB + '/functions/v1/basket-files?action=note-delete', r => {
-    const body = JSON.parse(r.request().postData()); posts.push(body);
-    const i = rows.findIndex(row => row.id === body.note_id), total = i < 0 ? 0 : rows[i].attachments.length; if (i >= 0) rows.splice(i, 1);
-    return r.fulfill({ json: { action: 'note-delete', note_id: body.note_id, attachments_total: total, trashed: total, failed: 0, unknown: 0, ok: true, note_deleted: i >= 0 } });
-  });
   await page.evaluate(() => { window.__copied = []; Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async t => window.__copied.push(t), write: async () => {} } }); });
   await page.evaluate(() => window.KPTURouter.go('basket'));
   await expect(page.locator(`[data-basket-row="${A}"]`)).toBeVisible();
-  return { rows, writes, posts, errors };
+  return { rows, writes, posts, trash, errors };
 }
 const press = async (page, l, width) => { await expect(l).toBeVisible(); if (width < 761) await l.tap(); else await l.click(); };
 const menu = page => page.locator('#basketRowMenu');
@@ -177,14 +175,14 @@ for (const width of [390, 1280]) {
     await choose(page, A, '삭제', width);
     await expect.poll(() => asked.length).toBe(3);
     await expect(rowMore(page, A)).toBeFocused(); expect(f.posts).toEqual([]);
-    // Accept: the same wording as the detail's 삭제, one server note-delete, the row leaves the list.
+    // Accept: the same wording as the detail's 삭제, one owner-RLS DELETE (the server moves it to the trash), the row leaves the list.
     answers.push(true);
     await choose(page, A, '삭제', width);
     await expect(page.locator(`[data-basket-row="${A}"]`)).toHaveCount(0);
-    const DELETE = '업데이트 원문을 지웁니다. 연결된 조직·프로젝트 0곳에서도 사라집니다. 첨부 파일 1개는 Drive 휴지통으로 옮깁니다(30일 안에 복구 가능).';
+    const DELETE = '업데이트를 휴지통으로 옮깁니다. 첨부 파일 1개는 Drive에 그대로 남습니다. 휴지통에서 되돌릴 수 있습니다.';
     expect(asked).toEqual(['‘합성 둘째 업데이트’을(를) 노트로 옮길까요?', '‘합성 둘째 업데이트’을(를) 노트로 옮길까요?', DELETE, DELETE]);
-    expect(f.posts).toEqual([{ action: 'note-delete', note_id: A, note_updated_at: stamp }]);
-    await expect(page.locator('[data-basket-list-status]')).toHaveText('업데이트를 지우고 첨부를 Drive 휴지통으로 옮겼어요.');
+    expect(f.posts).toHaveLength(1); expect(f.posts[0]).toMatchObject({ id: 'eq.' + A }); expect(f.trash.map(row => row.id)).toEqual([A]);
+    await expect(page.locator('[data-basket-list-status]')).toHaveText('업데이트를 휴지통으로 옮겼습니다.');
     await expect(detail(page)).toBeHidden(); await expect(page.locator(`[data-basket-row="${C}"]`)).toBeVisible();
     expect(f.errors).toEqual([]);
   });

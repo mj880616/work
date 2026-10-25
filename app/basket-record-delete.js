@@ -5,6 +5,7 @@
 // 첨부가 있는 메모는 basket-files의 note-delete가 첨부를 Drive 휴지통으로 옮긴 뒤 로그인 사용자 JWT로
 // 메모를 지운다. 서버가 아직 이 동작을 모르면(배포 전 구버전 응답) 지금처럼 REST DELETE로 메모만 지운다.
 import {confirmLinks} from './basket-classification.js';
+import {NOTE_TRASH_EVENT, TRASH_STATE, TRASH_TEXT, noteTrashConfirmText, noteTrashedText, otherDeleteBlockedText} from './project-trash-model.mjs';
 
 const PAGE_SIZE=100;
 const contextFor=rt=>typeof rt.context?.read==='function'?(rt.context.read()||{}):(globalThis.window?.__KPTU_BOOT_CONTEXT__||{});
@@ -242,9 +243,41 @@ export async function disconnectWithUndo(link,{name='',rt=window.KPTURuntime,isC
   return result;
 }
 
-// describe: the confirmation text for a row that is not a basket memo (JOURNAL-일기: "…일기를 지웁니다").
+// TRASH-다른삭제 4단계: 정리함 업데이트·노트(app_notes 종류 basket·note)의 [지우기]는 휴지통으로 간다. 서버의 삭제 가로채기 트리거가
+// 같은 DELETE를 휴지통 표시로 바꾸므로 연결(app_record_links)과 첨부(Drive)는 그대로 남는다. 상태 판단은 app_trash_list('note') 한 번의 결과뿐이다:
+// 함수가 이 종류를 모르면(DB 적용 전) '준비 중'을 알리고 DELETE를 보내지 않는다. 휴지통에 도착한 것을 목록으로 확인한 뒤에만 옮겼다고 말하고 5초 [되돌리기]를 붙인다.
+// 일기(diary)와 업무일지 한 줄은 이 흐름이 아니다(deleteNoteOriginal의 옛 흐름).
+async function deleteNoteToTrash(noteId,{rt,isCurrent,label}){
+  const {readTrashKind,restoreFromTrashKind}=await import('./trash-actions.js');
+  return remove('note',noteId,{rt,isCurrent,confirmText:async()=>{
+    const ready=await readTrashKind('note',rt);
+    if(ready.state!==TRASH_STATE.READY)return {status:'blocked',message:otherDeleteBlockedText('note',ready.state)};
+    let info;try{info=await readNoteDeleteInfo(noteId,rt);}catch{return {status:'failed',message:RECORD_DELETE_TEXT.NOTE_READ_FAILED};}
+    if(!info)return {status:'missing',message:RECORD_DELETE_TEXT.NOTE_MISSING};
+    return {text:noteTrashConfirmText(info,label),info};
+  },write:async({expectedSessionEpoch,path})=>{
+    const owner=scope(rt);
+    // DELETE의 결과(빈 응답·오류 모두)는 믿지 않고 휴지통 목록으로 확인한다.
+    try{await rt.api(path,{method:'DELETE',prefer:'return=representation',expectedSessionEpoch});}catch{}
+    const after=await readTrashKind('note',rt);
+    if(after.state===TRASH_STATE.READY&&after.rows.some(row=>row.id===noteId)){
+      offerUndoNotice({text:noteTrashedText(label),onUndo:async()=>{
+        if(owner!==scope(rt))return {status:'stale'};
+        const restored=await restoreFromTrashKind('note',noteId,rt);
+        if(!restored.ok)return {status:'failed',message:restored.message};
+        if(owner===scope(rt)){window.dispatchEvent(new Event(NOTE_TRASH_EVENT));window.dispatchEvent(new Event('kptu:basket-links-changed'));}
+        return {status:'restored',message:TRASH_TEXT.UNDO_DONE};
+      }});
+      return {status:'deleted',message:noteTrashedText(label)};
+    }
+    let still;try{still=await exists(path,rt,expectedSessionEpoch);}catch{return {status:'unknown',message:RECORD_DELETE_TEXT.RESULT_UNKNOWN};}
+    return still?{status:'failed',message:RECORD_DELETE_TEXT.NOTE_FAILED}:{status:'unknown',message:TRASH_TEXT.NOT_CONFIRMED};
+  }});
+}
+// trash: true = 휴지통 흐름(label '업데이트'|'노트'). describe: the confirmation text for a row that is not a basket memo (JOURNAL-일기: "…일기를 지웁니다").
 // keepFiles (a note): the owner-RLS REST delete only; the files stay in Drive (NOTE-파일붙이기).
-export function deleteNoteOriginal(noteId,{rt=window.KPTURuntime,isCurrent=()=>true,fetcher=globalThis.fetch,waitMs,describe=noteDeleteConfirmText,keepFiles=false}={}){
+export function deleteNoteOriginal(noteId,{rt=window.KPTURuntime,isCurrent=()=>true,fetcher=globalThis.fetch,waitMs,describe=noteDeleteConfirmText,keepFiles=false,trash=false,label='업데이트'}={}){
+  if(trash)return deleteNoteToTrash(noteId,{rt,isCurrent,label});
   return remove('note',noteId,{rt,isCurrent,confirmText:async()=>{
     let info;try{info=await readNoteDeleteInfo(noteId,rt);}catch{return {status:'failed',message:RECORD_DELETE_TEXT.NOTE_READ_FAILED};}
     if(!info)return {status:'missing',message:RECORD_DELETE_TEXT.NOTE_MISSING};

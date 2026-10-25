@@ -24,7 +24,7 @@ function rows() {
 }
 async function fixture(page, width) {
   await page.setViewportSize({width, height: 900});
-  const notes = rows(), writes = [], uploads = [], functions = [], errors = [];
+  const notes = rows(), writes = [], uploads = [], functions = [], errors = [], trash = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   await openHome(page);
@@ -43,9 +43,10 @@ async function fixture(page, width) {
       const hit = notes.filter(pick); for (const row of hit) Object.assign(row, body);
       return r.fulfill({json: hit});
     }
-    if (method === 'DELETE') { writes.push({method, query: Object.fromEntries(q)}); const hit = notes.filter(pick); for (const row of hit) notes.splice(notes.indexOf(row), 1); return r.fulfill({json: hit.map(row => ({id: row.id}))}); }
+    if (method === 'DELETE') { writes.push({method, query: Object.fromEntries(q)}); const hit = notes.filter(pick); for (const row of hit) { notes.splice(notes.indexOf(row), 1); trash.push(row); } return r.fulfill({json: []}); } // 서버의 삭제 가로채기: 휴지통으로 옮기고 빈 응답
     return r.fulfill({status: 500, json: {}});
   });
+  await page.route(SB + '/rest/v1/rpc/app_trash_list', r => r.fulfill({json: trash.map(row => ({kind: 'note', id: row.id, note_kind: row.kind, title: row.title, preview: row.raw_text, file_count: (row.attachments || []).length, link_count: 0, deleted_at: '2026-10-26T01:00:00Z'}))}));
   await page.route(SB + '/rest/v1/app_record_links?**', r => new URL(r.request().url()).searchParams.has('note_id') ? r.fulfill({json: []}) : r.fallback());
   // basket-files: the stored row gets the file (as the real function does with the note id it was sent).
   await page.route(SB + '/functions/v1/basket-files**', r => {
@@ -187,15 +188,15 @@ for (const width of [390, 1280]) {
     expect(f.errors).toEqual([]);
   });
 
-  test(`deleting a note keeps its files in Drive: owner-RLS delete only, the confirmation says so ${width}`, async ({page}) => {
+  test(`deleting a note goes to the trash and keeps its files in Drive: owner-RLS delete only, the confirmation says so ${width}`, async ({page}) => {
     const f = await fixture(page, width);
     await press(page, page.locator('[data-note-row="n-files"]'), width);
     let asked = '';
     page.once('dialog', d => { asked = d.message(); d.accept(); });
     await noteMenuAction(page, 'data-note-delete', {width});
     await expect(page.locator('[data-note-row="n-files"]')).toHaveCount(0);
-    expect(asked).toBe('노트 원문을 지웁니다. 연결된 조직·프로젝트 0곳에서도 사라집니다. 첨부 파일 2개는 노트에서만 빠지고 Drive에는 그대로 남아요.');
-    await expect(page.locator('[data-note-list-status]')).toHaveText('노트를 지웠어요. 첨부 파일은 Drive에 그대로 남아 있어요.');
+    expect(asked).toBe('노트를 휴지통으로 옮깁니다. 첨부 파일 2개는 Drive에 그대로 남습니다. 휴지통에서 되돌릴 수 있습니다.');
+    await expect(page.locator('[data-note-list-status]')).toHaveText('노트를 휴지통으로 옮겼습니다.');
     expect(f.writes).toEqual([{method: 'DELETE', query: {id: 'eq.n-files', workspace_id: 'eq.w', select: 'id'}}]);
     expect(f.functions).toEqual([]);
     expect(f.errors).toEqual([]);

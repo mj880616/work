@@ -12,6 +12,7 @@ import { renderFilterChips } from './filter-chips.js';
 import { mountNotes } from './basket-notes.js';
 import { mountInboxTodos } from './inbox-todos.js';
 import { noteTasks, requestTaskOpen, takeBasketNoteRequest, takeNoteDocRequest, takeBasketKindRequest, basketNoteOrigin, basketReturnHtml } from './basket-note-tasks.js';
+import { NOTE_TRASH_EVENT } from './project-trash-model.mjs';
 import { deleteNoteOriginal, disconnectWithUndo, disconnectLabel, offerUndoNotice } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';
 import { sendAttachmentToLibrary, requestLibraryDocument, libraryHref } from './basket-library-send.js';
@@ -454,7 +455,7 @@ async function deleteFromList(id){
   const current=()=>run===epoch&&owner===scope()&&!selected&&window.KPTURouter.current==='basket';
   const more=()=>root.querySelector(`[data-basket-row-more="${CSS.escape(id)}"]`);
   let result;
-  try{result=await deleteNoteOriginal(id,{rt,isCurrent:current});}
+  try{result=await deleteNoteOriginal(id,{rt,isCurrent:current,trash:true,label:'업데이트'});}
   catch{result={status:'unknown',message:'결과를 확인하지 못했어요. 업데이트 다시 불러오기로 실제 상태를 확인해 주세요.'};}
   finally{busy=false;}
   if(!current()||result.status==='stale')return;
@@ -905,7 +906,7 @@ async function deleteSelected() {
   status.textContent = '';
   const current = () => run === epoch && owner === scope() && selected?.id === id && window.KPTURouter.current === 'basket';
   let result;
-  try { result = await deleteNoteOriginal(id, {rt, isCurrent:current}); }
+  try { result = await deleteNoteOriginal(id, {rt, isCurrent:current, trash:true, label:'업데이트'}); }
   catch { result = {status:'unknown', message:'결과를 확인하지 못했어요. 업데이트 다시 불러오기로 실제 상태를 확인해 주세요.'}; }
   finally { busy = false; }
   if (!current() || result.status === 'stale') return;
@@ -1082,6 +1083,17 @@ async function rereadLinks() {
     if (attr && !active.isConnected) (root.querySelector(`[${attr}="${CSS.escape(value)}"]`) || (noteId && root.querySelector(`[data-basket-row="${CSS.escape(noteId)}"]`)) || (selected && detail.querySelector('[data-basket-read-text]')))?.focus({preventScroll:true});
   } catch {}
 }
+// TRASH-다른삭제 4단계: 휴지통에서 노트·업데이트를 되돌리면(5초 되돌리기 포함) 목록 자체를 다시 읽는다(연결만이 아니라 글도 다시 나타난다).
+async function rereadNotes() {
+  if (window.KPTURouter.current !== 'basket' || busy) return;
+  const run = ++linkReadRun, owner = scope();
+  try {
+    const result = await readBasket(undefined, {doc:true});
+    if (run !== linkReadRun || owner !== scope()) return;
+    notes = result.notes; links = result.links; docs = result.docs; renderList();
+  } catch {}
+}
+window.addEventListener(NOTE_TRASH_EVENT, rereadNotes);
 window.addEventListener('kptu:basket-links-changed', rereadLinks);
 window.addEventListener('kptu:documents-changed', rereadLinks);
 window.addEventListener('kptu:document-categories-changed', () => { if (root.isConnected) renderList(); });

@@ -14,7 +14,7 @@ test.use({ hasTouch: true });
 const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 async function fixture(page, width) {
   await page.setViewportSize({ width, height: 900 });
-  const errors = [], writes = [], deletes = [];
+  const errors = [], writes = [], deletes = [], trash = [];
   page.on('pageerror', e => errors.push(e.message + ' ' + (e.stack || '').split('\n').slice(0, 4).join(' | ')));
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write']).catch(() => {});
@@ -35,14 +35,16 @@ async function fixture(page, width) {
       && (!q.has('metadata->>pinned_at') || (q.get('metadata->>pinned_at') === 'is.null' ? x.metadata.pinned_at == null : 'eq.' + x.metadata.pinned_at === q.get('metadata->>pinned_at')));
     if (req.method() === 'GET') { if (q.get('metadata')) return r.fulfill({ json: [] }); return r.fulfill({ json: rows.filter(pick).slice(Number(q.get('offset') || 0)) }); }
     if (req.method() === 'PATCH') { const body = req.postDataJSON(); writes.push({ query: Object.fromEntries(q), body }); const hit = rows.filter(pick); hit.forEach(x => Object.assign(x, body)); return r.fulfill({ json: hit }); }
-    if (req.method() === 'DELETE') { const hit = rows.filter(pick); deletes.push(Object.fromEntries(q)); hit.forEach(x => rows.splice(rows.indexOf(x), 1)); return r.fulfill({ json: hit }); }
+    if (req.method() === 'DELETE') { const hit = rows.filter(pick); deletes.push(Object.fromEntries(q)); hit.forEach(x => { rows.splice(rows.indexOf(x), 1); trash.push(x); }); return r.fulfill({ json: [] }); }
     return r.fulfill({ status: 500, json: {} });
   });
+  // TRASH-다른삭제 4단계: 서버의 삭제 가로채기를 흉내 낸다. DELETE는 글을 휴지통 목록으로 옮기고, app_trash_list가 그 목록을 돌려준다.
+  await page.route(SB + '/rest/v1/rpc/app_trash_list', r => r.fulfill({ json: trash.map(x => ({ kind: 'note', id: x.id, note_kind: x.kind, title: x.title, preview: x.raw_text, file_count: x.attachments.length, link_count: 0, deleted_at: '2026-10-26T01:00:00Z' })) }));
   await page.route(SB + '/rest/v1/app_record_links?**', r => { const q = new URL(r.request().url()).searchParams; return q.has('note_id') ? r.fulfill({ json: [] }) : r.fallback(); });
   await page.evaluate(() => window.KPTURouter.go('basket'));
   await chooseBasketKind(page,'note');
   await expect(page.locator('[data-note-row]')).toHaveCount(4);
-  return { rows, writes, deletes, errors };
+  return { rows, writes, deletes, trash, errors };
 }
 const press = async (page, l, width) => { await expect(l).toBeVisible(); if (width < 761) await l.tap(); else await l.click(); };
 const menu = page => page.locator('#noteDocMenu');
@@ -124,11 +126,11 @@ for (const width of [390, 1280]) {
     await expect.poll(() => asked).toBe(1);
     await expect(page.locator('[data-note-row="n-plain"]')).toBeVisible(); expect(f.deletes).toEqual([]);
     await expect(rowMore(page, 'n-plain')).toBeFocused();
-    page.once('dialog', d => { expect(d.message()).toContain('원문을 지웁니다'); d.accept(); });
+    page.once('dialog', d => { expect(d.message()).toContain('휴지통으로 옮깁니다'); d.accept(); });
     await press(page, rowMore(page, 'n-plain'), width); await press(page, menu(page).getByRole('button', { name: '삭제', exact: true }), width);
     await expect(page.locator('[data-note-row="n-plain"]')).toHaveCount(0);
     expect(f.deletes).toHaveLength(1); expect(f.deletes[0]).toMatchObject({ id: 'eq.n-plain' });
-    await expect(page.locator('[data-note-list-status]')).toContainText('지웠어요');
+    await expect(page.locator('[data-note-list-status]')).toContainText('휴지통으로 옮겼습니다');
     expect(f.errors).toEqual([]);
   });
 
