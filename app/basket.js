@@ -387,7 +387,7 @@ function showPane(next){
   pane=next;root.dataset.pane=pane;
   paneSwitch.querySelectorAll('[data-inbox-pane]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.inboxPane===pane)));
   const memo=pane==='update';
-  updateFilters.hidden=!memo;todoChips.hidden=memo;moreWrap.hidden=!memo||kind!=='memo';
+  updateFilters.hidden=!memo;todoChips.hidden=memo;moreWrap.hidden=kind!=='memo';
   todo.show(!memo);
   if(memo)renderList();
 }
@@ -402,7 +402,7 @@ function showKind(next,{openId=null}={}){
   const memo=kind==='memo';
   if(!memo&&pane!=='update')showPane('update');
   paintListChrome();
-  list.hidden=!memo||!!selected;moreWrap.hidden=!memo||pane!=='update';noteHost.hidden=memo;if(!memo){setMore(false);hideHandoffNotice();}
+  list.hidden=!memo||!!selected;moreWrap.hidden=!memo;noteHost.hidden=memo;if(!memo){setMore(false);hideHandoffNotice();}
   paintNavKind();
   if(!memo)noteDocs.show({openId});
 }

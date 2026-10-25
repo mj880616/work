@@ -304,3 +304,12 @@
   #calendarView #calendarTodayBtn{box-sizing:border-box;width:36px;min-width:36px;padding:0;margin-left:0}
   #calendarView .calendar-toolbar-add{box-sizing:border-box;width:36px;min-width:36px;padding:0}
 }
+
+/* BASKET-전환버튼고정: 제목 글자 길이(달 "2026년 10월" / 목록·주 "10월 25일 – 11월 7일")가 달라도 오른쪽 보기 전환 버튼이 안 움직이게 제목 칸 폭을 고정한다. */
+@media(min-width:761px){
+  #calendarView .calendar-toolbar #monthTitle,
+  #calendarView.calendar-list-active .calendar-toolbar #monthTitle{box-sizing:border-box;flex:none;width:12.5em;min-width:12.5em;text-align:center;white-space:nowrap}
+}
+@media(max-width:760px){
+  #calendarView .calendar-title-compact{min-width:2.2em;justify-content:center}
+}
