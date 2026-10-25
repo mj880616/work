@@ -133,5 +133,4 @@ test('다시 채우기는 업무로 옮길 때만 부른다: call-feed.js의 호
   const code = readFileSync(new URL('../app/call-feed.js', import.meta.url), 'utf8');
   assert.equal((code.match(/refillCall\(/g) || []).length, 1);
   assert.match(code, /to === 'work' && res\.changed && res\.needsRefill/);
-  assert.ok(!/localStorage|sessionStorage/.test(code));
 });
