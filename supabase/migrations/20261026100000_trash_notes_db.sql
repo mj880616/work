@@ -44,7 +44,7 @@ begin
      -- 쓰는 칸이 있고 모양이 맞아야 한다.
      or (select count(*) from pg_attribute where attrelid = to_regclass('public.app_notes') and not attisdropped
          and ((attname in ('id', 'workspace_id') and atttypid = 'uuid'::regtype) or (attname in ('kind', 'title', 'raw_text') and atttypid = 'text'::regtype)
-              or (attname = 'attachments' and atttypid = 'jsonb'::regtype) or (attname = 'occurred_at' and atttypid = 'timestamptz'::regtype))) <> 8
+              or (attname = 'attachments' and atttypid = 'jsonb'::regtype) or (attname = 'occurred_at' and atttypid = 'timestamptz'::regtype))) <> 7
      or (select count(*) from pg_attribute where attrelid = to_regclass('public.app_record_links') and not attisdropped
          and attname = 'note_id' and atttypid = 'uuid'::regtype) <> 1
      -- 연결 표의 note_id는 노트가 지워질 때 함께 지워지는 외래키(cascade)여야 한다(영구 삭제의 동작).
