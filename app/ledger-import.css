@@ -202,7 +202,11 @@
 #appView #ledgerView .lb-topic::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 #appView #ledgerView .lb-topic:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 #appView #ledgerView .lb-topic-n{ color:var(--kptu-faint); font-variant-numeric:tabular-nums; }
-#appView #ledgerView [data-lb-chips="topic"] .lb-topic{ border-style:dashed; }
+#appView #ledgerView .lb-topic[data-lb-type="topic"]{ border-style:dashed; }
+#appView #ledgerView .lb-topic[hidden],#appView #ledgerView .lb-chip-more[hidden]{ display:none; }
+#appView #ledgerView .lb-chip-more,#appView #ledgerView .lb-list-more{ flex:none; white-space:nowrap; }
+#appView #ledgerView .lb-list-more{ margin:2px 0 0; }
+#appView #ledgerView .lb-chip-sec .lb-topics{ margin:0; }
 #appView #ledgerView .lb-story-head{ display:flex; align-items:center; gap:8px; margin:4px 0 8px; min-width:0; }
 #appView #ledgerView .lb-story-head .lb-sec-h{ margin:0; color:var(--kptu-ink); }
 /* 이야기: 세로 선 하나에 줄마다 점. 줄은 목록과 같은 모양(종류 꼬리표·제목·날짜), 누르면 같은 상세. */
