@@ -223,7 +223,7 @@ export const MOVE_ERRORS = Object.freeze({
 export const moveErrorText = code => MOVE_ERRORS[code] || MOVE_ERRORS.REFUSED;
 // CALL-개인통화함 4단계: 업무로 옮긴 직후 AI가 제목·조직·상대·직함을 다시 채운다(docs/design/call-personal.md 7절). 못 채워도 옛 값이 그대로 남는다.
 export const REFILL_PENDING = '업무 통화로 옮겼어요. 제목·조직·상대를 채우는 중이에요.';
-export const REFILL_DONE = '업무 통화로 옮기고 제목·조직·상대를 채웠어요. 내용을 확인해 주세요.';
+export const REFILL_DONE = '업무 통화로 옮겼어요. 제목·조직·상대를 채웠어요. 내용을 확인해 주세요.';
 export const REFILL_SKIPPED = '업무 통화로 옮겼어요. 채울 글이 없어 옛 값 그대로예요.';
 const REFILL_FAILED = Object.freeze({
   daily_limit:'업무 통화로 옮겼어요. 오늘 AI 횟수를 다 써서 제목·조직·상대는 옛 값 그대로예요.',
