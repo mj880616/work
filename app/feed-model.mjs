@@ -139,3 +139,42 @@ export function missingTable(error) {
   const s = Number(error?.status) || 0, text = String(error?.message || '') + ' ' + String(error?.code || '');
   return s === 404 || /PGRST205|42P01|does not exist|schema cache/i.test(text);
 }
+
+// ---------- CALL-개인통화함 3단계 (docs/design/call-personal.md): 업무 통화함 · 개인 통화함 두 개의 함
+// The personal table holds two kinds: 'personal' (개인 통화함 list) and 'unsure' (맨 위 "확인할 통화"). Nothing else decides the box.
+export function splitPersonal(rows) {
+  const personal = [], unsure = [];
+  for (const r of rows || []) { if (r?.kind === 'unsure') unsure.push(r); else if (r?.kind === 'personal') personal.push(r); }
+  return {personal, unsure};
+}
+// One line inside the 개인 통화함: calls counted before the list existed have only a number (app_feed_days), no row. '' when none.
+export function legacyFilteredNote(days, today = kstDay()) {
+  const f = callFiltered(days, today);
+  if (!f.total && !f.failed) return '';
+  const parts = [];
+  if (f.total) parts.push(`목록 도입 전 걸러진 ${f.total}건은 개수만 있어요. 원본은 Drive 통화 녹음·전사 폴더에 있어요.`);
+  if (f.failed) parts.push(`판정 실패 ${f.failed}건`);
+  return parts.join(' ');
+}
+// 업무→개인으로 옮기기 전 확인 문구. ledger: true (원장에 이미 쓰임) / false / null (확인 못 함). linked: 고정·조직 연결이 있음.
+// '' when nothing needs saying (the move goes ahead without asking).
+export function moveToPersonalWarning({ledger = false, linked = false} = {}) {
+  const parts = [];
+  if (ledger === true) parts.push('이 통화는 이미 원장에 기록된 내용이 있어요. 개인으로 옮겨도 원장 기록은 지워지지 않아요. 필요하면 원장 수정 요청에서 따로 고치세요.');
+  else if (ledger === null) parts.push('원장에 이미 기록됐는지 확인하지 못했어요. 기록됐다면 개인으로 옮겨도 원장 기록은 지워지지 않아요.');
+  if (linked) parts.push('고정과 조직 연결은 개인 통화함에 없어서 사라지고, 이미 조직 기록에 더한 요약은 남아요.');
+  return parts.join(' ');
+}
+export const MOVE_ERRORS = Object.freeze({
+  GONE:'이 통화가 그사이 사라졌어요. 목록을 다시 불러왔어요.',
+  DUPLICATE:'같은 통화가 반대 통화함에 이미 있어요. 목록을 다시 불러왔어요.',
+  UNAVAILABLE:'옮기기 기능이 아직 준비되지 않았어요. 아무것도 바뀌지 않았어요.',
+  REFUSED:'옮기지 못했어요. 아무것도 바뀌지 않았어요.',
+  UNKNOWN:'옮겼는지 확인하지 못했어요. 목록을 다시 불러왔어요.',
+});
+export const moveErrorText = code => MOVE_ERRORS[code] || MOVE_ERRORS.REFUSED;
+// 옮긴 뒤 한 줄. from: 'work' | 'personal' | 'unsure'.
+export function moveDoneText(from, to) {
+  if (to === 'personal') return from === 'unsure' ? '개인 통화로 정했어요.' : '개인 통화함으로 옮겼어요.';
+  return from === 'unsure' ? '업무 통화로 정했어요.' : '업무 통화로 옮겼어요.';
+}
