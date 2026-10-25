@@ -5,8 +5,8 @@ import {canDrag,dayDiff as dragDayDiff} from './calendar-drag-model.js';
   const DAY_MS=86400000;
   const mq760=window.matchMedia('(max-width:760px)');
   const mq1024=window.matchMedia('(min-width:1024px)');
-  // Navigation is optional during startup; retain the same 12px click protection if its import fails.
-  const tapSlop=()=>window.KPTUMobileSwipeNavigation?.tapSlop??12;
+  // Up to 12px per axis is still a tap; a larger move suppresses the release click.
+  const tapSlop=()=>12;
   let last=null,touchStart=null,suppressUntil=0,resizeFrame=0;
   let layoutSize={width:document.documentElement.clientWidth,height:document.documentElement.clientHeight};
   // Google tasks by due date (CAL-할일). calendar-tasks.js owns this list and hands it over with setTasks().
@@ -286,7 +286,7 @@ import {canDrag,dayDiff as dragDayDiff} from './calendar-drag-model.js';
     if(cells[0]){const tag=document.createElement('span');tag.className='cmv-drop-label';tag.setAttribute('aria-hidden','true');tag.textContent=drag.label||'';cells[0].append(tag)}
   }
   function setDrag(next){drag=next;const grid=document.querySelector('#calendarGrid');if(grid)paintDrag(grid)}
-  // Menu gestures belong to mobile-swipe-navigation.js. Only guard the release click here,
+  // Only guard the release click here (no tab-swipe exists any more),
   // including events and overflow, without consuming touch events or restricting browser pan.
   function bindTouchGuard(){
     const grid=document.querySelector('#calendarGrid');if(!grid||grid.dataset.cmvTouchGuard==='1')return;

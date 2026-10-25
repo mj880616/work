@@ -80,7 +80,7 @@ test('the first event wins at the number area boundary',async({page})=>{
   await expect(page.locator('#ciGoogleModal')).toBeVisible();
   await expect(page.locator('#calendarDayModal')).toBeHidden();
 });
-test('12px jitter stays a tap; larger moves suppress clicks and preserve menu swipes',async({page})=>{
+test('12px jitter stays a tap; larger moves suppress clicks',async({page})=>{
   await open(page);
   await page.clock.install();
   for(const [dx,dy] of [[12,0],[-12,0],[0,12],[0,-12],[12,12]]){
@@ -91,15 +91,12 @@ test('12px jitter stays a tap; larger moves suppress clicks and preserve menu sw
   for(const [dx,dy] of [[13,0],[0,13],[-170,0]]){
     await movement(page,dx,dy);
     await expect(page.locator('#calendarDayModal')).toBeHidden();
-    if(dx===-170)await expect(page.locator('#projectsView')).toBeVisible();
-    else{
-      expect(await page.evaluate(()=>KPTUCalendarMonthView.suppressClick())).toBe(true);
-      await page.clock.fastForward(350);
-      expect(await page.evaluate(()=>KPTUCalendarMonthView.suppressClick())).toBe(false);
-    }
+    expect(await page.evaluate(()=>KPTUCalendarMonthView.suppressClick())).toBe(true);
+    await page.clock.fastForward(350);
+    expect(await page.evaluate(()=>KPTUCalendarMonthView.suppressClick())).toBe(false);
   }
 });
-test('zoomed numbers still open lists and movement leaves navigation to viewport pan',async({browser})=>{
+test('zoomed numbers still open lists and movement leaves panning to the viewport',async({browser})=>{
   const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,timezoneId:'Asia/Seoul'});
   const page=await context.newPage();
   try{
@@ -107,7 +104,6 @@ test('zoomed numbers still open lists and movement leaves navigation to viewport
     const cdp=await context.newCDPSession(page);
     await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:2});
     await expect.poll(()=>page.evaluate(()=>visualViewport.scale)).toBeGreaterThan(1.01);
-    await expect.poll(()=>dateButton(page,'2026-09-27').evaluate(el=>getComputedStyle(el).touchAction)).toBe('auto');
     await test.step('tap a visible zoomed number',()=>dateButton(page,'2026-09-27').tap({timeout:5000}));
     await expect(page.locator('#calendarDayModal')).toBeVisible();
     await page.evaluate(()=>history.back());
@@ -179,20 +175,6 @@ test('number list closes with one back and toolbar plus uses today after another
   await page.locator('#newEventBtn').click();
   await expect(page.locator('#eventStartDate')).toHaveValue('2026-10-15');
   await expect(page.locator('#eventStartTime')).toHaveValue('12:00');
-});
-
-test('release clicks remain guarded while the optional menu module is unavailable',async({page})=>{
-  await open(page);
-  await page.clock.install();
-  const errors=[];page.on('pageerror',error=>errors.push(error.message));
-  await page.evaluate(()=>{delete window.KPTUMobileSwipeNavigation});
-  await movement(page,20);
-  expect(errors).toEqual([]);
-  expect(await page.evaluate(()=>KPTUCalendarMonthView.suppressClick())).toBe(true);
-  await expect(page.locator('#calendarDayModal')).toBeHidden();
-  await page.clock.fastForward(350);
-  await dateButton(page,'2026-10-21').click();
-  await expect(page.locator('#calendarDayModal')).toBeVisible();
 });
 
 test('short six-week mobile rows keep events and overflow inside their own dates',async({page})=>{

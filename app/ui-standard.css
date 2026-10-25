@@ -343,7 +343,7 @@
   /* 동그란 [+]: 일정(달력=일정 추가)·할 일·프로젝트·자료실·회의(UI-선택표시통일 추가)·일기(바구니 [노트]는 BASKET-노트입력창에서 업데이트와 같은 입력칸으로 바뀜)의 위쪽 추가 버튼을 하단 탭 바로 위 오른쪽에 띄운다.
      같은 버튼(같은 창을 엶)의 모양만 바꾼다. 보이는 원 36px(버튼 자체), 누르는 범위 44px(::after, 앱의 다른 버튼과 같은 방식). 자판이 열리면 감춘다.
      위치는 이 규칙 하나가 정한다(화면 기준 fixed). 그래서 [+]를 품은 화면 칸(.view-panel)과 그 조상에는 transform·will-change·filter·contain처럼
-     fixed의 기준을 칸으로 바꾸는 값을 두지 않는다. 폰 밀기 전환(mobile-swipe-navigation.js)도 손가락을 옆으로 끌 때만 left로 칸을 옮긴다(UI-일기손질 ①). */
+     fixed의 기준을 칸으로 바꾸는 값을 두지 않는다. */
   #appView #calendarView .calendar-toolbar #newEventBtn,#appView #projectsView #newProjectBtn,#appView #libraryView #newDocumentBtn,#appView #meetingsView #newMeetingBtn,#appView #diaryView #newDiaryBtn{
     position:fixed; z-index:28; right:calc(16px + (var(--kptu-touch-target,44px) - var(--ds-fab-size)) / 2 + env(safe-area-inset-right));
     bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom) + var(--ds-fab-gap) + (var(--kptu-touch-target,44px) - var(--ds-fab-size)) / 2);
