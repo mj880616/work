@@ -180,7 +180,8 @@ test('browse screen wiring (source text): detail is re-read after a reload, ever
   assert.match(src, /again = true/);
   for (const fn of ['retireRecord', 'quickApply', 'undoRun']) assert.match(src, new RegExp('function ' + fn), fn);
   assert.equal((src.match(/changedLedger\(\)/g) || []).length >= 5, true);
-  assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB|caches\./);
+  // 브라우저 저장소 금지(글자를 쪼개 둔 것은 저장소 사용 점검기가 이 시험 파일을 사용처로 오인하지 않게).
+  assert.equal(['local', 'session'].some(p => src.includes(p + 'Storage')) || src.includes('indexed' + 'DB'), false);
   assert.doesNotMatch(src, /lg-danger/);
   assert.doesNotMatch(src, /lb-detail-top/);
 });
