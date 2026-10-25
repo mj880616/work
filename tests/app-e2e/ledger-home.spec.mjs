@@ -4,7 +4,7 @@ import {signInWithSession} from './helpers/session-login.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 
 // LEDGER-화면정리·LEDGER-수정요청(명진 요청 2026-10-24 07:17): [원장] 첫 화면과 고치기.
-// 위에서부터 검색 / 상대가 안 지킨 약속 / 지금 추적 중인 일 / 조직별·주제별 칩 / 최근 자동으로 기록됨. 칩 → 이야기(시간순 타임라인), 줄 → 근거·출처.
+// 위에서부터 검색 / 조직·주제 칩(두 줄, LEDGER-첫화면정리) / 상대가 안 지킨 약속 / 지금 추적 중인 일 / 최근 자동으로 기록됨. 모든 목록은 처음 6건 + [더보기 n ▾]. 칩 → 이야기(시간순 타임라인), 줄 → 근거·출처.
 // 기록 상세 ⋯ [내용 업데이트…](LEDGER-기록바로업데이트, 대상 고정)·[+ 기록하기]: 일상어 한 줄 → ai-assist ledger_fix(모의) 미리보기 → [반영] 한 번(app_apply_ledger_fix p_dry_run=false) → 옛 기록 대체됨.
 // Claude 수정안 덩어리는 같은 칸에 붙여 넣어 해 보기(p_dry_run=true) → [반영]. 가져오기·후보 칸은 없다. Supabase·ai-assist는 시험 응답(가상 값만).
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -27,10 +27,16 @@ function records(){
  ];
 }
 
-async function mockApp(page,{server=true}={}){
+async function mockApp(page,{server=true,many=false}={}){
  const db={records:records(),changes:[{record_id:u(4),action:'created',route:'auto',run_id:RUN,note:'',created_at:'2026-10-24T01:00:00Z'}],
   links:[{record_id:u(1),target_organization_id:ORG},{record_id:u(2),target_organization_id:ORG},{record_id:u(3),target_organization_id:ORG}],
   ai:[],fix:[],undo:[],search:[],posts:[]};
+ // 많은 목록(LEDGER-첫화면정리): 추적 중 사건 8건 추가, 조직 14곳(긴 이름) 추가.
+ const orgs=[{id:ORG,ledger_id:'ORG-0901',name:'나 지부'}];
+ if(many){
+  for(let i=0;i<8;i++){const b=records()[0];db.records.push({...b,id:u(2000+i),ledger_id:`EVT-09${60+i}`,title:`가상 추가 교섭 ${i+1}`,date_start:`2026-11-${String(10+i).padStart(2,'0')}`,topic_id:null});}
+  for(let i=0;i<14;i++){orgs.push({id:u(3000+i),ledger_id:`ORG-09${10+i}`,name:`가상 긴 이름 노동조합 지부 ${i+1}`});db.links.push({record_id:u(2000+(i%8)),target_organization_id:u(3000+i)});}
+ }
  const live=r=>['current','needs_check','fulfilled'].includes(r.validity);
  const filterRecords=url=>{
   let rows=db.records.filter(r=>r.workspace_id===workspace.id);
@@ -130,7 +136,7 @@ async function mockApp(page,{server=true}={}){
   }
   if(path==='/rest/v1/app_ledger_sources')return ok([{id:SRC,ledger_id:'SRC-0951',title:'Web2 업데이트 2026-10-24',doc_type:'internal_doc',location:`web2:basket:${NOTE}`,drive_file_id:null,source_date:'2026-10-24',sensitivity:'S1',status:'active'}]);
   if(path==='/rest/v1/app_notes'&&(url.searchParams.get('id')||'').includes(NOTE))return ok([{id:NOTE,kind:'basket',archived_at:null,journal_day:null}]);
-  if(path==='/rest/v1/app_ledger_organizations')return ok([{id:ORG,ledger_id:'ORG-0901',name:'나 지부'}]);
+  if(path==='/rest/v1/app_ledger_organizations')return ok(orgs);
   if(path==='/rest/v1/app_ledger_topics')return ok([{id:TOPIC,ledger_id:'TOP-0901',name:'가상 임금교섭'}]);
   if(path.startsWith('/rest/v1/app_ledger_'))return ok([]);
   if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:workspace.id,user_id:user.id,role:'owner',email:user.email,workspace}]);
@@ -152,7 +158,7 @@ async function signIn(page){
 const noSideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth);
 
 for(const [name,width] of [['PC',1280],['phone',390]]){
- test(`원장 첫 화면: 검색 → 안 지킨 약속 → 추적 중 → 조직·주제 칩 → 최근 자동, 가져오기·후보 칸 없음, 목록에 ID 없음 (${name} ${width}px)`,async({page})=>{
+ test(`원장 첫 화면: 검색 → 조직·주제 칩 → 안 지킨 약속 → 추적 중 → 최근 자동, 가져오기·후보 칸 없음, 목록에 ID 없음 (${name} ${width}px)`,async({page})=>{
   test.setTimeout(90000);
   await page.setViewportSize({width,height:900});
   const db=await mockApp(page);
@@ -161,7 +167,11 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
   await expect(browse.locator('[data-lb-sec="overdue"]')).toBeVisible({timeout:15000});
   // 칸 순서(위에서부터).
   const order=await browse.locator('[data-lb-sec]').evaluateAll(els=>els.map(e=>e.dataset.lbSec));
-  expect(order).toEqual(['overdue','tracking','chips','recent']);
+  expect(order).toEqual(['chips','overdue','tracking','recent']);
+  // 칩은 검색칸 바로 아래·'조직별·주제별' 제목 줄 없음. 칩이 적으면 [더보기]도 없다.
+  expect(await browse.locator('#lbQuery').evaluate(el=>el.compareDocumentPosition(document.querySelector('[data-lb-sec="chips"]'))&Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
+  await expect(browse.getByText('조직별·주제별')).toHaveCount(0);
+  await expect(browse.locator('[data-lb-action="chips-toggle"]')).toBeHidden();
   expect(await browse.locator('#lbQuery').evaluate(el=>el.compareDocumentPosition(document.querySelector('[data-lb-sec="overdue"]'))&Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
   // 안 지킨 약속: 상대·확인일·며칠째.
   const overdue=browse.locator('[data-lb-sec="overdue"]');
@@ -169,8 +179,8 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
   await expect(overdue).toContainText('가 사측');
   await expect(overdue).toContainText('5일 지남');
   await expect(browse.locator('[data-lb-sec="tracking"]')).toContainText('가상 나 지부 2차 교섭');
-  await expect(browse.locator('[data-lb-chips="organization"]')).toContainText('나 지부');
-  await expect(browse.locator('[data-lb-chips="topic"]')).toContainText('가상 임금교섭');
+  await expect(browse.locator('[data-lb-type="organization"]')).toContainText('나 지부');
+  await expect(browse.locator('[data-lb-type="topic"]')).toContainText('가상 임금교섭');
   const recent=browse.locator('[data-lb-sec="recent"]');
   await expect(recent).toContainText('가상 교섭 위원 확정');
   await expect(recent.locator('[data-lb-auto]')).toHaveText('자동');
@@ -194,7 +204,7 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
   const db=await mockApp(page);
   await signIn(page);
   const browse=page.locator('#ledgerBrowseRoot');
-  await browse.locator('[data-lb-chips="topic"] [data-lb-action="story"]').first().click();
+  await browse.locator('[data-lb-type="topic"][data-lb-action="story"]').first().click();
   const story=browse.locator('[data-lb-story="topic"]');
   await expect(story).toBeVisible({timeout:10000});
   expect(db.search.at(-1)).toMatchObject({p_topic_id:TOPIC,p_organization_id:null,p_query:''});
@@ -214,7 +224,7 @@ for(const [name,width] of [['PC',1280],['phone',390]]){
   // 조직 칩도 같은 이야기 화면.
   await browse.locator('[data-lb-action="home"]').click();
   await expect(browse.locator('[data-lb-sec="overdue"]')).toBeVisible();
-  await browse.locator('[data-lb-chips="organization"] [data-lb-action="story"]').first().click();
+  await browse.locator('[data-lb-type="organization"][data-lb-action="story"]').first().click();
   await expect(browse.locator('[data-lb-story="organization"] .lbr-title')).toHaveCount(3);
   expect(db.search.at(-1)).toMatchObject({p_organization_id:ORG,p_topic_id:null});
   expect(await noSideScroll(page)).toBe(true);
@@ -503,3 +513,48 @@ test('서버 배포 전이면 일상어는 준비 중 안내, Claude 덩어리 �
  await fix.getByRole('button',{name:'미리보기'}).click();
  await expect(fix.locator('[data-lf-preview] li')).toHaveText(['‘가상 나 지부 2차 교섭’: 요지 ‘2차 교섭 일정.’ → ‘고친 요지’로 고침. 옛 기록은 대체됨으로 남김.']);
 });
+
+for(const [name,width] of [['PC',1280],['phone',390]]){
+ test(`LEDGER-첫화면정리: 칩 두 줄 + [더보기 ▾]/[접기 ▴], 목록은 처음 6건 + [더보기 n ▾] (${name} ${width}px)`,async({page})=>{
+  test.setTimeout(90000);
+  await page.setViewportSize({width,height:900});
+  await mockApp(page,{many:true});
+  await signIn(page);
+  const browse=page.locator('#ledgerBrowseRoot');
+  const box=browse.locator('[data-lb-chips]');
+  await expect(box).toBeVisible({timeout:15000});
+  const toggle=browse.locator('[data-lb-action="chips-toggle"]');
+  await expect(toggle).toBeVisible();
+  await expect(toggle).toHaveText(/더보기/);
+  // 보이는 칩은 두 줄 안(칩 줄 위치가 둘뿐), [더보기]는 둘째 줄 안.
+  const rows=()=>box.evaluate(el=>{const tops=[...el.children].filter(c=>!c.hidden).map(c=>Math.round(c.getBoundingClientRect().top));return [...new Set(tops)].length;});
+  expect(await rows()).toBeLessThanOrEqual(2);
+  const hiddenCount=await box.locator('.lb-topic[hidden]').count();
+  expect(hiddenCount).toBeGreaterThan(0);
+  // 펼치면 전부, 접으면 다시 두 줄.
+  await toggle.click();
+  await expect(toggle).toHaveText(/접기/);
+  await expect(box.locator('.lb-topic[hidden]')).toHaveCount(0);
+  expect(await rows()).toBeGreaterThan(2);
+  await toggle.click();
+  await expect(box.locator('.lb-topic[hidden]')).toHaveCount(hiddenCount);
+  // 화면 폭이 바뀌면 개수를 다시 계산한다(좁히면 숨는 칩이 늘거나 같다).
+  await page.setViewportSize({width:width===1280?700:320,height:900});
+  await expect.poll(async()=>(await rows())<=2).toBe(true);
+  expect(await box.locator('.lb-topic[hidden]').count()).toBeGreaterThanOrEqual(hiddenCount);
+  await page.setViewportSize({width,height:900});
+  // 추적 중인 일: 9건 중 처음 6건 + [더보기 3 ▾].
+  const tracking=browse.locator('[data-lb-sec="tracking"]');
+  await expect(tracking.locator('[data-lb-row]')).toHaveCount(6);
+  const more=tracking.locator('[data-lb-action="list-more"]');
+  await expect(more).toContainText('더보기 3');
+  await more.click();
+  await expect(tracking.locator('[data-lb-row]')).toHaveCount(9);
+  await expect(tracking.locator('[data-lb-action="list-more"]')).toHaveCount(0);
+  // 칩을 누르면 이야기도 처음엔 가장 최근 6건(시간순 유지) + 위쪽 [더보기 n ▾].
+  await browse.locator('[data-lb-type="organization"][data-lb-action="story"]').first().click();
+  const story=browse.locator('[data-lb-story="organization"]');
+  await expect(story).toBeVisible({timeout:10000});
+  expect(await noSideScroll(page)).toBe(true);
+ });
+}

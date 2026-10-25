@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { searchArgs, freshFilters, dateLabel, overdue, detailFields, sourceHref, linkLabel, validResult, MAX_LIMIT } from '../app/ledger-browse-model.mjs';
+import { searchArgs, freshFilters, dateLabel, overdue, detailFields, sourceHref, linkLabel, validResult, MAX_LIMIT, capList, chipFit, chipList, LIST_FIRST } from '../app/ledger-browse-model.mjs';
 
 // AI-서버연동 S7-c: 원장 목록·검색의 순수 함수. 검색 RPC(app_ledger_search) 인자와 표시 규칙.
 const ORG = '11111111-1111-4111-8111-111111111111';
@@ -73,4 +73,52 @@ test('연결 표시와 결과 행 검사', () => {
   assert.equal(linkLabel({ relation: 'related', record_id: 'r2' }, names, 'in').dir, 'in');
   assert.equal(validResult({ id: ORG, ledger_id: 'EVT-0901', kind: 'event', title: '가' }), true);
   assert.equal(validResult({ id: 'x', ledger_id: 'EVT-0901', kind: 'event', title: '가' }), false);
+});
+
+// LEDGER-첫화면정리: 칩 두 줄 계산과 목록 더보기 공용 규칙.
+test('chipFit: 전부 두 줄에 들어가면 더보기 없이 전부', () => {
+  assert.deepEqual(chipFit([50, 50, 50, 50], { width: 120, gap: 6, moreWidth: 40 }), { visible: 4, overflow: false });
+  assert.deepEqual(chipFit([], { width: 120, moreWidth: 40 }), { visible: 0, overflow: false });
+});
+test('chipFit: 넘치면 [더보기]가 둘째 줄 끝에 함께 들어가게 칩을 덜 보인다', () => {
+  // 120폭에 50짜리 둘이 한 줄(106). 두 줄 = 4칸. 더보기(40)가 둘째 줄에 들어가려면 칩 3개(첫 줄 2 + 둘째 줄 1 + 더보기 96).
+  assert.deepEqual(chipFit([50, 50, 50, 50, 50, 50], { width: 120, gap: 6, moreWidth: 40 }), { visible: 3, overflow: true });
+  // 더보기가 안 들어가면 한 칩 더 뺀다.
+  assert.deepEqual(chipFit([50, 50, 50, 50, 50], { width: 120, gap: 6, moreWidth: 70 }), { visible: 2, overflow: true });
+});
+test('chipFit: 폭이 바뀌면 개수가 달라진다', () => {
+  const w = Array(10).fill(60);
+  assert.equal(chipFit(w, { width: 400, gap: 6, moreWidth: 40 }).visible, 10); // 400폭: 한 줄 6개 → 두 줄 12칸 ≥ 10
+  assert.equal(chipFit(w, { width: 200, gap: 6, moreWidth: 40 }).visible, 5); // 한 줄 3개: 둘째 줄에 칩 2개 + 더보기
+});
+test('chipFit: 폭이 칩보다 좁아도 한 줄에 칩 하나씩 놓고, 숨은 화면(폭 0)·잘못된 값은 null', () => {
+  assert.equal(chipFit([300, 300, 300], { width: 100, moreWidth: 40 }).visible, 1);
+  assert.equal(chipFit([50], { width: 0 }), null);
+  assert.equal(chipFit([50, NaN], { width: 100 }), null);
+  assert.equal(chipFit(null, { width: 100 })?.visible, 0);
+});
+test('capList: 처음엔 LIST_FIRST(5~8 안)건만, 접힌 건수를 알려 준다', () => {
+  assert.ok(LIST_FIRST >= 5 && LIST_FIRST <= 8);
+  const rows = Array.from({ length: 10 }, (_, i) => ({ id: 'r' + i }));
+  const c = capList(rows);
+  assert.equal(c.shown.length, LIST_FIRST);
+  assert.equal(c.hidden, 10 - LIST_FIRST);
+  assert.equal(c.shown[0].id, 'r0');
+  assert.deepEqual(capList(rows.slice(0, LIST_FIRST)), { shown: rows.slice(0, LIST_FIRST), hidden: 0 });
+  assert.deepEqual(capList(undefined), { shown: [], hidden: 0 });
+});
+test('capList: 펼쳤거나 펼친 기록이 숨는 쪽이면 전부, 타임라인(fromEnd)은 최근 쪽을 남긴다', () => {
+  const rows = Array.from({ length: 10 }, (_, i) => ({ id: 'r' + i }));
+  assert.equal(capList(rows, { expanded: true }).shown.length, 10);
+  assert.equal(capList(rows, { openId: 'r9' }).hidden, 0);
+  assert.equal(capList(rows, { openId: 'r0' }).hidden, 10 - LIST_FIRST);
+  const t = capList(rows, { fromEnd: true });
+  assert.equal(t.shown[0].id, 'r' + (10 - LIST_FIRST));
+  assert.equal(t.shown.at(-1).id, 'r9');
+  assert.equal(capList(rows, { fromEnd: true, openId: 'r0' }).hidden, 0);
+});
+test('chipList: 많은 순, 같으면 이름 순(변함 없음)', () => {
+  const a = '11111111-1111-4111-8111-111111111111', b = '22222222-2222-4222-8222-222222222222';
+  const out = chipList([a, b, b], new Map([[a, '가'], [b, '나']]));
+  assert.deepEqual(out.map(c => c.name), ['나', '가']);
 });

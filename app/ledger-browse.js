@@ -18,12 +18,16 @@
 //   ② 상세 ⋯ 메뉴: 위에 종류별 바로가기(약속 = 지켜짐 · 종결 / 추적에서 빼기, 일어난 일 = 추적 끝내기) → [내용 업데이트…](대상 고정) → 구분선 →
 //   [틀린 기록으로 표시 ▸] 하위 목록. 바로가기는 기존 수정 요청 함수 app_apply_ledger_fix의 replace 하나(옛 기록은 '대체됨'으로 남고, 직후 [되돌리기]).
 //   ③ ⋯는 상세 상자 맨 위 빈 줄이 아니라 제목 첫 줄 오른쪽 끝(제목이 ⋯ 옆으로 비켜 줄바꿈). 이번 범위는 원장 화면만.
+// LEDGER-첫화면정리(명진 요청 2026-10-25): ① 조직별·주제별 칩 묶음을 검색칸·[+ 기록하기] 바로 아래로(별도 제목 줄 없음, 조직·주제를 한데 섞어 많은 순).
+//   칩은 두 줄만 보이고 끝에 [더보기 ▾]/[접기 ▴](폭에 맞춰 개수 자동 계산 = ledger-browse-model.mjs chipFit, 폭이 바뀌면 다시 계산, 펼침은 저장하지 않음).
+//   그 아래 순서: 상대가 안 지킨 약속 → 지금 추적 중인 일 → 최근 자동으로 기록됨. ② 모든 목록(첫 화면 세 칸·이야기 타임라인·검색 결과)은
+//   처음엔 최근 쪽 6건만, 나머지는 [더보기 n ▾](공용 규칙 capList). 펼침 여부는 새 검색·화면 이동 때 접힌 채로 돌아간다.
 // 첫 화면 칸 읽기는 owner RLS REST뿐(새 RPC 없음): 안 지킨 약속·추적 중 사건·칩 집계·최근 자동 기록.
 import {
   KIND_DISPLAY, KIND_HINT, KINDS, VALIDITY_LABEL, SENSITIVITY_LABEL, DOC_TYPE_LABEL, SCOPE_CHOICES, PAGE, MAX_LIMIT, QUERY_MAX,
   freshFilters, searchArgs, validResult, detailFields, sourceHref, linkLabel, rowView, activeConditions, clearCondition, countLabel,
   web2Source, web2OpenTarget, web2SourceLabel, changeInfo, AUTO_TAG, MANUAL_TAG, RETIRE_REASONS, retireRequest, undoErrorText,
-  isSearching, overdueLabel, seoulDay, storySort, chipList, overdueRecordsPath, LEDGER_ROW_COLS
+  isSearching, overdueLabel, seoulDay, storySort, chipList, overdueRecordsPath, LEDGER_ROW_COLS, capList, chipFit
 } from './ledger-browse-model.mjs';
 import { QUICK_ACTIONS, QUICK_NOTE_MAX, menuPlan, quickRequest, quickDoneText, reopenPlan, fixErrorText } from './ledger-fix-model.mjs';
 import { requestBasketNote, requestNoteDocOpen } from './basket-note-tasks.js';
@@ -42,7 +46,7 @@ let seq = 0;
 function fresh() {
   return { phase: 'loading', organizations: [], topics: [], filters: freshFilters(), limit: PAGE, rows: [], busy: false, error: '',
     openId: null, details: new Map(), detailBusy: '', detailError: '', condOpen: false, changes: new Map(), acting: '', actError: '', notice: '',
-    home: null, homeBusy: false, story: null, quick: null };
+    home: null, homeBusy: false, story: null, quick: null, more: new Set(), chipsOpen: false };
 }
 const LIVE = 'validity=in.(current,needs_check,fulfilled)';
 const ROW_COLS = LEDGER_ROW_COLS;
@@ -96,7 +100,7 @@ async function openStory(type, id, { keepOpen = false } = {}) {
   const item = list.find(x => String(x.id) === id);
   if (!item) return;
   state.story = { type, id, name: item.name, rows: null, error: '' };
-  if (!keepOpen) state.openId = null;
+  if (!keepOpen) { state.openId = null; state.more.delete('story'); }
   const mine = ++seq;
   render();
   try {
@@ -369,7 +373,37 @@ function render() {
   root.querySelector('#lbChips').innerHTML = chipsHtml();
   root.querySelector('#lbError').innerHTML = (state.error ? `<p class="lg-error" role="alert">${esc(state.error)}</p>` : '')
     + (state.notice ? `<p class="lg-note" role="status" data-lb-notice>${esc(state.notice)}</p>` : '');
+  fitChips();
 }
+
+// ---------- 칩 두 줄 맞추기 / 목록 더보기 ----------
+// 칩은 전부 그린 뒤 폭을 재서(chipFit) 두 줄을 넘는 칩을 숨기고 [더보기]를 둘째 줄 끝에 둔다. 화면 폭이 바뀌면 다시 잰다.
+function fitChips() {
+  const box = document.querySelector('#ledgerBrowseRoot [data-lb-chips]');
+  if (!box) { chipWatch?.disconnect(); watched = null; return; }
+  if (watched !== box) { chipWatch?.disconnect(); watched = box; chipWatch?.observe(box); }
+  const chips = [...box.querySelectorAll('.lb-topic')], toggle = box.querySelector('[data-lb-action="chips-toggle"]');
+  if (!toggle) return;
+  for (const c of chips) c.hidden = false;
+  toggle.hidden = false; toggle.textContent = '더보기 ▾';
+  const gap = parseFloat(getComputedStyle(box).columnGap) || 6;
+  const fit = chipFit(chips.map(c => c.getBoundingClientRect().width), { width: box.clientWidth, gap, moreWidth: toggle.getBoundingClientRect().width });
+  if (!fit) { toggle.hidden = true; return; } // 숨은 화면(폭 0): 보일 때 ResizeObserver가 다시 부른다.
+  if (!fit.overflow) { toggle.hidden = true; return; }
+  const open = state.chipsOpen;
+  toggle.textContent = open ? '접기 ▴' : '더보기 ▾';
+  toggle.setAttribute('aria-expanded', String(open));
+  chips.forEach((c, i) => { c.hidden = !open && i >= fit.visible; });
+}
+let chipWatch = null, watched = null;
+if (typeof ResizeObserver === 'function') {
+  let lastWidth = 0;
+  chipWatch = new ResizeObserver(entries => { const w = Math.round(entries[0]?.contentRect?.width || 0); if (w !== lastWidth) { lastWidth = w; fitChips(); } });
+}
+try { document.fonts?.ready?.then?.(() => fitChips()); } catch { /* 글꼴 읽기가 끝나면 다시 재는 것뿐 */ }
+// 목록 하나의 첫 보임 건수 제한. 접힌 건수가 있으면 [더보기 n ▾].
+const moreBtn = (key, hidden) => hidden ? `<button type="button" class="lg-text-btn lb-list-more" data-lb-action="list-more" data-lb-list="${key}">더보기 ${hidden} <span aria-hidden="true">▾</span></button>` : '';
+const capped = (key, rows, opts = {}) => capList(rows, { expanded: state.more.has(key), openId: state.openId, ...opts });
 
 const SEARCH_ICON = '<svg class="lb-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 10.5 14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
 const isPhone = () => !!window.matchMedia?.('(max-width:760px)').matches;
@@ -423,8 +457,10 @@ function syncForm(root) {
 }
 function resultsHtml() {
   if (!state.rows.length) return '<p class="lg-note" data-lb-empty>조건에 맞는 기록이 없어요.</p>';
-  return `<ul class="lb-list" data-lb-list>${state.rows.map(r => rowHtml(r)).join('')}</ul>
-    ${state.rows.length >= state.limit && state.limit < MAX_LIMIT ? `<button type="button" class="lg-tool lb-more" data-lb-action="more" ${state.busy ? 'disabled' : ''}>더 보기</button>` : ''}`;
+  const { shown, hidden } = capped('results', state.rows);
+  return `<ul class="lb-list" data-lb-list>${shown.map(r => rowHtml(r)).join('')}</ul>
+    ${moreBtn('results', hidden)}
+    ${!hidden && state.rows.length >= state.limit && state.limit < MAX_LIMIT ? `<button type="button" class="lg-tool lb-more" data-lb-action="more" ${state.busy ? 'disabled' : ''}>더 보기</button>` : ''}`;
 }
 function section(key, title, body, count) {
   return `<section class="lb-sec" data-lb-sec="${key}" aria-labelledby="lbSec-${key}"><h4 id="lbSec-${key}" class="lb-sec-h">${esc(title)}${count ? ` <span class="lb-sec-n">${count}</span>` : ''}</h4>${body}</section>`;
@@ -436,16 +472,19 @@ function homeHtml() {
   // 한 기록은 한 칸에만(앞 칸에 나온 기록은 뒤 칸에서 뺀다: 줄·상세 id가 겹치지 않게).
   const shown = new Set();
   const once = rows => rows.filter(r => !shown.has(r.id) && shown.add(r.id));
-  const list = (rows, extra) => `<ul class="lb-list">${rows.map(r => rowHtml(r, extra ? extra(r) : '')).join('')}</ul>`;
+  const list = (key, rows, extra) => { const { shown, hidden } = capped(key, rows); return `<ul class="lb-list">${shown.map(r => rowHtml(r, extra ? extra(r) : '')).join('')}</ul>${moreBtn(key, hidden)}`; };
   const overdue = once(h.overdue), tracking = once(h.tracking), recent = once(h.recent);
-  const chips = (type, list) => list.map(c => `<button type="button" class="lb-topic" data-lb-action="story" data-lb-type="${type}" data-lb-sid="${esc(c.id)}">${esc(c.name)} <span class="lb-topic-n">${c.count}</span></button>`).join('');
+  // 조직·주제 칩을 한데 모아 많은 순(같으면 조직 먼저, 이름 순). 주제 칩은 점선 테두리.
+  const chipItems = [...h.orgChips.map(c => ({ ...c, type: 'organization' })), ...h.topicChips.map(c => ({ ...c, type: 'topic' }))]
+    .sort((a, b) => b.count - a.count || (a.type === b.type ? 0 : a.type === 'organization' ? -1 : 1) || a.name.localeCompare(b.name, 'ko'));
+  const chips = chipItems.map(c => `<button type="button" class="lb-topic" data-lb-action="story" data-lb-type="${c.type}" data-lb-sid="${esc(c.id)}">${esc(c.name)} <span class="lb-topic-n">${c.count}</span></button>`).join('');
   const empty = !overdue.length && !tracking.length && !h.orgChips.length && !h.topicChips.length && !recent.length;
   if (empty) return '<p class="lg-note" data-lb-empty>아직 원장 기록이 없어요. 업데이트·사업 보고를 저장하면 자동으로 기록되고, [+ 기록하기]로 직접 넣을 수 있어요.</p>';
   return [
-    overdue.length ? section('overdue', '상대가 안 지킨 약속', list(overdue, r => overdueLabel(r)), overdue.length) : '',
-    tracking.length ? section('tracking', '지금 추적 중인 일', list(tracking), tracking.length) : '',
-    h.orgChips.length || h.topicChips.length ? section('chips', '조직별·주제별', `${h.orgChips.length ? `<div class="lb-topics" data-lb-chips="organization" aria-label="조직">${chips('organization', h.orgChips)}</div>` : ''}${h.topicChips.length ? `<div class="lb-topics" data-lb-chips="topic" aria-label="주제">${chips('topic', h.topicChips)}</div>` : ''}`) : '',
-    recent.length ? section('recent', '최근 자동으로 기록됨', list(recent)) : ''
+    chipItems.length ? `<section class="lb-sec lb-chip-sec" data-lb-sec="chips" aria-label="조직·주제"><div class="lb-topics" data-lb-chips>${chips}<button type="button" class="lg-text-btn lb-chip-more" data-lb-action="chips-toggle" aria-expanded="false" hidden>더보기 ▾</button></div></section>` : '',
+    overdue.length ? section('overdue', '상대가 안 지킨 약속', list('overdue', overdue, r => overdueLabel(r)), overdue.length) : '',
+    tracking.length ? section('tracking', '지금 추적 중인 일', list('tracking', tracking), tracking.length) : '',
+    recent.length ? section('recent', '최근 자동으로 기록됨', list('recent', recent)) : ''
   ].join('');
 }
 function storyHtml() {
@@ -454,7 +493,9 @@ function storyHtml() {
   if (s.error) return head + `<p class="lg-error" role="alert">${esc(s.error)}</p>`;
   if (!s.rows) return head + '<p class="lg-note" role="status">이야기를 읽는 중…</p>';
   if (!s.rows.length) return head + '<p class="lg-note" data-lb-empty>이 이야기에 남은 기록이 없어요.</p>';
-  return head + `<ol class="lb-timeline" data-lb-story="${esc(s.type)}">${s.rows.map(r => rowHtml(r)).join('')}</ol>`;
+  // 시간순(오래된 것 먼저) 그대로 두고, 처음엔 가장 최근 쪽 6건만. 접힌 앞쪽(오래된 기록)은 위의 [더보기 n ▾].
+  const { shown, hidden } = capped('story', s.rows, { fromEnd: true });
+  return head + moreBtn('story', hidden) + `<ol class="lb-timeline" data-lb-story="${esc(s.type)}">${shown.map(r => rowHtml(r)).join('')}</ol>`;
 }
 function rowHtml(r, extra = '') {
   const open = state.openId === r.id;
@@ -538,7 +579,7 @@ function readForm(root) {
   f.scope = root.querySelector('#lbScope').value; f.inactive = root.querySelector('#lbInactive').checked;
   f.kinds = [...root.querySelectorAll('input[name="lbKind"]:checked')].map(el => el.value);
 }
-function run() { state.limit = PAGE; state.openId = null; void search(); }
+function run() { state.limit = PAGE; state.openId = null; state.more.clear(); void search(); }
 
 function bind() {
   if (bound) return;
@@ -590,6 +631,8 @@ function bind() {
     else if (action === 'cond') { state.condOpen = !state.condOpen; render(); }
     else if (action === 'unset') { readForm(root()); state.filters = clearCondition(state.filters, button.dataset.lbKey || ''); render(); run(); root().querySelector('#lbCondBtn')?.focus?.(); }
     else if (action === 'clear') { state.filters = freshFilters(); render(); run(); }
+    else if (action === 'list-more') { state.more.add(button.dataset.lbList || ''); render(); }
+    else if (action === 'chips-toggle') { state.chipsOpen = !state.chipsOpen; fitChips(); }
     else if (action === 'reload') void load();
     else if (action === 'original') {
       const d = state.details.get(button.dataset.lbId), s = d?.sources.find(x => x.id === button.dataset.lbSrc);
@@ -607,7 +650,7 @@ function bind() {
     }
     else if (action === 'find') { state.filters = { ...freshFilters(), q: button.dataset.lbQ || '', inactive: true, scope: 'all' }; render(); run(); }
     else if (action === 'story') void openStory(button.dataset.lbType === 'topic' ? 'topic' : 'organization', button.dataset.lbSid || '');
-    else if (action === 'home') { state.story = null; state.openId = null; ++seq; render(); void loadHome(); }
+    else if (action === 'home') { state.story = null; state.openId = null; state.chipsOpen = false; state.more.clear(); ++seq; render(); void loadHome(); }
     else if (action === 'add') window.KPTULedgerFix?.open?.({});
     else if (action === 'fix') {
       const d = state.details.get(button.dataset.lbId);
@@ -621,7 +664,7 @@ function bind() {
     else if (action === 'quick-apply') void quickApply(button.dataset.lbId);
   });
   window.addEventListener('kptu:ledger-changed', () => { if (state.phase !== 'hidden' || document.querySelector('#ledgerBrowseRoot')) void load(); });
-  window.KPTURouter?.on?.('ledger', () => { void load(); });
+  window.KPTURouter?.on?.('ledger', () => { state.chipsOpen = false; void load(); });
 }
 
 window.addEventListener('kptu:session-changed', () => { state = fresh(); if (document.querySelector('#ledgerBrowseRoot') && workspaceId()) void load(); });
@@ -630,7 +673,7 @@ async function boot() {
   bind();
   await load();
   // 업무일지 "새로 기록된 약속 N"에서: 약속만 보이게 거른 뒤 화면을 연다(목록은 열 때 읽음).
-  window.KPTULedgerBrowse = { reload: load, show: ({ kinds = [] } = {}) => { state.filters = { ...freshFilters(), kinds: kinds.filter(k => KINDS.includes(k)) }; state.openId = null; state.condOpen = false; state.story = null; } };
+  window.KPTULedgerBrowse = { reload: load, show: ({ kinds = [] } = {}) => { state.filters = { ...freshFilters(), kinds: kinds.filter(k => KINDS.includes(k)) }; state.openId = null; state.condOpen = false; state.story = null; state.chipsOpen = false; state.more.clear(); } };
   return true;
 }
 window.__KPTU_LEDGER_BROWSE_READY__ = boot().catch(err => { console.error('ledger browse init', err?.name || 'error'); return false; });
