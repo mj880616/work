@@ -129,7 +129,8 @@ export function parseCallRefill(text: string | null, orgs: RefillOrg[]): RefillP
   if (Object.keys(p).sort().join(",") !== "organization_ref,person_name,person_title,topic") return null;
   const title = cleanLine(p.topic, CALL_REFILL_TITLE_CHARS);
   if (!title) return null;
-  const organization = typeof p.organization_ref === "string" ? orgs.find((o) => o.ref === p.organization_ref.trim()) ?? null : null;
+  const ref = typeof p.organization_ref === "string" ? p.organization_ref.trim() : "";
+  const organization = ref ? orgs.find((o) => o.ref === ref) ?? null : null;
   let name = cleanLine(p.person_name, CALL_REFILL_NAME_CHARS) ?? "";
   if (NOT_A_NAME.test(name)) name = "";
   let role = cleanLine(p.person_title, CALL_REFILL_ROLE_CHARS) ?? "";
