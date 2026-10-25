@@ -682,20 +682,18 @@
 #appView #basketView .inbox-pane-switch:not([hidden]),
 #appView #calendarView .calendar-toolbar .calendar-view-switch:not([hidden]),
 .modal .event-create-modes:not([hidden]),
-.modal .meeting-create-modes,
-.md-editor .md-editor-kinds{
+.modal .meeting-create-modes{
   box-sizing:border-box; display:inline-flex; align-items:stretch; flex:0 0 auto; width:max-content; max-width:100%; height:var(--ds-compact-height); min-height:0;
   gap:0; margin:0; padding:0; background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); outline:0; box-shadow:none;
 }
 #appView #homeView .home-quick .home-quick-modes .home-quick-update-split{ display:flex; align-items:stretch; }
 /* 두 칸 전환은 칸 폭을 같게(반반): 바구니 [업데이트|노트]·일정 창 [일정|할 일]. */
-#appView #basketView .inbox-pane-switch:not([hidden]),.modal .event-create-modes:not([hidden]),.modal .meeting-create-modes,.md-editor .md-editor-kinds{ display:inline-grid; grid-auto-flow:column; grid-auto-columns:1fr; }
+#appView #basketView .inbox-pane-switch:not([hidden]),.modal .event-create-modes:not([hidden]),.modal .meeting-create-modes{ display:inline-grid; grid-auto-flow:column; grid-auto-columns:1fr; }
 #appView #homeView .home-quick .home-quick-modes button,
 #appView #basketView .inbox-pane-switch button,
 #appView #calendarView .calendar-toolbar .calendar-view-switch button,
 .modal .event-create-modes button,
-.modal .meeting-create-modes button,
-.md-editor .md-editor-head .md-editor-kinds button{
+.modal .meeting-create-modes button{
   position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; width:auto; min-width:0; height:auto; min-height:0;
   margin:0; padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1; white-space:nowrap;
   color:var(--kptu-ink); background:var(--kptu-surface); border:0; border-radius:0; box-shadow:none;
@@ -704,34 +702,29 @@
 #appView #basketView .inbox-pane-switch > :is(button,div) + :is(button,div),
 #appView #calendarView .calendar-toolbar .calendar-view-switch > :is(button,div) + :is(button,div),
 .modal .event-create-modes > :is(button,div) + :is(button,div),
-.modal .meeting-create-modes > button + button,
-.md-editor .md-editor-kinds > button + button{ border-left:var(--ds-line-width) solid var(--ds-line); }
+.modal .meeting-create-modes > button + button{ border-left:var(--ds-line-width) solid var(--ds-line); }
 #appView #homeView .home-quick .home-quick-modes > button:first-child,
 #appView #basketView .inbox-pane-switch > button:first-child,
 #appView #calendarView .calendar-toolbar .calendar-view-switch > button:first-child,
 .modal .event-create-modes > button:first-child,
-.modal .meeting-create-modes > button:first-child,
-.md-editor .md-editor-kinds > button:first-child{ border-radius:var(--ds-radius-control) 0 0 var(--ds-radius-control); }
+.modal .meeting-create-modes > button:first-child{ border-radius:var(--ds-radius-control) 0 0 var(--ds-radius-control); }
 #appView #homeView .home-quick .home-quick-modes > :last-child > button:last-child,
 #appView #homeView .home-quick .home-quick-modes > button:last-child,
 #appView #basketView .inbox-pane-switch > button:last-child,
 #appView #calendarView .calendar-toolbar .calendar-view-switch > button:last-child,
 .modal .event-create-modes > button:last-child,
-.modal .meeting-create-modes > button:last-child,
-.md-editor .md-editor-kinds > button:last-child{ border-radius:0 var(--ds-radius-control) var(--ds-radius-control) 0; }
+.modal .meeting-create-modes > button:last-child{ border-radius:0 var(--ds-radius-control) var(--ds-radius-control) 0; }
 #appView #homeView .home-quick .home-quick-modes button::after,
 #appView #basketView .inbox-pane-switch button::after,
 #appView #calendarView .calendar-toolbar .calendar-view-switch button::after,
 .modal .event-create-modes button::after,
-.modal .meeting-create-modes button::after,
-.md-editor .md-editor-head .md-editor-kinds button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; transform:none; }
+.modal .meeting-create-modes button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; transform:none; }
 #appView #homeView .home-quick .home-quick-modes [data-quick-mode][aria-pressed="true"],
 #appView #homeView .home-quick .home-quick-modes [data-quick-mode="update"][aria-pressed="true"] + [data-quick-org],
 #appView #basketView .inbox-pane-switch button[aria-pressed="true"],
 #appView #calendarView .calendar-toolbar .calendar-view-switch button[aria-pressed="true"],
 .modal .event-create-modes button[data-event-mode][aria-pressed="true"],
-.modal .meeting-create-modes button[aria-pressed="true"],
-.md-editor .md-editor-kinds button[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-line); }
+.modal .meeting-create-modes button[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-line); }
 /* 홈 [업데이트 ▾]: [업데이트]와 ▾는 한 칸처럼 붙고(사이 선 없음), ▾는 보이는 폭 28px·누르는 범위는 오른쪽으로 늘려 44×44px. */
 #appView #homeView .home-quick .home-quick-modes .home-quick-update-split button[data-quick-mode="update"]{ flex:0 0 auto; padding-right:4px; border:0; border-radius:0; }
 #appView #homeView .home-quick .home-quick-modes .home-quick-update-split button[data-quick-org]{ flex:0 0 28px; width:28px; min-width:28px; padding:0 8px 0 0; border:0; }
@@ -921,8 +914,8 @@
 @media(max-width:760px){
   html:has(:where(#appView :is(#calendarView,#tasksView,#journalView,#diaryView):not(.hidden) > .schedule-switch:not([hidden]))){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
   html:has(body.kptu-mobile-keyboard){ --kptu-switch-dock:0px; }
-  /* 전체 화면 쓰기 창(md-editor.js)이 열려 있으면 전환 줄은 창 아래에 가려지므로 0(창의 선택 창은 탭 바로 위에서). */
-  html:is(.md-editor-open,.ed-window-open){ --kptu-switch-dock:0px; }
+  /* 전체 화면 쓰기 창(ed-window.js)이 열려 있으면 전환 줄은 창 아래에 가려지므로 0(창의 선택 창은 탭 바로 위에서). */
+  html.ed-window-open{ --kptu-switch-dock:0px; }
 
   #appView .schedule-switch:not([hidden]){
     position:fixed; z-index:28; left:0; right:0; bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom) + (var(--kptu-touch-target,44px) - var(--ds-compact-height)) / 2);
@@ -1207,12 +1200,8 @@ html :is(
   #appView #journalView .journal-mode-switch button[aria-pressed="true"],
   #appView #pagesView .sp-seg button[aria-pressed="true"],
   .modal .event-create-modes button[data-event-mode][aria-pressed="true"],
-  .modal .meeting-create-modes button[aria-pressed="true"],
-  .md-editor .md-editor-kinds button[aria-pressed="true"],
-  .md-editor .md-editor-head .md-editor-kinds [data-md-kind-menu][aria-pressed="true"],
-  .md-editor-modes button[aria-pressed="true"]
+  .modal .meeting-create-modes button[aria-pressed="true"]
 ){ color:var(--ds-select-ink); background:var(--ds-select-bg); border-color:var(--ds-select-bg); }
-html .modal.md-editor .md-editor-head .md-editor-kinds [data-md-kind-menu][aria-pressed="true"]{ color:var(--ds-select-ink); background:var(--ds-select-bg); border-color:var(--ds-select-bg); }
 
 /* ③ PC 사이드바(1024px~ 왼쪽 세로·761~1023px 위쪽 한 줄): 지금 화면 하나만 채운다. */
 html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):is(.active,[aria-current]):not(:has(+ .nav-sub)){ color:var(--ds-select-ink); background:var(--ds-select-bg); font-weight:var(--ds-weight-medium); }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync, readdirSync, existsSync} from 'node:fs';
 import {plainToDoc, plainToDocKeep} from '../app/ed-markdown.mjs';
 import {toPlain} from '../app/ed-text.mjs';
 import {cleanDoc, docBytes, emptyDoc} from '../app/ed-schema.mjs';
@@ -151,12 +151,11 @@ test('opened and closed untouched: the editor value equals the start, so no save
   }
 });
 
-// ED③ 노트·업데이트·기록 (설계 11.4 순서 2·3·5): the note screens (note-window.js), the update entrances (update-window.js) and the
-// organization / project record screens (update-window.js for [크게], record-window.js for an edit) open the new window. The diary has its
-// own panel; nothing opens the old write window any more (순서 6 deletes it).
-test('the new write window is opened by the note, update and record screens; nothing opens the old one', () => {
-  const old = ['write-window.js', 'diary.js', 'home-read.js', 'journal.js'];
-  for (const f of old) assert.ok(!/update-window\.js|note-window\.js|record-window\.js/.test(readFileSync(`app/${f}`, 'utf8')), f);
+// ED③ 노트·업데이트·기록 (설계 11.4 순서 2·3·5·6): the note screens (note-window.js), the update entrances (update-window.js) and the
+// organization / project record screens (update-window.js for [크게], record-window.js for an edit) open the new window. The old
+// big windows (md-editor.js, write-window.js) are deleted; no file in app/ names them any more.
+test('the new write window is opened by the note, update and record screens; nothing names the old one', () => {
+  for (const f of ['diary.js', 'home-read.js', 'journal.js']) assert.ok(!/update-window\.js|note-window\.js|record-window\.js/.test(readFileSync(`app/${f}`, 'utf8')), f);
   for (const f of ['workplace-detail.js', 'project-system-v3.js', 'home-quick.js', 'basket.js', 'basket-notes.js', 'topbar-actions.js']) assert.ok(!/ed-window\.js/.test(readFileSync(`app/${f}`, 'utf8')), f);
   assert.match(readFileSync('app/note-window.js', 'utf8'), /from '\.\/ed-window\.js'/);
   assert.match(readFileSync('app/update-window.js', 'utf8'), /from '\.\/ed-window\.js'/);
@@ -165,13 +164,16 @@ test('the new write window is opened by the note, update and record screens; not
   assert.match(readFileSync('app/topbar-actions.js', 'utf8'), /import\('\.\/note-window\.js'\)/);
   for (const f of ['home-quick.js', 'basket.js', 'topbar-actions.js', 'workplace-detail.js', 'project-system-v3.js']) assert.match(readFileSync(`app/${f}`, 'utf8'), /import\('\.\/update-window\.js'\)/, f);
   for (const f of ['workplace-detail.js', 'project-system-v3.js']) assert.match(readFileSync(`app/${f}`, 'utf8'), /import\('\.\/record-window\.js'\)/, f);
-  // No screen opens the old windows any more: only the files that define them (and the old window's own module) still name them.
-  for (const f of ['home-quick.js', 'basket.js', 'topbar-actions.js', 'workplace-detail.js', 'project-system-v3.js']) assert.ok(!/openWriteWindow|openMarkdownEditor|write-window\.js/.test(readFileSync(`app/${f}`, 'utf8')), f);
+  // ED③ 순서 6: the old window modules are gone and no source file refers to them (code, loader, css, html).
+  for (const f of ['md-editor.js', 'write-window.js', 'md-editor.css', 'md-editor-ops.mjs', 'md-toolbar-layout.mjs']) assert.ok(!existsSync(`app/${f}`), f);
+  for (const f of readdirSync('app')) {
+    if (!/\.(js|mjs|css|html)$/.test(f)) continue;
+    assert.doesNotMatch(readFileSync(`app/${f}`, 'utf8'), /openWriteWindow|openMarkdownEditor|write-window\.js|md-editor\.(js|css)|md-editor-ops|md-toolbar-layout|#mdEditor|\.md-editor|md-editor-open|kptuOverlay === ?'mdEditor'/, f);
+  }
 });
 
-test('the old editor still exports copyText (moved to copy-text.js) and both windows are counted by bigWindowOpen', () => {
-  assert.match(readFileSync('app/md-editor.js', 'utf8'), /export \{copyText\}/);
+test('copyText lives in copy-text.js and the big window check counts only the new window', () => {
   assert.match(readFileSync('app/copy-text.js', 'utf8'), /export async function copyText/);
   const src = readFileSync('app/big-window-open.js', 'utf8');
-  assert.ok(src.includes("'#mdEditor'") && src.includes("'#edWindow'"));
+  assert.ok(src.includes("'#edWindow'") && !src.includes('mdEditor'));
 });

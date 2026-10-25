@@ -227,7 +227,7 @@ let writeDraft='',writeDraftDoc=null,writerOpening=false;
 const writeToast=message=>{const toast=document.querySelector('#toast');if(!toast)return;toast.textContent=message;toast.classList.remove('hidden');clearTimeout(writeToast.timer);writeToast.timer=setTimeout(()=>toast.classList.add('hidden'),3200)};
 // kind: 'update' (top line [+ 추가] → 업데이트) or 'note' (top line → 노트).
 async function openWriter(kind='update'){
-  if(writerOpening||document.querySelector('#mdEditor:not(.hidden),#edWindow:not(.hidden)')||window.__KPTU_TEAM_READY_STATE__!=='workspace')return;
+  if(writerOpening||document.querySelector('#edWindow:not(.hidden)')||window.__KPTU_TEAM_READY_STATE__!=='workspace')return;
   writerOpening=true;
   try{
     const owner=window.KPTURuntime?.session?.read?.()?.user?.id;

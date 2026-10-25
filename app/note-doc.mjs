@@ -10,6 +10,9 @@ import {markdownToDoc, plainToDocKeep} from './ed-markdown.mjs';
 import {guardDateLines} from './markdown-render.mjs';
 import {cleanDoc} from './ed-schema.mjs';
 
+// A note's letters limit (the db check on app_notes.raw_text for kind=note).
+export const NOTE_TEXT_MAX = 100000;
+
 export const hasDoc = note => !!cleanDoc(note?.doc);
 export const needsMarkdown = note => !hasDoc(note) && noteMarkdown(note);
 export function noteStartDoc(note, md = null) {

@@ -2,7 +2,7 @@
 //   startDoc({doc, text, convert})      — the saved form the editor starts from: the row's own doc, else the old letters converted
 //   isChanged(baseline, now)            — did the person change anything since the editor opened (or since the last save)?
 //   prepareSave({value, limit, textOnly}) — what the opener's save gets, or the message why not
-// The window never saves by itself: it hands {value, text} to the opener's own save (the contract of md-editor.js stays).
+// The window never saves by itself: it hands {value, text} to the opener's own save (the opener saves).
 import {cleanDoc, isEmptyDoc} from './ed-schema.mjs';
 import {plainToDocKeep} from './ed-markdown.mjs';
 import {toPlain} from './ed-text.mjs';

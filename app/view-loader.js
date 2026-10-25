@@ -20,7 +20,7 @@ function style(path){
   return flight
 }
 const routeStyles={
-  basket:['./basket.css','./markdown-view.css','./md-editor.css','./ed-doc.css','./library-upload.css','./basket-picker.css','./choice-sheet.css','./ui-standard.css'],
+  basket:['./basket.css','./markdown-view.css','./ed-doc.css','./library-upload.css','./basket-picker.css','./choice-sheet.css','./ui-standard.css'],
   home:['./library-upload.css','./basket-picker.css','./choice-sheet.css','./home-read.css','./google-tasks.css','./todo-radar.css','./ui-standard.css'],
   calendar:['./choice-sheet.css','./calendar-ui.css','./view-wide.css','./ui-standard.css'],
   tasks:['./task-layout.css','./google-tasks.css','./library-upload.css','./basket-picker.css','./ui-standard.css'],

@@ -1,7 +1,6 @@
 // ED③-창: the new write window (설계 docs/design/unified-editor.md 11.2). A whole-screen window around the new editor (ed-editor.js);
-// the shell (head line, save icon, export sheet, phone bottom tabs, PC menu beside, back button, leave check) is the one md-editor.js has,
-// with the letters box and the markdown buttons replaced by the editor. NOTHING opens it yet: the buttons still open the old window
-// (md-editor.js) until each screen is moved over, one PR at a time (설계 11.4). Both windows can exist in the code; only one is open.
+// the shell (head line, save icon, export sheet, phone bottom tabs, PC menu beside, back button, leave check) was moved here from the old markdown window
+// (deleted in ED③ 순서 6); the letters box and markdown buttons of that window are replaced by the editor. It is the only big write window.
 //
 // openEdWindow({...}) → handle {ready, close({silent}), say(message), changed, closed, editor}. The window does not save by itself:
 // it hands the opener's own save {value, text} (the saved form and the letters taken out of it) and the opener writes them.
@@ -100,7 +99,7 @@ function closeChoices() {
 
 export function openEdWindow({title = '크게 쓰기', doc = null, text = '', convert = null, save = null, limit = 0, textOnly = false, draft = false, keepOpen = false, saveUnchanged = false,
   placeholder = '', label = '본문', head: headNode = null, foot = null, dirty = null, photos = null, shortcuts = false, onClose = () => {}} = {}) {
-  // One big window at a time: this one is replaced; the old window (md-editor.js) is never closed from here, the opener must not open both.
+  // One big window at a time: this one is replaced when another opens.
   current?.close({silent: true});
   if (bigWindowOpen()) return null;
   const trigger = document.activeElement;

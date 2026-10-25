@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
-import { noteAction,showBasketRow} from './helpers/basket-more.mjs';
+import { noteAction } from './helpers/basket-more.mjs';
 import { noteMenuAction } from './helpers/note-menu.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
-import {openOldWriteWindow} from './helpers/write-opener.mjs';
 import { expectNoteTitle } from './helpers/note-title.mjs';
 import { noteField, edWin, edWinText, typeInto } from './helpers/note-editor.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -211,7 +210,6 @@ for(const width of [390,1280]){
   await expect(editor).toBeVisible();await expect(editor).toHaveAccessibleName('새 노트');
   await expect(editor.locator('[data-edw-title]')).toBeVisible();await expect(editor.locator('[data-edw-title]')).toHaveValue('');await expect(edWinText(page)).toHaveText('단체교섭 준비');
   await expect(editor.locator('[data-edw-save]')).toHaveAccessibleName('새 노트로 저장');
-  await expect(editor.locator('[data-md-markdown], [data-md-kind]')).toHaveCount(0);
   await editor.locator('[data-edw-title]').fill('단체교섭 준비');
   await edWinText(page).click();await page.keyboard.press('Control+A');await page.keyboard.press('Backspace');
   await page.keyboard.type('## 할 일');await page.keyboard.press('Enter');await page.keyboard.type('- 요구안 정리');
@@ -302,95 +300,7 @@ test('note edit draft is protected when leaving with Escape',async({page})=>{
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-// UI-키보드하단바: menu [쓰기] head in one row = [× 닫기] [메모|노트] [쓰기|미리보기] … [내보내기] [저장], 32px buttons.
-async function openWriter(page,width){
- await openOldWriteWindow(page,width);
- const editor=page.locator('#mdEditor');await expect(editor).toBeVisible();return editor;
-}
-// The [업데이트 ▾|노트] box is the shared 32px segment (its buttons sit inside its 1px line); every other head button is 32px itself.
-async function headHeights(editor){return editor.locator('.md-editor-head :is(.md-editor-kinds, button:not(.md-editor-kinds button)):visible').evaluateAll(list=>list.map(b=>[b.textContent,Math.round(b.getBoundingClientRect().height)]));}
-for(const width of [390,1280]){
- test(`menu [쓰기] → [노트] saves a kind=note row and opens it; the 메모 list stays clean ${width}`,async({page})=>{
-  await page.setViewportSize({width,height:900});const f=await fixture(page);
-  const editor=await openWriter(page,width),kinds=editor.locator('.md-editor-kinds');
-  await expect(kinds.locator('[data-md-kind]')).toHaveText(['업데이트','노트']);
-  await expect(kinds.locator('[data-md-kind="update"]')).toHaveAttribute('aria-pressed','true');
-  // Left: × · save icon · the switch. Right: 내보내기. One row, all 32px tall (the press area stays 44px).
-  const [c,sv,k,x]=await Promise.all([editor.locator('[data-close="mdEditor"]'),editor.locator('[data-md-save-icon]'),kinds,editor.getByRole('button',{name:'내보내기'})].map(l=>l.boundingBox()));
-  expect(c.x).toBeLessThan(sv.x);expect(sv.x).toBeLessThan(k.x);expect(k.x).toBeLessThan(x.x);expect(Math.abs(k.y-x.y)).toBeLessThan(2);expect(Math.abs(c.y-sv.y)).toBeLessThan(2);
-  for(const [label,h] of await headHeights(editor))expect(h,label).toBe(32);
-  expect(await editor.getByRole('button',{name:'노트'}).evaluate(el=>getComputedStyle(el,'::after').height)).toBe('44px');
-  const pressed=await kinds.locator('[data-md-kind="update"]').evaluate(el=>getComputedStyle(el).backgroundColor),plain=await kinds.getByRole('button',{name:'노트'}).evaluate(el=>getComputedStyle(el).backgroundColor);
-  expect(pressed).not.toBe(plain);
-  await kinds.getByRole('button',{name:'노트'}).click();
-  await expect(kinds.getByRole('button',{name:'노트'})).toHaveAttribute('aria-pressed','true');
-  await expect(editor.locator('[data-md-save-icon]')).toHaveAttribute('aria-label','새 노트로 저장');
-  await editor.locator('[data-md-save-icon]').click();
-  await expect(editor.locator('.md-editor-status')).toHaveText('제목이나 본문을 써 주세요.');expect(f.writes).toEqual([]);
-  await editor.locator('.md-editor-text').fill('# 회의 정리\n\n- 다음 일정 확인');
-  await editor.locator('[data-md-markdown]').check();
-  await editor.locator('[data-md-save-icon]').click();
-  await expect(page.locator('#mdEditor')).toHaveCount(0);
-  expect(f.writes).toEqual([{method:'POST',body:{workspace_id:'w',kind:'note',title:'회의 정리',raw_text:'# 회의 정리\n\n- 다음 일정 확인',metadata:{markdown:true}}}]);
-  const detail=page.locator('[data-note-detail]');
-  await expect(page.locator('#basketView')).toHaveAttribute('data-kind','note');
-  await expectNoteTitle(page,'회의 정리');
-  await expect(detail.locator('[data-basket-read-text] h1')).toHaveText('회의 정리');
-  await detail.locator('[data-note-close]').click();
-  await expect(noteList(page).nth(0)).toContainText('회의 정리');
-  await chooseBasketKind(page,'memo');
-  await expect(page.locator('[data-basket-row="m1"]')).toBeVisible();await expect(page.locator('[data-basket-rows]')).not.toContainText('회의 정리');
-  expect(f.errors).toEqual([]);
- });
-}
-
-test('menu [쓰기] → [업데이트] still saves one basket memo (no kind, no title)',async({page})=>{
- await page.setViewportSize({width:390,height:900});const f=await fixture(page);
- const editor=await openWriter(page,390);
- await expect(editor.locator('[data-md-save-icon]')).toHaveAttribute('aria-label','정리함에 새 업데이트로 저장');
- await editor.locator('.md-editor-text').fill('쓰기 메모');
- await editor.locator('[data-md-save-icon]').click();
- await expect(page.locator('#mdEditor')).toHaveCount(0);await expect(page.locator('#toast')).toContainText('정리함에 저장했어요.');
- expect(f.writes).toEqual([{method:'POST',body:{workspace_id:'w',raw_text:'쓰기 메모'}}]);
- await chooseBasketKind(page,'memo');
- await showBasketRow(page,'m-created');
- await expect(page.locator('[data-basket-row="m-created"]')).toContainText('쓰기 메모');
- await expect(page.locator('#basketView')).toHaveAttribute('data-kind','memo');
- expect(f.errors).toEqual([]);
-});
-
-test('[내보내기] opens the shared choice sheet: 텔레그램·한글 copy, HWP says it is not ready',async({page})=>{
- await page.setViewportSize({width:390,height:900});const f=await fixture(page);
- const editor=await openWriter(page,390),sheet=page.locator('#mdExportSheet'),status=editor.locator('.md-editor-status');
- await page.evaluate(()=>{navigator.clipboard.writeText=async text=>{window.__copied=text;};navigator.clipboard.write=async items=>{window.__rich=await Promise.all(items[0].types.map(async t=>[t,await (await items[0].getType(t)).text()]));};});
- await editor.locator('.md-editor-text').fill('**굵게** 글');
- const exportButton=editor.getByRole('button',{name:'내보내기',exact:true});
- await exportButton.click();
- await expect(sheet).toHaveAttribute('open','');await expect(exportButton).toHaveAttribute('aria-expanded','true');
- await expect(sheet.locator('h2')).toHaveText('내보내기');
- const rows=sheet.locator('[data-sheet-value]');
- await expect(rows).toHaveText(['텔레그램용 복사','한글용 복사','HWP 파일로 받기']);
- for(const row of await rows.all())await expect(row).toBeEnabled();
- await rows.nth(0).click();
- await expect(status).toHaveText('텔레그램용 글을 복사했어요. 텔레그램에 붙여 넣으세요.');
- expect(await page.evaluate(()=>window.__copied)).toBe('굵게 글');
- await expect(sheet).not.toHaveAttribute('open','');await expect(editor).toBeVisible();await expect(exportButton).toBeFocused();
- await exportButton.click();await rows.nth(1).click();
- await expect(status).toHaveText('한글용 글을 복사했어요. 한글에 붙여 넣으세요.');
- expect(await page.evaluate(()=>window.__rich)).toEqual([['text/html','<p style="margin:0"><b>굵게</b> 글</p>'],['text/plain','굵게 글']]);
- await exportButton.click();await rows.nth(2).click();
- await expect(status).toHaveText('HWP 파일로 받기는 준비 중이에요.');
- // Escape and phone back close the sheet only; the editor and its text stay.
- await exportButton.click();await expect(sheet).toHaveAttribute('open','');
- await page.keyboard.press('Escape');await expect(sheet).not.toHaveAttribute('open','');
- await exportButton.click();await expect(sheet).toHaveAttribute('open','');
- await page.goBack();await expect(sheet).not.toHaveAttribute('open','');
- await expect(editor).toBeVisible();await expect(editor.locator('.md-editor-text')).toHaveValue('**굵게** 글');
- // Back once more closes the editor itself.
- await page.goBack();await expect(page.locator('#mdEditor')).toHaveCount(0);
- expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
-});
-
+// ED③ 순서 6: the old menu [쓰기] window tests (head order, [업데이트|노트] switch, export sheet) went with the old window; the new window's are in ed-window.spec.mjs and update-window.spec.mjs.
 test('the editor opened to change a note has no [업데이트|노트] switch, and the same 32px head',async({page})=>{
  await page.setViewportSize({width:390,height:900});const f=await fixture(page);
  await chooseBasketKind(page,'note');
@@ -399,7 +309,7 @@ test('the editor opened to change a note has no [업데이트|노트] switch, an
  await expect(noteField(page)).toBeVisible();
  await page.locator('[data-note-big-write]').click();
  const editor=edWin(page);await expect(editor).toBeVisible();
- await expect(editor.locator('[data-md-kind], .md-editor-kinds')).toHaveCount(0);await expect(editor.locator('[data-edw-save]')).toHaveCount(1);
+ await expect(editor.locator('[data-edw-save]')).toHaveCount(1);
  await expect(editor).toHaveAccessibleName('큰 창에서 수정');await expect(editor.getByRole('button',{name:'내보내기',exact:true})).toBeVisible();
  await expect(editor.getByRole('button',{name:'텔레그램용 복사',exact:true})).toHaveCount(0);
  for(const h of await editor.locator('.ed-window-head > button').evaluateAll(list=>list.map(b=>Math.round(b.getBoundingClientRect().height))))expect(h).toBe(32);
@@ -433,13 +343,12 @@ for(const width of [360,390,412,870,1280]){
 }
 
 // UI-노트편집버튼 ② (BASKET-업데이트통합 PR 2): the big window's one save icon sits right beside [닫기] and runs the opening screen's own [저장] (저장하고 닫기).
-// ED③ 노트·업데이트: a note's and an update's big window is the new one (#edWindow, data-edw-save); the old one (#mdEditor, data-md-save-icon) is left for the record inputs.
-const SAVE_ICON='[data-md-save-icon]',EDW_SAVE='[data-edw-save]';
+// ED③ 노트·업데이트: a note's and an update's big window is the new one (#edWindow, data-edw-save).
+const EDW_SAVE='[data-edw-save]';
 async function headBox(locator){return locator.evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,height:r.height,after:getComputedStyle(el,'::after').height};});}
 async function expectIconNextToClose(editor,name){
- const edw=await editor.evaluate(el=>el.id==='edWindow');
- const icon=editor.locator(edw?EDW_SAVE:SAVE_ICON);await expect(icon).toBeVisible();await expect(icon).toHaveAccessibleName(name);
- const close=await headBox(editor.locator(edw?'[data-close="edWindow"]':'[data-close="mdEditor"]')),save=await headBox(icon);
+ const icon=editor.locator(EDW_SAVE);await expect(icon).toBeVisible();await expect(icon).toHaveAccessibleName(name);
+ const close=await headBox(editor.locator('[data-close="edWindow"]')),save=await headBox(icon);
  expect(save.left).toBeGreaterThanOrEqual(close.right);expect(save.left-close.right).toBeLessThan(16);expect(save.top).toBe(close.top);
  expect(Math.round(save.height)).toBe(32);expect(save.after).toBe('44px');
 }
@@ -517,7 +426,7 @@ for(const width of [390,1280]){
  });
 }
 
-test('[닫기] in the big window asks once, then hands the text back to the edit field; the menu write window has the same one save icon',async({page})=>{
+test('[닫기] in the big window asks once, then hands the text back to the edit field',async({page})=>{
  await page.setViewportSize({width:390,height:900});const f=await fixture(page);
  await chooseBasketKind(page,'note');
  await noteList(page).filter({hasText:'오래된 노트'}).click();
@@ -535,7 +444,5 @@ test('[닫기] in the big window asks once, then hands the text back to the edit
  await expect(edWin(page)).toHaveCount(0);await expect(noteField(page)).toHaveText('닫아도 남는 글');
  page.once('dialog',d=>d.accept());await detail.locator('[data-note-cancel]').click();
  await page.locator('[data-note-close]').click();
- const writer=await openWriter(page,390);
- await expect(writer.locator(SAVE_ICON)).toHaveCount(1);await expect(writer.locator('[data-md-save]')).toHaveCount(0);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });

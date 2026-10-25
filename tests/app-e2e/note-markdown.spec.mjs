@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import {openMdTool} from './helpers/md-tools.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import { noteMenuAction } from './helpers/note-menu.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
@@ -235,7 +234,6 @@ for(const width of [390,1280]){
   await chooseBasketKind(page,'note');
   await page.locator('[data-note-list] [data-quick-big]').click();
   const editor=edWin(page);await expect(editor).toBeVisible();
-  await expect(editor.locator('[data-md-markdown]')).toHaveCount(0);
   await editor.locator('[data-edw-title]').fill('합성 새 노트');
   await edWinText(page).click();await page.keyboard.insertText('1.하나');await page.keyboard.press('Shift+Enter');await page.keyboard.insertText('2026. 10. 21. 일정');
   await editor.locator('[data-edw-save]').click();

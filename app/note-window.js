@@ -1,6 +1,5 @@
 // ED③ 노트 화면: the note's big window in the new editor (ed-window.js), for a new note ([크게] on the note input, PC top line [+ 추가] →
-// [노트]) and for [큰 창에서 수정]. It replaces the old window (md-editor.js / write-window.js) for notes only; updates keep the old window
-// until their own PR (설계 11.4 순서 3). The window saves nothing itself: the save goes to the existing owner-RLS note paths
+// [노트]) and for [큰 창에서 수정]. The window saves nothing itself: the save goes to the existing owner-RLS note paths
 // (createNoteDoc, or the note screen's own save for an edit).
 //   New note: a title row (title box + optional [폴더 ▾]) above the text, [📎 첨부] under it (the note input's own file batch or this
 //   window's), the [사진] button (a photo needs a saved note, so a new note says "먼저 저장"), and the markdown line shortcuts.
@@ -9,7 +8,7 @@ import {openEdWindow} from './ed-window.js';
 import {createNoteDoc, noteTitleFromText} from './basket-data.js';
 import {createUploadBatch, uploadNoteFiles, mountBasketPicker, fileTitle} from './basket-upload.js';
 import {notePhotos} from './note-body.js';
-import {NOTE_TEXT_MAX} from './note-convert-model.mjs';
+import {NOTE_TEXT_MAX} from './note-doc.mjs';
 
 function toast(message) {
   const box = document.querySelector('#toast'); if (!box) return;

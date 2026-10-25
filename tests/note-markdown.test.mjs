@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import MarkdownIt from '../app/markdown-lib/markdown-it-15.0.2/markdown-it.esm.min.mjs';
 import { createMarkdown, renderMarkdown, guardDateLines } from '../app/markdown-render.mjs';
 import { looksLikeMarkdown, noteMarkdown, storedMarkdown, bodyWithoutTitleLine, startsWithDate } from '../app/note-markdown.mjs';
-import { applyPlainAction, PLAIN_ACTIONS } from '../app/md-editor-ops.mjs';
 import { noteCopyPayload } from '../app/note-preview.mjs';
 import { createNoteDoc, saveNoteDoc, moveToNote } from '../app/basket-data.js';
 
@@ -38,18 +37,6 @@ test('date lines are never read as a numbered list, real lists still are', () =>
   // Code keeps its letters as typed.
   assert.equal(guardDateLines('```\n2026. 10. 21.\n```'), '```\n2026. 10. 21.\n```');
   assert.equal(guardDateLines('2026. 10. 21. 교섭'), '2026\\. 10. 21. 교섭');
-});
-
-test('with markdown off the format buttons put letters in: - · 1. · ☐ · ────', () => {
-  assert.deepEqual([...PLAIN_ACTIONS], ['bullet', 'number', 'task', 'rule']);
-  assert.equal(applyPlainAction('사과\n배', 0, 4, 'bullet').insert, '- 사과\n- 배');
-  assert.equal(applyPlainAction('사과\n배', 0, 4, 'number').insert, '1. 사과\n2. 배');
-  assert.equal(applyPlainAction('사과', 1, 1, 'task').insert, '☐ 사과');
-  assert.equal(applyPlainAction('☐ 사과', 0, 4, 'task').insert, '사과');
-  assert.equal(applyPlainAction('- 사과', 0, 4, 'task').insert, '☐ 사과');
-  const rule = applyPlainAction('위', 1, 1, 'rule');
-  assert.equal(rule.insert, '\n\n────\n');
-  assert.throws(() => applyPlainAction('가', 0, 0, 'bold'));
 });
 
 test('copy: a note with markdown off is copied as written, title first', () => {

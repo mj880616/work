@@ -5,7 +5,6 @@ import MarkdownIt from '../app/markdown-lib/markdown-it-15.0.2/markdown-it.esm.m
 import {safeHref} from '../app/ed-schema.mjs';
 import {toPlain} from '../app/ed-text.mjs';
 import {noteStartDoc, needsMarkdown, hasDoc, noteDrivePhotos} from '../app/note-doc.mjs';
-import {convertNote} from '../app/note-convert-model.mjs';
 import {renderDoc} from '../app/ed-render.mjs';
 // ED③ 노트 화면: how a note opens in the new editor (in memory only) and its drive: photos. 합성 글.
 const md=new MarkdownIt({html:false,linkify:true,breaks:true,typographer:false});md.linkify.set({fuzzyEmail:false});md.validateLink=u=>!!safeHref(u);
@@ -22,12 +21,11 @@ test('an old note written as is keeps every line and break when opened (no "1." 
   assert.deepEqual(v.doc.content.map(n=>n.type),['paragraph','paragraph']);
   assert.equal(toPlain(v),raw.replace(/^ +/m,'    '));
 });
-test('an old markdown note opens as format, with the date-line guard of the old read view; the batch conversion gives the same result',()=>{
+test('an old markdown note opens as format, with the date-line guard of the old read view',()=>{
   const note={raw_text:'## 쟁점\n\n2026. 10. 21. 교섭\n\n- **기본급** 인상',metadata:{}};
   const v=noteStartDoc(note,md);
   assert.deepEqual(v.doc.content.map(n=>n.type),['heading','paragraph','bullet_list']);
   assert.equal(toPlain(v),'쟁점\n\n2026. 10. 21. 교섭\n\n- 기본급 인상');
-  assert.deepEqual(convertNote(md,note).doc,v,'opening and the batch conversion agree');
   // Without markdown-it (it failed to load) the letters stay as they are: nothing is lost.
   assert.equal(toPlain(noteStartDoc(note,null)),note.raw_text);
 });

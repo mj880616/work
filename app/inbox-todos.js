@@ -12,7 +12,7 @@ import {readInboxCandidates, dismissCandidate, reopenCandidate, markTasked, cand
 import {seoulDateKey} from './meeting-time.js';
 import {offerUndoNotice} from './basket-record-delete.js';
 import {openSource, radarPromises} from './todo-radar.js';
-import {copyText} from './md-editor.js';
+import {copyText} from './copy-text.js';
 
 const CHANGED = 'kptu:todo-radar-changed';
 export const INBOX_CHIPS = Object.freeze([['open', '처리 전'], ['tasked', '할 일로 보냄'], ['dismissed', '무시함']]);

@@ -1,7 +1,6 @@
 // ED③ 업데이트 (설계 docs/design/unified-editor.md 11.4 순서 3): the update's big window in the new editor (ed-window.js), for a new update
-// (PC top line [+ 추가] → [업데이트], the home and basket update input's [크게]) and for the basket update's [큰 창에서 수정]. It replaces
-// the old window (write-window.js / md-editor.js) for these entrances only; an organization's or a project's own record input ([크게] there)
-// used it too until ED③ 기록 (순서 5); they open this window now, so nothing opens write-window.js any more (순서 6 deletes it).
+// (PC top line [+ 추가] → [업데이트], the home and basket update input's [크게]) and for the basket update's [큰 창에서 수정]. An organization's
+// or a project's own record input ([크게] there) opens it too (ED③ 기록, 순서 5); the old window is gone (순서 6).
 // The window saves nothing by itself: openUpdateWindow hands the save to the opener's own (updateVia, the home input's) or to the same
 // existing owner-RLS paths the old window used (update-places.js saveUpdate / saveUpdateWithFiles, the basket upload).
 //   - [기록할 곳 ▾] above the text: nothing chosen is the basket (미분류); one or more places as before (update-places.js).

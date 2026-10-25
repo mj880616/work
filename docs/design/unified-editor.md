@@ -448,7 +448,7 @@
 **다. 큰 창 모듈의 다른 내보내기를 쓰는 곳(큰 창이 아니므로 지우면 안 됨)**: `copyText`(`md-editor.js` 103) — `journal.js` 39, `todo-radar.js` 14, `share-pages.js` 13, `basket.js` 24, `basket-notes.js` 13. → 삭제 PR 전에 `copyText`를 작은 공용 파일(예: `app/copy-text.js`)로 옮긴다.
 
 **라. 큰 창 전용 부품(삭제 대상 후보)**: `md-editor.js`(566줄)·`md-editor.css`·`md-editor-ops.mjs`·`md-toolbar-layout.mjs`, 시험 `tests/md-editor.test.mjs`·`tests/md-toolbar-groups.test.mjs`·`tests/app-e2e/md-editor.spec.mjs`·`md-editor-pc-tabs.spec.mjs`·`helpers/md-tools.mjs`, CI 목록(`.github/workflows/app-smoke-check.yml` 152), `view-loader.js` 23의 `md-editor.css`, `ui-standard.css`의 `.md-editor`·`html.md-editor-open` 규칙(669~717·895~896·1192~1196). `md-editor`·`#mdEditor`를 쓰는 E2E는 27개 파일(`grep -rln "md-editor\|mdEditor\|write-window\|openWriteWindow" tests`) — 단계마다 새 편집기 기준으로 고친다.
-- **남기는 것**: `toolbar-pop.js`(새 편집기도 씀, `ed-editor.js` 서식 줄 묶음 공용 — 지금은 두 편집기가 함께 씀), `md-telegram.mjs`(`basket.js` 25·`basket-notes.js` 16·`note-preview.mjs` 4가 옛 글 복사에 씀), `md-hangul.mjs`, `markdown-view.js`(옛 글자 행 읽기용: `basket.js`·`basket-notes.js`·`record-sheet.js`·`text-clamp.js`), `note-markdown.mjs`(옛 글 판정·`ed-editor.js` 붙여넣기 판정).
+- **남기는 것**: `md-telegram.mjs`(`basket.js` 25·`basket-notes.js` 16·`note-preview.mjs` 4가 옛 글 복사에 씀), `markdown-view.js`(옛 글자 행 읽기용: `basket.js`·`basket-notes.js`·`record-sheet.js`·`text-clamp.js`), `note-markdown.mjs`(옛 글 판정·`ed-editor.js` 붙여넣기 판정).
 
 ### 11.2 창 껍데기: 새 편집기를 담을 "쓰기 창" 하나
 
