@@ -161,13 +161,27 @@ async function registeredDocument(workspaceId: string, fileId: string) {
   return rows[0] ? { id: String(rows[0].id), title: String(rows[0].title ?? '') } : null;
 }
 
+// TRASH-다른삭제 5단계: 서버 키(service_role)는 RLS(휴지통 숨김 정책)를 건너뛰므로 노트 id로 직접 읽을 때는 휴지통 노트(deleted_at 있음)를 뺀다.
+// DB 적용 전에는 app_notes에 deleted_at 칸이 없어 PostgREST가 "column app_notes.deleted_at does not exist"(42703)로 거절한다.
+// 그 거절이면 거르기 없이 한 번 더 읽는다(그때는 휴지통 행이 있을 수 없다). 다른 오류는 그대로 던진다. (같은 규칙의 짝: _shared/hwp-edit.ts readLiveNoteRows)
+async function readLiveNoteRows(path: string) {
+  try {
+    return await db(`${path}&deleted_at=is.null`);
+  } catch (error) {
+    const text = String((error as { message?: unknown } | null)?.message ?? '');
+    if (!/deleted_at/.test(text) || !/does not exist|42703/i.test(text)) throw error;
+    return await db(path);
+  }
+}
+
 type Attachment = { drive_file_id?: unknown; file_name?: unknown; mime_type?: unknown; size_bytes?: unknown };
 
 async function registerBasketAttachment(userId: string, body: { note_id?: unknown; drive_file_id?: unknown }) {
   const noteId = String(body?.note_id || ''), fileId = String(body?.drive_file_id || '');
   if (!UUID.test(noteId) || !DRIVE_ID.test(fileId)) throw fail('보낼 바구니 첨부를 확인할 수 없습니다.', 'INVALID_REQUEST');
   // Workspace, file name, type and size come from the server-read note, never the client.
-  const notes = await db(`app_notes?id=eq.${encodeURIComponent(noteId)}&select=id,workspace_id,attachments&limit=1`);
+  // TRASH-다른삭제 5단계: 서버 키는 RLS를 건너뛰므로 휴지통 노트의 첨부는 자료로 등록하지 않는다(DB 적용 전 칸이 없을 때는 거르기 없이 읽는다).
+  const notes = await readLiveNoteRows(`app_notes?id=eq.${encodeURIComponent(noteId)}&select=id,workspace_id,attachments&limit=1`);
   const note = notes?.[0];
   if (!note || note.id !== noteId || typeof note.workspace_id !== 'string') throw fail('메모를 찾을 수 없습니다.', 'NOTE_NOT_FOUND');
   await assertDeleteAccess(userId, note);
