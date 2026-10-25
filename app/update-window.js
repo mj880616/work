@@ -1,20 +1,20 @@
 // ED③ 업데이트 (설계 docs/design/unified-editor.md 11.4 순서 3): the update's big window in the new editor (ed-window.js), for a new update
 // (PC top line [+ 추가] → [업데이트], the home and basket update input's [크게]) and for the basket update's [큰 창에서 수정]. It replaces
 // the old window (write-window.js / md-editor.js) for these entrances only; an organization's or a project's own record input ([크게] there)
-// keeps the old window until their own PR (순서 5), so write-window.js stays.
+// used it too until ED③ 기록 (순서 5); they open this window now, so nothing opens write-window.js any more (순서 6 deletes it).
 // The window saves nothing by itself: openUpdateWindow hands the save to the opener's own (updateVia, the home input's) or to the same
 // existing owner-RLS paths the old window used (update-places.js saveUpdate / saveUpdateWithFiles, the basket upload).
 //   - [기록할 곳 ▾] above the text: nothing chosen is the basket (미분류); one or more places as before (update-places.js).
 //   - [📎 첨부] under the text: the opener's own file batch (the home input) or this window's.
-//   - The saved form (doc) goes with the letters onto the basket update. One organization's or project's own record keeps LETTERS ONLY
-//     for now (their tables get the new window in 순서 5): the window says so when such a place is chosen.
+//   - The saved form (doc) goes with the letters: onto the basket update, or (ED③ 기록, 순서 5) onto one organization's or project's own
+//     record. One project's record is a one-line summary, so its letters stop at 500 (textLimitFor).
 //   - There is no [업데이트 | 노트] switch here: a note is written from the note input / [+ 추가] → [노트] (note-window.js).
 import {openEdWindow} from './ed-window.js';
 import {createChoiceSheet} from './choice-sheet.js';
 import {validateNoteText, attachNoteDoc} from './basket-data.js';
 import {createUploadBatch, uploadBatch} from './basket-upload.js';
 import {attachRow} from './note-window.js';
-import {readPlaces, placeSources, placeSheetHtml, placeValue, keepPlaces, samePlace, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, saveUpdateWithFiles, rememberPlace, linkFailText, fileFailText, docFailText, keepsFormat} from './update-places.js';
+import {readPlaces, placeSources, placeSheetHtml, placeValue, keepPlaces, samePlace, placeList, togglePlace, choiceCountText, placesLabel, PLACE_LIMIT, saveUpdate, saveUpdateWithFiles, rememberPlace, linkFailText, fileFailText, docFailText, textLimitFor} from './update-places.js';
 
 export const UPDATE_TEXT_MAX = 20000;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
@@ -38,9 +38,8 @@ function placeRow() {
   const row = document.createElement('div'); row.className = 'edw-place-row';
   const label = document.createElement('span'); label.className = 'edw-place-label'; label.textContent = '기록할 곳';
   const button = document.createElement('button'); button.type = 'button'; button.dataset.edwPlace = ''; button.setAttribute('aria-haspopup', 'dialog');
-  const hint = document.createElement('span'); hint.className = 'edw-place-hint'; hint.dataset.edwPlaceHint = ''; hint.hidden = true;
-  row.append(label, button, hint);
-  return {row, button, hint};
+  row.append(label, button);
+  return {row, button};
 }
 
 // text: the input's letters (kept as written), or doc: a saved form kept in this tab's memory from an earlier unsaved close.
@@ -85,8 +84,6 @@ export function openUpdateWindow({text = '', doc = null, title = '쓰기', draft
     const label = state.chosen.length ? name() || '고른 곳' : '정리함(미분류)';
     head.button.textContent = label + ' ▾'; head.button.title = '기록할 곳: ' + label;
     head.button.setAttribute('aria-label', state.chosen.length && name() ? '기록할 곳 선택: ' + name() : '기록할 곳 선택');
-    const letters = !keepsFormat(state.chosen, files.pending());
-    head.hint.hidden = !letters; head.hint.textContent = letters ? '이 기록은 글자만 저장돼요' : '';
   }
   head.button.addEventListener('click', () => void placeSheet().open('place', head.button));
   paint();
@@ -111,7 +108,7 @@ export function openUpdateWindow({text = '', doc = null, title = '쓰기', draft
     let warning = '';
     try {
       if (!count) { if (!letters.trim()) return {ok:false, message:'글을 입력해 주세요.'}; if (!target.length || target.length > 1) validateNoteText(letters); }
-      const doc1 = letters.trim() && keepsFormat(target, count) ? value : null;
+      const doc1 = letters.trim() ? value : null;
       let result = updateVia ? await updateVia(letters, target, doc1) : undefined;
       if (result === undefined) result = await saveOwn(letters, target, doc1);
       if (result?.ok === false) return result;
@@ -126,7 +123,7 @@ export function openUpdateWindow({text = '', doc = null, title = '쓰기', draft
     toast(warning || savedMessage(saved)); onSaved(saved);
     return {ok:true};
   }
-  handle = openEdWindow({title, doc, text, draft, saveUnchanged:true, limit:UPDATE_TEXT_MAX, head:head.row, foot:files.node,
+  handle = openEdWindow({title, doc, text, draft, saveUnchanged:true, limit:() => files.pending() ? UPDATE_TEXT_MAX : textLimitFor(state.chosen), head:head.row, foot:files.node,
     dirty:() => files.pending() > 0, placeholder:'업데이트 입력(정리함에 저장)', save:{aria:'업데이트로 저장', run},
     onClose:({text: letters, value}) => { closed = true; if (active === state) active = null; sheet?.dismiss(); onClose(letters, {saved, places:[...state.chosen], value}); }});
   if (!handle) return null;

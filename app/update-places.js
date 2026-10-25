@@ -134,16 +134,16 @@ export { projectRows };
 // chosen: one place, null, or a list. None → a basket note; one → that place's own record (unchanged); two or more → one basket
 // note linked to every place at once (app_basket_confirm_links, the basket [연결하기] path; the database refuses all or none).
 // When the links are refused the note stays in the basket (nothing is lost or doubled): {note, linkError} says so to the caller.
-// ED③ 업데이트: doc (optional) is the new editor's saved form. It goes only onto the basket note (no place, or two or more places);
-// one organization's or project's record keeps letters only until those records have their own new window (설계 11.4 순서 5).
+// ED③ 업데이트·기록: doc (optional) is the new editor's saved form. It goes onto the basket note (no place, or two or more places) and,
+// with one organization or project, onto that record with its letters in the same insert (ED③ 기록, 설계 11.4 순서 5).
 export async function saveUpdate({place, places, text, owner, doc = null}, rt = window.KPTURuntime) {
   const list = placeList(places ?? place);
   if (!list.length) return createNote({raw_text:text, ...(doc ? {doc} : {})}, rt);
   // REF-참고묶음: a reference bundle has no record table, so one bundle alone also goes the basket-update-and-link way below.
   if (list.length === 1 && list[0].kind !== 'reference') {
     const [one] = list;
-    if (one.kind === 'project') return saveProjectProgress({project_id:one.id, raw_text:text.trim(), created_by:owner}, rt);
-    return saveOrganizationUpdate({organization_id:one.id, raw_text:text.trim(), created_by:owner}, rt);
+    if (one.kind === 'project') return saveProjectProgress({project_id:one.id, raw_text:text.trim(), created_by:owner, doc}, rt);
+    return saveOrganizationUpdate({organization_id:one.id, raw_text:text.trim(), created_by:owner, doc}, rt);
   }
   if (list.length > PLACE_LIMIT) throw new Error(`한 번에 ${PLACE_LIMIT}곳까지 고를 수 있어요.`);
   const note = await createNote({raw_text:text, ...(doc ? {doc} : {})}, rt);
@@ -158,12 +158,9 @@ export async function saveUpdate({place, places, text, owner, doc = null}, rt = 
 }
 export const MULTI_REASON = '직접 연결'; // the same reason as the basket [연결하기] (basket-manual-link.js)
 export const linkFailText = '업데이트는 정리함에 저장했지만 고른 곳에 연결하지 못했어요. 정리함에서 [연결하기]로 다시 연결해 주세요.';
-// ED③ 업데이트: whether the new editor's saved form can be kept for these places: yes for the basket, two or more places (one basket update
-// linked to each), a reference bundle, or any save with files (also a basket update linked); no for one organization's or project's own record.
-export const keepsFormat = (places, fileCount = 0) => {
-  const list = placeList(places);
-  return !list.length || list.length > 1 || list[0].kind === 'reference' || fileCount > 0;
-};
+// ED③ 기록: the most letters a record may hold at these places: one project's record is a one-line summary (500, as its input), anything else 20000.
+export const RECORD_PROJECT_MAX = 500;
+export const textLimitFor = places => { const list = placeList(places); return list.length === 1 && list[0].kind === 'project' ? RECORD_PROJECT_MAX : 20000; };
 export const docFailText = '글자는 저장했지만 서식은 저장하지 못했어요. 정리함에서 그 업데이트를 열어 다시 고쳐 저장해 주세요.';
 export const fileFailText = '파일은 정리함에 저장했지만 고른 곳 자료로 넣지 못했어요. 정리함에서 [연결하기]로 다시 넣어 주세요.';
 // BUG-업데이트첨부연결: an update with files and one or more chosen places gives the same result as saving it in the basket and

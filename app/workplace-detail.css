@@ -81,6 +81,8 @@ a.wd-doc-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2p
 #wdUpdates .wd-log-row .wd-rowtop{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:4px}
 #wdUpdates .wd-log-main{min-width:0}
 #wdUpdates .wd-log-main p{white-space:pre-wrap;overflow-wrap:anywhere}
+#wdUpdates .wd-log-main .wd-doc{min-width:0;font-size:var(--ds-text-body,14px)}
+#wdUpdates .wd-log-main .wd-doc .ed-doc{font-size:inherit;line-height:1.55}
 #wdUpdates .wd-log-main p.md-body,#wdUpdates [data-link-summary-text].md-body{white-space:normal}
 #wdUpdates .wd-up-more{width:44px;height:44px;min-height:44px;margin:-6px -6px 0 0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:20px;line-height:1;cursor:pointer}
 #wdUpdates .wd-up-more:hover{background:var(--kptu-surface-subtle)}

@@ -60,7 +60,7 @@ for(const width of [390,1280]){
   expect(f.errors).toEqual([]);
  });
 
- test(`home [크게]: a place chosen at home comes along; ▾ in the window changes it; one organization or project record keeps letters only ${width}`,async({page})=>{
+ test(`home [크게]: a place chosen at home comes along; ▾ in the window changes it; one organization or project record keeps the form too ${width}`,async({page})=>{
   const f=await fixture(page,width),q=quick(page);
   await q.locator('[data-quick-input]').fill('조직 기록');
   await q.locator('[data-quick-org]').click();await page.getByRole('dialog').getByRole('button',{name:'테스트 조직',exact:true}).first().click();await page.getByRole('dialog').getByRole('button',{name:'저장',exact:true}).click();
@@ -69,11 +69,10 @@ for(const width of [390,1280]){
   const e=win(page);await expect(e).toBeVisible();
   await expect(e.locator('[data-edw-place]')).toContainText('테스트 조직');
   await expect(e.locator('[data-edw-place]')).toHaveAccessibleName('기록할 곳 선택: 테스트 조직');
-  // One organization's record keeps letters only for now (its own new window is a later step): the window says so, and no form is sent.
-  await expect(e.locator('[data-edw-place-hint]')).toHaveText('이 기록은 글자만 저장돼요');
+  // ED③ 기록: one organization's record keeps the saved form with its letters.
   await e.locator('[data-edw-save]').click();
   await expect(win(page)).toHaveCount(0);
-  expect(f.orgs).toEqual([{organization_id:'o',raw_text:'조직 기록',created_by:'home-test'}]);expect(f.notes).toEqual([]);
+  expect(f.orgs).toHaveLength(1);expect(f.orgs[0]).toMatchObject({organization_id:'o',raw_text:'조직 기록',created_by:'home-test'});expect(f.orgs[0].doc).toMatchObject({v:'ed1'});expect(f.notes).toEqual([]);
   // A project picked inside the window: the home input follows the same place.
   await q.locator('[data-quick-input]').fill('프로젝트 진행');
   await q.locator('[data-quick-big]').click();await expect(e).toBeVisible();
@@ -86,7 +85,7 @@ for(const width of [390,1280]){
   await expect(e.locator('[data-edw-place]')).toContainText('테스트 프로젝트');
   await expect(e.locator('.ed-window-status')).toHaveText('테스트 프로젝트 기록에 저장돼요.');
   await e.locator('[data-edw-save]').click();await expect(win(page)).toHaveCount(0);
-  expect(f.projects).toHaveLength(1);expect(f.projects[0]).toMatchObject({project_id:'p',workstream_id:null,author_id:'home-test',summary:'프로젝트 진행'});expect(f.projects[0].doc).toBeUndefined();
+  expect(f.projects).toHaveLength(1);expect(f.projects[0]).toMatchObject({project_id:'p',workstream_id:null,author_id:'home-test',summary:'프로젝트 진행'});expect(f.projects[0].doc).toMatchObject({v:'ed1'});
   // UI-기록할곳되돌리기: after the add, the home input goes back to the basket; the project just used is first on the 최근 line.
   await expect(q.locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택');
   const home=page.locator('#homeChoiceSheet');await q.locator('[data-quick-org]').click();await expect(home).toBeVisible();
@@ -96,11 +95,10 @@ for(const width of [390,1280]){
   expect(f.errors).toEqual([]);
  });
 
- test(`[+ 추가] → [업데이트]: [기록할 곳 ▾]에서 조직을 고르면 글자만, 다시 정리함면 서식까지 ${width}`,async({page})=>{
+ test(`[+ 추가] → [업데이트]: [기록할 곳 ▾]에서 조직을 고르면 조직 기록에도 서식까지, 정리함도 서식까지 ${width}`,async({page})=>{
   const f=await fixture(page,width);
   const e=await openWriter(page,width);
   await expect(e.locator('[data-edw-place]')).toContainText('정리함(미분류)');
-  await expect(e.locator('[data-edw-place-hint]')).toBeHidden();
   await typeInto(page,text(page),'쓰기에서 조직으로');
   await e.locator('[data-edw-place]').click();await expect(sheet(page)).toBeVisible();
   await sheet(page).getByRole('button',{name:'테스트 조직',exact:true}).first().click();await sheet(page).getByRole('button',{name:'저장',exact:true}).click();
@@ -108,7 +106,7 @@ for(const width of [390,1280]){
   expect(await fits(page)).toBe(true);
   await e.locator('[data-edw-save]').click();await expect(win(page)).toHaveCount(0);
   await expect(page.locator('#toast')).toContainText('테스트 조직 기록에 저장했어요.');
-  expect(f.orgs).toEqual([{organization_id:'o',raw_text:'쓰기에서 조직으로',created_by:'home-test'}]);expect(f.notes).toEqual([]);
+  expect(f.orgs).toHaveLength(1);expect(f.orgs[0]).toMatchObject({organization_id:'o',raw_text:'쓰기에서 조직으로',created_by:'home-test'});expect(f.orgs[0].doc).toMatchObject({v:'ed1'});expect(f.notes).toEqual([]);
   // The next [+ 추가] → [업데이트] starts again at the basket, and a basket save carries the form.
   const again=await openWriter(page,width);
   await expect(again.locator('[data-edw-place]')).toContainText('정리함(미분류)');
@@ -130,7 +128,6 @@ test('attachments in the home input stay when an organization is chosen in the w
  await e.locator('[data-edw-place]').click();await sheet(page).getByRole('button',{name:'테스트 조직',exact:true}).first().click();await sheet(page).getByRole('button',{name:'저장',exact:true}).click();
  // BUG-업데이트첨부연결: the file stays with the organization chosen (saving there: update-attach-target.spec.mjs). Files make it a basket update, so the form is kept.
  await expect(e.locator('[data-edw-attach] [data-basket-file]')).toHaveCount(1);
- await expect(e.locator('[data-edw-place-hint]')).toBeHidden();
  expect([f.notes,f.orgs,uploads]).toEqual([[],[],[]]);
  // Back to the basket: the text and file go through the basket upload path (one request with the text), then it closes.
  await e.locator('[data-edw-place]').click();await sheet(page).locator('[data-sheet-basket] button').click();await sheet(page).getByRole('button',{name:'저장',exact:true}).click();
