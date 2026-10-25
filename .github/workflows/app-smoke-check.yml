@@ -163,6 +163,9 @@ jobs:
       - name: Check library toggle tree model
         run: node --test tests/library-tree.test.mjs tests/library-view-pref.test.mjs tests/category-chips.test.mjs tests/org-dispute-stage-model.test.mjs tests/view-prefs.test.mjs tests/theme-bootstrap.test.mjs tests/library-upload-organization.test.mjs tests/library-rename.test.mjs
 
+      - name: Check split-resize column math
+        run: node --test tests/split-resize-math.test.mjs
+
       - name: Check Drive copy refresh batching after saves
         run: node --test tests/drive-summary-refresh.test.mjs
 
