@@ -165,3 +165,24 @@
   html:has(#callsView:not(.hidden) :is([data-cf-back],[data-cf-box="work"])) .mobile-shell-header [data-mobile-view-name],
   html:has(#telegramView:not(.hidden) :is([data-tg-back],[data-tg-shelf-back])) .mobile-shell-header [data-mobile-view-name]{ visibility:hidden; }
 }
+
+/* CALL-손고치기: 줄 안 제목 입력, 조직·이름 박스, 핵심내용 고치기. 크기·색은 기존 토큰만(UI-버튼기준). */
+.feed-view .feed-editing .feed-call{align-items:center;cursor:default}
+.feed-view .feed-title-input,.feed-view .feed-edit-input{flex:1 1 auto;min-width:0;width:100%;height:var(--ds-compact-height);margin:0;padding:0 6px;border:var(--ds-line-width) solid var(--kptu-primary);border-radius:var(--ds-radius-control);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-row);box-sizing:border-box}
+.feed-view .feed-edit-input{border-color:var(--ds-line)}
+.feed-view .feed-title-input:focus-visible,.feed-view .feed-edit-input:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+.feed-view .feed-detail-title-input{font-size:15px;font-weight:var(--ds-weight-medium)}
+.feed-view .feed-whoname{position:relative;display:inline;margin:0;padding:0;border:0;background:transparent;color:inherit;font:inherit;text-decoration:underline dotted;text-underline-offset:2px;cursor:pointer}
+.feed-view .feed-whoname::after{content:"";position:absolute;inset:-12px -4px}
+.feed-view .feed-whoname:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
+.feed-view .feed-who-box .feed-link-row{flex-wrap:wrap;margin-bottom:4px}
+.feed-view .feed-who-box .feed-edit-input{flex:1 1 7em;width:auto}
+.feed-view .feed-k-tools{display:inline-flex;align-items:center;gap:4px}
+.feed-view .feed-mini-edit{position:relative;flex:none;width:var(--ds-compact-height-sm);height:var(--ds-compact-height-sm);min-height:0;margin:0;padding:0;border:0;border-radius:var(--ds-radius-control);background:transparent;color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-meta);cursor:pointer}
+.feed-view .feed-mini-edit::after{content:"";position:absolute;inset:-8px}
+.feed-view .feed-mini-edit:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+.feed-view .feed-mini-edit:disabled{opacity:.5;cursor:default}
+.feed-view .feed-sumedit{margin:0 0 8px;padding:6px 8px;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-surface-subtle)}
+.feed-view .feed-sumedit-lines{list-style:none;margin:2px 0 4px;padding:0}
+.feed-view .feed-sumedit-line{display:flex;align-items:center;gap:4px;margin:3px 0}
+.feed-view .feed-decide-btns{align-items:center;gap:0;padding-right:2px}

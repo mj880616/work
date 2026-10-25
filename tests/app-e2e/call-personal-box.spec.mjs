@@ -45,6 +45,7 @@ async function fixture(page,{width=1280,ledgerSeen=[],personalMissing=false,refi
    let out=db.personal.filter(x=>!x.hidden_at);if(eq(q,'id'))out=out.filter(x=>x.id===eq(q,'id'));
    return r.fulfill({json:out.map(x=>fields(q,x))});
   });
+  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_call_edits',r=>r.fulfill({json:[]}));
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_call_move',r=>{
    const body=r.request().postDataJSON();moves.push(body);
    const w=db.work.find(x=>x.id===body.p_id),p=db.personal.find(x=>x.id===body.p_id);
@@ -112,7 +113,7 @@ for(const width of [390,1280])test(`통화 ${width}: 업무 통화함 기본 + �
  await expect(detail.locator('[data-cf-script],[data-cf-raw-empty]')).toHaveCount(1);
  await tap(page,detail.locator('[data-cf-more]'),width);
  const menu=page.locator('#cfMenu');await expect(menu).toBeVisible();
- await expect(menu.locator('button')).toHaveText(['업무 통화로 옮기기','요약 복사','지우기 목록에서만']);
+ await expect(menu.locator('button')).toHaveText([/^제목 바꾸기/,'이름 고치기','요약 고치기','업무 통화로 옮기기','요약 복사','지우기 목록에서만']);
  await page.keyboard.press('Escape');
  // 폰: 뒤로가기 한 칸 = 개인 통화함 목록, 한 칸 더 = 업무 통화함.
  if(width<1024){
@@ -197,7 +198,7 @@ test('통화 1280: 목록 줄을 오른쪽 클릭하면 같은 메뉴가 누른 
  const view=page.locator('#callsView');
  await view.locator(`[data-cf-row="${W2}"]`).click({button:'right'});
  const menu=page.locator('#cfMenu');await expect(menu).toBeVisible();
- await expect(menu.locator('button')).toHaveText(['고정','요약 복사','개인 통화로 옮기기','지우기 목록에서만']);
+ await expect(menu.locator('button')).toHaveText([/^제목 바꾸기/,'조직·이름 고치기','요약 고치기','고정','요약 복사','개인 통화로 옮기기','지우기 목록에서만']);
  await menu.getByRole('button',{name:'개인 통화로 옮기기'}).click();
  await expect.poll(()=>f.moves).toEqual([{p_id:W2,p_to:'personal'}]);
  expect(f.errors).toEqual([]);

@@ -64,6 +64,7 @@ async function fixture(page,{width=1280,missing=false,empty=false,noArchive=fals
    return r.fulfill({json:{ok:true,id:p_id,state:p_state,archived_at:row.archived_at,hidden_at:row.hidden_at,updated_at:'2026-10-25T10:00:00Z'}});
   });
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_call_personal',r=>r.fulfill({json:[]}));
+  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_call_edits',r=>r.fulfill({json:[]}));
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_feed_days',r=>{
    if(missing)return r.fulfill({status:404,json:{code:'PGRST205'}});
    const q=new URL(r.request().url()).searchParams,src=decodeURIComponent((q.get('source')||'').slice(3));
@@ -149,7 +150,7 @@ for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세
  // 고정: ⋯ → 고정 → 서버에 pinned_at.
  await tap(page,detail.locator('[data-cf-more]'),width);
  const menu=page.locator('#cfMenu');await expect(menu).toBeVisible();
- await expect(menu.locator('button')).toHaveText(['고정','조직 연결','요약 복사','Drive 원본 열기','개인 통화로 옮기기','지우기 목록에서만']);
+ await expect(menu.locator('button')).toHaveText([/^제목 바꾸기/,'조직·이름 고치기','요약 고치기','고정','조직 연결','요약 복사','Drive 원본 열기','개인 통화로 옮기기','지우기 목록에서만']);
  await tap(page,menu.getByRole('button',{name:'고정',exact:true}),width);
  await expect.poll(()=>f.writes.filter(w=>w.id===C1&&w.body.pinned_at).length).toBe(1);
  await expect(detail.locator('[data-cf-meta]')).toContainText('· 고정');
