@@ -99,6 +99,8 @@ test('every app_notes list read in app/ carries a kind filter', () => {
       }
       if (!/\/rest\/v1\/app_notes\?/.test(literal)) continue;
       if (/[?&]id=eq\./.test(literal)) continue;
+      // Lookup of explicitly named ids that selects `kind` itself (ledger source check): the caller classifies each row, so no kind filter is wanted.
+      if (/[?&]id=in\./.test(literal) && /[?&]select=[^&`]*\bkind\b/.test(literal)) continue;
       if (!/[?&]kind=eq\./.test(literal)) offenders.push(`${file}: ${literal.slice(0, 80)}`);
     }
   }
