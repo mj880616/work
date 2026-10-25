@@ -16,7 +16,7 @@ for(const width of [390,1280])test(`상대 약속 줄 and [원장으로] in 정�
  page.on('pageerror',e=>errors.push(e.message));page.on('console',e=>{if(e.type()==='error'&&!/Failed to load resource|net::ERR_FAILED/.test(e.text()))errors.push(e.text());});
  await page.route(SB+'/rest/v1/app_todo_candidates*',async route=>{
   const m=route.request().method();
-  if(m==='GET')return route.fulfill({json:[cand]});
+  if(m==='GET'){const st=new URL(route.request().url()).searchParams.get('status')||'';return route.fulfill({json:st.startsWith('in.')?[]:[cand]});}
   writes.push(m);return route.fulfill({status:403,json:{message:'시험에서 막음'}});
  });
  await page.route(SB+'/functions/v1/ai-assist',async route=>{
