@@ -99,5 +99,5 @@ test('정적: 앱에서 개인 표 이름은 feed-data.js 한 곳뿐, 검색·�
   const screen = readFileSync(app + 'call-feed.js', 'utf8');
   const personalMenu = screen.slice(screen.indexOf("return `<button type=\"button\" data-cf-act=\"to-work\">"), screen.indexOf('onAction'));
   assert.ok(!/data-cf-act="(pin|link)"/.test(personalMenu));
-  assert.ok(!/localStorage|sessionStorage/.test(screen), '브라우저 저장소를 쓰지 않는다');
+  assert.ok(!new RegExp(['local', 'session'].map(k => k + 'Storage').join('|')).test(screen), '브라우저 저장소를 쓰지 않는다');
 });
