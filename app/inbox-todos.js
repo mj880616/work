@@ -11,7 +11,6 @@ import {readInboxCandidates as readAllInbox, dismissCandidate, reopenCandidate, 
   quickDue, dotDay, radarScope, ledgerRequestText, RADAR_SOURCE_LABEL} from './todo-radar-data.js';
 import {seoulDateKey} from './meeting-time.js';
 import {offerUndoNotice} from './basket-record-delete.js';
-import {openSource, radarPromises} from './todo-radar.js';
 import {copyText} from './copy-text.js';
 
 const CHANGED = 'kptu:todo-radar-changed';
@@ -22,7 +21,9 @@ const taskTitles = () => (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).fi
 // MTG-후속할일후보: the same list can sit inside one 사업 보고 window. `read` swaps in the reader for that meeting's rows, `quietEmpty` draws nothing
 // when there is nothing to handle, `hideSource` leaves out the source button (the window already is the source), and `withPromises:false` keeps the
 // counterpart promises out (they belong to the home/정리함 lists).
-export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read, quietEmpty = false, hideSource = false, withPromises = true}) {
+// openSource / radarPromises come from todo-radar.js and are handed in by the 정리함 screen (basket.js): this module must not import todo-radar.js,
+// whose source button opens the 사업 보고 window, because that window (meeting-round-detail.js) now uses this list (import cycle).
+export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read, quietEmpty = false, hideSource = false, withPromises = true, openSource = () => {}, radarPromises = () => []}) {
   const readInboxCandidates = read || readAllInbox;
   let rows = [], state = 'loading', chip = 'open', run = 0, scope = radarScope(rt), status = '';
   const copied = new Set(), busy = new Set(), unknown = new Map(), unmarked = new Map(), rowStatus = new Map();
