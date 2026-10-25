@@ -12,15 +12,17 @@ test('PC 할 일: 다시 들어와도 목록을 이름표 없이 한 번 더 그
  await clickView(page,'tasks');
  const tag=page.locator('#gtTaskSection .gt-card[data-google-task="overdue"] .gt-tag-project');
  await expect(tag).toBeVisible();
+ // 처음 들어왔을 때 시작한 읽기(출처 업데이트·첨부 파일 등)가 다 끝난 뒤부터 센다. 그 끝물의 그리기를 다시 들어온 뒤의 것으로 세지 않도록.
+ await page.waitForLoadState('networkidle');
  await clickView(page,'home');
  await expect(page.locator('#tasksView')).toBeHidden();
- await page.evaluate(()=>{window.__gtBodyChanges=0;new MutationObserver(list=>{window.__gtBodyChanges+=list.filter(m=>m.type==='childList').length}).observe(document.querySelector('#gtTaskBody'),{childList:true})});
+ await page.evaluate(()=>{window.__gtBodyChanges=[];new MutationObserver(list=>{for(const m of list)if(m.type==='childList')window.__gtBodyChanges.push(`+${m.addedNodes.length}/-${m.removedNodes.length} ${(m.addedNodes[0]?.outerHTML||m.addedNodes[0]?.textContent||'').slice(0,160)}`)}).observe(document.querySelector('#gtTaskBody'),{childList:true})});
  // 다시 들어오면 목록을 새로 받고(할 일 목록 요청) 이어서 연결 정보를 읽는다(app_record_links). 연결 정보 응답이 온 뒤까지 본다.
  const linkRead=page.waitForResponse(r=>/\/rest\/v1\/app_record_links\?google_task_id=in\./.test(r.url()));
  await clickView(page,'tasks');
  await expect(page.locator('#gtTaskSection.gt-pc')).toBeVisible();
  await linkRead;
  await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
- expect(await page.evaluate(()=>window.__gtBodyChanges)).toBe(0);
+ expect(await page.evaluate(()=>window.__gtBodyChanges)).toEqual([]);
  await expect(tag).toBeVisible();
 });
