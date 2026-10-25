@@ -194,7 +194,7 @@ test('ledger_fix: DB dry run refusals map to plain codes; unclear sentences ask 
   {const {handler,calls}=harness({openai:[()=>respond({status:'completed',output:[{type:'message',content:[{type:'output_text',text:'not json'}]}],usage:{input_tokens:1,output_tokens:1}})]});
    await err(await post(handler,{kind:'ledger_fix',text:'날짜 고침'}),502,'ai_invalid_response');assert.equal(calls.rpc.length,0);}
   {const {handler,calls}=harness({ledgerMissing:true});await err(await post(handler,{kind:'ledger_fix',text:'날짜 고침'}),503,'ledger_not_ready');assert.equal(calls.openai.length,0);}
-  {const {handler,calls}=harness({usage:[{workspace_id:WS,user_id:OWNER,day:TODAY,requests:50,input_tokens:0,output_tokens:0}]});
+  {const {handler,calls}=harness({usage:[{workspace_id:WS,user_id:OWNER,day:TODAY,requests:80,input_tokens:0,output_tokens:0}]});
    await err(await post(handler,{kind:'ledger_fix',text:'날짜 고침'}),429,'daily_limit');assert.equal(calls.openai.length,0);}
 });
 

@@ -7,7 +7,7 @@ import {spawnSync} from 'node:child_process';
 
 // AI-서버연동 S1: real ai-assist handler with a synthetic Supabase (Auth + PostgREST with owner RLS) and a mocked OpenAI.
 // No network: every fetch goes to the in-test router. No real key: the key value is a fixed fake string.
-const {createAiAssistHandler,parseLinkSummary,cleanSummary,seoulDays,estimateKrw,MONTHLY_LIMIT_KRW,DAILY_LIMITS,
+const {createAiAssistHandler,parseLinkSummary,cleanSummary,seoulDays,estimateKrw,MONTHLY_LIMIT_KRW,DAILY_LIMITS,DAILY_TOTAL_LIMIT,
   DEFAULT_PRICE_IN_KRW_PER_MTOK,DEFAULT_PRICE_OUT_KRW_PER_MTOK,LINK_SUMMARY_INSTRUCTIONS}=
   await import('../../supabase/functions/ai-assist/handler.ts');
 
@@ -251,11 +251,13 @@ test('monthly estimated budget stops the function before OpenAI',async()=>{
   assert.ok(estimateKrw(inputTokens,0,{input:DEFAULT_PRICE_IN_KRW_PER_MTOK,output:DEFAULT_PRICE_OUT_KRW_PER_MTOK})>=MONTHLY_LIMIT_KRW);
 });
 
-test('daily per-use cap stops the function before OpenAI',async()=>{
-  const {handler,calls}=harness({usage:[{workspace_id:WS,user_id:OWNER,day:TODAY,requests:DAILY_LIMITS.link_summary,input_tokens:0,output_tokens:0}]});
+// 하루 요청 수는 모든 쓰임 합계(app_ai_daily_usage.requests)로 센다. 쓰임별 칸이 없어 link_summary 50은 합계 상한(80) 안의 목표치다.
+test('daily shared cap stops the function before OpenAI',async()=>{
+  assert.ok(DAILY_LIMITS.link_summary<=DAILY_TOTAL_LIMIT);
+  const {handler,calls}=harness({usage:[{workspace_id:WS,user_id:OWNER,day:TODAY,requests:DAILY_TOTAL_LIMIT,input_tokens:0,output_tokens:0}]});
   await expectError(await post(handler,req()),429,'daily_limit');
   assert.equal(calls.openai.length,0);
-  const {handler:h2}=harness({usage:[{workspace_id:WS,user_id:OWNER,day:'2026-10-20',requests:DAILY_LIMITS.link_summary,input_tokens:0,output_tokens:0}]});
+  const {handler:h2}=harness({usage:[{workspace_id:WS,user_id:OWNER,day:'2026-10-20',requests:DAILY_TOTAL_LIMIT,input_tokens:0,output_tokens:0}]});
   assert.equal((await post(h2,req())).status,200);
 });
 
