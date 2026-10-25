@@ -7,6 +7,7 @@
  *   - 개인·애매 통화(분석 v3.5가 요약을 남김)도 요약·전문까지 보낸다. 서버가 개인 통화함에 저장하고 업무 기록에는 쓰지 않는다.
  *     요약이 없는 옛 개인 기록은 서버가 개수만 센다.
  *   - 분석이 아직 없으면 기다린다(3일 넘게 없으면 건너뛴다).
+ *   - 지난 개인·애매 통화 다시 보내기(1회용 callFeed_resendPersonal)는 진행 위치를 따로(CALL_FEED_RESEND_STATE) 둔다.
  *   - 어디까지 보냈는지는 이 스크립트의 스크립트 속성(CALL_FEED_STATE)에만 적는다. Drive 파일은 고치지 않는다.
  *     분석 파일의 status, Drive 파일 설명도 건드리지 않는다(Q13).
  *   - 시험 모드(기본 켬): 아무것도 보내지 않고 개수만 실행 로그에 적는다. 어디까지 보냈는지도 바꾸지 않는다.
@@ -32,8 +33,10 @@ var CALL_FEED_SECRET_HEADER = 'x-collector-feed-secret';
 var CALL_FEED_LIST_KEY = 'CALL_FEED_PERSONAL_LIST';   // 개인 번호·연락처 이름 목록(쉼표 또는 줄바꿈으로 구분)
 var CALL_FEED_TEST_KEY = 'CALL_FEED_TEST_MODE';       // 없거나 '켬'이면 시험 모드. '끔'일 때만 실제로 보낸다
 var CALL_FEED_STATE_KEY = 'CALL_FEED_STATE';          // 어디까지 보냈는지(JSON)
+var CALL_FEED_RESEND_KEY = 'CALL_FEED_RESEND_STATE';  // 개인 통화 다시 보내기(1회용)의 진행 위치. CALL_FEED_STATE와 따로 둔다
 var CALL_FEED_TRANSCRIPT_FOLDER = '전사';             // 기존 전사·분석 스크립트와 같은 이름
 var CALL_FEED_ANALYSIS_FOLDERS = ['검토대기', '검토완료'];
+var CALL_FEED_RESEND_MAX = 20;                        // 다시 보내기 한 번에 서버로 보낼 수(CALL_FEED_MAX_PER_RUN과 같은 크기)
 var CALL_FEED_MAX_PER_RUN = 20;                       // 서버 하루 상한(통화 요청 200건, 업무·개인 합산) 안에서 한 번에 보낼 수
 var CALL_FEED_TIME_LIMIT_MS = 4.5 * 60 * 1000;        // 앱 스크립트 6분 제한 전에 멈춘다
 var CALL_FEED_WAIT_ANALYSIS_MS = 72 * 3600 * 1000;    // 분석을 기다리는 시간(분석 스크립트가 OpenAI 요청 한도로 반나절 넘게 쉬는 경우가 있어 3일)
@@ -131,6 +134,97 @@ function callFeed_makeSecret() {
   if (props.getProperty(CALL_FEED_SECRET_KEY)) { Logger.log('비밀값이 이미 있습니다. 바꾸지 않았습니다.'); return; }
   props.setProperty(CALL_FEED_SECRET_KEY, (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, ''));
   Logger.log('새 비밀값을 스크립트 속성에 넣었습니다(값은 로그에 남기지 않음). Supabase에도 같은 값을 넣으세요.');
+}
+
+/**
+ * 1회용 — 지난 개인·애매 통화 다시 보내기 (CALL-개인통화함 3단계).
+ * 개인 통화함이 생기기 전에는 개인·애매 통화의 내용이 서버에 가지 않았다(개수만). 최근 7일 녹음 중 분석(v3.5)이 개인·애매 요약을 가진 통화를
+ * 이 함수가 한 번 더 보내 개인 통화함에 채운다. 서버는 원본 고유키로 중복을 막으므로 이미 개인 통화함·업무 통화함에 있는 통화는 '이미 있음'으로 끝난다.
+ * - 보내는 통화: 녹음 날짜가 최근 7일 안, 분석 파일이 있고, 구분이 개인·애매(또는 개인 번호 목록 통화)이며, 핵심요약이 실제로 있는 것만.
+ *   업무 통화·요약 없는 옛 기록(서버가 개수만 다시 세어 숫자가 늘어남)·분석이 아직 없는 통화는 보내지 않는다(분석이 생기면 평소 보내기가 보낸다).
+ * - 진행 위치는 CALL_FEED_STATE가 아니라 CALL_FEED_RESEND_STATE에만 적는다. 평소 보내기(callFeed_run)의 앞으로만 가는 진행 위치는 건드리지 않는다.
+ * - 한 번에 CALL_FEED_RESEND_MAX건까지 보내고 멈춘다. 멈췄으면 다시 [실행]하면 이어서 한다. '끝까지 봄'이 나오면 끝이다.
+ * - 시험 모드(기본 켬)에서는 보내지 않고 보낼 개수만 로그에 적고 진행 위치도 적지 않는다. 시험 모드를 끈 뒤에 실행해야 실제로 보낸다.
+ */
+function callFeed_resendPersonal() {
+  var started = Date.now();
+  var props = PropertiesService.getScriptProperties();
+  var test = callFeed_testMode_();
+  var secret = props.getProperty(CALL_FEED_SECRET_KEY) || '';
+  if (!test && secret.length < 32) throw new Error('스크립트 속성에 ' + CALL_FEED_SECRET_KEY + '가 없습니다. 안내 2단계를 먼저 하세요.');
+  var list = callFeedParseList(props.getProperty(CALL_FEED_LIST_KEY) || '');
+  var folders = callFeed_folders_();
+  var nowMs = Date.now();
+  var recentStart = callFeedRecentStartMs(nowMs);
+  var from = Math.max(callFeed_loadResend_().from, recentStart);
+  var tally = { looked: 0, wanted: 0, sent: 0, saved: 0, duplicate: 0, noAnalysis: 0, notWanted: 0, old: 0, skipped: 0, personal: 0, unsure: 0 };
+  var stop = '', cursor = from;
+  var files = callFeed_newTranscripts_(folders.transcript, from);
+  for (var i = 0; i < files.length; i++) {
+    if (Date.now() - started > CALL_FEED_TIME_LIMIT_MS) { stop = '시간 제한'; break; }
+    if (!test && tally.sent >= CALL_FEED_RESEND_MAX) { stop = '한 번에 보낼 수 도달'; break; }
+    var file = files[i].file, created = files[i].created, id = file.getId(), info = callFeedTranscriptName(file.getName());
+    tally.looked++;
+    if (callFeedTooOld(info.day || callFeedKstDay(created), nowMs)) { tally.old++; cursor = created; continue; }
+    var analysis = callFeed_findAnalysis_(folders.analysis, file.getName(), id);
+    if (!analysis) { tally.noAnalysis++; cursor = created; continue; }
+    var analysisMd = analysis.getBlob().getDataAsString('UTF-8');
+    var isList = callFeedIsPersonal(info.contact, list);
+    var want = callFeedResendWanted(analysisMd, isList);
+    if (!want) { tally.notWanted++; cursor = created; continue; }
+    tally.wanted++;
+    var body = callFeedBuildCallBody({ ref: id, analysisMd: analysisMd, transcript: file.getBlob().getDataAsString('UTF-8'), driveUrl: file.getUrl(), contact: info.contact, recordedAt: info.datetime, forcePersonal: isList });
+    if (!body) { tally.skipped++; cursor = created; continue; }
+    if (test) { tally.sent++; if (want === '애매') tally.unsure++; else tally.personal++; cursor = created; continue; }
+    var res = callFeed_post_('call', body, secret);
+    var verdict = callFeedVerdict(res.code);
+    if (verdict === 'ok') {
+      var out = res.json || {};
+      tally.sent++;
+      if (out.duplicate) tally.duplicate++; else if (out.boxed) tally.saved += out.boxed; else tally.skipped++;
+      if (want === '애매') tally.unsure++; else tally.personal++;
+      cursor = created;
+    } else if (verdict === 'auth') {
+      callFeed_saveResend_(cursor);
+      throw new Error('비밀값 불일치(401) — 스크립트 속성 값과 Supabase COLLECTOR_FEED_SECRET이 같은지 확인하세요.');
+    } else if (verdict === 'limit') {
+      stop = '서버 하루 상한(429) — 내일 다시 실행하면 이어서 보냄';
+      break;
+    } else if (verdict === 'drop') {
+      tally.skipped++; cursor = created;
+      Logger.log('서버가 거절해 넘김(HTTP ' + res.code + (res.json && res.json.error ? ' ' + res.json.error : '') + ')');
+    } else {
+      stop = '서버·연결 실패(HTTP ' + res.code + ') — 다시 실행하면 같은 통화부터 이어서 보냄';
+      break;
+    }
+  }
+  if (!test) callFeed_saveResend_(cursor);
+  Logger.log([
+    (test ? '[시험 모드 — 보내지 않음] ' : '') + '지난 개인·애매 통화 다시 보내기: 전사 ' + tally.looked + '건 확인',
+    (test ? '보낼 것: ' : '보냄: ') + tally.sent + ' (개인 ' + tally.personal + ' · 애매 ' + tally.unsure + ')' + (test ? '' : ' · 개인 통화함에 새로 저장 ' + tally.saved + ' · 이미 있음 ' + tally.duplicate),
+    '보내지 않음: 업무·요약 없음 ' + tally.notWanted + ' · 분석 아직 없음 ' + tally.noAnalysis + (tally.old ? ' · 일주일 넘은 옛 녹음 ' + tally.old : '') + (tally.skipped ? ' · 넘김 ' + tally.skipped : ''),
+    stop ? '멈춘 이유: ' + stop + (test ? '' : ' (다시 [실행]하면 이어서 합니다)') : '끝까지 봄',
+  ].join('\n'));
+}
+
+/** 다시 보내기를 처음부터 다시 하고 싶을 때만: 진행 위치를 지운다(서버가 중복을 막으므로 다시 해도 같은 통화는 '이미 있음'). */
+function callFeed_resendReset() {
+  PropertiesService.getScriptProperties().deleteProperty(CALL_FEED_RESEND_KEY);
+  Logger.log('다시 보내기 진행 위치를 지웠습니다. 다음 실행은 최근 7일 처음부터 봅니다.');
+}
+
+function callFeed_loadResend_() {
+  var raw = PropertiesService.getScriptProperties().getProperty(CALL_FEED_RESEND_KEY);
+  var s = {};
+  try { s = raw ? JSON.parse(raw) : {}; } catch (e) { s = {}; }
+  var from = Number(s.from);
+  return { from: isFinite(from) && from > 0 ? from : 0 };
+}
+
+/** 진행 위치는 앞으로만 간다(저장된 값보다 작은 값은 쓰지 않는다). */
+function callFeed_saveResend_(cursorMs) {
+  var prev = callFeed_loadResend_().from;
+  PropertiesService.getScriptProperties().setProperty(CALL_FEED_RESEND_KEY, JSON.stringify({ from: Math.max(prev, cursorMs) }));
 }
 
 // ── 1시간 트리거가 부르는 함수 ─────────────────────────────────────────
@@ -629,6 +723,31 @@ function callFeedBuildCallBody(input) {
   var url = input.driveUrl;
   if (typeof url === 'string' && url.length <= 500 && /^https:\/\/(drive|docs)\.google\.com\/[^\s\u0000-\u001f\u007f]*$/.test(url)) body.drive_url = url;
   return body;
+}
+
+/**
+ * 분석 파일 본문에 핵심요약 절이 있고 "없음"류가 아닌 줄이 하나라도 있나(서버 call-analysis.ts의 sections·bullets와 같은 기준의 간단판).
+ * 서버는 요약 없는 개인 기록을 개인 통화함에 저장하지 않고 날짜별 개수만 올리므로, 다시 보내기는 요약이 있는 것만 보낸다.
+ */
+function callFeedHasSummary(md) {
+  var lines = String(md == null ? '' : md).replace(/^﻿/, '').split(/\r?\n/), i = 0, inSummary = false;
+  if (lines.length && lines[0].trim() === '---') { for (i = 1; i < lines.length; i++) { if (lines[i].trim() === '---') { i++; break; } } } else i = 0;
+  for (; i < lines.length; i++) {
+    var h = /^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$/.exec(lines[i]) || /^\s*\*\*([^*]{1,40})\*\*\s*:?\s*$/.exec(lines[i]);
+    if (h) { inSummary = callFeedNfc(h[1]).replace(/\*\*|__/g, '').replace(/^\s*\d+\s*[.)]\s*/, '').replace(/[\s·‧・\/:：()（）\[\]]/g, '').indexOf('핵심요약') === 0; continue; }
+    if (!inSummary) continue;
+    var t = lines[i].replace(/^\s*(?:[-*•]|\d{1,2}[.)])\s*/, '').trim();
+    if (t && !/^(없음|해당\s*없음|특이\s*사항\s*없음|n\/?a|-|—|확인\s*불가|확인\s*필요|미상|불명|(장기적으로\s*남길\s*)?핵심\s*요약\s*없음)\.?$/i.test(t)) return true;
+  }
+  return false;
+}
+
+/** 다시 보내기 대상인가: '개인' | '애매'(보냄) 또는 ''(보내지 않음). 개인 번호 목록 통화는 개인으로 본다. 업무·구분 없음·분석 실패·요약 없음은 보내지 않는다. */
+function callFeedResendWanted(md, isList) {
+  var cls = callFeedClass(md);
+  if (cls === '실패' || !callFeedHasSummary(md)) return '';
+  if (isList) return '개인';
+  return cls === '개인' || cls === '애매' ? cls : '';
 }
 
 /** 서버 응답 코드 → 할 일. ok: 다음으로, auth: 멈추고 알림, limit: 다음 실행, drop: 넘김, retry: 다음 실행에 다시. */
@@ -1247,6 +1366,7 @@ if (typeof module !== 'undefined' && module.exports) {
     callFeedAnalysisName: callFeedAnalysisName, callFeedMinimalAnalysis: callFeedMinimalAnalysis,
     callFeedFrontmatter: callFeedFrontmatter, callFeedClass: callFeedClass, callFeedForcePersonal: callFeedForcePersonal,
     callFeedBuildCallBody: callFeedBuildCallBody, callFeedVerdict: callFeedVerdict,
+    callFeedHasSummary: callFeedHasSummary, callFeedResendWanted: callFeedResendWanted,
     callFeedPendingClean: callFeedPendingClean, callFeedPendingTrim: callFeedPendingTrim, callFeedPendingDecision: callFeedPendingDecision,
     tgFeedAddDays: tgFeedAddDays, tgFeedParseRooms: tgFeedParseRooms, tgFeedRoomMatch: tgFeedRoomMatch, tgFeedRoomPick: tgFeedRoomPick, tgFeedRoomInfo: tgFeedRoomInfo,
     tgFeedParseTime: tgFeedParseTime, tgFeedParseMessage: tgFeedParseMessage, tgFeedGroupDay: tgFeedGroupDay, tgFeedSenderName: tgFeedSenderName,
