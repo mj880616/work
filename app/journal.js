@@ -51,6 +51,8 @@ import {mountRadar} from './todo-radar.js';
 import {readOrgSummaries, saveEditedSummary, requestOrgSummaries, resultMessage, cleanEdited} from './journal-org-summary.js';
 import {readExecRequests, changeExecRequests, cleanItem, mergeCarried, isExecRecord} from './weekly-exec-requests.js';
 import {readAutoPromises} from './journal-ledger.js';
+import {readOverlapRows, askPairs, reviveOverlaps} from './overlap-weekly-data.js';
+import {weekCandidates, reviveEdges, WEEK_BACK_WEEKS} from './overlap-weekly.mjs';
 
 // ORG-묶음순서: the shared organization order (window.KPTUOrganizationOrder) orders the 조직 소식 sections.
 await import('./organization-order.js').catch(() => {});
@@ -93,6 +95,9 @@ let memory = {status:'loading'}, memoryUi = {open:false, busy:false, status:'', 
 // WEEKLY-자료요약 화면 ②: 자료 줄 [고치기]·[빼기]·[넣기] (그 주 임시저장 draft.docs, weekly-draft-store.js). fileUi = memory only.
 const freshFileUi = () => ({editing:null, value:'', saving:false, status:'', error:false, open:new Set()});
 let fileUi = freshFileUi();
+// MTG-기록겹침거르기 4단계: 겹쳐서 뺀 줄 접힘·되살리기 상태(탭 메모리뿐, 판정은 서버 표에만 저장). overlapFor = 겹침 확인을 이미 한 주 읽기(epoch).
+const freshOverlapUi = () => ({open:new Set(), busy:null, status:'', error:false});
+let overlapUi = freshOverlapUi(), overlapFor = -1;
 let doneDays = DONE_TASK_DAYS; // days of finished tasks the Edge really covered (3 on an older Edge)
 let drafts = new Map(), saving = false;
 // The one line being edited in place: {day, index, before, value}.
@@ -365,9 +370,10 @@ function renderWeekly_() {
   const memoryFold = host.querySelector('[data-journal-weekly-memory]'); if (memoryFold) memoryUi.open = memoryFold.open;
   // 자료 접힘(기록과 같아 뺀·뺀 자료)이 열려 있는지, 고치던 글과 초점도 다시 그려도 그대로.
   for (const d of host.querySelectorAll('[data-journal-file-fold-key]')) { if (d.open) fileUi.open.add(d.dataset.journalFileFoldKey); else fileUi.open.delete(d.dataset.journalFileFoldKey); }
+  for (const d of host.querySelectorAll('[data-journal-overlap-fold]')) { if (d.open) overlapUi.open.add(d.dataset.journalOverlapFold); else overlapUi.open.delete(d.dataset.journalOverlapFold); }
   const fileInput = host.querySelector('[data-journal-file-edit-input]'), fileFocus = fileInput && fileInput === document.activeElement;
   if (fileInput && fileUi.editing === fileInput.dataset.journalFileEditInput) fileUi.value = fileInput.value;
-  renderWeekly(host, weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory}), esc, orgUi, execUi, memoryUi, fileUi);
+  renderWeekly(host, weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory}), esc, orgUi, execUi, memoryUi, fileUi, overlapUi);
   if (fileFocus || (fileUi.editing && fileUi.focus)) { const f = host.querySelector('[data-journal-file-edit-input]'); if (f) { f.focus(); if (fileUi.focus) { f.select(); fileUi.focus = false; } } }
   if (focused) host.querySelector('[data-journal-org-edit-input]')?.focus();
   if (execFocus) host.querySelector(`[data-journal-exec-field="${execFocus}"]`)?.focus();
@@ -402,7 +408,7 @@ function setMode(next) {
   if (next === mode || !['day', 'week'].includes(next)) return;
   mode = next; editing = null;
   renderMode();
-  if (mode === 'week') renderWeekly_(); else { renderWeek(); renderLine({keepStatus:true}); renderDay(); radarDay(); }
+  if (mode === 'week') { renderWeekly_(); void checkOverlaps(); } else { renderWeek(); renderLine({keepStatus:true}); renderDay(); radarDay(); }
 }
 function render() { renderMode(); renderWeek(); renderLine({keepStatus:true}); renderDay(); renderWeekly_(); radarDay(); }
 
@@ -452,6 +458,7 @@ async function loadGroup(key, run = SHARED_KEYS.has(key) ? sharedEpoch : epoch, 
     materials[key] = {status:'failed'};
   }
   renderDay(); renderWeekly_();
+  void checkOverlaps();
 }
 async function loadLines(run, scope) {
   linesState = 'loading'; renderLine();
@@ -472,6 +479,7 @@ async function loadKinds(run, scope) {
   const read = await readKinds(rt);
   if (run !== sharedEpoch || scope !== ownerScope(rt)) return;
   kinds = read; renderDay(); renderWeekly_();
+  void checkOverlaps();
 }
 async function loadMemory(run, scope) {
   memory = {status:'loading'};
@@ -483,10 +491,12 @@ function loadWeek({shared = false} = {}) {
   const changedOwner = owner !== ownerScope(rt);
   const run = ++epoch, scope = owner = ownerScope(rt);
   const sharedRun = shared || changedOwner ? ++sharedEpoch : sharedEpoch;
+  overlapUi = freshOverlapUi();
   lines = new Map(); status.textContent = ''; editing = null; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; execUi = freshExec(); fileUi = freshFileUi();
   if (changedOwner) hwpx?.close(); else hwpx?.setWeek(start);
   const keys = shared ? Object.keys(readers) : ['events', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'orgSummaries', 'execRequests', 'weekDraft', 'ledgerPromises'];
   for (const key of keys) materials[key] = {status:'loading'};
+  delete materials.overlaps;
   if (shared || changedOwner) { loadKinds(sharedRun, scope); loadMemory(sharedRun, scope); memoryUi = {open:false, busy:false, status:'', error:false, undo:null}; }
   render();
   loadLines(run, scope);
@@ -768,8 +778,52 @@ async function copyDraft() {
   const text = weeklyReportText(weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory}));
   const ok = await copyText(text);
   // movedNotes, catalog (the project order) and this week's events (the day card's 일정) are not draft material.
-  const missing = Object.entries(materials).some(([key, state]) => !['movedNotes', 'catalog', 'events', 'orgSummaries', 'weekDraft'].includes(key) && state?.status !== 'ok');
+  const missing = Object.entries(materials).some(([key, state]) => !['movedNotes', 'catalog', 'events', 'orgSummaries', 'weekDraft', 'overlaps'].includes(key) && state?.status !== 'ok');
   status.textContent = ok ? `주간보고 양식 순서로 복사했어요.${missing ? ' 불러오지 못한 묶음은 빠졌어요.' : ''}` : '복사하지 못했어요. 다시 시도해 주세요.';
+}
+
+// MTG-기록겹침거르기 4단계: [주간 정리]를 열 때 이 주에 보이는 줄의 겹침 표를 읽고, 판정이 없고 이어질 만한 짝만 서버 AI(overlap_check)에 물은 뒤
+// (이번 주 포함 최근 WEEK_BACK_WEEKS주만, 한도·실패면 조용히 건너뜀) 표를 다시 읽어 모델에 넘긴다. 확인이 끝나기 전에는 아무것도 빼지 않는다(깜박임 방지).
+// 표를 못 읽으면 빼는 것 없이 그대로 둔다.
+async function checkOverlaps() {
+  if (mode !== 'week' || overlapFor === epoch) return;
+  if (['basket', 'projectUpdates', 'orgUpdates', 'meetings'].some(key => !materials[key] || materials[key].status === 'loading') || kinds?.status === 'loading') return;
+  const run = epoch, scope = owner;
+  overlapFor = run;
+  const source = weeklySummary({start, lines, linesState, materials: {...materials, overlaps: undefined}, doneDays, kinds, memory}).overlapSource;
+  materials.overlaps = {status:'loading'}; renderWeekly_();
+  try {
+    let read = await readOverlapRows(source.refs, rt);
+    if (!current(run, scope)) return;
+    if (!read.missing && start >= shiftWeek(weekStart(todayKey()), 1 - WEEK_BACK_WEEKS)) {
+      const pairs = weekCandidates(source.records, source.meetings, read.rows);
+      if (pairs.length && await askPairs(pairs, {rt}).catch(() => 0) > 0 && current(run, scope)) read = await readOverlapRows(source.refs, rt).catch(() => read);
+    }
+    if (!current(run, scope)) return;
+    materials.overlaps = {status:'ok', items:read};
+  } catch {
+    if (!current(run, scope)) return;
+    materials.overlaps = {status:'failed'};
+  }
+  renderWeekly_();
+}
+// [되살리기]: 그 줄이 겹침으로 이어진 짝을 사용자 판정 '같은 일 아님'(different)으로 서버에 쓰고, 성공하면 줄이 바로 돌아온다.
+async function reviveOverlap(ref) {
+  const read = materials.overlaps?.status === 'ok' ? materials.overlaps.items : null;
+  if (overlapUi.busy || !read || read.missing) return;
+  const source = weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory}).overlapSource;
+  const pairs = reviveEdges(ref, new Set(source.refs), read.rows);
+  const run = epoch, scope = owner;
+  overlapUi.busy = ref; overlapUi.status = ''; overlapUi.error = false; renderWeekly_();
+  const saved = await reviveOverlaps(pairs, rt);
+  if (!current(run, scope)) return;
+  overlapUi.busy = null;
+  if (saved) {
+    const cut = new Set(pairs.map(p => `${p.a}|${p.b}`));
+    materials.overlaps = {status:'ok', items:{missing:false, rows:[...read.rows.filter(r => !cut.has(`${r.a_ref}|${r.b_ref}`)), ...pairs.map(p => ({a_ref:p.a, b_ref:p.b, verdict:'different', decided_by:'user', reason:null}))]}};
+    overlapUi.status = '되살렸어요.';
+  } else { overlapUi.status = '되살리지 못했어요. 잠시 뒤 다시 눌러 주세요.'; overlapUi.error = true; }
+  renderWeekly_();
 }
 
 // 주간보고에 올림 표시 바꾸기: only my profile's list column is written (journal-meeting-kinds.js); the screen follows the saved list.
@@ -1016,6 +1070,7 @@ root.addEventListener('click', event => {
   if (button.matches('[data-journal-file-undrop]')) return void changeFileEdit(button.dataset.journalFileUndrop, {drop:null}, '다시 넣었어요.');
   if (button.matches('[data-journal-file-keep]')) return void changeFileEdit(button.dataset.journalFileKeep, {keep:true}, '이번 주 보고에 넣었어요.');
   if (button.matches('[data-journal-file-unkeep]')) return void changeFileEdit(button.dataset.journalFileUnkeep, {keep:null}, '다시 접었어요.');
+  if (button.matches('[data-journal-overlap-revive]')) return void reviveOverlap(button.dataset.journalOverlapRevive);
   if (button.matches('[data-journal-memory-delete]')) return void deleteMemory(button.dataset.journalMemoryDelete);
   if (button.matches('[data-journal-memory-undo]')) return void undoMemory();
   if (button.matches('[data-journal-kind-toggle]')) return toggleKind(button.dataset.journalKindToggle, button.dataset.journalKindHide === '1', button.dataset.journalKindName);
@@ -1068,7 +1123,7 @@ input.addEventListener('input', () => {
 window.addEventListener('kptu:session-changed', () => {
   if (owner === ownerScope(rt)) return;
   owner = ownerScope(rt); epoch++; sharedEpoch++;
-  kinds = {status:'loading'}; memory = {status:'loading'}; memoryUi = {open:false, busy:false, status:'', error:false, undo:null}; fileUi = freshFileUi(); drafts = new Map(); lines = new Map(); materials = {}; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; execUi = freshExec(); doneDays = DONE_TASK_DAYS; saving = false; editing = null; mode = 'day';
+  kinds = {status:'loading'}; memory = {status:'loading'}; memoryUi = {open:false, busy:false, status:'', error:false, undo:null}; fileUi = freshFileUi(); overlapUi = freshOverlapUi(); overlapFor = -1; drafts = new Map(); lines = new Map(); materials = {}; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; execUi = freshExec(); doneDays = DONE_TASK_DAYS; saving = false; editing = null; mode = 'day';
   pendingReturn = null; taskLine.close(); selfBusy = 0; othersOpen = false;
   start = weekStart(todayKey()); selected = todayKey();
   if (window.KPTURouter?.current === 'journal') enter();

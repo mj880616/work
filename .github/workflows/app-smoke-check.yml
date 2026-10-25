@@ -53,6 +53,7 @@ on:
       - 'tests/ledger-export-model.test.mjs'
       - 'tests/ledger-auto-model.test.mjs'
       - 'tests/overlap-model.test.mjs'
+      - 'tests/overlap-weekly.test.mjs'
       - 'tests/overlap-paths.test.mjs'
       - 'tests/ledger-fix-model.test.mjs'
       - 'scripts/check-app-smoke-contract.mjs'
@@ -112,6 +113,7 @@ on:
       - 'tests/ledger-export-model.test.mjs'
       - 'tests/ledger-auto-model.test.mjs'
       - 'tests/overlap-model.test.mjs'
+      - 'tests/overlap-weekly.test.mjs'
       - 'tests/overlap-paths.test.mjs'
       - 'tests/ledger-fix-model.test.mjs'
       - 'scripts/check-app-smoke-contract.mjs'
@@ -184,7 +186,7 @@ jobs:
         run: node --test tests/global-search-model.test.mjs
 
       - name: Ledger import checker (CSV·xlsx·import file, synthetic sheet)
-        run: node --test tests/ledger-import-model.test.mjs tests/ledger-browse-model.test.mjs tests/ledger-candidate-model.test.mjs tests/ledger-export-model.test.mjs tests/ledger-auto-model.test.mjs tests/ledger-fix-model.test.mjs tests/overlap-model.test.mjs tests/overlap-paths.test.mjs
+        run: node --test tests/ledger-import-model.test.mjs tests/ledger-browse-model.test.mjs tests/ledger-candidate-model.test.mjs tests/ledger-export-model.test.mjs tests/ledger-auto-model.test.mjs tests/ledger-fix-model.test.mjs tests/overlap-model.test.mjs tests/overlap-paths.test.mjs tests/overlap-weekly.test.mjs
 
       - name: Check removed team AI app path
         run: node --test tests/security/team-ai-app-removed.test.mjs

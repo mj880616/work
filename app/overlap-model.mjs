@@ -44,14 +44,19 @@ export const noticeLabel = (text, n = NOTICE_LABEL_CHARS) => cut(text, n);
 // target = 프로젝트·조직 한 곳(없으면 null). 여러 곳에 한 번에 연결한 업데이트(basket)만 targets에 모두 담는다(target은 그 첫 곳). 점수는 큰 쪽이 먼저.
 export const targetsOf = record => Array.isArray(record?.targets) && record.targets.length ? record.targets : record?.target ? [record.target] : [];
 const sameTarget = (x, y) => !!x && !!y && x.kind === y.kind && x.id === y.id;
+const sameTargetScore = (record, candidate) => targetsOf(record).some(t => sameTarget(t, candidate.target)) ? 3 : 0;
+const sharedWordCount = (record, candidate) => {
+  const mine = new Set(words(`${record.title || ''} ${record.text || ''}`));
+  return words(`${candidate.title || ''} ${candidate.text || ''}`).filter(w => mine.has(w)).length;
+};
+// 날짜와 상관없이 두 글이 얼마나 이어지는지(같은 곳 3 + 겹치는 낱말 0.5씩, 낱말은 5개까지). 주간 정리가 "AI에 물어볼 만한 쌍"인지 가를 때 쓴다.
+export const relatedness = (record, candidate) => sameTargetScore(record, candidate) + Math.min(sharedWordCount(record, candidate), 5) * 0.5;
 export function scoreCandidate(record, candidate) {
   const gap = dayGap(record.day, candidate.day);
   if (!Number.isFinite(gap) || gap > OVERLAP_WINDOW_DAYS) return -1;
-  const same = targetsOf(record).some(t => sameTarget(t, candidate.target)) ? 3 : 0;
+  const same = sameTargetScore(record, candidate);
   const near = (1 - gap / (OVERLAP_WINDOW_DAYS + 1)) * 2;
-  const mine = new Set(words(`${record.title || ''} ${record.text || ''}`));
-  const shared = words(`${candidate.title || ''} ${candidate.text || ''}`).filter(w => mine.has(w)).length;
-  return same + near + Math.min(shared, 5) * 0.5;
+  return same + near + Math.min(sharedWordCount(record, candidate), 5) * 0.5;
 }
 // 후보를 점수 순으로 줄 세워 위 max건. 자기 자신·모양이 틀린 참조·범위 밖 날짜·같은 참조 중복은 뺀다. 같은 점수는 먼저 온 순서.
 export function rankCandidates(record, candidates, max = OVERLAP_MAX_CANDIDATES) {
