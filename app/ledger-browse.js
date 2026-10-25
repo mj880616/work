@@ -14,6 +14,10 @@
 //   칩을 누르면 그 이야기를 시간순 한 줄씩(세로 선 타임라인), 줄을 누르면 근거·출처(‹원문›) 상세가 펼쳐진다.
 //   목록 줄에는 고정 ID·'현재유효' 같은 말을 쓰지 않는다(상세 안에만). 종류는 작은 꼬리표, 자동·직접 꼬리표.
 //   [+ 기록하기]와 상세 ⋯ [고치기]는 원장 고치기 칸(app/ledger-fix.js, #ledgerFixRoot)을 연다.
+// LEDGER-기록바로업데이트(명진 요청 2026-10-25): ① 반영·되돌리기 뒤 원장을 다시 읽을 때 펼쳐 둔 기록의 상세도 다시 읽는다(목록에서 사라졌으면 접음).
+//   ② 상세 ⋯ 메뉴: 위에 종류별 바로가기(약속 = 지켜짐 · 종결 / 추적에서 빼기, 일어난 일 = 추적 끝내기) → [내용 업데이트…](대상 고정) → 구분선 →
+//   [틀린 기록으로 표시 ▸] 하위 목록. 바로가기는 기존 수정 요청 함수 app_apply_ledger_fix의 replace 하나(옛 기록은 '대체됨'으로 남고, 직후 [되돌리기]).
+//   ③ ⋯는 상세 상자 맨 위 빈 줄이 아니라 제목 첫 줄 오른쪽 끝(제목이 ⋯ 옆으로 비켜 줄바꿈). 이번 범위는 원장 화면만.
 // 첫 화면 칸 읽기는 owner RLS REST뿐(새 RPC 없음): 안 지킨 약속·추적 중 사건·칩 집계·최근 자동 기록.
 import {
   KIND_DISPLAY, KIND_HINT, KINDS, VALIDITY_LABEL, SENSITIVITY_LABEL, DOC_TYPE_LABEL, SCOPE_CHOICES, PAGE, MAX_LIMIT, QUERY_MAX,
@@ -21,6 +25,7 @@ import {
   web2Source, web2OpenTarget, web2SourceLabel, changeInfo, AUTO_TAG, MANUAL_TAG, RETIRE_REASONS, retireRequest, undoErrorText,
   isSearching, overdueLabel, seoulDay, storySort, chipList, overdueRecordsPath, LEDGER_ROW_COLS
 } from './ledger-browse-model.mjs';
+import { QUICK_ACTIONS, QUICK_NOTE_MAX, menuPlan, quickRequest, quickDoneText, reopenPlan, fixErrorText } from './ledger-fix-model.mjs';
 import { requestBasketNote, requestNoteDocOpen } from './basket-note-tasks.js';
 import { offerUndoNotice } from './basket-record-delete.js';
 
@@ -37,7 +42,7 @@ let seq = 0;
 function fresh() {
   return { phase: 'loading', organizations: [], topics: [], filters: freshFilters(), limit: PAGE, rows: [], busy: false, error: '',
     openId: null, details: new Map(), detailBusy: '', detailError: '', condOpen: false, changes: new Map(), acting: '', actError: '', notice: '',
-    home: null, homeBusy: false, story: null };
+    home: null, homeBusy: false, story: null, quick: null };
 }
 const LIVE = 'validity=in.(current,needs_check,fulfilled)';
 const ROW_COLS = LEDGER_ROW_COLS;
@@ -86,12 +91,12 @@ async function loadHome() {
 }
 
 // ---------- 이야기(칩 → 시간순 타임라인) ----------
-async function openStory(type, id) {
+async function openStory(type, id, { keepOpen = false } = {}) {
   const list = type === 'organization' ? state.organizations : state.topics;
   const item = list.find(x => String(x.id) === id);
   if (!item) return;
   state.story = { type, id, name: item.name, rows: null, error: '' };
-  state.openId = null;
+  if (!keepOpen) state.openId = null;
   const mine = ++seq;
   render();
   try {
@@ -156,18 +161,45 @@ async function readChanges(ids) {
 }
 
 let loading = null;
+let again = false;
+// 읽는 중에 또 바뀌었다는 알림(kptu:ledger-changed)이 오면 그 읽기가 끝난 뒤 한 번 더 읽는다(알림을 흘려보내 목록이 낡은 채 남지 않게).
 function load() {
   if (!workspaceId() || !document.querySelector('#ledgerBrowseRoot')) return Promise.resolve();
-  loading ||= (async () => {
-    if (state.phase !== 'ready') { state.phase = 'loading'; render(); }
-    try { await loadLists(); }
-    catch (e) { state.phase = isMissing(e) ? 'hidden' : 'error'; render(); return; }
-    state.details.clear(); state.changes.clear();
-    const story = state.story;
-    await search();
-    if (story) await openStory(story.type, story.id);
+  if (loading) { again = true; return loading; }
+  loading = (async () => {
+    do { again = false; await loadOnce(); } while (again);
   })().finally(() => { loading = null; });
   return loading;
+}
+async function loadOnce() {
+  const open = state.openId, keep = open ? state.details.get(open) : null;
+  if (state.phase !== 'ready') { state.phase = 'loading'; render(); }
+  try { await loadLists(); }
+  catch (e) { state.phase = isMissing(e) ? 'hidden' : 'error'; render(); return; }
+  state.details.clear(); state.changes.clear();
+  // 다시 읽는 동안에는 펼친 기록의 옛 상세를 그대로 둔다(상세가 비어 빨간 오류가 잠깐 뜨지 않게). 곧 새로 읽어 바꾼다.
+  if (keep) state.details.set(open, keep);
+  const story = state.story;
+  await search();
+  if (story) await openStory(story.type, story.id, { keepOpen: true });
+  await settleOpen(open);
+}
+// 다시 읽은 목록에 펼친 기록이 아직 있으면 상세를 새로 읽고, 없으면(대체·폐기·추적 종료) 접는다.
+async function settleOpen(open) {
+  if (!open || state.openId !== open) return;
+  if (reopenPlan(open, allRows().map(r => r.id)) === 'close') { state.openId = null; state.quick = null; state.details.delete(open); state.detailError = ''; render(); return; }
+  await refreshDetail(open);
+}
+async function refreshDetail(id) {
+  try {
+    const d = await readDetail(id);
+    if (state.openId !== id) return;
+    if (d) { state.details.set(id, d); state.detailError = ''; } else { state.details.delete(id); state.detailError = '이 기록을 읽을 수 없습니다.'; }
+  } catch {
+    if (state.openId !== id) return;
+    state.details.delete(id); state.detailError = '상세를 읽지 못했습니다. 잠시 뒤 다시 시도하세요.';
+  }
+  render();
 }
 
 // ---------- 상세 ----------
@@ -254,11 +286,11 @@ async function openOriginal(target) {
 
 // ---------- 되돌리기 ----------
 const changedLedger = () => { try { window.dispatchEvent(new CustomEvent('kptu:ledger-changed', { detail: { source: 'browse' } })); } catch { /* 다음 열기에 */ } window.KPTULedgerExport?.changed?.(); };
-async function act(key, job) {
+async function act(key, job, errorText = undoErrorText) {
   if (state.acting) return;
   state.acting = key; state.actError = ''; state.notice = ''; render();
   try { await job(); }
-  catch (e) { state.actError = undoErrorText(e); }
+  catch (e) { state.actError = errorText(e); }
   state.acting = ''; render();
 }
 function retireRecord(row, reasonKey) {
@@ -276,6 +308,25 @@ function retireRecord(row, reasonKey) {
     } });
   });
 }
+// 바로가기(지켜짐 · 종결 / 추적에서 빼기 / 추적 끝내기): 수정 요청 replace 하나를 한 번 반영한다. 옛 기록은 '대체됨'으로 남고 [되돌리기]가 뜬다.
+function quickApply(id) {
+  const row = state.details.get(id)?.record, qk = state.quick;
+  if (!row || !qk || qk.id !== id) return;
+  const body = quickRequest(row, qk.key, qk.text);
+  if (!body) return;
+  const key = qk.key;
+  return act('quick', async () => {
+    const out = await rt.api('/rest/v1/rpc/app_apply_ledger_fix', { method: 'POST', body: { p_workspace_id: workspaceId(), p_request: body, p_dry_run: false }, singleFlight: false });
+    const fix = typeof out?.fix_request_id === 'string' && UUID.test(out.fix_request_id) ? out.fix_request_id : null;
+    state.quick = null; state.openId = null; changedLedger();
+    if (fix) offerUndoNotice({ text: quickDoneText(key, row.ledger_id), onUndo: async () => {
+      try { await rt.api('/rest/v1/rpc/app_undo_ledger_fix', { method: 'POST', body: { p_fix_request_id: fix }, singleFlight: false }); }
+      catch (e) { return { message: undoErrorText(e) }; }
+      changedLedger();
+      return { message: '되돌렸어요.' };
+    } });
+  }, fixErrorText);
+}
 function undoRun(runId) {
   if (!UUID.test(String(runId || ''))) return;
   return act('run', async () => {
@@ -287,8 +338,8 @@ function undoRun(runId) {
 }
 
 async function toggleDetail(id) {
-  if (state.openId === id) { state.openId = null; render(); return; }
-  state.openId = id; state.detailError = '';
+  if (state.openId === id) { state.openId = null; state.quick = null; render(); return; }
+  state.openId = id; state.detailError = ''; if (state.quick?.id !== id) state.quick = null;
   if (!state.details.has(id)) {
     state.detailBusy = id; render();
     try {
@@ -418,6 +469,7 @@ function rowHtml(r, extra = '') {
       <span class="lbr-1"><span class="lbr-kind" data-kind="${esc(r.kind)}">${esc(KIND_DISPLAY[r.kind])}</span><span class="lbr-title">${esc(v.title)}</span>${tags}${v.date ? `<span class="lbr-date" title="${esc(v.dateFull)}">${esc(v.date)}</span>` : ''}</span>
       <span class="lbr-2"><span class="lbr-summary">${esc(extra || v.summary)}</span></span>
     </button>
+    ${open ? detailMenu(r.id) : ''}
     ${open ? `<div class="lb-detail" id="lbDetail-${esc(r.id)}" tabindex="-1" role="region" aria-label="${esc(v.title)} 상세">${detailHtml(r.id)}</div>` : ''}
   </li>`;
 }
@@ -444,15 +496,37 @@ function detailHtml(id) {
   const links = d.links.length ? `<ul class="lg-list" data-lb-links>${d.links.map(l => `<li>${l.dir === 'in' ? '← ' : ''}<b>${esc(l.relation)}</b> ${l.ledgerId && l.kind === 'record' ? `<button type="button" class="lg-tool" data-lb-action="find" data-lb-q="${esc(l.ledgerId)}">${esc(l.ledgerId)}</button> ` : l.ledgerId ? `${esc(l.ledgerId)} ` : ''}${esc(l.title)}${l.kind === 'project' ? ' <span class="lg-muted">(Web2 프로젝트)</span>' : l.kind === 'meeting' ? ' <span class="lg-muted">(Web2 사업 보고)</span>' : ''}</li>`).join('')}</ul>` : '<p class="lg-note">연결이 없습니다.</p>';
   const info = state.changes.get(id), row = d.record;
   const notes = info?.notes?.length ? `<p class="lg-note" data-lb-change>${info.notes.map(esc).join(' · ')}</p>` : '';
-  const live = ['current', 'needs_check', 'fulfilled'].includes(d.record.validity);
-  const items = [
-    live ? `<button type="button" class="lg-tool" data-lb-action="fix" data-lb-id="${esc(id)}"${state.acting ? ' disabled' : ''}>고치기</button>` : '',
-    live ? `<p class="lg-note">틀린 기록으로 표시(폐기, 지우지 않음)</p>${RETIRE_REASONS.map(([k, l]) => `<button type="button" class="lg-tool lg-danger" data-lb-action="retire" data-lb-id="${esc(id)}" data-lb-reason="${k}"${state.acting ? ' disabled' : ''}>${esc(l)}</button>`).join('')}` : '',
-    info?.auto && info.runId ? `<button type="button" class="lg-tool lg-danger" data-lb-action="undo-run" data-lb-run="${esc(info.runId)}"${state.acting ? ' disabled' : ''}>${state.acting === 'run' ? '취소하는 중…' : '이번 자동 기록 취소'}</button>` : ''
-  ].filter(Boolean).join('');
-  const menu = items ? `<details class="lc-more lb-more"><summary class="lg-tool" aria-label="기록 관리: ${esc(row.ledger_id)}">⋯</summary><div class="lc-more-panel" role="group" aria-label="기록 관리">${items}</div></details>` : '';
   const err = state.actError ? `<p class="lg-error" role="alert" data-lb-act-error>${esc(state.actError)}</p>` : '';
-  return `${menu || notes ? `<div class="lb-detail-top">${notes || '<span></span>'}${menu}</div>` : ''}${err}${summary}${fields}<h5>근거·출처</h5>${sources}<h5>연결</h5>${links}`;
+  return `${notes}${quickHtml(id)}${err}${summary}${fields}<h5>근거·출처</h5>${sources}<h5>연결</h5>${links}`;
+}
+// 상세 ⋯ 메뉴(작은 글자 목록, 누른 자리에서 열림). 제목 첫 줄 오른쪽 끝에 놓는다(CSS: 행 오른쪽 위 고정, 제목은 그 옆으로 비켜 줄바꿈).
+function detailMenu(id) {
+  const row = state.details.get(id)?.record;
+  return row ? menuHtml(id, row, state.changes.get(id)) : '';
+}
+function menuHtml(id, row, info) {
+  const plan = menuPlan(row, info), off = state.acting ? ' disabled' : '';
+  const item = (action, label, extra = '') => `<button type="button" class="lb-menu-item" role="menuitem" data-lb-action="${action}" data-lb-id="${esc(id)}"${extra}${off}>${esc(label)}</button>`;
+  const top = [
+    ...plan.quick.map(k => item('quick', QUICK_ACTIONS[k].label, ` data-lb-quick-key="${k}"`)),
+    plan.update ? item('fix', '내용 업데이트…') : ''
+  ].filter(Boolean).join('');
+  const marks = plan.mark ? `<details class="lb-sub"><summary class="lb-menu-item" data-lb-sub>틀린 기록으로 표시 <span aria-hidden="true">▸</span></summary><div class="lb-sub-list" role="group" aria-label="틀린 기록으로 표시(폐기, 지우지 않음)">${RETIRE_REASONS.map(([k, l]) => item('retire', l, ` data-lb-reason="${k}"`)).join('')}</div></details>` : '';
+  const runCancel = plan.undoRun ? `<button type="button" class="lb-menu-item" role="menuitem" data-lb-action="undo-run" data-lb-run="${esc(info.runId)}"${off}>${state.acting === 'run' ? '취소하는 중…' : '이번 자동 기록 취소'}</button>` : '';
+  const bottom = marks + runCancel;
+  if (!top && !bottom) return '';
+  return `<details class="lb-kebab"><summary class="lb-more-btn" aria-label="기록 관리: ${esc(row.ledger_id)}">⋯</summary><div class="lb-menu" role="group" aria-label="기록 관리">${top}${top && bottom ? '<hr class="lb-menu-sep">' : ''}${bottom}</div></details>`;
+}
+// 바로가기를 누르면 바뀌는 것 한 줄 + 결과·이유 한 줄(비워도 됨) + [반영]. 반영 전에는 아무것도 바뀌지 않는다.
+function quickHtml(id) {
+  const qk = state.quick, a = qk && qk.id === id ? QUICK_ACTIONS[qk.key] : null;
+  if (!a) return '';
+  const busy = state.acting === 'quick';
+  return `<div class="lb-quick" data-lb-quick="${esc(qk.key)}">
+    <p class="lb-quick-line">${esc(a.line)} <span class="lg-muted">지우지 않고 이력을 남겨요.</span></p>
+    <div class="lb-quick-row"><input class="lb-quick-input" type="text" maxlength="${QUICK_NOTE_MAX}" value="${esc(qk.text)}" placeholder="${esc(a.placeholder)}" aria-label="${esc(a.placeholder)}" autocomplete="off" data-lb-quick-input${busy ? ' disabled' : ''}>
+      <button type="button" class="primary" data-lb-action="quick-apply" data-lb-id="${esc(id)}"${state.acting ? ' disabled' : ''}>${busy ? '반영하는 중…' : '반영'}</button>
+      <button type="button" class="lg-text-btn" data-lb-action="quick-cancel"${busy ? ' disabled' : ''}>취소</button></div></div>`;
 }
 
 function allRows() { return [...state.rows, ...(state.story?.rows || []), ...(state.home?.overdue || []), ...(state.home?.tracking || []), ...(state.home?.recent || [])]; }
@@ -484,6 +558,28 @@ function bind() {
     if (!r?.contains(e.target) || e.target.id === 'lbQuery') return;
     readForm(r); run();
   });
+  document.addEventListener('input', e => {
+    if (!e.target?.matches?.('[data-lb-quick-input]') || !root()?.contains(e.target) || !state.quick) return;
+    state.quick.text = e.target.value;
+  });
+  document.addEventListener('keydown', e => {
+    if (e.target?.matches?.('[data-lb-quick-input]') && e.key === 'Enter' && !e.isComposing && state.quick) { e.preventDefault(); void quickApply(state.quick.id); }
+    else if (e.target?.matches?.('[data-lb-quick-input]') && e.key === 'Escape' && state.quick) { e.preventDefault(); state.quick = null; render(); }
+  });
+  // ⋯ 메뉴는 바깥을 누르거나 Esc로 닫는다.
+  document.addEventListener('click', e => {
+    for (const d of root()?.querySelectorAll?.('details.lb-kebab[open]') || []) if (!d.contains(e.target)) d.removeAttribute('open');
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    for (const d of root()?.querySelectorAll?.('details.lb-kebab[open]') || []) { d.removeAttribute('open'); d.querySelector('summary')?.focus?.({ preventScroll: true }); }
+  });
+  document.addEventListener('toggle', e => {
+    const d = e.target;
+    if (!(d instanceof HTMLDetailsElement) || !d.matches('details.lb-kebab') || !d.open) return;
+    // 하단 탭바에 가리지 않게 열린 목록을 화면 안으로.
+    d.querySelector('.lb-menu')?.scrollIntoView?.({ block: 'nearest' });
+  }, true);
   document.addEventListener('click', e => {
     const button = e.target.closest?.('[data-lb-action]');
     if (!button || !root()?.contains(button) || button.disabled) return;
@@ -501,9 +597,11 @@ function bind() {
     else if (action === 'retire') {
       const row = state.details.get(button.dataset.lbId)?.record;
       const label = (RETIRE_REASONS.find(([k]) => k === button.dataset.lbReason) || [])[1];
+      button.closest('details.lb-kebab')?.removeAttribute('open');
       if (row && label && window.confirm(`${row.ledger_id}을(를) 틀린 기록으로 표시할까요? (${label}) 지우지 않고 폐기로 남깁니다.`)) void retireRecord(row, button.dataset.lbReason);
     }
     else if (action === 'undo-run') {
+      button.closest('details.lb-kebab')?.removeAttribute('open');
       if (window.confirm('이번 자동 기록 전체를 취소할까요? 그때 들어온 기록은 폐기로 남고, 다른 기록에 붙인 근거는 뗍니다.')) void undoRun(button.dataset.lbRun);
     }
     else if (action === 'find') { state.filters = { ...freshFilters(), q: button.dataset.lbQ || '', inactive: true, scope: 'all' }; render(); run(); }
@@ -512,8 +610,14 @@ function bind() {
     else if (action === 'add') window.KPTULedgerFix?.open?.({});
     else if (action === 'fix') {
       const d = state.details.get(button.dataset.lbId);
-      if (d?.record) { button.closest('details')?.removeAttribute('open'); window.KPTULedgerFix?.open?.({ target: d.record.ledger_id, title: rowView(d.record).title }); }
+      if (d?.record) { button.closest('details.lb-kebab')?.removeAttribute('open'); window.KPTULedgerFix?.open?.({ target: d.record.ledger_id, title: rowView(d.record).title }); }
     }
+    else if (action === 'quick') {
+      const id = button.dataset.lbId, key = button.dataset.lbQuickKey;
+      if (QUICK_ACTIONS[key] && state.details.get(id)) { button.closest('details.lb-kebab')?.removeAttribute('open'); state.quick = { id, key, text: '' }; state.actError = ''; render(); root().querySelector('[data-lb-quick-input]')?.focus?.({ preventScroll: true }); }
+    }
+    else if (action === 'quick-cancel') { state.quick = null; render(); }
+    else if (action === 'quick-apply') void quickApply(button.dataset.lbId);
   });
   window.addEventListener('kptu:ledger-changed', () => { if (state.phase !== 'hidden' || document.querySelector('#ledgerBrowseRoot')) void load(); });
   window.KPTURouter?.on?.('ledger', () => { void load(); });
