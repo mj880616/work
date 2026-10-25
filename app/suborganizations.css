@@ -48,10 +48,12 @@
 .so-team-tools .so-team-more::after{content:"";position:absolute;inset:-6px}
 .so-team-tools .so-team-more:hover,.so-team-tools .so-team-more[aria-expanded="true"]{background:var(--kptu-surface-subtle)}
 .so-team-tools .so-team-more:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
-.so-stage-tag{max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:1px 7px;border-radius:999px;background:var(--ds-kind-basket-soft);color:var(--ds-kind-basket-ink);font-size:var(--ds-text-meta);line-height:1.5}
+.so-stage-tag{white-space:nowrap;padding:1px 7px;border-radius:999px;background:var(--ds-kind-basket-soft);color:var(--ds-kind-basket-ink);font-size:var(--ds-text-meta);line-height:1.5}
 .so-stage-tag.is-end{background:var(--ds-kind-journal-soft);color:var(--ds-kind-journal-ink)}
 #appView #teamView #soOrganizationList .kptu-list-row-main.has-stage{grid-template-columns:8px minmax(0,1fr) auto 24px}
 @media(max-width:760px){#appView #teamView #soOrganizationList .kptu-list-row-main.has-stage{grid-template-columns:8px minmax(0,1fr) auto 20px}}
+/* UI-표잘림전수: 단계 표는 '…'로 자르지 않는다. 폰에서는 줄바꿈한다. */
+@media(max-width:760px){.so-stage-tag{max-width:9em;white-space:normal;overflow-wrap:anywhere}}
 .stg{display:grid;gap:6px}
 .stg-list{margin:0;padding:0;list-style:none}
 .stg-row{border-bottom:1px solid var(--kptu-border)}.stg-row:last-child{border-bottom:0}

@@ -37,7 +37,9 @@
 .feed-view .feed-call.is-selected{background:var(--kptu-primary-soft)}
 .feed-view .feed-time{flex:none;width:38px;font-size:var(--ds-text-meta);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
 .feed-view .feed-title{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.feed-view .feed-org{flex:0 1 auto;min-width:0;max-width:min(14em,42%);padding:1px 6px;border-radius:var(--ds-radius-control);background:var(--kptu-surface-subtle);font-size:var(--ds-text-meta);color:var(--kptu-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.feed-view .feed-org{flex:0 0 auto;padding:1px 6px;border-radius:var(--ds-radius-control);background:var(--kptu-surface-subtle);font-size:var(--ds-text-meta);color:var(--kptu-muted);white-space:nowrap}
+/* UI-표잘림전수: 조직 표 글자는 '…'로 자르지 않는다. 줄여야 하면 옆 제목(.feed-title)이 줄어들고, 폰에서는 조직 이름이 줄바꿈한다. */
+@media(max-width:760px){.feed-view .feed-org{flex:0 1 auto;max-width:45%;white-space:normal;overflow-wrap:anywhere}}
 
 /* 상세 */
 .feed-view .feed-detail-head{display:flex;align-items:center;gap:8px;min-height:var(--ds-compact-height)}
