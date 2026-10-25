@@ -206,8 +206,9 @@ for(const width of [390,1440]){
     expect(await page.evaluate(()=>history.state?.kptuLibraryMenu||null)).toBe(null);
     await page.locator('#libraryEditTitle').fill('수정한 자료');await page.locator('#libraryEditSave').click();await expect(page.locator('#libraryEditModal')).toBeHidden();
     await expect(page.locator('.lu-row-title').first()).toHaveText('수정한 자료');expect(state.patches).toHaveLength(1);
-    await menu(page);page.once('dialog',d=>{expect(d.type()).toBe('confirm');expect(d.message()).toContain('Drive 휴지통');d.dismiss()});
-    await page.locator('[data-lu-delete]').click();await expect(page.locator('.lu-more-panel')).toBeHidden();expect(state.deletes).toHaveLength(0);
+    // 확인창은 삭제 눌림 뒤 비동기로 뜬다. 이 창이 실제로 닫힐 때까지 기다린 뒤 다음 단계로 간다(안 그러면 아래 acceptDelete가 같은 창을 또 잡아 "already handled"가 난다).
+    await menu(page);const cancelled=new Promise((resolve,reject)=>page.once('dialog',async d=>{try{expect(d.type()).toBe('confirm');expect(d.message()).toContain('Drive 휴지통');await d.dismiss();resolve()}catch(e){reject(e)}}));
+    await page.locator('[data-lu-delete]').click();await cancelled;await expect(page.locator('.lu-more-panel')).toBeHidden();expect(state.deletes).toHaveLength(0);
     await menu(page);const dialogs=[];const acceptDelete=async d=>{dialogs.push(d.type());if(d.type()==='confirm')expect(d.message()).toContain('자료 등록을 삭제할까요?');else expect(d.message()).toBe('자료 등록을 삭제했습니다. Drive 파일 처리 결과는 확인하지 못했습니다. 원본 상태를 직접 확인해 주세요.');await d.accept()};page.on('dialog',acceptDelete);await page.locator('[data-lu-delete]').click();await expect(page.locator('[data-lu-document="row-0"]')).toHaveCount(0);
     expect(state.deletes).toEqual([{action:'delete',document_id:'row-0'}]);expect(dialogs).toEqual(['confirm','alert']);page.off('dialog',acceptDelete);
     await menu(page,'row-1');await expect(page.locator('.lu-more-panel button').filter({hasText:/^(Drive에서 열기|내려받기)$/})).toHaveText(['Drive에서 열기','내려받기']);await page.locator('[data-lu-download]').click();await expect(page).toHaveURL(/library-open-fixture.*download=1/);
