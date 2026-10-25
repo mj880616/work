@@ -232,6 +232,9 @@ const work=(f,day)=>f.rows.find(r=>r.kind==='work'&&r.journal_day===day);
 const group=(page,key)=>page.locator(`#journalRoot [data-journal-group="${key}"]`);
 // JOURNAL-하루개편: 그 밖의 기록(접힘)을 펼친다. 이미 펼쳐져 있으면 그대로.
 async function openOthers(page){const d=page.locator('#journalRoot [data-journal-others]');if(!(await d.evaluate(e=>e.open)))await d.locator('summary').click();await expect(d).toHaveJSProperty('open',true);}
+// JOURNAL-하루일정다시: 그날 일정 칸(오늘 한 줄 위)과 그 줄들.
+const schedule=page=>page.locator('#journalRoot [data-journal-schedule]');
+const eventTexts=page=>schedule(page).locator('.journal-event-open');
 const itemTexts=(page,key)=>group(page,key).locator('.journal-item-open:not([data-journal-overdue] .journal-item-open)');
 
 for(const width of [390,1280]){
@@ -287,11 +290,13 @@ for(const width of [390,1280]){
   // 그 밖의 기록: 기본 접힘, 개수 한 줄. 펼치면 일정·자료실 새 자료·공유 페이지·어디에도 안 보낸 업데이트(옛 미분류).
   const others=page.locator('#journalRoot [data-journal-others]');
   await expect(others).toHaveJSProperty('open',false);
-  await expect(others.locator('[data-journal-others-count]')).toHaveText('일정 2 · 자료실 새 자료 1 · 공유 페이지 1 · 어디에도 안 보낸 업데이트 1');
-  await expect(group(page,'events')).toBeHidden();
+  await expect(others.locator('[data-journal-others-count]')).toHaveText('자료실 새 자료 1 · 공유 페이지 1 · 어디에도 안 보낸 업데이트 1');
+  // 그날 일정은 오늘 한 줄 위 칸에 있고(그 밖의 기록에는 없음), 줄마다 시각 + 제목.
+  await expect(schedule(page).locator('h4')).toHaveText('그날 일정');
+  await expect(eventTexts(page)).toHaveText(['종일 여러 날 일정','10:00 오전 일정']);
+  await expect(group(page,'events')).toHaveCount(0);
   await openOthers(page);
-  await expect(others.locator('[data-journal-group] > h5')).toHaveText(['일정','자료실 새 자료','공유 페이지','어디에도 안 보낸 업데이트']);
-  await expect(itemTexts(page,'events')).toHaveText(['종일 여러 날 일정','10:00 오전 일정']);
+  await expect(others.locator('[data-journal-group] > h5')).toHaveText(['자료실 새 자료','공유 페이지','어디에도 안 보낸 업데이트']);
   await expect(itemTexts(page,'docs')).toHaveText(['[교섭] 가상 교섭 요구안']);
   await expect(itemTexts(page,'shares')).toHaveText(['가상 안내 페이지 · 게시']);
   await expect(itemTexts(page,'unsent')).toHaveText(['현장 간담회 메모']);
@@ -305,7 +310,7 @@ for(const width of [390,1280]){
   expect(await page.evaluate(()=>{const f=document.querySelector('[data-journal-line]').getBoundingClientRect(),l=document.querySelector('[data-journal-lines]').getBoundingClientRect(),m=document.querySelector('[data-journal-materials]').getBoundingClientRect();return f.bottom<=l.top&&l.bottom<=m.top;})).toBe(true);
   // 펼친 그 밖의 기록은 날을 바꿔도 펼친 채(이 화면 메모리).
   await expect(others).toHaveJSProperty('open',true);
-  await expect(itemTexts(page,'events')).toHaveText(['종일 여러 날 일정']);
+  await expect(eventTexts(page)).toHaveText(['종일 여러 날 일정']);
   await expect(page.locator('#journalRoot [data-journal-report-empty]')).toHaveText('이 날은 주간보고 재료가 없어요.');
   await expect(group(page,'orgs')).toHaveCount(0);await expect(group(page,'activities')).toHaveCount(0);
   // 목요일: 회의 결과(차수까지), 그날 올린 회의자료. 마감이 목요일 전(수)인 남은 할 일은 '기한 지난 것' 한 줄로 접힌다.
@@ -543,10 +548,9 @@ test('주를 먼저 넘겨도 방문당 한 번 읽는 재료(기록함 업데�
 
 test('재료 일부를 못 읽어도 한 줄은 쓰고, 못 읽은 묶음만 안내·[다시 시도]',async({page})=>{
  const f=await fixture(page,{fail:{events:true,tasks:true}});await openJournal(page,390);
- // 접힌 그 밖의 기록도 못 읽은 묶음이 있다고 말한다.
- await expect(page.locator('#journalRoot [data-journal-others-failed]')).toBeVisible();
- await openOthers(page);
- await expect(group(page,'events').locator('[data-journal-failed]')).toHaveText('일정을(를) 불러오지 못했어요. 한 줄은 그대로 쓸 수 있어요.');
+ // 일정·할 일은 그 밖의 기록 밖의 칸이라, 접힌 그 밖의 기록은 못 읽은 묶음을 말하지 않는다.
+ await expect(page.locator('#journalRoot [data-journal-others-failed]')).toHaveCount(0);
+ await expect(schedule(page).locator('[data-journal-failed]')).toHaveText('일정을(를) 불러오지 못했어요. 한 줄은 그대로 쓸 수 있어요.');
  // 할 일 / 한 일은 같은 Google 할 일 읽기라 한 안내.
  await expect(page.locator('#journalRoot [data-journal-tasks] [data-journal-failed]')).toHaveText('할 일을(를) 불러오지 못했어요. 한 줄은 그대로 쓸 수 있어요.');
  await expect(group(page,'orgs').locator('li')).toHaveCount(2);
@@ -557,8 +561,8 @@ test('재료 일부를 못 읽어도 한 줄은 쓰고, 못 읽은 묶음만 안
  await expect(page.locator('#journalRoot [data-journal-line-status]')).toHaveText('한 줄을 저장했어요.');
  expect(f.writes).toHaveLength(1);
  f.heal('events');
- await group(page,'events').locator('[data-journal-retry]').click();
- await expect(itemTexts(page,'events')).toHaveText(['종일 여러 날 일정','10:00 오전 일정']);
+ await schedule(page).locator('[data-journal-retry]').click();
+ await expect(eventTexts(page)).toHaveText(['종일 여러 날 일정','10:00 오전 일정']);
  await expect(page.locator('#journalRoot [data-journal-tasks] [data-journal-failed]')).toBeVisible();
  f.heal('tasks');
  await page.locator('#journalRoot [data-journal-tasks] [data-journal-retry]').click();
@@ -590,7 +594,7 @@ test('[주간보고 초안 복사]: 양식 순서(1 → 2 → 4 → 5 → 참고
  await openJournal(page,1280);
  await expect(itemTexts(page,'done')).toHaveCount(1);
  await expect(group(page,'orgs').locator('li')).toHaveCount(2);await expect(itemTexts(page,'activities')).toHaveCount(1);
- await expect(page.locator('#journalRoot [data-journal-others-count]')).toContainText('일정 2');
+ await expect(eventTexts(page)).toHaveCount(2);
  await expect(group(page,'docs').locator('li')).toHaveCount(1);await expect(group(page,'shares').locator('li')).toHaveCount(1);await expect(group(page,'business').locator('li')).toHaveCount(1);
  // 오늘 줄 두 개를 더한다(저장 순서대로 복사된다).
  const input=page.locator('#journalRoot [data-journal-input]');
@@ -647,6 +651,34 @@ test('[업무일지] 내 담당 조직만 이름별, 담당 밖·쉬는 조직 �
  expect(orgLines).toEqual(['◦ 가상 노동조합','- 10월 6일(화) 안녕하세요 위원장님','◦ 나 지역 모임','- 10월 6일(화) 조직 화면에서 쓴 업데이트',
   '◦ 그 외','- 10월 6일(화) 다 바깥 모임 · 바깥 모임 기록','- 10월 6일(화) 라 쉬는 모임 · 쉬는 모임 기록','◦ 미분류','- 10월 6일(화) 현장 간담회 메모']);
  expect(f.errors).toEqual([]);
+});
+
+// JOURNAL-하루일정다시: [하루] 맨 위 '그날 일정' — 오늘 한 줄 위, 일정마다 한 줄(시각·색 막대·제목), 일정을 누르면 달력과 같은 수정 창, [달력 ›]은 그 날짜 달력.
+test('[하루] 그날 일정: 오늘 한 줄 위에 시각+제목, 없으면 일정 없음, 누르면 달력의 수정 창',async({page})=>{
+ await fixture(page,{width:1280});await openJournal(page,1280);
+ const box=schedule(page);
+ await expect(box).toBeVisible();
+ await expect(eventTexts(page)).toHaveText(['종일 여러 날 일정','10:00 오전 일정']);
+ await expect(box.locator('.journal-event-bar')).toHaveCount(2);
+ await expect(box.locator('[data-journal-calendar]')).toHaveText('달력 ›');
+ // 위치: 날짜 줄 아래, 오늘 한 줄 위.
+ const y=await page.evaluate(()=>{const top=s=>document.querySelector(s).getBoundingClientRect().top;return {days:top('#journalRoot [data-journal-days]'),schedule:top('#journalRoot [data-journal-schedule]'),line:top('#journalRoot [data-journal-line]')};});
+ expect(y.days).toBeLessThan(y.schedule);expect(y.schedule).toBeLessThan(y.line);
+ await box.locator('.journal-event-open',{hasText:'오전 일정'}).click();
+ await expect(page.locator('#ciGoogleModal')).toBeVisible();
+ await page.locator('#ciGoogleClose').click();
+ await expect(page.locator('#ciGoogleModal')).toBeHidden();
+ // 일정 없는 날(토요일 10/10).
+ await date(page,'2026-10-10').click();
+ await expect(box.locator('[data-journal-events-empty]')).toHaveText('일정 없음');
+});
+test('[하루] 그날 일정 칸의 [달력 ›]은 그 날짜가 든 달력으로',async({page})=>{
+ await fixture(page,{width:1280});await openJournal(page,1280);
+ await page.locator('#journalRoot [data-journal-prev]').click();
+ await date(page,'2026-10-01').click();
+ await schedule(page).locator('[data-journal-calendar]').click();
+ await expect(page.locator('#calendarView')).toBeVisible();
+ await expect(page.locator('#monthTitle')).toHaveAttribute('aria-label',/9월 28일|9월/);
 });
 
 // UI-PC업무일지폭: PC(≥1024)는 [일기]처럼 본문 폭을 다 쓴다(같은 바깥 폭 규칙 .view-wide). 폰은 그대로(가운데 760px 상한·1열).
