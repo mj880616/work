@@ -4,8 +4,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {join} from 'node:path';
-import {readFeed, readPersonal, readPersonalRaw, setPersonalHidden, moveCall, readLedgerSeen, PERSONAL_FIELDS} from '../app/feed-data.js';
-import {splitPersonal, legacyFilteredNote, moveToPersonalWarning, moveDoneText, moveErrorText, MOVE_ERRORS} from '../app/feed-model.mjs';
+import {readFeed, readPersonal, readPersonalRaw, setPersonalHidden, moveCall, readLedgerSeen, refillCall, PERSONAL_FIELDS} from '../app/feed-data.js';
+import {splitPersonal, legacyFilteredNote, moveToPersonalWarning, moveDoneText, moveErrorText, MOVE_ERRORS, REFILL_PENDING, REFILL_DONE, REFILL_SKIPPED, refillFailedText} from '../app/feed-model.mjs';
 
 const WS = '10000000-0000-4000-8000-000000000001', ID = '60000000-0000-4000-8000-000000000009';
 function fakeRt(handler) {
@@ -100,4 +100,37 @@ test('정적: 앱에서 개인 표 이름은 feed-data.js 한 곳뿐, 검색·�
   const personalMenu = screen.slice(screen.indexOf("return `<button type=\"button\" data-cf-act=\"to-work\">"), screen.indexOf('onAction'));
   assert.ok(!/data-cf-act="(pin|link)"/.test(personalMenu));
   assert.ok(!new RegExp(['local', 'session'].map(k => k + 'Storage').join('|')).test(screen), '브라우저 저장소를 쓰지 않는다');
+});
+
+// CALL-개인통화함 4단계: 업무로 옮긴 직후 ai-assist call_refill 한 번. 통화 ID만 보낸다. 실패해도 던지지 않는다.
+function aiRt(reply) {
+  const calls = [];
+  return {calls, config:{url:'https://synthetic.test', key:'anon'}, session:{ensure:async () => true, read:() => ({access_token:'t'})},
+    fetcher:async (url, init) => { calls.push({url, body:JSON.parse(init.body), auth:init.headers.Authorization}); return reply(); }};
+}
+test('다시 채우기: ai-assist에 {kind:call_refill,id}만 보내고, 성공·건너뜀·실패를 나눠 돌려준다(던지지 않음)', async () => {
+  const mk = reply => { const x = aiRt(reply); return {x, rt:{config:x.config, session:x.session}}; };
+  const ok = mk(() => new Response(JSON.stringify({ok:true, kind:'call_refill', id:ID, title:'가상 주제'}), {status:200}));
+  assert.deepEqual(await refillCall(ID, ok.rt, {fetcher:ok.x.fetcher}), {ok:true, skipped:false});
+  assert.deepEqual(ok.x.calls[0].body, {kind:'call_refill', id:ID});
+  assert.equal(ok.x.calls[0].url, 'https://synthetic.test/functions/v1/ai-assist');
+  const skip = mk(() => new Response(JSON.stringify({ok:true, kind:'call_refill', id:ID, skipped:true}), {status:200}));
+  assert.deepEqual(await refillCall(ID, skip.rt, {fetcher:skip.x.fetcher}), {ok:true, skipped:true});
+  const busy = mk(() => new Response(JSON.stringify({ok:false, error:'daily_limit'}), {status:429}));
+  assert.deepEqual(await refillCall(ID, busy.rt, {fetcher:busy.x.fetcher}), {ok:false, code:'daily_limit'});
+  const down = mk(() => { throw new Error('network'); });
+  assert.equal((await refillCall(ID, down.rt, {fetcher:down.x.fetcher, online:() => true})).ok, false);
+  const pending = mk(() => new Response(JSON.stringify({ok:false, error:'call_refill_not_pending'}), {status:409}));
+  assert.deepEqual(await refillCall(ID, pending.rt, {fetcher:pending.x.fetcher}), {ok:false, code:'call_refill_not_pending'});
+});
+test('다시 채우기 안내 문구: 옛 값이 남는다는 말이 늘 들어 있고, 한도 문구는 따로', () => {
+  for (const t of [REFILL_PENDING, REFILL_DONE, REFILL_SKIPPED, refillFailedText('ai_busy'), refillFailedText('daily_limit'), refillFailedText('monthly_limit'), refillFailedText()]) assert.match(t, /^업무 통화로 옮/);
+  for (const c of ['ai_busy', 'not_ready', 'daily_limit', 'monthly_limit', undefined]) assert.match(refillFailedText(c), /옛 값 그대로예요\.$/);
+  assert.notEqual(refillFailedText('daily_limit'), refillFailedText('ai_busy'));
+  assert.ok(!/<|>/.test(REFILL_DONE));
+});
+test('다시 채우기는 업무로 옮길 때만 부른다: call-feed.js의 호출은 한 곳, 개인 쪽 길에는 없다', () => {
+  const code = readFileSync(new URL('../app/call-feed.js', import.meta.url), 'utf8');
+  assert.equal((code.match(/refillCall\(/g) || []).length, 1);
+  assert.match(code, /to === 'work' && res\.changed && res\.needsRefill/);
 });

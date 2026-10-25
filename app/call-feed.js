@@ -13,8 +13,8 @@ import './enter-save.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {mountSplitResize} from './split-resize.js';
 import {createFeedHold} from './feed-hold.js';
-import {groupByDay, hhmm, dayLabel, readPoints, speakerLines, missingTable, kstDay, splitPersonal, legacyFilteredNote, moveToPersonalWarning, moveErrorText, moveDoneText, callWho, callTopic} from './feed-model.mjs';
-import {readFeed, readDays, readRaw, readOrganizations, setPinned, setHidden, scopeOf, readPersonal, readPersonalRaw, setPersonalHidden, moveCall, readLedgerSeen} from './feed-data.js';
+import {groupByDay, hhmm, dayLabel, readPoints, speakerLines, missingTable, kstDay, splitPersonal, legacyFilteredNote, moveToPersonalWarning, moveErrorText, moveDoneText, callWho, callTopic, REFILL_PENDING, REFILL_DONE, REFILL_SKIPPED, refillFailedText} from './feed-model.mjs';
+import {readFeed, readDays, readRaw, readOrganizations, setPinned, setHidden, scopeOf, readPersonal, readPersonalRaw, setPersonalHidden, moveCall, readLedgerSeen, refillCall} from './feed-data.js';
 import {callCopyText} from './summary-copy-model.mjs';
 import {copyButtonHtml, copySummary} from './summary-copy.js';
 import {callLedgerRecords, retireCallRecords} from './call-ledger.js';
@@ -238,6 +238,7 @@ function restore() {
 // 먼저 한 줄로 알리고 [개인 통화로 옮기기]를 한 번 더 누르게 한다(원장 기록은 지워지지 않는다).
 function moveRow(r, to, {confirmed = false} = {}) {
   const from = isPersonal(r) ? r.kind : 'work';
+  let refillId = null;
   return guarded(async current => {
     if (to === 'personal' && from === 'work' && !confirmed) {
       const ledger = await readLedgerSeen(r.id, rt); if (!current()) return;
@@ -251,7 +252,19 @@ function moveRow(r, to, {confirmed = false} = {}) {
     undo = res.changed && from !== 'unsure' ? {type:'move', id:r.id, to:from} : null;
     await load(); if (!current()) return;
     state.status = res.changed ? moveDoneText(from, to) : '이미 그 통화함에 있어요.';
-  }).then(() => { if (state.confirm) $('#cfDetail [data-cf-confirm-go]')?.focus({preventScroll:true}); else $('#cfList [data-cf-undo]')?.focus({preventScroll:true}); });
+    if (to === 'work' && res.changed && res.needsRefill) { refillId = r.id; state.status = REFILL_PENDING; }
+  }).then(() => { if (refillId) void refillMoved(refillId); }).then(() => { if (state.confirm) $('#cfDetail [data-cf-confirm-go]')?.focus({preventScroll:true}); else $('#cfList [data-cf-undo]')?.focus({preventScroll:true}); });
+}
+// 옮긴 직후 AI 다시 채우기(CALL-개인통화함 4단계). 화면을 막지 않고 따로 돈다. 실패하면 조용히 옛 값을 두고 한 줄만 알린다.
+// 그사이 다른 동작이 안내 줄을 바꿨으면 그 줄은 덮어쓰지 않는다.
+async function refillMoved(id) {
+  const owner = scopeOf(rt), mine = state.status, current = () => owner === scopeOf(rt);
+  const res = await refillCall(id, rt).catch(() => ({ok:false, code:'internal_error'})); if (!current()) return;
+  const note = text => { if (state.status === mine) say(text); };
+  if (!res.ok) return void note(refillFailedText(res.code));
+  if (res.skipped) return void note(REFILL_SKIPPED);
+  const before = state.status; await load(); if (!current()) return;
+  state.status = before === mine ? REFILL_DONE : before; paint();
 }
 const callText = r => callCopyText({who:whoOf(r), title:topicOf(r), dayText:dayLabel(r.day), time:hhmm(r.occurred_at), points:r.points});
 const copyCall = r => copySummary(callText(r), {say, current:() => state.status});
