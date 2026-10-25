@@ -51,6 +51,10 @@ async function find(mode) {
   return shared.finding;
 }
 
+// 정리함 [챙길 것] shows the same promises (INBOX-상대약속): read-only view of what the last finding in this tab returned.
+// Same scope guard as the radar itself; nothing is stored, so after a reload they are gone until the next finding.
+export function radarPromises() { sameScope(); return shared.promises; }
+
 export function openSource(c) {
   const go = view => window.KPTURouter?.go?.(view, {source:'delegated'});
   if (c.source_kind === 'basket') { requestBasketNote(c.source_id, rt); go('basket'); return; }

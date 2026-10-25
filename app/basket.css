@@ -155,6 +155,7 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #appView #basketView button.inbox-todo-btn:disabled { opacity:.6; cursor:default; }
 #appView #basketView button.inbox-todo-link { position:relative; min-height:0; margin:0; padding:0; font:inherit; font-size:var(--ds-text-meta); color:var(--kptu-primary-ink); background:transparent; border:0; cursor:pointer; }
 #appView #basketView :is(button.inbox-todo-source,button.inbox-todo-btn,button.inbox-todo-link)::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+#appView #basketView .inbox-todo-tag { cursor:default; }
 #basketView .inbox-todo-below { display:flex; gap:8px; margin-top:2px; }
 #basketView .note-host { --ds-section-ink:var(--ds-kind-note-ink); }
 /* [노트] 위쪽: 검색칸 + [+ 노트]. 폰에서는 [+ 노트]가 다른 화면과 같은 동그란 [+]로 뜬다(ui-standard.css). */

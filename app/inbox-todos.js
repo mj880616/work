@@ -3,13 +3,16 @@
 // owner's own rows only). Chips narrow it: 처리 전 / 할 일로 보냄 / 무시함. Each open row has the source on the left (a small button that
 // opens the record) and two small buttons on the right: [할 일로] (one Google task through the existing create path, then the row is
 // marked) and [무시]. The counts the screen shows count the open rows only (decision 5: what is already a task by title is left out).
+// INBOX-상대약속: under the open rows, the counterpart promises the radar's last finding returned (todo-radar.js radarPromises, the same data
+// as the PC home card). Each has [원장으로] (copies the same 쓰기요청 text as the card's [원장으로 복사]). They are never stored and never counted.
 // The home card and the work journal box (todo-radar.js) stay as they are; both sides tell each other through the same change
 // event ('kptu:todo-radar-changed'). Nothing is kept in browser storage.
 import {readInboxCandidates, dismissCandidate, reopenCandidate, markTasked, candidateToTask, validateTaskDraft, notPlanned,
-  quickDue, dotDay, radarScope, RADAR_SOURCE_LABEL} from './todo-radar-data.js';
+  quickDue, dotDay, radarScope, ledgerRequestText, RADAR_SOURCE_LABEL} from './todo-radar-data.js';
 import {seoulDateKey} from './meeting-time.js';
 import {offerUndoNotice} from './basket-record-delete.js';
-import {openSource} from './todo-radar.js';
+import {openSource, radarPromises} from './todo-radar.js';
+import {copyText} from './md-editor.js';
 
 const CHANGED = 'kptu:todo-radar-changed';
 export const INBOX_CHIPS = Object.freeze([['open', '처리 전'], ['tasked', '할 일로 보냄'], ['dismissed', '무시함']]);
@@ -18,7 +21,7 @@ const taskTitles = () => (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).fi
 
 export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}}) {
   let rows = [], state = 'loading', chip = 'open', run = 0, scope = radarScope(rt), status = '';
-  const busy = new Set(), unknown = new Map(), unmarked = new Map(), rowStatus = new Map();
+  const copied = new Set(), busy = new Set(), unknown = new Map(), unmarked = new Map(), rowStatus = new Map();
   host.hidden = true;
 
   const openRows = () => notPlanned(rows.filter(r => r.status === 'open'), taskTitles());
@@ -54,6 +57,12 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}}) {
     const note = rowStatus.get(c.id) ? `<p class="inbox-todo-status" role="status">${esc(rowStatus.get(c.id))}</p>` : '';
     return `<li class="inbox-todo-row" data-inbox-todo-row="${id}" data-inbox-todo-status="${esc(c.status)}"><div class="inbox-todo-line"><button type="button" class="inbox-todo-source" data-inbox-todo-source="${id}" aria-label="출처 열기: ${esc(source)}">${esc(source)}</button><div class="inbox-todo-text"><span class="inbox-todo-summary">${esc(c.summary)}</span><span class="inbox-todo-meta">${esc(meta)}</span></div>${right}</div>${note}${below ? `<div class="inbox-todo-below">${below}</div>` : ''}</li>`;
   }
+  const promises = () => state === 'ok' && chip === 'open' ? radarPromises() : [];
+  function promiseHtml(p, i) {
+    const meta = [RADAR_SOURCE_LABEL[p.source_kind], p.due ? `기한 ${dotDay(p.due)}` : ''].filter(Boolean).join(' · ');
+    const label = copied.has(ledgerRequestText(p)) ? '복사함' : '원장으로';
+    return `<li class="inbox-todo-row inbox-todo-promise" data-inbox-promise="${i}"><div class="inbox-todo-line"><span class="inbox-todo-source inbox-todo-tag">상대 약속</span><div class="inbox-todo-text"><span class="inbox-todo-summary">${esc(p.summary)}</span><span class="inbox-todo-meta">${esc(meta)}</span></div><span class="inbox-todo-actions"><button type="button" class="inbox-todo-btn" data-inbox-promise-ledger="${i}">${label}</button></span></div></li>`;
+  }
   function paint() {
     tell(); paintChips();
     if (host.hidden) return;
@@ -63,8 +72,8 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}}) {
     if (state === 'missing') body = `<p class="inbox-todo-empty">챙길 것 기능이 아직 준비 중이에요.</p>`;
     else if (state === 'failed') body = `<p class="inbox-todo-empty">챙길 것을 불러오지 못했어요. <button type="button" class="inbox-todo-link" data-inbox-todo-retry>다시 시도</button></p>`;
     else if (state === 'loading') body = `<p class="inbox-todo-empty">불러오는 중…</p>`;
-    else if (!list.length) body = `<p class="inbox-todo-empty" data-inbox-todo-empty>${EMPTY[chip]}</p>`;
-    else body = `<ul class="inbox-todo-list" aria-label="챙길 것">${list.map(rowHtml).join('')}</ul>`;
+    else if (!list.length && !promises().length) body = `<p class="inbox-todo-empty" data-inbox-todo-empty>${EMPTY[chip]}</p>`;
+    else body = `<ul class="inbox-todo-list" aria-label="챙길 것">${list.map(rowHtml).join('')}${promises().map(promiseHtml).join('')}</ul>`;
     host.innerHTML = `${body}<p class="inbox-todo-status" role="status" aria-live="polite" data-inbox-todo-line>${esc(status)}</p>`;
     if (focusAttr) host.querySelector(`[${focusAttr.name}="${CSS.escape(focusAttr.value)}"]`)?.focus({preventScroll: true});
   }
@@ -117,6 +126,12 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}}) {
   host.addEventListener('click', async event => {
     const b = event.target.closest('button'); if (!b || b.disabled) return;
     const d = b.dataset;
+    if (d.inboxPromiseLedger) {
+      const p = radarPromises()[Number(d.inboxPromiseLedger)]; if (!p) return;
+      const text = ledgerRequestText(p), ok = await copyText(text);
+      if (ok) copied.add(text);
+      status = ok ? '원장에 넣을 약속 문구를 복사했어요.' : '복사하지 못했어요.'; paint(); return;
+    }
     if ('inboxTodoRetry' in d) { state = 'loading'; paint(); await load(); return; }
     if ('inboxTodoTasks' in d) { window.KPTURouter?.go?.('tasks', {source: 'delegated'}); return; }
     if (d.inboxTodoSource) { const c = byId(d.inboxTodoSource); if (c) openSource(c); return; }
@@ -142,7 +157,7 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}}) {
   for (const name of ['kptu:google-tasks-changed', 'kptu:home-ready']) window.addEventListener(name, () => { if (state === 'ok') paint(); });
   window.addEventListener('kptu:session-changed', () => {
     if (scope === radarScope(rt)) return;
-    run++; rows = []; state = 'loading'; chip = 'open'; status = ''; busy.clear(); unknown.clear(); unmarked.clear(); rowStatus.clear(); told = undefined; scope = radarScope(rt);
+    run++; rows = []; state = 'loading'; chip = 'open'; status = ''; copied.clear(); busy.clear(); unknown.clear(); unmarked.clear(); rowStatus.clear(); told = undefined; scope = radarScope(rt);
     host.replaceChildren(); paint();
   });
 
