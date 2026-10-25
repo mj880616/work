@@ -2,7 +2,10 @@
  * Web2 수집 보내기 — 통화 부분 (CALL-통화메뉴 3-가)
  *
  * 하는 일: 1시간마다 새 통화 전사 txt와 그 통화 분석 파일(검토__…md)을 찾아 Web2 서버(collector-feed)로 한 건씩 보낸다.
- *   - 개인 번호·연락처 목록(스크립트 속성 CALL_FEED_PERSONAL_LIST)에 있는 통화는 분석 파일을 읽지도 보내지도 않고 개수만 보낸다.
+ *   - 개인 번호·연락처 목록(스크립트 속성 CALL_FEED_PERSONAL_LIST)에 있는 통화도 다른 통화처럼 분석 파일을 기다려 요약·전문까지 보낸다.
+ *     다만 분석이 업무라고 해도 개인으로 바꿔 보내므로 서버는 개인 통화함에만 저장한다(업무 통화함에는 들어가지 않는다).
+ *   - 개인·애매 통화(분석 v3.5가 요약을 남김)도 요약·전문까지 보낸다. 서버가 개인 통화함에 저장하고 업무 기록에는 쓰지 않는다.
+ *     요약이 없는 옛 개인 기록은 서버가 개수만 센다.
  *   - 분석이 아직 없으면 기다린다(3일 넘게 없으면 건너뛴다).
  *   - 어디까지 보냈는지는 이 스크립트의 스크립트 속성(CALL_FEED_STATE)에만 적는다. Drive 파일은 고치지 않는다.
  *     분석 파일의 status, Drive 파일 설명도 건드리지 않는다(Q13).
@@ -31,7 +34,7 @@ var CALL_FEED_TEST_KEY = 'CALL_FEED_TEST_MODE';       // 없거나 '켬'이면 �
 var CALL_FEED_STATE_KEY = 'CALL_FEED_STATE';          // 어디까지 보냈는지(JSON)
 var CALL_FEED_TRANSCRIPT_FOLDER = '전사';             // 기존 전사·분석 스크립트와 같은 이름
 var CALL_FEED_ANALYSIS_FOLDERS = ['검토대기', '검토완료'];
-var CALL_FEED_MAX_PER_RUN = 20;                       // 서버 하루 상한 50건 안에서 한 번에 보낼 수
+var CALL_FEED_MAX_PER_RUN = 20;                       // 서버 하루 상한(통화 요청 200건, 업무·개인 합산) 안에서 한 번에 보낼 수
 var CALL_FEED_TIME_LIMIT_MS = 4.5 * 60 * 1000;        // 앱 스크립트 6분 제한 전에 멈춘다
 var CALL_FEED_WAIT_ANALYSIS_MS = 72 * 3600 * 1000;    // 분석을 기다리는 시간(분석 스크립트가 OpenAI 요청 한도로 반나절 넘게 쉬는 경우가 있어 3일)
 var CALL_FEED_MAX_PENDING = 50;                       // 분석 대기 목록 크기 상한(넘치면 오래된 것부터 넘김)
@@ -143,7 +146,7 @@ function callFeed_run() {
   var list = callFeedParseList(props.getProperty(CALL_FEED_LIST_KEY) || '');
   var folders = callFeed_folders_();
   var nowMs = Date.now();
-  var tally = { noClass: 0, personalList: 0, sent: 0, work: 0, personal: 0, unsure: 0, failed: 0, duplicate: 0, waiting: 0, skipped: 0, retry: 0 };
+  var tally = { noClass: 0, personalList: 0, boxed: 0, sent: 0, work: 0, personal: 0, unsure: 0, failed: 0, duplicate: 0, waiting: 0, skipped: 0, retry: 0 };
   var skipDays = test ? {} : state.skips;   // 시험 모드에서는 상태를 바꾸지 않는다
   var pending = test ? callFeedPendingClean(state.pending) : state.pending;   // 분석을 기다리는 통화 목록(시험 모드에서는 저장하지 않는다)
   var cursor = Date.parse(state.since);
@@ -168,28 +171,30 @@ function callFeed_run() {
     // 0단계: 녹음 날짜가 최근 일주일보다 오래된 통화는 분석을 기다리지 않고 넘긴다(옛 녹음을 한꺼번에 올린 경우)
     if (callFeedTooOld(day, nowMs)) { tally.old = (tally.old || 0) + 1; return 'done'; }
 
-    // 1단계: 개인 번호·연락처 목록(분석 파일을 읽지 않는다)
-    if (callFeedIsPersonal(info.contact, list)) {
-      tally.personalList++;
-      if (!test) skipDays[day] = (skipDays[day] || 0) + 1;
-      return 'done';
-    }
+    // 1단계: 개인 번호·연락처 목록에 든 통화는 내용까지 보내되 개인으로 고정한다(분석이 업무라고 해도 개인 통화함으로 간다)
+    var isList = callFeedIsPersonal(info.contact, list);
 
     var analysis = callFeed_findAnalysis_(folders.analysis, name, id);
     var decision = callFeedPendingDecision({ created: created }, nowMs, !!analysis);
     if (decision === 'wait') return 'wait';
     if (decision === 'expire') {
+      if (isList) {   // 분석이 끝내 안 생긴 목록 통화는 예전처럼 날짜별 개수만 센다
+        tally.personalList++;
+        if (!test) skipDays[day] = (skipDays[day] || 0) + 1;
+        return 'done';
+      }
       tally.skipped++;   // 분석이 끝내 안 생긴 통화(수동 처리 등)는 넘긴다
       return 'done';
     }
+    if (isList) tally.personalList++;
     var analysisMd = analysis.getBlob().getDataAsString('UTF-8');
     var transcript = file.getBlob().getDataAsString('UTF-8');
-    var body = callFeedBuildCallBody({ ref: id, analysisMd: analysisMd, transcript: transcript, driveUrl: file.getUrl(), contact: info.contact, recordedAt: info.datetime });
+    var body = callFeedBuildCallBody({ ref: id, analysisMd: analysisMd, transcript: transcript, driveUrl: file.getUrl(), contact: info.contact, recordedAt: info.datetime, forcePersonal: isList });
     if (!body) { tally.skipped++; return 'done'; }   // 분석 파일이 너무 큼
 
     if (test) {
-      var cls = callFeedClass(analysisMd);
-      if (cls === '실패') tally.failed++; else if (cls === '업무') tally.work++; else if (cls === '개인') tally.personal++; else tally.noClass++;
+      var cls = isList && callFeedClass(analysisMd) !== '실패' ? '개인' : callFeedClass(analysisMd);
+      if (cls === '실패') tally.failed++; else if (cls === '업무') tally.work++; else if (cls === '개인') tally.personal++; else if (cls === '애매') tally.unsure++; else tally.noClass++;
       tally.sent++;
       return 'done';
     }
@@ -200,6 +205,7 @@ function callFeed_run() {
       var out = res.json || {};
       if (out.duplicate) tally.duplicate++;
       tally.work += out.kept || 0; tally.personal += out.personal || 0; tally.unsure += out.unsure || 0; tally.failed += out.failed || 0;
+      tally.boxed += out.boxed || 0;
       tally.sent++;
       delete state.attempts[id];
       return 'done';
@@ -305,9 +311,9 @@ function callFeed_run() {
 
   Logger.log([
     (test ? '[시험 모드 — 보내지 않음] ' : '') + '전사 ' + (files.length + seenNow) + '건 확인' + (backfill ? '(설치 전 일주일 구간 보충 중)' : '') + (pendingChecked ? ' · 대기 목록 ' + pendingChecked + '건 다시 봄' : ''),
-    '개인 목록으로 거름: ' + tally.personalList,
+    '개인 번호 목록 통화: ' + tally.personalList + '(내용까지 개인 통화함으로)',
     (test ? '보낼 것: ' : '보냄: ') + tally.sent + ' (업무 ' + tally.work + ' · 개인 ' + tally.personal + ' · 애매 ' + tally.unsure +
-      (test ? ' · 구분 없음(옛 분석·비어 있음) ' + tally.noClass + ' · 분석 실패 ' + tally.failed : ' · 판정 실패 ' + tally.failed + ' · 이미 있음 ' + tally.duplicate) + ')',
+      (test ? ' · 구분 없음(옛 분석·비어 있음) ' + tally.noClass + ' · 분석 실패 ' + tally.failed : ' · 개인 통화함에 저장 ' + tally.boxed + ' · 판정 실패 ' + tally.failed + ' · 이미 있음 ' + tally.duplicate) + ')',
     '분석 대기: ' + tally.waiting + (tally.waiting ? '건(건너뛰고 계속)' : '') + ' · 대기 목록: ' + pending.length + '건 · 넘김: ' + tally.skipped + (tally.old ? ' · 일주일 넘은 옛 녹음 넘김: ' + tally.old : '') + (tally.retry ? ' · 다시 보낼 것: ' + tally.retry : ''),
     stop ? '멈춘 이유: ' + stop : '끝까지 봄',
   ].join('\n'));
@@ -528,9 +534,10 @@ function callFeedFrontmatter(md) {
 }
 
 /**
- * 분석 파일의 구분: '업무' | '개인' | '구분없음' | '실패'. 기준은 명진의 통화 분석 v3.2(2026-10-24 명진 결정)이다.
+ * 분석 파일의 구분: '업무' | '개인' | '애매' | '구분없음' | '실패'. 기준은 명진의 통화 분석 v3.2(2026-10-24 명진 결정), v3.5(개인·애매도 요약을 남김)이다.
  * - is_work_related: true → '업무'. false 또는 status: "개인"(개인 기록 파일) → '개인'.
- * - 칸이 없거나 비어 있음(옛 3.1 파일, 애매해서 비워 둔 것) → '구분없음'(보내지 않고 서버가 개수로만 센다).
+ * - status: "애매" → '애매'(v3.3 이후, 요약이 파일에 있다. 서버가 개인 통화함에 '확인할 통화'로 저장한다).
+ * - 그 밖에 칸이 없거나 비어 있음(옛 3.1 파일) → '구분없음'(요약·전문은 보내지 않고 서버가 개수로만 센다).
  * - 분석 스크립트가 남긴 "분석실패" 기록은 '실패'.
  */
 function callFeedClass(md) {
@@ -539,20 +546,22 @@ function callFeedClass(md) {
   if (status === '분석실패') return '실패';
   var flag = String(meta.is_work_related || '').trim().toLowerCase();
   if (status === '개인' || flag === 'false') return '개인';
+  if (status === '애매') return '애매';
   if (flag === 'true') return '업무';
   return '구분없음';
 }
 
 /**
- * 업무가 아닌 통화에 보낼 앞머리: 서버가 개수를 세는 데 필요한 칸만(이름·요약·전사는 보내지 않는다).
+ * 구분 없음(옛 3.1 파일 등)·분석 실패 통화에 보낼 앞머리: 서버가 개수를 세는 데 필요한 칸만(이름·요약·전사는 보내지 않는다).
+ * forcedClass가 '개인'이면(개인 번호 목록 통화인데 분석에 요약이 없는 경우) 개인으로 센다.
  * 녹음 시각이 없으면 전사 파일 이름의 날짜·시각(fallbackDatetime)을 쓴다(서버가 그 날짜에 센다).
  * 분석 스크립트가 남긴 "분석실패" 기록은 버전 칸을 빼서 서버가 판정 실패로 세게 한다.
  */
 var CALL_FEED_MIN_KEYS = ['analysis_version', 'source_txt_id', 'recording_datetime', 'is_work_related'];
-function callFeedMinimalAnalysis(md, fallbackDatetime) {
+function callFeedMinimalAnalysis(md, fallbackDatetime, forcedClass) {
   var meta = callFeedFrontmatter(md), lines = ['---'];
   if (!meta.recording_datetime && fallbackDatetime) meta.recording_datetime = fallbackDatetime;
-  var cls = callFeedClass(md);
+  var cls = forcedClass || callFeedClass(md);
   if (cls === '개인') meta.is_work_related = 'false'; else delete meta.is_work_related;
   CALL_FEED_MIN_KEYS.forEach(function (k) {
     if (cls === '실패' && k === 'analysis_version') return;
@@ -560,6 +569,22 @@ function callFeedMinimalAnalysis(md, fallbackDatetime) {
   });
   lines.push('---');
   return lines.join('\n');
+}
+
+/**
+ * 개인 번호 목록 통화의 분석 앞머리를 개인으로 고친다: status와 is_work_related 줄만 바꾸고(없으면 더함) 나머지는 그대로 둔다.
+ * 서버는 같은 이름 칸의 첫 줄을 읽으므로 기존 줄을 지우고 새 줄을 더한다. 앞머리가 없는 글은 그대로 돌려준다.
+ */
+function callFeedForcePersonal(md) {
+  var lines = String(md == null ? '' : md).replace(/^﻿/, '').split(/\r?\n/);
+  if (!lines.length || lines[0].trim() !== '---') return String(md);
+  var end = -1;
+  for (var i = 1; i < lines.length; i++) { if (lines[i].trim() === '---') { end = i; break; } }
+  if (end < 0) return String(md);
+  var kept = [];
+  for (var j = 1; j < end; j++) { if (!/^(status|is_work_related)\s*:/.test(lines[j])) kept.push(lines[j]); }
+  kept.push('status: "개인"', 'is_work_related: false');
+  return ['---'].concat(kept, ['---'], lines.slice(end + 1)).join('\n');
 }
 
 /** 글 안에 `화자0`(0번 화자)이 있나. 설계는 화자1부터라, 0이 있으면 0번부터 매긴 것으로 본다. */
@@ -572,9 +597,11 @@ function callFeedShiftSpeakers(text) {
 
 /**
  * 서버 POST ?action=call 몸통 {ref, analysis_md, transcript, drive_url}(handler.ts parseCallBody와 같은 칸만).
- * - 분석이 '업무'(is_work_related: true)일 때만 분석 전체와 전사를 보낸다. 전사는 고치지 않고 그대로 보낸다
+ * - 분석이 업무·개인·애매이면 분석 전체와 전사를 보낸다. 전사는 고치지 않고 그대로 보낸다
  *   (화자 구분은 전사 스크립트가 직접 `나:`/상대 표기로 쓰게 요청함 방에 요청한다. 서버가 줄 모양으로 알아본다).
- * - 개인·구분 없음은 앞머리 몇 칸만 보내고 전사는 빈 글로 보낸다(서버는 개수만 센다).
+ *   서버는 업무를 업무 통화함에, 개인·애매를 요약이 있을 때 개인 통화함에 저장한다(요약 없는 옛 개인 기록은 개수만).
+ * - input.forcePersonal(개인 번호 목록 통화): 분석 구분과 상관없이 개인으로 고쳐 보낸다. 분석 실패 기록은 그대로 둔다.
+ * - 구분 없음(옛 3.1)·분석 실패는 앞머리 몇 칸만 보내고 전사는 빈 글로 보낸다(서버는 개수만 센다).
  * - 분석 파일이 64 KB를 넘으면 null(보내지 않음). 합계 200 KB를 넘으면 전사를 자른다.
  */
 function callFeedBuildCallBody(input) {
@@ -587,8 +614,14 @@ function callFeedBuildCallBody(input) {
   }
   if (!analysisMd.trim() || callFeedBytes(analysisMd) > CALL_FEED_ANALYSIS_MAX_BYTES) return null;
   var body;
-  if (callFeedClass(analysisMd) !== '업무') {
-    body = { ref: String(input.ref), analysis_md: callFeedMinimalAnalysis(analysisMd, input.recordedAt), transcript: '' };
+  var cls = callFeedClass(analysisMd);
+  var forced = input.forcePersonal === true && cls !== '실패';
+  if (forced) {
+    cls = '개인';
+    analysisMd = callFeedForcePersonal(analysisMd);
+  }
+  if (cls !== '업무' && cls !== '개인' && cls !== '애매') {
+    body = { ref: String(input.ref), analysis_md: callFeedMinimalAnalysis(analysisMd, input.recordedAt, forced ? '개인' : ''), transcript: '' };
   } else {
     var transcript = callFeedCapBytes(rawTranscript.trim(), CALL_FEED_TOTAL_MAX_BYTES - callFeedBytes(analysisMd));
     body = { ref: String(input.ref), analysis_md: analysisMd, transcript: transcript };
@@ -1212,7 +1245,7 @@ if (typeof module !== 'undefined' && module.exports) {
     callFeedTranscriptName: callFeedTranscriptName, callFeedIsPersonal: callFeedIsPersonal, callFeedKstDay: callFeedKstDay,
     callFeedDayInRange: callFeedDayInRange, callFeedTooOld: callFeedTooOld, callFeedRecentStartMs: callFeedRecentStartMs, callFeedShiftSpeakers: callFeedShiftSpeakers, callFeedHasSpeakerZero: callFeedHasSpeakerZero, callFeedBytes: callFeedBytes, callFeedCapBytes: callFeedCapBytes,
     callFeedAnalysisName: callFeedAnalysisName, callFeedMinimalAnalysis: callFeedMinimalAnalysis,
-    callFeedFrontmatter: callFeedFrontmatter, callFeedClass: callFeedClass,
+    callFeedFrontmatter: callFeedFrontmatter, callFeedClass: callFeedClass, callFeedForcePersonal: callFeedForcePersonal,
     callFeedBuildCallBody: callFeedBuildCallBody, callFeedVerdict: callFeedVerdict,
     callFeedPendingClean: callFeedPendingClean, callFeedPendingTrim: callFeedPendingTrim, callFeedPendingDecision: callFeedPendingDecision,
     tgFeedAddDays: tgFeedAddDays, tgFeedParseRooms: tgFeedParseRooms, tgFeedRoomMatch: tgFeedRoomMatch, tgFeedRoomPick: tgFeedRoomPick, tgFeedRoomInfo: tgFeedRoomInfo,
