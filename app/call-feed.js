@@ -12,6 +12,7 @@ import {groupByDay, hhmm, dayLabel, readPoints, speakerLines, callFiltered, miss
 import {readFeed, readDays, readRaw, readOrganizations, setPinned, setHidden, scopeOf} from './feed-data.js';
 import {callCopyText} from './summary-copy-model.mjs';
 import {copyButtonHtml, copySummary} from './summary-copy.js';
+import {callLedgerRecords, retireCallRecords} from './call-ledger.js';
 import {esc, newLinkBox, linkBoxHtml, openOrgPicker, saveLinkBox, orgName} from './feed-link.js';
 
 const rt = window.KPTURuntime;
@@ -19,7 +20,7 @@ const $ = sel => document.querySelector(sel);
 const pc = window.matchMedia('(min-width:1024px)');
 const MORE = '<span aria-hidden="true">⋯</span>';
 
-let state = fresh(), run = 0, layer = null, undo = null;
+let state = fresh(), run = 0, layer = null, undo = null, ledgerAsk = null, loadP = null;
 function fresh() { return {owner:'', loaded:false, loading:false, missing:false, error:'', rows:[], days:[], orgs:[], mine:new Set(), selected:null, mode:'', raw:new Map(), rawOpen:false, link:null, status:'', busy:false}; }
 
 function install() {
@@ -36,13 +37,15 @@ function whoOf(r) {
 const rowOf = id => state.rows.find(r => r.id === id) || null;
 
 // ---------- data
-async function load() {
+function load() { return (loadP = loadNow()); }
+async function loadNow() {
   const owner = scopeOf(rt), me = ++run; state.loading = true; if (!state.loaded) paint();
   try {
     const [rows, days, orgs] = await Promise.all([readFeed('call', rt), readDays('call', rt).catch(() => []), readOrganizations(rt).catch(() => ({orgs:[], mine:new Set()}))]);
     if (me !== run || owner !== scopeOf(rt)) return;
     Object.assign(state, {owner, loaded:true, loading:false, missing:false, error:'', rows, days, orgs:orgs.orgs, mine:orgs.mine});
     if (state.selected && !rowOf(state.selected)) closeDetail({quiet:true});
+    window.KPTULedgerAuto?.callsOpened?.(rows);
   } catch (error) {
     if (me !== run || owner !== scopeOf(rt)) return;
     Object.assign(state, {owner, loaded:true, loading:false, rows:[], missing:missingTable(error), error:missingTable(error) ? '' : '통화 목록을 불러오지 못했어요.'});
@@ -85,7 +88,8 @@ function paintList() {
   }).join('')}`).join('') : '<p class="feed-empty" data-cf-empty="none">아직 받은 업무 통화가 없어요.</p>';
   box.innerHTML = head + `<div class="feed-rows">${body}</div><p class="feed-status" data-cf-status role="status">${statusHtml()}</p>`;
 }
-const statusHtml = () => esc(state.status) + (undo ? ' <button type="button" class="feed-text-btn" data-cf-undo>되돌리기</button>' : '');
+const statusHtml = () => esc(state.status) + (undo ? ' <button type="button" class="feed-text-btn" data-cf-undo>되돌리기</button>' : '')
+  + (ledgerAsk?.total ? ` <span class="feed-faint">이 통화에서 원장에 들어간 기록 ${ledgerAsk.total}개는 남아요${ledgerAsk.ledgerIds.length ? ' ·' : ''}</span>${ledgerAsk.ledgerIds.length ? ' <button type="button" class="feed-text-btn" data-cf-ledger-retire>원장에서도 틀림으로</button>' : ''}` : '');
 function paintDetail() {
   const box = $('#cfDetail'), back = pc.matches ? '' : '<button type="button" class="back-text" data-cf-back>‹ 통화</button>';
   if (state.mode === 'filtered') {
@@ -125,7 +129,7 @@ function openLayer() {
 }
 function select(id) {
   if (state.link && !dropLink()) return;
-  state.selected = id; state.mode = ''; state.rawOpen = false; state.status = ''; undo = null;
+  state.selected = id; state.mode = ''; state.rawOpen = false; state.status = ''; undo = null; ledgerAsk = null;
   openLayer(); paint(); void loadRaw(id);
   (pc.matches ? $(`#cfList [data-cf-row="${CSS.escape(id)}"]`) : $('#cfDetail [data-cf-back]'))?.focus({preventScroll:true});
 }
@@ -156,14 +160,28 @@ function pin(r) {
 function hide(r) {
   return guarded(async current => {
     try {
+      // 원장에 이미 들어간 기록 수(읽기만). 못 읽어도 지우기는 그대로 한다.
+      const found = await callLedgerRecords(r.id, rt).catch(() => null);
+      if (!current()) return;
       const saved = await setHidden(r.id, true, rt); if (!current()) return; if (!saved) return void await gone();
       state.rows = state.rows.filter(x => x.id !== r.id); closeDetail({quiet:true});
       undo = {id:r.id, row:{...r, hidden_at:null}}; state.status = '목록에서 지웠어요. 원본은 Drive에 있어요.';
+      ledgerAsk = found && found.total ? {...found} : null;
     } catch { if (current()) state.status = '지우지 못했어요. 다시 시도해 주세요.'; }
   }).then(() => $('#cfList [data-cf-undo]')?.focus({preventScroll:true}));
 }
+function retireLedger() {
+  const ask = ledgerAsk; if (!ask?.ledgerIds.length) return; ledgerAsk = null;
+  return guarded(async current => {
+    try {
+      const n = await retireCallRecords(ask.ledgerIds, rt); if (!current()) return;
+      const kept = ask.total - n;
+      state.status = `원장에서 ${n}개를 틀린 기록으로 표시했어요.${kept > 0 ? ` 다른 근거가 있는 ${kept}개는 그대로 뒀어요.` : ''} 되돌리기는 원장의 수정 요청에서 해요.`;
+    } catch { if (current()) { ledgerAsk = ask; state.status = '원장에서 표시하지 못했어요. 다시 시도해 주세요.'; } }
+  });
+}
 function restore() {
-  const u = undo; if (!u) return; undo = null;
+  const u = undo; if (!u) return; undo = null; ledgerAsk = null;
   return guarded(async current => {
     try { const saved = await setHidden(u.id, false, rt); if (!current()) return; if (saved) { state.rows = [...state.rows, {...u.row, ...saved}]; state.status = '되돌렸어요.'; } else state.status = '되돌리지 못했어요.'; }
     catch { if (current()) state.status = '되돌리지 못했어요. 다시 시도해 주세요.'; }
@@ -203,6 +221,7 @@ function bind() {
     else if (b.hasAttribute('data-cf-copy')) { const r = rowOf(state.selected); if (r) void copyCall(r); }
     else if (b.hasAttribute('data-cf-retry')) void load();
     else if (b.hasAttribute('data-cf-undo')) void restore();
+    else if (b.hasAttribute('data-cf-ledger-retire')) void retireLedger();
     else if (b.hasAttribute('data-cf-more')) menu.open(b);
     else if (b.hasAttribute('data-cf-link-pick')) { const box = state.link; if (box) void openOrgPicker(b, {orgs:state.orgs, mine:state.mine, selected:box.orgId, onPick:id => { box.orgId = id; paintDetail(); $('#cfDetail [data-cf-link-pick]')?.focus({preventScroll:true}); }}); }
     else if (b.hasAttribute('data-cf-link-cancel')) { state.link = null; paintDetail(); $('#cfDetail [data-cf-more]')?.focus({preventScroll:true}); }
@@ -222,7 +241,12 @@ window.addEventListener('kptu:view-changed', e => {
   layer = null; state.link = null; menu.close?.(null, true);
   window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'calls', name:null}}));
 });
-window.addEventListener('kptu:session-changed', () => { run++; layer = null; undo = null; state = fresh(); if (view()) paint(); });
+window.addEventListener('kptu:session-changed', () => { run++; layer = null; undo = null; ledgerAsk = null; state = fresh(); if (view()) paint(); });
 pc.addEventListener?.('change', () => { if (view() && !view().classList.contains('hidden')) { if (pc.matches && layer) { const l = layer; layer = null; l.close(); } paint(); } });
 paint();
-window.KPTUCallFeed = {reload:() => load()};
+// 원장 근거 ‹원문›이 부른다: 목록을 읽은 뒤 그 통화를 연다. 지워졌거나 목록에 없으면 열지 않는다.
+async function openCall(id) {
+  if (!state.loaded || state.owner !== scopeOf(rt)) await load(); else if (state.loading && loadP) await loadP;
+  if (rowOf(id)) select(id);
+}
+window.KPTUCallFeed = {reload:() => load(), open:openCall};

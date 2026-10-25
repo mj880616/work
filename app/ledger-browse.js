@@ -253,7 +253,8 @@ const ORIGINAL_READ = {
   notes: ids => `/rest/v1/app_notes?workspace_id=eq.${q(workspaceId())}&id=in.(${ids})&select=id,kind,archived_at,journal_day`,
   meeting: ids => `/rest/v1/app_meetings?workspace_id=eq.${q(workspaceId())}&id=in.(${ids})&select=id`,
   org_update: ids => `/rest/v1/app_suborganization_updates?id=in.(${ids})&select=id,organization_id`,
-  project_update: ids => `/rest/v1/app_project_progress_updates?id=in.(${ids})&select=id,project_id`
+  project_update: ids => `/rest/v1/app_project_progress_updates?id=in.(${ids})&select=id,project_id`,
+  call: ids => `/rest/v1/app_feed_items?workspace_id=eq.${q(workspaceId())}&source=eq.call&id=in.(${ids})&select=id,hidden_at`
 };
 const tableOf = kind => (['basket', 'note', 'work'].includes(kind) ? 'notes' : kind);
 async function readOriginals(sources) {
@@ -283,6 +284,7 @@ async function openOriginal(target) {
     if (target.view === 'basket') { if (target.note === 'doc') requestNoteDocOpen(target.id); else requestBasketNote(target.id); r.go('basket', { source: 'delegated' }); }
     else if (target.view === 'journal') { r.go('journal', { source: 'delegated' }); window.KPTUJournal?.show?.(target.day); }
     else if (target.view === 'projects') { r.go('projects', { source: 'delegated' }); await window.KPTUProjects?.open?.(target.id); }
+    else if (target.view === 'calls') { r.go('calls', { source: 'delegated' }); await window.KPTUCallFeed?.open?.(target.id); }
     else if (target.view === 'team') { r.go('team', { source: 'delegated' }); await window.KPTUWorkplace?.open?.(target.id); }
     else if (target.view === 'meetings') { r.go('meetings', { source: 'delegated' }); await window.__KPTU_MEETING_ROUND_DETAIL_READY__; await window.KPTUMeetingRoundDetail?.open?.(target.id); }
   } catch (e) { console.error('ledger original open', e?.name || 'Error'); }

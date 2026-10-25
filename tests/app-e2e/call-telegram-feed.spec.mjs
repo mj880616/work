@@ -166,6 +166,52 @@ for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세
  expect(f.errors).toEqual([]);
 });
 
+// CALL-원장재료 L-3: 지우기 뒤 "원장에 들어간 기록 N개는 남아요 · [원장에서도 틀림으로]" → 그 통화만 근거인 기록만 수정 요청 retire.
+test('통화 1280: 지운 통화에서 원장에 들어간 기록 안내와 [원장에서도 틀림으로](그 통화만 근거인 기록만)',async({page})=>{
+ const f=await fixture(page,{width:1280});
+ const S1='80000000-0000-4000-8000-000000000001',R1='81000000-0000-4000-8000-000000000001',R2='81000000-0000-4000-8000-000000000002',R3='81000000-0000-4000-8000-000000000003',S2='80000000-0000-4000-8000-000000000002';
+ const reads=[],fixes=[];
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_ledger_sources',r=>{reads.push(decodeURIComponent(new URL(r.request().url()).searchParams.get('location')||''));return r.fulfill({json:[{id:S1}]});});
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_ledger_record_sources',r=>{
+  const q=new URL(r.request().url()).searchParams;
+  if(q.get('source_id'))return r.fulfill({json:[{record_id:R1,source_id:S1},{record_id:R2,source_id:S1},{record_id:R3,source_id:S1}]});
+  return r.fulfill({json:[{record_id:R1,source_id:S1},{record_id:R2,source_id:S1},{record_id:R2,source_id:S2},{record_id:R3,source_id:S1}]});
+ });
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_ledger_records',r=>r.fulfill({json:[
+  {id:R1,ledger_id:'COM-0951',validity:'needs_check'},{id:R2,ledger_id:'EVT-0952',validity:'current'},{id:R3,ledger_id:'DEC-0953',validity:'retired'}]}));
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_apply_ledger_fix',r=>{fixes.push(r.request().postDataJSON());return r.fulfill({json:{fix_request_id:'82000000-0000-4000-8000-000000000001',applied:1}});});
+ await openMenu(page,1280,'통화');
+ await page.locator(`#callsView [data-cf-row="${C1}"]`).click();
+ await page.locator('#cfDetail [data-cf-more]').click();
+ await page.locator('#cfMenu').getByRole('button',{name:/^지우기/}).click();
+ const status=page.locator('#callsView [data-cf-status]');
+ await expect(status).toContainText('목록에서 지웠어요');
+ await expect(status).toContainText('원장에 들어간 기록 2개는 남아요');
+ expect(reads).toEqual([`web2:call:${C1}`]);
+ await status.locator('[data-cf-ledger-retire]').click();
+ await expect.poll(()=>fixes.length).toBe(1);
+ expect(fixes[0].p_dry_run).toBe(false);
+ expect(fixes[0].p_request.received_from).toBe('user');
+ expect(fixes[0].p_request.items.map(i=>[i.target,i.do])).toEqual([['COM-0951','retire']]);
+ await expect(status).toContainText('원장에서 1개를 틀린 기록으로 표시했어요');
+ await expect(status).toContainText('다른 근거가 있는 1개는 그대로 뒀어요');
+ await expect(status.locator('[data-cf-ledger-retire]')).toHaveCount(0);
+ expect(f.errors).toEqual([]);
+});
+
+// 원장 근거 ‹원문›(ledger-browse)이 부르는 KPTUCallFeed.open: 목록을 읽은 뒤 그 통화를 열고, 없는 통화는 열지 않는다.
+test('통화 1280: KPTUCallFeed.open(id)은 그 통화 상세를 연다',async({page})=>{
+ const f=await fixture(page,{width:1280});
+ await openMenu(page,1280,'통화');
+ await expect(page.locator('#callsView [data-cf-row]').first()).toBeVisible();
+ await page.evaluate(id=>window.KPTUCallFeed.open(id),C2);
+ await expect(page.locator(`#callsView [data-cf-row="${C2}"]`)).toHaveAttribute('aria-current','true');
+ await expect(page.locator(`#cfDetail [data-cf-detail="${C2}"]`)).toBeVisible();
+ await page.evaluate(()=>window.KPTUCallFeed.open('60000000-0000-4000-8000-0000000000ff'));
+ await expect(page.locator(`#cfDetail [data-cf-detail="${C2}"]`)).toBeVisible();
+ expect(f.errors).toEqual([]);
+});
+
 for(const width of [390,1280])test(`통화 ${width}: '개인 통화 n건 걸러짐 ›'은 개수와 안내만`,async({page})=>{
  const f=await fixture(page,{width});
  await openMenu(page,width,'통화');

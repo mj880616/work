@@ -206,9 +206,9 @@ export function clearCondition(filters, key) {
 export const countLabel = (n, limit) => (n >= limit ? `최근 ${limit}건` : `${n}건`);
 
 // ---------- LEDGER-자동기록 3단계(설계 docs/design/ledger-auto-record.md 3.3·8.1·9.2절) ----------
-// 출처 위치 web2:<종류>:<id> → {kind, id}. 종류는 자동 기록 재료 여섯만(서버 ai-assist ledger-auto.ts web2Location과 같은 모양).
-export const WEB2_SOURCE_KINDS = Object.freeze(['basket', 'note', 'work', 'meeting', 'org_update', 'project_update']);
-export const WEB2_SOURCE_NAME = Object.freeze({ basket: '업데이트', note: '노트', work: '업무일지 한 줄', meeting: '사업 보고', org_update: '담당조직 기록', project_update: '프로젝트 기록' });
+// 출처 위치 web2:<종류>:<id> → {kind, id}. 종류는 자동 기록 재료 여섯 + 업무 통화(call, docs/design/ledger-sources.md 6.3). 개인본·캘린더는 해당 화면 PR에서 더한다.
+export const WEB2_SOURCE_KINDS = Object.freeze(['basket', 'note', 'work', 'meeting', 'org_update', 'project_update', 'call']);
+export const WEB2_SOURCE_NAME = Object.freeze({ basket: '업데이트', note: '노트', work: '업무일지 한 줄', meeting: '사업 보고', org_update: '담당조직 기록', project_update: '프로젝트 기록', call: '통화' });
 export function web2Source(location) {
   const m = /^web2:([a-z_]+):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String(location ?? '').trim());
   if (!m || !WEB2_SOURCE_KINDS.includes(m[1])) return null;
@@ -223,6 +223,8 @@ export function web2OpenTarget(src, row) {
   if (src.kind === 'meeting') return { view: 'meetings', id: src.id };
   if (src.kind === 'org_update') return UUID.test(String(row.organization_id || '')) ? { view: 'team', id: String(row.organization_id) } : null;
   if (src.kind === 'project_update') return UUID.test(String(row.project_id || '')) ? { view: 'projects', id: String(row.project_id) } : null;
+  // 통화: 명진이 통화 메뉴에서 지웠으면(hidden_at) 원문이 지워진 것으로 본다(설계 6.3).
+  if (src.kind === 'call') return row.hidden_at ? null : { view: 'calls', id: src.id };
   return null;
 }
 // 근거 줄 글: "업데이트 · 10/22", "사업 보고 · 가 지부 3차 · 10/21".
@@ -341,4 +343,28 @@ export function chipFit(widths, { width, gap = 6, moreWidth = 0, maxRows = CHIP_
   if (rowsOf(ws) <= maxRows) return { visible: ws.length, overflow: false };
   for (let k = ws.length - 1; k >= 0; k -= 1) if (rowsOf([...ws.slice(0, k), moreWidth]) <= maxRows) return { visible: k, overflow: true };
   return { visible: 0, overflow: true };
+}
+
+// ---------- 원문 단위로 틀림 처리(설계 2.4 · 6.5): 통화 지우기 확인의 [원장에서도 틀림으로] ----------
+// 한 원문에서 나온 자동 기록 중 그 원문만 근거인 기록(활성)의 원장 ID. 다른 근거도 있는 기록은 남긴다(수정 요청에 '근거 떼기'가 없음).
+// recordSources = [{record_id, source_id}] (그 기록들의 근거 전부), records = [{id, ledger_id, validity}].
+export function soleSourceRecords(sourceIds, recordSources, records) {
+  const mine = new Set(sourceIds), by = new Map();
+  for (const r of Array.isArray(recordSources) ? recordSources : []) {
+    if (!r || !UUID.test(String(r.record_id)) || !UUID.test(String(r.source_id))) continue;
+    (by.get(r.record_id) || by.set(r.record_id, new Set()).get(r.record_id)).add(r.source_id);
+  }
+  const out = [];
+  for (const rec of Array.isArray(records) ? records : []) {
+    if (!rec || !['current', 'needs_check'].includes(rec.validity) || !/^[A-Z]{2,6}-[0-9]{4,6}$/.test(String(rec.ledger_id || ''))) continue;
+    const srcs = by.get(rec.id);
+    if (srcs && srcs.size > 0 && [...srcs].every(id => mine.has(id))) out.push(rec.ledger_id);
+  }
+  return out;
+}
+export const SOURCE_RETIRE_MAX = 20; // app_apply_ledger_fix 한 요청의 항목 수 상한
+export function sourceRetireRequest(ledgerIds) {
+  const ids = [...new Set((Array.isArray(ledgerIds) ? ledgerIds : []).filter(v => /^[A-Z]{2,6}-[0-9]{4,6}$/.test(String(v))))];
+  if (!ids.length || ids.length > SOURCE_RETIRE_MAX) return null;
+  return { format: 'kptu-ledger-fix', version: 1, received_from: 'user', items: ids.map(target => ({ target, do: 'retire', reason: '원문(통화)을 지우면서 함께 틀린 기록으로 표시' })) };
 }
