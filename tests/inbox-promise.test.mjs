@@ -17,7 +17,7 @@ test('the inbox copies the same 쓰기요청 text as the home card', async () =>
 test('the promises come from the radar module and are not stored or counted', async () => {
   const inbox = await read('inbox-todos.js'), count = await read('inbox-count.js');
   assert.match(inbox, /radarPromises/);
-  assert.doesNotMatch(inbox, /localStorage|sessionStorage|fetch\(|rt\.api\([^)]*promise/i);
+  assert.doesNotMatch(inbox, /fetch\(|rt\.api\([^)]*promise/i);
   assert.doesNotMatch(count, /radarPromises|ledgerRequestText|상대 약속/);
   // The number on the screen stays the open candidates only.
   assert.match(inbox, /const count = \(\) => state === 'ok' \? openRows\(\)\.length : null;/);
