@@ -5,9 +5,10 @@ import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {expectProjectDetail} from './helpers/project-detail.mjs';
 import {openOldWriteWindow} from './helpers/write-opener.mjs';
+import {typeInto,edWin,edWinText} from './helpers/note-editor.mjs';
 import {expectProjectTitle} from './helpers/screen-title.mjs';
-// UI-크게첨부(2026-10-20 사용자 결정): (a) 조직 상세·프로젝트 상세의 업데이트 입력에도 [크게]. 같은 큰 편집 창(write-window.js)이
-// 그 조직·프로젝트를 미리 고른 채 열리고, 저장하면 그 조직·프로젝트 기록으로 저장된 뒤 닫힌다. (b) 큰 편집 창에서도 [📎 첨부]
+// UI-크게첨부(2026-10-20 사용자 결정): (a) 조직 상세·프로젝트 상세의 업데이트 입력에도 [크게]. ED③ 기록(순서 5)부터 업데이트의 새 큰 창
+// (update-window.js, #edWindow)이 그 조직·프로젝트를 미리 고른 채 열리고, 저장하면 그 조직·프로젝트 기록으로(글자와 서식 함께) 저장된 뒤 닫힌다. (b) 큰 편집 창에서도 [📎 첨부]
 // (바구니 첨부 부품 basket-upload.js 그대로). 첨부는 바구니로 저장할 때만 — 조직·프로젝트 기록이나 노트로 저장할 때 첨부가 있으면
 // 기존 안내. DB·Edge 변경 없음(기존 저장 경로만 부른다).
 test.use({hasTouch:true});
@@ -27,7 +28,7 @@ async function fixture(page,width){
  await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/basket-files',r=>{const body=r.request().postDataBuffer()?.toString('latin1')||'';uploads.push(body);return r.fulfill({json:{ok:true,note_id:'up-1',attachments:[{file_name:'a.txt',size_bytes:1,drive_file_id:'file_1',mime_type:'text/plain'}]}});});
  return {...home,errors,notes,orgs,projects,uploads};
 }
-const fits=page=>page.evaluate(()=>{const h=document.querySelector('#mdEditor .md-editor-head');return !!h&&h.scrollWidth<=h.clientWidth&&document.documentElement.scrollWidth<=innerWidth;});
+const fits=page=>page.evaluate(()=>{const h=document.querySelector('#mdEditor .md-editor-head,#edWindow .ed-window-head');return !!h&&h.scrollWidth<=h.clientWidth&&document.documentElement.scrollWidth<=innerWidth;});
 async function chooseFile(page,trigger,name='a.txt'){
  const chooser=page.waitForEvent('filechooser');await trigger.click();
  await (await chooser).setFiles([{name,mimeType:'text/plain',buffer:Buffer.from('a')}]);
@@ -51,22 +52,22 @@ for(const width of [390,1280]){
   }
   await page.locator('#wdInboxText').fill('통화 내용 첫 줄\n둘째 줄');
   await big.click();
-  const e=editor(page);await expect(e).toBeVisible();
-  await expect(e.locator('.md-editor-text')).toHaveValue('통화 내용 첫 줄\n둘째 줄');
-  await expect(e.locator('[data-md-kind="update"]')).toHaveText('테스트 조직');
-  await expect(e.locator('[data-md-kind="update"]')).toHaveAttribute('aria-pressed','true');
-  await expect(e.locator('[data-md-save-icon]')).toHaveAccessibleName('테스트 조직 기록으로 저장');
+  const e=edWin(page);await expect(e).toBeVisible();
+  await expect(edWinText(page)).toContainText('통화 내용 첫 줄');await expect(edWinText(page)).toContainText('둘째 줄');
+  await expect(e.locator('[data-edw-place]')).toHaveText('테스트 조직 ▾');
+  await expect(e.locator('[data-edw-save]')).toHaveAccessibleName('업데이트로 저장');
   expect(await fits(page)).toBe(true);
-  // Closing without saving hands the text back to the small input.
-  await e.locator('.md-editor-text').fill('큰 창에서 고친 기록');
-  await e.locator('[data-close="mdEditor"]').click();await expect(page.locator('#mdEditor')).toHaveCount(0);
+  // Closing without saving hands the letters back to the small input.
+  await typeInto(page,edWinText(page),'큰 창에서 고친 기록');
+  await e.locator('[data-close="edWindow"]').click();
+  await page.locator('#edwCloseSheet').getByRole('button',{name:'저장하지 않고 닫기',exact:true}).click();await expect(page.locator('#edWindow')).toHaveCount(0);
   await expect(page.locator('#wdInboxText')).toHaveValue('큰 창에서 고친 기록');expect(f.orgs).toEqual([]);
-  // Save: this organization's record (the same body as [저장]), the window closes and the input empties.
+  // Save: this organization's record (letters and the saved form), the window closes and the input empties.
   await big.click();await expect(e).toBeVisible();
-  await e.locator('[data-md-save-icon]').click();
-  await expect(page.locator('#mdEditor')).toHaveCount(0);
+  await e.locator('[data-edw-save]').click();
+  await expect(page.locator('#edWindow')).toHaveCount(0);
   await expect(page.locator('#toast')).toContainText('테스트 조직 기록에 저장했어요.');
-  expect(f.orgs).toEqual([{organization_id:'o',raw_text:'큰 창에서 고친 기록',created_by:'home-test'}]);expect(f.notes).toEqual([]);
+  expect(f.orgs).toHaveLength(1);expect(f.orgs[0]).toMatchObject({organization_id:'o',raw_text:'큰 창에서 고친 기록',created_by:'home-test'});expect(f.orgs[0].doc).toMatchObject({v:'ed1'});expect(f.notes).toEqual([]);
   await expect(page.locator('#wdInboxText')).toHaveValue('');await expect(modal).toBeVisible();
   expect(f.errors).toEqual([]);
  });
@@ -83,20 +84,21 @@ for(const width of [390,1280]){
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await form.locator('input').fill('발제자 섭외');
   await big.click();
-  const e=editor(page);await expect(e).toBeVisible();
-  await expect(e.locator('.md-editor-text')).toHaveValue('발제자 섭외');
-  await expect(e.locator('[data-md-kind="update"]')).toHaveText('테스트 프로젝트');
-  await expect(e.locator('[data-md-save-icon]')).toHaveAccessibleName('테스트 프로젝트 기록으로 저장');
+  const e=edWin(page);await expect(e).toBeVisible();
+  await expect(edWinText(page)).toContainText('발제자 섭외');
+  await expect(e.locator('[data-edw-place]')).toHaveText('테스트 프로젝트 ▾');
+  await expect(e.locator('[data-edw-save]')).toHaveAccessibleName('업데이트로 저장');
   expect(await fits(page)).toBe(true);
-  // Several lines closed without saving come back to [크게] as written (the small input shows them on one line).
-  await e.locator('.md-editor-text').fill('발제자 섭외\n자료집 마감');
-  await e.locator('[data-close="mdEditor"]').click();await expect(page.locator('#mdEditor')).toHaveCount(0);
+  // Several lines closed without saving come back to [크게] as written, with their form (the small input shows them on one line).
+  await typeInto(page,edWinText(page),'발제자 섭외\n자료집 마감');
+  await e.locator('[data-close="edWindow"]').click();
+  await page.locator('#edwCloseSheet').getByRole('button',{name:'저장하지 않고 닫기',exact:true}).click();await expect(page.locator('#edWindow')).toHaveCount(0);
   await expect(form.locator('input')).toHaveValue('발제자 섭외 자료집 마감');expect(f.projects).toEqual([]);
-  await big.click();await expect(e.locator('.md-editor-text')).toHaveValue('발제자 섭외\n자료집 마감');
-  await e.locator('[data-md-save-icon]').click();
-  await expect(page.locator('#mdEditor')).toHaveCount(0);
+  await big.click();await expect(edWinText(page)).toContainText('자료집 마감');
+  await e.locator('[data-edw-save]').click();
+  await expect(page.locator('#edWindow')).toHaveCount(0);
   await expect(page.locator('#toast')).toContainText('테스트 프로젝트 기록에 저장했어요.');
-  expect(f.projects).toHaveLength(1);expect(f.projects[0]).toMatchObject({project_id:'p',workstream_id:null,author_id:'home-test',summary:'발제자 섭외\n자료집 마감',effective_on:'2026-10-06'});
+  expect(f.projects).toHaveLength(1);expect(f.projects[0]).toMatchObject({project_id:'p',workstream_id:null,author_id:'home-test',summary:'발제자 섭외\n자료집 마감',effective_on:'2026-10-06'});expect(f.projects[0].doc).toMatchObject({v:'ed1'});
   await expect(form.locator('input')).toHaveValue('');await expect(page.locator('#ps3DetailModal')).toBeVisible();
   expect(f.errors).toEqual([]);
  });

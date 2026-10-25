@@ -31,7 +31,7 @@ const routeStyles={
   meetings:['./filter-chips.css','./choice-sheet.css','./meeting-ui.css','./google-tasks.css','./ui-standard.css'],
   media:['./web1-press.css','./ui-standard.css'],
   pages:['./web1-board.css','./sr-blocks.css','./ed-doc.css','./share-pages.css','./ui-standard.css'],
-  team:['./suborganizations.css','./workplace-detail.css','./markdown-view.css','./record-sheet.css','./google-tasks.css','./ui-standard.css'],
+  team:['./suborganizations.css','./workplace-detail.css','./markdown-view.css','./ed-doc.css','./record-sheet.css','./google-tasks.css','./ui-standard.css'],
   hwp:['./hwp-lab.css','./ui-standard.css'],
   profile:['./profile-settings.css','./ui-standard.css'],
   ledger:['./ledger-import.css','./ui-standard.css'],

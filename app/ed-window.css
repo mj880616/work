@@ -56,4 +56,3 @@ html .modal.ed-window .edw-title-row button[data-edw-folder]::after { content:""
 html .modal.ed-window .edw-place-row button[data-edw-place]::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target, 44px) / 2); height:var(--kptu-touch-target, 44px); }
 .edw-place-row { display:flex; align-items:center; flex-wrap:wrap; gap:4px 8px; min-height:var(--kptu-touch-target, 44px); padding:0 8px; border-bottom:1px solid var(--kptu-border); background:var(--kptu-surface); box-sizing:border-box; }
 .edw-place-label { flex:0 0 auto; font-size:13px; color:var(--kptu-muted, var(--kptu-ink)); }
-.edw-place-hint { font-size:12px; color:var(--kptu-muted, var(--kptu-ink)); }
