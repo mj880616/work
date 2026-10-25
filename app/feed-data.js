@@ -8,6 +8,7 @@
 // and updated_at; there is no insert or delete. Rows come in through collector-feed only.
 import {readRecordPages} from './basket-link-records.js';
 import {addDays, kstDay} from './feed-model.mjs';
+import {callAiAssist} from './basket-ai-summary.js';
 
 const encode = encodeURIComponent;
 const ctx = rt => rt?.context?.read?.() || {};
@@ -118,6 +119,13 @@ export async function moveCall(id, to, rt = window.KPTURuntime) {
   }
   if (data && typeof data === 'object' && data.ok === true) return {ok:true, changed:data.changed === true, needsRefill:data.needs_refill === true};
   return {ok:false, error:'UNKNOWN'};
+}
+// CALL-개인통화함 4단계: 업무로 옮긴 직후 그 한 건만 서버 AI(ai-assist call_refill)가 제목·조직·상대·직함을 다시 채운다.
+// 화면은 통화 ID만 보낸다. 저장은 서버가 DB 함수로 하므로 여기서는 쓰지 않는다. Never throws.
+// {ok:true, skipped} or {ok:false, code}. An undeployed server answers with a known code and the old values stay.
+export async function refillCall(id, rt = window.KPTURuntime, options = {}) {
+  const r = await callAiAssist({kind:'call_refill', id}, {rt, ...options});
+  return r.ok ? {ok:true, skipped:r.data.skipped === true} : {ok:false, code:r.code};
 }
 // 업무→개인 안내: has this work call already been read into the ledger? (원장 처리 표 app_ledger_auto_sources, owner RLS.)
 // true / false, or null when it cannot be told (the table is not there or the read failed).
