@@ -233,7 +233,7 @@ button.back-text::after{content:"";position:absolute;inset:-8px -6px}
 button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
 /* UI-모바일고르기칸 (select-menu.js): 고르기 칸(select)을 누르면 휴대폰 기본 창 대신 칸 바로 아래에 펼쳐지는 작은 목록. 칸과 같은 폭, 뒤 화면은 어둡게 하지 않음. */
 .kptu-select-inset{position:fixed;left:0;bottom:0;width:0;height:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px));visibility:hidden;pointer-events:none}
-.kptu-select-menu{position:fixed;inset:auto;margin:0;box-sizing:border-box;padding:2px;overflow-y:auto;overscroll-behavior:contain;border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border-strong));border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float,0 4px 14px rgba(0,0,0,.16));z-index:1700;outline:0}
+.kptu-select-menu{position:fixed;inset:auto;margin:0;box-sizing:border-box;padding:2px;overflow-y:auto;overscroll-behavior:contain;border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border-strong));border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);z-index:1700;outline:0}
 .kptu-select-menu[hidden]{display:none}
 .kptu-select-opt{display:flex;align-items:center;justify-content:space-between;gap:8px;box-sizing:border-box;min-height:32px;padding:0 8px;border-radius:calc(var(--ds-radius-control,8px) - 2px);font-size:14px;line-height:1.3;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kptu-select-opt.is-active{background:var(--kptu-primary-soft)}
