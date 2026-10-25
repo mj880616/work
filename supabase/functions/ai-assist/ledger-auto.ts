@@ -7,12 +7,14 @@
 // - S2(교섭·전략) 기록 제목은 AI에 보내지 않는다. 사업 보고 칸이 교섭(negotiation)이면 그 원문에서 나온 기록은 최소 S2.
 // - AI 답은 믿지 않는 입력: 키·종류·글자 수·날짜·참조(원문 ref, 기록 ID)를 다시 검사한다. 보낸 목록에 없는 ID는 쓰지 않는다.
 // - 자동 기록이 할 수 있는 일은 더하기뿐(새 기록 / 변화로 이어 붙이기 / 근거 추가) + 이미 뽑은 기록 '확인필요' 표시. 기존 기록 칸은 고치지 않는다.
-import { cleanLine, cleanMaterial, type SourceKind } from "./todo-radar.ts";
+import { cleanLine, cleanMaterial, normalizeTitle, type SourceKind } from "./todo-radar.ts";
 import { ledgerDedupKey, looksPersonal } from "./ledger-candidates.ts";
 
 export const AUTO_KINDS = Object.freeze(["event", "change", "decision", "commitment"] as const);
 export type AutoKind = typeof AUTO_KINDS[number];
-export const AUTO_SOURCE_KINDS: readonly SourceKind[] = Object.freeze(["basket", "note", "work", "meeting", "org_update", "project_update"]);
+// 재료 일곱째: 업무 통화(call, CALL-원장재료 L-2, docs/design/ledger-sources.md 6절). DB가 아직 이 종류를 모르면 handler가 읽지 않는다.
+export type AutoSourceKind = SourceKind | "call";
+export const AUTO_SOURCE_KINDS: readonly AutoSourceKind[] = Object.freeze(["basket", "note", "work", "meeting", "org_update", "project_update", "call"]);
 export const AUTO_MAX_ITEMS = 20;
 export const AUTO_MAX_OUTDATED = 20;
 export const AUTO_TITLE_CHARS = 120;
@@ -24,6 +26,9 @@ export const AUTO_MAX_SOURCES = 150;
 export const AUTO_KNOWN_RECORDS = 80;
 export const AUTO_KNOWN_DAYS = 90;
 export const AUTO_PRIOR_PER_SOURCE = 20;
+// 통화 재료를 켠 날(한국 날짜 0시). 이 시각 전에 저장된 통화는 보지 않는다(결정 Q12). 배포가 이 날보다 늦어지면 이 값을 배포일로 올린다.
+export const CALL_FROM_ISO = "2026-10-25T00:00:00+09:00";
+export const CALL_KNOWN_DAYS = 7;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const LEDGER_ID = /^[A-Z]{2,6}-\d{4,6}$/;
@@ -32,23 +37,29 @@ const SENS_RANK: Record<string, number> = { S0: 0, S1: 1, S2: 2 };
 const chars = (s: string) => [...s].length;
 const cut = (s: string, n: number) => [...s].slice(0, n).join("");
 
-export const AUTO_SOURCE_NAMES: Record<SourceKind, string> = {
+export const AUTO_SOURCE_NAMES: Record<AutoSourceKind, string> = {
   basket: "업데이트", note: "노트", work: "업무일지 한 줄", meeting: "사업 보고",
-  org_update: "담당조직 기록", project_update: "프로젝트 기록",
+  org_update: "담당조직 기록", project_update: "프로젝트 기록", call: "통화",
 };
+
+// 전화번호 모양(숫자 9자리 이상이 이어진 것, 국번-3~4자리-4자리 모양)은 AI에 보내기 전에 지운다(설계 2.6). 날짜(2026-10-22)는 8자리라 남는다.
+export const stripPhones = (text: string): string => String(text ?? "")
+  .replace(/\d{2,4}[-. ]\d{3,4}[-. ]\d{4}/g, "")
+  .replace(/\+?\d{9,}/g, "");
 const MEETING_KIND_NAMES: Record<string, string> = {
   meeting: "회의", policy: "정책", negotiation: "교섭", press: "언론", assembly: "국회", struggle: "투쟁", education: "교육", other: "기타",
 };
 
 // 읽은 원문 하나. stamp = 처리 표에 적는 "본 때의 고친 시각"(updated_at, 없으면 쓰인 시각).
 export type AutoSource = {
-  kind: SourceKind;
+  kind: AutoSourceKind;
   id: string;
   stamp: string;
   day: string;
   at: number;
   text: string;
   label?: string;
+  when?: string; // 통화 시각 HH:MM(한국). 출처 제목에만 쓴다.
   organization_id?: string | null;
   project_id?: string | null;
   activity_kind?: string | null;
@@ -66,7 +77,9 @@ export function sendable(r: KnownRecord): boolean {
 }
 
 // 교섭 칸 사업 보고는 최소 S2(결정: 사업 보고 칸이 '교섭'이면 서버가 최소 S2로 올림).
-export const sensitivityFloor = (s: AutoSource): "S2" | null => (s.kind === "meeting" && s.activity_kind === "negotiation" ? "S2" : null);
+// 통화는 최소 S1(공개 가능 S0로 넣지 않음, 6.2).
+export const sensitivityFloor = (s: { kind: string; activity_kind?: string | null }): "S1" | "S2" | null =>
+  s.kind === "meeting" && s.activity_kind === "negotiation" ? "S2" : s.kind === "call" ? "S1" : null;
 
 // 오래된 것부터 담는다(밀린 것을 순서대로 처리, 같은 묶음 안에서 사건이 변화보다 먼저 보이게). 넘치면 다음 실행으로(partial).
 export function packAuto(sources: AutoSource[], { total = AUTO_INPUT_CHARS, max = AUTO_MAX_SOURCES } = {}) {
@@ -117,6 +130,7 @@ export const LEDGER_AUTO_INSTRUCTIONS = [
   "원장에 남길 대상은 공공기관사업팀 업무에서 우리 쪽이 당사자이거나 우리 업무(담당조직·사업·상대 기관과의 교섭·협의·정책 대응)에 직접 걸린 약속·결정·사건뿐이다.",
   "다음은 원장에 남기지 않는다: 기사·보도자료·뉴스레터·블로그 같은 바깥 글의 내용(제품·기능 공개, 업계 소식 포함), 해외 사례, 외국 노조·사용자 단체·연구소·기관의 활동 소개, 참고·학습·벤치마킹용 자료, 일반 동향·지식.",
   "재료가 이런 글을 옮겨 적었거나 요약한 것이면 그 안의 사실은 우리 업무의 약속·결정·사건이 아니다. 우리 업무와의 연결(우리 사업·담당조직에 닿는 일, 우리 쪽 대응)이 재료에 분명하지 않으면 고르지 않는다.",
+  "type이 통화인 글은 통화 상대가 한 말을 요약한 것이라 대개 이미 다른 업무 기록에 있다. known_records에 같은 일이 있으면 새로 만들지 말고 same_as를 쓴다.",
   "record의 already는 그 글에서 이미 원장에 남긴 기록이다. 같은 내용을 다시 만들지 말고, 글에 새로 생긴 사실만 고른다.",
   "already에 있는 기록이 고쳐진 글과 맞지 않게 됐으면 그 기록을 고치지 말고 outdated에 {record: 그 id, source: 그 글의 ref}로만 알린다.",
   "known_records에 있는 기록과 같은 일(같은 사건·결정·약속)이면 새로 만들지 말고 same_as에 그 id를 그대로 쓴다(근거만 더해짐). 아니면 same_as는 빈 문자열.",
@@ -252,6 +266,18 @@ export function parseLedgerAuto(text: string | null, packed: PackedAuto[], prior
       items.push({ op: "add_source", target: sameAs, source, sensitivity });
       continue;
     }
+    // 통화에서 나온 새 항목의 정리한 제목이 보낸 기록 제목과 같으면 새 기록 대신 근거만 더한다(AI가 same_as를 놓쳐도 같은 제목 둘이 생기지 않게, 설계 2.3-3).
+    if (source.kind === "call") {
+      const want = normalizeTitle(title);
+      const twin = want ? [...sent.values()].find((r) => sameOk(r.ledger_id) && normalizeTitle(r.title) === want) : undefined;
+      if (twin) {
+        const k = `add:${twin.ledger_id}:${sourceKey(source)}`;
+        if (keys.has(k)) { dropped++; continue; }
+        keys.add(k);
+        items.push({ op: "add_source", target: twin.ledger_id, source, sensitivity });
+        continue;
+      }
+    }
     let kind = e.kind as AutoKind;
     const ev = e.event as string;
     let belongs: string | null = null;
@@ -288,8 +314,9 @@ export const web2Location = (s: { kind: string; id: string }) => `web2:${s.kind}
 // 출처(원래 Web2 기록). 위치 web2:<종류>:<id>는 DB 함수가 정한다(같은 위치의 출처를 다시 씀).
 function sourceSpec(s: PackedAuto, sensitivity: string) {
   const label = s.label ? ` (${cut(s.label, 80)})` : "";
-  const title = cleanLine(`Web2 ${AUTO_SOURCE_NAMES[s.kind]} ${s.day}${label}`, 300) ?? `Web2 ${AUTO_SOURCE_NAMES[s.kind]} ${s.day}`;
-  return { kind: s.kind, id: s.id.toLowerCase(), title, doc_type: s.kind === "meeting" ? "minutes" : "internal_doc", source_date: s.day, sensitivity };
+  const when = s.kind === "call" && s.when ? ` ${s.when}` : "";
+  const title = cleanLine(`Web2 ${AUTO_SOURCE_NAMES[s.kind]} ${s.day}${when}${label}`, 300) ?? `Web2 ${AUTO_SOURCE_NAMES[s.kind]} ${s.day}`;
+  return { kind: s.kind, id: s.id.toLowerCase(), title, doc_type: s.kind === "meeting" ? "minutes" : s.kind === "call" ? "call_transcript" : "internal_doc", source_date: s.day, sensitivity };
 }
 
 // DB 함수 app_auto_ledger_record에 넘길 묶음(20261024120000_ledger_auto_record.sql 모양 그대로). 고치기·폐기 항목은 만들지 않는다.
@@ -301,7 +328,7 @@ export function buildAutoBatch(parsed: AutoParsed, packed: PackedAuto[], orgBySu
       continue;
     }
     const s = it.source;
-    const record: Record<string, unknown> = { summary: it.summary, scope: "work", validity: it.sure ? "current" : "needs_check" };
+    const record: Record<string, unknown> = { summary: it.summary, scope: "work", validity: it.sure && s.kind !== "call" ? "current" : "needs_check" };
     if (it.date) { record.date_start = it.date; record.date_precision = "day"; }
     if (it.counterparty) record.counterparty = it.counterparty;
     if (it.follow_up_on) record.follow_up_on = it.follow_up_on;

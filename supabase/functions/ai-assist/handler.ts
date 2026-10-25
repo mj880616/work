@@ -44,6 +44,7 @@ import {
 } from "./ledger-candidates.ts";
 import {
   AUTO_KNOWN_DAYS, AUTO_KNOWN_RECORDS, AUTO_MAX_OUTPUT_TOKENS, AUTO_SOURCE_KINDS, autoMaterial, buildAutoBatch, type AutoSource, type KnownRecord,
+  CALL_FROM_ISO, CALL_KNOWN_DAYS, stripPhones,
   LEDGER_AUTO_INSTRUCTIONS, LEDGER_AUTO_SCHEMA, packAuto, type PackedAuto, parseLedgerAuto, sendable, sourceKey, web2Location,
 } from "./ledger-auto.ts";
 import {
@@ -1176,7 +1177,7 @@ async function readAutoRuns(ctx: Ctx, nowMs: number): Promise<AutoRunInfo> {
 
 // 재료 여섯(업데이트·노트·업무일지 한 줄·사업 보고·담당조직 기록·프로젝트 기록). 일기·보관·AI 내보내기 비허용은 읽는 조건에서 빼고 한 번 더 확인.
 // stamp는 처리 표에 적는 "본 때의 시각": 노트·사업 보고는 updated_at, 담당조직 기록은 occurred_at, 프로젝트 기록은 created_at(고친 시각 칸을 읽지 않음).
-async function loadAutoSources(ctx: Ctx, sinceIso: string): Promise<{ sources: AutoSource[]; partial: boolean }> {
+async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log): Promise<{ sources: AutoSource[]; partial: boolean }> {
   const ws = encodeURIComponent(ctx.workspaceId), since = encodeURIComponent(sinceIso);
   const sources: AutoSource[] = [];
   let partial = false;
@@ -1236,7 +1237,43 @@ async function loadAutoSources(ctx: Ctx, sinceIso: string): Promise<{ sources: A
       sources.push({ kind: "project_update", id: u.id.toLowerCase(), stamp: u.created_at as string, day, at, text: u.summary, label: projectName.get(project), project_id: project });
     }
   }
+
+  // 업무 통화(CALL-원장재료 L-2, 설계 6절): 통화 메뉴 표(app_feed_items)에 이미 저장된 업무 통화의 제목·핵심내용만. 전사 원문(raw_text)·상대 표기(counterpart)는 읽지 않는다.
+  // 통화 때문에 원장 자동 기록 전체가 깨지면 안 된다: 읽기 실패나 DB 미적용이면 통화만 건너뛴다.
+  try {
+    const callSince = encodeURIComponent(new Date(Math.max(Date.parse(sinceIso), Date.parse(CALL_FROM_ISO))).toISOString());
+    const calls = await rest(ctx, `app_feed_items?workspace_id=eq.${ws}&source=eq.call&hidden_at=is.null&created_at=gte.${callSince}&select=id,workspace_id,title,points,day,occurred_at,organization_id,project_id,created_at&order=created_at.desc&limit=${AUTO_READ_LIMIT}`);
+    if (Array.isArray(calls) && calls.length && await callKindReady(ctx)) {
+      full(calls);
+      for (const c of calls as Record<string, unknown>[]) {
+        const created = timeOf(c.created_at), when = timeOf(c.occurred_at);
+        if (!isUuid(c.id) || String(c.workspace_id).toLowerCase() !== ctx.workspaceId || !Number.isFinite(created) || typeof c.day !== "string" || !DAY_RE.test(c.day)) continue;
+        const points = Array.isArray(c.points) ? c.points.filter((p): p is string => typeof p === "string" && p.trim() !== "") : [];
+        const text = stripPhones([typeof c.title === "string" ? c.title : "", ...points.map((p) => `- ${p}`)].filter(Boolean).join("\n"));
+        const org = isUuid(c.organization_id) ? String(c.organization_id).toLowerCase() : null;
+        const orgOk = org && orgName.has(org) ? org : null;
+        if (!text.trim()) continue;
+        sources.push({
+          kind: "call", id: c.id.toLowerCase(), stamp: c.created_at as string, day: c.day, at: Number.isFinite(when) ? when : created, text,
+          label: orgOk ? stripPhones(orgName.get(orgOk) ?? "") || undefined : undefined,
+          when: Number.isFinite(when) ? new Date(when + 9 * 3600000).toISOString().slice(11, 16) : undefined,
+          organization_id: orgOk,
+        });
+      }
+    }
+  } catch {
+    log("ledger_auto_call_skipped");
+  }
   return { sources, partial };
+}
+
+// 공통 DB(20261025110000_ledger_sources)가 운영에 들어갔는지: 그 PR의 새 표 하나를 읽어 본다(없으면 PostgREST 404). 아니면 DB 함수가 통화 종류를 거절해 실행 전체가 실패하므로 통화를 읽지 않는다.
+async function callKindReady(ctx: Ctx): Promise<boolean> {
+  try {
+    return Array.isArray(await rest(ctx, "app_calendar_work_refs?select=id&limit=1"));
+  } catch {
+    return false;
+  }
 }
 
 // 처리 표(app_ledger_auto_sources)에 없거나, 본 뒤 고쳐진(stamp가 더 늦은) 원문만 남긴다.
@@ -1268,6 +1305,8 @@ async function unseenSources(ctx: Ctx, sources: AutoSource[]): Promise<AutoSourc
   });
 }
 
+// 글 비교용: 대괄호·괄호 꼬리표를 빼고 글자·숫자만 남긴 소문자 모양(길이 제한 없음).
+const plainKey = (text: string) => String(text ?? "").replace(/\[[^\]]*\]|\([^)]*\)/g, "").toLowerCase().normalize("NFKC").replace(/[^\p{L}\p{N}]+/gu, "");
 const quoteIn = (values: string[]) => values.map((v) => `"${v.replace(/["\\,()]/g, "")}"`).join(",");
 const RECORD_COLS = "id,ledger_id,title,kind,validity,sensitivity";
 const toKnown = (rows: Record<string, unknown>[]): (KnownRecord & { id: string })[] => rows
@@ -1300,7 +1339,32 @@ async function readAutoContext(ctx: Ctx, packed: PackedAuto[], nowMs: number) {
 
   // 2겹: 원문 위치(web2:<종류>:<id>) → 출처 → 기록-출처 → 기록.
   const prior = new Map<string, KnownRecord[]>();
-  const locs = packed.map((s) => web2Location(s));
+  // 통화와 담당조직 기록의 겹침(설계 6.4): 통화 메뉴 [조직 연결 → 요약을 조직 기록에 더하기]로 같은 핵심내용이 org_update로도 저장된다.
+  // 같은 조직·같은 날 통화의 핵심내용과 글이 같은(정리한 글자 비교) org_update는, 그 통화에서 이미 뽑은 기록을 already로 함께 받아 근거만 더하게 한다.
+  const twinKeys = new Map<string, string[]>();
+  const orgUpdates = packed.filter((s) => s.kind === "org_update" && s.organization_id);
+  if (orgUpdates.length) {
+    try {
+      const orgIds = [...new Set(orgUpdates.map((s) => s.organization_id as string))];
+      const days = [...new Set(orgUpdates.map((s) => s.day))];
+      for (let i = 0; i < orgIds.length; i += IN_CHUNK) {
+        const rows = await rest(ctx, `app_feed_items?workspace_id=eq.${ws}&source=eq.call&organization_id=in.(${orgIds.slice(i, i + IN_CHUNK).join(",")})&day=in.(${days.slice(0, IN_CHUNK).join(",")})&select=id,organization_id,day,title,points&limit=200`);
+        if (!Array.isArray(rows)) continue;
+        for (const c of rows as Record<string, unknown>[]) {
+          if (!isUuid(c.id) || !isUuid(c.organization_id)) continue;
+          const pts = Array.isArray(c.points) ? c.points.filter((p): p is string => typeof p === "string") : [];
+          const callKey = plainKey(pts.length ? pts.join("\n") : typeof c.title === "string" ? c.title : "");
+          if (!callKey) continue;
+          for (const u of orgUpdates) {
+            if (u.organization_id !== String(c.organization_id).toLowerCase() || u.day !== c.day || plainKey(u.text) !== callKey) continue;
+            const loc = `web2:call:${String(c.id).toLowerCase()}`;
+            twinKeys.set(loc, [...(twinKeys.get(loc) ?? []), sourceKey(u)]);
+          }
+        }
+      }
+    } catch { /* 겹침 확인은 덤이다: 못 읽어도 자동 기록은 그대로 돈다 */ }
+  }
+  const locs = [...new Set([...packed.map((s) => web2Location(s)), ...twinKeys.keys()])];
   const srcByLoc = new Map<string, string>();
   for (let i = 0; i < locs.length; i += IN_CHUNK) {
     const rows = await read(`app_ledger_sources?workspace_id=eq.${ws}&status=eq.active&location=in.(${encodeURIComponent(quoteIn(locs.slice(i, i + IN_CHUNK)))})&select=id,location&limit=200`);
@@ -1317,13 +1381,17 @@ async function readAutoContext(ctx: Ctx, packed: PackedAuto[], nowMs: number) {
   for (let i = 0; i < priorIds.length; i += IN_CHUNK) {
     for (const r of toKnown(await read(`app_ledger_records?workspace_id=eq.${ws}&id=in.(${priorIds.slice(i, i + IN_CHUNK).join(",")})&select=${RECORD_COLS}&limit=${IN_CHUNK}`))) byId.set(r.id, r);
   }
-  const keyByLoc = new Map(packed.map((s) => [web2Location(s), sourceKey(s)]));
+  const keysByLoc = new Map<string, string[]>();
+  for (const s of packed) keysByLoc.set(web2Location(s), [sourceKey(s)]);
+  for (const [loc, keys] of twinKeys) keysByLoc.set(loc, [...(keysByLoc.get(loc) ?? []), ...keys]);
   for (const l of lines) {
-    const rec = byId.get(l.record), key = keyByLoc.get(l.loc);
-    if (!rec || !key) continue;
-    const list = prior.get(key) ?? [];
-    if (!list.some((x) => x.ledger_id === rec.ledger_id)) list.push(rec);
-    prior.set(key, list);
+    const rec = byId.get(l.record);
+    if (!rec) continue;
+    for (const key of keysByLoc.get(l.loc) ?? []) {
+      const list = prior.get(key) ?? [];
+      if (!list.some((x) => x.ledger_id === rec.ledger_id)) list.push(rec);
+      prior.set(key, list);
+    }
   }
 
   // 3겹: 같은 담당조직·프로젝트에 걸린 최근 현재유효 기록, 모자라면 최근 기록으로 채움.
@@ -1343,6 +1411,12 @@ async function readAutoContext(ctx: Ctx, packed: PackedAuto[], nowMs: number) {
   const linkedIds = [...linked];
   for (let i = 0; i < linkedIds.length && related.length < AUTO_KNOWN_RECORDS; i += IN_CHUNK) {
     add(toKnown(await read(`app_ledger_records?workspace_id=eq.${ws}&id=in.(${linkedIds.slice(i, i + IN_CHUNK).join(",")})&${recentFilter}&select=${RECORD_COLS}&order=updated_at.desc&limit=${IN_CHUNK}`)));
+  }
+  // 통화(조직이 없거나 틀릴 수 있음): 같은 묶음 통화 날짜 앞뒤 7일에 기준일이 있는 현재유효 기록(S0·S1)도 같은 상한 안에서 보낸다(설계 2.3-1). 조직이 맞는 기록이 먼저.
+  const callDays = packed.filter((s) => s.kind === "call").map((s) => s.day).sort();
+  if (callDays.length && related.length < AUTO_KNOWN_RECORDS) {
+    const shift = (day: string, d: number) => new Date(Date.parse(day + "T00:00:00Z") + d * 86400000).toISOString().slice(0, 10);
+    add(toKnown(await read(`app_ledger_records?workspace_id=eq.${ws}&validity=eq.current&kind=in.(event,decision,commitment)&scope=eq.work&sensitivity=in.(S0,S1)&date_start=gte.${shift(callDays[0], -CALL_KNOWN_DAYS)}&date_start=lte.${shift(callDays[callDays.length - 1], CALL_KNOWN_DAYS)}&select=${RECORD_COLS}&order=updated_at.desc&limit=${AUTO_KNOWN_RECORDS}`)));
   }
   if (related.length < AUTO_KNOWN_RECORDS) {
     add(toKnown(await read(`app_ledger_records?workspace_id=eq.${ws}&${recentFilter}&select=${RECORD_COLS}&order=updated_at.desc&limit=${AUTO_KNOWN_RECORDS}`)));
@@ -1382,7 +1456,7 @@ async function runLedgerAuto(ctx: Ctx, deps: RadarDeps): Promise<Response> {
   }
   const runs = await readAutoRuns(ctx, started);
   if (runs.runsToday >= DAILY_LIMITS.ledger_auto) throw new Fail(429, "daily_limit");
-  const loaded = await loadAutoSources(ctx, new Date(runs.floorMs).toISOString());
+  const loaded = await loadAutoSources(ctx, new Date(runs.floorMs).toISOString(), deps.log);
   const fresh = await unseenSources(ctx, loaded.sources);
   const packedResult = packAuto(fresh);
   const packed = packedResult.packed;
