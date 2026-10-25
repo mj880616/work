@@ -178,6 +178,9 @@ test('horizontal swipes never change the tab; the bottom tabs do',async({page})=
   const close=page.locator('[data-mobile-menu-close]');await expect(close).toHaveAccessibleName('메뉴 닫기');
   const size=await close.evaluate(el=>{const r=el.getBoundingClientRect(),panel=el.closest('.mobile-menu-panel').getBoundingClientRect(),pseudo=getComputedStyle(el,'::after');return {full:r.width>=panel.width-40,h:r.height,top:pseudo.top,bottom:pseudo.bottom}});
   expect(size).toEqual({full:true,h:32,top:'-6px',bottom:'-6px'});
-  const r=await close.boundingBox();await page.mouse.click(r.x+r.width/2,r.y+r.height/2);
+  // 폰 창은 아래에서 올라오는 동안(ds-sheet-up .2s) 손잡이 자리가 움직인다. 올라온 뒤 자리가 안정되고 누를 자리에서 손잡이가 눌리는 것을
+  // 확인한 다음 누른다(locator.click). 움직이는 중에 잰 좌표를 누르면 눌림·뗌 자리가 달라져 닫히지 않는다.
+  await page.locator('#mobileMenu .mobile-menu-panel').evaluate(el=>Promise.all(el.getAnimations().map(a=>a.finished)));
+  await close.click();
   await expect(page.locator('#mobileMenu')).toBeHidden();
  });

@@ -112,11 +112,14 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   async function choices(){
     if(choicesFlight)return choicesFlight;
     const run=choiceEpoch;
-    choicesFlight=(async()=>{
+    const flight=choicesFlight=(async()=>{
       await dependencies.google();
       // BASKET-업데이트통합: the same place lists (and three recent organizations) as the write window (update-places.js).
       const read=await readPlaces(dependencies,{isCurrent:()=>run===choiceEpoch});
-      if(!read||run!==choiceEpoch)return;
+      // The lists changed while they were being read (the project catalog published, or the router entered this view; both start a new
+      // epoch and clear the flight). Read again for the new epoch and finish with that: returning here would let the sheet open with empty lists.
+      if(run!==choiceEpoch){if(choicesFlight===flight)choicesFlight=null;return choices();}
+      if(!read)return;
       projectChoices=read.projects;orgChoices=read.orgs;bundleChoices=read.bundles||[];
       if(!projectChoices.some(x=>x.project.id===project))project='';
       places=keepPlaces(placeChoices(),places);
