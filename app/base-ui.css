@@ -155,6 +155,7 @@ button:disabled,[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--kptu-ink);color:var(--kptu-surface);padding:10px var(--kptu-space-3);border-radius:var(--kptu-radius-md);font-size:12px;z-index:100;box-shadow:var(--kptu-shadow-float)}
 /* BUG-바구니연결해제: one 5-second undo notice after a basket link disconnect (basket-record-delete.js). */
 .kptu-undo-notice{position:fixed;left:50%;bottom:calc(var(--kptu-mobile-tab-height,0px) + 16px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:110;display:flex;align-items:center;gap:var(--kptu-space-2);width:max-content;max-width:calc(100vw - 32px);box-sizing:border-box;padding:4px 4px 4px var(--kptu-space-3);background:var(--kptu-ink);color:var(--kptu-surface);border-radius:var(--kptu-radius-md);box-shadow:var(--kptu-shadow-float);font-size:13px;line-height:1.4}
+.kptu-undo-notice[data-overlap-notice]{flex-wrap:wrap;justify-content:flex-end}
 .kptu-undo-notice [data-undo-text]{min-width:0;overflow-wrap:anywhere}
 .kptu-undo-notice [data-undo-action]{flex:0 0 auto;min-height:44px;min-width:44px;padding:0 12px;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:inherit;font:inherit;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .kptu-undo-notice [data-undo-action]:focus-visible{outline:2px solid currentColor;outline-offset:-4px}

@@ -140,6 +140,8 @@
   import('./ledger-export.js').catch(err=>console.warn('ledger export load failed',err?.name||'Error'));
   // LEDGER-자동기록 3단계: 저장 뒤 원장 자동 기록 호출(몇 분 묶어 한 번, 화면 표시 없음). 기다리지 않는다.
   import('./ledger-auto.js').catch(err=>console.warn('ledger auto load failed',err?.name||'Error'));
+  // MTG-기록겹침거르기 3단계: 프로젝트 기록·사업 보고 저장 직후 겹침 알림(저장 뒤 확인, 실패하면 아무것도 안 보임). 기다리지 않는다.
+  import('./overlap-check.js').catch(err=>console.warn('overlap check load failed',err?.name||'Error'));
 
   const mobileNavigationReady=import('./mobile-swipe-navigation.js').catch(err=>{console.error('mobile navigation load failed',err);return null});
   const showFeatureError=err=>{

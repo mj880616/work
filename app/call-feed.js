@@ -17,6 +17,7 @@ import {groupByDay, hhmm, dayLabel, readPoints, speakerLines, missingTable, kstD
 import {readFeed, readDays, readRaw, readOrganizations, setPinned, setHidden, scopeOf, readPersonal, readPersonalRaw, setPersonalHidden, moveCall, readLedgerSeen} from './feed-data.js';
 import {callCopyText} from './summary-copy-model.mjs';
 import {copyButtonHtml, copySummary} from './summary-copy.js';
+import {callLedgerRecords, retireCallRecords} from './call-ledger.js';
 import {esc, newLinkBox, linkBoxHtml, openOrgPicker, saveLinkBox, orgName} from './feed-link.js';
 
 const rt = window.KPTURuntime;
@@ -25,7 +26,7 @@ const pc = window.matchMedia('(min-width:1024px)');
 const phone = window.matchMedia('(max-width:760px)');
 const MORE = '<span aria-hidden="true">⋯</span>';
 
-let state = fresh(), run = 0, layer = null, boxLayer = null, undo = null;
+let state = fresh(), run = 0, layer = null, boxLayer = null, undo = null, ledgerAsk = null, loadP = null;
 function fresh() { return {owner:'', loaded:false, loading:false, missing:false, error:'', rows:[], prows:[], pmissing:false, pfail:false, days:[], orgs:[], mine:new Set(), box:'work', selected:null, raw:new Map(), rawOpen:false, link:null, confirm:null, status:'', busy:false}; }
 
 function install() {
@@ -46,7 +47,8 @@ const personalRows = () => splitPersonal(state.prows).personal;
 const unsureRows = () => splitPersonal(state.prows).unsure;
 
 // ---------- data
-async function load() {
+function load() { return (loadP = loadNow()); }
+async function loadNow() {
   const owner = scopeOf(rt), me = ++run; state.loading = true; if (!state.loaded) paint();
   try {
     const [rows, days, orgs, personal] = await Promise.all([
@@ -56,6 +58,7 @@ async function load() {
     if (me !== run || owner !== scopeOf(rt)) return;
     Object.assign(state, {owner, loaded:true, loading:false, missing:false, error:'', rows, days, orgs:orgs.orgs, mine:orgs.mine}, personal);
     if (state.selected && !rowOf(state.selected)) closeDetail({quiet:true});
+    window.KPTULedgerAuto?.callsOpened?.(rows);
   } catch (error) {
     if (me !== run || owner !== scopeOf(rt)) return;
     Object.assign(state, {owner, loaded:true, loading:false, rows:[], prows:[], missing:missingTable(error), error:missingTable(error) ? '' : '통화 목록을 불러오지 못했어요.'});
@@ -117,7 +120,8 @@ function paintList() {
   const askHtml = ask.length ? `<div class="feed-ask-head" data-cf-ask-head>확인할 통화 ${ask.length} <span class="feed-faint">· 정하기 전에는 업무 기록에 쓰이지 않아요</span></div><div class="feed-rows feed-ask-rows">${ask.map(r => rowHtml(r, {ask:true})).join('')}</div>` : '';
   box.innerHTML = head + askHtml + `<div class="feed-rows">${listHtml(state.rows, '<p class="feed-empty" data-cf-empty="none">아직 받은 업무 통화가 없어요.</p>')}</div>${status}`;
 }
-const statusHtml = () => esc(state.status) + (undo ? ' <button type="button" class="feed-text-btn" data-cf-undo>되돌리기</button>' : '');
+const statusHtml = () => esc(state.status) + (undo ? ' <button type="button" class="feed-text-btn" data-cf-undo>되돌리기</button>' : '')
+  + (ledgerAsk?.total ? ` <span class="feed-faint">이 통화에서 원장에 들어간 기록 ${ledgerAsk.total}개는 남아요${ledgerAsk.ledgerIds.length ? ' ·' : ''}</span>${ledgerAsk.ledgerIds.length ? ' <button type="button" class="feed-text-btn" data-cf-ledger-retire>원장에서도 틀림으로</button>' : ''}` : '');
 function paintDetail() {
   const box = $('#cfDetail'), back = pc.matches ? '' : '<button type="button" class="back-text" data-cf-back>‹ 통화</button>';
   const r = rowOf(state.selected);
@@ -155,7 +159,7 @@ function openLayer() {
 }
 function select(id) {
   if (state.link && !dropLink()) return;
-  state.selected = id; state.rawOpen = false; state.status = ''; undo = null; state.confirm = null;
+  state.selected = id; state.rawOpen = false; state.status = ''; undo = null; state.confirm = null; ledgerAsk = null;
   openLayer(); paint(); void loadRaw(id);
   (pc.matches ? $(`#cfList [data-cf-row="${CSS.escape(id)}"]`) : $('#cfDetail [data-cf-back]'))?.focus({preventScroll:true});
 }
@@ -197,14 +201,28 @@ const dropFromList = r => { if (isPersonal(r)) state.prows = state.prows.filter(
 function hide(r) {
   return guarded(async current => {
     try {
+      // 원장에 이미 들어간 기록 수(읽기만, 업무 통화만). 못 읽어도 지우기는 그대로 한다. 개인 통화는 원장 재료가 아니다.
+      const found = isPersonal(r) ? null : await callLedgerRecords(r.id, rt).catch(() => null);
+      if (!current()) return;
       const saved = await (isPersonal(r) ? setPersonalHidden(r.id, true, rt) : setHidden(r.id, true, rt)); if (!current()) return; if (!saved) return void await gone();
       dropFromList(r); if (state.selected === r.id) closeDetail({quiet:true});
       undo = {type:'hide', id:r.id, row:{...r, hidden_at:null}}; state.status = '목록에서 지웠어요. 원본은 Drive에 있어요.';
+      ledgerAsk = found && found.total ? {...found} : null;
     } catch { if (current()) state.status = '지우지 못했어요. 다시 시도해 주세요.'; }
   }).then(() => $('#cfList [data-cf-undo]')?.focus({preventScroll:true}));
 }
+function retireLedger() {
+  const ask = ledgerAsk; if (!ask?.ledgerIds.length) return; ledgerAsk = null;
+  return guarded(async current => {
+    try {
+      const n = await retireCallRecords(ask.ledgerIds, rt); if (!current()) return;
+      const kept = ask.total - n;
+      state.status = `원장에서 ${n}개를 틀린 기록으로 표시했어요.${kept > 0 ? ` 다른 근거가 있는 ${kept}개는 그대로 뒀어요.` : ''} 되돌리기는 원장의 수정 요청에서 해요.`;
+    } catch { if (current()) { ledgerAsk = ask; state.status = '원장에서 표시하지 못했어요. 다시 시도해 주세요.'; } }
+  });
+}
 function restore() {
-  const u = undo; if (!u) return; undo = null;
+  const u = undo; if (!u) return; undo = null; ledgerAsk = null;
   return guarded(async current => {
     if (u.type === 'move') {
       const res = await moveCall(u.id, u.to, rt); if (!current()) return;
@@ -284,6 +302,7 @@ function bind() {
     else if (b.hasAttribute('data-cf-copy')) { const r = rowOf(state.selected); if (r) void copyCall(r); }
     else if (b.hasAttribute('data-cf-retry')) void load();
     else if (b.hasAttribute('data-cf-undo')) void restore();
+    else if (b.hasAttribute('data-cf-ledger-retire')) void retireLedger();
     else if (b.hasAttribute('data-cf-more')) menu.open(b);
     else if (b.hasAttribute('data-cf-link-pick')) { const box = state.link; if (box) void openOrgPicker(b, {orgs:state.orgs, mine:state.mine, selected:box.orgId, onPick:id => { box.orgId = id; paintDetail(); $('#cfDetail [data-cf-link-pick]')?.focus({preventScroll:true}); }}); }
     else if (b.hasAttribute('data-cf-link-cancel')) { state.link = null; paintDetail(); $('#cfDetail [data-cf-more]')?.focus({preventScroll:true}); }
@@ -303,7 +322,14 @@ window.addEventListener('kptu:view-changed', e => {
   layer = null; boxLayer = null; state.link = null; state.confirm = null; state.box = 'work'; menu.close?.(null, true);
   window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'calls', name:null}}));
 });
-window.addEventListener('kptu:session-changed', () => { run++; layer = null; boxLayer = null; undo = null; state = fresh(); if (view()) paint(); });
+window.addEventListener('kptu:session-changed', () => { run++; layer = null; boxLayer = null; undo = null; ledgerAsk = null; state = fresh(); if (view()) paint(); });
 pc.addEventListener?.('change', () => { if (view() && !view().classList.contains('hidden')) { if (pc.matches) for (const l of [layer, boxLayer]) l?.close(); if (pc.matches) { layer = null; boxLayer = null; } paint(); } });
 paint();
-window.KPTUCallFeed = {reload:() => load()};
+// 원장 근거 ‹원문›이 부른다: 목록을 읽은 뒤 그 통화를 연다. 지워졌거나 목록에 없으면 열지 않는다.
+async function openCall(id) {
+  if (!state.loaded || state.owner !== scopeOf(rt)) await load(); else if (state.loading && loadP) await loadP;
+  // 원장 근거는 업무 통화만 가리킨다. 개인 통화함으로 옮긴 통화는 열지 않는다.
+  const r = rowOf(id); if (!r || isPersonal(r)) return;
+  state.box = 'work'; select(id);
+}
+window.KPTUCallFeed = {reload:() => load(), open:openCall};

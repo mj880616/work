@@ -8,6 +8,17 @@ export const RETRY_MS = 10 * 60 * 1000;     // 잠깐 실패(바쁨·시간 초�
 export const MAX_RETRIES = 1;
 export const START_DELAY_MS = 3 * 60 * 1000; // 앱을 연 뒤 3분 기다렸다 밀린 것 한 번(시작 요청·사본 내보내기 확인과 겹치지 않게)
 
+// 통화 메뉴를 열었을 때 원장 자동 기록을 한 번 부를지(설계 6.6). 통화는 저장 신호를 내지 않아(서버가 직접 저장) 이 길이 필요하다.
+// rows = 통화 목록 행(created_at). lastAt = 이 탭이 마지막으로 통화 때문에 부른 시각(ms, 처음 0). 그 뒤 저장된 통화가 있을 때만 true.
+// 어느 통화가 "아직 안 본" 것인지는 서버 처리 표가 정한다(여기서는 불필요한 호출만 줄인다).
+export function callsRunDue(rows, lastAt = 0) {
+  for (const r of Array.isArray(rows) ? rows : []) {
+    const t = Date.parse(r?.created_at);
+    if (Number.isFinite(t) && t > lastAt) return true;
+  }
+  return false;
+}
+
 // 재료 여섯(업데이트·노트·업무일지 한 줄 = app_notes, 사업 보고 = app_meetings, 담당조직 기록, 프로젝트 기록)의 표.
 // 서버(ai-assist ledger_auto)가 읽는 표와 같다. 일기·보관·AI 내보내기 비허용은 서버가 뺀다(여기서 거르지 않아도 AI를 부르지 않음).
 export const LEDGER_SOURCE_TABLES = Object.freeze(['app_notes', 'app_meetings', 'app_suborganization_updates', 'app_project_progress_updates']);
