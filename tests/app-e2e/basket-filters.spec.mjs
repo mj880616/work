@@ -126,13 +126,14 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`[미분
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-// ④ BASKET-정리함이름: on phones the pane switch [업데이트 n | 챙길 것 n] sits at the top right; the segment and place rows sit at the top too.
-test('phone: [업데이트 | 챙길 것] switch is at the top right while the segment and place rows sit at the top',async({page},info)=>{
+// ④ BASKET-전환줄하단: on phones the pane switch [업데이트 n | 챙길 것 n] sits in the row right above the bottom tabs; the segment and place rows sit at the top.
+test('phone: [업데이트 | 챙길 것] switch is right above the bottom tabs while the segment and place rows sit at the top',async({page},info)=>{
  const f=await fixture(page,{width:390});await enter(page,390);
  await tap(page,filterChip(page,'classified'),390);
  const sw=page.locator('#basketView .inbox-pane-switch'),places=await page.locator('[data-basket-place-filter]').boundingBox(),seg=await filterChip(page,'unclassified').boundingBox();
  const s=await sw.boundingBox();
- expect(s.y).toBeLessThan(120);expect(s.x+s.width).toBeGreaterThan(390/2);
+ const tabs=await page.locator('.mobile-tabs').boundingBox();
+ expect(Math.round(tabs.y-(s.y+s.height))).toBe(6);expect(Math.abs(s.x+s.width/2-195)).toBeLessThanOrEqual(1);
  expect(seg.y).toBeLessThan(200);expect(places.y).toBeLessThan(250);
  await expect(sw.getByRole('button')).toHaveText([/^업데이트/,/^챙길 것/]);
  await tap(page,sw.locator('[data-inbox-pane="todo"]'),390);await expect(page.locator('[data-basket-place-filter]')).toBeHidden();await expect(filterChip(page,'classified')).toBeHidden();await expect(page.locator('[data-inbox-chip="open"]')).toBeVisible();
