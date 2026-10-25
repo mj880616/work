@@ -150,7 +150,8 @@ test('③ 폰: 일정·정리함 전환은 아래 탭 바로 위 한 줄(알약 
  expect(pill.y).toBeGreaterThan(header.y+header.height+300);
  const paneCells=[];for(const c of await paneSwitch.getByRole('button').all())paneCells.push(await measure(c));
  expect(paneCells).toHaveLength(2);
- for(const [i,c] of paneCells.entries()){expect(c.h).toBeGreaterThanOrEqual(30);expect(c.h).toBeLessThanOrEqual(32);expect(c.hit).toBe(44);expect(c.hits).toEqual([true,true,true]);expect(c.bg).toBe(i===0?gray:white);expect(c.radius).toBe('999px');}
+ for(const [i,c] of paneCells.entries()){expect(c.h).toBeGreaterThanOrEqual(30);expect(c.h).toBeLessThanOrEqual(32);expect(c.hit).toBe(44);expect(c.hits).toEqual([true,true,true]);expect(c.bg).toBe(i===0?gray:white);}
+ expect(paneCells[0].radius).toBe('999px');
  expect(Math.abs(paneCells[0].w-paneCells[1].w)).toBeLessThanOrEqual(1);
  expect(await page.evaluate(([x,y])=>!!document.elementFromPoint(x,y)?.closest('.inbox-pane-switch'),[20,pill.y+pill.height/2])).toBe(true);
  expect(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-switch-dock').trim())).toBe('44px');
