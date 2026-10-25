@@ -50,7 +50,7 @@ export function groupByDay(rows) {
 // `[확인] …` (후속확인). The mark is shown as a small tag after the text; anything else stays as written.
 export const POINT_TAGS = Object.freeze({'확정':'done', '예정':'plan', '확인':'check'});
 export function readPoint(value) {
-  const text = String(value ?? '').trim();
+  const text = plainSpeakerMention(String(value ?? '')).trim();
   const m = /^\[(확정|예정|확인)\]\s*(.*)$/s.exec(text);
   if (m && m[2].trim()) return {tag:m[1], kind:POINT_TAGS[m[1]], text:m[2].trim()};
   return {tag:'', kind:'', text};
@@ -147,6 +147,54 @@ export function splitPersonal(rows) {
   for (const r of rows || []) { if (r?.kind === 'unsure') unsure.push(r); else if (r?.kind === 'personal') personal.push(r); }
   return {personal, unsure};
 }
+// ---------- CALL-목록상세정리: 통화 한 줄·상세의 "내용(주제)"과 "상대 표" 규칙 (이 두 함수가 유일한 규칙 자리)
+// 저장된 칸 구조를 그대로 쓴다: 제목(call_title = '조직 · 사람 직함 · 주제'), 상대(counterpart = '조직 이름 직함'), 연결 조직(organization_id).
+// 화면은 제목에서 상대·조직을 떼고 주제만 보이고, 상대·조직은 오른쪽 작은 표 한 곳에만 한 번 보인다.
+export const OWN_ORG = '공공운수노조';
+const ORG_WORD = /(노동조합|노조|지부|지회|분회|본부|연맹|협의회|공사|공단)$/;
+const squash = v => String(v ?? '').replace(/\s+/g, ' ').trim();
+const wordsOf = v => squash(v).split(' ').filter(w => [...w].length >= 2);
+function commonPrefix(a, b) { let i = 0; while (i < a.length && i < b.length && a[i] === b[i]) i++; return i; }
+// 조직 약칭: 다른 이름(aliases) 중 가장 짧은 것, 없거나 본 이름보다 길면 본 이름.
+export function orgShort(org) {
+  const name = squash(org?.name);
+  const alias = (Array.isArray(org?.aliases) ? org.aliases : []).map(squash).filter(a => [...a].length >= 2).sort((a, b) => a.length - b.length)[0];
+  return alias && alias.length < name.length ? alias : name;
+}
+// 오른쪽 상대 표: {org, person, text}. 공공운수노조(우리 쪽)는 조직 없이 이름·직함만, 조직을 모르면 이름만.
+// 상대 글이 '연결 조직 이름 + 사람'이거나 첫 낱말이 조직 꼴(…노조·…지부·…공사 등)이면 그 앞부분이 조직이다. 개인 통화는 조직이 없다(organization 비움, orgText 불가).
+export function callWho({organization = null, counterpart = '', personal = false, own = OWN_ORG} = {}) {
+  const cp = squash(counterpart), full = squash(organization?.name);
+  let person = cp, orgText = personal ? '' : full, cpOrg = '';
+  if (!personal && cp) {
+    if (full && cp.startsWith(full) && (cp.length === full.length || cp[full.length] === ' ')) { person = squash(cp.slice(full.length)); cpOrg = full; }
+    else {
+      const w = cp.split(' ');
+      if (w.length >= 2 && ORG_WORD.test(w[0])) { person = squash(w.slice(1).join(' ')); cpOrg = w[0]; orgText = orgText || w[0]; }
+    }
+  }
+  // 상대 글 앞의 조직(cpOrg)이 있으면 그것이 상대의 조직이다. 연결 조직과 같은 곳이면 연결 조직의 약칭을, 다른 곳이면 상대 글의 조직을 그대로 쓴다.
+  const who = cpOrg || orgText, ownSide = !!own && !!who && who.startsWith(own);
+  const related = !!organization && !!cpOrg && (cpOrg === full || commonPrefix(cpOrg, full) >= 4);
+  const org = personal || ownSide ? '' : cpOrg ? (related ? orgShort(organization) : cpOrg) : (organization ? orgShort(organization) : '');
+  return {org, person, text:[org, person].filter(Boolean).join(' · ')};
+}
+// 제목에서 주제만: '조직 · 사람 직함 · 주제'(조각 셋 이상)는 앞 둘을 떼고, '○○ · 주제'(둘)는 앞 조각이 그 줄의 조직·상대와 같은 말일 때만 뗀다.
+// 그 밖(조각 하나, 앞 조각이 상대와 무관, 주제가 빔)은 제목 그대로. 화면에서 글자를 깎지 않고 이 규칙으로만 가른다.
+export function callTopic(title, {organization = null, counterpart = ''} = {}) {
+  const t = squash(title);
+  const parts = t.split(/\s+·\s+/).map(p => p.trim()).filter(Boolean);
+  if (parts.length >= 3) return parts.slice(2).join(' · ') || t;
+  if (parts.length === 2) {
+    const known = [...wordsOf(organization?.name), ...(organization?.aliases || []).flatMap(wordsOf), ...wordsOf(counterpart)];
+    const same = wordsOf(parts[0]).some(w => known.some(k => k.includes(w) || w.includes(k) || commonPrefix(k, w) >= 4));
+    return same ? parts[1] : t;
+  }
+  return t;
+}
+// 요약 글 안의 '상대방(화자0)'처럼 이름표 없이 남은 화자 번호 꼬리표는 번호를 떼고 '상대방'만 보인다(이름표가 있는 새 통화는 서버가 저장 전에 이름으로 바꾼다).
+export const plainSpeakerMention = text => String(text ?? '').replace(/(상대방?)\s*[(（]\s*화자\s?\d{1,2}\s*[)）]/g, '$1');
+
 // One line inside the 개인 통화함: calls counted before the list existed have only a number (app_feed_days), no row. '' when none.
 export function legacyFilteredNote(days, today = kstDay()) {
   const f = callFiltered(days, today);

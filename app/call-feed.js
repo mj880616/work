@@ -13,12 +13,12 @@ import './enter-save.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {mountSplitResize} from './split-resize.js';
 import {createFeedHold} from './feed-hold.js';
-import {groupByDay, hhmm, dayLabel, readPoints, speakerLines, missingTable, kstDay, splitPersonal, legacyFilteredNote, moveToPersonalWarning, moveErrorText, moveDoneText} from './feed-model.mjs';
+import {groupByDay, hhmm, dayLabel, readPoints, speakerLines, missingTable, kstDay, splitPersonal, legacyFilteredNote, moveToPersonalWarning, moveErrorText, moveDoneText, callWho, callTopic} from './feed-model.mjs';
 import {readFeed, readDays, readRaw, readOrganizations, setPinned, setHidden, scopeOf, readPersonal, readPersonalRaw, setPersonalHidden, moveCall, readLedgerSeen} from './feed-data.js';
 import {callCopyText} from './summary-copy-model.mjs';
 import {copyButtonHtml, copySummary} from './summary-copy.js';
 import {callLedgerRecords, retireCallRecords} from './call-ledger.js';
-import {esc, newLinkBox, linkBoxHtml, openOrgPicker, saveLinkBox, orgName} from './feed-link.js';
+import {esc, newLinkBox, linkBoxHtml, openOrgPicker, saveLinkBox} from './feed-link.js';
 
 const rt = window.KPTURuntime;
 const $ = sel => document.querySelector(sel);
@@ -37,11 +37,10 @@ install();
 const view = () => $('#callsView');
 // A personal-box row (kind personal | unsure) carries box:'personal' from feed-data.js readPersonal; a work row has no such mark.
 const isPersonal = r => r?.box === 'personal';
-// 상대 표기가 이미 '소속조직 이름 직책'이면 그것만, 아니면 조직 · 상대. 개인 통화는 조직이 없다.
-function whoOf(r) {
-  const org = isPersonal(r) ? '' : orgName(state.orgs, r.organization_id), cp = String(r.counterpart || '');
-  return cp && org && cp.startsWith(org) ? cp : [org, cp].filter(Boolean).join(' · ');
-}
+// 오른쪽 상대 표와 제목의 주제는 feed-model.mjs 한 곳의 규칙(callWho·callTopic)으로 가른다. 조직은 연결 조직(organization_id)을 우선 쓴다.
+const orgOf = r => (isPersonal(r) ? null : state.orgs.find(o => o.id === r.organization_id) || null);
+const whoOf = r => callWho({organization:orgOf(r), counterpart:r.counterpart, personal:isPersonal(r)}).text;
+const topicOf = r => callTopic(r.title, {organization:orgOf(r), counterpart:r.counterpart}) || '(제목 없음)';
 const rowOf = id => state.rows.find(r => r.id === id) || state.prows.find(r => r.id === id) || null;
 const personalRows = () => splitPersonal(state.prows).personal;
 const unsureRows = () => splitPersonal(state.prows).unsure;
@@ -81,7 +80,7 @@ function paint() {
   paintList(); paintDetail();
   $('#cfList').hidden = !wide && open; $('#cfDetail').hidden = !wide && !open;
   const row = rowOf(state.selected);
-  window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'calls', name:wide && row ? row.title : null}}));
+  window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'calls', name:wide && row ? topicOf(row) : null}}));
   mountSplitResize({container:$('#cfSplit'), name:'tasks', label:'통화 목록과 상세 칸 폭 조절', list:() => $('#cfList'), pane:() => $('#cfDetail'), active:() => pc.matches && !view()?.classList.contains('hidden')});
 }
 // 맨 위 오른쪽 작은 '개인 통화함 n ›'. 개인 표가 없으면(DB 미적용) 보이지 않는다.
@@ -90,9 +89,9 @@ function boxChip() {
   return `<button type="button" class="feed-chip" data-cf-box="personal">개인 통화함${state.pfail ? '' : ` ${personalRows().length}`} <span aria-hidden="true">›</span></button>`;
 }
 function rowHtml(r, {ask = false} = {}) {
-  const on = r.id === state.selected, org = isPersonal(r) ? r.counterpart || '' : orgName(state.orgs, r.organization_id) || r.counterpart || '';
+  const on = r.id === state.selected, org = ask ? '' : whoOf(r);
   const badge = r.kind === 'unsure' && !ask ? '<span class="feed-badge">애매</span> ' : '';
-  const open = `<button type="button" class="feed-call${on ? ' is-selected' : ''}" data-cf-row="${esc(r.id)}"${on ? ' aria-current="true"' : ''}><span class="feed-time">${esc(hhmm(r.occurred_at))}</span><span class="feed-title">${r.pinned_at ? '<span class="feed-pin" aria-label="고정">고정</span>' : ''}${badge}${esc(r.title || '(제목 없음)')}</span>${ask ? '' : `<span class="feed-org">${esc(org)}</span>`}</button>`;
+  const open = `<button type="button" class="feed-call${on ? ' is-selected' : ''}" data-cf-row="${esc(r.id)}"${on ? ' aria-current="true"' : ''}><span class="feed-time">${esc(hhmm(r.occurred_at))}</span><span class="feed-title">${r.pinned_at ? '<span class="feed-pin" aria-label="고정">고정</span>' : ''}${badge}${esc(ask ? r.title || '(제목 없음)' : topicOf(r))}</span>${org ? `<span class="feed-org">${esc(org)}</span>` : ''}</button>`;
   if (ask) return `<div class="feed-callrow feed-ask" data-cf-item="${esc(r.id)}">${open}<span class="feed-ask-btns"><button type="button" class="feed-small" data-cf-decide="work" data-cf-id="${esc(r.id)}"${state.busy ? ' disabled' : ''}>업무</button><button type="button" class="feed-small" data-cf-decide="personal" data-cf-id="${esc(r.id)}"${state.busy ? ' disabled' : ''}>개인</button></span></div>`;
   return `<div class="feed-callrow" data-cf-item="${esc(r.id)}">${open}<button type="button" class="feed-hov" data-cf-rowmore="${esc(r.id)}" aria-haspopup="true" aria-expanded="false" aria-label="통화 메뉴">${MORE}</button></div>`;
 }
@@ -148,7 +147,7 @@ function paintDetail() {
   const metaText = `${esc(meta)}${r.pinned_at ? ' · 고정' : ''}${unsure ? ' · 애매' : personal ? ' · 개인' : ''}`;
   const first = pc.matches
     ? `<div class="kptu-title-line"><p class="feed-meta" data-cf-meta>${metaText}</p>${more}</div>`
-    : `<div class="kptu-title-line"><h3 class="feed-detail-title" data-cf-title>${esc(r.title || '(제목 없음)')}</h3>${more}</div><p class="feed-meta" data-cf-meta>${metaText}</p>`;
+    : `<div class="kptu-title-line"><h3 class="feed-detail-title" data-cf-title>${esc(topicOf(r))}</h3>${more}</div><p class="feed-meta" data-cf-meta>${metaText}</p>`;
   box.innerHTML = `${back ? `<div class="feed-detail-head">${back}</div>` : ''}
 <div class="feed-detail" data-cf-detail="${esc(r.id)}" data-cf-box-of="${personal ? 'personal' : 'work'}">${first}${confirm}${decide}${link}${pointsHtml}${full}<p class="feed-status" data-cf-detail-status role="status">${statusHtml()}</p></div>`;
 }
@@ -254,7 +253,7 @@ function moveRow(r, to, {confirmed = false} = {}) {
     state.status = res.changed ? moveDoneText(from, to) : '이미 그 통화함에 있어요.';
   }).then(() => { if (state.confirm) $('#cfDetail [data-cf-confirm-go]')?.focus({preventScroll:true}); else $('#cfList [data-cf-undo]')?.focus({preventScroll:true}); });
 }
-const callText = r => callCopyText({who:whoOf(r), title:r.title, dayText:dayLabel(r.day), time:hhmm(r.occurred_at), points:r.points});
+const callText = r => callCopyText({who:whoOf(r), title:topicOf(r), dayText:dayLabel(r.day), time:hhmm(r.occurred_at), points:r.points});
 const copyCall = r => copySummary(callText(r), {say, current:() => state.status});
 function startLink(r) { if (state.selected !== r.id) select(r.id); state.link = newLinkBox(r); paintDetail(); $('#cfDetail [data-cf-link-pick]')?.focus({preventScroll:true}); }
 function saveLink() {
