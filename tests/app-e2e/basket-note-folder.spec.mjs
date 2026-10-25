@@ -154,12 +154,11 @@ for (const width of [390, 1280]) test(`rename a folder note by note: a failed pa
   ]);
   // [전체] chosen: the folder ⋯ has only [새 폴더].
   await press(page, page.locator('[data-note-folder-more]'), width);
-  // ED③ 1단계(1회용, 다음 PR에서 삭제): owner에게는 폴더 ⋯ 끝에 [옛 마크다운 노트 변환]이 있다.
-  await expect(page.locator('#noteDocMenu button')).toHaveText(['새 폴더', '옛 마크다운 노트 변환']);
+  await expect(page.locator('#noteDocMenu button')).toHaveText(['새 폴더']);
   await page.keyboard.press('Escape');
   await press(page, chip(page, '옛 폴더'), width);
   await press(page, page.locator('[data-note-folder-more]'), width);
-  await expect(page.locator('#noteDocMenu button')).toHaveText(['새 폴더', '폴더 이름 바꾸기', '폴더 지우기', '옛 마크다운 노트 변환']);
+  await expect(page.locator('#noteDocMenu button')).toHaveText(['새 폴더', '폴더 이름 바꾸기', '폴더 지우기']);
   // Rename while one note's write fails once.
   f.failOnce.add('n2');
   const asked = answerNext(page, '새 폴더 이름');
