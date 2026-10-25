@@ -65,6 +65,10 @@ import {
   SCHEDULE_MAX_NAMES, SCHEDULE_TITLES_INSTRUCTIONS, SCHEDULE_TITLES_SCHEMA, scheduleMaterial, type ScheduleEvent, type ScheduleRecord,
 } from "./schedule-titles.ts";
 import {
+  callRefillMaterial, CALL_REFILL_INSTRUCTIONS, CALL_REFILL_MAX_ORGS, CALL_REFILL_MAX_OUTPUT_TOKENS, CALL_REFILL_SCHEMA, counterpartOf,
+  parseCallRefill, parseCallRefillRequest, refillText, type RefillOrg,
+} from "./call-refill.ts";
+import {
   fixMaterial, fixRequest, FIX_MAX_OUTPUT_TOKENS, FIX_KNOWN_RECORDS, type FixName, type FixRecord, LEDGER_FIX_INSTRUCTIONS, LEDGER_FIX_SCHEMA,
   parseFixRequest, parseLedgerFix, sendableRecord,
 } from "./ledger-fix.ts";
@@ -95,7 +99,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 80;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30 });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30 });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -155,6 +159,9 @@ export const MESSAGES: Readonly<Record<string, string>> = Object.freeze({
   ledger_fix_rejected: "원장 형식에 맞지 않아 미리보기를 만들지 못했어요. 문장을 바꿔 다시 써 주세요.",
   library_not_ready: "자료 정보 채우기가 아직 준비되지 않았어요.",
   library_unavailable: "자료를 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+  call_refill_not_ready: "통화 정보 채우기가 아직 준비되지 않았어요.",
+  call_refill_not_pending: "이미 채웠거나 채울 수 없는 통화예요.",
+  call_refill_unavailable: "통화 정보를 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   org_summary_not_ready: "조직 현황 요약 기능이 아직 준비되지 않았어요.",
   org_summary_unavailable: "조직 요약을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   text_pending: "글자를 읽는 중이에요. 잠시 뒤 다시 눌러 주세요.",
@@ -357,6 +364,7 @@ type LedgerFixInput = { kind: "ledger_fix"; text: string; target: string | null 
 type OrgSummaryInput = { kind: "org_summary"; week_start: string; organization_ids: string[] };
 type ScheduleTitlesInput = { kind: "schedule_titles"; week_start: string; events: ScheduleEvent[] };
 type OverlapCheckInput = { kind: "overlap_check"; pairs: OverlapPair[] };
+type CallRefillInput = { kind: "call_refill"; id: string };
 
 // 조직 현황 요약은 주(그 주 월요일, YYYY-MM-DD)와 조직 ID(1~20개, 겹침 없음)만 받는다.
 function parseOrgSummaryRequest(b: Record<string, unknown>): OrgSummaryInput {
@@ -401,7 +409,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | ScheduleTitlesInput | OverlapCheckInput {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -423,6 +431,12 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | Ledger
     const parsed = parseFixRequest(b);
     if (!parsed) throw new Fail(400, "invalid_request");
     return { kind: "ledger_fix", ...parsed };
+  }
+  // 업무로 옮긴 통화 다시 채우기(call_refill): 통화 ID 하나만 받는다. 줄·전문·조직 목록은 서버가 로그인 토큰으로 읽는다.
+  if (b.kind === "call_refill") {
+    const parsed = parseCallRefillRequest(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    return { kind: "call_refill", ...parsed };
   }
   if (b.kind === "library_fill") return parseLibraryFillRequest(b);
   if (b.kind === "org_summary") return parseOrgSummaryRequest(b);
@@ -1166,7 +1180,7 @@ async function ledgerRpc(ctx: Ctx, name: string, args: Record<string, unknown>):
   try { body = await readBoundedJson(r, { maxBytes: 64 * 1024 }); } catch { body = null; }
   if (!r.ok) {
     const msg = (body as { message?: unknown } | null)?.message;
-    const code = typeof msg === "string" ? (msg.match(/^(LEDGER_[A-Z0-9_]{1,60})/)?.[1] ?? null) : null;
+    const code = typeof msg === "string" ? (msg.match(/^((?:LEDGER|CALL)_[A-Z0-9_]{1,60})/)?.[1] ?? null) : null;
     throw new LedgerRpcError(r.status, code);
   }
   return body;
@@ -1259,11 +1273,13 @@ async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log): Promise<{ 
   // 통화 때문에 원장 자동 기록 전체가 깨지면 안 된다: 읽기 실패나 DB 미적용이면 통화만 건너뛴다.
   try {
     const callSince = encodeURIComponent(new Date(Math.max(Date.parse(sinceIso), Date.parse(CALL_FROM_ISO))).toISOString());
-    const calls = await rest(ctx, `app_feed_items?workspace_id=eq.${ws}&source=eq.call&hidden_at=is.null&created_at=gte.${callSince}&select=id,workspace_id,title,points,day,occurred_at,organization_id,project_id,created_at&order=created_at.desc&limit=${AUTO_READ_LIMIT}`);
+    const calls = await rest(ctx, `app_feed_items?workspace_id=eq.${ws}&source=eq.call&hidden_at=is.null&or=(created_at.gte.${callSince},moved_at.gte.${callSince})&select=id,workspace_id,title,points,day,occurred_at,organization_id,project_id,created_at,moved_at&order=created_at.desc&limit=${AUTO_READ_LIMIT}`);
     if (Array.isArray(calls) && calls.length && await callKindReady(ctx)) {
       full(calls);
       for (const c of calls as Record<string, unknown>[]) {
         const created = timeOf(c.created_at), when = timeOf(c.occurred_at);
+        // CALL-개인통화함 4단계: 개인함에서 옮겨 온 통화는 만든 시각(created_at)이 옛날이어도 옮긴 시각(moved_at)이 기간 안이면 재료로 본다. 본 시각(stamp)은 둘 중 늦은 것.
+        const moved = timeOf(c.moved_at), stampAt = Number.isFinite(moved) && moved > created ? c.moved_at as string : c.created_at as string;
         if (!isUuid(c.id) || String(c.workspace_id).toLowerCase() !== ctx.workspaceId || !Number.isFinite(created) || typeof c.day !== "string" || !DAY_RE.test(c.day)) continue;
         const points = Array.isArray(c.points) ? c.points.filter((p): p is string => typeof p === "string" && p.trim() !== "") : [];
         const text = stripPhones([typeof c.title === "string" ? c.title : "", ...points.map((p) => `- ${p}`)].filter(Boolean).join("\n"));
@@ -1271,7 +1287,7 @@ async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log): Promise<{ 
         const orgOk = org && orgName.has(org) ? org : null;
         if (!text.trim()) continue;
         sources.push({
-          kind: "call", id: c.id.toLowerCase(), stamp: c.created_at as string, day: c.day, at: Number.isFinite(when) ? when : created, text,
+          kind: "call", id: c.id.toLowerCase(), stamp: stampAt, day: c.day, at: Number.isFinite(when) ? when : created, text,
           label: orgOk ? stripPhones(orgName.get(orgOk) ?? "") || undefined : undefined,
           when: Number.isFinite(when) ? new Date(when + 9 * 3600000).toISOString().slice(11, 16) : undefined,
           organization_id: orgOk,
@@ -2655,6 +2671,102 @@ async function runOverlapCheck(ctx: Ctx, input: OverlapCheckInput, deps: RadarDe
   return finish({ saved, kept_user: keptUser });
 }
 
+// ---- 쓰임 call_refill: 업무로 옮긴 통화 한 건 다시 채우기(CALL-개인통화함 4단계, docs/design/call-personal.md 7절) ------------------
+// 옮긴 직후(moved_at 있고 refilled_at 없음) 업무 통화 한 건의 전문으로 제목(주제)·관련 조직·상대 이름·직함만 정해 DB 함수 app_call_work_info로 저장한다.
+// 핵심내용·전문은 건드리지 않는다. 개인 통화는 AI에 보내지 않고, 업무로 옮긴 그 한 건만 예외다(명진 승인). 기록에는 숫자만 남긴다.
+async function runCallRefill(ctx: Ctx, input: CallRefillInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const ws = encodeURIComponent(ctx.workspaceId);
+  let rows: unknown;
+  try {
+    rows = await rest(ctx, `app_feed_items?id=eq.${input.id}&workspace_id=eq.${ws}&source=eq.call&select=id,workspace_id,title,summary,points,counterpart,organization_id,raw_text,day,hidden_at,moved_at,refilled_at&limit=2`);
+  } catch (e) {
+    // moved_at·refilled_at 칸이 없으면(DB 미적용) 준비 안 됨.
+    if (/^rest_(400|404)$/.test((e as Error)?.message ?? "")) throw new Fail(503, "call_refill_not_ready");
+    throw new Fail(503, "read_unavailable");
+  }
+  if (!Array.isArray(rows)) throw new Fail(503, "read_unavailable");
+  const row = (rows as Record<string, unknown>[]).filter((r) => String(r?.id).toLowerCase() === input.id && String(r?.workspace_id).toLowerCase() === ctx.workspaceId);
+  if (row.length !== 1) throw new Fail(404, "not_found");
+  const c = row[0];
+  if (c.moved_at == null || c.refilled_at != null || c.hidden_at != null) throw new Fail(409, "call_refill_not_pending");
+  const text = refillText({
+    title: typeof c.title === "string" ? c.title : "", summary: typeof c.summary === "string" ? c.summary : "",
+    points: Array.isArray(c.points) ? c.points.filter((p): p is string => typeof p === "string") : [],
+    raw_text: typeof c.raw_text === "string" ? c.raw_text : null, counterpart: typeof c.counterpart === "string" ? c.counterpart : null,
+    day: typeof c.day === "string" ? c.day : "",
+  });
+  if (!text) return json({ ok: true, kind: "call_refill", id: input.id, skipped: true });
+
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+  const budget = await checkBudget(ctx, "call_refill", started, config.price);
+  let orgRows: unknown;
+  try {
+    orgRows = await rest(ctx, `app_suborganizations?workspace_id=eq.${ws}&select=id,name,active&order=name.asc&limit=500`);
+  } catch {
+    throw new Fail(503, "read_unavailable");
+  }
+  const orgs: RefillOrg[] = organizationOptions(orgRows).slice(0, CALL_REFILL_MAX_ORGS);
+  const material = callRefillMaterial({
+    title: typeof c.title === "string" ? c.title : "", summary: "", points: [], raw_text: null,
+    counterpart: typeof c.counterpart === "string" ? c.counterpart : null, day: typeof c.day === "string" ? c.day : "",
+  }, text, orgs);
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch {
+    throw new Fail(503, "usage_unavailable");
+  }
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: CALL_REFILL_MAX_OUTPUT_TOKENS,
+    input: [
+      { role: "developer", content: CALL_REFILL_INSTRUCTIONS },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "call_refill", strict: true, schema: CALL_REFILL_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: CALL_REFILL_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  if (!result.ok) {
+    deps.log(result.code);
+    const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
+    throw new Fail(status, result.code);
+  }
+  const parsed = parseCallRefill(outputText(result.raw, 64 * 1024), orgs);
+  if (!parsed) {
+    deps.log("ai_invalid_response");
+    throw new Fail(502, "ai_invalid_response");
+  }
+  // AI가 정하지 못한 칸은 지금 값을 그대로 다시 보내 지우지 않는다(DB 함수는 상대·조직이 비면 비운다).
+  const currentOrg = isUuid(c.organization_id) ? String(c.organization_id).toLowerCase() : null;
+  const orgId = parsed.organization?.id ?? currentOrg;
+  const counterpart = counterpartOf(parsed) ?? (typeof c.counterpart === "string" && c.counterpart.trim() ? c.counterpart : null);
+  try {
+    await ledgerRpc(ctx, "app_call_work_info", { p_id: input.id, p_title: parsed.title, p_counterpart: counterpart, p_organization_id: orgId });
+  } catch (e) {
+    if (e instanceof LedgerRpcError) {
+      if (e.dbCode === "CALL_NOT_FOUND") throw new Fail(404, "not_found");
+      if (e.dbCode === "CALL_REFILL_NOT_PENDING") throw new Fail(409, "call_refill_not_pending");
+      if (e.status === 404) throw new Fail(503, "call_refill_not_ready");
+    }
+    throw new Fail(503, "call_refill_unavailable");
+  }
+  const sentChars = chars(text);
+  deps.log("call_refill_done", { size: sentChars, org: !!orgId, person: !!counterpart });
+  return json({ ok: true, kind: "call_refill", id: input.id, title: parsed.title, counterpart, organization_id: orgId });
+}
+
 async function insertCandidates(ctx: Ctx, rows: Record<string, unknown>[]) {
   const r = await ctx.doFetch(`${ctx.sb}/rest/v1/app_todo_candidates?on_conflict=workspace_id,dedupe_key&select=id`, {
     method: "POST",
@@ -2697,6 +2809,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "library_fill") return await runLibraryFill(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "org_summary") return await runOrgSummary(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "schedule_titles") return await runScheduleTitles(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "call_refill") return await runCallRefill(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "overlap_check") return await runOverlapCheck(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       const material = await loadLinkSummaryMaterial(ctx, input);
 
