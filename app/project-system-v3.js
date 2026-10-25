@@ -9,7 +9,7 @@ import {recordSheetWanted,openRecordSheet} from './record-sheet.js';
 import { createAnchoredMenu } from './anchored-menu.js';
 import {tapExpand} from './text-clamp.js';
 import {foldedSet,isFoldedOwn,partitionTree,blocks,foldedMetadata,foldSummary} from './project-fold.mjs';
-import {previewLines} from './note-preview.mjs';
+import {recordLines} from './note-preview.mjs';
 import {readRecordPages,readLinkRecords,recordMark,recordText,isNoteRecord,mountLinkSummaryEditor} from './basket-link-records.js';
 import {categoryTag,categoryOf,documentCategories,loadDocumentCategories} from './document-categories.js';
 import {renderCategoryChips,toggleCategoryOff,detailDefaultOff} from './category-chips.js';
@@ -393,7 +393,7 @@ function headSummary(d,ch){const days=milestoneDays(d.p.id);return [!d.p.parent_
 const keyOf=v=>Number.isFinite(Date.parse(v))?seoulDateKey(new Date(v)):'';
 const recordFrom=u=>u.workstream_id?detail?.workstreams.find(w=>w.id===u.workstream_id)?.title||'':'';
 const recordButton=(id,date,text)=>`<button type="button" class="ps3-rec-line" data-ps3-record-menu="${esc(id)}" aria-haspopup="true" aria-expanded="false" aria-controls="ps3RecordMenu"><time>${esc(day(date))}</time><span class="ps3-rec-text kptu-clamp">${text}</span></button>`;
-function progressRecord(u){const from=recordFrom(u);return recordButton(u.id,u.effective_on,`${from?`<span class="ps3-rec-from">${esc(from)}</span> `:''}<span class="ps3-rec-summary">${esc(previewLines(u.summary||''))}</span>${u.next_step?` <span class="ps3-rec-next">다음: ${esc(u.next_step)}</span>`:''}`)}
+function progressRecord(u){const from=recordFrom(u);return recordButton(u.id,u.effective_on,`${from?`<span class="ps3-rec-from">${esc(from)}</span> `:''}<span class="ps3-rec-summary">${esc(recordLines(u.summary||''))}</span>${u.next_step?` <span class="ps3-rec-next">다음: ${esc(u.next_step)}</span>`:''}`)}
 function itemRecord(w){return recordButton(w.id,keyOf(w.created_at),esc(w.title||''))}
 // BUG-바구니연결해제: tapping a linked line opens the original update; its ⋯ holds [업데이트 열기]·[연결 해제]·[요약 수정] (no note
 // delete here; UI-연결요약수정 added [요약 수정] with the organization detail's editor and save path). UI-기록아이콘: notes linked to this project join the list too (same confirmed links, kind=note); the mark in

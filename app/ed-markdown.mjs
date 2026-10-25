@@ -53,7 +53,7 @@ function parse(tokens, i, stop) {
       case 'bullet_list_open': case 'ordered_list_open': {
         const [items, next] = parse(tokens, i + 1, t.type.replace('_open', '_close'));
         const node = {type:t.type === 'bullet_list_open' ? 'bullet_list' : 'ordered_list', content:items};
-        if (node.type === 'ordered_list') node.attrs = {order:Number(t.attrGet('start')) || 1};
+        if (node.type === 'ordered_list') node.attrs = {order:Number(t.attrGet('start')) || 1, marker:t.markup === ')' ? 'paren' : 'decimal'}; // EDIT-번호모양보존: 쓴 번호 모양(1. / 1))을 저장한다
         out.push(node); i = next + 1; continue;
       }
       case 'list_item_open': {

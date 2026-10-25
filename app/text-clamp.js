@@ -14,9 +14,16 @@ const owners=new WeakMap();
 // text as headings and tables (the shared markdown view); closing puts the plain line back. The stored text is never changed.
 const plainKids=new WeakMap();
 let mdView=null;
-const restorePlain=el=>{const kids=plainKids.get(el);if(!kids)return;plainKids.delete(el);mdView?.showPlainText(el,'');el.replaceChildren(...kids);};
+const restorePlain=el=>{const kids=plainKids.get(el);if(!kids)return;plainKids.delete(el);if(el.dataset.writtenRaw)el.textContent='';else mdView?.showPlainText(el,'');el.replaceChildren(...kids);};
 async function showMarkdown(el){
-  if(!el.dataset.mdRaw||!el.isConnected)return;
+  if(!el.isConnected)return;
+  // EDIT-번호모양보존: a text with no markdown marks opens as written (the line's own text box keeps its line breaks), never read as markdown.
+  if(el.dataset.writtenRaw&&!el.dataset.mdRaw){
+    if(!el.classList.contains('is-open')){restorePlain(el);return;}
+    if(plainKids.has(el))return;
+    plainKids.set(el,[...el.childNodes]);el.textContent=el.dataset.writtenRaw;return;
+  }
+  if(!el.dataset.mdRaw)return;
   if(!el.classList.contains('is-open')){restorePlain(el);return;}
   if(plainKids.has(el))return;
   try{
