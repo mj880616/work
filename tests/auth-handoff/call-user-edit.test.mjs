@@ -73,7 +73,7 @@ test('call user edit: user values live in separate owner-read-only tables, one o
    const grants=[...code.matchAll(/^grant [^;]*;/gim)].map(m=>m[0].replace(/\s+/g,' '));
    assert.deepEqual(grants,['grant select on table public.app_call_edits to authenticated;','grant select on table public.app_call_edit_history to authenticated;','grant execute on function public.app_call_edit(uuid, jsonb) to authenticated;']);
    assert.doesNotMatch(code,/grant [^;]*(app_feed_items|app_call_personal)/i);
-   assert.doesNotMatch(code,/alter table public\.app_(feed_items|call_personal)|alter policy|drop policy|create trigger|create or replace|rtw_|disable row level security|to (anon|public)\b/i);
+   assert.doesNotMatch(code,/alter table public\.app_(feed_items|call_personal)|alter policy|drop policy|create trigger|create or replace|rtw_|disable row level security|\bto (anon|public)\b/i);
    assert.match(code,/insert into supabase_migrations\.schema_migrations \(version, name, statements\)\s*values \('20261026120000', 'call_user_edit'/);
    assert.match(rollbackSQL,/SQL Editor 경로 전용/);assert.match(rollbackSQL,/CALL_USER_EDIT_ROLLBACK_BLOCKED/);
   });
