@@ -156,7 +156,7 @@ async function ciLeaveReport(){
     await window.KPTUReportEntry.open({name:e.title||'',at,location:e.location||'',trigger:document.activeElement===trigger?document.body:document.activeElement,dedupe:true});
   }catch(err){console.error('calendar report',err);ciStatus('#ciGoogleStatus','사업 보고 입력 창을 열지 못했어요. 다시 시도해 주세요.',true)}
 }
-async function ciDeleteGoogle(){if(!ciGoogleCurrent)return;if(!confirm('이 Google 일정을 삭제할까요?'))return;const b=document.querySelector('#ciGoogleDelete');b.disabled=true;ciStatus('#ciGoogleStatus','삭제 중…');try{await ciGoogleCall('',{method:'POST',body:{action:'delete-event',calendar_id:ciGoogleCurrent.calendarId||'primary',event_id:ciGoogleCurrent.id}});window.KPTUCalendarPersistence?.forget?.(ciGoogleCurrent.id,ciGoogleCurrent.calendarId||'primary');ciClose('#ciGoogleModal');ciGoogleCurrent=null;await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.();ciToast('Google 일정을 삭제했습니다.')}catch(e){ciStatus('#ciGoogleStatus',e.message||String(e),true)}finally{b.disabled=false}}
+async function ciDeleteGoogle(){if(!ciGoogleCurrent)return;if(!confirm('이 Google 일정을 삭제할까요?'))return false;const b=document.querySelector('#ciGoogleDelete');b.disabled=true;ciStatus('#ciGoogleStatus','삭제 중…');try{await ciGoogleCall('',{method:'POST',body:{action:'delete-event',calendar_id:ciGoogleCurrent.calendarId||'primary',event_id:ciGoogleCurrent.id}});window.KPTUCalendarPersistence?.forget?.(ciGoogleCurrent.id,ciGoogleCurrent.calendarId||'primary');ciClose('#ciGoogleModal');ciGoogleCurrent=null;await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.();ciToast('Google 일정을 삭제했습니다.')}catch(e){ciStatus('#ciGoogleStatus',e.message||String(e),true)}finally{b.disabled=false}}
 // CAL-빈칸시간채우기: 일정 만들기 창을 열고 누른 자리의 날짜·시간만 채운다(창 모양은 그대로). slot = calendar-create-slot.js 값.
 function ciCreateSlot(slot){const btn=document.querySelector('#newEventBtn');if(!btn||!slot)return;btn.click();const q=id=>document.querySelector('#event'+id),allDay=q('AllDay');if(allDay){allDay.checked=slot.kind==='allday';allDay.dispatchEvent(new Event('change',{bubbles:true}))}
   if(q('StartDate'))q('StartDate').value=slot.startDate;
@@ -212,5 +212,17 @@ async function ciSaveMoved(eventId,calendarId,expected,next){
   }finally{if(ciPendingWrites.get(key)===r)ciPendingWrites.delete(key);r.finish()}
 }
 // SEARCH-전체검색: a Google event found by search opens in the same edit window as a click on it in the calendar.
-window.KPTUCalendarEvents={open:(eventId,calendarId)=>{if(eventId)ciCloseDay(()=>ciOpenGoogle(String(eventId),calendarId||'primary'))},saveMove:ciSaveMoved,toast:ciToast,createSlot:ciCreateSlot};
+// UI-우클릭전수: the calendar's right-click menu (calendar-context-menu.js) runs the edit window's own buttons: the window opens the way a click
+// opens it, and once it is ready the same function behind [담당조직] / [결과 남기기] / [일정 삭제] runs. A cancelled delete closes the window again.
+function ciFocusOrgs(){const box=document.querySelector('#soGoogleEditOrganizations');if(!box)return;box.scrollIntoView?.({block:'nearest'});(box.querySelector('input:not(:disabled)')||box.querySelector('button:not(:disabled)'))?.focus?.({preventScroll:true})}
+async function ciActOn(eventId,calendarId,what){
+  if(!eventId)return;
+  await new Promise(resolve=>ciCloseDay(resolve));
+  const ready=await ciOpenGoogle(String(eventId),calendarId||'primary');
+  if(what==='edit'||!ready||ciGoogleReadySeq!==ready.seq)return;
+  if(what==='orgs')ciFocusOrgs();
+  else if(what==='report')await ciLeaveReport();
+  else if(what==='delete'&&(await ciDeleteGoogle())===false&&ciGoogleOpenSeq===ready.seq){ciGoogleOpenSeq++;ciGoogleCurrent=null;ciClose('#ciGoogleModal')}
+}
+window.KPTUCalendarEvents={open:(eventId,calendarId)=>{if(eventId)ciCloseDay(()=>ciOpenGoogle(String(eventId),calendarId||'primary'))},act:ciActOn,saveMove:ciSaveMoved,toast:ciToast,createSlot:ciCreateSlot};
 window.__KPTU_CALENDAR_INTERACTIONS_READY__=Promise.resolve(true);

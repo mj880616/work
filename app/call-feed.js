@@ -166,7 +166,7 @@ function paintDetailNow() {
   const confirm = state.confirm?.id === r.id ? `<div class="feed-warn" data-cf-confirm role="alert"><p>${esc(state.confirm.text)}</p><div class="feed-link-actions"><button type="button" class="feed-small" data-cf-confirm-go>개인 통화로 옮기기</button><button type="button" class="feed-small" data-cf-confirm-cancel>취소</button></div></div>` : '';
   const decide = unsure ? `<div class="feed-decide" data-cf-decide-bar><span class="feed-faint">업무 통화인지 개인 통화인지 정해 주세요</span>${decideHtml(r.id)}</div>` : '';
   // UI-더보기제목줄: ⋯는 빈 줄을 따로 차지하지 않고 상세 첫 줄(폰은 제목, PC는 날짜·시간 줄) 오른쪽 끝에 둔다(공용 .kptu-title-line, base-ui.css).
-  const more = `<button type="button" class="feed-more" data-cf-more aria-haspopup="true" aria-expanded="false" aria-label="통화 메뉴"${state.busy ? ' disabled' : ''}>${MORE}</button>`;
+  const more = `<button type="button" class="feed-more" data-cf-more data-ctx="area" aria-haspopup="true" aria-expanded="false" aria-label="통화 메뉴"${state.busy ? ' disabled' : ''}>${MORE}</button>`;
   // 조직·이름 표(날짜·시간 뒤의 상대)를 누르면 그 자리에서 고친다. 고친 값이 있으면 작게 '고침'을 붙인다.
   const whoBtn = who ? (state.editMissing ? esc(who) : `<button type="button" class="feed-whoname" data-cf-who-open aria-label="조직·이름 고치기">${esc(who)}</button>`) : '';
   const tail = `${r.pinned_at ? ' · 고정' : ''}${unsure ? ' · 애매' : personal ? ' · 개인' : ''}${r.edited?.counterpart || r.edited?.organization_id ? ' · 고침' : ''}`;
