@@ -8,6 +8,7 @@
 // 일기(diary)만 쓴다. 업무일지·일기는 하루 1행 고유 색인 때문에 휴지통 대상이 아니다.
 import {confirmLinks} from './basket-classification.js';
 import {TRASH_STATE,TRASH_TEXT,otherDeleteText,otherDeleteBlockedText} from './project-trash-model.mjs';
+import {readTrashKind,restoreFromTrashKind} from './trash-rpc.js';
 
 const PAGE_SIZE=100;
 const contextFor=rt=>typeof rt.context?.read==='function'?(rt.context.read()||{}):(globalThis.window?.__KPTU_BOOT_CONTEXT__||{});
@@ -250,7 +251,6 @@ export async function disconnectWithUndo(link,{name='',rt=window.KPTURuntime,isC
 // 서버 쪽 삭제 가로채기 트리거가 DELETE를 휴지통 표시로 바꾸므로 같은 owner-RLS DELETE 한 번을 보내고, 도착은 목록으로 확인한 뒤에만 알린다.
 // 연결·첨부(Drive)는 건드리지 않는다. 안내는 '휴지통으로 옮겼어요 · 되돌리기' 한 줄(offerUndoNotice)이라 결과 글은 비워 둔다.
 async function deleteNoteToTrash(noteId,{rt,isCurrent}){
-  const {readTrashKind,restoreFromTrashKind}=await import('./trash-actions.js');
   const owner=scope(rt);
   return remove('note',noteId,{rt,isCurrent,confirmText:async()=>{
     const first=await readTrashKind('note',rt);
