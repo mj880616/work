@@ -103,6 +103,25 @@ export async function findTodos(mode, options = {}) {
   return {ok:true, skipped:false, added:d.added, checkedAt, partial:d.partial === true, promises:d.promises.filter(validPromise).slice(0, 10)};
 }
 
+// MTG-후속할일후보: the candidates of ONE 사업 보고 (same table, same rows as the 정리함 [챙길 것]); open and handled both come back so a
+// handled one is never shown as new. Without a meeting id nothing is read.
+export async function readMeetingCandidates(meetingId, rt = window.KPTURuntime) {
+  if (!UUID.test(String(meetingId || ''))) return {ok:true, rows:[]};
+  try {
+    const rows = await rt.api(`/rest/v1/app_todo_candidates?workspace_id=eq.${encode(workspace(rt))}&source_kind=eq.meeting&source_id=eq.${encode(String(meetingId).toLowerCase())}&select=${FIELDS}&order=created_at.desc,id.asc&limit=100`, {singleFlight:false});
+    return {ok:true, rows:clean(rows)};
+  } catch (error) { return isMissing(error) ? {missing:true} : {ok:false}; }
+}
+// [후속 할 일 만들기]: the server reads this one meeting itself and adds 'open' candidates (ai-assist kind=todo_radar, mode=meeting).
+// The screen sends only the meeting id, never the record text. Returns {ok:true, added} or {ok:false, code, message}.
+export async function findMeetingTodos(meetingId, options = {}) {
+  if (!UUID.test(String(meetingId || ''))) return {ok:false, code:'invalid_request', message:RADAR_TEXT.invalid_request};
+  const r = await callAiAssist({kind:'todo_radar', mode:'meeting', meeting_id:String(meetingId).toLowerCase()}, {timeoutMs:RADAR_TIMEOUT_MS, ...options}, RADAR_TEXT);
+  if (!r.ok) return {ok:false, code:r.code, message:RADAR_TEXT[r.code] || RADAR_TEXT.internal_error};
+  if (!Number.isSafeInteger(r.data.added) || r.data.added < 0) return {ok:false, code:'ai_invalid_response', message:RADAR_TEXT.ai_invalid_response};
+  return {ok:true, added:r.data.added};
+}
+
 // Each change is guarded by the current status, so a candidate already handled elsewhere is not changed twice.
 async function patch(id, from, body, rt) {
   const rows = await rt.api(`/rest/v1/app_todo_candidates?id=eq.${encode(id)}&workspace_id=eq.${encode(workspace(rt))}&status=eq.${from}&select=id,status,task_id,decided_at`, {method:'PATCH', prefer:'return=representation', body});
