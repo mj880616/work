@@ -51,7 +51,7 @@ test('1280 shared rule: a menu panel a stylesheet pins under the ⋯ opens at th
   expect(Math.abs(b.x - at.x)).toBeLessThanOrEqual(12);
   expect(Math.min(Math.abs(b.y - at.y), Math.abs(b.y + b.height - at.y))).toBeLessThanOrEqual(12);
   await page.evaluate(() => { document.getElementById('pmenu').hidden = true; });
-  await expect.poll(() => menu.evaluate(el => el.style.position)).toBe('absolute');
+  await expect.poll(() => menu.evaluate(el => el.style.position + '|' + getComputedStyle(el).position)).toBe('|absolute');
 });
 
 // ---- calendar event menu ----
