@@ -35,7 +35,7 @@ export function mountHomeFill({main, rt = window.KPTURuntime}) {
       : state.missed === 'failed' ? '<p class="home-status">확인하지 못했어요</p>'
       : rows.length ? rows.map(r => {
         const who = typeof r.counterparty === 'string' && r.counterparty.trim() ? `<small>${esc(r.counterparty.trim())}</small>` : '';
-        return `<div class="home-line" data-home-missed="${esc(r.id)}"><span class="home-title">${esc(r.title)}</span>${who}<span class="home-day-tag">${esc(missedTag(r))}</span></div>`;
+        return `<div class="home-event" data-home-missed="${esc(r.id)}"><span class="home-title">${esc(r.title)}</span>${who}<span class="home-day-tag">${esc(missedTag(r))}</span></div>`;
       }).join('')
       : '<p class="home-status">없음</p>';
     missed.innerHTML = `${head('missed', '놓친 약속', 'ledger', '원장')}<div data-home-body>${body}</div>`;
@@ -44,7 +44,7 @@ export function mountHomeFill({main, rt = window.KPTURuntime}) {
     const n = state.inbox;
     // 0건·알 수 없음이면 줄 자체를 그리지 않는다.
     inbox.hidden = mq.matches || !(n > 0);
-    inbox.innerHTML = n > 0 ? `<button type="button" class="home-fill-inbox-line" data-goto="basket"><span>정리 안 된 것</span><span class="home-fill-inbox-n">${n}건 ›</span></button>` : '';
+    inbox.innerHTML = n > 0 ? `<header><h3 id="home-inbox-title">정리 안 된 것</h3><button type="button" class="home-fill-inbox-line" data-goto="basket">${n}건 ›</button></header>` : '';
   }
   function paintTomorrow() {
     const t = state.tomorrow;
@@ -53,7 +53,7 @@ export function mountHomeFill({main, rt = window.KPTURuntime}) {
     else if (t === 'unavailable') body = '<p class="home-status">확인하지 못했어요</p>';
     else {
       const line = tomorrowLine(t, timeOf);
-      body = line ? `<div class="home-line"><time>${esc(line.time)}</time><span class="home-title">${esc(line.title)}</span>${line.more ? `<small>외 ${line.more}건</small>` : ''}</div>` : '<p class="home-status">없음</p>';
+      body = line ? `<div class="home-event"><time>${esc(line.time)}</time><span class="home-title">${esc(line.title)}</span>${line.more ? `<small>외 ${line.more}건</small>` : ''}</div>` : '<p class="home-status">없음</p>';
     }
     tomorrow.innerHTML = `${head('tomorrow', '내일', 'calendar', '달력')}<div data-home-body>${body}</div>`;
   }
