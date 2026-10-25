@@ -59,7 +59,7 @@ export const setHidden = (id, on, rt) => patchItem(id, {hidden_at:on ? new Date(
 export async function readOrganizations(rt = window.KPTURuntime) {
   const c = ctx(rt), ws = workspaceOf(rt);
   const [orgs, mine] = await Promise.all([
-    readRecordPages(`/rest/v1/app_suborganizations?workspace_id=eq.${encode(ws)}&select=id,name,active&order=id.asc`, rt),
+    readRecordPages(`/rest/v1/app_suborganizations?workspace_id=eq.${encode(ws)}&select=id,name,aliases,active&order=id.asc`, rt),
     readRecordPages(`/rest/v1/app_suborganization_assignees?user_id=eq.${encode(c.user?.id || '')}&select=organization_id&order=organization_id.asc`, rt).catch(() => []),
   ]);
   return {orgs:orgs.filter(o => o?.id), mine:new Set(mine.map(a => a.organization_id))};

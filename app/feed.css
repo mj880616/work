@@ -37,7 +37,7 @@
 .feed-view .feed-call.is-selected{background:var(--kptu-primary-soft)}
 .feed-view .feed-time{flex:none;width:38px;font-size:var(--ds-text-meta);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
 .feed-view .feed-title{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.feed-view .feed-org{flex:none;max-width:40%;font-size:11px;color:var(--kptu-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.feed-view .feed-org{flex:0 1 auto;min-width:0;max-width:min(14em,42%);padding:1px 6px;border-radius:var(--ds-radius-control);background:var(--kptu-surface-subtle);font-size:var(--ds-text-meta);color:var(--kptu-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* 상세 */
 .feed-view .feed-detail-head{display:flex;align-items:center;gap:8px;min-height:var(--ds-compact-height)}
@@ -136,4 +136,10 @@
   #appView .feed-view .feed-split{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:minmax(0,1fr);column-gap:var(--kptu-space-3)}
   #appView .feed-view .feed-list{grid-column:1;grid-row:1;max-height:100%;overflow-y:auto;overscroll-behavior:contain}
   #appView .feed-view .feed-pane{grid-column:2;grid-row:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-box);background:var(--kptu-surface)}
+}
+
+/* CALL-목록상세정리: 폰에서 '‹ 통화'·'‹ 업무 통화'·'‹ 소식'이 보일 때는 맨 위 화면 이름('통화')을 감춰 한 줄만 남긴다(바구니 상세와 같은 방식, ui-standard.css). */
+@media(max-width:760px){
+  html:has(#callsView:not(.hidden) :is([data-cf-back],[data-cf-box="work"])) .mobile-shell-header [data-mobile-view-name],
+  html:has(#telegramView:not(.hidden) [data-tg-back]) .mobile-shell-header [data-mobile-view-name]{ visibility:hidden; }
 }

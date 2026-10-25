@@ -94,7 +94,7 @@ for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세
  await expect(page).toHaveURL(/view=calls/);
  await expect(view.locator('[data-cf-day]')).toHaveText(['10. 6. (화)','10. 4. (일)']);
  const first=view.locator(`[data-cf-row="${C1}"]`);
- await expect(first.locator('.feed-time')).toHaveText('09:42');await expect(first.locator('.feed-title')).toHaveText('가상 교섭 일정 다음 주로 조정');await expect(first.locator('.feed-org')).toHaveText('예시지부');
+ await expect(first.locator('.feed-time')).toHaveText('09:42');await expect(first.locator('.feed-title')).toHaveText('가상 교섭 일정 다음 주로 조정');await expect(first.locator('.feed-org')).toHaveText('예시지부 · 홍길동 위원장');
  // 같은 날은 시각 내림차순.
  await expect(view.locator('[data-cf-row]')).toHaveCount(3);
  expect(await view.locator('[data-cf-row]').evaluateAll(els=>els.map(e=>e.dataset.cfRow))).toEqual([C1,C2,C3]);
@@ -104,19 +104,19 @@ for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세
 
  await tap(page,first,width);
  const detail=view.locator('#cfDetail');
- await expect(detail.locator('[data-cf-meta]')).toHaveText('10. 6. (화) · 09:42 · 예시지부 홍길동 위원장');
+ await expect(detail.locator('[data-cf-meta]')).toHaveText('10. 6. (화) · 09:42 · 예시지부 · 홍길동 위원장');
  await expect(detail.locator('[data-cf-points] li')).toHaveText(['가상 교섭 다음 주 화요일로 변경','요구안 12명 유지확정','회신 10. 12.(월)까지예정','장소 다시 확인확인']);
  await expect(detail.locator('[data-cf-points] .feed-tag')).toHaveText(['확정','예정','확인']);
  if(width>=1024){await expect(page.locator('[data-topline-where] [aria-current="page"]')).toHaveText('가상 교섭 일정 다음 주로 조정');await expect(detail.locator('[data-cf-title]')).toHaveCount(0);}
  else await expect(detail.locator('[data-cf-title]')).toHaveText('가상 교섭 일정 다음 주로 조정');
+ // 전문(사본)이 도착하면 상세를 한 번 다시 그린다. 위치를 재기 전에 그 다시 그리기를 기다린다.
+ await expect(detail.locator('[data-cf-script],[data-cf-raw-empty]')).toHaveCount(1);
  // UI-더보기제목줄: ⋯는 빈 줄을 따로 차지하지 않고 첫 줄(폰은 제목, PC는 날짜·시간 줄) 오른쪽 끝에 같은 줄로 놓인다.
  {const first=await detail.locator(width>=1024?'[data-cf-meta]':'[data-cf-title]').boundingBox(),more=await detail.locator('[data-cf-more]').boundingBox();
   expect(first&&more).toBeTruthy();expect(Math.abs(more.y+more.height/2-(first.y+Math.min(first.height,more.height)/2))).toBeLessThan(more.height);
   expect(more.x).toBeGreaterThan(first.x+first.width-1);expect(more.y).toBeLessThan(first.y+first.height);
   expect(await detail.locator('.feed-detail-head').evaluateAll(a=>a.filter(h=>h.querySelector('[data-cf-more]')).length)).toBe(0);}
  // 전문은 접혀 있다가 펼치면 한 문단 + "화자 구분은 전사 수정 뒤".
- // 전문(사본)이 도착하면 상세를 한 번 다시 그린다. 그 뒤에 누른다.
- await expect(detail.locator('[data-cf-script],[data-cf-raw-empty]')).toHaveCount(1);
  const full=detail.locator('[data-cf-full]');await expect(full).not.toHaveAttribute('open','');
  await tap(page,full.locator('summary'),width);
  await expect(full.locator('[data-cf-script="one"]')).toContainText('사측에서 목요일은 어렵다고');
@@ -128,9 +128,9 @@ for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세
  const copy=detail.locator('[data-cf-copy]');await expect(copy).toHaveCount(1);
  await tap(page,copy,width);
  await expect(detail.locator('[data-cf-detail-status]')).toHaveText('복사했어요');
- expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('예시지부 홍길동 위원장 · 가상 교섭 일정 다음 주로 조정\n10. 6. (화) 09:42\n\n- 가상 교섭 다음 주 화요일로 변경\n- 요구안 12명 유지 [확정]\n- 회신 10. 12.(월)까지 [예정]\n- 장소 다시 확인 [확인]');
+ expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('예시지부 · 홍길동 위원장 · 가상 교섭 일정 다음 주로 조정\n10. 6. (화) 09:42\n\n- 가상 교섭 다음 주 화요일로 변경\n- 요구안 12명 유지 [확정]\n- 회신 10. 12.(월)까지 [예정]\n- 장소 다시 확인 [확인]');
  // 폰의 '‹ 통화'는 본문 글자 크기(14px 이상)이고 누르는 자리가 글자보다 넓다.
- if(width<1024){const back=detail.locator('[data-cf-back]');await expect(back).toHaveText('‹ 통화');expect(await back.evaluate(e=>parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(14);}
+ if(width<1024){const back=detail.locator('[data-cf-back]');await expect(back).toHaveText('‹ 통화');await expect(page.locator('.mobile-shell-header [data-mobile-view-name]')).toBeHidden();expect(await back.evaluate(e=>parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(14);}
  // 고정: ⋯ → 고정 → 서버에 pinned_at.
  await tap(page,detail.locator('[data-cf-more]'),width);
  const menu=page.locator('#cfMenu');await expect(menu).toBeVisible();

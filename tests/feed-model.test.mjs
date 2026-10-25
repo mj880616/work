@@ -106,3 +106,46 @@ test('표가 없으면 준비 중', () => {
   assert.ok(!missingTable({status:500, message:'boom'}));
   assert.ok(!missingTable({status:401}));
 });
+
+// ---------- CALL-목록상세정리: 오른쪽 상대 표(callWho)·제목 주제(callTopic)·화자 꼬리표 (이름은 모두 지어낸 것)
+import {callWho, callTopic, orgShort, plainSpeakerMention, readPoints as readPointsX} from '../app/feed-model.mjs';
+const ORG = {id:'o1', name:'예시교통공사노동조합', aliases:['예시교통노조', '예시노조 본부']};
+
+test('callTopic: 조각 셋 이상은 앞 둘(조직·사람)을 떼고 주제만, 주제 안의 가운뎃점은 남긴다', () => {
+  assert.equal(callTopic('예시교통노조 · 김가상 위원장 · PSO 인력 협의'), 'PSO 인력 협의');
+  assert.equal(callTopic('가 · 나 · 다 · 라'), '다 · 라');
+  assert.equal(callTopic('예시교통노조 · 김가상 위원장 · 주제'), '주제');
+});
+test('callTopic: 조각 둘은 앞 조각이 그 줄의 조직·상대와 같은 말일 때만 뗀다', () => {
+  assert.equal(callTopic('예시교통노조 · 임금 협의', {organization:ORG}), '임금 협의');
+  assert.equal(callTopic('김가상 위원장 · 일정 조율', {counterpart:'예시교통공사노동조합 김가상 위원장'}), '일정 조율');
+  assert.equal(callTopic('다른기관 · 일정 조율', {organization:ORG, counterpart:'김가상'}), '다른기관 · 일정 조율');
+  assert.equal(callTopic('일정 조율'), '일정 조율');
+  assert.equal(callTopic('', {}), '');
+});
+test('callWho: 연결 조직 이름이 상대 글 앞에 붙은 것은 한 번만, 조직은 약칭으로', () => {
+  assert.deepEqual(callWho({organization:ORG, counterpart:'예시교통공사노동조합 김가상 위원장'}), {org:'예시교통노조', person:'김가상 위원장', text:'예시교통노조 · 김가상 위원장'});
+  assert.equal(orgShort({name:'예시지부'}), '예시지부');
+  assert.equal(orgShort(ORG), '예시교통노조');
+});
+test('callWho: 상대 글 첫 낱말이 조직 꼴이면 조직(연결 조직과 같은 곳이면 연결 조직 약칭, 다른 곳이면 그 글)', () => {
+  assert.equal(callWho({organization:ORG, counterpart:'예시교통노조 김가상 위원장'}).text, '예시교통노조 · 김가상 위원장');
+  assert.equal(callWho({organization:ORG, counterpart:'다른지부 이나연 지부장'}).text, '다른지부 · 이나연 지부장');
+  assert.equal(callWho({counterpart:'다른지부 이나연 지부장'}).text, '다른지부 · 이나연 지부장');
+});
+test('callWho: 공공운수노조(우리 쪽) 사람은 조직 없이 이름·직함만, 조직을 모르면 이름만, 연결 조직만 있으면 조직만', () => {
+  assert.equal(callWho({counterpart:'공공운수노조 박가상 팀장'}).text, '박가상 팀장');
+  assert.equal(callWho({organization:{id:'x', name:'공공운수노조'}, counterpart:'박가상 팀장'}).text, '박가상 팀장');
+  assert.equal(callWho({counterpart:'최가상'}).text, '최가상');
+  assert.equal(callWho({organization:ORG, counterpart:''}).text, '예시교통노조');
+  assert.equal(callWho({}).text, '');
+});
+test('callWho: 개인 통화는 조직 없이 상대 글 그대로 한 번만', () => {
+  assert.equal(callWho({personal:true, counterpart:'다른지부 이나연'}).text, '다른지부 이나연');
+});
+test('plainSpeakerMention: 이름표 없이 남은 "상대방(화자N)" 꼬리표는 번호를 떼고, 요약 줄(readPoints)에도 적용된다', () => {
+  assert.equal(plainSpeakerMention('상대방(화자0)이 일정을 제안'), '상대방이 일정을 제안');
+  assert.equal(plainSpeakerMention('상대방（화자 2）도 동의'), '상대방도 동의');
+  assert.equal(plainSpeakerMention('화자1이 말함'), '화자1이 말함');
+  assert.equal(readPointsX(['[확정] 상대방(화자1)이 승인'])[0].text, '상대방이 승인');
+});

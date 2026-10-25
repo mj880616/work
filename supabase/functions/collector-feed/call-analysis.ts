@@ -260,6 +260,16 @@ export function applySpeakerLabels(transcript: string, labels: Record<string, st
   }).join("\n");
 }
 
+// 요약·제목 글 안의 `상대방(화자N)`·`화자N`도 같은 표의 이름으로 바꾼다(CALL-목록상세정리). 표에 없거나 빈 값이면 그대로 둔다.
+// `화자0`(0번부터 매긴 옛 분석)도 표 키가 `화자0`이면 같은 방식으로 바뀐다. 번호 앞뒤에 다른 숫자가 붙은 것(`화자10`의 `화자1`)은 건드리지 않는다.
+export function applySpeakerLabelsInText(text: string, labels: Record<string, string>): string {
+  if (!Object.keys(labels).length) return text;
+  const name = (n: string) => labels[`화자${Number(n)}`];
+  return text
+    .replace(/(?:상대방|상대)\s*[(（]\s*화자\s?(\d{1,2})\s*[)）]/g, (m, n) => name(n) ?? m)
+    .replace(/화자\s?(\d{1,2})(?!\d)/g, (m, n) => name(n) ?? m);
+}
+
 export const KNOWN_VERSION = /^3\.\d{1,3}$/;
 
 // 구분(v3.2): is_work_related=true → 업무, false 또는 status '개인' → 개인, 칸이 없거나 비어 있음 → 구분 없음.
@@ -341,8 +351,10 @@ function boxCallOf(kind: "personal" | "unsure", meta: Record<string, string>, bo
   const s = sections(body);
   const summary = bullets(s.summary);
   if (!summary.length) return null;
-  const title = cleanLine(meta.call_title, CALL_LIMITS.title) ?? firstSentence(summary[0]);
-  if (!title) return null;
+  const labels = speakerLabelsOf(meta.speaker_labels);
+  const title0 = cleanLine(meta.call_title, CALL_LIMITS.title) ?? firstSentence(summary[0]);
+  if (!title0) return null;
+  const title = applySpeakerLabelsInText(title0, labels);
   let counterpart: string | null = null;
   const okPart = (v: string | null) => (v && !hasPhone(v) && !EMPTY_ITEM.test(v) ? v : null);
   const cpName = okPart(cleanLine(meta.counterparty_name, 60)), cpTitle = okPart(cleanLine(meta.counterparty_title, 60));
@@ -361,10 +373,10 @@ function boxCallOf(kind: "personal" | "unsure", meta: Record<string, string>, bo
     day: kstDay(at),
     occurred_at: new Date(at).toISOString(),
     title,
-    points: pointsOf(s),
+    points: pointsOf(s).map((p) => applySpeakerLabelsInText(p, labels)),
     counterpart,
     speaker_split: transcript ? speakerSplit(transcript) : false,
-    raw_text: transcript ? applySpeakerLabels(transcript, speakerLabelsOf(meta.speaker_labels)) : null,
+    raw_text: transcript ? applySpeakerLabels(transcript, labels) : null,
     model: cleanLine(meta.analysis_model, CALL_LIMITS.model),
     judged_at: judged === null ? null : new Date(judged).toISOString(),
   };
@@ -384,9 +396,11 @@ export function parseCall(input: { ref: string; analysis_md: string; transcript:
   if (kind !== "business") return { kind, day, box: boxCallOf(kind, meta, fm.body, input.transcript, at, nowMs) };
   if (at === null || at > nowMs + 86400000) return { kind: "failed", day: null };
   const s = sections(fm.body);
-  const points = pointsOf(s);
+  const labels = speakerLabelsOf(meta.speaker_labels);
+  const points = pointsOf(s).map((p) => applySpeakerLabelsInText(p, labels));
   const summary = bullets(s.summary);
-  const title = cleanLine(meta.call_title, CALL_LIMITS.title) ?? (summary[0] ? firstSentence(summary[0]) : null);
+  const title0 = cleanLine(meta.call_title, CALL_LIMITS.title) ?? (summary[0] ? firstSentence(summary[0]) : null);
+  const title = title0 ? applySpeakerLabelsInText(title0, labels) : null;
   if (!s.summary || !title) return { kind: "failed", day: day! };
   const active = orgs.filter((o) => o && o.active !== false && typeof o.name === "string");
   // 상대: `## 상대 이름·직책` 절(있으면, 전사 파일 이름의 연락처 이름도 재료) → v3.2 본문 머리 줄 → call_title(확실할 때만) → 비움.
@@ -430,7 +444,7 @@ export function parseCall(input: { ref: string; analysis_md: string; transcript:
     counterpart,
     organization_id,
     speaker_split: transcript ? speakerSplit(transcript) : false,
-    raw_text: transcript ? applySpeakerLabels(transcript, speakerLabelsOf(meta.speaker_labels)) : null,
+    raw_text: transcript ? applySpeakerLabels(transcript, labels) : null,
     model: cleanLine(meta.analysis_model, CALL_LIMITS.model),
     judged_at: judged === null ? null : new Date(judged).toISOString(),
   };
