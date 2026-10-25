@@ -441,7 +441,10 @@ async function load(force=false){
     if(d?.error)throw new Error(d.error);
     const fresh=d?.tasks||[];for(const id of deletedTombstones)if(!fresh.some(t=>t.id===id))deletedTombstones.delete(id);
     allPendingConfirmed=d?.pending_scope==='all';
-    lastTasks=keepDeletingTasks(mergeToggles(fresh.filter(t=>!deletedTombstones.has(t.id)).map(t=>({...t,unlinked:false})),since));cacheOwnerId=owner;shownOwner=owner;fetchedOwner=owner;
+    // The overview carries no link data. A task already shown keeps its link display (project names, organizations, 연결 안 됨) until
+    // describeTasks below answers, so a refresh does not paint the list without them and then paint it again with them (STAB-분할시험).
+    const shown=shownOwner===owner?new Map(lastTasks.map(t=>[t.id,t])):new Map(),decoration=t=>{const p=shown.get(t.id);return p?{unlinked:!!p.unlinked,projectNames:p.projectNames,orgIds:p.orgIds}:{unlinked:false}};
+    lastTasks=keepDeletingTasks(mergeToggles(fresh.filter(t=>!deletedTombstones.has(t.id)).map(t=>({...t,...decoration(t)})),since));cacheOwnerId=owner;shownOwner=owner;fetchedOwner=owner;
     checkedAt=Date.now();verifiedOwner=owner;cacheWrite(owner,lastTasks);setSync('');setFresh('');renderTasks(lastTasks);
     if(loadSeq===seq)loadingEpoch=-1;
     // Source notes: one owner-scoped query per load. A failure only hides the links.
