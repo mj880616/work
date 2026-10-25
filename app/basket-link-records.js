@@ -3,7 +3,7 @@ import {formatSeoulTime} from './meeting-time.js';
 import {disconnectWithUndo,deleteNoteOriginal} from './basket-record-delete.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {aiSummaryAllowed,aiSummaryMarkup,newAiState,placeAiSummary,requestLinkSummary} from './basket-ai-summary.js';
-import {previewText,markdownSource} from './note-preview.mjs';
+import {previewText,markdownSource,writtenText} from './note-preview.mjs';
 
 const PAGE_SIZE=100;
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -102,11 +102,14 @@ export const recordText=row=>row.summary!=null?previewText(row.summary):(isNoteR
 // BUG-바구니연결해제: the whole line opens the original note; the ⋯ at its end holds
 // [메모 열기]·[연결 해제]·[요약 수정] and, for an update in organization detail, [원문 삭제].
 // BUG-미리보기기호: the written text a record's [더보기] opens as headings and tables (only when it carries marks the line removed).
-export const recordMarkdownSource=row=>markdownSource(row.summary!=null?row.summary:(isNoteRecord(row)&&String(row.title||'').trim()?row.title:row.raw_text),true);
+const recordSourceText=row=>row.summary!=null?row.summary:(isNoteRecord(row)&&String(row.title||'').trim()?row.title:row.raw_text);
+export const recordMarkdownSource=row=>markdownSource(recordSourceText(row));
+// EDIT-번호모양보존: a text with no markdown marks that was written over several lines opens as written ("1)" "(1)" indentation and blank lines stay).
+export const recordWrittenSource=row=>{const text=recordSourceText(row);return !markdownSource(text)&&/\n/.test(String(text??'').trim())?writtenText(text):'';};
 export function linkRecordHtml(row){
   const date=Number.isFinite(Date.parse(row.occurred_at))?formatSeoulTime(row.occurred_at,{year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric'}):'';
   const kind=row.organization_id?'organization':'project',note=isNoteRecord(row),href=note?'./?view=basket':`./?view=basket&note=${encodeURIComponent(row.note_id)}`;
-  return `<div class="basket-link-record" data-basket-link="${escape(row.id)}" data-basket-link-note="${escape(row.note_id)}" data-basket-link-kind="${kind}" data-basket-link-note-kind="${note?'note':'basket'}"><div class="basket-link-line"><a class="basket-link-open" href="${escape(href)}" data-basket-link-open="${escape(row.note_id)}"><small>${recordMark(row,'basket-link-mark')} ${note?'노트 연결':'정리함 연결'} · <time>${escape(date)}</time></small><p data-link-summary-text${recordMarkdownSource(row)?` data-md-raw="${escape(recordMarkdownSource(row))}"`:''}>${escape(recordText(row)||'요약 없음')}</p></a><button type="button" class="basket-link-more" data-basket-link-menu="${escape(row.id)}" aria-label="정리함 기록 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="basketLinkMenu"><span aria-hidden="true">⋯</span></button></div><p data-link-action-status role="status" aria-live="polite" hidden></p></div>`;
+  return `<div class="basket-link-record" data-basket-link="${escape(row.id)}" data-basket-link-note="${escape(row.note_id)}" data-basket-link-kind="${kind}" data-basket-link-note-kind="${note?'note':'basket'}"><div class="basket-link-line"><a class="basket-link-open" href="${escape(href)}" data-basket-link-open="${escape(row.note_id)}"><small>${recordMark(row,'basket-link-mark')} ${note?'노트 연결':'정리함 연결'} · <time>${escape(date)}</time></small><p data-link-summary-text${recordMarkdownSource(row)?` data-md-raw="${escape(recordMarkdownSource(row))}"`:''}${recordWrittenSource(row)?` data-written-raw="${escape(recordWrittenSource(row))}"`:''}>${escape(recordText(row)||'요약 없음')}</p></a><button type="button" class="basket-link-more" data-basket-link-menu="${escape(row.id)}" aria-label="정리함 기록 메뉴" aria-haspopup="true" aria-expanded="false" aria-controls="basketLinkMenu"><span aria-hidden="true">⋯</span></button></div><p data-link-action-status role="status" aria-live="polite" hidden></p></div>`;
 }
 
 // One menu panel for every mounted record host (created on first use inside the open dialog).

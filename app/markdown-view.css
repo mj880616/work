@@ -7,6 +7,11 @@
 .md-body h1 { font-size:1.35em; } .md-body h2 { font-size:1.22em; } .md-body h3 { font-size:1.1em; } .md-body h4, .md-body h5, .md-body h6 { font-size:1em; }
 .md-body ul, .md-body ol { padding-left:1.4em; }
 .md-body li + li { margin-top:4px; }
+/* EDIT-번호모양보존: "1)" 목록은 "1)"로(편집기 번호 ▾의 1) 모양, ed-doc.css ed-o-paren과 같은 모양). 항목 사이에 빈 줄이 있어도(느슨한 목록) 줄 간격은 같다. */
+@counter-style md-o-paren { system:extends decimal; suffix:") "; }
+.md-body ol.md-ol-paren { list-style-type:md-o-paren; }
+.md-body li > p { margin:0; }
+.md-body li > p + p { margin-top:4px; }
 .md-body li.md-task-item { list-style:none; margin-left:-1.4em; }
 /* Read-only checkbox: undo the app-wide text-field look of input. */
 .md-body input.md-task { display:inline-block; width:1.05em; height:1.05em; min-height:0; margin:0 6px 0 0; padding:0; border:0; box-shadow:none; vertical-align:-0.15em; }
