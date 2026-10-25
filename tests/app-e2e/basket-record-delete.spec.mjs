@@ -3,6 +3,7 @@ import {test,expect} from '@playwright/test';
 import {noteAction,showBasketRow} from './helpers/basket-more.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 import {linkAction} from './helpers/basket-link-menu.mjs';
+import {noteTrash} from './helpers/note-trash.mjs';
 test.use({hasTouch:true});
 const fixture=testOrigin+'/tests/app-e2e/basket-link-detail-fixture.html',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // BUG-바구니연결해제: one wording on every screen, naming the place. Actions live in the line's ⋯ (helpers/basket-link-menu.mjs).
@@ -47,24 +48,31 @@ for(const kind of ['organization'])test(`${kind} cancel on either confirmation c
  expect(await page.evaluate(()=>window.__linkEvents)).toBe(0);expect(errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`organization original delete names places and attachments, trashes through the server and removes that note's rows ${width}`,async({page},info)=>{
+for(const width of [390,1280])test(`organization original delete moves the update to the trash, says so with undo and removes that note's rows ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:900});const errors=await ready(page),host=await open(page,'organization'),{link,note}=await ids(page);
  const messages=[];page.once('dialog',d=>{messages.push(d.message());d.accept();});
  await linkAction(host.locator(`[data-basket-link="${link}"]`),'원문 삭제',{tap:width<761});
  await expect(host.locator('[data-basket-link]')).toHaveCount(1);await expect(host).toContainText('다른 메모 요약');
- expect(messages).toEqual(['업데이트 원문을 지웁니다. 연결된 조직·프로젝트 2곳에서도 사라집니다. 첨부 파일 1개는 Drive 휴지통으로 옮깁니다(30일 안에 복구 가능).']);
- expect(page.__posts).toEqual([{body:{action:'note-delete',note_id:note,note_updated_at:'2026-10-11T01:00:00Z'},auth:'Bearer fixture-token'}]);
- expect(await deletes(page)).toEqual([]);
- expect(await page.evaluate(()=>window.__detailState.links.length)).toBe(1);expect(errors).toEqual([]);
+ expect(messages).toEqual(['업데이트를 휴지통으로 옮길까요?\n첨부 파일 1개는 Drive에 그대로 남습니다.\n연결된 2곳은 그대로 이어져 있고, 휴지통에서 되돌리면 원래대로 돌아옵니다.']);
+ // 예전 서버 note-delete 경로는 쓰지 않고, owner-RLS DELETE 한 번만 보낸다(서버 가로채기가 휴지통 표시로 바꿈).
+ expect(page.__posts).toEqual([]);
+ expect(await deletes(page)).toEqual([{table:'app_notes',params:{id:'eq.'+note,workspace_id:'eq.detail-workspace',select:'id'}}]);
+ expect(await page.evaluate(()=>window.__detailState.trashed.map(n=>n.id))).toEqual([note]);
+ const notice=page.locator('[data-undo-notice]');await expect(notice).toContainText('업데이트를 휴지통으로 옮겼어요.');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
  // Headless screenshots never include the native confirm; redraw its exact received text for the report capture.
- if(width===390){await page.evaluate(text=>{const box=document.createElement('div');box.setAttribute('style','position:fixed;left:16px;right:16px;top:30%;z-index:9999;background:#fff;border:1px solid #888;border-radius:12px;padding:16px;font:15px/1.5 sans-serif;box-shadow:0 4px 20px #0004');box.innerHTML='<small style="color:#666">브라우저 기본 확인 창이 받은 문구(헤드리스 캡처에는 기본 창이 찍히지 않아 테스트가 같은 글을 다시 그림)</small><p></p><div style="text-align:right">취소 · 확인</div>';box.querySelector('p').textContent=text;document.body.append(box);},messages[0]);await page.screenshot({path:info.outputPath('note-delete-confirm-390.png')});}
+ if(width===390){await page.evaluate(text=>{const box=document.createElement('div');box.setAttribute('style','position:fixed;left:16px;right:16px;top:30%;z-index:9999;background:#fff;border:1px solid #888;border-radius:12px;padding:16px;font:15px/1.5 sans-serif;white-space:pre-line');box.textContent=text;document.body.append(box);},messages[0]);await page.screenshot({path:info.outputPath('note-trash-confirm-390.png')});await page.evaluate(()=>document.body.lastElementChild.remove());}
+ await notice.getByRole('button',{name:'되돌리기'}).click();
+ await expect(host.locator('[data-basket-link]')).toHaveCount(3);
+ expect(await page.evaluate(()=>window.__detailState.restores)).toEqual([note]);expect(await page.evaluate(()=>window.__detailState.trashed)).toEqual([]);expect(errors).toEqual([]);
 });
 
-test('organization original delete on a server that does not know note-delete falls back to the REST delete',async({page})=>{
- const errors=await ready(page,{legacy:true}),host=await open(page,'organization'),{link,note}=await ids(page);
- page.once('dialog',d=>d.accept());await linkAction(host.locator(`[data-basket-link="${link}"]`),'원문 삭제');
- await expect(host.locator('[data-basket-link]')).toHaveCount(1);expect(page.__posts).toHaveLength(1);
- expect(await deletes(page)).toEqual([{table:'app_notes',params:{id:'eq.'+note,workspace_id:'eq.detail-workspace',select:'id'}}]);expect(errors).toEqual([]);
+test('organization original delete before the database is ready explains and sends nothing',async({page})=>{
+ const errors=await ready(page),host=await open(page,'organization'),{link}=await ids(page),row=host.locator(`[data-basket-link="${link}"]`);
+ await page.evaluate(()=>{window.__detailState.trashMode='missing';});
+ page.on('dialog',d=>{throw Error('unexpected dialog '+d.message());});await linkAction(row,'원문 삭제');
+ await expect(row.locator('[data-link-action-status]')).toHaveText('노트·업데이트 휴지통은 준비 중입니다. 준비가 끝나기 전에는 삭제할 수 없습니다.');
+ await expect(host.locator('[data-basket-link]')).toHaveCount(3);expect(await deletes(page)).toEqual([]);expect(page.__posts).toEqual([]);expect(errors).toEqual([]);
 });
 
 for(const width of [390,1280])test(`project basket rows open the memo and offer no summary edit or original delete ${width}`,async({page})=>{
@@ -106,42 +114,46 @@ test('a late disconnect result never paints into another opened organization',as
 });
 
 async function basket(page,{fail=0,mode='ok'}={}){
- const errors=[],writes=[],posts=[];page.on('pageerror',e=>errors.push(e.message));
+ const errors=[],writes=[],posts=[],trash=await noteTrash(page,SB,{mode:mode==='missing'?'missing':'ready'});page.on('pageerror',e=>errors.push(e.message));
  const notes=[{id:'n',workspace_id:'w',raw_text:'지울 메모\n둘째 줄',occurred_at:'2026-10-06T01:00:00Z',updated_at:'2026-10-06T01:00:00Z',ai_export_allowed:true,attachments:[{drive_file_id:'file_1',file_name:'회의.txt',size_bytes:12,mime_type:'text/plain'}]},{id:'keep',workspace_id:'w',raw_text:'남을 메모',occurred_at:'2026-10-05T01:00:00Z',updated_at:'2026-10-05T01:00:00Z',ai_export_allowed:true,attachments:[]}];
  const links=[{id:'l1',note_id:'n',workspace_id:'w',status:'confirmed',organization_id:'o',organization:{name:'합성 조직'}}];
  await openHome(page);
  await page.route(SB+'/rest/v1/app_notes**',r=>{const req=r.request(),u=new URL(req.url()),id=u.searchParams.get('id')?.slice(3);
   if(req.method()==='GET')return r.fulfill({json:id?notes.filter(n=>n.id===id):notes});
-  if(req.method()==='DELETE'){writes.push(Object.fromEntries(u.searchParams));if(fail)return r.fulfill({status:fail,json:{message:'RLS 거부'}});const i=notes.findIndex(n=>n.id===id);const removed=i<0?[]:notes.splice(i,1);for(let j=links.length-1;j>=0;j--)if(links[j].note_id===id)links.splice(j,1);return r.fulfill({json:removed.map(n=>({id:n.id}))});}
+  if(req.method()==='DELETE'){writes.push(Object.fromEntries(u.searchParams));if(fail)return r.fulfill({status:fail,json:{message:'RLS 거부'}});const i=notes.findIndex(n=>n.id===id);const removed=i<0?[]:notes.splice(i,1);const parked=links.filter(l=>l.note_id===id);for(let j=links.length-1;j>=0;j--)if(links[j].note_id===id)links.splice(j,1);
+   // 삭제 가로채기 흉내: 행은 휴지통으로 가고(연결은 보관), 응답에는 지운 행이 없다.
+   removed.forEach(n=>{trash.take(n,parked.length);trash.onRestore=back=>{notes.push(back);links.push(...parked);};});return r.fulfill({json:[]});}
   return r.fallback();});
- await page.route(url=>url.href===SB+'/functions/v1/basket-files?action=note-delete',r=>{const req=r.request(),body=JSON.parse(req.postData());posts.push({body,auth:/^Bearer \S+$/.test(req.headers().authorization||'')});
-  if(mode==='legacy')return r.fulfill({status:400,json:{ok:false,code:'OCR_REQUEST_INVALID',retryable:false,result_unknown:false,ocr_saved:false,text_changed:false}});
-  if(mode==='fail')return r.fulfill({status:500,json:{action:'note-delete',note_id:body.note_id,attachments_total:1,trashed:0,failed:0,unknown:0,ok:false,note_deleted:false,code:'note_delete_failed',retryable:false}});
-  const i=notes.findIndex(n=>n.id===body.note_id&&n.updated_at===body.note_updated_at),total=i<0?0:notes[i].attachments.length;if(i>=0)notes.splice(i,1);for(let j=links.length-1;j>=0;j--)if(links[j].note_id===body.note_id)links.splice(j,1);
-  const failed=mode==='partial'?1:0;return r.fulfill({json:{action:'note-delete',note_id:body.note_id,attachments_total:total,trashed:total-failed,failed,unknown:0,ok:true,note_deleted:i>=0,...(i<0?{code:'note_not_found'}:{})}});});
+ // 화면은 예전 note-delete 경로를 더 쓰지 않는다: 불리면 posts에 남아 시험이 실패한다.
+ await page.route(url=>url.href===SB+'/functions/v1/basket-files?action=note-delete',r=>{posts.push({body:JSON.parse(r.request().postData())});return r.fulfill({status:500,json:{}});});
  await page.route(SB+'/rest/v1/app_record_links?**',r=>{const u=new URL(r.request().url()),q=u.searchParams.get('note_id');if(!q)return r.fallback();const wanted=q.startsWith('eq.')?[q.slice(3)]:q.slice(4,-1).split(',');return r.fulfill({json:links.filter(l=>wanted.includes(l.note_id)&&(!u.searchParams.get('status')||l.status==='confirmed'))});});
- return {notes,writes,posts,errors};
+ return {notes,links,writes,posts,errors,trash};
 }
 async function openNote(page,width){await tap(page,page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible'),width);await showBasketRow(page,'n');await tap(page,page.locator('[data-basket-row="n"]'),width);await expect(page.locator('[data-basket-read-text]')).toBeVisible();}
 
-const CONFIRM='업데이트 원문을 지웁니다. 연결된 조직·프로젝트 1곳에서도 사라집니다. 첨부 파일 1개는 Drive 휴지통으로 옮깁니다(30일 안에 복구 가능).';
-for(const width of [390,1280])for(const [mode,status] of [['ok','업데이트를 지우고 첨부를 Drive 휴지통으로 옮겼어요.'],['partial','업데이트를 지웠어요. 첨부 1개는 Drive에 남았어요.'],['legacy','업데이트를 지웠어요. 첨부 파일은 Drive에 남아 있어요.']])test(`basket read view deletes the original (${mode}) and returns to the list ${width}`,async({page},info)=>{
- await page.setViewportSize({width,height:900});const f=await basket(page,{mode});await openNote(page,width);const detail=page.locator('[data-basket-detail]');
+// TRASH-다른삭제 5단계: 업데이트 [삭제]는 휴지통으로 간다. 확인창 글, '휴지통으로 옮겼어요 · 되돌리기' 한 줄, 되돌리면 목록에 다시 나타남.
+const CONFIRM='업데이트를 휴지통으로 옮길까요?\n첨부 파일 1개는 Drive에 그대로 남습니다.\n연결된 1곳은 그대로 이어져 있고, 휴지통에서 되돌리면 원래대로 돌아옵니다.';
+for(const width of [390,1280])test(`basket read view moves the update to the trash, offers undo and returns to the list ${width}`,async({page},info)=>{
+ await page.setViewportSize({width,height:900});const f=await basket(page);await openNote(page,width);const detail=page.locator('[data-basket-detail]');
  // UI-디자인손질 6: 수정·삭제 live in the note's [⋯]; while editing that menu is gone.
  await noteAction(page,'[data-basket-edit]',{press:l=>tap(page,l,width)});await expect(detail.locator('[data-basket-note-more]')).toBeHidden();await expect(detail.locator('[data-basket-delete]')).toBeHidden();
  await tap(page,detail.locator('[data-basket-cancel]'),width);await expect(detail.locator('[data-basket-note-more]')).toBeVisible();
- if(width===390&&mode==='ok')await page.screenshot({path:info.outputPath('basket-read-delete-390.png'),fullPage:true});
+ if(width===390)await page.screenshot({path:info.outputPath('basket-read-delete-390.png'),fullPage:true});
  const messages=[];page.once('dialog',d=>{messages.push(d.message());d.accept();});
  await noteAction(page,'[data-basket-delete]',{press:l=>tap(page,l,width)});
  await expect(detail).toBeHidden();await expect(page.locator('[data-basket-row="n"]')).toHaveCount(0);
- await expect(page.locator('[data-basket-list-status]')).toHaveText(status);
+ const notice=page.locator('[data-undo-notice]');await expect(notice).toContainText('업데이트를 휴지통으로 옮겼어요.');await expect(notice.getByRole('button',{name:'되돌리기'})).toBeVisible();
  // UI-바구니거르기: the kept memo (no link) sits in [미분류]; the list stayed on [분류] where the deleted one was.
  await page.locator('[data-basket-filter="unclassified"]').click();await expect(page.locator('[data-basket-row="keep"]')).toBeVisible();
- if(width===390)await page.screenshot({path:info.outputPath(`basket-delete-result-${mode}-390.png`)});
+ if(width===390)await page.screenshot({path:info.outputPath('basket-delete-result-390.png')});
  expect(messages).toEqual([CONFIRM]);
- expect(f.posts).toEqual([{body:{action:'note-delete',note_id:'n',note_updated_at:'2026-10-06T01:00:00Z'},auth:true}]);
- // Only the not-yet-deployed server path falls back to the owner-RLS REST delete.
- expect(f.writes).toEqual(mode==='legacy'?[{id:'eq.n',workspace_id:'eq.w',select:'id'}]:[]);expect(new URL(page.url()).searchParams.has('note')).toBe(false);
+ // 예전 서버 note-delete 경로는 더 쓰지 않고, owner-RLS DELETE 한 번(가로채기가 휴지통 표시로 바꿈)만 보낸다.
+ expect(f.posts).toEqual([]);expect(f.writes).toEqual([{id:'eq.n',workspace_id:'eq.w',select:'id'}]);
+ expect(f.trash.trash.map(n=>n.id)).toEqual(['n']);expect(f.links.length).toBe(0);expect(new URL(page.url()).searchParams.has('note')).toBe(false);
+ await notice.getByRole('button',{name:'되돌리기'}).click();
+ await expect(notice).toContainText('되돌렸습니다.');
+ expect(f.trash.rpc.filter(r=>r.fn==='app_trash_restore')).toEqual([{fn:'app_trash_restore',kind:'note',id:'n'}]);
+ await page.locator('[data-basket-filter="classified"]').click();await expect(page.locator('[data-basket-row="n"]')).toHaveCount(1);expect(f.trash.trash).toEqual([]);expect(f.links.length).toBe(1);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(f.errors).toEqual([]);
 });
 
@@ -153,9 +165,16 @@ for(const width of [390,1280])test(`basket delete cancel keeps the read view and
  expect(f.writes).toEqual([]);expect(f.posts).toEqual([]);expect(f.notes.map(n=>n.id)).toEqual(['n','keep']);await expect(detail.locator('[data-basket-status]')).toHaveText('');expect(f.errors).toEqual([]);
 });
 
+test('basket delete before the database is ready explains and sends no delete',async({page})=>{
+ const f=await basket(page,{mode:'missing'});await openNote(page,390);const detail=page.locator('[data-basket-detail]');
+ page.on('dialog',d=>{throw Error('unexpected dialog '+d.message());});await noteAction(page,'[data-basket-delete]');
+ await expect(detail.locator('[data-basket-status]')).toHaveText('노트·업데이트 휴지통은 준비 중입니다. 준비가 끝나기 전에는 삭제할 수 없습니다.');await expect(detail.locator('[data-basket-read-text]')).toBeVisible();
+ expect(f.writes).toEqual([]);expect(f.posts).toEqual([]);expect(f.notes.some(n=>n.id==='n')).toBe(true);expect(f.errors).toEqual([]);
+});
+
 test('basket delete failure keeps the note open with a plain error',async({page})=>{
- const f=await basket(page,{mode:'fail'});await openNote(page,390);const detail=page.locator('[data-basket-detail]');
+ const f=await basket(page,{fail:500});await openNote(page,390);const detail=page.locator('[data-basket-detail]');
  page.once('dialog',d=>d.accept());await noteAction(page,'[data-basket-delete]');
  await expect(detail.locator('[data-basket-status]')).toHaveText('업데이트를 지우지 못했어요. 다시 시도해 주세요.');await expect(detail.locator('[data-basket-read-text]')).toBeVisible();await expect(detail.locator('[data-basket-delete]')).toBeEnabled();
- expect(f.notes.some(n=>n.id==='n')).toBe(true);expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
+ expect(f.notes.some(n=>n.id==='n')).toBe(true);expect(f.posts).toEqual([]);expect(f.trash.trash).toEqual([]);expect(f.errors).toEqual([]);
 });

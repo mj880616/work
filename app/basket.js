@@ -454,13 +454,13 @@ async function deleteFromList(id){
   const current=()=>run===epoch&&owner===scope()&&!selected&&window.KPTURouter.current==='basket';
   const more=()=>root.querySelector(`[data-basket-row-more="${CSS.escape(id)}"]`);
   let result;
-  try{result=await deleteNoteOriginal(id,{rt,isCurrent:current});}
+  try{result=await deleteNoteOriginal(id,{rt,isCurrent:current,trash:true});}
   catch{result={status:'unknown',message:'결과를 확인하지 못했어요. 업데이트 다시 불러오기로 실제 상태를 확인해 주세요.'};}
   finally{busy=false;}
   if(!current()||result.status==='stale')return;
   if(['deleted','missing'].includes(result.status)){
     notes=notes.filter(n=>n.id!==id);links=links.filter(l=>l.note_id!==id);
-    renderList();listStatus.textContent=result.message;
+    renderList();if(result.message)listStatus.textContent=result.message;
     root.querySelector(`[data-basket-filter="${filter}"]`)?.focus({preventScroll:true});
     return;
   }
@@ -905,13 +905,13 @@ async function deleteSelected() {
   status.textContent = '';
   const current = () => run === epoch && owner === scope() && selected?.id === id && window.KPTURouter.current === 'basket';
   let result;
-  try { result = await deleteNoteOriginal(id, {rt, isCurrent:current}); }
+  try { result = await deleteNoteOriginal(id, {rt, isCurrent:current, trash:true}); }
   catch { result = {status:'unknown', message:'결과를 확인하지 못했어요. 업데이트 다시 불러오기로 실제 상태를 확인해 주세요.'}; }
   finally { busy = false; }
   if (!current() || result.status === 'stale') return;
   if (['deleted', 'missing'].includes(result.status)) {
     notes = notes.filter(n => n.id !== id); links = links.filter(l => l.note_id !== id);
-    closeDetail({force:true}); renderList(); listStatus.textContent = result.message;
+    closeDetail({force:true}); renderList(); if (result.message) listStatus.textContent = result.message;
     return;
   }
   detail.querySelectorAll('button,input:not(.md-task),textarea').forEach(el => el.disabled = false); paintOcrControls();
@@ -1143,5 +1143,7 @@ window.KPTURouter.on('basket', () => {
   else if (wantedKind === 'note') showKind('note');
 });
 // UI-디자인손질 8: a note saved from the menu [쓰기] shows up here without leaving the current screen.
+// TRASH-다른삭제 5단계: 휴지통에서 되돌린 업데이트·노트가 이 화면 목록에 다시 나타나게 한다(지금 보고 있는 화면이고 작업 중이 아닐 때만. 아니면 다음에 열 때 다시 읽는다).
+window.addEventListener('kptu:basket-notes-restored',()=>{if(window.KPTURouter.current==='basket'&&!selected&&!busy&&!classification.isOpen())void refresh();noteDocs.reload();});
 window.addEventListener('kptu:basket-note-created',()=>{if(window.KPTURouter.current==='basket'&&!selected&&!busy&&!classification.isOpen())void refresh();});
 renderList(); void refresh(); void todo.refresh();
