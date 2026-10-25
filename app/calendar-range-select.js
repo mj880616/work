@@ -31,8 +31,10 @@ function cancel(){if(!s)return;const was=s;clear();s=null;if(was.started){swallo
 function up(e){
   if(!s||e.pointerId!==s.pointer)return;
   if(!s.started){s=null;return}
-  const done=s;done.to=minuteAt(e);clear();s=null;swallowClick=true;setTimeout(()=>{swallowClick=false},0);
+  const done=s;done.to=minuteAt(e);clear();s=null;
+  // 창을 먼저 연다(열기 버튼의 클릭이 아래 '끌기 뒤 클릭 막기'에 걸리지 않게). 그 뒤에 오는 마우스 클릭 한 번만 막는다.
   window.KPTUCalendarEvents?.createSlot?.(rangeSlot(done.date,done.from,done.to));
+  swallowClick=true;setTimeout(()=>{swallowClick=false},0);
 }
 document.addEventListener('pointerdown',down,true);
 document.addEventListener('pointermove',move,{capture:true,passive:false});
