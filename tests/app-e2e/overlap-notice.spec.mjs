@@ -119,7 +119,7 @@ test('MTG-겹침 저장 직후 같은 일이 있으면 알림이 뜨고 [그대�
   expect(calls.ai).toHaveLength(1);
   expect(calls.ai[0].kind).toBe('overlap_check');expect(calls.ai[0].pairs).toEqual([{a:`meeting:${MID}`,b:`project_update:${UID}`}]);
   // 기록은 이미 저장돼 있다(알림이 저장을 막지 않는다).
-  expect(state.calls('app_project_progress_updates','POST')).toHaveLength(1);
+  expect(state.tables.app_project_progress_updates.filter(r=>r.id===UID)).toHaveLength(1);
   await notice(page).getByRole('button',{name:'그대로 두기'}).click();
   await expect(notice(page)).toContainText('그대로 두었어요');
   expect(calls.verdicts).toHaveLength(1);
@@ -148,5 +148,5 @@ for(const ai of ['fail','different'])test(`MTG-겹침 확인 결과가 ${ai==='f
   await expect.poll(()=>calls.ai.length).toBe(1);
   await expect(page.locator('#ps3-progress [data-ps3-records] > *').first()).toContainText('기록 '+ai);
   await expect(notice(page)).toHaveCount(0);
-  expect(state.calls('app_project_progress_updates','POST')).toHaveLength(1);
+  expect(state.tables.app_project_progress_updates.filter(r=>r.id===UID)).toHaveLength(1);
 });
