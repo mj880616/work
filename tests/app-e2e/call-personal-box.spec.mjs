@@ -241,7 +241,7 @@ test('통화 1280: 개인→업무로 옮기면 그 한 건만 call_refill로 �
  await view.locator('[data-cf-box="work"]').click();
  const row=view.locator(`[data-cf-row="${P1}"]`);
  await expect(row.locator('.feed-title')).toContainText('임금교섭 3차 일정 협의');
- await expect(row.locator('.feed-org')).toHaveText('예시지부');
+ await expect(row.locator('.feed-org')).toHaveText('예시지부 · 김가상 지부장');
  await expect(view.locator('[data-cf-status]')).toContainText('제목·조직·상대를 채웠어요');
  await row.click();
  await expect(view.locator('#cfDetail [data-cf-points] li')).toHaveText(['토요일 저녁 7시']);
