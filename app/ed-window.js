@@ -12,6 +12,7 @@
 //   save         — {run({value, text, textOnly}) → Promise<{ok, message?}>, aria?}. ok closes the window (or says 저장했어요 with keepOpen).
 //                  No save → no save icon (a read-only look is not the job of this window).
 //   limit        — most letters of the taken-out text the opener's field holds (note 100000 · update 20000 · project record 500); 0 = none.
+//                  A function is asked at each save (the opener's chosen place may change the limit).
 //                  Over it the window says so and does not call save. The saved form is also kept under 1 MiB (the database check).
 //   textOnly     — the opener keeps letters only (연결 업데이트 요약): save gets value = null and the window says formats are not kept.
 //   draft        — a new text: anything written counts as a change (an old row opened to edit counts only what the person changed).
@@ -168,7 +169,7 @@ export function openEdWindow({title = '크게 쓰기', doc = null, text = '', co
       if (keepOpen) say('바뀐 것이 없어요'); else close({saved: true});
       return;
     }
-    const prep = prepareSave({value, limit, textOnly});
+    const prep = prepareSave({value, limit: typeof limit === 'function' ? limit() : limit, textOnly});
     if (!prep.ok) { say(prep.message); return; }
     saving = true; saveButton.disabled = true; say('저장 중…');
     let result;

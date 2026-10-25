@@ -3,8 +3,9 @@ import {seoulDateKey} from './meeting-time.js';
 export function createGoogleTask({title,due=null,links=[],notes='',expectedSessionEpoch=null}, rt=window.KPTURuntime) {
   return rt.api('/functions/v1/google-tasks?action=create', {method:'POST',...(expectedSessionEpoch==null?{}:{expectedSessionEpoch}),body:{action:'create',task_id:null,title,notes,due,links}});
 }
-export function saveOrganizationUpdate({organization_id,raw_text,created_by}, rt=window.KPTURuntime) {
-  return rt.api('/rest/v1/app_suborganization_updates', {method:'POST',body:{organization_id,raw_text,created_by}});
+// ED③ 기록: doc (optional) is the new editor's saved form, written with the letters in the same insert (설계 3.1·11.3).
+export function saveOrganizationUpdate({organization_id,raw_text,created_by,doc=null}, rt=window.KPTURuntime) {
+  return rt.api('/rest/v1/app_suborganization_updates', {method:'POST',body:{organization_id,raw_text,created_by,...(doc?{doc}:{})}});
 }
 // 일정 만들기에서 프로젝트를 고른 경우: 프로젝트 화면의 주요 일정과 같은 표·같은 행 모양으로 저장.
 // 같은 google_event_id가 이미 있으면 새로 만들지 않아 재시도·연타에도 한 번만 생긴다.
@@ -20,6 +21,7 @@ export async function saveProjectMilestone({id,project_id,title,start_at,notes=n
   return {id,existing:false};
 }
 // UI-홈업데이트선택: same table and row shape as the project screen's progress input (project-system-v3.js saveRecordInput).
-export function saveProjectProgress({project_id,raw_text,created_by}, rt=window.KPTURuntime) {
-  return rt.api('/rest/v1/app_project_progress_updates', {method:'POST',body:{project_id,workstream_id:null,author_id:created_by,status_label:null,summary:raw_text,next_step:null,effective_on:seoulDateKey(),metadata:{}}});
+// ED③ 기록: doc (optional) is the new editor's saved form, kept with the letters (summary) in the same insert.
+export function saveProjectProgress({project_id,raw_text,created_by,doc=null}, rt=window.KPTURuntime) {
+  return rt.api('/rest/v1/app_project_progress_updates', {method:'POST',body:{project_id,workstream_id:null,author_id:created_by,status_label:null,summary:raw_text,next_step:null,effective_on:seoulDateKey(),metadata:{},...(doc?{doc}:{})}});
 }

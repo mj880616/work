@@ -18,6 +18,8 @@ import {readLinkedReports,readAllReports,readReportTargets,changeOneTarget,resto
 import {openReport} from './report-open.js';
 import {reportTitle,reportKindTag,sameTarget} from './report-links-model.mjs';
 import {TRASH_KIND,TRASH_KINDS,TRASH_KIND_LABEL,TRASH_STATE,TRASH_TEXT,classifyTrashError,classifyTrashList,normalizeTrashRows,mergeTrashStates,restoredText,parentFirstText,deleteDialogText,trashErrorText,purgeConfirmText,archiveButtonLabel,firstArchiveTab} from './project-trash-model.mjs';
+import {bigWindowOpen} from './big-window-open.js';
+import {hasDoc,sameRecord,recordPatch} from './record-doc.mjs';
 import {requestBasketNote,requestBasketNoteFrom,requestNoteDocOpen,requestNoteDocFrom,takeBasketReturn,basketNoteHref} from './basket-note-tasks.js';
 (()=>{
 'use strict';
@@ -441,9 +443,31 @@ function editProgressRecord(button){
   if(!canEdit(current))return;
   const u=detail?.progress.find(x=>x.id===button.dataset.ps3EditRecord),row=button.closest('[data-ps3-record]');
   if(!u||!row||row.dataset.saving==='1')return;
+  if(hasDoc(u)){void openProgressWindow(u);return}
   row.innerHTML=`<form class="ps3-pg-editor" data-enter-save data-ps3-edit-record="${esc(u.id)}" data-dirty="false"><input type="text" maxlength="500" aria-label="기록 요약" value="${esc(u.summary||'')}"><div class="ps3-pg-actions"><button type="submit" class="ps3-text-btn">저장</button><button type="button" class="ps3-text-btn" data-ps3-cancel-record>취소</button></div></form>`;
   const form=row.querySelector('form');configureSaveEditor({key:'record:'+u.id,kind:'record',form,targetId:u.id,projectId:current.id,workstreamId:u.workstream_id,source:u,button:form.querySelector('[type=submit]'),status:saveStatus(form),fields:[form.querySelector('input')]});row.querySelector('input').focus()
 }
+// ED③ 기록 (설계 11.4 순서 5): a project record that has a saved form is edited in the new big window (record-window.js): letters (summary,
+// at most 500) and saved form in one PATCH. The row is read again first and a record changed on another device is refused; a row that had
+// no saved form is also guarded by doc=is.null in the same write. A record without one keeps its one-line box above.
+async function openProgressWindow(u){
+  const p=current,epoch=projectEpoch;if(!p||!canEdit(p)||bigWindowOpen())return;
+  let m;try{[m]=await Promise.all([import('./record-window.js'),window.KPTUViewLoader?.prepare?.('basket')])}catch{toast('큰 창을 열지 못했어요. 다시 눌러 주세요.');return}
+  const same=()=>current?.id===p.id&&projectEpoch===epoch;if(!same()||bigWindowOpen())return;
+  m.openRecordEditWindow({doc:hasDoc(u)?u.doc:null,text:u.summary||'',title:'큰 창에서 수정',aria:'기록 저장',limit:500,
+    save:async({value,text})=>{
+      if(!same())return {ok:false,message:'프로젝트 화면이 바뀌어 저장하지 못했어요.'};
+      if(!text.trim())return {ok:false,message:'내용을 입력해 주세요.'};
+      try{
+        const base=`/rest/v1/app_project_progress_updates?id=eq.${encodeURIComponent(u.id)}&project_id=eq.${encodeURIComponent(p.id)}`;
+        const fresh=await api(`${base}&select=id,summary,doc`);
+        if(!Array.isArray(fresh)||fresh.length!==1)throw new Error('권한이 없거나 이미 없는 기록입니다.');
+        if(!sameRecord(fresh[0],u,'summary'))throw new Error('다른 곳에서 바뀐 기록이에요. 화면을 다시 불러온 뒤 고쳐 주세요.');
+        const rows=await api(`${base}${hasDoc(u)?'':'&doc=is.null'}&select=*`,{method:'PATCH',body:recordPatch('summary',{text:text.trim(),value}),prefer:'return=representation'});
+        if(!Array.isArray(rows)||rows.length!==1)throw new Error('기록이 그사이 바뀌었어요. 화면을 다시 불러온 뒤 고쳐 주세요.');
+        if(same()){Object.assign(u,rows[0]);toast('기록을 고쳤습니다.');await refreshDetail().catch(()=>{})}
+        return {ok:true}}
+      catch(e){return {ok:false,message:e?.message||'기록을 고치지 못했어요. 다시 눌러 주세요.'}}}})}
 function resetProgressRecord(row){if(!row?.isConnected)return;const id=row.dataset.ps3Record,item=row.dataset.ps3RecordKind==='item',source=item?detail?.workstreams.find(x=>x.id===id):detail?.progress.find(x=>x.id===id);if(source){row.dataset.saving='0';row.innerHTML=item?itemRecord(source):progressRecord(source)}}
 async function mutateProgressRecord(row,method,summary){
   if(!canEdit(current)||!row||row.dataset.saving==='1')return;
@@ -701,22 +725,21 @@ async function saveWs(){
 async function delWs(){if(!editingWs||!confirm(`“${editingWs.title}” 진행상황을 삭제할까요?`))return;await api(`/rest/v1/app_project_workstreams?id=eq.${editingWs.id}`,{method:'DELETE'});closeModal('ps3WorkstreamModal');await refreshDetail()}
 // PRJ-기록입력: the top input writes a project record that belongs to no progress item; today's Seoul date, no status label.
 function prepareRecordInput(){const form=$('#ps3Body [data-ps3-record-input]');if(form)configureSaveEditor({key:'record-input',kind:'progress',form,projectId:current.id,workstreamId:null,button:form.querySelector('button[type=submit]'),status:saveStatus(form),fields:[form.querySelector('input')]})}
-// UI-크게첨부: [크게] beside the record input opens the one write window (write-window.js) with this project chosen. Saving there
-// uses the window's existing saves (this project → saveProjectProgress, the same body as [기록]; another place, the basket or a
-// note as chosen) and closes; the detail then reloads. The input is one line, so a longer text closed without saving is kept in
-// memory for the next [크게] (never in browser storage) and the input shows it on one line.
+// UI-크게첨부 → ED③ 기록: [크게] beside the record input opens the update's new big window (update-window.js) with this project chosen.
+// Saving there uses the window's existing saves (this project → saveProjectProgress with the letters (at most 500) and the saved form,
+// the same body as [기록]; another place, the basket as chosen) and closes; the detail then reloads. The input is one line, so a longer
+// text closed without saving is kept in memory for the next [크게] with its saved form (never in browser storage) and the input shows it
+// on one line.
 let recordBigDraft=null;
 async function openRecordBig(form){
-  const input=form?.querySelector('input'),p=current,owner=user?.id;if(!input||!p||!canEdit(p)||form.dataset.saving==='1'||document.querySelector('#mdEditor:not(.hidden)'))return;
-  const status=saveStatus(form);let ww;try{[ww]=await Promise.all([import('./write-window.js'),window.KPTUViewLoader?.prepare?.('basket')])}catch{status.textContent='큰 창을 열지 못했어요. 다시 눌러 주세요.';return}
+  const input=form?.querySelector('input'),p=current,owner=user?.id;if(!input||!p||!canEdit(p)||form.dataset.saving==='1'||bigWindowOpen())return;
+  const status=saveStatus(form);let uw;try{[uw]=await Promise.all([import('./update-window.js'),window.KPTUViewLoader?.prepare?.('basket')])}catch{status.textContent='큰 창을 열지 못했어요. 다시 눌러 주세요.';return}
   if(current?.id!==p.id||user?.id!==owner||!form.isConnected)return;
   const here=()=>current?.id===p.id&&form.isConnected,place={kind:'project',id:p.id},flat=v=>String(v).replace(/[\r\n]+/g,' ');
-  const text=recordBigDraft&&recordBigDraft.project===p.id&&flat(recordBigDraft.text)===input.value?recordBigDraft.text:input.value;recordBigDraft=null;
-  ww.openWriteWindow({text,kind:'update',place,own:{place,name:p.name},draft:false,title:'크게 쓰기',
-    onInput:value=>{if(here()){input.value=flat(value);form.dataset.dirty=value.trim()?'true':'false'}},
+  const kept=recordBigDraft&&recordBigDraft.project===p.id&&flat(recordBigDraft.text)===input.value?recordBigDraft:null;recordBigDraft=null;
+  uw.openUpdateWindow({text:kept?kept.text:input.value,doc:kept?.doc||null,place,own:{place,name:p.name},draft:false,title:'크게 쓰기',
     onSaved:()=>{if(!here())return;input.value='';form.dataset.dirty='false';const e=saveEditors.get('record-input');if(e?.form===form)e.baseline=JSON.stringify(readSaveDraft(e));void refreshDetail().catch(()=>toast('저장은 완료했습니다. 화면을 다시 불러오지 못했습니다.'))},
-    onClose:(value,{saved})=>{if(!here())return;if(!saved){input.value=flat(value);form.dataset.dirty=value.trim()?'true':'false';if(/[\r\n]/.test(value))recordBigDraft={project:p.id,text:value}}input.focus({preventScroll:true})}});
-}
+    onClose:(letters,{saved,value})=>{if(!here())return;if(!saved){input.value=flat(letters);form.dataset.dirty=letters.trim()?'true':'false';if(/[\r\n]/.test(letters)||value)recordBigDraft={project:p.id,text:letters,doc:value}}input.focus({preventScroll:true})}})}
 async function saveRecordInput(form){
   const e=saveEditors.get('record-input');if(!e||e.form!==form||!saveEditorCurrent(e))return;const input=e.fields[0],summary=input.value.trim();if(!summary){input.focus();return}
   const r=beginProjectSave(e,{project_id:e.projectId,workstream_id:null,author_id:e.owner,status_label:null,summary,next_step:null,effective_on:seoulDateKey(),metadata:{}});if(!r)return;

@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
+import {typeInto} from './helpers/note-editor.mjs';
 // ORG-PC좌우(2026-10-21 요청): PC(≥1024) 담당조직 화면은 왼쪽 목록 1/3 + 오른쪽 상세 2/3(같은 상세 창을 칸에 옮겨 씀,
 // 프로젝트 화면 UI-PC프로젝트좌우와 같은 짜임). 처음 열면 이 기기에서 마지막으로 본 조직(없거나 저장소가 막히면 맨 위).
 // 상세의 기록 → 업데이트 화면에서 "← (조직)으로 돌아가기"·뒤로 가기 → 같은 조직·같은 스크롤. 761~1023px·폰은 목록 + 상세 창.
@@ -161,23 +162,23 @@ test('PC 1280: an organization opened over another screen stays a dialog and goe
 });
 
 // ORG-입력칸⤢통일: the record edit box and the 요약 edit box in the 담당조직 detail behave like the input box above them: no
-// height-drag handle, ⤢ (the shared full-screen editor) is the only way to enlarge. Same at desktop and phone width.
-for(const width of [1280,390])test(`${width}: record edit and 요약 edit boxes have no resize handle; ⤢ opens the big editor and hands the text back`,async({page})=>{
+// height-drag handle, ⤢ (the new big window, #edWindow) is the only way to enlarge. Same at desktop and phone width.
+for(const width of [1280,390])test(`${width}: record edit and 요약 edit boxes have no resize handle; ⤢ opens the big window and hands the text back`,async({page})=>{
  const {state,errors}=await fixture(page,{width});
  await clickView(page,'team');
  if(width<1024)await row(page,'oa').click();
  await expect(title(page)).toHaveText('합성 가 지부');
- const modal=page.locator('#wdModal'),editor=page.locator('#mdEditor');
+ const modal=page.locator('#wdModal'),editor=page.locator('#edWindow'),editorText=editor.locator('.ed-window-body .ProseMirror');
  await expect(modal.locator('#wdInboxText')).toHaveCSS('resize','none');await expect(modal.locator('#wdInboxBig')).toBeVisible();
  // 1) The edit box of a record.
  const rec=modal.locator('[data-wd-up="u-0"]');await scrollToRecord(page,rec);
  await rec.locator('[data-wd-up-menu]').click();await page.locator('#wdUpMenu').getByRole('button',{name:'수정'}).click();
  const box=rec.locator('[data-wd-up-input]');await expect(box).toBeFocused();await expect(box).toHaveCSS('resize','none');
  const bigBtn=rec.locator('[data-wd-field-big]');await expect(bigBtn).toBeVisible();await expect(bigBtn).toHaveAccessibleName('크게');
- await bigBtn.click();await expect(editor.locator('.md-editor-text')).toHaveValue('합성 기록 0');
- await editor.locator('.md-editor-text').fill('합성 기록 0 큰 창에서 고침');
- await expect(box).toHaveValue('합성 기록 0 큰 창에서 고침');
- await editor.locator('[data-close="mdEditor"]').click();await expect(editor).toHaveCount(0);
+ await bigBtn.click();await expect(editor).toBeVisible();await expect(editorText).toContainText('합성 기록 0');
+ await typeInto(page,editorText,'합성 기록 0 큰 창에서 고침');
+ await editor.locator('[data-close="edWindow"]').click();
+ await page.locator('#edwCloseSheet').getByRole('button',{name:'저장하지 않고 닫기',exact:true}).click();await expect(editor).toHaveCount(0);
  await expect(box).toHaveValue('합성 기록 0 큰 창에서 고침');await expect(box).toBeFocused();
  expect(state.writes).toEqual([]);
  await rec.locator('[data-wd-up-cancel]').click();await expect(rec.locator('[data-wd-up-edit]')).toHaveCount(0);
@@ -186,10 +187,11 @@ for(const width of [1280,390])test(`${width}: record edit and 요약 edit boxes 
  await link.getByRole('button',{name:'정리함 기록 메뉴'}).click();await page.locator('#basketLinkMenu').getByRole('button',{name:'요약 수정',exact:true}).click();
  const sum=link.locator('[data-link-summary-input]');await expect(sum).toBeFocused();await expect(sum).toHaveCSS('resize','none');
  const sumBig=link.locator('[data-link-summary-big]');await expect(sumBig).toBeVisible();await expect(sumBig).toHaveAccessibleName('크게');
- await sumBig.click();await expect(editor.locator('.md-editor-text')).toHaveValue('합성 조직 연결 요약');
- await editor.locator('.md-editor-text').fill('합성 요약 큰 창에서 고침');
- await expect(sum).toHaveValue('합성 요약 큰 창에서 고침');
- await editor.locator('[data-close="mdEditor"]').click();await expect(editor).toHaveCount(0);
+ // 요약 keeps letters only (결정 E): the window says so, and its [저장] hands the letters to the box; the box's own [저장] is the only save.
+ await sumBig.click();await expect(editor).toBeVisible();await expect(editorText).toContainText('합성 조직 연결 요약');
+ await expect(editor.locator('.ed-window-note')).toBeVisible();
+ await typeInto(page,editorText,'합성 요약 큰 창에서 고침');
+ await editor.locator('[data-edw-save]').click();await expect(editor).toHaveCount(0);
  await expect(sum).toHaveValue('합성 요약 큰 창에서 고침');await expect(sum).toBeFocused();
  expect(state.writes).toEqual([]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);expect(errors).toEqual([]);
