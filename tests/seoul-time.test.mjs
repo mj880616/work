@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import * as time from '../app/meeting-time.js';
 import {normalizeTime} from '../app/time-input.js';
+import {eventColor} from '../app/home-read-model.js';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 const source=name=>readFileSync(new URL('../app/'+name,import.meta.url),'utf8');
@@ -37,7 +38,7 @@ for(const tz of ['Asia/Seoul','Europe/Rome','America/Los_Angeles'])test(`일정 
   }finally{if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous}
 });
 test('달력은 잘못된 종료일을 걸러내고 나머지 정상 일정을 유지한다',()=>{
-  const context=vm.createContext({...time,window:{matchMedia:()=>({matches:false,addEventListener(){}}),addEventListener(){}},document:{documentElement:{clientWidth:1280,clientHeight:900},addEventListener(){}}});
+  const context=vm.createContext({...time,eventColor,window:{matchMedia:()=>({matches:false,addEventListener(){}}),addEventListener(){}},document:{documentElement:{clientWidth:1280,clientHeight:900},addEventListener(){}}});
   vm.runInContext(source('calendar-month-view.js').replace(/^import .*;\n/gm,''),context);
   const month=context.window.KPTUCalendarMonthView;
   for(const end of ['invalid','2026-13-02']){

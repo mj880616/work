@@ -284,25 +284,29 @@ test('JOURNAL-하루개편: the day card — 할 일/한 일, 주간보고 재�
   };
   const card = m.dayCard(materials, '2026-10-06', {kinds:{status:'ok', list:['본부집행위']}});
   assert.deepEqual(card.report.map(g => g.label), ['회의·활동 결과', '사업 소식', '조직 소식']);
-  assert.deepEqual(card.others.map(g => g.label), ['일정', '자료실 새 자료', '공유 페이지', '노트로 옮긴 것', '기타 메모', '참고', '어디에도 안 보낸 업데이트']);
+  assert.deepEqual(card.others.map(g => g.label), ['자료실 새 자료', '공유 페이지', '노트로 옮긴 것', '기타 메모', '참고', '어디에도 안 보낸 업데이트']);
   // 회의·활동 결과: title, the result's first line ('' when none), the weekly-report kind switch as `hidden`, and where it opens.
   assert.deepEqual(card.report[0].items.map(i => [i.text, i.summary, i.hidden, i.open.type, i.open.id]), [
     ['08:30 운영위원회 3차', '옛 결정', false, 'meeting', 'm2'], ['11:00 기자회견', '결과 첫 줄', false, 'meeting', 'm1'], ['14:00 본부 집행위', '', true, 'meeting', 'm4']]);
   // Without my list (unknown) nothing is dimmed.
   assert.deepEqual(m.dayCard(materials, '2026-10-06', {kinds:{status:'unknown'}}).report[0].items.map(i => i.hidden), [false, false, false]);
-  assert.deepEqual(card.others[0].items.map(i => i.text), ['종일 종일', '00:30 새벽', '14:00 오후']);
+  // 그날 일정 is its own part above 오늘 한 줄 (not in 그 밖의 기록): time + title, the calendar color, and where it opens (the calendar's edit window).
+  assert.deepEqual(card.events.items.map(i => i.text), ['종일 종일', '00:30 새벽', '14:00 오후']);
+  assert.deepEqual(card.events.items.map(i => [i.id, i.open]).slice(0, 1), [[card.events.items[0].id, {type:'event', id:card.events.items[0].id, calendarId:'primary'}]]);
   assert.deepEqual(card.tasks.failed, ['tasks']);
   // 조직 소식 has no '미분류': an update sent nowhere is 어디에도 안 보낸 업데이트, opening the basket update.
   assert.deepEqual(card.report[2].sections, []);
-  assert.deepEqual(card.others[6].items.map(i => [i.text, i.open]), [['첫 줄 메모', {type:'note', note:'b1'}], ['첨부 2개', {type:'note', note:'b2'}]]);
-  assert.equal(m.othersCount(card.others), '일정 3 · 어디에도 안 보낸 업데이트 2');
+  assert.deepEqual(card.others[5].items.map(i => [i.text, i.open]), [['첫 줄 메모', {type:'note', note:'b1'}], ['첨부 2개', {type:'note', note:'b2'}]]);
+  assert.equal(m.othersCount(card.others), '어디에도 안 보낸 업데이트 2');
   assert.equal(m.dayCard({}, '2026-10-06').tasks.loading, true);
   // 조직 소식 waits for its reads, then shows what it could read and names the failed one.
   assert.equal(m.dayCard({...materials, orgUpdates:{status:'loading'}}, '2026-10-06').report[2].loading, true);
   assert.deepEqual(m.dayCard({...materials, orgUpdates:{status:'failed'}}, '2026-10-06').report[2].failed, ['orgUpdates']);
   const noProject = m.dayCard({...materials, projectUpdates:{status:'failed'}}, '2026-10-06');
   assert.equal(noProject.report[2].failed, undefined); assert.deepEqual(noProject.report[1].failed, ['projectUpdates']);
-  assert.equal(m.dayCard({...materials, documents:{status:'loading'}}, '2026-10-06').others[1].loading, true);
+  assert.equal(m.dayCard({...materials, documents:{status:'loading'}}, '2026-10-06').others[0].loading, true);
+  assert.equal(m.dayCard({...materials, events:{status:'loading'}}, '2026-10-06').events.loading, true);
+  assert.deepEqual(m.dayCard({...materials, events:{status:'failed'}}, '2026-10-06').events.failed, ['events']);
   // ACTIVITY_SOURCES is the one place 회의·활동 결과 reads from (today: meetings).
   assert.deepEqual([...m.ACTIVITY_SOURCES], ['meetings']);
 });
@@ -739,4 +743,20 @@ test('readWeekDocuments: b1 summaries by document id (summary table, b1 only), r
   // the summary table cannot be read → the documents as they are (title only), never a failure of the documents read
   const plain = await m.readWeekDocuments('2026-10-05', runtime(path => { if (path.startsWith('/rest/v1/app_documents?')) return docs.map(d => ({...d})); throw Object.assign(new Error('x'), {status:404}); }));
   assert.deepEqual(plain.map(d => [d.id, d.brief, d.repeat]), docs.map(d => [d.id, undefined, undefined]));
+});
+
+test('JOURNAL-하루일정다시: 그날 일정 = the calendar read with the calendar\'s color; a cancelled one is left out; the color list failing keeps the lines', async () => {
+  const m = await mod;
+  const events = [
+    {id:'a', title:'가', start:'2026-10-06T10:00:00+09:00', end:'2026-10-06T11:00:00+09:00', calendarId:'c1'},
+    {id:'b', title:'나', start:'2026-10-06T12:00:00+09:00', end:'2026-10-06T13:00:00+09:00', calendarId:'c1', color:'#112233'},
+    {id:'x', title:'취소', start:'2026-10-06T14:00:00+09:00', end:'2026-10-06T15:00:00+09:00', calendarId:'c1', status:'cancelled'}];
+  const status = {connected:true, colors:{c1:'#445566'}, calendars:[{id:'c1', summary:'달력', backgroundColor:'#778899'}]};
+  const ok = await m.readWeekScheduleEvents('2026-10-05', runtime(path => path.includes('action=status') ? status : {events}));
+  assert.deepEqual(ok.map(e => [e.id, e.displayColor]), [['a', '#445566'], ['b', '#112233']]);
+  const noColors = await m.readWeekScheduleEvents('2026-10-05', runtime(path => path.includes('action=status') ? {} : {events}));
+  assert.deepEqual(noColors.map(e => [e.id, e.displayColor]), [['a', ''], ['b', '#112233']]);
+  await assert.rejects(m.readWeekScheduleEvents('2026-10-05', runtime(() => ({events:[], warning:'Google Calendar 연결 실패'}))));
+  const card = m.dayCard({events:{status:'ok', items:ok}}, '2026-10-06');
+  assert.deepEqual(card.events.items.map(i => [i.time, i.title, i.color]), [['10:00', '가', '#445566'], ['12:00', '나', '#112233']]);
 });

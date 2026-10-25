@@ -30,7 +30,7 @@
 // and the same scroll and focus.
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, changeWorkDay, validateWorkLine, WORK_LINE_MAX,
-  workLines, addLine, editLine, removeLine, restoreLine, readWeekEvents, readDoneTasksWindow, readBasketUpdates, readMovedNotes, readOrgUpdates, readProjectUpdates,
+  workLines, addLine, editLine, removeLine, restoreLine, readWeekScheduleEvents, readDoneTasksWindow, readBasketUpdates, readMovedNotes, readOrgUpdates, readProjectUpdates,
   readWeekMeetings, readWeekDocuments, readWeekSharePages, readScheduleEvents, DONE_TASK_DAYS, WEEK_READ_CAP,
   dayCard, othersCount, DAY_SOURCES, dueDay, dayRangeNote} from './journal-data.js';
 import {createTaskInline} from './task-inline.js';
@@ -74,6 +74,7 @@ root.innerHTML = `<div class="journal-head"><div class="journal-mode-switch" rol
 <p class="journal-status" data-journal-status role="status" aria-live="polite"></p>
 <div class="journal-days" data-journal-days role="group" aria-label="이번 주 날짜"></div>
 <section class="journal-day" data-journal-day>
+<section class="journal-group journal-schedule" data-journal-schedule aria-label="그날 일정"></section>
 <form class="journal-line" data-journal-line data-enter-save novalidate><label class="journal-heading" for="journalLineInput">오늘 한 줄</label><div class="journal-line-row"><textarea id="journalLineInput" rows="2" data-journal-input data-enter-field="single" placeholder="오늘 한 일을 한 줄로 남겨 보세요" aria-describedby="journalLineCount journalLineStatus"></textarea><button type="submit" class="primary" data-journal-save>저장</button></div><div class="journal-line-meta"><small id="journalLineCount" data-journal-count></small><p id="journalLineStatus" class="journal-line-status" data-journal-line-status role="status" aria-live="polite"></p></div></form>
 <ol class="journal-lines" data-journal-lines aria-label="이 날 한 줄 목록"></ol>
 <section class="journal-tasks" data-journal-tasks aria-label="할 일과 한 일"></section>
@@ -316,9 +317,36 @@ function renderTasks(card) {
   partNotes(after, {...part, key:'tasks', label:'할 일', items:[...(part.todo || []), ...(part.done || [])]});
   host.replaceChildren(cols, ...after.childNodes);
 }
+// JOURNAL-하루일정다시: 그날 일정 above 오늘 한 줄 — one line per event (time + the calendar's color bar + title; same look as the calendar's
+// list rows), [달력 ›] at the right of the heading line. A line opens the calendar's own edit window (openOriginal 'event').
+function eventRow(item) {
+  const li = document.createElement('li');
+  li.className = 'journal-event';
+  const button = document.createElement('button');
+  button.type = 'button'; button.className = 'journal-item-open journal-event-open'; button.dataset.journalOpen = keyFor(item.open);
+  button.setAttribute('aria-label', `${item.text} (일정 열기)`);
+  const time = document.createElement('span'); time.className = 'journal-event-time'; time.textContent = item.time;
+  const bar = document.createElement('span'); bar.className = 'journal-event-bar'; bar.setAttribute('aria-hidden', 'true');
+  if (item.color) bar.style.setProperty('--journal-event-color', item.color);
+  const title = document.createElement('span'); title.className = 'journal-event-title'; title.textContent = item.title;
+  button.append(time, ' ', bar, ' ', title);
+  li.append(button);
+  return li;
+}
+function renderSchedule(card) {
+  const host = $('[data-journal-schedule]'), part = card.events;
+  const head = document.createElement('div'); head.className = 'journal-schedule-head';
+  head.innerHTML = '<h4 class="journal-heading">그날 일정</h4><button type="button" class="journal-schedule-cal" data-journal-calendar aria-label="이 날 달력 보기">달력 ›</button>';
+  host.replaceChildren(head);
+  if (part.loading) { host.insertAdjacentHTML('beforeend', '<p class="journal-muted">불러오는 중…</p>'); return; }
+  if (part.items.length) { const ul = document.createElement('ul'); ul.className = 'journal-events'; ul.append(...part.items.map(eventRow)); host.append(ul); }
+  else if (!part.failed) host.insertAdjacentHTML('beforeend', '<p class="journal-muted" data-journal-events-empty>일정 없음</p>');
+  partNotes(host, part);
+}
 function renderDay() {
   opens = new Map(); openSeq = 0;
   const card = dayCard(materials, selected, {kinds, tree:materials.catalog?.status === 'ok' ? materials.catalog.items : null});
+  renderSchedule(card);
   renderTasks(card);
   const host = $('[data-journal-materials]');
   // ④ 주간보고 재료: the three parts in the report's order; a part with nothing that day is not drawn.
@@ -413,7 +441,7 @@ function setMode(next) {
 function render() { renderMode(); renderWeek(); renderLine({keepStatus:true}); renderDay(); renderWeekly_(); radarDay(); }
 
 const readers = {
-  events: () => readWeekEvents(start, rt),
+  events: () => readWeekScheduleEvents(start, rt),
   // 5. 주요 일정 of [주간 정리] and the draft: the two weeks from the Monday after the shown week (one more calendar read a week).
   upcoming: () => readScheduleEvents(start, rt),
   // One Google Tasks read: finished tasks (끝낸 할 일) and pending tasks in the server's range (할 일 예정).
@@ -665,12 +693,13 @@ async function flashRecord(selector) {
 }
 // Phone: the organization/project/meeting opens as a window over this screen; when back (or its ×) closes it, the focus returns to
 // the pressed line.
-function refocusAfter(modalSelector, trigger) {
+function refocusAfter(modalSelector, trigger, onClosed = null) {
   const modal = document.querySelector(modalSelector);
   if (!modal || !trigger) return;
   const watch = new MutationObserver(() => {
     if (!modal.classList.contains('hidden')) return;
     watch.disconnect();
+    onClosed?.();
     requestAnimationFrame(() => {
       if (window.KPTURouter?.current !== 'journal') return;
       // The project window writes ?project= into this screen's entry while it is open; once it is closed the journal's entry
@@ -702,6 +731,24 @@ async function openOriginal(target, trigger) {
     if (target.type === 'notedoc') { rememberReturn(trigger); requestNoteDocFrom(target.note, from, rt); goView('basket'); return; }
     if (target.type === 'task') { rememberReturn(trigger); requestTaskOpen(target.id, rt); goView('tasks'); return; }
     if (['calendar', 'library', 'pages'].includes(target.type)) { rememberReturn(trigger); goView(target.type); return; }
+    // JOURNAL-하루일정다시: a 그날 일정 line opens the calendar's own edit window over this screen (the same window as a click on it in the
+    // calendar, KPTUCalendarEvents.open); when it closes the day's events are read again (it may have been changed or deleted).
+    if (target.type === 'event') {
+      await loader.load('calendar');
+      for (let i = 0; i < 300 && !window.__KPTU_CALENDAR_PERSISTENCE_READY__; i++) await new Promise(resolve => requestAnimationFrame(resolve));
+      await window.__KPTU_CALENDAR_PERSISTENCE_READY__;
+      if (!window.KPTUCalendarEvents?.open) throw new Error('calendar');
+      window.KPTUCalendarEvents.open(target.id, target.calendarId);
+      refocusAfter('#ciGoogleModal', trigger, () => { if (materials.events?.status === 'ok') void loadGroup('events'); });
+      return;
+    }
+    // [달력 ›]: that day in the calendar (the calendar view shows the week/month/list that holds it).
+    if (target.type === 'calendar-day') {
+      await loader.load('calendar'); rememberReturn(trigger);
+      if (!goView('calendar')) { pendingReturn = null; return; }
+      window.KPTUCalendarView?.showDay?.(target.day);
+      return;
+    }
     if (target.type === 'meeting') {
       if (wide) {
         await loader.load('meetings'); rememberReturn(trigger);
@@ -1081,6 +1128,7 @@ root.addEventListener('click', event => {
   if (button.matches('[data-journal-retry]')) { for (const key of DAY_SOURCES[button.dataset.journalRetry] || []) if (materials[key]?.status === 'failed') loadGroup(key); return; }
   // WEEKLY-자료요약: [주간 정리]의 자료 줄 → 자료실에서 그 자료를 연다(바구니·검색과 같은 열기 요청, 돌아오기는 다른 원본 열기와 같음).
   if (button.matches('[data-journal-weekly-file-open]')) { rememberReturn(button); requestLibraryDocument(button.dataset.journalWeeklyFileOpen, rt); goView('library'); return; }
+  if (button.matches('[data-journal-calendar]')) { void openOriginal({type:'calendar-day', day:selected}, button); return; }
   if (button.matches('[data-journal-open]')) { const target = opens.get(button.dataset.journalOpen); if (target) void openOriginal(target, button); return; }
   if (button.matches('[data-journal-original]')) { const target = opens.get(button.dataset.journalOriginal); button.closest('details')?.removeAttribute('open'); if (target) void openOriginal(target, button.closest('li')?.querySelector('[data-journal-open]') || button); return; }
   if (button.matches('[data-journal-complete]')) return void taskLine.complete(button.dataset.journalComplete, button);
