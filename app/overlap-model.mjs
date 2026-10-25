@@ -41,8 +41,10 @@ const cut = (text, n) => { const chars = [...clean(text)]; return chars.length >
 export const noticeLabel = (text, n = NOTICE_LABEL_CHARS) => cut(text, n);
 
 // 후보 한 건: {ref, kind, day, text, title, target:{kind,id}|null}. record: 방금 저장한 글 {ref, day, text, target}.
-// target = 프로젝트·조직 한 곳(없으면 null). 점수는 큰 쪽이 먼저.
-const sameTargetScore = (record, candidate) => record.target && candidate.target && record.target.kind === candidate.target.kind && record.target.id === candidate.target.id ? 3 : 0;
+// target = 프로젝트·조직 한 곳(없으면 null). 여러 곳에 한 번에 연결한 업데이트(basket)만 targets에 모두 담는다(target은 그 첫 곳). 점수는 큰 쪽이 먼저.
+export const targetsOf = record => Array.isArray(record?.targets) && record.targets.length ? record.targets : record?.target ? [record.target] : [];
+const sameTarget = (x, y) => !!x && !!y && x.kind === y.kind && x.id === y.id;
+const sameTargetScore = (record, candidate) => targetsOf(record).some(t => sameTarget(t, candidate.target)) ? 3 : 0;
 const sharedWordCount = (record, candidate) => {
   const mine = new Set(words(`${record.title || ''} ${record.text || ''}`));
   return words(`${candidate.title || ''} ${candidate.text || ''}`).filter(w => mine.has(w)).length;
@@ -101,22 +103,31 @@ export function userVerdictPayload(workspaceId, recordRef, candidateRef, verdict
 
 // [연결로 바꾸기]가 사업 보고에 더할 것. 새 글이 프로젝트 기록이면 사업 보고(후보)에 이 프로젝트를 잇고 쓴 글을 연결 메모로 붙인다(결정 6-가).
 // 새 글이 사업 보고면 후보 기록의 프로젝트·조직을 사업 보고에 잇는다(메모 없음). 반환 {meetingId, target, summary|null} 또는 null(연결할 곳을 모를 때: 같은 일 표시만).
+// 담당조직 기록(org_update)은 프로젝트 기록과 같다(조직 한 곳). 여러 곳에 연결한 업데이트(basket)는 모든 곳을 잇는다(plan.targets).
 export function linkPlan(record, candidate) {
-  if (record.kind === 'project_update' && candidate.kind === 'meeting' && record.target) {
+  const mine = targetsOf(record);
+  if (['project_update', 'org_update', 'basket'].includes(record.kind) && candidate.kind === 'meeting' && mine.length) {
     const text = clean(record.text);
-    return {meetingId: refId(candidate.ref), target: record.target, summary: text ? [...text].slice(0, SUMMARY_MAX).join('') : null};
+    return {meetingId: refId(candidate.ref), target: mine[0], ...(record.kind === 'basket' ? {targets: mine} : {}), summary: text ? [...text].slice(0, SUMMARY_MAX).join('') : null};
   }
   if (record.kind === 'meeting' && candidate.target) return {meetingId: refId(record.ref), target: candidate.target, summary: null};
   return null;
 }
 
 // 사업 보고의 연결 목록에 한 곳을 더한 목록과 보낼 요약. 이미 있는 곳이면 목록은 그대로이고, 그곳에 메모가 이미 있으면 덮어쓰지 않는다.
+// 여러 곳(plan.targets)이면 곳마다 같은 규칙을 적용한다. summaryFor = 메모를 붙일 곳 목록(summary가 있을 때만).
 export function mergeTarget(current, plan) {
-  const list = (Array.isArray(current) ? current : []).map(t => ({kind: t.kind, id: t.id}));
-  const found = (Array.isArray(current) ? current : []).find(t => t.kind === plan.target.kind && t.id === plan.target.id);
-  const targets = found ? list : [...list, {kind: plan.target.kind, id: plan.target.id}];
-  const summary = plan.summary && !(found && found.hasSummary) ? plan.summary : null;
-  return {targets, summary, added: !found, keptSummary: !!(plan.summary && found && found.hasSummary)};
+  const cur = Array.isArray(current) ? current : [];
+  const targets = cur.map(t => ({kind: t.kind, id: t.id}));
+  const summaryFor = [];
+  let added = false, kept = false;
+  for (const want of Array.isArray(plan.targets) && plan.targets.length ? plan.targets : [plan.target]) {
+    const found = cur.find(t => sameTarget(t, want));
+    if (!found) { targets.push({kind: want.kind, id: want.id}); added = true; }
+    if (plan.summary && !(found && found.hasSummary)) summaryFor.push({kind: want.kind, id: want.id});
+    else if (plan.summary) kept = true;
+  }
+  return {targets, summary: summaryFor.length ? plan.summary : null, summaryFor, added, keptSummary: kept && !summaryFor.length};
 }
 
 export const NOTICE_TEXT = Object.freeze({

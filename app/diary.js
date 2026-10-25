@@ -179,7 +179,7 @@ function openViewer(index) {
   const row = rows.get(selected), photos = diaryPhotos(row);
   if (!row || !photos[index] || viewer) return;
   const trigger = document.activeElement, box = document.createElement('div');
-  box.className = 'diary-viewer'; box.dataset.diaryViewer = ''; box.dataset.swipeLock = '';
+  box.className = 'diary-viewer'; box.dataset.diaryViewer = '';
   box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', `${shortDay(selected)} 사진`);
   box.innerHTML = `<div class="diary-viewer-bar"><span class="diary-viewer-count" data-diary-viewer-count aria-live="polite"></span><button type="button" class="diary-viewer-star" data-diary-star aria-label="별표">☆</button><button type="button" class="diary-viewer-close" data-diary-viewer-close aria-label="크게 보기 닫기">×</button></div><div class="diary-viewer-strip" data-diary-viewer-strip tabindex="0"></div><p class="diary-viewer-caption" data-diary-viewer-caption></p><p class="diary-viewer-note" data-diary-viewer-note role="status"></p>`;
   const strip = box.querySelector('[data-diary-viewer-strip]'), count = box.querySelector('[data-diary-viewer-count]');

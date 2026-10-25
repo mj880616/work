@@ -10,6 +10,7 @@ import { putFilesIntoTargets } from './basket-file-docs.js';
 import { saveOrganizationUpdate, saveProjectProgress } from './quick-save.js';
 import { projectRows, projectRow, orgGroupRows, orgRow } from './choice-sheet.js';
 import { confirmLinks } from './basket-classification.js';
+import { announceRecordSaved, basketDetail } from './record-saved.js';
 import { readReferenceBundles } from './reference-bundles-data.js';
 
 // place: null (basket) | {kind:'organization'|'project'|'reference', id}
@@ -154,6 +155,7 @@ export async function saveUpdate({place, places, text, owner, doc = null}, rt = 
   } catch (error) { linkError = error?.message || 'UNKNOWN'; }
   window.dispatchEvent(new CustomEvent('kptu:basket-note-created'));
   if (!linkError) window.dispatchEvent(new CustomEvent('kptu:basket-links-changed'));
+  if (!linkError) announceRecordSaved(basketDetail(note, list)); // MTG-기록겹침거르기: 연결이 모두 끝난 뒤에만 비슷한 사업 보고를 확인한다
   return {note, linkError};
 }
 export const MULTI_REASON = '직접 연결'; // the same reason as the basket [연결하기] (basket-manual-link.js)
@@ -195,7 +197,7 @@ export async function saveUpdateWithFiles({places, text, batch, doc = null, isCu
         const result = await confirmLinks(noteId, note.updated_at, linkTo.map(p => ({kind:p.kind, target_id:p.id, reason:MULTI_REASON})), rt);
         if (result?.ok !== true) linkError = result?.error || 'UNKNOWN';
       } catch (error) { linkError = error?.message || 'UNKNOWN'; }
-      if (!linkError) window.dispatchEvent(new CustomEvent('kptu:basket-links-changed'));
+      if (!linkError) { window.dispatchEvent(new CustomEvent('kptu:basket-links-changed')); announceRecordSaved(basketDetail(note, linkTo)); }
     }
   }
   const project = list.find(p => p.kind === 'project') || null, organization = list.find(p => p.kind === 'organization') || null;

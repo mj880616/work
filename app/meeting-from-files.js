@@ -10,6 +10,7 @@ import {parseKey,roleOf,splitPasted,firstLineKey,mergeKey,matchKind,kindCandidat
 import {readFileText,createHwpReader,kindOf} from './meeting-file-text.js';
 import {fileLine,bindDropTarget} from './meeting-compact.js';
 import {seoulDateKey,toMeetingISO} from './meeting-time.js';
+import {announceRecordSaved} from './record-saved.js';
 import {readTextLater} from './document-text-read.js'; // SEARCH ②: 올린 파일 안 글자를 서버가 한 번 읽어 둠
 
 (()=>{
@@ -235,6 +236,7 @@ async function saveGroup(g,scope){
     meetingId=row.id;
     for(const i of g.items)i.meetingId=meetingId;
     markText(meetingId);
+    announceRecordSaved({kind:'meeting',id:meetingId,project_id:null,day:seoulDateKey(row.meeting_at||g.date),title:g.kind,text:combined}); // MTG-기록겹침거르기: 새로 만든 사업 보고만
   }else{
     for(const i of g.items)i.meetingId=meetingId;
     if(combined){
