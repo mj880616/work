@@ -20,7 +20,7 @@ const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.s
 const item=(over={})=>({kind:'event',title:'가 지부 임금교섭 시작.',summary:'가 지부와 임금교섭 시작 합의.',date:'2026-10-20',sensitivity:'S1',source:'r1',event:'',same_as:'',counterparty:'',follow_up_on:'',decision_type:'',sure:true,reference:false,...over});
 const run={kind:'ledger_auto'};
 
-function harness({feed=[],callsReady=true,feedFail=false,openai=null,runs=[{id:id(500),workspace_id:WS,status:'done',started_at:FIRST_RUN,tokens_in:1,tokens_out:1}],seen=[],usage=[],ledgerMissing=false,recordReply=null,beginError=null,fail={}}={}){
+function harness({feed=[],callsReady=true,feedFail=false,openai=null,runs=[{id:id(500),workspace_id:WS,status:'done',started_at:FIRST_RUN,tokens_in:1,tokens_out:1}],seen=[],usage=[],ledgerMissing=false,recordReply=null,beginError=null,fail={},edits=[]}={}){
   const calls={openai:[],rest:[],rpc:[],logs:[]};
   const db={
     app_workspace_members:[{workspace_id:WS,user_id:OWNER,role:'owner'},{workspace_id:OTHER_WS,user_id:STRANGER,role:'owner'},{workspace_id:WS,user_id:MEMBER,role:'member'}],
@@ -46,6 +46,7 @@ function harness({feed=[],callsReady=true,feedFail=false,openai=null,runs=[{id:i
     app_ledger_auto_runs:structuredClone(runs),
     app_ledger_auto_sources:structuredClone(seen),
     app_feed_items:structuredClone(feed),
+    app_call_edits:structuredClone(edits),
     app_calendar_work_refs:[],
     app_ledger_records:[
       {id:id(20),workspace_id:WS,kind:'event',ledger_id:'EVT-0901',title:'가상 노선 쟁점',validity:'current',scope:'work',sensitivity:'S1',updated_at:RECENT,date_start:'2026-10-10'},
@@ -496,4 +497,33 @@ test('call: a call moved from the personal box (old created_at, recent moved_at)
   const material=h.calls.openai[0].input[1].content;
   assert.ok(material.includes('MOVED_OLD_CALL'));assert.ok(!material.includes('NEVER_MOVED_OLD_CALL'));
   assert.ok(batchOf(h).sources.some(s=>s.kind==='call'&&s.updated_at==='2026-10-25T03:00:00.000Z'),'stamp is the later of created_at and moved_at');
+});
+
+// CALL-손고치기: 명진이 손으로 고친 제목·핵심내용·조직이 있으면 AI 값 대신 그 값이 재료가 된다. 표가 없거나 읽기가 실패하면 AI 값 그대로.
+test('call: user-edited title, points and organization (app_call_edits) replace the AI values in the material; only the owner workspace edits are read; AI row is untouched',async()=>{
+  const c=callRow(1,{title:'AI_TITLE 협의',points:['AI_POINT 하나']});
+  const edits=[{call_id:id(901),workspace_id:WS,vals:{title:'USER_TITLE 협의',points:['USER_POINT 하나 010-1234-5678'],organization_id:null,counterpart:'USER_NAME_NEVER_SENT'}},
+    {call_id:id(901),workspace_id:OTHER_WS,vals:{title:'FOREIGN_EDIT_TITLE'}}];
+  const h=harness({...callOnly([c]),edits,openai:[o=>respond(answer([item({source:refOf(o,'USER_POINT'),title:'고친 통화 협의.'})]))]});
+  assert.equal((await post(h.handler,run)).status,200);
+  const material=h.calls.openai[0].input[1].content;
+  assert.ok(material.includes('USER_TITLE')&&material.includes('USER_POINT'));
+  for(const hidden of ['AI_TITLE','AI_POINT','FOREIGN_EDIT_TITLE','USER_NAME_NEVER_SENT','010-1234-5678'])assert.ok(!material.includes(hidden),hidden+' must not be sent');
+  const sent=sentOf(h.calls.openai[0]).records.find(r=>r.type==='통화');
+  assert.equal(sent.place,undefined,'the user cleared the organization link');
+  const q=h.calls.rest.find(r=>r.table==='app_call_edits');
+  assert.ok(q&&q.method==='GET'&&/workspace_id=eq\./.test(q.query)&&/select=call_id,vals/.test(q.query));
+  assert.ok(!h.calls.rest.some(r=>r.table==='app_call_edits'&&r.method!=='GET'),'edits are only read');
+  assert.ok(!h.calls.rest.some(r=>r.table==='app_feed_items'&&r.method!=='GET'),'the AI row is untouched');
+});
+
+test('call: malformed user values are ignored and an unreadable edits table falls back to the AI values',async()=>{
+  const c=callRow(1,{title:'AI_KEEP_TITLE 협의',points:['AI_KEEP_POINT']});
+  const bad=[{call_id:id(901),workspace_id:WS,vals:{title:'   ',points:[1,2],organization_id:'not-a-uuid'}}];
+  const h=harness({...callOnly([c]),edits:bad,openai:[o=>respond(answer([item({source:refOf(o,'AI_KEEP_POINT')})]))]});
+  assert.equal((await post(h.handler,run)).status,200);
+  assert.ok(h.calls.openai[0].input[1].content.includes('AI_KEEP_TITLE'));
+  const h2=harness({...callOnly([c]),fail:{app_call_edits:true},openai:[o=>respond(answer([item({source:refOf(o,'AI_KEEP_POINT')})]))]});
+  assert.equal((await post(h2.handler,run)).status,200);
+  assert.ok(h2.calls.openai[0].input[1].content.includes('AI_KEEP_TITLE'));
 });
