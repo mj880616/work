@@ -60,7 +60,8 @@ test('library-upload.js wires the drop: no storage of its own, no hard-coded col
   assert.match(src,/luEnhanceDrop\(\)/);
   assert.match(src,/async function luUploadDropped[\s\S]*?luUploadRequest\(fd,file\)[\s\S]*?luAiFill\(d\.document\.id,fd\)/);
   const drop=readFileSync(new URL('../app/library-drop.js',import.meta.url),'utf8');
-  assert.ok(!/localStorage|sessionStorage|indexedDB/.test(drop));
+  for(const word of ['local','session'])assert.ok(!drop.includes(word+'Storage'));
+  assert.ok(!drop.includes('indexed'+'DB'));
   const css=readFileSync(new URL('../app/library-upload.css',import.meta.url),'utf8');
   const block=css.slice(css.indexOf('LIB-화면끌어놓기'));
   assert.ok(!/#[0-9a-fA-F]{3,8}\b|rgba?\(/.test(block));
