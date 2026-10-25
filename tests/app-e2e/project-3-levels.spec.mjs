@@ -40,9 +40,9 @@ const size=el=>el.evaluate(n=>parseFloat(getComputedStyle(n.querySelector('.kptu
 const parentValues=page=>page.locator('#ps3CreateParent option').evaluateAll(xs=>xs.map(x=>x.value));
 async function openEdit(page,id){
  await row(page,id).click();await expect(page.locator('#ps3Body')).toHaveAttribute('data-project',id);
- // UI-더보기제목줄: 프로젝트 상세의 ⋯는 제목 줄 오른쪽 끝(제목과 같은 줄)에 있다.
- {const t=await page.locator('#ps3Title').boundingBox(),m=await page.locator('#ps3Menu details.ps3-more summary').boundingBox();
-  expect(t&&m).toBeTruthy();expect(m.y).toBeLessThan(t.y+t.height);expect(m.y+m.height).toBeGreaterThan(t.y);expect(m.x).toBeGreaterThan(t.x);}
+ // UI-더보기제목줄: 프로젝트 상세의 ⋯는 제목 묶음(위 링크·제목·요약) 오른쪽 끝, 그 묶음의 위쪽 안에 있다(혼자 한 줄 아님).
+ {const t=await page.locator('#ps3DetailModal .ps3-title-wrap').boundingBox(),m=await page.locator('#ps3Menu details.ps3-more summary').boundingBox();
+  expect(t&&m).toBeTruthy();expect(m.y).toBeLessThan(t.y+t.height);expect(m.x).toBeGreaterThanOrEqual(t.x+t.width-1);}
  const more=page.locator('#ps3Menu details.ps3-more');await more.locator('summary').click();await more.locator('[data-ps3-edit-project]').click();
  await expect(page.locator('#ps3CreateModal')).toBeVisible();
 }
