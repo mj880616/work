@@ -5,7 +5,7 @@
 //                                 form), so a record changed on another device is not overwritten. key = the letters column
 //                                 (raw_text for an organization record, summary for a project record).
 //   recordPatch(key, {text, value}) — the PATCH body of an edit saved from the window: letters and saved form together.
-//   lettersPatch(key, text)     — the PATCH body of a letters-only edit: the saved form is dropped with it, so form and letters never differ.
+//   lettersPatch(key, text)     — the PATCH body that drops the saved form with the letters (kept for a caller that edits letters of a row that may have one).
 import {cleanDoc} from './ed-schema.mjs';
 
 export const hasDoc = row => !!cleanDoc(row?.doc);

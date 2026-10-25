@@ -11,7 +11,7 @@ import {categoryTag,categoryOf,documentCategories,loadDocumentCategories} from '
 import {renderCategoryChips,toggleCategoryOff,detailDefaultOff} from './category-chips.js';
 import {lastSeen} from './split-last.js';
 import {bigWindowOpen} from './big-window-open.js';
-import {hasDoc,sameRecord,recordPatch,lettersPatch} from './record-doc.mjs';
+import {hasDoc,sameRecord,recordPatch} from './record-doc.mjs';
 import {fillDocViews} from './record-view.js';
 import {mountSplitResize} from './split-resize.js';
 import {bindDropTarget} from './meeting-compact.js';
@@ -231,7 +231,7 @@ async function wdUpSave(form){
   if(orgId!==wdOrg.id)return;if(!text){st.textContent='내용을 입력해 주세요.';st.className='status error';input.focus();return}
   if(text===String(form.dataset.original).trim()){wdUpEditEnd(form);return}
   form.dataset.busy='1';form.querySelectorAll('button,textarea').forEach(el=>el.disabled=true);st.textContent='저장 중…';st.className='status';
-  try{const rows=await wdApi(`/rest/v1/app_suborganization_updates?id=eq.${encodeURIComponent(id)}&organization_id=eq.${encodeURIComponent(orgId)}&select=id,occurred_at,raw_text,detail_text,doc`,{method:'PATCH',body:lettersPatch('raw_text',text),prefer:'return=representation'});
+  try{const rows=await wdApi(`/rest/v1/app_suborganization_updates?id=eq.${encodeURIComponent(id)}&organization_id=eq.${encodeURIComponent(orgId)}&doc=is.null&select=id,occurred_at,raw_text,detail_text,doc`,{method:'PATCH',body:{raw_text:text},prefer:'return=representation'});
     if(!Array.isArray(rows)||!rows.length)throw new Error('권한이 없거나 이미 없는 기록입니다.');if(wdOrg?.id!==orgId||!form.isConnected)return;
     wdUpdates=wdUpdates.map(u=>u.id===id?{...u,...rows[0]}:u);wdUpEditEnd(form);wdToast('기록을 고쳤습니다.')}
   catch(e){if(!form.isConnected)return;form.dataset.busy='0';form.querySelectorAll('button,textarea').forEach(el=>el.disabled=false);st.textContent=`기록을 고치지 못했습니다. ${e.message||e}`;st.className='status error';input.focus()}}
