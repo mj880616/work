@@ -43,7 +43,7 @@ test('1280 shared rule: area ⋯ answers its whole area, a card with its own ⋯
 test('1280 shared rule: a menu panel a stylesheet pins under the ⋯ opens at the pointer and goes back when closed', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await openHome(page);
-  await mount(page, `<div id="pwrap" style="position:relative;padding:20px;height:80px"><span id="ptext" style="display:block;height:40px">카드 글</span><button id="pm" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="pmenu" style="position:absolute;right:4px;top:4px">⋯</button><div id="pmenu" role="group" hidden style="position:absolute;top:100%;right:0;width:150px;background:#fff;border:1px solid #888"><button id="pitem" type="button">항목</button></div></div>`);
+  await mount(page, `<div id="pwrap" style="position:relative;padding:20px;height:80px"><span id="ptext" style="display:block;height:40px">카드 글</span><button id="pm" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="pmenu" style="position:absolute;right:4px;top:4px">⋯</button><style>#pmenu{position:absolute;top:100%;right:0;width:150px;background:#fff;border:1px solid #888}#pmenu[hidden]{display:none}</style><div id="pmenu" role="group" hidden><button id="pitem" type="button">항목</button></div></div>`);
   const at = await rightClick(page, '#ptext');
   const menu = page.locator('#pmenu');
   await expect(menu).toBeVisible();
