@@ -69,9 +69,16 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  // Opens with a short slide-up; measure only once it has settled.
  const open=async()=>{await tab.click();await expect(menu).toBeVisible();await expect.poll(()=>panel.evaluate(el=>el.getAnimations().length)).toBe(0);};
  await open();await expect(tab).toHaveAttribute('aria-expanded','true');
+ // UI-모바일메뉴순서: 하단바는 언제나 한 칸만 진하다. 창이 열려 있으면 [메뉴]만(담당조직 화면을 보고 있어도).
+ const marks=page.locator('.mobile-tabs [aria-current="page"]');
+ await expect(marks).toHaveCount(1);await expect(tab).toHaveAttribute('aria-current','page');
  // The sheet sits right on top of the tab bar, full width, rounded top.
  await expect.poll(async()=>{const [sheet,tabs]=await Promise.all([rect(panel),rect(page.locator('.mobile-tabs'))]);return Math.abs(sheet.bottom-tabs.top)<=1&&sheet.left===0&&Math.round(sheet.right)===390;}).toBe(true);
  await expect(grip).toBeFocused();await expect(grip).toHaveAccessibleName('메뉴 닫기');
+ // UI-모바일메뉴순서: 위에서부터 전체 검색 → 계정 → 메뉴 칸, 메뉴 칸이 하단바 바로 위(엄지 가까이).
+ const tops=await page.evaluate(()=>['.gs-menu-entry','#mobileAccountGroup','nav[aria-label="더 보기"]'].map(s=>document.querySelector('#mobileMenu '+s).getBoundingClientRect().top));
+ expect(tops[0]).toBeLessThan(tops[1]);expect(tops[1]).toBeLessThan(tops[2]);
+ { const nav=await rect(page.locator('#mobileMenu nav[aria-label="더 보기"]')),bar=await rect(page.locator('.mobile-tabs'));expect(bar.top-nav.bottom).toBeGreaterThanOrEqual(0);expect(bar.top-nav.bottom).toBeLessThanOrEqual(20); }
  // 큰 칸 3열(3줄): 노트·사업 보고·자료실 / HWP 편집·성명·보도자료·공유 페이지 / 원장 ·통화·텔레그램 소식. 성명과 보도자료는 한 칸.
  const tiles=page.locator('#mobileMenu nav button:visible');
  await expect(tiles).toHaveText(['노트','사업 보고','자료실','HWP 편집','성명·보도자료','공유 페이지','원장','통화','텔레그램 소식']);
@@ -85,8 +92,10 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  expect(red).toBe(danger);
  // Keyboard: Tab moves from the grip to the search field at the top (SEARCH-전체검색), then into the tiles; Esc closes and returns to the [메뉴] tab.
  await grip.focus();await page.keyboard.press('Tab');await expect(page.locator('#mobileMenu .gs-menu-entry')).toBeFocused();
- await page.keyboard.press('Tab');await expect(tiles.first()).toBeFocused();
+ await page.keyboard.press('Tab');await expect(page.locator('#mobileAccountGroup button:visible').first()).toBeFocused();
  await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(tab).toBeFocused();await expect(tab).toHaveAttribute('aria-expanded','false');
+ // 닫으면 지금 보는 화면(담당조직) 하나만 진하다.
+ await expect(marks).toHaveCount(1);await expect(marks).toContainText('담당조직');await expect(tab).not.toHaveAttribute('aria-current','page');
  // A tap on the grip closes.
  await open();await grip.click();await expect(menu).toBeHidden();
  // A tap outside (above the sheet) closes.
@@ -103,6 +112,27 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  // A tile opens its screen; 성명·보도자료 shows that one name on top.
  await tab.click();await page.locator('#mobileMenu [data-view="media"]').click();
  await expect(page.locator('#mediaView')).toBeVisible();await expect(page.locator('[data-mobile-view-name]')).toHaveText('성명·보도자료');
+ await expect(marks).toHaveCount(1);await expect(tab).toHaveAttribute('aria-current','page');
+ // 메뉴 안 화면에서 창을 다시 열어도, 뒤로가기로 창을 닫아도 [메뉴] 하나만.
+ await tab.click();await expect(menu).toBeVisible();await expect(marks).toHaveCount(1);await expect(tab).toHaveAttribute('aria-current','page');
+ await page.goBack();await expect(menu).toBeHidden();await expect(page.locator('#mediaView')).toBeVisible();await expect(marks).toHaveCount(1);await expect(tab).toHaveAttribute('aria-current','page');
+ // 하단바의 다른 칸으로 가면 그 칸 하나만.
+ await page.locator('.mobile-tabs [data-view="home"]').click();await expect(page.locator('#homeView')).toBeVisible();await expect(marks).toHaveCount(1);await expect(marks).toContainText('홈');
+ await tab.click();await expect(menu).toBeVisible();await expect(marks).toHaveCount(1);await expect(tab).toHaveAttribute('aria-current','page');await page.goBack();await expect(menu).toBeHidden();await expect(marks).toContainText('홈');await expect(marks).toHaveCount(1);
+ expect(errors).toEqual([]);
+});
+
+test('메뉴 판(폰): 화면이 낮아 판이 길면 위쪽이 잘리고 열자마자 메뉴 칸이 하단바 바로 위에 스크롤 없이 보인다',async({page})=>{
+ const {errors}=await boot(page,390);
+ await page.setViewportSize({width:390,height:460});
+ const tab=page.locator('#mobileMenuTab'),panel=page.locator('.mobile-menu-panel');
+ await tab.click();await expect(page.locator('#mobileMenu')).toBeVisible();await expect.poll(()=>panel.evaluate(el=>el.getAnimations().length)).toBe(0);
+ const m=await panel.evaluate(el=>({over:el.scrollHeight>el.clientHeight+1,gap:el.scrollHeight-el.scrollTop-el.clientHeight}));
+ expect(m.over).toBe(true);expect(m.gap).toBeLessThanOrEqual(2);
+ const last=await rect(page.locator('#mobileMenu nav button:visible').last()),bar=await rect(page.locator('.mobile-tabs')),grip=await rect(page.locator('#mobileMenu [data-mobile-menu-close]'));
+ expect(last.bottom).toBeLessThanOrEqual(bar.top);expect(bar.top-last.bottom).toBeLessThanOrEqual(24);
+ // 손잡이는 위에 붙어 남아 닫을 수 있다.
+ expect(grip.top).toBeGreaterThanOrEqual(0);await page.locator('#mobileMenu [data-mobile-menu-close]').click();await expect(page.locator('#mobileMenu')).toBeHidden();
  expect(errors).toEqual([]);
 });
 

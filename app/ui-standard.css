@@ -532,6 +532,7 @@
 #appView .mobile-menu-panel .mobile-menu-head b{ font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); }
 #appView .mobile-menu-panel :is(nav,#mobileAccountGroup) button{ min-height:var(--kptu-touch-target,44px); font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); border-radius:var(--ds-radius-control); }
 #appView .mobile-menu-panel nav button:not([hidden]) ~ button:not([hidden]){ border-top:var(--ds-line-width) solid var(--ds-line); border-radius:0; }
+#appView .mobile-menu-panel > nav{ margin-top:12px; }
 #appView .mobile-menu-panel h2{ margin:4px 0; font-size:var(--ds-text-section); font-weight:var(--ds-weight-medium); color:var(--ds-section-ink); }
 
 /* PC 사이드바: 0.5px 상자·모서리 12px·그림자 없음, 메뉴 줄 13px(고른 화면만 500, 연한 계정 색 바탕). */
@@ -564,7 +565,7 @@
   #appView #web1BoardDetailModal .w1b-detail-head{ min-height:0; padding-top:calc(4px + env(safe-area-inset-top)); padding-bottom:4px; }
   #appView > .mobile-shell-header :is(time,[data-mobile-view-name]){ font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); line-height:1.4; }
   #appView > .mobile-tabs{ border-top:var(--ds-line-width) solid var(--ds-line); }
-  #appView > .mobile-tabs button:is([aria-current="page"],#mobileMenuTab[aria-expanded="true"]){ font-weight:var(--ds-weight-medium); }
+  #appView > .mobile-tabs button[aria-current="page"]{ font-weight:var(--ds-weight-medium); }
 }
 
 /* ───────── 디자인 손질(UI-디자인손질, 8-9e 후속) ─────────
@@ -612,14 +613,15 @@
   #appView .mobile-menu-panel.is-dragging{ transition:none; }
   #appView .mobile-menu-panel:not(.is-dragging){ transition:transform .16s ease-out; }
   /* 머리줄은 손잡이 줄: "메뉴" 글자는 숨기고 닫기 버튼(×)을 폭 가득한 손잡이로 그린다(누르면 닫힘, 끌어내리면 닫힘). */
-  #appView .mobile-menu-panel .mobile-menu-head{ display:block; padding:0; margin:0 0 4px; touch-action:none; cursor:grab; }
+  /* UI-모바일메뉴순서: 창이 화면보다 길면 위쪽이 잘리고(열 때 맨 아래로 스크롤) 손잡이만 위에 붙어 남는다. */
+  #appView .mobile-menu-panel .mobile-menu-head{ display:block; position:sticky; top:0; z-index:1; padding:0; margin:0 0 4px; background:var(--kptu-surface); touch-action:none; cursor:grab; }
   #appView .mobile-menu-panel .mobile-menu-head b{ display:none; }
   #appView .mobile-menu-panel .mobile-menu-head [data-mobile-menu-close]{ position:relative; display:flex; align-items:center; justify-content:center; width:100%; height:32px; min-height:32px; padding:0; border:0; border-radius:var(--ds-radius-control); background:transparent; }
   #appView .mobile-menu-panel .mobile-menu-head [data-mobile-menu-close]::after{ content:""; position:absolute; inset:-6px 0; }
   #appView .mobile-menu-panel .mobile-menu-head [data-mobile-menu-close]::before{ content:""; position:static; inset:auto; display:block; width:36px; height:4px; border-radius:2px; background:var(--kptu-border-strong); }
   #appView .mobile-menu-panel .mobile-menu-head [data-mobile-menu-close]:hover{ background:transparent; }
   #appView .mobile-menu-panel .mobile-menu-head .mobile-menu-x{ display:none; }
-  #appView .mobile-menu-panel nav{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+  #appView .mobile-menu-panel nav{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-top:12px; }
   /* #mobileMenu까지 적어 3부의 메뉴 줄 규칙(:is(nav,#mobileAccountGroup) button, id 하나 무게)보다 앞선다. */
   #appView #mobileMenu .mobile-menu-panel nav button,#appView #mobileMenu .mobile-menu-panel nav button:not([hidden]) ~ button:not([hidden]){
     box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; min-height:56px; padding:6px 4px;
@@ -1224,8 +1226,8 @@ html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[
 /* ② 폰 하단 탭 */
 @media(max-width:760px){
   html #appView > .mobile-tabs button svg{ box-sizing:content-box; width:22px; height:22px; padding:3px 14px; border-radius:var(--ds-chip-radius); background:transparent; }
-  html #appView > .mobile-tabs button:is([aria-current="page"],#mobileMenuTab[aria-expanded="true"]){ color:var(--kptu-primary); font-weight:var(--ds-weight-medium); }
-  html #appView > .mobile-tabs button:is([aria-current="page"],#mobileMenuTab[aria-expanded="true"]) svg{ color:var(--ds-select-ink); background:var(--ds-select-bg); stroke-width:1.9; }
+  html #appView > .mobile-tabs button[aria-current="page"]{ color:var(--kptu-primary); font-weight:var(--ds-weight-medium); }
+  html #appView > .mobile-tabs button[aria-current="page"] svg{ color:var(--ds-select-ink); background:var(--ds-select-bg); stroke-width:1.9; }
 }
 
 /* UI-엔터저장: enter-save.js가 창·옆 수정 칸의 칸에 초점이 있을 때 저장 버튼에 붙이는 작은 안내(↵ · Ctrl+↵ · ⌘↵).
