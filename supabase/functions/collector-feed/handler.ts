@@ -21,11 +21,14 @@
 //   통화 숫자의 뜻(2단계 정리): total_count = 받은 전사 수(업무·개인함 저장·개수만 모두), kept_count = 업무 통화함에 저장한 줄,
 //   personal_count·unsure_count = 줄 없이 **개수만** 센 통화(요약 없는 옛 개인 기록 등. 개인 통화함에 저장한 통화는 세지 않는다: 그 수는 개인 표의 실제 줄 수),
 //   failed_count = 판정 실패.
+// - POST ?action=context(CALL-맥락문서): 읽기 전용. 몸통은 `{}`만. 담당조직(쓰지 않음 제외)·진행 중 프로젝트의 **이름 문자열만** 돌려준다(context.ts).
+//   DB에 쓰지 않는다(새 표·grant 없음). 하루 20회 상한은 인스턴스 메모리로만 센다. 사람 이름·연락처·메모는 응답에 없다.
 // 응답·로그에는 개수와 단계 코드만 넣는다. 원문·요약·이름·오류 원문은 넣지 않는다.
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { aiConfigFrom, callOpenAi, estimateKrw, outputText, tokenCount } from "../_shared/openai-responses.ts";
 import { organizationOptions, projectOptions } from "../ai-assist/library-fill.ts";
 import { CALL_LIMITS, cleanLine, kstDay, type OrgRow, parseCall } from "./call-analysis.ts";
+import { buildContext, CONTEXT_LIMITS } from "./context.ts";
 import {
   parseTelegram, rawLines, TELEGRAM_INSTRUCTIONS, TELEGRAM_SCHEMA, telegramMaterial, TG_LIMITS, type TgMessage,
 } from "./telegram.ts";
@@ -446,6 +449,7 @@ export function createCollectorFeedHandler(deps: CollectorFeedDeps) {
   const now = deps.now ?? Date.now;
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const log: Log = deps.log ?? ((code, detail) => console.error(JSON.stringify({ fn: "collector-feed", code, ...(detail ?? {}) })));
+  const contextUse = { day: "", n: 0 };
   return async (req: Request): Promise<Response> => {
     if (req.method === "OPTIONS") return new Response(null, { status: 204 });
     if (req.method !== "POST") return json({ ok: false, error: "METHOD_NOT_ALLOWED" }, 405);
@@ -457,7 +461,7 @@ export function createCollectorFeedHandler(deps: CollectorFeedDeps) {
       if (!/^https:\/\/[A-Za-z0-9.-]+(:\d+)?$/.test(sb) || !key) throw new Fail(500, "SERVER_CONFIG_MISSING");
       let action: string | null = null;
       try { action = new URL(req.url).searchParams.get("action"); } catch { /* ignore */ }
-      if (action !== "call" && action !== "call_skip" && action !== "telegram") throw new Fail(400, "UNKNOWN_ACTION");
+      if (action !== "call" && action !== "call_skip" && action !== "telegram" && action !== "context") throw new Fail(400, "UNKNOWN_ACTION");
       const length = Number(req.headers.get("content-length") || 0);
       if (length > MAX_BODY_BYTES) throw new Fail(413, "BODY_TOO_LARGE");
       let body: unknown;
@@ -465,6 +469,19 @@ export function createCollectorFeedHandler(deps: CollectorFeedDeps) {
       if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "INVALID_BODY");
       const b = body as Record<string, unknown>;
       const nowMs = now(), today = kstDay(nowMs);
+      if (action === "context") {
+        if (!exactKeys(b, [])) throw new Fail(400, "INVALID_BODY");
+        if (contextUse.day !== today) { contextUse.day = today; contextUse.n = 0; }
+        if (contextUse.n >= CONTEXT_LIMITS.dailyCalls) throw new Fail(429, "DAILY_LIMIT");
+        contextUse.n++;
+        const cdb = makeDb(sb, key, doFetch);
+        const cws = await workspaceId(cdb);
+        const orgs = await readOrgs(cdb, cws);
+        const spaces = await cdb.get(`app_spaces?workspace_id=eq.${cws}&deleted_at=is.null&select=id,name,parent_id,status,metadata&order=sort_order.asc,created_at.asc&limit=500`);
+        const ctx = buildContext(orgs, spaces);
+        log("context_served", { organizations: ctx.organizations.length, projects: ctx.projects.length });
+        return json({ ok: true, ...ctx });
+      }
       // 몸통을 먼저 다 검사한 뒤에 DB에 간다.
       const input = action === "call" ? parseCallBody(b) : action === "call_skip" ? parseSkipBody(b, today) : parseTelegramBody(b, today);
       const db = makeDb(sb, key, doFetch);

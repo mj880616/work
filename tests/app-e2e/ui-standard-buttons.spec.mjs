@@ -36,7 +36,8 @@ async function sameButtons(region,height,quickHeight=height){
   // 바깥쪽 모서리만 8px, 필터([미분류·전체·보관])는 32px 알약, PC [⋯ 더보기]는 32px 보조 버튼. 작은 것은 누르는 범위(::after) 44px.
   const want=await control.evaluate(el=>{
    const seg=el.closest('.home-quick-modes,.inbox-pane-switch');
-   const r='8px';
+   // BASKET-전환줄하단: on phones the basket [업데이트 | 챙길 것] is the bottom-row pill (999px ends, like the schedule switch).
+   const r=seg&&seg.matches('.inbox-pane-switch')&&innerWidth<=760?'999px':'8px';
    if(seg){const cells=[...seg.querySelectorAll('button')],i=cells.indexOf(el);return {min:30,max:32,radius:i===0?`${r} 0px 0px ${r}`:i===cells.length-1?`0px ${r} ${r} 0px`:'0px'};}
    // UI-버튼작게 ①: 읽기 화면 아래 버튼은 한 줄 32px. UI-업데이트편집한줄: 수정 화면 버튼 줄과 [첨부 저장]도 32px.
    if(el.closest('.basket-read-actions,.basket-edit-actions')||el.matches('[data-basket-upload]'))return {min:32,max:32,radius:'8px'};

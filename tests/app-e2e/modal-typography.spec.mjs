@@ -392,7 +392,7 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // MEET-파일로만들기(2026-10-17 사용자 결정): 회의 [+] 창에 [직접 쓰기 | 파일·글로 만들기] 전환과 파일·글 칸이 생겼다. 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
   const filesPanel=await page.locator('#meetingModal').evaluate(el=>[el.querySelector('.meeting-create-modes').outerHTML,el.querySelector('#mffPanel').outerHTML].join(''));
   await original.locator('#meetingModal .modal-head').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),filesPanel);
-  // UI-바구니첨부메모 PR 3(2026-10-19): 담당조직 상세에 [자료] 묶음이 생기고, 자료실 [분류 수정] 창에 분류 목록 편집 칸과 '자료별 분류' 제목이 생겼다.
+  // UI-바구니첨부메모 PR 3(2026-10-19): 담당조직 상세에 [자료] 묶음이 생기고, 자료실 [분류 수정] 창에 분류 목록 편집 칸이 생겼다('자료별 분류' 칸은 LIB-분류칸삭제로 없어짐).
   // 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다(기존 요소는 하나도 빼지 않는다).
   // ORG-PC좌우: on a PC (≥1024) the 담당조직 screen opens the first organization in its right pane, so the current detail
   // carries that organization's drawn content (basic info rows etc.) that main never drew without a click. Like the project
@@ -407,8 +407,11 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
    const parts=await page.locator('#'+places).evaluate((el,location)=>{const label=el.closest('label');return [label.outerHTML+label.nextElementSibling.outerHTML,document.getElementById(location).outerHTML]},location);
    await original.locator('#'+project).evaluate((el,[html,loc])=>{const label=el.closest('label'),box=label.parentElement;label.outerHTML=html;box.insertAdjacentHTML('afterend',loc)},parts);
   }
-  const manageParts=await page.locator('#libraryManageModal').evaluate(el=>[el.querySelector('#libraryCategoryEditor').outerHTML,el.querySelector('.library-manage-title').outerHTML].join(''));
+  const manageParts=await page.locator('#libraryManageModal').evaluate(el=>el.querySelector('#libraryCategoryEditor').outerHTML);
   await original.locator('#libraryManageList').evaluate((el,html)=>el.insertAdjacentHTML('beforebegin',html),manageParts);
+  // LIB-분류칸삭제: 창 머리의 안내문(p.muted '직접 수정합니다')과 '자료별 분류' 칸(#libraryManageList)은 화면에서 없어졌다. 같은 모양으로 main 쪽에서도 뺀다.
+  await original.locator('#libraryManageModal .modal-head p.muted').evaluate(el=>el.remove());
+  await original.locator('#libraryManageList').evaluate(el=>el.remove());
   // TASK-추가창파일: 할 일 등록 창·Google 할 일 추가 창의 메모 아래에 [파일 붙이기] 줄(숨은 파일 칸·안내 글자)이 생겼다.
   // 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다(기존 요소는 하나도 빼지 않는다).
   for(const [id,memo] of [['eventTaskFiles','#eventDescription'],['gtNewFiles','#gtEditNotes']]){if(!await page.locator('#'+id).count())continue;const html=await page.locator('#'+id).evaluate(el=>el.outerHTML);if(await original.locator(memo).count())await original.locator(memo).evaluate((el,html)=>el.closest('label').insertAdjacentHTML('afterend',html),html)}

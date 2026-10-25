@@ -136,16 +136,16 @@ for(const width of [390,1280])test(`자료실: 종류 색(확장자, 없으면 D
  // LIB-토글트리: 줄을 보는 시험이라 토글을 모두 편다.
  await expandLibraryTree(page);
  const kinds=rows.locator('.lu-file-kind');
- await expect(kinds).toHaveText(['PDF','HWP','XLS','DOC','PPT','DOC','XLS','PDF','파일']);
- const expected=['pdf','hwp','xls','doc','ppt','doc','xls','pdf','other'];
+ await expect(kinds).toHaveText(['PDF','HWP','XLS','DOC','PPT','DOC','XLS','PDF','그림']);
+ const expected=['pdf','hwp','xls','doc','ppt','doc','xls','pdf','img'];
  for(const [i,kind] of expected.entries()){
   await expect(kinds.nth(i)).toHaveAttribute('data-lu-kind',kind);
   const s=await look(kinds.nth(i)),name=kind==='other'?'--ds-kind-other':'--ds-file-'+kind;
   // UI-PC자료실 M2: 폰(760px 이하)은 종류를 상자 없이 색 글자로 이름 아래 작은 줄에 보인다. PC는 연한 바탕 + 진한 글자 상자.
   expect(s.bg,kind).toBe(width<761?'rgba(0, 0, 0, 0)':await token(page,name+'-soft'));expect(s.fg,kind).toBe(await token(page,name+'-ink'));
  }
- // 다섯 종류와 회색은 서로 다른 색.
- expect(new Set(await Promise.all(['pdf','hwp','xls','doc','ppt'].map(k=>token(page,'--ds-file-'+k+'-ink')).concat([token(page,'--ds-kind-other-ink')]))).size).toBe(6);
+ // 다섯 종류와 그림(LIB-그림형식)과 회색은 서로 다른 색.
+ expect(new Set(await Promise.all(['pdf','hwp','xls','doc','ppt','img'].map(k=>token(page,'--ds-file-'+k+'-ink')).concat([token(page,'--ds-kind-other-ink')]))).size).toBe(7);
  await rowText(page,rows.locator('.lu-row-title'));await metaText(page,rows.locator('.lu-row-date'));
  // LIB-목록간격(2026-10-23): PC 자료 줄은 위아래 여백이 절반이라 한 줄 높이(27px 이상)이고, 폰은 두 줄이라 44px 이상.
  for(const row of await rows.all())expect((await row.boundingBox()).height).toBeGreaterThanOrEqual(width<761?44:27);

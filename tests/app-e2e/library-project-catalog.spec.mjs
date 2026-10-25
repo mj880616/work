@@ -368,7 +368,12 @@ for(const width of [360,390,412,430]){
     expect(await overflow()).toBeLessThanOrEqual(1);
     await page.locator('#documentModal [data-close="documentModal"]').click();
     await page.locator('#manageLibraryBtn').click();
-    await page.locator('[data-library-edit="doc-archived"]').click();
+    await expect(page.locator('#libraryManageModal .dce')).toBeVisible();
+    expect(await overflow()).toBeLessThanOrEqual(1);
+    await page.locator('#libraryManageClose').click();
+    // LIB-분류칸삭제: '자료별 분류' 칸이 없어졌으므로 자료 수정 창은 줄 ⋯ 메뉴의 [수정…]으로 연다.
+    await page.locator('[data-lu-menu="doc-archived"]').click();
+    await page.locator('[data-lu-edit="doc-archived"]').click();
     await expect(page.locator('#libraryEditProject')).toBeVisible();
     await expect(page.locator('#libraryEditProject')).toHaveValue('top-c');
     expect(await overflow()).toBeLessThanOrEqual(1);

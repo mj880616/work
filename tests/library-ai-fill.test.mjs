@@ -172,7 +172,7 @@ test('text reading: documents that already have text (ready or error) never call
 test('library screen: auto tidy has no button, no progress text, no storage; list loading does not await it',()=>{
   const src=readFileSync(new URL('../app/library-upload.js',import.meta.url),'utf8');
   for(const gone of ['libraryTidy','luTidyRender','정리 제안','이어서 찾기','찾는 중','lt-row'])assert.ok(!src.includes(gone),gone);
-  const start=src.indexOf('// LIB-자동정리'),end=src.indexOf('function luRenderManageList');
+  const start=src.indexOf('// LIB-자동정리'),end=src.indexOf('function luManage');
   const block=src.slice(start,end);
   assert.ok(block.length>200);
   for(const bad of ['local'+'Storage','session'+'Storage','indexed'+'DB','innerHTML','textContent','await '])assert.ok(!block.includes(bad),bad);
@@ -209,7 +209,7 @@ test('tidyCandidates: a document whose file was replaced (reclassify_needed) is 
 
 test('replace file screen: renamed menu item, file line in the edit dialog, saved only on [수정 저장], hidden before the DB column, no storage',()=>{
   const src=readFileSync(new URL('../app/library-upload.js',import.meta.url),'utf8');
-  assert.match(src,/data-lu-edit="\$\{luEsc\(id\)\}">수정<\/button>/);
+  assert.match(src,/data-lu-edit="\$\{luEsc\(id\)\}">수정…<\/button>/);
   assert.ok(!src.includes('>정보 수정<'));
   assert.match(src,/<h2>자료 수정<\/h2>/);
   assert.match(src,/function luReplaceReady\(d\)\{return !!d&&Object\.hasOwn\(d,'previous_files'\)\}/);
