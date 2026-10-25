@@ -36,6 +36,8 @@ test("phone: when every 회의 후속 is already in 오늘 할 일 the 회의 �
   const control = await openHome(page);
   await expect(meetingsCard(page)).toBeVisible();
   await linkTodayToMeeting(page, control, { allDue: true });
+  // HOME-모바일홈채우기: 폰은 할 일 2건만 보이고 나머지는 '+ n건 더'. 펼쳐서 세 줄을 확인한다.
+  await tasksCard(page).locator("[data-home-tasks-more]").click();
   await expect(tasksCard(page).locator("[data-home-followup-tag]")).toHaveCount(2);
   await expect(tasksCard(page).locator("[data-home-task]")).toHaveCount(3);
   await expect(meetingsCard(page)).toBeHidden();

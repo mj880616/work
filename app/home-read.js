@@ -1,6 +1,8 @@
 import { readRecordPages } from './basket-link-records.js';
 import { mountQuick } from './home-quick.js';
 import { mountRadar } from './todo-radar.js';
+import { mountHomeFill } from './home-fill.js';
+import { limitRows } from './home-fill-model.mjs';
 import { mountCollectionStatus } from './collection-status.js';
 import { mountTextBackfillNotice } from './text-backfill-notice.js';
 import { createHomeCache } from './home-read-cache.js';
@@ -55,6 +57,8 @@ let epoch = 0,
   calendarState = null,
   imports = null,
   radarMount = null,
+  fillMount = null,
+  tasksOpen = false,
   collectMount = null,
   textDoneMount = null;
 const metrics = {
@@ -119,7 +123,7 @@ function arrangeHome() {
   // HOME-오늘먼저: the phone has no right column. 오늘 일정 and 오늘 할 일 stay on top (right under the quick input);
   // 주요 일정 and 챙길 것 go below them, before 회의 후속. PC keeps both in the right column.
   const placed = dday.parentElement === target && (!radar || radar.previousElementSibling === dday)
-    && (desktopHome.matches || dday.previousElementSibling === card('tasks'));
+    && (desktopHome.matches || dday.previousElementSibling === (card('tomorrow') || card('tasks')));
   if (placed) return;
   const focused = [dday, radar].find(el => el?.contains(document.activeElement)) ? document.activeElement : null;
   target.insertBefore(dday, before);
@@ -142,6 +146,9 @@ function shell() {
   // HOME-수집경보: 폰·중간 폭의 경고 한 줄(본문 맨 위)과 '수집 정상 ✓' 한 줄(맨 아래)도 collection-status.js가 그린다.
   host.innerHTML = `<div data-home-column="main"><div class="home-collect-alert" data-home-collect-alert hidden></div><p class="home-text-done" data-home-text-done role="status" hidden></p>${['calendar','tasks','meetings'].map(section).join('')}</div><div data-home-column="aside">${section('dday')}<section class="home-card home-radar" data-home-card="radar" hidden></section><section class="home-card home-collect" data-home-card="collect" aria-labelledby="home-collect-title" hidden></section></div><p class="home-collect-ok" data-home-collect-ok role="status" hidden></p>`;
   host.querySelector('[data-home-column="main"]').prepend(quick);
+  // HOME-모바일홈채우기: 한 줄 요약과 놓친 약속·정리 안 된 것·내일 칸(폰·중간 폭만). home-fill.js가 유일한 renderer.
+  fillMount?.destroy();
+  fillMount = mountHomeFill({ main: host.querySelector('[data-home-column="main"]') });
   focused?.focus({ preventScroll: true });
   radarMount?.destroy();
   radarMount = mountRadar(card('radar'), { place: 'home' });
@@ -250,6 +257,8 @@ function fresh(key,state){
 }
 function disconnected(key) {
   fresh(key,'');
+  if (key === 'calendar') { fillMount?.setEvents(null); fillMount?.setTomorrow(null); }
+  if (key === 'tasks') fillMount?.setTasks(null);
   paint(
     key,
     `<p class="home-status"><button type="button" data-goto="${key === "calendar" ? "calendar" : "tasks"}">Google ${key === "calendar" ? "캘린더" : "할 일"} 연결 ›</button></p>`,
@@ -310,14 +319,20 @@ function renderTasks({ includeMeetings = true } = {}) {
   const rows = shown
     .filter((x) => dueIds.has(x.place.id))
     .sort((a, b) => String(a.place.due).localeCompare(String(b.place.due)));
-  if (tasksReady)
+  // HOME-모바일홈채우기: 폰·중간 폭은 2건만 보이고 나머지는 '+ n건 더'(누르면 펼침, 다시 누르면 접음). PC는 전부.
+  const dueCount = dueTasks(shown.map((x) => x.task)).length,
+    cut = mergeFollowUps() && !tasksOpen ? limitRows(rows) : { shown: rows, more: 0 },
+    moreBtn = !mergeFollowUps() ? '' : cut.more ? `<button type="button" class="home-more" data-home-tasks-more="open">+ ${cut.more}건 더</button>` : tasksOpen && rows.length > limitRows(rows).shown.length ? '<button type="button" class="home-more" data-home-tasks-more="close">접기</button>' : '';
+  if (tasksReady) {
+    fillMount?.setTasks(dueCount);
     paint(
       "tasks",
       rows.length
-        ? taskRows(rows)
+        ? taskRows(cut.shown) + moreBtn
         : '<p class="home-status">오늘 할 일 없음</p>',
-      dueTasks(shown.map((x) => x.task)).length,
+      dueCount,
     );
+  }
   if(tasksReady)card('meetings')?.querySelectorAll('[data-home-toggle],[data-home-task-menu]').forEach(b=>{b.disabled=!google?.taskState(b.dataset.homeToggle||b.dataset.homeTaskMenu)?.task;});
   if(tasksReady&&linksReady)saveCopy('tasks',{names:tasks.map(t=>({id:t.id,meeting:isFollowUp(t.id),names:links.filter(l=>l.google_task_id===t.id&&l.status==='confirmed').flatMap(l=>[projects.find(p=>p.id===l.project_id)?.name,orgs.find(o=>o.id===l.organization_id)?.name].filter(Boolean))}))});
   if (!meetingsReady || !includeMeetings) return;
@@ -345,6 +360,7 @@ function renderDday(rows){
   paint('dday',`<div class="home-chips">${rows.map(m=>`<button type="button" class="home-chip ${m.days<=3?'urgent':''}" data-home-project="${esc(m.project_id)}">${m.days===0?'D-day':'D-'+m.days} ${esc(m.title)}</button>`).join('')}</div>`,rows.length);
 }
 function renderCalendar(rows){
+  fillMount?.setEvents(rows.length);
   if(!rows.length)return empty('calendar','오늘 일정 없음');
   paint('calendar',rows.map(e=>{
     const time=e.allDay?'종일':new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(e.start));
@@ -385,13 +401,15 @@ const loaders = {
   async calendar(run) {
     const fromCalendar=window.KPTUCalendarPersistence?.peek?.();
     const known=!!copies.calendar||(calendarState?.owner===owner()&&calendarState.status?.connected)||(fromCalendar?.owner===owner()&&fromCalendar.status?.connected);
-    const r=ranges(),events=()=>share('events',()=>api(`/functions/v1/google-calendar?action=events&timeMin=${encodeURIComponent(new Date(r.start).toISOString())}&timeMax=${encodeURIComponent(new Date(r.end).toISOString())}`));
+    const r=ranges(),events=()=>share('events',()=>api(`/functions/v1/google-calendar?action=events&timeMin=${encodeURIComponent(new Date(r.start).toISOString())}&timeMax=${encodeURIComponent(new Date(r.end + 86400000).toISOString())}`));
     // Attach a rejection handler immediately while the status check is still pending.
     const applyEvents=(d,status)=>{
       guard(run);
       if(d?.connected===false||d?.needs_reconnect||d?.authorized===false||calendarAuthError(d?.warning||''))return disconnected('calendar');
       if(d.warning)throw new Error(d.warning);
       const rows=homeEventRows(d.events||[],status);
+      // 같은 조회(오늘+내일 이틀)에서 내일 한 줄 미리보기를 만든다. 오늘 일정 사본·표시는 그대로 오늘 것만.
+      fillMount?.setTomorrow(homeEventRows(d.events||[],status,Date.now()+86400000));
       saveCopy('calendar',{day:dayKey(),rows});renderCalendar(rows);fresh('calendar','');
       metrics.refreshed.calendar=Math.round(performance.now()-metrics.shellAt);timing();
     };
@@ -475,7 +493,7 @@ async function loadCard(key, run = epoch) {
     await loaders[key](run);
   } catch {
     // A card still showing this device's copy keeps it and says it is not the latest; with nothing shown it says it failed.
-    if (current(run)) { if(fromCopy[key])fresh(key,'stale');else{if(key==='tasks')taskStatus='failed';failure(key);} }
+    if (current(run)) { if(key==='calendar')fillMount?.setTomorrow(null); if(fromCopy[key])fresh(key,'stale');else{if(key==='tasks')taskStatus='failed';failure(key);} }
   } finally {
     if(current(run)){metrics.refreshed[key]=Math.round(performance.now()-metrics.shellAt);timing();}
   }
@@ -493,7 +511,7 @@ function start({ freshTasks = false } = {}) {
   tasksReady = false;
   meetingsReady = false;
   tasks=[];links=[];projects=[];orgs=[];meetings=[];
-  copies=homeCache?.read()||{};fromCopy={};copyAt={};
+  copies=homeCache?.read()||{};fromCopy={};copyAt={};tasksOpen=false;
   unsubscribe?.();
   metrics.readyAt = 0;
   metrics.shellAt = performance.now();
@@ -579,6 +597,10 @@ const homeTasks = createTaskInline({menuId:'homeTaskMenu', historyKey:'kptuHomeT
 root.addEventListener("click", async (event) => {
   const b = event.target.closest("button");
   if (!b) return;
+  if (b.dataset.homeTasksMore) {
+    tasksOpen = b.dataset.homeTasksMore === 'open';
+    return renderTasks({ includeMeetings: false });
+  }
   const key = b.dataset.homeRetry;
   if (key) {
     b.disabled = true;
@@ -625,6 +647,7 @@ window.addEventListener("kptu:session-changed", (event) => {
   projects = [];
   orgs = [];
   meetings = [];
+  fillMount?.destroy();fillMount=null;
   const host = root.querySelector('[data-home-cards]');
   // Keep the mounted input and its handlers when clearing another owner's cards.
   const quick = root.querySelector('[data-home-quick]');

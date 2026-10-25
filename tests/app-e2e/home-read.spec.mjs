@@ -31,15 +31,21 @@ for (const width of [390, 1440])
     await page.waitForFunction(() => window.KPTUHome?.metrics?.readyAt);
     // JOURNAL-챙길것: the 챙길 것 card has its own budget: one candidate read and one ai-assist call (first open of the day).
     const radarRequest = (r) => r.path === "/rest/v1/app_todo_candidates" || r.path.endsWith("/functions/v1/ai-assist");
-    expect(requests.filter((r) => r.path === "/rest/v1/app_todo_candidates").length).toBeLessThanOrEqual(1);
+    // 폰·중간 폭(HOME-모바일홈채우기)은 '정리 안 된 것' 숫자가 후보를 한 번 더 읽는다(PC는 1회).
+    expect(requests.filter((r) => r.path === "/rest/v1/app_todo_candidates").length).toBeLessThanOrEqual(width < 1024 ? 2 : 1);
     expect(requests.filter((r) => r.path.endsWith("/functions/v1/ai-assist")).length).toBeLessThanOrEqual(1);
     // OPS-수집점검: the 마지막 수집 시각 card has its own budget: one status read and one radar state read.
     const collectRequest = (r) => r.path === "/rest/v1/app_todo_radar_state" || r.path.endsWith("/functions/v1/drive-summary");
     expect(requests.filter((r) => r.path === "/rest/v1/app_todo_radar_state").length).toBeLessThanOrEqual(1);
     expect(requests.filter((r) => r.path.endsWith("/functions/v1/drive-summary")).length).toBeLessThanOrEqual(1);
     expect(requests.filter((r) => r.path.endsWith("/functions/v1/drive-summary") && r.action !== "status")).toHaveLength(0);
+    // HOME-모바일홈채우기: 폰·중간 폭의 새 칸(놓친 약속 · 새 소식 수 · 정리 안 된 것)은 자기 예산을 가진다: 원장 1회, 소식 1회, 정리함 숫자용 읽기(업데이트·연결·자료)뿐.
+    const fillPaths = ["app_ledger_records", "app_feed_days", "app_notes", "app_record_links", "app_documents"];
+    const fillRequest = (r) => width < 1024 && fillPaths.some((x) => r.path.endsWith(x)) && (!r.path.endsWith("app_record_links") || r.query.includes("note_id"));
+    expect(requests.filter((r) => r.path.endsWith("app_ledger_records")).length).toBeLessThanOrEqual(1);
+    expect(requests.filter((r) => r.path.endsWith("app_feed_days")).length).toBeLessThanOrEqual(1);
     const dataRequests = requests.filter(
-      (r) => (r.path.includes("/rest/") || r.path.includes("/functions/")) && !radarRequest(r) && !collectRequest(r),
+      (r) => (r.path.includes("/rest/") || r.path.includes("/functions/")) && !radarRequest(r) && !collectRequest(r) && !fillRequest(r),
     );
     const basketRequests=requests.filter(r=>r.path.endsWith('app_record_links')&&r.query.includes('note_id=not.is.null'));
     expect(basketRequests).toHaveLength(0);

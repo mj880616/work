@@ -56,7 +56,7 @@ const pressHeight=button=>button.evaluate(el=>Math.max(el.getBoundingClientRect(
 const createsOf=page=>{const list=[];page.on('request',r=>{if(r.url().includes('/functions/v1/google-tasks')&&new URL(r.url()).searchParams.get('action')==='create')list.push(r.postDataJSON());});return list;};
 const btn=(row,name)=>row.getByRole('button',{name,exact:true});
 
-for(const width of [390,1280])test(`home: two lines per row, ✓ ✎ ✕ on the right, below 주요 일정, auto find once ${width}`,async({page},info)=>{
+for(const width of [1280])test(`home: two lines per row, ✓ ✎ ✕ on the right, below 주요 일정, auto find once ${width}`,async({page},info)=>{
  const f=await fixture(page,{width});const box=radar(page);
  await expect(box).toBeVisible();
  await expect(box.locator('h3')).toContainText('챙길 것');await expect(box.locator('[data-radar-count]')).toHaveText('2');
@@ -98,7 +98,7 @@ for(const width of [390,1280])test(`home: two lines per row, ✓ ✎ ✕ on the 
  expect(f.errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`✓ goes straight in (due = suggested due, else today), then the row folds into 처리함 ${width}`,async({page},info)=>{
+for(const width of [1280])test(`✓ goes straight in (due = suggested due, else today), then the row folds into 처리함 ${width}`,async({page},info)=>{
  const f=await fixture(page,{width});const box=radar(page),creates=createsOf(page);
  // With a suggested due: that due.
  await tap(page,btn(box.locator(`[data-radar-row="${id(1)}"]`),'바로 할 일로'),width);
@@ -125,7 +125,7 @@ for(const width of [390,1280])test(`✓ goes straight in (due = suggested due, e
  expect(f.errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`✎ opens in place: fix the title, pick 오늘/내일/제안 기한/기한 없음, [넣기] ${width}`,async({page})=>{
+for(const width of [1280])test(`✎ opens in place: fix the title, pick 오늘/내일/제안 기한/기한 없음, [넣기] ${width}`,async({page})=>{
  const f=await fixture(page,{width});const box=radar(page),creates=createsOf(page);
  const row=box.locator(`[data-radar-row="${id(1)}"]`);
  await tap(page,btn(row,'고쳐서 넣기'),width);
@@ -167,7 +167,7 @@ test('✎ with an empty title asks for one and creates nothing; [취소] returns
  expect(creates).toEqual([]);expect(f.calls.patch).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`✕ folds the row into 처리함 as 무시함, with 5 s [되돌리기] ${width}`,async({page})=>{
+for(const width of [1280])test(`✕ folds the row into 처리함 as 무시함, with 5 s [되돌리기] ${width}`,async({page})=>{
  const f=await fixture(page,{width});const box=radar(page);
  await tap(page,btn(box.locator(`[data-radar-row="${id(1)}"]`),'무시'),width);
  await expect(box.locator(`[data-radar-open] [data-radar-row="${id(1)}"]`)).toHaveCount(0);
@@ -184,7 +184,7 @@ for(const width of [390,1280])test(`✕ folds the row into 처리함 as 무시�
  expect(f.errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`first 4 open rows and 'N건 더 ›'; open always above handled; count is open only ${width}`,async({page})=>{
+for(const width of [1280])test(`first 4 open rows and 'N건 더 ›'; open always above handled; count is open only ${width}`,async({page})=>{
  // openHome's task list has "오늘 항목"; a candidate with the same title is left out (decision 5).
  const rows=[1,2,3,4,5,6,7].map(n=>cand(n)).concat(cand(8,{summary:'오늘 항목'}),
   cand(10,{summary:'오늘 처리한 가상 요청',status:'tasked',task_id:'today',decided_at:'2026-10-06T00:20:00Z'}),
@@ -299,6 +299,14 @@ test('journal hides the box when the tables are not applied',async({page})=>{
  expect(f.errors).toEqual([]);
 });
 
+// HOME-모바일홈채우기: 폰·중간 폭 홈은 챙길 것 카드 대신 '정리 안 된 것' 한 줄을 쓴다(카드는 PC 홈과 업무일지에서 그대로).
+test('phone home: the 챙길 것 card is not shown (replaced by the 정리 안 된 것 line)',async({page})=>{
+ const f=await fixture(page,{width:390});
+ await expect(radar(page)).toBeHidden();
+ await expect(page.locator('#homeView .home-fill-inbox-line')).toBeVisible();
+ expect(f.errors).toEqual([]);
+});
+
 test('source link opens the update in the basket',async({page})=>{
  const f=await fixture(page);const box=radar(page);
  await box.locator(`[data-radar-row="${id(1)}"] [data-radar-source]`).click();
@@ -307,7 +315,7 @@ test('source link opens the update in the basket',async({page})=>{
 });
 
 // UI-화면점검 ④ + JOURNAL-챙길것화면 ⑥: [다시 찾기]는 홈·업무일지 모두 같은 글자 버튼(굵기·크기·높이).
-for(const width of [390,1280])test(`업무일지 [다시 찾기]는 홈과 같은 글자 버튼 ${width}`,async({page})=>{
+for(const width of [1280])test(`업무일지 [다시 찾기]는 홈과 같은 글자 버튼 ${width}`,async({page})=>{
  const f=await fixture(page,{width});
  const look=l=>l.evaluate(b=>{const c=getComputedStyle(b);return {h:Math.round(b.getBoundingClientRect().height),size:c.fontSize,weight:Number(c.fontWeight),border:c.borderTopStyle}});
  const hf=page.locator('#homeView [data-radar-find]').first();await expect(hf).toBeVisible();
