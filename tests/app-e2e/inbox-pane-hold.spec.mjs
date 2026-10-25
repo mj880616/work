@@ -68,6 +68,19 @@ for(const width of [390,1280])test(`pane switch counts only unprocessed, chips a
  expect(f.errors).toEqual([]);
 });
 
+// BASKET-전환버튼고정: 쪽을 바꿔도 [업데이트][챙길 것] 전환 버튼의 자리(x)·폭이 같다(⋯ 자리는 두 쪽 모두 같은 폭).
+for(const width of [390,1280])test(`pane switch buttons keep their place when the side changes ${width}`,async({page})=>{
+ const f=await fixture(page,width);await enter(page);
+ const spot=async()=>{const u=await paneBtn(page,'update').boundingBox(),t=await paneBtn(page,'todo').boundingBox();return {ux:u.x,uw:u.width,tx:t.x,tw:t.width,uy:u.y,ty:t.y};};
+ const first=await spot();
+ expect(first.uw).toBe(first.tw);
+ await paneBtn(page,'todo').click();await expect(page.locator('#basketView')).toHaveAttribute('data-pane','todo');
+ expect(await spot()).toEqual(first);
+ await paneBtn(page,'update').click();await expect(page.locator('#basketView')).toHaveAttribute('data-pane','update');
+ expect(await spot()).toEqual(first);
+ expect(f.errors).toEqual([]);
+});
+
 for(const width of [390,1280])test(`[노트] is its own menu item and no [업데이트|노트] switch is drawn ${width}`,async({page})=>{
  const f=await fixture(page,width);await enter(page);
  await expect(page.locator('#basketView [data-basket-kind]')).toHaveCount(0);

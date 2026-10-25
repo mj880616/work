@@ -216,3 +216,6 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 /* ED③ 노트: 노트 수정 칸의 본문은 새 편집기(ed-editor.js, 모양은 ed-doc.css). 칸 테두리만 둘러 옛 textarea 자리와 같은 폭·높이로 둔다. */
 #basketView .note-editor .note-body-field { display:block; min-width:0; margin:6px 0 0; border:1px solid var(--kptu-border); border-radius:8px; background:var(--kptu-surface); }
 #basketView .note-editor .note-body-field .ed-editor .ProseMirror { min-height:14em; }
+
+/* BASKET-전환버튼고정: [챙길 것] 쪽에는 ⋯ 메뉴가 없어도 자리(폭)는 그대로 둔다. 안 그러면 폰에서 오른쪽 끝 전환 버튼이 ⋯ 폭만큼 밀린다. */
+#basketView[data-pane="todo"] .basket-more { visibility:hidden; }

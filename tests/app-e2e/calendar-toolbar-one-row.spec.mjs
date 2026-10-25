@@ -6,6 +6,7 @@ for(const width of [360,390,686,760,761,1023,1024,1280,1440])test(`toolbar one r
   const toolbar=page.locator('.calendar-toolbar');
   await expect(toolbar.locator('.calendar-view-switch')).toHaveCount(1);
   expect(await toolbar.evaluate(el=>[...el.children].map(e=>e.id||e.className))).toEqual(['prevMonthBtn','monthTitle','nextMonthBtn','calendarTodayBtn','calendar-toolbar-divider','calendar-view-switch','newEventBtn']);
+  const switchXs=[]; // BASKET-전환버튼고정: 보기를 바꿔도(제목 글자 길이가 달라도) 보기 전환 버튼 자리는 같다
   for(const [view,name] of (width<1024?[['list','목록 보기'],['month','월간 보기']]:[['list','목록 보기'],['week','주간 보기'],['month','월간 보기']])){
     const button=toolbar.getByRole('button',{name,exact:true});await expect(button).toBeVisible();await expect(button.locator('svg')).toHaveCount(1);
     const rect=await button.boundingBox();expect(rect.width).toBe(44);expect(rect.height).toBeGreaterThanOrEqual(30);expect(rect.height).toBeLessThanOrEqual(32); // UI-버튼크기: 작은 세그먼트(상자 32px), 누르는 범위는 아래 targets에서 44px
@@ -18,7 +19,9 @@ for(const width of [360,390,686,760,761,1023,1024,1280,1440])test(`toolbar one r
     for(const inactive of await toolbar.locator('[data-calendar-view][aria-pressed="false"]').all())await expect(inactive).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
     const colors=await button.evaluate(el=>{const s=getComputedStyle(el);return {background:s.backgroundColor,color:s.color,stroke:getComputedStyle(el.querySelector('svg')).stroke}});const sel=await page.evaluate(()=>{const e=document.createElement('span');e.style.cssText='background-color:var(--ds-select-bg);color:var(--ds-select-ink)';document.body.append(e);const s=getComputedStyle(e),r={background:s.backgroundColor,color:s.color};e.remove();return r});expect(colors.background).toBe(sel.background);expect(colors.color).toBe(sel.color);expect(colors.stroke).toBe(colors.color);
     await expect.poll(()=>prefs.value?.calendar_view).toBe(view);
+    const at=await toolbar.locator('.calendar-view-switch').boundingBox();switchXs.push({x:at.x,width:at.width});
   }
+  for(const at of switchXs){expect(at.x).toBe(switchXs[0].x);expect(at.width).toBe(switchXs[0].width);}
   // Do not seed on reload: the selection saved on the (simulated) server must survive.
   await page.reload();await expect(page.locator('#calendarGrid')).toBeVisible();await expect(toolbar.locator('[data-calendar-view="month"]')).toHaveAttribute('aria-pressed','true');
   const geometry=await toolbar.evaluate(el=>{const r=el.getBoundingClientRect(),children=[...el.children].map(e=>({name:e.id||e.className,...e.getBoundingClientRect().toJSON()}));return {width:r.width,left:r.left,right:r.right,children,overflow:document.documentElement.scrollWidth,remaining:r.width-children.reduce((s,c)=>s+c.width,0)-parseFloat(getComputedStyle(el).columnGap)*(el.children.length-1)-[...el.children].filter(e=>e.id!=='newEventBtn').reduce((sum,e)=>sum+parseFloat(getComputedStyle(e).marginLeft)+parseFloat(getComputedStyle(e).marginRight),0)}});
