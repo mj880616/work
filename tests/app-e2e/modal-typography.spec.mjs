@@ -304,7 +304,9 @@ const d6bSelectors=d6bSource('base-ui.css').split('\n').slice(194,210).map(line=
 // PRJ-기록입력: main line 202 styled the progress line (.ps3-pg-summary/.ps3-pg-next) and the header line under the title (#ps3Objective).
 // The progress line is gone; the header line is now #ps3Summary with the same role, so the current page is read through that selector.
 const d6bProgressLine='#ps3DetailModal :is(.ps3-pg-summary,.ps3-pg-next,#ps3Objective)',d6bHeaderLine='#ps3DetailModal #ps3Summary';
-const d6bCurrentSelectors=d6bSelectors.map(selector=>selector===d6bProgressLine?d6bHeaderLine:selector);
+// PRESS-자료실편입 Contract: 삭제된 성명·보도자료 창(#pressDetailModal)은 현재 CSS 묶음 선택자에서 빠졌다.
+const d6bDropPress=selector=>selector.replace(',#pressDetailModal','');
+const d6bCurrentSelectors=d6bSelectors.map(selector=>d6bDropPress(selector===d6bProgressLine?d6bHeaderLine:selector));
 // UI-회의결과창정리: 업로드 상자 글자(#documentModal .library-dropzone strong)와 회의자료 라벨 설명은 화면에서 없어졌다.
 const d6bRetired=['#documentModal .library-dropzone strong','#meetingModal .meeting-materials-block label span'];
 
@@ -445,7 +447,7 @@ test('D-6b keeps hide priorities and removes only dialog priorities',async()=>{
   return current;
  }).join('\n');
  for(const selector of d6bSelectors.filter(selector=>!d6bRetired.includes(selector))){
-  const rule=owned.split('\n').find(line=>line.startsWith((selector===d6bProgressLine?d6bHeaderLine:selector)+'{'));
+  const rule=owned.split('\n').find(line=>line.startsWith(d6bDropPress(selector===d6bProgressLine?d6bHeaderLine:selector)+'{'));
   expect(rule,selector+' stays explicit').toBeDefined();expect(rule).not.toContain('!important');
  }
 });
