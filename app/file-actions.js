@@ -82,7 +82,7 @@ export const isHtmlFile = file => /\.html?$/i.test(String(file?.name || ''));
 // 자료 번호가 있는 사진: 앱 안 크게 보기. 주소는 열 때마다 새로 받는다(한 번 쓰면 끝나는 주소).
 export async function viewDocumentPhoto(file, {api = (...a) => window.KPTURuntime.api(...a), trigger = null} = {}) {
   const {openDocumentPhotoView} = await import('./photo-view.js');
-  return openDocumentPhotoView({file, trigger, getUrl: () => documentTokenUrl(file.documentId, api)});
+  return openDocumentPhotoView({file, trigger, driveHref: driveOpenUrl(file), getUrl: () => documentTokenUrl(file.documentId, api)});
 }
 export async function pressFile(file, {viewPhoto = null, viewHtml = null, api, onError = () => {}} = {}) {
   if (typeof viewHtml === 'function' && file?.documentId && isHtmlFile(file)) { viewHtml(file); return 'html'; }

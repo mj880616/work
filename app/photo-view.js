@@ -2,7 +2,6 @@
 // 화면 위를 덮는 전체 화면 보기에 ×, Esc, 폰 뒤로 가기(라우터 층 하나)가 있다. 사진은 basket-files photo(노트 번호 + 파일 번호)로 읽는다.
 import {photoElement} from './diary-data.js';
 import {attachmentName} from './attachment-name.mjs';
-import {driveOpenUrl} from './file-actions.js';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let current = null;
@@ -33,7 +32,8 @@ export function openPhotoView({row, file, trigger = null, rt = window.KPTURuntim
 
 // 자료실 자료 사진(노트가 없는 자료). getUrl()은 5분짜리 한 번 쓰는 내려받기 주소(workspace-drive download-token)를 준다.
 // 그릴 수 없으면 Drive에서 열기 링크로 바꾼다(photoElement와 같은 대체).
-export function openDocumentPhotoView({file, getUrl, trigger = null}) {
+// driveHref는 그릴 수 없을 때 보여 줄 Drive 보기 주소(file-actions.js가 계산해 넘긴다: 두 파일이 서로 부르지 않게).
+export function openDocumentPhotoView({file, getUrl, driveHref = '', trigger = null}) {
   if (!file || typeof getUrl !== 'function' || current) return false;
   const shown = attachmentName({file_name: file.name}, '사진');
   const box = document.createElement('span');
@@ -42,7 +42,7 @@ export function openDocumentPhotoView({file, getUrl, trigger = null}) {
   img.alt = shown; img.decoding = 'async'; img.hidden = true; box.append(img);
   const fallback = () => {
     img.onload = img.onerror = null; img.remove(); box.dataset.state = 'link';
-    const href = driveOpenUrl(file);
+    const href = driveHref;
     if (!href) { const mark = document.createElement('span'); mark.className = 'diary-photo-mark'; mark.textContent = '사진'; box.append(mark); return; }
     const a = document.createElement('a');
     a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.className = 'diary-photo-link';
