@@ -23,6 +23,16 @@ export function fileKindOf(name,mime){
   return KIND_BY_MIME.find(([re])=>re.test(type))?.[1]||'파일';
 }
 
+// 그림 크게 보기 규칙(file-actions.js clickKind가 이 함수 하나를 쓴다): '그림'(fileKindOf)이면서 브라우저가 그릴 수 있는 형식만.
+// HEIC·BMP 등 그림이지만 브라우저가 못 그리거나 믿기 어려운 형식은 크게 보기 대신 Drive 열기/내려받기로 간다.
+const VIEWABLE_IMAGE=Object.freeze(['JPG','JPEG','PNG','GIF','WEBP']);
+export function isViewableImage(name,mime){
+  if(fileKindOf(name,mime)!=='그림')return false;
+  const ext=String(name||'').includes('.')?String(name).split('.').pop().toUpperCase():'';
+  if(KIND_BY_EXT[ext]==='그림')return VIEWABLE_IMAGE.includes(ext);
+  const sub=/^image\/([a-z0-9.+-]+)$/i.exec(String(mime||'').trim())?.[1]?.toUpperCase()||'';
+  return VIEWABLE_IMAGE.includes(sub);
+}
 const byKey=(a,b)=>a.key===b.key?a.i-b.i:!a.key?1:!b.key?-1:a.key<b.key?1:-1;
 // 파일 순서(결정 D6): 날짜 최신순(자료 날짜 → 올린 날), 같으면 받은 순서.
 export function sortFiles(files,sortKey){return files.map((d,i)=>({d,i,key:sortKey(d)})).sort(byKey).map(x=>x.d)}
