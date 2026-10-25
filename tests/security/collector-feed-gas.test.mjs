@@ -152,6 +152,9 @@ test('call_skip 몸통 모양은 서버와 같다({day, personal, short})',()=>{
 });
 
 // ---- 실행 흐름: 지어낸 Drive·스크립트 속성·UrlFetchApp로 callFeed_run을 돌린다 ----------------------------------
+// 시험용 고정 시계: 실제 날짜가 흘러도(녹음 날짜는 최근 7일 안이어야 함) 같은 결과가 나오게 한다.
+const NOW0=Date.parse('2026-10-25T03:00:00Z');
+class FixedDate extends Date{constructor(...a){if(a.length)super(...a);else super(NOW0);}static now(){return NOW0;}}
 function fakeEnv({props={},responses=[],custom=null}={}){
   const store={...props};
   const sent=[];
@@ -186,14 +189,14 @@ function fakeEnv({props={},responses=[],custom=null}={}){
     UrlFetchApp:{fetch:(url,opt)=>{sent.push({url,opt});const r=responses.shift()??{code:200,body:{ok:true,kept:1,personal:0,unsure:0,failed:0,duplicate:false}};
       return {getResponseCode:()=>r.code,getContentText:()=>JSON.stringify(r.body??{})};}},
     ScriptApp:{getProjectTriggers:()=>[],newTrigger:()=>({timeBased:()=>({everyHours:()=>({create:()=>{}})})})},
-    Date,JSON,
+    Date:FixedDate,JSON,
   };
   vm.createContext(env);
   vm.runInContext(source.replace("'여기에_통화녹음_폴더_주소_끝부분'","'FAKEROOT'"),env);
   return {env,store,sent,logs};
 }
 const SECRET='synthetic-collector-feed-secret-0123456789';
-const BASE={CALL_FEED_STATE:JSON.stringify({since:'2026-10-23T00:00:00.000Z'}),CALL_FEED_PERSONAL_LIST:'010-1111-2222'};
+const BASE={CALL_FEED_STATE:JSON.stringify({since:'2026-10-23T00:00:00.000Z',backfillChecked:true}),CALL_FEED_PERSONAL_LIST:'010-1111-2222'};
 
 test('실행 흐름 — 시험 모드(기본): 아무것도 보내지 않고, 어디까지 보냈는지도 바꾸지 않고, 개수만 로그에 남긴다',()=>{
   const {env,store,sent,logs}=fakeEnv({props:{...BASE}});
@@ -246,7 +249,6 @@ test('실행 흐름 — 서버 실패(503)면 그 건에서 멈추고 다음 실
 // ---- 분석 대기: 막히지 않고 건너뛰어 계속, 대기 목록에서 한 번씩만 처리 ----------------------------------
 const HOUR=3600*1000;
 // 가장 오래된 통화는 분석이 없고(방금 만든 것), 그 뒤 두 통화는 분석이 있다.
-const NOW0=Date.now();
 function waitScenario({analysisLater=false,ageH=1}={}){
   const now=NOW0;
   const tA=now-ageH*HOUR, tB=now-ageH*HOUR+1000, tC=now-ageH*HOUR+2000;
@@ -259,7 +261,7 @@ function waitScenario({analysisLater=false,ageH=1}={}){
       ...(analysisLater?{[G.callFeedAnalysisName(nameA,'TXTWAIT0001aa')]:file('a1','A1',tA,analysis({isWork:'false'}).replace(REF,'TXTWAIT0001aa'))}:{}),
     }})};
 }
-const SINCE_OLD=JSON.stringify({since:new Date(Date.now()-48*HOUR).toISOString()});
+const SINCE_OLD=JSON.stringify({since:new Date(NOW0-48*HOUR).toISOString(),backfillChecked:true});
 
 test('분석 대기 통화: 시험 모드는 건너뛰고 계속 세며, 진행 위치·대기 목록을 저장하지 않는다',()=>{
   const sc=waitScenario();
@@ -304,7 +306,7 @@ test('분석 대기 통화: 다음 실행에서 분석이 생기면 한 번 보�
 
 test('분석 대기 통화: 3일이 지나도 분석이 없으면 넘김으로 세고 목록에서 뺀다',()=>{
   const sc=waitScenario();
-  const pend=JSON.stringify({since:new Date(sc.tC).toISOString(),pending:[{id:'TXTWAIT0001aa',created:Date.now()-73*HOUR,tries:5}]});
+  const pend=JSON.stringify({since:new Date(sc.tC).toISOString(),backfillChecked:true,pending:[{id:'TXTWAIT0001aa',created:NOW0-73*HOUR,tries:5}]});
   const {env,store,sent,logs}=fakeEnv({props:{CALL_FEED_STATE:pend,CALL_FEED_TEST_MODE:'끔',COLLECTOR_FEED_SECRET:SECRET},custom:sc.custom});
   env.callFeed_run();
   assert.equal(sent.length,0);
@@ -335,4 +337,87 @@ test('최근 일주일보다 오래된 녹음은 보내지 않는다(명진 결�
   assert.equal(G.callFeedTooOld('2026-10-18',now),false);
   assert.equal(G.callFeedTooOld('2026-10-25',now),false);
   assert.equal(G.callFeedTooOld('',now),false,'날짜를 못 읽으면 넘기지 않는다');
+});
+
+// ---- 최근 7일 보충·중복 방지·상한·화자 번호 (feed-send) ----------------------------------------------------------
+test('최근 일주일 시작 시각: 한국 날짜로 7일 전 0시. callFeedTooOld와 같은 날짜선',()=>{
+  const now=Date.parse('2026-10-25T03:00:00Z');
+  assert.equal(G.callFeedRecentStartMs(now),Date.parse('2026-10-18T00:00:00+09:00'));
+  assert.equal(G.callFeedRecentStartMs(Date.parse('2026-10-24T16:00:00Z')),Date.parse('2026-10-18T00:00:00+09:00'),'UTC로는 24일이어도 한국은 25일');
+});
+
+// 설치(10/25 09:40 한국) 전에 만들어진 전사: 녹음은 10/22·10/23, 분석은 나중에 끝남. 10/10 녹음은 일주일 밖.
+function installScenario(n=0){
+  const INSTALL=Date.parse('2026-10-25T00:40:00Z');
+  const day=(d)=>Date.parse(d+'T01:00:00Z');
+  const list=[['통화 가상 갑_261022_090000.txt','TXTOLD0000122',day('2026-10-22')],['통화 가상 을_261023_090000.txt','TXTOLD0000123',day('2026-10-23')],
+    ['통화 가상 병_261010_090000.txt','TXTOLD0000110',day('2026-10-23')]];
+  for(let i=0;i<n;i++) list.push([`통화 가상 ${i}_261024_1000${String(i).padStart(2,'0')}.txt`,`TXTMANY${String(i).padStart(6,'0')}`,day('2026-10-24')+i*1000]);
+  return {INSTALL,custom:(file)=>({
+    transcripts:list.map(([nm,id,c])=>file(nm,id,c,TRANSCRIPT)),
+    analyses:Object.fromEntries(list.map(([nm,id,c])=>[G.callFeedAnalysisName(nm,id),file('a'+id,'A'+id,c,analysis().replace(REF,id))])),
+  })};
+}
+const REAL={CALL_FEED_TEST_MODE:'끔',COLLECTOR_FEED_SECRET:SECRET};
+
+test('설치 전에 만든 최근 7일 통화도 한 번 보낸다. 일주일 넘은 녹음은 넘기고, 다음 실행에는 다시 보내지 않는다',()=>{
+  const sc=installScenario();
+  const first=fakeEnv({props:{...REAL,CALL_FEED_STATE:JSON.stringify({since:new Date(sc.INSTALL).toISOString()})},custom:sc.custom});
+  first.env.callFeed_run();
+  const calls=first.sent.filter((s)=>s.url.endsWith('action=call'));
+  assert.deepEqual(calls.map((s)=>JSON.parse(s.opt.payload).ref).sort(),['TXTOLD0000122','TXTOLD0000123']);
+  const st=JSON.parse(first.store.CALL_FEED_STATE);
+  assert.equal(st.backfillChecked,true);assert.equal(st.backfill,null,'보충이 끝나면 지운다');
+  assert.match(first.logs.join('\n'),/일주일 넘은 옛 녹음 넘김: 1/);
+  const second=fakeEnv({props:{...REAL,CALL_FEED_STATE:first.store.CALL_FEED_STATE},custom:sc.custom});
+  second.env.callFeed_run();
+  assert.equal(second.sent.length,0,'보낸 통화는 다시 보내지 않는다');
+});
+
+test('보충 구간: 시험 모드는 보내지 않고 상태도 바꾸지 않지만 개수는 센다',()=>{
+  const sc=installScenario();
+  const state=JSON.stringify({since:new Date(sc.INSTALL).toISOString()});
+  const t=fakeEnv({props:{CALL_FEED_STATE:state},custom:sc.custom});
+  t.env.callFeed_run();
+  assert.equal(t.sent.length,0);assert.equal(t.store.CALL_FEED_STATE,state);
+  assert.match(t.logs.join('\n'),/보낼 것: 2/);
+});
+
+test('한 번에 보낼 개수 상한: 20건에서 멈추고 진행 위치를 적어 다음 실행에서 나머지만 보낸다(겹침 없음)',()=>{
+  const sc=installScenario(25);   // 최근 일주일 안 27건 + 옛 녹음 1건
+  const first=fakeEnv({props:{...REAL,CALL_FEED_STATE:JSON.stringify({since:new Date(sc.INSTALL).toISOString()})},custom:sc.custom});
+  first.env.callFeed_run();
+  const refs1=first.sent.filter((s)=>s.url.endsWith('action=call')).map((s)=>JSON.parse(s.opt.payload).ref);
+  assert.equal(refs1.length,20);
+  const st=JSON.parse(first.store.CALL_FEED_STATE);
+  assert.ok(st.backfill&&st.backfill.from>0,'멈춘 자리부터 이어 한다');
+  assert.match(first.logs.join('\n'),/한 번에 보낼 수 도달/);
+  const second=fakeEnv({props:{...REAL,CALL_FEED_STATE:first.store.CALL_FEED_STATE},custom:sc.custom});
+  second.env.callFeed_run();
+  const refs2=second.sent.filter((s)=>s.url.endsWith('action=call')).map((s)=>JSON.parse(s.opt.payload).ref);
+  assert.equal(refs2.length,7);
+  assert.equal(new Set([...refs1,...refs2]).size,27,'같은 통화가 두 번 가지 않는다');
+  assert.equal(JSON.parse(second.store.CALL_FEED_STATE).backfill,null);
+});
+
+test('처음 설치(callFeed_setup)는 시작 시각을 일주일 전 0시(한국)로 적고 따로 보충할 구간을 두지 않는다',()=>{
+  const {env,store}=fakeEnv({props:{COLLECTOR_FEED_SECRET:SECRET}});
+  env.callFeed_setup();
+  const st=JSON.parse(store.CALL_FEED_STATE);
+  assert.equal(st.since,new Date(Date.parse('2026-10-18T00:00:00+09:00')).toISOString());
+  assert.equal(st.backfillChecked,true);
+});
+
+test('화자 번호: 0번부터 오면 분석·전사를 함께 1씩 올려 화자1부터 보낸다. 1번부터 오면 그대로',()=>{
+  assert.equal(G.callFeedShiftSpeakers('화자0: 안녕\n화자1: 네\n화자 2: 응'),'화자1: 안녕\n화자2: 네\n화자 3: 응');
+  assert.equal(G.callFeedHasSpeakerZero('화자0: 가'),true);assert.equal(G.callFeedHasSpeakerZero('화자10: 가\n화자1: 나'),false);
+  const md=analysis().replace('has_candidates: true','has_candidates: true\nspeaker_labels: {"화자0":"나","화자1":"상대"}').replace('3차 교섭','화자0이 3차 교섭');
+  const body=plain(G.callFeedBuildCallBody({ref:REF,analysisMd:md,transcript:'화자0: 안녕하세요\n화자1: 네'}));
+  assert.equal(body.transcript,'화자1: 안녕하세요\n화자2: 네');
+  assert.match(body.analysis_md,/speaker_labels: \{"화자1":"나","화자2":"상대"\}/);
+  assert.ok(!/화자0/.test(body.analysis_md)&&/화자1이 3차 교섭/.test(body.analysis_md));
+  const ok=parseCall(parseCallBody(body),ORGS,NOW);
+  assert.equal(ok.kind,'business');
+  const keep=plain(G.callFeedBuildCallBody({ref:REF,analysisMd:analysis(),transcript:TRANSCRIPT}));
+  assert.equal(keep.transcript,TRANSCRIPT,'1번부터 오면 건드리지 않는다');
 });
