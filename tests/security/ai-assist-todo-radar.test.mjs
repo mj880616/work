@@ -357,3 +357,91 @@ test('source: no real name or job title is written in code or tests (public repo
   const files=['supabase/functions/ai-assist/todo-radar.ts','supabase/functions/ai-assist/handler.ts','tests/security/ai-assist-todo-radar.test.mjs'];
   for(const f of files)assert.doesNotMatch(readFileSync(f,'utf8'),new RegExp(['부'+'팀장','공공기관'+'사업팀','김'+'명진'].join('|')),f);
 });
+
+// ---- MTG-후속할일후보: 사업 보고 하나 뽑기(mode=meeting)와 사업 보고 판단 재료 -------------------------------------------
+const MEETING=id(10);
+const linked=db=>{db.app_record_links=[
+  {id:id(800),workspace_id:WS,source_meeting_id:MEETING,project_id:PROJECT,organization_id:null,status:'confirmed'},
+  {id:id(801),workspace_id:WS,source_meeting_id:MEETING,project_id:null,organization_id:ORG,status:'confirmed'},
+  {id:id(802),workspace_id:WS,source_meeting_id:MEETING,project_id:null,organization_id:FOREIGN_ORG,status:'confirmed'},
+];};
+const meetingBody=(meeting_id=MEETING)=>({kind:'todo_radar',mode:'meeting',meeting_id});
+
+test('meeting mode: reads only that meeting, does not move the baseline or the daily count, links name the project and organization',async()=>{
+  const state={last_day:TODAY,runs_on_day:DAILY_LIMITS.todo_radar,last_success_at:RECENT,last_partial:false};
+  const {handler,calls,db}=harness({state,openai:[()=>respond(answer([item({source:'r1',summary:'C 회의 참석.',kind:'attend',evidence:'참석 요청 받음',owner:'support'})]))]});
+  linked(db);
+  const res=await post(handler,meetingBody());
+  assert.equal(res.status,200);
+  const body=await res.json();
+  assert.deepEqual(body,{ok:true,kind:'todo_radar',added:1,found:1,partial:false,checked_at:RECENT,promises:[]});
+  // Only the one meeting was read: no notes, organization or project records.
+  assert.deepEqual([...new Set(calls.rest.map(c=>c.table))].filter(t=>['app_notes','app_suborganization_updates','app_project_progress_updates'].includes(t)),[]);
+  const records=JSON.parse(calls.openai[0].input[1].content).records;
+  assert.equal(records.length,1);assert.equal(records[0].type,'회의 결과');
+  assert.deepEqual(records[0].connected,[{kind:'내 담당 사업',name:'B 프로젝트'},{kind:'담당조직',name:'A 사업장'}]);
+  const material=calls.openai[0].input[1].content;
+  for(const hidden of [FOREIGN_ORG,'남의 조직',OWNER,WS,MEETING,PROJECT,ORG])assert.ok(!material.includes(hidden),hidden+' must not be sent');
+  const saved=db.app_todo_candidates[0];
+  assert.equal(saved.source_kind,'meeting');assert.equal(saved.source_id,MEETING);assert.equal(saved.status,'open');
+  assert.equal(saved.project_id,PROJECT);assert.equal(saved.organization_id,ORG);
+  const st=db.app_todo_radar_state[0];
+  assert.equal(st.running_since,null);assert.equal(st.last_success_at,RECENT);assert.equal(st.runs_on_day,DAILY_LIMITS.todo_radar);assert.equal(st.last_day,TODAY);
+  assert.equal(db.app_ai_daily_usage[0].requests,1);
+});
+
+test('meeting mode: items already raised, tasked or dismissed for the meeting are told to the AI and never added again',async()=>{
+  const old=(n,status,summary)=>({id:id(950+n),workspace_id:WS,kind:'attend',summary,due:null,source_kind:'meeting',source_id:MEETING,source_day:'2026-10-20',evidence:'',
+    dedupe_key:radar.dedupeKey('meeting',MEETING,summary),status,task_id:status==='tasked'?'t1':null,decided_at:status==='open'?null:RECENT,created_at:RECENT});
+  const candidates=[old(1,'tasked','C 회의 참석.'),old(2,'dismissed','자료 취합 요청 회신.')];
+  const {handler,calls,db}=harness({candidates,openai:[()=>respond(answer([item({source:'r1',summary:'C 회의 참석.',kind:'attend',owner:'me'}),item({source:'r1',summary:'자료 취합 요청 회신.',kind:'request',owner:'me'}),item({source:'r1',summary:'새 보고서 초안 준비.',kind:'prepare',owner:'me'})]))]});
+  linked(db);
+  const body=await (await post(handler,meetingBody())).json();
+  assert.equal(body.added,1);
+  const records=JSON.parse(calls.openai[0].input[1].content).records;
+  assert.ok(records[0].already_handled.includes('C 회의 참석.')&&records[0].already_handled.includes('자료 취합 요청 회신.'));
+  assert.equal(db.app_todo_candidates.length,3);
+  assert.equal(db.app_todo_candidates.filter(c=>c.status==='open').length,1);
+  assert.equal(db.app_todo_candidates.find(c=>c.id===id(951)).status,'tasked');
+  assert.equal(db.app_todo_candidates.find(c=>c.id===id(952)).status,'dismissed');
+});
+
+test('meeting mode: input is kind+mode+meeting_id only; foreign or missing meeting is 404 without OpenAI; the total daily limit still applies',async()=>{
+  for(const body of [{kind:'todo_radar',mode:'meeting'},{kind:'todo_radar',mode:'meeting',meeting_id:'x'},{...meetingBody(),workspace_id:WS},{kind:'todo_radar',mode:'again',meeting_id:MEETING},{...meetingBody(),text:'x'}]){
+    const {handler,calls}=harness();await expectError(await post(handler,body),400,'invalid_request');assert.equal(calls.openai.length,0);
+  }
+  {const {handler,calls}=harness();await expectError(await post(handler,meetingBody(id(999))),404,'not_found');assert.equal(calls.openai.length,0);}
+  {const {handler,calls,db}=harness();db.app_meetings.push({id:id(20),workspace_id:OTHER_WS,title:'남의 회의',series_name:'남의 회의',meeting_at:RECENT,transcript_text:'FOREIGN_MEETING',updated_at:RECENT});
+   await expectError(await post(handler,meetingBody(id(20))),404,'not_found');assert.equal(calls.openai.length,0);}
+  {const {handler,calls}=harness({usage:[{workspace_id:WS,user_id:OWNER,day:TODAY,requests:DAILY_TOTAL_LIMIT,input_tokens:0,output_tokens:0}]});
+   await expectError(await post(handler,meetingBody()),429,'daily_limit');assert.equal(calls.openai.length,0);}
+  {const {handler,calls}=harness();await expectError(await post(handler,meetingBody(),null),401,'session_required');assert.equal(calls.rest.length,0);}
+});
+
+test('meeting mode: a failed run releases the mark and changes nothing; an empty meeting skips OpenAI',async()=>{
+  {const {handler,db}=harness({openai:[()=>respond({status:'failed'})]});
+   await expectError(await post(handler,meetingBody()),502,'ai_invalid_response');
+   assert.equal(db.app_todo_candidates.length,0);assert.equal(db.app_todo_radar_state[0].running_since,null);}
+  {const {handler,calls,db}=harness();db.app_meetings[0].transcript_text='  ';
+   const b=await (await post(handler,meetingBody())).json();assert.equal(b.added,0);assert.equal(calls.openai.length,0);assert.equal(db.app_todo_radar_state[0].running_since,null);}
+  {const {handler,db}=harness({state:{running_since:new Date(NOW-1000).toISOString()}});
+   await expectError(await post(handler,meetingBody()),409,'in_progress');assert.equal(db.app_todo_candidates.length,0);}
+});
+
+test('auto run: the meeting record also carries connected names; other records do not; works without the link table',async()=>{
+  const {handler,calls,db}=harness({openai:[()=>respond(answer([]))]});
+  linked(db);
+  await post(handler,find('again'));
+  const records=JSON.parse(calls.openai[0].input[1].content).records;
+  const meeting=records.find(r=>r.type==='회의 결과');
+  assert.deepEqual(meeting.connected.map(c=>c.name),['B 프로젝트','A 사업장']);
+  assert.ok(records.filter(r=>r.type!=='회의 결과').every(r=>!('connected' in r)&&!('already_handled' in r)));
+  const {handler:h2,calls:c2}=harness({openai:[()=>respond(answer([]))]});
+  assert.equal((await post(h2,find('again'))).status,200);
+  assert.ok(!('connected' in JSON.parse(c2.openai[0].input[1].content).records.find(r=>r.type==='회의 결과')));
+});
+
+test('instructions: meeting rules name connected, 내 담당 사업 and already_handled, and ask for the passage as evidence',()=>{
+  const text=radar.buildTodoRadarInstructions();
+  for(const word of ['connected','내 담당 사업','already_handled','evidence'])assert.ok(text.includes(word),word);
+});
