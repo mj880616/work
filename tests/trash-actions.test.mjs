@@ -86,3 +86,25 @@ test('readTrashKind: 배열이면 ready, 종류 거절이면 missing', async () 
   assert.equal((await readTrashKind('report', fakeRuntime({oldFunction: true}))).state, 'missing');
   assert.equal((await readTrashKind('report', fakeRuntime({listFails: true}))).state, 'failed');
 });
+
+test('자료실 폴더: 확인창에 아래 폴더·자료 수가 실리고, 휴지통 목록으로 확인한 뒤에만 이동 안내와 되돌리기를 낸다', async () => {
+  const rt = fakeRuntime();
+  let confirmText = ''; const removed = [];
+  const result = await deleteToTrash({kind: 'library_folder', id: 'x1', name: '합성 폴더', detail: {folders: 2, files: 3}, rt,
+    ask: (t) => { confirmText = t; return true; }, notify: () => {}, remove: async () => { removed.push('x1'); await rt.api('/rest/v1/app_library_folders?id=eq.x1', {method: 'DELETE'}); }});
+  assert.equal(result.status, 'moved');
+  assert.match(confirmText, /“합성 폴더” 폴더를 휴지통으로 옮길까요\?\n아래 폴더 2개·자료 3개도 함께 들어가고/);
+  assert.deepEqual(removed, ['x1']);
+  assert.ok(rt.calls.filter((c) => c.path.endsWith('app_trash_list')).every((c) => c.body.p_kind === 'library_folder'));
+  assert.equal(rt.calls.filter((c) => c.path.endsWith('app_trash_list')).length, 2);
+});
+
+test('자료실 폴더: DB 적용 전(옛 함수)이면 준비 중만 알리고 확인창도 DELETE도 없다', async () => {
+  const rt = fakeRuntime({oldFunction: true});
+  const said = []; let asked = 0;
+  const result = await deleteToTrash({kind: 'library_folder', id: 'x1', name: '합성 폴더', rt, ask: () => { asked++; return true; }, notify: (m) => said.push(m), remove: () => rt.api('/x', {method: 'DELETE'})});
+  assert.equal(result.status, 'blocked');
+  assert.equal(asked, 0);
+  assert.deepEqual(deletes(rt), []);
+  assert.match(said[0], /자료실 폴더 휴지통은 준비 중입니다/);
+});

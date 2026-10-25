@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 import {
   TRASH_STATE, TRASH_TEXT, classifyTrashError, classifyTrashList, normalizeTrashRows,
   deleteDialogText, trashErrorText, purgeConfirmText, archiveButtonLabel, firstArchiveTab,
-  TRASH_KINDS, mergeTrashStates, otherDeleteText, otherDeleteBlockedText, restoredText, missingOrganizationLabel,
+  TRASH_KINDS, mergeTrashStates, otherDeleteText, otherDeleteBlockedText, restoredText, parentFirstText, missingOrganizationLabel,
 } from '../app/project-trash-model.mjs';
 
 test('함수가 없을 때(404·PGRST202)는 missing, 그 밖의 실패는 failed', () => {
@@ -120,13 +120,15 @@ test('종류별 줄 정리: 담당조직·사업 보고 이름, 종류 걸러내
     {kind: 'report', id: 'r1', title: '합성 보고', series_name: '합성 회의', round_no: 3, deleted_at: '2026-10-24T01:00:00Z'},
     {kind: 'report', id: 'r2', title: '제목만', series_name: null, round_no: null, deleted_at: '2026-10-23T01:00:00Z'},
     {kind: 'report', id: 'r3', title: '', deleted_at: '2026-10-22T01:00:00Z'},
+    {kind: 'library_folder', id: 'f1', name: ' 합성 폴더 ', project_name: '합성 사업', child_count: 2, file_count: 3, deleted_at: '2026-10-25T05:00:00Z'},
     {kind: 'other', id: 'x1', name: '모르는 종류'},
   ];
-  assert.deepEqual(TRASH_KINDS, ['project', 'organization', 'report']);
+  assert.deepEqual(TRASH_KINDS, ['project', 'organization', 'report', 'library_folder']);
+  assert.deepEqual(normalizeTrashRows(data, 'library_folder').map((r) => [r.id, r.name, r.kind, r.project_name, r.child_count, r.file_count]), [['f1', '합성 폴더', 'library_folder', '합성 사업', 2, 3]]);
   assert.deepEqual(normalizeTrashRows(data, 'organization').map((r) => [r.id, r.name, r.kind]), [['o1', '합성 조직', 'organization']]);
   const reports = normalizeTrashRows(data, 'report');
   assert.deepEqual(reports.map((r) => r.name), ['합성 회의 3회', '제목만', '이름 없는 사업 보고']);
-  assert.deepEqual(normalizeTrashRows(data, null).map((r) => r.id), ['o1', 'r1', 'r2', 'r3', 'p1']);
+  assert.deepEqual(normalizeTrashRows(data, null).map((r) => r.id), ['f1', 'o1', 'r1', 'r2', 'r3', 'p1']);
   assert.deepEqual(normalizeTrashRows(data).map((r) => r.id), ['p1'], '종류를 안 주면 예전처럼 프로젝트만');
 });
 
@@ -152,6 +154,27 @@ test('담당조직·사업 보고 삭제 글: 휴지통으로, 준비 중이면 
   assert.match(otherDeleteBlockedText('report', TRASH_STATE.FAILED), /확인하지 못해 삭제하지 않았습니다/);
 });
 
+test('자료실 폴더 삭제 글: 휴지통으로, 아래 폴더·자료 수를 알리고, 준비 중이면 삭제할 수 없다고 알림', () => {
+  const plain = otherDeleteText('library_folder', '합성 폴더');
+  assert.match(plain.confirm, /“합성 폴더” 폴더를 휴지통으로 옮길까요\?/);
+  assert.doesNotMatch(plain.confirm, /함께 들어가고/);
+  const withInside = otherDeleteText('library_folder', '합성 폴더', {folders: 2, files: 5});
+  assert.match(withInside.confirm, /아래 폴더 2개·자료 5개도 함께 들어가고, 자료는 자료실 목록에서 함께 숨습니다/);
+  assert.match(withInside.confirm, /자료와 Drive 파일은 지워지지 않고, 휴지통에서 되돌리면 원래대로/);
+  assert.doesNotMatch(withInside.confirm, /삭제할까요|한 단 위/);
+  assert.equal(withInside.moved, '폴더를 휴지통으로 옮겼습니다.');
+  assert.match(otherDeleteText('library_folder', '합성', {folders: 0, files: 1}).confirm, /자료 1개도 함께/);
+  assert.match(otherDeleteBlockedText('library_folder', TRASH_STATE.MISSING), /자료실 폴더 휴지통은 준비 중입니다.*삭제할 수 없습니다/);
+  assert.match(purgeConfirmText({kind: 'library_folder', name: '합성 폴더', child_count: 1, file_count: 4}), /“합성 폴더” 폴더를 영구 삭제할까요.*안의 아래 폴더 1개·자료 4개는 한 단 위로 올라갑니다.*Drive 파일은 지우지 않으며/s);
+  assert.match(purgeConfirmText({kind: 'library_folder', name: '합성', child_count: 0, file_count: 0}), /안의 것은 한 단 위로/);
+  assert.equal(restoredText('library_folder'), '폴더를 되돌렸습니다.');
+  assert.equal(parentFirstText('library_folder'), '상위 폴더를 먼저 되돌려 주세요.');
+  assert.equal(parentFirstText('project'), TRASH_TEXT.PARENT_FIRST);
+  assert.equal(trashErrorText({message: 'LIB_FOLDER_DEPTH: folders are limited to 3 levels'}), TRASH_TEXT.FOLDER_DEPTH);
+  assert.equal(trashErrorText({message: 'TRASH_PARENT_IN_TRASH'}), TRASH_TEXT.PARENT_FIRST);
+  assert.equal(mergeTrashStates({project: TRASH_STATE.READY, organization: TRASH_STATE.READY, report: TRASH_STATE.READY, library_folder: TRASH_STATE.MISSING}), TRASH_STATE.READY);
+});
+
 test('영구 삭제 확인·되돌림 글은 종류마다 맞고, 같은 이름 충돌은 일상어', () => {
   assert.match(purgeConfirmText({kind: 'organization', name: '합성 조직'}), /“합성 조직” 담당조직을 영구 삭제할까요.*되돌릴 수 없습니다/s);
   assert.match(purgeConfirmText({kind: 'report', name: '합성 보고'}), /“합성 보고” 사업 보고를 영구 삭제할까요.*Google 할 일/s);
@@ -174,9 +197,9 @@ test('화면 코드: 조직·보고 삭제는 공용 동작 한 곳, 준비 중�
   const iList = actions.indexOf('readTrashKind(kind, rt)'), iAsk = actions.indexOf('ask(text.confirm)'), iRemove = actions.indexOf('await remove()');
   assert.ok(iList > 0 && iList < iAsk && iAsk < iRemove, '확인 순서');
   assert.match(actions, /first\.state !== TRASH_STATE\.READY/);
-  for (const [file, kind] of [['../app/suborganizations.js', 'organization'], ['../app/meeting-round-detail.js', 'report']]) {
+  for (const [file, kind] of [['../app/suborganizations.js', 'organization'], ['../app/meeting-round-detail.js', 'report'], ['../app/library-folders.js', 'library_folder']]) {
     const js = read(file);
     assert.ok(js.includes(`deleteToTrash({kind:'${kind}'`), file);
-    assert.doesNotMatch(js, /담당조직을 삭제할까요|사업 보고를 삭제할까요/, file);
+    assert.doesNotMatch(js, /담당조직을 삭제할까요|사업 보고를 삭제할까요|폴더를 지울까요/, file);
   }
 });

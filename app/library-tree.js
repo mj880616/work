@@ -164,8 +164,10 @@ export function folderReorderPlan(folders,id,dir){
   const order=sib.map(x=>x.id);[order[i],order[j]]=[order[j],order[i]];
   return order.map((x,k)=>({id:x,sort_order:(k+1)*SORT_GAP})).filter(p=>Number(sib.find(s=>s.id===p.id).sort_order)!==p.sort_order);
 }
-// 지울 때 안내용: 바로 아래 폴더 수와 그 폴더에 든 자료 수(한 단 위로 감).
-export function folderDeleteCounts(folders,items,id){return {folders:folders.filter(f=>f.parent_id===id).length,files:items.filter(x=>x.folder_id===id).length}}
+// TRASH-다른삭제 3단계: 휴지통으로 가는 묶음(그 폴더 + 아래 폴더 전부)의 아래 폴더 수와 그 안 자료 수. 화면 확인 창 글에만 쓴다.
+export function folderTrashCounts(folders,items,id){const ids=new Set([id]);let grew=true;while(grew){grew=false;for(const f of folders)if(f.parent_id&&ids.has(f.parent_id)&&!ids.has(f.id)){ids.add(f.id);grew=true}}return {folders:ids.size-1,files:items.filter(x=>ids.has(x.folder_id)).length}}
+// 자료실 목록에서 함께 숨길 자료: 연결된 폴더가 지금 보이는 폴더 목록에 없는 자료(그 폴더가 휴지통에 있다). 폴더 목록을 읽지 못했으면 아무것도 숨기지 않는다.
+export function documentsInTrashedFolders(folders,items,ready=true){if(!ready)return new Set();const seen=new Set(folders.map(f=>f.id));return new Set(items.filter(x=>x.folder_id&&!seen.has(x.folder_id)).map(x=>x.document_id))}
 // 폴더 이름 검사(DB 검사와 같음: 1~40자, 앞뒤 공백·제어문자 없음). 앞뒤 공백은 잘라서 쓴다.
 export function cleanFolderName(raw){const name=String(raw??'').replace(/[\u0000-\u001f\u007f]/g,'').trim();return name.length>=1&&[...name].length<=40?name:null}
 // DB 거절(23514 + LIB_FOLDER_*)을 일상어로.

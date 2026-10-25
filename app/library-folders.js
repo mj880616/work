@@ -4,7 +4,7 @@
 // 순환·3단·같은 프로젝트 틀은 DB 트리거가 지키고(거절 SQLSTATE 23514 + LIB_FOLDER_*), 화면은 같은 규칙으로 고를 수 있는 곳만 보인다.
 // 폴더·자료 연결만 바꾼다. 자료(app_documents)·프로젝트·Drive 파일은 건드리지 않는다.
 import {createAnchoredMenu} from './anchored-menu.js';
-import {FOLDER_DEPTH,SORT_GAP,canAddChild,cleanFolderName,folderDeleteCounts,folderDepth,folderErrorText,folderMoveTargets,folderReorderPlan,folderSiblings,nextSortOrder} from './library-tree.js';
+import {FOLDER_DEPTH,SORT_GAP,canAddChild,cleanFolderName,folderTrashCounts,folderDepth,folderErrorText,folderMoveTargets,folderReorderPlan,folderSiblings,nextSortOrder} from './library-tree.js';
 
 const T_FOLDERS='/rest/v1/app_library_folders',T_ITEMS='/rest/v1/app_library_folder_items';
 const enc=encodeURIComponent;
@@ -36,8 +36,20 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{}})
   const renameFolder=(id,name)=>run(()=>api(T_FOLDERS+where(id),{method:'PATCH',prefer:'return=minimal',body:{name}}),'이름을 바꿨어요.');
   const reorderFolder=(id,dir)=>{const plan=folderReorderPlan(s().folders,id,dir);if(!plan.length)return Promise.resolve(false);return run(async()=>{for(const p of plan)await api(T_FOLDERS+where(p.id),{method:'PATCH',prefer:'return=minimal',body:{sort_order:p.sort_order}})})};
   const moveFolder=(id,parentId)=>{const f=folder(id),pid=f?.project_id||null;return run(()=>api(T_FOLDERS+where(id),{method:'PATCH',prefer:'return=minimal',body:{parent_id:parentId||null,sort_order:nextSortOrder(folderSiblings(s().folders,{projectId:pid,parentId}))}}),'폴더를 옮겼어요.').then(ok=>{if(ok)reveal(chain(pid,parentId));return ok})};
-  // 지우기는 요청 하나에 폴더 하나(설계 3.4). 안의 폴더·자료는 DB가 한 단 위로 올린다.
-  const deleteFolder=id=>run(()=>api(T_FOLDERS+where(id),{method:'DELETE',prefer:'return=minimal'}),'폴더를 지웠어요.');
+  // TRASH-다른삭제 3단계: [폴더 지우기]는 휴지통으로 보낸다(공용 흐름 trash-actions.js). 요청은 그대로 폴더 하나의 DELETE이고(설계 3.4),
+  // 서버의 가로채기 트리거가 그 폴더와 아래 폴더 전부를 휴지통 표시로 바꾼다(자료 연결은 그대로, 자료실 목록에서만 함께 숨음).
+  // 휴지통 함수가 이 종류를 모르면(DB 적용 전) '준비 중'을 알리고 삭제 요청을 보내지 않는다. 영구 삭제만 안의 것을 한 단 위로 올린다.
+  async function trashFolder(f){
+    if(busy)return false;busy=true;status('');
+    try{
+      const {deleteToTrash}=await import('./trash-actions.js');
+      const r=await deleteToTrash({kind:'library_folder',id:f.id,name:f.name,detail:folderTrashCounts(s().folders,s().items,f.id),
+        remove:()=>api(T_FOLDERS+where(f.id),{method:'DELETE',prefer:'return=minimal'}),afterChange:reload,notify:text=>status(text,true)});
+      if(r.status==='failed')status(folderErrorText(r.error),true);
+      return r.status==='moved';
+    }catch(e){status(folderErrorText(e),true);try{await reload()}catch{}return false}
+    finally{busy=false}
+  }
   // 자료를 폴더로: 연결이 있으면 folder_id만 고치고(어긋난 연결도 고쳐 씀), 없으면 새로 넣는다. 폴더 밖으로 = 연결 지우기.
   function fileToFolder(doc,folderId){
     const it=rawItem(doc),w=`?document_id=eq.${enc(doc.id)}&workspace_id=eq.${enc(s().workspace)}`;
@@ -95,11 +107,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{}})
     else if(action==='rename')askName({title:'이름 바꾸기',name:f.name,trigger,then:name=>renameFolder(id,name)});
     else if(action==='up'||action==='down')void reorderFolder(id,action).then(()=>focusHead('f:'+id));
     else if(action==='move')askTarget({title:'폴더 옮기기',hint:`${f.name}을(를) 옮길 곳을 고르세요. 같은 프로젝트 안에서만 옮길 수 있어요.`,trigger,targets:folderMoveTargets(s().folders,id).map(t=>t===null?{value:'__top__',label:frameName(f.project_id||null)+' 바로 아래',depth:0}:{value:t,label:pathName(t),depth:folderDepth(s().folders,t)}),then:parent=>moveFolder(id,parent)});
-    else if(action==='delete'){
-      const n=folderDeleteCounts(s().folders,s().items,id),inside=[n.folders?`폴더 ${n.folders}개`:'',n.files?`자료 ${n.files}개`:''].filter(Boolean).join('·');
-      if(!confirm(`${f.name} 폴더를 지울까요?`+(inside?`\n안의 ${inside}는 한 단 위로 가요.`:'')+'\n자료와 Drive 파일은 지워지지 않아요.'))return;
-      void deleteFolder(id);
-    }
+    else if(action==='delete')void trashFolder(f);
   }
   function focusHead(key){const b=[...document.querySelectorAll('#documentList [data-lu-node-menu]')].find(x=>x.dataset.luNodeMenu===key);b?.focus({preventScroll:true})}
 

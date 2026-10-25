@@ -94,7 +94,14 @@ test('폴더 편집 규칙: 깊이·옮길 곳(자기 아래·3단 초과·다�
   const same=[{id:'x',project_id:null,parent_id:null,sort_order:0,created_at:'1'},{id:'y',project_id:null,parent_id:null,sort_order:0,created_at:'2'}];
   assert.deepEqual(m.folderReorderPlan(same,'y','up'),[{id:'y',sort_order:1024},{id:'x',sort_order:2048}]);
   assert.equal(m.nextSortOrder([]),1024);assert.equal(m.nextSortOrder([{sort_order:2048}]),3072);
-  assert.deepEqual(m.folderDeleteCounts(F,[{document_id:'1',folder_id:'a'}],'a'),{folders:1,files:1});
+  // 휴지통으로 가는 묶음: 아래 폴더 전부와 그 안 자료를 센다(a > b > c).
+  assert.deepEqual(m.folderTrashCounts(F,[{document_id:'1',folder_id:'a'},{document_id:'2',folder_id:'c'},{document_id:'3',folder_id:'d'}],'a'),{folders:2,files:2});
+  assert.deepEqual(m.folderTrashCounts(F,[],'d'),{folders:0,files:0});
+  // 휴지통 폴더에 든 자료는 자료실 목록에서만 숨긴다: 연결된 폴더가 보이는 목록에 없을 때. 목록을 못 읽었으면 숨기지 않는다.
+  const shown=F.filter(f=>f.id!=='a'&&f.id!=='b'&&f.id!=='c'),links=[{document_id:'1',folder_id:'a'},{document_id:'2',folder_id:'c'},{document_id:'3',folder_id:'d'},{document_id:'4',folder_id:null}];
+  assert.deepEqual([...m.documentsInTrashedFolders(shown,links)].sort(),['1','2']);
+  assert.deepEqual([...m.documentsInTrashedFolders(F,links)],[]);
+  assert.deepEqual([...m.documentsInTrashedFolders([],links,false)],[]);
   assert.equal(m.cleanFolderName('  가 \n'),'가');assert.equal(m.cleanFolderName('   '),null);assert.equal(m.cleanFolderName('가'.repeat(41)),null);
   assert.equal(m.folderErrorText({message:'LIB_FOLDER_CYCLE: x'}),'폴더를 자기 안으로 옮길 수 없어요.');
   assert.equal(m.folderErrorText({message:'LIB_FOLDER_DEPTH: x'}),'폴더는 3단까지만 만들 수 있어요.');
