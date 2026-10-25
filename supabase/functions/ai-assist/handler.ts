@@ -5,6 +5,7 @@
 // 열쇠는 WEB2_OPENAI_API_KEY만 읽는다(옛 OPENAI_API_KEY는 읽지 않음, 결정 D2).
 // 쓰임 1(연결 요약, kind=link_summary), 쓰임 2(챙길 것 찾기, kind=todo_radar, S5), 쓰임 3(원장 후보 만들기,
 // kind=ledger_candidates, S7-c), 원장 자동 기록(kind=ledger_auto, LEDGER-자동기록 2단계) 등 아래 쓰임만 처리하고 나머지 kind는 거절한다.
+// 기록 겹침 확인(kind=overlap_check, MTG-기록겹침거르기 2단계): 기록 참조 짝만 받아 서버가 두 기록을 읽고 AI 판정(same·different·unsure)을 DB 함수로 저장한다(아래 본문 참고).
 // 연결 요약 답은 후보일 뿐 저장하지 않는다. 저장은 화면의 기존 저장 경로(app_basket_confirm_links 등)가 한다.
 // 챙길 것 찾기는 후보만 owner RLS 표 app_todo_candidates에 "대기"로 더한다(요약·출처·짧은 근거만, 원문 없음).
 // 할 일 만들기·원장 쓰기는 하지 않는다. 상대 약속(COM)은 저장하지 않고 응답으로만 돌려준다(화면 [원장으로 복사]).
@@ -27,6 +28,8 @@
 //   이미 있는 "자료별 AI 요약 표" app_document_ai_index에 'b1:' 지문 행으로 저장한다(내 로그인 토큰, owner RLS). 옛 행('b1:' 아님)은
 //   덮어쓰지 않는다(그 자료는 요약 없이 제목만, Q1 ①). 같은 글자 지문의 요약이 이미 있으면 AI 없이 복사한다.
 //   예전 자료(Q4 ②): tidy가 올린 날 제한 없이 오래된 것부터, 하루 AI 한도 안에서 나눠 채운다(LIBRARY_BRIEF_BACKFILL_UNTIL).
+// 기록 겹침 확인(kind=overlap_check, MTG-기록겹침거르기 2단계, docs/design/record-overlap.md): 기록 참조 짝(1~8쌍)을 받아 서버가 두 기록을 내 로그인으로 읽고,
+//   AI가 내용을 비교해(same·different·unsure + 이유 120자) DB 함수 app_record_overlap_set으로 표 app_record_overlaps에 저장한다. 이미 판정된 짝은 다시 부르지 않는다.
 // 원장 고치기 미리보기(kind=ledger_fix, LEDGER-수정요청): 일상어 한 줄 → 원장 수정 요청 모양. AI 답은 다시 검사하고 DB 해 보기로 전·후만
 //   돌려준다(서버는 반영하지 않음). 교섭·전략(S2) 기록은 AI에 보내지 않는다.
 // 주요 일정 제목 다듬기(kind=schedule_titles, WEEKLY-일정다듬기 ④): 주간보고 한글 파일 '5. 주요 일정 — 제목 확인'의 [AI로 다듬기]를 누를 때만.
@@ -66,6 +69,11 @@ import {
   parseFixRequest, parseLedgerFix, sendableRecord,
 } from "./ledger-fix.ts";
 
+import {
+  buildOverlapRecord, decidedFresh, decidedForever, OVERLAP_INSTRUCTIONS, OVERLAP_MAX_OUTPUT_TOKENS, OVERLAP_SCHEMA, OVERLAP_MAX_PAIRS,
+  overlapMaterial, pairKey, parseOverlap, parseOverlapRequest, refId, refKind, type OverlapPair, type OverlapRecord, type OverlapRow,
+} from "./overlap.ts";
+
 export type Env = (name: string) => string | undefined;
 export type Log = (code: string, detail?: Record<string, unknown>) => void;
 export type AiAssistDeps = {
@@ -87,7 +95,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 50회. 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 50;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20 });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30 });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -140,6 +148,8 @@ export const MESSAGES: Readonly<Record<string, string>> = Object.freeze({
   ledger_unavailable: "원장 후보를 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   ledger_busy: "원장 자동 기록이 이미 돌고 있어요. 잠시 뒤 다시 시도해 주세요.",
   ledger_record_failed: "원장에 기록하지 못했어요. 다음에 다시 시도해요.",
+  overlap_not_ready: "기록 겹침 확인 기능이 아직 준비되지 않았어요.",
+  overlap_unavailable: "겹침 판정을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
   ledger_fix_sensitive: "교섭·전략 기록은 AI로 고치지 않아요. Claude 수정안을 붙여 넣어 주세요.",
   ledger_fix_inactive: "이미 대체됐거나 폐기된 기록이에요.",
   ledger_fix_rejected: "원장 형식에 맞지 않아 미리보기를 만들지 못했어요. 문장을 바꿔 다시 써 주세요.",
@@ -346,6 +356,7 @@ type LedgerAutoInput = { kind: "ledger_auto" };
 type LedgerFixInput = { kind: "ledger_fix"; text: string; target: string | null };
 type OrgSummaryInput = { kind: "org_summary"; week_start: string; organization_ids: string[] };
 type ScheduleTitlesInput = { kind: "schedule_titles"; week_start: string; events: ScheduleEvent[] };
+type OverlapCheckInput = { kind: "overlap_check"; pairs: OverlapPair[] };
 
 // 조직 현황 요약은 주(그 주 월요일, YYYY-MM-DD)와 조직 ID(1~20개, 겹침 없음)만 받는다.
 function parseOrgSummaryRequest(b: Record<string, unknown>): OrgSummaryInput {
@@ -390,7 +401,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | ScheduleTitlesInput {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | ScheduleTitlesInput | OverlapCheckInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -419,6 +430,12 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | Ledger
     const parsed = parseScheduleRequest(b);
     if (!parsed) throw new Fail(400, "invalid_request");
     return { kind: "schedule_titles", ...parsed };
+  }
+  // 기록 겹침 확인(overlap_check): 기록 참조 짝(1~8쌍)만 받는다. 글·작업공간·소유자는 받지 않는다(서버가 로그인 토큰으로 읽고 정함).
+  if (b.kind === "overlap_check") {
+    const parsed = parseOverlapRequest(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    return { kind: "overlap_check", ...parsed };
   }
   if (b.kind !== "link_summary") throw new Fail(400, "unsupported_kind");
   return parseLinkSummaryRequest(b);
@@ -2446,6 +2463,198 @@ async function runScheduleTitles(ctx: Ctx, input: ScheduleTitlesInput, deps: Rad
   return json({ ok: true, kind: "schedule_titles", week_start: input.week_start, items: parsed.items, partial });
 }
 
+// ---- 쓰임 overlap_check: 기록 겹침 확인(MTG-기록겹침거르기 2단계) ----------------------------------------------------
+// 소유자·작업공간은 서버가 정한다. 기록 읽기는 모두 내 로그인 토큰이라 소유자 RLS가 걸린다. 못 읽은 기록(남의 것·없는 것·AI 제외)은 "unreadable"로만 알린다.
+// 하루 30회: 사용 기록 표에는 쓰임별 칸이 없어(DB 변경 금지) 호출 수 대신 "오늘 저장된 AI 판정 수 <= 30회 x 8쌍"으로 센다. 전체 하루 50회 합계는 checkBudget이 센다.
+const OVERLAP_DAILY_PAIRS = DAILY_LIMITS.overlap_check * OVERLAP_MAX_PAIRS;
+type OverlapRaw = { day: string; label: string; text: string };
+type OverlapState = "decided" | "unreadable" | "excluded" | "judged" | "unjudged";
+
+const inList = (ids: string[]) => ids.join(",");
+async function readOverlapList(ctx: Ctx, path: string): Promise<Record<string, unknown>[]> {
+  try {
+    const rows = await rest(ctx, path);
+    if (!Array.isArray(rows)) throw new Error("shape");
+    return rows as Record<string, unknown>[];
+  } catch (e) {
+    if ((e as Error)?.message === "rest_404") throw new Fail(503, "overlap_not_ready");
+    throw new Fail(503, "overlap_unavailable");
+  }
+}
+
+async function readOverlapRows(ctx: Ctx, pairs: OverlapPair[]): Promise<Map<string, OverlapRow>> {
+  const ws = encodeURIComponent(ctx.workspaceId);
+  const rows = await readOverlapList(ctx, `app_record_overlaps?workspace_id=eq.${ws}&a_ref=in.(${encodeURIComponent(quoteIn([...new Set(pairs.map((p) => p.a))]))})&select=a_ref,b_ref,verdict,decided_by,a_hash,b_hash&limit=200`);
+  const out = new Map<string, OverlapRow>();
+  for (const r of rows) {
+    if (typeof r.a_ref !== "string" || typeof r.b_ref !== "string" || typeof r.decided_by !== "string") continue;
+    out.set(pairKey(r.a_ref, r.b_ref), {
+      a_ref: r.a_ref, b_ref: r.b_ref, verdict: String(r.verdict), decided_by: r.decided_by,
+      a_hash: typeof r.a_hash === "string" ? r.a_hash : null, b_hash: typeof r.b_hash === "string" ? r.b_hash : null,
+    });
+  }
+  return out;
+}
+
+// 기록 글을 종류별로 읽는다. 일기·보관·AI 내보내기 비허용 노트와 다른 작업공간·다른 소유자의 기록은 결과에 없다.
+async function loadOverlapRaw(ctx: Ctx, refs: string[]): Promise<Map<string, OverlapRaw>> {
+  const ws = encodeURIComponent(ctx.workspaceId), out = new Map<string, OverlapRaw>();
+  const idsOf = (kind: string) => [...new Set(refs.filter((r) => refKind(r) === kind).map(refId))];
+  const meetings = idsOf("meeting");
+  if (meetings.length) {
+    for (const m of await readOverlapList(ctx, `app_meetings?workspace_id=eq.${ws}&id=in.(${inList(meetings)})&select=id,workspace_id,title,series_name,meeting_at,transcript_text,updated_at&limit=${meetings.length}`)) {
+      const at = timeOf(m.meeting_at) , upd = timeOf(m.updated_at);
+      if (!isUuid(m.id) || String(m.workspace_id).toLowerCase() !== ctx.workspaceId || typeof m.transcript_text !== "string") continue;
+      const label = typeof m.series_name === "string" && m.series_name.trim() ? m.series_name : typeof m.title === "string" ? m.title : "";
+      out.set(`meeting:${m.id.toLowerCase()}`, { day: kstDay(Number.isFinite(at) ? at : Number.isFinite(upd) ? upd : 0), label, text: m.transcript_text });
+    }
+  }
+  const baskets = idsOf("basket");
+  if (baskets.length) {
+    for (const n of await readOverlapList(ctx, `app_notes?workspace_id=eq.${ws}&kind=eq.basket&archived_at=is.null&ai_export_allowed=is.true&id=in.(${inList(baskets)})&select=id,workspace_id,kind,title,raw_text,occurred_at,updated_at,archived_at,ai_export_allowed&limit=${baskets.length}`)) {
+      if (!isUuid(n.id) || String(n.workspace_id).toLowerCase() !== ctx.workspaceId || n.kind !== "basket" || n.archived_at != null || n.ai_export_allowed !== true) continue;
+      const at = timeOf(n.occurred_at), upd = timeOf(n.updated_at);
+      const text = [typeof n.title === "string" ? n.title : "", typeof n.raw_text === "string" ? n.raw_text : ""].filter(Boolean).join("\n");
+      out.set(`basket:${n.id.toLowerCase()}`, { day: kstDay(Number.isFinite(at) ? at : Number.isFinite(upd) ? upd : 0), label: "", text });
+    }
+  }
+  const projectUpdates = idsOf("project_update");
+  if (projectUpdates.length) {
+    const rows = await readOverlapList(ctx, `app_project_progress_updates?id=in.(${inList(projectUpdates)})&select=id,project_id,summary,effective_on,created_at&limit=${projectUpdates.length}`);
+    const pids = [...new Set(rows.map((r) => r.project_id).filter(isUuid).map((x) => x.toLowerCase()))];
+    const spaces = pids.length ? await readOverlapList(ctx, `app_spaces?workspace_id=eq.${ws}&owner_id=eq.${encodeURIComponent(ctx.userId)}&id=in.(${inList(pids)})&select=id,workspace_id,name,owner_id&limit=${pids.length}`) : [];
+    const names = new Map(spaces.filter((p) => isUuid(p.id) && String(p.workspace_id).toLowerCase() === ctx.workspaceId && String(p.owner_id).toLowerCase() === ctx.userId)
+      .map((p) => [String(p.id).toLowerCase(), typeof p.name === "string" ? p.name : ""]));
+    for (const u of rows) {
+      const pid = isUuid(u.project_id) ? u.project_id.toLowerCase() : "";
+      if (!isUuid(u.id) || !names.has(pid) || typeof u.summary !== "string") continue;
+      const created = timeOf(u.created_at);
+      const day = typeof u.effective_on === "string" && DAY_RE.test(u.effective_on) ? u.effective_on : kstDay(Number.isFinite(created) ? created : 0);
+      out.set(`project_update:${u.id.toLowerCase()}`, { day, label: names.get(pid) ?? "", text: u.summary });
+    }
+  }
+  const orgUpdates = idsOf("org_update");
+  if (orgUpdates.length) {
+    const rows = await readOverlapList(ctx, `app_suborganization_updates?id=in.(${inList(orgUpdates)})&select=id,organization_id,occurred_at,raw_text&limit=${orgUpdates.length}`);
+    const oids = [...new Set(rows.map((r) => r.organization_id).filter(isUuid).map((x) => x.toLowerCase()))];
+    const orgs = oids.length ? await readOverlapList(ctx, `app_suborganizations?workspace_id=eq.${ws}&id=in.(${inList(oids)})&select=id,workspace_id,name&limit=${oids.length}`) : [];
+    const names = new Map(orgs.filter((o) => isUuid(o.id) && String(o.workspace_id).toLowerCase() === ctx.workspaceId)
+      .map((o) => [String(o.id).toLowerCase(), typeof o.name === "string" ? o.name : ""]));
+    for (const u of rows) {
+      const oid = isUuid(u.organization_id) ? u.organization_id.toLowerCase() : "";
+      const at = timeOf(u.occurred_at);
+      if (!isUuid(u.id) || !names.has(oid) || typeof u.raw_text !== "string" || !Number.isFinite(at)) continue;
+      out.set(`org_update:${u.id.toLowerCase()}`, { day: kstDay(at), label: names.get(oid) ?? "", text: u.raw_text });
+    }
+  }
+  return out;
+}
+
+async function runOverlapCheck(ctx: Ctx, input: OverlapCheckInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const rows = await readOverlapRows(ctx, input.pairs);
+  const states = new Map<string, { state: OverlapState; verdict?: string }>();
+  // 사용자·연결 판정은 글을 읽지 않고 건너뛴다.
+  const open = input.pairs.filter((p) => {
+    if (decidedForever(rows.get(pairKey(p.a, p.b)))) { states.set(pairKey(p.a, p.b), { state: "decided", verdict: rows.get(pairKey(p.a, p.b))?.verdict }); return false; }
+    return true;
+  });
+  const raws = open.length ? await loadOverlapRaw(ctx, [...new Set(open.flatMap((p) => [p.a, p.b]))]) : new Map<string, OverlapRaw>();
+  const built = new Map<string, OverlapRecord | "empty" | "personal">();
+  const toJudge: { id: string; pair: OverlapPair; a: OverlapRecord; b: OverlapRecord }[] = [];
+  for (const p of open) {
+    const key = pairKey(p.a, p.b), ra = raws.get(p.a), rb = raws.get(p.b);
+    if (!ra || !rb) { states.set(key, { state: "unreadable" }); continue; }
+    for (const [ref, raw] of [[p.a, ra], [p.b, rb]] as const) if (!built.has(ref)) built.set(ref, await buildOverlapRecord(ref, raw.day, raw.label, raw.text));
+    const a = built.get(p.a), b = built.get(p.b);
+    if (a === "empty" || b === "empty") { states.set(key, { state: "unreadable" }); continue; }
+    if (a === "personal" || b === "personal" || !a || !b) { states.set(key, { state: "excluded" }); continue; }
+    const row = rows.get(key);
+    if (decidedFresh(row, a.hash, b.hash)) { states.set(key, { state: "decided", verdict: row?.verdict }); continue; }
+    toJudge.push({ id: `p${toJudge.length + 1}`, pair: p, a, b });
+  }
+  const finish = (extra: Record<string, unknown>) => json({
+    ok: true, kind: "overlap_check", ...extra,
+    results: input.pairs.map((p) => ({ a: p.a, b: p.b, ...(states.get(pairKey(p.a, p.b)) ?? { state: "unjudged" }) })),
+  });
+  if (!toJudge.length) {
+    deps.log("overlap_check_done", { pairs: input.pairs.length, judged: 0, ai_called: false });
+    return finish({ saved: 0, kept_user: 0 });
+  }
+
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+  const budget = await checkBudget(ctx, "overlap_check", started, config.price);
+  const ws = encodeURIComponent(ctx.workspaceId);
+  const todayRows = await readOverlapList(ctx, `app_record_overlaps?workspace_id=eq.${ws}&decided_by=eq.ai&updated_at=gte.${encodeURIComponent(seoulMidnight(kstDay(started)))}&select=id&limit=${OVERLAP_DAILY_PAIRS}`);
+  if (todayRows.length >= OVERLAP_DAILY_PAIRS) throw new Fail(429, "daily_limit");
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch {
+    throw new Fail(503, "usage_unavailable");
+  }
+  const material = overlapMaterial(toJudge);
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: OVERLAP_MAX_OUTPUT_TOKENS,
+    input: [
+      { role: "developer", content: OVERLAP_INSTRUCTIONS },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "overlap_check", strict: true, schema: OVERLAP_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: OVERLAP_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  if (!result.ok) {
+    deps.log(result.code);
+    const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
+    throw new Fail(status, result.code);
+  }
+  const parsed = parseOverlap(outputText(result.raw, 64 * 1024), new Set(toJudge.map((x) => x.id)));
+  if (!parsed) {
+    deps.log("ai_invalid_response");
+    throw new Fail(502, "ai_invalid_response");
+  }
+  const byId = new Map(toJudge.map((x) => [x.id, x]));
+  const model = config.model.slice(0, 60);
+  const payload = parsed.items.map((it) => {
+    const x = byId.get(it.id)!;
+    return { a_ref: x.pair.a, b_ref: x.pair.b, verdict: it.verdict, decided_by: "ai", reason: it.reason || null, a_hash: x.a.hash, b_hash: x.b.hash, model };
+  });
+  let saved = 0, keptUser = 0;
+  if (payload.length) {
+    let out: unknown;
+    try {
+      out = await ledgerRpc(ctx, "app_record_overlap_set", { p_workspace_id: ctx.workspaceId, p_pairs: payload });
+    } catch (e) {
+      if (e instanceof LedgerRpcError && e.status === 404) throw new Fail(503, "overlap_not_ready");
+      if (e instanceof LedgerRpcError && e.status === 403) throw new Fail(403, "forbidden");
+      throw new Fail(503, "overlap_unavailable");
+    }
+    const o = (out ?? {}) as Record<string, unknown>;
+    if (typeof o.saved !== "number" || typeof o.kept_user !== "number") throw new Fail(503, "overlap_unavailable");
+    saved = o.saved;
+    keptUser = o.kept_user;
+    for (const it of parsed.items) {
+      const x = byId.get(it.id)!;
+      states.set(pairKey(x.pair.a, x.pair.b), { state: "judged", verdict: it.verdict });
+    }
+  }
+  // 기록에는 숫자만 남긴다(기록 글·이유·참조 없음).
+  deps.log("overlap_check_done", { pairs: input.pairs.length, judged: payload.length, dropped: parsed.dropped, saved, kept_user: keptUser, ai_called: true });
+  return finish({ saved, kept_user: keptUser });
+}
+
 async function insertCandidates(ctx: Ctx, rows: Record<string, unknown>[]) {
   const r = await ctx.doFetch(`${ctx.sb}/rest/v1/app_todo_candidates?on_conflict=workspace_id,dedupe_key&select=id`, {
     method: "POST",
@@ -2488,6 +2697,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "library_fill") return await runLibraryFill(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "org_summary") return await runOrgSummary(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "schedule_titles") return await runScheduleTitles(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "overlap_check") return await runOverlapCheck(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       const material = await loadLinkSummaryMaterial(ctx, input);
 
       const config = aiConfig(deps.env);
