@@ -49,7 +49,7 @@ test('no AI marker reaches the library screen (사용자 결정 ③)',()=>{
 const DOC=n=>`e0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const CATS=['교섭','투쟁','교육','선전','정책','회의','기타'];
 const NOW=Date.parse('2026-10-22T12:00:00Z'),OLD='2026-09-01T00:00:00Z',JUST='2026-10-22T11:50:00Z';
-const row=(n,over={})=>({id:DOC(n),title:'2026_요구안',file_name:'2026_요구안.hwp',category:'기타',source:null,document_date:null,
+const row=(n,over={})=>({id:DOC(n),title:'scan_2026',file_name:'scan_2026.hwp',category:'기타',source:null,document_date:null,
   created_at:OLD,updated_at:OLD,field_origin:{},extraction_status:'ready',classification_note:'파일명 정돈 및 메타정보 기반 자동분류',...over});
 
 test('untidyFields: only empty / file-name / 기타 / out-of-list fields; user and legacy-edited fields are never candidates',()=>{
@@ -172,7 +172,7 @@ test('text reading: documents that already have text (ready or error) never call
 test('library screen: auto tidy has no button, no progress text, no storage; list loading does not await it',()=>{
   const src=readFileSync(new URL('../app/library-upload.js',import.meta.url),'utf8');
   for(const gone of ['libraryTidy','luTidyRender','정리 제안','이어서 찾기','찾는 중','lt-row'])assert.ok(!src.includes(gone),gone);
-  const start=src.indexOf('// LIB-자동정리'),end=src.indexOf('function luRenderManageList');
+  const start=src.indexOf('// LIB-자동정리'),end=src.indexOf('function luManage');
   const block=src.slice(start,end);
   assert.ok(block.length>200);
   for(const bad of ['local'+'Storage','session'+'Storage','indexed'+'DB','innerHTML','textContent','await '])assert.ok(!block.includes(bad),bad);
@@ -209,7 +209,7 @@ test('tidyCandidates: a document whose file was replaced (reclassify_needed) is 
 
 test('replace file screen: renamed menu item, file line in the edit dialog, saved only on [수정 저장], hidden before the DB column, no storage',()=>{
   const src=readFileSync(new URL('../app/library-upload.js',import.meta.url),'utf8');
-  assert.match(src,/data-lu-edit="\$\{luEsc\(id\)\}">수정<\/button>/);
+  assert.match(src,/data-lu-edit="\$\{luEsc\(id\)\}">수정…<\/button>/);
   assert.ok(!src.includes('>정보 수정<'));
   assert.match(src,/<h2>자료 수정<\/h2>/);
   assert.match(src,/function luReplaceReady\(d\)\{return !!d&&Object\.hasOwn\(d,'previous_files'\)\}/);
@@ -260,4 +260,11 @@ test('autoTidyLibrary: reads the summary table ids once (document_id only) and s
   sent.length=0;
   await m.autoTidyLibrary(docs,{rt:rt(false),call,workspace:'ws',categories:CATS,now:NOW});
   assert.equal(sent.length,0);
+});
+
+// ---- LIB-파일이름제목: 뜻 있는 파일 이름이 제목이면 정리 대상이 아니다(서버와의 규칙 비교는 tests/security/ai-assist-library-fill.test.mjs) ----
+test('untidyFields: a meaningful file-name title is not untidy; a meaningless one still is',()=>{
+  const base={category:'정책',source:'x',document_date:'2026-01-01'};
+  assert.equal(m.untidyFields(row(1,{title:'공문_협조요청',file_name:'공문_협조요청.pdf',...base}),CATS).includes('title'),false);
+  assert.equal(m.untidyFields(row(1,{title:'scan0001',file_name:'scan0001.pdf',...base}),CATS).includes('title'),true);
 });

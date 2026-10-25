@@ -131,7 +131,7 @@ export function resultHtml(m,{kindLabel='',when='',project='',legacyTitle='',doc
   const notes=String(m?.notes||'');
   const files=docs.length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mcol-file',end:`<button class="file-line-open" type="button" data-meeting-doc="${esc(d.id)}" aria-label="${esc(name)} 열기"></button>${fileMoreHtml(d,name)}`})}).join(''):`<p class="mcol-empty">${esc(words.materialsEmpty)}</p>`;
   return `<header class="mcol-result-head"><div class="mcol-result-title">${meta.length||kindLabel?`<p class="mcol-result-meta">${kindLabel?`<span data-report-kind-label>${esc(kindLabel)} 칸</span>`:''}${meta.map(x=>`<span>${esc(x)}</span>`).join('')}</p>`:''}</div>`
-    +`<button type="button" class="icon-btn mcol-more" data-meeting-more="${esc(m.id)}" aria-label="사업 보고 관리" aria-haspopup="true" aria-expanded="false" aria-controls="mcolMenu"><span aria-hidden="true">⋯</span></button></header>`
+    +`<button type="button" class="icon-btn mcol-more" data-meeting-more="${esc(m.id)}" data-ctx="area" aria-label="사업 보고 관리" aria-haspopup="true" aria-expanded="false" aria-controls="mcolMenu"><span aria-hidden="true">⋯</span></button></header>`
     +`<div class="mcol-result-body">`
     +`<section class="mcol-block" aria-labelledby="mcolTextHead"><h4 id="mcolTextHead">${esc(words.textLabel)}</h4><div class="mcol-text">${esc(resultText(m))}</div></section>`
     +(notes.trim()?`<section class="mcol-block" aria-labelledby="mcolNotesHead"><h4 id="mcolNotesHead">특이사항</h4><div class="mcol-text mcol-notes">${esc(notes)}</div></section>`:'')

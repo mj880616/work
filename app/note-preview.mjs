@@ -72,15 +72,29 @@ export function previewText(raw, max = 0) {
 // The same letters with the line breaks kept (one plain line per written line), for rows that show their text over several lines.
 export const previewLines = raw => plainLines(raw).join('\n');
 
-// The written text a [더보기] opens as headings, tables and line breaks: only when it carries markdown marks, list marks, AI escapes or
-// entities (or, with withBreaks, line breaks the one-line preview flattened); else ''.
+// EDIT-번호모양보존: 손으로 쓴 글의 "1) 2)"·"- "·들여쓰기·빈 줄은 마크다운 표시가 아니다. 마크다운 표시로 보는 것은 머리(##)·굵게·표·코드·
+// 강조 상자·링크, AI가 붙인 \ 이스케이프·&엔티티뿐이다(노트의 마크다운 판단 note-markdown.mjs와 같은 기준). 번호·글머리로만 된 글은
+// 쓴 그대로 보여 준다. 마크다운이 읽으면 "1)"이 "1."로, 들여쓰기·빈 줄이 구조로 바뀌어 번호 단계를 알 수 없게 되기 때문이다.
+const ESCAPE_OR_ENTITY = /\\[\\`*_{}[\]()#+\-.!|>~<]|&#?\w{2,8};/;
+export function hasMarkdownMarks(raw) {
+  const text = String(raw ?? '');
+  return !!text.trim() && (looksLikeMarkdown(text) || ESCAPE_OR_ENTITY.test(text));
+}
+// The written text a [더보기] opens as headings and tables: only when it carries markdown marks, AI escapes or entities; else ''.
 export const MD_RAW_MAX = 20000;
-export function markdownSource(raw, withBreaks = false) {
+export function markdownSource(raw) {
   const text = String(raw ?? '');
   if (!text.trim() || text.length > MD_RAW_MAX) return '';
-  const marked = looksLikeMarkdown(text) || /^\s{0,3}(?:[-*+]|\d+[.)])\s/m.test(text) || /\\[\\`*_{}[\]()#+\-.!|>~<]|&#?\w{2,8};/.test(text);
-  return marked || (withBreaks && /\n/.test(text.trim())) ? text : '';
+  return hasMarkdownMarks(text) ? text : '';
 }
+// The text exactly as written: line breaks, indentation, blank lines and number shapes ("1." "1)" "(1)" "①" "가.") stay. Only the
+// line-end style, spaces at line ends and blank lines at the very start and end go.
+export function writtenText(raw) {
+  return String(raw ?? '').replace(/\r\n?|\u2028|\u2029/g, '\n').replace(/[ \t]+$/gm, '').replace(/^(?:[ \t]*\n)+/, '').replace(/\s+$/, '');
+}
+// What a record row shows over several lines: the marks-removed lines for a text that carries markdown marks (an AI answer pasted
+// as is), else the text as written.
+export const recordLines = raw => (hasMarkdownMarks(raw) ? previewLines(raw) : writtenText(raw));
 
 const same = (a, b) => String(a).replace(/\s+/g, ' ').trim().toLowerCase() === String(b).replace(/\s+/g, ' ').trim().toLowerCase();
 

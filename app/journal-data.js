@@ -18,6 +18,7 @@
 import { attachmentName } from './attachment-name.mjs';
 import { plainLines } from './note-preview.mjs';
 import {seoulParts, seoulDateKey, addSeoulDays, seoulClock, formatSeoulTime} from './meeting-time.js';
+import {eventColor} from './home-read-model.js';
 import {readBasket, filedOrganizations, filedProjects} from './basket-data.js';
 import {categoryOf} from './document-categories.js';
 import {myOrganizationIds, OTHERS} from './my-organizations.js';
@@ -144,10 +145,21 @@ export const scheduleDays = start => Array.from({length:SCHEDULE_WEEKS * 7}, (_,
 // REPORT_CALENDAR '공공운수노조', by name) needs the id -> name list of the same Edge (action=status calendars[].summary). Each event gets
 // calendarName, and the list keeps every calendar name (calendarNames) so the screen can tell "no such calendar" from "no event".
 // The list is read with the events; when it cannot be read the whole read fails, so another calendar never slips in.
-async function readCalendarNames(rt) {
+const readCalendarStatus = async rt => {
   const data = await rt.api('/functions/v1/google-calendar?action=status');
   if (!Array.isArray(data?.calendars) || data?.connected === false || data?.warning) throw new Error('calendar');
-  return new Map(data.calendars.map(c => [c?.id, String(c?.summary ?? '')]));
+  return data;
+};
+async function readCalendarNames(rt) {
+  return new Map((await readCalendarStatus(rt)).calendars.map(c => [c?.id, String(c?.summary ?? '')]));
+}
+// JOURNAL-하루일정다시: the [하루] card's 그날 일정 line. The same events read as the calendar screen (owner's selected calendars; a
+// cancelled one is left out like the calendar does), each with the color the calendar paints it in (eventColor, home-read-model.js:
+// own color → my calendar color → the calendar's color). The color needs the calendar list; when only that read fails the lines still
+// come, in the page's own accent (displayColor '').
+export async function readWeekScheduleEvents(start, rt = window.KPTURuntime) {
+  const [events, status] = await Promise.all([readWeekEvents(start, rt), readCalendarStatus(rt).catch(() => null)]);
+  return events.filter(event => event?.status !== 'cancelled').map(event => ({...event, displayColor:eventColor(event, status)}));
 }
 export async function readScheduleEvents(start, rt = window.KPTURuntime) {
   const [events, names] = await Promise.all([readEventsBetween(shiftWeek(start, 1), shiftWeek(start, 1 + SCHEDULE_WEEKS), rt), readCalendarNames(rt)]);
@@ -234,16 +246,21 @@ export async function readProjectUpdates(start, rt = window.KPTURuntime) {
 // A week has a handful of meetings; the text stays in this screen's memory only and is never stored.
 // UPD-요약부품통일 ①: the summaries written on its 프로젝트·담당조직 links (app_record_links, 출처 회의) come along as link_summaries,
 // so the weekly line uses a written summary before the result's first line. If that embed cannot be read, the plain read is used.
-const MEETING_FIELDS = 'id,title,series_name,round_no,meeting_at,transcript_text,decisions,activity_kind';
-const MEETING_LINKS = 'links:app_record_links!app_record_links_source_meeting_id_fkey(summary,status)';
+const MEETING_FIELDS = 'id,title,series_name,round_no,meeting_at,transcript_text,decisions,activity_kind,project_id';
+const MEETING_LINKS = 'links:app_record_links!app_record_links_source_meeting_id_fkey(summary,status,project_id,organization_id)';
 export async function readWeekMeetings(start, rt = window.KPTURuntime) {
   const from = dayStartIso(weekDays(start)[0]), to = dayStartIso(shiftWeek(start, 1));
   const path = fields => `/rest/v1/app_meetings?workspace_id=eq.${encode(workspace(rt))}&meeting_at=gte.${encode(from)}&meeting_at=lt.${encode(to)}&select=${fields}&order=meeting_at.asc,id.asc`;
   let rows;
   try { rows = await pages(path(`${MEETING_FIELDS},${MEETING_LINKS}`), rt); }
   catch (error) { if (Number(error?.status) !== 400) throw error; return pages(path(MEETING_FIELDS), rt); }
-  return rows.map(({links, ...meeting}) => ({...meeting, link_summaries:(Array.isArray(links) ? links : [])
-    .filter(l => l?.status === 'confirmed' && typeof l.summary === 'string' && l.summary.trim()).map(l => l.summary)}));
+  // MTG-기록겹침거르기 4단계: link_targets = 이 사업 보고에 이어진 프로젝트·조직(주간 정리가 겹침 후보를 줄 세울 때만 쓴다, 화면에 보이지 않음).
+  const targets = (meeting, links) => [...new Set([meeting.project_id && `project:${meeting.project_id}`,
+    ...links.filter(l => l?.status === 'confirmed').flatMap(l => [l.project_id && `project:${l.project_id}`, l.organization_id && `organization:${l.organization_id}`])].filter(Boolean))]
+    .map(key => ({kind:key.slice(0, key.indexOf(':')), id:key.slice(key.indexOf(':') + 1)}));
+  return rows.map(({links, ...meeting}) => { const list = Array.isArray(links) ? links : [];
+    return {...meeting, link_targets:targets(meeting, list), link_summaries:list
+      .filter(l => l?.status === 'confirmed' && typeof l.summary === 'string' && l.summary.trim()).map(l => l.summary)}; });
 }
 
 // 자료실 새 자료: documents of this workspace added (created_at) in the week — the day they were put in the library, not the
@@ -515,9 +532,9 @@ export const DAY_SOURCES = Object.freeze({
   events:['events'], docs:['documents'], shares:['sharePages'], movedNotes:['movedNotes'], memos:['basket'], refs:['basket'], unsent:['basket'],
 });
 export const REPORT_PARTS = Object.freeze([['activities', '회의·활동 결과'], ['business', '사업 소식'], ['orgs', '조직 소식']]);
-export const OTHER_PARTS = Object.freeze([['events', '일정'], ['docs', '자료실 새 자료'], ['shares', '공유 페이지'], ['movedNotes', '노트로 옮긴 것'],
+export const OTHER_PARTS = Object.freeze([['docs', '자료실 새 자료'], ['shares', '공유 페이지'], ['movedNotes', '노트로 옮긴 것'],
   ['memos', '기타 메모'], ['refs', '참고'], ['unsent', '어디에도 안 보낸 업데이트']]);
-// The whole day card: {tasks:{todo, overdue, done, ...state}, report:[part], others:[part]}; a part is {key, label, loading, failed,
+// The whole day card: {tasks:{todo, overdue, done, ...state}, events:part, report:[part], others:[part]}; a part is {key, label, loading, failed,
 // capped, items:[{text, open, ...}], sections:[{name, items, opens, tags?}]}. kinds: journal-meeting-kinds readKinds() result.
 export function dayCard(materials, day, {kinds = null, tree = null} = {}) {
   const part = (key, label, build) => {
@@ -529,6 +546,12 @@ export function dayCard(materials, day, {kinds = null, tree = null} = {}) {
     return {key, label, items:[], sections:[], ...build(), ...(failed.length ? {failed} : {}), ...(s.capped ? {capped:true} : {})};
   };
   const basket = okItems(materials, 'basket');
+  // JOURNAL-하루일정다시: 그날 일정 sits above 오늘 한 줄 (it was a group of the day card before JOURNAL-하루개편, then only a count in
+  // 그 밖의 기록, which no longer lists it). One line per event: {time, title, color, text, open:{type:'event', id, calendarId}}.
+  const events = part('events', '일정', () => ({items:eventsOn(okItems(materials, 'events'), day).map(event => {
+    const title = event.title || '(제목 없음)', calendarId = event.calendarId || 'primary';
+    return {id:event.id, time:eventTime(event), title, color:event.displayColor || '', text:`${eventTime(event)} ${title}`, open:{type:'event', id:event.id, calendarId}};
+  })}));
   const tasks = part('tasks', '할 일', () => tasksPart(okItems(materials, 'tasks'), day));
   const hidden = kinds?.status === 'ok' ? kinds.list : null;
   const sectioned = sections => ({sections, items:sections.flatMap(section => section.items)});
@@ -538,7 +561,6 @@ export function dayCard(materials, day, {kinds = null, tree = null} = {}) {
     part('orgs', '조직 소식', () => (basket || okItems(materials, 'orgUpdates')) ? sectioned(orgNewsOn({basket, orgUpdates:okItems(materials, 'orgUpdates')}, day, {open:true, unsorted:false})) : {}),
   ];
   const others = OTHER_PARTS.map(([key, label]) => part(key, label, () => {
-    if (key === 'events') return {items:eventsOn(okItems(materials, 'events'), day).map(event => ({text:`${eventTime(event)} ${event.title || '(제목 없음)'}`, open:{type:'calendar', day}}))};
     if (key === 'docs') return {items:(okItems(materials, 'documents') || []).filter(doc => onDay(doc?.created_at, day)).map(doc => ({text:documentLine(doc), open:{type:'library'}}))};
     if (key === 'shares') return {items:(okItems(materials, 'sharePages') || []).filter(page => onDay(page?.updated_at, day)).map(page => ({text:sharePageLine(page), open:{type:'pages'}}))};
     if (key === 'movedNotes') return {items:movedNotesOn(okItems(materials, 'movedNotes'), day).map(note => ({text:note.line, open:{type:'notedoc', note:note.id}, noteMark:true}))};
@@ -546,7 +568,7 @@ export function dayCard(materials, day, {kinds = null, tree = null} = {}) {
     if (key === 'refs') return {items:referenceItemsOn(basket, day)};
     return {items:unsentUpdatesOn(basket, day)};
   }));
-  return {tasks, report, others};
+  return {tasks, events, report, others};
 }
 // The count line of 그 밖의 기록 ("일정 2 · 자료실 새 자료 1"): parts with items only.
 export const othersCount = others => others.filter(part => part.items.length).map(part => `${part.label} ${part.items.length}`).join(' · ');

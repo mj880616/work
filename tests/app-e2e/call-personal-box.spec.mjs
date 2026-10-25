@@ -23,9 +23,9 @@ function data(){
   days:[{workspace_id:'w',day:'2026-10-06',source:'call',total_count:3,kept_count:0,room_count:0,personal_count:2,unsure_count:1,failed_count:0}],
  };
 }
-async function fixture(page,{width=1280,ledgerSeen=[],personalMissing=false}={}){
+async function fixture(page,{width=1280,ledgerSeen=[],personalMissing=false,refill='ok'}={}){
  await page.setViewportSize({width,height:860});
- const db=data(),moves=[],errors=[];
+ const db=data(),moves=[],errors=[],refills=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('console',e=>{if(e.type()==='error'&&!/Failed to load resource/.test(e.text()))errors.push(e.text());});
  const fields=(q,x)=>Object.fromEntries((q.get('select')||'').split(',').filter(Boolean).map(f=>[f,x[f]]));
  const eq=(q,k)=>q.get(k)?.startsWith('eq.')?decodeURIComponent(q.get(k).slice(3)):null;
@@ -45,6 +45,7 @@ async function fixture(page,{width=1280,ledgerSeen=[],personalMissing=false}={})
    let out=db.personal.filter(x=>!x.hidden_at);if(eq(q,'id'))out=out.filter(x=>x.id===eq(q,'id'));
    return r.fulfill({json:out.map(x=>fields(q,x))});
   });
+  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_call_edits',r=>r.fulfill({json:[]}));
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_call_move',r=>{
    const body=r.request().postDataJSON();moves.push(body);
    const w=db.work.find(x=>x.id===body.p_id),p=db.personal.find(x=>x.id===body.p_id);
@@ -52,6 +53,17 @@ async function fixture(page,{width=1280,ledgerSeen=[],personalMissing=false}={})
    if(body.p_to==='personal'&&p){const was=p.kind;p.kind='personal';return r.fulfill({json:{ok:true,id:p.id,changed:was!=='personal',needs_refill:false}});}
    if(body.p_to==='work'&&p){db.personal=db.personal.filter(x=>x!==p);db.work.push({...workBase,id:p.id,day:p.day,occurred_at:p.occurred_at,title:p.title,points:p.points,counterpart:p.counterpart,organization_id:null,raw_text:p.raw_text});return r.fulfill({json:{ok:true,id:p.id,changed:true,needs_refill:true}});}
    return r.fulfill({status:400,json:{message:'CALL_NOT_FOUND'}});
+  });
+  // CALL-개인통화함 4단계: 업무로 옮긴 직후 서버 AI가 한 건을 다시 채운다(call_refill). 서버는 흉내다.
+  await page.route(u=>u.origin===SB&&u.pathname==='/functions/v1/ai-assist',r=>{
+   if(r.request().method()!=='POST')return r.fulfill({status:204,headers:{'access-control-allow-origin':'*','access-control-allow-headers':'authorization, x-client-info, apikey, content-type'}});
+   const body=r.request().postDataJSON();
+   if(body.kind!=='call_refill')return r.fulfill({status:503,json:{ok:false,error:'ai_busy',message:'x'}}); // 홈의 다른 AI 호출은 이 시험과 무관
+   refills.push(body);
+   const w=db.work.find(x=>x.id===body.id);
+   if(refill!=='ok'||!w)return r.fulfill({status:503,json:{ok:false,error:'ai_busy',message:'x'}});
+   Object.assign(w,{title:'임금교섭 3차 일정 협의',counterpart:'예시지부 김가상 지부장',organization_id:ORG});
+   return r.fulfill({json:{ok:true,kind:'call_refill',id:w.id,title:w.title,counterpart:w.counterpart,organization_id:ORG}});
   });
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_ledger_auto_sources',r=>{
    const id=eq(new URL(r.request().url()).searchParams,'source_id');
@@ -63,7 +75,7 @@ async function fixture(page,{width=1280,ledgerSeen=[],personalMissing=false}={})
   });
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganizations',r=>r.fulfill({json:Number(new URL(r.request().url()).searchParams.get('offset')||0)?[]:[{id:ORG,workspace_id:'w',name:'예시지부',active:true}]}));
  }});
- return {db,moves,errors};
+ return {db,moves,errors,refills};
 }
 async function openCalls(page,width){
  if(width>=1024){const item=page.locator('#appView>.app-nav').getByRole('button',{name:'통화',exact:true});await expect(item).toBeVisible();await item.click();}
@@ -101,7 +113,7 @@ for(const width of [390,1280])test(`통화 ${width}: 업무 통화함 기본 + �
  await expect(detail.locator('[data-cf-script],[data-cf-raw-empty]')).toHaveCount(1);
  await tap(page,detail.locator('[data-cf-more]'),width);
  const menu=page.locator('#cfMenu');await expect(menu).toBeVisible();
- await expect(menu.locator('button')).toHaveText(['업무 통화로 옮기기','요약 복사','지우기 목록에서만']);
+ await expect(menu.locator('button')).toHaveText([/^제목 바꾸기/,'이름 고치기','요약 고치기','업무 통화로 옮기기','요약 복사','지우기 목록에서만']);
  await page.keyboard.press('Escape');
  // 폰: 뒤로가기 한 칸 = 개인 통화함 목록, 한 칸 더 = 업무 통화함.
  if(width<1024){
@@ -186,7 +198,7 @@ test('통화 1280: 목록 줄을 오른쪽 클릭하면 같은 메뉴가 누른 
  const view=page.locator('#callsView');
  await view.locator(`[data-cf-row="${W2}"]`).click({button:'right'});
  const menu=page.locator('#cfMenu');await expect(menu).toBeVisible();
- await expect(menu.locator('button')).toHaveText(['고정','요약 복사','개인 통화로 옮기기','지우기 목록에서만']);
+ await expect(menu.locator('button')).toHaveText([/^제목 바꾸기/,'조직·이름 고치기','요약 고치기','고정','요약 복사','개인 통화로 옮기기','지우기 목록에서만']);
  await menu.getByRole('button',{name:'개인 통화로 옮기기'}).click();
  await expect.poll(()=>f.moves).toEqual([{p_id:W2,p_to:'personal'}]);
  expect(f.errors).toEqual([]);
@@ -213,5 +225,51 @@ test('통화 390: 개인 표가 아직 없으면 업무 통화는 그대로 보�
  await expect(view.locator('[data-cf-row]')).toHaveCount(2);
  await expect(view.locator('[data-cf-box]')).toHaveCount(0);
  await expect(view.locator('[data-cf-ask-head]')).toHaveCount(0);
+ expect(f.errors).toEqual([]);
+});
+
+test('통화 1280: 개인→업무로 옮기면 그 한 건만 call_refill로 다시 채우고(제목·조직·상대), 핵심내용은 그대로, 안내 줄에 알린다',async({page})=>{
+ const f=await fixture(page,{width:1280});
+ await openCalls(page,1280);
+ const view=page.locator('#callsView');
+ await view.locator('[data-cf-box="personal"]').click();
+ await view.locator(`[data-cf-row="${P1}"]`).click();
+ await expect(view.locator('#cfDetail [data-cf-script],#cfDetail [data-cf-raw-empty]')).toHaveCount(1);
+ await view.locator('#cfDetail [data-cf-more]').click();
+ await page.locator('#cfMenu').getByRole('button',{name:'업무 통화로 옮기기'}).click();
+ await expect.poll(()=>f.moves).toEqual([{p_id:P1,p_to:'work'}]);
+ await expect.poll(()=>f.refills).toEqual([{kind:'call_refill',id:P1}]);
+ // 안내 줄은 옮긴 그 자리(개인함)에서 보인다. 통화함을 바꾸면 안내 줄은 비워지는 것이 화면 규칙이므로(setBox) 바꾸기 전에 확인한다.
+ await expect(view.locator('[data-cf-status]')).toContainText('제목·조직·상대를 채웠어요');
+ await view.locator('[data-cf-box="work"]').click();
+ const row=view.locator(`[data-cf-row="${P1}"]`);
+ await expect(row.locator('.feed-title')).toContainText('임금교섭 3차 일정 협의');
+ await expect(row.locator('.feed-org')).toHaveText('예시지부 · 김가상 지부장');
+ await row.click();
+ await expect(view.locator('#cfDetail [data-cf-points] li')).toHaveText(['토요일 저녁 7시']);
+ expect(f.refills.length).toBe(1);
+ expect(f.errors).toEqual([]);
+});
+
+test('통화 1280: 다시 채우기가 실패하면 통화는 업무함에 옛 값 그대로 있고 한 줄로만 알린다. 업무→개인·확인할 통화 "개인"은 AI를 부르지 않는다',async({page})=>{
+ const f=await fixture(page,{width:1280,refill:'fail'});
+ await openCalls(page,1280);
+ const view=page.locator('#callsView');
+ await view.locator('[data-cf-box="personal"]').click();
+ await view.locator(`[data-cf-row="${P1}"]`).click();
+ await expect(view.locator('#cfDetail [data-cf-script],#cfDetail [data-cf-raw-empty]')).toHaveCount(1);
+ await view.locator('#cfDetail [data-cf-more]').click();
+ await page.locator('#cfMenu').getByRole('button',{name:'업무 통화로 옮기기'}).click();
+ await expect.poll(()=>f.refills.length).toBe(1);
+ await expect(view.locator('[data-cf-status]')).toContainText('채우지 못해 옛 값 그대로예요');
+ await view.locator('[data-cf-box="work"]').click();
+ await expect(view.locator(`[data-cf-row="${P1}"] .feed-title`)).toContainText('가상 저녁 약속 정하기');
+ // 개인으로 보내는 길은 AI를 부르지 않는다.
+ await view.locator(`[data-cf-row="${W2}"]`).click({button:'right'});
+ await page.locator('#cfMenu').getByRole('button',{name:'개인 통화로 옮기기'}).click();
+ await expect.poll(()=>f.moves.length).toBe(2);
+ await tap(page,view.locator(`[data-cf-item="${U1}"] [data-cf-decide="personal"]`),1280);
+ await expect.poll(()=>f.moves.length).toBe(3);
+ expect(f.refills.length).toBe(1);
  expect(f.errors).toEqual([]);
 });

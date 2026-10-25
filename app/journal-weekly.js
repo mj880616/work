@@ -30,6 +30,7 @@ import {annotateCalendar, memoryTitle, idleWeeks} from './weekly-schedule-memory
 import {formDay, dayParts, dayLabel, whatCell, requestLine, sortItems, EXEC_HEAD, EXEC_LIMITS, EXEC_MAX_ROWS, CARRIED_TAG} from './weekly-exec-requests.js';
 import {placeFiles, fileVerdict, fileItem, applyDocEdit, fileBucket} from './weekly-file-lines.mjs';
 import {docEdits} from './weekly-draft-store.js';
+import {refOfOpen, meetingRef, planOverlaps, reasonOf, OVERLAP_WEEK_TEXT as OV} from './overlap-weekly.mjs';
 
 // The reads behind each part (journal.js materials keys; 'lines' is the journal's own lines read).
 // 'upcoming' is the two-week calendar read of 5. 주요 일정 (journal-data.js readScheduleEvents).
@@ -196,6 +197,29 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
   const part = (key, build) => { const s = state(m, WEEKLY_SOURCES[key]); return {key, ...s, ...(s.loading ? {} : build(s))}; };
   const perDay = (source, pick) => { const read = ok(m, source); return read ? days.flatMap(day => pick(read, day).map(text => ({day, text}))) : []; };
   const files = weekFiles(m, days);
+  // MTG-기록겹침거르기 4단계(docs/design/record-overlap.md 4.2절): 이 주에 보이는 줄에 겹침 참조를 달고, 저장된 same 판정(m.overlaps)으로
+  // 겹친 줄을 한 곳에서 뺀다. 요약·조직 소식·화면·초안 복사·한글 파일이 모두 이 모델을 쓰므로 한 번에 같은 결과가 된다.
+  const rawRecords = (ok(m, 'basket') || ok(m, 'projectUpdates')) ? days.flatMap(day => projectRecordsOn({basket:ok(m, 'basket'), projectUpdates:ok(m, 'projectUpdates')}, day).map(r => ({...r, day, ref:refOfOpen(r.open)}))) : [];
+  const rawOrg = days.flatMap(day => orgNewsOn({basket:ok(m, 'basket'), orgUpdates:ok(m, 'orgUpdates')}, day, {open:true}).flatMap(section =>
+    section.items.map((text, i) => ({day, name:section.name, text, requests:section.tags?.[i] || [], ref:refOfOpen(section.opens?.[i]), open:section.opens?.[i] || null}))));
+  const rawMeetings = kinds?.status === 'loading' ? [] : (() => {
+    const list = kinds?.status === 'ok' ? kinds.list : null, read = ok(m, 'meetings'), items = [], off = new Map();
+    for (const day of days) for (const meeting of read ? meetingsOn(read, day) : []) {
+      const name = meetingKindName(meeting), key = meetingKindKey(name);
+      if (!reportsMeeting(meeting, list)) { const entry = off.get(key) || off.set(key, {key, name, count:0}).get(key); entry.count++; continue; }
+      items.push({day, text:meetingLine(meeting), kind:key, kindName:name, ref:meetingRef(meeting.id), targets:meeting.link_targets || []});
+    }
+    return {items, off:[...off.values()]};
+  })();
+  const ovRows = m.overlaps?.status === 'ok' && !m.overlaps.items?.missing ? m.overlaps.items.rows : null;
+  const shownRefs = new Set([...rawRecords, ...rawOrg, ...(rawMeetings.items || [])].map(i => i.ref).filter(Boolean));
+  const gone = ovRows ? planOverlaps(shownRefs, ovRows) : new Map();
+  const meetingText = new Map((rawMeetings.items || []).map(i => [i.ref, i]));
+  // 뺀 줄 → 화면 [보기] 한 줄: 남긴 사업 보고(들)와 AI 이유 한 줄. 되살리기는 ref로 journal.js가 처리한다.
+  const goneItem = (item, part) => { const entry = gone.get(item.ref); const kept = entry.keep.map(ref => meetingText.get(ref)).filter(Boolean);
+    return {ref:item.ref, part, day:item.day, text:item.text, label:item.label || item.name || '', kept:kept.map(k => ({day:k.day, text:k.text})), reason:reasonOf(entry)}; };
+  const dropped = {summary:[], orgs:[]};
+  const keep = (item, part) => { if (!item.ref || !gone.has(item.ref)) return true; if (!dropped[part].some(x => x.ref === item.ref)) dropped[part].push(goneItem(item, part)); return false; };
   // WEEKLY-자료요약 화면 ②: 그 주 임시저장의 자료 줄 고침(빼기·고치기·넣기). 칸이 없거나 읽지 못하면 고침 없음·버튼 없음.
   const draftRead = m.weekDraft?.status === 'ok' ? m.weekDraft.items : null;
   const edits = draftRead && !draftRead.missing ? docEdits(draftRead.row?.draft) : new Map();
@@ -203,17 +227,16 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
   const editFile = item => applyDocEdit(item, edits.get(item.file.id));
 
   const summary = part('summary', s => {
-    const read = {basket:ok(m, 'basket'), projectUpdates:ok(m, 'projectUpdates')};
-    const records = (read.basket || read.projectUpdates) ? days.flatMap(day => projectRecordsOn(read, day).map(r => ({...r, day}))) : [];
+    const all = rawRecords, records = all.filter(r => keep(r, 'summary'));
     const tree = ok(m, 'catalog');
     // WEEKLY-자료요약: 프로젝트에만 연결된 자료 → 그 프로젝트 줄(placeRecords가 자리를 찾음). 같은 프로젝트의 그 주 기록과 비교한다.
     const fileRecords = files.projects.map(({doc, id, name}) => {
       const day = seoulDay(doc.created_at);
-      const item = editFile(fileItem(doc, day, fileVerdict(doc, {records:records.filter(r => r.id === id).map(r => r.text), attached:files.attachedProjects.get(id)})));
+      const item = editFile(fileItem(doc, day, fileVerdict(doc, {records:all.filter(r => r.id === id).map(r => r.text), attached:files.attachedProjects.get(id)})));
       return {id, name, day, at:doc.created_at, text:item.text, requests:[], file:item.file};
     });
     const shown = fileRecords.filter(r => fileBucket(r) === 'items').length;
-    return {...placeRecords([...records, ...fileRecords], tree), ordered:!!tree, count:records.length + shown, failed:s.failed};
+    return {...placeRecords([...records, ...fileRecords], tree), ordered:!!tree, count:records.length + shown, failed:s.failed, overlapped:dropped.summary};
   });
 
   // 회의·활동 결과: a meeting whose kind (series name, else title, without spaces, lower-case) is in my "not reported" list is left out
@@ -221,13 +244,7 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
   // `hidden` = the kinds left out this week (name, count) so they can be put back; `editable` only when the list was read.
   const meetings = part('meetings', () => {
     if (kinds?.status === 'loading') return {loading:true, items:[], hidden:[], editable:false};
-    const list = kinds?.status === 'ok' ? kinds.list : null, read = ok(m, 'meetings'), items = [], off = new Map();
-    for (const day of days) for (const meeting of read ? meetingsOn(read, day) : []) {
-      const name = meetingKindName(meeting), key = meetingKindKey(name);
-      if (!reportsMeeting(meeting, list)) { const entry = off.get(key) || off.set(key, {key, name, count:0}).get(key); entry.count++; continue; }
-      items.push({day, text:meetingLine(meeting), kind:key, kindName:name});
-    }
-    return {items, hidden:[...off.values()], editable:!!list};
+    return {items:rawMeetings.items.map(({targets, ref, ...item}) => ref ? {...item, ref} : item), hidden:rawMeetings.off, editable:kinds?.status === 'ok' && !!kinds.list};
   });
 
   // JOURNAL-조직현황AI요약: a named organization section (its id found by name in the organization read) carries the week's
@@ -236,9 +253,10 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
   const orgs = part('orgs', s => {
     const read = {basket:ok(m, 'basket'), orgUpdates:ok(m, 'orgUpdates')};
     const sections = new Map();
-    if (s.failed.length < WEEKLY_SOURCES.orgs.length) for (const day of days) for (const section of orgNewsOn(read, day)) {
-      if (!sections.has(section.name)) sections.set(section.name, {name:section.name, items:[], folded:[], dropped:[]});
-      section.items.forEach((text, i) => sections.get(section.name).items.push({day, text, requests:section.tags?.[i] || []}));
+    if (s.failed.length < WEEKLY_SOURCES.orgs.length) for (const entry of rawOrg) {
+      if (!keep(entry, 'orgs')) continue;
+      if (!sections.has(entry.name)) sections.set(entry.name, {name:entry.name, items:[], folded:[], dropped:[]});
+      sections.get(entry.name).items.push({day:entry.day, text:entry.text, requests:entry.requests});
     }
     // 자료 읽기는 이 묶음의 재료가 아니다(읽는 중·실패면 자료 줄 없이 기록만, 자료는 '참고 › 자료실 새 자료'가 상태를 보여 줌).
     // WEEKLY-자료요약: 담당조직에 연결된 자료 → 그 조직 칸에만(프로젝트에도 연결돼 있어도, Q3 ①). 내 담당이 아니면 '그 외'에 "조직 이름 · …".
@@ -264,7 +282,7 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
       const row = saved?.get?.(id);
       if (row) section.summary = {text:row.summary, edited:row.edited};
     }
-    return {sections:[...sections.values()].sort(compareOrgSections), summaries};
+    return {sections:[...sections.values()].sort(compareOrgSections), summaries, overlapped:dropped.orgs};
   });
 
   const calendar = part('calendar', () => memory?.status === 'loading' ? {loading:true}
@@ -289,7 +307,14 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
     shares:part('shares', () => ({items:perDay('sharePages', (read, day) => read.filter(page => seoulDay(page?.updated_at) === day).map(sharePageLine))})),
     memos:part('memos', () => ({items:perDay('basket', (read, day) => journalMemosOn(read, day))})),
   };
-  return {start, days, requests, summary, meetings, orgs, calendar, notes, remembered, fileEdits};
+  // overlap: checking = 겹침 확인 중(그동안은 아무것도 빼지 않는다), count = 이번 주에 뺀 줄 수.
+  const overlap = {checking:m.overlaps?.status === 'loading', count:dropped.summary.length + dropped.orgs.length};
+  // 겹침 확인 재료(journal.js가 AI에 물을 짝을 고를 때만 쓴다): 이 주에 보이는 줄의 참조와, 서로 이어질 만한지 보는 글·곳.
+  const target = (kind, id) => id ? {kind, id} : null;
+  const overlapSource = {refs:[...shownRefs], meetings:(rawMeetings.items || []).filter(i => i.ref).map(i => ({ref:i.ref, day:i.day, title:i.text, targets:i.targets})),
+    records:[...rawRecords.map(r => ({ref:r.ref, day:r.day, text:r.text, title:'', target:target('project', r.id)})),
+      ...rawOrg.map(r => ({ref:r.ref, day:r.day, text:r.text, title:'', target:target('organization', r.open?.org)}))].filter(r => r.ref)};
+  return {start, days, requests, summary, meetings, orgs, calendar, notes, remembered, fileEdits, overlap, overlapSource};
 }
 const seoulDay = value => value && Number.isFinite(Date.parse(value)) ? seoulDateKey(value) : '';
 
@@ -394,7 +419,7 @@ export const ORG_EDIT_MAX_LINES = 8;
 export const EXEC_FIELDS = Object.freeze([['day', '일', 'date'], ['until', '끝 날(여러 날이면)', 'date'], ['time', '시간', 'text'], ['what', '내용', 'text'], ['place', '장소', 'text'], ['who', '참석 요청', 'text']]);
 // fileUi (WEEKLY-자료요약 화면 ②, journal.js keeps it): {editing:자료 id | null, value, saving, status, error}.
 export const FILE_EDIT_MAX = 200;
-export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi = {}, fileUi = {}) {
+export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi = {}, fileUi = {}, overlapUi = {}) {
   const doc = host.ownerDocument;
   const el = (tag, cls, text) => { const node = doc.createElement(tag); if (cls) node.className = cls; if (text != null) node.textContent = text; return node; };
   const muted = text => el('p', 'journal-muted', text);
@@ -465,6 +490,30 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   };
   const foldedFiles = items => fileFold(items, 'folded');
   const droppedFiles = items => fileFold(items, 'dropped');
+  // MTG-기록겹침거르기 4단계: 겹쳐서 뺀 줄은 그 묶음 맨 아래 접힘 한 줄("겹쳐서 n건 뺐어요 · 보기"). 펼치면 뺀 줄·남긴 사업 보고·AI 이유 한 줄과 줄마다 [되살리기]
+  // (사용자 판정 '같은 일 아님'으로 서버에 저장). 아무것도 지우지 않는다.
+  const overlapFold = (items, part) => {
+    if (!items?.length) return null;
+    const box = el('details', 'journal-org-raw journal-overlap-folded');
+    box.dataset.journalOverlapFold = part; box.dataset.journalOverlapCount = String(items.length);
+    if (overlapUi.open?.has(part)) box.open = true;
+    box.append(el('summary', null, `${OV.count(items.length)} · ${OV.show}`));
+    const list = el('ul', 'journal-weekly-list');
+    for (const item of items) {
+      const li = el('li'); li.dataset.journalOverlapItem = item.ref;
+      li.append(dayTag(item.day));
+      if (item.label) li.append(el('span', 'journal-weekly-label', `${item.label}: `));
+      li.append(doc.createTextNode(item.text));
+      for (const k of item.kept) { const n = el('span', 'journal-file-note', `${OV.kept}: ${shortDay(k.day)} ${k.text}`); n.dataset.journalOverlapKept = ''; li.append(' ', n); }
+      if (item.reason) { const n = el('span', 'journal-file-note', item.reason); n.dataset.journalOverlapReason = ''; li.append(' ', n); }
+      const back = el('button', 'mini', overlapUi.busy === item.ref ? OV.reviving : OV.revive); back.type = 'button'; back.dataset.journalOverlapRevive = item.ref;
+      back.disabled = !!overlapUi.busy; back.setAttribute('aria-label', `같은 일 아님, 이번 주 보고에 되살리기: ${item.text}`);
+      li.append(' ', back); list.append(li);
+    }
+    box.append(list);
+    if (overlapUi.status) { const say = el('p', 'journal-line-status', overlapUi.status); say.dataset.journalOverlapStatus = ''; say.setAttribute('role', 'status'); say.setAttribute('aria-live', 'polite'); if (overlapUi.error) say.classList.add('journal-failed'); box.append(say); }
+    return box;
+  };
   // A part's own loading / failure line ([다시 시도] reads only what failed); the other parts are unaffected.
   const status = (box, part, label) => {
     if (part.loading) { box.append(muted('불러오는 중…')); return true; }
@@ -502,6 +551,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   const summary = block('summary', '1) 요약');
   const s = model.summary;
   if (!status(summary, s, '프로젝트 기록')) {
+    if (model.overlap?.checking) { const p = muted(OV.checking); p.dataset.journalOverlapChecking = ''; p.setAttribute('role', 'status'); summary.append(p); }
     if (s.failed.includes('catalog')) summary.append(muted('프로젝트 순서를 불러오지 못해 프로젝트 이름별로 보여요.'));
     if (s.areas.length) {
       const table = el('table', 'journal-weekly-table');
@@ -534,6 +584,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     }
     if (!s.count && !s.failed.some(k => k !== 'catalog')) summary.append(empty('이 주 프로젝트 기록이 없어요.'));
     if (s.ordered && s.quiet.length && s.count) { const q = muted(`이 주 기록 없는 사업영역: ${s.quiet.join(', ')}`); q.dataset.journalWeeklyQuiet = ''; summary.append(q); }
+    const sGone = overlapFold(s.overlapped, 'summary'); if (sGone) summary.append(sGone);
   }
   const meet = block('meetings', '2) 세부 내용 — 회의·활동 결과');
   if (!status(meet, model.meetings, '회의·활동 결과') && !model.meetings.failed.length) {
@@ -628,6 +679,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
       orgs.append(part);
     }
     if (!o.sections.length && !o.failed.length) orgs.append(empty('이 주 조직 소식이 없어요.'));
+    const oGone = overlapFold(o.overlapped, 'orgs'); if (oGone) orgs.append(oGone);
   }
   four.append(orgs);
 

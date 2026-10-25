@@ -402,3 +402,14 @@
 /* WEEKLY-자료요약 화면 ②: 자료 줄 [고치기] 한 줄 칸(줄 자리에서), ⋯ 안 작은 버튼은 회의 종류 ⋯와 같은 모양. */
 #appView #journalView .journal-file-edit{ display:inline-flex; flex-wrap:wrap; align-items:center; gap:4px; max-width:100%; }
 #appView #journalView .journal-file-edit > input{ box-sizing:border-box; flex:1 1 220px; min-width:0; height:var(--ds-compact-height); font:inherit; font-size:var(--kptu-text-body); }
+/* JOURNAL-하루일정다시: [하루] 맨 위 '그날 일정' — 줄마다 시각 + 달력과 같은 색 막대 + 제목(달력 목록 줄과 같은 모양), 제목 줄 오른쪽 작은 [달력 ›]. */
+#appView #journalView .journal-schedule{ border-top:0; padding-top:0; gap:2px; }
+#appView #journalView .journal-schedule-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+#appView #journalView .journal-schedule-cal{ box-sizing:border-box; min-height:var(--ds-compact-height-sm); margin:0; padding:0 6px; border:0; border-radius:var(--ds-radius-box); background:transparent; box-shadow:none; font:inherit; font-size:var(--ds-text-meta); color:var(--kptu-muted); cursor:pointer; }
+#appView #journalView .journal-schedule-cal:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+@media(hover:hover){ #appView #journalView .journal-schedule-cal:hover{ text-decoration:underline; } }
+#appView #journalView ul.journal-events{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0; }
+#appView #journalView .journal-event-open{ display:flex; align-items:center; gap:10px; }
+#appView #journalView .journal-event-time{ flex:0 0 42px; font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+#appView #journalView .journal-event-bar{ flex:0 0 4px; width:4px; height:18px; border-radius:var(--ds-radius-box); background:var(--journal-event-color, var(--kptu-primary-ink)); }
+#appView #journalView .journal-event-title{ min-width:0; overflow-wrap:anywhere; }

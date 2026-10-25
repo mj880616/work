@@ -1,5 +1,6 @@
 import {seoulDateKey,seoulParts,seoulDate,seoulDayStart,addSeoulDays,seoulClock,formatSeoulTime} from './meeting-time.js';
 import {canDrag,dayDiff as dragDayDiff} from './calendar-drag-model.js';
+import {eventColor} from './home-read-model.js';
 (()=>{
   if(window.KPTUCalendarMonthView)return;
   const DAY_MS=86400000;
@@ -41,8 +42,7 @@ import {canDrag,dayDiff as dragDayDiff} from './calendar-drag-model.js';
     return d;
   }
   function googleColor(ev,state){
-    const cal=state?.calendars?.find(x=>x.id===ev.calendarId);
-    return ev.color||state?.colors?.[ev.calendarId]||cal?.backgroundColor||'#4285f4';
+    return eventColor(ev,state)||'#4285f4';
   }
   function normalizeGoogle(ev,state){
     const start=dateOnly(ev.start),allDay=!!ev.allDay||/^\d{4}-\d{2}-\d{2}$/.test(String(ev.start||'')),endRaw=ev.end?dateOnly(ev.end):new Date(start),color=googleColor(ev,state);

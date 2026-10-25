@@ -308,6 +308,7 @@
 #appView #libraryView .lu-file-kind[data-lu-kind="xls"]{ color:var(--ds-file-xls-ink); background:var(--ds-file-xls-soft); }
 #appView #libraryView .lu-file-kind[data-lu-kind="doc"]{ color:var(--ds-file-doc-ink); background:var(--ds-file-doc-soft); }
 #appView #libraryView .lu-file-kind[data-lu-kind="ppt"]{ color:var(--ds-file-ppt-ink); background:var(--ds-file-ppt-soft); }
+#appView #libraryView .lu-file-kind[data-lu-kind="img"]{ color:var(--ds-file-img-ink); background:var(--ds-file-img-soft); }
 
 /* 담당조직 목록(2026-10-16 사용자 결정): 이름 한 줄(보조 줄·할 일 수 없음), 오른쪽은 › 만, 줄 높이 44px.
    묶음 제목은 테마 색 12px, 오른쪽에 "N곳". 이름 왼쪽 8px 점은 마지막 기록이 며칠 전인지(KST)를 색으로:
@@ -850,6 +851,7 @@
 .file-kind[data-kind="xls"]{color:var(--ds-file-xls-ink);background:var(--ds-file-xls-soft)}
 .file-kind[data-kind="doc"]{color:var(--ds-file-doc-ink);background:var(--ds-file-doc-soft)}
 .file-kind[data-kind="ppt"]{color:var(--ds-file-ppt-ink);background:var(--ds-file-ppt-soft)}
+.file-kind[data-kind="img"]{color:var(--ds-file-img-ink);background:var(--ds-file-img-soft)}
 .file-line-main{flex:1 1 auto;display:flex;align-items:baseline;gap:6px;min-width:0}
 .file-line-main b{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--ds-text-row,13px);font-weight:var(--ds-weight-regular,400);line-height:1.4;color:var(--kptu-ink)}
 .file-line-main small{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--ds-text-meta,12px);color:var(--kptu-faint)}
@@ -907,17 +909,18 @@
    폰(760px 이하)에서 일정 [달력 | 할 일 | 업무일지 | 일기]와 바구니 [업데이트 | 노트]를 화면 위에서 빼서 아래 탭 6칸 바로 위 한 줄에 둔다.
    알약 세그먼트(보이는 높이 32px, 고른 쪽 회색, 누르는 범위 44px), 줄 높이 44px(--kptu-switch-dock), 바탕은 아래 탭과 같은 색.
    그리는 주인은 화면마다 하나 그대로다: 일정 네 화면은 index.html의 각 화면 칸 안 .schedule-switch(그 화면이 보일 때만 보임),
-   (바구니의 [업데이트 | 노트] 전환은 BASKET-정리함이름으로 없어졌다. 정리함의 [업데이트 | 챙길 것] 전환은 머리줄 오른쪽에 있어 이 줄에 들어가지 않는다.)
+   정리함의 [업데이트 | 챙길 것] 전환(BASKET-전환줄하단)도 이 줄에 들어간다: basket.js가 머리줄 안에 그리는 .inbox-pane-switch 하나가 그 주인이고,
+   폰에서만 같은 모양·같은 자리(입력칸 → 전환 줄 → 아래 탭)로 옮긴다. 머리줄에는 제목과 ⋯만 남는다.
    같은 요소의 자리만 이 규칙이 화면 기준 fixed로 옮기고, 다른 곳에 따로 그리지 않는다. PC(761px~)는 지금처럼 위.
    자판이 열리면(accessibility-dialog.js 공용 감지, body.kptu-mobile-keyboard) 아래 탭과 함께 숨고 --kptu-switch-dock은 0.
    공용 [+]·빠른 입력·목록 끝 여백·알림은 --kptu-switch-dock만큼 위로 올라간다(위 8-9e-2 규칙들, [+] 위치 규칙은 그 한 곳). */
 @media(max-width:760px){
-  html:has(:where(#appView :is(#calendarView,#tasksView,#journalView,#diaryView):not(.hidden) > .schedule-switch:not([hidden]))){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
+  html:has(:where(#appView :is(#calendarView,#tasksView,#journalView,#diaryView):not(.hidden) > .schedule-switch:not([hidden]),#appView #basketView:not(.hidden) > .basket-head:not([hidden]) > .inbox-pane-switch:not([hidden]))){ --kptu-switch-dock:var(--kptu-touch-target,44px); }
   html:has(body.kptu-mobile-keyboard){ --kptu-switch-dock:0px; }
   /* 전체 화면 쓰기 창(ed-window.js)이 열려 있으면 전환 줄은 창 아래에 가려지므로 0(창의 선택 창은 탭 바로 위에서). */
   html.ed-window-open{ --kptu-switch-dock:0px; }
 
-  #appView .schedule-switch:not([hidden]){
+  :is(#appView .schedule-switch,#appView #basketView > .basket-head > .inbox-pane-switch):not([hidden]){
     position:fixed; z-index:28; left:0; right:0; bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom) + (var(--kptu-touch-target,44px) - var(--ds-compact-height)) / 2);
     box-sizing:border-box; display:inline-grid; grid-auto-flow:column; grid-auto-columns:1fr; align-items:stretch; gap:0;
     width:max-content; max-width:calc(100% - 24px); height:var(--ds-compact-height); min-height:0; margin:0 auto; padding:0;
@@ -927,21 +930,21 @@
     clip-path:inset(calc((var(--ds-compact-height) - var(--kptu-touch-target,44px)) / 2) -100vmax);
   }
   /* 칠한 줄 바탕은 누름을 받지 않으므로, 같은 자리에 보이지 않는 판을 깔아 알약 옆을 눌러도 뒤 화면이 눌리지 않게 한다. */
-  #appView .schedule-switch:not([hidden])::before{
+  :is(#appView .schedule-switch,#appView #basketView > .basket-head > .inbox-pane-switch):not([hidden])::before{
     content:""; position:absolute; z-index:-1; left:-100vmax; right:-100vmax; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px);
   }
-  #appView .schedule-switch button{
+  :is(#appView .schedule-switch,#appView #basketView > .basket-head > .inbox-pane-switch) button{
     position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; width:auto; min-width:0; height:auto; min-height:0;
     margin:0; padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap;
     color:var(--kptu-ink); background:var(--kptu-surface); border:0; border-radius:0; box-shadow:none; cursor:pointer;
   }
-  #appView .schedule-switch > button + button{ border-left:var(--ds-line-width) solid var(--ds-line); }
-  #appView .schedule-switch > button:first-child{ border-radius:var(--ds-chip-radius) 0 0 var(--ds-chip-radius); }
-  #appView .schedule-switch > button:last-child{ border-radius:0 var(--ds-chip-radius) var(--ds-chip-radius) 0; }
-  #appView .schedule-switch button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
-  #appView .schedule-switch button[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
-  #appView .schedule-switch button:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
-  body.kptu-mobile-keyboard #appView .schedule-switch{ display:none; }
+  :is(#appView .schedule-switch,#appView #basketView > .basket-head > .inbox-pane-switch) > button + button{ border-left:var(--ds-line-width) solid var(--ds-line); }
+  :is(#appView .schedule-switch,#appView #basketView > .basket-head > .inbox-pane-switch) > button:first-child{ border-radius:var(--ds-chip-radius) 0 0 var(--ds-chip-radius); }
+  :is(#appView .schedule-switch,#appView #basketView > .basket-head > .inbox-pane-switch) > button:last-child{ border-radius:0 var(--ds-chip-radius) var(--ds-chip-radius) 0; }
+  :is(#appView .schedule-switch,#appView #basketView > .basket-head > .inbox-pane-switch) button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
+  :is(#appView .schedule-switch,#appView #basketView > .basket-head > .inbox-pane-switch) button[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
+  :is(#appView .schedule-switch,#appView #basketView > .basket-head > .inbox-pane-switch) button:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
+  body.kptu-mobile-keyboard :is(#appView .schedule-switch,#appView #basketView > .basket-head > .inbox-pane-switch){ display:none; }
 
   /* 바구니 위쪽 줄에는 필터 [미분류·분류·보류]만 남는다. 필터가 숨으면(노트 목록) 줄도 자리를 차지하지 않는다. */
   #appView #basketView:has(> [data-basket-list][hidden]) > .basket-switch-row{ min-height:0; margin:0; }

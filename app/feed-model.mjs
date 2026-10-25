@@ -221,8 +221,117 @@ export const MOVE_ERRORS = Object.freeze({
   UNKNOWN:'옮겼는지 확인하지 못했어요. 목록을 다시 불러왔어요.',
 });
 export const moveErrorText = code => MOVE_ERRORS[code] || MOVE_ERRORS.REFUSED;
+// CALL-개인통화함 4단계: 업무로 옮긴 직후 AI가 제목·조직·상대·직함을 다시 채운다(docs/design/call-personal.md 7절). 못 채워도 옛 값이 그대로 남는다.
+export const REFILL_PENDING = '업무 통화로 옮겼어요. 제목·조직·상대를 채우는 중이에요.';
+export const REFILL_DONE = '업무 통화로 옮겼어요. 제목·조직·상대를 채웠어요. 내용을 확인해 주세요.';
+export const REFILL_SKIPPED = '업무 통화로 옮겼어요. 채울 글이 없어 옛 값 그대로예요.';
+const REFILL_FAILED = Object.freeze({
+  daily_limit:'업무 통화로 옮겼어요. 오늘 AI 횟수를 다 써서 제목·조직·상대는 옛 값 그대로예요.',
+  monthly_limit:'업무 통화로 옮겼어요. 이번 달 AI 한도에 닿아 제목·조직·상대는 옛 값 그대로예요.',
+});
+export const refillFailedText = code => REFILL_FAILED[code] || '업무 통화로 옮겼어요. 제목·조직·상대를 채우지 못해 옛 값 그대로예요.';
 // 옮긴 뒤 한 줄. from: 'work' | 'personal' | 'unsure'.
 export function moveDoneText(from, to) {
   if (to === 'personal') return from === 'unsure' ? '개인 통화로 정했어요.' : '개인 통화함으로 옮겼어요.';
   return from === 'unsure' ? '업무 통화로 정했어요.' : '업무 통화로 옮겼어요.';
 }
+
+// ---------- TG-카드밀기: 텔레그램 소식 카드를 밀어 [보관]·[삭제] (순수 규칙, 화면은 telegram-feed.js)
+// 카드는 오른쪽으로 밀면 왼쪽 버튼(start), 왼쪽으로 밀면 오른쪽 버튼(end)이 보인다. 버튼 폭만큼만 비켜선다.
+export const SWIPE_PX = 72;
+// 이만큼 움직이기 전에는 아무것도 하지 않는다(누르기·길게 누르기와 구분, 길게 누르기 취소 기준 10px보다 크다).
+export const SWIPE_START = 12;
+// 손을 뗄 때 이만큼 이상 밀려 있으면 열린 채로 둔다.
+export const SWIPE_OPEN = 36;
+// 'wait'(아직 모름) | 'scroll'(세로 움직임, 밀기 아님) | 'swipe'(가로로 충분히 밀었음: 가로가 세로의 1.5배 넘음)
+export function swipeIntent(dx, dy) {
+  const ax = Math.abs(dx), ay = Math.abs(dy);
+  if (Math.max(ax, ay) < SWIPE_START) return 'wait';
+  return ax >= SWIPE_START && ax > ay * 1.5 ? 'swipe' : 'scroll';
+}
+// 손가락이 dx만큼 움직였을 때 카드가 놓일 자리(px, 오른쪽이 +). open: 이미 열려 있던 자리. allow: 각 쪽에 버튼이 있는지.
+export function swipeOffset(dx, open = 0, allow = {start:true, end:true}) {
+  const x = (Number(open) || 0) + (Number(dx) || 0);
+  return Math.max(allow.end ? -SWIPE_PX : 0, Math.min(allow.start ? SWIPE_PX : 0, x));
+}
+// 손을 뗀 자리 → 'start' | 'end' | ''(닫힘).
+export const swipeSettle = offset => (offset >= SWIPE_OPEN ? 'start' : offset <= -SWIPE_OPEN ? 'end' : '');
+export const swipeOpenOffset = side => (side === 'start' ? SWIPE_PX : side === 'end' ? -SWIPE_PX : 0);
+// 소식 한 줄의 자리: 'live'(소식) | 'archived'(보관함) | 'trashed'(휴지통). 삭제(hidden_at)가 보관(archived_at)보다 앞선다.
+export const feedBucket = row => (row?.hidden_at ? 'trashed' : row?.archived_at ? 'archived' : 'live');
+// 보는 자리(mode: live | archive | trash)에서 각 쪽 버튼이 하는 일. '' = 그쪽 버튼 없음. archiveReady=false(DB 적용 전)면 보관 버튼이 없다.
+export function feedActions(mode, archiveReady = true) {
+  if (mode === 'archive') return {start:'restore', end:'trash'};
+  if (mode === 'trash') return {start:'restore', end:''};
+  return {start:archiveReady ? 'archive' : '', end:'trash'};
+}
+export const FEED_ACTIONS = Object.freeze({
+  archive:{label:'보관', done:'보관했어요', to:'archived'},
+  trash:{label:'삭제', done:'삭제했어요', to:'trashed'},
+  restore:{label:'되살리기', done:'되살렸어요', to:'active'},
+});
+// 되돌리기 한 줄. kind: archive | trash | restore.
+export const feedDoneText = kind => FEED_ACTIONS[kind]?.done || '';
+
+// ---------- CALL-손고치기: 통화의 제목·조직·상대 이름·핵심내용을 손으로 고친 값 (docs/design/call-user-edit.md, DB 20261026120000_call_user_edit)
+// 사용자 값은 따로 저장되고(app_call_edits.vals) AI가 채운 칸은 그대로다. 화면은 사용자 값이 있으면 그 값을 쓴다.
+// vals 키: title(글) · counterpart(글, 빈 글 가능) · organization_id(조직 ID 또는 null=연결 없음) · points(글 배열).
+export const EDIT_FIELDS = Object.freeze(['title', 'counterpart', 'organization_id', 'points']);
+export const EDIT_TITLE_MAX = 80, EDIT_NAME_MAX = 30, EDIT_ROLE_MAX = 30, EDIT_POINT_MAX = 150, EDIT_POINTS_MAX = 8;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+// 사용자 값 모음에서 모양이 맞는 칸만 남긴다(틀린 칸은 AI 값을 쓴다).
+export function cleanEditVals(vals) {
+  const v = vals && typeof vals === 'object' && !Array.isArray(vals) ? vals : {}, out = {};
+  if (typeof v.title === 'string' && v.title.trim()) out.title = v.title;
+  if (typeof v.counterpart === 'string') out.counterpart = v.counterpart;
+  if (has(v, 'organization_id') && (v.organization_id === null || (typeof v.organization_id === 'string' && UUID.test(v.organization_id)))) out.organization_id = v.organization_id;
+  if (Array.isArray(v.points) && v.points.every(p => typeof p === 'string')) out.points = v.points;
+  return out;
+}
+// 통화 줄에 사용자 값을 덧씌운 사본. 줄에는 AI 원래 값(_ai)이 남아 있어 [AI 값으로]·되돌리기가 서버를 다시 읽지 않아도 보인다.
+// 이미 덧씌운 줄을 다시 넣어도 같은 결과다. 새로 읽은 서버 줄(AI 값)이면 _ai는 undefined로 비우고 넣는다.
+export function applyCallEdit(row, vals) {
+  if (!row) return row;
+  const ai = row._ai || {title:row.title, counterpart:row.counterpart, organization_id:row.organization_id, points:row.points};
+  const v = cleanEditVals(vals);
+  return {...row, _ai:ai,
+    title:has(v, 'title') ? v.title : ai.title,
+    counterpart:has(v, 'counterpart') ? v.counterpart : ai.counterpart,
+    organization_id:has(v, 'organization_id') ? v.organization_id : ai.organization_id,
+    points:has(v, 'points') ? v.points : ai.points,
+    edited:{title:has(v, 'title'), counterpart:has(v, 'counterpart'), organization_id:has(v, 'organization_id'), points:has(v, 'points')}};
+}
+export const isEdited = row => !!row?.edited && Object.values(row.edited).some(Boolean);
+// 이름·직함 두 칸 ⇄ 상대 표기 한 칸("이름 직함"). 첫 띄어쓰기까지가 이름, 나머지가 직함.
+export function splitPerson(text) {
+  const t = String(text ?? '').replace(/\s+/g, ' ').trim(), i = t.indexOf(' ');
+  return i < 0 ? {name:t, role:''} : {name:t.slice(0, i), role:t.slice(i + 1).trim()};
+}
+export const joinPerson = (name, role) => [name, role].map(x => String(x ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim()).filter(Boolean).join(' ');
+// 제목 입력 정리: 줄바꿈·탭은 띄어쓰기로, 앞뒤 공백 제거, 80자까지.
+export const cleanTitleInput = text => [...String(text ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim()].slice(0, EDIT_TITLE_MAX).join('');
+// 핵심내용 줄 정리: 빈 줄은 버리고 줄마다 150자, 최대 8줄.
+export const cleanPointLines = lines => (lines || []).map(l => [...String(l ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim()].slice(0, EDIT_POINT_MAX).join('')).filter(Boolean).slice(0, EDIT_POINTS_MAX);
+export const samePoints = (a, b) => JSON.stringify(a || []) === JSON.stringify(b || []);
+// 되돌리기용 패치: prev는 고치기 전 사용자 값(없던 칸은 undefined). 있던 칸은 그 값으로, 없던 칸은 reset(AI 값으로).
+export function undoPatch(prev, keys) {
+  const patch = {}, reset = [];
+  for (const k of keys) { if (!EDIT_FIELDS.includes(k)) continue; if (prev && has(prev, k) && prev[k] !== undefined) patch[k] = prev[k]; else reset.push(k); }
+  if (reset.length) patch.reset = reset;
+  return patch;
+}
+// 서버에 보낼 패치의 고친 칸 이름(reset은 그 안의 칸들).
+export const patchKeys = patch => Object.entries(patch || {}).flatMap(([k, v]) => k === 'reset' ? v : [k]);
+export const EDIT_ERRORS = Object.freeze({
+  GONE:'이 통화가 그사이 사라졌어요. 목록을 다시 불러왔어요.',
+  UNAVAILABLE:'고치기 기능이 아직 준비되지 않았어요. 아무것도 바뀌지 않았어요.',
+  INVALID:'고칠 수 없는 글이에요. 길이나 모양을 확인해 주세요. 아무것도 바뀌지 않았어요.',
+  REFUSED:'저장하지 못했어요. 아무것도 바뀌지 않았어요.',
+  UNKNOWN:'저장됐는지 확인하지 못했어요. 목록을 다시 불러왔어요.',
+});
+export const editErrorText = code => EDIT_ERRORS[code] || EDIT_ERRORS.REFUSED;
+export const EDIT_DONE = Object.freeze({title:'제목을 바꿨어요.', who:'조직·이름을 고쳤어요.', points:'핵심내용을 고쳤어요.', reset:'AI가 채운 값으로 되돌렸어요.', undo:'되돌렸어요.'});
+export const EDIT_NOOP = '바뀐 게 없어요.';
+// 이미 원장에 읽힌 통화를 고쳤을 때 한 줄 제안(원장은 손대지 않는다).
+export const EDIT_LEDGER_NOTE = '이 통화는 고치기 전 내용이 이미 원장에 들어갔어요. 원장은 그대로예요. 필요하면 원장의 수정 요청에서 바로잡아 주세요.';
