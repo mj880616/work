@@ -226,3 +226,40 @@ export function moveDoneText(from, to) {
   if (to === 'personal') return from === 'unsure' ? '개인 통화로 정했어요.' : '개인 통화함으로 옮겼어요.';
   return from === 'unsure' ? '업무 통화로 정했어요.' : '업무 통화로 옮겼어요.';
 }
+
+// ---------- TG-카드밀기: 텔레그램 소식 카드를 밀어 [보관]·[삭제] (순수 규칙, 화면은 telegram-feed.js)
+// 카드는 오른쪽으로 밀면 왼쪽 버튼(start), 왼쪽으로 밀면 오른쪽 버튼(end)이 보인다. 버튼 폭만큼만 비켜선다.
+export const SWIPE_PX = 72;
+// 이만큼 움직이기 전에는 아무것도 하지 않는다(누르기·길게 누르기와 구분, 길게 누르기 취소 기준 10px보다 크다).
+export const SWIPE_START = 12;
+// 손을 뗄 때 이만큼 이상 밀려 있으면 열린 채로 둔다.
+export const SWIPE_OPEN = 36;
+// 'wait'(아직 모름) | 'scroll'(세로 움직임, 밀기 아님) | 'swipe'(가로로 충분히 밀었음: 가로가 세로의 1.5배 넘음)
+export function swipeIntent(dx, dy) {
+  const ax = Math.abs(dx), ay = Math.abs(dy);
+  if (Math.max(ax, ay) < SWIPE_START) return 'wait';
+  return ax >= SWIPE_START && ax > ay * 1.5 ? 'swipe' : 'scroll';
+}
+// 손가락이 dx만큼 움직였을 때 카드가 놓일 자리(px, 오른쪽이 +). open: 이미 열려 있던 자리. allow: 각 쪽에 버튼이 있는지.
+export function swipeOffset(dx, open = 0, allow = {start:true, end:true}) {
+  const x = (Number(open) || 0) + (Number(dx) || 0);
+  return Math.max(allow.end ? -SWIPE_PX : 0, Math.min(allow.start ? SWIPE_PX : 0, x));
+}
+// 손을 뗀 자리 → 'start' | 'end' | ''(닫힘).
+export const swipeSettle = offset => (offset >= SWIPE_OPEN ? 'start' : offset <= -SWIPE_OPEN ? 'end' : '');
+export const swipeOpenOffset = side => (side === 'start' ? SWIPE_PX : side === 'end' ? -SWIPE_PX : 0);
+// 소식 한 줄의 자리: 'live'(소식) | 'archived'(보관함) | 'trashed'(휴지통). 삭제(hidden_at)가 보관(archived_at)보다 앞선다.
+export const feedBucket = row => (row?.hidden_at ? 'trashed' : row?.archived_at ? 'archived' : 'live');
+// 보는 자리(mode: live | archive | trash)에서 각 쪽 버튼이 하는 일. '' = 그쪽 버튼 없음. archiveReady=false(DB 적용 전)면 보관 버튼이 없다.
+export function feedActions(mode, archiveReady = true) {
+  if (mode === 'archive') return {start:'restore', end:'trash'};
+  if (mode === 'trash') return {start:'restore', end:''};
+  return {start:archiveReady ? 'archive' : '', end:'trash'};
+}
+export const FEED_ACTIONS = Object.freeze({
+  archive:{label:'보관', done:'보관했어요', to:'archived'},
+  trash:{label:'삭제', done:'삭제했어요', to:'trashed'},
+  restore:{label:'되살리기', done:'되살렸어요', to:'active'},
+});
+// 되돌리기 한 줄. kind: archive | trash | restore.
+export const feedDoneText = kind => FEED_ACTIONS[kind]?.done || '';
