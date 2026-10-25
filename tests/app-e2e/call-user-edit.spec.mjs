@@ -74,10 +74,15 @@ async function openCalls(page,width){
  await expect(page.locator('#callsView')).toBeVisible();
 }
 async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761){await locator.scrollIntoViewIfNeeded();const b=await locator.boundingBox();await page.touchscreen.tap(b.x+b.width/2,b.y+b.height/2);}else await locator.click();}
+// 상세 열기: 전문(사본)이 도착하면 상세를 한 번 다시 그린다. 그 뒤에 누른다.
+async function openDetail(page,view,id,width){
+ await tap(page,view.locator(`[data-cf-row="${id}"]`),width);
+ await expect(view.locator('#cfDetail [data-cf-script],#cfDetail [data-cf-raw-empty]')).toHaveCount(1);
+}
 // 메뉴 열기: PC는 줄 오른쪽 클릭, 폰은 상세의 ⋯ (상세를 먼저 연다).
 async function openMenu(page,view,id,width){
  if(width>=1024){await view.locator(`[data-cf-row="${id}"]`).click({button:'right'});}
- else{await tap(page,view.locator(`[data-cf-row="${id}"]`),width);await tap(page,view.locator('#cfDetail [data-cf-more]'),width);}
+ else{await openDetail(page,view,id,width);await tap(page,view.locator('#cfDetail [data-cf-more]'),width);}
  await expect(page.locator('#cfMenu')).toBeVisible();
 }
 const statusOf=(view,width)=>width>=1024?view.locator('#cfList [data-cf-status]'):view.locator('#cfDetail [data-cf-detail-status]');
@@ -123,6 +128,7 @@ test('통화 1280: F2로 제목 입력, Esc는 취소(서버 호출 없음), 바
  await input.fill('바깥을 눌러 저장');
  await view.locator('#cfDetail').click({position:{x:20,y:200}});
  await expect.poll(()=>f.calls).toEqual([{p_id:W2,p_patch:{title:'바깥을 눌러 저장'}}]);
+ await expect(view.locator('#cfList [data-cf-status]')).toContainText('제목을 바꿨어요');
  await row.focus();await page.keyboard.press('F2');
  await input.fill('   ');await input.press('Enter');
  await expect(view.locator('#cfList [data-cf-status]')).toContainText('제목은 비울 수 없어서 그대로 뒀어요');
@@ -134,7 +140,7 @@ for(const width of [390,1280])test(`통화 ${width}: 조직·이름 고치기 �
  const f=await fixture(page,{width});
  await openCalls(page,width);
  const view=page.locator('#callsView');
- await tap(page,view.locator(`[data-cf-row="${W1}"]`),width);
+ await openDetail(page,view,W1,width);
  const detail=view.locator('#cfDetail');
  await expect(detail.locator('[data-cf-who-open]')).toContainText('홍길동');
  await tap(page,detail.locator('[data-cf-who-open]'),width);
@@ -165,7 +171,7 @@ for(const width of [390,1280])test(`통화 ${width}: 핵심내용 고치기 — 
  const f=await fixture(page,{width,ledgerSeen:[W1]});
  await openCalls(page,width);
  const view=page.locator('#callsView'),detail=view.locator('#cfDetail');
- await tap(page,view.locator(`[data-cf-row="${W1}"]`),width);
+ await openDetail(page,view,W1,width);
  await tap(page,detail.locator('[data-cf-sum-open]').first(),width);
  const lines=detail.locator('[data-cf-sum-line]');
  await expect(lines.first()).toHaveValue('[확정] 다음 주 화요일로 변경');
