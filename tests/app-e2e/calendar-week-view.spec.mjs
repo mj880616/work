@@ -155,9 +155,8 @@ test('late previous-week response cannot replace the latest week',async({page})=
   await expect(page.locator('#calendarWeek [data-google-event="latest-week"]')).toHaveCount(1);
   await expect(page.locator('#calendarWeek [data-google-event="old-week"]')).toHaveCount(0);
 });
-test('phone swipe with saved week keeps fallback list dates while navigating the bottom tabs',async({page})=>{
+test('phone sideways swipe does not leave the week list; the bottom tabs keep its fallback list dates',async({page})=>{
   await open(page,360,'week');
-  await expect.poll(()=>page.evaluate(()=>!!window.__KPTU_MOBILE_SWIPE_NAV__)).toBe(true);
   const before=await page.locator('#monthTitle').textContent();
   await page.locator('.clv-day').first().evaluate(el=>{
     const r=el.getBoundingClientRect(),y=r.top+r.height/2;
@@ -167,6 +166,11 @@ test('phone swipe with saved week keeps fallback list dates while navigating the
       Object.defineProperty(event,'changedTouches',{value:[point]});el.dispatchEvent(event);
     }
   });
+  await page.waitForTimeout(300);
+  // UI-밀기탭이동삭제: 옆으로 밀어도 탭이 바뀌지 않는다.
+  await expect(page.locator('#calendarView')).toBeVisible();
+  await expect(page.locator('#projectsView')).toBeHidden();
+  await page.locator('.mobile-tabs [data-view="projects"]').click();
   await expect(page.locator('#projectsView')).toBeVisible();
   await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'test'}));
   await expect(page.locator('#monthTitle')).toHaveText(before);

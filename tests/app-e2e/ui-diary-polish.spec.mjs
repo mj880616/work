@@ -87,7 +87,7 @@ test('① the shared [+] stays at the bottom right whatever is pressed (calendar
   const seen=await pressAndMeasure(page,target,diaryFab);
   expect(seen.during,target).toEqual(home);expect(seen.after,target).toEqual(home);
  }
- // A real swipe still moves the panel sideways (left offset) and changes tab; afterwards the [+] is back home.
+ // UI-밀기탭이동삭제: 탭 이동은 하단 탭 누르기뿐이다.
  await page.locator('.mobile-tabs [data-view="basket"]').click();
  await chooseBasketKind(page,'note');
  await expect(page.locator('[data-note-row="n1"]')).toBeVisible();
@@ -96,12 +96,6 @@ test('① the shared [+] stays at the bottom right whatever is pressed (calendar
  const dockSel='#basketView [data-note-list] [data-home-quick]',dock=await fabSpot(page,dockSel);
  const seen=await pressAndMeasure(page,'[data-note-search]',dockSel);
  expect(seen.during).toEqual(dock);expect(seen.after).toEqual(dock);
- // Finger down alone leaves the panel untouched (no class, no offset, nothing that re-anchors fixed children).
- const panel=await page.evaluate(()=>{const p=document.querySelector('#basketView'),r=p.querySelector('[data-note-row]').getBoundingClientRect();
-  const ev=new Event('touchstart',{bubbles:true});Object.defineProperty(ev,'touches',{value:[{clientX:r.left+20,clientY:r.top+10}]});p.querySelector('[data-note-row]').dispatchEvent(ev);
-  const c=getComputedStyle(p);const out={cls:p.classList.contains('kptu-swipe-panel'),left:p.style.left,transform:c.transform,willChange:c.willChange};
-  const end=new Event('touchcancel',{bubbles:true});Object.defineProperty(end,'touches',{value:[]});Object.defineProperty(end,'changedTouches',{value:[]});p.querySelector('[data-note-row]').dispatchEvent(end);return out;});
- expect(panel).toEqual({cls:false,left:'',transform:'none',willChange:'auto'});
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 

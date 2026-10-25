@@ -5,6 +5,7 @@ import {selectBasketOrganizations} from './basket-ai-handoff.js';
 import {createChoiceSheet,projectRows,projectRow,orgGroupRows,orgRow} from './choice-sheet.js';
 import {readReferenceBundles} from './reference-bundles-data.js';
 import {createGoogleTask} from './quick-save.js';
+import {announceRecordSaved,basketDetail} from './record-saved.js';
 import {dayKey} from './home-read-model.js';
 import {noteTaskEntry,recordNoteTask} from './basket-note-tasks.js';
 import {aiSummaryAllowed,aiSummaryMarkup,appliedText,attachmentTextState,newAiState,placeAiSummary,readDocumentBrief,requestLinkSummary} from './basket-ai-summary.js';
@@ -339,6 +340,7 @@ ${done?`<p class="basket-manual-hint">이미 연결된 곳 ${done}곳은 고를 
       link.status=manualErrorText(result.error);paint();return null;
     }
     changed();
+    if(result.created>0)announceRecordSaved(basketDetail(n,records)); // MTG-기록겹침거르기: 새로 연결했을 때만
     const fresh=await onLinked(id,targets.map(t=>({kind:t.kind,target_id:t.target_id,name:records.find(s=>s.kind===t.kind&&s.id===t.target_id)?.name}))).catch(()=>({ok:false}));
     if(!current()){setBusy(false);return null;}
     return {created:result.created||0,existing:result.existing||0,warning:fresh.ok?'':'목록 새로고침은 다시 시도해 주세요.'};

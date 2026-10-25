@@ -53,17 +53,6 @@ async function boot(page,width,{notes=[noteRow(1,'합성 메모 하나'),noteRow
 const loaded=(page,view)=>expect.poll(()=>page.evaluate(v=>window.KPTUViewLoader.isLoaded(v)&&!document.querySelector('#'+v+'View').classList.contains('hidden'),view)).toBe(true);
 const box=locator=>locator.evaluate(el=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,width:r.width,height:r.height};});
 const token=(page,name)=>page.evaluate(name=>{const e=document.createElement('span');e.style.color=`var(${name})`;document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c;},name);
-async function swipe(page,direction){
- const view=await page.evaluate(()=>KPTURouter.current);
- await page.locator('#'+view+'View').evaluate((el,direction)=>{
-  const r=el.getBoundingClientRect(),y=r.top+Math.min(r.height/2,80),start=direction==='left'?300:90,end=direction==='left'?90:300;
-  for(const [type,x] of [['touchstart',start],['touchmove',(start+end)/2],['touchend',end]]){
-   const e=new Event(type,{bubbles:true,cancelable:true}),points=[{clientX:x,clientY:y}];
-   Object.defineProperty(e,'touches',{value:type==='touchend'?[]:points});Object.defineProperty(e,'changedTouches',{value:points});el.dispatchEvent(e);
-  }
- },direction);
- await expect(page.locator('.kptu-swipe-panel')).toHaveCount(0);
-}
 
 test('폰 하단 탭 6칸: 정리함 색 아이콘, [메뉴] 탭이 메뉴 창을 열고 오른쪽 위 ☰는 없다',async({page})=>{
  const {errors}=await boot(page,390);
@@ -111,10 +100,9 @@ test('[일정] 탭: [달력 | 할 일] 전환, 마지막으로 본 쪽, 옛 ?vie
  const switchBox=await box(page.locator('#tasksView .schedule-switch')),tabsBox=await box(page.locator('.mobile-tabs'));
  expect(Math.round(tabsBox.top-switchBox.bottom)).toBe(6);expect(Math.round(switchBox.height)).toBe(32);
  expect(Math.abs((switchBox.left+switchBox.right)/2-195)).toBeLessThanOrEqual(1);
- // 밀기: 홈·바구니·일정·프로젝트·담당조직(메뉴는 밀기 대상 아님). 할 일 쪽에서도 [일정] 자리로 이어진다.
- await swipe(page,'left');await loaded(page,'projects');await swipe(page,'right');await loaded(page,'tasks');await swipe(page,'right');await loaded(page,'basket');await swipe(page,'right');await loaded(page,'home');await swipe(page,'right');await loaded(page,'home');
- for(const view of ['basket','tasks','projects','team']){await swipe(page,'left');await loaded(page,view);}
- await swipe(page,'left');await loaded(page,'team');
+ // UI-밀기탭이동삭제: 탭 이동은 하단 탭 누르기로만 한다. 할 일 쪽에서도 [일정] 자리가 그대로 이어진다.
+ const goTab=async view=>{await page.locator('.mobile-tabs [data-view="'+view+'"]').first().click();await loaded(page,view);};
+ await goTab('projects');await goTab('team');await goTab('basket');await goTab('home');
  expect(errors).toEqual([]);
 });
 

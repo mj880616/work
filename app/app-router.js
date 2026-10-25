@@ -182,7 +182,7 @@
 
   function syncNavigationState(view){
     // Phone [일정] tab holds 달력(calendar), 할 일(tasks), 업무일지(journal) and 일기(diary): it opens the side seen last
-    // in this tab, so the tab, swipe order and current mark all follow one attribute.
+    // in this tab, so the tab and current mark follow one attribute.
     const schedule=document.querySelector('.mobile-tabs [data-mobile-schedule-tab]');
     if(schedule&&['calendar','tasks','journal','diary'].includes(view))schedule.dataset.view=view;
     // UI-PC일정묶음: the PC sidebar [일정] heads a sub menu (달력·할 일·업무일지·일기). The head (data-nav-group) keeps the

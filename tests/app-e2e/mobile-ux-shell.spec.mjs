@@ -75,21 +75,15 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
   await signIn(page);
 
   await expect(page.locator('#calendarView')).toBeVisible({timeout:10000});
-  // The shell is shown before loader-v2 finishes importing the swipe module; swipe only once its listeners exist.
-  await expect.poll(()=>page.evaluate(()=>!!window.__KPTU_MOBILE_SWIPE_NAV__),{timeout:10000}).toBe(true);
-
-  // The swipe module ignores touches below the panel (inSwipeArea). Under load the calendar panel can still be
-  // shorter than the touch point (bottom ≈ 368px) when the swipe listeners are ready, so wait for its real height first.
+  // UI-밀기탭이동삭제: 좌우로 밀어도 탭이 바뀌지 않고(화면은 제자리), 탭 이동은 하단 탭 누르기로만 된다.
   await expect.poll(()=>page.locator('#calendarView').evaluate(el=>el.getBoundingClientRect().bottom),{timeout:10000}).toBeGreaterThan(405);
-  const motion=await gesture(page,'#calendarView',[{x:330,y:400},{x:240,y:402},{x:110,y:405}]);
-  expect(motion).toMatch(/px$/);
+  await gesture(page,'#calendarView',[{x:330,y:400},{x:240,y:402},{x:110,y:405}]);
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(()=>window.KPTURouter?.current)).toBe('calendar');
+  expect(await page.locator('#calendarView').evaluate(el=>el.style.left||'')).toBe('');
+  await clickView(page,'projects');
   await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('projects');
   await expect(page.locator('#projectsView')).toBeVisible();
-  await expect.poll(()=>page.locator('#projectsView').evaluate(el=>el.style.left||'')).toBe('');
-
-  const vertical=await gesture(page,'#projectsView',[{x:220,y:300},{x:214,y:390},{x:210,y:510}]);
-  expect(vertical).toBe('');
-  await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('projects');
 
   await clickView(page,'calendar');
   await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('calendar');
