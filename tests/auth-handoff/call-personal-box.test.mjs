@@ -84,7 +84,7 @@ test('call personal box: separate table, atomic owner-checked moves, duplicate g
    assert.equal(grants.length,6);
    for(const g of grants)assert.match(g,/ on (table public\.app_call_personal|function public\.app_call_(move|work_info)\([^)]*\)) to (authenticated|service_role);$/,g);
    assert.doesNotMatch(code,/grant [^;]*app_feed_items/i);
-   assert.doesNotMatch(code,/disable row level security|create or replace|alter policy|drop policy|create policy [^;]*app_feed_items|rtw_|grant usage on schema|call_personal'|source_check/i);
+   assert.doesNotMatch(code,/disable row level security|create or replace|alter policy|drop policy|create policy [^;]*app_feed_items|rtw_|grant usage on schema|drop constraint|add constraint app_feed_items/i);
    for(const fn of ['private.app_call_ref_guard()','private.app_call_personal_guard()','public.app_call_move(uuid, text)','public.app_call_work_info(uuid, text, text, uuid)'])
     assert.ok(code.includes('revoke all on function '+fn+' from public, anon, authenticated, service_role;'),fn);
    const guards=code.slice(code.indexOf('create function private.app_call_ref_guard'),code.indexOf('create trigger app_call_personal_guard'));
