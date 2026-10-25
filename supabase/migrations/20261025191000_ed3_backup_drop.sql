@@ -13,7 +13,7 @@ lock table public.app_ed3_text_backups in access exclusive mode;
 -- 정책은 소유자 읽기 하나뿐, 다른 표의 외래 키·뷰가 이 표를 가리키지 않음, 함수 본문에 이 표 이름 없음.
 do $$
 begin
-  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261025190000')
+  if exists (select 1 from supabase_migrations.schema_migrations where version = '20261025191000')
      or (select count(*) from supabase_migrations.schema_migrations
          where version = '20261024190000' and name = 'ed3_text_backup') <> 1
      or to_regclass('public.app_ed3_text_backups') is null
@@ -45,5 +45,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261025190000', 'ed3_backup_drop', array['ED③ backup drop: drop private table app_ed3_text_backups (and its owner-read policy); original note and record tables untouched; dropped backup text is not recoverable']);
+values ('20261025191000', 'ed3_backup_drop', array['ED③ backup drop: drop private table app_ed3_text_backups (and its owner-read policy); original note and record tables untouched; dropped backup text is not recoverable']);
 commit;

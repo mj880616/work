@@ -6,7 +6,7 @@ import {prepareMigration} from '../../scripts/ops/db-migration-plan.mjs';
 // ED③ 백업 표 삭제 (명진 결정 2026-10-25). DROP TABLE은 승인형 DB workflow가 차단하므로 SQL Editor 전용이다.
 // 이 시험은 (1) 삭제 대상이 백업 표 하나뿐인지, (2) workflow가 계속 거절하는지(규칙을 풀지 않았다는 증거), (3) 앱·Edge가 표를 참조하지 않는지,
 // (4) 짝 파일이 갖춰졌는지를 본다.
-const stem = '20261025190000_ed3_backup_drop';
+const stem = '20261025191000_ed3_backup_drop';
 const strip = s => s.replace(/--.*$/gm, '');
 const walk = dir => readdirSync(dir, {withFileTypes: true}).flatMap(e => e.isDirectory() ? walk(`${dir}/${e.name}`) : [`${dir}/${e.name}`]);
 
@@ -16,13 +16,13 @@ test('ed3 backup drop migration: drops only the backup table, guarded, records i
   assert.doesNotMatch(code, /cascade|truncate|\bgrant\b|disable row level|rtw_|\bto\s+(?:anon|public)\b|security definer|create (?:or replace )?function|(?:update|delete from|insert into) public\./i);
   assert.match(raw, /ED3_BACKUP_DROP_PREREQUISITE_CHANGED/);
   assert.match(raw, /ED3_BACKUP_DROP_POSTCHECK_FAILED/);
-  assert.match(raw, /insert into supabase_migrations\.schema_migrations \(version, name, statements\)\s+values \('20261025190000', 'ed3_backup_drop'/);
+  assert.match(raw, /insert into supabase_migrations\.schema_migrations \(version, name, statements\)\s+values \('20261025191000', 'ed3_backup_drop'/);
   assert.match(raw.trim(), /commit;$/);
 });
 
 test('ed3 backup drop migration: approved DB workflow still rejects DROP TABLE (SQL Editor path only)', () => {
   for (const mode of ['apply', 'dry-run']) {
-    assert.throws(() => prepareMigration({mode, version: '20261025190000', runId: '1', root: process.cwd()}), /blocked-command|drop table|차단|blocked/i);
+    assert.throws(() => prepareMigration({mode, version: '20261025191000', runId: '1', root: process.cwd()}), /blocked-command|drop table|차단|blocked/i);
   }
 });
 
@@ -46,6 +46,6 @@ test('ed3 backup drop: companion files exist; summary says the text cannot be re
   assert.match(code, /grant select \(id, workspace_id, source, row_id, row_updated_at, backed_up_at\) on table public\.app_ed3_text_backups to authenticated;/);
   assert.match(code, /create policy ed3_text_backups_owner_read/);
   assert.doesNotMatch(code, /\binsert into public\.|drop table/i);
-  assert.match(code, /delete from supabase_migrations\.schema_migrations\s+where version = '20261025190000' and name = 'ed3_backup_drop';/);
+  assert.match(code, /delete from supabase_migrations\.schema_migrations\s+where version = '20261025191000' and name = 'ed3_backup_drop';/);
   assert.doesNotMatch(code, /version = '20261024190000'\s+and name = 'ed3_text_backup';\s*commit/);
 });

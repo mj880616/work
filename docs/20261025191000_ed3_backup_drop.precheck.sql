@@ -9,7 +9,7 @@
 -- expect: diary rows = 기록
 -- expect: org update rows = 기록
 -- expect: project record rows = 기록
-select 'new migration absent' as item,case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261025190000') then '예' else '아니오' end as value
+select 'new migration absent' as item,case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261025191000') then '예' else '아니오' end as value
 union all select 'backup migration recorded',case when (select count(*) from supabase_migrations.schema_migrations where version='20261024190000' and name='ed3_text_backup')=1 then '예' else '아니오' end
 union all select 'backup table present',case when to_regclass('public.app_ed3_text_backups') is not null then '예' else '아니오' end
 union all select 'one owner read policy',case when to_regclass('public.app_ed3_text_backups') is not null
