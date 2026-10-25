@@ -40,7 +40,8 @@ export type BoxCall = {
 };
 export type CallParsed =
   | { kind: "failed"; day: string | null }
-  | { kind: "personal" | "unsure"; day: string | null; box: BoxCall | null }
+  | { kind: "personal"; day: string | null; box: BoxCall | null }
+  | { kind: "unsure"; day: string | null; box: BoxCall | null }
   | {
     kind: "business";
     day: string;
