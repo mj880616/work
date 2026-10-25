@@ -14,7 +14,7 @@ function trackSupabase(page){
   page.on('request',request=>{
     const url=new URL(request.url());
     if(url.origin===BASE){
-      if(/^\/app\/(?:team|app-router|capabilities|view-loader|mobile-swipe-navigation|public-workspace)\.js$/.test(url.pathname))calls.featureModules.push(url.pathname);
+      if(/^\/app\/(?:team|app-router|capabilities|view-loader|public-workspace)\.js$/.test(url.pathname))calls.featureModules.push(url.pathname);
       if(/^\/app\/public-workspace(?:-extras)?\.(?:js|css)$/.test(url.pathname))calls.publicWorkspaceAssets.push(url.pathname);
     }
     if(url.origin!==SB)return;

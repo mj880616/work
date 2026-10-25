@@ -143,7 +143,6 @@
   // MTG-기록겹침거르기 3단계: 프로젝트 기록·사업 보고 저장 직후 겹침 알림(저장 뒤 확인, 실패하면 아무것도 안 보임). 기다리지 않는다.
   import('./overlap-check.js').catch(err=>console.warn('overlap check load failed',err?.name||'Error'));
 
-  const mobileNavigationReady=import('./mobile-swipe-navigation.js').catch(err=>{console.error('mobile navigation load failed',err);return null});
   const showFeatureError=err=>{
     console.error('view feature load failed',err);
     let box=document.querySelector('#deferredFeatureError');
@@ -213,7 +212,6 @@
   window.__KPTU_MARK_APP_UI_READY__?.({usable:result?.ok===true});
   import('./mobile-modal-history.js').catch(()=>{});
   const defer=window.requestIdleCallback||((fn)=>setTimeout(fn,200));
-  await mobileNavigationReady;
 })().catch(err=>{
   console.error(err);
   document.body?.classList.remove('kptu-session-pending');

@@ -272,7 +272,7 @@ let view = null, viewInput = null, viewBody = null;
 function installView() {
   if (view) return view;
   const app = document.querySelector('#appView'); if (!app) return null;
-  view = el('section', 'view-panel hidden gs-view'); view.id = 'searchView'; view.setAttribute('aria-label', '검색'); view.dataset.swipeLock = '';
+  view = el('section', 'view-panel hidden gs-view'); view.id = 'searchView'; view.setAttribute('aria-label', '검색');
   const bar = el('div', 'gs-view-bar');
   const back = el('button', 'gs-back'); back.type = 'button'; back.setAttribute('aria-label', '검색 닫기'); back.append(el('span', null, '←')); back.firstChild.setAttribute('aria-hidden', 'true');
   back.addEventListener('click', () => { if (!router()?.back?.()) router()?.go?.('home', {source: 'delegated'}); });
