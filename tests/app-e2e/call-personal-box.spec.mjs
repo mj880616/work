@@ -97,6 +97,8 @@ for(const width of [390,1280])test(`통화 ${width}: 업무 통화함 기본 + �
  await expect(detail.locator('[data-cf-meta]')).toContainText('가상 친구 · 개인');
  await expect(detail.locator('[data-cf-points] li')).toHaveText(['토요일 저녁 7시']);
  await expect(detail.locator('[data-cf-link-pick],[data-cf-link-text]')).toHaveCount(0);
+ // 전문(사본)이 도착하면 상세를 한 번 다시 그린다. 그 뒤에 누른다.
+ await expect(detail.locator('[data-cf-script],[data-cf-raw-empty]')).toHaveCount(1);
  await tap(page,detail.locator('[data-cf-more]'),width);
  const menu=page.locator('#cfMenu');await expect(menu).toBeVisible();
  await expect(menu.locator('button')).toHaveText(['업무 통화로 옮기기','요약 복사','지우기 목록에서만']);
@@ -116,6 +118,7 @@ test('통화 1280: 개인 통화를 업무 통화로 옮기기(⋯ 메뉴) — a
  const view=page.locator('#callsView');
  await view.locator('[data-cf-box="personal"]').click();
  await view.locator(`[data-cf-row="${P1}"]`).click();
+ await expect(view.locator('#cfDetail [data-cf-script],#cfDetail [data-cf-raw-empty]')).toHaveCount(1);
  await view.locator('#cfDetail [data-cf-more]').click();
  await page.locator('#cfMenu').getByRole('button',{name:'업무 통화로 옮기기'}).click();
  await expect.poll(()=>f.moves).toEqual([{p_id:P1,p_to:'work'}]);
@@ -152,6 +155,7 @@ test('통화 1280: 업무→개인은 원장에 이미 쓰인 통화면 먼저 �
  await openCalls(page,1280);
  const view=page.locator('#callsView');
  await view.locator(`[data-cf-row="${W1}"]`).click();
+ await expect(view.locator('#cfDetail [data-cf-script],#cfDetail [data-cf-raw-empty]')).toHaveCount(1);
  await view.locator('#cfDetail [data-cf-more]').click();
  await page.locator('#cfMenu').getByRole('button',{name:'개인 통화로 옮기기'}).click();
  const warn=view.locator('#cfDetail [data-cf-confirm]');
@@ -168,6 +172,7 @@ test('통화 1280: 업무→개인은 원장에 이미 쓰인 통화면 먼저 �
  await expect(view.locator('[data-cf-box="personal"]')).toHaveText('개인 통화함 2 ›');
  // 연결도 원장 흔적도 없는 통화는 묻지 않고 옮긴다.
  await view.locator(`[data-cf-row="${W2}"]`).click();
+ await expect(view.locator('#cfDetail [data-cf-script],#cfDetail [data-cf-raw-empty]')).toHaveCount(1);
  await view.locator('#cfDetail [data-cf-more]').click();
  await page.locator('#cfMenu').getByRole('button',{name:'개인 통화로 옮기기'}).click();
  await expect.poll(()=>f.moves.length).toBe(2);
