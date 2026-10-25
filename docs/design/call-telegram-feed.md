@@ -262,7 +262,7 @@
 - `POST ?action=call_skip`: `{day, personal:n, short:n}`. 앱 스크립트가 개인 번호로 거른 수만 보낸다.
 - `POST ?action=telegram`: 본문 `{day, room_key, room_label, total, messages:[{ref, at, sender, text, reply_to, forwarded}]}`, 방 하나의 하루치(`date_kst` 기준), 200 KB 이하. `sender`는 A, B, C 같은 방·날짜별 임시 이름이다. 크면 앱 스크립트가 같은 방을 여러 묶음으로 나눈다. AI는 묶음마다 한 번만 부른다.
 - 응답은 `{ok, kept, personal, unsure}` 같은 개수와 단계 코드뿐이다. 원문, 요약, 오류 원문은 응답과 로그에 넣지 않는다.
-- 하루 상한: 통화 50건, 텔레그램 묶음 80개(넘으면 429). 비밀값이 새었을 때 비용 폭주를 막는다.
+- 하루 상한: 통화 200건(CALL-개인통화함 2단계에서 50건에서 올림: 개인 통화 내용까지 보내 업무·개인이 합산됨), 텔레그램 묶음 80개(넘으면 429). 비밀값이 새었을 때 비용 폭주를 막는다.
 - 텔레그램 AI 모델과 열쇠는 `ai-assist`와 같은 `WEB2_OPENAI_API_KEY`·`WEB2_AI_MODEL`을 쓴다. 판정·요약 답은 엄격한 JSON 형식으로 받고, 형식이 틀리면 저장하지 않는다.
 
 ### 4.5 통화 전문의 화자 구분 (나/상대)

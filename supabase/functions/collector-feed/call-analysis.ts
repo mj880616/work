@@ -1,6 +1,6 @@
 // collector-feed 통화: 기존 통화 분석 파일(검토__…md, Gemini가 이미 만든 것)을 읽기만 한다. AI를 부르지 않는다.
 // (docs/design/call-telegram-feed.md 1.3·3.2·3.4·4.2·4.5절, Q10~Q13)
-// 기준 형식: 명진의 통화 분석 v3.3(2026-10-24 19:30 적용). 3.1·3.2 파일도 새 칸 없이 그대로 읽는다.
+// 기준 형식: 명진의 통화 분석 v3.3(2026-10-24 19:30 적용), v3.5(개인 통화도 요약을 남김, status "개인"). 3.1·3.2·3.4 파일도 새 칸 없이 그대로 읽는다.
 // v3.3 새 칸: speaker_labels({"화자1": "나", "화자2": "소속 이름 직책"} 한 줄 JSON — 전사 줄 앞 `화자N:`을 이 값으로 바꿔 저장),
 //   counterparty_name·counterparty_title·counterparty_organization(상대 표시의 첫째 재료), 애매한 통화(is_work_related "" + status "애매")는 개수만.
 // - 앞머리(frontmatter): analysis_version(3.x만), status, is_work_related(true/false), call_title('조직 · 사람 직함 · 주제'),
@@ -8,7 +8,9 @@
 // - 구분: is_work_related=true → 업무, false 또는 status '개인' → 개인, 칸 없음(옛 3.1·비어 있음) → 구분 없음. status '분석실패' → failed.
 // - 가져오는 절: 상대 이름·직책(있을 때), 핵심요약, 약속 후보, 결정 후보, 후속확인 필요사항. 판단 메모·중요 원문·애매 표현·AI 메모는 읽지 않는다.
 //   v3.2 약속·결정 후보는 항목마다 `### 1. 내용` 아래 근거 줄이 붙는다 → `###` 줄만 항목으로 읽고 근거 줄은 버린다.
-// - 업무만 저장 재료를 만든다. 개인·구분 없음은 개수만(결과 kind만 돌려준다). 모양이 다르면 failed.
+// - 업무는 업무 통화함(app_feed_items) 재료를 만든다. 개인·애매(CALL-개인통화함 2단계, v3.5)는 분석 파일에 핵심요약이 있고 제목·녹음 시각이 있으면
+//   개인 통화함 표 재료(box)를 만든다. 개인은 조직·프로젝트 연결 재료를 만들지 않는다(상대 글만).
+//   요약이 없는 옛 개인 기록(3.2~3.4)·status '애매'가 아닌 구분 없음(옛 3.1·비어 있음)은 box가 null이라 개수만 센다. 모양이 다르면 failed.
 // 순수 함수만 둔다(네트워크·로그 없음). 바깥에서 온 글이므로 제어 문자를 지우고 길이를 자른다.
 import { matchOrg } from "../_shared/org-name-match.mjs";
 
@@ -24,8 +26,22 @@ export const CALL_LIMITS = Object.freeze({
 });
 
 export type OrgRow = { id: string; name: string; aliases?: string[] | null; active?: boolean | null };
+// 개인 통화함 표의 한 줄 재료. 업무 줄과 달리 organization_id가 없다.
+export type BoxCall = {
+  day: string;
+  occurred_at: string;
+  title: string;
+  points: string[];
+  counterpart: string | null;
+  speaker_split: boolean;
+  raw_text: string | null;
+  model: string | null;
+  judged_at: string | null;
+};
 export type CallParsed =
-  | { kind: "personal" | "unsure" | "failed"; day: string | null }
+  | { kind: "failed"; day: string | null }
+  | { kind: "personal"; day: string | null; box: BoxCall | null }
+  | { kind: "unsure"; day: string | null; box: BoxCall | null }
   | {
     kind: "business";
     day: string;
@@ -315,6 +331,45 @@ export function titleCounterpart(title: string | null, orgs: OrgRow[]): { counte
   return { counterpart: cleanLine(`${org.name} ${person}`, CALL_LIMITS.counterpart), org };
 }
 
+// 개인·애매 통화의 개인 통화함 재료. 저장 조건에 못 미치면 null(개수만 센다).
+// - 핵심요약이 실제로 있어야 한다(옛 개인 기록은 요약이 없어 여기서 걸러진다. 얇은 줄이 먼저 저장돼 새 분석이 중복으로 막히는 일을 피한다).
+// - 애매는 status '애매'가 분명할 때만(옛 3.1의 칸 없음·비어 있음은 기존대로 개수만).
+// - 상대는 counterparty_name·counterparty_title을 우선, 없으면 상대 절·본문 머리 줄. 조직은 맞추지 않는다(연결 칸이 없다).
+function boxCallOf(kind: "personal" | "unsure", meta: Record<string, string>, body: string, rawTranscript: string, at: number | null, nowMs: number): BoxCall | null {
+  if (at === null || at > nowMs + 86400000) return null;
+  if (kind === "unsure" && (meta.status ?? "").replace(/\s/g, "") !== "애매") return null;
+  const s = sections(body);
+  const summary = bullets(s.summary);
+  if (!summary.length) return null;
+  const title = cleanLine(meta.call_title, CALL_LIMITS.title) ?? firstSentence(summary[0]);
+  if (!title) return null;
+  let counterpart: string | null = null;
+  const okPart = (v: string | null) => (v && !hasPhone(v) && !EMPTY_ITEM.test(v) ? v : null);
+  const cpName = okPart(cleanLine(meta.counterparty_name, 60)), cpTitle = okPart(cleanLine(meta.counterparty_title, 60));
+  if (cpName) {
+    counterpart = cleanLine([cpName, cpTitle ?? ""].filter(Boolean).join(" "), CALL_LIMITS.counterpart);
+  } else {
+    const head = s.counterpart ? null : headerCounterpart(body);
+    if (s.counterpart || head) {
+      const lines = s.counterpart ?? [`- 이름: ${head!.name}`, ...(head!.role ? [`- 직책: ${head!.role}`] : [])];
+      counterpart = counterpartOf(lines, s.counterpart ? transcriptName(meta.source_txt_name).contact : null, []).counterpart;
+    }
+  }
+  const transcript = rawTranscript.normalize("NFC").replace(CONTROL, "").trim();
+  const judged = parseKstDateTime(meta.analysis_at);
+  return {
+    day: kstDay(at),
+    occurred_at: new Date(at).toISOString(),
+    title,
+    points: pointsOf(s),
+    counterpart,
+    speaker_split: transcript ? speakerSplit(transcript) : false,
+    raw_text: transcript ? applySpeakerLabels(transcript, speakerLabelsOf(meta.speaker_labels)) : null,
+    model: cleanLine(meta.analysis_model, CALL_LIMITS.model),
+    judged_at: judged === null ? null : new Date(judged).toISOString(),
+  };
+}
+
 export function parseCall(input: { ref: string; analysis_md: string; transcript: string }, orgs: OrgRow[], nowMs: number): CallParsed {
   const fm = frontmatter(input.analysis_md);
   if (!fm) return { kind: "failed", day: null };
@@ -326,7 +381,7 @@ export function parseCall(input: { ref: string; analysis_md: string; transcript:
   if (meta.source_txt_id && meta.source_txt_id !== input.ref) return { kind: "failed", day };
   if ((meta.status ?? "").replace(/\s/g, "") === "분석실패") return { kind: "failed", day };
   const kind = workKind(meta);
-  if (kind !== "business") return { kind, day };
+  if (kind !== "business") return { kind, day, box: boxCallOf(kind, meta, fm.body, input.transcript, at, nowMs) };
   if (at === null || at > nowMs + 86400000) return { kind: "failed", day: null };
   const s = sections(fm.body);
   const points = pointsOf(s);
