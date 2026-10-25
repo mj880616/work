@@ -337,7 +337,7 @@ function luDragRowHtml(d,node){const html=luRowHtml(d,node);if(!luCanDrag()||!lu
 // LIB-줄안이름바꾸기: 줄 우클릭·⋯ 메뉴의 [이름 바꾸기] 또는 줄을 고른 채 F2 → 창 없이 그 줄 제목이 입력칸이 된다(글자 전체 선택).
 // Enter·바깥 누르기=저장, Esc=취소. 저장하면 줄 위 한 줄에 '이름을 바꿨어요 · 되돌리기'. 바꾸는 것은 Web2 제목뿐(Drive 원본 파일 이름 그대로).
 // 저장은 [수정] 창과 같은 서버 길(app_documents PATCH)이고 제목 칸을 사용자 값('user')으로 남긴다(library-rename.js). 브라우저 저장소는 쓰지 않는다.
-let luRename=null,luRenameBusy=false,luRenameNoticeToken=0;
+let luRename=null,luRenameBusy=false,luRenameNoticeToken=0,luKeepFocus=null;
 function luBindRename(list){list.addEventListener('keydown',e=>{if(e.key!=='F2'||e.altKey||e.ctrlKey||e.metaKey||e.shiftKey)return;const t=e.target;if(!(t instanceof Element)||t.closest('input,textarea,select,[contenteditable]'))return;const row=t.closest('[data-lu-document]');if(!row)return;e.preventDefault();luStartRename(row.dataset.luDocument)})}
 function luRenameNotice(text,{error=false,undo=null}={}){
   const token=++luRenameNoticeToken;luFolderStatus(text,error);
@@ -358,7 +358,7 @@ function luStartRename(id){
     const value=input.value.trim();
     if(input.isConnected)input.replaceWith(title);if(wasDraggable!==null&&row.isConnected)row.setAttribute('draggable',wasDraggable);
     if(refocus&&row.isConnected)row.focus({preventScroll:true});
-    if(save&&value&&value!==before)void luRenameSave(d,value);
+    if(save&&value&&value!==before)void luRenameSave(d,value,refocus);
   }};
   // 줄을 누르면 자료가 열리므로 입력칸 안의 누르기·키는 줄까지 올라가지 않게 한다.
   for(const type of ['click','dblclick','pointerdown','mousedown'])input.addEventListener(type,e=>e.stopPropagation());
@@ -372,13 +372,14 @@ function luStartRename(id){
   row.removeAttribute('draggable');title.replaceWith(input);luRename=state;
   input.focus({preventScroll:true});input.select();
 }
-async function luRenameSave(d,value){
+async function luRenameSave(d,value,refocus=false){
   const scope=luEditScope();
   if(!scope){luRenameNotice('로그인 상태를 확인하지 못해 이름을 바꾸지 않았어요.',{error:true});return}
   luRenameBusy=true;
   const snapshot=undoSnapshot(d),body=renameBody(d,value);
   try{
     const row=await luRenamePatch(d.id,scope,body);
+    if(refocus)luKeepFocus={id:d.id,until:Date.now()+3000};
     luDocuments=luDocuments.map(x=>x.id===row.id?structuredClone(row):x);luRenderLibrary();
     luRenameNotice('이름을 바꿨어요 ·',{undo:()=>luRenameUndo(d.id,value,snapshot)});
     window.dispatchEvent(new CustomEvent('kptu:documents-changed'));
@@ -616,6 +617,8 @@ const luTreeNode=key=>{let found=null;const walk=list=>{for(const n of list||[])
 const luVisibleIds=()=>[...new Set((luLastTree||[]).flatMap(nodeDocumentIds))];
 function luNodePick(n){if(!luSel)return '';const ids=nodeDocumentIds(n);if(!ids.length)return '';return `<input type="checkbox" class="lu-pick lu-pick-node" data-lu-pick-node="${luEsc(n.key)}" aria-label="${luEsc(n.label)} 안 자료 모두 선택"${allSelected(luSel,ids)?' checked':''}>`}
 function luAfterRender(){
+  // LIB-줄안이름바꾸기: 키보드로 이름을 바꾼 직후 3초 안에 목록이 다시 그려져 초점이 사라지면 같은 줄에 초점을 돌려준다(F2를 계속 쓸 수 있게).
+  if(luKeepFocus){const a=document.activeElement;if(Date.now()>luKeepFocus.until||(a&&a!==document.body&&!(a.dataset?.luDocument===luKeepFocus.id)))luKeepFocus=null;else [...document.querySelectorAll('#documentList [data-lu-document]')].find(x=>x.dataset.luDocument===luKeepFocus.id)?.focus({preventScroll:true})}
   if(luSel){const keep=pruneSelected(luSel,luVisibleIds());if(keep.size!==luSel.size)luSel=keep}
   luSyncPicks();
 }
