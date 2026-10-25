@@ -102,6 +102,8 @@ export const LEDGER_FIX_INSTRUCTIONS = [
   "- 약속(kind=commitment): 추적하지 않음·더 안 봄·뺌·없던 일 = commitment_status cancelled / 지켜짐·이행됨·받음 = commitment_status fulfilled / 어김 = commitment_status broken / 다시 기다림 = commitment_status waiting.",
   "- 사건(kind=event): 추적 끝·종결·마무리·추적하지 않음·더 안 봄·뺌 = event_status closed / 다시 추적 = event_status tracking / 지켜보는 중 = event_status watching / 보류 = event_status on_hold.",
   "- 결정·변화·근거(decision·change·evidence)에는 추적 상태 칸이 없다. 그런 기록에 추적 말이 오면 상태를 지어내지 말고 question에 한 문장으로 되묻는다.",
+  "메모 말은 상태를 바꾸지 않는다: 메모·비고를 남기겠다, 할 일·일정·다른 곳에서 챙기겠다, 따로 보겠다, 참고로 적어 둔다, 나중에 다시 보겠다 같은 말은 note(비고)만 바꾼다. 이때 commitment_status·event_status·follow_up_on·counterparty는 changes에 넣지 않는다(그대로 이어진다).",
+  "상태 칸은 request가 그 상태로 바꾸라는 뜻을 분명히 말했을 때만 바꾼다. '약속에서는 빼고 할 일로 챙기겠다'처럼 추적을 끝낸다는 말이 없으면 상태를 짐작하지 말고 note만 바꾼다. 상태를 바꿀지 메모만 할지 애매하면 items를 비우고 question에 한 문장으로 되묻는다.",
   "replace는 바뀌는 칸만 changes에 넣는다. retire는 changes를 비운다. add는 changes에 title을 꼭 넣는다.",
   "kind는 add에서만 쓴다: event(사건·쟁점), change(이미 있는 사건의 변화·진행 — belongs_to에 known_records의 사건 id 필수), decision(정한 것), evidence(근거 자료), commitment(상대가 하기로 한 약속 — counterparty 필수). replace·retire는 kind를 빈 문자열로.",
   "changes의 field는 title, summary, date_start, date_note, importance, sensitivity, scope, topic, note, event_status, decision_type, decision_reason, evidence_type, counterparty, commitment_status, follow_up_on 중 하나다.",
