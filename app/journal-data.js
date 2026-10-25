@@ -234,16 +234,21 @@ export async function readProjectUpdates(start, rt = window.KPTURuntime) {
 // A week has a handful of meetings; the text stays in this screen's memory only and is never stored.
 // UPD-요약부품통일 ①: the summaries written on its 프로젝트·담당조직 links (app_record_links, 출처 회의) come along as link_summaries,
 // so the weekly line uses a written summary before the result's first line. If that embed cannot be read, the plain read is used.
-const MEETING_FIELDS = 'id,title,series_name,round_no,meeting_at,transcript_text,decisions,activity_kind';
-const MEETING_LINKS = 'links:app_record_links!app_record_links_source_meeting_id_fkey(summary,status)';
+const MEETING_FIELDS = 'id,title,series_name,round_no,meeting_at,transcript_text,decisions,activity_kind,project_id';
+const MEETING_LINKS = 'links:app_record_links!app_record_links_source_meeting_id_fkey(summary,status,project_id,organization_id)';
 export async function readWeekMeetings(start, rt = window.KPTURuntime) {
   const from = dayStartIso(weekDays(start)[0]), to = dayStartIso(shiftWeek(start, 1));
   const path = fields => `/rest/v1/app_meetings?workspace_id=eq.${encode(workspace(rt))}&meeting_at=gte.${encode(from)}&meeting_at=lt.${encode(to)}&select=${fields}&order=meeting_at.asc,id.asc`;
   let rows;
   try { rows = await pages(path(`${MEETING_FIELDS},${MEETING_LINKS}`), rt); }
   catch (error) { if (Number(error?.status) !== 400) throw error; return pages(path(MEETING_FIELDS), rt); }
-  return rows.map(({links, ...meeting}) => ({...meeting, link_summaries:(Array.isArray(links) ? links : [])
-    .filter(l => l?.status === 'confirmed' && typeof l.summary === 'string' && l.summary.trim()).map(l => l.summary)}));
+  // MTG-기록겹침거르기 4단계: link_targets = 이 사업 보고에 이어진 프로젝트·조직(주간 정리가 겹침 후보를 줄 세울 때만 쓴다, 화면에 보이지 않음).
+  const targets = (meeting, links) => [...new Set([meeting.project_id && `project:${meeting.project_id}`,
+    ...links.filter(l => l?.status === 'confirmed').flatMap(l => [l.project_id && `project:${l.project_id}`, l.organization_id && `organization:${l.organization_id}`])].filter(Boolean))]
+    .map(key => ({kind:key.slice(0, key.indexOf(':')), id:key.slice(key.indexOf(':') + 1)}));
+  return rows.map(({links, ...meeting}) => { const list = Array.isArray(links) ? links : [];
+    return {...meeting, link_targets:targets(meeting, list), link_summaries:list
+      .filter(l => l?.status === 'confirmed' && typeof l.summary === 'string' && l.summary.trim()).map(l => l.summary)}; });
 }
 
 // 자료실 새 자료: documents of this workspace added (created_at) in the week — the day they were put in the library, not the
