@@ -109,14 +109,14 @@ for(const width of [390,1280])test(`통화 ${width}: 날짜별 목록 → 상세
  await expect(detail.locator('[data-cf-points] .feed-tag')).toHaveText(['확정','예정','확인']);
  if(width>=1024){await expect(page.locator('[data-topline-where] [aria-current="page"]')).toHaveText('가상 교섭 일정 다음 주로 조정');await expect(detail.locator('[data-cf-title]')).toHaveCount(0);}
  else await expect(detail.locator('[data-cf-title]')).toHaveText('가상 교섭 일정 다음 주로 조정');
+ // 전문(사본)이 도착하면 상세를 한 번 다시 그린다. 위치를 재기 전에 그 다시 그리기를 기다린다.
+ await expect(detail.locator('[data-cf-script],[data-cf-raw-empty]')).toHaveCount(1);
  // UI-더보기제목줄: ⋯는 빈 줄을 따로 차지하지 않고 첫 줄(폰은 제목, PC는 날짜·시간 줄) 오른쪽 끝에 같은 줄로 놓인다.
  {const first=await detail.locator(width>=1024?'[data-cf-meta]':'[data-cf-title]').boundingBox(),more=await detail.locator('[data-cf-more]').boundingBox();
   expect(first&&more).toBeTruthy();expect(Math.abs(more.y+more.height/2-(first.y+Math.min(first.height,more.height)/2))).toBeLessThan(more.height);
   expect(more.x).toBeGreaterThan(first.x+first.width-1);expect(more.y).toBeLessThan(first.y+first.height);
   expect(await detail.locator('.feed-detail-head').evaluateAll(a=>a.filter(h=>h.querySelector('[data-cf-more]')).length)).toBe(0);}
  // 전문은 접혀 있다가 펼치면 한 문단 + "화자 구분은 전사 수정 뒤".
- // 전문(사본)이 도착하면 상세를 한 번 다시 그린다. 그 뒤에 누른다.
- await expect(detail.locator('[data-cf-script],[data-cf-raw-empty]')).toHaveCount(1);
  const full=detail.locator('[data-cf-full]');await expect(full).not.toHaveAttribute('open','');
  await tap(page,full.locator('summary'),width);
  await expect(full.locator('[data-cf-script="one"]')).toContainText('사측에서 목요일은 어렵다고');
