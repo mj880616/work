@@ -92,9 +92,9 @@ export { DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK };
 export const DEFAULT_MODEL = DEFAULT_AI_MODEL;
 // Web2 월 추정 한도(D4 ②). OpenAI 쪽 월 한도(약 2만 원, D4 ①)보다 먼저 멈춘다.
 export const MONTHLY_LIMIT_KRW = 15000;
-// 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 50회. 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
+// 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
-export const DAILY_TOTAL_LIMIT = 50;
+export const DAILY_TOTAL_LIMIT = 80;
 export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30 });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;

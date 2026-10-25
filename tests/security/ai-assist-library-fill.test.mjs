@@ -269,7 +269,7 @@ test('input validation: ids, mode, keep; unknown keys refused',async()=>{
 });
 
 test('budget: shared daily/monthly limits apply; DB column not yet applied → library_not_ready',async()=>{
-  {const {handler,calls}=harness({usage:[{workspace_id:WS,user_id:OWNER,day:TODAY,requests:50,input_tokens:0,output_tokens:0}]});
+  {const {handler,calls}=harness({usage:[{workspace_id:WS,user_id:OWNER,day:TODAY,requests:80,input_tokens:0,output_tokens:0}]});
    const r=await post(handler,fillReq());assert.equal(r.status,429);assert.equal((await r.json()).error,'daily_limit');assert.equal(calls.openai.length,0);}
   assert.equal(DAILY_LIMITS.library_fill,50);
   {const {handler,calls}=harness({missingColumn:true});
@@ -356,7 +356,7 @@ test('tidy: an invalid AI answer records the attempt only (no value change); bus
 });
 
 test('tidy: same limits as fill (daily 50); before the DB is applied → library_not_ready and AI is not called',async()=>{
-  {const {handler,calls}=harness({docs:[old(1)],usage:[{workspace_id:WS,user_id:OWNER,day:TODAY,requests:50,input_tokens:0,output_tokens:0}]});
+  {const {handler,calls}=harness({docs:[old(1)],usage:[{workspace_id:WS,user_id:OWNER,day:TODAY,requests:80,input_tokens:0,output_tokens:0}]});
    const r=await post(handler,tidyReq([id(1)]));assert.equal(r.status,429);assert.equal((await r.json()).error,'daily_limit');assert.equal(calls.openai.length,0);assert.equal(calls.rpcs.length,0);}
   {const {handler,calls}=harness({docs:[old(1)],classifyMissing:true});
    const r=await post(handler,tidyReq([id(1)]));assert.equal(r.status,503);assert.equal((await r.json()).error,'library_not_ready');assert.equal(calls.openai.length,0);}
@@ -676,8 +676,8 @@ test('brief backfill keeps room for new uploads: from 35 AI calls today tidy sto
    const {handler,calls,db}=harness({briefs:[],docs:[old,untidy],attempts:[tried(1)],usage:usage(36),openai:[()=>respond(answer([sum()]))]});
    assert.equal((await post(handler,{kind:'library_fill',mode:'tidy',document_ids:[id(1),id(2)]})).status,200);
    assert.equal(sentFiles(calls).length,1);assert.equal(db.app_document_ai_index.map(r=>r.document_id).join(),id(2));}
-  // The shared daily total (50) is unchanged.
-  {const {handler,calls}=harness({briefs:[],usage:usage(50)});const r=await post(handler,fillReq());assert.equal(r.status,429);assert.equal(calls.openai.length,0);}
+  // The shared daily total (DAILY_TOTAL_LIMIT, 80 since 10/25) still blocks.
+  {const {handler,calls}=harness({briefs:[],usage:usage(80)});const r=await post(handler,fillReq());assert.equal(r.status,429);assert.equal(calls.openai.length,0);}
 });
 
 test('brief tidy: an invalid AI answer stores an empty summary (not retried forever); busy stores nothing',async()=>{
