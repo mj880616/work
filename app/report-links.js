@@ -99,7 +99,7 @@ export async function saveReportTargets(meeting,targets,rt=rtOf(),summaries=null
 export const LEGACY_NOTE='담당조직과 둘째 프로젝트 연결은 서버 준비가 끝난 뒤에 저장돼요. 첫 프로젝트만 저장했어요.';
 
 // 한 곳을 더하거나 빼기(프로젝트·조직 화면용): 지금 연결을 읽어 한 곳만 바꿔 다시 저장한다. 버전은 방금 읽은 것.
-export async function changeOneTarget(meetingId,target,mode,rt=rtOf()){
+export async function changeOneTarget(meetingId,target,mode,rt=rtOf(),summaries=null){
   const ws=workspaceOf(rt);
   const row=(await rt.api(`/rest/v1/app_meetings?id=eq.${enc(meetingId)}&workspace_id=eq.${enc(ws)}&select=id,updated_at,project_id`))?.[0];
   if(!row)return {ok:false,error:'MEETING_MISSING',message:setLinksErrorText('MEETING_MISSING')};
@@ -107,7 +107,7 @@ export async function changeOneTarget(meetingId,target,mode,rt=rtOf()){
   const same=t=>t.kind===target.kind&&t.id===target.id;
   const next=mode==='add'?(current.some(same)?current:[...current,{kind:target.kind,id:target.id}]):current.filter(t=>!same(t));
   if(next.length>20)return {ok:false,error:'INVALID_TARGETS',message:setLinksErrorText('INVALID_TARGETS')};
-  const result=await saveReportTargets(row,next,rt);
+  const result=await saveReportTargets(row,next,rt,summaries);
   return {...result,previous:current};
 }
 

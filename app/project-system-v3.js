@@ -743,7 +743,7 @@ async function openRecordBig(form){
 async function saveRecordInput(form){
   const e=saveEditors.get('record-input');if(!e||e.form!==form||!saveEditorCurrent(e))return;const input=e.fields[0],summary=input.value.trim();if(!summary){input.focus();return}
   const r=beginProjectSave(e,{project_id:e.projectId,workstream_id:null,author_id:e.owner,status_label:null,summary,next_step:null,effective_on:seoulDateKey(),metadata:{}});if(!r)return;
-  try{await writeSaveBody(r);if(!projectSaveCurrent(r)){if(sameSaveSession(e))r.attempt.needsReview=true;return}forgetSave(r);if(JSON.stringify(readSaveDraft(e))===r.draft){input.value='';form.dataset.dirty='false';e.baseline=JSON.stringify(readSaveDraft(e))}saveNotice(e,'기록했습니다.');toast('기록했습니다.');await refreshDetail()}catch(error){failedSave(r,error);if(projectSaveCurrent(r))toast('저장 실패: '+(error.message||error))}finally{finishProjectSave(r)}
+  try{const saved=await writeSaveBody(r);if(!projectSaveCurrent(r)){if(sameSaveSession(e))r.attempt.needsReview=true;return}forgetSave(r);if(saved?.id)window.dispatchEvent(new CustomEvent('kptu:record-saved',{detail:{kind:'project_update',id:saved.id,project_id:e.projectId,day:saved.effective_on||r.body.effective_on,text:summary}}));if(JSON.stringify(readSaveDraft(e))===r.draft){input.value='';form.dataset.dirty='false';e.baseline=JSON.stringify(readSaveDraft(e))}saveNotice(e,'기록했습니다.');toast('기록했습니다.');await refreshDetail()}catch(error){failedSave(r,error);if(projectSaveCurrent(r))toast('저장 실패: '+(error.message||error))}finally{finishProjectSave(r)}
 }
 function openMilestone(id=''){
   editingMilestone=id?detail.milestones.find(x=>x.id===id):null;

@@ -40,6 +40,8 @@ export const AI_SUMMARY_TEXT=Object.freeze({
   ledger_fix_sensitive:'교섭·전략 기록은 AI로 고치지 않아요. Claude 수정안을 붙여 넣어 주세요.',
   ledger_fix_inactive:'이미 대체됐거나 폐기된 기록이에요.',
   ledger_fix_rejected:'원장 형식에 맞지 않아 미리보기를 만들지 못했어요. 문장을 바꿔 다시 써 주세요.',
+  overlap_not_ready:'기록 겹침 확인은 아직 준비 중이에요.',
+  overlap_unavailable:'겹침 판정을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
   org_summary_not_ready:'조직 요약은 아직 준비 중이에요.',
   org_summary_unavailable:'조직 요약을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
   library_not_ready:'자료 정보 채우기가 아직 준비되지 않았어요.',
