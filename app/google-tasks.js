@@ -405,6 +405,13 @@ function setSync(text='',failed=false,retry=false){const el=document.querySelect
 async function fetchOverview(fresh=false,expectedSessionEpoch=null){const options={...(fresh?{singleFlight:false}:{}),...(expectedSessionEpoch==null?{}:{expectedSessionEpoch})};if(!overviewUnsupported){try{return await rt.api(endpoint('overview')+'&pending_scope=all',options)}catch(e){if(!(e?.status===400&&/Unknown action/i.test(String(e?.message||''))))throw e;overviewUnsupported=true}}const status=await rt.api(endpoint('status'),options);if(status?.needs_reconnect||status?.authorized===false)return {...status,tasks:[]};const d=await rt.api(endpoint('tasks')+'&pending_scope=all',options);return d?.needs_reconnect?{connected:true,authorized:false,needs_reconnect:true,warning:d.warning,tasks:[]}:{connected:true,authorized:true,needs_reconnect:false,error:d?.error,tasks:d?.tasks||[],pending_scope:d?.pending_scope}}
 // The overview contains Google task data but no link rows. Read only confirmed project/organization links through the existing owner-scoped RLS endpoint.
 async function readLinks(tasks){const ids=[...new Set(tasks.map(t=>t.id).filter(Boolean))],rows=[];for(let i=0;i<ids.length;i+=50){const query=ids.slice(i,i+50).map(encodeURIComponent).join(',');rows.push(...await rt.api(`/rest/v1/app_record_links?google_task_id=in.(${query})&status=eq.confirmed&select=google_task_id,project_id,organization_id,meeting_id,status`))}return rows}
+// STAB-분할시험: the overview carries no link data (project names, organizations, 연결 안 됨). A task already shown keeps the link
+// display it has until describeTasks answers, so a fresh list (a refresh on entering, or the home publishing its read) does not paint
+// this list without the tags and then paint it again with them.
+function withShownLinks(tasks,owner){
+  const shown=shownOwner===owner?new Map(lastTasks.map(t=>[t.id,t])):new Map();
+  return tasks.map(t=>{const p=shown.get(t.id);return p?{...t,unlinked:!!p.unlinked,projectNames:p.projectNames,orgIds:p.orgIds}:{...t,unlinked:false}});
+}
 // Shared display enrichment for this screen and calendarDayModal only. Organization/meeting links do not display as project names.
 async function describeTasks(tasks){
   const epoch=sessionEpoch,owner=currentOwner(),rows=await readLinks(tasks),linked=new Set(rows.filter(row=>row.project_id||row.organization_id).map(row=>row.google_task_id));
@@ -441,7 +448,7 @@ async function load(force=false){
     if(d?.error)throw new Error(d.error);
     const fresh=d?.tasks||[];for(const id of deletedTombstones)if(!fresh.some(t=>t.id===id))deletedTombstones.delete(id);
     allPendingConfirmed=d?.pending_scope==='all';
-    lastTasks=keepDeletingTasks(mergeToggles(fresh.filter(t=>!deletedTombstones.has(t.id)).map(t=>({...t,unlinked:false})),since));cacheOwnerId=owner;shownOwner=owner;fetchedOwner=owner;
+    lastTasks=keepDeletingTasks(mergeToggles(withShownLinks(fresh.filter(t=>!deletedTombstones.has(t.id)),owner),since));cacheOwnerId=owner;shownOwner=owner;fetchedOwner=owner;
     checkedAt=Date.now();verifiedOwner=owner;cacheWrite(owner,lastTasks);setSync('');setFresh('');renderTasks(lastTasks);
     if(loadSeq===seq)loadingEpoch=-1;
     // Source notes: one owner-scoped query per load. A failure only hides the links.
@@ -505,7 +512,7 @@ async function boot(){section();ensureModal();window.addEventListener('kptu:proj
 const shownState=tasks=>tasks.filter(t=>!pendingDeletes.has(t.id)&&!deletedTombstones.has(t.id)).map(t=>{const p=pendingToggles.get(t.id);return p?withStatus(t,p.want):{...t}});
 function peekTasks(){const owner=currentOwner(),k=gtCacheKey(owner);if(!k)return null;try{const v=JSON.parse(localStorage.getItem(k)||'null'),tasks=cacheRead(owner);return tasks?{owner,savedAt:Number(v?.savedAt||0),tasks:shownState(tasks)}:null}catch{return null}}
 let publishedReadSeq=0;
-async function listTasks({publish=false,fresh=false}={}){const owner=currentOwner(),epoch=sessionEpoch,since=toggleSeq,readSeq=publish?++publishedReadSeq:0;if(!owner)return {owner:'',status:'disconnected',tasks:[]};let d;try{d=await fetchOverview(fresh)}catch(e){if(/연결되지|재인증|TASKS_SCOPE_REQUIRED|권한/i.test(String(e?.message||e))&&stillCurrent(epoch,owner))return {owner,status:'disconnected',tasks:[]};throw e}if(!stillCurrent(epoch,owner))throw new Error('session changed');if(d?.connected===false||d?.needs_reconnect||d?.authorized===false)return {owner,status:'disconnected',tasks:[]};if(d?.error)throw new Error(d.error);const tasks=shownState(mergeToggles(d?.tasks||[],since));checkedAt=Date.now();verifiedOwner=owner;if(publish&&readSeq===publishedReadSeq){lastTasks=tasks;cacheOwnerId=shownOwner=owner;allPendingConfirmed=d?.pending_scope==='all';cacheWrite(owner,tasks);renderTasks(tasks)}return {owner,status:'ok',tasks}}
+async function listTasks({publish=false,fresh=false}={}){const owner=currentOwner(),epoch=sessionEpoch,since=toggleSeq,readSeq=publish?++publishedReadSeq:0;if(!owner)return {owner:'',status:'disconnected',tasks:[]};let d;try{d=await fetchOverview(fresh)}catch(e){if(/연결되지|재인증|TASKS_SCOPE_REQUIRED|권한/i.test(String(e?.message||e))&&stillCurrent(epoch,owner))return {owner,status:'disconnected',tasks:[]};throw e}if(!stillCurrent(epoch,owner))throw new Error('session changed');if(d?.connected===false||d?.needs_reconnect||d?.authorized===false)return {owner,status:'disconnected',tasks:[]};if(d?.error)throw new Error(d.error);const tasks=shownState(mergeToggles(d?.tasks||[],since));checkedAt=Date.now();verifiedOwner=owner;if(publish&&readSeq===publishedReadSeq){const shown=withShownLinks(tasks,owner);lastTasks=shown;cacheOwnerId=shownOwner=owner;allPendingConfirmed=d?.pending_scope==='all';cacheWrite(owner,shown);renderTasks(shown)}return {owner,status:'ok',tasks}}
 // Used by the project detail (TASK-구현 PR 4) and the calendar (CAL-할일). The date rules are shared so other screens judge dates as this view does.
 // UI-할일조작통일: delete from another screen (the calendar date list) with the same Edge call as the editor's [삭제]. The caller asks first.
 // It waits for a toggle still being saved, and answers {ok:true} or {ok:false,message} so the caller can keep or restore its row.

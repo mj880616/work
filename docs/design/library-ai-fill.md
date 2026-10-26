@@ -196,3 +196,9 @@
 - DB: `tests/auth-handoff/library-ai-classify.test.mjs`(workflow runner dry-run·apply, 사람 칸·있는 연결·뺀 연결 거절, ID 검사, 한 트랜잭션, 글자 늦게 온 자료 한 번만 고침, owner 전용·anon 없음, 전체 되돌리기·고친 칸 건너뜀, rollback 차단·실행 후 snapshot 같음·재적용).
 - 화면 단위: `tests/library-ai-fill.test.mjs`(빈 연결 후보·뺀 연결·수정 창 잠금·글자 들어온 자료 다시, 8묶음), `tests/document-categories.test.mjs`(교섭↔교섭·합의, 성명·보도자료·공문 대응, 저장 값 유지).
 - E2E: `tests/app-e2e/library-auto-tidy.spec.mjs`(새 시도 기록 표, 8묶음), `tests/app-e2e/library-ai-fill.spec.mjs`(기존 자료 연결 표시).
+
+## 파일 이름 제목 규칙 (LIB-파일이름제목, 2026-10-26 사용자 결정)
+
+- 파일 이름에 뜻이 있으면 그 이름이 제목이다. AI는 제목 칸을 건드리지 않는다(서버 `fillableFields`·`needsTidy`·`upgradeTextFields`, 화면 `untidyFields`가 같은 규칙, AI에는 `title_from_text:false`로 알림).
+- 본문에서 제목을 뽑는 것은 뜻 없는 파일 이름뿐이다(`isMeaninglessName`): 이름에서 숫자·기호를 뺀 낱말이 모두 흔한 낱말(`GENERIC_NAME_WORDS`: scan·img·screenshot·kakaotalk·제목 없음·새 문서·스크린샷 …) 또는 영문 1~2자 조각인 이름(숫자만, 카메라·스캐너·메신저 이름 꼴).
+- 날짜·작성 주체·유형·연결 자동 정리는 그대로. 이미 바뀐 제목은 `docs/ops/library-title-check.sql`(읽기 전용)로 확인만 하고 되돌리지 않는다.

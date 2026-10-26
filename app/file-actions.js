@@ -1,7 +1,8 @@
 // FILE-누르면동작: 파일 줄을 누르면 무엇이 되는지의 유일한 규칙과 그 실행(자료실·바구니·노트·할 일·담당조직·프로젝트·사업 보고 자료).
 // - PDF: Drive 보기 주소를 새 탭으로 연다(앱에는 PDF 보기 화면이 없고, Drive 보기가 곧 PDF 보기).
 // - HWP·HWPX: Drive 미리보기를 거치지 않고 내려받기가 바로 시작된다.
-// - 사진(jpeg·png·webp·gif): 사진 크게 보기(photo-view.js). 노트 번호가 없는 곳(자료실·할 일 등)은 Drive 보기를 새 탭으로 연다.
+// - 사진(jpeg·png·webp·gif): 사진 크게 보기(photo-view.js). 자료 번호가 있는 곳(자료실·프로젝트·담당조직·사업 보고 자료)은 한 번 쓰는 내려받기 주소로 앱 안에서 크게 본다.
+//   Drive 파일 번호만 있는 곳(할 일 첨부)은 읽을 서버 길이 없어 Drive 보기를 새 탭으로 연다. HEIC·BMP는 브라우저가 못 그려 내려받기.
 // - HTML(.html·.htm, 자료실 자료): 화면 안 칸막이로 본다(viewHtml을 준 화면만, PRESS-자료실편입). 칸막이가 없는 화면은 내려받기.
 // - 그 밖(엑셀·워드 등): 내려받기.
 // 내려받기 두 길(둘 다 서버가 Content-Disposition으로 원래 이름을 준다):
@@ -12,9 +13,8 @@
 //     기존 [Drive에서 열기]와 같다.
 // ⋯ 메뉴에는 어느 파일이든 [Drive에서 열기]와 [내려받기]를 둘 다 둔다(menuItemsHtml).
 import {fileKind} from './meeting-compact.js';
+import {isViewableImage} from './library-tree.js';
 
-const PHOTO_TYPE = /^image\/(jpeg|png|webp|gif)$/i;
-const PHOTO_EXT = /\.(jpe?g|png|webp|gif)$/i;
 // Drive 보기 주소(번호가 올바를 때만). 할 일 첨부(task-files.js)도 이것을 다시 내보내 쓴다.
 export function driveFileUrl(id) {
   return typeof id === 'string' && /^[A-Za-z0-9_-]{1,255}$/.test(id) ? `https://drive.google.com/file/d/${id}/view` : '';
@@ -27,7 +27,7 @@ export function clickKind({name = '', mime = ''} = {}) {
   const key = fileKind(name).key;
   if (key === 'pdf' || /^application\/pdf$/i.test(String(mime || ''))) return 'pdf';
   if (key === 'hwp') return 'hwp';
-  if (PHOTO_TYPE.test(String(mime || '')) || PHOTO_EXT.test(String(name || ''))) return 'photo';
+  if (isViewableImage(name, mime)) return 'photo'; // 자료실 '그림' 판정(fileKindOf)과 같은 규칙 하나
   return 'download';
 }
 
@@ -58,12 +58,15 @@ export function openInDrive(file, {onError = () => {}} = {}) {
 }
 
 // 내려받기. 자료 번호가 있으면 서버 토큰 길, 없으면 Drive 내려받기 주소. api(path, options)는 호출한 화면의 공용 런타임 호출.
+async function documentTokenUrl(documentId, api) {
+  const d = await api('/functions/v1/workspace-drive?action=download-token', {method: 'POST', body: {document_id: documentId}});
+  if (!d?.url) throw new Error('다운로드 주소를 받지 못했습니다.');
+  return d.url;
+}
 export async function downloadFile(file, {api = (...a) => window.KPTURuntime.api(...a), onError = () => {}} = {}) {
   if (file?.documentId) {
     try {
-      const d = await api('/functions/v1/workspace-drive?action=download-token', {method: 'POST', body: {document_id: file.documentId}});
-      if (!d?.url) throw new Error('다운로드 주소를 받지 못했습니다.');
-      location.href = d.url;
+      location.href = await documentTokenUrl(file.documentId, api);
       return true;
     } catch (e) { onError(e?.message || String(e)); return false; }
   }
@@ -76,10 +79,16 @@ export async function downloadFile(file, {api = (...a) => window.KPTURuntime.api
 // 파일 줄을 눌렀을 때. file: {name, mime, documentId?, driveId?, driveUrl?, noteId?}. viewPhoto(file)는 사진 크게 보기를 가진 화면만 준다.
 // viewHtml(file)는 HTML 칸막이 보기를 가진 화면(자료실)만 준다. 그 화면의 .html 자료는 내려받지 않고 화면 안 칸막이로 본다(PRESS-자료실편입).
 export const isHtmlFile = file => /\.html?$/i.test(String(file?.name || ''));
+// 자료 번호가 있는 사진: 앱 안 크게 보기. 주소는 열 때마다 새로 받는다(한 번 쓰면 끝나는 주소).
+export async function viewDocumentPhoto(file, {api = (...a) => window.KPTURuntime.api(...a), trigger = null} = {}) {
+  const {openDocumentPhotoView} = await import('./photo-view.js');
+  return openDocumentPhotoView({file, trigger, driveHref: driveOpenUrl(file), getUrl: () => documentTokenUrl(file.documentId, api)});
+}
 export async function pressFile(file, {viewPhoto = null, viewHtml = null, api, onError = () => {}} = {}) {
   if (typeof viewHtml === 'function' && file?.documentId && isHtmlFile(file)) { viewHtml(file); return 'html'; }
   const kind = clickKind(file);
   if (kind === 'photo' && typeof viewPhoto === 'function') { viewPhoto(file); return 'photo'; }
+  if (kind === 'photo' && file?.documentId) { await viewDocumentPhoto(file, {api}); return 'photo'; }
   if (kind === 'photo' || kind === 'pdf') {
     // 자료실 자료는 Drive 주소가 없고 파일 번호만 있어도 Drive 보기를 연다. 아무 주소도 없으면 내려받기로 대신한다.
     if (canOpenInDrive(file)) { openInDrive(file, {onError}); return kind === 'pdf' ? 'pdf' : 'photo-drive'; }
@@ -117,6 +126,7 @@ if (typeof document !== 'undefined' && !globalThis.__kptuFileActionsBound) {
       return;
     }
     const kind = clickKind(file);
+    if (kind === 'photo' && file.documentId) { e.preventDefault(); void viewDocumentPhoto(file, {trigger: el}); return; }
     if (kind === 'pdf' || kind === 'photo' || !canDownload(file)) return; // 링크 그대로 Drive 보기
     e.preventDefault(); void downloadFile(file, {onError: toast});
   });

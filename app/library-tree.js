@@ -10,10 +10,29 @@ export const GROUP_LABELS=Object.freeze({project:'프로젝트',organization:'�
 export const FILE_LIMIT=20;
 // 결정 D3: 폴더 안 폴더는 3단까지(DB 트리거가 강제, 화면은 그 이상을 만들지 않음).
 export const FOLDER_DEPTH=3;
-// 접힌 줄의 종류 색 점 순서(기존 --ds-file-* 색). 최대 5개.
-export const KIND_ORDER=Object.freeze(['HWP','PDF','XLS','DOC','PPT','파일']);
-const KIND_DOTS=5;
+// 접힌 줄의 종류 색 점 순서(기존 --ds-file-* 색 + LIB-그림형식의 그림). 최대 6개.
+export const KIND_ORDER=Object.freeze(['HWP','PDF','XLS','DOC','PPT','그림','파일']);
+const KIND_DOTS=6;
+// 자료 한 건의 파일 형식 글자(자료실 줄의 종류 표시). 확장자를 먼저 보고, 확장자가 없으면 Drive가 알려 준 mime_type을 본다.
+const KIND_BY_EXT=Object.freeze({HWP:'HWP',HWPX:'HWP',PDF:'PDF',XLS:'XLS',XLSX:'XLS',DOC:'DOC',DOCX:'DOC',PPT:'PPT',PPTX:'PPT',JPG:'그림',JPEG:'그림',PNG:'그림',GIF:'그림',WEBP:'그림',HEIC:'그림',BMP:'그림'});
+const KIND_BY_MIME=Object.freeze([[/^application\/pdf$/,'PDF'],[/hwp|hancom|haansoft/,'HWP'],[/spreadsheet|ms-excel/,'XLS'],[/wordprocessing|msword|google-apps\.document/,'DOC'],[/presentation|powerpoint/,'PPT'],[/^image\//,'그림']]);
+export function fileKindOf(name,mime){
+  const ext=String(name||'').includes('.')?String(name).split('.').pop().toUpperCase():'';
+  if(KIND_BY_EXT[ext])return KIND_BY_EXT[ext];
+  const type=String(mime||'').toLowerCase();
+  return KIND_BY_MIME.find(([re])=>re.test(type))?.[1]||'파일';
+}
 
+// 그림 크게 보기 규칙(file-actions.js clickKind가 이 함수 하나를 쓴다): '그림'(fileKindOf)이면서 브라우저가 그릴 수 있는 형식만.
+// HEIC·BMP 등 그림이지만 브라우저가 못 그리거나 믿기 어려운 형식은 크게 보기 대신 Drive 열기/내려받기로 간다.
+const VIEWABLE_IMAGE=Object.freeze(['JPG','JPEG','PNG','GIF','WEBP']);
+export function isViewableImage(name,mime){
+  if(fileKindOf(name,mime)!=='그림')return false;
+  const ext=String(name||'').includes('.')?String(name).split('.').pop().toUpperCase():'';
+  if(KIND_BY_EXT[ext]==='그림')return VIEWABLE_IMAGE.includes(ext);
+  const sub=/^image\/([a-z0-9.+-]+)$/i.exec(String(mime||'').trim())?.[1]?.toUpperCase()||'';
+  return VIEWABLE_IMAGE.includes(sub);
+}
 const byKey=(a,b)=>a.key===b.key?a.i-b.i:!a.key?1:!b.key?-1:a.key<b.key?1:-1;
 // 파일 순서(결정 D6): 날짜 최신순(자료 날짜 → 올린 날), 같으면 받은 순서.
 export function sortFiles(files,sortKey){return files.map((d,i)=>({d,i,key:sortKey(d)})).sort(byKey).map(x=>x.d)}
@@ -111,7 +130,7 @@ export function matchedKeys(list){const out=new Set();walk(list,n=>{if(n.count>0
 export function pathTo(list,documentId){let found=null;walk(list,(n,parents)=>{if(!found&&n.files.some(d=>d.id===documentId))found=[...parents,n].map(x=>x.key)});return found||[]}
 
 // 노드 목록 → HTML. 접힌 줄은 <details>/<summary>(키보드·터치 기본 지원). 펼침은 isOpen(key)가 정한다.
-// fileHtml(d)는 지금의 파일 줄(luRowHtml)을 그대로 쓴다.
+// fileHtml(d, node)는 지금의 파일 줄(luRowHtml)을 그대로 쓴다. node는 그 줄이 든 토글(종류로 묶었을 때 같은 종류 표를 빼는 데 쓴다).
 // menu(n): 그 토글 머리에 ⋯ 버튼을 둘 때 접근성 이름(없으면 버튼 없음). 버튼 누르기는 토글을 여닫지 않는다(그리는 쪽이 막음).
 // canDrag(n): 폴더 머리를 끌 수 있게 할지(PC 끌어 놓기). 파일 줄의 끌기는 fileHtml이 정한다.
 export function treeHtml(list,{isOpen,showAll,fileHtml,esc,kindKey,menu=null,canDrag=null,pick=null}){
@@ -124,7 +143,7 @@ export function treeHtml(list,{isOpen,showAll,fileHtml,esc,kindKey,menu=null,can
   };
   const body=n=>{
     const all=showAll(n.key),files=all?n.files:n.files.slice(0,FILE_LIMIT),rest=n.files.length-files.length;
-    return n.children.map(one).join('')+files.map(fileHtml).join('')+(rest>0?`<button type="button" class="lu-more-files" data-lu-more="${esc(n.key)}">${rest}건 더</button>`:'');
+    return n.children.map(one).join('')+files.map(d=>fileHtml(d,n)).join('')+(rest>0?`<button type="button" class="lu-more-files" data-lu-more="${esc(n.key)}">${rest}건 더</button>`:'');
   };
   const one=n=>`<details class="lu-node" data-lu-node="${esc(n.key)}" data-lu-node-kind="${n.kind}" style="--lu-depth:${Math.min(n.depth,6)}"${isOpen(n.key)?' open':''}>${head(n)}<div class="lu-node-body">${body(n)}</div></details>`;
   return list.map(one).join('');

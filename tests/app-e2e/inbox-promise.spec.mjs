@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
-import {basketKindButton} from './helpers/basket-kind.mjs';
+import {basketKindButton,basketPaneButton} from './helpers/basket-kind.mjs';
 
 // INBOX-상대약속: 정리함 [챙길 것] shows the counterpart promise the radar's finding returned, with [원장으로] (same text as the PC home card's
 // [원장으로 복사]). It is not counted in [챙길 것 n] and nothing is written. Supabase REST and ai-assist are the only synthetic parts.
@@ -26,13 +26,13 @@ for(const width of [390,1280])test(`상대 약속 줄 and [원장으로] in 정�
  await page.reload();await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
  await basketKindButton(page,'memo').click();
  await expect(page.locator('#basketView')).toBeVisible();
- await page.locator('#basketView [data-inbox-pane="todo"]').click();
+ await basketPaneButton(page,'todo').click();
  const row=page.locator('#basketView [data-inbox-promise]');
  await expect(row).toHaveCount(1);
  await expect(row).toContainText('상대 약속');await expect(row).toContainText('상대 측 자료 송부 약속');
  await expect(row.getByRole('button',{name:'할 일로'})).toHaveCount(0);
  // Not counted: one candidate, one promise, the number is 1.
- await expect(page.locator('#basketView [data-inbox-pane="todo"]')).toContainText('1');
+ await expect(basketPaneButton(page,'todo')).toContainText('1');
  await expect(page.locator('#basketView [data-inbox-chip="open"]')).toContainText('1');
  await row.getByRole('button',{name:'원장으로'}).click();
  await expect(page.locator('#basketView [data-inbox-todo-line]')).toHaveText('원장에 넣을 약속 문구를 복사했어요.');

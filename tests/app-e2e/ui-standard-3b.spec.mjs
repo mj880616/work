@@ -214,9 +214,9 @@ test('정리함: [⋯] 작은 메뉴(목록을 밀지 않음·Esc·바깥·키�
  await expect(handoffLine(page)).toBeHidden();
  const filters=basket.locator('[data-basket-filter]');await expect(filters).toHaveText(['미분류 2','분류 완료','보류']);
  // UI-버튼크기: 필터는 알약 칩(32px, 누르는 범위 44px), 폭 가득이 아니다.
- // BASKET-정리함이름: 폰의 [업데이트 | 챙길 것] 전환은 머리줄 오른쪽(필터 줄 위)에 있고, 필터 줄에는 필터만 왼쪽부터 남는다.
+ // BASKET-전환줄하단: 폰의 [업데이트 | 챙길 것] 전환은 입력칸 아래·아래 탭 바로 위 전환 줄에 있고, 필터 줄에는 필터만 왼쪽부터 남는다.
  const first=await box(filters.first()),last=await box(filters.last()),rows=await box(basket.locator('[data-basket-rows]')),kinds=await box(basket.locator('.inbox-pane-switch'));
- expect(kinds.bottom).toBeLessThanOrEqual(first.top+1);expect(Math.round(first.left)).toBe(Math.round(rows.left));
+ expect(kinds.top).toBeGreaterThan(rows.top);expect(Math.round(first.left)).toBe(Math.round(rows.left));
  expect(Math.round(first.height)).toBe(32);expect(last.right).toBeLessThanOrEqual(rows.right);
  const before=await box(filters.first());
  await more.click();await expect(menu).toBeVisible();await expect(more).toHaveAttribute('aria-expanded','true');
@@ -229,9 +229,9 @@ test('정리함: [⋯] 작은 메뉴(목록을 밀지 않음·Esc·바깥·키�
  await page.mouse.click(30,400);await expect(menu).toBeHidden();await expect(more).toHaveAttribute('aria-expanded','false');
  await more.focus();await page.keyboard.press('Enter');await page.keyboard.press('Tab');await page.keyboard.press('Tab');await expect(menu).toBeHidden();
  // 입력칸: 하단 탭 바로 위 한 줄, 테두리 하나, 손잡이 없음, 첨부 클립 그대로.
- // UI-버튼작게 ③ + BASKET-정리함이름: 입력칸은 아래 탭 바로 위(아래 전환 줄이었던 [메모 | 노트]는 [노트] 독립 메뉴로 옮겨 없다).
+ // UI-버튼작게 ③ + BASKET-전환줄하단: 입력칸 → [업데이트 | 챙길 것] 전환 줄(44px) → 아래 탭 순서.
  const quick=basket.locator('[data-basket-list] .home-quick'),input=quick.locator('[data-quick-input]');
- expect(Math.round((await box(quick)).bottom)).toBe(Math.round((await box(page.locator('.mobile-tabs'))).top));
+ expect(Math.round((await box(quick)).bottom)).toBe(Math.round((await box(page.locator('.mobile-tabs'))).top)-44);
  await expect(input).toHaveCSS('height','46px');await expect(input).toHaveCSS('resize','none');await expect(quick).toHaveCSS('border-left-width','0px');await expect(quick).toHaveCSS('border-bottom-width','0px');
  await expect(quick.locator('.basket-clip')).toBeVisible();
  expect(errors).toEqual([]);

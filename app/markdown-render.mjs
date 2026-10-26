@@ -175,6 +175,12 @@ function callouts(state) {
   }
 }
 
+// EDIT-번호모양보존: markdown-it reads "1)" as an ordered list just like "1." and then draws both as "1." The delimiter the writer used is
+// kept in the markup, so a ")" list gets the class md-ol-paren (markdown-view.css draws "1) 2)", the editor's 1) shape, ed-doc.css ed-o-paren).
+function orderedMarkers(state) {
+  for (const token of state.tokens) if (token.type === 'ordered_list_open' && token.markup === ')') token.attrJoin('class', 'md-ol-paren');
+}
+
 export function createMarkdown(MarkdownIt) {
   const md = new MarkdownIt({html: false, linkify: true, breaks: true, typographer: false});
   md.linkify.set({fuzzyEmail: false});
@@ -182,6 +188,7 @@ export function createMarkdown(MarkdownIt) {
   md.block.ruler.before('fence', 'math_block', mathBlock, {alt: ['paragraph', 'reference', 'blockquote', 'list']});
   md.inline.ruler.before('escape', 'math_inline', mathInline);
   md.core.ruler.push('md_task_lists', taskLists);
+  md.core.ruler.push('md_ordered_markers', orderedMarkers);
   md.core.ruler.push('md_image_chips', imageChips);
   md.core.ruler.push('md_safe_links', safeLinks);
   md.core.ruler.push('md_callouts', callouts);

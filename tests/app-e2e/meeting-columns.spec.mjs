@@ -86,7 +86,8 @@ for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 
   const g=await page.evaluate(()=>{const r=s=>{const b=document.querySelector(s).getBoundingClientRect();return {l:b.left,r:b.right,t:b.top,b:b.bottom,w:b.width}};return {k:r('#meetingList .mcol-kinds'),d:r('#meetingList .mcol-rounds'),x:r('#meetingList .mcol-result'),vh:innerHeight,sw:document.documentElement.scrollWidth-innerWidth,sh:document.documentElement.scrollHeight-innerHeight}});
   expect(g.k.r).toBeLessThanOrEqual(g.d.l);expect(g.d.r).toBeLessThanOrEqual(g.x.l);
   expect(Math.abs(g.k.t-g.d.t)).toBeLessThanOrEqual(1);expect(Math.abs(g.k.t-g.x.t)).toBeLessThanOrEqual(1);
-  const lists=g.d.r-g.k.l;expect(Math.abs(g.x.w/lists-2)).toBeLessThan(0.08);
+  // MTG-3칸폭끌기: 세 칸이 한 줄 격자라 틈이 같고(칸 사이 12px), 비율은 틈을 뺀 칸 폭끼리 잰다.
+  const lists=g.k.w+g.d.w;expect(Math.abs(g.x.w/lists-2)).toBeLessThan(0.08);
   expect(Math.abs(g.k.w-g.d.w)).toBeLessThanOrEqual(1);
   for(const box of [g.k,g.d,g.x])expect(g.vh-box.b).toBeLessThanOrEqual(40);
   expect(g.sw).toBeLessThanOrEqual(1);expect(g.sh).toBeLessThanOrEqual(1);

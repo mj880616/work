@@ -39,7 +39,7 @@ import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { aiConfigFrom, callOpenAi as callSharedOpenAi, estimateKrw, outputText, tokenCount, type OpenAiResult } from "../_shared/openai-responses.ts";
 import {
   dedupeKey, packSources, parseTodoRadar, radarMaterial, RADAR_MAX_OUTPUT_TOKENS, buildTodoRadarInstructions, cleanProfile, TODO_RADAR_SCHEMA,
-  type RadarSource,
+  RADAR_ALREADY_MAX, RADAR_LINKS_MAX, type RadarLink, type RadarSource,
 } from "./todo-radar.ts";
 import {
   candidateRow, LEDGER_CANDIDATES_INSTRUCTIONS, LEDGER_CANDIDATES_SCHEMA, LEDGER_KNOWN_EVENTS, LEDGER_MAX_OUTPUT_TOKENS, ledgerMaterial,
@@ -357,7 +357,7 @@ type LinkTargetKind = typeof LINK_TARGET_KINDS[number];
 // 재료: 업데이트 본문(note), 업데이트 첨부 글자(files, note_id + use:"files"), 사업 보고(meeting), 자료(document).
 type LinkSource = { type: "note"; note_id: string } | { type: "files"; note_id: string } | { type: "meeting"; meeting_id: string } | { type: "document"; document_id: string };
 type LinkSummaryInput = { kind: "link_summary"; source: LinkSource; target_kind: LinkTargetKind; target_id: string };
-type TodoRadarInput = { kind: "todo_radar"; mode: "auto" | "again" };
+type TodoRadarInput = { kind: "todo_radar"; mode: "auto" | "again" } | { kind: "todo_radar"; mode: "meeting"; meeting_id: string };
 type LedgerCandidatesInput = { kind: "ledger_candidates" };
 type LedgerAutoInput = { kind: "ledger_auto" };
 type LedgerFixInput = { kind: "ledger_fix"; text: string; target: string | null };
@@ -384,7 +384,7 @@ type LibraryMode = "fill" | "propose" | "tidy";
 type LibraryFillInput = { kind: "library_fill"; mode: LibraryMode; document_ids: string[]; keep: LibraryField[] };
 
 // 화면은 ID만 보낸다(4.3). 모르는 키·잘못된 UUID는 거절.
-// 챙길 것 찾기는 글·ID 없이 "언제 찾나"만 보낸다: auto(하루 처음 열 때, 오늘 이미 찾았으면 건너뜀) / again([다시 찾기]).
+// 챙길 것 찾기는 글 없이 "언제 찾나"만 보낸다: auto(하루 처음 열 때, 오늘 이미 찾았으면 건너뜀) / again([다시 찾기]) / meeting(사업 보고 하나, 그 회의 ID만).
 // 원장 후보 만들기도 글·ID 없이 kind 하나만 보낸다(재료는 서버가 로그인 토큰으로 읽음).
 // 자료실 빈 칸 채우기도 자료 ID(1~10개)와, 올릴 때 사용자가 직접 넣은 칸 이름(keep, fill만)만 보낸다.
 function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
@@ -414,6 +414,11 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | Ledger
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
   if (b.kind === "todo_radar") {
+    // 사업 보고 상세의 [후속 할 일 만들기]: 회의 ID 하나만 받는다(글은 서버가 로그인 토큰으로 읽음).
+    if (b.mode === "meeting") {
+      if (Object.keys(b).sort().join(",") !== "kind,meeting_id,mode" || typeof b.meeting_id !== "string" || !UUID.test(b.meeting_id)) throw new Fail(400, "invalid_request");
+      return { kind: "todo_radar", mode: "meeting", meeting_id: b.meeting_id.toLowerCase() };
+    }
     if (Object.keys(b).sort().join(",") !== "kind,mode" || (b.mode !== "auto" && b.mode !== "again")) throw new Fail(400, "invalid_request");
     return { kind: "todo_radar", mode: b.mode };
   }
@@ -795,14 +800,14 @@ async function loadRadarSources(ctx: Ctx, sinceIso: string): Promise<{ sources: 
     sources.push({ kind: n.kind as "basket" | "note" | "work", id: n.id.toLowerCase(), day, at, text });
   }
 
-  const meetings = await readList(ctx, `app_meetings?workspace_id=eq.${ws}&updated_at=gte.${since}&select=id,workspace_id,title,series_name,meeting_at,transcript_text,updated_at&order=updated_at.desc&limit=50`);
+  const meetings = await readList(ctx, `app_meetings?workspace_id=eq.${ws}&updated_at=gte.${since}&select=id,workspace_id,title,series_name,meeting_at,transcript_text,updated_at,project_id&order=updated_at.desc&limit=50`);
   if (meetings.length >= 50) partial = true;
   for (const m of meetings) {
     if (!isUuid(m.id) || String(m.workspace_id).toLowerCase() !== ctx.workspaceId || typeof m.transcript_text !== "string") continue;
     const at = timeOf(m.updated_at), when = timeOf(m.meeting_at);
     if (!Number.isFinite(at)) continue;
     const label = typeof m.series_name === "string" && m.series_name.trim() ? m.series_name : typeof m.title === "string" ? m.title : "";
-    sources.push({ kind: "meeting", id: m.id.toLowerCase(), day: kstDay(Number.isFinite(when) ? when : at), at, text: m.transcript_text, label });
+    sources.push({ kind: "meeting", id: m.id.toLowerCase(), day: kstDay(Number.isFinite(when) ? when : at), at, text: m.transcript_text, label, project_id: isUuid(m.project_id) ? m.project_id.toLowerCase() : null });
   }
 
   const orgs = await readList(ctx, `app_suborganizations?workspace_id=eq.${ws}&select=id,workspace_id,name&order=id.asc&limit=500`);
@@ -838,6 +843,85 @@ async function loadRadarSources(ctx: Ctx, sinceIso: string): Promise<{ sources: 
   return { sources, partial };
 }
 
+// 사업 보고(meeting) 재료에 판단 재료를 붙인다(MTG-후속할일후보): ① 그 회의가 연결된 내 사업·담당조직 이름 ② 이 회의에서 이미 올린 후보 한 줄.
+// 연결(app_record_links, 없으면 옛 app_meetings.project_id)은 호출한 사람의 토큰으로 읽어 owner RLS가 그대로 걸린다. 못 읽어도 찾기는 계속한다.
+// 후보의 project_id·organization_id는 이름을 확인한 첫 사업·조직만 쓴다([할 일로]가 같은 곳에 연결하려는 용도).
+async function enrichMeetings(ctx: Ctx, sources: RadarSource[]): Promise<void> {
+  const meetings = sources.filter((s) => s.kind === "meeting");
+  if (!meetings.length) return;
+  const ws = encodeURIComponent(ctx.workspaceId);
+  const ids = meetings.map((m) => m.id);
+  const projectsOf = new Map<string, string[]>(), orgsOf = new Map<string, string[]>();
+  const add = (map: Map<string, string[]>, key: string, value: unknown) => {
+    if (!isUuid(value)) return;
+    const list = map.get(key) ?? [];
+    if (!list.includes(value.toLowerCase())) list.push(value.toLowerCase());
+    map.set(key, list);
+  };
+  for (const m of meetings) add(projectsOf, m.id, m.project_id);
+  try {
+    for (let i = 0; i < ids.length; i += IN_CHUNK) {
+      const chunk = ids.slice(i, i + IN_CHUNK).join(",");
+      const rows = await readList(ctx, `app_record_links?workspace_id=eq.${ws}&source_meeting_id=in.(${chunk})&status=eq.confirmed&select=source_meeting_id,project_id,organization_id&order=id.asc&limit=500`);
+      for (const r of rows) {
+        const key = String(r.source_meeting_id ?? "").toLowerCase();
+        add(projectsOf, key, r.project_id);
+        add(orgsOf, key, r.organization_id);
+      }
+    }
+  } catch { /* 연결을 못 읽으면 옛 project_id만으로 계속한다 */ }
+  const projectName = new Map<string, string>(), orgName = new Map<string, string>();
+  const wantProjects = [...new Set([...projectsOf.values()].flat())], wantOrgs = [...new Set([...orgsOf.values()].flat())];
+  try {
+    for (let i = 0; i < wantProjects.length; i += IN_CHUNK) {
+      const rows = await readList(ctx, `app_spaces?workspace_id=eq.${ws}&owner_id=eq.${encodeURIComponent(ctx.userId)}&id=in.(${wantProjects.slice(i, i + IN_CHUNK).join(",")})&select=id,name,owner_id&limit=${IN_CHUNK}`);
+      for (const p of rows) if (isUuid(p.id) && String(p.owner_id).toLowerCase() === ctx.userId && typeof p.name === "string") projectName.set(p.id.toLowerCase(), p.name);
+    }
+    for (let i = 0; i < wantOrgs.length; i += IN_CHUNK) {
+      const rows = await readList(ctx, `app_suborganizations?workspace_id=eq.${ws}&id=in.(${wantOrgs.slice(i, i + IN_CHUNK).join(",")})&select=id,name&limit=${IN_CHUNK}`);
+      for (const o of rows) if (isUuid(o.id) && typeof o.name === "string") orgName.set(o.id.toLowerCase(), o.name);
+    }
+  } catch { /* 이름을 못 읽으면 연결 없이 계속한다 */ }
+  const already = new Map<string, string[]>();
+  try {
+    for (let i = 0; i < ids.length; i += IN_CHUNK) {
+      const rows = await readList(ctx, `app_todo_candidates?workspace_id=eq.${ws}&source_kind=eq.meeting&source_id=in.(${ids.slice(i, i + IN_CHUNK).join(",")})&select=source_id,summary&order=created_at.desc&limit=500`);
+      for (const r of rows) {
+        const key = String(r.source_id ?? "").toLowerCase();
+        if (typeof r.summary !== "string") continue;
+        const list = already.get(key) ?? [];
+        if (list.length < RADAR_ALREADY_MAX) list.push(r.summary);
+        already.set(key, list);
+      }
+    }
+  } catch { /* 건너뛴 한 줄은 DB의 같은 열쇠 검사가 막는다 */ }
+  for (const m of meetings) {
+    const projects = (projectsOf.get(m.id) ?? []).filter((id) => projectName.has(id));
+    const orgs = (orgsOf.get(m.id) ?? []).filter((id) => orgName.has(id));
+    m.project_id = projects[0] ?? null;
+    m.organization_id = orgs[0] ?? null;
+    const links: RadarLink[] = [
+      ...projects.map((id) => ({ type: "mine_project" as const, name: projectName.get(id)! })),
+      ...orgs.map((id) => ({ type: "organization" as const, name: orgName.get(id)! })),
+    ].slice(0, RADAR_LINKS_MAX);
+    if (links.length) m.links = links;
+    const done = already.get(m.id);
+    if (done?.length) m.already = done;
+  }
+}
+
+// 사업 보고 하나만 읽는다([후속 할 일 만들기]). 호출한 사람의 토큰으로 읽어 owner RLS가 그대로 걸리고, 다른 작업공간 회의는 404.
+async function loadMeetingSource(ctx: Ctx, meetingId: string): Promise<RadarSource[]> {
+  const ws = encodeURIComponent(ctx.workspaceId);
+  const rows = await readList(ctx, `app_meetings?id=eq.${meetingId}&workspace_id=eq.${ws}&select=id,workspace_id,title,series_name,meeting_at,transcript_text,updated_at,project_id&limit=2`);
+  const m = rows[0];
+  if (rows.length !== 1 || !m || String(m.id).toLowerCase() !== meetingId || String(m.workspace_id).toLowerCase() !== ctx.workspaceId) throw new Fail(404, "not_found");
+  const at = timeOf(m.updated_at), when = timeOf(m.meeting_at);
+  if (typeof m.transcript_text !== "string" || !Number.isFinite(at)) return [];
+  const label = typeof m.series_name === "string" && m.series_name.trim() ? m.series_name : typeof m.title === "string" ? m.title : "";
+  return [{ kind: "meeting", id: meetingId, day: kstDay(Number.isFinite(when) ? when : at), at, text: m.transcript_text, label, project_id: isUuid(m.project_id) ? m.project_id.toLowerCase() : null }];
+}
+
 // 기록 주인의 이름·직책은 호출한 사람의 토큰으로 자기 프로필 행에서 읽는다(owner RLS). 못 읽어도 찾기는 계속한다(이름 없이 '기록 주인'으로).
 async function readRadarProfile(ctx: Ctx) {
   try {
@@ -859,7 +943,9 @@ async function runTodoRadar(ctx: Ctx, input: TodoRadarInput, deps: RadarDeps): P
   if (input.mode === "auto" && runsToday > 0) {
     return json({ ok: true, kind: "todo_radar", skipped: true, checked_at: state.last_success_at, partial: state.last_partial });
   }
-  if (runsToday >= DAILY_LIMITS.todo_radar) throw new Fail(429, "daily_limit");
+  // 사업 보고 하나 뽑기(meeting)는 사용자가 누른 것이라 하루 5회(찾기 상태)에 세지 않는다. 모든 쓰임 합계 하루 80회(DAILY_TOTAL_LIMIT)는 그대로 걸린다.
+  const meetingId = input.mode === "meeting" ? input.meeting_id : null;
+  if (!meetingId && runsToday >= DAILY_LIMITS.todo_radar) throw new Fail(429, "daily_limit");
   const config = aiConfig(deps.env);
   if (!config) {
     deps.log("ai_not_configured");
@@ -881,12 +967,17 @@ async function runTodoRadar(ctx: Ctx, input: TodoRadarInput, deps: RadarDeps): P
     let since = Number.isFinite(last) ? last : started - RADAR_FIRST_DAYS * 86400000;
     let partial = Number.isFinite(last) && last < floor;
     if (since < floor) since = floor;
-    const loaded = await loadRadarSources(ctx, new Date(since).toISOString());
+    // 사업 보고 하나 뽑기는 기준선(지난 찾기 시각)을 읽지도 옮기지도 않는다.
+    const loaded = meetingId ? { sources: await loadMeetingSource(ctx, meetingId), partial: false } : await loadRadarSources(ctx, new Date(since).toISOString());
+    await enrichMeetings(ctx, loaded.sources);
     const packedResult = packSources(loaded.sources);
     partial = partial || loaded.partial || packedResult.partial;
     const packed = packedResult.packed;
     const nextRuns = runsToday + 1;
 
+    if (!packed.length && meetingId) {
+      return json({ ok: true, kind: "todo_radar", added: 0, found: 0, partial: false, checked_at: state.last_success_at, promises: [] });
+    }
     if (!packed.length) {
       finished = true;
       try {
@@ -960,12 +1051,15 @@ async function runTodoRadar(ctx: Ctx, input: TodoRadarInput, deps: RadarDeps): P
       }
       added = Array.isArray(inserted) ? inserted.length : 0;
     }
-    finished = true;
-    try {
-      await finishRadar(ctx, { last_success_at: new Date(started).toISOString(), last_partial: partial, last_day: today, runs_on_day: nextRuns }, deps.now());
-    } catch {
-      // 후보는 이미 저장됐다. 기준선만 못 옮겼으므로 다음 찾기가 같은 재료를 다시 보지만, 같은 후보는 DB가 건너뛴다.
-      deps.log("radar_state_failed");
+    // 사업 보고 하나 뽑기는 찾기 상태(기준선·횟수)를 바꾸지 않고 실행 표시만 푼다(finally의 release).
+    finished = !meetingId;
+    if (!meetingId) {
+      try {
+        await finishRadar(ctx, { last_success_at: new Date(started).toISOString(), last_partial: partial, last_day: today, runs_on_day: nextRuns }, deps.now());
+      } catch {
+        // 후보는 이미 저장됐다. 기준선만 못 옮겼으므로 다음 찾기가 같은 재료를 다시 보지만, 같은 후보는 DB가 건너뛴다.
+        deps.log("radar_state_failed");
+      }
     }
     // 처리한 지 30일 지난 후보는 정리한다(todo-radar 4절). 실패해도 결과에는 영향 없음.
     try {
@@ -975,7 +1069,7 @@ async function runTodoRadar(ctx: Ctx, input: TodoRadarInput, deps: RadarDeps): P
     }
     // 기록에는 숫자만 남긴다(재료·후보 글 없음).
     deps.log("todo_radar_done", { sources: packed.length, found: parsed.items.length, added, dropped: parsed.dropped, excluded_owner: parsed.excluded_owner, promises: promises.length, partial });
-    return json({ ok: true, kind: "todo_radar", added, found: rows.length, partial, checked_at: new Date(started).toISOString(), promises });
+    return json({ ok: true, kind: "todo_radar", added, found: rows.length, partial: meetingId ? false : partial, checked_at: meetingId ? state.last_success_at : new Date(started).toISOString(), promises });
   } finally {
     await release();
   }
@@ -1276,7 +1370,10 @@ async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log): Promise<{ 
     const calls = await rest(ctx, `app_feed_items?workspace_id=eq.${ws}&source=eq.call&hidden_at=is.null&or=(created_at.gte.${callSince},moved_at.gte.${callSince})&select=id,workspace_id,title,points,day,occurred_at,organization_id,project_id,created_at,moved_at&order=created_at.desc&limit=${AUTO_READ_LIMIT}`);
     if (Array.isArray(calls) && calls.length && await callKindReady(ctx)) {
       full(calls);
-      for (const c of calls as Record<string, unknown>[]) {
+      // CALL-손고치기: 명진이 손으로 고친 제목·조직·핵심내용(app_call_edits)이 있으면 AI 값 대신 그 값을 재료로 쓴다. 표가 아직 없으면(DB 적용 전) 그대로 AI 값.
+      const userEdits = await readCallEdits(ctx, (calls as Record<string, unknown>[]).map((c) => c.id).filter(isUuid).map((id) => String(id).toLowerCase()));
+      for (const c0 of calls as Record<string, unknown>[]) {
+        const c = applyCallEdits(c0, isUuid(c0.id) ? userEdits.get(String(c0.id).toLowerCase()) : undefined);
         const created = timeOf(c.created_at), when = timeOf(c.occurred_at);
         // CALL-개인통화함 4단계: 개인함에서 옮겨 온 통화는 만든 시각(created_at)이 옛날이어도 옮긴 시각(moved_at)이 기간 안이면 재료로 본다. 본 시각(stamp)은 둘 중 늦은 것.
         const moved = timeOf(c.moved_at), stampAt = Number.isFinite(moved) && moved > created ? c.moved_at as string : c.created_at as string;
@@ -1298,6 +1395,34 @@ async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log): Promise<{ 
     log("ledger_auto_call_skipped");
   }
   return { sources, partial };
+}
+
+// CALL-손고치기: 사용자 값 모음 vals(키 title·points·organization_id만 재료로 쓴다. 상대 표기는 재료에 안 쓴다). 읽기 실패·표 없음은 빈 모음.
+async function readCallEdits(ctx: Ctx, ids: string[]): Promise<Map<string, Record<string, unknown>>> {
+  const out = new Map<string, Record<string, unknown>>();
+  const ws = encodeURIComponent(ctx.workspaceId);
+  try {
+    for (let i = 0; i < ids.length; i += IN_CHUNK) {
+      const rows = await rest(ctx, `app_call_edits?workspace_id=eq.${ws}&call_id=in.(${ids.slice(i, i + IN_CHUNK).join(",")})&select=call_id,vals&limit=${IN_CHUNK}`);
+      if (!Array.isArray(rows)) return out;
+      for (const r of rows as Record<string, unknown>[]) {
+        if (isUuid(r.call_id) && r.vals && typeof r.vals === "object" && !Array.isArray(r.vals)) out.set(String(r.call_id).toLowerCase(), r.vals as Record<string, unknown>);
+      }
+    }
+  } catch {
+    return new Map();
+  }
+  return out;
+}
+
+// 통화 줄에 사용자 값을 덮어 쓴 사본(원래 줄은 그대로). 키가 있는 칸만 사용자 값, 모양이 틀린 값은 무시하고 AI 값을 쓴다.
+export function applyCallEdits(row: Record<string, unknown>, vals?: Record<string, unknown>): Record<string, unknown> {
+  if (!vals) return row;
+  const out = { ...row };
+  if (typeof vals.title === "string" && vals.title.trim()) out.title = vals.title;
+  if (Array.isArray(vals.points) && vals.points.every((p) => typeof p === "string")) out.points = vals.points;
+  if (Object.hasOwn(vals, "organization_id") && (vals.organization_id === null || isUuid(vals.organization_id))) out.organization_id = vals.organization_id;
+  return out;
 }
 
 // 공통 DB(20261025110000_ledger_sources)가 운영에 들어갔는지: 그 PR의 새 표 하나를 읽어 본다(없으면 PostgREST 404). 아니면 DB 함수가 통화 종류를 거절해 실행 전체가 실패하므로 통화를 읽지 않는다.

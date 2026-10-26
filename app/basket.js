@@ -381,7 +381,11 @@ function paintNavKind(){
 }
 window.addEventListener('kptu:view-changed',paintNavKind);
 const paneSwitch=root.querySelector('[data-inbox-pane-switch]'),todoHost=root.querySelector('[data-inbox-todo-host]'),todoChips=root.querySelector('[data-inbox-todo-chips]'),updateFilters=root.querySelector('[data-update-filters]');
-const paintPaneCount=(which,value)=>{const el=paneSwitch.querySelector(`[data-inbox-pane-count="${which}"]`);if(el)el.textContent=value===null||value===undefined?'':' '+value;};
+// The two numbers are drawn in two places from this one painter: the screen's own switch (phone) and the sidebar's sub items (BASKET-PC메뉴, PC; nothing is drawn for 0 or while loading).
+const paintPaneCount=(which,value)=>{
+  const el=paneSwitch.querySelector(`[data-inbox-pane-count="${which}"]`);if(el)el.textContent=value===null||value===undefined?'':' '+value;
+  document.querySelectorAll(`[data-nav-pane-count="${which}"]`).forEach(nav=>{nav.textContent=value?String(value):'';});
+};
 const todo=mountInboxTodos(todoHost,{rt,esc,chips:todoChips,onCount:value=>paintPaneCount('todo',value)});
 function showPane(next){
   pane=next;root.dataset.pane=pane;
@@ -390,12 +394,24 @@ function showPane(next){
   updateFilters.hidden=!memo;todoChips.hidden=memo;moreWrap.hidden=kind!=='memo';
   todo.show(!memo);
   if(memo)renderList();
+  window.KPTURouter?.syncNavigation?.();window.dispatchEvent(new CustomEvent('kptu:basket-pane',{detail:{pane}}));
 }
+// BASKET-PC메뉴: the side shown is written to the address (?view=basket&pane=todo) by the router; the default side has no parameter.
+const paneSub=()=>pane==='todo'?'todo':null;
 function setPane(next){
   if(next===pane||kind!=='memo'||busy||classification.isOpen()||selected)return;
   closeRowMenu();setMore(false);handoff.close();hideHandoffNotice();
-  showPane(next);
+  showPane(next);window.KPTURouter?.setSub?.('basket',paneSub());
 }
+// Back / forward between the sides of this screen (kptu:sub-changed from the router). A step the screen has to refuse (busy, open record) puts the address back.
+window.addEventListener('kptu:sub-changed',e=>{
+  if(e.detail?.view!=='basket')return;
+  const wanted=e.detail.sub==='todo'?'todo':'update';
+  if(wanted===pane)return;
+  if(kind!=='memo'||busy||classification.isOpen()||selected){window.KPTURouter?.setSub?.('basket',paneSub(),{replace:true});return;}
+  closeRowMenu();setMore(false);handoff.close();hideHandoffNotice();
+  showPane(wanted);
+});
 function showKind(next,{openId=null}={}){
   closeRowMenu();kind=next;root.dataset.kind=kind;
   basketTitle.textContent=kind==='note'?'노트':'정리함';
@@ -777,7 +793,7 @@ function openDetail(id, {edit = false} = {}) {
   // The ⋯ keeps 수정·보관·삭제 (BASKET-일지로남기기: and [업무일지에 남기기]/[업무일지에서 빼기] before 삭제, so the row stays three buttons).
   // UI-엔터저장: the edit box saves with Ctrl+Enter on PC (shared rule, enter-save.js); [연결하기]·[할 일 만들기] forms are their own roots.
   detail.dataset.enterSave = '[data-basket-save]';
-  detail.innerHTML = `<div class="basket-detail-head"><button type="button" class="basket-back" data-basket-close aria-label="정리함 목록으로"><span aria-hidden="true">‹</span> 정리함</button><div class="basket-note-more" data-basket-note-more-wrap><button type="button" class="basket-more-trigger" data-basket-note-more aria-label="이 업데이트 메뉴" aria-expanded="false" aria-controls="basketNoteMenu"><span aria-hidden="true">⋯</span></button><div id="basketNoteMenu" class="basket-more-menu" role="group" aria-label="이 업데이트" hidden><button type="button" data-basket-edit>수정</button><button type="button" data-basket-archive>보류로</button><button type="button" class="basket-menu-danger" data-basket-delete>삭제</button></div></div></div><article class="basket-card" data-basket-card aria-label="업데이트"><div class="basket-read" data-basket-read><div class="basket-card-tools"><button type="button" class="basket-icon-button" data-basket-read-raw aria-pressed="false" aria-label="원문 그대로 보기" title="원문 그대로 보기">${RAW_ICON}</button><button type="button" class="basket-icon-button" data-basket-copy aria-label="복사" title="복사">${COPY_ICON}</button></div><div class="md-share-cards" data-basket-share hidden></div><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="업데이트 원문"></div><div class="basket-html-views" data-basket-html-views></div><p class="basket-note-meta"><span class="basket-note-state" data-basket-state></span><time>${esc(time(selected))}</time></p></div><div class="basket-editor" hidden><label class="basket-text-label">업데이트 원문<textarea data-basket-text rows="12"></textarea></label><div class="basket-editor-files"><div data-basket-file-selection></div><button type="button" data-basket-upload>첨부 저장</button></div></div><div data-basket-attachments class="basket-files" tabindex="-1" role="region" aria-label="첨부 파일"></div><section class="basket-note-tasks" data-basket-note-tasks aria-labelledby="basketNoteTasksTitle" hidden></section><button type="button" data-basket-reload hidden>업데이트 다시 불러오기</button><div class="basket-actions basket-read-actions" data-basket-read-actions><button type="button" data-basket-link-open>연결하기</button><button type="button" data-basket-task-open>할 일 만들기</button><button type="button" data-basket-to-note>노트로 옮기기</button></div><div data-basket-manual hidden></div><div class="basket-actions basket-edit-actions" data-basket-edit-actions hidden><div data-basket-file-picker></div><button type="button" class="secondary" data-basket-big-write>큰 창에서 수정</button><button type="button" data-basket-save>수정 저장</button><button type="button" data-basket-cancel>취소</button></div><p data-basket-status role="status"></p></article>`;
+  detail.innerHTML = `<div class="basket-detail-head"><button type="button" class="basket-back" data-basket-close aria-label="정리함 목록으로"><span aria-hidden="true">‹</span> 정리함</button><div class="basket-note-more" data-basket-note-more-wrap><button type="button" class="basket-more-trigger" data-basket-note-more data-ctx="area" aria-label="이 업데이트 메뉴" aria-expanded="false" aria-controls="basketNoteMenu"><span aria-hidden="true">⋯</span></button><div id="basketNoteMenu" class="basket-more-menu" role="group" aria-label="이 업데이트" hidden><button type="button" data-basket-edit>수정</button><button type="button" data-basket-archive>보류로</button><button type="button" class="basket-menu-danger" data-basket-delete>삭제</button></div></div></div><article class="basket-card" data-basket-card aria-label="업데이트"><div class="basket-read" data-basket-read><div class="basket-card-tools"><button type="button" class="basket-icon-button" data-basket-read-raw aria-pressed="false" aria-label="원문 그대로 보기" title="원문 그대로 보기">${RAW_ICON}</button><button type="button" class="basket-icon-button" data-basket-copy aria-label="복사" title="복사">${COPY_ICON}</button></div><div class="md-share-cards" data-basket-share hidden></div><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="업데이트 원문"></div><div class="basket-html-views" data-basket-html-views></div><p class="basket-note-meta"><span class="basket-note-state" data-basket-state></span><time>${esc(time(selected))}</time></p></div><div class="basket-editor" hidden><label class="basket-text-label">업데이트 원문<textarea data-basket-text rows="12"></textarea></label><div class="basket-editor-files"><div data-basket-file-selection></div><button type="button" data-basket-upload>첨부 저장</button></div></div><div data-basket-attachments class="basket-files" tabindex="-1" role="region" aria-label="첨부 파일"></div><section class="basket-note-tasks" data-basket-note-tasks aria-labelledby="basketNoteTasksTitle" hidden></section><button type="button" data-basket-reload hidden>업데이트 다시 불러오기</button><div class="basket-actions basket-read-actions" data-basket-read-actions><button type="button" data-basket-link-open>연결하기</button><button type="button" data-basket-task-open>할 일 만들기</button><button type="button" data-basket-to-note>노트로 옮기기</button></div><div data-basket-manual hidden></div><div class="basket-actions basket-edit-actions" data-basket-edit-actions hidden><div data-basket-file-picker></div><button type="button" class="secondary" data-basket-big-write>큰 창에서 수정</button><button type="button" data-basket-save>수정 저장</button><button type="button" data-basket-cancel>취소</button></div><p data-basket-status role="status"></p></article>`;
   // UI-PC프로젝트좌우: opened from a project's or organization's 🧺 record → "← (name)으로 돌아가기" under the head.
   detail.querySelector('.basket-detail-head')?.insertAdjacentHTML('afterend', basketReturnHtml(selected.id, rt));
   detail.querySelector('[data-basket-text]').value = selected.raw_text;
@@ -1130,11 +1146,11 @@ window.addEventListener('kptu:view-changed',e=>{
   if(e.detail?.retainBasketDraft){retainedForTraversal=true;return;}
   retainedForTraversal=false;clearNoteAddress();closeDetail({focus:false,force:true});noteDocs.close({focus:false,force:true});showKind('memo');showPane('update');
 });
-window.KPTURouter.on('basket', () => {
+window.KPTURouter.on('basket', detail => {
   void preloadMarkdown();
   const wanted = takeBasketNoteRequest(rt), wantedDoc = takeNoteDocRequest(rt), wantedKind = takeBasketKindRequest(rt);
-  if (busy || classification.isOpen() || noteDocs.isBusy() || noteDocs.hasDraft()) return;
-  noteDocs.close({focus:false,force:true}); showKind('memo'); showPane('update'); void todo.refresh();
+  if (busy || classification.isOpen() || noteDocs.isBusy() || noteDocs.hasDraft()) { window.KPTURouter.setSub('basket', paneSub(), {replace:true}); return; }
+  noteDocs.close({focus:false,force:true}); showKind('memo'); showPane(detail?.sub === 'todo' ? 'todo' : 'update'); void todo.refresh();
   filter = 'unclassified'; place = 'all'; sub = 'all'; renderList();
   // Keep the same editor and its unsaved text when returning from another view.
   if (dirty() || manualDraft()) { openNoteLayer({adoptOnly:true}); return; }

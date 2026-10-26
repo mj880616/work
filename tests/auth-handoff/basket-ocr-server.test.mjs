@@ -41,10 +41,11 @@ test('photo server consumes main SQL with exact owner-JWT CAS and preserves lega
      return {data,error:null};
     }catch(e){return {data:null,error:{code:e.code}};}}};
    const adminNotes=()=>{
-    const filters={},q={select(){return q;},eq(k,v){filters[k]=v;return q;},update(v){q.payload=v;return q;},async maybeSingle(){
+    // TRASH-다른삭제 5단계: 업로드는 노트 찾기·저장에 .is('deleted_at', null)을 붙인다. 이 시험 DB에는 deleted_at 칸이 아직 없으므로 실제 PostgreSQL이 42703으로 거절하고, 핸들러는 거르기 없이 다시 읽는다(DB 적용 전 동작).
+    const filters={},nulls=[],q={select(){return q;},eq(k,v){filters[k]=v;return q;},is(k,v){assert.equal(v,null);assert.match(k,/^[a-z_]+$/);nulls.push(k);return q;},update(v){q.payload=v;return q;},async maybeSingle(){
      try{const data=await as('service_role',OWNER,async c=>{
-      if(!q.payload)return (await c.query('select to_jsonb(n) value from public.app_notes n where id=$1 and workspace_id=$2',[filters.id,filters.workspace_id])).rows[0]?.value??null;
-      return (await c.query('update public.app_notes set attachments=$3::jsonb,updated_at=$4::timestamptz where id=$1 and workspace_id=$2 and updated_at=$5::timestamptz and attachments=$6::jsonb returning id',[filters.id,filters.workspace_id,JSON.stringify(q.payload.attachments),q.payload.updated_at,filters.updated_at,filters.attachments])).rows[0]??null;
+      if(!q.payload)return (await c.query('select to_jsonb(n) value from public.app_notes n where id=$1 and workspace_id=$2'+nulls.map(k=>' and n.'+k+' is null').join(''),[filters.id,filters.workspace_id])).rows[0]?.value??null;
+      return (await c.query('update public.app_notes set attachments=$3::jsonb,updated_at=$4::timestamptz where id=$1 and workspace_id=$2 and updated_at=$5::timestamptz and attachments=$6::jsonb'+nulls.map(k=>' and '+k+' is null').join('')+' returning id',[filters.id,filters.workspace_id,JSON.stringify(q.payload.attachments),q.payload.updated_at,filters.updated_at,filters.attachments])).rows[0]??null;
      });return {data,error:null,status:200};}catch(e){return {data:null,error:{code:e.code},status:400};}
     }};return q;
    };

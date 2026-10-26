@@ -16,11 +16,6 @@
 .library-selected-file.unknown{border-color:var(--kptu-warning);background:var(--kptu-warning-soft)}
 .library-selected-file.unknown .library-upload-state{color:var(--kptu-warning)}
 .library-multi-note{font-size:10.5px;color:var(--kptu-muted);line-height:1.4}
-.library-manage-list{display:grid;gap:8px;max-height:55vh;overflow:auto}
-.library-manage-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:11px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg)}
-.library-manage-row>div{min-width:0}
-.library-manage-row b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.library-manage-row small{color:var(--kptu-muted)}
 .library-edit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 /* LIB-수정파일교체: [수정] 창의 파일 줄(현재 파일 + 작은 [파일 교체]) · 이전 파일 ▾. 새 큰 버튼 없음(UI-버튼기준: 보조 버튼 32px·누르는 범위 44px). */
 .library-edit-file{display:grid;gap:2px;margin:0 0 6px}
@@ -63,10 +58,10 @@
 .lu-row:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:2px}
 .lu-file-kind{flex:none;display:grid;place-items:center;width:36px;height:36px;border-radius:var(--kptu-radius-md);background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-size:11px;font-weight:800}
 .lu-row-title{flex:1;min-width:0;margin:0;font-size:15px;font-weight:700;line-height:1.4;color:var(--kptu-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* UI-PC자료실: 분류 꼬리표는 자료명 왼쪽. 칸 폭은 기본 분류(두 글자)에 맞춘 40px로 고정해 이름 시작점을 맞추고,
-   직접 만든 긴 분류만 84px까지 늘린 뒤 …로 줄인다. 날짜는 줄 오른쪽 작은 글씨. */
-.lu-row-tag{flex:0 0 auto;min-width:40px;max-width:84px}
-.lu-row-tag .doc-category-tag{display:block;width:100%;line-height:20px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* UI-PC자료실: 분류 꼬리표는 자료명 왼쪽. 칸 폭은 기본 분류(두 글자)에 맞춘 40px 이상이고 글자에 맞게 늘어난다.
+   LIB-종류표잘림(2026-10-26): 표 글자는 …로 자르지 않는다. 자리가 모자라면 줄어드는 쪽은 자료 제목이다(제목이 …로 잘림). 날짜는 줄 오른쪽 작은 글씨. */
+.lu-row-tag{flex:0 0 auto;min-width:40px}
+.lu-row-tag .doc-category-tag{display:block;width:100%;line-height:20px;text-align:center;white-space:nowrap}
 .lu-row-date{flex:none;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
 /* 자료 날짜가 없어 올린 날을 보일 때: 더 흐린 글자 + 작은 "올림". */
 .lu-row-date-upload{color:var(--kptu-faint)}
@@ -84,11 +79,14 @@
   /* LIB-목록간격 ③: 두 줄 — 위 [이름(2줄까지) | ⋯], 아래 작은 글씨 [종류 · 분류 · 날짜]. 분류·날짜는 '분류 · 날짜'로 이어 쓴다. */
   #appView #libraryView #documentList .lu-row{display:grid;grid-template-columns:auto auto auto minmax(0,1fr) auto;grid-template-areas:"title title title title menu" "kind tag date . menu";column-gap:6px;row-gap:2px;align-items:center}
   #appView #libraryView #documentList .lu-row-title{grid-area:title}
+  #appView #libraryView #documentList .lu-row .lu-rename-input{grid-area:title}
   #appView #libraryView #documentList .lu-row-date{grid-area:date;align-self:center;margin:0;padding:0;font-size:var(--ds-text-meta,12px);line-height:18px;white-space:nowrap}
   #appView #libraryView #documentList .lu-row-date::before{content:"·";margin-right:6px}
   #appView #libraryView #documentList .lu-more-trigger{grid-area:menu}
   #appView #libraryView #documentList .lu-file-kind{grid-area:kind;display:block;width:auto;min-width:0;height:auto;padding:0;background:transparent;font-size:11px;font-weight:var(--ds-weight-medium,500);line-height:18px}
-  #appView #libraryView #documentList .lu-row-tag{grid-area:tag;min-width:0}
+  #appView #libraryView #documentList .lu-row-tag{grid-area:tag;min-width:0;max-width:100%}
+  #appView #libraryView #documentList .lu-row-tag .doc-category-tag{white-space:normal;overflow-wrap:anywhere}
+  #appView #libraryView #documentList .lu-row[data-lu-notag] .lu-row-date::before{content:none}
   #appView #libraryView #documentList .lu-row-tag .doc-category-tag{display:inline;height:auto;padding:0;background:transparent;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-regular,400);line-height:18px;text-align:left}
   #appView #libraryView #documentList .lu-expand{display:none}
 }
@@ -107,10 +105,18 @@
 .lu-head-actions{display:flex;align-items:center;gap:8px}
 #libraryListCard .lu-head-actions button{margin:0}
 :is(.lu-more-panel,.lu-folder-menu){position:fixed;inset:auto;margin:0;z-index:100;box-sizing:border-box;padding:6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto}
-:is(.lu-more-panel,.lu-folder-menu) button{display:block;width:100%;min-height:44px;padding:8px 12px;text-align:left;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta);font-weight:700;cursor:pointer}
+:is(.lu-more-panel,.lu-folder-menu) button{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:36px;padding:0 var(--kptu-space-3,12px);text-align:left;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta);font-weight:600;cursor:pointer}
 :is(.lu-more-panel,.lu-folder-menu) button:is(:hover,:focus-visible){background:var(--kptu-primary-soft)}
 :is(.lu-more-panel,.lu-folder-menu) button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 :is(.lu-more-panel,.lu-folder-menu) .lu-menu-danger{color:var(--kptu-danger)}
+/* LIB-줄안이름바꾸기: 메뉴 줄 높이는 다른 ⋯ 메뉴(프로젝트 상세 등)와 같은 36px. F2 안내는 PC에서만 오른쪽에 작게, 삭제 앞에는 구분선. */
+.lu-more-panel .lu-menu-key{color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:400}
+.lu-more-panel .lu-menu-sep{height:0;margin:4px 6px;border:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+@media(max-width:760px){.lu-more-panel .lu-menu-key{display:none}}
+/* 줄 안 이름 입력칸: 제목 자리에 그대로(같은 글자 크기), 한 줄. 폰은 제목이 있던 윗줄 전체. */
+.lu-row .lu-rename-input{flex:1;min-width:0;box-sizing:border-box;height:var(--ds-compact-height,32px);margin:0;padding:0 8px;font:inherit;font-size:15px;line-height:1.4}
+.lu-undo{margin-left:4px;padding:0 4px;min-height:24px;border:0;background:transparent;color:var(--kptu-primary-ink);font:inherit;text-decoration:underline;cursor:pointer}
+
 
 /* D-6b: dialog role typography owned here; explicit roots preserve list styles. */
 
@@ -127,7 +133,6 @@
 #libraryOrganizationFilter{flex:1 1 100%;min-width:0}
 #libraryOrganizationFilter[hidden]{display:none}
 .library-category-editor{margin:0 0 16px;padding:0 0 14px;border-bottom:1px solid var(--kptu-border)}
-.library-manage-title{margin:0 0 8px;font-size:14px}
 .dce h3{margin:0 0 4px;font-size:15px}
 .dce-count{margin-left:4px;font-size:var(--kptu-text-meta);font-weight:400;color:var(--kptu-muted)}
 .dce-note{margin:0 0 8px;font-size:var(--kptu-text-meta);line-height:1.5;color:var(--kptu-muted)}
@@ -145,6 +150,9 @@
 .dce-add-line .dce-input{flex:1 1 auto}
 .dce-status{min-height:1.4em;margin:6px 0 0;font-size:var(--kptu-text-meta);color:var(--kptu-muted)}
 .dce-status.error{color:var(--kptu-danger)}
+/* LIB-분류칸삭제: [자료 분류 수정] 창 안 버튼(이름 바꾸기·지우기·추가·저장·취소)은 UI-버튼기준의 작은 버튼(32px). 누르는 범위 44px은 ::after로 지킨다. */
+.dce button{position:relative;box-sizing:border-box;width:auto;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);margin:0;padding:0 var(--ds-compact-pad-x,12px);font-size:var(--ds-compact-text,13px);line-height:1;white-space:nowrap}
+.dce button::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 
 /* UI-PC자료실 C: 분류 칩 여러 개 고르기. 고른 칩은 앱 공통 기준(회색 '그 밖' 색), 안 고른 칩은 흰 바탕. */
 #appView #libraryView #libraryCategoryFilter button[aria-pressed="true"]{color:var(--ds-kind-other-ink);background:var(--ds-kind-other-soft);border-color:var(--ds-kind-other-soft)}
@@ -206,6 +214,7 @@
 #appView #libraryView .lu-kdot[data-lu-kind="xls"]{background:var(--ds-file-xls-ink)}
 #appView #libraryView .lu-kdot[data-lu-kind="doc"]{background:var(--ds-file-doc-ink)}
 #appView #libraryView .lu-kdot[data-lu-kind="ppt"]{background:var(--ds-file-ppt-ink)}
+#appView #libraryView .lu-kdot[data-lu-kind="img"]{background:var(--ds-file-img-ink)}
 #appView #libraryView .lu-pdot{flex:none;width:8px;height:8px;border-radius:999px;background:var(--ds-project-gray)}
 #appView #libraryView .lu-pdot[data-color="green"]{background:var(--ds-project-green)}#appView #libraryView .lu-pdot[data-color="green"][data-tone="soft"]{background:var(--ds-project-green-soft)}
 #appView #libraryView .lu-pdot[data-color="blue"]{background:var(--ds-project-blue)}#appView #libraryView .lu-pdot[data-color="blue"][data-tone="soft"]{background:var(--ds-project-blue-soft)}
@@ -293,3 +302,10 @@
 .lu-html-body .html-frame-bar{gap:4px}
 #libraryHtmlModal .lu-html-body .html-frame-bar button.secondary{position:relative;height:var(--ds-compact-height-sm,28px);min-height:0;padding:0 8px;border:0;background:transparent;box-shadow:none;color:var(--kptu-primary-ink);font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-regular,400)}
 #libraryHtmlModal .lu-html-body .html-frame-bar button[hidden]{display:none}
+/* LIB-화면끌어놓기: 파일을 끌고 오는 동안만 보이는 얇은 점선 테두리 + 가운데 한 줄(덮개·색 채움 없음). 왼쪽 메뉴는 뺀 화면 전체. 놓은 뒤 진행·결과는 목록 맨 위 한 줄. */
+.lu-drop-overlay{position:fixed;top:0;bottom:0;z-index:40;box-sizing:border-box;margin:6px;border:2px dashed var(--kptu-info);border-radius:var(--kptu-radius-md);pointer-events:none;display:flex;align-items:center;justify-content:center}
+.lu-drop-overlay[hidden]{display:none}
+.lu-drop-hint{padding:4px 10px;border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-info);font-size:var(--ds-text-meta,12px);font-weight:700;border:1px solid var(--kptu-border)}
+.lu-drop-status{margin:0 0 6px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);overflow-wrap:anywhere}
+.lu-drop-status.error{color:var(--kptu-danger)}
+.lu-drop-status[hidden]{display:none}

@@ -41,6 +41,9 @@ function harness(o = {}) {
       return Response.json(state.libraryRefs);
     }
     if (table === 'app_notes') {
+      // TRASH-다른삭제 5단계: noTrashColumn = DB 적용 전(42703 거절). deleted_at=is.null이 오면 휴지통 노트는 빠진다.
+      if (u.searchParams.has('deleted_at') && state.noTrashColumn) return Response.json({ code: '42703', details: null, hint: null, message: 'column app_notes.deleted_at does not exist' }, { status: 400 });
+      if (u.searchParams.has('deleted_at') && state.note?.deleted_at) return Response.json([]);
       if (u.searchParams.get('id')) return Response.json(state.note && u.searchParams.get('id') === 'eq.' + state.note.id ? [state.note] : []);
       assert.equal(u.searchParams.get('attachments'), `cs.${JSON.stringify([{ drive_file_id: FILE }])}`);
       return Response.json(state.noteRefs);
@@ -356,4 +359,34 @@ test('html-view refuses pages over 2MB and files that change while read', async 
   r = await h.html({ note_id: NOTE, drive_file_id: FILE });
   assert.equal(r.status, 409);
   assert.equal(r.body.code, 'DRIVE_FILE_CHANGING');
+});
+
+// ---- TRASH-다른삭제 5단계: 서버 키로 읽는 노트에서 휴지통 노트를 뺀다(공유 검사는 일부러 거르지 않는다) ----
+const noteReads = h => h.calls.filter(c => c.path === '/rest/v1/app_notes');
+
+test('a trashed note attachment cannot be opened: refused before Drive', async () => {
+  const h = harness({ note: { id: NOTE, workspace_id: 'ws-1', attachments: [{ drive_file_id: FILE, file_name: '안건.hwp' }], deleted_at: '2026-10-26T00:00:00Z' } });
+  const r = await h.open({ note_id: NOTE, drive_file_id: FILE });
+  assert.equal(r.body.code, 'NOTE_NOT_FOUND');
+  assert.deepEqual(drive(h), []);
+  assert.equal(noteReads(h)[0].search.get('deleted_at'), 'is.null');
+});
+
+test('before the database has deleted_at the basket attachment opens after one unfiltered re-read', async () => {
+  const h = harness({ noTrashColumn: true, note: { id: NOTE, workspace_id: 'ws-1', attachments: [{ drive_file_id: FILE, file_name: '안건.hwp' }] } });
+  const r = await h.open({ note_id: NOTE, drive_file_id: FILE });
+  assert.equal(r.status, 200);
+  const reads = noteReads(h).filter(c => c.search.get('id'));
+  assert.equal(reads.length, 2);
+  assert.equal(reads[0].search.get('deleted_at'), 'is.null');
+  assert.equal(reads[1].search.has('deleted_at'), false);
+});
+
+test('library HWP sharing check still counts every note that uses the Drive file, trashed ones included', async () => {
+  const h = harness({ noteRefs: [{ id: 'other-note' }] });
+  const r = await h.open({ document_id: DOC });
+  assert.equal(r.info.shared, true);
+  const refs = noteReads(h).filter(c => c.search.has('attachments'));
+  assert.equal(refs.length, 1);
+  assert.equal(refs[0].search.has('deleted_at'), false);
 });

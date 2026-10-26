@@ -201,7 +201,10 @@ for(const vw of [1280,1440,1920]){
   // Split screens keep list 1/3 : detail 2/3.
   await go(page,'projects');
   await expect(page.locator('#ps3DetailPane')).toBeVisible();await expect(page.locator('#projectGrid .ps3-plist')).toBeVisible();
-  const [list,detail]=await Promise.all([page.locator('#projectGrid .ps3-plist').boundingBox(),page.locator('#ps3DetailPane').boundingBox()]);
+  // STAB-분할시험: 두 칸을 화면 안에서 한 번에 잰다. 프로젝트 목록은 첫 항목을 열 때 한 번 더 교체되므로(renderGrid), locator.boundingBox()로
+  // 요소를 찾은 뒤 따로 자리를 물으면 그 사이에 사라져 null이 된다. 오른쪽 상세 칸도 다 그려진 뒤에 잰다.
+  await expect(page.locator('#ps3DetailPane #ps3DetailModal')).toBeVisible();
+  const {list,detail}=await page.evaluate(()=>{const w=s=>document.querySelector(s).getBoundingClientRect().width;return {list:{width:w('#projectGrid .ps3-plist')},detail:{width:w('#ps3DetailPane')}}});
   expect(detail.width/list.width).toBeGreaterThan(1.6);expect(detail.width/list.width).toBeLessThan(2.4);
   // Basket stays left-aligned next to where the sidebar was.
   await go(page,'basket');

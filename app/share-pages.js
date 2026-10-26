@@ -470,7 +470,7 @@ function renderFull() {
     el('div', {class:'sp-seg', role:'group', 'aria-label':'상태'},
       el('button', {type:'button', dataset:{spSetStatus:'draft'}, text:'초안'}),
       el('button', {type:'button', dataset:{spSetStatus:'published'}, text:'게시'})),
-    el('button', {type:'button', class:'sp-tool sp-top-more', 'aria-label':'프로젝트·링크', 'aria-expanded':'false', 'aria-controls':'spTopExtra', dataset:{spTopMore:''}},
+    el('button', {type:'button', class:'sp-tool sp-top-more', 'aria-label':'프로젝트·링크', 'data-ctx':'off', 'aria-expanded':'false', 'aria-controls':'spTopExtra', dataset:{spTopMore:''}},
       el('span', {'aria-hidden':'true', text:'⋯'})),
     el('div', {class:'sp-top-extra', id:'spTopExtra', dataset:{spTopExtra:''}},
       el('label', {class:'sp-top-project'}, el('span', {text:'프로젝트'}), el('select', {class:'sp-top-select', dataset:{spProject:''}})),

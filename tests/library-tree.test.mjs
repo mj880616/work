@@ -106,3 +106,29 @@ test('폴더 편집 규칙: 깊이·옮길 곳(자기 아래·3단 초과·다�
   assert.equal(m.folderErrorText({message:'LIB_FOLDER_CYCLE: x'}),'폴더를 자기 안으로 옮길 수 없어요.');
   assert.equal(m.folderErrorText({message:'LIB_FOLDER_DEPTH: x'}),'폴더는 3단까지만 만들 수 있어요.');
 });
+
+// LIB-그림형식: 그림(JPG·JPEG·PNG·GIF·WEBP·HEIC·BMP, image/*)도 한 종류. 접힌 줄 색 점 순서는 PPT 다음, 파일 앞.
+test('파일 형식: 확장자를 먼저, 없으면 mime. 그림은 확장자 일곱 가지와 image/*',()=>{
+  for(const name of ['a.jpg','a.JPEG','a.png','a.gif','a.webp','a.heic','a.bmp'])assert.equal(m.fileKindOf(name,null),'그림',name);
+  assert.equal(m.fileKindOf('사진','image/jpeg'),'그림');
+  assert.equal(m.fileKindOf('a.hwpx',''),'HWP');assert.equal(m.fileKindOf('a.docx',''),'DOC');
+  assert.equal(m.fileKindOf('집계','application/vnd.google-apps.spreadsheet'),'XLS');
+  assert.equal(m.fileKindOf('a.zip','application/zip'),'파일');assert.equal(m.fileKindOf('noext',''),'파일');
+  // 확장자가 알려진 문서면 mime이 image여도 문서가 먼저.
+  assert.equal(m.fileKindOf('a.pdf','image/png'),'PDF');
+  assert.deepEqual([...m.KIND_ORDER],['HWP','PDF','XLS','DOC','PPT','그림','파일']);
+});
+
+test('접힌 줄 색 점: 그림이 든 토글은 그림 점이 PPT 뒤에 나온다',()=>{
+  const k=d=>m.fileKindOf(d.file_name,d.mime_type);
+  const out=m.buildTree(base({docs:[doc('x1','b',{file_name:'x1.png'}),doc('x2','b',{file_name:'x2.hwp'}),doc('x3','b',{file_name:'x3.zip'})],kindOf:k}));
+  assert.deepEqual(out.find(n=>n.key==='p:b').kinds,['HWP','그림','파일']);
+});
+
+// LIB-종류표잘림: treeHtml이 파일 줄을 그릴 때 그 줄이 든 토글(node)도 넘긴다(종류로 묶은 토글에서 같은 종류 표를 빼는 데 쓴다).
+test('treeHtml: fileHtml에 파일과 그 파일이 든 토글을 넘긴다',()=>{
+  const out=m.buildTree(base({groupBy:'category',docs:[doc('c1',null,{category:'교섭'}),doc('c2',null,{category:'기타'})]}));
+  const seen=[];
+  m.treeHtml(out,{isOpen:()=>true,showAll:()=>true,esc:s=>String(s),kindKey:k=>k,fileHtml:(d,n)=>{seen.push([d.id,n.category]);return ''}});
+  assert.deepEqual(seen.sort(),[['c1','교섭'],['c2','기타']]);
+});

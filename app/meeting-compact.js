@@ -7,12 +7,12 @@ const dateKey=v=>String(v||'').match(/^\d{4}-\d{2}-\d{2}/)?.[0]||'';
 // 할 일 화면과 같은 기한 글자(예: 10. 25. (토)).
 export const dueText=v=>{const key=dateKey(v);return key?formatSeoulTime(key,{month:'numeric',day:'numeric',weekday:'short'}):''};
 
-const KINDS={HWP:'hwp',HWPX:'hwp',PDF:'pdf',XLS:'xls',XLSX:'xls',CSV:'xls',DOC:'doc',DOCX:'doc',PPT:'ppt',PPTX:'ppt'};
-// 자료실 종류 표시와 같은 글자·색(PDF·HWP·XLS·DOC·PPT, 나머지는 회색 확장자 또는 '파일').
+const KINDS={HWP:'hwp',HWPX:'hwp',PDF:'pdf',XLS:'xls',XLSX:'xls',CSV:'xls',DOC:'doc',DOCX:'doc',PPT:'ppt',PPTX:'ppt',JPG:'img',JPEG:'img',PNG:'img',GIF:'img',WEBP:'img',HEIC:'img',BMP:'img'};
+// 자료실 종류 표시와 같은 글자·색(PDF·HWP·XLS·DOC·PPT·그림, 나머지는 회색 확장자 또는 '파일').
 export function fileKind(name){
   const ext=String(name||'').includes('.')?String(name).split('.').pop().toUpperCase():'';
   const key=KINDS[ext];
-  return key?{key,label:key.toUpperCase()}:{key:'other',label:/^[A-Z0-9]{1,4}$/.test(ext)?ext:'파일'};
+  return key?{key,label:key==='img'?'그림':key.toUpperCase()}:{key:'other',label:/^[A-Z0-9]{1,4}$/.test(ext)?ext:'파일'};
 }
 // 파일 한 줄: 종류 · 이름(· 크기) · 상태(진행률) · 끝 버튼(×). state: pending|uploading|success|error|unknown.
 export function fileLine({name,meta='',state='',label='',end='',attrs='',cls='',stateAttr='data-file-state'}){

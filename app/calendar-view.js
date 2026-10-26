@@ -40,8 +40,15 @@ function select(next){if(next==='week'&&!desktop.matches)return;preference=next;
 function move(delta){if(view==='month')return false;reset();const cursor=view==='week'?weekStart:start;cursor.setTime(addSeoulDays(cursor,delta*(view==='week'?7:14)).getTime());paint();window.KPTUCalendarPersistence?.refresh();return true}
 function begin(){busy=true;error=false;paint();return revision}
 function finish(at,ok){if(at!==revision||view==='month')return;busy=false;error=!ok;if(ok&&pendingDays){days=pendingDays;pendingDays=0}paint()}
+// JOURNAL-하루일정다시: 업무일지 [달력 ›]가 그 날짜가 든 화면으로 옮긴다. 월간 = 그 달(team.js의 달 위치), 주간 = 그 주 월요일, 목록 = 그 날부터.
+function showDay(day){
+  const d=seoulDayStart(day);if(!Number.isFinite(d.getTime()))return false;
+  if(view==='month'){window.__KPTU_CALENDAR_SHOW_MONTH__?.(d);return true}
+  if(view==='week'){weekStart=new Date(addSeoulDays(d,-((seoulParts(d).weekday+6)%7)).getTime());resetWeekScroll()}else start=d;
+  reset();paint();window.KPTUCalendarPersistence?.refresh();return true;
+}
 async function more(){if(view!=='list'||busy)return;pendingDays=pendingDays||(error?days:days+14);busy=true;error=false;paint();await window.KPTUCalendarPersistence?.refresh({appendPage:true})}
-window.KPTUCalendarView={render,range,move,begin,finish,cancel:()=>{revision++;pendingDays=0;busy=false;error=false;paint()},current:()=>view,setTasks:list=>{tasks=list;if(view!=='month')paint()},dayItems:date=>options?dayItems(options,date,tasks):[]};
+window.KPTUCalendarView={render,range,move,showDay,begin,finish,cancel:()=>{revision++;pendingDays=0;busy=false;error=false;paint()},current:()=>view,setTasks:list=>{tasks=list;if(view!=='month')paint()},dayItems:date=>options?dayItems(options,date,tasks):[]};
 document.querySelectorAll('[data-calendar-view]').forEach(b=>b.addEventListener('click',()=>select(b.dataset.calendarView)));
 document.querySelector('#calendarTodayBtn')?.addEventListener('click',()=>{if(view!=='month'){if(view==='week'){weekStart=thisWeek();resetWeekScroll()}else start=today();reset();paint();window.KPTUCalendarPersistence?.refresh()}else window.__KPTU_CALENDAR_TODAY__?.()});
 

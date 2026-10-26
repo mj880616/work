@@ -28,6 +28,22 @@ function status(text,state='info'){
   box.textContent=text;
   box.dataset.state=state;
 }
+// 오래 걸리는 열기(편집기 부품 내려받기 포함)가 멈춘 것처럼 보이지 않게 경과 초를 보인다.
+// 화면 낭독이 매초 읽지 않도록 초 표시는 aria-hidden 조각이고, 읽히는 글은 단계가 바뀔 때만 바뀐다.
+const ELAPSED_AFTER_MS=3000;
+function trackElapsed(stillOpening){
+  const started=performance.now();
+  const mark=document.createElement('span');
+  mark.className='hwp-lab-elapsed';mark.setAttribute('aria-hidden','true');
+  const timer=setInterval(()=>{
+    const box=$('hwpLabStatus'),ms=performance.now()-started;
+    if(!box||!stillOpening()){mark.remove();return}
+    if(ms<ELAPSED_AFTER_MS)return;
+    mark.textContent=` (${Math.floor(ms/1000)}초)`;
+    if(mark.parentNode!==box)box.append(mark);
+  },500);
+  return ()=>{clearInterval(timer);mark.remove()};
+}
 function sync(){
   const save=$('hwpLabSave'),pick=$('hwpLabPick'),upload=$('hwpLabUpload');
   if(save)save.disabled=busy||!current||!!drive;
@@ -130,12 +146,15 @@ async function open(file){
   await refreshDirty();
   if(busy||drive||(dirty()&&!window.confirm('저장하지 않은 고친 내용이 있어요. 다른 파일을 열면 사라져요. 열까요?')))return;
   busy=true;sync();
+  let opening=true;
+  const stopElapsed=trackElapsed(()=>opening&&!drive);
   try{
     const bytes=new Uint8Array(await file.arrayBuffer());
     const format=formatOf(file.name,bytes);
     if(!format){status('HWP(.hwp) 또는 HWPX(.hwpx) 파일만 열 수 있습니다.','error');return}
     status(`${file.name} 여는 중…`);
     const instance=await editor();
+    status(`${file.name} 문서 펼치는 중…`);
     const result=await instance.loadFile(bytes,file.name,{skipUnsavedGuard:true});
     const seq=await changeSeq(instance);
     current={name:file.name,format,savedSeq:seq,latestSeq:seq};
@@ -145,7 +164,7 @@ async function open(file){
   }catch(err){
     console.error('hwp-lab open',err);
     status('파일을 열지 못했습니다. 다른 파일로 시도해 주세요.','error');
-  }finally{busy=false;sync()}
+  }finally{opening=false;stopElapsed();busy=false;sync()}
 }
 
 async function save(){
@@ -196,11 +215,23 @@ async function openDrive(target){
   current=null;showMode();
   busy=true;sync();
   const shown=drive;
+  // 두 일이 동시에 진행된다: ① Drive 파일 받기(서버) ② 편집기 부품 불러오기. 어느 쪽이 남았는지 단계 글로 보인다.
+  const got={file:false,editor:false};
+  const stage=()=>{
+    if(drive!==shown||shown.info)return;
+    status(`${shown.name||'파일'} 여는 중… 파일 ${got.file?'받음':'받는 중'} · 편집기 ${got.editor?'준비됨':'준비 중'}`);
+  };
+  const stopElapsed=trackElapsed(()=>drive===shown&&!shown.info);
   try{
-    status(`${shown.name||'파일'} 여는 중…`);
-    const [instance,file]=await Promise.all([editor(),openHwpFromDrive(target,{rt})]);
+    const editorPromise=editor();
+    const fileFlight=openHwpFromDrive(target,{rt});
+    stage();
+    editorPromise.then(()=>{got.editor=true;stage()},()=>{});
+    fileFlight.then(()=>{got.file=true;stage()},()=>{});
+    const [instance,file]=await Promise.all([editorPromise,fileFlight]);
     if(drive!==shown)return;
     if(file.bytes.length>HWP_EDIT_MAX_BYTES)throw Object.assign(new Error('30MB보다 큰 파일은 편집기에서 열지 않아요.'),{kind:'refused'});
+    status(`${file.info.file_name} 문서 펼치는 중…`);
     const result=await instance.loadFile(file.bytes,file.info.file_name,{skipUnsavedGuard:true});
     if(drive!==shown)return;
     const seq=await changeSeq(instance);
@@ -215,7 +246,7 @@ async function openDrive(target){
     if(drive!==shown)return;
     console.error('hwp-lab drive open',err?.kind||err);
     status(err?.kind?err.message:'파일을 열지 못했어요. 아무것도 바뀌지 않았어요.','error');
-  }finally{if(drive===shown){busy=false;sync()}}
+  }finally{stopElapsed();if(drive===shown){busy=false;sync()}}
 }
 
 async function exportCurrent(){

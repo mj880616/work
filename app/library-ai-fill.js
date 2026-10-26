@@ -84,6 +84,18 @@ export const TIDY_FRESH_MS=60*60*1000;
 const LOCKED='기타';
 const squash=s=>String(s??'').normalize('NFKC').toLowerCase().replace(/[\s_\-.()[\]]+/g,'');
 const baseName=name=>String(name??'').replace(/\.[^.]{1,8}$/,'').trim();
+// LIB-파일이름제목: 파일 이름에 뜻이 있으면 그 이름이 제목이다. 서버 isMeaninglessName과 같은 규칙(시험이 두 곳을 같은 목록으로 비교).
+export const GENERIC_NAME_WORDS=Object.freeze([
+  'img','image','images','imgs','dsc','dscn','dscf','pxl','mvimg','vid','video','photo','photos','pict','picture','pic',
+  'scan','scanned','scanner','document','doc','docx','file','files','untitled','new','screenshot','screen','shot','capture',
+  'download','downloads','attachment','temp','tmp','kakaotalk','kakao','talk','copy','wa','am','pm',
+  '스캔','제목','없음','제목없음','새문서','무제','새','문서','사진','이미지','첨부','첨부파일','붙여넣은','화면','캡처','스크린샷',
+  '카카오톡','복사본','사본','오전','오후','파일','이름','한글']);
+const GENERIC_SET=new Set(GENERIC_NAME_WORDS);
+export function isMeaninglessName(fileName){
+  const words=baseName(fileName).normalize('NFKC').toLowerCase().split(/[^\p{L}]+/u).filter(Boolean);
+  return !words.some(w=>!GENERIC_SET.has(w)&&!/^[a-z]{1,2}$/.test(w));
+}
 // 서버 legacyUserFields와 같은 규칙: 칸별 기록이 생기기 전에 사람이 손댄 칸.
 export function legacyUserFields(note){
   const text=typeof note==='string'?note.trim():'';
@@ -101,6 +113,8 @@ export function untidyFields(doc,categories){
     if(field==='document_date')return !doc.document_date;
     if(field==='source')return !String(doc.source??'').trim();
     const title=String(doc.title??'').trim();
+    if(!baseName(doc.file_name))return !title;
+    if(!isMeaninglessName(doc.file_name))return false;
     return !title||squash(title)===squash(baseName(doc.file_name));
   });
 }

@@ -21,10 +21,10 @@ test('fenced code keeps its words; the cut adds … only when longer; empty stay
   assert.equal(previewText(null), '');
   assert.deepEqual(plainLines('|---|---|'), []);
 });
-test('markdownSource is returned only when the line removed marks or line breaks', () => {
+test('markdownSource is returned only when the text carries markdown marks (EDIT-번호모양보존: line breaks and list marks alone are not marks)', () => {
   assert.equal(markdownSource('그냥 한 줄'), '');
   assert.equal(markdownSource('그냥 글\n두 줄'), '');
-  assert.equal(markdownSource('그냥 글\n두 줄', true), '그냥 글\n두 줄');
+  assert.equal(markdownSource('그냥 글\n1) 하나\n2) 둘\n- 셋'), '');
   assert.equal(markdownSource('### 제목\n본문'), '### 제목\n본문');
   assert.equal(markdownSource('가'.repeat(30000) + '**x**'), '');
 });

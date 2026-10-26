@@ -87,7 +87,7 @@ async function boot(page,{width=390}={}){
   await expect(page.locator('[data-lu-document]')).toHaveCount(1);
   return state;
 }
-async function upload(page,{name='251020_요구안_최종.hwpx',title='',source=''}={}){
+async function upload(page,{name='scan_251020.hwpx',title='',source=''}={}){
   await page.locator('#newDocumentBtn').click();
   await expect(page.locator('#libraryFileInput')).toBeAttached();
   await page.locator('#libraryFileInput').setInputFiles({name,mimeType:'application/octet-stream',buffer:Buffer.from('PK synthetic')});

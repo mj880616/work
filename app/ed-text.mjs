@@ -84,8 +84,10 @@ const esc = text => String(text).replace(/[&<>"']/g, c => ESC[c]);
 const P = 'margin:0';
 const CELL = 'border:1px solid #000;padding:2pt 4pt';
 const HEAD_SIZE = {1:'16pt', 2:'14pt', 3:'12pt'};
+// EDIT-번호모양보존: HTML folds the spaces at the start of a line, so typed indentation ("  1) 하나") would be lost on paste into 한글.
+const keepIndent = html => html.replace(/(^|<br>)( +)/g, (m, lead, spaces) => lead + '&nbsp;'.repeat(spaces.length));
 function inlineHtml(node) {
-  return (node.content || []).map(n => {
+  return keepIndent((node.content || []).map(n => {
     if (n.type === 'hard_break') return '<br>';
     let html = esc(n.text || '');
     for (const m of n.marks || []) {
@@ -96,7 +98,7 @@ function inlineHtml(node) {
       else if (m.type === 'link') html = `${html} (${esc(m.attrs.href)})`;
     }
     return html;
-  }).join('');
+  }).join(''));
 }
 const alignCss = node => node.attrs?.align === 'center' ? ';text-align:center' : '';
 function blocksHtml(blocks, pad = '', depth = {bullet: 0, ordered: 0}) {

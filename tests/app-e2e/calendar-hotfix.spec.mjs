@@ -15,7 +15,7 @@ test('calendar hotfix removes stale local calendar UI and returns OAuth to Web2'
   expect(index).not.toContain('팀 캘린더');
   expect(index).not.toContain('개인 캘린더');
   expect(plus).not.toContain('eventCalendarScope');
-  expect(interactions).toContain('ciCreateAt');
+  expect(interactions).toContain('ciCreateSlot');
   expect(interactions).toContain('window.__KPTU_GOOGLE_EVENTS__');
   expect(index).not.toContain('id="eventGoogleColor" type="color"');
   expect(interactions).not.toContain('id="ciAppColor" type="color"');

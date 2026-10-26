@@ -51,7 +51,7 @@ function harness({kind = 'note', child = 'none', note = true, attachments = []} 
   };
   const admin = {auth: {getUser: async () => ({data: {user: {id: 'synthetic-owner'}}, error: null})}, from: table => {
     const filters = []; let mutation = null;
-    const b = {select: () => b, eq: (k, v) => { filters.push([k, v]); return b; }, is: (k, v) => { filters.push([k, v]); return b; },
+    const b = {select: () => b, eq: (k, v) => { filters.push([k, v]); return b; }, is: (k, v) => { filters.push([k, v, 'is']); return b; },
       update: p => { mutation = {kind: 'update', p}; return b; }, insert: p => { mutation = {kind: 'insert', p}; return b; },
       upsert: () => { mutation = {kind: 'upsert'}; return b; }, maybeSingle: () => exec(), single: () => exec(), then: (r, e) => exec().then(r, e)};
     async function exec() {
@@ -62,11 +62,11 @@ function harness({kind = 'note', child = 'none', note = true, attachments = []} 
       if (mutation) {
         calls.writes.push({...mutation, filters});
         if (mutation.kind === 'insert') { state.note = {id: NOTE, updated_at: 't1', ...mutation.p}; return {data: {id: NOTE}, error: null, status: 201}; }
-        const match = state.note && filters.every(([k, v]) => k === 'attachments' ? JSON.stringify(state.note[k]) === v : state.note[k] === v);
+        const match = state.note && filters.every(([k, v, op]) => op === 'is' ? (state.note[k] ?? null) === v : k === 'attachments' ? JSON.stringify(state.note[k]) === v : state.note[k] === v);
         if (!match) return {data: null, error: null, status: 200};
         state.note = {...state.note, ...mutation.p}; return {data: {id: NOTE}, error: null, status: 200};
       }
-      const match = state.note && filters.every(([k, v]) => state.note[k] === v);
+      const match = state.note && filters.every(([k, v, op]) => op === 'is' ? (state.note[k] ?? null) === v : state.note[k] === v);
       return {data: match ? structuredClone(state.note) : null, error: null};
     }
     return b;
@@ -91,7 +91,7 @@ test('a note (kind=note) gets "노트 첨부" inside the private basket root, cr
   assert.deepEqual(h.state.note.attachments, [{drive_file_id: 'drive-file-1', file_name: '회의 자료.pdf', mime_type: 'application/pdf', size_bytes: 5}]);
   // The save is guarded by the version read (updated_at + attachments) and the workspace.
   const save = h.calls.writes.at(-1);
-  assert.deepEqual(save.filters.map(([k]) => k).sort(), ['attachments', 'id', 'updated_at', 'workspace_id']);
+  assert.deepEqual(save.filters.map(([k]) => k).sort(), ['attachments', 'deleted_at', 'id', 'updated_at', 'workspace_id']);
   const second = await send(h, {note_id: NOTE});
   assert.equal(second.status, 200);
   assert.equal(h.calls.created.length, 1, 'the folder is found again, never made twice');
