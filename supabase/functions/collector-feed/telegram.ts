@@ -2,7 +2,7 @@
 // 순수 함수만 둔다(지시문, 답 형식, 재료 만들기, 답 검사). 입출력은 handler.ts.
 // - 보내는 이는 A·B·C 같은 임시 이름만 온다(앱 스크립트가 바꿈). 메시지는 m1, m2 … 참조로만 AI에 보인다.
 // - 조직·프로젝트는 내 목록의 짧은 참조(o1, p1 …)만 보내고, 답의 참조를 서버가 ID로 바꾼다. AI가 ID를 만들 수 없다.
-// - AI 답은 믿지 않는 입력: 키·종류·글자 수·참조를 다시 검사하고 하나라도 틀리면 전체를 버린다(아무것도 저장하지 않음).
+// - AI 답은 믿지 않는 입력: 글자 수·참조를 다시 검사한다. 응답이 깨졌으면 전체를 버리고(아무것도 저장하지 않음), 항목 하나가 틀리면 그 항목만 뺀다.
 import { cleanLine } from "./call-analysis.ts";
 
 export const TG_LIMITS = Object.freeze({
@@ -92,42 +92,43 @@ export function rawLines(messages: TgMessage[], refs: number[]) {
   return refs.map((i) => messages[i]).map((m) => `${hhmm(m.at)} ${m.sender}${m.forwarded ? " (전달)" : ""}: ${m.text.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, "")}`).join("\n");
 }
 
-// AI 답 검사. 형식이 하나라도 틀리면 null(저장하지 않는다).
-export function parseTelegram(text: string | null, messageCount: number, orgs: LinkOption[], projects: LinkOption[]): TgItem[] | null {
+// AI 답 검사. 응답 자체가 깨졌으면 null(저장하지 않는다). 항목 하나가 틀리면 그 항목만 빼고 빠진 수를 센다(dropped).
+// - 조직·프로젝트 참조가 목록에 없으면 그 연결만 비우고 항목은 살린다(unlinked로 센다).
+// - 항목이 하나 이상 왔는데 전부 틀렸으면 응답이 깨진 것으로 보고 null(앱 스크립트가 다시 보낸다).
+export type TgParsed = { items: TgItem[]; dropped: number; unlinked: number };
+export function parseTelegram(text: string | null, messageCount: number, orgs: LinkOption[], projects: LinkOption[]): TgParsed | null {
   if (text === null) return null;
   let parsed: unknown;
   try { parsed = JSON.parse(text); } catch { return null; }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
   const top = parsed as Record<string, unknown>;
-  if (Object.keys(top).join(",") !== "items" || !Array.isArray(top.items) || top.items.length > TG_LIMITS.items) return null;
+  if (!Array.isArray(top.items)) return null;
   const orgRef = new Map(orgs.map((o) => [o.ref, o.id])), projRef = new Map(projects.map((p) => [p.ref, p.id]));
   const out: TgItem[] = [];
-  for (const raw of top.items as unknown[]) {
-    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  let dropped = Math.max(0, top.items.length - TG_LIMITS.items), unlinked = 0;
+  for (const raw of (top.items as unknown[]).slice(0, TG_LIMITS.items)) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) { dropped++; continue; }
     const it = raw as Record<string, unknown>;
-    if (Object.keys(it).sort().join(",") !== "organization,project,refs,summary,title") return null;
-    if (typeof it.summary !== "string" || typeof it.title !== "string" || typeof it.organization !== "string" || typeof it.project !== "string") return null;
-    if (!Array.isArray(it.refs) || it.refs.length < 1 || it.refs.length > messageCount) return null;
+    if (typeof it.summary !== "string" || !Array.isArray(it.refs)) { dropped++; continue; }
     const refs: number[] = [];
     for (const r of it.refs) {
       const m = typeof r === "string" ? /^m([1-9]\d{0,3})$/.exec(r) : null;
       const i = m ? Number(m[1]) - 1 : -1;
-      if (i < 0 || i >= messageCount || refs.includes(i)) return null;
-      refs.push(i);
+      if (i >= 0 && i < messageCount && !refs.includes(i)) refs.push(i); // 없는 참조·중복 참조는 그 참조만 버린다
     }
     refs.sort((a, b) => a - b);
     const summary = cleanLine(it.summary, TG_LIMITS.summary);
-    if (!summary) return null;
-    const org = it.organization.trim(), proj = it.project.trim();
-    if (org && !orgRef.has(org)) return null;
-    if (proj && !projRef.has(proj)) return null;
+    if (!refs.length || !summary) { dropped++; continue; }
+    const org = typeof it.organization === "string" ? it.organization.trim() : "", proj = typeof it.project === "string" ? it.project.trim() : "";
+    if ((org && !orgRef.has(org)) || (proj && !projRef.has(proj))) unlinked++;
     out.push({
-      title: cleanLine(it.title, TG_LIMITS.title),
+      title: typeof it.title === "string" ? cleanLine(it.title, TG_LIMITS.title) : null,
       summary,
       refs,
-      organization_id: org ? orgRef.get(org)! : null,
-      suggested_project_id: proj ? projRef.get(proj)! : null,
+      organization_id: org ? orgRef.get(org) ?? null : null,
+      suggested_project_id: proj ? projRef.get(proj) ?? null : null,
     });
   }
-  return out;
+  if (!out.length && dropped > 0) return null;
+  return { items: out, dropped, unlinked };
 }

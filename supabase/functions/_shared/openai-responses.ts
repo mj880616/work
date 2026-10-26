@@ -91,6 +91,11 @@ export async function callOpenAi(
   return { ok: false, code: "ai_busy", charged: false };
 }
 
+// 답이 중간에 잘렸는지(생각 토큰이 max_output_tokens를 다 써서 status=incomplete). 로그 단계 구분용.
+export function isIncomplete(raw: unknown): boolean {
+  return !!raw && typeof raw === "object" && (raw as Record<string, unknown>).status === "incomplete";
+}
+
 // Responses 답에서 output_text 하나를 꺼낸다. 거절(refusal)·여러 조각·모양 이상이면 null.
 export function outputText(raw: unknown, maxChars = 64 * 1024): string | null {
   if (!raw || typeof raw !== "object") return null;

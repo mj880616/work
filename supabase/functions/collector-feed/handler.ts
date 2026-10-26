@@ -26,7 +26,7 @@
 //   함수가 없으면(404) 지금처럼 이름만 돌려준다. DB에 쓰지 않는다. 하루 20회 상한은 인스턴스 메모리로만 센다. 번호·메모·통화 내용·ID는 응답에 없다.
 // 응답·로그에는 개수와 단계 코드만 넣는다. 원문·요약·이름·오류 원문은 넣지 않는다.
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
-import { aiConfigFrom, callOpenAi, estimateKrw, outputText, tokenCount } from "../_shared/openai-responses.ts";
+import { aiConfigFrom, callOpenAi, estimateKrw, isIncomplete, outputText, tokenCount } from "../_shared/openai-responses.ts";
 import { organizationOptions, projectOptions } from "../ai-assist/library-fill.ts";
 import { CALL_LIMITS, cleanLine, kstDay, type OrgRow, parseCall } from "./call-analysis.ts";
 import { buildContext, CONTEXT_LIMITS, CONTEXT_PEOPLE_FN, CONTEXT_PEOPLE_ROWS } from "./context.ts";
@@ -68,7 +68,7 @@ export const MAX_PAST_DAYS = 92;
 export const OPENAI_URL = "https://api.openai.com/v1/responses";
 export const KEY_NAME = "WEB2_OPENAI_API_KEY";
 // 모델·가격 기본값은 _shared/ai-model.ts 한 곳(운영 값은 WEB2_AI_MODEL·WEB2_AI_PRICE_*로 바꿀 수 있음).
-import { DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
+import { AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK } from "../_shared/ai-model.ts";
 export { DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK };
 export const DEFAULT_MODEL = DEFAULT_AI_MODEL;
 export const OPENAI_TIMEOUT_MS = 45000;
@@ -385,6 +385,9 @@ async function monthUsage(db: Db, ws: string, nowMs: number) {
   return { input, output };
 }
 
+// 생각 토큰이 max_output_tokens에 포함되므로 답 몫(TG_LIMITS.maxOutputTokens)에 생각 여유를 더해 보낸다(다른 Edge 함수와 같음).
+const TG_MAX_OUTPUT_TOKENS = TG_LIMITS.maxOutputTokens + AI_REASONING_TOKEN_HEADROOM;
+
 async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: number, deps: AiDeps) {
   const today = kstDay(nowMs);
   const msgRefs = input.messages.map((m) => m.ref).sort().join(",");
@@ -416,26 +419,31 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
     model: config.model,
     store: false,
-    max_output_tokens: TG_LIMITS.maxOutputTokens,
+    max_output_tokens: TG_MAX_OUTPUT_TOKENS,
     input: [
       { role: "developer", content: TELEGRAM_INSTRUCTIONS },
       { role: "user", content: material },
     ],
     text: { format: { type: "json_schema", name: "telegram_feed", strict: true, schema: TELEGRAM_SCHEMA } },
   }, { url: OPENAI_URL, timeoutMs: OPENAI_TIMEOUT_MS, retryDelayMs: RETRY_DELAY_MS, maxResponseBytes: OPENAI_RESPONSE_BYTES });
-  const usage = result.ok ? result.usage : result.charged ? { input: [...material].length * 2, output: TG_LIMITS.maxOutputTokens } : { input: 0, output: 0 };
+  const usage = result.ok ? result.usage : result.charged ? { input: [...material].length * 2, output: TG_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
   if (usage.input || usage.output) {
     try { await addDay(db, ws, today, "telegram", { ai_input_tokens: tokenCount(usage.input), ai_output_tokens: tokenCount(usage.output) }, nowMs); }
     catch { deps.log("usage_record_failed"); }
   }
-  const items = result.ok ? parseTelegram(outputText(result.raw), input.messages.length, orgs, projects) : null;
-  if (!items) {
+  const text = result.ok ? outputText(result.raw) : null;
+  const parsedAi = result.ok ? parseTelegram(text, input.messages.length, orgs, projects) : null;
+  if (!parsedAi) {
     // 실패하면 아무것도 저장하지 않는다(설계 3.2절). 앱 스크립트가 다시 보낸다. 3번째 실패면 판정 실패로 센다.
     const code = result.ok ? "AI_INVALID_RESPONSE" : result.code.toUpperCase();
-    deps.log("telegram_ai_failed", { stage: code });
+    // 로그에는 단계 코드만 남긴다. 생각 토큰 소진(incomplete)이면 따로 알아볼 수 있게 한다.
+    const stage = result.ok && isIncomplete(result.raw) ? "AI_INCOMPLETE" : code;
+    deps.log("telegram_ai_failed", { stage });
     if (input.attempt >= 3) await addDay(db, ws, input.day, "telegram", counts(0, 1), nowMs);
     throw new Fail(result.ok ? 502 : result.code === "ai_timeout" ? 504 : 503, code);
   }
+  const items = parsedAi.items;
+  if (parsedAi.dropped || parsedAi.unlinked) deps.log("telegram_items_adjusted", { dropped: parsedAi.dropped, unlinked: parsedAi.unlinked });
   let kept = 0;
   const judged = new Date(nowMs).toISOString();
   for (const [n, item] of items.entries()) {
