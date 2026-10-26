@@ -2,8 +2,8 @@
 // 사진은 사업 보고 첨부(app_documents.meeting_id, 원본은 Drive 한 곳)다. 이 파일은 보여 주기만 하고 아무것도 저장하지 않는다(결정 B).
 // 읽기: 줄마다 따로 묻지 않고 보이는 사업 보고 전체를 `meeting_id=in.(…)` 한 번(100건씩)으로 읽는다. 데이터 경로·권한은 기존 그대로(소유자 RLS).
 // 그림: 이미 운영에 있는 library-files 의 `GET ?action=photo&document_id=<uuid>&size=small`(소유자 확인 뒤 Drive 섬네일). 새 서버 경로 없음.
-// 받은 그림은 이 화면을 쓰는 동안 메모리(object URL)에만 두고, 로그인 사용자가 바뀌면 버린다.
 import {reportRuntime} from './report-links.js';
+import {libraryPhotoUrl,clearLibraryPhotoCache} from './library-photo.js';
 import {reportIdChunks,groupReportPhotos,stripPlan,moreLabel} from './report-photos-model.mjs';
 
 const enc=encodeURIComponent;
@@ -18,32 +18,16 @@ export async function readReportPhotos(reports,rt=reportRuntime()){
 }
 
 // 줄 안에 넣을 글(그림 칸 자리만 만든다. 그림은 mountReportPhotos 가 채운다). 그림이 없는 줄은 빈 글.
-export function reportPhotosHtml(meetingId,photos){
+// more:false 는 '외 n장'을 붙이지 않는다(자료실 묶음 줄은 사진 수를 제목 앞 숫자로 보인다).
+export function reportPhotosHtml(meetingId,photos,{more:showMore=true}={}){
   const plan=stripPlan(photos?.get?.(meetingId));if(!plan)return '';
-  const more=moreLabel(plan);
+  const more=showMore?moreLabel(plan):'';
   return `<span class="report-photo-strip" data-report-photos="${esc(meetingId)}" role="img" aria-label="사진 ${plan.total}장">${plan.shown.map(p=>`<span class="report-photo-thumb" data-report-photo="${esc(p.id)}"></span>`).join('')}${more?`<span class="report-photo-more" data-report-photo-more>${more}</span>`:''}</span>`;
 }
 
-// 작은 그림은 메모리에만(object URL). 같은 화면에서 다시 그릴 때 다시 받지 않는다.
-const cache=new Map();let cacheOwner='';
-const ownerOf=rt=>rt.context?.read?.()?.user?.id||'';
-// 로그인 정보가 아직 안 읽힌 순간('')은 사용자 바뀜으로 보지 않는다. 안 그러면 막 받은 그림 주소를 거두어 가 그림이 빈 칸이 된다.
-export function clearReportPhotoCache(){for(const flight of cache.values())flight.then(url=>URL.revokeObjectURL(url),()=>{});cache.clear()}
-export function reportPhotoUrl(documentId,{rt=reportRuntime(),fetcher=globalThis.fetch}={}){
-  const owner=ownerOf(rt);if(owner&&owner!==cacheOwner){if(cacheOwner)clearReportPhotoCache();cacheOwner=owner}
-  if(cache.has(documentId))return cache.get(documentId);
-  const flight=(async()=>{
-    if(!(await rt.session.ensure()))throw new Error('session');
-    const token=rt.session.read()?.access_token;if(!token)throw new Error('session');
-    const query=new URLSearchParams({action:'photo',document_id:documentId,size:'small'});
-    const response=await fetcher(`${rt.config.url}/functions/v1/library-files?${query}`,{headers:{apikey:rt.config.key,Authorization:'Bearer '+token}});
-    if(!response.ok||!/^image\//.test(response.headers.get('content-type')||''))throw new Error('photo');
-    return URL.createObjectURL(await response.blob());
-  })();
-  cache.set(documentId,flight);
-  flight.catch(()=>{if(cache.get(documentId)===flight)cache.delete(documentId)});
-  return flight;
-}
+// 작은 그림 받기는 자료실과 같은 함수 하나다(library-photo.js: 소유자 로그인으로 library-files photo 동작, 메모리에만 두고 사용자가 바뀌면 비움).
+export const clearReportPhotoCache=clearLibraryPhotoCache;
+export const reportPhotoUrl=(documentId,{rt=reportRuntime(),fetcher=globalThis.fetch}={})=>libraryPhotoUrl(documentId,'small',{rt,fetcher});
 
 // root 안의 그림 칸에 그림을 채운다. 화면에 보이는 칸만 받는다(접힌 줄은 펼친 뒤에 받음). 못 받으면 빈 칸 그대로(줄·누르기는 그대로 동작).
 export function mountReportPhotos(root,{rt=reportRuntime(),isCurrent=()=>true}={}){

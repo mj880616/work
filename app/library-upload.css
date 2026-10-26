@@ -324,3 +324,10 @@
   #appView #libraryView #documentList .lu-row.lu-row-photo{grid-template-columns:28px auto auto auto minmax(0,1fr) auto;grid-template-areas:"thumb title title title title menu" "thumb kind tag date . menu"}
   #appView #libraryView #documentList .lu-row-photo .lu-thumb{grid-area:thumb;align-self:center}
 }
+
+/* ACT-사진 4단계: 사업 보고 사진 묶음 줄(한 줄). 작은 그림 3장은 공용 .report-photo-strip(ui-standard.css). 폰은 오른쪽 칸(⋯ 자리)에 그림을 둔다. */
+.lu-row-set .report-photo-strip{flex:none}
+@media(max-width:760px){
+  #appView #libraryView #documentList .lu-row.lu-row-set{grid-template-columns:auto auto auto minmax(0,1fr) auto;grid-template-areas:"title title title title strip" "kind tag date . strip"}
+  #appView #libraryView #documentList .lu-row-set .report-photo-strip{grid-area:strip;align-self:center;justify-self:end}
+}
