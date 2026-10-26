@@ -213,3 +213,5 @@ Playwright Chromium에서 Supabase 응답을 테스트 상태로 대체하고 �
 3. 실패가 발생한 기능 단위만 수정함.
 4. 인증·Android OAuth·DB 구조는 별도 필요가 확인되지 않는 한 유지함.
 5. 새 보정 파일을 늘리기보다 공용 라우터·공용 런타임·명시적 이벤트 구조를 유지함.
+
+- 원장 재료 C-4(개인 공유 캘린더 참고 일정, 설계 `docs/design/ledger-sources.md` 5절): 판단 규칙은 `calendar-ref-model.mjs`(순수), 서버 읽기·쓰기는 `calendar-ref-data.js`(owner RLS REST만, 브라우저 저장소 없음), 고르기 화면은 `calendar-ref-settings.js`가 `profile-settings.js`의 `#psCalRefPanel` 안을 그린다(칸 하나에 renderer 하나, 프로필 [저장]과 따로 바로 저장). 업무일지는 `journal.js`의 reader `calendarRefs`가 한 주를 맞추고 읽으며, 하루 카드 접힌 줄은 `journal.js`, [주간 정리] '참고' 묶음은 `journal-weekly.js`가 그린다(체크 저장은 `journal.js`의 한 핸들러). 주간보고 '5. 주요 일정'에는 섞지 않는다.

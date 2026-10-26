@@ -17,7 +17,7 @@ const state=window.__state={
   {id:'pw-a',user_id:'u1',organization_id:'org-a',full_name:'철도노조',aliases:['철도'],sort_order:0,created_at:'2026-09-01T00:00:00Z'},
   {id:'pw-legacy',user_id:'u1',organization_id:null,full_name:'과거 담당기관',aliases:[],sort_order:10,created_at:'2025-01-01T00:00:00Z'}
  ],
- fail:[],calls:[],events:0,reloads:0,memberReloads:0
+ refs:[],calendarEvents:null,fail:[],calls:[],events:0,reloads:0,memberReloads:0
 };
 function clone(v){return JSON.parse(JSON.stringify(v))}
 function orgFromPath(path){const m=path.match(/organization_id=eq\.([^&]+)/);return m?decodeURIComponent(m[1]):null}
@@ -27,10 +27,25 @@ document.querySelector('#userBadge').addEventListener('click',()=>window.KPTURou
 window.__KPTU_RELOAD_SUBORGANIZATIONS__=()=>{state.reloads++};
 window.__KPTU_RELOAD_TEAM_MEMBERS__=()=>{state.memberReloads++};
 window.addEventListener('kptu:suborganization-updated',()=>state.events++);
-window.KPTURuntime={session:{ensure:async()=>true},api:async(path,opts={})=>{
+const nowIso=()=>new Date(Date.now()-36e5).toISOString();
+function defaultEvents(){return [
+ {id:'e1',title:'가상 교섭 준비',calendarId:'cal-a',start:nowIso(),end:nowIso(),allDay:false,colorId:'3',mine:true},
+ {id:'e2',title:'저녁 모임 자리',calendarId:'cal-a',start:nowIso(),end:nowIso(),allDay:false,colorId:null,mine:true},
+ {id:'e3',title:'병원 예약',calendarId:'cal-a',start:nowIso(),end:nowIso(),allDay:false,colorId:null,mine:true}
+]}
+window.KPTURuntime={context:{read:()=>({user:{id:'u1'},workspace:{id:'w1'}})},session:{ensure:async()=>true},api:async(path,opts={})=>{
  const method=opts.method||'GET';state.calls.push({path,method,body:clone(opts.body??null)});
  const hit=state.fail.find(x=>x.method===method&&path.startsWith(x.path)&&(!x.org||path.includes(x.org)||JSON.stringify(opts.body??null).includes(x.org)));if(hit)throw new Error('mock failure');
  if(path==='/auth/v1/user')return clone(state.user);
+ if(path.startsWith('/functions/v1/google-calendar?action=status'))return {connected:true,calendars:[{id:'cal-a',summary:'가상 공유 캘린더'},{id:'cal-b',summary:'다른 캘린더'}],eventColors:{'1':{background:'gray'},'3':{background:'green'},'7':{background:'teal'}}};
+ if(path.startsWith('/functions/v1/google-calendar?action=events'))return {events:clone(state.calendarEvents||defaultEvents())};
+ if(path.includes('/app_calendar_work_refs')){
+  if(method==='POST'){for(const r of opts.body)state.refs.push({...clone(r),id:'ref-'+state.refs.length});return null}
+  if(method==='DELETE'){if(path.includes('&id=in.')){const ids=decodeURIComponent(path.match(/&id=in\.\(([^)]*)\)/)[1]).split(',');state.refs=state.refs.filter(r=>!ids.includes(r.id))}else state.refs=[];return null}
+  if(method==='PATCH'){const id=decodeURIComponent(path.match(/&id=eq\.([^&]+)/)[1]);Object.assign(state.refs.find(r=>r.id===id),clone(opts.body));return null}
+  if(path.includes('event_key=in.'))return [];
+  return clone(state.refs);
+ }
  if(path.includes('/app_workspace_members?'))return [{workspace_id:state.workspace}];
  if(path.includes('/app_profiles?')&&method==='GET')return clone(state.profile);
  if(path.includes('/app_suborganizations?')&&method==='GET')return clone(state.organizations);

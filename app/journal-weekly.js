@@ -30,13 +30,14 @@ import {annotateCalendar, memoryTitle, idleWeeks} from './weekly-schedule-memory
 import {formDay, dayParts, dayLabel, whatCell, requestLine, sortItems, EXEC_HEAD, EXEC_LIMITS, EXEC_MAX_ROWS, CARRIED_TAG} from './weekly-exec-requests.js';
 import {placeFiles, fileVerdict, fileItem, applyDocEdit, fileBucket} from './weekly-file-lines.mjs';
 import {docEdits} from './weekly-draft-store.js';
+import {weeklyPart as calRefWeekly} from './calendar-ref-model.mjs';
 import {refOfOpen, meetingRef, planOverlaps, reasonOf, OVERLAP_WEEK_TEXT as OV} from './overlap-weekly.mjs';
 
 // The reads behind each part (journal.js materials keys; 'lines' is the journal's own lines read).
 // 'upcoming' is the two-week calendar read of 5. 주요 일정 (journal-data.js readScheduleEvents).
 export const WEEKLY_SOURCES = Object.freeze({
   requests:['execRequests'], summary:['basket', 'projectUpdates', 'catalog'], meetings:['meetings'], orgs:['basket', 'orgUpdates'], calendar:['upcoming'],
-  lines:['lines'], tasks:['tasks'], due:['tasks'], docs:['documents'], shares:['sharePages'], memos:['basket'],
+  lines:['lines'], calRefs:['calendarRefs'], tasks:['tasks'], due:['tasks'], docs:['documents'], shares:['sharePages'], memos:['basket'],
 });
 const state = (materials, sources) => {
   const states = sources.map(source => materials?.[source]);
@@ -297,6 +298,9 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
 
   const notes = {
     lines:part('lines', () => ({items:perDay('lines', (read, day) => workLines(read?.get?.(day)))})),
+    // 원장 재료 C-4(설계 5.3): 개인 공유 캘린더 참고 일정. 고르지 않았거나 읽는 중이면 보이지 않고, items는 체크된 줄만(복사 재료), all은 화면용 전부.
+    // 주간보고 '5. 주요 일정'(calendar)과 한글 파일에는 들어가지 않는다 — 이 값은 notes 밖 어디에도 쓰이지 않는다.
+    calRefs:calRefsPart(m.calendarRefs, days),
     tasks:part('tasks', () => ({items:perDay('tasks', (read, day) => tasksOn(read, day).map(task => task.title || '(제목 없음)')),
       ...(days[0] < doneCoverFrom(doneDays, today) ? {note:`Google 할 일은 최근 ${doneDays}일 안에 끝낸 것만 모여요.`} : {})})),
     // 할 일 예정 by due day in this week (the server sends overdue and up to 6 days ahead only).
@@ -315,6 +319,14 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
     records:[...rawRecords.map(r => ({ref:r.ref, day:r.day, text:r.text, title:'', target:target('project', r.id)})),
       ...rawOrg.map(r => ({ref:r.ref, day:r.day, text:r.text, title:'', target:target('organization', r.open?.org)}))].filter(r => r.ref)};
   return {start, days, requests, summary, meetings, orgs, calendar, notes, remembered, fileEdits, overlap, overlapSource};
+}
+function calRefsPart(read, days) {
+  const base = {key:'calRefs', loading:false, failed:[], items:[], all:[], hidden:true};
+  if (!read) return base;
+  if (read.status === 'loading') return {...base, loading:true};
+  if (read.status !== 'ok') return {...base, hidden:false, failed:['calendarRefs']};
+  if (!read.items?.configured) return base;
+  return {...base, hidden:false, ...calRefWeekly(read.items.rows, days), syncFailed:!!read.items.syncFailed};
 }
 const seoulDay = value => value && Number.isFinite(Date.parse(value)) ? seoulDateKey(value) : '';
 
@@ -392,6 +404,7 @@ export function weeklyReportText(model) {
   out.push('', '참고');
   for (const [key, label] of NOTE_PARTS) {
     const part = model.notes[key];
+    if (key === 'calRefs' && (part.hidden || part.loading)) continue;
     if (part.loading || part.failed?.length) { out.push(`◦ ${label}`); out.push(gap(part, key)); if (!part.loading) missing.push(label); continue; }
     if (!part.items.length && !part.note) continue;
     out.push(`◦ ${label}`);
@@ -408,7 +421,7 @@ export function weeklyReportText(model) {
 
 // ---- screen (called by journal.js only) ----
 export const FILE_TAG = '자료';
-export const NOTE_PARTS = Object.freeze([['lines', '한 줄'], ['tasks', '끝낸 할 일'], ['due', '할 일 예정'], ['docs', '자료실 새 자료'], ['shares', '공유 페이지'], ['memos', '기타 메모']]);
+export const NOTE_PARTS = Object.freeze([['lines', '한 줄'], ['calRefs', '개인 공유 캘린더(참고)'], ['tasks', '끝낸 할 일'], ['due', '할 일 예정'], ['docs', '자료실 새 자료'], ['shares', '공유 페이지'], ['memos', '기타 메모']]);
 // 1. 2) 주요 일정: what goes there (its rule is not settled; nothing is filled in yet).
 export const HQ_SCHEDULE_GUIDE = '본부 주요 일정 — 기자회견·주요 회의·토론회·집회·교육 등, 특정 사업장·반복 일정 제외. 자동 채우기는 나중에';
 const rangeTitle = calendar => `${shortDay(calendar.days[0])} ~ ${shortDay(calendar.days.at(-1))} · 다음 주 월요일부터 2주`;
@@ -717,6 +730,25 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   const quiet = [];
   for (const [key, label] of NOTE_PARTS) {
     const part = model.notes[key];
+    if (key === 'calRefs') {
+      if (part.hidden || part.loading) continue;
+      const box = el('details', 'journal-weekly-part journal-calref'); box.dataset.journalWeekly = 'note-calRefs';
+      if (part.failed.length) {
+        box.removeAttribute('data-journal-weekly'); const plain = block('note-calRefs', label); status(plain, part, label); ref.append(plain); continue;
+      }
+      const checked = part.all.filter(i => i.included).length;
+      box.append(el('summary', null, `${label} ${part.all.length}${part.all.length ? ` · 체크 ${checked}` : ''}`));
+      if (part.all.length) {
+        const ul = el('ul', 'journal-calref-list');
+        for (const i of part.all) {
+          const li = el('li'); li.dataset.journalCalrefRow = i.id;
+          const lab = el('label', 'journal-calref-item'); const cb = el('input'); cb.type = 'checkbox'; cb.checked = i.included; cb.dataset.journalCalrefCheck = i.id;
+          lab.append(cb, dayTag(i.day), doc.createTextNode(`${i.text}${i.unsure ? ' (애매)' : ''}`)); li.append(lab); ul.append(li);
+        }
+        box.append(ul);
+      }
+      ref.append(box); continue;
+    }
     if (!part.loading && !part.failed.length && !part.items.length && !part.note) { if (key !== 'memos') quiet.push(label); continue; }
     const box = block(`note-${key}`, label);
     if (!status(box, part, label) && !part.failed.length) { if (part.items.length) box.append(itemList(part.items)); if (part.note) box.append(muted(part.note)); }
