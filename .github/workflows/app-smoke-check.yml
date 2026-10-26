@@ -156,7 +156,7 @@ jobs:
         run: node --test tests/document-delete.test.mjs
 
       - name: Check home KST day and week boundaries
-        run: node --test tests/home-read-model.test.mjs tests/home-read-cache.test.mjs tests/data-freshness.test.mjs tests/collection-status.test.mjs
+        run: node --test tests/home-read-model.test.mjs tests/home-read-cache.test.mjs tests/data-freshness.test.mjs tests/collection-status.test.mjs tests/collection-cadence.test.mjs
 
       - name: Check phone bottom tab selection rule
         run: node --test tests/mobile-tab-selection.test.mjs
