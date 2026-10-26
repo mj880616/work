@@ -12,11 +12,13 @@
 // - 쓰기: 바꾼 칸만 0.4초 모아 한 번에 보낸다(빠르게 여러 번 바꿔도 요청 하나). 보내기 직전에 서버 값을 다시 읽어 다른 기기에서
 //   바꾼 다른 칸을 덮지 않게 합친다. 실패해도 화면은 그대로이고 한 번 더 시도한 뒤 다음 변경 때 다시 시도한다.
 // - 칸이 아직 없는 서버(적용 전)는 읽기·쓰기가 400이라 기본값으로 동작하고 기기 값은 건드리지 않는다.
+//   report_view(사업 보고 보기)는 DB 검사가 새로 허용하는 칸이라 그 적용 전에는 쓰기가 400(검사 위반)이고 같은 방식으로 기억만 건너뛴다.
 export const THEMES = Object.freeze(['olive', 'navy', 'terracotta', 'sand']);
 export const CALENDAR_VIEWS = Object.freeze(['list', 'week', 'month']);
 export const QUICK_MODES = Object.freeze(['update', 'task']);
 export const SPLIT_SCREENS = Object.freeze(['tasks', 'projects', 'team', 'reports']);
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on']);
+export const REPORT_VIEWS = Object.freeze(['list', 'calendar', 'photo']); // 사업 보고 [목록|달력|사진] (ACT-사진 6단계). 일정 탭 calendar_view와 다른 칸
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view']);
 const FOLDER_RE = /^(all|none|f:[^\p{Cc}]{1,20})$/u;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ratioOk = v => typeof v === 'number' && Number.isFinite(v) && v > 0 && v < 1;
@@ -28,6 +30,7 @@ export function validValue(key, value) {
     case 'nav_collapsed': return typeof value === 'boolean';
     case 'calendar_view': return CALENDAR_VIEWS.includes(value);
     case 'home_quick_mode': return QUICK_MODES.includes(value);
+    case 'report_view': return REPORT_VIEWS.includes(value);
     case 'note_folder': return typeof value === 'string' && FOLDER_RE.test(value);
     case 'collect_hidden_on': return typeof value === 'string' && DATE_RE.test(value);
     case 'split_ratio': return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -83,7 +86,7 @@ const LEGACY = [
 ];
 
 // 고른 적 없을 때 화면이 보여 주는 값: 이 값으로 "바꾸는" 호출은 저장할 것이 없다.
-const DEFAULTS = { note_folder: 'all', home_quick_mode: 'update', nav_collapsed: false };
+const DEFAULTS = { note_folder: 'all', home_quick_mode: 'update', nav_collapsed: false, report_view: 'list' };
 const defaultStorage = () => { try { return globalThis.localStorage || null; } catch { return null; } };
 const getPath = (prefs, path) => path.startsWith('split_ratio.') ? prefs.split_ratio?.[path.slice(12)] : prefs[path];
 
