@@ -2,7 +2,7 @@
 // 규칙: 하단바에서 진하게 켜지는 칸은 언제나 하나. [메뉴] 창이 열려 있으면 [메뉴], 닫혀 있으면 지금 보는 화면의 칸.
 // 메뉴 창으로 들어가는 화면(사업 보고·자료실 …)과 노트는 하단바에 칸이 없으므로 [메뉴] 칸이 지금 화면이다.
 // 진하게 보이는 모양은 CSS가 aria-current="page" 하나만 보고 그린다(aria-expanded는 접근성 표시일 뿐 모양을 켜지 않는다).
-export const MENU_SHEET_VIEWS = Object.freeze(['meetings', 'library', 'hwp', 'media', 'pages', 'ledger', 'calls', 'telegram']);
+export const MENU_SHEET_VIEWS = Object.freeze(['meetings', 'library', 'hwp', 'pages', 'ledger', 'calls', 'telegram']);
 const SCHEDULE_VIEWS = Object.freeze(['calendar', 'tasks', 'journal', 'diary']);
 const TAB_VIEWS = Object.freeze(['home', 'basket', 'calendar', 'projects', 'team']);
 

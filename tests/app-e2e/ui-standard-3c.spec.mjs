@@ -5,7 +5,7 @@ import {enterLogin} from './helpers/login-entry.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import {openFirstMeetingResult} from './helpers/meeting-open.mjs';
-// UI-디자인기준 3/3 3부(8-9e-3, 마지막): 남은 화면(HWP 편집 바깥 틀·성명·보도자료·게시판)·공용 셸(폰 머리줄·하단 탭·PC 사이드바·☰ 메뉴 판·계정 메뉴)·
+// UI-디자인기준 3/3 3부(8-9e-3, 마지막): 남은 화면(HWP 편집 바깥 틀·게시판)·공용 셸(폰 머리줄·하단 탭·PC 사이드바·☰ 메뉴 판·계정 메뉴)·
 // 화면 색 창·공용 창(.modal)을 같은 기준(버튼 높이 하나·13px/500·모서리 8px, 0.5px 상자 안 44px 줄·이름 13px/400, 제목 18px/500)으로,
 // 다크 모드는 기기 설정만 따라 Web2 전체(창 포함)에 켠다. 칸막이(HWP 편집기·성명·게시판 본문 iframe) 바탕은 밝게 둔다.
 // 폰 실제 환경처럼 한국어 로케일(글꼴 대체로 줄 높이가 달라지는 경우까지 본다).
@@ -67,8 +67,8 @@ async function sameButtons(page,region,skip='.icon-btn'){
  for(const control of await region.locator('button:visible,a.mini:visible').all()){
   if(await control.evaluate((el,skip)=>el.matches(skip),skip))continue;
   const s=await look(control),label=(await control.textContent()).trim();
-  // UI-버튼크기: 필터 칩(성명 종류)은 32px 알약, 전환 세그먼트(일정 창 [일정 | 할 일])는 32px 상자 안 칸. 둘 다 누르는 범위 44px.
-  const kind=await control.evaluate(el=>el.matches('.w1p-filter')?'chip':el.matches('[data-event-mode]')?'segment':'button');
+  // UI-버튼크기: 필터 칩은 32px 알약, 전환 세그먼트(일정 창 [일정 | 할 일])는 32px 상자 안 칸. 둘 다 누르는 범위 44px.
+  const kind=await control.evaluate(el=>el.matches('.filter-chips button')?'chip':el.matches('[data-event-mode]')?'segment':'button');
   // UI-버튼줄이기: 창 주 동작·HWP [내 기기에 저장]은 36px, 창 보조·HWP 보조는 32px.
   // UI-버튼전수조사(2026-10-24): 남은 46px 버튼도 기준으로 — 채운 버튼(주 동작)은 36px, 나머지는 작은 버튼 32px.
   const want=await control.evaluate(el=>el.matches('#hwpLabPick,#hwpLabUpload,#eventTaskProject,#gtDeleteBtn,#gtToggleBtn,.gt-pick-btn,.gt-pane-save,#wdInboxBig')?32:el.matches('.primary,#hwpLabSave,#saveEventBtn,#saveTaskBtn,#gtSaveBtn,#saveMeetingBtn,#saveDocumentBtn,#ps3CreateSave,#libraryEditSave,#mffCreate,#soSaveOrg,#soSaveAssignees,#wdAffSave,#wdTimeSave,#wfMeetingGenerate,#wdInboxSave')?36:32);
@@ -107,7 +107,7 @@ test('다크 모드: 기기 설정이 어두우면 Web2 전체·창이 어둡고
  test.setTimeout(180000);
  const {errors}=await boot(page,390,{dark:true});
  const dark='rgb(22, 22, 19)',surface='rgb(31, 31, 27)';
- for(const name of ['home','basket','calendar','tasks','projects','team','library','meetings','media','pages','hwp']){
+ for(const name of ['home','basket','calendar','tasks','projects','team','library','meetings','pages','hwp']){
   await view(page,name);
   expect(await page.evaluate(()=>getComputedStyle(document.documentElement).colorScheme),name).toContain('dark');
   expect(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor),name).toBe(dark);
@@ -139,7 +139,7 @@ test('다크 모드: 기기 설정이 어두우면 Web2 전체·창이 어둡고
   await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-theme-open]').click();
   await page.locator(`[data-theme-choice="${theme}"]`).click();await expect(page.locator('html')).toHaveAttribute('data-theme',theme);
   await page.keyboard.press('Escape');await expect(page.locator('#themeModal')).toBeHidden();
-  for(const name of ['home','projects','meetings','media']){await view(page,name);expect(await lowContrast(page),theme+' '+name).toEqual([]);}
+  for(const name of ['home','projects','meetings']){await view(page,name);expect(await lowContrast(page),theme+' '+name).toEqual([]);}
  }
  expect(errors).toEqual([]);
 });
@@ -152,11 +152,11 @@ test('밝은 설정은 그대로 밝고, 칸막이(HWP 편집기·성명·게시
  expect(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor)).toBe('rgb(22, 22, 19)');
  const paper='rgb(255, 255, 255)';
  await view(page,'hwp');expect((await look(page.locator('#hwpLabEditor'))).bg).toBe(paper);
- for(const id of ['#pressDetailFrame','#web1BoardDetailFrame'])expect(await page.locator(id).evaluate(el=>[getComputedStyle(el).backgroundColor,getComputedStyle(el).colorScheme])).toEqual([paper,'light']);
+ for(const id of ['#web1BoardDetailFrame'])expect(await page.locator(id).evaluate(el=>[getComputedStyle(el).backgroundColor,getComputedStyle(el).colorScheme])).toEqual([paper,'light']);
  expect(light.errors).toEqual([]);
 });
 
-for(const width of [390,1280])test('남은 화면: HWP 편집 바깥 틀·성명·보도자료·게시판 '+width,async({page})=>{
+for(const width of [390,1280])test('남은 화면: HWP 편집 바깥 틀·게시판 '+width,async({page})=>{
  const {errors}=await boot(page,width);
  const primary=await token(page,'--kptu-primary');
  // HWP 편집: 상자 0.5px·12px, 제목 18px/500, 버튼 한 높이·[내 기기에 저장] 하나만 채운 버튼, 칸막이 바깥 틀 0.5px·8px.
@@ -167,20 +167,6 @@ for(const width of [390,1280])test('남은 화면: HWP 편집 바깥 틀·성명
  const title=await look(hwp.locator('#hwpLabTitle'));expect([title.fontSize,title.fontWeight]).toEqual(['18px','500']);
  const note=await look(hwp.locator('.hwp-lab-note'));expect(note.fontSize).toBe('12px');expect(note.fg).toBe(await token(page,'--kptu-muted'));
  expect((await look(hwp.locator('#hwpLabEditor'))).radius).toBe('8px');
- // 성명·보도자료: 검색칸 46px, 필터는 같은 버튼(고른 필터 회색), 연도는 섹션 이름, 목록은 0.5px 상자 안 줄(44px)·이름 13px/400.
- await view(page,'media');
- const media=page.locator('#mediaView');
- expect(await sameButtons(page,media.locator('.w1p-tools'))).toEqual([]);
- const all=await look(media.locator('[data-press-type="all"]'));
- expect(all.bg).toBe(await token(page,'--ds-select-bg'));expect(all.fg).toBe(await token(page,'--ds-select-ink'));
- const search=await look(media.locator('#pressSearch'));expect(search.height).toBe(46);expect(search.radius).toBe('8px');
- const year=await look(media.locator('.w1p-year > h3').first());expect([year.fontSize,year.fontWeight,year.fg]).toEqual(['13px','500',await token(page,'--ds-section-ink')]);
- const table=await look(media.locator('.w1p-table').first());expect(table.radius).toBe('12px');expect(table.shadow).toBe('none');
- for(const row of (await media.locator('.w1p-item').all()).slice(0,5)){expect((await look(row)).height).toBeGreaterThanOrEqual(44);}
- const pressTitle=await look(media.locator('.w1p-title').first());expect([pressTitle.fontSize,pressTitle.fontWeight]).toEqual(['13px','400']);
- const date=await look(media.locator('.w1p-date').first());expect(date.fontSize).toBe('12px');
- await media.locator('[data-press-type="statement"]').click();
- expect((await look(media.locator('[data-press-type="statement"]'))).bg).toBe(await token(page,'--ds-select-bg'));
  // 게시판: 한 상자 안 줄(44px)·이름 13px/400·오른쪽 ›, 카드 그림자·떠오름 없음.
  await view(page,'pages');await openLegacyBoard(page);
  const board=page.locator('#web1BoardActive');await expect(board.locator('.w1b-card').first()).toBeVisible();

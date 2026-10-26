@@ -6,7 +6,7 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'p6-benchmark-user',email:'p6@example.org',user_metadata:{display_name:'P6 측정'}};
 const workspace={id:'p6-benchmark-workspace',name:'웹2'};
 const session={access_token:'p6-benchmark-access',refresh_token:'p6-benchmark-refresh',expires_at:Math.floor(Date.now()/1000)+3600,user};
-const routes=['calendar','tasks','projects','library','meetings','media','pages','team'];
+const routes=['calendar','tasks','projects','library','meetings','pages','team'];
 const viewports={
   desktop:{width:1280,height:800},
   mobile:{width:390,height:844}

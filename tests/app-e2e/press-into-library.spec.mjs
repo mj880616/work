@@ -1,19 +1,15 @@
-// PRESS-자료실편입 2단계(docs/design/press-into-library.md §3.2·§6): 자료실 .html 칸막이 보기 + 1회용 [옛 성명·보도자료 가져오기].
-// Synthetic server only (no real Supabase, Drive, GitHub or OpenAI). The list is the repository's own press/archive.json (same site);
-// bodies and attachments come from mocked GitHub raw answering with the repository files. 390 and 1280 wide.
+// PRESS-자료실편입(docs/design/press-into-library.md §4·§6): 자료실 .html 칸막이 보기 + 옛 ?view=media 주소가 자료실 성명·보도자료 모아보기로 열림.
+// Synthetic server only (no real Supabase, Drive or OpenAI). 390 and 1280 wide.
 import { appOrigin } from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
-import { readFileSync } from 'node:fs';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { revealLibraryRow } from './helpers/library-tree.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const RAW='https://raw.githubusercontent.com/mj880616/work/main/';
 const now=()=>new Date().toISOString();
 const eq=(url,key)=>String(url.searchParams.get(key)||'').replace(/^eq\./,'');
 const DOC=n=>`e1000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
-const repoFile=path=>readFileSync(new URL(`../../${path}`,import.meta.url));
 const WITH_PRESS=['교섭','투쟁','교육','선전','정책','회의','성명·보도자료','공문','기타'];
 const HTML='<!doctype html><html><head><title>t</title></head><body><h1 id="press-h">합성 성명 본문</h1></body></html>';
 
@@ -25,14 +21,9 @@ function doc(n,over={}){
 }
 function baseState({docs,role='owner',categories=WITH_PRESS,htmlMode='ok'}={}){
   return {user:{id:'user-1',email:'owner@example.org',user_metadata:{display_name:'자료실 관리자'}},workspace:{id:'workspace-1',slug:'team',name:'웹2'},
-    role,categories,htmlMode,docs:docs||[doc(1)],uploads:[],patches:[],htmlCalls:[],ai:[],raw:[]};
+    role,categories,htmlMode,docs:docs||[doc(1)],patches:[],htmlCalls:[],ai:[]};
 }
 async function mockApp(page,state){
-  await page.route(`${RAW}**`,route=>{
-    const path=decodeURIComponent(new URL(route.request().url()).pathname.replace('/mj880616/work/main/',''));
-    state.raw.push(path);
-    try{return route.fulfill({status:200,body:repoFile(path)})}catch{return route.fulfill({status:404,body:'no'})}
-  });
   await page.route(`${SB}/**`,async route=>{
     const req=route.request(),url=new URL(req.url()),path=url.pathname,method=req.method();
     const body=(()=>{try{return req.postDataJSON()}catch{return null}})();
@@ -41,18 +32,6 @@ async function mockApp(page,state){
     if(path==='/auth/v1/user')return ok(state.user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
-    if(path==='/functions/v1/library-files'){
-      const raw=(req.postDataBuffer()||Buffer.from('')).toString('utf8');
-      const field=name=>raw.match(new RegExp(`name="${name}"\\r\\n\\r\\n([^\\r]*)`))?.[1]??null;
-      const fileName=raw.match(/filename="([^"]*)"/)?.[1]||'file';
-      const type=raw.match(/filename="[^"]*"\r\nContent-Type: ([^\r]*)/)?.[1]||'';
-      const fields={title:field('title'),category:field('category'),source:field('source'),document_date:field('document_date'),tags:field('tags')};
-      state.uploads.push({fileName,type,fields,styled:raw.includes('<style>')&&!raw.includes('press-archive.css'),logo:raw.includes('data:image/svg+xml,')});
-      const d=doc(100+state.uploads.length,{title:fields.title,category:fields.category,source:fields.source,document_date:fields.document_date,tags:(fields.tags||'').split(',').filter(Boolean),
-        file_id:'up'+state.uploads.length,file_name:fileName,mime_type:type,field_origin:{},created_at:now()});
-      state.docs.push(d);
-      return ok({ok:true,document:d});
-    }
     if(path==='/functions/v1/document-actions'){
       if(body?.action==='html-view'){
         state.htmlCalls.push(body);
@@ -82,13 +61,13 @@ async function mockApp(page,state){
     return ok({});
   });
 }
-async function boot(page,{width=390,...opts}={}){
+async function boot(page,{width=390,view='library',expectRows=true,...opts}={}){
   await page.setViewportSize({width,height:900});
   const state=baseState(opts);await mockApp(page,state);
-  await page.goto(`${appOrigin}/app/?view=library`);
+  await page.goto(`${appOrigin}/app/?view=${view}`);
   await enterLogin(page);await signInWithSession(page,'owner@example.org');
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
-  await expect(page.locator('[data-lu-document]')).toHaveCount(state.docs.length);
+  if(expectRows)await expect(page.locator('[data-lu-document]')).toHaveCount(state.docs.length);
   return state;
 }
 
@@ -136,51 +115,22 @@ test('before the server PR is deployed, the refusal becomes the Drive notice wit
   await expect.poll(()=>opened).toEqual(['https://drive.google.com/file/d/driveHtml1/view']);
 });
 
-test('import refuses to start when 성명·보도자료 is not in my kind list',async({page})=>{
-  const state=await boot(page,{categories:['교섭','투쟁','교육','선전','정책','회의','기타']});
-  const button=page.locator('#libraryPressImport');
-  await expect(button).toHaveText('옛 성명·보도자료 가져오기');
-  await button.click();
-  await expect(page.locator('#libraryPressImportStatus')).toContainText("종류 목록에 '성명·보도자료'가 없어 시작하지 않았어요");
-  expect(state.uploads).toEqual([]);expect(state.raw).toEqual([]);
-});
-
-test('the import button is shown only to the owner',async({page})=>{
-  await boot(page,{role:'editor'});
-  await expect(page.locator('#libraryListCard .lu-select-row')).toBeVisible();
-  await expect(page.locator('#libraryPressImport')).toHaveCount(0);
-});
-
-for(const width of [344,1280]){
-  test(`import: 48 rows through library-files with mapped fields and converted pages, then a second press skips them all (${width})`,async({page})=>{
-    test.setTimeout(120000);
-    const state=await boot(page,{width,docs:[doc(1,{file_name:'2025-01-22-subway-fare.html'})]});
-    const button=page.locator('#libraryPressImport');
-    // Small text button (UI-버튼기준) on the [선택] row; nothing overflows on the phone.
-    expect((await button.boundingBox()).height).toBeLessThanOrEqual(29);
-    expect(await page.locator('#libraryListCard').evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
-    await button.click();
-    const status=page.locator('#libraryPressImportStatus');
-    await expect(status).toHaveText('가져옴 47 · 건너뜀 1 · 실패 0 (전체 48)',{timeout:90000});
-    expect(state.uploads.length).toBe(47);
-    expect(state.uploads.some(u=>u.fileName==='2025-01-22-subway-fare.html')).toBe(false);
-    const page1=state.uploads.find(u=>u.fileName==='2026-09-14-workforce.html');
-    expect(page1.fields).toEqual({title:'청년일자리 늘린다더니… ‘인력 필요하면 기존 인력부터 2% 감축’',category:'성명·보도자료',source:'이재명 정부 공공기관 인력 감축 방침 규탄 기자회견',document_date:'2026-09-11',tags:'취재요청'});
-    expect(page1.type).toBe('text/html');
-    expect(page1.styled).toBe(true);expect(page1.logo).toBe(true);
-    const att=state.uploads.find(u=>u.fileName.endsWith('.pdf'));
-    expect(att.type).toBe('application/pdf');
-    expect(att.fields.category).toBe('성명·보도자료');
-    // Locked as the person's (4 fields), never through AI; links untouched.
-    expect(state.patches.length).toBe(47);
-    for(const p of state.patches)expect(p.body.field_origin).toEqual({title:'user',source:'user',category:'user',document_date:'user'});
-    expect(state.ai.filter(a=>a?.mode==='fill')).toEqual([]);
-    // The list was read again and shows the new rows (a long group shows its first 20 then [더 보기]).
-    expect(state.docs.length).toBe(48);
-    await expect(page.locator('[data-lu-document]')).not.toHaveCount(1);
-    // Second press: everything is already there.
-    await button.click();
-    await expect(status).toHaveText('가져옴 0 · 건너뜀 48 · 실패 0 (전체 48)');
-    expect(state.uploads.length).toBe(47);
+for(const width of [390,1280]){
+  test(`the retired ?view=media address opens the library showing only the 성명·보도자료 kind (${width})`,async({page})=>{
+    const state=await boot(page,{width,view:'media',expectRows:false,docs:[doc(1),doc(2,{title:'교섭 자료',category:'교섭',tags:[],file_name:'bargaining.pdf',mime_type:'application/pdf'})]});
+    await expect(page.locator('#libraryView')).toBeVisible();
+    await expect(page.locator('#mediaView')).toHaveCount(0);
+    await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBe('library');
+    const chips=page.locator('#libraryCategoryFilter');
+    await expect(chips.locator('button[aria-pressed="true"]')).toHaveText(['성명·보도자료']);
+    await expect(page.locator('#documentList [data-lu-document]')).toHaveCount(1);
+    await expect(page.locator(`#documentList [data-lu-document="${DOC(1)}"]`)).toBeAttached();
+    expect(state.patches).toEqual([]);
   });
 }
+
+test('opening the library normally (not through the retired address) keeps the usual kind chips',async({page})=>{
+  await boot(page,{docs:[doc(1),doc(2,{title:'교섭 자료',category:'교섭',tags:[],file_name:'bargaining.pdf',mime_type:'application/pdf'})]});
+  await expect(page.locator('#documentList [data-lu-document]')).toHaveCount(2);
+  await expect(page.locator('#libraryCategoryFilter button[aria-pressed="true"]')).not.toHaveText(['성명·보도자료']);
+});

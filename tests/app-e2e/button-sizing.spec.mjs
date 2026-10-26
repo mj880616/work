@@ -64,7 +64,7 @@ async function baseline(page,ref='3824ca580ddcc1ba50154b45cf220c6e73742627'){
  });
 }
 
-const listButtons={projects:['#ps3ArchiveBtn','#newProjectBtn'],calendar:['#googleConnectBtn'],meetings:['#newMeetingBtn'],media:['[data-press-type="all"]','[data-press-type="statement"]','[data-press-type="release"]','[data-press-type="request"]']};
+const listButtons={projects:['#ps3ArchiveBtn','#newProjectBtn'],calendar:['#googleConnectBtn'],meetings:['#newMeetingBtn']};
 async function muted(page){return page.evaluate(()=>{const el=document.createElement('span');el.style.color='var(--kptu-muted)';document.body.append(el);const value=getComputedStyle(el).color;el.remove();return value})}
 async function size(el){return el.evaluate(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return {height:r.height,font:s.fontSize,paddingLeft:s.paddingLeft,paddingRight:s.paddingRight,radius:s.borderRadius,weight:s.fontWeight,color:s.color,background:s.backgroundColor}})}
 async function standard(page,selector){const el=page.locator(selector);await expect(el).toBeVisible();await expect(el).toHaveCSS('font-size','12px');const s=await size(el);expect(s.height,selector).toBeGreaterThanOrEqual(35);expect(s.height,selector).toBeLessThanOrEqual(37);expect(s.paddingLeft).toBe('12px');expect(s.paddingRight).toBe('12px');if(!selector.includes('press-type'))expect(s.radius).toBe('8px');}
@@ -76,12 +76,10 @@ async function pcAdd(page,selector){const el=page.locator(selector);await expect
 // UI-PC프로젝트좌우(2026-10-20 사용자 확정): PC(≥1024) [+ 프로젝트]는 왼쪽 목록 머리의 낮은 버튼(--ds-compact-height 32px)·13px·8px·500, 누르는 범위 44px.
 async function pcCompactAdd(page,selector){const el=page.locator(selector);await expect(el).toBeVisible();const s=await size(el);expect(s.height,selector).toBe(32);expect(s.font,selector).toBe('13px');expect(s.radius,selector).toBe('8px');expect(s.weight,selector).toBe('500');expect(await el.evaluate(n=>getComputedStyle(n,'::after').minHeight),selector).toBe('44px');}
 // UI-디자인기준 3/3(8-9e-1): 회의·담당조직(·자료실)의 버튼도 새 기준.
-// UI-디자인기준 3/3 3부(8-9e-3): 일정 [Google Calendar] 설정 칸 버튼(2/3 원장 ③, calendar-health.js의 !important 정리)·성명 필터·공용 창 버튼도 새 기준.
-const dsViews=new Set(['projects','meetings','team','calendar','media']);
+// UI-디자인기준 3/3 3부(8-9e-3): 일정 [Google Calendar] 설정 칸 버튼(2/3 원장 ③, calendar-health.js의 !important 정리)·공용 창 버튼도 새 기준.
+const dsViews=new Set(['projects','meetings','team','calendar']);
 // UI-디자인기준 3/3 2부(8-9e-2): 폰의 일정·할 일·프로젝트·자료실 추가 버튼은 하단 탭 위 동그란 [+](누르는 범위 44px, 보이는 원 36px).
 async function phoneFab(page,selector){const el=page.locator(selector);await expect(el).toBeVisible();const b=await el.boundingBox();expect(b.width,selector).toBe(36);expect(b.height,selector).toBe(36);expect(await el.evaluate(n=>getComputedStyle(n).position),selector).toBe('fixed');const t=await el.evaluate(n=>{const r=n.getBoundingClientRect(),p=getComputedStyle(n,'::after');return {w:parseFloat(p.width),h:parseFloat(p.height),bottom:r.top+parseFloat(p.top)+parseFloat(p.height)};});expect(t.w,selector).toBe(44);expect(t.h,selector).toBe(44);}
-// UI-버튼크기(2026-10-17): 성명·보도자료 종류 필터는 알약 칩(보이는 높이 32px·13px·모서리 999px·500, 누르는 범위 44px).
-async function dsChip(page,selector){const el=page.locator(selector).first();await expect(el).toBeVisible();const s=await size(el);expect(s.height,selector).toBe(32);expect(s.font,selector).toBe('13px');expect(s.radius,selector).toBe('999px');expect(s.weight,selector).toBe('500');expect(await el.evaluate(n=>parseFloat(getComputedStyle(n,'::after').height)),selector).toBe(44);}
 const fabs=new Set(['#newEventBtn','#newProjectBtn','#newDocumentBtn','#newMeetingBtn']);
 for(const width of [390,1440])test('D-button list sizes and compact exclusions '+width,async({page,browser})=>{
  await page.setViewportSize({width,height:900});await boot(page);
@@ -94,14 +92,13 @@ for(const width of [390,1440])test('D-button list sizes and compact exclusions '
     const el=page.locator(selector);await expect(el).toHaveText('보관 1');const after=await size(el);
     expect(after.height).toBe(44);expect(after.font).toBe('12px');expect(after.weight).toBe('400');expect(after.color).toBe(await muted(page));expect(after.background).toBe('rgba(0, 0, 0, 0)');expect(after.paddingLeft).toBe('0px');expect(after.paddingRight).toBe('0px');await expect(el).toHaveCSS('border-width','0px');
    }else if(width<=760&&fabs.has(selector))await phoneFab(page,selector);
-   else if(selector.includes('press-type'))await dsChip(page,selector);
    // UI-PC회의(2026-10-20)·UI-PC버튼36: PC 회의 [+ 회의 결과]·[+ 프로젝트]는 공용 입력칸 높이(36px)·누르는 범위 44px.
    else if(selector==='#newMeetingBtn'&&width>=1024)await pcAdd(page,selector);
    else if(selector==='#newProjectBtn'&&width>=1024)await pcCompactAdd(page,selector);
    else if(dsViews.has(name))await dsStandard(page,selector);
    else{await standard(page,selector);const before=await size(original.locator(selector)),after=await size(page.locator(selector));expect(after.weight).toBe(name==='calendar'?'500':before.weight);expect(after.color).toBe(before.color);expect(after.background).toBe(before.background);}
   }
-  expect(await page.locator('#'+name+'View').evaluate(el=>({overflow:el.scrollWidth>el.clientWidth,clipped:[...el.querySelectorAll('button.primary,button.secondary,.w1p-filter')].filter(b=>b.checkVisibility()&&!(innerWidth<=760&&['newEventBtn','newTaskBtn','newProjectBtn','newDocumentBtn','newMeetingBtn'].includes(b.id))&&b.scrollWidth>b.clientWidth+1).map(b=>b.id||b.className)}))).toEqual({overflow:false,clipped:[]});
+  expect(await page.locator('#'+name+'View').evaluate(el=>({overflow:el.scrollWidth>el.clientWidth,clipped:[...el.querySelectorAll('button.primary,button.secondary')].filter(b=>b.checkVisibility()&&!(innerWidth<=760&&['newEventBtn','newTaskBtn','newProjectBtn','newDocumentBtn','newMeetingBtn'].includes(b.id))&&b.scrollWidth>b.clientWidth+1).map(b=>b.id||b.className)}))).toEqual({overflow:false,clipped:[]});
  }
  for(const [name,selectors]of Object.entries({calendar:['#prevMonthBtn','#nextMonthBtn'],library:['#newDocumentBtn'],menu:['.app-nav [data-view="projects"]','#appView [data-account-open]']})){
   if(name!=='menu')for(const p of [page,original])await view(p,name);

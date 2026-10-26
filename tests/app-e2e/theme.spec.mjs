@@ -169,8 +169,7 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
    ['projects','#newProjectBtn','backgroundColor',color],
    ['library','#libraryListCard','backgroundColor',surface[theme]],
    ['meetings','#newMeetingBtn','backgroundColor',color],
-   // UI-디자인기준 3/3 3부(8-9e-3): 게시판은 상자 안 줄(상자가 바탕). 고른 성명 필터는 회색(--ds-kind-other-soft, UI-선택표시통일).
-   ['media','.w1p-filter.active','backgroundColor',color],
+   // UI-디자인기준 3/3 3부(8-9e-3): 게시판은 상자 안 줄(상자가 바탕).
    ['pages','#web1BoardActive','backgroundColor',surface[theme]]
   ]){
    await clickView(page,view);
@@ -255,7 +254,7 @@ for(const width of [390,1440])test('D-3c painted buttons and real 44px pointer t
 
 for(const width of [390,1440])test('D-3c expanded buttons do not overlap adjacent controls '+width,async({page})=>{
  await page.setViewportSize({width,height:900});await mockApp(page);await page.goto(`${appOrigin}/app/?view=calendar`);await signIn(page);
- for(const view of ['calendar','tasks','projects','meetings','library','media','pages','team']){
+ for(const view of ['calendar','tasks','projects','meetings','library','pages','team']){
   await clickView(page,view);await expect(page.locator('#'+view+'View')).toBeVisible();await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
   const overlaps=await page.evaluate(()=>{
    const visible=el=>el.checkVisibility({checkVisibilityCSS:true});

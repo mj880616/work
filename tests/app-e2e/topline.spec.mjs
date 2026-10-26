@@ -38,7 +38,7 @@ test('PC: the top line sits above every screen in order, the account moved there
  await page.keyboard.press('Escape');await expect(panel).toBeHidden();await expect(account).toBeFocused();
  // Small buttons (UI-버튼기준): 32px visible height.
  for(const sel of ['[data-nav-toggle]','[data-trail="back"]','[data-quick-add]'])expect(Math.round((await page.locator(sel).boundingBox()).height)).toBe(32);
- for(const view of ['basket','calendar','tasks','journal','diary','projects','library','meetings','media','pages','team','hwp']){
+ for(const view of ['basket','calendar','tasks','journal','diary','projects','library','meetings','pages','team','hwp']){
   await show(page,view);await expect(line(page)).toBeVisible();
   const [l,v]=await Promise.all([line(page).boundingBox(),page.locator(`#${view}View`).boundingBox()]);
   expect(l.y+l.height).toBeLessThanOrEqual(v.y+1);

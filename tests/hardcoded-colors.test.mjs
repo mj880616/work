@@ -28,6 +28,6 @@ test('only approved exclusions skip colors',()=>{
 // base-ui.css의 #f3f0f7 보라 바탕은 지시서의 유지 대상이다.
 // D-3b 사용자 결정: 아래 색은 의도된 예외이며 검사 개수에는 계속 포함한다.
 // native-auth-bridge.js/calendar-return-bridge.js: 테마 파일이 닿지 않는 독립 문서.
-// web1-board.js:18·19/web1-press.js:61: 별도 srcdoc iframe 문서 안 글자.
+// web1-board.js:18·19: 별도 srcdoc iframe 문서 안 글자.
 // app.js:56 진단 버튼 그림자, base-ui.css:76 작은 버튼 그림자: 기존 모양 유지.
 // D-6a: 미로딩 모듈 5개를 삭제하여 해당 색 예외도 제거했다.
