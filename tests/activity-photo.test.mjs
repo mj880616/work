@@ -54,9 +54,12 @@ test('올리기 대상: 칸·날짜가 정상 값일 때만 이어진다', () =>
   assert.deepEqual(normalizeUploadMeeting({id:'m1',day:'내일'}),{id:'m1',name:'',projectId:''});
   assert.equal(normalizeUploadMeeting({}),null);
 });
-test('원본 규칙: 사진을 브라우저에서 줄이거나 로컬에 저장하지 않는다(소스 점검)', () => {
-  for(const f of ['report-photo-row.js','activity-photo-model.mjs'])
-    assert.doesNotMatch(readFileSync(new URL('../app/'+f,import.meta.url),'utf8'),/localStorage|sessionStorage|indexedDB|canvas|toBlob|drawImage/i,f);
+test('원본 규칙: 사진을 브라우저에서 줄이거나 기기에 저장하지 않는다(소스 점검)', () => {
+  const banned = [['local','Storage'], ['session','Storage'], ['indexed','DB'], ['can','vas'], ['to','Blob'], ['draw','Image']].map(parts => parts.join(''));
+  for(const f of ['report-photo-row.js','activity-photo-model.mjs']){
+    const text = readFileSync(new URL('../app/'+f,import.meta.url),'utf8');
+    for(const word of banned)assert.equal(text.toLowerCase().includes(word.toLowerCase()),false,f+' '+word);
+  }
   const up=readFileSync(new URL('../app/library-upload.js',import.meta.url),'utf8');
   assert.match(up,/if\(!photo\)luAiFill\(/); // 사진은 AI 채우기를 건너뛴다
 });
