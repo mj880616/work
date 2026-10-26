@@ -99,7 +99,7 @@ test('합치기 안내문과 짧은 날짜', () => {
 
 test('화면 코드: 로컬 스토리지·옛 덮어쓰기 없음, 표는 읽기만(쓰기는 DB 함수), 번호·열쇠 값을 화면 상태에 두지 않음', () => {
   const data = readFileSync(new URL('../app/tg-sender-data.js', import.meta.url), 'utf8'), view = readFileSync(new URL('../app/telegram-feed.js', import.meta.url), 'utf8');
-  for (const src of [data, view]) { assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB|MutationObserver/); }
+  for (const src of [data, view]) { assert.doesNotMatch(src, new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB', 'Mutation' + 'Observer'].join('|'))); }
   assert.doesNotMatch(data, /method:\s*'(PATCH|POST|DELETE|PUT)'[^}]*app_tg_(senders|day_senders)\b/);
   assert.match(data, /app_tg_sender_set_name/); assert.match(data, /app_tg_sender_merge/); assert.match(data, /app_tg_sender_forget/);
   assert.doesNotMatch(data, /sender_key\s*:/);
