@@ -1,7 +1,7 @@
 import { lstatSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { validateExpanded, parseExpectations, checkSnapshotSQL, createdTables, ExpandedRejection } from './db-migration-expanded.mjs';
+import { validateExpanded, parseExpectations, checkSnapshotSQL, createdTables, policyRollbackHeaders, ExpandedRejection } from './db-migration-expanded.mjs';
 
 // Single source of truth for check item labels. The run phase (db-migration-run.mjs)
 // refuses any label outside this set AFTER apply, so the plan phase checks it first.
@@ -464,6 +464,11 @@ export function prepareMigration({ mode, version, runId, root }) {
       const exclude = suffix === 'postcheck' ? '(?!.*\\.dry-run\\.postcheck\\.sql$)' : '';
       const found = choose(root, 'docs', new RegExp(`^${version}_${exclude}.*\\.${suffix}\\.sql$`), false);
       if (found !== `docs/${version}_${name}.${suffix}.sql`) throw new ExpandedRejection('pair-missing');
+    }
+    // Replaced policies: the rollback file must recreate each original policy.
+    if (expanded.policyReplacements.length) {
+      const headers = policyRollbackHeaders(safeFile(root, rollbackPath).sql, expanded.policyReplacements);
+      expanded.policyReplacements.forEach((r, i) => { r.rollback = headers[i]; });
     }
   }
   const summaryPath = choose(root, 'docs', new RegExp(`^${version}_.*\\.summary\\.md$`), true);
