@@ -155,16 +155,6 @@ test('텔레그램 390: 소식 ⋯ 메뉴(고정·요약 복사·조직 연결·
  expect(f.errors).toEqual([]);
 });
 
-test('텔레그램 390: 모든 방 고르기(머리줄 칸)는 한 방만 걸러 보여 준다',async({page})=>{
- const f=await fixture(page,{width:390});
- await openMenu(page,390,'텔레그램 소식');
- const view=page.locator('#telegramView'),sel=view.locator('[data-tg-room]');
- await expect(sel).toBeVisible();await sel.selectOption('room-b');
- await expect(view.locator('[data-tg-rd]')).toHaveCount(2);
- expect(await view.locator('[data-tg-rd]').evaluateAll(els=>els.map(e=>e.dataset.tgRd))).toEqual([B6,B3]);
- expect(f.errors).toEqual([]);
-});
-
 test.describe('마우스 PC',()=>{test.use({hasTouch:false});
 test('텔레그램 1280: 목록 1/3 · 상세 2/3, 고른 줄 표시, 소식 ⋯ 오른쪽 클릭, 삭제 → 머리줄 ⋯ → 휴지통에서 되살리기',async({page})=>{
  const f=await fixture(page,{width:1280});

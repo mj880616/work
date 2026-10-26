@@ -37,9 +37,9 @@ export function lineOf(r) {
 // 날짜 내림차순, 같은 날은 늦게 온 방 먼저.
 export const sortLines = lines => [...(lines || [])].sort((a, b) => b.day.localeCompare(a.day) || String(b.last_at).localeCompare(String(a.last_at)) || a.room_key.localeCompare(b.room_key));
 
-// 평소 목록에 나오는 줄: 보관한 방(archived_at)과 지운 날(day_hidden_at)은 뺀다. room: 한 방만(머리줄 고르기 칸).
-export function liveLines(lines, {room = ''} = {}) {
-  return (lines || []).filter(l => !l.archived_at && !l.day_hidden_at && (!room || l.room_key === room));
+// 평소 목록에 나오는 줄: 보관한 방(archived_at)과 지운 날(day_hidden_at)은 뺀다. folder: 그 폴더의 방만(칸 줄의 폴더 칩, 빈 글이면 전체).
+export function liveLines(lines, {folder = ''} = {}) {
+  return (lines || []).filter(l => !l.archived_at && !l.day_hidden_at && (!folder || l.folder_id === folder));
 }
 // [{day, rows}] 날짜별 묶음(보이는 순서). 라벨은 화면이 dayLabel로 만든다.
 export function groupLines(lines) {
@@ -49,12 +49,6 @@ export function groupLines(lines) {
     if (last && last.day === l.day) last.rows.push(l); else out.push({day:l.day, rows:[l]});
   }
   return out;
-}
-// 머리줄 고르기 칸에 쓸 방 목록(최근 순, 방마다 하나).
-export function roomsOfLines(lines) {
-  const seen = new Map();
-  for (const l of sortLines(lines)) if (!seen.has(l.room_key)) seen.set(l.room_key, l.room_label);
-  return [...seen].map(([key, label]) => ({key, label}));
 }
 // 그 방의 앞뒤 날(지운 날은 건너뜀). prev = 더 오래된, next = 더 새로운. 없으면 ''.
 export function neighborDays(lines, room, day) {
@@ -133,3 +127,61 @@ export function chunksOf(from, to) {
   for (let a = from; a <= to;) { const b = addDays(a, CALL_CHUNK - 1); out.push([a, b > to ? to : b]); a = addDays(a, CALL_CHUNK); }
   return out;
 }
+
+// ---------- 폴더·보관 (4-나). 폴더는 방 단위이고 방 하나는 폴더 하나다. 보관은 방 전체다(수집·요약은 계속).
+export const FOLDER_NAME_MAX = 20;
+export const FOLDER_ERROR_TEXT = Object.freeze({
+  EMPTY:'폴더 이름을 적어 주세요.', LONG:`폴더 이름은 ${FOLDER_NAME_MAX}자까지예요.`, TAKEN:'이미 있는 폴더 이름이에요.', LIMIT:'폴더는 30개까지 만들 수 있어요.',
+  GONE:'이 폴더가 그사이 사라졌어요. 목록을 다시 불러왔어요.', REFUSED:'저장하지 못했어요. 아무것도 바뀌지 않았어요.', UNAVAILABLE:'폴더 기능이 아직 준비되지 않았어요. 아무것도 바뀌지 않았어요.',
+  UNKNOWN:'저장했는지 확인하지 못했어요. 목록을 다시 불러왔어요.',
+});
+// 폴더 이름 다듬기: 줄바꿈·탭은 띄어쓰기로, 앞뒤 공백 제거. {ok, name} 또는 {ok:false, error: EMPTY | LONG}.
+export function cleanFolderName(value) {
+  const name = String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!name) return {ok:false, error:'EMPTY'};
+  return [...name].length > FOLDER_NAME_MAX ? {ok:false, error:'LONG'} : {ok:true, name};
+}
+// 보관함: 보관한 방마다 {room_key, room_label, folder_id, last(그 방의 가장 최근 줄 또는 null)}. 방 표(rooms: Map)가 기준이고 줄은 최근 날·한 줄을 채운다.
+export function archivedRooms(rooms, lines) {
+  const out = [];
+  for (const [key, r] of rooms || []) {
+    if (!r?.archived_at) continue;
+    const last = sortLines((lines || []).filter(l => l.room_key === key && !l.day_hidden_at))[0] || null;
+    out.push({room_key:key, room_label:r.room_label || last?.room_label || key, folder_id:r.folder_id || null, last});
+  }
+  return out.sort((a, b) => (b.last?.day || '').localeCompare(a.last?.day || '') || a.room_label.localeCompare(b.room_label));
+}
+// 방 표의 상태를 줄에 입힌다(줄이 가진 값보다 방 표가 기준).
+export const withRoomState = (lines, rooms) => (lines || []).map(l => { const r = rooms?.get(l.room_key); return r ? {...l, folder_id:r.folder_id || null, archived_at:r.archived_at || null} : l; });
+
+// ---------- 밀기 (폰, 터치만). 가로로 충분히 밀었을 때만 반응한다. 오른쪽으로 밀면 왼쪽에 두 버튼(폴더로·보관, 64px씩 128px),
+// 왼쪽으로 밀면 오른쪽에 한 버튼(삭제 64px). 화면 가장자리 24px 안에서 시작한 밀기는 무시한다(뒤로가기 제스처와 겹침 방지).
+export const SWIPE_BTN = 64;
+export const SWIPE_START = 12;
+export const SWIPE_EDGE = 24;
+// 'wait'(아직 모름) | 'scroll'(세로, 밀기 아님) | 'swipe'(가로가 세로의 1.5배를 넘고 12px 이상)
+export function swipeIntent(dx, dy) {
+  const ax = Math.abs(dx), ay = Math.abs(dy);
+  if (Math.max(ax, ay) < SWIPE_START) return 'wait';
+  return ax >= SWIPE_START && ax > ay * 1.5 ? 'swipe' : 'scroll';
+}
+export const swipeEdge = (x, width) => !(x >= SWIPE_EDGE && x <= width - SWIPE_EDGE);
+// allow: 각 쪽 버튼 수 {start, end}(0 = 그쪽 버튼 없음).
+export const swipeWidths = allow => ({start:(Number(allow?.start) || 0) * SWIPE_BTN, end:(Number(allow?.end) || 0) * SWIPE_BTN});
+export function swipeOffset(dx, open = 0, allow = {start:2, end:1}) {
+  const w = swipeWidths(allow), x = (Number(open) || 0) + (Number(dx) || 0);
+  return Math.max(-w.end, Math.min(w.start, x)) + 0;
+}
+// 손을 뗀 자리 → 'start' | 'end' | ''(닫힘): 열 폭의 절반 이상 밀렸으면 열린 채로 둔다.
+export function swipeSettle(offset, allow = {start:2, end:1}) {
+  const w = swipeWidths(allow);
+  return w.start && offset >= w.start / 2 ? 'start' : w.end && offset <= -w.end / 2 ? 'end' : '';
+}
+export const swipeOpenOffset = (side, allow = {start:2, end:1}) => { const w = swipeWidths(allow); return side === 'start' ? w.start : side === 'end' ? -w.end : 0; };
+// 보는 자리마다 밀었을 때의 버튼. live: 폴더로·보관(오른쪽 밀기) / 삭제(왼쪽 밀기), archive: 꺼내기(오른쪽 밀기).
+export const SWIPE_ACTIONS = Object.freeze({
+  live:{start:['folder', 'archive'], end:['trash']},
+  archive:{start:['unarchive'], end:[]},
+});
+export const ACTION_LABEL = Object.freeze({folder:'폴더로', archive:'보관', trash:'삭제', unarchive:'꺼내기'});
+export const allowOf = mode => { const a = SWIPE_ACTIONS[mode] || {start:[], end:[]}; return {start:a.start.length, end:a.end.length}; };

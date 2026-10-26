@@ -228,3 +228,29 @@
 .feed-view .feed-pmt{flex:none;margin-left:auto;font-size:11px;color:var(--kptu-muted);white-space:nowrap}
 .feed-view .feed-person .feed-whotag{flex:none;display:inline-block}
 .feed-view .feed-person .feed-pmt+.feed-more,.feed-view .feed-person .feed-whotag+.feed-more{margin-left:0}
+
+/* 텔레그램 4-나: 칸 줄(전체·폴더·+ 폴더·보관함), 줄 밀기 버튼, 행 ⋯ */
+.feed-view .feed-chiprow{display:flex;align-items:center;gap:4px;margin:0 0 4px;padding:2px 0;overflow-x:auto;scrollbar-width:none}
+.feed-view .feed-chiprow::-webkit-scrollbar{display:none}
+.feed-view .feed-chiprow .feed-chip[aria-pressed="true"]{background:var(--kptu-primary-soft);border-color:var(--kptu-primary);color:var(--kptu-primary-ink)}
+.feed-view .feed-chiprow .feed-chip.is-add{background:transparent;border-style:dashed}
+.feed-view .feed-chiprow .feed-chip.is-box{margin-left:auto}
+.feed-view .feed-chiprow .feed-folder-more{width:var(--ds-compact-height-sm,24px);height:var(--ds-compact-height-sm,24px)}
+.feed-view .feed-swipe{position:relative;overflow:hidden}
+.feed-view .feed-swipe>.feed-rd{z-index:1;background:var(--kptu-surface);touch-action:pan-y;transition:transform .18s ease}
+.feed-view .feed-swipe>.feed-rd.is-selected{background:var(--kptu-primary-soft)}
+.feed-view .feed-swipe>.feed-rd.is-drag{transition:none}
+.feed-view .feed-acts{position:absolute;top:0;bottom:0;display:flex}
+.feed-view .feed-acts-start{left:0}
+.feed-view .feed-acts-end{right:0}
+.feed-view .feed-act{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:64px;min-height:0;margin:0;padding:0;border:0;border-radius:0;font:inherit;font-size:11px;cursor:pointer}
+.feed-view .feed-act-folder{background:var(--kptu-info-soft);color:var(--kptu-info)}
+.feed-view .feed-act-archive,.feed-view .feed-act-unarchive{background:var(--kptu-warning-soft);color:var(--kptu-warning)}
+.feed-view .feed-act-trash{background:var(--kptu-danger-soft);color:var(--kptu-danger)}
+.feed-view .feed-act:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+.feed-view .feed-swipe[data-side="start"]>.feed-rd{transform:translateX(64px)}
+.feed-view .feed-swipe.is-two[data-side="start"]>.feed-rd{transform:translateX(128px)}
+.feed-view .feed-swipe[data-side="end"]>.feed-rd{transform:translateX(-64px)}
+@media(prefers-reduced-motion:reduce){.feed-view .feed-swipe>.feed-rd{transition:none}}
+@media(min-width:761px) and (hover:hover){.feed-view .feed-swipe>.feed-rd:hover .feed-hov{display:block}}
+@media(min-width:761px){.feed-view .feed-swipe>.feed-rd:focus-within .feed-hov,.feed-view .feed-swipe>.feed-rd .feed-hov[aria-expanded="true"]{display:block}}

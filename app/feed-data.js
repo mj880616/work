@@ -120,6 +120,45 @@ export async function setFeedState(id, state, rt = window.KPTURuntime) {
   return {ok:false, error:'UNKNOWN'};
 }
 
+// ---------- TG-방날짜묶기 4-나: 폴더·보관·날 삭제. 새 표 3개는 소유자 읽기만, 쓰기는 DB 함수(TGDG_* 오류 코드)로만 한다.
+export async function readFeedFolders(rt = window.KPTURuntime) {
+  const ws = workspaceOf(rt);
+  const rows = await readRecordPages(`/rest/v1/app_feed_folders?workspace_id=eq.${encode(ws)}&select=id,name,sort_order&order=sort_order.asc,name.asc`, rt);
+  return rows.filter(f => f?.id && typeof f.name === 'string');
+}
+export async function readFeedRooms(rt = window.KPTURuntime) {
+  const ws = workspaceOf(rt);
+  const rows = await readRecordPages(`/rest/v1/app_feed_rooms?workspace_id=eq.${encode(ws)}&select=room_key,room_label,folder_id,archived_at&order=room_key.asc`, rt);
+  return new Map(rows.filter(r => r?.room_key).map(r => [r.room_key, {room_label:r.room_label || '', folder_id:r.folder_id || null, archived_at:r.archived_at || null}]));
+}
+// 지운 날(휴지통): {room_key, day, hidden_at}, 날짜 제한 없이 최근 200줄.
+export async function readTrashedDays(rt = window.KPTURuntime) {
+  const ws = workspaceOf(rt);
+  const page = await rt.api(`/rest/v1/app_feed_room_days?workspace_id=eq.${encode(ws)}&hidden_at=not.is.null&select=room_key,day,hidden_at&order=day.desc,room_key.asc&limit=200`);
+  if (!Array.isArray(page)) throw Error('목록을 확인하지 못했어요.');
+  return page.filter(r => r?.room_key && r.day);
+}
+const TGDG = [[/TGDG_FOLDER_NAME_TAKEN/, 'TAKEN'], [/TGDG_FOLDER_LIMIT/, 'LIMIT'], [/TGDG_FOLDER_NAME|TGDG_ARGS/, 'INVALID'], [/TGDG_NOT_FOUND|TGDG_NO_ROOM/, 'GONE']];
+function tgdgError(error) {
+  const status = Number(error?.status) || 0, text = String(error?.message || '') + ' ' + String(error?.code || '');
+  for (const [re, code] of TGDG) if (re.test(text)) return code;
+  if (status === 404 || /PGRST202|Could not find the function/i.test(text)) return 'UNAVAILABLE';
+  return status >= 400 && status < 500 ? 'REFUSED' : 'UNKNOWN';
+}
+async function tgdg(name, body, rt) {
+  try {
+    const data = await rt.api(`/rest/v1/rpc/${name}`, {method:'POST', body, singleFlight:false});
+    return data && typeof data === 'object' && data.ok === true ? {...data, ok:true} : {ok:false, error:'UNKNOWN'};
+  } catch (error) { return {ok:false, error:tgdgError(error)}; }
+}
+// 방의 폴더와 보관을 통째로 정한다(folder: 폴더 ID 또는 null, archived: true/false). 돌려주는 값 {ok, folder_id, archived} 또는 {ok:false, error}.
+export const setRoom = (roomKey, folder, archived, rt = window.KPTURuntime) => tgdg('app_feed_room_set', {p_room_key:roomKey, p_folder:folder || null, p_archived:!!archived}, rt);
+// 그날 그 줄만 삭제('trashed')·되살리기('active').
+export const setRoomDay = (roomKey, day, state, rt = window.KPTURuntime) => tgdg('app_feed_room_day_set', {p_room_key:roomKey, p_day:day, p_state:state}, rt);
+export const createFolder = (name, rt = window.KPTURuntime) => tgdg('app_feed_folder_create', {p_name:name}, rt);
+export const renameFolder = (id, name, rt = window.KPTURuntime) => tgdg('app_feed_folder_rename', {p_id:id, p_name:name}, rt);
+export const deleteFolder = (id, rt = window.KPTURuntime) => tgdg('app_feed_folder_delete', {p_id:id}, rt);
+
 // Organizations for names and for the 조직 연결 box: every organization of the workspace (names of inactive ones are still shown on
 // old rows), plus which are mine (내 프로필 → 담당 사업장, the same rule as the 기록할 곳 sheet).
 export async function readOrganizations(rt = window.KPTURuntime) {

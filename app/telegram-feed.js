@@ -7,27 +7,38 @@
 // TG-발언자이름: 원문에 이름을 입히고([이름 붙이기]) 머리줄 ⋯ → '보낸 사람 이름'에서 관리한다(tg-sender-model.mjs, tg-sender-data.js). 방 색은 저장하지 않는다(feed-model.mjs roomTone).
 import './enter-save.js';
 import {createAnchoredMenu} from './anchored-menu.js';
+import {createFeedHold} from './feed-hold.js';
 import {mountSplitResize} from './split-resize.js';
 import {hhmm, dayLabel, telegramLines, telegramToday, telegramHeadText, roomTone, roomInitial, pinnedOf, missingTable, kstDay} from './feed-model.mjs';
-import {readDays, readRaw, readOrganizations, setPinned, setFeedState, scopeOf, readRoomDayLines, readRoomDay, readTitleRows, readPinnedItems, readTrashedItems} from './feed-data.js';
+import {readDays, readRaw, readOrganizations, setPinned, setFeedState, scopeOf, readRoomDayLines, readRoomDay, readTitleRows, readPinnedItems, readTrashedItems,
+  readFeedFolders, readFeedRooms, readTrashedDays, setRoom, setRoomDay, createFolder, renameFolder, deleteFolder} from './feed-data.js';
 import {summaryCopyText} from './summary-copy-model.mjs';
 import {copyButtonHtml, copySummary} from './summary-copy.js';
 import {copyText} from './copy-text.js';
 import {esc, newLinkBox, linkBoxHtml, openOrgPicker, saveLinkBox, orgName} from './feed-link.js';
 import {buildIndex, rawRows, peopleRows, chipsOf, cleanName, linkKey, dayShort, NAME_ERROR_TEXT, SENDER_FAIL_TEXT, MERGE_NOTE, MERGE_BOTH_KEYED} from './tg-sender-model.mjs';
 import {readSenders, setSenderName, mergeSenders, forgetSender} from './tg-sender-data.js';
-import {lineOf, rdKey, splitRdKey, liveLines, groupLines, roomsOfLines, neighborDays, daysNeedingTitles, titleIndex, lineText, daySummary, openTarget, COPY_NOTE,
-  firstWindow, olderWindow, reachedEnd, chunksOf} from './tg-day-model.mjs';
+import {lineOf, rdKey, splitRdKey, liveLines, groupLines, neighborDays, daysNeedingTitles, titleIndex, lineText, daySummary, openTarget, COPY_NOTE,
+  firstWindow, olderWindow, reachedEnd, chunksOf, cleanFolderName, FOLDER_ERROR_TEXT, archivedRooms, withRoomState,
+  swipeIntent, swipeEdge, swipeOffset, swipeSettle, swipeOpenOffset, allowOf, SWIPE_ACTIONS, ACTION_LABEL} from './tg-day-model.mjs';
 
 const rt = window.KPTURuntime;
 const $ = sel => document.querySelector(sel);
 const pc = window.matchMedia('(min-width:1024px)');
 const MORE = '<span aria-hidden="true">⋯</span>';
 const UNDO_MS = 8000;
+// 버튼 안 그림(글자색을 따라가는 선 그림, 색은 CSS 토큰).
+const svg = d => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${d}</svg>`;
+const ICON = {
+  folder:svg('<path d="M3.5 7.5h6l2 2h9v9h-17z"/>'),
+  archive:svg('<path d="M3.5 7h17v4h-17z"/><path d="M5.5 11v8h13v-8"/><path d="M10 15h4"/>'),
+  unarchive:svg('<path d="M4 9h10a5 5 0 010 10H8"/><path d="M8 5L4 9l4 4"/>'),
+  trash:svg('<path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v6M14 11v6"/>'),
+};
 
-// state.mode: live (방·날 목록) | trash (휴지통) | senders (보낸 사람 이름). state.sel: 열린 방 상세 {room, day}. state.open: 원문을 펼친 소식 ID.
+// state.mode: live (방·날 목록) | archive (보관함) | trash (휴지통) | senders (보낸 사람 이름). state.folder: 칸 줄에서 고른 폴더('' = 전체). state.swipe: 열려 있는 줄 {key, side}. state.sel: 열린 방 상세 {room, day}. state.open: 원문을 펼친 소식 ID.
 let state = fresh(), run = 0, layer = null, shelfLayer = null, editLayer = null, undo = null, undoTimer = 0;
-function fresh() { return {owner:'', loaded:false, missing:false, error:'', lines:[], from:'', end:false, titles:new Map(), pins:[], trashed:[], mode:'live', days:[], orgs:[], mine:new Set(), room:'', sel:null, open:new Set(), dcache:new Map(), raw:new Map(), link:null, senders:null, sidx:null, sedit:null, sman:null, note:'', status:'', busy:false}; }
+function fresh() { return {owner:'', loaded:false, missing:false, error:'', lines:[], from:'', end:false, titles:new Map(), pins:[], trashed:[], trashedDays:[], folders:[], rooms:new Map(), folder:'', swipe:null, fedit:null, mode:'live', days:[], orgs:[], mine:new Set(), sel:null, open:new Set(), dcache:new Map(), raw:new Map(), link:null, senders:null, sidx:null, sedit:null, sman:null, note:'', status:'', busy:false}; }
 
 function install() {
   if ($('#telegramView')) return;
@@ -39,7 +50,8 @@ const itemOf = id => { for (const d of state.dcache.values()) { const r = d.item
 const lineAt = (room, day) => state.lines.find(l => l.room_key === room && l.day === day) || null;
 const selKey = () => (state.sel ? rdKey(state.sel.room, state.sel.day) : '');
 const detailOf = () => state.dcache.get(selKey()) || null;
-const isShelf = () => state.mode === 'trash' || state.mode === 'senders';
+const labelOfRoom = key => state.rooms.get(key)?.room_label || state.lines.find(l => l.room_key === key)?.room_label || key;
+
 
 // ---------- data
 async function readLines(from, to) { return (await readRoomDayLines(chunksOf(from, to), rt)).map(lineOf).filter(Boolean); }
@@ -47,12 +59,14 @@ async function load() {
   const owner = scopeOf(rt), me = ++run; if (!state.loaded) paint();
   const today = kstDay(), first = firstWindow(today), from = state.from && state.from < first.from ? state.from : first.from;
   try {
-    const [lines, days, orgs, senders, pins, trashed] = await Promise.all([readLines(from, today), readDays('telegram', rt).catch(() => []), readOrganizations(rt).catch(() => ({orgs:[], mine:new Set()})), readSenders(rt).catch(() => null), readPinnedItems(rt).catch(() => []), readTrashedItems(rt).catch(() => [])]);
+    const [lines, days, orgs, senders, pins, trashed, folders, rooms, trashedDays] = await Promise.all([readLines(from, today), readDays('telegram', rt).catch(() => []), readOrganizations(rt).catch(() => ({orgs:[], mine:new Set()})), readSenders(rt).catch(() => null), readPinnedItems(rt).catch(() => []), readTrashedItems(rt).catch(() => []),
+      readFeedFolders(rt).catch(() => []), readFeedRooms(rt).catch(() => new Map()), readTrashedDays(rt).catch(() => [])]);
     if (me !== run || owner !== scopeOf(rt)) return;
-    Object.assign(state, {owner, loaded:true, missing:false, error:'', lines, from, end:reachedEnd(from, today), pins, trashed, days, orgs:orgs.orgs, mine:orgs.mine, dcache:new Map()});
+    Object.assign(state, {owner, loaded:true, missing:false, error:'', lines:withRoomState(lines, rooms), from, end:reachedEnd(from, today), pins, trashed, trashedDays, folders, rooms, days, orgs:orgs.orgs, mine:orgs.mine, dcache:new Map(), swipe:null});
     setSenders(senders);
-    if (state.mode === 'trash' && !trashed.length) leaveShelf();
-    if (state.room && !lines.some(l => l.room_key === state.room)) state.room = '';
+    if (state.folder && !folders.some(f => f.id === state.folder)) state.folder = '';
+    if (state.mode === 'trash' && !trashed.length && !trashedDays.length) leaveShelf();
+    if (state.mode === 'archive' && !archivedRooms(rooms, state.lines).length) leaveShelf();
   } catch (error) {
     if (me !== run || owner !== scopeOf(rt)) return;
     Object.assign(state, {owner, loaded:true, lines:[], pins:[], trashed:[], missing:missingTable(error), error:missingTable(error) ? '' : '텔레그램 소식을 불러오지 못했어요.'});
@@ -69,7 +83,7 @@ async function extend() {
   const today = kstDay(), win = olderWindow(state.from, today), me = run, owner = scopeOf(rt);
   if (!win) { state.end = true; return false; }
   const lines = await readLines(win.from, win.to); if (me !== run || owner !== scopeOf(rt)) return false;
-  state.lines = [...state.lines, ...lines]; state.from = win.from; state.end = reachedEnd(win.from, today);
+  state.lines = [...state.lines, ...withRoomState(lines, state.rooms)]; state.from = win.from; state.end = reachedEnd(win.from, today);
   void fillTitles(me); return true;
 }
 function setSenders(data) { state.senders = data; state.sidx = data ? buildIndex(data.senders, data.links) : null; }
@@ -104,41 +118,86 @@ function paint() {
 }
 const statusHtml = () => esc(state.status);
 const undoHtml = () => (undo ? `<div class="feed-undo" role="status" data-tg-undobar><span>${esc(undo.text)}</span><span aria-hidden="true">·</span><button type="button" class="feed-undo-btn" data-tg-undo>되돌리기</button></div>` : '');
+function chipsHtml() {
+  const archived = archivedRooms(state.rooms, state.lines).length;
+  const chip = (attr, on, text, cls = '') => `<button type="button" class="feed-chip${cls}" ${attr} aria-pressed="${on}">${esc(text)}</button>`;
+  const folders = state.folders.map(f => chip(`data-tg-folder="${esc(f.id)}"`, state.folder === f.id, f.name)).join('');
+  const fm = state.folder ? `<button type="button" class="feed-more feed-folder-more" data-ctx="off" data-tg-folder-more aria-haspopup="true" aria-expanded="false" aria-label="폴더 메뉴">${MORE}</button>` : '';
+  return `<div class="feed-chiprow" role="group" aria-label="폴더">${chip('data-tg-folder=""', !state.folder, '전체')}${folders}${fm}<button type="button" class="feed-chip is-add" data-tg-folder-add>+ 폴더</button><button type="button" class="feed-chip is-box" data-tg-shelf="archive">보관함 ${archived}</button></div>`;
+}
+// 폴더 만들기·이름 바꾸기·지우기 상자(칸 줄 바로 아래). create 때 room이 있으면 만든 폴더에 그 방을 넣는다.
+function feditHtml() {
+  const e = state.fedit; if (!e) return '';
+  if (e.kind === 'delete') {
+    const f = state.folders.find(x => x.id === e.id);
+    return `<div class="feed-sbox" data-tg-fedit data-enter-save="[data-tg-fedit-save]"><p class="feed-sbox-title">'${esc(f?.name || '')}' 폴더를 지울까요?</p><p class="feed-sbox-note">폴더만 지워져요. 안에 있던 방과 소식은 그대로 전체에 남아요.</p>
+<div class="feed-link-actions"><span class="feed-status" role="status">${esc(e.status)}</span><button type="button" class="feed-small" data-tg-fedit-cancel${e.busy ? ' disabled' : ''}>취소</button><button type="button" class="feed-small primary" data-tg-fedit-save${e.busy ? ' disabled' : ''}>지우기</button></div></div>`;
+  }
+  return `<div class="feed-sbox" data-tg-fedit data-enter-save="[data-tg-fedit-save]"><p class="feed-sbox-title">${e.kind === 'rename' ? '폴더 이름 바꾸기' : e.room ? `'${esc(labelOfRoom(e.room))}' 방을 넣을 새 폴더` : '새 폴더'}</p>
+<input type="text" class="feed-edit-input" data-tg-fedit-input value="${esc(e.value)}" placeholder="폴더 이름 (20자까지)" aria-label="폴더 이름" autocomplete="off"${e.busy ? ' disabled' : ''}>
+<div class="feed-link-actions"><span class="feed-status" role="status">${esc(e.status)}</span><button type="button" class="feed-small" data-tg-fedit-cancel${e.busy ? ' disabled' : ''}>취소</button><button type="button" class="feed-small primary" data-tg-fedit-save${e.busy ? ' disabled' : ''}>저장</button></div></div>`;
+}
+const trashCount = () => state.trashed.length + state.trashedDays.length;
 function headHtml() {
   if (state.mode === 'senders') {
     const n = state.senders ? state.senders.senders.length : 0;
     return `<div class="feed-head"><button type="button" class="back-text" data-tg-shelf-back>‹ 소식</button><span class="feed-head-title">보낸 사람 이름${state.senders ? ` · ${n}명` : ''}</span></div>`;
   }
-  if (state.mode === 'trash') {
-    return `<div class="feed-head"><button type="button" class="back-text" data-tg-shelf-back>‹ 소식</button><span class="feed-head-title">휴지통 ${state.trashed.length}</span></div><p class="feed-note" data-tg-trash-note>Web2 목록에서만 뺀 소식이에요. 원문은 Drive에 그대로 있어요. 직접 비우기 전까지 남아요.</p>`;
+  if (state.mode === 'archive') {
+    return `<div class="feed-head"><button type="button" class="back-text" data-tg-shelf-back>‹ 소식</button><span class="feed-head-title">보관함 ${archivedRooms(state.rooms, state.lines).length}</span></div><p class="feed-note" data-tg-archive-note>방 단위로 보관해요. 보관한 방도 수집·요약은 계속돼요.</p>`;
   }
-  const today = telegramToday(state.days, kstDay()), rooms = roomsOfLines(liveLines(state.lines));
-  const filter = rooms.length > 1 || state.room ? `<select class="feed-select" data-tg-room aria-label="방 거르기"><option value="">모든 방</option>${rooms.map(x => `<option value="${esc(x.key)}"${x.key === state.room ? ' selected' : ''}>${esc(x.label)}</option>`).join('')}</select>` : '';
+  if (state.mode === 'trash') {
+    return `<div class="feed-head"><button type="button" class="back-text" data-tg-shelf-back>‹ 소식</button><span class="feed-head-title">휴지통 ${trashCount()}</span></div><p class="feed-note" data-tg-trash-note>Web2 목록에서만 뺀 것이에요. 원문은 Drive에 그대로 있어요. 직접 비우기 전까지 남아요.</p>`;
+  }
+  const today = telegramToday(state.days, kstDay());
   const failed = today?.failed ? ` · 판정 실패 ${today.failed}` : '';
   const ready = state.loaded && !state.missing && !state.error;
   const more = ready ? `<button type="button" class="feed-more" data-tg-head-more aria-haspopup="true" aria-expanded="false" aria-label="소식 메뉴">${MORE}</button>` : '';
-  return `<div class="feed-head"><span class="feed-head-title" aria-hidden="true">텔레그램 소식</span><span class="feed-head-sub" data-tg-today>${ready ? esc(telegramHeadText(today) + failed) : ''}</span>${state.loaded && !state.missing ? filter : ''}${more}</div>`;
+  return `<div class="feed-head"><span class="feed-head-title" aria-hidden="true">텔레그램 소식</span><span class="feed-head-sub" data-tg-today>${ready ? esc(telegramHeadText(today) + failed) : ''}</span>${more}</div>${ready ? chipsHtml() + feditHtml() : ''}`;
+}
+// 줄 밀기: 버튼은 닫혀 있으면 보이지도 눌리지도 않는다. mode: live | archive.
+const actBtn = (side, kind, open) => `<button type="button" class="feed-act feed-act-${kind}" data-tg-act-btn="${side}" data-tg-kind="${kind}" tabindex="-1"${open === side ? '' : ' aria-hidden="true"'} aria-label="${ACTION_LABEL[kind]}">${ICON[kind === 'unarchive' ? 'unarchive' : kind]}<span>${ACTION_LABEL[kind]}</span></button>`;
+function swipeRow(key, mode, room, day, inner) {
+  const acts = SWIPE_ACTIONS[mode], open = state.swipe?.key === key ? state.swipe.side : '';
+  const group = side => (acts[side].length ? `<div class="feed-acts feed-acts-${side}">${acts[side].map(k => actBtn(side, k, open)).join('')}</div>` : '');
+  return `<div class="feed-swipe${acts.start.length > 1 ? ' is-two' : ''}" data-tg-swipe="${esc(key)}" data-mode="${mode}" data-room="${esc(room)}" data-day="${esc(day)}"${open ? ` data-side="${open}"` : ''}>${group('start')}${group('end')}${inner}</div>`;
 }
 function rowHtml(l) {
   const key = rdKey(l.room_key, l.day), on = key === selKey(), text = lineText(l, state.titles);
-  return `<div class="feed-rd feed-r${roomTone(l.room_key)}${on ? ' is-selected' : ''}" data-tg-rd="${esc(key)}"><span class="feed-dot" aria-hidden="true">${esc(roomInitial(l.room_label))}</span><button type="button" class="feed-rdb" data-tg-rdopen="${esc(key)}"${on ? ' aria-current="true"' : ''}><span class="feed-rn">${esc(l.room_label)}</span><span class="feed-rl">${esc(text)}</span><span class="feed-ft"><span>소식 ${l.item_count}</span><span>원문 ${l.raw_count}</span></span></button></div>`;
+  return swipeRow(key, 'live', l.room_key, l.day, `<div class="feed-rd feed-r${roomTone(l.room_key)}${on ? ' is-selected' : ''}" data-tg-rd="${esc(key)}"><span class="feed-dot" aria-hidden="true">${esc(roomInitial(l.room_label))}</span><button type="button" class="feed-rdb" data-tg-rdopen="${esc(key)}"${on ? ' aria-current="true"' : ''}><span class="feed-rn">${esc(l.room_label)}</span><span class="feed-rl">${esc(text)}</span><span class="feed-ft"><span>소식 ${l.item_count}</span><span>원문 ${l.raw_count}</span></span></button><button type="button" class="feed-hov" data-tg-rdmore="${esc(key)}" aria-haspopup="true" aria-expanded="false" aria-label="${esc(l.room_label)} 메뉴">${MORE}</button></div>`);
+}
+// 보관함의 방 한 줄: 방 이름 · 최근 날 · 한 줄 · [꺼내기]. 줄을 누르면 가장 최근 날의 방 상세가 열린다.
+function archiveRowHtml(r) {
+  const l = r.last, key = l ? rdKey(l.room_key, l.day) : '', text = l ? lineText(l, state.titles) : '', on = !!key && key === selKey();
+  const body = `<span class="feed-rn">${esc(r.room_label)}</span><span class="feed-rl">${l ? `최근 ${esc(dayLabel(l.day))}${text ? ' · ' + esc(text) : ''}` : '불러온 기간에 소식이 없어요'}</span>`;
+  return swipeRow('room:' + r.room_key, 'archive', r.room_key, l?.day || '', `<div class="feed-rd feed-r${roomTone(r.room_key)}${on ? ' is-selected' : ''}" data-tg-arow="${esc(r.room_key)}"><span class="feed-dot" aria-hidden="true">${esc(roomInitial(r.room_label))}</span>${key ? `<button type="button" class="feed-rdb" data-tg-rdopen="${esc(key)}"${on ? ' aria-current="true"' : ''}>${body}</button>` : `<div class="feed-rdb">${body}</div>`}<button type="button" class="feed-small" data-tg-unarchive="${esc(r.room_key)}">꺼내기</button></div>`);
 }
 function trashRowHtml(r) {
   return `<div class="feed-rd feed-r${roomTone(r.room_key)}" data-tg-trow="${esc(r.id)}"><span class="feed-dot" aria-hidden="true">${esc(roomInitial(r.room_label))}</span><div class="feed-rdb"><span class="feed-rn">${esc(r.room_label)} · ${esc(dayLabel(r.day))} ${esc(hhmm(r.occurred_at))}</span><span class="feed-rl">${esc(r.summary || r.title || '')}</span></div><button type="button" class="feed-small" data-tg-restore="${esc(r.id)}">되살리기</button></div>`;
+}
+function trashDayRowHtml(d) {
+  const key = rdKey(d.room_key, d.day);
+  return `<div class="feed-rd feed-r${roomTone(d.room_key)}" data-tg-tdrow="${esc(key)}"><span class="feed-dot" aria-hidden="true">${esc(roomInitial(labelOfRoom(d.room_key)))}</span><div class="feed-rdb"><span class="feed-rn">${esc(labelOfRoom(d.room_key))}</span><span class="feed-rl">${esc(dayLabel(d.day))} 하루 전체</span></div><button type="button" class="feed-small" data-tg-restore-day="${esc(key)}">되살리기</button></div>`;
 }
 function paintList() {
   const box = $('#tgList');
   if (!state.loaded) { box.innerHTML = headHtml() + '<p class="feed-empty" role="status">불러오는 중…</p>'; return; }
   if (state.missing) { box.innerHTML = headHtml() + '<p class="feed-empty" data-tg-empty="ready">준비 중이에요. 텔레그램 수집이 연결되면 여기에 보여요.</p>'; return; }
   if (state.error) { box.innerHTML = headHtml() + `<p class="feed-empty" role="status">${esc(state.error)} <button type="button" class="feed-text-btn" data-tg-retry>다시 시도</button></p>`; return; }
+  const tail = `<p class="feed-status" data-tg-status role="status">${statusHtml()}</p>` + (state.sel ? '' : undoHtml());
   if (state.mode === 'senders') { box.innerHTML = headHtml() + sendersBodyHtml() + `<p class="feed-status" data-tg-status role="status">${statusHtml()}</p>`; return; }
-  if (state.mode === 'trash') { box.innerHTML = headHtml() + `<div class="feed-feed">${state.trashed.map(trashRowHtml).join('')}</div><p class="feed-status" data-tg-status role="status">${statusHtml()}</p>` + undoHtml(); return; }
-  const lines = liveLines(state.lines, {room:state.room}), pins = pinnedOf(state.pins);
+  if (state.mode === 'archive') { box.innerHTML = headHtml() + `<div class="feed-feed" data-tg-archive>${archivedRooms(state.rooms, state.lines).map(archiveRowHtml).join('')}</div>` + tail; return; }
+  if (state.mode === 'trash') {
+    const days = state.trashedDays.length ? `<div class="feed-grp">삭제한 날 ${state.trashedDays.length}</div>${state.trashedDays.map(trashDayRowHtml).join('')}` : '', items = state.trashed.length ? `<div class="feed-grp">삭제한 소식 ${state.trashed.length}</div>${state.trashed.map(trashRowHtml).join('')}` : '';
+    box.innerHTML = headHtml() + `<div class="feed-feed">${days}${items}</div>` + tail; return;
+  }
+  const lines = liveLines(state.lines, {folder:state.folder}), pins = pinnedOf(state.pins);
   const pinbar = pins.length ? `<button type="button" class="feed-pinbar" data-tg-pin-open="${esc(pins[0].id)}" data-tg-pinbar><span class="feed-pt">${esc(pins[0].room_label)} · ${esc(pins[0].summary || pins[0].title || '')}</span><span class="feed-cnt">고정 ${pins.length}</span></button>` : '';
   const groups = groupLines(lines);
-  const feed = groups.length ? groups.map(g => `<div class="feed-day feed-day-center" data-tg-day="${esc(g.day)}">${esc(dayLabel(g.day))}</div>${g.rows.map(rowHtml).join('')}`).join('') : '<p class="feed-empty" data-tg-empty="none">아직 받은 텔레그램 소식이 없어요.</p>';
+  const none = state.folder ? '이 폴더에 넣은 방의 소식이 아직 없어요.' : '아직 받은 텔레그램 소식이 없어요.';
+  const feed = groups.length ? groups.map(g => `<div class="feed-day feed-day-center" data-tg-day="${esc(g.day)}">${esc(dayLabel(g.day))}</div>${g.rows.map(rowHtml).join('')}`).join('') : `<p class="feed-empty" data-tg-empty="none">${none}</p>`;
   const older = state.end ? '' : '<div class="feed-older"><button type="button" class="feed-text-btn" data-tg-older>이전 날 더 보기</button></div>';
-  box.innerHTML = headHtml() + pinbar + `<div class="feed-feed">${feed}</div>${older}<p class="feed-status" data-tg-status role="status">${statusHtml()}</p>` + (state.sel ? '' : undoHtml());
+  box.innerHTML = headHtml() + pinbar + `<div class="feed-feed">${feed}</div>${older}` + tail;
 }
 function openLinkHtml(line, summary) {
   const t = openTarget({room_key:state.sel.room, chat_username:line?.chat_username, open_ref:summary?.openRef});
@@ -380,6 +439,72 @@ function restore() {
   const u = undo; if (!u) return; undo = null; clearTimeout(undoTimer);
   return u.fn();
 }
+// ---------- 방 폴더·보관, 날 줄 삭제 (DB 함수로만 저장, 화면은 저장이 끝난 뒤에 바꾼다)
+const roomRow = room => state.rooms.get(room) || {room_label:labelOfRoom(room), folder_id:null, archived_at:null};
+const folderName = id => state.folders.find(f => f.id === id)?.name || '';
+const ROOM_FAIL = {...MOVE_FAIL, GONE:'이 방을 찾지 못했어요. 목록을 다시 불러왔어요.'};
+function applyRooms(rooms) { state.rooms = rooms; state.lines = withRoomState(state.lines, rooms); state.swipe = null; }
+// 방의 폴더·보관을 정하고 되돌리기 줄을 건다(guarded 안에서 부른다). 성공하면 true.
+async function roomCore(room, folder, archived, text, current, isUndo = false) {
+  const prev = roomRow(room), saved = await setRoom(room, folder, archived, rt); if (!current()) return false;
+  if (!saved.ok) { state.status = ROOM_FAIL[saved.error] || ROOM_FAIL.REFUSED; if (saved.error === 'UNKNOWN' || saved.error === 'GONE') void load(); return false; }
+  const rooms = new Map(state.rooms); rooms.set(room, {...prev, folder_id:folder || null, archived_at:archived ? (prev.archived_at || new Date().toISOString()) : null});
+  applyRooms(rooms);
+  if (state.mode === 'archive' && !archivedRooms(rooms, state.lines).length) leaveShelf();
+  if (isUndo) { state.status = '되돌렸어요.'; undo = null; }
+  else { state.status = ''; setUndo(text, () => guarded(c => roomCore(room, prev.folder_id, !!prev.archived_at, '', c, true))); }
+  return true;
+}
+const moveRoom = (room, folder, archived, text) => guarded(current => roomCore(room, folder, archived, text, current));
+function trashDay(room, day) {
+  return guarded(async current => {
+    const saved = await setRoomDay(room, day, 'trashed', rt); if (!current()) return;
+    if (!saved.ok) { state.status = ROOM_FAIL[saved.error] || ROOM_FAIL.REFUSED; if (saved.error === 'UNKNOWN' || saved.error === 'GONE') void load(); return; }
+    const at = new Date().toISOString();
+    state.lines = state.lines.map(l => (l.room_key === room && l.day === day ? {...l, day_hidden_at:at} : l));
+    state.trashedDays = [{room_key:room, day, hidden_at:at}, ...state.trashedDays.filter(d => !(d.room_key === room && d.day === day))];
+    state.swipe = null; state.status = '';
+    if (state.sel?.room === room && state.sel.day === day) closeDetail({quiet:true});
+    setUndo('삭제했어요', () => restoreDay(room, day, true));
+  });
+}
+function restoreDay(room, day, fromUndo = false) {
+  return guarded(async current => {
+    const saved = await setRoomDay(room, day, 'active', rt); if (!current()) return;
+    if (!saved.ok) { state.status = saved.error === 'GONE' ? '이 날 줄이 그사이 사라졌어요.' : fromUndo ? '되돌리지 못했어요. 다시 시도해 주세요.' : (ROOM_FAIL[saved.error] || ROOM_FAIL.REFUSED); return; }
+    state.status = fromUndo ? '되돌렸어요.' : '되살렸어요.'; undo = null; await load();
+  });
+}
+// ---------- 폴더 만들기·이름 바꾸기·지우기
+function startFolderEdit(kind, extra = {}) {
+  state.swipe = null; if (state.mode !== 'live') return;
+  state.fedit = {kind, value:kind === 'rename' ? folderName(state.folder) : '', id:state.folder, room:'', status:'', busy:false, ...extra};
+  paintList(); const box = $('#tgList [data-tg-fedit]'); box?.scrollIntoView?.({block:'nearest'}); ($('#tgList [data-tg-fedit-input]') || $('#tgList [data-tg-fedit-save]'))?.focus({preventScroll:true});
+}
+function cancelFolderEdit() { state.fedit = null; paintList(); }
+function saveFolder() {
+  const e = state.fedit; if (!e || e.busy || state.busy) return;
+  const fail = res => { if (res.error === 'GONE' || res.error === 'UNKNOWN') { state.fedit = null; state.status = FOLDER_ERROR_TEXT[res.error]; void load(); } else { e.busy = false; e.status = FOLDER_ERROR_TEXT[res.error] || FOLDER_ERROR_TEXT.REFUSED; } };
+  if (e.kind === 'delete') {
+    e.busy = true; paintList();
+    return guarded(async current => {
+      const res = await deleteFolder(e.id, rt); if (!current()) return; if (!res.ok) return void fail(res);
+      state.folders = state.folders.filter(f => f.id !== e.id); const rooms = new Map(state.rooms);
+      for (const [k, r] of rooms) if (r.folder_id === e.id) rooms.set(k, {...r, folder_id:null});
+      applyRooms(rooms); if (state.folder === e.id) state.folder = ''; state.fedit = null; state.status = '폴더를 지웠어요. 방은 그대로 전체에 있어요.';
+    }).then(() => $('#tgList [data-tg-folder=""]')?.focus({preventScroll:true}));
+  }
+  const c = cleanFolderName(e.value);
+  if (!c.ok) { e.status = FOLDER_ERROR_TEXT[c.error]; paintList(); $('#tgList [data-tg-fedit-input]')?.focus({preventScroll:true}); return; }
+  e.busy = true; e.status = ''; paintList();
+  return guarded(async current => {
+    const res = e.kind === 'rename' ? await renameFolder(e.id, c.name, rt) : await createFolder(c.name, rt); if (!current()) return; if (!res.ok) return void fail(res);
+    const id = res.id || e.id, name = res.name || c.name;
+    state.folders = e.kind === 'rename' ? state.folders.map(f => (f.id === id ? {...f, name} : f)) : [...state.folders, {id, name, sort_order:Number.MAX_SAFE_INTEGER}];
+    state.fedit = null; state.status = e.kind === 'rename' ? '이름을 바꿨어요.' : '폴더를 만들었어요.';
+    if (e.kind === 'create') { if (e.room) await roomCore(e.room, id, !!roomRow(e.room).archived_at, `'${name}'에 넣었어요`, current); else state.folder = id; }
+  }).then(() => $('#tgList [data-tg-folder-add]')?.focus({preventScroll:true}));
+}
 // 휴지통·보낸 사람 이름 보기 (폰 뒤로가기는 소식 목록으로: router layer 한 칸).
 function enterShelf(mode) {
   if (state.link && !dropLink()) return;
@@ -419,7 +544,7 @@ async function openByCopy() {
 const menu = createAnchoredMenu({id:'tgMenu', className:'feed-menu', label:'소식 메뉴', historyKey:'kptuTelegramMenu',
   key:t => (t.hasAttribute('data-tg-head-more') ? 'head:' : 'item:' + t.dataset.tgMore),
   render:id => {
-    if (id === 'head:') return `<button type="button" data-tg-act="senders">보낸 사람 이름</button>${state.trashed.length ? `<button type="button" data-tg-act="trash-view">휴지통 ${state.trashed.length}</button>` : ''}`;
+    if (id === 'head:') return `<button type="button" data-tg-act="senders">보낸 사람 이름</button>${trashCount() ? `<button type="button" data-tg-act="trash-view">휴지통 ${trashCount()}</button>` : ''}`;
     const r = itemOf(id.slice(id.indexOf(':') + 1)); if (!r) return '';
     const copy = tgText(r) ? '<button type="button" data-tg-act="copy">요약 복사</button>' : '';
     return `<button type="button" data-tg-act="pin">${r.pinned_at ? '고정 풀기' : '고정'}</button>${copy}<button type="button" data-tg-act="link">조직 연결</button><button type="button" class="feed-menu-danger" data-tg-act="trash">삭제</button>`;
@@ -442,12 +567,112 @@ const pmenu = createAnchoredMenu({id:'tgPersonMenu', className:'feed-menu', labe
     if (act === 'rename') startPersonEdit(id); else if (act === 'merge') startMan(id, 'merge'); else if (act === 'forget') startMan(id, 'forget');
   }});
 
+// 방 줄 ⋯ 메뉴(PC) · 길게 누르기(폰) · 오른쪽 클릭(PC): 폴더로 · 보관 · 삭제(그 날 한 줄만).
+const rowKeyOf = t => { const w = t.closest('[data-tg-swipe]'); return w ? w.dataset.room + '|' + w.dataset.day : ''; };
+let wantPicker = false;
+const rmenu = createAnchoredMenu({id:'tgRowMenu', className:'feed-menu', label:'방 메뉴', historyKey:'kptuTelegramRowMenu',
+  key:t => 'row:' + rowKeyOf(t),
+  render:id => {
+    const k = splitRdKey(id.slice(4)); if (!k || !lineAt(k.room, k.day)) return '';
+    return `<button type="button" data-tg-ract="folder">폴더로</button><button type="button" data-tg-ract="archive">보관</button><button type="button" class="feed-menu-danger" data-tg-ract="trash">삭제 <span class="feed-faint">이 날 한 줄만</span></button>`;
+  },
+  onAction:(button, active) => {
+    const k = splitRdKey(active.id.slice(4)); if (!k) return; const act = button.dataset.tgRact;
+    if (act === 'folder') { wantPicker = true; fmenu.open(active.trigger); }
+    else if (act === 'archive') void moveRoom(k.room, roomRow(k.room).folder_id, true, '보관했어요');
+    else if (act === 'trash') void trashDay(k.room, k.day);
+  },
+  onClose:() => { if (wantPicker) { wantPicker = false; return; } hold.unpin(); }});
+// [폴더로]: 작은 폴더 목록 + 폴더에서 빼기 + 새 폴더. 밀기 버튼이나 ⋯를 누른 자리 아래에 뜬다.
+const fmenu = createAnchoredMenu({id:'tgFolderPick', className:'feed-menu', label:'폴더 고르기', historyKey:'kptuTelegramFolderPick',
+  key:t => 'pick:' + (t.closest('[data-tg-swipe]')?.dataset.room || ''),
+  render:id => {
+    const room = id.slice(5), cur = roomRow(room).folder_id || '';
+    const list = state.folders.map(f => `<button type="button" data-tg-fpick="${esc(f.id)}"${f.id === cur ? ' aria-current="true"' : ''}>${f.id === cur ? '✓ ' : ''}${esc(f.name)}</button>`).join('');
+    return `${list}${cur ? '<button type="button" data-tg-fpick="">폴더에서 빼기</button>' : ''}<button type="button" data-tg-fpick="+">+ 새 폴더</button>`;
+  },
+  onAction:(button, active) => {
+    const room = active.id.slice(5), pick = button.dataset.tgFpick, archived = !!roomRow(room).archived_at;
+    if (pick === '+') startFolderEdit('create', {room});
+    else if (pick === '') void moveRoom(room, null, archived, '폴더에서 뺐어요');
+    else void moveRoom(room, pick, archived, `'${folderName(pick)}'에 넣었어요`);
+  },
+  onClose:() => hold.unpin()});
+const femenu = createAnchoredMenu({id:'tgFolderMenu', className:'feed-menu', label:'폴더 메뉴', historyKey:'kptuTelegramFolderMenu',
+  key:() => 'folder:' + state.folder,
+  render:() => '<button type="button" data-tg-fact="rename">이름 바꾸기</button><button type="button" class="feed-menu-danger" data-tg-fact="delete">폴더 지우기 <span class="feed-faint">방은 그대로</span></button>',
+  onAction:button => { if (state.folder) startFolderEdit(button.dataset.tgFact === 'rename' ? 'rename' : 'delete'); }});
+const hold = createFeedHold({menu:rmenu, itemSelector:'[data-tg-rd]', moreSelector:'[data-tg-rdmore]', skipSelector:'[data-tg-act-btn],[data-tg-unarchive]', busy:() => state.busy, isPhone:() => !pc.matches});
+
+// 줄 밀기(폰, 터치만): 가로로 분명히 밀었을 때만 반응하고 세로 스크롤·화면 가장자리 시작은 건드리지 않는다. 열린 줄은 하나뿐.
+const swipeEl = key => [...view()?.querySelectorAll('[data-tg-swipe]') || []].find(el => el.dataset.tgSwipe === key) || null;
+function syncSwipe(wrap, side) {
+  if (side) wrap.dataset.side = side; else delete wrap.dataset.side;
+  const inner = wrap.querySelector(':scope > .feed-rd'); if (inner) inner.style.transform = '';
+  for (const b of wrap.querySelectorAll('[data-tg-act-btn]')) { const on = b.dataset.tgActBtn === side; if (on) b.removeAttribute('aria-hidden'); else b.setAttribute('aria-hidden', 'true'); b.tabIndex = on ? 0 : -1; }
+}
+function closeSwipe() {
+  const open = state.swipe; if (!open) return; state.swipe = null;
+  const el = swipeEl(open.key); if (el) syncSwipe(el, '');
+}
+let drag = null, swallow = false;
+function bindSwipe(root) {
+  root.addEventListener('pointerdown', e => {
+    swallow = false;
+    if (e.pointerType !== 'touch' || state.busy) return;
+    const inner = e.target.closest('.feed-swipe > .feed-rd'); if (!inner || e.target.closest('[data-tg-act-btn]')) return;
+    const wrap = inner.parentElement, key = wrap.dataset.tgSwipe;
+    if (state.swipe && state.swipe.key !== key) closeSwipe();
+    if (swipeEdge(e.clientX, innerWidth)) return;
+    const mode = wrap.dataset.mode, allow = allowOf(mode), open = state.swipe?.key === key ? swipeOpenOffset(state.swipe.side, allow) : 0;
+    drag = {id:e.pointerId, x:e.clientX, y:e.clientY, wrap, inner, key, allow, open, dx:0, on:false};
+  });
+  root.addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!drag.on) {
+      const intent = swipeIntent(dx, dy); if (intent === 'wait') return;
+      if (intent === 'scroll') { drag = null; return; }
+      drag.on = true; drag.inner.classList.add('is-drag'); try { drag.inner.setPointerCapture(e.pointerId); } catch {}
+    }
+    drag.dx = dx; drag.inner.style.transform = `translateX(${swipeOffset(dx, drag.open, drag.allow)}px)`;
+  });
+  const end = e => {
+    if (!drag || e.pointerId !== drag.id) return; const d = drag; drag = null;
+    if (!d.on) return;
+    swallow = true; d.inner.classList.remove('is-drag');
+    const side = e.type === 'pointercancel' ? (state.swipe?.key === d.key ? state.swipe.side : '') : swipeSettle(swipeOffset(d.dx, d.open, d.allow), d.allow);
+    state.swipe = side ? {key:d.key, side} : null; syncSwipe(d.wrap, side);
+  };
+  root.addEventListener('pointerup', end); root.addEventListener('pointercancel', end);
+  // 밀고 손을 뗄 때 따라오는 click은 삼킨다(줄이 열리는 것을 막는다).
+  window.addEventListener('click', e => { if (swallow && root.contains(e.target)) { swallow = false; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+}
+
 function bind() {
   const root = view(); if (!root || root.dataset.tgBound) return; root.dataset.tgBound = '1';
+  hold.bind(root); bindSwipe(root);
   root.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b || b.disabled || !root.contains(b)) return;
     const d = b.dataset;
-    if (d.tgRdopen) { const k = splitRdKey(d.tgRdopen); if (k) select(k.room, k.day); }
+    if (state.swipe && !b.closest('[data-tg-act-btn]')) { const was = state.swipe.key; closeSwipe(); if (d.tgRdopen && b.closest('[data-tg-swipe]')?.dataset.tgSwipe === was) return; }
+    if (d.tgActBtn) {
+      const w = b.closest('[data-tg-swipe]'), room = w?.dataset.room, day = w?.dataset.day, kind = d.tgKind; if (!room) return;
+      if (kind === 'folder') fmenu.open(b);
+      else if (kind === 'archive') { closeSwipe(); void moveRoom(room, roomRow(room).folder_id, true, '보관했어요'); }
+      else if (kind === 'unarchive') { closeSwipe(); void moveRoom(room, roomRow(room).folder_id, false, '꺼냈어요'); }
+      else if (kind === 'trash' && day) { closeSwipe(); void trashDay(room, day); }
+    }
+    else if (d.tgUnarchive) void moveRoom(d.tgUnarchive, roomRow(d.tgUnarchive).folder_id, false, '꺼냈어요');
+    else if (d.tgRdmore) rmenu.open(b);
+    else if (b.hasAttribute('data-tg-folder-more')) femenu.open(b);
+    else if (d.tgFolder !== undefined) { state.folder = d.tgFolder; state.fedit = null; paintList(); $(`#tgList [data-tg-folder="${CSS.escape(d.tgFolder)}"]`)?.focus({preventScroll:true}); }
+    else if (b.hasAttribute('data-tg-folder-add')) startFolderEdit('create');
+    else if (d.tgShelf) enterShelf(d.tgShelf);
+    else if (b.hasAttribute('data-tg-fedit-cancel')) cancelFolderEdit();
+    else if (b.hasAttribute('data-tg-fedit-save')) void saveFolder();
+    else if (d.tgRestoreDay) { const k = splitRdKey(d.tgRestoreDay); if (k) void restoreDay(k.room, k.day); }
+    else if (d.tgRdopen) { const k = splitRdKey(d.tgRdopen); if (k) select(k.room, k.day); }
     else if (d.tgPinOpen) { const r = itemOf(d.tgPinOpen); if (r) { select(r.room_key, r.day, r.id); } }
     else if (d.tgNav) void navDay(d.tgNav);
     else if (d.tgRestore) void restoreItem(d.tgRestore);
@@ -472,12 +697,12 @@ function bind() {
     else if (b.hasAttribute('data-tg-link-cancel')) { state.link = null; paintDetail(); }
     else if (b.hasAttribute('data-tg-link-save')) void saveLink();
   });
-  root.addEventListener('keydown', e => { if (e.key === 'Escape' && e.target.closest?.('[data-tg-sbox],[data-tg-sman]') && !e.defaultPrevented) { e.preventDefault(); cancelPanel(); } });
+  root.addEventListener('keydown', e => { if (e.key === 'Escape' && e.target.closest?.('[data-tg-sbox],[data-tg-sman],[data-tg-fedit]') && !e.defaultPrevented) { e.preventDefault(); if (e.target.closest('[data-tg-fedit]')) cancelFolderEdit(); else cancelPanel(); } });
   root.addEventListener('change', e => {
     if (e.target.matches('[data-tg-sman-to]') && state.sman) { state.sman.to = e.target.value; paintList(); $('#tgList [data-tg-sman-to]')?.focus({preventScroll:true}); return; }
-    if (e.target.matches('[data-tg-room]')) { state.room = e.target.value; paintList(); $('#tgList [data-tg-room]')?.focus({preventScroll:true}); }
   });
   root.addEventListener('input', e => {
+    if (e.target.matches('[data-tg-fedit-input]') && state.fedit) state.fedit.value = e.target.value;
     if (e.target.matches('[data-tg-link-text]') && state.link) state.link.summary = e.target.value;
     if (e.target.matches('[data-tg-sbox-input]') && state.sedit) { const v = e.target.value, chip = state.sedit.chipId && chipsOf(peopleList(), state.sedit.excludeId).find(x => x.id === state.sedit.chipId); state.sedit.value = v; if (!chip || chip.text !== v.trim()) state.sedit.chipId = ''; }
   });
@@ -486,7 +711,7 @@ bind();
 
 window.addEventListener('kptu:view-changed', e => {
   if (e.detail?.view === 'telegram') { if (!state.loaded || state.owner !== scopeOf(rt)) void load(); else paint(); return; }
-  layer = null; shelfLayer = null; editLayer = null; state.link = null; state.sedit = null; state.sman = null; state.mode = 'live'; menu.close?.(null, true); pmenu.close?.(null, true);
+  layer = null; shelfLayer = null; editLayer = null; state.link = null; state.sedit = null; state.sman = null; state.fedit = null; state.swipe = null; state.mode = 'live'; menu.close?.(null, true); pmenu.close?.(null, true); rmenu.close?.(null, true); fmenu.close?.(null, true); femenu.close?.(null, true);
   window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'telegram', name:null}}));
 });
 window.addEventListener('kptu:session-changed', () => { run++; layer = null; shelfLayer = null; editLayer = null; undo = null; clearTimeout(undoTimer); state = fresh(); if (view()) paint(); });
