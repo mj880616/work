@@ -3,6 +3,7 @@ import { AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, withReasoning } from '..
 import { outputText } from '../_shared/openai-responses.ts';
 import { HwpxReader, hwpToText } from 'npm:@ssabrojs/hwpxjs';
 import { readMultipartForm } from '../_shared/multipart.ts';
+import { createLibraryPhotoHandler } from './photo.ts';
 
 const SB=Deno.env.get('SUPABASE_URL')!;
 const SERVICE=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -122,10 +123,22 @@ async function replaceDocument(workspaceId:string,file:File,documentId:string){
   return json({ok:true,replaced:true,document:rows[0]});
 }
 
+// 요청이 올 때만 만든다(업로드 경로는 이 핸들러를 건드리지 않는다).
+const photoView=(req:Request,workspaceId:string,authorization:string)=>createLibraryPhotoHandler(admin,{userClient:auth=>{
+  const key=Deno.env.get('SUPABASE_ANON_KEY');
+  if(!key)throw new Error('photo caller configuration unavailable');
+  return createClient(SB,key,{auth:{persistSession:false},global:{headers:{Authorization:auth}}});
+}})(req,workspaceId,authorization);
+
 Deno.serve(async(req:Request)=>{
   if(req.method==='OPTIONS')return new Response('ok',{headers:cors});
   try{
     const user=await getUser(req);
+    // 자료 그림 작게 보기(읽기 전용). 로그인·소유자 확인은 아래 업로드와 같은 getUser·workspaceFor를 쓴다.
+    if(req.method==='GET'&&new URL(req.url).searchParams.get('action')==='photo'){
+      const wmPhoto=await workspaceFor(user.id);
+      return await photoView(req,wmPhoto.workspace_id,'Bearer '+(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,''));
+    }
     if(req.method!=='POST')return json({error:'POST only'},405);
     if((req.headers.get('content-type')||'').includes('application/json'))throw new UploadError('지원하지 않는 작업입니다.',{code:'unsupported_request'});
     let form:FormData;
