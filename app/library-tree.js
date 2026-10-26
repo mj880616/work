@@ -4,8 +4,8 @@
 // 노드 모양(묶기 4가지 공통): {kind:'group'|'folder', key, label, depth, count, kinds, files, children, more, ...}
 // source는 나중에 Drive 폴더 보기(DRIVE-자료트리)를 더할 자리다(결정 D10). 지금은 늘 'library'.
 
-export const GROUP_BY=Object.freeze(['project','organization','category','month']);
-export const GROUP_LABELS=Object.freeze({project:'프로젝트',organization:'담당조직',category:'종류',month:'월별'});
+export const GROUP_BY=Object.freeze(['project','organization','category','month','folder']);
+export const GROUP_LABELS=Object.freeze({project:'프로젝트',organization:'담당조직',category:'종류',month:'월별',folder:'폴더'});
 // 결정 D12: 한 토글에 파일이 20개를 넘으면 20개만 보이고 [N건 더].
 export const FILE_LIMIT=20;
 // 결정 D3: 폴더 안 폴더는 3단까지(DB 트리거가 강제, 화면은 그 이상을 만들지 않음).
@@ -53,9 +53,11 @@ function prune(list,keep){return list.filter(n=>{n.children=prune(n.children,kee
 
 // 폴더 나무: 같은 프로젝트 틀(project_id, 비어 있으면 '프로젝트 없음')의 폴더를 parent_id로 잇는다.
 // 상위가 없거나 다른 틀이면 맨 위로 둔다. 순환이 섞여 들어와도(DB가 막지만) 한 번만 그린다.
-function folderForest(folders,frame){
-  const mine=folders.filter(f=>(f.project_id||null)===frame).sort(folderOrder),ids=new Set(mine.map(f=>f.id)),made=new Map();
-  for(const f of mine)made.set(f.id,node('folder','f:'+f.id,String(f.name||'이름 없는 폴더'),{id:f.id,projectId:frame,parentId:f.parent_id||null}));
+function folderForest(folders,frame){return forestOf(folders.filter(f=>(f.project_id||null)===frame))}
+// 폴더 보기(LIB-폴더탐색기)는 프로젝트 틀을 보지 않고 parent_id만 따라 한 나무로 잇는다. 상위가 없으면 맨 위.
+function forestOf(list){
+  const mine=[...list].sort(folderOrder),ids=new Set(mine.map(f=>f.id)),made=new Map();
+  for(const f of mine)made.set(f.id,node('folder','f:'+f.id,String(f.name||'이름 없는 폴더'),{id:f.id,projectId:f.project_id||null,parentId:f.parent_id||null}));
   const roots=[];
   for(const f of mine){const n=made.get(f.id),parent=f.parent_id&&ids.has(f.parent_id)&&f.parent_id!==f.id?made.get(f.parent_id):null;(parent?parent.children:roots).push(n)}
   // 순환 고리 안의 폴더는 roots에 닿지 않는다: 닿지 않은 폴더를 맨 위로 올린다.
@@ -93,6 +95,19 @@ function byProject(o){
   return prune(list,n=>n.kind==='folder'||hasFolder(n)||(n.kind==='group'&&!n.stale&&n.projectDepth===0));
 }
 
+// 폴더 보기(탐색기): 맨 위 '폴더 밖'(폴더에 안 든 자료, 놓으면 폴더 밖으로) → 폴더 나무. 프로젝트와 무관하게 parent_id만 따른다.
+// 자료의 프로젝트 연결은 보지 않는다. 폴더는 비어도 보이고, 거르는 중이면 맞는 파일이 없는 토글을 숨긴다.
+export const OUTSIDE_KEY='x:out';
+function byFolder(o){
+  const {docs,folders=[],items=[],filtering}=o,{roots,byId}=forestOf(folders),outside=node('group',OUTSIDE_KEY,'폴더 밖',{outside:true});
+  const where=new Map(items.map(x=>[x.document_id,x.folder_id]));
+  for(const d of docs){const fid=where.get(d.id),f=fid?byId.get(fid):null;(f||outside).files.push(d)}
+  const list=[outside,...roots];
+  list.forEach(n=>finish(n,o.kindOf,o.sortKey));
+  if(filtering)return prune(list,()=>false);
+  return prune(list,n=>n.kind==='folder'||n.key===OUTSIDE_KEY);
+}
+
 function flat(list,o){list.forEach(n=>finish(n,o.kindOf,o.sortKey));return list.filter(n=>n.count>0)}
 function byOrganization(o){
   const {docs,organizations=[]}=o,known=new Map(organizations.map(x=>[x.id,x])),groups=new Map(),unknown=[];
@@ -117,10 +132,10 @@ function byMonth(o){
   return flat([...groups.values()].sort((a,b)=>!a.month?1:!b.month?-1:a.month<b.month?1:-1),o);
 }
 
-// 묶기에 맞는 노드 목록. 담당조직·종류·월별 묶기에는 폴더가 없다(결정 D11).
+// 묶기에 맞는 노드 목록. 담당조직·종류·월별 묶기에는 폴더가 없다(결정 D11). 폴더 묶기는 프로젝트와 무관한 폴더 나무(설계 12절).
 export function buildTree(o){
   const groupBy=GROUP_BY.includes(o.groupBy)?o.groupBy:'project';
-  return groupBy==='organization'?byOrganization(o):groupBy==='category'?byCategory(o):groupBy==='month'?byMonth(o):byProject(o);
+  return groupBy==='organization'?byOrganization(o):groupBy==='category'?byCategory(o):groupBy==='month'?byMonth(o):groupBy==='folder'?byFolder(o):byProject(o);
 }
 export function walk(list,fn,parents=[]){for(const n of list){fn(n,parents);walk(n.children,fn,[...parents,n])}}
 export function keys(list){const out=[];walk(list,n=>out.push(n.key));return out}
@@ -157,16 +172,17 @@ export function folderHeight(folders,id){const kids=folders.filter(f=>f.parent_i
 export function folderSubtree(folders,id){const out=new Set([id]);let grew=true;while(grew){grew=false;for(const f of folders)if(f.parent_id&&out.has(f.parent_id)&&!out.has(f.id)){out.add(f.id);grew=true}}return out}
 const frameOf=f=>f?.project_id||null;
 // 같은 상위(같은 틀) 형제, 차례대로.
-export function folderSiblings(folders,{projectId=null,parentId=null}){return folders.filter(f=>frameOf(f)===(projectId||null)&&(f.parent_id||null)===(parentId||null)).sort(folderOrder)}
+// free=true(폴더 보기)면 프로젝트 틀을 보지 않고 같은 상위의 형제 전부.
+export function folderSiblings(folders,{projectId=null,parentId=null,free=false}){return folders.filter(f=>(free||frameOf(f)===(projectId||null))&&(f.parent_id||null)===(parentId||null)).sort(folderOrder)}
 // 새 폴더를 만들 수 있나(상위 폴더 깊이 < 3).
 export const canAddChild=(folders,parentId)=>!parentId||folderDepth(folders,parentId)<FOLDER_DEPTH;
 // 폴더를 옮길 수 있는 곳: 같은 틀의 맨 위(null) 또는 자기·자기 아래가 아니고 합친 깊이가 3단 이하인 폴더. 지금 상위는 뺀다.
-export function folderMoveTargets(folders,id){
+export function folderMoveTargets(folders,id,free=false){
   const f=folders.find(x=>x.id===id);if(!f)return [];
   const inside=folderSubtree(folders,id),h=folderHeight(folders,id),out=[];
   if(f.parent_id)out.push(null);
   // 트리 차례(맨 위 폴더 → 그 안)로 내놓는다.
-  const walkFrame=parent=>{for(const t of folderSiblings(folders,{projectId:frameOf(f),parentId:parent})){if(!inside.has(t.id)&&t.id!==f.parent_id&&folderDepth(folders,t.id)+h<=FOLDER_DEPTH)out.push(t.id);if(!inside.has(t.id))walkFrame(t.id)}};walkFrame(null);
+  const walkFrame=parent=>{for(const t of folderSiblings(folders,{projectId:frameOf(f),parentId:parent,free})){if(!inside.has(t.id)&&t.id!==f.parent_id&&folderDepth(folders,t.id)+h<=FOLDER_DEPTH)out.push(t.id);if(!inside.has(t.id))walkFrame(t.id)}};walkFrame(null);
   return out;
 }
 // 새 자리의 sort_order: 맨 아래(가장 큰 값 + 1024).
@@ -174,9 +190,9 @@ export const SORT_GAP=1024;
 export function nextSortOrder(siblings){return siblings.length?Math.max(...siblings.map(s=>Number(s.sort_order)||0))+SORT_GAP:SORT_GAP}
 // 위로·아래로: 바로 옆 형제와 sort_order를 맞바꾼다. 값이 같아 맞바꿔도 차례가 안 바뀌면 그 상위 형제만 1024 간격으로 다시 매긴다.
 // 돌려주는 값: [{id, sort_order}] 바꿀 행들(없으면 빈 배열).
-export function folderReorderPlan(folders,id,dir){
+export function folderReorderPlan(folders,id,dir,free=false){
   const f=folders.find(x=>x.id===id);if(!f)return [];
-  const sib=folderSiblings(folders,{projectId:frameOf(f),parentId:f.parent_id||null}),i=sib.findIndex(x=>x.id===id),j=dir==='up'?i-1:i+1;
+  const sib=folderSiblings(folders,{projectId:frameOf(f),parentId:f.parent_id||null,free}),i=sib.findIndex(x=>x.id===id),j=dir==='up'?i-1:i+1;
   if(i<0||j<0||j>=sib.length)return [];
   const a=Number(sib[i].sort_order)||0,b=Number(sib[j].sort_order)||0;
   if(a!==b)return [{id:sib[i].id,sort_order:b},{id:sib[j].id,sort_order:a}];
@@ -190,4 +206,4 @@ export function documentsInTrashedFolders(folders,items,ready=true){if(!ready)re
 // 폴더 이름 검사(DB 검사와 같음: 1~40자, 앞뒤 공백·제어문자 없음). 앞뒤 공백은 잘라서 쓴다.
 export function cleanFolderName(raw){const name=String(raw??'').replace(/[\u0000-\u001f\u007f]/g,'').trim();return name.length>=1&&[...name].length<=40?name:null}
 // DB 거절(23514 + LIB_FOLDER_*)을 일상어로.
-export function folderErrorText(e){const m=String(e?.message||'');if(/LIB_FOLDER_DEPTH/.test(m))return '폴더는 3단까지만 만들 수 있어요.';if(/LIB_FOLDER_CYCLE/.test(m))return '폴더를 자기 안으로 옮길 수 없어요.';if(/LIB_FOLDER_SCOPE/.test(m))return '같은 프로젝트 안에서만 옮길 수 있어요.';if(/name_check|23514/.test(m))return '폴더 이름은 1~40자로 써 주세요.';return '저장하지 못했어요. 잠시 뒤 다시 해 주세요.'}
+export function folderErrorText(e){const m=String(e?.message||'');if(/LIB_FOLDER_DEPTH/.test(m))return '폴더는 3단까지만 만들 수 있어요.';if(/LIB_FOLDER_CYCLE/.test(m))return '폴더를 자기 안으로 옮길 수 없어요.';if(/LIB_FOLDER_SCOPE|row-level security|42501/.test(m))return '프로젝트가 다른 폴더로 옮기는 기능은 아직 준비 중이에요. 같은 프로젝트 안에서는 옮길 수 있어요.';if(/name_check|23514/.test(m))return '폴더 이름은 1~40자로 써 주세요.';return '저장하지 못했어요. 잠시 뒤 다시 해 주세요.'}

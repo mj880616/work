@@ -132,3 +132,36 @@ test('treeHtml: fileHtml에 파일과 그 파일이 든 토글을 넘긴다',()=
   m.treeHtml(out,{isOpen:()=>true,showAll:()=>true,esc:s=>String(s),kindKey:k=>k,fileHtml:(d,n)=>{seen.push([d.id,n.category]);return ''}});
   assert.deepEqual(seen.sort(),[['c1','교섭'],['c2','기타']]);
 });
+
+// LIB-폴더탐색기(설계 12절): 폴더 묶기는 프로젝트 틀을 보지 않고 parent_id만 따라 한 나무로 그린다. 맨 위 '폴더 밖'.
+test('폴더 묶기: 맨 위 폴더 밖, 프로젝트가 달라도 parent_id를 따라 한 나무, 연결은 틀과 무관, 빈 폴더 보임',()=>{
+  assert.deepEqual([...m.GROUP_BY],['project','organization','category','month','folder']);assert.equal(m.GROUP_LABELS.folder,'폴더');
+  const folders=[{id:'f2',project_id:'b',parent_id:'f1',name:'F2',sort_order:0},{id:'f1',project_id:'a',parent_id:null,name:'F1',sort_order:1024},{id:'f0',project_id:null,parent_id:null,name:'F0',sort_order:0},{id:'orphan',project_id:'a',parent_id:'gone',name:'고아',sort_order:5}];
+  const docs=[doc('d1','a'),doc('d2','b'),doc('d3',null),doc('d4','a')];
+  const items=[{document_id:'d1',folder_id:'f2'},{document_id:'d3',folder_id:'f1'},{document_id:'d4',folder_id:'missing'}];
+  const out=m.buildTree({...base({docs,folders,items}),groupBy:'folder'});
+  assert.deepEqual(out.map(n=>n.key),['x:out','f:f0','f:orphan','f:f1']);
+  assert.equal(out[0].label,'폴더 밖');assert.deepEqual(out[0].files.map(d=>d.id).sort(),['d2','d4']);
+  assert.deepEqual(shape(out.slice(3,4)),[['f:f1',2,['d3'],[['f:f2',1,['d1'],[]]]]]);
+  assert.equal(out[1].count,0,'빈 폴더도 보임');
+  assert.equal(out[3].children[0].projectId,'b','폴더의 project_id는 그대로 담기지만 나무 모양은 바꾸지 않는다');
+  assert.equal(out[3].depth,0);assert.equal(out[3].children[0].depth,1);
+  // 거르는 중이면 맞는 파일이 없는 폴더·'폴더 밖'을 숨긴다.
+  const filtered=m.buildTree({...base({docs:[doc('d1','a')],folders,items}),groupBy:'folder',filtering:true});
+  assert.deepEqual(shape(filtered),[['f:f1',1,[],[['f:f2',1,['d1'],[]]]]]);
+  // 폴더가 하나도 없어도 '폴더 밖'은 남아 첫 폴더를 만들 자리가 된다.
+  assert.deepEqual(m.buildTree({...base({docs:[]}),groupBy:'folder'}).map(n=>n.key),['x:out']);
+});
+
+test('폴더 보기 편집 규칙(free): 형제·옮길 곳·위로/아래로가 프로젝트 틀을 보지 않는다',()=>{
+  const F=[{id:'a',project_id:'p',parent_id:null,sort_order:1024},{id:'b',project_id:null,parent_id:null,sort_order:2048},{id:'c',project_id:'q',parent_id:'a',sort_order:0}];
+  assert.deepEqual(m.folderSiblings(F,{projectId:'p',parentId:null}).map(f=>f.id),['a']);
+  assert.deepEqual(m.folderSiblings(F,{projectId:'p',parentId:null,free:true}).map(f=>f.id),['a','b']);
+  assert.deepEqual(m.folderMoveTargets(F,'b'),[]);
+  assert.deepEqual(m.folderMoveTargets(F,'b',true),['a','c']);
+  assert.deepEqual(m.folderMoveTargets(F,'c',true),[null,'b']);
+  assert.deepEqual(m.folderReorderPlan(F,'b','up'),[]);
+  assert.deepEqual(m.folderReorderPlan(F,'b','up',true),[{id:'b',sort_order:1024},{id:'a',sort_order:2048}]);
+  assert.match(m.folderErrorText({message:'new row violates row-level security policy for table "app_library_folder_items"'}),/준비 중/);
+  assert.match(m.folderErrorText({message:'LIB_FOLDER_SCOPE: x'}),/준비 중/);
+});

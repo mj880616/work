@@ -64,8 +64,8 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
     const more=menuOf(page,'p:top-a');await expect(more).toHaveAttribute('aria-label','폴더 만들기: 공공기관 기능개혁 대응');
     expect(Math.round((await more.boundingBox()).height)).toBe(28);
     await press(page,more,width);await expect(page.locator('#luFolderMenu')).toBeVisible();await expect(libraryNode(page,'p:top-a')).not.toHaveAttribute('open','');
-    await expect(page.locator('#luFolderMenu button')).toHaveText(['폴더 만들기']);
-    await press(page,action(page,'폴더 만들기'),width);
+    await expect(page.locator('#luFolderMenu button')).toHaveText(['새 폴더']);
+    await press(page,action(page,'새 폴더'),width);
     const modal=page.locator('#libraryFolderModal');await expect(modal).toBeVisible();await expect(page.locator('#libraryFolderName')).toBeFocused();
     await expect(page.locator('#libraryFolderHint')).toContainText('Drive 폴더는 바뀌지 않아요');
     // 빈 이름은 저장하지 않는다.
@@ -77,24 +77,29 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
     // 만든 뒤에는 그 자리(프로젝트 토글)가 펼쳐져 새 폴더가 보인다.
     await expect(libraryNode(page,'p:top-a')).toHaveAttribute('open','');await expect(libraryNode(page,'f:'+f1)).toBeVisible();
     // 두 번째 폴더는 맨 아래(+1024). 폴더는 하위 프로젝트 다음, 파일 앞.
-    await press(page,menuOf(page,'p:top-a'),width);await press(page,action(page,'폴더 만들기'),width);await page.locator('#libraryFolderName').fill('가상 자료집');await press(page,page.locator('#libraryFolderSave'),width);await expect(page.locator('#libraryFolderModal')).toBeHidden();
+    await press(page,menuOf(page,'p:top-a'),width);await press(page,action(page,'새 폴더'),width);await page.locator('#libraryFolderName').fill('가상 자료집');await press(page,page.locator('#libraryFolderSave'),width);await expect(page.locator('#libraryFolderModal')).toBeHidden();
     const f2=s.folders[1].id;expect(s.folders[1].sort_order).toBe(2048);
     expect(await body(page,'p:top-a')).toEqual(['p:child-a1','f:'+f1,'f:'+f2,'a-1','a-2']);
     // 위로: 두 폴더의 순서를 맞바꾼다(요청 2개). 메뉴에는 갈 수 있는 쪽만.
-    await press(page,menuOf(page,'f:'+f2),width);await expect(page.locator('#luFolderMenu button')).toHaveText(['안에 폴더 만들기','이름 바꾸기','위로','옮기기…','폴더 지우기']);
+    await press(page,menuOf(page,'f:'+f2),width);await expect(page.locator('#luFolderMenu button')).toHaveText(['이름 바꾸기F2','안에 새 폴더','펼치기','위로','옮기기…','폴더 지우기']);
     await press(page,action(page,'위로'),width);await expect.poll(()=>body(page,'p:top-a')).toEqual(['p:child-a1','f:'+f2,'f:'+f1,'a-1','a-2']);
     expect(s.writes.slice(-2).map(w=>[w.method,w.id,w.body.sort_order])).toEqual([['PATCH',f2,1024],['PATCH',f1,2048]]);
     // 이름 바꾸기.
-    await press(page,menuOf(page,'f:'+f1),width);await press(page,action(page,'이름 바꾸기'),width);await expect(page.locator('#libraryFolderName')).toHaveValue('가상 회의록');
-    await page.locator('#libraryFolderName').fill('가상 회의록(정리)');await page.keyboard.press('Enter');await expect(libraryNodeHead(page,'f:'+f1).locator('.lu-node-name')).toHaveText('가상 회의록(정리)');
+    // 이름 바꾸기: 창 없이 줄 안에서 바로(Enter 저장). 저장하면 줄 위 한 줄에 '이름을 바꿨어요 · 되돌리기'.
+    await press(page,menuOf(page,'f:'+f1),width);await press(page,action(page,'이름 바꾸기'),width);
+    const rename=libraryNodeHead(page,'f:'+f1).locator('input.lu-folder-rename');await expect(rename).toBeFocused();await expect(rename).toHaveValue('가상 회의록');await expect(page.locator('#libraryFolderModal')).toBeHidden();
+    await rename.fill('가상 회의록(정리)');await page.keyboard.press('Enter');await expect(libraryNodeHead(page,'f:'+f1).locator('.lu-node-name')).toHaveText('가상 회의록(정리)');
     expect(s.writes.at(-1)).toEqual({table:'folders',method:'PATCH',id:f1,body:{name:'가상 회의록(정리)'}});
-    // 안에 폴더 만들기 → 3단까지. 3단 폴더 메뉴에는 '안에 폴더 만들기'가 없다.
+    await expect(page.locator('#libraryFolderStatusLine')).toContainText('이름을 바꿨어요');
+    await page.locator('#libraryFolderStatusLine .lu-undo').click();await expect(libraryNodeHead(page,'f:'+f1).locator('.lu-node-name')).toHaveText('가상 회의록');
+    expect(s.writes.at(-1)).toEqual({table:'folders',method:'PATCH',id:f1,body:{name:'가상 회의록'}});
+    // 안에 새 폴더 → 3단까지. 3단 폴더 메뉴에는 '안에 새 폴더'가 없다.
     let parent=f1;
-    for(const name of ['2단','3단']){await press(page,menuOf(page,'f:'+parent),width);await press(page,action(page,'안에 폴더 만들기'),width);await page.locator('#libraryFolderName').fill(name);await page.keyboard.press('Enter');await expect(page.locator('#libraryFolderModal')).toBeHidden();parent=s.folders.at(-1).id;expect(s.folders.at(-1).parent_id).not.toBeNull()}
+    for(const name of ['2단','3단']){await press(page,menuOf(page,'f:'+parent),width);await press(page,action(page,'안에 새 폴더'),width);await page.locator('#libraryFolderName').fill(name);await page.keyboard.press('Enter');await expect(page.locator('#libraryFolderModal')).toBeHidden();parent=s.folders.at(-1).id;expect(s.folders.at(-1).parent_id).not.toBeNull()}
     await page.locator('#libraryExpandAll').click();
-    await press(page,menuOf(page,'f:'+parent),width);await expect(action(page,'안에 폴더 만들기')).toHaveCount(0);await page.keyboard.press('Escape');await expect(page.locator('#luFolderMenu')).toBeHidden();
+    await press(page,menuOf(page,'f:'+parent),width);await expect(action(page,'안에 새 폴더')).toHaveCount(0);await page.keyboard.press('Escape');await expect(page.locator('#luFolderMenu')).toBeHidden();
     // '프로젝트 없음' 안에도 폴더를 만든다. 보관·확인 불가 토글에는 ⋯가 없다.
-    await press(page,menuOf(page,'p:none'),width);await press(page,action(page,'폴더 만들기'),width);await page.locator('#libraryFolderName').fill('가상 정리함');await page.keyboard.press('Enter');await expect(page.locator('#libraryFolderModal')).toBeHidden();
+    await press(page,menuOf(page,'p:none'),width);await press(page,action(page,'새 폴더'),width);await page.locator('#libraryFolderName').fill('가상 정리함');await page.keyboard.press('Enter');await expect(page.locator('#libraryFolderModal')).toBeHidden();
     expect(s.folders.at(-1)).toMatchObject({project_id:null,parent_id:null,name:'가상 정리함'});
     await page.locator('#libraryExpandAll').click();await page.locator('#libraryExpandAll').click();
     await expect(page.locator('#documentList summary [data-lu-node-menu]')).not.toHaveCount(0);
@@ -120,9 +125,9 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
     await press(page,page.locator('#libraryFolderSave'),width);await expect(page.locator('#libraryFolderModal')).toBeHidden();
     expect(s.writes.at(-1)).toMatchObject({table:'folders',method:'PATCH',id:'fb',body:{parent_id:'fa'}});
     await expect(page.locator('#documentList details[data-lu-node="f:fa"] details[data-lu-node="f:fb"] details[data-lu-node="f:fb1"] [data-lu-document="a-2"]')).toBeAttached();
-    // 3단을 넘는 옮기기는 고를 곳에 없다: fb1은 이제 3단이라 메뉴의 '안에 폴더 만들기'가 없다.
+    // 3단을 넘는 옮기기는 고를 곳에 없다: fb1은 이제 3단이라 메뉴의 '안에 새 폴더'가 없다.
     await page.locator('#libraryExpandAll').click();await page.locator('#libraryExpandAll').click();
-    await press(page,menuOf(page,'f:fb1'),width);await expect(action(page,'안에 폴더 만들기')).toHaveCount(0);await page.keyboard.press('Escape');
+    await press(page,menuOf(page,'f:fb1'),width);await expect(action(page,'안에 새 폴더')).toHaveCount(0);await page.keyboard.press('Escape');
     // 지우기(휴지통으로): 확인 창이 아래 폴더·자료 수와 '함께 들어간다'를 알린다. 취소하면 아무것도 안 바뀐다.
     const before=s.writes.length;let message='';
     page.once('dialog',d=>{message=d.message();d.dismiss()});await press(page,menuOf(page,'f:fb'),width);await press(page,action(page,'폴더 지우기'),width);
@@ -182,7 +187,7 @@ test('DB가 거절하면(3단 초과) 일상어 한 줄로 알리고 서버 값�
   // 화면이 모르는 사이 서버에서 3단이 이미 찼다고 하자: 2단 아래로 새 폴더를 시도 → 거절.
   s.folders.push({id:'x',workspace_id:'workspace-1',project_id:'top-a',parent_id:'f3',name:'숨은 4단',sort_order:0});
   await page.locator('#libraryExpandAll').click();
-  await menuOf(page,'f:f2').click();await action(page,'안에 폴더 만들기').click();
+  await menuOf(page,'f:f2').click();await action(page,'안에 새 폴더').click();
   // 화면 규칙상 2단 아래는 허용이므로 요청은 가고, 가짜 서버가 3단 초과로 막는다(f3 아래 x가 생겨 f2의 깊이 판단과 무관하게 거절하게 함).
   await page.route(`${SB}/rest/v1/app_library_folders`,route=>route.request().method()==='POST'?route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'23514',message:'LIB_FOLDER_DEPTH: folders are limited to 3 levels'})}):route.fallback());
   await page.locator('#libraryFolderName').fill('새 폴더');await page.keyboard.press('Enter');
