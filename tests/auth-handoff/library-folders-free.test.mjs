@@ -61,9 +61,9 @@ test('library folders free: frame limit lifted, data kept, access not widened, g
   await assert.rejects(owner(c=>folder(c,{project:null,parent:OLD1})),/LIB_FOLDER_SCOPE/,'first shape: other-frame parent');
   const rowsBefore=JSON.stringify([(await pool.query('select id,project_id,parent_id,name,sort_order from public.app_library_folders order by id')).rows,(await pool.query('select document_id,folder_id from public.app_library_folder_items order by document_id')).rows]);
 
-  await t.test('files: read-only checks, three-line summary; the approved workflow refuses it (policy replacement) so it goes through the SQL Editor',async()=>{
+  await t.test('files: read-only checks, three-line summary; the approved workflow accepts it (policy replacement that does not widen access)',async()=>{
    for(const sql of [precheck,postcheck,snapshot])assert.equal(checkSQL(sql).baselineNull,false);
-   assert.throws(()=>prepareMigration({mode:'apply',version,runId:'1',root}),/DB plan rejected/);
+   for(const mode of['dry-run','apply'])assert.equal(prepareMigration({mode,version,runId:'1',root}).flow,'full');
    assert.throws(()=>prepareMigration({mode:'rollback',version,runId:'1',root}));
    assert.match(rollbackSQL,/SQL Editor\(폰 경로 C\) 전용/);
    const summary=(await read('docs/'+stem+'.summary.md')).trim().split('\n');
