@@ -7,7 +7,7 @@ import {expectProjectDetail} from './helpers/project-detail.mjs';
 // 읽기 전용 photo 동작(size=small)으로만 받는다(저장 없음). 모든 이름·번호는 합성 값.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const PNG=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==','base64');
-const uid=(prefix,n)=>`${prefix}000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+const uid=(prefix,n)=>`${prefix}0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const rid=n=>uid('a',n),did=(r,k)=>uid('d',r*10+k);
 const at=d=>`2026-09-${String(d).padStart(2,'0')}T01:00:00Z`;
 // 줄: n=1 그림 5장(외 2장), 2 = 그림 없음(글 자료만), 3 = 그림 1장 + 글 자료, 4 = 자료 없음, 5 = 그림 3장(외 없음), 6 = 그림 2장
