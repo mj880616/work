@@ -8,6 +8,7 @@ export const NONE_KEY='__none__';
 import {reportKindOf} from './report-kinds.mjs';
 import {reportWords} from './report-words.mjs';
 import {fileAttrs,menuItemsHtml} from './file-actions.js';
+import {splitPhotoDocs} from './activity-photo-model.mjs'; // ACT-사진 3단계: 사진은 '사진' 줄, 나머지만 자료 줄
 export const MEETING_DOCS_LABEL='회의자료 있음';
 
 const time=m=>{const t=new Date(m?.meeting_at).getTime();return Number.isFinite(t)?t:-Infinity};
@@ -124,7 +125,8 @@ export function fileMoreHtml(d,name=d?.file_name||d?.title||'파일'){
 }
 // MTG-사업보고 4단계: kindLabel(칸 글자, 예: '언론')이 오면 메타 줄 맨 앞에 'X 칸'으로 보인다(data-report-kind-label).
 // UI-중복제목삭제: 이 칸은 PC(≥1024)에서만 그려지고 상단 줄이 이미 "회의 이름 차수"를 보이므로, 머리에는 제목 줄이 없고 메타 줄(칸·시각·프로젝트)과 ⋯만 둔다.
-export function resultHtml(m,{kindLabel='',when='',project='',legacyTitle='',docs=[],fileLine,tasksHtml=''}){
+export function resultHtml(m,{kindLabel='',when='',project='',legacyTitle='',docs:allDocs=[],fileLine,tasksHtml=''}){
+  const {photos,files:docs}=splitPhotoDocs(allDocs);
   const words=reportWords(reportKindOf(m));
   const meta=[legacyTitle&&hasRound(m)?`기존 제목: ${legacyTitle}`:'',when,m?.location&&String(m.location).trim()?`장소 ${String(m.location).trim()}`:'',project?`연결 ${project}`:''].filter(Boolean);
   const notes=String(m?.notes||'');
@@ -135,6 +137,7 @@ export function resultHtml(m,{kindLabel='',when='',project='',legacyTitle='',doc
     +`<section class="mcol-block" aria-labelledby="mcolTextHead"><h4 id="mcolTextHead">${esc(words.textLabel)}</h4><div class="mcol-text">${esc(resultText(m))}</div></section>`
     +(notes.trim()?`<section class="mcol-block" aria-labelledby="mcolNotesHead"><h4 id="mcolNotesHead">특이사항</h4><div class="mcol-text mcol-notes">${esc(notes)}</div></section>`:'')
     +`<section class="mcol-block" aria-labelledby="mcolTasksHead"><h4 id="mcolTasksHead">후속 할 일</h4><div id="mcolTasks" class="mcol-tasks" aria-live="polite">${tasksHtml}</div></section>`
+    +(photos.length?`<section class="mcol-block" aria-labelledby="mcolPhotosHead"><h4 id="mcolPhotosHead">사진 ${photos.length}</h4><div class="act-photo-grid mcol-photos" data-mcol-photos></div></section>`:'')
     +`<section class="mcol-block" aria-labelledby="mcolDocsHead"><h4 id="mcolDocsHead">${esc(words.materials)}</h4><div class="mcol-files">${files}</div></section>`
     +`</div>`;
 }

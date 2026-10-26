@@ -15,6 +15,7 @@ import {isHwpName,requestHwpEdit} from './hwp-drive.js';
 import {pressFile,downloadFile,openInDrive,canOpenInDrive,fileAttrs,driveOpenUrl} from './file-actions.js';
 import {takeLibraryUploadRequest} from './library-upload-request.js';
 import {normalizeUploadMeeting,uploadMeetingLabel} from './library-upload-meeting.mjs';
+import {isPhotoFile,photoUploadFields} from './activity-photo-model.mjs';
 import {normalizeUploadOrganization,uploadOrganizationLabel,linkUploadedDocument} from './library-upload-organization.js';
 import {fileLine,bindDropTarget} from './meeting-compact.js';
 import {documentCategories,categoryOf,categoryOptions,categoryTag,loadDocumentCategories} from './document-categories.js';
@@ -179,8 +180,9 @@ let luUploadMeeting=null;
 function luRenderUploadMeeting(){const picker=document.querySelector('#documentModal .library-file-block');if(!picker)return;let p=picker.querySelector('#libraryUploadMeeting');if(!luUploadMeeting){p?.remove();return}if(!p){p=document.createElement('p');p.id='libraryUploadMeeting';p.className='status ok';picker.querySelector('#librarySelectedFiles')?.insertAdjacentElement('beforebegin',p)}p.textContent=uploadMeetingLabel(luUploadMeeting)}
 function luSetUploadMeeting(meeting){luUploadMeeting=normalizeUploadMeeting(meeting);luRenderUploadMeeting()}
 function luStartUploadForMeeting(meeting,files=[]){const button=document.querySelector('#newDocumentBtn');if(!normalizeUploadMeeting(meeting)||!button||luUploading)return false;button.click();luSetUploadMeeting(meeting);const list=Array.from(files||[]);if(list.length)luSetSelectedFiles(list);return true}
-// 창 없이 올리기(새 사업 보고를 저장한 뒤 고른 파일): 같은 library-files 요청 + 같은 AI 채우기. 실패하면 던진다(호출한 쪽이 개수를 센다).
-async function luUploadFileForMeeting(meeting,file){const target=normalizeUploadMeeting(meeting);if(!target)throw new Error('사업 보고를 확인하지 못했습니다.');const fd=new FormData();try{fd.append('file',await window.KPTURuntime.copyUploadFile(file));fd.append('meeting_id',target.id);if(target.projectId)fd.append('project_id',target.projectId);const d=await luUploadRequest(fd,file);if(d?.error||!d?.document)throw new Error(d?.error||'자료 업로드 응답을 확인하지 못했습니다.');luAiFill(d.document.id,fd);return d.document}finally{fd.delete('file')}}
+// 창 없이 올리기(새 사업 보고를 저장한 뒤 고른 파일, 사업 보고 사진 줄): 같은 library-files 요청 + 같은 AI 채우기. 실패하면 던진다(호출한 쪽이 개수를 센다).
+// ACT-사진 3단계: 사진은 AI에 보내지 않는다. 제목(파일 이름)·종류(사업 보고 칸을 따라감)·날짜(사업 보고 날짜)를 요청에 실어 AI 채우기를 건너뛴다. 서버(library-files)는 이미 이 값을 받는다.
+async function luUploadFileForMeeting(meeting,file){const target=normalizeUploadMeeting(meeting);if(!target)throw new Error('사업 보고를 확인하지 못했습니다.');const fd=new FormData();try{fd.append('file',await window.KPTURuntime.copyUploadFile(file));fd.append('meeting_id',target.id);if(target.projectId)fd.append('project_id',target.projectId);const photo=isPhotoFile(file);if(photo)for(const [key,value] of Object.entries(photoUploadFields(file,target,documentCategories())))fd.append(key,value);const d=await luUploadRequest(fd,file);if(d?.error||!d?.document)throw new Error(d?.error||'자료 업로드 응답을 확인하지 못했습니다.');if(!photo)luAiFill(d.document.id,fd);return d.document}finally{fd.delete('file')}}
 // 담당조직 상세의 자료 [+]·끌어다 놓기: 프로젝트 상세의 [+]처럼 이 올리기 창을 열고, 올라온 자료를 그 조직에 붙인다. 파일이 있으면 미리 골라 둔다.
 function luStartUploadForOrganization(org,files=[]){const button=document.querySelector('#newDocumentBtn');if(!normalizeUploadOrganization(org)||!button||luUploading)return false;button.click();luSetUploadOrg(org);const list=Array.from(files||[]);if(list.length)luSetSelectedFiles(list);return true}
 function luSetSelectedFiles(files){if(luUploading)return;luUploadEntries=Array.from(files||[]).map(file=>({file,kind:'pending',label:'선택됨'}));const input=document.querySelector('#libraryFileInput');if(input)input.value='';luRenderSelectedFiles()}

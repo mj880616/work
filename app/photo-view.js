@@ -30,11 +30,10 @@ export function openPhotoView({row, file, trigger = null, rt = window.KPTURuntim
   return showPhotoBox(shown, photoElement(row, file, 'large', {label: shown, rt}), trigger);
 }
 
-// 자료실 자료 사진(노트가 없는 자료). getUrl()은 5분짜리 한 번 쓰는 내려받기 주소(workspace-drive download-token)를 준다.
+// 자료실 자료 사진(노트가 없는 자료). getUrl()은 크게 보기 그림 주소를 준다.
 // 그릴 수 없으면 Drive에서 열기 링크로 바꾼다(photoElement와 같은 대체).
 // driveHref는 그릴 수 없을 때 보여 줄 Drive 보기 주소(file-actions.js가 계산해 넘긴다: 두 파일이 서로 부르지 않게).
-export function openDocumentPhotoView({file, getUrl, driveHref = '', trigger = null}) {
-  if (!file || typeof getUrl !== 'function' || current) return false;
+function documentPhotoBox({file, getUrl, driveHref = ''}) {
   const shown = attachmentName({file_name: file.name}, '사진');
   const box = document.createElement('span');
   box.className = 'diary-photo'; box.dataset.state = 'loading';
@@ -52,7 +51,56 @@ export function openDocumentPhotoView({file, getUrl, driveHref = '', trigger = n
   img.onload = () => { img.onload = img.onerror = null; box.dataset.state = 'shown'; };
   img.onerror = fallback;
   Promise.resolve().then(getUrl).then(url => { if (!url) throw new Error('url'); img.src = url; img.hidden = false; }, fallback);
-  return showPhotoBox(shown, box, trigger);
+  return {shown, box};
+}
+
+// ACT-사진 3단계: 사업 보고 사진 줄이 쓰는 같은 크게 보기. nav = {count, index, item(i) → {file, getUrl, driveHref}} 이 있으면 좌우 버튼과 ←/→ 키로 넘기고,
+// actions(item) → [{label, href?} | {label, run}] 이 있으면 ⋯ 메뉴(Drive에서 열기·내려받기·지우기)가 생긴다. run()이 true를 주면(지웠다) 크게 보기를 닫는다.
+export function openDocumentPhotoView({file, getUrl, driveHref = '', trigger = null, nav = null, actions = null}) {
+  if (!file || typeof getUrl !== 'function' || current) return false;
+  const first = documentPhotoBox({file, getUrl, driveHref});
+  if (!showPhotoBox(first.shown, first.box, trigger)) return false;
+  if (!nav && !actions) return true;
+  const {box} = current, stage = box.querySelector('.basket-photo-stage'), bar = box.querySelector('.basket-photo-bar');
+  const nameEl = box.querySelector('.basket-photo-name'), close = box.querySelector('[data-basket-photo-close]');
+  let index = nav ? nav.index : 0, item = nav ? nav.item(index) : {file, getUrl, driveHref};
+  const countEl = document.createElement('span'); countEl.className = 'basket-photo-count';
+  const more = document.createElement('details'); more.className = 'basket-photo-more';
+  const prev = document.createElement('button'), next = document.createElement('button');
+  for (const [b, dir, label, text] of [[prev, -1, '이전 사진', '‹'], [next, 1, '다음 사진', '›']]) {
+    b.type = 'button'; b.className = 'basket-photo-step'; b.dataset.dir = String(dir); b.setAttribute('aria-label', label); b.textContent = text;
+  }
+  const paintMenu = () => {
+    if (!actions) return;
+    more.innerHTML = '<summary class="basket-photo-more-btn" data-ctx="off" aria-label="사진 메뉴">⋯</summary><div class="basket-photo-more-panel" role="group" aria-label="사진 메뉴"></div>';
+    const panel = more.querySelector('.basket-photo-more-panel');
+    (actions(item) || []).forEach((action, i) => {
+      let el;
+      if (action.href) { el = document.createElement('a'); el.href = action.href; el.target = '_blank'; el.rel = 'noopener noreferrer'; }
+      else { el = document.createElement('button'); el.type = 'button'; el.dataset.photoAction = String(i); }
+      el.textContent = action.label; panel.append(el);
+      if (!action.href) el.addEventListener('click', async () => {
+        more.removeAttribute('open');
+        const removed = await action.run(item);
+        if (removed === true) closePhotoView();
+      });
+    });
+  };
+  const paint = (reuse = null) => {
+    item = nav ? nav.item(index) : item;
+    const made = reuse || documentPhotoBox(item);
+    stage.querySelectorAll('.diary-photo').forEach(el => el.remove());
+    stage.prepend(made.box); nameEl.textContent = made.shown; box.setAttribute('aria-label', made.shown);
+    if (nav) { countEl.textContent = `${index + 1}/${nav.count}`; prev.disabled = index <= 0; next.disabled = index >= nav.count - 1; prev.hidden = next.hidden = nav.count <= 1; }
+    paintMenu();
+  };
+  if (nav) { bar.insertBefore(countEl, close); stage.append(prev, next); }
+  if (actions) bar.insertBefore(more, close);
+  const step = dir => { if (!nav) return; const to = index + dir; if (to < 0 || to >= nav.count) return; index = to; paint(); };
+  prev.addEventListener('click', () => step(-1)); next.addEventListener('click', () => step(1));
+  box.addEventListener('keydown', e => { if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); } else if (e.key === 'ArrowRight') { e.preventDefault(); step(1); } });
+  paint(first);
+  return true;
 }
 export function closePhotoView({fromBack = false, restore = true} = {}) {
   if (!current) return;

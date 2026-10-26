@@ -1344,3 +1344,30 @@ html .doc-kind-chips button[aria-pressed="false"]{ color:var(--kptu-muted); back
 .report-photo-thumb{display:block;width:28px;height:28px;flex:none;overflow:hidden;border-radius:var(--kptu-radius-sm,3px);background:var(--kptu-surface-subtle);border:1px solid var(--kptu-border)}
 .report-photo-thumb img{display:block;width:100%;height:100%;object-fit:cover}
 .report-photo-more{font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);white-space:nowrap;margin-left:2px}
+
+/* ACT-사진 3단계: 사업 보고 상세·입력 창의 사진 줄(작은 정사각 그림, 한 줄에 넘치면 다음 줄). 크게 보기의 넘기기·⋯ 메뉴도 여기. */
+.act-photo-grid{display:flex;flex-wrap:wrap;gap:4px;margin:2px 0 4px}
+.act-photo-grid[hidden]{display:none}
+.act-photo-thumb{position:relative;display:block;flex:none;width:56px;height:56px;margin:0;padding:0;overflow:hidden;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,3px);background:var(--kptu-surface-subtle);color:var(--kptu-muted);cursor:pointer}
+.act-photo-thumb::before{content:attr(data-ext);position:absolute;inset:0;display:grid;place-items:center;font-size:11px;letter-spacing:.02em}
+.act-photo-thumb img{position:relative;display:block;width:100%;height:100%;object-fit:cover}
+.act-photo-thumb:focus-visible{outline:2px solid var(--kptu-focus,currentColor);outline-offset:1px}
+.act-photo-local{cursor:default}
+.act-photo-local[data-state-kind=pending]{opacity:.85}
+.act-photo-local[data-state-kind=uploading] img{opacity:.55}
+.act-photo-x{position:absolute;top:0;right:0;z-index:2;display:grid;place-items:center;width:22px;height:22px;margin:0;padding:0;border:0;border-bottom-left-radius:var(--kptu-radius-sm,3px);background:var(--kptu-surface);color:var(--kptu-text,inherit);font-size:15px;line-height:1;cursor:pointer;opacity:.9}
+.act-photo-x::after{content:"";position:absolute;inset:-11px}
+.act-photo-badge{position:absolute;right:2px;bottom:2px;z-index:2;min-width:16px;padding:0 3px;border-radius:8px;background:var(--kptu-surface);font-size:11px;line-height:16px;text-align:center}
+.act-photo-badge.err{color:var(--kptu-danger)}
+.mrd-photo-section .status:empty{display:none}
+.basket-photo-count{flex:none;font-size:var(--ds-text-meta,12px);opacity:.8}
+.basket-photo-step{position:absolute;top:50%;z-index:2;display:grid;place-items:center;width:44px;height:72px;margin:-36px 0 0;padding:0;border:0;border-radius:var(--ds-radius-control);background:var(--ds-photo-scrim);color:var(--ds-photo-ink);font-size:30px;line-height:1;cursor:pointer}
+.basket-photo-step[data-dir="-1"]{left:4px}
+.basket-photo-step[data-dir="1"]{right:4px}
+.basket-photo-step:disabled{opacity:.25;cursor:default}
+.basket-photo-step[hidden]{display:none}
+.basket-photo-more{position:relative;flex:none}
+.basket-photo-more-btn{display:grid;place-items:center;width:44px;height:44px;list-style:none;color:var(--ds-photo-ink);font-size:22px;line-height:1;cursor:pointer;border-radius:var(--ds-radius-control)}
+.basket-photo-more-btn::-webkit-details-marker{display:none}
+.basket-photo-more-panel{position:absolute;right:0;top:100%;z-index:3;display:flex;flex-direction:column;min-width:140px;padding:4px;border-radius:var(--ds-radius-control);background:var(--ds-photo-stage);border:1px solid var(--ds-photo-ink)}
+.basket-photo-more-panel :is(a,button){display:block;min-height:44px;padding:0 12px;border:0;background:transparent;color:var(--ds-photo-ink);font-size:var(--ds-text-row);text-align:left;text-decoration:none;line-height:44px;cursor:pointer}
