@@ -138,7 +138,7 @@ test('tg sender names: person table and room/day link table are owner-read-only,
   await t.test('merge moves links and keeps the first name and the key; forget removes the person and its links; strangers cannot touch anything',async()=>{
    const hand=await setName('room_fake_5',DAY,'A','가상 합칠사람');
    const keyedLink=await link(ROOM,DAY,'A');
-   const linksBefore=(await pool.query('select count(*)::int n from public.app_tg_day_senders')).rows[0].n;
+   const linksBefore=(await pool.query('select count(*)::int n from public.app_tg_day_senders where workspace_id=$1',[WS_A])).rows[0].n;
    await assert.rejects(stranger(c=>c.query('select public.app_tg_sender_merge($1,$2)',[hand.id,keyedLink.sender_id])),/TG_SENDER_NOT_FOUND/);
    await assert.rejects(stranger(c=>c.query('select public.app_tg_sender_forget($1)',[hand.id])),/TG_SENDER_NOT_FOUND/);
    const mineBefore=(await pool.query('select count(*)::int n from public.app_tg_senders where workspace_id=$1',[WS_A])).rows[0].n;
@@ -153,7 +153,7 @@ test('tg sender names: person table and room/day link table are owner-read-only,
    assert.equal(m.moved,1);
    assert.equal((await link('room_fake_5',DAY,'A')).sender_id,keyedLink.sender_id);
    assert.equal((await pool.query('select count(*)::int n from public.app_tg_senders where id=$1',[hand.id])).rows[0].n,0);
-   assert.equal((await pool.query('select count(*)::int n from public.app_tg_day_senders')).rows[0].n,linksBefore);
+   assert.equal((await pool.query('select count(*)::int n from public.app_tg_day_senders where workspace_id=$1',[WS_A])).rows[0].n,linksBefore);
    const kept=(await people()).find(p=>p.id===keyedLink.sender_id);assert.equal(kept.name,'가상 직접이름');assert.equal(kept.sender_key,K1);
    // keyless target takes over the key of the merged-away person
    const bare=await setName('room_fake_6',DAY,'A','');const solo=await setName('room_fake_6',DAY,'B','가상 키없음');
