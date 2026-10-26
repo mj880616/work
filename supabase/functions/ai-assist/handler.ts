@@ -1302,7 +1302,7 @@ async function readAutoRuns(ctx: Ctx, nowMs: number): Promise<AutoRunInfo> {
 
 // 재료 여섯(업데이트·노트·업무일지 한 줄·사업 보고·담당조직 기록·프로젝트 기록). 일기·보관·AI 내보내기 비허용은 읽는 조건에서 빼고 한 번 더 확인.
 // stamp는 처리 표에 적는 "본 때의 시각": 노트·사업 보고는 updated_at, 담당조직 기록은 occurred_at, 프로젝트 기록은 created_at(고친 시각 칸을 읽지 않음).
-async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log): Promise<{ sources: AutoSource[]; partial: boolean }> {
+async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log, nowMs: number): Promise<{ sources: AutoSource[]; partial: boolean }> {
   const ws = encodeURIComponent(ctx.workspaceId), since = encodeURIComponent(sinceIso);
   const sources: AutoSource[] = [];
   let partial = false;
@@ -1393,6 +1393,33 @@ async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log): Promise<{ 
     }
   } catch {
     log("ledger_auto_call_skipped");
+  }
+  // 개인 공유 캘린더 일정(CAL-승지명진참고 C-3, 설계 5절): 참고 일정 표(app_calendar_work_refs)에서 명진이 쓰기로 한(included=true) 지난(오늘 이전, 한국 날짜) 일정의 제목·날짜·시각만.
+  // 설명·장소·참석자·캘린더 ID는 표에 칸이 없고 여기서도 읽지 않는다. 표가 아직 없거나(DB 미적용) 읽기가 실패하면 이 재료만 건너뛴다. 표가 비어 있으면 아무 일도 없다.
+  // 이 재료는 근거 추가 전용이다(새 기록 금지는 parseLedgerAuto가 서버 규칙으로 막는다).
+  try {
+    const today = kstDay(nowMs);
+    const refs = await rest(ctx, `app_calendar_work_refs?workspace_id=eq.${ws}&included=is.true&day=lt.${today}&updated_at=gte.${since}&select=id,workspace_id,title,day,start_at,all_day,organization_id,updated_at&order=updated_at.desc&limit=${AUTO_READ_LIMIT}`);
+    if (Array.isArray(refs)) {
+      full(refs);
+      for (const r of refs as Record<string, unknown>[]) {
+        if (!isUuid(r.id) || String(r.workspace_id).toLowerCase() !== ctx.workspaceId || typeof r.title !== "string" || typeof r.day !== "string" || !DAY_RE.test(r.day) || r.day >= today) continue;
+        const stampAt = timeOf(r.updated_at), start = r.all_day === true ? NaN : timeOf(r.start_at);
+        if (!Number.isFinite(stampAt)) continue;
+        const when = Number.isFinite(start) ? new Date(start + 9 * 3600000).toISOString().slice(11, 16) : undefined;
+        const title = stripPhones(r.title).trim();
+        if (!title) continue;
+        const org = isUuid(r.organization_id) ? String(r.organization_id).toLowerCase() : null;
+        const orgOk = org && orgName.has(org) ? org : null;
+        sources.push({
+          kind: "calendar_ref", id: r.id.toLowerCase(), stamp: r.updated_at as string, day: r.day,
+          at: Number.isFinite(start) ? start : Date.parse(`${r.day}T00:00:00+09:00`), text: when ? `${when} ${title}` : title, when,
+          label: orgOk ? stripPhones(orgName.get(orgOk) ?? "") || undefined : undefined, organization_id: orgOk,
+        });
+      }
+    }
+  } catch {
+    log("ledger_auto_calendar_skipped");
   }
   return { sources, partial };
 }
@@ -1571,7 +1598,7 @@ async function readAutoContext(ctx: Ctx, packed: PackedAuto[], nowMs: number) {
     add(toKnown(await read(`app_ledger_records?workspace_id=eq.${ws}&id=in.(${linkedIds.slice(i, i + IN_CHUNK).join(",")})&${recentFilter}&select=${RECORD_COLS}&order=updated_at.desc&limit=${IN_CHUNK}`)));
   }
   // 통화(조직이 없거나 틀릴 수 있음): 같은 묶음 통화 날짜 앞뒤 7일에 기준일이 있는 현재유효 기록(S0·S1)도 같은 상한 안에서 보낸다(설계 2.3-1). 조직이 맞는 기록이 먼저.
-  const callDays = packed.filter((s) => s.kind === "call").map((s) => s.day).sort();
+  const callDays = packed.filter((s) => s.kind === "call" || s.kind === "calendar_ref").map((s) => s.day).sort();
   if (callDays.length && related.length < AUTO_KNOWN_RECORDS) {
     const shift = (day: string, d: number) => new Date(Date.parse(day + "T00:00:00Z") + d * 86400000).toISOString().slice(0, 10);
     add(toKnown(await read(`app_ledger_records?workspace_id=eq.${ws}&validity=eq.current&kind=in.(event,decision,commitment)&scope=eq.work&sensitivity=in.(S0,S1)&date_start=gte.${shift(callDays[0], -CALL_KNOWN_DAYS)}&date_start=lte.${shift(callDays[callDays.length - 1], CALL_KNOWN_DAYS)}&select=${RECORD_COLS}&order=updated_at.desc&limit=${AUTO_KNOWN_RECORDS}`)));
@@ -1614,7 +1641,7 @@ async function runLedgerAuto(ctx: Ctx, deps: RadarDeps): Promise<Response> {
   }
   const runs = await readAutoRuns(ctx, started);
   if (runs.runsToday >= DAILY_LIMITS.ledger_auto) throw new Fail(429, "daily_limit");
-  const loaded = await loadAutoSources(ctx, new Date(runs.floorMs).toISOString(), deps.log);
+  const loaded = await loadAutoSources(ctx, new Date(runs.floorMs).toISOString(), deps.log, started);
   const fresh = await unseenSources(ctx, loaded.sources);
   const packedResult = packAuto(fresh);
   const packed = packedResult.packed;
@@ -1685,7 +1712,7 @@ async function runLedgerAuto(ctx: Ctx, deps: RadarDeps): Promise<Response> {
     }
     const counts = Object.fromEntries(["sources_seen", "records_new", "changes_linked", "sources_added", "needs_check", "skipped", "excluded"]
       .map((k) => [k, tokenCount(o[k])]));
-    deps.log("ledger_auto_done", { ...counts, items: parsed.items.length, outdated: parsed.outdated.length, dropped: parsed.dropped, reference: parsed.reference, partial });
+    deps.log("ledger_auto_done", { ...counts, items: parsed.items.length, outdated: parsed.outdated.length, dropped: parsed.dropped, reference: parsed.reference, calendar_new: parsed.calendar_new, partial });
     return json({ ok: true, kind: "ledger_auto", run_id: runId, ...counts, partial });
   } catch (e) {
     await failAutoRun(ctx, runId, e instanceof Fail ? `LEDGER_AUTO_${e.code.toUpperCase()}`.slice(0, 80) : "LEDGER_AUTO_ERROR", used, deps.now(), deps.log);
