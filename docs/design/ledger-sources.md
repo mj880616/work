@@ -308,6 +308,7 @@ W-2는 W-3보다 먼저 들어가야 비교 기준이 쌓인다(W-3 배포 전�
 C-3과 C-4는 둘 다 C-1 위에서. C-3을 먼저 배포해도 표가 비어 있어 아무 일도 없다.
 
 - 구현 메모(C-3, 2026-10-26): `ai-assist`는 참고 일정 표에서 `included=true`·`day<오늘(한국)`·처리 시작 이후 고쳐진 행의 `title`·`day`·`start_at`·`all_day`·`organization_id`만 읽는다(표가 없거나 읽기 실패면 이 재료만 건너뜀, 비어 있으면 아무 일 없음). 재료 글은 `HH:MM 제목`(종일은 제목만), 최소 민감도 S1, 출처 제목 `Web2 개인 공유 캘린더 <날짜> <HH:MM>`(일정 제목·조직 없음), `doc_type=other`. 서버 규칙: 이 재료에서 나온 `new`·`change` 항목은 버리고 개수만 센다(`calendar_new`, 같은 제목이 이미 있는 기록이면 `add_source`로 바꿈), `outdated`(확인필요 표시)도 이 재료에는 허용하지 않는다. 같은 묶음 `known_records`는 통화와 같이 일정 날짜 앞뒤 7일 기준일 기록을 더한다.
+- 구현 메모(C-2, 2026-10-26): `google-calendar`의 `events`는 `onlyCalendarId`(1~200자, 제어문자 없음) 인자를 받으면 저장된 캘린더 목록 대신 그 캘린더 하나만 읽는다(저장·변경 없음, 기존 `calendarId` 인자는 여전히 무시). 일정 모양에는 `mine`(`creator.self === true`일 때만 true) 한 칸이 늘었고 만든 사람·주최자·참석자는 돌려주지 않는다. 시험: `tests/security/google-calendar-edge-mine.test.mjs`.
 
 ---
 
