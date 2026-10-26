@@ -51,6 +51,9 @@ import {
   LEDGER_AUTO_INSTRUCTIONS, LEDGER_AUTO_SCHEMA, packAuto, type PackedAuto, parseLedgerAuto, sendable, sourceKey, web2Location,
 } from "./ledger-auto.ts";
 import {
+  WEEKLY_CATEGORY, WEEKLY_FROM_ISO, WEEKLY_MAX_DOCS, compareWeekly, issuedBaseline, weeklyLines, weeklyMaterial,
+} from "./ledger-weekly.ts";
+import {
   BRIEF_HASH, briefHash, cleanBrief, RECORD_SUMMARY_RULE, LIBRARY_BRIEF_BACKFILL_UNTIL, type DocRow, fillableFields, LIBRARY_FIELDS, LIBRARY_FILL_INSTRUCTIONS, LIBRARY_FILL_SCHEMA, LIBRARY_FILL_WINDOW_MS,
   LIBRARY_MAX_OUTPUT_TOKENS, LIBRARY_PROPOSE_BATCH, legacyUserFields, type LibraryField, libraryMaterial, type LinkOptions, type MaterialFile,
   NO_LINKS, openLinkFields, organizationOptions, type OriginField, parseLibraryFill, projectOptions, proposalsFor, readOrigin, upgradeTextFields,
@@ -1302,9 +1305,10 @@ async function readAutoRuns(ctx: Ctx, nowMs: number): Promise<AutoRunInfo> {
 
 // 재료 여섯(업데이트·노트·업무일지 한 줄·사업 보고·담당조직 기록·프로젝트 기록). 일기·보관·AI 내보내기 비허용은 읽는 조건에서 빼고 한 번 더 확인.
 // stamp는 처리 표에 적는 "본 때의 시각": 노트·사업 보고는 updated_at, 담당조직 기록은 occurred_at, 프로젝트 기록은 created_at(고친 시각 칸을 읽지 않음).
-async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log): Promise<{ sources: AutoSource[]; partial: boolean }> {
+async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log): Promise<{ sources: AutoSource[]; stampOnly: AutoSource[]; partial: boolean }> {
   const ws = encodeURIComponent(ctx.workspaceId), since = encodeURIComponent(sinceIso);
   const sources: AutoSource[] = [];
+  const stampOnly: AutoSource[] = [];
   let partial = false;
   const full = (rows: unknown[], limit = AUTO_READ_LIMIT) => { if (rows.length >= limit) partial = true; };
 
@@ -1394,7 +1398,78 @@ async function loadAutoSources(ctx: Ctx, sinceIso: string, log: Log): Promise<{ 
   } catch {
     log("ledger_auto_call_skipped");
   }
-  return { sources, partial };
+
+  // 주간보고 개인본(WEEKLY-개인본대조 W-3, 설계 4절). 통화처럼 실패해도 자동 기록 전체는 돈다(개인본만 건너뜀).
+  try {
+    const w = await loadWeeklySources(ctx, sinceIso, log);
+    sources.push(...w.sources);
+    stampOnly.push(...w.stampOnly);
+    if (w.partial) partial = true;
+  } catch {
+    log("ledger_auto_weekly_skipped");
+  }
+  return { sources, stampOnly, partial };
+}
+
+// 자료실 분류 "주간보고 개인본"의 글자를 읽은(extraction_status=ready) 자료 중 켠 날 이후·처리 표에 없거나 글자를 다시 읽은 것.
+// 비교 기준: 그 주에 이미 올린 앞 개인본(있으면, 설계 2.3) → 없으면 받은 초안 기록(app_weekly_exec_requests.draft.issued). 둘 다 없거나 비교가 믿을 수 없으면
+// AI에 보내지 않고 처리 표에만 적는다(stampOnly). 읽기 실패(5xx 등)는 던져서 이번 실행에서 개인본만 건너뛴다(적지 않음).
+async function loadWeeklySources(ctx: Ctx, sinceIso: string, log: Log): Promise<{ sources: AutoSource[]; stampOnly: AutoSource[]; partial: boolean }> {
+  const ws = encodeURIComponent(ctx.workspaceId);
+  const from = encodeURIComponent(new Date(Math.max(Date.parse(sinceIso), Date.parse(WEEKLY_FROM_ISO))).toISOString());
+  const cat = encodeURIComponent(WEEKLY_CATEGORY);
+  const docs = await rest(ctx, `app_documents?workspace_id=eq.${ws}&category=eq.${cat}&extraction_status=eq.ready&extracted_at=gte.${from}&select=id,workspace_id,document_date,extracted_text,extracted_at,created_at&order=extracted_at.asc&limit=${WEEKLY_MAX_DOCS}`);
+  const out = { sources: [] as AutoSource[], stampOnly: [] as AutoSource[], partial: Array.isArray(docs) && docs.length >= WEEKLY_MAX_DOCS };
+  if (!Array.isArray(docs) || !docs.length || !await callKindReady(ctx)) return out;
+  const issuedCache = new Map<string, string[] | null>();
+  const weekDocsCache = new Map<string, Record<string, unknown>[]>();
+  for (const d of docs as Record<string, unknown>[]) {
+    const extractedAt = timeOf(d.extracted_at);
+    if (!isUuid(d.id) || String(d.workspace_id).toLowerCase() !== ctx.workspaceId || typeof d.document_date !== "string" || !DAY_RE.test(d.document_date) || !Number.isFinite(extractedAt)) continue;
+    const day = d.document_date, id = d.id.toLowerCase();
+    const base: AutoSource = { kind: "weekly_personal", id, stamp: d.extracted_at as string, day, at: extractedAt, text: "" };
+    const lines = weeklyLines(typeof d.extracted_text === "string" ? d.extracted_text : "");
+    // 기준 1: 같은 주 앞 개인본(만든 시각이 더 이른 것 중 가장 늦은 것, 읽을 수 있는 줄이 있는 것).
+    if (!weekDocsCache.has(day)) {
+      weekDocsCache.set(day, await readList(ctx, `app_documents?workspace_id=eq.${ws}&category=eq.${cat}&document_date=eq.${day}&extraction_status=eq.ready&select=id,workspace_id,extracted_text,created_at&order=created_at.asc&limit=20`));
+    }
+    const myCreated = timeOf(d.created_at);
+    let prev: { id: string; lines: string[] } | null = null;
+    for (const p of weekDocsCache.get(day) ?? []) {
+      if (!isUuid(p.id) || String(p.workspace_id).toLowerCase() !== ctx.workspaceId || p.id.toLowerCase() === id) continue;
+      const pc = timeOf(p.created_at);
+      if (!(pc < myCreated || (pc === myCreated && p.id.toLowerCase() < id))) continue;
+      const pl = weeklyLines(typeof p.extracted_text === "string" ? p.extracted_text : "").map((l) => l.text);
+      if (pl.length) prev = { id: p.id.toLowerCase(), lines: pl };
+    }
+    let baseline: string[] | null = prev?.lines ?? null;
+    if (!baseline) {
+      if (!issuedCache.has(day)) {
+        let issued: string[] | null = null;
+        try {
+          const rows = await rest(ctx, `app_weekly_exec_requests?workspace_id=eq.${ws}&week_start=eq.${day}&select=draft&limit=1`);
+          issued = Array.isArray(rows) && rows[0] ? issuedBaseline((rows[0] as Record<string, unknown>).draft) : null;
+        } catch (e) {
+          // 칸·표가 아직 없는 DB(400·404)는 기준 없음. 그 밖의 오류는 이번 실행에서 개인본을 건너뛴다.
+          if (!["rest_400", "rest_404"].includes((e as Error)?.message)) throw e;
+        }
+        issuedCache.set(day, issued);
+      }
+      baseline = issuedCache.get(day) ?? null;
+    }
+    const cmp = baseline ? compareWeekly(lines, baseline) : null;
+    if (!cmp || !cmp.ok) {
+      // 로그에는 이유와 개수만(개인본 글 없음).
+      log("ledger_auto_weekly_compare", { reason: cmp ? cmp.reason : "no_baseline", total: cmp ? cmp.total : lines.length, changed: cmp ? cmp.changed : 0 });
+      out.stampOnly.push(base);
+      continue;
+    }
+    if (!cmp.diffs.length) { out.stampOnly.push(base); continue; }
+    const m = weeklyMaterial(cmp.diffs);
+    if (m.partial) out.partial = true;
+    out.sources.push({ ...base, text: m.text, struggle: m.struggle, prevId: prev?.id ?? null });
+  }
+  return out;
 }
 
 // CALL-손고치기: 사용자 값 모음 vals(키 title·points·organization_id만 재료로 쓴다. 상대 표기는 재료에 안 쓴다). 읽기 실패·표 없음은 빈 모음.
@@ -1522,6 +1597,12 @@ async function readAutoContext(ctx: Ctx, packed: PackedAuto[], nowMs: number) {
       }
     } catch { /* 겹침 확인은 덤이다: 못 읽어도 자동 기록은 그대로 돈다 */ }
   }
+  // 같은 주 앞 개인본(설계 2.3): 앞 개인본에서 이미 뽑은 기록을 이번 개인본의 already로 함께 받는다.
+  for (const s of packed) {
+    if (s.kind !== "weekly_personal" || !s.prevId) continue;
+    const loc = `web2:weekly_personal:${s.prevId}`;
+    twinKeys.set(loc, [...(twinKeys.get(loc) ?? []), sourceKey(s)]);
+  }
   const locs = [...new Set([...packed.map((s) => web2Location(s)), ...twinKeys.keys()])];
   const srcByLoc = new Map<string, string>();
   for (let i = 0; i < locs.length; i += IN_CHUNK) {
@@ -1571,7 +1652,7 @@ async function readAutoContext(ctx: Ctx, packed: PackedAuto[], nowMs: number) {
     add(toKnown(await read(`app_ledger_records?workspace_id=eq.${ws}&id=in.(${linkedIds.slice(i, i + IN_CHUNK).join(",")})&${recentFilter}&select=${RECORD_COLS}&order=updated_at.desc&limit=${IN_CHUNK}`)));
   }
   // 통화(조직이 없거나 틀릴 수 있음): 같은 묶음 통화 날짜 앞뒤 7일에 기준일이 있는 현재유효 기록(S0·S1)도 같은 상한 안에서 보낸다(설계 2.3-1). 조직이 맞는 기록이 먼저.
-  const callDays = packed.filter((s) => s.kind === "call").map((s) => s.day).sort();
+  const callDays = packed.filter((s) => s.kind === "call" || s.kind === "weekly_personal").map((s) => s.day).sort();
   if (callDays.length && related.length < AUTO_KNOWN_RECORDS) {
     const shift = (day: string, d: number) => new Date(Date.parse(day + "T00:00:00Z") + d * 86400000).toISOString().slice(0, 10);
     add(toKnown(await read(`app_ledger_records?workspace_id=eq.${ws}&validity=eq.current&kind=in.(event,decision,commitment)&scope=eq.work&sensitivity=in.(S0,S1)&date_start=gte.${shift(callDays[0], -CALL_KNOWN_DAYS)}&date_start=lte.${shift(callDays[callDays.length - 1], CALL_KNOWN_DAYS)}&select=${RECORD_COLS}&order=updated_at.desc&limit=${AUTO_KNOWN_RECORDS}`)));
@@ -1615,7 +1696,8 @@ async function runLedgerAuto(ctx: Ctx, deps: RadarDeps): Promise<Response> {
   const runs = await readAutoRuns(ctx, started);
   if (runs.runsToday >= DAILY_LIMITS.ledger_auto) throw new Fail(429, "daily_limit");
   const loaded = await loadAutoSources(ctx, new Date(runs.floorMs).toISOString(), deps.log);
-  const fresh = await unseenSources(ctx, loaded.sources);
+  const fresh = await unseenSources(ctx, [...loaded.sources, ...loaded.stampOnly]);
+  const stampOnly = fresh.filter((s) => s.kind === "weekly_personal" && !s.text);
   const packedResult = packAuto(fresh);
   const packed = packedResult.packed;
   const partial = loaded.partial || packedResult.partial;
@@ -1669,7 +1751,7 @@ async function runLedgerAuto(ctx: Ctx, deps: RadarDeps): Promise<Response> {
       deps.log("ai_invalid_response");
       throw new Fail(502, "ai_invalid_response");
     }
-    const batch = buildAutoBatch(parsed, packed, context.orgBySuborg, used);
+    const batch = buildAutoBatch(parsed, packed, context.orgBySuborg, used, stampOnly);
     let out: unknown;
     try {
       out = await ledgerRpc(ctx, "app_auto_ledger_record", { p_run_id: runId, p_batch: batch });
