@@ -500,8 +500,8 @@ test('텔레그램 AI 실패·시간 초과·형식 틀림·없는 참조면 아
     ()=>{const e=new Error('t');e.name='TimeoutError';throw e;},
     ()=>respond({status:'completed',output:[{type:'message',content:[{type:'output_text',text:'not json'}]}],usage:{input_tokens:10,output_tokens:5}}),
     ()=>respond(openaiOk([{title:'t',summary:'요약',refs:['m9'],organization:'',project:''}])),
-    ()=>respond(openaiOk([{title:'t',summary:'요약',refs:['m1'],organization:'o9',project:''}])),
-    ()=>respond(openaiOk([{title:'t',summary:'요약',refs:['m1'],organization:'',project:'',extra:'x'}])),
+    ()=>respond({status:'incomplete',incomplete_details:{reason:'max_output_tokens'},output:[{type:'reasoning',summary:[]}],usage:{input_tokens:5000,output_tokens:1500}}),
+    ()=>respond(openaiOk('items-not-array')),
     ()=>respond({status:'completed',output:[{type:'message',content:[{type:'refusal',refusal:'no'}]}]}),
   ];
   for(const reply of bad){
@@ -537,12 +537,60 @@ test('텔레그램 한 달 상한 6,000원(이 기능만 따로)과 하루 묶�
   r=await h.send('telegram',tgBody());assert.equal(r.status,429);assert.equal(h.calls.openai.length,0);
 });
 
-test('AI 답 검사: 요약 제어 문자 제거·길이 자르기, 참조 중복 거절',()=>{
+test('AI 답 검사: 요약 제어 문자 제거·길이 자르기, 참조 중복은 하나로',()=>{
   const o=[{ref:'o1',id:ORG,name:'가상'}];
-  const items=parseTelegram(JSON.stringify({items:[{title:'제목\u0007',summary:'가'.repeat(500),refs:['m2','m1'],organization:'o1',project:''}]}),2,o,[]);
-  assert.equal([...items[0].summary].length,400);assert.equal(items[0].title,'제목');assert.deepEqual(items[0].refs,[0,1]);
-  assert.equal(parseTelegram(JSON.stringify({items:[{title:'',summary:'x',refs:['m1','m1'],organization:'',project:''}]}),2,o,[]),null);
-  assert.equal(parseTelegram(JSON.stringify({items:[],more:1}),2,o,[]),null);
+  const r=parseTelegram(JSON.stringify({items:[{title:'제목\u0007',summary:'가'.repeat(500),refs:['m2','m1','m1'],organization:'o1',project:''}]}),2,o,[]);
+  const items=r.items;
+  assert.equal([...items[0].summary].length,400);assert.equal(items[0].title,'제목');assert.deepEqual(items[0].refs,[0,1]);assert.equal(r.dropped,0);
+  assert.equal(parseTelegram(JSON.stringify({items:[{title:'',summary:'x',refs:['m9'],organization:'',project:''}]}),2,o,[]),null,'항목이 전부 틀리면 응답이 깨진 것');
+  assert.equal(parseTelegram('{"x":1}',2,o,[]),null);assert.equal(parseTelegram('[]',2,o,[]),null);assert.equal(parseTelegram(null,2,o,[]),null);
+  assert.deepEqual(parseTelegram(JSON.stringify({items:[]}),2,o,[]),{items:[],dropped:0,unlinked:0});
+});
+
+test('AI 답 검사(TG-소식멈춤3): 모르는 조직·프로젝트 참조는 연결만 비우고, 틀린 항목만 뺀다',()=>{
+  const o=[{ref:'o1',id:ORG,name:'가상'}],p=[{ref:'p1',id:PROJECT,name:'가상'}];
+  const good={title:'좋은 소식',summary:'요약 하나',refs:['m1'],organization:'o1',project:'p1'};
+  const r=parseTelegram(JSON.stringify({items:[
+    {...good,organization:'o9',project:'p9'},          // 모르는 연결 → 연결만 비움
+    {...good,refs:['m9','m1']},                          // 없는 참조만 버림
+    {...good,summary:''},                                // 요약 없음 → 항목 빠짐
+    {...good,refs:[]},                                   // 근거 없음 → 항목 빠짐
+    'not-an-object',                                     // 모양 틀림 → 항목 빠짐
+    {...good,extra:'x'},                                 // 모르는 칸은 무시
+    good,
+  ]}),2,o,p);
+  assert.equal(r.items.length,4);assert.equal(r.dropped,3);assert.equal(r.unlinked,1);
+  assert.equal(r.items[0].organization_id,null);assert.equal(r.items[0].suggested_project_id,null);
+  assert.deepEqual(r.items[1].refs,[0]);assert.equal(r.items[3].organization_id,ORG);assert.equal(r.items[3].suggested_project_id,PROJECT);
+  // 13개 이상이면 12개까지만 받고 나머지는 빠진 수로 센다
+  const many=parseTelegram(JSON.stringify({items:Array.from({length:14},()=>good)}),2,o,p);
+  assert.equal(many.items.length,12);assert.equal(many.dropped,2);
+});
+
+test('TG-소식멈춤3 재현: 생각 토큰이 출력 상한을 다 쓰면 답이 잘린다 → 생각 여유를 더해 보내면 통과',async()=>{
+  const {AI_REASONING_TOKEN_HEADROOM}=await import('../../supabase/functions/_shared/ai-model.ts');
+  const REASONING_USED=1800; // 15개 묶음에서 생각이 1500을 넘게 쓰는 상황을 흉내낸다(운영 실패 재현)
+  const sim=(init)=>{const body=JSON.parse(init.body);
+    if(body.max_output_tokens<REASONING_USED+300)return respond({status:'incomplete',incomplete_details:{reason:'max_output_tokens'},output:[{type:'reasoning',summary:[]}],usage:{input_tokens:5000,output_tokens:body.max_output_tokens}});
+    return respond(openaiOk([{title:'교섭 일정 변경',summary:'가상지부 교섭이 미뤄졌다.',refs:['m1'],organization:'',project:''}]));};
+  const h=harness({openai:[sim]});const r=await h.send('telegram',tgBody());
+  assert.equal(r.status,200,'생각 여유가 있으면 incomplete가 나지 않는다');assert.equal(h.db.app_feed_items.length,1);
+  assert.equal(h.calls.openai[0].max_output_tokens,1500+AI_REASONING_TOKEN_HEADROOM);
+  assert.deepEqual(h.calls.openai[0].reasoning,{effort:'low'});
+  // 그래도 잘리면 저장하지 않고 502, 로그에는 AI_INCOMPLETE 단계 코드만 남는다
+  const cut=harness({openai:[()=>respond({status:'incomplete',incomplete_details:{reason:'max_output_tokens'},output:[{type:'reasoning',summary:[]}],usage:{input_tokens:5000,output_tokens:3000}})]});
+  const rc=await cut.send('telegram',tgBody());assert.equal(rc.status,502);assert.equal((await rc.json()).error,'AI_INVALID_RESPONSE');
+  assert.equal(cut.db.app_feed_items.length,0);assert.match(cut.calls.logs.join('\n'),/AI_INCOMPLETE/);
+});
+
+test('TG-소식멈춤3: 항목 일부가 틀려도 나머지는 저장하고 빠진 수만 기록한다',async()=>{
+  const ok={title:'소식',summary:'가상 소식 요약',refs:['m1','m2'],organization:'o9',project:'p9'};
+  const h=harness({openai:[()=>respond(openaiOk([ok,{...ok,summary:''},{...ok,refs:['m3'],organization:'o1'}]))]});
+  const r=await h.send('telegram',tgBody());const j=await r.json();
+  assert.equal(r.status,200);assert.equal(j.kept,2);assert.equal(h.db.app_feed_items.length,2);
+  assert.equal(h.db.app_feed_items[0].organization_id,null);assert.equal(h.db.app_feed_items[0].suggested_project_id,null);
+  assert.equal(h.day(TODAY,'telegram').kept_count,2);
+  const logs=h.calls.logs.join('\n');assert.match(logs,/telegram_items_adjusted/);assert.doesNotMatch(logs,/가상 소식 요약/);
 });
 
 // ---- 로그·원문·소스 -----------------------------------------------------------------------------------------------
