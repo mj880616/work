@@ -254,3 +254,24 @@
 #meetingRoundDetailModal .ai-summary-proposal p { margin:4px 0; }
 #meetingRoundDetailModal .ai-summary-proposal-label { color:var(--kptu-muted); font-size:var(--kptu-text-meta,13px); }
 #meetingRoundDetailModal .ai-summary-proposal-text { white-space:pre-wrap; overflow-wrap:anywhere; }
+
+/* MTG-후속할일후보: 후속 할 일 칸의 [후속 할 일 만들기]는 작고 낮은 보조 버튼(공용 작은 버튼 값, 누르는 범위 44px은 button.mini::after)이고,
+   후보 줄은 정리함 [챙길 것]과 같은 부품(.inbox-todo-*)이라 정리함 화면(basket.css)과 같은 값으로 이 창 안에서만 그린다. */
+#meetingRoundDetailModal .mrd-make-todos{box-sizing:border-box;width:auto;min-width:0;flex:none;margin:0 0 0 auto;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);padding:0 var(--ds-compact-pad-x,12px);font-size:var(--ds-compact-text,13px);line-height:1;white-space:nowrap}
+#meetingRoundDetailModal .mrd-make-todos:disabled{opacity:.6;cursor:default}
+#meetingRoundDetailModal #mrdTodoLine:empty{display:none}
+#meetingRoundDetailModal #mrdTodoLine[data-state="error"]{color:var(--kptu-danger)}
+#meetingRoundDetailModal .mrd-todo-cand:not([hidden]){display:block;margin:0 0 var(--kptu-space-2)}
+#meetingRoundDetailModal .mrd-todo-cand .inbox-todo-list{display:flex;flex-direction:column;margin:0;padding:0;list-style:none}
+#meetingRoundDetailModal .mrd-todo-cand .inbox-todo-row{display:flex;flex-direction:column;gap:2px;min-width:0;padding:8px 0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+#meetingRoundDetailModal .mrd-todo-cand .inbox-todo-row:first-child{border-top:0}
+#meetingRoundDetailModal .mrd-todo-cand .inbox-todo-line{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
+#meetingRoundDetailModal .mrd-todo-cand .inbox-todo-text{display:flex;flex-direction:column;flex:1 1 12em;min-width:0}
+#meetingRoundDetailModal .mrd-todo-cand .inbox-todo-summary{font-size:14px;line-height:1.5;color:var(--kptu-ink);overflow-wrap:anywhere}
+#meetingRoundDetailModal .mrd-todo-cand :is(.inbox-todo-meta,.inbox-todo-status,.inbox-todo-empty,.inbox-todo-done){margin:0;font-size:var(--ds-text-meta,12px);line-height:1.5;color:var(--kptu-muted);overflow-wrap:anywhere}
+#meetingRoundDetailModal .mrd-todo-cand .inbox-todo-status:empty{display:none}
+#meetingRoundDetailModal .mrd-todo-cand .inbox-todo-actions{display:inline-flex;flex:0 0 auto;gap:8px;margin-left:auto}
+#meetingRoundDetailModal .mrd-todo-cand .inbox-todo-below{display:flex;gap:8px;margin-top:2px}
+#meetingRoundDetailModal .mrd-todo-cand button.inbox-todo-btn{position:relative;box-sizing:border-box;width:auto;min-width:0;height:var(--ds-compact-height,32px);min-height:0;margin:0;padding:0 var(--ds-compact-pad-x,12px);font:inherit;font-size:var(--ds-compact-text,13px);line-height:1;white-space:nowrap;color:var(--kptu-ink);background:var(--kptu-surface);border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-radius:var(--kptu-radius-md);cursor:pointer}
+#meetingRoundDetailModal .mrd-todo-cand button.inbox-todo-btn:disabled{opacity:.6;cursor:default}
+#meetingRoundDetailModal .mrd-todo-cand button.inbox-todo-btn::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}

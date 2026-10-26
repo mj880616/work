@@ -122,3 +122,52 @@ test('JOURNAL-챙길것화면: home read (open + handled since), ✓ due rule, �
   assert.deepEqual(mod.dueChoices(row(),'2026-10-21','2026-10-22').map(o=>o.key),['today','tomorrow','none']);
   assert.equal(mod.dotDay('2026-10-09'),'10.9');assert.equal(mod.dotDay('2026-10-23T00:00:00.000Z'),'10.23');assert.equal(mod.dotDay(''),'');
 });
+
+// MTG-후속할일후보: 사업 보고 하나 뽑기(screen side). Synthetic IDs only.
+test('findMeetingTodos sends only {kind,mode,meeting_id} and reads the added count',async()=>{
+  const seen=[];const {rt}=fakeRt();
+  const meeting=id(40).toUpperCase().replace(/-/g,m=>m);
+  const r=await mod.findMeetingTodos(meeting,{rt,online:()=>true,fetcher:async(url,init)=>{seen.push({url,init});return new Response(JSON.stringify({ok:true,kind:'todo_radar',added:2,found:2,partial:false,checked_at:null,promises:[]}),{status:200});}});
+  assert.deepEqual(r,{ok:true,added:2});
+  assert.deepEqual(JSON.parse(seen[0].init.body),{kind:'todo_radar',mode:'meeting',meeting_id:id(40)});
+  assert.equal(seen[0].init.headers.Authorization,'Bearer token-fixture');
+  for(const bad of ['',null,'x',id(40)+'x'])assert.equal((await mod.findMeetingTodos(bad,{rt})).code,'invalid_request');
+});
+
+test('findMeetingTodos: limits, a missing meeting and odd answers map to plain words',async()=>{
+  const {rt}=fakeRt();const ask=f=>mod.findMeetingTodos(id(40),{rt,online:()=>true,fetcher:f});
+  assert.match((await ask(reply(429,{ok:false,error:'daily_limit'}))).message,/횟수/);
+  assert.match((await ask(reply(404,{ok:false,error:'not_found'}))).message,/찾거나 열 수 없어요/);
+  assert.match((await ask(reply(409,{ok:false,error:'in_progress'}))).message,/찾는 중/);
+  assert.equal((await ask(reply(200,{ok:true,kind:'todo_radar',added:-1}))).code,'ai_invalid_response');
+  assert.equal((await ask(reply(200,{ok:true,kind:'todo_radar',added:'2'}))).code,'ai_invalid_response');
+  assert.equal((await ask(async()=>{throw new TypeError('Failed to fetch');})).code,'not_ready');
+});
+
+test('readMeetingCandidates reads only that meeting\'s rows from the same table; no meeting id reads nothing; a missing table hides quietly',async()=>{
+  const {rt,calls}=fakeRt({api:async()=>[row({source_kind:'meeting',source_id:id(40)}),{...row(),id:'x'}]});
+  const r=await mod.readMeetingCandidates(id(40).toUpperCase(),rt);
+  assert.equal(r.ok,true);assert.equal(r.rows.length,1);
+  assert.match(calls[0].path,/\/rest\/v1\/app_todo_candidates\?workspace_id=eq\.w&source_kind=eq\.meeting&source_id=eq\./);
+  assert.ok(calls[0].path.includes('source_id=eq.'+id(40)),'lower-case id');
+  const none=fakeRt({api:async()=>{throw new Error('must not read');}});
+  assert.deepEqual(await mod.readMeetingCandidates('',none.rt),{ok:true,rows:[]});assert.equal(none.calls.length,0);
+  const missing=fakeRt({api:async()=>{const e=new Error('relation does not exist');e.status=404;throw e;}});
+  assert.deepEqual(await mod.readMeetingCandidates(id(40),missing.rt),{missing:true});
+});
+
+test('the 사업 보고 window uses the 정리함 list part and the existing task path; nothing is kept in the browser',async()=>{
+  const {readFile}=await import('node:fs/promises');
+  const read=name=>readFile(new URL(`../app/${name}`,import.meta.url),'utf8');
+  const [box,inbox,detail,css]=await Promise.all([read('meeting-todo-candidates.js'),read('inbox-todos.js'),read('meeting-round-detail.js'),read('meeting-ui.css')]);
+  assert.match(box,/mountInboxTodos\(host,/);assert.match(box,/findMeetingTodos\(id\)/);
+  // [할 일로] is the inbox's own: the one Google task create path, then the row is marked.
+  assert.match(inbox,/candidateToTask\(c, draft\)/);assert.doesNotMatch(box,/createGoogleTask|candidateToTask|app_todo_candidates/);
+  // The button never creates a task: it only asks the server for candidates, then tells the lists to read again.
+  assert.match(box,/kptu:todo-radar-changed/);
+  assert.match(detail,/id="mrdMakeTodos"/);assert.match(detail,/mountMeetingTodos\(/);assert.match(detail,/mrdTodos\?\.open\(\)/);assert.match(detail,/mrdTodos\?\.close\(\)/);
+  assert.match(css,/\.mrd-make-todos\{/);
+  const store=['local','Storage'].join(''),session=['session','Storage'].join(''),idb=['indexed','DB'].join('');
+  for(const text of [box,inbox])assert.doesNotMatch(text,new RegExp([store,session,idb].join('|')));
+  assert.doesNotMatch(css.slice(css.indexOf('MTG-후속할일후보')),/#[0-9a-fA-F]{3,8}\b|rgba?\(/);
+});
