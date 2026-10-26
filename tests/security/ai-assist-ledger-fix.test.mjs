@@ -123,15 +123,15 @@ test('ledger_fix: add with org link and topic; change needs an event from the li
 
 function ctxOf(){
   const r=(ledger_id,kind,extra={})=>({ledger_id,kind,title:'가상 '+ledger_id,summary:'',validity:'current',sensitivity:'S1',date_start:null,date_precision:'unknown',event_status:null,decision_type:null,counterparty:null,commitment_status:null,follow_up_on:null,importance:'normal',...extra});
-  const list=[r('EVT-0901','event'),r('EVT-0902','event',{sensitivity:'S2'}),r('COM-0901','commitment'),r('DEC-0901','decision'),r('EVT-0905','event',{validity:'retired'})];
+  const list=[r('EVT-0901','event'),r('EVT-0902','event',{sensitivity:'S2'}),r('COM-0901','commitment'),r('DEC-0901','decision'),r('EVT-0905','event',{validity:'retired'}),r('EVT-0906','event',{sensitivity:'S3'})];
   return {today:TODAY,target:null,records:new Map(list.map(x=>[x.ledger_id,x])),orgs:new Set(['ORG-0901']),topics:new Set(['TOP-0901'])};
 }
 
-test('ledger_fix: the AI answer is untrusted — unknown ids, wrong fields for the kind, bad values, S2/retired targets and duplicates are dropped',()=>{
+test('ledger_fix: the AI answer is untrusted — unknown ids, wrong fields for the kind, bad values, retired or S3-like targets and duplicates are dropped',()=>{
   const bad=[
     item({target:'EVT-8888'}),
-    item({target:'EVT-0902'}),
     item({target:'EVT-0905'}),
+    item({target:'EVT-0906'}),
     item({changes:[{field:'counterparty',value:'가 사측'}]}),
     item({changes:[{field:'date_start',value:'2026-13-40'}]}),
     item({changes:[{field:'date_start',value:'2099-01-01'}]}),
@@ -162,10 +162,31 @@ test('ledger_fix: the AI answer is untrusted — unknown ids, wrong fields for t
   for(const t of ['{','[]','{"items":[]}','{"items":[],"question":"","x":1}',null])assert.equal(fix.parseLedgerFix(t,ctxOf()),null,String(t));
 });
 
-test('ledger_fix: target from the record ⋯ [고치기] — must exist in my workspace, be live, not S2; S2 never reaches the AI',async()=>{
+test('ledger_fix: target from the record ⋯ [고치기] — must exist in my workspace and be live; an S2 target goes to the AI (2026-10-26), S2 titles never enter the list',async()=>{
   {const {handler,calls}=harness();const res=await post(handler,{kind:'ledger_fix',text:'날짜를 11/5로',target:'EVT-0901'});assert.equal(res.status,200);
    const m=JSON.parse(calls.openai[0].input[1].content);assert.equal(m.target.id,'EVT-0901');assert.equal(m.target.date_start,'2026-11-04');assert.ok(!m.known_records.some(r=>r.id==='EVT-0901'));}
-  {const {handler,calls}=harness();await err(await post(handler,{kind:'ledger_fix',text:'고쳐 줘',target:'EVT-0902'}),422,'ledger_fix_sensitive');assert.equal(calls.openai.length,0);}
+  // S2 (교섭·전략) target: goes through like any other record, preview → DB dry run; only that one record's content is sent.
+  {const {handler,calls}=harness({openai:[()=>respond(answer([item({target:'EVT-0902'})]))]});
+   const res=await post(handler,{kind:'ledger_fix',text:'날짜를 11/5로',target:'EVT-0902'});assert.equal(res.status,200);
+   const b=await res.json();assert.deepEqual(b.request.items.map(i=>i.target),['EVT-0902']);assert.equal(calls.openai.length,1);assert.equal(calls.rpc.length,1);
+   const m=JSON.parse(calls.openai[0].input[1].content);assert.equal(m.target.id,'EVT-0902');assert.equal(m.target.title,S2_TITLE);
+   assert.ok(!m.known_records.some(r=>r.id==='EVT-0902'),'the target is not repeated in the list');
+   assert.equal(calls.openai[0].store,false);assert.ok(calls.rest.some(r=>r.table==='app_ai_daily_usage'&&r.method==='POST'),'daily usage still counted');}
+  // Without a target the list still holds no S2 title, and an AI answer that points at an S2 record that was not sent is dropped.
+  {const {handler,calls}=harness({openai:[()=>respond(answer([item({target:'EVT-0902'})]))]});
+   const b=await (await post(handler,{kind:'ledger_fix',text:'날짜를 11/5로'})).json();
+   assert.ok(!JSON.stringify(calls.openai[0]).includes(S2_TITLE));assert.equal(b.request,null);assert.equal(calls.rpc.length,0);}
+  // Another S2 record is not reachable through a different target: the AI may only name the target or listed S0/S1 records.
+  {const {handler,calls}=harness({openai:[()=>respond(answer([item({target:'EVT-0906'})]))]});
+   const b=await (await post(handler,{kind:'ledger_fix',text:'날짜를 11/5로',target:'EVT-0902'})).json();assert.equal(b.request,null);assert.equal(calls.rpc.length,0);}
+  // The daily limit and the sign-in check still apply to S2 targets.
+  {const {handler,calls}=harness({usage:[{workspace_id:WS,user_id:OWNER,day:TODAY,requests:80,input_tokens:0,output_tokens:0}]});
+   await err(await post(handler,{kind:'ledger_fix',text:'고쳐 줘',target:'EVT-0902'}),429,'daily_limit');assert.equal(calls.openai.length,0);}
+  {const {handler,calls}=harness();await err(await post(handler,{kind:'ledger_fix',text:'고쳐 줘',target:'EVT-0902'},'nope'),401,'session_required');assert.equal(calls.openai.length,0);}
+  // A grade that is not S0·S1·S2 stays closed (fail closed).
+  assert.equal(fix.fixableRecord({ledger_id:'EVT-0906',kind:'event',title:'가상',validity:'current',sensitivity:'S3'}),false);
+  assert.equal(fix.fixableRecord({ledger_id:'EVT-0902',kind:'event',title:'가상',validity:'current',sensitivity:'S2'}),true);
+  assert.equal(fix.sendableRecord({ledger_id:'EVT-0902',kind:'event',title:'가상',validity:'current',sensitivity:'S2'}),false,'list rule unchanged');
   {const {handler,calls}=harness();await err(await post(handler,{kind:'ledger_fix',text:'고쳐 줘',target:'EVT-0905'}),409,'ledger_fix_inactive');assert.equal(calls.openai.length,0);}
   {const {handler,calls}=harness();await err(await post(handler,{kind:'ledger_fix',text:'고쳐 줘',target:'EVT-0903'}),404,'not_found');assert.equal(calls.openai.length,0);}
   {const {handler,calls}=harness();await err(await post(handler,{kind:'ledger_fix',text:'고쳐 줘',target:'EVT-7777'}),404,'not_found');assert.equal(calls.openai.length,0);}

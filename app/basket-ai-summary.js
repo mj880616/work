@@ -37,7 +37,7 @@ export const AI_SUMMARY_TEXT=Object.freeze({
   ledger_unavailable:'원장 후보를 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
   ledger_busy:'원장 자동 기록이 이미 돌고 있어요. 잠시 뒤 다시 시도해 주세요.',
   ledger_record_failed:'원장에 기록하지 못했어요. 다음에 다시 시도해요.',
-  ledger_fix_sensitive:'교섭·전략 기록은 AI로 고치지 않아요. Claude 수정안을 붙여 넣어 주세요.',
+  ledger_fix_sensitive:'이 기록은 AI로 고칠 수 없어요. Claude 수정안을 붙여 넣어 주세요.',
   ledger_fix_inactive:'이미 대체됐거나 폐기된 기록이에요.',
   ledger_fix_rejected:'원장 형식에 맞지 않아 미리보기를 만들지 못했어요. 문장을 바꿔 다시 써 주세요.',
   overlap_not_ready:'기록 겹침 확인은 아직 준비 중이에요.',

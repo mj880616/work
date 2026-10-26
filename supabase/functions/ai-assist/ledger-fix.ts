@@ -3,7 +3,8 @@
 // 원장 수정 요청 모양(kptu-ledger-fix v1, received_from:'user')으로 바꾼다. 서버는 DB 해 보기(p_dry_run=true)까지만 하고 반영하지 않는다.
 // - AI 답은 믿지 않는 입력: 할 일(do)·칸 이름·값 모양·글자 수·날짜를 다시 검사하고, 대상·사건·조직·주제 ID는 서버가 보낸 목록에 있는 것만 쓴다.
 // - 바꿀 수 있는 칸은 DB 함수와 같은 목록에서 종류에 맞는 것만(사건 상태는 사건, 결정유형은 결정, 상대측·이행상태·후속확인일은 약속).
-// - 교섭·전략(S2) 기록은 AI에 보내지 않는다(ledger_auto와 같은 기준). S2 대상은 서버가 거절하고, 목록에서도 뺀다.
+// - 교섭·전략(S2) 기록: 기록 ⋯ [고치기]로 대상을 직접 지정한 한 건만 AI에 보낸다(명진 결정 2026-10-26, LEDGER-S2고치기). 기록 목록(known_records)에는 S2를 넣지 않는다.
+//   ledger_auto·원장 재료(ledger-sources)가 S2 제목·내용을 AI에 보내지 않는 기준(ledger-auto.ts sendable)은 그대로다.
 // - 개인정보 모양(주민번호·휴대전화)이 든 입력·답은 쓰지 않는다.
 import { cleanLine } from "./todo-radar.ts";
 import { looksPersonal } from "./ledger-candidates.ts";
@@ -59,9 +60,14 @@ export type FixRecord = {
   counterparty: string | null; commitment_status: string | null; follow_up_on: string | null; importance: string;
 };
 export type FixName = { id: string; name: string };
+// 기록 목록(known_records)에 넣을 수 있는 것: S0·S1만(S2 제목은 목록에 싣지 않는다).
 export const sendableRecord = (r: FixRecord) =>
   LEDGER_ID.test(r.ledger_id) && (r.sensitivity === "S0" || r.sensitivity === "S1") && ["current", "needs_check", "fulfilled"].includes(r.validity)
   && (FIX_KINDS as readonly string[]).includes(r.kind) && typeof r.title === "string" && r.title.trim() !== "";
+
+// 사용자가 고칠 대상으로 직접 지정한 기록(⋯ [고치기]): S0·S1·S2. 그 밖의 등급은 AI에 보내지 않는다(닫힌 쪽으로).
+export const fixableRecord = (r: FixRecord) =>
+  (r.sensitivity === "S0" || r.sensitivity === "S1" || r.sensitivity === "S2") && sendableRecord({ ...r, sensitivity: "S1" });
 
 const cut = (s: unknown, n: number) => [...String(s ?? "")].slice(0, n).join("");
 const brief = (r: FixRecord) => ({ id: r.ledger_id, kind: r.kind, title: cut(r.title, 120), ...(r.date_start ? { date: r.date_start } : {}) });
@@ -216,7 +222,7 @@ function toItem(raw: unknown, ctx: { today: string; target: FixRecord | null; re
   } else {
     if (typeof r.target !== "string" || r.kind !== "" || r.belongs_to !== "" || r.organizations.length) return null;
     const rec = ctx.records.get(r.target);
-    if (!rec || !sendableRecord(rec) || used.has(rec.ledger_id)) return null;
+    if (!rec || !fixableRecord(rec) || used.has(rec.ledger_id)) return null;
     targetId = rec.ledger_id;
     kind = rec.kind as FixKind;
   }
