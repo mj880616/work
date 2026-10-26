@@ -307,6 +307,8 @@ W-2는 W-3보다 먼저 들어가야 비교 기준이 쌓인다(W-3 배포 전�
 
 C-3과 C-4는 둘 다 C-1 위에서. C-3을 먼저 배포해도 표가 비어 있어 아무 일도 없다.
 
+- 구현 메모(C-2, 2026-10-26): `google-calendar`의 `events`는 `onlyCalendarId`(1~200자, 제어문자 없음) 인자를 받으면 저장된 캘린더 목록 대신 그 캘린더 하나만 읽는다(저장·변경 없음, 기존 `calendarId` 인자는 여전히 무시). 일정 모양에는 `mine`(`creator.self === true`일 때만 true) 한 칸이 늘었고 만든 사람·주최자·참석자는 돌려주지 않는다. 시험: `tests/security/google-calendar-edge-mine.test.mjs`.
+
 ---
 
 ## 6. 업무 통화 (CALL-원장재료)
