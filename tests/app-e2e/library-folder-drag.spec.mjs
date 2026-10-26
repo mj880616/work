@@ -31,7 +31,7 @@ test.describe('PC 1280 폴더 보기 끌어 옮기기',()=>{
     await expect.poll(()=>s.items.find(x=>x.document_id==='a1-1')?.folder_id).toBe('fa');
     await expect(line(page)).toContainText('옮겼어요');await expect(line(page).locator('.lu-undo')).toHaveText('되돌리기');
     expect(s.docs.find(d=>d.id==='a1-1').project_id).toBe('child-a1');
-    await line(page).locator('.lu-undo').click();
+    await line(page).locator('.lu-undo').click();await expect(line(page)).toContainText('되돌렸어요');// 서버 쪽 반영만이 아니라 화면의 되돌리기 끝(다시 불러오기까지)을 기다린다. 끝나기 전 다음 끌기는 처리 중이라 무시된다.
     await expect.poll(()=>s.items.some(x=>x.document_id==='a1-1')).toBe(false);
     // 이미 들어 있는 폴더에는 놓을 수 없다. 폴더 안 자료를 '폴더 밖' 머리에 놓으면 폴더에서 나온다.
     await expandLibraryTree(page);
@@ -52,7 +52,7 @@ test.describe('PC 1280 폴더 보기 끌어 옮기기',()=>{
     let r=await dragTo(page,head('f:fn'),head('f:fa'));expect(r.allowed).toBe(true);expect(r.cls).toContain('lu-drop-into');
     await expect.poll(()=>s.folders.find(f=>f.id==='fn').parent_id).toBe('fa');
     await expect(line(page)).toContainText('폴더를 옮겼어요');
-    await line(page).locator('.lu-undo').click();
+    await line(page).locator('.lu-undo').click();await expect(line(page)).toContainText('되돌렸어요');// 서버 쪽 반영만이 아니라 화면의 되돌리기 끝(다시 불러오기까지)을 기다린다. 끝나기 전 다음 끌기는 처리 중이라 무시된다.
     await expect.poll(()=>s.folders.find(f=>f.id==='fn').parent_id).toBeNull();
     await expandLibraryTree(page);
     // 자기 아래(가상 C는 가상 A 안)로 A를 넣을 수는 없다.
@@ -76,7 +76,7 @@ test.describe('PC 1280 폴더 보기 끌어 옮기기',()=>{
     const r=await dragTo(page,row('a-2'),head('f:fn'));expect(r.allowed).toBe(true);
     await expect.poll(()=>s.items.filter(x=>x.folder_id==='fn').map(x=>x.document_id).sort()).toEqual(['a-2','a1-1']);
     await expect(line(page)).toContainText('2개를 옮겼어요');
-    await line(page).locator('.lu-undo').click();
+    await line(page).locator('.lu-undo').click();await expect(line(page)).toContainText('되돌렸어요');// 서버 쪽 반영만이 아니라 화면의 되돌리기 끝(다시 불러오기까지)을 기다린다. 끝나기 전 다음 끌기는 처리 중이라 무시된다.
     await expect.poll(()=>s.items.filter(x=>x.folder_id==='fn').length).toBe(0);
     expect(errors).toEqual([]);
   });
