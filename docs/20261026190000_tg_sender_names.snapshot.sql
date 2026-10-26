@@ -1,0 +1,11 @@
+-- SELECT only. Save before apply. System catalogs and the migration history only (no app table rows).
+-- 바뀌는 것 전부의 되돌릴 기준: 소식 표의 칸 목록·RLS·권한·정책·트리거(이 migration은 건드리지 않음을 대조), 새 표·새 함수(적용 전엔 없음), 기록.
+select 'function' as kind,p.oid::regprocedure::text as name,p.prosecdef::text||':'||coalesce(p.proconfig::text,'none')||':'||coalesce(p.proacl::text,'none')||':'||md5(p.prosrc) as definition
+  from pg_proc p where p.oid in(to_regprocedure('public.app_tg_senders_upsert(uuid,text,date,jsonb)'),to_regprocedure('public.app_tg_sender_set_name(text,date,text,text)'),to_regprocedure('public.app_tg_sender_merge(uuid,uuid)'),to_regprocedure('public.app_tg_sender_forget(uuid)'))
+union all select 'trigger',c.relname::text||'.'||t.tgname::text,t.tgenabled::text||':'||pg_get_triggerdef(t.oid) from pg_trigger t join pg_class c on c.oid=t.tgrelid where t.tgrelid=to_regclass('public.app_feed_items') and not t.tgisinternal
+union all select 'table',c.relname::text,c.relrowsecurity::text||':'||coalesce(c.relacl::text,'none') from pg_class c where c.oid in(to_regclass('public.app_feed_items'),to_regclass('public.app_tg_senders'),to_regclass('public.app_tg_day_senders'))
+union all select 'column',c.relname::text||'.'||a.attname::text,format_type(a.atttypid,a.atttypmod)||':'||a.attnotnull::text||':'||a.atthasdef::text||':'||coalesce(a.attacl::text,'none') from pg_attribute a join pg_class c on c.oid=a.attrelid where a.attrelid=to_regclass('public.app_feed_items') and a.attnum>0 and not a.attisdropped
+union all select 'constraint',c.relname::text||'.'||k.conname::text,pg_get_constraintdef(k.oid) from pg_constraint k join pg_class c on c.oid=k.conrelid where k.conrelid=to_regclass('public.app_feed_items') and k.contype in('c','u')
+union all select 'policy',p.polname::text,p.polcmd::text||':'||p.polroles::text||':'||coalesce(pg_get_expr(p.polqual,p.polrelid),'')||':'||coalesce(pg_get_expr(p.polwithcheck,p.polrelid),'') from pg_policy p where p.polrelid in(to_regclass('public.app_feed_items'),to_regclass('public.app_tg_senders'),to_regclass('public.app_tg_day_senders'))
+union all select 'history',version,name from supabase_migrations.schema_migrations where version in('20261024140000','20261026190000')
+order by 1,2;
