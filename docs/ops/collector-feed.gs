@@ -801,7 +801,9 @@ function callFeedVerdict(code) {
 //     하루 URL 호출(목록+내용)은 상한(기본 15000, 스크립트 속성 TG_FEED_FETCH_BUDGET)을 넘기 전에 멈춘다. 날짜 판정은 메시지 안 날짜다.
 //   - 어디까지 보냈는지는 스크립트 속성(TG_FEED_STATE)에만 적는다. Drive 파일(원문·검토후보·telegram_ai_review_state_v2)은 읽기만 하고 고치지 않는다(Q9).
 //   - 시험 모드(기본 켬): 서버로 보내지 않고 방·날짜별 개수만 실행 로그에 적는다. 어디까지 보냈는지도 바꾸지 않는다.
-//   - 보내는 이(sender_id)는 방·날짜마다 A, B, C 같은 임시 이름으로 바꿔 보낸다. 실제 값은 서버로 가지 않는다.
+//   - 보내는 이(sender_id)는 방·날짜마다 A, B, C 같은 임시 이름으로 바꿔 보낸다. 실제 값(번호)은 서버로 가지 않는다.
+//   - 이름표(TG-발언자이름 3단계): 열쇠(스크립트 속성 TG_FEED_SENDER_KEY)가 있으면 라벨마다 {label, key(번호를 열쇠로 섞은 고정 해시), name, self}를 몸통의 senders로 함께 보낸다.
+//     name·self는 수집기가 sender_name·sender_is_self 칸을 적었을 때만 있다. 열쇠가 없으면 senders를 보내지 않는다. 번호·이름·key는 로그에 남기지 않는다.
 // 통화 부분(callFeed…)과 같은 프로젝트·같은 비밀값(COLLECTOR_FEED_SECRET)을 쓴다. 이름은 모두 tgFeed로 시작한다.
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -815,6 +817,9 @@ var TG_FEED_MESSAGES_FOLDER = 'messages';
 var TG_FEED_ROOMS_KEY = 'TG_FEED_ROOMS';        // 허용 업무방 목록(방 이름, 방 폴더 이름 전체, 또는 맨 앞 방 번호. 쉼표·줄바꿈으로 구분)
 var TG_FEED_ROOMS_EXCLUDE_KEY = 'TG_FEED_ROOMS_EXCLUDE'; // TG_FEED_ROOMS가 `*`(모든 방)일 때 뺄 방 목록(방 이름·폴더 이름·방 번호, 쉼표·줄바꿈 구분)
 var TG_FEED_TEST_KEY = 'TG_FEED_TEST_MODE';     // 없거나 '켬'이면 시험 모드. '끔'일 때만 실제로 보낸다
+var TG_FEED_SENDER_KEY = 'TG_FEED_SENDER_KEY';  // 보낸 사람 번호를 해시로 바꿀 때 섞는 열쇠(tgFeed_initSenderKey가 만든다). 바꾸면 같은 사람이 새 사람으로 생기므로 한 번 정하면 바꾸지 않는다
+var TG_FEED_SENDERS_MAX = 40;                   // 서버가 받는 senders 최대 인원(handler.ts SENDERS_MAX)
+var TG_FEED_SENDER_NAME_CHARS = 40;             // 서버가 받는 이름 최대 글자
 var TG_FEED_STATE_KEY = 'TG_FEED_STATE';        // 어디까지 보냈는지(JSON)
 var TG_FEED_REWIND_KEY = 'TG_FEED_REWIND_DAY';  // tgFeed_rewind가 읽는 1회용 날짜(YYYY-MM-DD). 쓰고 나면 지운다
 var TG_FEED_STATE_MAX_BYTES = 9000;             // 앱 스크립트 속성 한 칸 상한(약 9 KB). 방이 늘어 넘으면 저장이 실패해 진행이 멈춘다
@@ -842,6 +847,18 @@ var TG_FEED_DIRS_CACHE_KEY = 'TG_FEED_DIRS';    // 방·월 폴더 ID 기억(Cac
 var TG_FEED_MAX_PARTS_PER_RUN = 30;             // 한 번 실행에 보낼 묶음 수 상한(묶음마다 서버가 AI 요약을 부른다). 넘으면 10분 뒤 이어 하기로 나눈다
 
 // ── 손으로 [실행]하는 함수 ───────────────────────────────────────────────
+
+/**
+ * 처음 한 번: 보낸 사람 번호를 해시로 바꿀 열쇠를 만들어 스크립트 속성 TG_FEED_SENDER_KEY에 넣는다.
+ * 이미 있으면 덮어쓰지 않는다. 값은 로그에 찍지 않는다. 열쇠를 바꾸면 같은 사람이 새 사람으로 생기므로 한 번만 만든다.
+ * 열쇠가 없으면 tgFeed_run은 senders(이름표)를 보내지 않고 지금처럼 소식만 보낸다.
+ */
+function tgFeed_initSenderKey() {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty(TG_FEED_SENDER_KEY)) { Logger.log('보낸 사람 열쇠가 이미 있습니다. 바꾸지 않았습니다.'); return; }
+  props.setProperty(TG_FEED_SENDER_KEY, (Utilities.getUuid() + Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, ''));
+  Logger.log('보낸 사람 열쇠를 스크립트 속성에 넣었습니다(값은 로그에 남기지 않음). 이 값을 따로 안전하게 메모해 두세요.');
+}
 
 /**
  * 처음 한 번: 오늘(한국 날짜)에서 7일 전 날짜부터 보낸다고 적는다(하루가 끝난 날만). 그 전 날짜는 보내지 않는다.
@@ -1060,6 +1077,7 @@ function tgFeed_sendDay_(run, e, day, isBack, grouped) {
   tally.messages += grouped.messages.length;
   tally.noText += grouped.total - grouped.messages.length;
   var parts = tgFeedSplit(tgFeedAssignSenders(grouped.messages));
+  var senders = test ? [] : tgFeed_buildSenders_(grouped.messages);   // 시험 모드는 보내지 않으므로 해시도 만들지 않는다
   var skipParts = tgFeedPartsToSkip(e.rs, day);
   if (test) { tally.parts += parts.length; Logger.log('[시험] ' + e.n + '번째 방 ' + day + ': 전체 ' + grouped.total + '개 중 글 있는 ' + grouped.messages.length + '개, 묶음 ' + parts.length + '개'); return; }
   var save = function (rs) { e.rs = rs; state.rooms[room.key] = rs; tgFeed_saveState_(state); };
@@ -1068,7 +1086,7 @@ function tgFeed_sendDay_(run, e, day, isBack, grouped) {
     if (tally.parts >= TG_FEED_MAX_PARTS_PER_RUN) { run.stop = '한 번에 보낼 묶음 상한(' + TG_FEED_MAX_PARTS_PER_RUN + '개) 도달'; run.resumable = true; return; }
     var akey = room.key + '|' + day + '|' + (p + 1);
     var attempt = (state.attempts[akey] || 0) + 1;
-    var body = tgFeedBuildBody({ day: day, roomKey: room.key, roomLabel: room.label, total: grouped.total, part: p + 1, attempt: attempt, messages: parts[p] });
+    var body = tgFeedBuildBody({ day: day, roomKey: room.key, roomLabel: room.label, total: grouped.total, part: p + 1, attempt: attempt, messages: parts[p], senders: senders });
     var res = tgFeed_post_(body, secret);
     var verdict = tgFeedVerdict(res.code, res.json && res.json.error);
     if (verdict === 'ok') {
@@ -1345,6 +1363,15 @@ function tgFeed_readDays_(run, entry, days, firstVisit, allowShrink, narrow) {
   return out;
 }
 
+/** 열쇠가 있을 때만 라벨별 이름표 목록을 만든다(없으면 빈 목록 = senders를 보내지 않음). 번호·이름·key는 로그에 남기지 않는다. */
+function tgFeed_buildSenders_(messages) {
+  var secret = PropertiesService.getScriptProperties().getProperty(TG_FEED_SENDER_KEY) || '';
+  if (!secret) return [];
+  return tgFeedBuildSenders(messages, function (number) {
+    return tgFeedHmacHex(Utilities.computeHmacSha256Signature(number, secret));
+  });
+}
+
 function tgFeed_post_(body, secret) {
   var headers = {};
   headers[CALL_FEED_SECRET_HEADER] = secret;
@@ -1418,7 +1445,7 @@ function tgFeedParseTime(value, defaultOffset) {
 
 /**
  * 메시지 파일 하나(JSON 객체)를 보낼 모양으로 바꾼다.
- * 반환: null(읽을 수 없음) 또는 {id, day, at(ISO), text, hasText, service, senderId, replyTo, forwarded}.
+ * 반환: null(읽을 수 없음) 또는 {id, day, at(ISO), text, hasText, service, senderId, senderName(없으면 ''), senderSelf(true/false/null), replyTo, forwarded}.
  * - 날짜는 date_utc(없으면 date_kst, 시간대 없으면 한국 시간)로 시각을 만들고, 날짜는 그 시각의 한국 날짜.
  * - service_action이 있으면 service:true(보내지 않고, 개수에도 더하지 않는다).
  * - 글이 없거나(첨부만) 빈칸뿐이면 hasText:false(보내지 않고 개수에만 더한다).
@@ -1437,10 +1464,12 @@ function tgFeedParseMessage(obj) {
   if (typeof replyTo === 'number' && isFinite(replyTo)) replyTo = String(replyTo);
   if (typeof replyTo !== 'string' || !/^[A-Za-z0-9_.:-]{1,40}$/.test(replyTo)) replyTo = null;
   var sender = obj.sender_id == null ? '' : String(obj.sender_id);
+  var senderName = tgFeedCleanName(obj.sender_name);
+  var senderSelf = obj.sender_is_self === true ? true : (obj.sender_is_self === false ? false : null);
   return {
     id: id, day: callFeedKstDay(ms), at: new Date(ms).toISOString(),
     text: Array.from(text).slice(0, TG_FEED_MAX_CHARS).join(''), hasText: !service && text.length > 0, service: service,
-    senderId: sender, replyTo: replyTo, forwarded: !!obj.forwarded,
+    senderId: sender, senderName: senderName, senderSelf: senderSelf, replyTo: replyTo, forwarded: !!obj.forwarded,
   };
 }
 
@@ -1481,6 +1510,48 @@ function tgFeedAssignSenders(messages) {
   });
 }
 
+/** 이름 칸 정리: 문자열만, NFC, 제어문자 제거, 빈칸 정리, 40글자까지. 전화번호·@아이디 모양이거나 비면 ''(서버 SENDER_NAME_REJECT와 같은 기준). */
+function tgFeedCleanName(value) {
+  if (typeof value !== 'string') return '';
+  var s = callFeedNfc(value).replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, ' ').replace(/\s+/g, ' ').trim();
+  s = Array.from(s).slice(0, TG_FEED_SENDER_NAME_CHARS).join('').trim();
+  if (!s || /^@|^\+?[\d\s().-]{7,}$/.test(s)) return '';
+  return s;
+}
+
+/** computeHmacSha256Signature가 돌려주는 부호 있는 바이트 배열 → 앞 32자 소문자 16진수. */
+function tgFeedHmacHex(bytes) {
+  var hex = '';
+  for (var i = 0; i < bytes.length && hex.length < 32; i++) hex += ('0' + ((bytes[i] + 256) % 256).toString(16)).slice(-2);
+  return hex.slice(0, 32);
+}
+
+/**
+ * 하루치 메시지(tgFeedAssignSenders와 같은 순서로 A, B, C …)의 라벨별 이름표 목록을 만든다.
+ * keyFn(번호) → 32자 해시(열쇠가 없으면 이 함수를 부르지 않는다). 번호가 비어 있는 사람('?')은 key를 만들지 않는다.
+ * 보낼 것이 없는 라벨(key·name·self 모두 없음)은 뺀다. 40명까지. 실제 번호는 결과에 남지 않는다.
+ */
+function tgFeedBuildSenders(messages, keyFn) {
+  var map = {}, order = [], n = 0;
+  messages.forEach(function (m) {
+    var id = m.senderId || '?';
+    if (!map.hasOwnProperty(id)) { map[id] = { label: tgFeedSenderName(n++), id: id, name: '', self: null }; order.push(map[id]); }
+    var e = map[id];
+    if (!e.name && m.senderName) e.name = m.senderName;
+    if (m.senderSelf === true) e.self = true;
+    else if (m.senderSelf === false && e.self === null) e.self = false;
+  });
+  var out = [];
+  order.forEach(function (e) {
+    var item = { label: e.label };
+    if (e.id !== '?') { var key = keyFn(e.id); if (/^[0-9a-f]{32}$/.test(key || '')) item.key = key; }
+    if (e.name) item.name = e.name;
+    if (e.self !== null) item.self = e.self;
+    if (item.key || item.name || item.self !== undefined) out.push(item);
+  });
+  return out.slice(0, TG_FEED_SENDERS_MAX);
+}
+
 /** 서버 몸통 상한(메시지 300개, 약 200 KB)에 맞춰 순서를 지키며 쪼갠다. 같은 입력이면 항상 같은 모양으로 쪼개진다(이어 하기 때문). */
 function tgFeedSplit(messages) {
   var parts = [], cur = [], bytes = 0;
@@ -1504,6 +1575,7 @@ function tgFeedBuildBody(input) {
   var body = { day: input.day, room_key: input.roomKey, room_label: input.roomLabel, total: Math.max(input.total, msgs.length), messages: msgs };
   if (input.part > 1) body.part = input.part;
   if (input.attempt > 1) body.attempt = input.attempt;
+  if (input.senders && input.senders.length) body.senders = input.senders;   // 나뉜 묶음마다 같은 목록. 라벨은 하루치 전체에서 정해져 일관된다
   return body;
 }
 
@@ -1754,7 +1826,7 @@ if (typeof module !== 'undefined' && module.exports) {
     callFeedPendingClean: callFeedPendingClean, callFeedPendingTrim: callFeedPendingTrim, callFeedPendingDecision: callFeedPendingDecision,
     tgFeedAddDays: tgFeedAddDays, tgFeedParseRooms: tgFeedParseRooms, tgFeedRoomMatch: tgFeedRoomMatch, tgFeedRoomPick: tgFeedRoomPick, tgFeedRoomInfo: tgFeedRoomInfo,
     tgFeedParseTime: tgFeedParseTime, tgFeedParseMessage: tgFeedParseMessage, tgFeedGroupDay: tgFeedGroupDay, tgFeedSenderName: tgFeedSenderName,
-    tgFeedAssignSenders: tgFeedAssignSenders, tgFeedSplit: tgFeedSplit, tgFeedBuildBody: tgFeedBuildBody, tgFeedRoomState: tgFeedRoomState,
+    tgFeedAssignSenders: tgFeedAssignSenders, tgFeedCleanName: tgFeedCleanName, tgFeedHmacHex: tgFeedHmacHex, tgFeedBuildSenders: tgFeedBuildSenders, tgFeedSplit: tgFeedSplit, tgFeedBuildBody: tgFeedBuildBody, tgFeedRoomState: tgFeedRoomState,
     tgFeedPendingDays: tgFeedPendingDays, tgFeedPartsToSkip: tgFeedPartsToSkip, tgFeedAfterPart: tgFeedAfterPart, tgFeedWindow: tgFeedWindow,
     tgFeedMonths: tgFeedMonths, tgFeedBackfillDays: tgFeedBackfillDays, tgFeedLimitReason: tgFeedLimitReason, tgFeedLastRun: tgFeedLastRun, tgFeedLastRunClean: tgFeedLastRunClean, tgFeedLastRunText: tgFeedLastRunText, tgFeedProgress: tgFeedProgress, tgFeedProgressText: tgFeedProgressText, tgFeedRewind: tgFeedRewind, tgFeedPlanDays: tgFeedPlanDays, tgFeedVerdict: tgFeedVerdict,
     tgFeedWindowRange: tgFeedWindowRange, tgFeedMonthsOf: tgFeedMonthsOf, tgFeedByDay: tgFeedByDay, tgFeedNextRoom: tgFeedNextRoom, tgFeedIsQuotaError: tgFeedIsQuotaError,

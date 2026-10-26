@@ -261,3 +261,97 @@ test('실행 확인 함수는 트리거 유무와 진행 위치를 보여 주고
   assert.ok(source.includes("state.lastRun = tgFeedLastRun(Date.now(), stop, tally.parts"));
   assert.ok(source.includes("deleteProperty(TG_FEED_REWIND_KEY)"));
 });
+
+// ── TG-발언자이름 3단계: senders(이름표) ──────────────────────────────────────
+import {createHmac} from 'node:crypto';
+const FAKE_SECRET='가짜열쇠-테스트용-0123456789abcdef';
+const hmacKey=(number)=>createHmac('sha256',FAKE_SECRET).update(String(number)).digest('hex').slice(0,32);
+const parsed=(items)=>items.map(G.tgFeedParseMessage);
+
+test('HMAC 16진수: 앱 스크립트의 부호 있는 바이트 배열이 node HMAC 앞 32자와 같다',()=>{
+  const digest=createHmac('sha256',FAKE_SECRET).update('8123456789').digest();
+  const signed=Array.from(digest,(b)=>b>127?b-256:b);   // Utilities.computeHmacSha256Signature는 -128..127
+  assert.equal(G.tgFeedHmacHex(signed),hmacKey('8123456789'));
+  assert.match(G.tgFeedHmacHex(signed),/^[0-9a-f]{32}$/);
+});
+
+test('이름 정리: 제어문자·빈칸 정리, 40글자 제한, 전화번호·@아이디·비문자열은 버린다',()=>{
+  assert.equal(G.tgFeedCleanName('  가상  김철수\n과장 '),'가상 김철수 과장');
+  assert.equal(G.tgFeedCleanName('가'.repeat(60)).length,40);
+  for(const bad of ['@gasang_id','010-1234-5678','+82 10 1234 5678','(02) 123-4567','',' ',null,undefined,123,{a:1}]) assert.equal(G.tgFeedCleanName(bad),'',String(bad));
+  assert.equal(G.tgFeedCleanName('가상 3팀'),'가상 3팀','숫자가 조금 든 이름은 그대로');
+});
+
+test('이름표 목록: 라벨은 메시지 라벨과 같은 순서, key는 HMAC, 번호 원문은 어디에도 없다',()=>{
+  const ms=parsed([
+    msg(1,{utc:'2026-10-24T01:00:00Z',sender:'8123456789',extra:{sender_name:'가상 김철수',sender_is_self:false}}),
+    msg(2,{utc:'2026-10-24T01:01:00Z',sender:'42',extra:{sender_is_self:true}}),
+    msg(3,{utc:'2026-10-24T01:02:00Z',sender:'8123456789'}),
+  ]);
+  const list=plain(G.tgFeedBuildSenders(ms,hmacKey));
+  assert.deepEqual(list,[{label:'A',key:hmacKey('8123456789'),name:'가상 김철수',self:false},{label:'B',key:hmacKey('42'),self:true}]);
+  assert.deepEqual(plain(G.tgFeedAssignSenders(ms).map((m)=>m.sender)),['A','B','A'],'라벨 순서가 본문과 같다');
+  assert.ok(!JSON.stringify(list).includes('8123456789')&&!JSON.stringify(list).includes('"42"'));
+  // 같은 사람은 방·날짜가 달라도 같은 key
+  const other=plain(G.tgFeedBuildSenders(parsed([msg(9,{utc:'2026-10-25T01:00:00Z',sender:'42'}),msg(10,{utc:'2026-10-25T01:01:00Z',sender:'8123456789'})]),hmacKey));
+  assert.equal(other[0].key,list[1].key);assert.equal(other[1].key,list[0].key);
+  assert.equal(other[0].label,'A');
+});
+
+test('이름표 목록: 수집기 이름·자기 칸이 없어도 key만 보내고, 번호가 없으면 항목을 만들지 않는다',()=>{
+  const noName=plain(G.tgFeedBuildSenders(parsed([msg(1,{utc:'2026-10-24T01:00:00Z',sender:'7'})]),hmacKey));
+  assert.deepEqual(noName,[{label:'A',key:hmacKey('7')}]);
+  const noNumber=plain(G.tgFeedBuildSenders(parsed([msg(1,{utc:'2026-10-24T01:00:00Z',sender:''}),msg(2,{utc:'2026-10-24T01:01:00Z',sender:'7'})]),hmacKey));
+  assert.deepEqual(noNumber,[{label:'B',key:hmacKey('7')}],'번호 없는 사람(?)은 key·이름이 없으면 보낼 것이 없다');
+  const noNumberNamed=plain(G.tgFeedBuildSenders(parsed([msg(1,{utc:'2026-10-24T01:00:00Z',sender:'',extra:{sender_name:'가상 채널'}})]),hmacKey));
+  assert.deepEqual(noNumberNamed,[{label:'A',name:'가상 채널'}],'번호 없는 사람은 key를 만들지 않는다');
+  assert.deepEqual(plain(G.tgFeedBuildSenders([],hmacKey)),[]);
+  // 잘못된 칸 값(문자열 self, 전화번호 이름)은 없는 것으로
+  const odd=plain(G.tgFeedBuildSenders(parsed([msg(1,{utc:'2026-10-24T01:00:00Z',sender:'7',extra:{sender_name:'010-1234-5678',sender_is_self:'true'}})]),hmacKey));
+  assert.deepEqual(odd,[{label:'A',key:hmacKey('7')}]);
+  // 이름은 처음 나온 값, self는 한 번이라도 true면 true
+  const mix=plain(G.tgFeedBuildSenders(parsed([
+    msg(1,{utc:'2026-10-24T01:00:00Z',sender:'7',extra:{sender_name:'가상 첫이름',sender_is_self:false}}),
+    msg(2,{utc:'2026-10-24T01:01:00Z',sender:'7',extra:{sender_name:'가상 나중이름',sender_is_self:true}}),
+  ]),hmacKey));
+  assert.deepEqual(mix,[{label:'A',key:hmacKey('7'),name:'가상 첫이름',self:true}]);
+});
+
+test('이름표 목록: 40명까지만 보낸다(번호 41개)',()=>{
+  const ms=parsed(Array.from({length:45},(_,i)=>msg(i+1,{utc:'2026-10-24T01:00:00Z',sender:String(1000+i)})));
+  const list=plain(G.tgFeedBuildSenders(ms,hmacKey));
+  assert.equal(list.length,40);assert.equal(list[39].label,'AN');
+});
+
+test('몸통: senders는 값이 있을 때만 넣고, 나뉜 묶음마다 같은 목록이며, 서버 parseTelegramBody가 읽는다',()=>{
+  const ms=parsed([
+    msg(1,{utc:'2026-10-24T00:30:00Z',sender:'1',extra:{sender_name:'가상 김철수',sender_is_self:true}}),
+    msg(2,{utc:'2026-10-24T00:31:00Z',sender:'2'}),
+  ]);
+  const g=G.tgFeedGroupDay(ms,'2026-10-24');
+  const senders=G.tgFeedBuildSenders(g.messages,hmacKey);
+  const parts=G.tgFeedSplit(G.tgFeedAssignSenders(g.messages));
+  const body=plain(G.tgFeedBuildBody({day:'2026-10-24',roomKey:'-100123',roomLabel:'가상 업무방',total:2,part:1,attempt:1,messages:parts[0],senders}));
+  assert.equal(body.senders.length,2);
+  const input=parseTelegramBody(body,TODAY);
+  assert.equal(input.sendersInvalid,false);
+  assert.deepEqual(plain(input.senders),[{label:'A',key:hmacKey('1'),name:'가상 김철수',self:true},{label:'B',key:hmacKey('2')}]);
+  const part2=plain(G.tgFeedBuildBody({day:'2026-10-24',roomKey:'-100123',roomLabel:'가상 업무방',total:2,part:2,attempt:1,messages:parts[0],senders}));
+  assert.deepEqual(part2.senders,body.senders);
+  // 열쇠 없음(빈 목록)·옛 호출 = senders 칸 자체가 없다(지금과 같은 몸통)
+  assert.ok(!('senders' in G.tgFeedBuildBody({day:'2026-10-24',roomKey:'1',roomLabel:'방',total:2,part:1,attempt:1,messages:parts[0],senders:[]})));
+  assert.ok(!('senders' in G.tgFeedBuildBody({day:'2026-10-24',roomKey:'1',roomLabel:'방',total:2,part:1,attempt:1,messages:parts[0]})));
+});
+
+test('앱 스크립트 파일: 열쇠 만들기는 덮어쓰지 않고 값을 로그에 쓰지 않으며, 이름·번호·key를 로그에 쓰지 않는다',()=>{
+  const fn=source.slice(source.indexOf('function tgFeed_initSenderKey'),source.indexOf('function tgFeed_setup'));
+  assert.match(fn,/if \(props\.getProperty\(TG_FEED_SENDER_KEY\)\) \{[^}]*return;/,'있으면 그대로 둔다');
+  for(const m of fn.matchAll(/Logger\.log\(([^;]*)\)/g)) assert.ok(!/getProperty|Utilities|secret|key/i.test(m[1].replace(/'[^']*'/g,'')),m[0]);
+  assert.match(source,/var TG_FEED_ROOT_FOLDER = '여기에_텔레그램_수집_폴더_주소_끝부분';/);
+  assert.match(source,/var CALL_FEED_CALL_ROOT_FOLDER = '여기에_통화녹음_폴더_주소_끝부분';/);
+  const tg=source.slice(source.indexOf('텔레그램 보내기 (TG-소식메뉴 3-나)'),source.indexOf('// node 시험에서만'));
+  for(const m of tg.matchAll(/(?:Logger\.log|new Error)\(([^;]*)\)/g)) assert.ok(!/senderName|senderId|senderSelf|senders|SENDER_KEY|\.name\b|\.key\b/.test(m[1]),m[0]);
+  assert.ok(tg.includes('computeHmacSha256Signature')&&tg.includes('TG_FEED_SENDER_KEY'));
+  // 열쇠가 없으면 보내지 않는다
+  assert.match(tg,/if \(!secret\) return \[\];/);
+});
