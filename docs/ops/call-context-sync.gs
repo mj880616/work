@@ -1,14 +1,16 @@
 /**
  * 통화 요약용 맥락 문서 자동 갱신 (CALL-맥락문서)
  *
- * 하는 일: 하루 한 번 Web2 서버(collector-feed ?action=context)에서 담당조직(정식 이름·약칭)과 진행 중 프로젝트의 **이름만** 받아,
+ * 하는 일: 하루 한 번 Web2 서버(collector-feed ?action=context)에서 담당조직(정식 이름·약칭), 진행 중 프로젝트의 **이름**과
+ *   통화 상대 **"조직 — 이름 직함" 목록**(CALL-맥락사람)을 받아,
  *   '통화 요약용 맥락' 문서 안의 **자동 구간**(시작 줄과 끝 줄 사이)만 새로 쓴다.
  *   - 표지 줄은 문서에 한 번 넣어 두고(callCtx_addMarkers), 사람이 지우거나 옮기지 않는다. 표지 밖(명진이 쓴 부분)은 건드리지 않는다.
  *   - 표지가 없거나 하나뿐이거나 순서가 바뀌었거나 둘 이상이면 아무것도 쓰지 않고 실패로 센다.
  *   - 받은 목록이 비었거나 모양이 다르면 문서를 덮어쓰지 않는다(마지막 성공본이 남는다). 내용이 어제와 같으면 문서를 건드리지 않는다.
  *   - 연속 3번 실패하면 일부러 오류를 내서 앱 스크립트 실패 알림 메일이 가게 한다.
  *   - 시험 모드(기본 켬): 받아서 개수만 로그에 적고 문서는 고치지 않는다. 스크립트 속성 CALL_CTX_TEST_MODE 가 '끔'일 때만 문서에 쓴다.
- *   - 사람 이름·연락처·메모·ID는 받지도 쓰지도 않는다. 문서 ID·비밀값은 이 코드에 넣지 않고 로그에도 남기지 않는다.
+ *   - 사람은 이름·직함·소속만 쓴다(서버가 번호·이메일·메모·통화 내용·ID를 내보내지 않고, 스크립트도 한 번 더 걸러 쓰지 않는다). 사람 목록이 없어도(서버에 아직 적용 전) 조직·프로젝트는 그대로 쓴다.
+ *   - 문서 ID·비밀값은 이 코드에 넣지 않고 로그에도 남기지 않는다.
  *
  * 붙여 넣는 곳: 'Web2 수집 보내기' 프로젝트(collector-feed.gs가 있는 프로젝트)에 **새 파일로 더한다**. 비밀값 COLLECTOR_FEED_SECRET 은 이미 그 프로젝트에 있다.
  *   통화 분석 스크립트(trascription)는 스크립트 속성이 많아 화면에서 속성을 더 넣을 수 없으므로(collector-feed-setup.md) 그쪽에는 붙이지 않는다.
@@ -40,7 +42,11 @@ var CALL_CTX_MAX_ALIAS_CHARS = 30;
 var CALL_CTX_MAX_PROJECTS = 80;
 var CALL_CTX_MAX_PROJECT_CHARS = 100;
 var CALL_CTX_MAX_TOTAL_CHARS = 6000;                 // 이름·약칭 글자 합계
-var CALL_CTX_MAX_SECTION_CHARS = 8000;               // 서식 줄까지 포함한 자동 구간 전체
+var CALL_CTX_MAX_PEOPLE = 150;
+var CALL_CTX_MAX_PERSON_ORG_CHARS = 60;
+var CALL_CTX_MAX_PERSON_CHARS = 60;
+var CALL_CTX_MAX_PEOPLE_TOTAL_CHARS = 6000;          // 사람 목록 글자 합계(조직 + 이름 직함)
+var CALL_CTX_MAX_SECTION_CHARS = 16000;              // 서식 줄까지 포함한 자동 구간 전체
 
 // ── 손으로 [실행]하는 함수 ───────────────────────────────────────────────
 
@@ -128,7 +134,7 @@ function callCtx_attempt_(write) {
   var found = callCtxFindMarkers(texts);
   if (!found.ok) return '표지 줄 문제: ' + found.reason;
   var old = texts.slice(found.start + 1, found.end);
-  Logger.log('받음: 조직 ' + ctx.organizations.length + '개, 프로젝트 ' + ctx.projects.length + '개, 생략 ' + (ctx.omitted.organizations + ctx.omitted.projects) + '개 / 자동 구간 ' + lines.length + '줄(기존 ' + old.length + '줄)');
+  Logger.log('받음: 조직 ' + ctx.organizations.length + '개, 프로젝트 ' + ctx.projects.length + '개, 사람 ' + ctx.people.length + '명, 생략 ' + (ctx.omitted.organizations + ctx.omitted.projects + ctx.omitted.people) + '개 / 자동 구간 ' + lines.length + '줄(기존 ' + old.length + '줄)');
   if (callCtxSame(old, lines)) { Logger.log('어제와 같아서 문서를 건드리지 않습니다.'); return null; }
   if (!write) { Logger.log('내용이 달라졌습니다. (시험 모드 또는 확인 전용: 문서는 고치지 않았습니다)'); return null; }
 
@@ -206,11 +212,12 @@ function callCtxClean(value, max) {
 /**
  * 서버 응답 → 쓸 수 있는 목록. 모양이 다르거나 조직이 0개이거나 합계가 상한을 넘으면 {ok:false, reason}.
  * 서버가 이미 자르지만 스크립트도 한 번 더 지킨다. 이름 안의 표지·마크다운 글자는 지운다.
+ * 사람 목록(people)은 없어도 된다(서버에 아직 반영 전). 있으면 모양이 맞아야 하고, 전화번호·이메일 꼴이 든 줄은 버린다.
  */
 function callCtxParse(json) {
   if (!json || json.ok !== true || !Array.isArray(json.organizations) || !Array.isArray(json.projects)) return { ok: false, reason: '모양이 다릅니다' };
   if (json.organizations.length > CALL_CTX_MAX_ORGS || json.projects.length > CALL_CTX_MAX_PROJECTS) return { ok: false, reason: '개수가 상한을 넘었습니다' };
-  var orgs = [], projects = [], total = 0, i;
+  var orgs = [], projects = [], people = [], total = 0, peopleTotal = 0, i;
   for (i = 0; i < json.organizations.length; i++) {
     var o = json.organizations[i];
     if (!o || typeof o !== 'object' || !Array.isArray(o.aliases)) return { ok: false, reason: '조직 모양이 다릅니다' };
@@ -232,14 +239,35 @@ function callCtxParse(json) {
     total += Array.from(p).length;
     projects.push(p);
   }
+  if (json.people !== undefined) {
+    if (!Array.isArray(json.people)) return { ok: false, reason: '사람 목록 모양이 다릅니다' };
+    if (json.people.length > CALL_CTX_MAX_PEOPLE) return { ok: false, reason: '사람 수가 상한을 넘었습니다' };
+    for (i = 0; i < json.people.length; i++) {
+      var q = json.people[i];
+      if (!q || typeof q !== 'object' || typeof q.person !== 'string' || !(q.organization === null || typeof q.organization === 'string')) return { ok: false, reason: '사람 모양이 다릅니다' };
+      var person = callCtxClean(q.person, CALL_CTX_MAX_PERSON_CHARS);
+      var org = q.organization === null ? '' : callCtxClean(q.organization, CALL_CTX_MAX_PERSON_ORG_CHARS);
+      if (!person || (q.organization !== null && !org)) continue;
+      if (callCtxLooksPrivate(person) || callCtxLooksPrivate(org)) continue;
+      peopleTotal += Array.from(person).length + Array.from(org).length;
+      people.push({ organization: org || null, person: person });
+    }
+    if (peopleTotal > CALL_CTX_MAX_PEOPLE_TOTAL_CHARS) return { ok: false, reason: '사람 글자 합계가 상한을 넘었습니다' };
+  }
   if (!orgs.length) return { ok: false, reason: '담당조직이 0개입니다(덮어쓰지 않음)' };
   if (total > CALL_CTX_MAX_TOTAL_CHARS) return { ok: false, reason: '글자 합계가 상한을 넘었습니다' };
   var om = json.omitted && typeof json.omitted === 'object' ? json.omitted : {};
   var omitted = {
     organizations: Number.isSafeInteger(om.organizations) && om.organizations > 0 ? om.organizations : 0,
     projects: Number.isSafeInteger(om.projects) && om.projects > 0 ? om.projects : 0,
+    people: Number.isSafeInteger(om.people) && om.people > 0 ? om.people : 0,
   };
-  return { ok: true, organizations: orgs, projects: projects, omitted: omitted };
+  return { ok: true, organizations: orgs, projects: projects, people: people, omitted: omitted };
+}
+
+/** 전화번호(숫자 7자리 이상 또는 번호 모양)나 이메일 꼴이면 true. 사람 글에 이런 것이 섞여 오면 그 줄은 쓰지 않는다. */
+function callCtxLooksPrivate(text) {
+  return /\d{2,4}[\s-]?\d{3,4}[\s-]?\d{4}/.test(text) || /\d{7,}/.test(text) || text.indexOf('@') >= 0;
 }
 
 /** 자동 구간 안에 들어갈 줄들(표지 줄 제외). 첫 줄은 갱신 날짜. */
@@ -252,8 +280,13 @@ function callCtxRender(ctx, day) {
     lines.push('', '[진행 중 프로젝트]');
     ctx.projects.forEach(function (p) { lines.push('- ' + p); });
   }
-  var skipped = ctx.omitted.organizations + ctx.omitted.projects;
-  if (skipped > 0) lines.push('', '(일부 생략: 담당조직 ' + ctx.omitted.organizations + '개, 프로젝트 ' + ctx.omitted.projects + '개)');
+  if (ctx.people && ctx.people.length) {
+    lines.push('', '[통화 상대 사람 (조직 — 이름 직함. 조직이 없으면 우리 쪽 사람)]');
+    ctx.people.forEach(function (q) { lines.push('- ' + (q.organization ? q.organization + ' — ' : '') + q.person); });
+  }
+  var omittedPeople = ctx.omitted.people || 0;
+  var skipped = ctx.omitted.organizations + ctx.omitted.projects + omittedPeople;
+  if (skipped > 0) lines.push('', '(일부 생략: 담당조직 ' + ctx.omitted.organizations + '개, 프로젝트 ' + ctx.omitted.projects + '개' + (omittedPeople ? ', 사람 ' + omittedPeople + '명' : '') + ')');
   return lines;
 }
 
@@ -295,7 +328,7 @@ function callCtxShouldAlert(fails) {
 // node 시험에서만 쓰는 내보내기(앱 스크립트에는 module이 없어서 아무 일도 하지 않는다).
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    callCtxKstDay: callCtxKstDay, callCtxClean: callCtxClean, callCtxParse: callCtxParse, callCtxRender: callCtxRender,
+    callCtxKstDay: callCtxKstDay, callCtxClean: callCtxClean, callCtxParse: callCtxParse, callCtxRender: callCtxRender, callCtxLooksPrivate: callCtxLooksPrivate,
     callCtxFindMarkers: callCtxFindMarkers, callCtxSame: callCtxSame, callCtxShouldAlert: callCtxShouldAlert,
   };
 }

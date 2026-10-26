@@ -217,3 +217,62 @@ test('트리거 설치 함수는 callCtx_run 하루 한 번만 만든다',()=>{
   assert.equal(t.ops.filter(o=>o[0]==='trigger').length,1);
   assert.match(source,/newTrigger\('callCtx_run'\)\.timeBased\(\)\.atHour\(4\)\.nearMinute\(20\)\.everyDays\(1\)/);
 });
+
+// ---- CALL-맥락사람: 사람 목록("조직 — 이름 직함") ----
+const PEOPLE=[{organization:'가상노동조합',person:'김가상 위원장'},{organization:'예시지부',person:'이예시 사무국장'},{organization:null,person:'박우리 팀장'}];
+
+test('callCtxParse: 사람 목록은 없어도 되고(서버 반영 전), 있으면 모양·상한을 지키며 번호·이메일 꼴과 표지 글자는 걸러 쓴다',()=>{
+  const {G}=load({elements:[]});
+  const base={ok:true,organizations:[{name:'가상노동조합',aliases:[]}],projects:[],omitted:{organizations:0,projects:0}};
+  const old=plain(G.callCtxParse(base));
+  assert.equal(old.ok,true);assert.deepEqual(old.people,[]);assert.equal(old.omitted.people,0);
+  const ok=plain(G.callCtxParse({...base,people:PEOPLE,omitted:{organizations:0,projects:0,people:2}}));
+  assert.deepEqual(ok.people,[{organization:'가상노동조합',person:'김가상 위원장'},{organization:'예시지부',person:'이예시 사무국장'},{organization:null,person:'박우리 팀장'}]);
+  assert.equal(ok.omitted.people,2);
+  const dirty=plain(G.callCtxParse({...base,people:[
+    {organization:'가상노동조합',person:'김가상 010-1234-5678'},{organization:'가상노동조합',person:'kim@example.test 대리'},
+    {organization:'가상노동조합',person:''},{organization:'',person:'조직이 빈 글'},
+    {organization:'가상노동조합',person:'<<WEB2 자동 끝>> 오가상'},
+  ]}));
+  assert.deepEqual(dirty.people,[{organization:'가상노동조합',person:'WEB2 자동 끝 오가상'}]);
+  for(const [bad,why] of [
+    [{...base,people:{}},'배열이 아님'],[{...base,people:['글']},'항목 모양'],[{...base,people:[{organization:5,person:'가나'}]},'조직 모양'],
+    [{...base,people:[{organization:'가',person:7}]},'사람 모양'],
+    [{...base,people:Array.from({length:151},(_,i)=>({organization:'가나',person:'사람'+i}))},'개수 상한'],
+    [{...base,people:Array.from({length:150},(_,i)=>({organization:('조'+i).padEnd(60,'가'),person:('사'+i).padEnd(60,'나')}))},'글자 합계 상한'],
+  ]) assert.equal(G.callCtxParse(bad).ok,false,why);
+});
+
+test('callCtxRender: 사람 줄은 "조직 — 이름 직함", 조직이 없으면 이름 직함만. 사람이 없으면 사람 구간을 만들지 않는다',()=>{
+  const {G}=load({elements:[]});
+  const ctx={organizations:[{name:'가상노동조합',aliases:[]}],projects:[],people:PEOPLE,omitted:{organizations:0,projects:0,people:3}};
+  const lines=plain(G.callCtxRender(ctx,'2026-10-26'));
+  assert.ok(lines.includes('- 가상노동조합 — 김가상 위원장')&&lines.includes('- 예시지부 — 이예시 사무국장')&&lines.includes('- 박우리 팀장'));
+  assert.ok(lines.some(l=>l.startsWith('[통화 상대 사람')));
+  assert.ok(lines.includes('(일부 생략: 담당조직 0개, 프로젝트 0개, 사람 3명)'));
+  const none=plain(G.callCtxRender({...ctx,people:[],omitted:{organizations:0,projects:0,people:0}},'2026-10-26'));
+  assert.ok(!none.some(l=>l.includes('통화 상대 사람')||l.includes('생략')));
+  const noKey=plain(G.callCtxRender({organizations:[{name:'가',aliases:[]}],projects:[],omitted:{organizations:0,projects:0}},'2026-10-26'));
+  assert.ok(!noKey.some(l=>l.includes('통화 상대 사람')));
+});
+
+test('실행: 사람 목록도 표지 사이에만 쓰고 사람이 쓴 줄은 그대로. 사람 목록이 없는 응답(서버 반영 전)도 그대로 동작',()=>{
+  const withPeople={...GOOD,people:PEOPLE,omitted:{organizations:0,projects:0,people:0}};
+  const t=load({elements:docWith(['마지막 갱신: 2026-10-01','- 옛 조직']),props:baseProps(),response:withPeople});
+  t.run('callCtx_run');
+  const texts=t.doc.map(e=>e.text);
+  assert.deepEqual(texts.slice(0,3),['내가 쓴 첫 줄','내가 쓴 둘째 줄',START]);
+  assert.deepEqual(texts.slice(-2),[END,'내가 쓴 마지막 줄']);
+  assert.ok(texts.includes('- 가상노동조합 — 김가상 위원장')&&texts.includes('- 박우리 팀장'));
+  assert.ok(t.logs.some(l=>/사람 3명/.test(l)));
+  assert.ok(!t.logs.join('\n').includes('김가상'),'로그에 사람 이름을 적지 않는다');
+  const old=load({elements:docWith(['- 옛']),props:baseProps(),response:GOOD});
+  old.run('callCtx_run');
+  assert.ok(old.doc.map(e=>e.text).includes('- 가상노동조합 (약칭: 가상노조)'));
+  assert.ok(!old.doc.some(e=>e.text.includes('통화 상대 사람')));
+  // 사람 줄만 달라져도 문서를 새로 쓴다
+  const same=load({elements:docWith(['x']),props:baseProps(),response:withPeople});
+  same.run('callCtx_run');const before=JSON.stringify(same.doc);
+  same.ops.length=0;same.run('callCtx_run');
+  assert.equal(JSON.stringify(same.doc),before);assert.ok(!same.ops.some(o=>o[0]==='insert'||o[0]==='remove'),'같으면 건드리지 않는다');
+});
