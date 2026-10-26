@@ -12,7 +12,7 @@ const radio=(page,name)=>page.locator('#libraryGroupBy').getByRole('radio',{name
 
 for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
   test.use({hasTouch:width<761});
-  test(`묶기 '폴더': 프로젝트와 무관한 나무, 맨 위 '폴더 밖', 건수·들여쓰기, 서버 기억은 쓰지 않음 ${width}`,async({page},info)=>{
+  test(`묶기 '폴더': 프로젝트와 무관한 나무, 맨 위 '폴더 밖', 건수·들여쓰기 ${width}`,async({page},info)=>{
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS});
     await radio(page,'폴더').click();await expect(radio(page,'폴더')).toHaveAttribute('aria-checked','true');
     expect(await tops(page)).toEqual(['x:out','f:fa','f:fn']);
@@ -28,12 +28,54 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
     // 프로젝트 묶기에서는 틀이 다른 연결(n-1은 프로젝트 없음인데 폴더 fa는 top-a)을 '폴더에 없는 것'으로 본다(이전 동작 그대로).
     await radio(page,'프로젝트').click();await expandLibraryTree(page);
     expect(await childrenOf(page,'p:none')).toContain('n-1');expect(await childrenOf(page,'f:fa')).toEqual([]);
-    // 폴더 보기는 서버 기억(library_view)에 넣지 않는다(저장 값 검사가 네 값만 받음).
-    await radio(page,'폴더').click();await page.waitForTimeout(900);
-    expect((s.profilePatches||[]).filter(p=>JSON.stringify(p).includes('folder'))).toEqual([]);
+    await radio(page,'폴더').click();
     expect(s.writes).toEqual([]);
     expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);
     if(width<761)await page.screenshot({path:info.outputPath('folder-view-390.png'),fullPage:true});
+  });
+
+  // LIB-폴더묶기기억(2026-10-26 사용자 결정 '기억'): 폴더 묶기도 다른 묶기와 똑같이 서버(library_view.group_by)에 저장하고, 다른 기기에서도 폴더로 열린다.
+  test(`폴더 묶기를 서버에 기억해 다른 기기에서도 폴더로 열린다 ${width}`,async({page,browser})=>{
+    const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS});
+    await radio(page,'폴더').click();
+    await expect.poll(()=>(s.profilePatches||[]).length,{timeout:5000}).toBe(1);
+    expect(s.profilePatches[0]).toEqual({library_view:{group_by:'folder'}});expect(s.libraryView).toEqual({group_by:'folder'});
+    const other=await browser.newPage();
+    try{
+      const o=await bootLibrary(other,width,{state:s});
+      await expect(radio(other,'폴더')).toHaveAttribute('aria-checked','true');
+      expect(await tops(other)).toEqual(['x:out','f:fa','f:fn']);
+      // 다른 묶기로 바꾸면 그 값으로 바뀐다(폴더도 다른 값과 똑같이 덮어쓴다).
+      await radio(other,'프로젝트').click();
+      await expect.poll(()=>s.libraryView?.group_by,{timeout:5000}).toBe('project');
+      expect(o.errors).toEqual([]);
+    }finally{await other.close()}
+    expect(s.writes).toEqual([]);expect(errors).toEqual([]);
+  });
+
+  test(`기억된 폴더 묶기는 폴더 표를 읽은 뒤 폴더로 열린다 ${width}`,async({page})=>{
+    const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,init:{libraryView:{group_by:'folder'}}});
+    // 폴더 표가 읽히므로 폴더로 열린다.
+    await expect(radio(page,'폴더')).toHaveAttribute('aria-checked','true');
+    expect(s.profilePatches||[]).toEqual([]);expect(errors).toEqual([]);
+  });
+
+  test(`DB 적용 전 서버에서도 화면이 깨지지 않는다: 폴더는 이번 방문만, 종류 칩 기억은 그대로 ${width}`,async({page})=>{
+    const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,init:{libraryViewNoFolder:true,libraryView:{group_by:'month'}}});
+    await radio(page,'폴더').click();
+    await expect.poll(()=>(s.profilePatches||[]).length,{timeout:5000}).toBe(2);
+    // 첫 요청은 검사에 거절되고(400), 폴더만 빼고 앞서 기억한 묶기 그대로 다시 보낸다.
+    expect(s.profilePatches[0]).toEqual({library_view:{group_by:'folder'}});expect(s.profilePatches[1]).toEqual({library_view:{group_by:'month'}});
+    expect(s.libraryView).toEqual({group_by:'month'});
+    await expect(radio(page,'폴더')).toHaveAttribute('aria-checked','true');expect(await tops(page)).toEqual(['x:out','f:fa','f:fn']);
+    // 폴더 보기에서 종류 칩을 눌러도 기억은 저장된다(폴더 때문에 막히지 않음).
+    const chip=page.locator('#libraryCategoryFilter [data-lu-category]:not([data-lu-category="all"])').first();const name=await chip.getAttribute('data-lu-category');
+    const before=(await chip.getAttribute('aria-pressed'))==='true';
+    await chip.click();
+    await expect.poll(()=>s.libraryView?.categories_off?.includes(name),{timeout:5000}).toBe(before);
+    expect(s.libraryView.group_by).toBe('month');
+    await expect(radio(page,'폴더')).toHaveAttribute('aria-checked','true');
+    expect(s.writes).toEqual([]);expect(errors).toEqual([]);
   });
 
   test(`폴더 메뉴: 이름 바꾸기 F2·안에 새 폴더·접기/펼치기·구분선·폴더 지우기, 폴더 밖 ⋯는 새 폴더만 ${width}`,async({page})=>{

@@ -10,12 +10,13 @@ const eq=(url,k)=>String(url.searchParams.get(k)||'').replace(/^eq\./,'');
 export const libDoc=(id,project_id,extra={})=>({id,workspace_id:'workspace-1',project_id,title:'자료 '+id,file_name:id+'.pdf',category:'정책자료',tags:[],document_date:'2026-10-01',created_at:'2026-10-01T00:00:00Z',...extra});
 export const libFolder=(id,project_id,extra={})=>({id,project_id,parent_id:null,name:'폴더 '+id,sort_order:1024,...extra});
 let seq=0;
-export async function bootLibrary(page,width,{folders=[],items=[],docs=null,dbFree=true,group=null,scheme='light'}={}){
+// state: 다른 기기(새 브라우저)로 같은 서버 상태를 다시 열 때 앞서 쓴 s를 넘긴다. init: 서버 상태에 덧씌울 값(libraryView, libraryViewNoFolder=LIB-폴더묶기기억 적용 전).
+export async function bootLibrary(page,width,{folders=[],items=[],docs=null,dbFree=true,group=null,scheme='light',state=null,init={}}={}){
   await page.setViewportSize({width,height:900});
   await page.emulateMedia({colorScheme:scheme});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!/Failed to load resource/.test(m.text()))errors.push(m.text())});
-  const s=baseState();s.docs=docs||[libDoc('a-1','top-a'),libDoc('a-2','top-a'),libDoc('a1-1','child-a1'),libDoc('n-1',null)];
-  s.folders=folders.map(f=>({workspace_id:'workspace-1',parent_id:null,sort_order:1024,created_at:'2026-10-01T00:00:00Z',...f}));s.items=items.map(x=>({workspace_id:'workspace-1',...x}));s.writes=[];s.trash=[];s.rpc=[];s.dbFree=dbFree;
+  const s=state||baseState();if(!state){s.docs=docs||[libDoc('a-1','top-a'),libDoc('a-2','top-a'),libDoc('a1-1','child-a1'),libDoc('n-1',null)];
+  s.folders=folders.map(f=>({workspace_id:'workspace-1',parent_id:null,sort_order:1024,created_at:'2026-10-01T00:00:00Z',...f}));s.items=items.map(x=>({workspace_id:'workspace-1',...x}));s.writes=[];s.trash=[];s.rpc=[];s.dbFree=dbFree;}Object.assign(s,init);
   await mockApp(page,s);
   const byId=id=>s.folders.find(x=>x.id===id);
   const depth=id=>{let n=0,f=byId(id);while(f&&n<10){n++;f=f.parent_id?byId(f.parent_id):null}return n};
@@ -68,7 +69,7 @@ export async function bootLibrary(page,width,{folders=[],items=[],docs=null,dbFr
   });
   await signIn(page,`${appOrigin}/app/?view=library`);
   await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
-  await expect(libraryNode(page,'p:top-a')).toBeAttached();
+  await expect(page.locator('#documentList details[data-lu-node]').first()).toBeAttached();
   if(group)await page.locator('#libraryGroupBy').getByRole('radio',{name:group}).click();
   return {s,errors};
 }

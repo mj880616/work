@@ -1,11 +1,12 @@
 // LIB-보기기억 (2026-10-23 사용자 요청 11:47): 자료실에서 마지막으로 고른 묶기·종류 칩을 서버에 기억해 PC와 폰이 같게 열린다.
 // 저장 위치: 내 프로필 행의 library_view 칸(app_profiles, migration 20261023150000). 분류 목록(document_categories)·자주 가는 링크(quick_links)와
 // 같은 방식이며 기존 owner RLS로 내 행만 읽고 쓴다. 새 표·새 함수·권한 변경 없음. 브라우저 기기 저장소는 쓰지 않는다.
-// 값 모양: {"group_by":"project"|"organization"|"category"|"month","categories_off":["회의",…]} — 두 칸 모두 선택.
+// 값 모양: {"group_by":"project"|"organization"|"category"|"month"|"folder","categories_off":["회의",…]} — 두 칸 모두 선택.
 //   칸이 비어 있으면(null) 아직 고른 적 없음 → 화면의 기본(묶기 프로젝트, 종류는 [회의]만 꺼짐).
 //   꺼 둔 종류를 이름으로 기억하므로 새로 만든 분류는 켜진 채로 보인다. 검색어·담당조직·프로젝트 거르기·펼침은 기억하지 않는다(그때그때 값).
+// 'folder'는 LIB-폴더묶기기억(migration 20261026180000)부터 받는다. 그 전 서버는 400이라 'pending'이고 화면이 폴더만 빼고 다시 보낸다.
 // 칸이 아직 없는 서버(적용 전)에서는 읽기·쓰기가 400이라 화면은 기본값으로 그대로 동작하고 기억만 하지 않는다.
-export const VIEW_GROUPS=Object.freeze(['project','organization','category','month']);
+export const VIEW_GROUPS=Object.freeze(['project','organization','category','month','folder']);
 export const VIEW_NAME_MAX=40,VIEW_OFF_MAX=60;
 
 const cleanName=v=>typeof v==='string'&&v===v.trim()&&v!==''&&[...v].length<=VIEW_NAME_MAX&&!/\p{Cc}/u.test(v);
