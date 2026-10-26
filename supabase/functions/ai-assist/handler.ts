@@ -31,7 +31,7 @@
 // 기록 겹침 확인(kind=overlap_check, MTG-기록겹침거르기 2단계, docs/design/record-overlap.md): 기록 참조 짝(1~8쌍)을 받아 서버가 두 기록을 내 로그인으로 읽고,
 //   AI가 내용을 비교해(same·different·unsure + 이유 120자) DB 함수 app_record_overlap_set으로 표 app_record_overlaps에 저장한다. 이미 판정된 짝은 다시 부르지 않는다.
 // 원장 고치기 미리보기(kind=ledger_fix, LEDGER-수정요청): 일상어 한 줄 → 원장 수정 요청 모양. AI 답은 다시 검사하고 DB 해 보기로 전·후만
-//   돌려준다(서버는 반영하지 않음). 교섭·전략(S2) 기록은 AI에 보내지 않는다.
+//   돌려준다(서버는 반영하지 않음). 교섭·전략(S2) 기록은 ⋯ [고치기]로 직접 지정한 한 건만 보낸다(2026-10-26 결정).
 // 주요 일정 제목 다듬기(kind=schedule_titles, WEEKLY-일정다듬기 ④): 주간보고 한글 파일 '5. 주요 일정 — 제목 확인'의 [AI로 다듬기]를 누를 때만.
 //   화면은 주(월요일)와 일정 줄(참조·날짜·시각·달력 제목·장소, 30개까지)만 보낸다(이 쓰임만 몸통 20KB, 나머지는 2KB 그대로).
 //   업무 기록·이름 목록은 서버가 내 로그인으로 읽는다(일기·보관·AI 제외 업데이트 빼고). 답은 제안으로만 돌려주고 저장하지 않는다.
@@ -70,7 +70,7 @@ import {
 } from "./call-refill.ts";
 import {
   fixMaterial, fixRequest, FIX_MAX_OUTPUT_TOKENS, FIX_KNOWN_RECORDS, type FixName, type FixRecord, LEDGER_FIX_INSTRUCTIONS, LEDGER_FIX_SCHEMA,
-  parseFixRequest, parseLedgerFix, sendableRecord,
+  parseFixRequest, parseLedgerFix, sendableRecord, fixableRecord,
 } from "./ledger-fix.ts";
 
 import {
@@ -154,7 +154,7 @@ export const MESSAGES: Readonly<Record<string, string>> = Object.freeze({
   ledger_record_failed: "원장에 기록하지 못했어요. 다음에 다시 시도해요.",
   overlap_not_ready: "기록 겹침 확인 기능이 아직 준비되지 않았어요.",
   overlap_unavailable: "겹침 판정을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.",
-  ledger_fix_sensitive: "교섭·전략 기록은 AI로 고치지 않아요. Claude 수정안을 붙여 넣어 주세요.",
+  ledger_fix_sensitive: "이 기록은 AI로 고칠 수 없어요. Claude 수정안을 붙여 넣어 주세요.",
   ledger_fix_inactive: "이미 대체됐거나 폐기된 기록이에요.",
   ledger_fix_rejected: "원장 형식에 맞지 않아 미리보기를 만들지 못했어요. 문장을 바꿔 다시 써 주세요.",
   library_not_ready: "자료 정보 채우기가 아직 준비되지 않았어요.",
@@ -1759,8 +1759,9 @@ async function runLedgerFix(ctx: Ctx, input: LedgerFixInput, deps: RadarDeps): P
     if (rows.length !== 1 || rows[0].ledger_id !== input.target) throw new Fail(404, "not_found");
     target = rows[0];
     if (!["current", "needs_check", "fulfilled"].includes(target.validity)) throw new Fail(409, "ledger_fix_inactive");
-    // 교섭·전략(S2) 기록은 AI에 보내지 않는다(ledger_auto와 같은 기준). Claude 수정안 붙여 넣기 길은 화면에 그대로 있다.
-    if (!sendableRecord(target)) throw new Fail(422, "ledger_fix_sensitive");
+    // 교섭·전략(S2) 기록도 고칠 대상으로 직접 지정하면 AI에 보낸다(명진 결정 2026-10-26). 모르는 등급은 닫는다.
+    // ledger_auto·원장 재료는 S2를 여전히 보내지 않는다(sendable). 기록 목록(known)에도 S2는 싣지 않는다.
+    if (!fixableRecord(target)) throw new Fail(422, "ledger_fix_sensitive");
   }
   const config = aiConfig(deps.env);
   if (!config) {
