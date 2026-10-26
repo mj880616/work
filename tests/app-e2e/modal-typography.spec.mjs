@@ -179,7 +179,7 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     for(const kind of await kinds.all())expect(await kind.evaluate(el=>{const s=getComputedStyle(el);return [s.fontSize,Math.round(el.getBoundingClientRect().height)]})).toEqual(['13px',44]);
   }
   if(name==='library'||name==='meetings'&&width<1024){
-    const groups=page.locator('#'+name+'View .filter-chips:not(#meetingColumnPicker)');
+    const groups=page.locator('#'+name+'View .filter-chips:not(#meetingColumnPicker):not(#reportViewFilter)');
     // UI-바구니첨부메모 ⑪: 자료실은 프로젝트에 분류 7개 칩 줄이 더해진다. UI-바구니거르기: 자료 종류([일반 자료|회의자료만]) 줄은 없앴다.
     // MTG-사업보고 4단계: 사업 보고(폰)는 위쪽 칸 칩 줄 + [회의] 칩일 때의 회의명 칩 줄, 두 줄이 같은 칩 모양이다.
     await expect(groups).toHaveCount(2);

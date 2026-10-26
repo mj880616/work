@@ -318,9 +318,11 @@ const luListDocs=()=>foldPhotoSets(luDocuments,luPhotoMeetings);
 // 묶음 줄: 사업 보고 하나 = 한 줄. 누르면 그 사업 보고(사진 보기는 사업 보고 화면 쪽 단계에서 이어 붙는다). 사진은 자료실에서 고르거나 옮기거나 지울 수 없다(사업 보고에서 다룸).
 function luPhotoSetRowHtml(d){
   const label=luEsc(d.title),date=luDisplayName(d).date,mid=luEsc(d.meeting_id);
-  return `<article class="lu-row lu-row-set" role="button" tabindex="0" data-lu-photoset="${mid}" aria-label="사업 보고 열기: ${label}"><span class="lu-file-kind" data-lu-kind="img">그림</span><span class="lu-row-tag">${categoryTag(d.category)}</span><h3 class="lu-row-title">${label}</h3>${reportPhotosHtml(d.meeting_id,new Map([[d.meeting_id,d.photos]]),{more:false})}${date?`<span class="lu-row-date">${luEsc(date)}</span>`:''}</article>`;
+  return `<article class="lu-row lu-row-set" role="button" tabindex="0" data-lu-photoset="${mid}" aria-label="사진 보기: ${label}"><span class="lu-file-kind" data-lu-kind="img">그림</span><span class="lu-row-tag">${categoryTag(d.category)}</span><h3 class="lu-row-title">${label}</h3>${reportPhotosHtml(d.meeting_id,new Map([[d.meeting_id,d.photos]]),{more:false})}${date?`<span class="lu-row-date">${luEsc(date)}</span>`:''}</article>`;
 }
-async function luOpenPhotoSet(meetingId){try{const {openReport}=await import('./report-open.js');await openReport(meetingId)}catch(e){console.error('library photo set open',e);alert('사업 보고를 열지 못했습니다.')}}
+// ACT-사진 6단계: 사진 묶음 줄을 누르면 사업 보고 화면의 [사진] 보기로 바로 가서 그 사업 보고 묶음 자리에 선다(도착점은 이 함수 하나).
+// 사업 보고 화면을 불러오지 못하면 예전처럼 그 사업 보고 결과 창을 연다.
+async function luOpenPhotoSet(meetingId){try{await window.KPTUViewLoader?.load?.('meetings');const cols=window.KPTUMeetingColumns;if(cols?.showPhotos&&window.KPTURouter?.go?.('meetings',{source:'delegated'})){cols.showPhotos(meetingId);return}const {openReport}=await import('./report-open.js');await openReport(meetingId)}catch(e){console.error('library photo set open',e);alert('사업 보고를 열지 못했습니다.')}}
 // UI-디자인기준 3/3: the kind comes from the file extension; a name without a known extension uses the type Drive reported (mime_type).
 const luFileKind=fileKindOf;
 // UI-PC자료실: 줄 오른쪽의 짧은 날짜(월.일). 분류 꼬리표는 자료명 왼쪽으로 옮겼다.

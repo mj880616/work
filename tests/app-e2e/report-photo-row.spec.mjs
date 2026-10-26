@@ -57,6 +57,7 @@ async function mock(page, state) {
     if (path === '/rest/v1/app_meetings' && req.method() === 'GET') {
       const id = url.searchParams.get('id') || '';
       if (id.startsWith('in.(')) return ok([state.meeting]);
+      if (!id) return ok([state.meeting]);
       return ok('eq.' + M1 === id ? [state.meeting] : []);
     }
     if (path.startsWith('/rest/v1/')) return ok([]);
@@ -72,7 +73,9 @@ async function openDetail(page, state, width) {
   await signInWithSession(page, 'owner@example.org');
   await expect(page.locator('[data-lu-photoset]').first()).toBeAttached({timeout: 10000});
   await expandLibraryTree(page);
+  // 묶음 줄은 사업 보고 화면의 [사진] 보기로 간다(ACT-사진 6단계). 거기서 사업 보고 머리줄을 눌러 상세 창을 연다.
   await page.locator(`[data-lu-photoset="${M1}"]`).click();
+  await page.locator(`[data-rv-set="${M1}"] .rv-set-head`).click();
   await expect(page.locator('#meetingRoundDetailModal')).toBeVisible({timeout: 10000});
 }
 

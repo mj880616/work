@@ -55,6 +55,7 @@ async function mock(page, state) {
         const ids = id.slice(4, -1).split(',');
         return ok(state.meetings.filter(m => ids.includes(m.id)));
       }
+      if (!id) return ok(state.meetings.filter(m => m.id !== M3).map(m => ({...m, workspace_id: 'workspace-1', notes: '', decisions: '', transcript: ''})));
       state.meetingOpens.push(id);
       return ok(state.meetings.filter(m => 'eq.' + m.id === id).map(m => ({...m, workspace_id: 'workspace-1', notes: '', decisions: '', transcript: ''})));
     }
@@ -105,8 +106,15 @@ for (const width of [390, 1440]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth <= 1)).toBe(true);
     await expect(set(M1).locator('.lu-row-title')).toBeVisible();
 
-    // 누르면 그 사업 보고를 연다.
+    // 누르면 사업 보고 화면의 [사진] 보기로 바로 가서 그 사업 보고 묶음 자리에 선다(ACT-사진 6단계)..
     await set(M1).click();
+    await expect(page.locator('#reportViewFilter [aria-checked="true"]')).toHaveText('사진');
+    await expect(page.locator(`#meetingList [data-rv-set="${M1}"]`)).toBeVisible({timeout: 10000});
+    await expect(page.locator(`#meetingList [data-rv-set="${M1}"] .act-photo-thumb`)).toHaveCount(5);
+    await expect(page.locator(`#meetingList [data-rv-set="${M2}"] .act-photo-thumb`)).toHaveCount(1);
+    await expect(page.locator(`#meetingList [data-rv-set="${M3}"]`)).toHaveCount(0);
+    // 머리줄을 누르면 그 사업 보고 결과 창이 열린다.
+    await page.locator(`#meetingList [data-rv-set="${M1}"] .rv-set-head`).click();
     await expect.poll(() => state.meetingOpens.some(x => x === 'eq.' + M1)).toBe(true);
   });
 }
