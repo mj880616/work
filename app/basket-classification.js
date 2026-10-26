@@ -151,7 +151,7 @@ export async function readClassificationSnapshot(proposal,rt=window.KPTURuntime)
   // Query exact note IDs with RLS, so a visible note in another owned workspace
   // can be distinguished from a missing/inaccessible note without broad reads.
   const [notes,links,projects,organizations]=await Promise.all([
-    ids?readPages(`/rest/v1/app_notes?id=in.(${ids})&kind=eq.basket&select=id,workspace_id,raw_text,updated_at,archived_at,ai_export_allowed&order=id.asc`,rt):[],
+    ids?readPages(`/rest/v1/app_notes?id=in.(${ids})&kind=eq.basket&select=id,workspace_id,raw_text,updated_at,occurred_at,created_at,archived_at,ai_export_allowed&order=id.asc`,rt):[],
     ids?readPages(`/rest/v1/app_record_links?note_id=in.(${ids})&select=id,note_id,status,summary,organization_id,project_id,bundle_id&order=id.asc`,rt):[],
     readPages('/rest/v1/app_spaces?select=id,workspace_id,owner_id,name,parent_id,status,metadata,sort_order,created_at&order=id.asc',rt),
     readPages('/rest/v1/app_suborganizations?select=id,workspace_id,name&order=id.asc',rt)

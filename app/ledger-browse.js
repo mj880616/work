@@ -51,10 +51,10 @@ function fresh() {
 const LIVE = 'validity=in.(current,needs_check,fulfilled)';
 const ROW_COLS = LEDGER_ROW_COLS;
 
-// 화면 틀: 맨 위 사본 상태 한 줄 → 고치기·기록하기 칸(닫혀 있음) → 목록·검색. 칸마다 renderer는 하나(각 모듈).
+// 화면 틀: 맨 위 사본 상태 한 줄 → 고치기·기록하기 칸(닫혀 있음) → 겹친 기록 칸(없으면 숨김) → 목록·검색. 칸마다 renderer는 하나(각 모듈).
 function installView() {
   if (document.querySelector('#ledgerView')) return;
-  document.querySelector('#appView')?.insertAdjacentHTML('beforeend', `<section id="ledgerView" class="view-panel hidden" aria-label="원장"><div class="lg-root"><div id="ledgerExportRoot" class="lg-root" hidden></div><div id="ledgerFixRoot" class="lg-root" hidden></div><div id="ledgerBrowseRoot" class="lg-root" hidden></div></div></section>`);
+  document.querySelector('#appView')?.insertAdjacentHTML('beforeend', `<section id="ledgerView" class="view-panel hidden" aria-label="원장"><div class="lg-root"><div id="ledgerExportRoot" class="lg-root" hidden></div><div id="ledgerFixRoot" class="lg-root" hidden></div><div id="ledgerMergeRoot" class="lg-root" hidden></div><div id="ledgerBrowseRoot" class="lg-root" hidden></div></div></section>`);
 }
 
 // ---------- 첫 화면 칸(검색이 없을 때) ----------

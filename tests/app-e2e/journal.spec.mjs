@@ -1524,11 +1524,16 @@ for(const width of [390,1280])test(`[주간보고 한글 파일] 임시저장: �
  const [download]=await Promise.all([page.waitForEvent('download'),hwpx(page).locator('[data-hwpx-build]').click()]);
  const {report}=await savedReport(download);
  expect(report.orgs[0].status).toEqual(['- 지난주 조직 소식','- 임시저장할 조직 소식']);
- // [처음부터]는 묻고 서버 임시저장을 비운다.
+ // WEEKLY-개인본대조 W-2: 파일을 내주면 그 파일의 1~4절 글 줄이 draft.issued 에 적힌다(표 머리 칸 이름은 빠지고 칸 글은 들어간다).
+ await expect.poll(()=>row.draft?.issued?.lines.map(l=>l.text)??[],{timeout:15000}).toContain('- 임시저장할 조직 소식');
+ expect(row.draft.issued.lines.find(l=>l.text==='- 임시저장할 조직 소식').section).toBe('orgs');
+ expect(row.draft.issued.lines.map(l=>l.text)).not.toContain('조직명');
+ expect(row.draft.issued.from).toBe('generated');
+ // [처음부터]는 묻고 서버 임시저장(고친 칸·일정)을 비운다. 이미 내준 초안 기록(issued)은 그 주 비교 기준이라 남는다.
  page.once('dialog',d=>d.accept());
  await hwpx(page).locator('[data-hwpx-restart]').click();
  await expect(hwpx(page).locator('[data-hwpx-status]')).toHaveText('임시저장본을 지웠어요.');
- expect(row.draft).toBeNull();
+ expect(row.draft.rows).toEqual([]);expect(row.draft.titles).toEqual([]);expect(row.draft.issued.lines.map(l=>l.text)).toContain('- 임시저장할 조직 소식');
  await expect(hwpx(page).locator('[data-hwpx-resume]')).toHaveCount(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
