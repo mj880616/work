@@ -25,14 +25,15 @@ async function openTelegram(page,width){
 const rd=(view,key)=>view.locator(`[data-tg-rd="${key}"]`);
 const wrapOf=(view,key)=>view.locator(`[data-tg-swipe="${key}"]`);
 const keys=view=>view.locator('[data-tg-rd]').evaluateAll(els=>els.map(e=>e.dataset.tgRd));
-// 실제 손가락처럼 터치 이벤트로 민다(마우스 아님).
-async function drag(page,locator,fromX,dx,dy=0){
- const box=await locator.boundingBox();const x=box.x+fromX,y=box.y+box.height/2;
- const cdp=await page.context().newCDPSession(page);
- await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
- for(let i=1;i<=8;i++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x+dx*i/8,y:y+dy*i/8}]});
- await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
- await cdp.detach();
+// 손가락 움직임은 터치 포인터 이벤트로 흉내 낸다(옛 카드 밀기 시험과 같은 방식). fromX: 줄 왼쪽에서의 가로 위치.
+async function drag(page,locator,fromX,dx,dy=0,{steps=8,startAt=null}={}){
+ const box=await locator.boundingBox();const hx=box.x+fromX,y=box.y+box.height/2,x=startAt??hx;
+ await page.evaluate(async({hx,x,y,dx,dy,steps})=>{
+  const el=document.elementFromPoint(hx,y),o=(px,py)=>({bubbles:true,cancelable:true,clientX:px,clientY:py,pointerType:'touch',pointerId:11,isPrimary:true});
+  el.dispatchEvent(new PointerEvent('pointerdown',o(x,y)));
+  for(let i=1;i<=steps;i++){el.dispatchEvent(new PointerEvent('pointermove',o(x+dx*i/steps,y+dy*i/steps)));await new Promise(r=>setTimeout(r,16));}
+  el.dispatchEvent(new PointerEvent('pointerup',o(x+dx,y+dy)));
+ },{hx,x,y,dx,dy,steps});
 }
 const rpc=(f,name)=>f.writes.filter(w=>w.rpc===name);
 
@@ -42,7 +43,7 @@ test('폴더 칸 줄: [전체][폴더][+ 폴더][보관함 n], 모든 방 고르
  const view=page.locator('#telegramView');
  await expect(view.locator('[data-tg-room]')).toHaveCount(0);
  const row=view.locator('.feed-chiprow');
- await expect(row.locator('button')).toHaveText(['전체','가상 업무','+ 폴더','보관함 1']);
+ await expect(row.locator('.feed-chip')).toHaveText(['전체','가상 업무','+ 폴더','보관함 1']);
  await expect(row.locator('[data-tg-folder=""]')).toHaveAttribute('aria-pressed','true');
  expect(await keys(view)).toEqual([A6,B6,A5,B3]);
  await row.getByRole('button',{name:'가상 업무'}).tap();
@@ -104,7 +105,7 @@ test('밀기는 분명한 가로 움직임만: 세로 스크롤·화면 가장�
  const view=page.locator('#telegramView'),w=wrapOf(view,A6);
  await drag(page,rd(view,A6),60,12,90);
  await expect(w).not.toHaveAttribute('data-side',/.+/);
- await drag(page,rd(view,A6),8,110);
+ await drag(page,rd(view,A6),60,110,0,{startAt:8});
  await expect(w).not.toHaveAttribute('data-side',/.+/);
  await drag(page,rd(view,A6),60,30);
  await expect(w).not.toHaveAttribute('data-side',/.+/);
@@ -148,7 +149,7 @@ test('[폴더로]: 폴더 목록·새 폴더, 고르면 그 방이 폴더로 들
  await expect.poll(()=>rpc(f,'app_feed_folder_create').length).toBe(1);
  await expect.poll(()=>rpc(f,'app_feed_room_set').length).toBe(3);
  expect(rpc(f,'app_feed_room_set')[2].body.p_room_key).toBe('room-a');
- await expect(view.locator('.feed-chiprow button')).toHaveText(['전체','가상 업무','가상 새폴더','+ 폴더','보관함 1']);
+ await expect(view.locator('.feed-chiprow .feed-chip')).toHaveText(['전체','가상 업무','가상 새폴더','+ 폴더','보관함 1']);
  expect(f.errors).toEqual([]);
 });
 
@@ -165,7 +166,7 @@ test('폴더 만들기·이름 바꾸기·지우기: 이름 규칙 안내, 같�
  await box.locator('input').fill('가상 업무');await box.getByRole('button',{name:'저장'}).tap();
  await expect(box).toContainText('이미 있는 폴더 이름이에요.');
  await box.locator('input').fill('가상 모임');await box.getByRole('button',{name:'저장'}).tap();
- await expect(row.locator('button')).toHaveText(['전체','가상 업무','가상 모임','+ 폴더','보관함 1']);
+ await expect(row.locator('.feed-chip')).toHaveText(['전체','가상 업무','가상 모임','+ 폴더','보관함 1']);
  await expect(row.locator('[data-tg-folder="' + (await row.locator('[data-tg-folder]').nth(2).getAttribute('data-tg-folder')) + '"]')).toHaveAttribute('aria-pressed','true');
  // 고른 폴더의 ⋯: 이름 바꾸기.
  await row.locator('[data-tg-folder-more]').tap();
@@ -180,7 +181,7 @@ test('폴더 만들기·이름 바꾸기·지우기: 이름 규칙 안내, 같�
  await expect(box).toContainText('폴더만 지워져요');
  await box.getByRole('button',{name:'지우기'}).tap();
  await expect.poll(()=>rpc(f,'app_feed_folder_delete').length).toBe(1);
- await expect(row.locator('button')).toHaveText(['전체','가상 모임2','+ 폴더','보관함 1']);
+ await expect(row.locator('.feed-chip')).toHaveText(['전체','가상 모임2','+ 폴더','보관함 1']);
  expect(await keys(view)).toEqual([A6,B6,A5,B3]);
  expect(f.errors).toEqual([]);
 });
