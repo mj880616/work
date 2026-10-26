@@ -285,7 +285,10 @@
 #libraryListCard .lu-select-act:disabled{opacity:.45}
 #libraryListCard .lu-select-act#librarySelectDelete:not(:disabled){color:var(--kptu-danger);font-weight:700}
 #libraryListCard .lu-select-btn[hidden],#libraryListCard .lu-head-actions > [hidden]{display:none}
-.lu-select-bar{display:flex;align-items:center;justify-content:flex-start;gap:4px;min-width:0;flex:1}
+.lu-select-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:0 4px;min-width:0;flex:1}
+:is(.lu-bulk-menu) button{padding-left:calc(var(--kptu-space-3,12px) + var(--lu-depth,0) * 12px)}
+:is(.lu-bulk-menu) button[aria-current="true"]::after{content:"✓";color:var(--kptu-primary-ink);font-weight:700}
+:is(.lu-bulk-menu) button:disabled{opacity:.55;cursor:default}
 #libraryListCard .lu-select-bar > *{flex:none;margin:0}
 .lu-select-bar[hidden]{display:none}
 .lu-select-bar .filter-chips{flex:none;margin-right:4px;padding-top:0;padding-bottom:0;min-height:0}
