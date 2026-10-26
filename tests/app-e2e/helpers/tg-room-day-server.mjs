@@ -37,20 +37,21 @@ function sorted(rows,order){
  const keys=(order||'').split(',').filter(Boolean).map(s=>s.split('.'));
  return [...rows].sort((x,y)=>{for(const [k,d] of keys){const a=String(x[k]??''),b=String(y[k]??'');if(a!==b)return (a<b?-1:1)*(d==='desc'?-1:1);}return 0;});
 }
-export function linesFor(items,roomDays,from,to){
+export const F={work:'80000000-0000-4000-8000-000000000001',misc:'80000000-0000-4000-8000-000000000002'};
+export function linesFor(items,roomDays,from,to,rooms=[]){
  const live=items.filter(x=>x.source==='telegram'&&x.day>=from&&x.day<=to),groups=new Map();
  for(const x of live){const k=x.room_key+'|'+x.day;(groups.get(k)||groups.set(k,[]).get(k)).push(x);}
  const out=[];
  for(const [k,list] of groups){
   const shown=list.filter(x=>!x.hidden_at);if(!shown.length)continue;
-  const [room,day]=[k.slice(0,k.lastIndexOf('|')),k.slice(k.lastIndexOf('|')+1)],rd=roomDays.find(r=>r.room_key===room&&r.day===day),info=roomInfo[room]||{};
+  const [room,day]=[k.slice(0,k.lastIndexOf('|')),k.slice(k.lastIndexOf('|')+1)],rs=rooms.find(r=>r.room_key===room)||{},rd=roomDays.find(r=>r.room_key===room&&r.day===day),info=roomInfo[room]||{};
   const parts=[...(rd?.parts||[])].sort((a,b)=>a.first_at.localeCompare(b.first_at));
   out.push({room_key:room,room_label:list[0].room_label,day,last_at:list.map(x=>x.occurred_at).sort().at(-1),item_count:shown.length,raw_count:shown.reduce((n,x)=>n+x.raw_count,0),
-   headline:parts.find(p=>p.headline)?.headline||null,part_count:parts.length,chat_kind:info.chat_kind||null,chat_username:info.chat_username||null,folder_id:null,archived_at:null,day_hidden_at:rd?.hidden_at||null});
+   headline:parts.find(p=>p.headline)?.headline||null,part_count:parts.length,chat_kind:info.chat_kind||null,chat_username:info.chat_username||null,folder_id:rs.folder_id||null,archived_at:rs.archived_at||null,day_hidden_at:rd?.hidden_at||null});
  }
  return out.sort((a,b)=>b.day.localeCompare(a.day)||b.last_at.localeCompare(a.last_at));
 }
-export async function installTgServer(page,{items,roomDays=roomDayRows(),writes=[],missing=false,empty=false,calls=[]}={}){
+export async function installTgServer(page,{items,roomDays=roomDayRows(),writes=[],missing=false,empty=false,calls=[],folders=[],rooms=[],noFolderFns=false}={}){
  const days=[
   {workspace_id:'w',day:'2026-10-06',source:'call',total_count:5,kept_count:2,room_count:0,personal_count:2,unsure_count:1,failed_count:0},
   {workspace_id:'w',day:'2026-10-06',source:'telegram',total_count:412,kept_count:5,room_count:3,personal_count:0,unsure_count:0,failed_count:0},
@@ -88,11 +89,49 @@ export async function installTgServer(page,{items,roomDays=roomDayRows(),writes=
  await route('/rest/v1/rpc/app_feed_room_day_lines',r=>{
   if(missing)return r.fulfill({status:404,json:{code:'PGRST202',message:'Could not find the function public.app_feed_room_day_lines'}});
   const {p_from,p_to}=r.request().postDataJSON();calls.push({fn:'lines',p_from,p_to});
-  return r.fulfill({json:empty?[]:linesFor(items,roomDays,p_from,p_to)});
+  return r.fulfill({json:empty?[]:linesFor(items,roomDays,p_from,p_to,rooms)});
  });
  await route('/rest/v1/app_feed_room_days',r=>{
-  const q=new URL(r.request().url()).searchParams,rd=roomDays.find(x=>x.room_key===eq(q,'room_key')&&x.day===eq(q,'day'));
+  const q=new URL(r.request().url()).searchParams;
+  if(q.get('hidden_at')==='not.is.null')return r.fulfill({json:roomDays.filter(x=>x.hidden_at).map(x=>({room_key:x.room_key,day:x.day,hidden_at:x.hidden_at}))});
+  const rd=roomDays.find(x=>x.room_key===eq(q,'room_key')&&x.day===eq(q,'day'));
   return r.fulfill({json:rd?[{parts:rd.parts,hidden_at:rd.hidden_at}]:[]});
+ });
+ await route('/rest/v1/app_feed_folders',r=>r.fulfill({json:Number(new URL(r.request().url()).searchParams.get('offset')||0)?[]:folders.map((f,i)=>({id:f.id,name:f.name,sort_order:i}))}));
+ await route('/rest/v1/app_feed_rooms',r=>r.fulfill({json:Number(new URL(r.request().url()).searchParams.get('offset')||0)?[]:rooms.map(x=>({room_label:'',folder_id:null,archived_at:null,...x}))}));
+ const fn=(name,handler)=>route('/rest/v1/rpc/'+name,r=>{
+  if(noFolderFns)return r.fulfill({status:404,json:{code:'PGRST202',message:'Could not find the function public.'+name}});
+  const body=r.request().postDataJSON();writes.push({rpc:name,body});return handler(r,body);
+ });
+ const bad=(r,code)=>r.fulfill({status:400,json:{code:'P0001',message:code}});
+ await fn('app_feed_room_set',(r,b)=>{
+  const known=items.find(x=>x.room_key===b.p_room_key);if(!known)return bad(r,'TGDG_NO_ROOM');
+  let row=rooms.find(x=>x.room_key===b.p_room_key);if(!row){row={room_key:b.p_room_key,room_label:known.room_label,folder_id:null,archived_at:null};rooms.push(row);}
+  row.folder_id=b.p_folder||null;row.archived_at=b.p_archived?(row.archived_at||'2026-10-06T01:00:00Z'):null;
+  return r.fulfill({json:{ok:true,room_key:b.p_room_key,folder_id:row.folder_id,archived:!!row.archived_at}});
+ });
+ await fn('app_feed_room_day_set',(r,b)=>{
+  let rd=roomDays.find(x=>x.room_key===b.p_room_key&&x.day===b.p_day);
+  if(!rd){if(!items.some(x=>x.room_key===b.p_room_key&&x.day===b.p_day))return bad(r,'TGDG_NOT_FOUND');rd={room_key:b.p_room_key,day:b.p_day,hidden_at:null,parts:[]};roomDays.push(rd);}
+  rd.hidden_at=b.p_state==='trashed'?'2026-10-06T01:00:00Z':null;
+  return r.fulfill({json:{ok:true,room_key:b.p_room_key,day:b.p_day,state:b.p_state}});
+ });
+ await fn('app_feed_folder_create',(r,b)=>{
+  const name=String(b.p_name||'').trim();
+  if(folders.some(f=>f.name===name))return bad(r,'TGDG_FOLDER_NAME_TAKEN');
+  if(folders.length>=30)return bad(r,'TGDG_FOLDER_LIMIT');
+  const f={id:'80000000-0000-4000-8000-0000000001'+String(folders.length+10),name};folders.push(f);
+  return r.fulfill({json:{ok:true,id:f.id,name}});
+ });
+ await fn('app_feed_folder_rename',(r,b)=>{
+  const f=folders.find(x=>x.id===b.p_id);if(!f)return bad(r,'TGDG_NOT_FOUND');
+  if(folders.some(x=>x.id!==f.id&&x.name===b.p_name))return bad(r,'TGDG_FOLDER_NAME_TAKEN');
+  f.name=b.p_name;return r.fulfill({json:{ok:true,id:f.id,name:f.name}});
+ });
+ await fn('app_feed_folder_delete',(r,b)=>{
+  const i=folders.findIndex(x=>x.id===b.p_id);if(i<0)return bad(r,'TGDG_NOT_FOUND');
+  folders.splice(i,1);for(const x of rooms)if(x.folder_id===b.p_id)x.folder_id=null;
+  return r.fulfill({json:{ok:true,id:b.p_id,rooms_released:0}});
  });
  await route('/rest/v1/app_feed_days',r=>{
   if(missing)return r.fulfill({status:404,json:{code:'PGRST205'}});
@@ -106,5 +145,5 @@ export async function installTgServer(page,{items,roomDays=roomDayRows(),writes=
   if(r.request().method()==='POST'){writes.push({table:'org_update',body:r.request().postDataJSON()});return r.fulfill({status:201,json:[]});}
   return r.fulfill({json:[]});
  });
- return {items,roomDays,writes,calls};
+ return {items,roomDays,writes,calls,folders,rooms};
 }

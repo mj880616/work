@@ -2,8 +2,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {lineOf, rdKey, splitRdKey, liveLines, groupLines, roomsOfLines, neighborDays, daysNeedingTitles, titleIndex, lineText, mergeParts, daySummary,
-  openTarget, COPY_NOTE, firstWindow, olderWindow, reachedEnd, chunksOf, LIST_WINDOW} from '../app/tg-day-model.mjs';
+import {lineOf, rdKey, splitRdKey, liveLines, groupLines, neighborDays, daysNeedingTitles, titleIndex, lineText, mergeParts, daySummary,
+  openTarget, COPY_NOTE, firstWindow, olderWindow, reachedEnd, chunksOf, LIST_WINDOW,
+  cleanFolderName, FOLDER_NAME_MAX, archivedRooms, withRoomState, swipeIntent, swipeEdge, swipeWidths, swipeOffset, swipeSettle, swipeOpenOffset, SWIPE_ACTIONS, ACTION_LABEL, allowOf} from '../app/tg-day-model.mjs';
 
 const L = (room, day, o = {}) => lineOf({room_key:room, room_label:`가상 ${room}`, day, last_at:`${day}T05:00:00Z`, item_count:2, raw_count:5, headline:'', ...o});
 
@@ -21,8 +22,9 @@ test('평소 목록: 보관한 방·지운 날은 빼고, 날짜 내림차순 �
   const live = liveLines(lines);
   assert.deepEqual(live.map(l => l.room_key), ['a', 'b', 'c']);
   assert.deepEqual(groupLines(live).map(g => [g.day, g.rows.map(r => r.room_key)]), [['2026-10-06', ['c', 'b']], ['2026-10-05', ['a']]]);
-  assert.deepEqual(liveLines(lines, {room:'b'}).map(l => l.room_key), ['b']);
-  assert.deepEqual(roomsOfLines(live).map(r => r.key), ['c', 'b', 'a']);
+  const inFolder = withRoomState(lines, new Map([['b', {folder_id:'f1', archived_at:null}]]));
+  assert.deepEqual(liveLines(inFolder, {folder:'f1'}).map(l => l.room_key), ['b'], '폴더를 고르면 그 폴더의 방만');
+  assert.deepEqual(liveLines(inFolder).map(l => l.room_key), ['a', 'b', 'c'], '전체는 폴더와 상관없이 모두');
 });
 
 test('‹ ›: 그 방의 앞뒤 날만, 지운 날은 건너뛴다', () => {
@@ -93,5 +95,44 @@ test('화면 코드: 브라우저 저장소·옛 덮어쓰기 없음, 요약 읽
   assert.doesNotMatch(view, new RegExp(['local' + 'Storage', 'session' + 'Storage', 'indexed' + 'DB', 'Mutation' + 'Observer'].join('|')));
   assert.match(data, /app_feed_room_day_lines/);
   assert.doesNotMatch(data, /method:\s*'(PATCH|DELETE|PUT)'[^}]*app_feed_(rooms|folders|room_days)/);
-  assert.doesNotMatch(view, /feed-swipe|archived_at/, '옛 카드 밀기·소식 보관 코드는 없다');
+  assert.doesNotMatch(view, /data-tg-room\b|roomsOfLines|state\.room\b/, '옛 모든 방 고르기는 없다');
+  assert.match(data, /app_feed_room_set/); assert.match(data, /app_feed_room_day_set/);
+});
+
+test('폴더 이름: 줄바꿈은 띄어쓰기로, 비면 EMPTY, 20자 넘으면 LONG', () => {
+  assert.deepEqual(cleanFolderName('  가상\n폴더\t하나  '), {ok:true, name:'가상 폴더 하나'});
+  assert.equal(cleanFolderName('   ').error, 'EMPTY'); assert.equal(cleanFolderName(null).error, 'EMPTY');
+  assert.equal(FOLDER_NAME_MAX, 20);
+  assert.equal(cleanFolderName('가'.repeat(20)).ok, true); assert.equal(cleanFolderName('가'.repeat(21)).error, 'LONG');
+});
+
+test('보관함: 보관한 방만, 최근 날 순, 지운 날은 최근 날로 치지 않는다', () => {
+  const lines = [L('a', '2026-10-05'), L('a', '2026-10-07', {day_hidden_at:'x'}), L('b', '2026-10-06'), L('c', '2026-10-01')];
+  const rooms = new Map([['a', {room_label:'가상 a', folder_id:null, archived_at:'t'}], ['b', {room_label:'가상 b', folder_id:'f1', archived_at:'t'}], ['c', {room_label:'가상 c', folder_id:null, archived_at:null}], ['z', {room_label:'가상 z', folder_id:null, archived_at:'t'}]]);
+  const out = archivedRooms(rooms, lines);
+  assert.deepEqual(out.map(r => r.room_key), ['b', 'a', 'z']);
+  assert.equal(out[1].last.day, '2026-10-05'); assert.equal(out[2].last, null);
+  const live = liveLines(withRoomState(lines, rooms));
+  assert.deepEqual(live.map(l => l.room_key), ['c'], '보관한 방은 평소 목록에서 빠진다');
+});
+
+test('밀기: 분명한 가로 움직임만, 세로 스크롤·가장자리 시작은 무시', () => {
+  assert.equal(swipeIntent(5, 3), 'wait');
+  assert.equal(swipeIntent(30, 4), 'swipe'); assert.equal(swipeIntent(-30, 4), 'swipe');
+  assert.equal(swipeIntent(20, 20), 'scroll', '비스듬하면 스크롤'); assert.equal(swipeIntent(3, 40), 'scroll');
+  assert.equal(swipeIntent(30, 19), 'swipe'); assert.equal(swipeIntent(30, 21), 'scroll', '가로가 세로의 1.5배를 못 넘으면 스크롤');
+  assert.equal(swipeEdge(10, 400), true); assert.equal(swipeEdge(390, 400), true); assert.equal(swipeEdge(24, 400), false); assert.equal(swipeEdge(200, 400), false);
+});
+
+test('밀기 폭: 버튼 64px씩, 오른쪽 밀기 128px(폴더로·보관), 왼쪽 밀기 64px(삭제), 절반 넘으면 열린 채로', () => {
+  assert.deepEqual(SWIPE_ACTIONS.live, {start:['folder', 'archive'], end:['trash']});
+  assert.deepEqual(SWIPE_ACTIONS.archive, {start:['unarchive'], end:[]});
+  assert.deepEqual(ACTION_LABEL, {folder:'폴더로', archive:'보관', trash:'삭제', unarchive:'꺼내기'});
+  const live = allowOf('live'), arch = allowOf('archive');
+  assert.deepEqual(swipeWidths(live), {start:128, end:64}); assert.deepEqual(swipeWidths(arch), {start:64, end:0});
+  assert.equal(swipeOffset(300, 0, live), 128); assert.equal(swipeOffset(-300, 0, live), -64); assert.equal(swipeOffset(-30, 0, arch), 0);
+  assert.equal(swipeOffset(-40, 128, live), 88, '열린 줄에서 다시 밀기');
+  assert.equal(swipeSettle(63, live), ''); assert.equal(swipeSettle(64, live), 'start'); assert.equal(swipeSettle(-31, live), ''); assert.equal(swipeSettle(-32, live), 'end');
+  assert.equal(swipeSettle(-50, arch), ''); assert.equal(swipeSettle(32, arch), 'start');
+  assert.equal(swipeOpenOffset('start', live), 128); assert.equal(swipeOpenOffset('end', live), -64); assert.equal(swipeOpenOffset('', live), 0);
 });
