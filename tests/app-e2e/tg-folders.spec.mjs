@@ -21,6 +21,7 @@ async function openTelegram(page,width){
  if(width>=1024){const item=page.locator('#appView>.app-nav').getByRole('button',{name:'텔레그램 소식',exact:true});await expect(item).toBeVisible();await item.click();}
  else{await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu nav').getByRole('button',{name:'텔레그램 소식',exact:true}).click();}
  await expect(page.locator('#telegramView')).toBeVisible();
+ await expect(page.locator('#telegramView [data-tg-rd]').first()).toBeVisible();
 }
 const rd=(view,key)=>view.locator(`[data-tg-rd="${key}"]`);
 const wrapOf=(view,key)=>view.locator(`[data-tg-swipe="${key}"]`);
