@@ -12,7 +12,7 @@ import {spawnSync} from 'node:child_process';
 // getUser, unrelated to this change; reported separately).
 const TYPE_CHECK=new Set(['library-files','workspace-drive']);
 const FILES={
-  'library-files':['_shared/ai-model.ts','_shared/bounded-json.mjs','_shared/multipart.ts','_shared/openai-responses.ts','library-files/index.ts'],
+  'library-files':['_shared/ai-model.ts','_shared/bounded-json.mjs','_shared/drive-photo.ts','_shared/drive-upload.ts','_shared/multipart.ts','_shared/openai-responses.ts','library-files/index.ts','library-files/photo.ts'],
   'meeting-files':['_shared/meeting-auth.mjs','_shared/multipart.ts','meeting-files/index.ts'],
   'workspace-drive':['_shared/multipart.ts','workspace-drive/index.ts'],
 };
