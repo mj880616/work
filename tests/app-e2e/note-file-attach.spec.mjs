@@ -3,6 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { noteMenuAction } from './helpers/note-menu.mjs';
 import { basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';
 import { expectNoteTitle } from './helpers/note-title.mjs';
+import { noteTrash } from './helpers/note-trash.mjs';
 // NOTE-파일붙이기 (2026-10-22 사용자 결정): files on notes.
 // - The note input bar has the clip ([📎]); [추가] makes the note first, then its files go up with its id (basket-files, which puts
 //   them in Drive "노트 첨부"). A note of files only is titled by the first file's name.
@@ -28,6 +29,7 @@ async function fixture(page, width) {
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   await openHome(page);
+  const trash = await noteTrash(page, SB);
   let stamp = 10;
   await page.route(u => u.origin === SB && u.pathname === '/rest/v1/app_notes', async r => {
     const req = r.request(), q = new URL(req.url()).searchParams, method = req.method();
@@ -43,7 +45,7 @@ async function fixture(page, width) {
       const hit = notes.filter(pick); for (const row of hit) Object.assign(row, body);
       return r.fulfill({json: hit});
     }
-    if (method === 'DELETE') { writes.push({method, query: Object.fromEntries(q)}); const hit = notes.filter(pick); for (const row of hit) notes.splice(notes.indexOf(row), 1); return r.fulfill({json: hit.map(row => ({id: row.id}))}); }
+    if (method === 'DELETE') { writes.push({method, query: Object.fromEntries(q)}); const hit = notes.filter(pick); for (const row of hit) { notes.splice(notes.indexOf(row), 1); trash.take(row, 0); } return r.fulfill({json: []}); }
     return r.fulfill({status: 500, json: {}});
   });
   await page.route(SB + '/rest/v1/app_record_links?**', r => new URL(r.request().url()).searchParams.has('note_id') ? r.fulfill({json: []}) : r.fallback());
@@ -63,7 +65,7 @@ async function fixture(page, width) {
   await page.evaluate(() => window.KPTURouter.go('basket'));
   await openKindMenu(page,'note');await press(page, basketKindButton(page, 'note'), width);
   await expect(page.locator('[data-note-row="n-files"]')).toBeVisible();
-  return {notes, writes, uploads, functions, errors};
+  return {notes, writes, uploads, functions, errors, trash};
 }
 async function press(page, locator, width) {
   await expect(locator).toBeVisible();
@@ -187,15 +189,15 @@ for (const width of [390, 1280]) {
     expect(f.errors).toEqual([]);
   });
 
-  test(`deleting a note keeps its files in Drive: owner-RLS delete only, the confirmation says so ${width}`, async ({page}) => {
+  test(`deleting a note moves it to the trash and keeps its files in Drive: owner-RLS delete only, the confirmation says so ${width}`, async ({page}) => {
     const f = await fixture(page, width);
     await press(page, page.locator('[data-note-row="n-files"]'), width);
     let asked = '';
     page.once('dialog', d => { asked = d.message(); d.accept(); });
     await noteMenuAction(page, 'data-note-delete', {width});
     await expect(page.locator('[data-note-row="n-files"]')).toHaveCount(0);
-    expect(asked).toBe('노트 원문을 지웁니다. 연결된 조직·프로젝트 0곳에서도 사라집니다. 첨부 파일 2개는 노트에서만 빠지고 Drive에는 그대로 남아요.');
-    await expect(page.locator('[data-note-list-status]')).toHaveText('노트를 지웠어요. 첨부 파일은 Drive에 그대로 남아 있어요.');
+    expect(asked).toBe('노트를 휴지통으로 옮길까요?\n첨부 파일 2개는 Drive에 그대로 남습니다.\n휴지통에서 되돌릴 수 있습니다.');
+    await expect(page.locator('[data-undo-notice]')).toContainText('노트를 휴지통으로 옮겼어요.');
     expect(f.writes).toEqual([{method: 'DELETE', query: {id: 'eq.n-files', workspace_id: 'eq.w', select: 'id'}}]);
     expect(f.functions).toEqual([]);
     expect(f.errors).toEqual([]);

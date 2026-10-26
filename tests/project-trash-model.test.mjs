@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 import {
   TRASH_STATE, TRASH_TEXT, classifyTrashError, classifyTrashList, normalizeTrashRows,
   deleteDialogText, trashErrorText, purgeConfirmText, archiveButtonLabel, firstArchiveTab,
-  TRASH_KINDS, mergeTrashStates, otherDeleteText, otherDeleteBlockedText, restoredText, parentFirstText, missingOrganizationLabel,
+  TRASH_KINDS, noteKindWord, mergeTrashStates, otherDeleteText, otherDeleteBlockedText, restoredText, parentFirstText, missingOrganizationLabel,
 } from '../app/project-trash-model.mjs';
 
 test('함수가 없을 때(404·PGRST202)는 missing, 그 밖의 실패는 failed', () => {
@@ -123,7 +123,7 @@ test('종류별 줄 정리: 담당조직·사업 보고 이름, 종류 걸러내
     {kind: 'library_folder', id: 'f1', name: ' 합성 폴더 ', project_name: '합성 사업', child_count: 2, file_count: 3, deleted_at: '2026-10-25T05:00:00Z'},
     {kind: 'other', id: 'x1', name: '모르는 종류'},
   ];
-  assert.deepEqual(TRASH_KINDS, ['project', 'organization', 'report', 'library_folder']);
+  assert.deepEqual(TRASH_KINDS, ['project', 'organization', 'report', 'library_folder', 'note']);
   assert.deepEqual(normalizeTrashRows(data, 'library_folder').map((r) => [r.id, r.name, r.kind, r.project_name, r.child_count, r.file_count]), [['f1', '합성 폴더', 'library_folder', '합성 사업', 2, 3]]);
   assert.deepEqual(normalizeTrashRows(data, 'organization').map((r) => [r.id, r.name, r.kind]), [['o1', '합성 조직', 'organization']]);
   const reports = normalizeTrashRows(data, 'report');
@@ -202,4 +202,44 @@ test('화면 코드: 조직·보고 삭제는 공용 동작 한 곳, 준비 중�
     assert.ok(js.includes(`deleteToTrash({kind:'${kind}'`), file);
     assert.doesNotMatch(js, /담당조직을 삭제할까요|사업 보고를 삭제할까요|폴더를 지울까요/, file);
   }
+});
+
+// ---- TRASH-다른삭제 5단계: 노트·업데이트 ----
+test('노트 종류: 줄 이름은 제목, 없으면 미리보기, 둘 다 없으면 안내 이름이고 종류 단어·첨부·연결 수를 싣는다', () => {
+  const data = [
+    {kind: 'note', id: 'n1', note_kind: 'note', title: ' 합성 노트 ', preview: '본문 앞', file_count: 2, link_count: 1, deleted_at: '2026-10-26T05:00:00Z'},
+    {kind: 'note', id: 'n2', note_kind: 'basket', title: '', preview: ' 합성 업데이트 글 ', file_count: 0, link_count: 3, deleted_at: '2026-10-26T04:00:00Z'},
+    {kind: 'note', id: 'n3', note_kind: 'basket', title: null, preview: '', deleted_at: '2026-10-26T03:00:00Z'},
+    {kind: 'note', id: 'n4', note_kind: 'note', title: '', preview: '', deleted_at: '2026-10-26T02:00:00Z'},
+    {kind: 'project', id: 'p1', name: '합성 사업', deleted_at: '2026-10-20T01:00:00Z'},
+  ];
+  const rows = normalizeTrashRows(data, 'note');
+  assert.deepEqual(rows.map((r) => [r.id, r.name, r.note_kind, r.file_count, r.link_count]), [
+    ['n1', '합성 노트', 'note', 2, 1], ['n2', '합성 업데이트 글', 'basket', 0, 3], ['n3', '내용 없는 업데이트', 'basket', 0, 0], ['n4', '이름 없는 노트', 'note', 0, 0],
+  ]);
+  assert.deepEqual(normalizeTrashRows(data).map((r) => r.id), ['p1'], '종류를 안 주면 프로젝트만');
+  assert.equal(noteKindWord('note'), '노트');
+  assert.equal(noteKindWord('basket'), '업데이트');
+});
+
+test('노트 종류: DB 적용 전(옛 함수가 거절)이면 준비 중이고 삭제 요청 전에 막는 글이 나온다', () => {
+  const unknown = {status: 400, code: '22023', message: 'TRASH_KIND_UNKNOWN'};
+  assert.equal(classifyTrashError(unknown, 'note'), TRASH_STATE.MISSING);
+  assert.equal(classifyTrashError({status: 500, message: 'boom'}, 'note'), TRASH_STATE.FAILED);
+  assert.equal(otherDeleteBlockedText('note', TRASH_STATE.MISSING), '노트·업데이트 휴지통은 준비 중입니다. 준비가 끝나기 전에는 삭제할 수 없습니다.');
+  assert.match(otherDeleteBlockedText('note', TRASH_STATE.FAILED), /확인하지 못해 삭제하지 않았습니다/);
+});
+
+test('노트 종류: 확인창은 첨부 Drive 파일이 남고 연결이 이어진다고, 영구 삭제는 연결이 함께 지워진다고 말한다', () => {
+  const both = otherDeleteText('note', '', {noteKind: 'basket', attachments: 2, links: 3});
+  assert.equal(both.confirm, '업데이트를 휴지통으로 옮길까요?\n첨부 파일 2개는 Drive에 그대로 남습니다.\n연결된 3곳은 그대로 이어져 있고, 휴지통에서 되돌리면 원래대로 돌아옵니다.');
+  assert.equal(both.moved, '업데이트를 휴지통으로 옮겼어요.');
+  const plain = otherDeleteText('note', '', {noteKind: 'note', attachments: 0, links: 0});
+  assert.equal(plain.confirm, '노트를 휴지통으로 옮길까요?\n휴지통에서 되돌릴 수 있습니다.');
+  assert.equal(plain.moved, '노트를 휴지통으로 옮겼어요.');
+  const purge = purgeConfirmText({kind: 'note', name: '합성 글', note_kind: 'basket', link_count: 2, file_count: 1});
+  assert.match(purge, /“합성 글” 업데이트를 영구 삭제할까요/);
+  assert.match(purge, /연결 2곳도 함께 지워지고/);
+  assert.match(purge, /첨부 파일 1개는 Drive에 그대로 남습니다/);
+  assert.equal(restoredText('note'), '글을 되돌렸습니다.');
 });

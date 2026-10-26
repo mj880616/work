@@ -7,7 +7,7 @@ import { viewPrefs } from './view-prefs.js';
 // basket.js owns the [메모 | 노트] switch and decides when this host is shown.
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import { readNoteDocs, readNoteDoc, detachNoteFile, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, sortNotes, notePinnedAt, setNotePinned, noteFolder, noteFolders, newFolderName, setNoteFolder, validateFolderName, NOTE_FOLDER_LIMITS } from './basket-data.js';
-import { deleteNoteOriginal, noteDocDeleteConfirmText } from './basket-record-delete.js';
+import { deleteNoteOriginal } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';
 import { renderMarkdownInto, showPlainText, preloadMarkdown } from './markdown-view.js';
 import { copyText } from './copy-text.js';
@@ -586,15 +586,15 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const current = () => run === epoch && owner === scope() && window.KPTURouter.current === 'basket' && (fromList ? !selected : selected?.id === id);
     let result;
     // NOTE-파일붙이기 (2026-10-22 사용자 결정): deleting a note removes it and its links; its files stay in Drive.
-    try { result = await deleteNoteOriginal(id, {rt, isCurrent:current, keepFiles:true, describe:noteDocDeleteConfirmText}); }
+    try { result = await deleteNoteOriginal(id, {rt, isCurrent:current, trash:true}); }
     catch { result = {status:'unknown', message:'결과를 확인하지 못했어요. 노트 다시 불러오기로 실제 상태를 확인해 주세요.'}; }
     finally { busy = false; }
     if (!current() || result.status === 'stale') return;
     if (['deleted', 'missing'].includes(result.status)) {
       notes = notes.filter(n => n.id !== id); links = links.filter(l => l.note_id !== id);
       const message = String(result.message || '').replace('업데이트', '노트');
-      if (fromList) { renderList(); status.textContent = message; host.querySelector('[data-note-search]')?.focus({preventScroll:true}); return; }
-      close({force:true}); status.textContent = message;
+      if (fromList) { renderList(); if (message) status.textContent = message; host.querySelector('[data-note-search]')?.focus({preventScroll:true}); return; }
+      close({force:true}); if (message) status.textContent = message;
       return;
     }
     lock(false);
@@ -667,6 +667,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
 
   return {
     // openId: a note just moved here from the basket opens once the list is read.
+    // 휴지통에서 되돌린 노트를 목록에 다시 올린다(열어 둔 노트·편집 중이면 건드리지 않는다).
+    reload() { if (loaded && !selected && !busy) void refresh(); },
     show({openId = null} = {}) { void preloadMarkdown(); pendingOpen = openId; if (!selected) void refresh(); },
     close,
     reset() { closeMenu(); void folderSheet.close(); void addFolderSheet.close(); addPick = null; folderTarget = null; folderView = 'all'; viewRestored = false; draftFolders = []; folderJob = null; folderSay(''); const opened = layer; layer = null; opened?.close(); ++epoch; bigWriter?.close({silent:true}); bigWriter = null; dropField(); selected = null; sendWhere(null); editing = false; busy = false; manual.reset(); notes = []; links = []; loaded = false; query = ''; detail.replaceChildren(); detail.hidden = true; list.hidden = false; host.querySelector('[data-note-search]').value = ''; host.querySelector('[data-note-rows]').replaceChildren(); status.textContent = ''; onOpenChange(false); },
