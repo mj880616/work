@@ -27,9 +27,10 @@ export function reportPhotosHtml(meetingId,photos){
 // 작은 그림은 메모리에만(object URL). 같은 화면에서 다시 그릴 때 다시 받지 않는다.
 const cache=new Map();let cacheOwner='';
 const ownerOf=rt=>rt.context?.read?.()?.user?.id||'';
+// 로그인 정보가 아직 안 읽힌 순간('')은 사용자 바뀜으로 보지 않는다. 안 그러면 막 받은 그림 주소를 거두어 가 그림이 빈 칸이 된다.
 export function clearReportPhotoCache(){for(const flight of cache.values())flight.then(url=>URL.revokeObjectURL(url),()=>{});cache.clear()}
 export function reportPhotoUrl(documentId,{rt=reportRuntime(),fetcher=globalThis.fetch}={}){
-  const owner=ownerOf(rt);if(owner!==cacheOwner){clearReportPhotoCache();cacheOwner=owner}
+  const owner=ownerOf(rt);if(owner&&owner!==cacheOwner){if(cacheOwner)clearReportPhotoCache();cacheOwner=owner}
   if(cache.has(documentId))return cache.get(documentId);
   const flight=(async()=>{
     if(!(await rt.session.ensure()))throw new Error('session');

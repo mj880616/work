@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>텔레그램 보낸 사람 이름 시안</title>
+<style>
+:root{
+  --kptu-bg:#f3f1ea;--kptu-surface:#fffefa;--kptu-surface-subtle:#f7f5ee;
+  --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--kptu-faint:#8f8c7f;
+  --kptu-border:#e2ddd0;--kptu-border-strong:#cfc8b6;
+  --kptu-primary:#5c6a35;--kptu-primary-ink:#47532a;--kptu-primary-soft:#eef0e1;
+  --ds-line:var(--kptu-border-strong);
+  --room1:#5f7486;--room1-soft:#e7ecf0;--warn-soft:#f6f0dc;--warn-ink:#76642a;
+  --shadow:0 4px 14px rgba(40,38,28,.16);
+}
+@media (prefers-color-scheme:dark){:root{
+  --kptu-bg:#161613;--kptu-surface:#1f1f1b;--kptu-surface-subtle:#292924;--kptu-ink:#ebe9e1;--kptu-muted:#b1aea2;--kptu-faint:#938f84;
+  --kptu-border:#34332d;--kptu-border-strong:#4a4840;--kptu-primary:#b4c385;--kptu-primary-ink:#c2d095;--kptu-primary-soft:#2c3120;
+  --room1:#a7bccd;--room1-soft:#263039;--warn-soft:#332d1a;--warn-ink:#e0c97f;--shadow:0 4px 14px rgba(0,0,0,.5);
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--kptu-bg);color:var(--kptu-ink);font:13px/1.45 system-ui,"Noto Sans KR","Malgun Gothic",sans-serif;padding:12px 16px}
+h1{font-size:14px;font-weight:500;margin:0 0 4px;color:var(--kptu-muted)}
+h2{font-size:13px;font-weight:500;margin:0 0 8px;color:var(--kptu-primary-ink)}
+.lead,.note{font-size:12px;color:var(--kptu-faint);margin:0 0 12px}
+.note{margin:8px 0 0;max-width:760px}
+.section{margin-bottom:24px}
+.wrap{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
+.label{font-size:12px;color:var(--kptu-muted);margin:0 0 4px}
+.phone{width:390px;max-width:100%;background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:12px;overflow:hidden;position:relative}
+.pc{width:1280px;max-width:100%;background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:10px;overflow:hidden;position:relative}
+.fa{color:var(--kptu-faint)} .mu{color:var(--kptu-muted)} .xs{font-size:11px}
+button{font:inherit;color:inherit}
+
+/* 머리줄 */
+.head{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:.5px solid var(--kptu-border);min-height:38px}
+.head .sub{font-size:12px;color:var(--kptu-muted);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.back{font-size:13px;color:var(--kptu-muted)}
+.more{width:26px;height:26px;border:0;background:transparent;color:var(--kptu-muted);font-size:16px;line-height:1;border-radius:6px;padding:0}
+
+/* 원문 줄 */
+.raw{padding:6px 12px 10px}
+.rm{display:flex;gap:8px;padding:4px 0;border-bottom:.5px solid var(--kptu-border);font-size:12.5px;align-items:baseline}
+.rm:last-child{border-bottom:0}
+.rm .at{flex:none;width:36px;color:var(--kptu-faint);font-size:11px;font-variant-numeric:tabular-nums}
+.rm .who{flex:none;width:68px;color:var(--kptu-muted);white-space:nowrap}
+.rm .who.named{color:var(--kptu-primary-ink)}
+.rm .who.same{visibility:hidden}
+.rm .tx{flex:1;min-width:0}
+.pc .rm .who{width:84px}
+.pr .tag{display:inline-block}
+.tag{display:inline-block;font-size:11px;color:var(--kptu-primary-ink);background:transparent;border:0;padding:0;text-decoration:underline dotted;text-underline-offset:2px;margin:0;cursor:pointer;display:block;white-space:nowrap}
+.me{color:var(--kptu-faint)}
+
+/* 이름 붙이기 창 */
+.sheet{background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:10px;padding:10px 12px;box-shadow:var(--shadow)}
+.sheet .tt{font-size:12.5px;font-weight:500;margin:0 0 6px}
+.sheet .ln{font-size:11.5px;color:var(--kptu-muted);margin:0 0 6px}
+.sheet input{width:100%;height:30px;font:inherit;font-size:13px;color:var(--kptu-ink);background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:6px;padding:0 8px}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}
+.chip{font-size:12px;padding:1px 8px;border-radius:10px;border:.5px solid var(--kptu-border-strong);background:var(--kptu-surface-subtle);color:var(--kptu-ink)}
+.chip.on{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);border-color:var(--kptu-primary)}
+.act{display:flex;justify-content:flex-end;gap:12px;margin-top:6px;font-size:12.5px}
+.act .ok{color:var(--kptu-primary-ink);font-weight:500}
+.scope{font-size:11px;padding:2px 6px;border-radius:4px;background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);display:inline-block;margin:0 0 6px}
+.scope.one{background:var(--warn-soft);color:var(--warn-ink)}
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.18)}
+.bottom{position:absolute;left:8px;right:8px;bottom:52px}
+.tabbar{position:absolute;left:0;right:0;bottom:0;height:44px;border-top:.5px solid var(--kptu-border);background:var(--kptu-surface-subtle);display:flex;justify-content:space-around;align-items:center;font-size:11px;color:var(--kptu-faint)}
+
+/* 이름 표 관리 */
+.grp{font-size:11px;color:var(--kptu-faint);padding:8px 12px 2px;letter-spacing:.02em}
+.pr{display:flex;align-items:baseline;gap:8px;padding:6px 12px;border-bottom:.5px solid var(--kptu-border)}
+.pr .nm{font-size:13px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pr .mt{font-size:11px;color:var(--kptu-faint);white-space:nowrap}
+.pr .src{font-size:11px;padding:0 5px;border-radius:4px;background:var(--kptu-primary-soft);color:var(--kptu-primary-ink)}
+.pr .src.hand{background:var(--room1-soft);color:var(--room1)}
+.pr.un .nm{color:var(--kptu-muted)}
+.menu{position:absolute;right:12px;background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:8px;box-shadow:var(--shadow);padding:3px 0;font-size:12.5px;min-width:96px}
+.menu div{padding:5px 12px}
+.menu .dg{color:#a0463c}
+
+/* PC */
+.cols{display:grid;grid-template-columns:2fr 1fr}
+.cols>div+div{border-left:.5px solid var(--kptu-border)}
+.pop{position:absolute;width:300px}
+</style>
+</head>
+<body>
+<h1>텔레그램 보낸 사람 이름 시안 (TG-발언자이름)</h1>
+<p class="lead">시안일 뿐 실제 화면이 아닙니다. 이름과 방 이름은 모두 지어낸 예시입니다. 설계: docs/design/telegram-sender-names.md</p>
+
+<!-- (가) 폰: 원문 보기 -->
+<div class="section">
+<h2>(가) 폰 — 원문 보기: 이름이 있으면 이름, 없으면 A·B + [이름 붙이기]</h2>
+<div class="wrap">
+ <div>
+  <p class="label">① 이름이 붙은 뒤 (홍길동·김철수 자동, A는 아직 없음)</p>
+  <div class="phone">
+   <div class="head"><span class="back">‹ 소식</span><span class="sub" style="margin-left:4px">○○지부 단톡 · 10. 23. · 원문 14</span><button class="more" aria-label="메뉴">⋯</button></div>
+   <div class="raw">
+    <div class="rm"><span class="at">16:31</span><span class="who named">홍길동</span><span class="tx">사측에서 목요일 어렵다고 연락 왔습니다</span></div>
+    <div class="rm"><span class="at">16:33</span><span class="who named">김철수</span><span class="tx">그럼 언제로요?</span></div>
+    <div class="rm"><span class="at">16:40</span><span class="who named">홍길동</span><span class="tx">다음 주 화요일 두 시로 잡혔어요</span></div>
+    <div class="rm"><span class="at">16:41</span><span class="who">A<button class="tag" type="button">이름 붙이기</button></span><span class="tx">서면 회신은요?</span></div>
+    <div class="rm"><span class="at">16:44</span><span class="who named">홍길동</span><span class="tx">월요일까지 준답니다</span></div>
+    <div class="rm"><span class="at">16:45</span><span class="who same">홍길동</span><span class="tx">회신 오면 단톡에 올릴게요</span></div>
+    <div class="rm"><span class="at">16:50</span><span class="who"><span class="me">나</span></span><span class="tx">확인했습니다</span></div>
+    <div class="rm"><span class="at">16:52</span><span class="who">A</span><span class="tx">감사합니다</span></div>
+    <div class="rm fa"><span class="at"></span><span class="who"></span><span class="tx xs">… 6개 더</span></div>
+   </div>
+  </div>
+  <p class="note">같은 사람이 이어서 말하면 이름은 첫 줄에만 쓰고 나머지는 비웁니다. [이름 붙이기]는 그 방·그 날 A의 첫 줄에만 보이고 다음 줄은 A만 보입니다. 이름 없는 쪽이 있어도 읽는 데 불편이 없게 합니다. "나"는 수집기가 본인 표시를 적을 때만(질문 4).</p>
+ </div>
+
+ <div>
+  <p class="label">② 이름이 아직 없는 날 (지금과 같은 A·B, 옆에 [이름 붙이기])</p>
+  <div class="phone">
+   <div class="head"><span class="back">‹ 소식</span><span class="sub" style="margin-left:4px">○○지부 단톡 · 10. 20. · 원문 9</span><button class="more" aria-label="메뉴">⋯</button></div>
+   <div class="raw">
+    <div class="rm"><span class="at">09:12</span><span class="who">A<button class="tag" type="button">이름 붙이기</button></span><span class="tx">오늘 교섭 장소 바뀌었습니다</span></div>
+    <div class="rm"><span class="at">09:14</span><span class="who">B<button class="tag" type="button">이름 붙이기</button></span><span class="tx">어디로요?</span></div>
+    <div class="rm"><span class="at">09:15</span><span class="who">A</span><span class="tx">본관 3층 회의실입니다</span></div>
+    <div class="rm"><span class="at">09:20</span><span class="who">B</span><span class="tx">알겠습니다</span></div>
+    <div class="rm fa"><span class="at"></span><span class="who"></span><span class="tx xs">… 5개 더</span></div>
+   </div>
+  </div>
+  <p class="note">지난 소식은 처음에 이렇게 보입니다. A에 이름을 붙이면 "이 방 이 날 소식"에 바로 적용됩니다.</p>
+ </div>
+</div>
+</div>
+
+<!-- (나) 폰: 이름 붙이기 창 -->
+<div class="section">
+<h2>(나) 폰 — [이름 붙이기]를 누르면 (아래에서 올라오는 작은 창, 하단바 위)</h2>
+<div class="wrap">
+ <div>
+  <p class="label">① 번호가 확인된 사람 — 모든 날에 따라감</p>
+  <div class="phone" style="height:440px">
+   <div class="head"><span class="back">‹ 소식</span><span class="sub" style="margin-left:4px">○○지부 단톡 · 10. 23. · 원문 14</span></div>
+   <div class="raw">
+    <div class="rm"><span class="at">16:31</span><span class="who named">홍길동</span><span class="tx">사측에서 목요일 어렵다고 연락 왔습니다</span></div>
+    <div class="rm"><span class="at">16:41</span><span class="who" style="color:var(--kptu-primary-ink);font-weight:500">A</span><span class="tx">서면 회신은요?</span></div>
+    <div class="rm"><span class="at">16:44</span><span class="who named">홍길동</span><span class="tx">월요일까지 준답니다</span></div>
+   </div>
+   <div class="dim"></div>
+   <div class="bottom">
+    <div class="sheet">
+     <p class="tt">A에 이름 붙이기</p>
+     <span class="scope">같은 사람의 다른 소식에도 보입니다</span>
+     <input value="이영희" aria-label="이름">
+     <div class="chips"><span class="chip on">이영희</span><span class="chip">김철수</span><span class="chip">홍길동</span><span class="chip">박민수</span></div>
+     <div class="act"><span class="mu">취소</span><span class="ok">저장</span></div>
+    </div>
+   </div>
+   <div class="tabbar"><span>홈</span><span>소식</span><span>통화</span><span>더보기</span></div>
+  </div>
+ </div>
+
+ <div>
+  <p class="label">② 번호가 없는 지난 소식 — 그 방·그 날에만</p>
+  <div class="phone" style="height:440px">
+   <div class="head"><span class="back">‹ 소식</span><span class="sub" style="margin-left:4px">○○지부 단톡 · 10. 20. · 원문 9</span></div>
+   <div class="raw">
+    <div class="rm"><span class="at">09:12</span><span class="who" style="color:var(--kptu-primary-ink);font-weight:500">A</span><span class="tx">오늘 교섭 장소 바뀌었습니다</span></div>
+    <div class="rm"><span class="at">09:14</span><span class="who">B<button class="tag" type="button">이름 붙이기</button></span><span class="tx">어디로요?</span></div>
+   </div>
+   <div class="dim"></div>
+   <div class="bottom">
+    <div class="sheet">
+     <p class="tt">A에 이름 붙이기</p>
+     <span class="scope one">이 방 이 날 소식에만 적용돼요</span>
+     <input placeholder="이름 (40자까지)" aria-label="이름">
+     <div class="chips"><span class="chip">이영희</span><span class="chip">김철수</span><span class="chip">홍길동</span><span class="chip">박민수</span></div>
+     <div class="act"><span class="mu">취소</span><span class="ok">저장</span></div>
+    </div>
+   </div>
+   <div class="tabbar"><span>홈</span><span>소식</span><span>통화</span><span>더보기</span></div>
+  </div>
+ </div>
+</div>
+<p class="note">이미 있는 사람은 칩으로 눌러 고릅니다(같은 사람을 날마다 새로 만들지 않게). 새로 쓰면 새 사람이 만들어집니다. 지운 이름은 소식 글에는 영향이 없습니다.</p>
+</div>
+
+<!-- (다) 폰: 이름 표 관리 -->
+<div class="section">
+<h2>(다) 폰 — 이름 표 관리 (소식 머리줄 ⋯ → 보낸 사람 이름)</h2>
+<div class="wrap">
+ <div>
+  <p class="label">① 목록</p>
+  <div class="phone">
+   <div class="head"><span class="back">‹ 소식</span><span class="sub" style="margin-left:4px">보낸 사람 이름 · 6명</span></div>
+   <div class="grp">이름 없음 2명 (A·B로 보임)</div>
+   <div class="pr un"><span class="nm">이름 없음 · ○○지부 단톡</span><span class="mt">10. 23.</span><button class="tag" type="button">이름 붙이기</button></div>
+   <div class="pr un"><span class="nm">이름 없음 · △△본부 간부방</span><span class="mt">10. 22.</span><button class="tag" type="button">이름 붙이기</button></div>
+   <div class="grp">이름 있음 4명</div>
+   <div class="pr"><span class="nm">홍길동</span><span class="src">자동</span><span class="mt">방 3 · 10. 23.</span><button class="more" aria-label="메뉴">⋯</button></div>
+   <div class="pr"><span class="nm">김철수</span><span class="src">자동</span><span class="mt">방 2 · 10. 23.</span><button class="more" aria-label="메뉴">⋯</button></div>
+   <div class="pr"><span class="nm">이영희</span><span class="src hand">직접</span><span class="mt">방 1 · 10. 23.</span><button class="more" aria-label="메뉴">⋯</button></div>
+   <div class="pr"><span class="nm">박민수</span><span class="src hand">직접</span><span class="mt">방 1 · 10. 15.</span><button class="more" aria-label="메뉴">⋯</button></div>
+  </div>
+  <p class="note">"자동"은 수집기가 보낸 이름, "직접"은 명진이 붙인 이름. 같은 사람에 둘 다 있으면 직접이 보입니다.</p>
+ </div>
+
+ <div>
+  <p class="label">② ⋯ 메뉴 (이름 고치기·합치기·지우기)</p>
+  <div class="phone" style="height:300px">
+   <div class="head"><span class="back">‹ 소식</span><span class="sub" style="margin-left:4px">보낸 사람 이름 · 6명</span></div>
+   <div class="pr"><span class="nm">홍길동</span><span class="src">자동</span><span class="mt">방 3 · 10. 23.</span><button class="more" aria-label="메뉴">⋯</button></div>
+   <div class="pr" style="background:var(--kptu-primary-soft)"><span class="nm">김철수</span><span class="src">자동</span><span class="mt">방 2 · 10. 23.</span><button class="more" aria-label="메뉴">⋯</button></div>
+   <div class="menu" style="top:96px"><div>이름 고치기</div><div>다른 사람과 합치기</div><div class="dg">지우기 <span class="fa xs">소식 글은 그대로</span></div></div>
+   <div class="pr"><span class="nm">이영희</span><span class="src hand">직접</span><span class="mt">방 1 · 10. 23.</span><button class="more" aria-label="메뉴">⋯</button></div>
+  </div>
+ </div>
+</div>
+</div>
+
+<!-- (라) PC -->
+<div class="section">
+<h2>(라) PC 1280 — 원문 2/3 · 이름 표 1/3, 이름 붙이기는 줄 옆 말풍선</h2>
+<div class="pc">
+ <div class="head"><span class="sub">○○지부 단톡 · 10. 23. (목) · 원문 14</span><span class="mu xs">보낸 사람 이름 ▾</span></div>
+ <div class="cols">
+  <div class="raw" style="padding:6px 16px 12px;position:relative;min-height:330px">
+   <div class="rm"><span class="at">16:31</span><span class="who named">홍길동</span><span class="tx">사측에서 목요일 어렵다고 연락 왔습니다</span></div>
+   <div class="rm"><span class="at">16:33</span><span class="who named">김철수</span><span class="tx">그럼 언제로요?</span></div>
+   <div class="rm"><span class="at">16:40</span><span class="who named">홍길동</span><span class="tx">다음 주 화요일 두 시로 잡혔어요</span></div>
+   <div class="rm" style="background:var(--kptu-primary-soft)"><span class="at">16:41</span><span class="who">A<button class="tag" type="button">이름 붙이기</button></span><span class="tx">서면 회신은요?</span></div>
+   <div class="rm"><span class="at">16:44</span><span class="who named">홍길동</span><span class="tx">월요일까지 준답니다</span></div>
+   <div class="rm"><span class="at">16:45</span><span class="who same">홍길동</span><span class="tx">회신 오면 단톡에 올릴게요</span></div>
+   <div class="rm"><span class="at">16:50</span><span class="who"><span class="me">나</span></span><span class="tx">확인했습니다</span></div>
+   <div class="rm"><span class="at">16:52</span><span class="who">A</span><span class="tx">감사합니다</span></div>
+   <div class="sheet pop" style="left:150px;top:150px">
+    <p class="tt">A에 이름 붙이기</p>
+    <span class="scope">같은 사람의 다른 소식에도 보입니다</span>
+    <input value="이영희" aria-label="이름">
+    <div class="chips"><span class="chip on">이영희</span><span class="chip">김철수</span><span class="chip">홍길동</span></div>
+    <div class="act"><span class="mu">취소 (Esc)</span><span class="ok">저장 (Enter)</span></div>
+   </div>
+  </div>
+  <div>
+   <div class="grp">이름 없음 1명</div>
+   <div class="pr un"><span class="nm">이름 없음 · ○○지부 단톡</span><span class="mt">10. 23.</span></div>
+   <div class="grp">이름 있음</div>
+   <div class="pr"><span class="nm">홍길동</span><span class="src">자동</span><span class="mt">방 3</span><button class="more" aria-label="메뉴">⋯</button></div>
+   <div class="pr"><span class="nm">김철수</span><span class="src">자동</span><span class="mt">방 2</span><button class="more" aria-label="메뉴">⋯</button></div>
+   <div class="pr"><span class="nm">이영희</span><span class="src hand">직접</span><span class="mt">방 1</span><button class="more" aria-label="메뉴">⋯</button></div>
+   <div class="pr"><span class="nm">박민수</span><span class="src hand">직접</span><span class="mt">방 1</span><button class="more" aria-label="메뉴">⋯</button></div>
+  </div>
+ </div>
+</div>
+<p class="note">PC에서도 같은 데이터·같은 동작입니다. 이름표는 서버에 저장되어 폰과 PC가 같습니다. 크고 굵은 버튼 없이 글자 버튼과 칩만 씁니다.</p>
+</div>
+</body>
+</html>

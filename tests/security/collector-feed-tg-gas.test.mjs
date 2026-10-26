@@ -213,7 +213,7 @@ test('시작 날짜 앞 7일 보충: 방마다 따로 이어 하고, 평소 구�
 
 test('한 번 실행에 보낼 묶음 상한이 있고, 넘으면 이어 하기로 나눈다. 처음 설치는 시작 날짜를 7일 전으로 적는다',()=>{
   assert.match(source,/var TG_FEED_MAX_PARTS_PER_RUN = 30;/);
-  assert.match(source,/tally\.parts >= TG_FEED_MAX_PARTS_PER_RUN\) \{ stop = [^\n]*resumable = true; break; \}/);
+  assert.match(source,/tally\.parts >= TG_FEED_MAX_PARTS_PER_RUN\) \{ run\.stop = [^\n]*run\.resumable = true; break; \}/);
   assert.match(source,/state\.startDay = tgFeedAddDays\(callFeedKstDay\(Date\.now\(\)\), -TG_FEED_RECENT_DAYS\);/);
 });
 
@@ -222,7 +222,7 @@ test('429는 하루 상한과 이번 달 AI 상한을 구분해 멈춘 이유를
   assert.match(G.tgFeedLimitReason('AI_MONTHLY_LIMIT'),/다음 달 1일/);
   assert.match(G.tgFeedLimitReason('DAILY_LIMIT'),/하루 상한/);
   assert.match(G.tgFeedLimitReason(undefined),/429/);
-  assert.ok(source.includes("stop = tgFeedLimitReason(res.json && res.json.error); break;"),'429 처리에서 오류 코드를 넘긴다');
+  assert.ok(source.includes("run.stop = tgFeedLimitReason(res.json && res.json.error); return;"),'429 처리에서 오류 코드를 넘긴다');
 });
 
 test('마지막 실행 기록과 방별 진행 요약: 멈춘 방이 몇 개인지 보인다',()=>{

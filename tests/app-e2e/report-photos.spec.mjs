@@ -85,6 +85,8 @@ for(const width of [390,1280])test(`담당조직 상세 ${width}: 사업 보고 
  await expect(orgRow(page,6).locator('.report-photo-thumb')).toHaveCount(2);
  // 그림이 없는 줄(글 자료만 / 자료 없음)은 지금 그대로.
  for(const n of [2,4]){await expect(orgRow(page,n).locator('.report-photo-strip')).toHaveCount(0);await expect(orgRow(page,n).locator('[data-wd-report-open]')).not.toHaveClass(/has-report-photos/)}
+ // 작은 그림은 화면에 보이는 줄만 받는다(설계) → 줄을 화면 안으로 가져온 뒤 확인한다.
+ await orgRow(page,1).scrollIntoViewIfNeeded();
  // 작은 그림이 실제로 그려진다. 받는 것은 앞 3장뿐(4·5번째는 받지 않음), 크기는 small, 로그인 머리글 포함.
  await expect(orgRow(page,1).locator('.report-photo-thumb[data-state="shown"] img')).toHaveCount(3);
  const asked=log.photos.map(p=>p.document_id);
@@ -116,6 +118,7 @@ test('담당조직 상세: 그림 자료를 못 읽어도 사업 보고 줄은 �
 test('담당조직 상세: 작은 그림을 못 받으면 빈 칸으로 남고 줄 누르기는 그대로 된다',async({page})=>{
  const {log,errors}=await fixture(page,390,{photoFail:true});
  await openOrg(page);
+ await orgRow(page,1).scrollIntoViewIfNeeded();
  await expect(orgRow(page,1).locator('.report-photo-thumb[data-state="empty"]')).toHaveCount(3);
  expect(log.photos.length).toBeGreaterThanOrEqual(3);
  await expect(orgRow(page,1).locator('.report-photo-thumb img')).toHaveCount(0);
@@ -145,11 +148,13 @@ for(const width of [390,1280])test(`프로젝트 상세 ${width}: 사업 보고 
  await expect(prjRow(page,5).locator('.report-photo-thumb')).toHaveCount(3);
  await expect(prjRow(page,5).locator('[data-report-photo-more]')).toHaveCount(0);
  for(const n of [2,4]){await expect(prjRow(page,n).locator('.report-photo-strip')).toHaveCount(0)}
+ await prjRow(page,1).scrollIntoViewIfNeeded();
  await expect(prjRow(page,1).locator('.report-photo-thumb[data-state="shown"] img')).toHaveCount(3);
  // 줄 6은 "나머지 1개 보기" 안에 접혀 있다 → 펼치기 전에는 그림을 받지 않는다.
  const folded=[did(6,1),did(6,2)];
  expect(log.photos.map(p=>p.document_id).filter(id=>folded.includes(id))).toEqual([]);
  await page.locator('#ps3-meetings .ps3-meetings-more > summary').click();
+ await prjRow(page,6).scrollIntoViewIfNeeded();
  await expect(prjRow(page,6).locator('.report-photo-thumb[data-state="shown"] img')).toHaveCount(2);
  expect(log.photos.every(p=>p.size==='small')).toBe(true);
  expect(await noSideScroll(page)).toBe(true);

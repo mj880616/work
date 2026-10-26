@@ -69,6 +69,8 @@ async function mockApp(page,state){
       if(method==='PATCH'){
         if(state.libraryViewMissing)return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'42703',message:'column app_profiles.library_view does not exist'})});
         (state.profilePatches||(state.profilePatches=[])).push(body);
+        // LIB-폴더묶기기억 적용 전 서버: 검사가 group_by 'folder'를 거절(400, 검사 위반).
+        if(state.libraryViewNoFolder&&body?.library_view?.group_by==='folder')return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'23514',message:'new row for relation "app_profiles" violates check constraint "app_profiles_library_view_check"'})});
         if(state.libraryViewFail)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'fail'})});
         if(body&&'library_view' in body)state.libraryView=body.library_view;
         return ok([{user_id:state.user.id,display_name:'자료실 관리자',library_view:state.libraryView??null}]);

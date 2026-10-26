@@ -78,3 +78,22 @@ test('구조: 읽기 전용 — 저장·쓰기 요청과 새 서버 경로가 �
   assert.match(src,/library-files\?\$\{query\}/);assert.match(src,/action:'photo',document_id:documentId,size:'small'/);
   assert.doesNotMatch(src,/\b(?:local|session)Storage\b|\bindexed[D]B\b/);
 });
+
+test('그림 받기: 로그인 정보가 늦게 읽혀도 받은 그림을 버리지 않고, 사용자가 바뀌면 비운다', async () => {
+  const {reportPhotoUrl,clearReportPhotoCache}=await import('../app/report-photos.js');
+  const URLs=[],revoked=[];
+  const origC=URL.createObjectURL,origR=URL.revokeObjectURL;
+  URL.createObjectURL=()=>{const u='blob:t'+URLs.length;URLs.push(u);return u};URL.revokeObjectURL=u=>revoked.push(u);
+  try{
+    clearReportPhotoCache();
+    let user='';let fetched=0;
+    const rt={context:{read:()=>({user:{id:user}})},session:{ensure:async()=>true,read:()=>({access_token:'t'})},config:{url:'https://x.test',key:'k'}};
+    const fetcher=async()=>{fetched++;return {ok:true,headers:{get:()=> 'image/png'},blob:async()=>new Blob(['x'])}};
+    const a=await reportPhotoUrl('d1',{rt,fetcher});
+    user='u1';
+    assert.equal(await reportPhotoUrl('d1',{rt,fetcher}),a);assert.equal(fetched,1);assert.deepEqual(revoked,[]);
+    user='u2';
+    await reportPhotoUrl('d1',{rt,fetcher});await new Promise(r=>setTimeout(r,0));
+    assert.equal(fetched,2);assert.ok(revoked.includes(a));
+  }finally{URL.createObjectURL=origC;URL.revokeObjectURL=origR;clearReportPhotoCache()}
+});

@@ -80,9 +80,13 @@ export async function downloadFile(file, {api = (...a) => window.KPTURuntime.api
 // viewHtml(file)는 HTML 칸막이 보기를 가진 화면(자료실)만 준다. 그 화면의 .html 자료는 내려받지 않고 화면 안 칸막이로 본다(PRESS-자료실편입).
 export const isHtmlFile = file => /\.html?$/i.test(String(file?.name || ''));
 // 자료 번호가 있는 사진: 앱 안 크게 보기. 주소는 열 때마다 새로 받는다(한 번 쓰면 끝나는 주소).
+// 크게 보기 그림: 서버가 줄여 주는 큰 그림(library-files photo, large)을 먼저 쓰고, 못 받으면 원본 내려받기 주소로 대신한다.
+async function documentPhotoUrl(documentId, api) {
+  try { return await (await import('./library-photo.js')).libraryPhotoUrl(documentId, 'large'); } catch { return documentTokenUrl(documentId, api); }
+}
 export async function viewDocumentPhoto(file, {api = (...a) => window.KPTURuntime.api(...a), trigger = null} = {}) {
   const {openDocumentPhotoView} = await import('./photo-view.js');
-  return openDocumentPhotoView({file, trigger, driveHref: driveOpenUrl(file), getUrl: () => documentTokenUrl(file.documentId, api)});
+  return openDocumentPhotoView({file, trigger, driveHref: driveOpenUrl(file), getUrl: () => documentPhotoUrl(file.documentId, api)});
 }
 export async function pressFile(file, {viewPhoto = null, viewHtml = null, api, onError = () => {}} = {}) {
   if (typeof viewHtml === 'function' && file?.documentId && isHtmlFile(file)) { viewHtml(file); return 'html'; }
