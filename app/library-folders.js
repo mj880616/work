@@ -9,9 +9,10 @@ import {FOLDER_DEPTH,OUTSIDE_KEY,SORT_GAP,canAddChild,cleanFolderName,folderTras
 const T_FOLDERS='/rest/v1/app_library_folders',T_ITEMS='/rest/v1/app_library_folder_items';
 const enc=encodeURIComponent;
 
-export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},notify=null,toggleNode=()=>{}}){
+export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},notify=null,toggleNode=()=>{},selected=()=>[],touchOk=()=>false}){
   // state(): {workspace, folders, items, docs, projectName(id), free(폴더 보기: 프로젝트 틀을 보지 않음), isOpen(key)}
   // notify(text,{error,undo}): '… · 되돌리기' 한 줄(없으면 status). toggleNode(key): 토글 접기·펼치기.
+  // selected(): 지금 고른 자료 id들(여러 개 끌기). touchOk(): 폰 길게 누르기를 켤 화면인지.
   let busy=false,dialog=null;
   const s=()=>state();
   const folder=id=>s().folders.find(f=>f.id===id);
@@ -46,7 +47,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     return ok;
   };
   const reorderFolder=(id,dir)=>{const plan=folderReorderPlan(s().folders,id,dir,!!s().free);if(!plan.length)return Promise.resolve(false);return run(async()=>{for(const p of plan)await api(T_FOLDERS+where(p.id),{method:'PATCH',prefer:'return=minimal',body:{sort_order:p.sort_order}})})};
-  const moveFolder=(id,parentId)=>{const f=folder(id),pid=f?.project_id||null;return run(()=>api(T_FOLDERS+where(id),{method:'PATCH',prefer:'return=minimal',body:{parent_id:parentId||null,sort_order:nextSortOrder(sibs(pid,parentId))}}),'폴더를 옮겼어요.').then(ok=>{if(ok)reveal(chain(pid,parentId));return ok})};
+  const moveFolder=(id,parentId,done='폴더를 옮겼어요.')=>{const f=folder(id),pid=f?.project_id||null;return run(()=>api(T_FOLDERS+where(id),{method:'PATCH',prefer:'return=minimal',body:{parent_id:parentId||null,sort_order:nextSortOrder(sibs(pid,parentId))}}),done).then(ok=>{if(ok)reveal(chain(pid,parentId));return ok})};
   // TRASH-다른삭제 3단계: [폴더 지우기]는 휴지통으로 보낸다(공용 흐름 trash-actions.js). 요청은 그대로 폴더 하나의 DELETE이고(설계 3.4),
   // 서버의 가로채기 트리거가 그 폴더와 아래 폴더 전부를 휴지통 표시로 바꾼다(자료 연결은 그대로, 자료실 목록에서만 함께 숨음).
   // 휴지통 함수가 이 종류를 모르면(DB 적용 전) '준비 중'을 알리고 삭제 요청을 보내지 않는다. 영구 삭제만 안의 것을 한 단 위로 올린다.
@@ -172,59 +173,175 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     const ordered=[],add=parent=>{for(const f of sibs(frame,parent)){if(targets.includes(f.id))ordered.push(f.id);add(f.id)}};add(null);
     askTarget({title:'폴더로 옮기기',hint:s().free?`${doc.title||doc.file_name||'자료'}을(를) 넣을 폴더를 고르세요. 자료의 프로젝트는 바뀌지 않아요.`:`${doc.title||doc.file_name||'자료'}을(를) 넣을 폴더를 고르세요. ${frameName(frame)} 안의 폴더만 보여요.`,trigger:document.querySelector(`[data-lu-menu="${CSS.escape(doc.id)}"]`),targets:ordered.map(t=>({value:t,label:pathName(t),depth:folderDepth(s().folders,t)})),then:fid=>fileToFolder(doc,fid)});
   }
-  // ---- PC 끌어 놓기(LIB-토글트리 ④, 설계 6절) ----
-  // 끌 수 있는 것: 폴더 머리, 파일 줄(프로젝트 묶기, PC). 놓을 곳은 같은 프로젝트 틀 안만:
-  //   폴더 → 다른 폴더 머리 가운데(그 안으로), 같은 상위의 형제 폴더 머리 위·아래 끝(그 앞·뒤로), 그 틀의 프로젝트 머리(맨 위로)
-  //   파일 → 폴더 머리(그 폴더로), 그 틀의 프로젝트 머리(폴더 밖으로)
-  // 그 밖(다른 프로젝트, 자기·자기 아래, 3단 초과)은 놓을 수 없음 표시. 키보드·폰은 ⋯ 메뉴(위로·아래로·옮기기…)가 같은 일을 한다.
+  // ---- 끌어 놓기(LIB-토글트리 ④ + LIB-폴더탐색기, 설계 6·12절) ----
+  // 끌 수 있는 것: 폴더 머리, 파일 줄(고른 줄이 여럿이면 고른 것 모두). 놓을 곳:
+  //   프로젝트 묶기: 같은 프로젝트 틀 안의 폴더 머리(그 안으로), 같은 상위 형제 폴더의 위·아래 끝(그 앞·뒤로), 그 틀의 프로젝트 머리(폴더 밖으로)
+  //   폴더 보기: 틀과 무관하게 모든 폴더 머리(그 안으로), 형제 폴더 위·아래 끝, 맨 위 '폴더 밖' 머리(폴더 밖으로)
+  // 자기·자기 아래·3단 초과는 놓을 수 없음 표시. 키보드는 ⋯ 메뉴(위로·아래로·옮기기…)가 같은 일을 한다.
+  // 놓은 뒤에는 '옮겼어요 · 되돌리기' 한 줄. 바깥 파일을 올리는 끌어놓기(library-drop.js)는 dataTransfer에 'Files'가 있을 때만 반응하고,
+  // 여기는 안에서 시작한 끌기(drag)만 보므로 서로 부딪치지 않는다.
   let drag=null;
   const frameKeyOf=key=>key==='p:none'?null:key.slice(2);
+  const docById=id=>s().docs.find(d=>d.id===id);
+  const rowOf=id=>[...document.querySelectorAll('#documentList .lu-row')].find(x=>x.dataset.luDocument===id);
+  // el에서 시작한 끌기 상태. touch=true(폰 길게 누르기)이면 draggable 표시가 없어도 잡는다.
+  function dragFrom(el,touch=false){
+    const head=el.closest?.(touch?'summary.lu-node-head':'summary.lu-node-head[draggable="true"]'),row=el.closest?.(touch?'.lu-row[data-lu-document]':'.lu-row[draggable="true"]');
+    if(head){const key=head.parentElement?.dataset.luNode||'';if(!key.startsWith('f:'))return null;const f=folder(key.slice(2));if(!f)return null;return {kind:'folder',id:f.id,frame:f.project_id||null,els:[head.parentElement]}}
+    if(row){
+      const doc=docById(row.dataset.luDocument);if(!doc)return null;
+      const picked=selected(),many=picked.length>1&&picked.includes(doc.id),docs=(many?picked.map(docById).filter(Boolean):[doc]);
+      return {kind:'file',id:doc.id,docs,els:docs.map(d=>rowOf(d.id)).filter(Boolean)};
+    }
+    return null;
+  }
   function dropFor(e){
     if(!drag)return null;
-    const head=e.target.closest?.('#documentList summary.lu-node-head');if(!head)return null;
+    const head=e.target?.closest?.('#documentList summary.lu-node-head');if(!head)return null;
     const node=head.parentElement,key=node?.dataset.luNode;if(!key)return null;
-    const r=head.getBoundingClientRect(),y=e.clientY-r.top,edge=r.height/4;
-    if(key.startsWith('p:')){const frame=frameKeyOf(key);if(frame!==drag.frame)return {head,ok:false};if(drag.kind==='file'&&!drag.inFolder)return {head,ok:false};if(drag.kind==='folder'&&!folder(drag.id)?.parent_id)return {head,ok:false};return {head,ok:true,kind:'top'}}
-    const target=folder(key.slice(2));if(!target||(target.project_id||null)!==drag.frame)return {head,ok:false};
-    if(drag.kind==='file')return {head,ok:target.id!==drag.folder,kind:'into',target:target.id};
+    const free=!!s().free,r=head.getBoundingClientRect(),y=e.clientY-r.top,edge=r.height/4;
+    const sameFrame=frame=>drag.kind==='folder'?drag.frame===frame:drag.docs.every(d=>(d.project_id||null)===frame);
+    // 맨 위 머리: 프로젝트 묶기는 그 프로젝트 머리, 폴더 보기는 '폴더 밖'.
+    if(key.startsWith('p:')||key===OUTSIDE_KEY){
+      if(key.startsWith('p:')===free)return {head,ok:false};
+      if(!free&&!sameFrame(frameKeyOf(key)))return {head,ok:false};
+      if(drag.kind==='file')return {head,ok:drag.docs.some(d=>docFolder(d)),kind:'top'};
+      return {head,ok:!!folder(drag.id)?.parent_id,kind:'top'};
+    }
+    const target=folder(key.slice(2));if(!target)return {head,ok:false};
+    if(!free&&!sameFrame(target.project_id||null))return {head,ok:false};
+    if(drag.kind==='file')return {head,ok:drag.docs.some(d=>docFolder(d)?.id!==target.id),kind:'into',target:target.id};
     if(target.id===drag.id)return {head,ok:false};
     const f=folder(drag.id),sibling=(target.parent_id||null)===(f.parent_id||null);
     if(sibling&&(y<edge||y>r.height-edge))return {head,ok:true,kind:y<edge?'before':'after',target:target.id};
-    const ok=folderMoveTargets(s().folders,drag.id).includes(target.id);
+    const ok=folderMoveTargets(s().folders,drag.id,free).includes(target.id);
     return {head,ok,kind:'into',target:target.id};
   }
-  function clearMarks(){document.querySelectorAll('#documentList .lu-drop-into,#documentList .lu-drop-before,#documentList .lu-drop-after,#documentList .lu-drop-no,#documentList .lu-dragging').forEach(el=>el.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no','lu-dragging'))}
+  function clearMarks(){document.querySelectorAll('#documentList .lu-drop-into,#documentList .lu-drop-before,#documentList .lu-drop-after,#documentList .lu-drop-no,#documentList .lu-dragging,#documentList .lu-grabbed').forEach(el=>el.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no','lu-dragging','lu-grabbed'))}
+  function showMarks(t){
+    document.querySelectorAll('#documentList .lu-drop-into,#documentList .lu-drop-before,#documentList .lu-drop-after,#documentList .lu-drop-no').forEach(el=>{if(el!==t?.head)el.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no')});
+    if(!t)return;t.head.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no');
+    t.head.classList.add(!t.ok?'lu-drop-no':t.kind==='before'?'lu-drop-before':t.kind==='after'?'lu-drop-after':'lu-drop-into');
+  }
+  const markDragging=d=>{for(const el of d?.els||[])el.classList.add('lu-dragging')};
+  // 화면 가장자리 근처에서 끌면 목록이 저절로 움직인다(끌기가 끝나면 멈춤).
+  let scroller=null,scrollTimer=0,scrollDir=0;
+  function scrollParent(el){for(let n=el?.parentElement;n&&n!==document.body;n=n.parentElement){const o=getComputedStyle(n).overflowY;if((o==='auto'||o==='scroll')&&n.scrollHeight>n.clientHeight)return n}return null}
+  function edgeScroll(y,list){
+    scroller=scrollParent(list);const box=scroller?scroller.getBoundingClientRect():{top:0,bottom:innerHeight},edge=56;
+    scrollDir=y<box.top+edge?-1:y>box.bottom-edge?1:0;
+    if(scrollDir&&!scrollTimer){const step=()=>{if(!scrollDir||(!drag&&!touch?.grabbed)){scrollTimer=0;return}(scroller||window).scrollBy(0,scrollDir*14);scrollTimer=requestAnimationFrame(step)};scrollTimer=requestAnimationFrame(step)}
+  }
+  function stopScroll(){scrollDir=0;if(scrollTimer&&typeof cancelAnimationFrame==='function')cancelAnimationFrame(scrollTimer);scrollTimer=0}
+  // 자료 여럿(또는 하나)을 폴더로/폴더 밖으로. 이전 자리를 기억해 '되돌리기'가 그 자리로 돌려놓는다(그 사이 또 바뀐 것은 건드리지 않음).
+  async function moveDocs(docs,folderId){
+    const todo=docs.filter(d=>folderId?docFolder(d)?.id!==folderId:!!rawItem(d));if(!todo.length)return false;
+    const prev=todo.map(d=>({id:d.id,had:!!rawItem(d),folder:rawItem(d)?.folder_id||null})),w=id=>`?document_id=eq.${enc(id)}&workspace_id=eq.${enc(s().workspace)}`;
+    const ok=await run(async()=>{for(const p of prev){
+      if(folderId===null)await api(T_ITEMS+w(p.id),{method:'DELETE',prefer:'return=minimal'});
+      else if(p.had)await api(T_ITEMS+w(p.id),{method:'PATCH',prefer:'return=minimal',body:{folder_id:folderId}});
+      else await api(T_ITEMS,{method:'POST',prefer:'return=minimal',body:{document_id:p.id,folder_id:folderId,workspace_id:s().workspace}});
+    }});
+    if(!ok)return false;
+    if(folderId)reveal(chain(todo[0].project_id||null,folderId));
+    say(`${todo.length>1?todo.length+'개를 ':''}옮겼어요 ·`,{undo:()=>run(async()=>{for(const p of prev){
+      const cur=s().items.find(x=>x.document_id===p.id);if((cur?.folder_id||null)!==folderId)continue;
+      const back=p.had?p.folder:null;
+      if(back===null)await api(T_ITEMS+w(p.id),{method:'DELETE',prefer:'return=minimal'});
+      else await api(T_ITEMS+w(p.id),{method:'PATCH',prefer:'return=minimal',body:{folder_id:back}});
+    }},'되돌렸어요.')});
+    return true;
+  }
+  async function dragMoveFolder(id,parentId){
+    const f=folder(id);if(!f)return false;const before={parent_id:f.parent_id||null,sort_order:f.sort_order};
+    const ok=await moveFolder(id,parentId,'');if(!ok)return false;
+    say('폴더를 옮겼어요 ·',{undo:()=>{const cur=folder(id);if(!cur||(cur.parent_id||null)!==(parentId||null)){say('그 사이 폴더가 또 바뀌어 되돌리지 않았어요.');return Promise.resolve(false)}return run(()=>api(T_FOLDERS+where(id),{method:'PATCH',prefer:'return=minimal',body:before}),'되돌렸어요.')}});
+    return true;
+  }
   // 같은 상위 형제 사이로 옮기기: 끈 폴더를 target 앞/뒤에 두고 그 형제만 1024 간격으로 다시 매긴다(바뀐 행만 저장).
-  function placeBeside(id,targetId,after){
-    const f=folder(id),sib=folderSiblings(s().folders,{projectId:f.project_id||null,parentId:f.parent_id||null}).filter(x=>x.id!==id),at=sib.findIndex(x=>x.id===targetId);if(at<0)return Promise.resolve(false);
+  async function placeBeside(id,targetId,after){
+    const f=folder(id),sib=sibs(f.project_id||null,f.parent_id||null).filter(x=>x.id!==id),at=sib.findIndex(x=>x.id===targetId);if(at<0)return false;
     const order=[...sib.slice(0,at+(after?1:0)).map(x=>x.id),id,...sib.slice(at+(after?1:0)).map(x=>x.id)];
     const plan=order.map((x,i)=>({id:x,sort_order:(i+1)*SORT_GAP})).filter(p=>Number(folder(p.id)?.sort_order)!==p.sort_order);
-    if(!plan.length)return Promise.resolve(false);
-    return run(async()=>{for(const p of plan)await api(T_FOLDERS+where(p.id),{method:'PATCH',prefer:'return=minimal',body:{sort_order:p.sort_order}})},'순서를 바꿨어요.');
+    if(!plan.length)return false;
+    const prev=plan.map(p=>({id:p.id,sort_order:folder(p.id).sort_order}));
+    const patch=list=>async()=>{for(const p of list)await api(T_FOLDERS+where(p.id),{method:'PATCH',prefer:'return=minimal',body:{sort_order:p.sort_order}})};
+    const ok=await run(patch(plan));if(!ok)return false;
+    say('순서를 바꿨어요 ·',{undo:()=>run(patch(prev),'되돌렸어요.')});
+    return true;
   }
+  function commitDrop(d,t){
+    if(!d||!t?.ok)return;
+    if(d.kind==='file'){const docs=d.docs.map(x=>docById(x.id)).filter(Boolean);if(docs.length)void moveDocs(docs,t.kind==='top'?null:t.target);return}
+    if(t.kind==='top')void dragMoveFolder(d.id,null);else if(t.kind==='into')void dragMoveFolder(d.id,t.target);else void placeBeside(d.id,t.target,t.kind==='after');
+  }
+  let touch=null,suppressUntil=0;
   function bindDrag(list){
     list.addEventListener('dragstart',e=>{
-      const head=e.target.closest?.('summary.lu-node-head[draggable="true"]'),row=e.target.closest?.('.lu-row[draggable="true"]');
-      if(head){const id=head.parentElement.dataset.luNode.slice(2),f=folder(id);if(!f)return;drag={kind:'folder',id,frame:f.project_id||null};head.parentElement.classList.add('lu-dragging')}
-      else if(row){const doc=s().docs.find(d=>d.id===row.dataset.luDocument);if(!doc)return;const here=docFolder(doc);drag={kind:'file',id:doc.id,frame:doc.project_id||null,folder:here?.id||null,inFolder:!!here};row.classList.add('lu-dragging')}
-      else return;
-      try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',drag.id)}catch{}
+      const d=dragFrom(e.target);if(!d)return;drag=d;markDragging(d);
+      try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',d.id)}catch{}
     });
     list.addEventListener('dragover',e=>{
-      if(!drag)return;const t=dropFor(e);
-      list.querySelectorAll('.lu-drop-into,.lu-drop-before,.lu-drop-after,.lu-drop-no').forEach(el=>{if(el!==t?.head)el.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no')});
+      if(!drag)return;const t=dropFor(e);showMarks(t);edgeScroll(e.clientY,list);
       if(!t)return;
-      t.head.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no');
-      if(!t.ok){t.head.classList.add('lu-drop-no');try{e.dataTransfer.dropEffect='none'}catch{}return}
+      if(!t.ok){try{e.dataTransfer.dropEffect='none'}catch{}return}
       e.preventDefault();try{e.dataTransfer.dropEffect='move'}catch{}
-      t.head.classList.add(t.kind==='before'?'lu-drop-before':t.kind==='after'?'lu-drop-after':'lu-drop-into');
     });
     list.addEventListener('drop',e=>{
-      if(!drag)return;const t=dropFor(e),d=drag;drag=null;clearMarks();if(!t?.ok)return;e.preventDefault();
-      if(d.kind==='file'){const doc=s().docs.find(x=>x.id===d.id);if(!doc)return;void(t.kind==='top'?fileOut(doc):fileToFolder(doc,t.target));return}
-      if(t.kind==='top')void moveFolder(d.id,null);else if(t.kind==='into')void moveFolder(d.id,t.target);else void placeBeside(d.id,t.target,t.kind==='after');
+      if(!drag)return;const t=dropFor(e),d=drag;drag=null;clearMarks();stopScroll();if(!t?.ok)return;e.preventDefault();commitDrop(d,t);
     });
-    list.addEventListener('dragend',()=>{drag=null;clearMarks()});
+    list.addEventListener('dragend',()=>{drag=null;clearMarks();stopScroll()});
+    bindTouch(list);
+  }
+  // ---- 폰: 길게 눌러 잡고 옮기기 ----
+  // 줄·폴더 머리를 LONG_MS 눌러 두면 잡힌다. 잡기 전에 손가락이 움직이면(세로 스크롤) 그대로 스크롤이고, 잡은 뒤에는 스크롤을 막고 손가락을 따라 놓을 곳을 표시한다.
+  // 움직이지 않고 떼면 우클릭과 같은 메뉴(폴더 머리는 폴더 메뉴, 자료 줄은 자료 ⋯ 메뉴), 움직였다 떼면 놓은 곳으로 옮긴다.
+  const LONG_MS=450,SLOP=8,MOVED=12;
+  function bindTouch(list){
+    const cancel=()=>{if(touch?.timer)clearTimeout(touch.timer);touch=null};
+    const finish=()=>{clearMarks();stopScroll();drag=null;cancel()};
+    list.addEventListener('pointerdown',e=>{
+      if(e.pointerType!=='touch'||!e.isPrimary||!touchOk())return;
+      const t=e.target;if(!(t instanceof Element)||t.closest('input,textarea,select,[contenteditable],button,a[href],.lu-undo,.lu-more-files'))return;
+      const el=t.closest('.lu-row,summary.lu-node-head');if(!el||(el.matches('summary')&&renaming))return;
+      cancel();
+      touch={el,x:e.clientX,y:e.clientY,grabbed:false,moved:false,drop:null,at:Date.now(),timer:setTimeout(()=>{
+        if(!touch||touch.el!==el)return;
+        touch.grabbed=true;touch.drag=dragFrom(el,true);drag=touch.drag;
+        el.classList.add('lu-grabbed');markDragging(touch.drag);try{navigator.vibrate?.(12)}catch{}
+      },LONG_MS)};
+    });
+    list.addEventListener('pointermove',e=>{
+      if(!touch||touch.grabbed||e.pointerType!=='touch')return;
+      if(Math.hypot(e.clientX-touch.x,e.clientY-touch.y)>SLOP)cancel();
+    });
+    list.addEventListener('pointercancel',e=>{if(e.pointerType==='touch'&&touch&&!touch.grabbed)cancel()});
+    // 잡은 뒤의 움직임은 touch 이벤트로 받는다(passive:false라야 스크롤을 막을 수 있다).
+    list.addEventListener('touchmove',e=>{
+      if(!touch?.grabbed)return;
+      if(e.cancelable)e.preventDefault();
+      const p=e.touches[0];if(!p)return;
+      if(Math.hypot(p.clientX-touch.x,p.clientY-touch.y)>MOVED)touch.moved=true;
+      if(!touch.moved||!touch.drag)return;
+      touch.drop=dropFor({target:document.elementFromPoint(p.clientX,p.clientY),clientY:p.clientY});showMarks(touch.drop);edgeScroll(p.clientY,list);
+    },{passive:false});
+    list.addEventListener('touchend',e=>{
+      if(!touch)return;
+      if(!touch.grabbed){cancel();return}
+      if(e.cancelable)e.preventDefault();
+      const {el,moved,drop,drag:d}=touch;
+      finish();
+      if(moved){suppressUntil=Date.now()+600;commitDrop(d,drop);return}
+      // 움직이지 않고 뗌 = 우클릭과 같은 메뉴.
+      const btn=el.matches('summary')?el.querySelector('[data-lu-node-menu]'):el.querySelector('[data-lu-menu]');
+      suppressUntil=0;
+      if(btn){const r=el.getBoundingClientRect();window.KPTUContextMenu?.pinAt?.(btn,r.left+Math.min(r.width/2,48),r.top+r.height/2);btn.click()}
+      suppressUntil=Date.now()+600;
+    });
+    list.addEventListener('touchcancel',()=>{if(touch?.grabbed)finish();else cancel()});
+    // 잡은 직후 따라오는 기본 길게누르기 메뉴·클릭(자료 열기, 토글 접기)은 막는다.
+    list.addEventListener('contextmenu',e=>{if(touch||Date.now()<suppressUntil||(e.pointerType==='touch'&&e.target.closest?.('.lu-row,summary.lu-node-head')&&touchOk()))e.preventDefault()},true);
+    list.addEventListener('click',e=>{if(Date.now()<suppressUntil){e.preventDefault();e.stopPropagation()}},true);
   }
   // F2 = 포커스가 있는 폴더 줄의 이름 바꾸기. 빈 곳 우클릭 = 그 자리를 품은 가장 가까운 토글의 ⋯ 메뉴(폴더면 폴더 메뉴, 프로젝트·'폴더 밖'이면 [새 폴더]),
   // 어느 토글도 아니면 맨 위 자리의 [새 폴더]. 카드·줄·입력칸·링크·버튼 위의 우클릭은 공용 우클릭(context-menu.js)이 그대로 맡는다.

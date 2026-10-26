@@ -340,9 +340,10 @@ let luFoldersReady=false,luFolderUi=null;
 function luNodeMenuLabel(n){if((luGroupBy!=='project'&&luGroupBy!=='folder')||!luFoldersReady)return null;if(n.kind==='folder')return '폴더 관리: '+n.label;if(luGroupBy==='folder')return n.key==='x:out'?'폴더 만들기: 폴더 밖':null;if(n.kind==='group'&&!n.stale&&(n.projectId===null||luCatalog()?.tree?.some(x=>x.project.id===n.projectId)))return '폴더 만들기: '+n.label;return null}
 // ④ PC 끌어 놓기: 마우스가 있는 넓은 화면(761px 이상)·프로젝트 묶기·폴더 표를 읽었을 때만. 폰·터치는 ⋯ 메뉴로 같은 일을 한다.
 const LU_FINE=typeof matchMedia==='function'?matchMedia('(hover:hover) and (pointer:fine) and (min-width:761px)'):null;
-const luCanDrag=()=>!!LU_FINE?.matches&&luGroupBy==='project'&&luFoldersReady;
+const luFolderViews=()=>(luGroupBy==='project'||luGroupBy==='folder')&&luFoldersReady;
+const luCanDrag=()=>!!LU_FINE?.matches&&luFolderViews();
 // 파일 줄은 그 프로젝트 틀에 폴더가 있을 때만 끌 수 있다(놓을 곳이 없으면 끌지 않음). 줄 HTML은 luRowHtml 그대로에 draggable만 붙인다.
-function luDragRowHtml(d,node){const html=luRowHtml(d,node);if(!luCanDrag()||!luFolders_.some(f=>(f.project_id||null)===(d.project_id||null)))return html;return html.replace('<article class="lu-row"','<article class="lu-row" draggable="true"')}
+function luDragRowHtml(d,node){const html=luRowHtml(d,node);if(!luCanDrag()||!(luGroupBy==='folder'||luFolders_.some(f=>(f.project_id||null)===(d.project_id||null))))return html;return html.replace('<article class="lu-row','<article draggable="true" class="lu-row')}
 // LIB-줄안이름바꾸기: 줄 우클릭·⋯ 메뉴의 [이름 바꾸기] 또는 줄을 고른 채 F2 → 창 없이 그 줄 제목이 입력칸이 된다(글자 전체 선택).
 // Enter·바깥 누르기=저장, Esc=취소. 저장하면 줄 위 한 줄에 '이름을 바꿨어요 · 되돌리기'. 바꾸는 것은 Web2 제목뿐(Drive 원본 파일 이름 그대로).
 // 저장은 [수정] 창과 같은 서버 길(app_documents PATCH)이고 제목 칸을 사용자 값('user')으로 남긴다(library-rename.js). 브라우저 저장소는 쓰지 않는다.
@@ -418,7 +419,7 @@ async function luRenameUndo(id,renamed,snapshot){
   finally{luRenameBusy=false}
 }
 function luFolderStatus(text,error=false){const el=document.querySelector('#libraryFolderStatusLine');if(!el)return;el.textContent=text||'';el.hidden=!text;el.classList.toggle('error',!!error)}
-function luFolders(){if(!luFolderUi)luFolderUi=mountLibraryFolders({api:luApi,esc:luEsc,state:()=>({workspace:luWorkspace,folders:luFolders_,items:luFolderItems,docs:luDocuments,projectName:luProjectName,free:luGroupBy==='folder',isOpen:luNodeOpen}),reload:async()=>{await luLoadFolders();luRenderLibrary()},status:luFolderStatus,notify:luRenameNotice,reveal:luRevealKeys,toggleNode:luToggleNode});return luFolderUi}
+function luFolders(){if(!luFolderUi)luFolderUi=mountLibraryFolders({api:luApi,esc:luEsc,state:()=>({workspace:luWorkspace,folders:luFolders_,items:luFolderItems,docs:luDocuments,projectName:luProjectName,free:luGroupBy==='folder',isOpen:luNodeOpen}),reload:async()=>{await luLoadFolders();luRenderLibrary()},status:luFolderStatus,notify:luRenameNotice,reveal:luRevealKeys,toggleNode:luToggleNode,selected:()=>luSel?[...luSel]:[],touchOk:luFolderViews});return luFolderUi}
 // 토글 하나를 접거나 편다(폴더 ⋯ 메뉴의 [접기·펼치기]). 상태는 머리를 눌렀을 때와 같은 곳(luOpened·luFilterOpen)에 적는다.
 const luNodeEl=key=>[...document.querySelectorAll('#documentList details[data-lu-node]')].find(x=>x.dataset.luNode===key);
 const luNodeOpen=key=>!!luNodeEl(key)?.open;
