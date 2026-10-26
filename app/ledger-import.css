@@ -224,6 +224,19 @@
 #appView #ledgerView .lf-hint{ font-size:var(--ds-text-meta); }
 #appView #ledgerView .lf-preview{ display:flex; flex-direction:column; gap:8px; padding:10px 12px; border-radius:var(--ds-radius-box); background:var(--kptu-surface-subtle); }
 #appView #ledgerView .lf-lines{ margin:0; padding-left:18px; font-size:var(--ds-text-read); line-height:1.6; color:var(--kptu-ink); overflow-wrap:anywhere; }
+/* MTG-기록겹침거르기 5단계: 겹친 기록 합치기 칸(#ledgerMergeRoot, ledger-merge.js). 평소 접힌 한 줄, 펼치면 두 기록을 나란히. */
+#appView #ledgerView .lm-card{ gap:6px; padding:10px 12px; }
+#appView #ledgerView .lm-summary{ display:flex; align-items:center; min-height:var(--ds-compact-height-sm); font-size:var(--ds-text-row); font-weight:var(--ds-weight-medium); color:var(--kptu-ink); cursor:pointer; }
+#appView #ledgerView .lm-list{ display:flex; flex-direction:column; margin:0; padding:0; list-style:none; }
+#appView #ledgerView .lm-item{ display:flex; flex-direction:column; align-items:flex-start; gap:6px; padding:8px 0; border-top:var(--ds-line-width) solid var(--ds-line); min-width:0; }
+#appView #ledgerView .lm-recent{ flex-direction:row; align-items:center; justify-content:space-between; gap:8px; }
+#appView #ledgerView .lm-pair{ display:flex; flex-direction:column; gap:2px; width:100%; min-width:0; }
+#appView #ledgerView .lm-side{ display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 8px; min-width:0; font-size:var(--ds-text-row); }
+#appView #ledgerView .lm-kind{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+#appView #ledgerView .lm-title{ overflow-wrap:anywhere; color:var(--kptu-ink); }
+#appView #ledgerView .lm-origin{ font-size:var(--ds-text-meta); }
+#appView #ledgerView .lm-same{ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+#appView #ledgerView .lm-line{ margin:0; font-size:var(--ds-text-read); line-height:1.6; color:var(--kptu-ink); overflow-wrap:anywhere; }
 @media (max-width:760px){
   #appView #ledgerView .lb-bar{ flex-wrap:wrap; }
 }

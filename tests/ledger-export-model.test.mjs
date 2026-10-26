@@ -48,7 +48,7 @@ test('module: owner-only, no request body, fixed paths, one renderer region, no 
   assert.equal((src.match(/#ledgerExportRoot/g) || []).length >= 1, true);
   const shell = readFileSync(new URL('../app/ledger-browse.js', import.meta.url), 'utf8');
   // LEDGER-자동기록: 상태 한 줄은 원장 화면 맨 위 칸. LEDGER-화면정리: 틀은 목록 모듈이 만들고, 가져오기·후보 칸은 없다.
-  assert.match(shell, /<div class="lg-root"><div id="ledgerExportRoot" class="lg-root" hidden><\/div><div id="ledgerFixRoot" class="lg-root" hidden><\/div><div id="ledgerBrowseRoot"/);
+  assert.match(shell, /<div class="lg-root"><div id="ledgerExportRoot" class="lg-root" hidden><\/div><div id="ledgerFixRoot" class="lg-root" hidden><\/div><div id="ledgerMergeRoot" class="lg-root" hidden><\/div><div id="ledgerBrowseRoot"/);
   assert.doesNotMatch(shell, /ledgerRoot"|ledgerCandidatesRoot/);
   assert.doesNotMatch(src, /지금 Drive로 내보내기/);
 });
