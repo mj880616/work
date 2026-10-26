@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { toDryRun, escapeSummary, CHECK_LABEL_RE } from './db-migration-plan.mjs';
-import { meetsExpectation, expectationFor } from './db-migration-expanded.mjs';
+import { meetsExpectation, expectationFor, policyLookupSQL, compareReplacements } from './db-migration-expanded.mjs';
 import { queryErrorSummary, CheckFormatError } from './db-query.mjs';
 
 export function buildBackup(plan) {
@@ -115,6 +115,18 @@ export async function runFullPlan(plan, query, { secretValues = [], saveSnapshot
     const count = await historyCount();
     if (count !== 0) return stop('이미 적용된 version입니다(사전 기록 있음). 아무것도 쓰지 않았습니다.');
     steps.push('사전 기록 없음: 예');
+
+    // Policy replacement: compare with production's current definition before anything is written.
+    // The files alone cannot show the old roles / command / permissive; an unreadable or
+    // wider-than-before result stops the run.
+    if (plan.policyReplacements?.length) {
+      phase = '정책 교체 비교(운영 pg_policies)';
+      const current = await query(policyLookupSQL(plan.policyReplacements), { readOnly: true });
+      const { ok, lines } = compareReplacements(plan.policyReplacements, current);
+      notes.push('정책 교체 비교 (운영 현재 정의 → 새 정의, 읽기 전용):\n\n| 정책 | 운영 → 새 | 권한 확대 아님 |\n| --- | --- | --- |\n' + lines.join('\n'));
+      if (!ok) return stop('정책 교체가 권한을 넓히거나 운영 정의를 확인할 수 없습니다. 아무것도 쓰지 않았습니다.');
+      steps.push(`정책 교체 비교: ${plan.policyReplacements.length}개 모두 같거나 좁음`);
+    }
 
     phase = '사전 확인(precheck)';
     const pre = rawObservations(await query(plan.checks.precheck.sql, { readOnly: true }), secretValues, ['value']);

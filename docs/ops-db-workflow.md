@@ -64,7 +64,8 @@ dry-run도 운영 DB에 접속해야 하고, 그 열쇠(`SUPABASE_ACCESS_TOKEN`)
 | SECURITY DEFINER인데 search_path 고정 없음 | `function-definer-path` |
 | 실행권 부여가 회수보다 먼저 | `function-grant-order` |
 | 함수 본문의 DDL·권한 변경·동적 EXECUTE·세션 설정 | `function-body` |
-| 기존 정책 DROP·ALTER(삭제 뒤 더 넓은 정책) | `policy-drop-alter` |
+| 기존 정책 ALTER, 또는 DROP POLICY가 아래 "정책 교체" 조건을 벗어남(짝 없음·표 바뀜·항상 참 조건·빈 식 등) | `policy-drop-alter` |
+| 정책 교체의 rollback 파일에 원래 정책을 되살리는 DROP+CREATE 없음 | `policy-rollback` |
 | 기존 표에 새 permissive 정책 | `policy-existing-table` |
 | 정책 대상이 anon·PUBLIC이거나 대상 생략(기본 PUBLIC) | `policy-roles` |
 | `using (true)`·`with check (true)` | `policy-true` |
@@ -73,6 +74,14 @@ dry-run도 운영 DB에 접속해야 하고, 그 열쇠(`SUPABASE_ACCESS_TOKEN`)
 | drop table/schema·truncate·role·extension·default privileges·copy·call·dblink·파일 읽기·set role | `blocked-command` |
 | CREATE TABLE … AS(자료 복사), WHERE 없는 UPDATE/DELETE, rtw_ 언급, 중간 commit | `create-table-as`, `where-missing`, `rtw`, `transaction-control` |
 | 짝 파일 없음, snapshot이 카탈로그 밖을 읽음 | `pair-missing`, `snapshot-rows` |
+
+### 정책 교체 (OPS-DB워크플로정책교체)
+
+같은 파일 안에서 `drop policy <이름> on public.<표>;`로 지운 정책을 같은 이름·같은 표로 다시 `create policy`하는 교체는, 권한을 높이지 않을 때만 받는다. 새 정책은 이렇게 보인다.
+
+- 정적 검사(plan 단계): 대상 역할이 `authenticated`만이고 `TO`가 있다(anon·PUBLIC·`service_role`·생략 거절). 명령(`FOR`)에 맞는 `USING`/`WITH CHECK` 식이 있고 비어 있지 않으며 `true`·`1 = 1` 같은 항상 참 조건이 없다. 지운 정책마다 다시 만드는 짝이 있어야 한다(없거나 이름·표가 다르면 거절). 짝 파일 5개가 모두 있어야 하고, rollback 파일이 같은 정책을 `drop policy` 뒤 `create policy`로 되살려야 한다(`policy-rollback`).
+- 운영 비교(run 단계, 쓰기 전): 파일만으로는 "이전 정의"를 알 수 없으므로 승인 뒤 맨 처음에 읽기 전용으로 운영 `pg_catalog.pg_policies`에서 그 정책의 roles·cmd·permissive를 읽어 비교한다. 새 역할이 이전보다 넓지 않고(이전이 PUBLIC이면 그 안), 새 명령이 이전보다 넓지 않고(이전이 ALL이면 그 안, 아니면 같아야 함), permissive/restrictive가 같고, rollback 파일이 되살리는 정의가 운영의 이전 정의와 같아야 한다. 운영에 정책이 없거나 둘 이상이거나 읽기·형식 오류가 나면 거절하고 아무것도 쓰지 않는다. 운영 DB 쓰기는 늘지 않는다(읽기 1회 추가).
+- 조건식 안 내용이 이전보다 좁은지는 자동 판정하지 않는다. 식 변경은 plan summary에 SQL 전문이 보이므로 커맨드센터가 diff로 검토한다.
 
 정적 검사는 "더 좁아지는지"를 증명하지 못한다(예: 새 표 정책의 조건식 의미, SECURITY DEFINER 함수가 돌려주는 자료). 그래서 plan summary에 정책·권한·트리거·DEFINER 함수 수를 따로 표시하고 CC가 PR에서 본다. rollback 모드의 규칙은 바뀌지 않았다.
 
