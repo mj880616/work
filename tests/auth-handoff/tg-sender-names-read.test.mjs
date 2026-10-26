@@ -34,6 +34,9 @@ test('tg sender names read: one read-only definer function for service_role only
   pool=trackPool(new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database:'postgres',ssl:false}));
   await pool.query(fixture);await pool.query(prerequisites);
   await pool.query('revoke usage on schema private from service_role');
+  await pool.query('grant select on public.app_spaces to authenticated');
+  await pool.query('alter table public.app_spaces enable row level security');
+  await pool.query('create policy fake_owner_read on public.app_spaces for select to authenticated using (private.app_is_workspace_owner(workspace_id))');
   for(const f of ['20261024140000_call_tg_feed','20261024210000_feed_item_guard_public','20261026190000_tg_sender_names'])await pool.query(await read('supabase/migrations/'+f+'.sql'));
   const migration=await read('supabase/migrations/'+stem+'.sql');
   const [precheck,postcheck,snapshot,rollbackSQL,summary]=await Promise.all(['precheck.sql','postcheck.sql','snapshot.sql','rollback.sql','summary.md'].map(k=>read('docs/'+stem+'.'+k)));
