@@ -30,7 +30,7 @@ async function chunked(values, make) {
 }
 
 async function readCandidates(ws) {
-  const overlaps = await rowsOf(`/rest/v1/app_record_overlaps?workspace_id=eq.${ws}&verdict=eq.same&select=a_ref,b_ref,decided_by&order=updated_at.desc&limit=200`);
+  const overlaps = await rowsOf(`/rest/v1/app_record_overlaps?workspace_id=eq.${ws}&verdict=eq.same&select=a_ref,b_ref,verdict,decided_by&order=updated_at.desc&limit=200`);
   const pairs = samePairs(overlaps);
   if (!pairs.length) return [];
   const first = await chunked(locationsOf(pairs), ids => `/rest/v1/app_ledger_sources?workspace_id=eq.${ws}&status=eq.active&location=in.(${ids})&select=id,ledger_id,location,status&limit=1000`);
@@ -179,6 +179,7 @@ function bind() {
     else if (action === 'undo') void undoRecent(button.dataset.lmFix);
   });
   window.addEventListener('kptu:ledger-changed', () => { if (document.querySelector('#ledgerMergeRoot')) void load(); });
+  window.KPTURouter?.on?.('ledger', () => { void load(); }); // 원장 화면을 다시 열 때마다 새로 읽는다
 }
 
 window.addEventListener('kptu:session-changed', () => { seq++; state = fresh(); render(); if (document.querySelector('#ledgerMergeRoot') && workspaceId()) void load(); });

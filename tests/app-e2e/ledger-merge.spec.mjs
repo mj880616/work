@@ -49,7 +49,7 @@ async function mockApp(page,db){
   }
   if(path==='/rest/v1/rpc/app_ledger_search')return ok([]);
   if(path.startsWith('/rest/v1/rpc/'))return ok(null);
-  if(path==='/rest/v1/app_record_overlaps')return ok([{a_ref:`meeting:${MEETING}`,b_ref:`project_update:${UPDATE}`,decided_by:'ai'}]);
+  if(path==='/rest/v1/app_record_overlaps')return ok([{a_ref:`meeting:${MEETING}`,b_ref:`project_update:${UPDATE}`,verdict:'same',decided_by:'ai'}]);
   if(path==='/rest/v1/app_ledger_sources'){
    const ids=inList('id'),locs=inList('location');
    return ok(db.sources.filter(s=>(ids?ids.includes(s.id):true)&&(locs?locs.includes(decodeURIComponent(s.location)):true)));

@@ -167,5 +167,6 @@ test('화면 연결: 원장 화면 틀에 칸이 있고, 모듈은 기존 수정
   const code = read('ledger-merge.js');
   assert.deepEqual([...new Set([...code.matchAll(/rpc\/(\w+)/g)].map(m => m[1]))].sort(), ['app_apply_ledger_fix', 'app_undo_ledger_fix']);
   assert.doesNotMatch(code, new RegExp(['local', 'session'].map(x => x + 'Storage').concat(['indexed' + 'DB']).join('|')));
+  assert.match(code, /app_record_overlaps\?[^`]*select=a_ref,b_ref,verdict,decided_by/); // samePairs가 verdict 칸을 요구한다
   assert.doesNotMatch(code, /method:\s*'(PATCH|DELETE)'/);
 });
