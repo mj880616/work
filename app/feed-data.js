@@ -6,33 +6,27 @@
 // no Edge: the table's one policy (private.app_is_workspace_owner) and its column grants decide. The signed-in owner may only
 // change pinned_at, hidden_at, raw_text (clear only — the guard trigger refuses any other value), organization_id, project_id
 // and updated_at; there is no insert or delete. Rows come in through collector-feed only.
-// TG-카드밀기: a telegram item's 보관/삭제/되살리기 goes through the DB function app_feed_set_state (the new column archived_at has no direct write
-// privilege); 삭제 is hidden_at (the 휴지통), which is never emptied by itself.
+// TG-방날짜묶기: a telegram item's 삭제/되살리기 goes through the DB function app_feed_set_state; 삭제 is hidden_at (the 휴지통), never emptied by itself.
 import {readRecordPages} from './basket-link-records.js';
 import {addDays, kstDay} from './feed-model.mjs';
 import {callAiAssist} from './basket-ai-summary.js';
 
 const encode = encodeURIComponent;
 const ctx = rt => rt?.context?.read?.() || {};
-const workspaceOf = rt => { const id = ctx(rt)?.workspace?.id; if (!id) throw Error('업무 공간을 확인할 수 없어요.'); return id; };
+export const workspaceOf = rt => { const id = ctx(rt)?.workspace?.id; if (!id) throw Error('업무 공간을 확인할 수 없어요.'); return id; };
 export const scopeOf = rt => { const c = ctx(rt); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
 
 // raw_text is read only for the one row shown (it may be up to 200 KB).
 export const ITEM_FIELDS = 'id,workspace_id,source,day,occurred_at,room_key,room_label,title,summary,points,counterpart,speaker_split,raw_count,organization_id,project_id,drive_url,pinned_at,hidden_at,created_at,updated_at';
-// TG-카드밀기: 보관 시각 칸(migration 20261025210000). 텔레그램 소식 화면만 읽는다.
-export const ITEM_FIELDS_ARCHIVE = `${ITEM_FIELDS},archived_at`;
 // The list keeps the last 120 days (and at most 600 rows); older ones stay in the table and in Drive.
 export const LIST_DAYS = 120;
 export const LIST_MAX = 600;
 
-// archiveAware (텔레그램 소식 화면만): 보관한 줄(archived_at)을 뺀다. 칸이 아직 없으면(DB 적용 전) 서버가 400/42703으로 답하므로
-// readTelegramFeed가 예전 조회로 물러난다. 통화 화면은 이 칸을 모른다(그대로).
-export async function readFeed(source, rt = window.KPTURuntime, today = kstDay(), {archiveAware = false} = {}) {
+export async function readFeed(source, rt = window.KPTURuntime, today = kstDay()) {
   const ws = workspaceOf(rt), from = addDays(today, -LIST_DAYS);
-  const fields = archiveAware ? ITEM_FIELDS_ARCHIVE : ITEM_FIELDS, extra = archiveAware ? '&archived_at=is.null' : '';
   const rows = [];
   for (let offset = 0; offset < LIST_MAX; offset += 100) {
-    const page = await rt.api(`/rest/v1/app_feed_items?workspace_id=eq.${encode(ws)}&source=eq.${encode(source)}&hidden_at=is.null${extra}&day=gte.${from}&select=${fields}&order=day.desc,occurred_at.desc,id.desc&limit=100&offset=${offset}`);
+    const page = await rt.api(`/rest/v1/app_feed_items?workspace_id=eq.${encode(ws)}&source=eq.${encode(source)}&hidden_at=is.null&day=gte.${from}&select=${ITEM_FIELDS}&order=day.desc,occurred_at.desc,id.desc&limit=100&offset=${offset}`);
     if (!Array.isArray(page)) throw Error('목록을 확인하지 못했어요.');
     rows.push(...page.filter(r => r?.id && r.workspace_id === ws && r.source === source));
     if (page.length < 100) break;
@@ -62,43 +56,58 @@ export async function patchItem(id, changes, rt = window.KPTURuntime) {
 export const setPinned = (id, on, rt) => patchItem(id, {pinned_at:on ? new Date().toISOString() : null}, rt);
 export const setHidden = (id, on, rt) => patchItem(id, {hidden_at:on ? new Date().toISOString() : null}, rt);
 
-// ---------- TG-카드밀기: 텔레그램 소식의 보관(archived_at)·삭제(hidden_at = 휴지통)
-// 보관함·휴지통은 날짜 제한 없이 최근 SHELF_MAX줄. Drive 원문은 어느 쪽도 지우지 않는다(이 표에는 행 삭제 권한이 없다).
-const SHELF_MAX = 200;
-const missingArchiveColumn = error => Number(error?.status) === 400 && /42703|archived_at/.test(String(error?.message || ''));
-async function readShelf(kind, ws, rt, fields) {
-  const filter = kind === 'archived' ? 'archived_at=not.is.null&hidden_at=is.null' : 'hidden_at=not.is.null';
-  const page = await rt.api(`/rest/v1/app_feed_items?workspace_id=eq.${encode(ws)}&source=eq.telegram&${filter}&select=${fields}&order=day.desc,occurred_at.desc,id.desc&limit=${SHELF_MAX}`);
+// ---------- 텔레그램 소식 (TG-방날짜묶기 4단계): 방·날 한 줄 목록과 방 상세. 읽기는 DB 함수 app_feed_room_day_lines(소유자 RLS 그대로)와
+// 소유자 읽기 표(app_feed_items·app_feed_room_days). 소식 한 줄의 삭제·되살리기는 DB 함수 app_feed_set_state(주인만, 텔레그램 줄만)로 하며
+// 삭제(hidden_at)는 휴지통이고 자동으로 비우지 않는다. Drive 원문은 건드리지 않는다.
+// 이 날 범위의 방·날 줄. 한 번에 7일씩 나눠 부른다(chunks: [[from,to],...]).
+export async function readRoomDayLines(chunks, rt = window.KPTURuntime) {
+  const pages = await Promise.all(chunks.map(async ([from, to]) => {
+    const data = await rt.api('/rest/v1/rpc/app_feed_room_day_lines', {method:'POST', body:{p_from:from, p_to:to}, singleFlight:false});
+    if (!Array.isArray(data)) throw Error('목록을 확인하지 못했어요.');
+    return data;
+  }));
+  return pages.flat();
+}
+// 그 방·날의 지우지 않은 소식(시간 순)과 요약 묶음. parts는 읽지 못하면 null(화면이 소식 제목 모음으로 물러난다).
+export async function readRoomDay(room, day, rt = window.KPTURuntime) {
+  const ws = workspaceOf(rt), at = `workspace_id=eq.${encode(ws)}&room_key=eq.${encode(room)}&day=eq.${encode(day)}`;
+  const [items, days] = await Promise.all([
+    rt.api(`/rest/v1/app_feed_items?${at}&source=eq.telegram&hidden_at=is.null&select=${ITEM_FIELDS}&order=occurred_at.asc,id.asc&limit=200`),
+    rt.api(`/rest/v1/app_feed_room_days?${at}&select=parts&limit=1`).catch(() => null),
+  ]);
+  if (!Array.isArray(items)) throw Error('목록을 확인하지 못했어요.');
+  return {items:items.filter(r => r?.id && r.workspace_id === ws && r.source === 'telegram'), parts:Array.isArray(days) ? (days[0]?.parts ?? []) : null};
+}
+// 요약이 없는 날의 소식 제목 재료(방·날 줄 글이 빈 날만). days: 날짜 배열(14개씩 나눠 부름).
+export async function readTitleRows(days, rt = window.KPTURuntime) {
+  const ws = workspaceOf(rt), out = [];
+  for (let i = 0; i < days.length; i += 14) {
+    const part = days.slice(i, i + 14);
+    for (let offset = 0; offset < 500; offset += 100) {
+      const page = await rt.api(`/rest/v1/app_feed_items?workspace_id=eq.${encode(ws)}&source=eq.telegram&hidden_at=is.null&day=in.(${part.map(encode).join(',')})&select=room_key,day,title,summary,occurred_at&order=day.desc,occurred_at.asc&limit=100&offset=${offset}`);
+      if (!Array.isArray(page)) throw Error('목록을 확인하지 못했어요.');
+      out.push(...page);
+      if (page.length < 100) break;
+    }
+  }
+  return out;
+}
+export async function readPinnedItems(rt = window.KPTURuntime) {
+  const ws = workspaceOf(rt);
+  const page = await rt.api(`/rest/v1/app_feed_items?workspace_id=eq.${encode(ws)}&source=eq.telegram&pinned_at=not.is.null&hidden_at=is.null&select=${ITEM_FIELDS}&order=pinned_at.desc,id.desc&limit=50`);
   if (!Array.isArray(page)) throw Error('목록을 확인하지 못했어요.');
   return page.filter(r => r?.id && r.workspace_id === ws && r.source === 'telegram');
 }
-// {rows (소식), archived (보관함), trashed (휴지통), archiveReady}. archiveReady=false: 보관 칸이 아직 없다(DB 적용 전) → 삭제(hidden_at)만 된다.
-// 보관함·휴지통을 읽지 못해도 소식 목록은 그대로 보여 준다(그 둘은 빈 목록).
-export async function readTelegramFeed(rt = window.KPTURuntime, today = kstDay()) {
+// 휴지통: 지운 소식(날짜 제한 없이 최근 200줄).
+export async function readTrashedItems(rt = window.KPTURuntime) {
   const ws = workspaceOf(rt);
-  let rows, archiveReady = true;
-  try { rows = await readFeed('telegram', rt, today, {archiveAware:true}); }
-  catch (error) { if (!missingArchiveColumn(error)) throw error; archiveReady = false; rows = await readFeed('telegram', rt, today); }
-  const fields = archiveReady ? ITEM_FIELDS_ARCHIVE : ITEM_FIELDS;
-  const [archived, trashed] = await Promise.all([
-    archiveReady ? readShelf('archived', ws, rt, fields).catch(() => []) : [],
-    readShelf('trashed', ws, rt, fields).catch(() => []),
-  ]);
-  return {rows, archived, trashed, archiveReady};
+  const page = await rt.api(`/rest/v1/app_feed_items?workspace_id=eq.${encode(ws)}&source=eq.telegram&hidden_at=not.is.null&select=${ITEM_FIELDS}&order=day.desc,occurred_at.desc,id.desc&limit=200`);
+  if (!Array.isArray(page)) throw Error('목록을 확인하지 못했어요.');
+  return page.filter(r => r?.id && r.workspace_id === ws && r.source === 'telegram');
 }
-// 소식 한 줄의 상태를 바꾼다. state = 'active' | 'archived' | 'trashed'.
-// {ok:true, archived_at, hidden_at} 또는 {ok:false, error: GONE | UNAVAILABLE | REFUSED | UNKNOWN}.
-// 보관 칸이 있으면(archiveReady) DB 함수 app_feed_set_state 하나가 두 칸을 한 번에 맞춘다(주인만, 텔레그램 줄만).
-// 없으면(DB 적용 전) 예전 길(hidden_at 고치기)로 삭제·되살리기만 하고, 보관은 UNAVAILABLE.
-export async function setFeedState(id, state, rt = window.KPTURuntime, {archiveReady = true} = {}) {
-  if (state !== 'active' && state !== 'archived' && state !== 'trashed') return {ok:false, error:'REFUSED'};
-  if (!archiveReady) {
-    if (state === 'archived') return {ok:false, error:'UNAVAILABLE'};
-    try {
-      const saved = await setHidden(id, state === 'trashed', rt);
-      return saved ? {ok:true, archived_at:null, hidden_at:saved.hidden_at ?? null} : {ok:false, error:'GONE'};
-    } catch (error) { const status = Number(error?.status) || 0; return {ok:false, error:status >= 400 && status < 500 ? 'REFUSED' : 'UNKNOWN'}; }
-  }
+// 소식 한 줄의 삭제('trashed')·되살리기('active'). {ok:true, hidden_at} 또는 {ok:false, error: GONE | UNAVAILABLE | REFUSED | UNKNOWN}.
+export async function setFeedState(id, state, rt = window.KPTURuntime) {
+  if (state !== 'active' && state !== 'trashed') return {ok:false, error:'REFUSED'};
   let data;
   try { data = await rt.api('/rest/v1/rpc/app_feed_set_state', {method:'POST', body:{p_id:id, p_state:state}, singleFlight:false}); }
   catch (error) {
@@ -107,7 +116,7 @@ export async function setFeedState(id, state, rt = window.KPTURuntime, {archiveR
     if (status === 404 || /PGRST202|Could not find the function/i.test(text)) return {ok:false, error:'UNAVAILABLE'};
     return {ok:false, error:status >= 400 && status < 500 ? 'REFUSED' : 'UNKNOWN'};
   }
-  if (data && typeof data === 'object' && data.ok === true) return {ok:true, archived_at:data.archived_at ?? null, hidden_at:data.hidden_at ?? null};
+  if (data && typeof data === 'object' && data.ok === true) return {ok:true, hidden_at:data.hidden_at ?? null};
   return {ok:false, error:'UNKNOWN'};
 }
 
