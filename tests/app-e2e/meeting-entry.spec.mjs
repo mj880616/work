@@ -82,8 +82,10 @@ test('meeting create modal exposes the task 9 fields only',async({page})=>{
   for(const el of [page.locator('#addMeetingAction'),page.locator('#meetingPickFiles')]){const b=await el.boundingBox();expect(b.width).toBeGreaterThanOrEqual(44);expect(b.height).toBeGreaterThanOrEqual(44)}
   expect((await page.locator('#meetingActionAdd').boundingBox()).height).toBe(32);
   expect((await page.locator('#meetingActionLine .due-chip').boundingBox()).height).toBe(32);
-  // MEET-파일로만들기: [파일·글로 만들기] 칸(#mffPanel)의 파일 +는 따로 센다. 직접 쓰기 칸은 그대로 2개.
-  await expect(page.locator('#meetingModal fieldset .mtg-group-head .mtg-add-plus')).toHaveCount(2);
+  // MEET-파일로만들기: [파일·글로 만들기] 칸(#mffPanel)의 파일 +는 따로 센다. 직접 쓰기 칸은 후속 할 일 +, 사진 +(ACT-사진 3단계), 회의자료 + 세 개.
+  await expect(page.locator('#meetingModal fieldset .mtg-group-head .mtg-add-plus')).toHaveCount(3);
+  await expect(page.locator('#meetingPhotoFiles')).toHaveAttribute('accept','image/*');
+  { const b = await page.locator('#meetingPickPhotos').boundingBox(); expect(b.width).toBeGreaterThanOrEqual(44); expect(b.height).toBeGreaterThanOrEqual(44); }
   await expect(page.locator('.meeting-action-assignee,#mrdTaskAssignee,#taskAssignee')).toHaveCount(0);
   await expect(page.locator('#meetingAutoClassify,#meetingDecisions,#wfMeetingLocation,#wfMeetingAttendees')).toHaveCount(0);
   await expect(page.locator('#meetingProject option[value="main"]')).toHaveText('메인');
