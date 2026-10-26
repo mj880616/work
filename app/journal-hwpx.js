@@ -41,7 +41,8 @@ import {scheduleForm} from './journal-weekly.js';
 import {carryOver, carryCutoff, formRequests, formDay, mergeCarried} from './weekly-exec-requests.js';
 import {scheduleItems, scheduleMismatches, titleRequest, titleAnswer, NO_PLACE} from './weekly-hwpx/schedule.mjs';
 import {callAiAssist, AI_SUMMARY_TEXT, aiSummaryRetryable} from './basket-ai-summary.js';
-import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, draftDocs, keepDocsOnly} from './weekly-draft-store.js';
+import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, draftDocs, keepDocsOnly} from './weekly-draft-store.js';
+import {sameIssuedLines} from './weekly-lines.mjs';
 import {isDropped, defaultTitle, visibleCalendar, effectiveOverrides, memoryCandidates, withEntries, withUsed, changeMemory} from './weekly-schedule-memory.js';
 
 const CONFIRMED_CATEGORY = '주간보고 확정본';
@@ -658,7 +659,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     return state.built;
   }
   async function doBuild() {
-    try { const b = await build(); download(b.bytes, b.name, 'application/hwp+zip'); say(`"${b.name}"을(를) 내려받았어요. 바뀐 줄 ${b.changed}개는 파란 글씨예요.`, 'ok'); }
+    try { const b = await build(); download(b.bytes, b.name, 'application/hwp+zip'); say(`"${b.name}"을(를) 내려받았어요. 바뀐 줄 ${b.changed}개는 파란 글씨예요.`, 'ok'); void recordIssued(state, b.bytes); }
     catch (error) { say(error?.code ? error.message : '한글 파일을 만들지 못했어요.', 'error'); }
   }
   async function doHwp() {
@@ -670,7 +671,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
       const hwp = await engine.toHwp(b.bytes);
       if (mine !== run) return;
       const name = b.name.replace(/\.hwpx$/, '.hwp');
-      download(hwp, name, 'application/x-hwp'); say(`"${name}"을(를) 내려받았어요.`, 'ok');
+      download(hwp, name, 'application/x-hwp'); say(`"${name}"을(를) 내려받았어요.`, 'ok'); void recordIssued(state, b.bytes);
     } catch (error) { if (mine === run) say(error?.code ? error.message : 'HWP로 바꾸지 못했어요. .hwpx 파일을 써 주세요.', 'error'); }
   }
   async function doConfirm(trigger) {
@@ -687,7 +688,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
       if (mine !== run) return;
       state.saved = result;
       say(result.message, result.kind === 'created' ? 'ok' : 'error');
-      if (result.kind === 'created' && state.store) { state.store.confirmed = {document_id:String(result.document?.id ?? ''), at:new Date().toISOString()}; state.store.dirty = true; void saveDraft(state); }
+      if (result.kind === 'created' && state.store) { state.store.confirmed = {document_id:String(result.document?.id ?? ''), at:new Date().toISOString()}; state.store.dirty = true; await recordIssued(state, b.bytes, false); void saveDraft(state); }
       if (result.kind === 'created') offerMemory(state);
       // An unknown outcome may have saved: the button stays off until the owner checks the library.
       if (result.kind !== 'unknown') trigger.disabled = result.kind === 'created';
@@ -740,6 +741,19 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     box.replaceChildren(fold);
   }
 
+  // ---- 받은 초안 기록 (WEEKLY-개인본대조 W-2, draft.issued) ----
+  // 파일을 내줄 때(.hwpx 받기·HWP로 받기·확정) 그 파일의 1~4절 글 줄을 그 주 임시저장 draft.issued 에 적는다. 새 표·새 저장소 없음(같은 서버 길, owner RLS).
+  // 같은 줄이면 다시 쓰지 않고, 여러 번 내주면 가장 나중에 내준 것이 기준이다. 읽을 줄이 없거나 너무 길면 적지 않는다(원장 쪽이 그 주를 건너뜀). 실패해도 파일 받기는 그대로다.
+  async function recordIssued(s, bytes, save = true) {
+    const st = s?.store;
+    if (!st || st.status === 'missing') return;
+    let issued = null;
+    try { issued = await s.draft.issuedFrom(bytes, new Date().toISOString()); } catch { return; }
+    if (!issued || sameIssuedLines(st.issued, issued)) return;
+    st.issued = issued;
+    if (save) { st.dirty = true; void saveDraft(s); }
+  }
+
   // ---- 임시저장 (weekly-draft-store.js) ----
   // The week's saved draft, read once a box opening (a reopen reads it again).
   function readDraftFor(start) {
@@ -762,7 +776,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     const cells = new Map([...s.cellAt].map(([id, at]) => [id, s.edits[at.section].get(at.index) ?? []]));
     const typedMe = s.meFrom === 'typed';
     return makeDraft({base:s.baseInfo ? {...s.baseInfo, digest:s.digest} : null, me:typedMe ? s.me : '', meFrom:typedMe ? 'typed' : '', date:s.date === s.defaultDate ? '' : s.date, cells, initial:s.initial,
-      keep:s.store?.keep ?? [], titles:s.titles, drops:s.drops, docs:s.docs ?? [], confirmed:s.store?.confirmed ?? null});
+      keep:s.store?.keep ?? [], titles:s.titles, drops:s.drops, docs:s.docs ?? [], confirmed:s.store?.confirmed ?? null, issued:s.store?.issued ?? null});
   }
   // Put a draft's cells into the current base by name; what does not fit is kept aside (shown folded, saved again as it was).
   function placeCells(s, d) {
@@ -784,13 +798,14 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
   }
   async function attachDraft(s, baseInfo, saved) {
     s.baseInfo = baseInfo ?? null;
-    s.store = {status:'idle', known:null, last:null, timer:0, conflicts:[], keep:[], dirty:false, flight:null, again:false, confirmed:null, resumed:null, savedAt:null};
+    s.store = {status:'idle', known:null, last:null, timer:0, conflicts:[], keep:[], dirty:false, flight:null, again:false, confirmed:null, resumed:null, savedAt:null, issued:null};
     s.digest = await baseDigest(s.initial).catch(() => '');
     if (saved?.missing) { s.store.status = 'missing'; paintDraft(); return; }
     if (saved?.failed) { s.store.status = 'readFailed'; paintDraft(); return; }
     s.store.known = saved.row;
     const d = saved.row?.draft;
     s.store.last = d ?? null;
+    s.store.issued = d?.issued ?? null;
     s.docs = draftDocs(d);
     s.store.savedAt = saved.row?.saved_at ?? null;
     if (hasContent(d)) {
@@ -821,9 +836,10 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     const st = s.store;
     const {draft: merged, conflicts} = merge3(st.last, mine, theirs);
     st.last = theirs ?? null;
+    st.issued = merged.issued ?? null; // 받은 초안 기록은 더 나중에 낸 쪽(다른 기기 것일 수 있음)
     if (state !== s) return merged;
     // Nothing came from the other side (e.g. a row made by the request table meanwhile): keep the box as it is.
-    if (!conflicts.length && sameDraft(merged, mine)) return mine;
+    if (!conflicts.length && sameDraft(merged, mine)) return putIssued(mine, st.issued);
     const focus = doc.activeElement?.id, at = [doc.activeElement?.selectionStart, doc.activeElement?.selectionEnd];
     applyDraft(s, merged);
     st.conflicts = [...st.conflicts.filter(c => !conflicts.some(n => n.cell === c.cell)), ...conflicts];
@@ -945,17 +961,18 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
   // [처음부터] in the box: with a saved draft, ask first and empty it on the server.
   async function restart() {
     const s = state, st = s?.store;
-    const saved = st && st.status !== 'missing' && (hasContent(st.last) || st.dirty);
+    const saved = st && st.status !== 'missing' && (hasContent(st.last) || (st.dirty && hasContent(currentDraft(s))));
     if (saved) {
       if (!window.confirm('이 주 임시저장본을 지우고 처음부터 할까요?')) return;
       clearTimeout(st.timer); st.dirty = false;
       await st.flight;
       try {
-        const r = await writeWeekDraft({start:s.start, known:st.known ?? {exists:true, saved_at:null}, draft:keepDocsOnly(st.known?.draft ?? st.last)}, rt);
+        const r = await writeWeekDraft({start:s.start, known:st.known ?? {exists:true, saved_at:null}, draft:keepDocsOnly(putIssued(st.known?.draft ?? st.last, st.issued))}, rt);
         if (r.conflict) { say('다른 기기가 그사이 임시저장했어요. 다시 [처음부터]를 눌러 주세요.', 'error'); st.known = r.row; return; }
       } catch { say('임시저장본을 지우지 못했어요. 잠시 뒤 다시 해 주세요.', 'error'); st.dirty = true; return; }
     }
     if (state !== s) return;
+    if (!saved && st?.dirty) void saveDraft(s); // 아직 못 쓴 받은 초안 기록(issued)만 있을 때
     state = null; weekDraft = null; paintDraft(); say(saved ? '임시저장본을 지웠어요.' : ''); renderSource();
   }
   doc.addEventListener('visibilitychange', () => {

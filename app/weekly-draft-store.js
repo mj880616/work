@@ -7,6 +7,8 @@
 // - 칸이 아직 없으면(표 404, 칸 400 42703/PGRST204) {missing:true} — 화면은 "임시저장은 준비 중" 한 줄로 지금처럼 동작한다.
 // - 내용은 업무 글이다. 로그·오류 보고에 내용을 쓰지 않는다. 브라우저 저장소에 아무것도 두지 않는다.
 
+import {readIssued, newerIssued} from './weekly-lines.mjs';
+
 const TABLE = '/rest/v1/app_weekly_exec_requests';
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const encode = encodeURIComponent;
@@ -17,6 +19,10 @@ export const SECTIONS = Object.freeze(['summary', 'orgs', 'sites']);
 //   docs: [{id, drop?:true, text?:'고친 줄'(한 줄·200자), keep?:true(기록과 같아 접힌 자료를 넣음)}]. 쓰는 곳은 [주간 정리](changeWeekDocs)뿐이고,
 //   한글 파일 상자는 읽은 docs를 그대로 다시 실어 보낸다(3자 비교 칸 열쇠 doc:<자료 id>).
 export const DOC_TEXT_MAX = 200;
+// WEEKLY-개인본대조 W-2(docs/design/ledger-sources.md 4.1): 한글 파일 상자가 파일을 내줄 때(받기·확정) 그 초안의 1~4절 글 줄을 draft.issued 에 적는다
+//   issued: {at, from:'generated', lines:[{section, text}]} (weekly-lines.mjs). 원장 자동 기록(ai-assist, W-3)이 자료실 개인본을 이 줄과 견줘 바뀐 줄만 읽는다.
+//   임시저장은 draft 를 통째로 쓰므로 makeDraft·readDraft·merge3·keepDocsOnly 가 issued 를 다시 실어 보낸다(안 그러면 다음 저장에 지워진다).
+//   '고친 칸'이 아니라 사본 기록이라 hasContent·3자 비교 칸에는 넣지 않고(이어 쓰기·충돌 질문 없음), 합칠 때는 더 나중에 낸 것을 쓴다.
 
 // ---- 칸 열쇠 ----
 const oneLine = s => String(s ?? '').replace(/\s+/g, ' ').trim();
@@ -38,7 +44,7 @@ const sameLines = (a, b) => JSON.stringify(cleanLines(a)) === JSON.stringify(cle
 // me는 고친 이름일 때만(meFrom='typed'), date는 바탕(보고일)과 다를 때만 넘긴다(아니면 '').
 // keep: 이번 바탕에 넣지 못한 저장 칸(버리지 않고 다시 저장). titles: Map event → {title, place}.
 // drops(WEEKLY-환류, 설계 3.4): Map event → 'drop'(이번 주에 뺀 일정) | 'keep'(기억으로 빠지는 일정을 이번 주만 넣음) → dropped·kept.
-export function makeDraft({base = null, me = '', meFrom = '', date = '', cells = new Map(), initial = new Map(), keep = [], titles = new Map(), drops = new Map(), docs = [], confirmed = null} = {}) {
+export function makeDraft({base = null, me = '', meFrom = '', date = '', cells = new Map(), initial = new Map(), keep = [], titles = new Map(), drops = new Map(), docs = [], confirmed = null, issued = null} = {}) {
   const rows = [];
   for (const [id, lines] of cells) {
     if (initial.has(id) && sameLines(lines, initial.get(id))) continue;
@@ -52,7 +58,16 @@ export function makeDraft({base = null, me = '', meFrom = '', date = '', cells =
   putDrops(out, drops);
   putDocs(out, docs);
   if (confirmed) out.confirmed = confirmed;
-  return out;
+  return putIssued(out, issued);
+}
+// issued 를 덧붙인 draft(원본은 건드리지 않음). 없으면 칸을 두지 않는다. 크기 상한(DRAFT_MAX_BYTES)을 넘기면 issued 를 뺀다 — 기록 때문에 고친 칸 저장이 막히면 안 된다.
+export function putIssued(draft, issued) {
+  const { issued: _old, ...rest } = draft ?? {v:DRAFT_VERSION, base:null, me:'', me_from:'', date:'', rows:[], titles:[]};
+  const clean = readIssued(issued);
+  if (!clean) return rest;
+  const withIt = {...rest, issued:clean};
+  // jsonb 글자 모양(DB CHECK 가 재는 값)은 쉼표·쌍점 뒤 공백 때문에 JSON.stringify 보다 조금 길다 → 8 KB 여유를 둔다.
+  return draftBytes(withIt) > DRAFT_MAX_BYTES - 8192 ? rest : withIt;
 }
 // ---- 자료 줄 고침(docs) ----
 const oneDocLine = s => String(s ?? '').replace(/[\u0000-\u001f\u007f\u2028\u2029]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -84,7 +99,12 @@ export function withDocEdit(draft, id, patch) {
   return base;
 }
 // [처음부터]: 상자에서 고친 것은 비우되 [주간 정리]의 자료 줄 고침은 남긴다(없으면 null = 임시저장 비움).
-export const keepDocsOnly = draft => { const docs = draftDocs(draft); return docs.length ? {v:DRAFT_VERSION, base:null, me:'', me_from:'', date:'', rows:[], titles:[], docs} : null; };
+// 받은 초안 기록(issued)도 남긴다 — 처음부터 해도 이미 내준 초안의 기록은 그 주 비교 기준이다.
+export const keepDocsOnly = draft => {
+  const docs = draftDocs(draft), issued = readIssued(draft?.issued);
+  if (!docs.length && !issued) return null;
+  return putIssued({v:DRAFT_VERSION, base:null, me:'', me_from:'', date:'', rows:[], titles:[], ...(docs.length ? {docs} : {})}, issued);
+};
 // 뺀 일정·이번 주만 넣은 일정(있을 때만 칸을 둔다 — 없으면 옛 모양 그대로).
 function putDrops(out, drops) {
   const dropped = [], kept = [];
@@ -111,6 +131,8 @@ export function readDraft(raw) {
   if (kept.length) out.kept = kept;
   putDocs(out, raw.docs);
   if (raw.confirmed && typeof raw.confirmed === 'object') out.confirmed = {document_id:String(raw.confirmed.document_id ?? ''), at:String(raw.confirmed.at ?? '')};
+  const issued = readIssued(raw.issued);
+  if (issued) out.issued = issued;
   return out;
 }
 
@@ -168,7 +190,7 @@ export function merge3(base, mine, theirs) {
   putDocs(out, [...merged].filter(([k]) => k.startsWith('doc:')).map(([k, v]) => ({id:k.slice(4), ...v})));
   const confirmed = mine?.confirmed ?? theirs?.confirmed;
   if (confirmed) out.confirmed = confirmed;
-  return {draft:out, conflicts};
+  return {draft:putIssued(out, newerIssued(newerIssued(base?.issued ?? null, mine?.issued ?? null), theirs?.issued ?? null)), conflicts};
 }
 
 // ---- 바탕 지문 ----
