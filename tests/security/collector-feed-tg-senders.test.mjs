@@ -20,7 +20,7 @@ const DAY_COLS=['total_count','kept_count','room_count','personal_count','unsure
 const respond=(body,status=200)=>new Response(typeof body==='string'?body:JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
 const aiOk=()=>respond({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({items:[{title:'교섭 일정',summary:'가상 교섭이 미뤄졌다.',refs:['m1','m2'],organization:null,project:null}]})}]}],usage:{input_tokens:100,output_tokens:50}});
 
-function harness({dup=false,rpc=()=>respond({ok:true,people:2,linked:2,conflicts:0}),ai=aiOk}={}){
+function harness({dayRows=[],dayStatus=200,dup=false,rpc=()=>respond({ok:true,people:2,linked:2,conflicts:0}),ai=aiOk}={}){
   const calls={openai:[],rpc:[],items:[],logs:[],tables:[]};
   const days=[];
   const doFetch=async(input,init={})=>{
@@ -36,6 +36,7 @@ function harness({dup=false,rpc=()=>respond({ok:true,people:2,linked:2,conflicts
       const args=JSON.parse(init.body);calls.rpc.push(args);return rpc(args);
     }
     calls.tables.push(`${method} ${path}`);
+    if(path==='app_tg_day_senders'){calls.tables.push('names '+path+url.search);return dayStatus===200?respond(dayRows):respond('boom',dayStatus);}
     if(path==='app_workspaces')return respond([{id:WS}]);
     if(path==='app_suborganizations'||path==='app_spaces')return respond([]);
     if(path==='app_feed_items'){
@@ -77,17 +78,56 @@ test('senders가 있으면 형식 검사 뒤 app_tg_senders_upsert를 한 번 �
   assert.match(h.calls.logs.find(l=>/telegram_senders_saved/.test(l)),/"people":2,"linked":2,"conflicts":0/);
 });
 
-test('이름·키는 AI 입력, 저장하는 원문 줄, 응답, 로그 어디에도 들어가지 않는다',async()=>{
+test('이름은 AI 입력에만 들어가고(요청 senders 이름), 번호·key는 AI 입력·저장 줄·응답·로그 어디에도 없다. 이름은 저장 줄·응답·로그에도 없다',async()=>{
   const h=harness();const r=await h.send(body({senders:senders2()}));
   const text=await r.text();
   assert.equal(h.calls.openai.length,1);
+  const ai=JSON.parse(h.calls.openai[0]).input[1].content;
+  assert.match(ai,new RegExp(`m1 \\d\\d:\\d\\d 나: `),'self=true인 A는 "나"');
+  assert.match(ai,new RegExp(`m2 \\d\\d:\\d\\d ${NAME_B} \\(m1에 답\\): `));
+  assert.ok(!/\d\d:\d\d [AB]\b/.test(ai),'라벨이 이름으로 바뀌었다');
+  for(const secret of [KEY_A,KEY_B])assert.ok(!h.calls.openai[0].includes(secret),'AI 입력에 key 없음');
   for(const secret of [NAME_A,NAME_B,KEY_A,KEY_B]){
-    assert.ok(!h.calls.openai[0].includes(secret),'AI 입력');
     assert.ok(!JSON.stringify(h.calls.items).includes(secret),'저장 줄');
     assert.ok(!text.includes(secret),'응답');
     assert.ok(!h.calls.logs.join('\n').includes(secret),'로그');
   }
-  assert.match(h.calls.items[0].raw_text,/\bA: /);
+  assert.match(h.calls.items[0].raw_text,/\bA: /,'원문 줄은 라벨 그대로');
+});
+
+test('AI 표시 이름 우선순위: 이름표 손 이름 → 나 → 요청 이름 → 라벨. 번호·@아이디는 AI에 없다',async()=>{
+  const dayRows=[
+    {label:'A',app_tg_senders:{name:'가상손이름',is_self:false}},
+    {label:'B',app_tg_senders:{name:null,is_self:true}},
+    {label:'C',app_tg_senders:[{name:null,is_self:false}]},
+  ];
+  const msgs=['A','B','C','D'].map((l,i)=>({ref:String(2000+i),at:'2026-10-24T00:1'+i+':00Z',sender:l,text:'가상 글 '+i}));
+  const h=harness({dayRows});
+  const r=await h.send(body({total:4,messages:msgs,senders:[{label:'A',key:KEY_A,name:'요청이름A'},{label:'C',key:KEY_B,name:'요청이름C'}]}));
+  assert.equal(r.status,200);
+  const ai=JSON.parse(h.calls.openai[0]).input[1].content;
+  assert.match(ai,/m1 \d\d:\d\d 가상손이름: /);
+  assert.match(ai,/m2 \d\d:\d\d 나: /);
+  assert.match(ai,/m3 \d\d:\d\d 요청이름C: /);
+  assert.match(ai,/m4 \d\d:\d\d D: /);
+  assert.ok(!ai.includes('요청이름A'),'손 이름이 요청 이름을 이긴다');
+  assert.ok(!ai.includes(KEY_A)&&!ai.includes(KEY_B));
+  assert.ok(!h.calls.logs.join('\n').includes('가상손이름')&&!h.calls.logs.join('\n').includes('요청이름C'));
+  assert.ok(h.calls.tables.some(t=>/names app_tg_day_senders\?workspace_id=eq\.[^&]+&room_key=eq\.room-fake-1&day=eq\.2026-10-24&/.test(t)));
+});
+
+test('이름표 조회가 실패하면 요청 이름·라벨로 물러나고 소식 저장은 계속한다. 같은 이름 둘은 (라벨)로 구분한다',async()=>{
+  for(const dayStatus of [401,403,500]){
+    const h=harness({dayStatus});const r=await h.send(body({senders:[{label:'A',key:KEY_A,name:NAME_A}]}));
+    assert.equal(r.status,200);assert.equal(h.calls.items.length,1);
+    const ai=JSON.parse(h.calls.openai[0]).input[1].content;
+    assert.match(ai,new RegExp(`m1 \\d\\d:\\d\\d ${NAME_A}: `));assert.match(ai,/m2 \d\d:\d\d B \(m1에 답\): /);
+    assert.match(h.calls.logs.join('\n'),/telegram_sender_names_failed.*READ/);
+    assert.ok(!h.calls.logs.join('\n').includes(NAME_A));
+  }
+  const h=harness();await h.send(body({senders:[{label:'A',key:KEY_A,name:'가상동명'},{label:'B',key:KEY_B,name:'가상동명'}]}));
+  const ai=JSON.parse(h.calls.openai[0]).input[1].content;
+  assert.match(ai,/가상동명\(A\): /);assert.match(ai,/가상동명\(B\) \(m1에 답\): /);
 });
 
 test('DB 함수가 실패(오류 코드·없음·네트워크·깨진 응답)해도 소식 저장은 계속되고 로그에는 단계 코드만 남는다',async()=>{
@@ -179,7 +219,11 @@ test('소스: 번호 원문 칸·로그에 이름을 쓰는 코드·DB 표 직�
   const src=readFileSync('supabase/functions/collector-feed/handler.ts','utf8');
   assert.equal([...src.matchAll(/rpcObject\(/g)].length,4,'정의 1 + 사용 3(이름표·방 정보·하루 요약)');
   assert.equal([...src.matchAll(/rpcObject\((\w+),/g)].map(m=>m[1]).filter(n=>n!=='fn').sort().join(),'ROOM_DAY_ADD_FN,ROOM_TOUCH_FN,SENDERS_FN','쓰는 DB 함수는 이 셋뿐');
-  assert.ok(!/app_tg_senders['"`]|app_tg_day_senders/.test(src.replace(/\/\/.*$/gm,'')),'표를 직접 읽거나 쓰지 않는다');
+  const code=src.replace(/\/\/.*$/gm,'');
+  assert.ok(!/(insert|patch)\(\s*[`"']app_tg_/.test(code)&&!/rpc\/app_tg_/.test(code),'이름표 표에 쓰지 않는다');
+  assert.equal([...code.matchAll(/app_tg_day_senders/g)].length,1,'읽기 전용 조회 한 곳(AI 표시 이름)');
+  assert.ok(/db\.get\(`app_tg_day_senders\?/.test(code),'GET으로만 읽는다');
   assert.ok(!/sender_id|phone|telegram_user/.test(src.replace(/\/\/.*$/gm,'')),'번호 원문 칸 없음');
-  assert.ok(!/telegramMaterial\([^)]*senders/.test(src),'AI 재료에 senders를 넘기지 않는다');
+  assert.ok(/telegramMaterial\([^)]*, names\)/.test(src),'AI 재료에는 표시 이름 목록(names)만 넘긴다(key·번호 없음)');
+  assert.ok(!/log\([^)]*names/.test(code.replace(/telegram_sender_names_failed/g,'')),'로그에 이름 없음');
 });

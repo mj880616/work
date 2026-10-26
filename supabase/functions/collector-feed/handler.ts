@@ -518,6 +518,31 @@ async function saveRoomDay(db: Db, ws: string, input: TelegramInput, batch: stri
   } catch { log("telegram_room_day_failed", { stage: "INTERNAL" }); }
 }
 
+// AI 재료용 표시 이름: 손 이름(name) → "나"(is_self) → 이번 요청 senders의 name → 라벨 그대로(TG-발언자이름 결정 3, 10/27 변경).
+// 이름표 조회(service_role, 그 방·그날 라벨만)가 실패하면 요청의 name으로 물러나고 소식 저장은 계속한다. 이름은 로그에 남기지 않는다(AI 입력에만).
+const cleanName = (v: unknown) => (typeof v === "string" ? v.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, " ").trim().normalize("NFC") : "");
+async function senderNames(db: Db, ws: string, input: TelegramInput, log: Log) {
+  const out = new Map<string, string>();
+  const labels = new Set(input.messages.map((m) => m.sender));
+  const stored = new Map<string, { name: string; self: boolean }>();
+  try {
+    const rows = await db.get(`app_tg_day_senders?workspace_id=eq.${ws}&room_key=eq.${encodeURIComponent(input.room_key)}&day=eq.${input.day}&select=label,app_tg_senders(name,is_self)&limit=100`);
+    for (const r of rows) {
+      const label = typeof r.label === "string" ? r.label : "";
+      const p = Array.isArray(r.app_tg_senders) ? r.app_tg_senders[0] : r.app_tg_senders;
+      if (!labels.has(label) || !p || typeof p !== "object") continue;
+      const o = p as Record<string, unknown>;
+      stored.set(label, { name: cleanName(o.name), self: o.is_self === true });
+    }
+  } catch { log("telegram_sender_names_failed", { stage: "READ" }); }
+  const fromRequest = new Map(input.senders.map((s) => [s.label, s]));
+  for (const label of labels) {
+    const st = stored.get(label), rq = fromRequest.get(label);
+    const name = (st?.name ? [...st.name].slice(0, 40).join("") : "") || (st?.self || rq?.self ? "나" : "") || rq?.name || "";
+    if (name) out.set(label, name);
+  }
+  return out;
+}
 async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: number, deps: AiDeps) {
   const today = kstDay(nowMs);
   const msgRefs = input.messages.map((m) => m.ref).sort().join(",");
@@ -546,7 +571,8 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   const orgs = organizationOptions(await readOrgs(db, ws));
   const projects = projectOptions(await db.get(`app_spaces?workspace_id=eq.${ws}&deleted_at=is.null&select=id,name,parent_id,status,metadata&order=sort_order.asc,created_at.asc&limit=500`));
   // 한 방·하루가 여러 묶음이면(둘째 묶음부터, 또는 보낸 메시지가 하루 전체보다 적을 때) 요약을 그 묶음 몫으로 쓰게 한다(설계 3.2절).
-  const material = telegramMaterial(input.day, input.room_label, input.messages, orgs, projects, input.part > 1 || input.total > input.messages.length);
+  const names = await senderNames(db, ws, input, deps.log);
+  const material = telegramMaterial(input.day, input.room_label, input.messages, orgs, projects, input.part > 1 || input.total > input.messages.length, names);
   // 부르기 전에 횟수를 먼저 센다(ai-assist와 같음).
   await addDay(db, ws, today, "telegram", { ai_requests: 1 }, nowMs);
   const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
