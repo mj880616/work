@@ -124,7 +124,7 @@ for(const width of [390,1280])test(`검색·종류 거르기: 맞는 토글만 �
 for(const width of [390,1280])test(`묶기 전환: 담당조직·종류·월별은 같은 얇은 토글(폴더 없음), 바꾸면 접힌 채 ${width}`,async({page})=>{
   const {errors}=await boot(page,width,{folders:[{id:'f-1',project_id:'top-a',parent_id:null,name:'가상 폴더',sort_order:1024,created_at:'2026-10-01T00:00:00Z'}],items:[]});
   const group=page.locator('#libraryGroupBy');
-  await expect(group).toHaveAttribute('role','radiogroup');await expect(group.getByRole('radio')).toHaveText(['프로젝트','담당조직','종류','월별']);
+  await expect(group).toHaveAttribute('role','radiogroup');await expect(group.getByRole('radio')).toHaveText(['프로젝트','담당조직','종류','월별','폴더']);
   await expect(group.getByRole('radio',{name:'프로젝트'})).toHaveAttribute('aria-checked','true');
   await expect(group.getByRole('radio').first()).toHaveCSS('height','32px');
   await libraryNodeHead(page,'p:top-a').click();

@@ -110,11 +110,12 @@
 :is(.lu-more-panel,.lu-folder-menu) button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 :is(.lu-more-panel,.lu-folder-menu) .lu-menu-danger{color:var(--kptu-danger)}
 /* LIB-줄안이름바꾸기: 메뉴 줄 높이는 다른 ⋯ 메뉴(프로젝트 상세 등)와 같은 36px. F2 안내는 PC에서만 오른쪽에 작게, 삭제 앞에는 구분선. */
-.lu-more-panel .lu-menu-key{color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:400}
-.lu-more-panel .lu-menu-sep{height:0;margin:4px 6px;border:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
-@media(max-width:760px){.lu-more-panel .lu-menu-key{display:none}}
+:is(.lu-more-panel,.lu-folder-menu) .lu-menu-key{color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:400}
+:is(.lu-more-panel,.lu-folder-menu) .lu-menu-sep{height:0;margin:4px 6px;border:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+@media(max-width:760px){:is(.lu-more-panel,.lu-folder-menu) .lu-menu-key{display:none}}
 /* 줄 안 이름 입력칸: 제목 자리에 그대로(같은 글자 크기), 한 줄. 폰은 제목이 있던 윗줄 전체. */
 .lu-row .lu-rename-input{flex:1;min-width:0;box-sizing:border-box;height:var(--ds-compact-height,32px);margin:0;padding:0 8px;font:inherit;font-size:15px;line-height:1.4}
+.lu-node-head .lu-folder-rename{flex:1;min-width:0;box-sizing:border-box;height:var(--ds-compact-height,32px);margin:-4px 0;padding:0 8px;font:inherit;line-height:1.4}
 .lu-undo{margin-left:4px;padding:0 4px;min-height:24px;border:0;background:transparent;color:var(--kptu-primary-ink);font:inherit;text-decoration:underline;cursor:pointer}
 
 
@@ -269,7 +270,10 @@
 /* LIB-토글트리 ④ PC 끌어 놓기: 놓을 수 있는 곳은 테두리, 앞·뒤로는 위·아래 선, 놓을 수 없는 곳은 흐림 + 금지 커서. */
 #appView #libraryView summary.lu-node-head[draggable="true"],#appView #libraryView .lu-row[draggable="true"]{cursor:grab}
 #appView #libraryView .lu-dragging{opacity:.5}
-#appView #libraryView .lu-node-head.lu-drop-into{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px;background:var(--kptu-primary-soft)}
+#appView #libraryView .lu-node-head.lu-drop-into{outline:2px dashed var(--kptu-primary-ink);outline-offset:-2px;background:var(--kptu-primary-soft)}
+#appView #libraryView .lu-node-head.lu-drop-into::after{content:'여기에 놓기';margin-left:auto;padding-left:8px;font-size:var(--ds-text-meta,12px);font-weight:700;color:var(--kptu-primary-ink);white-space:nowrap}
+#appView #libraryView .lu-grabbed{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px;background:var(--kptu-primary-soft)}
+@media (pointer:coarse){#appView #libraryView .lu-row,#appView #libraryView .lu-node-head{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}}
 #appView #libraryView .lu-node-head.lu-drop-before{border-top:2px solid var(--kptu-primary-ink);margin-top:-2px}
 #appView #libraryView .lu-node-head.lu-drop-after{border-bottom:2px solid var(--kptu-primary-ink);margin-bottom:-2px}
 #appView #libraryView .lu-node-head.lu-drop-no{opacity:.55;cursor:no-drop}

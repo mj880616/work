@@ -3,6 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { notePreview, plainLines, noteCopyPayload } from '../../app/note-preview.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { expectNoteTitle } from './helpers/note-title.mjs';
+import { noteTrash } from './helpers/note-trash.mjs';
 
 // UI-노트메뉴정리: every note row has [복사] and [⋯] on its right; the ⋯ (list row and open note alike) holds 고정/고정 해제 · 수정 ·
 // (연결하기 · 바구니로 돌리기, open note only) · 삭제, and opens right under the pressed ⋯ (anchored-popup.js). The open note's head
@@ -19,6 +20,7 @@ async function fixture(page, width) {
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write']).catch(() => {});
   await openHome(page);
+  const trash = await noteTrash(page, SB);
   await page.addInitScript(() => {});
   await page.evaluate(() => { window.__copied = []; const w = async text => { window.__copied.push(text); }; try { Object.defineProperty(navigator, 'clipboard', { value: { writeText: w, write: async items => { for (const i of items) { const b = await i.getType('text/plain'); window.__copied.push(await b.text()); } } }, configurable: true }); } catch {} });
   const row = (id, title, raw_text, updated_at, extra = {}) => ({ id, workspace_id: 'w', kind: 'note', title, raw_text, occurred_at: updated_at, created_at: updated_at, updated_at, archived_at: null, ai_export_allowed: true, attachments: [], metadata: {}, ...extra });
@@ -35,7 +37,7 @@ async function fixture(page, width) {
       && (!q.has('metadata->>pinned_at') || (q.get('metadata->>pinned_at') === 'is.null' ? x.metadata.pinned_at == null : 'eq.' + x.metadata.pinned_at === q.get('metadata->>pinned_at')));
     if (req.method() === 'GET') { if (q.get('metadata')) return r.fulfill({ json: [] }); return r.fulfill({ json: rows.filter(pick).slice(Number(q.get('offset') || 0)) }); }
     if (req.method() === 'PATCH') { const body = req.postDataJSON(); writes.push({ query: Object.fromEntries(q), body }); const hit = rows.filter(pick); hit.forEach(x => Object.assign(x, body)); return r.fulfill({ json: hit }); }
-    if (req.method() === 'DELETE') { const hit = rows.filter(pick); deletes.push(Object.fromEntries(q)); hit.forEach(x => rows.splice(rows.indexOf(x), 1)); return r.fulfill({ json: hit }); }
+    if (req.method() === 'DELETE') { const hit = rows.filter(pick); deletes.push(Object.fromEntries(q)); hit.forEach(x => { rows.splice(rows.indexOf(x), 1); trash.take(x, 0); }); return r.fulfill({ json: [] }); }
     return r.fulfill({ status: 500, json: {} });
   });
   await page.route(SB + '/rest/v1/app_record_links?**', r => { const q = new URL(r.request().url()).searchParams; return q.has('note_id') ? r.fulfill({ json: [] }) : r.fallback(); });
@@ -124,11 +126,11 @@ for (const width of [390, 1280]) {
     await expect.poll(() => asked).toBe(1);
     await expect(page.locator('[data-note-row="n-plain"]')).toBeVisible(); expect(f.deletes).toEqual([]);
     await expect(rowMore(page, 'n-plain')).toBeFocused();
-    page.once('dialog', d => { expect(d.message()).toContain('원문을 지웁니다'); d.accept(); });
+    page.once('dialog', d => { expect(d.message()).toContain('노트를 휴지통으로 옮길까요?'); d.accept(); });
     await press(page, rowMore(page, 'n-plain'), width); await press(page, menu(page).getByRole('button', { name: '삭제', exact: true }), width);
     await expect(page.locator('[data-note-row="n-plain"]')).toHaveCount(0);
     expect(f.deletes).toHaveLength(1); expect(f.deletes[0]).toMatchObject({ id: 'eq.n-plain' });
-    await expect(page.locator('[data-note-list-status]')).toContainText('지웠어요');
+    await expect(page.locator('[data-undo-notice]')).toContainText('노트를 휴지통으로 옮겼어요.');
     expect(f.errors).toEqual([]);
   });
 

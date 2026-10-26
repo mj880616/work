@@ -1222,6 +1222,37 @@ test('TRASH-다른삭제 3단계: 휴지통 탭에 자료실 폴더가 프로젝
   expect(state.trash.done).toEqual([{fn:'app_trash_restore',kind:'library_folder',id:'lf-t1'}]);
 });
 
+test('TRASH-다른삭제 5단계: 휴지통에 노트·업데이트가 종류·첨부·연결과 함께 보이고, 되돌리면 정리함에 다시 읽으라고 알리며, 영구 삭제 확인은 Drive 파일이 남는다고 알린다',async({page})=>{
+  const state=baseState();
+  state.trash={items:[],others:{note:[
+    {id:'nt-1',workspace_id:state.workspace.id,note_kind:'basket',title:'',preview:'합성 교섭 결과 공유',occurred_at:'2026-10-20T01:00:00Z',deleted_at:'2026-10-26T05:00:00Z',file_count:1,link_count:2},
+    {id:'nt-2',workspace_id:state.workspace.id,note_kind:'note',title:'합성 정리 노트',preview:'본문',occurred_at:'2026-10-20T01:00:00Z',deleted_at:'2026-10-26T04:00:00Z',file_count:0,link_count:0},
+  ]}};
+  await mockApp(page,state);await page.goto(testOrigin+'/app/');await signIn(page);
+  await clickView(page,'projects');
+  const button=page.locator('#ps3ArchiveBtn');
+  await expect(button).toHaveText('휴지통 2');
+  await button.click();
+  await expect(page.locator('[data-ps3-archive-hint]')).toContainText('노트·업데이트');
+  const first=page.locator('[data-ps3-trash-row="nt-1"]'),second=page.locator('[data-ps3-trash-row="nt-2"]');
+  await expect(first).toContainText('합성 교섭 결과 공유');await expect(first).toContainText('업데이트');await expect(first).toContainText('첨부 1개');await expect(first).toContainText('연결 2곳');
+  await expect(second).toContainText('합성 정리 노트');await expect(second).toContainText('노트');await expect(second.locator('[data-ps3-trash-restore]')).toBeEnabled();
+  // 영구 삭제: 연결이 함께 지워지고 Drive 파일은 그대로라고 알리는 확인창. 취소하면 그대로.
+  await first.locator('summary').click();
+  let asked='';page.once('dialog',d=>{asked=d.message();d.dismiss()});
+  await first.locator('[data-ps3-trash-purge]').click();
+  await expect.poll(()=>asked).toContain('“합성 교섭 결과 공유” 업데이트를 영구 삭제할까요');
+  expect(asked).toContain('연결 2곳도 함께 지워지고');expect(asked).toContain('첨부 파일 1개는 Drive에 그대로 남습니다');
+  expect(state.trash.others.note.length).toBe(2);
+  await first.locator('summary').click();
+  // 되돌리기는 그 종류로 가고, 열려 있는 정리함에는 목록을 다시 읽으라고 알린다.
+  await page.evaluate(()=>{window.__noteEvents=0;window.addEventListener('kptu:basket-notes-restored',()=>{window.__noteEvents++})});
+  await first.locator('[data-ps3-trash-restore]').click();
+  await expect.poll(()=>state.trash.others.note.map(x=>x.id)).toEqual(['nt-2']);
+  await expect.poll(()=>page.evaluate(()=>window.__noteEvents)).toBe(1);
+  expect(state.trash.done).toEqual([{fn:'app_trash_restore',kind:'note',id:'nt-1'}]);
+});
+
 test('TRASH-화면2: 프로젝트 휴지통만 준비되고 담당조직·사업 보고는 아직이면(DB 적용 전) 나머지 종류만 준비 중이라고 알린다',async({page})=>{
   const state=baseState();
   const main=state.spaces.find(x=>x.id==='main-1');
@@ -1231,7 +1262,7 @@ test('TRASH-화면2: 프로젝트 휴지통만 준비되고 담당조직·사업
   await clickView(page,'projects');
   await page.locator('#ps3ArchiveBtn').click();
   await expect(page.locator('[data-ps3-trash-row="main-1"]')).toBeVisible();
-  await expect(page.locator('[data-ps3-trash-pending]')).toHaveText('담당조직·사업 보고·자료실 폴더 휴지통은 준비 중입니다.');
+  await expect(page.locator('[data-ps3-trash-pending]')).toHaveText('담당조직·사업 보고·자료실 폴더·노트·업데이트 휴지통은 준비 중입니다.');
 });
 
 test('TRASH 2단계: 휴지통 함수가 아직 없으면 삭제는 지금 문구로 바로 지워지고 휴지통 자리에는 준비 중만 보인다',async({page})=>{
