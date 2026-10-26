@@ -188,3 +188,34 @@
 .feed-view .feed-sumedit-lines{list-style:none;margin:2px 0 4px;padding:0}
 .feed-view .feed-sumedit-line{display:flex;align-items:center;gap:4px;margin:3px 0}
 .feed-view .feed-decide-btns{align-items:center;gap:0;padding-right:2px}
+
+/* TG-발언자이름: 원문 줄의 말한 사람(이름 > 나 > A), A 아래 작은 [이름 붙이기], 이름 상자, 보낸 사람 이름 목록. 크기·색은 기존 토큰만(UI-버튼기준). */
+.feed-view .feed-raw-wide .feed-who{width:68px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.feed-view .feed-who.is-named{color:var(--kptu-primary-ink)}
+.feed-view .feed-who.is-self{color:var(--kptu-muted)}
+.feed-view .feed-who.is-same{visibility:hidden}
+@media(min-width:1024px){.feed-view .feed-raw-wide .feed-who{width:84px}}
+.feed-view .feed-whotag{position:relative;display:block;margin:0;padding:0;border:0;background:transparent;color:var(--kptu-primary-ink);font:inherit;font-size:11px;line-height:1.35;text-decoration:underline dotted;text-underline-offset:2px;white-space:nowrap;cursor:pointer}
+.feed-view .feed-whotag::after{content:"";position:absolute;inset:-8px -6px}
+.feed-view .feed-whotag:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
+.feed-view .feed-sbox{display:grid;gap:6px;margin:4px 0 8px;padding:8px 10px;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-surface)}
+.feed-view .feed-sbox-title{margin:0;font-size:var(--ds-text-row);font-weight:var(--ds-weight-medium)}
+.feed-view .feed-sbox-note{margin:0;font-size:11px;line-height:1.5;color:var(--kptu-muted)}
+.feed-view .feed-sbox .feed-edit-input{width:100%}
+.feed-view .feed-scope{justify-self:start;padding:1px 6px;border-radius:4px;background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-size:11px}
+.feed-view .feed-scope.is-one{background:var(--kptu-surface-subtle);color:var(--kptu-muted)}
+.feed-view .feed-chips{display:flex;flex-wrap:wrap;gap:4px}
+.feed-view .feed-chip{position:relative;margin:0;padding:1px 8px;border:var(--ds-line-width) solid var(--ds-line);border-radius:10px;background:var(--kptu-surface-subtle);color:var(--kptu-ink);font:inherit;font-size:12px;cursor:pointer}
+.feed-view .feed-chip::after{content:"";position:absolute;inset:-6px -2px}
+.feed-view .feed-chip[aria-pressed="true"]{background:var(--kptu-primary-soft);border-color:var(--kptu-primary);color:var(--kptu-primary-ink)}
+.feed-view .feed-chip:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
+.feed-view .feed-grp{padding:8px 0 2px;font-size:11px;color:var(--kptu-faint,var(--kptu-muted))}
+.feed-view .feed-person{display:flex;align-items:baseline;gap:8px;padding:4px 0;border-bottom:var(--ds-line-width) solid var(--kptu-border);font-size:var(--ds-text-row)}
+.feed-view .feed-person .feed-more{align-self:center;margin-left:auto}
+.feed-view .feed-person.is-un .feed-pnm{color:var(--kptu-muted)}
+.feed-view .feed-pnm{min-width:0;flex:0 1 auto;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.feed-view .feed-psrc{flex:none;padding:0 5px;border-radius:4px;background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-size:11px}
+.feed-view .feed-psrc.is-hand{background:var(--kptu-surface-subtle);color:var(--kptu-muted)}
+.feed-view .feed-pmt{flex:none;margin-left:auto;font-size:11px;color:var(--kptu-muted);white-space:nowrap}
+.feed-view .feed-person .feed-whotag{flex:none;display:inline-block}
+.feed-view .feed-person .feed-pmt+.feed-more,.feed-view .feed-person .feed-whotag+.feed-more{margin-left:0}
