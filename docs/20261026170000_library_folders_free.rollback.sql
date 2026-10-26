@@ -33,6 +33,7 @@ begin
   if new.parent_id is null or (tg_op = 'UPDATE' and new.parent_id is not distinct from old.parent_id) then
     return new;
   end if;
+  -- 같은 작업공간의 폴더 옮기기를 한 번에 하나씩: 동시에 서로를 아래로 옮겨 순환이 생기는 경우를 막는다.
   perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('app_library_folders_tree:' || new.workspace_id::text, 0));
   if not exists (
     select 1 from public.app_library_folders f
@@ -53,6 +54,7 @@ begin
     end if;
     select f.parent_id into v_cursor from public.app_library_folders f where f.id = v_cursor;
   end loop;
+  -- 옮기는 폴더를 1단으로 센 아래 단 수(하위가 없으면 1). 4단까지만 따라간다.
   with recursive d(id, lvl, path) as (
     select new.id, 1, array[new.id]
     union all
@@ -80,6 +82,7 @@ begin
   end if;
   update public.app_library_folders set parent_id = old.parent_id
     where parent_id = old.id;
+  -- 다른 화면에서 프로젝트가 바뀌어 틀이 어긋난 연결은 올리지 않고 지운다(그 자료는 이미 새 프로젝트 토글 바로 아래로 보임).
   delete from public.app_library_folder_items i
     where i.folder_id = old.id
       and (old.parent_id is null or not exists (
