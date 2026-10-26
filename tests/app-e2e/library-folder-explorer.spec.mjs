@@ -143,11 +143,13 @@ test.describe('빈 곳 우클릭(PC)',()=>{
     await page.evaluate(()=>document.querySelector('#documentList details[data-lu-node="f:fa"] > .lu-node-body').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:500,clientY:300})));
     await expect(page.locator('#luFolderMenu button')).toHaveText(['이름 바꾸기F2','안에 새 폴더','접기','아래로','옮기기…','폴더 지우기']);
     await page.keyboard.press('Escape');
-    // 폴더 줄 우클릭 = 그 줄의 ⋯ 메뉴(공용 우클릭 규칙). 파일 줄 위 우클릭은 [새 폴더]를 열지 않는다.
-    await libraryNodeHead(page,'f:fn').locator('.lu-node-name').click({button:'right'});
-    await expect(page.locator('#luFolderMenu button').first()).toContainText('이름 바꾸기');await page.keyboard.press('Escape');
+    // 파일 줄 위 우클릭은 [새 폴더]를 열지 않는다(파일 ⋯ 메뉴).
     await page.locator('#documentList [data-lu-document="n-1"]').click({button:'right'});
     await expect(page.locator('#luFolderMenu')).toBeHidden();await expect(page.locator('#luMorePanel')).toBeVisible();await page.keyboard.press('Escape');
+    // 폴더 줄 우클릭 = 그 줄의 ⋯ 메뉴(공용 우클릭 규칙). 열린 위쪽 폴더의 고정 머리가 아래 줄을 가리지 않게 먼저 접는다.
+    await libraryNodeHead(page,'f:fa').click();await expect(libraryNode(page,'f:fa')).not.toHaveAttribute('open','');
+    await libraryNodeHead(page,'f:fn').locator('.lu-node-name').click({button:'right'});
+    await expect(page.locator('#luFolderMenu button').first()).toContainText('이름 바꾸기');await page.keyboard.press('Escape');
     expect(s.writes).toEqual([]);expect(errors).toEqual([]);
   });
 });
