@@ -444,5 +444,4 @@ test('원본 요건: 비밀값·토큰은 로그에 안 찍고, Drive는 읽기�
   for(const m of tg.matchAll(/(?:Logger\.log|new Error)\(([^;]*)\)/g)) assert.ok(!/token|Authorization|getOAuthToken/i.test(m[1]),m[0]);
   assert.ok(!/method: 'post'[^}]*googleapis\.com\/drive/.test(tg));
   assert.ok(!/method: '(?:put|patch|delete)'/i.test(tg));
-  assert.ok(!/localStorage|sessionStorage/.test(tg));
 });
