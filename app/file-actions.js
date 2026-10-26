@@ -88,6 +88,20 @@ export async function viewDocumentPhoto(file, {api = (...a) => window.KPTURuntim
   const {openDocumentPhotoView} = await import('./photo-view.js');
   return openDocumentPhotoView({file, trigger, driveHref: driveOpenUrl(file), getUrl: () => documentPhotoUrl(file.documentId, api)});
 }
+// ACT-사진 3단계: 사업 보고 사진 줄의 크게 보기. files = 같은 사업 보고의 사진들({name,mime,documentId,driveId,driveUrl}), index = 누른 사진.
+// 좌우로 넘기고(‹ › / ←→), ⋯ 에 [Drive에서 열기] [내려받기]와 부른 화면이 주는 extraActions(file)(예: [지우기], run()이 true를 주면 닫힘)가 든다.
+export async function viewDocumentPhotos(files, index, {api = (...a) => window.KPTURuntime.api(...a), trigger = null, extraActions = null, onError = () => {}} = {}) {
+  const list = (files || []).filter(f => f?.documentId);
+  if (!list.length) return false;
+  const at = Math.min(Math.max(0, index | 0), list.length - 1);
+  const {openDocumentPhotoView} = await import('./photo-view.js');
+  const itemOf = i => ({file: list[i], getUrl: () => documentPhotoUrl(list[i].documentId, api), driveHref: driveOpenUrl(list[i])});
+  return openDocumentPhotoView({...itemOf(at), trigger, nav: {count: list.length, index: at, item: itemOf}, actions: item => [
+    ...(canOpenInDrive(item.file) ? [{label: 'Drive에서 열기', href: driveOpenUrl(item.file)}] : []),
+    ...(canDownload(item.file) ? [{label: '내려받기', run: async () => { await downloadFile(item.file, {api, onError}); return false; }}] : []),
+    ...((extraActions && extraActions(item.file)) || [])
+  ]});
+}
 export async function pressFile(file, {viewPhoto = null, viewHtml = null, api, onError = () => {}} = {}) {
   if (typeof viewHtml === 'function' && file?.documentId && isHtmlFile(file)) { viewHtml(file); return 'html'; }
   const kind = clickKind(file);

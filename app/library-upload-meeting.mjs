@@ -4,7 +4,10 @@ export function normalizeUploadMeeting(value){
   const id=typeof value?.id==='string'?value.id.trim():'';
   if(!id)return null;
   const projectId=typeof value?.project_id==='string'&&value.project_id.trim()?value.project_id.trim():(typeof value?.projectId==='string'&&value.projectId.trim()?value.projectId.trim():'');
-  return {id,name:String(value?.name||'').trim(),projectId};
+  // ACT-사진 3단계: 사진은 칸(kind)을 따라 종류가 정해지고 사업 보고 날짜(day, YYYY-MM-DD)를 자료 날짜로 쓴다. 없으면 빈 값.
+  const kind=typeof value?.kind==='string'?value.kind.trim():'';
+  const day=/^\d{4}-\d{2}-\d{2}$/.test(String(value?.day||''))?String(value.day):'';
+  return {id,name:String(value?.name||'').trim(),projectId,...(kind?{kind}:{}),...(day?{day}:{})};
 }
 export function uploadMeetingLabel(meeting){
   return meeting?`사업 보고 ‘${meeting.name||'이름 없음'}’ 자료로 바로 연결돼요`:'';

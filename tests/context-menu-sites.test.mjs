@@ -9,7 +9,7 @@ import {fileURLToPath} from 'node:url';
 const KNOWN = [
   'basket-link-records.js', 'basket-notes.js', 'basket.js', 'calendar-day-overflow.js', 'call-feed.js', 'google-tasks.js',
   'journal-weekly.js', 'journal.js', 'ledger-browse.js', 'legacy/meeting-detail-patches.js', 'library-tree.js', 'library-upload.js',
-  'meeting-columns.js', 'meeting-round-detail.js', 'org-dispute-stage-ui.js', 'project-system-v3.js', 'reference-bundles.js',
+  'meeting-columns.js', 'meeting-round-detail.js', 'org-dispute-stage-ui.js', 'photo-view.js', 'project-system-v3.js', 'reference-bundles.js',
   'share-pages.js', 'suborganizations.js', 'task-inline.js', 'task-row-view.js', 'task-workflow.js', 'telegram-feed.js', 'workplace-detail.js'
 ];
 const app = join(dirname(fileURLToPath(import.meta.url)), '..', 'app');
