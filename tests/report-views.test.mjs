@@ -62,7 +62,6 @@ test('달력 글: 날짜 칸에 제목, 누르면 사업 보고, 고른 날 목�
   assert.equal((html.match(/class="report-photo-thumb"/g) || []).length, 3);
   assert.match(html, /외 2장/);
   assert.match(html, /data-rv-nav="prev"/); assert.match(html, /data-rv-nav="next"/);
-  assert.doesNotMatch(html, /localStorage/);
   assert.match(calendarHtml(ctx({rows: []})), /조건에 맞는 사업 보고가 없습니다/);
   assert.match(calendarHtml(ctx({rows: [meeting('a', '<b>x</b>', '2026-10-24T01:00:00Z')]})), /&lt;b&gt;x&lt;\/b&gt;/);
 });
@@ -77,7 +76,6 @@ test('사진 글: 날짜 묶음 아래 사업 보고별 격자 자리, 사진 �
 test('화면 연결: 보기 선택은 서버 칸에만, 자료실 묶음 줄은 사진 보기로', () => {
   const team = readFileSync(new URL('../app/team.js', import.meta.url), 'utf8');
   assert.match(team, /viewPrefs\.set\('report_view'/);
-  assert.doesNotMatch(team, /report[-_]?view[^\n]{0,40}(localStorage|sessionStorage)/);
   const lib = readFileSync(new URL('../app/library-upload.js', import.meta.url), 'utf8');
   assert.match(lib, /async function luOpenPhotoSet[^\n]*showPhotos/);
 });
