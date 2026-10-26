@@ -699,7 +699,7 @@ function luBulkMenu(){
   luBulkUi=createAnchoredMenu({id:'luBulkMenu',className:'lu-folder-menu lu-bulk-menu',label:'고른 자료 일괄 바꾸기',historyKey:'kptuLibraryBulkMenu',key:t=>t.dataset.luBulk,
     render:kind=>{
       const cur=commonValue(luSelectedDocs(),kind);
-      return bulkChoices(kind,{projects:luProjectRows(),organizations:luOrganizations||[],categories:documentCategories()}).map(c=>`<button type="button" data-lu-bulk-value="${luEsc(c.value)}"${cur!==undefined&&(cur??'')===c.value?' aria-current="true"':''}${c.depth?` style="--lu-depth:${Number(c.depth)||0}"`:''}>${luEsc(c.label)}</button>`).join('')||'<button type="button" disabled>고를 수 있는 값이 없어요</button>';
+      return bulkChoices(kind,{projects:luProjectRows(),organizations:luOrganizations||[],categories:documentCategories()}).map(c=>`<button type="button" data-lu-bulk-value="${luEsc(c.value)}"${cur!==undefined&&(cur??'')===c.value?' aria-current="true"':''}${c.depth?` style="--lu-depth:${Number(c.depth)||0}"`:''}>${luEsc(c.label)}${cur!==undefined&&(cur??'')===c.value?'<span class="lu-menu-key" aria-hidden="true">✓</span>':''}</button>`).join('')||'<button type="button" disabled>고를 수 있는 값이 없어요</button>';
     },
     onAction:(button,active)=>{if(button.disabled)return;void luBulkApply(active.id,button.dataset.luBulkValue??'')}});
   return luBulkUi;
