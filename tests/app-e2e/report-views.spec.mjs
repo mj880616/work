@@ -23,7 +23,7 @@ function makeState() {
   for (let k = 1; k <= 5; k++) docs.push(doc(10 + k, M1));
   docs.push(doc(21, M2), doc(31, M5));
   return {
-    year: y, month: mo, photoCalls: [], meetingOpens: [], docs,
+    year: y, month: mo - 1, photoCalls: [], meetingOpens: [], docs,
     user: {id: 'user-1', email: 'owner@example.org', user_metadata: {display_name: '관리자'}},
     workspace: {id: 'workspace-1', slug: 'team', name: '웹2'},
     meetings: [meeting(M1, '○○ 대표자 회의', 'meeting', today), meeting(M2, '□□ 실무 회의', 'meeting', today), meeting(M3, '△△ 점검 회의', 'meeting', today),
