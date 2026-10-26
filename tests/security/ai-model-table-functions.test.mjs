@@ -63,3 +63,48 @@ test('incomplete(null) 답을 성공으로 저장하지 않는다: 호출부가 
   assert.match(src('meeting-ai-draft'),/const text=outputText\(r,256\*1024\);if\(!text\)throw new Error\('AI 응답이 중단되었습니다/);
   assert.throws(()=>JSON.parse(outputText({status:'incomplete',output:[]})??''));
 });
+
+// ai-assist·collector-feed는 설정 표가 아니라 공용 호출 모듈(callOpenAi)을 쓴다. 새 쓰임이 여유를 빠뜨리지 않게 길을 검사한다.
+const AI_ASSIST_DIR=ROOT+'ai-assist/';
+const read=p=>readFileSync(p,'utf8');
+
+test('ai-assist: 모든 OpenAI 호출이 여유를 더하는 한 곳(자체 callOpenAi)을 지난다',()=>{
+  const h=read(AI_ASSIST_DIR+'handler.ts');
+  // 공용 호출을 직접 부르는 곳은 자체 callOpenAi 래퍼 하나뿐이다.
+  assert.equal([...h.matchAll(/callSharedOpenAi\(/g)].length,1);
+  const wrapper=h.slice(h.indexOf('async function callOpenAi('),h.indexOf('async function callOpenAi(')+1200);
+  assert.match(wrapper,/limit \+ AI_REASONING_TOKEN_HEADROOM/);
+  assert.match(wrapper,/deps\.log\("ai_incomplete"/);
+  // 쓰임마다 max_output_tokens가 있는 호출은 모두 래퍼를 지난다(OPENAI_URL을 직접 fetch하는 곳이 없다).
+  assert.doesNotMatch(h,/doFetch\(OPENAI_URL/);
+  assert.doesNotMatch(h,/fetch\(OPENAI_URL/);
+  const calls=[...h.matchAll(/max_output_tokens: [A-Z_]+/g)].length;
+  const viaWrapper=[...h.matchAll(/await callOpenAi\(/g)].length;
+  assert.equal(calls,10);assert.equal(viaWrapper,10);
+  // ai-assist 폴더의 다른 파일이 OpenAI를 직접 부르지 않는다.
+  for(const f of ['call-refill','ledger-auto','ledger-candidates','ledger-fix','library-fill','org-summary','overlap','schedule-titles','todo-radar']){
+    assert.doesNotMatch(read(AI_ASSIST_DIR+f+'.ts'),/api\.openai\.com|max_output_tokens:/,f);
+  }
+});
+
+test('collector-feed: 텔레그램 호출 상한에 생각 여유가 더해져 있다',()=>{
+  const t=read(ROOT+'collector-feed/handler.ts');
+  assert.match(t,/TG_MAX_OUTPUT_TOKENS = TG_LIMITS\.maxOutputTokens \+ AI_REASONING_TOKEN_HEADROOM/);
+  const at=[...t.matchAll(/max_output_tokens:/g)].map(m=>t.slice(m.index,m.index+60));
+  assert.ok(at.length>0);
+  for(const c of at)assert.match(c,/TG_MAX_OUTPUT_TOKENS/,c);
+});
+
+test('새 Edge 함수가 OpenAI를 부르면서 여유·공용 길을 빠뜨리지 못한다(전체 함수 폴더 검사)',async()=>{
+  const {readdirSync,statSync,existsSync}=await import('node:fs');
+  const known=new Set([...FUNCTIONS,'ai-assist','collector-feed']);
+  const missing=[];
+  for(const d of readdirSync(ROOT)){
+    if(d.startsWith('_')||!statSync(ROOT+d).isDirectory()||known.has(d))continue;
+    for(const f of readdirSync(ROOT+d)){
+      if(!/\.(ts|mjs)$/.test(f))continue;
+      if(/api\.openai\.com\/v1\/responses|max_output_tokens:/.test(read(ROOT+d+'/'+f)))missing.push(d+'/'+f);
+    }
+  }
+  assert.deepEqual(missing,[],'OpenAI를 부르는 새 함수는 위 목록에 넣고 withReasoning·여유를 적용해야 한다');
+});

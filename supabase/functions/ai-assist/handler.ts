@@ -36,7 +36,8 @@
 //   화면은 주(월요일)와 일정 줄(참조·날짜·시각·달력 제목·장소, 30개까지)만 보낸다(이 쓰임만 몸통 20KB, 나머지는 2KB 그대로).
 //   업무 기록·이름 목록은 서버가 내 로그인으로 읽는다(일기·보관·AI 제외 업데이트 빼고). 답은 제안으로만 돌려주고 저장하지 않는다.
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
-import { aiConfigFrom, callOpenAi as callSharedOpenAi, estimateKrw, outputText, tokenCount, type OpenAiResult } from "../_shared/openai-responses.ts";
+import { aiConfigFrom, callOpenAi as callSharedOpenAi, estimateKrw, isIncomplete, outputText, tokenCount, type OpenAiResult } from "../_shared/openai-responses.ts";
+import { AI_REASONING_TOKEN_HEADROOM } from "../_shared/ai-model.ts";
 import {
   dedupeKey, packSources, parseTodoRadar, radarMaterial, RADAR_MAX_OUTPUT_TOKENS, buildTodoRadarInstructions, cleanProfile, TODO_RADAR_SCHEMA,
   RADAR_ALREADY_MAX, RADAR_LINKS_MAX, type RadarLink, type RadarSource,
@@ -706,14 +707,23 @@ async function writeUsage(ctx: Ctx, day: string, requests: number, input: number
 }
 
 // OpenAI 호출 1번 + 잠깐 막힘 1번 재시도는 공용 모듈이 한다(collector-feed와 같은 길).
-function callOpenAi(
+// AI-모델6luna: 생각 토큰이 max_output_tokens에 포함되므로, 모든 쓰임이 정한 답 몫(상수)에 생각 여유를 여기서 한 번만 더한다
+// (쓰임마다 따로 더하다 빠뜨리지 않게 이 한 곳에서 한다). 그래도 status=incomplete로 오면 단계 코드(ai_incomplete)와 쓰임 이름만 로그에 남긴다.
+async function callOpenAi(
   deps: { doFetch: typeof fetch; sleep: (ms: number) => Promise<void>; log: Log },
   key: string,
   body: Record<string, unknown>,
 ): Promise<OpenAiResult> {
-  return callSharedOpenAi(deps, key, body, {
+  const limit = tokenCount(body.max_output_tokens);
+  const sent = limit > 0 ? { ...body, max_output_tokens: limit + AI_REASONING_TOKEN_HEADROOM } : body;
+  const result = await callSharedOpenAi(deps, key, sent, {
     url: OPENAI_URL, timeoutMs: OPENAI_TIMEOUT_MS, retryDelayMs: RETRY_DELAY_MS, maxResponseBytes: OPENAI_RESPONSE_BYTES,
   });
+  if (result.ok && isIncomplete(result.raw)) {
+    const format = (body.text as { format?: { name?: unknown } } | undefined)?.format?.name;
+    deps.log("ai_incomplete", { stage: typeof format === "string" ? format : "unknown" });
+  }
+  return result;
 }
 
 // ---- 쓰임 2: 챙길 것 찾기(todo_radar) ----------------------------------------------------------------------------

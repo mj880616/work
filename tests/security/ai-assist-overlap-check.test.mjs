@@ -339,3 +339,40 @@ test('auth: login and owner first; DB or function not ready is reported, never f
   // no AI key configured: nothing counted, nothing sent
   {const {handler,calls,db}=harness({env:{WEB2_OPENAI_API_KEY:''}});await expectError(await post(handler,run([pair(M1,P1)])),503,'ai_not_configured');assert.equal(calls.openai.length,0);assert.equal(db.app_ai_daily_usage.length,0);}
 });
+
+// AI-모델6luna: 생각 토큰이 max_output_tokens에 포함된다. 가짜 모델은 생각에 2100토큰을 쓰고 답에 150토큰이 필요하다(원래 상한 2000보다 큼).
+const THINK=2100,NEED=150;
+const thinking=body=>{
+  const fits=body.max_output_tokens>=THINK+NEED;
+  return fits?respond(answer([{id:'p1',verdict:'same',reason:'같은 기자회견이다.'}]))
+    :respond({status:'incomplete',incomplete_details:{reason:'max_output_tokens'},output:[{type:'reasoning'}],usage:{input_tokens:2500,output_tokens:body.max_output_tokens}});
+};
+
+test('재현: 여유 없이 원래 상한(2000)만 보내면 생각이 상한을 다 써서 incomplete가 된다',async()=>{
+  const {callOpenAi,isIncomplete,outputText}=await import('../../supabase/functions/_shared/openai-responses.ts');
+  const r=await callOpenAi({doFetch:async(u,init)=>thinking(JSON.parse(init.body)),sleep:async()=>{},log:()=>{}},'k',{model:'m',max_output_tokens:ov.OVERLAP_MAX_OUTPUT_TOKENS},{url:'https://api.openai.com/v1/responses',timeoutMs:1000,retryDelayMs:0,maxResponseBytes:1e6});
+  assert.equal(r.ok,true);assert.equal(isIncomplete(r.raw),true);assert.equal(outputText(r.raw),null);
+});
+
+test('고침: ai-assist는 보내는 상한에 생각 여유를 더하고, 같은 가짜 모델에서 답이 온다',async()=>{
+  const {AI_REASONING_TOKEN_HEADROOM}=await import('../../supabase/functions/_shared/ai-model.ts');
+  const {handler,calls}=harness({openai:thinking});
+  const res=await post(handler,run([pair(M1,P1)]));
+  assert.equal(res.status,200);assert.equal((await res.json()).saved,1);
+  assert.equal(calls.openai.length,1);
+  assert.equal(calls.openai[0].max_output_tokens,ov.OVERLAP_MAX_OUTPUT_TOKENS+AI_REASONING_TOKEN_HEADROOM);
+  assert.ok(!calls.logs.some(l=>l.code==='ai_incomplete'));
+});
+
+test('그래도 incomplete면 다른 실패와 구분되는 로그 코드(ai_incomplete)와 쓰임 이름만 남고, 아무것도 저장하지 않는다',async()=>{
+  const {handler,calls,db}=harness({openai:()=>respond({status:'incomplete',incomplete_details:{reason:'max_output_tokens'},output:[{type:'message',content:[{type:'output_text',text:'{"items":[{"id":"p1","verdict":"sa'}]}],usage:{input_tokens:2500,output_tokens:3500}})});
+  await expectError(await post(handler,run([pair(M1,P1)])),502,'ai_invalid_response');
+  const inc=calls.logs.filter(l=>l.code==='ai_incomplete');
+  assert.deepEqual(inc,[{code:'ai_incomplete',detail:{stage:'overlap_check'}}]);
+  assert.equal(db.app_record_overlaps.length,0);
+  assert.ok(!/가상|기자회견|verdict/.test(JSON.stringify(calls.logs)),'로그에 글·답 원문 없음');
+  // 일반 형식 오류는 ai_incomplete로 세지 않는다
+  const b=harness({openai:()=>respond({status:'completed',output:[{type:'message',content:[{type:'output_text',text:'not json'}]}],usage:{input_tokens:1,output_tokens:1}})});
+  await expectError(await post(b.handler,run([pair(M1,P1)])),502,'ai_invalid_response');
+  assert.ok(!b.calls.logs.some(l=>l.code==='ai_incomplete'));
+});
