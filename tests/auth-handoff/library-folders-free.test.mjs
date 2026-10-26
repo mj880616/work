@@ -100,7 +100,9 @@ test('library folders free: frame limit lifted, data kept, access not widened, g
    FY=await owner(c=>folder(c,{project:PROJECT_A2,parent:FX,label:'Y (다른 프로젝트 아래)'}));
    FN2=await owner(c=>folder(c,{project:null,parent:FY,label:'N (프로젝트 없음 아래)'}));
    FZ=await owner(c=>folder(c,{project:null,label:'Z'}));
-   await owner(c=>place(c,D2,FX));await owner(c=>place(c,D4,FY));await owner(c=>place(c,D3,FX));
+   await owner(c=>place(c,D2,FX));await owner(c=>place(c,D4,FY));
+   // D3 is already filed under the first shape (OLDN, no project): moving it into FX is an update of its one link.
+   await owner(c=>c.query('update public.app_library_folder_items set folder_id=$1 where document_id=$2',[FX,D3]));
    assert.equal(await folderOf(D2),FX);assert.equal(await folderOf(D4),FY);
    // Moving a folder to another frame's parent and a document to another folder changes only the folder tables.
    await owner(c=>move(c,FZ,FX));assert.equal(await parentOf(FZ),FX);
@@ -125,7 +127,7 @@ test('library folders free: frame limit lifted, data kept, access not widened, g
    await assert.rejects(stranger(c=>folder(c,{label:'남'})),{code:'42501'});
    assert.deepEqual((await stranger(c=>c.query('select id from public.app_library_folders'))).rows,[]);
    assert.deepEqual((await stranger(c=>c.query('select document_id from public.app_library_folder_items'))).rows,[]);
-   assert.deepEqual((await as('authenticated',null,c=>c.query('select id from public.app_library_folder_items'))).rows,[]);
+   assert.deepEqual((await as('authenticated',null,c=>c.query('select document_id from public.app_library_folder_items'))).rows,[]);
    for(const role of ['anon','service_role'])for(const sql of ['select 1 from public.app_library_folders','select 1 from public.app_library_folder_items','delete from public.app_library_folder_items'])
     await assert.rejects(as(role,null,c=>c.query(sql)),{code:'42501'},role+' '+sql);
    for(const role of ['anon','authenticated','service_role'])for(const fn of ['private.app_library_folder_tree_guard()','private.app_library_folder_lift()'])
