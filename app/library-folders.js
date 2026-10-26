@@ -275,6 +275,18 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     if(d.kind==='file'){const docs=d.docs.map(x=>docById(x.id)).filter(Boolean);if(docs.length)void moveDocs(docs,t.kind==='top'?null:t.target);return}
     if(t.kind==='top')void dragMoveFolder(d.id,null);else if(t.kind==='into')void dragMoveFolder(d.id,t.target);else void placeBeside(d.id,t.target,t.kind==='after');
   }
+  // 선택 모드 [폴더로 옮기기]: 고른 자료를 한꺼번에 한 폴더(또는 폴더 밖)로. 자료의 프로젝트는 바뀌지 않는다.
+  // 프로젝트 묶기에서는 같은 프로젝트 틀의 폴더만 보이므로, 틀이 다른 자료가 섞여 있으면 '폴더' 묶기에서 옮기도록 안내한다.
+  function bulkMove(ids,trigger){
+    const docs=ids.map(docById).filter(Boolean);if(!docs.length)return;
+    const free=!!s().free,frames=new Set(docs.map(d=>d.project_id||null));
+    if(!free&&frames.size>1){status('프로젝트가 다른 자료예요. 묶기를 ‘폴더’로 바꾸면 한꺼번에 옮길 수 있어요.',true);return}
+    const frame=[...frames][0]??null,allowed=new Set(s().folders.filter(f=>free||(f.project_id||null)===frame).map(f=>f.id)),ordered=[],add=parent=>{for(const f of sibs(frame,parent)){if(allowed.has(f.id))ordered.push(f.id);add(f.id)}};add(null);
+    const anyLinked=docs.some(d=>rawItem(d));
+    askTarget({title:'폴더로 옮기기',hint:`고른 ${docs.length}개를 넣을 폴더를 고르세요. 자료의 프로젝트는 바뀌지 않아요.`,trigger,
+      targets:[...(anyLinked?[{value:'__top__',label:free?'폴더 밖(맨 위)':frameName(frame)+' 바로 아래(폴더 밖)',depth:0}]:[]),...ordered.map(t=>({value:t,label:pathName(t),depth:folderDepth(s().folders,t)}))],
+      then:fid=>moveDocs(docs,fid)});
+  }
   let touch=null,suppressUntil=0;
   function bindDrag(list){
     list.addEventListener('dragstart',e=>{
@@ -369,5 +381,5 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
       trigger.click();
     });
   }
-  return {open:t=>menu.open(t),close:()=>menu.close(),fileMenuHtml,fileAction,docFolder,bindDrag,bindKeys,startRename,get busy(){return busy}};
+  return {open:t=>menu.open(t),close:()=>menu.close(),fileMenuHtml,fileAction,docFolder,bindDrag,bindKeys,startRename,bulkMove,get busy(){return busy}};
 }

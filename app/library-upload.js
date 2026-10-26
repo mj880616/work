@@ -5,6 +5,8 @@ import {renderCategoryChips,toggleCategoryOff} from './category-chips.js';
 import {nodeDocumentIds,toggleAll,allSelected,someSelected,pruneSelected,deleteSequentially,confirmText,resultText} from './library-select.js';
 import {GROUP_BY,GROUP_LABELS,fileKindOf,buildTree,treeHtml,keys as luTreeKeys,matchedKeys,pathTo,documentsInTrashedFolders} from './library-tree.js';
 import {mountLibraryFolders} from './library-folders.js';
+import {createBulkEditor,BULK_FIELDS,bulkChoices,commonValue,bulkResultText,rangeIds} from './library-bulk.js';
+import {createAnchoredMenu} from './anchored-menu.js';
 import {takeLibraryDocumentRequest} from './basket-library-send.js';
 import {isHwpName,requestHwpEdit} from './hwp-drive.js';
 import {pressFile,downloadFile,openInDrive,canOpenInDrive,fileAttrs,driveOpenUrl} from './file-actions.js';
@@ -652,23 +654,81 @@ function luSyncPicks(){
   if(all){all.setAttribute('aria-checked',String(allSelected(luSel,ids)));all.disabled=luSelBusy||!ids.length}
   if(count&&!luSelBusy)count.textContent=`${luSel.size}개 골랐음`;
   if(del)del.disabled=luSelBusy||!luSel.size;
+  for(const b of barEl.querySelectorAll('[data-lu-bulk],#librarySelectFolder'))b.disabled=luSelBusy||!luSel.size;
+  const fb=barEl.querySelector('#librarySelectFolder');if(fb)fb.hidden=!luFoldersReady;
   if(cancel)cancel.disabled=luSelBusy;
 }
-function luSelStart(){if(luSel)return;luSel=new Set();luRenderLibrary()}
+function luSelStart(){if(luSel)return;luSel=new Set();luPickAnchor=null;luRenderLibrary()}
 function luSelStop(){if(!luSel||luSelBusy)return;luSel=null;luRenderLibrary()}
 function luPickToggle(ids){luSel=toggleAll(luSel,ids);luSyncPicks()}
+// PC: Ctrl/Cmd+클릭 = 그 줄만 더하고 빼기(선택 모드가 아니면 켜면서), Shift+클릭 = 마지막으로 고른 줄부터 이 줄까지 보이는 줄을 모두 더하기.
+let luPickAnchor=null;
+function luPickAt(e,id){
+  if(e.shiftKey&&luPickAnchor){
+    const order=[...document.querySelectorAll('#documentList [data-lu-document]')].filter(x=>x.checkVisibility?.()!==false).map(x=>x.dataset.luDocument);
+    luSel=new Set([...luSel,...rangeIds(order,luPickAnchor,id)]);luSyncPicks();return;
+  }
+  luPickToggle([id]);luPickAnchor=id;
+}
 // 목록 안 클릭·키보드: 선택 모드에서는 줄을 눌러도 자료를 열지 않고 고르기만 한다(캡처 단계에서 먼저 처리).
 function luOnPickClick(e){
-  if(!luSel)return;
+  if(!luSel){
+    if(!(e.ctrlKey||e.metaKey||e.shiftKey)||!LU_FINE?.matches)return;
+    const row=e.target.closest?.('[data-lu-document]');if(!row||e.target.closest('button,input,a,[contenteditable]'))return;
+    e.stopPropagation();e.preventDefault();luSelStart();luPickAt(e,row.dataset.luDocument);return;
+  }
   const t=e.target;
   const node=t.closest?.('[data-lu-pick-node]');
   if(node){e.stopPropagation();if(!luSelBusy)luPickToggle(nodeDocumentIds(luTreeNode(node.dataset.luPickNode)));else luSyncPicks();return}
   const pick=t.closest?.('[data-lu-pick]');
-  if(pick){e.stopPropagation();if(!luSelBusy)luPickToggle([pick.dataset.luPick]);else luSyncPicks();return}
+  if(pick){e.stopPropagation();if(!luSelBusy)luPickAt(e,pick.dataset.luPick);else luSyncPicks();return}
   const row=t.closest?.('[data-lu-document]');
-  if(row&&!t.closest('button')){e.stopPropagation();e.preventDefault();if(!luSelBusy)luPickToggle([row.dataset.luDocument])}
+  if(row&&!t.closest('button')){e.stopPropagation();e.preventDefault();if(!luSelBusy)luPickAt(e,row.dataset.luDocument)}
 }
 function luOnPickKey(e){if(!luSel||(e.key!=='Enter'&&e.key!==' ')||!e.target.matches?.('[data-lu-document]'))return;e.stopPropagation();e.preventDefault();if(!luSelBusy)luPickToggle([e.target.dataset.luDocument])}
+// LIB-폴더탐색기 ③: 일괄 수정. [프로젝트|담당조직|종류 바꾸기]는 작은 목록을 열고, 고르면 고른 자료 모두에 같은 서버 길(자료 정보 수정과 같은 PATCH)로 차례로 적용한다.
+// 바꾼 칸은 칸별 기록 'user'로 남아 AI 자동 정리가 되돌리지 않고, 끝나면 '… 바꿨어요 · 되돌리기'(그 사이 또 바뀐 자료는 건드리지 않음).
+let luBulkEd=null,luBulkUi=null;
+const luSelectedDocs=()=>luSel?[...luSel].map(id=>luDocuments.find(d=>d.id===id)).filter(Boolean):[];
+function luBulk(){
+  if(!luBulkEd)luBulkEd=createBulkEditor({api:luApi,scope:luDeleteScope,docs:()=>luDocuments,replaceRow:row=>{luDocuments=luDocuments.map(old=>old.id===row.id?structuredClone(row):old)},isCurrent:()=>window.KPTURouter?.current==='library',onProgress:({index,total})=>{const c=document.querySelector('#librarySelectCount');if(c)c.textContent=`바꾸는 중 ${index}/${total}`}});
+  return luBulkEd;
+}
+function luBulkMenu(){
+  if(luBulkUi)return luBulkUi;
+  luBulkUi=createAnchoredMenu({id:'luBulkMenu',className:'lu-folder-menu lu-bulk-menu',label:'고른 자료 일괄 바꾸기',historyKey:'kptuLibraryBulkMenu',key:t=>t.dataset.luBulk,
+    render:kind=>{
+      const cur=commonValue(luSelectedDocs(),kind);
+      return bulkChoices(kind,{projects:luProjectRows(),organizations:luOrganizations||[],categories:documentCategories()}).map(c=>`<button type="button" data-lu-bulk-value="${luEsc(c.value)}"${cur!==undefined&&(cur??'')===c.value?' aria-current="true"':''}${c.depth?` style="--lu-depth:${Number(c.depth)||0}"`:''}>${luEsc(c.label)}${cur!==undefined&&(cur??'')===c.value?'<span class="lu-menu-key" aria-hidden="true">✓</span>':''}</button>`).join('')||'<button type="button" disabled>고를 수 있는 값이 없어요</button>';
+    },
+    onAction:(button,active)=>{if(button.disabled)return;void luBulkApply(active.id,button.dataset.luBulkValue??'')}});
+  return luBulkUi;
+}
+async function luOpenBulkMenu(button){
+  if(button.dataset.luBulk==='organization'&&!luOrganizations){await luLoadOrganizations();if(!luSel)return}
+  luBulkMenu().open(button);
+}
+async function luBulkApply(kind,value){
+  if(!luSel||luSelBusy||!luSel.size||!BULK_FIELDS[kind])return;
+  if(kind==='project'&&!luIsSelectableProject(value)){luFolderStatus('선택한 프로젝트를 더 이상 사용할 수 없어요. 목록을 다시 열어 주세요.',true);return}
+  if(!luDeleteScope()){luFolderStatus('로그인 세션을 확인하지 못했어요. 다시 로그인한 뒤 시도해 주세요.',true);return}
+  const ids=[...luSel].filter(id=>luDocuments.some(d=>d.id===id)),label=BULK_FIELDS[kind].label;
+  if(!ids.length)return;
+  luSelBusy=true;luSyncPicks();
+  let r=null;
+  try{r=await luBulk().apply(ids,kind,value)}catch{r=null}finally{luSelBusy=false}
+  if(window.KPTURouter?.current!=='library')return;
+  if(!r||r.error){luSyncPicks();luFolderStatus('바꾸지 못했어요. 로그인 상태를 확인한 뒤 다시 시도해 주세요.',true);return}
+  luRenderLibrary();
+  if(r.changed)window.dispatchEvent(new CustomEvent('kptu:documents-changed'));
+  const bad=r.failed.length+r.skipped.length;
+  luRenameNotice(bulkResultText({label,changed:r.changed,same:r.same,failed:r.failed.length,skipped:r.skipped.length}),{error:bad>0,undo:r.changed?async()=>{
+    const u=await luBulk().undo(r.before,kind,value);
+    if(window.KPTURouter?.current!=='library')return;
+    luRenderLibrary();window.dispatchEvent(new CustomEvent('kptu:documents-changed'));
+    luFolderStatus(u?.error?'되돌리지 못했어요.':u.kept?`${u.back}개를 되돌렸고 ${u.kept}개는 그 사이 바뀌어 그대로 뒀어요.`:`${u.back}개를 되돌렸어요.`,!!u?.error);
+  }:null});
+}
 function luSelAll(){if(!luSel||luSelBusy)return;luPickToggle(luVisibleIds())}
 async function luSelDelete(){
   if(!luSel||luSelBusy||!luSel.size)return;
@@ -710,6 +770,13 @@ function luBindSelect(){
   document.querySelector('#librarySelectBtn')?.addEventListener('click',luSelStart);
   document.querySelector('#librarySelectBar')?.addEventListener('click',e=>{if(e.target.closest('#librarySelectAll'))luSelAll()});
   document.querySelector('#librarySelectDelete')?.addEventListener('click',luSelDelete);
+  document.querySelector('#librarySelectBar')?.addEventListener('click',e=>{
+    const bulk=e.target.closest('[data-lu-bulk]');
+    if(bulk){if(luSel&&!luSelBusy&&luSel.size)void luOpenBulkMenu(bulk);return}
+    const folder=e.target.closest('#librarySelectFolder');
+    if(folder&&luSel&&!luSelBusy&&luSel.size)luFolders().bulkMove([...luSel],folder);
+  });
+  list.addEventListener('mousedown',e=>{if(e.shiftKey&&LU_FINE?.matches&&e.target.closest?.('[data-lu-document]'))e.preventDefault()});
   document.querySelector('#librarySelectCancel')?.addEventListener('click',luSelStop);
   window.addEventListener('kptu:view-changed',event=>{if(luSel&&!luSelBusy&&event.detail?.view!=='library'){luSel=null;luSyncPicks()}});
   window.addEventListener('kptu:session-changed',()=>{if(luSel&&!luSelBusy){luSel=null;luSyncPicks()}});
