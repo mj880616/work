@@ -17,6 +17,9 @@
 //   요약이 없는 옛 개인 기록·구분 없음은 개수만, 모양 다름은 판정 실패. 중복 확인은 두 표를 모두 본다(DB 트리거도 막는다).
 // - POST ?action=call_skip: 옛 보내기 스크립트가 개인 번호·연락처 목록으로 거른 수(개수만). 새 스크립트는 목록 통화도 ?action=call로 보낸다. 옛 스크립트 호환용으로 남긴다.
 // - POST ?action=telegram: 방 하나·하루치 묶음마다 AI 한 번(공용 모듈 _shared/openai-responses.ts). 실패·형식 틀림이면 아무것도 저장하지 않음.
+//   선택 칸 `senders`(TG-발언자이름 2단계): 라벨별 [{label, key?, name?, self?}] 40명 이하. 형식 검사 뒤 DB 함수 app_tg_senders_upsert(service_role 전용)에 넘겨
+//   이름표·방/날짜 연결을 남긴다. key는 앱 스크립트가 HMAC으로 바꾼 값(번호 원문은 오지 않음). 이름·키·self는 AI 재료·raw_text·응답·로그에 넣지 않는다.
+//   칸이 없으면 지금과 똑같이 동작한다. 칸이 틀렸거나 DB 함수가 실패해도 소식 저장은 계속하고 로그에 단계 코드만 남긴다.
 // - 하루 숫자는 app_feed_days에 더한다. 받은 요청 수(batch_count)·AI 사용량(ai_*)은 받은 날(한국 날짜) 줄, 나머지는 내용 날짜 줄.
 //   통화 숫자의 뜻(2단계 정리): total_count = 받은 전사 수(업무·개인함 저장·개수만 모두), kept_count = 업무 통화함에 저장한 줄,
 //   personal_count·unsure_count = 줄 없이 **개수만** 센 통화(요약 없는 옛 개인 기록 등. 개인 통화함에 저장한 통화는 세지 않는다: 그 수는 개인 표의 실제 줄 수),
@@ -81,6 +84,12 @@ const DRIVE_ID = /^[A-Za-z0-9_-]{10,200}$/;
 const ROOM_KEY = /^[A-Za-z0-9_.:-]{1,100}$/;
 const MESSAGE_REF = /^[A-Za-z0-9_.:-]{1,40}$/;
 const SENDER = /^[A-Z]{1,3}$/;
+const SENDER_KEY = /^[0-9a-f]{16,32}$/;
+const SENDER_NAME_CHARS = 40;
+const SENDERS_MAX = 40;
+// 이름 칸에 전화번호·@아이디가 들어오면 이름만 버린다(수집기 계약상 오면 안 되는 값, 설계 4절).
+const SENDER_NAME_REJECT = /^@|^\+?[\d\s().-]{7,}$/;
+export const SENDERS_FN = "app_tg_senders_upsert";
 const DRIVE_URL = /^https:\/\/(drive|docs)\.google\.com\/[^\s\u0000-\u001f\u007f]*$/;
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?(Z|[+-]\d{2}:\d{2})$/;
 
@@ -161,9 +170,50 @@ export function parseSkipBody(b: Record<string, unknown>, today: string): SkipIn
   return { day: b.day, personal: b.personal, short: b.short };
 }
 
-type TelegramInput = { day: string; room_key: string; room_label: string; total: number; part: number; attempt: number; messages: TgMessage[] };
+export type TgSender = { label: string; key?: string; name?: string; self?: boolean };
+type TelegramInput = {
+  day: string; room_key: string; room_label: string; total: number; part: number; attempt: number; messages: TgMessage[];
+  senders: TgSender[]; sendersInvalid: boolean; sendersSkipped: number; oddDropped: number;
+};
+// 선택 칸 senders 검사. 어디가 틀렸든 요청 전체를 막지 않고 senders만 버린다(소식 저장 우선). 이름·키 값은 어디에도 남기지 않는다.
+function parseSenders(raw: unknown, labelsInMessages: Set<string>) {
+  const empty = { senders: [] as TgSender[], invalid: false, skipped: 0, oddDropped: 0 };
+  if (raw === undefined) return empty;
+  const bad = { ...empty, invalid: true };
+  if (!Array.isArray(raw) || raw.length > SENDERS_MAX) return bad;
+  const seen = new Set<string>();
+  const out: TgSender[] = [];
+  let skipped = 0, oddDropped = 0;
+  for (const item of raw as unknown[]) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return bad;
+    const e = item as Record<string, unknown>;
+    if (!exactKeys(e, ["label"], ["key", "name", "self"])) return bad;
+    if (typeof e.label !== "string" || !SENDER.test(e.label) || seen.has(e.label)) return bad;
+    seen.add(e.label);
+    const entry: TgSender = { label: e.label };
+    if (e.key !== undefined && e.key !== null) {
+      if (typeof e.key !== "string" || !SENDER_KEY.test(e.key)) return bad;
+      entry.key = e.key;
+    }
+    if (e.name !== undefined && e.name !== null) {
+      if (typeof e.name !== "string" || /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/.test(e.name)) return bad;
+      const name = e.name.normalize("NFC").trim();
+      if (!name || [...name].length > SENDER_NAME_CHARS) return bad;
+      if (SENDER_NAME_REJECT.test(name)) oddDropped++;
+      else entry.name = name;
+    }
+    if (e.self !== undefined && e.self !== null) {
+      if (typeof e.self !== "boolean") return bad;
+      entry.self = e.self;
+    }
+    // 이 묶음의 메시지에 없는 라벨은 건너뛴다(묶음이 나뉘면 같은 목록이 모든 묶음에 오므로 오류가 아니다).
+    if (!labelsInMessages.has(entry.label)) { skipped++; continue; }
+    out.push(entry);
+  }
+  return { senders: out, invalid: false, skipped, oddDropped };
+}
 export function parseTelegramBody(b: Record<string, unknown>, today: string): TelegramInput {
-  if (!exactKeys(b, ["day", "room_key", "room_label", "total", "messages"], ["part", "attempt"])) throw new Fail(400, "INVALID_BODY");
+  if (!exactKeys(b, ["day", "room_key", "room_label", "total", "messages"], ["part", "attempt", "senders"])) throw new Fail(400, "INVALID_BODY");
   if (!validDay(b.day, today)) throw new Fail(400, "INVALID_BODY");
   if (typeof b.room_key !== "string" || !ROOM_KEY.test(b.room_key)) throw new Fail(400, "INVALID_BODY");
   const label = typeof b.room_label === "string" && !/[\u0000-\u001f\u007f]/.test(b.room_label) ? cleanLine(b.room_label, 100) : null;
@@ -191,7 +241,11 @@ export function parseTelegramBody(b: Record<string, unknown>, today: string): Te
     messages.push({ ref: m.ref, at, sender: m.sender, text: m.text.normalize("NFC"), reply_to: reply as string | null, forwarded: fwd });
   }
   messages.sort((x, y) => x.at - y.at || (x.ref < y.ref ? -1 : x.ref > y.ref ? 1 : 0));
-  return { day: b.day, room_key: b.room_key, room_label: label, total: b.total, part, attempt, messages };
+  const sp = parseSenders(b.senders, new Set(messages.map((m) => m.sender)));
+  return {
+    day: b.day, room_key: b.room_key, room_label: label, total: b.total, part, attempt, messages,
+    senders: sp.senders, sendersInvalid: sp.invalid, sendersSkipped: sp.skipped, oddDropped: sp.oddDropped,
+  };
 }
 
 // ---- DB(service role, 칸별 grant 안) ---------------------------------------------------------------------------------
@@ -202,6 +256,8 @@ type Db = {
   patch: (path: string, body: Record<string, unknown>) => Promise<number>;
   // 읽기 전용 DB 함수 호출. 함수가 없으면(404) "missing", 그 밖의 실패는 503.
   rpc: (fn: string, args: Record<string, unknown>) => Promise<{ rows: Record<string, unknown>[] } | "missing">;
+  // 쓰기 DB 함수 호출(결과가 jsonb 한 개). 던지지 않고 단계 코드만 돌려준다: 이름·키가 든 오류 본문은 코드 글자(TG_SENDER_*)만 뽑고 버린다.
+  rpcObject: (fn: string, args: Record<string, unknown>) => Promise<{ ok: true; value: Record<string, unknown> } | { ok: false; code: string }>;
 };
 function makeDb(sb: string, key: string, doFetch: typeof fetch): Db {
   const headers = { apikey: key, Authorization: `Bearer ${key}` };
@@ -247,6 +303,20 @@ function makeDb(sb: string, key: string, doFetch: typeof fetch): Db {
       try { rows = await readBoundedJson(r, { maxBytes: DB_RESPONSE_BYTES }); } catch { throw new Fail(503, "DB_READ_FAILED"); }
       if (!Array.isArray(rows)) throw new Fail(503, "DB_READ_FAILED");
       return { rows: rows as Record<string, unknown>[] };
+    },
+    async rpcObject(fn, args) {
+      let r: Response;
+      try { r = await send(`rpc/${fn}`, { method: "POST", headers: { ...headers, "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(args) }); }
+      catch { return { ok: false, code: "DB_UNAVAILABLE" }; }
+      let value: unknown;
+      try { value = await readBoundedJson(r, { maxBytes: DB_RESPONSE_BYTES }); } catch { value = null; }
+      if (!r.ok) {
+        if (r.status === 404) return { ok: false, code: "FN_MISSING" };
+        const code = /TG_SENDER_[A-Z_]+/.exec(JSON.stringify(value ?? ""))?.[0];
+        return { ok: false, code: code ?? `DB_STATUS_${r.status}` };
+      }
+      if (!value || typeof value !== "object" || Array.isArray(value)) return { ok: false, code: "DB_BAD_RESPONSE" };
+      return { ok: true, value: value as Record<string, unknown> };
     },
   };
 }
@@ -388,6 +458,18 @@ async function monthUsage(db: Db, ws: string, nowMs: number) {
 // 생각 토큰이 max_output_tokens에 포함되므로 답 몫(TG_LIMITS.maxOutputTokens)에 생각 여유를 더해 보낸다(다른 Edge 함수와 같음).
 const TG_MAX_OUTPUT_TOKENS = TG_LIMITS.maxOutputTokens + AI_REASONING_TOKEN_HEADROOM;
 
+// 이름표 저장(TG-발언자이름 2단계). 실패해도 던지지 않는다: 소식 저장이 우선이고, 로그에는 개수와 단계 코드만 남긴다.
+async function saveSenders(db: Db, ws: string, input: TelegramInput, log: Log) {
+  if (input.sendersInvalid) { log("telegram_senders_dropped", { stage: "INVALID" }); return; }
+  if (input.oddDropped) log("telegram_senders_name_dropped", { count: input.oddDropped });
+  if (!input.senders.length) return;
+  try {
+    const r = await db.rpcObject(SENDERS_FN, { p_workspace: ws, p_room_key: input.room_key, p_day: input.day, p_senders: input.senders });
+    if (!r.ok) { log("telegram_senders_failed", { stage: r.code }); return; }
+    log("telegram_senders_saved", { people: num(r.value.people), linked: num(r.value.linked), conflicts: num(r.value.conflicts), skipped: input.sendersSkipped });
+  } catch { log("telegram_senders_failed", { stage: "INTERNAL" }); }
+}
+
 async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: number, deps: AiDeps) {
   const today = kstDay(nowMs);
   const msgRefs = input.messages.map((m) => m.ref).sort().join(",");
@@ -398,6 +480,8 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
     total_count: input.part === 1 ? input.total : 0, kept_count: kept, room_count: input.part === 1 ? 1 : 0, failed_count: failed,
   });
   await claimBatch(db, ws, today, "telegram", nowMs);
+  // 이름표는 소식 저장·AI와 별개로 먼저 시도한다(다시 온 묶음·글 없는 묶음에서도 같은 값이라 다시 해도 안전).
+  await saveSenders(db, ws, input, deps.log);
   // 같은 묶음이 다시 오면 AI를 다시 부르지 않는다(저장 전에 먼저 확인).
   const dup = await db.get(`app_feed_items?workspace_id=eq.${ws}&source=eq.telegram&source_ref=like.${encodeURIComponent(prefix)}*&select=source_ref&limit=1`);
   if (dup.length) return callResult({ duplicate: true });
