@@ -270,7 +270,10 @@
 /* LIB-토글트리 ④ PC 끌어 놓기: 놓을 수 있는 곳은 테두리, 앞·뒤로는 위·아래 선, 놓을 수 없는 곳은 흐림 + 금지 커서. */
 #appView #libraryView summary.lu-node-head[draggable="true"],#appView #libraryView .lu-row[draggable="true"]{cursor:grab}
 #appView #libraryView .lu-dragging{opacity:.5}
-#appView #libraryView .lu-node-head.lu-drop-into{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px;background:var(--kptu-primary-soft)}
+#appView #libraryView .lu-node-head.lu-drop-into{outline:2px dashed var(--kptu-primary-ink);outline-offset:-2px;background:var(--kptu-primary-soft)}
+#appView #libraryView .lu-node-head.lu-drop-into::after{content:'여기에 놓기';margin-left:auto;padding-left:8px;font-size:var(--ds-text-meta,12px);font-weight:700;color:var(--kptu-primary-ink);white-space:nowrap}
+#appView #libraryView .lu-grabbed{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px;background:var(--kptu-primary-soft)}
+@media (pointer:coarse){#appView #libraryView .lu-row,#appView #libraryView .lu-node-head{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}}
 #appView #libraryView .lu-node-head.lu-drop-before{border-top:2px solid var(--kptu-primary-ink);margin-top:-2px}
 #appView #libraryView .lu-node-head.lu-drop-after{border-bottom:2px solid var(--kptu-primary-ink);margin-bottom:-2px}
 #appView #libraryView .lu-node-head.lu-drop-no{opacity:.55;cursor:no-drop}
@@ -282,7 +285,10 @@
 #libraryListCard .lu-select-act:disabled{opacity:.45}
 #libraryListCard .lu-select-act#librarySelectDelete:not(:disabled){color:var(--kptu-danger);font-weight:700}
 #libraryListCard .lu-select-btn[hidden],#libraryListCard .lu-head-actions > [hidden]{display:none}
-.lu-select-bar{display:flex;align-items:center;justify-content:flex-start;gap:4px;min-width:0;flex:1}
+.lu-select-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:0 4px;min-width:0;flex:1}
+:is(.lu-bulk-menu) button{padding-left:calc(var(--kptu-space-3,12px) + var(--lu-depth,0) * 12px)}
+:is(.lu-bulk-menu) button[aria-current="true"] .lu-menu-key{display:inline;color:var(--kptu-primary-ink);font-weight:700}
+:is(.lu-bulk-menu) button:disabled{opacity:.55;cursor:default}
 #libraryListCard .lu-select-bar > *{flex:none;margin:0}
 .lu-select-bar[hidden]{display:none}
 .lu-select-bar .filter-chips{flex:none;margin-right:4px;padding-top:0;padding-bottom:0;min-height:0}

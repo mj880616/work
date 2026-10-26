@@ -10,8 +10,8 @@ begin;
 -- 자료의 프로젝트(app_documents.project_id)는 어느 경우에도 바뀌지 않는다. 폴더 옮기기·자료 넣기는 프로젝트 연결을 건드리지 않는다.
 -- 권한 확대 없음: 읽고 쓸 수 있는 사람은 소유자 한 사람 그대로, anon·PUBLIC·service_role 권한 없음, 열 권한(project_id·workspace_id 고칠 수 없음)도 그대로.
 -- 이미 만든 폴더·연결은 한 줄도 바꾸지 않는다.
--- 이 파일은 기존 정책 교체(drop policy + create policy)가 들어 있어 승인형 DB workflow 확장 규칙이 거절한다(policy-drop-alter).
--- SQL Editor 새 쿼리 창(폰 경로 C)으로 적용한다.
+-- 정책 교체(drop policy + create policy)는 같은 이름·같은 표·authenticated만·항상 참 조건 없음이라 승인형 DB workflow 확장 규칙(정책 교체)이 받는다. 운영 정의와 비교해 넓어지면 workflow가 멈춘다.
+-- SQL Editor 새 쿼리 창(폰 경로 C)으로도 적용할 수 있다.
 -- 짝: docs/20261026170000_library_folders_free.{precheck,snapshot,postcheck,rollback}.sql, .summary.md
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
@@ -92,6 +92,8 @@ begin
   return new;
 end
 $guard$;
+-- 함수 실행권은 새 함수와 같은 기준으로 PUBLIC·anon에서 다시 회수한다(이미 없으면 변화 없음, 권한 확대 아님).
+revoke all on function private.app_library_folder_tree_guard() from public, anon;
 
 -- 2) 폴더를 지우면 안의 폴더·자료는 한 단 위로. 맨 위 폴더였으면 자료 연결만 지운다. 프로젝트가 다른 자료도 올린다.
 create or replace function private.app_library_folder_lift()
@@ -115,6 +117,7 @@ begin
   return old;
 end
 $lift$;
+revoke all on function private.app_library_folder_lift() from public, anon;
 
 -- 3) 자료 연결 정책 교체: 같은 이름·같은 대상(authenticated). "같은 프로젝트" 조건만 뺀다.
 drop policy library_folder_items_owner_all on public.app_library_folder_items;
