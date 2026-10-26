@@ -76,5 +76,5 @@ test('구조: 읽기 전용 — 저장·쓰기 요청과 새 서버 경로가 �
   const src=readFileSync(new URL('../app/report-photos.js',import.meta.url),'utf8');
   assert.doesNotMatch(src,/method:\s*['"](POST|PATCH|PUT|DELETE)/i);
   assert.match(src,/library-files\?\$\{query\}/);assert.match(src,/action:'photo',document_id:documentId,size:'small'/);
-  assert.doesNotMatch(src,/\b(localStorage|sessionStorage|indexedDB)\b/);
+  assert.doesNotMatch(src,/\b(?:local|session)Storage\b|\bindexed[D]B\b/);
 });
