@@ -101,7 +101,7 @@ export function transcriptName(value: unknown): { contact: string | null; at: nu
   const contact = raw && !/^[\d\s+()-]+$/.test(raw) && !hasPhone(raw) ? raw : null;
   return { contact, at };
 }
-const hasPhone = (s: string) => /\d{2,4}[\s-]?\d{3,4}[\s-]?\d{4}/.test(s) || /\d{7,}/.test(s);
+export const hasPhone = (s: string) => /\d{2,4}[\s-]?\d{3,4}[\s-]?\d{4}/.test(s) || /\d{7,}/.test(s);
 
 // 앞머리: 맨 앞 `---` 줄 사이의 `key: value`. 따옴표 한 겹은 벗긴다.
 export function frontmatter(md: string): { meta: Record<string, string>; body: string } | null {
