@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 
 // TG-발언자이름 2단계: collector-feed telegram 입구의 선택 칸 `senders`.
 // 지어낸 Supabase(PostgREST)와 지어낸 OpenAI로 실제 handler를 돌린다. 네트워크 없음. 이름·키·방은 모두 지어낸 값이다.
-const {createCollectorFeedHandler,parseTelegramBody,SENDERS_FN}=await import('../../supabase/functions/collector-feed/handler.ts');
+const {createCollectorFeedHandler,parseTelegramBody,SENDERS_FN,ROOM_TOUCH_FN,ROOM_DAY_ADD_FN}=await import('../../supabase/functions/collector-feed/handler.ts');
 
 const SB='https://synthetic.supabase.test';
 const FN=`${SB}/functions/v1/collector-feed`;
@@ -29,7 +29,10 @@ function harness({dup=false,rpc=()=>respond({ok:true,people:2,linked:2,conflicts
     assert.equal(url.origin,SB);
     const path=url.pathname.replace('/rest/v1/','');
     if(path.startsWith('rpc/')){
-      const fn=path.slice(4);assert.equal(fn,SENDERS_FN,'다른 DB 함수는 부르지 않는다');
+      const fn=path.slice(4);
+      // 방 정보·하루 요약 함수(TG-방날짜묶기)는 별도 시험(collector-feed-tg-roomday)에서 본다. 여기서는 이름표 함수 호출만 센다.
+      if(fn===ROOM_TOUCH_FN||fn===ROOM_DAY_ADD_FN)return respond({ok:true});
+      assert.equal(fn,SENDERS_FN,'다른 DB 함수는 부르지 않는다');
       const args=JSON.parse(init.body);calls.rpc.push(args);return rpc(args);
     }
     calls.tables.push(`${method} ${path}`);
@@ -174,7 +177,8 @@ test('parseTelegramBody: senders 결과 모양',()=>{
 
 test('소스: 번호 원문 칸·로그에 이름을 쓰는 코드·DB 표 직접 쓰기가 없다(함수 한 개만 부른다)',()=>{
   const src=readFileSync('supabase/functions/collector-feed/handler.ts','utf8');
-  assert.equal([...src.matchAll(/rpcObject\(/g)].length,2,'정의 1 + 사용 1');
+  assert.equal([...src.matchAll(/rpcObject\(/g)].length,4,'정의 1 + 사용 3(이름표·방 정보·하루 요약)');
+  assert.equal([...src.matchAll(/rpcObject\((\w+),/g)].map(m=>m[1]).filter(n=>n!=='fn').sort().join(),'ROOM_DAY_ADD_FN,ROOM_TOUCH_FN,SENDERS_FN','쓰는 DB 함수는 이 셋뿐');
   assert.ok(!/app_tg_senders['"`]|app_tg_day_senders/.test(src.replace(/\/\/.*$/gm,'')),'표를 직접 읽거나 쓰지 않는다');
   assert.ok(!/sender_id|phone|telegram_user/.test(src.replace(/\/\/.*$/gm,'')),'번호 원문 칸 없음');
   assert.ok(!/telegramMaterial\([^)]*senders/.test(src),'AI 재료에 senders를 넘기지 않는다');

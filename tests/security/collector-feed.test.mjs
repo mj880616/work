@@ -10,7 +10,7 @@ import {spawnSync} from 'node:child_process';
 const {createCollectorFeedHandler,secretMatches,DAILY_LIMITS,MONTHLY_LIMIT_KRW,SECRET_MIN_CHARS}=
   await import('../../supabase/functions/collector-feed/handler.ts');
 const {parseCall,counterpartOf,speakerSplit,transcriptName,parseKstDateTime,speakerLabelsOf,applySpeakerLabels,applySpeakerLabelsInText,workKind}=await import('../../supabase/functions/collector-feed/call-analysis.ts');
-const {parseTelegram}=await import('../../supabase/functions/collector-feed/telegram.ts');
+const {parseTelegram,TG_LIMITS}=await import('../../supabase/functions/collector-feed/telegram.ts');
 const {DEFAULT_PRICE_IN_KRW_PER_MTOK}=await import('../../supabase/functions/_shared/ai-model.ts');
 
 const SB='https://synthetic.supabase.test';
@@ -74,6 +74,8 @@ function harness({env={},openai=[()=>respond(openaiOk([{title:'교섭 일정 변
     if(url.origin==='https://api.openai.com'){calls.openai.push(JSON.parse(init.body));const next=openai[Math.min(calls.openai.length-1,openai.length-1)];return next(init);}
     assert.equal(url.origin,SB,'unexpected outbound host');
     assert.equal(headers.get('apikey'),SERVICE);assert.equal(headers.get('Authorization'),`Bearer ${SERVICE}`);
+    // TG-방날짜묶기 DB 함수(service_role 전용 rpc). 자세한 시험은 collector-feed-tg-roomday.test.mjs.
+    if(url.pathname.startsWith('/rest/v1/rpc/'))return respond({ok:true});
     const table=url.pathname.replace('/rest/v1/','');const g=GRANTS[table];assert.ok(g,'table without grant: '+table);
     const body=init.body?JSON.parse(init.body):null;calls.rest.push({method,table,url:String(input),body});
     if(dbFail&&dbFail(method,table))return respond({message:'db down'},500);
@@ -525,8 +527,8 @@ test('텔레그램: 중요한 것 없음이면 행 없이 개수만, 글 없는 
   assert.equal(r.status,503);assert.equal(h.calls.openai.length,0);assert.equal(h.db.app_feed_items.length,0);
 });
 
-test('텔레그램 한 달 상한 6,000원(이 기능만 따로)과 하루 묶음 80개 상한',async()=>{
-  assert.equal(MONTHLY_LIMIT_KRW,6000);
+test('텔레그램 한 달 상한 6,000원(이 기능만 따로)과 하루 묶음 150개 상한',async()=>{
+  assert.equal(MONTHLY_LIMIT_KRW,6000);assert.equal(DAILY_LIMITS.telegram,150);assert.equal(DAILY_LIMITS.call,200);
   const tokens=Math.ceil(MONTHLY_LIMIT_KRW*1_000_000/DEFAULT_PRICE_IN_KRW_PER_MTOK);
   let h=harness({days:[{workspace_id:WS,day:'2026-10-03',source:'telegram',...Object.fromEntries(COUNTERS.map(k=>[k,0])),ai_input_tokens:tokens}]});
   let r=await h.send('telegram',tgBody());assert.equal(r.status,429);assert.equal((await r.json()).error,'AI_MONTHLY_LIMIT');assert.equal(h.calls.openai.length,0);
@@ -544,7 +546,7 @@ test('AI 답 검사: 요약 제어 문자 제거·길이 자르기, 참조 중�
   assert.equal([...items[0].summary].length,400);assert.equal(items[0].title,'제목');assert.deepEqual(items[0].refs,[0,1]);assert.equal(r.dropped,0);
   assert.equal(parseTelegram(JSON.stringify({items:[{title:'',summary:'x',refs:['m9'],organization:'',project:''}]}),2,o,[]),null,'항목이 전부 틀리면 응답이 깨진 것');
   assert.equal(parseTelegram('{"x":1}',2,o,[]),null);assert.equal(parseTelegram('[]',2,o,[]),null);assert.equal(parseTelegram(null,2,o,[]),null);
-  assert.deepEqual(parseTelegram(JSON.stringify({items:[]}),2,o,[]),{items:[],dropped:0,unlinked:0});
+  assert.deepEqual(parseTelegram(JSON.stringify({items:[]}),2,o,[]),{items:[],dropped:0,unlinked:0,day:null});
 });
 
 test('AI 답 검사(TG-소식멈춤3): 모르는 조직·프로젝트 참조는 연결만 비우고, 틀린 항목만 뺀다',()=>{
@@ -575,7 +577,7 @@ test('TG-소식멈춤3 재현: 생각 토큰이 출력 상한을 다 쓰면 답�
     return respond(openaiOk([{title:'교섭 일정 변경',summary:'가상지부 교섭이 미뤄졌다.',refs:['m1'],organization:'',project:''}]));};
   const h=harness({openai:[sim]});const r=await h.send('telegram',tgBody());
   assert.equal(r.status,200,'생각 여유가 있으면 incomplete가 나지 않는다');assert.equal(h.db.app_feed_items.length,1);
-  assert.equal(h.calls.openai[0].max_output_tokens,1500+AI_REASONING_TOKEN_HEADROOM);
+  assert.equal(h.calls.openai[0].max_output_tokens,TG_LIMITS.maxOutputTokens+AI_REASONING_TOKEN_HEADROOM);
   assert.deepEqual(h.calls.openai[0].reasoning,{effort:'low'});
   // 그래도 잘리면 저장하지 않고 502, 로그에는 AI_INCOMPLETE 단계 코드만 남는다
   const cut=harness({openai:[()=>respond({status:'incomplete',incomplete_details:{reason:'max_output_tokens'},output:[{type:'reasoning',summary:[]}],usage:{input_tokens:5000,output_tokens:3000}})]});
