@@ -13,8 +13,8 @@ import { ledgerDedupKey, looksPersonal } from "./ledger-candidates.ts";
 export const AUTO_KINDS = Object.freeze(["event", "change", "decision", "commitment"] as const);
 export type AutoKind = typeof AUTO_KINDS[number];
 // 재료 일곱째: 업무 통화(call, CALL-원장재료 L-2, docs/design/ledger-sources.md 6절). DB가 아직 이 종류를 모르면 handler가 읽지 않는다.
-export type AutoSourceKind = SourceKind | "call";
-export const AUTO_SOURCE_KINDS: readonly AutoSourceKind[] = Object.freeze(["basket", "note", "work", "meeting", "org_update", "project_update", "call"]);
+export type AutoSourceKind = SourceKind | "call" | "weekly_personal";
+export const AUTO_SOURCE_KINDS: readonly AutoSourceKind[] = Object.freeze(["basket", "note", "work", "meeting", "org_update", "project_update", "call", "weekly_personal"]);
 export const AUTO_MAX_ITEMS = 20;
 export const AUTO_MAX_OUTDATED = 20;
 export const AUTO_TITLE_CHARS = 120;
@@ -39,7 +39,7 @@ const cut = (s: string, n: number) => [...s].slice(0, n).join("");
 
 export const AUTO_SOURCE_NAMES: Record<AutoSourceKind, string> = {
   basket: "업데이트", note: "노트", work: "업무일지 한 줄", meeting: "사업 보고",
-  org_update: "담당조직 기록", project_update: "프로젝트 기록", call: "통화",
+  org_update: "담당조직 기록", project_update: "프로젝트 기록", call: "통화", weekly_personal: "주간보고 개인본",
 };
 
 // 전화번호 모양(숫자 9자리 이상이 이어진 것, 국번-3~4자리-4자리 모양)은 AI에 보내기 전에 지운다(설계 2.6). 날짜(2026-10-22)는 8자리라 남는다.
@@ -63,6 +63,8 @@ export type AutoSource = {
   organization_id?: string | null;
   project_id?: string | null;
   activity_kind?: string | null;
+  struggle?: boolean; // 주간보고 개인본: 보낸 줄에 3. 투쟁 사업 줄이 있음(최소 S1)
+  prevId?: string | null; // 주간보고 개인본: 같은 주 앞 개인본(그 개인본에서 뽑은 기록을 already로)
 };
 export type PackedAuto = AutoSource & { ref: string };
 
@@ -78,8 +80,8 @@ export function sendable(r: KnownRecord): boolean {
 
 // 교섭 칸 사업 보고는 최소 S2(결정: 사업 보고 칸이 '교섭'이면 서버가 최소 S2로 올림).
 // 통화는 최소 S1(공개 가능 S0로 넣지 않음, 6.2).
-export const sensitivityFloor = (s: { kind: string; activity_kind?: string | null }): "S1" | "S2" | null =>
-  s.kind === "meeting" && s.activity_kind === "negotiation" ? "S2" : s.kind === "call" ? "S1" : null;
+export const sensitivityFloor = (s: { kind: string; activity_kind?: string | null; struggle?: boolean }): "S1" | "S2" | null =>
+  s.kind === "meeting" && s.activity_kind === "negotiation" ? "S2" : s.kind === "call" || (s.kind === "weekly_personal" && s.struggle) ? "S1" : null;
 
 // 오래된 것부터 담는다(밀린 것을 순서대로 처리, 같은 묶음 안에서 사건이 변화보다 먼저 보이게). 넘치면 다음 실행으로(partial).
 export function packAuto(sources: AutoSource[], { total = AUTO_INPUT_CHARS, max = AUTO_MAX_SOURCES } = {}) {
@@ -131,6 +133,8 @@ export const LEDGER_AUTO_INSTRUCTIONS = [
   "다음은 원장에 남기지 않는다: 기사·보도자료·뉴스레터·블로그 같은 바깥 글의 내용(제품·기능 공개, 업계 소식 포함), 해외 사례, 외국 노조·사용자 단체·연구소·기관의 활동 소개, 참고·학습·벤치마킹용 자료, 일반 동향·지식.",
   "재료가 이런 글을 옮겨 적었거나 요약한 것이면 그 안의 사실은 우리 업무의 약속·결정·사건이 아니다. 우리 업무와의 연결(우리 사업·담당조직에 닿는 일, 우리 쪽 대응)이 재료에 분명하지 않으면 고르지 않는다.",
   "type이 통화인 글은 통화 상대가 한 말을 요약한 것이라 대개 이미 다른 업무 기록에 있다. known_records에 같은 일이 있으면 새로 만들지 말고 same_as를 쓴다.",
+  "type이 주간보고 개인본인 글은 명진이 받은 초안에서 새로 쓰거나 고친 줄만 모은 것이다. [ ] 안은 절 이름, \"+ 줄\"은 새로 쓴 줄, \"~ 앞: … → 지금: …\"은 고친 줄이다. 대개 이미 다른 업무 기록에 있으니 known_records에 같은 일이 있으면 same_as를 쓴다.",
+  "주간보고 개인본의 date는 보고 주 월요일일 뿐 일이 일어난 날이 아니다. 줄 안에 날짜가 분명할 때만 date를 쓰고 아니면 빈 문자열.",
   "record의 already는 그 글에서 이미 원장에 남긴 기록이다. 같은 내용을 다시 만들지 말고, 글에 새로 생긴 사실만 고른다.",
   "already에 있는 기록이 고쳐진 글과 맞지 않게 됐으면 그 기록을 고치지 말고 outdated에 {record: 그 id, source: 그 글의 ref}로만 알린다.",
   "known_records에 있는 기록과 같은 일(같은 사건·결정·약속)이면 새로 만들지 말고 same_as에 그 id를 그대로 쓴다(근거만 더해짐). 아니면 same_as는 빈 문자열.",
@@ -267,7 +271,7 @@ export function parseLedgerAuto(text: string | null, packed: PackedAuto[], prior
       continue;
     }
     // 통화에서 나온 새 항목의 정리한 제목이 보낸 기록 제목과 같으면 새 기록 대신 근거만 더한다(AI가 same_as를 놓쳐도 같은 제목 둘이 생기지 않게, 설계 2.3-3).
-    if (source.kind === "call") {
+    if (source.kind === "call" || source.kind === "weekly_personal") {
       const want = normalizeTitle(title);
       const twin = want ? [...sent.values()].find((r) => sameOk(r.ledger_id) && normalizeTitle(r.title) === want) : undefined;
       if (twin) {
@@ -315,12 +319,13 @@ export const web2Location = (s: { kind: string; id: string }) => `web2:${s.kind}
 function sourceSpec(s: PackedAuto, sensitivity: string) {
   const label = s.label ? ` (${cut(s.label, 80)})` : "";
   const when = s.kind === "call" && s.when ? ` ${s.when}` : "";
-  const title = cleanLine(`Web2 ${AUTO_SOURCE_NAMES[s.kind]} ${s.day}${when}${label}`, 300) ?? `Web2 ${AUTO_SOURCE_NAMES[s.kind]} ${s.day}`;
+  const week = s.kind === "weekly_personal" ? " 주" : "";
+  const title = cleanLine(`Web2 ${AUTO_SOURCE_NAMES[s.kind]} ${s.day}${week}${when}${label}`, 300) ?? `Web2 ${AUTO_SOURCE_NAMES[s.kind]} ${s.day}`;
   return { kind: s.kind, id: s.id.toLowerCase(), title, doc_type: s.kind === "meeting" ? "minutes" : s.kind === "call" ? "call_transcript" : "internal_doc", source_date: s.day, sensitivity };
 }
 
 // DB 함수 app_auto_ledger_record에 넘길 묶음(20261024120000_ledger_auto_record.sql 모양 그대로). 고치기·폐기 항목은 만들지 않는다.
-export function buildAutoBatch(parsed: AutoParsed, packed: PackedAuto[], orgBySuborg: Map<string, string>, tokens: { input: number; output: number }) {
+export function buildAutoBatch(parsed: AutoParsed, packed: PackedAuto[], orgBySuborg: Map<string, string>, tokens: { input: number; output: number }, stampOnly: AutoSource[] = []) {
   const items: Record<string, unknown>[] = [];
   for (const it of parsed.items) {
     if (it.op === "add_source") {
@@ -344,7 +349,8 @@ export function buildAutoBatch(parsed: AutoParsed, packed: PackedAuto[], orgBySu
     });
   }
   return {
-    sources: packed.map((s) => ({ kind: s.kind, id: s.id.toLowerCase(), updated_at: s.stamp })),
+    // stampOnly: AI에 보내지 않고 "봤다"만 적는 원문(비교 기준 없음·비교 실패한 주간보고 개인본, 설계 4.5).
+    sources: [...packed, ...stampOnly].map((s) => ({ kind: s.kind, id: s.id.toLowerCase(), updated_at: s.stamp })),
     items,
     needs_check: parsed.outdated.map((record) => ({ record })),
     excluded: parsed.excluded,
