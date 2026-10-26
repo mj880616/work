@@ -3,6 +3,8 @@
 -- expect: new migration absent = 예
 -- expect: previous step applied = 예
 -- expect: read function absent = 예
+-- expect: sender tables rows = 기록
+-- expect: sender tables grants policies hash = 기록
 select 'new migration absent' as item,case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261027030000') then '예' else '아니오' end as value
 union all select 'previous step applied',case when (select count(*) from supabase_migrations.schema_migrations where version='20261026190000' and name='tg_sender_names')=1 and to_regclass('public.app_tg_senders') is not null and to_regclass('public.app_tg_day_senders') is not null then '예' else '아니오' end
 union all select 'read function absent',case when to_regprocedure('public.app_tg_sender_names_for_day(uuid,text,date)') is null then '예' else '아니오' end
