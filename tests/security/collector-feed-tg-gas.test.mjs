@@ -216,3 +216,48 @@ test('한 번 실행에 보낼 묶음 상한이 있고, 넘으면 이어 하기�
   assert.match(source,/tally\.parts >= TG_FEED_MAX_PARTS_PER_RUN\) \{ stop = [^\n]*resumable = true; break; \}/);
   assert.match(source,/state\.startDay = tgFeedAddDays\(callFeedKstDay\(Date\.now\(\)\), -TG_FEED_RECENT_DAYS\);/);
 });
+
+// ---- 멈춤 가시화·빠진 날 다시 보내기 (TG-소식멈춤) ------------------------------------------------------------
+test('429는 하루 상한과 이번 달 AI 상한을 구분해 멈춘 이유를 적는다',()=>{
+  assert.match(G.tgFeedLimitReason('AI_MONTHLY_LIMIT'),/다음 달 1일/);
+  assert.match(G.tgFeedLimitReason('DAILY_LIMIT'),/하루 상한/);
+  assert.match(G.tgFeedLimitReason(undefined),/429/);
+  assert.ok(source.includes("stop = tgFeedLimitReason(res.json && res.json.error); break;"),'429 처리에서 오류 코드를 넘긴다');
+});
+
+test('마지막 실행 기록과 방별 진행 요약: 멈춘 방이 몇 개인지 보인다',()=>{
+  const lr=G.tgFeedLastRun(Date.parse('2026-10-26T08:12:00+09:00'),'서버 하루 상한',30,12,1);
+  assert.deepEqual(plain(G.tgFeedLastRunClean(lr)),plain(lr));
+  assert.equal(G.tgFeedLastRunClean({at:'x'}),null);
+  assert.match(G.tgFeedLastRunText(lr),/2026-10-26 08:12.*보낸 묶음 30.*서버 하루 상한/);
+  assert.match(G.tgFeedLastRunText(null),/기록 없음/);
+  const state={startDay:'2026-10-18',backFrom:'',rooms:{'1':{doneDay:'2026-10-25'},'2':{doneDay:'2026-10-24'}}};
+  const p=G.tgFeedProgress(state,['1','2','3'],'2026-10-26');
+  assert.deepEqual(plain(p),{rooms:3,min:'2026-10-17',max:'2026-10-25',behind:2,yesterday:'2026-10-25'});
+  assert.match(G.tgFeedProgressText(p,'2026-10-26'),/3개 방 중 어제\(2026-10-25\)까지 끝낸 방 1개 · 못 끝낸 방 2개/);
+});
+
+test('빠진 날 다시 보내기: 방마다 끝낸 날을 하루 전으로, 더 앞선 방·범위 밖 날짜는 그대로·거절',()=>{
+  const state={startDay:'2026-10-18',backFrom:'',rooms:{'1':{doneDay:'2026-10-25',partDay:'2026-10-25',partsDone:1},'2':{doneDay:'2026-10-23'}},attempts:{'1|2026-10-25|1':2,'1|2026-10-20|1':1},chain:0};
+  const r=G.tgFeedRewind(state,'2026-10-25','2026-10-26');
+  assert.equal(r.changed,1);
+  assert.deepEqual(plain(r.state.rooms['1']),{doneDay:'2026-10-24',backDay:'',partDay:'',partsDone:0});
+  assert.equal(r.state.rooms['2'].doneDay,'2026-10-23','이미 더 앞선 방은 그대로');
+  assert.deepEqual(plain(r.state.attempts),{'1|2026-10-20|1':1},'되돌린 날 이후의 재시도 횟수만 지운다');
+  assert.equal(state.rooms['1'].doneDay,'2026-10-25','원본 상태는 바꾸지 않는다');
+  // 되돌린 뒤 보낼 날짜 목록에 그 날이 다시 들어온다
+  const plan=G.tgFeedPlanDays(G.tgFeedRoomState(r.state,'1'),r.state,'2026-10-26');
+  assert.deepEqual(plain(plan.map((x)=>x.day)),['2026-10-25']);
+  assert.ok(G.tgFeedRewind(state,'','2026-10-26').error);
+  assert.ok(G.tgFeedRewind(state,'2026-10-26','2026-10-26').error,'오늘은 안 됨');
+  assert.ok(G.tgFeedRewind(state,'2026-10-10','2026-10-26').error,'7일보다 오래된 날은 안 됨');
+  const early=G.tgFeedRewind({startDay:'2026-10-26',backFrom:'',rooms:{},attempts:{}},'2026-10-25','2026-10-27');
+  assert.equal(early.state.startDay,'2026-10-25','시작 날짜가 더 뒤이면 당겨 상태에 없는 방도 받게 한다');
+});
+
+test('실행 확인 함수는 트리거 유무와 진행 위치를 보여 주고, 마지막 실행을 저장한다(비밀·토큰 출력 없음)',()=>{
+  assert.ok(source.includes("feedTriggerSummary_(['tgFeed_run', 'tgFeed_continue']"));
+  assert.ok(source.includes("feedTriggerSummary_(['callFeed_run']"));
+  assert.ok(source.includes("state.lastRun = tgFeedLastRun(Date.now(), stop, tally.parts"));
+  assert.ok(source.includes("deleteProperty(TG_FEED_REWIND_KEY)"));
+});
