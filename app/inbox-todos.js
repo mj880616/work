@@ -7,11 +7,10 @@
 // as the PC home card). Each has [원장으로] (copies the same 쓰기요청 text as the card's [원장으로 복사]). They are never stored and never counted.
 // The home card and the work journal box (todo-radar.js) stay as they are; both sides tell each other through the same change
 // event ('kptu:todo-radar-changed'). Nothing is kept in browser storage.
-import {readInboxCandidates, dismissCandidate, reopenCandidate, markTasked, candidateToTask, validateTaskDraft, notPlanned,
+import {readInboxCandidates as readAllInbox, dismissCandidate, reopenCandidate, markTasked, candidateToTask, validateTaskDraft, notPlanned,
   quickDue, dotDay, radarScope, ledgerRequestText, RADAR_SOURCE_LABEL} from './todo-radar-data.js';
 import {seoulDateKey} from './meeting-time.js';
 import {offerUndoNotice} from './basket-record-delete.js';
-import {openSource, radarPromises} from './todo-radar.js';
 import {copyText} from './copy-text.js';
 
 const CHANGED = 'kptu:todo-radar-changed';
@@ -19,7 +18,13 @@ export const INBOX_CHIPS = Object.freeze([['open', '처리 전'], ['tasked', '�
 const EMPTY = Object.freeze({open: '처리할 챙길 것이 없어요.', tasked: '할 일로 보낸 것이 없어요.', dismissed: '무시한 것이 없어요.'});
 const taskTitles = () => (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).filter(t => t?.status !== 'completed').map(t => t.title);
 
-export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}}) {
+// MTG-후속할일후보: the same list can sit inside one 사업 보고 window. `read` swaps in the reader for that meeting's rows, `quietEmpty` draws nothing
+// when there is nothing to handle, `hideSource` leaves out the source button (the window already is the source), and `withPromises:false` keeps the
+// counterpart promises out (they belong to the home/정리함 lists).
+// openSource / radarPromises come from todo-radar.js and are handed in by the 정리함 screen (basket.js): this module must not import todo-radar.js,
+// whose source button opens the 사업 보고 window, because that window (meeting-round-detail.js) now uses this list (import cycle).
+export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read, quietEmpty = false, hideSource = false, withPromises = true, openSource = () => {}, radarPromises = () => []}) {
+  const readInboxCandidates = read || readAllInbox;
   let rows = [], state = 'loading', chip = 'open', run = 0, scope = radarScope(rt), status = '';
   const copied = new Set(), busy = new Set(), unknown = new Map(), unmarked = new Map(), rowStatus = new Map();
   host.hidden = true;
@@ -55,9 +60,9 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}}) {
       right = `<span class="inbox-todo-actions"><button type="button" class="inbox-todo-btn" data-inbox-todo-task="${id}"${dis}>할 일로</button><button type="button" class="inbox-todo-btn" data-inbox-todo-dismiss="${id}"${dis}>무시</button></span>`;
     }
     const note = rowStatus.get(c.id) ? `<p class="inbox-todo-status" role="status">${esc(rowStatus.get(c.id))}</p>` : '';
-    return `<li class="inbox-todo-row" data-inbox-todo-row="${id}" data-inbox-todo-status="${esc(c.status)}"><div class="inbox-todo-line"><button type="button" class="inbox-todo-source" data-inbox-todo-source="${id}" aria-label="출처 열기: ${esc(source)}">${esc(source)}</button><div class="inbox-todo-text"><span class="inbox-todo-summary">${esc(c.summary)}</span><span class="inbox-todo-meta">${esc(meta)}</span></div>${right}</div>${note}${below ? `<div class="inbox-todo-below">${below}</div>` : ''}</li>`;
+    return `<li class="inbox-todo-row" data-inbox-todo-row="${id}" data-inbox-todo-status="${esc(c.status)}"><div class="inbox-todo-line">${hideSource ? '' : `<button type="button" class="inbox-todo-source" data-inbox-todo-source="${id}" aria-label="출처 열기: ${esc(source)}">${esc(source)}</button>`}<div class="inbox-todo-text"><span class="inbox-todo-summary">${esc(c.summary)}</span><span class="inbox-todo-meta">${esc(meta)}</span></div>${right}</div>${note}${below ? `<div class="inbox-todo-below">${below}</div>` : ''}</li>`;
   }
-  const promises = () => state === 'ok' && chip === 'open' ? radarPromises() : [];
+  const promises = () => withPromises && state === 'ok' && chip === 'open' ? radarPromises() : [];
   function promiseHtml(p, i) {
     const meta = [RADAR_SOURCE_LABEL[p.source_kind], p.due ? `기한 ${dotDay(p.due)}` : ''].filter(Boolean).join(' · ');
     const label = copied.has(ledgerRequestText(p)) ? '복사함' : '원장으로';
@@ -69,10 +74,11 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}}) {
     const focusAttr = host.contains(document.activeElement) ? [...document.activeElement.attributes].find(a => a.name.startsWith('data-inbox-todo-')) : null;
     const list = shownRows();
     let body;
-    if (state === 'missing') body = `<p class="inbox-todo-empty">챙길 것 기능이 아직 준비 중이에요.</p>`;
+    if (quietEmpty && state !== 'ok') body = '';
+    else if (state === 'missing') body = `<p class="inbox-todo-empty">챙길 것 기능이 아직 준비 중이에요.</p>`;
     else if (state === 'failed') body = `<p class="inbox-todo-empty">챙길 것을 불러오지 못했어요. <button type="button" class="inbox-todo-link" data-inbox-todo-retry>다시 시도</button></p>`;
     else if (state === 'loading') body = `<p class="inbox-todo-empty">불러오는 중…</p>`;
-    else if (!list.length && !promises().length) body = `<p class="inbox-todo-empty" data-inbox-todo-empty>${EMPTY[chip]}</p>`;
+    else if (!list.length && !promises().length) body = quietEmpty ? '' : `<p class="inbox-todo-empty" data-inbox-todo-empty>${EMPTY[chip]}</p>`;
     else body = `<ul class="inbox-todo-list" aria-label="챙길 것">${list.map(rowHtml).join('')}${promises().map(promiseHtml).join('')}</ul>`;
     host.innerHTML = `${body}<p class="inbox-todo-status" role="status" aria-live="polite" data-inbox-todo-line>${esc(status)}</p>`;
     if (focusAttr) host.querySelector(`[${focusAttr.name}="${CSS.escape(focusAttr.value)}"]`)?.focus({preventScroll: true});

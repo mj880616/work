@@ -27,7 +27,7 @@ const routeModules = {
 };
 const routeStyles = {
   calendar: 'calendar-ui.css', tasks: 'task-layout.css', projects: 'project-system-v3.css',
-  library: 'library-upload.css', meetings: 'meeting-ui.css', media: 'web1-press.css',
+  library: 'library-upload.css', meetings: 'meeting-ui.css',
   pages: 'web1-board.css', team: 'suborganizations.css',
 };
 const requiredCss = ['topbar-actions.css', 'team.css', 'task-layout.css', 'google-tasks.css',

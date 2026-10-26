@@ -107,4 +107,4 @@ body.kptu-workspace-shell .topbar{display:none!important}
   .project-modal,.medium-card{padding:var(--kptu-space-4)}
 }
 
-:is(#projectsView,#meetingsView,#mediaView,#pagesView,#teamView) .add-list-head h2{font-size:var(--kptu-text-title)}
+:is(#projectsView,#meetingsView,#pagesView,#teamView) .add-list-head h2{font-size:var(--kptu-text-title)}

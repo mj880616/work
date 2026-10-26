@@ -86,7 +86,6 @@ test('startup loads only requested route CSS before showing the shell', async ()
     './project-system-v3.css',
     './library-upload.css',
     './meeting-ui.css',
-    './web1-press.css',
     './web1-board.css',
     './suborganizations.css',
     './workplace-detail.css'
@@ -101,7 +100,7 @@ test('requested route is resolved before view-specific feature loading', async (
   expect(source).not.toContain("const homeResult=await window.__KPTU_HOME_READY__");
   expect(source).not.toContain("if(requested&&requested!=='home')await loadFeatures()");
   expect(source).not.toContain("defer(()=>loadFeatures()");
-  expect(viewLoader).toContain("const loaders={home,basket,calendar,tasks,journal,diary,projects,library,meetings,media,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,calls,telegram}");
+  expect(viewLoader).toContain("const loaders={home,basket,calendar,tasks,journal,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,calls,telegram}");
 });
 
 test('direct feature URLs load one requested view and keep failures visible', async () => {
@@ -129,7 +128,8 @@ test('route manifest keeps retired modules out and Web1 views isolated', async (
     expect(source).not.toContain(retired);
   }
   expect(source).toContain("module('./web1-board.js')");
-  expect(source).toContain("module('./web1-press.js'");
+  expect(source).not.toContain('./web1-press.js');
+  expect(source).not.toContain('./press-import');
   expect(source).not.toContain('./workflow-ai-v3.js');
   expect(source).not.toContain('./media-workflow.js');
 });

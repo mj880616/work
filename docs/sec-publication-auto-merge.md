@@ -8,7 +8,7 @@
 - 저장소 API: `allow_auto_merge=false`; `main` branch protection 없음(404); ruleset 0개; Actions 기본 권한 read.
 - Pages API: `build_type=legacy`, source=`main` 루트. 확인 당시 최근 빌드 SHA는 시작 `main`과 일치.
 - 최근 사례: #356·#342는 날짜별 `press/` HTML·HWP, `press/archive.json`, `press/index.html`과 `tests/app-e2e/web1-press.spec.mjs`를 함께 변경. #358은 날짜별 HTML과 `press/archive.json`만 변경.
-- 기존 `app-e2e-check.yml`은 `press/**`만 변경할 때 돌지 않는다. `web1-press.spec.mjs`는 Web2 보도자료 목록 연결을 확인한다. `loader-cache-check.yml`만 모든 `main` PR에 경로 필터 없이 실행된다.
+- 기존 `app-e2e-check.yml`은 `press/**`만 변경할 때 돌지 않는다. `web1-press.spec.mjs`는 Web2 보도자료 목록 연결을 확인했다(PRESS-자료실편입 Contract에서 삭제). `loader-cache-check.yml`만 모든 `main` PR에 경로 필터 없이 실행된다.
 
 ## 허용 목록과 관문
 
@@ -21,7 +21,7 @@
 
 `press/press-archive.css`, 다른 `press/` 코드, 테스트, 문서, `app/**`, `supabase/**`, `cloudflare/**`, 워크플로는 허용하지 않는다. #356·#342와 같이 테스트 파일이 섞인 PR은 수동 검토 대상이고, #358의 경로 조합은 자동 merge 후보가 된다. 테스트를 허용하면 검사를 바꾼 PR이 자신의 검사를 통과시킬 수 있어 제외한다. 경로 검사는 게시 문안의 정확성·저작권·개인정보 여부를 판단하지 않는다. `press/index.html`의 기존 inline script도 경로만으로는 구분되지 않으므로 이 파일의 변경 내용을 만드는 주체를 제한해야 한다.
 
-`Publication gate`는 `pull_request_target`에서 **기준 `main`의 워크플로와 정책 스크립트**를 실행한다. `classify`가 GitHub PR Files API 전체 페이지와 `changed_files` 수를 대조하며, head SHA가 바뀌면 실패한다. 게시 후보의 정적 아카이브 검사와 `web1-press.spec.mjs` Playwright 검사는 후보 코드를 checkout하는 별도 `content-check` job에서 실행한다. 이 job의 토큰은 `contents:read`뿐이고 checkout 자격 증명을 저장하지 않는다. 필수 `publication-gate` job은 기준 정책만 실행하며, 분류·후보 검사 결과와 기존 `loader-cache` 및 HTML 변경 시 `audit` 성공을 확인한다. 일반 PR에 이전 auto-merge 예약이 있으면 해제를 기다린다. #362 자체는 시작 `main`에 이 워크플로가 없으므로 새 `pull_request_target` 관문을 실행할 수 없으며, 사람이 변경 파일과 기존 CI를 확인한 뒤 수동 merge해야 한다. 후보 브랜치의 정책 스크립트를 실행하는 최초 도입 예외는 제거했다.
+`Publication gate`는 `pull_request_target`에서 **기준 `main`의 워크플로와 정책 스크립트**를 실행한다. `classify`가 GitHub PR Files API 전체 페이지와 `changed_files` 수를 대조하며, head SHA가 바뀌면 실패한다. 게시 후보의 정적 아카이브 검사(`publication-content.test.mjs`)는 후보 코드를 checkout하는 별도 `content-check` job에서 실행한다(Web2 성명·보도자료 메뉴가 사라져 `web1-press.spec.mjs` Playwright 검사는 PRESS-자료실편입 Contract에서 함께 뺐다). 이 job의 토큰은 `contents:read`뿐이고 checkout 자격 증명을 저장하지 않는다. 필수 `publication-gate` job은 기준 정책만 실행하며, 분류·후보 검사 결과와 기존 `loader-cache` 및 HTML 변경 시 `audit` 성공을 확인한다. 일반 PR에 이전 auto-merge 예약이 있으면 해제를 기다린다. #362 자체는 시작 `main`에 이 워크플로가 없으므로 새 `pull_request_target` 관문을 실행할 수 없으며, 사람이 변경 파일과 기존 CI를 확인한 뒤 수동 merge해야 한다. 후보 브랜치의 정책 스크립트를 실행하는 최초 도입 예외는 제거했다.
 
 `Publication auto merge`는 기본 브랜치에서만 읽는 `pull_request_target` 워크플로다. `opened`·`synchronize`·`reopened`마다 API로 파일 전체를 재분류한다. 작성자가 저장소 소유자이고 동일 저장소 브랜치이며 draft가 아닌 경우에만, `main`을 보호하는 ruleset과 저장소 auto-merge 허용을 확인하고 `--auto --merge --match-head-commit`으로 merge commit을 예약한다. ruleset은 이름이 아니라 내용으로 확인한다(`scripts/publication-pr-policy.mjs ruleset-ready`): 기본 브랜치가 `main`이고, ruleset이 branch 대상·Active이며 include에 `~DEFAULT_BRANCH` 또는 `refs/heads/main`이 있고 exclude가 없으며, 우회자가 없고, 삭제 금지·강제 push 금지·PR 필수 규칙과 GitHub Actions(15368)의 `publication-gate`·`dropzone` 필수 검사가 모두 있어야 한다. 우회자 목록은 ruleset 수정 권한이 없는 토큰에 반환되지 않으므로, 목록이 보이면 비어 있어야 하고 보이지 않으면 경고만 남긴다(아래 참고). 조건을 만족하는 ruleset이 없으면 예약하지 않고 `reserve` job을 **실패**로 끝내 거부 이유를 로그에 남긴다. `reserve`는 ruleset 필수 검사가 아니므로 다른 PR merge를 막지 않는다. `.github/**`를 포함한 허용 목록 밖 파일이 추가되거나 draft가 되면 이전 예약을 해제한다. fork 및 소유자가 아닌 작성자의 PR에는 merge 예약·해제를 하지 않는다. 쓰기 권한은 예약 job에 `contents:write`, `pull-requests:write`만 준다. 저장소 auto-merge가 꺼져 있으면(긴급 중지) 예약 없이 성공 종료하며, `deploy-pages`도 건너뛴다.
 
@@ -106,7 +106,7 @@ CLI로 설정할 경우, **별도 승인 뒤에만** 저장소 루트에서 `gh 
 자동게시 재시험(#372~#375)을 통과한 뒤 게시는 Claude Code 로컬의 `/게시반영` 명령으로 한다. 명령 원문은 `.claude/commands/게시반영.md`다. ChatGPT의 PR 권한 재허용은 당분간 보류한다(위 설정 6단계와 actor 확인 조건은 재허용할 때 그대로 적용).
 
 - 사용: `/게시반영` 뒤에 종류·날짜·제목·본문(또는 기존 페이지 수정 요청)과 첨부 PC 경로를 붙인다. 앞에 `연습`을 쓰면 브랜치·커밋·PR 없이 로컬 파일만 만들어 보여 준다.
-- press/ 새 글: 최근 글 형식으로 날짜 디렉터리·`archive.json`·`press/index.html`을 만들고 PR을 연다. 변경이 위 허용 목록뿐이면 자동 예약·merge·Pages 배포·공개 주소 200까지 확인하고 보고한다.
+- press/ 새 글: 이 명령에서 폐지했다(2026-10-26 PRESS-자료실편입 Contract). 새 성명·보도자료는 Web2 자료실에 파일로 올린다. 위 허용 목록·자동 merge 정책은 `press/` 정리(PRESS-Web1삭제) 때 함께 정리한다.
 - 기존 Web1 페이지 갱신 등 허용 목록 밖 변경: PR과 검사 통과까지만 하고 "커맨드센터 확인 후 merge 필요"로 멈춘다.
 - 제목·본문·날짜는 고치지 않는다. 오탈자 의심과 빠진 정보는 보고·질문으로 처리한다. 수동 merge·`--admin`은 쓰지 않는다.
 

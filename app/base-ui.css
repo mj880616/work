@@ -190,10 +190,16 @@ button:disabled,[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
 #googleConnectBtn::after{content:none}
 
 /* List role typography. Text action buttons share the task-tab size ceiling. */
-:is(#projectsView,#meetingsView,#mediaView,#pagesView,#teamView) button:is(.primary,.secondary):not(.mini){font-size:var(--kptu-text-meta)}
-:is(#projectsView,#meetingsView,#mediaView,#pagesView,#teamView) button.mini{font-size:var(--kptu-text-meta)}
-:is(#projectsView,#meetingsView,#mediaView,#pagesView,#teamView) :is(.updated,.muted,.empty.compact){font-size:var(--kptu-text-meta)}
-:is(#projectsView,#meetingsView,#mediaView,#pagesView,#teamView) .empty:not(.compact){font-size:var(--kptu-text-body)}
+:is(#projectsView,#meetingsView,#pagesView,#teamView) button:is(.primary,.secondary):not(.mini){font-size:var(--kptu-text-meta)}
+:is(#projectsView,#meetingsView,#pagesView,#teamView) button.mini{font-size:var(--kptu-text-meta)}
+:is(#projectsView,#meetingsView,#pagesView,#teamView) :is(.updated,.muted,.empty.compact){font-size:var(--kptu-text-meta)}
+:is(#projectsView,#meetingsView,#pagesView,#teamView) .empty:not(.compact){font-size:var(--kptu-text-body)}
+/* UI-팝업머리고정: one rule for every popup (.modal-card) on phone and PC. The title line with its close (×) stays at the top
+   while the body scrolls under it. The shadow is the card colour and covers the card's top padding above the stuck line, so
+   scrolled text never shows there; it is clipped by the card. :where keeps this at one class so a popup's own head rule
+   (project detail .ps3-modal-head, the PC task pane #gtDetailPane) still sets its own offset. Save stays where it is: in the
+   bottom row (.modal-action-footer) for popups, in the title line only for the PC task pane. */
+:where(.modal-card)>.modal-head{position:sticky;top:0;z-index:3;background:var(--kptu-surface);box-shadow:0 -24px 0 24px var(--kptu-surface)}
 #pagesView .badge{font-size:var(--kptu-text-meta)}
 
 
@@ -201,12 +207,6 @@ button:disabled,[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
 .modal-action-footer{position:sticky;bottom:calc(-1 * var(--kptu-space-5));z-index:2;background:var(--kptu-surface);border-top:1px solid var(--kptu-border);margin-top:var(--kptu-space-3);margin-bottom:calc(-1 * var(--kptu-space-5));padding:var(--kptu-space-2) 0 calc(var(--kptu-space-5) + var(--kptu-space-1) + env(safe-area-inset-bottom))}
 .modal-action-footer>.status{margin:0 0 var(--kptu-space-2);overflow-wrap:anywhere}
 .modal-action-footer[data-keyboard-open]{position:static}
-/* UI-팝업머리고정: one rule for every popup (.modal-card) on phone and PC. The title line with its close (×) stays at the top
-   while the body scrolls under it. The shadow is the card colour and covers the card's top padding above the stuck line, so
-   scrolled text never shows there; it is clipped by the card. :where keeps this at one class so a popup's own head rule
-   (project detail .ps3-modal-head, the PC task pane #gtDetailPane) still sets its own offset. Save stays where it is: in the
-   bottom row (.modal-action-footer) for popups, in the title line only for the PC task pane. */
-:where(.modal-card)>.modal-head:where(:not(.w1p-detail-head)){position:sticky;top:0;z-index:3;background:var(--kptu-surface);box-shadow:0 -24px 0 24px var(--kptu-surface)}
 
 /* UI-더보기제목줄: 상세의 ⋯는 혼자 한 줄을 차지하지 않고 제목(없으면 첫 줄) 오른쪽 끝에 둔다. 공용 규칙 하나:
    <div class="kptu-title-line"><제목 또는 첫 줄 글자/><⋯ 버튼/></div>. 글자는 ⋯ 옆으로 비켜 줄바꿈하고, ⋯는 줄 위쪽에 붙는다. 색·크기는 각 화면의 ⋯ 버튼 규칙을 그대로 쓴다. */

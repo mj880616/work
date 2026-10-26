@@ -11,6 +11,7 @@ import { noteRequests, requestTagsHtml } from './update-requests.js';
 import { renderFilterChips } from './filter-chips.js';
 import { mountNotes } from './basket-notes.js';
 import { mountInboxTodos } from './inbox-todos.js';
+import { openSource as openTodoSource, radarPromises } from './todo-radar.js';
 import { noteTasks, requestTaskOpen, takeBasketNoteRequest, takeNoteDocRequest, takeBasketKindRequest, basketNoteOrigin, basketReturnHtml } from './basket-note-tasks.js';
 import { deleteNoteOriginal, disconnectWithUndo, disconnectLabel, offerUndoNotice } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';
@@ -386,7 +387,7 @@ const paintPaneCount=(which,value)=>{
   const el=paneSwitch.querySelector(`[data-inbox-pane-count="${which}"]`);if(el)el.textContent=value===null||value===undefined?'':' '+value;
   document.querySelectorAll(`[data-nav-pane-count="${which}"]`).forEach(nav=>{nav.textContent=value?String(value):'';});
 };
-const todo=mountInboxTodos(todoHost,{rt,esc,chips:todoChips,onCount:value=>paintPaneCount('todo',value)});
+const todo=mountInboxTodos(todoHost,{rt,esc,chips:todoChips,onCount:value=>paintPaneCount('todo',value),openSource:openTodoSource,radarPromises});
 function showPane(next){
   pane=next;root.dataset.pane=pane;
   paneSwitch.querySelectorAll('[data-inbox-pane]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.inboxPane===pane)));
