@@ -35,6 +35,9 @@ function harness(o = {}) {
       return Response.json([{ workspace_id: 'ws-1', role: 'owner' }], { headers: { 'Content-Range': '0-0/1' } });
     }
     if (table === 'app_notes') {
+      // TRASH-다른삭제 5단계: noTrashColumn = DB 적용 전(deleted_at 칸 없음, PostgREST 42703 거절). deleted_at=is.null이 오면 휴지통 노트(deleted_at 있음)는 빠진다.
+      if (u.searchParams.has('deleted_at') && state.noTrashColumn) return Response.json({ code: '42703', details: null, hint: null, message: 'column app_notes.deleted_at does not exist' }, { status: 400 });
+      if (u.searchParams.has('deleted_at') && state.note?.deleted_at) return Response.json([]);
       if (u.searchParams.get('id')) return Response.json(state.note && u.searchParams.get('id') === 'eq.' + state.note.id ? [state.note] : []);
       const rows = state.note ? [state.note] : [];
       return Response.json(rows, { headers: { 'Content-Range': rows.length ? `0-${rows.length - 1}/${rows.length}` : '*/0' } });
@@ -187,4 +190,27 @@ test('the existing delete contract still needs a document id', async () => {
   const r = await harness().send({ action: 'delete' });
   assert.equal(r.status, 400);
   assert.equal(r.body.error, 'document_id가 필요합니다.');
+});
+
+// ---- TRASH-다른삭제 5단계: 서버 키로 읽는 노트에서 휴지통 노트를 뺀다 ----
+const noteReads = h => h.calls.filter(c => c.path.startsWith('/rest/v1/app_notes'));
+
+test('a trashed note is not found: nothing is registered and Drive is not touched', async () => {
+  const h = harness({ note: { id: NOTE, workspace_id: 'ws-1', attachments: [attachment], deleted_at: '2026-10-26T00:00:00Z' } });
+  const r = await register(h);
+  assert.equal(r.body.code, 'NOTE_NOT_FOUND');
+  assert.equal(posts(h).length, 0);
+  assert.equal(h.calls.some(c => c.path.startsWith('/drive/')), false);
+  assert.match(noteReads(h)[0].path, /&deleted_at=is\.null/);
+});
+
+test('before the database has deleted_at the note is read once more without the filter and registers as before', async () => {
+  const h = harness({ noTrashColumn: true });
+  const r = await register(h);
+  assert.equal(r.status, 200);
+  assert.equal(r.body.result, 'created');
+  const reads = noteReads(h);
+  assert.equal(reads.length, 2);
+  assert.match(reads[0].path, /&deleted_at=is\.null/);
+  assert.doesNotMatch(reads[1].path, /deleted_at/);
 });

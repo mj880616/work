@@ -39,7 +39,8 @@ test('calendar hotfix removes stale local calendar UI and returns OAuth to Web2'
   expect(views).not.toContain("calendar-persistence.js?v=");
   expect(persistence).not.toContain('showGoogleCalendar');
   expect(persistence).toContain("addEventListener('kptu:session-changed'");
-  expect(calendarEdge).toContain("ids=Array.isArray(c.calendar_ids)?c.calendar_ids:['primary']");
+  // #1256 added an optional single-calendar read (onlyCalendarId); the default still reads the saved calendar list.
+  expect(calendarEdge).toContain("Array.isArray(c.calendar_ids)?c.calendar_ids:['primary']");
   expect(calendarEdge).toContain("singleEvents:'true'");
   expect(calendarEdge).toContain("orderBy:'startTime'");
 

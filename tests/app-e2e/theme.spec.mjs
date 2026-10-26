@@ -169,8 +169,7 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
    ['projects','#newProjectBtn','backgroundColor',color],
    ['library','#libraryListCard','backgroundColor',surface[theme]],
    ['meetings','#newMeetingBtn','backgroundColor',color],
-   // UI-디자인기준 3/3 3부(8-9e-3): 게시판은 상자 안 줄(상자가 바탕). 고른 성명 필터는 회색(--ds-kind-other-soft, UI-선택표시통일).
-   ['media','.w1p-filter.active','backgroundColor',color],
+   // UI-디자인기준 3/3 3부(8-9e-3): 게시판은 상자 안 줄(상자가 바탕).
    ['pages','#web1BoardActive','backgroundColor',surface[theme]]
   ]){
    await clickView(page,view);
@@ -178,10 +177,11 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
    await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
    expect(await readPrimary(page)).toBe(color);
    if(width<=760){if(['basket','calendar','tasks','projects','team'].includes(view))await matches('.mobile-tabs [aria-current]','color',color);}else{/* UI-테마선택색: 지금 화면 하나만 계정 색으로 채운다. 하위 묶음의 머리 항목은 채우지 않는다. */
-    const navBtn=page.locator('.app-nav .nav-btn.active').first();await expect(navBtn).toBeVisible();
+    // BASKET-PC메뉴: 정리함 쪽에서는 하위 줄([업데이트]·[챙길 것])이 지금 화면이므로 하위 줄도 함께 찾는다.
+    const navBtn=page.locator('.app-nav :is(.nav-btn,.nav-sub-btn).active').first();await expect(navBtn).toBeVisible();
     const group=await navBtn.evaluate(el=>el.nextElementSibling?.classList.contains('nav-sub')===true);
     if(group)await expect.poll(()=>navBtn.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
-    else await matches('.app-nav .nav-btn.active','backgroundColor',color);
+    else await matches('.app-nav :is(.nav-btn,.nav-sub-btn).active','backgroundColor',color);
    }
    if(view==='pages')await openLegacyBoard(page);/* SHARE PR 2: 옛 게시판 카드는 [이전 페이지] 안으로 접힘 */
    await matches(selector,property,expected);
@@ -254,7 +254,7 @@ for(const width of [390,1440])test('D-3c painted buttons and real 44px pointer t
 
 for(const width of [390,1440])test('D-3c expanded buttons do not overlap adjacent controls '+width,async({page})=>{
  await page.setViewportSize({width,height:900});await mockApp(page);await page.goto(`${appOrigin}/app/?view=calendar`);await signIn(page);
- for(const view of ['calendar','tasks','projects','meetings','library','media','pages','team']){
+ for(const view of ['calendar','tasks','projects','meetings','library','pages','team']){
   await clickView(page,view);await expect(page.locator('#'+view+'View')).toBeVisible();await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
   const overlaps=await page.evaluate(()=>{
    const visible=el=>el.checkVisibility({checkVisibilityCSS:true});
@@ -301,7 +301,8 @@ for(const width of [390,760,761,1023,1024,1280,1439,1440])test('D-3c account mat
  await page.setViewportSize({width,height:900});await mockApp(page);await page.goto(`${appOrigin}/app/?view=calendar`);await signIn(page);
  if(width<=760){await accountButton(page).click();await expect(page.locator('#mobileMenu [data-theme-open]')).toHaveCSS('font-size','13px');/* 8-9e-3: 메뉴 줄 13px */await expect(page.locator('.mobile-tabs [data-mobile-schedule-tab]')).toHaveCSS('font-size','12px');return;}
  const styles=await page.evaluate(()=>{
-  const nav=getComputedStyle(document.querySelector('.app-nav [data-view="projects"]')),account=getComputedStyle(document.querySelector(innerWidth<1024?'#mobileMenuOpen':'.app-topline [data-account-open]'));
+  /* BASKET-PC메뉴: 좁은 한 줄 메뉴(761px)는 [업데이트]·[챙길 것]이 늘어 [프로젝트]가 [메뉴] 창으로 넘어갈 수 있으므로, 줄에 남은 고르지 않은 항목([홈])으로 비교한다. */
+  const nav=getComputedStyle(document.querySelector('.app-nav [data-view="projects"]')||document.querySelector('.app-nav [data-view="home"]')),account=getComputedStyle(document.querySelector(innerWidth<1024?'#mobileMenuOpen':'.app-topline [data-account-open]'));
   const keys=['fontSize','fontWeight','color'];return {nav:keys.map(k=>nav[k]),account:keys.map(k=>account[k])};
  });expect(styles.account).toEqual(styles.nav);
 });

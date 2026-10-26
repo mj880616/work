@@ -39,6 +39,25 @@ export const HWP_MAX_BYTES = 30 * 1024 * 1024;
 export const HTML_VIEW_MAX_BYTES = 2 * 1024 * 1024;
 export const isHtmlName = (name: string) => /\.html?$/i.test(String(name || ""));
 export const BACKUP_FOLDER = "Web2 편집 백업";
+
+// TRASH-다른삭제 5단계: 서버 키(service_role)는 RLS(휴지통 숨김 정책)를 건너뛰므로 노트 id로 직접 읽을 때는 휴지통 노트(deleted_at 있음)를 뺀다.
+// DB 적용 전에는 app_notes에 deleted_at 칸이 없어 PostgREST가 "column app_notes.deleted_at does not exist"(42703)로 거절한다.
+// 그 거절이면 거르기 없이 한 번 더 읽는다(그때는 휴지통 행이 있을 수 없다). 다른 오류는 그대로 던진다.
+// 첫 인자 db는 path를 받아 읽는 함수(서버 키)다. path는 쿼리 문자열이 이미 있는 app_notes 읽기여야 한다. (같은 규칙의 짝: document-actions/index.ts)
+async function readLiveNoteRows(
+  db: (path: string) => Promise<unknown>,
+  path: string,
+): Promise<unknown> {
+  try {
+    return await db(`${path}&deleted_at=is.null`);
+  } catch (error) {
+    const text = String((error as { message?: unknown } | null)?.message ?? "");
+    if (!/deleted_at/.test(text) || !/does not exist|42703/i.test(text)) {
+      throw error;
+    }
+    return await db(path);
+  }
+}
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DRIVE_ID = /^[A-Za-z0-9_-]{1,255}$/;
@@ -155,7 +174,8 @@ export function createHwpEdit(deps: Deps) {
       if (!UUID.test(noteId) || !DRIVE_ID.test(fileId)) {
         throw refuse("INVALID_REQUEST", "열 첨부를 확인할 수 없습니다.");
       }
-      const rows = await deps.db(
+      const rows = await readLiveNoteRows(
+        deps.db,
         `app_notes?id=eq.${
           encodeURIComponent(noteId)
         }&select=id,workspace_id,attachments&limit=1`,

@@ -13,8 +13,9 @@ import { ledgerDedupKey, looksPersonal } from "./ledger-candidates.ts";
 export const AUTO_KINDS = Object.freeze(["event", "change", "decision", "commitment"] as const);
 export type AutoKind = typeof AUTO_KINDS[number];
 // 재료 일곱째: 업무 통화(call, CALL-원장재료 L-2, docs/design/ledger-sources.md 6절). DB가 아직 이 종류를 모르면 handler가 읽지 않는다.
-export type AutoSourceKind = SourceKind | "call";
-export const AUTO_SOURCE_KINDS: readonly AutoSourceKind[] = Object.freeze(["basket", "note", "work", "meeting", "org_update", "project_update", "call"]);
+// 재료 여덟째: 개인 공유 캘린더 일정(calendar_ref, CAL-승지명진참고 C-3, 설계 5절). 참고용이라 새 기록을 만들지 않고 근거 추가(same_as)만 한다.
+export type AutoSourceKind = SourceKind | "call" | "calendar_ref";
+export const AUTO_SOURCE_KINDS: readonly AutoSourceKind[] = Object.freeze(["basket", "note", "work", "meeting", "org_update", "project_update", "call", "calendar_ref"]);
 export const AUTO_MAX_ITEMS = 20;
 export const AUTO_MAX_OUTDATED = 20;
 export const AUTO_TITLE_CHARS = 120;
@@ -39,7 +40,7 @@ const cut = (s: string, n: number) => [...s].slice(0, n).join("");
 
 export const AUTO_SOURCE_NAMES: Record<AutoSourceKind, string> = {
   basket: "업데이트", note: "노트", work: "업무일지 한 줄", meeting: "사업 보고",
-  org_update: "담당조직 기록", project_update: "프로젝트 기록", call: "통화",
+  org_update: "담당조직 기록", project_update: "프로젝트 기록", call: "통화", calendar_ref: "개인 공유 캘린더 일정(참고)",
 };
 
 // 전화번호 모양(숫자 9자리 이상이 이어진 것, 국번-3~4자리-4자리 모양)은 AI에 보내기 전에 지운다(설계 2.6). 날짜(2026-10-22)는 8자리라 남는다.
@@ -59,7 +60,7 @@ export type AutoSource = {
   at: number;
   text: string;
   label?: string;
-  when?: string; // 통화 시각 HH:MM(한국). 출처 제목에만 쓴다.
+  when?: string; // 통화·캘린더 일정 시각 HH:MM(한국). 출처 제목에 쓴다(캘린더는 재료 글 앞에도 붙임).
   organization_id?: string | null;
   project_id?: string | null;
   activity_kind?: string | null;
@@ -77,9 +78,9 @@ export function sendable(r: KnownRecord): boolean {
 }
 
 // 교섭 칸 사업 보고는 최소 S2(결정: 사업 보고 칸이 '교섭'이면 서버가 최소 S2로 올림).
-// 통화는 최소 S1(공개 가능 S0로 넣지 않음, 6.2).
+// 통화·개인 공유 캘린더 일정은 최소 S1(공개 가능 S0로 넣지 않음, 6.2).
 export const sensitivityFloor = (s: { kind: string; activity_kind?: string | null }): "S1" | "S2" | null =>
-  s.kind === "meeting" && s.activity_kind === "negotiation" ? "S2" : s.kind === "call" ? "S1" : null;
+  s.kind === "meeting" && s.activity_kind === "negotiation" ? "S2" : s.kind === "call" || s.kind === "calendar_ref" ? "S1" : null;
 
 // 오래된 것부터 담는다(밀린 것을 순서대로 처리, 같은 묶음 안에서 사건이 변화보다 먼저 보이게). 넘치면 다음 실행으로(partial).
 export function packAuto(sources: AutoSource[], { total = AUTO_INPUT_CHARS, max = AUTO_MAX_SOURCES } = {}) {
@@ -131,6 +132,7 @@ export const LEDGER_AUTO_INSTRUCTIONS = [
   "다음은 원장에 남기지 않는다: 기사·보도자료·뉴스레터·블로그 같은 바깥 글의 내용(제품·기능 공개, 업계 소식 포함), 해외 사례, 외국 노조·사용자 단체·연구소·기관의 활동 소개, 참고·학습·벤치마킹용 자료, 일반 동향·지식.",
   "재료가 이런 글을 옮겨 적었거나 요약한 것이면 그 안의 사실은 우리 업무의 약속·결정·사건이 아니다. 우리 업무와의 연결(우리 사업·담당조직에 닿는 일, 우리 쪽 대응)이 재료에 분명하지 않으면 고르지 않는다.",
   "type이 통화인 글은 통화 상대가 한 말을 요약한 것이라 대개 이미 다른 업무 기록에 있다. known_records에 같은 일이 있으면 새로 만들지 말고 same_as를 쓴다.",
+  "type이 개인 공유 캘린더 일정(참고)인 글은 잡혀 있던 약속의 제목과 시각일 뿐 있었던 일의 기록이 아니다. 이 글로는 새 기록을 만들지 말고, known_records에 같은 일이 있으면 same_as(근거 추가)만 쓴다. 같은 일이 없으면 고르지 않는다.",
   "record의 already는 그 글에서 이미 원장에 남긴 기록이다. 같은 내용을 다시 만들지 말고, 글에 새로 생긴 사실만 고른다.",
   "already에 있는 기록이 고쳐진 글과 맞지 않게 됐으면 그 기록을 고치지 말고 outdated에 {record: 그 id, source: 그 글의 ref}로만 알린다.",
   "known_records에 있는 기록과 같은 일(같은 사건·결정·약속)이면 새로 만들지 말고 same_as에 그 id를 그대로 쓴다(근거만 더해짐). 아니면 same_as는 빈 문자열.",
@@ -204,7 +206,7 @@ export type AutoItem =
     op: "new"; kind: AutoKind; title: string; summary: string; date: string | null; sensitivity: "S0" | "S1" | "S2";
     belongs_to: string | null; counterparty: string | null; follow_up_on: string | null; decision_type: string | null; sure: boolean; source: PackedAuto;
   };
-export type AutoParsed = { items: AutoItem[]; outdated: string[]; dropped: number; excluded: number; reference: number };
+export type AutoParsed = { items: AutoItem[]; outdated: string[]; dropped: number; excluded: number; reference: number; calendar_new: number };
 
 // Responses 답에서 output_text 하나. 형식이 틀리면 null(전체 실패). 항목 하나가 틀리면 그 항목만 버린다(dropped).
 // S3·개인정보 모양은 버리고 따로 센다(excluded).
@@ -225,14 +227,15 @@ export function parseLedgerAuto(text: string | null, packed: PackedAuto[], prior
   for (const s of packed) {
     const ids = new Set<string>();
     for (const r of (prior.get(sourceKey(s)) ?? []).filter(sendable).slice(0, AUTO_PRIOR_PER_SOURCE)) { ids.add(r.ledger_id); sent.set(r.ledger_id, r); }
-    priorSent.set(s.ref, ids);
+    // 개인 공유 캘린더 일정에는 outdated(확인필요 표시)를 허용하지 않는다: 일정 제목이 바뀌었다고 다른 원문에서 나온 기록을 흔들지 않는다.
+    priorSent.set(s.ref, s.kind === "calendar_ref" ? new Set() : ids);
   }
   const sameOk = (id: string) => { const r = sent.get(id); return !!r && ["current", "needs_check", "fulfilled"].includes(r.validity); };
   const eventOk = (id: string) => { const r = sent.get(id); return !!r && r.kind === "event" && ["current", "needs_check"].includes(r.validity); };
 
   const items: AutoItem[] = [];
   const keys = new Set<string>();
-  let dropped = 0, excluded = 0, reference = 0;
+  let dropped = 0, excluded = 0, reference = 0, calendarNew = 0;
   const KEYS = "counterparty,date,decision_type,event,follow_up_on,kind,reference,same_as,sensitivity,source,summary,sure,title";
   for (const entry of list) {
     if (items.length >= AUTO_MAX_ITEMS) { dropped++; continue; }
@@ -267,7 +270,7 @@ export function parseLedgerAuto(text: string | null, packed: PackedAuto[], prior
       continue;
     }
     // 통화에서 나온 새 항목의 정리한 제목이 보낸 기록 제목과 같으면 새 기록 대신 근거만 더한다(AI가 same_as를 놓쳐도 같은 제목 둘이 생기지 않게, 설계 2.3-3).
-    if (source.kind === "call") {
+    if (source.kind === "call" || source.kind === "calendar_ref") {
       const want = normalizeTitle(title);
       const twin = want ? [...sent.values()].find((r) => sameOk(r.ledger_id) && normalizeTitle(r.title) === want) : undefined;
       if (twin) {
@@ -278,6 +281,8 @@ export function parseLedgerAuto(text: string | null, packed: PackedAuto[], prior
         continue;
       }
     }
+    // 개인 공유 캘린더 일정은 새 기록(변화 이어 붙이기 포함)을 만들지 않는다(설계 5.4). 서버가 마지막으로 막고 개수만 센다.
+    if (source.kind === "calendar_ref") { calendarNew++; continue; }
     let kind = e.kind as AutoKind;
     const ev = e.event as string;
     let belongs: string | null = null;
@@ -306,17 +311,20 @@ export function parseLedgerAuto(text: string | null, packed: PackedAuto[], prior
     if (typeof id !== "string" || typeof ref !== "string" || !priorSent.get(ref)?.has(id) || sent.get(id)?.validity !== "current" || outdated.includes(id)) { dropped++; continue; }
     outdated.push(id);
   }
-  return { items, outdated, dropped, excluded, reference };
+  return { items, outdated, dropped, excluded, reference, calendar_new: calendarNew };
 }
 
 export const web2Location = (s: { kind: string; id: string }) => `web2:${s.kind}:${s.id.toLowerCase()}`;
 
 // 출처(원래 Web2 기록). 위치 web2:<종류>:<id>는 DB 함수가 정한다(같은 위치의 출처를 다시 씀).
+// 개인 공유 캘린더는 출처 제목에 일정 제목·조직을 넣지 않는다: `Web2 개인 공유 캘린더 2026-10-23 14:00`(설계 5.5), doc_type은 other.
 function sourceSpec(s: PackedAuto, sensitivity: string) {
-  const label = s.label ? ` (${cut(s.label, 80)})` : "";
-  const when = s.kind === "call" && s.when ? ` ${s.when}` : "";
-  const title = cleanLine(`Web2 ${AUTO_SOURCE_NAMES[s.kind]} ${s.day}${when}${label}`, 300) ?? `Web2 ${AUTO_SOURCE_NAMES[s.kind]} ${s.day}`;
-  return { kind: s.kind, id: s.id.toLowerCase(), title, doc_type: s.kind === "meeting" ? "minutes" : s.kind === "call" ? "call_transcript" : "internal_doc", source_date: s.day, sensitivity };
+  const calendar = s.kind === "calendar_ref";
+  const name = calendar ? "개인 공유 캘린더" : AUTO_SOURCE_NAMES[s.kind];
+  const label = s.label && !calendar ? ` (${cut(s.label, 80)})` : "";
+  const when = (s.kind === "call" || calendar) && s.when ? ` ${s.when}` : "";
+  const title = cleanLine(`Web2 ${name} ${s.day}${when}${label}`, 300) ?? `Web2 ${name} ${s.day}`;
+  return { kind: s.kind, id: s.id.toLowerCase(), title, doc_type: s.kind === "meeting" ? "minutes" : s.kind === "call" ? "call_transcript" : calendar ? "other" : "internal_doc", source_date: s.day, sensitivity };
 }
 
 // DB 함수 app_auto_ledger_record에 넘길 묶음(20261024120000_ledger_auto_record.sql 모양 그대로). 고치기·폐기 항목은 만들지 않는다.

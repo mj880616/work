@@ -3,8 +3,8 @@
 -- 이 파일은 아무것도 바꾸지 않는다(insert/update/delete/함수 호출 없음). 기준 목록은 이미 Web1에 공개된 제목·발표일·구분뿐이고 개인정보·비밀값은 없다.
 --
 -- 기준 목록 48줄 = 글 44건(press/archive.json 42건 + 목록 밖 옛 글 2건) + 첨부 4건(HWP 2 · PDF 2).
---   file_name = 가져오기 코드(app/press-import-model.mjs buildPlan)가 겹침 판정에 쓰는 열쇠. kind = page(글) | attachment(첨부).
---   이 값은 tests/security/press-import-check-sql.test.mjs가 buildPlan과 같은지 매번 검사한다.
+--   file_name = 가져오기가 겹침 판정에 쓴 열쇠(글은 폴더 이름 + .html, 첨부는 원본 파일 이름). kind = page(글) | attachment(첨부).
+--   이 값은 tests/security/press-import-check-sql.test.mjs가 press/archive.json과 대조해 검사한다(가져오기 코드는 Contract PR에서 삭제됨).
 --
 -- 읽는 법:
 --  - 결과가 한 줄이고 problem이 '이상 없음'이면 끝: 기준 48줄이 모두 자료실에 한 번씩, 발표일·종류 맞게 들어와 있다.

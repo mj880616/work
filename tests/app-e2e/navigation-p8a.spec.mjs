@@ -6,7 +6,7 @@ import { signInWithSession } from './helpers/session-login.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const app=`${appOrigin}/app/`;
-const views=['home','basket','calendar','tasks','journal','diary','projects','meetings','library','media','pages','team','hwp','ledger','calls','telegram'];
+const views=['home','basket','calendar','tasks','journal','diary','projects','meetings','library','pages','team','hwp','ledger','calls','telegram'];
 const user={id:'p8a-user',email:'p8a@example.org',user_metadata:{display_name:'내비게이션 QA'}};
 const event={id:'p8a-event',title:'현장 일정',start_at:'2026-09-18T09:00:00+09:00',event_type:'meeting',location:'현장'};
 
@@ -51,7 +51,7 @@ async function signIn(page){
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
 }
 
-test('top-level V3 navigation opens the media archive and keeps removed controls absent',async({page})=>{
+test('top-level V3 navigation opens the library and keeps removed controls absent',async({page})=>{
   test.setTimeout(60000);
   await mockApp(page);
   await signIn(page);
@@ -64,13 +64,13 @@ test('top-level V3 navigation opens the media archive and keeps removed controls
   await page.locator('#appView>.app-topline [data-account-open]').click();
   await expect(page.locator('#sidebarLogoutBtn')).toBeVisible();
 
-  await clickView(page,'media');
-  await expect(page.locator('#mediaView')).toBeVisible();
-  await expect(page.locator('#pressArchiveList')).toContainText('공공기관 인력감축 없다더니');
-  await expect(page.locator('.app-nav [data-view="media"]')).toHaveAttribute('aria-current','page');
+  await clickView(page,'library');
+  await expect(page.locator('#libraryView')).toBeVisible();
+  await expect(page.locator('.app-nav [data-view="library"]')).toHaveAttribute('aria-current','page');
+  await expect(page.locator('.app-nav [data-view="media"]')).toHaveCount(0);
   await page.reload();
-  await expect(page.locator('#mediaView')).toBeVisible({timeout:20000});
-  await expect(page.locator('.app-nav [data-view="media"]')).toHaveAttribute('aria-current','page');
+  await expect(page.locator('#libraryView')).toBeVisible({timeout:20000});
+  await expect(page.locator('.app-nav [data-view="library"]')).toHaveAttribute('aria-current','page');
   await clickView(page,'pages');
   await expect(page.locator('#pagesView')).toBeVisible();
   await expect(page.locator('#pagesMediaEntry')).toHaveCount(0);
@@ -81,7 +81,7 @@ test('top-level V3 navigation opens the media archive and keeps removed controls
   await expect(page.locator('#appView')).toHaveCount(0);
 });
 
-test('removed personal and photo deep links return to home while media links remain reachable',async({page})=>{
+test('removed personal and photo deep links return to home while the retired media link opens the library',async({page})=>{
   test.setTimeout(60000);
   await mockApp(page);
   await signIn(page);
@@ -91,7 +91,9 @@ test('removed personal and photo deep links return to home while media links rem
     await expect(page.locator('#'+view+'View')).toHaveCount(0);
   }
   await page.goto(app+'?view=media');
-  await expect(page.locator('#mediaView')).toBeVisible({timeout:20000});
+  await expect(page.locator('#libraryView')).toBeVisible({timeout:20000});
+  await expect(page.locator('#mediaView')).toHaveCount(0);
+  await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBe('library');
   await page.goto(app+'?view=photos');
   await expect(page.locator('#homeView')).toBeVisible({timeout:20000});
   await expect(page.locator('#photosView')).toHaveCount(0);
@@ -107,8 +109,8 @@ for(const width of [390,360]){
     await signIn(page);
     await expect(page.locator('.app-nav :is(.nav-btn,.nav-sub-btn)[data-view]')).toHaveCount(views.length);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
-    await clickView(page,'media');
-    await expect(page.locator('#mediaView')).toBeVisible();
+    await clickView(page,'library');
+    await expect(page.locator('#libraryView')).toBeVisible();
     await expect(page.locator('.app-nav')).toBeHidden();
     await expect(page.locator('.mobile-tabs')).toBeVisible();
   });

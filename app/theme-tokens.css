@@ -48,6 +48,8 @@
   --ds-split-list:1fr;--ds-split-detail:2fr;--ds-split-list-min:240px;
   /* UI-칸폭조절(2026-10-22): 경계선을 끌어 바꿀 때 오른쪽 상세 칸의 최소 폭(왼쪽은 --ds-split-list-min). split-resize.js가 읽는다. */
   --ds-split-detail-min:360px;
+  /* MTG-3칸폭끌기(2026-10-26): 3단 화면(사업 보고)의 칸 폭 — 왼쪽 두 칸의 최소 폭과 기본 비율 1 : 1 : 4(= 1/6 : 1/6 : 2/3). split-resize.js가 끌어서 바꾼 값을 fr로 덮어쓴다. */
+  --ds-split-col-min:120px;--ds-split-col-a:1fr;--ds-split-col-b:1fr;--ds-split-col-c:4fr;
   --ds-compact-height:32px;--ds-compact-pad-x:12px;--ds-compact-text:13px;--ds-chip-radius:999px;
   /* UI-버튼작게(2026-10-18 사용자 결정): 쓰기 창 서식 도구줄 버튼은 한 단계 더 작게 28px(누르는 범위는 그대로 44px). */
   --ds-compact-height-sm:28px;
@@ -92,7 +94,7 @@
      1~8은 예전 8색과 같은 색 계열 순서(같은 이름은 예전과 비슷한 색), 9~16은 1~8 다음에 쓰는 추가 색. */
   --ds-meeting-1:#2880c9;--ds-meeting-2:#179920;--ds-meeting-3:#d941cf;--ds-meeting-4:#038283;--ds-meeting-5:#af7a0d;--ds-meeting-6:#8b4679;--ds-meeting-7:#324903;--ds-meeting-8:#3468fa;
   --ds-meeting-9:#29416f;--ds-meeting-10:#368c54;--ds-meeting-11:#7b0075;--ds-meeting-12:#758d14;--ds-meeting-13:#90844f;--ds-meeting-14:#5a14a6;--ds-meeting-15:#634303;--ds-meeting-16:#524ba5;
-  /* 3/3(8-9e-3) 칸막이(iframe) 바탕: HWP 편집기·성명·보도자료·게시판 본문은 다크 모드에서도 밝게 둔다. */
+  /* 3/3(8-9e-3) 칸막이(iframe) 바탕: HWP 편집기·게시판 본문은 다크 모드에서도 밝게 둔다. */
   --ds-frame-paper:#ffffff;
 }
 /* 다크 모드(3/3 8-9e-3에서 켬): 기기 설정이 어두우면 Web2 전체(창 포함)가 어두운 값으로 바뀐다.

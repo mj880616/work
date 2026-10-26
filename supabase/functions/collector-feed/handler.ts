@@ -21,14 +21,15 @@
 //   통화 숫자의 뜻(2단계 정리): total_count = 받은 전사 수(업무·개인함 저장·개수만 모두), kept_count = 업무 통화함에 저장한 줄,
 //   personal_count·unsure_count = 줄 없이 **개수만** 센 통화(요약 없는 옛 개인 기록 등. 개인 통화함에 저장한 통화는 세지 않는다: 그 수는 개인 표의 실제 줄 수),
 //   failed_count = 판정 실패.
-// - POST ?action=context(CALL-맥락문서): 읽기 전용. 몸통은 `{}`만. 담당조직(쓰지 않음 제외)·진행 중 프로젝트의 **이름 문자열만** 돌려준다(context.ts).
-//   DB에 쓰지 않는다(새 표·grant 없음). 하루 20회 상한은 인스턴스 메모리로만 센다. 사람 이름·연락처·메모는 응답에 없다.
+// - POST ?action=context(CALL-맥락문서·CALL-맥락사람): 읽기 전용. 몸통은 `{}`만. 담당조직(쓰지 않음 제외)·진행 중 프로젝트의 **이름 문자열**과
+//   "조직 — 이름 직함" 목록을 돌려준다(context.ts). 사람 목록은 읽기 전용 DB 함수 app_call_context_people(service_role 실행)만 부르고(표는 직접 읽지 않음),
+//   함수가 없으면(404) 지금처럼 이름만 돌려준다. DB에 쓰지 않는다. 하루 20회 상한은 인스턴스 메모리로만 센다. 번호·메모·통화 내용·ID는 응답에 없다.
 // 응답·로그에는 개수와 단계 코드만 넣는다. 원문·요약·이름·오류 원문은 넣지 않는다.
 import { readBoundedJson } from "../_shared/bounded-json.mjs";
 import { aiConfigFrom, callOpenAi, estimateKrw, outputText, tokenCount } from "../_shared/openai-responses.ts";
 import { organizationOptions, projectOptions } from "../ai-assist/library-fill.ts";
 import { CALL_LIMITS, cleanLine, kstDay, type OrgRow, parseCall } from "./call-analysis.ts";
-import { buildContext, CONTEXT_LIMITS } from "./context.ts";
+import { buildContext, CONTEXT_LIMITS, CONTEXT_PEOPLE_FN, CONTEXT_PEOPLE_ROWS } from "./context.ts";
 import {
   parseTelegram, rawLines, TELEGRAM_INSTRUCTIONS, TELEGRAM_SCHEMA, telegramMaterial, TG_LIMITS, type TgMessage,
 } from "./telegram.ts";
@@ -199,6 +200,8 @@ type Db = {
   get: (path: string) => Promise<Record<string, unknown>[]>;
   insert: (table: string, row: Record<string, unknown>) => Promise<"ok" | "conflict">;
   patch: (path: string, body: Record<string, unknown>) => Promise<number>;
+  // 읽기 전용 DB 함수 호출. 함수가 없으면(404) "missing", 그 밖의 실패는 503.
+  rpc: (fn: string, args: Record<string, unknown>) => Promise<{ rows: Record<string, unknown>[] } | "missing">;
 };
 function makeDb(sb: string, key: string, doFetch: typeof fetch): Db {
   const headers = { apikey: key, Authorization: `Bearer ${key}` };
@@ -235,6 +238,15 @@ function makeDb(sb: string, key: string, doFetch: typeof fetch): Db {
       let rows: unknown;
       try { rows = await readBoundedJson(r, { maxBytes: DB_RESPONSE_BYTES }); } catch { throw new Fail(503, "DB_WRITE_FAILED"); }
       return Array.isArray(rows) ? rows.length : 0;
+    },
+    async rpc(fn, args) {
+      const r = await send(`rpc/${fn}`, { method: "POST", headers: { ...headers, "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(args) });
+      if (r.status === 404) { try { await r.body?.cancel(); } catch { /* ignore */ } return "missing"; }
+      if (!r.ok) { try { await r.body?.cancel(); } catch { /* ignore */ } throw new Fail(503, "DB_READ_FAILED"); }
+      let rows: unknown;
+      try { rows = await readBoundedJson(r, { maxBytes: DB_RESPONSE_BYTES }); } catch { throw new Fail(503, "DB_READ_FAILED"); }
+      if (!Array.isArray(rows)) throw new Fail(503, "DB_READ_FAILED");
+      return { rows: rows as Record<string, unknown>[] };
     },
   };
 }
@@ -478,8 +490,10 @@ export function createCollectorFeedHandler(deps: CollectorFeedDeps) {
         const cws = await workspaceId(cdb);
         const orgs = await readOrgs(cdb, cws);
         const spaces = await cdb.get(`app_spaces?workspace_id=eq.${cws}&deleted_at=is.null&select=id,name,parent_id,status,metadata&order=sort_order.asc,created_at.asc&limit=500`);
-        const ctx = buildContext(orgs, spaces);
-        log("context_served", { organizations: ctx.organizations.length, projects: ctx.projects.length });
+        // CALL-맥락사람: 사람 목록은 읽기 전용 DB 함수에서만 받는다. 함수가 아직 없으면(DB 적용 전) 이름만 돌려준다.
+        const found = await cdb.rpc(CONTEXT_PEOPLE_FN, { p_workspace: cws, p_limit: CONTEXT_PEOPLE_ROWS });
+        const ctx = buildContext(orgs, spaces, found === "missing" ? [] : found.rows);
+        log("context_served", { organizations: ctx.organizations.length, projects: ctx.projects.length, people: ctx.people.length, people_fn: found === "missing" ? "missing" : "ok" });
         return json({ ok: true, ...ctx });
       }
       // 몸통을 먼저 다 검사한 뒤에 DB에 간다.

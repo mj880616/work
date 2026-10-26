@@ -131,11 +131,17 @@ export function createBasketHandler(
       let noteKind = "";
       if (noteId) {
         stage = "note_lookup";
-        const { data: note, error } = await admin.from("app_notes").select(
-          "id,kind,attachments,updated_at",
-        )
-          .eq("id", noteId).eq("workspace_id", member.workspace_id)
-          .maybeSingle();
+        // TRASH-다른삭제 5단계: 서버 키는 RLS(휴지통 숨김 정책)를 건너뛰므로 휴지통 노트(deleted_at 있음)에는 첨부를 올리지 않는다.
+        // DB 적용 전에는 deleted_at 칸이 없어 42703으로 거절되므로, 그때만 거르기 없이 한 번 더 읽는다.
+        const lookup = (live: boolean) => {
+          const query = admin.from("app_notes").select(
+            "id,kind,attachments,updated_at",
+          ).eq("id", noteId).eq("workspace_id", member.workspace_id);
+          return (live ? query.is("deleted_at", null) : query).maybeSingle();
+        };
+        let found = await lookup(true);
+        if (found.error?.code === "42703") found = await lookup(false);
+        const { data: note, error } = found;
         if (error) throw new UploadError(503, "note_lookup_failed", stage);
         if (!note) throw new UploadError(404, "note_not_found", stage);
         if (
@@ -192,17 +198,26 @@ export function createBasketHandler(
       }
       stage = "note_save";
       savingNoteId = noteId || crypto.randomUUID();
+      // 올리는 사이 노트가 휴지통으로 갔다면(deleted_at) 저장하지 않는다(note_changed). 칸이 없을 때(42703)만 거르기 없이 다시 시도한다.
+      const saveExisting = async () => {
+        const run = (live: boolean) => {
+          const query = admin.from("app_notes").update({
+            attachments,
+            updated_at: new Date().toISOString(),
+          })
+            .eq("id", noteId!).eq("workspace_id", member.workspace_id).eq(
+              "updated_at",
+              updatedAt,
+            )
+            .eq("attachments", JSON.stringify(previous));
+          return (live ? query.is("deleted_at", null) : query).select("id")
+            .maybeSingle();
+        };
+        const first = await run(true);
+        return first.error?.code === "42703" ? await run(false) : first;
+      };
       const result = noteId
-        ? await admin.from("app_notes").update({
-          attachments,
-          updated_at: new Date().toISOString(),
-        })
-          .eq("id", noteId).eq("workspace_id", member.workspace_id).eq(
-            "updated_at",
-            updatedAt,
-          )
-          .eq("attachments", JSON.stringify(previous)).select("id")
-          .maybeSingle()
+        ? await saveExisting()
         : await admin.from("app_notes").insert({
           id: savingNoteId,
           workspace_id: member.workspace_id,

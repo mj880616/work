@@ -114,13 +114,13 @@ test('KST date crosses the day boundary independently of the browser timezone',a
   await page.clock.setFixedTime(new Date('2026-10-05T16:00:00Z'));await open(page);
   await expect(page.locator('#homeView [data-home-date]')).toHaveText('10월 6일 화요일');
 });
-test('drawer media item opens once and the account box has no copy-refresh row',async({page})=>{
+test('drawer library item opens once and the account box has no copy-refresh row',async({page})=>{
   await page.setViewportSize({width:390,height:844});await open(page);
-  // UI-디자인손질 4: 성명·보도자료 is one menu item; it opens the list with every kind and one header name.
+  // The retired 성명·보도자료 item is gone from the drawer; 자료실 opens with one header name.
   await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu [data-mobile-press]')).toHaveCount(0);
-  await page.locator('#mobileMenu [data-view="media"]').click();
-  await expect(page.locator('#mediaView [data-press-type="all"]')).toHaveClass(/active/);await expect(page.locator('[data-mobile-view-name]')).toHaveText('성명·보도자료');
-  await page.locator('#mediaView [data-press-type="release"]').click();await expect(page.locator('[data-mobile-view-name]')).toHaveText('성명·보도자료');
+  await expect(page.locator('#mobileMenu [data-view="media"]')).toHaveCount(0);
+  await page.locator('#mobileMenu [data-view="library"]').click();
+  await expect(page.locator('#libraryView')).toBeVisible();await expect(page.locator('[data-mobile-view-name]')).toHaveText('자료실');
   await page.goBack();await expect(page.locator('#homeView')).toBeVisible();
   let posts=0;await page.route(`${SB}/functions/v1/drive-summary`,r=>{posts++;return r.fulfill({contentType:'application/json',body:'{}'})});
   await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu [data-drive-summary-refresh]')).toHaveCount(0);
@@ -178,6 +178,9 @@ test('horizontal swipes never change the tab; the bottom tabs do',async({page})=
   const close=page.locator('[data-mobile-menu-close]');await expect(close).toHaveAccessibleName('메뉴 닫기');
   const size=await close.evaluate(el=>{const r=el.getBoundingClientRect(),panel=el.closest('.mobile-menu-panel').getBoundingClientRect(),pseudo=getComputedStyle(el,'::after');return {full:r.width>=panel.width-40,h:r.height,top:pseudo.top,bottom:pseudo.bottom}});
   expect(size).toEqual({full:true,h:32,top:'-6px',bottom:'-6px'});
-  const r=await close.boundingBox();await page.mouse.click(r.x+r.width/2,r.y+r.height/2);
+  // 폰 창은 아래에서 올라오는 동안(ds-sheet-up .2s) 손잡이 자리가 움직인다. 올라온 뒤 자리가 안정되고 누를 자리에서 손잡이가 눌리는 것을
+  // 확인한 다음 누른다(locator.click). 움직이는 중에 잰 좌표를 누르면 눌림·뗌 자리가 달라져 닫히지 않는다.
+  await page.locator('#mobileMenu .mobile-menu-panel').evaluate(el=>Promise.all(el.getAnimations().map(a=>a.finished)));
+  await close.click();
   await expect(page.locator('#mobileMenu')).toBeHidden();
  });

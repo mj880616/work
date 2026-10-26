@@ -73,6 +73,6 @@ try{for(const width of widths){
   await shot('organizations',()=>view('team'));
   await shot('organizations-detail',async()=>{await page.locator('#soOrganizationList .so-card').first().click({timeout:8000});await page.locator('#wdModal:not(.hidden)').waitFor();});if(await page.locator('#wdModal:not(.hidden)').count())await page.locator('#wdModal [data-wd-close="wdModal"]').click();
   await shot('calendar-new-org',async()=>{await view('calendar');await page.locator('#newEventBtn').click();await page.locator('#eventModal:not(.hidden)').waitFor();await page.locator('#soEventOrgChecks .so-org-check').first().waitFor({timeout:5000});await page.locator('#eventModal .modal-card').evaluate(e=>e.scrollTop=e.scrollHeight);});if(await page.locator('#eventModal:not(.hidden)').count())await page.locator('#eventModal [data-close]').click();
-  await shot('library',()=>view('library'));await shot('press',()=>view('media'));await shot('board',()=>view('pages'));await shot('navigation',()=>view('calendar'));
+  await shot('library',()=>view('library'));await shot('board',()=>view('pages'));await shot('navigation',()=>view('calendar'));
   await context.close();console.log(`${width}: ${results.filter(r=>r.width===width&&r.file).length} shots`);
 }}finally{await browser.close();await writeFile(resolve('docs/design-audit/measurements.json'),JSON.stringify({origin,widths,results},null,2));}

@@ -8,7 +8,7 @@ import { signInWithSession } from './helpers/session-login.mjs';
 import {openWriteFromEntry} from './helpers/write-opener.mjs';
 import {typeInto} from './helpers/note-editor.mjs';
 // UI-디자인손질(8-9e 후속): 메뉴 판(폰)·메뉴 [쓰기]·메모 [⋯]·상자 안쪽 여백·일정 하루 보기 할 일·담당조직 머리줄·
-// 성명·보도자료 제목·[AI 분류 요청]·앱 아이콘. Supabase 응답만 합성하고 실제 앱을 Chromium에서 누른다.
+// [AI 분류 요청]·앱 아이콘. Supabase 응답만 합성하고 실제 앱을 Chromium에서 누른다.
 test.use({locale:'ko-KR'});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'polish-user',email:'polish@example.org',user_metadata:{display_name:'손질'}};
@@ -79,9 +79,9 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  const tops=await page.evaluate(()=>['.gs-menu-entry','#mobileAccountGroup','nav[aria-label="더 보기"]'].map(s=>document.querySelector('#mobileMenu '+s).getBoundingClientRect().top));
  expect(tops[0]).toBeLessThan(tops[1]);expect(tops[1]).toBeLessThan(tops[2]);
  { const nav=await rect(page.locator('#mobileMenu nav[aria-label="더 보기"]')),bar=await rect(page.locator('.mobile-tabs'));expect(bar.top-nav.bottom).toBeGreaterThanOrEqual(0);expect(bar.top-nav.bottom).toBeLessThanOrEqual(20); }
- // 큰 칸 3열(3줄): 노트·사업 보고·자료실 / HWP 편집·성명·보도자료·공유 페이지 / 원장 ·통화·텔레그램 소식. 성명과 보도자료는 한 칸.
+ // 큰 칸 3열(3줄): 노트·사업 보고·자료실 / HWP 편집·공유 페이지·원장 / 통화·텔레그램 소식.
  const tiles=page.locator('#mobileMenu nav button:visible');
- await expect(tiles).toHaveText(['노트','사업 보고','자료실','HWP 편집','성명·보도자료','공유 페이지','원장','통화','텔레그램 소식']);
+ await expect(tiles).toHaveText(['노트','사업 보고','자료실','HWP 편집','공유 페이지','원장','통화','텔레그램 소식']);
  const boxes=await tiles.evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {x:Math.round(r.left),y:Math.round(r.top),h:r.height};}));
  expect(new Set(boxes.map(b=>b.y)).size).toBe(3);expect(new Set(boxes.map(b=>b.x)).size).toBe(3);
  for(const b of boxes)expect(b.h).toBeGreaterThanOrEqual(44);
@@ -109,13 +109,13 @@ for(const dark of [false,true])test(`메뉴 판(폰${dark?'·어두운 화면':'
  await expect(menu).toBeHidden();
  // A tap right after a page load still works (the clock is small then; only the click that ends a pull is swallowed).
  await page.evaluate(()=>{performance.now=()=>120;});
- // A tile opens its screen; 성명·보도자료 shows that one name on top.
- await tab.click();await page.locator('#mobileMenu [data-view="media"]').click();
- await expect(page.locator('#mediaView')).toBeVisible();await expect(page.locator('[data-mobile-view-name]')).toHaveText('성명·보도자료');
+ // A tile opens its screen; 자료실 shows that one name on top.
+ await tab.click();await page.locator('#mobileMenu [data-view="library"]').click();
+ await expect(page.locator('#libraryView')).toBeVisible();await expect(page.locator('[data-mobile-view-name]')).toHaveText('자료실');
  await expect(marks).toHaveCount(1);await expect(tab).toHaveAttribute('aria-current','page');
  // 메뉴 안 화면에서 창을 다시 열어도, 뒤로가기로 창을 닫아도 [메뉴] 하나만.
  await tab.click();await expect(menu).toBeVisible();await expect(marks).toHaveCount(1);await expect(tab).toHaveAttribute('aria-current','page');
- await page.goBack();await expect(menu).toBeHidden();await expect(page.locator('#mediaView')).toBeVisible();await expect(marks).toHaveCount(1);await expect(tab).toHaveAttribute('aria-current','page');
+ await page.goBack();await expect(menu).toBeHidden();await expect(page.locator('#libraryView')).toBeVisible();await expect(marks).toHaveCount(1);await expect(tab).toHaveAttribute('aria-current','page');
  // 하단바의 다른 칸으로 가면 그 칸 하나만.
  await page.locator('.mobile-tabs [data-view="home"]').click();await expect(page.locator('#homeView')).toBeVisible();await expect(marks).toHaveCount(1);await expect(marks).toContainText('홈');
  await tab.click();await expect(menu).toBeVisible();await expect(marks).toHaveCount(1);await expect(tab).toHaveAttribute('aria-current','page');await page.goBack();await expect(menu).toBeHidden();await expect(marks).toContainText('홈');await expect(marks).toHaveCount(1);
@@ -142,14 +142,16 @@ test('쓰기 메뉴 없음: PC 사이드바·폰 메뉴 창·☰ 메뉴에 [쓰�
  // UI-PC사이드바: 홈은 맨 위 아이콘+"홈" 줄(따로 있던 [홈] 줄은 PC 사이드바에서 숨김), 게시판 → 공유 페이지.
  // UI-PC일정묶음: 할 일·업무일지·일기는 [일정] 아래 하위 메뉴(달력·할 일·업무일지·일기)로.
  await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn:visible')).toHaveText(['달력','할 일','업무일지','일기']);
- await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['정리함','노트','일정','프로젝트','사업 보고','자료실','성명·보도자료','공유 페이지','담당조직','HWP 편집','원장','통화','텔레그램 소식',/^자주 가는 링크/]);
+ // BASKET-PC메뉴: [정리함] 아래 [업데이트]·[챙길 것], [노트]는 [일정] 다음.
+ await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="정리함"] .nav-sub-btn:visible')).toHaveText(['업데이트','챙길 것']);
+ await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['정리함','일정','노트','프로젝트','사업 보고','자료실','공유 페이지','담당조직','HWP 편집','원장','통화','텔레그램 소식',/^자주 가는 링크/]);
  await openWriteFromEntry(page,1280);await expect(page.locator('#edWindow')).toBeVisible();
  await page.keyboard.press('Escape');await expect(page.locator('#edWindow')).toHaveCount(0);
  await page.setViewportSize({width:900,height:900});
  await page.locator('#mobileMenuOpen').click();await expect(page.locator('#mobileMenu [data-menu-write]')).toHaveCount(0);
  await page.setViewportSize({width:390,height:844});
  await page.locator('#mobileMenuTab').click();
- await expect(page.locator('#mobileMenu nav[aria-label="더 보기"] button')).toHaveText(['노트','사업 보고','자료실','HWP 편집','성명·보도자료','공유 페이지','원장','통화','텔레그램 소식']);
+ await expect(page.locator('#mobileMenu nav[aria-label="더 보기"] button')).toHaveText(['노트','사업 보고','자료실','HWP 편집','공유 페이지','원장','통화','텔레그램 소식']);
  await expect(page.locator('#mobileMenu [data-menu-write]')).toHaveCount(0);
 });
 
@@ -252,7 +254,7 @@ test('정리함 목록 [⋯]: [AI 분류 요청], 누른 뒤 안내 문구',asyn
  await expect(page.locator('[data-basket-handoff-scope]')).toContainText('AI 분류 요청을 복사했어요. ChatGPT에 붙여 넣고, 받은 답을 아래 [분류 결과 입력]에 붙여 넣으세요.');
 });
 
-for(const width of [390,1280])test(`상자 안쪽 여백·제목 정리: 회의 결과 창, 성명·보도자료 목록, 담당조직 머리줄, 일정 하루 보기 할 일 ${width}`,async({page})=>{
+for(const width of [390,1280])test(`상자 안쪽 여백·제목 정리: 회의 결과 창, 담당조직 머리줄, 일정 하루 보기 할 일 ${width}`,async({page})=>{
  const {errors}=await boot(page,width);
  // 1 회의 결과 창: 묶음 상자 안 입력칸이 테두리에서 12px 이상 떨어지고, "차수"에 "선택" 이름표가 없다.
  await view(page,'meetings');await page.locator('#newMeetingBtn').click();await expect(page.locator('#meetingModal')).toBeVisible();
@@ -262,11 +264,6 @@ for(const width of [390,1280])test(`상자 안쪽 여백·제목 정리: 회의 
  }
  await expect(page.locator('#meetingRoundNo').locator('xpath=..')).not.toContainText('선택');
  await page.keyboard.press('Escape');
- // 5 성명·보도자료: 목록 줄 글자가 상자 왼쪽에서 12px 이상.
- await view(page,'media');await expect(page.locator('#mediaView .w1p-item').first()).toBeVisible();
- const pad=await page.locator('#mediaView .w1p-item').first().evaluate((el,phone)=>{const box=el.closest('.w1p-table').getBoundingClientRect();return el.querySelector(phone?'.w1p-tag':'.w1p-date').getBoundingClientRect().left-box.left;},width<761);
- expect(pad).toBeGreaterThanOrEqual(12);
- if(width<761)await expect(page.locator('[data-mobile-view-name]')).toHaveText('성명·보도자료');
  // 3 담당조직: 맨 위 "N개 담당조직" 줄이 없다.
  await view(page,'team');await expect(page.locator('#soOrganizationList .kptu-list-row')).toHaveCount(1);
  await expect(page.locator('#soOrgCount')).toHaveCount(0);await expect(page.locator('#teamView')).not.toContainText('개 담당조직');

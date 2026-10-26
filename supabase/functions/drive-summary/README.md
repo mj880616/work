@@ -51,7 +51,7 @@
 
 - 이유: 바깥 AI에 분류를 맡기는 흐름을 더 쓰지 않는다(분류는 Web2 안 AI가 한다). 그래서 사본에 메모 원문·메모 ID·Web2 메모 링크·첨부 정보·사진 글자(OCR)·분류 안내/JSON 예시·담당조직·프로젝트 목록을 싣지 않는다. 이전의 BASKET-3 절(원문 포함, 메모 100건 상한, 분류 안내)은 없어졌다.
 - N: 서버가 `kptu-work`·최근 4주(한국 자정 기준 28일, 양끝 포함)에서 `archived_at IS NULL`, `ai_export_allowed=true`이고 확정/제안 연결이 없는 메모를 센 값이다. 업무일지에 남긴 업데이트(`metadata.journal_at`, 화면 `app/update-journal.js`의 `noteJournalAt`과 같은 판정)는 미분류가 아니므로 센 값에서 빠진다. 4주 이전 미분류 건수는 더 싣지 않는다. 저장된 제안은 원문 버전 열이 없으므로 모두 유효하게 취급하며 화면 `noteState`와 같은 기준이다.
-- 읽는 열: `app_notes`는 `id,workspace_id,occurred_at,archived_at,ai_export_allowed,journal_at:metadata->journal_at` 여섯 값만 읽는다(`kind=eq.basket`). `raw_text`·`attachments`·`created_at`·`updated_at`·`metadata` 나머지 키는 읽지 않고, 메모 ID별 본문 읽기(5건씩)도 없어졌다. `app_record_links`는 `id,workspace_id,note_id,status`. 목록 읽기와 마지막 재확인 두 번만 하며, 그 사이 메모·연결이 바뀌면 `DB_READ_FAILED`로 실패한다.
+- 읽는 열: `app_notes`는 `id,workspace_id,occurred_at,archived_at,ai_export_allowed,journal_at:metadata->journal_at` 여섯 값만 읽는다(`kind=eq.basket`). TRASH-다른삭제 5단계: 서버 키는 RLS를 건너뛰므로 노트 읽기에는 `deleted_at=is.null` 조건을 붙여 휴지통 노트를 뺀다(조건일 뿐 읽는 열은 그대로). DB 적용 전에는 `deleted_at` 칸이 없어 PostgREST가 `42703`으로 거절하므로, 그 거절이면 그 읽기 동안만 조건을 끄고 처음부터 다시 읽는다(다른 거절은 그대로 실패). 연결(`app_record_links`)은 거르지 않는다: 연결은 거른 노트 id로만 쓰여 휴지통 노트의 연결은 건수에 영향이 없다. `raw_text`·`attachments`·`created_at`·`updated_at`·`metadata` 나머지 키는 읽지 않고, 메모 ID별 본문 읽기(5건씩)도 없어졌다. `app_record_links`는 `id,workspace_id,note_id,status`. 목록 읽기와 마지막 재확인 두 번만 하며, 그 사이 메모·연결이 바뀌면 `DB_READ_FAILED`로 실패한다.
 - 상한: 메모 건수 상한(100건)은 없어졌다. 프로젝트 문서 전체 HTML UTF-8 1 MiB 상한은 그대로다. 초과하면 사본 상단에 **대상 축소 필요**를 표시하고 `BASKET_OUTPUT_LIMIT` 실패·`last_failure_at/summary`를 기록하며 `last_success_at`은 유지한다. `BASKET_ATTACHMENT_INVALID`는 첨부를 더 읽지 않으므로 나오지 않는다.
 - 담당조직 선택 규칙(`selectBasketOrganizations`)은 조직 사본이 그대로 쓴다. 프로젝트 분류(`project-catalog-model.mjs`)도 프로젝트 현황 절이 쓴다.
 - 갱신 호출은 payload 없이 유지한다. 인증·Drive 폴더·공유 검사는 바뀌지 않았다.
@@ -91,7 +91,7 @@
 - 본문: 정확히 `{source:'telegram'|'transcript', last_at:ISO 시각, count?:0~100000 정수}`, 1 KiB 이하. 다른 키(파일 이름·ID·내용 등)가 있으면 400 `INVALID_BODY`. 시각은 2020년 이후·서버 시각보다 10분 넘게 미래면 거절.
 - 하는 일은 하나: 기존 "Web2 읽기용 사본" 폴더(공유 검사 통과)의 `appProperties`에 그 출처 키 3개(`collector_<source>_at`·`_count`·`_reported_at`)만 PATCH한다(Drive는 appProperties를 키별로 합친다 → 사본 상태 키는 건드리지 않음). 폴더가 없으면 만들지 않고 409 `COPY_FOLDER_MISSING`. DB 쓰기·문서 재생성·Web2 기록 읽기 없음(DB는 기존과 같은 Drive 연결 설정 읽기만). **새 표·migration 없음.**
 - 상태 읽기 `GET ?action=status` 응답에 `collectors:{telegram, transcript}`(각 `{last_at, count, reported_at}` 또는 `null`)를 더했다. 저장값도 같은 형식 검사를 통과한 것만 낸다.
-- 화면 기준: 텔레그램 26시간(업무방 매일 07:30 1회 수집)·통화 전사 72시간(통화 없는 날·주말) 넘으면 주의, 신호(`reported_at`)가 3시간 넘게 없으면 "점검 신호 끊김"(`app/collection-status.js`).
+- 화면 기준: 텔레그램 26시간(업무방 매일 07:30 1회 수집)·통화 전사 72시간(통화 없는 날·주말) 넘으면 '조용함'(경고 아님, 2026-10-22 사용자 결정), 신호(`reported_at`)가 3시간 넘게 없으면 "점검 신호 끊김"(`app/collection-status.js`).
 - 앱 스크립트 코드·설정 안내: `docs/ops/collector-heartbeat.gs`, `docs/ops/collector-heartbeat.md`.
 - (S7-d에서 해소) 사본 재생성의 `recordStatus`가 읽어 둔 폴더 속성 전체를 다시 보내던 것을, 자기 키(`last_success_at` 또는 `last_failure_*`)만 보내도록 고쳤다. 재생성 도중 들어온 신호·원장 내보내기 시각이 옛 값으로 덮이지 않는다. 남은 위험: 비밀값이 새면 가짜 시각을 쓸 수 있을 뿐(읽기·내용·다른 키 쓰기 불가) — 비밀값 교체로 막는다.
 

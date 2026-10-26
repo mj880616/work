@@ -82,13 +82,12 @@ export function columnsHtml(columns,{selectedKey,selectedId,colorOf,whenOf,resul
     const roundText=roundLabel(m),when=whenOf(m),on=m===current;
     return `<li><button type="button" class="mcol-card" data-meeting-round="${esc(m.id)}" aria-controls="mcolResult" aria-label="${esc([label,roundText,when].filter(Boolean).join(' · '))}"${on?' aria-current="true"':''}><b class="mcol-round" title="${esc(roundText)}">${esc(roundText)}</b><span class="mcol-meta"><span class="mcol-when" title="${esc(when)}">${esc(when)}</span></span></button></li>`;
   }).join('');
-  return `<div class="mcol-layout">`
-    +`<div class="mcol-lists">`
+  return `<div class="mcol-layout mcol-three">`
     +`<nav class="mcol-kinds" aria-label="회의 종류"><ul>${kinds}</ul></nav>`
     +`<section id="mcolRounds" class="mcol-rounds" data-meeting-column="${esc(selected.key)}" style="--meeting-color:${esc(colorOf(selected.name))}" aria-labelledby="mcolRoundsHead">`
     +`<h3 class="mcol-head" id="mcolRoundsHead"><span class="mcol-dot" aria-hidden="true"></span><span class="mcol-name" title="${esc(label)}">${esc(label)}</span><span class="mcol-count" aria-label="${selected.meetings.length}건">${selected.meetings.length}</span></h3>`
     +`<ol class="mcol-cards">${rows}</ol>`
-    +`</section></div>`
+    +`</section>`
     +`<section id="mcolResult" class="mcol-result" style="--meeting-color:${esc(colorOf(selected.name))}" aria-label="사업 보고 결과"${current?` data-meeting-result="${esc(current.id)}"`:''}>${current?resultHtml(current,{kindName:label}):''}</section>`
     +`</div>`;
 }

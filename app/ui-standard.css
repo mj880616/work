@@ -335,6 +335,8 @@
 
 /* 일정+할 일: [일정] 탭 위쪽의 [달력 | 할 일] 전환은 폰에서만 보인다. */
 #appView .schedule-switch{ display:none; }
+/* 정리함 [업데이트 | 챙길 것] 전환도 같다(BASKET-PC메뉴): PC(761px~)는 왼쪽 메뉴 [정리함] 아래 하위 줄이 맡으므로 화면 위에는 그리지 않는다. */
+@media(min-width:761px){ #appView #basketView > .basket-head > .inbox-pane-switch:not([hidden]){ display:none; } }
 /* 담당조직 추가 링크는 폰에서만(PC는 위쪽 [+ 담당조직] 그대로). */
 #appView #teamView .so-add-link{ display:none; }
 
@@ -421,12 +423,12 @@
 @media(max-width:760px) and (prefers-reduced-motion:reduce){ #appView #basketView [data-classification-panel]:not([hidden]){ animation:none; } }
 
 /* ───────── 3단계 3부(8-9e-3): 남은 화면·공용 셸·공용 창 ─────────
-   1·2부와 같은 값·같은 모양. HWP 편집(#hwpView, 칸막이 iframe 안은 그대로)·성명·보도자료(#mediaView, 모양만 최소로)·게시판(#pagesView),
+   1·2부와 같은 값·같은 모양. HWP 편집(#hwpView, 칸막이 iframe 안은 그대로)·게시판(#pagesView),
    공용 셸(폰 머리줄·하단 탭·PC 사이드바·☰ 메뉴 판·계정 메뉴), 화면 색 창, 공용 창(.modal)·고르기 시트. 구조·순서·동작은 그대로.
    view-loader.js가 모든 화면의 스타일 목록 끝에 이 파일을 불러오므로 셸·창 규칙은 어느 화면에서 시작해도 적용된다. */
 
 /* 버튼: 높이 하나·모서리 8px·13px/500·흰 바탕 + 0.5px 테두리(기본). ×·⋯ 아이콘·목록 행·색 고르기·글자 링크는 버튼 모양이 아니므로 뺀다. */
-#appView :is(#hwpView,#mediaView,#pagesView) :is(button.primary,button.secondary,button.mini,.w1p-filter):not(.icon-btn):where(:not([hidden])),
+#appView :is(#hwpView,#pagesView) :is(button.primary,button.secondary,button.mini):not(.icon-btn):where(:not([hidden])),
 #appView #calendarView .calendar-google-panel button#googleConnectBtn,
 .modal :is(button.primary,button.secondary,button.ghost,button.mini,a.mini,button.danger,button.wd-danger,button.ci-delete):not(.icon-btn,.ps3-more-panel *,.lu-more-panel *,.tl-menu-items *):where(:not([hidden])),
 .modal .event-create-modes button{
@@ -440,41 +442,40 @@
 #appView #hwpView button.primary:not(.icon-btn):where(:not([hidden])),
 .modal button.primary:not(.icon-btn,.ps3-danger-btn,.ps3-more-panel *,.lu-more-panel *,.tl-menu-items *):where(:not([hidden])){ color:var(--kptu-on-primary); background:var(--kptu-primary); border-color:var(--kptu-primary); }
 /* UI-버튼전수조사(2026-10-24): 위 기본은 작은 버튼 32px(누르는 범위 44px은 base-ui.css ::after). 채운 버튼(창 주 동작·삭제 확인)은 36px. */
-#appView :is(#hwpView,#mediaView,#pagesView) button.primary:not(.icon-btn):where(:not([hidden])),
+#appView :is(#hwpView,#pagesView) button.primary:not(.icon-btn):where(:not([hidden])),
 .modal button.primary:not(.icon-btn,.ps3-more-panel *,.lu-more-panel *,.tl-menu-items *):where(:not([hidden])){ min-height:var(--kptu-control-height); }
 #appView #hwpView button.primary:not(.icon-btn):disabled{ opacity:.55; }
 /* ② 고른 필터·고른 종류(일정 창 [일정]·[할 일])는 회색(종류 색 '그 밖', UI-선택표시통일). */
-#appView #mediaView button.w1p-filter.active,.modal .event-create-modes [data-event-mode][aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
+.modal .event-create-modes [data-event-mode][aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
 .modal .event-create-modes{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; max-width:240px; padding:0; background:transparent; border:0; border-radius:0; }
 /* ④ 삭제: 빨간 테두리. */
 .modal button:is(.danger,.wd-danger,.tl-danger,.ps3-danger,.ps3-danger-btn,.ps3-record-danger,.mrd-delete,.ps-danger,.ci-delete):not(.ps3-more-panel *,.tl-menu-items *):where(:not([hidden])){ color:var(--kptu-danger); background:var(--kptu-surface); border-color:var(--kptu-danger); }
 
 /* 굵기 두 가지(400·500): 남은 화면과 창의 제목·이름·라벨. */
-#appView :is(#hwpView,#mediaView,#pagesView) :is(h2,h3,h4,b,strong,summary,.w1p-tag),
+#appView :is(#hwpView,#pagesView) :is(h2,h3,h4,b,strong,summary),
 .modal :is(h2,h3,h4,legend,label,summary,.modal-head b):not(.md-body *),
 .home-choice-sheet :is(h2,button[aria-pressed="true"]){ font-weight:var(--ds-weight-medium); }
 
 /* 화면 제목 18px(HWP 편집 상자 제목), 창 제목 18px. 창 제목 크기는 공용 대화상자 규칙(D-6b, workspace-ui.css)이 --kptu-text-title로 정하므로 창 안에서만 그 값을 바꾼다. */
 .modal{ --kptu-text-title:var(--ds-text-title); }
-#appView #hwpView .hwp-lab-head h2,.modal :is(.modal-head h2,.w1b-detail-head h2,.w1p-detail-head h2),.home-choice-sheet h2,.theme-panel h2{ font-size:var(--ds-text-title); line-height:1.4; }
+#appView #hwpView .hwp-lab-head h2,.modal :is(.modal-head h2,.w1b-detail-head h2),.home-choice-sheet h2,.theme-panel h2{ font-size:var(--ds-text-title); line-height:1.4; }
 
 /* 입력: 높이 하나·0.5px 선·모서리 8px. 여러 줄 칸은 높이만 그대로. */
-#appView #mediaView #pressSearch,
+
 .modal :is(input:not([type="checkbox"],[type="radio"],[type="file"],[type="color"],[type="range"],[type="hidden"]),select){
   box-sizing:border-box; min-height:var(--ds-control-height); border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); box-shadow:none;
 }
-#appView #mediaView #pressSearch{ height:var(--ds-control-height); font-size:var(--ds-text-button); }
 .modal :is(input,select,textarea){ font-weight:var(--ds-weight-regular); }
 .modal textarea{ border-width:var(--ds-line-width); border-color:var(--ds-line); border-radius:var(--ds-radius-control); box-shadow:none; }
 
 /* 상자: 0.5px 선·모서리 12px·그림자 없음. */
-#appView #hwpView .hwp-lab,#appView #mediaView .w1p-table,#appView #pagesView .w1b-grid:has(.w1b-card),
+#appView #hwpView .hwp-lab,#appView #pagesView .w1b-grid:has(.w1b-card),
 .modal .modal-card,.modal fieldset.meeting-entry-section,.theme-panel .theme-choices,.account-panel{
   border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-box); box-shadow:none; background-image:none;
 }
 /* 구분선 0.5px. */
-.modal :is(.modal-action-footer,.w1b-detail-head,.w1p-detail-head){ border-color:var(--ds-line); border-top-width:var(--ds-line-width); }
-.modal :is(.w1b-detail-head,.w1p-detail-head){ border-top-width:0; border-bottom-width:var(--ds-line-width); }
+.modal :is(.modal-action-footer,.w1b-detail-head){ border-color:var(--ds-line); border-top-width:var(--ds-line-width); }
+.modal :is(.w1b-detail-head){ border-top-width:0; border-bottom-width:var(--ds-line-width); }
 .modal hr,.mobile-menu-panel hr{ border:0; border-top:var(--ds-line-width) solid var(--ds-line); }
 
 /* HWP 편집: 안내 12px 흐린 색, 편집기 칸막이 바깥 틀은 0.5px 선·모서리 8px, 바탕은 밝게(칸막이 안은 그대로). */
@@ -483,19 +484,6 @@
 #appView #hwpView .hwp-lab-editor{ border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--ds-frame-paper); }
 #appView #calendarView .calendar-google-panel .updated{ font-weight:var(--ds-weight-regular); }
 #appView #hwpView .hwp-drive-bar a{ font-size:var(--ds-text-button); color:var(--kptu-link); }
-
-/* 성명·보도자료(모양만 최소로): 필터는 홈 빠른 입력 탭과 같은 버튼, 연도는 섹션 이름, 목록은 0.5px 상자 안 줄(44px)·이름 13px·400. */
-#appView #mediaView .w1p-filters{ gap:6px; }
-#appView #mediaView .w1p-year > h3{ font-size:var(--ds-text-section); line-height:1.5; color:var(--ds-section-ink); }
-#appView #mediaView .w1p-table{ overflow:hidden; background:var(--kptu-surface); }
-#appView #mediaView .w1p-head{ font-size:var(--ds-text-meta); font-weight:var(--ds-weight-regular); background:transparent; border-bottom:var(--ds-line-width) solid var(--ds-line); }
-#appView #mediaView .w1p-item{ box-sizing:border-box; min-height:var(--kptu-touch-target,44px); padding-top:var(--ds-row-pad-y); padding-bottom:var(--ds-row-pad-y); border-bottom:var(--ds-line-width) solid var(--ds-line); }
-#appView #mediaView .w1p-item:last-child{ border-bottom:0; }
-#appView #mediaView .w1p-title{ font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); line-height:1.4; }
-#appView #mediaView :is(.w1p-date,.w1p-publisher){ font-size:var(--ds-text-meta); color:var(--kptu-muted); }
-#appView #mediaView .w1p-tag{ min-height:20px; padding:2px 7px; border:0; border-radius:var(--ds-radius-control); font-size:11px; color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
-#appView #mediaView .w1p-tag.statement{ color:var(--ds-file-pdf-ink); background:var(--ds-file-pdf-soft); }
-#appView #mediaView .w1p-tag.release{ color:var(--ds-file-xls-ink); background:var(--ds-file-xls-soft); }
 
 /* 게시판: 카드 묶음 대신 0.5px 상자 안 줄(44px), 이름 13px·400, 오른쪽 ›. 지나간 업무는 접기(<details>) 그대로, 이름은 섹션 이름. */
 #appView #pagesView .w1b-grid:has(.w1b-card){ display:block; overflow:hidden; background:var(--kptu-surface); }
@@ -507,7 +495,7 @@
 #appView #pagesView .w1b-card::after{ content:"›" / ""; flex:0 0 auto; color:var(--kptu-muted); font-size:16px; line-height:1; }
 #appView #pagesView .w1b-archive > summary{ font-size:var(--ds-text-section); color:var(--ds-section-ink); min-height:var(--kptu-touch-target,44px); display:flex; align-items:center; margin-bottom:0; }
 /* 성명·게시판 본문 칸막이는 사용자가 붙여 넣은 HTML: 다크 모드에서도 밝게. */
-.modal :is(.w1b-detail-frame,.w1p-detail-frame){ color-scheme:light; background:var(--ds-frame-paper); }
+.modal :is(.w1b-detail-frame){ color-scheme:light; background:var(--ds-frame-paper); }
 
 /* 공용 창: 닫기 ×는 테두리 없는 아이콘(크기·누르는 범위는 그대로). */
 .modal .modal-head .icon-btn{ border-color:transparent; background:transparent; color:var(--kptu-muted); }
@@ -556,6 +544,8 @@
   #appView > .app-nav .nav-sub-btn:hover{ background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
   #appView > .app-nav .nav-sub-btn.active{ color:var(--kptu-primary-ink); font-weight:var(--ds-weight-medium); }
   #appView > .app-nav .nav-sub-btn:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
+  /* BASKET-PC메뉴: [정리함] 하위 줄은 오른쪽 끝에 건수를 작게 둔다(건수는 정리함 화면 그림 한 곳이 채움). */
+  #appView > .app-nav .nav-sub-btn[data-basket-pane-nav]{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
   /* [계정 ▾]도 메뉴와 같은 글자(13px·400). */
   #appView > .app-nav .account-trigger{ font-size:var(--ds-text-row); font-weight:var(--ds-weight-regular); }
 }
@@ -578,8 +568,6 @@
 .modal fieldset.meeting-entry-section > legend{ float:left; width:100%; box-sizing:border-box; margin:0 0 12px; padding:12px 0 8px; border-bottom:var(--ds-line-width) solid var(--ds-line); }
 .modal fieldset.meeting-entry-section > legend + *{ clear:both; }
 .modal fieldset.meeting-entry-section > :last-child{ margin-bottom:0; }
-#appView #mediaView .w1p-item{ padding-left:var(--ds-row-pad-x); padding-right:var(--ds-row-pad-x); }
-#appView #mediaView .w1p-head{ padding-left:var(--ds-row-pad-x); padding-right:var(--ds-row-pad-x); }
 
 /* 2 일정 하루 보기 창의 할 일: 바탕·테두리 없는 줄(체크 동그라미 + 이름 13px·400, 날짜·연결은 보조 줄), 줄 사이 0.5px 선.
    기한 지난 할 일만 오른쪽에 작은 빨간 "지남"(테두리는 그대로). */
@@ -739,16 +727,14 @@
 #appView #calendarView .calendar-toolbar .calendar-view-switch button{ padding:0; color:var(--kptu-muted); background:transparent; }
 #appView #calendarView .calendar-toolbar .calendar-view-switch button[hidden]{ display:none; }
 
-/* ② 필터·날짜 고르기(알약 칩): 바구니 [미분류·분류·보류]와 [분류] 아래 분류된 곳 칩, 자료실 프로젝트·자료 분류, 회의 종류, 성명·보도자료 종류, 할 일 [프로젝트 ▾]·[오늘]·[내일]·[날짜]. */
+/* ② 필터·날짜 고르기(알약 칩): 바구니 [미분류·분류·보류]와 [분류] 아래 분류된 곳 칩, 자료실 프로젝트·자료 분류, 회의 종류, 할 일 [프로젝트 ▾]·[오늘]·[내일]·[날짜]. */
 #appView #basketView .basket-switch-row .basket-filters:not([hidden]),
-#appView #homeView .home-quick [data-quick-task-options]:not([hidden]),
-#appView #mediaView .w1p-filters:not([hidden]){ display:flex; flex-wrap:wrap; align-items:center; gap:12px 6px; width:auto; max-width:100%; margin:0; padding:0; background:transparent; border:0; border-radius:0; }
+#appView #homeView .home-quick [data-quick-task-options]:not([hidden]){ display:flex; flex-wrap:wrap; align-items:center; gap:12px 6px; width:auto; max-width:100%; margin:0; padding:0; background:transparent; border:0; border-radius:0; }
 #appView :is(#libraryView,#meetingsView,#basketView) .filter-chips:not([hidden]){ display:flex; flex-wrap:nowrap; align-items:center; gap:6px; min-height:var(--kptu-touch-target,44px); padding:calc((var(--kptu-touch-target,44px) - var(--ds-compact-height)) / 2) 2px; }
 #appView #basketView .basket-switch-row .basket-filters button,
 #appView #homeView .home-quick [data-quick-task-options] button,
 #appView #basketView button:is([data-manual-task-day],[data-manual-task-project]),
-#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button:not(.icon-btn),
-#appView #mediaView .w1p-filters button.w1p-filter:not(.icon-btn){
+#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button:not(.icon-btn){
   position:relative; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; gap:6px; flex:0 0 auto; width:auto; min-width:0;
   height:var(--ds-compact-height); min-height:var(--ds-compact-height); max-width:100%; margin:0; padding:0 var(--ds-compact-pad-x);
   font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); line-height:1; white-space:nowrap;
@@ -757,31 +743,28 @@
 #appView #basketView .basket-switch-row .basket-filters button::after,
 #appView #homeView .home-quick [data-quick-task-options] button::after,
 #appView #basketView button:is([data-manual-task-day],[data-manual-task-project])::after,
-#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button::after,
-#appView #mediaView .w1p-filters button.w1p-filter::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
+#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); width:auto; min-width:0; bottom:auto; }
 #appView #basketView .basket-switch-row .basket-filters button[aria-pressed="true"],
 #appView #homeView .home-quick [data-quick-task-options] button[aria-pressed="true"],
 #appView #basketView button[data-manual-task-day][aria-pressed="true"],
-#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button[aria-checked="true"],
-#appView #mediaView .w1p-filters button.w1p-filter.active{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
+#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button[aria-checked="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
 #appView #homeView .home-quick [data-quick-task-options] button{ max-width:150px; overflow:hidden; text-overflow:ellipsis; }
-@media(max-width:650px){ #appView #mediaView .w1p-filters:not([hidden]){ flex-wrap:nowrap; overflow-x:auto; padding:calc((var(--kptu-touch-target,44px) - var(--ds-compact-height)) / 2) 2px; scrollbar-width:none; } }
 
 /* 눌림 색: 누르는 순간 기기 기본 탭 하이라이트(폰에서 민트·파란 빛)가 보이지 않게 끄고, 누르는 동안은 고른 쪽과 같은 회색.
    마우스가 올라가면 아주 옅은 바탕(--kptu-surface-subtle)만. 키보드 포커스 테두리는 그대로. */
 :is(#appView #homeView .home-quick .home-quick-modes button,#appView #basketView .inbox-pane-switch button,#appView .schedule-switch button,
   #appView #calendarView .calendar-toolbar .calendar-view-switch button,.modal .event-create-modes button,.modal .meeting-create-modes button,
   #appView #basketView .basket-switch-row .basket-filters button,#appView #homeView .home-quick [data-quick-task-options] button,
-  #appView #basketView button:is([data-manual-task-day],[data-manual-task-project]),#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button,#appView #mediaView .w1p-filters button.w1p-filter){ -webkit-tap-highlight-color:transparent; }
+  #appView #basketView button:is([data-manual-task-day],[data-manual-task-project]),#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button){ -webkit-tap-highlight-color:transparent; }
 :is(#appView #homeView .home-quick .home-quick-modes button,#appView #basketView .inbox-pane-switch button,#appView .schedule-switch button,
   #appView #calendarView .calendar-toolbar .calendar-view-switch button,.modal .event-create-modes button,.modal .meeting-create-modes button,
   #appView #basketView .basket-switch-row .basket-filters button,#appView #homeView .home-quick [data-quick-task-options] button,
-  #appView #basketView button:is([data-manual-task-day],[data-manual-task-project]),#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button,#appView #mediaView .w1p-filters button.w1p-filter):active:not([aria-pressed="true"],[aria-checked="true"],.active){ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
+  #appView #basketView button:is([data-manual-task-day],[data-manual-task-project]),#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button):active:not([aria-pressed="true"],[aria-checked="true"],.active){ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); }
 @media(hover:hover){
   :is(#appView #homeView .home-quick .home-quick-modes button,#appView #basketView .inbox-pane-switch button,#appView .schedule-switch button,
   #appView #calendarView .calendar-toolbar .calendar-view-switch button,.modal .event-create-modes button,.modal .meeting-create-modes button,
   #appView #basketView .basket-switch-row .basket-filters button,#appView #homeView .home-quick [data-quick-task-options] button,
-  #appView #basketView button:is([data-manual-task-day],[data-manual-task-project]),#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button,#appView #mediaView .w1p-filters button.w1p-filter):hover:not(:active,[aria-pressed="true"],[aria-checked="true"],.active){ background:var(--kptu-surface-subtle); }
+  #appView #basketView button:is([data-manual-task-day],[data-manual-task-project]),#appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button):hover:not(:active,[aria-pressed="true"],[aria-checked="true"],.active){ background:var(--kptu-surface-subtle); }
 }
 /* 전환 칸 사이 선은 마우스를 올려도 그대로(공용 버튼 :hover의 테두리 색이 선만 진하게 바꾸지 않게). */
 :is(#appView #homeView .home-quick .home-quick-modes,#appView #basketView .inbox-pane-switch,.modal .event-create-modes,.modal .meeting-create-modes,#appView .schedule-switch) > :is(button,div):hover{ border-color:var(--ds-line); }
@@ -1197,8 +1180,6 @@ html :is(
   #appView .schedule-switch button[aria-pressed="true"],
   #appView :is(#libraryView,#meetingsView,#basketView) .filter-chips button[aria-checked="true"],
   #appView #libraryView #libraryCategoryFilter button[aria-pressed="true"],
-  #appView #mediaView .w1p-filters button.w1p-filter.active,
-  #appView #mediaView button.w1p-filter.active,
   #appView #diaryView .diary-source [aria-pressed="true"],
   #appView #journalView .journal-mode-switch button[aria-pressed="true"],
   #appView #pagesView .sp-seg button[aria-pressed="true"],
@@ -1210,6 +1191,11 @@ html :is(
 html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):is(.active,[aria-current]):not(:has(+ .nav-sub)){ color:var(--ds-select-ink); background:var(--ds-select-bg); font-weight:var(--ds-weight-medium); }
 html #appView > .app-nav .nav-btn:has(+ .nav-sub):is(.active,[aria-current]){ color:var(--kptu-primary-ink); background:transparent; font-weight:var(--ds-weight-medium); }
 html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[aria-current]){ font-weight:var(--ds-weight-regular); }
+/* BASKET-PC메뉴: [정리함]은 [일정]처럼 아래 하위 줄([업데이트]·[챙길 것])의 머리다. 하위 줄이 현재 화면이고, 머리는 정리함 쪽 어디서든 묶음 표시(진한 글자)만 가진다. */
+#appView > .app-nav .nav-sub-count{ flex:none; margin-left:4px; color:var(--kptu-muted); font-size:var(--ds-text-meta,12px); font-variant-numeric:tabular-nums; }
+#appView > .app-nav .nav-sub-count:empty{ display:none; }
+#appView > .app-nav .active > .nav-sub-count{ color:inherit; }
+html #appView > .app-nav .nav-btn[data-nav-open]:has(+ .nav-sub){ color:var(--kptu-primary-ink); font-weight:var(--ds-weight-medium); }
 @media(hover:hover){
   html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):not(.active,[aria-current]):hover{ background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
   html #appView > .app-nav :is(.nav-btn,.nav-sub-btn,.sidebar-brand):is(.active,[aria-current]):not(:has(+ .nav-sub)):hover{ background:var(--ds-select-bg); color:var(--ds-select-ink); }

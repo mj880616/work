@@ -103,6 +103,19 @@ test('창이 열린 채 폭을 바꾸면 넓은 배치와 위아래 배치가 �
  expect(await sheet.getByRole('searchbox').evaluate(el=>!!el.closest('header'))).toBe(true);
 });
 
+// 목록을 읽는 동안 프로젝트 목록 갱신(kptu:project-catalog-updated: 처음 읽기·다른 화면의 바뀜)이 끼어들어도 창은 빈 채로 열리지 않고,
+// 새로 읽은 조직·프로젝트로 열린다(예전에는 읽기가 조용히 버려져 조직이 하나도 없는 창이 열렸다).
+for(const width of [390,1280])test(`읽는 도중 목록이 갱신돼도 기록할 곳 창에 조직이 채워짐 ${width}`,async({page})=>{
+ const q=await setup(page,{width,height:width<761?844:800,projects:2});
+ let release;const gate=new Promise(resolve=>{release=resolve;});
+ await page.route(SB+'/rest/v1/app_suborganizations?**',async r=>{await gate;await r.fulfill({json:NAMES.map((name,i)=>({id:'o'+i,name,active:true}))});});
+ await q.locator('[data-quick-org]').click();
+ await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:project-catalog-updated')));
+ release();
+ await expect(dialog(page).locator('[data-sheet-all]').getByRole('button',{name:'공항철도지부',exact:true})).toBeVisible();
+ await expect(dialog(page).locator('[data-sheet-all] [data-sheet-value]')).toHaveCount(NAMES.length);
+});
+
 for(const width of [390,1280])test(`조직에 추가하면 다음 입력은 정리함으로, 방금 쓴 곳은 최근 맨 앞 ${width}`,async({page})=>{
  const q=await setup(page,{width,height:width<761?844:800,projects:2});const orgBodies=[],projectBodies=[],notes=[];
  await page.route(SB+'/rest/v1/app_suborganization_updates',r=>{orgBodies.push(r.request().postDataJSON());return r.fulfill({json:[]});});

@@ -48,6 +48,9 @@ function harness(options = {}) {
       }));
       if (table === 'app_workspace_members' && url.searchParams.has('user_id') && url.searchParams.get('user_id') !== 'eq.owner') rows = [];
       if (options.failTable === table) return reply({message:'PRIVATE_READ_FAILURE'},503);
+      // TRASH-다른삭제 5단계: noTrashColumn = DB 적용 전(app_notes에 deleted_at 칸이 없음). otherColumnError = 그 밖의 400 거절.
+      if (table === 'app_notes' && url.searchParams.has('deleted_at') && options.noTrashColumn) return Response.json({code:'42703',details:null,hint:null,message:'column app_notes.deleted_at does not exist'},{status:400});
+      if (table === 'app_notes' && url.searchParams.has('deleted_at') && options.otherColumnError) return Response.json({code:'42501',message:'permission denied'},{status:400});
       if (options.failAssignmentPage && table === 'app_suborganization_assignees' && Number(url.searchParams.get('offset')) > 0) return reply({},503);
       for (const [key, value] of url.searchParams) {
         const field = r => key.split('.').reduce((v, part) => v?.[part], r);
@@ -776,4 +779,33 @@ test('휴지통의 담당조직·사업 보고와 그 조직의 기록·담당 �
   assert.equal(q('app_meetings').get('deleted_at'), 'is.null');
   assert.equal(q('app_suborganization_updates').get('organization.deleted_at'), 'is.null');
   assert.equal(q('app_suborganization_assignees').get('organization.deleted_at'), 'is.null');
+});
+
+// ---- TRASH-다른삭제 5단계: 서버 키로 읽는 바구니 줄에서 휴지통 노트(deleted_at)를 뺀다 ----
+test('basket count line leaves out trashed notes and sends deleted_at=is.null on every note read', async () => {
+  const window=core.kstWindow(now);
+  const h=harness({existing:true,data:{app_notes:[note('live',{occurred_at:window.start}),note('trashed',{occurred_at:window.start,deleted_at:'2026-10-26T00:00:00Z'})],
+    // 휴지통 노트의 연결은 결과에 영향이 없다(연결은 거른 노트 id로만 쓰인다).
+    app_record_links:[...fixture.app_record_links,{id:'tl',note_id:'trashed',status:'confirmed'}]}});
+  assert.equal((await h.request({Authorization:'Bearer valid-owner'})).status,200);
+  assert.match(h.uploads[1].body,/바구니 미분류 메모 1건/);
+  const reads=h.calls.filter(c=>c.url.pathname.endsWith('/app_notes'));
+  assert.ok(reads.length>=2,'머리 읽기와 다시 확인 두 번 이상');
+  for(const c of reads){assert.equal(c.url.searchParams.get('deleted_at'),'is.null');assert.equal(c.url.searchParams.get('select'),'id,workspace_id,occurred_at,archived_at,ai_export_allowed,journal_at:metadata->journal_at');}
+});
+test('before the database has deleted_at the read drops the filter once, starts over, and still counts', async () => {
+  const window=core.kstWindow(now);
+  const h=harness({existing:true,noTrashColumn:true,data:{app_notes:[note('one',{occurred_at:window.start}),note('two',{occurred_at:window.start})]}});
+  assert.equal((await h.request({Authorization:'Bearer valid-owner'})).status,200);
+  assert.match(h.uploads[1].body,/바구니 미분류 메모 2건/);
+  const reads=h.calls.filter(c=>c.url.pathname.endsWith('/app_notes'));
+  assert.equal(reads.filter(c=>c.url.searchParams.has('deleted_at')).length,1,'거절은 한 번만 받는다');
+  assert.ok(reads.slice(1).every(c=>!c.url.searchParams.has('deleted_at')),'그 뒤 읽기는 거르기 없이');
+});
+test('only the missing-column refusal (42703) turns the filter off; any other refusal still fails the read', async () => {
+  const h=harness({existing:true,otherColumnError:true,data:{app_notes:[note('one')]}});
+  const response=await h.request({Authorization:'Bearer valid-owner'});
+  assert.notEqual(response.status,200);
+  assert.equal(h.uploads.length,0,'읽기 실패면 사본을 올리지 않는다');
+  assert.ok(h.calls.filter(c=>c.url.pathname.endsWith('/app_notes')).every(c=>c.url.searchParams.has('deleted_at')),'다른 오류에서는 거르기를 끄지 않는다');
 });

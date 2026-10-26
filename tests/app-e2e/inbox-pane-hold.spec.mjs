@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
-import {basketKindButton,openKindMenu,chooseBasketKind} from './helpers/basket-kind.mjs';
+import {basketKindButton,openKindMenu,chooseBasketKind,basketPaneButton} from './helpers/basket-kind.mjs';
 
 // BASKET-정리함이름 / UPD-보류이름통일: the 정리함's top-right switch [업데이트 n][챙길 것 n] (counts = unprocessed only), the 챙길 것 chips and
 // row buttons, [노트] as an independent menu item, and [보류로] / [보류 해제] in the list menu. Supabase REST is the only synthetic part.
@@ -40,7 +40,8 @@ async function enter(page){
  await expect(page.locator('#basketView')).toBeVisible();
  await expect(page.locator('[data-basket-list-status]')).toHaveText(/개 업데이트/);
 }
-const paneBtn=(page,pane)=>page.locator(`#basketView [data-inbox-pane="${pane}"]`);
+// BASKET-PC메뉴: PC (≥761px) draws the two sides as the sidebar's sub items under [정리함]; the phone keeps the switch above the tabs.
+const paneBtn=(page,pane)=>basketPaneButton(page,pane);
 
 for(const width of [390,1280])test(`pane switch counts only unprocessed, chips and row buttons of 챙길 것 ${width}`,async({page})=>{
  const f=await fixture(page,width);await enter(page);
@@ -110,5 +111,26 @@ for(const width of [390,1280])test(`list menu [보류로] / [보류 해제] move
  await expect(menu.getByRole('button',{name:'보류 해제',exact:true})).toBeVisible();
  await menu.getByRole('button',{name:'보류 해제',exact:true}).click();
  await expect(page.locator('#basketView [data-basket-filter="unclassified"]')).toContainText('2');
+ expect(f.errors).toEqual([]);
+});
+
+// BASKET-PC메뉴: the side shown is written to the address like a 일정 sub screen (?view=basket&pane=todo, none for 업데이트); back returns to the
+// previous side, and the address opens its side again after a reload. PC clicks the sidebar sub item, the phone its switch above the tabs.
+for(const width of [390,1280])test(`the side is in the address, back returns to the previous side, reload keeps it ${width}`,async({page})=>{
+ const f=await fixture(page,width);await enter(page);
+ await expect(page).toHaveURL(/[?&]view=basket(?:&|$)/);await expect(page).not.toHaveURL(/[?&]pane=/);
+ await paneBtn(page,'todo').click();
+ await expect(page.locator('#basketView')).toHaveAttribute('data-pane','todo');
+ await expect(page).toHaveURL(/[?&]view=basket(?:&|$)/);await expect(page).toHaveURL(/[?&]pane=todo(?:&|$)/);
+ await paneBtn(page,'update').click();
+ await expect(page.locator('#basketView')).toHaveAttribute('data-pane','update');await expect(page).not.toHaveURL(/[?&]pane=/);
+ await page.goBack();
+ await expect(page.locator('#basketView')).toHaveAttribute('data-pane','todo');await expect(page).toHaveURL(/[?&]pane=todo(?:&|$)/);
+ await expect(page.locator('#basketView [data-inbox-chip="open"]')).toBeVisible();
+ await page.reload();await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
+ await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('#basketView')).toHaveAttribute('data-pane','todo');
+ await expect(page.locator('#basketView [data-inbox-todo-row]')).toHaveCount(2);
+ await page.goBack();
+ await expect(page.locator('#basketView')).toHaveAttribute('data-pane','update');await expect(page).not.toHaveURL(/[?&]pane=/);
  expect(f.errors).toEqual([]);
 });

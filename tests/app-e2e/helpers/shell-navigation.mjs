@@ -28,8 +28,5 @@ export async function clickView(page,view){
   }
   await accountButton(page).click();
   const drawerButton=page.locator(`#mobileMenu [data-view="${view}"]:visible`);
-  if(view==='media'&&!await drawerButton.count()){
-    await page.locator('#mobileMenu [data-mobile-press="statement"]').click();
-    await page.locator('#mediaView [data-press-type="all"]').click();
-  }else await drawerButton.click();
+  await drawerButton.click();
 }

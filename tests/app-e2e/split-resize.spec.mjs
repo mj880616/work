@@ -17,13 +17,17 @@ const SCREENS={
 // 서버를 흉내 낸 상태(open()이 시험마다 새로 만든다). 쓰기는 0.4초 모아 가므로 바뀐 뒤의 값은 expect.poll로 본다.
 let prefs;
 const stored=(page,name)=>prefs.value?.split_ratio?.[name]??null;
+// STAB-분할시험(2026-10-26): 칸 자리는 화면 안에서 한 번에 읽는다. locator.boundingBox()는 "요소 찾기 → 자리 묻기" 두 걸음이라, 그 사이에
+// 화면이 목록을 다시 그리면(할 일: 새로고침 뒤 연결 표시가 늦게 도착, 프로젝트: 첫 항목을 열며 목록 교체) 방금 찾은 요소가 사라져 null이 된다.
+// 화면의 다시 그리기는 한 번에 끝나므로(innerHTML·replaceWith) 한 번에 읽으면 그 순간의 요소를 항상 잰다.
+const box=(page,selector)=>page.evaluate(sel=>{const e=document.querySelector(sel);if(!e)throw new Error('요소 없음: '+sel);const b=e.getBoundingClientRect();return {x:b.x,y:b.y,width:b.width,height:b.height}},selector);
 async function measure(page,s){
- const l=await page.locator(s.list).boundingBox(),p=await page.locator(s.pane).boundingBox();
+ const l=await box(page,s.list),p=await box(page,s.pane);
  return {list:l.width,pane:p.width,ratio:l.width/(l.width+p.width),gapOk:p.x>=l.x+l.width-1};
 }
 async function settle(page){await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))))}
-async function dragTo(page,handle,x){
- const b=await handle.boundingBox();const y=b.y+Math.min(b.height/2,200);
+async function dragTo(page,handleSel,x){
+ const b=await box(page,handleSel);const y=b.y+Math.min(b.height/2,200);
  await page.mouse.move(b.x+b.width/2,y);await page.mouse.down();
  await page.mouse.move((b.x+b.width/2+x)/2,y,{steps:4});await page.mouse.move(x,y,{steps:4});await page.mouse.up();await settle(page);
 }
@@ -41,18 +45,18 @@ for(const width of [1280,1440,1920]){
  for(const name of Object.keys(SCREENS)){
   test(`PC ${width} ${name}: 기본 1/3, 끌기·기억·두 번 눌러 초기화·최소 폭·사이드바 숨김 비율 유지·키보드`,async({page})=>{
    const s=SCREENS[name];const errors=await open(page,name,width);
-   const handle=page.locator(`${s.container}>.split-resize-handle`);
+   const handleSel=`${s.container}>.split-resize-handle`,handle=page.locator(handleSel);
    await expect(handle).toBeVisible();
    await expect(handle).toHaveAttribute('role','separator');await expect(handle).toHaveAttribute('aria-orientation','vertical');
    await expect(handle).toHaveAttribute('aria-valuenow','33');
    // 기본 1/3 : 2/3, 경계선은 두 칸 사이 틈에 있다.
    let m=await measure(page,s);expect(Math.abs(m.ratio-1/3)).toBeLessThan(0.02);expect(m.gapOk).toBe(true);
-   const hb=await handle.boundingBox(),lb=await page.locator(s.list).boundingBox(),pb=await page.locator(s.pane).boundingBox();
+   const hb=await box(page,handleSel),lb=await box(page,s.list),pb=await box(page,s.pane);
    expect(hb.x).toBeLessThanOrEqual(pb.x);expect(hb.x+hb.width).toBeGreaterThanOrEqual(lb.x+lb.width);
    expect(await stored(page,name)).toBeNull();
 
    // 끌기: 절반으로.
-   await dragTo(page,handle,await xFor(page,s,0.5));
+   await dragTo(page,handleSel,await xFor(page,s,0.5));
    m=await measure(page,s);expect(Math.abs(m.ratio-0.5)).toBeLessThan(0.02);
    await expect(handle).toHaveAttribute('aria-valuenow','50');
    await expect.poll(()=>Math.abs(Number(stored(page,name))-0.5)).toBeLessThan(0.02);
@@ -61,7 +65,7 @@ for(const width of [1280,1440,1920]){
    // 사이드바 숨김(UI-상단줄): 본문이 넓어져도 비율은 그대로, 다시 보여도 그대로.
    const before=m;await page.locator('[data-nav-toggle]').click();await expect(page.locator('#appView')).toHaveClass(/nav-collapsed/);await settle(page);
    m=await measure(page,s);expect(m.list+m.pane).toBeGreaterThan(before.list+before.pane+50);expect(Math.abs(m.ratio-0.5)).toBeLessThan(0.02);
-   const hb2=await handle.boundingBox(),pb2=await page.locator(s.pane).boundingBox();expect(Math.abs(hb2.x+hb2.width/2-(pb2.x-6))).toBeLessThan(8);
+   const hb2=await box(page,handleSel),pb2=await box(page,s.pane);expect(Math.abs(hb2.x+hb2.width/2-(pb2.x-6))).toBeLessThan(8);
    await page.locator('[data-nav-toggle]').click();await expect(page.locator('#appView')).not.toHaveClass(/nav-collapsed/);await settle(page);
    m=await measure(page,s);expect(Math.abs(m.ratio-0.5)).toBeLessThan(0.02);
 
@@ -73,8 +77,8 @@ for(const width of [1280,1440,1920]){
    m=await measure(page,s);expect(Math.abs(m.ratio-0.5)).toBeLessThan(0.02);
 
    // 최소 폭: 맨 왼쪽·맨 오른쪽 끝까지 끌어도 왼쪽 240·오른쪽 360 아래로 줄지 않는다.
-   await dragTo(page,handle,5);m=await measure(page,s);expect(m.list).toBeGreaterThanOrEqual(239);expect(m.list).toBeLessThan(250);
-   await dragTo(page,handle,width-5);m=await measure(page,s);expect(m.pane).toBeGreaterThanOrEqual(359);expect(m.pane).toBeLessThan(370);
+   await dragTo(page,handleSel,5);m=await measure(page,s);expect(m.list).toBeGreaterThanOrEqual(239);expect(m.list).toBeLessThan(250);
+   await dragTo(page,handleSel,width-5);m=await measure(page,s);expect(m.pane).toBeGreaterThanOrEqual(359);expect(m.pane).toBeLessThan(370);
    expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
 
    // 두 번 누르면 기본 1/3으로, 기억도 지운다.
@@ -97,9 +101,9 @@ for(const width of [1280,1440,1920]){
 
 test('서버 값을 읽거나 저장하지 못해도 기본 1/3으로 그리고 끌기는 된다(기억만 없음)',async({page})=>{
  const s=SCREENS.projects;const errors=await open(page,'projects',1280,{failRead:true,failWrite:true});
- const handle=page.locator(`${s.container}>.split-resize-handle`);
+ const handleSel=`${s.container}>.split-resize-handle`,handle=page.locator(handleSel);
  expect(Math.abs((await measure(page,s)).ratio-1/3)).toBeLessThan(0.02);
- await dragTo(page,handle,await xFor(page,s,0.5));expect(Math.abs((await measure(page,s)).ratio-0.5)).toBeLessThan(0.02);
+ await dragTo(page,handleSel,await xFor(page,s,0.5));expect(Math.abs((await measure(page,s)).ratio-0.5)).toBeLessThan(0.02);
  await handle.dblclick();await settle(page);expect(Math.abs((await measure(page,s)).ratio-1/3)).toBeLessThan(0.02);
  expect(errors).toEqual([]);
 });
