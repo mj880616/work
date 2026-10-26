@@ -9,6 +9,8 @@ on:
       - 'app/loader-v2.js'
       - 'app/styles.css'
       - 'tests/app-e2e/profile-workplaces*'
+      - 'tests/app-e2e/calendar-ref-settings.spec.mjs'
+      - 'app/calendar-ref-settings.js'
       - '.github/workflows/profile-single-render-check.yml'
       - '.github/actions/setup-playwright/**'
   pull_request:
@@ -19,6 +21,8 @@ on:
       - 'app/loader-v2.js'
       - 'app/styles.css'
       - 'tests/app-e2e/profile-workplaces*'
+      - 'tests/app-e2e/calendar-ref-settings.spec.mjs'
+      - 'app/calendar-ref-settings.js'
       - '.github/workflows/profile-single-render-check.yml'
       - '.github/actions/setup-playwright/**'
 
@@ -76,4 +80,4 @@ jobs:
             sleep 0.5
           done
           exit 1
-      - run: npx playwright test tests/app-e2e/profile-workplaces.spec.mjs --browser=chromium --workers=1 --reporter=line,github
+      - run: npx playwright test tests/app-e2e/profile-workplaces.spec.mjs tests/app-e2e/calendar-ref-settings.spec.mjs --browser=chromium --workers=1 --reporter=line,github

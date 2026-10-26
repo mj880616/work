@@ -33,9 +33,11 @@ import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, chan
   workLines, addLine, editLine, removeLine, restoreLine, readWeekScheduleEvents, readDoneTasksWindow, readBasketUpdates, readMovedNotes, readOrgUpdates, readProjectUpdates,
   readWeekMeetings, readWeekDocuments, readWeekSharePages, readScheduleEvents, DONE_TASK_DAYS, WEEK_READ_CAP,
   dayCard, othersCount, DAY_SOURCES, dueDay, dayRangeNote} from './journal-data.js';
+import {loadWeekRefs, setIncluded} from './calendar-ref-data.js';
+import {refsOnDay, daySummary, needsCheck} from './calendar-ref-model.mjs';
 import {createTaskInline} from './task-inline.js';
 import {loadDocumentCategories} from './document-categories.js';
-import {formatSeoulTime, seoulParts} from './meeting-time.js';
+import {formatSeoulTime, seoulParts, seoulClock} from './meeting-time.js';
 import {copyText} from './copy-text.js';
 import {offerUndoNotice, closeUndoNotice} from './basket-record-delete.js';
 import {requestTagsHtml, normalizeRequests, noteRequests} from './update-requests.js';
@@ -197,7 +199,7 @@ function count() {
 }
 // ── JOURNAL-하루개편: ② 할 일 / 한 일 and ④ 주간보고 재료 · ⑤ 그 밖의 기록 (one renderer: renderDay) ──
 // Each drawn line that opens something gets a key into `opens` (rebuilt on every draw).
-let opens = new Map(), openSeq = 0, othersOpen = false;
+let opens = new Map(), openSeq = 0, othersOpen = false, calRefOpen = false, weeklyCalRefOpen = false;
 // JOURNAL-할일바로처리: the Google task data stays where it is read (materials.tasks, one read for the whole week). The line's
 // circle and ⋯ are the shared task-inline.js (TASK-바로처리통일), which changes a task only through the task screen's own functions
 // (window.KPTUGoogleTasks toggleTask / deleteTask / openEditor) or the editor's update action (task-due.mjs moveTaskToDay) and asks
@@ -342,6 +344,35 @@ function renderSchedule(card) {
   if (part.items.length) { const ul = document.createElement('ul'); ul.className = 'journal-events'; ul.append(...part.items.map(eventRow)); host.append(ul); }
   else if (!part.failed) host.insertAdjacentHTML('beforeend', '<p class="journal-muted" data-journal-events-empty>일정 없음</p>');
   partNotes(host, part);
+  const refs = calRefFold();
+  if (refs) host.append(refs);
+}
+// 원장 재료 C-4: 그날 참고 일정(개인 공유 캘린더)이 있으면 접힌 한 줄. 체크하면 원장·주간 정리 재료에 들어간다(설계 5.3).
+// 체크를 바꾸면 명진이 정한 것(decided_by=user)이라 규칙이 다시 덮지 않는다. 일정 열기·고치기는 없다(제목과 시각만 저장한 참고 줄).
+function calRefFold() {
+  const read = materials.calendarRefs;
+  if (read?.status !== 'ok' || !read.items?.configured) return null;
+  const rows = refsOnDay(read.items.rows, selected), personal = read.items.personalByDay?.[selected] || 0;
+  if (!rows.length && !personal) return null;
+  const fold = document.createElement('details');
+  fold.className = 'journal-calref'; fold.dataset.journalCalref = ''; fold.open = calRefOpen;
+  fold.innerHTML = `<summary><small class="journal-others-count">${esc(rows.length ? daySummary(rows) : '개인 공유 캘린더 0')}${personal ? ` · 개인 ${personal}개 뺌` : ''}</small></summary>`;
+  if (rows.length) {
+    const ul = document.createElement('ul'); ul.className = 'journal-calref-list';
+    for (const row of rows) ul.append(calRefItem(row));
+    fold.append(ul);
+  }
+  fold.addEventListener('toggle', () => { calRefOpen = fold.open; });
+  return fold;
+}
+function calRefItem(row) {
+  const li = document.createElement('li'); li.dataset.journalCalrefRow = row.id;
+  const label = document.createElement('label'); label.className = 'journal-calref-item';
+  const box = document.createElement('input'); box.type = 'checkbox'; box.checked = !!row.included; box.dataset.journalCalrefCheck = row.id;
+  const time = row.all_day || !row.start_at ? '' : seoulClock(row.start_at);
+  const text = document.createElement('span'); text.textContent = `${time ? time + ' ' : ''}${row.title}${needsCheck(row) ? ' (애매)' : ''}`;
+  label.append(box, text); li.append(label);
+  return li;
 }
 function renderDay() {
   opens = new Map(); openSeq = 0;
@@ -396,12 +427,14 @@ function renderWeekly_() {
   // The request edit row keeps what is being typed and which field has the focus across redraws too.
   const execFocus = execDraftFromScreen(host);
   const memoryFold = host.querySelector('[data-journal-weekly-memory]'); if (memoryFold) memoryUi.open = memoryFold.open;
+  const calRefFoldNow = host.querySelector('details[data-journal-weekly="note-calRefs"]'); if (calRefFoldNow) weeklyCalRefOpen = calRefFoldNow.open;
   // 자료 접힘(기록과 같아 뺀·뺀 자료)이 열려 있는지, 고치던 글과 초점도 다시 그려도 그대로.
   for (const d of host.querySelectorAll('[data-journal-file-fold-key]')) { if (d.open) fileUi.open.add(d.dataset.journalFileFoldKey); else fileUi.open.delete(d.dataset.journalFileFoldKey); }
   for (const d of host.querySelectorAll('[data-journal-overlap-fold]')) { if (d.open) overlapUi.open.add(d.dataset.journalOverlapFold); else overlapUi.open.delete(d.dataset.journalOverlapFold); }
   const fileInput = host.querySelector('[data-journal-file-edit-input]'), fileFocus = fileInput && fileInput === document.activeElement;
   if (fileInput && fileUi.editing === fileInput.dataset.journalFileEditInput) fileUi.value = fileInput.value;
   renderWeekly(host, weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory}), esc, orgUi, execUi, memoryUi, fileUi, overlapUi);
+  if (weeklyCalRefOpen) { const f = host.querySelector('details[data-journal-weekly="note-calRefs"]'); if (f) f.open = true; }
   if (fileFocus || (fileUi.editing && fileUi.focus)) { const f = host.querySelector('[data-journal-file-edit-input]'); if (f) { f.focus(); if (fileUi.focus) { f.select(); fileUi.focus = false; } } }
   if (focused) host.querySelector('[data-journal-org-edit-input]')?.focus();
   if (execFocus) host.querySelector(`[data-journal-exec-field="${execFocus}"]`)?.focus();
@@ -461,6 +494,8 @@ const readers = {
   weekDraft: () => readWeekDraft(start, rt),
   // LEDGER-자동기록: 이 주에 자동으로 원장에 들어온 약속 수(날별). 표가 없으면 빈 값.
   ledgerPromises: () => readAutoPromises(start, rt),
+  // 원장 재료 C-4: 개인 공유 캘린더 참고 일정(고르지 않았으면 아무 일도 안 함). 그 주와 다음 2주를 맞추고 그 주의 줄을 돌려준다.
+  calendarRefs: () => loadWeekRefs(rt, weekDays(start)[0], shiftWeek(start, 1), shiftWeek(start, 3)),
   // The project tree for [주간 정리] (read once per visit, like the basket). Without it records go under their project names.
   catalog: async () => {
     const c = rt.context.read(), catalog = window.KPTUProjectCatalog;
@@ -522,7 +557,7 @@ function loadWeek({shared = false} = {}) {
   overlapUi = freshOverlapUi();
   lines = new Map(); status.textContent = ''; editing = null; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; execUi = freshExec(); fileUi = freshFileUi();
   if (changedOwner) hwpx?.close(); else hwpx?.setWeek(start);
-  const keys = shared ? Object.keys(readers) : ['events', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'orgSummaries', 'execRequests', 'weekDraft', 'ledgerPromises'];
+  const keys = shared ? Object.keys(readers) : ['events', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'orgSummaries', 'execRequests', 'weekDraft', 'ledgerPromises', 'calendarRefs'];
   for (const key of keys) materials[key] = {status:'loading'};
   delete materials.overlaps;
   if (shared || changedOwner) { loadKinds(sharedRun, scope); loadMemory(sharedRun, scope); memoryUi = {open:false, busy:false, status:'', error:false, undo:null}; }
@@ -1191,6 +1226,24 @@ function enter(detail) {
   loadWeek({shared:true});
 }
 window.KPTURouter?.on?.('journal', enter);
+// 원장 재료 C-4: 참고 일정 체크(하루 카드·주간 정리 같은 줄). 서버에 저장하고 같은 줄 상태를 바꿔 두 곳을 다시 그린다.
+root.addEventListener('change', async event => {
+  const box = event.target.closest?.('[data-journal-calref-check]');
+  if (!box) return;
+  const id = box.dataset.journalCalrefCheck, read = materials.calendarRefs, scope = ownerScope(rt), run = epoch;
+  if (read?.status !== 'ok') return;
+  box.disabled = true;
+  try {
+    const row = await setIncluded(rt, id, box.checked);
+    if (run !== epoch || scope !== ownerScope(rt)) return;
+    materials.calendarRefs = {status:'ok', items:{...read.items, rows:read.items.rows.map(r => r.id === id ? {...r, ...row} : r)}};
+    status.textContent = '';
+  } catch {
+    if (run !== epoch || scope !== ownerScope(rt)) return;
+    status.textContent = '참고 일정 체크를 저장하지 못했어요. 다시 눌러 주세요.';
+  }
+  renderDay(); renderWeekly_();
+});
 // LEDGER-자동기록: "새로 기록된 약속 N" → 원장 화면(약속만).
 root.addEventListener('click', async event => {
   if (!event.target.closest?.('[data-journal-ledger-open]')) return;
