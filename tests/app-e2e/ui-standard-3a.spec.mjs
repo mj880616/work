@@ -160,17 +160,15 @@ for(const width of [390,1280])test(`자료실: 종류 색(확장자, 없으면 D
 });
 
 // UI-PC회의: 줄 단위 목록은 1024 미만. PC 열 배치는 meeting-columns.spec.mjs.
-for(const width of [390,1000])test(`회의: 줄 단위 목록·회의 색 점·필터·버튼 ${width}`,async({page})=>{
+for(const width of [390,1000])test(`회의: 줄 단위 목록·색 점 없음·필터·버튼 ${width}`,async({page})=>{
  const {errors}=await boot(page,width);
  await view(page,'meetings');
  const rows=page.locator('#meetingList .meeting-list-row');await expect(rows).toHaveCount(2);
  await rowText(page,rows.locator('h3'));await metaText(page,rows.locator('p'));
  for(const row of await rows.all()){const s=await look(row);expect(s.height).toBeGreaterThanOrEqual(44);expect(s.radius).toBe('0px');}
  expect((await look(rows.nth(1))).borderWidth).toBe(await lineWidth(page));
- // 회의 색은 이름 앞 8px 점(필터 점과 같은 색).
- const dot=await rows.first().locator('.meeting-list-title').evaluate(el=>{const s=getComputedStyle(el,'::before');return {w:s.width,bg:s.backgroundColor,radius:s.borderRadius}});
- const chip=await page.locator('#meetingTypeFilter [data-filter-value="중앙쟁의대책위원회"] .filter-chip-dot').evaluate(el=>getComputedStyle(el).backgroundColor);
- expect(dot).toEqual({w:'8px',bg:chip,radius:'50%'});
+ // UI-화면폭넘침: 줄 앞 색 점은 없다(색은 필터 칩 점만).
+ expect(await rows.first().locator('.meeting-list-title').evaluate(el=>getComputedStyle(el,'::before').content)).toBe('none');
  const box=await look(page.locator('#meetingsListCard'));expect(box.borderWidth).toBe(await lineWidth(page));expect(box.radius).toBe('12px');
  // UI-선택표시통일: 폰의 [+ 회의]는 동그란 [+](버튼 모양 검사 밖), PC는 채운 버튼 하나.
  expect(await sameButtons(page,page.locator('#meetingsView'))).toEqual(width<761?[]:['+ 사업 보고']);

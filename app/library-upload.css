@@ -34,7 +34,7 @@
 @media(max-width:650px){
   .library-picker-hint{font-size:var(--kptu-text-meta)!important}
   .library-selected-file{padding:9px 10px}
-  .library-edit-grid{grid-template-columns:1fr}
+  .library-edit-grid{grid-template-columns:minmax(0,1fr)}
 }
 
 /* UI-회의결과창정리(2026-10-17 사용자 결정): 자료 등록 창은 큰 점선 상자 대신 [📎 파일 고르기] 작은 버튼 한 줄 + 짧은 안내.

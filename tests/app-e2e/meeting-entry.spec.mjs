@@ -300,8 +300,8 @@ test('meeting list uses canonical meeting names without title-series duplication
 });
 
 });
-// UI-디자인기준 3/3(8-9e-1): the meeting color is the 8px dot before the name (it was the row's left stripe).
-const stripe=row=>row.evaluate(el=>getComputedStyle(el.querySelector('.meeting-list-title'),'::before').backgroundColor);
+// UI-화면폭넘침: 줄 앞 색 점은 없앴다. 회의 이름별 색 배정은 줄의 --meeting-color 값(필터 칩 점과 같은 값)으로 확인한다.
+const stripe=row=>row.evaluate(el=>{const probe=document.createElement('i');probe.style.color='var(--meeting-color)';el.append(probe);const c=getComputedStyle(probe).color;probe.remove();return c});
 const rgb=hex=>`rgb(${[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)).join(', ')})`;
 
 const neutral=page=>page.evaluate(()=>{const probe=document.createElement('i');probe.style.color='#808080';document.body.append(probe);const c=getComputedStyle(probe).color;probe.remove();return c});
@@ -336,7 +336,7 @@ test('meeting names keep colors after reload and after older meetings are added'
   expect(original.a1).toBe(original.a2);
   expect(original.a2).toBe(original.a3);
   for(const color of Object.values(original))expect(P.map(rgb)).toContain(color);
-  expect(await byId('a1').evaluate(el=>{const s=getComputedStyle(el.querySelector('.meeting-list-title'),'::before');return [s.width,s.height,s.borderRadius]})).toEqual(['8px','8px','50%']);
+  expect(await byId('a1').evaluate(el=>getComputedStyle(el.querySelector('.meeting-list-title'),'::before').content)).toBe('none');
   expect(await stripe(byId('none'))).toBe(await neutral(page));
   // Second line: round · date · materials only.
   await expect(byId('a3').locator('p')).toHaveText(/^3차 · .+ · 회의자료 있음$/);

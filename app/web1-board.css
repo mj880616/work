@@ -18,7 +18,7 @@
 #web1BoardDetailModal .w1b-detail-frame.w1b-detail-pending{height:100%}
 
 @media(max-width:760px){
-  .w1b-grid{grid-template-columns:1fr}
+  .w1b-grid{grid-template-columns:minmax(0,1fr)}
   #web1BoardDetailModal.modal{inset:0;padding:0;place-items:stretch;background:var(--paper)}
   #web1BoardDetailModal .w1b-detail-card{width:100vw;height:100dvh;max-width:none;max-height:100dvh;margin:0;padding:0;border:0;border-radius:0;box-shadow:none;overflow:hidden}
   #web1BoardDetailModal .w1b-detail-head{min-height:48px;justify-content:flex-end;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;border-bottom:1px solid var(--line)}
