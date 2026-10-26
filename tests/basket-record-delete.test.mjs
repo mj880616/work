@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 
 const events=[];
 globalThis.window={dispatchEvent:event=>events.push(event.type)};
@@ -237,4 +238,89 @@ test('restore re-links a reference bundle as kind reference; the link kind helpe
   assert.equal(mod.linkRestoreKind({bundle_id:'b1'}),'reference');assert.equal(mod.linkRestoreTarget({bundle_id:'b1'}),'b1');
   assert.equal(mod.linkRestoreKind({organization_id:'o1'}),'organization');assert.equal(mod.linkRestoreKind({project_id:'p1'}),'project');
   assert.equal(mod.linkRestoreTarget({project_id:'p1'}),'p1');
+});
+
+// ---- TRASH-다른삭제 5단계: trash:true는 휴지통으로 보낸다(예전 note-delete 경로·삭제 확인 글은 쓰지 않는다) ----
+const trashApi=({state='ready',kind='basket',attachments=[{}],links=[{id:'l1',organization_id:'o'},{id:'l2'}],lands=true,deleteFails=false}={})=>{
+  const calls=[],trashed=[];
+  const api=async(path,options={})=>{
+    calls.push({path,...options});
+    if(path.endsWith('app_trash_list')){
+      if(state==='missing')throw Object.assign(new Error('TRASH_KIND_UNKNOWN'),{status:400,code:'22023'});
+      if(state==='failed')throw Object.assign(new Error('boom'),{status:500});
+      return trashed.map(id=>({kind:'note',id,note_kind:kind,title:'합성',preview:'',file_count:1,link_count:2,deleted_at:'2026-10-26T01:00:00Z'}));
+    }
+    if(path.endsWith('app_trash_restore')){trashed.length=0;return {ok:true};}
+    if(options.method==='DELETE'){if(deleteFails)throw Object.assign(new Error('RLS'),{status:403});if(lands)trashed.push('n1');return [];}
+    return path.includes('app_notes')?[{id:'n1',kind,updated_at:'2026-10-26T00:00:00Z',attachments}]:links;
+  };
+  return {api,calls,trashed};
+};
+const writesOf=calls=>calls.filter(call=>call.method==='DELETE');
+
+test('trash: after the confirmation one owner-RLS delete is sent, the trash list proves it landed, and one undo line is offered',async()=>{
+  events.length=0;mod.closeUndoNotice();
+  const fake=trashApi();
+  const {result,calls:asked}=await withConfirm(true,()=>mod.deleteNoteOriginal('n1',{rt:rtFor(fake.api),trash:true}));
+  assert.equal(result.status,'deleted');assert.equal(result.message,'');
+  assert.deepEqual(asked,['업데이트를 휴지통으로 옮길까요?\n첨부 파일 1개는 Drive에 그대로 남습니다.\n연결된 2곳은 그대로 이어져 있고, 휴지통에서 되돌리면 원래대로 돌아옵니다.']);
+  const writes=writesOf(fake.calls);assert.equal(writes.length,1);
+  const url=q(writes[0].path);
+  assert.equal(url.pathname,'/rest/v1/app_notes');assert.equal(url.searchParams.get('id'),'eq.n1');assert.equal(url.searchParams.get('workspace_id'),'eq.ws 1');
+  assert.deepEqual([...url.searchParams.keys()].sort(),['id','select','workspace_id']);
+  assert.ok(fake.calls.every(call=>!String(call.path).includes('basket-files')),'예전 서버 경로를 쓰지 않는다');
+  assert.deepEqual(fake.calls.filter(call=>call.path.endsWith('app_trash_list')).map(call=>call.body),[{p_kind:'note'},{p_kind:'note'}]);
+  assert.deepEqual(events,['kptu:basket-links-changed']);
+});
+
+test('trash: before the database is ready nothing is asked or sent and the reason is in plain words',async()=>{
+  events.length=0;
+  const fake=trashApi({state:'missing'});
+  const {result,calls:asked}=await withConfirm(true,()=>mod.deleteNoteOriginal('n1',{rt:rtFor(fake.api),trash:true}));
+  assert.equal(result.status,'failed');assert.equal(result.message,'노트·업데이트 휴지통은 준비 중입니다. 준비가 끝나기 전에는 삭제할 수 없습니다.');
+  assert.deepEqual(asked,[]);assert.deepEqual(writesOf(fake.calls),[]);assert.deepEqual(events,[]);
+  const failing=trashApi({state:'failed'});
+  const second=await withConfirm(true,()=>mod.deleteNoteOriginal('n1',{rt:rtFor(failing.api),trash:true}));
+  assert.equal(second.result.status,'failed');assert.match(second.result.message,/확인하지 못해 삭제하지 않았습니다/);
+  assert.deepEqual(second.calls,[]);assert.deepEqual(writesOf(failing.calls),[]);
+});
+
+test('trash: cancelling sends nothing; a missing note does not ask',async()=>{
+  const fake=trashApi();
+  const {result}=await withConfirm(false,()=>mod.deleteNoteOriginal('n1',{rt:rtFor(fake.api),trash:true}));
+  assert.equal(result.status,'cancelled');assert.deepEqual(writesOf(fake.calls),[]);
+  const gone=rtFor(async(path)=>path.endsWith('app_trash_list')?[]:[]);
+  const second=await withConfirm(true,()=>mod.deleteNoteOriginal('n1',{rt:gone,trash:true}));
+  assert.equal(second.result.status,'missing');assert.deepEqual(second.calls,[]);
+});
+
+test('trash: a refused delete is failed, and a delete that is neither in the trash nor readable is never called a success',async()=>{
+  const refused=trashApi({deleteFails:true});
+  const first=await withConfirm(true,()=>mod.deleteNoteOriginal('n1',{rt:rtFor(refused.api),trash:true}));
+  assert.equal(first.result.status,'failed');assert.equal(first.result.message,'업데이트를 지우지 못했어요. 다시 시도해 주세요.');
+  const lost=trashApi({lands:false});
+  const base=lost.api;
+  const api=async(path,options={})=>{if(!options.method&&path.includes('app_notes')&&lost.calls.some(c=>c.method==='DELETE'))return [];return base(path,options);};
+  const second=await withConfirm(true,()=>mod.deleteNoteOriginal('n1',{rt:rtFor(api),trash:true}));
+  assert.equal(second.result.status,'unknown');assert.equal(second.result.message,'결과를 확인하지 못했어요. 목록을 다시 불러와 실제 상태를 확인해 주세요.');
+});
+
+test('trash: notes (kind note) use the note wording, and the default call without trash keeps the diary path',async()=>{
+  const fake=trashApi({kind:'note',attachments:[]});
+  const {calls:asked}=await withConfirm(false,()=>mod.deleteNoteOriginal('n1',{rt:rtFor(fake.api),trash:true}));
+  assert.equal(asked[0],'노트를 휴지통으로 옮길까요?\n연결된 2곳은 그대로 이어져 있고, 휴지통에서 되돌리면 원래대로 돌아옵니다.');
+  const diary=trashApi();
+  await withConfirm(false,()=>mod.deleteNoteOriginal('n1',{rt:rtFor(diary.api),describe:()=>'일기를 지웁니다.'}));
+  assert.ok(diary.calls.every(call=>!call.path.endsWith('app_trash_list')),'일기(trash 없음)는 휴지통 함수를 부르지 않는다');
+});
+
+test('screens: every update/note delete call goes to the trash; only the diary keeps the immediate delete',()=>{
+  for(const file of ['basket.js','basket-notes.js','basket-link-records.js']){
+    const text=readFileSync(new URL('../app/'+file,import.meta.url),'utf8');
+    const calls=[...text.matchAll(/deleteNoteOriginal\([^)]*\)/g)].map(m=>m[0]);
+    assert.ok(calls.length>0,file);
+    for(const call of calls)assert.match(call,/trash:\s*true/,file+' '+call);
+  }
+  const diary=readFileSync(new URL('../app/diary.js',import.meta.url),'utf8');
+  assert.doesNotMatch(diary,/trash:\s*true/);
 });
