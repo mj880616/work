@@ -148,7 +148,7 @@ test.describe('빈 곳 우클릭(PC)',()=>{
     await expect(page.locator('#luFolderMenu')).toBeHidden();await expect(page.locator('#luMorePanel')).toBeVisible();await page.keyboard.press('Escape');
     // 폴더 줄 우클릭 = 그 줄의 ⋯ 메뉴(공용 우클릭 규칙). 열린 위쪽 폴더의 고정 머리가 아래 줄을 가리지 않게 먼저 접는다.
     await libraryNodeHead(page,'f:fa').click();await expect(libraryNode(page,'f:fa')).not.toHaveAttribute('open','');
-    await libraryNodeHead(page,'f:fn').locator('.lu-node-name').click({button:'right'});
+    await libraryNodeHead(page,'f:fn').click({button:'right',position:{x:40,y:8}});
     await expect(page.locator('#luFolderMenu button').first()).toContainText('이름 바꾸기');await page.keyboard.press('Escape');
     expect(s.writes).toEqual([]);expect(errors).toEqual([]);
   });
