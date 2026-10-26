@@ -1,4 +1,4 @@
-// ACT-사진 2단계: 자료실 그림 자료의 작은 그림·크게 보기. 서버 동작은 library-files `GET ?action=photo&document_id=&size=small|large`
+// ACT-사진 2단계(4단계에서 사업 보고 줄 섬네일도 이 함수 하나로 받는다): 자료실 그림 자료의 작은 그림·크게 보기. 서버 동작은 library-files `GET ?action=photo&document_id=&size=small|large`
 // (소유자 로그인만, Drive 읽기만, 줄인 그림은 어디에도 저장하지 않는다). 그림인지 아닌지는 library-tree.js fileKindOf 하나로 판단한다.
 // 받은 그림은 이 화면(메모리)에서만 쓰고 브라우저 저장소에 두지 않는다. 로그인한 소유자가 바뀌면 비운다.
 import {fileKindOf} from './library-tree.js';
@@ -12,7 +12,8 @@ let cacheScope = '';
 // 그림 자료인가: 파일 이름·mime으로 '그림' 형식이고 Drive 파일이 있는 자료.
 export const isLibraryPhoto = doc => !!doc?.id && !!doc.file_id && fileKindOf(doc.file_name, doc.mime_type) === '그림';
 
-const scopeOf = rt => { const c = rt?.context?.read?.(); return `${c?.user?.id || ''}:${c?.workspace?.id || ''}`; };
+// 로그인 정보가 아직 안 읽힌 순간(사용자 번호가 빈 값)은 사용자 바뀜으로 보지 않는다. 안 그러면 막 받은 그림 주소를 거두어 가 그림이 빈 칸이 된다.
+const scopeOf = rt => { const c = rt?.context?.read?.(); return c?.user?.id ? `${c.user.id}:${c.workspace?.id || ''}` : ''; };
 export function clearLibraryPhotoCache() {
   for (const flight of flights.values()) flight.then(url => URL.revokeObjectURL(url), () => {});
   flights.clear(); ready.clear();
@@ -22,7 +23,7 @@ export const cachedLibraryPhotoUrl = (documentId, size = 'small') => ready.get(`
 export function libraryPhotoUrl(documentId, size = 'small', {rt = window.KPTURuntime, fetcher = globalThis.fetch} = {}) {
   if (!DOC_ID.test(String(documentId || '')) || !SIZES.has(size)) return Promise.reject(new Error('photo_request'));
   const scope = scopeOf(rt);
-  if (scope !== cacheScope) { clearLibraryPhotoCache(); cacheScope = scope; }
+  if (scope && scope !== cacheScope) { if (cacheScope) clearLibraryPhotoCache(); cacheScope = scope; }
   const key = `${documentId}:${size}`;
   if (flights.has(key)) return flights.get(key);
   const flight = (async () => {

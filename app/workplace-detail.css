@@ -148,7 +148,4 @@ button.wd-doc-main:hover{background:var(--kptu-surface-subtle)}
 /* ACT-사진 5단계: 사업 보고 줄 오른쪽 작은 그림 3장 + '외 n장'(report-photos.js). 줄 전체가 사업 보고 열기 단추다. */
 .wd-doc-main.has-report-photos{grid-template-columns:minmax(0,1fr) auto;column-gap:8px}
 .wd-doc-main.has-report-photos>:not(.report-photo-strip){grid-column:1}
-.report-photo-strip{display:inline-flex;align-items:center;gap:3px;grid-column:2;grid-row:1/span 3;align-self:center;justify-self:end}
-.report-photo-thumb{display:block;width:28px;height:28px;flex:none;overflow:hidden;border-radius:var(--kptu-radius-sm,3px);background:var(--kptu-surface-subtle);border:1px solid var(--kptu-border)}
-.report-photo-thumb img{display:block;width:100%;height:100%;object-fit:cover}
-.report-photo-more{font-size:12px;color:var(--kptu-muted);white-space:nowrap;margin-left:2px}
+.wd-doc-main.has-report-photos>.report-photo-strip{grid-column:2;grid-row:1/span 3;align-self:center;justify-self:end}

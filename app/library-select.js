@@ -4,7 +4,8 @@
 // 노드(폴더·묶음) 아래 모든 자료 id(하위 토글 포함, 중복 없음).
 export function nodeDocumentIds(node){
   const out=new Set();
-  const walk=n=>{for(const d of n?.files||[])out.add(d.id);for(const c of n?.children||[])walk(c)};
+  // 사업 보고 사진 묶음 줄(photoset)은 고를 수 없다(ACT-사진 4단계).
+  const walk=n=>{for(const d of n?.files||[])if(!d.photoset)out.add(d.id);for(const c of n?.children||[])walk(c)};
   walk(node);
   return [...out];
 }

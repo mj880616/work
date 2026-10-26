@@ -52,6 +52,7 @@ test('줄 글: 그림이 있는 줄만 칸이 생기고 번호는 이스케이�
   assert.equal(reportPhotosHtml('m1',new Map()),'');
   assert.equal(reportPhotosHtml('"><b>',new Map([['"><b>',[{id:id(1)}]]])).includes('"><b>'),false);
   assert.doesNotMatch(reportPhotosHtml('m1',groupReportPhotos([doc(1,'m1','a.png','image/png')])),/외/);
+  assert.doesNotMatch(reportPhotosHtml('m1',photos,{more:false}),/외/); // 자료실 묶음 줄은 '외 n장'을 붙이지 않는다
 });
 
 test('읽기: 줄마다 따로 묻지 않고 한 번에(N+1 없음), 100건 넘으면 묶음 수만큼', async () => {
@@ -75,7 +76,7 @@ test('읽기: 줄마다 따로 묻지 않고 한 번에(N+1 없음), 100건 넘�
 test('구조: 읽기 전용 — 저장·쓰기 요청과 새 서버 경로가 없다', () => {
   const src=readFileSync(new URL('../app/report-photos.js',import.meta.url),'utf8');
   assert.doesNotMatch(src,/method:\s*['"](POST|PATCH|PUT|DELETE)/i);
-  assert.match(src,/library-files\?\$\{query\}/);assert.match(src,/action:'photo',document_id:documentId,size:'small'/);
+  assert.match(src,/libraryPhotoUrl\(documentId,'small'/); // 작은 그림 받기는 자료실(library-photo.js)과 같은 함수 하나
   assert.doesNotMatch(src,/\b(?:local|session)Storage\b|\bindexed[D]B\b/);
 });
 
@@ -89,11 +90,11 @@ test('그림 받기: 로그인 정보가 늦게 읽혀도 받은 그림을 버�
     let user='';let fetched=0;
     const rt={context:{read:()=>({user:{id:user}})},session:{ensure:async()=>true,read:()=>({access_token:'t'})},config:{url:'https://x.test',key:'k'}};
     const fetcher=async()=>{fetched++;return {ok:true,headers:{get:()=> 'image/png'},blob:async()=>new Blob(['x'])}};
-    const a=await reportPhotoUrl('d1',{rt,fetcher});
+    const a=await reportPhotoUrl(id(91),{rt,fetcher});
     user='u1';
-    assert.equal(await reportPhotoUrl('d1',{rt,fetcher}),a);assert.equal(fetched,1);assert.deepEqual(revoked,[]);
+    assert.equal(await reportPhotoUrl(id(91),{rt,fetcher}),a);assert.equal(fetched,1);assert.deepEqual(revoked,[]);
     user='u2';
-    await reportPhotoUrl('d1',{rt,fetcher});await new Promise(r=>setTimeout(r,0));
+    await reportPhotoUrl(id(91),{rt,fetcher});await new Promise(r=>setTimeout(r,0));
     assert.equal(fetched,2);assert.ok(revoked.includes(a));
   }finally{URL.createObjectURL=origC;URL.revokeObjectURL=origR;clearReportPhotoCache()}
 });
