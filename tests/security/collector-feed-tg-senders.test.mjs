@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 
 // TG-발언자이름 2단계: collector-feed telegram 입구의 선택 칸 `senders`.
 // 지어낸 Supabase(PostgREST)와 지어낸 OpenAI로 실제 handler를 돌린다. 네트워크 없음. 이름·키·방은 모두 지어낸 값이다.
-const {createCollectorFeedHandler,parseTelegramBody,SENDERS_FN,ROOM_TOUCH_FN,ROOM_DAY_ADD_FN}=await import('../../supabase/functions/collector-feed/handler.ts');
+const {createCollectorFeedHandler,parseTelegramBody,SENDERS_FN,NAMES_FN,ROOM_TOUCH_FN,ROOM_DAY_ADD_FN}=await import('../../supabase/functions/collector-feed/handler.ts');
 
 const SB='https://synthetic.supabase.test';
 const FN=`${SB}/functions/v1/collector-feed`;
@@ -32,11 +32,11 @@ function harness({dayRows=[],dayStatus=200,dup=false,rpc=()=>respond({ok:true,pe
       const fn=path.slice(4);
       // 방 정보·하루 요약 함수(TG-방날짜묶기)는 별도 시험(collector-feed-tg-roomday)에서 본다. 여기서는 이름표 함수 호출만 센다.
       if(fn===ROOM_TOUCH_FN||fn===ROOM_DAY_ADD_FN)return respond({ok:true});
+      if(fn===NAMES_FN){calls.tables.push('names '+JSON.stringify(JSON.parse(init.body)));return dayStatus===200?respond(dayRows):dayStatus===404?respond({message:'nf'},404):respond('boom',dayStatus);}
       assert.equal(fn,SENDERS_FN,'다른 DB 함수는 부르지 않는다');
       const args=JSON.parse(init.body);calls.rpc.push(args);return rpc(args);
     }
     calls.tables.push(`${method} ${path}`);
-    if(path==='app_tg_day_senders'){calls.tables.push('names '+path+url.search);return dayStatus===200?respond(dayRows):respond('boom',dayStatus);}
     if(path==='app_workspaces')return respond([{id:WS}]);
     if(path==='app_suborganizations'||path==='app_spaces')return respond([]);
     if(path==='app_feed_items'){
@@ -97,9 +97,10 @@ test('이름은 AI 입력에만 들어가고(요청 senders 이름), 번호·key
 
 test('AI 표시 이름 우선순위: 이름표 손 이름 → 나 → 요청 이름 → 라벨. 번호·@아이디는 AI에 없다',async()=>{
   const dayRows=[
-    {label:'A',app_tg_senders:{name:'가상손이름',is_self:false}},
-    {label:'B',app_tg_senders:{name:null,is_self:true}},
-    {label:'C',app_tg_senders:[{name:null,is_self:false}]},
+    {label:'A',name:'가상손이름',is_self:false},
+    {label:'B',name:null,is_self:true},
+    {label:'C',name:null,is_self:false},
+    {label:'Z',name:'가상없는라벨',is_self:false},
   ];
   const msgs=['A','B','C','D'].map((l,i)=>({ref:String(2000+i),at:'2026-10-24T00:1'+i+':00Z',sender:l,text:'가상 글 '+i}));
   const h=harness({dayRows});
@@ -113,16 +114,17 @@ test('AI 표시 이름 우선순위: 이름표 손 이름 → 나 → 요청 이
   assert.ok(!ai.includes('요청이름A'),'손 이름이 요청 이름을 이긴다');
   assert.ok(!ai.includes(KEY_A)&&!ai.includes(KEY_B));
   assert.ok(!h.calls.logs.join('\n').includes('가상손이름')&&!h.calls.logs.join('\n').includes('요청이름C'));
-  assert.ok(h.calls.tables.some(t=>/names app_tg_day_senders\?workspace_id=eq\.[^&]+&room_key=eq\.room-fake-1&day=eq\.2026-10-24&/.test(t)));
+  assert.ok(!ai.includes('가상없는라벨'));
+  assert.ok(h.calls.tables.includes(`names ${JSON.stringify({p_workspace:WS,p_room_key:'room-fake-1',p_day:TODAY})}`),'읽기 함수 인자: 작업공간은 서버 값');
 });
 
 test('이름표 조회가 실패하면 요청 이름·라벨로 물러나고 소식 저장은 계속한다. 같은 이름 둘은 (라벨)로 구분한다',async()=>{
-  for(const dayStatus of [401,403,500]){
+  for(const dayStatus of [401,403,404,500]){
     const h=harness({dayStatus});const r=await h.send(body({senders:[{label:'A',key:KEY_A,name:NAME_A}]}));
     assert.equal(r.status,200);assert.equal(h.calls.items.length,1);
     const ai=JSON.parse(h.calls.openai[0]).input[1].content;
     assert.match(ai,new RegExp(`m1 \\d\\d:\\d\\d ${NAME_A}: `));assert.match(ai,/m2 \d\d:\d\d B \(m1에 답\): /);
-    assert.match(h.calls.logs.join('\n'),/telegram_sender_names_failed.*READ/);
+    assert.match(h.calls.logs.join('\n'),/telegram_sender_names_failed.*(READ|FN_MISSING)/);
     assert.ok(!h.calls.logs.join('\n').includes(NAME_A));
   }
   const h=harness();await h.send(body({senders:[{label:'A',key:KEY_A,name:'가상동명'},{label:'B',key:KEY_B,name:'가상동명'}]}));
@@ -218,11 +220,10 @@ test('parseTelegramBody: senders 결과 모양',()=>{
 test('소스: 번호 원문 칸·로그에 이름을 쓰는 코드·DB 표 직접 쓰기가 없다(함수 한 개만 부른다)',()=>{
   const src=readFileSync('supabase/functions/collector-feed/handler.ts','utf8');
   assert.equal([...src.matchAll(/rpcObject\(/g)].length,4,'정의 1 + 사용 3(이름표·방 정보·하루 요약)');
-  assert.equal([...src.matchAll(/rpcObject\((\w+),/g)].map(m=>m[1]).filter(n=>n!=='fn').sort().join(),'ROOM_DAY_ADD_FN,ROOM_TOUCH_FN,SENDERS_FN','쓰는 DB 함수는 이 셋뿐');
+  assert.equal([...src.matchAll(/rpcObject\((\w+),/g)].map(m=>m[1]).filter(n=>n!=='fn').sort().join(),'ROOM_DAY_ADD_FN,ROOM_TOUCH_FN,SENDERS_FN','쓰는 DB 함수는 이 셋뿐(이름 읽기는 rpc로 별도)');
   const code=src.replace(/\/\/.*$/gm,'');
-  assert.ok(!/(insert|patch)\(\s*[`"']app_tg_/.test(code)&&!/rpc\/app_tg_/.test(code),'이름표 표에 쓰지 않는다');
-  assert.equal([...code.matchAll(/app_tg_day_senders/g)].length,1,'읽기 전용 조회 한 곳(AI 표시 이름)');
-  assert.ok(/db\.get\(`app_tg_day_senders\?/.test(code),'GET으로만 읽는다');
+  assert.ok(!/app_tg_senders['"`?]|app_tg_day_senders/.test(code),'표를 직접 읽거나 쓰지 않는다');
+  assert.equal([...code.matchAll(/db\.rpc\(NAMES_FN/g)].length,1,'읽기 전용 함수 호출 한 곳(AI 표시 이름)');
   assert.ok(!/sender_id|phone|telegram_user/.test(src.replace(/\/\/.*$/gm,'')),'번호 원문 칸 없음');
   assert.ok(/telegramMaterial\([^)]*, names\)/.test(src),'AI 재료에는 표시 이름 목록(names)만 넘긴다(key·번호 없음)');
   assert.ok(!/log\([^)]*names/.test(code.replace(/telegram_sender_names_failed/g,'')),'로그에 이름 없음');

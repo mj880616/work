@@ -94,6 +94,7 @@ const SENDERS_MAX = 40;
 // 이름 칸에 전화번호·@아이디가 들어오면 이름만 버린다(수집기 계약상 오면 안 되는 값, 설계 4절).
 const SENDER_NAME_REJECT = /^@|^\+?[\d\s().-]{7,}$/;
 export const SENDERS_FN = "app_tg_senders_upsert";
+export const NAMES_FN = "app_tg_sender_names_for_day";
 // TG-방날짜묶기: 방 정보·하루 요약 DB 함수(migration 20261027010000, service_role 전용).
 export const ROOM_TOUCH_FN = "app_feed_room_touch";
 export const ROOM_DAY_ADD_FN = "app_feed_room_day_add";
@@ -518,21 +519,21 @@ async function saveRoomDay(db: Db, ws: string, input: TelegramInput, batch: stri
   } catch { log("telegram_room_day_failed", { stage: "INTERNAL" }); }
 }
 
-// AI 재료용 표시 이름: 손 이름(name) → "나"(is_self) → 이번 요청 senders의 name → 라벨 그대로(TG-발언자이름 결정 3, 10/27 변경).
-// 이름표 조회(service_role, 그 방·그날 라벨만)가 실패하면 요청의 name으로 물러나고 소식 저장은 계속한다. 이름은 로그에 남기지 않는다(AI 입력에만).
+// AI 재료용 표시 이름(읽기 전용 DB 함수 app_tg_sender_names_for_day로 조회): 손 이름(name) → "나"(is_self) → 이번 요청 senders의 name → 라벨 그대로(TG-발언자이름 결정 3, 10/27 변경).
+// 이름표 조회(그 방·그날 라벨만)가 실패하면 요청의 name으로 물러나고 소식 저장은 계속한다. 이름은 로그에 남기지 않는다(AI 입력에만).
 const cleanName = (v: unknown) => (typeof v === "string" ? v.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, " ").trim().normalize("NFC") : "");
 async function senderNames(db: Db, ws: string, input: TelegramInput, log: Log) {
   const out = new Map<string, string>();
   const labels = new Set(input.messages.map((m) => m.sender));
   const stored = new Map<string, { name: string; self: boolean }>();
   try {
-    const rows = await db.get(`app_tg_day_senders?workspace_id=eq.${ws}&room_key=eq.${encodeURIComponent(input.room_key)}&day=eq.${input.day}&select=label,app_tg_senders(name,is_self)&limit=100`);
-    for (const r of rows) {
+    // 읽기 전용 DB 함수(service_role 전용). 표는 직접 읽지 않는다. 함수가 아직 없으면(404) 요청 이름·라벨로 물러난다.
+    const res = await db.rpc(NAMES_FN, { p_workspace: ws, p_room_key: input.room_key, p_day: input.day });
+    if (res === "missing") log("telegram_sender_names_failed", { stage: "FN_MISSING" });
+    else for (const r of res.rows) {
       const label = typeof r.label === "string" ? r.label : "";
-      const p = Array.isArray(r.app_tg_senders) ? r.app_tg_senders[0] : r.app_tg_senders;
-      if (!labels.has(label) || !p || typeof p !== "object") continue;
-      const o = p as Record<string, unknown>;
-      stored.set(label, { name: cleanName(o.name), self: o.is_self === true });
+      if (!labels.has(label)) continue;
+      stored.set(label, { name: cleanName(r.name), self: r.is_self === true });
     }
   } catch { log("telegram_sender_names_failed", { stage: "READ" }); }
   const fromRequest = new Map(input.senders.map((s) => [s.label, s]));
