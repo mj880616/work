@@ -187,7 +187,7 @@ for(const scheme of ['light','dark'])test(`PC 거르기 줄: 이름표·차례(�
   const {errors}=await boot(page,1280,{scheme});
   const labels=page.locator('#libraryView .library-filter-toolbar .lu-filter-label:visible'),group=page.locator('#libraryGroupBy'),category=page.locator('#libraryCategoryFilter');
   await expect(labels).toHaveText(['묶기','종류']);await expect(page.locator('#documentProject')).toBeHidden();
-  await expect(group.getByRole('radio')).toHaveText(['프로젝트','담당조직','종류','월별']);await expect(group.getByRole('radio',{name:'프로젝트'})).toHaveAttribute('aria-checked','true');
+  await expect(group.getByRole('radio')).toHaveText(['프로젝트','담당조직','종류','월별','폴더']);await expect(group.getByRole('radio',{name:'프로젝트'})).toHaveAttribute('aria-checked','true');
   const search=await box(page.locator('#documentSearch')),top=await box(group),cat=await box(category);
   expect(top.y).toBeGreaterThanOrEqual(search.y+search.height-1);expect(cat.y).toBeGreaterThanOrEqual(top.y+top.height-1);
   const labelBoxes=await labels.evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {x:Math.round(r.left),right:r.right,mid:r.top+r.height/2}}));
