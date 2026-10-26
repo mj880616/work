@@ -12,11 +12,18 @@ export const TG_LIMITS = Object.freeze({
   summary: 400,
   title: 80,
   materialChars: 120000,
-  maxOutputTokens: 1500,
+  // 하루 요약(headline + 3~4줄, 약 200토큰)이 늘어 1500에서 올렸다(TG-방날짜묶기 2단계).
+  maxOutputTokens: 1700,
+  dayHeadline: 60,
+  dayLine: 100,
+  dayLinesMin: 3,
+  dayLinesMax: 4,
 });
 
 export type TgMessage = { ref: string; at: number; sender: string; text: string; reply_to: string | null; forwarded: boolean };
 export type LinkOption = { ref: string; id: string; name: string };
+// 그날 이 방·이 묶음의 하루 요약(TG-방날짜묶기 설계 3.1절). DB 함수 app_feed_room_day_add의 headline·lines와 같은 한도.
+export type TgDay = { headline: string | null; lines: string[] };
 export type TgItem = {
   title: string | null;
   summary: string;
@@ -39,13 +46,26 @@ export const TELEGRAM_INSTRUCTIONS = [
   "refs에는 그 소식의 근거 메시지 참조(m1 같은 것)를 모두 넣는다. 입력에 없는 참조는 쓰지 않는다.",
   "organization에는 소식과 확실히 관련된 담당조직 목록의 참조(o1 같은 것) 하나, 없거나 애매하면 빈 글을 쓴다. project도 같은 방식으로 프로젝트 목록의 참조(p1 같은 것) 하나 또는 빈 글.",
   "중요한 소식이 없으면 items를 빈 목록으로 둔다. 최대 12개.",
+  "day에는 남긴 소식들을 바탕으로 그날 이 방의 흐름을 쓴다. headline은 그날 가장 중요한 일을 한 줄(60자 안쪽)로, lines는 3~4줄(줄마다 100자 안쪽)로 쓴다.",
+  "day도 메시지에 있는 내용만 쓴다. 예정을 확정으로 바꾸지 않고, 메시지에 없는 사실을 더하지 않으며, 날짜·숫자·이름·조직 이름은 메시지에 나온 그대로 쓴다.",
+  "남길 소식이 없으면 day의 headline은 빈 글, lines는 빈 목록으로 둔다.",
+  "입력에 '묶음: 그날 대화의 일부'라고 적혀 있으면 이 묶음은 그날 대화의 일부다. 이 묶음에 있는 내용만 쓰고 day의 lines는 3줄로 쓴다.",
 ].join("\n");
 
 export const TELEGRAM_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["items"],
+  required: ["day", "items"],
   properties: {
+    day: {
+      type: "object",
+      additionalProperties: false,
+      required: ["headline", "lines"],
+      properties: {
+        headline: { type: "string" },
+        lines: { type: "array", maxItems: TG_LIMITS.dayLinesMax, items: { type: "string" } },
+      },
+    },
     items: {
       type: "array",
       maxItems: TG_LIMITS.items,
@@ -69,7 +89,8 @@ const hhmm = (ms: number) => new Date(ms + 9 * 3600 * 1000).toISOString().slice(
 const oneLine = (s: string) => s.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
 
 // 재료: 방 이름 한 줄 + 조직·프로젝트 목록 + 메시지 줄. 전체 글자 수 상한 안에서 메시지 글을 자른다.
-export function telegramMaterial(day: string, roomLabel: string, messages: TgMessage[], orgs: LinkOption[], projects: LinkOption[]) {
+// partial: 이 방·날이 여러 묶음으로 나뉜 경우(둘째 묶음부터 또는 보낸 메시지가 전체보다 적을 때). 지시문의 '일부' 규칙이 이 줄을 본다.
+export function telegramMaterial(day: string, roomLabel: string, messages: TgMessage[], orgs: LinkOption[], projects: LinkOption[], partial = false) {
   const index = new Map(messages.map((m, i) => [m.ref, i]));
   const share = Math.max(200, Math.floor(TG_LIMITS.materialChars / Math.max(1, messages.length)));
   const lines = messages.map((m, i) => {
@@ -80,6 +101,7 @@ export function telegramMaterial(day: string, roomLabel: string, messages: TgMes
   return [
     `날짜: ${day}`,
     `대화방: ${oneLine(roomLabel)}`,
+    ...(partial ? ["묶음: 그날 대화의 일부"] : []),
     `담당조직 목록: ${orgs.length ? orgs.map((o) => `${o.ref}=${oneLine(o.name)}`).join(", ") : "(없음)"}`,
     `프로젝트 목록: ${projects.length ? projects.map((p) => `${p.ref}=${oneLine(p.name)}`).join(", ") : "(없음)"}`,
     "메시지:",
@@ -95,7 +117,21 @@ export function rawLines(messages: TgMessage[], refs: number[]) {
 // AI 답 검사. 응답 자체가 깨졌으면 null(저장하지 않는다). 항목 하나가 틀리면 그 항목만 빼고 빠진 수를 센다(dropped).
 // - 조직·프로젝트 참조가 목록에 없으면 그 연결만 비우고 항목은 살린다(unlinked로 센다).
 // - 항목이 하나 이상 왔는데 전부 틀렸으면 응답이 깨진 것으로 보고 null(앱 스크립트가 다시 보낸다).
-export type TgParsed = { items: TgItem[]; dropped: number; unlinked: number };
+// day는 선택: 없거나 틀리면 null(요약만 버리고 소식은 저장, 설계 3.1절). 소식이 하나도 없으면 항상 null(방·날 줄을 만들지 않는다).
+export type TgParsed = { items: TgItem[]; dropped: number; unlinked: number; day: TgDay | null };
+// 하루 요약 검사: lines는 제어문자 제거·100자 이내로 다듬은 뒤 3개 이상이어야 한다(많으면 앞 4줄). headline은 60자 이내, 비면 null.
+function parseDay(raw: unknown): TgDay | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const d = raw as Record<string, unknown>;
+  if (!Array.isArray(d.lines)) return null;
+  const lines: string[] = [];
+  for (const l of d.lines) {
+    const line = cleanLine(l, TG_LIMITS.dayLine);
+    if (line) lines.push(line);
+  }
+  if (lines.length < TG_LIMITS.dayLinesMin) return null;
+  return { headline: cleanLine(d.headline, TG_LIMITS.dayHeadline), lines: lines.slice(0, TG_LIMITS.dayLinesMax) };
+}
 export function parseTelegram(text: string | null, messageCount: number, orgs: LinkOption[], projects: LinkOption[]): TgParsed | null {
   if (text === null) return null;
   let parsed: unknown;
@@ -130,5 +166,5 @@ export function parseTelegram(text: string | null, messageCount: number, orgs: L
     });
   }
   if (!out.length && dropped > 0) return null;
-  return { items: out, dropped, unlinked };
+  return { items: out, dropped, unlinked, day: out.length ? parseDay(top.day) : null };
 }
