@@ -154,5 +154,9 @@ test('파일로 만든 사업 보고·바구니 연결 화면은 같은 알림 �
   const read = f => readFileSync(new URL(`../app/${f}`, import.meta.url), 'utf8');
   assert.match(read('meeting-from-files.js'), /announceRecordSaved\(\{kind:'meeting',id:meetingId/);
   assert.match(read('basket-manual-link.js'), /announceRecordSaved\(basketDetail\(n,records\)\)/);
+  // AI 분류 제안 확정(바구니 [분류])도 새로 연결했을 때만, 읽은 메모(발생일 칸 포함)로 같은 알림을 낸다.
+  assert.match(read('basket-classification-ui.js'), /result\.created>0&&announced<OVERLAP_ANNOUNCE_MAX/);
+  assert.match(read('basket-classification-ui.js'), /announceRecordSaved\(detail\)/);
+  assert.match(read('basket-classification.js'), /select=id,workspace_id,raw_text,updated_at,occurred_at,created_at,archived_at,ai_export_allowed/);
   assert.doesNotMatch(read('journal-weekly.js'), /record-saved/);
 });

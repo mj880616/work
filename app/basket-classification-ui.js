@@ -1,7 +1,9 @@
+import {announceRecordSaved,basketDetail} from './record-saved.js';
 import {validateLinkSummary,updateLinkSummary,SUMMARY_ERROR_TEXT} from './basket-link-records.js';
 import { parseAIAnswer, readClassificationSnapshot, previewClassification, confirmLinks, selectableProjects, orderedSelectableProjects, ERROR_TEXT, LINK_KINDS, LINK_COLUMN } from './basket-classification.js';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // BASKET-4b-2 decision 5: an AI write-request suggestion is only a hint; nothing is marked automatically.
+const OVERLAP_ANNOUNCE_MAX=3;
 export const WRITE_REQUEST_HINT='쓰기요청 후보는 Web2에서 표시하지 않아요.';
 const names={organization:'담당조직',project:'프로젝트',reference:'참고',library:'자료실',write_request_candidate:'쓰기요청 후보',google_task:'Google 할 일'};
 // BASKET-분류중복·변화반영 ②: easy-language notes for the verdicts judged in basket-classification.js.
@@ -55,7 +57,7 @@ export function mountClassification(host,{onOpen,onClose,onBusy,onConfirmed,isBl
     for(const [key,s] of choices){try{validateLinkSummary(s.summary);}catch(error){status.textContent=error.message;rows.querySelector(`[data-classification-summary="${key}"]`)?.focus();return;}
       const identity=`${key.split(':')[0]}:${s.kind}:${s.targetId}`;if(destinations.has(identity)){status.textContent='같은 연결할 곳은 한 번만 선택해 주세요.';return;}destinations.add(identity);
     }
-    const run=++epoch,owner=scope(),current=()=>run===epoch&&owner===scope();busy=true;onBusy(true);controls();rows.querySelectorAll('input,textarea,select').forEach(el=>el.disabled=true);status.textContent='저장 중…';let created=0,updated=0,existing=0,inFlight=[];const messages=[];
+    const run=++epoch,owner=scope(),current=()=>run===epoch&&owner===scope();busy=true;onBusy(true);controls();rows.querySelectorAll('input,textarea,select').forEach(el=>el.disabled=true);status.textContent='저장 중…';let created=0,updated=0,existing=0,announced=0,inFlight=[];const messages=[];
     const changed=()=>window.dispatchEvent(new Event('kptu:basket-links-changed'));
     const fail=(s,code)=>{s.error=code;s.checked=false;messages.push(ERROR_TEXT[code]||SUMMARY_ERROR_TEXT[code]||'저장하지 못했어요. 다시 확인해 주세요.');if(code==='FUNCTION_UNAVAILABLE')missing=true;if(code==='RESULT_UNKNOWN')uncertain=true;};
     try{
@@ -74,6 +76,8 @@ export function mountClassification(host,{onOpen,onClose,onBusy,onConfirmed,isBl
           if(!result||typeof result.ok!=='boolean')throw Error('unknown');
           if(!result.ok){inFlight.forEach(s=>fail(s,result.error||'PERMISSION_DENIED'));inFlight=[];}
           else{created+=result.created||0;existing+=result.existing||0;changed();
+            // MTG-기록겹침거르기: 새로 연결했을 때만, 저장이 끝난 뒤 비슷한 사업 보고를 확인한다(AI 하루 한도를 아끼려고 한 번에 3건까지).
+            if(result.created>0&&announced<OVERLAP_ANNOUNCE_MAX){const note=live.notes.find(n=>n.id===row.item.note_id);const detail=note&&basketDetail(note,targets.map(t=>({kind:t.kind,id:t.target_id})));if(detail){announced++;announceRecordSaved(detail);}}
             // Existing links were not summary writes. Require an explicit recheck.
             for(const s of inFlight){s.checked=false;if(result.existing)s.error='ALREADY_CONFIRMED';else s.done='연결 완료';}
             inFlight=[];if(result.existing){const actual=await readClassificationSnapshot(editedProposal());if(!current())return;refreshPreview(actual);}

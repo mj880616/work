@@ -14,6 +14,7 @@ import {readReport, buildReport, reportWords, lineText} from './report.mjs';
 import {matchOrgs, matchOrg, orgAllNames, sameOrgName} from '../org-name-match.mjs';
 import {personalReportFromTeam, effectiveOwners, isMine, ownerNotation} from './delta.mjs';
 import {sitePlan, isStageLine, stageOfOrg, weekOf} from '../org-dispute-stage-model.mjs';
+import {issuedFromSections} from '../weekly-lines.mjs';
 
 // 브라우저 기본 압축(CompressionStream 'deflate-raw'). Node 20에도 있어 시험이 같은 길을 쓴다.
 const pipe = (bytes, Kind) => new Response(new Blob([bytes]).stream().pipeThrough(new Kind('deflate-raw'))).arrayBuffer().then(b => new Uint8Array(b));
@@ -32,6 +33,15 @@ export const DRAFT_TEXT = Object.freeze({
 });
 
 export async function openConfirmed(bytes, zlib = browserZlib) { return openHwpxAsync(bytes, zlib); }
+
+// WEEKLY-개인본대조 W-2: 내준 한글 파일(.hwpx 바이트)의 1~4절 글 줄을 draft.issued 모양으로(weekly-lines.mjs — 서버가 개인본을 읽는 것과 같은 함수).
+// 5절·'2) 주요 일정'·표 머리 칸 이름은 빠진다. 읽을 줄이 없거나 너무 길면 null.
+export async function issuedFrom(bytes, at, zlib = browserZlib) {
+  const pkg = await openHwpxAsync(bytes, zlib);
+  const sections = pkg.order.map(name => ({name, n: Number(/^Contents\/section(\d{1,4})\.xml$/i.exec(name)?.[1])})).filter(x => Number.isInteger(x.n)).sort((a, b) => a.n - b.n);
+  const dec = new TextDecoder();
+  return issuedFromSections(sections.map(x => dec.decode(pkg.files.get(x.name))), at);
+}
 
 // WEEKLY-한글파일다듬기 ②(2026-10-23 사용자 지적 11:38): 바탕 파일이 .hwp면 칸막이 편집기 엔진(rhwp 0.8.7 WASM, hwp-frame.js)이 .hwpx로 바꾼다.
 // 엔진이 열지 못하는 파일은 미리 알아본다(엔진에 넣으면 암호 묻는 창이 숨은 칸막이 안에서 답을 기다리다 시간 초과로 끝난다).
