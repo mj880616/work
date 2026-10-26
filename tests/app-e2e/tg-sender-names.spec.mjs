@@ -2,28 +2,10 @@
 // 서버는 흉내(app_feed_items·이름표 두 표·DB 함수 세 개)이고 쓴 값을 기억한다. 이름·방·내용은 모두 지어낸 것이다. 고정 부분(소식 흉내)은 call-telegram-feed.spec.mjs와 같다.
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import {installTgServer,telegramRows,T} from './helpers/tg-room-day-server.mjs';
+const T1=T.a1,T2=T.b1,T3=T.a0;
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const ORG='30000000-0000-4000-8000-0000000000c1';
-const C1='60000000-0000-4000-8000-000000000001',C2='60000000-0000-4000-8000-000000000002',C3='60000000-0000-4000-8000-000000000003';
-const T1='70000000-0000-4000-8000-000000000001',T2='70000000-0000-4000-8000-000000000002',T3='70000000-0000-4000-8000-000000000003';
-const base={workspace_id:'w',drive_url:null,pinned_at:null,hidden_at:null,archived_at:null,project_id:null,updated_at:'2026-10-06T00:00:00Z'};
-function rows(){
- return [
-  {...base,id:C1,source:'call',day:'2026-10-06',occurred_at:'2026-10-06T00:42:00Z',room_key:null,room_label:null,title:'가상 교섭 일정 다음 주로 조정',summary:null,points:['가상 교섭 다음 주 화요일로 변경','[확정] 요구안 12명 유지','[예정] 회신 10. 12.(월)까지','[확인] 장소 다시 확인'],counterpart:'예시지부 홍길동 위원장',speaker_split:false,raw_count:0,organization_id:ORG,raw_text:'네 사측에서 목요일은 어렵다고 해서요 그럼 화요일 두 시는 어때요',drive_url:'https://drive.google.com/file/d/fake-id/view'},
-  {...base,id:C2,source:'call',day:'2026-10-06',occurred_at:'2026-10-05T23:10:00Z',room_key:null,room_label:null,title:'가상 자료집 원고 마감 확인',summary:null,points:['원고 금요일 마감'],counterpart:null,speaker_split:true,raw_count:0,organization_id:null,raw_text:'나: 원고 언제까지예요?\n화자2: 금요일까지요.'},
-  {...base,id:C3,source:'call',day:'2026-10-04',occurred_at:'2026-10-04T05:00:00Z',room_key:null,room_label:null,title:'가상 공문 회신 기한 문의',summary:null,points:[],counterpart:null,speaker_split:false,raw_count:0,organization_id:null,raw_text:null},
-  {...base,id:T1,source:'telegram',day:'2026-10-06',occurred_at:'2026-10-06T00:31:00Z',room_key:'room-a',room_label:'가상지부 단톡',title:'교섭 연기',summary:'가상 교섭 다음 주 화요일로 미뤄짐. 서면 회신 월요일까지.',points:[],counterpart:null,speaker_split:false,raw_count:3,organization_id:null,raw_text:'09:31 A: 사측에서 목요일 어렵다고 연락 왔습니다\n09:33 B: 그럼 언제로요?\n09:40 A (전달): 다음 주 화요일 두 시로 잡혔어요'},
-  {...base,id:T2,source:'telegram',day:'2026-10-06',occurred_at:'2026-10-05T23:12:00Z',room_key:'room-b',room_label:'예시 간부방',title:'원고 마감',summary:'자료집 원고 금요일 18시 마감.',points:[],counterpart:null,speaker_split:false,raw_count:2,organization_id:null,raw_text:'08:12 A: 원고 금요일 18시 마감입니다\n08:13 B: 확인'},
-  {...base,id:T3,source:'telegram',day:'2026-10-05',occurred_at:'2026-10-05T01:05:00Z',room_key:'room-a',room_label:'가상지부 단톡',title:'기자회견',summary:'공동 기자회견 10. 8. 11시 확정.',points:[],counterpart:null,speaker_split:false,raw_count:1,organization_id:null,raw_text:'10:05 A: 기자회견 10. 8. 11시 확정',pinned_at:'2026-10-05T02:00:00Z'},
- ];
-}
-const days=[
- {workspace_id:'w',day:'2026-10-06',source:'call',total_count:5,kept_count:2,room_count:0,personal_count:2,unsure_count:1,failed_count:0},
- {workspace_id:'w',day:'2026-10-03',source:'call',total_count:2,kept_count:0,room_count:0,personal_count:1,unsure_count:0,failed_count:1},
- {workspace_id:'w',day:'2026-10-06',source:'telegram',total_count:412,kept_count:2,room_count:2,personal_count:0,unsure_count:0,failed_count:0},
-];
-
 const P1='80000000-0000-4000-8000-000000000001',P2='80000000-0000-4000-8000-000000000002',P3='80000000-0000-4000-8000-000000000003',KEY1='a1b2c3d4e5f60718',KEY2='0f1e2d3c4b5a6978';
 const person=(id,o={})=>({id,workspace_id:'w',name:null,auto_name:null,is_self:false,sender_key:null,...o});
 // 이름표 흉내: seed(수집기 이름 가상갑·나·열쇠 없는 사람), empty(표는 있고 비었음), missing(표 없음 404), broken(읽기 실패 500)
@@ -32,9 +14,9 @@ function senderSeed(mode){
   links:[{workspace_id:'w',room_key:'room-a',day:'2026-10-06',label:'A',sender_id:P1},{workspace_id:'w',room_key:'room-a',day:'2026-10-06',label:'B',sender_id:P2},{workspace_id:'w',room_key:'room-b',day:'2026-10-06',label:'A',sender_id:P3}]};
  return {senders:[],links:[]};
 }
-async function fixture(page,{width=1280,missing=false,empty=false,noArchive=false,senderTables='empty'}={}){
+async function fixture(page,{width=1280,senderTables='empty'}={}){
  await page.setViewportSize({width,height:860});
- const items=empty?[]:rows(),writes=[],errors=[],names=senderSeed(senderTables),calls=[];let seq=0;
+ const items=telegramRows(),writes=[],errors=[],names=senderSeed(senderTables),calls=[];let seq=0;
  page.on('pageerror',e=>errors.push(e.message));page.on('console',e=>{if(e.type()==='error'&&!/Failed to load resource/.test(e.text()))errors.push(e.text());});
  await openHome(page,{beforeLoad:async()=>{
   const fail=senderTables==='missing'?{status:404,json:{code:'PGRST205',message:"Could not find the table 'public.app_tg_senders' in the schema cache"}}:senderTables==='broken'?{status:400,json:{code:'42501',message:'permission denied'}}:null;
@@ -71,52 +53,7 @@ async function fixture(page,{width=1280,missing=false,empty=false,noArchive=fals
    names.senders=names.senders.filter(x=>x.id!==b.p_id);names.links=names.links.filter(l=>l.sender_id!==b.p_id);
    return r.fulfill({json:{ok:true,removed_links:1}});
   });
-  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_feed_items',r=>{
-   if(missing)return r.fulfill({status:404,json:{code:'PGRST205',message:"Could not find the table 'public.app_feed_items' in the schema cache"}});
-   const req=r.request(),q=new URL(req.url()).searchParams,eq=k=>q.get(k)?.startsWith('eq.')?decodeURIComponent(q.get(k).slice(3)):null;
-   if(req.method()==='GET'){
-    if(Number(q.get('offset')||0))return r.fulfill({json:[]});
-    let out=items.filter(x=>x.workspace_id===eq('workspace_id'));
-    if(eq('id'))out=out.filter(x=>x.id===eq('id'));
-    if(eq('source'))out=out.filter(x=>x.source===eq('source'));
-    // TG-카드밀기: 보관 칸이 아직 없는 서버(DB 적용 전)는 그 칸을 말하는 조회에 400/42703으로 답한다.
-    if(noArchive&&/archived_at/.test(`${q.get('select')||''}&${q.get('archived_at')||''}`))return r.fulfill({status:400,json:{code:'42703',message:'column app_feed_items.archived_at does not exist'}});
-    if(q.get('hidden_at')==='is.null')out=out.filter(x=>!x.hidden_at);
-    if(q.get('hidden_at')==='not.is.null')out=out.filter(x=>!!x.hidden_at);
-    if(q.get('archived_at')==='is.null')out=out.filter(x=>!x.archived_at);
-    if(q.get('archived_at')==='not.is.null')out=out.filter(x=>!!x.archived_at);
-    const fields=(q.get('select')||'').split(',');
-    return r.fulfill({json:out.map(x=>Object.fromEntries(fields.map(f=>[f,x[f]])))});
-   }
-   if(req.method()==='PATCH'){
-    const body=req.postDataJSON();writes.push({id:eq('id'),body});
-    const row=items.find(x=>x.id===eq('id')&&x.workspace_id===eq('workspace_id'));if(!row)return r.fulfill({json:[]});
-    Object.assign(row,body);return r.fulfill({json:[{...row}]});
-   }
-   return r.fulfill({status:405,json:{}});
-  });
-  // TG-카드밀기: DB 함수 app_feed_set_state(p_id, p_state)를 흉내 낸다(텔레그램 줄만, 두 칸을 함께 맞춘다).
-  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_feed_set_state',r=>{
-   const {p_id,p_state}=r.request().postDataJSON(),row=items.find(x=>x.id===p_id);
-   if(!row)return r.fulfill({status:404,json:{code:'P0002',message:'FEED_NOT_FOUND'}});
-   if(row.source!=='telegram')return r.fulfill({status:400,json:{code:'23514',message:'FEED_STATE_TELEGRAM_ONLY'}});
-   writes.push({id:p_id,body:{state:p_state},rpc:true});
-   row.archived_at=p_state==='archived'?(row.archived_at||'2026-10-25T10:00:00Z'):null;
-   row.hidden_at=p_state==='trashed'?(row.hidden_at||'2026-10-25T10:00:00Z'):null;
-   return r.fulfill({json:{ok:true,id:p_id,state:p_state,archived_at:row.archived_at,hidden_at:row.hidden_at,updated_at:'2026-10-25T10:00:00Z'}});
-  });
-  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_call_personal',r=>r.fulfill({json:[]}));
-  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_call_edits',r=>r.fulfill({json:[]}));
-  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_feed_days',r=>{
-   if(missing)return r.fulfill({status:404,json:{code:'PGRST205'}});
-   const q=new URL(r.request().url()).searchParams,src=decodeURIComponent((q.get('source')||'').slice(3));
-   return r.fulfill({json:Number(q.get('offset')||0)||empty?[]:days.filter(d=>d.source===src)});
-  });
-  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganizations',r=>r.fulfill({json:Number(new URL(r.request().url()).searchParams.get('offset')||0)?[]:[{id:ORG,workspace_id:'w',name:'예시지부',active:true},{id:'o',workspace_id:'w',name:'테스트 조직',active:true}]}));
-  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganization_updates',r=>{
-   if(r.request().method()==='POST'){writes.push({table:'org_update',body:r.request().postDataJSON()});return r.fulfill({status:201,json:[]});}
-   return r.fulfill({json:[]});
-  });
+  await installTgServer(page,{items,writes});
  }});
  return {items,writes,errors,names,calls};
 }
@@ -134,10 +71,14 @@ async function openMenu(page,width,label){
 async function tap(page,locator,width){await expect(locator).toBeVisible();if(width<761)await locator.tap();else await locator.click();}
 const noWideScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 
+// 그 소식이 있는 방·날 상세를 열고 그 소식의 원문을 펼친다(소식 ID로 방·날을 찾는다).
+const WHERE={[T1]:'room-a|2026-10-06',[T2]:'room-b|2026-10-06',[T3]:'room-a|2026-10-05'};
 async function openRaw(page,width,id){
  const view=page.locator('#telegramView');
- await tap(page,view.locator(`[data-tg-item="${id}"] .feed-bub`),width);
+ await tap(page,view.locator(`[data-tg-rdopen="${WHERE[id]}"]`),width);
  await expect(view.locator('#tgDetail')).toBeVisible();
+ await tap(page,view.locator(`[data-tg-open="${id}"]`),width);
+ await expect(view.locator('[data-tg-raw]')).toBeVisible();
  return view;
 }
 const whoTexts=view=>view.locator('[data-tg-raw] .feed-who');
@@ -261,7 +202,7 @@ test('텔레그램 1280: 머리줄 ⋯ → 보낸 사람 이름: 목록, 이름 
 
  // ‹ 소식 으로 돌아오면 소식 목록, 그때 원문은 지워진 이름 대신 A·B.
  await view.locator('[data-tg-shelf-back]').click();
- await expect(view.locator('[data-tg-item]').first()).toBeVisible();
+ await expect(view.locator('[data-tg-rd]').first()).toBeVisible();
  await openRaw(page,1280,T2);
  await expect(whoTexts(view)).toHaveText(['A이름 붙이기','B이름 붙이기']);
  expect(f.errors).toEqual([]);
@@ -277,7 +218,7 @@ test('텔레그램 390: 이름표가 비어 있으면 지금처럼 A·B(+이름 
  await tap(page,page.locator('#tgMenu').getByRole('button',{name:'보낸 사람 이름',exact:true}),390);
  await expect(view.locator('[data-tg-empty="senders"]')).toContainText('아직 붙인 이름이 없어요');
  await tap(page,view.locator('[data-tg-shelf-back]'),390);
- await expect(view.locator('[data-tg-item]').first()).toBeVisible();
+ await expect(view.locator('[data-tg-rd]').first()).toBeVisible();
  expect(await noWideScroll(page)).toBe(true);expect(f.errors).toEqual([]);
 });
 
