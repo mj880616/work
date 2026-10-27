@@ -1,5 +1,7 @@
 import {viewPrefs,THEMES,DEFAULT_THEME} from './view-prefs.js';
 import {repaintMobileTabs} from './mobile-tab-selection.mjs';
+import {midKeys,pcSplit,itemOf} from './menu-model.mjs';
+import './menu-layout.js';
 (()=>{
 'use strict';
 if(window.__KPTU_TOPBAR_ACTIONS__)return;
@@ -18,11 +20,12 @@ const accounts=logoutButtons.map(logout=>{
   let nativePopover=typeof panel.showPopover==='function'&&typeof panel.hidePopover==='function'&&'popover' in panel;
   if(nativePopover)panel.setAttribute('popover','manual');
   const profile=document.createElement('button');profile.type='button';profile.className='account-action';profile.dataset.profileOpen='';profile.textContent='내 프로필';
+  const menuEdit=document.createElement('button');menuEdit.type='button';menuEdit.className='account-action';menuEdit.dataset.menuEditOpen='';menuEdit.textContent='메뉴 편집';menuEdit.setAttribute('aria-haspopup','dialog');menuEdit.setAttribute('aria-controls','menuEditModal');
   const theme=document.createElement('button');theme.type='button';theme.className='account-action';theme.dataset.themeOpen='';
   if(sidebar)theme.id='sidebarThemeBtn';theme.textContent='화면 색';theme.setAttribute('aria-haspopup','dialog');theme.setAttribute('aria-controls','themeModal');
-  logout.before(host);host.append(trigger);panel.append(profile,theme,logout);document.body.append(panel);
+  logout.before(host);host.append(trigger);panel.append(profile,menuEdit,theme,logout);document.body.append(panel);
   logout.classList.remove('ghost','sidebar-utility','hidden');logout.classList.add('account-action');
-  return {host,trigger,panel,profile,theme,nativePopover};
+  return {host,trigger,panel,profile,menuEdit,theme,nativePopover};
 });
 let activeAccount=null;
 const mobileQuery=window.matchMedia('(max-width:760px)');
@@ -49,21 +52,26 @@ const closeControl=()=>mobilePanel?.querySelector('[data-mobile-menu-close]')||m
 const midQuery=window.matchMedia('(min-width:761px) and (max-width:1023px)');
 const menuQuery=window.matchMedia('(max-width:1023px)');
 const appNav=document.querySelector('#appView>.app-nav'),drawerNav=mobilePanel?.querySelector('nav');
-const phoneOnly=[...drawerNav?.querySelectorAll('[data-view],[data-basket-kind-nav]')||[]];
+// MENU-HOME-편집: 폰 [메뉴] 창 안 줄은 menu-layout.js가 순서대로 다시 만들 수 있으므로 그때그때 읽는다(한 줄 메뉴 때 옮겨 담은 PC 버튼은 뺀다).
+const phoneButtons=()=>[...drawerNav?.children||[]].filter(el=>!el.matches('.nav-btn,.nav-sub-btn'));
 // BASKET-정리함이름: [노트] (data-basket-kind-nav) and BASKET-PC메뉴 [업데이트]·[챙길 것] (data-basket-pane-nav) are not screens of their own; they sit in the 761~1023px row too.
 // BASKET-PC메뉴: the order is the sidebar's: 홈 / 정리함(업데이트·챙길 것) / 일정(달력·할 일·업무일지·일기) / 노트 / 프로젝트 …
-const midItems=['home','basket','pane:update','pane:todo','calendar','tasks','journal','diary','note','projects','meetings','library','pages','team','hwp','ledger','calls','telegram']
-  .map(key=>appNav?.querySelector(key==='note'?'[data-basket-kind-nav="note"]':key.startsWith('pane:')?`[data-basket-pane-nav="${key.slice(5)}"]`:`[data-view="${key}"]`)).filter(Boolean);
-const homes=new Map([...midItems,mobileTrigger].filter(Boolean).map(button=>{
+// MENU-HOME-편집: 순서는 menu-model.mjs(사용자가 정한 메뉴 순서). 버튼은 처음 모양(index.html)의 것을 그대로 쓰고 자리만 바꾼다.
+const ALL_KEYS=['home','basket','pane:update','pane:todo','calendar','tasks','journal','diary','note','projects','meetings','library','pages','team','hwp','ledger','calls','telegram'];
+const keyButton=key=>appNav?.querySelector(key==='note'?'[data-basket-kind-nav="note"]':key.startsWith('pane:')?`[data-basket-pane-nav="${key.slice(5)}"]`:`[data-view="${key}"]`);
+const buttonByKey=new Map(ALL_KEYS.map(key=>[key,keyButton(key)]).filter(([,button])=>button));
+const orderedButtons=()=>{const layout=window.KPTUMenuLayout?.current?.();return midKeys(layout).map(key=>buttonByKey.get(key)).filter(Boolean)};
+let midItems=orderedButtons();
+const homes=new Map([...buttonByKey.values(),mobileTrigger].filter(Boolean).map(button=>{
   const anchor=document.createComment('navigation home');button.before(anchor);return [button,anchor];
 }));
-const navigationControls=new Set([...homes.keys(),...phoneOnly]);
+const isNavigationControl=el=>homes.has(el)||phoneButtons().includes(el);
 let midActive=false,navigationFocus=null;
 // display:none may clear activeElement before resize/media-query callbacks.
 // Retain only a menu focus lost through hiding; explicit blur or another
 // focused control clears this reference.
 document.addEventListener('focusin',event=>{
-  if(event.target!==document.body)navigationFocus=navigationControls.has(event.target)?event.target:null;
+  if(event.target!==document.body)navigationFocus=isNavigationControl(event.target)?event.target:null;
 });
 document.addEventListener('focusout',event=>{
   if(event.target===navigationFocus&&event.target.getClientRects().length)navigationFocus=null;
@@ -87,6 +95,36 @@ function syncMenuLocation(){
 // UI-PC사이드바: on the PC sidebar the [홈] row is hidden and the top line (icon + 홈) is the home menu, so focus that crosses
 // into the PC width lands on the first visible of: the current menu row, that top line when home is current, the top line.
 const pcFocusTarget=()=>[appNav.querySelector('.nav-btn.active'),appNav.querySelector('.sidebar-brand.active'),...midItems,appNav.querySelector('.sidebar-brand')].find(el=>el?.getClientRects().length);
+// PC 왼쪽 메뉴: 하단바 칸 메뉴가 위, 나머지가 그 아래 같은 순서. 정리함·일정은 아래 작은 메뉴(.nav-sub)와 한 덩어리로 옮긴다.
+// 맨 끝에 이어진 통화·텔레그램은 처음처럼 빈 공간 아래에 붙고, 그 위로 옮기면 보통 줄이 된다. 한 줄 메뉴 중에는 건드리지 않는다(나올 때 다시 맞춘다).
+function placeSidebar(){
+  if(midActive||!appNav)return;
+  const {main,tail}=pcSplit(window.KPTUMenuLayout?.current?.());
+  const spacer=appNav.querySelector('.sidebar-spacer'),links=appNav.querySelector('.nav-quick-links');
+  const unit=id=>{
+    const head=buttonByKey.get(id);if(!head)return [];
+    const out=[],anchor=homes.get(head);
+    if(anchor?.parentNode===appNav)out.push(anchor);
+    out.push(head);
+    const sub=head.nextElementSibling;if(sub?.classList.contains('nav-sub'))out.push(sub);
+    return out;
+  };
+  const place=(ids,before)=>ids.map(unit).forEach(nodes=>nodes.forEach(node=>appNav.insertBefore(node,before)));
+  place(main,spacer);place(tail,links);
+  ['calls','telegram'].forEach(id=>{
+    const button=buttonByKey.get(id);if(!button)return;
+    button.classList.toggle('nav-feed',tail.includes(id));
+    button.classList.toggle('nav-feed-first',tail[0]===id);
+  });
+}
+// 메뉴 순서가 바뀌면(menu-layout.js) 한 줄 메뉴의 순서와 PC 왼쪽 메뉴 자리를 새로 맞춘다.
+window.addEventListener('kptu:menu-layout-applied',()=>{
+  midItems=orderedButtons();
+  if(midActive)syncMidNavigation();
+  else placeSidebar();
+  phoneButtons().forEach(button=>{button.hidden=midActive});
+  syncMenuLocation();
+});
 function syncMidNavigation(){
   if(!appNav||!drawerNav||!mobileTrigger)return;
   const active=document.activeElement;
@@ -99,7 +137,8 @@ function syncMidNavigation(){
     midActive=false;
     // UI-PC일정묶음: 할 일·업무일지·일기 live in the PC sidebar's [일정] sub menu; back home they are sub rows again.
     homes.forEach((anchor,button)=>{anchor.after(button);if(button.classList.contains('nav-sub-btn'))button.classList.remove('nav-btn')});
-    phoneOnly.forEach(button=>button.hidden=false);
+    placeSidebar();
+    phoneButtons().forEach(button=>button.hidden=false);
     mobileTrigger.classList.remove('nav-btn','mid-menu-trigger','active');mobileTrigger.removeAttribute('aria-current');
     window.KPTURouter?.syncNavigation?.();
     if(homes.has(focus)){
@@ -109,7 +148,7 @@ function syncMidNavigation(){
     }
     return;
   }
-  midActive=true;phoneOnly.forEach(button=>button.hidden=true);
+  midActive=true;phoneButtons().forEach(button=>button.hidden=true);
   mobileTrigger.classList.add('nav-btn','mid-menu-trigger');appNav.append(mobileTrigger);
   // Measure intrinsic widths in the real row before distributing its suffix.
   // All moves finish synchronously, before paint; no duplicate menu or storage.
@@ -127,14 +166,14 @@ function syncMidNavigation(){
     if(focus.parentElement===drawerNav&&!mobileOpen)mobileTrigger.focus({preventScroll:true});
     else if(focus.parentElement===appNav&&mobileOpen)closeControl()?.focus({preventScroll:true});
     else focus.focus({preventScroll:true});
-  }else if(phoneOnly.includes(focus)&&!focus.getClientRects().length){
+  }else if(phoneButtons().includes(focus)&&!focus.getClientRects().length){
     (mobileOpen?closeControl():mobileTrigger)?.focus({preventScroll:true});
   }else if(focus===mobileTrigger)mobileTrigger.focus({preventScroll:true});
   syncMenuLocation();
 }
 const navResize=new ResizeObserver(syncMidNavigation);
 if(appNav)navResize.observe(appNav);
-midItems.forEach(button=>navResize.observe(button));
+buttonByKey.forEach(button=>navResize.observe(button));
 if(mobileTrigger)navResize.observe(mobileTrigger);
 midQuery.addEventListener('change',syncMidNavigation);
 window.addEventListener('resize',syncMidNavigation);
@@ -156,7 +195,7 @@ function syncMobile(){
   const target=menuQuery.matches?mobileGroup:mobileAccount.panel;
   if(mobileAccount.theme.parentElement!==target){
     if(activeAccount)closeAccount();
-    target.append(mobileAccount.profile,mobileAccount.theme,logoutButtons[0]);
+    target.append(mobileAccount.profile,mobileAccount.menuEdit,mobileAccount.theme,logoutButtons[0]);
   }
   syncKeyboard();
 }
@@ -267,10 +306,12 @@ document.querySelectorAll('#appView [data-basket-pane-nav]').forEach(button=>but
   window.KPTURouter?.go('basket',{source:'delegated',sub:button.dataset.basketPaneNav});
 }));
 window.addEventListener('kptu:basket-pane',()=>syncMenuLocation());
-document.querySelectorAll('#appView [data-basket-kind-nav]').forEach(button=>button.addEventListener('click',async()=>{
+// MENU-HOME-편집: [노트]는 하단바에도 올 수 있고 줄이 다시 만들어지므로 누르기를 위임으로 받는다.
+document.addEventListener('click',async event=>{
+  const button=event.target.closest?.('#appView [data-basket-kind-nav]');if(!button)return;
   try{const {requestBasketKind}=await import('./basket-note-tasks.js');requestBasketKind(button.dataset.basketKindNav);}catch(error){console.error('basket kind',error)}
   window.KPTURouter?.go('basket',{source:'delegated'});
-}));
+});
 // UI-자주가는링크: PC sidebar '자주 가는 링크 ›' opens the small links window beside it (quick-links.js owns the window and its saving).
 document.querySelector('#appView>.app-nav [data-quick-links]')?.addEventListener('click',async event=>{
   const trigger=event.currentTarget;
@@ -278,6 +319,7 @@ document.querySelector('#appView>.app-nav [data-quick-links]')?.addEventListener
 });
 window.addEventListener('kptu:session-changed',()=>{writeDraft='';writeDraftDoc=null});
 syncMobile();
+placeSidebar();
 syncMidNavigation();
 function closeAccount(then,fromBack=false){
   if(mobileOpen){closeMobile(then,fromBack);return}
@@ -517,6 +559,11 @@ if(addButton){
 }
 // [내 프로필]: close the account menu, then the router (the one owner of screen changes) opens the screen; its module loads on first use.
 accounts.forEach(account=>account.profile.addEventListener('click',()=>closeAccount(()=>window.KPTURouter?.go('profile',{source:'delegated'}))));
+// [메뉴 편집]: 계정 메뉴를 닫은 뒤 편집 창(menu-edit.js)을 처음 쓸 때 불러 연다.
+accounts.forEach(account=>account.menuEdit.addEventListener('click',()=>closeAccount(()=>{
+  const focusTrigger=menuQuery.matches?menuButton():account.trigger;
+  import('./menu-edit.js').then(({openMenuEdit})=>openMenuEdit({trigger:focusTrigger})).catch(error=>{console.error('menu edit',error);writeToast('메뉴 편집을 열지 못했어요. 다시 시도해 주세요.')});
+})));
 const themeButtons=accounts.map(account=>account.theme);
 window.dispatchEvent(new CustomEvent('kptu:account-ready'));
 const modal=document.querySelector('#themeModal');

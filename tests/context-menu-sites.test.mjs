@@ -7,7 +7,7 @@ import {fileURLToPath} from 'node:url';
 // UI-우클릭전수: app/context-menu.js가 우클릭으로 눌러 주는 ⋯ 버튼이 있는 파일의 목록. 새 파일이 ⋯ 버튼을 넣으면 이 시험이
 // 실패해서, 그 화면을 tests/app-e2e/context-menu-all.spec.mjs(공통 검사)에서 확인하고 아래 목록에 더하도록 한다.
 const KNOWN = [
-  'basket-link-records.js', 'basket-notes.js', 'basket.js', 'calendar-day-overflow.js', 'call-feed.js', 'diary.js', 'google-tasks.js',
+  'basket-link-records.js', 'basket-notes.js', 'basket.js', 'calendar-day-overflow.js', 'call-feed.js', 'diary.js', 'google-tasks.js', 'home-edit.js',
   'journal-weekly.js', 'journal.js', 'ledger-browse.js', 'legacy/meeting-detail-patches.js', 'library-tree.js', 'library-upload.js',
   'meeting-columns.js', 'meeting-round-detail.js', 'org-dispute-stage-ui.js', 'photo-view.js', 'project-system-v3.js', 'reference-bundles.js',
   'share-pages.js', 'suborganizations.js', 'task-inline.js', 'task-row-view.js', 'task-workflow.js', 'telegram-feed.js', 'workplace-detail.js'

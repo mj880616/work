@@ -381,3 +381,23 @@
   #appView #homeView .home-more { position:relative; display:block; min-height:var(--ds-compact-height-sm,28px); margin:0; padding:0; border:0; background:transparent; color:var(--kptu-primary-ink); font-size:var(--ds-text-meta,12px); font-weight:700; text-align:left; cursor:pointer; }
   #appView #homeView .home-more::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 }
+
+/* MENU-HOME-편집: 홈 ⋯ 줄과 홈 편집(home-edit.js). 작고 낮게, 점선 테두리. */
+.home-tools{display:flex;align-items:center;justify-content:flex-end;gap:6px;min-height:24px;margin:0 0 2px}
+.home-tools-title{margin-right:auto;font-size:var(--ds-text-section,13px);font-weight:600;color:var(--kptu-muted)}
+.home-tools-more,.home-tools-btn{min-height:24px;padding:0 8px;border:0;border-radius:var(--kptu-radius-sm,6px);background:transparent;color:var(--kptu-muted);font-size:var(--ds-text-row,13px)}
+.home-tools-more{min-width:28px;font-size:16px;line-height:1}
+.home-tools-more:hover,.home-tools-btn:hover{background:var(--kptu-primary-soft)}
+#appView #homeView .home-edit[hidden],#appView #homeView [data-home-cards][hidden]{display:none}
+.he-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.he-row{display:flex;align-items:center;gap:4px;min-height:32px;padding:0 4px 0 0;border:1px dashed var(--kptu-border);border-radius:var(--kptu-radius-sm,6px)}
+.he-handle,.he-x{display:inline-flex;align-items:center;justify-content:center;min-width:30px;min-height:30px;padding:0;border:0;background:transparent;color:var(--kptu-muted);font-size:14px}
+.he-handle{cursor:grab;touch-action:pan-y;font-size:15px}
+.he-handle:focus-visible,.he-x:focus-visible,.he-chip:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+.he-name{flex:1;min-width:0;font-size:var(--ds-text-row,13px)}
+.he-add{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:8px}
+.he-add-title{font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);margin-right:2px}
+.he-chip{min-height:26px;padding:0 10px;border:1px dashed var(--kptu-border);border-radius:var(--ds-chip-radius,13px);background:transparent;color:var(--kptu-ink);font-size:var(--ds-text-meta,12px)}
+.he-note{margin:6px 0 0;font-size:var(--ds-text-meta,12px);line-height:1.5;color:var(--kptu-muted)}
+.home-extra-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px;width:100%;min-height:26px;padding:2px 0;border:0;background:transparent;color:var(--kptu-ink);text-align:left;font-size:var(--ds-text-row,13px)}
+.home-extra-row small{color:var(--kptu-muted);flex:none}

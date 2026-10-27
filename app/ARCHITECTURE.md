@@ -141,6 +141,13 @@ Task 20: 가입·초대·접근요청·관리자 지정 모듈과 비활성 구�
 - 참고 묶음(REF-참고묶음 화면 2, `?view=reference`, `docs/design/ref-bundle.md` 6절): `reference-bundles.js`가 `#referenceView`의 유일한 renderer다(묶음 목록·상세·이름 바꾸기·더하기·순서·빈 묶음 지우기, PC 두 칸 `split-resize.js`·폰 목록 → 상세 라우터 층 1칸). 처음 열 때만 불러오고(`view-loader.js`) 하단 탭·사이드바 항목은 없다. 입구는 담당조직 목록 맨 아래 `참고 묶음 ›`, 바구니 [분류] › [참고]의 글자 링크, 업데이트 화면 "참고: ○○" 칩(`KPTUReference.open(id)`). 묶음 표는 `reference-bundles-data.js`(소유자 REST), 붙은 소식은 `readLinkRecords({kind:'bundle'})`, 연결 해제는 `disconnectWithUndo`. 참고 연결은 주간보고·주간 정리 묶음에 들어가지 않는다(`journal-data.js` `basketPlaces`).
 - HWP 편집기(HWP-편집기 1·2단계·메뉴 입구): `?view=hwp` 한 화면(`#hwpView`)을 `hwp-lab.js`가 유일하게 그린다. ☰ 메뉴·사이드바 [HWP 편집]으로 들어가며(하단 탭에는 없음), 옛 주소 `?view=hwp-lab`은 `app-router.js`·`view-loader.js`의 `VIEW_ALIAS`로 이 화면이 된다. `loadAll`에 넣지 않아 다른 화면은 편집기를 불러오지 않는다. 고정 버전 rhwp 편집기(`hwp-lab/rhwp-0.8.7/`, `scripts/hwp-lab/build-rhwp-studio.sh`로 다시 만들고 직접 고치지 않음)를 `hwp-frame.js`가 `sandbox="allow-scripts"` iframe(allow-same-origin 없음)으로 연다. 편집기는 Web2 창·로그인 정보·저장소·API에 닿지 못하고 파일은 MessagePort로만 주고받는다. 편집기 HTML의 CSP와 `hwp-lab/studio-guard.js`는 그대로 둔다. 메뉴로 열면 내 기기 파일 편집([파일 선택]·[내 기기에 저장](HWP 다운로드)·[자료실에 올리기]: `library-upload-request.js` 1회용 요청으로 기존 자료실 [+ 자료 등록] 창에 파일을 채워 열 뿐 업로드는 기존 흐름), 자료실 ⋯ 메뉴·바구니 첨부의 [편집]은 `hwp-drive.js` 1회용 요청(로그인 사용자·업무 공간 일치, 1분)으로 같은 화면을 Drive 편집 모드로 연다. 열기·덮어쓰기는 `document-actions` `hwp-open`·`hwp-overwrite`, 새 파일 저장은 기존 `library-files`·`basket-files`를 쓴다. 저장 형식은 HWP 하나. 절차·결정은 `docs/hwp-editor.md`.
 
+### 메뉴 순서·홈 칸 편집 (view_prefs 서버 저장)
+
+- 메뉴 목록의 유일한 정의는 `menu-model.mjs`(항목·기본 하단바·정리 규칙). 폰 하단바와 [메뉴] 창은 `menu-layout.js`, PC 왼쪽 메뉴와 761~1023px 한 줄 메뉴는 `topbar-actions.js`, 하단바 선택 표시는 `mobile-tab-selection.mjs`가 같은 모델만 읽는다. 순서는 `view_prefs.menu_layout`({bar, rest}).
+- 편집 창은 `menu-edit.js`(계정 메뉴 [메뉴 편집]). 줄 끌기(마우스 ⠿ / 폰 길게 누르기 / 키보드)는 공용 `reorder-drag.js`.
+- 홈 칸 목록·기본 순서·PC/폰 배치는 `home-cards-model.mjs`, 그리는 단일 소유자는 `home-read.js`의 `placeCards`, 편집 틀은 `home-edit.js`, 새 후보 칸은 `home-extra.js`. 순서·빼기는 `view_prefs.home_cards`. 뺀 칸은 화면에서만 빠지고 데이터·기능은 그대로.
+- 두 키는 DB 검사(app_profiles_view_prefs_check)가 받아야 저장된다. 적용 전에는 거절 알림으로 원래 순서로 돌아간다.
+
 ## 5. 알림 모듈 안정화
 
 `notification-center-ui.js`는 2차 안정화에서 다음 옛 구조를 제거함.

@@ -52,7 +52,7 @@
   /* 8-9e-2: the [메뉴] tab at the end of the bottom tabs opens the menu; the top ☰ is not shown on phones. */
   #mobileMenuOpen{display:none}
   #homeView h2[data-home-date]{display:none}
-  .mobile-tabs{position:fixed;z-index:30;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));height:calc(56px + env(safe-area-inset-bottom));padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);box-sizing:border-box;background:var(--kptu-surface);border-top:1px solid var(--kptu-border)}
+  .mobile-tabs{position:fixed;z-index:30;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(var(--kptu-tab-count,6),minmax(0,1fr));height:calc(56px + env(safe-area-inset-bottom));padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);box-sizing:border-box;background:var(--kptu-surface);border-top:1px solid var(--kptu-border)}
   .mobile-tabs button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:44px;min-width:44px;border:0;padding:0;background:transparent;color:var(--kptu-muted);font:inherit;font-size:12px;font-weight:400;line-height:1.2;cursor:pointer}
   .mobile-tabs button[aria-current="page"]{color:var(--kptu-primary-ink);font-weight:700}
   .mobile-tabs svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
@@ -73,3 +73,27 @@
   .mobile-menu-panel button[aria-current="page"]{background:var(--kptu-primary);color:var(--kptu-on-primary)}
   .mobile-menu-panel button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 }
+
+/* MENU-HOME-편집: [메뉴 편집] 창(menu-edit.js)과 끌어 옮기기 부품(reorder-drag.js) 표시. 작고 낮게. */
+.menu-edit-card{padding:var(--kptu-space-3,10px) var(--kptu-space-4,14px);width:min(380px,calc(100vw - 24px));max-width:100%;box-sizing:border-box;max-height:calc(100dvh - 24px);overflow:auto}
+.menu-edit-card .modal-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.menu-edit-card h2{font-size:var(--ds-text-title,15px);margin:0}
+.menu-edit-actions{display:flex;gap:6px}
+.menu-edit-actions button{min-height:28px;padding:0 10px;font-size:var(--ds-text-row,13px)}
+.me-group h3{margin:8px 0 4px;font-size:var(--ds-text-section,13px);font-weight:600;color:var(--kptu-muted)}
+.me-group h3 small{font-weight:400;margin-left:4px}
+.me-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,6px);overflow:hidden}
+.me-row{display:flex;align-items:center;gap:6px;min-height:32px;padding:0 8px 0 2px;border-top:1px solid var(--kptu-border);background:transparent}
+.me-row:first-child{border-top:0}
+.me-list:empty,.me-list:not(:has(.me-row)){min-height:32px}
+.me-handle{display:inline-flex;align-items:center;justify-content:center;width:30px;min-height:30px;padding:0;border:0;background:transparent;color:var(--kptu-muted);font-size:15px;line-height:1;cursor:grab;touch-action:pan-y}
+.me-handle.me-fixed{cursor:default;opacity:.45}
+.me-handle:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+.me-name{flex:1;min-width:0;font-size:var(--ds-text-row,13px)}
+.me-tag{color:var(--kptu-muted);font-size:11px}
+.me-note{margin:8px 0 0;font-size:var(--ds-text-meta,12px);line-height:1.5;color:var(--kptu-muted)}
+.re-active,.re-active *{user-select:none;-webkit-user-select:none}
+.re-dragging{opacity:.45}
+.re-grabbed{background:var(--kptu-primary-soft)}
+.re-drop-before{box-shadow:inset 0 2px 0 var(--kptu-primary-ink)}
+.re-drop-end{box-shadow:inset 0 -2px 0 var(--kptu-primary-ink)}
