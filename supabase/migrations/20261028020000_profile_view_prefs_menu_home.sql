@@ -20,8 +20,9 @@ begin
          where attrelid = 'public.app_profiles'::regclass and not attisdropped and attname = 'view_prefs') <> 1
      or (select count(*) from pg_constraint where conrelid = 'public.app_profiles'::regclass and conname = 'app_profiles_view_prefs_check'
          and contype = 'c' and convalidated) <> 1
-     or (select count(*) from pg_catalog.pg_constraint c where c.conrelid = 'public.app_profiles'::regclass and c.conname = 'app_profiles_view_prefs_check'
-         and pg_catalog.pg_get_constraintdef(c.oid) ~ 'lemon' and pg_catalog.pg_get_constraintdef(c.oid) !~ 'mustard' and pg_catalog.pg_get_constraintdef(c.oid) !~ 'menu_layout') <> 1
+     or (select count(*) from information_schema.check_constraints
+         where constraint_schema = 'public' and constraint_name = 'app_profiles_view_prefs_check'
+           and check_clause ~ 'lemon' and check_clause !~ 'mustard' and check_clause !~ 'menu_layout') <> 1
      or exists (select 1 from pg_class where oid = 'public.app_profiles'::regclass and not relrowsecurity)
      or exists (select 1 from pg_class where oid = 'public.app_profiles'::regclass and relacl::text ~ '(^|[{,])(anon)?=')
      or (select count(*) from pg_policy where polrelid = 'public.app_profiles'::regclass) <> 2
@@ -96,8 +97,9 @@ begin
      or (select count(*) from pg_policy where polrelid = 'public.app_profiles'::regclass) <> 2
      or (select count(*) from pg_constraint where conrelid = 'public.app_profiles'::regclass and conname = 'app_profiles_view_prefs_check'
          and convalidated) <> 1
-     or (select count(*) from pg_catalog.pg_constraint c where c.conrelid = 'public.app_profiles'::regclass and c.conname = 'app_profiles_view_prefs_check'
-         and pg_catalog.pg_get_constraintdef(c.oid) ~ 'menu_layout' and pg_catalog.pg_get_constraintdef(c.oid) ~ 'home_cards' and pg_catalog.pg_get_constraintdef(c.oid) ~ 'lemon' and pg_catalog.pg_get_constraintdef(c.oid) !~ 'mustard') <> 1 then
+     or (select count(*) from information_schema.check_constraints
+         where constraint_schema = 'public' and constraint_name = 'app_profiles_view_prefs_check'
+           and check_clause ~ 'menu_layout' and check_clause ~ 'home_cards' and check_clause ~ 'lemon' and check_clause !~ 'mustard') <> 1 then
     raise exception 'PROFILE_VIEW_PREFS_MENU_HOME_POSTCHECK_FAILED; stop';
   end if;
 end

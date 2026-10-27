@@ -45,8 +45,8 @@ for (const width of [390, 1280]) {
       await expect(win(page).locator('.ed-input p')).toHaveCount(2);
       expect(await plainOf(page)).toBe(LINES);
       await expect(win(page).locator('h2')).toHaveText('시험 쓰기');
-      // The head: ✕ then save icon, export at the right end.
-      await expect(win(page).locator('.ed-window-head > button')).toHaveCount(3);
+      // The head: ✕ then export at the right end; [취소][저장] are the bottom row (UI-저장자리).
+      await expect(win(page).locator('.ed-window-head > button')).toHaveCount(2);
       expect(errors).toEqual([]);
     });
 

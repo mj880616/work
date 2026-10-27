@@ -61,7 +61,7 @@ function histRowHtml(h, stages, canEdit) {
   } else if (mine && ui.mode === 'edit') {
     const d = ui.draft, list = stages.some(s => s.id === d.stageId) ? stages : [{id: d.stageId ?? '', name: h.name}, ...stages];
     const opts = list.map(s => `<option value="${esc(s.id)}"${s.id === d.stageId ? ' selected' : ''}>${esc(s.name)}</option>`).join('');
-    extra = `<form class="wd-stage-hsub wd-stage-hform" data-stage-hform novalidate><select class="wd-stage-select" data-stage-hselect aria-label="고칠 단계">${opts}</select><input class="wd-stage-date" type="date" data-stage-hdate value="${esc(d.start)}" aria-label="고칠 날짜" required><span class="wd-stage-tilde" aria-hidden="true">~</span><input class="wd-stage-date" type="date" data-stage-hend value="${esc(d.end)}" min="${esc(d.start)}" aria-label="고칠 끝 날짜(선택, 비우면 하루)"><button type="submit" class="stg-link"${busy}>저장</button><button type="button" class="stg-link" data-stage-hcancel>취소</button></form>`;
+    extra = `<form class="wd-stage-hsub wd-stage-hform" data-stage-hform novalidate><select class="wd-stage-select" data-stage-hselect aria-label="고칠 단계">${opts}</select><input class="wd-stage-date" type="date" data-stage-hdate value="${esc(d.start)}" aria-label="고칠 날짜" required><span class="wd-stage-tilde" aria-hidden="true">~</span><input class="wd-stage-date" type="date" data-stage-hend value="${esc(d.end)}" min="${esc(d.start)}" aria-label="고칠 끝 날짜(선택, 비우면 하루)"><button type="button" class="stg-link" data-stage-hcancel>취소</button><button type="submit" class="stg-link"${busy}>저장</button></form>`;
   } else if (mine && ui.mode === 'confirm') {
     extra = `<div class="wd-stage-hsub stg-confirm" role="group" aria-label="이력 지우기 확인"><span>이 줄을 지울까요? 지금 단계는 남은 이력의 가장 나중 줄로 돌아가요.</span><button type="button" class="stg-link danger" data-stage-hdel-yes${busy}>지우기</button><button type="button" class="stg-link" data-stage-hcancel>취소</button></div>`;
   }
@@ -221,7 +221,7 @@ function rowHtml(s, state) {
   if (mine && ui.mode === 'menu') {
     extra = `<div class="stg-sub"><button type="button" class="stg-link" data-stg-rename${busy}>이름 바꾸기</button>${s.is_default ? '' : `<button type="button" class="stg-link" data-stg-flag="ending" data-stg-menu${busy}>끝남 ${s.is_ending ? '끄기' : '켜기'}</button><button type="button" class="stg-link danger" data-stg-delete${busy}>지우기</button>`}</div>`;
   } else if (mine && ui.mode === 'rename') {
-    extra = `<form class="stg-sub" data-stg-rename-form data-enter-save><input class="stg-input" data-stg-rename-input maxlength="${STAGE_NAME_LIMIT}" value="${esc(ui.draft)}" aria-label="새 이름" autocomplete="off"><button type="submit" class="stg-link" data-enter-save-submit${busy}>저장</button><button type="button" class="stg-link" data-stg-cancel>취소</button></form>`;
+    extra = `<form class="stg-sub" data-stg-rename-form data-enter-save><input class="stg-input" data-stg-rename-input maxlength="${STAGE_NAME_LIMIT}" value="${esc(ui.draft)}" aria-label="새 이름" autocomplete="off"><button type="button" class="stg-link" data-stg-cancel>취소</button><button type="submit" class="stg-link" data-enter-save-submit${busy}>저장</button></form>`;
   } else if (mine && ui.mode === 'confirm') {
     const names = ui.orgNames || [];
     const lead = names.length ? `${esc(orgsAtStageText(names))} 지우면 ‘${esc(state.stages.find(x => x.is_default)?.name)}’ 단계로 옮겨요.` : `‘${name}’ 단계를 지울까요?`;
@@ -238,7 +238,7 @@ function paintManager() {
   if (state.status === 'error') { body.innerHTML = '<p class="stg-note" role="alert">단계를 불러오지 못했어요.</p><button type="button" class="stg-link" data-stg-reload>다시 시도</button>'; return; }
   const stages = sortStages(state.stages), busy = mgr.busy ? ' disabled' : '';
   const add = mgr.adding
-    ? `<form class="stg-add" data-stg-add-form data-enter-save><input class="stg-input" data-stg-add-input maxlength="${STAGE_NAME_LIMIT}" value="${esc(mgr.addDraft)}" placeholder="새 단계 이름" aria-label="새 단계 이름" autocomplete="off"><button type="submit" class="stg-link" data-enter-save-submit${busy}>추가</button><button type="button" class="stg-link" data-stg-add-cancel>취소</button></form>`
+    ? `<form class="stg-add" data-stg-add-form data-enter-save><input class="stg-input" data-stg-add-input maxlength="${STAGE_NAME_LIMIT}" value="${esc(mgr.addDraft)}" placeholder="새 단계 이름" aria-label="새 단계 이름" autocomplete="off"><button type="button" class="stg-link" data-stg-add-cancel>취소</button><button type="submit" class="stg-link" data-enter-save-submit${busy}>추가</button></form>`
     : `<button type="button" class="stg-add-btn" data-stg-add${busy}>+ 단계</button>`;
   body.innerHTML = `<ul class="stg-list">${stages.map(s => rowHtml(s, state)).join('')}</ul>${add}<p class="stg-msg${mgr.msg.error ? ' error' : ''}" data-stg-msg role="${mgr.msg.error ? 'alert' : 'status'}">${esc(mgr.msg.text)}</p>`;
 }

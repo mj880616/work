@@ -35,7 +35,7 @@
 #appView #journalView .journal-day h3:focus{ outline:none; }
 #appView #journalView .journal-line{ display:flex; flex-direction:column; gap:4px; margin:0; }
 #appView #journalView .journal-line label{ color:var(--kptu-muted); font-size:var(--ds-text-meta); }
-#appView #journalView .journal-line-row{ display:flex; align-items:flex-start; gap:8px; }
+#appView #journalView .journal-line-row{ display:flex; align-items:flex-end; gap:8px; }
 #appView #journalView .journal-line textarea{ flex:1; box-sizing:border-box; min-width:0; min-height:var(--ds-control-height); margin:0; resize:none; font-size:var(--ds-text-read); line-height:1.5; color:var(--kptu-ink); }
 #appView #journalView .journal-line textarea[aria-invalid="true"]{ border-color:var(--kptu-danger); }
 #appView #journalView .journal-line-row button{ flex:0 0 auto; min-height:var(--ds-control-height); }
@@ -59,8 +59,8 @@
 #appView #journalView .journal-edit-meta{ display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 10px; }
 #appView #journalView .journal-edit-meta small{ color:var(--kptu-muted); font-size:var(--ds-text-meta); font-variant-numeric:tabular-nums; }
 #appView #journalView .journal-edit-meta small.over{ color:var(--kptu-danger); }
-#appView #journalView .journal-edit-actions{ display:flex; flex-wrap:wrap; gap:6px; }
-#appView #journalView .journal-edit-actions .journal-delete{ margin-left:auto; color:var(--kptu-danger); border-color:var(--kptu-danger); background:var(--kptu-surface); }
+#appView #journalView .journal-edit-actions{ gap:6px; margin-top:0; }
+#appView #journalView .journal-edit-actions .journal-delete{ color:var(--kptu-danger); border-color:var(--kptu-danger); background:var(--kptu-surface); }
 #appView #journalView .journal-materials{ display:flex; flex-direction:column; gap:10px; }
 #appView #journalView .journal-group{ display:flex; flex-direction:column; gap:4px; padding-top:10px; border-top:var(--ds-line-width) solid var(--ds-line); }
 #appView #journalView .journal-group h4{ margin:0; font-size:var(--ds-text-row); font-weight:var(--ds-weight-medium); }

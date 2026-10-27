@@ -3,6 +3,9 @@
 #profileView .ps-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;max-width:760px}
 #profileView .ps-head h2{margin:0;flex:1;min-width:0;font-size:var(--ds-text-title);line-height:1.35;font-weight:var(--ds-weight-medium,600)}
 #profileView .ps-state{color:var(--kptu-muted);font-size:var(--ds-text-meta);white-space:nowrap}
+/* UI-저장자리: [저장]은 오른쪽 아래 줄(상태 글은 그 줄 왼쪽). */
+#profileView .ps-actions{max-width:760px;margin-top:8px}
+#profileView .ps-actions .ps-state{margin-right:auto}
 #profileView .ps-save{position:relative;height:var(--ds-compact-height);min-height:var(--ds-compact-height);padding:0 var(--ds-compact-pad-x);font-size:var(--ds-compact-text)}
 #profileView .ps-save[disabled]{opacity:.45;cursor:default}
 #profileView .ps-panel{padding:8px 10px}

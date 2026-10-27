@@ -97,7 +97,7 @@
 #meetingModal:not([data-report-kind="meeting"]) :is(#meetingNameSelect,#meetingNameMatch,.meeting-create-modes){display:none}
 #meetingRoundDetailModal:not([data-report-kind="meeting"]) :is(#mrdEditNameSelect,#mrdEditNameMatch){display:none}
 #meetingModal:not([data-create-mode="files"]) #mffPanel,
-#meetingModal[data-create-mode="files"] .modal-card>:is(fieldset.meeting-entry-section,#saveMeetingBtn,#meetingStatus){display:none}
+#meetingModal[data-create-mode="files"] .modal-card>:is(fieldset.meeting-entry-section,.modal-action-footer){display:none}
 #mffPanel .mtg-group{margin-bottom:var(--kptu-space-2)}
 #mffPanel .mff-text-label{display:grid;gap:4px;margin:0 0 var(--kptu-space-3)}
 #mffPanel .mff-text-label textarea{min-height:96px}

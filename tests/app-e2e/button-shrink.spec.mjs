@@ -50,9 +50,9 @@ for(const width of [390,1280]){
   if(width>=1024){
    const due=await measure(page.locator('#gtEditDue'));expect(due.h).toBe(36);
    for(const b of await page.locator('#gtTaskModal .gt-due-quick>button').all()){const m=await check(b,36,'기한 빠른 버튼');expect(m.top).toBe(due.top);expect(m.bottom).toBe(due.bottom);}
-   const save=await check(page.locator('#gtSaveBtn'),32,'제목 줄 [저장]');
-   const head=await page.locator('#gtTaskModal .modal-head').evaluate(el=>{const r=el.querySelector('h2').getBoundingClientRect();return Math.round(r.top+r.height/2)});
-   expect(Math.abs(save.top+save.h/2-head)).toBeLessThanOrEqual(2);
+   // UI-저장자리(2026-10-27): PC에서도 [저장]은 창 아래 줄 오른쪽(36px). 제목 줄로 올린 10/20 배치는 되돌렸다.
+   const save=await check(page.locator('#gtSaveBtn'),36,'아래 줄 [저장]');
+   expect(save.top).toBeGreaterThan(due.bottom);
    await check(page.locator('#gtDeleteBtn'),32,'[삭제]');
   }else{
    await check(page.locator('#gtSaveBtn'),36,'할 일 수정 창 [저장]');
