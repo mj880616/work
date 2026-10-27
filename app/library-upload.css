@@ -142,7 +142,7 @@
 .dce-row:first-child{border-top:0}
 .dce-name{flex:1 1 80px;min-width:0;overflow-wrap:anywhere;font-size:14px}
 .dce-meta{flex:0 1 auto;font-size:var(--kptu-text-meta);color:var(--kptu-muted)}
-.dce-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.dce-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px}
 .dce-row-edit{display:block}
 .dce-label{display:block;margin:0 0 4px;font-size:var(--kptu-text-meta)}
 .dce-input{display:block;width:100%;max-width:100%;min-width:0;box-sizing:border-box}

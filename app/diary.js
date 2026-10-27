@@ -3,7 +3,6 @@
 // Rows, photos and photo views go through diary-data.js (owner RLS + basket-files); deleting uses the basket's
 // note-delete path (attachments to the Drive trash). Back closes the top open thing first (router layers).
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
-import {watchFloatSave, refreshFloatSave} from './float-save.js'; // UI-떠있는저장: the one floating [저장] (calls this panel's own [저장])
 import {seoulParts, seoulDate, addSeoulDays, seoulDateKey, formatSeoulTime} from './meeting-time.js';
 import {readDiaryMonth, readDiaryDay, createDiary, saveDiaryText, removeDiaryPhoto, pruneDiaryPhotos, dropEmptyDiary, uploadDiaryPhotos, photoElement,
   diaryPhotos, diaryText, takeRequestedDay, todayKey, ownerScope, validateDiaryText, DIARY_MAX_PHOTOS, DIARY_COMMENT_MAX,
@@ -414,7 +413,6 @@ async function openEditor(day) {
   requestAnimationFrame(() => editor.querySelector('h3')?.focus());
   edit.mounting = mountField(edit);
 }
-watchFloatSave(() => (edit ? editor.querySelector('[data-diary-save]') : null));
 // A small box of the editor (글자색, 표 칸 메뉴, ⌄) takes the phone's back button first, like the big window.
 let boxLayer = null;
 function onBox(open) {
@@ -448,7 +446,7 @@ function renderEditor(message = '') {
 <div class="diary-thumbs" data-diary-thumbs></div>
 <div class="diary-field"><span id="diaryTextLabel">글</span><div data-diary-doc-slot></div></div>
 <p class="diary-editor-status" data-diary-editor-status role="status" aria-live="polite"></p>
-<div class="diary-actions"><button type="button" class="primary" data-diary-save data-enter-save-submit>저장</button>${row ? '<button type="button" class="secondary diary-danger" data-diary-delete>일기 지우기</button>' : ''}</div>`;
+<div class="diary-actions save-row save-row-sticky">${row ? '<button type="button" class="secondary diary-danger save-row-start" data-diary-delete>일기 지우기</button>' : ''}<button type="button" data-diary-editor-close>취소</button><button type="button" class="primary" data-diary-save data-enter-save-submit>저장</button></div>`;
   editor.querySelector('[data-diary-doc-slot]').replaceWith(edit.host);
   const thumbs = editor.querySelector('[data-diary-thumbs]');
   // Each photo has a one-line optional comment under it (max 200 chars), typed text kept in edit state across redraws.
@@ -478,7 +476,6 @@ function renderEditor(message = '') {
   setEditorStatus(message);
   editor.querySelectorAll('button,input,textarea').forEach(control => { if (edit.busy && !control.matches('[data-diary-editor-close]') && !edit.host.contains(control)) control.disabled = true; });
   edit.host.toggleAttribute('inert', !!edit.busy);
-  refreshFloatSave();
 }
 const setEditorStatus = message => { const line = editor.querySelector('[data-diary-editor-status]'); if (line) line.textContent = message; };
 function releasePending() { edit?.pending.forEach(entry => URL.revokeObjectURL(entry.url)); }
@@ -487,7 +484,7 @@ function closeEditor({fromBack = false, force = false} = {}) {
   if (edit.busy) return false;
   if (!force && dirty() && !window.confirm('쓰던 일기를 저장하지 않고 닫을까요?')) return false;
   releasePending(); dropField(); edit = null; editor.hidden = true; editor.replaceChildren();
-  refreshFloatSave(); cal.hidden = false; renderList(); $('[data-diary-new]').hidden = false; $('.diary-head').hidden = false; status.hidden = false;
+  cal.hidden = false; renderList(); $('[data-diary-new]').hidden = false; $('.diary-head').hidden = false; status.hidden = false;
   const opened = editLayer; editLayer = null; if (!fromBack) opened?.close();
   if (selected) renderDetail();
   return true;

@@ -321,7 +321,7 @@ test('the editor opened to change a note has no [업데이트|노트] switch, an
 });
 
 for(const width of [360,390,412,870,1280]){
- test(`note edit buttons [큰 창에서 수정][저장][취소] sit on one uncut line at ${width}px`,async({page})=>{
+ test(`note edit buttons [큰 창에서 수정] ... [취소][저장] sit on one uncut line at ${width}px, 저장 at the right end (UI-저장자리)`,async({page})=>{
   await page.setViewportSize({width,height:900});const f=await fixture(page);
   await chooseBasketKind(page,'note');
   await noteList(page).filter({hasText:'오래된 노트'}).click();
@@ -329,7 +329,7 @@ for(const width of [360,390,412,870,1280]){
   const bar=page.locator('[data-note-edit-actions]');await expect(bar).toBeVisible();
   await expect(noteField(page)).toBeVisible();
   const boxes=[];
-  for(const name of ['큰 창에서 수정','저장','취소']){
+  for(const name of ['큰 창에서 수정','취소','저장']){
    const b=bar.getByRole('button',{name,exact:true});await expect(b).toBeVisible();
    // UI-버튼전수조사(2026-10-24): 보이는 높이는 작은 버튼 32px(채운 [저장]은 36px), 누르는 범위(::after)는 44px.
    const m=await b.evaluate(el=>{const r=el.getBoundingClientRect(),a=getComputedStyle(el,'::after');return {top:r.top+r.height/2,left:r.left,right:r.right,height:r.height,touch:a.content==='none'?r.height:Math.max(r.height,parseFloat(a.height)||0,parseFloat(a.minHeight)||0),cut:el.scrollWidth>el.clientWidth+1};});
@@ -338,6 +338,8 @@ for(const width of [360,390,412,870,1280]){
   expect(boxes[1].top).toBe(boxes[0].top);expect(boxes[2].top).toBe(boxes[0].top);
   expect(boxes[0].left).toBeLessThan(boxes[1].left);expect(boxes[1].left).toBeLessThan(boxes[2].left);
   expect(boxes[2].right).toBeLessThanOrEqual(width);
+  // UI-저장자리: 저장은 줄 맨 오른쪽, 큰 창에서 수정은 맨 왼쪽(취소·저장 사이에 빈칸).
+  const barBox=await bar.boundingBox();expect(barBox.x+barBox.width-boxes[2].right).toBeLessThanOrEqual(4);expect(boxes[0].left-barBox.x).toBeLessThanOrEqual(4);
   await expect(bar.locator('[data-note-save]')).toHaveClass(/primary/);
   expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
  });
