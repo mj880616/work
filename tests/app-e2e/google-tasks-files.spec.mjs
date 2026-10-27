@@ -18,7 +18,7 @@ async function openTasks(browser,{viewport={width:900,height:800},supported=true
   await page.clock.setFixedTime(new Date(NOW));
   const google={a:task('a',{notes}),b:task('b')};
   const state={files:files.map(f=>({...f})),calls:{files:[],attach:[],detach:[],updates:[]},next:1};
-  const notesOf=id=>{const own=state.files.filter(f=>f.google_task_id===id);const kept=String(google[id].notes||'').split('\n').filter(l=>!own.some(f=>l.includes('/file/d/'+f.drive_file_id+'/view'))).join('\n');return [kept,...own.map(f=>line(f.drive_file_id,f.file_name))].filter(Boolean).join('\n')};
+  const notesOf=(id,drop=[])=>{const own=state.files.filter(f=>f.google_task_id===id);const kept=String(google[id].notes||'').split('\n').filter(l=>![...own.map(f=>f.drive_file_id),...drop].some(fid=>l.includes('/file/d/'+fid+'/view'))).join('\n');return [kept,...own.map(f=>line(f.drive_file_id,f.file_name))].filter(Boolean).join('\n')};
   await page.route(`${SB}/**`,async route=>{
     const req=route.request(),u=new URL(req.url()),p=u.pathname,action=u.searchParams.get('action');
     if(p==='/auth/v1/token')return ok(route,{access_token:'qa',refresh_token:'qa',expires_in:3600,expires_at:4102444800,user:{id:'qa-user',email:'qa@example.org',user_metadata:{display_name:'QA'}}});
@@ -46,7 +46,7 @@ async function openTasks(browser,{viewport={width:900,height:800},supported=true
     }
     if(p==='/functions/v1/google-tasks'&&action==='detach'){
       const b=JSON.parse(req.postData()||'{}');state.calls.detach.push(b);
-      state.files=state.files.filter(f=>!(f.google_task_id===b.task_id&&f.drive_file_id===b.drive_file_id));google[b.task_id].notes=notesOf(b.task_id);
+      state.files=state.files.filter(f=>!(f.google_task_id===b.task_id&&f.drive_file_id===b.drive_file_id));google[b.task_id].notes=notesOf(b.task_id,[b.drive_file_id]);
       return ok(route,{ok:true,files:state.files.filter(x=>x.google_task_id===b.task_id),task:{...google[b.task_id]},notes_synced:true});
     }
     if(p==='/functions/v1/google-tasks'&&action==='update'){
