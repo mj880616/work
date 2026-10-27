@@ -2704,7 +2704,8 @@ async function runHwpConvert(ctx: Ctx, input: HwpConvertInput, deps: RadarDeps):
     deps.log("ai_invalid_response");
     throw new Fail(502, "ai_invalid_response");
   }
-  deps.log("hwp_convert_done", { chars: chars(input.text), blocks: parsed.blocks.length, dropped: parsed.dropped });
+  const sizes = { chars: chars(input.text), blocks: parsed.blocks.length, dropped: parsed.dropped };
+  deps.log("hwp_convert_done", sizes);
   return json({ ok: true, kind: "hwp_convert", doc_type: input.doc_type, title: parsed.title, blocks: parsed.blocks, dropped: parsed.dropped });
 }
 
