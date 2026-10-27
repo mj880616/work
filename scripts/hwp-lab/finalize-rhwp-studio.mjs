@@ -3,6 +3,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, rmSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { exposeEngine } from './expose-engine.mjs';
 
 const [out, version, commit, editorIntegrity, coreIntegrity] = process.argv.slice(2);
 if (!out || !version || !commit) throw new Error('usage: finalize-rhwp-studio.mjs <out> <version> <commit> <editor-integrity> <core-integrity>');
@@ -50,8 +51,16 @@ const index = patch(join(studio, 'index.html'), [
   [/\s*<link rel="apple-touch-icon"[^>]*>/, ''],
   // The guard runs before every studio script (theme/locale init read browser storage synchronously).
   // studio-styles.js (HWP-노조양식) only adds style shortcuts/buttons; it reads the editor's own style box.
-  [/(<meta charset="UTF-8" \/>)/, `$1\n  ${cspMeta}\n  <script src="../../studio-guard.js"></script>\n  <script src="../../studio-styles.js"></script>`],
+  // studio-convert.js (HWP-서식변환) answers one message from the Web2 page: it fills a template in a second, separate document.
+  [/(<meta charset="UTF-8" \/>)/, `$1\n  ${cspMeta}\n  <script src="../../studio-guard.js"></script>\n  <script src="../../studio-styles.js"></script>\n  <script src="../../studio-convert.js"></script>`],
 ]);
+// HWP-서식변환: studio-convert.js가 쓸 엔진 클래스를 내놓는 한 줄(expose-engine.mjs). 편집기 번들(assets/index-*.js)에만 더한다.
+for (const name of readdirSync(join(studio, 'assets'))) {
+  if (!/^index-.*\.js$/.test(name)) continue;
+  const file = join(studio, 'assets', name);
+  const js = readFileSync(file, 'utf8');
+  if (js.includes('window.rhwpStudio.automation=')) writeFileSync(file, exposeEngine(js));
+}
 patch(join(studio, 'print.html'), [[/(<meta charset="UTF-8">)/, `$1\n  ${cspMeta}`]]);
 for (const removed of ['manifest.webmanifest', 'registerSW.js', 'icons/', 'sw.js']) {
   if (index.includes(removed)) throw new Error(`index.html still references ${removed}`);
@@ -78,7 +87,7 @@ HWP-편집기 1단계 시험판용. \`scripts/hwp-lab/build-rhwp-studio.sh\`로 
 | 임베드 SDK \`sdk/\` | npm \`@rhwp/editor@${version}\` (\`${editorIntegrity}\`) |
 | 라이선스 | \`LICENSE\`(MIT), \`THIRD_PARTY_LICENSES.md\`, 글꼴 \`studio/fonts/FONTS.md\`·\`studio/fonts/*OFL*\` |
 | 뺀 파일 | PWA 서비스워커·설치 정보·아이콘, 예제 문서(\`samples/\`), 중복 엔진 사본 |
-| 넣은 것 | \`studio/index.html\`·\`print.html\`에 외부 주소 차단 CSP, \`index.html\` 맨 앞에 \`../../studio-guard.js\`(기기 저장 차단) |
+| 넣은 것 | \`studio/index.html\`·\`print.html\`에 외부 주소 차단 CSP, \`index.html\` 맨 앞에 \`../../studio-guard.js\`(기기 저장 차단)·\`../../studio-styles.js\`(노조 양식 스타일 단축키·버튼)·\`../../studio-convert.js\`(노조 서식으로 만들기), 편집기 번들에 엔진 클래스를 칸막이 안에 내놓는 한 줄(\`scripts/hwp-lab/expose-engine.mjs\`) |
 | 파일 수·총 크기(이 기록 제외) | ${payload.length}개 · ${(total / 1048576).toFixed(1)} MiB (\`SHA256SUMS\` 참고) |
 `);
 console.log(`rhwp ${version}: ${payload.length} files, ${(total / 1048576).toFixed(1)} MiB`);
