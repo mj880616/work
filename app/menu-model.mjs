@@ -94,7 +94,8 @@ export function stepItem(layout, id, dir) {
 }
 
 // PC 왼쪽 메뉴 순서: 하단바 칸 메뉴가 위, 나머지가 그 아래 같은 순서.
-export const pcOrder = layout => { const next = normalizeLayout(layout); return [...next.bar, ...next.rest]; };
+// 한 번도 바꾸지 않았으면(기본) 지금까지의 PC 순서(ITEMS 순서)를 그대로 둔다. 바꾼 뒤부터 하단바 칸이 위로 올라온다.
+export const pcOrder = layout => { const next = normalizeLayout(layout); return sameLayout(next, defaultLayout()) ? ITEMS.map(item => item.id) : [...next.bar, ...next.rest]; };
 // PC 왼쪽 메뉴에서 맨 끝 아래쪽 칸(통화·텔레그램)은 끝에 이어진 만큼만 아래에 붙는다. 그 위로 옮긴 것은 보통 줄이 된다.
 export function pcSplit(layout) {
   const order = pcOrder(layout);

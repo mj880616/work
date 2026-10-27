@@ -50,6 +50,7 @@ test('키보드 한 칸 옮기기는 칸 경계를 넘나든다', () => {
 test('PC 왼쪽 메뉴는 하단바 메뉴가 위, 나머지가 그 아래 같은 순서이고 통화·텔레그램은 끝에서 따로 붙는다', () => {
   const l = moveItem(defaultLayout(), 'team', 'rest', 0).layout;
   assert.deepEqual(pcOrder(l), [...l.bar, ...l.rest]);
+  assert.deepEqual(pcOrder(defaultLayout()), ITEMS.map(item => item.id), '바꾸지 않았으면 지금까지의 PC 순서 그대로');
   assert.deepEqual(pcSplit(defaultLayout()), {main: pcOrder(defaultLayout()).slice(0, -2), tail: ['calls', 'telegram']});
   const moved = moveItem(defaultLayout(), 'calls', 'rest', 0).layout;
   assert.deepEqual(pcSplit(moved).tail, ['telegram']);
