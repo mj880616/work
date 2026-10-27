@@ -302,7 +302,7 @@ test('PC 1280 편집: 분류 이름 줄 우클릭은 그 분류의 ⋯ 메뉴를
  const {errors}=await open(page,1280);
  await row(page).click();await panel(page).getByRole('button',{name:'편집'}).click();
  await group(page,'담당조직 홈페이지 편집').locator('.ql-group-head h3').click({button:'right'});
- await expect(page.getByRole('button',{name:'분류 지우기'})).toBeVisible();await expect(page.getByRole('button',{name:'이름 바꾸기'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'분류 지우기'})).toBeVisible();await expect(page.getByRole('button',{name:'이름 바꾸기',exact:true})).toBeVisible();
  await page.keyboard.press('Escape');await expect(page.getByRole('button',{name:'분류 지우기'})).toBeHidden();
  await expect(panel(page)).toBeVisible();
  expect(errors).toEqual([]);
