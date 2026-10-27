@@ -29,9 +29,10 @@
 
 #meetingsView .meeting-toolbar{flex-direction:row;flex-wrap:nowrap;align-items:center;gap:var(--kptu-space-2);margin-bottom:var(--kptu-space-2)}
 #meetingsView .meeting-toolbar #newMeetingBtn{flex:0 0 auto;width:auto;height:var(--kptu-control-height);white-space:nowrap}
-#meetingList.meeting-list{display:grid;grid-template-columns:1fr;gap:4px}
-#meetingList .meeting-list-row{min-height:0;margin:0;padding:8px 12px 8px 10px;border:0;border-left:4px solid var(--meeting-color,var(--kptu-border-strong));border-bottom:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);box-shadow:none;background:var(--kptu-surface);align-items:center}
+#meetingList.meeting-list{display:grid;grid-template-columns:minmax(0,1fr);gap:4px}
+#meetingList .meeting-list-row{min-height:0;margin:0;padding:8px 12px 8px 10px;border:0;border-bottom:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);box-shadow:none;background:var(--kptu-surface);align-items:center}
 #meetingList .meeting-list-row:hover{background:var(--kptu-surface-subtle)}
+#meetingList .meeting-list-row{min-width:0}
 #meetingList .meeting-list-main{min-width:0;width:100%}
 #meetingList .meeting-list-title{display:flex;align-items:center;gap:8px;min-width:0}
 #meetingList .meeting-list-title h3{flex:1;min-width:0;margin:0;font-size:var(--kptu-text-subtitle);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -213,7 +214,6 @@
   /* FILE-사업보고⋯: 줄 끝 ⋯(ui-standard.css .file-line-more)는 누르기 자리 밖에 둔다. */
   #meetingList .mcol-file:has(.file-line-more) .file-line-open{right:var(--kptu-touch-target,44px)}
 }
-#meetingsView .report-lead{margin:0 0 var(--kptu-space-2);color:var(--kptu-muted);font-size:14px;line-height:1.5;overflow-wrap:anywhere}
 /* MTG-사업보고 4단계: 위쪽 칸 칩 줄(#reportKindFilter, 공용 filter-chips). 폰은 한 줄 그대로 옆으로 밀고(페이지는 넘치지 않음), PC는 한 줄.
    [회의] 칩일 때만 그 아래 회의명 칩 줄(.meeting-toolbar, 폰). 입력 창 맨 위 칸 칩(#meetingKindPick)도 같은 칩. */
 #meetingsView .report-kind-bar{flex-direction:row;flex-wrap:nowrap;align-items:center;min-width:0;margin-bottom:var(--kptu-space-2)}

@@ -139,11 +139,11 @@
   #appView #pagesView .sp-title{ font-size:26px; }
 }
 @media(max-width:760px){
-  #appView #pagesView .sp-settings{ grid-template-columns:1fr; }
+  #appView #pagesView .sp-settings{ grid-template-columns:minmax(0,1fr); }
   #appView #pagesView .sp-canvas-cap{ padding:10px 12px 0; }
   #appView #pagesView .sp-canvas-page{ padding:4px 12px; }
   #appView #pagesView .sp-canvas .sp-add{ padding:6px 12px 0; }
-  #appView #pagesView .sp-link-form{ grid-template-columns:1fr; margin-bottom:20px; }
+  #appView #pagesView .sp-link-form{ grid-template-columns:minmax(0,1fr); margin-bottom:20px; }
   #appView #pagesView .sp-link-form button{ justify-self:start; }
 }
 /* ED-통합편집기 ①b: 열린 글 블록은 새 편집기(ed-editor.js). 블록 안이라 큰 아래 여백은 줄이고, 버튼 줄은 블록 위에 붙인다. */

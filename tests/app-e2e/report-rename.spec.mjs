@@ -4,9 +4,8 @@ import {clickView} from './helpers/shell-navigation.mjs';
 // MTG-사업보고 2단계(화면만): '회의' 화면의 이름을 '사업 보고'로 바꾸고, 주소 ?view=reports(옛 ?view=meetings도 열림), PC 사이드바는 [프로젝트] 바로 아래.
 // 바구니의 회의 연결은 FK 이름을 지정해 읽는다(연결 표에서 회의로 가는 길이 둘이 되어도 목록이 멈추지 않는다). 모든 이름은 합성 값.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const LEAD='프로젝트 = 사업영역별 진행상황, 사업 보고 = 날짜별 활동 결과';
 
-test('PC 1280: sidebar shows 사업 보고 right under 프로젝트; screen title, lead line, URL',async({page})=>{
+test('PC 1280: sidebar shows 사업 보고 right under 프로젝트; screen title, no lead line, URL',async({page})=>{
  await page.setViewportSize({width:1280,height:800});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await openHome(page);
@@ -16,13 +15,13 @@ test('PC 1280: sidebar shows 사업 보고 right under 프로젝트; screen titl
  await clickView(page,'meetings');
  await expect(page.locator('#meetingsView')).toBeVisible();
  await expect(page).toHaveURL(/[?&]view=reports(?:&|$)/);
- await expect(page.locator('#meetingsView [data-report-lead]')).toHaveText(LEAD);
+ await expect(page.locator('#meetingsView [data-report-lead]')).toHaveCount(0);
  await expect(page.locator('#meetingsView .add-list-head h2')).toHaveText('사업 보고');
  await expect(page.locator('[data-topline-where]')).toContainText('사업 보고');
  expect(errors).toEqual([]);
 });
 
-test('폰 390: the [메뉴] window lists 사업 보고 in the same place; lead line fits without sideways scroll',async({page})=>{
+test('폰 390: the [메뉴] window lists 사업 보고 in the same place; no sideways scroll',async({page})=>{
  await page.setViewportSize({width:390,height:800});
  await openHome(page);
  await page.locator('#mobileMenuTab:visible').click();
@@ -31,7 +30,7 @@ test('폰 390: the [메뉴] window lists 사업 보고 in the same place; lead l
  await page.locator('#mobileMenu nav button',{hasText:'사업 보고'}).click();
  await expect(page.locator('#meetingsView')).toBeVisible();
  await expect(page.locator('[data-mobile-view-name]')).toHaveText('사업 보고');
- await expect(page.locator('#meetingsView [data-report-lead]')).toHaveText(LEAD);
+ await expect(page.locator('#meetingsView [data-report-lead]')).toHaveCount(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 
@@ -40,7 +39,7 @@ for(const [label,query] of [['new address','?view=reports'],['old address','?vie
   await page.setViewportSize({width,height:800});
   await openHome(page,{query});
   await expect(page.locator('#meetingsView')).toBeVisible();
-  await expect(page.locator('#meetingsView [data-report-lead]')).toBeVisible();
+  await expect(page.locator('#meetingsView [data-report-lead]')).toHaveCount(0);
   await expect(page).toHaveURL(new RegExp('[?&]view='+(query.endsWith('reports')?'reports':'meetings')+'(?:&|$)'));
  });
 
