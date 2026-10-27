@@ -48,9 +48,11 @@ test('tg summary edit: user values live in separate owner-read-only tables, one 
   const owner=fn=>as('authenticated',OWNER,fn),stranger=fn=>as('authenticated',STRANGER,fn),server=fn=>as('service_role','',fn);
   const values=rows=>Object.fromEntries(rows.map(r=>[r.item,r.value]));
   let seq=0;
-  const item=async(ws,room,day,over={})=>(await pool.query('insert into public.app_feed_items(workspace_id,source,day,occurred_at,room_key,room_label,title,summary,raw_count,source_ref) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning id',
-   [ws,over.source||'telegram',day,over.at||day+'T03:00:00Z',room,'가상 방','가상 소식',over.summary??'가상 요약',2,'tg:fake:'+(++seq)])).rows[0].id;
-  const iA=await item(WS_A,R1,D1),iB=await item(WS_B,'room_fake_b',D1),iCall=await item(WS_A,null,D1,{source:'call'});
+  const item=async(ws,room,day,over={})=>(await pool.query('insert into public.app_feed_items(workspace_id,source,day,occurred_at,room_key,room_label,title,summary,raw_count,source_ref) values($1,\'telegram\',$2,$3,$4,$5,$6,$7,$8,$9) returning id',
+   [ws,day,over.at||day+'T03:00:00Z',room,'가상 방','가상 소식',over.summary??'가상 요약',2,'tg:fake:'+(++seq)])).rows[0].id;
+  const iA=await item(WS_A,R1,D1),iB=await item(WS_B,'room_fake_b',D1);
+  const iCall=(await pool.query("insert into public.app_feed_items(workspace_id,source,day,occurred_at,title,summary,source_ref) values($1,'call',$2,'2026-10-23T03:00:00Z','가상 통화','가상 통화 요약','call:fake:1') returning id",[WS_A,D1])).rows[0].id;
+  await server(c=>c.query("select public.app_feed_room_touch($1,$2,$3,$4,$5)",[WS_A,R1,'가상 방','group','fake_room1']));
   await pool.query("insert into public.app_feed_room_days(workspace_id,room_key,day,parts) values($1,$2,$3,$4::jsonb)",[WS_A,R1,D1,JSON.stringify([part('b2','2026-10-24T05:00:00Z',{headline:'',lines:['가상 셋째']}),part('b1','2026-10-24T01:00:00Z')])]);
   const aiItem=async()=>(await pool.query('select summary,title,points from public.app_feed_items where id=$1',[iA])).rows[0];
   const aiParts=async()=>(await pool.query('select parts from public.app_feed_room_days where workspace_id=$1 and room_key=$2 and day=$3',[WS_A,R1,D1])).rows[0].parts;
