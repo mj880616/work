@@ -377,7 +377,7 @@ for(const width of [390,1280]){
   expect(f.errors).toEqual([]);
  });
 
- test(`줄을 누르면 그 자리에서 고치기 칸 [저장][취소][삭제]: 고치기·취소·Esc·삭제와 5초 되돌리기 ${width}`,async({page})=>{
+ test(`줄을 누르면 그 자리에서 고치기 칸 [삭제] ... [취소][저장](UI-저장자리): 고치기·취소·Esc·삭제와 5초 되돌리기 ${width}`,async({page})=>{
   const f=await fixture(page,{width});
   f.rows.push({id:'k6',workspace_id:'w',kind:'work',title:null,journal_day:'2026-10-06',raw_text:'첫 줄\n둘째 줄\n셋째 줄',occurred_at:at,created_at:at,updated_at:'2026-10-06T00:50:00Z',archived_at:null,ai_export_allowed:true,attachments:[],metadata:{}});
   await openJournal(page,width);
@@ -389,7 +389,7 @@ for(const width of [390,1280]){
   await page.locator('#journalRoot [data-journal-edit="1"]').click();
   const box=page.locator('#journalRoot [data-journal-edit-input]');
   await expect(box).toBeFocused();await expect(box).toHaveValue('둘째 줄');
-  await expect(items(page).nth(1).getByRole('button')).toHaveText(['저장','취소','삭제']);
+  await expect(items(page).nth(1).getByRole('button')).toHaveText(['삭제','취소','저장']);
   await expect(page.locator('.modal:not(.hidden), [role="dialog"]:visible')).toHaveCount(0);
   // 다른 줄은 고치는 동안 눌리지 않는다.
   await expect(page.locator('#journalRoot [data-journal-edit="0"]')).toBeDisabled();

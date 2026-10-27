@@ -3,14 +3,13 @@
 // Rows, photos and photo views go through diary-data.js (owner RLS + basket-files); deleting uses the basket's
 // note-delete path (attachments to the Drive trash). Back closes the top open thing first (router layers).
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
-import {watchFloatSave, refreshFloatSave} from './float-save.js'; // UI-떠있는저장: the one floating [저장] (calls this panel's own [저장])
 import {seoulParts, seoulDate, addSeoulDays, seoulDateKey, formatSeoulTime} from './meeting-time.js';
 import {readDiaryMonth, readDiaryDay, createDiary, saveDiaryText, removeDiaryPhoto, pruneDiaryPhotos, dropEmptyDiary, uploadDiaryPhotos, photoElement,
   diaryPhotos, diaryText, takeRequestedDay, todayKey, ownerScope, validateDiaryText, DIARY_MAX_PHOTOS, DIARY_COMMENT_MAX,
   photoComments, cleanComments, saveDiaryComments} from './diary-data.js';
 import {deleteNoteOriginal} from './basket-record-delete.js';
 import {odStatus, odAuthStart, odAuthFinish, odFolders, odFolderSet, odDisconnect, odDelete, odPhotos, odPhotoElement, clearOdPhotoCache, forgetOdPhoto,
-  odErrorText, readStars, addStar, removeStar, starKey, dayItems, takenLabel, takeOdReturn} from './diary-onedrive.js';
+  odErrorText, odSync, odSyncDelay, odFolderTree, odFolderToggle, odTreeRows, odTreeChanges, readStars, addStar, removeStar, starKey, dayItems, takenLabel, takeOdReturn} from './diary-onedrive.js';
 // ED③ 일기: the day's text is the new editor (ed-editor.js) inside this panel; the read view draws its saved form (ed-render). The photos,
 // their comments, the calendar and the swipe stay as they were. Letters (raw_text) are still saved with it for every other reader.
 import {renderDoc} from './ed-render.mjs';
@@ -39,6 +38,9 @@ let selected = null, source = 'all', dayLayer = null;
 // JOURNAL-일기원드라이브 2단계: 연결 상태·이 달의 원드라이브 사진·이 달의 별표. 모두 메모리에만 둔다(저장은 서버).
 const OD_NONE = {configured:false, connected:false, folder:null, canDelete:false};
 let od = {...OD_NONE}, odStatusFlight = null, odMonth = null, odOpen = false, odMessage = '', odBusy = false, odBrowse = null;
+// 설정 창(위 폴더 아래 스위치 목록)과 사진 목록 받기. 모두 메모리에만 둔다(진행 상태는 서버 색인에 있다).
+let odTree = null, odLayer = null;
+const odSyncState = {run:0, active:false, count:null, done:false, timer:0, wake:null};
 let starSet = new Set(), starsState = 'loading', shown = [];
 const starBusy = new Set();
 const isStarred = item => starSet.has(starKey(item.source, item.key));
@@ -342,24 +344,89 @@ async function loadOd(run, key) {
     renderOdPanel(); renderMonth();
     if (selected && monthOf(selected) === key && !viewer && !edit) renderDetail();
   } catch { /* shown by loadMonth's own status line */ }
+  if (wantPhotos && current(run)) startOdSync();
 }
 function renderOdPanel() {
   odPanel.hidden = !od.configured;
   if (!od.configured) return;
+  const keepScroll = odPanel.querySelector('.diary-od-tree')?.scrollTop || 0;
   const head = !od.connected ? '<span>원드라이브 사진을 날짜별로 모아 봐요.</span><button type="button" class="secondary" data-od-connect>원드라이브 연결</button>'
     : !od.folder ? '<span>원드라이브 연결됨 · 사진 폴더를 골라 주세요.</span><button type="button" class="secondary" data-od-open>폴더 고르기</button>'
     : `<span>원드라이브 · ${esc(od.folder.name)}${odMonth?.truncated ? ' (일부만 읽었어요)' : ''}</span><button type="button" class="secondary" data-od-open aria-expanded="${odOpen}">설정</button>`;
-  let body = '';
-  if (odOpen && od.connected) {
-    if (odBrowse) {
-      const names = odBrowse.stack.map(x => esc(x.name)).join(' › ');
-      body = `<div class="diary-od-browse"><p class="diary-muted">${names}</p>${odBrowse.stack.length > 1 ? '<button type="button" class="secondary" data-od-up>위로</button>' : ''}<ul>${(odBrowse.folders || []).map(f => `<li><button type="button" class="diary-od-name" data-od-enter="${esc(f.id)}" data-od-name="${esc(f.name)}">${esc(f.name)}</button><button type="button" class="secondary" data-od-pick="${esc(f.id)}">이 폴더 쓰기</button></li>`).join('')}</ul>${odBrowse.folders && !odBrowse.folders.length ? '<p class="diary-muted">하위 폴더가 없어요.</p>' : ''}${odBrowse.folders ? '' : '<p class="diary-muted">불러오는 중…</p>'}</div>`;
-    } else {
-      body = `<div class="diary-od-actions"><button type="button" class="secondary" data-od-change>폴더 바꾸기</button><button type="button" class="secondary diary-danger" data-od-disconnect>연결 끊기</button>${od.canDelete ? '' : '<button type="button" class="secondary" data-od-connect>지우기를 쓰려면 다시 연결</button>'}</div>`;
-    }
-  }
-  odPanel.innerHTML = `<div class="diary-od-line">${head}</div>${body}<p class="diary-od-note" role="status">${esc(odMessage)}</p>`;
+  const syncing = od.connected && od.folder && odSyncState.active ? `<p class="diary-od-sync" role="status" data-od-sync>사진 목록 받는 중…${odSyncState.count === null ? '' : ` ${odSyncState.count}장`}</p>` : '';
+  const modal = odOpen && od.connected ? odModalHtml() : '';
+  odPanel.innerHTML = `<div class="diary-od-line">${head}</div>${syncing}${modal}<p class="diary-od-note" role="status">${modal ? '' : esc(odMessage)}</p>`;
   odPanel.querySelectorAll('button').forEach(b => { b.disabled = odBusy; });
+  if (modal && keepScroll) { const ul = odPanel.querySelector('.diary-od-tree'); if (ul) ul.scrollTop = keepScroll; }
+  if (modal) { const note = odPanel.querySelector('[data-od-modal-note]'); if (note) note.textContent = odMessage; }
+}
+const folderCount = n => `${n}장`;
+function odModalHtml() {
+  let body = '', foot = '<button type="button" class="secondary" data-od-cancel>취소</button>';
+  if (odBrowse) {
+    const names = odBrowse.stack.map(x => esc(x.name)).join(' › ');
+    body = `<div class="diary-od-browse"><p class="diary-muted">${names}</p>${odBrowse.stack.length > 1 ? '<button type="button" class="secondary" data-od-up>위로</button>' : ''}<ul>${(odBrowse.folders || []).map(f => `<li><button type="button" class="diary-od-name" data-od-enter="${esc(f.id)}" data-od-name="${esc(f.name)}">${esc(f.name)}</button><button type="button" class="secondary" data-od-pick="${esc(f.id)}">이 폴더 쓰기</button></li>`).join('')}</ul>${odBrowse.folders && !odBrowse.folders.length ? '<p class="diary-muted">하위 폴더가 없어요.</p>' : ''}${odBrowse.folders ? '' : '<p class="diary-muted">불러오는 중…</p>'}</div>`;
+  } else if (od.folder) {
+    const t = odTree?.data;
+    let list = odTree?.failed ? '' : '<p class="diary-muted">불러오는 중…</p>';
+    if (t) {
+      const rows = odTreeRows(t, odTree.draft, odTree.expanded);
+      list = `<ul class="diary-od-tree"><li class="diary-od-toprow"><span class="diary-od-fname">${esc(t.top.name)} (이 폴더 바로 안)</span><span class="diary-od-n">${folderCount(t.top.count)}</span></li>${rows.map(r => `<li class="diary-od-row${r.dim ? ' is-dim' : ''}" data-depth="${Math.min(r.depth, 5)}"><button type="button" role="switch" class="diary-od-switch" data-od-sw="${esc(r.id)}" aria-checked="${r.on}" aria-label="${esc(r.name)} 사진 보기"></button>${r.hasKids ? `<button type="button" class="diary-od-fold" data-od-fold="${esc(r.id)}" aria-expanded="${r.open}" aria-label="${esc(r.name)} 하위 폴더">${r.open ? '▾' : '▸'}</button>` : '<span class="diary-od-fold" aria-hidden="true"></span>'}<span class="diary-od-fname">${esc(r.name)}</span><span class="diary-od-n">${folderCount(r.total)}</span></li>`).join('')}</ul>${rows.length ? '' : '<p class="diary-muted">하위 폴더가 없어요.</p>'}`;
+      foot += '<button type="button" class="primary" data-od-save>저장</button>';
+    }
+    body = `<div class="diary-od-top"><b>원드라이브 · ${esc(od.folder.name)}</b><button type="button" class="secondary" data-od-change>위 폴더 바꾸기</button></div><p class="diary-muted">켠 폴더의 사진만 달력에 보여요. 하위 폴더도 함께 읽어요.</p>${list}<div class="diary-od-actions"><button type="button" class="secondary diary-danger" data-od-disconnect>연결 끊기</button>${od.canDelete ? '' : '<button type="button" class="secondary" data-od-connect>지우기를 쓰려면 다시 연결</button>'}</div>`;
+  } else {
+    body = '<p class="diary-muted">불러오는 중…</p>';
+  }
+  return `<div class="diary-od-modal" data-od-modal><div class="diary-od-sheet" role="dialog" aria-modal="true" aria-label="원드라이브 설정">${body}<p class="diary-od-note" role="status" data-od-modal-note></p><div class="diary-od-foot">${foot}</div></div></div>`;
+}
+function setOdOpen(open, {fromBack = false} = {}) {
+  odOpen = open;
+  if (open) { odLayer ||= window.KPTURouter?.layer?.open('diary-od', {close:() => { closeOdModal({fromBack:true}); return true; }}) || null; return; }
+  const opened = odLayer; odLayer = null; if (!fromBack) opened?.close();
+}
+function closeOdModal({fromBack = false} = {}) {
+  odBrowse = null; odTree = null; odMessage = ''; setOdOpen(false, {fromBack}); renderOdPanel();
+}
+// 사진 목록 받기: 서버가 more:false라고 할 때까지 반복. 429면 retry_after초, 409면 5초 뒤. 화면을 떠나면 멈춘다.
+function stopOdSync() {
+  odSyncState.run++; odSyncState.active = false; odSyncState.count = null; clearTimeout(odSyncState.timer); odSyncState.wake?.(); odSyncState.wake = null;
+}
+const odSleep = ms => new Promise(resolve => { odSyncState.wake = resolve; odSyncState.timer = setTimeout(resolve, ms); });
+async function startOdSync() {
+  if (!od.connected || !od.folder || odSyncState.active || odSyncState.done) return;
+  const my = ++odSyncState.run;
+  odSyncState.active = true; odSyncState.count = null;
+  let saw = false;
+  renderOdPanel();
+  try {
+    for (;;) {
+      let step;
+      try { step = await odSync(rt); } catch (error) {
+        if (odSyncState.run !== my) return;
+        const wait = odSyncDelay(error);
+        if (wait === null) { odMessage = odErrorText(error); break; }
+        saw = true; await odSleep(wait);
+        if (odSyncState.run !== my) return;
+        continue;
+      }
+      if (odSyncState.run !== my) return;
+      if (step.more || step.indexing) saw = true;
+      try { const tree = await odFolderTree(rt); if (odSyncState.run === my) odSyncState.count = tree.top.total; } catch { /* 장수는 없어도 된다 */ }
+      if (odSyncState.run !== my) return;
+      renderOdPanel();
+      if (!step.more) { odSyncState.done = true; break; }
+    }
+  } finally {
+    if (odSyncState.run === my) { odSyncState.active = false; odSyncState.count = null; renderOdPanel(); }
+  }
+  if (odSyncState.run === my && saw && odSyncState.done) loadMonth({force:true});
+}
+async function openOdSettings() {
+  setOdOpen(true); odBrowse = null; odTree = {data:null, draft:new Map(), expanded:new Set(), failed:false};
+  const mine = odTree;
+  renderOdPanel();
+  try { mine.data = await odFolderTree(rt); } catch (error) { mine.failed = true; throw error; }
 }
 async function odRun(task, {reload = false} = {}) {
   if (odBusy) return;
@@ -372,16 +439,17 @@ async function browseFolders(parentId) {
   odBrowse.folders = null; renderOdPanel();
   odBrowse.folders = await odFolders(rt, parentId);
 }
-const startBrowse = () => { odOpen = true; odBrowse = {stack:[{id:null, name:'맨 위'}], folders:null}; return browseFolders(null); };
+const startBrowse = () => { setOdOpen(true); odTree = null; odBrowse = {stack:[{id:null, name:'맨 위'}], folders:null}; return browseFolders(null); };
 function toggleOdPanel() {
   if (od.connected && !od.folder) { if (!odOpen) return odRun(startBrowse); return; }
-  odOpen = !odOpen; odBrowse = null; renderOdPanel();
+  if (odOpen) return closeOdModal();
+  return odRun(openOdSettings);
 }
 function odConnect() {
   return odRun(async () => { window.location.assign(await odAuthStart(rt)); });
 }
 async function finishOdReturn(back) {
-  odOpen = true;
+  setOdOpen(true);
   if (back.error) { odMessage = back.error === 'access_denied' ? '원드라이브 연결을 취소했어요.' : '원드라이브 연결을 마치지 못했어요. 다시 눌러 주세요.'; renderOdPanel(); return; }
   await odRun(async () => {
     await odAuthFinish(rt, back);
@@ -414,7 +482,6 @@ async function openEditor(day) {
   requestAnimationFrame(() => editor.querySelector('h3')?.focus());
   edit.mounting = mountField(edit);
 }
-watchFloatSave(() => (edit ? editor.querySelector('[data-diary-save]') : null));
 // A small box of the editor (글자색, 표 칸 메뉴, ⌄) takes the phone's back button first, like the big window.
 let boxLayer = null;
 function onBox(open) {
@@ -448,7 +515,7 @@ function renderEditor(message = '') {
 <div class="diary-thumbs" data-diary-thumbs></div>
 <div class="diary-field"><span id="diaryTextLabel">글</span><div data-diary-doc-slot></div></div>
 <p class="diary-editor-status" data-diary-editor-status role="status" aria-live="polite"></p>
-<div class="diary-actions"><button type="button" class="primary" data-diary-save data-enter-save-submit>저장</button>${row ? '<button type="button" class="secondary diary-danger" data-diary-delete>일기 지우기</button>' : ''}</div>`;
+<div class="diary-actions save-row save-row-sticky">${row ? '<button type="button" class="secondary diary-danger save-row-start" data-diary-delete>일기 지우기</button>' : ''}<button type="button" data-diary-editor-close>취소</button><button type="button" class="primary" data-diary-save data-enter-save-submit>저장</button></div>`;
   editor.querySelector('[data-diary-doc-slot]').replaceWith(edit.host);
   const thumbs = editor.querySelector('[data-diary-thumbs]');
   // Each photo has a one-line optional comment under it (max 200 chars), typed text kept in edit state across redraws.
@@ -478,7 +545,6 @@ function renderEditor(message = '') {
   setEditorStatus(message);
   editor.querySelectorAll('button,input,textarea').forEach(control => { if (edit.busy && !control.matches('[data-diary-editor-close]') && !edit.host.contains(control)) control.disabled = true; });
   edit.host.toggleAttribute('inert', !!edit.busy);
-  refreshFloatSave();
 }
 const setEditorStatus = message => { const line = editor.querySelector('[data-diary-editor-status]'); if (line) line.textContent = message; };
 function releasePending() { edit?.pending.forEach(entry => URL.revokeObjectURL(entry.url)); }
@@ -487,7 +553,7 @@ function closeEditor({fromBack = false, force = false} = {}) {
   if (edit.busy) return false;
   if (!force && dirty() && !window.confirm('쓰던 일기를 저장하지 않고 닫을까요?')) return false;
   releasePending(); dropField(); edit = null; editor.hidden = true; editor.replaceChildren();
-  refreshFloatSave(); cal.hidden = false; renderList(); $('[data-diary-new]').hidden = false; $('.diary-head').hidden = false; status.hidden = false;
+  cal.hidden = false; renderList(); $('[data-diary-new]').hidden = false; $('.diary-head').hidden = false; status.hidden = false;
   const opened = editLayer; editLayer = null; if (!fromBack) opened?.close();
   if (selected) renderDetail();
   return true;
@@ -640,12 +706,21 @@ root.addEventListener('click', event => {
   if (button.matches('[data-od-connect]')) return odConnect();
   if (button.matches('[data-od-open]')) return toggleOdPanel();
   if (button.matches('[data-od-change]')) return odRun(startBrowse);
+  if (button.matches('[data-od-cancel]')) return closeOdModal();
+  if (button.matches('[data-od-sw]')) { const f = odTree?.data?.folders.find(x => x.id === button.dataset.odSw); if (!f) return; odTree.draft.set(f.id, !(odTree.draft.has(f.id) ? odTree.draft.get(f.id) : f.enabled)); const at = odPanel.querySelector('.diary-od-tree')?.scrollTop || 0; renderOdPanel(); const ul = odPanel.querySelector('.diary-od-tree'); if (ul) ul.scrollTop = at; odPanel.querySelector(`[data-od-sw="${CSS.escape(f.id)}"]`)?.focus(); return; }
+  if (button.matches('[data-od-fold]')) { const id = button.dataset.odFold, set = odTree?.expanded; if (!set) return; if (set.has(id)) set.delete(id); else set.add(id); const at = odPanel.querySelector('.diary-od-tree')?.scrollTop || 0; renderOdPanel(); const ul = odPanel.querySelector('.diary-od-tree'); if (ul) ul.scrollTop = at; odPanel.querySelector(`[data-od-fold="${CSS.escape(id)}"]`)?.focus(); return; }
+  if (button.matches('[data-od-save]')) {
+    const tree = odTree?.data; if (!tree) return;
+    const changes = odTreeChanges(tree, odTree.draft);
+    if (!changes.length) return closeOdModal();
+    return odRun(async () => { for (const c of changes) await odFolderToggle(rt, c.id, c.enabled); closeOdModal(); }, {reload:true});
+  }
   if (button.matches('[data-od-up]')) { odBrowse.stack.pop(); const top = odBrowse.stack.at(-1); return odRun(() => browseFolders(top.id)); }
   if (button.matches('[data-od-enter]')) { odBrowse.stack.push({id:button.dataset.odEnter, name:button.dataset.odName}); return odRun(() => browseFolders(button.dataset.odEnter)); }
-  if (button.matches('[data-od-pick]')) return odRun(async () => { await odFolderSet(rt, button.dataset.odPick); await ensureOdStatus(true); odBrowse = null; odOpen = false; }, {reload:true});
+  if (button.matches('[data-od-pick]')) return odRun(async () => { await odFolderSet(rt, button.dataset.odPick); await ensureOdStatus(true); odBrowse = null; odTree = null; setOdOpen(false); stopOdSync(); odSyncState.done = false; odMessage = ''; }, {reload:true});
   if (button.matches('[data-od-disconnect]')) {
     if (!window.confirm('원드라이브 연결을 끊을까요? 원드라이브 사진은 그대로예요. 별표 기록도 남아요.')) return;
-    return odRun(async () => { await odDisconnect(rt); clearOdPhotoCache(); await ensureOdStatus(true); odBrowse = null; odOpen = false; }, {reload:true});
+    return odRun(async () => { await odDisconnect(rt); clearOdPhotoCache(); await ensureOdStatus(true); odBrowse = null; odTree = null; setOdOpen(false); stopOdSync(); odSyncState.done = false; }, {reload:true});
   }
   if (button.matches('[data-diary-edit]')) return openEditor(selected);
   if (button.matches('[data-diary-delete]')) return removeDiary(edit ? edit.row : rows.get(selected));
@@ -674,6 +749,7 @@ window.addEventListener('kptu:view-changed', event => {
   if (event.detail?.view === 'diary') return;
   // The router forgets the left view's layers; drop ours with them.
   closeViewer({fromBack:true, restore:false});
+  stopOdSync(); odLayer = null; odOpen = false; odBrowse = null; odTree = null; renderOdPanel();
   dayLayer = null; editLayer = null;
   if (selected) closeDetail({fromBack:true});
 });
@@ -681,7 +757,7 @@ window.addEventListener('kptu:session-changed', () => {
   if (owner === ownerScope(rt)) return;
   owner = ownerScope(rt); epoch++;
   closeViewer({fromBack:true, restore:false});
-  od = {...OD_NONE}; odStatusFlight = null; odMonth = null; odOpen = false; odBrowse = null; odMessage = ''; starSet = new Set(); starsState = 'loading'; clearOdPhotoCache(); renderOdPanel();
+  stopOdSync(); odSyncState.done = false; od = {...OD_NONE}; odStatusFlight = null; odMonth = null; setOdOpen(false); odBrowse = null; odTree = null; odMessage = ''; starSet = new Set(); starsState = 'loading'; clearOdPhotoCache(); renderOdPanel();
   if (edit) { releasePending(); dropField(); edit = null; editor.hidden = true; editor.replaceChildren(); cal.hidden = false; $('.diary-head').hidden = false; $('[data-diary-new]').hidden = false; status.hidden = false; }
   editLayer = null; dayLayer = null; selected = null; sendWhere(null); detail.hidden = true; rows = new Map(); loadedMonth = ''; renderMonth();
 });

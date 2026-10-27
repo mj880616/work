@@ -19,12 +19,12 @@ async function openEdit(page, width) {
 }
 const measure = locator => locator.evaluate(el => { const r = el.getBoundingClientRect(), a = getComputedStyle(el, '::after'); return { top: r.top, left: r.left, right: r.right, height: r.height, touch: parseFloat(a.height) || 0, font: getComputedStyle(el).fontSize, cut: el.scrollWidth > el.clientWidth + 1 }; });
 
-for (const width of [360, 390, 1280]) test(`update edit buttons [첨부][큰 창에서 수정][수정 저장][취소] on one uncut line ${width}`, async ({ page }) => {
+for (const width of [360, 390, 1280]) test(`update edit buttons [첨부][큰 창에서 수정] ... [취소][수정 저장] on one uncut line ${width}`, async ({ page }) => {
   const errors = await openEdit(page, width);
   const bar = page.locator('[data-basket-detail] [data-basket-edit-actions]');
   await expect(bar).toBeVisible();
   const order = await bar.locator('button:visible').evaluateAll(list => list.map(b => b.getAttribute('aria-label') || b.textContent.trim()));
-  expect(order).toEqual(['파일 첨부', '큰 창에서 수정', '수정 저장', '취소']);
+  expect(order).toEqual(['파일 첨부', '큰 창에서 수정', '취소', '수정 저장']);
   const boxes = [];
   for (const b of await bar.locator('button:visible').all()) boxes.push(await measure(b));
   for (const [i, m] of boxes.entries()) {
@@ -36,6 +36,8 @@ for (const width of [360, 390, 1280]) test(`update edit buttons [첨부][큰 창
     if (i) expect(m.left, order[i]).toBeGreaterThan(boxes[i - 1].right - 0.5);
   }
   expect(boxes.at(-1).right).toBeLessThanOrEqual(width);
+  // UI-저장자리: [수정 저장]이 줄 맨 오른쪽.
+  const barBox = await bar.boundingBox();expect(barBox.x + barBox.width - boxes.at(-1).right).toBeLessThanOrEqual(4);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   // [수정 저장] stays the one filled button; [첨부 저장] waits until files are chosen, then sits by them.
   await expect(bar.locator('[data-basket-save]')).toHaveCSS('background-color', await page.evaluate(() => { const e = document.createElement('i'); e.style.color = 'var(--kptu-primary)'; document.querySelector('#appView').append(e); const c = getComputedStyle(e).color; e.remove(); return c; }));

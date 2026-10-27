@@ -1255,8 +1255,8 @@ html #appView > .app-nav .nav-btn[data-nav-open]:has(+ .nav-sub){ color:var(--kp
 .modal :is(#saveEventBtn,#saveTaskBtn,#saveMeetingBtn,#saveDocumentBtn,#ps3CreateSave,#ps3DeleteConfirm,#libraryEditSave,#mffCreate,#soSaveOrg,#soSaveAssignees,#wdAffSave,#wdTimeSave,#wfMeetingGenerate):where(:not([hidden])){
   display:flex; width:max-content; max-width:100%; height:var(--kptu-control-height); min-height:var(--kptu-control-height); margin:var(--kptu-space-2) 0 0 auto; padding:0 var(--ds-control-pad-x);
 }
-/* ①-2 폰·중간 폭 할 일 수정 창 아래 [저장](이미 글자 폭): 46 → 36px. PC 상세 칸 제목 줄로 옮겨지면(.gt-pane-save) ④가 맡는다. */
-.modal .gt-modal-actions > #gtSaveBtn:not(.gt-pane-save){ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
+/* ①-2 폰·중간 폭 할 일 수정 창 아래 [저장](이미 글자 폭): 46 → 36px. */
+.modal .gt-modal-actions > #gtSaveBtn{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
 /* ② 창 안 보조 버튼: 작은 버튼(32px). 일정·할 일 창 [프로젝트 선택 안 함 ▾]은 폭도 글자만큼. */
 .modal :is(#eventTaskProject,#gtDeleteBtn,#gtToggleBtn):where(:not([hidden])),
 :is(#eventModal,#gtTaskModal) .gt-pick .gt-pick-btn{
@@ -1278,7 +1278,6 @@ html #appView > .app-nav .nav-btn[data-nav-open]:has(+ .nav-sub){ color:var(--kp
   #gtDetailPane #gtTaskModal.gt-docked #gtEditDue{ box-sizing:border-box; height:var(--kptu-control-height); min-height:var(--kptu-control-height); padding-top:0; padding-bottom:0; }
   #gtDetailPane #gtTaskModal.gt-docked .gt-due-quick{ flex-wrap:nowrap; }
   #gtDetailPane #gtTaskModal.gt-docked .gt-due-quick>button{ box-sizing:border-box; height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
-  #gtDetailPane #gtTaskModal.gt-docked .modal-head>button.gt-pane-save{ align-self:center; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1; }
 }
 /* ⑤ HWP 편집: [파일 선택]·[자료실에 올리기]는 보조(32px), [내 기기에 저장]은 주 동작(36px). */
 #appView #hwpView :is(#hwpLabPick,#hwpLabUpload,#hwpLabTemplate){ height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); }
@@ -1389,20 +1388,25 @@ html .doc-kind-chips button[aria-pressed="false"]{ color:var(--kptu-muted); back
    바탕·줄·글자 모두 색 열 가지의 밝은/어두운 값에 이미 있고, 글자 대비는 tests/theme-contrast.test.mjs가 색마다 막는다. 줄은 안쪽 그림자라 칸 크기·글자 위치가 안 변한다. */
 #appView .kptu-pick-row[aria-current="true"]{ background:var(--kptu-primary-soft); box-shadow:inset 4px 0 0 var(--kptu-primary); color:var(--kptu-ink); font-weight:var(--ds-weight-medium); }
 
-/* ───────── UI-떠있는저장(2026-10-27 사용자 결정): 긴 글 쓰기 화면의 떠 있는 [저장] ─────────
-   그리는 주인은 float-save.js 하나(#floatSave). 원래 [저장]이 화면(아래 탭·전환 줄 위)에 다 보이지 않고 자판이 내려가 있을 때만 보인다.
-   자리: 오른쪽 아래, [달력 | 할 일 | 업무일지 | 일기] 전환 줄·아래 탭 바로 위(토스트와 같은 변수). 보이는 높이 32px, 누르는 범위 44px. */
-.float-save{
-  position:fixed; z-index:27; right:calc(12px + env(safe-area-inset-right));
-  bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom) + 8px);
-  box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; height:var(--ds-compact-height,32px); min-height:0; min-width:0; margin:0;
-  padding:0 var(--ds-compact-pad-x,12px); font-family:inherit; font-size:var(--ds-compact-text,13px); font-weight:var(--ds-weight-medium,500); line-height:1;
-  color:var(--kptu-on-primary); background:var(--kptu-primary); border:0; border-radius:var(--ds-radius-control,8px); box-shadow:var(--kptu-shadow-float); cursor:pointer;
+/* ───────── UI-저장자리(2026-10-27 명진 요청, 사이트 전체·PC와 폰 공통) ─────────
+   ① 저장 버튼의 기본 자리는 창(칸)의 오른쪽 아래. 순서는 [취소] 왼쪽, [저장] 맨 오른쪽(버튼 줄 안 글 순서를 이 순서로 쓴다).
+      공용 줄 부품은 .save-row 하나이고, 팝업 아래 줄(.modal-action-footer, base-ui.css)도 같은 모양이다.
+      왼쪽에 둘 버튼([큰 창에서 수정]·[삭제] 등)은 .save-row-start(그 버튼까지 왼쪽에 모이고 나머지는 오른쪽). 상태 글은 버튼 줄 위 한 줄.
+   ② 긴 글을 쓰는 창(노트·업데이트·일기 쓰기 칸)은 .save-row-sticky를 더해 아래 줄을 화면 아래(아래 탭·전환 줄 위)에 붙인다.
+      위 도구줄(.ed-bar)은 이미 위에 붙어 있으므로 가운데 본문만 넘어가고, 본문은 이 줄 위에서 끝나 글을 가리지 않는다.
+   ③ 폰에서 자판이 올라오면(body.kptu-mobile-keyboard, 앱 공용 감지 하나) 아래 줄을 숨기고, 자판을 내리면 다시 보인다.
+   예외: 사업 보고 PC 3칸 안에서 고치는 화면은 별도 요청으로 맨 위 오른쪽 [취소][저장]이 정해져 있다. */
+.save-row{ display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:var(--kptu-space-2); margin-top:var(--kptu-space-2); }
+.save-row[hidden]{ display:none; }
+.save-row > :is(.status,.feed-status){ flex:1 1 100%; margin:0; min-width:0; overflow-wrap:anywhere; }
+.save-row > .save-row-start:not(:has(~ .save-row-start)){ margin-right:auto !important; } /* 화면별 버튼 규칙(#appView … button{margin:0})이 많아 !important로 한 곳에서 고정 */
+.save-row .wide{ width:auto; margin:0; }
+.save-row-sticky{
+  position:sticky; z-index:6; bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom));
+  margin-top:var(--kptu-space-2); padding:var(--kptu-space-2) 0;
+  background:var(--kptu-surface); border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));
 }
-.float-save::after{ content:""; position:absolute; left:-4px; right:-4px; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
-.float-save[data-on="false"]{ visibility:hidden; pointer-events:none; }
-.float-save:disabled{ opacity:.5; cursor:default; }
-.float-save:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+body.kptu-mobile-keyboard .save-row-sticky{ display:none !important; }
 
 /* UI-눌림느낌(2026-10-27 명진 요청, 사이트 전체): 누를 수 있는 모든 것이 누르는 순간 살짝 작아지고(scale) 바탕이 조금 진해진다.
    정의는 여기 한 곳이다. 화면마다 :active 모양을 새로 만들지 않는다(예전 달력 일정·회의 카드의 개별 :active 크기 규칙은 이 규칙으로 합쳤다).
