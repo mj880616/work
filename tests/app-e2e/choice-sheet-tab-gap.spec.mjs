@@ -56,8 +56,10 @@ for(const [item,status] of EXPORTS)test(`내보내기 [${item}]: 탭 이동 없�
  await expect(editor.locator('.ed-window-status')).toHaveText(status);
  if(item!=='HWP 파일로 받기')expect(await page.evaluate(()=>window.__copied)).toBe('쓰던 글');
  // A second press at the same spot lands in the write window, not on a tab.
+ // UI-저장자리(2026-10-27): 쓰기 창 맨 아래 줄([취소][저장])이 탭 바로 위라 그 자리를 누르면 창의 버튼이 받는다(탭이 아님). 취소면 닫기 확인창이 뜰 수 있어 닫고 이어간다.
+ expect(await page.evaluate(([px,py])=>!!document.elementFromPoint(px,py)?.closest('#edWindow'),[x,y])).toBe(true);
  await touch(page,x,y);
- await expect(page.locator('#edwCloseSheet[open]')).toHaveCount(0);
+ if(await page.locator('#edwCloseSheet[open]').count())await page.keyboard.press('Escape');
  await expect(editor).toBeVisible();await expect(area).toHaveText('쓰던 글');
  expect(await current(page)).toBe('basket');
  await expect(page.locator('.mobile-tabs [data-view="team"]')).not.toHaveAttribute('aria-current','page');

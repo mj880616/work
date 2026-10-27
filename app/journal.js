@@ -160,7 +160,7 @@ function renderList() {
     item.className = 'journal-line-item'; item.dataset.journalItem = String(index);
     if (edit?.index === index) {
       item.dataset.editing = ''; item.dataset.enterSave = '';
-      item.innerHTML = `<textarea rows="2" data-journal-edit-input data-enter-field="single" aria-label="${index + 1}번째 줄 고치기" aria-describedby="journalEditCount journalEditStatus"></textarea><div class="journal-edit-meta"><small id="journalEditCount" data-journal-edit-count></small><p id="journalEditStatus" class="journal-line-status" data-journal-edit-status role="status" aria-live="polite"></p></div><div class="journal-edit-actions"><button type="button" class="mini primary" data-journal-edit-save data-enter-save-submit>저장</button><button type="button" class="mini" data-journal-edit-cancel>취소</button><button type="button" class="mini journal-delete" data-journal-edit-delete>삭제</button></div>`;
+      item.innerHTML = `<textarea rows="2" data-journal-edit-input data-enter-field="single" aria-label="${index + 1}번째 줄 고치기" aria-describedby="journalEditCount journalEditStatus"></textarea><div class="journal-edit-meta"><small id="journalEditCount" data-journal-edit-count></small><p id="journalEditStatus" class="journal-line-status" data-journal-edit-status role="status" aria-live="polite"></p></div><div class="journal-edit-actions save-row"><button type="button" class="mini journal-delete save-row-start" data-journal-edit-delete>삭제</button><button type="button" class="mini" data-journal-edit-cancel>취소</button><button type="button" class="mini primary" data-journal-edit-save data-enter-save-submit>저장</button></div>`;
       const box = item.querySelector('[data-journal-edit-input]');
       box.value = edit.value; box.disabled = saving;
       item.querySelectorAll('button').forEach(button => { button.disabled = saving; });
@@ -862,6 +862,7 @@ async function copyDraft() {
   // movedNotes, catalog (the project order) and this week's events (the day card's 일정) are not draft material.
   const missing = Object.entries(materials).some(([key, state]) => !['movedNotes', 'catalog', 'events', 'orgSummaries', 'weekDraft', 'overlaps'].includes(key) && state?.status !== 'ok');
   status.textContent = ok ? `주간보고 양식 순서로 복사했어요.${missing ? ' 불러오지 못한 묶음은 빠졌어요.' : ''}` : '복사하지 못했어요. 다시 시도해 주세요.';
+  return ok;
 }
 
 // MTG-기록겹침거르기 4단계: [주간 정리]를 열 때 이 주에 보이는 줄의 겹침 표를 읽고, 판정이 없고 이어질 만한 짝만 서버 AI(overlap_check)에 물은 뒤

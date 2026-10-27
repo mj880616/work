@@ -1,8 +1,8 @@
 import type { UploadAdmin, UploadLog } from "../_shared/drive-upload.ts";
 import { createDriveUpload } from "../_shared/drive-upload.ts";
 import type { OcrUser } from "./ocr.ts";
-import { trashDriveFile } from "./drive-trash.ts";
-import type { Trash } from "./drive-trash.ts";
+import { trashDriveFile } from "../_shared/drive-trash.ts";
+import type { Trash } from "../_shared/drive-trash.ts";
 
 // Basket note delete: move this note's own Drive attachments to the Drive trash
 // (trashed=true, never a permanent DELETE), then delete the note with the

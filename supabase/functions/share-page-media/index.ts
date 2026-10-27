@@ -64,11 +64,20 @@ Deno.serve(createShareMediaHandler({
     const { data, error } = await admin.storage.from(BUCKET).list(folder, { limit: 1000 });
     return error || !data ? null : data.map((f) => String(f.name));
   },
+  async trashedPage(token, pageId) {
+    // 소유자의 휴지통 목록(DB 함수 app_trash_list, 소유자만 행을 받는다)에 이 페이지가 있을 때만 완전 삭제를 이어간다.
+    const { data, error } = await asUser(token).rpc("app_trash_list", { p_kind: "share_page" });
+    if (error) throw new Error("trash lookup failed");
+    return Array.isArray(data) && data.some((row: { id?: unknown }) => row && row.id === pageId);
+  },
   async deletePage(token, pageId) {
-    // owner RLS(사용자 토큰): 내 페이지가 아니면 0행. 링크·사진 기록은 FK on delete cascade로 함께 지워진다.
-    const { data, error } = await asUser(token).from("app_share_pages").delete().eq("id", pageId).select("id");
-    if (error) throw new Error("page delete failed");
-    return (data || []).length;
+    // DB 함수 app_trash_purge(사용자 토큰): 소유자의 휴지통 페이지만 지운다. 사진 기록이 남아 있으면 DB가 거절한다. 링크·사진 기록은 FK on delete cascade.
+    const { data, error } = await asUser(token).rpc("app_trash_purge", { p_kind: "share_page", p_id: pageId });
+    if (error) {
+      if (/TRASH_NOT_FOUND/.test(String(error.message))) return 0;
+      throw new Error("page purge failed");
+    }
+    return data && data.ok === true ? 1 : 0;
   },
   async signFile(path, seconds) {
     const { data, error } = await admin.storage.from(BUCKET).createSignedUrl(path, seconds);

@@ -8,7 +8,7 @@ import { test, expect } from '@playwright/test';
 import {execFileSync} from 'node:child_process';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
-import {openMeetingResult,mrdMenu} from './helpers/meeting-open.mjs';
+import {openMeetingResult,mrdMenu,closeMeetingResult} from './helpers/meeting-open.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -363,7 +363,7 @@ for(const width of [390,1280]){
       await page.evaluate(()=>window.KPTURouter.go('meetings'));await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
       await openMeetingResult(page,'recent');
       await expect(page.locator('#mrdMaterials')).toContainText('report.pdf');
-      await page.locator('#mrdClose').click();await page.evaluate(()=>window.KPTURouter.go('library'));
+      await closeMeetingResult(page);await page.evaluate(()=>window.KPTURouter.go('library'));
       await edit();
       await expect(meeting).toHaveValue('recent');
       await meeting.selectOption('');await page.locator('#libraryEditSave').click();await expect(page.locator('#libraryEditModal')).toBeHidden();
@@ -394,7 +394,7 @@ for(const width of [390,1280]){
       await expect(page.locator('#mrdMaterials')).toContainText('회의자료가 없습니다.');
       expect(materialReads).toBe(2);
       await expect(page.locator('#mrdEditTranscript')).toHaveValue('작성 중 원문');
-      await page.locator('#mrdClose').click();await page.evaluate(()=>window.KPTURouter.go('library'));
+      await closeMeetingResult(page);await page.evaluate(()=>window.KPTURouter.go('library'));
       await expect(page.locator('#libraryViewFilter')).toHaveCount(0);await expandLibraryTree(page);await expect(page.locator('[data-lu-document="doc-archived"]')).toBeVisible();
       expect(state.docs[0].project_id).toBe('top-c');
       expect(requests.filter(r=>r.method!=='GET'&&/functions\/v1\/(library-files|meeting-files|document-actions|drive-summary)/.test(r.url))).toEqual([]);

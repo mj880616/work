@@ -61,6 +61,7 @@ for(const width of [412,870,1280])test(`no basket button or guide text, one ⋯ 
 });
 
 test('keyboard opens the ⋯ menu and [수정] opens the editor',async({page})=>{
+  await page.setViewportSize({width:412,height:900});// 팝업(폰) 쪽 초점 순서를 본다. PC는 세 번째 칸에 붙어 팝업이 없다.
   const f=await setup(page);
   await expect(page.locator('#mrdClose')).toBeFocused();// 창이 열린 뒤 처음 초점이 자리 잡은 다음에 ⋯로 옮긴다
   await page.locator('#mrdMore').focus();await expect(page.locator('#mrdMore')).toBeFocused();await page.keyboard.press('Enter');

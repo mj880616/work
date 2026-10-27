@@ -1,5 +1,5 @@
 // ED③-창: the new write window (설계 docs/design/unified-editor.md 11.2). A whole-screen window around the new editor (ed-editor.js);
-// the shell (head line, save icon, export sheet, phone bottom tabs, PC menu beside, back button, leave check) was moved here from the old markdown window
+// the shell (head line, bottom [취소][저장] row, export sheet, phone bottom tabs, PC menu beside, back button, leave check) was moved here from the old markdown window
 // (deleted in ED③ 순서 6); the letters box and markdown buttons of that window are replaced by the editor. It is the only big write window.
 //
 // openEdWindow({...}) → handle {ready, close({silent}), say(message), changed, closed, editor}. The window does not save by itself:
@@ -9,7 +9,7 @@
 //   text         — the old letters, used when doc is null: converted with convert(text) → saved form (default plainToDocKeep: the letters
 //                  and their line breaks come back unchanged when nothing is edited; 노트 passes its markdown conversion)
 //   save         — {run({value, text, textOnly}) → Promise<{ok, message?}>, aria?}. ok closes the window (or says 저장했어요 with keepOpen).
-//                  No save → no save icon (a read-only look is not the job of this window).
+//                  No save → no [취소][저장] row (a read-only look is not the job of this window).
 //   limit        — most letters of the taken-out text the opener's field holds (note 100000 · update 20000 · project record 500); 0 = none.
 //                  A function is asked at each save (the opener's chosen place may change the limit).
 //                  Over it the window says so and does not call save. The saved form is also kept under 1 MiB (the database check).
@@ -30,6 +30,7 @@ import {createDocEditor} from './ed-editor.js';
 import {toTelegram, toHangul, toPlain} from './ed-text.mjs';
 import {emptyDoc} from './ed-schema.mjs';
 import {copyText} from './copy-text.js';
+import {flashDone} from './press-feedback.js';
 import {bigWindowOpen} from './big-window-open.js';
 import {startDoc, isChanged, prepareSave} from './ed-window-model.mjs';
 
@@ -72,7 +73,6 @@ function icon(d) {
   return svg;
 }
 const shareIcon = () => icon('M12 3v12M7 8l5-5 5 5M5 13v7h14v-7');
-const saveIconSvg = () => icon('M5 3h11l4 4v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM8 3v5h7V3M7 21v-7h10v7');
 
 function button(label, data = {}, aria) {
   const b = document.createElement('button');
@@ -117,10 +117,14 @@ export function openEdWindow({title = '크게 쓰기', doc = null, text = '', co
   done.append(cross); share.append(shareIcon());
   done.className = 'ed-window-icon ed-window-close'; share.className = 'ed-window-icon';
   share.setAttribute('aria-haspopup', 'dialog'); share.setAttribute('aria-expanded', 'false');
-  const saveButton = save ? button('', {edwSave: ''}, save.aria || '저장') : null;
-  // UI-엔터저장: Enter stays a new line; on PC Ctrl+Enter (Cmd+Enter) runs the save (enter-save.js).
-  if (saveButton) { saveButton.className = 'ed-window-icon'; saveButton.append(saveIconSvg()); saveButton.dataset.enterSaveSubmit = 'nohint'; shell.dataset.enterSave = ''; }
-  head.append(name, done, ...(saveButton ? [saveButton] : []), share);
+  // UI-저장자리(2026-10-27): [저장]은 위 머리줄의 아이콘이 아니라 창 맨 아래 줄 오른쪽 아래의 [취소][저장]이다(머리줄은 [×]와 [내보내기]만).
+  const saveButton = save ? button('저장', {edwSave: ''}, save.aria || '저장') : null;
+  // UI-엔터저장: Enter stays a new line; on PC Ctrl+Enter (Cmd+Enter) runs the save (enter-save.js) and the button shows the hint while the cursor is in the text.
+  if (saveButton) { saveButton.className = 'primary'; saveButton.dataset.enterSaveSubmit = ''; shell.dataset.enterSave = ''; }
+  head.append(name, done, share);
+  const actions = document.createElement('div');
+  actions.className = 'ed-window-actions save-row';
+  if (saveButton) { const cancel = button('취소', {edwCancel: ''}); actions.append(cancel, saveButton); }
 
   const body = document.createElement('div');
   body.className = 'ed-window-body';
@@ -129,7 +133,7 @@ export function openEdWindow({title = '크게 쓰기', doc = null, text = '', co
   const status = document.createElement('p');
   status.className = 'ed-window-status'; status.setAttribute('role', 'status');
   if (foot) foot.classList.add('ed-window-foot');
-  shell.append(head, body, ...(foot ? [foot] : []), note, status);
+  shell.append(head, body, ...(foot ? [foot] : []), note, status, ...(saveButton ? [actions] : []));
 
   let closed = false, saving = false, savedOnce = false, editor = null, baseline = JSON.stringify(start), asking = false, leavingTab = null, boxLayer = null;
   // A new text is compared with an empty page, an old row with what it was when it opened (the editor's own first value).
@@ -188,10 +192,12 @@ export function openEdWindow({title = '크게 쓰기', doc = null, text = '', co
     if (value === 'telegram') {
       const ok = await copyText(toTelegram(doc1));
       say(ok ? '텔레그램용 글을 복사했어요. 텔레그램에 붙여 넣으세요.' : '복사하지 못했어요. 다시 눌러 주세요.');
+      if (ok) flashDone(() => shell.querySelector('[data-edw-export]')); // UI-눌림느낌: the sheet is closed, so [내보내기] says '✓ 복사됨'
     } else if (value === 'hangul') {
       const copy = toHangul(doc1);
       const ok = await copyText(copy.text, {html: copy.html});
       say(ok ? '한글용 글을 복사했어요. 한글에 붙여 넣으세요.' : '복사하지 못했어요. 다시 눌러 주세요.');
+      if (ok) flashDone(() => shell.querySelector('[data-edw-export]')); // UI-눌림느낌
     } else {
       const found = EXPORTS.find(([v]) => v === value)?.[1];
       if (found) say(`${found}는 준비 중이에요.`);
@@ -239,7 +245,7 @@ export function openEdWindow({title = '크게 쓰기', doc = null, text = '', co
     if (!b || !shell.contains(b)) return;
     if (b.hasAttribute('data-edw-export')) void exportChoices().open('export', share);
     else if (b.hasAttribute('data-edw-save')) void runSave();
-    else if (b.dataset.close === ID) {
+    else if (b.dataset.close === ID || b.hasAttribute('data-edw-cancel')) {
       // The app's shared [data-close] handler (team.js) would hide the window at once; this window decides (it may ask first).
       e.stopPropagation();
       requestClose({fromBack: shell.dataset.kptuHistoryClosing === 'pop'});

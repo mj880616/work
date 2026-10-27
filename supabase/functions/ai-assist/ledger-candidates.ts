@@ -5,6 +5,7 @@
 // - 민감 S3(개인 민감)·개인정보 모양(주민번호·휴대전화)은 후보에도 남기지 않고 개수만 센다(L9).
 // - 출처는 서버가 정한다: 원래 Web2 기록의 위치(web2:<종류>:<id>)를 새 출처로(확정 함수가 같은 위치의 출처를 다시 씀).
 import { cleanLine, normalizeTitle, type PackedSource, type SourceKind } from "./todo-radar.ts";
+import { AI_TONE_RULE } from "../_shared/ai-model.ts";
 
 export const LEDGER_AI_KINDS = Object.freeze(["event", "change", "decision", "commitment"] as const);
 export type LedgerAiKind = typeof LEDGER_AI_KINDS[number];
@@ -46,7 +47,8 @@ export const LEDGER_CANDIDATES_INSTRUCTIONS = [
   "우리 쪽 할 일·일정 메모·단순 연락은 고르지 않는다. 업무와 관련된 것만, 재료에 분명한 것만 고른다. 최대 10개. 없으면 빈 목록.",
   "known_events에 이미 있는 사건과 같은 일이면 새 event로 만들지 말고 change로 만들고 event에 그 id를 그대로 쓴다. 아니면 event는 빈 문자열.",
   "title은 한국어 한 줄 40자 안팎(120자 이하), 명사형으로 맺는다(예: \"가 지부 임금교섭 3차 결렬.\").",
-  "summary는 무슨 일이 언제 누구 사이에 있었는지 2~3문장(600자 이하), 명사형으로 맺는다. 원문 전체를 옮기지 않는다.",
+  "summary는 무슨 일이 언제 누구 사이에 있었는지 2~3문장(600자 이하)으로 쓴다. 원문 전체를 옮기지 않는다.",
+  AI_TONE_RULE,
   "date는 그 일이 일어난 날이 재료에 분명할 때만 YYYY-MM-DD(today 기준으로 계산), 아니면 빈 문자열.",
   "commitment는 counterparty(약속한 상대, 100자 이하)를 꼭 쓰고, 기한이 분명하면 follow_up_on에 YYYY-MM-DD. 다른 kind는 둘 다 빈 문자열.",
   "decision이면 decision_type을 adopted(채택)·rejected(기각)·on_hold(보류)·changed(변경) 중 하나로, 아니면 빈 문자열.",

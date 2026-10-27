@@ -8,6 +8,7 @@ on:
       - 'cloudflare/**'
       - 'tests/domain/bokdoong-router.test.mjs'
       - 'tests/domain/web2-pwa-registration.test.mjs'
+      - 'tests/app-icon.test.mjs'
       - 'p/**'
       - 'supabase/functions/meeting-ai-draft/**'
       - 'tests/meeting-draft-parser.test.mjs'
@@ -22,6 +23,7 @@ on:
       - 'tests/file-actions.test.mjs'
       - 'tests/library-photo.test.mjs'
       - 'tests/library-photoset.test.mjs'
+      - 'tests/library-prev-model.test.mjs'
       - 'tests/activity-photo.test.mjs'
       - 'tests/report-views.test.mjs'
       - 'tests/chip-no-ellipsis.test.mjs'
@@ -35,11 +37,13 @@ on:
       - 'tests/basket-ocr-runtime.test.mjs'
       - 'tests/hwp-lab-pin.test.mjs'
       - 'tests/hwp-union-style.test.mjs'
+      - 'tests/hwp-convert.test.mjs'
       - 'scripts/hwp-lab/**'
       - 'scripts/pdf/**'
       - 'tests/meeting-file-parse.test.mjs'
       - 'tests/meeting-when.test.mjs'
       - 'tests/meeting-columns.test.mjs'
+      - 'tests/meeting-inline-edit.test.mjs'
       - 'tests/report-kinds.test.mjs'
       - 'tests/pdf-lib-pin.test.mjs'
       - 'tests/markdown-view.test.mjs'
@@ -66,6 +70,10 @@ on:
       - 'tests/overlap-paths.test.mjs'
       - 'tests/ledger-merge-model.test.mjs'
       - 'tests/ledger-fix-model.test.mjs'
+      - 'tests/ai-tone.test.mjs'
+      - 'supabase/functions/_shared/ai-model.ts'
+      - 'supabase/functions/collector-feed/telegram.ts'
+      - 'supabase/functions/ai-assist/**'
       - 'scripts/check-app-smoke-contract.mjs'
       - 'scripts/check-app-smoke-contract.test.mjs'
       - 'scripts/package.json'
@@ -78,6 +86,7 @@ on:
       - 'cloudflare/**'
       - 'tests/domain/bokdoong-router.test.mjs'
       - 'tests/domain/web2-pwa-registration.test.mjs'
+      - 'tests/app-icon.test.mjs'
       - 'p/**'
       - 'supabase/functions/meeting-ai-draft/**'
       - 'tests/meeting-draft-parser.test.mjs'
@@ -92,6 +101,7 @@ on:
       - 'tests/file-actions.test.mjs'
       - 'tests/library-photo.test.mjs'
       - 'tests/library-photoset.test.mjs'
+      - 'tests/library-prev-model.test.mjs'
       - 'tests/activity-photo.test.mjs'
       - 'tests/report-views.test.mjs'
       - 'tests/chip-no-ellipsis.test.mjs'
@@ -105,11 +115,13 @@ on:
       - 'tests/basket-ocr-runtime.test.mjs'
       - 'tests/hwp-lab-pin.test.mjs'
       - 'tests/hwp-union-style.test.mjs'
+      - 'tests/hwp-convert.test.mjs'
       - 'scripts/hwp-lab/**'
       - 'scripts/pdf/**'
       - 'tests/meeting-file-parse.test.mjs'
       - 'tests/meeting-when.test.mjs'
       - 'tests/meeting-columns.test.mjs'
+      - 'tests/meeting-inline-edit.test.mjs'
       - 'tests/report-kinds.test.mjs'
       - 'tests/pdf-lib-pin.test.mjs'
       - 'tests/markdown-view.test.mjs'
@@ -136,6 +148,10 @@ on:
       - 'tests/overlap-paths.test.mjs'
       - 'tests/ledger-merge-model.test.mjs'
       - 'tests/ledger-fix-model.test.mjs'
+      - 'tests/ai-tone.test.mjs'
+      - 'supabase/functions/_shared/ai-model.ts'
+      - 'supabase/functions/collector-feed/telegram.ts'
+      - 'supabase/functions/ai-assist/**'
       - 'scripts/check-app-smoke-contract.mjs'
       - 'scripts/check-app-smoke-contract.test.mjs'
       - 'scripts/package.json'
@@ -160,6 +176,9 @@ jobs:
       - name: Check meeting Korea time conversions
         run: node --test tests/meeting-time.test.mjs tests/seoul-time.test.mjs tests/time-input.test.mjs tests/meeting-compact.test.mjs tests/select-menu.test.mjs tests/calendar-week-timeline.test.mjs tests/calendar-drag-model.test.mjs tests/calendar-create-slot.test.mjs
 
+      - name: Check Web2 app icon files (UI-앱아이콘 메모+체크)
+        run: node --test tests/app-icon.test.mjs
+
       - name: Check shared Enter-to-save rule (UI-엔터저장)
         run: node --test tests/enter-save.test.mjs
 
@@ -176,7 +195,7 @@ jobs:
         run: node --test tests/mobile-tab-selection.test.mjs
 
       - name: Check basket data and sequential file uploads
-        run: node --test tests/basket-data.test.mjs tests/basket-upload.test.mjs tests/basket-ocr-text.test.mjs tests/basket-ocr.test.mjs tests/basket-ocr-runtime.test.mjs tests/basket-classification.test.mjs tests/basket-ai-handoff.test.mjs tests/basket-link-records.test.mjs tests/basket-record-delete.test.mjs tests/basket-manual-link.test.mjs tests/reference-bundles-data.test.mjs tests/basket-ref-bundle-ai.test.mjs tests/update-places-reference.test.mjs tests/basket-ai-summary.test.mjs tests/todo-radar-data.test.mjs tests/basket-note-tasks.test.mjs tests/basket-kind-filter.test.mjs tests/basket-record-summary-guide.test.mjs tests/basket-library-send.test.mjs tests/diary-data.test.mjs tests/journal-data.test.mjs tests/journal-weekly.test.mjs tests/weekly-file-lines.test.mjs tests/journal-org-summary.test.mjs tests/journal-meeting-kinds.test.mjs tests/project-order.test.mjs tests/basket-file-docs.test.mjs tests/document-categories.test.mjs tests/basket-note-pin.test.mjs tests/update-requests.test.mjs tests/update-journal.test.mjs tests/task-files.test.mjs tests/task-note-files.test.mjs tests/file-actions.test.mjs tests/chip-no-ellipsis.test.mjs tests/grid-fr-guard.test.mjs tests/library-ai-fill.test.mjs tests/library-drop.test.mjs tests/quick-links.test.mjs tests/feed-model.test.mjs tests/call-personal-screen.test.mjs tests/call-user-edit.test.mjs tests/project-trash-model.test.mjs tests/summary-part-unify.test.mjs tests/tg-sender-model.test.mjs tests/tg-day-model.test.mjs tests/tg-summary-edit-model.test.mjs
+        run: node --test tests/basket-data.test.mjs tests/basket-upload.test.mjs tests/basket-ocr-text.test.mjs tests/basket-ocr.test.mjs tests/basket-ocr-runtime.test.mjs tests/basket-classification.test.mjs tests/basket-ai-handoff.test.mjs tests/basket-link-records.test.mjs tests/basket-record-delete.test.mjs tests/basket-manual-link.test.mjs tests/reference-bundles-data.test.mjs tests/basket-ref-bundle-ai.test.mjs tests/update-places-reference.test.mjs tests/basket-ai-summary.test.mjs tests/todo-radar-data.test.mjs tests/basket-note-tasks.test.mjs tests/basket-kind-filter.test.mjs tests/basket-record-summary-guide.test.mjs tests/basket-library-send.test.mjs tests/diary-data.test.mjs tests/journal-data.test.mjs tests/journal-weekly.test.mjs tests/weekly-file-lines.test.mjs tests/journal-org-summary.test.mjs tests/journal-meeting-kinds.test.mjs tests/project-order.test.mjs tests/basket-file-docs.test.mjs tests/document-categories.test.mjs tests/basket-note-pin.test.mjs tests/update-requests.test.mjs tests/update-journal.test.mjs tests/task-files.test.mjs tests/task-note-files.test.mjs tests/file-actions.test.mjs tests/chip-no-ellipsis.test.mjs tests/grid-fr-guard.test.mjs tests/library-ai-fill.test.mjs tests/library-drop.test.mjs tests/quick-links.test.mjs tests/feed-model.test.mjs tests/call-personal-screen.test.mjs tests/call-user-edit.test.mjs tests/project-trash-model.test.mjs tests/summary-part-unify.test.mjs tests/tg-sender-model.test.mjs tests/tg-day-model.test.mjs tests/tg-summary-edit-model.test.mjs tests/ai-tone.test.mjs
 
       - name: Check library toggle tree model
         run: node --test tests/library-tree.test.mjs tests/library-bulk.test.mjs tests/library-view-pref.test.mjs tests/category-chips.test.mjs tests/org-dispute-stage-model.test.mjs tests/view-prefs.test.mjs tests/theme-contrast.test.mjs tests/theme-bootstrap.test.mjs tests/library-upload-organization.test.mjs tests/library-rename.test.mjs tests/library-photo.test.mjs tests/report-photos.test.mjs tests/library-photoset.test.mjs tests/activity-photo.test.mjs tests/report-views.test.mjs
@@ -193,11 +212,14 @@ jobs:
       - name: Check HWP union-style template and style shortcuts
         run: node --test tests/hwp-union-style.test.mjs
 
+      - name: Check HWP union-form conversion (numbers, template pick, in-editor fill, engine line)
+        run: node --test tests/hwp-convert.test.mjs
+
       - name: Meeting files·text grouping and pinned PDF reader
         run: node --test tests/meeting-file-parse.test.mjs tests/pdf-lib-pin.test.mjs
 
       - name: Meeting card time, kind colors and PC layout
-        run: node --test tests/meeting-when.test.mjs tests/meeting-columns.test.mjs tests/report-kinds.test.mjs tests/report-links.test.mjs
+        run: node --test tests/meeting-when.test.mjs tests/meeting-columns.test.mjs tests/meeting-inline-edit.test.mjs tests/report-kinds.test.mjs tests/report-links.test.mjs
 
       - name: Markdown display pin and safety unit tests
         run: node --test tests/markdown-view.test.mjs tests/md-telegram.test.mjs tests/html-frame.test.mjs tests/note-markdown.test.mjs tests/basket-notes-data.test.mjs tests/number-shape.test.mjs
@@ -213,6 +235,9 @@ jobs:
 
       - name: Ledger import checker (CSV·xlsx·import file, synthetic sheet)
         run: node --test tests/ledger-import-model.test.mjs tests/ledger-browse-model.test.mjs tests/ledger-candidate-model.test.mjs tests/ledger-export-model.test.mjs tests/ledger-auto-model.test.mjs tests/calendar-ref-model.test.mjs tests/ledger-fix-model.test.mjs tests/overlap-model.test.mjs tests/overlap-paths.test.mjs tests/overlap-weekly.test.mjs tests/ledger-merge-model.test.mjs
+
+      - name: Check diary OneDrive folder switches (JOURNAL-일기원드라이브, synthetic)
+        run: node --test tests/diary-onedrive-folders.test.mjs
 
       - name: Check diary photo prune to Drive trash (JOURNAL-일기사진정리, synthetic)
         run: node --test tests/security/basket-photo-prune.test.mjs tests/security/basket-note-delete.test.mjs
@@ -230,10 +255,16 @@ jobs:
         run: node --test tests/home-fill-data.test.mjs tests/home-fill-model.test.mjs tests/inbox-count.test.mjs tests/inbox-promise.test.mjs tests/quick-save-session.test.mjs tests/trash-actions.test.mjs
 
       - name: Check notes, editor tables and text units (STAB-단위시험등록)
-        run: node --test tests/basket-note-folder.test.mjs tests/chatgpt-html.test.mjs tests/diary-doc.test.mjs tests/diary-onedrive.test.mjs tests/float-save.test.mjs tests/ed-table-colbuttons.test.mjs tests/ed-table-resize.test.mjs tests/note-files.test.mjs tests/preview-text.test.mjs tests/report-words.test.mjs tests/report-modal-fields.test.mjs tests/report-default-at.test.mjs
+        run: node --test tests/basket-note-folder.test.mjs tests/note-window-folder.test.mjs tests/chatgpt-html.test.mjs tests/diary-doc.test.mjs tests/diary-onedrive.test.mjs tests/ed-table-colbuttons.test.mjs tests/ed-table-resize.test.mjs tests/note-files.test.mjs tests/preview-text.test.mjs tests/report-words.test.mjs tests/report-modal-fields.test.mjs tests/report-default-at.test.mjs
+
+      - name: Check press feedback and done-label units (UI-눌림느낌)
+        run: node --test tests/press-feedback.test.mjs
+
+      - name: Check save button place rule (UI-저장자리)
+        run: node --test tests/save-button-rule.test.mjs
 
       - name: Check library, project, share and upload units (STAB-단위시험등록)
-        run: node --test tests/library-select.test.mjs tests/project-fold.test.mjs tests/share-pages-label.test.mjs tests/share-photos.test.mjs tests/summary-copy-model.test.mjs tests/text-backfill-notice.test.mjs tests/upload-file-copy.test.mjs
+        run: node --test tests/library-prev-model.test.mjs tests/library-select.test.mjs tests/project-fold.test.mjs tests/share-pages-label.test.mjs tests/share-photos.test.mjs tests/summary-copy-model.test.mjs tests/text-backfill-notice.test.mjs tests/upload-file-copy.test.mjs
 
       - name: Check hardcoded color baseline (STAB-단위시험등록)
         run: node --test tests/hardcoded-colors.test.mjs tests/context-menu-sites.test.mjs

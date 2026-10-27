@@ -28,3 +28,20 @@
 .hwp-lab .hwp-lab-tools{display:flex;gap:8px;margin:0 0 8px}
 .hwp-lab .hwp-lab-tools:not(:has(button:not([hidden]))){display:none}
 .hwp-lab .hwp-lab-tools button{min-height:var(--kptu-touch-target)}
+/* HWP-서식변환: 위 줄(만든 문서의 파일 이름 + 오른쪽 [내려받기]·[자료실에 저장])과 [노조 서식으로 만들기] 작은 창. 콤팩트·톤다운. */
+.hwp-lab .hwp-conv-bar:not([hidden]){margin:0 0 8px}
+.hwp-lab .hwp-conv-name{flex:1 1 140px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700;color:var(--kptu-ink)}
+.hwp-convert .hwp-convert-card{width:min(100%,560px);padding:var(--kptu-space-4)}
+.hwp-convert .hwp-convert-types{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 var(--kptu-space-3)}
+.hwp-convert .hwp-convert-chip{width:auto;min-height:var(--ds-compact-height,32px);margin:0;padding:0 var(--ds-compact-pad-x,12px);border:1px solid var(--kptu-border);border-radius:999px;background:var(--kptu-surface);color:var(--kptu-ink);font-size:var(--ds-compact-text,13px);line-height:1}
+.hwp-convert .hwp-convert-chip[aria-pressed="true"]{border-color:var(--kptu-accent,var(--kptu-ink));background:var(--kptu-surface-soft,var(--kptu-surface));font-weight:700}
+.hwp-convert .hwp-convert-field{display:block;margin:0}
+.hwp-convert .hwp-convert-field>span{display:block;margin:0 0 4px}
+.hwp-convert #hwpConvertText{display:block;width:100%;min-height:200px;max-height:50dvh;resize:vertical;box-sizing:border-box}
+.hwp-convert #hwpConvertText[data-drop="1"]{outline:2px dashed var(--kptu-border);outline-offset:-2px}
+.hwp-convert .hwp-convert-meta{margin:4px 0 0;color:var(--kptu-muted);font-size:var(--kptu-text-meta);text-align:right}
+.hwp-convert .hwp-convert-meta [data-over="true"]{color:var(--kptu-danger)}
+.hwp-convert .hwp-convert-status{min-height:1.4em;margin:6px 0 0;font-size:var(--kptu-text-meta);color:var(--kptu-ink);overflow-wrap:anywhere}
+.hwp-convert .hwp-convert-status[data-state="error"]{color:var(--kptu-danger)}
+.hwp-convert .hwp-convert-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:var(--kptu-space-3)}
+.hwp-convert .hwp-convert-foot button{width:auto;min-height:var(--ds-compact-height,32px);margin:0;padding:0 var(--ds-compact-pad-x,12px);font-size:var(--ds-compact-text,13px)}

@@ -3,9 +3,14 @@
 //   [자료실에 올리기](기존 자료실 [+ 자료 등록] 창에 고친 HWP를 채워 넘김, library-upload-request.js)를 한다.
 // - Drive 편집(2단계): 자료실·바구니의 [편집]이 hwp-drive.js 1회용 요청으로 넘긴 파일을 서버에서 열고,
 //   [새 파일로 저장](기본)·[원본에 덮어쓰기](HWP 원본만)로 Drive에 저장한다. 저장 형식은 HWP 하나다.
+// - 노조 서식으로 만들기(HWP-서식변환): 붙여 넣은 글을 AI(ai-assist hwp_convert)가 노조 문서 규칙 문단으로 나누고, 자료실 "양식"의 빈 양식에 칸막이 안
+//   보조 스크립트(studio-convert.js)가 채워 편집기에 연다. 위 줄의 [내려받기]·[자료실에 저장]으로 마친다(기기 저장소는 쓰지 않는다).
 // 편집기는 hwp-frame.js의 sandbox iframe(allow-same-origin 없음)에서 돈다. Web2 창·저장소·API에 닿지 못한다.
 import {createSandboxedEditor} from './hwp-frame.js';
-import {HWP_EDIT_MAX_BYTES,editedName,takeHwpEditRequest,requestHwpEdit,openHwpFromDrive,saveLibraryCopy,saveBasketCopy,overwriteHwp,findUnionTemplate,UNION_TEMPLATE_CATEGORY} from './hwp-drive.js';
+import {HWP_EDIT_MAX_BYTES,editedName,takeHwpEditRequest,requestHwpEdit,openHwpFromDrive,saveLibraryCopy,saveBasketCopy,overwriteHwp,findUnionTemplate,UNION_TEMPLATE_CATEGORY,findConvertTemplate,saveConvertedCopy} from './hwp-drive.js';
+import {callAiAssist} from './basket-ai-summary.js';
+import {openConvertDialog,requestEngineBuild,CONVERT_TEXT,ENGINE_TEXT,convertRetryable} from './hwp-convert.js';
+import {DOC_TYPES,convertAnswer,buildPlan,convertedFileName} from './hwp-convert-model.mjs';
 import {requestLibraryDocument} from './basket-library-send.js';
 import {requestBasketNote} from './basket-note-tasks.js';
 import {requestLibraryUpload} from './library-upload-request.js';
@@ -51,6 +56,21 @@ function sync(){
   if(pick)pick.disabled=busy||!!drive;
   const tpl=$('hwpLabTemplate');
   if(tpl)tpl.disabled=busy||!!drive;
+  const convert=$('hwpLabConvert');
+  if(convert)convert.disabled=busy;
+  // 노조 서식으로 만든 문서: 위 줄에 파일 이름과 [내려받기]·[자료실에 저장]. 기기 파일용 저장 버튼 둘은 숨긴다.
+  const made=!!current?.converted&&!drive;
+  if(save)save.hidden=made;
+  if(upload)upload.hidden=made;
+  const conv=$('hwpConvBar');
+  if(conv){
+    conv.hidden=!made;
+    if(made){
+      $('hwpConvName').textContent=current.name;
+      $('hwpConvDownload').disabled=busy;
+      $('hwpConvLibrary').disabled=busy||!!current.lockLibrary;
+    }
+  }
   const bar=$('hwpDriveBar');
   if(!bar)return;
   const ready=!!drive?.info;
@@ -78,6 +98,12 @@ function mount(){
   bar.id='hwpDriveBar';bar.className='hwp-lab-actions hwp-drive-bar';bar.hidden=true;
   bar.innerHTML='<button id="hwpDriveNew" class="primary" type="button" disabled>새 파일로 저장</button><button id="hwpDriveOverwrite" class="secondary" type="button" hidden disabled>원본에 덮어쓰기</button><a id="hwpDriveView" href="./?view=library" hidden>자료실에서 보기</a><button id="hwpDriveBack" class="secondary" type="button">돌아가기</button>';
   card.querySelector('.hwp-lab-actions')?.after(bar);
+  const conv=document.createElement('div');
+  conv.id='hwpConvBar';conv.className='hwp-lab-actions hwp-conv-bar';conv.hidden=true;
+  conv.innerHTML='<span id="hwpConvName" class="hwp-conv-name"></span><button id="hwpConvDownload" class="primary" type="button">내려받기</button><button id="hwpConvLibrary" class="secondary" type="button">자료실에 저장</button>';
+  $('hwpLabEditor')?.before(conv);
+  $('hwpConvDownload').addEventListener('click',()=>void save());
+  $('hwpConvLibrary').addEventListener('click',()=>void saveConvertedToLibrary());
   $('hwpDriveNew').addEventListener('click',()=>void saveNew());
   $('hwpDriveOverwrite').addEventListener('click',()=>void overwrite());
   $('hwpDriveBack').addEventListener('click',()=>void back());
@@ -176,14 +202,14 @@ async function save(){
   busy=true;sync();
   try{
     const {bytes,seq}=await exportCurrent();
-    const name=editedName(shown.name);
+    const name=shown.converted?shown.name:editedName(shown.name);
     const url=URL.createObjectURL(new Blob([bytes],{type:'application/x-hwp'}));
     const link=document.createElement('a');
     link.href=url;link.download=name;link.hidden=true;
     document.body.appendChild(link);link.click();link.remove();
     setTimeout(()=>URL.revokeObjectURL(url),60000);
     if(current===shown)shown.savedSeq=seq;
-    status(`${name}(${Math.max(1,Math.round(bytes.length/1024))}KB)을 내려받았습니다. 원본과 비교해 보세요.`,'ok');
+    status(shown.converted?`${name}(${Math.max(1,Math.round(bytes.length/1024))}KB)을 내려받았습니다. 한글에서 열어 확인해 보세요.`:`${name}(${Math.max(1,Math.round(bytes.length/1024))}KB)을 내려받았습니다. 원본과 비교해 보세요.`,'ok');
   }catch(err){
     console.error('hwp-lab save',err?.kind||err);
     status(err?.kind?err.message:'파일을 만들지 못했습니다. 다시 시도해 주세요.','error');
@@ -280,6 +306,84 @@ async function openTemplate(){
 function requestTemplate(row){
   // Same one-shot hand-off the library [편집] uses; the template flag keeps the original from being overwritten.
   return requestHwpEdit({kind:'library',template:true,document:{id:row.id,title:row.title,file_name:row.file_name,category:row.category}},rt);
+}
+
+// HWP-서식변환: [노조 서식으로 만들기]. 순서는 ① 자료실 "양식"에서 이 종류의 빈 양식 찾기·받기 ② AI가 글을 노조 문서 규칙 문단으로 나누기 ③ 칸막이 안 보조
+// 스크립트가 양식에 채우기 ④ 편집기에 열기. AI가 실패하면 편집기의 지금 문서는 그대로 둔다(양식을 편집기에 여는 것은 ③ 직전).
+async function startConvert(){
+  if(busy)return;
+  await refreshDirty();
+  if(busy||(dirty()&&!window.confirm('저장하지 않은 고친 내용이 있어요. 노조 서식으로 새로 만들면 사라져요. 계속할까요?')))return;
+  openConvertDialog({onMake:runConvert});
+}
+async function runConvert({docType,text,progress,cancelled}){
+  if(busy)return {ok:false,message:'다른 작업이 진행 중이에요. 잠시 뒤 다시 눌러 주세요.'};
+  const label=DOC_TYPES.find(row=>row.id===docType)?.label||'문서';
+  busy=true;sync();
+  try{
+    progress('자료실에서 노조 양식을 찾는 중…');
+    let found;
+    try{found=await findConvertTemplate(docType,{rt})}
+    catch(err){return {ok:false,message:err?.kind==='session'?err.message:'노조 양식을 찾지 못했어요. 아무것도 바뀌지 않았어요.'}}
+    if(!found.chosen)return {ok:false,message:`자료실에 분류 "${UNION_TEMPLATE_CATEGORY}"으로 등록된 ${label} 빈 양식 HWP가 없어요. 자료명에 "${label}"이 들어간 노조 양식 HWP를 자료실에 분류 "${UNION_TEMPLATE_CATEGORY}"으로 한 번 등록해 주세요.`};
+    let file;
+    try{file=await openHwpFromDrive({kind:'library',document:{id:found.chosen.id}},{rt})}
+    catch(err){return {ok:false,message:err?.kind?err.message:'양식을 열지 못했어요. 아무것도 바뀌지 않았어요.'}}
+    if(file.bytes.length>HWP_EDIT_MAX_BYTES)return {ok:false,message:'양식 파일이 30MB보다 커서 열지 않아요.'};
+    if(cancelled())return {ok:false,message:''};
+    progress('AI가 노조 문서 규칙에 맞게 다시 짜는 중… 30초 안팎 걸려요.');
+    const reply=await callAiAssist({kind:'hwp_convert',doc_type:docType,text},{rt},CONVERT_TEXT);
+    if(cancelled())return {ok:false,message:''};
+    if(!reply.ok)return {ok:false,message:CONVERT_TEXT[reply.code]||CONVERT_TEXT.internal_error,retry:convertRetryable(reply.code)};
+    const answer=convertAnswer(reply.data);
+    if(!answer||reply.data.doc_type!==docType)return {ok:false,message:CONVERT_TEXT.ai_invalid_response};
+    const now=new Date(),plan=buildPlan(answer,now),name=convertedFileName(docType,now);
+    progress('양식에 넣는 중…');
+    // 편집기에 지금 열린 문서(기기 파일·Drive 파일)는 여기서부터 새 문서로 바뀐다. 이전 Drive 문서 상태를 먼저 정리한다.
+    if(drive){resetToDevice();showMode()}
+    const instance=await editor();
+    if(cancelled())return {ok:false,message:''};
+    const frame=$('hwpLabEditor')?.querySelector('iframe')?.contentWindow;
+    if(!frame)return {ok:false,message:ENGINE_TEXT.no_engine};
+    let built;
+    try{built=await requestEngineBuild(frame,file.bytes,plan)}
+    catch(err){return {ok:false,message:err?.kind==='engine'?err.message:ENGINE_TEXT.engine_error}}
+    if(cancelled())return {ok:false,message:''};
+    progress('편집기에 여는 중…');
+    const result=await instance.loadFile(built.bytes,name,{skipUnsavedGuard:true});
+    const seq=await changeSeq(instance);
+    // 방금 만든 문서는 아직 저장 전이다: 나가거나 다른 파일을 열면 묻도록 저장 기준을 한 칸 뒤에 둔다.
+    current={name,format:'hwp',converted:true,title:answer.title,docType,savedSeq:seq==null?null:seq-1,latestSeq:seq};
+    watchEdits();
+    const notes=[
+      found.specific?'':`${label} 전용 빈 양식이 없어 일반 노조 양식에 넣었어요.`,
+      built.missing.length?`양식에 없는 스타일(${built.missing.join('·')})은 바탕글로 넣었어요.`:'',
+      answer.dropped?`형식이 맞지 않은 문단 ${answer.dropped}개는 뺐어요. 원문과 대조해 주세요.`:'',
+    ].filter(Boolean).join(' ');
+    status(`${name} · ${result?.pageCount??'?'}쪽 · ${built.inserted}문단을 넣었어요. 확인하고 고친 뒤 [내려받기] 또는 [자료실에 저장]을 누르세요.${notes?' '+notes:''}`,'ok');
+    return {ok:true};
+  }catch(err){
+    console.error('hwp-lab convert',err?.kind||err?.code||'error');
+    return {ok:false,message:err?.kind?err.message:'노조 서식으로 만들지 못했어요. 편집기를 확인하고 다시 시도해 주세요.'};
+  }finally{busy=false;sync()}
+}
+// [자료실에 저장]: 만든 문서를 자료실에 새 자료로 등록한다(library-files). 결과를 모르면 다시 보내지 않고 자료실에서 먼저 확인하라고 안내한다.
+async function saveConvertedToLibrary(){
+  const shown=current;
+  if(!shown?.converted||busy||drive||shown.lockLibrary)return;
+  busy=true;sync();
+  try{
+    status('자료실에 저장하는 중…');
+    let made;
+    try{made=await exportCurrent()}catch(err){status(err?.kind?err.message:'저장할 파일을 만들지 못했어요. 아무것도 바뀌지 않았어요.','error');return}
+    const outcome=await saveConvertedCopy(made.bytes,{fileName:shown.name,title:shown.title},{rt});
+    if(current!==shown)return;
+    if(outcome.kind==='created'){shown.savedSeq=made.seq;status(outcome.message,'ok')}
+    else{
+      if(outcome.kind==='unknown')shown.lockLibrary=true;
+      status(outcome.message,'error');
+    }
+  }finally{busy=false;sync()}
 }
 
 // 전체 화면 + 키보드 잠금: 일반 크롬 탭은 Ctrl+1~9를 탭 전환에 먼저 쓰므로, 전체 화면에서 숫자 키만 잠가 편집기가 받게 한다.
@@ -400,6 +504,7 @@ function start(){
     input.dataset.bound='1';
     $('hwpLabPick')?.addEventListener('click',()=>input.click());
     $('hwpLabTemplate')?.addEventListener('click',()=>void openTemplate());
+    $('hwpLabConvert')?.addEventListener('click',()=>void startConvert());
     const full=$('hwpLabFull');
     if(full){full.hidden=!canLockKeys();full.addEventListener('click',()=>void toggleFullscreen())}
     input.addEventListener('change',()=>{const file=input.files?.[0];input.value='';void open(file)});

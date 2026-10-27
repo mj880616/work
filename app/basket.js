@@ -1,5 +1,4 @@
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
-import {watchFloatSave, refreshFloatSave} from './float-save.js'; // UI-떠있는저장: the one floating [저장] (calls this panel's own [수정 저장])
 import {basketOcrFor} from './basket-ocr-runtime.js';
 import {seoulInputValue} from './meeting-time.js';
 import {effectiveOcrText} from './basket-ocr-text.mjs';
@@ -25,6 +24,7 @@ import { renderMarkdownInto, showPlainText, preloadMarkdown, renderShareCards } 
 import { paintHtmlAttachments } from './html-frame.js';
 import { CHATGPT_HTML_REQUEST } from './chatgpt-html.mjs';
 import { copyText } from './copy-text.js';
+import { flashDone } from './press-feedback.js'; // UI-눌림느낌: the pressed [복사] turns into '✓' for 1.5s
 // ED③ 업데이트: an update saved in the new editor reads its saved form (ed-render) and copies from it; its big window is update-window.js.
 import { hasDoc } from './note-doc.mjs';
 import { paintDoc, docCopy } from './note-body.js';
@@ -61,12 +61,14 @@ function showToast(message, ms = 3200) {
   clearTimeout(showToast.timer); showToast.timer = setTimeout(() => toast.classList.add('hidden'), ms);
 }
 // [복사]: the same conversion as the write window's [텔레그램용 복사] (md-telegram.mjs), on a copy only.
-async function copyNote(note) {
+async function copyNote(note, button = null) {
   const text = String(note?.raw_text || '');
   if (!text.trim()) { showToast('복사할 글이 없어요.'); return; }
   // ED③ 업데이트: an update with a saved form copies from it (ed-text), as the note does; the others keep the old conversion.
   const copy = docCopy(note);
-  showToast(await copyText(copy ? copy.text : toTelegram(text)) ? '복사했습니다' : '복사하지 못했어요. 다시 눌러 주세요.');
+  const ok = await copyText(copy ? copy.text : toTelegram(text));
+  if (ok && button) flashDone(button); // UI-눌림느낌: the pressed [복사] says '✓' itself; the toast stays as the second hint
+  showToast(ok ? '복사했습니다' : '복사하지 못했어요. 다시 눌러 주세요.');
 }
 const COPY_ICON = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M10.5 3.5v-.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
 const RAW_ICON = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M5.5 4.5 2 8l3.5 3.5M10.5 4.5 14 8l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -155,7 +157,6 @@ document.addEventListener('click',e=>{if(rowMenu&&!rowMenuEl.contains(e.target)&
 const handoffLine=root.querySelector('[data-basket-handoff-scope]');
 let handoffNotice=null;
 const list = root.querySelector('[data-basket-list]'), detail = root.querySelector('[data-basket-detail]'), listStatus = root.querySelector('[data-basket-list-status]');
-watchFloatSave(() => detail.querySelector('[data-basket-save]'));
 const ocrViews=new Map();
 // Per scope, note and file: the last send result shown on the read view. A send
 // in flight keeps that attachment's button off; a sent or unknown result is a
@@ -430,7 +431,7 @@ function showKind(next,{openId=null}={}){
 // detail's own move; 삭제 is the detail's delete (same confirmation from basket-record-delete.js), reported on the list.
 function rowMenuAction(act,noteId){
   const note=notes.find(n=>n.id===noteId);if(!note||busy||selected)return;
-  if(act==='copy'){void copyNote(note);return;}
+  if(act==='copy'){void copyNote(note,()=>root.querySelector(`[data-basket-row-copy="${CSS.escape(noteId)}"]`));return;}
   handoff.close();hideHandoffNotice();
   if(act==='delete'){void deleteFromList(noteId);return;}
   if(act==='journal'||act==='unjournal'){void keepInJournal(noteId,act==='journal');return;}
@@ -677,13 +678,14 @@ function paintHtmlViews() {
   paintHtmlAttachments(detail.querySelector('[data-basket-html-views]'),{noteId,attachments:selected.attachments,rt,isCurrent:()=>owner===scope()&&selected?.id===noteId});
 }
 // MD-표시보완: copy the request that asks ChatGPT for one self-contained HTML file.
-async function copyChatgptRequest(){
+async function copyChatgptRequest(button=null){
   let ok=false;
   try{await navigator.clipboard.writeText(CHATGPT_HTML_REQUEST);ok=true;}
   catch{
     const area=document.createElement('textarea');area.value=CHATGPT_HTML_REQUEST;area.setAttribute('readonly','');area.className='a11y-only';document.body.append(area);area.select();
     try{ok=document.execCommand('copy');}catch{}area.remove();
   }
+  if(ok&&button)flashDone(button); // UI-눌림느낌
   const toast=document.querySelector('#toast');if(!toast)return;
   toast.textContent=ok?'GPT 답변 가져오기 요청을 복사했어요. ChatGPT 답변 아래에 붙여 넣고, 받은 HTML을 정리함 입력에 붙여 넣으세요.':'복사하지 못했어요. 이 문구를 직접 복사해 주세요: '+CHATGPT_HTML_REQUEST;
   toast.classList.remove('hidden');clearTimeout(copyChatgptRequest.timer);copyChatgptRequest.timer=setTimeout(()=>toast.classList.add('hidden'),ok?4200:9000);
@@ -772,7 +774,7 @@ function paintMode() {
   detail.querySelector('[data-basket-read]').hidden = editing; detail.querySelector('[data-basket-read-actions]').hidden = editing || manual.isOpen();
   // The note menu is for reading; while editing the edit buttons and Esc take over.
   detail.querySelector('[data-basket-note-more-wrap]').hidden = editing; if (editing) setNoteMenu(false);
-  detail.querySelector('.basket-editor').hidden = !editing; detail.querySelector('[data-basket-edit-actions]').hidden = !editing; refreshFloatSave();
+  detail.querySelector('.basket-editor').hidden = !editing; detail.querySelector('[data-basket-edit-actions]').hidden = !editing;
   detail.querySelector('[data-basket-text]').readOnly = hasDoc(selected);
   detail.querySelectorAll('.basket-file-links').forEach(box => { box.hidden = editing; });
   detail.querySelector('.basket-card-tools').hidden = !String(selected.raw_text || '').trim();
@@ -796,7 +798,7 @@ function openDetail(id, {edit = false} = {}) {
   // The ⋯ keeps 수정·보관·삭제 (BASKET-일지로남기기: and [업무일지에 남기기]/[업무일지에서 빼기] before 삭제, so the row stays three buttons).
   // UI-엔터저장: the edit box saves with Ctrl+Enter on PC (shared rule, enter-save.js); [연결하기]·[할 일 만들기] forms are their own roots.
   detail.dataset.enterSave = '[data-basket-save]';
-  detail.innerHTML = `<div class="basket-detail-head"><button type="button" class="basket-back" data-basket-close aria-label="정리함 목록으로"><span aria-hidden="true">‹</span> 정리함</button><div class="basket-note-more" data-basket-note-more-wrap><button type="button" class="basket-more-trigger" data-basket-note-more data-ctx="area" aria-label="이 업데이트 메뉴" aria-expanded="false" aria-controls="basketNoteMenu"><span aria-hidden="true">⋯</span></button><div id="basketNoteMenu" class="basket-more-menu" role="group" aria-label="이 업데이트" hidden><button type="button" data-basket-edit>수정</button><button type="button" data-basket-archive>보류로</button><button type="button" class="basket-menu-danger" data-basket-delete>삭제</button></div></div></div><article class="basket-card" data-basket-card aria-label="업데이트"><div class="basket-read" data-basket-read><div class="basket-card-tools"><button type="button" class="basket-icon-button" data-basket-read-raw aria-pressed="false" aria-label="원문 그대로 보기" title="원문 그대로 보기">${RAW_ICON}</button><button type="button" class="basket-icon-button" data-basket-copy aria-label="복사" title="복사">${COPY_ICON}</button></div><div class="md-share-cards" data-basket-share hidden></div><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="업데이트 원문"></div><div class="basket-html-views" data-basket-html-views></div><p class="basket-note-meta"><span class="basket-note-state" data-basket-state></span><time>${esc(time(selected))}</time></p></div><div class="basket-editor" hidden><label class="basket-text-label">업데이트 원문<textarea data-basket-text rows="12"></textarea></label><div class="basket-editor-files"><div data-basket-file-selection></div><button type="button" data-basket-upload>첨부 저장</button></div></div><div data-basket-attachments class="basket-files" tabindex="-1" role="region" aria-label="첨부 파일"></div><section class="basket-note-tasks" data-basket-note-tasks aria-labelledby="basketNoteTasksTitle" hidden></section><button type="button" data-basket-reload hidden>업데이트 다시 불러오기</button><div class="basket-actions basket-read-actions" data-basket-read-actions><button type="button" data-basket-link-open>연결하기</button><button type="button" data-basket-task-open>할 일 만들기</button><button type="button" data-basket-to-note>노트로 옮기기</button></div><div data-basket-manual hidden></div><div class="basket-actions basket-edit-actions" data-basket-edit-actions hidden><div data-basket-file-picker></div><button type="button" class="secondary" data-basket-big-write>큰 창에서 수정</button><button type="button" data-basket-save>수정 저장</button><button type="button" data-basket-cancel>취소</button></div><p data-basket-status role="status"></p></article>`;
+  detail.innerHTML = `<div class="basket-detail-head"><button type="button" class="basket-back" data-basket-close aria-label="정리함 목록으로"><span aria-hidden="true">‹</span> 정리함</button><div class="basket-note-more" data-basket-note-more-wrap><button type="button" class="basket-more-trigger" data-basket-note-more data-ctx="area" aria-label="이 업데이트 메뉴" aria-expanded="false" aria-controls="basketNoteMenu"><span aria-hidden="true">⋯</span></button><div id="basketNoteMenu" class="basket-more-menu" role="group" aria-label="이 업데이트" hidden><button type="button" data-basket-edit>수정</button><button type="button" data-basket-archive>보류로</button><button type="button" class="basket-menu-danger" data-basket-delete>삭제</button></div></div></div><article class="basket-card" data-basket-card aria-label="업데이트"><div class="basket-read" data-basket-read><div class="basket-card-tools"><button type="button" class="basket-icon-button" data-basket-read-raw aria-pressed="false" aria-label="원문 그대로 보기" title="원문 그대로 보기">${RAW_ICON}</button><button type="button" class="basket-icon-button" data-basket-copy aria-label="복사" title="복사">${COPY_ICON}</button></div><div class="md-share-cards" data-basket-share hidden></div><div class="basket-read-text" data-basket-read-text tabindex="-1" role="region" aria-label="업데이트 원문"></div><div class="basket-html-views" data-basket-html-views></div><p class="basket-note-meta"><span class="basket-note-state" data-basket-state></span><time>${esc(time(selected))}</time></p></div><div class="basket-editor" hidden><label class="basket-text-label">업데이트 원문<textarea data-basket-text rows="12"></textarea></label><div class="basket-editor-files"><div data-basket-file-selection></div><button type="button" data-basket-upload>첨부 저장</button></div></div><div data-basket-attachments class="basket-files" tabindex="-1" role="region" aria-label="첨부 파일"></div><section class="basket-note-tasks" data-basket-note-tasks aria-labelledby="basketNoteTasksTitle" hidden></section><button type="button" data-basket-reload hidden>업데이트 다시 불러오기</button><div class="basket-actions basket-read-actions" data-basket-read-actions><button type="button" data-basket-link-open>연결하기</button><button type="button" data-basket-task-open>할 일 만들기</button><button type="button" data-basket-to-note>노트로 옮기기</button></div><div data-basket-manual hidden></div><div class="basket-actions basket-edit-actions save-row save-row-sticky" data-basket-edit-actions hidden><div class="save-row-start" data-basket-file-picker></div><button type="button" class="secondary save-row-start" data-basket-big-write>큰 창에서 수정</button><button type="button" data-basket-cancel>취소</button><button type="button" data-basket-save>수정 저장</button></div><p data-basket-status role="status"></p></article>`;
   // UI-PC프로젝트좌우: opened from a project's or organization's 🧺 record → "← (name)으로 돌아가기" under the head.
   detail.querySelector('.basket-detail-head')?.insertAdjacentHTML('afterend', basketReturnHtml(selected.id, rt));
   detail.querySelector('[data-basket-text]').value = selected.raw_text;
@@ -995,10 +997,10 @@ root.addEventListener('click', e => {
   const fromNoteMenu = !!noteMenu()?.contains(b); if (fromNoteMenu) setNoteMenu(false, {focus:true});
   if (b.matches('[data-basket-filter],[data-basket-row],[data-basket-close],[data-basket-edit]')) { handoff.close(); hideHandoffNotice(); }
   if (b.hasAttribute('data-basket-read-raw')) { rawView = !rawView; paintReadText(); return; }
-  if (b.hasAttribute('data-basket-row-copy')) { void copyNote(notes.find(n => n.id === b.dataset.basketRowCopy)); return; }
-  if (b.hasAttribute('data-basket-copy')) { void copyNote(selected); return; }
+  if (b.hasAttribute('data-basket-row-copy')) { void copyNote(notes.find(n => n.id === b.dataset.basketRowCopy), b); return; }
+  if (b.hasAttribute('data-basket-copy')) { void copyNote(selected, b); return; }
   if (b.hasAttribute('data-basket-photo')) { openPhoto(b.dataset.basketPhoto, b); return; }
-  if (b.hasAttribute('data-chatgpt-request-copy')) { void copyChatgptRequest(); return; }
+  if (b.hasAttribute('data-chatgpt-request-copy')) { void copyChatgptRequest(b); return; }
   if (busy) return;
   if (b.hasAttribute('data-basket-unlink')) void unlinkChip(b.dataset.basketUnlink);
   else if (b.hasAttribute('data-basket-chip-open')) void openChipPlace(b.dataset.basketChipOpen);

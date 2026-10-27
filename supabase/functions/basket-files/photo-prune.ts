@@ -1,7 +1,7 @@
 import type { UploadAdmin, UploadLog } from "../_shared/drive-upload.ts";
 import { createDriveUpload } from "../_shared/drive-upload.ts";
-import { trashDriveFile } from "./drive-trash.ts";
-import type { Trash } from "./drive-trash.ts";
+import { trashDriveFile } from "../_shared/drive-trash.ts";
+import type { Trash } from "../_shared/drive-trash.ts";
 
 // JOURNAL-일기사진정리: Drive photos that no longer belong to any record.
 //  - action "photo-prune":  { file_ids: [1..20] }  Move those Drive files to the Drive TRASH (30 days, never a permanent DELETE),
