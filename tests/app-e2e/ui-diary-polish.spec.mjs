@@ -168,22 +168,23 @@ test('⑤ an empty note list shows no guide sentence',async({page})=>{
  expect(f.errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`⑥ an opened note draws only "‹ 노트" (no [메모|노트]), files are the shared file line ${width}`,async({page})=>{
+for(const width of [390,1280])test(`⑥ an opened note draws only its own head (no [메모|노트], no back button), files are the shared file line ${width}`,async({page})=>{
  const f=await fixture(page,{width});
  await page.evaluate(()=>window.KPTURouter.go('basket'));
  await chooseBasketKind(page,'note');
  await page.locator('[data-note-row="n1"]').click();
- const back=page.locator('[data-note-close]');
+ const back=page.locator('[data-note-more]');
+ await expect(page.locator('[data-note-close]')).toHaveCount(0);
  await expect(back).toBeVisible();
  // The switch row (and the list head) are not drawn at all while the note is open.
  await expect(page.locator('#basketView .basket-switch-row')).toBeHidden();
  await expect(page.locator('#basketView [data-basket-kind]:visible')).toHaveCount(0);
- const overlap=await page.evaluate(()=>{const b=document.querySelector('[data-note-close]').getBoundingClientRect();
+ const overlap=await page.evaluate(()=>{const b=document.querySelector('[data-note-more]').getBoundingClientRect();
   return [...document.querySelectorAll('#basketView button,#basketView a')].filter(el=>el.getClientRects().length&&!el.closest('[data-note-detail]')).filter(el=>{const r=el.getBoundingClientRect();return r.width&&r.height&&r.left<b.right&&r.right>b.left&&r.top<b.bottom&&r.bottom>b.top;}).map(el=>el.textContent.trim());});
  expect(overlap).toEqual([]);
  // Editing: the same — only the note's head.
  await noteMenuAction(page,'data-note-edit');
- await expect(page.locator('#basketView .basket-switch-row')).toBeHidden();await expect(back).toBeVisible();
+ await expect(page.locator('#basketView .basket-switch-row')).toBeHidden();await expect(page.locator('[data-note-editor]')).toBeVisible();
  await page.locator('[data-note-cancel]').click();
  // Files: the shared line (kind tag · name / size · small [Drive에서 열기]).
  const lines=page.locator('[data-note-attachments] .file-line');
