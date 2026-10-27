@@ -339,7 +339,7 @@
 .lu-recent-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:var(--ds-compact-height-sm,28px)}
 .lu-recent-title{font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 .lu-recent-list{list-style:none;margin:0;padding:0}
-#appView #libraryView .lu-recent-row{box-sizing:border-box;display:flex;align-items:center;gap:8px;width:100%;min-width:0;min-height:30px;margin:0;padding:2px 0;border:0;border-top:1px solid var(--kptu-border);border-radius:0;background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-regular,400);text-align:left;cursor:pointer}
+#appView #libraryView .lu-recent-row{box-sizing:border-box;display:flex;align-items:center;gap:8px;width:100%;min-width:0;min-height:30px;margin:0;padding:2px 0;border:0;border-top:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-regular,400);text-align:left;cursor:pointer}
 #appView #libraryView .lu-recent-row:hover{background:var(--kptu-surface-subtle)}
 #appView #libraryView .lu-recent-row:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 #appView #libraryView .lu-recent-row .lu-file-kind{flex:none;box-sizing:border-box;display:block;min-width:34px;width:auto;height:18px;padding:0 6px;border-radius:var(--kptu-radius-sm,6px);font-size:11px;line-height:18px;text-align:center;white-space:nowrap}
