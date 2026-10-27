@@ -54,7 +54,7 @@ test('390 폰: 일기 쓰기 아래 줄은 글이 길어도 화면 아래 오른
   expect(row.y+row.height).toBeLessThanOrEqual(sw.y+1);expect(sw.y+sw.height).toBeLessThanOrEqual(tabs.y+1);
  }
  // 맨 아래까지 내리면 본문은 버튼 줄 위에서 끝난다(버튼이 글을 가리지 않음).
- const text=await box(page,'#diaryRoot [data-diary-editor] [data-diary-doc-slot]'),row=await box(page,ACTIONS);
+ const text=await box(page,'#diaryRoot [data-diary-editor] .ProseMirror'),row=await box(page,ACTIONS);
  expect(text.y+text.height).toBeLessThanOrEqual(row.y+1);
  expect(f.errors).toEqual([]);
 });

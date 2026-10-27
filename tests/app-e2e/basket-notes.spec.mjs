@@ -357,7 +357,7 @@ async function expectIconNextToClose(editor,name){
  const card=await editor.evaluate(el=>{const r=el.getBoundingClientRect();return {right:r.right,bottom:r.bottom};});
  expect(card.right-save.right).toBeLessThanOrEqual(16);
  expect(card.bottom-(win.top+win.height)).toBeLessThanOrEqual(2);
- expect(can.right).toBeLessThanOrEqual(save.left);expect(Math.round(save.top)).toBe(Math.round(can.top));
+ expect(can.right).toBeLessThanOrEqual(save.left);expect(Math.abs(save.top+save.height/2-(can.top+can.height/2))).toBeLessThanOrEqual(1);
 }
 for(const width of [390,1280]){
  test(`big window save icon saves a note through [저장] and keeps the window open (NOTE-큰창저장유지), also when the save fails ${width}`,async({page})=>{
