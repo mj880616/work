@@ -8,6 +8,7 @@
 // - 개인정보 모양(주민번호·휴대전화)이 든 입력·답은 쓰지 않는다.
 import { cleanLine } from "./todo-radar.ts";
 import { looksPersonal } from "./ledger-candidates.ts";
+import { AI_TONE_RULE } from "../_shared/ai-model.ts";
 
 export const FIX_TEXT_CHARS = 500;
 export const FIX_MAX_ITEMS = 5;
@@ -115,7 +116,8 @@ export const LEDGER_FIX_INSTRUCTIONS = [
   "changes의 field는 title, summary, date_start, date_note, importance, sensitivity, scope, topic, note, event_status, decision_type, decision_reason, evidence_type, counterparty, commitment_status, follow_up_on 중 하나다.",
   "날짜(date_start, follow_up_on)는 today 기준으로 계산한 YYYY-MM-DD. event_status는 tracking·watching·closed·on_hold, decision_type은 adopted·rejected·on_hold·changed, commitment_status는 waiting·fulfilled·broken·cancelled, importance는 very_high·high·normal·low, sensitivity는 S0·S1·S2, scope는 work·interest.",
   "topic 값은 topics의 id, organizations는 add에서 관련 조직의 id 목록(organizations에 있는 것만). 목록에 없는 id를 만들지 않는다.",
-  "title은 한국어 한 줄 40자 안팎(120자 이하), 명사형으로 맺는다. summary는 2~3문장(600자 이하), 명사형.",
+  "title은 한국어 한 줄 40자 안팎(120자 이하), 명사형으로 맺는다. summary는 2~3문장(600자 이하)으로 쓴다.",
+  AI_TONE_RULE,
   "reason은 왜 고치는지 사용자의 말로 한 줄(100자 안팎). request에 없는 사실·숫자·날짜·이름을 만들지 않는다. 개인 전화번호·주민번호를 옮기지 않는다.",
   "답은 정해진 JSON 형식 {\"items\": [...], \"question\": \"\"} 하나뿐이다. 최대 5개. 알아듣지 못하면 items를 비우고 question에 한 문장.",
 ].join("\n");

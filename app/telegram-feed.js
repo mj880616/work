@@ -520,7 +520,7 @@ const dayText = () => {
   return summaryCopyText({title:lineAt(sel.room, sel.day)?.room_label || d.items[0]?.room_label || '', meta:dayLabel(sel.day), body:daySummary(d.parts, d.items, {partsKnown:d.parts !== null}).lines});
 };
 const say = text => { state.status = text; for (const el of view()?.querySelectorAll('[data-tg-status],[data-tg-detail-status]') || []) el.innerHTML = statusHtml(); };
-const copyTg = text => copySummary(text, {say, current:() => state.status});
+const copyTg = (text, button = null) => copySummary(text, {say, current:() => state.status, button});
 function startLink(r) { if (!state.open.has(r.id)) { state.open.add(r.id); void loadRaw(r.id); } state.link = newLinkBox(r); paintDetail(); $('#tgDetail [data-tg-link-pick]')?.focus({preventScroll:true}); }
 function saveLink() {
   const r = itemOf(state.link?.rowId), box = state.link; if (!r || !box) return;
@@ -688,7 +688,7 @@ function bind() {
     else if (b.hasAttribute('data-tg-sbox-save')) void saveName();
     else if (b.hasAttribute('data-tg-sman-save')) void saveMan();
     else if (d.tgSboxChip) { const e = state.sedit, c = chipsOf(peopleList(), e?.excludeId).find(x => x.id === d.tgSboxChip); if (e && c) { e.value = c.text; e.chipId = c.id; e.status = ''; paintEdit(); $(`${e.kind === 'person' ? '#tgList' : '#tgDetail'} [data-tg-sbox-input]`)?.focus({preventScroll:true}); } }
-    else if (b.hasAttribute('data-tg-daycopy')) void copyTg(dayText());
+    else if (b.hasAttribute('data-tg-daycopy')) void copyTg(dayText(), b);
     else if (b.hasAttribute('data-tg-opencopy')) void openByCopy();
     else if (b.hasAttribute('data-tg-back')) { if (!state.link || dropLink()) closeDetail(); }
     else if (b.hasAttribute('data-tg-retry')) void load();

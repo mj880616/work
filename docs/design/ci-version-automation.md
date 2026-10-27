@@ -168,7 +168,7 @@
 | `tests/app-e2e/` | 버전 문자열 기대를 번호 없는 경로로. 새 버전 알림 검사는 빌드처럼 `app.js?v=300`을 붙인 화면을 띄움(`helpers/built-shell.mjs`) |
 
 - 대조: 같은 스크립트로 main(27d3a84, 운영과 같은 빌드)과 이 브랜치를 빌드하면 `app/` 아래 결과물(`asset-manifest.json` 포함)은 바이트까지 같다. 다른 곳은 Web1 페이지 14개(전에 번호가 없던 `favicon.svg`·`kptu-logo.svg`·`makinochaya-route.png`·`materials-data.js`에 해시가 새로 붙음)와 `private-rail/index.html`의 `page.html` fetch, 로더가 안 부르는 `workflow-ai-v3.js`뿐이다.
-- 남은 손 번호(예외): 저장소에 없는 파일(`personal/portal`의 `/favicon.ico?v=…`·`/favicon.png?v=…`), 다른 주소(`https://…?v=20260920`), JSON 안 주소(`app/windows-manifest.json` 아이콘 `?v=20261016-frame1`).
+- 남은 손 번호(예외): 저장소에 없는 파일(`personal/portal`의 `/favicon.ico?v=…`·`/favicon.png?v=…`), 다른 주소(`https://…?v=20260920`), JSON 안 주소(`app/windows-manifest.json` 아이콘 `?v=20261027-memocheck`).
 - Worker 코드(`cloudflare/bokdoong-router.mjs`)는 고치지 않았다(주석의 `scripts/asset-manifest.mjs` 언급도 그대로). workflow 파일 변경으로 merge 때 Worker 배포 workflow가 한 번 돈다(같은 코드 재배포).
 
 ### 4단계 — 정리

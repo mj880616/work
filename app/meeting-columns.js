@@ -6,10 +6,7 @@ export const PC_QUERY='(min-width:1024px)';
 export const NONE_KEY='__none__';
 // UI-회의자료표시(2026-10-20): 회의에 붙은 자료가 있으면 개수 없이 이 문구만 보인다(폰 목록). 없으면 표시 없음. PC 3단 가운데 줄에는 보이지 않는다(MEET-결과3단).
 import {seoulParts} from './meeting-time.js';
-import {reportKindOf} from './report-kinds.mjs';
-import {reportWords} from './report-words.mjs';
 import {fileAttrs,menuItemsHtml} from './file-actions.js';
-import {splitPhotoDocs} from './activity-photo-model.mjs'; // ACT-사진 3단계: 사진은 '사진' 줄, 나머지만 자료 줄
 export const MEETING_DOCS_LABEL='회의자료 있음';
 
 const time=m=>{const t=new Date(m?.meeting_at).getTime();return Number.isFinite(t)?t:-Infinity};
@@ -72,7 +69,8 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 
 // MEET-결과3단(2026-10-21 시안 승인): PC 3단 = 왼쪽 회의 종류 / 가운데 고른 종류의 차수·날짜·시간 / 오른쪽 고른 차수의 회의 결과(읽기용).
 // 회의 종류 + 차수 두 칸을 합쳐 1/3, 오른쪽 결과 2/3(theme-tokens.css --ds-split-*). 가운데 줄에는 "회의자료 있음"을 보이지 않는다(날짜·시간만).
-// 가운데 줄을 누르면 오른쪽만 바뀐다(창을 열지 않음). 고칠 때는 오른쪽 머리 ⋯ → [수정]으로 지금의 회의 결과 창(meeting-round-detail.js)을 연다.
+// 가운데 줄을 누르면 오른쪽만 바뀐다(창을 열지 않음). MTG-고치기바로: 오른쪽 칸의 안쪽(보기·고치기)은 이 파일이 그리지 않는다 - 칸 자리만 만들고, 결과 창 요소(meeting-round-detail.js) 하나를 team.js가 붙인다.
+// 고칠 때는 그 칸 안 머리 ⋯ → [수정]으로 같은 자리에서 고치는 화면으로 바뀐다(팝업 없음).
 // 고른 차수가 없거나 없어졌으면 고른 종류의 가장 최근 차수(처음 열면 가장 최근 결과가 있는 종류의 가장 최근 차수 = 전체에서 가장 최근 결과).
 export function pickMeeting(column,selectedId){return column?.meetings.find(m=>String(m.id)===String(selectedId))||column?.meetings[0]||null}
 
@@ -116,10 +114,6 @@ export function listHtml(rows,{selectedId,label,nameOf,kindOf=()=>'',colorOf,whe
     +`</div>`;
 }
 
-// 오른쪽 칸(읽기용): 지금 회의 결과 창 보기 면과 같은 정보 — 회의 이름·차수(짧은 이름)·회의 시각(연도 포함)·프로젝트·기존 제목,
-// 회의 결과 원문, 특이사항(있을 때만), 후속 할 일(읽기만, 따로 불러옴), 회의자료(이름을 누르면 내려받기). 입력칸·저장 버튼 없음.
-// 원문은 결과 창과 같은 규칙: 원문 → 옛 구조화 기록 → 없으면 빈 글(MTG-보고창정리: 원문 칸 자체를 그리지 않는다).
-export function resultText(m){if(m?.transcript_text!=null&&String(m.transcript_text).length)return String(m.transcript_text);if(String(m?.decisions||'').trim())return `[기존 회의결과 기록]\n${m.decisions}`;return ''}
 // FILE-사업보고⋯(2026-10-24 사용자 결정): 사업 보고 자료 줄 끝의 ⋯ — 담당조직·프로젝트 자료 줄과 같은 <details> 메뉴에
 // file-actions.js의 [Drive에서 열기]·[내려받기](menuItemsHtml, 누르면 file-actions.js 전역 클릭 처리)를 둔다. 줄 누르기 동작은 그대로다.
 // 결과 창(meeting-round-detail.js)도 이 함수를 쓴다. 두 항목이 다 없으면(열 길·내려받을 길 없음) ⋯를 그리지 않는다.
@@ -127,29 +121,4 @@ export function meetingFileFile(d){return {name:d?.file_name||d?.title||'',mime:
 export function fileMoreHtml(d,name=d?.file_name||d?.title||'파일'){
   const fa=meetingFileFile(d),items=menuItemsHtml(fa,{attrs:fileAttrs(fa),attr:'data-fa-menu'});
   return items?`<details class="file-line-more"><summary class="icon-btn" aria-label="파일 메뉴: ${esc(name)}">⋯</summary><div class="file-line-more-panel" role="group" aria-label="파일 메뉴">${items}</div></details>`:'';
-}
-// MTG-사업보고 4단계: kindLabel(칸 글자, 예: '언론')이 오면 메타 줄 맨 앞에 'X 칸'으로 보인다(data-report-kind-label).
-// UI-중복제목삭제: 이 칸은 PC(≥1024)에서만 그려지고 상단 줄이 이미 "회의 이름 차수"를 보이므로, 머리에는 제목 줄이 없고 메타 줄(칸·시각·프로젝트)과 ⋯만 둔다.
-export function resultHtml(m,{kindLabel='',when='',project='',legacyTitle='',docs:allDocs=[],fileLine,tasksHtml=''}){
-  const {photos,files:docs}=splitPhotoDocs(allDocs);
-  const words=reportWords(reportKindOf(m));
-  const meta=[legacyTitle&&hasRound(m)?`기존 제목: ${legacyTitle}`:'',when,m?.location&&String(m.location).trim()?`장소 ${String(m.location).trim()}`:'',project?`연결 ${project}`:''].filter(Boolean);
-  const notes=String(m?.notes||''),resultBody=resultText(m);
-  const files=docs.length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mcol-file',end:`<button class="file-line-open" type="button" data-meeting-doc="${esc(d.id)}" aria-label="${esc(name)} 열기"></button>${fileMoreHtml(d,name)}`})}).join(''):`<p class="mcol-empty">${esc(words.materialsEmpty)}</p>`;
-  return `<header class="mcol-result-head"><div class="mcol-result-title">${meta.length||kindLabel?`<p class="mcol-result-meta">${kindLabel?`<span data-report-kind-label>${esc(kindLabel)} 칸</span>`:''}${meta.map(x=>`<span>${esc(x)}</span>`).join('')}</p>`:''}</div>`
-    +`<button type="button" class="icon-btn mcol-more" data-meeting-more="${esc(m.id)}" data-ctx="area" aria-label="사업 보고 관리" aria-haspopup="true" aria-expanded="false" aria-controls="mcolMenu"><span aria-hidden="true">⋯</span></button></header>`
-    +`<div class="mcol-result-body">`
-    +(resultBody?`<section class="mcol-block" aria-labelledby="mcolTextHead"><h4 id="mcolTextHead">${esc(words.textLabel)}</h4><div class="mcol-text">${esc(resultBody)}</div></section>`:'')
-    +(notes.trim()?`<section class="mcol-block" aria-labelledby="mcolNotesHead"><h4 id="mcolNotesHead">특이사항</h4><div class="mcol-text mcol-notes">${esc(notes)}</div></section>`:'')
-    +`<section class="mcol-block" aria-labelledby="mcolTasksHead"><h4 id="mcolTasksHead">후속 할 일</h4><div id="mcolTasks" class="mcol-tasks" aria-live="polite">${tasksHtml}</div></section>`
-    +(photos.length?`<section class="mcol-block" aria-labelledby="mcolPhotosHead"><h4 id="mcolPhotosHead">사진 ${photos.length}</h4><div class="act-photo-grid mcol-photos" data-mcol-photos></div></section>`:'')
-    +`<section class="mcol-block" aria-labelledby="mcolDocsHead"><h4 id="mcolDocsHead">${esc(words.materials)}</h4><div class="mcol-files">${files}</div></section>`
-    +`</div>`;
-}
-// 후속 할 일 읽기 줄: 동그라미(완료면 채움)·이름·기한. 누르는 곳 없음(고칠 때는 ⋯ → 수정).
-export function tasksHtml(tasks,{dueOf=()=>''}={}){
-  if(tasks==null)return '<p class="mcol-empty">불러오는 중…</p>';
-  if(tasks==='error')return '<p class="mcol-empty">후속 할 일을 불러오지 못했습니다.</p>';
-  if(!tasks.length)return '<p class="mcol-empty">후속 할 일이 없습니다.</p>';
-  return `<ul class="mcol-task-list">${tasks.map(t=>{const done=t.status==='completed',due=dueOf(t);return `<li class="mcol-task${done?' completed':''}"><span class="mcol-task-check" aria-hidden="true"></span><span class="mcol-task-title">${esc(t.title||'제목 없음')}${done?'<span class="mcol-sr"> (완료)</span>':''}</span>${due?`<span class="mcol-task-due">${esc(due)}</span>`:''}</li>`}).join('')}</ul>`;
 }

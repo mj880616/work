@@ -336,7 +336,7 @@ async function refillMoved(id) {
   state.status = before === mine ? REFILL_DONE : before; paint();
 }
 const callText = r => callCopyText({who:whoOf(r), title:topicOf(r), dayText:dayLabel(r.day), time:hhmm(r.occurred_at), points:r.points});
-const copyCall = r => copySummary(callText(r), {say, current:() => state.status});
+const copyCall = (r, button = null) => copySummary(callText(r), {say, current:() => state.status, button});
 function startLink(r) { if (state.selected !== r.id) select(r.id); state.link = newLinkBox(r); paintDetail(); $('#cfDetail [data-cf-link-pick]')?.focus({preventScroll:true}); }
 function saveLink() {
   const r = rowOf(state.link?.rowId), box = state.link; if (!r || !box) return;
@@ -481,7 +481,7 @@ function bind() {
     else if (b.hasAttribute('data-cf-confirm-go')) { const r = rowOf(state.confirm?.id); if (r) void moveRow(r, 'personal', {confirmed:true}); }
     else if (b.hasAttribute('data-cf-confirm-cancel')) { state.confirm = null; paintDetail(); $('#cfDetail [data-cf-more]')?.focus({preventScroll:true}); }
     else if (b.hasAttribute('data-cf-back')) { if (!state.link || dropLink()) closeDetail(); }
-    else if (b.hasAttribute('data-cf-copy')) { const r = rowOf(state.selected); if (r) void copyCall(r); }
+    else if (b.hasAttribute('data-cf-copy')) { const r = rowOf(state.selected); if (r) void copyCall(r, b); }
     else if (b.hasAttribute('data-cf-retry')) void load();
     else if (b.hasAttribute('data-cf-undo')) void restore();
     else if (b.hasAttribute('data-cf-ledger-retire')) void retireLedger();

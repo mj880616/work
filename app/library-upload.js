@@ -18,6 +18,7 @@ import {normalizeUploadMeeting,uploadMeetingLabel} from './library-upload-meetin
 import {isPhotoFile,photoUploadFields} from './activity-photo-model.mjs';
 import {normalizeUploadOrganization,uploadOrganizationLabel,linkUploadedDocument} from './library-upload-organization.js';
 import {fileLine,bindDropTarget} from './meeting-compact.js';
+import {visibleEntries,entryState,deleteLabel,isKept} from './library-prev-model.mjs';
 import {documentCategories,categoryOf,categoryOptions,categoryTag,loadDocumentCategories} from './document-categories.js';
 import {renameBody,undoSnapshot,undoBody,rowMatches} from './library-rename.js';
 import {mountCategoryEditor} from './document-category-editor.js';
@@ -542,10 +543,27 @@ function luRenderEditFile(){
   box.querySelector('#libraryEditFileLine').innerHTML=staged
     ?fileLine({name:staged.name,meta:luSize(staged.size),label:'교체 예정',end:`<button class="icon-btn file-line-x" type="button" data-lu-replace-clear aria-label="파일 교체 취소"${busy?' disabled':''}>×</button>`})+`<p class="library-edit-file-note">지금 파일(${luEsc(name)})은 지우지 않고 이전 파일에 남깁니다.</p>`
     :fileLine({name,meta:luSize(d.file_size),end:`<button class="library-pick-button" type="button" data-lu-replace-pick${busy?' disabled':''}>파일 교체</button>`});
-  const prev=(Array.isArray(d.previous_files)?d.previous_files:[]).slice().reverse(),det=box.querySelector('#libraryEditPrev');
+  // LIB-이전파일정리: 정리된(Drive 휴지통으로 간) 항목은 목록에서 뺀다. 줄 끝: 'N일 뒤 삭제' + 작은 [계속 보관], 보관한 줄은 '보관' + [해제].
+  const now=Date.now(),prev=visibleEntries(d.previous_files).slice().reverse(),det=box.querySelector('#libraryEditPrev'),busyKeep=!!editor.keeping;
   det.hidden=!prev.length;
-  box.querySelector('#libraryEditPrevList').innerHTML=prev.map(f=>{const file={name:f.file_name||'이전 파일',mime:f.mime_type||'',driveId:f.file_id||'',driveUrl:f.drive_url||''},href=driveOpenUrl({driveUrl:file.driveUrl,driveId:file.driveId}),day=luReplaceDate(f.replaced_at);
-    return `<div class="library-edit-prev-row"><a class="library-edit-prev-file" ${href?`href="${luEsc(href)}" `:''}target="_blank" rel="noopener noreferrer"${fileAttrs(file,{press:true})}>${luEsc(file.name)}</a><small>${[luSize(f.file_size),day?day+' 교체':''].filter(Boolean).join(' · ')}</small></div>`}).join('');
+  box.querySelector('#libraryEditPrevList').innerHTML=prev.map(f=>{const file={name:f.file_name||'이전 파일',mime:f.mime_type||'',driveId:f.file_id||'',driveUrl:f.drive_url||''},href=driveOpenUrl({driveUrl:file.driveUrl,driveId:file.driveId}),day=luReplaceDate(f.replaced_at),kept=isKept(f),label=deleteLabel(f,now),canKeep=entryState(f,now).state!=='unknown'||kept;
+    return `<div class="library-edit-prev-row"><a class="library-edit-prev-file" ${href?`href="${luEsc(href)}" `:''}target="_blank" rel="noopener noreferrer"${fileAttrs(file,{press:true})}>${luEsc(file.name)}</a><small>${[luSize(f.file_size),day?day+' 교체':''].filter(Boolean).join(' · ')}</small>${canKeep?`<span class="library-edit-prev-end">${label?`<small class="library-edit-prev-del${kept?' kept':''}">${luEsc(label)}</small>`:''}<button class="library-edit-prev-keep" type="button" data-lu-prev-keep="${luEsc(f.file_id)}" data-keep="${kept?'0':'1'}"${busyKeep?' disabled':''}>${kept?'해제':'계속 보관'}</button></span>`:''}</div>`}).join('');
+}
+// [계속 보관]/[해제]: 서버(library-files previous-keep)에 저장한다. 브라우저 저장소는 쓰지 않는다. 응답의 목록으로 그 줄만 바꾼다.
+async function luPrevKeep(editor,fileId,keep){
+  if(!editor||editor.keeping||editor.replacing)return;
+  const st=document.querySelector('#libraryEditStatus'),say=(message,error)=>{if(luEditCurrent(editor))luSetStatus(st,message,error)};
+  editor.keeping=true;luRenderEditFile();
+  try{
+    const data=await luApi('/functions/v1/library-files',{method:'POST',body:{action:'previous-keep',document_id:editor.id,file_id:fileId,keep},expectedSessionEpoch:editor.scope.epoch,singleFlight:false,refreshSession:false});
+    if(data?.ok!==true||!Array.isArray(data.previous_files))throw new Error('keep not confirmed');
+    luDocuments=luDocuments.map(old=>old.id===editor.id?{...old,previous_files:structuredClone(data.previous_files)}:old);
+    editor.original={...editor.original,previous_files:structuredClone(data.previous_files)};
+    if(luEditor===editor)luEditOriginal={...luEditOriginal,previous_files:structuredClone(data.previous_files)};
+    say('',false);
+  }catch(e){
+    say(/[가-힣]/.test(e?.message||'')&&[404,409,503].includes(e?.status)?e.message:'보관 표시를 바꾸지 못했습니다. 잠시 후 다시 시도해 주세요.',true);
+  }finally{editor.keeping=false;if(luEditCurrent(editor))luRenderEditFile()}
 }
 function luStageReplace(files){
   const editor=luEditor;if(!editor||!luReplaceReady(editor.original)||editor.replacing)return;
@@ -561,7 +579,7 @@ function luStageReplace(files){
 function luBindReplaceFile(){
   const box=document.querySelector('#libraryEditFile'),input=document.querySelector('#libraryEditReplaceInput'),card=document.querySelector('#libraryEditModal .modal-card');
   if(!box||!input||!card)return;
-  box.addEventListener('click',e=>{if(e.target.closest('[data-lu-replace-pick]'))input.click();else if(e.target.closest('[data-lu-replace-clear]')&&luEditor&&!luEditor.replacing){luEditor.replaceFile=null;luRenderEditFile()}});
+  box.addEventListener('click',e=>{const keepButton=e.target.closest('[data-lu-prev-keep]');if(keepButton){void luPrevKeep(luEditor,keepButton.dataset.luPrevKeep,keepButton.dataset.keep==='1');return}if(e.target.closest('[data-lu-replace-pick]'))input.click();else if(e.target.closest('[data-lu-replace-clear]')&&luEditor&&!luEditor.replacing){luEditor.replaceFile=null;luRenderEditFile()}});
   input.addEventListener('change',()=>luStageReplace(input.files));
   bindDropTarget(card,luStageReplace,()=>!!luEditor&&luReplaceReady(luEditor.original)&&!luEditor.replacing&&!document.querySelector('#libraryEditModal').classList.contains('hidden'));
 }
