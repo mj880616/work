@@ -1,0 +1,725 @@
+{
+ "generated": "2026-10-27",
+ "base": "main (clone --depth 1)",
+ "method": "저장소 e2e 가짜 서버(가짜 데이터) + Playwright Chromium. after는 fix_css를 화면에 주입해 찍은 모습. 제품 코드는 고치지 않음.",
+ "widths": [
+  "1920x1080",
+  "1280x800",
+  "390x844"
+ ],
+ "items": [
+  {
+   "id": 1,
+   "screen": "내 프로필(계정 ▾ → 내 프로필)",
+   "screens": [
+    "내 프로필(계정 ▾ → 내 프로필)"
+   ],
+   "width": "1280·390",
+   "title": "내 프로필의 담당 사업장 목록이 깨져 체크칸과 이름이 위아래로 흩어짐",
+   "problem": "공용 base-ui.css 77행이 모든 label을 세로 쌓기(flex-direction:column)·굵게(700)로 만든다. 그래서 담당 사업장 6곳이 '체크칸 위, 이름 아래, 가운데 정렬, 굵게'로 그려지고 줄마다 약 44px를 차지한다(1280에서 3줄=132px, 폰 6줄=264px). 참고 일정의 '캘린더' 글자도 같은 이유로 선택칸 위로 떠 있다.",
+   "fix": "체크칸·동그라미 선택을 품은 label은 '한 줄 가로, 보통 굵기'가 기본이 되게 공용 규칙 한 줄을 더한다. 사업장은 체크칸-이름-› 한 줄, 줄 높이 26px로 줄어든다.",
+   "fix_css": "label:has(> input[type=checkbox]),label:has(> input[type=radio]){flex-direction:row;align-items:center;font-weight:400;margin:0}\n#profileView .ps-calref-row{flex-direction:row}",
+   "before": "before/01-profile-rows.png",
+   "after": "after/01-profile-rows.png",
+   "scope": "공용 규칙",
+   "size": "작음",
+   "shot_width": 1280
+  },
+  {
+   "id": 2,
+   "screen": "왼쪽 메뉴(모든 화면)",
+   "screens": [
+    "왼쪽 메뉴(모든 화면)"
+   ],
+   "width": "1280",
+   "title": "PC 1280×800에서 왼쪽 메뉴 맨 아래 [통화]가 잘리고 [텔레그램 소식]·[자주 가는 링크]가 안 보임",
+   "problem": "왼쪽 메뉴 버튼 높이가 큰 항목 40px·하위 항목 36px이라 전체 874px인데 보이는 칸은 774px이다. 100px가 넘쳐 메뉴 안에서 스크롤해야만 아래 세 항목이 보인다. 1920×1080에서는 다 보이지만 노트북 화면에서는 안 보인다.",
+   "fix": "메뉴 버튼 높이를 큰 항목 32px·하위 항목 28px로 줄인다. 글자 크기는 그대로이고, 메뉴 전체가 한 화면에 들어온다.",
+   "fix_css": "#appView>.app-nav .nav-btn{min-height:32px!important;height:32px!important;padding-top:0!important;padding-bottom:0!important}\n#appView>.app-nav .nav-sub-btn{min-height:28px!important;height:28px!important;padding-top:0!important;padding-bottom:0!important}",
+   "before": "before/02-nav-cut.png",
+   "after": "after/02-nav-cut.png",
+   "scope": "공용 규칙",
+   "size": "작음",
+   "shot_width": 1280
+  },
+  {
+   "id": 3,
+   "screen": "일정(달력·할 일·업무일지·일기) 폰",
+   "screens": [
+    "일정(달력",
+    "할 일",
+    "업무일지",
+    "일기) 폰"
+   ],
+   "width": "390",
+   "title": "폰 일정 화면에서 아래쪽에 고정 띠가 세 겹(하단바·[달력|할 일|업무일지|일기]·입력칸)으로 쌓여 내용이 가려짐",
+   "problem": "폰에서 하단바(56px, top 788) 위에 보기 바꾸기 띠(32px, top 750)가, 할 일 화면은 그 위에 입력칸(top 744, 높이 100)이 또 고정돼 있다. 화면 아래 약 190px가 늘 덮여 목록은 위 2/3만 보인다. 동그란 [+](top 692)는 마지막 일정 위에 겹친다.",
+   "fix": "[달력|할 일|업무일지|일기]를 화면 맨 위(제목 아래)로 올리고 스크롤하면 위에 붙게 한다. 아래 고정은 하단바와 입력칸만 남는다.",
+   "fix_css": "@media(max-width:760px){#calendarView{display:flex;flex-direction:column}#calendarView .schedule-switch{position:sticky!important;top:0;bottom:auto!important;order:-1;z-index:5;margin:0 0 8px}}",
+   "before": "before/03-phone-switch.png",
+   "after": "after/03-phone-switch.png",
+   "scope": "공용 규칙",
+   "size": "중간",
+   "shot_width": 390
+  },
+  {
+   "id": 4,
+   "screen": "폰 목록 화면 전부(일정·할 일·정리함·프로젝트·자료실 등)",
+   "screens": [
+    "폰 목록 화면 전부(일정",
+    "할 일",
+    "정리함",
+    "프로젝트",
+    "자료실 등)"
+   ],
+   "width": "390",
+   "title": "폰에서 목록 맨 끝까지 내려도 마지막 줄이 고정 띠 밑에 깔려 안 보임",
+   "problem": "화면 본문 아래 여백(padding-bottom)이 0px이다. 아래 고정 띠(하단바 56 + 보기 띠 32 + 입력칸 52)가 덮는 만큼 여백이 없어서 마지막 항목은 끝까지 내려도 띠 밑에 남는다(일정 목록·할 일 '완료 1 ▸'·정리함 마지막 줄에서 확인).",
+   "fix": "폰에서는 모든 화면 본문 아래에 '고정 띠 높이만큼' 여백을 공용 규칙 한 곳에서 준다. 띠 높이가 바뀌면 같은 변수만 고친다.",
+   "fix_css": "@media(max-width:760px){#appView .view-panel:not(.hidden){padding-bottom:calc(56px + 40px + 52px + 16px)}}",
+   "before": "before/04-phone-bottom.png",
+   "after": "after/04-phone-bottom.png",
+   "scope": "공용 규칙",
+   "size": "작음",
+   "shot_width": 390
+  },
+  {
+   "id": 5,
+   "screen": "자료실·담당조직 상세·업무일지·왼쪽 메뉴·팝업 메뉴",
+   "screens": [
+    "자료실",
+    "담당조직 상세",
+    "업무일지",
+    "왼쪽 메뉴",
+    "팝업 메뉴"
+   ],
+   "width": "1280",
+   "title": "글자 굵기 규칙(보통 400·중간 500 두 가지)을 어기는 아주 굵은 글자(700·750·800)가 화면 곳곳에 남아 있음",
+   "problem": "디자인 기준은 굵기 두 가지인데 실제로는 자료실 프로젝트 줄 700, 담당조직 기본정보 이름표(dt) 800, 소속 칩 800, 업무일지 소제목 700, 휴지통 이름 750, 할 일 ⋯ 메뉴 항목 700이 쓰인다. 같은 화면 안에서 굵은 줄과 얇은 줄이 섞여 눈이 쉬지 못한다.",
+   "fix": "남은 700·750·800을 모두 500으로 바꾼다(library-upload.css·workplace-detail.css·journal.css·team.css의 font-weight 값을 --ds-weight-medium으로).",
+   "fix_css": "#appView :is(.lu-node-head[data-lu-top],#documentList .lu-node>summary.lu-node-head,.lu-row-title,.wd-basic-grid dt,.wd-summary-card span,.wd-aff-chip,.journal-heading,.journal-weekly-sub,.basket-link-menu button,.nav-btn,.cal-day){font-weight:500!important}",
+   "before": "before/05-heavy-weight.png",
+   "after": "after/05-heavy-weight.png",
+   "scope": "공용 규칙",
+   "size": "중간",
+   "shot_width": 1280
+  },
+  {
+   "id": 6,
+   "screen": "프로젝트 상세·담당조직 상세·업무일지",
+   "screens": [
+    "프로젝트 상세",
+    "담당조직 상세",
+    "업무일지"
+   ],
+   "width": "1280",
+   "title": "칸 제목(기록·할 일·자료·사업 보고) 글자가 화면마다 13·15·16px로 제각각",
+   "problem": "기준은 칸 제목 13px(--ds-text-section)인데 프로젝트 상세·담당조직 상세의 h3는 16px, 업무일지 소제목은 15px·700이다. 홈·정리함은 13px이라 같은 '할 일' 제목이 화면마다 크기가 다르다. 16px 제목 + 44px [+] 때문에 칸 머리만 50px 넘게 차지한다.",
+   "fix": "칸 제목은 어디서나 13px·500·칸 색으로 맞춘다(공용 규칙 한 줄).",
+   "fix_css": "#appView :is(.ps3-section-head h3,#wdModal h3,#journalView .journal-heading,#journalView .journal-weekly-sub){font-size:var(--ds-text-section)!important;font-weight:500!important;color:var(--ds-section-ink)}",
+   "before": "before/06-section-title.png",
+   "after": "after/06-section-title.png",
+   "scope": "공용 규칙",
+   "size": "작음",
+   "shot_width": 1280
+  },
+  {
+   "id": 7,
+   "screen": "자료실·원장·공유 페이지·HWP 편집·텔레그램·정리함·내 프로필(폰)",
+   "screens": [
+    "자료실",
+    "원장",
+    "공유 페이지",
+    "HWP 편집",
+    "텔레그램",
+    "정리함",
+    "내 프로필(폰)"
+   ],
+   "width": "1280·390",
+   "title": "위 주소줄에 화면 이름이 있는데 본문에 같은 이름 제목이 한 번 더 나옴",
+   "problem": "PC 위 줄에 '자료실', '원장', '공유 페이지', 'HWP 편집', '텔레그램 소식'이 이미 보이는데 본문 카드 머리에 같은 글자가 또 있다(자료실 h2 '자료실', 원장 '원장', 공유 '내 공유 페이지', HWP '편집' h2, 텔레그램 '텔레그램 소식'). 폰 내 프로필은 위 제목 '내 프로필' 바로 아래 h2 '내 프로필'이 또 있다(18px 두 번).",
+   "fix": "본문 쪽 중복 제목을 지운다. 버튼은 같은 자리에 남긴다.",
+   "fix_css": "#appView :is(#basketView .basket-head h2,#teamView .so-team-title,#profileView .ps-head h2,#libraryView .add-list-head h2,#hwpView .hwp-lab-head h2,#ledgerView .lb-h,#pagesView .sp-head h2,#telegramView .feed-head-title){display:none!important}\n#libraryView .add-list-head{justify-content:flex-end}\n/* 함께 */\n#appView :is(#profileView .ps-head h2,#libraryView .add-list-head h2,#telegramView .feed-head-title){display:none!important}",
+   "before": "before/07-title-dup.png",
+   "after": "after/07-title-dup.png",
+   "scope": "공용 규칙",
+   "size": "작음",
+   "shot_width": 1280,
+   "more_shots": [
+    {
+     "before": "before/07-title-dup-b.png",
+     "after": "after/07-title-dup-b.png",
+     "width": 390
+    }
+   ]
+  },
+  {
+   "id": 8,
+   "screen": "창(일정 등록·할 일·프로젝트 만들기·자료 등록·사업 보고)",
+   "screens": [
+    "창(일정 등록",
+    "할 일",
+    "프로젝트 만들기",
+    "자료 등록",
+    "사업 보고)"
+   ],
+   "width": "1280·390",
+   "title": "창 안의 입력칸이 46px로 크고, 색 동그라미가 34~40px라 창이 길어져 [저장] 위까지 스크롤해야 함",
+   "problem": "화면 입력칸은 32~36px인데 창(모달) 입력칸만 46px이다. 일정 등록 창은 색 동그라미 11개가 34px(폰 40px)라 두 줄을 차지하고, 칸 사이 여백도 커서 '장소'·'프로젝트' 칸이 첫 화면에 안 들어온다.",
+   "fix": "창 입력칸 높이를 36px로, 색 동그라미를 22px(폰 24px) 한 줄로 줄인다. 같은 높이 안에 '장소'·'프로젝트'까지 보인다.",
+   "fix_css": ".modal .modal-card :is(input:not([type=checkbox]):not([type=radio]):not([type=color]),select){height:36px!important;min-height:36px!important}\n.modal .modal-card label{margin:6px 0}\n.calendar-color-swatch{width:22px!important;height:22px!important;min-width:22px!important;min-height:22px!important}",
+   "before": "before/08-modal-input.png",
+   "after": "after/08-modal-input.png",
+   "scope": "공용 규칙",
+   "size": "작음",
+   "shot_width": 1280
+  },
+  {
+   "id": 9,
+   "screen": "자료 등록·할 일 추가 창·HWP 편집·공유 페이지 편집·휴지통",
+   "screens": [
+    "자료 등록",
+    "할 일 추가 창",
+    "HWP 편집",
+    "공유 페이지 편집",
+    "휴지통"
+   ],
+   "width": "1280",
+   "title": "창과 편집 화면에 긴 안내문이 늘 떠 있음",
+   "problem": "자료 등록 창 '자료명을 비워두면 파일명의 날짜·버전 표시를…'(2줄), 할 일 창 'Google \"내 할 일\" 목록에 저장됩니다'·'저장하면 Drive \"자료실/할 일 첨부\"에…'·'고르지 않아도 됩니다', HWP '한글이 없는 PC나 폰에서…', 공유 페이지 '게시 상태일 때만…'·'받는 사람에게 보이는 모양…'·'진행 단계 막대 같은…', 휴지통 '삭제한 프로젝트·담당조직…'. 매번 읽을 필요 없는 설명이 칸 사이 공간을 차지한다.",
+   "fix": "안내문을 지운다. 꼭 필요한 건 칸 이름이나 입력칸 흐린 글씨(placeholder)로 옮긴다.",
+   "fix_css": ".library-file-block>p,.gt-scope-note,.gt-pick-hint,.gt-links-hint,.hwp-lab-note,.sp-hint,.sp-canvas-cap{display:none!important}",
+   "before": "before/09-hint-text.png",
+   "after": "after/09-hint-text.png",
+   "scope": "공용 규칙",
+   "size": "작음",
+   "shot_width": 1280
+  },
+  {
+   "id": 10,
+   "screen": "통화·텔레그램·할 일(PC)",
+   "screens": [
+    "통화",
+    "텔레그램",
+    "할 일"
+   ],
+   "width": "1280·1920",
+   "title": "PC에서 아무것도 안 골랐을 때 오른쪽에 큰 빈 상자와 '왼쪽에서 …고르면 보여요' 안내만 있음",
+   "problem": "통화·텔레그램 화면 오른쪽 상자가 690×730px 빈 칸이고 안내문 한 줄뿐이다. 할 일 화면도 오른쪽에 '왼쪽에서 할 일을 고르면 여기서 고칠 수 있어요' 상자가 있다.",
+   "fix": "고른 것이 없을 때는 오른쪽 상자를 그리지 않는다(안내문도 삭제). 처음 열 때 맨 위 항목을 자동으로 여는 방법도 있다.",
+   "fix_css": ".feed-pane:has(> .feed-pane-empty:only-child),.gt-pane:has(> .gt-pane-empty:only-child){visibility:hidden}",
+   "before": "before/10-empty-pane.png",
+   "after": "after/10-empty-pane.png",
+   "scope": "공용 규칙",
+   "size": "작음",
+   "shot_width": 1280
+  },
+  {
+   "id": 11,
+   "screen": "자료실·정리함·할 일·공유 페이지·사업 보고·텔레그램",
+   "screens": [
+    "자료실",
+    "정리함",
+    "할 일",
+    "공유 페이지",
+    "사업 보고",
+    "텔레그램"
+   ],
+   "width": "1280",
+   "title": "⋯(더보기) 버튼 크기·진하기가 화면마다 다름",
+   "problem": "같은 ⋯인데 자료실 프로젝트 줄은 13px 흐린 색, 자료 줄은 20px 진한 색, 정리함 22px, 할 일 18px, 공유 페이지 20px다. 한 목록 안에서도 위아래 ⋯ 크기가 달라 줄이 어긋나 보인다.",
+   "fix": "⋯는 어디서나 16px·흐린 글자색 하나로 맞춘다.",
+   "fix_css": "#appView button:is(.icon-btn,.sp-row-more,.lu-more-trigger,.lu-node-more,.gt-menu-trigger,.feed-more,.mcol-more),#appView summary.icon-btn{font-size:16px!important;color:var(--kptu-muted)!important;letter-spacing:0}",
+   "before": "before/11-more-btn.png",
+   "after": "after/11-more-btn.png",
+   "scope": "공용 규칙",
+   "size": "작음",
+   "shot_width": 1280
+  },
+  {
+   "id": 12,
+   "screen": "담당조직 상세·프로젝트 상세의 [자료] 종류 칩",
+   "screens": [
+    "담당조직 상세",
+    "프로젝트 상세의 [자료] 종류 칩"
+   ],
+   "width": "1280",
+   "title": "자료 종류 칩(전체·교섭·투쟁…)이 전부 회색으로 칠해져 무엇이 골라졌는지 안 보임",
+   "problem": "다른 화면 칩은 '안 고름=흰 바탕+선, 고름=색'인데, 여기만 안 고른 칩도 회색 바탕(rgb 239,237,230)이라 '전체'가 골라진 상태인지 구별이 안 된다.",
+   "fix": "안 고른 칩은 흰 바탕+얇은 선·흐린 글자, 고른 칩은 연한 테마색으로 바꿔 다른 화면 칩과 같게 한다.",
+   "fix_css": "html .doc-kind-chips button:not([aria-pressed=true]){background:var(--kptu-surface)!important;border:.5px solid var(--ds-line)!important;color:var(--kptu-muted)!important}\nhtml .doc-kind-chips button[aria-pressed=true]{background:var(--kptu-primary-soft)!important;color:var(--kptu-primary-ink)!important;border-color:transparent!important}\n#appView .feed-chip{border-radius:999px!important}",
+   "before": "before/12-chip-style.png",
+   "after": "after/12-chip-style.png",
+   "scope": "공용 규칙",
+   "size": "작음",
+   "shot_width": 1280
+  },
+  {
+   "id": 13,
+   "screen": "자료실 [종류] 거르기",
+   "screens": [
+    "자료실 [종류] 거르기"
+   ],
+   "width": "1280·390",
+   "title": "자료실 종류 칩이 진한 초록으로 줄줄이 칠해져 눈부시고, '전체' 칩은 반만 칠해져 깨진 것처럼 보임",
+   "problem": "여러 개 고르기 칩 6개가 모두 진한 초록(rgb 92,106,53)에 흰 글자다. '전체'는 일부만 골랐다는 뜻으로 반쪽 그라데이션(aria-pressed=mixed)이 칠해지는데, 잘린 버튼처럼 보인다.",
+   "fix": "여러 개 고르기 칩은 고른 것도 연한 테마색 바탕+진한 글자로(한 개 고르기 칩만 진한 색), '전체'는 일부 선택이면 그냥 흰 칩으로 둔다.",
+   "fix_css": "#libraryView .lu-filter-row .quick-pill-button[aria-pressed=true]{background:var(--kptu-primary-soft)!important;color:var(--kptu-primary-ink)!important;border-color:transparent!important}\n#libraryView .lu-filter-row .quick-pill-button[aria-pressed=mixed]{background:var(--kptu-surface)!important}",
+   "before": "before/13-multi-chip.png",
+   "after": "after/13-multi-chip.png",
+   "scope": "이 화면만",
+   "size": "작음",
+   "shot_width": 1280
+  },
+  {
+   "id": 14,
+   "screen": "홈(폰)·홈(PC)·할 일",
+   "screens": [
+    "홈(폰)",
+    "홈",
+    "할 일"
+   ],
+   "width": "390·1280",
+   "title": "할 일 완료 동그라미가 폰 홈에서는 거의 안 보이고, 할 일 화면·PC 홈에서는 진한 초록 큰 원이라 서로 다름",
+   "problem": "폰 홈 동그라미는 12px·연한 베이지 테두리(rgb 226,221,208)라 배경과 거의 같다. 할 일 화면·PC 홈은 18~24px 진한 초록 2px 원이다. 같은 '완료' 버튼이 화면마다 다르게 생겼다.",
+   "fix": "완료 동그라미는 어디서나 16px·1.5px·흐린 글자색 테두리 하나로 맞춘다(누르면 테마색으로 채움).",
+   "fix_css": "#appView .gt-check::before{width:16px!important;height:16px!important;border-width:1.5px!important;border-color:var(--kptu-muted)!important}",
+   "before": "before/14-check-circle.png",
+   "after": "after/14-check-circle.png",
+   "scope": "공용 규칙",
+   "size": "작음",
+   "shot_width": 390
+  },
+  {
+   "id": 15,
+   "screen": "할 일(PC)",
+   "screens": [
+    "할 일(PC)"
+   ],
+   "width": "1280·1920",
+   "title": "PC 할 일 목록이 카드 안에 또 회색 카드가 들어 있는 모양이고 ⓘ 아이콘이 큼",
+   "problem": "기한 묶음 카드 안의 할 일 한 줄 한 줄이 회색 바탕(rgb 247,245,238)·모서리 8px·높이 57px 카드다. 카드 속 카드라 촘촘하지 않다. 위 'ⓘ'는 20px 글자·44px 버튼이다.",
+   "fix": "할 일 줄은 바탕 없이 아래 구분선만 두는 목록 줄로 바꾸고, ⓘ는 14px로 줄인다.",
+   "fix_css": "#tasksView .gt-row.gt-card{background:transparent!important;border-radius:0!important;border-bottom:.5px solid var(--kptu-border)}\n#tasksView .gt-info{width:28px!important;height:28px!important;min-height:28px!important;font-size:14px!important}",
+   "before": "before/15-tasks-cards.png",
+   "after": "after/15-tasks-cards.png",
+   "scope": "이 화면만",
+   "size": "작음",
+   "shot_width": 1280
+  },
+  {
+   "id": 16,
+   "screen": "정리함·노트",
+   "screens": [
+    "정리함",
+    "노트"
+   ],
+   "width": "1280·1920",
+   "title": "정리함 한 줄이 본문·날짜·분류 3줄이라 길고, 화면에 5건밖에 안 들어옴",
+   "problem": "업데이트 한 줄이 '본문 / 2026. 10. 26. 오전 11:00 / 미분류' 3줄(79~100px)이다. '미분류'는 줄마다 같은 글자라 따로 줄을 차지할 필요가 없다.",
+   "fix": "날짜와 분류를 한 줄로 합쳐 두 줄(약 50px)로 줄인다. 같은 높이에 7~8건이 들어온다.",
+   "fix_css": "#basketView .basket-row{grid-template-columns:1fr auto;column-gap:8px}\n#basketView .basket-row>.basket-title{grid-column:1/-1}\n#basketView .basket-row>time{grid-column:1;justify-self:start}\n#basketView .basket-row>time+span{grid-column:2;grid-row:auto;justify-self:end}",
+   "before": "before/16-basket-rows.png",
+   "after": "after/16-basket-rows.png",
+   "scope": "이 화면만",
+   "size": "작음",
+   "shot_width": 1280
+  },
+  {
+   "id": 17,
+   "screen": "정리함·노트 입력칸",
+   "screens": [
+    "정리함",
+    "노트 입력칸"
+   ],
+   "width": "1280",
+   "title": "정리함·노트 위 입력칸이 늘 3줄 높이(72px)로 펼쳐져 있음",
+   "problem": "글을 쓰지 않을 때도 입력칸이 72px라 목록이 그만큼 아래로 밀린다. 홈 빠른 입력은 한 줄(36px)이라 같은 기능의 모양이 다르다.",
+   "fix": "눌러서 쓰기 전에는 한 줄 높이(36px), 누르면 늘어나게 한다(홈과 같은 모양).",
+   "fix_css": "#basketView textarea:not(:focus){height:36px!important;min-height:36px!important;resize:none}",
+   "before": "before/17-basket-input.png",
+   "after": "after/17-basket-input.png",
+   "scope": "이 화면만",
+   "size": "작음",
+   "shot_width": 1280
+  },
+  {
+   "id": 18,
+   "screen": "홈(PC)",
+   "screens": [
+    "홈(PC)"
+   ],
+   "width": "1280·1920",
+   "title": "홈 빠른 입력 아래 '정리함 전체 보기 ›' 링크가 한 줄(44px)을 통째로 차지하고, 카드 머리 줄이 44px로 높음",
+   "problem": "'정리함 전체 보기 ›'가 폭 994px·높이 44px 버튼이라 입력칸 카드 아래에 빈 띠가 생긴다. '오늘 일정'·'오늘 할 일' 머리 줄도 44px라 카드마다 위 여백이 크다.",
+   "fix": "링크를 24px 높이로 줄여 오른쪽 끝에 두고 머리 줄 최소 높이를 없앤다. 첫 화면에서 카드 세 개가 더 위로 올라온다.",
+   "fix_css": "#homeView .home-basket-link{min-height:24px!important;height:24px!important;width:auto!important;margin-left:auto}\n#homeView .home-card > header,#homeView .home-card h3{min-height:0}",
+   "before": "before/18-home-quick.png",
+   "after": "after/18-home-quick.png",
+   "scope": "이 화면만",
+   "size": "작음",
+   "shot_width": 1280
+  },
+  {
+   "id": 19,
+   "screen": "달력",
+   "screens": [
+    "달력"
+   ],
+   "width": "1280·1920",
+   "title": "달력 맨 위 'Google Calendar … 연결됨' 줄이 늘 한 줄을 차지함",
+   "problem": "연결 상태와 세부 캘린더 설정을 여는 접힘 줄(높이 약 40px)이 달력 위에 늘 있다. 연결된 뒤에는 거의 열 일이 없다.",
+   "fix": "연결된 상태에서는 이 줄을 지우고, 세부 캘린더 고르기는 [계정 ▾ → 내 프로필]의 '참고 일정' 칸으로 옮긴다. 연결이 끊겼을 때만 경고 줄을 보인다.",
+   "fix_css": "#calendarView .calendar-google-panel{display:none}",
+   "before": "before/19-google-panel.png",
+   "after": "after/19-google-panel.png",
+   "scope": "이 화면만",
+   "size": "중간",
+   "shot_width": 1280
+  },
+  {
+   "id": 20,
+   "screen": "원장·정리함·내 프로필(넓은 화면)",
+   "screens": [
+    "원장",
+    "정리함",
+    "내 프로필(넓은 화면)"
+   ],
+   "width": "1920",
+   "title": "넓은 화면에서 화면마다 본문 폭이 920·1100·1458px로 제각각",
+   "problem": "1920에서 홈·프로젝트·담당조직은 본문 1458px로 꽉 차는데, 원장은 920px, 정리함은 1100px, 내 프로필은 760px에서 멈춘다. 화면을 옮길 때마다 오른쪽 끝선이 왔다 갔다 한다.",
+   "fix": "읽는 화면(원장·정리함·프로필)은 같은 최대 폭 하나(예: 1100px)로 맞추고, 목록+상세 화면은 꽉 채운다. 폭 값은 theme-tokens.css에 한 개로 둔다.",
+   "fix_css": "@media(min-width:1024px){#appView .lg-root,#basketView,#profileView .ps-profile-grid,#profileView .ps-head{max-width:1100px!important}}\n/* 함께 */\n@media(min-width:1024px){#appView #basketView{max-width:none!important}}",
+   "before": "before/20-wide-width.png",
+   "after": "after/20-wide-width.png",
+   "scope": "공용 규칙",
+   "size": "중간",
+   "shot_width": 1920,
+   "more_shots": [
+    {
+     "before": "before/20-wide-width-b.png",
+     "after": "after/20-wide-width-b.png",
+     "width": 1920
+    }
+   ]
+  },
+  {
+   "id": 21,
+   "screen": "사업 보고(PC)",
+   "screens": [
+    "사업 보고(PC)"
+   ],
+   "width": "1280·1920",
+   "title": "사업 보고 화면이 상자 안에 상자 세 개가 들어 있고, 왼쪽 두 칸이 좁아 회의 이름이 잘림",
+   "problem": "바깥 카드(테두리·여백) 안에 테두리 있는 세로 칸 세 개가 들어 있다. 왼쪽 두 칸이 각 165px이라 '가상 지부 2…'·'가상 지부 2차 …'처럼 잘린다. 칩 줄(전체·회의…) 아래 [목록|달력|사진] 칩 줄이 또 있어 거르기 줄이 두 겹이다.",
+   "fix": "바깥 카드 테두리를 없애고 왼쪽 두 칸을 각 200px 이상으로 넓힌다.",
+   "fix_css": "#meetingsView .meeting-columns{border:0!important;background:transparent!important;padding:0!important;box-shadow:none!important}\n#meetingsView .mcol-layout.mcol-three{grid-template-columns:minmax(200px,1fr) minmax(200px,1fr) 3fr!important}",
+   "before": "before/21-meet-boxes.png",
+   "after": "after/21-meet-boxes.png",
+   "scope": "이 화면만",
+   "size": "작음",
+   "shot_width": 1280
+  },
+  {
+   "id": 22,
+   "screen": "자료실·사업 보고(폰)",
+   "screens": [
+    "자료실",
+    "사업 보고(폰)"
+   ],
+   "width": "390",
+   "title": "폰에서 칩 줄이 화면 끝에서 잘려 '폴더', '정책'이 반만 보임",
+   "problem": "칩 줄이 가로로 밀어 보는 줄인데 끝에 아무 표시 없이 칩이 잘린다(자료실 묶기·종류, 사업 보고 칸 칩 'ㅁ'처럼 반쪽).",
+   "fix": "줄 오른쪽 끝을 흐리게 사라지게 해서 '밀면 더 있다'는 걸 보여 준다.",
+   "fix_css": "@media(max-width:760px){#appView :is(#libraryView .lu-filter-row,#meetingsView .filter-chips){-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);mask-image:linear-gradient(90deg,#000 88%,transparent)}}",
+   "before": "before/22-chip-cut.png",
+   "after": "after/22-chip-cut.png",
+   "scope": "공용 규칙",
+   "size": "작음",
+   "shot_width": 390
+  },
+  {
+   "id": 23,
+   "screen": "업무일지",
+   "screens": [
+    "업무일지"
+   ],
+   "width": "1280·390",
+   "title": "업무일지 요일 칸이 62px 높이 상자 7개라 위쪽이 큼",
+   "problem": "요일·날짜·점을 세 줄로 쌓은 칸이 62px다. 오늘 칸은 굵은 초록 테두리 + 초록 원까지 겹쳐 강조가 두 번이다.",
+   "fix": "요일 칸을 40px로 줄이고 오늘 표시는 원 하나만 남긴다.",
+   "fix_css": "#journalView .journal-date{height:40px!important;min-height:40px!important;padding:2px 0!important}",
+   "before": "before/23-journal-days.png",
+   "after": "after/23-journal-days.png",
+   "scope": "이 화면만",
+   "size": "작음",
+   "shot_width": 1280
+  },
+  {
+   "id": 24,
+   "screen": "일기",
+   "screens": [
+    "일기"
+   ],
+   "width": "1920·1280",
+   "title": "일기 달력 칸이 1920에서 175px, 1280에서 111px로 커서 한 달만 보여도 화면이 꽉 참",
+   "problem": "칸 안에는 날짜와 점 하나뿐인데 칸 높이가 화면 폭에 따라 커진다(1920: 175px×5줄). 아래 일기 미리보기가 첫 화면 밖으로 밀린다.",
+   "fix": "칸 높이를 64px로 고정한다. 달력 아래 일기 목록이 첫 화면에 들어온다.",
+   "fix_css": "#diaryView .diary-cell{height:64px!important;min-height:0!important}",
+   "before": "before/24-diary-cells.png",
+   "after": "after/24-diary-cells.png",
+   "scope": "이 화면만",
+   "size": "작음",
+   "shot_width": 1920
+  },
+  {
+   "id": 25,
+   "screen": "프로젝트 상세·담당조직 상세·사업 보고",
+   "screens": [
+    "프로젝트 상세",
+    "담당조직 상세",
+    "사업 보고"
+   ],
+   "width": "1280",
+   "title": "칸 제목 옆 [+] 버튼이 22px 굵은 글자·44px로 큼",
+   "problem": "하위 프로젝트·할 일·자료·사업 보고 옆 [+]가 44×44px·22px 글자라 칸 제목(16px)보다 크다.",
+   "fix": "[+]를 28px·16px 글자로 줄인다(누르는 범위는 공용 터치 여백 규칙으로 유지).",
+   "fix_css": "#appView .ps3-add-plus{width:28px!important;height:28px!important;min-width:28px!important;min-height:28px!important;font-size:16px!important}",
+   "before": "before/25-plus-btn.png",
+   "after": "after/25-plus-btn.png",
+   "scope": "공용 규칙",
+   "size": "작음",
+   "shot_width": 1280
+  },
+  {
+   "id": 26,
+   "screen": "공유 페이지 편집",
+   "screens": [
+    "공유 페이지 편집"
+   ],
+   "width": "1280",
+   "title": "공유 페이지 편집 맨 위 '상태'와 '연결 프로젝트'의 높이·줄이 어긋남",
+   "problem": "'상태' 이름표와 [초안|게시]는 32px, 옆 '연결 프로젝트' 선택칸은 46px라 두 칸의 위·아래 선이 맞지 않는다. 그 아래 [저장] 버튼은 편집 칸 맨 밑에 있어 긴 페이지에서는 찾기 어렵다.",
+   "fix": "선택칸을 32px로 맞춰 한 줄로 정렬하고, [저장] 줄은 스크롤해도 위에 붙게 한다.",
+   "fix_css": "#pagesView .sp-settings{display:flex;align-items:flex-end;gap:8px}\n#pagesView .sp-settings label{margin:0}\n#pagesView .sp-input{height:32px!important;min-height:32px!important;padding-top:0!important;padding-bottom:0!important;line-height:30px!important}\n#pagesView .sp-save-row{position:sticky;top:0;z-index:3}",
+   "before": "before/26-sp-settings.png",
+   "after": "after/26-sp-settings.png",
+   "scope": "이 화면만",
+   "size": "작음",
+   "shot_width": 1280
+  },
+  {
+   "id": 27,
+   "screen": "사업 보고 쓰기 창(PC)",
+   "screens": [
+    "사업 보고 쓰기 창(PC)"
+   ],
+   "width": "1280",
+   "title": "사업 보고 쓰기 창이 980px로 넓고 입력칸이 끝까지 늘어나 '차수 2' 같은 짧은 값도 900px 칸에 들어감",
+   "problem": "창 폭 980px, 회의명·차수·짧은 이름 칸이 모두 900px 폭·46px 높이다. 눈이 오른쪽 끝까지 갔다 돌아와야 한다.",
+   "fix": "창 최대 폭을 720px로, 칸 높이를 36px로 줄인다.",
+   "fix_css": "#meetingModal .modal-card{max-width:720px!important}\n#meetingModal :is(input:not([type=checkbox]),select){height:36px!important;min-height:36px!important}",
+   "before": "before/27-meeting-modal.png",
+   "after": "after/27-meeting-modal.png",
+   "scope": "이 화면만",
+   "size": "작음",
+   "shot_width": 1280
+  },
+  {
+   "id": 28,
+   "screen": "담당조직 상세(쟁의 단계 줄)",
+   "screens": [
+    "담당조직 상세(쟁의 단계 줄)"
+   ],
+   "width": "1280",
+   "title": "쟁의 단계 줄에서 선택칸·날짜칸(46px)과 '~ 끝 날짜'·[저장](28·32px) 높이가 달라 들쭉날쭉",
+   "problem": "한 줄에 46px 선택칸, 46px 날짜칸, 28px 링크, 32px 버튼이 섞여 있어 위·아래 선이 네 갈래다.",
+   "fix": "이 줄의 칸·버튼을 모두 32px로 맞춘다.",
+   "fix_css": "#wdModal .wd-stage{align-items:center}\n#wdModal .wd-stage :is(select,input,button){height:32px!important;min-height:32px!important;font-size:13px}",
+   "before": "before/28-row-heights.png",
+   "after": "after/28-row-heights.png",
+   "scope": "이 화면만",
+   "size": "작음",
+   "shot_width": 1280
+  },
+  {
+   "id": 29,
+   "screen": "⋯ 메뉴(할 일·자료실·프로젝트)·계정 ▾ 메뉴",
+   "screens": [
+    "⋯ 메뉴(할 일",
+    "자료실",
+    "프로젝트)",
+    "계정 ▾ 메뉴"
+   ],
+   "width": "1280",
+   "title": "PC 팝업 메뉴 항목이 44px 높이·굵은 글자라 메뉴가 큼",
+   "problem": "할 일 ⋯ 메뉴의 [편집]·[파일 붙이기]·[삭제]가 각 44px·700 굵기다. 계정 ▾ 메뉴도 항목마다 44px라 3개 항목 메뉴가 150px다. PC는 마우스라 손가락 기준 높이가 필요 없다.",
+   "fix": "PC(1024px 이상)에서는 팝업 메뉴 항목을 32px·보통 굵기로 줄인다(폰은 그대로).",
+   "fix_css": "@media(min-width:1024px){:is(#gtTaskMenu,.basket-link-menu,.account-panel,.lu-more-panel,.ps3-more-panel) button{height:32px!important;min-height:32px!important;font-weight:400!important;font-size:13px!important}}",
+   "before": "before/29-menu-items.png",
+   "after": "after/29-menu-items.png",
+   "scope": "공용 규칙",
+   "size": "작음",
+   "shot_width": 1280
+  },
+  {
+   "id": 30,
+   "screen": "폰 [메뉴] 판",
+   "screens": [
+    "폰 [메뉴] 판"
+   ],
+   "width": "390",
+   "title": "폰 메뉴 판이 큰 타일(57px) 8개라 판이 화면 절반 넘게 덮고, 맨 위 손잡이에 검은 굵은 테두리가 보임",
+   "problem": "노트·사업 보고·자료실… 타일이 아이콘 위 글자 두 줄 57px다. 판을 열면 첫 요소(손잡이 줄)에 2px 검은 포커스 테두리가 그려져 깨진 상자처럼 보인다.",
+   "fix": "타일을 아이콘+글자 한 줄 40px로 줄이고, 포커스 테두리는 연한 테마색 안쪽 선으로 바꾼다.",
+   "fix_css": "#mobileMenu nav{grid-template-columns:repeat(3,1fr)!important;gap:4px!important}\n#mobileMenu nav button{min-height:40px!important;height:40px!important;flex-direction:row!important;gap:6px!important;padding:0 8px!important;justify-content:flex-start!important}\n#mobileMenu nav button svg{width:16px;height:16px}\n#mobileMenu :focus-visible{outline:2px solid var(--kptu-primary-soft)!important;outline-offset:-2px}",
+   "before": "before/30-mobile-menu.png",
+   "after": "after/30-mobile-menu.png",
+   "scope": "공용 규칙",
+   "size": "작음",
+   "shot_width": 390
+  },
+  {
+   "id": 31,
+   "screen": "창·판을 열 때(화면 색·메뉴·휴지통 등)",
+   "screens": [
+    "창",
+    "판을 열 때(화면 색",
+    "메뉴",
+    "휴지통 등)"
+   ],
+   "width": "390·1280",
+   "title": "창을 열면 첫 줄에 검은 굵은 테두리가 생겨 선택된 것처럼 보임",
+   "problem": "창을 열 때 첫 버튼으로 초점을 옮기는데, 그 초점 표시가 2px 검은 선이다. '화면 색' 창은 '오트밀·올리브(기본)' 줄이 검게 둘러져 선택 표시와 헷갈리고, 휴지통 [×]도 파란 굵은 원으로 둘러진다.",
+   "fix": "초점 표시를 연한 테마색 2px 안쪽 선으로 바꾼다(키보드로 움직일 때만 보이는 것은 그대로).",
+   "fix_css": ":is(.modal,#mobileMenu,#ps3ArchiveModal,#themeModal) :focus-visible{outline:2px solid var(--kptu-primary-soft)!important;outline-offset:-2px;box-shadow:none!important}",
+   "before": "before/31-focus-ring.png",
+   "after": "after/31-focus-ring.png",
+   "scope": "공용 규칙",
+   "size": "작음",
+   "shot_width": 390
+  },
+  {
+   "id": 32,
+   "screen": "휴지통(프로젝트 → 보관 → 휴지통)",
+   "screens": [
+    "휴지통(프로젝트 → 보관 → 휴지통)"
+   ],
+   "width": "1280",
+   "title": "휴지통 목록에서 이름이 '내용 …', '가상 …'처럼 잘리고 굵기 750·16px로 큼",
+   "problem": "이름 칸이 67px로 좁게 잡혀 거의 다 잘린다. 이름은 16px·750 굵기, 설명(종류·날짜)이 이름보다 넓다. 맨 위에는 '삭제한 프로젝트·담당조직…' 안내문이 두 줄 있다.",
+   "fix": "이름 위, 설명 아래 두 줄로 바꾸고 이름은 13px·500으로, 안내문은 지운다. [되돌리기]는 28px.",
+   "fix_css": "#ps3ArchiveModal [data-ps3-archive-hint]{display:none}\n#ps3ArchiveModal .ps3-trash-line{min-height:36px;align-items:center}\n#ps3ArchiveModal .ps3-trash-line .ps3-prow-main{flex:1;min-width:0}\n#ps3ArchiveModal .ps3-trash-line .kptu-list-row-main{display:flex!important;flex-direction:column!important;align-items:flex-start!important;text-align:left!important;gap:0}\n#ps3ArchiveModal .ps3-trash-line .ps3-prow-meta{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n#ps3ArchiveModal .ps3-trash-line .ps3-prow-main{padding-left:12px}\n#ps3ArchiveModal .ps3-trash-line .ps3-prow-name{font-size:13px!important;font-weight:500!important;width:auto!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n#ps3ArchiveModal .ps3-trash-line .ps3-prow-meta{font-size:12px}\n#ps3ArchiveModal .ps3-prow-restore{height:28px;min-height:28px;flex:none}",
+   "before": "before/32-trash.png",
+   "after": "after/32-trash.png",
+   "scope": "이 화면만",
+   "size": "작음",
+   "shot_width": 1280
+  },
+  {
+   "id": 33,
+   "screen": "공유 페이지·원장",
+   "screens": [
+    "공유 페이지",
+    "원장"
+   ],
+   "width": "1280",
+   "title": "[+ 추가] 버튼 모양이 화면마다 다름(공유 페이지만 '+' 없는 흰 버튼)",
+   "problem": "프로젝트·사업 보고·자료실의 추가 버튼은 테마색으로 칠한 '+ ○○' 버튼인데, 공유 페이지는 '새 공유 페이지' 흰 버튼, 원장은 '+ 기록하기' 흰 버튼이다.",
+   "fix": "화면의 주된 추가 버튼은 모두 '+ ○○' 칠한 32px 버튼 하나로 맞춘다.",
+   "fix_css": "#appView :is(#pagesView .sp-head button.primary,#ledgerView .lb-add,#calendarView #newEventBtn){background:var(--kptu-primary)!important;color:var(--kptu-on-primary)!important;border-color:transparent!important;height:32px!important;min-height:32px!important}\n#pagesView .sp-head button.primary::before{content:\"+ \"}",
+   "before": "before/33-add-btn.png",
+   "after": "after/33-add-btn.png",
+   "scope": "공용 규칙",
+   "size": "작음",
+   "shot_width": 1280
+  },
+  {
+   "id": 34,
+   "screen": "원장(폰)",
+   "screens": [
+    "원장(폰)"
+   ],
+   "width": "390",
+   "title": "폰 원장에서 [+ 기록하기]가 혼자 다음 줄로 떨어져 한 줄을 차지함",
+   "problem": "찾기칸 + [조건 ▾] + [+ 기록하기]가 366px에 다 안 들어가 [+ 기록하기]가 둘째 줄로 내려간다(32px 줄 하나 추가).",
+   "fix": "폰에서는 [+ 기록하기]를 [+] 아이콘 버튼으로 줄여 한 줄에 둔다.",
+   "fix_css": "@media(max-width:760px){#ledgerView .lb-cond-btn,#ledgerView .lb-add{padding:0 8px!important;white-space:nowrap}#ledgerView .lb-add{font-size:0!important;width:32px}#ledgerView .lb-add::before{content:\"+\";font-size:16px}}",
+   "before": "before/34-ledger-phone.png",
+   "after": "after/34-ledger-phone.png",
+   "scope": "이 화면만",
+   "size": "작음",
+   "shot_width": 390
+  },
+  {
+   "id": 35,
+   "screen": "사업 보고 상세(폰)",
+   "screens": [
+    "사업 보고 상세(폰)"
+   ],
+   "width": "390",
+   "title": "사업 보고를 열면 맨 위에 빨간 [삭제]가 [수정] 옆에 크게 있음",
+   "problem": "상세 창 제목 바로 아래 [수정] [칸 바꾸기] [삭제(빨간 테두리)]가 나란히 있다. 자주 안 쓰는 위험한 버튼이 가장 눈에 띄는 자리에 있고 잘못 누르기 쉽다. 같은 창 아래 회의자료 줄마다 ⋯와 ×가 둘 다 있다.",
+   "fix": "[칸 바꾸기]·[삭제]는 제목 옆 ⋯ 메뉴로 옮기고, 회의자료 줄의 ×는 ⋯ 안으로 넣는다. (CSS만으로는 못 바꿔 화면 코드 수정 필요)",
+   "fix_css": "",
+   "before": "before/35-meeting-delete.png",
+   "after": null,
+   "scope": "이 화면만",
+   "size": "중간",
+   "shot_width": 390
+  },
+  {
+   "id": 36,
+   "screen": "일정 등록 창(폰)",
+   "screens": [
+    "일정 등록 창(폰)"
+   ],
+   "width": "390",
+   "title": "폰 일정 등록 창의 색 동그라미가 40px라 두 줄을 차지하고 [저장] 위 칸이 가려짐",
+   "problem": "색 11개가 40px 원이라 두 줄(약 100px)이다. 창 높이가 화면을 넘어 '장소' 아래 칸은 창 안에서 스크롤해야 보인다.",
+   "fix": "동그라미를 24px 한 줄로, 입력칸을 36px로 줄인다.",
+   "fix_css": ".calendar-color-swatch{width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important}\n.modal .modal-card :is(input:not([type=checkbox]):not([type=radio]),select){height:36px!important;min-height:36px!important}",
+   "before": "before/36-swatch-phone.png",
+   "after": "after/36-swatch-phone.png",
+   "scope": "공용 규칙",
+   "size": "작음",
+   "shot_width": 390
+  },
+  {
+   "id": 37,
+   "screen": "일기·담당조직 기본정보·자료실",
+   "screens": [
+    "일기",
+    "담당조직 기본정보",
+    "자료실"
+   ],
+   "width": "1280",
+   "title": "9.5·10·11px 아주 작은 글자가 남아 있음(기준 최소 12px)",
+   "problem": "일기 [‹] [›] [오늘] 버튼 11px, 담당조직 기본정보 이름표·요약 이름 9.5px, 소속 칩 10px, 자료실 파일 종류·올리기 상태 11px, 옛 달력 머리 11px. 폰에서 읽기 어렵다.",
+   "fix": "작은 글자는 모두 12px(--ds-text-meta)로 올린다. 일기 [+ 일기]는 다른 화면 추가 버튼과 같은 32px로.",
+   "fix_css": "#appView :is(#diaryView button.mini,#libraryView .lu-file-kind,.wd-basic-grid dt,.wd-summary-card span,.wd-aff-chip,.library-upload-state,.cal-head,.cal-day){font-size:var(--ds-text-meta)!important}\n#diaryView button.primary{height:32px;min-height:32px;font-size:13px}",
+   "before": "before/37-tiny-font.png",
+   "after": "after/37-tiny-font.png",
+   "scope": "공용 규칙",
+   "size": "작음",
+   "shot_width": 1280
+  },
+  {
+   "id": 38,
+   "screen": "홈(폰)",
+   "screens": [
+    "홈(폰)"
+   ],
+   "width": "390",
+   "title": "폰 홈 맨 위 '일정 2 · 할 일 3 · 새 소식 2' 줄이 바로 아래 칸 제목 숫자와 겹침",
+   "problem": "요약 줄의 숫자(일정 2·할 일 3)가 바로 아래 '오늘 일정 2'·'오늘 할 일 3' 칸 제목에 그대로 다시 나온다. 같은 숫자를 두 번 읽는다.",
+   "fix": "요약 줄을 지운다(새 소식 개수가 필요하면 해당 칸 제목 옆으로).",
+   "fix_css": "@media(max-width:760px){#homeView .home-summary{display:none}}",
+   "before": "before/38-home-summary.png",
+   "after": "after/38-home-summary.png",
+   "scope": "이 화면만",
+   "size": "작음",
+   "shot_width": 390
+  }
+ ]
+}
