@@ -18,7 +18,7 @@ export function mountHomeEdit({root}) {
   tools.className = 'home-tools'; tools.dataset.homeTools = '';
   const page = document.createElement('section');
   page.className = 'home-edit'; page.dataset.homeEdit = ''; page.hidden = true; page.setAttribute('aria-label', '홈 편집');
-  host.before(tools); host.after(page);
+  host.after(tools); tools.after(page);
 
   let editing = false, layer = null, drag = null, note = '', menu = null;
   const list = () => normalizeCards(viewPrefs.get('home_cards'));
