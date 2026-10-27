@@ -237,15 +237,18 @@ function paint(key, html, count = null) {
 }
 function empty(key, text, hide = false) {
   paint(key, `<p class="home-status">${text}</p>`, 0);
-  card(key).hidden = hide;
-  card(key).dataset.state = "empty";
+  const c = card(key);
+  if (!c) return;
+  c.hidden = hide;
+  c.dataset.state = "empty";
 }
 function failure(key) {
   paint(
     key,
     `<p class="home-status">불러오지 못했습니다. <button type="button" data-home-retry="${key}">다시 시도</button></p>`,
   );
-  card(key).dataset.state = "failed";
+  const c = card(key);
+  if (c) c.dataset.state = "failed";
 }
 const dependencies = {
   projects: () =>
