@@ -190,7 +190,7 @@
 #appView #pagesView .sp-full-title{ box-sizing:border-box; display:block; width:100%; height:auto; min-height:0; margin:0; padding:24px 28px 4px; border:0; border-radius:0; box-shadow:none; background:transparent; color:var(--kptu-ink); font:inherit; font-size:30px; font-weight:var(--ds-weight-medium); line-height:1.35; }
 #appView #pagesView .sp-full-title::placeholder{ color:var(--kptu-faint); }
 #appView #pagesView .sp-full-title:focus,#appView #pagesView .sp-full-title:focus-visible{ outline:none; box-shadow:none; }
-#appView #pagesView .sp-editor.is-full .ed-input{ min-height:calc(100dvh - 260px); padding:12px 28px 30vh; }
+#appView #pagesView .sp-editor.is-full .ed-input{ min-height:calc(100dvh - 260px); padding:12px 28px 56px; }
 
 @media(max-width:760px){
   #appView #pagesView .sp-editor.is-full{ min-height:calc(100dvh - 140px); margin:0 -4px; }
@@ -208,5 +208,5 @@
   #appView #pagesView .sp-links-pop{ left:8px; right:8px; width:auto; }
   #appView #pagesView .sp-full-title{ padding:18px 16px 2px; font-size:24px; }
   #appView #pagesView .sp-full-doc > .sp-hint{ padding:12px 16px 0; }
-  #appView #pagesView .sp-editor.is-full .ed-input{ min-height:calc(100dvh - 300px); padding:10px 16px 40vh; }
+  #appView #pagesView .sp-editor.is-full .ed-input{ min-height:calc(100dvh - 300px); padding:10px 16px 56px; }
 }

@@ -1,4 +1,5 @@
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
+import {watchFloatSave, refreshFloatSave} from './float-save.js'; // UI-떠있는저장: the one floating [저장] (calls this panel's own [수정 저장])
 import {basketOcrFor} from './basket-ocr-runtime.js';
 import {seoulInputValue} from './meeting-time.js';
 import {effectiveOcrText} from './basket-ocr-text.mjs';
@@ -154,6 +155,7 @@ document.addEventListener('click',e=>{if(rowMenu&&!rowMenuEl.contains(e.target)&
 const handoffLine=root.querySelector('[data-basket-handoff-scope]');
 let handoffNotice=null;
 const list = root.querySelector('[data-basket-list]'), detail = root.querySelector('[data-basket-detail]'), listStatus = root.querySelector('[data-basket-list-status]');
+watchFloatSave(() => detail.querySelector('[data-basket-save]'));
 const ocrViews=new Map();
 // Per scope, note and file: the last send result shown on the read view. A send
 // in flight keeps that attachment's button off; a sent or unknown result is a
@@ -770,7 +772,7 @@ function paintMode() {
   detail.querySelector('[data-basket-read]').hidden = editing; detail.querySelector('[data-basket-read-actions]').hidden = editing || manual.isOpen();
   // The note menu is for reading; while editing the edit buttons and Esc take over.
   detail.querySelector('[data-basket-note-more-wrap]').hidden = editing; if (editing) setNoteMenu(false);
-  detail.querySelector('.basket-editor').hidden = !editing; detail.querySelector('[data-basket-edit-actions]').hidden = !editing;
+  detail.querySelector('.basket-editor').hidden = !editing; detail.querySelector('[data-basket-edit-actions]').hidden = !editing; refreshFloatSave();
   detail.querySelector('[data-basket-text]').readOnly = hasDoc(selected);
   detail.querySelectorAll('.basket-file-links').forEach(box => { box.hidden = editing; });
   detail.querySelector('.basket-card-tools').hidden = !String(selected.raw_text || '').trim();

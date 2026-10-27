@@ -37,6 +37,9 @@ html .modal.ed-window .ed-window-head > button:focus-visible { outline:2px solid
 /* 글 칸: 창 안에서 이 상자가 스크롤한다(편집기의 버튼 줄은 그 위에 붙어 있다). */
 .ed-window-body { flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; display:flex; flex-direction:column; }
 .ed-window-body > .ed-editor { flex:1 1 auto; }
+/* UI-떠있는저장: 글 아래 빈칸을 56px로 줄였으므로, 글이 짧아도 창 안 글 칸은 창 끝까지 이어져 아래를 눌러도 글 칸이 받는다. */
+.ed-window-body .ed-box { display:flex; flex-direction:column; }
+.ed-window-body .ed-box > .ed-input { flex:1 1 auto; }
 .ed-window-note { margin:0; padding:6px 12px; font-size:var(--kptu-text-meta, 12px); color:var(--kptu-muted); border-top:1px solid var(--kptu-border); }
 .ed-window-note[hidden] { display:none; }
 .ed-window-status { margin:0; padding:6px 12px; font-size:var(--kptu-text-meta, 12px); color:var(--kptu-muted); border-top:1px solid var(--kptu-border); }

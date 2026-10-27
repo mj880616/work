@@ -6,6 +6,7 @@ import { viewPrefs } from './view-prefs.js';
 // note window (note-window.js, ED③ 노트).
 // basket.js owns the [메모 | 노트] switch and decides when this host is shown.
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
+import {watchFloatSave, refreshFloatSave} from './float-save.js'; // UI-떠있는저장: the one floating [저장] (calls this panel's own [저장])
 import { readNoteDocs, readNoteDoc, detachNoteFile, saveNoteDoc, moveToBasket, noteState, validateNoteTitle, validateNoteBody, sortNotes, notePinnedAt, setNotePinned, noteFolder, noteFolders, newFolderName, setNoteFolder, validateFolderName, NOTE_FOLDER_LIMITS } from './basket-data.js';
 import { deleteNoteOriginal } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';
@@ -58,6 +59,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   const quick = mountQuick({root:host.querySelector('[data-note-list]'), esc, noteOnly:true, view:'basket', idPrefix:'basketNote',
     onSaved:saved => noteAdded(saved, {open:false}), onBig:(text, upload) => openNew(text, upload), onFolder:trigger => { void addFolderSheet.open('add', trigger); }});
   const list = host.querySelector('[data-note-list]'), detail = host.querySelector('[data-note-detail]'), status = host.querySelector('[data-note-list-status]');
+  watchFloatSave(() => detail.querySelector('[data-note-save]'));
   // UI-노트고정: pinned notes first, then by last change.
   const sorted = () => sortNotes(notes);
   const chips = note => links.filter(l => l.note_id === note.id && l.status === 'confirmed').map(link => {
@@ -245,6 +247,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     // The link form was opened from the ⋯ menu; when it closes, focus goes back to the ⋯ (there is no [연결하기] button left to find).
     const linking = manual.isOpen(); if (linkOpen && !linking && !editing) detail.querySelector('[data-note-more]')?.focus({preventScroll:true}); linkOpen = linking;
     detail.querySelector('[data-note-editor]').hidden = !editing; detail.querySelector('[data-note-edit-actions]').hidden = !editing;
+    refreshFloatSave();
   }
   function showDetail() {
     // UI-기록아이콘: opened from a project's or organization's record line, the note has no history entry of its own (one back
