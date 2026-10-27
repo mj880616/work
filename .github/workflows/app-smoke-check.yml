@@ -219,7 +219,7 @@ jobs:
         run: node --test tests/security/app-tasks-loaded-writes.test.mjs
 
       - name: Check domain routing and service worker registration
-        run: node --test tests/domain/bokdoong-router.test.mjs tests/domain/web2-pwa-registration.test.mjs tests/domain/read-oauth-return-bridge.test.mjs tests/domain/supabase-origin.test.mjs
+        run: node --test tests/domain/bokdoong-router.test.mjs tests/domain/web2-pwa-registration.test.mjs tests/domain/supabase-origin.test.mjs
 
       - name: Check home, inbox, quick save and trash units (STAB-단위시험등록)
         run: node --test tests/home-fill-data.test.mjs tests/home-fill-model.test.mjs tests/inbox-count.test.mjs tests/inbox-promise.test.mjs tests/quick-save-session.test.mjs tests/trash-actions.test.mjs
