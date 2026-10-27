@@ -134,3 +134,25 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 #calendarDayList .diary-day-preview-text b{ color:var(--ds-kind-diary-ink); font-weight:var(--ds-weight-medium); }
 #calendarDayList .diary-day-preview-text span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 #calendarDayList .diary-day-preview:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+
+/* JOURNAL-일기원드라이브 2단계: 연결 한 줄·폴더 고르기, 달력의 원드라이브 점, 사진 위 ★, 크게 보기의 ★ 개수와 ⋯(지우기). 색은 기존 토큰만. */
+#appView #diaryView .diary-od{ display:flex; flex-direction:column; gap:4px; margin-bottom:8px; padding:6px 8px; color:var(--kptu-muted); font-size:var(--ds-text-meta); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); }
+#appView #diaryView .diary-od-line{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+#appView #diaryView .diary-od-line span{ min-width:0; overflow-wrap:anywhere; }
+#appView #diaryView .diary-od-note{ margin:0; }
+#appView #diaryView .diary-od-note:empty{ display:none; }
+#appView #diaryView .diary-od-actions{ display:flex; flex-wrap:wrap; gap:8px; }
+#appView #diaryView .diary-od-browse{ display:flex; flex-direction:column; gap:4px; }
+#appView #diaryView .diary-od-browse ul{ display:flex; flex-direction:column; gap:2px; margin:0; padding:0; list-style:none; max-height:40vh; overflow-y:auto; }
+#appView #diaryView .diary-od-browse li{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+#appView #diaryView .diary-od-name{ flex:1; min-width:0; min-height:var(--kptu-touch-target,44px); margin:0; padding:0 4px; text-align:left; color:var(--kptu-ink); background:transparent; border:0; box-shadow:none; font:inherit; font-size:var(--ds-text-row); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#appView #diaryView .diary-cell .diary-dot-od{ bottom:7%; background:var(--ds-kind-other-ink); }
+#appView #diaryView .diary-grid-item .diary-star-mark{ position:absolute; top:2px; right:3px; z-index:1; font-size:12px; line-height:1; color:var(--ds-photo-ink); text-shadow:0 0 3px var(--ds-photo-scrim); pointer-events:none; }
+#appView #diaryView .diary-viewer-bar .diary-viewer-stars{ font-size:var(--ds-text-row); font-variant-numeric:tabular-nums; }
+#appView #diaryView .diary-viewer-bar .diary-viewer-star{ font-size:26px; }
+#appView #diaryView .diary-viewer-more{ position:relative; }
+#appView #diaryView .diary-viewer-more > summary{ display:grid; place-items:center; width:44px; height:44px; list-style:none; cursor:pointer; font-size:24px; line-height:1; border-radius:50%; }
+#appView #diaryView .diary-viewer-more > summary::-webkit-details-marker{ display:none; }
+#appView #diaryView .diary-viewer-more > summary:focus-visible{ outline:2px solid var(--ds-photo-ink); outline-offset:-2px; }
+#appView #diaryView .diary-viewer-bar .diary-viewer-more-panel{ position:absolute; top:46px; right:0; z-index:2; min-width:12em; padding:4px; background:var(--ds-photo-stage); border:1px solid var(--ds-photo-ink); border-radius:var(--ds-radius-control); }
+#appView #diaryView .diary-viewer-bar .diary-viewer-more-panel button{ width:100%; min-width:0; height:44px; padding:0 12px; border-radius:var(--ds-radius-control); font-size:var(--ds-text-row); text-align:left; }

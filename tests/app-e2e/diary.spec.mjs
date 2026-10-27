@@ -188,7 +188,7 @@ for(const width of [390,1280]){
   await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText('4 / 6');
   await page.keyboard.press('ArrowRight');await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText('5 / 6');
   await viewer.locator('[data-diary-star]').click();
-  await expect(viewer.locator('[data-diary-viewer-note]')).toHaveText('원드라이브 연결 뒤 쓸 수 있어요');
+  await expect(viewer.locator('[data-diary-star]')).toHaveAttribute('aria-pressed','true');
   await page.goBack();
   await expect(viewer).toHaveCount(0);await expect(detail).toBeVisible();
   await grid.nth(0).click();await expect(viewer.locator('[data-diary-viewer-count]')).toHaveText('1 / 6');
@@ -197,7 +197,8 @@ for(const width of [390,1280]){
   const all=detail.locator('[data-diary-source="all"]'),star=detail.locator('[data-diary-source="star"]');
   await expect(all).toHaveAttribute('aria-pressed','true');
   await star.click();
-  await expect(detail.locator('[data-diary-star-note]')).toHaveText('원드라이브 연결 뒤 쓸 수 있어요');await expect(detail.locator('[data-diary-grid]')).toHaveCount(0);
+  // 5번째 사진에 ☆를 눌렀으므로 [별표]에는 그 한 장만 모인다.
+  await expect(detail.locator('[data-diary-grid] .diary-grid-item')).toHaveCount(1);
   await detail.locator('[data-diary-source="all"]').click();await expect(grid).toHaveCount(6);
   // 뒤로가기는 열린 날짜부터 닫는다.
   await page.goBack();
