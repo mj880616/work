@@ -66,6 +66,10 @@ import {
   SCHEDULE_MAX_NAMES, SCHEDULE_TITLES_INSTRUCTIONS, SCHEDULE_TITLES_SCHEMA, scheduleMaterial, type ScheduleEvent, type ScheduleRecord,
 } from "./schedule-titles.ts";
 import {
+  HWP_CONVERT_BODY_BYTES, HWP_CONVERT_INSTRUCTIONS, HWP_CONVERT_MAX_OUTPUT_TOKENS, HWP_CONVERT_SCHEMA, hwpConvertMaterial, parseHwpConvert,
+  parseHwpConvertRequest, type HwpConvertDocType,
+} from "./hwp-convert.ts";
+import {
   callRefillMaterial, CALL_REFILL_INSTRUCTIONS, CALL_REFILL_MAX_ORGS, CALL_REFILL_MAX_OUTPUT_TOKENS, CALL_REFILL_SCHEMA, counterpartOf,
   parseCallRefill, parseCallRefillRequest, refillText, type RefillOrg,
 } from "./call-refill.ts";
@@ -100,7 +104,7 @@ export const MONTHLY_LIMIT_KRW = 15000;
 // 하루 상한(4.6): 모든 쓰임을 합친 하루 요청 수 80회(10/25 명진 결정, 50 → 80. 월 추정 한도는 그대로). 그 안에서 챙길 것 찾기는 하루 5회(app_todo_radar_state.runs_on_day),
 // 원장 후보 만들기는 하루 5회(원장 감사 기록의 실행 표시 app_ledger_audit event=note, 숫자만). 월 추정 한도는 모든 쓰임 합산.
 export const DAILY_TOTAL_LIMIT = 80;
-export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30 });
+export const DAILY_LIMITS: Readonly<Record<string, number>> = Object.freeze({ link_summary: 50, todo_radar: 5, ledger_candidates: 5, ledger_auto: 16, ledger_fix: 30, library_fill: 50, org_summary: 50, schedule_titles: 20, overlap_check: 30, call_refill: 30, hwp_convert: 20 });
 // 챙길 것 찾기: 처음 찾을 때·오래 안 찾았을 때 보는 기간(일), 실행 중 표시가 유효한 시간.
 export const RADAR_FIRST_DAYS = 3;
 export const RADAR_MAX_DAYS = 7;
@@ -314,11 +318,12 @@ async function rest(ctx: Ctx, path: string, init: { method?: string; body?: unkn
   return await readBoundedJson(r, { maxBytes: DB_RESPONSE_BYTES });
 }
 
+const BODY_CAP_BYTES = Math.max(SCHEDULE_BODY_BYTES, HWP_CONVERT_BODY_BYTES);
 // 몸통은 2KB까지. 주요 일정 제목 다듬기(kind=schedule_titles)만 일정 줄을 실어 20KB까지 받는다(한글 제목 30줄): 20KB까지 읽은 뒤 그 쓰임이 아니면
 // 선언 길이·실제 길이가 2KB를 넘을 때 전처럼 413으로 거절한다.
 async function readBody(req: Request): Promise<unknown> {
   const declared = req.headers.get("Content-Length");
-  if (declared !== null && !(/^\d{1,7}$/.test(declared) && Number(declared) <= SCHEDULE_BODY_BYTES)) {
+  if (declared !== null && !(/^\d{1,7}$/.test(declared) && Number(declared) <= BODY_CAP_BYTES)) {
     throw new Fail(413, "invalid_request");
   }
   const type = (req.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase();
@@ -331,7 +336,7 @@ async function readBody(req: Request): Promise<unknown> {
       const { done, value } = await reader.read();
       if (done) break;
       size += value.byteLength;
-      if (size > SCHEDULE_BODY_BYTES) { try { await reader.cancel(); } catch { /* ignore */ } throw new Fail(413, "invalid_request"); }
+      if (size > BODY_CAP_BYTES) { try { await reader.cancel(); } catch { /* ignore */ } throw new Fail(413, "invalid_request"); }
       chunks.push(value);
     }
     raw = new Uint8Array(size);
@@ -349,7 +354,13 @@ async function readBody(req: Request): Promise<unknown> {
   } catch {
     throw new Fail(declaredBig ? 413 : 400, "invalid_request");
   }
-  if ((declaredBig || actualBig) && (body as { kind?: unknown } | null)?.kind !== "schedule_titles") throw new Fail(declaredBig ? 413 : 400, "invalid_request");
+  if (declaredBig || actualBig) {
+    // 일정 제목 다듬기(20KB)와 HWP 서식변환(100KB)만 자기 상한까지 받는다. 그 상한을 넘으면 413.
+    const kind = (body as { kind?: unknown } | null)?.kind;
+    const own = kind === "schedule_titles" ? SCHEDULE_BODY_BYTES : kind === "hwp_convert" ? HWP_CONVERT_BODY_BYTES : MAX_BODY_BYTES;
+    if (own === MAX_BODY_BYTES) throw new Fail(declaredBig ? 413 : 400, "invalid_request");
+    if (raw.byteLength > own || (declared !== null && Number(declared) > own)) throw new Fail(413, "invalid_request");
+  }
   return body;
 }
 
@@ -366,6 +377,7 @@ type OrgSummaryInput = { kind: "org_summary"; week_start: string; organization_i
 type ScheduleTitlesInput = { kind: "schedule_titles"; week_start: string; events: ScheduleEvent[] };
 type OverlapCheckInput = { kind: "overlap_check"; pairs: OverlapPair[] };
 type CallRefillInput = { kind: "call_refill"; id: string };
+type HwpConvertInput = { kind: "hwp_convert"; doc_type: HwpConvertDocType; text: string };
 
 // 조직 현황 요약은 주(그 주 월요일, YYYY-MM-DD)와 조직 ID(1~20개, 겹침 없음)만 받는다.
 function parseOrgSummaryRequest(b: Record<string, unknown>): OrgSummaryInput {
@@ -410,7 +422,7 @@ function parseLibraryFillRequest(b: Record<string, unknown>): LibraryFillInput {
   return { kind: "library_fill", mode: b.mode as LibraryMode, document_ids: unique, keep };
 }
 
-function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput {
+function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | LedgerCandidatesInput | LedgerAutoInput | LedgerFixInput | LibraryFillInput | OrgSummaryInput | ScheduleTitlesInput | OverlapCheckInput | CallRefillInput | HwpConvertInput {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "invalid_request");
   const b = body as Record<string, unknown>;
   if (typeof b.kind !== "string") throw new Fail(400, "invalid_request");
@@ -443,6 +455,12 @@ function parseRequest(body: unknown): LinkSummaryInput | TodoRadarInput | Ledger
     const parsed = parseCallRefillRequest(b);
     if (!parsed) throw new Fail(400, "invalid_request");
     return { kind: "call_refill", ...parsed };
+  }
+  // HWP 서식변환(hwp_convert): 문서 종류와 붙여 넣은 글(20000자까지)만 받는다. 다른 기록은 읽지 않는다.
+  if (b.kind === "hwp_convert") {
+    const parsed = parseHwpConvertRequest(b);
+    if (!parsed) throw new Fail(400, "invalid_request");
+    return { kind: "hwp_convert", ...parsed };
   }
   if (b.kind === "library_fill") return parseLibraryFillRequest(b);
   if (b.kind === "org_summary") return parseOrgSummaryRequest(b);
@@ -2642,6 +2660,54 @@ async function runScheduleTitles(ctx: Ctx, input: ScheduleTitlesInput, deps: Rad
   return json({ ok: true, kind: "schedule_titles", week_start: input.week_start, items: parsed.items, partial });
 }
 
+// ---- 쓰임 hwp_convert: 붙여 넣은 글을 노조 문서 규칙의 문단 목록으로(HWP-서식변환) ------------------------------------
+// 재료는 화면이 보낸 글뿐이다(서버는 다른 기록을 읽지 않는다). 답은 저장하지 않고, 기록(log)에는 숫자만 남긴다.
+async function runHwpConvert(ctx: Ctx, input: HwpConvertInput, deps: RadarDeps): Promise<Response> {
+  const started = deps.now();
+  const config = aiConfig(deps.env);
+  if (!config) {
+    deps.log("ai_not_configured");
+    throw new Fail(503, "ai_not_configured");
+  }
+  const budget = await checkBudget(ctx, "hwp_convert", started, config.price);
+  try {
+    await writeUsage(ctx, budget.day, budget.requests + 1, budget.input, budget.output, deps.now());
+  } catch {
+    throw new Fail(503, "usage_unavailable");
+  }
+  const material = hwpConvertMaterial(input.doc_type, input.text);
+  const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
+    model: config.model,
+    store: false,
+    max_output_tokens: HWP_CONVERT_MAX_OUTPUT_TOKENS,
+    input: [
+      { role: "developer", content: HWP_CONVERT_INSTRUCTIONS },
+      { role: "user", content: material },
+    ],
+    text: { format: { type: "json_schema", name: "hwp_convert", strict: true, schema: HWP_CONVERT_SCHEMA } },
+  });
+  const used = result.ok ? result.usage : result.charged ? { input: chars(material) * 2, output: HWP_CONVERT_MAX_OUTPUT_TOKENS } : { input: 0, output: 0 };
+  if (used.input || used.output) {
+    try {
+      await writeUsage(ctx, budget.day, budget.requests + 1, budget.input + used.input, budget.output + used.output, deps.now());
+    } catch {
+      deps.log("usage_record_failed");
+    }
+  }
+  if (!result.ok) {
+    deps.log(result.code);
+    const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
+    throw new Fail(status, result.code);
+  }
+  const parsed = parseHwpConvert(result.raw);
+  if (!parsed) {
+    deps.log("ai_invalid_response");
+    throw new Fail(502, "ai_invalid_response");
+  }
+  deps.log("hwp_convert_done", { chars: chars(input.text), blocks: parsed.blocks.length, dropped: parsed.dropped });
+  return json({ ok: true, kind: "hwp_convert", doc_type: input.doc_type, title: parsed.title, blocks: parsed.blocks, dropped: parsed.dropped });
+}
+
 // ---- 쓰임 overlap_check: 기록 겹침 확인(MTG-기록겹침거르기 2단계) ----------------------------------------------------
 // 소유자·작업공간은 서버가 정한다. 기록 읽기는 모두 내 로그인 토큰이라 소유자 RLS가 걸린다. 못 읽은 기록(남의 것·없는 것·AI 제외)은 "unreadable"로만 알린다.
 // 하루 30회: 사용 기록 표에는 쓰임별 칸이 없어(DB 변경 금지) 호출 수 대신 "오늘 저장된 AI 판정 수 <= 30회 x 8쌍"으로 센다. 전체 하루 50회 합계는 checkBudget이 센다.
@@ -2972,6 +3038,7 @@ export function createAiAssistHandler(deps: AiAssistDeps) {
       if (input.kind === "library_fill") return await runLibraryFill(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "org_summary") return await runOrgSummary(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "schedule_titles") return await runScheduleTitles(ctx, input, { env: deps.env, now, sleep, log, doFetch });
+      if (input.kind === "hwp_convert") return await runHwpConvert(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "call_refill") return await runCallRefill(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       if (input.kind === "overlap_check") return await runOverlapCheck(ctx, input, { env: deps.env, now, sleep, log, doFetch });
       const material = await loadLinkSummaryMaterial(ctx, input);
