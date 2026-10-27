@@ -8,26 +8,27 @@ const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const WORK=['조직관리시스템','노조 NAS','궤도 NAS','전자결재시스템','문자·팩스 발송 시스템','망고보드','구글 시트'];
 const ORG=['공공운수노조','궤도협의회','서울교통공사노조','전국철도노동조합'];
 
-// profile: {column:true|false, value} — column:false answers like PostgREST for a missing column (400).
-async function open(page,width,{height=900,profile={column:true,value:null}}={}){
+// profile: {column:true|false, value, groups} — column:false answers like PostgREST before the groups column exists (400 for it; the older quick_links column still answers).
+async function open(page,width,{height=900,profile={column:true,value:null,groups:null}}={}){
  await page.setViewportSize({width,height});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
- const writes=[];
+ const writes=[],groupWrites=[];
  await openHome(page,{beforeLoad:()=>page.route(SB+'/rest/v1/app_profiles**',async route=>{
   const req=route.request(),u=new URL(req.url());
-  const wantsLinks=(u.searchParams.get('select')||'').includes('quick_links');
+  const select=u.searchParams.get('select')||'';
   if(req.method()==='PATCH'&&'quick_links' in (req.postDataJSON()||{})){
    if(!profile.column)return route.fulfill({status:400,contentType:'application/json',body:'{"code":"42703","message":"column does not exist"}'});
-   const body=req.postDataJSON();writes.push(body.quick_links);profile.value=body.quick_links;
-   return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{user_id:'home-test',quick_links:profile.value}])});
+   const body=req.postDataJSON();writes.push(body.quick_links);groupWrites.push(body.quick_link_groups);profile.value=body.quick_links;profile.groups=body.quick_link_groups;
+   return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{user_id:'home-test',quick_links:profile.value,quick_link_groups:profile.groups}])});
   }
-  if(wantsLinks){
-   if(!profile.column)return route.fulfill({status:400,contentType:'application/json',body:'{"code":"42703","message":"column app_profiles.quick_links does not exist"}'});
-   return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{quick_links:profile.value}])});
+  if(select.includes('quick_link_groups')){
+   if(!profile.column)return route.fulfill({status:400,contentType:'application/json',body:'{"code":"42703","message":"column app_profiles.quick_link_groups does not exist"}'});
+   return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{quick_links:profile.value,quick_link_groups:profile.groups??null}])});
   }
+  if(select.includes('quick_links'))return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{quick_links:profile.value}])});
   return route.fallback();
  })});
- return {errors,writes,profile};
+ return {errors,writes,groupWrites,profile};
 }
 const row=page=>page.locator('#appView>.app-nav [data-quick-links]');
 const panel=page=>page.locator('#quickLinksPanel');
@@ -106,7 +107,7 @@ test('PC 1280 짧은 창(높이 520): 줄이 아래쪽이라도 창 위끝이 �
 });
 
 test('PC 1280 편집: 추가·이름/주소 수정·삭제·끌어서 순서 → 내 프로필 quick_links에 저장, 다시 열어도 그대로',async({page})=>{
- const {errors,writes,profile}=await open(page,1280);
+ const {errors,writes,groupWrites,profile}=await open(page,1280);
  await row(page).click();await panel(page).getByRole('button',{name:'편집'}).click();
  const work=group(page,'업무 편집'),org=group(page,'담당조직 홈페이지 편집');
  await expect(work.getByRole('textbox',{name:'이름'})).toHaveCount(7);await expect(org.getByRole('textbox',{name:'이름'})).toHaveCount(4);
@@ -116,13 +117,14 @@ test('PC 1280 편집: 추가·이름/주소 수정·삭제·끌어서 순서 →
  // 삭제: 구글 시트.
  await work.getByRole('button',{name:'구글 시트 삭제'}).click();await expect(work.getByRole('textbox',{name:'이름'})).toHaveCount(6);
  // 추가: 담당조직에 새 링크(주소창처럼 www.만 써도 https:// 붙임).
- await org.getByRole('button',{name:'+ 추가'}).click();
+ await org.getByRole('textbox',{name:'이름'}).first().click();
+ await panel(page).getByRole('button',{name:'+ 추가'}).click();await page.getByRole('button',{name:'링크 추가'}).click();
  await expect(org.getByRole('textbox',{name:'이름'}).last()).toBeFocused();
  await org.getByRole('textbox',{name:'이름'}).last().fill('부산교통공사노조');
  await org.getByRole('textbox',{name:'주소'}).last().fill('www.example.org/busan');
  // 끌어서 순서: 업무의 궤도 NAS(3번째)를 맨 위(조직관리시스템 자리)로.
  const handles=work.locator('[data-ql-handle]');
- await handles.nth(2).dragTo(work.locator('.ql-edit-row').nth(0));
+ await handles.nth(2).dragTo(work.locator('.ql-edit-row').nth(0),{targetPosition:{x:20,y:3}});
  await expect(work.getByRole('textbox',{name:'이름'}).first()).toHaveValue('궤도 NAS');
  // 키보드로도 순서: 첫 줄(궤도 NAS) 손잡이에서 ↓ 한 번.
  await work.locator('[data-ql-handle]').first().focus();await page.keyboard.press('ArrowDown');
@@ -145,6 +147,7 @@ test('PC 1280 편집: 추가·이름/주소 수정·삭제·끌어서 순서 →
  await expect(group(page,'담당조직 홈페이지').getByRole('link').last()).toHaveText('부산교통공사노조');
  await expect(group(page,'담당조직 홈페이지').getByRole('link').last()).toHaveAttribute('href','https://www.example.org/busan');
  expect(profile.value).toEqual(writes[0]);
+ expect(groupWrites[0]).toEqual([{id:'work',name:'업무'},{id:'org',name:'담당조직 홈페이지'}]);
  // Cancel throws away an unsaved change; Esc in edit mode leaves edit mode first.
  await panel(page).getByRole('button',{name:'편집'}).click();
  await group(page,'업무 편집').getByRole('textbox',{name:'이름'}).first().fill('바뀐 이름');
@@ -153,6 +156,84 @@ test('PC 1280 편집: 추가·이름/주소 수정·삭제·끌어서 순서 →
  await panel(page).getByRole('button',{name:'편집'}).click();await page.keyboard.press('Escape');
  await expect(panel(page).getByRole('button',{name:'편집'})).toBeVisible();await expect(panel(page)).toBeVisible();
  expect(writes).toHaveLength(1);
+ expect(errors).toEqual([]);
+});
+
+test('PC 1280 분류 편집: [+ 추가]는 오른쪽 위, 분류 더하기·이름·순서, 링크를 다른 분류로 끌기, 링크가 든 분류 지우기는 기본 기타로 → 링크와 분류를 한 번에 저장',async({page})=>{
+ const {errors,writes,groupWrites}=await open(page,1280);
+ await row(page).click();await panel(page).getByRole('button',{name:'편집'}).click();
+ const add=panel(page).getByRole('button',{name:'+ 추가'});
+ // [+ 추가]는 첫 분류 줄에 붙지 않고 창 머리 줄 오른쪽 끝에 있다.
+ const head=await panel(page).locator('.ql-head').boundingBox(),ab=await add.boundingBox(),first=await panel(page).locator('.ql-group-head').first().boundingBox();
+ expect(ab.x+ab.width).toBeGreaterThan(head.x+head.width-40);expect(ab.y+ab.height).toBeLessThanOrEqual(first.y+1);
+ await add.click();await page.getByRole('button',{name:'분류 추가'}).click();
+ const nameInput=panel(page).getByRole('textbox',{name:'분류 이름'});
+ await expect(nameInput).toBeFocused();
+ await nameInput.fill('자주 쓰는 곳');await page.keyboard.press('Enter');
+ const fresh=group(page,'자주 쓰는 곳 편집'),work=group(page,'업무 편집');
+ await expect(fresh).toBeVisible();await expect(fresh.getByText('링크가 없습니다')).toBeVisible();
+ // 업무의 망고보드(6번째)를 새 분류 줄로 끌어 옮김.
+ await work.locator('[data-ql-handle]').nth(5).dragTo(fresh.locator('.ql-group-head'));
+ await expect(fresh.getByRole('textbox',{name:'이름'})).toHaveValue('망고보드');
+ await expect(work.getByRole('textbox',{name:'이름'})).toHaveCount(6);
+ // ✎ 이름 바꾸기.
+ await group(page,'담당조직 홈페이지 편집').getByRole('button',{name:'분류 이름 바꾸기'}).click();
+ await panel(page).getByRole('textbox',{name:'분류 이름'}).fill('노조 홈페이지');await page.keyboard.press('Enter');
+ await expect(group(page,'노조 홈페이지 편집')).toBeVisible();
+ // ⋯ 위로: 새 분류(3번째)가 2번째로.
+ await fresh.getByRole('button',{name:'분류 메뉴'}).click();await page.getByRole('button',{name:'위로'}).click();
+ await expect(panel(page).locator('.ql-group-head h3')).toHaveText(['업무','자주 쓰는 곳','노조 홈페이지']);
+ // 링크가 든 업무를 지우면 묻는다. 기본(첫 버튼)은 '기타'로 옮기기.
+ await work.getByRole('button',{name:'분류 메뉴'}).click();await page.getByRole('button',{name:'분류 지우기'}).click();
+ await expect(panel(page).getByRole('group',{name:'분류 지우기 확인'})).toContainText('링크 6개');
+ await expect(panel(page).getByRole('button',{name:"'기타'로 옮기기"})).toBeFocused();
+ await panel(page).getByRole('button',{name:"'기타'로 옮기기"}).click();
+ await expect(panel(page).locator('.ql-group-head h3')).toHaveText(['자주 쓰는 곳','노조 홈페이지','기타']);
+ await expect(group(page,'기타 편집').getByRole('textbox',{name:'이름'})).toHaveCount(6);
+ await panel(page).getByRole('button',{name:'저장'}).click();
+ await expect(panel(page).getByRole('status').filter({hasText:'저장했어요.'})).toBeVisible();
+ expect(writes).toHaveLength(1);expect(groupWrites).toHaveLength(1);
+ expect(groupWrites[0].map(g=>g.name)).toEqual(['자주 쓰는 곳','노조 홈페이지','기타']);
+ expect(groupWrites[0][0].id).toMatch(/^g[a-z0-9]{6}$/);expect(groupWrites[0].slice(1).map(g=>g.id)).toEqual(['org','etc']);
+ expect(writes[0].filter(l=>l.group==='etc')).toHaveLength(6);expect(writes[0].filter(l=>l.group===groupWrites[0][0].id).map(l=>l.name)).toEqual(['망고보드']);
+ expect(writes[0]).toHaveLength(11);
+ // 닫았다 다시 열어도(서버에서 다시 읽어도) 같은 분류·순서.
+ await page.keyboard.press('Escape');await expect(panel(page)).toBeHidden();
+ await row(page).click();
+ await expect(panel(page).locator('.ql-group > h3')).toHaveText(['자주 쓰는 곳','노조 홈페이지','기타']);
+ await expect(group(page,'기타').getByRole('link')).toHaveCount(6);
+ expect(errors).toEqual([]);
+});
+
+test('PC 1280 분류 지우기: 같이 지우기·취소, 끌어서 분류 순서, 키보드로 링크를 다른 분류로, 분류는 하나 이상',async({page})=>{
+ const {errors,writes,groupWrites}=await open(page,1280);
+ await row(page).click();await panel(page).getByRole('button',{name:'편집'}).click();
+ const org=group(page,'담당조직 홈페이지 편집'),work=group(page,'업무 편집');
+ // 취소: 아무것도 지우지 않는다.
+ await org.getByRole('button',{name:'분류 메뉴'}).click();await page.getByRole('button',{name:'분류 지우기'}).click();
+ await panel(page).locator('[data-ql-confirm="cancel"]').click();
+ await expect(org.getByRole('textbox',{name:'이름'})).toHaveCount(4);
+ // 분류 손잡이를 끌어 담당조직을 업무 위로.
+ await org.locator('[data-ql-ghandle]').dragTo(work,{targetPosition:{x:40,y:4}});
+ await expect(panel(page).locator('.ql-group-head h3')).toHaveText(['담당조직 홈페이지','업무']);
+ // 키보드: 담당조직(이제 맨 위 분류) 첫 링크 손잡이에서 ↑ — 더 위 분류가 없어 그대로. ↓ 3번은 분류 안에서 끝까지, 4번째는 아래 분류(업무)의 처음으로.
+ const h=org.locator('[data-ql-handle]');
+ await h.first().focus();await page.keyboard.press('ArrowUp');await expect(org.getByRole('textbox',{name:'이름'})).toHaveCount(4);
+ for(let i=0;i<4;i++)await page.keyboard.press('ArrowDown');
+ await expect(org.getByRole('textbox',{name:'이름'})).toHaveCount(3);
+ await expect(group(page,'업무 편집').getByRole('textbox',{name:'이름'})).toHaveCount(8);
+ await expect(group(page,'업무 편집').getByRole('textbox',{name:'이름'}).first()).toHaveValue('공공운수노조');
+ // 업무를 같이 지우기(링크 8개).
+ await group(page,'업무 편집').getByRole('button',{name:'분류 메뉴'}).click();await page.getByRole('button',{name:'분류 지우기'}).click();
+ await panel(page).getByRole('button',{name:'같이 지우기'}).click();
+ await expect(panel(page).locator('.ql-group-head h3')).toHaveText(['담당조직 홈페이지']);
+ // 하나 남으면 분류 메뉴에 지우기가 없다.
+ await org.getByRole('button',{name:'분류 메뉴'}).click();
+ await expect(page.getByRole('button',{name:'분류 지우기'})).toHaveCount(0);await page.keyboard.press('Escape');
+ await panel(page).getByRole('button',{name:'저장'}).click();
+ await expect(panel(page).getByRole('status').filter({hasText:'저장했어요.'})).toBeVisible();
+ expect(groupWrites[0]).toEqual([{id:'org',name:'담당조직 홈페이지'}]);
+ expect(writes[0].every(l=>l.group==='org')).toBe(true);expect(writes[0]).toHaveLength(3);
  expect(errors).toEqual([]);
 });
 
@@ -178,8 +259,8 @@ test('PC 1280 편집: javascript:·data:·ftp:·빈 이름은 거절하고 저�
  expect(errors).toEqual([]);
 });
 
-test('저장 칸이 아직 없으면(적용 전): 초기 링크를 보여 주고 편집은 "저장 준비 중" 안내만',async({page})=>{
- const {errors,writes}=await open(page,1280,{profile:{column:false,value:null}});
+test('분류 칸이 아직 없으면(적용 전): 저장된 링크를 보여 주고 편집은 "저장 준비 중" 안내만',async({page})=>{
+ const {errors,writes}=await open(page,1280,{profile:{column:false,value:null,groups:null}});
  await row(page).click();
  await expect(group(page,'업무').getByRole('link')).toHaveText(WORK);await expect(group(page,'담당조직 홈페이지').getByRole('link')).toHaveText(ORG);
  await panel(page).getByRole('button',{name:'편집'}).click();
@@ -190,7 +271,7 @@ test('저장 칸이 아직 없으면(적용 전): 초기 링크를 보여 주고
 });
 
 test('저장된 목록이 틀린 모양이면 믿지 않고 초기 링크(편집은 막힘)',async({page})=>{
- const {errors}=await open(page,1280,{profile:{column:true,value:[{group:'work',name:'나쁜 링크',url:'javascript:alert(1)'}]}});
+ const {errors}=await open(page,1280,{profile:{column:true,value:[{group:'work',name:'나쁜 링크',url:'javascript:alert(1)'}],groups:null}});
  await row(page).click();
  await expect(group(page,'업무').getByRole('link')).toHaveText(WORK);
  await expect(panel(page).getByRole('link',{name:'나쁜 링크'})).toHaveCount(0);
