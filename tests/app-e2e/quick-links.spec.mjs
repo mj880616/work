@@ -297,3 +297,13 @@ test('폰 390·761~1023px에는 줄이 없다(이번엔 PC만)',async({page})=>{
  await page.setViewportSize({width:1024,height:900});await expect(row(page)).toBeVisible();
  expect(errors).toEqual([]);
 });
+
+test('PC 1280 편집: 분류 이름 줄 우클릭은 그 분류의 ⋯ 메뉴를 연다(공용 우클릭 규칙)',async({page})=>{
+ const {errors}=await open(page,1280);
+ await row(page).click();await panel(page).getByRole('button',{name:'편집'}).click();
+ await group(page,'담당조직 홈페이지 편집').locator('.ql-group-head h3').click({button:'right'});
+ await expect(page.getByRole('button',{name:'분류 지우기'})).toBeVisible();await expect(page.getByRole('button',{name:'이름 바꾸기'})).toBeVisible();
+ await page.keyboard.press('Escape');await expect(page.getByRole('button',{name:'분류 지우기'})).toBeHidden();
+ await expect(panel(page)).toBeVisible();
+ expect(errors).toEqual([]);
+});
