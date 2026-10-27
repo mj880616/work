@@ -66,6 +66,8 @@
 .ps3-content-heading small{display:block;color:var(--kptu-muted);font-size:9px}
 .ps3-content-actions{display:flex;align-items:center;gap:4px;flex-wrap:wrap;justify-content:flex-end}
 .ps3-content-actions .mini{padding:3px 6px;min-height:26px}
+/* UI-저장자리: 저장 중·오류 글은 버튼 줄 왼쪽, [취소][저장]은 오른쪽(글이 비어도 버튼은 오른쪽 끝). */
+.ps3-content-actions>[role="status"]{margin-right:auto}
 .ps3-content-block{padding:8px 0 8px 12px;border-top:1px solid var(--kptu-border)}
 .ps3-content-body{font-size:11px;line-height:1.55;white-space:normal;overflow-wrap:anywhere}
 .ps3-content-body p{margin:5px 0;white-space:pre-wrap}
@@ -92,7 +94,7 @@
 .ps3-public [data-ps3-preview-panel]{border-top:1px solid var(--kptu-border);padding-top:10px;margin-top:8px;font-size:11px}
 .ps3-public [data-ps3-preview-panel][hidden]{display:none}
 .ps3-public-preview-block{padding:8px 0;border-bottom:1px solid var(--kptu-border)}
-.ps3-modal-actions{display:flex;justify-content:space-between;gap:var(--kptu-space-2);margin-top:var(--kptu-space-3)}
+.ps3-modal-actions{margin-top:0}
 .ps3-danger{color:var(--kptu-danger)!important}
 .ps3-danger-btn{background:var(--kptu-danger)!important;border-color:var(--kptu-danger)!important;color:var(--kptu-on-primary)!important}
 .ps3-person{display:grid;grid-template-columns:minmax(0,1fr) 100px;gap:var(--kptu-space-2);align-items:center;padding:7px 0;border-bottom:1px solid var(--kptu-border)}
@@ -156,7 +158,7 @@
 .ps3-child-link small{font-size:11px;color:var(--kptu-muted);white-space:nowrap}
 .ps3-child-link>span{color:var(--kptu-faint)}
 .ps3-child-link:hover{background:var(--kptu-surface-subtle)}
-.ps3-pg-actions{display:flex;gap:var(--kptu-space-2);align-items:center}
+.ps3-pg-actions{display:flex;gap:var(--kptu-space-2);align-items:center;justify-content:flex-end}
 .ps3-row-main>b{display:block;font-size:12px;overflow-wrap:anywhere}
 .ps3-row-actions{display:flex;flex:0 0 auto;gap:var(--kptu-space-1);align-items:flex-start}
 .ps3-fold>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:var(--kptu-space-2);min-height:28px;cursor:pointer}

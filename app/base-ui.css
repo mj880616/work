@@ -205,7 +205,15 @@ button:disabled,[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
 
 /* CAL-버튼고정: reserve the footer height in flow; cover the shared 24px card bottom padding. */
 .modal-action-footer{position:sticky;bottom:calc(-1 * var(--kptu-space-5));z-index:2;background:var(--kptu-surface);border-top:1px solid var(--kptu-border);margin-top:var(--kptu-space-3);margin-bottom:calc(-1 * var(--kptu-space-5));padding:var(--kptu-space-2) 0 calc(var(--kptu-space-5) + var(--kptu-space-1) + env(safe-area-inset-bottom))}
-.modal-action-footer>.status{margin:0 0 var(--kptu-space-2);overflow-wrap:anywhere}
+/* UI-저장자리(2026-10-27 명진 요청): 팝업 아래 줄은 버튼이 오른쪽 아래([취소] 왼쪽, [저장] 맨 오른쪽). 상태 글은 버튼 줄 위 한 줄. 줄 모양은 ui-standard.css의 .save-row 규칙과 같다. */
+.modal-action-footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:var(--kptu-space-2)}
+.modal-action-footer>.status{flex:1 1 100%;margin:0;overflow-wrap:anywhere}
+.modal-action-footer>div:not(.status){flex:1 1 100%;min-width:0}
+.modal-action-footer>.status:empty{display:none}
+.modal-action-footer .wide{width:auto;margin:0}
+/* 할 일 창: [완료][삭제]는 줄 왼쪽, [저장]은 같은 줄 오른쪽 끝. */
+.modal-action-footer>.tl-detail-actions{flex:1 1 0;margin:0}
+.modal-action-footer .tl-detail-actions .tl-danger{margin-left:0}
 .modal-action-footer[data-keyboard-open]{position:static}
 
 /* UI-더보기제목줄: 상세의 ⋯는 혼자 한 줄을 차지하지 않고 제목(없으면 첫 줄) 오른쪽 끝에 둔다. 공용 규칙 하나:

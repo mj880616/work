@@ -321,7 +321,7 @@ test('the editor opened to change a note has no [업데이트|노트] switch, an
 });
 
 for(const width of [360,390,412,870,1280]){
- test(`note edit buttons [큰 창에서 수정][저장][취소] sit on one uncut line at ${width}px`,async({page})=>{
+ test(`note edit buttons [큰 창에서 수정] ... [취소][저장] sit on one uncut line at ${width}px, 저장 at the right end (UI-저장자리)`,async({page})=>{
   await page.setViewportSize({width,height:900});const f=await fixture(page);
   await chooseBasketKind(page,'note');
   await noteList(page).filter({hasText:'오래된 노트'}).click();
@@ -329,7 +329,7 @@ for(const width of [360,390,412,870,1280]){
   const bar=page.locator('[data-note-edit-actions]');await expect(bar).toBeVisible();
   await expect(noteField(page)).toBeVisible();
   const boxes=[];
-  for(const name of ['큰 창에서 수정','저장','취소']){
+  for(const name of ['큰 창에서 수정','취소','저장']){
    const b=bar.getByRole('button',{name,exact:true});await expect(b).toBeVisible();
    // UI-버튼전수조사(2026-10-24): 보이는 높이는 작은 버튼 32px(채운 [저장]은 36px), 누르는 범위(::after)는 44px.
    const m=await b.evaluate(el=>{const r=el.getBoundingClientRect(),a=getComputedStyle(el,'::after');return {top:r.top+r.height/2,left:r.left,right:r.right,height:r.height,touch:a.content==='none'?r.height:Math.max(r.height,parseFloat(a.height)||0,parseFloat(a.minHeight)||0),cut:el.scrollWidth>el.clientWidth+1};});
@@ -338,6 +338,8 @@ for(const width of [360,390,412,870,1280]){
   expect(boxes[1].top).toBe(boxes[0].top);expect(boxes[2].top).toBe(boxes[0].top);
   expect(boxes[0].left).toBeLessThan(boxes[1].left);expect(boxes[1].left).toBeLessThan(boxes[2].left);
   expect(boxes[2].right).toBeLessThanOrEqual(width);
+  // UI-저장자리: 저장은 줄 맨 오른쪽, 큰 창에서 수정은 맨 왼쪽(취소·저장 사이에 빈칸).
+  const barBox=await bar.boundingBox();expect(barBox.x+barBox.width-boxes[2].right).toBeLessThanOrEqual(4);expect(boxes[0].left-barBox.x).toBeLessThanOrEqual(4);
   await expect(bar.locator('[data-note-save]')).toHaveClass(/primary/);
   expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
  });
@@ -347,11 +349,15 @@ for(const width of [360,390,412,870,1280]){
 // ED③ 노트·업데이트: a note's and an update's big window is the new one (#edWindow, data-edw-save).
 const EDW_SAVE='[data-edw-save]';
 async function headBox(locator){return locator.evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,height:r.height,after:getComputedStyle(el,'::after').height};});}
+// UI-저장자리(2026-10-27): 큰 창의 [저장]은 머리줄 아이콘이 아니라 창 맨 아래 줄 오른쪽 아래, 그 왼쪽에 [취소].
 async function expectIconNextToClose(editor,name){
  const icon=editor.locator(EDW_SAVE);await expect(icon).toBeVisible();await expect(icon).toHaveAccessibleName(name);
- const close=await headBox(editor.locator('[data-close="edWindow"]')),save=await headBox(icon);
- expect(save.left).toBeGreaterThanOrEqual(close.right);expect(save.left-close.right).toBeLessThan(16);expect(save.top).toBe(close.top);
- expect(Math.round(save.height)).toBe(32);expect(save.after).toBe('44px');
+ const cancel=editor.locator('[data-edw-cancel]');await expect(cancel).toBeVisible();
+ const win=await headBox(editor.locator('.ed-window-actions')),save=await headBox(icon),can=await headBox(cancel);
+ const card=await editor.evaluate(el=>{const r=el.getBoundingClientRect();return {right:r.right,bottom:r.bottom};});
+ expect(card.right-save.right).toBeLessThanOrEqual(16);
+ expect(card.bottom-(win.top+win.height)).toBeLessThanOrEqual(2);
+ expect(can.right).toBeLessThanOrEqual(save.left);expect(Math.abs(save.top+save.height/2-(can.top+can.height/2))).toBeLessThanOrEqual(1);
 }
 for(const width of [390,1280]){
  test(`big window save icon saves a note through [저장] and keeps the window open (NOTE-큰창저장유지), also when the save fails ${width}`,async({page})=>{

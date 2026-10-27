@@ -1,5 +1,5 @@
 /* ED③-창: 새 쓰기 창(ed-window.js). 껍데기 규칙은 옛 큰 창(ED③ 순서 6에서 삭제)의 것을 옮겼고(색은 테마 토큰만), 글 칸은 새 편집기(ed-doc.css)가 맡는다.
-   머리줄 한 줄: [× 닫기] [저장 아이콘] … [내보내기 아이콘]. 폰(760px 이하)은 앱 공용 하단 탭 위에서 끝나고, 자판이 열리면 탭이 숨고
+   머리줄 한 줄: [× 닫기] … [내보내기 아이콘]. [저장]은 창 맨 아래 오른쪽 [취소][저장] 줄(UI-저장자리). 폰(760px 이하)은 앱 공용 하단 탭 위에서 끝나고, 자판이 열리면 탭이 숨고
    자판 바로 위까지 쓴다. 넓은 화면(761px~)은 앱 메뉴 옆(ed-window.js placeBesideNav가 --ed-window-left/top을 정함). */
 html.ed-window-open, html.ed-window-open body { overflow:hidden; }
 @media (min-width:761px) {
@@ -40,6 +40,9 @@ html .modal.ed-window .ed-window-head > button:focus-visible { outline:2px solid
 /* UI-떠있는저장: 글 아래 빈칸을 56px로 줄였으므로, 글이 짧아도 창 안 글 칸은 창 끝까지 이어져 아래를 눌러도 글 칸이 받는다. */
 .ed-window-body .ed-box { display:flex; flex-direction:column; }
 .ed-window-body .ed-box > .ed-input { flex:1 1 auto; }
+.modal.ed-window .ed-window-actions { flex:none; margin:0; padding:6px 8px; border-top:1px solid var(--kptu-border); box-sizing:border-box; background:var(--kptu-surface); }
+/* UI-저장자리 ③: 폰 자판이 올라오면 아래 줄을 숨기고 내리면 다시 보인다. */
+body.kptu-mobile-keyboard .modal.ed-window .ed-window-actions { display:none; }
 .ed-window-note { margin:0; padding:6px 12px; font-size:var(--kptu-text-meta, 12px); color:var(--kptu-muted); border-top:1px solid var(--kptu-border); }
 .ed-window-note[hidden] { display:none; }
 .ed-window-status { margin:0; padding:6px 12px; font-size:var(--kptu-text-meta, 12px); color:var(--kptu-muted); border-top:1px solid var(--kptu-border); }

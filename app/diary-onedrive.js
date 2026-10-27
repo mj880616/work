@@ -18,7 +18,9 @@ const monthParam = (year, month) => `${year}-${String(month + 1).padStart(2, '0'
 const monthRange = (year, month) => ({first: `${monthParam(year, month)}-01`, last: seoulDateKey(new Date(Date.UTC(year, month + 1, 0, 3)))});
 
 // ---- 원드라이브 (Edge) ----
-export const odCall = (rt, body) => rt.api(OD_FN, {method: 'POST', body, singleFlight: false});
+// 원드라이브는 서버가 사진 목록을 받아 오느라 한 번에 십수 초 걸릴 수 있어, 기본 15초 대신 45초까지 기다린다.
+export const OD_TIMEOUT_MS = 45000;
+export const odCall = (rt, body) => rt.api(OD_FN, {method: 'POST', body, singleFlight: false, timeoutMs: OD_TIMEOUT_MS});
 
 const ERROR_TEXT = {
   onedrive_not_configured: '원드라이브 연결 준비가 아직 안 됐어요.',
@@ -35,6 +37,10 @@ const ERROR_TEXT = {
   onedrive_too_many_requests: '폴더가 너무 커서 읽지 못했어요. 더 작은 폴더를 골라 주세요.',
   onedrive_delete_failed: '원드라이브가 지우기를 받아 주지 않았어요. 잠시 뒤 다시 해 주세요.',
   onedrive_unavailable: '원드라이브에 연결하지 못했어요. 잠시 뒤 다시 해 주세요.',
+  onedrive_index_busy: '사진 목록을 이미 받고 있어요. 잠시 뒤 다시 해 주세요.',
+  onedrive_throttled: '원드라이브가 요청이 많다고 해요. 잠시 뒤 다시 해 주세요.',
+  onedrive_folder_missing: '이 폴더를 찾지 못했어요. 목록을 다시 열어 주세요.',
+  onedrive_index_read_failed: '사진 목록을 읽지 못했어요. 잠시 뒤 다시 해 주세요.',
 };
 export function odErrorText(error) {
   const code = String(error?.message || '');
@@ -64,6 +70,51 @@ export async function odFolders(rt, parentId = null) {
   const d = await odCall(rt, parentId ? {action: 'folders', parent_id: parentId} : {action: 'folders'});
   return (Array.isArray(d?.folders) ? d.folders : []).filter(f => f && typeof f.id === 'string' && typeof f.name === 'string').map(f => ({id: f.id, name: f.name}));
 }
+// ---- 사진 목록(서버 색인) 받기와 하위 폴더 스위치 ----
+// 한 번 부르면 서버가 한 걸음 받고 {more, indexing}을 준다. more:false가 될 때까지 화면이 반복한다(진행 상태는 서버에 있다).
+export async function odSync(rt) {
+  const d = await odCall(rt, {action: 'sync'});
+  return {more: d?.more === true, indexing: d?.indexing === true};
+}
+// 다시 부르기 전에 기다릴 밀리초: 429는 서버가 준 retry_after초(1~120초로 제한), 409(다른 곳에서 받는 중)는 5초, 나머지는 null(멈춤).
+export function odSyncDelay(error) {
+  const code = String(error?.message || '');
+  if (code === 'onedrive_throttled' || error?.status === 429) {
+    const s = Number(error?.retryAfter);
+    return Math.min(120, Math.max(1, Number.isFinite(s) ? s : 10)) * 1000;
+  }
+  if (code === 'onedrive_index_busy' || error?.status === 409) return 5000;
+  // 화면이 기다리다 끊은 경우: 서버는 받은 만큼 저장해 두므로 잠깐 쉬고 이어서 받는다.
+  if (error?.code === 'timeout') return 3000;
+  return null;
+}
+const wholeCount = n => (Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0);
+export async function odFolderTree(rt) {
+  const d = await odCall(rt, {action: 'folders-tree'});
+  if (!d?.top || typeof d.top.id !== 'string') throw new Error('onedrive_unavailable');
+  const folders = (Array.isArray(d.folders) ? d.folders : []).filter(f => f && typeof f.id === 'string' && f.id && typeof f.name === 'string' && typeof f.parent_id === 'string')
+    .map(f => ({id: f.id, name: f.name, parent_id: f.parent_id, enabled: f.enabled !== false, count: wholeCount(f.count), total: wholeCount(f.total)}));
+  return {top: {id: d.top.id, name: String(d.top.name || ''), count: wholeCount(d.top.count), total: wholeCount(d.top.total)}, folders, indexing: d.indexing === true};
+}
+export const odFolderToggle = (rt, folderId, enabled) => odCall(rt, {action: 'folder-toggle', folder_id: folderId, enabled: enabled === true});
+// 스위치 줄: 맨 위 폴더 바로 아래부터, ▾로 펼친 폴더의 하위만 들여쓰기로 이어 붙인다. dim=위 폴더 중 하나가 꺼져 있음(서버 규칙: 상위를 끄면 아래는 숨김).
+export function odTreeRows(tree, draft, expanded) {
+  const kids = new Map();
+  for (const f of tree.folders) { if (!kids.has(f.parent_id)) kids.set(f.parent_id, []); kids.get(f.parent_id).push(f); }
+  const on = f => (draft.has(f.id) ? draft.get(f.id) : f.enabled);
+  const rows = [];
+  const walk = (parentId, depth, dim) => {
+    for (const f of kids.get(parentId) || []) {
+      const hasKids = kids.has(f.id), open = hasKids && expanded.has(f.id);
+      rows.push({...f, depth, dim, on: on(f), hasKids, open});
+      if (open) walk(f.id, depth + 1, dim || !on(f));
+    }
+  };
+  walk(tree.top.id, 0, false);
+  return rows;
+}
+// 저장 때 보낼 것: 처음 상태와 달라진 폴더만.
+export const odTreeChanges = (tree, draft) => tree.folders.filter(f => draft.has(f.id) && draft.get(f.id) !== f.enabled).map(f => ({id: f.id, enabled: draft.get(f.id)}));
 export const odFolderSet = (rt, folderId) => odCall(rt, {action: 'folder-set', folder_id: folderId});
 export const odDisconnect = rt => odCall(rt, {action: 'disconnect'});
 export const odDelete = (rt, id) => odCall(rt, {action: 'photo-delete', id, confirm: true});
