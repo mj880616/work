@@ -129,8 +129,8 @@ div.gt-main{cursor:default}
 #gtTaskBody .gt-row .gt-source{grid-column:2;justify-self:start;display:inline-flex;align-items:center;min-height:32px;margin-top:-6px;font-size:var(--kptu-text-meta);color:var(--kptu-primary-ink)}
 
 /* TASK-파일붙이기: attached file names under the task title (small, each opens the file in Drive), and the ⋯ → 파일 붙이기 dialog. */
-#gtTaskBody .gt-row .gt-files{grid-column:2;display:flex;flex-wrap:wrap;gap:0 var(--kptu-space-3);min-width:0;margin-top:-6px}
-.gt-files .gt-file,.gt-files-list .gt-file{display:inline-flex;align-items:center;min-height:32px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--kptu-text-meta);color:var(--kptu-primary-ink)}
+#gtTaskBody .gt-row .gt-files{grid-column:2;display:flex;max-width:100%;flex-wrap:wrap;gap:0 var(--kptu-space-3);min-width:0;margin-top:-6px}
+.gt-files .gt-file,.gt-files-list .gt-file{display:block;min-width:0;line-height:32px;min-height:32px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--kptu-text-meta);color:var(--kptu-primary-ink)}
 .gt-files-task{margin:0 0 var(--kptu-space-2);font-weight:700;overflow-wrap:anywhere}
 .gt-files-list{list-style:none;margin:0 0 var(--kptu-space-2);padding:0}
 .gt-files-list li{display:flex;align-items:center;justify-content:space-between;gap:var(--kptu-space-2);min-height:44px;border-top:1px solid var(--kptu-border)}
@@ -255,3 +255,13 @@ div.gt-main{cursor:default}
 .gt-pick-list{list-style:none;margin:0;padding:0}
 .gt-pick-list li{display:flex;align-items:center;justify-content:space-between;gap:var(--kptu-space-2);min-height:var(--kptu-touch-target,44px);border-top:1px solid var(--kptu-border)}
 .gt-pick-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--kptu-text-meta)}
+
+/* TASK-첨부열기: 첨부 rows under 할 일 in the edit window (icon + one-line name + small [열기] [내려받기]). */
+#gtTaskModal .gt-att{display:flex;align-items:flex-start;gap:var(--kptu-space-2);margin:0 0 var(--kptu-space-2);font-size:var(--kptu-text-meta)}
+#gtTaskModal .gt-att.hidden{display:none}
+#gtTaskModal .gt-att-label{flex:none;line-height:28px;color:var(--kptu-muted)}
+#gtTaskModal .gt-att-list{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px}
+#gtTaskModal .gt-att-row{display:flex;align-items:center;gap:var(--kptu-space-1);min-width:0;min-height:28px}
+#gtTaskModal .gt-att-icon{flex:none;color:var(--kptu-muted)}
+#gtTaskModal .gt-att-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#gtTaskModal .gt-att-btn{flex:none;width:auto;min-height:28px;height:28px;margin:0;padding:0 8px;font-size:var(--kptu-text-meta);white-space:nowrap}
