@@ -12,6 +12,7 @@ import {readInboxCandidates as readAllInbox, dismissCandidate, reopenCandidate, 
 import {seoulDateKey} from './meeting-time.js';
 import {offerUndoNotice} from './basket-record-delete.js';
 import {copyText} from './copy-text.js';
+import {flashDone} from './press-feedback.js';
 
 const CHANGED = 'kptu:todo-radar-changed';
 export const INBOX_CHIPS = Object.freeze([['open', '처리 전'], ['tasked', '할 일로 보냄'], ['dismissed', '무시함']]);
@@ -136,7 +137,9 @@ export function mountInboxTodos(host, {rt, esc, chips, onCount = () => {}, read,
       const p = radarPromises()[Number(d.inboxPromiseLedger)]; if (!p) return;
       const text = ledgerRequestText(p), ok = await copyText(text);
       if (ok) copied.add(text);
-      status = ok ? '원장에 넣을 약속 문구를 복사했어요.' : '복사하지 못했어요.'; paint(); return;
+      status = ok ? '원장에 넣을 약속 문구를 복사했어요.' : '복사하지 못했어요.'; paint();
+      if (ok) flashDone(() => host.querySelector(`[data-inbox-promise-ledger="${CSS.escape(d.inboxPromiseLedger)}"]`)); // UI-눌림느낌: after the repaint, the new button says '✓ 복사됨'
+      return;
     }
     if ('inboxTodoRetry' in d) { state = 'loading'; paint(); await load(); return; }
     if ('inboxTodoTasks' in d) { window.KPTURouter?.go?.('tasks', {source: 'delegated'}); return; }

@@ -4,6 +4,7 @@ import { outputText } from '../_shared/openai-responses.ts';
 import { HwpxReader, hwpToText } from 'npm:@ssabrojs/hwpxjs';
 import { readMultipartForm } from '../_shared/multipart.ts';
 import { createLibraryPhotoHandler } from './photo.ts';
+import { setKeep } from '../_shared/library-prev-model.mjs';
 
 const SB=Deno.env.get('SUPABASE_URL')!;
 const SERVICE=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -123,6 +124,28 @@ async function replaceDocument(workspaceId:string,file:File,documentId:string){
   return json({ok:true,replaced:true,document:rows[0]});
 }
 
+// LIB-이전파일정리: [이전 파일 ▾]의 [계속 보관]/보관 해제. 그 파일 항목에 keep_at(또는 unkeep_at)만 더하고 나머지는 그대로 둔다. 서버 저장(자동 삭제는 keep_at이 있으면 건너뜀).
+// JSON {action:'previous-keep', document_id, file_id, keep:boolean}. 자료·업무공간은 서버가 DB에서 읽어 확인한다. 쓰기는 읽은 updated_at 그대로일 때만(겹치면 409, 화면이 다시 읽음).
+async function previousKeep(workspaceId:string,input:any){
+  const documentId=String(input?.document_id||''),fileId=String(input?.file_id||'');
+  if(!UUID_RE.test(documentId)||!/^[A-Za-z0-9_-]{1,255}$/.test(fileId)||typeof input?.keep!=='boolean'||Object.keys(input).sort().join(',')!=='action,document_id,file_id,keep')throw new UploadError('보관 요청을 확인할 수 없습니다.',{code:'invalid_request',stage:'validate'});
+  const {data:doc,error:readError}=await admin.from('app_documents').select('id,workspace_id,previous_files,updated_at').eq('id',documentId).maybeSingle();
+  if(readError){console.error('library-files keep read failed',{code:readError.code});throw new UploadError('지금은 보관 표시를 바꿀 수 없습니다. 잠시 후 다시 시도해 주세요.',{status:503,code:'keep_unavailable',stage:'db_read'})}
+  if(!doc||doc.workspace_id!==workspaceId)throw new UploadError('자료를 찾을 수 없습니다.',{status:404,code:'document_not_found',stage:'project'});
+  const now=new Date().toISOString();
+  const r=setKeep(doc.previous_files,fileId,input.keep,now);
+  if(r.error==='not_found')throw new UploadError('이전 파일을 찾을 수 없습니다.',{status:404,code:'previous_not_found',stage:'validate'});
+  if(r.error==='already_pruned')throw new UploadError('이미 정리된 파일입니다. 보관하려면 Drive 휴지통에서 복원하세요.',{status:409,code:'previous_already_pruned',stage:'validate'});
+  if(!r.changed)return json({ok:true,previous_files:doc.previous_files});
+  // updated_at을 새 값으로 바꿔, 같은 줄을 동시에 쓰는 다른 경로(교체·서버 정리)가 옛 목록으로 덮어쓰지 못하게 한다.
+  let q=admin.from('app_documents').update({previous_files:r.list,updated_at:now}).eq('id',documentId).eq('workspace_id',workspaceId);
+  q=doc.updated_at==null?q.is('updated_at',null):q.eq('updated_at',doc.updated_at);
+  const {data:rows,error}=await q.select('id,previous_files');
+  if(error){console.error('library-files keep update failed',{code:error.code});throw new UploadError(GENERIC_FAILURE,{status:500,code:'keep_failed',stage:'db_update',retryable:true})}
+  if(!Array.isArray(rows)||rows.length!==1)throw new UploadError('자료가 그 사이 바뀌었습니다. 다시 시도해 주세요.',{status:409,code:'document_changed',stage:'db_update'});
+  return json({ok:true,previous_files:rows[0].previous_files});
+}
+
 // 요청이 올 때만 만든다(업로드 경로는 이 핸들러를 건드리지 않는다).
 const photoView=(req:Request,workspaceId:string,authorization:string)=>createLibraryPhotoHandler(admin,{userClient:auth=>{
   const key=Deno.env.get('SUPABASE_ANON_KEY');
@@ -140,7 +163,13 @@ Deno.serve(async(req:Request)=>{
       return await photoView(req,wmPhoto.workspace_id,'Bearer '+(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,''));
     }
     if(req.method!=='POST')return json({error:'POST only'},405);
-    if((req.headers.get('content-type')||'').includes('application/json'))throw new UploadError('지원하지 않는 작업입니다.',{code:'unsupported_request'});
+    if((req.headers.get('content-type')||'').includes('application/json')){
+      let input:any=null;
+      try{input=await req.json()}catch{input=null}
+      if(input?.action!=='previous-keep')throw new UploadError('지원하지 않는 작업입니다.',{code:'unsupported_request'});
+      const wmKeep=await workspaceFor(user.id);
+      return await previousKeep(wmKeep.workspace_id,input);
+    }
     let form:FormData;
     // Not req.formData(): Deno cuts quoted file names at ';' and '=' (see _shared/multipart.ts).
     try{form=await readMultipartForm(req)}catch(e){console.error('library-files form parse failed',e);throw new UploadError('업로드 요청을 읽지 못했습니다. 다시 시도해 주세요.',{code:'invalid_request',retryable:true})}
