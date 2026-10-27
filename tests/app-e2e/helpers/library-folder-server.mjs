@@ -33,7 +33,7 @@ export async function bootLibrary(page,width,{folders=[],items=[],docs=null,dbFr
     if(m==='POST'){
       if(body.parent_id&&depth(body.parent_id)>=3)return route.fulfill(reject('23514','LIB_FOLDER_DEPTH: folders are limited to 3 levels'));
       if(body.parent_id&&!s.dbFree&&(byId(body.parent_id)?.project_id||null)!==(body.project_id||null))return route.fulfill(scope);
-      s.folders.push({...body,id:'new-'+(++seq),created_at:new Date().toISOString()});return route.fulfill({status:201,body:''});
+      const made={...body,id:'new-'+(++seq),created_at:new Date().toISOString()};s.folders.push(made);return route.fulfill(/return=representation/.test(req.headers()['prefer']||'')?{status:201,json:[made]}:{status:201,body:''});
     }
     const f=byId(eq(url,'id'));
     if(m==='PATCH'){
@@ -77,4 +77,9 @@ export const treeKeys=page=>page.locator('#documentList details[data-lu-node]').
 export const childrenOf=(page,key)=>page.locator(`#documentList details[data-lu-node="${key}"] > .lu-node-body > *`).evaluateAll(xs=>xs.map(x=>x.dataset.luNode||x.dataset.luDocument).filter(Boolean));
 export const menuButton=(page,key)=>page.locator(`#documentList details[data-lu-node="${key}"] > summary [data-lu-node-menu]`);
 export const folderMenuItem=(page,name)=>page.locator('#luFolderMenu').getByRole('button',{name,exact:true});
+// LIB-폴더로옮기기: 자료 ⋯ → [폴더로 옮기기 ›]로 여는 작은 폴더 목록(#luMovePicker). 고를 수 있는 줄 = aria-disabled 아닌 줄.
+export const movePicker=page=>page.locator('#luMovePicker');
+export const moveFolder=(page,id)=>movePicker(page).locator(`[data-lu-move-folder="${id}"]`).last();
+export const moveEnabledNames=page=>movePicker(page).locator('.lu-move-list .lu-move-item:not([aria-disabled="true"]) .lu-move-name').allTextContents();
+export async function openMove(page,docId,width){await press(page,page.locator(`[data-lu-menu="${docId}"]`),width);await press(page,page.locator(`#luMorePanel [data-lu-move-open="${docId}"]`),width);await expect(movePicker(page)).toBeVisible()}
 export async function press(page,locator,width){if(width<761)await locator.tap();else await locator.click()}

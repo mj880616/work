@@ -331,3 +331,65 @@
   #appView #libraryView #documentList .lu-row.lu-row-set{grid-template-columns:auto auto auto minmax(0,1fr) auto;grid-template-areas:"title title title title strip" "kind tag date . strip"}
   #appView #libraryView #documentList .lu-row-set .report-photo-strip{grid-area:strip;align-self:center;justify-self:end}
 }
+
+/* LIB-최근올린파일 (2026-10-27 17:01 요청): 묶기 칩 바로 아래 작은 칸. 최근 올린 5개(더보기 15개), 줄 = 종류·제목·들어간 묶음·올린 시각.
+   아래 목록에서는 최근 3일 안에 올린 파일 제목 앞에 작은 '새'만 붙인다(종류·분류 꼬리표·날짜 칸은 그대로). */
+#appView #libraryView .library-filter-toolbar .lu-recent{flex:1 1 100%;min-width:0;box-sizing:border-box;margin:0;padding:2px 8px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface)}
+#appView #libraryView .lu-recent[hidden]{display:none}
+.lu-recent-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:var(--ds-compact-height-sm,28px)}
+.lu-recent-title{font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.lu-recent-list{list-style:none;margin:0;padding:0}
+#appView #libraryView .lu-recent-row{box-sizing:border-box;display:flex;align-items:center;gap:8px;width:100%;min-width:0;min-height:30px;margin:0;padding:2px 0;border:0;border-top:1px solid var(--kptu-border);border-radius:0;background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-regular,400);text-align:left;cursor:pointer}
+#appView #libraryView .lu-recent-row:hover{background:var(--kptu-surface-subtle)}
+#appView #libraryView .lu-recent-row:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+#appView #libraryView .lu-recent-row .lu-file-kind{flex:none;box-sizing:border-box;display:block;min-width:34px;width:auto;height:18px;padding:0 6px;border-radius:var(--kptu-radius-sm,6px);font-size:11px;line-height:18px;text-align:center;white-space:nowrap}
+.lu-recent-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lu-recent-where{flex:0 1 30%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.lu-recent-time{flex:none;font-size:var(--ds-text-meta,12px);color:var(--kptu-faint);font-variant-numeric:tabular-nums;white-space:nowrap}
+@media(max-width:760px){
+  #appView #libraryView .lu-recent-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"kind name time" "kind where where";column-gap:8px;row-gap:0;min-height:40px}
+  #appView #libraryView .lu-recent-row .lu-file-kind{grid-area:kind;align-self:center}
+  .lu-recent-name{grid-area:name}
+  .lu-recent-where{grid-area:where;flex:none}
+  .lu-recent-time{grid-area:time}
+}
+/* 새 표시: 최근 3일 안에 올린 줄(data-lu-new)의 제목 글자 앞에 붙는 아주 작은 말. 글자가 아니라 꾸밈(::before)이라 제목 글자·칸 배치·다른 표시(종류·분류·날짜)가 바뀌지 않는다. */
+#appView #libraryView .lu-row[data-lu-new] .lu-row-title::before{content:"새";display:inline-block;margin-right:4px;padding:0 4px;border-radius:var(--kptu-radius-sm,6px);background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-size:10px;font-weight:var(--ds-weight-medium,500);line-height:14px;vertical-align:1px}
+/* 최근 칸에서 눌러 찾아간 줄을 잠깐 강조 */
+@keyframes lu-flash{0%,60%{background:var(--kptu-primary-soft)}100%{background:transparent}}
+#appView #libraryView .lu-row.lu-flash{animation:lu-flash 1.8s ease-out}
+@media(prefers-reduced-motion:reduce){#appView #libraryView .lu-row.lu-flash{animation:none;background:var(--kptu-primary-soft)}}
+
+/* LIB-폴더로옮기기: [폴더로 옮기기 ›]로 여는 작은 폴더 목록. PC는 누른 버튼 옆, 폰은 아래 시트. */
+.lu-move-picker{position:fixed;inset:auto;margin:0;z-index:110;box-sizing:border-box;display:flex;flex-direction:column;width:248px;max-width:calc(100vw - 16px);padding:6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:hidden}
+.lu-move-picker[hidden]{display:none}
+.lu-move-picker.lu-move-sheet{left:8px;right:8px;bottom:calc(8px + var(--kptu-keyboard-inset,0px));top:auto;width:auto;max-width:none}
+.lu-move-find{flex:none;box-sizing:border-box;width:100%;height:var(--ds-compact-height,32px);margin:0 0 4px;padding:0 8px;font:inherit;font-size:var(--ds-compact-text,13px)}
+.lu-move-list{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain}
+.lu-move-sec{margin:6px 8px 2px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.lu-move-empty{margin:8px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.lu-move-picker button{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:32px;margin:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-regular,400);text-align:left;cursor:pointer}
+.lu-move-item{padding:0 8px 0 calc(8px + var(--lu-depth,0) * 14px)}
+.lu-move-picker button:is(:hover,:focus-visible):not([aria-disabled="true"]){background:var(--kptu-primary-soft)}
+.lu-move-picker button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+.lu-move-picker button[aria-disabled="true"]{opacity:.5;cursor:default}
+.lu-move-item[aria-current="true"]{opacity:.6;cursor:default}
+.lu-move-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lu-move-tag{flex:none;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.lu-move-note{flex:none;margin:4px 8px 0;font-size:var(--ds-text-meta,12px);line-height:1.4;color:var(--kptu-muted)}
+.lu-move-note[hidden]{display:none}
+.lu-move-foot{flex:none;margin-top:4px;padding-top:4px;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+.lu-move-foot button{padding:0 8px;color:var(--kptu-primary-ink)}
+@media(max-width:760px){.lu-move-picker button{min-height:40px}.lu-move-find{height:40px}}
+
+/* LIB-폴더로옮기기 ③: 종류·담당조직·월별로 묶은 화면에서 파일을 끌기 시작하면 왼쪽에 뜨는 작은 폴더 목록(놓을 곳). */
+.lu-drop-panel{position:fixed;left:8px;top:72px;z-index:90;box-sizing:border-box;display:flex;flex-direction:column;width:208px;max-height:calc(100vh - 96px);padding:6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:hidden}
+.lu-drop-panel[hidden]{display:none}
+.lu-drop-title{margin:0 0 4px;padding:0 4px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.lu-drop-list{flex:1 1 auto;min-height:0;overflow:auto}
+.lu-drop-item{display:block;box-sizing:border-box;min-height:28px;padding:5px 8px 5px calc(8px + var(--lu-depth,0) * 14px);border-radius:var(--kptu-radius-md);font-size:var(--ds-compact-text,13px);line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lu-drop-item[data-lu-drop-out]{margin-top:4px;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-radius:0 0 var(--kptu-radius-md) var(--kptu-radius-md);color:var(--kptu-muted)}
+.lu-drop-item[aria-disabled="true"]{opacity:.5;cursor:no-drop}
+.lu-drop-item.lu-drop-over:not([aria-disabled="true"]){outline:2px dashed var(--kptu-primary-ink);outline-offset:-2px;background:var(--kptu-primary-soft)}
+.lu-drop-note{margin:4px 4px 0;font-size:var(--ds-text-meta,12px);line-height:1.4;color:var(--kptu-muted)}
+.lu-drop-note[hidden]{display:none}
