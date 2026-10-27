@@ -179,7 +179,7 @@ function shell() {
   els = new Map(); extras.forEach(made => made.destroy()); extras = new Map();
   const made = document.createElement('template');
   made.innerHTML = ['calendar','tasks','meetings','dday'].map(section).join('') + `<section class="home-card home-radar" data-home-card="radar" hidden></section><section class="home-card home-collect" data-home-card="collect" aria-labelledby="home-collect-title" hidden></section>`;
-  made.content.querySelectorAll(':scope > [data-home-card]').forEach(el => els.set(el.dataset.homeCard, el));
+  [...made.content.children].filter(el => el.dataset.homeCard).forEach(el => els.set(el.dataset.homeCard, el));
   collectLines = { alert: host.querySelector('[data-home-collect-alert]'), ok: host.querySelector('[data-home-collect-ok]') };
   host.querySelector('[data-home-column="main"]').prepend(quick);
   // HOME-모바일홈채우기: 한 줄 요약과 놓친 약속·정리 안 된 것·내일 칸(폰·중간 폭만). home-fill.js가 유일한 renderer.
