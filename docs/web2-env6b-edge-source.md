@@ -177,7 +177,7 @@
 | 34 | `ai-assist` | Web2 서버 AI 도우미(AI-서버연동, S1은 연결 요약만) | 운영 배포됨(버전 번호 미확인) | 2026-10-24 08:21 시작 (승인형 run #53) | **true** | **운영 소스 `64986f3`**(PRESS 서버 #1098 AI 분류 지침 한 줄; 되돌리기 ref `daed2e7b`; run #53 success, verify_jwt 값 변경 없음). 이전 기록: **운영 소스 `129d200b`**(#1048 주요 일정 제목 다듬기 `schedule_titles`; run #48 success, 되돌리기 ref `a9506005`, verify_jwt 값 변경 없음). 배포 이력(승인형 workflow): 10/22 `eed5df4f`(조직 요약) → `989a9528`(run #41) → 10/23 `a9506005`(run #46, 자료실 AI 분류 보완) → `129d200b`. work (S1 코드·시험) |
 | 35 | `share-page-media` | Web2 공유 페이지 사진 올리기·보기 주소·지우기·페이지 완전 삭제(`purge_page`, SHARE-페이지삭제)(ED-통합편집기 ②) | 운영 배포됨(버전 번호 미확인) | 2026-10-23 17:21 시작 (승인형 run #47) | **true** | **운영 소스 `77a83215`**(#1044 사진 같이 지우기; run #47 success, 되돌리기 ref `ab008dd4`). 첫 배포는 10/23 10:35 시작 run #43(ref `ab008dd4`, `first_deploy=true`·verify_jwt=true). verify_jwt 값 변경 없음. work (코드·시험) |
 | 36 | `collector-feed` | Web2 수집 받기(CALL-통화메뉴·TG-소식메뉴 2단계, 앱 스크립트가 통화 분석·텔레그램 묶음을 보냄. 읽기 action `context`: 담당조직·프로젝트 이름 목록만, CALL-맥락문서) | 배포 대기 | 없음 | false | work (코드·시험, 첫 배포 전) |
-| 37 | `onedrive-photos` | Web2 일기 원드라이브 연결·폴더 지정·사진 읽기(JOURNAL-일기원드라이브 1단계, 읽기 전용 Files.Read) | 배포 대기 | 없음 | **true** | work (코드·시험, 첫 배포 전) |
+| 37 | `onedrive-photos` | Web2 일기 원드라이브 연결·폴더 지정·사진 읽기·사진 지우기(휴지통 이동)(JOURNAL-일기원드라이브, Files.ReadWrite, 고른 폴더 안 사진만) | 배포 대기 | 없음 | **true** | work (코드·시험, 첫 배포 전) |
 
 `share-page-read`(33행)는 **2026-10-23 기준 운영 배포됨**(위 표 갱신; 아래 문단은 배포 전 설계 기록이며 합계 32개 계산에는 이번 갱신에서 반영하지 않았다 — 운영 조회 없음, 재계산 미확인). 링크를 받은 사람은 로그인하지 않으므로 `verify_jwt=false`를 선택한다(2026-10-20 사용자 결정 S1: 읽기는 Web1 새 주소 + 긴 링크 값).
 인증 대신 함수 코드가 링크 값(16진수 64자)의 sha256 지문으로 링크 행 하나를 찾고, 꺼짐·기한·게시 상태를 확인한 뒤 그 페이지의 제목·블록만 돌려준다. 그 밖은 모두 같은 404다.
@@ -198,7 +198,7 @@ JPEG만(3MB 이하), 머리 구간에 EXIF·XMP·IPTC가 있으면 거절한다.
 업무공간은 서버가 `kptu-work`로 정하고 요청 값은 받지 않는다. DB는 service role로 쓰되 migration `20261024140000_call_tg_feed`의 칸별 grant 안(소식 줄 넣기·중복 확인 세 칸 읽기, 하루 숫자 읽기·넣기·숫자 칸 고치기)만 쓴다.
 첫 배포는 DB 적용(run #65) 뒤 `first_deploy=true`·`verify_jwt=false`·`expect_unauth_401=true`(비밀 헤더 없는 POST는 401)로 한다. 되돌리기: 비밀값을 지우면 입구가 바로 닫힌다. 화면·앱 스크립트가 아직 이 함수를 쓰지 않으므로 그동안 영향은 없다. 함수 삭제는 사용자가 대시보드에서 판단한다(자동 삭제 없음).
 
-`onedrive-photos`(37행)는 **배포 대기**다(JOURNAL-일기원드라이브 1단계, `docs/design/diary-onedrive.md` 4절). 로그인한 소유자만 부르는 함수라 `verify_jwt=true`를 선택한다(화면은 로그인 토큰을 붙여 부르고, 사진은 받은 바이트를 화면에서 그림으로 바꿔 보여 주므로 로그인 없는 주소가 필요 없다).
+`onedrive-photos`(37행)는 **배포 대기**다(JOURNAL-일기원드라이브, `docs/design/diary-onedrive.md` 10절: 2026-10-27 결정으로 읽기 전용에서 Files.ReadWrite·사진 지우기로 바뀜). 로그인한 소유자만 부르는 함수라 `verify_jwt=true`를 선택한다(화면은 로그인 토큰을 붙여 부르고, 사진은 받은 바이트를 화면에서 그림으로 바꿔 보여 주므로 로그인 없는 주소가 필요 없다).
 함수 코드도 Auth `getUser` + 작업공간 owner 확인을 다시 하고, 갱신 토큰은 service role로만 읽고 쓰며 응답에 싣지 않는다. 비밀값 `ONEDRIVE_CLIENT_ID`·`ONEDRIVE_CLIENT_SECRET`·`ONEDRIVE_REDIRECT_URI`가 없으면 `status`만 `configured:false`로 답하고 나머지는 424로 멈춘다.
 첫 배포는 DB 적용(`20261026140000_diary_onedrive_db`) 뒤 `first_deploy=true`·`verify_jwt=true`·`expect_unauth_401=true`로 한다. 비밀값 등록은 배포와 별개이며 사용자가 대시보드에서 직접 넣는다. 되돌리기: 화면이 아직 이 함수를 쓰지 않는 상태 유지, 필요하면 사용자가 대시보드에서 함수 삭제를 판단한다(자동 삭제 없음). 비밀값을 지우면 입구가 바로 닫힌다.
 

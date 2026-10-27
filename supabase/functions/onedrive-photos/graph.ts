@@ -1,5 +1,6 @@
-// Microsoft Graph 읽기 전용 도우미. 요청 범위는 Files.Read + offline_access 뿐이다(쓰기 권한 없음).
-export const SCOPE = "Files.Read offline_access";
+// Microsoft Graph 도우미. 요청 범위는 Files.ReadWrite + offline_access + User.Read 뿐이다(2026-10-27 결정: 사진 지우기).
+// 전체 범위(.All)·앱 폴더·선택 범위는 요청도 허용도 하지 않는다(scopeAllowed).
+export const SCOPE = "Files.ReadWrite offline_access User.Read";
 export const GRAPH = "https://graph.microsoft.com/v1.0";
 export const IMAGE_MIME = /^image\/(jpeg|png|webp|gif|heic|heif)$/i;
 export const SIZES = { small: "c480x480", large: "c1600x1600" } as const;
@@ -17,6 +18,15 @@ export type OneDriveItem = {
   fileSystemInfo?: { createdDateTime?: string };
   parentReference?: { path?: string };
 };
+
+// 로그인 응답의 허용 범위를 소문자 목록으로 만든다(Graph 주소 접두사는 뗀다).
+export const normalizeScopes = (v: unknown): string[] =>
+  String(v ?? "").toLowerCase().split(/\s+/).filter(Boolean).map((s) => s.replace(/^https:\/\/graph\.microsoft\.com\//, ""));
+
+// 허용 범위가 이 기능에 맞는가: Files.ReadWrite가 있어야 하고, .All·AppFolder·Selected가 하나라도 섞이면 거절한다.
+export function scopeAllowed(granted: string[]): boolean {
+  return granted.includes("files.readwrite") && !granted.some((s) => /\.all$|appfolder|selected/.test(s));
+}
 
 // OneDrive 항목 id는 영문·숫자·'!'·'-'·'_'·'.' 뿐이다. 그 밖의 글자는 주소에 넣지 않는다.
 export const validItemId = (v: unknown): v is string =>

@@ -1,10 +1,10 @@
 import {
   folderPathOf, GRAPH, graphNextLink, IMAGE_MIME, insideFolder, MAX_FOLDER_DEPTH, MAX_IMAGE_BYTES, MAX_ITEMS,
-  MAX_REQUESTS, safeDownloadUrl, SCOPE, seoulDay, SIZES, takenOf, validItemId,
+  MAX_REQUESTS, normalizeScopes, safeDownloadUrl, SCOPE, scopeAllowed, seoulDay, SIZES, takenOf, validItemId,
 } from "./graph.ts";
 import type { OneDriveItem } from "./graph.ts";
 
-// 일기 2차(JOURNAL-일기원드라이브) 1단계: 원드라이브 연결·폴더 지정·사진 읽기. 읽기 전용(Files.Read).
+// 일기 2차(JOURNAL-일기원드라이브): 원드라이브 연결·폴더 지정·사진 읽기·사진 지우기(휴지통 이동). 권한 Files.ReadWrite(고른 폴더 안 사진만 다룸).
 // 로그인한 작업공간 소유자만 쓴다. 갱신 토큰은 service role로만 읽고 쓰며 응답·로그에 싣지 않는다.
 // 비밀값이 없으면 status가 configured:false로 답하고 나머지 동작은 424 onedrive_not_configured 로 멈춘다.
 const cors = {
@@ -106,9 +106,9 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
 
   async function readConnection(workspaceId: string) {
     const { data, error } = await admin.from("app_onedrive_connections")
-      .select("refresh_token,folder_id,folder_name,folder_path,connected_at").eq("workspace_id", workspaceId).maybeSingle();
+      .select("refresh_token,scope,folder_id,folder_name,folder_path,connected_at").eq("workspace_id", workspaceId).maybeSingle();
     if (error) throw new Fail(503, "onedrive_unavailable");
-    return data as null | { refresh_token: string; folder_id: string | null; folder_name: string | null; folder_path: string | null; connected_at: string };
+    return data as null | { refresh_token: string; scope?: string | null; folder_id: string | null; folder_name: string | null; folder_path: string | null; connected_at: string };
   }
 
   // 갱신 토큰으로 접근 토큰을 받는다. 새 갱신 토큰이 오면 바로 바꿔 저장한다(Microsoft는 갱신 때마다 새 토큰을 줄 수 있다).
@@ -199,6 +199,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
         connected: !!conn,
         folder: conn?.folder_id ? { name: conn.folder_name } : null,
         connected_at: conn?.connected_at ?? null,
+        can_delete: !!conn && scopeAllowed(normalizeScopes(conn.scope)),
       });
     },
 
@@ -220,11 +221,9 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       }
       if (typeof body.code !== "string" || body.code.length < 8 || body.code.length > 4096) throw new Fail(400, "onedrive_code_invalid");
       const d = await tokenRequest(c, { grant_type: "authorization_code", code: body.code, redirect_uri: c.redirect });
-      // 읽기 전용 범위만 받았는지 확인한다. 쓰기 범위(Files.ReadWrite 등)가 섞여 오면 저장하지 않고 거절한다.
-      const granted = String(d.scope || "").toLowerCase().split(/\s+/).filter(Boolean);
-      if (!granted.includes("files.read") || granted.some((s) => /readwrite|\.all$/.test(s) && s !== "files.read")) {
-        throw new Fail(400, "onedrive_scope_invalid");
-      }
+      // 받은 허용 범위가 맞는지 확인한다: Files.ReadWrite가 있어야 하고, 전체 범위(.All)·앱 폴더·선택 범위가 섞이면 저장하지 않고 거절한다.
+      const granted = normalizeScopes(d.scope);
+      if (!scopeAllowed(granted)) throw new Fail(400, "onedrive_scope_invalid");
       if (typeof d.refresh_token !== "string" || !d.refresh_token || d.refresh_token.length > 4096) throw new Fail(502, "onedrive_unavailable");
       cached.delete(workspaceId);
       const stamp = new Date(now()).toISOString();
@@ -324,6 +323,31 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     },
   };
 
+  // 사진이 맞고 고른 폴더 안에 있는지 확인한다(읽기·지우기가 함께 쓴다). 아니면 404(사진 아님·없음) 또는 403(폴더 밖).
+  async function photoInFolder(token: string, id: string, folder: { path: string }) {
+    const item = await getItem(token, id, "id,file,folder,parentReference");
+    if (item.id !== id || item.folder || !item.file?.mimeType || !IMAGE_MIME.test(item.file.mimeType)) throw new Fail(404, "onedrive_item_missing");
+    if (!insideFolder(item.parentReference?.path, folder.path)) throw new Fail(403, "onedrive_outside_folder");
+  }
+
+  // 사진 한 장 지우기 = 원드라이브 휴지통으로 보내기(Graph DELETE는 영구 삭제가 아니다). 고른 폴더 안의 사진만, confirm:true가 있을 때만.
+  async function photoDelete(workspaceId: string, body: Record<string, unknown>): Promise<Response> {
+    const conn = await readConnection(workspaceId);
+    const folder = folderOf(conn);
+    if (!validItemId(body.id) || body.confirm !== true) throw new Fail(400, "onedrive_request_invalid");
+    if (!scopeAllowed(normalizeScopes(conn!.scope))) throw new Fail(424, "onedrive_reconnect_needed");
+    const token = await accessToken(workspaceId, conn!);
+    await photoInFolder(token, body.id, folder);
+    const r = await call("onedrive_delete", `${GRAPH}/me/drive/items/${encodeURIComponent(body.id)}`, {
+      method: "DELETE", headers: { Authorization: `Bearer ${token}` },
+    });
+    if (r.status === 404) throw new Fail(404, "onedrive_item_missing");
+    if (r.status === 401) throw new Fail(424, "onedrive_auth_expired");
+    if (r.status === 403) throw new Fail(424, "onedrive_reconnect_needed");
+    if (r.status !== 204 && !r.ok) throw new Fail(502, "onedrive_delete_failed");
+    return json({ deleted: true });
+  }
+
   // 사진 한 장(작게/크게). 지정 폴더 안의 사진만 돌려주고, 바이트는 서버가 받아 그대로 전달한다(원드라이브 주소·토큰은 화면에 가지 않음).
   async function photo(workspaceId: string, body: Record<string, unknown>): Promise<Response> {
     const conn = await readConnection(workspaceId);
@@ -331,9 +355,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     const size = body.size === undefined ? "small" : body.size;
     if (!validItemId(body.id) || typeof size !== "string" || !Object.hasOwn(SIZES, size)) throw new Fail(400, "onedrive_request_invalid");
     const token = await accessToken(workspaceId, conn!);
-    const item = await getItem(token, body.id, "id,file,folder,parentReference");
-    if (item.id !== body.id || item.folder || !item.file?.mimeType || !IMAGE_MIME.test(item.file.mimeType)) throw new Fail(404, "onedrive_item_missing");
-    if (!insideFolder(item.parentReference?.path, folder.path)) throw new Fail(403, "onedrive_outside_folder");
+    await photoInFolder(token, body.id, folder);
     // 썸네일 내용 주소는 임시 주소로 넘어간다(302). 따라가지 않고 주소만 읽은 뒤, 토큰 없이 한 번만 받는다.
     const first = await call("onedrive_thumb", `${GRAPH}/me/drive/items/${encodeURIComponent(body.id)}/thumbnails/0/${SIZES[size as keyof typeof SIZES]}/content`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -380,6 +402,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "json_invalid");
       const action = body.action;
       if (action === "photo") return await photo(member.workspace_id, body);
+      if (action === "photo-delete") return await photoDelete(member.workspace_id, body);
       if (typeof action !== "string" || !Object.hasOwn(actions, action)) throw new Fail(400, "action_invalid");
       return await actions[action]({ userId: data.user.id, workspaceId: member.workspace_id, body });
     } catch (e) {
