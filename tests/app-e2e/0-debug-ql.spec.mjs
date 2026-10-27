@@ -8,6 +8,7 @@ test('0 debug layout',async({page})=>{
  const row=page.locator('#appView>.app-nav [data-quick-links]');
  const snap=()=>page.evaluate(()=>{const n=document.querySelector('#appView>.app-nav'),r=document.querySelector('#appView>.app-nav [data-quick-links]').getBoundingClientRect(),p=document.querySelector('#quickLinksPanel');const pr=p&&!p.hidden?p.getBoundingClientRect():null;return {rowB:r.bottom,pB:pr&&pr.bottom,pT:pr&&pr.top,ih:innerHeight,sy:scrollY,nav:[n.getBoundingClientRect().top,n.scrollHeight,n.clientHeight,n.scrollTop]}});
  const cards=await page.evaluate(()=>[...document.querySelectorAll('#homeView [data-home-card]')].map(c=>c.dataset.homeCard+(c.hidden?'(h)':'')+'@'+c.parentElement.dataset.homeColumn).join(','));
+ const hv=await page.evaluate(()=>{const h=document.querySelector('#homeView');return {cls:h.className,len:h.innerHTML.length,head:h.innerHTML.slice(0,400),host:h.querySelector('[data-home-cards]')?.innerHTML.slice(0,300),ready:window.KPTUHome?.metrics?.readyAt}});
  const a=await snap();await row.click();const c=await snap();await page.waitForTimeout(1500);const d=await snap();
- expect(JSON.stringify({cards,a,c,d,errs}),'DEBUGQL').toBe('');
+ expect(JSON.stringify({hv,cards,a,c,d,errs}),'DEBUGQL').toBe('');
 });
