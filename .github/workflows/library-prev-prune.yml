@@ -1,0 +1,43 @@
+name: Library previous files prune
+
+# LIB-이전파일정리: 자료실 [수정]에서 파일을 교체해 밀려난 '이전 파일'을 교체한 지 30일이 지나면 하루 한 번 서버가 Drive 휴지통으로 옮긴다(영구 삭제 없음).
+# 예약 실행은 저장소 변수 LIBRARY_PREV_PRUNE_ENABLED 가 'true'일 때만 일한다(기본 꺼짐). 켜기 전에 아래 수동 실행의 dry_run(기본 켜짐)으로 개수만 본다.
+# drive-summary-refresh.yml·library-text-nightly.yml 과 같은 방식(같은 비밀값 DRIVE_SUMMARY_CRON_SECRET). 시각(KST) 03:47.
+on:
+  schedule:
+    - cron: '47 18 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '개수만 보고 아무것도 바꾸지 않음(true) / 실제로 정리(false)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: library-prev-prune
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    if: github.repository == 'mj880616/work' && (github.event_name == 'workflow_dispatch' || vars.LIBRARY_PREV_PRUNE_ENABLED == 'true')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: scripts/ops
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Move expired previous library files to the Drive trash
+        env:
+          DRIVE_SUMMARY_CRON_SECRET: ${{ secrets.DRIVE_SUMMARY_CRON_SECRET }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
+        run: node scripts/ops/library-prev-prune.mjs

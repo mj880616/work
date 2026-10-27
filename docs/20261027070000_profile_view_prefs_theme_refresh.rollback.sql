@@ -1,7 +1,8 @@
 begin;
--- 20261027090000_profile_view_prefs_menu_home의 짝 되돌리기. 화면 기억 검사를 menu_layout·home_cards 없이 여덟 칸만 받는 원래 모양(색 열 가지)으로 되돌리고 이번 기록 1행만 지운다.
--- 어떤 프로필이라도 menu_layout 또는 home_cards가 저장돼 있으면 멈춘다. 값을 지우거나 바꿔서 통과시키지 않는다.
--- 그런 경우 먼저 값을 어떻게 할지 명진이 정한 뒤 다시 계획한다(화면은 칸을 못 쓰면 메뉴·홈 순서 기억만 건너뛰므로 급하지 않다).
+-- 20261027070000_profile_view_prefs_theme_refresh의 짝 되돌리기. 화면 기억 검사를 직전 열 가지(olive·navy·terracotta·sand·mugwort·lavender·ink·rose·teal·mustard)를 받는 모양으로 되돌리고 이번 기록 1행만 지운다.
+-- 어떤 프로필이라도 이번에 더한 다섯 가지 색(sky·mint·coral·lemon·red)이 저장돼 있으면 멈춘다. 값을 지우거나 바꿔서 통과시키지 않는다.
+-- 그런 경우 먼저 값을 어떻게 할지 명진이 정한 뒤 다시 계획한다(화면은 칸을 못 쓰면 색 기억만 건너뛰므로 급하지 않다).
+-- 적용 때 기본값(olive)으로 바뀐 theme 값은 이 파일이 되살리지 않는다(데이터 UPDATE는 되돌리기 파일에서 허용되지 않는다). 원래 값은 적용 직전 app_profiles 사본(ops_backup)에 있고, 되살릴지는 명진이 정한다.
 -- 표 권한·정책·함수·다른 칸에는 손대지 않는다.
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
@@ -10,11 +11,11 @@ lock table public.app_profiles in access exclusive mode;
 do $$
 begin
   if (select count(*) from supabase_migrations.schema_migrations
-      where version = '20261027090000' and name = 'profile_view_prefs_menu_home') <> 1 then
-    raise exception 'PROFILE_VIEW_PREFS_MENU_HOME_ROLLBACK_BLOCKED: migration record differs';
+      where version = '20261027070000' and name = 'profile_view_prefs_theme_refresh') <> 1 then
+    raise exception 'PROFILE_VIEW_PREFS_THEME_REFRESH_ROLLBACK_BLOCKED: migration record differs';
   end if;
-  if exists (select 1 from public.app_profiles where view_prefs -> 'menu_layout' is not null or view_prefs -> 'home_cards' is not null) then
-    raise exception 'PROFILE_VIEW_PREFS_MENU_HOME_ROLLBACK_BLOCKED: menu or home key saved; decide it first';
+  if exists (select 1 from public.app_profiles where view_prefs ->> 'theme' in ('sky', 'mint', 'coral', 'lemon', 'red')) then
+    raise exception 'PROFILE_VIEW_PREFS_THEME_REFRESH_ROLLBACK_BLOCKED: refreshed theme saved; decide it first';
   end if;
 end
 $$;
@@ -57,5 +58,5 @@ alter table public.app_profiles
   );
 
 delete from supabase_migrations.schema_migrations
-  where version = '20261027090000' and name = 'profile_view_prefs_menu_home';
+  where version = '20261027070000' and name = 'profile_view_prefs_theme_refresh';
 commit;

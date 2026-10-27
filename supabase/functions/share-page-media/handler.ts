@@ -1,4 +1,4 @@
-// share-page-media: 공유 페이지 사진 올리기·보기 주소·지우기·정리·페이지 완전 삭제(ED-통합편집기 ②, SHARE-사진같이지우기, SHARE-페이지삭제, verify_jwt=true).
+// share-page-media: 공유 페이지 사진 올리기·보기 주소·지우기·정리·휴지통 페이지 완전 삭제(ED-통합편집기 ②, SHARE-사진같이지우기, SHARE-페이지삭제, TRASH-다른삭제, verify_jwt=true).
 // 로그인한 소유자만. 소유 확인은 화면이 보낸 값이 아니라 DB의 owner RLS가 한다(사용자 토큰으로 질의: 내 페이지가 아니면 행이 안 보인다).
 // 사진 파일은 비공개 버킷에만 둔다(서버 키는 저장소 읽기·쓰기에만 쓴다). 위치 정보가 든 JPEG(EXIF·XMP)는 거절한다.
 
@@ -22,8 +22,11 @@ export type MediaDeps = {
   putFile(path: string, bytes: Uint8Array): Promise<boolean>;
   removeFile(path: string): Promise<boolean>;
   signFile(path: string, seconds: number): Promise<string | null>;
-  // SHARE-페이지삭제(완전 삭제): 이 페이지 폴더의 파일 이름(기록 없이 남은 파일까지), 그리고 페이지 행 삭제(owner RLS, 지운 행 수).
+  // SHARE-페이지삭제(완전 삭제): 이 페이지 폴더의 파일 이름(기록 없이 남은 파일까지).
   listFiles(folder: string): Promise<string[] | null>;
+  // TRASH-다른삭제 공유 페이지: 완전 삭제는 휴지통에 있는 페이지만. trashedPage = 호출자(소유자)의 휴지통 목록에 이 페이지가 있는가(DB 함수 app_trash_list),
+  // deletePage = DB 함수 app_trash_purge로 휴지통 페이지 행을 지운다(링크·사진 기록은 cascade, 지운 행 수).
+  trashedPage(token: string, pageId: string): Promise<boolean>;
   deletePage(token: string, pageId: string): Promise<number>;
 };
 export const PURGE_ROUNDS = 5; // 한 번 부를 때 기록을 읽는 횟수(한 번 PRUNE_MAX장). 다 못 지우면 페이지를 남기고 503(다시 누르면 이어서)
@@ -170,13 +173,14 @@ export function createShareMediaHandler(deps: MediaDeps, options: { newId?: () =
         if (failed) log("share_page_media_prune_left");
         return reply({ ok: true, removed, failed }, 200);
       }
-      // SHARE-페이지삭제: 페이지 하나를 되살릴 수 없게 지운다. 사진 파일(비공개 버킷) → 페이지 행(링크·사진 기록은 DB cascade) 순서.
-      // 소유 확인은 사용자 토큰 + owner RLS(남의 페이지는 404, 아무것도 안 지움). 서버 키는 이 페이지 폴더(page_id/)의 파일 지우기에만 쓴다.
+      // SHARE-페이지삭제 + TRASH-다른삭제: 휴지통에 있는 페이지 하나를 되살릴 수 없게 지운다. 사진 파일(비공개 버킷) → 페이지 행(링크·사진 기록은 DB cascade) 순서.
+      // 휴지통에 없는 페이지(살아 있는 페이지·남의 페이지)는 404이고 아무것도 지우지 않는다: 삭제는 먼저 휴지통으로 가고, 영구 삭제는 휴지통에서만 한다.
+      // 소유 확인은 사용자 토큰 + DB 함수(소유자의 휴지통 목록). 서버 키는 이 페이지 폴더(page_id/)의 파일 지우기에만 쓴다.
       // 파일을 하나라도 못 지우면 페이지·기록을 그대로 두고 503: 다시 부르면 남은 것부터 이어서 지운다(따로 "삭제 대기" 칸 없음).
       if (body.action === "purge_page") {
         const pageId = String(body.page_id || "");
         if (!UUID.test(pageId)) return reply({ error: "bad_request" }, 400);
-        if (!(await deps.pageWorkspace(token, pageId))) return reply({ error: "not_found" }, 404);
+        if (!(await deps.trashedPage(token, pageId))) return reply({ error: "not_found" }, 404);
         const folder = `${pageId}/`;
         let failed = 0, removed = 0, rest = false;
         for (let round = 0; round < PURGE_ROUNDS; round++) {

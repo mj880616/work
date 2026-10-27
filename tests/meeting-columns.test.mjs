@@ -2,7 +2,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {assignMeetingColors,meetingPaletteColor,MEETING_PALETTE,meetingColumns,columnsHtml,pickMeeting,resultHtml,resultText,tasksHtml,roundLabel,meetingShortName,cardLead,shortDate,NONE_KEY,fileMoreHtml,meetingFileFile} from '../app/meeting-columns.js';
+import {assignMeetingColors,meetingPaletteColor,MEETING_PALETTE,meetingColumns,columnsHtml,listHtml,pickMeeting,roundLabel,meetingShortName,cardLead,shortDate,NONE_KEY,fileMoreHtml,meetingFileFile} from '../app/meeting-columns.js';
 
 const nameOf=m=>String(m?.series_name||m?.title||'').trim(),keyOf=n=>String(n||'').replace(/\s+/g,'').toLowerCase();
 const row=(name,day,extra={})=>({id:`${name}-${day}`,title:name,series_name:name,round_no:1,meeting_at:`2026-09-${String(day).padStart(2,'0')}T01:00:00Z`,...extra});
@@ -91,23 +91,16 @@ test('PC 3단 배치: 왼쪽 종류 목록(건수) / 가운데 고른 종류의 
   assert.equal(columnsHtml([],{colorOf:()=>'',whenOf:()=>''}),'<div class="empty">사업 보고가 없습니다.</div>');
 });
 
-test('오른쪽 결과(읽기용): 원문 규칙·특이사항·프로젝트·회의자료·후속 할 일, 입력칸 없음, 고치는 곳은 ⋯ 하나',()=>{
-  assert.equal(resultText({transcript_text:'원문'}),'원문');
-  assert.equal(resultText({transcript_text:'',decisions:'옛 결정'}),'[기존 회의결과 기록]\n옛 결정');
-  assert.equal(resultText({}),'');assert.equal(resultText({transcript_text:''}),'');
-  const fileLine=({name,meta,cls,end})=>`<div class="${cls}">${name} ${meta}${end}</div>`;
-  const m={id:'x1',series_name:'가상협의회',title:'옛 제목 <b>',round_no:2,transcript_text:'<script>원문</script>',notes:'가상 특이사항'};
-  const html=resultHtml(m,{when:'2026. 9. 1.',project:'가상 프로젝트',legacyTitle:'옛 제목 <b>',docs:[{id:'d1',title:'가상 안건지',file_name:'가상 안건지.hwp',file_size:20480}],fileLine,tasksHtml:'<ul></ul>'});
-  assert.match(html,/연결 가상 프로젝트/);assert.doesNotMatch(html,/<h3|mcolResultHead|2차/);/* UI-중복제목삭제: 제목·차수 줄은 상단 줄이 보인다 */assert.match(html,/기존 제목: 옛 제목 &lt;b&gt;/);
-  assert.match(html,/&lt;script&gt;원문&lt;\/script&gt;/);assert.doesNotMatch(html,/<script>/);
-  assert.match(html,/가상 특이사항/);assert.match(html,/data-meeting-doc="d1"/);assert.match(html,/20KB/);
-  assert.doesNotMatch(html,/<(input|textarea|select)\b/);
-  assert.equal((html.match(/data-meeting-more=/g)||[]).length,1);
-  const bare=resultHtml({id:'x2',round_no:null},{fileLine});
-  assert.match(bare,/회의자료가 없습니다/);assert.doesNotMatch(bare,/특이사항/);assert.doesNotMatch(bare,/mcolTextHead/);/* MTG-보고창정리: 원문이 비면 원문 칸 자체가 없다 */
-  assert.match(tasksHtml(null),/불러오는 중/);assert.match(tasksHtml('error'),/불러오지 못했습니다/);assert.match(tasksHtml([]),/후속 할 일이 없습니다/);
-  const tasks=tasksHtml([{title:'가상 할 일',status:'needsAction'},{title:'끝난 일',status:'completed'}],{dueOf:t=>t.status==='completed'?'':'10. 25.'});
-  assert.equal((tasks.match(/class="mcol-task( completed)?"/g)||[]).length,2);assert.match(tasks,/completed[^]*끝난 일/);assert.match(tasks,/10\. 25\./);
+// MTG-고치기바로: 오른쪽(세 번째) 칸 안쪽은 이 파일이 그리지 않는다 - 자리(#mcolResult)만 만들고 결과 창 요소 하나를 team.js가 붙인다.
+test('오른쪽 칸은 자리만: 고른 건의 번호가 붙고, 읽기용 본문·⋯·입력칸은 이 파일이 그리지 않는다',()=>{
+  const columns=meetingColumns([row('가상협의회',1,{id:'a1'}),row('가상협의회',2,{id:'a2'})],{nameOf,keyOf});
+  const slot=columnsHtml(columns,{selectedKey:keyOf('가상협의회'),selectedId:'a1',colorOf:()=>'',whenOf:()=>'',resultHtml:()=>'<p data-pending></p>'});
+  assert.match(slot,/<section id="mcolResult"[^>]*data-meeting-result="a1"[^>]*><p data-pending><\/p><\/section>/);
+  const two=listHtml([row('가상협의회',1,{id:'a1'}),row('가상협의회',2,{id:'a2'})],{selectedId:'a2',label:'전체',nameOf,colorOf:()=>'',whenOf:()=>'',resultHtml:()=>'<p data-pending></p>'});
+  assert.match(two,/<section id="mcolResult"[^>]*data-meeting-result="a2"[^>]*><p data-pending><\/p><\/section>/);
+  assert.doesNotMatch(slot+two,/data-meeting-more|data-meeting-doc|mcol-result-head|mcol-tasks|<(input|textarea|select)\b/);
+  const src=readFileSync(new URL('../app/meeting-columns.js',import.meta.url),'utf8');
+  assert.doesNotMatch(src,/export function (resultHtml|tasksHtml|resultText)\b/);
 });
 
 // FILE-사업보고⋯(2026-10-24 명진 결정): 사업 보고 자료 줄에도 담당조직·프로젝트 자료 줄과 같은 ⋯([Drive에서 열기]·[내려받기], file-actions.js).
@@ -115,8 +108,7 @@ test('사업 보고 자료 줄 ⋯: 자료실 자료면 두 항목, 줄 누르�
   const fileLine=({name,cls,end})=>`<div class="file-line ${cls}">${name}${end}</div>`;
   const doc={id:'d1',title:'가상 안건지',file_name:'가상 <안건지>.hwp',mime_type:'application/x-hwp',file_id:'drive-d1',drive_url:'https://drive.google.com/file/d/drive-d1/view'};
   assert.deepEqual(meetingFileFile(doc),{name:'가상 <안건지>.hwp',mime:'application/x-hwp',documentId:'d1',driveId:'drive-d1',driveUrl:'https://drive.google.com/file/d/drive-d1/view'});
-  const html=resultHtml({id:'x1',round_no:1},{docs:[doc],fileLine});
-  assert.match(html,/data-meeting-doc="d1"/);
+  const html=fileMoreHtml(doc);
   assert.match(html,/<details class="file-line-more"><summary class="icon-btn" aria-label="파일 메뉴: 가상 &lt;안건지&gt;.hwp">⋯<\/summary>/);
   assert.match(html,/data-fa-menu="open"[^>]*>Drive에서 열기<\/button><button[^>]*data-fa-menu="download"[^>]*>내려받기<\/button>/);
   assert.match(html,/data-fa-doc="d1"/);assert.match(html,/data-fa-id="drive-d1"/);

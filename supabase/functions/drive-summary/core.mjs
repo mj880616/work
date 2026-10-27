@@ -5,6 +5,7 @@ import {createHtmlBudget} from './html-budget.mjs';
 import { LedgerError, LEDGER_LIMITS, LEDGER_TITLE, readLedger, buildBackup, renderLedgerDocument, ledgerStatus, backupsToTrash, kstDate, backupName } from './ledger-export.mjs';
 import { basketState, prepareBasket, selectBasketOrganizations, BASKET_LIMITS } from './basket.mjs';
 import { runTextBackfill, textBackfillStatus, TextBackfillError, DONE_AT, DONE_COUNT, DISMISSED_AT } from './text-backfill.mjs';
+import { runLibraryPrevPrune, PrevPruneError } from './library-prev-prune.mjs';
 export { basketState, BASKET_LIMITS };
 const WORKSPACE = 'kptu-work';
 const DAY = 86400000, KST = 9 * 3600000, PAGE = 500;
@@ -229,8 +230,8 @@ export function collectorStatus(appProperties) {
 
 // createTextReader(driveToken) → {extract(file)}: index.ts injects _shared/document-text.ts (LIB-글자채우기야간). Without it the
 // nightly text path answers SERVER_CONFIG_MISSING; every other path is unchanged.
-/** @param {{ env: Record<string, string | undefined>, fetcher?: typeof fetch, now?: () => Date, createTextReader?: ((driveToken: () => Promise<string>) => { extract: (file: { fileId: string, name: string, mime: string, size: number | null }) => Promise<{ text: string, source: string, reason: string }> }) | null }} deps */
-export function createHandler({ env, fetcher = fetch, now = () => new Date(), createTextReader = null }) {
+/** @param {{ env: Record<string, string | undefined>, fetcher?: typeof fetch, now?: () => Date, createTextReader?: ((driveToken: () => Promise<string>) => { extract: (file: { fileId: string, name: string, mime: string, size: number | null }) => Promise<{ text: string, source: string, reason: string }> }) | null, driveTrash?: { inspect: (request: typeof fetch, id: string, folder: string, token: string) => Promise<string>, trash: (request: typeof fetch, id: string, folder: string, token: string) => Promise<string> } | null }} deps */
+export function createHandler({ env, fetcher = fetch, now = () => new Date(), createTextReader = null, driveTrash = null }) {
   // No global cached tokens, database state, or caller-selected workspace/Drive IDs.
   async function checked(url, init, code) {
     let response;
@@ -589,6 +590,31 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date(), cr
       return json({ ok: false, error: known ? error.message : 'TEXT_BACKFILL_FAILED' }, known ? error.status : 502);
     }
   }
+  // LIB-이전파일정리: POST ?action=library_prev_prune[&dry_run=1]. The cron secret only (the daily workflow has no user).
+  // Moves the library's replaced "previous files" older than 30 days to the Drive TRASH (never a permanent delete) and hides them from the list;
+  // dry_run=1 only counts (reads Drive metadata, writes nothing). Counts and stage codes only leave the server (library-prev-prune.mjs).
+  async function libraryPrevPrune(req) {
+    try {
+      if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY || !driveTrash || typeof driveTrash.trash !== 'function' || typeof driveTrash.inspect !== 'function') throw new SummaryError('SERVER_CONFIG_MISSING');
+      if (req.headers.get('x-drive-summary-cron-secret') === null) throw new SummaryError('UNAUTHORIZED', 401);
+      const { workspaceId, ownerId } = await authorize(req);
+      if (ownerId) throw new SummaryError('UNAUTHORIZED', 401);
+      const url = new URL(req.url), flag = url.searchParams.get('dry_run');
+      if (flag !== null && flag !== '1') throw new SummaryError('BAD_REQUEST', 400);
+      const settings = await backfillDb.get(`app_drive_settings?workspace_id=eq.${encodeURIComponent(workspaceId)}&select=library_folder_id&limit=1`);
+      const folder = Array.isArray(settings) ? settings[0]?.library_folder_id : null;
+      if (typeof folder !== 'string' || !/^[A-Za-z0-9_-]{1,255}$/.test(folder)) throw new SummaryError('LIBRARY_FOLDER_MISSING', 409);
+      const token = await accessToken();
+      const result = await runLibraryPrevPrune({
+        db: backfillDb, workspaceId, dryRun: flag === '1', now,
+        drive: { inspect: id => driveTrash.inspect(fetcher, id, folder, token), trash: id => driveTrash.trash(fetcher, id, folder, token) },
+      });
+      return json({ ok: true, ...result });
+    } catch (error) {
+      const known = error instanceof SummaryError || error instanceof PrevPruneError;
+      return json({ ok: false, error: known ? error.message : 'LIBRARY_PREV_PRUNE_FAILED' }, known ? error.status : 502);
+    }
+  }
   // POST ?action=text_backfill_dismiss: the home line's ✕. Owner JWT only; records the dismissed time on the copy folder.
   async function textBackfillDismiss(req) {
     try {
@@ -619,6 +645,7 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date(), cr
     if (req.headers.get('x-collector-heartbeat-secret') !== null) return json({ ok: false, error: 'UNAUTHORIZED', updated_at: null, documents: {} }, 401);
     if (actionOf(req) === 'ledger_export') return ledgerExport(req);
     if (actionOf(req) === 'text_backfill') return textBackfill(req);
+    if (actionOf(req) === 'library_prev_prune') return libraryPrevPrune(req);
     if (actionOf(req) === 'text_backfill_dismiss') return textBackfillDismiss(req);
     let token, folder;
     const documents = {};

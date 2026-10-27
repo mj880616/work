@@ -281,9 +281,12 @@ async function openWriter(kind='update'){
     // ED③ 노트: [+ 추가] → [노트] opens the note's new big window (note-window.js: title, [📎 첨부], the new editor). The saved note opens on
     // the basket's [노트] side.
     if(kind==='note'){
-      const [{openNoteWindow},{requestNoteDocOpen}]=await Promise.all([import('./note-window.js'),import('./basket-note-tasks.js'),window.KPTUViewLoader?.prepare?.('basket')]);
+      const [{openNoteWindow},{requestNoteDocOpen},{createNoteFolderPick,lastViewedFolder}]=await Promise.all([import('./note-window.js'),import('./basket-note-tasks.js'),import('./note-folder-pick.js'),window.KPTUViewLoader?.prepare?.('basket')]);
       if(owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return;
-      openNoteWindow({text:'',title:'새 노트',onClose:({saved})=>{
+      // The note window's [폴더 ▾] starts at the folder last viewed on the note screen (server view settings; none seen = 폴더 없음). The chosen
+      // folder is written by the window right after the note is saved.
+      const pick=createNoteFolderPick({initial:lastViewedFolder(),title:'새 노트를 넣을 폴더'});void pick.load();
+      openNoteWindow({text:'',title:'새 노트',noteFolder:{label:pick.label,open:pick.open,get:pick.get,watch:pick.watch,close:pick.close,write:true},onClose:({saved})=>{
         if(saved?.kind!=='note')return;
         requestNoteDocOpen(saved.id);
         const go=()=>window.KPTURouter?.go('basket',{source:'delegated'});
