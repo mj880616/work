@@ -26,6 +26,8 @@ const CLASSIFIED = {
   'basket-files/handler.ts': 'filtered',
   // 일부러 거르지 않음: 휴지통 노트가 되돌아올 수 있으므로 그 첨부 Drive 파일은 계속 보호돼야 한다
   '_shared/basket-file-origin.ts': 'unfiltered-on-purpose',
+  // 일기사진정리: 서버 키로 모든 노트(휴지통 포함)의 첨부 목록을 읽어, 어떤 노트가 쓰는 Drive 사진도 휴지통에 보내지 않는다
+  'basket-files/photo-prune.ts': 'unfiltered-on-purpose',
   // 사용자 토큰(로그인 JWT)으로 읽음: 휴지통 숨김 정책(restrictive)이 자동으로 거른다
   'ai-assist/handler.ts': 'user-token',
   'basket-files/ocr.ts': 'user-token',

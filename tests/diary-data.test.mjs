@@ -139,3 +139,24 @@ test('photo cache: same-owner token refresh keeps object URLs, owner change or s
     assert.equal(revoked.length, 3);
   } finally { URL.revokeObjectURL = realRevoke; }
 });
+
+// JOURNAL-일기사진정리: the Drive original of a photo taken out of a day goes to the Drive trash through basket-files photo-prune.
+function pruneRuntime() { return {session:{ensure:async () => true, read:() => ({access_token:'tok'})}, config:{url:'https://x.invalid', key:'anon'}}; }
+test('pruneDiaryPhotos asks photo-prune with the plain ids and returns the counts', async () => {
+  const m = await mod, calls = [];
+  const fetcher = async (url, init) => { calls.push({url, init}); return new Response(JSON.stringify({ok:true, action:'photo-prune', requested:1, trashed:1, kept:0, failed:0, unknown:0, results:[]}), {status:200}); };
+  assert.deepEqual(await m.pruneDiaryPhotos(['a', 'a'], {rt:pruneRuntime(), fetcher}), {trashed:1, kept:0, failed:0, unknown:0});
+  assert.equal(calls[0].url, 'https://x.invalid/functions/v1/basket-files?action=photo-prune');
+  assert.equal(calls[0].init.method, 'POST'); assert.equal(calls[0].init.headers.Authorization, 'Bearer tok');
+  assert.deepEqual(JSON.parse(calls[0].init.body), {action:'photo-prune', file_ids:['a']});
+});
+test('pruneDiaryPhotos never throws and never sends bad input; an old server or an error means null', async () => {
+  const m = await mod, rt = pruneRuntime();
+  const never = async () => { throw new Error('must not be called'); };
+  assert.equal(await m.pruneDiaryPhotos([], {rt, fetcher:never}), null);
+  assert.equal(await m.pruneDiaryPhotos(['a/b'], {rt, fetcher:never}), null);
+  assert.equal(await m.pruneDiaryPhotos(Array.from({length:21}, (_, i) => 'f' + i), {rt, fetcher:never}), null);
+  assert.equal(await m.pruneDiaryPhotos(['a'], {rt:{...rt, session:{ensure:async () => false, read:() => null}}, fetcher:never}), null);
+  for (const reply of [() => new Response('{"code":"OCR_REQUEST_INVALID"}', {status:400}), () => new Response('x', {status:200}), () => { throw new Error('offline'); },
+    () => new Response(JSON.stringify({ok:true, action:'note-delete'}), {status:200})]) assert.equal(await m.pruneDiaryPhotos(['a'], {rt, fetcher:async () => reply()}), null);
+});

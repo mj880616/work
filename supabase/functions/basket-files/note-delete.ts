@@ -1,6 +1,8 @@
 import type { UploadAdmin, UploadLog } from "../_shared/drive-upload.ts";
 import { createDriveUpload } from "../_shared/drive-upload.ts";
 import type { OcrUser } from "./ocr.ts";
+import { trashDriveFile } from "./drive-trash.ts";
+import type { Trash } from "./drive-trash.ts";
 
 // Basket note delete: move this note's own Drive attachments to the Drive trash
 // (trashed=true, never a permanent DELETE), then delete the note with the
@@ -8,8 +10,6 @@ import type { OcrUser } from "./ocr.ts";
 // deletes app_notes here. OCR temporary documents keep their own cleanup rules.
 const MAX_BODY = 4096;
 const MAX_ATTACHMENTS = 20;
-const DRIVE = "https://www.googleapis.com/drive/v3/files";
-const FOLDER_MIME = "application/vnd.google-apps.folder";
 const uuid = (v: unknown): v is string =>
   typeof v === "string" &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
@@ -24,7 +24,6 @@ const cors = {
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
-type Trash = "trashed" | "failed" | "unknown";
 class DeleteError extends Error {
   status: number;
   code: string;
@@ -82,60 +81,8 @@ export function createNoteDeleteHandler(
       throw new DeleteError(400, "note_delete_invalid");
     }
   }
-  async function drive(url: string, init: RequestInit, token: string) {
-    return await request(url, {
-      ...init,
-      headers: { ...init.headers, Authorization: `Bearer ${token}` },
-      redirect: "error",
-      signal: AbortSignal.timeout(30000),
-    });
-  }
-  // Only a file this app placed in the verified private basket folder is trashed.
-  // A read failure changes nothing, so it is a skipped (failed) file. A PATCH
-  // whose outcome is unclear is reported as unknown and never retried.
-  async function trash(id: string, folder: string, token: string): Promise<Trash> {
-    let meta;
-    try {
-      const r = await drive(
-        `${DRIVE}/${encodeURIComponent(id)}?fields=id,mimeType,ownedByMe,trashed,parents`,
-        {},
-        token,
-      );
-      if (!r.ok) return "failed";
-      meta = await r.json();
-    } catch {
-      return "failed";
-    }
-    if (
-      !meta || meta.id !== id || meta.ownedByMe !== true ||
-      typeof meta.trashed !== "boolean" || meta.mimeType === FOLDER_MIME ||
-      !Array.isArray(meta.parents) || meta.parents.length !== 1 ||
-      meta.parents[0] !== folder
-    ) return "failed";
-    if (meta.trashed) return "trashed";
-    let r: Response;
-    try {
-      r = await drive(
-        `${DRIVE}/${encodeURIComponent(id)}?fields=id,trashed`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ trashed: true }),
-        },
-        token,
-      );
-    } catch {
-      return "unknown";
-    }
-    if (r.status >= 400 && r.status < 500) return "failed";
-    if (!r.ok) return "unknown";
-    try {
-      const d = await r.json();
-      return d?.id === id && d?.trashed === true ? "trashed" : "unknown";
-    } catch {
-      return "unknown";
-    }
-  }
+  const trash = (id: string, folder: string, token: string): Promise<Trash> =>
+    trashDriveFile(request, id, folder, token);
   return async (req: Request, workspace: string, authorization: string) => {
     const counts = { trashed: 0, failed: 0, unknown: 0 };
     let noteId: string | null = null, total = 0, deleteSent = false;
