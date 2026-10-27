@@ -30,7 +30,7 @@ test('PC 1280: ⋯ → [수정]은 세 번째 칸이 그 자리에서 고치는 
   await expect(outsidePopup(page)).toHaveCount(0);
   // 칸 배치: 제목 / 차수 | 짧은 이름 / 일시 / 연결할 곳.
   const box=async sel=>result(page).locator(sel).first().boundingBox();
-  const t=await box('#mrdEditTitle'),r=await box('#mrdEditRound'),n=await box('#mrdEditShortName'),p=await box('#mrdEditPlaces');
+  const t=await box('#mrdEditTitle:visible, #mrdEditNameSelect:visible'),r=await box('#mrdEditRound'),n=await box('#mrdEditShortName'),p=await box('#mrdEditPlaces');
   expect(r.y).toBeGreaterThan(t.y);expect(Math.abs(r.y-n.y)).toBeLessThanOrEqual(2);expect(n.x).toBeGreaterThan(r.x);
   expect(p.y).toBeGreaterThan(r.y);
   // 맨 위 오른쪽 작은 [취소][저장]: 칸 안쪽 오른쪽 끝, 머리 줄 안.

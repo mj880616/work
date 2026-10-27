@@ -341,7 +341,7 @@ async function d6bPrepare(page,source){
 // page than the other dialogs, so each rule's elements are compared in one fixed order (tag, id, class) on both sides.
 const d6bKey=el=>[el.tag,el.id,el.class,el.fontSize,el.color].join('\u0001');
 async function d6bSnapshot(page,selectors=d6bSelectors){
- const rows=await page.evaluate(selectors=>selectors.map((selector,index)=>({line:index+195,elements:[...document.querySelectorAll(selector)].map(el=>{
+ const rows=await page.evaluate(selectors=>selectors.map((selector,index)=>({line:index+195,elements:[...document.querySelectorAll(selector)].filter(el=>!el.closest('#mrdLeave,#mrdLoading')).map(el=>{
   const style=getComputedStyle(el);return {tag:el.tagName,id:el.id,class:el.className,fontSize:style.fontSize,color:style.color};
  })})),selectors);
  for(const row of rows)row.elements.sort((a,b)=>d6bKey(a)<d6bKey(b)?-1:d6bKey(a)>d6bKey(b)?1:0);
@@ -423,6 +423,9 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   for(const [id,memo] of [['eventTaskFiles','#eventDescription'],['gtNewFiles','#gtEditNotes']]){if(!await page.locator('#'+id).count())continue;const html=await page.locator('#'+id).evaluate(el=>el.outerHTML);if(await original.locator(memo).count())await original.locator(memo).evaluate((el,html)=>el.closest('label').insertAdjacentHTML('afterend',html),html)}
   // LIB-수정파일교체: 자료 [수정] 창 맨 위에 파일 줄(현재 파일·[파일 교체]·[이전 파일 ▾]·숨은 파일 칸)이 생겼다. 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다(기존 요소는 하나도 빼지 않는다).
   {const html=await page.locator('#libraryEditFile').evaluate(el=>el.outerHTML);await original.locator('#libraryEditTitle').evaluate((el,html)=>el.closest('label').insertAdjacentHTML('beforebegin',html),html)}
+  // MTG-고치기바로: 사업 보고 창 요소는 PC에서 세 번째 칸에 붙고(불러오는 중 줄·떠나기 확인 줄이 더해졌다) 창으로도 쓰인다. 창으로 떼어 놓은 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
+  await page.evaluate(()=>window.KPTUMeetingRoundDetail?.undock?.());
+  {const html=await page.locator('#meetingRoundDetailModal').evaluate(el=>el.outerHTML);await original.locator('#meetingRoundDetailModal').evaluate((el,html)=>{el.outerHTML=html},html)}
   const before=await d6bSnapshot(original,d6bCurrentSelectors),after=await d6bSnapshot(page,d6bCurrentSelectors);
   // Line 202: main styled #ps3Objective by this rule; the same header line (#ps3Summary) keeps that font size.
   const headerRow=before[d6bSelectors.indexOf(d6bProgressLine)];

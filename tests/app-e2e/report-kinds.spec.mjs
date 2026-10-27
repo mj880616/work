@@ -145,7 +145,7 @@ test('PC 1280: 칸 칩 한 줄 / [회의] 3단, 다른 칸·[전체] 2단(목록
   await expect(page.locator('#meetingList [data-meeting-round="q-1"] .mcol-kind-tag').first()).toHaveText('정책');
   await page.locator('#meetingList [data-meeting-round="x-1"]').click();
   await expect(page.locator('#meetingList #mcolResult')).toHaveAttribute('data-meeting-result','x-1');
-  await expect(page.locator('#meetingList #mcolResult [data-report-kind-label]')).toHaveText('기타 칸');
+  await expect(page.locator('#meetingList #mcolResult #mrdMeta')).toContainText('기타 칸');
   await expect(page.locator('#meetingList [data-meeting-round="x-1"]')).toBeFocused();
   await page.keyboard.press('ArrowUp');await expect(page.locator('#meetingList [data-meeting-round="m-1"]')).toBeFocused();
   await expect(page.locator('#meetingModal')).toBeHidden();

@@ -33,7 +33,7 @@ export async function closeMeetingResult(page){
   const close=page.locator('#mrdClose');
   if(await close.isVisible()){await close.click();return}
   const cancel=page.locator('#mrdCancelEdit');
-  if(await cancel.isVisible())await cancel.click();
+  if(await cancel.isVisible())await cancel.click({timeout:2000}).catch(()=>{});// 저장이 막 끝나 고치는 화면이 닫히는 중일 수 있다
 }
 // MTG-보고창정리: 사업 보고 상세의 [수정]·[칸 바꾸기]·[삭제]는 제목 줄 오른쪽 ⋯ 메뉴 안에 있다. 사람이 하듯 ⋯를 누르고 항목을 누른다.
 export async function mrdMenu(page,action){

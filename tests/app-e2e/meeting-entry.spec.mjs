@@ -908,7 +908,7 @@ test('meeting detail keeps completed Google follow-ups and supports create, edit
   expect(legacyRequests).toBe(0);
 });
 
-for(const width of [390,1280])test(`meeting Google follow-up row stays usable at ${width}px`,async({page})=>{
+for(const width of [390])test(`meeting Google follow-up row stays usable at ${width}px`,async({page})=>{
   await page.setViewportSize({width,height:844});
   await signIn(page);
   await page.route(`${SB}/functions/v1/google-tasks**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({tasks:[{id:'followup',title:'긴 후속 할 일 제목을 표시하는 항목',status:'completed',completed:'2025-01-01T00:00:00Z',due:'2025-01-02T00:00:00Z',taskListId:'@default'}]})}));

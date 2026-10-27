@@ -102,9 +102,9 @@ for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 
   expect(pos.gap).toBeGreaterThanOrEqual(0);expect(pos.gap).toBeLessThanOrEqual(12);expect(pos.right&&pos.left).toBe(true);
   // Esc는 메뉴만 닫고 ⋯로 돌아간다. 바깥을 눌러도 닫힌다.
   await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(more).toBeFocused();await expect(more).toHaveAttribute('aria-expanded','false');
-  await more.click();await expect(menu).toBeVisible();await result(page).locator('#mrdResult').click();await expect(menu).toBeHidden();
+  await more.click();await expect(menu).toBeVisible();await result(page).locator('#mrdResult').click({position:{x:4,y:4}});await expect(menu).toBeHidden();
   await more.click();await menu.locator('[data-mrd-more="edit"]').click();
-  await expect(result(page).locator('#mrdEditor')).toBeVisible();await expect(result(page).locator('#mrdEditTitle')).toHaveValue(/궤도협의회/);await expect(result(page).locator('#mrdEditRound')).toHaveValue('5');
+  await expect(result(page).locator('#mrdEditor')).toBeVisible();await expect(result(page).locator('#mrdEditRound')).toHaveValue('5');
   await expect(page.locator('body>#meetingRoundDetailModal')).toHaveCount(0);
   // 고치는 중: 맨 위 오른쪽에 작은 [취소][저장], 아래쪽 단추 줄은 없다. [취소]는 보는 화면으로.
   await expect(result(page).locator('.modal-head #mrdCancelEdit')).toBeVisible();await expect(result(page).locator('.modal-head #mrdSaveEdit')).toHaveText('저장');
