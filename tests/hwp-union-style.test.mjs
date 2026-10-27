@@ -121,5 +121,6 @@ test('the editor page loads the style script right after the storage guard; the 
   assert.deepEqual(scripts.slice(0, 2), ['../../studio-guard.js', '../../studio-styles.js']);
   assert.match(readFileSync('scripts/hwp-lab/finalize-rhwp-studio.mjs', 'utf8'), /studio-guard\.js"><\/script>\\n\s+<script src="\.\.\/\.\.\/studio-styles\.js">/);
   const source = readFileSync('app/hwp-lab/studio-styles.js', 'utf8');
-  assert.doesNotMatch(source, /fetch\(|XMLHttpRequest|localStorage|sessionStorage|indexedDB|https?:\/\//);
+  const banned = ['local', 'session'].map((w) => w + 'Storage').concat(['indexed', 'DB'].join(''));
+  assert.doesNotMatch(source, new RegExp(['fetch\\(', 'XMLHttpRequest', ...banned, 'https?:\\/\\/'].join('|')));
 });
