@@ -3,7 +3,7 @@ import {renderFilterChips} from './filter-chips.js';
 import {defaultReportAt} from './report-default-at.mjs';
 import {formatMeetingTime,toMeetingISO,seoulParts,seoulDate,seoulDateKey,seoulClock} from './meeting-time.js';
 import './time-input.js';
-import {bindDropTarget} from './meeting-compact.js';
+import {fileLine,bindDropTarget} from './meeting-compact.js';
 import {isPhotoFile} from './activity-photo-model.mjs'; // ACT-사진 3단계: 사진 줄 (그림 판단은 자료실과 같은 함수 하나)
 import {paintLocalPhotos} from './report-photo-row.js';
 import {viewPrefs} from './view-prefs.js'; // ACT-사진 6단계: 사업 보고 [목록|달력|사진] 보기 선택은 서버(report_view)에 기억
