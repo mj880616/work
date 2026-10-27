@@ -1,6 +1,6 @@
 import {viewPrefs,THEMES,DEFAULT_THEME} from './view-prefs.js';
 import {repaintMobileTabs} from './mobile-tab-selection.mjs';
-import {midKeys,pcSplit,itemOf} from './menu-model.mjs';
+import {midKeys,pcSplit,itemOf,isDefaultLayout} from './menu-model.mjs';
 import './menu-layout.js';
 (()=>{
 'use strict';
@@ -97,9 +97,14 @@ function syncMenuLocation(){
 const pcFocusTarget=()=>[appNav.querySelector('.nav-btn.active'),appNav.querySelector('.sidebar-brand.active'),...midItems,appNav.querySelector('.sidebar-brand')].find(el=>el?.getClientRects().length);
 // PC 왼쪽 메뉴: 하단바 칸 메뉴가 위, 나머지가 그 아래 같은 순서. 정리함·일정은 아래 작은 메뉴(.nav-sub)와 한 덩어리로 옮긴다.
 // 맨 끝에 이어진 통화·텔레그램은 처음처럼 빈 공간 아래에 붙고, 그 위로 옮기면 보통 줄이 된다. 한 줄 메뉴 중에는 건드리지 않는다(나올 때 다시 맞춘다).
+let sidebarMoved=false;
 function placeSidebar(){
   if(midActive||!appNav)return;
-  const {main,tail}=pcSplit(window.KPTUMenuLayout?.current?.());
+  const layout=window.KPTUMenuLayout?.current?.();
+  // 한 번도 바꾸지 않았으면 index.html의 처음 모양을 그대로 둔다(다시 끼우지 않음).
+  if(!sidebarMoved&&(!layout||isDefaultLayout(layout)))return;
+  sidebarMoved=true;
+  const {main,tail}=pcSplit(layout);
   const spacer=appNav.querySelector('.sidebar-spacer'),links=appNav.querySelector('.nav-quick-links');
   const unit=id=>{
     const head=buttonByKey.get(id);if(!head)return [];
