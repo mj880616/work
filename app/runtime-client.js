@@ -13,12 +13,13 @@
   const getFlights=new Map();
 
   class RuntimeError extends Error{
-    constructor(message,{status=0,code='request_failed',retryable=false,cause=null}={}){
+    constructor(message,{status=0,code='request_failed',retryable=false,cause=null,retryAfter=null}={}){
       super(message);
       this.name='KPTURuntimeError';
       this.status=status;
       this.code=code;
       this.retryable=retryable;
+      if(retryAfter!==null)this.retryAfter=retryAfter;
       if(cause)this.cause=cause;
     }
   }
@@ -238,7 +239,8 @@
       throw new RuntimeError(responseMessage(data,r.status),{
         status:r.status,
         code:'http_'+r.status,
-        retryable:retryableStatus(r.status)
+        retryable:retryableStatus(r.status),
+        retryAfter:Number.isFinite(data?.retry_after)?data.retry_after:null
       });
     }
     // Publish only successful write metadata, never source text or response content.

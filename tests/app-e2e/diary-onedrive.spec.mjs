@@ -10,7 +10,7 @@ const photo = (id, hour) => ({ id, name: id + '.jpg', taken_at: `2026-10-12T${St
 async function fixture(page, { width = 390, status = { configured: true, connected: true, folder: { name: '카메라' }, can_delete: true }, days = null } = {}) {
   const state = {
     days: days || { '2026-10-12': ['A1', 'A2', 'A3', 'A4', 'A5', 'A6'].map((id, i) => photo(id, i + 1)) },
-    stars: [], edge: [], starWrites: [], photoReads: [], status: { ...status }, errors: [],
+    stars: [], edge: [], syncPlan: [], tree: null, toggles: [], starWrites: [], photoReads: [], status: { ...status }, errors: [],
   };
   page.on('pageerror', e => state.errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) state.errors.push(m.text()); });
@@ -45,6 +45,9 @@ async function fixture(page, { width = 390, status = { configured: true, connect
     }
     if (body.action === 'auth-start') return r.fulfill({ json: { url: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize?state=s.t' } });
     if (body.action === 'auth-finish') { state.status = { configured: true, connected: true, folder: null, can_delete: true }; return r.fulfill({ json: { connected: true } }); }
+    if (body.action === 'sync') { const next = state.syncPlan.shift(); if (next && next.status) return r.fulfill({ status: next.status, json: next.json }); return r.fulfill({ json: next || { more: false, indexing: false } }); }
+    if (body.action === 'folders-tree') return r.fulfill({ json: state.tree || { top: { id: 'T', name: '카메라', count: 4, total: 9 }, folders: [], indexing: false } });
+    if (body.action === 'folder-toggle') { state.toggles.push(body); const f = state.tree.folders.find(x => x.id === body.folder_id); if (f) f.enabled = body.enabled; return r.fulfill({ json: { folder: { id: body.folder_id, enabled: body.enabled } } }); }
     if (body.action === 'folders') return r.fulfill({ json: { folders: body.parent_id ? [{ id: 'F3', name: '2026' }] : [{ id: 'F1', name: '사진' }, { id: 'F2', name: '문서' }] } });
     if (body.action === 'folder-set') { state.status = { configured: true, connected: true, folder: { name: '사진' }, can_delete: true }; return r.fulfill({ json: { folder: { name: '사진' } } }); }
     if (body.action === 'disconnect') { state.status = { configured: true, connected: false, folder: null, can_delete: false }; return r.fulfill({ json: { connected: false } }); }
@@ -187,4 +190,85 @@ test('원드라이브 준비가 안 된 서버에서는 연결 줄이 없고 일
   await expect(page.locator('#diaryRoot [data-diary-detail] [data-diary-source]')).toHaveCount(0);
   expect(f.edge.map(b => b.action)).toEqual(['status']);
   expect(f.errors).toEqual([]);
+});
+
+const TREE = () => ({
+  top: { id: 'T', name: '카메라', count: 4, total: 30 },
+  folders: [
+    { id: 'A', name: '봄', parent_id: 'T', enabled: true, count: 5, total: 12 },
+    { id: 'A1', name: '봄 여행', parent_id: 'A', enabled: true, count: 7, total: 7 },
+    { id: 'B', name: '여름', parent_id: 'T', enabled: true, count: 14, total: 14 },
+  ],
+  indexing: false,
+});
+for (const width of [390, 1280]) {
+  test(`설정 창: 하위 폴더 스위치를 펼치고 끈 뒤 [저장]하면 바뀐 폴더만 보내고 달 사진을 다시 읽는다. [취소]·뒤로가기는 보내지 않는다 ${width}`, async ({ page }) => {
+    const f = await fixture(page, { width });
+    f.tree = TREE();
+    await openDiary(page, width);
+    const panel = page.locator('#diaryRoot [data-diary-od]');
+    await panel.getByRole('button', { name: '설정' }).click();
+    const sheet = panel.locator('[data-od-modal] [role="dialog"]');
+    await expect(sheet).toBeVisible();
+    await expect(sheet).toContainText('원드라이브 · 카메라');
+    await expect(sheet).toContainText('켠 폴더의 사진만 달력에 보여요. 하위 폴더도 함께 읽어요.');
+    await expect(sheet.getByRole('button', { name: '위 폴더 바꾸기' })).toBeVisible();
+    await expect(sheet.locator('.diary-od-toprow')).toHaveText('카메라 (이 폴더 바로 안)4장');
+    const rows = sheet.locator('.diary-od-row');
+    await expect(rows).toHaveCount(2);
+    await expect(sheet.locator('[role="switch"][aria-checked="true"]')).toHaveCount(2);
+    // 팝업이 하단바에 가리지 않는다.
+    const box = await sheet.boundingBox(), tabs = await page.locator('.mobile-tabs').boundingBox().catch(() => null);
+    if (width <= 760 && tabs) expect(box.y + box.height).toBeLessThanOrEqual(tabs.y + 1);
+    // ▸ 펼치면 하위 폴더가 들여쓰기로 나온다.
+    await sheet.getByRole('button', { name: '봄 하위 폴더' }).click();
+    await expect(rows).toHaveCount(3);
+    await expect(rows.nth(1)).toHaveAttribute('data-depth', '1');
+    // 상위를 끄면 하위는 흐려진다.
+    await sheet.getByRole('switch', { name: '봄 사진 보기' }).click();
+    await expect(rows.nth(1)).toHaveClass(/is-dim/);
+    await sheet.getByRole('switch', { name: '봄 여행 사진 보기' }).click();
+    // 취소: 아무것도 보내지 않는다.
+    await sheet.getByRole('button', { name: '취소' }).click();
+    await expect(sheet).toHaveCount(0);
+    expect(f.toggles).toEqual([]);
+    // 뒤로가기도 창 닫기.
+    await panel.getByRole('button', { name: '설정' }).click();
+    await expect(sheet).toBeVisible();
+    await page.goBack();
+    await expect(sheet).toHaveCount(0);
+    // 저장: 바뀐 것만.
+    await panel.getByRole('button', { name: '설정' }).click();
+    await sheet.getByRole('button', { name: '봄 하위 폴더' }).click();
+    await sheet.getByRole('switch', { name: '봄 여행 사진 보기' }).click();
+    await sheet.getByRole('switch', { name: '여름 사진 보기' }).click();
+    await sheet.getByRole('switch', { name: '여름 사진 보기' }).click();
+    const before = f.edge.filter(b => b.action === 'photos').length;
+    await sheet.getByRole('button', { name: '저장' }).click();
+    await expect(sheet).toHaveCount(0);
+    expect(f.toggles).toEqual([{ action: 'folder-toggle', folder_id: 'A1', enabled: false }]);
+    await expect.poll(() => f.edge.filter(b => b.action === 'photos').length).toBeGreaterThan(before);
+    expect(f.errors).toEqual([]);
+  });
+}
+
+test('사진 목록 받는 중: 429면 retry_after초 뒤, 409면 몇 초 뒤 다시 부르고 more:false에서 멈춘다. 화면을 떠나면 반복이 멈춘다', async ({ page }) => {
+  const f = await fixture(page, { width: 390 });
+  f.tree = TREE();
+  f.syncPlan = [{ more: true, indexing: true }, { status: 429, json: { error: 'onedrive_throttled', retry_after: 1 } }, { more: true, indexing: true }, { more: false, indexing: false }];
+  await openDiary(page, 390);
+  const panel = page.locator('#diaryRoot [data-diary-od]');
+  await expect(panel.locator('[data-od-sync]')).toContainText('사진 목록 받는 중…');
+  await expect(panel.locator('[data-od-sync]')).toContainText('30장');
+  await expect(panel.locator('[data-od-sync]')).toHaveCount(0, { timeout: 15000 });
+  expect(f.edge.filter(b => b.action === 'sync')).toHaveLength(4);
+  expect(f.errors).toEqual([]);
+});
+
+test('사진 목록 받기를 알 수 없는 오류가 막으면 알려진 문구로 보이고 반복하지 않는다', async ({ page }) => {
+  const f = await fixture(page, { width: 390 });
+  f.syncPlan = [{ status: 424, json: { error: 'onedrive_auth_expired' } }];
+  await openDiary(page, 390);
+  await expect(page.locator('#diaryRoot [data-diary-od]')).toContainText('원드라이브 연결이 풀렸어요. 다시 연결해 주세요.');
+  expect(f.edge.filter(b => b.action === 'sync')).toHaveLength(1);
 });
