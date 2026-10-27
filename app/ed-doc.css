@@ -137,7 +137,7 @@
 .ed-suggest{display:flex;align-items:center;gap:6px;padding:0 8px;min-height:var(--kptu-touch-target,44px);border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
 .ed-suggest [data-ed-convert]{border-color:var(--kptu-primary);color:var(--kptu-primary-ink)}
 .ed-box{flex:1 1 auto;min-height:0}
-.ed-input{min-height:12em;padding:16px 18px 40vh;outline:none;caret-color:var(--kptu-ink);white-space:pre-wrap}
+.ed-input{min-height:12em;padding:16px 18px 56px;outline:none;caret-color:var(--kptu-ink);white-space:pre-wrap}
 .ed-input:focus-visible{outline:none}
 .ed-editor[data-ed-empty] .ed-input[data-placeholder]::before{content:attr(data-placeholder);position:absolute;color:var(--kptu-faint);pointer-events:none}
 .ed-input .ed-photo.ProseMirror-selectednode{outline:2px solid var(--kptu-primary);outline-offset:2px}
@@ -185,7 +185,7 @@
 .ProseMirror [draggable][contenteditable=false]{user-select:text}
 .ProseMirror-selectednode{outline:2px solid var(--kptu-primary)}
 .ProseMirror-gapcursor{display:none}
-@media(min-width:761px){.ed-input{padding:22px 28px 30vh}}
+@media(min-width:761px){.ed-input{padding:22px 28px 56px}}
 @media(max-width:760px){.ed-tools{scrollbar-width:none}.ed-tools::-webkit-scrollbar{display:none}}
 /* ED-서식줄묶음(폰 760px 이하): 서식 줄을 한 줄에 맞추려고 묶음 버튼(글자·문단·넣기·기호 ▾)으로 줄인다. 버튼 높이 28px·누르는 범위 44px 그대로,
    안쪽 여백만 줄인다. 묶음 안 버튼은 세로 목록(.ed-group-menu)에 같은 버튼이 옮겨 가 있고, 그 목록은 다른 펼침 상자(.ed-pop)와 같은 모양이다. */
