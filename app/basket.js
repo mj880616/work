@@ -362,7 +362,7 @@ let kind='memo',pane='update';
 root.dataset.kind=kind;root.dataset.pane=pane;
 const switchRow=root.querySelector('.basket-switch-row');
 // UI-일기손질 ⑥: the [메모 | 노트] row and the list head have one painter. They show only while a list is on screen;
-// an open memo or note draws its own "‹ 바구니"/"‹ 노트" head in that place instead.
+// an open memo or note draws its own "‹ 바구니" head (a note: its title and ⋯, no back button) in that place instead.
 // BASKET-드롭제목: a memo's title is its first line; a memo with only files is titled by its first file (a name cut by the old upload reader shows cleaned,
 // and one with nothing left is just "파일"/"사진", attachment-name.mjs). The list row and the PC top line (UI-상단줄제목) use this one function.
 const memoLines=note=>String(note.raw_text||'').split(/\r?\n/).map(line=>line.trim()).filter(Boolean);

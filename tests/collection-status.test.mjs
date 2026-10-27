@@ -112,13 +112,15 @@ test('judgeCollector: telegram 26h, call 72h, signal older than 3h is silent, no
   assert.equal(j('call', null), 'never');
   assert.deepEqual(mod.STALE_HOURS, {copy:24, radar:48, telegram:26, call:72});
 });
-test('render: collector lines show time, 24h count for calls, and warnings; old function keeps 확인 불가', () => {
-  const collectors = mod.collectorsFromStatus({ok:true, collectors:{telegram:beat(30), transcript:beat(2, 0.5, 5)}});
+test('render: collector lines show time, 24h count for calls and telegram, and warnings; old function keeps 확인 불가', () => {
+  const collectors = mod.collectorsFromStatus({ok:true, collectors:{telegram:beat(30, 0.5, 4), transcript:beat(2, 0.5, 5)}});
   const html = mod.renderRows({copy:null, radar:null, collectors}, now);
   assert.match(html, /data-collect="telegram" data-collect-state="quiet"[^]*조용함/);
   assert.doesNotMatch(html, /collect-warn/);
   assert.match(html, /data-collect="call" data-collect-state="ok"><span class="collect-name"><span class="collect-label">통화 녹음 전사<\/span><\/span><span class="collect-count">24시간 5건<\/span><span class="collect-value">마지막 [^<]+<\/span>/);
-  assert.match(html, /data-collect="telegram" data-collect-state="quiet"[^]*<span class="collect-count"><\/span><span class="collect-value">마지막 /, 'telegram has an empty count cell, time stays last');
+  assert.match(html, /data-collect="telegram" data-collect-state="quiet"[^]*<span class="collect-count">24시간 4건<\/span><span class="collect-value">마지막 /, 'telegram shows its 24h count, time stays last');
+  const noCount = mod.renderRows({copy:null, radar:null, collectors:mod.collectorsFromStatus({ok:true, collectors:{telegram:beat(30), transcript:beat(2, 0.5, 5)}})}, now);
+  assert.match(noCount, /data-collect="telegram" data-collect-state="quiet"[^]*<span class="collect-count"><\/span><span class="collect-value">마지막 /, 'no count from the signal leaves the cell empty');
   assert.doesNotMatch(html, /확인 불가/);
   const silent = mod.renderRows({copy:null, radar:null, collectors:{telegram:null, transcript:mod.collectorsFromStatus({ok:true, collectors:{transcript:beat(1, 5)}}).transcript}}, now);
   assert.match(silent, /data-collect="telegram" data-collect-state="never"[^]*점검 신호 없음/);

@@ -3,6 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { noteMenuAction } from './helpers/note-menu.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
+import { closeNote } from './helpers/note-close.mjs';
 // UI-상단줄제목(1차 = 노트): on a PC (1024px~) the open note's title goes to the top line's place ("바구니 › 노트 › 제목") through
 // kptu:where-item (same signal and renderer as 담당조직); closing the note or leaving the screen clears it; a title edit updates it;
 // the note's head has no title line of its own there (the title input in the edit view stays). 390 keeps the head title and no top line.
@@ -42,7 +43,7 @@ for (const width of [1280, 1440]) test(`PC ${width}: 노트를 열면 상단 줄
   // The title appears nowhere else above the body: no title element in the head; back · copy · ⋯ stay.
   await expect(detail.locator('[data-note-read-title]')).toHaveCount(0);
   await expect(detail.locator('.note-head-title')).toHaveCount(0);
-  await expect(detail.locator('[data-note-close]')).toBeVisible();
+  await expect(detail.locator('[data-note-close]')).toHaveCount(0);
   await expect(detail.locator('[data-note-more]')).toBeVisible();
   const dbox = await detail.boundingBox(), more = await detail.locator('[data-note-more]').boundingBox();
   expect(more.x + more.width).toBeGreaterThan(dbox.x + dbox.width - 8);
@@ -63,7 +64,7 @@ for (const width of [1280, 1440]) test(`PC ${width}: 노트를 열면 상단 줄
   // Close: the place drops the title.
   await page.locator('[data-note-row="n-a"]').click();
   await expect(where(page).locator('[aria-current="page"]')).toHaveText('합성 회의 준비 메모 v2');
-  await detail.locator('[data-note-close]').click();
+  await closeNote(page);
   await expect(where(page).locator('li')).toHaveText(['노트']);
   // A long title: one line with an ellipsis, the whole title on hover, the line does not wrap or grow.
   await page.locator('[data-note-row="n-b"]').click();
@@ -84,7 +85,8 @@ test('390: 폰은 그대로 - 상단 줄 없음, 머리줄에 제목이 남는�
   const detail = page.locator('[data-note-detail]');
   await expect(detail.locator('[data-note-read-title]')).toHaveText('합성 회의 준비 메모');
   await expect(page.locator('.app-topline')).toBeHidden();
-  const [back, title, more] = await Promise.all(['[data-note-close]', '[data-note-read-title]', '[data-note-more]'].map(s => detail.locator(s).boundingBox()));
-  expect(back.x + back.width).toBeLessThanOrEqual(title.x + 1); expect(title.x + title.width).toBeLessThanOrEqual(more.x + 1);
+  await expect(detail.locator('[data-note-close]')).toHaveCount(0);
+  const [title, more] = await Promise.all(['[data-note-read-title]', '[data-note-more]'].map(s => detail.locator(s).boundingBox()));
+  expect(title.x + title.width).toBeLessThanOrEqual(more.x + 1);
   expect(f.errors).toEqual([]);
 });
