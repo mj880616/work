@@ -13,7 +13,7 @@ import {trackPool,closePool} from './pg-close.mjs';
 import {fixture,OWNER,STRANGER,WS_A} from './basket4-fixture.mjs';
 import {prepareMigration} from '../../scripts/ops/db-migration-plan.mjs';
 import {runMigrationPlan} from '../../scripts/ops/db-migration-run.mjs';
-const version='20261027090000',name='profile_view_prefs_menu_home',stem=version+'_'+name;
+const version='20261028020000',name='profile_view_prefs_menu_home',stem=version+'_'+name;
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8');
 const root=new URL('../../',import.meta.url).pathname;
 const OUTSIDER='20000000-0000-4000-8000-000000000003';
@@ -59,10 +59,11 @@ test('view prefs menu/home: dry-run, apply, own-row writes, CHECK and guarded ro
   await cluster.initialise();await cluster.start();pool=trackPool(new pg.Pool({host:'127.0.0.1',port,user:'postgres',password,database:'postgres',ssl:false}));
   await pool.query(fixture);
   await pool.query(prerequisites);
-  // The earlier migrations (view_prefs column + seven-key CHECK, report_view, ten themes) are applied from the repository files as they were.
+  // The earlier migrations (view_prefs column + seven-key CHECK, report_view, ten themes, refreshed ten themes) are applied from the repository files as they were.
   await pool.query(await read('supabase/migrations/20261023180000_profile_view_prefs.sql'));
   await pool.query(await read('supabase/migrations/20261027020000_profile_view_prefs_report_view.sql'));
   await pool.query(await read('supabase/migrations/20261027040000_profile_view_prefs_theme10.sql'));
+  await pool.query(await read('supabase/migrations/20261027070000_profile_view_prefs_theme_refresh.sql'));
   const rollbackSQL=await read('docs/'+stem+'.rollback.sql'),snapshot=await read('docs/'+stem+'.snapshot.sql');
   const precheck=await read('docs/'+stem+'.precheck.sql'),postcheck=await read('docs/'+stem+'.postcheck.sql');
   const query=async(sql,options={})=>{const c=await pool.connect();try{if(options.readOnly)await c.query('begin read only');const r=await c.query(sql);if(options.readOnly)await c.query('commit');return Array.isArray(r)?[]:r.rows;}catch(e){await c.query('rollback');throw e;}finally{c.release();}};
@@ -73,7 +74,7 @@ test('view prefs menu/home: dry-run, apply, own-row writes, CHECK and guarded ro
   const write=(sub,user,value)=>as('authenticated',sub,c=>c.query('update public.app_profiles set view_prefs=$1::jsonb where user_id=$2',[value===null?null:JSON.stringify(value),user]));
   const saved_=async user=>(await pool.query('select view_prefs from public.app_profiles where user_id=$1',[user])).rows[0].view_prefs;
   const before=(await pool.query(snapshot)).rows,beforeCheck=(await pool.query(precheck)).rows;
-  const base={theme:'mustard',nav_collapsed:true,calendar_view:'week',home_quick_mode:'task',note_folder:'f:회의 자료',split_ratio:{tasks:0.4,reports:0.25},collect_hidden_on:'2026-10-27',report_view:'photo'};
+  const base={theme:'lemon',nav_collapsed:true,calendar_view:'week',home_quick_mode:'task',note_folder:'f:회의 자료',split_ratio:{tasks:0.4,reports:0.25},collect_hidden_on:'2026-10-27',report_view:'photo'};
   const MENU={menu_layout:{bar:['home','basket','calendar','projects','team'],rest:['note','meetings','library','hwp','pages','ledger','calls','telegram']}};
   const HOME={home_cards:['today-events','todo','radar','recent-calls']};
 

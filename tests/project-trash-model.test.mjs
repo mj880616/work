@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 import {
   TRASH_STATE, TRASH_TEXT, classifyTrashError, classifyTrashList, normalizeTrashRows,
   deleteDialogText, trashErrorText, purgeConfirmText, archiveButtonLabel, firstArchiveTab,
-  TRASH_KINDS, noteKindWord, mergeTrashStates, otherDeleteText, otherDeleteBlockedText, restoredText, parentFirstText, missingOrganizationLabel,
+  TRASH_KINDS, noteKindWord, sharePrevWord, mergeTrashStates, otherDeleteText, otherDeleteBlockedText, restoredText, parentFirstText, missingOrganizationLabel,
 } from '../app/project-trash-model.mjs';
 
 test('함수가 없을 때(404·PGRST202)는 missing, 그 밖의 실패는 failed', () => {
@@ -123,7 +123,7 @@ test('종류별 줄 정리: 담당조직·사업 보고 이름, 종류 걸러내
     {kind: 'library_folder', id: 'f1', name: ' 합성 폴더 ', project_name: '합성 사업', child_count: 2, file_count: 3, deleted_at: '2026-10-25T05:00:00Z'},
     {kind: 'other', id: 'x1', name: '모르는 종류'},
   ];
-  assert.deepEqual(TRASH_KINDS, ['project', 'organization', 'report', 'library_folder', 'note']);
+  assert.deepEqual(TRASH_KINDS, ['project', 'organization', 'report', 'library_folder', 'note', 'share_page']);
   assert.deepEqual(normalizeTrashRows(data, 'library_folder').map((r) => [r.id, r.name, r.kind, r.project_name, r.child_count, r.file_count]), [['f1', '합성 폴더', 'library_folder', '합성 사업', 2, 3]]);
   assert.deepEqual(normalizeTrashRows(data, 'organization').map((r) => [r.id, r.name, r.kind]), [['o1', '합성 조직', 'organization']]);
   const reports = normalizeTrashRows(data, 'report');
@@ -242,4 +242,40 @@ test('노트 종류: 확인창은 첨부 Drive 파일이 남고 연결이 이어
   assert.match(purge, /연결 2곳도 함께 지워지고/);
   assert.match(purge, /첨부 파일 1개는 Drive에 그대로 남습니다/);
   assert.equal(restoredText('note'), '글을 되돌렸습니다.');
+});
+
+// ---- TRASH-다른삭제 공유 페이지 ----
+test('공유 페이지 종류: 줄 이름은 제목(없으면 안내 이름)이고 넣기 전 상태·링크·사진 수를 싣는다', () => {
+  const data = [
+    {kind: 'share_page', id: 's1', title: ' 교섭 현황 ', prev_status: 'published', file_count: 3, link_count: 2, deleted_at: '2026-10-27T05:00:00Z'},
+    {kind: 'share_page', id: 's2', title: '', prev_status: 'draft', deleted_at: '2026-10-27T04:00:00Z'},
+    {kind: 'share_page', id: 's3', title: '보관했던 것', prev_status: 'weird', deleted_at: '2026-10-27T03:00:00Z'},
+    {kind: 'project', id: 'p1', name: '합성 사업', deleted_at: '2026-10-20T01:00:00Z'},
+  ];
+  const rows = normalizeTrashRows(data, 'share_page');
+  assert.deepEqual(rows.map((r) => [r.id, r.name, r.prev_status, r.file_count, r.link_count]), [
+    ['s1', '교섭 현황', 'published', 3, 2], ['s2', '제목 없음', 'draft', 0, 0], ['s3', '보관했던 것', '', 0, 0],
+  ]);
+  assert.deepEqual(normalizeTrashRows(data).map((r) => r.id), ['p1'], '종류를 안 주면 프로젝트만');
+  assert.equal(sharePrevWord('published'), '게시 중이던 페이지');
+  assert.equal(sharePrevWord('archived'), '보관함에 있던 페이지');
+  assert.equal(sharePrevWord('draft'), '초안');
+  assert.equal(sharePrevWord(''), '');
+});
+
+test('공유 페이지 종류: DB 적용 전이면 준비 중이고, 확인창은 링크 멈춤·되돌리면 같은 링크가 열림을 말하며, 영구 삭제는 되돌릴 수 없다고 말한다', () => {
+  assert.equal(classifyTrashError({status: 400, code: '22023', message: 'TRASH_KIND_UNKNOWN'}, 'share_page'), TRASH_STATE.MISSING);
+  assert.equal(otherDeleteBlockedText('share_page', TRASH_STATE.MISSING), '공유 페이지 휴지통은 준비 중입니다. 준비가 끝나기 전에는 삭제할 수 없습니다.');
+  const live = otherDeleteText('share_page', '교섭 현황', {status: 'published'});
+  assert.match(live.confirm, /“교섭 현황” 공유 페이지를 휴지통으로 옮길까요/);
+  assert.match(live.confirm, /링크·사진은 지워지지 않습니다/);
+  assert.match(live.confirm, /같은 링크가 다시 열립니다/);
+  assert.equal(live.moved, '공유 페이지를 휴지통으로 옮겼어요.');
+  const draft = otherDeleteText('share_page', '메모', {status: 'draft'});
+  assert.doesNotMatch(draft.confirm, /링크로 보던/);
+  assert.match(draft.confirm, /휴지통에서 되돌릴 수 있습니다/);
+  const purge = purgeConfirmText({kind: 'share_page', name: '교섭 현황', file_count: 3, link_count: 1});
+  assert.match(purge, /“교섭 현황” 공유 페이지를 영구 삭제할까요/);
+  assert.match(purge, /사진 3장이 모두 지워지고 되돌릴 수 없습니다/);
+  assert.equal(restoredText('share_page'), '공유 페이지를 되돌렸습니다.');
 });

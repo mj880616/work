@@ -11,6 +11,7 @@ async function installAll(page){
 // opener (no history entry, no data load), and returns how it looks before and after scrolling the card to the end.
 async function measure(page,id,{edit=false}={}){
  return page.evaluate(({id,edit})=>{
+  if(id==='meetingRoundDetailModal')window.KPTUMeetingRoundDetail?.undock?.();// PC에서는 세 번째 칸에 붙어 있다 - 창으로 떼어 놓고 잰다
   const m=document.getElementById(id);if(!m)return null;
   m.classList.remove('hidden');m.setAttribute('aria-hidden','false');
   if(edit){document.querySelector('#mrdView')?.classList.add('hidden');document.querySelector('#mrdEditor')?.classList.remove('hidden');}

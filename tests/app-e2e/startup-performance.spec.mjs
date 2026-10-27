@@ -23,7 +23,7 @@ test('Web2 first paint uses the final icon without a green placeholder or late f
   expect(pwa).not.toContain('favicon');
   expect(pwa).not.toContain('apple-touch-icon');
   expect(pwa).not.toContain('createElement(\'link\')');
-  expect(manifest).toContain('20261016-frame1');
+  expect(manifest).toContain('20261027-memocheck');
   expect(sw).not.toContain("addEventListener('push'");
   expect(sw).not.toContain("addEventListener('notificationclick'");
   for(const source of [html,pwa,manifest,sw])expect(source).not.toContain('20260913-3');

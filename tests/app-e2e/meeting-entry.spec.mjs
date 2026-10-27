@@ -6,7 +6,7 @@ import {fileURLToPath} from 'node:url';
 import {dirname,resolve} from 'node:path';
 import {fillDateTime} from './helpers/date-time.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
-import {openMeetingResult,mrdMenu} from './helpers/meeting-open.mjs';
+import {openMeetingResult,mrdMenu,closeMeetingResult} from './helpers/meeting-open.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -555,6 +555,9 @@ test('meeting list filters title-only and series-only legacy rows by the display
 });
 });
 
+// MTG-고치기바로: 아래는 사업 보고 상세 창(폰·중간 폭)의 시험이다. PC(≥1024)는 상세가 세 번째 칸에 붙어 창이 없다(meeting-columns·meeting-inline-edit).
+test.describe('meeting detail window below PC width',()=>{
+test.use({viewport:{width:900,height:900}});
 test('meeting detail shows one canonical heading while retaining a distinct legacy title in metadata',async({page})=>{
   await signIn(page);
   await openMeetingResult(page,'meeting-1');
@@ -730,7 +733,7 @@ test('closing a meeting during a delayed follow-up save does not reopen its deta
   await page.locator('#mrdTaskTitle').fill('후속 자료 정리');
   await page.locator('#mrdTaskSave').click();
   await expect.poll(()=>posted).toBe(true);
-  await page.locator('#mrdClose').click();
+  await closeMeetingResult(page);
   release();
   await expect(page.locator('#meetingRoundDetailModal')).toHaveClass(/hidden/);
   await page.waitForTimeout(100);
@@ -803,7 +806,7 @@ test('meeting detail waits for a task screen completion and rereads it on reopen
   release();
   await expect(page.locator('#mrdTasks [data-mrd-task="meeting-follow-up"]')).toHaveClass(/completed/);
   expect(readsBeforeSave).toBe(0);
-  await page.locator('#mrdClose').click();
+  await closeMeetingResult(page);
   const previousReads=linkedReads,previousCompleted=linkedCompleted;
   await openMeetingResult(page,'meeting-1');
   await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
@@ -905,7 +908,7 @@ test('meeting detail keeps completed Google follow-ups and supports create, edit
   expect(legacyRequests).toBe(0);
 });
 
-for(const width of [390,1280])test(`meeting Google follow-up row stays usable at ${width}px`,async({page})=>{
+for(const width of [390])test(`meeting Google follow-up row stays usable at ${width}px`,async({page})=>{
   await page.setViewportSize({width,height:844});
   await signIn(page);
   await page.route(`${SB}/functions/v1/google-tasks**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({tasks:[{id:'followup',title:'긴 후속 할 일 제목을 표시하는 항목',status:'completed',completed:'2025-01-01T00:00:00Z',due:'2025-01-02T00:00:00Z',taskListId:'@default'}]})}));
@@ -990,6 +993,7 @@ test('changing a meeting project leaves existing Google follow-up links untouche
   await expect(page.locator('#mrdEditor')).toBeHidden();
   expect(linkedReads).toBe(readsBeforeSave);
   expect(linkChanges).toBe(0);
+});
 });
 
 test('meeting integration keeps project auto-selection and one direct render path',async()=>{

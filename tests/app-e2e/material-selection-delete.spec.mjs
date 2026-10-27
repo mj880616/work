@@ -5,12 +5,12 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import {showAllLibraryCategories} from './helpers/library-categories.mjs';
-import {openMeetingResult} from './helpers/meeting-open.mjs';
+import {openMeetingResult,closeMeetingResult} from './helpers/meeting-open.mjs';
 // 회의 목록의 회의자료 표시: 폰은 줄의 "회의자료 있음", PC 3단(MEET-결과3단)은 가운데 줄에 표시가 없고 오른쪽 결과의 회의자료 줄 수로 본다.
 async function expectMeetingDocs(page,width,count){
   if(width<1024){await expect(page.locator('#meetingList')).toContainText('회의자료 있음');return}
   await expect(page.locator('#meetingList .mcol-rounds')).not.toContainText('회의자료 있음');
-  await expect(page.locator('#meetingList #mcolResult .mcol-file')).toHaveCount(count);
+  await expect(page.locator('#meetingList #mcolResult #mrdMaterials .mrd-file-row')).toHaveCount(count);
 }
 
 
@@ -104,7 +104,7 @@ for(const width of [390,1280]){
     await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(1);
     expect(state.deletes).toEqual([{action:'delete',document_id:'doc-0'}]);
     expect(confirmed.map(d=>d.type)).toEqual(['confirm','alert']);
-    await page.locator('#mrdClose').click();
+    await closeMeetingResult(page);
     await expectMeetingDocs(page,width,1);
     await clickView(page,'library');
     await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('library'));
@@ -121,7 +121,7 @@ for(const width of [390,1280]){
     await page.locator('[data-mrd-delete-document="doc-0"]').click();
     await expect.poll(()=>alerts).toEqual([DELETE_UNKNOWN]);
     await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
-    await page.locator('#mrdClose').click();
+    await closeMeetingResult(page);
     await expectMeetingDocs(page,width,2);
     expect(state.deletes).toEqual([{action:'delete',document_id:'doc-0'}]);
   });

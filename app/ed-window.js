@@ -30,6 +30,7 @@ import {createDocEditor} from './ed-editor.js';
 import {toTelegram, toHangul, toPlain} from './ed-text.mjs';
 import {emptyDoc} from './ed-schema.mjs';
 import {copyText} from './copy-text.js';
+import {flashDone} from './press-feedback.js';
 import {bigWindowOpen} from './big-window-open.js';
 import {startDoc, isChanged, prepareSave} from './ed-window-model.mjs';
 
@@ -188,10 +189,12 @@ export function openEdWindow({title = '크게 쓰기', doc = null, text = '', co
     if (value === 'telegram') {
       const ok = await copyText(toTelegram(doc1));
       say(ok ? '텔레그램용 글을 복사했어요. 텔레그램에 붙여 넣으세요.' : '복사하지 못했어요. 다시 눌러 주세요.');
+      if (ok) flashDone(() => shell.querySelector('[data-edw-export]')); // UI-눌림느낌: the sheet is closed, so [내보내기] says '✓ 복사됨'
     } else if (value === 'hangul') {
       const copy = toHangul(doc1);
       const ok = await copyText(copy.text, {html: copy.html});
       say(ok ? '한글용 글을 복사했어요. 한글에 붙여 넣으세요.' : '복사하지 못했어요. 다시 눌러 주세요.');
+      if (ok) flashDone(() => shell.querySelector('[data-edw-export]')); // UI-눌림느낌
     } else {
       const found = EXPORTS.find(([v]) => v === value)?.[1];
       if (found) say(`${found}는 준비 중이에요.`);

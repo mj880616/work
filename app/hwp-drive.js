@@ -28,12 +28,33 @@ export function pickUnionTemplate(rows){
   const sorted=[...pool].sort((a,b)=>String(a.title||a.file_name).localeCompare(String(b.title||b.file_name),'ko'));
   return {chosen:sorted[0]||null,others:sorted.slice(1),total:list.length};
 }
-export async function findUnionTemplate({rt=window.KPTURuntime}={}){
+async function templateRows({rt}){
   const workspace=rt?.context?.read?.()?.workspace?.id;
   if(!workspace||typeof rt?.api!=='function')throw failure('session',HWP_TEXT.session);
-  const rows=await rt.api(`/rest/v1/app_documents?workspace_id=eq.${encodeURIComponent(workspace)}&category=eq.${encodeURIComponent(UNION_TEMPLATE_CATEGORY)}&select=id,title,file_name,category&order=created_at.desc&limit=50`,{singleFlight:false});
-  return pickUnionTemplate(rows);
+  return rt.api(`/rest/v1/app_documents?workspace_id=eq.${encodeURIComponent(workspace)}&category=eq.${encodeURIComponent(UNION_TEMPLATE_CATEGORY)}&select=id,title,file_name,category&order=created_at.desc&limit=50`,{singleFlight:false});
 }
+export async function findUnionTemplate({rt=window.KPTURuntime}={}){
+  return pickUnionTemplate(await templateRows({rt}));
+}
+
+// HWP-서식변환: 문서 종류(보고서·공문·회의자료)별 빈 양식도 같은 자료실 분류 "양식"의 HWP다. 이름(자료명·파일 이름)에 종류 낱말이 든 것을 먼저 쓰고,
+// 없으면 종류 낱말이 없는 일반 노조 양식을 쓴다(specific:false). 다른 종류의 양식은 쓰지 않는다(공문에 보고서 양식을 넣지 않는다).
+export const CONVERT_TYPE_HINTS=Object.freeze({report:/보고/,letter:/공문/,meeting:/회의/});
+export function pickConvertTemplate(rows,docType){
+  const list=(Array.isArray(rows)?rows:[]).filter(row=>row&&typeof row.id==='string'&&row.category===UNION_TEMPLATE_CATEGORY&&/\.hwp$/i.test(String(row.file_name||'')));
+  const nameOf=row=>`${row.title||''} ${row.file_name||''}`;
+  const hint=CONVERT_TYPE_HINTS[docType];
+  const byName=(a,b)=>String(a.title||a.file_name).localeCompare(String(b.title||b.file_name),'ko');
+  const typed=hint?list.filter(row=>hint.test(nameOf(row))).sort(byName):[];
+  if(typed.length)return {chosen:typed[0],specific:true};
+  const generic=list.filter(row=>!Object.values(CONVERT_TYPE_HINTS).some(re=>re.test(nameOf(row))));
+  const picked=pickUnionTemplate(generic).chosen;
+  return {chosen:picked,specific:false};
+}
+export async function findConvertTemplate(docType,{rt=window.KPTURuntime}={}){
+  return pickConvertTemplate(await templateRows({rt}),docType);
+}
+
 // 양식에서 시작한 새 문서의 파일 이름: 사용자가 정한 제목(파일 이름에 못 쓰는 글자는 뺀다).
 export const newDocumentFileName=title=>`${String(title||'').replace(/[\\/:*?"<>|\u0000-\u001f]/g,' ').replace(/\s+/g,' ').replace(/\.(hwpx?)$/i,'').trim().slice(0,80)||'새 문서'}.hwp`;
 
@@ -120,6 +141,20 @@ export async function saveLibraryCopy(target,bytes,{rt=window.KPTURuntime,fetche
   try{response=await send(rt,'/functions/v1/library-files',form,{fetcher})}catch(error){return newFileOutcome({error},'자료실')}
   const data=await readJson(response);
   if(response.ok&&data?.ok===true&&typeof data.document?.id==='string'){readTextLater(data.document,{rt});return {kind:'created',document:{id:data.document.id,title:String(data.document.title||'')},message:'자료실에 새 문서로 등록했어요. 원본은 그대로예요.'};}
+  return newFileOutcome(response.ok?{status:0}:{status:response.status,data},'자료실');
+}
+
+// HWP-서식변환 [자료실에 저장]: [노조 서식으로 만들기]로 만든 한글 파일을 자료실에 새 자료로 등록한다(library-files).
+// 자료명과 파일 이름은 화면이 정해 보내므로 서버가 파일 내용을 읽어 이름을 짐작하지 않는다. 분류·프로젝트는 비워 두고 자료실에서 정한다
+// (분류 "양식"을 달지 않는다: 양식 목록에 섞이지 않게). 한 번만 보내고 결과를 모르면 다시 보내지 않는다.
+export async function saveConvertedCopy(bytes,{fileName,title},{rt=window.KPTURuntime,fetcher}={}){
+  const form=new FormData();
+  form.append('file',new File([bytes],newDocumentFileName(String(fileName||'').replace(/\.hwpx?$/i,'')||title),{type:'application/x-hwp'}));
+  form.append('title',String(title||'').trim()||'새 문서');
+  let response;
+  try{response=await send(rt,'/functions/v1/library-files',form,{fetcher})}catch(error){return newFileOutcome({error},'자료실')}
+  const data=await readJson(response);
+  if(response.ok&&data?.ok===true&&typeof data.document?.id==='string'){readTextLater(data.document,{rt});return {kind:'created',document:{id:data.document.id,title:String(data.document.title||'')},message:'자료실에 새 문서로 저장했어요. 분류·프로젝트는 자료실에서 정해 주세요.'};}
   return newFileOutcome(response.ok?{status:0}:{status:response.status,data},'자료실');
 }
 

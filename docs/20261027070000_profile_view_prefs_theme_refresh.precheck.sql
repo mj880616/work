@@ -1,12 +1,14 @@
 -- SELECT only. Aggregates and hashes; no profile text. Run before dry-run/apply (also the dry-run before/after comparison).
--- 적용 전 기대: prerequisite 예 / new migration absent 예 / view prefs check without menu and home keys 예 / saved menu or home keys 0 /
+-- 적용 전 기대: prerequisite 예 / new migration absent 예 / view prefs check before refresh 예 / saved new themes 0 /
+--   saved removed themes 기록(적용이 기본값으로 바꾸는 행 수만; 원래 값은 적용 직전 app_profiles 사본에 남는다) /
 --   RLS 예 / anon 아니오 / two owner policies 예. 그 밖의 해시·개수는 사후 확인과 같은 값이어야 한다(기록만).
 -- 이 값이 다르면 적용하지 않고 멈춘다(권한·정책을 넓히지 않는다).
 -- read_only 요청은 표 소유자가 아닌 역할로 돈다. pg_constraint·pg_get_constraintdef로 읽는다(docs/ops-db-workflow.md 사전·사후 확인 절).
 -- expect: prerequisite recorded = 예
 -- expect: new migration absent = 예
--- expect: view prefs check without menu and home keys = 예
--- expect: saved menu or home keys = 0
+-- expect: view prefs check before refresh = 예
+-- expect: saved new themes = 0
+-- expect: saved removed themes = 기록
 -- expect: RLS enabled = 예
 -- expect: anon or public table privilege = 아니오
 -- expect: two owner policies = 예
@@ -19,10 +21,11 @@
 -- expect: triggers hash = 기록
 -- expect: indexes hash = 기록
 select 'prerequisite recorded' as item,case when (select count(*) from supabase_migrations.schema_migrations where version='20261027040000' and name='profile_view_prefs_theme10')=1 then '예' else '아니오' end as value
-union all select 'new migration absent',case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261027090000') then '예' else '아니오' end
-union all select 'view prefs check without menu and home keys',case when (select count(*) from pg_constraint where conrelid=to_regclass('public.app_profiles') and conname='app_profiles_view_prefs_check' and contype='c' and convalidated
-  and pg_get_constraintdef(oid) ~ 'mustard' and pg_get_constraintdef(oid) !~ 'menu_layout')=1 then '예' else '아니오' end
-union all select 'saved menu or home keys',count(*)::text from public.app_profiles where view_prefs -> 'menu_layout' is not null or view_prefs -> 'home_cards' is not null
+union all select 'new migration absent',case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261027070000') then '예' else '아니오' end
+union all select 'view prefs check before refresh',case when (select count(*) from pg_constraint where conrelid=to_regclass('public.app_profiles') and conname='app_profiles_view_prefs_check' and contype='c' and convalidated
+  and pg_get_constraintdef(oid) ~ 'report_view' and pg_get_constraintdef(oid) ~ 'mustard' and pg_get_constraintdef(oid) !~ 'lemon')=1 then '예' else '아니오' end
+union all select 'saved new themes',count(*)::text from public.app_profiles where view_prefs ->> 'theme' in ('sky','mint','coral','lemon','red')
+union all select 'saved removed themes',count(*)::text from public.app_profiles where view_prefs ->> 'theme' in ('terracotta','sand','mugwort','rose','mustard')
 union all select 'RLS enabled',case when exists(select 1 from pg_class where oid=to_regclass('public.app_profiles') and relrowsecurity) then '예' else '아니오' end
 union all select 'anon or public table privilege',case when has_table_privilege('anon','public.app_profiles','select,insert,update,delete')
   or exists(select 1 from pg_class where oid=to_regclass('public.app_profiles') and relacl::text ~ '(^|[{,])(anon)?=') then '예' else '아니오' end

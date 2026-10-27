@@ -862,6 +862,7 @@ async function copyDraft() {
   // movedNotes, catalog (the project order) and this week's events (the day card's 일정) are not draft material.
   const missing = Object.entries(materials).some(([key, state]) => !['movedNotes', 'catalog', 'events', 'orgSummaries', 'weekDraft', 'overlaps'].includes(key) && state?.status !== 'ok');
   status.textContent = ok ? `주간보고 양식 순서로 복사했어요.${missing ? ' 불러오지 못한 묶음은 빠졌어요.' : ''}` : '복사하지 못했어요. 다시 시도해 주세요.';
+  return ok;
 }
 
 // MTG-기록겹침거르기 4단계: [주간 정리]를 열 때 이 주에 보이는 줄의 겹침 표를 읽고, 판정이 없고 이어질 만한 짝만 서버 AI(overlap_check)에 물은 뒤
