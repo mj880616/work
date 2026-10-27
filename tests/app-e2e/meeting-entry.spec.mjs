@@ -555,6 +555,9 @@ test('meeting list filters title-only and series-only legacy rows by the display
 });
 });
 
+// MTG-고치기바로: 아래는 사업 보고 상세 창(폰·중간 폭)의 시험이다. PC(≥1024)는 상세가 세 번째 칸에 붙어 창이 없다(meeting-columns·meeting-inline-edit).
+test.describe('meeting detail window below PC width',()=>{
+test.use({viewport:{width:900,height:900}});
 test('meeting detail shows one canonical heading while retaining a distinct legacy title in metadata',async({page})=>{
   await signIn(page);
   await openMeetingResult(page,'meeting-1');
@@ -990,6 +993,7 @@ test('changing a meeting project leaves existing Google follow-up links untouche
   await expect(page.locator('#mrdEditor')).toBeHidden();
   expect(linkedReads).toBe(readsBeforeSave);
   expect(linkChanges).toBe(0);
+});
 });
 
 test('meeting integration keeps project auto-selection and one direct render path',async()=>{
