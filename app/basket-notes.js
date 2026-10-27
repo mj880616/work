@@ -12,6 +12,7 @@ import { deleteNoteOriginal } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';
 import { renderMarkdownInto, showPlainText, preloadMarkdown } from './markdown-view.js';
 import { copyText } from './copy-text.js';
+import { flashDone } from './press-feedback.js'; // UI-눌림느낌: the pressed [복사] turns into '✓' for 1.5s
 import { bigWindowOpen } from './big-window-open.js';
 // ED③ 노트: the note's body is the new editor (note-body.js); its big window is note-window.js.
 import { paintDoc, docCopy, mountEditField, notePhotos } from './note-body.js';
@@ -438,10 +439,11 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       if (run === epoch && selected?.id === id) (detail.querySelector('[data-note-file-more]') || detail.querySelector('[data-note-attachments]'))?.focus({preventScroll:true});
     }
   }
-  async function telegram(note = selected) {
+  async function telegram(note = selected, button = null) {
     // ED③ 노트: a note with doc copies the new editor's 텔레그램 letters (ed-text toTelegram); without, the old conversion.
     const payload = docCopy(note) || noteCopyPayload(note); if (!payload) return;
     const ok = await copyText(payload.text);
+    if (ok && button) flashDone(button); // UI-눌림느낌 (an element, or a getter for a button that is looked up after the menu closed)
     showToast(ok ? payload.done : '복사하지 못했어요. 다시 눌러 주세요.');
   }
   // UI-노트고정: [고정]/[고정 해제] in the note's ⋯. The list puts pinned notes on top.
@@ -625,7 +627,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const note = notes.find(n => n.id === from.noteId); if (!note) return;
     if (b.dataset.fileMenu) { const file = noteFile(note, from.fileId); if (file) { if (b.dataset.fileMenu === 'open') openInDrive(file, {onError: fileFail}); else void downloadFile(file, {onError: fileFail}); } return; }
     if (b.hasAttribute('data-note-file-detach')) void detachFile(note, from.fileId);
-    else if (b.hasAttribute('data-note-copy')) void telegram(note);
+    else if (b.hasAttribute('data-note-copy')) void telegram(note, () => host.querySelector(`[data-note-row-copy="${CSS.escape(note.id)}"]`)); // UI-눌림느낌: the menu is closed, so the row's own copy icon shows the ✓
     else if (b.hasAttribute('data-note-pin')) void pin(note);
     else if (b.hasAttribute('data-note-folder-move')) { folderTarget = note; void folderSheet.open('folder', from.trigger); }
     else if (b.hasAttribute('data-note-edit')) { if (selected?.id !== note.id) open(note.id, {focus:false}); startEdit(); }
@@ -643,7 +645,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (b.hasAttribute('data-note-row-more')) { if (!busy && !selected) openMenu(b, notes.find(n => n.id === b.dataset.noteRowMore), 'list'); return; }
     closeMenu();
     if (busy) return;
-    if (b.hasAttribute('data-note-row-copy')) { void telegram(notes.find(n => n.id === b.dataset.noteRowCopy)); return; }
+    if (b.hasAttribute('data-note-row-copy')) { void telegram(notes.find(n => n.id === b.dataset.noteRowCopy), b); return; }
     if (b.hasAttribute('data-note-row')) open(b.dataset.noteRow);
     else if (b.hasAttribute('data-note-retry')) void refresh();
     else if (b.hasAttribute('data-note-folder-retry')) { if (folderJob) void runFolderJob(folderJob); }
@@ -651,7 +653,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else if (b.hasAttribute('data-note-cancel')) finishEdit();
     else if (b.hasAttribute('data-note-save')) void save();
     else if (b.hasAttribute('data-note-big-write')) openBigWriter();
-    else if (b.hasAttribute('data-note-telegram')) void telegram();
+    else if (b.hasAttribute('data-note-telegram')) void telegram(selected, b);
     else if (b.hasAttribute('data-note-reload')) void reload();
   });
   host.addEventListener('keydown', e => {

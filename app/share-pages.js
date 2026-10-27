@@ -17,6 +17,7 @@ import {BLOCK_TYPES, ALL_TYPES, BLOCK_LABELS, ITEM_FIELDS, LIMITS, newBlock, new
   labelProblem, expiresAt, linkState, shareUrl, blockIsEmpty, blocksToDoc} from './share-pages-model.mjs';
 import {renderBlock} from './sr-render.mjs';
 import {copyText} from './copy-text.js';
+import {flashDone} from './press-feedback.js';
 import {createDocEditor} from './ed-editor.js';
 import {createSharePhotos, shareIdOf, SHARE_PHOTO_MAX} from './share-photos.js';
 import {createAnchoredMenu} from './anchored-menu.js';
@@ -663,7 +664,7 @@ async function createLink() {
     if (editing === page) linkStatus(message(e, '링크를 만들지 못했어요.'));
   } finally { busy = false; }
 }
-async function copyLink(id) {
+async function copyLink(id, button = null) {
   if (!editing?.id) return;
   const page = editing;
   linkStatus('링크를 복사하는 중…');
@@ -672,6 +673,7 @@ async function copyLink(id) {
     if (editing !== page) return;
     if (!Array.isArray(rows) || rows.length !== 1) throw new Error('missing');
     const ok = await copyText(shareUrl(rows[0].token));
+    if (ok && button) flashDone(button); // UI-눌림느낌: [복사] says '✓ 복사됨' for 1.5s
     linkStatus(ok ? '링크를 복사했어요. 메신저에 붙여 넣어 보내세요.' : '복사하지 못했어요. 다시 눌러 주세요.');
   } catch (e) {
     if (editing === page) linkStatus(message(e, '링크를 복사하지 못했어요.'));
@@ -806,7 +808,7 @@ root.addEventListener('click', event => {
   if ('spConvertUndo' in d) { undoConvert(); return; }
   if ('spLinkCreate' in d) { void createLink(); return; }
   if ('spLinksReload' in d) { void loadLinks(); return; }
-  if (d.spLinkCopy) { void copyLink(d.spLinkCopy); return; }
+  if (d.spLinkCopy) { void copyLink(d.spLinkCopy, target); return; }
   if (d.spLinkOff) { void turnOff(d.spLinkOff); return; }
 });
 root.addEventListener('input', event => {
