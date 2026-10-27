@@ -37,7 +37,7 @@
 
 - 반입본은 약 43MiB이며 저장소 이력에 남는다. 버전을 올릴 때마다 비슷한 크기가 더해진다.
 - 한컴 전용 글꼴은 내장 오픈소스 글꼴로 대체되어 글자 모양·폭이 조금 다를 수 있다.
-- 2단계부터 편집기는 sandbox iframe(allow-same-origin 없음)에서 돈다(5절). 외부 연결은 CSP로, 기기 저장은 `app/hwp-lab/studio-guard.js`로 막는다.
+- 2단계부터 편집기는 sandbox iframe(allow-same-origin 없음)에서 돈다(5절). 외부 연결은 CSP로, 기기 저장은 `app/hwp-lab/studio-guard.js`로 막는다. 노조 양식 스타일 단축키(Ctrl+1~0, 예비 Alt+1~0)·스타일 버튼은 `app/hwp-lab/studio-styles.js`가 편집기 스타일 칸을 이름으로 찾아 적용한다(HWP-노조양식).
 - 편집기 안 복사·붙여넣기 중 시스템 클립보드 연동은 sandbox에서 막힐 수 있다.
 
 ## 5. 2단계: 칸막이와 Drive 저장(#554)
