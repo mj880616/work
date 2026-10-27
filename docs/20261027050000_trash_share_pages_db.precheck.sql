@@ -1,6 +1,8 @@
 -- SELECT only. Run before apply (SQL Editor, phone path C, or approved DB workflow). Aggregates only; no page titles, ids or row values.
 -- 적용 전 기대: 아래 예/아니오 항목은 모두 예. 숫자·해시·목록 항목은 사후 확인과 비교용으로 캡처만 한다(기록).
 -- read_only 요청은 실행 역할이 postgres가 아닐 수 있으므로 current_user 대신 postgres 역할을 명시해 확인한다.
+-- read_only 요청은 표 소유자가 아닌 역할로 돈다. information_schema.check_constraints는 소유자 기준으로 행을 숨기므로(0행 → 아니오)
+-- 상태 검사는 pg_constraint·pg_get_constraintdef로 읽는다(2026-10-27 run #89 사전 확인 멈춤 보정, docs/ops-db-workflow.md 사전·사후 확인 절).
 -- expect: page row count = 기록
 -- expect: page foreign keys in by action = 기록
 -- expect: page triggers = 기록
@@ -32,7 +34,7 @@ union all select 'links and media cascade from pages',case when (select count(*)
   and (select count(*) from pg_constraint where conrelid=to_regclass('public.app_share_page_media') and contype='f' and confrelid=to_regclass('public.app_share_pages') and confdeltype='c')=1 then '예' else '아니오' end
 union all select 'no user triggers and one owner policy on pages',case when not exists(select 1 from pg_trigger where tgrelid=to_regclass('public.app_share_pages') and not tgisinternal) and (select count(*) from pg_policy where polrelid=to_regclass('public.app_share_pages'))=1
   and (select count(*) from pg_policy where polrelid=to_regclass('public.app_share_pages') and polname='share_pages_owner_all' and polpermissive)=1 then '예' else '아니오' end
-union all select 'status check allows draft published archived',case when (select count(*) from information_schema.check_constraints where constraint_schema='public' and constraint_name='app_share_pages_status_check' and check_clause ~ 'draft' and check_clause ~ 'published' and check_clause ~ 'archived')=1 then '예' else '아니오' end
+union all select 'status check allows draft published archived',case when (select count(*) from pg_constraint where conrelid=to_regclass('public.app_share_pages') and conname='app_share_pages_status_check' and contype='c' and convalidated and pg_get_constraintdef(oid) ~ 'draft' and pg_get_constraintdef(oid) ~ 'published' and pg_get_constraintdef(oid) ~ 'archived')=1 then '예' else '아니오' end
 union all select 'RLS enabled and not forced on pages',case when (select count(*) from pg_class where oid=to_regclass('public.app_share_pages') and relrowsecurity and not relforcerowsecurity)=1 then '예' else '아니오' end
 union all select 'postgres owns or bypasses RLS on pages',case when (select count(*) from pg_class c join pg_roles r on r.rolname='postgres' and (r.rolbypassrls or r.oid=c.relowner) where c.oid=to_regclass('public.app_share_pages'))=1 then '예' else '아니오' end
 union all select 'page row count',count(*)::text from public.app_share_pages
