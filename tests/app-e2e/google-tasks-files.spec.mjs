@@ -12,13 +12,13 @@ const ok=(route,data,status=200)=>route.fulfill({status,contentType:'application
 const row=(page,id)=>page.locator(`#gtTaskBody [data-google-task="${id}"]`);
 const line=(id,name)=>`첨부: ${name} https://drive.google.com/file/d/${id}/view`;
 
-async function openTasks(browser,{viewport={width:900,height:800},supported=true,files=[]}={}){
+async function openTasks(browser,{viewport={width:900,height:800},supported=true,files=[],notes='원래 메모'}={}){
   const context=await browser.newContext({timezoneId:'Asia/Seoul',viewport,hasTouch:viewport.width<600,isMobile:viewport.width<600});
   const page=await context.newPage();
   await page.clock.setFixedTime(new Date(NOW));
-  const google={a:task('a'),b:task('b')};
+  const google={a:task('a',{notes}),b:task('b')};
   const state={files:files.map(f=>({...f})),calls:{files:[],attach:[],detach:[],updates:[]},next:1};
-  const notesOf=id=>{const own=state.files.filter(f=>f.google_task_id===id);const kept=String(google[id].notes||'').split('\n').filter(l=>!/^첨부: /.test(l)).join('\n');return [kept,...own.map(f=>line(f.drive_file_id,f.file_name))].filter(Boolean).join('\n')};
+  const notesOf=id=>{const own=state.files.filter(f=>f.google_task_id===id);const kept=String(google[id].notes||'').split('\n').filter(l=>!own.some(f=>l.includes('/file/d/'+f.drive_file_id+'/view'))).join('\n');return [kept,...own.map(f=>line(f.drive_file_id,f.file_name))].filter(Boolean).join('\n')};
   await page.route(`${SB}/**`,async route=>{
     const req=route.request(),u=new URL(req.url()),p=u.pathname,action=u.searchParams.get('action');
     if(p==='/auth/v1/token')return ok(route,{access_token:'qa',refresh_token:'qa',expires_in:3600,expires_at:4102444800,user:{id:'qa-user',email:'qa@example.org',user_metadata:{display_name:'QA'}}});
@@ -133,5 +133,68 @@ test('PC: names sit under the card, the menu lists 편집·파일 붙이기·삭
   // The server (google-tasks Edge, notesForUpdate) adds the file line back; the editor keeps what was typed.
   await expect.poll(()=>google.a.notes).toBe('고친 메모\n'+line('old1','기존 자료.pdf'));
   await expect(card.locator('.gt-files a.gt-file')).toHaveText('기존 자료.pdf');
+  await context.close();
+});
+
+// TASK-첨부열기: 첨부 row in the edit window, memo box without the link lines, open/download through the shared Drive paths.
+async function watchDrive(context){
+  const urls=[];
+  await context.route('https://drive.google.com/**',route=>{urls.push(route.request().url());return route.fulfill({status:200,contentType:'text/html',body:'<title>drive</title>'})});
+  return urls;
+}
+const withLines=['내 메모',line('n1','회의록 최종.pdf'),line('n2','자료 모음.xlsx')].join('\n');
+
+test('phone: edit window shows 첨부 under 할 일, the memo box holds only the memo, 열기 and 내려받기 use Drive',async({browser})=>{
+  const {context,page,state,google}=await openTasks(browser,{viewport:{width:390,height:844},notes:withLines,files:[{google_task_id:'a',drive_file_id:'n1',file_name:'회의록 최종.pdf',size_bytes:9}]});
+  const urls=await watchDrive(context);
+  await row(page,'a').locator('[data-gt-edit]').click();
+  const att=page.locator('#gtEditAttach');
+  await expect(att).toBeVisible();
+  await expect(page.locator('#gtEditNotes')).toHaveValue('내 메모');
+  await expect(att.locator('.gt-att-name')).toHaveText(['회의록 최종.pdf','자료 모음.xlsx']);
+  // Right under the 할 일 box, above the 기한 row.
+  const t=await page.locator('#gtEditTitle').boundingBox(),a=await att.boundingBox(),d=await page.locator('#gtEditDue').boundingBox();
+  expect(a.y).toBeGreaterThanOrEqual(t.y+t.height-1);expect(a.y+a.height).toBeLessThanOrEqual(d.y+1);
+  const button=att.locator('.gt-att-btn').first();
+  expect((await button.boundingBox()).height).toBeLessThanOrEqual(30);
+  expect(await noSideScroll(page)).toBe(true);
+  await att.locator('.gt-att-row').nth(1).locator('[data-fa-menu="open"]').click();
+  await expect.poll(()=>urls.at(-1)).toBe('https://drive.google.com/file/d/n2/view');
+  await att.locator('.gt-att-row').nth(1).locator('[data-fa-menu="download"]').click();
+  await expect.poll(()=>urls.at(-1)).toContain('uc?export=download&id=n2');
+  // Nothing was saved or changed by opening them.
+  expect(state.calls.updates).toEqual([]);
+  expect(google.a.notes).toBe(withLines);
+  await context.close();
+});
+
+test('saving puts the memo and the attachment lines back together once, and keeps lines that only the notes hold',async({browser})=>{
+  const {context,page,state,google}=await openTasks(browser,{viewport:{width:390,height:844},notes:withLines,files:[{google_task_id:'a',drive_file_id:'n1',file_name:'회의록 최종.pdf',size_bytes:9}]});
+  await row(page,'a').locator('[data-gt-edit]').click();
+  await page.locator('#gtEditNotes').fill('고친 메모');
+  await page.locator('#gtSaveBtn').click();
+  await expect.poll(()=>state.calls.updates.length).toBe(1);
+  expect(state.calls.updates[0].notes).toBe(['고친 메모',line('n1','회의록 최종.pdf'),line('n2','자료 모음.xlsx')].join('\n'));
+  await expect.poll(()=>google.a.notes).toBe(['고친 메모',line('n2','자료 모음.xlsx'),line('n1','회의록 최종.pdf')].join('\n'));
+  expect((google.a.notes.match(/첨부: /g)||[]).length).toBe(2);
+  // Reopen: still two rows, memo box without lines.
+  await page.waitForTimeout(300);
+  await row(page,'a').locator('[data-gt-edit]').click();
+  await expect(page.locator('#gtEditNotes')).toHaveValue('고친 메모');
+  await expect(page.locator('#gtEditAttach .gt-att-row')).toHaveCount(2);
+  await context.close();
+});
+
+test('card: a long file name stays on one line with an ellipsis; tapping it opens the file, not the editor',async({browser})=>{
+  const long='아주 긴 파일 이름 '.repeat(12)+'.pdf';
+  const {context,page}=await openTasks(browser,{viewport:{width:390,height:844},files:[{google_task_id:'a',drive_file_id:'old1',file_name:long,size_bytes:9}]});
+  const urls=await watchDrive(context);
+  const name=row(page,'a').locator('.gt-files a.gt-file');
+  const fits=await name.evaluate(el=>({over:el.scrollWidth>el.clientWidth,right:el.getBoundingClientRect().right,card:el.closest('.gt-row').getBoundingClientRect().right,height:el.getBoundingClientRect().height,ellipsis:getComputedStyle(el).textOverflow}));
+  expect(fits.over).toBe(true);expect(fits.ellipsis).toBe('ellipsis');expect(fits.right).toBeLessThanOrEqual(fits.card+1);expect(fits.height).toBeLessThan(40);
+  expect(await noSideScroll(page)).toBe(true);
+  await name.click();
+  await expect.poll(()=>urls.length).toBeGreaterThan(0);
+  await expect(page.locator('#gtTaskModal')).toBeHidden();
   await context.close();
 });
