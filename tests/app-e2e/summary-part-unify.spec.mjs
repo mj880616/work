@@ -126,7 +126,7 @@ test('C: 읽은 글자가 없다는 서버 답은 칸을 그대로 두고 한 �
 
 // ---- B①: 사업 보고 수정 창 — 연결한 곳마다 요약 칸 + [AI 요약](재료 = 이 사업 보고 본문), 저장은 [수정 저장] ----
 import {signInWithSession} from './helpers/session-login.mjs';
-import {openMeetingResult} from './helpers/meeting-open.mjs';
+import {openMeetingResult,mrdMenu} from './helpers/meeting-open.mjs';
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const MID='70000000-0000-4000-8000-000000000001',PROJ='70000000-0000-4000-8000-000000000002',LINK='70000000-0000-4000-8000-000000000003';
 const meeting={id:MID,workspace_id:'meeting-ws',project_id:PROJ,title:'궤도협의회',series_name:'궤도협의회',round_no:3,meeting_at:'2026-10-20T05:00:00Z',
@@ -163,7 +163,7 @@ async function meetingFixture(page,{linkSummary=null}={}){
 }
 for(const width of [390,1280])test(`B①: 사업 보고 연결 곳마다 요약 칸 — [AI 요약]이 빈 칸을 채우고 [수정 저장]이 그 곳 요약으로 저장 ${width}`,async({page})=>{
  await page.setViewportSize({width,height:900});const f=await meetingFixture(page);
- await openMeetingResult(page,MID);await page.locator('#mrdEdit').click();
+ await openMeetingResult(page,MID);await mrdMenu(page,'edit');
  const box=page.locator(`[data-report-summary-input="project:${PROJ}"]`);await expect(box).toBeVisible();await expect(box).toHaveValue('');
  await page.locator(`[data-report-ai-run="project:${PROJ}"]`).click();
  await expect(box).toHaveValue('궤도협의회 3차, 11월 총회 개최 예정(미확정).');
@@ -178,7 +178,7 @@ for(const width of [390,1280])test(`B①: 사업 보고 연결 곳마다 요약 
 });
 test('B①: 저장된 요약은 칸에 그대로 보이고, 고치지 않고 저장하면 연결 저장을 다시 보내지 않는다',async({page})=>{
  const f=await meetingFixture(page,{linkSummary:'이미 보낸 요약'});
- await openMeetingResult(page,MID);await page.locator('#mrdEdit').click();
+ await openMeetingResult(page,MID);await mrdMenu(page,'edit');
  await expect(page.locator(`[data-report-summary-input="project:${PROJ}"]`)).toHaveValue('이미 보낸 요약');
  await page.locator('#mrdSaveEdit').click();await expect(page.locator('#mrdEditor')).toBeHidden();
  expect(f.sets).toEqual([]);expect(f.ai).toEqual([]);expect(f.errors).toEqual([]);

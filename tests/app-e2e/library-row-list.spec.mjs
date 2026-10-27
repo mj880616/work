@@ -7,7 +7,7 @@ import { test, expect } from '@playwright/test';
 import {execFileSync} from 'node:child_process';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
-import {openMeetingResult} from './helpers/meeting-open.mjs';
+import {openMeetingResult,mrdMenu} from './helpers/meeting-open.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -372,7 +372,7 @@ for(const width of [390,1280]){
       await expect(page.locator('#mrdMaterials')).toContainText('회의자료가 없습니다.');
       // Refresh the open material list through the same signal that the edit save emitted.
       // It must leave an in-progress meeting editor intact.
-      await page.locator('#mrdEdit').click();await page.locator('#mrdEditTranscript').fill('작성 중 원문');
+      await mrdMenu(page,'edit');await page.locator('#mrdEditTranscript').fill('작성 중 원문');
       state.docs[0].meeting_id='recent';
       await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:documents-changed')));
       await expect(page.locator('#mrdMaterials')).toContainText('report.pdf');
