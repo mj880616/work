@@ -1,3 +1,4 @@
+import {closeMeetingResult} from './helpers/meeting-open.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
@@ -66,7 +67,7 @@ for(const width of [390,1280])test(`project detail lists its own meetings newest
  await expect(page.locator('#mrdTitle')).toContainText('합성 정례 회의');
  expect(reads.some(r=>r.id==='eq.mt-1')).toBe(true);
  await expect(page.locator('#projectsView')).toBeVisible();
- await page.locator('#mrdClose').click();await expect(dialog).toBeHidden();
+ await closeMeetingResult(page);await expect(dialog).toBeHidden();
  await expect(page.locator('#ps3DetailModal')).toBeVisible();await expectProjectTitle(page,'테스트 프로젝트');
  await expect(first).toBeFocused();
  if(width<1024){

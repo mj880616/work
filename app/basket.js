@@ -24,6 +24,7 @@ import { renderMarkdownInto, showPlainText, preloadMarkdown, renderShareCards } 
 import { paintHtmlAttachments } from './html-frame.js';
 import { CHATGPT_HTML_REQUEST } from './chatgpt-html.mjs';
 import { copyText } from './copy-text.js';
+import { flashDone } from './press-feedback.js'; // UI-눌림느낌: the pressed [복사] turns into '✓' for 1.5s
 // ED③ 업데이트: an update saved in the new editor reads its saved form (ed-render) and copies from it; its big window is update-window.js.
 import { hasDoc } from './note-doc.mjs';
 import { paintDoc, docCopy } from './note-body.js';
@@ -60,12 +61,14 @@ function showToast(message, ms = 3200) {
   clearTimeout(showToast.timer); showToast.timer = setTimeout(() => toast.classList.add('hidden'), ms);
 }
 // [복사]: the same conversion as the write window's [텔레그램용 복사] (md-telegram.mjs), on a copy only.
-async function copyNote(note) {
+async function copyNote(note, button = null) {
   const text = String(note?.raw_text || '');
   if (!text.trim()) { showToast('복사할 글이 없어요.'); return; }
   // ED③ 업데이트: an update with a saved form copies from it (ed-text), as the note does; the others keep the old conversion.
   const copy = docCopy(note);
-  showToast(await copyText(copy ? copy.text : toTelegram(text)) ? '복사했습니다' : '복사하지 못했어요. 다시 눌러 주세요.');
+  const ok = await copyText(copy ? copy.text : toTelegram(text));
+  if (ok && button) flashDone(button); // UI-눌림느낌: the pressed [복사] says '✓' itself; the toast stays as the second hint
+  showToast(ok ? '복사했습니다' : '복사하지 못했어요. 다시 눌러 주세요.');
 }
 const COPY_ICON = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M10.5 3.5v-.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
 const RAW_ICON = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M5.5 4.5 2 8l3.5 3.5M10.5 4.5 14 8l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -428,7 +431,7 @@ function showKind(next,{openId=null}={}){
 // detail's own move; 삭제 is the detail's delete (same confirmation from basket-record-delete.js), reported on the list.
 function rowMenuAction(act,noteId){
   const note=notes.find(n=>n.id===noteId);if(!note||busy||selected)return;
-  if(act==='copy'){void copyNote(note);return;}
+  if(act==='copy'){void copyNote(note,()=>root.querySelector(`[data-basket-row-copy="${CSS.escape(noteId)}"]`));return;}
   handoff.close();hideHandoffNotice();
   if(act==='delete'){void deleteFromList(noteId);return;}
   if(act==='journal'||act==='unjournal'){void keepInJournal(noteId,act==='journal');return;}
@@ -675,13 +678,14 @@ function paintHtmlViews() {
   paintHtmlAttachments(detail.querySelector('[data-basket-html-views]'),{noteId,attachments:selected.attachments,rt,isCurrent:()=>owner===scope()&&selected?.id===noteId});
 }
 // MD-표시보완: copy the request that asks ChatGPT for one self-contained HTML file.
-async function copyChatgptRequest(){
+async function copyChatgptRequest(button=null){
   let ok=false;
   try{await navigator.clipboard.writeText(CHATGPT_HTML_REQUEST);ok=true;}
   catch{
     const area=document.createElement('textarea');area.value=CHATGPT_HTML_REQUEST;area.setAttribute('readonly','');area.className='a11y-only';document.body.append(area);area.select();
     try{ok=document.execCommand('copy');}catch{}area.remove();
   }
+  if(ok&&button)flashDone(button); // UI-눌림느낌
   const toast=document.querySelector('#toast');if(!toast)return;
   toast.textContent=ok?'GPT 답변 가져오기 요청을 복사했어요. ChatGPT 답변 아래에 붙여 넣고, 받은 HTML을 정리함 입력에 붙여 넣으세요.':'복사하지 못했어요. 이 문구를 직접 복사해 주세요: '+CHATGPT_HTML_REQUEST;
   toast.classList.remove('hidden');clearTimeout(copyChatgptRequest.timer);copyChatgptRequest.timer=setTimeout(()=>toast.classList.add('hidden'),ok?4200:9000);
@@ -993,10 +997,10 @@ root.addEventListener('click', e => {
   const fromNoteMenu = !!noteMenu()?.contains(b); if (fromNoteMenu) setNoteMenu(false, {focus:true});
   if (b.matches('[data-basket-filter],[data-basket-row],[data-basket-close],[data-basket-edit]')) { handoff.close(); hideHandoffNotice(); }
   if (b.hasAttribute('data-basket-read-raw')) { rawView = !rawView; paintReadText(); return; }
-  if (b.hasAttribute('data-basket-row-copy')) { void copyNote(notes.find(n => n.id === b.dataset.basketRowCopy)); return; }
-  if (b.hasAttribute('data-basket-copy')) { void copyNote(selected); return; }
+  if (b.hasAttribute('data-basket-row-copy')) { void copyNote(notes.find(n => n.id === b.dataset.basketRowCopy), b); return; }
+  if (b.hasAttribute('data-basket-copy')) { void copyNote(selected, b); return; }
   if (b.hasAttribute('data-basket-photo')) { openPhoto(b.dataset.basketPhoto, b); return; }
-  if (b.hasAttribute('data-chatgpt-request-copy')) { void copyChatgptRequest(); return; }
+  if (b.hasAttribute('data-chatgpt-request-copy')) { void copyChatgptRequest(b); return; }
   if (busy) return;
   if (b.hasAttribute('data-basket-unlink')) void unlinkChip(b.dataset.basketUnlink);
   else if (b.hasAttribute('data-basket-chip-open')) void openChipPlace(b.dataset.basketChipOpen);

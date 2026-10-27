@@ -11,6 +11,7 @@ import { deleteNoteOriginal } from './basket-record-delete.js';
 import { mountManualLink } from './basket-manual-link.js';
 import { renderMarkdownInto, showPlainText, preloadMarkdown } from './markdown-view.js';
 import { copyText } from './copy-text.js';
+import { flashDone } from './press-feedback.js'; // UI-눌림느낌: the pressed [복사] turns into '✓' for 1.5s
 import { bigWindowOpen } from './big-window-open.js';
 // ED③ 노트: the note's body is the new editor (note-body.js); its big window is note-window.js.
 import { paintDoc, docCopy, mountEditField, notePhotos } from './note-body.js';
@@ -27,6 +28,7 @@ import { notePreview, noteCopyPayload } from './note-preview.mjs';
 import { noteMarkdown } from './note-markdown.mjs';
 import { renderFilterChips } from './filter-chips.js';
 import { createChoiceSheet } from './choice-sheet.js';
+import { createNoteFolderPick } from './note-folder-pick.js';
 import { basketNoteOrigin, basketReturnHtml } from './basket-note-tasks.js';
 
 const chipKinds = [['project','프로젝트'], ['organization','담당조직'], ['meeting','사업 보고'], ['document','자료실'], ['bundle','참고']];
@@ -356,14 +358,36 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     bigFiles = createUploadBatch(id, selected.attachments || []);
     const {openNoteEditWindow} = await import('./note-window.js');
     if (!same() || bigWriter) return;
-    bigWriter = openNoteEditWindow({value:field.getValue(), photos:photosFor(id),
+    // The window shows the note's title and [폴더 ▾] (the folder now, changeable); a changed title goes with the text save, a changed folder
+    // is written after it (setNoteFolder, as [폴더로 옮기기]).
+    const folder = createNoteFolderPick({rt, initial:noteFolder(selected), names:folders, title:'노트 폴더'});
+    bigWriter = openNoteEditWindow({value:field.getValue(), photos:photosFor(id), title:fields().title.value, folder,
       attach:{getBatch:() => bigFiles, isBusy:() => busy},
-      save: async value => { if (!same()) return {ok:false, message:'수정 화면이 바뀌어 저장하지 못했어요.'}; field.setValue(value); return save({stay:true}); },
+      save: async (value, text, extra) => {
+        if (!same()) return {ok:false, message:'수정 화면이 바뀌어 저장하지 못했어요.'};
+        field.setValue(value); fields().title.value = extra.title;
+        const result = await save({stay:true});
+        if (!result.ok || !same() || extra.folder === undefined || !selected || noteFolder(selected) === extra.folder) return result;
+        return moveFromWindow(extra.folder, result);
+      },
       onClose: ({value, saved} = {}) => {
         bigWriter = null; bigFiles = null; if (!same()) return;
         field.setValue(value);
         if (saved && !textDirty()) finishEdit({force:true}); else field.focus();
       }});
+  }
+  // The big window's folder change, after its text was saved: the same write as [폴더로 옮기기] (a move does not touch updated_at, so the edit's guard stays).
+  async function moveFromWindow(name, result) {
+    const note = selected, run = ++epoch, owner = scope(); lock(true);
+    try {
+      const saved = await setNoteFolder(note, name, rt);
+      if (run !== epoch || owner !== scope()) return {ok:false, message:'화면이 바뀌어 폴더 저장 결과를 확인하지 못했어요.'};
+      applySaved(note.id, saved); renderList(); paintMeta();
+      return {...result, message:name ? `저장했어요. '${name}' 폴더에 있어요.` : "저장했어요. '폴더 없음'이에요."};
+    } catch (error) {
+      if (run !== epoch || owner !== scope()) return {ok:false, message:'화면이 바뀌어 폴더 저장 결과를 확인하지 못했어요.'};
+      return {ok:false, message:`글은 저장했지만 폴더를 옮기지 못했어요. ${error?.code === 'note_changed' ? error.message : '다시 눌러 주세요.'}`};
+    } finally { if (run === epoch) lock(false); else busy = false; }
   }
   // save() resolves {ok:true} or {ok:false, message}; the big window's save icon waits for it (same path as [저장]).
   // stay (the big window): the edit stays open after the save (NOTE-큰창저장유지); the window shows the message.
@@ -435,10 +459,11 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
       if (run === epoch && selected?.id === id) (detail.querySelector('[data-note-file-more]') || detail.querySelector('[data-note-attachments]'))?.focus({preventScroll:true});
     }
   }
-  async function telegram(note = selected) {
+  async function telegram(note = selected, button = null) {
     // ED③ 노트: a note with doc copies the new editor's 텔레그램 letters (ed-text toTelegram); without, the old conversion.
     const payload = docCopy(note) || noteCopyPayload(note); if (!payload) return;
     const ok = await copyText(payload.text);
+    if (ok && button) flashDone(button); // UI-눌림느낌 (an element, or a getter for a button that is looked up after the menu closed)
     showToast(ok ? payload.done : '복사하지 못했어요. 다시 눌러 주세요.');
   }
   // UI-노트고정: [고정]/[고정 해제] in the note's ⋯. The list puts pinned notes on top.
@@ -622,7 +647,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     const note = notes.find(n => n.id === from.noteId); if (!note) return;
     if (b.dataset.fileMenu) { const file = noteFile(note, from.fileId); if (file) { if (b.dataset.fileMenu === 'open') openInDrive(file, {onError: fileFail}); else void downloadFile(file, {onError: fileFail}); } return; }
     if (b.hasAttribute('data-note-file-detach')) void detachFile(note, from.fileId);
-    else if (b.hasAttribute('data-note-copy')) void telegram(note);
+    else if (b.hasAttribute('data-note-copy')) void telegram(note, () => host.querySelector(`[data-note-row-copy="${CSS.escape(note.id)}"]`)); // UI-눌림느낌: the menu is closed, so the row's own copy icon shows the ✓
     else if (b.hasAttribute('data-note-pin')) void pin(note);
     else if (b.hasAttribute('data-note-folder-move')) { folderTarget = note; void folderSheet.open('folder', from.trigger); }
     else if (b.hasAttribute('data-note-edit')) { if (selected?.id !== note.id) open(note.id, {focus:false}); startEdit(); }
@@ -640,7 +665,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (b.hasAttribute('data-note-row-more')) { if (!busy && !selected) openMenu(b, notes.find(n => n.id === b.dataset.noteRowMore), 'list'); return; }
     closeMenu();
     if (busy) return;
-    if (b.hasAttribute('data-note-row-copy')) { void telegram(notes.find(n => n.id === b.dataset.noteRowCopy)); return; }
+    if (b.hasAttribute('data-note-row-copy')) { void telegram(notes.find(n => n.id === b.dataset.noteRowCopy), b); return; }
     if (b.hasAttribute('data-note-row')) open(b.dataset.noteRow);
     else if (b.hasAttribute('data-note-retry')) void refresh();
     else if (b.hasAttribute('data-note-folder-retry')) { if (folderJob) void runFolderJob(folderJob); }
@@ -648,7 +673,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     else if (b.hasAttribute('data-note-cancel')) finishEdit();
     else if (b.hasAttribute('data-note-save')) void save();
     else if (b.hasAttribute('data-note-big-write')) openBigWriter();
-    else if (b.hasAttribute('data-note-telegram')) void telegram();
+    else if (b.hasAttribute('data-note-telegram')) void telegram(selected, b);
     else if (b.hasAttribute('data-note-reload')) void reload();
   });
   host.addEventListener('keydown', e => {

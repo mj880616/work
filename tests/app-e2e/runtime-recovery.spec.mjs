@@ -1,3 +1,4 @@
+import {closeMeetingResult,openMeetingResult} from './helpers/meeting-open.mjs';
 import { appOrigin } from './helpers/test-origin.mjs';
 import {expandLibraryTree,revealLibraryRow} from './helpers/library-tree.mjs';
 import { test, expect } from '@playwright/test';
@@ -537,7 +538,7 @@ for(const width of [390,1280]){
   test(`delete lifecycle meeting close reopen same ID invalidates held import ${width}`,async({page})=>{
     const state=await deleteConsumerFixture(page,'meetings',width,{holdImport:true}),seen=consumerDialogs(page);
     await startConsumerDelete(page,'meetings');await page.waitForFunction(()=>window.__helperImportStarted);
-    await page.locator('#mrdClose').click();await page.locator('[data-mrd-meeting="meeting-1"]').click();await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
+    await closeMeetingResult(page);await openMeetingResult(page,'meeting-1');await expect(page.locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
     await releaseImport(page);expect(state.calls).toEqual([]);expect(seen).toEqual([]);
   });
   test(`delete lifecycle library OAuth session snapshot restoration cannot navigate ${width}`,async({page})=>{

@@ -54,7 +54,7 @@
     const b=document.createElement('button');
     b.id='startupDiagCopy';b.type='button';b.textContent='로딩 기록 복사';
     b.style.cssText='position:fixed;right:12px;bottom:12px;z-index:9999;padding:8px 10px;border:1px solid var(--kptu-border-strong);border-radius:8px;background:var(--kptu-surface);color:var(--kptu-primary-ink);font:700 12px sans-serif;box-shadow:0 4px 16px rgba(20,33,48,.12)';
-    b.onclick=async()=>{try{await window.KPTUStartupDiagnostics.copy();b.textContent='복사됨'}catch{b.textContent='복사 실패'}};
+    b.onclick=async()=>{const label=b.textContent;try{await window.KPTUStartupDiagnostics.copy();b.textContent='✓ 복사됨';b.setAttribute('data-done','')}catch{b.textContent='복사 실패'}setTimeout(()=>{b.textContent=label;b.removeAttribute('data-done')},1500)};
     document.body.appendChild(b);
   }
   window.__KPTU_MARK_APP_UI_READY__=({usable=false}={})=>{

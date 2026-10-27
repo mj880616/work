@@ -27,19 +27,24 @@ test('archive and undo are conditional PATCH requests on this workspace, never a
   assert.deepEqual(archive.undoPatch.body('published', 'U'), {status:'published', updated_at:'U'});
   assert.deepEqual(archive.undoPatch.body('anything-else', null), {status:'draft'});
   assert.equal(archive.archiveFilter, 'status=neq.archived');
-  // The screen never sends a DELETE for a share page and never calls the photo clean-up when archiving (photo files stay).
-  const body = screen.slice(screen.indexOf('async function archivePage'), screen.indexOf('// ── editor ──'));
+  // 보관 and 되살리기 never send a DELETE and never call the photo clean-up (photo files stay).
+  const body = screen.slice(screen.indexOf('async function archivePage'), screen.indexOf('// 삭제 = 휴지통'));
   assert.doesNotMatch(body, /method:\s*'DELETE'/);
-  assert.doesNotMatch(body, /prune|createSharePhotos|app_share_page_links|share-page-media/);
-  // The real delete goes only through the server (purgePage → share-page-media purge_page), never a REST delete from the browser.
-  assert.match(body, /await purgePage\(id, \{rt\}\)/);
+  assert.doesNotMatch(body, /prune|createSharePhotos|app_share_page_links|share-page-media|purgePage/);
+  // TRASH-다른삭제: 삭제 goes to the 휴지통 through the shared flow (the DB turns the DELETE into 'in the trash'); the list screen never permanently deletes.
+  const trash = screen.slice(screen.indexOf('async function trashPage'), screen.indexOf('// ── editor ──'));
+  assert.match(trash, /deleteToTrash\(\{kind:'share_page'/);
+  assert.doesNotMatch(trash, /purgePage|share-page-media|app_trash_purge/);
+  assert.doesNotMatch(screen, /data-sp-row-action="purge"|완전히 삭제/);
+  assert.match(screen, /data-sp-row-action="trash">삭제<\/button>',\n  box:.*data-sp-row-action="restore">되살리기<\/button><button type="button" class="task-inline-danger" data-sp-row-action="trash">삭제<\/button>/);
   assert.match(screen, /app_share_pages\?workspace_id=eq\.\$\{ws\}&select=id,title,updated_at&\$\{boxFilter\}/);
   assert.match(screen, /app_share_pages\?workspace_id=eq\.\$\{ws\}&select=id,title,status,project_id,updated_at&\$\{archiveFilter\}/);
 });
 
-test('the confirmations: 보관 says the link stops only for a published page; 삭제 says everything goes for good', () => {
+test('the confirmations: 보관 says the link stops only for a published page; 영구 삭제 (휴지통) says everything goes for good', () => {
   assert.match(archive.archiveConfirmText({title:'교섭 현황', status:'published'}), /링크로 보던 사람도 더 이상 볼 수 없어요/);
   assert.match(archive.purgeConfirmText({title:'교섭 현황'}), /페이지·링크·사진이 모두 지워지고 되살릴 수 없어요/);
+  assert.match(archive.purgeConfirmText({title:'교섭 현황'}), /영구 삭제할까요/);
   assert.doesNotMatch(archive.archiveConfirmText({title:'교섭 현황', status:'draft'}), /링크/);
   assert.match(archive.archiveConfirmText({title:'', status:'draft'}), /제목 없음/);
   assert.equal(archive.shortTitle('가'.repeat(30)), '가'.repeat(24) + '…');
@@ -57,7 +62,7 @@ test('purgePage sends purge_page with the login to share-page-media and turns an
   assert.equal(seen[0].url, 'https://x.supabase.co/functions/v1/share-page-media');
   assert.equal(seen[0].init.headers.Authorization, 'Bearer tok');
   assert.deepEqual(JSON.parse(seen[0].init.body), {action:'purge_page', page_id:'p1'});
-  assert.match((await archive.purgePage('p1', {rt, fetcher:reply(503, {error:'unavailable'})})).message, /다시 \[삭제\]를 누르면 남은 것부터/);
+  assert.match((await archive.purgePage('p1', {rt, fetcher:reply(503, {error:'unavailable'})})).message, /다시 \[영구 삭제\]를 누르면 남은 것부터/);
   assert.equal((await archive.purgePage('p1', {rt, fetcher:reply(404, {error:'not_found'})})).status, 404);
   assert.equal((await archive.purgePage('p1', {rt, fetcher:async () => { throw new Error('net'); }})).ok, false);
   const out = {...rt, session:{ensure:async () => false, read:() => null}};

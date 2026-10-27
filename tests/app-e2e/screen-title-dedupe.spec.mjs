@@ -60,9 +60,9 @@ for (const width of [1280, 1440]) {
     const result = page.locator('#meetingList #mcolResult');
     await expect(result).toHaveAttribute('data-meeting-result', /.+/);
     await expect(toplineItem(page)).toHaveText('테스트 회의 회차');
-    await expect(result.locator('h3')).toHaveCount(0);
-    await expect(result.locator('.mcol-result-meta')).toContainText('칸');
-    await expect(result.locator('[data-meeting-more]')).toBeVisible();
+    await expect(result.locator('#mrdTitle')).toBeHidden();
+    await expect(result.locator('#mrdMeta')).toContainText('칸');
+    await expect(result.locator('#mrdMore')).toBeVisible();
     await expect(result).toHaveAttribute('aria-label', '사업 보고 결과');
     expect(errors).toEqual([]);
   });

@@ -1381,7 +1381,7 @@ html .doc-kind-chips button[aria-pressed="false"]{ color:var(--kptu-muted); back
 .modal .dt-date>input[type="date"]::-webkit-calendar-picker-indicator{ position:absolute; inset:0; width:auto; height:auto; margin:0; opacity:0; cursor:pointer; }
 /* 사업 보고 입력 창 줄 배치(④): 차수|짧은 이름, 일시|장소 두 칸 줄. 줄에 칸이 하나도 없으면(회의가 아닌 칸의 차수 줄) 줄 자체를 접고, 장소가 없는 서버면 일시가 한 줄을 다 쓴다. */
 .meeting-entry-section>.two-col:empty{ display:none; }
-.meeting-entry-section>.two-col:has(>#meetingLocationRow[hidden]){ grid-template-columns:minmax(0,1fr); }
+.meeting-entry-section>.two-col:has(>:is(#meetingLocationRow,#mrdEditLocationRow)[hidden]){ grid-template-columns:minmax(0,1fr); }
 .modal label>span:first-child:has(>.optional){ display:flex; align-items:baseline; flex-wrap:wrap; gap:0 6px; }
 
 /* MTG-3칸정리 ①(명진 2026-10-27): 고른 줄 표시 공용 규칙. 연한 강조 바탕(색마다 정한 --kptu-primary-soft) + 왼쪽 굵은 줄(--kptu-primary) + 진한 글자(--kptu-ink).
@@ -1407,3 +1407,25 @@ html .doc-kind-chips button[aria-pressed="false"]{ color:var(--kptu-muted); back
   background:var(--kptu-surface); border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));
 }
 body.kptu-mobile-keyboard .save-row-sticky{ display:none !important; }
+
+/* UI-눌림느낌(2026-10-27 명진 요청, 사이트 전체): 누를 수 있는 모든 것이 누르는 순간 살짝 작아지고(scale) 바탕이 조금 진해진다.
+   정의는 여기 한 곳이다. 화면마다 :active 모양을 새로 만들지 않는다(예전 달력 일정·회의 카드의 개별 :active 크기 규칙은 이 규칙으로 합쳤다).
+   - 누르는 중인 것: ① 진짜 버튼류(button·summary·role=button 등·링크·제출 버튼)는 :active로, ② 버튼이 아닌데 눌리는 줄·카드·칩·라벨 등
+     (cursor:pointer)은 press-feedback.js가 누르는 동안 data-pressing을 달아 같은 규칙을 쓴다. 큰 줄·카드는 그 도우미가 --ds-press-scale-wide로 낮춘다.
+   - scale 속성은 transform과 따로 겹쳐 쓰이므로 이미 transform을 쓰는 요소(가운데 맞춤·밀기)의 자리를 건드리지 않는다.
+   - 바탕 진해짐은 안쪽 그림자 한 겹(--ds-press-tint)이다. 글자·테두리 색은 그대로이고, 투명한 버튼도 같이 진해진다. 각 화면의 box-shadow:none에 지지 않으려고 !important를 쓴다(누르는 동안만).
+   - 못 쓰는 것(disabled·aria-disabled)과 data-press="off"(끌어 옮기는 손잡이 등)는 뺀다. 체크칸·라디오·고르기 칸 자체는 모양이 깨져 뺀다(그 라벨은 포함).
+   - 움직임 줄이기 설정을 켠 기기에서는 작아지는 움직임 없이 색만 바뀐다. */
+:is(button,summary,a[href],[role="button"],[role="tab"],[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"],[role="option"],[role="switch"],input:is([type="button"],[type="submit"],[type="reset"])):active:not(:disabled,[aria-disabled="true"],[data-press="off"],[data-press="off"] *),
+[data-pressing]:not([data-press="off"]){
+  scale:var(--ds-press-scale);
+  box-shadow:inset 0 0 0 999px var(--ds-press-tint) !important;
+  transition:scale var(--ds-press-ms) ease-out,box-shadow var(--ds-press-ms) ease-out;
+}
+[data-pressing][data-press-wide]{ scale:var(--ds-press-scale-wide); }
+@media (prefers-reduced-motion:reduce){
+  :is(button,summary,a[href],[role="button"],[role="tab"],[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"],[role="option"],[role="switch"],input:is([type="button"],[type="submit"],[type="reset"])):active:not(:disabled,[aria-disabled="true"],[data-press="off"]),
+  [data-pressing]{ scale:none; transition:none; }
+}
+/* [복사]처럼 결과가 눈에 안 보이는 동작: 버튼 글자가 잠깐 '✓ 복사됨'(초록)으로 바뀐다(press-feedback.js flashDone). 아래 알림에 기대지 않는다. */
+[data-done]{ color:var(--ds-done-ink) !important; }
