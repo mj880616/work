@@ -230,7 +230,7 @@ export function collectorStatus(appProperties) {
 
 // createTextReader(driveToken) → {extract(file)}: index.ts injects _shared/document-text.ts (LIB-글자채우기야간). Without it the
 // nightly text path answers SERVER_CONFIG_MISSING; every other path is unchanged.
-/** @param {{ env: Record<string, string | undefined>, fetcher?: typeof fetch, now?: () => Date, createTextReader?: ((driveToken: () => Promise<string>) => { extract: (file: { fileId: string, name: string, mime: string, size: number | null }) => Promise<{ text: string, source: string, reason: string }> }) | null }} deps */
+/** @param {{ env: Record<string, string | undefined>, fetcher?: typeof fetch, now?: () => Date, createTextReader?: ((driveToken: () => Promise<string>) => { extract: (file: { fileId: string, name: string, mime: string, size: number | null }) => Promise<{ text: string, source: string, reason: string }> }) | null, driveTrash?: { inspect: (request: typeof fetch, id: string, folder: string, token: string) => Promise<string>, trash: (request: typeof fetch, id: string, folder: string, token: string) => Promise<string> } | null }} deps */
 export function createHandler({ env, fetcher = fetch, now = () => new Date(), createTextReader = null, driveTrash = null }) {
   // No global cached tokens, database state, or caller-selected workspace/Drive IDs.
   async function checked(url, init, code) {
