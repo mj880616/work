@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 // JOURNAL-일기원드라이브 1~2단계: 실제 onedrive-photos handler를 지어낸 Supabase와 지어낸 Microsoft Graph로 돌린다. 네트워크 없음.
 // 비밀값·토큰·계정은 모두 고정 가짜 글자다.
 const {createOneDriveHandler}=await import('../../supabase/functions/onedrive-photos/handler.ts');
+const {memTables}=await import('./onedrive-fake-db.mjs');
 const {insideFolder,folderPathOf,safeDownloadUrl,seoulDay,graphNextLink,scopeAllowed,normalizeScopes,SCOPE}=await import('../../supabase/functions/onedrive-photos/graph.ts');
 
 const WS='a0000000-0000-4000-8000-000000000001',USER='u0000000-0000-4000-8000-000000000001',OTHER='u0000000-0000-4000-8000-000000000002';
@@ -11,37 +12,49 @@ const JWT='synthetic-user-jwt',NOW=Date.parse('2026-10-26T03:00:00Z');
 const ENV={ONEDRIVE_CLIENT_ID:'synthetic-client-id',ONEDRIVE_CLIENT_SECRET:'synthetic-client-secret-0123456789',ONEDRIVE_REDIRECT_URI:'https://synthetic.example.test/app/onedrive-return.html'};
 const REFRESH='synthetic-refresh-token-AAAA',REFRESH2='synthetic-refresh-token-BBBB',ACCESS='synthetic-access-token';
 
-function fakeAdmin({role='owner',row=null,saveError=false}={}){
-  const state={row,writes:[]};
-  const q=table=>{
-    const ctx={table,filters:{}};
+// 연결 표는 운영 권한을 흉내 낸다(workspace_id 고치기·upsert 거절). 색인 표 두 개는 메모리 표(onedrive-fake-db.mjs).
+function fakeAdmin({role='owner',row=null,saveError=false,index={}}={}){
+  const mem=memTables(index);
+  const state={row,writes:[],mem};
+  const conn=()=>{
+    const q={filters:[]};
     const api={
-      select(){return api;},eq(k,v){ctx.filters[k]=v;return api;},
-      maybeSingle(){
-        if(table==='app_workspace_members')return Promise.resolve({data:ctx.filters.user_id===USER?{workspace_id:WS,role}:null,error:null});
-        if(table==='app_onedrive_connections')return Promise.resolve({data:state.row,error:null});
-        return Promise.resolve({data:null,error:null});
-      },
+      select(){return api;},eq(k,v){q.filters.push([k,v]);return api;},
+      maybeSingle(){return Promise.resolve({data:state.row,error:null});},
       // 운영 DB처럼: service_role에는 workspace_id 고치기 권한이 없어 upsert(ON CONFLICT DO UPDATE SET workspace_id=…)는 항상 42501.
       upsert(v){state.writes.push({op:'upsert',v});return Promise.resolve({error:{code:'42501'}});},
       insert(v){state.writes.push({op:'insert',v});if(saveError==='insert')return Promise.resolve({error:{code:'42501'}});
         if(state.row)return Promise.resolve({error:{code:'23505'}});state.row={...v};return Promise.resolve({error:null});},
-      update(v){ctx.patch=v;return {eq(k,val){
-        if('workspace_id' in v)return Promise.resolve({error:{code:'42501'}});
-        state.writes.push({op:'update',v});
-        const done=saveError===true||saveError==='update'?{error:{code:'42501'}}:(state.row&&val===WS?(Object.assign(state.row,v),{error:null,hit:1}):{error:null,hit:0});
-        const p=Promise.resolve({error:done.error});
-        p.select=()=>Promise.resolve(done.error?{data:null,error:done.error}:{data:Array.from({length:done.hit},()=>({workspace_id:val})),error:null});
-        return p;}};},
+      update(v){
+        const u={filters:[],or:null,ret:false};
+        const run=()=>{
+          if('workspace_id' in v)return {error:{code:'42501'}};
+          // 색인 진행 칸만 바꾸는 고치기(잠금·진행 저장·색인 비우기)는 연결 저장 기록(writes)과 따로 센다.
+          const progressOnly=Object.keys(v).every(k=>['delta_link','next_link','index_done_at','synced_at','index_lock_until'].includes(k));
+          if(progressOnly)state.progress=(state.progress||0)+1;else state.writes.push({op:'update',v});
+          const connFields='refresh_token' in v||'folder_id' in v;
+          if(connFields&&(saveError===true||saveError==='update'))return {error:{code:'42501'}};
+          const ok=state.row&&u.filters.every(([k,val])=>k==='workspace_id'?val===WS:state.row[k]===val)
+            &&(!u.or||state.row.index_lock_until==null||String(state.row.index_lock_until)<u.or);
+          if(ok)Object.assign(state.row,v);
+          return {error:null,data:ok?[{workspace_id:WS}]:[]};
+        };
+        const c={eq(k,val){u.filters.push([k,val]);return c;},or(expr){u.or=expr.split('.lt.')[1];return c;},select(){u.ret=true;return c;},
+          then(res,rej){return Promise.resolve().then(run).then(r=>u.ret?r:{error:r.error}).then(res,rej);}};
+        return c;
+      },
       delete(){return {eq(){state.writes.push({op:'delete'});state.row=null;return Promise.resolve({error:null});}};},
     };
     return api;
   };
-  return {state,auth:{getUser:async t=>t===JWT?{data:{user:{id:USER}},error:null}:t==='other'?{data:{user:{id:OTHER}},error:null}:{data:{user:null},error:{status:401}}},from:q};
+  const members=()=>{const f={};const api={select(){return api;},eq(k,v){f[k]=v;return api;},
+    maybeSingle(){return Promise.resolve({data:f.user_id===USER?{workspace_id:WS,role}:null,error:null});}};return api;};
+  return {state,auth:{getUser:async t=>t===JWT?{data:{user:{id:USER}},error:null}:t==='other'?{data:{user:{id:OTHER}},error:null}:{data:{user:null},error:{status:401}}},
+    from:t=>t==='app_workspace_members'?members():t==='app_onedrive_connections'?conn():mem.from(t)};
 }
 
 // 지어낸 Microsoft: 토큰 주소, Graph, 임시 사진 주소.
-function fakeMicrosoft({tokenReply,items={},itemById={},thumb,deleteReply}={}){
+function fakeMicrosoft({tokenReply,items={},itemById={},thumb,deleteReply,deltaPages=[[]],deltaChanges=[],deltaReply}={}){
   const calls=[];
   const fetch=async(url,init={})=>{
     url=String(url);calls.push({url,init});
@@ -60,6 +73,15 @@ function fakeMicrosoft({tokenReply,items={},itemById={},thumb,deleteReply}={}){
       const path=decodeURIComponent(url.slice('https://graph.microsoft.com/v1.0'.length).split('?')[0]);
       const thumbMatch=path.match(/^\/me\/drive\/items\/([^/]+)\/thumbnails\/0\/([^/]+)\/content$/);
       if(thumbMatch){return thumb?thumb(thumbMatch):new Response(null,{status:302,headers:{location:'https://thumbs.synthetic.example.test/t/abc'}});}
+      const delta=path.match(/^\/me\/drive\/items\/([^/]+)\/delta$/);
+      if(delta){
+        const u=new URL(url),tok=u.searchParams.get('token');
+        if(deltaReply){const r=deltaReply(tok,delta[1]);if(r)return r;}
+        const base='https://graph.microsoft.com/v1.0/me/drive/items/'+encodeURIComponent(delta[1])+'/delta?token=';
+        if(tok==='latest')return new Response(JSON.stringify({value:deltaChanges,'@odata.deltaLink':base+'latest'}));
+        const i=tok===null?0:Number(tok);
+        return new Response(JSON.stringify({value:deltaPages[i]||[],...(i<deltaPages.length-1?{'@odata.nextLink':base+(i+1)}:{'@odata.deltaLink':base+'latest'})}));
+      }
       const kids=path.match(/^\/me\/drive\/(?:root|items\/([^/]+))\/children$/);
       if(kids){const key=kids[1]||'root';const page=items[key];if(!page)return new Response('{}',{status:404});
         const u=new URL(url);if(u.searchParams.get('page')==='2')return new Response(JSON.stringify({value:page.second||[]}));
@@ -226,21 +248,26 @@ test('folder list: sub-folders only, sorted; folder-set refuses non-folders, the
   const none=make({admin:fakeAdmin()});assert.equal((await post(none.handler,{action:'folders'})).status,424);
 });
 
-test('photos: groups by Seoul day, keeps the month, images only, walks sub-folders, follows only Graph next pages',async()=>{
-  const ms=fakeMicrosoft({items:{'F1!100':{first:[
-      {id:'A1',name:'a.jpg',file:{mimeType:'image/jpeg'},photo:{takenDateTime:'2026-10-12T15:30:00Z'}}, // 서울 10-13 00:30
-      {id:'A2',name:'b.heic',file:{mimeType:'image/heic'},photo:{takenDateTime:'2026-10-13T01:00:00Z'}},
-      {id:'A3',name:'c.mp4',file:{mimeType:'video/mp4'},photo:{takenDateTime:'2026-10-13T01:00:00Z'}},
-      {id:'A4',name:'d.jpg',file:{mimeType:'image/jpeg'},photo:{takenDateTime:'2026-09-30T20:00:00Z'}}, // 서울 10-01
-      {id:'A5',name:'e.jpg',file:{mimeType:'image/jpeg'},fileSystemInfo:{createdDateTime:'2026-10-20T00:00:00Z'}},
-      {id:'A6',name:'f.jpg',file:{mimeType:'image/jpeg'},photo:{takenDateTime:'2026-11-01T00:00:00Z'}},
-      {id:'SUB',name:'하위',folder:{}}],second:[{id:'A7',name:'g.png',file:{mimeType:'image/png'},photo:{takenDateTime:'2026-10-13T02:00:00Z'}},{id:'bad id!!/',name:'x',file:{mimeType:'image/png'}}]},
-    SUB:[{id:'B1',name:'h.jpg',file:{mimeType:'image/jpeg'},photo:{takenDateTime:'2026-10-13T03:00:00Z'}}]}});
+test('photos: read from the server index, grouped by Seoul day, images only, sub-folders included, month checked',async()=>{
+  const top={id:'F1!100',name:'카메라',folder:{},parentReference:{id:'ROOT!1'}};
+  const ms=fakeMicrosoft({deltaPages:[[top,
+      {id:'A1',name:'a.jpg',file:{mimeType:'image/jpeg'},photo:{takenDateTime:'2026-10-12T15:30:00Z'},parentReference:{id:'F1!100'}}, // 서울 10-13 00:30
+      {id:'A2',name:'b.heic',file:{mimeType:'image/heic'},photo:{takenDateTime:'2026-10-13T01:00:00Z'},parentReference:{id:'F1!100'}},
+      {id:'A3',name:'c.mp4',file:{mimeType:'video/mp4'},photo:{takenDateTime:'2026-10-13T01:00:00Z'},parentReference:{id:'F1!100'}},
+      {id:'A4',name:'d.jpg',file:{mimeType:'image/jpeg'},photo:{takenDateTime:'2026-09-30T20:00:00Z'},parentReference:{id:'F1!100'}}, // 서울 10-01
+      {id:'A5',name:'e.jpg',file:{mimeType:'image/jpeg'},fileSystemInfo:{createdDateTime:'2026-10-20T00:00:00Z'},parentReference:{id:'F1!100'}},
+      {id:'A6',name:'f.jpg',file:{mimeType:'image/jpeg'},photo:{takenDateTime:'2026-11-01T00:00:00Z'},parentReference:{id:'F1!100'}},
+      {id:'SUB',name:'하위',folder:{},parentReference:{id:'F1!100'}}],
+    [{id:'A7',name:'g.png',file:{mimeType:'image/png'},photo:{takenDateTime:'2026-10-13T02:00:00Z'},parentReference:{id:'F1!100'}},{id:'bad id!!/',name:'x',file:{mimeType:'image/png'},parentReference:{id:'F1!100'}},
+     {id:'B1',name:'h.jpg',file:{mimeType:'image/jpeg'},photo:{takenDateTime:'2026-10-13T03:00:00Z'},parentReference:{id:'SUB'}}]]});
   const ctx=make({ms});
   const out=await read(await post(ctx.handler,{action:'photos',month:'2026-10'}));
+  assert.equal(out.indexing,false);
   assert.deepEqual(Object.keys(out.days).sort(),['2026-10-01','2026-10-13','2026-10-20']);
   assert.deepEqual(out.days['2026-10-13'].map(p=>p.id),['A1','A2','A7','B1']);
   assert.equal(out.days['2026-10-20'][0].approx,true);assert.equal(out.days['2026-10-13'][0].approx,false);assert.equal(out.truncated,false);
+  // 저장한 것은 목록 정보뿐: 사진 표 칸은 정해진 것만
+  for(const r of ctx.admin.state.mem.tables.app_onedrive_photos)assert.deepEqual(Object.keys(r).sort(),['approx','enabled','item_id','name','parent_id','taken_at','taken_day','updated_at','workspace_id'].filter(k=>k!=='enabled'||'enabled' in r).sort());
   for(const month of ['2026-13','2026-1','x',null,'2026-10-01'])assert.equal((await post(ctx.handler,{action:'photos',month})).status,400,String(month));
   assert.equal((await post(make({admin:fakeAdmin({row:{...connected,folder_id:null,folder_path:null}})}).handler,{action:'photos',month:'2026-10'})).status,424);
 });
@@ -268,13 +295,14 @@ test('photo: only inside the chosen folder, thumbnail fetched server side withou
 });
 
 test('refresh token rotation is saved, access token is reused, expired grant becomes 424',async()=>{
-  const ms=fakeMicrosoft({items:{'F1!100':[]}});const ctx=make({ms});
-  await post(ctx.handler,{action:'photos',month:'2026-10'});await post(ctx.handler,{action:'photos',month:'2026-10'});
+  const ms=fakeMicrosoft({deltaPages:[[],[],[]]});const ctx=make({ms});
+  await post(ctx.handler,{action:'sync'});await post(ctx.handler,{action:'sync'});
   assert.equal(ms.calls.filter(c=>c.form).length,1,'one token request, then cached');
   assert.equal(ctx.admin.state.row.refresh_token,REFRESH2);
   const dead=make({ms:fakeMicrosoft({tokenReply:()=>({status:400,body:{error:'invalid_grant'}})})});
   const r=await post(dead.handler,{action:'photos',month:'2026-10'});assert.equal(r.status,424);assert.deepEqual(await read(r),{error:'onedrive_auth_expired'});
-  const save=make({admin:fakeAdmin({row:{...connected},saveError:true})});assert.equal((await post(save.handler,{action:'photos',month:'2026-10'})).status,503);
+  const save=make({admin:fakeAdmin({row:{...connected},saveError:true})});assert.equal((await post(save.handler,{action:'sync'})).status,503);
+  assert.equal(save.admin.state.row.index_lock_until,null,'lock is released after a failure');
 });
 
 test('disconnect deletes the stored connection; no response ever carries a token or secret',async()=>{
@@ -356,4 +384,118 @@ test('the new function is pre-registered once in the section 5 table with verify
   assert.equal(rows.length,1);assert.equal(rows[0].split('|')[6].replace(/[*\s]/g,''),'true');
   const index=readFileSync('supabase/functions/onedrive-photos/index.ts','utf8');
   assert.match(index,/verify_jwt=true/);
+});
+
+// ── 사진 색인(2026-10-28): 달마다 폴더를 훑지 않고 delta를 나눠 받아 서버 표에 적는다 ──
+const topItem={id:'F1!100',name:'카메라',folder:{},parentReference:{id:'ROOT!1'}};
+const pic=(id,parent,at='2026-10-13T01:00:00Z')=>({id,name:'img-'+id+'.jpg',file:{mimeType:'image/jpeg'},photo:{takenDateTime:at},parentReference:{id:parent}});
+const dir=(id,parent,name=id)=>({id,name,folder:{},parentReference:{id:parent}});
+const tree=()=>[[topItem,dir('S1','F1!100','2025'),dir('S2','F1!100','2026'),dir('S21','S2','여행'),
+  pic('P0','F1!100'),pic('P1','S1'),pic('P2','S2'),pic('P3','S21'),pic('P4','S21',  '2026-09-01T01:00:00Z')]];
+
+test('sync: pages are cut per request (more:true), the next-page link is saved and the next request continues; only Graph links',async()=>{
+  const pages=Array.from({length:35},(_,i)=>[pic('Q'+i,'F1!100')]);pages[0].unshift(topItem);
+  const ms=fakeMicrosoft({deltaPages:pages});const ctx=make({ms});
+  const first=await read(await post(ctx.handler,{action:'sync'}));
+  assert.deepEqual(first,{more:true,indexing:true});
+  assert.match(ctx.admin.state.row.next_link,/^https:\/\/graph\.microsoft\.com\/.*token=30$/);assert.equal(ctx.admin.state.row.index_lock_until,null);
+  assert.equal(ctx.admin.state.mem.tables.app_onedrive_photos.length,30);
+  const second=await read(await post(ctx.handler,{action:'sync'}));
+  assert.deepEqual(second,{more:false,indexing:false});
+  assert.equal(ctx.admin.state.row.next_link,null);assert.match(ctx.admin.state.row.delta_link,/token=latest$/);
+  assert.equal(ctx.admin.state.mem.tables.app_onedrive_photos.length,35);
+  // 저장된 주소가 Graph 주소가 아니면 따라가지 않고 처음부터 받는다
+  const evil=make({admin:fakeAdmin({row:{...connected,next_link:'https://evil.example.test/steal'}}),ms:fakeMicrosoft({deltaPages:tree()})});
+  await post(evil.handler,{action:'sync'});
+  assert.ok(evil.ms.calls.every(c=>!c.url.includes('evil.example.test')));
+});
+
+test('sync: a second request while one runs is refused with onedrive_index_busy; an expired lock is taken over',async()=>{
+  const busy=make({admin:fakeAdmin({row:{...connected,index_lock_until:new Date(NOW+30000).toISOString()}}),ms:fakeMicrosoft({deltaPages:tree()})});
+  const r=await post(busy.handler,{action:'sync'});assert.equal(r.status,409);assert.deepEqual(await read(r),{error:'onedrive_index_busy'});
+  assert.equal(busy.ms.calls.length,0,'no Microsoft call while busy');
+  const stale=make({admin:fakeAdmin({row:{...connected,index_lock_until:new Date(NOW-1000).toISOString()}}),ms:fakeMicrosoft({deltaPages:tree()})});
+  assert.equal((await post(stale.handler,{action:'sync'})).status,200);
+  // 달 조회는 바쁘면 색인을 건너뛰고 지금까지의 표로 답한다
+  assert.equal((await post(busy.handler,{action:'photos',month:'2026-10'})).status,200);
+});
+
+test('sync: Graph 429/503 becomes onedrive_throttled with Retry-After, progress so far is kept and the lock released',async()=>{
+  const pages=[[topItem,pic('A','F1!100')],[pic('B','F1!100')]];
+  for(const [status,header,want] of [[429,'120',120],[503,null,30],[429,'0',1]]){
+    const ms=fakeMicrosoft({deltaPages:pages,deltaReply:tok=>tok==='1'?new Response('{}',{status,headers:header===null?{}:{'retry-after':header}}):null});
+    const ctx=make({ms});const r=await post(ctx.handler,{action:'sync'});
+    assert.equal(r.status,429);assert.deepEqual(await read(r),{retry_after:want,error:'onedrive_throttled'});
+    assert.match(ctx.admin.state.row.next_link,/token=1$/);assert.equal(ctx.admin.state.row.index_lock_until,null);
+    assert.deepEqual(ctx.admin.state.mem.tables.app_onedrive_photos.map(p=>p.item_id),['A']);
+  }
+  // 달 조회는 요청 많음이면 건너뛰고 답한다(화면이 일반 실패 문구를 띄우지 않게)
+  const ms=fakeMicrosoft({deltaPages:pages,deltaReply:()=>new Response('{}',{status:429,headers:{'retry-after':'5'}})});
+  const out=await post(make({ms}).handler,{action:'photos',month:'2026-10'});assert.equal(out.status,200);assert.equal((await read(out)).indexing,true);
+});
+
+test('sync: 410 from Graph clears the index and starts over; deleted items and non-photos leave the index',async()=>{
+  const ctx=make({ms:fakeMicrosoft({deltaPages:tree()})});await post(ctx.handler,{action:'sync'});
+  assert.equal(ctx.admin.state.mem.tables.app_onedrive_photos.length,5);
+  ctx.ms.calls.length=0;
+  const changes=[{id:'P1',deleted:{}},{id:'S21',deleted:{}},{id:'P2',name:'now.mp4',file:{mimeType:'video/mp4'},parentReference:{id:'S2'}}];
+  const later=createOneDriveHandler(ctx.admin,{env:n=>ENV[n],fetch:fakeMicrosoft({deltaPages:tree(),deltaChanges:changes}).fetch,now:()=>NOW,log:()=>{}});
+  assert.deepEqual(await read(await post(later,{action:'sync'})),{more:false,indexing:false});
+  assert.deepEqual(ctx.admin.state.mem.tables.app_onedrive_photos.map(p=>p.item_id).sort(),['P0']);
+  assert.ok(!ctx.admin.state.mem.tables.app_onedrive_folders.some(f=>f.item_id==='S21'));
+  let gone=0;
+  const resync=createOneDriveHandler(ctx.admin,{env:n=>ENV[n],fetch:fakeMicrosoft({deltaPages:tree(),deltaReply:tok=>tok==='latest'&&!gone++?new Response('{}',{status:410}):null}).fetch,now:()=>NOW,log:()=>{}});
+  assert.deepEqual(await read(await post(resync,{action:'sync'})),{more:false,indexing:false});
+  assert.equal(ctx.admin.state.mem.tables.app_onedrive_photos.length,5,'rebuilt from the first page');
+});
+
+test('folders-tree and folder-toggle: counts per folder, switching a folder off hides it and everything below it',async()=>{
+  const ctx=make({ms:fakeMicrosoft({deltaPages:tree()})});await post(ctx.handler,{action:'sync'});
+  const t=await read(await post(ctx.handler,{action:'folders-tree'}));
+  assert.deepEqual(t.top,{id:'F1!100',name:'카메라',count:1,total:5});assert.equal(t.indexing,false);
+  assert.deepEqual(t.folders.map(f=>[f.id,f.parent_id,f.enabled,f.count,f.total]),[['S1','F1!100',true,1,1],['S2','F1!100',true,1,3],['S21','S2',true,2,2]]);
+  const days=async()=>(await read(await post(ctx.handler,{action:'photos',month:'2026-10'}))).days['2026-10-13'].map(p=>p.id);
+  assert.deepEqual(await days(),['P0','P1','P2','P3']);
+  assert.deepEqual(await read(await post(ctx.handler,{action:'folder-toggle',folder_id:'S2',enabled:false})),{folder:{id:'S2',enabled:false}});
+  assert.deepEqual(await days(),['P0','P1'],'S2 and its sub-folder S21 are hidden');
+  await post(ctx.handler,{action:'folder-toggle',folder_id:'S2',enabled:true});await post(ctx.handler,{action:'folder-toggle',folder_id:'S21',enabled:false});
+  assert.deepEqual(await days(),['P0','P1','P2']);
+  // 다음 변경 받기가 켜짐 설정을 덮지 않는다
+  await post(ctx.handler,{action:'sync'});assert.equal(ctx.admin.state.mem.tables.app_onedrive_folders.find(f=>f.item_id==='S21').enabled,false);
+  for(const body of [{folder_id:'F1!100',enabled:false},{folder_id:'S1',enabled:'false'},{folder_id:'../x',enabled:true},{enabled:true}])
+    assert.equal((await post(ctx.handler,{action:'folder-toggle',...body})).status,400,JSON.stringify(body));
+  assert.equal((await post(ctx.handler,{action:'folder-toggle',folder_id:'NOPE',enabled:true})).status,404);
+  assert.equal((await post(ctx.handler,{action:'folder-toggle',folder_id:'S1',enabled:true},{jwt:'other'})).status,403);
+});
+
+test('index belongs to the chosen top folder: changing it, reconnecting and disconnecting clear it; delete removes the row',async()=>{
+  const ms=fakeMicrosoft({deltaPages:tree(),itemById:{
+    'F9!1':{id:'F9!1',name:'다른',folder:{},parentReference:{path:'/drive/root:'}},
+    'F1!100':{id:'F1!100',name:'카메라',folder:{},parentReference:{path:'/drive/root:/Pictures'}},
+    P3:{id:'P3',file:{mimeType:'image/jpeg'},parentReference:{path:'/drive/root:/Pictures/Camera/2026/여행'}}}});
+  const ctx=make({ms});await post(ctx.handler,{action:'sync'});
+  await post(ctx.handler,{action:'folder-toggle',folder_id:'S1',enabled:false});
+  // 같은 폴더를 다시 고르면 그대로(경로만 갱신), 다른 폴더면 비움
+  ctx.admin.state.row.folder_path='/drive/root:/Pictures/카메라';
+  await post(ctx.handler,{action:'folder-set',folder_id:'F1!100'});
+  assert.equal(ctx.admin.state.mem.tables.app_onedrive_photos.length,5);assert.ok(ctx.admin.state.row.delta_link);
+  ctx.admin.state.row.folder_path='/drive/root:/Pictures/Camera';
+  assert.equal((await post(ctx.handler,{action:'photo-delete',id:'P3',confirm:true})).status,200);
+  assert.ok(!ctx.admin.state.mem.tables.app_onedrive_photos.some(p=>p.item_id==='P3'));
+  await post(ctx.handler,{action:'folder-set',folder_id:'F9!1'});
+  assert.equal(ctx.admin.state.mem.tables.app_onedrive_photos.length,0);assert.equal(ctx.admin.state.mem.tables.app_onedrive_folders.length,0);
+  assert.equal(ctx.admin.state.row.delta_link,null);assert.equal(ctx.admin.state.row.index_done_at,null);
+  const again=make({ms:fakeMicrosoft({deltaPages:tree()})});await post(again.handler,{action:'sync'});
+  await post(again.handler,{action:'auth-finish',code:'synthetic-code-123',state:await startState(again.handler)});
+  assert.equal(again.admin.state.mem.tables.app_onedrive_photos.length,0);assert.equal(again.admin.state.row.delta_link,null);
+  const bye=make({ms:fakeMicrosoft({deltaPages:tree()})});await post(bye.handler,{action:'sync'});
+  await post(bye.handler,{action:'disconnect'});assert.equal(bye.admin.state.mem.tables.app_onedrive_photos.length,0);
+});
+
+test('index responses carry list facts only: no token, secret or Graph link',async()=>{
+  const ctx=make({ms:fakeMicrosoft({deltaPages:tree()})});
+  for(const body of [{action:'sync'},{action:'folders-tree'},{action:'photos',month:'2026-10'}]){
+    const text=await (await post(ctx.handler,body)).text();
+    for(const secret of [REFRESH,REFRESH2,ACCESS,ENV.ONEDRIVE_CLIENT_SECRET,'graph.microsoft.com','token='])assert.ok(!text.includes(secret),body.action+' '+secret);
+  }
 });

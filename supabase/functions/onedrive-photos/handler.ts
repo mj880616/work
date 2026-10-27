@@ -1,6 +1,7 @@
 import {
-  folderPathOf, GRAPH, graphNextLink, IMAGE_MIME, insideFolder, MAX_FOLDER_DEPTH, MAX_IMAGE_BYTES, MAX_ITEMS,
-  MAX_REQUESTS, normalizeScopes, safeDownloadUrl, SCOPE, scopeAllowed, seoulDay, SIZES, takenOf, validItemId,
+  AUTO_SYNC_BUDGET_MS, AUTO_SYNC_MAX_PAGES, DELTA_SELECT, folderPathOf, GRAPH, graphNextLink, IMAGE_MIME, insideFolder,
+  MAX_FOLDER_DEPTH, MAX_IMAGE_BYTES, MAX_ITEMS, normalizeScopes, retryAfterSeconds, safeDownloadUrl, SCOPE, scopeAllowed,
+  seoulDay, SIZES, SYNC_BUDGET_MS, SYNC_LOCK_MS, SYNC_MAX_PAGES, SYNC_STALE_MS, takenOf, validItemId,
 } from "./graph.ts";
 import type { OneDriveItem } from "./graph.ts";
 
@@ -21,12 +22,19 @@ const json = (body: unknown, status = 200) =>
 class Fail extends Error {
   status: number;
   code: string;
-  constructor(status: number, code: string) {
+  extra?: Record<string, unknown>;
+  constructor(status: number, code: string, extra?: Record<string, unknown>) {
     super(code);
     this.status = status;
     this.code = code;
+    this.extra = extra;
   }
 }
+
+const CONN = "app_onedrive_connections", FOLDERS = "app_onedrive_folders", PHOTOS = "app_onedrive_photos";
+const DB_PAGE = 1000, UPSERT_CHUNK = 500, IN_CHUNK = 100;
+type FolderRow = { item_id: string; parent_id: string | null; name: string; enabled: boolean };
+type PhotoRow = { item_id: string; parent_id: string; name: string; taken_at: string; approx: boolean; taken_day: string };
 
 // 이 함수가 쓰는 Supabase 부분만 적는다(시험에서 지어낸 것으로 바꿀 수 있게).
 // deno-lint-ignore no-explicit-any
@@ -113,10 +121,14 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
   };
 
   async function readConnection(workspaceId: string) {
-    const { data, error } = await admin.from("app_onedrive_connections")
-      .select("refresh_token,scope,folder_id,folder_name,folder_path,connected_at").eq("workspace_id", workspaceId).maybeSingle();
+    const { data, error } = await admin.from(CONN)
+      .select("refresh_token,scope,folder_id,folder_name,folder_path,connected_at,delta_link,next_link,index_done_at,synced_at")
+      .eq("workspace_id", workspaceId).maybeSingle();
     if (error) dbFail("onedrive_read_failed", error);
-    return data as null | { refresh_token: string; scope?: string | null; folder_id: string | null; folder_name: string | null; folder_path: string | null; connected_at: string };
+    return data as null | {
+      refresh_token: string; scope?: string | null; folder_id: string | null; folder_name: string | null; folder_path: string | null; connected_at: string;
+      delta_link?: string | null; next_link?: string | null; index_done_at?: string | null; synced_at?: string | null;
+    };
   }
 
   // 연결 1행 저장. upsert(INSERT … ON CONFLICT DO UPDATE)는 쓰지 않는다: PostgREST가 SET 절에 보낸 모든 칸(workspace_id 포함)을 넣는데,
@@ -161,6 +173,20 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
   const graph = (stage: string, token: string, path: string) =>
     call(stage, path.startsWith("https://") ? path : GRAPH + path, { headers: { Authorization: `Bearer ${token}` } });
 
+  // Graph 응답 상태를 화면이 구분할 수 있는 코드로 바꾼다. 429·503(요청이 많음)은 Retry-After를 존중해 onedrive_throttled + retry_after(초).
+  function graphCheck(stage: string, r: Response, missing: string) {
+    if (r.status === 429 || r.status === 503) {
+      log(stage + "_throttled:" + r.status);
+      throw new Fail(429, "onedrive_throttled", { retry_after: retryAfterSeconds(r.headers.get("retry-after"), now()) });
+    }
+    if (r.status === 404) throw new Fail(404, missing);
+    if (r.status === 401 || r.status === 403) throw new Fail(424, "onedrive_auth_expired");
+    if (!r.ok) {
+      log(stage + "_rejected:" + r.status);
+      throw new Fail(502, "onedrive_unavailable");
+    }
+  }
+
   async function listChildren(token: string, parentId: string | null, select: string, budget: { left: number }) {
     const out: OneDriveItem[] = [];
     let url: string | null = (parentId ? `/me/drive/items/${encodeURIComponent(parentId)}/children` : "/me/drive/root/children") +
@@ -168,9 +194,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     while (url) {
       if (budget.left-- <= 0) throw new Fail(413, "onedrive_too_many_requests");
       const r = await graph("onedrive_list", token, url);
-      if (r.status === 404) throw new Fail(404, "onedrive_folder_missing");
-      if (r.status === 401 || r.status === 403) throw new Fail(424, "onedrive_auth_expired");
-      if (!r.ok) throw new Fail(502, "onedrive_unavailable");
+      graphCheck("onedrive_list", r, "onedrive_folder_missing");
       const d = await bodyJson(r);
       if (Array.isArray(d.value)) out.push(...(d.value as OneDriveItem[]));
       url = graphNextLink(d["@odata.nextLink"]);
@@ -181,9 +205,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
 
   async function getItem(token: string, id: string, select: string) {
     const r = await graph("onedrive_item", token, `/me/drive/items/${encodeURIComponent(id)}?$select=${select}`);
-    if (r.status === 404) throw new Fail(404, "onedrive_item_missing");
-    if (r.status === 401 || r.status === 403) throw new Fail(424, "onedrive_auth_expired");
-    if (!r.ok) throw new Fail(502, "onedrive_unavailable");
+    graphCheck("onedrive_item", r, "onedrive_item_missing");
     return (await bodyJson(r)) as OneDriveItem;
   }
 
@@ -192,6 +214,169 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     if (!conn.folder_id || !conn.folder_path) throw new Fail(424, "onedrive_folder_not_set");
     return { id: conn.folder_id, path: conn.folder_path };
   };
+
+  // ── 사진 색인(서버 표) ──────────────────────────────────────────────────────────────
+  // 모든 읽기·쓰기는 이 작업공간(workspace_id) 행만 다룬다. 사진 이름 등 목록 내용은 로그에 남기지 않는다.
+  async function readAll<T>(stage: string, build: () => Query): Promise<T[]> {
+    const out: T[] = [];
+    for (let from = 0;; from += DB_PAGE) {
+      const { data, error } = await build().range(from, from + DB_PAGE - 1);
+      if (error) dbFail(stage, error);
+      const rows = Array.isArray(data) ? data as T[] : [];
+      out.push(...rows);
+      if (rows.length < DB_PAGE) return out;
+    }
+  }
+  const readFolders = (workspaceId: string) => readAll<FolderRow>("onedrive_index_read_failed:folders", () =>
+    admin.from(FOLDERS).select("item_id,parent_id,name,enabled").eq("workspace_id", workspaceId).order("item_id"));
+
+  // 맨 위 폴더에서 부모 id로 이어지는 폴더만 트리에 든다(이어지지 않는 폴더 = 지워졌거나 밖으로 옮겨짐 → 보이지 않음).
+  // 사진이 보이려면 맨 위 폴더 아래로 거치는 모든 폴더가 켜져 있어야 한다(맨 위 폴더 자체는 늘 켜짐).
+  function folderTree(rows: FolderRow[], topId: string) {
+    const byId = new Map(rows.map((r) => [r.item_id, r]));
+    const kids = new Map<string, FolderRow[]>();
+    for (const r of rows) {
+      if (r.item_id === topId || !r.parent_id) continue;
+      (kids.get(r.parent_id) || kids.set(r.parent_id, []).get(r.parent_id)!).push(r);
+    }
+    const reach = new Map<string, { visible: boolean; depth: number }>([[topId, { visible: true, depth: 0 }]]);
+    const stack = [topId];
+    while (stack.length) {
+      const id = stack.pop()!, cur = reach.get(id)!;
+      if (cur.depth >= MAX_FOLDER_DEPTH) continue;
+      for (const k of kids.get(id) || []) {
+        if (reach.has(k.item_id)) continue;
+        reach.set(k.item_id, { visible: cur.visible && k.enabled !== false, depth: cur.depth + 1 });
+        stack.push(k.item_id);
+      }
+    }
+    return { byId, kids, reach };
+  }
+
+  async function deleteIn(stage: string, table: string, workspaceId: string, column: string, ids: string[]) {
+    for (let i = 0; i < ids.length; i += IN_CHUNK) {
+      const { error } = await admin.from(table).delete().eq("workspace_id", workspaceId).in(column, ids.slice(i, i + IN_CHUNK));
+      if (error) dbFail(stage, error);
+    }
+  }
+  async function upsertRows(stage: string, table: string, rows: Record<string, unknown>[]) {
+    for (let i = 0; i < rows.length; i += UPSERT_CHUNK) {
+      const { error } = await admin.from(table).upsert(rows.slice(i, i + UPSERT_CHUNK), { onConflict: "workspace_id,item_id" });
+      if (error) dbFail(stage, error);
+    }
+  }
+
+  // 색인 비우기: 맨 위 폴더를 바꾸거나 다시 연결하거나 Graph가 처음부터 다시 받으라고(410) 할 때.
+  const INDEX_RESET = { delta_link: null, next_link: null, index_done_at: null, synced_at: null, index_lock_until: null };
+  async function clearIndexRows(workspaceId: string) {
+    for (const table of [PHOTOS, FOLDERS]) {
+      const { error } = await admin.from(table).delete().eq("workspace_id", workspaceId);
+      if (error) dbFail("onedrive_index_clear_failed", error);
+    }
+  }
+
+  // delta 한 쪽을 표에 반영한다. 지워진 항목·사진 아님·찍은 시각 없음은 색인에서 뺀다. 같은 쪽 안 중복 id는 마지막 것만.
+  async function applyDelta(workspaceId: string, topId: string, items: OneDriveItem[], stamp: string) {
+    const folders = new Map<string, Record<string, unknown>>(), photos = new Map<string, Record<string, unknown>>(), gone = new Set<string>();
+    for (const it of items) {
+      if (!it || !validItemId(it.id)) continue;
+      const parent = it.parentReference?.id;
+      if (it.deleted) {
+        gone.add(it.id);
+        continue;
+      }
+      if (it.folder) {
+        if (typeof it.name !== "string" || !it.name || it.name.length > 400) continue;
+        folders.set(it.id, {
+          workspace_id: workspaceId, item_id: it.id, parent_id: it.id === topId ? null : (validItemId(parent) ? parent : null),
+          name: it.name, updated_at: stamp,
+        });
+        continue;
+      }
+      const taken = it.file?.mimeType && IMAGE_MIME.test(it.file.mimeType) ? takenOf(it) : null;
+      const day = taken && seoulDay(taken.at);
+      if (!taken || !day || !validItemId(parent)) {
+        gone.add(it.id);
+        continue;
+      }
+      const name = typeof it.name === "string" && it.name ? it.name.slice(0, 400) : it.id;
+      photos.set(it.id, {
+        workspace_id: workspaceId, item_id: it.id, parent_id: parent, name, taken_at: taken.at, approx: taken.approx, taken_day: day, updated_at: stamp,
+      });
+    }
+    for (const id of gone) {
+      folders.delete(id);
+      photos.delete(id);
+    }
+    await upsertRows("onedrive_index_save_failed:folders", FOLDERS, [...folders.values()]);
+    await upsertRows("onedrive_index_save_failed:photos", PHOTOS, [...photos.values()]);
+    if (gone.size) {
+      const ids = [...gone];
+      await deleteIn("onedrive_index_delete_failed:photos", PHOTOS, workspaceId, "item_id", ids);
+      await deleteIn("onedrive_index_delete_failed:in_folder", PHOTOS, workspaceId, "parent_id", ids);
+      await deleteIn("onedrive_index_delete_failed:folders", FOLDERS, workspaceId, "item_id", ids);
+    }
+  }
+
+  // 색인 한 걸음: 잠금 → (처음이면 다음 쪽 주소, 끝났으면 변경 주소)부터 시간·쪽 상한까지 받기 → 진행 저장·잠금 풀기.
+  // 이미 다른 요청이 받는 중이면 409 onedrive_index_busy. 쪽마다 바로 표에 반영하므로 중간에 멈춰도 다음 요청이 이어 간다.
+  type Conn = NonNullable<Awaited<ReturnType<typeof readConnection>>>;
+  async function syncStep(workspaceId: string, conn: Conn, folder: { id: string }, budgetMs: number, maxPages: number) {
+    const startAt = now(), stamp = new Date(startAt).toISOString();
+    const { data: locked, error } = await admin.from(CONN)
+      .update({ index_lock_until: new Date(startAt + SYNC_LOCK_MS).toISOString() })
+      .eq("workspace_id", workspaceId)
+      .or(`index_lock_until.is.null,index_lock_until.lt.${stamp}`)
+      .select("workspace_id");
+    if (error) dbFail("onedrive_index_lock_failed", error);
+    if (!Array.isArray(locked) || locked.length !== 1) throw new Fail(409, "onedrive_index_busy");
+    const first = `${GRAPH}/me/drive/items/${encodeURIComponent(folder.id)}/delta?$select=${DELTA_SELECT}`;
+    let next = graphNextLink(conn.next_link), delta = graphNextLink(conn.delta_link), done = conn.index_done_at || null;
+    let synced = conn.synced_at || null, url = next || delta || first, more = true, pages = 0;
+    try {
+      const token = await accessToken(workspaceId, conn);
+      while (pages < maxPages && now() - startAt < budgetMs) {
+        pages++;
+        const r = await graph("onedrive_delta", token, url);
+        if (r.status === 410) {
+          // Graph가 이어 받기 주소를 버렸다: 색인을 비우고 처음부터 다시 받는다.
+          log("onedrive_delta_resync");
+          await clearIndexRows(workspaceId);
+          next = null;
+          delta = null;
+          done = null;
+          url = first;
+          continue;
+        }
+        graphCheck("onedrive_delta", r, "onedrive_folder_missing");
+        const d = await bodyJson(r);
+        await applyDelta(workspaceId, folder.id, Array.isArray(d.value) ? d.value as OneDriveItem[] : [], stamp);
+        const nl = graphNextLink(d["@odata.nextLink"]), dl = graphNextLink(d["@odata.deltaLink"]);
+        if (nl) {
+          next = nl;
+          url = nl;
+          continue;
+        }
+        if (!dl) {
+          log("onedrive_delta_link_missing");
+          throw new Fail(502, "onedrive_unavailable");
+        }
+        delta = dl;
+        next = null;
+        done = done || stamp;
+        synced = stamp;
+        more = false;
+        break;
+      }
+    } finally {
+      const { error: saveError } = await admin.from(CONN)
+        .update({ next_link: next, delta_link: delta, index_done_at: done, synced_at: synced, index_lock_until: null })
+        .eq("workspace_id", workspaceId);
+      // 진행 저장이 실패해도 이미 반영한 쪽은 다음에 다시 받아도 같은 결과다(잠금은 1분 뒤 풀림). 원래 오류를 덮지 않게 기록만 한다.
+      if (saveError) log("onedrive_index_progress_failed" + (/^[0-9A-Z]{5}$/.test(String(saveError.code)) ? ":" + saveError.code : ""));
+    }
+    return { more, indexing: !done };
+  }
 
   async function sign(payload: Record<string, unknown>, secret: string) {
     const body = b64u(enc.encode(JSON.stringify(payload)));
@@ -261,6 +446,10 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
         refresh_token: d.refresh_token, folder_id: null, folder_name: null, folder_path: null,
         scope: granted.join(" "), connected_at: stamp, updated_at: stamp,
       });
+      // 다른 계정일 수 있으므로 이전 색인도 비운다.
+      await clearIndexRows(workspaceId);
+      const { error } = await admin.from(CONN).update(INDEX_RESET).eq("workspace_id", workspaceId);
+      if (error) dbFail("onedrive_index_clear_failed:progress", error);
       return json({ connected: true });
     },
 
@@ -289,60 +478,103 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       const path = folderPathOf(item);
       // 폴더가 아니거나, 원드라이브 맨 위(루트) 자체면 거절한다. 사진을 읽을 범위는 사용자가 고른 폴더 하나로 좁힌다.
       if (!item.folder || !path || item.id !== body.folder_id) throw new Fail(400, "onedrive_folder_invalid");
-      const { error } = await admin.from("app_onedrive_connections")
-        .update({ folder_id: item.id, folder_name: item.name, folder_path: path, updated_at: new Date(now()).toISOString() })
+      // 맨 위 폴더가 바뀌면 색인을 비우고 처음부터 다시 받는다(같은 폴더를 다시 고르면 켜고 끈 설정을 그대로 둔다).
+      const changed = conn.folder_id !== item.id;
+      if (changed) await clearIndexRows(workspaceId);
+      const { error } = await admin.from(CONN)
+        .update({ folder_id: item.id, folder_name: item.name, folder_path: path, updated_at: new Date(now()).toISOString(), ...(changed ? INDEX_RESET : {}) })
         .eq("workspace_id", workspaceId);
       if (error) dbFail("onedrive_folder_save_failed", error);
       return json({ folder: { name: item.name } });
     },
 
+    // 달 사진: 서버 색인에서 읽는다(켠 폴더와 그 아래만, 서울 날짜 기준). 색인이 덜 됐거나 10분 넘게 안 받았으면 짧게 한 걸음 받는다.
+    // 그 한 걸음이 바쁨·요청 많음·일시 장애로 못 가면 기록만 하고 지금까지의 색인으로 답한다(연결 풀림은 그대로 알린다).
     async photos({ workspaceId, body }) {
       const conn = await readConnection(workspaceId);
       const folder = folderOf(conn);
       const month = body.month;
       if (typeof month !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Fail(400, "onedrive_request_invalid");
-      const token = await accessToken(workspaceId, conn!);
-      const budget = { left: MAX_REQUESTS };
-      const days: Record<string, { id: string; name: string; taken_at: string; approx: boolean }[]> = {};
-      let truncated = false, seen = 0;
-      const queue: { id: string; depth: number }[] = [{ id: folder.id, depth: 0 }];
-      while (queue.length) {
-        const cur = queue.shift()!;
-        let items: OneDriveItem[];
+      let indexing = !conn!.index_done_at;
+      const synced = conn!.synced_at ? Date.parse(conn!.synced_at) : NaN;
+      if (indexing || !Number.isFinite(synced) || now() - synced > SYNC_STALE_MS) {
         try {
-          items = await listChildren(token, cur.id, "id,name,file,folder,photo,fileSystemInfo", budget);
+          indexing = (await syncStep(workspaceId, conn!, folder, AUTO_SYNC_BUDGET_MS, AUTO_SYNC_MAX_PAGES)).indexing;
         } catch (e) {
-          if (e instanceof Fail && e.status === 413) {
-            truncated = true;
-            break;
-          }
-          throw e;
-        }
-        for (const item of items) {
-          if (!validItemId(item.id)) continue;
-          if (item.folder) {
-            if (cur.depth + 1 <= MAX_FOLDER_DEPTH) queue.push({ id: item.id, depth: cur.depth + 1 });
-            else truncated = true;
-            continue;
-          }
-          if (++seen > MAX_ITEMS) {
-            truncated = true;
-            break;
-          }
-          if (!item.file?.mimeType || !IMAGE_MIME.test(item.file.mimeType)) continue;
-          const taken = takenOf(item);
-          const day = taken && seoulDay(taken.at);
-          if (!taken || !day || !day.startsWith(month + "-")) continue;
-          (days[day] ||= []).push({ id: item.id, name: String(item.name || ""), taken_at: taken.at, approx: taken.approx });
+          if (!(e instanceof Fail) || !["onedrive_index_busy", "onedrive_throttled", "onedrive_unavailable"].includes(e.code)) throw e;
+          log("onedrive_auto_sync_skipped:" + e.code);
         }
       }
+      const [y, m] = month.split("-").map(Number);
+      const end = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`;
+      const { reach } = folderTree(await readFolders(workspaceId), folder.id);
+      const rows = await readAll<PhotoRow>("onedrive_index_read_failed:photos", () =>
+        admin.from(PHOTOS).select("item_id,parent_id,name,taken_at,approx,taken_day").eq("workspace_id", workspaceId)
+          .gte("taken_day", `${month}-01`).lt("taken_day", end).order("item_id"));
+      const days: Record<string, { id: string; name: string; taken_at: string; approx: boolean }[]> = {};
+      for (const r of rows) {
+        if (!reach.get(r.parent_id)?.visible) continue;
+        const day = String(r.taken_day).slice(0, 10);
+        if (!day.startsWith(month + "-")) continue;
+        (days[day] ||= []).push({ id: r.item_id, name: r.name, taken_at: new Date(r.taken_at).toISOString(), approx: r.approx === true });
+      }
       for (const list of Object.values(days)) list.sort((a, b) => a.taken_at.localeCompare(b.taken_at) || a.id.localeCompare(b.id));
-      return json({ month, days, truncated });
+      return json({ month, days, truncated: false, indexing });
+    },
+
+    // 색인 이어 받기(화면이 more:false가 될 때까지 부른다). 한 요청은 20초·30쪽까지만.
+    async sync({ workspaceId }) {
+      const conn = await readConnection(workspaceId);
+      const folder = folderOf(conn);
+      const r = await syncStep(workspaceId, conn!, folder, SYNC_BUDGET_MS, SYNC_MAX_PAGES);
+      return json(r);
+    },
+
+    // 맨 위 폴더 아래 하위 폴더 트리: 폴더마다 켜짐·바로 안 사진 장수(count)·아래 전체 장수(total, 꺼진 폴더도 셈).
+    async "folders-tree"({ workspaceId }) {
+      const conn = await readConnection(workspaceId);
+      const folder = folderOf(conn);
+      const { byId, kids, reach } = folderTree(await readFolders(workspaceId), folder.id);
+      const parents = await readAll<{ parent_id: string }>("onedrive_index_read_failed:counts", () =>
+        admin.from(PHOTOS).select("parent_id").eq("workspace_id", workspaceId).order("item_id"));
+      const count = new Map<string, number>();
+      for (const p of parents) count.set(p.parent_id, (count.get(p.parent_id) || 0) + 1);
+      const total = new Map<string, number>();
+      // 깊은 폴더부터 더한다(재귀 없이).
+      const order = [...reach.entries()].sort((a, b) => b[1].depth - a[1].depth).map(([id]) => id);
+      for (const id of order) {
+        let t = count.get(id) || 0;
+        for (const k of kids.get(id) || []) t += total.get(k.item_id) || 0;
+        total.set(id, t);
+      }
+      const folders = [...reach.keys()].filter((id) => id !== folder.id).map((id) => {
+        const r = byId.get(id)!;
+        return { id, name: r.name, parent_id: r.parent_id, enabled: r.enabled !== false, count: count.get(id) || 0, total: total.get(id) || 0 };
+      }).sort((a, b) => a.name.localeCompare(b.name, "ko") || a.id.localeCompare(b.id));
+      return json({
+        top: { id: folder.id, name: conn!.folder_name, count: count.get(folder.id) || 0, total: total.get(folder.id) || 0 },
+        folders, indexing: !conn!.index_done_at,
+      });
+    },
+
+    // 하위 폴더 켜기·끄기. 맨 위 폴더는 끌 수 없다(끄려면 다른 맨 위 폴더를 고른다).
+    async "folder-toggle"({ workspaceId, body }) {
+      const conn = await readConnection(workspaceId);
+      const folder = folderOf(conn);
+      if (!validItemId(body.folder_id) || typeof body.enabled !== "boolean" || body.folder_id === folder.id) {
+        throw new Fail(400, "onedrive_request_invalid");
+      }
+      const { data, error } = await admin.from(FOLDERS).update({ enabled: body.enabled, updated_at: new Date(now()).toISOString() })
+        .eq("workspace_id", workspaceId).eq("item_id", body.folder_id).select("item_id");
+      if (error) dbFail("onedrive_folder_toggle_failed", error);
+      if (!Array.isArray(data) || data.length !== 1) throw new Fail(404, "onedrive_folder_missing");
+      return json({ folder: { id: body.folder_id, enabled: body.enabled } });
     },
 
     async disconnect({ workspaceId }) {
       cached.delete(workspaceId);
-      const { error } = await admin.from("app_onedrive_connections").delete().eq("workspace_id", workspaceId);
+      await clearIndexRows(workspaceId);
+      const { error } = await admin.from(CONN).delete().eq("workspace_id", workspaceId);
       if (error) dbFail("onedrive_disconnect_failed", error);
       return json({ connected: false });
     },
@@ -370,6 +602,9 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     if (r.status === 401) throw new Fail(424, "onedrive_auth_expired");
     if (r.status === 403) throw new Fail(424, "onedrive_reconnect_needed");
     if (r.status !== 204 && !r.ok) throw new Fail(502, "onedrive_delete_failed");
+    // 색인 행도 지운다. 실패해도 사진은 이미 휴지통이고 다음 변경 받기(delta)가 다시 지우므로 기록만 한다.
+    const { error } = await admin.from(PHOTOS).delete().eq("workspace_id", workspaceId).in("item_id", [body.id]);
+    if (error) log("onedrive_index_delete_failed:photo" + (/^[0-9A-Z]{5}$/.test(String(error.code)) ? ":" + error.code : ""));
     return json({ deleted: true });
   }
 
@@ -434,7 +669,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       if (typeof action !== "string" || !Object.hasOwn(actions, action)) throw new Fail(400, "action_invalid");
       return await actions[action]({ userId: data.user.id, workspaceId: member.workspace_id, body });
     } catch (e) {
-      if (e instanceof Fail) return json({ error: e.code }, e.status);
+      if (e instanceof Fail) return json({ ...(e.extra || {}), error: e.code }, e.status);
       log("onedrive_unexpected");
       return json({ error: "onedrive_unavailable" }, 500);
     }
