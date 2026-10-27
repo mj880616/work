@@ -48,6 +48,7 @@ async function signIn(page){
 const primary={olive:'#5c6a35',navy:'#263f5f',terracotta:'#a8582a',sand:'#4a3d33',mugwort:'#3e6b55',lavender:'#61537f',ink:'#4a4a46',rose:'#93505d',teal:'#36676f',mustard:'#896820'};
 const pageColor={olive:'#f3f1ea',navy:'#f5f6f7',terracotta:'#f7f2ea',sand:'#f6f1e7',mugwort:'#f1f6f3',lavender:'#f5f3f8',ink:'#f4f4f2',rose:'#f8f1f2',teal:'#f1f6f7',mustard:'#f9f5eb'};
 test('this list follows the one allowed list of ten colors',()=>{expect(Object.keys(primary)).toEqual([...THEMES]);expect(Object.keys(pageColor)).toEqual([...THEMES])});
+// 아래 D-3b 시험의 카드 바탕(surface)도 같은 열 가지: 값은 theme-tokens.css의 --kptu-surface.
 const readPrimary=page=>page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-primary').trim());
 for(const stored of [null,...THEMES,'invalid']){
  test('login is olive; the saved color is applied before the app opens and after reload: '+stored,async({page})=>{
@@ -191,7 +192,7 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
   await page.route('https://raw.githubusercontent.com/**',route=>route.fulfill({status:200,body:'<p>Fixture</p>'}));
   await page.goto(`${appOrigin}/app/?view=calendar`);await signIn(page);
   const rgb=hex=>'rgb('+hex.slice(1).match(/../g).map(v=>parseInt(v,16)).join(', ')+')';
-  const surface={olive:'#fffefa',navy:'#ffffff',terracotta:'#fffdf9',sand:'#fffcf6'};
+  const surface={olive:'#fffefa',navy:'#ffffff',terracotta:'#fffdf9',sand:'#fffcf6',mugwort:'#fdfefd',lavender:'#fefdfe',ink:'#fdfdfd',rose:'#fefdfd',teal:'#fdfefe',mustard:'#fefefc'};
   const matches=async(selector,property,hex)=>{
    const element=page.locator(selector).first();await expect(element).toBeVisible();
    await expect.poll(()=>element.evaluate((el,property)=>getComputedStyle(el)[property],property)).toBe(rgb(hex));
