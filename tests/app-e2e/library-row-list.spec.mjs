@@ -1,4 +1,5 @@
 import { appOrigin } from './helpers/test-origin.mjs';
+import {THEMES} from './helpers/theme-list.mjs';
 import {selectFilter,filterOptions} from './helpers/filter-chips.mjs';
 import {onlyLibraryCategories} from './helpers/library-categories.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
@@ -216,10 +217,10 @@ for(const width of [390,1440]){
   });
 }
 // UI-디자인기준 3/3(8-9e-1, 원장 CC18): the file kind keeps its own color (HWP 파랑) in every account theme.
-test('library file type keeps its kind color in all four themes and search/filter remain intact',async({page})=>{
+test('library file type keeps its kind color in all ten themes and search/filter remain intact',async({page})=>{
   await boot(page);
   // UI-PC자료실 M2: 폰(이 시험의 390px)은 종류를 색 글자로만 보인다(바탕 없음). PC 상자 색은 ui-standard-3a 1280에서 본다.
-  for(const theme of ['olive','navy','terracotta','sand']){
+  for(const theme of THEMES){
     await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
     await expect(page.locator('.lu-file-kind').first()).toHaveAttribute('data-lu-kind','hwp');
     expect(await page.locator('.lu-file-kind').first().evaluate(el=>{const s=getComputedStyle(el);const probe=document.createElement('span');probe.style.color='var(--ds-file-hwp-ink)';probe.style.backgroundColor='var(--ds-file-hwp-soft)';el.append(probe);const p=getComputedStyle(probe),match=s.color===p.color&&s.backgroundColor===(innerWidth<761?'rgba(0, 0, 0, 0)':p.backgroundColor);probe.remove();return match})).toBe(true);

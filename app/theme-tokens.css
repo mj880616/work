@@ -26,6 +26,49 @@
   --kptu-primary:#4a3d33;--kptu-primary-hover:#3c3129;--kptu-primary-ink:#7a5012;
   --kptu-primary-soft:#f6ead1;--kptu-on-primary:#fffaf2;--kptu-link:#7a5012;
 }
+/* UI-화면색10(명진 결정 2026-10-27): 쑥·라벤더·먹·장미·청록·겨자 여섯 가지를 더해 열 가지. 바탕·강조는 요청 색 견본에서 시작해 글자 대비(tests/theme-contrast.test.mjs)에 맞춰 조정했다(겨자 강조만 눈에 띄게 어두워짐). 이름 목록은 view-prefs.js THEMES 한 곳. */
+[data-theme="mugwort"]{
+  --kptu-bg:#f1f6f3;--kptu-surface:#fdfefd;--kptu-surface-subtle:#f8faf9;
+  --kptu-ink:#1d2b24;--kptu-muted:#5a7266;--kptu-faint:#7b9388;
+  --kptu-border:#d8e3dd;--kptu-border-strong:#bfcfc7;
+  --kptu-primary:#3e6b55;--kptu-primary-hover:#38604c;--kptu-primary-ink:#3e6b55;
+  --kptu-primary-soft:#e8edeb;--kptu-on-primary:#ffffff;--kptu-link:#3e6b55;
+}
+[data-theme="lavender"]{
+  --kptu-bg:#f5f3f8;--kptu-surface:#fefdfe;--kptu-surface-subtle:#faf9fc;
+  --kptu-ink:#211d2b;--kptu-muted:#625a72;--kptu-faint:#888198;
+  --kptu-border:#e0dde7;--kptu-border-strong:#ccc6d6;
+  --kptu-primary:#61537f;--kptu-primary-hover:#574b72;--kptu-primary-ink:#61537f;
+  --kptu-primary-soft:#eceaf0;--kptu-on-primary:#ffffff;--kptu-link:#61537f;
+}
+[data-theme="ink"]{
+  --kptu-bg:#f4f4f2;--kptu-surface:#fdfdfd;--kptu-surface-subtle:#fafaf8;
+  --kptu-ink:#252523;--kptu-muted:#696963;--kptu-faint:#8d8d86;
+  --kptu-border:#dcdcda;--kptu-border-strong:#c4c4c2;
+  --kptu-primary:#4a4a46;--kptu-primary-hover:#43433f;--kptu-primary-ink:#4a4a46;
+  --kptu-primary-soft:#e9e9e9;--kptu-on-primary:#ffffff;--kptu-link:#4a4a46;
+}
+[data-theme="rose"]{
+  --kptu-bg:#f8f1f2;--kptu-surface:#fefdfd;--kptu-surface-subtle:#fcf8f8;
+  --kptu-ink:#2b1d1f;--kptu-muted:#725a5f;--kptu-faint:#988185;
+  --kptu-border:#eadadd;--kptu-border-strong:#dcc4c8;
+  --kptu-primary:#93505d;--kptu-primary-hover:#844854;--kptu-primary-ink:#93505d;
+  --kptu-primary-soft:#f2eaec;--kptu-on-primary:#ffffff;--kptu-link:#93505d;
+}
+[data-theme="teal"]{
+  --kptu-bg:#f1f6f7;--kptu-surface:#fdfefe;--kptu-surface-subtle:#f8fafb;
+  --kptu-ink:#1d292b;--kptu-muted:#5a6f72;--kptu-faint:#7b9093;
+  --kptu-border:#d7e2e4;--kptu-border-strong:#bdced1;
+  --kptu-primary:#36676f;--kptu-primary-hover:#315d64;--kptu-primary-ink:#36676f;
+  --kptu-primary-soft:#e7edee;--kptu-on-primary:#ffffff;--kptu-link:#36676f;
+}
+[data-theme="mustard"]{
+  --kptu-bg:#f9f5eb;--kptu-surface:#fefefc;--kptu-surface-subtle:#fcfaf5;
+  --kptu-ink:#2b261d;--kptu-muted:#726a5a;--kptu-faint:#938b7b;
+  --kptu-border:#ece3cf;--kptu-border-strong:#ded1b3;
+  --kptu-primary:#896820;--kptu-primary-hover:#7b5e1d;--kptu-primary-ink:#7d5f1d;
+  --kptu-primary-soft:#f3eee5;--kptu-on-primary:#ffffff;--kptu-link:#7d5f1d;
+}
 :root{
   --kptu-danger:#b42318;--kptu-danger-soft:#fdecea;
   --kptu-text-title:20px;--kptu-text-subtitle:16px;--kptu-text-body:14px;--kptu-text-meta:12px;
@@ -150,5 +193,23 @@
   }
   :root[data-theme="sand"]{
     --kptu-primary:#d8b67f;--kptu-primary-hover:#e2c597;--kptu-primary-ink:#e2c597;--kptu-primary-soft:#352b1b;--kptu-link:#e2c597;
+  }
+  :root[data-theme="mugwort"]{
+    --kptu-primary:#8ebea7;--kptu-primary-hover:#9cc6b2;--kptu-primary-ink:#99c4b0;--kptu-primary-soft:#252e27;--kptu-link:#99c4b0;
+  }
+  :root[data-theme="lavender"]{
+    --kptu-primary:#bbb2cd;--kptu-primary-hover:#c3bbd3;--kptu-primary-ink:#c2bad2;--kptu-primary-soft:#2c292f;--kptu-link:#c2bad2;
+  }
+  :root[data-theme="ink"]{
+    --kptu-primary:#b5b5b1;--kptu-primary-hover:#bebeba;--kptu-primary-ink:#bcbcb9;--kptu-primary-soft:#282824;--kptu-link:#bcbcb9;
+  }
+  :root[data-theme="rose"]{
+    --kptu-primary:#d1abb2;--kptu-primary-hover:#d7b5bb;--kptu-primary-ink:#d6b3ba;--kptu-primary-soft:#362928;--kptu-link:#d6b3ba;
+  }
+  :root[data-theme="teal"]{
+    --kptu-primary:#88bdc5;--kptu-primary-hover:#96c5cc;--kptu-primary-ink:#94c4cb;--kptu-primary-soft:#242d2c;--kptu-link:#94c4cb;
+  }
+  :root[data-theme="mustard"]{
+    --kptu-primary:#d8ae57;--kptu-primary-hover:#ddb86b;--kptu-primary-ink:#deba70;--kptu-primary-soft:#38301d;--kptu-link:#deba70;
   }
 }

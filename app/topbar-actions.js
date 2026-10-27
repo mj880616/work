@@ -1,4 +1,4 @@
-import {viewPrefs} from './view-prefs.js';
+import {viewPrefs,THEMES,DEFAULT_THEME} from './view-prefs.js';
 import {repaintMobileTabs} from './mobile-tab-selection.mjs';
 (()=>{
 'use strict';
@@ -529,8 +529,10 @@ function syncThemeColor(){
   if(meta&&bg)meta.setAttribute('content',bg);
 }
 syncThemeColor();darkScheme?.addEventListener?.('change',syncThemeColor);
+// UI-화면색10: loader가 서버에 저장된 색을 첫 화면 공개 전에 적용한 직후(kptu:theme-applied) 상태줄 색도 그 색의 바탕으로 맞춘다.
+window.addEventListener('kptu:theme-applied',syncThemeColor);
 function selected(){
-  const current=document.documentElement.dataset.theme||'olive';
+  const current=document.documentElement.dataset.theme||DEFAULT_THEME;
   modal?.querySelectorAll('[data-theme-choice]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.themeChoice===current)));
 }
 function closeTheme(){
@@ -555,11 +557,21 @@ modal?.addEventListener('click',event=>{
   if(event.target===modal||event.target.closest('[data-close="themeModal"]')){event.stopPropagation();closeTheme();return}
   const option=event.target.closest('[data-theme-choice]');if(!option)return;
   const theme=option.dataset.themeChoice;
-  if(!['olive','navy','terracotta','sand'].includes(theme))return;
+  if(!THEMES.includes(theme))return;
   document.documentElement.dataset.theme=theme;
-  viewPrefs.set('theme',theme);
+  // 바로 서버에 보낸다. 서버 검사가 이 색을 거절하면(DB가 아직 모를 때) kptu:view-prefs-rejected로 원래 색으로 돌아가고 알린다.
+  viewPrefs.set('theme',theme,{rejectable:true});
+  void viewPrefs.flush();
   syncThemeColor();
   selected();
+});
+const themeToast=message=>{const toast=document.querySelector('#toast');if(!toast)return;toast.textContent=message;toast.classList.remove('hidden');clearTimeout(themeToast.timer);themeToast.timer=setTimeout(()=>toast.classList.add('hidden'),4200)};
+window.addEventListener('kptu:view-prefs-rejected',event=>{
+  if(!event.detail?.paths?.includes('theme'))return;
+  const saved=viewPrefs.get('theme');
+  document.documentElement.dataset.theme=THEMES.includes(saved)?saved:DEFAULT_THEME;
+  syncThemeColor();selected();
+  themeToast('이 색은 서버가 아직 받지 못해 원래 색으로 되돌렸어요.');
 });
 const show=state=>{
   logoutButtons.forEach(button=>button.classList.toggle('hidden',state!=='workspace'));
