@@ -161,7 +161,7 @@
   #meetingList .mcol-kind{box-sizing:border-box;display:flex;align-items:center;gap:8px;width:100%;min-width:0;min-height:var(--kptu-touch-target,44px);margin:0;padding:0 var(--kptu-space-3);border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-ink);font-family:inherit;font-size:var(--ds-text-row);font-weight:var(--ds-weight-regular);line-height:1.4;text-align:left;cursor:pointer}
   #meetingList .mcol-kind:hover{background:var(--kptu-surface-subtle)}
   /* 고른 종류 줄 표시는 공용 .kptu-pick-row(ui-standard.css)가 그린다. */
-  #meetingList :is(.mcol-kind,.mcol-card,.mcol-more):focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+  #meetingList :is(.mcol-kind,.mcol-card):focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
   #meetingList .mcol-rounds{display:flex;flex-direction:column;gap:var(--kptu-space-2);padding:var(--kptu-space-2)}
   #meetingList .mcol-head{flex:none;display:flex;align-items:center;gap:8px;min-width:0;min-height:var(--ds-compact-height);margin:0;padding:0 var(--kptu-space-2);font-size:var(--ds-text-row);line-height:1.4}
   #meetingList .mcol-dot{flex:0 0 8px;width:8px;height:8px;border-radius:var(--kptu-radius-pill);background:var(--meeting-color,var(--kptu-faint))}
@@ -187,36 +187,25 @@
     #meetingList .mcol-kind{gap:6px;padding:0 var(--kptu-space-2)}
     #meetingList .mcol-card{padding-right:var(--kptu-space-2)}
   }
-  /* 오른쪽 결과(읽기용): 머리(회의 이름·차수·시각·프로젝트 + ⋯) 고정, 몸통만 세로로 넘어간다. */
+  /* MTG-고치기바로: 오른쪽(세 번째) 칸은 사업 보고 창 요소 하나를 그대로 붙인 자리다(meeting-round-detail.js mrdDock). 프로젝트(.ps3-docked)·할 일(.gt-docked) 붙임과 같은 방식.
+     칸 자체가 세로 스크롤 틀이고, 제목 줄(칸·시각·연결 + ⋯ 또는 고치는 중의 [취소][저장] + 안내)은 위에 고정된다. */
   #meetingList .mcol-result{display:flex;flex-direction:column}
-  #meetingList .mcol-result-head{flex:none;display:flex;align-items:flex-start;gap:var(--kptu-space-2);padding:var(--kptu-space-3) var(--kptu-space-2) var(--kptu-space-2) var(--kptu-space-4);border-bottom:var(--ds-line-width) solid var(--ds-line)}
-  #meetingList .mcol-result-title{flex:1;min-width:0}
-  #meetingList .mcol-result-meta{display:flex;flex-wrap:wrap;gap:2px var(--kptu-space-3);margin:0;font-size:var(--ds-text-meta);line-height:1.4;color:var(--kptu-muted);font-variant-numeric:tabular-nums}
-  #meetingList .mcol-more{position:relative;flex:none;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);min-width:0;min-height:0;margin:-6px 0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-muted);font-size:20px;line-height:1;cursor:pointer}
-  #meetingList .mcol-more:hover,#meetingList .mcol-more[aria-expanded="true"]{background:var(--kptu-surface-subtle)}
-  #meetingList .mcol-result-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:var(--kptu-space-3) var(--kptu-space-4) var(--kptu-space-4)}
-  #meetingList .mcol-block+.mcol-block{margin-top:var(--kptu-space-4)}
-  #meetingList .mcol-block h4{margin:0 0 var(--kptu-space-2);font-size:var(--ds-text-meta);font-weight:var(--ds-weight-medium);line-height:1.4;color:var(--kptu-muted)}
-  #meetingList .mcol-text{white-space:pre-wrap;overflow-wrap:anywhere;font-size:var(--kptu-text-body,14px);line-height:1.7;color:var(--kptu-ink);-webkit-user-select:text;user-select:text}
-  #meetingList .mcol-notes{padding:var(--kptu-space-3);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle)}
+  #meetingList .mcol-result>.mcol-empty{padding:var(--kptu-space-3) var(--kptu-space-4)}
   #meetingList .mcol-empty{margin:0;font-size:var(--ds-text-row);color:var(--kptu-faint)}
-  #meetingList .mcol-task-list{display:grid;gap:2px;margin:0;padding:0;list-style:none}
-  #meetingList .mcol-task{display:flex;align-items:center;gap:var(--kptu-space-2);min-width:0;min-height:32px;font-size:var(--ds-text-row);line-height:1.4;color:var(--kptu-ink)}
-  #meetingList .mcol-task-check{flex:0 0 16px;box-sizing:border-box;width:16px;height:16px;border:2px solid var(--kptu-success);border-radius:var(--kptu-radius-pill)}
-  #meetingList .mcol-task.completed .mcol-task-check{background:var(--kptu-success)}
-  #meetingList .mcol-task.completed .mcol-task-title{color:var(--kptu-muted);text-decoration:line-through}
-  #meetingList .mcol-task-title{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  #meetingList .mcol-task-due{flex:none;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
-  #meetingList .mcol-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-  #meetingList .mcol-files{display:grid;gap:4px}
-  /* 회의자료 줄은 결과 창과 같은 파일 한 줄(ui-standard.css .file-line). 창 밖이라 이름 누르기 자리만 여기서 덮는다. */
-  #meetingList .mcol-file{position:relative}
-  #meetingList .mcol-file .file-line-open{position:absolute;inset:0;width:auto;height:auto;min-width:0;min-height:0;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;cursor:pointer}
-  #meetingList .mcol-file .file-line-open:hover{background:color-mix(in srgb,var(--kptu-surface-subtle) 60%,transparent)}
-  #meetingList .mcol-file .file-line-open:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
-  #meetingList .mcol-file :is(.file-kind,.file-line-main){pointer-events:none}
-  /* FILE-사업보고⋯: 줄 끝 ⋯(ui-standard.css .file-line-more)는 누르기 자리 밖에 둔다. */
-  #meetingList .mcol-file:has(.file-line-more) .file-line-open{right:var(--kptu-touch-target,44px)}
+  #meetingList .mcol-result>#meetingRoundDetailModal.mrd-docked{position:static;inset:auto;display:block;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0;background:transparent;z-index:auto}
+  #meetingList .mcol-result>#meetingRoundDetailModal.mrd-docked>.modal-card{width:auto;max-width:none;max-height:none;overflow:visible;margin:0;padding:0 var(--kptu-space-4) var(--kptu-space-4);border:0;border-radius:var(--kptu-radius-none);box-shadow:none;background:transparent}
+  #meetingList .mrd-docked .modal-head{position:sticky;top:0;z-index:3;flex-wrap:wrap;align-items:center;gap:var(--kptu-space-2);margin:0 calc(var(--kptu-space-4) * -1) var(--kptu-space-3);padding:var(--kptu-space-3) var(--kptu-space-4) var(--kptu-space-2);background:var(--kptu-surface);border-bottom:var(--ds-line-width) solid var(--ds-line);box-shadow:none}
+  #meetingList .mrd-docked .modal-head>div:first-child{flex:1 1 0;min-width:0}
+  #meetingList .mrd-docked #mrdMeta{margin:0;font-size:var(--ds-text-meta);line-height:1.4;color:var(--kptu-muted);font-variant-numeric:tabular-nums}
+  #meetingList .mrd-docked .mrd-head-ends{align-items:center}
+  #meetingList .mrd-docked .modal-head>.status{order:9;flex:0 0 100%;margin:0;font-size:var(--ds-text-meta);overflow-wrap:anywhere}
+  #meetingList .mrd-docked .modal-head>.status:empty{display:none}
+  /* 고치는 중 맨 위 오른쪽의 작은 [취소][저장](명진 2026-10-27 11:30 지정: 이 화면은 위, 팝업은 아래 줄). */
+  #meetingList .mrd-docked .mrd-head-ends .mrd-editor-actions{margin:0;gap:var(--kptu-space-2)}
+  #meetingList .mrd-docked .mrd-head-ends .mrd-editor-actions button{box-sizing:border-box;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);margin:0;padding:0 var(--ds-compact-pad-x,12px);font-size:var(--ds-compact-text,13px)}
+  #meetingList .mrd-docked #mrdEditFoot:empty{display:none}
+  /* 둘이 나란한 줄은 칸이 좁으면 위아래로 쌓인다(1024px대 세 번째 칸). */
+  #meetingList .mrd-docked .meeting-entry-section>.two-col{grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr))}
 }
 /* MTG-사업보고 4단계: 위쪽 칸 칩 줄(#reportKindFilter, 공용 filter-chips). 폰은 한 줄 그대로 옆으로 밀고(페이지는 넘치지 않음), PC는 한 줄.
    [회의] 칩일 때만 그 아래 회의명 칩 줄(.meeting-toolbar, 폰). 입력 창 맨 위 칸 칩(#meetingKindPick)도 같은 칩. */
@@ -314,3 +303,10 @@
   #meetingList .rv-dots{display:none}
   #meetingList .rv-titles{display:block}
 }
+
+/* MTG-고치기바로: 고친 내용이 있는데 다른 곳을 눌렀을 때 그 자리에 뜨는 한 줄 - '고친 내용을 저장할까요? [저장] [버리기]'. 팝업(폰)과 세 번째 칸이 같이 쓴다. */
+#meetingRoundDetailModal .mrd-leave{display:flex;align-items:center;gap:var(--kptu-space-2);min-width:0;margin:0 0 var(--kptu-space-3);padding:var(--kptu-space-2) var(--kptu-space-3);border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle);font-size:var(--ds-text-row,13px);color:var(--kptu-ink)}
+#meetingRoundDetailModal .mrd-leave>span{flex:1 1 auto;min-width:0}
+#meetingRoundDetailModal .mrd-leave button.mini{box-sizing:border-box;width:auto;min-width:0;flex:none;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);margin:0;padding:0 var(--ds-compact-pad-x,12px)}
+#meetingRoundDetailModal #mrdLoading{margin:0;padding:var(--kptu-space-3) 0;font-size:var(--ds-text-row,13px);color:var(--kptu-faint)}
+#meetingRoundDetailModal #mrdLoading.error{color:var(--kptu-danger)}
