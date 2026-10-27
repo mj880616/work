@@ -111,6 +111,8 @@ test('TRASH 공유 페이지: prechecks, apply, delete goes to trash and closes 
 
   await t.test('pair files pass the workflow parser; the migration takes the approval-once expanded flow',async()=>{
    for(const sql of [precheck,postcheck,snapshot])assert.equal(checkSQL(sql).baselineNull,false);
+   // 승인형 workflow의 read_only 요청은 표 소유자가 아닌 역할로 돈다: information_schema는 그 역할에 행을 숨긴다(run #89 사전 확인 멈춤).
+   for(const sql of [precheck,postcheck])assert.doesNotMatch(sql.replace(/--.*$/gm,''),/information_schema/);
    const plan=prepareMigration({mode:'apply',version,runId:'1',root});
    assert.equal(plan.rules,'expanded');assert.equal(plan.flow,'full');
    assert.deepEqual(plan.targets.sort(),['app_share_pages']);
