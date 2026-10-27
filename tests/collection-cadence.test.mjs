@@ -23,13 +23,27 @@ test('Drive copy threshold covers the longest gap between the scheduled refreshe
   assert.ok(mod.STALE_HOURS.copy < 2 * longestHours, 'one fully missed day must still be caught');
 });
 
-test('collector lines never warn on age alone: telegram and call stale hours only switch ok to quiet', () => {
+test('collector lines stay quiet through weekends and holidays; only a stall past the long limit warns (OPS-수집멈춤알림)', () => {
   const now = Date.parse('2026-10-26T09:00:00Z'), H = 3600000, iso = ms => new Date(ms).toISOString();
   for (const key of ['telegram', 'call']) {
-    const raw = {at:iso(now - 200 * H), reportedAt:iso(now - 0.5 * H), count:0};
+    const raw = {at:iso(now - (mod.STALE_HOURS[key] + 2) * H), reportedAt:iso(now - 0.5 * H), count:0};
     assert.equal(mod.judgeCollector(key, raw, now).state, 'quiet');
+    const long = {at:iso(now - 200 * H), reportedAt:iso(now - 0.5 * H), count:0};
+    assert.equal(mod.judgeCollector(key, long, now).state, 'stalled');
   }
+  assert.ok(mod.STALL_HOURS.telegram >= 72, 'a 3-day holiday weekend must not warn');
+  assert.ok(mod.STALL_HOURS.call >= 120, 'a 5-day holiday without calls must not warn');
   // Daily 07:30 collection (24h apart) stays "ok"; a weekend without calls (Fri evening to Mon evening, 72h) stays "ok".
   assert.ok(mod.STALE_HOURS.telegram > 24);
   assert.ok(mod.STALE_HOURS.call >= 72);
+});
+
+test('send lines: silence limits leave room for the real trigger schedules in the feed script', () => {
+  const gs = read('docs/ops/collector-feed.gs');
+  assert.match(gs, /newTrigger\('tgFeed_run'\)\.timeBased\(\)\.atHour\(8\)\.nearMinute\(10\)\.everyDays\(1\)/);
+  assert.match(gs, /newTrigger\('callFeed_run'\)\.timeBased\(\)\.everyHours\(1\)/);
+  // daily 08:10~08:25 trigger: longest gap about 24h15m. Hourly trigger: up to about 2h.
+  assert.ok(mod.SEND_SILENT_HOURS.telegramSend >= 25);
+  assert.ok(mod.SEND_SILENT_HOURS.callSend >= 2.5);
+  assert.ok(mod.SEND_GAP_HOURS >= 72, 'Friday evening to Monday morning has no business messages');
 });
