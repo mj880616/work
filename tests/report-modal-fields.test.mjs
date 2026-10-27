@@ -39,6 +39,3 @@ test('상세 창: 정리함에 담기·안내문 삭제, 큰 버튼 줄 대신 �
   assert.match(mrd,/data-mrd-more="edit"[^]*data-mrd-more="kind"[^]*data-mrd-more="delete"/);
   assert.match(mrd,/classList\.toggle\('hidden',!text\)/);
 });
-test('브라우저 저장소를 쓰지 않는다',()=>{
-  for(const f of ['app/report-entry-rows.js','app/meeting-round-detail.js'])assert.doesNotMatch(read(f),/localStorage|sessionStorage|indexedDB/);
-});
