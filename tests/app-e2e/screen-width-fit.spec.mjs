@@ -57,7 +57,7 @@ for(const width of [344,412,882])test(`칸·탭을 눌러도 화면 폭이 그�
   for(const view of VIEWS){
     if(!await openView(page,view)){checked.push(view+' (열 수 없어 건너뜀)');continue}
     await check(`${view} 처음`);
-    const sel=`#${view}View :is([role=radio],[role=tab],[data-rv-view],[data-report-view]):visible`;
+    const sel=`#${view}View :is([role=radio],[role=tab],[aria-pressed],[data-filter-value],.quick-pill-button,.filter-chips button,.feed-chiprow button,[data-tg-folder],[data-tg-shelf]):visible`;
     const total=Math.min(await page.locator(sel).count(),40);
     clicks[view]=total;
     for(let i=0;i<total;i++){
@@ -67,6 +67,7 @@ for(const width of [344,412,882])test(`칸·탭을 눌러도 화면 폭이 그�
       await item.click({timeout:3000,force:true}).catch(()=>{});
       await page.waitForTimeout(120);
       await check(`${view} 칸 ${i+1}(${text})`);
+      await page.keyboard.press('Escape');
     }
   }
   test.info().annotations.push({type:'checked',description:checked.join(' | ')});
