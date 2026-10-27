@@ -24,3 +24,7 @@
   .hwp-lab .hwp-lab-note{margin-bottom:4px}
   .hwp-lab .hwp-lab-editor{height:max(560px,calc(100dvh - 200px - var(--kptu-topline-space,0px)))}
 }
+/* HWP-노조양식: 전체 화면(Ctrl+숫자 키보드 잠금) 버튼 줄. 지원하지 않는 기기에서는 버튼이 숨겨져 줄이 비면 접힌다. */
+.hwp-lab .hwp-lab-tools{display:flex;gap:8px;margin:0 0 8px}
+.hwp-lab .hwp-lab-tools:not(:has(button:not([hidden]))){display:none}
+.hwp-lab .hwp-lab-tools button{min-height:var(--kptu-touch-target)}

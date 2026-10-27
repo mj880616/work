@@ -1281,7 +1281,7 @@ html #appView > .app-nav .nav-btn[data-nav-open]:has(+ .nav-sub){ color:var(--kp
   #gtDetailPane #gtTaskModal.gt-docked .modal-head>button.gt-pane-save{ align-self:center; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1; }
 }
 /* ⑤ HWP 편집: [파일 선택]·[자료실에 올리기]는 보조(32px), [내 기기에 저장]은 주 동작(36px). */
-#appView #hwpView :is(#hwpLabPick,#hwpLabUpload){ height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); }
+#appView #hwpView :is(#hwpLabPick,#hwpLabUpload,#hwpLabTemplate){ height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); }
 #appView #hwpView #hwpLabSave{ height:var(--kptu-control-height); min-height:var(--kptu-control-height); }
 /* ⑥ 업무일지 [저장]·공유 페이지 [새 공유 페이지]: PC와 같이 폰도 36px. */
 #appView #journalView .journal-line-row button[data-journal-save],

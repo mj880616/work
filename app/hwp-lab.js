@@ -5,7 +5,7 @@
 //   [새 파일로 저장](기본)·[원본에 덮어쓰기](HWP 원본만)로 Drive에 저장한다. 저장 형식은 HWP 하나다.
 // 편집기는 hwp-frame.js의 sandbox iframe(allow-same-origin 없음)에서 돈다. Web2 창·저장소·API에 닿지 못한다.
 import {createSandboxedEditor} from './hwp-frame.js';
-import {HWP_EDIT_MAX_BYTES,editedName,takeHwpEditRequest,openHwpFromDrive,saveLibraryCopy,saveBasketCopy,overwriteHwp} from './hwp-drive.js';
+import {HWP_EDIT_MAX_BYTES,editedName,takeHwpEditRequest,requestHwpEdit,openHwpFromDrive,saveLibraryCopy,saveBasketCopy,overwriteHwp,findUnionTemplate,UNION_TEMPLATE_CATEGORY} from './hwp-drive.js';
 import {requestLibraryDocument} from './basket-library-send.js';
 import {requestBasketNote} from './basket-note-tasks.js';
 import {requestLibraryUpload} from './library-upload-request.js';
@@ -49,12 +49,15 @@ function sync(){
   if(save)save.disabled=busy||!current||!!drive;
   if(upload)upload.disabled=busy||!current||!!drive;
   if(pick)pick.disabled=busy||!!drive;
+  const tpl=$('hwpLabTemplate');
+  if(tpl)tpl.disabled=busy||!!drive;
   const bar=$('hwpDriveBar');
   if(!bar)return;
   const ready=!!drive?.info;
   $('hwpDriveNew').disabled=busy||!ready||drive.lockNew;
   const over=$('hwpDriveOverwrite');
-  over.hidden=!ready||!drive.info.can_overwrite;
+  // 양식에서 시작한 문서는 양식 원본에 덮어쓰지 않는다(버튼을 숨기고 새 파일로만 저장).
+  over.hidden=!ready||!drive.info.can_overwrite||!!drive.target.template;
   over.disabled=busy||!ready||drive.lockOverwrite;
   $('hwpDriveBack').disabled=busy;
   const view=$('hwpDriveView');
@@ -241,13 +244,61 @@ async function openDrive(target){
       file.info.format==='hwpx'?'HWPX 원본은 새 HWP 파일로만 저장해요.':'',
       file.info.shared?'이 파일은 정리함과 자료실이 같은 원본을 써요.':'',
     ].filter(Boolean).join(' ');
-    status(`${file.info.file_name} · ${result?.pageCount??'?'}쪽을 열었어요. ${notes?notes+' ':''}고친 뒤 [새 파일로 저장]을 누르세요.`,'ok');
+    status(shown.target.template
+      ?`노조 양식 · ${result?.pageCount??'?'}쪽을 열었어요. 양식 원본은 그대로 두고, 고친 뒤 [새 파일로 저장]에서 제목을 정해요. 스타일은 Ctrl+1~0(예비 Alt+1~0) 또는 위쪽 스타일 버튼으로 입혀요.`
+      :`${file.info.file_name} · ${result?.pageCount??'?'}쪽을 열었어요. ${notes?notes+' ':''}고친 뒤 [새 파일로 저장]을 누르세요.`,'ok');
   }catch(err){
     if(drive!==shown)return;
     console.error('hwp-lab drive open',err?.kind||err);
     status(err?.kind?err.message:'파일을 열지 못했어요. 아무것도 바뀌지 않았어요.','error');
   }finally{stopElapsed();if(drive===shown){busy=false;sync()}}
 }
+
+// HWP-노조양식: 자료실 분류 "양식"에 등록된 노조 문서 양식 HWP를 새 문서의 시작으로 연다. 양식이 없으면 등록 방법을 안내한다.
+async function openTemplate(){
+  if(busy||drive)return;
+  await refreshDirty();
+  if(busy||drive||(dirty()&&!window.confirm('저장하지 않은 고친 내용이 있어요. 양식을 열면 사라져요. 열까요?')))return;
+  busy=true;sync();
+  try{
+    status('자료실에서 노조 양식을 찾는 중…');
+    const found=await findUnionTemplate({rt});
+    if(!found.chosen){
+      status(`자료실에 분류 "${UNION_TEMPLATE_CATEGORY}"으로 등록된 HWP가 없어요. 노조 문서 양식 HWP를 자료실에 분류 "${UNION_TEMPLATE_CATEGORY}"으로 한 번 등록해 주세요.`,'error');
+      return;
+    }
+    const row=found.chosen;
+    if(!requestTemplate(row)){status('로그인 정보를 확인하지 못했습니다. 다시 시도해 주세요.','error');return}
+  }catch(err){
+    console.error('hwp-lab template',err?.kind||err);
+    status(err?.kind==='session'?err.message:'노조 양식을 찾지 못했어요. 아무것도 바뀌지 않았어요.','error');
+    return;
+  }finally{busy=false;sync()}
+  const target=takeHwpEditRequest(rt);
+  if(target)void openDrive(target);
+}
+function requestTemplate(row){
+  // Same one-shot hand-off the library [편집] uses; the template flag keeps the original from being overwritten.
+  return requestHwpEdit({kind:'library',template:true,document:{id:row.id,title:row.title,file_name:row.file_name,category:row.category}},rt);
+}
+
+// 전체 화면 + 키보드 잠금: 일반 크롬 탭은 Ctrl+1~9를 탭 전환에 먼저 쓰므로, 전체 화면에서 숫자 키만 잠가 편집기가 받게 한다.
+// 잠금은 이 창(맨 바깥)에서만 걸 수 있다. 지원하지 않는 기기(폰 등)에서는 버튼을 숨기고 스타일 버튼을 쓴다.
+const DIGIT_KEYS=['Digit1','Digit2','Digit3','Digit4','Digit5','Digit6','Digit7','Digit8','Digit9','Digit0'];
+const canLockKeys=()=>!!(document.fullscreenEnabled&&navigator.keyboard&&typeof navigator.keyboard.lock==='function');
+async function toggleFullscreen(){
+  const host=$('hwpLabEditor');
+  if(!host)return;
+  if(document.fullscreenElement){await document.exitFullscreen().catch(()=>{});return}
+  try{
+    await host.requestFullscreen();
+    await navigator.keyboard.lock(DIGIT_KEYS);
+  }catch(err){
+    console.error('hwp-lab fullscreen',err);
+    status('전체 화면이나 키보드 잠금을 쓸 수 없어요. 스타일 버튼이나 Alt+숫자를 쓰세요.','error');
+  }
+}
+document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement)try{navigator.keyboard?.unlock?.()}catch{/* Nothing is locked. */}});
 
 async function exportCurrent(){
   const instance=await editor();
@@ -260,12 +311,19 @@ async function exportCurrent(){
 async function saveNew(){
   const shown=drive;
   if(!shown?.info||busy||shown.lockNew)return;
+  let newTitle;
+  if(shown.target.template){
+    newTitle=window.prompt('새 문서 제목을 입력하세요. 양식 원본은 그대로 두고 자료실에 새 문서로 저장해요.','');
+    if(newTitle==null)return;
+    newTitle=newTitle.trim();
+    if(!newTitle){status('제목을 입력해야 저장해요. 아무것도 바뀌지 않았어요.','error');return}
+  }
   busy=true;sync();
   try{
     status('새 파일로 저장하는 중…');
     let made;
     try{made=await exportCurrent()}catch(err){status(err?.kind?err.message:'저장할 파일을 만들지 못했어요. 아무것도 바뀌지 않았어요.','error');return}
-    const outcome=shown.target.kind==='library'?await saveLibraryCopy(shown.target,made.bytes,{rt}):await saveBasketCopy(shown.target,made.bytes,{rt});
+    const outcome=shown.target.kind==='library'?await saveLibraryCopy(shown.target,made.bytes,{rt,newTitle}):await saveBasketCopy(shown.target,made.bytes,{rt});
     if(drive!==shown)return;
     if(outcome.kind==='created'){
       shown.savedSeq=made.seq;
@@ -310,6 +368,7 @@ async function back(){
   if(!drive||busy)return;
   await refreshDirty();
   if(!drive||busy||!leaveOk())return;
+  if(drive.target.template){resetToDevice();showMode();status('편집기가 준비됐습니다. [파일 선택]으로 HWP·HWPX 파일을 열거나 [노조 양식으로 새 문서]를 누르세요.');editor().catch(()=>{});return}
   leaving=true;
   if(drive.target.kind==='library'){requestLibraryDocument(drive.target.document.id,rt);window.KPTURouter.go('library',{source:'delegated'})}
   else{requestBasketNote(drive.target.noteId,rt);window.KPTURouter.go('basket',{source:'delegated'})}
@@ -340,6 +399,9 @@ function start(){
   if(!input.dataset.bound){
     input.dataset.bound='1';
     $('hwpLabPick')?.addEventListener('click',()=>input.click());
+    $('hwpLabTemplate')?.addEventListener('click',()=>void openTemplate());
+    const full=$('hwpLabFull');
+    if(full){full.hidden=!canLockKeys();full.addEventListener('click',()=>void toggleFullscreen())}
     input.addEventListener('change',()=>{const file=input.files?.[0];input.value='';void open(file)});
     $('hwpLabSave')?.addEventListener('click',()=>void save());
     $('hwpLabUpload')?.addEventListener('click',()=>void uploadToLibrary());

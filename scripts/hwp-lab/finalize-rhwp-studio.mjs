@@ -49,7 +49,8 @@ const index = patch(join(studio, 'index.html'), [
   [/<script id="vite-plugin-pwa:register-sw"[^>]*><\/script>/, ''],
   [/\s*<link rel="apple-touch-icon"[^>]*>/, ''],
   // The guard runs before every studio script (theme/locale init read browser storage synchronously).
-  [/(<meta charset="UTF-8" \/>)/, `$1\n  ${cspMeta}\n  <script src="../../studio-guard.js"></script>`],
+  // studio-styles.js (HWP-노조양식) only adds style shortcuts/buttons; it reads the editor's own style box.
+  [/(<meta charset="UTF-8" \/>)/, `$1\n  ${cspMeta}\n  <script src="../../studio-guard.js"></script>\n  <script src="../../studio-styles.js"></script>`],
 ]);
 patch(join(studio, 'print.html'), [[/(<meta charset="UTF-8">)/, `$1\n  ${cspMeta}`]]);
 for (const removed of ['manifest.webmanifest', 'registerSW.js', 'icons/', 'sw.js']) {

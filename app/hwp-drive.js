@@ -17,6 +17,26 @@ export const HWP_TEXT={
 export const isHwpName=name=>/\.hwpx?$/i.test(String(name||''));
 export const editedName=name=>`${String(name||'문서').replace(/\.(hwpx?)$/i,'').trim()||'문서'}-수정.hwp`;
 
+// HWP-노조양식 1단계: 노조 문서 양식 HWP는 사용자가 자료실에 분류 "양식"으로 한 번 등록해 둔 자료다(Drive 권한 확대 없음).
+// [노조 양식으로 새 문서]는 그 자료를 기존 hwp-open 흐름으로 열되, 원본에는 덮어쓰지 않고 새 파일 제목을 사용자가 정한다.
+export const UNION_TEMPLATE_CATEGORY='양식';
+const UNION_HINT=/노조|문서\s*스타일|통일/;
+export function pickUnionTemplate(rows){
+  const list=(Array.isArray(rows)?rows:[]).filter(row=>row&&typeof row.id==='string'&&row.category===UNION_TEMPLATE_CATEGORY&&/\.hwp$/i.test(String(row.file_name||'')));
+  const hinted=list.filter(row=>UNION_HINT.test(`${row.title||''} ${row.file_name||''}`));
+  const pool=hinted.length?hinted:list;
+  const sorted=[...pool].sort((a,b)=>String(a.title||a.file_name).localeCompare(String(b.title||b.file_name),'ko'));
+  return {chosen:sorted[0]||null,others:sorted.slice(1),total:list.length};
+}
+export async function findUnionTemplate({rt=window.KPTURuntime}={}){
+  const workspace=rt?.context?.read?.()?.workspace?.id;
+  if(!workspace||typeof rt?.api!=='function')throw failure('session',HWP_TEXT.session);
+  const rows=await rt.api(`/rest/v1/app_documents?workspace_id=eq.${encodeURIComponent(workspace)}&category=eq.${encodeURIComponent(UNION_TEMPLATE_CATEGORY)}&select=id,title,file_name,category&order=created_at.desc&limit=50`,{singleFlight:false});
+  return pickUnionTemplate(rows);
+}
+// 양식에서 시작한 새 문서의 파일 이름: 사용자가 정한 제목(파일 이름에 못 쓰는 글자는 뺀다).
+export const newDocumentFileName=title=>`${String(title||'').replace(/[\\/:*?"<>|\u0000-\u001f]/g,' ').replace(/\s+/g,' ').replace(/\.(hwpx?)$/i,'').trim().slice(0,80)||'새 문서'}.hwp`;
+
 // One-shot in-app hand-off from the library or basket to the editor view, bound to the signed-in user and
 // workspace for one minute, like the library and task hand-offs. Nothing is kept in browser storage.
 const REQUEST_MS=60*1000;
@@ -83,12 +103,19 @@ export function newFileOutcome({status,data,error},where){
 
 // 자료실: a new private library document in the library folder (library-files). The server checks the owner and the
 // project/meeting; the title is given so no file content leaves for title inference.
-export async function saveLibraryCopy(target,bytes,{rt=window.KPTURuntime,fetcher}={}){
+export async function saveLibraryCopy(target,bytes,{rt=window.KPTURuntime,fetcher,newTitle}={}){
   const doc=target.document,form=new FormData();
-  form.append('file',new File([bytes],editedName(doc.file_name),{type:'application/x-hwp'}));
-  form.append('title',`${String(doc.title||doc.file_name||'문서').trim()} (수정)`);
-  for(const key of ['category','source','document_date','project_id','meeting_id'])if(doc[key])form.append(key,String(doc[key]));
-  if(Array.isArray(doc.tags)&&doc.tags.length)form.append('tags',doc.tags.join(','));
+  if(target.template){
+    // 양식에서 시작한 새 문서: 양식 자료의 분류("양식")·태그를 물려받지 않는다. 분류·프로젝트는 자료실에서 정한다.
+    const title=String(newTitle||'').trim()||'새 문서';
+    form.append('file',new File([bytes],newDocumentFileName(title),{type:'application/x-hwp'}));
+    form.append('title',title);
+  }else{
+    form.append('file',new File([bytes],editedName(doc.file_name),{type:'application/x-hwp'}));
+    form.append('title',`${String(doc.title||doc.file_name||'문서').trim()} (수정)`);
+    for(const key of ['category','source','document_date','project_id','meeting_id'])if(doc[key])form.append(key,String(doc[key]));
+    if(Array.isArray(doc.tags)&&doc.tags.length)form.append('tags',doc.tags.join(','));
+  }
   let response;
   try{response=await send(rt,'/functions/v1/library-files',form,{fetcher})}catch(error){return newFileOutcome({error},'자료실')}
   const data=await readJson(response);

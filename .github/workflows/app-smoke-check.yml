@@ -34,6 +34,7 @@ on:
       - 'tests/basket-ocr.test.mjs'
       - 'tests/basket-ocr-runtime.test.mjs'
       - 'tests/hwp-lab-pin.test.mjs'
+      - 'tests/hwp-union-style.test.mjs'
       - 'scripts/hwp-lab/**'
       - 'scripts/pdf/**'
       - 'tests/meeting-file-parse.test.mjs'
@@ -103,6 +104,7 @@ on:
       - 'tests/basket-ocr.test.mjs'
       - 'tests/basket-ocr-runtime.test.mjs'
       - 'tests/hwp-lab-pin.test.mjs'
+      - 'tests/hwp-union-style.test.mjs'
       - 'scripts/hwp-lab/**'
       - 'scripts/pdf/**'
       - 'tests/meeting-file-parse.test.mjs'
@@ -187,6 +189,9 @@ jobs:
 
       - name: Check pinned HWP editor files
         run: node --test tests/hwp-lab-pin.test.mjs
+
+      - name: Check HWP union-style template and style shortcuts
+        run: node --test tests/hwp-union-style.test.mjs
 
       - name: Meeting files·text grouping and pinned PDF reader
         run: node --test tests/meeting-file-parse.test.mjs tests/pdf-lib-pin.test.mjs
