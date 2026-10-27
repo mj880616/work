@@ -254,3 +254,13 @@
 @media(prefers-reduced-motion:reduce){.feed-view .feed-swipe>.feed-rd{transition:none}}
 @media(min-width:761px) and (hover:hover){.feed-view .feed-swipe>.feed-rd:hover .feed-hov{display:block}}
 @media(min-width:761px){.feed-view .feed-swipe>.feed-rd:focus-within .feed-hov,.feed-view .feed-swipe>.feed-rd .feed-hov[aria-expanded="true"]{display:block}}
+/* TG-요약고치기: 그날 요약 상자의 ✎ + 복사 단추 묶음, 고치기 상자, '고침' 표시 */
+.feed-view .feed-k-btns{display:inline-flex;align-items:center;gap:2px}
+.feed-view .feed-edited{font-size:11px;font-weight:normal;color:var(--kptu-muted)}
+.feed-view .feed-se-wrap{flex:1 1 auto;min-width:0}
+.feed-view .feed-se{display:grid;gap:6px;margin:2px 0 4px}
+.feed-view .feed-se .feed-edit-input{width:100%;box-sizing:border-box}
+.feed-view .feed-se-area{resize:vertical;line-height:1.5;font-size:var(--ds-text-row)}
+.feed-view .feed-se-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px}
+.feed-view .feed-se-actions .feed-status{flex:1 1 auto;margin:0;min-width:0}
+.feed-view .feed-se-orig{order:-1;margin-right:auto;font-size:11px;white-space:nowrap}
