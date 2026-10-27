@@ -394,16 +394,16 @@ const tree=()=>[[topItem,dir('S1','F1!100','2025'),dir('S2','F1!100','2026'),dir
   pic('P0','F1!100'),pic('P1','S1'),pic('P2','S2'),pic('P3','S21'),pic('P4','S21',  '2026-09-01T01:00:00Z')]];
 
 test('sync: pages are cut per request (more:true), the next-page link is saved and the next request continues; only Graph links',async()=>{
-  const pages=Array.from({length:35},(_,i)=>[pic('Q'+i,'F1!100')]);pages[0].unshift(topItem);
+  const pages=Array.from({length:20},(_,i)=>[pic('Q'+i,'F1!100')]);pages[0].unshift(topItem);
   const ms=fakeMicrosoft({deltaPages:pages});const ctx=make({ms});
   const first=await read(await post(ctx.handler,{action:'sync'}));
   assert.deepEqual(first,{more:true,indexing:true});
-  assert.match(ctx.admin.state.row.next_link,/^https:\/\/graph\.microsoft\.com\/.*token=30$/);assert.equal(ctx.admin.state.row.index_lock_until,null);
-  assert.equal(ctx.admin.state.mem.tables.app_onedrive_photos.length,30);
+  assert.match(ctx.admin.state.row.next_link,/^https:\/\/graph\.microsoft\.com\/.*token=15$/);assert.equal(ctx.admin.state.row.index_lock_until,null);
+  assert.equal(ctx.admin.state.mem.tables.app_onedrive_photos.length,15);
   const second=await read(await post(ctx.handler,{action:'sync'}));
   assert.deepEqual(second,{more:false,indexing:false});
   assert.equal(ctx.admin.state.row.next_link,null);assert.match(ctx.admin.state.row.delta_link,/token=latest$/);
-  assert.equal(ctx.admin.state.mem.tables.app_onedrive_photos.length,35);
+  assert.equal(ctx.admin.state.mem.tables.app_onedrive_photos.length,20);
   // 저장된 주소가 Graph 주소가 아니면 따라가지 않고 처음부터 받는다
   const evil=make({admin:fakeAdmin({row:{...connected,next_link:'https://evil.example.test/steal'}}),ms:fakeMicrosoft({deltaPages:tree()})});
   await post(evil.handler,{action:'sync'});
