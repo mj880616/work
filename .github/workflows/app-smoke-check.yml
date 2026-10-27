@@ -23,6 +23,7 @@ on:
       - 'tests/file-actions.test.mjs'
       - 'tests/library-photo.test.mjs'
       - 'tests/library-photoset.test.mjs'
+      - 'tests/library-prev-model.test.mjs'
       - 'tests/activity-photo.test.mjs'
       - 'tests/report-views.test.mjs'
       - 'tests/chip-no-ellipsis.test.mjs'
@@ -100,6 +101,7 @@ on:
       - 'tests/file-actions.test.mjs'
       - 'tests/library-photo.test.mjs'
       - 'tests/library-photoset.test.mjs'
+      - 'tests/library-prev-model.test.mjs'
       - 'tests/activity-photo.test.mjs'
       - 'tests/report-views.test.mjs'
       - 'tests/chip-no-ellipsis.test.mjs'
@@ -256,7 +258,7 @@ jobs:
         run: node --test tests/press-feedback.test.mjs
 
       - name: Check library, project, share and upload units (STAB-단위시험등록)
-        run: node --test tests/library-select.test.mjs tests/project-fold.test.mjs tests/share-pages-label.test.mjs tests/share-photos.test.mjs tests/summary-copy-model.test.mjs tests/text-backfill-notice.test.mjs tests/upload-file-copy.test.mjs
+        run: node --test tests/library-prev-model.test.mjs tests/library-select.test.mjs tests/project-fold.test.mjs tests/share-pages-label.test.mjs tests/share-photos.test.mjs tests/summary-copy-model.test.mjs tests/text-backfill-notice.test.mjs tests/upload-file-copy.test.mjs
 
       - name: Check hardcoded color baseline (STAB-단위시험등록)
         run: node --test tests/hardcoded-colors.test.mjs tests/context-menu-sites.test.mjs
