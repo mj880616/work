@@ -24,8 +24,11 @@
     // A tap on a button blurs the field during its mousedown, before the click: dropping the state there would
     // bring the tab bar back under the finger. Keep it until the viewport actually grows back.
     const keyboard=phone.matches&&(editing||keyboardOpen)&&(viewport?covered>120:editing);
+    const keyboardWas=document.body?.classList.contains('kptu-mobile-keyboard')||false;
     keyboardOpen=!!keyboard;
     document.body?.classList.toggle('kptu-mobile-keyboard',keyboardOpen);
+    // UI-떠있는저장: tell the floating [저장] (float-save.js) when the one keyboard judgement changes.
+    if(keyboardWas!==keyboardOpen)window.dispatchEvent(new CustomEvent('kptu:keyboard-change',{detail:{open:keyboardOpen}}));
     // Where the layout viewport already shrinks with the keyboard this stays 0.
     const inset=keyboardOpen&&viewport?Math.max(0,Math.round(innerHeight-viewport.height*scale-viewport.offsetTop)):0;
     document.documentElement.style.setProperty('--kptu-keyboard-inset',inset+'px');
