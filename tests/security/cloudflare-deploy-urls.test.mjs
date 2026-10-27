@@ -9,48 +9,64 @@ const root = resolve(import.meta.dirname, '../..');
 const script = resolve(root, 'scripts/cloudflare-check-urls.mjs');
 const workflow = readFileSync(resolve(root, '.github/workflows/cloudflare-worker-deploy.yml'), 'utf8');
 const sources = ['index.html', 'app.js', 'loader-v2.js', 'pwa.js'];
+// CI-버전자동화 3단계: the repository writes plain paths and the Pages build adds content hashes,
+// so these fixtures stand in for a build output: the real app files with a ?v= added per asset.
 const refs = [
-  ['index.html', 'app.js'],
-  ['app.js', 'loader-v2.js'],
-  ['loader-v2.js', 'pwa.js'],
-  ['pwa.js', 'sw.js'],
-  ['index.html', 'app-icon.svg'],
-].map(([owner, asset]) => {
-  // Compute exact expectations independently from the source, so future app
-  // releases do not require editing a second set of version numbers here.
-  const content = readFileSync(resolve(root, 'app', owner), 'utf8');
-  const start = content.indexOf(`./${asset}?v=`);
-  assert.ok(start >= 0, `${owner} references ${asset}`);
-  const version = content.slice(start + `./${asset}?v=`.length).match(/^[A-Za-z0-9._-]+/);
-  assert.ok(version, `${asset} has a nonempty version`);
-  return [owner, asset, version[0]];
-});
+  ['index.html', 'app.js', '0a1b2c3d4e'],
+  ['app.js', 'loader-v2.js', '1b2c3d4e5f'],
+  ['loader-v2.js', 'pwa.js', '2c3d4e5f60'],
+  ['pwa.js', 'sw.js', '3d4e5f6071'],
+  ['index.html', 'app-icon.svg', '4e5f607182'],
+];
 const base = 'https://desk.bokdoong.com/work/app/';
+const built = (file, content) => {
+  for (const [owner, asset, version] of refs) {
+    if (file !== owner) continue;
+    assert.ok(content.includes(`./${asset}`), `${owner} references ${asset}`);
+    content = content.replace(new RegExp(`\\./${asset.replaceAll('.', '\\.')}(?=['"])`, 'g'), `./${asset}?v=${version}`);
+  }
+  return content;
+};
 
-function run(cwd = root) {
-  return spawnSync(process.execPath, [script], { cwd, encoding: 'utf8' });
+function run(dir, extra = []) {
+  return spawnSync(process.execPath, [script, ...(dir === undefined ? [] : [dir]), ...extra], { cwd: root, encoding: 'utf8' });
 }
 
-function fixture(t, change) {
+function fixture(t, change = (file, content) => content) {
   const dir = mkdtempSync(resolve(tmpdir(), 'cloudflare-urls-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   mkdirSync(resolve(dir, 'app'));
   for (const file of sources) {
-    const content = readFileSync(resolve(root, 'app', file), 'utf8');
+    const content = built(file, readFileSync(resolve(root, 'app', file), 'utf8'));
     const changed = change(file, content);
     if (changed !== null) writeFileSync(resolve(dir, 'app', file), changed);
   }
   return dir;
 }
 
-test('extracts all five exact URLs from the current repository reference chain', () => {
-  const result = run();
+test('extracts all five exact URLs from a build output of the current release chain', t => {
+  const result = run(fixture(t));
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stderr, '');
   assert.deepEqual(result.stdout.trim().split('\t'), refs.map(([, asset, version]) => `${base}${asset}?v=${version}`));
 });
 
-test('tracks future versions in their owning files, including nonnumeric icon versions', t => {
+test('the repository checkout itself has no ?v= and is refused, so it cannot stand in for the build', () => {
+  const result = run(root);
+  assert.equal(result.status, 1);
+  assert.equal(result.stdout, '');
+  assert.match(result.stderr, /FAIL.*app\.js\?v=/);
+});
+
+test('the Pages tree is a required single argument', t => {
+  for (const args of [[undefined], [fixture(t), ['extra']]]) {
+    const result = run(...args);
+    assert.equal(result.status, 1);
+    assert.equal(result.stdout, '');
+  }
+});
+
+test('tracks other version spellings in their owning files', t => {
   const dir = fixture(t, (file, content) => {
     for (const [owner, asset, version] of refs) {
       if (file === owner) content = content.replaceAll(`${asset}?v=${version}`, `${asset}?v=next-release_9`);
@@ -103,7 +119,8 @@ test('gets sw.js only from the service worker registration URL', t => {
 
 test('workflow consumes extracted URLs without fixed version addresses or a silent fallback', () => {
   assert.doesNotMatch(workflow, /https:\/\/desk\.bokdoong\.com\/work\/app\/(?:app\.js|loader-v2\.js|pwa\.js|sw\.js|app-icon\.svg)\?v=[^\s'"$]+/);
-  assert.match(workflow, /asset_urls="\$\(node scripts\/cloudflare-check-urls\.mjs\)"/);
+  assert.match(workflow, /asset_urls="\$\(node scripts\/cloudflare-check-urls\.mjs "\$PAGES_TREE"\)"/);
+  assert.match(workflow, /PAGES_TREE: \$\{\{ steps\.pages\.outputs\.tree \}\}/);
   assert.match(workflow, /read -r APP_URL LOADER_URL PWA_URL SW_URL APP_ICON_URL <<< "\$asset_urls"/);
   for (const name of ['APP_URL', 'LOADER_URL', 'PWA_URL', 'SW_URL', 'APP_ICON_URL']) {
     assert.ok(workflow.includes(`check_200 "$${name}"`), `${name} retains its 200 check`);

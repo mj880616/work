@@ -288,7 +288,11 @@ test('photo OCR compatible DB, exact CAS, text versions and preservation', {time
     ['default grant option','alter default privileges in schema public grant execute on functions to authenticated with grant option','alter default privileges in schema public revoke execute on functions from authenticated'],
     ['unknown auth inheritor','grant authenticated to public_probe','revoke authenticated from public_probe'],
     ['service auth inheritor','grant authenticated to service_role','revoke authenticated from service_role'],
-    ['unknown SET-only auth member','alter role public_probe noinherit;grant authenticated to public_probe','revoke authenticated from public_probe;alter role public_probe inherit']
+    ['unknown SET-only auth member','alter role public_probe noinherit;grant authenticated to public_probe','revoke authenticated from public_probe;alter role public_probe inherit'],
+    // Only the exact Supabase-managed Realtime name in its NOINHERIT/INHERIT FALSE shape is accepted.
+    ['Realtime admin inheriting authenticated','create role supabase_realtime_admin noinherit;grant authenticated to supabase_realtime_admin with inherit true','revoke authenticated from supabase_realtime_admin;drop role supabase_realtime_admin'],
+    ['Realtime admin INHERIT role','create role supabase_realtime_admin inherit;grant authenticated to supabase_realtime_admin with inherit false','revoke authenticated from supabase_realtime_admin;drop role supabase_realtime_admin'],
+    ['look-alike Realtime name','create role supabase_realtime_admin2 noinherit;grant authenticated to supabase_realtime_admin2 with inherit false','revoke authenticated from supabase_realtime_admin2;drop role supabase_realtime_admin2']
    ];
    for(const [label,change,restore]of cases)await gates.test(label,async()=>{
     await pool.query(change);try{const readiness=(await pool.query(await read('docs/'+stem+'.precheck.sql'))).rows;const item=change.startsWith('alter default')?'supported function defaults':'auth execution paths supported';assert.equal(readiness.find(r=>r.item===item)?.value,'아니오');await assert.rejects(pool.query(migration),/PHOTO_OCR_PREREQUISITE_CHANGED/);await pool.query('rollback');assert.equal((await pool.query("select to_regprocedure('public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)') fn")).rows[0].fn,null);}finally{await pool.query('rollback');await pool.query(restore);if((await pool.query("select to_regprocedure('public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)')fn")).rows[0].fn!==null)await pool.query(await read('docs/'+stem+'.rollback.sql'));}
@@ -299,6 +303,54 @@ test('photo OCR compatible DB, exact CAS, text versions and preservation', {time
    await pool.query('delete from public.app_notes');await pool.query(await read('docs/'+stem+'.rollback.sql'));
    await pool.query(`create function public.synthetic_touch_note()returns trigger language plpgsql as $$begin new.updated_at=now();return new;end$$;create trigger synthetic_touch_note before update on public.app_notes for each row execute function public.synthetic_touch_note();`);
    try{await assert.rejects(pool.query(migration),/PHOTO_OCR_PREREQUISITE_CHANGED/);await pool.query('rollback');const rows=(await pool.query(await read('docs/'+stem+'.precheck.sql'))).rows;assert.equal(rows.find(r=>r.item==='notes triggers absent').value,'아니오');}finally{await pool.query('drop trigger synthetic_touch_note on public.app_notes;drop function public.synthetic_touch_note()');}
+  });
+  const exactRows=async()=>(await pool.query("select length(check_clause) n,md5(check_clause) hash from information_schema.check_constraints where constraint_schema='public' and constraint_name='app_notes_attachments_check'")).rows;
+  await t.test('local migration order reproduces the production old CHECK text exactly',async()=>{
+   await pool.query('delete from public.app_notes');if((await pool.query("select to_regprocedure('public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)')fn")).rows[0].fn!==null)await pool.query(await read('docs/'+stem+'.rollback.sql'));
+   // 2026-10-14 production read-only observation: length 1059, md5 below.
+   assert.deepEqual(await exactRows(),[{n:1059,hash:'1036ac313de32f9538d1f7af61eea291'}]);
+  });
+  await t.test('production role layout: read-only endpoint role and Supabase-managed members pass every gate',async()=>{
+   // Supabase layout: postgres inherits authenticated (excluded as executor), authenticator and
+   // supabase_realtime_admin are NOINHERIT gateways, read-only requests use a pg_read_all_data role.
+   await pool.query(`create role supabase_read_only_user login bypassrls;grant pg_read_all_data to supabase_read_only_user;create role authenticator noinherit;grant authenticated to authenticator;create role supabase_realtime_admin nologin noinherit;grant authenticated to supabase_realtime_admin with inherit false;grant authenticated to postgres`);
+   try{
+    await note();
+    const query=async(sql,options={})=>{const c=await pool.connect();try{if(options.readOnly){await c.query('begin read only');await c.query('set local role supabase_read_only_user');}const r=await c.query(sql);if(options.readOnly)await c.query('commit');return Array.isArray(r)?[]:r.rows;}catch(e){await c.query('rollback');throw e;}finally{c.release();}};
+    // information_schema hides the CHECK from the read-only role; the gates read pg_constraint instead.
+    assert.deepEqual(await query("select count(*)::int n from information_schema.check_constraints where constraint_name='app_notes_attachments_check'",{readOnly:true}),[{n:0}]);
+    const readiness=await query(await read('docs/'+stem+'.precheck.sql'),{readOnly:true});
+    const verdicts=readiness.filter(r=>['예','아니오'].includes(r.value));assert.ok(verdicts.length>=10);
+    for(const r of verdicts)assert.equal(r.value,'예',r.item);
+    const plan=mode=>prepareMigration({mode,version,runId:{'dry-run':'9801',apply:'9802',rollback:'9803'}[mode],root:new URL('../../',import.meta.url).pathname});
+    const dry=await runMigrationPlan(plan('dry-run'),query);assert.equal(dry.ok,true,dry.summary);assert.equal(dry.verification,'complete',dry.summary);
+    const apply=await runMigrationPlan(plan('apply'),query);assert.equal(apply.ok,true,apply.summary);assert.doesNotMatch(apply.summary.split('사후 검사:')[1],/아니오/);
+    // Accepted gateways still have no inherited direct EXECUTE on the new RPC.
+    for(const role of ['authenticator','supabase_realtime_admin'])assert.equal((await pool.query("select has_function_privilege($1,'public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)','EXECUTE') x",[role])).rows[0].x,false,role);
+    const rollback=await runMigrationPlan(plan('rollback'),query);assert.equal(rollback.ok,true,rollback.summary);assert.doesNotMatch(rollback.summary.split('사후 검사:')[1],/아니오/);
+   }finally{await pool.query('rollback');await pool.query('delete from public.app_notes;revoke authenticated from postgres;revoke authenticated from supabase_realtime_admin;drop role supabase_realtime_admin;revoke authenticated from authenticator;drop role authenticator;drop owned by supabase_read_only_user;drop role supabase_read_only_user');}
+  });
+  await t.test('CHECK gates ignore whitespace-only deparse differences but reject different meaning',async gates=>{
+   const migrationNow=migration,rollbackSQL=await read('docs/'+stem+'.rollback.sql');
+   // Production 2026-10-14 vs a re-indented rendering of the same expression.
+   const spaces="replace(%s,E'\\n    ELSE false\\nEND',E'\\n        ELSE false\\n        END')",meaning="replace(%s,'<= 20','<= 21')";
+   const inPrecheck=async(form,file,item,key)=>{const sql=(await read('docs/'+stem+'.'+file+'.sql')).replaceAll('regexp_replace(pg_get_constraintdef(oid),','regexp_replace('+form.replace('%s','pg_get_constraintdef(oid)')+',');return (await pool.query(sql)).rows.find(r=>r.item===item)?.[key];};
+   const guard=(sql,form)=>sql.replace('regexp_replace(check_clause,','regexp_replace('+form.replace('%s','check_clause')+',');
+   await gates.test('old CHECK: precheck, dry-run original-state check and migration guard',async()=>{
+    assert.equal(await inPrecheck(spaces,'precheck','exact old CHECK intact','value'),'예');assert.equal(await inPrecheck(meaning,'precheck','exact old CHECK intact','value'),'아니오');
+    assert.equal(await inPrecheck(spaces,'dry-run.postcheck','exact old CHECK restored','ok'),true);assert.equal(await inPrecheck(meaning,'dry-run.postcheck','exact old CHECK restored','ok'),false);
+    assert.equal(await inPrecheck(spaces,'postcheck','mode-specific attachments CHECK','ok'),true);assert.equal(await inPrecheck(meaning,'postcheck','mode-specific attachments CHECK','ok'),false);
+    await assert.rejects(pool.query(guard(migrationNow,meaning)),/PHOTO_OCR_PREREQUISITE_CHANGED/);await pool.query('rollback');
+    await pool.query(guard(migrationNow,spaces));
+   });
+   await gates.test('new CHECK: applied postcheck and unused rollback guard',async()=>{
+    assert.equal(await inPrecheck(spaces,'postcheck','mode-specific attachments CHECK','ok'),true);assert.equal(await inPrecheck(meaning,'postcheck','mode-specific attachments CHECK','ok'),false);
+    const newSpaces="replace(%s,E'\\n    ELSE false\\nEND',E'\\n  ELSE false\\n  END')",newMeaning="replace(%s,'<= 16384','<= 16385')";
+    assert.equal(await inPrecheck(newMeaning,'postcheck','mode-specific attachments CHECK','ok'),false);
+    await assert.rejects(pool.query(guard(rollbackSQL,newMeaning)),/PHOTO_OCR_ROLLBACK_CHANGED/);await pool.query('rollback');
+    await assert.rejects(pool.query(guard(rollbackSQL,meaning)),/PHOTO_OCR_ROLLBACK_CHANGED/);await pool.query('rollback');
+    await pool.query(guard(rollbackSQL,newSpaces));assert.equal((await pool.query("select to_regprocedure('public.app_basket_update_attachment_ocr(uuid,timestamptz,jsonb,jsonb)')fn")).rows[0].fn,null);
+   });
   });
  }finally{if(pool){await pool.end();await Promise.all(clientEnds);}await cluster.stop();}
 });

@@ -3,92 +3,318 @@
 .meeting-entry-section>label,.meeting-entry-section>.two-col{margin-bottom:var(--kptu-space-3)}
 .meeting-entry-section>.two-col>label{margin-bottom:0}
 .task-workflow-note{padding:9px 11px;margin:0 0 var(--kptu-space-3);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle);color:var(--kptu-muted);font-size:12px}
-.meeting-materials-block{padding:var(--kptu-space-3);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface-subtle);margin:var(--kptu-space-3) 0}
-.meeting-materials-block p{margin:var(--kptu-space-1) 0 0;color:var(--kptu-muted);font-size:12px}
-.meeting-materials-block label span{color:var(--kptu-muted);font-size:11px}
-.meeting-action-head{display:flex;gap:var(--kptu-space-3);justify-content:space-between;align-items:flex-start;margin-bottom:var(--kptu-space-3)}
-.meeting-action-head p{margin:var(--kptu-space-1) 0 0;color:var(--kptu-muted);font-size:12px;line-height:1.45}
-.meeting-action-row{display:grid;grid-template-columns:minmax(0,1fr) 132px auto;gap:var(--kptu-space-2);margin:var(--kptu-space-2) 0}
-.meeting-action-row input{min-width:0;margin:0}
-.mrd-task-form select{min-height:var(--kptu-control-height);height:var(--kptu-control-height);padding:0 var(--kptu-space-3)}
-.meeting-action-remove{height:var(--kptu-control-height);align-self:center;font-size:var(--kptu-text-meta);border:1px solid var(--kptu-border);background:var(--kptu-surface-subtle);border-radius:var(--kptu-radius-md);padding:0 var(--kptu-space-3);font-weight:700;color:var(--kptu-muted);min-height:var(--kptu-control-height)}
 .meeting-material-links{margin-top:var(--kptu-space-3);padding-top:var(--kptu-space-2);border-top:1px solid var(--kptu-border)}
 .meeting-round-meta{font-size:12px;font-weight:700;color:var(--kptu-muted);margin-bottom:6px}
 .meeting-file-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 .meeting-file-actions .mini{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .meeting-round-detail-card{max-width:900px}
 .mrd-result-section{padding-bottom:var(--kptu-space-4);border-bottom:1px solid var(--kptu-border)}
-.mrd-result-section h3,.mrd-followup-section h3{margin:0 0 var(--kptu-space-3)}
 .mrd-special-section{margin-top:var(--kptu-space-4);padding-top:var(--kptu-space-4);border-top:1px solid var(--kptu-border)}
 .mrd-special-section h3{margin:0 0 var(--kptu-space-3)}
 .mrd-special-text{padding:var(--kptu-space-3);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle)}
 .mrd-result-text{min-height:72px;padding:var(--kptu-space-4);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface-subtle)}
 .mrd-text{white-space:pre-wrap;line-height:1.65;color:var(--kptu-ink)}
-.mrd-followup-section{margin-top:var(--kptu-space-4)}
-.mrd-material-section{margin-top:var(--kptu-space-5);padding-top:var(--kptu-space-4);border-top:1px solid var(--kptu-border)}
-.mrd-section-head{display:flex;align-items:center;justify-content:space-between;gap:var(--kptu-space-3)}
-.mrd-section-head h3{margin:0}
-.mrd-section-head p{margin:var(--kptu-space-1) 0 0;color:var(--kptu-muted);font-size:12px}
-.mrd-add-task,.mrd-upload-label{width:auto;min-height:var(--kptu-control-height);padding:0 var(--kptu-space-3);white-space:nowrap}
-.mrd-upload-label{cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
-.mrd-task-form{display:grid;grid-template-columns:minmax(0,1fr) 190px auto;gap:var(--kptu-space-2);align-items:end;margin:var(--kptu-space-3) 0;padding:var(--kptu-space-3);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface-subtle)}
-.mrd-task-form>label{margin:0}
-.mrd-task-form select,.mrd-task-form input[type="date"]{width:100%;min-width:0;min-height:var(--kptu-control-height);height:var(--kptu-control-height)}
-.mrd-task-form-actions{display:flex;gap:6px}
-.mrd-task-form-actions button{white-space:nowrap}
-.mrd-task-form #mrdTaskStatus{grid-column:1/-1}
-.mrd-file-row{display:flex;align-items:center;justify-content:space-between;gap:var(--kptu-space-3);padding:var(--kptu-space-3) 0;border-bottom:1px solid var(--kptu-border)}
-.mrd-file-row small{display:block;color:var(--kptu-muted);margin-top:3px}
-.mrd-file-main{min-width:0;flex:1;overflow-wrap:anywhere}
-.mrd-file-actions{display:flex;gap:var(--kptu-space-2);flex:0 0 auto}
-.meeting-selected-files{display:grid;gap:var(--kptu-space-2);margin:var(--kptu-space-2) 0}
-.meeting-selected-file{display:flex;align-items:center;gap:var(--kptu-space-3);padding:var(--kptu-space-2);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md)}
-.meeting-selected-file>span{min-width:0;flex:1;overflow-wrap:anywhere}
-.meeting-selected-file small{color:var(--kptu-muted);white-space:nowrap}
-.meeting-selected-file .icon-btn{flex:0 0 auto}
-.mrd-task-row{display:flex;justify-content:space-between;gap:var(--kptu-space-3);padding:var(--kptu-space-3) 0;border-bottom:1px solid var(--kptu-border)}
-.mrd-task-main{min-width:0}
-.mrd-task-row b{display:block}
-.mrd-task-row small{display:block;color:var(--kptu-muted);margin-top:3px}
-.mrd-task-actions{display:flex;gap:var(--kptu-space-1);align-items:flex-start}
-.mrd-task-actions .danger,.mrd-head-actions .mrd-delete{color:var(--kptu-danger);border-color:var(--kptu-border-strong);background:var(--kptu-surface)}
+.mrd-head-actions .mrd-delete{color:var(--kptu-danger);border-color:var(--kptu-border-strong);background:var(--kptu-surface)}
 .mrd-head-actions .mrd-delete:hover{background:var(--kptu-danger-soft);border-color:var(--kptu-danger);color:var(--kptu-danger)}
 .mrd-head-actions{display:flex;gap:6px;margin-top:var(--kptu-space-2)}
 .mrd-editor-actions{display:flex;justify-content:flex-end;gap:var(--kptu-space-2);margin-top:var(--kptu-space-3)}
+.mrd-result-section h3{margin:0 0 var(--kptu-space-3)}
+.mrd-result-head{justify-content:space-between;gap:var(--kptu-space-2)}
+.mrd-result-section .mrd-result-head h3{margin:0}
+#meetingRoundDetailModal .mrd-result-head .mini{width:auto;min-width:0;white-space:nowrap;flex:none}
+.mrd-result-section .mtg-note{margin:0 0 var(--kptu-space-2)}
+.mrd-result-text{-webkit-user-select:text;user-select:text}
+#meetingRoundDetailModal :is(.mrd-head-actions,.mrd-editor-actions) button{width:auto;min-width:0;white-space:nowrap;flex:none}
+/* UI-MEET결과창정리: [수정][삭제][바구니에 담기]는 보조 버튼이라 공용 작은 버튼(--ds-compact-*, 보이는 높이 32px)으로 맞춘다.
+   큰 버튼 높이(--ds-control-height 46px)는 ui-standard.css의 '.modal button.mini' 규칙에서 온 것이라 이 세 버튼만 작은 버튼 값으로 되돌린다.
+   누르는 범위 44px은 base-ui.css의 button.mini::after 규칙이 이미 만든다. [삭제]의 빨간 글자·테두리는 ui-standard.css 그대로. */
+#meetingRoundDetailModal :is(#mrdEdit,#mrdDelete,#mrdToBasket){box-sizing:border-box;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);margin:0;padding:0 var(--ds-compact-pad-x,12px);font-size:var(--ds-compact-text,13px);line-height:1}
 #meetingList article.item-card[data-mrd-meeting]{cursor:pointer}
 #meetingList article.item-card[data-mrd-meeting]:active{transform:scale(.995)}
-#meetingRoundDetailModal .meeting-round-detail-card button:not(.icon-btn),#meetingRoundDetailModal .meeting-round-detail-card .mrd-upload-label{width:auto;min-width:0;white-space:nowrap;flex:none}
-#meetingRoundDetailModal .meeting-round-detail-card .mrd-task-form-actions,#meetingRoundDetailModal .meeting-round-detail-card .mrd-editor-actions{display:flex;gap:6px;justify-content:flex-end}
-#meetingRoundDetailModal .meeting-round-detail-card .mrd-task-form-actions button,#meetingRoundDetailModal .meeting-round-detail-card .mrd-editor-actions button,#meetingRoundDetailModal .meeting-round-detail-card .icon-btn{flex:none}
-#meetingRoundDetailModal .mrd-followup-section .mrd-section-head{margin-bottom:var(--kptu-space-3)}
-#meetingRoundDetailModal #mrdTasks{margin-top:0}
-#meetingRoundDetailModal .mrd-task-form>label:nth-of-type(2){min-width:0;width:100%}
 @media(max-width:760px){
-  .meeting-action-row{grid-template-columns:minmax(0,1fr) auto}
-  .meeting-action-title{grid-column:1/-1}
   .meeting-round-detail-card{padding-bottom:calc(92px + env(safe-area-inset-bottom))!important;scroll-padding-bottom:calc(92px + env(safe-area-inset-bottom))!important}
-  .mrd-task-form{grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:var(--kptu-space-2);row-gap:var(--kptu-space-2)}
-  .mrd-task-form>label:first-child{grid-column:1/-1}
-  .mrd-task-form>label:nth-of-type(2){grid-column:1/-1}
-  .mrd-task-form-actions{grid-column:1/-1}
-  .mrd-task-form-actions button{flex:1}
-  .mrd-task-row{align-items:flex-start}
-  .mrd-task-actions{flex-shrink:0}
-  .mrd-section-head{align-items:center}
   .mrd-editor-actions>*{flex:1}
-  .mrd-material-section{padding-bottom:var(--kptu-space-4)}
 }
 
 #meetingsView .meeting-toolbar{flex-direction:row;flex-wrap:nowrap;align-items:center;gap:var(--kptu-space-2);margin-bottom:var(--kptu-space-2)}
 #meetingsView .meeting-toolbar #newMeetingBtn{flex:0 0 auto;width:auto;height:var(--kptu-control-height);white-space:nowrap}
-#meetingList.meeting-list{display:grid;grid-template-columns:1fr;gap:4px}
-#meetingList .meeting-list-row{min-height:0;margin:0;padding:8px 12px 8px 10px;border:0;border-left:4px solid var(--meeting-color,var(--kptu-border-strong));border-bottom:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);box-shadow:none;background:var(--kptu-surface);align-items:center}
+#meetingList.meeting-list{display:grid;grid-template-columns:minmax(0,1fr);gap:4px}
+#meetingList .meeting-list-row{min-height:0;margin:0;padding:8px 12px 8px 10px;border:0;border-bottom:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);box-shadow:none;background:var(--kptu-surface);align-items:center}
 #meetingList .meeting-list-row:hover{background:var(--kptu-surface-subtle)}
+#meetingList .meeting-list-row{min-width:0}
 #meetingList .meeting-list-main{min-width:0;width:100%}
 #meetingList .meeting-list-title{display:flex;align-items:center;gap:8px;min-width:0}
 #meetingList .meeting-list-title h3{flex:1;min-width:0;margin:0;font-size:var(--kptu-text-subtitle);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#meetingList .meeting-list-title .badge{flex:0 0 auto;max-width:42%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#meetingList .meeting-list-title .badge{flex:0 0 auto;white-space:nowrap}
+/* UI-표잘림전수: 배지는 '…'로 자르지 않는다. 제목(h3)이 줄어들고, 폰에서는 배지가 줄바꿈한다. */
+@media(max-width:760px){#meetingList .meeting-list-title .badge{flex:0 1 auto;max-width:42%;white-space:normal;overflow-wrap:anywhere}}
 #meetingList .meeting-list-row p{margin:2px 0 0;font-size:var(--kptu-text-meta);line-height:1.4;color:var(--kptu-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* D-6b: dialog role typography owned here; explicit roots preserve list styles. */
-#meetingModal .meeting-materials-block label span{font-size:var(--kptu-text-meta);color:var(--kptu-muted)}
+
+/* ───────── UI-회의결과창정리(2026-10-17 사용자 결정): 회의 결과 창(만들기·수정)의 후속 할 일·회의자료 묶음 ─────────
+   프로젝트 상세(PRJ-기록입력) 묶음 모양을 따른다: 묶음 제목 옆 작은 +, 입력 한 줄(입력칸 + [기한 ▾] + [추가]),
+   넣은 할 일은 할 일 화면과 같은 줄(동그라미·이름·기한·⋯), 빈 상태는 흐린 글자 한 줄, 설명은 "자료실에도 자동 등록"만 작게.
+   크기는 UI-버튼크기 공용 토큰(--ds-compact-*)을 쓰고 누르는 범위 44px을 지킨다. 파일 한 줄·끌어다 놓기 테두리는 ui-standard.css. */
+.mtg-group{min-width:0;margin:0 0 var(--kptu-space-3)}
+.mrd-followup-section.mtg-group{margin-top:var(--kptu-space-4)}
+.mrd-material-section.mtg-group{margin-top:var(--kptu-space-2)}
+.mtg-group-head{display:flex;align-items:center;gap:2px;min-height:var(--kptu-touch-target,44px)}
+.mtg-group-head h3{margin:0;line-height:1.4}
+.mtg-add-plus{position:relative;flex:0 0 auto;display:inline-grid;place-items:center;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);min-width:0;min-height:var(--kptu-touch-target,44px);margin:-8px 0;padding:0;border:0;border-radius:999px;background:transparent;box-shadow:none;color:var(--kptu-link);font-size:22px;font-weight:400;line-height:1;cursor:pointer}
+.mtg-add-plus:hover{background:var(--kptu-surface-subtle)}
+.mtg-add-plus:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+.mtg-add-plus:disabled{opacity:.45;cursor:default}
+/* 창 글자 역할(D-6b 본문 14px)보다 작게: 설명 12px, 빈 상태 13px 흐린 글자. */
+:is(#meetingModal,#meetingRoundDetailModal) .mtg-group .mtg-note{margin:-6px 0 2px;font-size:var(--ds-text-meta,12px);line-height:1.4;color:var(--kptu-faint)}
+:is(#meetingModal,#meetingRoundDetailModal) .mtg-group .mtg-empty{display:flex;align-items:center;min-height:var(--kptu-touch-target,44px);margin:0;font-size:var(--ds-text-row,13px);color:var(--kptu-faint)}
+.mtg-task-list{display:grid;min-width:0}
+.mtg-task-line{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:6px;margin:0 0 4px}
+.mtg-task-line.hidden{display:none}
+.mtg-task-line:has(> .mtg-line-cancel:not(.hidden)){grid-template-columns:minmax(0,1fr) auto auto auto}
+.modal .mtg-task-line>input{min-width:0;margin:0}
+.mtg-task-line>.status{grid-column:1/-1;margin:0}
+.mtg-task-line>.status:empty{display:none}
+.modal .mtg-task-line :is(.mtg-line-add,.mtg-line-cancel){position:relative;box-sizing:border-box;width:auto;min-width:0;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);margin:0;padding:0 var(--ds-compact-pad-x,12px);font-size:var(--ds-compact-text,13px);line-height:1;white-space:nowrap}
+.modal .mtg-task-line :is(.mtg-line-add,.mtg-line-cancel)::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+/* [기한 ▾]: 보이는 것은 알약 칩, 누르면 기기 날짜 고르기(FORM-시간입력: 날짜는 기기 고르기 유지). */
+.due-chip{position:relative;box-sizing:border-box;display:inline-flex;align-items:center;height:var(--ds-compact-height,32px);padding:0 var(--ds-compact-pad-x,12px);border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border-strong));border-radius:999px;background:var(--kptu-surface);color:var(--kptu-muted);font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-medium,500);line-height:1;white-space:nowrap}
+.due-chip.has-value{color:var(--kptu-ink)}
+.due-chip:focus-within{outline:2px solid var(--kptu-info);outline-offset:2px}
+.modal .due-chip>input.due-chip-input{position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);box-sizing:border-box;width:100%;height:var(--kptu-touch-target,44px);min-height:0;margin:0;padding:0;border:0;opacity:0;cursor:pointer;font-size:16px}
+.modal .due-chip>input.due-chip-input::-webkit-calendar-picker-indicator{position:absolute;inset:0;width:auto;height:auto;margin:0;opacity:0;cursor:pointer}
+/* 넣은 할 일: 할 일 화면 줄(google-tasks.css)과 같은 동그라미·이름·기한·⋯. */
+.modal :is(#mrdTasks,#meetingActionList) .gt-row{grid-template-columns:44px minmax(0,1fr) 44px;column-gap:var(--kptu-space-2);min-height:var(--kptu-touch-target,44px);padding:0 2px 0 0}
+.modal :is(#mrdTasks,#meetingActionList) .gt-row:first-child{border-top:0}
+.modal #meetingActionList .gt-check{position:relative;box-sizing:border-box;width:44px;height:44px;min-width:44px;min-height:44px;margin:0;border:0;background:transparent}
+.modal #meetingActionList .gt-check::before{content:'';position:absolute;box-sizing:border-box;width:22px;height:22px;left:11px;top:11px;border:2px solid var(--kptu-success);border-radius:var(--kptu-radius-pill);background:var(--kptu-surface);opacity:.55}
+.modal :is(#mrdTasks,#meetingActionList) .gt-main{width:100%;min-width:0;min-height:var(--kptu-touch-target,44px);height:auto;padding:6px 0;margin:0;border:0;background:transparent;box-shadow:none;color:inherit;font:inherit;text-align:left;display:flex;flex-direction:column;justify-content:center;align-items:stretch}
+.modal :is(#mrdTasks,#meetingActionList) .gt-main b{font-size:var(--ds-text-row,13px);line-height:1.4;font-weight:var(--ds-weight-regular,400);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.modal #mrdTasks .gt-row.gt-side-row .mrd-task-main b{font-weight:var(--ds-weight-regular,400)}
+.modal :is(#mrdTasks,#meetingActionList) .gt-meta{margin-top:1px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.modal :is(#mrdTasks,#meetingActionList) .gt-menu-trigger{box-sizing:border-box;position:relative;width:44px;height:44px;min-width:44px;min-height:44px;padding:0;border:0;background:transparent;box-shadow:none;color:var(--kptu-muted);font-size:20px;line-height:1}
+.modal :is(#mrdTasks,#meetingActionList) .gt-menu-trigger:hover{background:var(--kptu-surface-subtle)}
+.modal :is(#mrdTasks,#meetingActionList) .gt-menu-trigger:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+
+/* ───────── MEET-파일로만들기(2026-10-17 사용자 결정): 회의 [+] 창 [직접 쓰기 | 파일·글로 만들기] ─────────
+   전환은 공용 세그먼트(ui-standard.css), 파일 줄은 공용 파일 한 줄(meeting-compact.js). 창 안에서 어느 쪽을 보일지는
+   #meetingModal[data-create-mode](meeting-from-files.js가 정함) 하나로만 정한다. 묶음 표는 회의별 한 줄(날짜·종류·차수·자료·결과),
+   직접 골라야 하는 줄은 주황 테두리, 결과가 없는 줄은 빨간 글자 "결과를 더해 주세요". 줄을 누르면 고칠 칸과 파일이 펼쳐진다. */
+#meetingModal .meeting-create-modes{margin:0 0 var(--kptu-space-3)}
+/* MEET-파일AI분류: 사업 보고 상세의 자료 [+]가 자료실 올리기 창(#documentModal)을 위에 연다. 이 창의 맨 앞 규칙은 프로젝트 화면 CSS에만 있어 회의 화면에서 먼저 열면 상세 창 뒤로 깔렸다(× 눌림 막힘). 같은 값(51)을 회의 화면에도 둔다. */
+#documentModal:not(.hidden){z-index:51}
+/* MTG-사업보고말바꾸기: [회의] 칸이 아니면 회의명 고르기(목록)를 숨기고 제목 한 칸만 둔다. [파일·글로 만들기]는 회의를 만드는 길이라 [회의] 칸에서만 보인다. */
+#meetingModal:not([data-report-kind="meeting"]) :is(#meetingNameSelect,#meetingNameMatch,.meeting-create-modes){display:none}
+#meetingRoundDetailModal:not([data-report-kind="meeting"]) :is(#mrdEditNameSelect,#mrdEditNameMatch){display:none}
+#meetingModal:not([data-create-mode="files"]) #mffPanel,
+#meetingModal[data-create-mode="files"] .modal-card>:is(fieldset.meeting-entry-section,#saveMeetingBtn,#meetingStatus){display:none}
+#mffPanel .mtg-group{margin-bottom:var(--kptu-space-2)}
+#mffPanel .mff-text-label{display:grid;gap:4px;margin:0 0 var(--kptu-space-3)}
+#mffPanel .mff-text-label textarea{min-height:96px}
+.mff-list{display:grid;grid-template-columns:minmax(0,1fr);gap:4px;min-width:0}
+.mff-head,.mff-row>summary{display:grid;grid-template-columns:64px minmax(0,1fr) 40px 36px 40px;align-items:center;column-gap:8px}
+.mff-head{padding:0 10px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.mff-head span:nth-child(n+3){text-align:center}
+.mff-row{min-width:0;border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-radius:var(--kptu-radius-md);background:var(--kptu-surface)}
+.mff-row>summary{position:relative;min-height:var(--kptu-touch-target,44px);padding:6px 10px;list-style:none;cursor:pointer;row-gap:2px}
+.mff-row>summary::-webkit-details-marker{display:none}
+.mff-row>summary:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px;border-radius:var(--kptu-radius-md)}
+.mff-cell{min-width:0;font-size:var(--ds-text-row,13px);line-height:1.4;color:var(--kptu-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mff-round,.mff-count,.mff-result{text-align:center}
+.mff-date{font-variant-numeric:tabular-nums;color:var(--kptu-muted)}
+.mff-result[data-has="0"]{color:var(--kptu-danger);font-weight:var(--ds-weight-medium,500)}
+.mff-note{grid-column:1/-1;font-size:var(--ds-text-meta,12px);line-height:1.4;color:var(--kptu-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mff-row:is([data-state="pick"],[data-state="new-kind"]){border:2px solid var(--ds-project-orange)}
+.mff-row:is([data-state="pick"],[data-state="new-kind"]) .mff-note{color:var(--ds-kind-basket-ink)}
+.mff-row[data-state="no-result"] .mff-note{color:var(--kptu-danger)}
+.mff-row[data-state="done"]{background:var(--kptu-surface-subtle)}
+.mff-row[data-state="done"] .mff-note{color:var(--kptu-success)}
+.mff-body{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--kptu-space-2);padding:0 10px 8px;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+.mff-fields{display:grid;grid-template-columns:minmax(0,1fr) 72px 150px;gap:8px;padding-top:8px}
+.mff-fields label{display:grid;gap:2px;min-width:0;margin:0}
+.modal .mff-fields input{min-width:0;margin:0}
+.mff-confirm{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:8px 0 0;font-size:var(--ds-text-row,13px);color:var(--ds-kind-basket-ink)}
+#meetingModal .mff-confirm button.secondary{position:relative;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);padding:0 var(--ds-compact-pad-x,12px);font-size:var(--ds-compact-text,13px)}
+#meetingModal .mff-confirm button.secondary::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+.mff-body .file-line-main{flex-direction:column;align-items:flex-start;gap:0}
+.mff-body .file-line-main b{max-width:100%}
+.modal .mff-body select.mff-role{flex:none;width:auto;min-width:0;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);margin:0;padding:0 24px 0 8px;font-size:var(--ds-compact-text,13px)}
+#mffPanel .mff-footer{margin-top:var(--kptu-space-3)}
+@media(max-width:760px){
+  .mff-head,.mff-row>summary{grid-template-columns:62px minmax(0,1fr) 34px 28px 32px;column-gap:6px}
+  .mff-row>summary,.mff-head{padding-left:8px;padding-right:8px}
+  .mff-fields{grid-template-columns:minmax(0,1fr) 64px}
+  .mff-fields label:last-child{grid-column:1/-1}
+}
+
+/* ───────── UI-PC회의(2026-10-20) → MEET-결과정리 ⑤(시안 C) → MEET-결과3단(2026-10-21 시안 승인): PC(≥1024) 회의 결과 ─────────
+   그리는 곳은 team.js renderMeetings 하나(배치 HTML은 meeting-columns.js). 폰·중간 폭은 위 한 줄 목록 그대로.
+   할 일 화면(google-tasks.css UI-PC할일배치)처럼 화면 높이를 다 쓰는 3단: 왼쪽 회의 종류 / 가운데 고른 종류의 차수·날짜·시간 / 오른쪽 고른 차수의 결과(읽기용).
+   비율(UI-좌우비율, theme-tokens.css --ds-split-*): 종류 + 차수 두 칸을 합쳐 1/3(안에서 반씩), 결과 2/3. 세 칸은 각자 세로로 넘어간다.
+   MTG-3칸폭끌기(2026-10-26): 세 칸은 한 줄 격자의 직접 자식이고(--ds-split-col-a·b·c, 공용 split-resize.js가 fr 값을 넣음), 칸 사이 두 경계를 끌어 폭을 바꾼다.
+   위쪽 종류 칩 줄은 PC에서 없다(왼쪽 목록과 겹침). [+ 회의 결과]는 위 하나(④). 높이는 공용 버튼 기준(--kptu-control-height 36px), 누르는 범위 44px은 base-ui.css ::after. */
+#meetingsView .meeting-toolbar>[hidden],#meetingsView .meeting-toolbar[hidden]{display:none}
+#mcolMenu[hidden]{display:none}
+@media(min-width:1024px){
+  html:has(#appView #meetingsView:not(.hidden) #meetingList.meeting-columns) main{padding-bottom:12px}
+  html:has(#appView #meetingsView:not(.hidden) #meetingList.meeting-columns) #appView>.app-nav{margin-bottom:0}
+  #appView #meetingsView:not(.hidden):has(#meetingList.meeting-columns){display:flex;flex-direction:column;height:calc(100vh - 24px - var(--kptu-topline-space,0px));height:calc(100dvh - 24px - var(--kptu-topline-space,0px));min-height:420px}
+  #appView #meetingsView:has(#meetingList.meeting-columns)>#meetingsListCard{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;margin:0}
+  #appView #meetingsView #newMeetingBtn{height:var(--kptu-control-height);min-height:var(--kptu-control-height)}
+  #meetingList.meeting-columns{display:flex;flex:1 1 auto;min-height:0}
+  #meetingList .mcol-layout{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:minmax(0,1fr);gap:var(--kptu-space-3)}
+  #meetingList .mcol-three{grid-template-columns:minmax(var(--ds-split-col-min),var(--ds-split-col-a)) minmax(var(--ds-split-col-min),var(--ds-split-col-b)) minmax(0,var(--ds-split-col-c))}
+  #meetingList :is(.mcol-kinds,.mcol-rounds,.mcol-result){box-sizing:border-box;min-width:0;min-height:0;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
+  #meetingList .mcol-kinds{overflow-y:auto;overscroll-behavior:contain;padding:var(--kptu-space-2)}
+  #meetingList .mcol-kinds ul{display:grid;gap:2px;margin:0;padding:0;list-style:none}
+  #meetingList .mcol-kind{box-sizing:border-box;display:flex;align-items:center;gap:8px;width:100%;min-width:0;min-height:var(--kptu-touch-target,44px);margin:0;padding:0 var(--kptu-space-3);border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-ink);font-family:inherit;font-size:var(--ds-text-row);font-weight:var(--ds-weight-regular);line-height:1.4;text-align:left;cursor:pointer}
+  #meetingList .mcol-kind:hover{background:var(--kptu-surface-subtle)}
+  #meetingList .mcol-kind[aria-current="true"]{background:var(--ds-kind-other-soft);font-weight:var(--ds-weight-medium)}
+  #meetingList :is(.mcol-kind,.mcol-card,.mcol-more):focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+  #meetingList .mcol-rounds{display:flex;flex-direction:column;gap:var(--kptu-space-2);padding:var(--kptu-space-2)}
+  #meetingList .mcol-head{flex:none;display:flex;align-items:center;gap:8px;min-width:0;min-height:var(--ds-compact-height);margin:0;padding:0 var(--kptu-space-2);font-size:var(--ds-text-row);line-height:1.4}
+  #meetingList .mcol-dot{flex:0 0 8px;width:8px;height:8px;border-radius:var(--kptu-radius-pill);background:var(--meeting-color,var(--kptu-faint))}
+  #meetingList .mcol-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #meetingList .mcol-count{flex:none;font-size:var(--ds-text-meta);font-weight:var(--ds-weight-regular);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
+  #meetingList .mcol-cards{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:grid;align-content:start;gap:2px;margin:0;padding:2px;list-style:none}
+  /* 가운데 차수 줄: 차수(짧은 이름) 한 줄 + 날짜·시간 한 줄. 고른 줄은 종류 목록과 같은 옅은 바탕 + 왼쪽 색 띠. */
+  #meetingList .mcol-card{box-sizing:border-box;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:0;width:100%;min-width:0;min-height:var(--kptu-touch-target,44px);margin:0;padding:6px var(--kptu-space-3) 6px calc(var(--kptu-space-3) - 3px);border:0;border-left:3px solid transparent;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-ink);font-family:inherit;text-align:left;cursor:pointer}
+  #meetingList .mcol-card:hover{background:var(--kptu-surface-subtle)}
+  #meetingList .mcol-card[aria-current="true"]{background:var(--ds-kind-other-soft);border-left-color:var(--meeting-color,var(--kptu-border-strong))}
+  #meetingList .mcol-round{max-width:100%;min-width:0;font-size:var(--ds-text-row);font-weight:var(--ds-weight-medium);line-height:1.4;color:var(--kptu-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #meetingList .mcol-meta{max-width:100%;min-width:0;display:flex;font-size:var(--ds-text-meta);line-height:1.4;color:var(--kptu-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #meetingList .mcol-when{min-width:0;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+  /* UI-회의좁은PC: 1024~1279px에서는 종류·차수 칸이 각각 120px 안팎이다. 줄(li)이 글자 폭만큼 늘어 선택 배경이 칸 밖으로 잘리지 않게 줄 폭을 칸에 묶고,
+     칸 안 글자는 줄임표로 줄인다(전체 글은 title). 1280px 이상 배치·비율은 그대로. */
+  #meetingList :is(.mcol-kinds,.mcol-cards)>li,#meetingList .mcol-kinds ul>li{min-width:0}
+  #meetingList .mcol-card{overflow:hidden}
+  @media(max-width:1279px){
+    #meetingList .mcol-kind{gap:6px;padding:0 var(--kptu-space-2)}
+    #meetingList .mcol-card{padding-right:var(--kptu-space-2)}
+  }
+  /* 오른쪽 결과(읽기용): 머리(회의 이름·차수·시각·프로젝트 + ⋯) 고정, 몸통만 세로로 넘어간다. */
+  #meetingList .mcol-result{display:flex;flex-direction:column}
+  #meetingList .mcol-result-head{flex:none;display:flex;align-items:flex-start;gap:var(--kptu-space-2);padding:var(--kptu-space-3) var(--kptu-space-2) var(--kptu-space-2) var(--kptu-space-4);border-bottom:var(--ds-line-width) solid var(--ds-line)}
+  #meetingList .mcol-result-title{flex:1;min-width:0}
+  #meetingList .mcol-result-meta{display:flex;flex-wrap:wrap;gap:2px var(--kptu-space-3);margin:0;font-size:var(--ds-text-meta);line-height:1.4;color:var(--kptu-muted);font-variant-numeric:tabular-nums}
+  #meetingList .mcol-more{position:relative;flex:none;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);min-width:0;min-height:0;margin:-6px 0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-muted);font-size:20px;line-height:1;cursor:pointer}
+  #meetingList .mcol-more:hover,#meetingList .mcol-more[aria-expanded="true"]{background:var(--kptu-surface-subtle)}
+  #meetingList .mcol-result-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:var(--kptu-space-3) var(--kptu-space-4) var(--kptu-space-4)}
+  #meetingList .mcol-block+.mcol-block{margin-top:var(--kptu-space-4)}
+  #meetingList .mcol-block h4{margin:0 0 var(--kptu-space-2);font-size:var(--ds-text-meta);font-weight:var(--ds-weight-medium);line-height:1.4;color:var(--kptu-muted)}
+  #meetingList .mcol-text{white-space:pre-wrap;overflow-wrap:anywhere;font-size:var(--kptu-text-body,14px);line-height:1.7;color:var(--kptu-ink);-webkit-user-select:text;user-select:text}
+  #meetingList .mcol-notes{padding:var(--kptu-space-3);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle)}
+  #meetingList .mcol-empty{margin:0;font-size:var(--ds-text-row);color:var(--kptu-faint)}
+  #meetingList .mcol-task-list{display:grid;gap:2px;margin:0;padding:0;list-style:none}
+  #meetingList .mcol-task{display:flex;align-items:center;gap:var(--kptu-space-2);min-width:0;min-height:32px;font-size:var(--ds-text-row);line-height:1.4;color:var(--kptu-ink)}
+  #meetingList .mcol-task-check{flex:0 0 16px;box-sizing:border-box;width:16px;height:16px;border:2px solid var(--kptu-success);border-radius:var(--kptu-radius-pill)}
+  #meetingList .mcol-task.completed .mcol-task-check{background:var(--kptu-success)}
+  #meetingList .mcol-task.completed .mcol-task-title{color:var(--kptu-muted);text-decoration:line-through}
+  #meetingList .mcol-task-title{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #meetingList .mcol-task-due{flex:none;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
+  #meetingList .mcol-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  #meetingList .mcol-files{display:grid;gap:4px}
+  /* 회의자료 줄은 결과 창과 같은 파일 한 줄(ui-standard.css .file-line). 창 밖이라 이름 누르기 자리만 여기서 덮는다. */
+  #meetingList .mcol-file{position:relative}
+  #meetingList .mcol-file .file-line-open{position:absolute;inset:0;width:auto;height:auto;min-width:0;min-height:0;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;cursor:pointer}
+  #meetingList .mcol-file .file-line-open:hover{background:color-mix(in srgb,var(--kptu-surface-subtle) 60%,transparent)}
+  #meetingList .mcol-file .file-line-open:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+  #meetingList .mcol-file :is(.file-kind,.file-line-main){pointer-events:none}
+  /* FILE-사업보고⋯: 줄 끝 ⋯(ui-standard.css .file-line-more)는 누르기 자리 밖에 둔다. */
+  #meetingList .mcol-file:has(.file-line-more) .file-line-open{right:var(--kptu-touch-target,44px)}
+}
+/* MTG-사업보고 4단계: 위쪽 칸 칩 줄(#reportKindFilter, 공용 filter-chips). 폰은 한 줄 그대로 옆으로 밀고(페이지는 넘치지 않음), PC는 한 줄.
+   [회의] 칩일 때만 그 아래 회의명 칩 줄(.meeting-toolbar, 폰). 입력 창 맨 위 칸 칩(#meetingKindPick)도 같은 칩. */
+#meetingsView .report-kind-bar{flex-direction:row;flex-wrap:nowrap;align-items:center;min-width:0;margin-bottom:var(--kptu-space-2)}
+#meetingsView .report-kind-bar>#reportKindFilter{flex:0 1 auto;min-width:0;max-width:100%}
+#meetingModal .report-kind-pick{display:flex;align-items:center;gap:var(--kptu-space-2);min-width:0;margin:0 0 var(--kptu-space-2)}
+#meetingModal .report-kind-pick-label{flex:none;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+#meetingModal .report-kind-pick>#meetingKindPick{flex:0 1 auto;min-width:0;max-width:100%}
+#meetingModal label[hidden]{display:none}
+@media(min-width:1024px){
+  /* [전체]·다른 칸: 왼쪽 날짜·이름 목록 / 오른쪽 결과 2단(1/3 : 2/3, 경계선은 split-resize.js). 칸 모양은 3단의 차수·결과 칸과 같다. */
+  #meetingList .mcol-two>.mcol-rounds{min-width:0}
+  #meetingList .mcol-two .mcol-meta{gap:0}
+  #meetingList .mcol-two .mcol-sep{flex:none;white-space:pre}
+  #meetingList .mcol-two .mcol-kind-tag{flex:none;color:var(--kptu-ink)}
+}
+
+/* MTG-사업보고 6단계: [연결할 곳] 버튼(입력 칸과 같은 높이·너비, 고른 곳 이름이 길면 줄여 보임) */
+.meeting-places-btn{display:block;width:100%;min-height:var(--kptu-control-height,36px);box-sizing:border-box;padding:0 10px;text-align:left;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.report-kind-tag{display:inline-block;margin-right:4px;padding:0 5px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,4px);font-size:11px;line-height:16px;color:var(--kptu-muted);vertical-align:1px}
+
+/* UPD-요약부품통일 ①: 사업 보고 수정 창의 곳마다 요약 칸 + 작은 [AI 요약](바구니 연결 칸과 같은 모양). */
+#meetingRoundDetailModal .report-link-summaries { display:grid; gap:10px; margin-top:8px; }
+#meetingRoundDetailModal .report-link-summary textarea { box-sizing:border-box; width:100%; min-height:64px; }
+#meetingRoundDetailModal .report-link-summary button.mini { width:auto; min-width:0; flex:none; box-sizing:border-box; height:var(--ds-compact-height,32px); min-height:var(--ds-compact-height,32px); margin:0; padding:0 var(--ds-compact-pad-x,12px); font-size:var(--ds-compact-text,13px); line-height:1; white-space:nowrap; }
+#meetingRoundDetailModal .ai-summary-row,#meetingRoundDetailModal .ai-summary-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:6px; }
+#meetingRoundDetailModal .ai-summary-status { min-width:0; font-size:var(--kptu-text-meta,13px); color:var(--kptu-muted); overflow-wrap:anywhere; }
+#meetingRoundDetailModal .ai-summary-status:empty { display:none; }
+#meetingRoundDetailModal .ai-summary-proposal { margin-top:8px; padding:8px 10px; border:1px dashed var(--kptu-border); border-radius:var(--kptu-radius-md); }
+#meetingRoundDetailModal .ai-summary-proposal p { margin:4px 0; }
+#meetingRoundDetailModal .ai-summary-proposal-label { color:var(--kptu-muted); font-size:var(--kptu-text-meta,13px); }
+#meetingRoundDetailModal .ai-summary-proposal-text { white-space:pre-wrap; overflow-wrap:anywhere; }
+
+/* MTG-후속할일후보: 후속 할 일 칸의 [후속 할 일 만들기]는 작고 낮은 보조 버튼(공용 작은 버튼 값, 누르는 범위 44px은 button.mini::after)이고,
+   후보 줄은 정리함 [챙길 것]과 같은 부품(.inbox-todo-*)이라 정리함 화면(basket.css)과 같은 값으로 이 창 안에서만 그린다. */
+#meetingRoundDetailModal .mrd-make-todos{box-sizing:border-box;width:auto;min-width:0;flex:none;margin:0 0 0 auto;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);padding:0 var(--ds-compact-pad-x,12px);font-size:var(--ds-compact-text,13px);line-height:1;white-space:nowrap}
+#meetingRoundDetailModal .mrd-make-todos:disabled{opacity:.6;cursor:default}
+#meetingRoundDetailModal #mrdTodoLine:empty{display:none}
+#meetingRoundDetailModal #mrdTodoLine[data-state="error"]{color:var(--kptu-danger)}
+#meetingRoundDetailModal .mrd-todo-cand:not([hidden]){display:block;margin:0 0 var(--kptu-space-2)}
+#meetingRoundDetailModal .mrd-todo-cand .inbox-todo-list{display:flex;flex-direction:column;margin:0;padding:0;list-style:none}
+#meetingRoundDetailModal .mrd-todo-cand .inbox-todo-row{display:flex;flex-direction:column;gap:2px;min-width:0;padding:8px 0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+#meetingRoundDetailModal .mrd-todo-cand .inbox-todo-row:first-child{border-top:0}
+#meetingRoundDetailModal .mrd-todo-cand .inbox-todo-line{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
+#meetingRoundDetailModal .mrd-todo-cand .inbox-todo-text{display:flex;flex-direction:column;flex:1 1 12em;min-width:0}
+#meetingRoundDetailModal .mrd-todo-cand .inbox-todo-summary{font-size:14px;line-height:1.5;color:var(--kptu-ink);overflow-wrap:anywhere}
+#meetingRoundDetailModal .mrd-todo-cand :is(.inbox-todo-meta,.inbox-todo-status,.inbox-todo-empty,.inbox-todo-done){margin:0;font-size:var(--ds-text-meta,12px);line-height:1.5;color:var(--kptu-muted);overflow-wrap:anywhere}
+#meetingRoundDetailModal .mrd-todo-cand .inbox-todo-status:empty{display:none}
+#meetingRoundDetailModal .mrd-todo-cand .inbox-todo-actions{display:inline-flex;flex:0 0 auto;gap:8px;margin-left:auto}
+#meetingRoundDetailModal .mrd-todo-cand .inbox-todo-below{display:flex;gap:8px;margin-top:2px}
+#meetingRoundDetailModal .mrd-todo-cand button.inbox-todo-btn{position:relative;box-sizing:border-box;width:auto;min-width:0;height:var(--ds-compact-height,32px);min-height:0;margin:0;padding:0 var(--ds-compact-pad-x,12px);font:inherit;font-size:var(--ds-compact-text,13px);line-height:1;white-space:nowrap;color:var(--kptu-ink);background:var(--kptu-surface);border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-radius:var(--kptu-radius-md);cursor:pointer}
+#meetingRoundDetailModal .mrd-todo-cand button.inbox-todo-btn:disabled{opacity:.6;cursor:default}
+#meetingRoundDetailModal .mrd-todo-cand button.inbox-todo-btn::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+
+/* ACT-사진 6단계: 사업 보고 [목록|달력|사진] 보기(report-views.js). 콤팩트·톤다운, 색은 토큰만. 보기 전환은 머리줄의 작은 알약 칩(공용 filter-chips). */
+#meetingsView #reportViewFilter{flex:none;max-width:100%}
+#meetingList .rv-dot{flex:none;width:8px;height:8px;border-radius:var(--kptu-radius-pill);background:var(--meeting-color,var(--kptu-faint))}
+#meetingList .rv-empty{margin:0;padding:var(--kptu-space-3);color:var(--kptu-muted);font-size:var(--kptu-text-meta)}
+#meetingList .rv-day-title{margin:0;padding:6px 2px 4px;font-size:var(--ds-text-section,13px);font-weight:var(--ds-weight-medium,500);color:var(--ds-section-ink,var(--kptu-ink))}
+#meetingList .rv-cal-head{display:flex;align-items:center;gap:var(--kptu-space-2);margin:0 0 var(--kptu-space-2)}
+#meetingList .rv-cal-title{flex:1 1 auto;min-width:0;font-size:var(--ds-text-row,13px)}
+#meetingList .rv-nav{flex:none;min-width:32px;height:var(--ds-compact-height,32px);padding:0 var(--ds-compact-pad-x,12px);border:var(--ds-line-width,.5px) solid var(--ds-line,var(--kptu-border-strong));border-radius:var(--kptu-radius-pill);background:var(--kptu-surface);color:var(--kptu-ink);font-size:var(--ds-compact-text,13px)}
+#meetingList .rv-nav:hover{background:var(--kptu-surface-subtle)}
+#meetingList .rv-table{width:100%;table-layout:fixed;border-collapse:collapse}
+#meetingList .rv-table th{padding:2px 0;font-size:var(--kptu-text-meta);font-weight:var(--ds-weight-regular,400);color:var(--kptu-muted);text-align:center}
+#meetingList .rv-table .rv-sun{color:var(--kptu-danger)}
+#meetingList .rv-table .rv-sat{color:var(--kptu-primary-ink)}
+#meetingList .rv-cell{height:56px;padding:2px;vertical-align:top;border:var(--ds-line-width,.5px) solid var(--kptu-border);overflow:hidden}
+#meetingList .rv-out{background:var(--kptu-surface-subtle)}
+#meetingList .rv-num{display:block;min-width:22px;height:22px;margin:0;padding:0 4px;border:0;border-radius:var(--kptu-radius-pill);background:none;color:var(--kptu-ink);font-size:var(--kptu-text-meta);line-height:22px;text-align:left}
+#meetingList .rv-num-out{color:var(--kptu-faint)}
+#meetingList .rv-now .rv-num{color:var(--kptu-primary-ink);font-weight:var(--ds-weight-medium,500)}
+#meetingList .rv-sel{background:var(--kptu-primary-soft)}
+#meetingList .rv-dots{display:flex;gap:2px;padding:0 4px}
+#meetingList .rv-titles{display:none;margin:0;padding:0;list-style:none}
+#meetingList .rv-title{display:flex;align-items:center;gap:4px;min-width:0;padding:1px 2px;border-radius:var(--kptu-radius-sm);font-size:11px;line-height:1.3;cursor:pointer}
+#meetingList .rv-title>span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#meetingList .rv-title:hover{background:var(--kptu-surface-subtle)}
+#meetingList .rv-more{padding:0 2px;font-size:11px;color:var(--kptu-muted)}
+#meetingList .rv-day-list{margin-top:var(--kptu-space-2)}
+#meetingList .rv-row{display:flex;align-items:center;gap:8px;min-width:0;padding:6px 8px;border-bottom:1px solid var(--kptu-border);cursor:pointer}
+#meetingList .rv-row:hover,#meetingList .rv-set-head:hover{background:var(--kptu-surface-subtle)}
+#meetingList .rv-row-main{flex:1 1 auto;min-width:0}
+#meetingList .rv-row-main h3{margin:0;font-size:var(--ds-text-row,13px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#meetingList .rv-row-main p{margin:1px 0 0;font-size:var(--kptu-text-meta);color:var(--kptu-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#meetingList .rv-set{margin:0 0 var(--kptu-space-2)}
+#meetingList .rv-set-head{display:flex;align-items:center;gap:8px;min-width:0;padding:4px 2px;border-radius:var(--kptu-radius-sm);cursor:pointer}
+#meetingList .rv-set-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--ds-text-row,13px)}
+#meetingList .rv-set-meta{flex:none;font-size:var(--kptu-text-meta);color:var(--kptu-muted)}
+#meetingList .rv-grid{gap:4px;margin:2px 0 0}
+#meetingList .rv-grid .act-photo-thumb{width:72px;height:72px}
+@media(min-width:761px){
+  #meetingList .rv-cell{height:92px;padding:3px}
+  #meetingList .rv-dots{display:none}
+  #meetingList .rv-titles{display:block}
+}

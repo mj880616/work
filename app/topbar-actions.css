@@ -8,10 +8,7 @@
 .account-panel{position:fixed;z-index:60;inset:auto;margin:0;width:min(300px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto;padding:8px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float)}
 .account-action{display:flex;align-items:center;width:100%;min-height:44px;border:0;border-radius:var(--kptu-radius-sm);padding:8px 10px;text-align:left;background:transparent;color:var(--kptu-ink);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
 .account-action:hover,.account-action:focus-visible{background:var(--kptu-primary-soft)}
-.account-panel,[data-drive-summary-status]{word-break:keep-all;overflow-wrap:normal}
-[data-drive-summary-status]{font-size:12px;line-height:1.7;padding:0 10px}
-[data-drive-summary-status]:not(:empty){margin-bottom:8px}
-.drive-summary-time,.drive-summary-links{white-space:nowrap}
+.account-panel{word-break:keep-all;overflow-wrap:normal}
 @media(min-width:1024px){#appView>.app-nav .account-menu{width:100%}.account-trigger{font-size:12.5px;line-height:1.25}}
 .theme-panel{padding:var(--kptu-space-4);width:min(360px,calc(100vw - 24px));max-width:100%;box-sizing:border-box}
 #themeModal{place-items:center;padding:12px}
@@ -52,20 +49,22 @@
   .mobile-shell-header{display:flex;align-items:center;justify-content:space-between;min-height:44px;margin-bottom:12px;gap:12px}
   .mobile-shell-header time{font-size:20px;font-weight:700}
   [data-mobile-view-name]{font-size:16px;font-weight:700}
-  #mobileMenuOpen{margin-left:auto;min-width:44px;min-height:44px;border:0;background:transparent;color:var(--kptu-ink);font-size:22px;cursor:pointer}
+  /* 8-9e-2: the [메뉴] tab at the end of the bottom tabs opens the menu; the top ☰ is not shown on phones. */
+  #mobileMenuOpen{display:none}
   #homeView h2[data-home-date]{display:none}
-  .mobile-tabs{position:fixed;z-index:30;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));height:calc(56px + env(safe-area-inset-bottom));padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);box-sizing:border-box;background:var(--kptu-surface);border-top:1px solid var(--kptu-border)}
+  .mobile-tabs{position:fixed;z-index:30;bottom:0;left:0;right:0;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));height:calc(56px + env(safe-area-inset-bottom));padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);box-sizing:border-box;background:var(--kptu-surface);border-top:1px solid var(--kptu-border)}
   .mobile-tabs button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:44px;min-width:44px;border:0;padding:0;background:transparent;color:var(--kptu-muted);font:inherit;font-size:12px;font-weight:400;line-height:1.2;cursor:pointer}
   .mobile-tabs button[aria-current="page"]{color:var(--kptu-primary-ink);font-weight:700}
   .mobile-tabs svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
   .mobile-tabs [aria-current="page"] svg{stroke-width:2.2}
-  .mobile-tabs button:focus-visible,#mobileMenuOpen:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+  .mobile-tabs button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
   body.kptu-mobile-keyboard .mobile-tabs{display:none}
 }
 
 /* D-5a: the ordered prefix and the existing mobile trigger share one row. */
 @media(min-width:761px) and (max-width:1023px){
-  #appView>.app-nav{flex-wrap:nowrap;overflow:visible;min-width:0}
+  /* overflow-x:clip: until the overflow items move into ☰ (topbar-actions.js, right after a resize) the row must not widen the page. */
+  #appView>.app-nav{flex-wrap:nowrap;overflow:visible;overflow-x:clip;min-width:0}
   #appView>.app-nav .nav-btn{flex:0 0 auto;min-width:44px;min-height:44px;font-size:14px}
   #appView>.app-nav [hidden],#appView>.app-nav .account-menu{display:none}
   #appView>.app-nav .mid-menu-trigger{margin-left:auto}

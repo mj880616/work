@@ -2,6 +2,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { loginEntry } from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 const TEST_ORIGIN=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 
 const loaderUrl=`${TEST_ORIGIN}/app/loader-v2.js?p6-startup-contract=1`;
@@ -12,16 +13,17 @@ test('Web2 first paint uses the final icon without a green placeholder or late f
   const pwa=read('app/pwa.js');
   const manifest=read('app/windows-manifest.json');
   const sw=read('app/sw.js');
-  const icon='./app-icon.svg?v=20260924-unicorn3';
+  // UI-디자인손질 7: the 9-6 frame icon (one SVG; its dot grows at 32px and below). iOS gets a PNG.
+  const icon='./app-icon.svg';
   expect(html).toContain(`rel="icon" href="${icon}"`);
-  expect(html).toContain(`rel="apple-touch-icon" href="${icon}"`);
-  expect(html).toContain('rel="manifest" href="./windows-manifest.json?v=6"');
+  expect(html).toContain('rel="apple-touch-icon" href="./icons/app-icon-180.png"');
+  expect(html).toContain('rel="manifest" href="./windows-manifest.json"');
   expect(html).toContain(`class="brand-icon" src="${icon}"`);
   expect(html).not.toContain('class="leaf"');
   expect(pwa).not.toContain('favicon');
   expect(pwa).not.toContain('apple-touch-icon');
   expect(pwa).not.toContain('createElement(\'link\')');
-  expect(manifest).toContain('20260924-unicorn3');
+  expect(manifest).toContain('20261016-frame1');
   expect(sw).not.toContain("addEventListener('push'");
   expect(sw).not.toContain("addEventListener('notificationclick'");
   for(const source of [html,pwa,manifest,sw])expect(source).not.toContain('20260913-3');
@@ -52,19 +54,19 @@ test('authenticated session exposes a non-sensitive startup shell before workspa
 test('startup preloads only route-agnostic core assets', async () => {
   const html=read('app/index.html');
   const head=html.slice(0,html.indexOf('</head>'));
-  expect(head).toContain('<script src="./app.js?v=265" defer></script>');
+  expect(head).toContain('<script src="./app.js" defer></script>');
   for(const asset of [
-    './loader-v2.js?v=377','./runtime-client.js?v=9','./native-auth-bridge.js?v=5',
-    './calendar-return-bridge.js?v=3'
+    './loader-v2.js','./runtime-client.js','./native-auth-bridge.js',
+    './calendar-return-bridge.js'
   ]) expect(head).toContain('rel="modulepreload" href="'+asset+'"');
   expect(head).not.toContain('rel="modulepreload" href="./team.js');
   expect(head).not.toContain('home-dashboard-v2.js');
-  expect(read('app/app.js')).toContain("import('./loader-v2.js?v=377')");
+  expect(read('app/app.js')).toContain("import('./loader-v2.js')");
   const loader=read('app/loader-v2.js');
   const viewLoader=read('app/view-loader.js');
-  expect(loader).toContain("const runtimeReady=import('./runtime-client.js?v=9')");
-  expect(loader).toContain("import('./team.js?v=68')");
-  expect(loader).toContain("import('./view-loader.js?v=144')");
+  expect(loader).toContain("const runtimeReady=import('./runtime-client.js')");
+  expect(loader).toContain("import('./team.js')");
+  expect(loader).toContain("import('./view-loader.js')");
   expect(loader).not.toContain("import('./google-tasks.js");
   expect(loader).not.toContain("push-notifications-ui.js");
   expect(viewLoader).not.toContain('notification-center-ui');
@@ -76,18 +78,17 @@ test('startup loads only requested route CSS before showing the shell', async ()
   const views=read('app/view-loader.js');
   expect(loader).toContain('await viewLoader.prepare(requested)');
   expect(loader).not.toContain('ensureFeatureStyles');
-  expect(loader).not.toContain("styles.css?v=52");
+  expect(loader).not.toContain("styles.css");
   for(const asset of [
-    './calendar-ui.css?v=34',
-    './task-layout.css?v=4',
-    './google-tasks.css?v=25',
-    './project-system-v3.css?v=27',
-    './library-upload.css?v=8',
-    './meeting-ui.css?v=15',
-    './web1-press.css?v=4',
-    './web1-board.css?v=7',
-    './suborganizations.css?v=11',
-    './workplace-detail.css?v=9'
+    './calendar-ui.css',
+    './task-layout.css',
+    './google-tasks.css',
+    './project-system-v3.css',
+    './library-upload.css',
+    './meeting-ui.css',
+    './web1-board.css',
+    './suborganizations.css',
+    './workplace-detail.css'
   ]) expect(views).toContain(asset);
 });
 
@@ -99,7 +100,7 @@ test('requested route is resolved before view-specific feature loading', async (
   expect(source).not.toContain("const homeResult=await window.__KPTU_HOME_READY__");
   expect(source).not.toContain("if(requested&&requested!=='home')await loadFeatures()");
   expect(source).not.toContain("defer(()=>loadFeatures()");
-  expect(viewLoader).toContain("const loaders={home,basket,calendar,tasks,projects,library,meetings,media,pages,team:organizations}");
+  expect(viewLoader).toContain("const loaders={home,basket,calendar,tasks,journal,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,calls,telegram}");
 });
 
 test('direct feature URLs load one requested view and keep failures visible', async () => {
@@ -126,8 +127,9 @@ test('route manifest keeps retired modules out and Web1 views isolated', async (
   for(const retired of ['./page-list-controller.js','./page-save-controller.js','./page-builder.js','./page-shortcut.js','./page-management.js','./page-inline-viewer-v2.js']){
     expect(source).not.toContain(retired);
   }
-  expect(source).toContain("module('./web1-board.js?v=4')");
-  expect(source).toContain("module('./web1-press.js?v=2'");
+  expect(source).toContain("module('./web1-board.js')");
+  expect(source).not.toContain('./web1-press.js');
+  expect(source).not.toContain('./press-import');
   expect(source).not.toContain('./workflow-ai-v3.js');
   expect(source).not.toContain('./media-workflow.js');
 });
@@ -143,8 +145,8 @@ test('calendar and Web1 board startup exclude non-critical integrations and dupl
   const tasksStart=views.indexOf('async function tasks()');
   const calendarBlock=views.slice(calendarStart,tasksStart);
   expect(calendarBlock).toContain("background(google)");
-  expect(calendarBlock).toContain("background(style('./suborganizations.css?v=11').then(organizationOrder).then(()=>module('./suborganizations.js?v=23'");
-  expect(calendarBlock).toContain("google.then(()=>module('./calendar-health.js?v=6'))");
+  expect(calendarBlock).toContain("background(style('./suborganizations.css').then(organizationOrder).then(()=>module('./suborganizations.js'");
+  expect(calendarBlock).toContain("google.then(()=>module('./calendar-health.js'))");
   expect(calendarBlock.indexOf("return {ok:true}")).toBeGreaterThan(calendarBlock.indexOf("background(google)"));
   expect(health).toContain("window.__KPTU_GOOGLE_STATE__");
   expect(health).toContain("cached&&typeof cached.connected==='boolean'?cached");
@@ -152,7 +154,7 @@ test('calendar and Web1 board startup exclude non-critical integrations and dupl
   const pagesStart=views.indexOf('async function pages()');
   const organizationsStart=views.indexOf('async function organizations()');
   const pagesBlock=views.slice(pagesStart,organizationsStart);
-  expect(pagesBlock).toContain("module('./web1-board.js?v=4')");
+  expect(pagesBlock).toContain("module('./web1-board.js')");
   expect(pagesBlock).not.toContain("team('pages')");
   expect(pagesBlock).not.toContain('page-design-core');
 
@@ -189,10 +191,7 @@ async function loginWithMock(page){
     await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
   });
   await page.goto(loginEntry(`${TEST_ORIGIN}/app/`));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('test-password-value');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,user.email);
   await page.waitForURL(`${TEST_ORIGIN}/app/`);
   await page.waitForFunction(()=>typeof window.__KPTU_STARTUP__?.marks?.homeUsable==='number');
 }
@@ -202,7 +201,7 @@ test('tab navigation waits for deferred feature data on first click',async({page
   const pending=new Promise(resolve=>release=resolve);
   // Home preloads this dependency in the background; the first task navigation awaits it.
   // Keep it pending until the loading state is observed instead of racing a fixed delay.
-  await page.route('**/app/google-tasks.js?*',async route=>{await pending;await route.continue();});
+  await page.route('**/app/google-tasks.js*',async route=>{await pending;await route.continue();});
   try{
     await loginWithMock(page);
     await clickView(page,'tasks');

@@ -1,7 +1,9 @@
 // Open tabs compare the deployed entry point with the app script they actually loaded.
+// Any deployed ?v= other than the running one is new (the Pages build makes it a content hash;
+// a rollback is a new deployment too). A dismissed value is not offered again in this tab.
 export function startVersionNotice(scriptUrl){
   const script=new URL(scriptUrl),entry=new URL('./index.html',script);
-  const version=raw=>/^\d+$/.test(raw||'')&&Number.isSafeInteger(Number(raw))?Number(raw):null;
+  const version=raw=>/^[A-Za-z0-9._-]{1,64}$/.test(raw||'')?raw:null;
   const current=version(script.searchParams.get('v'));
   if(current===null)return;
   const dismissed=new Set(),drafts=new Map();
@@ -56,14 +58,15 @@ export function startVersionNotice(scriptUrl){
     document.body.style.removeProperty('--kptu-version-notice-height');
   }
   function show(deployed){
-    if(deployed<=current||deployed<latest||dismissed.has(deployed)||stopped)return;
+    if(deployed===current||dismissed.has(deployed)||stopped)return;
     latest=deployed;
     if(box)return;
+    // HOME-모바일정리①: 화면 맨 위 얇은 한 줄(아이콘 + 안내 + 글자 버튼 [새로고침] + ✕). PC·폰 같은 모양.
     box=document.createElement('aside');box.id='versionNotice';box.setAttribute('aria-label','새 버전 안내');
-    box.innerHTML='<span role="status">새 버전이 있습니다</span><button type="button" class="primary" data-version-reload>새로고침</button><button type="button" class="ghost" data-version-dismiss aria-label="닫기">×</button>';
+    box.innerHTML='<svg class="version-notice-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M16 10a6 6 0 1 1-1.8-4.3M16 3.5v3.2h-3.2"/></svg><span role="status">새 버전이 있어요</span><button type="button" class="version-notice-reload" data-version-reload>새로고침</button><button type="button" class="version-notice-close" data-version-dismiss aria-label="닫기">✕</button>';
     box.querySelector('[data-version-dismiss]').onclick=()=>{dismissed.add(latest);remove()};
     box.querySelector('[data-version-reload]').onclick=()=>{if(allowReload())location.reload()};
-    document.body.appendChild(box);document.body.classList.add('kptu-version-notice-open');
+    document.body.prepend(box);document.body.classList.add('kptu-version-notice-open');
     observer.observe(box);layout();
   }
   function deployedVersion(html){

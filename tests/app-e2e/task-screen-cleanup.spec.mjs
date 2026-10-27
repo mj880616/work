@@ -3,7 +3,8 @@ import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
 const NOW=Date.parse('2026-10-08T03:00:00Z');
 const task=(id,due=null,extra={})=>({id,title:id,taskListId:'@default',taskListTitle:'내 할 일',due,status:'needsAction',...extra});
 async function open(page,tasks,options={}){await openEmphasisFixture(page,{view:'list',now:NOW,events:[],tasks,...options});await page.evaluate(()=>window.KPTURouter.go('tasks'));await expect(page.locator('[data-gt-count]')).toHaveText(`할 일 ${tasks.filter(t=>t.status!=='completed').length}개`);}
-for(const width of [360,1280]){
+// UI-PC할일: 1024px 이상은 기한별 열(tasks-pc-columns.spec.mjs). 이 묶음 목록 시험은 폰(360)과 목록이 그대로인 중간 폭(900)에서 본다.
+for(const width of [360,900]){
  test(`nonempty groups, compact linked metadata and controls ${width}`,async({page})=>{
   await page.setViewportSize({width,height:844});
   const title='아주 긴 할 일 제목을 두 줄까지 보여 주고 나머지는 말줄임으로 처리하는 제목입니다 '.repeat(3);
@@ -16,7 +17,7 @@ for(const width of [360,1280]){
   await expect(page.locator('[data-google-task="undated"] .gt-meta')).toHaveCount(0);
   await expect(page.locator('#gtTaskBody')).not.toContainText('연결 안 됨');await expect(page.locator('#gtTaskBody')).not.toContainText('내 할 일');await expect(page.locator('#gtTaskBody')).not.toContainText('목록에서 숨길 메모');
   const metrics=await row.evaluate(el=>{const title=el.querySelector('b'),meta=el.querySelector('.gt-meta'),project=el.querySelector('.gt-project'),menu=el.querySelector('[data-gt-menu]');return {font:getComputedStyle(title).fontSize,clamp:getComputedStyle(title).webkitLineClamp,meta:getComputedStyle(meta).fontSize,whiteSpace:getComputedStyle(project).whiteSpace,ellipsis:getComputedStyle(project).textOverflow,menu:menu.getBoundingClientRect().toJSON(),scroll:document.documentElement.scrollWidth,client:document.documentElement.clientWidth};});
-  expect(metrics.font).toBe('14px');expect(metrics.clamp).toBe('2');expect(metrics.meta).toBe('12px');expect(metrics.whiteSpace).toBe('nowrap');expect(metrics.ellipsis).toBe('ellipsis');expect(metrics.menu.width).toBeGreaterThanOrEqual(44);expect(metrics.menu.height).toBeGreaterThanOrEqual(44);expect(metrics.scroll).toBeLessThanOrEqual(metrics.client+1);
+  expect(metrics.font).toBe('13px');expect(metrics.clamp).toBe('2');expect(metrics.meta).toBe('12px');expect(metrics.whiteSpace).toBe('nowrap');expect(metrics.ellipsis).toBe('ellipsis');expect(metrics.menu.width).toBeGreaterThanOrEqual(44);expect(metrics.menu.height).toBeGreaterThanOrEqual(44);expect(metrics.scroll).toBeLessThanOrEqual(metrics.client+1);
   if(width===360&&process.env.TASK_SCREEN_SHOTS)await page.screenshot({path:'/workspace/artifacts/task-screen-360.png'});
   await row.locator('[data-gt-menu]').click();await expect(page.locator('#gtTaskMenu')).toBeVisible();
   if(width===360&&process.env.TASK_SCREEN_SHOTS)await page.screenshot({path:'/workspace/artifacts/task-menu-360.png'});await expect(page.locator('#gtTaskMenu button').first()).toBeFocused();
@@ -29,12 +30,12 @@ for(const width of [360,1280]){
  test(`empty state and scope information ${width}`,async({page})=>{
   await page.setViewportSize({width,height:844});const tasks=[];await open(page,tasks);
   await expect(page.locator('#gtTaskBody')).toHaveText('할 일이 없습니다');
-  if(width===360&&process.env.TASK_SCREEN_SHOTS)await page.screenshot({path:'/workspace/artifacts/task-empty-360.png'});await expect(page.locator('#gtTaskBody .gt-group')).toHaveCount(0);await expect(page.locator('#newTaskBtn')).toHaveText('+ 할 일');
+  if(width===360&&process.env.TASK_SCREEN_SHOTS)await page.screenshot({path:'/workspace/artifacts/task-empty-360.png'});await expect(page.locator('#gtTaskBody .gt-group')).toHaveCount(0);await expect(page.locator('#newTaskBtn')).toHaveCount(0);await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toHaveText('추가');
   await expect(page.locator('#gtTaskSection .gt-head-left')).toBeHidden();
   await expect(page.locator('#gtTaskSection .gt-scope-note')).toHaveCount(0);await expect(page.locator('#gtTaskSection')).not.toContainText('Google 할 일');
   tasks.push(task('scope-info','2026-10-08'));await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
   const info=page.getByRole('button',{name:'할 일 목록 안내',exact:true});await expect(info).toBeVisible();const box=await info.boundingBox();expect(box.width).toBeGreaterThanOrEqual(44);expect(box.height).toBeGreaterThanOrEqual(44);
-  await info.click();await expect(page.locator('#gtScopeModal')).toContainText('Google "내 할 일" 목록만 보입니다.');await page.locator('#gtScopeModal [data-gt-scope-close]').click();await expect(page.locator('#gtScopeModal')).toBeHidden();await expect(info).toBeFocused();
+  await info.click();await expect(page.locator('#gtScopeModal .gt-scope-note')).toHaveText('Google "내 할 일"만 표시합니다. 다른 목록은 표시하지 않으며, 다른 목록으로 옮기면 연결이 끊길 수 있습니다.');await page.locator('#gtScopeModal [data-gt-scope-close]').click();await expect(page.locator('#gtScopeModal')).toBeHidden();await expect(info).toBeFocused();
   await info.click();await page.goBack();await expect(page.locator('#gtScopeModal')).toBeHidden();await expect(info).toBeFocused();
  });
  test(`overdue color and completed-only empty state ${width}`,async({page})=>{
@@ -57,6 +58,7 @@ for(const dismiss of ['Escape','edit'])test(`late link lookup keeps open menu an
 });
 
 test('a task removed during menu use closes without opening a blank editor',async({page})=>{
+ await page.setViewportSize({width:900,height:844});
  const tasks=[task('removed','2026-10-08')];await open(page,tasks);
  await page.locator('[data-gt-menu="removed"]').click();tasks.splice(0);
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -64,7 +66,7 @@ test('a task removed during menu use closes without opening a blank editor',asyn
  await expect.poll(()=>page.evaluate(()=>window.KPTUGoogleTasks.peekTasks().tasks.length)).toBe(0);
  await page.locator('#gtTaskMenu').getByRole('button',{name:'편집',exact:true}).click();
  await expect(page.locator('#gtTaskMenu')).toBeHidden();await expect(page.locator('#gtTaskModal')).toBeHidden();
- await expect(page.locator('#gtTaskBody')).toHaveText('할 일이 없습니다');await expect(page.locator('#newTaskBtn')).toBeFocused();expect(errors).toEqual([]);
+ await expect(page.locator('#gtTaskBody')).toHaveText('할 일이 없습니다');await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toBeFocused();expect(errors).toEqual([]);
 });
 
 for(const width of [360,390])test(`long calendar task stays inside dialog and metadata has visual spacing ${width}`,async({page})=>{
@@ -87,7 +89,8 @@ for(const width of [360,390])test(`long calendar task stays inside dialog and me
  expect.soft(metrics.row.right,'task row inside dialog').toBeLessThanOrEqual(metrics.card.right);
  expect.soft(metrics.list.right,'task list inside dialog').toBeLessThanOrEqual(metrics.card.right);
  expect(metrics.card.right,'dialog inside viewport').toBeLessThanOrEqual(width);
- expect(metrics.title).toBe('14px');expect(metrics.clamp).toBe('2');expect(metrics.titleWhiteSpace).toBe('normal');
+ // UI-디자인손질 2: day-list task names are list rows, 13px.
+ expect(metrics.title).toBe('13px');expect(metrics.clamp).toBe('2');expect(metrics.titleWhiteSpace).toBe('normal');
  expect(metrics.titleHeight).toBeLessThanOrEqual(metrics.lineHeight*2+1);
  expect(metrics.meta).toBe('12px');expect(metrics.projectWhiteSpace).toBe('nowrap');expect(metrics.ellipsis).toBe('ellipsis');
  await checkGap(row);

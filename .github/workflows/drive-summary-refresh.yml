@@ -1,0 +1,39 @@
+name: Drive summary refresh
+
+# ORG-사본자동갱신: Drive 읽기용 사본(조직·프로젝트 문서 2개)을 하루 2번 갱신한다.
+# 저장 뒤 자동 갱신(app/drive-summary.js)이 놓친 변경(탭을 닫음·실패 등)을 채운다.
+# 시각(KST): 06:17(출근 전), 13:17(점심 뒤). 정각은 GitHub 예약이 몰려 늦어지므로 17분.
+# 비밀값 DRIVE_SUMMARY_CRON_SECRET은 저장소 Actions 비밀값과 Supabase Edge 비밀값에 같은 값으로 둔다.
+on:
+  schedule:
+    - cron: '17 21 * * *'
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: drive-summary-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    if: github.repository == 'mj880616/work'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: scripts/ops
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Refresh Drive read-only copies
+        env:
+          DRIVE_SUMMARY_CRON_SECRET: ${{ secrets.DRIVE_SUMMARY_CRON_SECRET }}
+        run: node scripts/ops/drive-summary-cron.mjs

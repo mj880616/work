@@ -1,0 +1,115 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+// JOURNAL-요청표시: an update's [임원 요청]·[논의 요청] marks live in its existing metadata jsonb (metadata.requests); no database
+// change. UI-요청버튼삭제: the screen no longer writes marks, but marks already saved are still read (tags, weekly draft), and every
+// metadata writer keeps and guards them, so no write drops them. Fake content only.
+import {UPDATE_REQUESTS, normalizeRequests, noteRequests, requestsGuard, requestPrefix, requestTagsHtml} from '../app/update-requests.js';
+import * as basketData from '../app/basket-data.js';
+const {createNote, setNoteFolder, setNotePinned} = basketData;
+import {noteTaskGuard} from '../app/basket-note-tasks.js';
+import {orgNewsOn, projectNewsOn} from '../app/journal-data.js';
+import {weeklySummary, weeklyReportText} from '../app/journal-weekly.js';
+const weeklyDraft = ({materials, ...rest}) => weeklyReportText(weeklySummary({linesState:'ok', ...rest, materials:{catalog:{status:'ok', items:[]}, upcoming:{status:'ok', items:[]}, ...materials}}));
+
+const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function runtime(fresh, {reply} = {}) {
+  const calls = [];
+  return {calls, context: {read: () => ({workspace: {id: 'w'}})}, api: async (path, options = {}) => {
+    calls.push({path, options});
+    if (reply) return reply(path, options);
+    if (!options.method) return [fresh];
+    if (options.method === 'POST') return [{id: 'new', ...options.body}];
+    return [{...fresh, metadata: options.body.metadata}];
+  }};
+}
+const query = call => new URL(call.path, 'https://x.invalid').searchParams;
+
+test('two kinds in a fixed order; unknown or repeated keys are ignored when read', () => {
+  assert.deepEqual(UPDATE_REQUESTS.map(r => [r.key, r.label, r.short]), [['exec_schedule', '임원 일정 배정 요청', '임원 요청'], ['discussion', '논의 요청', '논의 요청']]);
+  assert.deepEqual(normalizeRequests(['discussion', 'x', 'exec_schedule', 'discussion']), ['exec_schedule', 'discussion']);
+  assert.deepEqual(normalizeRequests('exec_schedule'), []);
+  assert.deepEqual(noteRequests({metadata: {requests: ['discussion']}}), ['discussion']);
+  assert.deepEqual(noteRequests({metadata: []}), []);
+  assert.deepEqual(noteRequests(null), []);
+  assert.equal(requestPrefix(['discussion', 'exec_schedule']), '[임원 요청] [논의 요청] ');
+  assert.equal(requestPrefix([]), '');
+  assert.equal(requestTagsHtml([], esc), '');
+  assert.match(requestTagsHtml(['discussion'], esc), /data-request-tag="discussion">논의 요청</);
+});
+
+test('the guard compares the marks as PostgREST shows the jsonb text; no key is is.null; an odd value adds no guard', () => {
+  assert.equal(requestsGuard({}), '&metadata->>requests=is.null');
+  assert.equal(requestsGuard(null), '&metadata->>requests=is.null');
+  assert.equal(requestsGuard({requests: ['exec_schedule', 'discussion']}), '&metadata->>requests=eq.' + encodeURIComponent('["exec_schedule", "discussion"]'));
+  assert.equal(requestsGuard({requests: 'odd'}), '');
+  assert.equal(requestsGuard({requests: [1]}), '');
+});
+
+// UI-요청버튼삭제: the screen no longer sets marks, so a new update never carries them (and the setter is gone).
+test('a new update is inserted without any request marks', async () => {
+  const rt = runtime(null);
+  await createNote({raw_text: '가상 업데이트', requests: ['discussion']}, rt);
+  assert.deepEqual(rt.calls[0].options.body, {workspace_id: 'w', raw_text: '가상 업데이트'});
+  assert.equal(Object.hasOwn(basketData, 'setUpdateRequests'), false);
+});
+
+test('the folder, pin and task writers keep the marks and guard them too', async () => {
+  const fresh = {id: 'n1', updated_at: 'u', metadata: {requests: ['exec_schedule']}};
+  const rt = runtime(fresh);
+  const moved = await setNoteFolder({id: 'n1'}, '가상', rt);
+  assert.deepEqual(moved.metadata, {requests: ['exec_schedule'], folder: '가상'});
+  assert.deepEqual(Object.keys(rt.calls[1].options.body), ['metadata']);
+  assert.equal(query(rt.calls[1]).get('metadata->>requests'), 'eq.["exec_schedule"]');
+  assert.equal(query(rt.calls[1]).get('metadata->tasks->0->>task_id'), 'is.null');
+  rt.calls.length = 0;
+  const pinned = await setNotePinned({id: 'n1'}, true, rt, new Date('2026-10-20T00:00:00Z'));
+  assert.deepEqual(pinned.metadata.requests, ['exec_schedule']);
+  assert.equal(query(rt.calls[1]).get('metadata->>requests'), 'eq.["exec_schedule"]');
+  const guard = new URLSearchParams(noteTaskGuard({updated_at: 'u', metadata: {requests: ['exec_schedule', 'discussion']}}));
+  assert.equal(guard.get('metadata->>requests'), '["exec_schedule", "discussion"]'.replace(/^/, 'eq.'));
+  assert.equal(new URLSearchParams(noteTaskGuard({updated_at: 'u', metadata: {}})).get('metadata->>requests'), 'is.null');
+});
+
+const at = (h, m = 0) => `2026-10-06T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00Z`;
+const basket = () => ({
+  notes: [
+    {id: 'a', raw_text: '가상 조직 소식\n둘째', occurred_at: at(1), metadata: {requests: ['exec_schedule']}},
+    {id: 'b', raw_text: '가상 사업 메모', occurred_at: at(2), metadata: {requests: ['discussion', 'exec_schedule']}},
+    {id: 'c', raw_text: '표시 없음', occurred_at: at(3), metadata: {}},
+    {id: 'd', raw_text: '미분류 논의', occurred_at: '2026-10-08T02:00:00Z', metadata: {requests: ['discussion']}},
+    {id: 'e', raw_text: '지난주', occurred_at: '2026-10-01T02:00:00Z', metadata: {requests: ['discussion']}},
+  ],
+  links: [
+    {note_id: 'a', status: 'confirmed', organization_id: 'o1', organization: {name: '가상 조직'}},
+    {note_id: 'b', status: 'confirmed', project_id: 's1', project: {name: '가상 사업'}},
+  ],
+  docs: [],
+});
+
+test('day card: a marked update carries its tags per item; sections without a mark keep their shape', () => {
+  assert.deepEqual(orgNewsOn({basket: basket()}, '2026-10-06'), [
+    {name: '가상 조직', items: ['가상 조직 소식'], tags: [['exec_schedule']]},
+    {name: '미분류', items: ['표시 없음']},
+  ]);
+  assert.deepEqual(projectNewsOn({basket: basket()}, '2026-10-06'), [{name: '가상 사업', items: ['가상 사업 메모'], tags: [['exec_schedule', 'discussion']]}]);
+});
+
+test('weekly draft: no request lists at the top; a marked item stays in its own group and keeps its tag', () => {
+  const ok = items => ({status: 'ok', items});
+  const materials = {events: ok([]), tasks: ok([]), basket: ok(basket()), orgUpdates: ok([]), projectUpdates: ok([]), meetings: ok([]), documents: ok([]), sharePages: ok([])};
+  const text = weeklyDraft({start: '2026-10-05', lines: new Map(), materials, today: '2026-10-06'});
+  const rows = text.split('\n');
+  // ■ 일시 = 상집 보고일(보고 있는 주의 다음 월요일).
+  assert.deepEqual(rows.slice(0, 4), ['주간 업무일지 10월 5일(월) ~ 10월 11일(일)', '■ 일시 : 2026년 10월 12일(월)', '', '1. 요청사항']);
+  assert.ok(!rows.some(r => r === '[임원 일정 배정 요청]' || r === '[논의 요청]'));
+  const org = rows.indexOf('◦ 가상 조직'), project = rows.indexOf('◦ 사업영역 밖 · 가상 사업'), unsorted = rows.indexOf('◦ 미분류');
+  assert.equal(rows[org + 1], '- 10월 6일(화) [임원 요청] 가상 조직 소식');
+  assert.equal(rows[project + 1], '- 10월 6일(화) [임원 요청] [논의 요청] 가상 사업 메모');
+  assert.equal(rows[unsorted + 1], '- 10월 6일(화) 표시 없음');
+  for (const m of [materials, {...materials, basket: {status: 'failed'}}]) {
+    const t = weeklyDraft({start: '2026-10-12', lines: new Map(), materials: m, today: '2026-10-06'});
+    assert.ok(!t.split('\n').some(r => r === '[임원 일정 배정 요청]' || r === '[논의 요청]'));
+    assert.deepEqual(t.split('\n').slice(0, 2), ['주간 업무일지 10월 12일(월) ~ 10월 18일(일)', '■ 일시 : 2026년 10월 19일(월)']);
+  }
+});

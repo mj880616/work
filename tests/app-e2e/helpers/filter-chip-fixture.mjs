@@ -1,7 +1,9 @@
+import { appOrigin } from './test-origin.mjs';
 import {clickView} from './shell-navigation.mjs';
 import { expect } from '@playwright/test';
 import {execFileSync} from 'node:child_process';
 import { enterLogin } from './login-entry.mjs';
+import { signInWithSession } from './session-login.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const now=()=>new Date().toISOString();
@@ -43,7 +45,7 @@ async function mockApp(page,state){
     const req=route.request(),url=new URL(req.url()),path=url.pathname,method=req.method();
     const body=(()=>{try{return req.postDataJSON()}catch{return null}})();
     const ok=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data??null)});
-    if(path==='/auth/v1/token')return ok({access_token:'e2e-access',refresh_token:'e2e-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600});
+    if(path==='/auth/v1/token')return ok({access_token:'e2e-access',refresh_token:'e2e-refresh',expires_in:3600,expires_at:Math.floor(Date.now()/1000)+3600,user:state.user});
     if(path==='/auth/v1/user')return ok(state.user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar')return ok({connected:false,enabled:false,selected:[],calendars:[],events:[],eventColors:{}});
@@ -57,12 +59,28 @@ async function mockApp(page,state){
       state.uploads.push(row);state.docs.push(row);
       return ok({ok:true,document:row});
     }
-    if(path==='/functions/v1/workspace-drive'){state.downloads.push(body);return ok({url:'http://127.0.0.1:8123/tests/app-e2e/library-open-fixture.html?download=1'})}
+    if(path==='/functions/v1/workspace-drive'){state.downloads.push(body);return ok({url:`${appOrigin}/tests/app-e2e/library-open-fixture.html?download=1`})}
     if(path==='/functions/v1/document-actions'){state.deletes.push(body);state.docs=state.docs.filter(d=>d.id!==body.document_id);return ok({ok:true})}
     if(path.startsWith('/functions/v1/'))return ok({});
     if(path.startsWith('/rest/v1/rpc/'))return ok(null);
     if(path==='/rest/v1/app_workspace_members')return ok([{workspace_id:'workspace-1',user_id:state.user.id,role:'owner',workspace:state.workspace,created_at:now()}]);
-    if(path==='/rest/v1/app_profiles')return ok([{user_id:state.user.id,display_name:'자료실 관리자'}]);
+    if(path==='/rest/v1/app_profiles'){
+      // 자료실 보기 기억(LIB-보기기억): 내 프로필 행의 library_view 칸. state.libraryViewMissing이면 칸이 아직 없는 서버(적용 전)처럼 400.
+      if(method==='PATCH'){
+        if(state.libraryViewMissing)return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'42703',message:'column app_profiles.library_view does not exist'})});
+        (state.profilePatches||(state.profilePatches=[])).push(body);
+        // LIB-폴더묶기기억 적용 전 서버: 검사가 group_by 'folder'를 거절(400, 검사 위반).
+        if(state.libraryViewNoFolder&&body?.library_view?.group_by==='folder')return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'23514',message:'new row for relation "app_profiles" violates check constraint "app_profiles_library_view_check"'})});
+        if(state.libraryViewFail)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'fail'})});
+        if(body&&'library_view' in body)state.libraryView=body.library_view;
+        return ok([{user_id:state.user.id,display_name:'자료실 관리자',library_view:state.libraryView??null}]);
+      }
+      if(state.libraryViewMissing&&url.searchParams.get('select')?.includes('library_view'))return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'42703',message:'column app_profiles.library_view does not exist'})});
+      (state.profileReads||(state.profileReads=[])).push(url.search);
+      return ok([{user_id:state.user.id,display_name:'자료실 관리자',library_view:state.libraryView??null}]);
+    }
+    if(path==='/rest/v1/app_library_folders'&&method==='GET')return ok(state.folders||[]);
+    if(path==='/rest/v1/app_library_folder_items'&&method==='GET')return ok(state.folderItems||[]);
     if(path==='/rest/v1/app_workspaces')return ok([state.workspace]);
     if(path==='/rest/v1/app_spaces'){
       if(method==='GET'){
@@ -76,8 +94,15 @@ async function mockApp(page,state){
       if(method==='PATCH'){const id=eq(url,'id'),row=state.spaces.find(x=>x.id===id);if(row)Object.assign(row,body||{},{updated_at:now()});return ok([])}
     }
     if(path==='/rest/v1/app_meetings'&&method==='POST'){const row={...body,id:'new-meeting'};state.meetings.push(row);state.meetingWrites.push(body);return ok([row])}
-    if(path==='/rest/v1/app_meetings'&&method==='PATCH'){const row=state.meetings.find(m=>m.id===eq(url,'id'));Object.assign(row,body);state.meetingWrites.push(body);return ok([{id:row.id}])}
-    if(path==='/rest/v1/app_meetings')return ok((state.meetings||[{id:'library-qa-meeting',workspace_id:'workspace-1',title:'회귀 확인 회의',meeting_name:'회귀 확인 회의',round_no:2,meeting_at:'2026-10-06T12:00:00',created_by:state.user.id}]).filter(m=>!eq(url,'id')||m.id===eq(url,'id')));
+    if(path==='/rest/v1/app_meetings'&&method==='PATCH'){
+      const id=eq(url,'id'),workspace=eq(url,'workspace_id');
+      const rows=(state.meetings||[]).filter(row=>id&&workspace&&row.id===id&&row.workspace_id===workspace);
+      if(!rows.length)return ok([]);
+      rows.forEach(row=>Object.assign(row,body));
+      state.meetingWrites.push(body);
+      return req.headers().prefer?.includes('return=representation')?ok(rows):route.fulfill({status:204,body:''});
+    }
+    if(path==='/rest/v1/app_meetings')return ok((state.meetings||[{id:'library-qa-meeting',workspace_id:'workspace-1',title:'회귀 확인 회의',meeting_name:'회귀 확인 회의',round_no:2,meeting_at:'2026-10-06T12:00:00',created_by:state.user.id}]).filter(m=>(!eq(url,'id')||m.id===eq(url,'id'))&&(!eq(url,'workspace_id')||m.workspace_id===eq(url,'workspace_id'))));
     if(path==='/rest/v1/app_documents'){
       const id=eq(url,'id'),pid=eq(url,'project_id'),mid=eq(url,'meeting_id');
       if(method==='GET')return ok(state.docs.filter(x=>(!id||x.id===id)&&(!pid||x.project_id===pid)&&(!mid||x.meeting_id===mid)));
@@ -88,13 +113,10 @@ async function mockApp(page,state){
   });
 }
 
-async function signIn(page,target='http://127.0.0.1:8123/app/'){
+async function signIn(page,target=`${appOrigin}/app/`){
   await page.goto(target);
   await enterLogin(page);
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('owner@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'owner@example.org');
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
 }
 

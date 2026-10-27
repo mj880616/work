@@ -1,4 +1,4 @@
-import {seoulDateKey,seoulParts} from './meeting-time.js?v=2';
+import {seoulDateKey,seoulParts} from './meeting-time.js';
 const DAY = 86400000;
 export const dayKey = (now = Date.now()) => seoulDateKey(now);
 export function ranges(now = Date.now()) {
@@ -44,6 +44,16 @@ export function milestoneChips(projects, milestones, now = Date.now()) {
       ...m,
       days: Math.round((Date.parse(m.date) - Date.parse(today)) / DAY),
     }));
+}
+// Home 오늘 일정 rows (display copy shape). Shared by the home card and the calendar, which refreshes the home copy when it
+// reads today's events (CAL-저장본먼저), so both judge colors and today's events alike.
+// 일정 한 건의 색: 그 일정 자신의 색 → 내가 정한 캘린더 색 → 캘린더 기본 색. 홈·달력·업무일지 [하루]가 같은 규칙을 쓴다(없으면 '').
+export const eventColor = (e, status) => e?.color || status?.colors?.[e?.calendarId] || status?.calendars?.find((c) => c.id === e?.calendarId)?.backgroundColor || '';
+export function homeEventRows(events, status = {}, now = Date.now()) {
+  return todayEvents(events || [], now).map((e) => {
+    const raw = eventColor(e, status);
+    return { id: e.id || "", calendarId: e.calendarId || "", start: e.start, end: e.end, allDay: !!e.allDay, title: e.title, color: /^#[0-9a-f]{6}$/i.test(raw) ? raw : "var(--kptu-primary-ink)" };
+  });
 }
 export function todayEvents(events, now = Date.now()) {
   const { start, end } = ranges(now);

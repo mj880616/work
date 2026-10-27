@@ -1,4 +1,4 @@
-import {dayKey} from './home-read-model.js?v=3';
+import {dayKey} from './home-read-model.js';
 const MAX_BYTES=20*1024,MAX_AGE=7*86400000;
 const text=v=>typeof v==='string'?v:'';
 // Persist display projections only. Google Tasks keeps its own task-body copy.
@@ -9,7 +9,7 @@ function project(key,value){
   }:null;
   if(!Array.isArray(value.rows))return null;
   if(key==='dday')return {rows:value.rows.slice(0,3).map(r=>({project_id:text(r.project_id),project_name:text(r.project_name),title:text(r.title),date:text(r.date)}))};
-  if(key==='calendar')return value.rows.every(r=>typeof r?.start==='string'&&typeof r?.end==='string'&&Number.isFinite(Date.parse(r.start))&&Number.isFinite(Date.parse(r?.end))&&Date.parse(r.end)>Date.parse(r.start))?{day:text(value.day),rows:value.rows.map(r=>({start:text(r.start),end:text(r.end),allDay:!!r.allDay,title:text(r.title),color:text(r.color)}))}:null;
+  if(key==='calendar')return value.rows.every(r=>typeof r?.start==='string'&&typeof r?.end==='string'&&Number.isFinite(Date.parse(r.start))&&Number.isFinite(Date.parse(r?.end))&&Date.parse(r.end)>Date.parse(r.start))?{day:text(value.day),rows:value.rows.map(r=>({id:text(r.id),calendarId:text(r.calendarId),start:text(r.start),end:text(r.end),allDay:!!r.allDay,title:text(r.title),color:text(r.color)}))}:null;
   if(key==='meetings')return {rows:value.rows.map(r=>({id:text(r.id),title:text(r.title),meetingName:text(r.meetingName)}))};
   return null;
 }
@@ -39,5 +39,7 @@ export function createHomeCache({storage,keyPrefix,context}){
       if(new TextEncoder().encode(raw).length<=MAX_BYTES)storage.setItem(keyPrefix+ctx.owner,raw);
     }catch{}
   }
-  return {read,save};
+  // CAL-저장본먼저: change one saved card in place (the calendar drops an event deleted in Web2 from the home copy).
+  function update(key,fn,now=Date.now()){const card=read(now)[key];if(card)save(key,fn(card),card.savedAt)}
+  return {read,save,update};
 }

@@ -8,7 +8,7 @@ test('measure home before and after with identical simulated device latency',asy
     const context=await browser.newContext({viewport:{width:390,height:1000}}),page=await context.newPage();
     if(version==='before'){
       const source=execFileSync('git',['show','6d33ccfcbc45194a0737cfd68f3ccb9c9eb223fb:app/home-read.js'],{encoding:'utf8'});
-      await page.route('**/app/home-read.js?*',route=>route.fulfill({contentType:'application/javascript',body:source}));
+      await page.route('**/app/home-read.js*',route=>route.fulfill({contentType:'application/javascript',body:source}));
     }
     await page.addInitScript(()=>{
       window.homeMeasure={at:0,first:{}};

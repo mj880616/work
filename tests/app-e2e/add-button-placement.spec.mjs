@@ -1,5 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
+import {expectProjectDetail} from './helpers/project-detail.mjs';
 
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -36,20 +38,18 @@ async function openApp(page,view,{entryView='calendar'}={}){
     return ok(route,{});
   });
   await page.goto(loginEntry(`${BASE}/app/?view=${entryView}`));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('fixture-password');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,user.email);
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
   await page.evaluate(v=>window.KPTURouter.go(v,{source:'placement-test'}),view==='project_detail'?'projects':view);
   await expect(page.locator(`#${view==='project_detail'?'projects':view}View`)).toBeVisible({timeout:15000});
   if(view==='project_detail'){
-    await page.locator('#projectGrid [data-ps3-project]').first().click();
-    await expect(page.locator('#ps3DetailModal')).toBeVisible();
+    // UI-PC프로젝트좌우: PC(≥1024) shows the detail in the right pane; either way wait until this project is drawn.
+    await page.locator('#projectGrid .ps3-plist [data-ps3-project]').first().click();
+    await expectProjectDetail(page,project.id);
   }
 }
 
-async function assertInHeader(page,{card,head,button,title}){
+async function assertInHeader(page,{card,head,button,title,centered=false}){
   await expect(page.locator(`${card} ${head} ${button}`)).toHaveCount(1);
   const box=await page.locator(`${card} ${head} ${button}`).boundingBox();
   const cardBox=await page.locator(card).boundingBox();
@@ -57,8 +57,10 @@ async function assertInHeader(page,{card,head,button,title}){
   expect(box).toBeTruthy();expect(cardBox).toBeTruthy();expect(headBox).toBeTruthy();
   expect(box.x).toBeGreaterThanOrEqual(cardBox.x-1);
   expect(box.x+box.width).toBeLessThanOrEqual(cardBox.x+cardBox.width+1);
-  expect(box.y).toBeGreaterThanOrEqual(headBox.y-1);
-  expect(box.y+box.height).toBeLessThanOrEqual(headBox.y+headBox.height+1);
+  // A small + keeps a 44px touch area that may reach past its heading row; its center stays in that row.
+  if(centered){const mid=box.y+box.height/2;expect(mid).toBeGreaterThanOrEqual(headBox.y);expect(mid).toBeLessThanOrEqual(headBox.y+headBox.height);expect(box.y).toBeGreaterThanOrEqual(cardBox.y-1);expect(box.y+box.height).toBeLessThanOrEqual(cardBox.y+cardBox.height+1)}
+  else{expect(box.y).toBeGreaterThanOrEqual(headBox.y-1);
+  expect(box.y+box.height).toBeLessThanOrEqual(headBox.y+headBox.height+1);}
   const titleBox=await page.locator(`${card} ${head} ${title}`).boundingBox();
   if(titleBox){
     const overlap=box.x<titleBox.x+titleBox.width&&box.x+box.width>titleBox.x&&box.y<titleBox.y+titleBox.height&&box.y+box.height>titleBox.y;
@@ -67,43 +69,59 @@ async function assertInHeader(page,{card,head,button,title}){
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
 }
 
+// 8-9e-2: on phones the add button of calendar·tasks·projects·library is the same button shown as a floating
+// round [+] right above the bottom tabs (details in ui-standard-3b.spec.mjs); PC keeps it in the card header.
+async function assertFloating(page,button){
+  const control=page.locator(button),b=await control.boundingBox(),tabs=await page.locator('.mobile-tabs').boundingBox();
+  expect(await control.evaluate(el=>getComputedStyle(el).position)).toBe('fixed');
+  // Painted circle 36px; the ::after touch target is 44px and sits 12px above the tabs —
+  // or, where the phone switch row sits on the tabs (UI-버튼작게 ③: 일정·할 일, 44px row), 12px above that row.
+  const dock=await control.evaluate(n=>{const sw=n.closest('.view-panel')?.querySelector(':scope > .schedule-switch');return sw&&sw.getClientRects().length?44:0;});
+  expect(b.width).toBe(36);expect(b.height).toBe(36);const el=control;const t=await el.evaluate(n=>{const r=n.getBoundingClientRect(),p=getComputedStyle(n,'::after');return {w:parseFloat(p.width),h:parseFloat(p.height),bottom:r.top+parseFloat(p.top)+parseFloat(p.height)};});expect(t.w).toBe(44);expect(t.h).toBe(44);expect(Math.round(tabs.y-dock-t.bottom)).toBe(12);
+}
+async function assertPlaced(page,width,spec){if(width===390)await assertFloating(page,spec.button);else await assertInHeader(page,spec);}
+
 for(const width of [390,1440]){
   test.describe(`${width}px`,()=>{
     test.use({viewport:{width,height:width===390?844:900},timezoneId:'Asia/Seoul'});
     test('library list card keeps add action and opens the same form',async({page})=>{
       await openApp(page,'library');
-      await assertInHeader(page,{card:'#libraryListCard',head:'.add-list-head',button:'#newDocumentBtn',title:'h2'});
-      await expect(page.locator('#libraryListCard .add-list-head #manageLibraryBtn')).toBeVisible();
+      await assertPlaced(page,width,{card:'#libraryListCard',head:'.add-list-head',button:'#newDocumentBtn',title:'h2'});
+      // UI-자료실편집버튼(2026-10-21): 분류 편집은 목록 머리가 아니라 [종류] 칩 줄 맨 끝의 작은 [편집]. 머리에는 [+ 자료 등록]만.
+      await expect(page.locator('#libraryListCard .add-list-head #manageLibraryBtn')).toHaveCount(0);
+      const edit=page.locator('#libraryView .lu-filter-row[data-lu-filter-row="category"] > #manageLibraryBtn');
+      await expect(edit).toBeVisible();await expect(edit).toHaveText('편집');await expect(edit).toHaveAttribute('aria-label','분류 편집');
       await expect(page.locator('#libraryView>.section-head.actions-only')).toHaveCount(0);
       await page.locator('#newDocumentBtn').click();
       await expect(page.locator('#documentModal')).toBeVisible();
     });
     test('meeting list card keeps filter and opens the same form',async({page})=>{
       await openApp(page,'meetings');
-      await assertInHeader(page,{card:'#meetingsListCard',head:'.add-list-head',button:'#newMeetingBtn',title:'h2'});
-      await expect(page.locator('#meetingsView .meeting-toolbar #meetingTypeFilter')).toBeVisible();
+      // UI-선택표시통일: 폰은 다른 탭과 같은 동그란 [+](하단 탭 위), PC는 카드 머리줄 그대로.
+      await assertPlaced(page,width,{card:'#meetingsListCard',head:'.add-list-head',button:'#newMeetingBtn',title:'h2'});
+      // MEET-결과정리 ⑤: PC(≥1024)는 위쪽 칩 줄 없이 왼쪽 회의 종류 목록, 폰은 지금 회의명 필터.
+      if(width>=1024){await expect(page.locator('#meetingsView .meeting-toolbar')).toBeHidden();await expect(page.locator('#meetingList .mcol-kinds [data-meeting-kind]').first()).toBeVisible()}
+      else await expect(page.locator('#meetingsView .meeting-toolbar #meetingTypeFilter')).toBeVisible();
       await page.locator('#newMeetingBtn').click();
       await expect(page.locator('#meetingModal')).toBeVisible();
     });
     test('calendar card has the right label, 44px target and same form',async({page})=>{
       await openApp(page,'calendar');
-      await assertInHeader(page,{card:'#calendarCard',head:'.calendar-toolbar',button:'#newEventBtn',title:'#monthTitle'});
+      await assertPlaced(page,width,{card:'#calendarCard',head:'.calendar-toolbar',button:'#newEventBtn',title:'#monthTitle'});
       const button=page.locator('#newEventBtn');
       await expect(button).toHaveAttribute('aria-label','일정 등록');
-      expect((await button.innerText()).replace(/\s+/g,' ').trim()).toBe(width===390?'+':'+ 일정 등록');
-      const box=await button.boundingBox();
-      if(width===390){
-        expect(box.width).toBeGreaterThanOrEqual(35);
-        expect(box.width).toBeLessThanOrEqual(37);
+      if(width!==390){
+        expect((await button.innerText()).replace(/\s+/g,' ').trim()).toBe('+ 일정 등록');
+        expect((await button.boundingBox()).height).toBe(32);/* UI-버튼전수조사: 중간 폭도 32px */ // UI-PC다듬기묶음: PC(≥1024)는 같은 줄 [오늘]·보기 전환과 같은 32px
       }
-      expect(box.height).toBe(32);
       await button.click();
       await expect(page.locator('#eventModal')).toBeVisible();
     });
     test('project detail places both actions in their cards after redraw',async({page})=>{
       await openApp(page,'project_detail');
-      const task={card:'#ps3-tasks',head:'.ps3-section-head',button:'[data-ps3-global="task"]',title:'h3'};
-      const doc={card:'#ps3-documents',head:'.ps3-section-head',button:'[data-ps3-global="document"]',title:'h3'};
+      // PRJ-기록입력: the add actions are the small + beside each group title.
+      const task={card:'#ps3-tasks',head:'.ps3-section-head',button:'.ps3-add-plus[data-ps3-global="task"]',title:'h3',centered:true};
+      const doc={card:'#ps3-documents',head:'.ps3-section-head',button:'.ps3-add-plus[data-ps3-global="document"]',title:'h3',centered:true};
       await assertInHeader(page,task);await assertInHeader(page,doc);
       await expect(page.locator('#ps3Body .ps3-quick')).toHaveCount(0);
       await page.locator('#ps3-tasks h3').evaluate(el=>el.textContent='매우 긴 할 일 카드 제목을 반복해서 표시하는 화면 배치 확인용 제목');
@@ -122,19 +140,21 @@ for(const width of [390,1440]){
       const calendarUiRequests=[];
       page.on('request',request=>{if(new URL(request.url()).pathname.endsWith('/calendar-mobile-ui.js'))calendarUiRequests.push(request.url())});
       await openApp(page,'tasks',{entryView:'tasks'});
-      await expect(page.locator('#newTaskBtn')).toHaveText('+ 할 일');
+      // UI-할일입력: [할 일] adds through its always-visible input ([추가]), not a [+ 할 일] button.
+      await expect(page.locator('#newTaskBtn')).toHaveCount(0);await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toHaveText('추가');
       expect(calendarUiRequests).toEqual([]);
       await page.reload();
       await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
       await expect(page.locator('#tasksView')).toBeVisible();
-      await expect(page.locator('#newTaskBtn')).toHaveText('+ 할 일');
+      await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toHaveText('추가');
       expect(calendarUiRequests).toEqual([]);
     });
-    test('Google task card keeps add action and editor',async({page})=>{
+    test('Google task card has no [+], the always-visible input adds and the editor still opens',async({page})=>{
       await openApp(page,'tasks');
-      await assertInHeader(page,{card:'#gtTaskSection',head:'.gt-head',button:'#newTaskBtn',title:'[data-gt-count]'});
-      await expect(page.locator('#newTaskBtn')).toHaveText('+ 할 일');
-      await page.locator('#newTaskBtn').click();
+      await expect(page.locator('#newTaskBtn')).toHaveCount(0);
+      await expect(page.locator('#tasksView .home-quick [data-quick-input]')).toBeVisible();
+      await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toHaveText('추가');
+      await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
       await expect(page.locator('#gtTaskModal')).toBeVisible();
     });
     test('project list card keeps archive and add action after redraw',async({page})=>{
@@ -142,7 +162,7 @@ for(const width of [390,1440]){
       const card='#projectGrid .ps3-plist',head='.add-list-head',title='[data-ps3-total]';
       const checkActions=async()=>{
         await assertInHeader(page,{card,head,button:'#ps3ArchiveBtn',title});
-        await assertInHeader(page,{card,head,button:'#newProjectBtn',title});
+        await assertPlaced(page,width,{card,head,button:'#newProjectBtn',title});
         const actions=page.locator(`${card} ${head} .ps3-project-toolbar`);
         await expect(actions.locator('button')).toHaveCount(2);
         expect(await actions.locator('button').evaluateAll(buttons=>buttons.map(button=>button.id))).toEqual(['ps3ArchiveBtn','newProjectBtn']);
@@ -150,10 +170,14 @@ for(const width of [390,1440]){
         const add=await page.locator('#newProjectBtn').boundingBox();
         expect(archive.width).toBeGreaterThanOrEqual(44);
         expect(archive.height).toBe(44);
-        expect(add.width).toBeGreaterThanOrEqual(44);
-        expect(add.height).toBe(36);
-        expect(archive.x+archive.width).toBeLessThanOrEqual(add.x+1);
-        expect(Math.abs(archive.y+archive.height/2-add.y-add.height/2)).toBeLessThanOrEqual(1);
+        if(width!==390){
+          expect(add.width).toBeGreaterThanOrEqual(44);
+          // UI-PC프로젝트좌우(2026-10-20 사용자 확정): PC(≥1024) [+ 프로젝트]는 낮은 버튼(--ds-compact-height 32px), 누르는 범위 44px.
+          expect(add.height).toBe(32);
+          expect(await page.locator('#newProjectBtn').evaluate(n=>parseFloat(getComputedStyle(n,'::after').height))).toBeGreaterThanOrEqual(44);
+          expect(archive.x+archive.width).toBeLessThanOrEqual(add.x+1);
+          expect(Math.abs(archive.y+archive.height/2-add.y-add.height/2)).toBeLessThanOrEqual(1);
+        }
       };
       await checkActions();
       await expect(page.locator('#ps3ArchiveBtn')).toHaveText('보관 1');

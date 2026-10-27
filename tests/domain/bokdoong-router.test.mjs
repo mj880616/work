@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import router from '../../cloudflare/bokdoong-router.mjs';
+import { createHash } from 'node:crypto';
+import router, { resetManifestMemo } from '../../cloudflare/bokdoong-router.mjs';
 
 async function request(url, { method = 'GET', upstream = new Response('ok'), headers = {} } = {}) {
   const calls = [];
@@ -106,31 +107,113 @@ test('unversioned proxied pages and assets bypass Cloudflare cache and revalidat
 });
 
 
-test('desk versioned static assets are reusable in browser and Cloudflare edge caches', async () => {
-  for (const url of [
-    'https://desk.bokdoong.com/work/app/app.js?v=58',
-    'https://desk.bokdoong.com/work/app/loader-v2.js?v=170',
-    'https://desk.bokdoong.com/work/app/styles.css?v=31',
-    'https://desk.bokdoong.com/work/app/app-icon.svg?v=20260924-unicorn2'
-  ]) {
-    const { response, calls, fetchInits } = await request(url, {
-      upstream: new Response('versioned asset', { headers: { 'Cache-Control': 'max-age=0' } })
-    });
-    assert.equal(response.headers.get('Cache-Control'), 'public, max-age=31536000, immutable', url);
-    assert.equal(calls[0].cache, 'default', url);
-    assert.equal(fetchInits[0]?.cf?.cacheEverything, true, url);
-    assert.equal(fetchInits[0]?.cf?.cacheTtlByStatus?.['200-299'], 31536000, url);
-    assert.equal(fetchInits[0]?.cf?.cacheTtlByStatus?.['404'], 0, url);
-  }
-  const serviceWorker = await request('https://desk.bokdoong.com/work/app/sw.js?v=2', {
-    upstream: new Response('service worker', { headers: { 'Cache-Control': 'max-age=0' } })
-  });
-  assert.equal(serviceWorker.response.headers.get('Cache-Control'), 'no-cache, must-revalidate');
+const MANIFEST = 'https://mj880616.github.io/work/app/asset-manifest.json';
+const sha256 = text => createHash('sha256').update(text).digest('hex');
 
-  const html = await request('https://desk.bokdoong.com/work/app/?v=58', {
-    upstream: new Response('<!doctype html>', { headers: { 'Cache-Control': 'max-age=0' } })
-  });
-  assert.equal(html.response.headers.get('Cache-Control'), 'no-cache, must-revalidate');
+// Router with a synthetic GitHub Pages (asset bytes + manifest) and a synthetic edge cache.
+async function versioned(url, { body = 'current bytes', manifest, manifestStatus = 200, cache = new Map(), method = 'GET' } = {}) {
+  resetManifestMemo();
+  const calls = [];
+  const originalFetch = globalThis.fetch, originalCaches = globalThis.caches;
+  globalThis.caches = {
+    default: {
+      match: async key => cache.get(key.url)?.clone(),
+      put: async (key, response) => { cache.set(key.url, response); }
+    }
+  };
+  globalThis.fetch = async input => {
+    calls.push(input);
+    if (input.url.startsWith(MANIFEST + '?')) return new Response(JSON.stringify(manifest ?? {}), { status: manifestStatus });
+    return new Response(body, { headers: { 'Cache-Control': 'max-age=600', ETag: '"pages"' } });
+  };
+  try {
+    const response = await router.fetch(new Request(url, { method }));
+    return { response, calls, cache };
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.caches = originalCaches;
+  }
+}
+
+test('desk versioned assets are immutable in browser and edge only when bytes match the manifest', async () => {
+  for (const [url, path, version] of [
+    ['https://desk.bokdoong.com/work/app/app.js?v=58', 'app/app.js', '58'],
+    ['https://desk.bokdoong.com/work/app/project-system-v3.css?v=29', 'app/project-system-v3.css', '29'],
+    ['https://desk.bokdoong.com/work/app/app-icon.svg?v=20260924-unicorn2', 'app/app-icon.svg', '20260924-unicorn2']
+  ]) {
+    const manifest = { assets: { [path]: { v: [version], sha256: sha256('current bytes') } } };
+    const { response, calls, cache } = await versioned(url, { manifest });
+    assert.equal(response.headers.get('Cache-Control'), 'public, max-age=31536000, immutable', url);
+    assert.equal(await response.text(), 'current bytes', url);
+    assert.equal(calls.find(call => !call.url.startsWith(MANIFEST)).cache, 'no-store', url);
+    assert.equal(cache.size, 1, url);
+    // A later request is answered from the edge cache without reaching GitHub Pages.
+    const again = await versioned(url, { manifest, cache });
+    assert.equal(again.calls.length, 0, url);
+    assert.equal(await again.response.text(), 'current bytes', url);
+    assert.equal(again.response.headers.get('Cache-Control'), 'public, max-age=31536000, immutable', url);
+  }
+});
+
+test('old bytes served for a new ?v= during a deploy are neither pinned at the edge nor immutable', async () => {
+  const url = 'https://desk.bokdoong.com/work/app/project-system-v3.css?v=29';
+  const cases = [
+    ['bytes from the previous deploy', { body: 'old bytes', manifest: { assets: { 'app/project-system-v3.css': { v: ['29'], sha256: sha256('new bytes') } } } }],
+    ['manifest from the previous deploy', { body: 'old bytes', manifest: { assets: { 'app/project-system-v3.css': { v: ['28'], sha256: sha256('old bytes') } } } }],
+    ['asset missing from the manifest', { manifest: { assets: {} } }],
+    ['manifest unavailable', { manifestStatus: 404 }],
+    ['manifest malformed', { manifest: { nope: true } }]
+  ];
+  for (const [name, options] of cases) {
+    const { response, cache } = await versioned(url, options);
+    assert.equal(response.status, 200, name);
+    assert.equal(response.headers.get('Cache-Control'), 'no-cache, must-revalidate', name);
+    assert.equal(response.headers.get('ETag'), '"pages"', name);
+    assert.equal(cache.size, 0, name);
+  }
+});
+
+test('one manifest fetch serves the burst of asset misses on a cold page load', async () => {
+  resetManifestMemo();
+  const manifest = { assets: { 'app/a.js': { v: ['1'], sha256: sha256('current bytes') }, 'app/b.js': { v: ['1'], sha256: sha256('current bytes') } } };
+  const calls = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async input => {
+    calls.push(input.url);
+    return input.url.startsWith(MANIFEST + '?') ? new Response(JSON.stringify(manifest)) : new Response('current bytes');
+  };
+  try {
+    for (const name of ['a', 'b']) {
+      const response = await router.fetch(new Request(`https://desk.bokdoong.com/work/app/${name}.js?v=1`));
+      assert.equal(response.headers.get('Cache-Control'), 'public, max-age=31536000, immutable');
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+  assert.equal(calls.filter(url => url.startsWith(MANIFEST)).length, 1);
+});
+
+test('service worker, HTML and HEAD requests are never immutable', async () => {
+  const manifest = { assets: { 'app/sw.js': { v: ['2'], sha256: sha256('current bytes') }, 'app/app.js': { v: ['58'], sha256: sha256('current bytes') } } };
+  for (const [url, method] of [
+    ['https://desk.bokdoong.com/work/app/sw.js?v=2', 'GET'],
+    ['https://desk.bokdoong.com/work/app/?v=58', 'GET'],
+    ['https://desk.bokdoong.com/work/app/app.js?v=58', 'HEAD']
+  ]) {
+    const { response, cache } = await versioned(url, { manifest, method });
+    assert.equal(response.headers.get('Cache-Control'), 'no-cache, must-revalidate', url);
+    assert.equal(cache.size, 0, url);
+  }
+});
+
+// CI-버전자동화 3단계: the manifest exists only in the Pages build output, made from the same bytes it
+// lists. scripts/build-pages-repo.test.mjs builds this repository and checks every listed asset
+// against this router (scripts/check-pages-build.mjs (c)).
+test('the manifest is not committed; the Pages build writes it next to the files it lists', async () => {
+  await assert.rejects(readFile(new URL('../../app/asset-manifest.json', import.meta.url)), { code: 'ENOENT' });
+  const build = await readFile(new URL('../../scripts/build-pages.mjs', import.meta.url), 'utf8');
+  assert.match(build, /export const manifestPath = 'app\/asset-manifest\.json';/);
+  assert.ok(MANIFEST.endsWith('/work/app/asset-manifest.json'));
 });
 
 test('failed versioned Web2 assets never receive immutable browser caching', async () => {
@@ -143,20 +226,35 @@ test('failed versioned Web2 assets never receive immutable browser caching', asy
   }
 });
 
-test('conditional or range requests bypass the immutable edge-cache path', async () => {
-  const conditional = await request('https://desk.bokdoong.com/work/app/app.js?v=86', {
-    headers: { 'If-None-Match': '"old"' },
-    upstream: new Response(null, { status: 304, headers: { ETag: '"current"' } })
-  });
-  assert.equal(conditional.calls[0].cache, 'no-store');
-  assert.equal(conditional.fetchInits[0], undefined);
-
+test('range requests bypass the edge cache; conditional versioned requests get the verified body', async () => {
   const range = await request('https://desk.bokdoong.com/work/app/app.js?v=86', {
     headers: { Range: 'bytes=0-3' },
     upstream: new Response('data', { status: 206, headers: { 'Content-Range': 'bytes 0-3/10' } })
   });
   assert.equal(range.calls[0].cache, 'no-store');
-  assert.equal(range.fetchInits[0], undefined);
+  assert.equal(range.calls.length, 1);
+  assert.equal(range.response.headers.get('Cache-Control'), 'no-cache, must-revalidate');
+
+  resetManifestMemo();
+  const manifest = { assets: { 'app/app.js': { v: ['86'], sha256: sha256('current bytes') } } };
+  const seen = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async input => {
+    seen.push(input);
+    return input.url.startsWith(MANIFEST + '?') ? new Response(JSON.stringify(manifest)) : new Response('current bytes');
+  };
+  try {
+    const response = await router.fetch(new Request('https://desk.bokdoong.com/work/app/app.js?v=86', {
+      headers: { 'If-None-Match': '"old"', 'If-Modified-Since': 'Thu, 01 Jan 2026 00:00:00 GMT' }
+    }));
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('Cache-Control'), 'public, max-age=31536000, immutable');
+    const asset = seen.find(call => !call.url.startsWith(MANIFEST));
+    assert.equal(asset.headers.get('If-None-Match'), null);
+    assert.equal(asset.headers.get('If-Modified-Since'), null);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test('conditional and range requests retain HTTP semantics while revalidating', async () => {
@@ -243,4 +341,293 @@ test('Arsenal favicon requests do not return 404 or reach unrelated origins', as
   assert.equal(head.response.status, 200);
   assert.equal(await head.response.text(), '');
   assert.equal(head.calls.length, 0);
+});
+
+test('each browser clears its HTTP cache once per epoch on its next Web2 page load', async () => {
+  const page = () => new Response('<!doctype html>', { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+  const first = await request('https://desk.bokdoong.com/work/app/', { upstream: page() });
+  assert.equal(first.response.headers.get('Clear-Site-Data'), '"cache"');
+  const cookie = first.response.headers.get('Set-Cookie');
+  assert.match(cookie, /^kptu_cache_epoch=[\w-]+; Path=\/work\/app\/; Max-Age=31536000; Secure; HttpOnly; SameSite=Lax$/);
+  // The cookie (like every cookie) is not forwarded to GitHub Pages.
+  assert.equal(first.calls[0].headers.get('Cookie'), null);
+
+  const value = cookie.split(';')[0];
+  const later = await request('https://desk.bokdoong.com/work/app/login/', { upstream: page(), headers: { Cookie: `other=1; ${value}` } });
+  assert.equal(later.response.headers.get('Clear-Site-Data'), null);
+  assert.equal(later.response.headers.get('Set-Cookie'), null);
+
+  const oldEpoch = await request('https://desk.bokdoong.com/work/app/', { upstream: page(), headers: { Cookie: 'kptu_cache_epoch=1999-01-01' } });
+  assert.equal(oldEpoch.response.headers.get('Clear-Site-Data'), '"cache"');
+});
+
+test('cache clearing is limited to successful desk pages', async () => {
+  const html = (status = 200) => new Response('<!doctype html>', { status, headers: { 'Content-Type': 'text/html' } });
+  for (const [url, upstream] of [
+    ['https://work.bokdoong.com/work/', html()],
+    ['https://bokdoong.com/', html()],
+    ['https://desk.bokdoong.com/work/app/missing/', html(404)],
+    ['https://desk.bokdoong.com/work/app/auth-service.js', new Response('js', { headers: { 'Content-Type': 'text/javascript' } })]
+  ]) {
+    const { response } = await request(url, { upstream });
+    assert.equal(response.headers.get('Clear-Site-Data'), null, url);
+    assert.equal(response.headers.get('Set-Cookie'), null, url);
+  }
+});
+
+// BUG-배포캐시-후속 안 A: GitHub Pages keeps HTML up to 10 minutes (max-age=600) in its CDN, so the
+// Worker adds a 15-second value to desk HTML requests (page loads and version-notice.js checks).
+async function atTime(now, url, options) {
+  const originalNow = Date.now;
+  Date.now = () => now;
+  try {
+    return await request(url, options);
+  } finally {
+    Date.now = originalNow;
+  }
+}
+
+const deskPage = () => new Response('<!doctype html>', {
+  headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'max-age=600', ETag: '"pages"' }
+});
+
+test('desk HTML and the version check skip the GitHub Pages copy with a 15-second value', async () => {
+  const start = 1_800_000_000_000; // a multiple of 15 seconds
+  const bucket = start / 15000;
+  for (const [url, origin] of [
+    ['https://desk.bokdoong.com/work/app/', `https://mj880616.github.io/work/app/?__fresh=${bucket}`],
+    // app/version-notice.js fetches ./index.html next to app.js.
+    ['https://desk.bokdoong.com/work/app/index.html', `https://mj880616.github.io/work/app/index.html?__fresh=${bucket}`],
+    ['https://desk.bokdoong.com/work/app/login/', `https://mj880616.github.io/work/app/login/?__fresh=${bucket}`],
+    ['https://desk.bokdoong.com/work/app/?route=calendar', `https://mj880616.github.io/work/app/?route=calendar&__fresh=${bucket}`]
+  ]) {
+    const { response, calls } = await atTime(start, url, { upstream: deskPage() });
+    assert.equal(calls.length, 1, url);
+    assert.equal(calls[0].url, origin, url);
+    assert.equal(calls[0].cache, 'no-store', url);
+    // Response cache rules are unchanged.
+    assert.equal(response.headers.get('Cache-Control'), 'no-cache, must-revalidate', url);
+    assert.equal(response.headers.get('ETag'), '"pages"', url);
+  }
+
+  const url = 'https://desk.bokdoong.com/work/app/index.html';
+  const sameWindow = await atTime(start + 14999, url, { upstream: deskPage() });
+  assert.equal(sameWindow.calls[0].url, `https://mj880616.github.io/work/app/index.html?__fresh=${bucket}`);
+  const nextWindow = await atTime(start + 15000, url, { upstream: deskPage() });
+  assert.equal(nextWindow.calls[0].url, `https://mj880616.github.io/work/app/index.html?__fresh=${bucket + 1}`);
+});
+
+test('assets, Web1, arsenal and the portal are forwarded without the freshness value', async () => {
+  for (const [url, origin] of [
+    ['https://desk.bokdoong.com/work/app/app.js?v=abc', 'https://mj880616.github.io/work/app/app.js?v=abc'],
+    ['https://desk.bokdoong.com/work/app/project-system-v3.css?v=29', 'https://mj880616.github.io/work/app/project-system-v3.css?v=29'],
+    ['https://desk.bokdoong.com/work/app/sw.js', 'https://mj880616.github.io/work/app/sw.js'],
+    ['https://desk.bokdoong.com/work/app/auth-service.js', 'https://mj880616.github.io/work/app/auth-service.js'],
+    ['https://desk.bokdoong.com/work/app/?v=58', 'https://mj880616.github.io/work/app/?v=58'],
+    ['https://work.bokdoong.com/work/', 'https://mj880616.github.io/work/'],
+    ['https://work.bokdoong.com/work/p/index.html', 'https://mj880616.github.io/work/p/index.html'],
+    ['https://arsenal.bokdoong.com/work/personal/arsenal-match-archive/', 'https://mj880616.github.io/work/personal/arsenal-match-archive/'],
+    ['https://bokdoong.com/', 'https://mj880616.github.io/work/personal/portal/']
+  ]) {
+    const { calls } = await request(url);
+    assert.equal(calls[0].url, origin, url);
+    assert.doesNotMatch(calls[0].url, /__fresh/, url);
+  }
+});
+
+test('versioned asset edge cache keys and immutable rules are unaffected by the freshness value', async () => {
+  const url = 'https://desk.bokdoong.com/work/app/app.js?v=58';
+  const manifest = { assets: { 'app/app.js': { v: ['58'], sha256: sha256('current bytes') } } };
+  const { response, calls, cache } = await versioned(url, { manifest });
+  assert.equal(response.headers.get('Cache-Control'), 'public, max-age=31536000, immutable');
+  assert.deepEqual([...cache.keys()], [url]);
+  assert.doesNotMatch(calls.find(call => !call.url.startsWith(MANIFEST)).url, /__fresh/);
+});
+
+test('the freshness value never leaks into redirects shown to the visitor', async () => {
+  const start = 1_800_000_000_000;
+  const upstream = new Response(null, {
+    status: 301,
+    headers: { Location: `https://mj880616.github.io/work/app/login/?__fresh=${start / 15000}` }
+  });
+  const { response, calls } = await atTime(start, 'https://desk.bokdoong.com/work/app/index.html', { upstream });
+  assert.match(calls[0].url, /__fresh=/);
+  assert.equal(response.status, 301);
+  assert.equal(response.headers.get('Location'), 'https://desk.bokdoong.com/work/app/login/');
+
+  const withQuery = await atTime(start, 'https://desk.bokdoong.com/work/app/?route=a', {
+    upstream: new Response(null, { status: 302, headers: { Location: `/work/app/next/?route=a&__fresh=${start / 15000}` } })
+  });
+  assert.equal(withQuery.response.headers.get('Location'), 'https://desk.bokdoong.com/work/app/next/?route=a');
+});
+
+test('Clear-Site-Data still applies once per epoch to desk pages fetched with the freshness value', async () => {
+  const { response, calls } = await request('https://desk.bokdoong.com/work/app/', { upstream: deskPage() });
+  assert.match(calls[0].url, /\?__fresh=\d+$/);
+  assert.equal(response.headers.get('Clear-Site-Data'), '"cache"');
+  assert.equal(calls[0].headers.get('Cookie'), null);
+});
+
+// SHARE-미리보기제목: link-preview cards show the share page's title. Fake titles only.
+const SHARE_HTML = (await readFile(new URL('../../share/index.html', import.meta.url), 'utf8'));
+const SHARE_TOKEN = '3c'.repeat(32);
+const SHARE_READ = 'https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/share-page-read';
+const TELEGRAM = 'TelegramBot (like TwitterBot)';
+const BROWSER = 'Mozilla/5.0 (Linux; Android 14; SM-S921N) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/26.0 Chrome/122.0.0.0 Mobile Safari/537.36';
+
+async function shareRequest(url, { ua = TELEGRAM, read = () => Response.json({ ok: true, page: { title: '가짜 제목', blocks: [{ type: 'summary', text: '본문 비밀' }] } }), method = 'GET', headers = {} } = {}) {
+  const pages = [];
+  const reads = [];
+  const logged = [];
+  const originalFetch = globalThis.fetch;
+  const originalConsole = {};
+  for (const name of ['log', 'info', 'warn', 'error', 'debug']) {
+    originalConsole[name] = console[name];
+    console[name] = (...args) => logged.push(args.join(' '));
+  }
+  globalThis.fetch = async (input, init) => {
+    const req = input instanceof Request ? input : new Request(input, init);
+    if (req.url.startsWith('https://xmlkxfjeagycwttklxjw.supabase.co/')) {
+      reads.push({ url: req.url, method: req.method, type: req.headers.get('Content-Type'), body: await req.text(), signal: req.signal, headers: [...req.headers.keys()] });
+      return read(req);
+    }
+    pages.push(req);
+    return new Response(SHARE_HTML, { headers: { 'Content-Type': 'text/html; charset=utf-8', ETag: '"pages"', 'Content-Length': String(Buffer.byteLength(SHARE_HTML)) } });
+  };
+  try {
+    const response = await router.fetch(new Request(url, { method, headers: { 'User-Agent': ua, ...headers } }));
+    const text = method === 'HEAD' ? '' : await response.text();
+    return { response, text, pages, reads, logged };
+  } finally {
+    globalThis.fetch = originalFetch;
+    Object.assign(console, originalConsole);
+  }
+}
+const ogTitle = html => /<meta property="og:title" content="([^"]*)">/.exec(html)?.[1];
+
+test('a preview bot opening a valid ?t= share link gets the page title only, escaped, with no-store', async () => {
+  const { response, text, pages, reads, logged } = await shareRequest(`https://work.bokdoong.com/work/share/?t=${SHARE_TOKEN}`, {
+    read: () => Response.json({ ok: true, page: { title: '가짜 <b>"제목"</b> & \'따옴표\' $& $1', blocks: [{ type: 'summary', text: '본문 비밀' }] } })
+  });
+  assert.equal(response.status, 200);
+  const safe = '가짜 &lt;b&gt;&quot;제목&quot;&lt;/b&gt; &amp; &#39;따옴표&#39; $&amp; $1';
+  assert.equal(ogTitle(text), safe);
+  assert.match(text, new RegExp(`<meta name="twitter:title" content="${safe.replace(/[$&]/g, '\\$&')}">`));
+  assert.ok(text.includes(`<title>${safe} · 공유 페이지</title>`));
+  assert.ok(!text.includes('<b>'));
+  // Only the title: no blocks, the shared description stays, the shared og:url is dropped, the token is never echoed.
+  assert.ok(!text.includes('본문 비밀'));
+  assert.match(text, /<meta property="og:description" content="링크를 받은 사람만 볼 수 있는 페이지">/);
+  assert.ok(!text.includes('og:url'));
+  assert.ok(!text.includes(SHARE_TOKEN));
+  assert.equal(response.headers.get('Cache-Control'), 'no-store');
+  assert.match(response.headers.get('X-Robots-Tag'), /noindex/);
+  assert.equal(response.headers.get('ETag'), null);
+  assert.equal(response.headers.get('Content-Length'), null);
+  // The token goes to share-page-read in a POST body only; GitHub Pages never sees it.
+  assert.equal(reads.length, 1);
+  assert.equal(reads[0].url, SHARE_READ);
+  assert.equal(reads[0].method, 'POST');
+  assert.equal(reads[0].type, 'application/json');
+  assert.deepEqual(JSON.parse(reads[0].body), { token: SHARE_TOKEN });
+  assert.deepEqual(reads[0].headers.sort(), ['content-type']);
+  assert.equal(pages.length, 1);
+  assert.equal(pages[0].url, 'https://mj880616.github.io/work/share/');
+  assert.equal(pages[0].headers.get('Cookie'), null);
+  assert.deepEqual(logged, []);
+});
+
+test('invalid, expired, off, draft or failing lookups all give the unchanged shared card', async () => {
+  const replies = [
+    () => Response.json({ error: 'not_found' }, { status: 404 }),
+    () => Response.json({ error: 'unavailable' }, { status: 503 }),
+    () => new Response('not json', { status: 200 }),
+    () => Response.json({ ok: true, page: { title: '', blocks: [] } }),
+    () => Response.json({ ok: true, page: { title: 12, blocks: [] } }),
+    () => Response.json({ ok: true, page: { title: '줄\n바꿈', blocks: [] } }),
+    () => Response.json({ ok: true, page: { title: '가'.repeat(201), blocks: [] } }),
+    () => Response.json({ ok: false, page: { title: '가짜 제목' } }),
+    () => new Response(null, { status: 302, headers: { Location: 'https://example.org/' } }),
+    () => { throw new TypeError('network down'); }
+  ];
+  for (const read of replies) {
+    const { response, text, logged } = await shareRequest(`https://work.bokdoong.com/work/share/?t=${SHARE_TOKEN}`, { read });
+    assert.equal(response.status, 200);
+    assert.equal(text, SHARE_HTML);
+    assert.equal(response.headers.get('Cache-Control'), 'no-store');
+    assert.deepEqual(logged, []);
+  }
+});
+
+test('a slow lookup is cut off at the time limit and the shared card is served', async () => {
+  const { SHARE_TITLE_TIMEOUT_MS } = await import('../../cloudflare/bokdoong-router.mjs');
+  assert.ok(SHARE_TITLE_TIMEOUT_MS > 0 && SHARE_TITLE_TIMEOUT_MS <= 2000);
+  let aborted = false;
+  const started = Date.now();
+  const { response, text } = await shareRequest(`https://work.bokdoong.com/work/share/?t=${SHARE_TOKEN}`, {
+    read: req => new Promise(resolve => {
+      req.signal.addEventListener('abort', () => { aborted = true; });
+      setTimeout(() => resolve(Response.json({ ok: true, page: { title: '늦은 가짜 제목', blocks: [] } })), 10000).unref();
+    })
+  });
+  const elapsed = Date.now() - started;
+  assert.equal(response.status, 200);
+  assert.equal(text, SHARE_HTML);
+  assert.ok(elapsed >= SHARE_TITLE_TIMEOUT_MS - 50 && elapsed < SHARE_TITLE_TIMEOUT_MS + 1000, `elapsed ${elapsed}`);
+  assert.ok(aborted, 'the lookup request is aborted');
+});
+
+test('people opening a share link get the static page without any lookup, and the token never reaches Pages', async () => {
+  for (const ua of [BROWSER, '', 'Googlebot/2.1 (+http://www.google.com/bot.html)']) {
+    const { response, text, pages, reads } = await shareRequest(`https://work.bokdoong.com/work/share/?t=${SHARE_TOKEN}`, { ua });
+    assert.equal(response.status, 200);
+    assert.equal(text, SHARE_HTML);
+    assert.equal(reads.length, 0);
+    assert.equal(pages[0].url, 'https://mj880616.github.io/work/share/');
+    assert.equal(response.headers.get('Cache-Control'), 'no-store');
+  }
+  // Old #t= links: the browser sends no token at all; unchanged behaviour and caching.
+  const old = await shareRequest('https://work.bokdoong.com/work/share/', { ua: BROWSER });
+  assert.equal(old.reads.length, 0);
+  assert.equal(old.text, SHARE_HTML);
+  assert.equal(old.response.headers.get('Cache-Control'), 'no-cache, must-revalidate');
+});
+
+test('bots get the shared card without a lookup for malformed values, other paths and hosts', async () => {
+  for (const url of [
+    'https://work.bokdoong.com/work/share/',
+    'https://work.bokdoong.com/work/share/?t=short',
+    `https://work.bokdoong.com/work/share/?t=${'A'.repeat(64)}`,
+    `https://work.bokdoong.com/work/share/?t=${SHARE_TOKEN}&t=${SHARE_TOKEN}`,
+    `https://work.bokdoong.com/work/share/?x=${SHARE_TOKEN}`,
+    `https://work.bokdoong.com/work/share/index.html?t=${SHARE_TOKEN}`,
+    `https://work.bokdoong.com/work/p/?t=${SHARE_TOKEN}`
+  ]) {
+    const { reads, pages } = await shareRequest(url);
+    assert.equal(reads.length, 0, url);
+    if (new URL(url).pathname === '/work/share/') assert.equal(pages[0].url, 'https://mj880616.github.io/work/share/', url);
+  }
+  const head = await shareRequest(`https://work.bokdoong.com/work/share/?t=${SHARE_TOKEN}`, { method: 'HEAD' });
+  assert.equal(head.reads.length, 0);
+  assert.ok(!head.pages[0].url.includes(SHARE_TOKEN));
+  // desk is not the share host: it sends Web1 paths to work as before, without a lookup.
+  const desk = await shareRequest(`https://desk.bokdoong.com/work/share/?t=${SHARE_TOKEN}`);
+  assert.equal(desk.response.status, 302);
+  assert.equal(desk.reads.length, 0);
+});
+
+test('a share link without the trailing slash keeps its value on the redirect', async () => {
+  const { response, reads, pages } = await shareRequest(`https://work.bokdoong.com/work/share?t=${SHARE_TOKEN}`);
+  assert.equal(response.status, 301);
+  assert.equal(response.headers.get('Location'), `https://work.bokdoong.com/work/share/?t=${SHARE_TOKEN}`);
+  assert.equal(reads.length, 0);
+  assert.equal(pages.length, 0);
+});
+
+test('Workers Logs are off so request URLs carrying link values are not stored', async () => {
+  const config = await readFile(new URL('../../cloudflare/wrangler.toml', import.meta.url), 'utf8');
+  assert.match(config, /^\[observability\]\nenabled = false$/m);
+  assert.match(config, /^\[observability\.logs\]\nenabled = false\ninvocation_logs = false$/m);
+  const source = await readFile(new URL('../../cloudflare/bokdoong-router.mjs', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /console\./);
 });

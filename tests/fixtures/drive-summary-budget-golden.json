@@ -1,25 +1,28 @@
 {
   "base": "7ea59acac0becfa66ae1834489d8480803798b82",
+  "renamed": "2026-10-16 UI-디자인기준-3(8-9e-1): project 문서의 안내 문장 속 버튼 이름만 'AI 정리 결과 넣기' -> '분류 결과 입력'. 그 문장을 되돌리면 base 해시와 같다.",
+  "org_mine": "2026-10-21 ORG-담당13기준: context org 문서는 담당이 아닌 조직(다른조직, 기록 없음) 절만 빠진다. 그 절을 담당조직 앞에 다시 넣으면 이전 해시 df77a2ca07829cd7ed55189e1b2caaa1af561ea130c0997996febdc6bc417d05와 같다(검사로 확인).",
   "golden": {
     "empty": {
       "org": "6451de5f7527b417c59bd7d260ffec4dfac54fa6540ece8c7d6cb6bc204deca1",
-      "project": "7b8f36aa9cf67a8ab6f615e9c1315aa4b83c717d034fe1417a92628604425491"
+      "project_prefix": "58473e1c475b50a6246e160248beb38e5ddb129c310ec86bdf05331406079385"
     },
     "controls": {
       "org": "6451de5f7527b417c59bd7d260ffec4dfac54fa6540ece8c7d6cb6bc204deca1",
-      "project": "3114763eaf91e23dc2fa92a9d953ec993928e688c9beb69c48d4664ef4cb8257"
+      "project_prefix": "58473e1c475b50a6246e160248beb38e5ddb129c310ec86bdf05331406079385"
     },
     "ocr": {
       "org": "6451de5f7527b417c59bd7d260ffec4dfac54fa6540ece8c7d6cb6bc204deca1",
-      "project": "48f9fff973c35c02a8b52fdf9c371fe36a200add835f465b4fad606bf10eebb7"
+      "project_prefix": "58473e1c475b50a6246e160248beb38e5ddb129c310ec86bdf05331406079385"
     },
     "context": {
-      "org": "df77a2ca07829cd7ed55189e1b2caaa1af561ea130c0997996febdc6bc417d05",
-      "project": "c5a0bbf7e49e037c15fd0f5b9f7cb1b4d27796664d2f056ac35bd32d146f029c"
+      "org": "bdaa5383836c3bc6fefd514f3df9f152a5bc45191a9fa959124e978046e06a30",
+      "project_prefix": "950960e43b03f30020af3f883f6ef8111eddde5b645522e397e9930a6c100aab"
     },
     "hundred": {
       "org": "6451de5f7527b417c59bd7d260ffec4dfac54fa6540ece8c7d6cb6bc204deca1",
-      "project": "b5261a2ed1a5ac95d94869b09f033357ddb3b6dbaa04adf92b41e540893113c1"
+      "project_prefix": "58473e1c475b50a6246e160248beb38e5ddb129c310ec86bdf05331406079385"
     }
-  }
+  },
+  "drive_basket_no_raw": "2026-10-22 DRIVE-바구니원문제외: project 문서의 바구니 절은 건수 한 줄로 바뀌었다. golden.*.project 전체 해시는 더 이상 쓰지 않고(삭제), 바구니 절 앞부분(<h2>바구니</h2> 이전)의 해시를 project_prefix에 둔다. 값은 이 변경 직전 main(089ac0b)을 실행해 얻었다. org 해시는 그대로다."
 }

@@ -21,8 +21,151 @@ function upstreamPath(host, path) {
   return path;
 }
 
+// Expected ?v= and SHA-256 per Web2 asset, written into the Pages build output by scripts/build-pages.mjs.
+// Fetched fresh from GitHub Pages; reused for a short time so a cold page load fetches it once.
+const MANIFEST_URL = `${PAGES_ORIGIN}/work/app/asset-manifest.json`;
+const MANIFEST_REUSE_MS = 30000;
+let manifestMemo = null;
+
+function loadManifest(now = Date.now()) {
+  if (manifestMemo && now - manifestMemo.at < MANIFEST_REUSE_MS) return manifestMemo.promise;
+  const promise = fetch(new Request(`${MANIFEST_URL}?t=${now}`, { cache: 'no-store', redirect: 'manual' }))
+    .then(response => (response.status === 200 ? response.json() : null))
+    .then(data => (data && typeof data.assets === 'object' ? data.assets : null))
+    .catch(() => null);
+  manifestMemo = { at: now, promise };
+  return promise;
+}
+
+async function matchesManifest(pathname, version, bytes) {
+  const assets = await loadManifest();
+  const entry = assets?.[pathname.replace(/^\/work\//, '')];
+  if (!entry || !Array.isArray(entry.v) || !entry.v.includes(version)) return false;
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+  return Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('') === entry.sha256;
+}
+
+// Browsers that already hold old bytes as immutable never ask again. Each browser gets one
+// Clear-Site-Data: "cache" on its next Web2 page load per epoch; a cookie remembers it was done.
+// Raise CACHE_EPOCH (and deploy) to flush every browser once more. The cookie is never forwarded.
+const CACHE_EPOCH = '2026-10-17';
+const EPOCH_COOKIE = 'kptu_cache_epoch';
+
+function hasCurrentEpoch(request) {
+  return (request.headers.get('Cookie') || '').split(';')
+    .some(part => part.trim() === `${EPOCH_COOKIE}=${CACHE_EPOCH}`);
+}
+
+// GitHub Pages serves HTML with max-age=600 and its CDN may answer an unchanged URL with a copy up
+// to 10 minutes old, so a fresh deploy would stay invisible to page loads and to app/version-notice.js
+// (which fetches /work/app/index.html). For desk HTML only, the Worker appends a value that changes
+// every 15 seconds to the Pages URL (like ?t= for the manifest). The visitor's URL, the response
+// headers and the edge cache key are unchanged; ?v= assets never get it.
+const FRESH_PARAM = '__fresh';
+const FRESH_WINDOW_MS = 15000;
+
+function deskDocument(host, url) {
+  return host === 'desk.bokdoong.com'
+    && url.pathname.startsWith('/work/app/')
+    && !url.searchParams.has('v')
+    && (url.pathname.endsWith('/') || /\.html$/i.test(url.pathname));
+}
+
+function withFreshness(search, now = Date.now()) {
+  const value = `${FRESH_PARAM}=${Math.floor(now / FRESH_WINDOW_MS)}`;
+  return search && search !== '?' ? `${search}&${value}` : `?${value}`;
+}
+
+function withoutFreshness(url) {
+  if (url.searchParams.has(FRESH_PARAM)) url.searchParams.delete(FRESH_PARAM);
+}
+
+// SHARE-미리보기제목: link-preview bots (Telegram, KakaoTalk, …) do not run JS and never send what is after #, so a share
+// link that should show its page title is /work/share/?t=<link value>. For that address only, and only when the
+// request comes from a known preview bot, the Worker asks share-page-read (POST body, never the address) for the
+// page and puts its title, HTML-escaped, into og:title/twitter:title/<title>. Nothing else from the page is used.
+// Any other case (not a bot, malformed value, unknown/expired/off/draft link, error, slow lookup) gets the shared
+// card unchanged, so a preview never tells whether a link exists. The link value is never sent to GitHub Pages,
+// never logged (no console calls; Workers Logs are off in wrangler.toml) and these responses are never cached.
+const SHARE_PAGE = '/work/share/';
+const SHARE_READ_URL = 'https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/share-page-read';
+const SHARE_TOKEN = /^[0-9a-f]{64}$/;
+export const SHARE_TITLE_TIMEOUT_MS = 1500;
+const SHARE_READ_MAX_CHARS = 600000;
+const SHARE_TITLE_MAX = 200;
+// Link-preview fetchers only. Search engine crawlers are left out on purpose (the page is noindex).
+const PREVIEW_BOT = /TelegramBot|kakaotalk-scrap|facebookexternalhit|Facebot|Twitterbot|Slackbot|Discordbot|WhatsApp|LinkedInBot|SkypeUriPreview|line-poker|Iframely|Embedly|redditbot|vkShare/i;
+
+function shareTokenOf(url) {
+  const values = url.searchParams.getAll('t');
+  return values.length === 1 && SHARE_TOKEN.test(values[0]) ? values[0] : null;
+}
+
+function previewBot(request) {
+  return PREVIEW_BOT.test(request.headers.get('User-Agent') || '');
+}
+
+function escapeHtml(text) {
+  return text.replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+}
+
+// Resolves to the page title or null; never rejects and never waits longer than SHARE_TITLE_TIMEOUT_MS.
+function shareTitle(token, timeoutMs = SHARE_TITLE_TIMEOUT_MS) {
+  const controller = new AbortController();
+  let timer;
+  const timeout = new Promise(resolve => {
+    timer = setTimeout(() => { controller.abort(); resolve(null); }, timeoutMs);
+  });
+  const lookup = (async () => {
+    const response = await fetch(new Request(SHARE_READ_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+      redirect: 'manual',
+      signal: controller.signal
+    }));
+    if (response.status !== 200) return null;
+    if (Number(response.headers.get('Content-Length')) > SHARE_READ_MAX_CHARS) return null;
+    const text = await response.text();
+    if (text.length > SHARE_READ_MAX_CHARS) return null;
+    const data = JSON.parse(text);
+    const title = data && data.ok === true && data.page && typeof data.page.title === 'string' ? data.page.title.trim() : '';
+    return title && title.length <= SHARE_TITLE_MAX && !/[\u0000-\u001f\u007f]/.test(title) ? title : null;
+  })().catch(() => null);
+  return Promise.race([lookup, timeout]).finally(() => clearTimeout(timer));
+}
+
+export function withShareTitle(html, title) {
+  const safe = escapeHtml(title);
+  // Replacement functions, so "$&" and similar in a title stay literal.
+  return html
+    .replace(/<meta property="og:title" content="[^"]*">/, () => `<meta property="og:title" content="${safe}">`)
+    .replace(/<meta name="twitter:title" content="[^"]*">/, () => `<meta name="twitter:title" content="${safe}">`)
+    .replace(/<title>[^<]*<\/title>/, () => `<title>${safe} · 공유 페이지</title>`)
+    // The shared og:url would let a preview service merge every link into one card.
+    .replace(/<meta property="og:url" content="[^"]*">\n?/, '');
+}
+
+async function sharePreview(upstreamRequest, token) {
+  const [upstream, title] = await Promise.all([fetch(upstreamRequest), shareTitle(token)]);
+  const headers = new Headers(upstream.headers);
+  headers.set('Cache-Control', 'no-store');
+  headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  headers.set('Referrer-Policy', 'no-referrer');
+  if (upstream.status !== 200 || !/^text\/html\b/i.test(headers.get('Content-Type') || '')) {
+    return new Response(upstream.body, { status: upstream.status, headers });
+  }
+  const html = await upstream.text();
+  for (const name of ['Content-Length', 'Content-Encoding', 'ETag', 'Last-Modified']) headers.delete(name);
+  return new Response(title ? withShareTitle(html, title) : html, { status: 200, headers });
+}
+
+export function resetManifestMemo() {
+  manifestMemo = null;
+}
+
 export default {
-  async fetch(request) {
+  async fetch(request, env, context) {
     const incoming = new URL(request.url);
     const host = incoming.hostname.toLowerCase();
     if (!SERVICES[host] && host !== 'bokdoong.com') return new Response('Not found', { status: 404 });
@@ -51,10 +194,20 @@ export default {
       incoming.hostname = 'work.bokdoong.com';
       return Response.redirect(incoming.href, 302);
     }
+    const sharePage = host === 'work.bokdoong.com' && incoming.pathname === SHARE_PAGE;
+    if (host === 'work.bokdoong.com' && incoming.pathname === '/work/share' && incoming.searchParams.has('t')) {
+      // GitHub Pages would add the slash but drop the link value (it is never sent there).
+      incoming.pathname = SHARE_PAGE;
+      return Response.redirect(incoming.href, 301);
+    }
     if (!allowedPath(host, incoming.pathname)) return new Response('Not found', { status: 404 });
 
     const originUrl = new URL(upstreamPath(host, incoming.pathname), PAGES_ORIGIN);
-    originUrl.search = incoming.search;
+    const freshDocument = deskDocument(host, incoming);
+    originUrl.search = freshDocument ? withFreshness(incoming.search) : incoming.search;
+    const shareToken = sharePage ? shareTokenOf(incoming) : null;
+    // The share page is one static file: nothing after ? is needed by Pages, and it may hold a link value.
+    if (sharePage) originUrl.search = '';
     const headers = new Headers();
     for (const name of ['Accept', 'Accept-Language', 'If-None-Match', 'If-Modified-Since', 'Range']) {
       const value = request.headers.get(name);
@@ -66,41 +219,70 @@ export default {
       && /\.(?:js|css|svg|png|ico|webp)$/i.test(incoming.pathname);
     const edgeCacheable = versionedAsset
       && request.method === 'GET'
-      && !headers.has('Range')
-      && !headers.has('If-None-Match')
-      && !headers.has('If-Modified-Since');
-    const upstreamRequest = new Request(originUrl, {
+      && !headers.has('Range');
+    if (edgeCacheable) {
+      // A browser holding an unverified no-cache copy revalidates; answer with the full,
+      // verified body so it can be promoted to immutable instead of revalidating forever.
+      headers.delete('If-None-Match');
+      headers.delete('If-Modified-Since');
+    }
+    const edgeCache = edgeCacheable ? globalThis.caches?.default : undefined;
+    const cacheKey = new Request(incoming.href);
+    if (edgeCache) {
+      const cached = await edgeCache.match(cacheKey);
+      if (cached) return cached;
+    }
+    if (shareToken && request.method === 'GET' && previewBot(request)) {
+      // The bot gets the full page every time: no conditional or partial answers to rewrite.
+      for (const name of ['If-None-Match', 'If-Modified-Since', 'Range']) headers.delete(name);
+      return sharePreview(new Request(originUrl, { method: 'GET', headers, redirect: 'manual', cache: 'no-store' }), shareToken);
+    }
+    const upstream = await fetch(new Request(originUrl, {
       method: request.method,
       headers,
       redirect: 'manual',
-      ...(edgeCacheable ? {} : { cache: 'no-store' })
-    });
-    const upstream = await fetch(
-      upstreamRequest,
-      edgeCacheable
-        ? { cf: { cacheEverything: true, cacheTtlByStatus: { '200-299': 31536000, '404': 0, '500-599': 0 } } }
-        : undefined
-    );
+      cache: 'no-store'
+    }));
     const responseHeaders = new Headers(upstream.headers);
     if (host === 'bokdoong.com' && upstream.ok) {
       if (incoming.pathname === '/favicon.png') responseHeaders.set('Content-Type', 'image/png');
       if (incoming.pathname === '/favicon.ico') responseHeaders.set('Content-Type', 'image/x-icon');
     }
-    // HTML and unversioned assets must revalidate so deployments stay current.
-    // Versioned Web2 assets use immutable browser and edge delivery.
-    const immutableAsset = versionedAsset && upstream.ok;
+    // HTML, unversioned assets and unverified versioned assets must revalidate so deployments stay current.
+    // A versioned Web2 asset is immutable in the browser and the edge only when its bytes match
+    // app/asset-manifest.json for this exact ?v=; old bytes served while a deploy propagates are never pinned.
+    let body = upstream.body;
+    let immutableAsset = false;
+    if (edgeCacheable && upstream.status === 200) {
+      body = await upstream.arrayBuffer();
+      immutableAsset = await matchesManifest(incoming.pathname, incoming.searchParams.get('v'), body);
+    }
     responseHeaders.set(
       'Cache-Control',
-      immutableAsset ? 'public, max-age=31536000, immutable' : 'no-cache, must-revalidate'
+      immutableAsset ? 'public, max-age=31536000, immutable' : (sharePage && incoming.search ? 'no-store' : 'no-cache, must-revalidate')
     );
     const location = responseHeaders.get('Location');
     if (location) {
       const target = new URL(location, originUrl);
       if (target.origin === PAGES_ORIGIN && allowedPath(host, target.pathname)) {
         target.hostname = host;
+        if (freshDocument) withoutFreshness(target);
         responseHeaders.set('Location', target.href);
       }
     }
-    return new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
+    const webPage = host === 'desk.bokdoong.com'
+      && request.method === 'GET'
+      && upstream.status === 200
+      && /^text\/html\b/i.test(responseHeaders.get('Content-Type') || '');
+    if (webPage && !hasCurrentEpoch(request)) {
+      responseHeaders.set('Clear-Site-Data', '"cache"');
+      responseHeaders.append('Set-Cookie', `${EPOCH_COOKIE}=${CACHE_EPOCH}; Path=/work/app/; Max-Age=31536000; Secure; HttpOnly; SameSite=Lax`);
+    }
+    const response = new Response(body, { status: upstream.status, headers: responseHeaders });
+    if (immutableAsset && edgeCache) {
+      const stored = edgeCache.put(cacheKey, response.clone());
+      if (context?.waitUntil) context.waitUntil(stored); else await stored;
+    }
+    return response;
   }
 };

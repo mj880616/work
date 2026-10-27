@@ -1,8 +1,10 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import { test, expect } from "@playwright/test";
 import { openHome } from './helpers/home-entry.mjs';
 import { loginEntry } from "./helpers/login-entry.mjs";
 import { mkdirSync, writeFileSync } from "node:fs";
-const app = "http://127.0.0.1:8123/app/",
+import {expectProjectTitle} from './helpers/screen-title.mjs';
+const app = `${appOrigin}/app/`,
   SB = "https://xmlkxfjeagycwttklxjw.supabase.co";
 for (const width of [390, 1440])
   test(`home reading cards, shared requests and snapshot ${width}`, async ({
@@ -27,8 +29,23 @@ for (const width of [390, 1440])
       page.locator('[data-home-card="tasks"] [data-home-task]'),
     ).toHaveCount(2);
     await page.waitForFunction(() => window.KPTUHome?.metrics?.readyAt);
+    // JOURNAL-챙길것: the 챙길 것 card has its own budget: one candidate read and one ai-assist call (first open of the day).
+    const radarRequest = (r) => r.path === "/rest/v1/app_todo_candidates" || r.path.endsWith("/functions/v1/ai-assist");
+    // 폰·중간 폭(HOME-모바일홈채우기)은 '정리 안 된 것' 숫자가 후보를 한 번 더 읽는다(PC는 1회).
+    expect(requests.filter((r) => r.path === "/rest/v1/app_todo_candidates").length).toBeLessThanOrEqual(width < 1024 ? 2 : 1);
+    expect(requests.filter((r) => r.path.endsWith("/functions/v1/ai-assist")).length).toBeLessThanOrEqual(1);
+    // OPS-수집점검: the 마지막 수집 시각 card has its own budget: one status read and one radar state read.
+    const collectRequest = (r) => r.path === "/rest/v1/app_todo_radar_state" || r.path.endsWith("/functions/v1/drive-summary");
+    expect(requests.filter((r) => r.path === "/rest/v1/app_todo_radar_state").length).toBeLessThanOrEqual(1);
+    expect(requests.filter((r) => r.path.endsWith("/functions/v1/drive-summary")).length).toBeLessThanOrEqual(1);
+    expect(requests.filter((r) => r.path.endsWith("/functions/v1/drive-summary") && r.action !== "status")).toHaveLength(0);
+    // HOME-모바일홈채우기: 폰·중간 폭의 새 칸(놓친 약속 · 새 소식 수 · 정리 안 된 것)은 자기 예산을 가진다: 원장 1회, 소식 1회, 정리함 숫자용 읽기(업데이트·연결·자료)뿐.
+    const fillPaths = ["app_ledger_records", "app_feed_days", "app_notes", "app_record_links", "app_documents"];
+    const fillRequest = (r) => width < 1024 && fillPaths.some((x) => r.path.endsWith(x)) && (!r.path.endsWith("app_record_links") || r.query.includes("note_id"));
+    expect(requests.filter((r) => r.path.endsWith("app_ledger_records")).length).toBeLessThanOrEqual(1);
+    expect(requests.filter((r) => r.path.endsWith("app_feed_days")).length).toBeLessThanOrEqual(1);
     const dataRequests = requests.filter(
-      (r) => r.path.includes("/rest/") || r.path.includes("/functions/"),
+      (r) => (r.path.includes("/rest/") || r.path.includes("/functions/")) && !radarRequest(r) && !collectRequest(r) && !fillRequest(r),
     );
     const basketRequests=requests.filter(r=>r.path.endsWith('app_record_links')&&r.query.includes('note_id=not.is.null'));
     expect(basketRequests).toHaveLength(0);
@@ -84,7 +101,7 @@ test("home completion retains row 3s and task view agrees", async ({
   });
   await page.locator('[data-home-card="tasks"] [data-goto="tasks"]').click();
   await expect(page.locator("#tasksView")).toBeVisible();
-  await expect(page.locator("#newTaskBtn")).toHaveText("+ 할 일");
+  await expect(page.locator("#tasksView .home-quick [data-quick-save]")).toHaveText("추가");
   await expect(page.locator("[data-gt-overdue]")).toBeVisible();
   await expect(page.locator('[data-google-task="today"]')).toBeHidden();
   await expect(page.locator('[data-google-task="meeting"]')).toBeVisible();
@@ -198,7 +215,7 @@ test("home chips open the existing project detail dialog", async ({page}) => {
   await page.setViewportSize({width:390,height:1000});await openHome(page);
   await page.locator('[data-home-project="child"]').click();
   await expect(page.locator('#ps3DetailModal')).toBeVisible();
-  await expect(page.locator('#ps3Title')).toHaveText('자식 프로젝트');
+  await expectProjectTitle(page,'자식 프로젝트');
   await page.locator('[data-ps3-close="ps3DetailModal"]').click();
   await expect(page.locator('#ps3DetailModal')).toBeHidden();
   await expect(page.locator('#homeView')).toBeVisible();
@@ -210,7 +227,9 @@ test("phone home follows the supplied reference while desktop stays unchanged", 
   await expect(chips).toHaveCSS('border-top-width','0px');
   await expect(chips).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
   await expect(page.locator('.home-event').nth(1)).toHaveCSS('border-top-width','1px');
-  const check=page.locator('.home-task .gt-check').first();const b=await check.boundingBox();expect(b.width).toBeGreaterThanOrEqual(44);expect(b.height).toBeGreaterThanOrEqual(44);
+  await expect(page.locator('.home-task .gt-check').first()).toBeVisible();
+  // Found and measured in one page-side call: the card repaints its rows as data arrives, so a located element can be detached before it is measured.
+  const b=await page.evaluate(()=>{const r=document.querySelector('.home-task .gt-check').getBoundingClientRect();return {width:r.width,height:r.height}});expect(b.width).toBeGreaterThanOrEqual(44);expect(b.height).toBeGreaterThanOrEqual(44);
   for(const width of [390,760]) {
     await page.setViewportSize({width,height:1000});await expect(chips).toHaveCSS('border-top-width','0px');
     const chip=page.locator('.home-chip').first();const painted=await chip.evaluate(el=>{const p=getComputedStyle(el,'::before');return el.getBoundingClientRect().height-parseFloat(p.top)-parseFloat(p.bottom)});expect(painted).toBe(28);

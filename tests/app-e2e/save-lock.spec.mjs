@@ -1,4 +1,6 @@
 import {test,expect} from '@playwright/test';
+import { signInWithSession } from './helpers/session-login.mjs';
+import {openMeetingResult} from './helpers/meeting-open.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -13,7 +15,7 @@ const meeting={
 
 // writes[kind]: 서버에 도착한 저장 요청 수. hold가 true면 release() 전까지 응답을 미룬다. failNext면 다음 저장 1번을 500으로 돌려준다.
 async function mock(page,{calendars=[{id:'primary',summary:'기본',primary:true,accessRole:'owner'},{id:'union',summary:'공공운수노조',accessRole:'writer'}]}={}){
-  const state={writes:{event:0,googleEdit:0,document:0,meeting:0},hold:false,failNext:false,waiters:[],googleEvents:[],eventReads:0};
+  const state={writes:{event:0,googleEdit:0,document:0,meeting:0},hold:false,failNext:false,waiters:[],googleEvents:[],eventReads:0,meetingRow:{...meeting},meetingReads:0,meetingFailure:null,lastMeetingBody:null};
   state.release=()=>{state.hold=false;for(const w of state.waiters.splice(0))w()};
   await page.route(`${SB}/**`,async route=>{
     const req=route.request(),path=new URL(req.url()).pathname,method=req.method();
@@ -33,8 +35,18 @@ async function mock(page,{calendars=[{id:'primary',summary:'기본',primary:true
     if(path==='/rest/v1/app_events'){state.eventReads++;return ok([])}
     if(path==='/rest/v1/app_documents'&&method==='POST')return write('document',[{id:'document-new',title:'잠금 자료'}]);
     if(path==='/rest/v1/app_meetings'){
-      if(method==='PATCH')return write('meeting',[{id:meeting.id}]);
-      return ok([meeting]);
+      const url=new URL(req.url()),id=url.searchParams.get('id'),workspace=url.searchParams.get('workspace_id');
+      const matches=(!id||id==='eq.'+state.meetingRow.id)&&(!workspace||workspace==='eq.'+state.meetingRow.workspace_id);
+      if(method==='PATCH'){
+        if(id!=='eq.'+state.meetingRow.id||workspace!=='eq.'+state.meetingRow.workspace_id)return ok([]);
+        state.writes.meeting++;state.lastMeetingBody=req.postDataJSON();
+        if(state.hold)await new Promise(resolve=>state.waiters.push(resolve));
+        const failure=state.meetingFailure;state.meetingFailure=null;
+        if(failure)return route.fulfill({status:failure,contentType:'application/json',body:JSON.stringify({message:'회의 저장 응답 실패'})});
+        Object.assign(state.meetingRow,state.lastMeetingBody);
+        return req.headers().prefer?.includes('return=representation')?ok([state.meetingRow]):route.fulfill({status:204,body:''});
+      }
+      state.meetingReads++;return ok(matches?[state.meetingRow]:[]);
     }
     if(path==='/functions/v1/google-calendar'){const action=new URL(req.url()).searchParams.get('action');const body=method==='POST'?req.postDataJSON():null;if(action==='event')return ok({event:state.googleEvents.find(e=>e.id===new URL(req.url()).searchParams.get('eventId')),eventColors:{}});if(action==='events')return ok({events:state.googleEvents,eventColors:{}});if(body?.action==='create-event'){const result=await write('event',{ok:true,event:{id:'google-new',calendarId:body.calendar_id,title:body.title,location:body.location||'',start:body.start_iso,end:body.end_iso,allDay:false}});if(!state.failNext)state.googleEvents=[{id:'google-new',calendarId:body.calendar_id,title:body.title,location:body.location||'',start:body.start_iso,end:body.end_iso,allDay:false}];return result}if(body?.action==='update-event')return write('googleEdit',{ok:true,event:{id:body.event_id,calendarId:body.calendar_id,location:body.location??state.googleEvents.find(x=>x.id===body.event_id)?.location??''}});return ok({connected:true,enabled:true,selected:['primary'],calendars,events:state.googleEvents,eventColors:{}})}
     if(path==='/functions/v1/google-tasks')return ok({tasks:[],needs_reconnect:false});
@@ -50,10 +62,7 @@ async function signIn(page,view,options){
   const state=await mock(page,options);
   const returnTo=`${BASE}/app/?view=${view}`;
   await page.goto(`${BASE}/app/login/?return=${encodeURIComponent(returnTo)}`);
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('lock@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'lock@example.org');
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
   if(view==='calendar'){
     // UI 공개만으로는 초기 status/events 조회가 끝났다고 볼 수 없다.
@@ -112,8 +121,8 @@ async function openDocument(page){
 }
 
 async function openMeetingEdit(page){
-  // 수정 저장이 성공하면 회의 상세가 다시 열린 상태로 남는다.
-  if(!(await page.locator('#meetingRoundDetailModal').isVisible()))await page.locator('[data-mrd-meeting="meeting-1"]').click();
+  // 확인된 저장은 편집창만 닫고 현재 회의 상세를 유지한다.
+  if(!(await page.locator('#meetingRoundDetailModal').isVisible()))await openMeetingResult(page,'meeting-1');
   await page.locator('#mrdEdit').click();
   await expect(page.locator('#mrdSaveEdit')).toBeVisible();
 }
@@ -181,6 +190,34 @@ test('meeting edit save sends one request on double press and unlocks after fail
   await expect(page.locator('#meetingsView')).toBeVisible();
   await openMeetingEdit(page);
   await pressTwiceWhileSaving(page,state,'#mrdSaveEdit','meeting','수정 저장');
+  await expect(page.locator('#mrdEditor')).toBeHidden();
   await openMeetingEdit(page);
-  await failThenRetry(page,state,'#mrdSaveEdit','meeting','수정 저장','#mrdEditStatus');
+  const button=page.locator('#mrdSaveEdit');
+  await page.locator('#mrdEditNotes').fill('명시 거부 뒤 재시도');state.meetingFailure=403;
+  await button.click();await expect.poll(()=>state.writes.meeting).toBe(2);
+  await expect(page.locator('#mrdEditStatus')).toContainText('권한');
+  await expect(page.locator('#mrdEditNotes')).toHaveValue('명시 거부 뒤 재시도');
+  await expect(button).toBeEnabled();await expect(button).toHaveText('수정 저장');
+  await button.click();await expect.poll(()=>state.writes.meeting).toBe(3);
+  await expect(page.locator('#mrdEditor')).toBeHidden();
+  await openMeetingEdit(page);await page.locator('#mrdEditNotes').fill('결과 불명인 제출');state.meetingFailure=500;
+  await button.click();await expect.poll(()=>state.writes.meeting).toBe(4);
+  await expect(page.locator('#mrdEditStatus')).toContainText('저장 결과를 확인하지 못했습니다.');
+  await expect(button).toBeEnabled();await expect(button).toHaveText('수정 저장');
+  await button.click();expect(state.writes.meeting).toBe(4);
+  let reads=state.meetingReads;
+  await page.locator('#mrdEditStatus').getByRole('button',{name:'저장 결과 확인',exact:true}).click();
+  await expect(page.locator('#mrdEditStatus')).toContainText('아직 확인하지 못했습니다.');
+  expect(state.meetingReads).toBe(reads+1);expect(state.writes.meeting).toBe(4);
+  await expect(page.locator('#mrdEditNotes')).toHaveValue('결과 불명인 제출');
+  // Model the same accepted request finishing later on the server, without sending it again.
+  Object.assign(state.meetingRow,state.lastMeetingBody);
+  await page.locator('#mrdEditNotes').fill('확인 중 추가 입력');reads=state.meetingReads;
+  await page.locator('#mrdEditStatus').getByRole('button',{name:'저장 결과 확인',exact:true}).click();
+  await expect(page.locator('#mrdEditStatus')).toContainText('제출한 내용은 확인했습니다.');
+  expect(state.meetingReads).toBe(reads+1);expect(state.writes.meeting).toBe(4);
+  await expect(page.locator('#mrdEditor')).toBeVisible();
+  await expect(page.locator('#mrdEditNotes')).toHaveValue('확인 중 추가 입력');
+  await button.click();await expect.poll(()=>state.writes.meeting).toBe(5);
+  await expect(page.locator('#mrdEditor')).toBeHidden();
 });

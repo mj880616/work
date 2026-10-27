@@ -10,8 +10,60 @@ test('workflow files contain no direct repository push path', () => {
   for (const name of readdirSync(workflowsDir).filter(name => /\.ya?ml$/.test(name))) {
     const source = workflow(name);
     assert.doesNotMatch(source, /\bgit\s+push\b|\bgit\s+commit\b|createCommit|createOrUpdateFileContents/, name);
-    if (name !== 'publication-auto-merge.yml') assert.doesNotMatch(source, /^\s+contents:\s*write\s*$/m, name);
+    if (!['publication-auto-merge.yml', 'basket-pc-release.yml'].includes(name)) assert.doesNotMatch(source, /^\s+contents:\s*write\s*$/m, name);
   }
+});
+
+test('Basket PC release workflow only runs for basket-pc-v tags or a manual run on main and keeps its write access to one job', () => {
+  const source = workflow('basket-pc-release.yml');
+  // trigger: a tag push of the app's own tag pattern, or a manual run with one version input; nothing a pull request or a branch push could start
+  assert.match(source, /^on:\n  push:\n    tags:\n      - 'basket-pc-v\*'\n  workflow_dispatch:\n    inputs:\n      version:\n(?:        .+\n)+\npermissions:/m);
+  assert.doesNotMatch(source, /pull_request|schedule:|branches:|workflow_run/);
+  const inputs = source.slice(source.indexOf('    inputs:\n'), source.indexOf('\npermissions:'));
+  assert.equal([...inputs.matchAll(/^      (\w+):$/gm)].map(m => m[1]).join(','), 'version');
+  // default permission is read; write permissions exist only in the release job
+  assert.match(source, /^permissions:\n  contents: read\n/m);
+  const writes = source.match(/^\s+contents:\s*write\s*$/gm) ?? [];
+  assert.equal(writes.length, 1);
+  // the read-only verify job checks the tag shape and main before anyone is asked to approve; release depends on it
+  assert.match(source, /^  verify:\n(?:(?!^  release:)[\s\S])*?^  release:\n    needs: verify\n/m);
+  const verifyJob = source.slice(source.indexOf('\n  verify:\n'), source.indexOf('\n  release:\n'));
+  assert.doesNotMatch(verifyJob, /environment:|permissions:|write/);
+  assert.match(source, /^  release:\n[\s\S]*?^    permissions:\n      contents: write\n      id-token: write\n      attestations: write\n/m);
+  // reviewer approval, tag check, main check
+  assert.match(source, /^    environment: basket-pc-release$/m);
+  assert.match(source, /\^basket-pc-v\[0-9\]\{1,4\}\\\.\[0-9\]\{1,4\}\\\.\[0-9\]\{1,4\}\$/);
+  assert.match(source, /git merge-base --is-ancestor "\$GITHUB_SHA" origin\/main/);
+  // manual run: main only, version shape checked, existing tag refused before approval and again right before the tag is made
+  assert.match(source, /\[ "\$GITHUB_REF" != "refs\/heads\/main" \]/);
+  assert.match(source, /"\$INPUT_VERSION" =~ \^\[0-9\]\{1,4\}\\\.\[0-9\]\{1,4\}\\\.\[0-9\]\{1,4\}\$/);
+  assert.match(source, /git ls-remote --tags origin "refs\/tags\/\$TAG"/);
+  assert.match(verifyJob, /ls-remote/);
+  // the tag is made only in the release job (after approval), only for a manual run, on the commit the verify job checked, through the REST API
+  const releaseJob = source.slice(source.indexOf('\n  release:\n'));
+  assert.match(releaseJob, /name: Create the tag[^\n]*\n\s+if: github\.event_name == 'workflow_dispatch'/);
+  assert.match(releaseJob, /gh api -X POST "repos\/\$GITHUB_REPOSITORY\/git\/refs" -f "ref=refs\/tags\/\$TAG" -f "sha=\$RELEASE_SHA"/);
+  assert.match(releaseJob, /ref: \$\{\{ needs\.verify\.outputs\.sha \}\}/);
+  assert.doesNotMatch(verifyJob, /git\/refs|git tag|git push/);
+  // the typed input is only read through an environment variable, never pasted into a script
+  assert.equal([...source.matchAll(/inputs\.version/g)].length, 1);
+  assert.match(source, /INPUT_VERSION: \$\{\{ inputs\.version \}\}/);
+  // no secrets besides the run's own token, no production access, no repository push
+  assert.doesNotMatch(source, /secrets\./);
+  assert.doesNotMatch(source, /SUPABASE|CLOUDFLARE|production-edge/i);
+  assert.equal([...source.matchAll(/\$\{\{\s*([^}]+?)\s*\}\}/g)].map(m => m[1]).join(','),
+    'steps.check.outputs.tag,steps.check.outputs.version,steps.check.outputs.sha,inputs.version,needs.verify.outputs.tag,needs.verify.outputs.version,needs.verify.outputs.sha,needs.verify.outputs.sha,github.token,github.token');
+  // every action pinned to a commit, the packaging tool pinned to a version
+  for (const use of source.matchAll(/uses:\s*(\S+)/g)) assert.match(use[1], /@[0-9a-f]{40}$/, use[1]);
+  assert.match(source, /dotnet tool install vpk --version \d+\.\d+\.\d+ /);
+  // installer id differs from the data folder name, and releases are created as draft first, never as "latest"
+  assert.match(source, /PACK_ID: BasketDropApp$/m);
+  assert.match(source, /gh release create[\s\S]*--verify-tag --draft --latest=false/);
+  // a release made by hand with the tag is hidden (pre-release) while it is filled, a published one that already has files is refused
+  assert.match(source, /gh release edit "\$TAG" --prerelease --latest=false\n\s+gh release upload "\$TAG" releases\/\*/);
+  assert.match(source, /already has files\. Use a new version number/);
+  assert.match(source, /gh release edit "\$TAG" --draft=false --prerelease=false --latest=false/);
+  assert.match(source, /actions\/attest-build-provenance@/);
 });
 
 test('metadata synchronization only compares PR and manual run output', () => {
@@ -100,4 +152,98 @@ test('Actions policy 6065 workflow paths keep their names', () => {
   const names = readdirSync(workflowsDir);
   assert.ok(names.includes('publication-gate.yml'));
   assert.ok(names.includes('publication-auto-merge.yml'));
+});
+
+test('auto merge publishes through the Actions Pages workflow, not the legacy Pages build API', () => {
+  const source = workflow('publication-auto-merge.yml');
+  const jobs = jobBlocks(source);
+  assert.deepEqual(Object.keys(jobs), ['reserve', 'deploy-pages']);
+  assert.doesNotMatch(source, /pages\/builds|pages:\s*write|build-pages/);
+  // Only the reservation job may write contents; only the deploy job may dispatch workflows.
+  assert.match(jobs.reserve, /permissions:\n      contents: write\n      pull-requests: write\n    outputs:/);
+  assert.doesNotMatch(jobs.reserve, /actions:/);
+  const deploy = jobs['deploy-pages'];
+  assert.match(deploy, /permissions:\n      contents: read\n      pull-requests: read\n      actions: write\n    steps:/);
+  assert.match(deploy, /^    needs: reserve\n    if: needs\.reserve\.outputs\.armed == 'true'\n/m);
+  assert.ok(deploy.indexOf('Wait for this exact PR head to merge') < deploy.indexOf('/dispatches'));
+  assert.match(deploy, /gh api -X POST "repos\/\$GITHUB_REPOSITORY\/actions\/workflows\/pages-deploy\.yml\/dispatches" -f ref=main\n/);
+  assert.doesNotMatch(deploy, /skip_deploy|continue-on-error|\|\| true/);
+  assert.match(deploy, /compare\/\$MERGE_SHA\.\.\.\$run_sha/);
+  assert.match(deploy, /map\(\{\(\.name\): \.conclusion\}\) \| add \| \.deploy \/\/ empty/);
+  assert.match(deploy, /"\$conclusion" == success && "\$deploy" == success/);
+  const pages = workflow('pages-deploy.yml');
+  assert.match(pages, /^  workflow_dispatch:\n/m);
+  assert.match(pages, /^  deploy:\n/m);
+});
+
+test('browser-e2e reports on every main PR and decides from the change scope', () => {
+  const source = workflow('app-e2e-check.yml');
+  const on = source.slice(0, source.indexOf('\npermissions:'));
+  const pullRequest = on.match(/^  pull_request:\n([\s\S]*?)(?=^  \S)/m)?.[1] ?? '';
+  assert.match(pullRequest, /^    branches:\n      - main\n/);
+  assert.doesNotMatch(pullRequest, /paths|types:/);
+  assert.doesNotMatch(source, /pull_request_target|paths-ignore/);
+  assert.match(on, /^  push:\n    branches:\n      - main\n    paths:\n/m);
+  assert.match(on, /^  schedule:\n/m);
+  assert.match(on, /^  workflow_dispatch:\n/m);
+
+  const jobs = jobBlocks(source);
+  assert.deepEqual(Object.keys(jobs), ['changes', 'browser-e2e-shard', 'browser-e2e']);
+  const decide = jobs.changes;
+  assert.doesNotMatch(decide, /^    if:/m);
+  assert.match(decide, /if \[ "\$EVENT_NAME" != "pull_request" \]; then[\s\S]*?e2e=true/);
+  assert.match(decide, /git diff --no-renames --name-only -z "\$BASE_SHA\.\.\.\$HEAD_SHA"/);
+  assert.match(decide, /\^\(app\/\|p\/\|tests\/app-e2e\/\|\\\.github\/workflows\/app-e2e-check\\\.yml\$\)/);
+  for (const use of decide.matchAll(/uses: (\S+)/g)) assert.match(use[1], /@[0-9a-f]{40}$/);
+  assert.equal([...decide.matchAll(/uses: /g)].length, 1, 'only checkout');
+
+  assert.match(jobs['browser-e2e-shard'], /^    needs: changes\n    if: needs\.changes\.outputs\.e2e == 'true'\n/m);
+
+  const aggregate = jobs['browser-e2e'];
+  assert.match(aggregate, /^    if: always\(\)\n    needs: \[changes, browser-e2e-shard\]\n/m);
+  const order = ['"$CHANGES_RESULT" != "success"', '"$E2E_NEEDED" = "false"', '"$E2E_NEEDED" != "true"', 'test "$SHARD_RESULT" = "success"'];
+  const positions = order.map(text => aggregate.indexOf(text));
+  assert.ok(positions.every(position => position >= 0), 'aggregate checks decision, need and shard result');
+  assert.deepEqual([...positions].sort((a, b) => a - b), positions);
+  assert.doesNotMatch(aggregate, /continue-on-error|\|\| true/);
+
+  for (const name of readdirSync(workflowsDir).filter(name => /\.ya?ml$/.test(name))) {
+    const declared = Object.keys(jobBlocks(workflow(name))).includes('browser-e2e');
+    assert.equal(declared, name === 'app-e2e-check.yml', name);
+    assert.doesNotMatch(workflow(name), /^    name: browser-e2e\s*$/m, name);
+  }
+});
+
+// A tag push (for example basket-pc-v1.2.3) must start only the workflows meant for tags.
+// `on.push` without branches, tags or tags-ignore also fires for every tag, so it is not allowed.
+const pushBlock = source => {
+  const on = source.match(/^on:\n((?:[ \t]+.*\n|[ \t]*\n|[ \t]*#.*\n)*)/m);
+  if (!on) return null;
+  const push = on[1].match(/^  push:[ \t]*\n((?:    .*\n|[ \t]*\n)*)/m);
+  return push ? push[1] : null;
+};
+
+test('only the intended workflows start on a tag push', () => {
+  const TAG_WORKFLOWS = ['basket-pc-release.yml'];
+  const startsOnTag = [];
+  for (const name of readdirSync(workflowsDir).filter(name => /\.ya?ml$/.test(name)).sort()) {
+    const source = workflow(name);
+    assert.doesNotMatch(source, /^on:[ \t]*\[?[^\n]*\bpush\b/m, `${name}: use the block form of on.push`);
+    const push = pushBlock(source);
+    if (push === null) continue;
+    const hasTags = /^    tags:/m.test(push);
+    const ignoresTags = /^    tags-ignore:\n      - '\*\*'\n/m.test(push);
+    const hasBranches = /^    branches(:|-ignore:)/m.test(push);
+    // a push filter with branches (and no tags) never matches a tag push
+    if (hasTags || (!hasBranches && !ignoresTags)) startsOnTag.push(name);
+  }
+  assert.deepEqual(startsOnTag, TAG_WORKFLOWS);
+});
+
+test('workflows that ignore tag pushes still run on branch pushes', () => {
+  for (const name of ['authz-security-check.yml', 'build-android-app.yml', 'package-pyhwp.yml', 'runtime-recovery-e2e.yml']) {
+    const push = pushBlock(workflow(name));
+    assert.match(push, /^    tags-ignore:\n      - '\*\*'\n    paths:/m, name);
+    assert.doesNotMatch(push, /branches/, name);
+  }
 });

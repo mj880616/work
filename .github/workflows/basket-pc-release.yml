@@ -1,0 +1,177 @@
+name: Basket PC release
+
+# Builds the installer and the update packages for BASKET-PC드롭 and publishes them as a GitHub release.
+# Two ways to start it (see "새 판 내기" in basket-pc/README.md):
+#   1. a person creates the tag basket-pc-vX.Y.Z on a commit that is already on main (push or GitHub release page);
+#   2. the command center (or a person) runs this workflow by hand (workflow_dispatch) on main with the input
+#      `version` (for example 0.2.0). The release job then creates the tag basket-pc-v<version> on the main commit
+#      that was checked, after the approval below, and refuses if that tag already exists.
+# Everything else happens here: checks, tests, build, installer, provenance, release creation and file upload.
+# A release that the person created by hand together with the tag (empty, so it can be published from the GitHub
+# page) is filled in and finished instead of failing.
+# The `basket-pc-release` environment still needs its reviewer's approval before the build (and the tag) starts.
+# A tag created here with the run's own token does not start a second run (GitHub does not chain token events).
+# No secret other than the run's own token is used. Nothing here touches the database, the edge functions,
+# the web hosting or any other production service.
+
+on:
+  push:
+    tags:
+      - 'basket-pc-v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version without the prefix, for example 0.2.0 (the tag basket-pc-v<version> is created after approval)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: basket-pc-release
+  cancel-in-progress: false
+
+jobs:
+  # Cheap checks first, with read-only access, so a wrongly named tag fails before anyone is asked to approve.
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.check.outputs.tag }}
+      version: ${{ steps.check.outputs.version }}
+      sha: ${{ steps.check.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check the tag or the version
+        id: check
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+              echo "Run this workflow on main only"
+              exit 1
+            fi
+            if ! [[ "$INPUT_VERSION" =~ ^[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4}$ ]]; then
+              echo "Version must look like 1.2.3"
+              exit 1
+            fi
+            TAG="basket-pc-v$INPUT_VERSION"
+            if [ -n "$(git ls-remote --tags origin "refs/tags/$TAG")" ]; then
+              echo "The tag $TAG already exists. Use a new version number."
+              exit 1
+            fi
+          else
+            TAG="$GITHUB_REF_NAME"
+            if ! [[ "$TAG" =~ ^basket-pc-v[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4}$ ]]; then
+              echo "Tag must look like basket-pc-v1.2.3"
+              exit 1
+            fi
+          fi
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "The tagged commit is not on main"
+            exit 1
+          fi
+          {
+            echo "tag=$TAG"
+            echo "version=${TAG#basket-pc-v}"
+            echo "sha=$GITHUB_SHA"
+          } >> "$GITHUB_OUTPUT"
+
+  release:
+    needs: verify
+    runs-on: windows-latest
+    timeout-minutes: 30
+    environment: basket-pc-release
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      PACK_ID: BasketDropApp
+      TAG: ${{ needs.verify.outputs.tag }}
+      VERSION: ${{ needs.verify.outputs.version }}
+      RELEASE_SHA: ${{ needs.verify.outputs.sha }}
+    steps:
+      # the exact commit the verify job checked (for a manual run: the main commit at the time it was started)
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.verify.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Test (fake server only, no production calls)
+        run: dotnet test basket-pc/tests/BasketDrop.Tests -c Release
+
+      - name: Publish (self-contained, so no runtime install and no administrator rights)
+        run: dotnet publish basket-pc/src/BasketDrop/BasketDrop.csproj -c Release -r win-x64 --self-contained true -p:Version=$env:VERSION -p:DebugType=none -o publish
+
+      - name: Pack installer and update packages
+        run: |
+          dotnet tool install vpk --version 1.2.161 --tool-path vpk-tool
+          ./vpk-tool/vpk pack --packId $env:PACK_ID --packVersion $env:VERSION --packDir publish --mainExe BasketDrop.exe --icon basket-pc/src/BasketDrop/app.ico --packTitle "BasketDrop" --outputDir releases
+
+      - name: Record where the files came from
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: releases/*
+
+      - name: Create the tag on the checked commit (manual run only)
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # refuse when the tag appeared while waiting for approval; a re-run of this job may find its own tag
+          existing="$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$TAG" --jq ".[] | select(.ref == \"refs/tags/$TAG\") | .object.sha" | tr -d '\r')"
+          if [ -n "$existing" ]; then
+            if [ "$GITHUB_RUN_ATTEMPT" != "1" ] && [ "$existing" = "$RELEASE_SHA" ]; then
+              echo "The tag $TAG already points at the checked commit (re-run). Continuing."
+              exit 0
+            fi
+            echo "The tag $TAG already exists. Use a new version number."
+            exit 1
+          fi
+          gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f "ref=refs/tags/$TAG" -f "sha=$RELEASE_SHA" > /dev/null
+
+      - name: Publish the release (hidden until every file is uploaded, then public)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="Basket PC drop $VERSION"
+          NOTES="Installer: ${PACK_ID}-win-Setup.exe. The installed program updates itself from this repository's basket-pc-v releases."
+          existing=0
+          # A release for this tag may already exist (made by hand with the tag, or left by an earlier failed run).
+          while IFS=$'\t' read -r id draft assets; do
+            [ -n "$id" ] || continue
+            if [ "$draft" = "true" ]; then
+              # a draft was never visible to the updater, so it is safe to replace
+              gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id" > /dev/null
+            elif [ "$assets" != "0" ]; then
+              echo "A published release for $TAG already has files. Use a new version number."
+              exit 1
+            else
+              existing=1
+            fi
+          done < <(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"$TAG\") | [.id, .draft, (.assets | length)] | @tsv" | tr -d '\r')
+          if [ "$existing" = "1" ]; then
+            # keep the empty release hidden from the updater (pre-release) while the files are uploaded
+            gh release edit "$TAG" --prerelease --latest=false
+            gh release upload "$TAG" releases/*
+          else
+            gh release create "$TAG" releases/* --verify-tag --draft --latest=false --title "$TITLE" --notes "$NOTES"
+          fi
+          gh release edit "$TAG" --draft=false --prerelease=false --latest=false --title "$TITLE" --notes "$NOTES"

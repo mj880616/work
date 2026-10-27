@@ -1,6 +1,6 @@
-import {addSeoulDays,seoulParts,formatSeoulTime} from './meeting-time.js?v=2';
-import {dayKey} from './home-read-model.js?v=3';
-import {dayItems,calendarDateKey,appendDayRows,captureDayFocus,restoreDayFocus} from './calendar-day-items.js?v=5';
+import {addSeoulDays,seoulParts,formatSeoulTime} from './meeting-time.js';
+import {dayKey} from './home-read-model.js';
+import {dayItems,calendarDateKey,appendDayRows,captureDayFocus,restoreDayFocus} from './calendar-day-items.js';
 let observer=null,focusKey=null;
 export function stopList(){observer?.disconnect()}
 export function renderList(options,{start,days,tasks,busy,error,more}){
@@ -16,7 +16,8 @@ export function renderList(options,{start,days,tasks,busy,error,more}){
     if(today)header.classList.add('clv-today');
     header.textContent=(today?'오늘 · ':'')+`${seoulParts(date).month+1}월 ${seoulParts(date).day}일 ${['일','월','화','수','목','금','토'][seoulParts(date).weekday]}`;
     section.append(header);
-    appendDayRows(section,date,dayItems(options,date,tasks));
+    const persistence=window.KPTUCalendarPersistence,known=!!persistence?.knows?.(new Date(section.dataset.date+'T00:00:00+09:00'),addSeoulDays(new Date(section.dataset.date+'T00:00:00+09:00'),1));
+    appendDayRows(section,date,dayItems(options,date,tasks),known);
     box.append(section);
   }
   const button=document.createElement('button');button.type='button';button.id='calendarListMore';button.className='clv-more';button.textContent=error?'다시 불러오기':busy?'불러오는 중…':'다음 14일 불러오기';button.disabled=busy;button.addEventListener('click',more);box.append(button);

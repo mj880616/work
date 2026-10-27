@@ -54,3 +54,84 @@
   #appView>.app-nav .nav-btn{min-height:40px;padding:9px 10px;font-size:13px}
   .project-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
+
+/* UI-상단줄: PC(≥1024)만. 본문 칸 맨 위 얇은 줄(topbar-actions.js가 그림)과 사이드바 숨기기.
+   칸 자리: 사이드바는 첫 칸, 상단 줄·화면은 마지막 칸(grid-column:-2)이라 사이드바를 숨겨 한 칸이 되어도 같은 규칙으로 본문 전체 폭을 쓴다.
+   --kptu-topline-space(줄 높이 + 아래 간격)는 화면 높이에 맞춰 그리는 좌우·3단 화면(할 일·회의·프로젝트·담당조직)이 뺀다. */
+.app-topline{display:none}
+@media (min-width:1024px){
+  #appView{--kptu-topline-height:40px;--kptu-topline-gap:8px;--kptu-topline-space:calc(var(--kptu-topline-height) + var(--kptu-topline-gap))}
+  #appView>.app-topline{grid-column:-2 / -1;grid-row:1;display:flex;align-items:center;gap:4px;box-sizing:border-box;height:var(--kptu-topline-height);margin:0 0 var(--kptu-topline-gap);min-width:0}
+  #appView>.view-panel{grid-column:-2 / -1;grid-row:2}
+  #appView.app-view.nav-collapsed{grid-template-columns:minmax(0,1fr);column-gap:0}
+  #appView.nav-collapsed>.app-nav{display:none}
+  .app-topline .topline-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:4px;flex:0 0 auto;box-sizing:border-box;height:var(--ds-compact-height,32px);min-width:var(--ds-compact-height,32px);padding:0 8px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-muted);font-size:var(--ds-compact-text,13px);line-height:1;white-space:nowrap}
+  .app-topline .topline-btn::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+  .app-topline .topline-btn:not(:disabled):hover{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink)}
+  .app-topline .topline-btn:disabled{opacity:.35}
+  .app-topline :is(.topline-btn,.topline-where-link,.account-trigger):focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+  .app-topline .topline-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round}
+  .app-topline .topline-nav-toggle[aria-expanded="false"]{color:var(--kptu-primary-ink)}
+  .app-topline .topline-where{flex:0 1 auto;min-width:0;margin-left:6px}
+  .app-topline .topline-where ol{display:flex;align-items:center;gap:2px;margin:0;padding:0;list-style:none;min-width:0}
+  .app-topline .topline-where li{display:flex;align-items:center;min-width:0;font-size:var(--ds-compact-text,13px);color:var(--kptu-ink);white-space:nowrap}
+  .app-topline .topline-where li+li::before{content:"›";margin:0 6px;color:var(--kptu-muted)}
+  /* 홈 날짜: 폰이 위 머리줄(.mobile-shell-header time)에 날짜를 두듯 PC는 상단 줄 위치 옆에 둔다. 본문 맨 위 날짜 제목은 PC에서 숨겨 상단 줄 높이만큼 세로 자리를 돌려준다. */
+  .app-topline .topline-where{display:flex;align-items:center}
+  .app-topline .topline-date{margin-left:10px;font-size:var(--ds-compact-text,13px);color:var(--kptu-muted);white-space:nowrap}
+  .app-topline .topline-date[hidden]{display:none}
+  #appView #homeView>h2[data-home-date]{display:none}
+  .app-topline .topline-where [aria-current]{font-weight:var(--ds-weight-medium,600);overflow:hidden;text-overflow:ellipsis}
+  .app-topline .topline-where-link{position:relative;height:var(--ds-compact-height,32px);padding:0 4px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-muted);font:inherit}
+  .app-topline .topline-where-link::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+  .app-topline .topline-where-link:hover{color:var(--kptu-primary-ink);text-decoration:underline}
+  /* 전체 검색 칸 자리(SEARCH가 [data-search-slot]에 붙음). 비어 있는 동안은 가운데 빈 자리로 [+ 추가]·계정을 오른쪽 끝으로 민다. */
+  .app-topline .topline-search{flex:1 1 auto;display:flex;justify-content:center;min-width:0}
+  .app-topline .topline-add{color:var(--kptu-primary-ink)}
+  .app-topline .topline-account{flex:0 0 auto}
+  .app-topline .topline-account .account-trigger{min-height:var(--ds-compact-height,32px);height:var(--ds-compact-height,32px);padding:0 8px;font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-regular,400);position:relative}
+  .app-topline .topline-account .account-trigger::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+  .topline-add-menu{position:fixed;z-index:60;inset:auto;margin:0;box-sizing:border-box;padding:4px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto}
+  .topline-add-menu[hidden]{display:none!important}
+  .topline-add-menu button{display:flex;align-items:center;width:100%;min-height:36px;padding:6px 10px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-ink);font-size:var(--ds-compact-text,13px);text-align:left}
+  .topline-add-menu button:hover,.topline-add-menu button:focus-visible{background:var(--kptu-primary-soft);outline:none}
+}
+
+/* UI-자주가는링크 (PC 1024px~): 사이드바 맨 아래(메뉴와 빈 공간을 두고, 창이 짧아 메뉴가 길면 메뉴 바로 아래) '자주 가는 링크 ›' 줄과 그 줄 오른쪽에서 위로 열리는 작은 창(quick-links.js).
+   버튼은 UI-버튼기준의 작은 버튼(32px, 누르는 범위 44px)만 쓰고 채운 버튼은 편집의 [저장] 하나. 폰·761~1023px에는 줄이 없다. */
+#appView>.app-nav .nav-quick-links{display:none}
+.quick-links-panel[hidden]{display:none!important}
+@media (min-width:1024px){
+  /* UI-상단줄제목: 열린 노트 머리줄은 제목 줄이 없어 [복사]·[⋯]를 오른쪽 끝에 둔다. */
+  #appView #basketView .note-head-main{justify-content:flex-end}
+  #appView>.app-nav .nav-quick-links{display:flex;align-items:center;justify-content:space-between;gap:6px;flex:0 0 auto;border-top:var(--ds-line-width,1px) solid var(--kptu-border);border-radius:0 0 var(--kptu-radius-md) var(--kptu-radius-md)}
+  #appView>.app-nav .nav-quick-links span{color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
+  /* CALL-통화메뉴·TG-소식메뉴: [통화]·[텔레그램 소식]은 빈 공간 아래(맨 아래 묶음), 위쪽 가는 선으로 나눈다. */
+  #appView>.app-nav .nav-feed-first{border-top:var(--ds-line-width,1px) solid var(--kptu-border);border-radius:0 0 var(--kptu-radius-md) var(--kptu-radius-md)}
+  .quick-links-panel{position:fixed;z-index:60;inset:auto;margin:0;box-sizing:border-box;padding:10px 12px 8px;border:var(--ds-line-width,1px) solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto;overscroll-behavior:contain}
+  .quick-links-panel .ql-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 6px}
+  .quick-links-panel h2{margin:0;font-size:var(--ds-text-row,13px);font-weight:var(--ds-weight-medium,500)}
+  .quick-links-panel .ql-group{margin:0 0 8px}
+  .quick-links-panel .ql-group-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .quick-links-panel h3{margin:6px 0 4px;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,500)}
+  .quick-links-panel .ql-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 8px;margin:0;padding:0;list-style:none}
+  .quick-links-panel .ql-grid a{display:flex;align-items:center;min-height:36px;padding:0 8px;border-radius:var(--kptu-radius-sm);color:var(--kptu-ink);font-size:var(--ds-text-row,13px);text-decoration:none;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .quick-links-panel .ql-grid a:hover,.quick-links-panel .ql-grid a:focus-visible{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);outline:none}
+  .quick-links-panel .ql-empty,.quick-links-panel .ql-note{margin:4px 0;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px)}
+  .quick-links-panel .ql-note:empty{display:none}
+  .quick-links-panel .ql-btn{position:relative;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);padding:0 var(--ds-compact-pad-x,10px);border:var(--ds-line-width,1px) solid var(--kptu-border);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-primary-ink);font:inherit;font-size:var(--ds-compact-text,13px);cursor:pointer;white-space:nowrap}
+  .quick-links-panel .ql-btn::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+  .quick-links-panel .ql-btn:hover:not(:disabled){background:var(--kptu-primary-soft)}
+  .quick-links-panel .ql-btn:disabled{opacity:.55;cursor:default}
+  .quick-links-panel .ql-btn:focus-visible,.quick-links-panel .ql-handle:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:1px}
+  .quick-links-panel .ql-primary{background:var(--kptu-primary);border-color:var(--kptu-primary);color:var(--kptu-on-primary)}
+  .quick-links-panel .ql-primary:hover:not(:disabled){background:var(--kptu-primary)}
+  .quick-links-panel .ql-remove{color:var(--kptu-danger);border-color:transparent;background:transparent}
+  .quick-links-panel .ql-edit-list{margin:0;padding:0;list-style:none;display:grid;gap:4px}
+  .quick-links-panel .ql-edit-row{display:grid;grid-template-columns:28px minmax(0,2fr) minmax(0,3fr) auto;align-items:center;gap:6px;border-radius:var(--kptu-radius-sm)}
+  .quick-links-panel .ql-edit-row.ql-drop{box-shadow:inset 0 2px 0 var(--kptu-primary)}
+  .quick-links-panel .ql-handle{width:28px;height:var(--ds-compact-height,32px);padding:0;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-muted);cursor:grab;font-size:12px;letter-spacing:-2px}
+  .quick-links-panel .ql-edit-row input{box-sizing:border-box;width:100%;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);padding:0 8px;border:var(--ds-line-width,1px) solid var(--kptu-border);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px)}
+  .quick-links-panel .ql-edit-row input[aria-invalid="true"]{border-color:var(--kptu-danger);box-shadow:0 0 0 1px var(--kptu-danger)}
+  .quick-links-panel .ql-foot{position:sticky;bottom:-8px;display:flex;justify-content:flex-end;gap:6px;margin:6px -12px -8px;padding:8px 12px;background:var(--kptu-surface);border-top:var(--ds-line-width,1px) solid var(--kptu-border)}
+}

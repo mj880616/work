@@ -1,6 +1,7 @@
 import {testOrigin} from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
+import {openBasketMore,openClassification,requestClassification,handoffLine} from './helpers/basket-more.mjs';
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co',n='10000000-0000-4000-8000-000000000001',p='20000000-0000-4000-8000-000000000001',o='20000000-0000-4000-8000-000000000002',stamp='2026-10-11T01:02:03.123456Z';
 const data=()=>({schema_version:1,copied_at:stamp,items:[{note_id:n,note_updated_at:stamp,destinations:[{kind:'project',target_id:p,reason:'진행 근거 <img src=x onerror=alert(1)> https://example.org'},{kind:'organization',target_id:o,reason:'조직 근거'},{kind:'google_task',reason:'후속 작업'}]}]});
@@ -20,10 +21,10 @@ async function fixture(page){
  return r.fulfill({json:{ok:true,created,existing}});
  });
  await page.evaluate(()=>{window.__basketSaved=[];window.addEventListener('kptu:api-saved',e=>window.__basketSaved.push(e.detail));});
- await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-row]')).toHaveCount(1);
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-row]')).toHaveCount(1);await openBasketMore(page);
  return {...f,note,links,rpc,errors,events,setMissing:v=>missing=v,setRejected:v=>rejected=v};
 }
-async function open(page){await page.locator('[data-classification-open]').click();await expect(page.locator('[data-classification-input]')).toBeFocused();}
+async function open(page){await openClassification(page);}
 async function preview(page,proposal=data()){await page.locator('[data-classification-input]').fill('```json\n'+JSON.stringify(proposal,null,2)+'\n```');await page.locator('[data-classification-preview]').click();await expect(page.locator('[data-classification-note]')).toHaveCount(proposal.items.length);}
 for(const width of [390,1280])test(`record summary editing is independent, preserved and explicitly submitted ${width}`,async({page})=>{
  await page.setViewportSize({width,height:1000});const f=await fixture(page);await open(page);await preview(page);
@@ -63,20 +64,20 @@ test('record summary late confirmation cannot restore drafts after leaving baske
 });
 for(const width of [390,1280]){
  test(`classification paste preview errors selected confirm and copy notification ${width}`,async({page},info)=>{
- await page.setViewportSize({width,height:1000});const f=await fixture(page);await page.locator('[data-classification-open]').focus();await page.keyboard.press('Enter');await expect(page.locator('[data-classification-input]')).toBeFocused();
+ await page.setViewportSize({width,height:1000});const f=await fixture(page);await page.context().grantPermissions(['clipboard-read','clipboard-write']);await expect(page.locator('#basketMoreMenu [data-handoff-copy]')).toBeFocused();await page.keyboard.press('Enter');await expect(page.locator('[data-classification-input]')).toBeFocused();
  await page.screenshot({path:info.outputPath(`paste-${width}.png`),fullPage:true});
  await page.locator('[data-classification-input]').fill('説明\n'+JSON.stringify(data()));await page.locator('[data-classification-preview]').click();await expect(page.locator('[data-classification-status]')).toContainText('AI 답 전체나, 답 속 복사용 블록만 넣어 주세요');await expect(page.locator('[data-classification-confirm]')).toBeDisabled();
- f.note.updated_at='2026-10-11T01:02:03.123457Z';await preview(page);await expect(page.locator('[data-classification-note]')).toContainText('메모가 바뀌었어요');await expect(page.locator('[data-classification-choice]:enabled')).toHaveCount(0);await page.screenshot({path:info.outputPath(`preview-error-${width}.png`),fullPage:true});
+ f.note.updated_at='2026-10-11T01:02:03.123457Z';await preview(page);await expect(page.locator('[data-classification-note]')).toContainText('업데이트가 바뀌었어요');await expect(page.locator('[data-classification-choice]:enabled')).toHaveCount(0);await page.screenshot({path:info.outputPath(`preview-error-${width}.png`),fullPage:true});
  f.note.updated_at=stamp;await preview(page);await expect(page.locator('[data-classification-note]')).toContainText(f.note.raw_text.trim());await expect(page.locator('[data-classification-note]')).toContainText('현재 프로젝트');await expect(page.locator('[data-classification-note]')).toContainText('아직 지원하지 않는 항목');await expect(page.locator('[data-classification-note] img,[data-classification-note] a')).toHaveCount(0);
  await page.locator('[data-classification-choice="0:1"]').uncheck();const check=page.locator('[data-classification-choice]:enabled').first();await check.uncheck();await check.focus();await page.keyboard.press('Space');await expect(check).toBeChecked();await page.locator('[data-classification-confirm]').click();await expect(page.locator('[data-classification-status]')).toContainText('1개 연결했어요');
  expect(f.rpc[0].p_targets).toHaveLength(1);expect(f.rpc[0].p_targets[0].kind).toBe('project');expect(Object.keys(f.rpc[0])).toEqual(['p_note_id','p_note_updated_at','p_targets']);await expect(page.locator('[data-basket-row]')).toHaveCount(0);await expect(page.locator('[data-classification-note]')).toContainText('연결 완료');
- await page.locator('[data-classification-close]').click();await page.locator('[data-basket-filter="all"]').click();await expect(page.locator('[data-basket-row]')).toContainText('연결됨');await expect(page.locator('[data-basket-row]')).toContainText('현재 프로젝트');await page.screenshot({path:info.outputPath(`confirmed-${width}.png`),fullPage:true});
+ await page.locator('[data-classification-close]').click();await page.locator('[data-basket-filter="classified"]').click();await expect(page.locator('[data-basket-row]')).toContainText('분류 완료');await expect(page.locator('[data-basket-row-item]')).toContainText('현재 프로젝트');await page.screenshot({path:info.outputPath(`confirmed-${width}.png`),fullPage:true});
  expect(await page.evaluate(()=>window.__basketSaved.some(e=>e.path==='/rest/v1/rpc/app_basket_confirm_links'))).toBe(true);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(f.errors).toEqual([]);
  });
  test(`classification function unavailable isolated and stale revalidation ${width}`,async({page})=>{
  await page.setViewportSize({width,height:1000});const f=await fixture(page);await open(page);await preview(page);f.setMissing(true);await page.locator('[data-classification-choice]:enabled').first().check();await page.locator('[data-classification-confirm]').click();await expect(page.locator('[data-classification-status]')).toContainText('연결 기능 준비 중');expect(f.links).toHaveLength(0);
- await page.locator('[data-classification-close]').click();await page.locator('[data-basket-row]').click();await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await page.keyboard.press('Escape');await open(page);f.setMissing(false);await preview(page);await page.locator('[data-classification-choice]:enabled').first().check();f.setRejected('NOTE_CHANGED');await page.locator('[data-classification-confirm]').click();await expect(page.locator('[data-classification-status]')).toContainText('메모가 바뀌었어요');await expect(page.locator('[data-classification-choice]:enabled')).toHaveCount(0);
+ await page.locator('[data-classification-close]').click();await page.locator('[data-basket-row]').click();await expect(page.locator('[data-basket-text]')).toHaveValue(f.note.raw_text);await page.keyboard.press('Escape');await open(page);f.setMissing(false);await preview(page);await page.locator('[data-classification-choice]:enabled').first().check();f.setRejected('NOTE_CHANGED');await page.locator('[data-classification-confirm]').click();await expect(page.locator('[data-classification-status]')).toContainText('업데이트가 바뀌었어요');await expect(page.locator('[data-classification-choice]:enabled')).toHaveCount(0);
  expect(f.errors).toEqual(['Failed to load resource: the server responded with a status of 404 (Not Found)']);
  });
 }
@@ -103,11 +104,11 @@ for(const width of [390,1280]){
  test(`AI handoff copy full reply safe errors and connection ${width}`,async({page},info)=>{
   await page.setViewportSize({width,height:1000});const f=await fixture(page);
   await page.clock.setFixedTime(new Date('2026-10-11T12:00:00Z'));
-  f.note.attachments=[{file_name:'합성 첨부.pdf',mime_type:'application/pdf',drive_file_id:'synthetic-attachment',body:'BODY_SECRET',ocr:'OCR_SECRET'}];
+  f.note.attachments=[{file_name:'합성 첨부.pdf',mime_type:'application/pdf',drive_file_id:'synthetic-attachment',size_bytes:12,body:'BODY_SECRET',private_extra:'OCR_SECRET'}];
   await page.evaluate(()=>{window.__handoffWrites=[];Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>window.__handoffWrites.push(text)}});});
   const destinationReads=[];page.on('request',request=>{if(new URL(request.url()).pathname.endsWith('/app_spaces'))destinationReads.push(request.url());});
-  await page.locator('[data-handoff-copy]').focus();await page.keyboard.press('Enter');
-  await expect(page.locator('[data-handoff-status]')).toHaveText('복사했어요. ChatGPT나 Claude 새 대화에 붙여 넣으세요.');
+  await requestClassification(page,{keyboard:true});
+  await expect(handoffLine(page)).toHaveText('미분류 업데이트 1개 AI 분류 요청을 복사했어요. ChatGPT에 붙여 넣고, 받은 답을 아래 [분류 결과 입력]에 붙여 넣으세요.');await expect(page.locator('[data-classification-input]')).toBeFocused();
   const copied=await page.evaluate(()=>window.__handoffWrites[0]);
   for(const value of [f.note.raw_text,n,stamp,'현재 조직','현재 프로젝트','담당조직 목록 (ID · 이름)','프로젝트 목록 (ID · 이름)','synthetic-attachment','application/pdf'])expect(copied).toContain(value);
   expect(copied).not.toMatch(/BODY_SECRET|OCR_SECRET|google_task|library|write_request_candidate/);expect(f.rpc).toHaveLength(0);expect(destinationReads).toHaveLength(1);expect(new URL(destinationReads[0]).searchParams.get('owner_id')).toBe('eq.home-test');
@@ -121,7 +122,7 @@ for(const width of [390,1280]){
   const full='<script>window.__outsideExecuted=true</script>\n<img src=x onerror="window.__outsideExecuted=true">\n메모 첫 줄 → 현재 프로젝트 · 관련 업무\n```json\n'+JSON.stringify(answer,null,2)+'\n```\n끝 설명';
   f.note.updated_at='2026-10-11T01:02:03.123457Z';
   await page.locator('[data-classification-input]').fill(full);await page.locator('[data-classification-preview]').click();
-  await expect(page.locator('[data-classification-note]')).toHaveCount(1);await expect(page.locator('.basket-classification-error')).toContainText(['메모가 바뀌었어요']);
+  await expect(page.locator('[data-classification-note]')).toHaveCount(1);await expect(page.locator('.basket-classification-error')).toContainText(['업데이트가 바뀌었어요']);
   await page.screenshot({path:info.outputPath(`handoff-error-${width}.png`),fullPage:true});
   f.note.updated_at=stamp;await page.locator('[data-classification-preview]').click();await expect(page.locator('[data-classification-choice]:enabled')).toHaveCount(2);
   expect(await page.evaluate(()=>window.__outsideExecuted)).toBeUndefined();await expect(page.locator('[data-classification-rows] script,[data-classification-rows] img')).toHaveCount(0);
@@ -135,17 +136,18 @@ for(const width of [390,1280]){
  test(`AI handoff clipboard fallback and zero notes ${width}`,async({page})=>{
   await page.setViewportSize({width,height:1000});const f=await fixture(page);await page.clock.setFixedTime(new Date('2026-10-11T12:00:00Z'));
   await page.evaluate(()=>{Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw Error('permission denied');}}});});
-  await page.locator('[data-handoff-copy]').click();await expect(page.locator('[data-handoff-status]')).toHaveText("아래 '복사하기'를 눌러 주세요");
+  await requestClassification(page);await expect(page.locator('[data-handoff-status]')).toHaveText("아래 '복사하기'를 눌러 주세요");await expect(page.locator('[data-classification-panel]')).toBeHidden();
   const text=page.locator('[data-handoff-text]');await expect(text).toBeVisible();await expect(text).toHaveAttribute('readonly','');await expect(text).toBeFocused();expect(await text.inputValue()).toContain(f.note.raw_text);
   expect(await text.evaluate(el=>el.selectionStart===0&&el.selectionEnd===el.value.length)).toBe(true);
-  f.note.ai_export_allowed=false;await page.locator('[data-handoff-copy]').click();await expect(page.locator('[data-handoff-status]')).toHaveText('맡길 메모가 없어요');await expect(text).toBeHidden();await expect(text).toHaveValue('');expect(f.rpc).toHaveLength(0);expect(f.errors).toEqual([]);
+  // 복사할 메모가 없어도 창은 열린다(앞서 복사한 답을 붙여 넣을 수 있게). 알림은 한 줄.
+  f.note.ai_export_allowed=false;await requestClassification(page);await expect(handoffLine(page)).toHaveText('분류 요청할 업데이트가 없어요');await expect(page.locator('[data-classification-panel]')).toBeVisible();await expect(text).toBeHidden();await expect(text).toHaveValue('');expect(f.rpc).toHaveLength(0);expect(f.errors).toEqual([]);
  });
 }
 test('AI handoff cannot copy or restore late private content after workspace changes',async({page})=>{
  await fixture(page);await page.clock.setFixedTime(new Date('2026-10-11T12:00:00Z'));
  await page.evaluate(()=>{window.__handoffWrites=[];Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>window.__handoffWrites.push(text)}});});
  let release;const held=new Promise(r=>release=r);await page.route(SB+'/rest/v1/app_notes?**',async r=>{await held;await r.fallback();});
- await page.locator('[data-handoff-copy]').click();await expect(page.locator('[data-handoff-copy]')).toBeDisabled();
+ await requestClassification(page);await expect(page.locator('[data-handoff-copy]')).toBeDisabled();
  await page.evaluate(()=>{const rt=window.KPTURuntime,c=rt.context.read();rt.context.set({...c,workspace:{...c.workspace,id:'other-workspace'}});window.dispatchEvent(new CustomEvent('kptu:session-changed',{detail:{session:rt.session.read()}}));});release();
  await expect(page.locator('[data-handoff-copy]')).toBeEnabled();await expect(page.locator('[data-handoff-text]')).toHaveValue('');await expect(page.locator('[data-handoff-status]')).toBeEmpty();expect(await page.evaluate(()=>window.__handoffWrites)).toEqual([]);
 });
@@ -153,14 +155,14 @@ test('classification hides arbitrary server diagnostics during preview and confi
  const f=await fixture(page);await open(page);
  await page.locator('[data-classification-input]').fill('```json\n'+JSON.stringify(data())+'\n```');
  await page.evaluate(()=>{const rt=window.KPTURuntime,api=rt.api;rt.api=async(path,...args)=>{if(path.includes('app_notes'))throw Error('JSON schema UUID workspace (행 1, 열 1) SECRET');return api(path,...args);};});
- await page.locator('[data-classification-preview]').click();await expect(page.locator('[data-classification-status]')).toHaveText('메모와 연결할 곳을 확인하지 못했어요. 다시 눌러 주세요.');
+ await page.locator('[data-classification-preview]').click();await expect(page.locator('[data-classification-status]')).toHaveText('업데이트와 연결할 곳을 확인하지 못했어요. 다시 눌러 주세요.');
  expect(await page.locator('[data-classification-status]').innerText()).not.toMatch(/JSON|schema|UUID|workspace|SECRET|행 1/);expect(f.errors).toEqual([]);
 });
 test('AI handoff writes the complete text to the native Chromium clipboard',async({page})=>{
  await page.setViewportSize({width:390,height:1000});const f=await fixture(page);await page.clock.setFixedTime(new Date('2026-10-11T12:00:00Z'));
  await page.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
  f.note.raw_text='합성 메모 첫 줄\n'+('긴 합성 본문 '.repeat(1000))+'\n합성 메모 마지막 줄';
- await page.locator('[data-handoff-copy]').click();await expect(page.locator('[data-handoff-status]')).toHaveText('복사했어요. ChatGPT나 Claude 새 대화에 붙여 넣으세요.');
+ await requestClassification(page);await expect(handoffLine(page)).toHaveText('미분류 업데이트 1개 AI 분류 요청을 복사했어요. ChatGPT에 붙여 넣고, 받은 답을 아래 [분류 결과 입력]에 붙여 넣으세요.');
  const text=await page.evaluate(()=>navigator.clipboard.readText());expect(text).toContain(f.note.raw_text);expect(text).toContain('organization · '+o+' · 현재 조직');expect(text.trim()).toMatch(new RegExp('project · '+p+' · 현재 프로젝트$'));
  expect(f.rpc).toHaveLength(0);expect(f.errors).toEqual([]);
 });
@@ -187,7 +189,7 @@ for(const width of [390,1280]){
   await page.evaluate(()=>{const rt=window.KPTURuntime,api=rt.api;rt.api=async(path,...args)=>{if(path.includes('app_notes'))throw Error('synthetic read failure');return api(path,...args);};});
   await check.evaluate(el=>{for(let parent=el.parentElement;parent;parent=parent.parentElement){if(parent.scrollHeight>parent.clientHeight&&/auto|scroll/.test(getComputedStyle(parent).overflowY)){parent.scrollTop+=el.getBoundingClientRect().bottom-parent.getBoundingClientRect().bottom+2;return;}}window.scrollBy(0,el.getBoundingClientRect().bottom-innerHeight+2);});
   await expect(check).toBeInViewport({ratio:1});await expect(page.locator('.basket-approval-footer')).toBeInViewport({ratio:1});await check.dispatchEvent('click');
-  await expect(status).toHaveText('메모와 연결할 곳을 확인하지 못했어요. 다시 눌러 주세요.');await expect(status).toBeInViewport({ratio:1});
+  await expect(status).toHaveText('업데이트와 연결할 곳을 확인하지 못했어요. 다시 눌러 주세요.');await expect(status).toBeInViewport({ratio:1});
   expect(f.rpc).toHaveLength(0);expect(f.errors).toEqual([]);
  });
 }
@@ -205,7 +207,7 @@ for(const width of [390,1280]){
   await page.evaluate(()=>{window.__handoffWrites=[];Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>window.__handoffWrites.push(text)}});});
   for(const fallback of [false,true]){
    if(fallback)assignments=[];
-   await page.locator('[data-handoff-copy]').click();await expect(page.locator('[data-handoff-status]')).toHaveText('복사했어요. ChatGPT나 Claude 새 대화에 붙여 넣으세요.');
+   await requestClassification(page);await expect(handoffLine(page)).toHaveText(/AI 분류 요청을 복사했어요\. ChatGPT에 붙여 넣고/);
    const text=await page.evaluate(()=>window.__handoffWrites.at(-1));
    expect(text.match(/^project · /gm)).toHaveLength(6);
    for(const row of synthetic.expected_projects)expect(text).toContain(`project · ${row.id} · ${row.name}`);
@@ -225,3 +227,39 @@ for(const width of [390,1280]){
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(f.errors).toEqual([]);
  });
 }
+
+// BASKET-분류중복·변화반영 ②: duplicate / changed / no-basis rows (synthetic records only).
+for(const width of [412,870])test(`verdict rows: duplicate starts unchecked and can be revived, changed starts with the follow-up prefix ${width}`,async({page})=>{
+ await page.setViewportSize({width,height:1000});const f=await fixture(page);await page.clock.setFixedTime(new Date('2026-10-11T12:00:00Z'));
+ const r1='50000000-0000-4000-8000-000000000001',r2='50000000-0000-4000-8000-000000000002',other='10000000-0000-4000-8000-000000000009';
+ const rec=(id,key,target)=>({id,workspace_id:'w',summary:'기존 합성 기록',note_id:other,[key]:target,status:'confirmed',note:{id:other,workspace_id:'w',occurred_at:'2026-10-10T01:00:00Z',raw_text:'합성 원문'}});
+ await page.route(SB+'/rest/v1/app_record_links?**',r=>r.fulfill({json:r.request().url().includes('note.kind=eq.basket')?[rec(r1,'project_id',p),rec(r2,'organization_id',o)]:f.links}));
+ await open(page);
+ const proposal=data();proposal.items[0].destinations=[{kind:'project',target_id:p,reason:'같은 내용',verdict:'duplicate',compared_link_ids:[r1]},{kind:'organization',target_id:o,reason:'새 사실만',verdict:'changed',compared_link_ids:[r2]}];
+ await preview(page,proposal);
+ const dup=page.locator('[data-classification-choice="0:0"]'),chg=page.locator('[data-classification-choice="0:1"]');
+ await expect(dup).not.toBeChecked();await expect(page.locator('[data-classification-verdict="duplicate"]')).toContainText('이미 같은 내용이 기록돼 있어요');
+ await expect(chg).toBeChecked();await expect(page.locator('[data-classification-verdict="changed"]')).toContainText('달라진 점만 기록해요(후속)');
+ await expect(page.locator('[data-classification-summary="0:1"]')).toHaveValue('후속: 새 사실만');
+ await expect(page.locator('[data-classification-summary="0:0"]')).toHaveValue('같은 내용');
+ for(const box of await page.locator('.basket-classification-target').all())expect((await box.boundingBox()).height).toBeGreaterThanOrEqual(43.5);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await dup.check();await expect(dup).toBeChecked();expect(f.rpc).toHaveLength(0);
+ // A compared id that belongs to another destination is not a basis: a plain new row with a small note.
+ proposal.items[0].destinations=[{kind:'project',target_id:p,reason:'근거 없는 판정',verdict:'duplicate',compared_link_ids:[r2]}];
+ await preview(page,proposal);
+ await expect(page.locator('[data-classification-choice="0:0"]')).toBeChecked();await expect(page.locator('[data-classification-verdict="no-basis"]')).toBeVisible();await expect(page.locator('[data-classification-verdict="duplicate"]')).toHaveCount(0);
+ expect(f.errors).toEqual([]);
+});
+
+// BASKET-분류순서: the "연결할 곳" picker lists projects in the user's own project order (sort_order), not in id order.
+for(const width of [390,900,1280])test(`classification picker follows the user project order ${width}`,async({page})=>{
+ await page.setViewportSize({width,height:1000});const f=await fixture(page);
+ const q='20000000-0000-4000-8000-000000000003',r='20000000-0000-4000-8000-000000000004',k='20000000-0000-4000-8000-000000000005';
+ const row=(id,name,sort_order,extra={})=>({id,workspace_id:'w',owner_id:'home-test',name,metadata:{project_system:'v2'},status:'active',sort_order,created_at:stamp,...extra});
+ await page.route(SB+'/rest/v1/app_spaces?**',route=>route.fulfill({json:[row(p,'현재 프로젝트',30),row(q,'둘째 사업',10),row(r,'셋째 사업',20),row(k,'둘째 하위',5,{parent_id:q})]}));
+ await open(page);await preview(page);
+ const options=await page.locator('[data-classification-target-select="0:0"] option').allTextContents();
+ expect(options.map(t=>t.replace(/^.*· /,''))).toEqual(['현재 프로젝트','현재 조직','둘째 사업','둘째 하위','셋째 사업']);
+ expect(f.errors).toEqual([]);
+});

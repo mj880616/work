@@ -1,6 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import * as time from '../app/meeting-time.js';
+import {normalizeTime} from '../app/time-input.js';
+import {eventColor} from '../app/home-read-model.js';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 const source=name=>readFileSync(new URL('../app/'+name,import.meta.url),'utf8');
@@ -28,7 +30,7 @@ for(const tz of ['Asia/Seoul','Europe/Rome','America/Los_Angeles'])test(`일정 
   try{
     const values={'#eventTitle':'일정','#eventStartDate':'2026-10-01','#eventEndDate':'2026-10-01','#eventStartTime':'00:30','#eventEndTime':'01:30','#ps3MilestoneTitle':'일정','#ps3MilestoneAt':'2026-10-01T00:30','#ps3MilestoneNotes':''};
     const $=key=>({value:values[key]||'',checked:false});
-    const context=vm.createContext({...time,document:{querySelector:$},$,cmColorValue:()=>({hex:'#4285f4'}),Date});
+    const context=vm.createContext({...time,normalizeTime,document:{querySelector:$},$,cmColorValue:()=>({hex:'#4285f4'}),Date});
     const calendar=source('calendar-plus.js');vm.runInContext(calendar.slice(calendar.indexOf('function cmForm(){'),calendar.indexOf('async function cmSaveGoogle(){'))+';this.form=cmForm',context);
     assert.equal(context.form().start_iso,'2026-09-30T15:30:00.000Z');
     const project=source('project-system-v3.js');vm.runInContext(project.slice(project.indexOf('function milestoneVisibleBody(){'),project.indexOf('function milestoneFullBody('))+';this.project=milestoneVisibleBody',context);
@@ -36,7 +38,7 @@ for(const tz of ['Asia/Seoul','Europe/Rome','America/Los_Angeles'])test(`일정 
   }finally{if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous}
 });
 test('달력은 잘못된 종료일을 걸러내고 나머지 정상 일정을 유지한다',()=>{
-  const context=vm.createContext({...time,window:{matchMedia:()=>({matches:false,addEventListener(){}}),addEventListener(){}},document:{documentElement:{clientWidth:1280,clientHeight:900},addEventListener(){}}});
+  const context=vm.createContext({...time,eventColor,window:{matchMedia:()=>({matches:false,addEventListener(){}}),addEventListener(){}},document:{documentElement:{clientWidth:1280,clientHeight:900},addEventListener(){}}});
   vm.runInContext(source('calendar-month-view.js').replace(/^import .*;\n/gm,''),context);
   const month=context.window.KPTUCalendarMonthView;
   for(const end of ['invalid','2026-13-02']){

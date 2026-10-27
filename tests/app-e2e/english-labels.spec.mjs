@@ -1,9 +1,10 @@
 import {test,expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 const BASE=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
-const labels={library:['newDocumentBtn','+ 자료','+ 자료 등록'],meetings:['newMeetingBtn','+ 회의','+ 회의 결과'],projects:['newProjectBtn','+ 프로젝트','+ 프로젝트']};
+const labels={library:['newDocumentBtn','+ 자료','+ 자료 등록'],meetings:['newMeetingBtn','+ 사업 보고','+ 사업 보고'],projects:['newProjectBtn','+ 프로젝트','+ 프로젝트']};
 async function boot(page,view){
   await page.route('**/*',route=>{
     const u=new URL(route.request().url()),p=u.pathname;
@@ -23,10 +24,7 @@ async function boot(page,view){
     return ok([]);
   });
   await page.goto(loginEntry(`${BASE}/app/?view=${view}`));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('labels@example.invalid');
-  await page.locator('#authPassword').fill('fixture-password');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'labels@example.invalid');
   await ready(page,view);
 }
 async function ready(page,view){
@@ -55,9 +53,9 @@ for(const width of [390,1280])test(`active modal titles survive eyebrow removal 
   await page.setViewportSize({width,height:900});await boot(page,'library');
   await page.evaluate(()=>window.KPTUDeferredFeatures.load());
   for(const [id,title] of [
-    ['documentModal','자료 등록'],['meetingModal','회의 결과'],
-    ['libraryManageModal','자료 분류 수정'],['libraryEditModal','자료 정보 수정'],
-    ['meetingRoundDetailModal','회의 결과'],['ps3CreateModal','프로젝트 만들기'],
+    ['documentModal','자료 등록'],['meetingModal','사업 보고'],
+    ['libraryManageModal','자료 분류 수정'],['libraryEditModal','자료 수정'],
+    ['meetingRoundDetailModal','사업 보고'],['ps3CreateModal','프로젝트 만들기'],
     ['ps3DeleteModal','프로젝트 삭제'],['ps3ArchiveModal','보관한 프로젝트'],
     ['soEditModal','담당조직 추가'],['soAssignModal','담당자 지정'],['wdAffModal','협의회·사업단 소속']
   ]){
@@ -76,14 +74,14 @@ for(const width of [390,1280])test(`active modal titles survive eyebrow removal 
 test("login has its title without an English eyebrow",async({page})=>{
   await page.goto(BASE+"/app/login/");
   await expect(page.locator(".auth-card .eyebrow")).toHaveCount(0);
-  await expect(page.locator(".auth-card h1")).toHaveText("Workspace 로그인");
+  await expect(page.locator(".auth-card h1")).toHaveText("업무 공간 로그인");
 });
 
 test('all remaining label entries use the same width rule when their controls exist',async({page})=>{
   const entries=Object.values(labels);
   await page.route(BASE+'/label-fixture',route=>route.fulfill({contentType:'text/html',body:entries.map(([id])=>`<button id="${id}">fixture</button>`).join('')}));
   await page.setViewportSize({width:390,height:900});await page.goto(BASE+'/label-fixture');
-  await page.evaluate(()=>import('/app/action-labels.js?v=2'));
+  await page.evaluate(()=>import('/app/action-labels.js'));
   for(const width of [390,760,761,1280,390]){
     await page.setViewportSize({width,height:900});
     for(const [id,short,long] of entries)await expect(page.locator('#'+id)).toHaveText(width<=760?short:long);

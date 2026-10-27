@@ -1,5 +1,6 @@
-<!doctype html><html><head><meta charset="utf-8"><title>suborganization canonical fixture</title><link rel="stylesheet" href="/app/base-ui.css"><link rel="stylesheet" href="/app/suborganizations.css"><link rel="stylesheet" href="/app/workplace-detail.css"><style>.hidden{display:none}</style></head><body>
-<section id="teamView"></section>
+<!doctype html><html><head><meta charset="utf-8"><title>suborganization canonical fixture</title><link rel="stylesheet" href="/app/base-ui.css"><link rel="stylesheet" href="/app/suborganizations.css"><link rel="stylesheet" href="/app/workplace-detail.css"><link rel="stylesheet" href="/app/theme-tokens.css"><link rel="stylesheet" href="/app/ui-standard.css"><style>.hidden{display:none}</style></head><body>
+<!-- The team route always loads ui-standard.css (UI-디자인기준 3/3), whose rules are scoped to #appView #teamView. -->
+<main id="appView" class="kptu-ui-ready"><section id="teamView"></section></main>
 <div id="eventModal" class="modal hidden"><div class="modal-card"><label>설명<textarea id="eventDescription"></textarea></label><button id="saveEventBtn" type="button">저장</button></div></div>
 <div id="ciGoogleModal" class="modal hidden"><div class="modal-card"><label>메모<textarea id="ciGoogleMemo"></textarea></label><button id="ciGoogleSave" type="button">저장</button></div></div>
 <button id="openAppEventE2E" class="hidden" type="button" data-app-event="ev-keep">일정 수정</button>
@@ -31,23 +32,24 @@ const reports=[{id:'report-1',organization_id:'org-rail',week_of:'2026-09-21',su
 window.__teamAiCalls=0;window.__reportPatches=[];
 window.__deletes=[];window.__failDelete=false;window.__deleteNoRows=false;
 window.__updatePosts=[];window.__updateClock=Date.parse('2026-09-26T00:00:00Z');window.__failUpdateSave=false;
+let fixtureAffiliations=[{organization_id:'org-rail',tag_id:'tag-1',created_at:'2026-09-01T00:00:00Z'}];window.__affCalls=[];
 let assignments=fixtureParams.get('orgs')==='order'?orgs.filter(o=>o.id!=='ord-other').map(o=>({organization_id:o.id,user_id:'user-me',assigned_by:'user-me',created_at:'2026-09-15T00:00:00Z'})):[{organization_id:'org-consumer',user_id:'user-other',assigned_by:'user-me',created_at:'2026-09-15T00:00:00Z'}];
 window.__patches=[];
 window.__holdOrgSave=false;window.__failOrgSave=false;window.__holdAssigneeSave=false;
 let releaseOrgSave,releaseAssigneeSave;
 window.__orgSaveGate=new Promise(r=>releaseOrgSave=r);window.__assigneeSaveGate=new Promise(r=>releaseAssigneeSave=r);
 window.__releaseOrgSave=()=>releaseOrgSave();window.__releaseAssigneeSave=()=>releaseAssigneeSave();
-window.KPTURuntime={context:{read:()=>({user:{id:fixtureUser},workspace:{id:'ws-1'},membership:{role:fixtureRole}})},session:{ensure:async()=>true},api:async(path,opt={})=>{
+window.KPTURuntime={context:{read:()=>({user:{id:fixtureUser},workspace:{id:'ws-1'},membership:{role:fixtureRole}})},session:{ensure:async()=>true,epoch:()=>0,read:()=>({user:{id:fixtureUser}})},api:async(path,opt={})=>{
  const probe=window.__saveLockProbe;
  if(probe&&path.split('?')[0]===`/rest/v1/${probe.table}`&&opt.method===probe.method){
    probe.count++;
    if(probe.hold)await new Promise(resolve=>probe.waiters.push(resolve));
-   if(probe.fail){probe.fail=false;throw new Error('임시 저장 실패')}
+   if(probe.fail){probe.fail=false;const error=new Error('임시 저장 실패');if(probe.table==='app_suborganization_affiliations')error.status=probe.failStatus||403;throw error}
    if(probe.table==='app_suborganizations'&&opt.method==='POST'){
      const row={id:'org-new-'+probe.count,...opt.body};orgs.push(row);return [row]
    }
    if(probe.table==='app_org_affiliation_tags')return [{id:'tag-new-'+probe.count}];
-   if(probe.table==='app_suborganization_timeline'||probe.table==='app_suborganization_affiliations')return [];
+   if(probe.table==='app_suborganization_timeline')return [];
  }
  if(path==='/functions/v1/team-ai'){window.__teamAiCalls++;throw new Error('retired team-ai call')}
  if(path==='/auth/v1/user')return {id:fixtureUser,user_metadata:{display_name:fixtureRole==='viewer'?'열람자':'김명진'}};
@@ -73,12 +75,18 @@ window.KPTURuntime={context:{read:()=>({user:{id:fixtureUser},workspace:{id:'ws-
  if(path.startsWith('/rest/v1/app_suborganization_assignees?organization_id=eq.')&&path.includes('user_id=eq.user-me'))return [{user_id:'user-me'}];
  if(path.startsWith('/rest/v1/app_suborganization_assignees?organization_id=eq.')&&path.includes('user_id=eq.user-viewer'))return [];
  if(path.startsWith('/rest/v1/app_org_affiliation_tags?workspace_id=eq.ws-1'))return [{id:'tag-1',name:'궤도협의회',kind:'council',created_by:'user-me'},{id:'tag-2',name:'민자철도사업단',kind:'taskforce',created_by:'user-me'}];
- if(path.startsWith('/rest/v1/app_suborganization_affiliations?organization_id=eq.'))return [{tag_id:'tag-1',created_at:'2026-09-01T00:00:00Z'}];
+ if(path.split('?')[0]==='/rest/v1/app_suborganization_affiliations'){
+   const query=new URL(path,location.origin).searchParams,orgId=(query.get('organization_id')||'').replace(/^eq\./,'');
+   const rows=fixtureAffiliations.filter(row=>row.organization_id===orgId);
+   if(opt.method==='DELETE'){window.__affCalls.push({method:'DELETE',organization_id:orgId});fixtureAffiliations=fixtureAffiliations.filter(row=>row.organization_id!==orgId);return opt.prefer?.includes('return=representation')?structuredClone(rows):null}
+   if(opt.method==='POST'){const inserted=structuredClone(Array.isArray(opt.body)?opt.body:[opt.body]);window.__affCalls.push({method:'POST',body:inserted});fixtureAffiliations.push(...inserted);return opt.prefer?.includes('return=representation')?inserted:null}
+   const offset=Number(query.get('offset')||0),limit=Number(query.get('limit')||200);return structuredClone(rows.slice(offset,offset+limit));
+ }
  if(path==='/rest/v1/app_suborganization_assignees?select=organization_id,user_id,assigned_by,created_at')return assignments;
  if(path.startsWith('/rest/v1/app_suborganizations?id=eq.')&&opt.method==='PATCH'){
    if(window.__holdOrgSave)await window.__orgSaveGate;if(window.__failOrgSave)throw new Error('조직 저장 실패');
    const id=decodeURIComponent(path.match(/id=eq\.([^&]+)/)?.[1]||'');
-   const row=orgs.find(x=>x.id===id);if(row)Object.assign(row,opt.body||{});window.__patches.push({path,body:opt.body});return null;
+   const row=orgs.find(x=>x.id===id);if(row)Object.assign(row,opt.body||{});window.__patches.push({path,body:opt.body});return opt.prefer?.includes('return=representation')&&row?[structuredClone(row)]:null;
  }
  if(path.startsWith('/rest/v1/app_profile_workplaces?organization_id=eq.')&&opt.method==='PATCH')return null;
  if(path.startsWith('/rest/v1/app_suborganization_assignees?organization_id=eq.')&&opt.method==='DELETE'){if(window.__holdAssigneeSave)await window.__assigneeSaveGate;assignments=assignments.filter(x=>!path.includes(x.organization_id));return null}
@@ -95,11 +103,11 @@ window.KPTURuntime={context:{read:()=>({user:{id:fixtureUser},workspace:{id:'ws-
    const id=decodeURIComponent(path.match(/organization_id=eq\.([^&]+)/)?.[1]||'');
    return updates.filter(x=>x.organization_id===id).sort((a,b)=>b.occurred_at.localeCompare(a.occurred_at));
  }
- if(path.startsWith('/rest/v1/app_suborganization_weekly_reports?organization_id=eq.'))return reports.slice();
+ if(path.startsWith('/rest/v1/app_suborganization_weekly_reports?organization_id=eq.')){const id=decodeURIComponent(path.match(/organization_id=eq\.([^&]+)/)?.[1]||'');return structuredClone(reports.filter(row=>row.organization_id===id));}
  if(path.startsWith('/rest/v1/app_suborganization_weekly_reports?id=eq.')&&opt.method==='PATCH'){
    const id=decodeURIComponent(path.match(/id=eq\.([^&]+)/)?.[1]||'');
    const report=reports.find(x=>x.id===id);if(report)Object.assign(report,opt.body);
-   window.__reportPatches.push({id,body:opt.body});return null;
+   window.__reportPatches.push({id,body:opt.body});return opt.prefer?.includes('return=representation')&&report?[structuredClone(report)]:null;
  }
  return [];
 }};

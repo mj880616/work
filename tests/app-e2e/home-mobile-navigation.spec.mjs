@@ -1,9 +1,12 @@
 import {testOrigin} from './helpers/test-origin.mjs';
+import {serveBuiltShell} from './helpers/built-shell.mjs';
 import {test,expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 const app=testOrigin+'/app/';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const tabs=['home','calendar','tasks','projects','team'];
+// 8-9e-2: 폰 하단 탭 6칸 중 화면 탭 다섯(메뉴 탭은 메뉴 창을 연다). 할 일은 [일정] 탭의 [할 일] 쪽.
+const tabs=['home','basket','calendar','projects','team'];
 async function open(page,url=app+'?view=home'){
   const user={id:'home-qa',email:'home-qa@example.org'};
   await page.route(`${SB}/**`,route=>{
@@ -18,10 +21,7 @@ async function open(page,url=app+'?view=home'){
     return ok({});
   });
   await page.goto(loginEntry(url));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,user.email);
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
 }
 for(const width of [390,760,761,1024,1440])test(`home and navigation at ${width}px`,async({page})=>{
@@ -34,7 +34,8 @@ for(const width of [390,760,761,1024,1440])test(`home and navigation at ${width}
   expect(requests.some(u=>/app_tasks/.test(u))).toBe(false);
   const mobile=width<=760;
   await expect(page.locator('.mobile-tabs')).toBeVisible({visible:mobile});
-  await expect(page.locator('#mobileMenuOpen')).toBeVisible({visible:width<1024});
+  await expect(page.locator('#mobileMenuOpen')).toBeVisible({visible:width>760&&width<1024});
+  await expect(page.locator('#mobileMenuTab')).toBeVisible({visible:mobile});
   await expect(page.locator('#appView>.app-nav')).toBeVisible({visible:!mobile});
   if(mobile){
     expect(await page.locator('.mobile-tabs [data-view]').evaluateAll(ns=>ns.map(n=>n.dataset.view))).toEqual(tabs);
@@ -43,11 +44,18 @@ for(const width of [390,760,761,1024,1440])test(`home and navigation at ${width}
       const tab=page.locator(`.mobile-tabs [data-view="${view}"]`),r=await tab.boundingBox();expect(r.width).toBeGreaterThanOrEqual(44);expect(r.height).toBeGreaterThanOrEqual(44);
       await tab.click();await expect(page.locator('#'+view+'View')).toBeVisible();await expect(tab).toHaveAttribute('aria-current','page');
     }
-  }else expect(await page.locator('.app-nav .nav-btn:visible').first().getAttribute('data-view')).toBe('home');
+  }else if(width<1024)expect(await page.locator('.app-nav .nav-btn:visible').first().getAttribute('data-view')).toBe('home');
+  else{
+    // UI-PC사이드바: the top line (icon + 홈) is the home menu and carries its selection; the separate [홈] row is gone.
+    const brand=page.locator('#appView>.app-nav .sidebar-brand');
+    await expect(brand).toHaveText('홈');await expect(brand).toHaveClass(/active/);await expect(brand).toHaveAttribute('aria-current','page');
+    await expect(page.locator('#appView>.app-nav .nav-btn[data-view="home"]')).toBeHidden();
+    expect(await page.locator('.app-nav .nav-btn:visible').first().getAttribute('data-view')).toBe('basket');
+  }
 });
 test('drawer consumes history before navigation, theme and logout',async({page})=>{
   await page.setViewportSize({width:390,height:844});await open(page);
-  const drawer=page.locator('#mobileMenu'),trigger=page.locator('#mobileMenuOpen');
+  const drawer=page.locator('#mobileMenu'),trigger=page.locator('#mobileMenuTab');
   for(const close of ['outside','escape','back']){
     await trigger.click();await expect(drawer).toBeVisible();
     if(close==='outside')await drawer.click({position:{x:10,y:400}});
@@ -66,7 +74,7 @@ test('drawer consumes history before navigation, theme and logout',async({page})
 test('default is home; explicit calendar, explicit home, retired routes, project and reload preserve addresses',async({page})=>{
   await open(page,app);await expect(page.locator('#homeView')).toBeVisible();
   await page.goto(app+'?view=calendar');await expect(page.locator('#calendarView')).toBeVisible();await expect(page).toHaveURL(/view=calendar/);
-  for(const view of ['home','profile','photos','team-ai']){
+  for(const view of ['home','photos','team-ai']){
     await page.goto(app+'?view='+view);await expect(page.locator('#homeView')).toBeVisible();await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBe(view==='home'?'home':null);
   }
   await page.goto(app+'?project=missing');await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});await expect(page.locator('#projectsView')).toBeVisible();await expect(page).toHaveURL(/project=missing/);
@@ -78,6 +86,7 @@ test('mobile safe area, notices, toast, modal and keyboard keep controls reachab
   // Chromium 140 cannot set safe-area insets through CDP; substitute only the
   // environment value in the served CSS while exercising the actual declarations.
   await page.route(/\.css(?:\?|$)/,async route=>{const r=await route.fetch();await route.fulfill({response:r,body:(await r.text()).replaceAll('env(safe-area-inset-bottom)','20px')})});
+  await serveBuiltShell(page,testOrigin);
   await open(page,app);
   await expect(page.locator('.mobile-tabs')).toHaveCSS('height','76px');
   const tabs=await page.locator('.mobile-tabs').boundingBox();expect(tabs.y+tabs.height).toBe(844);
@@ -86,7 +95,8 @@ test('mobile safe area, notices, toast, modal and keyboard keep controls reachab
   await expect(page.locator('#versionNotice')).toBeVisible();
   await page.evaluate(()=>{const t=document.querySelector('#toast');t.textContent='QA';t.classList.remove('hidden')});
   const notice=await page.locator('#versionNotice').boundingBox(),toast=await page.locator('#toast').boundingBox();
-  expect(notice.y+notice.height).toBeLessThan(tabs.y);expect(toast.y+toast.height).toBeLessThan(notice.y);
+  // HOME-모바일정리①: 알림은 화면 맨 위 한 줄, 토스트는 아래 그대로라 겹치지 않는다.
+  expect(notice.y).toBe(0);expect(notice.height).toBeLessThanOrEqual(34);expect(toast.y).toBeGreaterThan(notice.y+notice.height);
   await page.locator('[data-version-dismiss]').click();
   await page.locator('.mobile-tabs [data-view="calendar"]').click();await page.locator('#newEventBtn').click();await expect(page.locator('#eventModal')).toBeVisible();
   const stacking=await page.evaluate(()=>({modal:+getComputedStyle(document.querySelector('#eventModal')).zIndex,tabs:+getComputedStyle(document.querySelector('.mobile-tabs')).zIndex}));expect(stacking.modal).toBeGreaterThan(stacking.tabs);
@@ -104,19 +114,22 @@ test('KST date crosses the day boundary independently of the browser timezone',a
   await page.clock.setFixedTime(new Date('2026-10-05T16:00:00Z'));await open(page);
   await expect(page.locator('#homeView [data-home-date]')).toHaveText('10월 6일 화요일');
 });
-test('drawer media filters and moved Drive slot run their existing handlers once',async({page})=>{
+test('drawer library item opens once and the account box has no copy-refresh row',async({page})=>{
   await page.setViewportSize({width:390,height:844});await open(page);
-  for(const type of ['statement','release']){
-    await page.locator('#mobileMenuOpen').click();await page.locator(`[data-mobile-press="${type}"]`).click();
-    await expect(page.locator(`#mediaView [data-press-type="${type}"]`)).toHaveClass(/active/);
-    await page.goBack();await expect(page.locator('#homeView')).toBeVisible();
-  }
-  let posts=0;await page.route(`${SB}/functions/v1/drive-summary`,r=>{posts++;return r.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,updated_at:new Date().toISOString(),documents:{}})})});
-  await page.locator('#mobileMenuOpen').click();await page.locator('#mobileMenu [data-drive-summary-refresh]').click();
-  await expect.poll(()=>posts).toBe(1);await expect(page.locator('#mobileMenu')).toBeHidden();
+  // The retired 성명·보도자료 item is gone from the drawer; 자료실 opens with one header name.
+  await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu [data-mobile-press]')).toHaveCount(0);
+  await expect(page.locator('#mobileMenu [data-view="media"]')).toHaveCount(0);
+  await page.locator('#mobileMenu [data-view="library"]').click();
+  await expect(page.locator('#libraryView')).toBeVisible();await expect(page.locator('[data-mobile-view-name]')).toHaveText('자료실');
+  await page.goBack();await expect(page.locator('#homeView')).toBeVisible();
+  let posts=0;await page.route(`${SB}/functions/v1/drive-summary`,r=>{posts++;return r.fulfill({contentType:'application/json',body:'{}'})});
+  await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu [data-drive-summary-refresh]')).toHaveCount(0);
+  await expect(page.locator('#mobileMenu [data-account-drive-slot]')).toHaveCount(0);
+  await expect(page.locator('#mobileAccountGroup button')).toHaveText(['내 프로필','화면 색','로그아웃']);
+  await page.keyboard.press('Escape');await expect(page.locator('#mobileMenu')).toBeHidden();
   await page.setViewportSize({width:1440,height:844});await page.setViewportSize({width:390,height:844});
-  await page.locator('#mobileMenuOpen').click();await expect(page.locator('#mobileMenu [data-account-drive-slot]')).toHaveCount(1);
-  await page.locator('#mobileMenu [data-drive-summary-refresh]').click();await expect.poll(()=>posts).toBe(2);
+  await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileAccountGroup button')).toHaveText(['내 프로필','화면 색','로그아웃']);
+  expect(posts).toBe(0);
 });
 test('native final return and browser default both open home',async({page})=>{
   await open(page,app);
@@ -129,7 +142,7 @@ test('native final return and browser default both open home',async({page})=>{
   await expect(page.locator('#homeView')).toBeVisible();await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBe(null);
   await page.goto(app);await expect(page.locator('#homeView')).toBeVisible();
 });
-test('swipes visit exactly the five bottom tabs with home and team boundaries',async({page})=>{
+test('horizontal swipes never change the tab; the bottom tabs do',async({page})=>{
   await page.setViewportSize({width:390,height:844});await open(page);
   const swipe=async direction=>{
     const view=await page.evaluate(()=>KPTURouter.current);
@@ -140,11 +153,16 @@ test('swipes visit exactly the five bottom tabs with home and team boundaries',a
         Object.defineProperty(e,'touches',{value:type==='touchend'?[]:points});Object.defineProperty(e,'changedTouches',{value:points});el.dispatchEvent(e);
       }
     },direction);
+    await page.waitForTimeout(300);
   };
-  for(const view of tabs.slice(1)){await swipe('left');await expect(page.locator('#'+view+'View')).toBeVisible();await expect(page.locator('.kptu-swipe-panel')).toHaveCount(0)}
-  await swipe('left');await expect(page.locator('.kptu-swipe-panel')).toHaveCount(0);expect(await page.evaluate(()=>KPTURouter.current)).toBe('team');
-  for(const view of tabs.slice(0,-1).reverse()){await swipe('right');await expect(page.locator('#'+view+'View')).toBeVisible();await expect(page.locator('.kptu-swipe-panel')).toHaveCount(0)}
-  await swipe('right');await expect(page.locator('.kptu-swipe-panel')).toHaveCount(0);expect(await page.evaluate(()=>KPTURouter.current)).toBe('home');
+  // UI-밀기탭이동삭제: 어느 탭에서 어느 쪽으로 밀어도 화면은 그대로다.
+  for(const view of tabs){
+    await page.locator('.mobile-tabs [data-view="'+view+'"]').first().click();
+    await expect(page.locator('#'+view+'View')).toBeVisible();
+    await swipe('left');await swipe('right');
+    expect(await page.evaluate(()=>KPTURouter.current)).toBe(view);
+    await expect(page.locator('#'+view+'View')).toBeVisible();
+  }
 });
 
  test('mobile current view label and drawer close painted and touch sizes',async({page})=>{
@@ -152,13 +170,17 @@ test('swipes visit exactly the five bottom tabs with home and team boundaries',a
   await expect(page.locator('[data-mobile-view-name]')).toBeHidden();
   await page.locator('.mobile-tabs [data-view="calendar"]').click();
   await expect(page.locator('[data-mobile-view-name]')).toHaveText('일정');
-  await expect(page.locator('[data-mobile-view-name]')).toHaveCSS('font-size','16px');
-  await expect(page.locator('[data-mobile-view-name]')).toHaveCSS('font-weight','700');
-  await page.locator('#mobileMenuOpen').click();
-  await expect(page.locator('.mobile-menu-head b')).toHaveText('메뉴');
-  const close=page.locator('[data-mobile-menu-close]');
-  const size=await close.evaluate(el=>{const r=el.getBoundingClientRect(),pseudo=getComputedStyle(el,'::before');return {w:r.width,h:r.height,left:pseudo.left,right:pseudo.right,top:pseudo.top,bottom:pseudo.bottom}});
-  expect(size).toEqual({w:32,h:32,left:'-6px',right:'-6px',top:'-6px',bottom:'-6px'});
-  const r=await close.boundingBox();await page.mouse.click(r.x-5,r.y+r.height/2);
+  // UI-디자인기준 2/3(8-9d): 일정 화면 머리줄 이름은 화면 제목 18px·중간 굵기(500).
+  await expect(page.locator('[data-mobile-view-name]')).toHaveCSS('font-size','18px');
+  await expect(page.locator('[data-mobile-view-name]')).toHaveCSS('font-weight','500');
+  await page.locator('#mobileMenuTab').click();
+  // UI-디자인손질 4: on a phone the close control is the sheet's full-width grip (32px, 44px to touch with its ::after).
+  const close=page.locator('[data-mobile-menu-close]');await expect(close).toHaveAccessibleName('메뉴 닫기');
+  const size=await close.evaluate(el=>{const r=el.getBoundingClientRect(),panel=el.closest('.mobile-menu-panel').getBoundingClientRect(),pseudo=getComputedStyle(el,'::after');return {full:r.width>=panel.width-40,h:r.height,top:pseudo.top,bottom:pseudo.bottom}});
+  expect(size).toEqual({full:true,h:32,top:'-6px',bottom:'-6px'});
+  // 폰 창은 아래에서 올라오는 동안(ds-sheet-up .2s) 손잡이 자리가 움직인다. 올라온 뒤 자리가 안정되고 누를 자리에서 손잡이가 눌리는 것을
+  // 확인한 다음 누른다(locator.click). 움직이는 중에 잰 좌표를 누르면 눌림·뗌 자리가 달라져 닫히지 않는다.
+  await page.locator('#mobileMenu .mobile-menu-panel').evaluate(el=>Promise.all(el.getAnimations().map(a=>a.finished)));
+  await close.click();
   await expect(page.locator('#mobileMenu')).toBeHidden();
  });

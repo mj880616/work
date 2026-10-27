@@ -1,4 +1,4 @@
-@import url('./list-row.css?v=1');
+@import url('./list-row.css');
 .so-team-section{margin-top:0;padding-top:0}
 .so-team-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
 .so-team-actions h3{margin:0;font-size:15px}.so-team-actions p{margin:2px 0 0;font-size:10.5px}
@@ -6,13 +6,88 @@
 .so-org-group{min-width:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface)}
 .so-card-actions,.so-assignees,.so-assignee-chips{display:none!important}
 .so-org-checks{display:grid;gap:12px;margin-top:7px}
-.so-org-checks .so-org-group{display:grid;grid-template-columns:1fr 1fr}
+.so-org-checks .so-org-group{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
 .so-org-checks .so-org-check{display:flex;flex-direction:row;align-items:center;gap:7px;min-width:0;min-height:44px;margin:0;padding:7px 8px;border:0;background:transparent;cursor:pointer}
 .so-org-checks .so-org-check input{flex:none;width:18px;height:18px;min-height:0;margin:0}
 .so-org-check small{display:none}
 .so-org-box{margin:10px 0;padding:11px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface-subtle)}.so-org-box>b{display:block;font-size:12px;margin-bottom:2px}.so-org-box>p{margin:0 0 6px;font-size:10px;color:var(--kptu-muted)}
 .so-modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}.so-admin-members{display:grid;gap:5px;margin-top:8px}.so-admin-member{display:flex!important;flex-direction:row!important;align-items:center!important;gap:7px!important;margin:0!important}.so-admin-member input{width:auto!important}
-@media(max-width:650px){.so-team-actions{align-items:center}.so-team-actions #soAddOrg{min-height:36px;padding:0 12px;font-size:var(--kptu-text-meta)}.so-org-checks .so-org-group{grid-template-columns:1fr}}
+@media(max-width:650px){.so-team-actions{align-items:center}.so-team-actions #soAddOrg{min-height:36px;padding:0 12px;font-size:var(--kptu-text-meta)}.so-org-checks .so-org-group{grid-template-columns:minmax(0,1fr)}}
 #soOrganizationList>.so-org-group{border:0;border-radius:var(--kptu-radius-md);background:transparent}
 .so-group-heading{margin:0 0 6px;font-size:12px;line-height:18px;color:var(--kptu-muted)}
 .so-group-card{min-width:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface)}
+/* ORG-PC좌우(2026-10-21): PC(1024px~) 담당조직 화면 = 왼쪽 목록 + 오른쪽 상세 칸(#wdDetailPane). 프로젝트 화면(UI-PC프로젝트좌우,
+   project-system-v3.css #ps3DetailPane)과 같은 짜임·비율(--ds-split-*): 화면 높이에 맞춘 한 페이지, 목록·상세 칸 안에서만 세로로 넘긴다.
+   상세 칸은 지금 상세 창(#wdModal)을 그 자리에 옮겨 그대로 쓴다(workplace-detail.js wdPlace). 창 겉모양만 칸에 맞추고
+   닫기 ×는 숨긴다(다른 조직을 고르면 바뀜). 761~1023px·폰은 지금처럼 목록 + 상세 창. */
+#wdDetailPane{display:none}
+@media(min-width:1024px){
+  html:has(#appView #teamView:not(.hidden)) main{padding-bottom:12px}
+  html:has(#appView #teamView:not(.hidden)) #appView>.app-nav{margin-bottom:0}
+  #appView #teamView:not(.hidden){display:flex;flex-direction:column;height:calc(100vh - 24px - var(--kptu-topline-space,0px));height:calc(100dvh - 24px - var(--kptu-topline-space,0px));min-height:420px}
+  #appView #teamView>#soTeamSection{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:minmax(0,1fr);column-gap:var(--kptu-space-3);margin:0}
+  #appView #teamView #soTeamSection>#soOrganizationList{grid-column:1;grid-row:1;align-self:start;align-content:start;max-height:100%;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;min-width:0}
+  #appView #teamView #soTeamSection>#wdDetailPane{grid-column:2;grid-row:1;display:block;min-height:0;min-width:0;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
+  #wdDetailPane .so-pane-empty{margin:0;font-size:var(--ds-text-meta);line-height:1.5;color:var(--kptu-muted)}
+  #wdDetailPane.has-org .so-pane-empty{display:none}
+  /* 고른 조직 줄: 연한 초록(프로젝트 목록의 고른 줄과 같음). */
+  #appView #teamView #soOrganizationList .kptu-list-row.is-selected{background:var(--kptu-primary-soft)}
+  /* 상세 칸 안의 상세 창(같은 요소). */
+  #wdDetailPane>#wdModal.wd-docked{position:static;inset:auto;display:block;justify-items:normal;align-items:normal;padding:0;background:transparent;z-index:auto}
+  #wdDetailPane>#wdModal.wd-docked.hidden{display:none}
+  #wdDetailPane>#wdModal.wd-docked>.wd-card{width:auto;max-width:none;max-height:none;overflow:visible;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-none);box-shadow:none;background:transparent}
+  /* ORG-PC상세정리 ①: 칸 맨 위 '담당조직' + 조직명 줄은 두지 않는다. 상단 줄 위치가 '담당조직 › 조직명'을 보여 준다
+     (topbar-actions.js kptu:where-item). 제목(#wdTitle)은 칸의 이름(aria-labelledby)으로 남는다. */
+  #wdDetailPane>#wdModal.wd-docked>.wd-card>.modal-head{display:none}
+}
+
+/* ORG-쟁의단계: 화면 제목 줄 ⋯(아래 .so-team-head), 목록 줄 꼬리표(투쟁 중·이번 주 끝남만), 쟁의 단계 관리 창. 크고 굵은 버튼 없음(UI-버튼기준). */
+#soOrganizationList{position:relative}
+.so-team-tools{position:absolute;top:2px;right:8px;z-index:1;display:flex}
+.so-team-tools .so-team-more{position:relative;width:var(--ds-compact-height);height:var(--ds-compact-height);min-height:0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:var(--ds-text-button);line-height:1;cursor:pointer}
+.so-team-tools .so-team-more::after{content:"";position:absolute;inset:-6px}
+.so-team-tools .so-team-more:hover,.so-team-tools .so-team-more[aria-expanded="true"]{background:var(--kptu-surface-subtle)}
+.so-team-tools .so-team-more:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+.so-stage-tag{white-space:nowrap;padding:1px 7px;border-radius:999px;background:var(--ds-kind-basket-soft);color:var(--ds-kind-basket-ink);font-size:var(--ds-text-meta);line-height:1.5}
+.so-stage-tag.is-end{background:var(--ds-kind-journal-soft);color:var(--ds-kind-journal-ink)}
+#appView #teamView #soOrganizationList .kptu-list-row-main.has-stage{grid-template-columns:8px minmax(0,1fr) auto 24px}
+@media(max-width:760px){#appView #teamView #soOrganizationList .kptu-list-row-main.has-stage{grid-template-columns:8px minmax(0,1fr) auto 20px}}
+/* UI-표잘림전수: 단계 표는 '…'로 자르지 않는다. 폰에서는 줄바꿈한다. */
+@media(max-width:760px){.so-stage-tag{max-width:9em;white-space:normal;overflow-wrap:anywhere}}
+.stg{display:grid;gap:6px}
+.stg-list{margin:0;padding:0;list-style:none}
+.stg-row{border-bottom:1px solid var(--kptu-border)}.stg-row:last-child{border-bottom:0}
+.stg-row.dragging{background:var(--kptu-primary-soft)}
+.stg-line{display:flex;align-items:center;gap:6px;min-height:var(--kptu-touch-target,44px)}
+.stg-grip{flex:0 0 auto;width:28px;height:var(--ds-compact-height);padding:0;border:0;background:transparent;color:var(--kptu-faint);font-size:var(--ds-text-meta);letter-spacing:-2px;cursor:grab;touch-action:none}
+.stg-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--ds-text-row)}
+.stg-tag{flex:0 0 auto;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
+.stg-sw{flex:0 0 auto;height:var(--ds-compact-height-sm);min-height:0;padding:0 8px;border:1px solid var(--kptu-border-strong);border-radius:999px;background:transparent;color:var(--kptu-faint);font-size:var(--ds-text-meta);cursor:pointer}
+.stg-sw.on{border-color:transparent;background:var(--ds-kind-basket-soft);color:var(--ds-kind-basket-ink)}
+.stg-sw.end{border-color:transparent;background:var(--ds-kind-journal-soft);color:var(--ds-kind-journal-ink)}
+.stg-more{flex:0 0 auto;position:relative;width:var(--ds-compact-height);height:var(--ds-compact-height);min-height:0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);cursor:pointer}
+.stg-more::after,.stg-grip::after{content:"";position:absolute;inset:-6px 0}.stg-grip{position:relative}
+.stg-sub{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:0 0 8px 34px;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
+.stg-link{min-height:var(--ds-compact-height-sm);padding:0 4px;border:0;background:transparent;color:var(--kptu-link);font-size:var(--ds-text-meta);cursor:pointer}
+.stg-link.danger{color:var(--kptu-danger)}
+.stg-input{flex:1 1 8em;min-width:0;height:var(--ds-compact-height);padding:0 8px;font-size:var(--ds-text-button)}
+.stg-add{display:flex;align-items:center;gap:6px}
+.stg-add-btn{justify-self:start;height:var(--ds-compact-height-sm);min-height:0;padding:0 8px;border:0;background:transparent;color:var(--kptu-muted);font-size:var(--ds-text-meta);cursor:pointer}
+.stg-note,.stg-msg{margin:0;font-size:var(--ds-text-meta);color:var(--kptu-muted)}.stg-msg:empty{display:none}.stg-msg.error{color:var(--kptu-danger)}
+/* ORG-쟁의단계 다듬기 ③: 화면 전체 ⋯는 화면 제목 '담당조직' 줄 오른쪽(#soTeamHead). 761px~: 본문 제목 줄(바구니 머리줄과 같은 글자 크기),
+   폰: 위 머리줄 "담당조직" 오른쪽 자리로 올린다(바구니 .basket-head와 같은 방식, ☰가 빠진 자리). 크기 값은 기존 토큰만. */
+#appView #teamView>.so-team-head{position:static;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:var(--ds-compact-height);margin:0 0 8px}
+#appView #teamView>.so-team-head .so-team-title{margin:0;font-size:var(--ds-text-title);font-weight:var(--ds-weight-medium);line-height:1.4}
+#appView #teamView>.so-team-head{flex:0 0 auto}
+/* 화면 오른쪽 끝에 붙으므로 누르는 범위는 위아래로만 넓힌다(좌우로 넓히면 화면이 옆으로 6px 넘친다). */
+#appView #teamView>.so-team-head .so-team-more::after{inset:-6px 0;width:auto;min-width:0;left:0;right:0}
+@media(max-width:760px){
+  #appView #teamView>.so-team-head{justify-content:flex-end;min-height:var(--kptu-touch-target,44px);margin:calc(-1 * (var(--kptu-touch-target,44px) + 12px)) 0 12px;pointer-events:none}
+  #appView #teamView>.so-team-head .so-team-title{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  #appView #teamView>.so-team-head .so-team-more{pointer-events:auto;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);font-size:22px}
+  #appView #teamView>.so-team-head .so-team-more::after{content:none}
+}
+/* REF-참고묶음 화면 2: 담당조직 목록 맨 아래 입구 한 줄 "참고 묶음 ›"(질문 1 추천안). 담당조직 줄처럼 낮은 줄, 흐린 글자. */
+#soOrganizationList .so-reference-entry{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:var(--kptu-touch-target);margin:0;padding:6px var(--kptu-space-4);border:0;border-top:var(--ds-line-width) solid var(--kptu-border);background:transparent;color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-row);text-align:left;cursor:pointer;box-sizing:border-box}
+#soOrganizationList .so-reference-entry:hover{background:var(--kptu-surface-subtle)}
+#soOrganizationList .so-reference-entry:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}

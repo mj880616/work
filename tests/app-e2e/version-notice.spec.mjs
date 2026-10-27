@@ -1,11 +1,17 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import {serveBuiltShell,shellVersion} from './helpers/built-shell.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
-const origin='http://127.0.0.1:8123';
-const html=readFileSync('app/index.html','utf8');
-const current=Number(html.match(/src="\.\/app\.js\?v=(\d+)"/)[1]);
+const origin=appOrigin;
+const current=shellVersion;
 async function boot(page,{connected=false}={}){
+  // BUG-main브라우저시험: version-notice.js skips checks while navigator.onLine is false. Chromium
+  // derives that value from the host's network interfaces, and a CI runner can report offline even
+  // though every request here is mocked. Pin it online; the offline test below overrides it again.
+  await page.addInitScript(()=>Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>true}));
+  await serveBuiltShell(page,origin);
   const user={id:'version-user',email:'version@example.org'},workspace={id:'version-workspace',name:'QA',slug:'qa'};
   let streamTitle='QA stream';
   await page.route('https://xmlkxfjeagycwttklxjw.supabase.co/**',route=>{
@@ -27,10 +33,7 @@ async function boot(page,{connected=false}={}){
     return route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
   });
   await page.goto(origin+'/app/login/?return='+encodeURIComponent(origin+'/app/?view=calendar'));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,user.email);
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
 }
 async function visible(page){
@@ -52,6 +55,13 @@ test('dismissed deployment stays dismissed in this tab; later deployment appears
   await page.clock.runFor(1001);const next=page.waitForResponse(origin+'/app/index.html');await visible(page);await next;
   await expect(notice(page)).toHaveCount(0);
   await page.clock.runFor(1001);await response(page,current+2);await visible(page);await expect(notice(page)).toBeVisible();
+});
+test('content-hash and rollback deployments differ from the running version; a dismissed hash stays dismissed',async({page})=>{
+  await boot(page);await page.clock.install();await response(page,'0123abcdef');await visible(page);
+  await expect(notice(page)).toBeVisible();await notice(page).getByRole('button',{name:'닫기',exact:true}).click();
+  await page.clock.runFor(1001);const same=page.waitForResponse(origin+'/app/index.html');await visible(page);await same;
+  await expect(notice(page)).toHaveCount(0);
+  await page.clock.runFor(1001);await response(page,current-1);await visible(page);await expect(notice(page)).toBeVisible();
 });
 test('reload without draft navigates; changed calendar input confirms first and cancel keeps draft',async({page})=>{
   await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();
@@ -92,15 +102,28 @@ test('ten minute clock checks only while visible, and offline checks are ignored
   await page.evaluate(()=>{Object.defineProperty(document,'visibilityState',{configurable:true,value:'visible'});Object.defineProperty(navigator,'onLine',{configurable:true,value:false})});
   await visible(page);await page.clock.runFor(600000);expect(count).toBe(1);
 });
-for(const width of [390,1440])test(`notice does not overlap calendar add or toast at ${width}px`,async({page})=>{
+// HOME-모바일정리①: 화면 맨 위 얇은 한 줄(아이콘 + 안내 + 글자 버튼 [새로고침] + ✕), PC·폰 같은 모양. 본문은 그만큼 아래로.
+for(const width of [390,1280,1440])test(`notice is one thin line at the top and covers nothing at ${width}px`,async({page})=>{
   await page.setViewportSize({width,height:844});await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();
+  await expect(notice(page).getByRole('status')).toHaveText('새 버전이 있어요');
   await page.locator('#toast').evaluate(el=>{el.textContent='QA toast';el.classList.remove('hidden')});
   const geometry=await page.evaluate(()=>{
-    const box=id=>{const r=document.getElementById(id).getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom}};
+    const rect=el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,height:r.height}};
+    const box=id=>rect(document.getElementById(id));
     const overlaps=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
-    const n=box('versionNotice');return {overlapAdd:overlaps(n,box('newEventBtn')),overlapToast:overlaps(n,box('toast')),overflow:document.documentElement.scrollWidth>innerWidth,hit:[...document.querySelectorAll('#versionNotice button')].map(b=>({w:b.getBoundingClientRect().width,h:b.getBoundingClientRect().height}))};
+    const n=box('versionNotice'),text=document.querySelector('#versionNotice [role="status"]');
+    const tops=[...document.querySelectorAll('#appView>:is(.mobile-shell-header,.app-topline,.app-nav)')].filter(el=>el.getClientRects().length).map(rect);
+    const reload=document.querySelector('[data-version-reload]'),rs=getComputedStyle(reload);
+    return {top:n.top,height:n.height,lines:Math.round(text.getBoundingClientRect().height/parseFloat(getComputedStyle(text).lineHeight)),
+      covers:tops.some(t=>overlaps(n,t)),overlapAdd:overlaps(n,box('newEventBtn')),overlapToast:overlaps(n,box('toast')),overflow:document.documentElement.scrollWidth>innerWidth,
+      reload:{bg:rs.backgroundColor,border:rs.borderTopWidth,h:reload.getBoundingClientRect().height},
+      hit:[...document.querySelectorAll('#versionNotice button')].map(b=>getComputedStyle(b,'::after').height)};
   });
-  expect(geometry).toMatchObject({overlapAdd:false,overlapToast:false,overflow:false});for(const b of geometry.hit){expect(b.w).toBeGreaterThanOrEqual(44);expect(b.h).toBeGreaterThanOrEqual(44)}
+  expect(geometry).toMatchObject({top:0,lines:1,covers:false,overlapAdd:false,overlapToast:false,overflow:false});
+  expect(geometry.height).toBeLessThanOrEqual(34);
+  // 글자 버튼: 색 채운 상자 아님, 보이는 높이 28px, 누르는 범위 44px.
+  expect(geometry.reload).toEqual({bg:'rgba(0, 0, 0, 0)',border:'0px',h:28});
+  expect(geometry.hit).toEqual(['44px','44px']);
   await page.screenshot({path:`test-results/version-notice-${width}.png`});
 });
 test('login does not load version checker',async({page})=>{
@@ -112,7 +135,7 @@ test('project draft uses existing confirmDiscard; accepting reloads',async({page
   await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();
   await clickView(page,'projects');
   await page.locator('[data-ps3-project="version-project"]').first().click();
-  const field=page.locator('[data-ps3-quick-progress] input').first();await expect(field).toBeVisible();await field.fill('QA draft');
+  const field=page.locator('[data-ps3-record-input] input');await expect(field).toBeVisible();await field.fill('QA draft');
   let message='';page.once('dialog',async d=>{message=d.message();await d.dismiss()});
   await notice(page).getByRole('button',{name:'새로고침',exact:true}).click();
   expect(message).toBe('저장하지 않은 프로젝트 내용이 있습니다. 이동하면서 버릴까요?');await expect(field).toHaveValue('QA draft');
@@ -154,18 +177,21 @@ async function openProject(page){
   await clickView(page,'projects');await page.locator('[data-ps3-project="version-project"]').first().click();
   await expect(page.locator('#ps3DetailModal')).toBeVisible();
 }
-test('folded project memo still confirms before reload',async({page})=>{
+// UI-프로젝트화면정리: the folded memo box is gone; an unsaved project record draft still confirms before reload.
+test('unsaved project record draft still confirms before reload',async({page})=>{
   await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();await openProject(page);
-  const section=page.locator('#ps3-memos');await section.locator('summary').click();await page.locator('#ps3MemoBody').fill('QA memo');await section.locator('summary').click();
+  const input=page.locator('#ps3-progress [data-ps3-record-input] input');await input.fill('QA record');
   const dialog=page.waitForEvent('dialog');const click=notice(page).getByRole('button',{name:'새로고침',exact:true}).click();
   const d=await dialog;expect(d.message()).toContain('저장하지 않은 프로젝트 내용');await d.dismiss();await click;
-  expect(await page.locator('#ps3MemoBody').inputValue()).toBe('QA memo');
+  expect(await input.inputValue()).toBe('QA record');
 });
 test('saved workstream reopened without edits reloads without confirmation',async({page})=>{
   await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();await openProject(page);
-  await page.locator('[data-ps3-edit-ws="version-stream"]').click();await page.locator('#ps3WsTitle').fill('Saved stream');await page.locator('#ps3WsSave').click();
-  await expect(page.locator('#ps3WorkstreamModal')).toBeHidden();await expect(page.locator('[data-ps3-edit-ws="version-stream"]')).toHaveAttribute('aria-label',/수정/);
-  await page.locator('[data-ps3-edit-ws="version-stream"]').click();await expect(page.locator('#ps3WsTitle')).toHaveValue('Saved stream');
+  // PRJ-기록입력: an old progress item without records is a record line; its menu 수정 opens the same workstream editor.
+  const editStream=async()=>{await page.locator('[data-ps3-record="version-stream"] [data-ps3-record-menu]').click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'수정'}).click();await expect(page.locator('#ps3WorkstreamModal')).toBeVisible()};
+  await editStream();await page.locator('#ps3WsTitle').fill('Saved stream');await page.locator('#ps3WsSave').click();
+  await expect(page.locator('#ps3WorkstreamModal')).toBeHidden();await expect(page.locator('[data-ps3-record="version-stream"]')).toContainText('Saved stream');
+  await editStream();await expect(page.locator('#ps3WsTitle')).toHaveValue('Saved stream');
   const dialogs=[];page.on('dialog',d=>{dialogs.push(d.message());return d.dismiss()});const reload=page.waitForEvent('framenavigated',f=>f===page.mainFrame());
   await notice(page).getByRole('button',{name:'새로고침',exact:true}).click();await reload;expect(dialogs).toEqual([]);
 });
@@ -207,7 +233,7 @@ test('restoring original calendar color removes the unsaved draft',async({page})
 test('late-created task modal connects its last control to the notice in both directions',async({page})=>{
   await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();
   await page.route('https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/google-tasks**',r=>r.fulfill({contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,pending_scope:'all',tasks:[],links:[]})}));
-  await clickView(page,'tasks');await page.locator('#newTaskBtn').click();const last=page.locator('#gtSaveBtn');await expect(last).toBeEnabled();
+  await clickView(page,'tasks');await expect(page.locator('#gtTaskSection')).toBeVisible();await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());const last=page.locator('#gtSaveBtn');await expect(last).toBeEnabled();
   await page.locator('#gtTaskModal').evaluate(el=>document.body.appendChild(el));
   await last.focus();await last.press('Tab');await expect(notice(page).locator('[data-version-reload]')).toBeFocused();
   await notice(page).locator('[data-version-reload]').press('Shift+Tab');await expect(last).toBeFocused();

@@ -1,5 +1,9 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, withReasoning } from '../_shared/ai-model.ts';
+import { outputText } from '../_shared/openai-responses.ts';
 import { HwpxReader, hwpToText } from 'npm:@ssabrojs/hwpxjs';
+import { readMultipartForm } from '../_shared/multipart.ts';
+import { createLibraryPhotoHandler } from './photo.ts';
 
 const SB=Deno.env.get('SUPABASE_URL')!;
 const SERVICE=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -19,7 +23,7 @@ async function bodyJson(r:Response){try{return await r.json()}catch{return {}}}
 async function getUser(req:Request){const token=(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');if(!token)throw new UploadError('로그인이 필요합니다.',{status:401,code:'session_required',stage:'auth'});const {data,error}=await admin.auth.getUser(token);if(error&&![400,401,403,404].includes(Number((error as any).status))){console.error('library-files auth lookup failed',error);throw new UploadError('로그인 세션을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.',{status:503,code:'auth_unavailable',stage:'auth',retryable:true})}if(error||!data.user)throw new UploadError('로그인 세션을 확인할 수 없습니다.',{status:401,code:'session_required',stage:'auth'});return data.user}
 async function driveToken(){const {data:c,error}=await admin.from('public_policy_drive_config').select('google_client_id,google_client_secret,google_refresh_token').eq('id',1).single();if(error||!c?.google_refresh_token)throw new UploadError('Google Drive 연결 설정이 필요합니다. Google Drive를 다시 연결해 주세요.',{status:424,code:'drive_not_connected',stage:'drive_token'});const r=await driveFetch('drive_token','drive_token_failed','https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:c.google_client_id,client_secret:c.google_client_secret,refresh_token:c.google_refresh_token,grant_type:'refresh_token'})});const d=await bodyJson(r);if(!r.ok||!d.access_token){console.error('library-files drive token refresh failed',{status:r.status,error:d.error||null});if(d.error==='invalid_grant'||[400,401].includes(r.status))throw new UploadError('Google Drive 토큰 갱신에 실패했습니다. Google Drive 연결이 만료됐으니 다시 연결해 주세요.',{status:424,code:'drive_auth_expired',stage:'drive_token'});throw driveUnavailable('drive_token','drive_token_failed')}return d.access_token as string}
 async function workspaceFor(userId:string){const {data:wm}=await admin.from('app_workspace_members').select('workspace_id,role').eq('user_id',userId).maybeSingle();if(wm?.role!=='owner')throw new UploadError('워크스페이스 소유자 권한이 필요합니다.',{status:403,code:'forbidden',stage:'authorize'});return wm}
-async function canEditProject(userId:string,projectId:string){const {data:p}=await admin.from('app_spaces').select('id,workspace_id,owner_id,created_by').eq('id',projectId).maybeSingle();if(!p)throw new UploadError('프로젝트를 찾을 수 없습니다.',{status:404,code:'project_not_found',stage:'project'});const {data:wm}=await admin.from('app_workspace_members').select('role').eq('workspace_id',p.workspace_id).eq('user_id',userId).maybeSingle();if(wm?.role!=='owner')throw new UploadError('워크스페이스 소유자 권한이 필요합니다.',{status:403,code:'forbidden',stage:'authorize'});return p}
+async function canEditProject(userId:string,projectId:string){const {data:p}=await admin.from('app_spaces').select('id,workspace_id,owner_id,created_by').eq('id',projectId).is('deleted_at',null).maybeSingle();if(!p)throw new UploadError('프로젝트를 찾을 수 없습니다.',{status:404,code:'project_not_found',stage:'project'});const {data:wm}=await admin.from('app_workspace_members').select('role').eq('workspace_id',p.workspace_id).eq('user_id',userId).maybeSingle();if(wm?.role!=='owner')throw new UploadError('워크스페이스 소유자 권한이 필요합니다.',{status:403,code:'forbidden',stage:'authorize'});return p}
 async function ensureRoot(workspaceId:string,token:string){const {data:s}=await admin.from('app_drive_settings').select('root_folder_id').eq('workspace_id',workspaceId).maybeSingle();if(s?.root_folder_id)return s.root_folder_id;const r=await driveFetch('drive_folder','drive_folder_failed','https://www.googleapis.com/drive/v3/files?fields=id',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({name:'공공기관사업팀 Workspace',mimeType:'application/vnd.google-apps.folder'})});const d=await bodyJson(r);if(!r.ok||!d.id){console.error('library-files drive root folder failed',{status:r.status,error:d.error?.message||null});throw driveUnavailable('drive_folder','drive_folder_failed')}await admin.from('app_drive_settings').upsert({workspace_id:workspaceId,root_folder_id:d.id,updated_at:new Date().toISOString()});return d.id}
 async function ensureLibrary(workspaceId:string,token:string){const {data:s}=await admin.from('app_drive_settings').select('library_folder_id').eq('workspace_id',workspaceId).maybeSingle();if(s?.library_folder_id)return s.library_folder_id;const root=await ensureRoot(workspaceId,token);const r=await driveFetch('drive_folder','drive_folder_failed','https://www.googleapis.com/drive/v3/files?fields=id',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({name:'자료실',mimeType:'application/vnd.google-apps.folder',parents:[root]})});const d=await bodyJson(r);if(!r.ok||!d.id){console.error('library-files drive library folder failed',{status:r.status,error:d.error?.message||null});throw driveUnavailable('drive_folder','drive_folder_failed')}await admin.from('app_drive_settings').upsert({workspace_id:workspaceId,library_folder_id:d.id,updated_at:new Date().toISOString()});return d.id}
 async function upload(file:File,folder:string,token:string){const init=await driveFetch('drive_upload_init','drive_upload_init_failed','https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,mimeType,webViewLink,size',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json; charset=UTF-8','X-Upload-Content-Type':file.type||'application/octet-stream','X-Upload-Content-Length':String(file.size)},body:JSON.stringify({name:file.name,parents:[folder]})});const loc=init.ok?init.headers.get('location'):null;if(!loc){console.error('library-files drive upload init failed',{status:init.status,body:init.ok?'missing location':(await init.text()).slice(0,300)});throw driveUnavailable('drive_upload_init','drive_upload_init_failed')}const up=await driveFetch('drive_upload','drive_upload_failed',loc,{method:'PUT',headers:{'Content-Type':file.type||'application/octet-stream','Content-Length':String(file.size)},body:file});const d=await bodyJson(up);if(!up.ok||!d.id){console.error('library-files drive upload failed',{status:up.status,error:d.error?.message||null});throw driveUnavailable('drive_upload','drive_upload_failed')}return d}
@@ -56,19 +60,18 @@ function autoDate(name:string){let m=name.match(/(20\d{2})[._-]?(0[1-9]|1[0-2])[
 function classify(text:string){const n=String(text||'');let category='기타';const rules:any=[[/보도자료/,'보도자료'],[/취재요청/,'취재요청'],[/성명|논평/,'성명·논평'],[/회의결과|회의록/,'회의결과'],[/회의|집행위|상집|중집|대표자회의|간담회/,'회의자료'],[/토론회|발제|발제문/,'토론회·발제자료'],[/교육|강의|수련회/,'교육자료'],[/교섭|임단협|단협/,'교섭자료'],[/국회|법안|의안|국정감사|국감/,'국회자료'],[/지침|고시|정부|기재부|재경부|국토부|행안부|고용노동부|노동부/,'정부자료'],[/기자회견|집회|선전|웹자보|카드뉴스/,'선전·언론자료']];for(const [re,c] of rules){if(re.test(n)){category=c;break}}const sourceCandidates=['공공운수노조','민주노총','국토교통부','국토부','기획재정부','기재부','재정경제부','재경부','행정안전부','행안부','고용노동부','노동부','국회','철도노조','궤도협의회'];const source=sourceCandidates.find(x=>n.includes(x))||null;const keywords=['총인건비','정원','인력','인력확충','2인1조','민자철도','철도','지하철','안전','기능개혁','통폐합','산별','필수유지','성과연봉제','임금','교섭','파업','외주화','민영화','운영기준','국감','공공기관','육아휴직'];const tags=keywords.filter(k=>n.includes(k));return {category,source,tags,document_date:autoDate(n)}}
 function norm(s:string){return s.toLowerCase().replace(/\s+/g,'').replace(/[^0-9a-z가-힣]/g,'')}
 function bytesToDataUrl(bytes:Uint8Array,mime:string){let bin='';for(let i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode(...bytes.subarray(i,Math.min(i+0x8000,bytes.length)));return `data:${mime||'application/octet-stream'};base64,${btoa(bin)}`}
-function outputText(r:any){for(const item of r.output||[]){if(item.type==='message'){for(const c of item.content||[]){if(c.type==='output_text'&&c.text)return c.text}}}return r.output_text||''}
 // 본문 기반 제목은 best-effort다. 응답이 늦으면 파일명 제목으로 계속 진행한다.
 const TITLE_AI_TIMEOUT_MS=20000;
-async function openAI(body:any){const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+OPENAI,'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(TITLE_AI_TIMEOUT_MS)});const d=await r.json();if(!r.ok)throw new Error(d?.error?.message||'AI 요청에 실패했습니다.');return d}
-async function workspaceModel(workspaceId:string){const {data}=await admin.from('app_ai_workspace_settings').select('default_model').eq('workspace_id',workspaceId).maybeSingle();return data?.default_model||'gpt-5.6-luna'}
+async function openAI(body:any){const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:'Bearer '+OPENAI,'Content-Type':'application/json'},body:JSON.stringify(withReasoning(body)),signal:AbortSignal.timeout(TITLE_AI_TIMEOUT_MS)});const d=await r.json();if(!r.ok)throw new Error(d?.error?.message||'AI 요청에 실패했습니다.');return d}
+async function workspaceModel(workspaceId:string){const {data}=await admin.from('app_ai_workspace_settings').select('default_model').eq('workspace_id',workspaceId).maybeSingle();return data?.default_model||DEFAULT_AI_MODEL}
 async function extractHwpText(bytes:Uint8Array,name:string){if(ext(name)==='hwp')return String(await hwpToText(bytes)).slice(0,18000);const reader=new HwpxReader();const ab=bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength);await reader.loadFromArrayBuffer(ab as ArrayBuffer);return String(await reader.extractText()).slice(0,18000)}
 function firstLikelyTitle(text:string){const lines=String(text||'').replace(/\r/g,'').split('\n').map(x=>x.trim()).filter(x=>x.length>=4&&x.length<=120);return lines.find(x=>/[가-힣A-Za-z]/.test(x)&&!/^[-–—•·※*\d\s.()]+$/.test(x))||null}
 async function inferTitleFromText(text:string,fileName:string,model:string){
   const fallback=firstLikelyTitle(text);
   if(!OPENAI)return fallback;
   const schema={type:'object',properties:{title:{type:'string'}},required:['title'],additionalProperties:false};
-  const r=await openAI({model,store:false,max_output_tokens:180,input:[{role:'developer',content:'업무 자료의 제목을 식별한다. 표지·첫 페이지·문서 머리말에 실제 제목이 있으면 그것을 우선한다. 파일관리용 표현(최종, 수정본, 확정, 인쇄용, 사본, 버전번호)은 제거한다. 실제 제목이 명시되지 않았다면 문서 내용만 근거로 80자 이내의 간결한 제목을 만든다. 없는 사실을 추가하지 않는다.'},{role:'user',content:`파일명: ${fileName}\n\n문서 앞부분:\n${String(text).slice(0,18000)}`}],text:{format:{type:'json_schema',name:'document_title',strict:true,schema}}});
-  try{const p=JSON.parse(outputText(r));return String(p.title||'').trim()||fallback}catch{return fallback}
+  const r=await openAI({model,store:false,max_output_tokens:180+AI_REASONING_TOKEN_HEADROOM,input:[{role:'developer',content:'업무 자료의 제목을 식별한다. 표지·첫 페이지·문서 머리말에 실제 제목이 있으면 그것을 우선한다. 파일관리용 표현(최종, 수정본, 확정, 인쇄용, 사본, 버전번호)은 제거한다. 실제 제목이 명시되지 않았다면 문서 내용만 근거로 80자 이내의 간결한 제목을 만든다. 없는 사실을 추가하지 않는다.'},{role:'user',content:`파일명: ${fileName}\n\n문서 앞부분:\n${String(text).slice(0,18000)}`}],text:{format:{type:'json_schema',name:'document_title',strict:true,schema}}});
+  try{const p=JSON.parse(outputText(r)??'');return String(p.title||'').trim()||fallback}catch{return fallback}
 }
 async function inferTitleFromFile(file:File,model:string){
   if(file.size>25*1024*1024)return null;
@@ -78,28 +81,81 @@ async function inferTitleFromFile(file:File,model:string){
   if(['hwp','hwpx'].includes(e)){try{return await inferTitleFromText(await extractHwpText(bytes,file.name),file.name,model)}catch{return null}}
   if(!OPENAI||!(e==='pdf'||mime==='application/pdf'||['doc','docx','ppt','pptx'].includes(e)))return null;
   const schema={type:'object',properties:{title:{type:'string'}},required:['title'],additionalProperties:false};
-  const r=await openAI({model,store:false,max_output_tokens:180,input:[{role:'developer',content:'업무 자료의 제목을 식별한다. 표지·첫 페이지에 실제 제목이 있으면 그것을 우선한다. 파일관리용 표현(최종, 수정본, 확정, 인쇄용, 사본, 버전번호)은 제거한다. 실제 제목이 명시되지 않았다면 문서 내용만 근거로 80자 이내의 간결한 제목을 만든다. 없는 사실을 추가하지 않는다.'},{role:'user',content:[{type:'input_text',text:`파일명: ${file.name}\n문서의 실제 제목을 찾아라.`},{type:'input_file',filename:file.name,file_data:bytesToDataUrl(bytes,mime),detail:'auto'}]}],text:{format:{type:'json_schema',name:'document_title',strict:true,schema}}});
-  try{const p=JSON.parse(outputText(r));return String(p.title||'').trim()||null}catch{return null}
+  const r=await openAI({model,store:false,max_output_tokens:180+AI_REASONING_TOKEN_HEADROOM,input:[{role:'developer',content:'업무 자료의 제목을 식별한다. 표지·첫 페이지에 실제 제목이 있으면 그것을 우선한다. 파일관리용 표현(최종, 수정본, 확정, 인쇄용, 사본, 버전번호)은 제거한다. 실제 제목이 명시되지 않았다면 문서 내용만 근거로 80자 이내의 간결한 제목을 만든다. 없는 사실을 추가하지 않는다.'},{role:'user',content:[{type:'input_text',text:`파일명: ${file.name}\n문서의 실제 제목을 찾아라.`},{type:'input_file',filename:file.name,file_data:bytesToDataUrl(bytes,mime),detail:'auto'}]}],text:{format:{type:'json_schema',name:'document_title',strict:true,schema}}});
+  try{const p=JSON.parse(outputText(r)??'');return String(p.title||'').trim()||null}catch{return null}
 }
+
+// LIB-수정파일교체: 같은 자료 행(app_documents)의 파일만 새 파일로 바꾼다. 제목·분류·출처·날짜·설명·태그·프로젝트·사업 보고·담당조직·칸별 기록·분류 메모는 건드리지 않는다.
+// 옛 파일은 Drive에서 지우지 않고 previous_files에 위치를 남긴다. 자료·업무공간은 서버가 DB에서 읽어 확인한다(화면 값 불신). 새 파일 기록이 실패하면 이번 요청이 올린 새 파일만 정리한다.
+const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const PREVIOUS_FILES_MAX=50;
+async function replaceDocument(workspaceId:string,file:File,documentId:string){
+  if(!UUID_RE.test(documentId))throw new UploadError('교체할 자료를 확인할 수 없습니다.',{code:'invalid_request',stage:'validate'});
+  const {data:doc,error:readError}=await admin.from('app_documents').select('id,workspace_id,file_id,file_name,mime_type,file_size,drive_url,previous_files').eq('id',documentId).maybeSingle();
+  // previous_files 칸이 없는 DB(적용 전)이면 읽기 자체가 실패한다. 파일은 올리지 않고 끝낸다.
+  if(readError){console.error('library-files replace read failed',{code:readError.code});throw new UploadError('파일 교체를 지금은 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.',{status:503,code:'replace_unavailable',stage:'db_read'})}
+  if(!doc||doc.workspace_id!==workspaceId)throw new UploadError('교체할 자료를 찾을 수 없습니다.',{status:404,code:'document_not_found',stage:'project'});
+  const previous=Array.isArray(doc.previous_files)?doc.previous_files:[];
+  if(doc.file_id&&previous.length>=PREVIOUS_FILES_MAX)throw new UploadError('이 자료는 파일을 교체한 횟수가 한도('+PREVIOUS_FILES_MAX+'번)에 도달했습니다.',{status:409,code:'too_many_replacements',stage:'validate'});
+  const token=await driveToken();
+  const folder=await ensureLibrary(workspaceId,token);
+  const df=await upload(file,folder,token);
+  const now=new Date().toISOString();
+  const oldEntry=doc.file_id?{file_id:doc.file_id,file_name:doc.file_name??null,mime_type:doc.mime_type??null,file_size:doc.file_size??null,drive_url:doc.drive_url??null,replaced_at:now}:null;
+  const patch={
+    file_id:df.id,drive_url:df.webViewLink||`https://drive.google.com/file/d/${df.id}/view`,file_name:file.name,mime_type:file.type||df.mimeType||'application/octet-stream',file_size:file.size,
+    previous_files:oldEntry?[...previous,oldEntry]:previous,reclassify_needed:true,
+    extracted_text:null,extraction_status:null,extraction_error:null,extracted_at:null,updated_at:now
+  };
+  // 읽은 뒤 파일이 바뀌었으면(다른 교체·삭제) 0행이 바뀌고 건너뛴다.
+  let q=admin.from('app_documents').update(patch).eq('id',documentId).eq('workspace_id',workspaceId);
+  q=doc.file_id?q.eq('file_id',doc.file_id):q.is('file_id',null);
+  const {data:rows,error}=await q.select('*');
+  if(error){
+    console.error('library-files replace update failed',{code:error.code,message:error.message,file_id:df.id});
+    await discardUploadedFile(df.id,token);
+    throw new UploadError(GENERIC_FAILURE,{status:500,code:'document_record_failed',stage:'db_update',retryable:true});
+  }
+  if(!Array.isArray(rows)||rows.length!==1||rows[0]?.id!==documentId||rows[0]?.file_id!==df.id){
+    await discardUploadedFile(df.id,token);
+    throw new UploadError('자료의 파일이 그 사이 바뀌었습니다. 자료실을 새로 읽은 뒤 다시 시도해 주세요.',{status:409,code:'document_changed',stage:'db_update'});
+  }
+  return json({ok:true,replaced:true,document:rows[0]});
+}
+
+// 요청이 올 때만 만든다(업로드 경로는 이 핸들러를 건드리지 않는다).
+const photoView=(req:Request,workspaceId:string,authorization:string)=>createLibraryPhotoHandler(admin,{userClient:auth=>{
+  const key=Deno.env.get('SUPABASE_ANON_KEY');
+  if(!key)throw new Error('photo caller configuration unavailable');
+  return createClient(SB,key,{auth:{persistSession:false},global:{headers:{Authorization:auth}}});
+}})(req,workspaceId,authorization);
 
 Deno.serve(async(req:Request)=>{
   if(req.method==='OPTIONS')return new Response('ok',{headers:cors});
   try{
     const user=await getUser(req);
+    // 자료 그림 작게 보기(읽기 전용). 로그인·소유자 확인은 아래 업로드와 같은 getUser·workspaceFor를 쓴다.
+    if(req.method==='GET'&&new URL(req.url).searchParams.get('action')==='photo'){
+      const wmPhoto=await workspaceFor(user.id);
+      return await photoView(req,wmPhoto.workspace_id,'Bearer '+(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,''));
+    }
     if(req.method!=='POST')return json({error:'POST only'},405);
     if((req.headers.get('content-type')||'').includes('application/json'))throw new UploadError('지원하지 않는 작업입니다.',{code:'unsupported_request'});
     let form:FormData;
-    try{form=await req.formData()}catch(e){console.error('library-files form parse failed',e);throw new UploadError('업로드 요청을 읽지 못했습니다. 다시 시도해 주세요.',{code:'invalid_request',retryable:true})}
+    // Not req.formData(): Deno cuts quoted file names at ';' and '=' (see _shared/multipart.ts).
+    try{form=await readMultipartForm(req)}catch(e){console.error('library-files form parse failed',e);throw new UploadError('업로드 요청을 읽지 못했습니다. 다시 시도해 주세요.',{code:'invalid_request',retryable:true})}
     const file=form.get('file');
     if(!(file instanceof File))throw new UploadError('파일을 선택해 주세요.',{code:'file_missing',stage:'validate'});
     if(file.size<=0)throw new UploadError('빈 파일은 업로드할 수 없습니다.',{code:'file_empty',stage:'validate'});
     if(file.size>100*1024*1024)throw new UploadError('현재 자료실 파일은 100MB까지 지원합니다.',{status:413,code:'file_too_large',stage:'validate'});
 
     const wm=await workspaceFor(user.id);
+    const replaceId=String(form.get('replace_document_id')||'').trim();
+    if(replaceId)return await replaceDocument(wm.workspace_id,file,replaceId);
     let projectId=String(form.get('project_id')||'').trim()||null;
     let meetingId=String(form.get('meeting_id')||'').trim()||null;
     if(meetingId){
-      const {data:meeting}=await admin.from('app_meetings').select('id,workspace_id,project_id,created_by').eq('id',meetingId).maybeSingle();
+      const {data:meeting}=await admin.from('app_meetings').select('id,workspace_id,project_id,created_by').eq('id',meetingId).is('deleted_at',null).maybeSingle(); // TRASH-Edge거르기2: 휴지통 사업 보고에는 자료를 붙이지 않는다
       if(!meeting||meeting.workspace_id!==wm.workspace_id)throw new UploadError('회의를 찾을 수 없습니다.',{status:404,code:'meeting_not_found',stage:'project'});
       if(meeting.project_id){if(!projectId)projectId=meeting.project_id;if(meeting.created_by!==user.id)await canEditProject(user.id,meeting.project_id)}
       else if(meeting.created_by!==user.id&&!['owner','admin','editor'].includes(wm.role))throw new UploadError('회의자료 등록 권한이 없습니다.',{status:403,code:'forbidden',stage:'authorize'});
@@ -121,7 +177,7 @@ Deno.serve(async(req:Request)=>{
 
     const auto=classify(title+' '+file.name);
     if(!projectId&&!meetingId){
-      const {data:spaces}=await admin.from('app_spaces').select('id,name').eq('workspace_id',wm.workspace_id).neq('status','archived');
+      const {data:spaces}=await admin.from('app_spaces').select('id,name').eq('workspace_id',wm.workspace_id).neq('status','archived').is('deleted_at',null);
       const fn=norm(file.name+' '+title);
       const matches=(spaces||[]).filter((s:any)=>{const nn=norm(s.name);return nn.length>=3&&fn.includes(nn)});
       if(matches.length===1)projectId=matches[0].id;

@@ -1,10 +1,12 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {test,expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 // TASK-포토룸삭제 1단계: the photo room screen and code are gone. Stored photos and DB rows are untouched here.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const app='http://127.0.0.1:8123/app/';
+const app=`${appOrigin}/app/`;
 const user={id:'photo-removed-user',email:'photo-removed@example.org',user_metadata:{display_name:'포토룸 삭제 QA'}};
 const workspace={id:'photo-removed-workspace',name:'QA Workspace'};
 const event={id:'photo-removed-event',workspace_id:workspace.id,title:'현장 일정',start_at:'2026-09-18T09:00:00+09:00',event_type:'meeting',location:'현장'};
@@ -43,10 +45,7 @@ function watchErrors(page){
 
 async function signIn(page){
   await page.goto(loginEntry(app+'?view=calendar'));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,user.email);
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
 }
 

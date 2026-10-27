@@ -1,3 +1,4 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 
@@ -23,15 +24,17 @@ test('anonymous workspace shell stays hidden until the dedicated login is ready'
     await route.continue();
   });
 
-  await page.goto('http://127.0.0.1:8123/app/', { waitUntil: 'commit' });
+  await page.goto(`${appOrigin}/app/`, { waitUntil: 'commit' });
   await expect.poll(() => appRequested, { timeout: 10000 }).toBeTruthy();
   await page.locator('#appView').waitFor({ state: 'attached', timeout: 10000 });
   await expect(page.locator('#authView')).toHaveCount(0);
 
-  const favicon = await page.locator('link[rel="icon"]').getAttribute('href');
-  expect(favicon).toBe('./app-icon.svg?v=20260924-unicorn3');
+  // UI-디자인손질 7: the SVG favicon first, a 32px PNG as a fallback for browsers without SVG favicons.
+  await expect(page.locator('link[rel="icon"]')).toHaveCount(2);
+  const favicon = await page.locator('link[rel="icon"][type="image/svg+xml"]').getAttribute('href');
+  expect(favicon).toBe('./app-icon.svg');
   await expect(page.locator('.brand .brand-icon')).toHaveCount(1);
-  await expect(page.locator('.brand .brand-icon')).toHaveAttribute('src','./app-icon.svg?v=20260924-unicorn3');
+  await expect(page.locator('.brand .brand-icon')).toHaveAttribute('src','./app-icon.svg');
   await expect(page.locator('.brand .leaf')).toHaveCount(0);
 
 
@@ -52,9 +55,9 @@ test('router restores deep links only after explicit app-ui-ready and preserves 
     body: ''
   }));
 
-  await page.goto('http://127.0.0.1:8123/app/?view=tasks', { waitUntil: 'domcontentloaded' });
+  await page.goto(`${appOrigin}/app/?view=tasks`, { waitUntil: 'domcontentloaded' });
   await installAuthenticatedRouterContext(page);
-  await page.addScriptTag({ url: 'http://127.0.0.1:8123/app/app-router.js?router-ready-e2e=1' });
+  await page.addScriptTag({ url: `${appOrigin}/app/app-router.js?router-ready-e2e=1` });
   await page.waitForFunction(() => typeof window.KPTURouter?.go === 'function');
 
   await page.evaluate(() => document.querySelector('#appView')?.classList.remove('hidden'));
@@ -96,9 +99,9 @@ test('explicit home URL opens home without leaving a broken history entry', asyn
     body: ''
   }));
 
-  await page.goto('http://127.0.0.1:8123/app/?view=home', { waitUntil: 'domcontentloaded' });
+  await page.goto(`${appOrigin}/app/?view=home`, { waitUntil: 'domcontentloaded' });
   await installAuthenticatedRouterContext(page);
-  await page.addScriptTag({ url: 'http://127.0.0.1:8123/app/app-router.js?legacy-home-e2e=1' });
+  await page.addScriptTag({ url: `${appOrigin}/app/app-router.js?legacy-home-e2e=1` });
   await page.waitForFunction(() => typeof window.KPTURouter?.go === 'function');
 
   await page.evaluate(() => {
@@ -123,7 +126,7 @@ test('authenticated deep link survives a full page reload', async ({ page }) => 
 
   const bootRouter = async suffix => {
     await installAuthenticatedRouterContext(page);
-    await page.addScriptTag({ url: `http://127.0.0.1:8123/app/app-router.js?${suffix}` });
+    await page.addScriptTag({ url: `${appOrigin}/app/app-router.js?${suffix}` });
     await page.waitForFunction(() => typeof window.KPTURouter?.go === 'function');
     await page.evaluate(() => {
       const app = document.querySelector('#appView');
@@ -133,7 +136,7 @@ test('authenticated deep link survives a full page reload', async ({ page }) => 
     });
   };
 
-  await page.goto('http://127.0.0.1:8123/app/?view=meetings', { waitUntil: 'domcontentloaded' });
+  await page.goto(`${appOrigin}/app/?view=meetings`, { waitUntil: 'domcontentloaded' });
   await bootRouter('reload-e2e=1');
   await expect(page.locator('#meetingsView')).not.toHaveClass(/\\bhidden\\b/);
 

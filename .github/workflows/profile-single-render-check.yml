@@ -9,7 +9,10 @@ on:
       - 'app/loader-v2.js'
       - 'app/styles.css'
       - 'tests/app-e2e/profile-workplaces*'
+      - 'tests/app-e2e/calendar-ref-settings.spec.mjs'
+      - 'app/calendar-ref-settings.js'
       - '.github/workflows/profile-single-render-check.yml'
+      - '.github/actions/setup-playwright/**'
   pull_request:
     branches: [main]
     paths:
@@ -18,7 +21,10 @@ on:
       - 'app/loader-v2.js'
       - 'app/styles.css'
       - 'tests/app-e2e/profile-workplaces*'
+      - 'tests/app-e2e/calendar-ref-settings.spec.mjs'
+      - 'app/calendar-ref-settings.js'
       - '.github/workflows/profile-single-render-check.yml'
+      - '.github/actions/setup-playwright/**'
 
 permissions:
   contents: read
@@ -38,7 +44,7 @@ jobs:
           test ! -f app/profile-workplace-sync.js
           if grep -q "profile-settings.css" app/styles.css; then echo 'removed profile stylesheet returned to production'; exit 1; fi
           if grep -q "profile-settings.js" app/loader-v2.js; then echo 'removed profile view returned to production'; exit 1; fi
-          grep -q "psSaveWorkplaces" app/profile-settings.js
+          grep -q "id=\"psSave\"" app/profile-settings.js
           grep -q "ps-legacy-chip" app/profile-settings.js
           grep -q "산하조직 연결 전" app/profile-settings.js
           grep -q "id=\"psLogout\"" app/profile-settings.js
@@ -63,11 +69,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 20
+          node-version: 24
           package-manager-cache: false
-      - run: |
-          npm install --no-save @playwright/test@1.55.0
-          npx playwright install --with-deps chromium
+      - name: Install Playwright
+        uses: ./.github/actions/setup-playwright
       - run: |
           python3 -m http.server 8123 >/tmp/profile-http.log 2>&1 &
           for i in $(seq 1 20); do
@@ -75,4 +80,4 @@ jobs:
             sleep 0.5
           done
           exit 1
-      - run: npx playwright test tests/app-e2e/profile-workplaces.spec.mjs --browser=chromium --workers=1 --reporter=line
+      - run: npx playwright test tests/app-e2e/profile-workplaces.spec.mjs tests/app-e2e/calendar-ref-settings.spec.mjs --browser=chromium --workers=1 --reporter=line,github

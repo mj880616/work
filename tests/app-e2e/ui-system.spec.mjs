@@ -1,6 +1,7 @@
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const APP=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
@@ -33,11 +34,8 @@ async function mockApp(page){
 
 async function signIn(page){
   await enterLogin(page);
-  await expect(page.locator('#emailAuthToggle')).toBeVisible({timeout:10000});
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await expect(page.locator('#googleLoginBtn')).toBeVisible({timeout:10000});
+  await signInWithSession(page,user.email);
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
 }
 
@@ -56,20 +54,20 @@ test('calendar uses 32px and text actions use 36px with mobile content above the
   await signIn(page);
   await expect(page.locator('#ccMobileDock')).toHaveCount(0);
 
-  const calendarAdd=await buttonHeight(page,'calendar','#newEventBtn');
-  expect(calendarAdd).toBeCloseTo(32,0);
-
-  const heights=[];
-  heights.push(await buttonHeight(page,'tasks','#newTaskBtn'));
-  const projectAdd=await buttonHeight(page,'projects','#newProjectBtn');
-  expect(projectAdd).toBe(36);
-  heights.push(await buttonHeight(page,'library','#newDocumentBtn'));
-  heights.push(await buttonHeight(page,'meetings','#newMeetingBtn'));
-
-  expect(Math.max(...heights)-Math.min(...heights)).toBeLessThanOrEqual(.5);
-  for(const height of heights)expect(height).toBeCloseTo(36,0);
+  // UI-디자인기준 3/3 2부(8-9e-2): 폰의 일정·할 일·프로젝트·자료실 추가 버튼은 하단 탭 위 동그란 [+](보이는 36px)로 한 크기.
+  const round=[];
+  round.push(await buttonHeight(page,'calendar','#newEventBtn'));
+  round.push(await buttonHeight(page,'projects','#newProjectBtn'));
+  round.push(await buttonHeight(page,'library','#newDocumentBtn'));
+  // UI-선택표시통일: 회의도 같은 동그란 [+].
+  round.push(await buttonHeight(page,'meetings','#newMeetingBtn'));
+  for(const height of round)expect(height).toBeCloseTo(36,0);
 
   await clickView(page,'tasks');
+  // UI-할일입력: the [할 일] screen has no [+] to wait on any more. Wait for the screen itself and its always-visible input, so the scroll below
+  // never runs while the screen is still hidden (scrolling a hidden row does nothing, and the router then scrolls to the top).
+  await expect(page.locator('#tasksView')).toBeVisible({timeout:10000});
+  await expect(page.locator('#tasksView .home-quick [data-quick-input]')).toBeVisible({timeout:10000});
   const rows=page.locator('#gtTaskBody .gt-row');
   await expect(rows).toHaveCount(24,{timeout:10000});
   await expect(rows.last().locator('.gt-unlinked-badge')).toHaveCount(0);

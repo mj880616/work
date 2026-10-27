@@ -1,5 +1,12 @@
 .home-choice-sheet { position:fixed; inset:auto 0 0; margin:0 auto; box-sizing:border-box; width:min(600px,100%); max-width:100%; max-height:calc(100dvh - 16px); border:0; border-radius:16px 16px 0 0; padding:16px 16px calc(16px + env(safe-area-inset-bottom)); background:var(--kptu-surface); color:var(--kptu-ink); overflow:hidden; }
 .home-choice-sheet[open] { display:flex; flex-direction:column; }
+/* BUG-내보내기탭이동: on a phone the sheet rises from just above the bottom tabs (as the menu sheet and the write window do),
+   never over them. Laid over the tabs, its lowest rows sat exactly on a tab, so the next press at the same spot after a
+   choice closed the sheet went to that tab (담당조직 under the right thumb). The tab bar already holds the safe area. */
+@media (max-width:760px) {
+  /* UI-버튼작게 ③: 일정·바구니처럼 탭 위에 전환 줄(--kptu-switch-dock, ui-standard.css)이 있으면 그 줄 위에서 올린다(같은 유령 누름이 전환 줄로 가지 않게). */
+  html:has(body.kptu-workspace-shell):not(:has(body.kptu-mobile-keyboard)) .home-choice-sheet { bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom)); max-height:calc(100dvh - 16px - var(--kptu-mobile-tab-height,0px) - var(--kptu-switch-dock,0px) - env(safe-area-inset-bottom)); padding-bottom:16px; }
+}
 .home-choice-sheet::backdrop { background:color-mix(in srgb,var(--kptu-ink) 46%,transparent); }
 body:has(.home-choice-sheet[open]) { overflow:hidden; }
 .home-choice-sheet header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; flex-shrink:0; }
@@ -11,9 +18,84 @@ body:has(.home-choice-sheet[open]) { overflow:hidden; }
 .home-choice-label { font-size:12px; color:var(--kptu-muted); margin:10px 0; }
 .home-choice-label:first-child { margin-top:0; }
 .home-choice-group { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0; }
+/* BASKET-업데이트통합: [바구니(미분류)]와 최근 칩이 한 줄에 이어 놓이도록 감싼 칸은 상자를 만들지 않는다. */
+.home-choice-inline { display:contents; }
 .home-choice-chip { position:relative; box-sizing:border-box; height:32px; min-width:44px; padding:0 10px; border:1px solid var(--kptu-border-strong); border-radius:var(--kptu-radius-pill); font-size:14px; background:var(--kptu-surface); }
 .home-choice-chip::after { content:""; position:absolute; height:38px; top:50%; left:-4px; right:-4px; transform:translateY(-50%); }
 .home-choice-sheet button[aria-pressed="true"] { background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); font-weight:700; }
 .home-choice-row { display:block; position:relative; box-sizing:border-box; width:100%; height:40px; padding:0 10px 0 calc(10px + var(--home-choice-depth)*12px); border:0; border-radius:var(--kptu-radius-sm); font-size:14px; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; background:transparent; }
 .home-choice-sheet button:focus-visible { outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
 @media (prefers-reduced-motion:no-preference) { .home-choice-sheet[open] { animation:home-choice-rise .16s ease-out; } @keyframes home-choice-rise { from { transform:translateY(100%); } to { transform:translateY(0); } } }
+/* UI-홈업데이트선택: 넓은 화면에서 홈 [업데이트 ▾] 고르기 창은 버튼 바로 옆에 뜬다(위치는 choice-sheet.js가 inline으로 정함). 폰은 위 시트 그대로. */
+.home-choice-sheet.home-choice-anchored { border-radius:var(--kptu-radius-sm,8px); padding-bottom:16px; box-shadow:0 8px 24px color-mix(in srgb,var(--kptu-ink) 22%,transparent); animation:none; }
+.home-choice-sheet.home-choice-anchored::backdrop { background:transparent; }
+/* UI-고르기창개선(PC만, 폰은 위 시트 그대로): 검색칸은 목록 위 고정, 프로젝트는 한 줄 목록(하위는 들여쓰기·흐린 글자, 작은 체크칸,
+   고른 줄은 연한 초록). "최근" 줄은 낮은 칩(고른 칩은 초록 + ✓). UPD-여러곳고르기: 담당조직도 묶음 소제목 아래 한 줄 목록. */
+.home-choice-search-box { flex-shrink:0; margin:0 0 8px; }
+.home-choice-sheet:not(.home-choice-anchored) .home-choice-search-box { display:none; }
+.home-choice-search { box-sizing:border-box; width:100%; height:32px; padding:0 10px; border:1px solid var(--kptu-border-strong); border-radius:var(--ds-radius-control,8px); font:inherit; font-size:13px; color:var(--kptu-ink); background:var(--kptu-surface); }
+.home-choice-empty { margin:8px 0 0; font-size:12px; color:var(--kptu-muted); }
+.home-choice-check { display:none; }
+/* UPD-여러곳고르기 ①: 담당조직도 프로젝트처럼 — 묶음 이름은 작은 소제목, 그 아래 조직은 한 줄에 하나(폰·PC 공통). */
+.home-choice-group-name { display:block; margin:10px 0 2px; font-size:12px; line-height:18px; color:var(--kptu-muted); }
+.home-choice-org-group:first-child > .home-choice-group-name { margin-top:0; }
+.home-choice-org-items { display:block; }
+.home-choice-sheet [hidden] { display:none !important; }
+.home-choice-sheet.home-choice-anchored .home-choice-pick { display:flex; align-items:center; gap:8px; height:32px; padding:0 8px 0 calc(8px + var(--home-choice-depth)*16px); border:0; border-radius:var(--ds-radius-control,8px); font-weight:var(--ds-weight-regular,400); color:var(--kptu-ink); background:transparent; }
+.home-choice-sheet.home-choice-anchored .home-choice-pick + .home-choice-pick { margin-top:1px; }
+.home-choice-sheet.home-choice-anchored .home-choice-pick:hover { background:var(--kptu-primary-soft); }
+.home-choice-sheet.home-choice-anchored .home-choice-pick .home-choice-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.home-choice-sheet.home-choice-anchored .home-choice-pick:not([data-depth="0"]) .home-choice-name { color:var(--kptu-muted); }
+/* PRJ-3단: 검색 중에만 세 번째 단계 줄 끝에 "1단 › 2단" 경로를 작은 회색 글자로. */
+.home-choice-sheet.home-choice-anchored .home-choice-path { flex:0 1 auto; min-width:0; margin-left:auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:var(--ds-text-meta,12px); color:var(--kptu-faint); }
+.home-choice-sheet.home-choice-multi .home-choice-pick { display:flex; align-items:center; gap:10px; }
+.home-choice-sheet.home-choice-multi .home-choice-pick .home-choice-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.home-choice-sheet:is(.home-choice-anchored,.home-choice-multi) .home-choice-check { display:inline-grid; place-items:center; flex:none; box-sizing:border-box; width:14px; height:14px; border:1px solid var(--kptu-border-strong); border-radius:3px; font-size:10px; line-height:1; color:var(--kptu-on-primary); background:var(--kptu-surface); }
+.home-choice-sheet.home-choice-anchored .home-choice-pick[aria-pressed="true"] { background:var(--kptu-success-soft); color:var(--kptu-ink); font-weight:var(--ds-weight-medium,500); }
+.home-choice-sheet:is(.home-choice-anchored,.home-choice-multi) .home-choice-pick[aria-pressed="true"] .home-choice-check { border-color:var(--kptu-success); background:var(--kptu-success); }
+.home-choice-sheet:is(.home-choice-anchored,.home-choice-multi) .home-choice-pick[aria-pressed="true"] .home-choice-check::after { content:"✓" / ""; }
+.home-choice-sheet.home-choice-multi:not(.home-choice-anchored) .home-choice-check { width:18px; height:18px; font-size:12px; border-radius:4px; }
+.home-choice-sheet.home-choice-anchored .home-choice-row.basket-choice-done { display:flex; align-items:center; height:32px; padding-left:calc(30px + var(--home-choice-depth,0)*16px); border:0; font-size:13px; }
+.home-choice-sheet.home-choice-anchored .home-choice-group-name { line-height:24px; margin:6px 0 0; }
+.home-choice-sheet.home-choice-anchored .home-choice-org-group:first-child > .home-choice-group-name { margin-top:0; }
+.home-choice-sheet.home-choice-anchored .home-choice-group { row-gap:8px; }
+.home-choice-sheet.home-choice-anchored .home-choice-chip { height:auto; min-height:24px; max-width:100%; padding:2px 8px; font-size:13px; line-height:18px; white-space:normal; text-align:left; overflow-wrap:anywhere; }
+.home-choice-sheet.home-choice-anchored .home-choice-chip::after { height:32px; left:-3px; right:-3px; }
+.home-choice-sheet.home-choice-anchored .home-choice-chip[aria-pressed="true"] { border-color:var(--kptu-success); background:var(--kptu-success-soft); color:var(--kptu-success); font-weight:var(--ds-weight-medium,500); }
+.home-choice-sheet.home-choice-anchored .home-choice-chip[aria-pressed="true"]::before { content:"✓" / ""; margin-right:4px; }
+/* UI-기록할곳창PC(넓은 PC 1024px~, 기록할 곳 창만): 제목 옆 검색칸, 그 아래 "최근" 한 줄, 그 아래 왼쪽 담당조직(묶음별 줄) / 오른쪽
+   프로젝트(한 줄 목록). 창 높이는 버튼 아래 남은 화면만큼이고, 항목이 많으면 각 열 안에서만 스크롤한다. 폰·중간 폭은 위아래 그대로. */
+.home-choice-sheet.home-choice-split header { gap:12px; }
+.home-choice-sheet.home-choice-split h2 { flex:none; }
+.home-choice-sheet.home-choice-split header .home-choice-search { flex:1 1 auto; width:auto; min-width:0; max-width:360px; margin-left:auto; }
+.home-choice-sheet.home-choice-split .home-choice-search-box { margin:0; }
+.home-choice-sheet.home-choice-split .home-choice-empty { margin:0 0 8px; }
+.home-choice-sheet.home-choice-split [data-sheet-content] { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); grid-template-rows:auto minmax(0,1fr); column-gap:20px; overflow:hidden; }
+.home-choice-sheet.home-choice-split [data-sheet-recent-block] { grid-row:1; grid-column:1 / -1; padding-bottom:4px; margin-bottom:8px; border-bottom:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border)); }
+.home-choice-sheet.home-choice-split [data-sheet-recent-block] .home-choice-group { margin:6px 0; }
+.home-choice-sheet.home-choice-split .home-choice-col { grid-row:2; display:flex; flex-direction:column; min-height:0; min-width:0; }
+.home-choice-sheet.home-choice-split .home-choice-col > .home-choice-label { flex:none; margin:0 0 6px; }
+.home-choice-sheet.home-choice-split .home-choice-col > [data-sheet-part] { flex:1 1 auto; min-height:0; overflow:auto; overscroll-behavior:contain; padding:2px 4px 2px 2px; margin:-2px -4px -2px -2px; }
+.home-choice-sheet.home-choice-split [data-sheet-col]:last-child:not(:nth-child(3)) { grid-column:1 / -1; }
+/* UPD-여러곳고르기 ③: 여러 곳을 고르는 창은 아래쪽에 왼쪽 "N곳 선택됨", 오른쪽 [취소] [저장]. 저장을 눌러야 닫힌다.
+   폰은 창 맨 아래에 고정(목록만 스크롤), PC는 창 오른쪽 아래. */
+.home-choice-foot { display:flex; align-items:center; gap:8px; flex-shrink:0; margin:10px -16px 0; padding:10px 16px 0; border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border)); background:var(--kptu-surface); }
+.home-choice-foot[hidden] { display:none; }
+.home-choice-count { margin-right:auto; min-width:0; font-size:13px; color:var(--kptu-muted); }
+.home-choice-sheet .home-choice-foot button { box-sizing:border-box; min-width:64px; height:var(--kptu-touch-target,44px); padding:0 16px; border:1px solid var(--kptu-border-strong); border-radius:var(--ds-radius-control,8px); font-size:14px; background:var(--kptu-surface); }
+.home-choice-sheet .home-choice-foot .home-choice-save { border-color:var(--kptu-primary); background:var(--kptu-primary); color:var(--kptu-on-primary); font-weight:var(--ds-weight-medium,500); }
+.home-choice-sheet.home-choice-anchored .home-choice-foot button { height:32px; padding:0 14px; font-size:13px; }
+/* PC: 아래 줄이 창 높이를 덜 쓰도록 간격을 줄인다(1280×800에서 두 열이 스크롤 없이 보이게). 누르는 범위는 ::after 44px. */
+.home-choice-sheet.home-choice-anchored.home-choice-multi { padding-bottom:12px; }
+.home-choice-sheet.home-choice-anchored .home-choice-foot { margin-top:6px; padding-top:8px; }
+.home-choice-sheet.home-choice-anchored .home-choice-foot button { position:relative; }
+.home-choice-sheet.home-choice-anchored .home-choice-foot button::after { content:""; position:absolute; left:0; right:0; top:50%; height:var(--kptu-touch-target,44px); transform:translateY(-50%); }
+/* 조직 이름은 줄이지 않는다(긴 이름은 줄 안에서 줄바꿈). */
+.home-choice-sheet .home-choice-org-items .home-choice-pick { height:auto; min-height:var(--kptu-touch-target,44px); white-space:normal; overflow:visible; text-overflow:clip; }
+.home-choice-sheet .home-choice-org-items .home-choice-pick .home-choice-name { white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; }
+/* 넓은 PC(1024px~) 나란히 배치: 조직 열 안에서 묶음을 두 단으로 흘려 1280×800에서도 스크롤 없이 한 번에 보이게(UI-기록할곳창PC).
+   묶음은 단 사이에서 쪼개지지 않고, 각 조직은 여전히 한 줄에 하나. */
+.home-choice-sheet.home-choice-split [data-sheet-all] { columns:2; column-gap:12px; }
+.home-choice-sheet.home-choice-split [data-sheet-all] .home-choice-org-group { break-inside:avoid; }
+.home-choice-sheet.home-choice-split [data-sheet-all] .home-choice-org-group:not(:first-child) > .home-choice-group-name { margin-top:6px; }
+.home-choice-sheet.home-choice-anchored .home-choice-org-items .home-choice-pick { min-height:32px; padding-top:4px; padding-bottom:4px; line-height:20px; }

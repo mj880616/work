@@ -7,10 +7,10 @@ const read=path=>readFileSync(path,'utf8');
 const inventory=[
   ['app/index.html','WEB2','업무 공간을 확인하고 있습니다.'],
   ['app/index.html','LIBRARY','자료 등록'],
-  ['app/index.html','MEETING RESULT','회의 결과'],
+  ['app/index.html','MEETING RESULT','사업 보고'],
   ['app/library-upload.js','LIBRARY','자료 분류 수정'],
-  ['app/library-upload.js','EDIT METADATA','자료 정보 수정'],
-  ['app/meeting-round-detail.js','MEETING RESULT','회의 결과'],
+  ['app/library-upload.js','EDIT METADATA','자료 수정'],
+  ['app/meeting-round-detail.js','MEETING RESULT','사업 보고'],
   ['app/project-system-v3.js','PROJECT','프로젝트 만들기'],
   ['app/project-system-v3.js','DELETE PROJECT','프로젝트 삭제'],
   ['app/project-system-v3.js','ARCHIVED PROJECTS','보관한 프로젝트'],
@@ -18,7 +18,7 @@ const inventory=[
   ['app/suborganizations.js','ASSIGNEES','담당자 지정'],
   ['app/workflow-ai-v3.js','AI MEETING DRAFT','회의 결과 초안 만들기'],
   ['app/workplace-detail.js','AFFILIATIONS','협의회·사업단 소속'],
-  ['app/login/index.html','KPTU PUBLIC INSTITUTIONS TEAM','Workspace 로그인']
+  ['app/login/index.html','KPTU PUBLIC INSTITUTIONS TEAM','업무 공간 로그인']
 ];
 for(const [file,label,title] of inventory)test(`${file}: remove ${label}, keep ${title}`,()=>{
   const source=read(file);

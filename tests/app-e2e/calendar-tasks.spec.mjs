@@ -1,8 +1,10 @@
 import { test, expect } from '@playwright/test';
 
 // Existing month-view regressions choose month explicitly.
-test.beforeEach(async({page})=>{await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}})});
+test.beforeEach(async({page})=>{await installViewPrefsServer(page,{calendar_view:'month'})});
 import { loginEntry } from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
 // CAL-할일: Google tasks on the month calendar by due date. Pending tasks sit on their due date (overdue ones too), tasks
 // completed in the last 3 days are struck and faded, undated tasks are left out, a tap opens the existing task editor, a
@@ -47,10 +49,7 @@ async function setup(page,{now=NOW,handler}={}){
 }
 async function login(page){
   await page.goto(loginEntry(`${TEST_ORIGIN}/app/?view=calendar`));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('qa@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'qa@example.org');
   await ready(page);
 }
 async function ready(page){
@@ -199,7 +198,7 @@ for(const [label,now,overdue14] of [
     test(`due dates stay on their day ${label} (${timezoneId})`,async({browser})=>{
       const context=await browser.newContext({timezoneId});
       const page=await context.newPage();
-      await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}});
+      await installViewPrefsServer(page,{calendar_view:'month'});
       await setup(page,{now:Date.parse(now),handler:()=>({body:overview([
         gt('d14','14일 할 일','2026-10-14T00:00:00.000Z'),
         gt('d15','15일 할 일','2026-10-15T00:00:00.000Z')

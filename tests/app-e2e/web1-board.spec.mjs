@@ -1,11 +1,14 @@
+import { appOrigin } from './helpers/test-origin.mjs';
+import {openLegacyBoard} from './helpers/legacy-board.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { loginEntry } from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const app='http://127.0.0.1:8123/app/';
+const app=`${appOrigin}/app/`;
 const user={id:'board-user',email:'board@example.org',user_metadata:{display_name:'게시판 QA'}};
 const cases=[
   {title:'위험업무 2인1조 법제화',repo:'2in1/index.html',canonical:'https://work.bokdoong.com/work/2in1/',source:'2in1/index.html'},
@@ -35,10 +38,7 @@ async function mockApp(page,{archived=[]}={}){
 }
 async function signIn(page){
   await page.goto(loginEntry(app));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,user.email);
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
 }
 
@@ -50,12 +50,12 @@ for(const width of [390,1440])test('compact board cards show only their title an
   await page.setViewportSize({width,height:900});
   const baseline=await browser.newPage({viewport:{width,height:900}});
   const mainCSS=execFileSync('git',['show','589d7eee99eeaf88b4b87498d42842aa74d9f401:app/web1-board.css'],{encoding:'utf8'});
-  await baseline.route('**/app/web1-board.css?*',route=>route.fulfill({contentType:'text/css',body:mainCSS}));
+  await baseline.route('**/app/web1-board.css*',route=>route.fulfill({contentType:'text/css',body:mainCSS}));
   for(const p of [page,baseline]){
     await mockApp(p,{archived:['sanbyeol']});
     await p.route('https://raw.githubusercontent.com/mj880616/work/main/**',route=>route.fulfill({contentType:'text/plain; charset=utf-8',body:'<!doctype html><html><body><main id="embeddedBoard">board reader</main></body></html>'}));
     await signIn(p);
-    await clickView(p,'pages');
+    await clickView(p,'pages');await openLegacyBoard(p);
     await expect(p.locator('#pagesView')).toHaveAttribute('data-web1-board-ready','1');
     await p.locator('#web1BoardArchivedWrap summary').click();
   }
@@ -63,22 +63,24 @@ for(const width of [390,1440])test('compact board cards show only their title an
     const selector='[data-web1-board-title="'+item.title+'"]';
     const card=page.locator(selector);
     await expect(card.locator('h3')).toBeVisible();
-    await expect(card.locator('h3')).toHaveCSS('font-size','16px');
+    await expect(card.locator('h3')).toHaveCSS('font-size','13px'); // 8-9e-3: 목록 줄 이름 13px
     await expect(card.locator('h3')).toHaveCSS('margin','0px');
     await expect(card.locator('.w1b-card-top')).toBeHidden();
     await expect(card.locator('p')).toBeHidden();
     await expect(card.locator('.w1b-open')).toBeHidden();
     await expect(card).toHaveAccessibleName(item.title);
     await expect(card).toMatchAriaSnapshot('- button "'+item.title+'"');
-    await expect(card).toHaveCSS('padding','14px 16px');
-    await expect(card).toHaveCSS('border-radius','12px');
+    // UI-디자인기준 3/3 3부(8-9e-3): 카드 대신 상자 안 줄(위아래 9px·좌우 12px, 모서리 없음, 줄 44px).
+    await expect(card).toHaveCSS('padding','9px 12px');
+    await expect(card).toHaveCSS('border-radius','0px');
     expect((await card.boundingBox()).height).toBeLessThan((await baseline.locator(selector).boundingBox()).height);
   }
   for(const id of ['web1BoardActive','web1BoardArchived']){
     const grid=page.locator('#'+id);
     await expect(grid).toHaveCSS('gap','10px');
     const columns=await grid.evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length);
-    expect(columns).toBe(width===390?1:2);
+    // 8-9e-3: PC도 한 상자 안 줄 목록(격자 대신 블록).
+    expect(await grid.evaluate(el=>getComputedStyle(el).display)).toBe('block');void columns;
   }
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(0);
   const modal=page.locator('#web1BoardDetailModal');
@@ -114,7 +116,7 @@ test('Web2 board renders all five business pages from repository HTML source and
     });
   });
   await signIn(page);
-  await clickView(page,'pages');
+  await clickView(page,'pages');await openLegacyBoard(page);
   await expect(page.locator('#pagesView')).toBeVisible();
   await expect(page.locator('#web1BoardActive .w1b-card')).toHaveCount(5);
 
@@ -152,7 +154,7 @@ test('mobile Web1 board detail is a full-screen reader without duplicate visible
     body:'<!doctype html><html><body><main id="embeddedBoard">mobile board</main></body></html>'
   }));
   await signIn(page);
-  await clickView(page,'pages');
+  await clickView(page,'pages');await openLegacyBoard(page);
   await page.locator('[data-web1-board-title="위험업무 2인1조 법제화"]').click();
 
   const modal=page.locator('#web1BoardDetailModal');
@@ -200,7 +202,7 @@ test('Web1 board internal links stay in the reader and load the linked repositor
     await route.fulfill({status:200,contentType:'text/plain; charset=utf-8',body});
   });
   await signIn(page);
-  await clickView(page,'pages');
+  await clickView(page,'pages');await openLegacyBoard(page);
   await page.locator('[data-web1-board-title="위험업무 2인1조 법제화"]').click();
   await page.frameLocator('#web1BoardDetailFrame').locator('#childLink').click();
   await expect(page.frameLocator('#web1BoardDetailFrame').locator('#nestedBoard')).toContainText('하위 원문');
@@ -212,7 +214,7 @@ test('Web1 board source failure shows a controlled reader error instead of a bro
   await mockApp(page);
   await page.route('https://raw.githubusercontent.com/mj880616/work/main/**',route=>route.fulfill({status:404,body:'missing'}));
   await signIn(page);
-  await clickView(page,'pages');
+  await clickView(page,'pages');await openLegacyBoard(page);
   await page.locator('[data-web1-board-title="공공기관 인력확충"]').click();
   const doc=page.frameLocator('#web1BoardDetailFrame');
   await expect(doc.locator('body')).toContainText('본문을 불러오지 못했습니다.');
@@ -231,7 +233,8 @@ for(const entry of ['home','pages'])test('loaded mobile board closes with one Ba
   if(entry==='pages'){
     await page.goto(app+'?view=pages');
     await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
-  }else await clickView(page,'pages');
+    await openLegacyBoard(page);
+  }else await clickView(page,'pages');await openLegacyBoard(page);
   const first=page.locator('[data-web1-board-title="'+cases[0].title+'"]');
   await first.click();
   await expect(page.frameLocator('#web1BoardDetailFrame').locator('#embeddedBoard')).toHaveText('loaded mobile reader');
@@ -270,7 +273,7 @@ test('a late first board response cannot replace the next detail',async({page})=
     pending.set(source,route);
   });
   await signIn(page);
-  await clickView(page,'pages');
+  await clickView(page,'pages');await openLegacyBoard(page);
   const modal=page.locator('#web1BoardDetailModal');
   const frame=page.locator('#web1BoardDetailFrame');
   await page.locator('[data-web1-board-title="'+cases[0].title+'"]').click();
@@ -309,7 +312,7 @@ test('a late first board response cannot replace the next detail',async({page})=
   await page.setViewportSize({width:390,height:900});
   const original=await browser.newPage({viewport:{width:390,height:900}});
   const cache=new Map();
-  await original.route(/^http:\/\/127\.0\.0\.1:8123\/app\//,route=>{
+  await original.route(new RegExp('^'+appOrigin.replace(/[.*+?^${}()|[\]\\\/]/g,'\\$&')+"\\/app\\/"),route=>{
     let path=new URL(route.request().url()).pathname.slice(1);if(path.endsWith('/'))path+='index.html';
     if(!/\.(css|js|html)$/.test(path))return route.continue();
     if(!cache.has(path))cache.set(path,execFileSync('git',['show','589d7eee99eeaf88b4b87498d42842aa74d9f401:'+path],{encoding:'utf8'}));
@@ -319,7 +322,7 @@ test('a late first board response cannot replace the next detail',async({page})=
     await mockApp(p);
     let release;const sourceReady=new Promise(resolve=>{release=resolve});
     await p.route('https://raw.githubusercontent.com/mj880616/work/main/**',async route=>{await sourceReady;await route.fulfill({contentType:'text/plain; charset=utf-8',body:'<!doctype html><html><body><main id="embeddedBoard">board reader</main></body></html>'})});
-    await signIn(p);await clickView(p,'pages');
+    await signIn(p);await clickView(p,'pages');await openLegacyBoard(p);
     await p.locator('.w1b-card').first().click();
     const modal=p.locator('#web1BoardDetailModal');
     await expect(modal).toBeVisible();

@@ -8,7 +8,7 @@
 - 저장소 API: `allow_auto_merge=false`; `main` branch protection 없음(404); ruleset 0개; Actions 기본 권한 read.
 - Pages API: `build_type=legacy`, source=`main` 루트. 확인 당시 최근 빌드 SHA는 시작 `main`과 일치.
 - 최근 사례: #356·#342는 날짜별 `press/` HTML·HWP, `press/archive.json`, `press/index.html`과 `tests/app-e2e/web1-press.spec.mjs`를 함께 변경. #358은 날짜별 HTML과 `press/archive.json`만 변경.
-- 기존 `app-e2e-check.yml`은 `press/**`만 변경할 때 돌지 않는다. `web1-press.spec.mjs`는 Web2 보도자료 목록 연결을 확인한다. `loader-cache-check.yml`만 모든 `main` PR에 경로 필터 없이 실행된다.
+- 기존 `app-e2e-check.yml`은 `press/**`만 변경할 때 돌지 않는다. `web1-press.spec.mjs`는 Web2 보도자료 목록 연결을 확인했다(PRESS-자료실편입 Contract에서 삭제). `loader-cache-check.yml`만 모든 `main` PR에 경로 필터 없이 실행된다.
 
 ## 허용 목록과 관문
 
@@ -21,19 +21,21 @@
 
 `press/press-archive.css`, 다른 `press/` 코드, 테스트, 문서, `app/**`, `supabase/**`, `cloudflare/**`, 워크플로는 허용하지 않는다. #356·#342와 같이 테스트 파일이 섞인 PR은 수동 검토 대상이고, #358의 경로 조합은 자동 merge 후보가 된다. 테스트를 허용하면 검사를 바꾼 PR이 자신의 검사를 통과시킬 수 있어 제외한다. 경로 검사는 게시 문안의 정확성·저작권·개인정보 여부를 판단하지 않는다. `press/index.html`의 기존 inline script도 경로만으로는 구분되지 않으므로 이 파일의 변경 내용을 만드는 주체를 제한해야 한다.
 
-`Publication gate`는 `pull_request_target`에서 **기준 `main`의 워크플로와 정책 스크립트**를 실행한다. `classify`가 GitHub PR Files API 전체 페이지와 `changed_files` 수를 대조하며, head SHA가 바뀌면 실패한다. 게시 후보의 정적 아카이브 검사와 `web1-press.spec.mjs` Playwright 검사는 후보 코드를 checkout하는 별도 `content-check` job에서 실행한다. 이 job의 토큰은 `contents:read`뿐이고 checkout 자격 증명을 저장하지 않는다. 필수 `publication-gate` job은 기준 정책만 실행하며, 분류·후보 검사 결과와 기존 `loader-cache` 및 HTML 변경 시 `audit` 성공을 확인한다. 일반 PR에 이전 auto-merge 예약이 있으면 해제를 기다린다. #362 자체는 시작 `main`에 이 워크플로가 없으므로 새 `pull_request_target` 관문을 실행할 수 없으며, 사람이 변경 파일과 기존 CI를 확인한 뒤 수동 merge해야 한다. 후보 브랜치의 정책 스크립트를 실행하는 최초 도입 예외는 제거했다.
+`Publication gate`는 `pull_request_target`에서 **기준 `main`의 워크플로와 정책 스크립트**를 실행한다. `classify`가 GitHub PR Files API 전체 페이지와 `changed_files` 수를 대조하며, head SHA가 바뀌면 실패한다. 게시 후보의 정적 아카이브 검사(`publication-content.test.mjs`)는 후보 코드를 checkout하는 별도 `content-check` job에서 실행한다(Web2 성명·보도자료 메뉴가 사라져 `web1-press.spec.mjs` Playwright 검사는 PRESS-자료실편입 Contract에서 함께 뺐다). 이 job의 토큰은 `contents:read`뿐이고 checkout 자격 증명을 저장하지 않는다. 필수 `publication-gate` job은 기준 정책만 실행하며, 분류·후보 검사 결과와 기존 `loader-cache` 및 HTML 변경 시 `audit` 성공을 확인한다. 일반 PR에 이전 auto-merge 예약이 있으면 해제를 기다린다. #362 자체는 시작 `main`에 이 워크플로가 없으므로 새 `pull_request_target` 관문을 실행할 수 없으며, 사람이 변경 파일과 기존 CI를 확인한 뒤 수동 merge해야 한다. 후보 브랜치의 정책 스크립트를 실행하는 최초 도입 예외는 제거했다.
 
-`Publication auto merge`는 기본 브랜치에서만 읽는 `pull_request_target` 워크플로다. `opened`·`synchronize`·`reopened`마다 API로 파일 전체를 재분류한다. 작성자가 저장소 소유자이고 동일 저장소 브랜치이며 draft가 아닌 경우에만, `main`을 보호하는 ruleset과 저장소 auto-merge 허용을 확인하고 `--auto --merge --match-head-commit`으로 merge commit을 예약한다. ruleset은 이름이 아니라 내용으로 확인한다(`scripts/publication-pr-policy.mjs ruleset-ready`): 기본 브랜치가 `main`이고, ruleset이 branch 대상·Active이며 include에 `~DEFAULT_BRANCH` 또는 `refs/heads/main`이 있고 exclude가 없으며, 우회자가 없고, 삭제 금지·강제 push 금지·PR 필수 규칙과 GitHub Actions(15368)의 `publication-gate`·`dropzone` 필수 검사가 모두 있어야 한다. 우회자 목록은 ruleset 수정 권한이 없는 토큰에 반환되지 않으므로, 목록이 보이면 비어 있어야 하고 보이지 않으면 경고만 남긴다(아래 참고). 조건을 만족하는 ruleset이 없으면 예약하지 않고 `reserve` job을 **실패**로 끝내 거부 이유를 로그에 남긴다. `reserve`는 ruleset 필수 검사가 아니므로 다른 PR merge를 막지 않는다. `.github/**`를 포함한 허용 목록 밖 파일이 추가되거나 draft가 되면 이전 예약을 해제한다. fork 및 소유자가 아닌 작성자의 PR에는 merge 예약·해제를 하지 않는다. 쓰기 권한은 예약 job에 `contents:write`, `pull-requests:write`만 준다. 저장소 auto-merge가 꺼져 있으면(긴급 중지) 예약 없이 성공 종료하며, `build-pages`도 건너뛴다.
+`Publication auto merge`는 기본 브랜치에서만 읽는 `pull_request_target` 워크플로다. `opened`·`synchronize`·`reopened`마다 API로 파일 전체를 재분류한다. 작성자가 저장소 소유자이고 동일 저장소 브랜치이며 draft가 아닌 경우에만, `main`을 보호하는 ruleset과 저장소 auto-merge 허용을 확인하고 `--auto --merge --match-head-commit`으로 merge commit을 예약한다. ruleset은 이름이 아니라 내용으로 확인한다(`scripts/publication-pr-policy.mjs ruleset-ready`): 기본 브랜치가 `main`이고, ruleset이 branch 대상·Active이며 include에 `~DEFAULT_BRANCH` 또는 `refs/heads/main`이 있고 exclude가 없으며, 우회자가 없고, 삭제 금지·강제 push 금지·PR 필수 규칙과 GitHub Actions(15368)의 `publication-gate`·`dropzone` 필수 검사가 모두 있어야 한다. 우회자 목록은 ruleset 수정 권한이 없는 토큰에 반환되지 않으므로, 목록이 보이면 비어 있어야 하고 보이지 않으면 경고만 남긴다(아래 참고). 조건을 만족하는 ruleset이 없으면 예약하지 않고 `reserve` job을 **실패**로 끝내 거부 이유를 로그에 남긴다. `reserve`는 ruleset 필수 검사가 아니므로 다른 PR merge를 막지 않는다. `.github/**`를 포함한 허용 목록 밖 파일이 추가되거나 draft가 되면 이전 예약을 해제한다. fork 및 소유자가 아닌 작성자의 PR에는 merge 예약·해제를 하지 않는다. 쓰기 권한은 예약 job에 `contents:write`, `pull-requests:write`만 준다. 저장소 auto-merge가 꺼져 있으면(긴급 중지) 예약 없이 성공 종료하며, `deploy-pages`도 건너뛴다.
 
 **운영 규칙: PR 대상 브랜치를 `main`으로 바꾸면 빈 커밋을 하나 올려 검사를 다시 돌린다**(`git commit --allow-empty -m "chore: rerun checks"` 후 push). 관문·첨부칸 검사·자동 예약과, 관문이 기다리는 `loader-cache`(`loader-cache-check.yml`)·`audit`(`browser-storage-audit.yml`)는 PR 열기·새 커밋·재오픈(`opened`·`synchronize`·`reopened`)에서만 실행된다. 앞의 두 검사는 `pull_request_target`이 아니라 `pull_request` 워크플로다. base 변경을 감지하던 `edited` 처리(#368)는 2026-10-01 제거했다. #370 시험에서 제목·본문만 고친 `edited`가 필수 검사 `publication-gate`·`dropzone`에 skipped 실행을 새로 남겼고, GitHub가 이를 통과로 보아 실패한 관문 PR이 merge 가능 상태가 됐기 때문이다. 빈 커밋 없이 base만 `main`으로 바꾼 PR은 그 head에 필수 검사가 없으므로 merge가 막힌 채 남는다. 관문의 검사 대기는 skipped 실행을 무시하고 실제 실행 결과를 본다.
 
 필수 검사 skip 점검(2026-10-01): `publication-gate`는 `publication-gate.yml`(`pull_request_target`, main, 위 세 이벤트)에서만, `dropzone`은 `web1-file-dropzone.yml`(`pull_request`, main, 위 세 이벤트)에서만 나온다. 두 워크플로에는 경로 필터가 없다. `dropzone` job에는 조건이 없고, `publication-gate` job은 `if: always()`라서 앞 job이 실패·skip돼도 실행되며, 분류 성공과 게시 후보의 content-check 성공을 직접 확인한다. 제목·본문 수정·라벨·draft 전환·리뷰 요청은 두 워크플로를 실행하지 않으므로 새 결과를 남기지 않는다. 재오픈은 전체 판정을 다시 실행한다. 정적 테스트 `tests/security/sec-workflow-boundary.test.mjs`가 이 조건을 고정한다.
 
-`Check Web1 file dropzones`는 모든 `main` 대상 PR에서 읽기 전용으로 추적 중인 Web1 HTML을 검사한다. 파일 업로드 입력이 있는데 `/work/assets/file-dropzone.js` helper가 빠졌으면 실패하고, 누락 파일과 추가할 태그를 로그로 안내한다. 브랜치 파일을 고쳐 PR을 다시 올려야 한다. 과거 `Apply Web1 file dropzones`가 `main`에 직접 만든 커밋은 2026-09-13 13:36 UTC의 `de091ceb` 1건(HTML 2개 수정)이다. 이제 `main` 직접 push와 `workflow_dispatch`를 제거한다. 현재 `press/**` HTML에는 업로드 입력이 없고 첨부는 다운로드 링크다. 게시 후보의 `publication-content.test.mjs`도 `press/**/*.html`의 업로드 입력을 금지하므로 두 검사는 충돌하지 않는다. 게시 허용 목록에는 검사 스크립트나 워크플로가 없어서 이 파일을 바꾼 PR은 자동 예약 대상도 아니다. Pages 게시에는 아래 명시적 빌드 API가 필요하다.
+`Check Web1 file dropzones`는 모든 `main` 대상 PR에서 읽기 전용으로 추적 중인 Web1 HTML을 검사한다. 파일 업로드 입력이 있는데 `/work/assets/file-dropzone.js` helper가 빠졌으면 실패하고, 누락 파일과 추가할 태그를 로그로 안내한다. 브랜치 파일을 고쳐 PR을 다시 올려야 한다. 과거 `Apply Web1 file dropzones`가 `main`에 직접 만든 커밋은 2026-09-13 13:36 UTC의 `de091ceb` 1건(HTML 2개 수정)이다. 이제 `main` 직접 push와 `workflow_dispatch`를 제거한다. 현재 `press/**` HTML에는 업로드 입력이 없고 첨부는 다운로드 링크다. 게시 후보의 `publication-content.test.mjs`도 `press/**/*.html`의 업로드 입력을 금지하므로 두 검사는 충돌하지 않는다. 게시 허용 목록에는 검사 스크립트나 워크플로가 없어서 이 파일을 바꾼 PR은 자동 예약 대상도 아니다. Pages 게시에는 아래 `deploy-pages` job의 명시적 배포 실행이 필요하다.
 
 GitHub ruleset 조회 API는 ruleset 수정 권한이 없는 토큰에 우회자 목록(`bypass_actors`)과 `current_user_can_bypass`를 반환하지 않는다(2026-10-01 비인증 조회로 재확인). 예약 job은 최소 권한을 유지하므로 우회자 없음은 설정 적용자가 GitHub 화면·관리자 API에서 확인해야 한다. 예약 job은 이 필드가 보이면 빈 목록·`never`를 요구하고, 보이지 않으면 경고로 남긴다.
 
-Pages는 현재 legacy 브랜치 빌드다. [GitHub 문서](https://docs.github.com/en/actions/concepts/security/github_token)에 따르면 `GITHUB_TOKEN`으로 만든 커밋은 Pages 빌드를 트리거하지 않는다. 따라서 별도 `build-pages` job이 해당 head의 merge를 확인한 뒤 [Pages 빌드 API](https://docs.github.com/en/rest/pages/pages#request-a-github-pages-build)를 호출하고 빌드 완료와 `main` SHA를 확인한다. 이 job만 `pages:write`를 갖는다. Pages 실패 시 workflow가 실패하며 운영자가 확인해야 한다.
+Pages Source는 2026-10-17부터 GitHub Actions이며, 운영 배포는 `.github/workflows/pages-deploy.yml`(`Deploy GitHub Pages`, `main` push 또는 `workflow_dispatch`)로만 나간다. [GitHub 문서](https://docs.github.com/en/actions/concepts/security/github_token)에 따르면 `GITHUB_TOKEN`으로 만든 이벤트(예약 auto-merge의 push 포함)는 다른 workflow를 깨우지 않지만, `workflow_dispatch`는 예외로 실행된다. 따라서 별도 `deploy-pages` job이 해당 head의 merge를 확인한 뒤 [workflow dispatch API](https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event)로 `pages-deploy.yml`을 `main`에서 실행하고, 새로 생긴 그 실행의 head SHA가 merge commit을 포함하는지(`compare`가 `identical` 또는 `ahead`) 확인한 뒤 실행 전체와 `deploy` job이 모두 `success`로 끝날 때까지 기다린다. `deploy` job이 건너뛰어지면(Source가 GitHub Actions가 아니거나 `skip_deploy`) 실패로 본다. 이 job만 `actions:write`를 갖고(`contents:read`, `pull-requests:read` 외 쓰기 없음), `pages:write`·`id-token:write`는 `pages-deploy.yml`의 `deploy` job에만 있다. 배포 실패 시 workflow가 실패하며 운영자가 확인해야 한다. 이 job이 실패해도 merge는 되돌아가지 않으므로, 운영자는 Actions에서 `Deploy GitHub Pages`를 수동 실행해 다시 배포할 수 있다.
+
+> **2026-10-18 해결(CI-자동게시수정, C1)**: Pages Source 전환(2026-10-17) 뒤에도 옛 `build-pages` job이 legacy용 빌드 API(`POST /pages/builds`)를 부르던 문제(`docs/design/ci-version-automation.md` "4단계 조사 결과" 절 C1)는 위 `deploy-pages` job으로 바꿔 해결했다. 옛 빌드 API 호출과 `pages:write`는 이 workflow에서 제거했다. 전환 뒤 실제 자동 게시는 아직 없어, 다음 실제 게시 때 `deploy-pages` 성공·`Deploy GitHub Pages` 실행·공개 주소 반영을 확인해야 한다.
 
 ## Actions 이벤트 정책 조사 (2026-09-30)
 
@@ -77,7 +79,7 @@ API 적용 시 제안 본문(이번 PR에서는 실행하지 않음, 사용자 I
 2. **정책 시험**: 소유자의 같은 저장소 브랜치로 아래 A·B 시험 PR을 열어 `Publication gate` 실행 출처와 결론, `Publication auto merge` 예약 없음, Pages 건너뜀을 확인한다. 다른 actor의 PR은 정책 차단 가능성을 별도 확인한다. 실패하면 ruleset을 적용하지 않고 정책 경로·actor·이벤트를 바로잡는다. 복구: 시험 PR을 닫고 브랜치를 삭제한다.
 3. **main ruleset**: Settings → Rules → Rulesets → New branch ruleset → 이름 `Main PR gate`; Active; 대상 `main`; Bypass list 비움(관리자 포함); Require a pull request before merging(승인 수 0); Require status checks to pass의 `publication-gate`(GitHub Actions 앱, 확인한 integration ID 15368); Block force pushes; Restrict deletions. Require branches to be up to date는 끈다(기준 main이 바뀌어도 게시 PR 자동 merge가 멈추지 않게 함). Merge commit 허용, merge queue·linear history는 켜지 않는다. 저장 뒤 `docs/main-pr-gate-ruleset.json`과 대조하고 PR이 필수 검사 없이 merge되지 않는지 확인한다. 복구: 긴급 시 Enforcement Disabled로 바꾸고 직접 push 보호가 사라진 상태를 인지한다.
 4. **Allow auto-merge**: Settings → General → Pull Requests → Allow auto-merge 활성화. Allow merge commits도 켜져 있는지 확인한다. 저장소 API `allow_auto_merge=true` 확인. 복구: 예약된 PR마다 Disable auto-merge, 이어 저장소 Allow auto-merge 해제.
-5. **자동 게시 시험 PR**: 소유자·같은 저장소 브랜치의 실제 게시 문안 PR로 자동 merge 예약, 필수 검사 성공, merge commit, `build-pages`의 완료·SHA·공개 URL을 확인한다. 실패 시 새 예약을 해제하고, 이미 merge됐다면 변경을 되돌리는 PR과 Pages 재빌드를 검토한다.
+5. **자동 게시 시험 PR**: 소유자·같은 저장소 브랜치의 실제 게시 문안 PR로 자동 merge 예약, 필수 검사 성공, merge commit, `deploy-pages`가 실행한 `Deploy GitHub Pages`의 완료·SHA·공개 URL을 확인한다. 실패 시 새 예약을 해제하고, 이미 merge됐다면 변경을 되돌리는 PR과 `Deploy GitHub Pages` 수동 재실행을 검토한다.
 6. **ChatGPT PR 권한**: 계정 프로필 → Settings → Applications → Installed GitHub Apps → ChatGPT → Configure에서 Repository access를 Only select repositories → 이 저장소로 제한한다. Repository permissions에서 **Workflows 쓰기 없음**을 확인한다. PR 생성에는 Contents read/write, Pull requests read/write, Metadata read가 필요하며 Administration, Workflows, Pages, Actions, Secrets, Environments 권한은 부여하지 않는다. 권한 구성이 이를 지원하지 않으면 활성화하지 않는다. 무해한 PR로 실제 actor·작성자·head 저장소와 관문 실행 여부를 확인한다. 복구: 앱의 저장소 접근을 제거하고 열린 자동 merge 예약을 해제한다.
 
 CLI로 설정할 경우, **별도 승인 뒤에만** 저장소 루트에서 `gh api -X POST repos/mj880616/work/rulesets --input docs/main-pr-gate-ruleset.json`을 실행하고 반환된 ruleset ID를 기록한다. 이어 `gh api -X PATCH repos/mj880616/work -F allow_auto_merge=true`를 실행한다. 설정 적용 직전에 현재 ruleset·기존 보호·auto-merge 값을 다시 조회해야 한다. 이 명령은 이번 PR에서 실행하지 않는다.
@@ -93,7 +95,7 @@ CLI로 설정할 경우, **별도 승인 뒤에만** 저장소 루트에서 `gh 
 
 ## 설정 후 실제 시험 계획
 
-1. 소유자 계정·동일 저장소 브랜치에서 실제 게시 문안의 작은 변경 PR을 만든다. `publication-gate`와 `Loader cache version check`를 확인하고, 사람이 merge를 누르지 않아도 merge commit으로 병합되는지 확인한다. `build-pages`의 Pages build 상태·SHA와 공개 URL을 확인한다.
+1. 소유자 계정·동일 저장소 브랜치에서 실제 게시 문안의 작은 변경 PR을 만든다. `publication-gate`와 `Loader cache version check`를 확인하고, 사람이 merge를 누르지 않아도 merge commit으로 병합되는지 확인한다. `deploy-pages`가 실행한 `Deploy GitHub Pages`의 결과·SHA와 공개 URL을 확인한다.
 2. 게시 PR에 `docs/` 파일을 뒤늦게 추가하는 별도 시험 PR에서는 auto-merge 예약이 해제되고 관문이 예약 해제를 기다린 뒤 성공하는지 확인한다. 이 PR은 게시하지 않고 수동으로 닫는다.
 3. fork·소유자 외 작성자 PR에서는 예약 job이 쓰기 동작을 하지 않는지 확인한다. ChatGPT가 만든 PR의 실제 작성자·head 저장소를 확인한다.
 
@@ -104,7 +106,7 @@ CLI로 설정할 경우, **별도 승인 뒤에만** 저장소 루트에서 `gh 
 자동게시 재시험(#372~#375)을 통과한 뒤 게시는 Claude Code 로컬의 `/게시반영` 명령으로 한다. 명령 원문은 `.claude/commands/게시반영.md`다. ChatGPT의 PR 권한 재허용은 당분간 보류한다(위 설정 6단계와 actor 확인 조건은 재허용할 때 그대로 적용).
 
 - 사용: `/게시반영` 뒤에 종류·날짜·제목·본문(또는 기존 페이지 수정 요청)과 첨부 PC 경로를 붙인다. 앞에 `연습`을 쓰면 브랜치·커밋·PR 없이 로컬 파일만 만들어 보여 준다.
-- press/ 새 글: 최근 글 형식으로 날짜 디렉터리·`archive.json`·`press/index.html`을 만들고 PR을 연다. 변경이 위 허용 목록뿐이면 자동 예약·merge·Pages 빌드·공개 주소 200까지 확인하고 보고한다.
+- press/ 새 글: 이 명령에서 폐지했다(2026-10-26 PRESS-자료실편입 Contract). 새 성명·보도자료는 Web2 자료실에 파일로 올린다. 위 허용 목록·자동 merge 정책은 `press/` 정리(PRESS-Web1삭제) 때 함께 정리한다.
 - 기존 Web1 페이지 갱신 등 허용 목록 밖 변경: PR과 검사 통과까지만 하고 "커맨드센터 확인 후 merge 필요"로 멈춘다.
 - 제목·본문·날짜는 고치지 않는다. 오탈자 의심과 빠진 정보는 보고·질문으로 처리한다. 수동 merge·`--admin`은 쓰지 않는다.
 
@@ -113,7 +115,7 @@ CLI로 설정할 경우, **별도 승인 뒤에만** 저장소 루트에서 `gh 
 - 개인 저장소의 필수 검사 설정은 GitHub Actions 앱과 **검사 이름**을 지정하지만 워크플로 파일 경로를 고정하지 않는다. PR이 `.github/**`를 바꾸면 후보 브랜치의 다른 `pull_request` 워크플로가 같은 이름의 검사를 만들 수 있다. 중복 검사 이름은 병합 판정을 모호하게 할 수 있다. 기준 브랜치의 `pull_request_target` 관문, `.github/**` 자동 merge 제외, ChatGPT 앱 Workflows 쓰기 금지로 자동 경로를 좁히지만, 소유자 또는 다른 쓰기 권한자가 워크플로를 바꾼 PR을 만드는 상황까지 저장소 내부 설정만으로 완전히 막지는 못한다. **`.github/**` 변경 PR은 사람이 diff와 실제 검사 run의 워크플로 경로·기준 ref를 확인한 뒤 수동 merge**한다. 조직·기업 규칙에서 제공하는 required workflow는 개인 저장소의 이번 설정에 포함되지 않는다. 2026-10-01 확인: `pull_request` 워크플로는 PR head의 파일로 실행되므로, PR이 `on: pull_request` 워크플로를 새로 넣어 job 이름을 `publication-gate`·`dropzone`으로 만들 수 있다. 이 job은 같은 GitHub Actions 앱(15368)의 검사로 기록된다. `web1-file-dropzone.yml` 자체를 고쳐 `dropzone`을 무력화할 수도 있다. #370에서 같은 이름의 최신 실행이 이전 실패를 덮는 것을 확인했다. 자동 merge 경로에서는 `.github/**`가 섞이면 새 예약을 하지 않고, 기존 예약은 `synchronize` 때 `reserve`가 해제한다. 다만 push 직후부터 해제까지 짧은 경합 구간이 있다. 소유자 PR만 예약 대상이고 외부 앱에 Workflows 쓰기를 주지 않아 GitHub가 워크플로 파일 push를 거부하는 것이 이 구간의 보완책이다.
 - 경로 검사만으로 본문 품질이나 `press/index.html` inline script의 의미를 검증하지 못한다. 좁은 경로 허용과 소유자 PR 제한을 함께 적용한다.
 - GitHub에서 검사·예약 해제 이벤트가 지연되면 자동 merge가 늦어질 수 있다. 일반 PR 관문은 이전 예약이 없어질 때까지 대기해 잘못된 자동 merge를 막는다.
-- Pages API 요청·빌드는 merge 뒤 작업이다. 빌드가 실패하면 merge는 되돌아가지 않고 실패 workflow에서 운영자가 재빌드·복구를 판단한다.
+- Pages 배포(`Deploy GitHub Pages` 실행)는 merge 뒤 작업이다. 배포가 실패하면 merge는 되돌아가지 않고 실패 workflow에서 운영자가 `Deploy GitHub Pages` 수동 재실행·복구를 판단한다.
 - `main` 보호는 ruleset 활성화 전까지, 자동 merge는 저장소 Allow auto-merge 활성화 전까지 효력이 없다.
 
 ## 기존 49개 워크플로 트리거·경로 필터 조사
@@ -167,7 +169,7 @@ CLI로 설정할 경우, **별도 승인 뒤에만** 저장소 루트에서 `gh 
 | `team-member-overview-e2e.yml` | PR, push main | `app/**`, `tests/app-e2e/nonmember-access.spec.mjs`, `tests/app-e2e/access-request-push.spec.mjs`, `tests/app-e2e/solo-shell.spec.mjs`, 자신 |
 | `update-2in1-labor-meeting-0911.yml` | 수동 | 없음 |
 | `update-2in1-labor-meeting-0913.yml` | push * | 자신 |
+| `web1-editor-auth-check.yml` | PR | 모든 `*.html`·`*.js`·`*.mjs`, `tests/security/web1-email-login-removed.test.mjs`, 자신 |
 | `web1-file-dropzone.yml` | PR | 없음. 모든 main 대상 PR에서 읽기 전용 검사 |
-| `web1-password-recovery-check.yml` | PR | `app/public-page-auth.js`, `app/public-page-editor.js`, `tests/app-e2e/public-page-password-recovery.spec.mjs`, 자신 |
 | `web2-one-shot-schema-authz.yml` | 수동 | 없음 |
 | `workplace-detail-static-check.yml` | PR, push main | `app/workplace-detail.js`, `app/workplace-detail.css`, `app/workplace-report.js`, `app/styles.css`, `app/loader-v2.js`, `app/view-loader.js`, 자신 |

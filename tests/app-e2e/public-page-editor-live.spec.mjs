@@ -1,7 +1,8 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 import {readFile} from 'node:fs/promises';
 
-const BASE='http://127.0.0.1:8123';
+const BASE=appOrigin;
 const repoRoot=new URL('../../',import.meta.url);
 const read=path=>readFile(new URL(path,repoRoot),'utf8');
 
@@ -122,15 +123,15 @@ test('독립 공개 게시글은 편집기를 노출하지 않고 기존 맞춤�
     'p/line9-publicization/index.html',
     'p/line9-publicization-audit/index.html'
   ];
-  expect(template).toMatch(/public-post\.js\?v=\d+/);
+  expect(template).toContain('src="./public-post.js"');
   expect(template).not.toContain('public-page-editor.js');
-  expect(editor).toContain("ADMIN_AUTH_SRC='/work/app/web1-admin-auth.js?v=1'");
+  expect(editor).toContain("ADMIN_AUTH_SRC='/work/app/web1-admin-auth.js'");
   expect(editor).not.toContain('Web2에서 로그인');
   expect(auth).toContain("sessionKey:'kptu_web1_admin_session_v1'");
   expect(auth).not.toContain('kptu_collab_session_v1');
   expect(meta).toContain('preserveExisting');
   for(const path of targets){
     const html=await read(path);
-    expect(html,`${path} editor hook`).toContain('public-page-editor.js?v=');
+    expect(html,`${path} editor hook`).toContain('src="../../app/public-page-editor.js"');
   }
 });

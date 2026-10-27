@@ -16,6 +16,86 @@
 
 2026-10-10 사용자 실측: check **#1 성공**(최근 기록 `20261010120000 basket1_notes_links`), tx-probe **#2 취소 보장 예·오류 시 전체 취소 예**, 시험 표 잔존 없음. Codex가 운영에서 측정한 결과가 아니다. 이후 probe가 아니오·미확인이라면 적용을 멈추고 B안(별도 실행 경로)을 재검토한다.
 
+## 승인 한 번 흐름 (DB-승인형확장, 2026-10-21)
+
+목표: 운영 DB 적용을 **커맨드센터(CC)가 workflow 시작 → 사용자 `production-edge` 승인 한 번**으로 끝낸다. environment·비밀값(`SUPABASE_ACCESS_TOKEN`)·변수(`SUPABASE_PROJECT_REF`)는 그대로이며 새 비밀값은 없다.
+
+### 입력
+
+- mode `dry-run` 또는 `apply`, version 칸에 **migration 파일 이름**(`<version>_<name>.sql`) 또는 14자리 version. 파일 이름이면 저장소의 실제 이름과 같아야 한다.
+- 짝 파일 5개가 모두 있어야 한다: `docs/<version>_<name>.precheck.sql`·`.snapshot.sql`·`.postcheck.sql`·`.rollback.sql`·`.summary.md`. 하나라도 없으면 승인 전(plan)에서 거절한다(확장 규칙). 기존 엄격 규칙만으로 통과하는 파일은 precheck에 `-- expect:` 줄이 있고 5개가 모두 있을 때만 같은 흐름으로 돈다(그 밖에는 이전 흐름 그대로).
+
+### 순서 (apply, 승인 뒤 한 번의 실행)
+
+1. 사전 기록 확인: 같은 version이 이미 있으면 **멈춤**(쓰기 없음).
+2. precheck(`read_only`) 실행 → 기대값 검사. 파일 머리 주석의 `-- expect: <항목> = <값>` 줄이 기준이고, 줄이 없는 항목은 모두 `예`여야 한다. 값은 `예`·`아니오`·정수·`a~b` 범위·`기록`(값만 남기고 판정 안 함). `-- expect: policy * = 기록`처럼 끝의 ` *`는 그 이름으로 시작하는 항목 전부. 하나라도 다르면 **멈춤**(쓰기 없음).
+3. snapshot(`read_only`) 실행 → 결과를 workflow artifact `db-snapshot-<run_id>`(30일 보관)로 저장. **공개 저장소라 artifact도 공개로 본다.** 그래서 snapshot SQL은 승인 전에 시스템 카탈로그(pg_class·pg_policy·pg_proc·information_schema 등)와 migration 기록만 읽는지 검사한다. 앱 표·사용자 함수·통계 보기(pg_stats 등)·`*_to_xml`을 읽으면 거절한다. summary에는 행 수와 SHA256만 쓴다.
+4. 시험 적용: 파일의 마지막 `commit;`만 `rollback;`으로 바꿔 실행 → 기록 없음 확인 → precheck를 다시 돌려 값이 그대로인지 확인. 다르면 **멈춤**(실제 적용 안 함).
+5. 기존 표 백업(이전과 같음, 이번 파일이 만든 새 표는 제외).
+6. 적용: 파일 원문(자체 `begin;`…`commit;`) 한 번 → 기록 1행 확인.
+7. postcheck(`read_only`): `예/아니오` 항목은 `예`, 그 밖의 값은 `-- expect:` 줄 또는 **precheck의 같은 이름 항목과 같은 값**이어야 한다. 비교 기준이 없으면 실패. 실패하면 **멈춤**.
+8. job summary에 각 단계 결과와 **되돌리기 안내**(snapshot artifact 이름·rollback 파일 경로·SQL Editor 순서)를 남긴다. **rollback은 자동으로 실행하지 않는다.** 되돌릴지는 사용자가 정한다.
+
+dry-run은 1~4단계만 한다(실제 적용 없음). 요청 재시도는 없다.
+
+출력 제한: precheck·postcheck의 값 중 집계(숫자·해시·예/아니오·migration 기록)가 아닌 값은 summary에 `#` + SHA-256 앞 16자로만 표시한다(비교는 메모리 안 원래 값으로). 항목 이름은 100자 이하 글자·숫자·공백·`_/()=:+.,·-`만. 토큰·프로젝트 값이 들어 있으면 실패.
+
+### 승인 없는 dry-run에 대해
+
+dry-run도 운영 DB에 접속해야 하고, 그 열쇠(`SUPABASE_ACCESS_TOKEN`)는 승인자가 걸린 `production-edge` environment에만 있다. "새 비밀값 없음·GitHub 설정 변경 없음" 조건에서는 승인 없이 운영 dry-run을 돌릴 수 없다. 대신 (1) **승인 전 plan 단계**가 비밀값 없이 정적 검사·짝 파일·snapshot 검사·SQL 전문 표시를 하고, (2) **apply 한 번의 승인 안에 dry-run이 먼저 들어 있다**(4단계). 따로 dry-run만 보고 싶으면 mode `dry-run`으로 실행하되 승인이 한 번 더 필요하다. 승인 없는 운영 dry-run을 원하면 승인자 없는 별도 environment에 같은 토큰을 넣어야 하는데(사용자 설정), 그러면 저장소 쓰기 권한이 있는 누구나 운영 DB에 시험 쓰기(잠금 포함)를 보낼 수 있으므로 권하지 않는다.
+
+### 확장 규칙 (엄격 규칙이 거절한 apply/dry-run 파일)
+
+엄격 규칙(아래 "2단계 모드와 파일 검사")을 먼저 적용하고, 거절되면 확장 규칙(`scripts/ops/db-migration-expanded.mjs`)으로 다시 본다. 확장 규칙은 정책·표 권한·트리거·함수를 받되 **권한이 넓어질 수 있는 모양은 계속 거절**한다. 거절하면 plan summary에 고정 사유 한 줄만 쓴다(SQL·자료 없음).
+
+허용: 새 public 표(같은 파일에서 RLS 켜기 필수), 인덱스, ALTER TABLE(아래 제외), 새 표에 대한 정책(대상 `authenticated`·`service_role`만), restrictive 정책(좁히기만 함), 새 표·새 함수에 대한 `authenticated`·`service_role` 권한 부여, 모든 REVOKE(좁히기), public·private 함수(언어 sql/plpgsql, 같은 파일에서 PUBLIC·anon 실행권 회수 필수, SECURITY DEFINER는 search_path 고정 필수), 이번 파일의 함수를 쓰는 public 표 트리거, 읽기 전용 DO 확인, WHERE 있는 UPDATE/DELETE, migration 기록 INSERT(마지막 문장, version/name 일치).
+
+거절 목록(시험: `tests/security/db-migration-expanded.test.mjs`):
+
+| 무엇 | 사유 코드 |
+| --- | --- |
+| anon·PUBLIC(또는 authenticated·service_role 밖 역할)에 표·열·함수·스키마 권한 부여 | `grant-anon-public` |
+| 역할 멤버십 부여, 스키마 전체(`all tables in schema`)·schema·sequence 권한 | `grant-bulk` |
+| WITH GRANT OPTION | `grant-option` |
+| 이번 파일에서 만들지 않은 기존 표·함수에 권한 추가 | `grant-existing` |
+| RLS 끄기·force 해제 | `rls-disable` |
+| RLS를 켜지 않은 새 public 표(기본 anon 권한 노출) | `table-without-rls` |
+| PUBLIC·anon 실행권 회수 없는 새·교체 함수(SECURITY DEFINER 포함) | `function-revoke-missing` |
+| SECURITY DEFINER인데 search_path 고정 없음 | `function-definer-path` |
+| 실행권 부여가 회수보다 먼저 | `function-grant-order` |
+| 함수 본문의 DDL·권한 변경·동적 EXECUTE·세션 설정 | `function-body` |
+| 기존 정책 ALTER, 또는 DROP POLICY가 아래 "정책 교체" 조건을 벗어남(짝 없음·표 바뀜·항상 참 조건·빈 식 등) | `policy-drop-alter` |
+| 정책 교체의 rollback 파일에 원래 정책을 되살리는 DROP+CREATE 없음 | `policy-rollback` |
+| 기존 표에 새 permissive 정책 | `policy-existing-table` |
+| 정책 대상이 anon·PUBLIC이거나 대상 생략(기본 PUBLIC) | `policy-roles` |
+| `using (true)`·`with check (true)` | `policy-true` |
+| 트리거 끄기, 소유자 변경 | `trigger-disable`, `owner-change` |
+| view·schema·sequence·type·ALTER FUNCTION·DROP(정책·함수·인덱스 등) | `unknown-statement` |
+| drop table/schema·truncate·role·extension·default privileges·copy·call·dblink·파일 읽기·set role | `blocked-command` |
+| CREATE TABLE … AS(자료 복사), WHERE 없는 UPDATE/DELETE, rtw_ 언급, 중간 commit | `create-table-as`, `where-missing`, `rtw`, `transaction-control` |
+| 짝 파일 없음, snapshot이 카탈로그 밖을 읽음 | `pair-missing`, `snapshot-rows` |
+
+### 정책 교체 (OPS-DB워크플로정책교체)
+
+같은 파일 안에서 `drop policy <이름> on public.<표>;`로 지운 정책을 같은 이름·같은 표로 다시 `create policy`하는 교체는, 권한을 높이지 않을 때만 받는다. 새 정책은 이렇게 보인다.
+
+- 정적 검사(plan 단계): 대상 역할이 `authenticated`만이고 `TO`가 있다(anon·PUBLIC·`service_role`·생략 거절). 명령(`FOR`)에 맞는 `USING`/`WITH CHECK` 식이 있고 비어 있지 않으며 `true`·`1 = 1` 같은 항상 참 조건이 없다. 지운 정책마다 다시 만드는 짝이 있어야 한다(없거나 이름·표가 다르면 거절). 짝 파일 5개가 모두 있어야 하고, rollback 파일이 같은 정책을 `drop policy` 뒤 `create policy`로 되살려야 한다(`policy-rollback`).
+- 운영 비교(run 단계, 쓰기 전): 파일만으로는 "이전 정의"를 알 수 없으므로 승인 뒤 맨 처음에 읽기 전용으로 운영 `pg_catalog.pg_policies`에서 그 정책의 roles·cmd·permissive를 읽어 비교한다. 새 역할이 이전보다 넓지 않고(이전이 PUBLIC이면 그 안), 새 명령이 이전보다 넓지 않고(이전이 ALL이면 그 안, 아니면 같아야 함), permissive/restrictive가 같고, rollback 파일이 되살리는 정의가 운영의 이전 정의와 같아야 한다. 운영에 정책이 없거나 둘 이상이거나 읽기·형식 오류가 나면 거절하고 아무것도 쓰지 않는다. 운영 DB 쓰기는 늘지 않는다(읽기 1회 추가).
+- 조건식 안 내용이 이전보다 좁은지는 자동 판정하지 않는다. 식 변경은 plan summary에 SQL 전문이 보이므로 커맨드센터가 diff로 검토한다.
+
+정적 검사는 "더 좁아지는지"를 증명하지 못한다(예: 새 표 정책의 조건식 의미, SECURITY DEFINER 함수가 돌려주는 자료). 그래서 plan summary에 정책·권한·트리거·DEFINER 함수 수를 따로 표시하고 CC가 PR에서 본다. rollback 모드의 규칙은 바뀌지 않았다.
+
+### 사용자 순서 (승인 한 번)
+
+1. CC가 PR(migration·짝 파일 5개)을 merge하고, Actions **Approved DB migration workflow**를 branch `main`, mode `apply`, version 칸에 파일 이름으로 시작한다.
+2. 사용자는 GitHub 알림(또는 Actions의 그 실행)에서 **Review deployments** → `production-edge` 체크 → **Approve and deploy**를 누른다. 누르기 전 plan summary의 일상어 3줄·파일 이름·`commit;`으로 끝나는 SQL을 보고 싶으면 같은 화면 위쪽 summary를 연다.
+3. 실행이 끝나면 CC가 summary(사전 확인·시험 적용·적용·사후 확인 표)와 snapshot artifact를 확인해 결과를 알려 준다. 사용자가 할 일은 없다.
+4. 실패하면 CC가 멈춘 단계와 되돌리기 필요 여부를 알려 준다. 되돌리기는 사용자가 결정하고, 결정하면 CC가 안내하는 rollback 파일을 SQL Editor 새 창에서 실행한다(자동 실행 없음).
+
+### 바뀌지 않은 것
+
+check·tx-probe, rollback 모드와 그 규칙, main 고정·plan의 SHA 기록, `production-edge` 승인, 비밀값·변수, 동시 실행 1개, 5분 제한, 요청 재시도 없음, 백업 방식, 짝 파일이 모자란 기존 migration의 이전 흐름, SQL Editor 경로(폰 경로 C).
+
 ## 1단계 모드 (동작 유지)
 
 check·tx-probe에서는 version을 비운다. 값이 있으면 plan에서 거부한다.
@@ -93,6 +173,7 @@ select to_regclass('private.ops_tx_probe_<run_id>') is null as rolled_back;
 - dry-run/apply: `supabase/migrations/<version>_*.sql` 정확히 1개. 첫 줄 `begin;`, 마지막 줄 `commit;`, 마지막 본문에 같은 version/name의 history INSERT 정확히 한 행. dry-run은 마지막 commit만 rollback으로 바꿔 1회 실행하고 version이 여전히 없는지 확인한다. 백업은 만들지 않는다.
 - rollback: `docs/<version>_*.rollback.sql` 정확히 1개, 같은 이름의 migration과 summary 필수. begin/commit 안에서 해당 version의 history DELETE 정확히 한 행. 사전에 version/name 한 행이 있어야 한다. apply/dry-run은 version이 이미 있으면 거부한다.
 - symlink·여러 파일·파일 짝 불일치·비정상 식별자·큰 파일은 승인 전에 거부한다. plan에는 일상어 3줄, 파일 경로·SHA256·줄 수, 위험 검사 결과, 실행 SQL 전문, 사전·사후 SQL과 백업 SQL을 표시한다. run은 plan이 기록한 main SHA를 checkout해 같은 검사를 반복한다.
+- 읽기 guard(DO)에서 쓸 수 있는 함수는 if/exists/count/length/num_nonnulls/coalesce/to_regclass와, 저장된 제약 문구를 공백 무시로 비교하기 위한 순수 문자열 함수 `btrim`·`regexp_replace`뿐이다.
 - SQL 주석(중첩 포함), 문자열·dollar block을 구분해 검사한다. 대소문자·줄바꿈·주석으로 명령을 숨길 수 없다. 일반 SQL 파서가 아니라 보수적인 허용 범위다. 동적 EXECUTE/CALL/COPY, 실행형 DO(읽기 guard 외), 중간 트랜잭션 종료, 대소문자 구분/Unicode 이스케이프 식별자 등 지원 밖 문법은 거부한다.
 
 차단 목록(세 모드 공통): `drop table`, `drop schema`, `truncate`, 최상위 WHERE 없는 DELETE/UPDATE, `alter role`, `create/alter/drop extension`, 아래 예외 외 `grant … to anon|public|authenticated`, 주석 외 `rtw_` 언급, 허용된 history INSERT/DELETE 외 `supabase_migrations` 쓰기. DROP CASCADE·RLS 비활성화·파일/외부 호출(`dblink` 등)·동적 `EXECUTE`/CALL/COPY도 계속 거부한다. 권한 문법의 `GRANT/REVOKE EXECUTE`만 아래 조건에서 구분해 허용한다. 외래 키의 `ON DELETE CASCADE`는 DROP CASCADE와 구분한다.
@@ -149,6 +230,7 @@ rollback 짝 파일의 허용 범위: `drop column`, `drop constraint`, `drop in
 
 같은 이름의 `docs/<version>_<name>.precheck.sql`·`.postcheck.sql`·`.dry-run.postcheck.sql`은 선택 사항이다. 한 개의 SELECT 또는 WITH SELECT만 허용하며 기존 검사를 그대로 거쳐 `read_only: true`로 요청한다. 쓰기 CTE·여러 요청·위험 함수는 거부한다. plan에는 해당 mode에서 선택한 확인 SQL의 경로·SHA256·전문을 표시한다.
 
+- `read_only: true` 요청은 실행 역할이 postgres가 아닐 수 있다(Supabase 읽기 전용 역할 추정, 2026-10-14 사진글자 dry-run). 확인 SQL은 `current_user`·`information_schema`(표 소유자 기준으로 숨김)에 기대지 말고 `pg_catalog`과 명시한 실행 역할을 사용한다.
 - precheck 결과는 정확히 `item`, `value` 두 칸, 1~64행이며 item 키는 중복될 수 없다. item은 100자 이하, value는 128자 이하 집계 숫자·해시·예/아니오·최근 migration 메타데이터만 허용한다. 개인 자료·임의 텍스트·추가 칸은 출력 없이 실패한다. 길거나 NULL인 결과는 이 제한에 맞게 SQL을 설계한다.
 - dry-run은 적용용 `.postcheck.sql`을 실행하지 않는다. SQL의 마지막 rollback과 사후 migration 기록 부재를 확인한 뒤, precheck를 같은 읽기 전용 SQL로 다시 실행하여 item 집합과 값을 비교한다. 행 순서는 무관하고 변경·추가·누락·중복은 실패다. **사전 집계 관측값 보존**만 확인하며 DB 전체 자료가 동일하다고 판정하지 않는다.
 - `.dry-run.postcheck.sql`이 있으면 집계 비교 뒤 원래 함수·스키마 등 추가 판정을 실행한다. item과 `ok`/`expected`/`value` 중 한 칸, 값은 boolean 또는 예/아니오만 허용한다. 아니오면 원래 상태 검사 실패다. SQL 취소 완료와 사후 검사 완료는 별개로 표시한다. BASKET link view `20261012100000`은 #506의 이전 RPC 본문 MD5·invoker·고정 search_path·summary 칸과 edit RPC 부재 검사를 이 파일에도 보존한다. 기존 apply postcheck는 그대로 유지한다.

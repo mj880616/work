@@ -26,8 +26,190 @@
   --kptu-primary:#4a3d33;--kptu-primary-hover:#3c3129;--kptu-primary-ink:#7a5012;
   --kptu-primary-soft:#f6ead1;--kptu-on-primary:#fffaf2;--kptu-link:#7a5012;
 }
+/* UI-화면색10(명진 결정 2026-10-27): 쑥·라벤더·먹·장미·청록·겨자 여섯 가지를 더해 열 가지. 바탕·강조는 요청 색 견본에서 시작해 글자 대비(tests/theme-contrast.test.mjs)에 맞춰 조정했다(겨자 강조만 눈에 띄게 어두워짐). 이름 목록은 view-prefs.js THEMES 한 곳. */
+[data-theme="mugwort"]{
+  --kptu-bg:#f1f6f3;--kptu-surface:#fdfefd;--kptu-surface-subtle:#f8faf9;
+  --kptu-ink:#1d2b24;--kptu-muted:#5a7266;--kptu-faint:#7b9388;
+  --kptu-border:#d8e3dd;--kptu-border-strong:#bfcfc7;
+  --kptu-primary:#3e6b55;--kptu-primary-hover:#38604c;--kptu-primary-ink:#3e6b55;
+  --kptu-primary-soft:#e8edeb;--kptu-on-primary:#ffffff;--kptu-link:#3e6b55;
+}
+[data-theme="lavender"]{
+  --kptu-bg:#f5f3f8;--kptu-surface:#fefdfe;--kptu-surface-subtle:#faf9fc;
+  --kptu-ink:#211d2b;--kptu-muted:#625a72;--kptu-faint:#888198;
+  --kptu-border:#e0dde7;--kptu-border-strong:#ccc6d6;
+  --kptu-primary:#61537f;--kptu-primary-hover:#574b72;--kptu-primary-ink:#61537f;
+  --kptu-primary-soft:#eceaf0;--kptu-on-primary:#ffffff;--kptu-link:#61537f;
+}
+[data-theme="ink"]{
+  --kptu-bg:#f4f4f2;--kptu-surface:#fdfdfd;--kptu-surface-subtle:#fafaf8;
+  --kptu-ink:#252523;--kptu-muted:#696963;--kptu-faint:#8d8d86;
+  --kptu-border:#dcdcda;--kptu-border-strong:#c4c4c2;
+  --kptu-primary:#4a4a46;--kptu-primary-hover:#43433f;--kptu-primary-ink:#4a4a46;
+  --kptu-primary-soft:#e9e9e9;--kptu-on-primary:#ffffff;--kptu-link:#4a4a46;
+}
+[data-theme="rose"]{
+  --kptu-bg:#f8f1f2;--kptu-surface:#fefdfd;--kptu-surface-subtle:#fcf8f8;
+  --kptu-ink:#2b1d1f;--kptu-muted:#725a5f;--kptu-faint:#988185;
+  --kptu-border:#eadadd;--kptu-border-strong:#dcc4c8;
+  --kptu-primary:#93505d;--kptu-primary-hover:#844854;--kptu-primary-ink:#93505d;
+  --kptu-primary-soft:#f2eaec;--kptu-on-primary:#ffffff;--kptu-link:#93505d;
+}
+[data-theme="teal"]{
+  --kptu-bg:#f1f6f7;--kptu-surface:#fdfefe;--kptu-surface-subtle:#f8fafb;
+  --kptu-ink:#1d292b;--kptu-muted:#5a6f72;--kptu-faint:#7b9093;
+  --kptu-border:#d7e2e4;--kptu-border-strong:#bdced1;
+  --kptu-primary:#36676f;--kptu-primary-hover:#315d64;--kptu-primary-ink:#36676f;
+  --kptu-primary-soft:#e7edee;--kptu-on-primary:#ffffff;--kptu-link:#36676f;
+}
+[data-theme="mustard"]{
+  --kptu-bg:#f9f5eb;--kptu-surface:#fefefc;--kptu-surface-subtle:#fcfaf5;
+  --kptu-ink:#2b261d;--kptu-muted:#726a5a;--kptu-faint:#938b7b;
+  --kptu-border:#ece3cf;--kptu-border-strong:#ded1b3;
+  --kptu-primary:#896820;--kptu-primary-hover:#7b5e1d;--kptu-primary-ink:#7d5f1d;
+  --kptu-primary-soft:#f3eee5;--kptu-on-primary:#ffffff;--kptu-link:#7d5f1d;
+}
 :root{
   --kptu-danger:#b42318;--kptu-danger-soft:#fdecea;
   --kptu-text-title:20px;--kptu-text-subtitle:16px;--kptu-text-body:14px;--kptu-text-meta:12px;
   --kptu-touch-target:44px;
+}
+
+/* UI-디자인기준(8-9c): 새 디자인 기준의 공통 값. 값은 여기 한 곳에만 둔다.
+   새 기준 화면(ui-standard.css: 홈·바구니·일정·할 일·프로젝트·담당조직·자료실·회의)만 이 값을 쓴다. */
+:root{
+  --ds-text-title:18px;--ds-text-row:13px;--ds-text-meta:12px;--ds-text-section:13px;
+  --ds-text-button:13px;--ds-text-read:15px;
+  --ds-weight-regular:400;--ds-weight-medium:500;
+  --ds-line-width:0.5px;--ds-line:var(--kptu-border-strong);
+  --ds-radius-box:12px;--ds-radius-control:8px;
+  /* 버튼 높이 하나: 홈 빠른 입력 [추가] 높이(2026-10-16 측정 폰 390·PC 1280 모두 46px). 누르는 영역 44px 이상. */
+  --ds-control-height:46px;--ds-control-pad-x:14px;
+  /* UI-버튼크기(2026-10-17 사용자 결정): 큰 버튼(--ds-control-height)은 그 화면의 주 동작만. 전환(세그먼트)·필터(알약 칩)·보조 버튼은
+     보이는 높이 32px·글자 13px이고, 누르는 범위는 위아래로 늘려 --kptu-touch-target(44px)을 지킨다. */
+  /* UI-좌우비율(2026-10-21): PC 좌우 화면(할 일·프로젝트, 이후 담당조직·회의 결과) 공통 비율 = 왼쪽 목록 1 : 오른쪽 상세 2. 왼쪽 최소 폭 아래로는 줄이지 않는다. */
+  --ds-split-list:1fr;--ds-split-detail:2fr;--ds-split-list-min:240px;
+  /* UI-칸폭조절(2026-10-22): 경계선을 끌어 바꿀 때 오른쪽 상세 칸의 최소 폭(왼쪽은 --ds-split-list-min). split-resize.js가 읽는다. */
+  --ds-split-detail-min:360px;
+  /* MTG-3칸폭끌기(2026-10-26): 3단 화면(사업 보고)의 칸 폭 — 왼쪽 두 칸의 최소 폭과 기본 비율 1 : 1 : 4(= 1/6 : 1/6 : 2/3). split-resize.js가 끌어서 바꾼 값을 fr로 덮어쓴다. */
+  --ds-split-col-min:120px;--ds-split-col-a:1fr;--ds-split-col-b:1fr;--ds-split-col-c:4fr;
+  --ds-compact-height:32px;--ds-compact-pad-x:12px;--ds-compact-text:13px;--ds-chip-radius:999px;
+  /* UI-버튼작게(2026-10-18 사용자 결정): 쓰기 창 서식 도구줄 버튼은 한 단계 더 작게 28px(누르는 범위는 그대로 44px). */
+  --ds-compact-height-sm:28px;
+  --ds-row-pad-y:9px;--ds-row-pad-x:12px;
+  --ds-section-ink:var(--kptu-primary-ink);
+  /* 종류별 색: 연한 바탕 + 같은 계열 진한 글자. 그 밖에는 회색. */
+  --ds-kind-basket-soft:#fdeedb;--ds-kind-basket-ink:#8f4708;
+  --ds-kind-note-soft:#e5eefa;--ds-kind-note-ink:#1d5291;
+  --ds-kind-journal-soft:#e3f1e6;--ds-kind-journal-ink:#2a6537;
+  --ds-kind-diary-soft:#eee8f8;--ds-kind-diary-ink:#5a3d8f;
+  --ds-kind-task-soft:#e1f5ee;--ds-kind-task-ink:#0f6e56;
+  --ds-kind-other-soft:#efede6;--ds-kind-other-ink:#55534a;
+  /* UI-테마선택색: 전환·필터·메뉴에서 고른 쪽 = 계정 테마의 주 버튼 색 + 그 위 글자(테마·다크 모드를 따라 바뀜). */
+  --ds-select-bg:var(--kptu-primary);--ds-select-ink:var(--kptu-on-primary);
+  /* 3/3(8-9e) 자료실 파일 종류 색(원장 CC18 결정): PDF 빨강·HWP 파랑·엑셀 초록·워드 남색·PPT 주황, 나머지는 --ds-kind-other(회색). */
+  --ds-file-pdf-soft:#fbe5e2;--ds-file-pdf-ink:#a3271b;
+  --ds-file-hwp-soft:#e3eefb;--ds-file-hwp-ink:#1c5aa6;
+  --ds-file-xls-soft:#e1f2e5;--ds-file-xls-ink:#226b3a;
+  --ds-file-doc-soft:#e4e8f4;--ds-file-doc-ink:#27386e;
+  --ds-file-ppt-soft:#fcebdb;--ds-file-ppt-ink:#a14b10;
+  /* LIB-그림형식: 그림(JPG·PNG 등)은 톤다운 자주. */
+  --ds-file-img-soft:#f4e3ec;--ds-file-img-ink:#8a2f5e;
+  /* 3/3(8-9e) 담당조직 마지막 기록 점: 7일 이내 초록·8~20일 주황·21일 이상 또는 기록 없음 빨강. */
+  --ds-recency-fresh:#2f9254;--ds-recency-warn:#dc8a1c;--ds-recency-stale:#c8372b;
+  /* 3/3 2부(8-9e-2) 폰 배치: 하단 탭 바로 위에 떠 있는 동그란 [+](보이는 크기 36px, 누르는 범위 --kptu-touch-target 44px)와 탭 사이 간격. */
+  --ds-fab-size:36px;--ds-fab-gap:12px;
+  /* JOURNAL-일기: 사진 위 글자·가림 막과 크게 보기 바탕. 사진 위라 밝은·어두운 화면에서 같은 값. --ds-photo-paper는 투명 사진을 JPEG로 줄일 때 바탕. */
+  --ds-photo-ink:#fff;--ds-photo-scrim:rgba(0,0,0,.5);--ds-photo-stage:#000;--ds-photo-paper:#fff;
+  /* 동그란 [+]의 + 아이콘(선 두 개, 가운데 정렬). 모양만 쓰고 색은 버튼 글자 색(--kptu-on-primary). */
+  --ds-fab-plus:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 3v14M3 10h14' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  /* PRJ-색: 프로젝트 이름 앞 점 8가지(사용자가 메인 프로젝트에서 고름). -soft는 하위 프로젝트용 연한 톤. 저장값은 색 이름 키. */
+  --ds-project-green:#2f9254;--ds-project-green-soft:#9ccf8a;
+  --ds-project-blue:#2f6fc4;--ds-project-blue-soft:#9cbde8;
+  --ds-project-orange:#e07b1f;--ds-project-orange-soft:#f2bd85;
+  --ds-project-purple:#7a4fc0;--ds-project-purple-soft:#c3aee6;
+  --ds-project-pink:#d64f8f;--ds-project-pink-soft:#efa9c9;
+  --ds-project-yellow:#d9a400;--ds-project-yellow-soft:#ecd27a;
+  --ds-project-red:#c8372b;--ds-project-red-soft:#eba39c;
+  --ds-project-gray:#8a8679;--ds-project-gray-soft:#c9c5b8;
+  /* MEET-결과정리 ②: 회의 종류 색 칸 16개. 종류마다 다른 칸을 나눠 준다(meeting-columns.js). 점·목록 줄 앞 점에 쓴다.
+     빨강 계열(지우기·경고 색)은 쓰지 않고, 밝은 화면 바탕·옅은 바탕 모두와 대비 3:1 이상(그림 요소 기준), 16칸 서로 색차(ΔE) 25 이상.
+     1~8은 예전 8색과 같은 색 계열 순서(같은 이름은 예전과 비슷한 색), 9~16은 1~8 다음에 쓰는 추가 색. */
+  --ds-meeting-1:#2880c9;--ds-meeting-2:#179920;--ds-meeting-3:#d941cf;--ds-meeting-4:#038283;--ds-meeting-5:#af7a0d;--ds-meeting-6:#8b4679;--ds-meeting-7:#324903;--ds-meeting-8:#3468fa;
+  --ds-meeting-9:#29416f;--ds-meeting-10:#368c54;--ds-meeting-11:#7b0075;--ds-meeting-12:#758d14;--ds-meeting-13:#90844f;--ds-meeting-14:#5a14a6;--ds-meeting-15:#634303;--ds-meeting-16:#524ba5;
+  /* 3/3(8-9e-3) 칸막이(iframe) 바탕: HWP 편집기·게시판 본문은 다크 모드에서도 밝게 둔다. */
+  --ds-frame-paper:#ffffff;
+}
+/* 다크 모드(3/3 8-9e-3에서 켬): 기기 설정이 어두우면 Web2 전체(창 포함)가 어두운 값으로 바뀐다.
+   값만 바꾸고 규칙은 그대로 토큰을 읽는다. 테마별로는 계정 색(--kptu-primary 계열)만 다시 정한다.
+   HWP 편집기 칸막이(iframe) 안과 사용자가 붙여 넣은 HTML 칸막이 안은 밝게 둔다(--ds-frame-paper). */
+@media (prefers-color-scheme:dark){
+  :root{
+    color-scheme:dark;
+    --kptu-bg:#161613;--kptu-surface:#1f1f1b;--kptu-surface-subtle:#292924;
+    --kptu-ink:#ebe9e1;--kptu-muted:#b1aea2;--kptu-faint:#938f84;
+    --kptu-border:#34332d;--kptu-border-strong:#4a4840;
+    --kptu-on-primary:#161613;
+    --kptu-danger:#f0918a;--kptu-danger-soft:#3b201d;
+    --kptu-success:#86c79f;--kptu-success-soft:#1d3124;
+    --kptu-warning:#e2b866;--kptu-warning-soft:#372c17;
+    --kptu-info:#9dbbd8;--kptu-info-soft:#1d2a37;
+    --kptu-accent:#c3b0e8;
+    --kptu-primary:#b4c385;--kptu-primary-hover:#c3d097;--kptu-primary-ink:#c2d095;
+    --kptu-primary-soft:#2c3120;--kptu-link:#c2d095;
+    --ds-kind-basket-soft:#3a2816;--ds-kind-basket-ink:#f3b77e;
+    --ds-kind-note-soft:#1b2a3d;--ds-kind-note-ink:#9fc4f0;
+    --ds-kind-journal-soft:#1c3022;--ds-kind-journal-ink:#9fd2a9;
+    --ds-kind-diary-soft:#2b2440;--ds-kind-diary-ink:#c8b5ee;
+    --ds-kind-task-soft:#16332b;--ds-kind-task-ink:#8ad6bd;
+    --ds-kind-other-soft:#2d2c27;--ds-kind-other-ink:#cbc8bd;
+    --ds-file-pdf-soft:#3d1f1b;--ds-file-pdf-ink:#f2a097;
+    --ds-file-hwp-soft:#1b2a3d;--ds-file-hwp-ink:#9fc4f0;
+    --ds-file-xls-soft:#1c3022;--ds-file-xls-ink:#9fd2a9;
+    --ds-file-doc-soft:#22263b;--ds-file-doc-ink:#b4bff0;
+    --ds-file-ppt-soft:#3a2816;--ds-file-ppt-ink:#f3b77e;
+    --ds-file-img-soft:#3a1f2d;--ds-file-img-ink:#eba6c8;
+    --ds-recency-fresh:#86c79f;--ds-recency-warn:#e2b866;--ds-recency-stale:#f0918a;
+    /* PRJ-색 어두운 값: 메인은 밝게, 하위용 -soft는 바탕 쪽으로 낮춘 톤. */
+    --ds-project-green:#6cc28a;--ds-project-green-soft:#3f6b4c;
+    --ds-project-blue:#78a7e6;--ds-project-blue-soft:#3e5a80;
+    --ds-project-orange:#eda05a;--ds-project-orange-soft:#7a5530;
+    --ds-project-purple:#b39ae8;--ds-project-purple-soft:#5b4a80;
+    --ds-project-pink:#ec8fb9;--ds-project-pink-soft:#7d4560;
+    --ds-project-yellow:#e8c650;--ds-project-yellow-soft:#7a6a2c;
+    --ds-project-red:#ef867c;--ds-project-red-soft:#7f413b;
+    --ds-project-gray:#a8a497;--ds-project-gray-soft:#5c5a52;
+    /* MEET-결과정리 ② 어두운 값: 같은 칸의 같은 색 계열, 어두운 바탕과 대비 3:1 이상, 16칸 서로 색차 25 이상. */
+    --ds-meeting-1:#68affc;--ds-meeting-2:#62d358;--ds-meeting-3:#fa63ee;--ds-meeting-4:#51b5b5;--ds-meeting-5:#efa91c;--ds-meeting-6:#c279ae;--ds-meeting-7:#6d843e;--ds-meeting-8:#4d70fb;
+    --ds-meeting-9:#7877ab;--ds-meeting-10:#6dc286;--ds-meeting-11:#ff97f4;--ds-meeting-12:#a9c04b;--ds-meeting-13:#c4b67f;--ds-meeting-14:#9f57ea;--ds-meeting-15:#98772c;--ds-meeting-16:#9184e5;
+    /* 떠 있는 창·동그란 [+]의 그림자와 창 뒤 어둡게 하는 막은 어두운 바탕에서 보이도록 더 진하게. */
+    --kptu-shadow-float:0 8px 24px rgba(0,0,0,.45);--kptu-shadow-modal:0 18px 48px rgba(0,0,0,.55);
+  }
+  :root[data-theme="navy"]{
+    --kptu-primary:#8fb4dc;--kptu-primary-hover:#a3c2e3;--kptu-primary-ink:#a6c6ea;--kptu-primary-soft:#1d2a3a;--kptu-link:#a6c6ea;
+  }
+  :root[data-theme="terracotta"]{
+    --kptu-primary:#e39b6d;--kptu-primary-hover:#eaaf88;--kptu-primary-ink:#efb48d;--kptu-primary-soft:#3a2519;--kptu-link:#efb48d;
+  }
+  :root[data-theme="sand"]{
+    --kptu-primary:#d8b67f;--kptu-primary-hover:#e2c597;--kptu-primary-ink:#e2c597;--kptu-primary-soft:#352b1b;--kptu-link:#e2c597;
+  }
+  :root[data-theme="mugwort"]{
+    --kptu-primary:#8ebea7;--kptu-primary-hover:#9cc6b2;--kptu-primary-ink:#99c4b0;--kptu-primary-soft:#252e27;--kptu-link:#99c4b0;
+  }
+  :root[data-theme="lavender"]{
+    --kptu-primary:#bbb2cd;--kptu-primary-hover:#c3bbd3;--kptu-primary-ink:#c2bad2;--kptu-primary-soft:#2c292f;--kptu-link:#c2bad2;
+  }
+  :root[data-theme="ink"]{
+    --kptu-primary:#b5b5b1;--kptu-primary-hover:#bebeba;--kptu-primary-ink:#bcbcb9;--kptu-primary-soft:#282824;--kptu-link:#bcbcb9;
+  }
+  :root[data-theme="rose"]{
+    --kptu-primary:#d1abb2;--kptu-primary-hover:#d7b5bb;--kptu-primary-ink:#d6b3ba;--kptu-primary-soft:#362928;--kptu-link:#d6b3ba;
+  }
+  :root[data-theme="teal"]{
+    --kptu-primary:#88bdc5;--kptu-primary-hover:#96c5cc;--kptu-primary-ink:#94c4cb;--kptu-primary-soft:#242d2c;--kptu-link:#94c4cb;
+  }
+  :root[data-theme="mustard"]{
+    --kptu-primary:#d8ae57;--kptu-primary-hover:#ddb86b;--kptu-primary-ink:#deba70;--kptu-primary-soft:#38301d;--kptu-link:#deba70;
+  }
 }

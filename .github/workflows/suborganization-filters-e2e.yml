@@ -18,6 +18,7 @@ on:
       - 'tests/app-e2e/suborganization-filters.spec.mjs'
       - 'tests/app-e2e/suborganization-filters-*'
       - '.github/workflows/suborganization-filters-e2e.yml'
+      - '.github/actions/setup-playwright/**'
   push:
     branches: [main]
     paths:
@@ -35,6 +36,7 @@ on:
       - 'tests/app-e2e/suborganization-filters.spec.mjs'
       - 'tests/app-e2e/suborganization-filters-*'
       - '.github/workflows/suborganization-filters-e2e.yml'
+      - '.github/actions/setup-playwright/**'
 
 permissions:
   contents: read
@@ -47,7 +49,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 20
+          node-version: 24
           package-manager-cache: false
       - name: Check assigned organization invariants
         run: |
@@ -57,16 +59,16 @@ jobs:
           test ! -f app/suborganization-filters.js
           test ! -f app/suborganization-filters.css
           test ! -f app/suborganization-planned-assignee.js
-          grep -q "suborganizations.js?v=23" app/view-loader.js
+          grep -Fq "module('./suborganizations.js'" app/view-loader.js
           grep -q "__KPTU_SUBORGANIZATIONS_READY__" app/view-loader.js
-          grep -q "workplace-detail.js?v=21" app/view-loader.js
-          grep -q "suborganizations.css?v=11" app/styles.css
-          grep -q "workplace-detail.css?v=9" app/styles.css
+          grep -Fq "module('./workplace-detail.js')" app/view-loader.js
+          grep -Fq "@import url('./suborganizations.css');" app/styles.css
+          grep -Fq "@import url('./workplace-detail.css');" app/styles.css
           if grep -q "suborganization-filters.js" app/loader-v2.js app/view-loader.js; then echo 'removed assigned-organization filter module returned'; exit 1; fi
           if grep -q "suborganization-filters.css" app/styles.css; then echo 'removed assigned-organization filter styles returned'; exit 1; fi
           grep -q "default_assignee_name" app/suborganizations.js
           grep -q "sofEditType" app/suborganizations.js
-          grep -q "id=\"soOrgCount\"" app/suborganizations.js
+          if grep -q 'id="soOrgCount"' app/suborganizations.js; then echo 'removed N개 담당조직 line returned (UI-디자인손질 3)'; exit 1; fi
           grep -q "const mine=myOrganizations()" app/suborganizations.js
           grep -q "id=\"wdInboxSave\"" app/workplace-detail.js
           if grep -Eq "wdUpdateCurrent|wdAddItem" app/workplace-detail.js; then echo 'removed current-status/memo input returned'; exit 1; fi
@@ -82,10 +84,8 @@ jobs:
             echo 'assigned organization styles returned to dynamic injection'; exit 1
           fi
       - name: Install Playwright
-        run: |
-          npm install --no-save @playwright/test@1.55.0
-          npx playwright install --with-deps chromium
+        uses: ./.github/actions/setup-playwright
       - name: Start server
         run: python3 -m http.server 8123 >/tmp/kptu-suborg-http.log 2>&1 &
       - name: Run suborganization tests
-        run: npx playwright test tests/app-e2e/suborganization-filters.spec.mjs --browser=chromium --workers=1 --reporter=line
+        run: npx playwright test tests/app-e2e/suborganization-filters.spec.mjs --browser=chromium --workers=1 --reporter=line,github

@@ -50,33 +50,24 @@ jobs:
           # or a truly device-local UI preference. User-created/shared content must
           # always be persisted to the server.
           allowed={
-              'app/home-quick.js':[r"'kptu-home-quick-mode'"],
               'app/home-read.js':[r"'home-read-v1:'"],
-              # 화면 색은 기기에만 두는 화면 설정이며 사용자 내용이 아님.
-              'app/index.html':[r"'kptu-theme'"],
-              'app/login/index.html':[r"'kptu-theme'"],
-              'app/topbar-actions.js':[r"'kptu-theme'"],
-              'tests/theme-bootstrap.test.mjs':[r'\bTHEME_STORAGE_KEY\b'],
-              'tests/app-e2e/theme.spec.mjs':[r'\bTHEME_STORAGE_KEY\b'],
+              # SET-보기선택서버저장: 화면 선택은 서버(프로필 view_prefs)에 저장한다. 이 파일은 옛 기기 값을 서버로 한 번 옮긴 뒤 지우기 위해
+              # 읽고(getItem)·지우기(removeItem)만 한다. 새로 쓰기(setItem)는 없다. 옮기기가 끝나면 이 줄과 LEGACY 목록을 지운다.
+              'app/view-prefs.js':[r'globalThis\.localStorage'],
+              # SET-보기선택서버저장 시험: 읽기 전용 단언(옛 화면 선택 키가 기기에 남지 않음)과 "저장소가 막혀도 기본 색" 확인용 던지는 getter. 저장 사용 없음.
+              'tests/app-e2e/helpers/view-prefs-server.mjs':[r'^export const leftoverDeviceKeys=page=>page\.evaluate\(\(\)=>Object\.keys\(localStorage\)'],
+              'tests/app-e2e/theme.spec.mjs':[r"Object\.defineProperty\(window,'localStorage',\{get\(\)\{throw Error\('theme storage blocked'\)\}\}\)"],
+              'tests/theme-bootstrap.test.mjs':[r"Object\.defineProperty\(context,'localStorage',\{get\(\)\{throw Error\('storage must not be read'\)\}\}\)"],
               'index.html':[r'AUTH_KEY',r'AUTH_SESSION_KEY'],
               'app/auth-handoff-client.js':[r'AH_SESSION'],
               'app/suborganization-planned-assignee.js':[r'PA_SESSION'],
               'app/session-resilience.js':[r'SR_KEY'],
               'app/calendar-plus.js':[r'CM_PREF'],
-              # D-4b: approved device-local view preference only; no user content.
-              'app/calendar-view.js':[r'\bSTORAGE_KEY\b'],
-              'tests/app-e2e/calendar-task-toggle.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
-              'tests/app-e2e/calendar-list-view.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
-              'tests/app-e2e/calendar-week-view.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
-              # Toolbar regression only reads the existing device-local preference.
-              'tests/app-e2e/calendar-toolbar-one-row.spec.mjs':[r"localStorage\.getItem\('kptu-calendar-view'\)"],
-              'tests/app-e2e/calendar-edit-move.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
-              'tests/app-e2e/modal-typography.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
-              'tests/app-e2e/calendar-tasks.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
-              'tests/app-e2e/swipe-nav-follow.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
-              'tests/app-e2e/mobile-ux-shell.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
-              'tests/app-e2e/calendar-google-loading.spec.mjs':[r"['\"]kptu-calendar-view['\"]"],
-              'tests/app-e2e/helpers/calendar-task-emphasis.mjs':[r"['\"]kptu-calendar-view['\"]"],
+              # UI-PC프로젝트좌우·ORG-PC좌우: device-local "last project / organization seen" on the PC left-list / right-detail
+              # screens (one id, no names or content), stored under the per-owner cache prefix that sign-out and owner change clear.
+              'app/split-last.js':[r'localStorage\.(?:getItem|setItem)\(k\b'],
+              # ORG-PC좌우 시험: 합성 조직 id 하나를 넣고 읽어 로그아웃·사용자 변경 때 지워지는지 본다.
+              'tests/app-e2e/organization-pc-split.spec.mjs':[r"organization-last"],
               'app/library-upload.js':[r'LU_SESSION'],
               'app/suborganizations.js':[r'SO_SESSION'],
               'app/team.js':[r'SESSION_KEY'],
@@ -85,11 +76,14 @@ jobs:
               # 묶음C-2: per-owner read cache of Google Tasks (Google stays the source of truth),
               # dropped by KPTURuntime on sign-out or owner change.
               'app/google-tasks.js':[r'gtCacheKey\('],
-              'app/public-page-auth.js':[r'config[.]sessionKey'],
+              # CAL-저장본먼저(2026-10-22 사용자 승인): per-owner read copy of Google Calendar status and events per shown range (Google stays
+              # the source of truth, every visit reads again and replaces it), plus the existing home 오늘 일정 display copy, which the calendar
+              # refreshes. Both live under KPTURuntime.ownerCache, which sign-out and owner change clear.
+              'app/calendar-persistence.js':[r'cpCacheKey\(',r"'home-read-v1:'"],
+              'tests/app-e2e/calendar-cache-first.spec.mjs':[r'\blocalStorage\b'],
               'app/web1-admin-auth.js':[r'cfg[.]sessionKey',r'oauthReturnKey'],
               'tests/app-e2e/public-page-editor-fixture.html':[r'kptu_public_editor_session_v1'],
               'tests/app-e2e/public-page-editor-live.spec.mjs':[r'kptu_public_editor_session_v1',r'kptu_collab_session_v1'],
-              'tests/app-e2e/public-page-password-recovery.spec.mjs':[r'kptu_public_editor_session_v1'],
               'tests/app-e2e/public-workspace-auth.spec.mjs':[r'\blocalStorage\b'],
               'tests/security/web1-admin-auth-redirect.test.mjs':[r'\bsessionStorage\b',r'\blocalStorage\b'],
               # SEC-1 synthetic session adapter and a read-only assertion that
@@ -113,12 +107,58 @@ jobs:
                       "const cache=await page.evaluate(()=>JSON.parse(localStorage.getItem('kptu_owner_cache:home-read-v1:home-test')));",
                   )
               ],
+              # ED-② 공유 사진: 사진 id·공유 사진 주소가 기기 저장소에 하나도 남지 않음을 확인하는 읽기 전용 단언(저장 사용 없음).
+              'tests/app-e2e/share-pages-photo.spec.mjs':[r'^\s*'+re.escape("expect(await page.evaluate(id => Object.entries(localStorage).concat(Object.entries(sessionStorage)).filter(([k, v]) => (k + v).includes(id) || /share-page|share:/.test(k + v)).map(([k]) => k), PHOTO)).toEqual([]);")+r'\s*$'],
               'tests/app-e2e/auth-handoff.spec.mjs':[r'localStorage\.getItem\(key\),SESSION'],
+              # LIB-보기기억 시험: 자료실 보기는 서버(프로필 library_view)에만 저장하므로 브라우저 저장소에 관련 키가 하나도 없음을 읽기만 해서 확인한다.
+              'tests/app-e2e/library-list-filters.spec.mjs':[r'^\s*'+re.escape('expect(await page.evaluate(()=>Object.keys(localStorage).concat(Object.keys(sessionStorage)).filter(k=>/library|group|categor|filter/i.test(k)))).toEqual([]);')+r'\s*$'],
               # LIB: exact read-only assertion that disclosure never creates storage keys.
               'tests/app-e2e/library-row-list.spec.mjs':[r'^\s*'+re.escape('const storageKeys=()=>page.evaluate(()=>({local:Object.keys(localStorage).sort(),session:Object.keys(sessionStorage).sort()}));')+r'\s*$'],
+              # Active-saver tests: read-only privacy observation and a synthetic adapter
+              # whose write always throws. No application storage permission.
+              'tests/app-e2e/save-other-active.spec.mjs':[
+                  r'^\s*'+re.escape('const storageSnapshot=page=>page.evaluate(()=>({local:Object.values(localStorage),session:Object.values(sessionStorage)}));')+r'\s*$',
+              ],
+              # LIB Task2: synthetic session-state probes that swap only the runtime
+              # auth session key (owner/null/empty token) and restore it. No user content.
+              'tests/app-e2e/runtime-recovery.spec.mjs':[
+                  r'^\s*'+re.escape(line)+r'\s*$' for line in (
+                      'const write=value=>value?localStorage.setItem(key,JSON.stringify(value)):localStorage.removeItem(key);',
+                      "await page.evaluate(changed=>{const rt=window.KPTURuntime,s=rt.session.read();if(changed==='null')localStorage.removeItem(rt.config.sessionKey);else localStorage.setItem(rt.config.sessionKey,JSON.stringify(changed==='owner'?{...s,user:{id:'other-owner'}}:{...s,access_token:''}))},changed);",
+                  )
+              ],
+              'tests/save-other-active.test.mjs':[
+                  r'^\s*'+re.escape("localStorage:{getItem:()=>null,setItem(){throw Error('private persistence forbidden');}},")+r'\s*$',
+                  r'^\s*'+re.escape('h.privateStore=env.localStorage;')+r'\s*$',
+              ],
           }
 
-          active_hits=[]; legacy_hits=[]; violations=[]
+          # HWP-편집기 1단계: 고정 버전 rhwp 편집기 빌드본(제3자 코드, 직접 고치지 않음). 편집기 frame은
+          # app/hwp-lab/studio-guard.js가 모든 편집기 코드보다 먼저 저장소를 메모리 대체물·undefined로 바꾸므로
+          # 기기에 남는 것이 없다(tests/app-e2e/hwp-lab.spec.mjs가 실제 브라우저에서 확인). 보고만 한다.
+          # 2단계부터 편집기 frame은 sandbox(allow-same-origin 없음)라 Web2 저장소 자체에 닿지 못한다.
+          vendored_prefix='app/hwp-lab/rhwp-'
+          # The guard may only replace storage with a memory stand-in or undefined; nothing else.
+          # The spec lines are read-only observations that nothing was stored and that the frame cannot see Web2 keys.
+          neutralizers={
+              'app/hwp-lab/studio-guard.js':[re.compile(r"^\s*replace\('(?:localStorage|sessionStorage|indexedDB)',(?:memoryStorage\(\)|undefined)\);\s*$")],
+              'tests/app-e2e/hwp-lab.spec.mjs':[re.compile(r'^\s*'+re.escape(line)+r'\s*$') for line in (
+                  'databases:(await indexedDB.databases()).map(db=>db.name),',
+                  'local:Object.keys(localStorage).filter(key=>/rhwp/i.test(key)),',
+                  'session:Object.keys(sessionStorage).filter(key=>/rhwp/i.test(key))',
+                  'const web2Keys=await page.evaluate(()=>Object.keys(localStorage));',
+                  # HWP-편집기 2단계: read-only probes that the sandboxed frame cannot reach Web2 storage.
+                  'parentStore:reach(()=>parent.localStorage.length),',
+                  'visible:keys.filter(key=>localStorage.getItem(key)!==null),',
+              )],
+              # MD-표시보완: read-only probes that the sandboxed ChatGPT HTML frame cannot reach any storage.
+              'tests/app-e2e/chatgpt-view.spec.mjs':[re.compile(r'^\s*'+re.escape(line)+r'\s*$') for line in (
+                  "t('storage',function(){return localStorage.length});",
+                  "t('session',function(){return sessionStorage.length});",
+              )],
+          }
+
+          active_hits=[]; legacy_hits=[]; vendored_hits=[]; violations=[]
           for p in Path('.').rglob('*'):
               if not p.is_file() or p.suffix.lower() not in exts: continue
               if any(part in skip_parts for part in p.parts): continue
@@ -132,7 +172,12 @@ jobs:
                       if path.startswith('app/legacy/'):
                           legacy_hits.append(row)
                           continue
+                      if path.startswith(vendored_prefix):
+                          vendored_hits.append(row)
+                          continue
                       active_hits.append(row)
+                      if any(rule.search(line) for rule in neutralizers.get(path,[])):
+                          continue
                       if kind in {'indexedDB','CacheStorage'}:
                           violations.append(row);continue
                       tokens=allowed.get(path,[])
@@ -147,6 +192,8 @@ jobs:
           for path,lineno,kind,line in legacy_hits:
               print(f'{path}:{lineno}: [{kind}] {line}')
           print(f'LEGACY_HITS={len(legacy_hits)}')
+          print('=== VENDORED EDITOR STORAGE USE (memory-only via studio-guard.js, reported only) ===')
+          print(f'VENDORED_HITS={len(vendored_hits)}')
 
           if violations:
               print('=== POLICY VIOLATIONS ===')

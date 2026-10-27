@@ -1,0 +1,39 @@
+{
+  "_설명": "scripts/check-personal-data.mjs 예외 목록. 값 원문은 적지 않고 검사 결과에 찍힌 hash(sha256 앞 16자리)만 적는다. hashes가 없으면 그 경로의 해당 종류 전부를 허용하므로 외부 라이브러리·결정 대기 경로에만 쓴다. secret·rrn은 경로 전체 허용을 받지 않는다.",
+  "entries": [
+    {
+      "kinds": ["mobile", "landline"],
+      "paths": ["press/", "workforce/", "2in1/", "p/", "private-rail/", "rail-council/", "public-policy/"],
+      "hashes": ["3e096899799fd345", "5e5840cba4b26444", "1528454473a201b6", "32c8534d31d2179b"],
+      "reason": "Web1 보도자료·기자회견·참여 모집 페이지의 담당 연락처. 외부 공개용으로 원래 싣는 값(SEC-공개저장소점검 2026-10-27). 새 연락처는 값마다 따로 추가한다."
+    },
+    {
+      "kinds": ["email"],
+      "paths": ["press/", "workforce/"],
+      "hashes": ["b67c9bdb943d5f0b", "2c6dbd8422a03be0", "96092e10e7ba17b9"],
+      "reason": "Web1 보도자료·기자회견 페이지의 문의 메일. 외부 공개용(SEC-공개저장소점검 2026-10-27)."
+    },
+    {
+      "kinds": ["email"],
+      "paths": ["workspace/"],
+      "hashes": ["96092e10e7ba17b9"],
+      "reason": "공개 개인정보 처리방침·안내 페이지의 문의 메일(공개 의도)."
+    },
+    {
+      "kinds": ["email"],
+      "paths": ["app/editor-lib/"],
+      "reason": "외부 오픈소스 라이브러리 LICENSE의 저작자 메일(원문 유지 의무)."
+    },
+    {
+      "kinds": ["mobile", "landline"],
+      "paths": ["analysis/kptu-corpus/"],
+      "reason": "결정 대기: 조합 공개 게시물 원문 사본에 실린 담당 연락처. 명진이 이 폴더를 지움/비공개 저장소로 옮김 결정하면 이 항목을 지운다(SEC-공개저장소점검)."
+    },
+    {
+      "kinds": ["mobile"],
+      "paths": ["wedding/gift-desk/"],
+      "hashes": ["8acd8bbfc4dfccda"],
+      "reason": "결정 대기: 행사 당일 안내 페이지의 연락처. 명진이 페이지 삭제를 결정하면 이 항목을 지운다(SEC-공개저장소점검)."
+    }
+  ]
+}

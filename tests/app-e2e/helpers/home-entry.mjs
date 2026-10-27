@@ -1,14 +1,20 @@
 import { expect } from '@playwright/test';
+import {DEFAULT_STAGES} from '../../../app/org-dispute-stage-model.mjs';
 import { loginEntry } from './login-entry.mjs';
 import {testOrigin} from './test-origin.mjs';
+import { signInWithSession } from './session-login.mjs';
+import { installViewPrefsServer } from './view-prefs-server.mjs';
 const app=testOrigin+'/app/',SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // Normalized Google Tasks create representation, matching the existing Edge contract.
 export function createdTaskReply(body,{id='new',linkError=null}={}){return{ok:true,task:{id,taskListId:'@default',taskListTitle:'내 할 일',title:body.title,notes:body.notes||'',due:body.due||null,status:'needsAction',source:'google-task'},links:linkError?[]:(body.links||[]).map(link=>({...link,status:'confirmed'})),meeting_links:[],...(linkError?{link_error:linkError}:{})}}
+export const defaultStageRows=()=>DEFAULT_STAGES.map((row,i)=>({id:'stage-'+(i+1),...row,sort_order:i+1,created_at:'2026-10-01T00:00:00Z'}));
 export async function openHome(
   page,
-  { delay = 0, delays = {}, holds = {}, fail = "", connected = true, calendarWarning = "", query = "", milestones = true } = {},
+  { delay = 0, delays = {}, holds = {}, fail = "", connected = true, calendarWarning = "", query = "", milestones = true, beforeLoad = null } = {},
 ) {
   await page.clock.setFixedTime(new Date("2026-10-06T01:00:00Z"));
+  // SET-보기선택서버저장: 화면 선택(빠른 입력 모드·메뉴 접기·달력 보기 등)은 서버 프로필에 저장되므로 시험도 흉내 낸 서버를 쓴다(새로고침 뒤에도 이어짐).
+  const prefs = await installViewPrefsServer(page);
   const requests = [],
     user = { id: "home-test", email: "home@example.org" },
     tasks = [
@@ -105,6 +111,9 @@ export async function openHome(
           workspace: { id: "w", name: "QA", slug: "kptu-work" },
         },
       ]);
+    // ORG-쟁의단계: 기본 단계가 이미 채워진 빈 이력(조직 상세 줄이 처음 열 때 쓰기를 하지 않게). 단계 시험은 자기 경로로 다시 가로챈다.
+    if (p === "/rest/v1/app_dispute_stages" && req.method() === "GET") return ok(defaultStageRows());
+    if (p === "/rest/v1/app_suborganization_dispute_stages" && req.method() === "GET") return ok([]);
     const latency=delays[a] ?? delays[p.split('/').pop()] ?? (p.includes('/functions/')?delay:0);
     const holdKey=p.endsWith('app_record_links')&&u.searchParams.get('note_id')==='not.is.null'?'basket-record-links':p.split('/').pop();
     await (holds[a] ?? holds[holdKey]);
@@ -115,6 +124,9 @@ export async function openHome(
         contentType: "application/json",
         body: '{"message":"QA failure"}',
       });
+    // JOURNAL-챙길것: by default nothing is found (no candidate; the server already looked today), so the home 챙길 것 card
+    // folds away and the other home tests see the home as before. tests/app-e2e/todo-radar.spec.mjs routes these itself.
+    if (p.endsWith("/functions/v1/ai-assist")) return ok({ ok: true, kind: "todo_radar", skipped: true, checked_at: null, partial: false });
     if (p.endsWith("google-tasks")) {
       if(a==='create'){const body=req.postDataJSON(),d=createdTaskReply(body,{id:'home-created-'+tasks.length});tasks.push(d.task);links.push(...d.links.map(link=>({...link,google_task_id:d.task.id})));return ok(d)}
       if(a==='tasks')return ok({tasks:connected?tasks:[],needs_reconnect:!connected,pending_scope:'all'});
@@ -191,15 +203,14 @@ export async function openHome(
       return ok([{ id: "m", series_name: "테스트 회의", title: "회차" }]);
     return ok(p.startsWith("/rest/") ? [] : {});
   });
+  await beforeLoad?.(); // routes added here take priority over the ones above
   await page.goto(loginEntry(app+query));
-  await page.locator("#emailAuthToggle").click();
-  await page.locator("#authEmail").fill(user.email);
-  await page.locator("#authPassword").fill("password123");
-  await page.locator("#authSubmit").click();
+  await signInWithSession(page,user.email);
   await expect(page.locator("#appView")).toHaveClass(/kptu-ui-ready/, {
     timeout: 20000,
   });
   return {
+    prefs,
     requests,
     tasks,
     links,

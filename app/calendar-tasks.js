@@ -1,11 +1,13 @@
+import {createTaskInline} from './task-inline.js';
 (()=>{
 'use strict';
 if(window.KPTUCalendarTasks)return;
 // Google tasks on the month calendar by due date (CAL-할일). This module owns the calendar's task list; calendar-month-view.js
 // draws it. It is kept apart from the Web2 events path (team.js) so removing Web2 events (CAL-웹2일정삭제) leaves it alone.
 // Shown: every pending task with a due date (an overdue one stays on its due date) and tasks completed in the last 3 days
-// (faded), whatever their project or organization links. Tasks without a due date are not shown. Read only: a tap opens the
-// existing Google task editor, nothing here completes or changes a task. Without Google or its Tasks permission the calendar
+// (faded), whatever their project or organization links. Tasks without a due date are not shown. A tap opens the existing
+// Google task editor (which also completes, un-completes and deletes). In the date list the row's circle and ⋯ are the shared task line
+// (TASK-바로처리통일, task-inline.js); nothing else here changes a task. Without Google or its Tasks permission the calendar
 // simply shows no tasks, with no error message.
 // The first calendar screen never waits for tasks: the view loader brings this module in after the first render, this device's
 // copy is shown at once, and the fresh read starts a moment later and only while the calendar is still shown.
@@ -57,11 +59,42 @@ function open(id,dayModal){
     show();
   }
 }
+// TASK-바로처리통일 (was UI-할일조작통일): the date list's rows are the shared task line (task-inline.js). The circle completes with a
+// 5-second [되돌리기] (a finished row's circle reopens it), keeping the list open; the ⋯ beside each row holds 내일로 · 기한 바꾸기 ·
+// 고치기 · 지우기 (finished: 다시 할 일로 · 고치기). This module stays the owner of the calendar's task list: it repaints the row it
+// was asked to change (paint) and hands the list to the month view (publish); the task view's toggle / update / delete do the saving.
+const rowOf=id=>document.querySelector(`#calendarDayTasks [data-calendar-task="${CSS.escape(id)}"]`);
+const lineOf=id=>document.querySelector(`#calendarDayTasks [data-calendar-task-line="${CSS.escape(id)}"]`);
+function paint(b,value){
+  if(!b)return;
+  b.classList.toggle('cmv-task-done',value);
+  const mark=b.querySelector('.cmv-task-mark');if(mark)mark.textContent=value?'✓':'';
+  const label=(b.getAttribute('aria-label')||'').replace(/, 완료$/,'')+(value?', 완료':'');
+  b.setAttribute('aria-label',label);b.title=label;
+}
+// A row leaves the date list (deleted, or its due date moved to another day); the empty list says so.
+function dropRow(id){
+  const line=lineOf(id),section=line?.parentElement;line?.remove();
+  if(section?.id==='calendarDayTasks'&&!section.querySelector('[data-calendar-task]'))section.remove();
+  const list=document.querySelector('#calendarDayList');
+  if(list&&!list.querySelector('#calendarDayEvents,#calendarDayTasks,#calendarDayDiary'))list.innerHTML='<div class="empty compact">일정 없음</div>';
+}
+const findTask=id=>{const raw=tasks.find(x=>x.id===id);if(!raw)return null;const row=rowOf(id);return {...(api()?.taskState?.(id)?.task||raw),...(row?{status:row.classList.contains('cmv-task-done')?'completed':'needsAction'}:{})}};
+const line=createTaskInline({menuId:'calendarTaskMenu',historyKey:'kptuCalendarTaskMenu',menuAttr:'calendarTaskMenu',find:findTask,
+  begin:id=>{const l=lineOf(id);if(l)l.dataset.busy='1'},
+  end:id=>{const l=lineOf(id);if(l)delete l.dataset.busy},
+  apply:(id,done,original)=>paint(rowOf(id),done===null?original.status==='completed':done),
+  edit:id=>open(id,document.querySelector('#calendarDayModal')),
+  saved:(id,task)=>{tasks=tasks.map(x=>x.id===id?{...x,...task}:x);publish(tasks,Date.now());dropRow(id)},
+  removed:id=>{tasks=tasks.filter(x=>x.id!==id);publish(tasks,Date.now());dropRow(id)}});
 function boot(){
   owner=currentOwner();
   document.addEventListener('click',e=>{
+    const m=e.target.closest?.('[data-calendar-task-menu]');
+    if(m){e.preventDefault();line.openMenu(m);return}
     const b=e.target.closest?.('[data-calendar-task]');
     if(!b||window.KPTUCalendarMonthView?.suppressClick?.())return;
+    if(e.target.closest('#calendarDayTasks .cmv-task-mark')){e.preventDefault();if(!b.closest('[data-busy]'))void line.toggle(b.dataset.calendarTask,b);return}
     e.preventDefault();open(b.dataset.calendarTask,b.closest('#calendarDayModal'));
   });
   window.KPTURouter?.on?.('calendar',()=>{applyCopy();schedule()});

@@ -1,0 +1,25 @@
+/* UI-모바일업데이트겹쳐보기: a linked record shown as a card over project/organization detail on a phone (record-sheet.js).
+   It rises from just above the bottom tabs (like the menu sheet and write window) and never reaches a wide screen. */
+.modal.record-sheet{z-index:60}
+.record-sheet-card{display:flex;flex-direction:column;width:min(100%,560px);max-height:min(82dvh,720px);padding:0;overflow:hidden;transition:transform .18s ease}
+.record-sheet-card.dragging{transition:none}
+.record-sheet-head{flex:none;padding:6px var(--kptu-space-4) var(--kptu-space-2);border-bottom:1px solid var(--kptu-border);touch-action:none;cursor:grab;user-select:none}
+.record-sheet-grip{display:block;width:40px;height:4px;margin:2px auto 8px;border-radius:999px;background:var(--kptu-border)}
+.record-sheet-titlebar{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--kptu-space-2)}
+.record-sheet-titlebar h2{margin:0;min-width:0;font-size:var(--kptu-text-subtitle);line-height:1.4;font-weight:800;overflow-wrap:anywhere}
+.record-sheet-mark{display:inline-flex;vertical-align:-2px;color:var(--kptu-muted)}
+.record-sheet-mark svg{display:block}
+.record-sheet-close{flex:none;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);margin:-6px -10px 0 0;border-color:transparent;background:transparent;cursor:pointer}
+.record-sheet-head small{display:block;margin-top:2px;color:var(--kptu-muted);font-size:var(--kptu-text-meta)}
+.record-sheet-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:var(--kptu-space-3) var(--kptu-space-4)}
+.record-sheet-summary{margin:0 0 var(--kptu-space-3);padding:var(--kptu-space-2) var(--kptu-space-3);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle);font-size:var(--kptu-text-body);line-height:1.5;overflow-wrap:anywhere}
+.record-sheet-summary b{margin-right:4px;color:var(--kptu-muted);font-size:var(--kptu-text-meta)}
+.record-sheet-text{white-space:pre-wrap;overflow-wrap:anywhere;font-size:var(--kptu-text-body);line-height:1.65;color:var(--kptu-ink)}
+.record-sheet-text.md-body{white-space:normal}
+.record-sheet-empty{color:var(--kptu-muted)}
+.record-sheet-foot{flex:none;display:flex;justify-content:flex-end;gap:var(--kptu-space-2);padding:var(--kptu-space-2) var(--kptu-space-4) calc(var(--kptu-space-2) + env(safe-area-inset-bottom));border-top:1px solid var(--kptu-border)}
+.record-sheet-foot button{min-height:var(--kptu-touch-target,44px)}
+@media(max-width:760px){
+  html:has(body.kptu-workspace-shell) .modal.record-sheet{bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom))}
+  .record-sheet-card{width:100%;max-height:min(82dvh,calc(100dvh - var(--kptu-mobile-tab-height,0px) - 40px))}
+}

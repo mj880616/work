@@ -18,16 +18,24 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 20
+          node-version: 24
           package-manager-cache: false
       - name: Install locked checker parser
         run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
       - name: Test cache checker
         run: node --test scripts/check-loader-cache.test.mjs
-      - name: Check PR loader cache versions
+      # CI-버전자동화 3단계: the Pages build adds ?v= and the asset manifest (pages-build-check.yml).
+      - name: Check no hand-written ?v= in sources
         env:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           BASE=$(git merge-base "$PR_BASE" "$PR_HEAD")
           node scripts/check-loader-cache.mjs --base "$BASE" --head "$PR_HEAD"
+      # SEC-공개저장소점검: 공개 저장소에 개인정보 모양(전화·주민번호·개인 메일·키/토큰)이 새로 들어오지 않게 막는다.
+      # 이 job(loader-cache)은 모든 main 대상 PR에서 돌고, 게시 자동 merge(publication-auto-merge)도 결과를 기다린다.
+      # 예외는 scripts/personal-data-allowlist.json에 이유와 함께 적는다. 출력에는 값 원문 대신 hash만 찍는다.
+      - name: Test personal-data checker
+        run: node --test scripts/check-personal-data.test.mjs
+      - name: Check personal-data shapes in tracked files
+        run: node scripts/check-personal-data.mjs

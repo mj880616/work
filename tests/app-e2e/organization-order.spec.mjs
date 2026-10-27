@@ -100,8 +100,8 @@ test('the decided order is defined in one place in the app',()=>{
   const views=readFileSync('app/view-loader.js','utf8');
   const block=name=>{const rest=views.slice(views.indexOf(`async function ${name}()`)),end=rest.search(/\r?\n\}\r?\n/);expect(end).toBeGreaterThan(0);return rest.slice(0,end)};
   for(const name of ['tasks','projects','organizations'])expect(block(name)).toContain('await organizationOrder()');
-  expect(block('calendar')).toContain("then(organizationOrder).then(()=>module('./suborganizations.js?v=23'");
-  expect(views).toContain("module('./organization-order.js?v=2')");
+  expect(block('calendar')).toContain("then(organizationOrder).then(()=>module('./suborganizations.js'");
+  expect(views).toContain("module('./organization-order.js')");
 });
 
 test('group names follow actual membership, including sparse and outside groups',()=>{

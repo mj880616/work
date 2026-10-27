@@ -27,7 +27,7 @@
 .cp-cal-msg{margin:1px 0 5px;padding:4px 7px;border-radius:var(--kptu-radius-sm);background:var(--kptu-info-soft);color:var(--kptu-info);font-size:9px}
 .cp-cal-msg.error{background:var(--kptu-danger-soft);color:var(--kptu-danger)}
 
-.calendar-grid{--cmv-head-height:23px;--cmv-date-header-height:44px;--cmv-lane-step:14px;--cmv-min-week-height:58px;display:flex;flex-direction:column;height:var(--cmv-grid-height,auto);box-sizing:border-box;background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);overflow:hidden;touch-action:var(--kptu-swipe-touch-action,pan-y pinch-zoom)}
+.calendar-grid{--cmv-head-height:23px;--cmv-date-header-height:44px;--cmv-lane-step:14px;--cmv-min-week-height:58px;display:flex;flex-direction:column;height:var(--cmv-grid-height,auto);box-sizing:border-box;background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);overflow:hidden}
 .cmv-head-row{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));flex:0 0 var(--cmv-head-height);height:var(--cmv-head-height);background:var(--kptu-surface)}
 .cal-head{display:grid;place-items:center;text-align:center;padding:0 1px;background:transparent;font-size:10px;font-weight:700;color:var(--kptu-muted);border-right:1px solid var(--kptu-border)}
 .cal-head:last-child{border-right:0}
@@ -71,7 +71,7 @@
 .kptu-day-list .cmv-task-mark{margin-right:8px;font-size:12px}
 .kptu-day-card{width:min(100%,520px)!important}
 
-.cm-google-options{display:grid;grid-template-columns:1fr 1fr;gap:var(--kptu-space-3);padding:var(--kptu-space-3) 0}
+.cm-google-options{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--kptu-space-3);padding:var(--kptu-space-3) 0}
 .cm-google-options.hidden{display:none!important}
 .calendar-color-field{display:grid;gap:6px;margin:8px 0}
 .calendar-color-label{font-size:11px;font-weight:700;color:var(--kptu-ink)}
@@ -81,16 +81,15 @@
 .calendar-color-swatch:focus-visible{outline:3px solid var(--kptu-link);outline-offset:2px}
 
 .ci-card{width:min(100%,500px);border-top:4px solid var(--kptu-info)}
-.ci-actions{display:grid;grid-template-columns:auto 1fr;gap:var(--kptu-space-2);margin-top:var(--kptu-space-3)}
+.ci-actions{display:grid;grid-template-columns:auto auto minmax(0,1fr);align-items:center;gap:var(--kptu-space-2);margin-top:var(--kptu-space-3)}
 .ci-actions .primary{width:auto}
 .ci-delete{font-size:var(--kptu-text-meta);min-height:var(--kptu-control-height);border:1px solid var(--kptu-danger);background:var(--kptu-surface);color:var(--kptu-danger);border-radius:var(--kptu-radius-md);padding:0 var(--kptu-space-3);font-weight:700}
-.ci-date-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--kptu-space-2)}
+.ci-date-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--kptu-space-2)}
 .ci-all{display:flex;flex-direction:row;gap:var(--kptu-space-2);align-items:center}
 .ci-all input{width:auto;min-height:0}
 
 
 @media(min-width:1024px){
-  main:has(#calendarView:not(.hidden)){max-width:1920px;padding-left:clamp(24px,2.2vw,42px);padding-right:clamp(24px,2.2vw,42px)}
   #calendarView .calendar-toolbar{max-width:none;min-height:44px;gap:10px;margin:0 0 10px}
   #calendarView .calendar-toolbar #monthTitle{font-size:clamp(20px,1.3vw,24px);min-width:150px}
   #calendarView #prevMonthBtn,#calendarView #nextMonthBtn{width:38px;height:38px;min-width:38px;padding:0;font-size:24px;line-height:1}
@@ -113,7 +112,7 @@
   #calendarView .cal-cell{position:relative;border-right:0}
   #calendarView .cal-cell::after{content:'';position:absolute;right:0;top:0;bottom:0;border-right:1px solid var(--kptu-border);pointer-events:none}
   #calendarView .cal-cell:last-child::after{display:none}
-  .cmv-date-list,.cmv-date-create{position:absolute;left:0;right:0;width:auto;box-sizing:border-box;min-width:0;min-height:0;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:inherit;cursor:pointer;touch-action:var(--kptu-swipe-touch-action,pan-y pinch-zoom)}
+  .cmv-date-list,.cmv-date-create{position:absolute;left:0;right:0;width:auto;box-sizing:border-box;min-width:0;min-height:0;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:inherit;cursor:pointer}
   .cmv-date-list{top:0;height:var(--cmv-date-header-height);padding:2px 0;text-align:left;display:flex;align-items:flex-start}
   .cmv-date-list .cal-day{flex-shrink:1;min-width:0}
   .cmv-date-create{top:var(--cmv-date-header-height);bottom:0;padding:0}
@@ -145,9 +144,9 @@
   .view-panel>.section-head>.head-actions button{flex:0 0 auto;width:auto;min-width:0;white-space:nowrap}
 }
 @media(max-width:600px){
-  .cm-google-options{grid-template-columns:1fr}
+  .cm-google-options{grid-template-columns:minmax(0,1fr)}
   .ci-card{padding:var(--kptu-space-4)}
-  .ci-actions{grid-template-columns:1fr 1.7fr}
+  .ci-actions{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.7fr)}
 }
 
 /* CAL-cell-polish: A in narrow month cells, C in PC cells and day lists. */
@@ -163,7 +162,9 @@
 .kptu-day-list .google.cp-event .cmv-day-title,
 .kptu-day-list .google.cp-event .cmv-day-time{font-weight:400}
 @media(min-width:1024px){
-  #calendarView .google.cp-event{
+  /* BUG-일정색표시: PC week timed rows share the band's left stripe and tint. */
+  #calendarView .google.cp-event,
+  #calendarWeek .cwv-items .cp-event{
     background:color-mix(in srgb,var(--cmv-google-source) 8%,white)!important;
     border-left:4px solid var(--cmv-google-source);
   }
@@ -194,43 +195,86 @@
 
 #calendarView.calendar-list-active .calendar-toolbar #monthTitle{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* D-주간정리: Monday–Sunday columns with shared month bars below the header. */
-#calendarWeek{position:relative;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));width:100%;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);box-sizing:border-box}
-.cwv-day{position:relative;min-width:0;border-right:1px solid var(--kptu-border)}
-.cwv-day:nth-child(7){border-right:0}
-.cwv-header{position:relative;height:44px;box-sizing:border-box;border-bottom:1px solid var(--kptu-border);padding-right:44px;display:flex;align-items:center}
+/* D-주간정리 + CAL-주간시간표: left hour axis, Monday–Sunday columns, all-day/multi-day bands below the header,
+   then a timetable (1 hour = 48px, 0~24시 always open). CAL-주간고정: #calendarWeek scrolls; the date row, the all-day bands
+   and the hour-axis corner stay sticky, and the view opens with the 7시 line flush under them (calendar-week-view.js). */
+#calendarWeek{--cwv-axis-width:40px;--cwv-hour:48px;--cwv-head:44px;max-height:max(420px,calc(100dvh - 190px));overflow-y:auto;overscroll-behavior:contain;background:var(--kptu-surface);position:relative;display:grid;grid-template-columns:var(--cwv-axis-width) repeat(7,minmax(0,1fr));width:100%;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm);box-sizing:border-box}
+.cwv-day{position:relative;grid-row:1;min-width:0;border-left:1px solid var(--kptu-border)}
+.cwv-header{position:sticky;top:0;z-index:5;background:var(--kptu-surface);height:44px;box-sizing:border-box;border-bottom:1px solid var(--kptu-border);padding-right:44px;display:flex;align-items:center}
 .cwv-date{min-width:0;white-space:nowrap;margin:0;padding:0 6px;font-size:12px;line-height:16px;color:var(--kptu-muted);font-weight:400}
-.cwv-items{position:relative;min-width:0;padding-top:var(--cwv-band-height,0px);min-height:320px;pointer-events:none}
-.cwv-items .clv-event{position:relative;pointer-events:auto;gap:4px;padding:8px 4px;box-sizing:border-box}
-.cwv-items .clv-time{flex-basis:36px}
-.cwv-items .clv-title{font-size:12px}
+.cwv-items{position:relative;min-width:0;pointer-events:none}
+.cwv-cap{position:sticky;top:var(--cwv-head);z-index:5;height:var(--cwv-band-height,0px);background:var(--kptu-surface);pointer-events:auto}
+.cwv-today .cwv-header,.cwv-today .cwv-cap{background:var(--kptu-primary-soft)}
+.cwv-timeline{position:relative;box-sizing:content-box;height:var(--cwv-timeline-height,1152px);border-top:1px solid var(--kptu-border);
+  background:repeating-linear-gradient(to bottom,color-mix(in srgb,var(--kptu-border) 60%,transparent) 0 1px,transparent 1px var(--cwv-hour))}
+.cwv-axis{grid-column:1;grid-row:1;position:relative;pointer-events:none}
+.cwv-axis::before{content:"";display:block;position:sticky;top:0;z-index:5;box-sizing:border-box;height:calc(var(--cwv-head) + var(--cwv-band-height,0px));background:var(--kptu-surface)}
+.cwv-axis-ticks{position:relative;box-sizing:content-box;height:var(--cwv-timeline-height,1152px);border-top:1px solid var(--kptu-border)}
+.cwv-tick{position:absolute;right:4px;margin-top:2px;font-size:var(--ds-text-meta);line-height:14px;color:var(--kptu-muted);white-space:nowrap}
+.cwv-items .clv-event{position:absolute;z-index:1;top:0;left:0;min-height:0;pointer-events:auto;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:0;padding:1px 4px;margin:0 1px;border-bottom:0;box-sizing:border-box;overflow:visible}
+.cwv-items .clv-event:hover,.cwv-items .clv-event:focus-visible{z-index:3}
+.cwv-items .clv-time{flex:0 0 auto;line-height:16px}
+.cwv-items .clv-title{font-size:12px;line-height:15px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;white-space:normal;overflow:hidden;text-overflow:ellipsis;overflow-wrap:anywhere}
+.cwv-items .clv-event[data-cwv-lines="1"] .clv-title{-webkit-line-clamp:1;line-clamp:1}
+/* 30분 이하처럼 낮은 칸: 시간과 제목을 한 줄에 두고 넘치면 말줄임(마우스를 올리면 말풍선). */
+.cwv-items .clv-event[data-cwv-lines="0"]{flex-direction:row;align-items:flex-start;gap:4px}
+.cwv-items .clv-event[data-cwv-lines="0"] .clv-title{display:block;white-space:nowrap;line-height:16px;min-width:0;flex:1 1 auto}
+.cwv-now{position:absolute;z-index:2;left:0;right:0;height:2px;margin-top:-1px;background:var(--kptu-danger);pointer-events:none}
+.cwv-now::before{content:"";position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:var(--kptu-radius-pill);background:var(--kptu-danger)}
+.cwv-tip{display:none;position:absolute;z-index:20;top:100%;left:0;box-sizing:border-box;width:max-content;max-width:220px;padding:6px 8px;border-radius:var(--kptu-radius-sm);background:var(--kptu-ink);color:var(--kptu-surface);font-size:12px;line-height:16px;font-weight:400;white-space:normal;overflow-wrap:anywhere;pointer-events:none;box-shadow:var(--kptu-shadow-float)}
+.cwv-day:nth-of-type(n+5) .cwv-tip{left:auto;right:0}
+.cwv-items .clv-event.cwv-clipped:hover .cwv-tip,.cwv-items .clv-event.cwv-clipped:focus-visible .cwv-tip{display:block}
 .cwv-items .clv-color{display:none}
 .cwv-create{position:absolute;inset:44px 0 0;width:100%;min-width:44px;min-height:44px;border:0;background:transparent;border-radius:var(--kptu-radius-sm);cursor:pointer}
 .cwv-create:focus-visible{outline:2px solid var(--kptu-link);outline-offset:-2px}
 .cwv-today{background:var(--kptu-primary-soft)}
 .cwv-today .cwv-date{color:var(--kptu-primary-ink);font-weight:700}
-.cwv-bands{position:absolute;top:44px;left:0;right:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-auto-rows:44px;gap:4px 0;padding:2px 0;pointer-events:none}
+.cwv-bands{grid-column:2 / -1;grid-row:1;align-self:start;position:sticky;top:var(--cwv-head);z-index:6;box-sizing:border-box;height:var(--cwv-band-height,0px);margin-top:var(--cwv-head);display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-auto-rows:44px;gap:4px 0;padding:2px 0;pointer-events:none}
+.cwv-bands[hidden]{display:none}
+#calendarWeek .cwv-bands .cal-event.cmv-event{position:relative;overflow:visible}
+.cwv-bands .cwv-tip-end>.cwv-tip{left:auto;right:0}
+.cwv-bands .cmv-event.cwv-clipped:hover>.cwv-tip,.cwv-bands .cmv-event.cwv-clipped:focus-visible>.cwv-tip{display:block}
 #calendarWeek .cal-event.cmv-event{box-sizing:border-box;height:44px;min-height:44px;line-height:16px;font-size:12px;padding:0 6px;margin:0 2px}
 #calendarWeek .cmv-event-time{font-size:12px}
+/* CAL-끌어옮기기(PC 마우스): 끌 수 있는 일정은 잡기 커서, 아래·오른쪽 끝 6px는 길이 손잡이. 끄는 동안 원래 카드는 흐리게, 옮겨 갈 자리에
+   점선 상자 + 바뀔 시간(calendar-week-view.js·calendar-month-view.js가 그림). 막힌 자리(시간↔종일)는 빨간 점선. */
+@media (min-width:1024px) and (pointer:fine){
+  #calendarWeek [data-drag],#calendarGrid [data-drag]{cursor:grab;touch-action:none;user-select:none}
+  .cwv-resize{position:absolute;left:0;right:0;bottom:0;height:6px;cursor:ns-resize}
+  .cwv-band-resize{position:absolute;top:0;bottom:0;right:0;width:6px;cursor:ew-resize}
+}
+#calendarWeek.cwv-dragging,#calendarGrid.cmv-dragging{cursor:grabbing;user-select:none}
+#calendarWeek.cwv-dragging .cwv-tip{display:none!important}
+.cwv-drag-source,.cmv-drag-source{opacity:.4}
+.cwv-drag-preview{position:absolute;z-index:4;left:1px;right:1px;box-sizing:border-box;padding:1px 4px;border:2px dashed var(--kptu-primary);border-radius:var(--kptu-radius-sm);background:color-mix(in srgb,var(--kptu-primary-soft) 80%,transparent);color:var(--kptu-primary-ink);font-size:12px;line-height:15px;font-weight:700;pointer-events:none;overflow:hidden;white-space:nowrap}
+.cwv-bands .cwv-drag-preview{position:relative;left:auto;right:auto;height:44px;margin:0 2px;display:flex;align-items:center}
+.cwv-drag-preview.cwv-drag-blocked{border-color:var(--kptu-danger);color:var(--kptu-danger)}
+.cwv-drag-preview.cwv-drag-saving{opacity:.7}
+.cal-cell.cmv-drop{position:relative;outline:2px solid var(--kptu-primary);outline-offset:-2px;background:var(--kptu-primary-soft)}
+.cal-cell.cmv-drop.cmv-drop-blocked{outline-color:var(--kptu-danger)}
+.cmv-drop-label{position:absolute;right:4px;top:2px;font-size:11px;line-height:14px;font-weight:700;color:var(--kptu-primary-ink);pointer-events:none}
 .calendar-view-switch button[hidden]{display:none}
 
 /* D-월간3줄: counts share the date header, never reserve an event footer. */
 #calendarView .cal-cell{position:relative}
 #calendarView .cmv-date-create-pc{position:absolute;inset:0;width:100%;min-width:0;min-height:0;padding:4px 5px;background:transparent;border:0;color:inherit;text-align:left;display:flex;align-items:flex-start;border-radius:var(--kptu-radius-sm);clip-path:polygon(0 0,calc(100% - 44px) 0,calc(100% - 44px) 44px,100% 44px,100% 100%,0 100%)}
 #calendarView .cmv-task-count{box-sizing:border-box;color:var(--kptu-muted);font-size:12px;line-height:16px;white-space:nowrap}
-#calendarView button.cmv-task-count{position:absolute;top:0;right:0;width:44px;height:44px;min-height:0;min-width:0;padding:0;border:0;border-radius:var(--kptu-radius-sm);background:transparent;text-align:center;cursor:pointer;touch-action:var(--kptu-swipe-touch-action,pan-y pinch-zoom)}
+#calendarView button.cmv-task-count{position:absolute;top:0;right:0;width:44px;height:44px;min-height:0;min-width:0;padding:0;border:0;border-radius:var(--kptu-radius-sm);background:transparent;text-align:center;cursor:pointer}
 #calendarView .cmv-date-list .cmv-task-count{margin-left:auto;margin-top:2px;pointer-events:none}
 #calendarView .cmv-task-count-overdue{color:var(--kptu-danger)}
 #calendarView .cmv-task-count:focus-visible,#calendarView .cmv-date-create-pc:focus-visible{outline:2px solid var(--kptu-link);outline-offset:-2px}
 
 /* Registration modes share title, date and notes; event-only fields retain their layout. */
 #eventModal [hidden] { display:none; }
-#eventModal[data-mode="task"] .ci-date-grid { grid-template-columns:1fr; }
+#eventModal[data-mode="task"] .ci-date-grid { grid-template-columns:minmax(0,1fr); }
 .event-create-modes { display:flex; gap:8px; margin-bottom:12px; }
 .event-create-modes button { position:relative; box-sizing:border-box; min-width:64px; height:36px; padding:0 12px; border:1px solid var(--kptu-border); border-radius:var(--kptu-radius-pill); background:var(--kptu-surface); color:var(--kptu-ink); font:inherit; font-size:12px; cursor:pointer; }
 .event-create-modes button[aria-pressed="true"] { background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); }
-#eventTaskProject { max-width:100%; }
-#eventTaskProject span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* Project picker reads as an input field: left-aligned value, muted placeholder, arrow at the right edge. */
+#eventTaskProject { display:flex; align-items:center; justify-content:space-between; gap:var(--kptu-space-2); width:100%; max-width:100%; min-height:46px; padding:8px var(--kptu-space-3); border:1px solid var(--kptu-border-strong); border-radius:var(--kptu-radius-md); background:var(--kptu-surface); color:var(--kptu-ink); font-size:13px; font-weight:500; box-shadow:none; text-align:left; }
+#eventTaskProject .event-project-name { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:400; }
+#eventTaskProject .event-project-name[data-empty="true"] { color:var(--kptu-muted); }
+#eventTaskProject .event-project-arrow { flex:none; color:var(--kptu-muted); }
 
 .event-create-modes button::after { content:""; position:absolute; top:50%; left:0; right:0; height:44px; transform:translateY(-50%); }
 
@@ -259,4 +303,10 @@
   #calendarView #nextMonthBtn{margin-right:17px}
   #calendarView #calendarTodayBtn{box-sizing:border-box;width:36px;min-width:36px;padding:0;margin-left:0}
   #calendarView .calendar-toolbar-add{box-sizing:border-box;width:36px;min-width:36px;padding:0}
+}
+
+/* BASKET-전환버튼고정: 제목 글자 길이(달 "2026년 10월" / 목록·주 "10월 25일 – 11월 7일")가 달라도 오른쪽 보기 전환 버튼이 안 움직이게 제목 칸 폭을 고정한다. */
+@media(min-width:761px){
+  #calendarView .calendar-toolbar #monthTitle,
+  #calendarView.calendar-list-active .calendar-toolbar #monthTitle{box-sizing:border-box;flex:none;width:12.5em;min-width:12.5em;text-align:center;white-space:nowrap}
 }

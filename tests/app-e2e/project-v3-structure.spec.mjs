@@ -11,7 +11,7 @@ test('project view has one active renderer and no legacy overlay chain', async (
   const views=read('app/view-loader.js');
   const html=read('app/index.html');
   const team=read('app/team.js');
-  expect(views).toContain("project-system-v3.js?v=52");
+  expect(views).toContain("project-system-v3.js");
   for(const legacy of [
     'project-system-v2.js','project-hide-legacy.js','project-files.js','project-delete.js',
     'project-modal-polish.js','project-modal-scroll-lock.js','project-access.js',
@@ -40,7 +40,8 @@ test('project V3 includes the complete management actions in its own renderer', 
   expect(src).toContain('id="ps3-children"');
   expect(src).toContain('data-ps3-child');
   expect(src).toContain('ps3-more');
-  expect(src).toContain('data-ps3-quick-progress');
+  expect(src).toContain('data-ps3-record-input');
+  expect(src).not.toContain('data-ps3-quick-progress');
   expect(src).not.toContain('ps3-child-menu');
   expect(src).not.toContain('data-ps3-doc-filter');
   expect(src).not.toContain('data-ps3-nav');
@@ -54,7 +55,7 @@ test('first paint uses final icon, topbar and direct project renderer styles', a
   const topbar=read('app/topbar-actions.js');
   const topbarCss=read('app/topbar-actions.css');
   const projectCss=read('app/project-system-v3.css');
-  expect(html).toMatch(/rel="icon" href="\.\/app-icon\.svg\?v=[\w-]+"/);
+  expect(html).toContain('rel="icon" href="./app-icon.svg"');
   expect(html).not.toContain('href="../favicon.svg"');
   expect(html).not.toContain('<span class="leaf">⌁</span>');
   expect(html).toContain('id="newProjectBtn"');
@@ -81,10 +82,10 @@ test('project screen and library share one canonical project catalog', async () 
   const team=read('app/team.js');
   const projectsBlock=views.slice(views.indexOf('async function projects()'),views.indexOf('async function library()'));
   const libraryBlock=views.slice(views.indexOf('async function library()'),views.indexOf('async function meetings()'));
-  for(const block of [projectsBlock,libraryBlock])expect(block.indexOf("module('./project-catalog.js?v=3')")).toBeGreaterThan(-1);
+  for(const block of [projectsBlock,libraryBlock])expect(block.indexOf("module('./project-catalog.js')")).toBeGreaterThan(-1);
   expect(projectsBlock.indexOf('project-catalog.js')).toBeLessThan(projectsBlock.indexOf('project-system-v3.js'));
   expect(libraryBlock.indexOf('project-catalog.js')).toBeLessThan(libraryBlock.indexOf('library-upload.js'));
-  expect(catalog).toContain("./project-catalog-model.mjs?v=1");
+  expect(catalog).toContain("./project-catalog-model.mjs");
   expect(read('app/project-catalog-model.mjs')).toContain("metadata?.project_system==='v2'");
   expect(catalog).toContain('owner_id=eq.');
   for(const source of [project,library]){

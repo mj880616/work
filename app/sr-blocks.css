@@ -1,0 +1,38 @@
+/* SHARE-보이는편집: 공유 페이지 블록의 모양 하나. Web1 읽기 화면(share/)과 Web2 편집 화면의 "보이는 그대로" 칸이 함께 쓴다.
+   그리는 쪽은 sr-render.mjs 하나. 색은 Web2 공용 토큰(theme-tokens.css)만 쓴다. 폰 우선, PC는 가운데 좁은 열.
+   html·body 같은 페이지 바탕은 share/share.css에 둔다(편집 화면에 새지 않게). */
+.sr-wrap,.sr-wrap *{box-sizing:border-box}
+.sr-wrap{display:flex;flex-direction:column;gap:14px;max-width:640px;margin:0 auto;padding:20px 16px 12px;color:var(--kptu-ink);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:var(--ds-text-read);line-height:1.65}
+.sr-title{margin:4px 0 0;font-size:22px;font-weight:var(--ds-weight-medium);line-height:1.35;word-break:keep-all;overflow-wrap:anywhere}
+.sr-h{margin:0 0 10px;font-size:var(--ds-text-section);font-weight:var(--ds-weight-medium);color:var(--ds-section-ink)}
+.sr-summary{padding:14px 16px;border-radius:var(--ds-radius-box);background:var(--kptu-primary);color:var(--kptu-on-primary)}
+.sr-summary-text{margin:0;word-break:keep-all;font-size:16px;font-weight:var(--ds-weight-medium);line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+.sr-block{padding:14px 16px;background:var(--kptu-surface);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-box)}
+.sr-stage-bar{display:flex;gap:4px;margin:0;padding:0;list-style:none}
+.sr-stage{display:flex;flex:1 1 0;flex-direction:column;gap:6px;min-width:0}
+.sr-stage-mark{display:block;height:8px;border-radius:999px;background:var(--kptu-border)}
+.sr-stage.is-done .sr-stage-mark{background:var(--kptu-primary-soft);box-shadow:inset 0 0 0 1px var(--kptu-border-strong)}
+.sr-stage.is-current .sr-stage-mark{background:var(--kptu-primary)}
+.sr-stage-name{font-size:var(--ds-text-meta);line-height:1.35;color:var(--kptu-muted);overflow-wrap:anywhere}
+.sr-stage.is-current .sr-stage-name{font-weight:var(--ds-weight-medium);color:var(--kptu-ink)}
+.sr-stage-now{margin:10px 0 0;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
+.sr-table{width:100%;border-collapse:collapse}
+.sr-table th,.sr-table td{padding:8px 0;border-top:var(--ds-line-width) solid var(--ds-line);text-align:left;vertical-align:top;overflow-wrap:anywhere}
+.sr-table tr:first-child th,.sr-table tr:first-child td{border-top:0}
+.sr-date{width:7.5em;padding-right:12px!important;font-weight:var(--ds-weight-medium);color:var(--kptu-primary-ink);white-space:nowrap}
+.sr-issue{padding:10px 12px;border-radius:var(--ds-radius-control);background:var(--kptu-surface-subtle)}
+.sr-issue + .sr-issue{margin-top:8px}
+.sr-issue-title{margin:0;font-size:var(--ds-text-read);font-weight:var(--ds-weight-medium);overflow-wrap:anywhere}
+.sr-issue-body{margin:4px 0 0;white-space:pre-wrap;color:var(--kptu-ink);overflow-wrap:anywhere}
+.sr-link-list{margin:0;padding:0;list-style:none}
+.sr-link-list li + li{border-top:var(--ds-line-width) solid var(--ds-line)}
+.sr-link{display:flex;align-items:center;min-height:44px;color:var(--kptu-link);font-weight:var(--ds-weight-medium);text-decoration:none;overflow-wrap:anywhere}
+.sr-link::after{content:"↗";margin-left:6px;color:var(--kptu-muted)}
+.sr-link:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:2px}
+.sr-update-list{margin:0;padding:0;list-style:none}
+.sr-update{padding:2px 0 10px 14px;border-left:2px solid var(--kptu-primary)}
+.sr-update + .sr-update{padding-top:4px}
+.sr-update-date{display:block;font-size:var(--ds-text-meta);font-weight:var(--ds-weight-medium);color:var(--kptu-primary-ink)}
+.sr-update-text{margin:2px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.sr-block-error p{margin:0;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
+@media(min-width:761px){.sr-wrap{padding-top:36px}.sr-title{font-size:26px}}

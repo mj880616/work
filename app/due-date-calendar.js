@@ -1,4 +1,4 @@
-import {seoulDateKey} from './meeting-time.js?v=2';
+import {seoulDateKey} from './meeting-time.js';
 (()=>{
   if(window.__KPTU_DUE_DATE_CALENDAR__)return;
   window.__KPTU_DUE_DATE_CALENDAR__=true;

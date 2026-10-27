@@ -1,8 +1,10 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
-const canonical='http://127.0.0.1:8123/tests/app-e2e/suborganization-filters-canonical-fixture.html';
+const canonical=`${appOrigin}/tests/app-e2e/suborganization-filters-canonical-fixture.html`;
 
+async function deleteRecord(page,row){await row.getByRole('button',{name:'기록 메뉴'}).click();await page.locator('#wdUpMenu').getByRole('button',{name:'삭제',exact:true}).click()}
 async function openAssigned(page,suffix=''){
   await page.goto(canonical+suffix);
   await page.evaluate(()=>window.__KPTU_SUBORGANIZATIONS_READY__);
@@ -15,11 +17,11 @@ test('담당조직 탭은 검색·협의회·유형 필터 없이 내 담당조�
   expect(await visibleNames(page)).toEqual(['전국철도노동조합']);
   await expect(page.locator('[data-so-org="org-consumer"]')).toHaveCount(0);
   await expect(page.locator('#sofToolbar,#sofSearch,#sofCouncil,#sofType,#sofReset')).toHaveCount(0);
-  await expect(page.locator('#soOrgCount')).toHaveText('1개 담당조직');
+  await expect(page.locator('#soOrganizationList .kptu-list-row')).toHaveCount(1);await expect(page.locator('#soOrgCount')).toHaveCount(0);
   await expect(page.locator('#soTeamSection h3')).toHaveCount(0);
   const rail=page.locator('[data-so-org="org-rail"]');
   await expect(rail.locator('.sof-type')).toHaveCount(0);
-  await expect(page.locator('.so-group-heading')).toHaveText('철도 · 1');
+  await expect(page.locator('.so-group-heading')).toHaveText('철도1곳');
   await expect(rail.locator('.so-chevron')).toHaveText('›');
   await expect(rail).not.toContainText('김명진');
 });
@@ -28,12 +30,12 @@ test('필터 모듈은 active asset graph에서 제거되고 담당조직 단일
   const loader=readFileSync('app/loader-v2.js','utf8');
   const views=readFileSync('app/view-loader.js','utf8');
   const styles=readFileSync('app/styles.css','utf8');
-  expect(views).toContain("suborganizations.js?v=23");
-  expect(views).toContain("workplace-detail.js?v=21");
+  expect(views).toContain("suborganizations.js");
+  expect(views).toContain("workplace-detail.js");
   expect(loader).not.toContain('suborganization-filters.js');
   expect(views).not.toContain('suborganization-filters.js');
-  expect(styles).toContain("suborganizations.css?v=11");
-  expect(styles).toContain("workplace-detail.css?v=9");
+  expect(styles).toContain("suborganizations.css");
+  expect(styles).toContain("workplace-detail.css");
   expect(styles).not.toContain('suborganization-filters.css');
 });
 
@@ -50,11 +52,11 @@ test('담당조직 상세 맨 위는 조직명과 입력칸 하나, 저장 버�
   await expect(page.locator('#wdInboxText')).toBeVisible();
   await expect(page.locator('#wdInboxText')).toHaveAttribute('placeholder','통화·회의·교섭 내용을 그냥 적으세요');
   await expect(page.locator('#wdInboxSave')).toHaveText('저장');
-  await expect(page.locator('#wdModal textarea:visible, #wdModal input:visible')).toHaveCount(1);
+  await expect(page.locator('#wdModal textarea:visible, #wdModal input:visible:not(#wdStage input)')).toHaveCount(1);
   await expect(page.locator('#wdUpdateCurrent,#wdCurrentModal,#wdAddItem,#wdItemModal,#warRaw,#warSaveRaw')).toHaveCount(0);
   await expect(page.locator('#wdDeleteOrg')).toHaveCount(0);
   const order=await page.locator('#wdModal .wd-card').evaluate(card=>[...card.querySelectorAll(':scope > .wd-sec')].map(sec=>sec.querySelector('h3')?.firstChild?.textContent?.trim()));
-  expect(order).toEqual(['할 일','기록','연도별 타임라인','기본 정보 · 소속 · 이전 요약']);
+  expect(order).toEqual(['할 일','자료','사업 보고','기록','연도별 타임라인','기본 정보 · 소속 · 이전 요약']);
   const pos=await page.locator('#wdModal .wd-card').evaluate(card=>({
     title:card.querySelector('#wdTitle').getBoundingClientRect().top,
     input:card.querySelector('#wdInboxText').getBoundingClientRect().top,
@@ -140,7 +142,7 @@ test('기존 주간보고는 AI 없이 열고 수정하며 타임라인 수동 �
   expect(patches[0].id).toBe('report-1');
   expect(patches[0].body).not.toHaveProperty('ai_draft');
   expect(await page.evaluate(()=>window.__teamAiCalls)).toBe(0);
-  await page.locator('#warDraftClose').click();
+  await expect(page.locator('#warDraftModal')).toBeHidden();
   await page.locator('#wdTime > summary').click();
   await expect(page.locator('#wdAddTime')).toBeVisible();
 });
@@ -165,12 +167,14 @@ test('기록 삭제는 확인 후 해당 항목만 지우고, 취소하면 요�
   await expect(rows).toHaveCount(2);
   let asked='';
   page.once('dialog',d=>{asked=d.message();d.dismiss()});
-  await rows.nth(0).getByRole('button',{name:'기록 삭제'}).click();
-  expect(asked).toBe('이 기록을 삭제할까요?');
+  // ORG-기록수정삭제: [삭제] sits in the record's ⋯ (no separate red button) and still asks once more.
+  await expect(rows.nth(0).getByRole('button',{name:'기록 삭제'})).toHaveCount(0);
+  await deleteRecord(page,rows.nth(0));
+  await expect.poll(()=>asked).toBe('이 기록을 삭제할까요?');
   await expect(rows).toHaveCount(2);
   expect(await page.evaluate(()=>window.__deletes.length)).toBe(0);
   page.once('dialog',d=>d.accept());
-  await rows.nth(0).getByRole('button',{name:'기록 삭제'}).click();
+  await deleteRecord(page,rows.nth(0));
   await expect(rows).toHaveCount(1);
   await expect(rows.nth(0).locator('p')).toHaveText('지난주 지부장 통화: 인력 요구안 확정');
   await expect(page.locator('#toast')).toHaveText('기록을 삭제했습니다.');
@@ -204,14 +208,14 @@ test('삭제 요청이 실패하거나 지워진 행이 없으면 항목을 그�
   await openRail(page);
   page.on('dialog',d=>d.accept());
   const row=page.locator('#wdUpdates .wd-log-row');
-  const del=row.getByRole('button',{name:'기록 삭제'});
+  const del=row.getByRole('button',{name:'기록 메뉴'});
   await page.evaluate(()=>{window.__failDelete=true});
-  await del.click();
+  await deleteRecord(page,row);
   await expect(page.locator('#toast')).toHaveText('기록을 삭제하지 못했습니다. 네트워크 오류');
   await expect(row).toHaveCount(1);
   await expect(del).toBeEnabled();
   await page.evaluate(()=>{window.__failDelete=false;window.__deleteNoRows=true});
-  await del.click();
+  await deleteRecord(page,row);
   await expect(page.locator('#toast')).toHaveText('기록을 삭제하지 못했습니다. 권한이 없거나 이미 없는 항목입니다.');
   await expect(row).toHaveCount(1);
   await expect(row.locator('p')).toHaveText('지난주 지부장 통화: 인력 요구안 확정');
@@ -230,7 +234,7 @@ test('편집 권한이 없으면 기록·메모 삭제 버튼이 없고 삭제 �
   await page.locator('#wdMore > summary').click();
   await expect(page.locator('#wdItems')).toContainText('최근 교섭');
   await expect(page.locator('#wdUpdates button,#wdItems button')).toHaveCount(0);
-  await expect(page.locator('[data-wd-up-del],[data-wd-memo-del]')).toHaveCount(0);
+  await expect(page.locator('[data-wd-up-del],[data-wd-up-menu],[data-wd-memo-del]')).toHaveCount(0);
   let dialogs=0;
   page.on('dialog',d=>{dialogs++;d.accept()});
   // Forge the real delete controls so both module-scoped handlers must reject the viewer.
@@ -276,10 +280,11 @@ test('일반 상세에서 조직 삭제 실행 경로가 제거되고 데이터 
 
 test('viewer에게 담당조직 추가 컨트롤이 노출되거나 탭되지 않는다',async({page})=>{
   await openAssigned(page,'?role=viewer');
-  await expect(page.locator('#soAddOrg')).toBeHidden();
+  // UI-조직추가숨김: the add button is not drawn for anyone, so a viewer has nothing to see or Tab to.
+  await expect(page.locator('#soAddOrg,#soAddOrgLink')).toHaveCount(0);
   await expect(page.locator('.so-card')).toHaveCount(0);
   await page.keyboard.press('Tab');
-  await expect(page.locator('#soAddOrg')).not.toBeFocused();
+  await expect(page.locator('#soAddOrg,#soAddOrgLink')).toHaveCount(0);
 });
 
 test('360 390 412 430px에서 담당조직 목록과 상세가 가로 넘침 없이 표시된다',async({page})=>{
@@ -306,7 +311,7 @@ test('담당조직 목록은 정한 13개 순서와 묶음 구분선, 그 밖은
     await page.setViewportSize({width,height:900});
     await openAssigned(page,'?orgs=order');
     expect(await sequence(page,'#soOrganizationList','h4')).toEqual([...ORDERED,'국민연금지부','궤도협의회','한국소비자원지부']);
-    await expect(page.locator('#soOrgCount')).toHaveText('16개 담당조직');
+    await expect(page.locator('#soOrganizationList .kptu-list-row')).toHaveCount(16);await expect(page.locator('#soOrgCount')).toHaveCount(0);
     await expect(page.locator('#soOrganizationList>.so-org-group')).toHaveCount(5);
     const groups=await page.locator('#soOrganizationList').evaluate(box=>({gap:getComputedStyle(box).gap,borders:[...box.querySelectorAll('.so-group-card')].map(g=>getComputedStyle(g).borderTopWidth)}));
     expect(groups.gap).toBe('12px');expect(groups.borders).toEqual(Array(5).fill('1px'));
@@ -371,7 +376,7 @@ test('담당조직 상세의 할 일 칸은 편집 권한이 없으면 추가·�
   await expect(page.locator('#wdTaskLink')).toBeHidden();
   await page.locator('#wdTaskAdd').evaluate(b=>b.click());
   expect((await page.evaluate(()=>window.__gtCalls)).filter(x=>x.action!=='mount')).toEqual([]);
-  await page.route('**/app/google-tasks.js?*',route=>route.abort());
+  await page.route('**/app/google-tasks.js*',route=>route.abort());
   await openAssigned(page,'?gtasks=none');
   await page.locator('[data-so-org="org-rail"]').click();
   await expect(page.locator('#wdTaskBody')).toHaveText('Google 할 일 기능을 불러오지 못했습니다.');

@@ -12,31 +12,21 @@
 | Claude Code 웹 | 클라우드 | 코드·문서·테스트 | Supabase·production 접근 |
 | Codex CLI(PC) | 사용자 PC | 코드·문서·테스트, Supabase MCP(조회 전용, 이 프로젝트만), 커맨드센터에서 승인한 비밀값 없는 Edge 배포(§8) | 승인 없는 Edge 배포, Edge 삭제, DB 쓰기·migration·비밀값 변경, 허용된 Edge 배포 외 supabase CLI production 변경 |
 | Codex 웹 | 클라우드 | 📱 작업(코드·문서·테스트·PR 생성), 폰 경로 진단 코드·확인 SQL 작성, 승인형 Edge 배포 workflow 파일 작성(§8) | 운영 비밀값·DB 쓰기·Supabase 로그인·production 접근, workflow 실행·승인 |
-| 사용자 승인형 DB workflow(dry-run·apply·rollback 포함) | GitHub Actions `production-edge` | 커맨드센터 승인 → 사용자 `db-migration-apply.yml` 수동 실행(main 고정) → `production-edge` 승인 후 check·tx-probe 또는 지정 version의 dry-run·백업 후 apply·rollback(§7) | 자동 실행, 비밀값 변경, Codex·AI 실행·승인 |
+| 사용자 승인형 DB workflow(dry-run·apply·rollback 포함) | GitHub Actions `production-edge` | 커맨드센터가 `db-migration-apply.yml`을 main에서 시작 → 사용자 `production-edge` 승인 후 check·tx-probe 또는 지정 migration의 사전 확인·snapshot·시험 적용·백업·apply·사후 확인, rollback(§7) | 자동 실행, 비밀값 변경, AI 승인 |
 | 사용자 승인형 Edge workflow | GitHub Actions `production-edge` | 커맨드센터 승인 → 사용자 `edge-function-deploy.yml` 수동 실행 → `production-edge` 승인 후 지정 함수 배포·검증(§8) | 자동 배포, Edge 삭제, DB migration·비밀값 변경 |
 
 - **사용자가 커맨드센터에서 승인한 비밀값 없는 Edge 배포는 Codex 로컬에서 `supabase login --no-browser` 일회용 로그인으로 허용한다. 배포 직후 로그인 정보를 삭제한다. DB 쓰기·migration·비밀값 변경은 계속 Claude Code 로컬 또는 대시보드.** DB 적용은 §7의 기존 절차와 영구 금지를 그대로 따른다.
 - 도구 전환은 작업 사이에서만 한다. 한 브랜치·PR을 두 도구가 동시에 고치지 않는다.
 - production 조회·배포·적용이 웹 세션(Claude Code 웹·Codex 웹)에서 필요해지면 추측하지 말고 중단·보고한다.
-- 웹 세션에 production 토큰을 등록하도록 제안하지 않는다.
+- 운영 토큰은 GitHub `production-edge` environment 비밀값 `SUPABASE_ACCESS_TOKEN`과 변수 `SUPABASE_PROJECT_REF`에만 둔다(2026-10-10 사용자 결정, A안). 웹 세션·Codex 클라우드에는 등록하지 않고, 등록하도록 제안하지도 않는다(`docs/roadmap.md`의 OPS-클라우드복귀).
+- 급한 DB migration·비밀값 변경·Edge 삭제는 커맨드센터 승인 뒤 사용자가 대시보드에서 직접 처리한다(기존 임시 절에서 옮김).
 - Windows에서 supabase CLI는 `npx.cmd supabase`로 실행한다.
-
-### 2026-10-20까지 임시
-
-- Codex 클라우드는 코드·문서·테스트·PR 생성만 허용한다. 운영 비밀값 취급·DB 쓰기·Supabase 로그인·운영 접속은 하지 않는다.
-- Edge 배포는 **커맨드센터 승인 → 사용자가 `edge-function-deploy` workflow 실행 → `production-edge` 승인** 순서로만 한다. 기존 Codex 로컬의 커맨드센터 승인 후 `supabase login --no-browser` 일회용 로그인 배포(§8 예외)는 계속 허용한다.
-- DB migration·비밀값 변경·Edge 삭제는 금지한다. 급하면 커맨드센터 승인 뒤 사용자가 대시보드에서 직접 처리한다. §7의 영구 금지는 유지한다.
-- 아래 "폰 경로" C(커맨드센터 승인 → 사용자가 SQL Editor에서 직접 실행)는 위 DB migration 금지의 예외로 허용한다.
-- 운영 토큰은 GitHub `production-edge` environment 비밀값 `SUPABASE_ACCESS_TOKEN`에만 두며, Codex 클라우드 환경에는 등록하지 않는다. 프로젝트는 같은 environment의 변수 `SUPABASE_PROJECT_REF`로 지정한다.
-- 기한이 지나면 임시 절 정리를 검토하되, Edge·DB 사용자 승인형 workflow용으로 GitHub `production-edge` 비밀값 `SUPABASE_ACCESS_TOKEN`과 변수 `SUPABASE_PROJECT_REF`를 유지한다(2026-10-10 사용자 결정, A안). 웹 세션·Codex 클라우드에 운영 토큰을 등록하는 금지는 그대로 유지한다(`docs/roadmap.md`의 OPS-클라우드복귀).
 
 ### 폰 경로
 
 #### A. 원칙
 
-실기기 진단·DB 변경 확인·큰 화면 대조는 폰에서도 진행할 수 있다.
-AI 실수 위험은 감수하되 실행 전 확인·백업·되돌리기 경로를 항상 둔다.
-운영 키는 AI 환경(웹 세션·Codex 클라우드)에 두지 않는다.
+실기기 진단·DB 변경 확인·큰 화면 대조는 폰에서도 진행할 수 있다. 실행 전 확인·백업·되돌리기 경로를 항상 둔다(운영 키 금지는 §1).
 
 #### B. 실기기 진단(폰 브라우저)
 
@@ -72,9 +62,12 @@ AI 실수 위험은 감수하되 실행 전 확인·백업·되돌리기 경로�
 
 ### 원장
 
-- 개발 작업 원장은 `docs/roadmap.md`다. 새 작업은 원장에 행을 추가한 뒤 시작한다.
+- 개발 작업 원장은 `docs/roadmap.md`다. 새 작업은 커맨드센터가 원장에 행을 추가한 뒤 시작한다.
 - 개발도구는 Drive 원장 직접쓰기 금지. 기준은 `docs/ai-work-system-source-of-truth.md`를 따른다.
-- 작업 PR은 원장의 해당 행 상태·PR 번호를 같은 PR에서 갱신한다.
+- 원장에 들어가는 문은 Web2 안의 두 가지뿐이다. ① Web2 서버 AI(`ai-assist`)가 사용자 로그인으로 Web2 기록(업데이트·사업 보고·담당조직 기록·노트)에서 뽑아 자동으로 기록한다. 기록마다 근거(원래 Web2 기록)를 붙이고, 기존 기록을 고치거나 폐기하지 않고 더하기만 한다. ② 사용자가 Web2에서 직접 넣거나 고친다(가져오기, '원장 수정 요청' 반영 포함). Claude·개발도구는 Web2·원장에 직접 쓰지 않는다. Claude의 원장 수정안은 사용자 승인 뒤 사용자가 Web2 '원장 수정 요청'에 넣어 반영하며, 옛 기록은 지우지 않고 '대체됨'으로 남긴다(2026-10-22 변경: AI 후보 → 사용자 확정 방식 폐지).
+- **작업 PR은 `docs/roadmap.md`를 수정하지 않는다**(2026-10-17 사용자 결정, PR 간 충돌 줄이기). 대신 PR 본문 끝에 "원장 반영" 절(행 이름·상태·한 줄 요약·사용자 결정 사항)을 쓴다. 원장 갱신은 커맨드센터가 merge 뒤 문서 전용 PR로 한다.
+- 동시 세션 수·같은 파일 과제 묶기 등 커맨드센터 운영 규칙(세션 운영·merge·요청함·보고·인계)은 `docs/command-center-ops.md`를 따른다.
+- **줄 세우기**: 지시서가 "○○ PR 브랜치 위에서 시작"을 지정하면 최신 main 대신 그 PR의 head에서 브랜치를 만든다. 앞 PR이 main에 들어간 뒤에는 main을 merge만 하고(rebase·force push 금지), 앞 PR이 바뀌면 그 브랜치를 다시 merge해 맞춘다. 커맨드센터는 앞 PR → 뒤 PR 순서로 merge한다(2026-10-17 사용자 결정).
 - 공개 저장소이므로 원장·문서에 이메일, 계정명, 키, 토큰, 개인정보를 쓰지 않는다.
 
 ## 3. 보안 (Non-negotiable)
@@ -111,10 +104,9 @@ AI 실수 위험은 감수하되 실행 전 확인·백업·되돌리기 경로�
 
 ### 캐시 버전
 
-- Web2는 `app/index.html` → `app/app.js` → `app/loader-v2.js` → `app/view-loader.js`·기능 모듈 순서로 `?v=` 캐시 버전을 붙여 불러온다(`app/ARCHITECTURE.md`).
-- `?v=`로 불러오는 파일을 고치면 그 파일을 불러오는 곳의 `?v=`를 올린다. 그 때문에 불러오는 파일 자체가 바뀌면 그 파일의 버전도 윗단계에서 올린다. `index.html`까지 올라간다(예: `view-loader.js` 수정 → `loader-v2.js`의 `view-loader.js?v=` → `app.js`의 `loader-v2.js?v=`와 `index.html` modulepreload → `index.html`의 `app.js?v=`).
-- 버전 문자열을 기대하는 테스트(`tests/app-e2e/`)도 같은 PR에서 맞춘다.
-- 어느 로더도 불러오지 않는 파일은 올릴 버전이 없다. 이 경우 보고에 그렇게 적는다.
+- `?v=`를 손으로 쓰지 않는다. HTML·JS·CSS에서 저장소 안 파일은 번호 없는 경로로 부르고(예: `import('./view-loader.js')`), Pages 배포 빌드(`scripts/build-pages.mjs`)가 파일 내용 해시를 붙인다(`app/ARCHITECTURE.md` 1절).
+- CI(`loader-cache-check`)는 손으로 쓴 `?v=`가 있으면 실패한다. 예외: 저장소 밖 주소, 저장소에 없는 파일, 폴더 이름에 판 번호가 든 외부 라이브러리(`rhwp-0.8.7/` 등) 안쪽.
+- 테스트는 번호 없는 경로를 기대한다. 배포된 버전이 필요한 검사는 `tests/app-e2e/helpers/built-shell.mjs`처럼 `app.js`에 버전을 붙인 화면을 띄운다.
 
 ## 5. 제품 구조 (Confirmed product structure)
 
@@ -139,7 +131,7 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포·삭제, Cloudfl
 ## 7. production DB 적용 (Claude Code 로컬 또는 폰 경로 C)
 
 - 순서: 로컬 세션 read-only 사전 확인(snapshot 대조) → 사용자가 SQL Editor에서 직접 실행 → 로컬 세션 read-only 사후 검증.
-- 사용자 승인형 DB workflow: 커맨드센터 승인 → 사용자가 main에서 dry-run 실행·승인 → 결과 확인 → apply 실행·승인. 되돌리기는 rollback 모드. AI는 실행·승인 안 함. SQL Editor 경로·폰 경로 C·영구 금지 유지. 함수는 SECURITY INVOKER·search_path 고정·authenticated 전용 실행권한(사전 revoke)만, 되돌리기는 짝 함수 정확한 서명 drop만.
+- 사용자 승인형 DB workflow: 커맨드센터가 main에서 apply를 시작 → 사용자 승인 한 번 → 사전 확인·snapshot·시험 적용(취소)·백업·적용·사후 확인, 하나라도 실패하면 멈춤(rollback 자동 실행 없음, 사용자 결정). AI는 승인 안 함. SQL Editor 경로·폰 경로 C·영구 금지 유지. 엄격 규칙 밖의 정책·권한·트리거·함수는 확장 규칙(짝 파일 5개 필수, anon·PUBLIC 권한·RLS 끄기·DEFINER+anon/PUBLIC 실행·권한을 넓히는 정책 교체 등 거절. 같은 이름·같은 표로 다시 만들며 권한을 높이지 않는 정책 교체는 운영 정의와 비교해 받음)으로만 받는다(`docs/ops-db-workflow.md` "승인 한 번 흐름"). rollback 모드 규칙은 그대로다.
 - SQL Editor 적용은 항상 새 쿼리 창(+)에서 시작한다. 붙여 넣은 뒤 첫 줄·마지막 줄(`commit;`)·대상 프로젝트 ID를 확인하고 실행한다.
 - AI가 apply_migration 등 쓰기 도구로 production DB를 직접 변경하지 않는다.
 - **`supabase db push`·`migration repair`는 영구 금지.** production DB를 읽생기 저장소와 공유한다(`docs/migration-history.md`).
@@ -150,7 +142,7 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포·삭제, Cloudfl
 
 ## 8. Edge Function 배포 (Claude Code 로컬 / 커맨드센터 승인 시 Codex 로컬 / 사용자 승인형 workflow)
 
-- 로컬 세션 manual mode 또는 사용자 승인형 `.github/workflows/edge-function-deploy.yml`로만 한다. 2026-10-20까지는 §1 임시 규칙을 우선 적용하며, 기존 Codex 로컬 예외는 유지한다.
+- 로컬 세션 manual mode 또는 사용자 승인형 `.github/workflows/edge-function-deploy.yml`로만 한다.
 - workflow 경로: 커맨드센터 승인 → 사용자가 수동 실행 → `production-edge` 승인. Codex 클라우드는 파일·PR만 준비하며 workflow를 실행하거나 environment를 승인하지 않는다. 승인자 설정은 사용자가 GitHub environment에서 관리한다.
 - workflow 입력 `function`은 기존 함수 폴더 이름(밑줄 시작·`_shared` 불가), `ref`는 배포할 커밋·브랜치(기본 `main`), `first_deploy`는 기본 `false`, `verify_jwt`는 `keep|true|false` 중 선택(기본 `keep`, 기존 배포는 `keep`만 허용), `expect_unauth_401`은 기본 `true`다. 공개 함수에서만 `false`로 지정해 POST 검사를 생략한다. 기존 함수는 배포 전 이전 운영 소스 SHA를 기록하며 되돌리기는 그 SHA를 `ref`에 넣어 같은 버튼·승인 절차로 재실행한다.
 - 신규 함수는 `first_deploy=true` + `verify_jwt` 명시(`true|false`) + `docs/web2-env6b-edge-source.md` 5절 표 사전 등록이 필요하다. 운영에 같은 이름이 없어야 하며 배포 후 정확히 1개·명시 JWT 정책·유효한 version·HTTP 검사를 확인한다. 이전 버전이 없으므로 되돌리기는 화면이 아직 이 함수를 쓰지 않는 상태 유지, 필요 시 사용자가 대시보드에서 함수 삭제 판단으로 안내하며 자동 삭제하지 않는다.
@@ -176,10 +168,12 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포·삭제, Cloudfl
 - Prefer automated browser E2E and regression tests over manual-only checks whenever feasible.
 - 테스트를 우회하거나 삭제해서 통과시키지 않는다. CI 결과 확인 전에는 완료로 보고하지 않는다.
 - 문서 전용 PR은 CI 대상 아님을 완료 기준으로 인정한다.
+- 같은 E2E 시험이 서로 다른 실행에서 두 번 이상 간헐 실패하면 재실행으로 넘기지 않고 안정화 작업을 원장에 올려 원인을 고친다. 재시도 횟수 증가·대기 시간만 늘리기·skip은 해결로 인정하지 않는다(2026-10-19 사용자 결정).
 - If a security or authorization issue remains unresolved, do not describe the task as fully complete.
 
 ## 10. 보고
 
+- **모든 답변·보고·질문·인계서·PR 본문·PR 댓글은 한국어로 쓴다**(2026-10-24 사용자 결정, V37부터 의무). 코드·명령·파일 이름·오류 원문 같은 고유 표기만 원문 그대로 둔다. 영어로 쓴 답은 규칙 위반으로 보고 한국어로 다시 쓴다.
 - 진행 중에는 원인 발견, 예상과 다른 구조, 보안·데이터 손실 위험, 요구사항 충돌, 테스트 실패를 우선 알린다.
 - 요청과 구현이 다르면 차이를 명시한다.
 - 사용자 할 일과 사용자 결정 항목은 채팅 보고와 별도로 PR 댓글로도 올린다(터미널 복사 시 잘림 방지).
@@ -207,5 +201,6 @@ DB migration, Supabase 권한·RLS 변경, Edge Function 배포·삭제, Cloudfl
 - `docs/migration-history.md`: 저장소 migration 파일과 production 기록의 대응표.
 - `docs/web2-env6b-edge-source.md` 5절: production Edge Function 전체 verify_jwt 표.
 - `app/ARCHITECTURE.md`: Web2 앱 진입 경로, 모듈 로딩, 화면 전환 소유권 구조.
+- `docs/design-decisions.md`: Web2 디자인 결정 기록. 새 버튼·UI 크기 기준은 맨 아래 "UI-버튼기준" 절을 먼저 본다.
 - `docs/bokdoong-domain.md`: bokdoong.com 도메인 연결과 호스트·경로 운영 설계.
 - `docs/web2-expand-deploy-verify-contract.md`: Web2 공개 경로 변경의 Expand → Deploy → Verify → Contract 배포 순서.

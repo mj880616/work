@@ -1,7 +1,10 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {readFileSync} from 'node:fs';
 import {test,expect} from '@playwright/test';
 import {openSeoulApp} from './helpers/seoul-time-fixture.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
+import {fillDateTime} from './helpers/date-time.mjs';
+import {closeProjectDetail,expectProjectDetail} from './helpers/project-detail.mjs';
 for(const timezoneId of ['Asia/Seoul','Europe/Rome','America/Los_Angeles'])for(const width of [390,1280])test.describe(`${timezoneId} ${width}`,()=>{
   test.use({timezoneId,viewport:{width,height:900}});
   test('월 날짜 칸·한국 오늘·자정·월 경계·종일',async({page})=>{
@@ -37,19 +40,20 @@ for(const timezoneId of ['Asia/Seoul','Europe/Rome','America/Los_Angeles'])for(c
   });
   test('프로젝트 주요 일정·기록·오늘 기본값·회의·홈',async({page})=>{
     const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
-    const s=await openSeoulApp(page,{target:'http://127.0.0.1:8123/app/?view=projects'});await page.locator('[data-ps3-project="top-a"]').click();
+    const s=await openSeoulApp(page,{target:`${appOrigin}/app/?view=projects`});await page.locator('#projectGrid .ps3-plist [data-ps3-project="top-a"]').click();await expectProjectDetail(page,'top-a');
     await page.locator('#ps3-milestones summary').click();await expect(page.locator('#ps3-milestones')).toContainText('오전 12:30');await page.locator('[data-ps3-edit-milestone="seoul-mile"]').click();await expect(page.locator('#ps3MilestoneAt')).toHaveValue('2026-10-01T00:30');
     await page.locator('#ps3MilestoneSave').click();await expect(page.locator('#ps3MilestoneModal')).toBeHidden();expect(s.milestones[0].start_at).toBe('2026-09-30T15:30:00.000Z');
-    await page.locator('[data-ps3-add-milestone]').click();await page.locator('#ps3MilestoneTitle').fill('새 한국 주요 일정');await page.locator('#ps3MilestoneAt').fill('2026-10-01T23:30');await page.locator('#ps3MilestoneSave').click();await expect(page.locator('#ps3MilestoneModal')).toBeHidden();expect(s.milestones.at(-1).start_at).toBe('2026-10-01T14:30:00.000Z');
-    await page.locator('#ps3-memos summary').click();await expect(page.locator('#ps3-memos')).toContainText('오전 12:30');
+    await page.locator('[data-ps3-add-milestone]').click();await page.locator('#ps3MilestoneTitle').fill('새 한국 주요 일정');await fillDateTime(page,'#ps3MilestoneAt','2026-10-01T23:30');await page.locator('#ps3MilestoneSave').click();await expect(page.locator('#ps3MilestoneModal')).toBeHidden();expect(s.milestones.at(-1).start_at).toBe('2026-10-01T14:30:00.000Z');
+    // UI-프로젝트화면정리: the memo box (with its Seoul time) is gone from the project detail.
+    await expect(page.locator('#ps3-memos')).toHaveCount(0);
     // decisions() is currently dormant. Exercise its real renderer in a browser without exposing it in the app.
     const source=readFileSync(new URL('../../app/project-system-v3.js',import.meta.url),'utf8');
-    const renderer=source.slice(source.indexOf('function decisions(d){'),source.indexOf('function memoHtml(d){'));
+    const renderer=source.slice(source.indexOf('function decisions(d){'),source.indexOf('function pagesHtml(d){'));
     const fmt=source.match(/const fmt=[^;]+;/)[0];
     const html=await page.evaluate(async({renderer,fmt})=>{
-      const {formatMeetingTime}=await import('/app/meeting-time.js?v=2');
+      const {formatMeetingTime}=await import('/app/meeting-time.js');
       return new Function('formatMeetingTime','esc','moduleTitle','empty','data',fmt+'\n'+renderer+';return decisions(data)')(formatMeetingTime,String,(_d,_k,title)=>title,()=>'',{decisions:[{title:'한국 결정',body:'내용',decided_at:'2026-09-30T15:30:00Z'}],meetings:[]});
     },{renderer,fmt});expect(html).toContain('10. 1. 오전 12:30');
-    await page.locator('[data-ps3-close="ps3DetailModal"]').click();await page.locator('#newProjectBtn').click();await expect(page.locator('#ps3CreateStart')).toHaveValue('2026-10-01');await page.locator('[data-ps3-close="ps3CreateModal"]').click();await clickView(page,'meetings');await expect(page.locator('[data-mrd-meeting="seoul-meeting"]')).toContainText('오전 12:30');await clickView(page,'home');await expect(page.locator('#homeView')).toContainText('00:30');expect(errors).toEqual([]);
+    await closeProjectDetail(page);await page.locator('#newProjectBtn').click();await expect(page.locator('#ps3CreateStart')).toHaveValue('2026-10-01');await page.locator('[data-ps3-close="ps3CreateModal"]').click();await clickView(page,'meetings');await expect(page.locator('#meetingList :is([data-mrd-meeting="seoul-meeting"],[data-meeting-round="seoul-meeting"])')).toContainText('오전 12:30');await clickView(page,'home');await expect(page.locator('#homeView')).toContainText('00:30');expect(errors).toEqual([]);
   });
 });

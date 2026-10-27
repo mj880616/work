@@ -1,0 +1,21 @@
+{
+  "folder": "app/editor-lib",
+  "bundle": {"name": "pm-ed1", "version": "1.2.0", "file": "prosemirror.min.mjs"},
+  "esbuild": "0.28.2",
+  "packages": {
+    "prosemirror-model": {"version": "1.25.12", "integrity": "sha512-Ue2gTmXMa7EhpLNhC7J+h4+ykD8ha12K6rrZFFKKJHBForfIStw5gJ6Zrf1mqqAa9NmpmEB4wp9bKmA4eUVjWg==", "license": "MIT"},
+    "prosemirror-state": {"version": "1.4.4", "integrity": "sha512-6jiYHH2CIGbCfnxdHbXZ12gySFY/fz/ulZE333G6bPqIZ4F+TXo9ifiR86nAHpWnfoNjOb3o5ESi7J8Uz1jXHw==", "license": "MIT"},
+    "prosemirror-view": {"version": "1.42.6", "integrity": "sha512-3g25f6hKV2bBxo3puH3EcYWmmVNSH0iWmNsMVT7sugDSpA025jgpOLarcDWr39SdzPjYMaiYtRdNtXialPSjEQ==", "license": "MIT"},
+    "prosemirror-transform": {"version": "1.12.2", "integrity": "sha512-PE/aY0HEY4zczvmqrilgkUK/WautF0chvMqkmM/iN5/aPHvwrCWaQZjS6CIZp+K84YrvPFqrL+YArrfJX8xX7g==", "license": "MIT"},
+    "prosemirror-commands": {"version": "1.7.2", "integrity": "sha512-q6Q6szxqdu9Xd6EcdKsqXghu5nQdZTpB4Q9yd04WRc7/jt763e/rT60Owh0L1GYY+T46o5rD+9lEN36dZS43tw==", "license": "MIT"},
+    "prosemirror-history": {"version": "1.5.1", "integrity": "sha512-onlwnqKvgtFg6srZOmDOAhlAy1FIHQpOExORybX0S+DvJepE5tPALrB9iGet/2sqqqrelSnB10OoiOJqAvu2DA==", "license": "MIT"},
+    "prosemirror-keymap": {"version": "1.2.3", "integrity": "sha512-4HucRlpiLd1IPQQXNqeo81BGtkY8Ai5smHhKW9jjPKRc2wQIxksg7Hl1tTI2IfT2B/LgX6bfYvXxEpJl7aKYKw==", "license": "MIT"},
+    "prosemirror-tables": {"version": "1.8.5", "integrity": "sha512-V/0cDCsHKHe/tfWkeCmthNUcEp1IVO3p6vwN8XtwE9PZQLAZJigbw3QoraAdfJPir4NKJtNvOB8oYGKRl+t0Dw==", "license": "MIT"},
+    "prosemirror-gapcursor": {"version": "1.4.1", "integrity": "sha512-pMdYaEnjNMSwl11yjEGtgTmLkR08m/Vl+Jj443167p9eB3HVQKhYCc4gmHVDsLPODfZfjr/MmirsdyZziXbQKw==", "license": "MIT"},
+    "prosemirror-inputrules": {"version": "1.5.1", "integrity": "sha512-7wj4uMjKaXWAQ1CDgxNzNtR9AlsuwzHfdFH1ygEHA2KHF2DOEaXl1CJfNPAKCg9qNEh4rum975QLaCiQPyY6Fw==", "license": "MIT"},
+    "prosemirror-schema-list": {"version": "1.5.1", "integrity": "sha512-927lFx/uwyQaGwJxLWCZRkjXG0p48KpMj6ueoYiu4JX05GGuGcgzAy62dfiV8eFZftgyBUvLx76RsMe20fJl+Q==", "license": "MIT"},
+    "orderedmap": {"version": "2.1.1", "integrity": "sha512-TvAWxi0nDe1j/rtMcWcIj94+Ffe6n7zhow33h40SKxmsmozs6dz/e+EajymfoFcHd7sxNn8yHM8839uixMOV6g==", "license": "MIT"},
+    "rope-sequence": {"version": "1.3.4", "integrity": "sha512-UT5EDe2cu2E/6O4igUr5PSFs23nvvukicWHx6GnOPlHAiiYbzNuCRQCuiUdHJQcqKalLKlrYJnjY0ySGsXNQXQ==", "license": "MIT"},
+    "w3c-keyname": {"version": "2.2.8", "integrity": "sha512-dpojBhNsCNN7T82Tm7k26A6G9ML3NkhDsnw9n/eoxSRlVBB4CEtIQ/KTCLI2Fwf3ataSXRhYFkQi3SlnFwPvPQ==", "license": "MIT"}
+  }
+}

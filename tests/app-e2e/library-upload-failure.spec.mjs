@@ -1,6 +1,8 @@
+import { appOrigin } from './helpers/test-origin.mjs';
+import {expandLibraryTree,revealLibraryRow} from './helpers/library-tree.mjs';
 import { test, expect } from '@playwright/test';
 
-const FIXTURE='http://127.0.0.1:8123/tests/app-e2e/library-upload-failure-fixture.html';
+const FIXTURE=`${appOrigin}/tests/app-e2e/library-upload-failure-fixture.html`;
 const file=(name,body='data')=>({name,mimeType:'application/pdf',buffer:Buffer.from(body)});
 
 async function openFixture(page,plan={}){
@@ -33,7 +35,10 @@ test('library upload timeout is an unknown outcome, releases busy state and neve
   await expect(page.locator('#documentStatus')).toHaveAttribute('role','status');
   await expect(page.locator('#documentStatus')).toHaveAttribute('aria-live','polite');
   await save.evaluate(button=>button.onclick());
-  await page.evaluate(()=>window.__releaseLibraryUpload?.());
+  // The status line says "업로드 중" before the upload request is sent (session check and file copy come first), so
+  // release the held request only once it has actually arrived; releasing earlier is a no-op and the request hangs.
+  await expect.poll(()=>page.evaluate(()=>typeof window.__releaseLibraryUpload)).toBe('function');
+  await page.evaluate(()=>window.__releaseLibraryUpload());
   await expect(page.locator('#documentStatus')).toContainText('업로드 시간이 오래 걸려 결과를 확인하지 못했습니다',{timeout:3000});
   await expect(page.locator('#documentStatus')).not.toContainText('요청 시간이 초과되었습니다');
   await expectFailureSettled(page);
@@ -198,35 +203,39 @@ test('long failure text wraps inside the upload modal on narrow phones',async({p
 });
 
 test('library cards expose no public or workspace visibility control',async({page})=>{
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/library-upload-failure-fixture.html');
-  const card=page.locator('[data-lu-document="doc-1"]');
-  await expect(card).toBeVisible({timeout:3000});
+  await page.goto(`${appOrigin}/tests/app-e2e/library-upload-failure-fixture.html`);
+  const card=await revealLibraryRow(page,'doc-1');
   await expect(card.locator('[data-lu-toggle-public],[data-lu-set-visibility]')).toHaveCount(0);
   await expect(card).not.toContainText(/외부 공개|팀 내부|나만 보기/);
 });
 
 test('library secondary action does not open its card, while card body opens the document',async({page})=>{
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/library-upload-failure-fixture.html');
-  const card=page.locator('[data-lu-document="doc-1"]');
+  await page.goto(`${appOrigin}/tests/app-e2e/library-upload-failure-fixture.html`);
+  const card=await revealLibraryRow(page,'doc-1');
   await expect(card).toHaveAttribute('role','button');
   await card.locator('[data-lu-menu]').click();
   await page.locator('[data-lu-edit="doc-1"]').click();
   await expect(page.locator('#libraryEditModal')).toBeVisible();
   await expect(page).toHaveURL(/library-upload-failure-fixture\.html$/);
   await page.locator('#libraryEditClose').click();
-  await card.locator('h3').click();
-  await expect(page).toHaveURL('http://127.0.0.1:8123/tests/app-e2e/library-open-fixture.html');
+  // FILE-누르면동작: 파일 없이 주소만 있는 자료는 새 탭으로 연다(같은 탭을 떠나지 않는다).
+  const [tab]=await Promise.all([page.waitForEvent('popup'),card.locator('h3').click()]);
+  await expect(tab).toHaveURL(`${appOrigin}/tests/app-e2e/library-open-fixture.html`);
+  await tab.close();
+  await expect(page).toHaveURL(/library-upload-failure-fixture\.html$/);
 });
 
 test('revoked Google Drive token starts reconnect through the canonical function entry and keeps the record',async({page})=>{
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/library-upload-failure-fixture.html');
+  await page.goto(`${appOrigin}/tests/app-e2e/library-upload-failure-fixture.html`);
   await page.evaluate(()=>{window.__documentActionError='Token has been expired or revoked.'});
   const dialogs=[];
   page.on('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.accept()});
-  await page.locator('[data-lu-menu="doc-1"]').click();
+  await revealLibraryRow(page,'doc-1');await page.locator('[data-lu-menu="doc-1"]').click();
   await page.locator('[data-lu-delete="doc-1"]').click();
-  await expect.poll(()=>dialogs.length).toBe(2);
-  expect(dialogs[1]).toContain('Google Drive 연결이 만료됐습니다');
+  // Shared helper (Task2): result guidance first, then the reconnect offer.
+  await expect.poll(()=>dialogs.length).toBe(3);
+  expect(dialogs[1]).toBe('Google Drive 연결을 확인해 주세요. 다시 삭제하기 전에 자료 목록과 원본 상태를 먼저 확인해 주세요.');
+  expect(dialogs[2]).toContain('Google Drive 연결이 만료됐습니다');
   await expect.poll(()=>page.evaluate(()=>window.__driveReconnectCalls.at(-1))).toEqual({action:'drive-start'});
   await expect(page).toHaveURL(/#drive-auth$/);
   await expect(page.locator('[data-lu-document="doc-1"]')).toBeVisible();
@@ -235,11 +244,14 @@ test('revoked Google Drive token starts reconnect through the canonical function
 
 test('mobile library upload opens the native file picker from the visible tap target',async({page})=>{
   await page.setViewportSize({width:390,height:844});
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/library-upload-failure-fixture.html');
+  await page.goto(`${appOrigin}/tests/app-e2e/library-upload-failure-fixture.html`);
+  // UI-회의결과창정리: 큰 점선 상자 대신 [📎 파일 고르기] 작은 버튼 한 줄 + 짧은 안내(폰은 끌어다 놓기 안내 없음).
   const zone=page.locator('#libraryDropzone');
   await expect(zone).toBeVisible();
-  await expect(zone.locator('.library-picker-mobile')).toBeVisible();
-  await expect(zone.locator('.library-picker-desktop')).toBeHidden();
+  await expect(zone).toHaveText(/파일 고르기/);
+  expect((await zone.boundingBox()).height).toBeLessThanOrEqual(34);
+  await expect(page.locator('.library-picker-hint')).toContainText('여러 개 · 파일당 100MB');
+  await expect(page.locator('.library-drop-hint')).toBeHidden();
   await expect(page.locator('#libraryFileInput')).toHaveJSProperty('multiple',true);
   const chooser=page.waitForEvent('filechooser');
   await zone.click();
@@ -254,7 +266,7 @@ test('mobile library upload opens the native file picker from the visible tap ta
 
 test('mobile library picker accepts multiple files and shows every selected filename',async({page})=>{
   await page.setViewportSize({width:390,height:844});
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/library-upload-failure-fixture.html');
+  await page.goto(`${appOrigin}/tests/app-e2e/library-upload-failure-fixture.html`);
   const chooser=page.waitForEvent('filechooser');
   await page.locator('#libraryDropzone').click();
   const fileChooser=await chooser;
@@ -272,7 +284,7 @@ test('mobile library picker accepts multiple files and shows every selected file
 
 test('desktop drag and drop keeps all dropped files selected',async({page})=>{
   await page.setViewportSize({width:1280,height:900});
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/library-upload-failure-fixture.html');
+  await page.goto(`${appOrigin}/tests/app-e2e/library-upload-failure-fixture.html`);
   await page.locator('#libraryDropzone').evaluate(zone=>{
     const data=new DataTransfer();
     data.items.add(new File(['one'],'desktop-one.pdf',{type:'application/pdf'}));
@@ -285,8 +297,26 @@ test('desktop drag and drop keeps all dropped files selected',async({page})=>{
   await expect(selected.nth(1)).toContainText('desktop-two.pdf');
 });
 
+// UI-회의결과창정리: PC는 창 전체가 끌어다 놓는 자리이고, 파일을 끌고 들어올 때만 테두리를 보인다.
+test('desktop library window accepts files dropped anywhere and outlines only while dragging',async({page})=>{
+  await page.setViewportSize({width:1280,height:900});
+  await page.goto(`${appOrigin}/tests/app-e2e/library-upload-failure-fixture.html`);
+  await expect(page.locator('.library-drop-hint')).toBeVisible();
+  const card=page.locator('#documentModal .modal-card');
+  await expect(card).not.toHaveClass(/drop-active/);
+  await card.evaluate(el=>{const data=new DataTransfer();data.items.add(new File(['x'],'drag.pdf',{type:'application/pdf'}));el.querySelector('#docTitle').dispatchEvent(new DragEvent('dragenter',{bubbles:true,cancelable:true,dataTransfer:data}))});
+  await expect(card).toHaveClass(/drop-active/);
+  await card.evaluate(el=>{const data=new DataTransfer();data.items.add(new File(['one'],'anywhere.hwp'));el.querySelector('#docTitle').dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:data}))});
+  await expect(card).not.toHaveClass(/drop-active/);
+  const selected=page.locator('[data-lu-upload-file]');
+  await expect(selected).toHaveCount(1);
+  await expect(selected.first().locator('.file-kind')).toHaveText('HWP');
+  await expect(selected.first()).toContainText('anywhere.hwp');
+  await expect(selected.first().locator('[data-lu-remove-file]')).toBeVisible();
+});
+
 test('multi-file upload reuses library-files sequentially and preserves per-file failure state',async({page})=>{
-  await page.goto('http://127.0.0.1:8123/tests/app-e2e/library-upload-failure-fixture.html');
+  await page.goto(`${appOrigin}/tests/app-e2e/library-upload-failure-fixture.html`);
   await page.evaluate(()=>{window.__libraryUploadMode='partial'});
   await page.locator('#libraryFileInput').setInputFiles([
     {name:'ok.pdf',mimeType:'application/pdf',buffer:Buffer.from('ok')},

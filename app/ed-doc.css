@@ -1,0 +1,208 @@
+/* ED-통합편집기 ①a: 새 편집기 문서의 모양 하나(읽기 화면 ed-render.mjs와 편집 칸 ed-editor.js가 같은 클래스 ed-*를 씀).
+   Web1 공유 페이지(share/index.html)도 이 파일을 불러온다. 색·크기는 theme-tokens.css 토큰만 쓴다.
+   보이는 모양: 넓은 여백, 큰 제목, 옅은 인용선, 가운데 정렬 사진, 얇은 선 표(설계 2.3). 클래스 이름에 "share"를 쓰지 않는다. */
+.ed-doc{color:var(--kptu-ink);font-size:var(--ds-text-read,15px);line-height:1.7;word-break:keep-all;overflow-wrap:anywhere}
+.ed-doc>:first-child{margin-top:0}
+.ed-doc>:last-child{margin-bottom:0}
+.ed-doc .ed-p{margin:0 0 .55em;white-space:pre-wrap}
+.ed-doc .ed-body1{font-size:17px;line-height:1.7}
+.ed-doc .ed-body2{font-size:var(--ds-text-read,15px)}
+.ed-doc .ed-body3{font-size:13px;color:var(--kptu-muted)}
+.ed-doc .ed-h{margin:1.1em 0 .45em;font-weight:var(--ds-weight-medium,600);line-height:1.35;color:var(--kptu-ink)}
+.ed-doc .ed-h1{font-size:24px}
+.ed-doc .ed-h2{font-size:20px}
+.ed-doc .ed-h3{font-size:17px}
+.ed-doc .ed-center{text-align:center}
+/* ED-기본기보강: 오른쪽·양쪽 정렬, 들여쓰기 1~8단(한 단 2em), 글자색·형광펜(이름만 저장, 색은 테마 토큰이라 다크 모드도 따라감) */
+.ed-doc .ed-right{text-align:right}
+.ed-doc .ed-justify{text-align:justify}
+.ed-doc .ed-indent-1{margin-left:2em}.ed-doc .ed-indent-2{margin-left:4em}.ed-doc .ed-indent-3{margin-left:6em}.ed-doc .ed-indent-4{margin-left:8em}
+.ed-doc .ed-indent-5{margin-left:10em}.ed-doc .ed-indent-6{margin-left:12em}.ed-doc .ed-indent-7{margin-left:14em}.ed-doc .ed-indent-8{margin-left:16em}
+.ed-c-red{color:var(--ds-project-red)}.ed-c-orange{color:var(--ds-project-orange)}.ed-c-green{color:var(--ds-project-green)}
+.ed-c-blue{color:var(--ds-project-blue)}.ed-c-purple{color:var(--ds-project-purple)}.ed-c-gray{color:var(--kptu-muted)}
+.ed-hl{padding:0 1px;border-radius:2px;color:inherit}
+.ed-hl-yellow{background:var(--ds-project-yellow-soft)}.ed-hl-green{background:var(--ds-project-green-soft)}.ed-hl-blue{background:var(--ds-project-blue-soft)}
+.ed-hl-pink{background:var(--ds-project-pink-soft)}.ed-hl-orange{background:var(--ds-project-orange-soft)}
+.ed-doc .ed-quote{margin:.4em 0 .8em;padding:2px 0 2px 14px;border-left:3px solid var(--kptu-border-strong);color:var(--kptu-muted)}
+.ed-doc .ed-ul,.ed-doc .ed-ol{margin:0 0 .6em;padding-left:1.5em}
+.ed-doc .ed-ol{padding-left:1.9em}
+/* ED-서식줄펼침: 목록 모양. 저장된 모양(marker)은 클래스 ed-ul-<이름>·ed-ol-<이름>, 저장된 모양이 없으면 ed-ul-auto·ed-ol-auto로
+   깊이에 따라 자동(글머리 • → ◦ → ▪, 번호 1. → 1) → (1) → ①). 내보내기(ed-text.mjs)도 같은 모양·같은 자동 순서를 쓴다. */
+@counter-style ed-b-disc{system:cyclic;symbols:"\2022";suffix:" "}
+@counter-style ed-b-dash{system:cyclic;symbols:"-";suffix:" "}
+@counter-style ed-b-circle{system:cyclic;symbols:"\25E6";suffix:" "}
+@counter-style ed-b-square{system:cyclic;symbols:"\25AA";suffix:" "}
+@counter-style ed-o-decimal{system:extends decimal;suffix:". "}
+@counter-style ed-o-paren{system:extends decimal;suffix:") "}
+@counter-style ed-o-parens{system:extends decimal;prefix:"(";suffix:") "}
+@counter-style ed-o-circled{system:fixed;symbols:"①" "②" "③" "④" "⑤" "⑥" "⑦" "⑧" "⑨" "⑩" "⑪" "⑫" "⑬" "⑭" "⑮" "⑯" "⑰" "⑱" "⑲" "⑳" "㉑" "㉒" "㉓" "㉔" "㉕" "㉖" "㉗" "㉘" "㉙" "㉚" "㉛" "㉜" "㉝" "㉞" "㉟" "㊱" "㊲" "㊳" "㊴" "㊵" "㊶" "㊷" "㊸" "㊹" "㊺" "㊻" "㊼" "㊽" "㊾" "㊿";suffix:" ";fallback:ed-o-decimal}
+@counter-style ed-o-hangul{system:fixed;symbols:"가" "나" "다" "라" "마" "바" "사" "아" "자" "차" "카" "타" "파" "하";suffix:". ";fallback:ed-o-decimal}
+.ed-doc ul.ed-ul-disc,.ed-doc ul.ed-ul-auto{list-style-type:ed-b-disc}
+.ed-doc ul.ed-ul-dash{list-style-type:ed-b-dash}
+.ed-doc ul.ed-ul-circle,.ed-doc ul ul.ed-ul-auto{list-style-type:ed-b-circle}
+.ed-doc ul.ed-ul-square,.ed-doc ul ul ul.ed-ul-auto{list-style-type:ed-b-square}
+.ed-doc ol.ed-ol-decimal,.ed-doc ol.ed-ol-auto{list-style-type:ed-o-decimal}
+.ed-doc ol.ed-ol-paren,.ed-doc ol ol.ed-ol-auto{list-style-type:ed-o-paren}
+.ed-doc ol.ed-ol-parens,.ed-doc ol ol ol.ed-ol-auto{list-style-type:ed-o-parens}
+.ed-doc ol.ed-ol-circled,.ed-doc ol ol ol ol.ed-ol-auto{list-style-type:ed-o-circled}
+.ed-doc ol.ed-ol-hangul{list-style-type:ed-o-hangul}
+.ed-doc li>.ed-p{margin:0 0 .15em}
+.ed-doc .ed-hr{height:0;margin:1.2em 0;border:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+.ed-doc .ed-code{margin:.4em 0 .8em;padding:10px 12px;overflow-x:auto;border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface-subtle);font-size:13px;line-height:1.5;white-space:pre}
+.ed-doc .ed-link{color:var(--kptu-link);text-decoration:underline}
+.ed-doc .ed-photo{display:flex;flex-direction:column;align-items:center;gap:4px;margin:.6em auto .9em;padding:18px 12px;max-width:420px;border:1px dashed var(--kptu-border-strong);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface-subtle);color:var(--kptu-muted);text-align:center}
+.ed-doc .ed-photo-mark{font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,600)}
+.ed-doc .ed-photo-cap{font-size:var(--ds-text-meta,12px)}
+.ed-doc .ed-photo:not(.is-place){gap:4px;padding:0;max-width:100%;border:0;background:none}
+.ed-doc .ed-photo-img{display:block;max-width:100%;height:auto;border-radius:var(--ds-radius-control,8px)}
+.ed-doc .ed-table-wrap,.ed-doc .tableWrapper{margin:.4em 0 .9em;overflow-x:auto}
+.ed-doc table{border-collapse:collapse;min-width:50%}
+/* 칸 폭을 끌어 정한 표: 저장된 폭 합만큼(글 폭보다 넓지 않게), 칸은 그 비율(ed-schema.mjs tableLayout, 읽는 쪽과 같은 배치) */
+.ed-doc table.ed-fixed{table-layout:fixed;min-width:0;max-width:100%}
+.ed-doc table.ed-fixed th,.ed-doc table.ed-fixed td{min-width:0}
+.ed-doc th,.ed-doc td{padding:6px 10px;border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));text-align:left;vertical-align:top;min-width:3em}
+.ed-doc th{background:var(--kptu-surface-subtle);font-weight:var(--ds-weight-medium,600)}
+.ed-doc th>.ed-p,.ed-doc td>.ed-p{margin:0}
+
+/* 편집 칸 */
+.ed-editor{display:flex;flex-direction:column;min-width:0}
+.ed-bar{position:sticky;top:0;z-index:2;background:var(--kptu-surface);border-bottom:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+/* 버튼 줄: 폰에서 넘치면 가로로 넘긴다(줄바꿈 없음). 버튼은 보이는 높이 28px, 누르는 범위 44px(UI-버튼기준). */
+.ed-tools,.ed-menu{display:flex;flex-wrap:nowrap;align-items:center;gap:4px;min-height:var(--kptu-touch-target,44px);padding:0 8px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;box-sizing:border-box}
+.ed-menu{border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+.ed-menu[hidden],.ed-suggest[hidden]{display:none}
+.ed-bar button{position:relative;flex:0 0 auto;box-sizing:border-box;height:var(--ds-compact-height-sm,28px);min-height:0;min-width:28px;margin:0;padding:0 8px;border:var(--ds-line-width,1px) solid transparent;border-radius:var(--ds-radius-control,8px);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px);line-height:1;white-space:nowrap;cursor:pointer}
+.ed-bar button::after{content:"";position:absolute;left:0;right:0;top:50%;height:var(--kptu-touch-target,44px);transform:translateY(-50%)}
+.ed-bar button:hover{background:var(--kptu-surface-subtle)}
+.ed-bar button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:1px}
+.ed-bar button[aria-pressed="true"],.ed-bar button[aria-expanded="true"]{background:var(--kptu-primary-soft);border-color:var(--kptu-primary);color:var(--kptu-primary-ink)}
+.ed-bar button:disabled{opacity:.4;cursor:default}
+.ed-bar .ed-tools>.ed-icon-btn{display:inline-flex;align-items:center;justify-content:center;padding:0 6px}
+.ed-bar .ed-tool-icon{flex:0 0 auto;display:block}
+.ed-bar .ed-tools>.ed-icon-btn .ed-tool-word{display:none}
+.ed-bar .ed-style{min-width:72px;border-color:var(--ds-line,var(--kptu-border));justify-content:space-between}
+.ed-bar [data-ed-cmd="strong"]{font-weight:700}
+.ed-bar [data-ed-cmd="em"]{font-style:italic}
+.ed-bar [data-ed-cmd="underline"]{text-decoration:underline}
+.ed-bar [data-ed-cmd="strike"]{text-decoration:line-through}
+/* 묶음 사이 간격(묶음 첫 버튼에 ed-gap) */
+.ed-tools .ed-gap{margin-left:6px}
+/* SHARE-전체편집: 폰보다 넓으면 넘치는 버튼은 줄 끝 [⋯] 아래 줄로(가로 스크롤 막대 없음). 폰은 손가락으로 가로 밀기(막대 숨김). */
+.ed-bar .ed-more[hidden]{display:none}
+.ed-tools .ed-more{margin-left:auto}
+/* ED-서식줄펼침: [⌄]([⌃]) 상자 없이 같은 작은 크기, 열려 있는 동안만 옅은 바탕 */
+.ed-bar .ed-more,.ed-bar .ed-more:hover,.ed-bar .ed-more[aria-expanded="true"]{border-color:transparent}
+.ed-bar .ed-more[aria-expanded="true"]{background:var(--kptu-surface-subtle);color:var(--kptu-ink)}
+.ed-more .ed-chevron{display:block;margin:0 auto;transition:transform .12s}
+.ed-more[aria-expanded="true"] .ed-chevron{transform:rotate(180deg)}
+.ed-caret{font-size:.85em;opacity:.7}
+/* 폰: [⋯]는 가로로 미는 줄의 오른쪽 끝에 붙어 늘 보인다 */
+@media(max-width:760px){.ed-tools .ed-more{position:sticky;right:0;background:var(--kptu-surface);box-shadow:-6px 0 6px -4px var(--kptu-surface)}}
+.ed-more-menu{flex-wrap:wrap;overflow:visible;padding-top:4px;padding-bottom:4px}
+.ed-more-menu .ed-gap{margin-left:0}
+.ed-note{display:flex;align-items:center;padding:0 8px;min-height:32px;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.ed-note[hidden]{display:none}
+/* 펼침 상자(popover): 누른 버튼 바로 아래에 본문 위로 뜬다(본문은 밀리지 않음). 위치·화면 안 맞춤은 ed-editor.js placePop이 한다. */
+.ed-pop{position:fixed;z-index:40;display:flex;flex-direction:column;align-items:stretch;gap:2px;min-height:0;width:max-content;min-width:128px;padding:4px;overflow:auto;overscroll-behavior:contain;border:var(--ds-line-width,1px) solid var(--kptu-border-strong);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);box-shadow:var(--kptu-shadow-float)}
+.ed-pop[hidden]{display:none}
+.ed-bar .ed-pop button{display:flex;align-items:center;gap:8px;width:100%;height:var(--ds-compact-height-sm,28px);padding:0 8px;border-color:transparent;text-align:left}
+.ed-bar .ed-pop button:hover,.ed-bar .ed-pop button:focus-visible{background:var(--kptu-surface-subtle)}
+.ed-bar .ed-pop button[aria-pressed="true"]{background:var(--kptu-surface-subtle);border-color:transparent;color:var(--kptu-ink)}
+.ed-pop .ed-check{margin-left:auto;padding-left:10px;visibility:hidden;color:var(--kptu-primary-ink)}
+.ed-pop button[aria-pressed="true"] .ed-check{visibility:visible}
+.ed-pop .ed-opt-text{flex:1 1 auto}
+.ed-pop svg{flex:0 0 auto}
+/* 기호 상자: 작은 칸을 줄바꿈해 늘어놓는다 */
+.ed-sym-menu{flex-direction:row;flex-wrap:wrap;max-width:240px}
+.ed-bar .ed-sym-menu button{width:auto;justify-content:center;min-width:32px;padding:0 6px;font-size:15px}
+.ed-color-menu,.ed-highlight-menu{min-width:150px}
+/* 목록 ▾·번호 ▾: 고를 모양마다 두 줄 미리보기 */
+.ed-bar .ed-list-menu button[data-ed-list-marker]{height:auto;min-height:40px;padding:3px 8px}
+.ed-list-prev{display:flex;flex-direction:column;gap:1px;min-width:5.5em;font-size:var(--ds-text-meta,12px);line-height:1.35;text-align:left}
+.ed-bar .ed-list-menu .ed-list-off{border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-radius:0 0 6px 6px;margin-top:2px;color:var(--kptu-muted)}
+.ed-bar .ed-pop button[hidden]{display:none}
+.ed-sym-menu button.is-next{border-color:var(--kptu-primary)}
+.ed-bar [data-ed-cmd="color"][data-ed-now]:not([data-ed-now=""]),.ed-bar [data-ed-cmd="highlight"][data-ed-now]:not([data-ed-now=""]){border-color:var(--kptu-border-strong)}
+.ed-grid-menu{flex-direction:row;align-items:center;gap:10px;padding:8px}
+.ed-grid{display:grid;grid-template-columns:repeat(var(--ed-grid-cols,8),18px);gap:3px}
+.ed-bar .ed-grid button{display:block;width:18px;min-width:0;height:18px;padding:0;border:var(--ds-line-width,1px) solid var(--kptu-border-strong);border-radius:3px;background:var(--kptu-surface)}
+.ed-bar .ed-grid button::after{display:none}
+.ed-bar .ed-grid button.is-on{background:var(--kptu-primary-soft);border-color:var(--kptu-primary)}
+.ed-grid-size{font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);min-width:3.5em}
+.ed-link-menu{flex-direction:row;align-items:center;gap:6px;padding:6px;width:min(340px,calc(100vw - 16px))}
+.ed-link-input{flex:1 1 160px;min-width:0;height:var(--ds-compact-height-sm,28px);box-sizing:border-box;padding:0 8px;border:var(--ds-line-width,1px) solid var(--kptu-border-strong);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px)}
+.ed-bar .ed-link-menu button{width:auto}
+.ed-bar [data-ed-link-ok]{border-color:var(--kptu-primary);color:var(--kptu-primary-ink)}
+.ed-bar [data-ed-link-off][hidden]{display:none}
+.ed-suggest{display:flex;align-items:center;gap:6px;padding:0 8px;min-height:var(--kptu-touch-target,44px);border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.ed-suggest [data-ed-convert]{border-color:var(--kptu-primary);color:var(--kptu-primary-ink)}
+.ed-box{flex:1 1 auto;min-height:0}
+.ed-input{min-height:12em;padding:16px 18px 56px;outline:none;caret-color:var(--kptu-ink);white-space:pre-wrap}
+.ed-input:focus-visible{outline:none}
+.ed-editor[data-ed-empty] .ed-input[data-placeholder]::before{content:attr(data-placeholder);position:absolute;color:var(--kptu-faint);pointer-events:none}
+.ed-input .ed-photo.ProseMirror-selectednode{outline:2px solid var(--kptu-primary);outline-offset:2px}
+.ed-input .selectedCell{background:var(--kptu-primary-soft)}
+/* 표 편집: 칸 경계 끌기 손잡이, 왼쪽 위 모서리 [표 전체 고르기] 손잡이, 표 전체가 골라졌을 때 테두리 */
+.ed-input .ed-table-wrap{position:relative;padding-top:10px;padding-left:10px;margin-left:-10px}
+.ed-input th,.ed-input td{position:relative;box-sizing:border-box}
+.ed-input .column-resize-handle{position:absolute;right:-2px;top:0;bottom:0;width:4px;z-index:3;background:var(--kptu-primary);pointer-events:none}
+.ed-input.resize-cursor{cursor:col-resize}
+.ed-input .ed-table-grip{position:absolute;left:0;top:0;width:12px;height:12px;border:var(--ds-line-width,1px) solid var(--kptu-border-strong);border-radius:3px;background:var(--kptu-surface);cursor:pointer;opacity:.6}
+.ed-input .ed-table-grip:hover{opacity:1;border-color:var(--kptu-primary)}
+/* 표 테두리를 누르면 표 전체가 골라진다: 테두리 위에서 손 모양 + 옅은 테두리 */
+.ed-input .ed-table-wrap.is-edge,.ed-input .ed-table-wrap.is-edge *{cursor:pointer}
+.ed-input .ed-table-wrap.is-edge table{outline:2px solid var(--kptu-primary-soft);outline-offset:1px}
+/* 표 크기 끌기(ED-표크기끌기): 표 오른쪽 아래 모서리의 작은 손잡이. 마우스로 끌면 표 전체가 같은 비율로 커지고 작아진다(끄는 동안 테두리가 따라옴). 손가락 끌기는 없어 터치 화면에서는 감춘다 */
+.ed-input .ed-table-box{position:relative;width:max-content;max-width:100%}
+.ed-input .ed-table-resize{position:absolute;right:0;bottom:0;width:10px;height:10px;border:var(--ds-line-width,1px) solid var(--kptu-border-strong);border-radius:2px;background:var(--kptu-surface);cursor:nwse-resize;opacity:0;touch-action:none}
+.ed-input .ed-table-wrap:hover .ed-table-resize,.ed-input .ed-table-wrap:focus-within .ed-table-resize,.ed-input .ed-table-wrap.is-resizing .ed-table-resize{opacity:.7}
+.ed-input .ed-table-resize:hover,.ed-input .ed-table-wrap.is-resizing .ed-table-resize{opacity:1;border-color:var(--kptu-primary)}
+.ed-input .ed-table-wrap.is-resizing,.ed-input .ed-table-wrap.is-resizing *{cursor:nwse-resize;user-select:none}
+.ed-input .ed-table-wrap.is-resizing table{outline:2px solid var(--kptu-primary);outline-offset:1px}
+@media (pointer:coarse){.ed-input .ed-table-resize{display:none}}
+.ed-input .ed-table-wrap:has(.selectedCell) .ed-table-grip{opacity:1;background:var(--kptu-primary-soft);border-color:var(--kptu-primary)}
+/* 표·구분선·사진 앞뒤에 칠 수 있는 자리(gapcursor): 깜박이는 가로선 */
+.ed-input .ProseMirror-gapcursor{display:none;pointer-events:none;position:absolute}
+.ed-input .ProseMirror-gapcursor::after{content:"";display:block;position:absolute;top:-2px;width:20px;border-top:2px solid var(--kptu-ink);animation:ed-blink 1.1s steps(2,start) infinite}
+.ed-input.ProseMirror-focused .ProseMirror-gapcursor{display:block}
+@keyframes ed-blink{to{visibility:hidden}}
+.ed-measure{position:absolute;left:-9999px;top:0;visibility:hidden;white-space:nowrap;width:auto;pointer-events:none}
+.ed-measure>*{margin:0;white-space:nowrap}
+/* 표 칸 메뉴(우클릭·폰 길게 누르기): 작은 떠 있는 목록 */
+.ed-ctx{position:fixed;z-index:30;display:flex;flex-direction:column;min-width:140px;padding:4px;border:var(--ds-line-width,1px) solid var(--kptu-border-strong);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);box-shadow:var(--kptu-shadow-float)}
+.ed-ctx[hidden]{display:none}
+.ed-ctx button{height:var(--ds-compact-height-sm,28px);padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px);text-align:left;cursor:pointer}
+.ed-ctx button:hover,.ed-ctx button:focus-visible{background:var(--kptu-surface-subtle);outline:none}
+.ed-ctx-cols{display:flex;align-items:center;gap:2px;margin-top:2px;padding:4px 6px 0 10px;border-top:var(--ds-line-width,1px) solid var(--kptu-border-strong);font-size:var(--ds-compact-text,13px);color:var(--kptu-ink)}
+.ed-ctx-cols span{margin-right:2px;white-space:nowrap}
+.ed-ctx-cols button{padding:0 8px}
+.ed-ctx button:disabled{opacity:.4;cursor:default}
+.ProseMirror{position:relative;word-wrap:break-word;white-space:pre-wrap;white-space:break-spaces;-webkit-font-variant-ligatures:none;font-variant-ligatures:none;font-feature-settings:"liga" 0}
+.ProseMirror pre{white-space:pre-wrap}
+.ProseMirror li{position:relative}
+.ProseMirror-hideselection *::selection{background:transparent}
+.ProseMirror-hideselection{caret-color:transparent}
+.ProseMirror [draggable][contenteditable=false]{user-select:text}
+.ProseMirror-selectednode{outline:2px solid var(--kptu-primary)}
+.ProseMirror-gapcursor{display:none}
+@media(min-width:761px){.ed-input{padding:22px 28px 56px}}
+@media(max-width:760px){.ed-tools{scrollbar-width:none}.ed-tools::-webkit-scrollbar{display:none}}
+/* ED-서식줄묶음(폰 760px 이하): 서식 줄을 한 줄에 맞추려고 묶음 버튼(글자·문단·넣기·기호 ▾)으로 줄인다. 버튼 높이 28px·누르는 범위 44px 그대로,
+   안쪽 여백만 줄인다. 묶음 안 버튼은 세로 목록(.ed-group-menu)에 같은 버튼이 옮겨 가 있고, 그 목록은 다른 펼침 상자(.ed-pop)와 같은 모양이다. */
+.ed-grouped .ed-tools{gap:1px;padding:0 4px;justify-content:space-between;overflow-x:auto;font-size:var(--ds-compact-text,13px)}
+/* 글자는 13px 그대로 두고, 344px 근처로 정말 좁을 때만 12px로 줄인다. */
+@media(max-width:350px){.ed-grouped .ed-tools{font-size:var(--ds-text-meta,12px)}}
+.ed-grouped .ed-tools .ed-gap{margin-left:0}
+.ed-grouped .ed-tools button{flex:0 1 auto;min-width:20px;padding:0 3px;font-size:inherit}
+/* 버튼 겉모양 통일(UI-버튼기준): 줄 안 버튼은 모두 테두리 없이 두고 눌린 상태만 표시한다. */
+.ed-grouped .ed-tools .ed-style{min-width:0;justify-content:center;border-color:transparent}
+.ed-grouped .ed-tools .ed-caret{font-size:.7em}
+/* [·]와 [▾]: 붙은 두 칸 한 덩어리 */
+.ed-grouped .ed-tools .ed-pair{display:flex;flex:0 0 auto;align-items:center;border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface-subtle)}
+.ed-grouped .ed-tools .ed-pair button{flex:0 0 auto;min-width:20px}
+.ed-grouped .ed-tools .ed-pair button+button{border-left:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));border-top-left-radius:0;border-bottom-left-radius:0}
+.ed-grouped .ed-tools .ed-pair button:first-child{border-top-right-radius:0;border-bottom-right-radius:0}
+.ed-group-menu .ed-gap{margin-left:0}
+.ed-bar .ed-group-menu button{justify-content:flex-start}
+.ed-bar .ed-group-menu button[aria-pressed="true"]::before{content:"✓";color:var(--kptu-primary-ink);margin-right:2px}
+.ed-grouped .ed-tools [data-ed-cmd="symDot"] .ed-caret{font-size:1em;opacity:1}

@@ -1,5 +1,5 @@
-import {seoulDateKey,seoulClock} from './meeting-time.js?v=2';
-import {todayEvents} from './home-read-model.js?v=3';
+import {seoulDateKey,seoulClock} from './meeting-time.js';
+import {todayEvents} from './home-read-model.js';
 // List and week share KST day calculation and event/task rows. Month owns normalized bar geometry.
 export const calendarDateKey=seoulDateKey;
 export function dayItems(options,date,tasks){
@@ -9,19 +9,22 @@ export function dayItems(options,date,tasks){
   });
   return [...events,...tasks.filter(t=>t.date===calendarDateKey(date)).map(t=>({...t,source:'task'}))];
 }
-export function appendDayRows(container,date,items){
+// known=false: Google has not answered for this day yet (CAL-저장본먼저), so an empty day says 불러오는 중, never 일정 없음.
+export function appendDayRows(container,date,items,known=true){
   const events=items.filter(e=>e.source==='google'),pending=items.filter(e=>e.source==='task'&&!e.done),count=pending.length;
   for(const ev of events){
     const row=document.createElement('button');row.type='button';row.className='clv-event cp-event';row.dataset.googleEvent=ev.id;row.dataset.googleCalendar=ev.calendarId||'primary';
+    // Same per-event color variable as month/week bands; the week CSS paints its stripe from it.
+    row.style.setProperty('--cmv-google-source',ev.color);
     const time=document.createElement('span');time.className='clv-time';time.textContent=ev.allDay?'종일':seoulClock(ev.start);
     const stripe=document.createElement('span');stripe.className='clv-color';stripe.style.background=ev.color;stripe.setAttribute('aria-hidden','true');
     const title=document.createElement('span');title.className='clv-title';title.textContent=ev.title||'(제목 없음)';
     row.append(time,stripe,title);container.append(row);
   }
   if(count){
-    const button=document.createElement('button');button.type='button';button.className='clv-tasks'+(pending.some(t=>t.overdue)?' clv-tasks-overdue':'');button.textContent=(events.length?'':'일정 없음 · ')+`할 일 ${count}개 ›`;
+    const button=document.createElement('button');button.type='button';button.className='clv-tasks'+(pending.some(t=>t.overdue)?' clv-tasks-overdue':'');button.textContent=(events.length||!known?'':'일정 없음 · ')+`할 일 ${count}개 ›`;
     button.addEventListener('click',()=>window.KPTUCalendarDayOverflow?.open(date,items));container.append(button);
-  }else if(!events.length){const empty=document.createElement('div');empty.className='clv-empty';empty.textContent='일정 없음';container.append(empty)}
+  }else if(!events.length){const empty=document.createElement('div');empty.className='clv-empty';const failed=window.KPTUCalendarPersistence?.state?.()==='failed';if(!known)empty.dataset.calendarPending='';empty.textContent=known?'일정 없음':failed?'불러오지 못함':'불러오는 중…';container.append(empty)}
 }
 export function captureDayFocus(box,previous){
   const active=document.activeElement;

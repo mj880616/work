@@ -69,6 +69,6 @@
       script.addEventListener('input',()=>{dirty=true;savedState.textContent='수정됨 · 미저장'});printBtn.addEventListener('click',()=>{setEditing(false);window.print()});document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadShared(true)});setInterval(()=>{if(document.visibilityState==='visible')loadShared(true)},5000);setEditing(false);loadShared(false);
     })();
   </script>
-  <script src="/work/assets/rich-copy.js?v=1"></script>
+  <script src="/work/assets/rich-copy.js"></script>
 </body>
 </html>

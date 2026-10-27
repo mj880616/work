@@ -1,12 +1,6 @@
 .library-file-block{padding:12px;border-radius:var(--kptu-radius-lg);background:var(--kptu-surface-subtle);margin-bottom:12px}
 .library-file-block p{margin:7px 0 0;color:var(--kptu-muted);font-size:12px;line-height:1.45}
 .library-file-block .optional{font-size:11px;color:var(--kptu-muted);font-weight:500}
-.library-dropzone{min-height:112px;border:2px dashed var(--kptu-border-strong);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:16px;text-align:center;cursor:pointer;outline:none;transition:border-color .15s ease,background .15s ease,box-shadow .15s ease}
-.library-dropzone:hover,.library-dropzone:focus-visible,.library-dropzone.dragover{border-color:var(--kptu-info);background:var(--kptu-info-soft);box-shadow:none}
-.library-dropzone strong{font-size:13px;color:var(--kptu-ink)}
-.library-dropzone span{font-size:11px;color:var(--kptu-muted)}
-.library-picker-mobile{display:none}
-.library-picker-button{font-weight:800}
 .library-file-input{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;opacity:0!important;pointer-events:none!important}
 .library-selected-files{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;margin-top:10px}
 .library-selected-file{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:8px 10px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface)}
@@ -22,20 +16,40 @@
 .library-selected-file.unknown{border-color:var(--kptu-warning);background:var(--kptu-warning-soft)}
 .library-selected-file.unknown .library-upload-state{color:var(--kptu-warning)}
 .library-multi-note{font-size:10.5px;color:var(--kptu-muted);line-height:1.4}
-.library-manage-list{display:grid;gap:8px;max-height:55vh;overflow:auto}
-.library-manage-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:11px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg)}
-.library-manage-row>div{min-width:0}
-.library-manage-row b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.library-manage-row small{color:var(--kptu-muted)}
 .library-edit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+/* LIB-수정파일교체: [수정] 창의 파일 줄(현재 파일 + 작은 [파일 교체]) · 이전 파일 ▾. 새 큰 버튼 없음(UI-버튼기준: 보조 버튼 32px·누르는 범위 44px). */
+.library-edit-file{display:grid;gap:2px;margin:0 0 6px}
+.library-edit-file[hidden],.library-edit-prev[hidden]{display:none}
+.library-edit-file .file-line{border-top:0}
+.library-edit-file-note{margin:0 0 2px;font-size:var(--ds-text-meta,12px);line-height:1.4;color:var(--kptu-muted)}
+.library-edit-file .library-pick-button::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+.library-edit-file .library-pick-button:disabled{opacity:.5;cursor:default}
+.library-edit-prev>summary{display:flex;align-items:center;min-height:var(--kptu-touch-target,44px);list-style:none;cursor:pointer;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.library-edit-prev>summary::-webkit-details-marker{display:none}
+.library-edit-prev>summary:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px}
+.library-edit-prev-row{display:flex;align-items:baseline;gap:8px;min-width:0;min-height:var(--kptu-touch-target,44px);border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+.library-edit-prev-row:first-child{border-top:0}
+.library-edit-prev-file{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;align-self:center;font-size:var(--ds-text-row,13px);color:var(--kptu-link)}
+.library-edit-prev-row small{flex:0 0 auto;font-size:var(--ds-text-meta,12px);color:var(--kptu-faint)}
 @media(max-width:650px){
-  .library-dropzone{min-height:76px;padding:12px;border-style:solid}
-  .library-picker-desktop{display:none}
-  .library-picker-mobile{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:0 14px;border:1px solid var(--kptu-border-strong);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-link)!important;font-size:12px!important}
   .library-picker-hint{font-size:var(--kptu-text-meta)!important}
   .library-selected-file{padding:9px 10px}
-  .library-edit-grid{grid-template-columns:1fr}
+  .library-edit-grid{grid-template-columns:minmax(0,1fr)}
 }
+
+/* UI-회의결과창정리(2026-10-17 사용자 결정): 자료 등록 창은 큰 점선 상자 대신 [📎 파일 고르기] 작은 버튼 한 줄 + 짧은 안내.
+   고른 파일은 파일 한 줄(ui-standard.css .file-line), PC는 창 전체가 끌어다 놓는 자리. 바구니 첨부의 .library-selected-file 모양은 그대로. */
+#documentModal .library-file-block{padding:0;background:transparent}
+#documentModal .library-selected-files{gap:0;margin-top:4px}
+.library-pick-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;min-height:var(--kptu-touch-target,44px)}
+.library-pick-button{position:relative;box-sizing:border-box;display:inline-flex;flex-direction:row;align-items:center;gap:4px;height:var(--ds-compact-height,32px);margin:0;padding:0 var(--ds-compact-pad-x,12px);border:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border-strong));border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);font-size:var(--ds-compact-text,13px);font-weight:var(--ds-weight-medium,500);line-height:1;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.library-pick-button::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+.library-pick-button:hover{background:var(--kptu-surface-subtle)}
+.library-pick-button:active{color:var(--ds-kind-other-ink);background:var(--ds-kind-other-soft)}
+.library-pick-button:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px}
+@media(hover:none),(max-width:650px){.library-drop-hint{display:none}}
+#documentModal .file-line.error{background:var(--kptu-danger-soft)}
+#documentModal .file-line.unknown{background:var(--kptu-warning-soft)}
 
 /* Library-only rows; the shared compact-entry card remains unchanged. */
 #libraryListCard #documentList{gap:0}
@@ -43,20 +57,69 @@
 .lu-row:first-child{border-top:0}
 .lu-row:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:2px}
 .lu-file-kind{flex:none;display:grid;place-items:center;width:36px;height:36px;border-radius:var(--kptu-radius-md);background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-size:11px;font-weight:800}
-.lu-row-main{flex:1;min-width:0}
-.lu-row-title{margin:0;font-size:15px;font-weight:700;line-height:1.4;color:var(--kptu-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.lu-row-meta{margin:2px 0 0;font-size:var(--kptu-text-meta);line-height:1.4;color:var(--kptu-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lu-row-title{flex:1;min-width:0;margin:0;font-size:15px;font-weight:700;line-height:1.4;color:var(--kptu-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* UI-PC자료실: 분류 꼬리표는 자료명 왼쪽. 칸 폭은 기본 분류(두 글자)에 맞춘 40px 이상이고 글자에 맞게 늘어난다.
+   LIB-종류표잘림(2026-10-26): 표 글자는 …로 자르지 않는다. 자리가 모자라면 줄어드는 쪽은 자료 제목이다(제목이 …로 잘림). 날짜는 줄 오른쪽 작은 글씨. */
+.lu-row-tag{flex:0 0 auto;min-width:40px}
+.lu-row-tag .doc-category-tag{display:block;width:100%;line-height:20px;text-align:center;white-space:nowrap}
+.lu-row-date{flex:none;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
+/* 자료 날짜가 없어 올린 날을 보일 때: 더 흐린 글자 + 작은 "올림". */
+.lu-row-date-upload{color:var(--kptu-faint)}
+.lu-row-date-upload small{font-size:10px;white-space:nowrap}
+/* LIB-목록간격 (2026-10-23 사용자 확정 11:02) ①: 자료 줄은 글자 크기·순서(종류·분류·제목·날짜)를 그대로 두고 위아래 여백만 지금의 절반,
+   종류(PDF·HWP·파일)는 36px 상자 대신 작은 꼬리표. 꼬리표 폭은 가장 흔한 세 글자에 맞춰 줄마다 같게 둔다(제목 시작점 정렬).
+   줄 높이는 내용(제목 한 줄)이 정한다. 줄 전체가 누르는 곳이라 별도 최소 높이는 두지 않는다(폰은 두 줄이라 44px를 넘는다). */
+#appView #libraryView #documentList .lu-row{min-height:0;padding-top:calc(var(--ds-row-pad-y,9px) / 2);padding-bottom:calc(var(--ds-row-pad-y,9px) / 2)}
+#appView #libraryView #documentList .lu-file-kind{box-sizing:border-box;min-width:34px;width:auto;height:18px;padding:0 6px;border-radius:var(--kptu-radius-sm,6px);font-size:11px;line-height:18px;white-space:nowrap}
+/* 줄 안 단추(펼치기 꺾쇠·⋯): PC는 보이는 높이만 22px로 줄여 줄 높이를 단추가 밀어 올리지 않게 한다. 누르는 범위 44px는 공용 ::after 그대로(UI-버튼기준). 폰은 두 줄 줄이라 그대로 32px. */
+@media(min-width:761px){#appView #libraryView #documentList .lu-row :is(.lu-expand,.lu-more-trigger){height:22px;min-height:0}}
+/* 폰 M2: 두 단 격자 — 위 [이름(2줄까지) | 날짜 | ⋯], 아래 [종류 | 분류]. 종류는 상자 없이 색 글자. */
+@media(max-width:760px){
+  .lu-row-title{white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2}
+  /* LIB-목록간격 ③: 두 줄 — 위 [이름(2줄까지) | ⋯], 아래 작은 글씨 [종류 · 분류 · 날짜]. 분류·날짜는 '분류 · 날짜'로 이어 쓴다. */
+  #appView #libraryView #documentList .lu-row{display:grid;grid-template-columns:auto auto auto minmax(0,1fr) auto;grid-template-areas:"title title title title menu" "kind tag date . menu";column-gap:6px;row-gap:2px;align-items:center}
+  #appView #libraryView #documentList .lu-row-title{grid-area:title}
+  #appView #libraryView #documentList .lu-row .lu-rename-input{grid-area:title}
+  #appView #libraryView #documentList .lu-row-date{grid-area:date;align-self:center;margin:0;padding:0;font-size:var(--ds-text-meta,12px);line-height:18px;white-space:nowrap}
+  #appView #libraryView #documentList .lu-row-date::before{content:"·";margin-right:6px}
+  #appView #libraryView #documentList .lu-more-trigger{grid-area:menu}
+  #appView #libraryView #documentList .lu-file-kind{grid-area:kind;display:block;width:auto;min-width:0;height:auto;padding:0;background:transparent;font-size:11px;font-weight:var(--ds-weight-medium,500);line-height:18px}
+  #appView #libraryView #documentList .lu-row-tag{grid-area:tag;min-width:0;max-width:100%}
+  #appView #libraryView #documentList .lu-row-tag .doc-category-tag{white-space:normal;overflow-wrap:anywhere}
+  #appView #libraryView #documentList .lu-row[data-lu-notag] .lu-row-date::before{content:none}
+  #appView #libraryView #documentList .lu-row-tag .doc-category-tag{display:inline;height:auto;padding:0;background:transparent;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-regular,400);line-height:18px;text-align:left}
+  #appView #libraryView #documentList .lu-expand{display:none}
+}
+/* B안 펼치기: 잘린 줄에만 ⋯ 왼쪽 작은 꺾쇠. 펼친 줄은 이름 전체를 여러 줄로 보이고 꺾쇠를 위로 돌린다. */
+.lu-expand{flex:none;color:var(--kptu-muted);border:0;background:transparent}
+.lu-expand[hidden]{display:none}
+/* PC(761px 이상): 꺾쇠가 없는 줄도 같은 자리를 비워 날짜 세로줄을 맞춘다. */
+@media(min-width:761px){.lu-expand[hidden]{display:block;visibility:hidden}}
+.lu-expand svg{display:block;transition:transform .15s}
+.lu-row.lu-expanded .lu-expand svg{transform:rotate(180deg)}
+.lu-row.lu-expanded{align-items:flex-start}
+.lu-row.lu-expanded :is(.lu-row-tag,.lu-row-date){margin-top:8px}
+.lu-row.lu-expanded .lu-row-title{display:block;white-space:normal;overflow:visible;overflow-wrap:anywhere;-webkit-line-clamp:unset;line-clamp:none}
+@media(prefers-reduced-motion:reduce){.lu-expand svg{transition:none}}
 .lu-more-trigger{flex:none;color:var(--kptu-muted);border:0;background:transparent}
 .lu-head-actions{display:flex;align-items:center;gap:8px}
 #libraryListCard .lu-head-actions button{margin:0}
-.lu-more-panel{position:fixed;inset:auto;margin:0;z-index:100;box-sizing:border-box;padding:6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto}
-.lu-more-panel button{display:block;width:100%;min-height:44px;padding:8px 12px;text-align:left;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta);font-weight:700;cursor:pointer}
-.lu-more-panel button:hover,.lu-more-panel button:focus-visible{background:var(--kptu-primary-soft)}
-.lu-more-panel button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
-.lu-more-panel .lu-menu-danger{color:var(--kptu-danger)}
+:is(.lu-more-panel,.lu-folder-menu){position:fixed;inset:auto;margin:0;z-index:100;box-sizing:border-box;padding:6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto}
+:is(.lu-more-panel,.lu-folder-menu) button{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:36px;padding:0 var(--kptu-space-3,12px);text-align:left;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta);font-weight:600;cursor:pointer}
+:is(.lu-more-panel,.lu-folder-menu) button:is(:hover,:focus-visible){background:var(--kptu-primary-soft)}
+:is(.lu-more-panel,.lu-folder-menu) button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+:is(.lu-more-panel,.lu-folder-menu) .lu-menu-danger{color:var(--kptu-danger)}
+/* LIB-줄안이름바꾸기: 메뉴 줄 높이는 다른 ⋯ 메뉴(프로젝트 상세 등)와 같은 36px. F2 안내는 PC에서만 오른쪽에 작게, 삭제 앞에는 구분선. */
+:is(.lu-more-panel,.lu-folder-menu) .lu-menu-key{color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:400}
+:is(.lu-more-panel,.lu-folder-menu) .lu-menu-sep{height:0;margin:4px 6px;border:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+@media(max-width:760px){:is(.lu-more-panel,.lu-folder-menu) .lu-menu-key{display:none}}
+/* 줄 안 이름 입력칸: 제목 자리에 그대로(같은 글자 크기), 한 줄. 폰은 제목이 있던 윗줄 전체. */
+.lu-row .lu-rename-input{flex:1;min-width:0;box-sizing:border-box;height:var(--ds-compact-height,32px);margin:0;padding:0 8px;font:inherit;font-size:15px;line-height:1.4}
+.lu-node-head .lu-folder-rename{flex:1;min-width:0;box-sizing:border-box;height:var(--ds-compact-height,32px);margin:-4px 0;padding:0 8px;font:inherit;line-height:1.4}
+.lu-undo{margin-left:4px;padding:0 4px;min-height:24px;border:0;background:transparent;color:var(--kptu-primary-ink);font:inherit;text-decoration:underline;cursor:pointer}
+
 
 /* D-6b: dialog role typography owned here; explicit roots preserve list styles. */
-#documentModal .library-dropzone strong{font-size:var(--kptu-text-body)}
 
 #libraryView>.toolbar{flex-wrap:wrap}
 #libraryView>.toolbar .search{min-width:0}
@@ -65,4 +128,206 @@
   #libraryView>.toolbar{flex-direction:row}
   #libraryView>.toolbar .search{flex:1 1 100%}
   #libraryView>.toolbar select{flex:1 1 0;min-width:0;width:0}
+}
+
+/* UI-바구니첨부메모 PR 3: 담당조직으로 거른 자료실(칩 한 줄)과 [분류 수정] 창의 분류 목록 편집. */
+#libraryOrganizationFilter{flex:1 1 100%;min-width:0}
+#libraryOrganizationFilter[hidden]{display:none}
+.library-category-editor{margin:0 0 16px;padding:0 0 14px;border-bottom:1px solid var(--kptu-border)}
+.dce h3{margin:0 0 4px;font-size:15px}
+.dce-count{margin-left:4px;font-size:var(--kptu-text-meta);font-weight:400;color:var(--kptu-muted)}
+.dce-note{margin:0 0 8px;font-size:var(--kptu-text-meta);line-height:1.5;color:var(--kptu-muted)}
+.dce-list{display:grid;margin:0 0 10px;padding:0;list-style:none}
+.dce-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;min-width:0;min-height:44px;padding:6px 0;border-top:1px solid var(--kptu-border)}
+.dce-row:first-child{border-top:0}
+.dce-name{flex:1 1 80px;min-width:0;overflow-wrap:anywhere;font-size:14px}
+.dce-meta{flex:0 1 auto;font-size:var(--kptu-text-meta);color:var(--kptu-muted)}
+.dce-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.dce-row-edit{display:block}
+.dce-label{display:block;margin:0 0 4px;font-size:var(--kptu-text-meta)}
+.dce-input{display:block;width:100%;max-width:100%;min-width:0;box-sizing:border-box}
+.dce-add{margin:0 0 6px}
+.dce-add-line{display:flex;align-items:center;gap:8px}
+.dce-add-line .dce-input{flex:1 1 auto}
+.dce-status{min-height:1.4em;margin:6px 0 0;font-size:var(--kptu-text-meta);color:var(--kptu-muted)}
+.dce-status.error{color:var(--kptu-danger)}
+/* LIB-분류칸삭제: [자료 분류 수정] 창 안 버튼(이름 바꾸기·지우기·추가·저장·취소)은 UI-버튼기준의 작은 버튼(32px). 누르는 범위 44px은 ::after로 지킨다. */
+.dce button{position:relative;box-sizing:border-box;width:auto;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);margin:0;padding:0 var(--ds-compact-pad-x,12px);font-size:var(--ds-compact-text,13px);line-height:1;white-space:nowrap}
+.dce button::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+
+/* UI-PC자료실 C: 분류 칩 여러 개 고르기. 고른 칩은 앱 공통 기준(회색 '그 밖' 색), 안 고른 칩은 흰 바탕. */
+#appView #libraryView #libraryCategoryFilter button[aria-pressed="true"]{color:var(--ds-kind-other-ink);background:var(--ds-kind-other-soft);border-color:var(--ds-kind-other-soft)}
+/* LIB-거르기전체: [전체]가 일부만 켜진 상태(aria-pressed="mixed")는 반쯤 찬 칩 — 왼쪽 절반만 고른 색, 나머지는 흰 바탕. 글자는 기본 글자색. */
+#appView #libraryView #libraryCategoryFilter button[aria-pressed="mixed"]{color:var(--kptu-ink);background-color:var(--kptu-surface);background-image:linear-gradient(90deg,var(--ds-kind-other-soft) 50%,transparent 50%);border-color:var(--ds-kind-other-soft)}
+/* 꺼진 분류 칩은 흐리게: 글자는 보조 글자색(대비 4.5:1 이상), 테두리는 반쯤 옅게. 초점 표시는 공용 규칙 그대로. */
+#appView #libraryView #libraryCategoryFilter button[aria-pressed="false"]{color:var(--kptu-muted);border-color:color-mix(in srgb,var(--ds-line) 50%,transparent)}
+.lu-off-hint{margin:8px 0 0;padding-top:8px;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.lu-off-show{margin-left:4px;padding:0 4px;min-height:24px;border:0;background:transparent;color:var(--kptu-primary-ink);font:inherit;text-decoration:underline;cursor:pointer}
+
+/* UI-PC자료실 거르기 줄(PC 시안 A): 검색칸 아래 [프로젝트] → [세부](하위 프로젝트가 있을 때만) → [종류]를 한 줄씩 쌓고,
+   줄마다 왼쪽에 같은 폭의 이름표를 둔다. 담당조직으로 걸러 들어오면 그 줄도 같은 모양으로 끼운다.
+   폰(760px 이하)은 이름표 없이 지금처럼 줄마다 옆으로 밀어 본다(이름표가 칩 자리를 줄이므로). */
+#appView #libraryView .library-filter-toolbar #documentProject,
+#appView #libraryView .library-filter-toolbar .lu-filter-row{display:grid;grid-template-columns:var(--lu-filter-label-width,4.5em) minmax(0,1fr);column-gap:8px;row-gap:0;align-items:center;flex:1 1 100%;min-width:0}
+#appView #libraryView .lu-filter-row:has(> [hidden]){display:none}
+#appView #libraryView .lu-filter-label{font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,500);line-height:1.4;color:var(--kptu-muted);white-space:nowrap}
+#appView #libraryView .lu-filter-label[hidden]{display:none}
+#appView #libraryView .lu-filter-row > .filter-chips{min-width:0}
+/* UI-자료실편집버튼(2026-10-21): [분류 수정]을 목록 머리에서 [종류] 칩 줄 맨 끝의 작은 [편집]으로 옮긴다. 칩 바로 오른쪽에 붙고, 칩이 많으면 칩만 줄어 옆으로 민다. */
+#appView #libraryView .lu-filter-row[data-lu-filter-row="category"]{grid-template-columns:var(--lu-filter-label-width,4.5em) minmax(0,max-content) auto;justify-content:start}
+#appView #libraryView .lu-filter-row > .lu-category-edit{margin:0;white-space:nowrap}
+@media(max-width:760px){
+  #appView #libraryView .library-filter-toolbar #documentProject,
+  #appView #libraryView .library-filter-toolbar .lu-filter-row{grid-template-columns:minmax(0,1fr)}
+  /* 폰: 종류 줄 전체(칩 + [편집])가 한 줄로 옆으로 민다. [편집]은 칩 줄 맨 끝에 있고, 칩과 겹치지 않는다. */
+  #appView #libraryView .library-filter-toolbar .lu-filter-row[data-lu-filter-row="category"]{display:flex;flex-wrap:nowrap;align-items:center;gap:8px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+  #appView #libraryView .lu-filter-row[data-lu-filter-row="category"] > .filter-chips{flex:0 0 auto;max-width:none;overflow:visible}
+  #appView #libraryView .lu-filter-row[data-lu-filter-row="category"] > .lu-category-edit{flex:0 0 auto}
+  /* 폰: 이름표(프로젝트·세부·종류 등)를 칩 줄 왼쪽에 작게 둔다. 줄이 옆으로 밀려도 칩 폭은 그대로. */
+  #appView #libraryView .library-filter-toolbar #documentProject,
+  #appView #libraryView .library-filter-toolbar .lu-filter-row:not([data-lu-filter-row="category"]){grid-template-columns:3.6em minmax(0,1fr);column-gap:6px}
+  #appView #libraryView .lu-filter-label{flex:0 0 3.6em;font-size:11px}
+}
+
+/* LIB-토글트리 ②(docs/design/library-tree.md 5.2): 토글 안 토글. 토글 머리는 32px 얇은 줄(누르는 범위 44px),
+   이름 · 자료 수 · 종류 색 점. 단마다 들여쓰기(폰 12px, PC 16px, 6단까지). 파일 줄은 기존 .lu-row 그대로. */
+#appView #libraryView #documentList .lu-node{margin:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+#appView #libraryView #documentList > .lu-node:first-child{border-top:0}
+#appView #libraryView #documentList .lu-node .lu-node{border-top:0}
+#appView #libraryView .lu-node-head{position:relative;display:flex;align-items:center;gap:6px;min-width:0;min-height:var(--ds-compact-height,32px);padding:6px 2px 6px calc(var(--lu-depth,0) * 16px);list-style:none;cursor:pointer;font-size:var(--ds-compact-text,13px);color:var(--kptu-ink);-webkit-tap-highlight-color:transparent}
+#appView #libraryView .lu-node-head::-webkit-details-marker{display:none}
+#appView #libraryView .lu-node-head::before{content:"";flex:none;width:0;height:0;margin:0 3px 0 2px;border-left:5px solid var(--kptu-muted);border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .15s}
+#appView #libraryView .lu-node[open] > .lu-node-head::before{transform:rotate(90deg)}
+#appView #libraryView .lu-node-head::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+#appView #libraryView .lu-node-head:hover{background:var(--kptu-surface-subtle)}
+#appView #libraryView .lu-node-head:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+/* LIB-목록간격 ②(2026-10-23 사용자 확정 11:02): 폴더 줄 글자는 자료 줄 이름과 같은 크기(--ds-text-row), 맨 위 단(프로젝트 이름·'프로젝트 없음')만 굵게,
+   하위 프로젝트·폴더는 보통 굵기에 단마다 들여 쓴다. 줄 간격은 지금보다 조금 넓게(32 → 36px). 누르는 범위(44px)는 ::after 그대로.
+   공용 규칙(ui-standard.css 목록 글자: summary 500)보다 앞서도록 #documentList까지 한정한다. */
+#appView #libraryView #documentList .lu-node > summary.lu-node-head{min-height:calc(var(--ds-compact-height,32px) + 4px);padding-top:8px;padding-bottom:8px;font-size:var(--ds-text-row,13px);font-weight:var(--ds-weight-regular,400)}
+#appView #libraryView #documentList .lu-node > summary.lu-node-head[data-lu-top]{font-weight:700}
+#appView #libraryView .lu-node-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#appView #libraryView .lu-node-count{flex:none;font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,500);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
+#appView #libraryView .lu-kdots{flex:none;display:inline-flex;gap:3px;margin-left:2px}
+#appView #libraryView .lu-kdot{display:block;width:6px;height:6px;border-radius:999px;background:var(--ds-kind-other-ink)}
+#appView #libraryView .lu-kdot[data-lu-kind="pdf"]{background:var(--ds-file-pdf-ink)}
+#appView #libraryView .lu-kdot[data-lu-kind="hwp"]{background:var(--ds-file-hwp-ink)}
+#appView #libraryView .lu-kdot[data-lu-kind="xls"]{background:var(--ds-file-xls-ink)}
+#appView #libraryView .lu-kdot[data-lu-kind="doc"]{background:var(--ds-file-doc-ink)}
+#appView #libraryView .lu-kdot[data-lu-kind="ppt"]{background:var(--ds-file-ppt-ink)}
+#appView #libraryView .lu-kdot[data-lu-kind="img"]{background:var(--ds-file-img-ink)}
+#appView #libraryView .lu-pdot{flex:none;width:8px;height:8px;border-radius:999px;background:var(--ds-project-gray)}
+#appView #libraryView .lu-pdot[data-color="green"]{background:var(--ds-project-green)}#appView #libraryView .lu-pdot[data-color="green"][data-tone="soft"]{background:var(--ds-project-green-soft)}
+#appView #libraryView .lu-pdot[data-color="blue"]{background:var(--ds-project-blue)}#appView #libraryView .lu-pdot[data-color="blue"][data-tone="soft"]{background:var(--ds-project-blue-soft)}
+#appView #libraryView .lu-pdot[data-color="orange"]{background:var(--ds-project-orange)}#appView #libraryView .lu-pdot[data-color="orange"][data-tone="soft"]{background:var(--ds-project-orange-soft)}
+#appView #libraryView .lu-pdot[data-color="purple"]{background:var(--ds-project-purple)}#appView #libraryView .lu-pdot[data-color="purple"][data-tone="soft"]{background:var(--ds-project-purple-soft)}
+#appView #libraryView .lu-pdot[data-color="pink"]{background:var(--ds-project-pink)}#appView #libraryView .lu-pdot[data-color="pink"][data-tone="soft"]{background:var(--ds-project-pink-soft)}
+#appView #libraryView .lu-pdot[data-color="yellow"]{background:var(--ds-project-yellow)}#appView #libraryView .lu-pdot[data-color="yellow"][data-tone="soft"]{background:var(--ds-project-yellow-soft)}
+#appView #libraryView .lu-pdot[data-color="red"]{background:var(--ds-project-red)}#appView #libraryView .lu-pdot[data-color="red"][data-tone="soft"]{background:var(--ds-project-red-soft)}
+#appView #libraryView .lu-pdot[data-tone="soft"]:not([data-color]){background:var(--ds-project-gray-soft)}
+#appView #libraryView .lu-folder-icon{flex:none;color:var(--kptu-muted)}
+#appView #libraryView .lu-node-body > .lu-row{padding-left:calc((var(--lu-depth,0) + 1) * 16px)}
+#appView #libraryView .lu-node-body > .lu-row:first-child{border-top:0}
+/* 'N건 더'·'모두 펴기/접기': 작은 글자 버튼(UI-버튼기준, 28px·12px·테두리 없음, 누르는 범위 44px). */
+#appView #libraryView :is(.lu-more-files,.lu-expand-all){position:relative;display:inline-flex;align-items:center;height:var(--ds-compact-height-sm,28px);min-height:0;margin:2px 0;padding:0 6px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-primary-ink);font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-medium,500);white-space:nowrap;cursor:pointer}
+#appView #libraryView :is(.lu-more-files,.lu-expand-all)::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+#appView #libraryView :is(.lu-more-files,.lu-expand-all):hover{background:var(--kptu-surface-subtle)}
+#appView #libraryView :is(.lu-more-files,.lu-expand-all):focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:1px}
+#appView #libraryView .lu-expand-all:disabled{color:var(--kptu-faint);cursor:default}
+#appView #libraryView .lu-more-files{margin-left:calc((var(--lu-depth,0) + 1) * 16px)}
+#appView #libraryView .lu-filter-row[data-lu-filter-row="group"]{grid-template-columns:var(--lu-filter-label-width,4.5em) minmax(0,max-content) auto;justify-content:start}
+#appView #libraryView .library-filter-toolbar #documentProject[hidden]{display:none}
+/* 첫 토글 머리의 누르는 범위(44px)가 위 [+ 자료 등록]의 누르는 범위를 덮지 않게 머리 줄을 위에 둔다. */
+#appView #libraryView #libraryListCard > .add-list-head{position:relative;z-index:2}
+@media(max-width:760px){
+  #appView #libraryView .lu-node-head{padding-left:calc(var(--lu-depth,0) * 12px)}
+  #appView #libraryView .lu-node-body > .lu-row{padding-left:calc((var(--lu-depth,0) + 1) * 12px)}
+  #appView #libraryView .lu-more-files{margin-left:calc((var(--lu-depth,0) + 1) * 12px)}
+  #appView #libraryView .library-filter-toolbar .lu-filter-row[data-lu-filter-row="group"]{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none}
+  #appView #libraryView .lu-filter-row[data-lu-filter-row="group"] > .filter-chips{flex:0 0 auto;max-width:none;overflow:visible}
+  #appView #libraryView .lu-filter-row[data-lu-filter-row="group"] > .lu-expand-all{flex:0 0 auto}
+}
+@media(prefers-reduced-motion:reduce){#appView #libraryView .lu-node-head::before{transition:none}}
+
+/* LIB-토글트리 ③: 토글 머리 끝 ⋯(폴더 만들기·관리). 보이는 크기 28px, 누르는 범위 44px(UI-버튼기준 작은 버튼). */
+#appView #libraryView .lu-node-more{position:relative;flex:none;width:var(--ds-compact-height-sm,28px);height:var(--ds-compact-height-sm,28px);min-height:0;margin:-4px 0 -4px auto;padding:0;border:0;background:transparent;color:var(--kptu-muted);font-size:var(--ds-compact-text,13px);line-height:1}
+#appView #libraryView .lu-node-more::after{content:"";position:absolute;inset:calc((var(--ds-compact-height-sm,28px) - var(--kptu-touch-target,44px)) / 2)}
+#appView #libraryView .lu-node-more:hover{background:var(--kptu-surface-subtle)}
+#appView #libraryView .lu-node-more:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:1px}
+/* 머리 줄 안의 ⋯는 줄의 44px 누르는 범위 위에 둔다. */
+#appView #libraryView .lu-node-head > .lu-node-more{z-index:1}
+.lu-folder-status{margin:0 0 6px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.lu-folder-status.error{color:var(--kptu-danger)}
+.lu-folder-status[hidden]{display:none}
+.lu-folder-hint{margin:4px 0 0;font-size:var(--ds-text-meta,12px);line-height:1.5;color:var(--kptu-muted)}
+.lu-folder-hint[hidden],.lu-folder-name[hidden],.lu-folder-targets[hidden]{display:none}
+.lu-folder-targets{display:grid;gap:2px;max-height:50vh;overflow:auto;margin:0 0 8px}
+.lu-folder-target{display:block;width:100%;min-height:var(--kptu-touch-target,44px);padding:8px 10px 8px calc(10px + var(--lu-target-depth,0) * 12px);border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px);text-align:left;cursor:pointer;overflow-wrap:anywhere}
+.lu-folder-target:hover{background:var(--kptu-surface-subtle)}
+.lu-folder-target[aria-checked="true"]{background:var(--ds-kind-other-soft);color:var(--ds-kind-other-ink);font-weight:var(--ds-weight-bold,700)}
+.lu-folder-target:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+
+/* LIB-토글트리 ④ PC 끌어 놓기: 놓을 수 있는 곳은 테두리, 앞·뒤로는 위·아래 선, 놓을 수 없는 곳은 흐림 + 금지 커서. */
+#appView #libraryView summary.lu-node-head[draggable="true"],#appView #libraryView .lu-row[draggable="true"]{cursor:grab}
+#appView #libraryView .lu-dragging{opacity:.5}
+#appView #libraryView .lu-node-head.lu-drop-into{outline:2px dashed var(--kptu-primary-ink);outline-offset:-2px;background:var(--kptu-primary-soft)}
+#appView #libraryView .lu-node-head.lu-drop-into::after{content:'여기에 놓기';margin-left:auto;padding-left:8px;font-size:var(--ds-text-meta,12px);font-weight:700;color:var(--kptu-primary-ink);white-space:nowrap}
+#appView #libraryView .lu-grabbed{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px;background:var(--kptu-primary-soft)}
+@media (pointer:coarse){#appView #libraryView .lu-row,#appView #libraryView .lu-node-head{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}}
+#appView #libraryView .lu-node-head.lu-drop-before{border-top:2px solid var(--kptu-primary-ink);margin-top:-2px}
+#appView #libraryView .lu-node-head.lu-drop-after{border-bottom:2px solid var(--kptu-primary-ink);margin-bottom:-2px}
+#appView #libraryView .lu-node-head.lu-drop-no{opacity:.55;cursor:no-drop}
+
+/* LIB-여러개삭제: [선택] 모드. 버튼은 UI-버튼기준(글자 버튼·28px, 누르는 범위 44px), 전체 칩은 거르기 칩과 같은 모양. */
+#libraryListCard .lu-select-btn,#libraryListCard .lu-select-act{position:relative;flex:none;height:var(--ds-compact-height-sm,28px);min-height:0;padding:0 8px;border:0;background:transparent;color:var(--kptu-muted);font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-regular,400);white-space:nowrap}
+#libraryListCard .lu-select-btn::after,#libraryListCard .lu-select-act::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+#libraryListCard .lu-select-btn:hover,#libraryListCard .lu-select-act:hover:not(:disabled){color:var(--kptu-ink)}
+#libraryListCard .lu-select-act:disabled{opacity:.45}
+#libraryListCard .lu-select-act#librarySelectDelete:not(:disabled){color:var(--kptu-danger);font-weight:700}
+#libraryListCard .lu-select-btn[hidden],#libraryListCard .lu-head-actions > [hidden]{display:none}
+.lu-select-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:0 4px;min-width:0;flex:1}
+:is(.lu-bulk-menu) button{padding-left:calc(var(--kptu-space-3,12px) + var(--lu-depth,0) * 12px)}
+:is(.lu-bulk-menu) button[aria-current="true"] .lu-menu-key{display:inline;color:var(--kptu-primary-ink);font-weight:700}
+:is(.lu-bulk-menu) button:disabled{opacity:.55;cursor:default}
+#libraryListCard .lu-select-bar > *{flex:none;margin:0}
+.lu-select-bar[hidden]{display:none}
+.lu-select-bar .filter-chips{flex:none;margin-right:4px;padding-top:0;padding-bottom:0;min-height:0}
+.lu-select-count{font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);white-space:nowrap;margin-right:4px}
+.lu-select-row{display:flex;align-items:center;min-height:var(--ds-compact-height-sm,28px);margin:0 0 4px}
+#appView #libraryView #documentList .lu-row.lu-row-picking{position:relative;padding-left:28px}
+#appView #libraryView #documentList .lu-pick{position:absolute;left:4px;top:50%;width:16px;height:16px;min-height:0;margin:-8px 0 0;padding:0;accent-color:var(--kptu-primary-ink)}
+#appView #libraryView #documentList .lu-pick.lu-pick-node{position:relative;z-index:1;top:auto;left:auto;flex:none;margin:0 2px 0 0}
+
+/* PRESS-자료실편입 2단계: 자료실 .html 보기 창(칸막이는 html-frame.js). 안내 한 줄·[Drive에서 열기]는 작은 글자 버튼. */
+.lu-html-card .modal-head{margin-bottom:var(--kptu-space-2)}
+.lu-html-card .modal-head h2{font-size:var(--ds-text-title,16px);overflow-wrap:anywhere}
+.lu-html-status{margin:0 0 6px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.lu-html-status[hidden],.lu-html-drive[hidden]{display:none}
+.lu-html-drive{position:relative;height:var(--ds-compact-height-sm,28px);min-height:0;margin:0 0 6px;padding:0 8px;border:0;background:transparent;color:var(--kptu-primary-ink);font-size:var(--ds-text-meta,12px);white-space:nowrap}
+.lu-html-drive::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+.lu-html-body .html-frame{margin:0;padding:0;border:0}
+.lu-html-body .html-frame-bar{gap:4px}
+#libraryHtmlModal .lu-html-body .html-frame-bar button.secondary{position:relative;height:var(--ds-compact-height-sm,28px);min-height:0;padding:0 8px;border:0;background:transparent;box-shadow:none;color:var(--kptu-primary-ink);font-size:var(--ds-text-meta,12px);font-weight:var(--ds-weight-regular,400)}
+#libraryHtmlModal .lu-html-body .html-frame-bar button[hidden]{display:none}
+/* LIB-화면끌어놓기: 파일을 끌고 오는 동안만 보이는 얇은 점선 테두리 + 가운데 한 줄(덮개·색 채움 없음). 왼쪽 메뉴는 뺀 화면 전체. 놓은 뒤 진행·결과는 목록 맨 위 한 줄. */
+.lu-drop-overlay{position:fixed;top:0;bottom:0;z-index:40;box-sizing:border-box;margin:6px;border:2px dashed var(--kptu-info);border-radius:var(--kptu-radius-md);pointer-events:none;display:flex;align-items:center;justify-content:center}
+.lu-drop-overlay[hidden]{display:none}
+.lu-drop-hint{padding:4px 10px;border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-info);font-size:var(--ds-text-meta,12px);font-weight:700;border:1px solid var(--kptu-border)}
+.lu-drop-status{margin:0 0 6px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);overflow-wrap:anywhere}
+.lu-drop-status.error{color:var(--kptu-danger)}
+.lu-drop-status[hidden]{display:none}
+
+/* ACT-사진 2단계: 그림 자료 줄의 작은 그림(서버가 줄여 준 480px를 28px 칸에 맞춰 보임). 못 받으면 칸이 없어지고 종류 표시만 남는다. */
+.lu-thumb{flex:none;box-sizing:border-box;width:28px;height:28px;border-radius:var(--kptu-radius-sm,6px);background:var(--kptu-primary-soft);overflow:hidden}
+.lu-thumb img{display:block;width:100%;height:100%;object-fit:cover}
+@media(max-width:760px){
+  #appView #libraryView #documentList .lu-row.lu-row-photo{grid-template-columns:28px auto auto auto minmax(0,1fr) auto;grid-template-areas:"thumb title title title title menu" "thumb kind tag date . menu"}
+  #appView #libraryView #documentList .lu-row-photo .lu-thumb{grid-area:thumb;align-self:center}
+}
+
+/* ACT-사진 4단계: 사업 보고 사진 묶음 줄(한 줄). 작은 그림 3장은 공용 .report-photo-strip(ui-standard.css). 폰은 오른쪽 칸(⋯ 자리)에 그림을 둔다. */
+.lu-row-set .report-photo-strip{flex:none}
+@media(max-width:760px){
+  #appView #libraryView #documentList .lu-row.lu-row-set{grid-template-columns:auto auto auto minmax(0,1fr) auto;grid-template-areas:"title title title title strip" "kind tag date . strip"}
+  #appView #libraryView #documentList .lu-row-set .report-photo-strip{grid-area:strip;align-self:center;justify-self:end}
 }

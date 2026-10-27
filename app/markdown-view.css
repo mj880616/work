@@ -1,0 +1,67 @@
+/* MD-표시: markdown-view.js가 그린 글(.md-body)의 공용 모양. 바구니 메모 읽기 화면, 이후 일지·노트에서 재사용. */
+.md-body { white-space:normal; overflow-wrap:anywhere; }
+.md-body > :first-child { margin-top:0; }
+.md-body > :last-child { margin-bottom:0; }
+.md-body p, .md-body ul, .md-body ol, .md-body blockquote, .md-body pre, .md-body table, .md-body .md-mermaid, .md-body .md-math-block { margin:0 0 12px; }
+.md-body h1, .md-body h2, .md-body h3, .md-body h4, .md-body h5, .md-body h6 { margin:18px 0 8px; line-height:1.35; color:var(--kptu-ink); }
+.md-body h1 { font-size:1.35em; } .md-body h2 { font-size:1.22em; } .md-body h3 { font-size:1.1em; } .md-body h4, .md-body h5, .md-body h6 { font-size:1em; }
+.md-body ul, .md-body ol { padding-left:1.4em; }
+.md-body li + li { margin-top:4px; }
+/* EDIT-번호모양보존: "1)" 목록은 "1)"로(편집기 번호 ▾의 1) 모양, ed-doc.css ed-o-paren과 같은 모양). 항목 사이에 빈 줄이 있어도(느슨한 목록) 줄 간격은 같다. */
+@counter-style md-o-paren { system:extends decimal; suffix:") "; }
+.md-body ol.md-ol-paren { list-style-type:md-o-paren; }
+.md-body li > p { margin:0; }
+.md-body li > p + p { margin-top:4px; }
+.md-body li.md-task-item { list-style:none; margin-left:-1.4em; }
+/* Read-only checkbox: undo the app-wide text-field look of input. */
+.md-body input.md-task { display:inline-block; width:1.05em; height:1.05em; min-height:0; margin:0 6px 0 0; padding:0; border:0; box-shadow:none; vertical-align:-0.15em; }
+.md-body blockquote { padding:4px 0 4px 12px; color:var(--kptu-muted); border-left:3px solid var(--kptu-border-strong); }
+.md-body a { color:var(--kptu-link); text-decoration:underline; }
+.md-body hr { margin:16px 0; border:0; border-top:1px solid var(--kptu-border); }
+.md-body code { padding:1px 4px; font-size:0.92em; background:var(--kptu-surface-subtle); border-radius:4px; }
+.md-body pre { padding:10px 12px; overflow-x:auto; background:var(--kptu-surface-subtle); border:1px solid var(--kptu-border); border-radius:6px; }
+.md-body pre code { padding:0; white-space:pre; background:none; }
+/* Wide tables scroll inside the note instead of widening the page. */
+.md-body table { display:block; max-width:100%; overflow-x:auto; border-collapse:collapse; }
+.md-body th, .md-body td { padding:6px 10px; border:1px solid var(--kptu-border); vertical-align:top; }
+.md-body th { background:var(--kptu-surface-subtle); font-weight:700; }
+.md-body .md-math-block, .md-body .md-math-display { display:block; max-width:100%; overflow-x:auto; overflow-y:hidden; }
+.md-body .md-mermaid-figure { max-width:100%; overflow-x:auto; }
+.md-body .md-mermaid-figure svg { display:block; max-width:100%; height:auto; margin:0 auto; }
+.md-body .md-mermaid-error { margin:0 0 6px; font-size:0.9em; color:var(--kptu-muted); }
+/* MD-표시보완: 이미지 칩(누를 때만 불러옴), GitHub식 강조 상자, ChatGPT 공유 링크 카드. 색은 테마 토큰만 쓴다. */
+.md-body .md-image-group { display:inline-flex; flex-direction:column; align-items:flex-start; gap:8px; max-width:100%; }
+.md-body .md-image-chip { display:inline-flex; align-items:center; min-height:var(--kptu-touch-target, 44px); padding:0 14px; color:var(--kptu-ink); background:var(--kptu-surface-subtle); border:1px solid var(--kptu-border-strong); border-radius:999px; font:inherit; cursor:pointer; }
+.md-body .md-image-chip[aria-expanded="true"] { background:var(--kptu-primary-soft); border-color:var(--kptu-primary); }
+.md-body .md-image-list { display:flex; flex-wrap:wrap; gap:8px; max-width:100%; }
+.md-body .md-image-list[hidden] { display:none; }
+.md-body .md-image-list a { display:inline-flex; flex-direction:column; gap:4px; max-width:100%; font-size:0.9em; }
+.md-body .md-image-list img { display:block; max-width:min(100%, 480px); height:auto; border:1px solid var(--kptu-border); border-radius:6px; }
+.md-body blockquote.md-callout { padding:10px 12px; color:var(--kptu-text-body, var(--kptu-ink)); background:var(--kptu-primary-soft); border-left:4px solid var(--kptu-primary); border-radius:6px; }
+.md-body blockquote.md-callout > :last-child { margin-bottom:0; }
+.md-body .md-callout-title { display:block; margin-bottom:4px; font-weight:700; color:var(--kptu-primary-ink, var(--kptu-ink)); }
+.md-body .md-callout-note .md-callout-title::before { content:"ⓘ "; }
+.md-body .md-callout-tip { background:var(--kptu-surface-subtle); border-left-color:var(--kptu-link); }
+.md-body .md-callout-tip .md-callout-title { color:var(--kptu-link); }
+.md-body .md-callout-tip .md-callout-title::before { content:"💡 "; }
+.md-body .md-callout-important .md-callout-title::before { content:"❗ "; }
+.md-body .md-callout-important { border-left-width:6px; }
+.md-body .md-callout-warning, .md-body .md-callout-caution { background:var(--kptu-danger-soft); border-left-color:var(--kptu-danger); }
+.md-body .md-callout-warning .md-callout-title, .md-body .md-callout-caution .md-callout-title { color:var(--kptu-danger); }
+.md-body .md-callout-warning .md-callout-title::before { content:"⚠ "; }
+.md-body .md-callout-caution .md-callout-title::before { content:"⛔ "; }
+.md-share-cards { display:flex; flex-direction:column; gap:8px; margin:0 0 12px; }
+.md-share-cards[hidden] { display:none; }
+.md-share-card { display:flex; flex-direction:column; gap:2px; min-height:var(--kptu-touch-target, 44px); padding:10px 14px; color:var(--kptu-ink); text-decoration:none; background:var(--kptu-surface); border:1px solid var(--kptu-border-strong); border-left:4px solid var(--kptu-primary); border-radius:8px; }
+.md-share-card b::after { content:" ↗"; }
+.md-share-card small { color:var(--kptu-muted); overflow-wrap:anywhere; }
+.md-share-card:focus-visible, .md-body .md-image-chip:focus-visible { outline:2px solid var(--kptu-primary); outline-offset:2px; }
+/* MD-표시보완: .html 첨부 칸막이(html-frame.js). [크게 보기]는 화면 전체를 덮는다. */
+.html-frame { display:flex; flex-direction:column; gap:8px; margin:0 0 12px; padding:10px; background:var(--kptu-surface); border:1px solid var(--kptu-border-strong); border-radius:8px; }
+.html-frame-bar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.html-frame-title { flex:1 1 auto; min-width:0; overflow-wrap:anywhere; }
+.html-frame-note { margin:0; color:var(--kptu-muted); font-size:0.92em; }
+.html-frame-note:empty { display:none; }
+.html-frame-view { display:block; width:100%; min-height:120px; border:1px solid var(--kptu-border); border-radius:6px; background:var(--kptu-surface); }
+.html-frame-full { position:fixed; inset:0; z-index:1000; margin:0; border-radius:0; padding:max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom)); }
+.html-frame-full .html-frame-view { flex:1 1 auto; height:auto !important; min-height:0; }

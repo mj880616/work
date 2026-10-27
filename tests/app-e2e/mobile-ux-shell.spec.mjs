@@ -1,10 +1,13 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 
 // Existing month-view regressions choose month explicitly.
-test.beforeEach(async({page})=>{await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}})});
+test.beforeEach(async({page})=>{await installViewPrefsServer(page,{calendar_view:'month'})});
 import { enterLogin } from './helpers/login-entry.mjs';
 import { calendarToday } from './helpers/calendar-today.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
 test.use({ timezoneId: 'Asia/Seoul' });
 
@@ -18,7 +21,7 @@ async function mockApp(page){
   await page.route(`${SB}/**`,async route=>{
     const req=route.request(),url=new URL(req.url()),path=url.pathname;
     const ok=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data??null)});
-    if(path==='/auth/v1/token')return ok({access_token:'mobile-access',refresh_token:'mobile-refresh',expires_in:3600,expires_at:Math.floor(await page.evaluate(() => Date.now())/1000)+3600});
+    if(path==='/auth/v1/token')return ok({access_token:'mobile-access',refresh_token:'mobile-refresh',expires_in:3600,expires_at:Math.floor(await page.evaluate(() => Date.now())/1000)+3600,user});
     if(path==='/auth/v1/user')return ok(user);
     if(path==='/auth/v1/logout')return ok({});
     if(path==='/functions/v1/google-calendar'){
@@ -42,11 +45,8 @@ async function mockApp(page){
 
 async function signIn(page){
   await enterLogin(page);
-  await expect(page.locator('#emailAuthToggle')).toBeVisible({timeout:10000});
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('mobile@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await expect(page.locator('#googleLoginBtn')).toBeVisible({timeout:10000});
+  await signInWithSession(page,'mobile@example.org');
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await expect(page.locator('body')).toHaveClass(/kptu-workspace-shell/,{timeout:10000});
   await expect(page.locator('#ccMobileDock')).toHaveCount(0);
@@ -61,9 +61,9 @@ async function gesture(page,selector,points){
     };
     touch('touchstart',points[0]);
     for(const p of points.slice(1,-1))touch('touchmove',p);
-    const transform=el.style.transform;
+    const shift=el.style.left;
     touch('touchend',points.at(-1),'changedTouches');
-    return transform;
+    return shift;
   },points);
 }
 
@@ -71,20 +71,19 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
   test.setTimeout(60000);
   await page.setViewportSize({width:390,height:844});
   const today=await mockApp(page);
-  await page.goto('http://127.0.0.1:8123/app/?view=calendar');
+  await page.goto(`${appOrigin}/app/?view=calendar`);
   await signIn(page);
 
   await expect(page.locator('#calendarView')).toBeVisible({timeout:10000});
-
-  const motion=await gesture(page,'#calendarView',[{x:330,y:400},{x:240,y:402},{x:110,y:405}]);
-  expect(motion).toContain('translate3d');
-  await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('tasks');
-  await expect(page.locator('#tasksView')).toBeVisible();
-  await expect.poll(()=>page.locator('#tasksView').evaluate(el=>el.style.transform||'')).toBe('');
-
-  const vertical=await gesture(page,'#tasksView',[{x:220,y:300},{x:214,y:390},{x:210,y:510}]);
-  expect(vertical).toBe('');
-  await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('tasks');
+  // UI-밀기탭이동삭제: 좌우로 밀어도 탭이 바뀌지 않고(화면은 제자리), 탭 이동은 하단 탭 누르기로만 된다.
+  await expect.poll(()=>page.locator('#calendarView').evaluate(el=>el.getBoundingClientRect().bottom),{timeout:10000}).toBeGreaterThan(405);
+  await gesture(page,'#calendarView',[{x:330,y:400},{x:240,y:402},{x:110,y:405}]);
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(()=>window.KPTURouter?.current)).toBe('calendar');
+  expect(await page.locator('#calendarView').evaluate(el=>el.style.left||'')).toBe('');
+  await clickView(page,'projects');
+  await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('projects');
+  await expect(page.locator('#projectsView')).toBeVisible();
 
   await clickView(page,'calendar');
   await expect.poll(()=>page.evaluate(()=>window.KPTURouter?.current)).toBe('calendar');
@@ -102,7 +101,7 @@ test('mobile navigation, animated full-area swipe, safe area, back behavior and 
   await expect(page.locator('#eventModal')).toBeHidden();
   await expect(page.locator('#calendarView')).toBeVisible();
   await page.goBack();
-  await expect(page.locator('#tasksView')).toBeVisible();
+  await expect(page.locator('#projectsView')).toBeVisible();
 
   const before=await page.evaluate(()=>window.KPTURouter?.current);
   const navBox=await page.locator('.mobile-tabs').boundingBox();
@@ -139,7 +138,7 @@ test('mobile shell and event modal stay inside 360/390/412/430px viewports',asyn
   test.setTimeout(60000);
   await page.setViewportSize({width:390,height:844});
   await mockApp(page);
-  await page.goto('http://127.0.0.1:8123/app/?view=calendar');
+  await page.goto(`${appOrigin}/app/?view=calendar`);
   await signIn(page);
 
   for(const width of [360,390,412,430]){
@@ -152,7 +151,7 @@ test('mobile shell and event modal stay inside 360/390/412/430px viewports',asyn
         nav:rect(document.querySelector('.mobile-tabs')),
         topbarDisplay:getComputedStyle(document.querySelector('.topbar')).display,
         sidebarBrandDisplay:getComputedStyle(document.querySelector('.sidebar-brand')).display,
-        sidebarLogoutDisplay:getComputedStyle(document.querySelector('#appView>.app-nav [data-account-open]')).display,
+        sidebarLogoutDisplay:getComputedStyle(document.querySelector('#appView>.app-topline [data-account-open]')).display,
         viewport:{width:innerWidth,height:innerHeight}
       };
     });

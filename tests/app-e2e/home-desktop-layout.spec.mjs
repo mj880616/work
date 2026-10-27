@@ -24,7 +24,7 @@ for(const width of [1024,1280,1440,1023,390])for(const milestones of [true,false
     const b=await boxes(page);
     const left=['quick','calendar','tasks','meetings'];
     const right=milestones?['dday']:[];
-    const order=width>=1024?[...left,...right]:['quick',...(milestones?['dday']:[]),'calendar','tasks','meetings'];
+    const order=width>=1024?[...left,...right]:['quick','calendar','tasks','missed','tomorrow',...(milestones?['dday']:[]),'meetings'];
     expect(await readingOrder(page)).toEqual(order);
     if(width>=1024&&milestones){
       const sidebar=b[right[0]];
@@ -38,6 +38,15 @@ for(const width of [1024,1280,1440,1023,390])for(const milestones of [true,false
         expect(b[left[i]].y-b[left[i-1]].bottom).toBeCloseTo(12,0);
       }
       expect(b.dday.bottom).toBeLessThan(b.meetings.bottom);
+    }else if(width<=760){
+      // 8-9e-2: the phone quick input is docked right above the bottom tabs; the cards stack above it.
+      const tabs=await page.locator('.mobile-tabs').boundingBox();
+      expect(Math.round(b.quick.bottom)).toBe(Math.round(tabs.y));
+      const cards=order.slice(1);
+      for(let i=1;i<cards.length;i++){
+        expect(b[cards[i]].x).toBe(b[cards[0]].x);
+        expect(b[cards[i]].y).toBeGreaterThanOrEqual(b[cards[i-1]].bottom);
+      }
     }else{
       for(let i=1;i<order.length;i++){
         expect(b[order[i]].x).toBe(b.quick.x);
@@ -66,7 +75,8 @@ test('home breakpoint moves the same D-day control and preserves input and focus
     expect(await chip.evaluate(el=>el===window.layoutChip)).toBe(true);
     await expect(page.locator('[data-quick-input]')).toHaveValue('유지할 입력');
     await noOverflow(page);
-    expect(await readingOrder(page)).toEqual(width>=1024?['quick','calendar','tasks','meetings','dday']:['quick','dday','calendar','tasks','meetings']);
+    // The D-day card moves on the media query's change event, which fires after the resize.
+    await expect.poll(()=>readingOrder(page)).toEqual(width>=1024?['quick','calendar','tasks','meetings','dday']:['quick','calendar','tasks','missed','tomorrow','dday','meetings']);
   }
 });
 for(const [card,view] of [['calendar','calendar'],['tasks','tasks'],['meetings','meetings']]){

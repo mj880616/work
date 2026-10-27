@@ -1,7 +1,12 @@
+import { appOrigin } from './helpers/test-origin.mjs';
+import {openLegacyBoard} from './helpers/legacy-board.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { calendarToday } from './helpers/calendar-today.mjs';
 import { watchRetiredCollaboration } from './helpers/retired-collaboration.mjs';
+import {fillDateTime} from './helpers/date-time.mjs';
+import { closeProjectDetail, expectProjectDetail } from './helpers/project-detail.mjs';
 watchRetiredCollaboration(test);
 test.use({ timezoneId: 'Asia/Seoul' });
 
@@ -161,15 +166,11 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   };
 
   await installSupabaseMock(page, state);
-  const returnTo='http://127.0.0.1:8123/app/';
-  await page.goto(`http://127.0.0.1:8123/app/login/?return=${encodeURIComponent(returnTo)}`);
+  const returnTo=`${appOrigin}/app/`;
+  await page.goto(`${appOrigin}/app/login/?return=${encodeURIComponent(returnTo)}`);
 
-  await expect(page.locator('#emailAuthToggle')).toBeVisible({ timeout: 10000 });
-  await page.locator('#emailAuthToggle').click();
-  await expect(page.locator('#authEmail')).toBeVisible();
-  await page.locator('#authEmail').fill('e2e@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await expect(page.locator('#googleLoginBtn')).toBeVisible({ timeout: 10000 });
+  await signInWithSession(page,'e2e@example.org');
   await expect(page.locator('#appView')).toBeVisible({ timeout: 10000 });
 
   await clickView(page,'calendar');
@@ -179,7 +180,7 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await expect(page.locator('#calendarUpcoming,#upcomingEvents')).toHaveCount(0);
   const addSize=await page.locator('#newEventBtn').evaluate(el=>el.getBoundingClientRect().width);
   expect(addSize).toBeGreaterThanOrEqual(44);
-  expect(await page.locator('#newEventBtn').evaluate(el=>el.getBoundingClientRect().height)).toBe(32);
+  expect(await page.locator('#newEventBtn').evaluate(el=>el.getBoundingClientRect().height)).toBe(32); // UI-PC다듬기묶음: 이 시험은 PC 폭(기본 1280) — [+ 일정 등록]은 같은 줄 [오늘]·보기 전환과 같은 32px
   await expect(page.locator('#eventTarget,#eventProject')).toHaveCount(0);
   expect(state.events).toHaveLength(0);
 
@@ -198,7 +199,7 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await expect(page.locator('#tasksView')).toBeVisible();
   await expect(page.locator('#taskList')).toBeEmpty();
   await expect(page.locator('#gtTaskSection')).toBeVisible();
-  await page.locator('#newTaskBtn').click();
+  await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
   await page.locator('#gtEditTitle').fill('E2E 할 일');
   await page.locator('#gtEditDue').fill(today);
   await page.locator('#gtSaveBtn').click();
@@ -216,7 +217,7 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await expect(page.locator('#teamView')).toBeVisible();
   await expect(page.locator('#soOrganizationList')).toBeVisible();
 
-  await clickView(page,'pages');
+  await clickView(page,'pages');await openLegacyBoard(page);
   await expect(page.locator('#pagesView')).toBeVisible();
   await expect(page.locator('#web1BoardActive')).toContainText('위험업무 2인1조 법제화');
   await expect(page.locator('#web1BoardActive')).toContainText('공공기관 인력확충');
@@ -229,13 +230,15 @@ test('login and core workspace flows remain usable', async ({ page }) => {
   await page.locator('#ps3CreateSave').dispatchEvent('click');
   await expect.poll(() => state.spaces.length).toBeGreaterThan(1);
   await expect(page.locator('#appView')).toBeVisible({ timeout: 10000 });
-  await page.locator('[data-ps3-close="ps3DetailModal"]').click();
+  const made = state.spaces.find(x => x.name === 'E2E 프로젝트');
+  await expectProjectDetail(page, made.id);
+  await closeProjectDetail(page);
 
   await clickView(page,'meetings');
   await expect(page.locator('#meetingsView')).toBeVisible();
   await page.locator('#newMeetingBtn').click();
   await page.locator('#meetingTitle').fill('E2E 회의');
-  await page.locator('#meetingAt').fill(`${today}T11:00`);
+  await fillDateTime(page,'#meetingAt',`${today}T11:00`);
   await page.locator('#meetingTranscript').fill('E2E 회의 결과 원문');
   await page.locator('#saveMeetingBtn').click();
   await expect.poll(() => state.meetings.length).toBeGreaterThan(0);

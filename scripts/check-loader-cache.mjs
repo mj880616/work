@@ -9,7 +9,6 @@ const sourceFile = /\.(?:html|js|mjs|css)$/i;
 const textFile = /\.(?:html|js|mjs|css|json|svg|md|ya?ml)$/i;
 // These directories contain tooling/fixtures, not deployed page entry points.
 const nonEntry = /^(?:tests|docs|scripts|node_modules|android-app|windows-app|supabase|cloudflare|\.github)\/|^app\/legacy\//;
-const normalized = value => typeof value === 'string' ? value.replace(/\r\n/g, '\n') : value;
 
 function localReference(raw, parent) {
   raw = raw.replaceAll('&amp;', '&');
@@ -23,7 +22,7 @@ function localReference(raw, parent) {
   return { target, version: new URLSearchParams(query).get('v'), raw };
 }
 
-function references(parent, source) {
+export function references(parent, source) {
   if (!sourceFile.test(parent)) return [];
   const values = [];
   if (parent.endsWith('.html')) {
@@ -55,7 +54,7 @@ function literalValues(source) {
   return values;
 }
 
-function graph(files) {
+export function graph(files) {
   const queue = Object.keys(files).filter(file => file.endsWith('.html') && !nonEntry.test(file));
   const visited = new Set(), edges = [];
   while (queue.length) {
@@ -70,34 +69,31 @@ function graph(files) {
   return { edges, visited };
 }
 
-export function checkCacheVersions(base, head) {
-  const before = graph(base), after = graph(head);
-  const changed = new Set([...Object.keys(base), ...Object.keys(head)]
-    .filter(file => normalized(base[file]) !== normalized(head[file])));
-  const oldVersions = new Map(), oldTargetVersions = new Map();
-  for (const edge of before.edges) {
-    const key = `${edge.parent}\0${edge.target}`;
-    if (!oldVersions.has(key)) oldVersions.set(key, new Set());
-    oldVersions.get(key).add(edge.version);
-    if (!oldTargetVersions.has(edge.target)) oldTargetVersions.set(edge.target, new Set());
-    oldTargetVersions.get(edge.target).add(edge.version);
-  }
+// Third-party bundles live in folders named after their release (rhwp-0.8.7/, mermaid-11.17.2/).
+// The build leaves references into them as written (scripts/build-pages.mjs).
+export const vendored = /(?:^|\/)[\w.-]+-\d+\.\d+\.\d+\//;
+
+// CI-버전자동화 3단계(docs/design/ci-version-automation.md 4장): the repository references files
+// without ?v=; scripts/build-pages.mjs adds content hashes when Pages is built. A hand-written
+// ?v= to a file in the repository would be overwritten by the build, so it is refused here.
+// References to files outside the repository (another host, a root path Pages does not hold)
+// are not built and may keep their own ?v=.
+export function checkSourceVersions(base, head) {
   const errors = new Set();
-  for (const edge of after.edges) {
-    if (!changed.has(edge.target) || !Object.hasOwn(base, edge.target)) continue;
-    if (!Object.hasOwn(head, edge.target)) {
-      errors.add(`${edge.target} 파일을 삭제했지만 ${edge.parent}에서 아직 불러옵니다. 이 참조를 제거하거나 새 파일 경로로 바꾸세요.`);
-      continue;
-    }
-    const previous = oldVersions.get(`${edge.parent}\0${edge.target}`);
-    // A moved reference can still hit the same old URL in the browser cache.
-    // Existing unversioned URLs have no v policy unless this pair removed v.
-    if (edge.version === null && (!previous || [...previous].every(v => v === null))) continue;
-    if (!edge.version || oldTargetVersions.get(edge.target)?.has(edge.version)) {
-      errors.add(`${edge.target} 파일을 고쳤지만 ${edge.parent}의 ${edge.raw} 캐시 버전이 갱신되지 않았습니다. 이 파일을 불러오는 모든 곳의 ?v= 값을 새 값으로 바꾸고 상위 로더 버전도 올려 주세요.`);
+  const sources = Object.keys(head).filter(file => sourceFile.test(file) && !nonEntry.test(file)).sort();
+  for (const parent of sources) {
+    for (const ref of references(parent, head[parent])) {
+      if (ref.version === null || !Object.hasOwn(head, ref.target) || vendored.test(ref.target)) continue;
+      errors.add(`${parent}: ${ref.raw} — ?v=를 손으로 쓰지 마세요. 번호 없는 경로로 쓰면 Pages 빌드(scripts/build-pages.mjs)가 내용 해시를 붙입니다.`);
     }
   }
-  return { errors: [...errors], changed: [...changed], references: after.edges.length, sources: after.visited.size };
+  const after = graph(head);
+  for (const edge of after.edges) {
+    if (Object.hasOwn(base, edge.target) && !Object.hasOwn(head, edge.target)) {
+      errors.add(`${edge.target} 파일을 삭제했지만 ${edge.parent}에서 아직 불러옵니다. 이 참조를 제거하거나 새 파일 경로로 바꾸세요.`);
+    }
+  }
+  return { errors: [...errors], references: after.edges.length, sources: sources.length };
 }
 
 function git(args, options = {}) {
@@ -150,18 +146,18 @@ function main() {
   if (!options['--base']) throw new Error('--base에 PR 기준 SHA를 지정하세요.');
   process.chdir(git(['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim());
   const base = revisionFiles(options['--base']);
-  const result = checkCacheVersions(base, options['--head'] ? revisionFiles(options['--head']) : workingFiles(base, options['--base']));
+  const result = checkSourceVersions(base, options['--head'] ? revisionFiles(options['--head']) : workingFiles(base, options['--base']));
   if (result.errors.length) {
     for (const error of result.errors) console.error(error);
     process.exitCode = 1;
   } else {
-    console.log(`캐시 버전 검사 통과: 변경 ${result.changed.length}개, 운영 참조 ${result.references}개 확인.`);
+    console.log(`?v= 검사 통과: 소스 ${result.sources}개에 손으로 쓴 ?v= 없음, 운영 참조 ${result.references}개 확인.`);
   }
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try { main(); } catch (error) {
-    console.error(`캐시 버전 검사를 실행하지 못했습니다: ${error.message}`);
+    console.error(`?v= 검사를 실행하지 못했습니다: ${error.message}`);
     process.exitCode = 2;
   }
 }

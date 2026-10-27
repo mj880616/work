@@ -1,6 +1,9 @@
 import { createDriveUpload, UploadError } from "../_shared/drive-upload.ts";
 import type { UploadAdmin, UploadLog } from "../_shared/drive-upload.ts";
 import {createOcrHandler} from "./ocr.ts";
+import { createNoteDeleteHandler } from "./note-delete.ts";
+import { createPhotoHandler } from "./photo.ts";
+import { readMultipartForm } from "../_shared/multipart.ts";
 import type {OcrUser} from "./ocr.ts";
 
 const cors = {
@@ -23,6 +26,10 @@ type Attachment = {
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_FILE = 100 * 1024 * 1024;
 const MAX_ATTACHMENTS = 20;
+// NOTE-파일붙이기: files attached to a note (kind=note) go into this folder inside the private "Web2 바구니" root, not into
+// 자료실 (the library list reads app_documents only, so these files never show there). The folder is chosen here from the
+// stored row's kind, never from the request. A shared folder is refused before any upload (ensurePrivateChildFolder).
+export const NOTE_FILES_FOLDER = "노트 첨부";
 const characters = (text: string) => [...text].length;
 function validateFiles(files: FormDataEntryValue[]): File[] {
   if (!files.length || files.some((f) => !(f instanceof File))) {
@@ -55,6 +62,8 @@ export function createBasketHandler(
   const log = options.log ?? ((code: string) => console.error(code));
   const drive = createDriveUpload(admin, { ...options, log });
   const ocr=createOcrHandler(admin,{...options,log});
+  const noteDelete = createNoteDeleteHandler(admin, { ...options, log });
+  const photo = createPhotoHandler(admin, { ...options, log });
   return async (req: Request): Promise<Response> => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
     let token = "";
@@ -90,13 +99,22 @@ export function createBasketHandler(
         throw new UploadError(403, "forbidden", stage);
       }
       workspaceId = member.workspace_id;
+      if (
+        req.method === "POST" &&
+        new URL(req.url).searchParams.get("action") === "note-delete"
+      ) return await noteDelete(req, workspaceId, `Bearer ${match[1]}`);
+      if (
+        req.method === "GET" &&
+        new URL(req.url).searchParams.get("action") === "photo"
+      ) return await photo(req, workspaceId, `Bearer ${match[1]}`);
       if(req.method==="GET" || req.headers.get("content-type")?.split(";")[0].trim().toLowerCase()==="application/json"){
         return await ocr(req,workspaceId,`Bearer ${match[1]}`);
       }
       stage = "request";
       let form: FormData;
       try {
-        form = await req.formData();
+        // Not req.formData(): Deno cuts quoted file names at ';' and '=' (see _shared/multipart.ts).
+        form = await readMultipartForm(req);
       } catch {
         throw new UploadError(400, "invalid_request", stage);
       }
@@ -110,13 +128,20 @@ export function createBasketHandler(
       let rawText = "";
       let previous: Attachment[] = [];
       let updatedAt = "";
+      let noteKind = "";
       if (noteId) {
         stage = "note_lookup";
-        const { data: note, error } = await admin.from("app_notes").select(
-          "id,attachments,updated_at",
-        )
-          .eq("id", noteId).eq("workspace_id", member.workspace_id)
-          .maybeSingle();
+        // TRASH-다른삭제 5단계: 서버 키는 RLS(휴지통 숨김 정책)를 건너뛰므로 휴지통 노트(deleted_at 있음)에는 첨부를 올리지 않는다.
+        // DB 적용 전에는 deleted_at 칸이 없어 42703으로 거절되므로, 그때만 거르기 없이 한 번 더 읽는다.
+        const lookup = (live: boolean) => {
+          const query = admin.from("app_notes").select(
+            "id,kind,attachments,updated_at",
+          ).eq("id", noteId).eq("workspace_id", member.workspace_id);
+          return (live ? query.is("deleted_at", null) : query).maybeSingle();
+        };
+        let found = await lookup(true);
+        if (found.error?.code === "42703") found = await lookup(false);
+        const { data: note, error } = found;
         if (error) throw new UploadError(503, "note_lookup_failed", stage);
         if (!note) throw new UploadError(404, "note_not_found", stage);
         if (
@@ -125,6 +150,7 @@ export function createBasketHandler(
         ) throw new UploadError(409, "note_state_invalid", stage);
         previous = note.attachments;
         updatedAt = note.updated_at;
+        noteKind = typeof note.kind === "string" ? note.kind : "";
       } else {
         const raw = form.get("raw_text");
         if (raw !== null && typeof raw !== "string") {
@@ -145,10 +171,14 @@ export function createBasketHandler(
       stage = "drive_token";
       token = await drive.driveToken();
       stage = "drive_folder";
-      const folder = await drive.ensurePrivateRootFolder(
+      const root = await drive.ensurePrivateRootFolder(
         member.workspace_id,
         token,
       );
+      // The update CAS below (updated_at + attachments) refuses the save if the row changed kind after this read.
+      const folder = noteKind === "note"
+        ? await drive.ensurePrivateChildFolder(root, NOTE_FILES_FOLDER, token)
+        : root;
       const attachments = [...previous];
       for (const file of files) {
         stage = "drive_upload";
@@ -168,17 +198,26 @@ export function createBasketHandler(
       }
       stage = "note_save";
       savingNoteId = noteId || crypto.randomUUID();
+      // 올리는 사이 노트가 휴지통으로 갔다면(deleted_at) 저장하지 않는다(note_changed). 칸이 없을 때(42703)만 거르기 없이 다시 시도한다.
+      const saveExisting = async () => {
+        const run = (live: boolean) => {
+          const query = admin.from("app_notes").update({
+            attachments,
+            updated_at: new Date().toISOString(),
+          })
+            .eq("id", noteId!).eq("workspace_id", member.workspace_id).eq(
+              "updated_at",
+              updatedAt,
+            )
+            .eq("attachments", JSON.stringify(previous));
+          return (live ? query.is("deleted_at", null) : query).select("id")
+            .maybeSingle();
+        };
+        const first = await run(true);
+        return first.error?.code === "42703" ? await run(false) : first;
+      };
       const result = noteId
-        ? await admin.from("app_notes").update({
-          attachments,
-          updated_at: new Date().toISOString(),
-        })
-          .eq("id", noteId).eq("workspace_id", member.workspace_id).eq(
-            "updated_at",
-            updatedAt,
-          )
-          .eq("attachments", JSON.stringify(previous)).select("id")
-          .maybeSingle()
+        ? await saveExisting()
         : await admin.from("app_notes").insert({
           id: savingNoteId,
           workspace_id: member.workspace_id,

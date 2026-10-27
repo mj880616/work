@@ -35,7 +35,7 @@ test('a disconnected current status supersedes early events, including a later e
 test('cold cached meeting controls wait for the task module and current task state',async({page})=>{
   await openHome(page);await ready(page);const errors=[];page.on('pageerror',e=>errors.push(e.message));
   let release;const pending=new Promise(r=>release=r);
-  await page.route('**/app/google-tasks.js?*',async route=>{await pending;await route.continue();});
+  await page.route('**/app/google-tasks.js*',async route=>{await pending;await route.continue();});
   await page.reload();const button=page.locator('[data-home-card="meetings"] [data-home-toggle="meeting"]');
   await expect(button).toBeVisible();await expect(button).toBeDisabled();release();await ready(page);
   await expect(button).toBeEnabled();await button.click();
@@ -75,7 +75,9 @@ test('first visit task rows appear before links; overlapping starts share the re
   await ready(page);
   expect(c.requests.filter(r=>r.path.endsWith('app_record_links')&&!r.query.includes('note_id=not.is.null'))).toHaveLength(1);
   expect(c.requests.filter(r=>r.action==='overview')).toHaveLength(1);
-  expect(c.requests.filter(r=>r.action==='status')).toHaveLength(1);
+  // OPS-수집점검: drive-summary ?action=status is the 마지막 수집 시각 card's own read, not the calendar status.
+  expect(c.requests.filter(r=>r.action==='status'&&r.path.endsWith('google-calendar'))).toHaveLength(1);
+  expect(c.requests.filter(r=>r.path.endsWith('/functions/v1/drive-summary')).length).toBeLessThanOrEqual(1);
   expect(c.requests.filter(r=>r.action==='events')).toHaveLength(1);
   await expect(page.locator('[data-home-timing]')).toHaveCount(0);
 });
@@ -90,7 +92,10 @@ test('calendar copy survives reload but is ignored on next KST day',async({page}
 });
 test('latest failure is visible and does not replace the last successful copy',async({page})=>{
   const c=await openHome(page);await ready(page);c.setFailure('google-calendar');await start(page);
-  await expect(page.locator('[data-home-card="calendar"]')).toHaveAttribute('data-state','failed');
+  // CAL-저장본먼저: the saved copy stays and the card says it is not the latest, with [다시 시도].
+  await expect(page.locator('[data-home-card="calendar"] [data-home-fresh]')).toContainText('최신 아님 · 마지막 확인');
+  await expect(page.locator('[data-home-card="calendar"]')).toContainText('오전 일정');
+  await expect(page.locator('[data-home-card="calendar"] [data-home-fresh]').getByRole('button',{name:'다시 시도'})).toBeVisible();
   c.setDelay('google-calendar',1200);const retry=start(page);
   await expect(page.locator('[data-home-card="calendar"]')).toContainText('오전 일정',{timeout:500});await retry;
   c.setFailure('');c.setConnected(false);await start(page);

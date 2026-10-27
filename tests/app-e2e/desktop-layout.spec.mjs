@@ -1,6 +1,9 @@
+import { appOrigin } from './helpers/test-origin.mjs';
+import {openLegacyBoard} from './helpers/legacy-board.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 
@@ -35,11 +38,8 @@ async function installMock(page){
 
 async function login(page){
   await enterLogin(page);
-  await expect(page.locator('#emailAuthToggle')).toBeVisible({timeout:10000});
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('desktop@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await expect(page.locator('#googleLoginBtn')).toBeVisible({timeout:10000});
+  await signInWithSession(page,'desktop@example.org');
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:10000});
   await expect(page.locator('body')).toHaveClass(/kptu-workspace-shell/,{timeout:10000});
@@ -48,20 +48,21 @@ async function login(page){
 test('desktop web uses compact left navigation and safe project detail margins',async({page})=>{
   await page.setViewportSize({width:1440,height:900});
   await installMock(page);
-  await page.goto('http://127.0.0.1:8123/app/?view=calendar');
+  await page.goto(`${appOrigin}/app/?view=calendar`);
   await login(page);
 
   for(const width of [1280,1440,1920]){
     await page.setViewportSize({width,height:900});
     await expect(page.locator('.topbar')).toBeHidden();
     await expect(page.locator('.sidebar-brand')).toBeVisible();
-    await expect(page.locator('#appView>.app-nav [data-account-open]')).toBeVisible();
+    await expect(page.locator('#appView>.app-topline [data-account-open]')).toBeVisible();
     const shell=await page.evaluate(()=>{
       const topbar=document.querySelector('.topbar');
       const nav=document.querySelector('#appView>.app-nav');
       const brand=document.querySelector('.sidebar-brand');
-      const logout=document.querySelector('#appView>.app-nav [data-account-open]');
+      const logout=document.querySelector('#appView>.app-topline [data-account-open]');
       const view=document.querySelector('#calendarView');
+      const line=document.querySelector('#appView>.app-topline');
       const rect=el=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height}};
       return {
         topbarDisplay:getComputedStyle(topbar).display,
@@ -70,6 +71,7 @@ test('desktop web uses compact left navigation and safe project detail margins',
         brand:rect(brand),
         logout:rect(logout),
         view:rect(view),
+        line:rect(line),
         mainPaddingTop:parseFloat(getComputedStyle(document.querySelector('main')).paddingTop)
       };
     });
@@ -78,8 +80,10 @@ test('desktop web uses compact left navigation and safe project detail margins',
     expect(shell.mainPaddingTop).toBeLessThanOrEqual(12);
     expect(shell.nav.top).toBeLessThanOrEqual(14);
     expect(shell.brand.top).toBeLessThanOrEqual(24);
-    expect(shell.view.top).toBeLessThanOrEqual(14);
-    expect(shell.logout.bottom).toBeGreaterThan(840);
+    // UI-상단줄: the thin top line starts the body column; the screen follows right under it, and the account is at its right end.
+    expect(shell.line.top).toBeLessThanOrEqual(14);
+    expect(shell.view.top).toBeLessThanOrEqual(shell.line.bottom+10);
+    expect(shell.logout.bottom).toBeLessThanOrEqual(shell.line.bottom+1);
     expect(shell.nav.bottom).toBeLessThanOrEqual(900);
   }
   await page.setViewportSize({width:1440,height:900});
@@ -127,18 +131,18 @@ test('desktop web uses compact left navigation and safe project detail margins',
 test('selected view survives refresh and page cards open inside the 게시판 tab',async({page})=>{
   await page.setViewportSize({width:1440,height:900});
   await installMock(page);
-  await page.goto('http://127.0.0.1:8123/app/?view=calendar');
+  await page.goto(`${appOrigin}/app/?view=calendar`);
   await login(page);
 
   await clickView(page,'calendar');
   await expect(page.locator('#calendarView')).toBeVisible();
-  await expect(page).toHaveURL('http://127.0.0.1:8123/app/?view=calendar');
+  await expect(page).toHaveURL(`${appOrigin}/app/?view=calendar`);
   await page.reload();
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await expect(page.locator('#calendarView')).toBeVisible({timeout:10000});
   await expect(page.locator('.app-nav [data-view="calendar"]')).toHaveClass(/active/);
 
-  await clickView(page,'pages');
+  await clickView(page,'pages');await openLegacyBoard(page);
   await expect(page.locator('#web1BoardActive')).toContainText('위험업무 2인1조 법제화');
   await expect(page.locator('#web1BoardActive')).toContainText('산별전환 업무 현황');
   await expect(page.locator('#web1BoardActive')).not.toContainText('성명·보도자료');

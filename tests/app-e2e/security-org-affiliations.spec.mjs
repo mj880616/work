@@ -1,3 +1,4 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 
@@ -11,7 +12,7 @@ async function installMock(page,state){
     const body=(()=>{try{return req.postDataJSON()}catch{return null}})();
     const ok=data=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data??null)});
     if(path==='/auth/v1/user')return ok(state.user);
-    if(path==='/auth/v1/token')return ok(session);
+    if(path==='/auth/v1/token')return ok({...session,user:state.user});
     if(path==='/auth/v1/logout')return ok({});
     if(path.startsWith('/functions/v1/'))return ok({connected:false,enabled:false,selected:[],calendars:[],events:[]});
     if(path==='/rest/v1/rpc/app_request_workspace_access'){
@@ -35,7 +36,7 @@ async function installMock(page,state){
     if(path==='/rest/v1/app_workspaces')return ok([state.workspace]);
     if(path==='/rest/v1/app_profiles')return ok([{user_id:state.user.id,display_name:state.user.user_metadata.display_name}]);
     if(path==='/rest/v1/app_suborganizations'){
-      if(method==='PATCH'){Object.assign(state.org,body||{});return ok([])}
+      if(method==='PATCH'){Object.assign(state.org,body||{});return ok(req.headers().prefer?.includes('return=representation')?[state.org]:null)}
       return ok([state.org]);
     }
     if(path==='/rest/v1/app_suborganization_assignees')return ok(state.membership?[{organization_id:state.org.id,user_id:state.user.id,assigned_by:state.user.id,created_at:now()}]:[]);
@@ -46,9 +47,9 @@ async function installMock(page,state){
       return ok(state.tags);
     }
     if(path==='/rest/v1/app_suborganization_affiliations'){
-      if(method==='GET')return ok(state.affiliations.map(tag_id=>({tag_id,created_at:now()})));
-      if(method==='DELETE'){state.affiliations=[];return ok([])}
-      if(method==='POST'){state.affiliations=(Array.isArray(body)?body:[body]).map(x=>x.tag_id);return ok([])}
+      if(method==='GET')return ok(state.affiliations.map(tag_id=>({organization_id:state.org.id,tag_id,created_at:now()})));
+      if(method==='DELETE'){const removed=state.affiliations.map(tag_id=>({organization_id:state.org.id,tag_id}));state.affiliations=[];return ok(req.headers().prefer?.includes('return=representation')?removed:null)}
+      if(method==='POST'){const inserted=Array.isArray(body)?body:[body];state.affiliations=inserted.map(x=>x.tag_id);return ok(req.headers().prefer?.includes('return=representation')?inserted:null)}
     }
     if(path==='/rest/v1/app_suborganization_status_items'||path==='/rest/v1/app_suborganization_timeline')return ok([]);
     if(path==='/rest/v1/app_notifications')return ok([]);
@@ -58,7 +59,7 @@ async function installMock(page,state){
   });
 }
 
-async function preloadSession(page){await page.addInitScript(s=>window['local'+'Storage'].setItem('kptu_collab_session_v1',JSON.stringify(s)),session)}
+async function preloadSession(page,user){await page.addInitScript(s=>window['local'+'Storage'].setItem('kptu_collab_session_v1',JSON.stringify(s)),{...session,user})}
 
 test('nonmember cannot access workspace or request membership',async({page})=>{
   const state={
@@ -66,7 +67,7 @@ test('nonmember cannot access workspace or request membership',async({page})=>{
     workspace:{id:'workspace-1',slug:'kptu-work',name:'웹2'},membership:null,requests:[],
     org:{id:'org-1',workspace_id:'workspace-1',name:'테스트지부',representative_name:null,contact:null,member_count:null,updated_at:now(),created_by:'owner-1'},tags:[],affiliations:[]
   };
-  await preloadSession(page);await installMock(page,state);await page.goto('http://127.0.0.1:8123/app/');
+  await preloadSession(page,state.user);await installMock(page,state);await page.goto(`${appOrigin}/app/`);
   await expect(page.locator('#accessDeniedView')).toBeVisible({timeout:10000});
   await expect(page.locator('#accessDeniedView')).toContainText('접근 권한이 없습니다');
   await expect(page.locator('#accessDeniedView button')).toHaveText(['로그아웃']);
@@ -83,7 +84,7 @@ test('solo workspace does not expose account approval controls',async({page})=>{
     tags:[{id:'tag-1',workspace_id:'workspace-1',name:'운수산업협의회',kind:'council',created_by:'owner-1'}],affiliations:['tag-1']
   };
   page.on('dialog',d=>d.accept());
-  await preloadSession(page);await installMock(page,state);await page.goto('http://127.0.0.1:8123/app/');
+  await preloadSession(page,state.user);await installMock(page,state);await page.goto(`${appOrigin}/app/`);
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await clickView(page,'team');
   await expect(page.locator('#aaReviewSection')).toHaveCount(0);
@@ -98,7 +99,7 @@ test('organization detail shows representative contact, system update time, and 
     org:{id:'org-1',workspace_id:'workspace-1',name:'테스트지부',representative_name:'대표자',contact:'010-1234-5678',member_count:100,updated_at:now(),created_by:'owner-1'},
     tags:[{id:'tag-1',workspace_id:'workspace-1',name:'운수산업협의회',kind:'council',created_by:'owner-1'},{id:'tag-2',workspace_id:'workspace-1',name:'안전인력사업단',kind:'taskforce',created_by:'owner-1'}],affiliations:['tag-1','tag-2']
   };
-  await preloadSession(page);await installMock(page,state);await page.goto('http://127.0.0.1:8123/app/');
+  await preloadSession(page,state.user);await installMock(page,state);await page.goto(`${appOrigin}/app/`);
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await page.evaluate(()=>window.KPTUDeferredFeatures.load());
   await page.evaluate(()=>{const b=document.createElement('button');b.id='openOrgE2E';b.dataset.psWorkplaceOrg='org-1';document.body.appendChild(b)});

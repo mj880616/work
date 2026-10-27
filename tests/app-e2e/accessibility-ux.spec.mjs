@@ -1,6 +1,9 @@
+import { appOrigin } from './helpers/test-origin.mjs';
+import {openLegacyBoard} from './helpers/legacy-board.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'a11y-user',email:'a11y@example.org',user_metadata:{display_name:'접근성 QA'}};
@@ -51,11 +54,8 @@ async function mockApp(page,{eventSaveGate=null,failEventSave=false,profileSaveG
 
 async function signIn(page){
   await enterLogin(page);
-  await expect(page.locator('#emailAuthToggle')).toBeVisible({timeout:10000});
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await expect(page.locator('#googleLoginBtn')).toBeVisible({timeout:10000});
+  await signInWithSession(page,user.email);
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:10000});
 }
@@ -63,7 +63,7 @@ async function signIn(page){
 async function boot(page,viewport,options={}){
   await page.setViewportSize(viewport);
   await mockApp(page,options);
-  await page.goto('http://127.0.0.1:8123/app/');
+  await page.goto(`${appOrigin}/app/`);
   await signIn(page);
 }
 
@@ -96,7 +96,7 @@ test('library toolbar and Web1 board expose accessible navigation',async({page})
   await clickView(page,'library');
   await expect(page.locator('label[for="documentSearch"]')).toHaveCount(1);
   await expect(page.locator('#documentProject')).toHaveAttribute('aria-label','프로젝트 필터');
-  await clickView(page,'pages');
+  await clickView(page,'pages');await openLegacyBoard(page);
   await expect(page.locator('#web1BoardActive .w1b-card')).toHaveCount(5);
   await expect(page.locator('#web1BoardActive .w1b-card').first()).toHaveAttribute('data-web1-board-href',/^https:\/\/work\.bokdoong\.com\//);
 });
@@ -121,9 +121,11 @@ test('project creation dialog exposes semantics, keyboard close, and trigger res
 });
 
 test('task dialog exposes semantics, closes on Escape, and restores trigger focus',async({page})=>{
-  await boot(page,{width:1024,height:768});
+  // UI-PC할일: 1024px 이상에서 줄을 누르면 같은 수정 창이 오른쪽 상세 칸에 열린다(아래 시험). 팝업 창 시험은 팝업이 그대로인 중간 폭(900px).
+  await boot(page,{width:900,height:768});
   await clickView(page,'tasks');
-  const trigger=page.locator('#newTaskBtn');
+  // UI-할일입력: [할 일] has no [+]; the editor opens from a task row and returns focus to it.
+  const trigger=page.locator('#gtTaskBody [data-gt-edit]').first();
   await trigger.focus();
   await trigger.click();
   const modal=page.locator('#gtTaskModal');
@@ -139,10 +141,34 @@ test('task dialog exposes semantics, closes on Escape, and restores trigger focu
   await expect(trigger).toBeFocused();
 });
 
+test('PC task detail pane is a labelled region, closes on Escape, and restores row focus',async({page})=>{
+  await boot(page,{width:1024,height:768});
+  await clickView(page,'tasks');
+  const trigger=page.locator('#gtTaskBody [data-gt-edit]').first();
+  // The first Google load replaces the "loading" body once; focus a card of the loaded list (later re-renders keep it).
+  await expect.poll(async()=>{await trigger.focus();return trigger.evaluate(el=>el===document.activeElement&&el.closest('.gt-card')!==null)}).toBe(true);
+  await page.keyboard.press('Enter');
+  const pane=page.locator('#gtDetailPane'),editor=pane.locator('#gtTaskModal');
+  await expect(editor).toBeVisible();
+  await expect(pane).toHaveAttribute('aria-label','할 일 상세');
+  await expect(editor).toHaveAttribute('role','region');
+  await expect(editor).not.toHaveAttribute('aria-modal','true');
+  const labelledby=await editor.getAttribute('aria-labelledby');
+  expect(labelledby).toBeTruthy();
+  await expect(page.locator('#'+labelledby)).toBeVisible();
+  await expect(page.locator('#gtEditTitle')).toBeFocused();
+  await page.keyboard.press('Escape');
+  // Closing puts the same editor back as the phone popup (hidden) and empties the pane.
+  await expect(page.locator('#gtTaskModal')).toHaveClass(/hidden/);
+  await expect(pane.locator('.gt-pane-empty')).toBeVisible();
+  await expect(trigger).toBeFocused();
+});
+
 test('task dialog wraps keyboard focus within the dialog',async({page})=>{
   await boot(page,{width:1024,height:768});
   await clickView(page,'tasks');
-  await page.locator('#newTaskBtn').click();
+  await expect(page.locator('#gtTaskSection')).toBeVisible();
+  await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
   const modal=page.locator('#gtTaskModal');
   const first=modal.locator('[data-gt-close]');
   const last=page.locator('#gtSaveBtn');
@@ -243,9 +269,11 @@ test('assigned organization list and compact rows expose clear names without ret
   await boot(page,{width:1024,height:768});
   await clickView(page,'team');
   await expect(page.locator('#sofToolbar,#sofSearch,#sofCouncil,#sofType,#sofAssignee,#sofMine,#sofUnassigned')).toHaveCount(0);
-  await expect(page.locator('#soOrgCount')).toContainText('담당조직');
+  // UI-디자인손질 3: no "N개 담당조직" line above the list.
+  await expect(page.locator('#soOrgCount')).toHaveCount(0);
   const row=page.locator('[data-so-org="a11y-org-1"]');
-  await expect(row).toHaveAttribute('aria-label','철도노조 상세 열기');
+  // UI-디자인기준 3/3: once the record dates are read, the name also says in words what the colored dot shows.
+  await expect(row).toHaveAttribute('aria-label',/^철도노조(, (\d+일 전 기록|오늘 기록|기록 없음),)? 상세 열기$/);
   await expect(row).toHaveAttribute('role','button');
   await expect(row.locator('[data-so-delete],[data-so-edit],[data-so-assign]')).toHaveCount(0);
 });
@@ -253,7 +281,11 @@ test('assigned organization list and compact rows expose clear names without ret
 test('suborganization edit dialog exposes semantics, Escape close, and trigger restore',async({page})=>{
   await boot(page,{width:1024,height:768});
   await clickView(page,'team');
-  const trigger=page.locator('#soAddOrg');
+  // TEST-시험안정화: the click delegate is bound by the module's boot (bind() runs before load()), so wait for the rendered list before clicking.
+  await expect(page.locator('[data-so-org="a11y-org-1"]')).toBeVisible();
+  // UI-조직추가숨김: the add button is gone, so open the dialog through the edit delegate.
+  await page.evaluate(()=>{const b=document.createElement('button');b.id='soTestOpenEdit';b.setAttribute('data-so-edit','');document.body.append(b)});
+  const trigger=page.locator('#soTestOpenEdit');
   await trigger.focus();
   await trigger.click();
   const modal=page.locator('#soEditModal');
@@ -271,7 +303,7 @@ test('suborganization edit dialog exposes semantics, Escape close, and trigger r
 test('solo shell keeps logout accessible without a personal profile entry',async({page})=>{
   await boot(page,{width:1024,height:768});
   await expect(page.locator('#userBadge,#teamManageTop,#ccMessageTop')).toHaveCount(0);
-  await page.locator('#appView>.app-nav [data-account-open]').click();
+  await page.locator('#appView>.app-topline [data-account-open]').click();
   await expect(page.locator('#sidebarLogoutBtn')).toBeVisible();
   await expect(page.locator('#sidebarLogoutBtn')).toHaveAccessibleName('로그아웃');
 });
@@ -291,7 +323,7 @@ for(const viewport of [
 ]){
   test(`core views do not overflow at ${viewport.width}`,async({page})=>{
     await boot(page,viewport);
-    for(const view of ['calendar','tasks','projects','library','meetings','media','pages','team']){
+    for(const view of ['calendar','tasks','projects','library','meetings','pages','team']){
       await clickView(page,view);
       const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth);
       expect(overflow,view).toBeLessThanOrEqual(1);

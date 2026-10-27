@@ -38,12 +38,14 @@ test('quick task none/today/custom due, Enter and failure retains content',async
  await expect(input).toBeEnabled();await q.getByRole('button',{name:'10.9',exact:true}).click();await expect(q.getByRole('button',{name:'날짜',exact:true})).toHaveAttribute('aria-pressed','false');
  await input.fill(' ');await input.press('Enter');expect(bodies).toHaveLength(3);
 });
-test('quick update requires org, preserves multiline and saves without home record reads',async({page})=>{
+// BASKET-업데이트통합 PR 1: [업데이트] with no place saves to the basket; picking a place in ▾ saves that place's record.
+test('quick update with a chosen organization preserves multiline and saves without home record reads',async({page})=>{
  const {requests}=await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();await quick(page).locator('[data-quick-mode="task"]').click();const q=quick(page),input=q.locator('[data-quick-input]');
- await q.locator('[data-quick-mode="update"]').click();await input.fill('1\n2\n3\n4\n5\n6\n7');await expect(input).toHaveCSS('height','146px');await input.press('Enter');await expect(input).toHaveValue('1\n2\n3\n4\n5\n6\n7\n');await input.fill('첫 줄\n둘째 줄');
+ await q.locator('[data-quick-mode="update"]').click();await input.fill('1\n2\n3\n4\n5\n6\n7');await expect(input).toHaveCSS('height',page.viewportSize().width>=1024?'120px':'130px'); // UI-버튼크기: 5줄에서 멈춤(UI-PC버튼36: PC는 36px 한 줄에서 시작해 120px)
+ await input.press('Enter');await expect(input).toHaveValue('1\n2\n3\n4\n5\n6\n7\n');await input.fill('첫 줄\n둘째 줄');
  await q.locator('[data-quick-mode="task"]').click();await expect(input).toHaveValue('첫 줄\n둘째 줄');await q.locator('[data-quick-mode="update"]').click();
- await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('조직');await expect(page.getByRole('dialog')).toBeVisible();
- await page.getByRole('dialog').getByRole('button',{name:'테스트 조직',exact:true}).first().click();await expect(q.locator('[data-quick-org]')).toBeFocused();let fail=true,bodies=[];
+ await q.locator('[data-quick-org]').click();await expect(page.getByRole('dialog')).toBeVisible();
+ await page.getByRole('dialog').getByRole('button',{name:'테스트 조직',exact:true}).first().click();await page.getByRole('dialog').getByRole('button',{name:'저장',exact:true}).click();await expect(q.locator('[data-quick-org]')).toBeFocused();let fail=true,bodies=[];
  await page.route(SB+'/rest/v1/app_suborganization_updates',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({status:fail?500:200,json:fail?{message:'QA error'}:[]});});
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-status]')).toContainText('QA error');await expect(input).toHaveValue('첫 줄\n둘째 줄');
  fail=false;const before=requests.length;await q.locator('[data-quick-save]').click();await expect(input).toHaveValue('');expect(bodies[1]).toEqual({organization_id:'o',raw_text:'첫 줄\n둘째 줄',created_by:'home-test'});
@@ -60,15 +62,18 @@ test('recent three unique organizations precede common organization order',async
  expect(await page.locator('[data-sheet-recent] button').evaluateAll(xs=>xs.map(x=>x.dataset.sheetValue))).toEqual(['c','a','d']);
  expect(await page.locator('[data-sheet-all] button').evaluateAll(xs=>xs.map(x=>x.dataset.sheetValue))).not.toContain('e');
 });
-test('mode memory failures default to basket, reload guard detects hidden home draft',async({page})=>{
- await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','update');
- await page.evaluate(()=>{Storage.prototype.setItem=()=>{throw Error('QA')};});await quick(page).locator('[data-quick-mode="task"]').click();await expect(quick(page)).toHaveAttribute('data-mode','task');await quick(page).locator('[data-quick-mode="update"]').click();await expect(quick(page)).toHaveAttribute('data-mode','update');
+test('mode memory is on the server; unreadable or unsaveable server value defaults to update (basket), reload guard detects hidden home draft',async({page})=>{
+ const {prefs}=await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','task');
+ const q=quick(page);await q.locator('[data-quick-mode="update"]').click();await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','basket');
+ prefs.failWrite=true;await quick(page).locator('[data-quick-mode="task"]').click();await expect(quick(page)).toHaveAttribute('data-mode','task');await quick(page).locator('[data-quick-mode="update"]').click();await expect(quick(page)).toHaveAttribute('data-mode','basket');
  await quick(page).locator('[data-quick-input]').fill('QA');expect(await page.evaluate(()=>{const detail={otherDraft:false};window.dispatchEvent(new CustomEvent('kptu:before-reload',{cancelable:true,detail}));return detail.otherDraft;})).toBe(true);
- await page.addInitScript(()=>{const read=Storage.prototype.getItem;Storage.prototype.getItem=function(key){if(key==='kptu-home-quick-mode')throw Error('QA');return read.call(this,key);};});await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','basket');
+ prefs.value={home_quick_mode:'task'};prefs.failRead=true;await page.reload();await expect(quick(page)).toHaveAttribute('data-mode','basket');
 });
 for(const width of [390,1440])test(`quick visual measurements and snapshot ${width}`,async({page},info)=>{
  await page.setViewportSize({width,height:1000});await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const q=quick(page);await q.locator('[data-quick-input]').fill('QA');
- await expect(q.locator('[data-quick-input]')).toHaveCSS('height','40px');await expect(q.locator('[data-quick-save]')).toHaveCSS('height','40px');
+ // UI-디자인기준 1/3 보완: one control height for every mode, the [추가] height (--ds-control-height; UI-PC버튼36: PC ≥1024 is the input height 36px).
+ const h='36px';/* HOME-모바일정리④: 폰 입력칸도 36px */await expect(q.locator('[data-quick-input]')).toHaveCSS('height',h);await expect(q.locator('[data-quick-save]')).toHaveCSS('height','36px');/* UI-버튼줄이기: 폰도 [추가] 36px */
+ if(width>=1024)expect(await q.locator('[data-quick-save]').evaluate(el=>parseFloat(getComputedStyle(el,'::after').height))).toBe(44);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath(`home-${width}.png`),fullPage:true});
  if(width===390){await page.evaluate(()=>{Object.defineProperty(visualViewport,'height',{configurable:true,get:()=>400});visualViewport.dispatchEvent(new Event('resize'));});await expect(page.locator('.mobile-tabs')).toBeHidden();const b=await q.locator('[data-quick-input]').boundingBox();expect(b.y+b.height).toBeLessThan(400);}
@@ -106,7 +111,7 @@ test('organization detail retains the existing shared inbox save payload and fai
 });
 test('task screen saveEditor retains shared create title notes due and links',async({page})=>{
  await openHome(page);await quick(page).locator('[data-quick-mode="task"]').click();const bodies=[];await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{const body=r.request().postDataJSON();bodies.push(body);return r.fulfill({json:{ok:true,task:{id:'new',title:body.title,notes:body.notes,due:body.due,taskListId:'@default',status:'needsAction'},links:body.links.map(t=>({...t,google_task_id:'new',status:'confirmed'})),meeting_links:[]}});});
- await page.locator('[data-home-card="tasks"] [data-goto="tasks"]').click();await page.locator('#newTaskBtn').click();await expect(page.locator('#gtTaskModal')).toBeVisible();
+ await page.locator('[data-home-card="tasks"] [data-goto="tasks"]').click();await expect(page.locator('#gtTaskSection')).toBeVisible();await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());await expect(page.locator('#gtTaskModal')).toBeVisible();
  await page.locator('#gtEditTitle').fill('QA');await page.locator('#gtEditNotes').fill('QA notes');await page.locator('#gtEditDue').fill('2026-10-09');await page.locator('[data-gt-link][value="p:child"]').check();await page.locator('#gtSaveBtn').click();
  await expect(page.locator('#gtTaskModal')).toBeHidden();expect(bodies[0]).toMatchObject({title:'QA',notes:'QA notes',due:'2026-10-09',links:[{project_id:'child'}]});
 });
@@ -115,7 +120,7 @@ test('quick add and show-all link respond in the transparent 44px target',async(
  await page.route(SB+'/functions/v1/google-tasks?action=create',r=>{bodies.push(r.request().postDataJSON());return r.fulfill({json:createdTaskReply(r.request().postDataJSON())});});
  await q.locator('[data-quick-input]').fill('QA');const add=await q.locator('[data-quick-save]').boundingBox();await page.mouse.click(add.x+add.width/2,add.y-1);
  await expect(q.locator('[data-quick-input]')).toHaveValue('');expect(bodies).toHaveLength(1);
- await page.locator('[data-home-card="tasks"] [data-goto="tasks"]').click();await expect(page.locator('#tasksView')).toBeVisible();await expect(page.locator('[data-gt-overdue]')).toBeVisible();await page.evaluate(()=>KPTUGoogleTasks.showUnlinked());const show=page.locator('[data-gt-show-all]');await expect(show).toHaveText('전체 보기 ›');await expect(show).toHaveCSS('font-size','12px');await expect(show).toHaveCSS('font-weight','700');await expect(show).toHaveCSS('border-top-width','0px');
+ await page.locator('[data-home-card="tasks"] [data-goto="tasks"]').click();await expect(page.locator('#tasksView')).toBeVisible();await expect(page.locator('[data-gt-overdue]')).toBeVisible();await page.evaluate(()=>KPTUGoogleTasks.showUnlinked());const show=page.locator('[data-gt-show-all]');await expect(show).toHaveText('전체 보기 ›');await expect(show).toHaveCSS('font-size','12px');await expect(show).toHaveCSS('font-weight','500');/* UI-디자인기준 2/3: 할 일 화면 굵기 400·500 */await expect(show).toHaveCSS('border-top-width','0px');
  const hit=await show.boundingBox();await page.mouse.click(hit.x+hit.width/2,hit.y+hit.height/2-21);await expect(show).toHaveCount(0);await expect(page.locator('[data-gt-overdue]')).toBeVisible();
 });
 test('recent organization paging finds three unique choices beyond repeated records',async({page})=>{

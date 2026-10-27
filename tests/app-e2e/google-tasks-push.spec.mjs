@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { loginEntry } from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 const TEST_ORIGIN=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -11,7 +12,8 @@ const gt=(id,due,extra={})=>({id,title:id,taskListId:'l1',taskListTitle:'업무'
 
 // Opens the task view at a fixed time in the given device time zone and returns the rendered Google Tasks rows.
 async function renderedRows(browser,{timezoneId,now,tasks}){
-  const context=await browser.newContext({timezoneId});
+  // UI-PC할일: 1024px 이상은 기한별 열(tasks-pc-columns.spec.mjs). 이 묶음 목록 시험은 목록이 그대로인 중간 폭(900px)에서 본다.
+  const context=await browser.newContext({timezoneId,viewport:{width:900,height:800}});
   const page=await context.newPage();
   await page.clock.setFixedTime(new Date(now));
   await mock(page);
@@ -45,10 +47,7 @@ async function mock(page){
 
 async function login(page){
   await page.goto(loginEntry(`${TEST_ORIGIN}/app/?view=calendar`));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('qa@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'qa@example.org');
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:10000});
   await expect.poll(()=>page.evaluate(()=>typeof window.KPTURouter?.go==='function'),{timeout:10000}).toBeTruthy();
@@ -60,12 +59,12 @@ test('Google Tasks remains separate from the app task list',async({page})=>{
   await expect(page.locator('#gtTaskSection')).toBeVisible({timeout:10000});
   await expect(page.locator('#gtTaskSection')).toContainText('Google QA 할 일');
   await page.getByRole('button',{name:'할 일 목록 안내',exact:true}).click();
-  await expect(page.locator('#gtScopeModal')).toContainText('Google "내 할 일" 목록만 보입니다.');
+  await expect(page.locator('#gtScopeModal .gt-scope-note')).toHaveText('Google "내 할 일"만 표시합니다. 다른 목록은 표시하지 않으며, 다른 목록으로 옮기면 연결이 끊길 수 있습니다.');
   await page.locator('[data-gt-scope-close]').click();
   await expect(page.locator('#gtTaskSection [data-gt-count]')).toHaveText('할 일 1개');
 });
 
-test('Google Tasks shows pending first and only completions from the last three days',async({page})=>{
+test('Google Tasks shows pending first and only completions from the recent window (default three days, completed_days 1 to 8)',async({page})=>{
   await mock(page);
   const recent=new Date(Date.now()-24*60*60*1000).toISOString();
   const old=new Date(Date.now()-5*24*60*60*1000).toISOString();
@@ -87,7 +86,18 @@ test('Google Tasks shows pending first and only completions from the last three 
   await expect(page.locator('[data-gt-show-completed]')).toHaveCount(0);
   expect(Number(await rows.nth(1).evaluate(el=>getComputedStyle(el).opacity))).toBeLessThan(0.7);
   const edge=readFileSync('supabase/functions/google-tasks/index.ts','utf8');
-  expect(edge).toContain("completedMin=new Date(Date.now()-RECENT_COMPLETED_MS).toISOString()");
+  // The read window comes from the request (completedMs) and defaults to the 3-day constant; completedMin is derived from it.
+  expect(edge).toContain("completedMs=RECENT_COMPLETED_MS");
+  expect(edge).toContain("completedMin=new Date(Date.now()-completedMs).toISOString()");
+  // Run the real completedWindow() from the Edge source instead of matching its text.
+  const m=edge.match(/const RECENT_COMPLETED_MS=[^\n]*\n[\s\S]*?function completedWindow\(raw:unknown\)\{[^\n]*\}\n/);
+  expect(m).not.toBeNull();
+  const js=m[0].replace(/:unknown/g,'').replace(/ as number\|null/g,'').replace(/:number\|null/g,'').replace(/^\s*\/\/.*$/gm,'').replace(/const MAX_COMPLETED_DAYS=8;/,'const MAX_COMPLETED_DAYS=8;');
+  const completedWindow=new Function(js+';return completedWindow;')();
+  const DAY=24*60*60*1000;
+  for(const none of [undefined,null,'']) expect(completedWindow(none)).toEqual({ms:3*DAY,days:null});
+  for(let n=1;n<=8;n++){ expect(completedWindow(String(n))).toEqual({ms:n*DAY,days:n}); expect(completedWindow(n)).toEqual({ms:n*DAY,days:n}); }
+  for(const bad of ['0','9','-1','1.5','abc','3d','100']) expect(()=>completedWindow(bad)).toThrow('completed_days');
 });
 
 test('Google Tasks shows overdue first, then Korean today, tomorrow through +7 days, then recent completions whatever their due date, across a year boundary',async({browser})=>{
@@ -138,7 +148,7 @@ test('Google Tasks moves the overdue line at Korean midnight whatever the device
 });
 
 test('completing an overdue Google task moves it from the overdue group to the completed part',async({browser})=>{
-  const context=await browser.newContext({timezoneId:'Asia/Seoul'});
+  const context=await browser.newContext({timezoneId:'Asia/Seoul',viewport:{width:900,height:800}});
   const page=await context.newPage();
   await page.clock.setFixedTime(new Date('2026-09-27T03:00:00.000Z'));
   await mock(page);
@@ -188,7 +198,8 @@ test('Google Tasks layout fits supported mobile widths',async({page})=>{
     await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
     const section=await page.locator('#gtTaskSection').boundingBox();
     expect(section?.width||0).toBeLessThanOrEqual(width);
-    await expect(page.locator('#newTaskBtn')).toBeVisible();
+    // UI-할일입력: the always-visible input replaces [+ 할 일].
+    await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toBeVisible();
     await expect(page.locator('#gtTaskSection').getByRole('button',{name:'새로고침',exact:true})).toHaveCount(0);
     await expect(page.locator('[data-gt-add]')).toHaveCount(0);
   }
@@ -209,7 +220,7 @@ test('Google Tasks can be created, edited, completed, reopened and deleted',asyn
     calls.push({action,body});if(action==='links')return ok({links:[],meeting_links:[]});if(action==='create'||action==='update')return ok({ok:true,task:{...listed[0],id:body.task_id||'created',title:body.title,notes:body.notes,due:body.due},links:(body.links||[]).map(x=>({...x,status:'confirmed'})),meeting_links:[]});return ok({ok:true});
   });
   await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
-  await page.locator('#newTaskBtn').click();
+  await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
   await page.locator('#gtEditTitle').fill('새 Google 할 일');
   await page.locator('#gtSaveBtn').click();
   await expect.poll(()=>calls.some(x=>x.action==='create'&&x.body.title==='새 Google 할 일')).toBeTruthy();
@@ -329,7 +340,8 @@ async function mockLinkTargets(page){
 }
 
 test('Google Tasks editor has no list choice and saves chosen links',async({page})=>{
-  await mock(page);await mockLinkTargets(page);
+  // UI-PC할일: 묶음 목록·수정 창 시험은 목록이 그대로인 중간 폭(900px)에서 본다(PC 열은 tasks-pc-columns.spec.mjs).
+  await page.setViewportSize({width:900,height:800});await mock(page);await mockLinkTargets(page);
   const calls=[];const savedLinks=new Map([['g1',[{project_id:'p1',status:'confirmed'},{project_id:'p3',status:'confirmed'},{organization_id:'o0',status:'confirmed'}]]]);
   await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
     const req=route.request(),u=new URL(req.url()),action=u.searchParams.get('action'),body=req.method()==='GET'?{}:JSON.parse(req.postData()||'{}');
@@ -344,9 +356,9 @@ test('Google Tasks editor has no list choice and saves chosen links',async({page
   });
   await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await page.getByRole('button',{name:'할 일 목록 안내',exact:true}).click();
-  await expect(page.locator('#gtScopeModal')).toContainText('"내 할 일" 목록만 보입니다');
+  await expect(page.locator('#gtScopeModal .gt-scope-note')).toHaveText('Google "내 할 일"만 표시합니다. 다른 목록은 표시하지 않으며, 다른 목록으로 옮기면 연결이 끊길 수 있습니다.');
   await page.locator('[data-gt-scope-close]').click();
-  await page.locator('#newTaskBtn').click();
+  await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
   await expect(page.locator('#gtEditList')).toHaveCount(0);
   await expect(page.locator('#gtTaskModal [data-gt-list-note]')).toContainText('"내 할 일" 목록에 저장');
   const links=page.locator('#gtEditLinkBody');
@@ -366,7 +378,7 @@ test('Google Tasks editor has no list choice and saves chosen links',async({page
   await page.locator('#gtSaveBtn').click();
   await expect.poll(()=>calls.find(x=>x.action==='create')?.body).toEqual(expect.objectContaining({title:'연결 없는 할 일',links:[]}));
   expect(calls.find(x=>x.action==='create').body.task_list_id).toBeUndefined();
-  await page.locator('#newTaskBtn').click();
+  await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
   await page.locator('#gtEditTitle').fill('연결 둘');
   await links.locator('input[value="p:p2"]').check();
   await links.locator('input[value="o:o1"]').check();
@@ -408,14 +420,15 @@ test('Google Tasks editor shows a short message when no organizations are assign
   await page.route(`${SB}/rest/v1/app_suborganizations**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{id:'not-mine',name:'담당 아닌 조직'}])}));
   await page.route(`${SB}/functions/v1/google-tasks**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,needs_reconnect:false,tasks:[]})}));
   await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
-  await page.locator('#newTaskBtn').click();
+  await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
   const organizations=page.locator('#gtEditLinkBody [role="group"][aria-label="조직"]');
   await expect(organizations).toContainText('담당 조직이 없습니다.');
   await expect(organizations.locator('[data-gt-link]')).toHaveCount(0);
 });
 
 test('rows show only confirmed project names without unlinked badges or a separate section',async({page})=>{
-  await mock(page);await mockLinkTargets(page);
+  // UI-PC할일: 묶음 목록·수정 창 시험은 목록이 그대로인 중간 폭(900px)에서 본다(PC 열은 tasks-pc-columns.spec.mjs).
+  await page.setViewportSize({width:900,height:800});await mock(page);await mockLinkTargets(page);
   const calls=[];
   await page.route(`${SB}/functions/v1/google-tasks**`,async route=>{
     const action=new URL(route.request().url()).searchParams.get('action');calls.push(action);
@@ -453,13 +466,14 @@ test('Google Tasks editor warns by count when an assigned organization misses th
   await page.route(`${SB}/rest/v1/app_suborganizations**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([{id:'o2',name:'전국철도노동조합 '},{id:'o1',name:'서울교통공사노동조합'}])}));
   const warnings=[];page.on('console',msg=>{if(msg.type()==='warning')warnings.push(msg.text())});
   await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
-  await page.locator('#newTaskBtn').click();
+  await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
   await expect(page.locator('#gtEditLinkBody [aria-label="조직"] [data-gt-link]')).toHaveCount(2);
   await expect.poll(()=>warnings.filter(x=>x.startsWith('[Google Tasks] 조직 순서표 미등록:'))).toEqual(['[Google Tasks] 조직 순서표 미등록: 1개. 이름 일치 여부를 확인하세요.']);
 });
 
 test('task screen requests all pending and an old response without the marker keeps the dated window',async({page})=>{
-  await mock(page);
+  // UI-PC할일: 묶음 목록·수정 창 시험은 목록이 그대로인 중간 폭(900px)에서 본다(PC 열은 tasks-pc-columns.spec.mjs).
+  await page.setViewportSize({width:900,height:800});await mock(page);
   const scopes=[];
   await page.route(`${SB}/functions/v1/google-tasks**`,route=>{
     const url=new URL(route.request().url());scopes.push(url.searchParams.get('pending_scope'));
@@ -473,7 +487,8 @@ test('task screen requests all pending and an old response without the marker ke
 });
 
 test('task rows appear before the separate link metadata read completes',async({page})=>{
-  await mock(page);
+  // UI-PC할일: 묶음 목록·수정 창 시험은 목록이 그대로인 중간 폭(900px)에서 본다(PC 열은 tasks-pc-columns.spec.mjs).
+  await page.setViewportSize({width:900,height:800});await mock(page);
   let release,linkStarted=false;
   await page.route(`${SB}/functions/v1/google-tasks**`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,pending_scope:'all',tasks:[gt('pending',googleDue(0))]})}));
   await page.route(`${SB}/rest/v1/app_record_links**`,async route=>{
@@ -489,7 +504,8 @@ test('task rows appear before the separate link metadata read completes',async({
 });
 
 test('completed group folds on every visit and counts a newly completed task after the effect',async({page})=>{
-  await mock(page);
+  // UI-PC할일: 묶음 목록·수정 창 시험은 목록이 그대로인 중간 폭(900px)에서 본다(PC 열은 tasks-pc-columns.spec.mjs).
+  await page.setViewportSize({width:900,height:800});await mock(page);
   const recent=new Date().toISOString(),items=[gt('pending',googleDue(0)),gt('done',googleDue(-8),{status:'completed',completed:recent})];
   await page.route(`${SB}/functions/v1/google-tasks**`,route=>{
     const action=new URL(route.request().url()).searchParams.get('action');
@@ -531,8 +547,9 @@ test('editor save reentry sends one create request',async({page})=>{
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,pending_scope:'all',tasks:[]})});
   });
   await login(page);await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
-  await page.locator('#newTaskBtn').click();
+  await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
   await page.locator('#gtEditTitle').fill('QA');
+  await expect(page.locator('#gtSaveBtn')).toBeEnabled();
   await page.evaluate(()=>{const save=document.querySelector('#gtSaveBtn').onclick;save();save()});
   await expect.poll(()=>saves).toBe(1);
   await expect(page.locator('#gtSaveBtn')).toBeDisabled();

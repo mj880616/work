@@ -1,7 +1,9 @@
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createQueryClient, DbQueryError, queryErrorSummary } from './db-query.mjs';
 import { prepareMigration, migrationSummary, sqlBlock } from './db-migration-plan.mjs';
+import { ExpandedRejection, REJECT_REASONS } from './db-migration-expanded.mjs';
 import { runMigrationPlan, buildBackup } from './db-migration-run.mjs';
 
 export function makePlan(mode, runId, ref, version = '', root = process.cwd()) {
@@ -10,7 +12,10 @@ export function makePlan(mode, runId, ref, version = '', root = process.cwd()) {
     throw new Error('Invalid mode, main ref or run ID');
   }
   if (['dry-run', 'apply', 'rollback'].includes(mode)) {
-    const plan = prepareMigration({ mode, version, runId, root });
+    // Input: 14-digit version or the migration file name `<version>_<name>.sql`.
+    const file = typeof version === 'string' ? version.match(/^([0-9]{14})_([a-z0-9][a-z0-9_]{0,80})\.sql$/) : null;
+    const plan = prepareMigration({ mode, version: file ? file[1] : version, runId, root });
+    if (file && plan.name !== file[2]) throw new Error('Migration file name does not match');
     buildBackup(plan); // Reject oversized identifiers before environment approval.
     return plan;
   }
@@ -30,6 +35,7 @@ export function makePlan(mode, runId, ref, version = '', root = process.cwd()) {
 export function planSummary(plan) {
   if (['dry-run', 'apply', 'rollback'].includes(plan.mode)) {
     let summary = migrationSummary(plan);
+    if (plan.flow === 'full') summary += fullFlowSummary(plan);
     if (plan.mode !== 'dry-run') {
       const backup = buildBackup(plan);
       summary += '\n### 실행 직전 비공개 백업 (별도 요청; 실패하면 적용 안 함)\n\n' + sqlBlock(backup.sql);
@@ -52,8 +58,22 @@ export function planSummary(plan) {
     + '\n통신·파싱 실패도 통과로 판정하지 않습니다. 확인 불가 시에도 정리 요청을 1회 시도합니다. 정리 실패는 수동 정리 필요로 표시합니다. 각 HTTP 요청에 재시도는 없습니다.\n';
 }
 
-export async function runPlan(plan, query, { secretValues = [] } = {}) {
-  if (['dry-run', 'apply', 'rollback'].includes(plan.mode)) return runMigrationPlan(plan, query, { secretValues });
+export function fullFlowSummary(plan) {
+  const r = plan.review;
+  return `\n### 승인 한 번 흐름 (${plan.rules === 'expanded' ? '확장 규칙' : '기존 엄격 규칙'} 통과)\n\n`
+    + (plan.mode === 'apply'
+      ? '승인 뒤 순서: 사전 기록 없음 확인 → precheck 기대값 검사 → snapshot을 artifact로 저장 → 트랜잭션 안 시험 적용 후 취소·precheck 값 그대로 확인 → 기존 표 백업 → 적용(파일의 begin/commit) → migration 기록 확인 → postcheck(예·expect·사전 값과 같음) 확인. 하나라도 실패하면 멈추고 자동으로 되돌리지 않습니다.\n\n'
+      : '승인 뒤 순서: 사전 기록 없음 확인 → precheck 기대값 검사 → snapshot을 artifact로 저장 → 트랜잭션 안 시험 적용 후 취소·precheck 값 그대로 확인. 실제 적용 없음.\n\n')
+    + (r ? `검토 표시: 정책 ${r.policies}개(restrictive ${r.restrictive}) · 권한 부여 ${r.grants}개(authenticated·service_role만, 이번 파일의 새 표·함수만) · 트리거 ${r.triggers}개 · 회수 ${r.revokes}개`
+      + (plan.policyReplacements?.length ? ` · 정책 교체 ${plan.policyReplacements.map(x => `\`${x.table}.${x.name}\``).join(', ')}(운영 현재 정의와 비교해 넓어지면 멈춤)` : '')
+      + ` · SECURITY DEFINER 함수 ${r.definer.length ? r.definer.map(n => `\`${n}\``).join(', ') : '없음'}\n\n` : '')
+    + `### snapshot (읽기 전용, artifact로 저장)\n\n파일: \`${plan.snapshot.path}\` · SHA256: \`${plan.snapshot.sha256}\`\n\n${sqlBlock(plan.snapshot.sql)}\n`
+    + (plan.checks.precheck?.expect?.size ? `precheck expect 주석 ${plan.checks.precheck.expect.size}개, 나머지 항목은 \`예\`여야 합니다.\n\n` : 'precheck 항목은 모두 `예`여야 합니다.\n\n')
+    + `rollback 파일(자동 실행 안 함): \`${plan.rollbackPath}\`\n`;
+}
+
+export async function runPlan(plan, query, { secretValues = [], saveSnapshot = null } = {}) {
+  if (['dry-run', 'apply', 'rollback'].includes(plan.mode)) return runMigrationPlan(plan, query, { secretValues, saveSnapshot });
   if (plan.mode === 'check') {
     try {
       const rows = await query(plan.sql.check, { readOnly: true });
@@ -134,9 +154,17 @@ export function maskValue(value) {
 
 async function main() {
   const phase = process.argv[2];
-  const plan = makePlan(process.env.DB_MODE, process.env.GITHUB_RUN_ID, process.env.GITHUB_REF, process.env.DB_VERSION ?? '');
   const summaryFile = process.env.GITHUB_STEP_SUMMARY;
   if (!summaryFile) throw new Error('Missing summary destination');
+  let plan;
+  try {
+    plan = makePlan(process.env.DB_MODE, process.env.GITHUB_RUN_ID, process.env.GITHUB_REF, process.env.DB_VERSION ?? '');
+  } catch (error) {
+    // Fixed reason text only; never the SQL or file content.
+    const reason = error instanceof ExpandedRejection ? REJECT_REASONS[error.reason] : '입력·파일 구조·짝 파일 또는 기존 엄격 규칙 위반';
+    appendFileSync(summaryFile, `## DB plan 거절\n\n사유: ${reason}\n\n아무 DB 요청도 보내지 않았습니다.\n`);
+    throw error;
+  }
   if (phase === 'plan') {
     appendFileSync(summaryFile, planSummary(plan));
   } else if (phase === 'run') {
@@ -145,7 +173,13 @@ async function main() {
     if (token) process.stdout.write(maskValue(token) + '\n');
     if (projectRef) process.stdout.write(maskValue(projectRef) + '\n');
     const query = createQueryClient({ token, projectRef });
-    const result = await runPlan(plan, query, { secretValues: [token, projectRef] });
+    const snapshotDir = process.env.DB_SNAPSHOT_DIR ?? '';
+    const saveSnapshot = snapshotDir ? async (fileName, body) => {
+      if (!/^[0-9]{14}_[a-z0-9_]+\.snapshot\.json$/.test(fileName)) throw new Error('Invalid snapshot name');
+      mkdirSync(snapshotDir, { recursive: true });
+      writeFileSync(join(snapshotDir, fileName), body, { flag: 'wx' });
+    } : null;
+    const result = await runPlan(plan, query, { secretValues: [token, projectRef], saveSnapshot });
     appendFileSync(summaryFile, result.summary);
     process.exitCode = result.ok && result.verification !== 'incomplete' ? 0 : 1;
   } else {

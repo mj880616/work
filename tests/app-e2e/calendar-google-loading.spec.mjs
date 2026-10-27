@@ -1,15 +1,18 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 
-test.beforeEach(async({page})=>{await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}})});
+test.beforeEach(async({page})=>{await installViewPrefsServer(page,{calendar_view:'month'})});
 import { writeFileSync } from 'node:fs';
+import { signInWithSession } from './helpers/session-login.mjs';
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
 // Google Calendar 로딩 성능 측정(mock). Google API는 Edge Function 내부에서 호출되므로
 // Edge 호출 1회를 아래 모델로 Google 요청으로 환산한다(현재 Edge 코드 기준).
 //   status  = calendarList ∥ colors                 (병렬)
 //   events  = colors → calendars[i].events ×N        (직렬)
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
-const APP='http://127.0.0.1:8123/app/';
+const APP=`${appOrigin}/app/`;
 const LAT={edge:80,calendarList:300,colors:200,events:300};
 const CALS=['primary','cal-b','cal-c'];
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -61,10 +64,7 @@ async function installMock(page,state){
 async function boot(page,state){
   await installMock(page,state);
   await page.goto(`${APP}login/?return=${encodeURIComponent(APP+'?view=calendar')}`);
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('e2e@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'e2e@example.org');
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
 }
 function newState(){return{t0:Date.now(),log:[],user:{id:'user-1',email:'e2e@example.org',user_metadata:{display_name:'E2E'}},connected:true,selected:[...CALS],events:monthEvents(),authFail:false}}

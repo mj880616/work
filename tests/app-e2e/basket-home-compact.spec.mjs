@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import {noteAction} from './helpers/basket-more.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -31,12 +32,16 @@ for (const width of [390, 1280]) {
       return {
         pickerHeight: picker.getBoundingClientRect().height,
         zoneHeight: zone.getBoundingClientRect().height,
+        zoneTouch: parseFloat(getComputedStyle(zone, '::after').height) || 0,
         inputToLink: link.getBoundingClientRect().top - entry.getBoundingClientRect().bottom,
         background: style.backgroundColor, padding: style.padding,
       };
     }) };
     expect(values.home.pickerHeight).toBeLessThanOrEqual(width === 390 ? 44 : 80);
-    expect(values.home.zoneHeight).toBeGreaterThanOrEqual(44);
+    // UI-PC버튼36: PC [📎 첨부] paints 36px (input height) with a 44px ::after touch area.
+    // HOME-모바일정리④: the phone input is 36px, so the phone clip paints inside its borders (34px), also with a 44px ::after.
+    expect(values.home.zoneHeight).toBeGreaterThanOrEqual(width === 390 ? 34 : 36);
+    expect(values.home.zoneTouch).toBeGreaterThanOrEqual(44);
     expect(values.home.inputToLink).toBeLessThanOrEqual(8);
     if (width === 390) {
       expect(values.home.background).toBe('rgba(0, 0, 0, 0)');
@@ -44,15 +49,18 @@ for (const width of [390, 1280]) {
     }
     await saveShot('home');
     await verifySelection(q, 'home');
-    await q.locator('[data-goto="basket"]').click();
+    await page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click();
     await page.locator('[data-basket-row="n"]').click();
+    await noteAction(page,'[data-basket-edit]');
     const detail = page.locator('[data-basket-detail]');
     values.detail = await detail.locator('[data-basket-file-picker]').evaluate(el => ({
       pickerHeight: el.getBoundingClientRect().height,
       zoneHeight: el.querySelector('[data-basket-clip]').getBoundingClientRect().height,
+      zoneTouch: parseFloat(getComputedStyle(el.querySelector('[data-basket-clip]'), '::after').height) || 0,
     }));
-    expect(values.detail.pickerHeight).toBeLessThanOrEqual(width === 390 ? 44 : 80);
-    expect(values.detail.zoneHeight).toBeGreaterThanOrEqual(44);
+    // UI-업데이트편집한줄: the edit screen's [📎 첨부] is a small button (32px) in the one button row, touch area 44px.
+    expect(values.detail.pickerHeight).toBeLessThanOrEqual(width === 390 ? 46 : 80);
+    expect(values.detail.zoneHeight).toBe(32);expect(values.detail.zoneTouch).toBe(44);
     await saveShot('detail');
     await verifySelection(detail, 'detail');
     expect(errors).toEqual([]);
@@ -80,7 +88,10 @@ for (const width of [390, 1280]) {
       } else {
         await expect(zone).toHaveAccessibleName('파일 첨부');
         const button = await zone.boundingBox();
-        expect(button.height).toBeGreaterThanOrEqual(44);
+        // UI-업데이트편집한줄: on the edit screen it is a small 32px button whose touch area (::after) is 44px.
+        // HOME-모바일정리④: the home phone clip paints 34px inside the 36px input, touch area (::after) 44px.
+        if (name === 'home') { expect(button.height).toBeGreaterThanOrEqual(34); expect(await zone.evaluate(el => parseFloat(getComputedStyle(el, '::after').height))).toBe(44); }
+        else { expect(button.height).toBe(32); expect(await zone.evaluate(el => parseFloat(getComputedStyle(el, '::after').height))).toBe(44); }
         expect(button.width).toBeGreaterThanOrEqual(44);
         await zone.focus();
         await expect(zone).toBeFocused();

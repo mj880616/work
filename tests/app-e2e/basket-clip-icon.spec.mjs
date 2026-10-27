@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import {noteAction} from './helpers/basket-more.mjs';
 import { openHome } from './helpers/home-entry.mjs';
 import fs from 'node:fs';
 
@@ -8,9 +9,12 @@ const files = names => names.map(name => ({ name, mimeType: 'text/plain', buffer
 for (const width of [390, 1280]) test(`basket clip placement badge keyboard touch drop and reset ${width}`, async ({ page }, info) => {
   const errors = [], calls = [];
   page.on('pageerror', e => errors.push(e.message));
-  page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+  // The absent task-file table below answers 404 on purpose (as before its migration); only that expected answer is not an error.
+  page.on('console', m => { if (m.type() === 'error' && !String(m.location()?.url || '').includes('/rest/v1/app_task_attachments')) errors.push(m.text()); });
   await page.setViewportSize({ width, height: 1000 });
-  await openHome(page);
+  // TASK-추가창파일: with the task-file table, home [할 일] takes files too (task-add-files.spec). This test keeps checking the
+  // basket clip on its own, so it runs without that table: [할 일] then still has no clip and ignores a dropped file.
+  await openHome(page, { beforeLoad: () => page.route('**/rest/v1/app_task_attachments**', r => r.fulfill({ status: 404, json: { code: 'PGRST205', message: 'Could not find the table' } })) });
   const note = { id: 'n', raw_text: '테스트 메모', occurred_at: '2026-10-06', attachments: [] };
   const homeNote = { id: 'uploaded', raw_text: '', occurred_at: '2026-10-06', attachments: [] };
   await page.route('**/rest/v1/app_notes**', r => r.fulfill({ json: [note, homeNote] }));
@@ -31,14 +35,31 @@ for (const width of [390, 1280]) test(`basket clip placement badge keyboard touc
     return { cardHeight: el.getBoundingClientRect().height, inputToLink: el.querySelector('[data-goto="basket"]').getBoundingClientRect().top - el.querySelector('.home-quick-entry').getBoundingClientRect().bottom, input: { x: input.x, y: input.y, width: input.width, height: input.height }, clip: { x: clip.x, y: clip.y, width: clip.width, height: clip.height }, paddingLeft: parseFloat(getComputedStyle(el.querySelector('[data-quick-input]')).paddingLeft) };
   }) };
   // #482's 390px card was 204px: removing the attachment line saves at least 44px.
-  expect(values.home.cardHeight).toBeLessThanOrEqual(160);
+  // UI-디자인기준 1/3 보완: the mode tabs grew from 30px pills to 46px buttons (+16px).
+  expect(values.home.cardHeight).toBeLessThanOrEqual(160 + 16);
   expect(values.home.inputToLink).toBeLessThanOrEqual(8);
   expect(values.home.clip.width).toBeGreaterThanOrEqual(44);
-  expect(values.home.clip.height).toBeGreaterThanOrEqual(44);
-  expect(values.home.clip.x).toBeGreaterThanOrEqual(values.home.input.x);
-  expect(values.home.clip.x + values.home.clip.width).toBeLessThanOrEqual(values.home.input.x + values.home.paddingLeft);
-  expect(values.home.clip.y).toBeGreaterThanOrEqual(values.home.input.y);
-  expect(values.home.clip.y + values.home.clip.height).toBeLessThanOrEqual(values.home.input.y + values.home.input.height);
+  // UI-PC버튼36: PC [📎 첨부] paints the input height (36px) with a 44px touch area (::after); the phone icon keeps 44px.
+  // HOME-모바일정리④: the phone input is 36px now, so the phone icon paints inside its borders (34px) and keeps 44px with ::after.
+  expect(values.home.clip.height).toBeGreaterThanOrEqual(width === 390 ? 34 : 36);
+  expect(await clip.evaluate(el => parseFloat(getComputedStyle(el, '::after').height))).toBe(44);
+  if (width === 390) {
+    // Phone: the clip stays an icon inside the input's left edge (its "첨부" label is hidden).
+    expect(values.home.clip.x).toBeGreaterThanOrEqual(values.home.input.x);
+    expect(values.home.clip.x + values.home.clip.width).toBeLessThanOrEqual(values.home.input.x + values.home.paddingLeft);
+    expect(values.home.clip.y).toBeGreaterThanOrEqual(values.home.input.y);
+    expect(values.home.clip.y + values.home.clip.height).toBeLessThanOrEqual(values.home.input.y + values.home.input.height);
+    await expect(clip.locator('.basket-clip-label')).toBeHidden();
+  } else {
+    // UI-PC바구니첨부버튼: PC shows [📎 첨부] outside the input, right before [추가], on the same line.
+    const save = await q.locator('[data-quick-save]').boundingBox();
+    expect(values.home.clip.x).toBeGreaterThanOrEqual(values.home.input.x + values.home.input.width);
+    expect(values.home.clip.x + values.home.clip.width).toBeLessThanOrEqual(save.x);
+    expect(Math.abs(values.home.clip.y - values.home.input.y)).toBeLessThanOrEqual(1);
+    expect(values.home.paddingLeft).toBeLessThanOrEqual(12);
+    await expect(clip.locator('.basket-clip-label')).toHaveText('첨부');
+    await expect(clip.locator('.basket-clip-label')).toBeVisible();
+  }
   await shot('home');
   await verifyPicker(q, q, 'home');
   await q.locator('[data-quick-save]').click();
@@ -53,11 +74,12 @@ for (const width of [390, 1280]) test(`basket clip placement badge keyboard touc
   await expect(q).not.toHaveClass(/basket-dragover/);
   await q.dispatchEvent('drop', { dataTransfer: ignored });
   await ignored.dispose();
-  await q.locator('[data-quick-mode="basket"]').click();
+  await q.locator('[data-quick-mode="update"]').click();
   await expect(q.locator('[data-basket-file]')).toHaveCount(0);
   await expect(page.locator('#toast')).toHaveClass(/hidden/);
-  await q.locator('[data-goto="basket"]').click();
+  await page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click();
   await page.locator('[data-basket-row="n"]').click();
+  await noteAction(page,'[data-basket-edit]');
   const detail = page.locator('[data-basket-detail]'), editor = detail.locator('[data-basket-text]');
   const detailClip = detail.getByRole('button', { name: '파일 첨부', exact: true });
   const editorBox = await editor.boundingBox(), clipBox = await detailClip.boundingBox();
@@ -67,7 +89,7 @@ for (const width of [390, 1280]) test(`basket clip placement badge keyboard touc
   await editor.fill('미저장 수정은 유지');
   await verifyPicker(detail, detail.locator('.basket-editor'), 'detail');
   await detail.locator('[data-basket-upload]').click();
-  await expect(detail.locator('[data-basket-status]')).toHaveText('첨부를 저장했습니다.');
+  await expect(page.locator('#toast')).toContainText('첨부를 저장했습니다.');
   await expect(detail.locator('[data-basket-file]')).toHaveCount(0);
   await expect(detail.locator('[data-basket-count]')).toBeHidden();
   await expect(detail.locator('[data-basket-hint]')).toBeHidden();
@@ -86,7 +108,9 @@ for (const width of [390, 1280]) test(`basket clip placement badge keyboard touc
     await expect(root).not.toContainText('파일 추가');
     await expect(badge).toBeHidden();
     await expect(hint).toBeHidden();
-    await (name === 'home' ? root.locator('[data-quick-mode="update"]') : root.locator('textarea')).focus();
+    // HOME-빠른입력정리 + BASKET-업데이트통합: the last control before the clip on home is [할 일], right of [업데이트 ▾].
+    // UI-PC바구니첨부버튼: on PC the clip follows the input's [크게] icon (it sits right before [추가]).
+    await (name === 'home' ? root.locator(width === 1280 ? '[data-quick-big]' : '[data-quick-mode="task"]') : root.locator('textarea')).focus();
     await page.keyboard.press('Tab');
     await expect(button).toBeFocused();
     const chooser = page.waitForEvent('filechooser');

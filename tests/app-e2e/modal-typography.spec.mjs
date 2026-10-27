@@ -1,13 +1,16 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
+import {expectProjectTitle} from './helpers/screen-title.mjs';
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'design-system-user',email:'design-system@example.org',user_metadata:{display_name:'Design QA'}};
 const workspace={id:'design-system-workspace',slug:'design-system',name:'웹2'};
 
 async function mockApp(page,{spaces=[],tasks=[],calendarEvents=[]}={}){
-  await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}});
+  await installViewPrefsServer(page,{calendar_view:'month'});
   await page.route(`${SB}/**`,async route=>{
     const url=new URL(route.request().url());
     const path=url.pathname;
@@ -36,11 +39,8 @@ async function mockApp(page,{spaces=[],tasks=[],calendarEvents=[]}={}){
 
 async function signIn(page){
   await enterLogin(page);
-  await expect(page.locator('#emailAuthToggle')).toBeVisible({timeout:10000});
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await expect(page.locator('#googleLoginBtn')).toBeVisible({timeout:10000});
+  await signInWithSession(page,user.email);
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:10000});
 }
@@ -48,18 +48,20 @@ async function signIn(page){
 
 
 import {execFileSync} from 'node:child_process';
+import { signInWithSession } from './helpers/session-login.mjs';
+import { closeProjectDetail } from './helpers/project-detail.mjs';
 // Compare retained styles on the same calendar day in both the historical device-time app and KST app.
 const fixtureNow=new Date('2026-10-05T03:00:00Z');
 const fixtureTaskDay=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).format(fixtureNow);
 async function boot(page,tasks=[{id:'font-task',title:'Typography QA task',notes:'Typography QA notes',due:fixtureTaskDay(),status:'needsAction',taskListId:'@default',taskListTitle:'QA',source:'google-task'}],calendarEvents=[{id:'font-event',calendarId:'primary',title:'Typography QA event',start:fixtureTaskDay()+'T12:00:00+09:00',end:fixtureTaskDay()+'T13:00:00+09:00',color:'var(--kptu-primary)'}]){
  await page.clock.setFixedTime(fixtureNow);
  await mockApp(page,{tasks,calendarEvents,spaces:[{id:'type-project',workspace_id:workspace.id,name:'Fixture project',status:'active',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2}},{id:'type-archive',workspace_id:workspace.id,name:'Archive fixture',status:'archived',owner_id:user.id,created_by:user.id,metadata:{project_system:'v2',management_version:2}}]});
- await page.goto('http://127.0.0.1:8123/app/');await signIn(page);
+ await page.goto(`${appOrigin}/app/`);await signIn(page);
 }
 async function view(page,name){await clickView(page,name);await expect.poll(()=>page.evaluate(name=>window.KPTUViewLoader.isLoaded(name),name)).toBe(true);}
 async function baseline(page,ref='3824ca580ddcc1ba50154b45cf220c6e73742627'){
  const cache=new Map();
- await page.route(/^http:\/\/127\.0\.0\.1:8123\/(?:app|press)\//,route=>{
+ await page.route(new RegExp('^'+appOrigin.replace(/[.*+?^${}()|[\]\\\/]/g,'\\$&')+"\\/(?:app|press)\\/"),route=>{
   let path=new URL(route.request().url()).pathname.slice(1);if(path.endsWith('/'))path+='index.html';
   if(!/\.(css|js|html)$/.test(path))return route.continue();
   if(!cache.has(path))cache.set(path,execFileSync('git',['show',ref+':'+path],{encoding:'utf8'}));
@@ -69,25 +71,66 @@ async function baseline(page,ref='3824ca580ddcc1ba50154b45cf220c6e73742627'){
 }
 
 
+// UI-디자인기준 2/3(8-9d): 일정·할 일·프로젝트 목록은 새 기준(ui-standard.css)으로 바뀌어 옛 main과의 전체 계산 스타일 비교에서 뺀다.
+// 이 세 화면의 새 모양은 각 화면 검사(button-sizing·calendar-toolbar-one-row·project-system-v3·task-screen-cleanup 등)가 맡고,
+// 대화상자 검사(audit)는 그대로 한다.
+// UI-디자인기준 3/3 1부(8-9e-1): 담당조직·자료실·회의도 새 기준으로 바뀌어 같은 방식으로 뺀다. 새 모양은 ui-standard-3a 검사가 맡고,
+// 아래 필터 검사는 홈 빠른 입력 탭과 비교로 되돌린다. 남은 화면(성명·게시판)은 2부에서 옮긴다.
+// UI-디자인기준 3/3 3부(8-9e-3, 마지막): 성명·게시판도 새 기준으로 옮겼다. 옛 main 비교에서 뺀 화면은 이제 모두
+// 새 기준과 비교한다(2/3 원장 ② 되돌림): 보이는 글자의 굵기는 400·500 두 가지, 버튼 모양 컨트롤은 높이 하나(46px)·13px(UI-버튼크기부터 필터 칩·보조 버튼은 32px).
+// 일정 월간·주간 칸(#calendarGrid·#calendarWeek)과 글 본문(.md-body)은 내용 표시라 뺀다.
+const DS_VIEWS=new Set(['projects','tasks','calendar','team','library','meetings','pages']);
+const newStandard=p=>p.evaluate(()=>{
+ const view=document.querySelector('.view-panel:not(.hidden)'),bad=[];
+ for(const e of view.querySelectorAll('*')){
+  // UI-PC프로젝트좌우: PC(≥1024) 프로젝트 화면 오른쪽 칸은 상세 창(#ps3DetailModal)을 그대로 옮긴 것이라 창 검사(D-6b·audit)가 맡는다.
+  // ORG-PC좌우: 담당조직 화면 오른쪽 칸(#wdDetailPane)도 같은 상세 창(#wdModal)을 옮긴 것이다.
+  if(!e.checkVisibility()||e.closest('#calendarGrid,#calendarWeek,.md-body,.a11y-only,#ps3DetailPane,#wdDetailPane'))continue;
+  const s=getComputedStyle(e),text=[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim());
+  // LIB-목록간격(2026-10-23 사용자 확정 11:02): 자료실 트리의 맨 위 단 이름(프로젝트·'프로젝트 없음')만 굵게(700) — 두 가지 굵기 기준의 유일한 예외.
+  if(text&&!['400','500'].includes(s.fontWeight)&&!(s.fontWeight==='700'&&e.matches('summary[data-lu-top] > .lu-node-name')))bad.push([e.tagName,e.className,s.fontWeight].join(' '));
+  if(e.matches('button.primary,button.secondary,button.mini,.filter-chips button')&&!e.matches('.icon-btn,#newEventBtn,#newTaskBtn,#newProjectBtn,#newDocumentBtn,.calendar-toolbar *')&&(innerWidth>760||!e.matches('.so-add-link,#newMeetingBtn'))){
+   // UI-버튼크기: 필터 칩·보조 버튼([분류 수정])은 32px. UI-버튼전수조사: 채운 버튼은 36px, 나머지 버튼도 32px.
+   const h=Math.round(e.getBoundingClientRect().height),want=e.matches('.filter-chips button,#manageLibraryBtn')?32:e.matches('.primary')?36:32;/* UI-버튼전수조사(2026-10-24): 채운 버튼 36px, 나머지 32px(46px 버튼 없음) */// UI-버튼줄이기: [새 공유 페이지]는 폰도 36px.// UI-PC회의·UI-PC버튼36: PC 목록 머리 추가 버튼은 입력칸 높이(36px).
+   if(h!==want||s.fontSize!=='13px')bad.push([e.tagName,e.id||e.className,h,s.fontSize].join(' '));
+  }
+ }
+ return bad;
+});
 for(const width of [390,1440])test('D-3e modal roles and excluded list computed styles '+width,async({page,browser})=>{
  await page.setViewportSize({width,height:900});await boot(page);
  const original=await browser.newPage({viewport:{width,height:900}});await baseline(original,'b9dbcaee0b8e92bd8d80334bf97999f561deef94');await boot(original);
- for(const name of ['projects','meetings','media','pages','team','tasks','calendar','library']){
+ for(const name of ['projects','meetings','pages','team','tasks','calendar','library']){
   for(const p of [page,original])await view(p,name);
   // Empty headings disappear; retained headings keep the established style.
   // The changed task region gets explicit D-할일화면정리 roles below.
-  if(name==='tasks'){
+  // UI-PC할일: PC(≥1024)는 기한별 열(tasks-pc-columns.spec.mjs). 열 머리·카드 글자 역할을 여기서 같은 값으로 보고, 묶음 목록 역할은 폰(390)에서 본다.
+  if(name==='tasks'&&width>=1024){
+    const style=el=>{const s=getComputedStyle(el);return [el.tagName,s.fontSize,s.color,s.fontWeight]};
+    await expect.poll(()=>page.locator('[data-gt-col="now"] .gt-col-head').evaluate(style)).toEqual(['H3','13px','rgb(15, 110, 86)','500']);
+    await expect(page.locator('[data-gt-count]')).toHaveText('할 일 1개');
+    await expect(page.locator('[data-gt-count]')).toHaveCSS('font-size','12px');
+    await expect(page.locator('#gtTaskBody .gt-main b')).toHaveCSS('font-size','13px');
+    await expect(page.locator('#gtTaskBody .gt-meta')).toHaveCSS('font-size','12px');
+    await expect(page.locator('#newTaskBtn')).toHaveCount(0);await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toHaveCSS('height',width>=1024?'36px':'46px'); // UI-PC버튼36
+    for(const selector of ['[data-gt-info]','[data-gt-menu]','[data-gt-toggle]']){
+      const box=await page.locator(selector).boundingBox();expect(box.width).toBe(44);expect(box.height).toBe(44);
+    }
+    await page.locator('[data-gt-info]').click();await audit(page,'gtScopeModal');await expect(page.locator('#gtScopeModal .gt-scope-note')).toHaveCSS('font-size','14px');await page.locator('[data-gt-scope-close]').click();
+  }else if(name==='tasks'){
     const style=el=>{const s=getComputedStyle(el);return [el.tagName,el.className,s.fontSize,s.color,s.fontWeight,s.lineHeight]};
     await expect(original.locator('#gt-week-head')).toBeVisible();
-    await expect.poll(()=>original.locator('#gt-week-head').evaluate(style)).toEqual(await page.locator('#gt-today-head').evaluate(style));
+    // UI-디자인기준 2/3(8-9d): 기한 묶음 이름은 섹션 이름(13px·500·할 일 색 --ds-kind-task-ink).
+    await expect.poll(()=>page.locator('#gt-today-head').evaluate(style)).toEqual(['H4','gt-group-head','13px','rgb(15, 110, 86)','500','20.15px']);
     await expect(page.locator('#gt-week-head')).toHaveCount(0);
     await expect(page.locator('[data-gt-count]')).toHaveText('할 일 1개');
     await expect(page.locator('[data-gt-count]')).toHaveCSS('font-size','12px');
-    await expect(page.locator('#gtTaskBody .gt-main b')).toHaveCSS('font-size','14px');
+    await expect(page.locator('#gtTaskBody .gt-main b')).toHaveCSS('font-size','13px');
     await expect(page.locator('#gtTaskBody .gt-main b')).toHaveCSS('-webkit-line-clamp','2');
     await expect(page.locator('#gtTaskBody .gt-meta')).toHaveCSS('font-size','12px');
     await expect(page.locator('#gtTaskBody .gt-meta')).toHaveCSS('color',await page.locator('[data-gt-count]').evaluate(el=>getComputedStyle(el).color));
-    expect(await page.locator('#newTaskBtn').evaluate(style)).toEqual(await original.locator('#newTaskBtn').evaluate(style));
+    // UI-할일입력: no [+ 할 일]; the always-visible input's [추가] is 13px. UI-버튼줄이기: 폰도 36px(누르는 범위 44px).
+    await expect(page.locator('#newTaskBtn')).toHaveCount(0);await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toHaveCSS('height','36px');await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toHaveCSS('font-size','13px');
     for(const selector of ['[data-gt-info]','[data-gt-menu]']){
       const box=await page.locator(selector).boundingBox();expect(box.width).toBe(44);expect(box.height).toBe(44);
     }
@@ -110,7 +153,7 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     expected[oldZero]=['SPAN','kptu-list-chevron','20px',muted,'400','20px'];
     await expect(page.locator('#projectGrid .add-list-head h2')).toHaveCount(0);
     await expect(page.locator('[data-ps3-total]')).toHaveText('프로젝트 1개');
-    await expect(page.locator('#projectGrid .ps3-prow-meta')).toBeEmpty();
+    await expect(page.locator('#projectGrid .ps3-prow-meta .ps3-dday')).toHaveCount(0);
   }
   if(name==='team'){
     // D-담당조직목록 intentionally replaces only the type role with a group heading above the retained name.
@@ -122,47 +165,87 @@ for(const width of [390,1440])test('D-3e modal roles and excluded list computed 
     const muted=await original.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-muted)';document.body.append(e);const color=getComputedStyle(e).color;e.remove();return color});
     expected.splice(nameIndex,0,['DIV','so-group-heading','12px',muted,'400','18px']);
     await expect(page.locator('#soOrganizationList .sof-type')).toHaveCount(0);
-    await expect(page.locator('#soOrganizationList .so-group-heading')).toHaveText('그 외 · 1');
+    // UI-디자인기준 3/3: 묶음 이름 왼쪽, 오른쪽 "N곳".
+    await expect(page.locator('#soOrganizationList .so-group-heading > span')).toHaveText(['그 외','1곳']);
   }
-  expect(await snapshot(page),name).toEqual(expected);
-  if(name==='meetings'||name==='library'){
-    const groups=page.locator('#'+name+'View .filter-chips');
-    await expect(groups).toHaveCount(name==='meetings'?1:2);
-    const style=el=>{const s=getComputedStyle(el);return [s.fontSize,s.fontWeight,s.lineHeight,s.height,s.paddingLeft,s.paddingRight,s.color,s.backgroundColor,s.borderRadius]};
+  if(!DS_VIEWS.has(name))expect(await snapshot(page),name).toEqual(expected);
+  else expect(await newStandard(page),name+' new standard').toEqual([]);
+  // UI-PC회의 → MEET-결과정리 ⑤(시안 C): PC(≥1024) 회의는 위쪽 칩 줄 없이 왼쪽 회의 종류 목록. 종류 줄은 목록 글자(13px)·누르는 높이 44px, 고른 종류 하나만 표시.
+  if(name==='meetings'&&width>=1024){
+    await expect(page.locator('#meetingTypeFilter')).toBeHidden();await expect(page.locator('#meetingsView .meeting-toolbar')).toBeHidden();
+    await expect(page.locator('#meetingColumnPicker')).toHaveCount(0);
+    const kinds=page.locator('#meetingList .mcol-kinds [data-meeting-kind]');await expect.poll(()=>kinds.count()).toBeGreaterThan(0);
+    await expect(page.locator('#meetingList .mcol-kinds [aria-current="true"]')).toHaveCount(1);
+    for(const kind of await kinds.all())expect(await kind.evaluate(el=>{const s=getComputedStyle(el);return [s.fontSize,Math.round(el.getBoundingClientRect().height)]})).toEqual(['13px',44]);
+  }
+  if(name==='library'||name==='meetings'&&width<1024){
+    const groups=page.locator('#'+name+'View .filter-chips:not(#meetingColumnPicker):not(#reportViewFilter)');
+    // UI-바구니첨부메모 ⑪: 자료실은 프로젝트에 분류 7개 칩 줄이 더해진다. UI-바구니거르기: 자료 종류([일반 자료|회의자료만]) 줄은 없앴다.
+    // MTG-사업보고 4단계: 사업 보고(폰)는 위쪽 칸 칩 줄 + [회의] 칩일 때의 회의명 칩 줄, 두 줄이 같은 칩 모양이다.
+    await expect(groups).toHaveCount(2);
+    // The home view is hidden here, so its tabs (height:auto) are compared by their declared min-height; the filters' real height is checked too.
+    const style=el=>{const s=getComputedStyle(el);return [s.fontSize,s.fontWeight,s.lineHeight,s.minHeight,s.paddingLeft,s.paddingRight,s.color,s.backgroundColor,s.borderRadius]};
+    // UI-버튼크기(2026-10-17): meeting/library filters are pill chips (32px, 999px corners, 13px/500, 12px side padding),
+    // no longer copies of the home quick-input tabs (those became a small segment). Unselected chips are white with ink text,
+    // the selected one is gray (종류 색 '그 밖'). The touch target stays 44px through ::after.
+    const tokens=await page.evaluate(()=>Object.fromEntries(['--kptu-ink','--kptu-surface','--kptu-muted','--ds-kind-other-ink','--ds-kind-other-soft','--ds-select-ink','--ds-select-bg'].map(n=>{const e=document.createElement('span');e.style.color=`var(${n})`;document.body.append(e);const c=getComputedStyle(e).color;e.remove();return [n,c];})));
     for(const group of await groups.all()){
+      // UI-PC자료실: 자료실 분류 줄은 여러 개 켜고 끄는 토글(role=group, aria-pressed). 켠 칩은 회색, 꺼진 칩은 흐린 글자(보조 글자색)·흰 바탕.
+      if(await group.getAttribute('id')==='libraryCategoryFilter'){
+        await expect(group).toHaveAttribute('role','group');
+        const toggles=group.locator('button[aria-pressed]');
+        await expect(toggles).toHaveCount(8);
+        await expect(group.locator('button[aria-pressed="false"]')).toHaveText(['회의']);await expect(group.locator('button[aria-pressed="mixed"]')).toHaveText(['전체']);// LIB-거르기전체
+        for(const toggle of await toggles.all()){
+          const pressedValue=await toggle.getAttribute('aria-pressed'),on=pressedValue==='true',mixed=pressedValue==='mixed';
+          const [fontSize,fontWeight,,minHeight,paddingLeft,paddingRight,color,background,radius]=await toggle.evaluate(style);
+          expect([fontSize,fontWeight,minHeight,paddingLeft,paddingRight,radius],name+' category chip style').toEqual(['13px','500','32px','12px','12px','999px']);
+          expect([color,background],name+' category chip color').toEqual(on?[tokens['--ds-select-ink'],tokens['--ds-select-bg']]:mixed?[tokens['--kptu-ink'],tokens['--kptu-surface']]:[tokens['--kptu-muted'],tokens['--kptu-surface']]);
+          expect((await toggle.boundingBox()).height,name+' category chip height').toBe(32);
+          expect(await toggle.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),name+' category chip touch').toBe(44);
+        }
+        continue;
+      }
       await expect(group).toHaveAttribute('role','radiogroup');
       await expect(group.locator('[role="radio"][aria-checked="true"]')).toHaveCount(1);
       for(const radio of await group.getByRole('radio').all()){
-        const selected=await radio.getAttribute('aria-checked');
-        const home=page.locator(`.home-quick-modes button[aria-pressed="${selected}"]`).first();
-        expect(await radio.evaluate(style),name+' filter reuses home pill style').toEqual(await home.evaluate(style));
+        const selected=await radio.getAttribute('aria-checked')==='true';
+        const [fontSize,fontWeight,,minHeight,paddingLeft,paddingRight,color,background,radius]=await radio.evaluate(style);
+        expect([fontSize,fontWeight,minHeight,paddingLeft,paddingRight,radius],name+' filter chip style').toEqual(['13px','500','32px','12px','12px','999px']);
+        expect([color,background],name+' filter chip color').toEqual(selected?[tokens['--ds-select-ink'],tokens['--ds-select-bg']]:[tokens['--kptu-ink'],tokens['--kptu-surface']]);
+        expect((await radio.boundingBox()).height,name+' filter height').toBe(32);
+        expect(await radio.evaluate(el=>parseFloat(getComputedStyle(el,'::after').height)),name+' filter touch').toBe(44);
       }
     }
   }
   if(name==='calendar'){for(const id of ['prevMonthBtn','nextMonthBtn']){await expect(page.locator('#'+id)).toHaveCSS('font-size','24px');await expect(page.locator('#'+id)).toHaveCSS('line-height','24px');}}
-  if(name==='calendar'&&width<=760){await expect(page.locator('#monthTitle')).toHaveCSS('font-size','20px');await expect(page.locator('#monthTitle')).toHaveCSS('line-height','24px');}
+  if(name==='calendar'&&width<=760){await expect(page.locator('#monthTitle')).toHaveCSS('font-size','18px');await expect(page.locator('#monthTitle')).toHaveCSS('line-height','24px');}
 
  }
- await view(page,'projects');await page.locator('#ps3ArchiveBtn').click();await audit(page,'ps3ArchiveModal');await page.locator('[data-ps3-close="ps3ArchiveModal"]').click();await page.locator('#newProjectBtn').click();await audit(page,'ps3CreateModal');await page.locator('[data-ps3-close="ps3CreateModal"]').click();await page.locator('[data-ps3-project="type-project"]').first().click();await expect(page.locator('#ps3Title')).toHaveText('Fixture project');await audit(page,'ps3DetailModal');await page.evaluate(()=>window.KPTUGoogleTasks.openLinkPicker({project_id:'type-project'}));await audit(page,'gtPickModal');await page.locator('[data-gt-pick-close]').click();await page.locator('[data-ps3-close="ps3DetailModal"]').click();
+ await view(page,'projects');await page.locator('#ps3ArchiveBtn').click();await audit(page,'ps3ArchiveModal');await page.locator('[data-ps3-close="ps3ArchiveModal"]').click();await page.locator('#newProjectBtn').click();await audit(page,'ps3CreateModal');await page.locator('[data-ps3-close="ps3CreateModal"]').click();await page.locator('[data-ps3-project="type-project"]').first().click();await expectProjectTitle(page,'Fixture project');await audit(page,'ps3DetailModal');await page.evaluate(()=>window.KPTUGoogleTasks.openLinkPicker({project_id:'type-project'}));await audit(page,'gtPickModal');await page.locator('[data-gt-pick-close]').click();await closeProjectDetail(page);
  await view(page,'meetings');await page.locator('#newMeetingBtn').click();await audit(page,'meetingModal');await page.locator('#meetingModal').evaluate(el=>el.classList.add('hidden'));
- await view(page,'team');await page.locator('#soAddOrg').click();await audit(page,'soEditModal');await page.locator('[data-so-close="soEditModal"]').click();
+ await view(page,'team');// UI-조직추가숨김: no add button on screen, so open the same dialog through the edit delegate.
+ await page.evaluate(()=>{const b=document.createElement('button');b.id='soTestOpenEdit';b.setAttribute('data-so-edit','');document.body.append(b)});await page.locator('#soTestOpenEdit').dispatchEvent('click');await audit(page,'soEditModal');await page.locator('[data-so-close="soEditModal"]').click();
  await view(page,'library');await page.locator('#newDocumentBtn').click();await audit(page,'documentModal');await page.locator('#documentModal').evaluate(el=>el.classList.add('hidden'));
  await view(page,'calendar');await page.locator('#newEventBtn').click();await audit(page,'eventModal');await page.locator('#eventModal').evaluate(el=>el.classList.add('hidden'));
- await expect(page.locator('.theme-choices button').first()).toHaveCSS('font-size',await original.locator('.theme-choices button').first().evaluate(el=>getComputedStyle(el).fontSize));await original.close();
+ // UI-디자인기준 3/3 3부(8-9e-3): 화면 색 창 줄은 목록 줄 이름 13px.
+ await expect(page.locator('.theme-choices button').first()).toHaveCSS('font-size','13px');await original.close();
 });
 async function audit(page,id){
  const modal=page.locator('#'+id);await expect(modal).toBeVisible();
  const small=await modal.evaluate(root=>[...root.querySelectorAll('*')].filter(e=>e.checkVisibility()&&!e.closest('button,.icon-btn,[aria-hidden="true"]')&&[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim())&&parseFloat(getComputedStyle(e).fontSize)<12).map(e=>({tag:e.tagName,id:e.id,class:e.className,size:getComputedStyle(e).fontSize})));
  expect(small,id).toEqual([]);
  for(const input of await modal.locator('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]),textarea,select').all())await expect(input).toHaveCSS('font-size','14px');
- for(const label of await modal.locator('label:not(.secondary):not(.primary)').all())await expect(label).toHaveCSS('font-size','12px');
- for(const h2 of await modal.locator('.modal-head h2,.w1b-detail-head h2').all())await expect(h2).toHaveCSS('font-size','20px');
+ // UI-회의결과창정리: 자료 등록 창 [📎 파일 고르기]는 label이지만 보조 버튼(13px)이다.
+ for(const label of await modal.locator('label:not(.secondary):not(.primary):not(.library-pick-button)').all())await expect(label).toHaveCSS('font-size','12px');
+ // UI-디자인기준 3/3 3부(8-9e-3): 창 제목은 새 기준 18px(--ds-text-title).
+ for(const h2 of await modal.locator('.modal-head h2,.w1b-detail-head h2').all())await expect(h2).toHaveCSS('font-size','18px');
 }
 
-const modalIds=['ps3DetailModal','ps3CreateModal','ps3WorkstreamModal','ps3ProgressModal','ps3MilestoneModal','ps3ArchiveModal','ps3DeleteModal','meetingModal','meetingRoundDetailModal','wfMeetingAiModal','wdModal','wdAffModal','wdTimeModal','soEditModal','soAssignModal','pressDetailModal','web1BoardDetailModal','documentModal','libraryEditModal','libraryManageModal','eventModal','ciGoogleModal','taskModal','gtTaskModal','gtPickModal','gtScopeModal','themeModal','warDraftModal','polManageModal'];
+const modalIds=['ps3DetailModal','ps3CreateModal','ps3WorkstreamModal','ps3ProgressModal','ps3MilestoneModal','ps3ArchiveModal','ps3DeleteModal','meetingModal','meetingRoundDetailModal','wfMeetingAiModal','wdModal','wdAffModal','wdTimeModal','soEditModal','soAssignModal','web1BoardDetailModal','documentModal','libraryEditModal','libraryManageModal','eventModal','ciGoogleModal','taskModal','gtTaskModal','gtPickModal','gtScopeModal','themeModal','warDraftModal','polManageModal'];
 for(const width of [390,1440])test('D-3e installed dialog templates use role sizes '+width,async({page},testInfo)=>{
  await page.setViewportSize({width,height:900});await boot(page);
- for(const name of ['projects','meetings','team','library','tasks','calendar','media','pages'])await view(page,name);
+ for(const name of ['projects','meetings','team','library','tasks','calendar','pages'])await view(page,name);
  await view(page,'tasks');await page.locator('[data-gt-info]').click();await page.locator('[data-gt-scope-close]').click();
  const inventory=await page.evaluate(ids=>{
   const result={present:[],notInstalled:[],counts:{},violations:[]};
@@ -173,8 +256,8 @@ for(const width of [390,1440])test('D-3e installed dialog templates use role siz
    result.counts[id]=text.length;
    for(const e of text){const size=parseFloat(getComputedStyle(e).fontSize);if(size<12)result.violations.push({id,element:e.id||e.className||e.tagName,size})}
    for(const e of root.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]),textarea,select'))if(getComputedStyle(e).fontSize!=='14px')result.violations.push({id,element:e.id,size:getComputedStyle(e).fontSize,want:14});
-   for(const e of root.querySelectorAll('label:not(.secondary):not(.primary):not(.mrd-upload-label):not(.library-picker-mobile)'))if(getComputedStyle(e).fontSize!=='12px')result.violations.push({id,element:e.id||e.className,size:getComputedStyle(e).fontSize,want:12});
-   for(const e of root.querySelectorAll('.modal-head h2,.w1b-detail-head h2'))if(getComputedStyle(e).fontSize!=='20px')result.violations.push({id,element:e.id,size:getComputedStyle(e).fontSize,want:20});root.className=className;if(aria===null)root.removeAttribute('aria-hidden');else root.setAttribute('aria-hidden',aria);
+   for(const e of root.querySelectorAll('label:not(.secondary):not(.primary):not(.library-pick-button)'))if(getComputedStyle(e).fontSize!=='12px')result.violations.push({id,element:e.id||e.className,size:getComputedStyle(e).fontSize,want:12});
+   for(const e of root.querySelectorAll('.modal-head h2,.w1b-detail-head h2'))if(getComputedStyle(e).fontSize!=='18px')result.violations.push({id,element:e.id,size:getComputedStyle(e).fontSize,want:18});root.className=className;if(aria===null)root.removeAttribute('aria-hidden');else root.setAttribute('aria-hidden',aria);
   }return result;
  },modalIds);
  expect(inventory.violations).toEqual([]);
@@ -185,6 +268,8 @@ for(const width of [390,1440])test('D-4b month task style contract moves to reta
  await page.setViewportSize({width,height:900});await boot(page);await view(page,'calendar');
    const dayOriginal=await browser.newPage({viewport:{width,height:900}});
    await baseline(dayOriginal,'5c81cfd845ee9d08f9e337ce1d0cb378d20c4169');await boot(dayOriginal);await view(dayOriginal,'calendar');
+   // The old build keeps the calendar view on this device; the current build reads it from the server (view_prefs). Pick month through the button in both.
+   await dayOriginal.locator('[data-calendar-view="month"]').click();
    for(const p of [page,dayOriginal]){
     const date=fixtureTaskDay();
     await expect.poll(()=>p.evaluate(date=>window.KPTUCalendarMonthView?.dayEvents(date).filter(e=>e.source==='task').length,date)).toBe(1);
@@ -193,7 +278,13 @@ for(const width of [390,1440])test('D-4b month task style contract moves to reta
    }
    // Compare every pre-existing task role unchanged, then check the added metadata role.
    const taskStyles=async p=>p.locator('#calendarDayList [data-calendar-task="font-task"]').evaluate(el=>[el,el.querySelector('.cmv-task-mark'),el.querySelector('.cmv-event-title')].map(e=>{const s=getComputedStyle(e);return [e.tagName,e.className,s.fontSize,s.color,s.fontWeight,s.lineHeight,s.backgroundColor,s.borderColor,s.opacity,s.textDecorationLine]}));
-   expect(await taskStyles(page),'calendar day task retained roles').toEqual(await taskStyles(dayOriginal));
+   // UI-디자인손질 2 (2026-10-16 사용자 결정): the day rows keep the same elements and roles, but are drawn as plain rows
+   // (no fill or border, check circle, name 13px·400). Compare the roles with the baseline, then check the new look.
+   const roles=rows=>rows.map(([tag,cls])=>[tag,cls]);
+   expect(roles(await taskStyles(page)),'calendar day task retained roles').toEqual(roles(await taskStyles(dayOriginal)));
+   const row=page.locator('#calendarDayList [data-calendar-task="font-task"]');
+   await expect(row).toHaveCSS('background-color','rgba(0, 0, 0, 0)');await expect(row).toHaveCSS('border-left-width','0px');
+   await expect(row.locator('.cmv-event-title')).toHaveCSS('font-size','13px');await expect(row.locator('.cmv-event-title')).toHaveCSS('font-weight','400');
    await expect(page.locator('#calendarDayTasks .gt-day-main')).toHaveCount(1);
    await expect(page.locator('#calendarDayTasks .gt-meta')).toHaveCSS('font-size','12px');
    await expect(page.locator('#calendarDayTasks .gt-due')).not.toBeEmpty();
@@ -210,10 +301,18 @@ for(const width of [390,1440])test('D-4b month task style contract moves to reta
 const d6bMain='23f5b87241a6a8b2db4f6bb552237ef4d41a3139';
 const d6bSource=path=>execFileSync('git',['show',d6bMain+':app/'+path],{encoding:'utf8'});
 const d6bSelectors=d6bSource('base-ui.css').split('\n').slice(194,210).map(line=>line.split('{')[0]);
+// PRJ-기록입력: main line 202 styled the progress line (.ps3-pg-summary/.ps3-pg-next) and the header line under the title (#ps3Objective).
+// The progress line is gone; the header line is now #ps3Summary with the same role, so the current page is read through that selector.
+const d6bProgressLine='#ps3DetailModal :is(.ps3-pg-summary,.ps3-pg-next,#ps3Objective)',d6bHeaderLine='#ps3DetailModal #ps3Summary';
+// PRESS-자료실편입 Contract: 삭제된 성명·보도자료 창(#pressDetailModal)은 현재 CSS 묶음 선택자에서 빠졌다.
+const d6bDropPress=selector=>selector.replace(',#pressDetailModal','');
+const d6bCurrentSelectors=d6bSelectors.map(selector=>d6bDropPress(selector===d6bProgressLine?d6bHeaderLine:selector));
+// UI-회의결과창정리: 업로드 상자 글자(#documentModal .library-dropzone strong)와 회의자료 라벨 설명은 화면에서 없어졌다.
+const d6bRetired=['#documentModal .library-dropzone strong','#meetingModal .meeting-materials-block label span'];
 
 async function d6bPrepare(page,source){
  await boot(page);
- for(const name of ['projects','meetings','team','library','tasks','calendar','media','pages'])await view(page,name);
+ for(const name of ['projects','meetings','team','library','tasks','calendar','pages'])await view(page,name);
  await view(page,'projects');await page.locator('#ps3ArchiveBtn').click();await page.locator('[data-ps3-close="ps3ArchiveModal"]').click();
  await page.locator('[data-ps3-project="type-project"]').first().click();
  await expect(page.locator('#ps3DetailModal')).toBeVisible();
@@ -229,7 +328,7 @@ async function d6bPrepare(page,source){
   // Deferred/retained roles whose normal templates need additional API data, or no longer render.
   // Same structural markup on both sides, including status variants overridden by D-3e metadata color.
   const deferred={
-   ps3DetailModal:'<div class="ps3-summary"><b>목표</b></div><div class="ps3-stat-grid"><b>1</b><span>개수</span></div><div class="ps3-row-main"><b>제목</b></div><div class="ps3-row-title"><b>제목</b></div><div class="ps3-type-row"><b>유형</b><small>설명</small></div><p class="ps3-pg-next">다음</p><span class="ps3-pg-summary">진행</span><span class="badge published">완료</span>',
+   ps3DetailModal:'<div class="ps3-summary"><b>목표</b></div><div class="ps3-stat-grid"><b>1</b><span>개수</span></div><div class="ps3-row-main"><b>제목</b></div><div class="ps3-row-title"><b>제목</b></div><div class="ps3-type-row"><b>유형</b><small>설명</small></div><span class="badge published">완료</span>',
    ps3CreateModal:'<div class="ps3-type-row"><b>유형</b><small>설명</small></div>',
    wdModal:'<div class="wd-year">2026년</div><span class="wd-aff-chip taskforce">소속</span>',
    documentModal:'<div class="library-selected-file error"><span class="library-upload-state">실패</span></div><div class="library-selected-file unknown"><span class="library-upload-state">확인</span></div>'
@@ -238,10 +337,15 @@ async function d6bPrepare(page,source){
  },{ai,rule});
 }
 
-async function d6bSnapshot(page){
- return page.evaluate(selectors=>selectors.map((selector,index)=>({line:index+195,elements:[...document.querySelectorAll(selector)].map(el=>{
+// UI-PC프로젝트좌우: on a PC (≥1024) the project detail element sits in the projects screen's right pane, earlier in the
+// page than the other dialogs, so each rule's elements are compared in one fixed order (tag, id, class) on both sides.
+const d6bKey=el=>[el.tag,el.id,el.class,el.fontSize,el.color].join('\u0001');
+async function d6bSnapshot(page,selectors=d6bSelectors){
+ const rows=await page.evaluate(selectors=>selectors.map((selector,index)=>({line:index+195,elements:[...document.querySelectorAll(selector)].map(el=>{
   const style=getComputedStyle(el);return {tag:el.tagName,id:el.id,class:el.className,fontSize:style.fontSize,color:style.color};
- })})),d6bSelectors);
+ })})),selectors);
+ for(const row of rows)row.elements.sort((a,b)=>d6bKey(a)<d6bKey(b)?-1:d6bKey(a)>d6bKey(b)?1:0);
+ return rows;
 }
 
 for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size and color '+width,async({page,browser},testInfo)=>{
@@ -256,11 +360,82 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   const meetingField=await page.locator('#libraryEditMeeting').evaluate(el=>el.closest('label').outerHTML);
   await original.locator('#libraryEditProject').evaluate((el,html)=>el.closest('label').insertAdjacentHTML('afterend',html),meetingField);
   // Compare the added record region under both style sets too; exclude no existing nodes.
-  const basketRecords=await page.locator('#ps3BasketLinks').evaluate(el=>el.outerHTML);
-  await original.locator('#ps3-progress').evaluate((el,html)=>el.insertAdjacentHTML('beforeend',html),basketRecords);
-  const before=await d6bSnapshot(original),after=await d6bSnapshot(page);
+  // PRJ-기록입력 rebuilt the project detail (one record list, small +, line lists) and removed the progress dialog.
+  // Main's header line under the title keeps its size; then the same current markup is compared under main's and current styles.
+  const mainHeaderSize=await original.locator('#ps3Objective').evaluate(el=>getComputedStyle(el).fontSize);
+  for(const id of ['ps3DetailModal','ps3WorkstreamModal']){const html=await page.locator('#'+id).evaluate(el=>el.outerHTML);await original.locator('#'+id).evaluate((el,html)=>{el.outerHTML=html},html)}
+  await original.locator('#ps3ProgressModal').evaluate(el=>el.remove());await expect(page.locator('#ps3ProgressModal')).toHaveCount(0);
+  // BASKET-할일출처 added the task editor's source-note line; compare it under both style sets too.
+  const sourceNote=await page.locator('#gtSourceNote').evaluate(el=>el.outerHTML);
+  await original.locator('#gtMeetingLinks').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),sourceNote);
+  // UI-화면점검 ③: 할 일 수정 창 "연결할 프로젝트·조직"은 legend에 짧은 이름만 두고 안내문은 legend 밖 아래 작은 글씨로 옮겼고, legend 글자는 다른 라벨과 같은 12px로 맞췄다.
+  // 현재 마크업을 main 쪽에도 넣고, 새로 정한 두 요소(.gt-links-legend·.gt-links-hint)의 크기는 아래 generic에서 빼고 pickers-org-project.spec이 확인한다.
+  const taskLinks=await page.locator('#gtTaskModal .gt-links').evaluate(el=>el.outerHTML);
+  await original.locator('#gtTaskModal .gt-links').evaluate((el,html)=>{el.outerHTML=html},taskLinks);
+  // UI-디자인손질 1 (2026-10-16 사용자 결정): "차수" has no separate "선택" tag any more; drop that removed node from
+  // the baseline only. Every other optional tag (특이사항·약칭 etc.) is still compared.
+  await original.evaluate(()=>document.querySelectorAll('#meetingRoundNo,#mrdEditRound').forEach(input=>input.closest('label')?.querySelector(':scope > .optional')?.remove()));
+  // PRJ-색 added the project color field (hidden value input + choices); compare it under both style sets too.
+  const colorField=await page.locator('#ps3CreateColorField').evaluate(el=>el.outerHTML);
+  await original.locator('#ps3CreateParent').evaluate((el,html)=>el.closest('label').insertAdjacentHTML('afterend',html),colorField);
+  // FORM-시간입력 turned each date-time field into a date picker + 4-digit time cell; compare those fields under both style sets.
+  for(const id of ['meetingAt','mrdEditAt','ps3MilestoneAt']){const html=await page.locator('#'+id).evaluate(el=>el.closest('label').outerHTML);await original.locator('#'+id).evaluate((el,html)=>{el.closest('label').outerHTML=html},html)}
+  // FORM-시간입력 added the place field to the event edit window; compare it under both style sets too.
+  const placeField=await page.locator('#ciGoogleLocation').evaluate(el=>el.closest('label').outerHTML);
+  await original.locator('#ciGoogleEndTime').evaluate((el,html)=>el.closest('.ci-date-grid').insertAdjacentHTML('afterend',html),placeField);
+  // UI-회의결과창정리(2026-10-17 사용자 결정): 회의 결과 창(만들기·수정)의 첨부·후속 묶음과 자료 등록 창 업로드 칸을 작은 묶음으로 바꿨다.
+  // 바뀐 부분은 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다. 없어진 두 요소(업로드 상자 글자·회의자료 라벨 설명)의 규칙은 아래에서 뺀다.
+  for(const [from,to] of [['#meetingModal fieldset:has(#meetingActionList)','#meetingModal fieldset:has(#meetingActionList)'],['#mrdView .mrd-followup-section','#mrdView .mrd-followup-section'],['#mrdView .mrd-material-section','#mrdView .mrd-material-section'],['#mrdView .mrd-result-section','#mrdView .mrd-result-section'],['#documentModal .library-file-block','#documentModal .library-file-block']]){const html=await page.locator(from).evaluate(el=>el.outerHTML);await original.locator(to).evaluate((el,html)=>{el.outerHTML=html},html)}
+  // ACT-사진 3단계: 사업 보고 상세 창에 '사진' 줄(제목·[+ 사진]·숨은 파일 칸·상태 줄)이 생겼다. 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다(기존 요소는 하나도 빼지 않는다).
+  {const html=await page.locator('#mrdView .mrd-photo-section').evaluate(el=>el.outerHTML);await original.locator('#mrdView .mrd-material-section').evaluate((el,html)=>el.insertAdjacentHTML('beforebegin',html),html)}
+  // MEET-기록보내기 1단계: 회의 결과 원문 줄에 [바구니에 담기] 버튼·안내·상태 줄이 생겼다. 위 묶음 비교에 결과 구역도 함께 넣어 양쪽 스타일로 비교한다.
+  // UI-바구니첨부메모(2026-10-18 사용자 결정): 자료 등록·수정 창의 분류는 자유 입력 대신 7개 중 고르기. 현재 칸을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
+  for(const id of ['docCategory','libraryEditCategory']){const html=await page.locator('#'+id).evaluate(el=>el.outerHTML);await original.locator('#'+id).evaluate((el,html)=>{el.outerHTML=html},html)}
+  // MEET-결과정리 ③: 회의 만들기·수정 창의 차수 아래에 "짧은 이름" 칸이 생겼다. 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
+  for(const [round,shortName] of [['meetingRoundNo','meetingShortName'],['mrdEditRound','mrdEditShortName']]){const html=await page.locator('#'+shortName).evaluate(el=>el.closest('label').outerHTML);await original.locator('#'+round).evaluate((el,html)=>el.closest('label').insertAdjacentHTML('afterend',html),html)}
+  // MEET-파일로만들기(2026-10-17 사용자 결정): 회의 [+] 창에 [직접 쓰기 | 파일·글로 만들기] 전환과 파일·글 칸이 생겼다. 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
+  const filesPanel=await page.locator('#meetingModal').evaluate(el=>[el.querySelector('.meeting-create-modes').outerHTML,el.querySelector('#mffPanel').outerHTML].join(''));
+  await original.locator('#meetingModal .modal-head').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),filesPanel);
+  // UI-바구니첨부메모 PR 3(2026-10-19): 담당조직 상세에 [자료] 묶음이 생기고, 자료실 [분류 수정] 창에 분류 목록 편집 칸이 생겼다('자료별 분류' 칸은 LIB-분류칸삭제로 없어짐).
+  // 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다(기존 요소는 하나도 빼지 않는다).
+  // ORG-PC좌우: on a PC (≥1024) the 담당조직 screen opens the first organization in its right pane, so the current detail
+  // carries that organization's drawn content (basic info rows etc.) that main never drew without a click. Like the project
+  // detail above, the current detail markup goes to main's side too and is compared under both style sets.
+  if(width>=1024){const html=await page.locator('#wdModal').evaluate(el=>el.outerHTML);await original.locator('#wdModal').evaluate((el,html)=>{el.outerHTML=html},html)}
+  else{const orgDocs=await page.locator('#wdModal #wdDocs').evaluate(el=>el.outerHTML);
+  await original.locator('#wdModal #wdTasks').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),orgDocs);}
+  // MTG-사업보고 6단계(PR #1042): 담당조직 상세에 [사업 보고] 묶음이 생겼다(폰 쪽만 — PC는 위에서 상세 전체를 옮긴다).
+  if(width<1024){const reports=await page.locator('#wdModal #wdReports').evaluate(el=>el.outerHTML);await original.locator('#wdModal #wdDocs').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),reports)}
+  // 사업 보고 만들기·수정 창: '프로젝트' 고르기가 [연결할 곳 ▾](+ 숨은 프로젝트 칸)으로 바뀌고 장소 칸이 생겼다. 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
+  for(const [project,places,location] of [['meetingProject','meetingPlaces','meetingLocationRow'],['mrdEditProject','mrdEditPlaces','mrdEditLocationRow']]){
+   const parts=await page.locator('#'+places).evaluate((el,location)=>{const label=el.closest('label');return [label.outerHTML+label.nextElementSibling.outerHTML,document.getElementById(location).outerHTML]},location);
+   await original.locator('#'+project).evaluate((el,[html,loc])=>{const label=el.closest('label'),box=label.parentElement;label.outerHTML=html;box.insertAdjacentHTML('afterend',loc)},parts);
+  }
+  const manageParts=await page.locator('#libraryManageModal').evaluate(el=>el.querySelector('#libraryCategoryEditor').outerHTML);
+  await original.locator('#libraryManageList').evaluate((el,html)=>el.insertAdjacentHTML('beforebegin',html),manageParts);
+  // LIB-분류칸삭제: 창 머리의 안내문(p.muted '직접 수정합니다')과 '자료별 분류' 칸(#libraryManageList)은 화면에서 없어졌다. 같은 모양으로 main 쪽에서도 뺀다.
+  await original.locator('#libraryManageModal .modal-head p.muted').evaluate(el=>el.remove());
+  await original.locator('#libraryManageList').evaluate(el=>el.remove());
+  // TASK-추가창파일: 할 일 등록 창·Google 할 일 추가 창의 메모 아래에 [파일 붙이기] 줄(숨은 파일 칸·안내 글자)이 생겼다.
+  // 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다(기존 요소는 하나도 빼지 않는다).
+  for(const [id,memo] of [['eventTaskFiles','#eventDescription'],['gtNewFiles','#gtEditNotes']]){if(!await page.locator('#'+id).count())continue;const html=await page.locator('#'+id).evaluate(el=>el.outerHTML);if(await original.locator(memo).count())await original.locator(memo).evaluate((el,html)=>el.closest('label').insertAdjacentHTML('afterend',html),html)}
+  // LIB-수정파일교체: 자료 [수정] 창 맨 위에 파일 줄(현재 파일·[파일 교체]·[이전 파일 ▾]·숨은 파일 칸)이 생겼다. 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다(기존 요소는 하나도 빼지 않는다).
+  {const html=await page.locator('#libraryEditFile').evaluate(el=>el.outerHTML);await original.locator('#libraryEditTitle').evaluate((el,html)=>el.closest('label').insertAdjacentHTML('beforebegin',html),html)}
+  const before=await d6bSnapshot(original,d6bCurrentSelectors),after=await d6bSnapshot(page,d6bCurrentSelectors);
+  // Line 202: main styled #ps3Objective by this rule; the same header line (#ps3Summary) keeps that font size.
+  const headerRow=before[d6bSelectors.indexOf(d6bProgressLine)];
+  expect(headerRow.elements.map(el=>el.id)).toEqual(['ps3Summary']);headerRow.elements[0].fontSize=mainHeaderSize;
+  // Two new elements carry their own PRJ-기록입력 rules that main never had: the header line (compared above on line 202)
+  // and the empty-list text (project-record-input.spec). Drop exactly those from the generic dialog rows on both sides.
+  // UI-회의결과창정리: 묶음 설명(.mtg-note 12px)과 빈 상태(.mtg-empty 13px)도 자기 규칙이 있다(meeting-entry.spec에서 크기 확인).
+  const generic=el=>!(el.class==='gt-links-legend'||el.class==='gt-links-hint'||el.class==='ps3-rec-empty'||el.class==='mtg-note'||el.class==='mtg-empty'||el.id==='ps3Summary');
+  for(const rows of [before,after])rows.forEach((row,i)=>{if(i!==d6bSelectors.indexOf(d6bProgressLine))row.elements=row.elements.filter(generic)});
+  // UI-디자인기준 3/3 3부(8-9e-3): 창 제목(h2)만 새 기준 18px. 나머지 15개 규칙과 색은 그대로 비교한다.
+  for(const row of before)for(const el of row.elements)if(el.tag==='H2')el.fontSize='18px';
+  for(const row of before)row.elements.sort((a,b)=>d6bKey(a)<d6bKey(b)?-1:d6bKey(a)>d6bKey(b)?1:0);
   expect(before).toHaveLength(16);
-  for(const row of before)expect(row.elements.length,'main line '+row.line+' is covered').toBeGreaterThan(0);
+  for(const [i,row] of before.entries())if(!d6bRetired.includes(d6bSelectors[i]))expect(row.elements.length,'main line '+row.line+' is covered').toBeGreaterThan(0);
+  for(const [i,row] of after.entries())if(d6bRetired.includes(d6bSelectors[i]))expect(row.elements,'retired main line '+row.line).toEqual([]);
   expect(after).toEqual(before);
   await testInfo.attach('d6b-main-style-comparison',{body:JSON.stringify({main:d6bMain,width,before,after},null,2),contentType:'application/json'});
  }finally{await original.close()}
@@ -273,11 +448,11 @@ test('D-6b keeps hide priorities and removes only dialog priorities',async()=>{
  const owners=['workspace-ui.css','project-system-v3.css','workplace-detail.css','library-upload.css','meeting-ui.css','google-tasks.css','web1-board.css'];
  const owned=owners.map(path=>{
   const current=fs.readFileSync('app/'+path,'utf8');
-  expect((current.match(/!important/g)||[]).length,path+' adds no priorities').toBe((d6bSource(path).match(/!important/g)||[]).length);
+  expect((current.match(/!important/g)||[]).length,path+' adds no priorities').toBeLessThanOrEqual((d6bSource(path).match(/!important/g)||[]).length);
   return current;
  }).join('\n');
- for(const selector of d6bSelectors){
-  const rule=owned.split('\n').find(line=>line.startsWith(selector+'{'));
+ for(const selector of d6bSelectors.filter(selector=>!d6bRetired.includes(selector))){
+  const rule=owned.split('\n').find(line=>line.startsWith(d6bDropPress(selector===d6bProgressLine?d6bHeaderLine:selector)+'{'));
   expect(rule,selector+' stays explicit').toBeDefined();expect(rule).not.toContain('!important');
  }
 });

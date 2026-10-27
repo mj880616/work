@@ -1,15 +1,15 @@
-import {seoulDayStart,seoulDate,seoulParts,addSeoulDays} from './meeting-time.js?v=2';
-import {renderList,stopList} from './calendar-list-view.js?v=6';
-import {renderWeek} from './calendar-week-view.js?v=5';
-import {dayItems,calendarDateKey} from './calendar-day-items.js?v=5';
-import {dayKey,ranges} from './home-read-model.js?v=3';
-// Owns view choice, list/week ranges and list pagination. Storage is local to this device/browser.
-const STORAGE_KEY='kptu-calendar-view';
+import {seoulDayStart,seoulDate,seoulParts,addSeoulDays} from './meeting-time.js';
+import {renderList,stopList} from './calendar-list-view.js';
+import {renderWeek,resetWeekScroll} from './calendar-week-view.js';
+import {dayItems,calendarDateKey} from './calendar-day-items.js';
+import {dayKey,ranges} from './home-read-model.js';
+import {viewPrefs} from './view-prefs.js';
+// Owns view choice, list/week ranges and list pagination. The choice is remembered on the server (view-prefs.js, profile view_prefs).
 const desktop=matchMedia('(min-width:1024px)');
 const today=()=>seoulDayStart(new Date());
 const defaultView=()=>desktop.matches?'week':'list';
 let preference=null;
-try{const saved=localStorage.getItem(STORAGE_KEY);if(saved==='list'||saved==='week'||saved==='month')preference=saved}catch{}
+{const saved=viewPrefs.get('calendar_view');if(saved==='list'||saved==='week'||saved==='month')preference=saved}
 const effectiveView=()=>!desktop.matches&&preference==='week'?'list':preference||defaultView();
 let view=effectiveView();
 const thisWeek=()=>new Date(ranges().weekStart);
@@ -36,14 +36,21 @@ function render(next){
 }
 const paint=()=>window.__KPTU_RENDER_CALENDAR__?.();
 function reset(){revision++;pendingDays=0;days=14;busy=false;error=false}
-function select(next){if(next==='week'&&!desktop.matches)return;preference=next;try{localStorage.setItem(STORAGE_KEY,next)}catch{}if(next===view)return;view=next;reset();paint();window.KPTUCalendarPersistence?.refresh()}
+function select(next){if(next==='week'&&!desktop.matches)return;preference=next;viewPrefs.set('calendar_view',next);if(next===view)return;view=next;reset();paint();window.KPTUCalendarPersistence?.refresh()}
 function move(delta){if(view==='month')return false;reset();const cursor=view==='week'?weekStart:start;cursor.setTime(addSeoulDays(cursor,delta*(view==='week'?7:14)).getTime());paint();window.KPTUCalendarPersistence?.refresh();return true}
 function begin(){busy=true;error=false;paint();return revision}
 function finish(at,ok){if(at!==revision||view==='month')return;busy=false;error=!ok;if(ok&&pendingDays){days=pendingDays;pendingDays=0}paint()}
+// JOURNAL-하루일정다시: 업무일지 [달력 ›]가 그 날짜가 든 화면으로 옮긴다. 월간 = 그 달(team.js의 달 위치), 주간 = 그 주 월요일, 목록 = 그 날부터.
+function showDay(day){
+  const d=seoulDayStart(day);if(!Number.isFinite(d.getTime()))return false;
+  if(view==='month'){window.__KPTU_CALENDAR_SHOW_MONTH__?.(d);return true}
+  if(view==='week'){weekStart=new Date(addSeoulDays(d,-((seoulParts(d).weekday+6)%7)).getTime());resetWeekScroll()}else start=d;
+  reset();paint();window.KPTUCalendarPersistence?.refresh();return true;
+}
 async function more(){if(view!=='list'||busy)return;pendingDays=pendingDays||(error?days:days+14);busy=true;error=false;paint();await window.KPTUCalendarPersistence?.refresh({appendPage:true})}
-window.KPTUCalendarView={render,range,move,begin,finish,cancel:()=>{revision++;pendingDays=0;busy=false;error=false;paint()},current:()=>view,setTasks:list=>{tasks=list;if(view!=='month')paint()},dayItems:date=>options?dayItems(options,date,tasks):[]};
+window.KPTUCalendarView={render,range,move,showDay,begin,finish,cancel:()=>{revision++;pendingDays=0;busy=false;error=false;paint()},current:()=>view,setTasks:list=>{tasks=list;if(view!=='month')paint()},dayItems:date=>options?dayItems(options,date,tasks):[]};
 document.querySelectorAll('[data-calendar-view]').forEach(b=>b.addEventListener('click',()=>select(b.dataset.calendarView)));
-document.querySelector('#calendarTodayBtn')?.addEventListener('click',()=>{if(view!=='month'){if(view==='week')weekStart=thisWeek();else start=today();reset();paint();window.KPTUCalendarPersistence?.refresh()}else window.__KPTU_CALENDAR_TODAY__?.()});
+document.querySelector('#calendarTodayBtn')?.addEventListener('click',()=>{if(view!=='month'){if(view==='week'){weekStart=thisWeek();resetWeekScroll()}else start=today();reset();paint();window.KPTUCalendarPersistence?.refresh()}else window.__KPTU_CALENDAR_TODAY__?.()});
 
 function resizeView(){const next=effectiveView();if(next!==view){view=next;reset();paint();window.KPTUCalendarPersistence?.refresh()}else paint()}
 if(desktop.addEventListener)desktop.addEventListener('change',resizeView);else desktop.addListener(resizeView);

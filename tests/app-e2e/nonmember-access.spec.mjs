@@ -1,8 +1,10 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {test, expect} from '@playwright/test';
+import { signInWithSession } from './helpers/session-login.mjs';
 import {loginEntry} from './helpers/login-entry.mjs';
 
 const sb = 'https://xmlkxfjeagycwttklxjw.supabase.co';
-const base = 'http://127.0.0.1:8123/app/';
+const base = `${appOrigin}/app/`;
 
 for (const width of [390, 1280]) {
   test(`nonmember gets only denial and logout, including legacy invite at ${width}px`, async ({page}) => {
@@ -23,11 +25,8 @@ for (const width of [390, 1280]) {
       return route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify(data)});
     });
     await page.goto(loginEntry(base+'?invite=retired-token&view=team&focus=access-requests'));
-    await page.locator('#emailAuthToggle').click();
     await expect(page.locator('[data-auth-tab="signup"],#inviteNotice')).toHaveCount(0);
-    await page.locator('#authEmail').fill('nonmember@example.test');
-    await page.locator('#authPassword').fill('synthetic-password');
-    await page.locator('#authSubmit').click();
+    await signInWithSession(page,'nonmember@example.test');
     await expect(page.locator('#accessDeniedView')).toBeVisible();
     await expect(page.locator('#accessDeniedView')).toHaveText('접근 권한이 없습니다 로그아웃');
     await expect(page.locator('main button:visible')).toHaveText(['로그아웃']);
@@ -45,7 +44,7 @@ for (const width of [390, 1280]) {
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(/\/app\/login\//);
     expect(calls.filter(x=>x.path==='/auth/v1/logout')).toHaveLength(1);
-    await expect(page.locator('#emailAuthToggle')).toBeVisible();
+    await expect(page.locator('#googleLoginBtn')).toBeVisible();
     await page.waitForFunction(()=>window.KPTURuntime?.session);
     expect(await page.evaluate(()=>window.KPTURuntime.session.read())).toBeNull();
     expect(errors).toEqual([]);

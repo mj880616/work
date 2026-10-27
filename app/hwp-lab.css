@@ -1,0 +1,26 @@
+/* HWP 편집 화면(?view=hwp: 내 기기 파일·Drive 편집). 머리줄·버튼 배치와 편집기 frame 높이만 정하고 나머지는 공용 카드·버튼을 쓴다. */
+.hwp-lab [hidden]{display:none}
+.hwp-lab .hwp-lab-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-bottom:8px}
+.hwp-lab .hwp-lab-head h2{flex:1 1 auto;min-width:0;margin:0;font-size:18px;line-height:1.35;font-weight:800}
+.hwp-lab .hwp-lab-note{margin:0 0 12px;color:var(--kptu-muted);font-size:var(--kptu-text-meta)}
+.hwp-lab .hwp-lab-actions:not([hidden]){display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.hwp-lab .hwp-lab-actions button{min-height:var(--kptu-touch-target)}
+.hwp-lab .hwp-drive-bar a:not([hidden]){display:inline-flex;align-items:center;min-height:var(--kptu-touch-target);padding:0 4px}
+.hwp-lab .hwp-lab-status{min-height:1.5em;margin:10px 0;font-size:var(--kptu-text-body);color:var(--kptu-ink);overflow-wrap:anywhere}
+.hwp-lab .hwp-lab-status[data-state="error"]{color:var(--kptu-danger)}
+.hwp-lab .hwp-lab-editor{height:max(480px,calc(100dvh - 260px));border:1px solid var(--kptu-border);border-radius:8px;overflow:hidden;background:var(--kptu-surface)}
+.hwp-lab .hwp-lab-editor iframe{display:block}
+/* Phone: [파일 선택] on its own row, the two save buttons side by side in equal halves. */
+@media(max-width:760px){
+  .hwp-lab .hwp-lab-head{display:block}
+  .hwp-lab .hwp-lab-head h2{margin-bottom:10px}
+  /* UI-버튼전수조사(2026-10-24): 폰도 버튼은 글자 폭(폭 전체 반반 칸 대신 한 줄에 나란히, 넘치면 다음 줄). */
+  .hwp-lab .hwp-file-actions:not([hidden]){display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+  .hwp-lab .hwp-file-actions button{width:auto;margin:0}
+}
+/* PC: title and buttons share one row so the editor takes the rest of the window. */
+@media(min-width:1024px){
+  .hwp-lab .hwp-lab-head h2{flex:0 1 auto;margin-right:auto}
+  .hwp-lab .hwp-lab-note{margin-bottom:4px}
+  .hwp-lab .hwp-lab-editor{height:max(560px,calc(100dvh - 200px - var(--kptu-topline-space,0px)))}
+}

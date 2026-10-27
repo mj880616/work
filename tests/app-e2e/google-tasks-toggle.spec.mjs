@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { loginEntry } from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 const TEST_ORIGIN=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 
 // TASK-구현 PR 1: completing or reopening a Google task shows at once and saves in the background.
@@ -26,7 +27,8 @@ async function mockBase(page){
 
 // Google state lives in `google`; overview answers from it unless a test holds or overrides the answer.
 async function openTasks(browser,{onToggle,onOverview,reducedMotion='no-preference',extra={}}={}){
-  const context=await browser.newContext({timezoneId:'Asia/Seoul',reducedMotion});
+  // UI-PC할일: 묶음 목록 시험은 목록이 그대로인 중간 폭(900px)에서 본다(1024px 이상은 기한별 열, tasks-pc-columns.spec.mjs).
+  const context=await browser.newContext({timezoneId:'Asia/Seoul',reducedMotion,viewport:{width:900,height:800}});
   const page=await context.newPage();
   await page.clock.setFixedTime(new Date(NOW));
   await mockBase(page);
@@ -46,10 +48,7 @@ async function openTasks(browser,{onToggle,onOverview,reducedMotion='no-preferen
     return ok(route,{connected:true,authorized:true,needs_reconnect:false,tasks:snapshot});
   });
   await page.goto(loginEntry(`${TEST_ORIGIN}/app/?view=calendar`));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('qa@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'qa@example.org');
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:10000});
   await expect.poll(()=>page.evaluate(()=>typeof window.KPTURouter?.go==='function'),{timeout:10000}).toBeTruthy();
   await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));

@@ -1,15 +1,19 @@
-import {seoulDateKey,seoulParts,seoulDate,seoulDayStart,addSeoulDays,seoulClock,formatSeoulTime} from './meeting-time.js?v=2';
+import {seoulDateKey,seoulParts,seoulDate,seoulDayStart,addSeoulDays,seoulClock,formatSeoulTime} from './meeting-time.js';
+import {canDrag,dayDiff as dragDayDiff} from './calendar-drag-model.js';
+import {eventColor} from './home-read-model.js';
 (()=>{
   if(window.KPTUCalendarMonthView)return;
   const DAY_MS=86400000;
   const mq760=window.matchMedia('(max-width:760px)');
   const mq1024=window.matchMedia('(min-width:1024px)');
-  // Navigation is optional during startup; retain the same 12px click protection if its import fails.
-  const tapSlop=()=>window.KPTUMobileSwipeNavigation?.tapSlop??12;
+  // Up to 12px per axis is still a tap; a larger move suppresses the release click.
+  const tapSlop=()=>12;
   let last=null,touchStart=null,suppressUntil=0,resizeFrame=0;
   let layoutSize={width:document.documentElement.clientWidth,height:document.documentElement.clientHeight};
   // Google tasks by due date (CAL-할일). calendar-tasks.js owns this list and hands it over with setTasks().
   let tasks=[],tasksSig='';
+  // CAL-끌어옮기기(PC 월간): 끄는 동안 옮겨 갈 날짜 칸 표시도 이 renderer가 그린다. 상태는 calendar-drag.js가 setDrag로 넘긴다(메모리만).
+  let drag=null;
 
   const pad=n=>String(n).padStart(2,'0');
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -38,8 +42,7 @@ import {seoulDateKey,seoulParts,seoulDate,seoulDayStart,addSeoulDays,seoulClock,
     return d;
   }
   function googleColor(ev,state){
-    const cal=state?.calendars?.find(x=>x.id===ev.calendarId);
-    return ev.color||state?.colors?.[ev.calendarId]||cal?.backgroundColor||'#4285f4';
+    return eventColor(ev,state)||'#4285f4';
   }
   function normalizeGoogle(ev,state){
     const start=dateOnly(ev.start),allDay=!!ev.allDay||/^\d{4}-\d{2}-\d{2}$/.test(String(ev.start||'')),endRaw=ev.end?dateOnly(ev.end):new Date(start),color=googleColor(ev,state);
@@ -241,7 +244,7 @@ import {seoulDateKey,seoulParts,seoulDate,seoulDayStart,addSeoulDays,seoulClock,
       const dayCaps=mq760.matches?Array.from({length:7},(_,col)=>laneCap(Math.max(0,...week.segments.filter(seg=>seg.startCol<=col&&seg.endCol>=col).map(seg=>seg.lane+1)),layout)):Array(7).fill(lanes);
       week.segments.forEach(seg=>{
         if(!mq760.matches){
-          if(seg.lane<lanes)layer.appendChild(eventButton(seg));
+          if(seg.lane<lanes){const button=eventButton(seg);if(mq1024.matches&&canDrag(seg.ev.calendarId,options.googleState))button.dataset.drag='day';layer.appendChild(button)}
           else for(let col=seg.startCol;col<=seg.endCol;col++)hidden[col]++;
           return;
         }
@@ -266,10 +269,24 @@ import {seoulDateKey,seoulParts,seoulDate,seoulDayStart,addSeoulDays,seoulClock,
       wrap.append(dayGrid,layer);weeksBox.appendChild(wrap);
     });
     grid.appendChild(weeksBox);
+    paintDrag(grid);
     window.__KPTU_MONTH_VIEW_RANGE__={start:new Date(range.start),end:new Date(range.end),weeks:range.weeks,days:range.days};
     return true;
   }
-  // Menu gestures belong to mobile-swipe-navigation.js. Only guard the release click here,
+  function paintDrag(grid){
+    grid.querySelectorAll('.cmv-drop').forEach(el=>el.classList.remove('cmv-drop','cmv-drop-blocked'));
+    grid.querySelectorAll('.cmv-drop-label').forEach(el=>el.remove());
+    grid.querySelectorAll('.cmv-drag-source').forEach(el=>el.classList.remove('cmv-drag-source'));
+    grid.classList.toggle('cmv-dragging',!!drag);
+    if(!drag)return;
+    grid.querySelectorAll('[data-google-event]').forEach(el=>{if(el.dataset.googleEvent===drag.key.id&&el.dataset.googleCalendar===drag.key.calendarId)el.classList.add('cmv-drag-source')});
+    const first=key(drag.next.start),last=key(drag.next.allDay?addSeoulDays(drag.next.end,-1):new Date(Math.max(dateOnly(drag.next.start).getTime(),Date.parse(drag.next.end)-1)));
+    const cells=[...grid.querySelectorAll('.cal-cell[data-date]')].filter(c=>dragDayDiff(first,c.dataset.date)>=0&&dragDayDiff(c.dataset.date,last)>=0);
+    cells.forEach(c=>c.classList.add('cmv-drop',...(drag.blocked?['cmv-drop-blocked']:[])));
+    if(cells[0]){const tag=document.createElement('span');tag.className='cmv-drop-label';tag.setAttribute('aria-hidden','true');tag.textContent=drag.label||'';cells[0].append(tag)}
+  }
+  function setDrag(next){drag=next;const grid=document.querySelector('#calendarGrid');if(grid)paintDrag(grid)}
+  // Only guard the release click here (no tab-swipe exists any more),
   // including events and overflow, without consuming touch events or restricting browser pan.
   function bindTouchGuard(){
     const grid=document.querySelector('#calendarGrid');if(!grid||grid.dataset.cmvTouchGuard==='1')return;
@@ -326,7 +343,7 @@ import {seoulDateKey,seoulParts,seoulDate,seoulDayStart,addSeoulDays,seoulClock,
   if(mq760.addEventListener)mq760.addEventListener('change',forceRerender);else mq760.addListener?.(forceRerender);
   document.addEventListener('toggle',event=>{if(event.target?.id==='googleCalendarPanel')forceRerender()},true);
 
-  window.KPTUCalendarMonthView={render,googleColor,normalizeGoogle,segmentWeeks,eventButton,visibleRange,setNavigate,suppressClick,setTasks,taskButton,dayEvents:date=>last?dayEvents(allEvents(last),date):[]};
+  window.KPTUCalendarMonthView={render,googleColor,normalizeGoogle,segmentWeeks,eventButton,visibleRange,setNavigate,suppressClick,setTasks,taskButton,dayEvents:date=>last?dayEvents(allEvents(last),date):[],setDrag};
   if(window.__KPTU_CALENDAR_MOVE_MONTH__)setNavigate(window.__KPTU_CALENDAR_MOVE_MONTH__);
   window.__KPTU_CALENDAR_MONTH_VIEW_READY__=Promise.resolve(true);
 })();

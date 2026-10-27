@@ -1,5 +1,7 @@
+import { installViewPrefsServer } from './view-prefs-server.mjs';
 import { expect } from '@playwright/test';
 import { loginEntry } from './login-entry.mjs';
+import { signInWithSession } from './session-login.mjs';
 
 const ORIGIN=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const NOW=Date.parse('2026-10-15T03:00:00.000Z');
@@ -25,9 +27,16 @@ const EVENTS=[
     start:'2026-10-21',end:'2026-10-22',allDay:true,color:'#4285f4'}
 ];
 
-export async function openEmphasisFixture(page,{view="month",events=EVENTS,tasks=TASKS,now=NOW,orgs=[],links=[],projects=[],onLinks=null}={}){
+// The calendar's Google read (calendar-persistence.js) is a background module: when the shell is revealed its ready promise may not
+// exist yet, and awaiting an undefined global returns at once. Wait for the promise to exist, then for it (status + first events read).
+export async function calendarEventsReady(page){
+  await expect.poll(()=>page.evaluate(()=>!!window.__KPTU_CALENDAR_PERSISTENCE_READY__)).toBe(true);
+  await page.evaluate(()=>window.__KPTU_CALENDAR_PERSISTENCE_READY__);
+}
+
+export async function openEmphasisFixture(page,{view="month",events=EVENTS,tasks=TASKS,now=NOW,orgs=[],links=[],projects=[],onLinks=null,prefsOptions={}}={}){
   const calls=[],external=[];
-  if(view!=="default")await page.addInitScript(v=>{try{localStorage.setItem("kptu-calendar-view",v)}catch{}},view);
+  const prefs=await installViewPrefsServer(page,view!=="default"?{calendar_view:view}:null,prefsOptions);
   await page.clock.setFixedTime(new Date(now));
   // Catch every remote request: all API responses are synthetic and no production request can leave the browser.
   await page.route('**/*',async route=>{
@@ -48,21 +57,21 @@ export async function openEmphasisFixture(page,{view="month",events=EVENTS,tasks
     if(path==='/rest/v1/app_suborganization_assignees')return ok(orgs.map(o=>({organization_id:o.id,user_id:user.id})));
     if(path==='/functions/v1/google-calendar'){
       if(url.searchParams.get('action')==='event')return ok({event:events.find(e=>e.id===url.searchParams.get('eventId')&&e.calendarId===url.searchParams.get('calendarId')),eventColors:{}});
-      return ok({connected:true,enabled:true,calendars:[{id:'qa-cal',summary:'QA',backgroundColor:'#4285f4',accessRole:'owner'}],calendar_ids:['qa-cal'],events});
+      // Like the real Edge: only action=events carries events (status never does), so events on screen mean the calendar's events read finished.
+      const status={connected:true,enabled:true,calendars:[{id:'qa-cal',summary:'QA',backgroundColor:'#4285f4',accessRole:'owner'}],calendar_ids:['qa-cal']};
+      return ok(url.searchParams.get('action')==='events'?{...status,events}:status);
     }
     if(path==='/functions/v1/google-tasks')return ok(url.searchParams.get('action')==='links'
       ?{links:[],meeting_links:[]}:{connected:true,authorized:true,needs_reconnect:false,tasks,pending_scope:'all'});
     return ok([]);
   });
   await page.goto(loginEntry(ORIGIN+'/app/?view=calendar'));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('qa@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'qa@example.org');
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
+  await calendarEventsReady(page);
   if(view==="month")await expect(page.locator('.cal-cell[data-date="2026-10-20"] .cmv-task-count')).toBeVisible();
   if(view==="month")await expect(page.locator('#calendarGrid [data-google-event="blue-0"]')).toBeVisible();
-  return {calls,external};
+  return {calls,external,prefs};
 }
 
 export function taskChip(page,id,root='#calendarDayList'){

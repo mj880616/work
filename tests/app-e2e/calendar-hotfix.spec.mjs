@@ -15,7 +15,7 @@ test('calendar hotfix removes stale local calendar UI and returns OAuth to Web2'
   expect(index).not.toContain('팀 캘린더');
   expect(index).not.toContain('개인 캘린더');
   expect(plus).not.toContain('eventCalendarScope');
-  expect(interactions).toContain('ciCreateAt');
+  expect(interactions).toContain('ciCreateSlot');
   expect(interactions).toContain('window.__KPTU_GOOGLE_EVENTS__');
   expect(index).not.toContain('id="eventGoogleColor" type="color"');
   expect(interactions).not.toContain('id="ciAppColor" type="color"');
@@ -33,13 +33,14 @@ test('calendar hotfix removes stale local calendar UI and returns OAuth to Web2'
   expect(callback).toContain("if (state?.split('.').includes('android')) u.searchParams.set('native', 'android')");
   expect(bridge).toContain("params.get('native')==='android'");
   expect(bridge).not.toContain("/Android/i.test(navigator.userAgent)");
-  expect(index).toContain('./loader-v2.js?v=377');
-  expect(index).toContain('./app.js?v=265');
-  expect(views).toContain("module('./calendar-persistence.js?v=17'");
-  expect(views).not.toContain("calendar-persistence.js?v=10");
+  expect(index).toContain('./loader-v2.js');
+  expect(index).toContain('./app.js');
+  expect(views).toContain("module('./calendar-persistence.js'");
+  expect(views).not.toContain("calendar-persistence.js?v=");
   expect(persistence).not.toContain('showGoogleCalendar');
   expect(persistence).toContain("addEventListener('kptu:session-changed'");
-  expect(calendarEdge).toContain("ids=Array.isArray(c.calendar_ids)?c.calendar_ids:['primary']");
+  // #1256 added an optional single-calendar read (onlyCalendarId); the default still reads the saved calendar list.
+  expect(calendarEdge).toContain("Array.isArray(c.calendar_ids)?c.calendar_ids:['primary']");
   expect(calendarEdge).toContain("singleEvents:'true'");
   expect(calendarEdge).toContain("orderBy:'startTime'");
 

@@ -1,5 +1,7 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {test, expect} from '@playwright/test';
 import {loginEntry} from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 const supabase = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 
@@ -22,11 +24,8 @@ async function mock(page, role) {
 for (const role of ['owner', 'author']) {
   test(`${role} workspace does not expose member approval from a legacy link`, async ({page}) => {
     await mock(page, role);
-    await page.goto(loginEntry('http://127.0.0.1:8123/app/?view=team&focus=access-requests'));
-    await page.locator('#emailAuthToggle').click();
-    await page.locator('#authEmail').fill('qa@example.org');
-    await page.locator('#authPassword').fill('password123');
-    await page.locator('#authSubmit').click();
+    await page.goto(loginEntry(`${appOrigin}/app/?view=team&focus=access-requests`));
+    await signInWithSession(page,'qa@example.org');
     await expect(page.locator('#teamView')).toBeVisible();
     await expect(page.locator('#soTeamSection')).toBeVisible();
     await expect(page.locator('#aaReviewSection,#aaHomeCard,.aa-nav-badge,#memberList,#inviteBtn,#inviteModal')).toHaveCount(0);

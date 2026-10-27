@@ -13,12 +13,58 @@ on:
       - 'tests/meeting-draft-parser.test.mjs'
       - 'tests/meeting-time.test.mjs'
       - 'tests/seoul-time.test.mjs'
+      - 'tests/time-input.test.mjs'
+      - 'tests/meeting-compact.test.mjs'
+      - 'tests/select-menu.test.mjs'
       - 'tests/basket-data.test.mjs'
+      - 'tests/task-files.test.mjs'
+      - 'tests/task-note-files.test.mjs'
+      - 'tests/file-actions.test.mjs'
+      - 'tests/library-photo.test.mjs'
+      - 'tests/library-photoset.test.mjs'
+      - 'tests/activity-photo.test.mjs'
+      - 'tests/report-views.test.mjs'
+      - 'tests/chip-no-ellipsis.test.mjs'
+      - 'tests/grid-fr-guard.test.mjs'
+      - 'tests/drive-summary-refresh.test.mjs'
       - 'tests/basket-classification.test.mjs'
       - 'tests/basket-ai-handoff.test.mjs'
       - 'tests/basket-upload.test.mjs'
+      - 'tests/basket-ocr-text.test.mjs'
+      - 'tests/basket-ocr.test.mjs'
+      - 'tests/basket-ocr-runtime.test.mjs'
+      - 'tests/hwp-lab-pin.test.mjs'
+      - 'scripts/hwp-lab/**'
+      - 'scripts/pdf/**'
+      - 'tests/meeting-file-parse.test.mjs'
+      - 'tests/meeting-when.test.mjs'
+      - 'tests/meeting-columns.test.mjs'
+      - 'tests/report-kinds.test.mjs'
+      - 'tests/pdf-lib-pin.test.mjs'
+      - 'tests/markdown-view.test.mjs'
+      - 'tests/html-frame.test.mjs'
+      - 'scripts/markdown/**'
+      - 'scripts/editor/**'
+      - 'tests/ed-editor.test.mjs'
+      - 'tests/ed-window.test.mjs'
+      - 'tests/update-window.test.mjs'
+      - 'tests/record-doc.test.mjs'
       - 'tests/home-read-model.test.mjs'
       - 'tests/english-labels.test.mjs'
+      - 'tests/context-menu-sites.test.mjs'
+      - 'tests/ledger-import-model.test.mjs'
+      - 'tests/ledger-import-fixture.mjs'
+      - 'tests/ledger-browse-model.test.mjs'
+      - 'tests/global-search-model.test.mjs'
+      - 'tests/ledger-candidate-model.test.mjs'
+      - 'tests/ledger-export-model.test.mjs'
+      - 'tests/ledger-auto-model.test.mjs'
+      - 'tests/calendar-ref-model.test.mjs'
+      - 'tests/overlap-model.test.mjs'
+      - 'tests/overlap-weekly.test.mjs'
+      - 'tests/overlap-paths.test.mjs'
+      - 'tests/ledger-merge-model.test.mjs'
+      - 'tests/ledger-fix-model.test.mjs'
       - 'scripts/check-app-smoke-contract.mjs'
       - 'scripts/check-app-smoke-contract.test.mjs'
       - 'scripts/package.json'
@@ -36,12 +82,58 @@ on:
       - 'tests/meeting-draft-parser.test.mjs'
       - 'tests/meeting-time.test.mjs'
       - 'tests/seoul-time.test.mjs'
+      - 'tests/time-input.test.mjs'
+      - 'tests/meeting-compact.test.mjs'
+      - 'tests/select-menu.test.mjs'
       - 'tests/basket-data.test.mjs'
+      - 'tests/task-files.test.mjs'
+      - 'tests/task-note-files.test.mjs'
+      - 'tests/file-actions.test.mjs'
+      - 'tests/library-photo.test.mjs'
+      - 'tests/library-photoset.test.mjs'
+      - 'tests/activity-photo.test.mjs'
+      - 'tests/report-views.test.mjs'
+      - 'tests/chip-no-ellipsis.test.mjs'
+      - 'tests/grid-fr-guard.test.mjs'
+      - 'tests/drive-summary-refresh.test.mjs'
       - 'tests/basket-classification.test.mjs'
       - 'tests/basket-ai-handoff.test.mjs'
       - 'tests/basket-upload.test.mjs'
+      - 'tests/basket-ocr-text.test.mjs'
+      - 'tests/basket-ocr.test.mjs'
+      - 'tests/basket-ocr-runtime.test.mjs'
+      - 'tests/hwp-lab-pin.test.mjs'
+      - 'scripts/hwp-lab/**'
+      - 'scripts/pdf/**'
+      - 'tests/meeting-file-parse.test.mjs'
+      - 'tests/meeting-when.test.mjs'
+      - 'tests/meeting-columns.test.mjs'
+      - 'tests/report-kinds.test.mjs'
+      - 'tests/pdf-lib-pin.test.mjs'
+      - 'tests/markdown-view.test.mjs'
+      - 'tests/html-frame.test.mjs'
+      - 'scripts/markdown/**'
+      - 'scripts/editor/**'
+      - 'tests/ed-editor.test.mjs'
+      - 'tests/ed-window.test.mjs'
+      - 'tests/update-window.test.mjs'
+      - 'tests/record-doc.test.mjs'
       - 'tests/home-read-model.test.mjs'
       - 'tests/english-labels.test.mjs'
+      - 'tests/context-menu-sites.test.mjs'
+      - 'tests/ledger-import-model.test.mjs'
+      - 'tests/ledger-import-fixture.mjs'
+      - 'tests/ledger-browse-model.test.mjs'
+      - 'tests/global-search-model.test.mjs'
+      - 'tests/ledger-candidate-model.test.mjs'
+      - 'tests/ledger-export-model.test.mjs'
+      - 'tests/ledger-auto-model.test.mjs'
+      - 'tests/calendar-ref-model.test.mjs'
+      - 'tests/overlap-model.test.mjs'
+      - 'tests/overlap-weekly.test.mjs'
+      - 'tests/overlap-paths.test.mjs'
+      - 'tests/ledger-merge-model.test.mjs'
+      - 'tests/ledger-fix-model.test.mjs'
       - 'scripts/check-app-smoke-contract.mjs'
       - 'scripts/check-app-smoke-contract.test.mjs'
       - 'scripts/package.json'
@@ -64,7 +156,10 @@ jobs:
           find app -maxdepth 1 -type f -name '*.js' -print0 | xargs -0 -n1 node --check
 
       - name: Check meeting Korea time conversions
-        run: node --test tests/meeting-time.test.mjs tests/seoul-time.test.mjs
+        run: node --test tests/meeting-time.test.mjs tests/seoul-time.test.mjs tests/time-input.test.mjs tests/meeting-compact.test.mjs tests/select-menu.test.mjs tests/calendar-week-timeline.test.mjs tests/calendar-drag-model.test.mjs tests/calendar-create-slot.test.mjs
+
+      - name: Check shared Enter-to-save rule (UI-엔터저장)
+        run: node --test tests/enter-save.test.mjs
 
       - name: Check meeting draft parser
         run: node --test tests/meeting-draft-parser.test.mjs
@@ -73,13 +168,46 @@ jobs:
         run: node --test tests/document-delete.test.mjs
 
       - name: Check home KST day and week boundaries
-        run: node --test tests/home-read-model.test.mjs tests/home-read-cache.test.mjs
+        run: node --test tests/home-read-model.test.mjs tests/home-read-cache.test.mjs tests/data-freshness.test.mjs tests/collection-status.test.mjs tests/collection-cadence.test.mjs
+
+      - name: Check phone bottom tab selection rule
+        run: node --test tests/mobile-tab-selection.test.mjs
 
       - name: Check basket data and sequential file uploads
-        run: node --test tests/basket-data.test.mjs tests/basket-upload.test.mjs tests/basket-classification.test.mjs tests/basket-ai-handoff.test.mjs tests/basket-link-records.test.mjs tests/basket-record-summary-guide.test.mjs
+        run: node --test tests/basket-data.test.mjs tests/basket-upload.test.mjs tests/basket-ocr-text.test.mjs tests/basket-ocr.test.mjs tests/basket-ocr-runtime.test.mjs tests/basket-classification.test.mjs tests/basket-ai-handoff.test.mjs tests/basket-link-records.test.mjs tests/basket-record-delete.test.mjs tests/basket-manual-link.test.mjs tests/reference-bundles-data.test.mjs tests/basket-ref-bundle-ai.test.mjs tests/update-places-reference.test.mjs tests/basket-ai-summary.test.mjs tests/todo-radar-data.test.mjs tests/basket-note-tasks.test.mjs tests/basket-kind-filter.test.mjs tests/basket-record-summary-guide.test.mjs tests/basket-library-send.test.mjs tests/meeting-basket-send.test.mjs tests/diary-data.test.mjs tests/journal-data.test.mjs tests/journal-weekly.test.mjs tests/weekly-file-lines.test.mjs tests/journal-org-summary.test.mjs tests/journal-meeting-kinds.test.mjs tests/project-order.test.mjs tests/basket-file-docs.test.mjs tests/document-categories.test.mjs tests/basket-note-pin.test.mjs tests/update-requests.test.mjs tests/update-journal.test.mjs tests/task-files.test.mjs tests/task-note-files.test.mjs tests/file-actions.test.mjs tests/chip-no-ellipsis.test.mjs tests/grid-fr-guard.test.mjs tests/library-ai-fill.test.mjs tests/library-drop.test.mjs tests/quick-links.test.mjs tests/feed-model.test.mjs tests/call-personal-screen.test.mjs tests/call-user-edit.test.mjs tests/project-trash-model.test.mjs tests/summary-part-unify.test.mjs tests/tg-sender-model.test.mjs tests/tg-day-model.test.mjs
+
+      - name: Check library toggle tree model
+        run: node --test tests/library-tree.test.mjs tests/library-bulk.test.mjs tests/library-view-pref.test.mjs tests/category-chips.test.mjs tests/org-dispute-stage-model.test.mjs tests/view-prefs.test.mjs tests/theme-contrast.test.mjs tests/theme-bootstrap.test.mjs tests/library-upload-organization.test.mjs tests/library-rename.test.mjs tests/library-photo.test.mjs tests/report-photos.test.mjs tests/library-photoset.test.mjs tests/activity-photo.test.mjs tests/report-views.test.mjs
+
+      - name: Check split-resize column math
+        run: node --test tests/split-resize-math.test.mjs
+
+      - name: Check Drive copy refresh batching after saves
+        run: node --test tests/drive-summary-refresh.test.mjs
+
+      - name: Check pinned HWP editor files
+        run: node --test tests/hwp-lab-pin.test.mjs
+
+      - name: Meeting files·text grouping and pinned PDF reader
+        run: node --test tests/meeting-file-parse.test.mjs tests/pdf-lib-pin.test.mjs
+
+      - name: Meeting card time, kind colors and PC layout
+        run: node --test tests/meeting-when.test.mjs tests/meeting-columns.test.mjs tests/report-kinds.test.mjs tests/report-links.test.mjs
+
+      - name: Markdown display pin and safety unit tests
+        run: node --test tests/markdown-view.test.mjs tests/md-telegram.test.mjs tests/html-frame.test.mjs tests/note-markdown.test.mjs tests/basket-notes-data.test.mjs tests/number-shape.test.mjs
+
+      - name: Unified editor pin, saved form and text export unit tests (ED-통합편집기)
+        run: node --test tests/ed-editor.test.mjs tests/ed-window.test.mjs tests/update-window.test.mjs tests/record-doc.test.mjs tests/note-doc.test.mjs
 
       - name: Check English eyebrow cleanup
         run: node --test tests/english-labels.test.mjs
+
+      - name: Global search model (SEARCH-전체검색 words, highlights, Google filters, groups, error codes)
+        run: node --test tests/global-search-model.test.mjs
+
+      - name: Ledger import checker (CSV·xlsx·import file, synthetic sheet)
+        run: node --test tests/ledger-import-model.test.mjs tests/ledger-browse-model.test.mjs tests/ledger-candidate-model.test.mjs tests/ledger-export-model.test.mjs tests/ledger-auto-model.test.mjs tests/calendar-ref-model.test.mjs tests/ledger-fix-model.test.mjs tests/overlap-model.test.mjs tests/overlap-paths.test.mjs tests/overlap-weekly.test.mjs tests/ledger-merge-model.test.mjs
 
       - name: Check removed team AI app path
         run: node --test tests/security/team-ai-app-removed.test.mjs
@@ -88,10 +216,28 @@ jobs:
         run: node --test tests/security/app-tasks-loaded-writes.test.mjs
 
       - name: Check domain routing and service worker registration
-        run: node --test tests/domain/bokdoong-router.test.mjs tests/domain/web2-pwa-registration.test.mjs tests/domain/read-oauth-return-bridge.test.mjs
+        run: node --test tests/domain/bokdoong-router.test.mjs tests/domain/web2-pwa-registration.test.mjs tests/domain/read-oauth-return-bridge.test.mjs tests/domain/supabase-origin.test.mjs
+
+      - name: Check home, inbox, quick save and trash units (STAB-단위시험등록)
+        run: node --test tests/home-fill-data.test.mjs tests/home-fill-model.test.mjs tests/inbox-count.test.mjs tests/inbox-promise.test.mjs tests/quick-save-session.test.mjs tests/trash-actions.test.mjs
+
+      - name: Check notes, editor tables and text units (STAB-단위시험등록)
+        run: node --test tests/basket-note-folder.test.mjs tests/chatgpt-html.test.mjs tests/diary-doc.test.mjs tests/diary-onedrive.test.mjs tests/float-save.test.mjs tests/ed-table-colbuttons.test.mjs tests/ed-table-resize.test.mjs tests/note-files.test.mjs tests/preview-text.test.mjs tests/report-words.test.mjs
+
+      - name: Check library, project, share and upload units (STAB-단위시험등록)
+        run: node --test tests/library-select.test.mjs tests/project-fold.test.mjs tests/share-pages-label.test.mjs tests/share-photos.test.mjs tests/summary-copy-model.test.mjs tests/text-backfill-notice.test.mjs tests/upload-file-copy.test.mjs
+
+      - name: Check hardcoded color baseline (STAB-단위시험등록)
+        run: node --test tests/hardcoded-colors.test.mjs tests/context-menu-sites.test.mjs
 
       - name: Install locked smoke parser
         run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
+
+      - name: Check save keeps other active edit open (needs the locked parser) (STAB-단위시험등록)
+        run: node --test tests/save-other-active.test.mjs
+
+      - name: Check every tests/ unit test is registered in a workflow (STAB-단위시험등록)
+        run: node scripts/check-test-registration.mjs
 
       - name: Check recursive app dependency graph
         run: |
@@ -164,15 +310,20 @@ jobs:
           grep -q "workspacePrefetchStart" app/loader-v2.js
           grep -q "prefetched?.ok?prefetched.rows" app/team.js
           if grep -q "public-workspace.js" app/loader-v2.js; then echo 'anonymous Web2 boot returned to the public workspace'; exit 1; fi
-          grep -q 'class="brand-icon" src="./app-icon.svg?v=20260924-unicorn3"' app/index.html
+          grep -Fq 'class="brand-icon" src="./app-icon.svg"' app/index.html
           if grep -q 'class="leaf"' app/index.html; then echo 'green first-paint brand placeholder returned'; exit 1; fi
           if grep -Eq "favicon|apple-touch-icon|createElement\\('link'\\)" app/pwa.js; then echo 'PWA bootstrap returned to late icon mutation'; exit 1; fi
           if grep -R -q "20260913-3" app/index.html app/pwa.js app/windows-manifest.json app/sw.js; then echo 'stale Web2 icon version returned'; exit 1; fi
           if grep -R -q "20260924-unicorn2" app/index.html app/windows-manifest.json app/sw.js; then echo 'poisoned Web2 icon URL returned'; exit 1; fi
-          grep -q "const immutableAsset = versionedAsset && upstream.ok" cloudflare/bokdoong-router.mjs
+          grep -q "immutableAsset = await matchesManifest(incoming.pathname" cloudflare/bokdoong-router.mjs
+          if grep -q "cacheEverything" cloudflare/bokdoong-router.mjs; then echo 'unverified edge pinning of ?v= assets returned'; exit 1; fi
           if grep -q "home-dashboard-v2.js" app/view-loader.js; then echo 'removed home route returned'; exit 1; fi
           grep -q "__KPTU_TASK_WORKFLOW_READY__" app/view-loader.js
-          if grep -Eq "profile-settings.js|myspace-return.js" app/loader-v2.js app/view-loader.js; then echo 'removed personal view module was loaded'; exit 1; fi
+          # UI-프로필입구: 내 프로필은 [계정 ▾] 메뉴에서 열 때만 view-loader가 불러온다. 시작 로더(loader-v2.js)에는 넣지 않는다.
+          if grep -Eq "profile-settings.js|myspace-return.js" app/loader-v2.js; then echo 'personal view module was loaded at startup'; exit 1; fi
+          if grep -q "myspace-return.js" app/view-loader.js; then echo 'removed personal view module was loaded'; exit 1; fi
+          grep -q "profile-settings.js" app/view-loader.js
+          grep -q "dataset.profileOpen" app/topbar-actions.js
           test ! -f app/home-task-controls.js
           test ! -f app/home-task.css
           test ! -f app/library-public-toggle.js
@@ -213,7 +364,10 @@ jobs:
           grep -q "g.openEditor(null,{links:\[{project_id:current.id}\]})" app/project-system-v3.js
           if grep -q "할 일은 하위 프로젝트에 연결됩니다" app/project-system-v3.js; then echo 'top-level project task guard returned'; exit 1; fi
           grep -q "data-mrd-meeting" app/team.js
-          grep -q "/functions/v1/meeting-files" app/team.js
+          # MEET-파일AI분류: 새 사업 보고의 자료도 자료실 올리기(library-files, meeting_id 연결)로 올린다. meeting-files Edge는 meeting-from-files.js가 계속 쓴다.
+          grep -q "uploadFileForMeeting" app/team.js
+          grep -q "fd.append('meeting_id',target.id)" app/library-upload.js
+          grep -q "/functions/v1/meeting-files" app/meeting-from-files.js
           grep -q 'id="meetingTranscript"' app/index.html
           grep -q 'id="meetingNotes"' app/index.html
           grep -q 'id="meetingFiles" type="file" multiple' app/index.html
@@ -331,14 +485,16 @@ jobs:
           grep -q "data-ps3-delete-project" app/project-system-v3.js
           grep -q 'owner_id=eq.${encodeURIComponent(userId)}' app/project-catalog.js
           grep -q 'catalog.fetchSpaces(wid,user.id)' app/project-system-v3.js
-          grep -q "data-ps3-add-ws" app/project-system-v3.js
-          grep -q "data-ps3-progress-item" app/project-system-v3.js
-          grep -q "ps3-pg-summary" app/project-system-v3.js
-          grep -q "ps3-pg-history" app/project-system-v3.js
-          grep -q "data-ps3-quick-progress" app/project-system-v3.js
-          grep -q "insertProgress({workstreamId" app/project-system-v3.js
-          grep -q ".ps3-pg-line1" app/project-system-v3.css
-          grep -q ".ps3-pg-line2" app/project-system-v3.css
+          grep -q "data-ps3-record-input" app/project-system-v3.js
+          grep -q "data-ps3-records" app/project-system-v3.js
+          grep -q "workstream_id:null,author_id:e.owner,status_label:null" app/project-system-v3.js
+          grep -q "data-ps3-basket-note" app/project-system-v3.js
+          grep -q ".ps3-rec-line" app/project-system-v3.css
+          if grep -Eq "data-ps3-add-ws|data-ps3-progress-item|data-ps3-quick-progress|ps3ProgressModal" app/project-system-v3.js; then echo 'retired per-item progress UI returned'; exit 1; fi
+          # UI-연결요약수정: the shared link summary editor may be mounted only lazily from the record ⋯ [요약 수정] action (no always-on project basket editor).
+          grep -q "ps3RecordAction==='summary')editBasketSummary(b)" app/project-system-v3.js
+          test "$(grep -o 'mountLinkSummaryEditor(' app/project-system-v3.js | wc -l)" -eq 1
+          grep -q "if(!basketEditor){basketEditorKey=key;basketEditor=mountLinkSummaryEditor(body," app/project-system-v3.js
           if grep -Eq "ps3CreateType|ps3CreateVisibility|ps3AccessModal|ps3TypeModal|data-ps3-access|ps3ManageTypes" app/project-system-v3.js; then echo 'removed project type/access UI returned'; exit 1; fi
           if grep -q "bindPublication();" app/project-system-v3.js; then echo 'project publication execution path returned'; exit 1; fi
           grep -q "projects','\\[\\]'::jsonb" supabase/migrations/20260923074619_web2_project_owner_only.sql
@@ -363,13 +519,13 @@ jobs:
           if grep -q "data-ps3-kids-toggle" app/project-system-v3.js; then echo 'project child toggle returned'; exit 1; fi
           grep -q 'data-ps3-total' app/project-system-v3.js
           grep -q 'ps3-prow-kids' app/project-system-v3.js
-          grep -q 'progress.limit' app/project-system-v3.js
+          grep -q 'milestones.limit' app/project-system-v3.js
           grep -q 'kptu-list-row' app/project-system-v3.js
           grep -q 'kptu-list-row' app/suborganizations.js
           grep -q ".ps3-plist" app/project-system-v3.css
           if grep -Eq "ps3-project-card|ps3-kind|ps3-archive-row" app/project-system-v3.js app/project-system-v3.css; then echo 'project list card layout returned'; exit 1; fi
           grep -q "ps3-more" app/project-system-v3.js
-          grep -q "d.docs.slice(0,3)" app/project-system-v3.js
+          grep -Fq "d.docs.filter(x=>!off.has(categoryOf(x.category))).slice(0,5)" app/project-system-v3.js
           if grep -Eq "data-ps3-nav|data-ps3-doc-filter|ps3DocSearch" app/project-system-v3.js; then echo 'removed project chip row or document filter returned'; exit 1; fi
           grep -q "app-icon.svg" app/project-system-v3.css
           if grep -Eq 'id="projectModal"|id="projectCreateModal"|projectModalTitle|projectUpdates|projectChecks|projectComments' app/index.html; then echo 'legacy project modal returned'; exit 1; fi

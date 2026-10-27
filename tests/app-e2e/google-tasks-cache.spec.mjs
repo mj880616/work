@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { loginEntry } from './helpers/login-entry.mjs';
 import { openHome } from './helpers/home-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 // 묶음C-2: Google Tasks loads with one combined request, shows this device's last result first while a fresh copy
 // loads, keeps the last result when a refresh fails, drops the cache on sign-out or owner change, and still works
@@ -44,10 +45,7 @@ async function mockTasks(page,handler){
 
 async function login(page){
   await page.goto(loginEntry(`${TEST_ORIGIN}/app/?view=calendar`));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('qa@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'qa@example.org');
   await ready(page);
 }
 async function ready(page){
@@ -62,7 +60,8 @@ for(const nextOwner of ['other-home-owner',''])test(`home display copy is cleare
   const control=await openHome(page);await page.waitForFunction(()=>KPTUHome.metrics.readyAt);
   const copy=await page.evaluate(k=>JSON.parse(localStorage.getItem(k)),HOME_CACHE_KEY);
   expect(copy.owner).toBe('home-test');expect(copy.workspaceId).toBe('w');expect(copy.version).toBe(1);
-  expect(Object.keys(copy.cards.calendar.rows[0]).sort()).toEqual(['allDay','color','end','start','title']);
+  // CAL-저장본먼저: event and calendar ids let a deleted event leave the home copy at once.
+  expect(Object.keys(copy.cards.calendar.rows[0]).sort()).toEqual(['allDay','calendarId','color','end','id','start','title']);
   expect(copy.cards.tasks.tasks).toBeUndefined();
   if(nextOwner)control.setUserId(nextOwner);
   await page.evaluate(nextOwner=>{
@@ -101,12 +100,14 @@ test('reopening shows the last result first, marks the refresh, then replaces it
   await page.reload();await ready(page);await openTasks(page);
   await expect.poll(()=>holding).toBeTruthy();
   await expect(page.locator('#gtTaskSection')).toContainText('직전 결과');
-  await expect(page.locator('#gtTaskSection [data-gt-sync]')).toHaveText('새로 받는 중…');
+  // CAL-저장본먼저: the shared freshness line (data-freshness.js) marks the refresh.
+  await expect(page.locator('#gtTaskSection [data-gt-fresh]')).toHaveText('새로 불러오는 중');
   await expect(page.locator('#gtTaskBody')).not.toContainText('불러오는 중');
   release();
   await expect(page.locator('#gtTaskSection')).toContainText('새 결과');
   await expect(page.locator('#gtTaskSection')).not.toContainText('직전 결과');
   await expect(page.locator('#gtTaskSection [data-gt-sync]')).toHaveText('');
+  await expect(page.locator('#gtTaskSection [data-gt-fresh]')).toBeHidden();
   expect(JSON.parse(await cached(page)).tasks.map(t=>t.id)).toEqual(['t2']);
 });
 
@@ -125,7 +126,7 @@ for(const failure of ['overview','session readiness']){
       window.__qaRestoreEnsure=()=>{session.ensure=ensure};
     });
     await page.evaluate(()=>{window.KPTURouter.go('calendar',{source:'qa'});window.KPTURouter.go('tasks',{source:'qa'})});
-    await expect(page.locator('#gtTaskSection [data-gt-sync]')).toContainText('새로 받지 못했습니다 · 직전 결과 표시 중');
+    await expect(page.locator('#gtTaskSection [data-gt-fresh]')).toContainText('최신 아님 · 마지막 확인');
     await expect(page.locator('#gtTaskBody [data-google-task="t1"]')).toBeVisible();
     expect(JSON.parse(await cached(page)).tasks.map(t=>t.id)).toEqual(['t1']);
     const retry=page.getByRole('button',{name:'다시 시도',exact:true});
@@ -163,7 +164,8 @@ test('sign-out and owner change remove the cached Google Tasks; another owner ne
 });
 
 test('a cached copy from before 묶음C-4 (v1) is never shown and is removed',async({page})=>{
-  await mockBase(page);
+  // UI-PC할일: 묶음 목록 시험은 목록이 그대로인 중간 폭(900px)에서 본다(1024px 이상은 기한별 열, tasks-pc-columns.spec.mjs).
+  await page.setViewportSize({width:900,height:800});await mockBase(page);
   let release=()=>{},holding=false;
   await mockTasks(page,async action=>{
     if(action!=='overview')return {status:500,body:{error:'unexpected'}};
@@ -296,7 +298,7 @@ test('initial task load failure offers a short accessible retry at mobile width 
   const retry=page.getByRole('button',{name:'다시 시도',exact:true});
   await expect(retry).toBeVisible();
   await expect(page.getByRole('button',{name:'새로고침',exact:true})).toHaveCount(0);
-  await expect(page.locator('#newTaskBtn')).toBeVisible();
+  await expect(page.locator('#tasksView .home-quick [data-quick-save]')).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
   expect(calls).toEqual(['overview']);
   fail=false;await retry.click();
@@ -379,7 +381,8 @@ for(const phase of ['readiness','overview'])for(const transition of ['switch','l
       if(phase==='readiness')await page.evaluate(()=>window.__releaseReadiness());
       else{
         gates.previous.release();
-        await expect.poll(async()=>(await stats(page)).settled).toBe(finish==='current first'?3:1);
+        // Current first: its overview, link read, source-note read (BASKET-할일출처) and file read (TASK-파일붙이기) have all settled.
+        await expect.poll(async()=>(await stats(page)).settled).toBe(finish==='current first'?5:1);
       }
       await drain(page);
     };
@@ -414,7 +417,8 @@ for(const phase of ['readiness','overview'])for(const transition of ['switch','l
     expect(final.staleRows).toBe(0);
     expect(final.documentId).toBe(documentId);
     expect(final.ensures).toBe(2);
-    expect(final.apiCalls).toBe(expectedCalls+1); // One owner-scoped link read after the current overview.
+    // One owner-scoped link read, one source-note read (BASKET-할일출처) and one file read (TASK-파일붙이기) after the current overview.
+    expect(final.apiCalls).toBe(expectedCalls+3);
     expect(requests).toEqual({previous:phase==='overview'?1:0,current:1});
     expect(await page.evaluate(owner=>{
       const keys=Object.keys(localStorage).filter(key=>key.startsWith('kptu_owner_cache:'));

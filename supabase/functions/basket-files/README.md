@@ -12,6 +12,10 @@
 | `raw_text` | 새 메모에만 선택 입력, 20,000자까지, 수신된 공백·개행 보존. 파일만 저장 가능. |
 | `note_id` | 기존 메모에 추가할 때 UUID. 서버 owner workspace에 속한 메모만 조회·갱신. 기존 글·AI 설정은 보존. |
 
+파일 이름은 `req.formData()` 대신 `../_shared/multipart.ts`가 읽는다(library-files·meeting-files·workspace-drive 업로드도 같은 모듈 사용)(Deno 기본 해석기는 따옴표 안의 `;`·`=`에서 이름을 자름).
+따옴표 문자열·`\"` 이스케이프·UTF-8 원문을 그대로 읽고, `filename*=UTF-8''…`가 올바르면 그것을 우선한다.
+제어 문자를 지우고 `/`·`\` 앞 경로는 버린 뒤 앞뒤 공백을 자르며, 결과가 1~255자가 아니면 거절한다.
+
 클라이언트의 workspace·폴더 ID·Drive 파일 ID·AI 설정은 저장에 사용하지 않는다.
 메모당 합계 20개, 같은 Drive ID 중복 거절. 서버가 원래 파일명·MIME·크기와 Drive가
 반환한 ID로 `{drive_file_id,file_name,mime_type,size_bytes}`를 만든다.
@@ -80,6 +84,41 @@ Drive PUT 성공 응답 자체 유실·정리 실패·강제 종료는 파일이
 업로드·orphan 정리 흐름을 추출했다. 이번 PR은 library-files 소스를 변경하지 않는다.
 기존 업로드 경로 재배포를 피하기 위한 사용자 지정 예외이며 `_shared` 전환은 후속 원장 행으로 추적한다.
 
+## 노트 첨부 폴더(NOTE-파일붙이기) — 배포 대기
+
+`note_id`로 받은 행의 `kind`가 `note`(노트)이면 파일을 **Web2 바구니** 안의 하위 폴더 **노트 첨부**에 올린다.
+폴더는 요청 값이 아니라 서버가 읽은 행의 `kind`로 정하며, 업데이트(`basket`)·일기(`diary`)·새 행(`note_id` 없음)은 지금처럼 최상위 폴더를 쓴다.
+하위 폴더는 `_shared/drive-upload.ts`의 `ensurePrivateChildFolder`로 찾거나 만든다(할 일 첨부와 같은 규칙):
+소유·휴지통 아님·부모 하나(Web2 바구니)·권한 1개(소유자)인 폴더만 쓰고, 공유된 폴더(`drive_folder_not_private`)나
+공유 상태를 읽지 못한 폴더(`drive_folder_permissions_unavailable`)는 업로드 전에 409로 거절한다. 권한은 만들거나 지우지 않는다.
+첨부 기록은 기존 `app_notes.attachments`(새 테이블·DB 변경 없음)이고, 저장은 기존처럼 `updated_at`·`attachments` 조건부 갱신이라
+읽은 뒤 행이 바뀌면(예: 바구니로 돌리기) 저장하지 않고 올린 파일을 지운다. 자료실 목록은 `app_documents`만 읽으므로 이 파일은 자료실에 보이지 않는다.
+노트에서 [빼기]는 화면이 owner RLS PATCH로 `attachments`에서 그 항목만 지우고(Drive 무변경), 노트 삭제는 REST 삭제만 해 파일을 Drive에 남긴다(`note-delete`를 부르지 않음).
+업데이트에서 노트로 옮긴 노트의 기존 파일은 최상위 폴더에 그대로 둔다(옮기지 않음).
+
+## 메모 삭제(note-delete) — 배포 대기
+
+`POST ?action=note-delete`, JSON `{action:"note-delete",note_id,note_updated_at}`(정확히 이 3개 키, 4096 bytes까지).
+위와 같은 JWT `getUser`·owner workspace 확인 뒤 기존 `SUPABASE_ANON_KEY`와 caller JWT client로만 메모를
+조회·삭제한다(owner RLS 그대로, service_role은 `app_notes`를 읽거나 지우지 않음). ANON 설정이 없으면 503
+`note_delete_unavailable`로 아무것도 바꾸지 않는다.
+
+1. 메모 조회: 없음 404 `note_not_found`, 첨부 형식 이상·중복 409 `note_state_invalid`,
+   `updated_at` 불일치 409 `note_changed`. 이때 Drive·DB 쓰기 없음.
+2. 첨부마다 Drive 휴지통 이동: 저장·검증된 바구니 폴더만 사용(`existingOnly`, 폴더 생성 없음).
+   다른 메모나 `app_documents.file_id`가 같은 파일을 쓰면 건너뜀. 메타데이터 GET이 앱 접근 가능·내 소유·
+   폴더 아님·부모가 정확히 바구니 폴더 1개일 때만 `PATCH {trashed:true}`. 영구 `DELETE`는 하지 않는다.
+   건너뜀·4xx는 `failed`, 응답 유실·5xx·확인 불가는 `unknown`(재시도 없음), 이미 휴지통이면 `trashed`.
+   토큰·폴더 확인 실패면 전부 `failed`. 사진 글자 읽기 임시 문서는 기존 정리 규칙을 따르며 여기서 지우지 않는다.
+3. 휴지통 결과와 무관하게(사용자 결정) caller JWT로 `id`·`workspace_id`·`updated_at` 조건 삭제.
+   0행이면 다시 읽어 남아 있으면 409 `note_changed`, 없으면 404 `note_not_found`(동시 요청).
+   오류면 다시 읽어 없으면 성공, 있으면 500 `note_delete_failed`, 읽기 실패면 503 `note_delete_result_unknown`.
+
+응답은 항상 `{action:"note-delete",note_id,attachments_total,trashed,failed,unknown,ok,note_deleted,code?}`이며
+폴더 ID·토큰·Google 오류 본문은 넣지 않는다. 이 동작을 모르는 이전 배포는 JSON POST를 OCR로 보내
+`400 OCR_REQUEST_INVALID`(`action` 필드 없음)로 DB·Drive 접근 전에 거절한다. 화면은 이 응답만 구버전으로 보고
+기존 REST 삭제로 메모만 지운다. 검사: `tests/security/basket-note-delete.test.mjs`.
+
 ## 사진글자 준비 — 아직 운영 미적용
 
 기존 multipart 업로드와 별개인 OCR 경로를 준비한다. Google Drive의 기존
@@ -141,3 +180,23 @@ Drive 검증이나 정확히 한 번의 외부 문서 생성을 증명하는 것
 정상 owner가 실제 인식·임시삭제를 확인할 구체 경로/필요한 규칙 예외 또는 순서결정은 마지막 묶음에서 CC 확인한다. 운영·인증 우회 경로를 임의로 만들지 않는다.
 
 별도 검토 보완: 재시작한 persisted create_pending/create_unknown 시도는 정리·검색·소유/출처 검증의 거절 응답으로 failed/none으로 풀지 않는다. 이번 요청에서 새 시도 CAS가 확인되고 provider의 외부 CREATE가 아직 발송되지 않았다는 요청별 근거가 함께 있을 때만 known pre-POST 실패를 failed/none으로 기록한다. 기존 pending/unknown은 결과 불명과 같은 attempt를 보존하며 새 UUID/import로 우회하지 않는다.
+
+## 사진 보기(photo) — 배포 대기
+
+`GET ?action=photo&note_id=UUID&file_id=DRIVE_ID&size=small|large`(기본 `small`). 일기·바구니 메모 화면이
+사진을 작게(긴 변 480px)·크게(1600px) 보여 줄 때 쓴다. 쓰기는 하나도 하지 않는다.
+
+1. 위와 같은 JWT `getUser`·owner workspace 확인. 비로그인 401, owner 아님 403. 이때 메모·Drive 조회 없음.
+2. 입력 검사: `note_id` UUID, `file_id` Drive ID 형식, `size`는 `small|large`만. 아니면 400 `photo_request_invalid`.
+3. 메모 조회는 caller JWT client(owner RLS)와 서버의 workspace로만 한다(service_role은 `app_notes`를 읽지 않음).
+   ANON 설정이 없으면 503 `photo_unavailable`. 메모가 없거나 다른 workspace면 404 `note_not_found`,
+   그 파일이 그 메모의 `attachments`에 없으면 404 `photo_not_found`, 첨부가 사진(JPEG·PNG·WebP·GIF)이 아니면 415
+   `photo_not_image`. 여기까지 Drive 호출 없음.
+4. Drive 메타데이터 GET(`id,mimeType,ownedByMe,trashed,size,thumbnailLink`): id 일치·내 소유·휴지통 아님·사진 형식이
+   아니면 404 `photo_not_found`. Drive 썸네일 링크(`*.googleusercontent.com`만)의 크기를 바꿔 받아 그대로 돌려준다.
+   썸네일이 아직 없으면 5 MiB 이하 원본만 `alt=media`로 보낸다. 그 밖에·응답이 사진이 아니면 502 `photo_unavailable`.
+5. 성공 응답: 사진 바이트, `Content-Type` 사진 형식, `Cache-Control: private, max-age=3600`, `nosniff`.
+   실패 응답: `{action:"photo",ok:false,code}`, `Cache-Control: no-store`. 토큰·Drive 오류 본문·폴더 ID는 넣지 않는다.
+
+CORS는 기존과 같고 공개 주소·새 권한은 없다. 이 동작을 모르는 이전 배포(v4)는 GET을 OCR로 보내
+400 `OCR_REQUEST_INVALID`로 거절하므로 화면은 "Drive에서 열기" 링크로 대신 보여 준다. 검사: `tests/security/basket-photo.test.mjs`.

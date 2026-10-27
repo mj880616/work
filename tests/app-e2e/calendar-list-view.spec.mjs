@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { openEmphasisFixture } from './helpers/calendar-task-emphasis.mjs';
 test.use({timezoneId:'Asia/Seoul'});
-async function open(page,width=360,view='default'){
+async function open(page,width=360,view='default',prefsOptions={}){
   await page.setViewportSize({width,height:844});
-  return openEmphasisFixture(page,{view});
+  return openEmphasisFixture(page,{view,prefsOptions});
 }
 test('phone defaults to 14 date groups with empty days and separate tasks',async({page})=>{
   await open(page);
@@ -34,7 +34,7 @@ for(const view of ['invalid'])test(`saved ${view} falls back on phone`,async({pa
   await expect(page.locator('#calendarList')).toBeVisible();
 });
 test('chosen view survives reload; PC defaults to week',async({page})=>{
-  await open(page,1280);
+  const {prefs}=await open(page,1280);
   await expect(page.locator('#calendarWeek')).toBeVisible();
   await page.getByRole('button',{name:'목록 보기',exact:true}).click();
   await expect(page.locator('#calendarList')).toBeVisible();
@@ -43,7 +43,7 @@ test('chosen view survives reload; PC defaults to week',async({page})=>{
   await page.getByRole('button',{name:'월간 보기',exact:true}).click();
   await page.reload();
   await expect(page.locator('#calendarGrid')).toBeVisible();
-  expect(await page.evaluate(()=>localStorage.getItem('kptu-calendar-view'))).toBe('month');
+  await expect.poll(()=>prefs.value?.calendar_view).toBe('month');
 });
 
 test('failed next page keeps the shown days and retries the same 14 day interval',async({page})=>{
@@ -78,7 +78,7 @@ test('exclusive ends, all-day first, timed order and multi-day rows share the ho
   await expect(page.locator('.clv-day[data-date="2026-10-16"] [data-google-event]')).toHaveCount(1);
   await expect(page.locator('.clv-day[data-date="2026-10-17"] [data-google-event]')).toHaveCount(0);
   const size=await first.locator('.clv-event').first().evaluate(el=>({height:el.getBoundingClientRect().height,font:getComputedStyle(el.querySelector('.clv-title')).fontSize,stripe:el.querySelector('.clv-color').getBoundingClientRect().toJSON()}));
-  expect(size.height).toBeGreaterThanOrEqual(44);expect(size.font).toBe('14px');expect(size.stripe.width).toBe(4);expect(size.stripe.height).toBe(18);
+  expect(size.height).toBeGreaterThanOrEqual(44);expect(size.font).toBe('13px');expect(size.stripe.width).toBe(4);expect(size.stripe.height).toBe(18);
   await first.locator('[data-google-event="early"]').click();
   await expect(page.locator('#ciGoogleModal')).toBeVisible();
 });
@@ -115,11 +115,10 @@ test('background task refresh keeps the focused list control',async({page})=>{
   await page.evaluate(()=>window.KPTUCalendarTasks.refresh());
   await expect(page.locator('.clv-day[data-date="2026-10-20"] .clv-tasks')).toBeFocused();
 });
-test('storage denied still opens the phone default and permits switching',async({page})=>{
-  await page.addInitScript(()=>{const get=Storage.prototype.getItem,set=Storage.prototype.setItem;Storage.prototype.getItem=function(key){if(key==='kptu-calendar-view')throw new Error('QA storage denied');return get.call(this,key)};Storage.prototype.setItem=function(key,value){if(key==='kptu-calendar-view')throw new Error('QA storage denied');return set.call(this,key,value)}});
-  await open(page);await expect(page.locator('#calendarList')).toBeVisible();
+test('unreadable server value still opens the phone default and permits switching',async({page})=>{
+  const {prefs}=await open(page,360,'default',{failRead:true,failWrite:true});await expect(page.locator('#calendarList')).toBeVisible();
   await page.getByRole('button',{name:'월간 보기',exact:true}).click();
-  await expect(page.locator('#calendarGrid')).toBeVisible();
+  await expect(page.locator('#calendarGrid')).toBeVisible();expect(prefs.reads).toBeGreaterThan(0);
 });
 
 test('list today and query boundaries agree with home in another browser timezone',async({browser})=>{
@@ -148,4 +147,15 @@ test('360px list range title stays one line and matches month typography',async(
   const month=await measure();
   expect(first.fontSize).toBe(month.fontSize);
   expect(first.fontWeight).toBe(month.fontWeight);
+});
+// BUG-오늘버튼: [오늘] in every calendar view comes back to the range holding today, marks today and shows it.
+for(const [view,width,today] of [['list',360,'.clv-day[data-date="2026-10-15"] .clv-today'],['month',360,'#calendarGrid .cal-cell.today[data-date="2026-10-15"]'],['week',1280,'.cwv-day.cwv-today[data-date="2026-10-15"]'],['month',1280,'#calendarGrid .cal-cell.today[data-date="2026-10-15"]']])
+test(`[오늘] ${view} ${width}: another range or scrolled away, today is marked and on screen`,async({page})=>{
+  await open(page,width,view);
+  const onScreen=()=>page.locator(today).evaluate(el=>{const r=el.getBoundingClientRect();return r.bottom>0&&r.top<innerHeight});
+  for(let i=0;i<2;i++)await page.locator('#nextMonthBtn').click();
+  await expect(page.locator(today)).toHaveCount(0);
+  await page.locator('#calendarTodayBtn').click();
+  await expect(page.locator(today)).toHaveCount(1);
+  await expect.poll(onScreen).toBe(true);
 });

@@ -1,0 +1,13 @@
+{
+  "_comment": "BASKETPC-원래이름: exact Content-Disposition lines basket-pc writes (FileNames.ContentDisposition) and the file name the basket-files multipart reader must store. Read by basket-pc/tests (C#) and tests/edge-isolation/basket-pc-filename.test.mjs (Deno), so client and server stay consistent.",
+  "cases": [
+    {"input": "연구 목적 및 면접조사 (최종).hwp", "header": "form-data; name=\"file\"; filename=\"연구 목적 및 면접조사 (최종).hwp\"", "stored": "연구 목적 및 면접조사 (최종).hwp"},
+    {"input": "회의록; 최종=v2 \"확정\".hwp", "header": "form-data; name=\"file\"; filename=\"회의록; 최종=v2 \\\"확정\\\".hwp\"", "stored": "회의록; 최종=v2 \"확정\".hwp"},
+    {"input": "a;b=c.txt", "header": "form-data; name=\"file\"; filename=\"a;b=c.txt\"", "stored": "a;b=c.txt"},
+    {"input": "say \"hi\".txt", "header": "form-data; name=\"file\"; filename=\"say \\\"hi\\\".txt\"", "stored": "say \"hi\".txt"},
+    {"input": "a\\b.txt", "header": "form-data; name=\"file\"; filename=\"b.txt\"", "stored": "b.txt"},
+    {"input": "dir/메모.txt", "header": "form-data; name=\"file\"; filename=\"메모.txt\"", "stored": "메모.txt"},
+    {"input": "줄\r\n바꿈\t.hwp", "header": "form-data; name=\"file\"; filename=\"줄바꿈.hwp\"", "stored": "줄바꿈.hwp"},
+    {"input": "😀 메모 (2).txt", "header": "form-data; name=\"file\"; filename=\"😀 메모 (2).txt\"", "stored": "😀 메모 (2).txt"}
+  ]
+}

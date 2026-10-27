@@ -2,9 +2,17 @@ name: Authorization security check
 
 on:
   push:
+    # 태그 push(예: basket-pc-v*)에는 돌지 않음. 브랜치 push 동작은 그대로.
+    tags-ignore:
+      - '**'
     paths:
       - 'supabase/**'
       - 'app/project-catalog-model.mjs'
+      - 'app/project-system-v3.js'
+      - 'app/ledger-import-model.mjs'
+      - 'app/ledger-candidate-model.mjs'
+      - 'app/ledger-browse-model.mjs'
+      - 'tests/ledger-import-fixture.mjs'
       - 'scripts/check-drive-summary-isolation.mjs'
       - 'tests/security/**'
       - 'tests/edge-isolation/**'
@@ -19,6 +27,11 @@ on:
     paths:
       - 'supabase/**'
       - 'app/project-catalog-model.mjs'
+      - 'app/project-system-v3.js'
+      - 'app/ledger-import-model.mjs'
+      - 'app/ledger-candidate-model.mjs'
+      - 'app/ledger-browse-model.mjs'
+      - 'tests/ledger-import-fixture.mjs'
       - 'scripts/check-drive-summary-isolation.mjs'
       - 'tests/security/**'
       - 'tests/edge-isolation/**'
@@ -92,6 +105,8 @@ jobs:
             supabase/tests/authz_task13_private_boundary.sql
             supabase/tests/authz_web1_4_delete_pages_removed.sql
             supabase/tests/authz_task_impl2_record_links.sql
+            supabase/tests/authz_reference_bundles.sql
+            supabase/tests/authz_dispute_stages.sql
           )
           for file in "${required[@]}"; do
             test -s "$file" || { echo "missing security regression: $file"; exit 1; }

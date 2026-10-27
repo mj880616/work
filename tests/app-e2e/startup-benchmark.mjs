@@ -1,11 +1,12 @@
 import { chromium } from '@playwright/test';
 import { writeFileSync } from 'node:fs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'p6-benchmark-user',email:'p6@example.org',user_metadata:{display_name:'P6 측정'}};
 const workspace={id:'p6-benchmark-workspace',name:'웹2'};
 const session={access_token:'p6-benchmark-access',refresh_token:'p6-benchmark-refresh',expires_at:Math.floor(Date.now()/1000)+3600,user};
-const routes=['calendar','tasks','projects','library','meetings','media','pages','team'];
+const routes=['calendar','tasks','projects','library','meetings','pages','team'];
 const viewports={
   desktop:{width:1280,height:800},
   mobile:{width:390,height:844}
@@ -102,10 +103,7 @@ async function coldLoad(page,base,view){
   const login=new URL('/app/login/',base);
   login.searchParams.set('return',url);
   await page.goto(login.href,{waitUntil:'domcontentloaded',timeout:30000});
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('benchmark-password');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,user.email);
   await page.waitForURL(url,{timeout:30000});
   return waitForStartup(page);
 }

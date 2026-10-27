@@ -1,4 +1,4 @@
-@import url('./quick-controls.css?v=2');
+@import url('./quick-controls.css');
 
 #homeView {
   padding-left: 16px;
@@ -117,7 +117,7 @@
   display: flex;
   gap: 8px;
   align-items: center;
-  min-height: 52px;
+  min-height: 44px;
 }
 .home-task .gt-check {
   position: relative;
@@ -141,12 +141,34 @@
   border-radius: var(--kptu-radius-pill);
 }
 .home-task-text {
+  box-sizing: border-box;
+  display: flex;
+  gap: 6px;
+  align-items: center;
   min-width: 0;
   flex: 1;
+  min-height: 44px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
-.home-task small {
-  display: block;
+.home-task-text .home-title {
+  flex: 0 1 auto;
+}
+.home-task small,
+.home-event small {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 50%;
   line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .home-task.completed .home-title {
   text-decoration: line-through;
@@ -205,7 +227,7 @@
   .home-card header button { min-height: 24px; position: relative; }
   .home-card header button::after { content: ""; position: absolute; inset: -10px 0; }
   .home-event { min-height: 0; padding: 8px 0; }
-  .home-task { min-height: 0; padding: 8px 0; }
+  .home-task { min-height: 44px; padding: 0; }
   .home-event + .home-event,
   .home-task + .home-task { border-top: 1px solid var(--kptu-border); }
   .home-task .gt-check::before { inset: 13px; border-color: var(--kptu-border); }
@@ -218,7 +240,7 @@
   }
 }
 .home-quick { min-width:0; background:var(--kptu-surface); border:1px solid var(--kptu-border); border-radius:12px; padding:10px; margin-bottom:0; display:grid; gap:8px; }
-.home-quick [data-quick-options][hidden],.home-quick [data-quick-task-options][hidden],.home-quick [data-quick-update-options][hidden] { display:none; }
+.home-quick [data-quick-options][hidden],.home-quick [data-quick-task-options][hidden] { display:none; }
 .home-quick button,.home-quick select { font-family:inherit; font-size:12px; cursor:pointer; }
 .home-quick-entry { display:flex; align-items:flex-start; gap:8px; }
 .home-quick-input-wrap { position:relative; display:flex; flex:1; min-width:0; }
@@ -229,9 +251,10 @@
 #homeView .home-quick [data-quick-input] { box-sizing:border-box; flex:1; min-width:0; width:100%; margin:0; padding:9px 10px; height:40px; min-height:40px; border:1px solid var(--kptu-border); border-radius:8px; font-family:inherit; font-size:14px; line-height:21px; color:var(--kptu-ink); background:var(--kptu-surface); resize:none; }
 #homeView .home-quick[data-mode="update"] [data-quick-input] { height:83px; min-height:83px; max-height:146px; }
 #homeView .home-quick .home-quick-save { box-sizing:border-box; position:relative; height:40px; min-height:40px; border:0; border-radius:8px; padding:0 12px; font-size:12px; font-weight:700; background:var(--kptu-primary); color:var(--kptu-on-primary); }
+.home-quick-save { position:relative; }
 .home-quick-save::after { content:"";position:absolute;inset:-2px 0; }
 .home-quick [data-quick-options] { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
-.home-quick [data-quick-task-options],.home-quick [data-quick-update-options] { display:flex; gap:8px; align-items:center; flex-wrap:wrap; flex:0 0 auto; max-width:100%; }
+.home-quick [data-quick-task-options] { display:flex; gap:8px; align-items:center; flex-wrap:wrap; flex:0 0 auto; max-width:100%; }
 .home-quick [data-quick-options] button,.home-quick select { box-sizing:border-box; height:32px; min-height:32px; max-width:150px; border:1px solid var(--kptu-border); border-radius:var(--kptu-radius-pill); padding:0 10px; color:var(--kptu-muted); background:var(--kptu-surface); margin:0; }
 .home-quick [data-quick-day][aria-pressed="true"] { background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); font-weight:700; }
 .home-quick [data-quick-date] { position:absolute; opacity:0; width:1px; height:1px; pointer-events:none; }
@@ -241,7 +264,7 @@
 .home-quick :disabled { cursor:wait; opacity:.65; }
 
 .home-quick [data-quick-project] { width:110px; }
-.home-quick [data-quick-project],.home-quick [data-quick-org] { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.home-quick [data-quick-project] { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .home-timing { font-size:11px; color:var(--kptu-muted); line-height:1.5; }
 
 /* Each column stacks independently; DOM order follows the active layout. */
@@ -259,3 +282,102 @@
 
 .home-quick [data-quick-new-note],.home-quick [data-basket-remove] { min-height:44px; }
 .home-quick[data-mode="basket"] [data-goto="basket"] { grid-row:3; margin-top:-4px; }
+.home-quick-lock:not([hidden]) { display:grid; gap:6px; }
+.home-quick-lock p { margin:0; font-size:13px; line-height:1.5; color:var(--kptu-ink); overflow-wrap:anywhere; }
+#homeView .home-quick .home-quick-new-note { justify-self:start; padding:0 14px; border:0; border-radius:8px; font-size:13px; font-weight:700; background:var(--kptu-primary); color:var(--kptu-on-primary); }
+.home-quick[data-mode="basket"] [data-quick-lock]:not([hidden]) { grid-row:3; }
+.home-quick[data-mode="basket"]:has([data-quick-lock]:not([hidden])) [data-goto="basket"] { grid-row:4; }
+/* OPS-수집점검: 마지막 수집 시각(collection-status.js). 작은 글자 한 줄씩, 주의만 경고 색. */
+.home-collect .collect-list { display:flex; flex-direction:column; gap:4px; margin:0; padding:0; list-style:none; }
+/* HOME-수집시각정렬: 줄마다 이름(+메모) | 건수 칸(고정 폭, 없으면 빈칸) | 시각 칸. 시각 칸이 맨 오른쪽이라 네 줄의 시각이 같은 세로선에 선다. 글자·줄 크기는 그대로. */
+.home-collect .collect-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:baseline; gap:0 8px; font-size:12px; line-height:1.5; min-width:0; }
+.home-collect .collect-name { min-width:0; word-break:keep-all; overflow-wrap:break-word; }
+/* 건수가 있는 줄이 하나라도 있을 때만 건수 칸을 연다(없으면 이름 칸이 넓어진다). */
+.home-collect .collect-count { display:none; }
+.home-collect .collect-list:has(.collect-count:not(:empty)) .collect-row { grid-template-columns:minmax(0,1fr) 5.6em auto; }
+.home-collect .collect-list:has(.collect-count:not(:empty)) .collect-count { display:block; }
+.home-collect .collect-label { color:var(--kptu-ink); }
+.home-collect .collect-note { color:var(--kptu-muted); }
+.home-collect .collect-count,.home-collect .collect-value { color:var(--kptu-muted); white-space:nowrap; text-align:right; font-variant-numeric:tabular-nums; }
+.home-collect .collect-count { font-size:11px; }
+.home-collect .collect-row[data-collect-state="unknown"] .collect-value { grid-column:2 / -1; white-space:normal; overflow-wrap:anywhere; }
+.home-collect .collect-warn { color:var(--kptu-warning); font-weight:700; }
+
+/* HOME-모바일정리②: 회의 후속이기도 한 오늘 할 일의 작은 꼬리표(home-read.js, 폰·중간 폭에서만 붙는다). */
+.home-tag { flex:0 0 auto; display:inline-block; padding:0 6px; border-radius:var(--kptu-radius-pill); background:var(--kptu-primary-soft); color:var(--kptu-primary-ink); font-size:11px; line-height:18px; font-weight:700; white-space:nowrap; }
+/* HOME-모바일정리③④(2026-10-22 시안 승인, 폰·중간 폭만 — PC는 그대로):
+   ③ 할 일·회의 후속 줄 높이를 일정 줄과 같게(위아래 8px + 글줄), 동그라미 16px, 동그라미 앞뒤 빈 폭을 줄인다.
+      누르는 범위는 동그라미 단추 44×44 그대로 두고 바깥 여백을 음수로 잡아 줄 높이·들여쓰기에 보태지 않는다.
+   ④ 아래 빠른 입력칸과 [추가]를 한 높이(--kptu-control-height 36px, PC와 같은 값)로. ⤢는 보조 32px, 누르는 범위 44px은 ui-standard.css ::after 그대로. */
+@media (max-width: 1023px) {
+  #appView #homeView .home-task { min-height:0; padding:0; gap:8px; }
+  #appView #homeView .home-task .gt-check { flex:0 0 44px; width:44px; height:44px; min-width:44px; min-height:44px; margin:-4px -14px -4px -14px; }
+  #appView #homeView .home-task .gt-check::before { inset:14px; }
+  #appView #homeView .home-task.completed .gt-check::after { left:19px; top:16px; width:5px; height:9px; }
+  #appView #homeView .home-task-text { position:relative; min-height:0; padding:8px 0; }
+  #appView #homeView .home-task-text::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+  #appView #homeView .home-quick[data-home-quick] .home-quick-input-wrap [data-quick-input] { height:var(--kptu-control-height); min-height:var(--kptu-control-height); padding-top:7px; padding-bottom:6px; }
+  /* 입력칸 안 왼쪽 첨부 클립은 입력칸 테두리 안 높이로 보이고, 누르는 범위 44px은 ::after로 지킨다. */
+  #appView #homeView .home-quick .home-quick-input-wrap > [data-quick-file-picker] { top:1px; height:calc(var(--kptu-control-height) - 2px); }
+  #appView #homeView .home-quick .home-quick-input-wrap > [data-quick-file-picker] .basket-clip { height:calc(var(--kptu-control-height) - 2px); min-height:0; }
+  #appView #homeView .home-quick .home-quick-input-wrap > [data-quick-file-picker] .basket-clip::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+  #appView #homeView .home-quick[data-home-quick] button.home-quick-save { margin-top:0; }
+  #appView #homeView .home-quick[data-home-quick] :is(.home-quick-big,.home-quick-detail) { top:calc((var(--kptu-control-height) - var(--ds-compact-height)) / 2); }
+}
+/* HOME-수집경보(2026-10-22, 폰·중간 폭만 — collection-status.js가 그리는 자리): 위쪽 경고 한 줄(누르면 전체 칸), ✕ 오늘 하루 숨김,
+   모두 정상이면 맨 아래 작은 '수집 정상 ✓'. 버튼은 글자 줄(UI-버튼기준), 누르는 범위 44px은 ::after. */
+.home-collect-alert[hidden],.home-collect-ok[hidden],.collect-alert-panel[hidden],.mobile-menu-collect[hidden] { display:none; }
+.home-collect-alert { display:flex; flex-direction:column; gap:8px; min-width:0; }
+.collect-alert-line { display:flex; align-items:center; gap:4px; min-width:0; min-height:var(--ds-compact-height,32px); padding:0 4px 0 10px; border-radius:var(--ds-radius-control,8px); background:var(--kptu-warning-soft,var(--kptu-surface)); color:var(--kptu-ink); }
+.collect-alert-line button { position:relative; margin:0; border:0; background:transparent; color:inherit; font:inherit; font-size:var(--ds-text-meta,12px); cursor:pointer; }
+.collect-alert-line button::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+.collect-alert-open { flex:1 1 auto; display:flex; align-items:center; gap:6px; min-width:0; height:var(--ds-compact-height-sm,28px); padding:0; text-align:left; }
+.collect-alert-open span:not(.collect-alert-chevron) { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:700; color:var(--kptu-warning); }
+.collect-alert-icon { flex:0 0 auto; width:14px; height:14px; fill:none; stroke:var(--kptu-warning); stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.collect-alert-chevron { flex:0 0 auto; color:var(--kptu-muted); }
+.collect-alert-open[aria-expanded="true"] .collect-alert-chevron { transform:rotate(90deg); }
+.collect-alert-close { flex:0 0 auto; width:var(--ds-compact-height-sm,28px); height:var(--ds-compact-height-sm,28px); padding:0; color:var(--kptu-muted); }
+.collect-alert-line button:focus-visible { outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
+.home-collect-ok { margin:4px 0 0; text-align:center; font-size:var(--ds-text-meta,12px); line-height:1.5; color:var(--kptu-muted); }
+/* LIB-글자채우기야간: 홈 위쪽 '예전 자료 글자 읽기 끝남 (N개)' 한 줄(text-backfill-notice.js). 작은 글자 줄 + ✕(누르는 범위 44px은 ::after). */
+.home-text-done[hidden] { display:none; }
+.home-text-done { display:flex; align-items:center; gap:6px; min-width:0; min-height:var(--ds-compact-height,32px); margin:0; padding:0 4px 0 10px; border-radius:var(--ds-radius-control,8px); background:var(--kptu-success-soft,var(--kptu-surface-subtle)); font-size:var(--ds-text-meta,12px); line-height:1.5; color:var(--kptu-ink); }
+.text-done-label { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.text-done-failed { flex:0 0 auto; color:var(--kptu-warning); }
+.text-done-close { position:relative; flex:0 0 auto; width:var(--ds-compact-height-sm,28px); height:var(--ds-compact-height-sm,28px); margin:0; padding:0; border:0; background:transparent; color:var(--kptu-muted); font:inherit; cursor:pointer; }
+.text-done-close::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+.text-done-close:focus-visible { outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
+.home-collect h3 { font-size:16px; margin:0; line-height:1.5; }
+.mobile-menu-collect { margin:8px 0; padding:10px 12px; border:1px solid var(--kptu-border); border-radius:var(--ds-radius-box,12px); background:var(--kptu-surface); }
+.mobile-menu-collect header { margin-bottom:6px; }
+.mobile-menu-collect h3 { font-size:var(--ds-text-section,13px); }
+/* TASK-바로처리통일: 줄 오른쪽 ⋯(공용 task-inline.js). 보이는 칸은 업무일지와 같은 --ds-compact-height-sm(28px), 줄이 촘촘해 위아래로
+   늘리지 않고 좌우만 ::after로 44px 폭을 지킨다. PC hover/focus 때만 보이는 규칙은 ui-standard.css [data-task-inline-row]. */
+#appView #homeView .home-task .home-task-more{ position:relative; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box;
+  width:var(--ds-compact-height-sm); min-width:var(--ds-compact-height-sm); height:var(--ds-compact-height-sm); min-height:var(--ds-compact-height-sm); margin:0 0 0 auto; padding:0;
+  border:0; border-radius:var(--kptu-radius-md); background:transparent; box-shadow:none; color:var(--kptu-muted); font-size:var(--ds-text-meta); line-height:1; cursor:pointer; }
+#appView #homeView .home-task .home-task-more::after{ content:""; position:absolute; inset:-8px -8px; }
+@media(hover:hover){ #appView #homeView .home-task .home-task-more:not(:disabled):hover{ background:var(--kptu-surface-subtle); } }
+#appView #homeView .home-task .home-task-more:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+
+/* HOME-모바일홈채우기(2026-10-24 시안 승인, 폰·중간 폭 1023px 이하만 — PC 홈은 그대로).
+   ① 큰 둥근 카드(오늘 일정·오늘 할 일 등)는 테두리·배경 없이 얇은 줄로 칸을 나누고 줄 간격을 촘촘히.
+   ② 한 줄 요약, 새 칸(놓친 약속·정리 안 된 것·내일)은 home-fill.js가 그린다. HOME-모바일홈간격통일: 새 칸은 오늘 일정·오늘 할 일과 같은 class(.home-card·header·h3·.home-event·.home-title·time·small)를 써서
+      줄 간격·글자 모양이 한 규칙으로 정해진다(새 칸 전용 줄·제목 규칙은 두지 않는다). 챙길 것 카드는 '정리 안 된 것' 한 줄이 대신해 폰에서는 안 보인다
+      (카드는 후보 찾기 때문에 그대로 붙어 있고 PC 홈이 쓴다).
+   크기는 UI-버튼기준: 보이는 글자 버튼 28px 안쪽, 누르는 범위 44px은 ::after. 값은 --ds-*·--kptu-* 토큰만 쓴다. */
+.home-summary[hidden] { display:none; }
+@media (max-width: 1023px) {
+  [data-home-card="radar"] { display:none; }
+  .home-summary { margin:0 0 2px; font-size:var(--ds-text-meta,12px); line-height:1.5; color:var(--kptu-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #appView #homeView [data-home-column="main"] { gap:0; }
+  #appView #homeView [data-home-column="main"] > .home-card:not([data-home-card="dday"]) { border:0; border-radius:0; background:transparent; padding:6px 0; }
+  #appView #homeView [data-home-column="main"] > .home-card:not([data-home-card="dday"],[data-home-card="calendar"]) { border-top:1px solid var(--kptu-border); }
+  [data-home-column="main"] > .home-card header { min-height:24px; margin-bottom:2px; }
+  [data-home-column="main"] > .home-card h3 { font-size:var(--ds-text-section,13px); line-height:1.5; }
+  [data-home-column="main"] > .home-card header button { min-height:24px; padding:0; }
+  [data-home-column="main"] > .home-card .home-status { margin:0; line-height:1.5; padding:2px 0; }
+  .home-day-tag { flex:0 0 auto; padding:0 6px; border-radius:var(--kptu-radius-pill); background:var(--kptu-danger-soft); color:var(--kptu-danger); font-size:11px; line-height:18px; font-weight:700; white-space:nowrap; }
+  #appView #homeView .home-more { position:relative; display:block; min-height:var(--ds-compact-height-sm,28px); margin:0; padding:0; border:0; background:transparent; color:var(--kptu-primary-ink); font-size:var(--ds-text-meta,12px); font-weight:700; text-align:left; cursor:pointer; }
+  #appView #homeView .home-more::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+}

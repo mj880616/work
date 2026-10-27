@@ -29,7 +29,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 20
+          node-version: 24
           package-manager-cache: false
       - name: Reclassify the complete current PR file list
         id: classify
@@ -74,15 +74,15 @@ jobs:
           gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --auto --merge --match-head-commit "$EXPECTED_HEAD_SHA"
           echo 'armed=true' >> "$GITHUB_OUTPUT"
 
-  build-pages:
+  deploy-pages:
     needs: reserve
     if: needs.reserve.outputs.armed == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 120
     permissions:
       contents: read
       pull-requests: read
-      pages: write
+      actions: write
     steps:
       - name: Wait for this exact PR head to merge
         id: merged
@@ -109,28 +109,48 @@ jobs:
           done
           echo 'PR did not merge within 60 minutes.' >&2
           exit 1
-      - name: Explicitly request and verify the legacy Pages build
+      # A merge made with GITHUB_TOKEN does not fire the push trigger of pages-deploy.yml, but a
+      # workflow_dispatch sent with GITHUB_TOKEN does start a run. Pages Source is GitHub Actions,
+      # so that run is the only path to production.
+      - name: Dispatch Deploy GitHub Pages on main and verify its deploy job
         env:
           GH_TOKEN: ${{ github.token }}
+          MERGE_SHA: ${{ steps.merged.outputs.merge_sha }}
         run: |
           set -euo pipefail
-          main_sha="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq '.commit.sha')"
-          previous_url="$(gh api "repos/$GITHUB_REPOSITORY/pages/builds/latest" --jq '.url')"
-          gh api -X POST "repos/$GITHUB_REPOSITORY/pages/builds" --jq '{status,url}'
-          for attempt in {1..120}; do
-            build="$(gh api "repos/$GITHUB_REPOSITORY/pages/builds/latest")"
-            build_url="$(jq -r '.url // empty' <<< "$build")"
-            build_sha="$(jq -r '.commit // empty' <<< "$build")"
-            status="$(jq -r '.status // empty' <<< "$build")"
-            if [[ "$build_url" != "$previous_url" && "$build_sha" == "$main_sha" && "$status" == built ]]; then
-              echo "Pages built from main $main_sha ($build_url)"
-              exit 0
-            fi
-            if [[ "$build_url" != "$previous_url" && "$build_sha" == "$main_sha" && "$status" == errored ]]; then
-              echo 'Pages build failed.' >&2
+          runs="repos/$GITHUB_REPOSITORY/actions/workflows/pages-deploy.yml/runs?event=workflow_dispatch&branch=main&per_page=20"
+          previous_id="$(gh api "$runs" --jq '[.workflow_runs[].id] | max // 0')"
+          gh api -X POST "repos/$GITHUB_REPOSITORY/actions/workflows/pages-deploy.yml/dispatches" -f ref=main
+          run_id=''
+          for attempt in {1..40}; do
+            run_id="$(gh api "$runs" --jq "[.workflow_runs[] | select(.id > $previous_id)] | min_by(.id) | .id // empty")"
+            [[ -n "$run_id" ]] && break
+            sleep 15
+          done
+          if [[ -z "$run_id" ]]; then
+            echo 'Deploy GitHub Pages run did not appear after dispatch.' >&2
+            exit 1
+          fi
+          run_sha="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" --jq '.head_sha')"
+          ancestry="$(gh api "repos/$GITHUB_REPOSITORY/compare/$MERGE_SHA...$run_sha" --jq '.status')"
+          if [[ "$ancestry" != identical && "$ancestry" != ahead ]]; then
+            echo "Pages run $run_id ($run_sha) does not contain merge $MERGE_SHA." >&2
+            exit 1
+          fi
+          echo "Waiting for Deploy GitHub Pages run $run_id on main $run_sha"
+          for attempt in {1..240}; do
+            run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
+            if [[ "$(jq -r '.status' <<< "$run")" == completed ]]; then
+              conclusion="$(jq -r '.conclusion' <<< "$run")"
+              deploy="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs" --jq '.jobs | map({(.name): .conclusion}) | add | .deploy // empty')"
+              if [[ "$conclusion" == success && "$deploy" == success ]]; then
+                echo "Pages deployed from main $run_sha (run $run_id)"
+                exit 0
+              fi
+              echo "Deploy GitHub Pages run $run_id ended: run=$conclusion deploy=${deploy:-missing}." >&2
               exit 1
             fi
-            sleep 10
+            sleep 15
           done
-          echo 'Pages did not report a completed build for this main SHA.' >&2
+          echo "Deploy GitHub Pages run $run_id did not complete within 60 minutes." >&2
           exit 1

@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
+const { readMultipartForm } = await import('../../supabase/functions/_shared/multipart.ts');
+const { AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, withReasoning } = await import('../../supabase/functions/_shared/ai-model.ts');
+const { outputText } = await import('../../supabase/functions/_shared/openai-responses.ts');
 
 // Runs the real library-files handler with mocked Supabase, Google Drive, and AI so each failure stage
 // can be checked for its status, structured error body, and Drive orphan cleanup. No network calls.
@@ -14,6 +17,7 @@ const SOURCE = stripTypeScriptTypes(
 function query(result) {
   const builder = {
     select: () => builder, eq: () => builder, neq: () => builder,
+    is: (col, val) => { (builder.isCalls ||= []).push([col, val]); return builder; },
     upsert: async () => ({ error: null }),
     insert: payload => { builder.inserted = payload; return builder; },
     maybeSingle: async () => result(builder),
@@ -35,10 +39,11 @@ function harness({
   driveDelete = () => new Response(null, { status: 204 }),
   openaiFetch = () => json({ output: [] })
 } = {}) {
-  const calls = { fetch: [], inserts: [], errors: [] };
+  const calls = { fetch: [], inserts: [], errors: [], spaceIs: [] };
   const tables = {
     app_workspace_members: () => ({ data: role ? { workspace_id: 'workspace-1', role } : null }),
     app_spaces: b => {
+      calls.spaceIs.push(b.isCalls || []);
       if (spacesThrow) throw new Error('raw internal detail');
       return b.inserted ? { data: null } : { data: b._list ? [] : project };
     },
@@ -72,8 +77,8 @@ function harness({
   };
   const quietConsole = { ...console, error: (...a) => calls.errors.push(a), warn: () => {}, log: () => {} };
   const fastSignal = { timeout: () => { const c = new AbortController(); setTimeout(() => c.abort(new DOMException('timed out', 'TimeoutError')), 30); return c.signal; } };
-  new Function('Deno', 'createClient', 'HwpxReader', 'hwpToText', 'fetch', 'console', 'AbortSignal', SOURCE)(
-    Deno, () => admin, class {}, async () => '', fetchMock, quietConsole, fastSignal
+  new Function('Deno', 'createClient', 'HwpxReader', 'hwpToText', 'readMultipartForm', 'AI_REASONING_TOKEN_HEADROOM', 'DEFAULT_AI_MODEL', 'outputText', 'withReasoning', 'fetch', 'console', 'AbortSignal', SOURCE)(
+    Deno, () => admin, class {}, async () => '', readMultipartForm, AI_REASONING_TOKEN_HEADROOM, DEFAULT_AI_MODEL, outputText, withReasoning, fetchMock, quietConsole, fastSignal
   );
   return { handler, calls };
 }
@@ -107,6 +112,14 @@ test('successful upload stores a private document and never deletes the Drive fi
   assert.equal(h.calls.inserts[0].visibility, 'private');
   assert.equal(h.calls.inserts[0].file_id, 'drive-file-1');
   assert.equal(h.calls.fetch.some(c => c.startsWith('DELETE ')), false);
+});
+
+test('app_spaces 읽기는 모두 휴지통 프로젝트(deleted_at)를 거른다', async () => {
+  const h = harness();
+  const { status } = await send(h);
+  assert.equal(status, 200);
+  assert.ok(h.calls.spaceIs.length >= 1);
+  for (const is of h.calls.spaceIs) assert.deepEqual(is, [['deleted_at', null]]);
 });
 
 test('DB insert failure removes only the Drive file created by this request and hides the raw DB error', async () => {

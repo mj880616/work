@@ -1,8 +1,17 @@
-import {isProject,select,active,archived,tops,kids,tree,basketProjects} from './project-catalog-model.mjs?v=1';
+import {isProject,select,active,archived,tops,kids,tree,basketProjects} from './project-catalog-model.mjs';
+import {compareOrder,ordered,siblings,reorderPlan} from './project-order.mjs';
+import {foldedSet,partitionTree} from './project-fold.mjs';
 (()=>{
 'use strict';
 if(window.KPTUProjectCatalog)return;
 // Canonical Web2 project catalog: one project rule and one hierarchy, shared by the project screen and the library.
+// PRJ-순서바꾸기: every list keeps the one project order (project-order.mjs), whatever order its rows came in.
+const selectOrdered=spaces=>ordered(select(spaces));
+const topsOrdered=projects=>tops(ordered(projects));
+const kidsOrdered=(projects,p)=>kids(ordered(projects),p);
+// PRJ-목록접어두기: 접힌 프로젝트(스스로 접었거나 상위가 접힘)는 어느 목록에서나 맨 아래로 가고 folded 표시가 붙는다. 빠지지는 않는다.
+const treeOrdered=projects=>{const rows=ordered(projects),folded=foldedSet(rows),parts=partitionTree(tree(rows),folded);return [...parts.open,...parts.folded.map(r=>({...r,folded:true}))]};
+const basketOrdered=projects=>{const rows=ordered(projects),folded=foldedSet(rows),all=basketProjects(rows);return [...all.filter(x=>!folded.has(x.id)),...all.filter(x=>folded.has(x.id)).map(x=>({...x,folded:true}))]};
 const label=(name,depth)=>depth>0?'　'.repeat(depth)+'↳ '+name:name;
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -11,8 +20,8 @@ function publish({workspaceId,userId,spaces}){
   if(!workspaceId||!userId)return snapshot();
   const rows=Array.isArray(spaces)?spaces:[];
   version+=1;
-  state={workspaceId,userId,spaces:rows,projects:select(rows),loaded:true};
-  const next=JSON.stringify([workspaceId,userId,rows.map(p=>[p.id,p.name,p.parent_id,p.status,p.updated_at,isProject(p)])]);
+  state={workspaceId,userId,spaces:rows,projects:selectOrdered(rows),loaded:true};
+  const next=JSON.stringify([workspaceId,userId,rows.map(p=>[p.id,p.name,p.parent_id,p.status,p.sort_order,p.updated_at,isProject(p),p.metadata?.folded===true])]);
   if(next!==key){key=next;window.dispatchEvent(new CustomEvent('kptu:project-catalog-updated',{detail:{workspaceId,userId}}))}
   return snapshot()
 }
@@ -34,12 +43,12 @@ async function load({workspaceId,userId,force=false}={}){
 }
 function snapshot(){
   const {spaces,projects}=state;
-  return {workspaceId:state.workspaceId,userId:state.userId,loaded:state.loaded,spaces,projects,active:active(projects),archived:archived(projects),tops:tops(projects),tree:tree(projects)}
+  return {workspaceId:state.workspaceId,userId:state.userId,loaded:state.loaded,spaces,projects,active:active(projects),archived:archived(projects),tops:topsOrdered(projects),tree:treeOrdered(projects)}
 }
 // Classifies any project_id reference: visible project, hidden by archive, non-project space, or unknown.
 function describe(id){
   if(!id)return {kind:'none',id:null,name:''};
-  const visible=tree(state.projects).find(x=>x.project.id===id);
+  const visible=treeOrdered(state.projects).find(x=>x.project.id===id);
   if(visible)return {kind:'active',id,name:visible.project.name||'',depth:visible.depth,project:visible.project};
   const project=state.projects.find(p=>p.id===id);
   if(project)return {kind:'archived',id,name:project.name||'',project};
@@ -48,12 +57,14 @@ function describe(id){
   return {kind:'missing',id,name:''}
 }
 function options(selected='',includeBlank=true){
-  const rows=tree(state.projects);
+  const rows=treeOrdered(state.projects);
   const current=selected?describe(selected):null;
   const retained=current&&current.kind!=='active'?`<option value="${escape(selected)}" selected disabled>[현재 연결·선택 불가] ${escape(current.name||selected)}</option>`:'';
-  return (includeBlank?'<option value="">프로젝트 없음</option>':'')+retained+rows.map(({project,depth})=>`<option value="${escape(project.id)}"${project.id===selected?' selected':''}>${escape(label(project.name||'이름 없는 프로젝트',depth))}</option>`).join('')
+  return (includeBlank?'<option value="">프로젝트 없음</option>':'')+retained+rows.map(({project,depth,folded})=>`<option value="${escape(project.id)}"${folded?' class="kptu-folded-option" data-folded="1"':''}${project.id===selected?' selected':''}>${escape(label(project.name||'이름 없는 프로젝트',depth))}</option>`).join('')
 }
 function reset(){epoch+=1;flight=null;key='';state={workspaceId:null,userId:null,spaces:[],projects:[],loaded:false}}
-window.addEventListener('kptu:session-changed',e=>{const next=e.detail?.session?.user?.id||'';if(next&&next===state.userId)return;reset()});
-window.KPTUProjectCatalog={isProject,select,active,archived,tops,kids,tree,basketProjects,label,options,publish,fetchSpaces,load,snapshot,describe,reset};
+// A token refresh writes the session again for the same owner: keep the catalog and a read in flight for that owner (before
+// the first publish state.userId is still empty, so it must not count as another owner). A new owner or sign-out resets.
+window.addEventListener('kptu:session-changed',e=>{const next=e.detail?.session?.user?.id||'';if(next&&[state.userId,flight?.userId].every(id=>!id||id===next))return;reset()});
+window.KPTUProjectCatalog={isProject,select:selectOrdered,active,archived,tops:topsOrdered,kids:kidsOrdered,tree:treeOrdered,basketProjects:basketOrdered,compareOrder,ordered,siblings,reorderPlan,label,options,publish,fetchSpaces,load,snapshot,describe,reset};
 })();

@@ -1,6 +1,11 @@
 import { lstatSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
+import { validateExpanded, parseExpectations, checkSnapshotSQL, createdTables, policyRollbackHeaders, ExpandedRejection } from './db-migration-expanded.mjs';
+
+// Single source of truth for check item labels. The run phase (db-migration-run.mjs)
+// refuses any label outside this set AFTER apply, so the plan phase checks it first.
+export const CHECK_LABEL_RE = /^[\p{L}\p{N} _/()=:+.,·-]{1,100}$/u;
 
 const modes = ['dry-run', 'apply', 'rollback'];
 const fail = () => { throw new Error('DB plan rejected; check file structure, pairing or risk rules'); };
@@ -318,7 +323,8 @@ export function validateSQL(sql, { mode, version, name, migrationSQL }) {
     if (root[0] === 'set' && !(root[1] === 'local' && ['lock_timeout', 'statement_timeout'].includes(root[2]))) fail();
     if (root[0] === 'do') {
       if (ts.filter(t => t.kind === 'block').length !== 1 || c.some(v => ['insert', 'update', 'delete', 'create', 'alter', 'drop', 'grant', 'revoke', 'commit', 'rollback', 'perform'].includes(v))) fail();
-      const assertionCalls = new Set(['if', 'exists', 'in', 'not', 'and', 'or', 'count', 'length', 'num_nonnulls', 'coalesce', 'to_regclass']);
+      // Pure text helpers only, for whitespace-insensitive deparsed CHECK comparison.
+      const assertionCalls = new Set(['if', 'exists', 'in', 'not', 'and', 'or', 'count', 'length', 'num_nonnulls', 'coalesce', 'to_regclass', 'btrim', 'regexp_replace']);
       for (let i = 0; i < c.length - 1; i++) {
         if (c[i + 1] === '(' && /^[a-z_]/.test(c[i]) && (!assertionCalls.has(c[i]) || c[i - 1] === '.')) fail();
       }
@@ -410,16 +416,61 @@ export function checkSQL(sql) {
   return { baselineNull };
 }
 
+// Static, conservative label extraction from a precheck/postcheck SQL. Only string
+// literals in these shapes are read: `'label' [::type] as item` anywhere, and the
+// first select-list literal of a `union [all] select 'label' [::type] ,`
+// branch. Labels produced by expressions, concatenation or the first branch
+// written as `select 'label',` (no alias) cannot be parsed and are NOT checked here;
+// the run phase still checks every label at runtime.
+export function extractItemLabels(sql) {
+  const ts = tokens(sql).filter(t => t.kind !== 'block');
+  const isItem = t => t && ['word', 'quoted'].includes(t.kind) && t.value.toLowerCase() === 'item';
+  const labels = [];
+  for (let i = 0; i < ts.length; i++) {
+    if (ts[i].kind !== 'string') continue;
+    let j = i + 1;
+    if (ts[j]?.value === ':' && ts[j + 1]?.value === ':' && ts[j + 2]?.kind === 'word') j += 3;
+    const aliased = ts[j]?.kind === 'word' && ts[j].value === 'as' && isItem(ts[j + 1]);
+    const afterUnion = ts[i - 1]?.value === 'select' && ts[i - 1].kind === 'word'
+      && (ts[i - 2]?.value === 'union' || ts[i - 2]?.value === 'all' && ts[i - 3]?.value === 'union')
+      && ts[j]?.kind === 'symbol' && ts[j].value === ',';
+    if (aliased || afterUnion) labels.push(ts[i].value);
+  }
+  return labels;
+}
+export const unsafeCheckLabels = sql => extractItemLabels(sql).filter(label => !CHECK_LABEL_RE.test(label));
+
 export function prepareMigration({ mode, version, runId, root }) {
   if (!modes.includes(mode) || !/^[0-9]{14}$/.test(version) || !/^[1-9][0-9]{0,19}$/.test(runId)) fail();
   const path = choose(root, 'supabase/migrations', new RegExp(`^${version}_.*\\.sql$`), true);
   const name = path.slice('supabase/migrations/'.length + 15, -4);
   const migration = safeFile(root, path);
-  validateSQL(migration.sql, { mode: 'apply', version, name });
-  const rollbackPath = choose(root, 'docs', new RegExp(`^${version}_.*\\.rollback\\.sql$`), mode === 'rollback');
+  // Strict grammar first (unchanged). Apply/dry-run may fall back to the
+  // expanded rules, which refuse every access-widening pattern by reason code.
+  let strict = true;
+  try { validateSQL(migration.sql, { mode: 'apply', version, name }); }
+  catch (error) {
+    if (mode === 'rollback') throw error;
+    strict = false;
+  }
+  const expanded = strict ? null : validateExpanded(migration.sql, { version, name });
+  const rollbackPath = choose(root, 'docs', new RegExp(`^${version}_.*\\.rollback\\.sql$`), mode === 'rollback' || !strict);
   if (rollbackPath && rollbackPath !== `docs/${version}_${name}.rollback.sql`) fail();
   const file = mode === 'rollback' ? safeFile(root, rollbackPath) : migration;
-  const validation = validateSQL(file.sql, { mode, version, name, migrationSQL: migration.sql });
+  const validation = expanded ?? validateSQL(file.sql, { mode, version, name, migrationSQL: migration.sql });
+  if (expanded) {
+    // The expanded path needs every pair file: precheck/snapshot/postcheck/rollback.
+    for (const suffix of ['precheck', 'snapshot', 'postcheck']) {
+      const exclude = suffix === 'postcheck' ? '(?!.*\\.dry-run\\.postcheck\\.sql$)' : '';
+      const found = choose(root, 'docs', new RegExp(`^${version}_${exclude}.*\\.${suffix}\\.sql$`), false);
+      if (found !== `docs/${version}_${name}.${suffix}.sql`) throw new ExpandedRejection('pair-missing');
+    }
+    // Replaced policies: the rollback file must recreate each original policy.
+    if (expanded.policyReplacements.length) {
+      const headers = policyRollbackHeaders(safeFile(root, rollbackPath).sql, expanded.policyReplacements);
+      expanded.policyReplacements.forEach((r, i) => { r.rollback = headers[i]; });
+    }
+  }
   const summaryPath = choose(root, 'docs', new RegExp(`^${version}_.*\\.summary\\.md$`), true);
   if (summaryPath !== `docs/${version}_${name}.summary.md`) fail();
   const summaryFile = safeFile(root, summaryPath, 4096);
@@ -436,6 +487,7 @@ export function prepareMigration({ mode, version, runId, root }) {
       if (checkPath !== `docs/${version}_${name}.${suffix}.sql`) fail();
       const check = safeFile(root, checkPath, 65_536);
       const checked = { ...check, ...checkSQL(check.sql) };
+      if (unsafeCheckLabels(check.sql).length) throw new ExpandedRejection('check-label');
       if (mode === 'dry-run' && suffix === 'postcheck') {
         // Preserve the existing manual snapshot requirement without selecting
         // or executing an applied-state check after rollback.
@@ -443,7 +495,37 @@ export function prepareMigration({ mode, version, runId, root }) {
       } else checks[suffix === 'dry-run.postcheck' ? 'dryRunPostcheck' : suffix] = checked;
     }
   }
-  return { mode, version, name, runId, file, summaryFile, summaryLines, checks, manualSnapshotRequired, ...validation };
+  for (const kind of ['precheck', 'postcheck']) if (checks[kind]) checks[kind].expect = parseExpectations(checks[kind].sql);
+  let snapshot = null;
+  if (mode !== 'rollback') {
+    const snapshotPath = choose(root, 'docs', new RegExp(`^${version}_.*\\.snapshot\\.sql$`), false);
+    if (snapshotPath) {
+      if (snapshotPath !== `docs/${version}_${name}.snapshot.sql`) fail();
+      snapshot = safeFile(root, snapshotPath, 65_536);
+      try { checkSQL(snapshot.sql); checkSnapshotSQL(snapshot.sql); snapshot.artifact = true; }
+      catch (error) {
+        // Expanded path: a snapshot that could carry row values is a refusal.
+        // Strict path keeps its earlier behavior (manual snapshot, no artifact).
+        if (!strict) throw error instanceof ExpandedRejection ? new ExpandedRejection('snapshot-rows') : error;
+        snapshot.artifact = false;
+      }
+    }
+  }
+  // Full single-approval flow (precheck → snapshot artifact → dry-run → apply →
+  // postcheck) whenever every pair file exists; the expanded rules require it.
+  const pairs = ['precheck', 'postcheck'].every(kind => choose(root, 'docs',
+    new RegExp(`^${version}_${name}\\.${kind}\\.sql$`), false)) && Boolean(rollbackPath) && snapshot?.artifact === true;
+  // Strict-rule files opt in with `-- expect:` lines in the precheck (older
+  // migrations keep their earlier flow and outputs); expanded files always run full.
+  const optedIn = !strict || (checks.precheck?.expect?.size ?? 0) > 0;
+  const flow = mode !== 'rollback' && optedIn && pairs && checks.precheck && !checks.precheck.baselineNull
+    && !manualSnapshotRequired && !checks.postcheck?.baselineNull ? 'full' : 'legacy';
+  if (!strict && flow !== 'full') throw new ExpandedRejection('pair-missing');
+  // A table created by this same migration has no earlier rows: never back it up
+  // (the copy would fail before the table exists).
+  const fresh = mode === 'rollback' ? new Set() : createdTables(migration.sql);
+  return { mode, version, name, runId, file, summaryFile, summaryLines, checks, snapshot, manualSnapshotRequired, flow,
+    rollbackPath, rules: strict ? 'strict' : 'expanded', ...validation, targets: validation.targets.filter(t => !fresh.has(t)) };
 }
 
 export const escapeSummary = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('|', '&#124;').replaceAll('`', '&#96;');

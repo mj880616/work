@@ -1,6 +1,6 @@
-@import url('./list-row.css?v=1');
+@import url('./list-row.css');
 /* Web2 single-render startup + Project System V3. Feature layout only; visual primitives use Design System tokens. */
-.brand .leaf{width:40px!important;height:36px!important;border:0!important;border-radius:var(--kptu-radius-md)!important;background:transparent url('./app-icon.svg?v=20260915-1') center/36px 36px no-repeat!important;color:transparent!important;font-size:0!important;overflow:hidden}
+.brand .leaf{width:40px!important;height:36px!important;border:0!important;border-radius:var(--kptu-radius-md)!important;background:transparent url('./app-icon.svg') center/36px 36px no-repeat!important;color:transparent!important;font-size:0!important;overflow:hidden}
 #projectGrid[data-ps3-ready="1"]{display:grid}
 /* D-project-list: shared row geometry, always-visible indented children. */
 .ps3-plist{grid-column:1/-1;min-width:0;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface);overflow:hidden}
@@ -9,6 +9,8 @@
 .ps3-prow+.ps3-prow{border-top:1px solid var(--kptu-border)}
 .ps3-prow:has(.ps3-prow-kids)>.ps3-prow-main{border-bottom:1px solid var(--kptu-border)}
 .ps3-kid-row.kptu-list-row{padding-left:calc(var(--kptu-space-4) * 2)}
+.ps3-kid-row.kptu-list-row[data-ps3-depth="2"]{padding-left:calc(var(--kptu-space-4) * 3)}
+.ps3-hier-sep{color:var(--kptu-muted);font-size:11px}
 .ps3-restore-line{display:flex;align-items:center;min-width:0}
 .ps3-restore-line>.kptu-list-row{flex:1;cursor:default}
 .ps3-restore-line .kptu-list-chevron{visibility:hidden}
@@ -98,12 +100,19 @@
 .ps3-person input{width:auto;min-height:0}
 .ps3-person select{padding:7px 8px}
 .ps3-archive-list{display:grid;gap:3px}
+.ps3-archive-tabs{display:flex;gap:var(--kptu-space-3);margin:0 0 var(--kptu-space-2)}
+.ps3-archive-tabs[hidden]{display:none}
+.ps3-archive-tabs button{position:relative;border:0;background:transparent;padding:0 var(--kptu-space-1);min-height:var(--kptu-action-compact-height);color:var(--kptu-muted);font-size:12px;font-weight:400;cursor:pointer}
+.ps3-archive-tabs button::after{content:"";position:absolute;inset:-8px -4px}
+.ps3-archive-tabs button[aria-pressed="true"]{color:var(--kptu-ink);font-weight:600;text-decoration:underline}
+.ps3-trash-hint{color:var(--kptu-danger)}
+[data-ps3-archive-hint][hidden],[data-ps3-delete-note][hidden]{display:none}
 @media(max-width:760px){
   .brand .leaf{width:38px!important;height:34px!important;background-size:34px 34px!important}
   .ps3-detail-card{padding:var(--kptu-space-4)}
   .ps3-modal-head{top:-16px}
   .ps3-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .ps3-summary{grid-template-columns:1fr}
+  .ps3-summary{grid-template-columns:minmax(0,1fr)}
   .ps3-summary b{margin-top:var(--kptu-space-1)}
   .ps3-row{align-items:flex-start}
   #projectsView>.section-head{flex-direction:column;align-items:stretch}
@@ -118,27 +127,15 @@
 .ps3-type-row b{display:block;font-size:11px}
 .ps3-type-row small{display:block;margin-top:2px;color:var(--kptu-muted);font-size:9.5px}
 @media(max-width:760px){
-  .ps3-type-control{grid-template-columns:1fr}
+  .ps3-type-control{grid-template-columns:minmax(0,1fr)}
   .ps3-type-control .mini{justify-self:start}
 }
 
-.ps3-memo-form{display:grid;gap:6px;margin:8px 0 12px}
-.ps3-memo-form textarea{width:100%;margin:0;resize:vertical}
-.ps3-memo-actions{display:flex;justify-content:flex-end;gap:6px}
-.ps3-memo-row{align-items:flex-start}
-.ps3-memo-row .ps3-row-main p{white-space:pre-wrap;margin:0 0 4px}
-.ps3-memo-row-actions{display:flex;gap:4px;flex:0 0 auto}
-@media(max-width:760px){
-  .ps3-memo-row{grid-template-columns:minmax(0,1fr)}
-  .ps3-memo-row-actions{justify-content:flex-start}
-}
 
 /* Task 16: summary-first project detail. One column on every width; desktop only gets more room. */
 .ps3-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--kptu-space-2)}
 .ps3-title-wrap{flex:1 1 auto}
 .ps3-title-wrap h2{overflow-wrap:anywhere}
-.ps3-objective{margin:2px 0 0;font-size:12px;line-height:1.45;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ps3-objective:empty{display:none}
 .ps3-head-actions{display:flex;flex:0 0 auto;gap:var(--kptu-space-1);align-items:center}
 .ps3-more{position:relative}
 .ps3-more>summary{list-style:none;cursor:pointer;font-size:18px;line-height:1}
@@ -150,30 +147,15 @@
 .ps3-count{margin-left:2px;font-size:12px;font-weight:600;color:var(--kptu-faint)}
 .ps3-text-btn{flex:0 0 auto;min-height:32px;border:0;background:transparent;color:var(--kptu-link);padding:0 var(--kptu-space-1);font-size:12px;font-weight:700;cursor:pointer}
 .ps3-text-btn:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px;border-radius:var(--kptu-radius-md)}
-.ps3-child-rows,.ps3-pg-list{display:grid}
+/* UI-바구니첨부메모: 자료 묶음 아래 "전체 N개 보기 ›"(누르는 범위 44px). */
+.ps3-docs-all{display:flex;align-items:center;gap:4px;min-height:44px;margin-left:auto}
+.ps3-child-rows{display:grid}
 .ps3-child-link{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:var(--kptu-space-2);align-items:center;width:100%;min-height:44px;border:0;border-top:1px solid var(--kptu-border);background:transparent;color:var(--kptu-ink);padding:var(--kptu-space-2) 0;text-align:left}
-.ps3-child-link:first-child,.ps3-pg-item:first-child{border-top:0}
+.ps3-child-link:first-child{border-top:0}
 .ps3-child-link strong{min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ps3-child-link small{font-size:11px;color:var(--kptu-muted);white-space:nowrap}
 .ps3-child-link>span{color:var(--kptu-faint)}
 .ps3-child-link:hover{background:var(--kptu-surface-subtle)}
-.ps3-pg-item{min-width:0;border-top:1px solid var(--kptu-border);padding:var(--kptu-space-2) 0}
-.ps3-pg-details>summary{list-style:none;display:grid;gap:3px;cursor:pointer;min-width:0}
-.ps3-pg-details>summary::-webkit-details-marker{display:none}
-.ps3-pg-line1{display:flex;align-items:center;gap:6px;min-width:0}
-.ps3-pg-title{flex:1 1 auto;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ps3-pg-count{flex:0 0 auto;font-size:11px;color:var(--kptu-faint)}
-.ps3-pg-line2{display:flex;gap:var(--kptu-space-2);min-width:0;font-size:12px;color:var(--kptu-muted)}
-.ps3-pg-summary{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ps3-pg-line2 time{flex:0 0 auto;color:var(--kptu-faint)}
-.ps3-pg-details>summary{min-height:var(--kptu-touch-target);align-items:center}
-.ps3-pg-quick{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;margin-top:6px}
-.ps3-pg-quick input{margin:0;min-width:0;min-height:36px}
-.ps3-pg-quick .mini{min-height:36px}
-.ps3-pg-history{display:grid;gap:var(--kptu-space-2);margin-top:var(--kptu-space-2);padding:var(--kptu-space-2) var(--kptu-space-3);background:var(--kptu-surface-subtle);border-radius:var(--kptu-radius-md)}
-.ps3-pg-record time{font-size:11px;color:var(--kptu-faint)}
-.ps3-pg-record p{margin:2px 0 0;font-size:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
-.ps3-pg-record .ps3-pg-next{color:var(--kptu-muted)}
 .ps3-pg-actions{display:flex;gap:var(--kptu-space-2);align-items:center}
 .ps3-row-main>b{display:block;font-size:12px;overflow-wrap:anywhere}
 .ps3-row-actions{display:flex;flex:0 0 auto;gap:var(--kptu-space-1);align-items:flex-start}
@@ -183,40 +165,184 @@
 .ps3-fold[open]>summary::after{transform:rotate(180deg)}
 .ps3-fold-body{margin-top:var(--kptu-space-2)}
 .ps3-fold-actions{display:flex;justify-content:flex-end}
-.ps3-pg-details>summary:focus-visible,.ps3-fold>summary:focus-visible,.ps3-child-link:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px;border-radius:var(--kptu-radius-md)}
 
-.ps3-pg-record{min-width:0}
-.ps3-pg-record .ps3-text-btn{min-width:var(--kptu-touch-target);min-height:var(--kptu-touch-target)}
 .ps3-pg-editor input{min-width:0;width:100%;margin:0}
 
-/* D-3e record actions: painted 32px, transparent 44px hit area. */
-.ps3-pg-record-head{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px}
-.ps3-record-trigger{flex:none;width:32px;height:32px;min-width:32px;min-height:32px;color:var(--kptu-muted);background:transparent;border:0}
 .ps3-record-menu{position:fixed;inset:auto;margin:0;box-sizing:border-box;padding:4px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);z-index:1600;overflow:auto}
 .ps3-record-menu[hidden]{display:none}
 .ps3-record-menu button{display:block;width:100%;height:44px;min-height:44px;padding:0 12px;text-align:left;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta);font-weight:700;cursor:pointer}
 .ps3-record-menu button:hover{background:var(--kptu-surface-subtle)}
 .ps3-record-menu .ps3-record-danger{color:var(--kptu-danger)}
-.ps3-record-menu button:focus-visible,.ps3-record-trigger:focus-visible{outline:2px solid var(--kptu-primary);outline-offset:2px}
+.ps3-record-menu button:focus-visible{outline:2px solid var(--kptu-primary);outline-offset:2px}
 
 /* D-6b: dialog role typography owned here; explicit roots preserve list styles. */
 #ps3DetailModal :is(.ps3-summary b,.ps3-stat-grid b,.ps3-row-main>b,.ps3-row-title b){font-size:var(--kptu-text-body)}
-#ps3DetailModal :is(.ps3-pg-summary,.ps3-pg-next,#ps3Objective){font-size:var(--kptu-text-body)}
+#ps3DetailModal #ps3Summary{font-size:var(--kptu-text-body)}
 #ps3DetailModal :is(.ps3-type-row b,.ps3-type-row small){font-size:var(--kptu-text-meta)}
 #ps3ArchiveModal .ps3-prow-meta{font-size:var(--kptu-text-meta);color:var(--kptu-muted)}
 #ps3CreateModal :is(.ps3-type-row b,.ps3-type-row small){font-size:var(--kptu-text-meta)}
-.ps3-basket-links{margin-top:14px;min-width:0;max-width:100%}
-.ps3-basket-links>summary{cursor:pointer;min-height:44px;align-content:center;color:var(--kptu-muted)}
-.ps3-basket-links .basket-link-record{min-width:0;max-width:100%;box-sizing:border-box;padding:10px;margin-top:7px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle)}
-.ps3-basket-links .basket-link-record small{color:var(--kptu-muted)}
-.ps3-basket-links .basket-link-record p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;margin:7px 0}
-.ps3-basket-links .basket-link-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.ps3-basket-links .basket-link-actions :is(button,a),.ps3-basket-links [data-link-summary-current],.ps3-basket-links [data-ps3-basket-retry]{min-height:44px;display:inline-flex;align-items:center;padding:6px 10px;box-sizing:border-box}
-.ps3-basket-links [data-link-summary-form]{margin-top:10px;padding-top:10px;border-top:1px solid var(--kptu-border)}
-.ps3-basket-links [data-link-summary-input]{display:block;width:100%;max-width:100%;box-sizing:border-box;white-space:pre-wrap;resize:vertical}
-.ps3-basket-links :is(summary,button,a,textarea):focus-visible{outline:2px solid var(--kptu-primary);outline-offset:2px}
 
-#ps3BasketLinks .basket-link-actions a{color:var(--kptu-primary-ink);text-decoration:none}
-.ps3-basket-links [data-link-summary-original] > summary{min-height:44px;align-content:center;cursor:pointer}
-.ps3-basket-links .basket-link-original{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}
-.ps3-basket-links [data-link-summary-form] .basket-link-actions{justify-content:flex-end}
+/* PRJ-색: 이름 앞 8px 점. 메인은 고른 색, 하위는 메인 색의 연한 톤, 색 없으면 회색. 값은 theme-tokens.css의 --ds-project-*. */
+.ps3-color-dot{display:inline-block;width:8px;height:8px;flex:0 0 8px;border-radius:999px;background:var(--ds-project-gray)}
+.ps3-color-dot[data-color="green"]{background:var(--ds-project-green)}.ps3-color-dot[data-color="green"][data-tone="soft"]{background:var(--ds-project-green-soft)}
+.ps3-color-dot[data-color="blue"]{background:var(--ds-project-blue)}.ps3-color-dot[data-color="blue"][data-tone="soft"]{background:var(--ds-project-blue-soft)}
+.ps3-color-dot[data-color="orange"]{background:var(--ds-project-orange)}.ps3-color-dot[data-color="orange"][data-tone="soft"]{background:var(--ds-project-orange-soft)}
+.ps3-color-dot[data-color="purple"]{background:var(--ds-project-purple)}.ps3-color-dot[data-color="purple"][data-tone="soft"]{background:var(--ds-project-purple-soft)}
+.ps3-color-dot[data-color="pink"]{background:var(--ds-project-pink)}.ps3-color-dot[data-color="pink"][data-tone="soft"]{background:var(--ds-project-pink-soft)}
+.ps3-color-dot[data-color="yellow"]{background:var(--ds-project-yellow)}.ps3-color-dot[data-color="yellow"][data-tone="soft"]{background:var(--ds-project-yellow-soft)}
+.ps3-color-dot[data-color="red"]{background:var(--ds-project-red)}.ps3-color-dot[data-color="red"][data-tone="soft"]{background:var(--ds-project-red-soft)}
+.ps3-color-dot[data-color="gray"][data-tone="soft"]{background:var(--ds-project-gray-soft)}
+.ps3-prow .kptu-list-row-main{grid-template-columns:8px minmax(0,1fr) auto 24px;gap:10px}
+@media(max-width:650px){.ps3-prow .kptu-list-row-main{grid-template-columns:8px minmax(0,1fr) auto 20px}}
+#ps3Title .ps3-color-dot,#ps3Summary>.ps3-color-dot{vertical-align:middle;margin:0 8px 0 0;position:relative;top:-1px}
+/* 고르기: 동그라미 8개, 누르는 범위 44px, 고른 색은 바깥 고리. 하위 프로젝트(상위 선택)면 숨김. */
+.ps3-color-field{display:grid;gap:4px;margin:0 0 var(--kptu-space-3,12px)}
+.ps3-color-field[hidden]{display:none}
+.ps3-color-label{font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.ps3-color-options{display:flex;flex-wrap:wrap;gap:0}
+.ps3-color-option{display:grid;place-items:center;width:var(--kptu-touch-target);height:var(--kptu-touch-target);min-height:var(--kptu-touch-target);padding:0;border:0;border-radius:999px;background:transparent;cursor:pointer}
+.ps3-color-option:focus-visible{outline:2px solid var(--kptu-info,var(--kptu-primary));outline-offset:-2px}
+.ps3-color-swatch{width:24px;height:24px;border-radius:999px;background:var(--ds-project-gray)}
+.ps3-color-swatch[data-color="green"]{background:var(--ds-project-green)}.ps3-color-swatch[data-color="blue"]{background:var(--ds-project-blue)}
+.ps3-color-swatch[data-color="orange"]{background:var(--ds-project-orange)}.ps3-color-swatch[data-color="purple"]{background:var(--ds-project-purple)}
+.ps3-color-swatch[data-color="pink"]{background:var(--ds-project-pink)}.ps3-color-swatch[data-color="yellow"]{background:var(--ds-project-yellow)}
+.ps3-color-swatch[data-color="red"]{background:var(--ds-project-red)}
+.ps3-color-option[aria-checked="true"] .ps3-color-swatch{outline:2px solid var(--kptu-ink);outline-offset:2px}
+/* PRJ-기록입력: 머리줄 아래 요약 한 줄, 맨 위 입력칸 + [기록], 기록 목록 하나(최신 위·🧺 포함), 묶음 제목 옆 작은 +, 자료는 줄 누르기 + ⋯. */
+.ps3-head-summary{margin:2px 0 0;line-height:1.45;color:var(--kptu-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps3-head-summary:empty{display:none}
+.ps3-record-input{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin:0 0 var(--kptu-space-3)}
+.ps3-record-field{position:relative;display:flex;min-width:0}
+.ps3-record-input input{margin:0;min-width:0;width:100%;padding-right:44px}
+/* PRJ-화면다듬기: [⤢] sits inside the input like the basket/home quick input (44px touch width, icon only). */
+.ps3-record-big{position:absolute;top:0;right:0;z-index:1;display:grid;place-items:center;box-sizing:border-box;width:44px;min-width:44px;height:100%;min-height:0;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);box-shadow:none;cursor:pointer}
+.ps3-record-big:hover{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink)}
+.ps3-record-big:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+.ps3-record-big svg{flex:none}
+.ps3-record-input+[data-ps3-save-state]:empty{display:none}
+.ps3-rec-list{display:grid}
+.ps3-rec-list>.ps3-rec{min-width:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+.ps3-rec-list>.ps3-rec:first-child{border-top:0}
+.ps3-rec-line{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:baseline;width:100%;min-height:var(--kptu-touch-target);box-sizing:border-box;padding:11px 0;border:0;background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-row,13px);font-weight:var(--ds-weight-regular,400);line-height:1.45;text-align:left;text-decoration:none;cursor:pointer}
+.ps3-rec-line:hover{background:var(--kptu-surface-subtle)}
+.ps3-rec-line:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px;border-radius:var(--kptu-radius-md)}
+.ps3-rec-line time{min-width:3.4em;font-size:var(--ds-text-meta,12px);color:var(--kptu-faint);white-space:nowrap}
+.ps3-rec-text{min-width:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.ps3-rec-from,.ps3-rec-next{color:var(--kptu-muted)}
+.ps3-rec-from::after{content:' ·'}
+.ps3-rec-basket{display:grid;grid-template-columns:minmax(0,1fr) 44px;align-items:center}
+.ps3-rec-more{width:44px;height:44px;min-height:44px;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:20px;line-height:1;cursor:pointer}
+.ps3-rec-more:hover{background:var(--kptu-surface-subtle)}
+.ps3-rec-more:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+.ps3-rec-empty{margin:0;padding:18px 0;text-align:center;color:var(--kptu-faint);font-size:var(--ds-text-row,13px)}
+.ps3-rec .ps3-pg-editor{padding:6px 0}
+/* UI-연결요약수정: the shared link summary editor (basket-link-records.js) opens under a linked line, across both columns. */
+.ps3-rec-basket [data-link-summary-form]{grid-column:1/-1;min-width:0;margin:0 0 10px;padding-top:10px;border-top:1px solid var(--kptu-border)}
+.ps3-rec-basket [data-link-summary-form] label{display:block;min-width:0}
+.ps3-rec-basket [data-link-summary-input]{display:block;width:100%;max-width:100%;box-sizing:border-box;white-space:pre-wrap;resize:vertical}
+.ps3-rec-basket [data-link-summary-original]>summary{min-height:44px;align-content:center;cursor:pointer}
+.ps3-rec-basket .basket-link-original{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;max-width:100%}
+.ps3-rec-basket [data-link-summary-status]:empty{display:none}
+.ps3-rec-basket [data-link-summary-latest]{overflow-wrap:anywhere}
+.ps3-rec-basket [data-link-summary-form] .basket-link-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:8px}
+.ps3-rec-basket [data-link-summary-form] :is(.basket-link-actions button,[data-link-summary-current],[data-link-summary-ai-box] button){min-height:44px;display:inline-flex;align-items:center;padding:6px 10px;box-sizing:border-box}
+.ps3-rec-basket .ai-summary-row,.ps3-rec-basket .ai-summary-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:6px}
+.ps3-rec-basket .ai-summary-status{min-width:0;font-size:var(--kptu-text-meta);color:var(--kptu-muted);overflow-wrap:anywhere}
+.ps3-add-plus{flex:0 0 auto;display:inline-grid;place-items:center;width:var(--kptu-touch-target);height:var(--kptu-touch-target);min-height:var(--kptu-touch-target);margin:-8px -8px -8px 0;padding:0;border:0;border-radius:999px;background:transparent;color:var(--kptu-link);font-size:22px;font-weight:400;line-height:1;cursor:pointer}
+.ps3-add-plus:hover{background:var(--kptu-surface-subtle)}
+.ps3-add-plus:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
+.ps3-section-actions{display:flex;align-items:center;gap:var(--kptu-space-1)}
+.ps3-lines{display:grid}
+.ps3-line{display:flex;align-items:center;gap:4px;min-width:0;border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border))}
+.ps3-line:first-child{border-top:0}
+.ps3-line-main{flex:1 1 auto;display:grid;gap:2px;min-width:0;min-height:var(--kptu-touch-target);box-sizing:border-box;padding:8px 0;color:var(--kptu-ink);text-decoration:none}
+a.ps3-line-main:hover{background:var(--kptu-surface-subtle)}
+a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px;border-radius:var(--kptu-radius-md)}
+.ps3-line-main b{min-width:0;font-size:var(--ds-text-row,13px);font-weight:var(--ds-weight-regular,400);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps3-line-main small{font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+#ps3DetailModal .ps3-line-more>summary{display:grid;place-items:center;width:var(--kptu-touch-target);height:var(--kptu-touch-target);min-height:var(--kptu-touch-target);padding:0;border-color:transparent;background:transparent;box-shadow:none;color:var(--kptu-muted)}
+
+/* UI-PC프로젝트좌우(2026-10-20 사용자 확정, 시안 A): PC(1024px~) 프로젝트 화면 = 왼쪽 목록 + 오른쪽 상세 칸(#ps3DetailPane).
+   할 일 화면(google-tasks.css #gtDetailPane)과 같은 짜임: 화면 높이에 맞춘 한 페이지, 목록·상세 칸 안에서만 세로로 넘긴다.
+   상세 칸은 지금 상세 창(#ps3DetailModal)을 그 자리에 옮겨 그대로 쓴다(project-system-v3.js placeDetail). 창 겉모양만 칸에 맞추고
+   닫기 ×는 숨긴다(다른 프로젝트를 고르면 바뀜). 761~1023px·폰은 지금처럼 목록 + 상세 창. */
+#ps3DetailPane{display:none}
+@media(min-width:1024px){
+  html:has(#appView #projectsView:not(.hidden)) main{padding-bottom:12px}
+  html:has(#appView #projectsView:not(.hidden)) #appView>.app-nav{margin-bottom:0}
+  #appView #projectsView:not(.hidden){display:flex;flex-direction:column;height:calc(100vh - 24px - var(--kptu-topline-space,0px));height:calc(100dvh - 24px - var(--kptu-topline-space,0px));min-height:420px}
+  #appView #projectsView>.section-head{flex:none}
+  #appView #projectsView>.section-head.actions-only:not(:has(button)){display:none}
+  #appView #projectsView>#projectGrid[data-ps3-ready="1"]{flex:1 1 auto;min-height:0;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:minmax(0,1fr);column-gap:var(--kptu-space-3);margin:0}
+  #appView #projectsView #projectGrid>.ps3-plist{grid-column:1;grid-row:1;align-self:start;max-height:100%;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box}
+  #appView #projectsView #projectGrid>.ps3-plist>.add-list-head{position:sticky;top:0;z-index:1;background:var(--kptu-surface)}
+  #appView #projectsView #projectGrid>#ps3DetailPane{grid-column:2;grid-row:1;display:block;min-height:0;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
+  #ps3DetailPane .ps3-pane-empty{margin:0;font-size:var(--ds-text-meta);line-height:1.5;color:var(--kptu-muted)}
+  #ps3DetailPane.has-project .ps3-pane-empty{display:none}
+  /* 고른 프로젝트 줄: 연한 초록(고르기 창의 고른 줄과 같음). */
+  #appView #projectsView .ps3-plist .kptu-list-row.is-selected{background:var(--kptu-primary-soft)}
+  /* "+ 프로젝트": 작은 버튼 높이(--ds-compact-height). */
+  #appView #projectsView .ps3-plist .ps3-project-toolbar button#newProjectBtn{height:var(--ds-compact-height);min-height:var(--ds-compact-height);padding:0 var(--ds-compact-pad-x)}
+  /* 상세 칸 안의 상세 창(같은 요소). */
+  #ps3DetailPane>#ps3DetailModal.ps3-docked{position:static;inset:auto;display:block;justify-items:normal;align-items:normal;padding:0;background:transparent;z-index:auto}
+  #ps3DetailPane>#ps3DetailModal.ps3-docked.hidden{display:none}
+  #ps3DetailPane>#ps3DetailModal.ps3-docked>.ps3-detail-card{width:auto;max-width:none;max-height:none;overflow:visible;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-none);box-shadow:none;background:transparent}
+  #ps3DetailPane>#ps3DetailModal.ps3-docked .ps3-modal-head{top:calc(var(--kptu-space-3) * -1);margin:calc(var(--kptu-space-3) * -1) calc(var(--kptu-space-3) * -1) 0;padding:var(--kptu-space-3) var(--kptu-space-3) var(--kptu-space-3)}
+  #ps3DetailPane>#ps3DetailModal.ps3-docked [data-ps3-close="ps3DetailModal"]{display:none}
+}
+
+/* PRJ-회의표시: 상세의 [회의] 줄(이 프로젝트에 연결된 회의, 최근 순). 자료 줄과 같은 줄 모양, 줄 전체가 버튼(누르면 회의 결과 창). */
+#ps3DetailModal button.ps3-line-main{width:100%;height:auto;min-height:var(--kptu-touch-target);margin:0;padding:8px 0;border:0;border-radius:var(--kptu-radius-none);background:transparent;box-shadow:none;font:inherit;text-align:left;cursor:pointer}
+#ps3DetailModal button.ps3-line-main:hover{background:var(--kptu-surface-subtle)}
+#ps3DetailModal button.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px;border-radius:var(--kptu-radius-md)}
+.ps3-meetings-more>summary{list-style:none;cursor:pointer}
+.ps3-meetings-more>summary::-webkit-details-marker{display:none}
+/* UI-기록아이콘: 기록 줄 앞 업데이트·노트 아이콘(글자색 선 그림, 🧺 대신). */
+.ps3-rec-mark{display:inline-flex;vertical-align:-2px;color:var(--kptu-muted)}
+.ps3-rec-mark svg{display:block}
+/* PRJ-순서바꾸기: PC drag of a list row onto a row of the same level — the line shows where it lands. */
+.ps3-plist .kptu-list-row[draggable="true"]{cursor:grab}
+.ps3-plist .kptu-list-row.ps3-dragging{opacity:.5}
+.ps3-plist .kptu-list-row.ps3-drop-before,.ps3-plist .kptu-list-row.ps3-drop-after{background-image:linear-gradient(var(--kptu-primary),var(--kptu-primary));background-size:100% 2px;background-repeat:no-repeat;background-position:top}
+.ps3-plist .kptu-list-row.ps3-drop-after{background-position:bottom}
+/* PRJ-순서바꾸기(폰): [순서 바꾸기] 작은 버튼(32px, 누르는 범위 44px) → 줄마다 ↑ ↓(누르는 범위 44px). */
+#appView #projectsView .ps3-plist .ps3-order-toggle{position:relative;box-sizing:border-box;margin:0;padding:0;border:0;background:transparent;font-size:12px;font-weight:400;line-height:1;white-space:nowrap;color:var(--kptu-muted);text-decoration:underline;cursor:pointer}
+#appView #projectsView .ps3-plist .ps3-order-toggle[aria-pressed="true"]{color:var(--kptu-primary);font-weight:600}
+#appView #projectsView .ps3-plist .ps3-order-toggle::after{content:"";position:absolute;left:-6px;right:-6px;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+#appView #projectsView .ps3-plist .ps3-order-line>.kptu-list-row{min-width:0}
+#appView #projectsView .ps3-plist .ps3-order-move{flex:none;box-sizing:border-box;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);min-width:var(--kptu-touch-target,44px);min-height:var(--kptu-touch-target,44px);margin:0;padding:0;font-size:18px;line-height:1;color:var(--kptu-ink);background:transparent;border:0;border-radius:var(--kptu-radius-md)}
+#appView #projectsView .ps3-plist .ps3-order-move:disabled{color:var(--kptu-faint);opacity:.45;cursor:default}
+#appView #projectsView .ps3-plist .ps3-order-move:last-child{margin-right:var(--kptu-space-2)}
+/* 순서 바꾸는 중: 줄은 눌리는 모양이 아니며, 이름이 가리지 않게 일정 알약은 잠시 숨김. */
+#appView #projectsView .ps3-plist .ps3-order-line>.kptu-list-row{border-bottom:0}
+#appView #projectsView .ps3-plist .ps3-order-line>.kptu-list-row:hover{background:transparent}
+#appView #projectsView .ps3-plist .ps3-order-line .ps3-prow-meta{display:none}
+/* 하위 줄 연결선: 줄 안쪽 칸이 마지막 칸이 아니라서 생기는 어긋남을 줄(.ps3-order-line) 기준으로 다시 맞춤. */
+#appView #projectsView .ps3-prow-kids .ps3-order-line>.ps3-kid-row::before{bottom:0}
+#appView #projectsView .ps3-prow-kids .ps3-order-line:last-child>.ps3-kid-row::before{bottom:50%}
+
+/* PRJ-화면다듬기: detail sections are no longer boxes inside the dialog box; the text gets the full width, sections are told apart by a hairline. */
+#ps3DetailModal .ps3-section{border:0;border-radius:var(--kptu-radius-none);padding-left:0;padding-right:0;background:transparent}
+#ps3DetailModal .ps3-section+.ps3-section{border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));padding-top:var(--kptu-space-3)}
+/* The section no longer has side padding, so the small + keeps its 44px touch area inside the section's right edge. */
+#ps3DetailModal .ps3-section .ps3-add-plus{margin-right:0}
+/* UPD-요약부품통일 ①: 연결 줄에 쓴 요약을 사업 보고 줄 아래 한 줄로 먼저 보인다. */
+#ps3-meetings .report-link-summary-line{display:block;color:var(--kptu-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* PRJ-목록접어두기: 줄 높이를 촘촘하게(누르는 범위는 줄 전체), 접어 둔 것은 맨 아래 한 줄로 접히고 펼치면 흐리게 보인다. */
+#appView #projectsView .ps3-plist .kptu-list-row{min-height:40px;padding-top:4px;padding-bottom:4px;-webkit-touch-callout:none}
+#appView #projectsView .ps3-plist .ps3-fold{border-top:1px solid var(--kptu-border)}
+.ps3-fold-summary{display:flex;align-items:center;gap:6px;min-height:40px;padding:0 var(--kptu-space-4);cursor:pointer;list-style:none;color:var(--kptu-muted);font-size:var(--ds-compact-text,13px)}
+.ps3-fold-summary::-webkit-details-marker{display:none}
+.ps3-fold-summary::before{content:"▸";flex:none}
+.ps3-fold[open]>.ps3-fold-summary::before{content:"▾"}
+.ps3-fold-label{flex:none;white-space:nowrap}
+.ps3-fold-names{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps3-fold[open]>.ps3-fold-summary .ps3-fold-names{display:none}
+.ps3-fold-summary:focus-visible{outline:2px solid var(--kptu-primary);outline-offset:-2px}
+.ps3-fold-body{opacity:.6}
+.kptu-folded-option{color:var(--kptu-muted)}
+/* ACT-사진 5단계: 사업 보고 줄 오른쪽 작은 그림 3장 + '외 n장'(report-photos.js). 줄 전체가 사업 보고 열기 단추다. */
+.ps3-line-main.has-report-photos{grid-template-columns:minmax(0,1fr) auto;column-gap:8px}
+.ps3-line-main.has-report-photos>:not(.report-photo-strip){grid-column:1}
+.ps3-line-main.has-report-photos>.report-photo-strip{grid-column:2;grid-row:1/span 3;align-self:center;justify-self:end}

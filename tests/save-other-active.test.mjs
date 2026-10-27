@@ -1,0 +1,302 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+import {readFileSync} from 'node:fs';
+import {createRequire} from 'node:module';
+const {parse}=createRequire(new URL('../scripts/package.json',import.meta.url))('acorn');
+// 순수 가져오기(import)는 실제 모듈을 그대로 쓴다. 가짜로 흉내 내면 앱이 가져오기를 늘릴 때 시험이 낡는다 (STAB-단위시험등록).
+const {isMeetingKind,reportWords}=await import('../app/report-words.mjs');
+const {detailDefaultOff}=await import('../app/category-chips.js');
+const {originAfterEdit}=await import('../app/library-ai-fill.js');
+const {lastSeen}=await import('../app/split-last.js');
+const {reportKindOf}=await import('../app/report-kinds.mjs');
+const {createReportSummaries}=await import('../app/report-link-summaries.js');
+const pureModels={createReportSummaries,...await import('../app/meeting-when.js'),...await import('../app/report-kinds.mjs'),...await import('../app/report-words.mjs'),...await import('../app/report-links-model.mjs'),...await import('../app/record-doc.mjs'),...await import('../app/note-preview.mjs')};
+
+// Execute actual declarations unchanged; omit startup, imported presentation and events.
+// API/DOM here are synthetic. Active route/click behavior is covered by the browser spec.
+function declarations(file){
+  const source=readFileSync(new URL('../app/'+file,import.meta.url),'utf8');
+  let nodes=parse(source,{ecmaVersion:'latest',sourceType:'module'}).body;
+  if(file==='workplace-report.js')nodes=nodes[0].expression.callee.body.body;
+  return nodes.filter(n=>['VariableDeclaration','FunctionDeclaration'].includes(n.type)).map(n=>source.slice(n.start,n.end)).join('\n');
+}
+function element(){
+  const classes=new Set();
+  return {value:'',textContent:'',innerHTML:'',className:'',dataset:{},disabled:false,isConnected:true,children:[],
+    classList:{contains:k=>classes.has(k),add:k=>classes.add(k),remove:k=>classes.delete(k),toggle:(k,on)=>{on??=!classes.has(k);on?classes.add(k):classes.delete(k);return on;}},
+    focus(){},setAttribute(){},removeAttribute(){},toggleAttribute(){},replaceChildren(){this.children=[];},append(...nodes){this.children.push(...nodes);},
+    insertAdjacentHTML(){},querySelector(){return null;},querySelectorAll(){return [];},addEventListener(){},matches(){return false;},closest(){return null;},cloneNode(){return element();},replaceWith(value){Object.assign(this,value);}};
+}
+const copy=x=>structuredClone(x),WS='workspace-A',OWNER='owner-A';
+const stamp='2026-10-13T10:00:00.123456Z';
+const org=id=>({id,workspace_id:WS,name:id,aliases:[],organization_type:'기타',description:null,representative_name:null,contact:null,member_count:null,created_by:OWNER,updated_at:stamp,canEdit:true});
+const doc=id=>({id,workspace_id:WS,title:id,category:'기타',project_id:null,meeting_id:null,source:'  원 출처  ',document_date:null,tags:[],description:null,auto_classified:true,classification_note:'기존 분류',file_id:'original-file',file_name:'source.pdf',updated_at:stamp});
+const meeting=id=>({id,workspace_id:WS,title:'회의',series_name:'회의',meeting_at:stamp,round_no:1,project_id:null,transcript_text:'원문',notes:'',created_by:OWNER,updated_at:stamp});
+const report=id=>({id,organization_id:'org-A',week_of:'2026-10-12',summary:'원 요약',detail:'원 상세',status:'draft',finalized_at:null,updated_at:stamp});
+function harness(file,{profile=true,affiliations=['tag-old']}={}){
+  const nodes=new Map(),writes=[],reads=[],events=[],listeners=new Map();let checked=['tag-new'],epoch=0;
+  const db={app_documents:[doc('doc-A'),doc('doc-B')],app_meetings:[meeting('meeting-A'),meeting('meeting-B')],app_suborganizations:[org('org-A'),org('org-B')],app_profile_workplaces:profile?[{id:'profile-A',organization_id:'org-A',user_id:OWNER,full_name:'org-A',updated_at:stamp}]:[],app_suborganization_affiliations:affiliations.map(tag_id=>({organization_id:'org-A',tag_id,created_by:OWNER})),app_org_affiliation_tags:['tag-old','tag-new'].map(id=>({id,workspace_id:WS,name:id,kind:'council',active:true})),app_suborganization_weekly_reports:[report('report-A'),{...report('report-B'),organization_id:'org-B'}]};
+  const node=selector=>{if(!nodes.has(selector))nodes.set(selector,element());return nodes.get(selector);};
+  const context={user:{id:OWNER},workspace:{id:WS},membership:{role:'owner'}},session={user:{id:OWNER},access_token:'synthetic'};
+  const rt={session:{read:()=>session,ensure:async()=>true,epoch:()=>epoch},context:{read:()=>context},config:{url:'https://synthetic.invalid',key:'synthetic'}};
+  const h={nodes,node,writes,reads,events,db,rt,mode:'positive',failTable:null,hold:null,release:null,
+    setChecked:ids=>{checked=[...ids];},setEpoch:n=>{epoch=n;},setContext:changes=>Object.assign(context,changes)};
+  const rowsFor=(url,table)=>{
+    let rows=db[table]||[];
+    for(const [key,value]of url.searchParams)if(value.startsWith('eq.'))rows=rows.filter(row=>String(row[key])===value.slice(3));else if(value.startsWith('in.('))rows=rows.filter(row=>value.slice(4,-1).split(',').includes(String(row[key])));
+    const offset=Number(url.searchParams.get('offset')||0),limit=Number(url.searchParams.get('limit')||rows.length||100);
+    return rows.slice(offset,offset+limit);
+  };
+  rt.api=async(path,options={})=>{
+    const u=new URL(path,'https://synthetic.invalid'),table=u.pathname.split('/').at(-1),method=options.method||'GET';
+    if(method==='GET'){reads.push(path);if(h.readHold===table){h.readHold=null;await new Promise(resolve=>h.readRelease=resolve);}if(h.readDenied===table)throw Object.assign(new Error('synthetic read unknown'),{status:503});return copy(rowsFor(u,table));}
+    const call={path,table,method,body:copy(options.body??null),prefer:options.prefer||'',expectedSessionEpoch:options.expectedSessionEpoch};writes.push(call);
+    if(h.hold===table){h.hold=null;await new Promise(resolve=>h.release=resolve);}
+    if(h.mode==='denied'||h.failTable===table&&(!h.failMethod||h.failMethod===method)){const e=new Error('synthetic refusal');e.status=h.failStatus||(h.mode==='unknown'?503:403);throw e;}
+    if(h.mode==='unknown'){const e=new Error('synthetic transport unknown');e.status=503;throw e;}
+    if(h.mode==='zero')return null;
+    let rows=rowsFor(u,table);
+    if(method==='PATCH')for(const row of rows)Object.assign(row,copy(options.body));
+    if(method==='DELETE'){db[table]=(db[table]||[]).filter(row=>!rows.includes(row));}
+    if(method==='POST'){rows=copy(Array.isArray(options.body)?options.body:[options.body]);db[table]??=[];db[table].push(...rows);}
+    return options.prefer?.includes('return=representation')?(h.reply?h.reply(copy(rows),call):copy(rows)):null;
+  };
+  const document={querySelector:node,querySelectorAll:selector=>selector==='[data-wd-aff]:checked'?checked.map(value=>({value})):[],createElement:element,createTextNode:text=>({textContent:text}),addEventListener(){},body:{insertAdjacentHTML(){}},head:{appendChild(){}}};
+  const window={getSelection:()=>({toString:()=>'',rangeCount:0,anchorNode:null}),KPTURuntime:rt,__KPTU_START_TEAM_VIEW__:async()=>{},KPTUTeamData:{meetings:()=>db.app_meetings},KPTUMeetingNames:{label:m=>m.title,choices:()=>[],installPicker(){},setupPicker(_s,input,_m,_b,{current}){input.value=current;}},KPTUProjectCatalog:{snapshot:()=>({loaded:true,workspaceId:WS,userId:OWNER,tree:[]}),options:()=>'<option value="">프로젝트 없음</option>',label:n=>n,describe:()=>({kind:'active'})},KPTUA11y:{dialog:{activate(){},deactivate(){}}},dispatchEvent:e=>events.push(e.type),addEventListener(type,fn){(listeners.get(type)||listeners.set(type,[]).get(type)).push(fn);}};
+  const env={...pureModels,readReportTargets:async()=>[],saveReportTargets:async()=>({ok:true}),locationAvailable:async()=>false,LEGACY_NOTE:'',mountSplitResize:()=>({dispose(){}}),loadDocumentCategories:async()=>[],lastSeen,reportKindOf,isMeetingKind,reportWords,detailDefaultOff,originAfterEdit,categoryOptions:selected=>'<option value="'+(selected||'')+'">'+(selected||'')+'</option>',window,document,URL,URLSearchParams,structuredClone,console,Map,Set,Date,Promise,JSON,Event:class{constructor(type){this.type=type;}},CustomEvent:class{constructor(type,init){this.type=type;this.detail=init?.detail;}},formatSeoulTime:()=>stamp,formatMeetingTime:()=>stamp,meetingInputValue:v=>v?.slice(0,16),toMeetingISO:v=>new Date(v).toISOString(),seoulDateKey:()=> '2026-10-13',seoulParts:()=>({year:2026}),readRecordPages:(path,{api})=>api(path),readLinkRecords:async()=>[],linkRecordHtml:()=>'',mountLinkSummaryEditor:()=>({hasDraft:()=>false,dispose(){}}),confirm:()=>true,alert(){},queueMicrotask,setTimeout:()=>0,clearTimeout(){},
+    localStorage:{getItem:()=>null,setItem(){throw Error('private persistence forbidden');}},
+  };
+  h.privateStore=env.localStorage;
+  // 화면 그리기용 가져오기(import)는 이 시험의 대상이 아니다: 위에 따로 정하지 않은 이름은 아무것도 하지 않는 함수로 둔다.
+  // 앱이 가져오기를 늘려도 시험이 'X is not defined'로 깨지지 않게 하되, 저장 동작(PATCH·잠금)은 실제 선언 그대로 시험한다.
+  for(const node of parse(readFileSync(new URL('../app/'+file,import.meta.url),'utf8'),{ecmaVersion:'latest',sourceType:'module'}).body)if(node.type==='ImportDeclaration')for(const spec of node.specifiers)if(!(spec.local.name in env))env[spec.local.name]=()=>undefined;
+  const ctx=vm.createContext(env);vm.runInContext(declarations(file),ctx);
+  const source=readFileSync(new URL('../app/'+file,import.meta.url),'utf8');const ast=parse(source,{ecmaVersion:'latest',sourceType:'module'});function installSession(node){if(!node||typeof node!=='object')return;if(node.type==='CallExpression'&&node.callee?.object?.name==='window'&&node.callee?.property?.name==='addEventListener'&&['kptu:session-changed','kptu:view-changed'].includes(node.arguments?.[0]?.value)){vm.runInContext(source.slice(node.start,node.end),ctx);return}for(const value of Object.values(node))if(Array.isArray(value))value.forEach(installSession);else if(value&&typeof value==='object')installSession(value)}installSession(ast);h.emit=type=>listeners.get(type)?.forEach(fn=>fn({detail:{session}}));
+  h.eval=code=>vm.runInContext(code,ctx);h.call=(name,...args)=>{env.args=args;return vm.runInContext(name+'(...args)',ctx);};
+  h.open=async(id)=>{
+    if(file==='library-upload.js'){h.eval(`luUser={id:${JSON.stringify(OWNER)}};luWorkspace=${JSON.stringify(WS)};luRole='owner';`);}
+    if(file==='library-upload.js'){env.args=copy(db.app_documents);h.eval('luDocuments=args');await h.call('luEdit',copy(db.app_documents.find(x=>x.id===id)));}
+    if(file==='meeting-round-detail.js'){env.m=copy(db.app_meetings.find(x=>x.id===id));h.eval(`mrdUser={id:${JSON.stringify(OWNER)}};mrdWorkspace=${JSON.stringify(WS)};mrdRole='owner';mrdCurrent=m;`);await h.call('mrdStartEdit');}
+    if(file==='workplace-detail.js'){h.eval(`wdUser={id:${JSON.stringify(OWNER)}};wdWorkspace=${JSON.stringify(WS)};wdRole='owner';`);await h.call('wdOpen',id);}
+    if(file==='workplace-report.js'){env.rows=copy(db.app_suborganization_weekly_reports);h.eval(`currentOrgId=${JSON.stringify(id==='report-A'?'org-A':'org-B')};reports=rows;`);h.call('detail',id);}
+  };
+  return h;
+}
+
+test('Library P0 preserves untouched raw metadata and original file fields',async()=>{const h=harness('library-upload.js');await h.open('doc-A');h.node('#libraryEditTitle').value='수정';await h.call('luSaveEdit');const b=h.writes[0].body;assert.equal(b.source,'  원 출처  ');assert.equal(b.auto_classified,false);assert.equal(b.classification_note,'사용자 수정');assert.ok(!Object.hasOwn(b,'file_id'));});
+test('Library meeting-only edit keeps exact two-key body',async()=>{const h=harness('library-upload.js');await h.open('doc-A');h.node('#libraryEditMeeting').value='meeting-A';await h.call('luSaveEdit');assert.deepEqual(Object.keys(h.writes[0].body).sort(),['meeting_id','updated_at']);});
+test('Library HTTP403 preserves the active draft',async()=>{const h=harness('library-upload.js');await h.open('doc-A');h.mode='denied';h.node('#libraryEditTitle').value='권한 거절 초안';await h.call('luSaveEdit');assert.equal(h.node('#libraryEditModal').classList.contains('hidden'),false);assert.equal(h.node('#libraryEditTitle').value,'권한 거절 초안');});
+test('Library zero-row 204 never closes the editor',async()=>{const h=harness('library-upload.js');await h.open('doc-A');h.mode='zero';await h.call('luSaveEdit');assert.equal(h.node('#libraryEditModal').classList.contains('hidden'),false);});
+test('Library late A response cannot close or reset B',async()=>{const h=harness('library-upload.js');await h.open('doc-A');h.hold='app_documents';const save=h.call('luSaveEdit');await new Promise(r=>setImmediate(r));h.call('luClose','libraryEditModal');await h.open('doc-B');h.node('#libraryEditTitle').value='B 새 초안';h.release();await save;assert.equal(h.node('#libraryEditModal').classList.contains('hidden'),false);assert.equal(h.node('#libraryEditTitle').value,'B 새 초안');});
+test('Library authoritative epoch 0 is valid and passed to its PATCH',async()=>{const h=harness('library-upload.js');await h.open('doc-A');await h.call('luSaveEdit');assert.equal(h.writes[0].expectedSessionEpoch,0);});
+test('Library missing authoritative epoch blocks only this edit write',async()=>{const h=harness('library-upload.js');await h.open('doc-A');delete h.rt.session.epoch;await h.call('luSaveEdit');assert.equal(h.writes.length,0);assert.equal(h.node('#libraryEditModal').classList.contains('hidden'),false);});
+test('Meeting positive representation applies the submitted raw transcript',async()=>{const h=harness('meeting-round-detail.js');await h.open('meeting-A');h.node('#mrdEditTranscript').value='  원문\r\n그대로  ';await h.call('mrdSaveEdit');assert.equal(h.db.app_meetings[0].transcript_text,'  원문\r\n그대로  ');});
+test('Meeting zero-row representation retains the editor',async()=>{const h=harness('meeting-round-detail.js');await h.open('meeting-A');h.mode='zero';await h.call('mrdSaveEdit');assert.equal(h.node('#mrdEditor').classList.contains('hidden'),false);});
+test('Meeting input added while pending survives the saved response',async()=>{const h=harness('meeting-round-detail.js');await h.open('meeting-A');h.hold='app_meetings';const save=h.call('mrdSaveEdit');await new Promise(r=>setImmediate(r));h.node('#mrdEditTranscript').value='요청 뒤 새 원문';h.release();await save;assert.equal(h.node('#mrdEditor').classList.contains('hidden'),false);assert.equal(h.node('#mrdEditTranscript').value,'요청 뒤 새 원문');});
+test('Meeting cancel and reopen of the same ID retires the old editor',async()=>{const h=harness('meeting-round-detail.js');await h.open('meeting-A');h.hold='app_meetings';const save=h.call('mrdSaveEdit');await new Promise(r=>setImmediate(r));h.call('mrdSetEdit',false);await h.open('meeting-A');h.node('#mrdEditTranscript').value='다시 연 원문';h.release();await save;assert.equal(h.node('#mrdEditor').classList.contains('hidden'),false);assert.equal(h.node('#mrdEditTranscript').value,'다시 연 원문');assert.equal(h.node('#mrdSaveEdit').textContent,'수정 저장');});
+test('Organization A response never sends a profile update into B',async()=>{const h=harness('workplace-detail.js');await h.open('org-A');h.call('wdSetBasicEditing',true);h.node('#wdName').value='A 수정';h.hold='app_suborganizations';const save=h.call('wdSave');await new Promise(r=>setImmediate(r));h.call('wdClose',true);await h.open('org-B');h.call('wdSetBasicEditing',true);h.node('#wdName').value='B 초안';h.release();await save;assert.equal(h.writes.some(w=>w.table==='app_profile_workplaces'&&w.path.includes('organization_id=eq.org-B')),false);assert.equal(h.node('#wdName').value,'B 초안');});
+test('Organization zero-row PATCH keeps the basic draft',async()=>{const h=harness('workplace-detail.js');await h.open('org-A');h.call('wdSetBasicEditing',true);h.node('#wdName').value='저장 전 초안';h.mode='zero';await h.call('wdSave');assert.equal(h.node('#wdBasicForm').classList.contains('hidden'),false);assert.equal(h.node('#wdName').value,'저장 전 초안');});
+test('Organization optional absent profile is not created or patched',async()=>{const h=harness('workplace-detail.js',{profile:false});await h.open('org-A');h.call('wdSetBasicEditing',true);await h.call('wdSave');assert.equal(h.writes.filter(w=>w.table==='app_profile_workplaces').length,0);assert.equal(h.node('#wdBasicForm').classList.contains('hidden'),true);});
+test('Organization confirmed body plus denied profile is partial and keeps inputs',async()=>{const h=harness('workplace-detail.js');await h.open('org-A');h.call('wdSetBasicEditing',true);h.node('#wdName').value='본체 저장';h.failTable='app_profile_workplaces';await h.call('wdSave');assert.equal(h.db.app_suborganizations[0].name,'본체 저장');assert.equal(h.node('#wdBasicForm').classList.contains('hidden'),false);});
+test('Affiliation DELETE A cannot continue with POST or timestamp B',async()=>{const h=harness('workplace-detail.js');await h.open('org-A');h.call('wdOpenAff');h.hold='app_suborganization_affiliations';const save=h.call('wdSaveAff');await new Promise(r=>setImmediate(r));h.call('wdClose',true);await h.open('org-B');h.call('wdOpenAff');h.release();await save;assert.equal(h.writes.filter(w=>w.method==='POST').length,0);assert.equal(h.node('#wdAffModal').classList.contains('hidden'),false);});
+test('Affiliation already-empty selection succeeds without any POST',async()=>{const h=harness('workplace-detail.js',{affiliations:[]});await h.open('org-A');h.setChecked([]);h.call('wdOpenAff');await h.call('wdSaveAff');assert.equal(h.writes.filter(w=>w.method==='POST').length,0);assert.equal(h.node('#wdAffModal').classList.contains('hidden'),true);assert.ok(h.reads.some(p=>p.includes('app_suborganization_affiliations')&&p.includes('organization_id=eq.org-A')));});
+test('Report HTTP403 keeps summary and editor',async()=>{const h=harness('workplace-report.js');await h.open('report-A');h.node('#warSummary').value='거절 초안';h.mode='denied';await h.call('saveReport',true);assert.equal(h.node('#warDraftModal').classList.contains('hidden'),false);assert.equal(h.node('#warSummary').value,'거절 초안');});
+test('Report zero-row finalize is not complete',async()=>{const h=harness('workplace-report.js');await h.open('report-A');h.mode='zero';await h.call('saveReport',true);assert.equal(h.node('#warDraftModal').classList.contains('hidden'),false);});
+test('Report ordinary successful edit closes only its submitted editor',async()=>{const h=harness('workplace-report.js');await h.open('report-A');h.node('#warSummary').value='수정 요약';await h.call('saveReport',false);assert.equal(h.db.app_suborganization_weekly_reports[0].summary,'수정 요약');assert.equal(h.node('#warDraftModal').classList.contains('hidden'),true);});
+test('Report A finalize cannot close B after a pending response',async()=>{const h=harness('workplace-report.js');await h.open('report-A');h.hold='app_suborganization_weekly_reports';const save=h.call('saveReport',true);await new Promise(r=>setImmediate(r));h.call('modal',false);await h.open('report-B');h.node('#warSummary').value='B 보고 초안';h.release();await save;assert.equal(h.node('#warDraftModal').classList.contains('hidden'),false);assert.equal(h.node('#warSummary').value,'B 보고 초안');});
+
+test('Library late uncached lookup never opens over B',async()=>{const h=harness('library-upload.js');await h.open('doc-A');h.eval('luDocuments=luDocuments.filter(x=>x.id!=="doc-A")');h.readHold='app_documents';const opening=h.call('luOpenEditById','doc-A');await new Promise(r=>setImmediate(r));await h.open('doc-B');h.node('#libraryEditTitle').value='B 원 입력';h.readRelease();await opening;await new Promise(r=>setImmediate(r));assert.equal(h.node('#libraryEditId').value,'doc-B');assert.equal(h.node('#libraryEditTitle').value,'B 원 입력');});
+test('Library unknown negative read does not permit resend or erase added input',async()=>{const h=harness('library-upload.js');await h.open('doc-A');h.node('#libraryEditTitle').value='미확인';h.mode='unknown';await h.call('luSaveEdit');h.mode='positive';h.node('#libraryEditTitle').value='새 입력';await h.call('luCheckEdit',h.eval('luEditor'));await h.call('luSaveEdit');assert.equal(h.writes.length,1);assert.equal(h.node('#libraryEditTitle').value,'새 입력');assert.equal(h.node('#libraryEditModal').classList.contains('hidden'),false);});
+test('Library same ID reopened waits for its old pending request without closing the new form',async()=>{const h=harness('library-upload.js');await h.open('doc-A');h.hold='app_documents';const save=h.call('luSaveEdit');await new Promise(r=>setImmediate(r));h.call('luClose','libraryEditModal');await h.open('doc-A');h.node('#libraryEditTitle').value='다시 연 입력';assert.equal(h.node('#libraryEditSave').disabled,true);h.release();await save;await new Promise(r=>setImmediate(r));assert.equal(h.node('#libraryEditSave').disabled,false);assert.equal(h.node('#libraryEditTitle').value,'다시 연 입력');assert.equal(h.node('#libraryEditModal').classList.contains('hidden'),false);});
+test('Library same owner new session epoch retires an old response',async()=>{const h=harness('library-upload.js');await h.open('doc-A');h.hold='app_documents';const save=h.call('luSaveEdit');await new Promise(r=>setImmediate(r));h.setEpoch(1);h.release();await save;assert.equal(h.node('#libraryEditModal').classList.contains('hidden'),false);assert.equal(h.events.includes('kptu:documents-changed'),false);});
+
+test('Affiliation explicit POST refusal retries only POST and timestamp, not confirmed DELETE',async()=>{const h=harness('workplace-detail.js');await h.open('org-A');h.call('wdOpenAff');h.failTable='app_suborganization_affiliations';h.failMethod='POST';await h.call('wdSaveAff');assert.equal(h.db.app_suborganization_affiliations.length,0);h.failTable=null;await h.call('wdSaveAff');assert.equal(h.writes.filter(w=>w.method==='DELETE').length,1);assert.equal(h.writes.filter(w=>w.method==='POST').length,2);assert.equal(h.node('#wdAffModal').classList.contains('hidden'),true);});
+test('Affiliation unknown POST with negative scoped read never resends',async()=>{const h=harness('workplace-detail.js');await h.open('org-A');h.call('wdOpenAff');h.failTable='app_suborganization_affiliations';h.failMethod='POST';h.failStatus=503;await h.call('wdSaveAff');h.failStatus=null;h.failTable=null;await h.call('wdCheckAff',h.eval('wdAffEditor'));await h.call('wdSaveAff');assert.equal(h.writes.filter(w=>w.method==='POST').length,1);assert.equal(h.writes.filter(w=>w.method==='DELETE').length,1);assert.equal(h.node('#wdAffModal').classList.contains('hidden'),false);});
+
+test('Library same owner token refresh preserves pending editor and raw draft',async()=>{const h=harness('library-upload.js');await h.open('doc-A');h.node('#libraryEditTitle').value='현재 원 입력';h.hold='app_documents';const save=h.call('luSaveEdit');await new Promise(r=>setImmediate(r));h.emit('kptu:session-changed');assert.equal(h.node('#libraryEditTitle').value,'현재 원 입력');assert.equal(h.node('#libraryEditModal').classList.contains('hidden'),false);h.release();await save;});
+test('Library same owner refresh preserves a closed unknown attempt and blocks resend',async()=>{const h=harness('library-upload.js');await h.open('doc-A');h.mode='unknown';await h.call('luSaveEdit');h.call('luClose','libraryEditModal');h.emit('kptu:session-changed');await h.open('doc-A');h.mode='positive';await h.call('luSaveEdit');assert.equal(h.writes.length,1);});
+
+test('Library overlapping positive checks cannot clear a newer unknown save',async()=>{const h=harness('library-upload.js');await h.open('doc-A');h.node('#libraryEditTitle').value='제출 A';h.mode='unknown';await h.call('luSaveEdit');const attempt=h.eval('luEditAttempts.get(luEditKey(luEditor))');Object.assign(h.db.app_documents[0],copy(attempt.body));h.mode='positive';h.readHold='app_documents';const first=h.call('luCheckEdit',h.eval('luEditor'));await new Promise(r=>setImmediate(r));await h.call('luCheckEdit',h.eval('luEditor'));h.node('#libraryEditTitle').value='제출 B';h.mode='unknown';await h.call('luSaveEdit');h.readRelease();await first;if(h.writes.length===1)await h.call('luSaveEdit');h.mode='positive';await h.call('luSaveEdit');assert.equal(h.writes.length,2);assert.equal(h.eval('luEditAttempts.get(luEditKey(luEditor)).state'),'unknown');});
+
+test('Organization profile rows created after lookup are not added to the frozen PATCH',async()=>{const h=harness('workplace-detail.js');await h.open('org-A');h.call('wdSetBasicEditing',true);h.node('#wdName').value='확정 요청';h.hold='app_profile_workplaces';const save=h.call('wdSave');await new Promise(r=>setImmediate(r));h.db.app_profile_workplaces.push({id:'late-profile',organization_id:'org-A',user_id:OWNER,full_name:'새 행',updated_at:stamp});h.release();await save;assert.equal(h.db.app_profile_workplaces.find(r=>r.id==='late-profile').full_name,'새 행');});
+test('Affiliation failed preflight never marks an unsent DELETE unknown',async()=>{const h=harness('workplace-detail.js');await h.open('org-A');h.call('wdOpenAff');h.readDenied='app_suborganization_affiliations';await h.call('wdSaveAff');assert.equal(h.writes.length,0);assert.equal(h.eval('wdSaveAttempts.get(wdSaveKey(wdAffEditor)).stages.delete'),'neverSent');});
+
+for(const fixture of [
+  {file:'meeting-round-detail.js',id:'meeting-A',save:'mrdSaveEdit',field:'#mrdEditTranscript',modal:'#mrdEditor',map:'mrdEditAttempts'},
+  {file:'workplace-detail.js',id:'org-A',save:'wdSave',field:'#wdName',modal:'#wdBasicForm',map:'wdSaveAttempts',prepare:h=>h.call('wdSetBasicEditing',true)},
+  {file:'workplace-detail.js',id:'org-A',save:'wdSaveAff',field:null,modal:'#wdAffModal',map:'wdSaveAttempts',prepare:h=>h.call('wdOpenAff')},
+  {file:'workplace-report.js',id:'report-A',save:'saveReport',field:'#warSummary',modal:'#warDraftModal',map:'reportAttempts'},
+]){
+  test(fixture.save+' same owner refresh preserves unknown request and draft',async()=>{const h=harness(fixture.file);await h.open(fixture.id);fixture.prepare?.(h);if(fixture.field)h.node(fixture.field).value='보존할 원 입력';h.mode='unknown';await h.call(fixture.save,false);h.emit('kptu:session-changed');assert.equal(h.node(fixture.modal).classList.contains('hidden'),false);if(fixture.field)assert.equal(h.node(fixture.field).value,'보존할 원 입력');h.mode='positive';await h.call(fixture.save,false);assert.equal(h.writes.length,1);assert.equal(h.eval(fixture.map+'.size'),1);});
+  test(fixture.save+' changed session epoch clears private unknown payload',async()=>{const h=harness(fixture.file);await h.open(fixture.id);fixture.prepare?.(h);h.mode='unknown';await h.call(fixture.save,false);h.setEpoch(1);h.emit('kptu:session-changed');assert.equal(h.eval(fixture.map+'.size'),0);if(fixture.field)assert.equal(h.node(fixture.field).value,'');});
+}
+test('Meeting foreign positive row never closes or confirms current edit',async()=>{const h=harness('meeting-round-detail.js');await h.open('meeting-A');h.reply=rows=>rows.map(r=>({...r,id:'meeting-B'}));await h.call('mrdSaveEdit');assert.equal(h.node('#mrdEditor').classList.contains('hidden'),false);assert.equal(h.eval('mrdEditAttempts.values().next().value.state'),'unknown');});
+test('Meeting unknown negative confirmation read never retries PATCH',async()=>{const h=harness('meeting-round-detail.js');await h.open('meeting-A');h.node('#mrdEditTranscript').value='새 제출 원문';h.mode='unknown';await h.call('mrdSaveEdit');h.mode='positive';await h.call('mrdCheckEdit',h.eval('mrdEditor'));await h.call('mrdSaveEdit');assert.equal(h.writes.length,1);assert.equal(h.node('#mrdEditTranscript').value,'새 제출 원문');});
+test('Organization added input survives all confirmed stages',async()=>{const h=harness('workplace-detail.js');await h.open('org-A');h.call('wdSetBasicEditing',true);h.node('#wdName').value='제출한 이름';h.hold='app_profile_workplaces';const save=h.call('wdSave');await new Promise(r=>setImmediate(r));h.node('#wdName').value='요청 뒤 새 이름';h.release();await save;assert.equal(h.db.app_profile_workplaces[0].full_name,'제출한 이름');assert.equal(h.node('#wdName').value,'요청 뒤 새 이름');assert.equal(h.node('#wdBasicForm').classList.contains('hidden'),false);});
+test('Organization known profile refusal resumes without replaying confirmed organization',async()=>{const h=harness('workplace-detail.js');await h.open('org-A');h.call('wdSetBasicEditing',true);h.node('#wdName').value='같은 제출';h.failTable='app_profile_workplaces';await h.call('wdSave');h.failTable=null;await h.call('wdSave');assert.equal(h.writes.filter(w=>w.table==='app_suborganizations').length,1);assert.equal(h.writes.filter(w=>w.table==='app_profile_workplaces').length,2);assert.equal(h.node('#wdBasicForm').classList.contains('hidden'),true);});
+test('Organization unknown profile negative read never patches again',async()=>{const h=harness('workplace-detail.js');await h.open('org-A');h.call('wdSetBasicEditing',true);h.node('#wdName').value='새 프로필 이름';h.failTable='app_profile_workplaces';h.failStatus=503;await h.call('wdSave');h.failTable=null;h.failStatus=null;await h.call('wdCheckBasic',h.eval('wdBasicEditor'));await h.call('wdSave');assert.equal(h.writes.filter(w=>w.table==='app_suborganizations').length,1);assert.equal(h.writes.filter(w=>w.table==='app_profile_workplaces').length,1);assert.equal(h.node('#wdName').value,'새 프로필 이름');});
+test('Affiliation committed unknown DELETE is confirmed only by scoped empty read and never replayed',async()=>{const h=harness('workplace-detail.js');await h.open('org-A');h.call('wdOpenAff');h.mode='unknown';await h.call('wdSaveAff');h.db.app_suborganization_affiliations=[];h.mode='positive';await h.call('wdCheckAff',h.eval('wdAffEditor'));await h.call('wdSaveAff');assert.equal(h.writes.filter(w=>w.method==='DELETE').length,1);assert.equal(h.writes.filter(w=>w.method==='POST').length,1);assert.equal(h.node('#wdAffModal').classList.contains('hidden'),true);});
+test('Affiliation complete paginated relation read is not silently truncated',async()=>{const h=harness('workplace-detail.js',{affiliations:Array.from({length:201},(_,i)=>'existing-'+i)});await h.open('org-A');h.call('wdOpenAff');h.setChecked([]);await h.call('wdSaveAff');assert.equal(h.db.app_suborganization_affiliations.length,0);assert.ok(h.reads.some(p=>p.includes('app_suborganization_affiliations')&&p.includes('offset=200')));assert.equal(h.node('#wdAffModal').classList.contains('hidden'),true);});
+test('Report submitted final timestamp is preserved and added input survives',async()=>{const h=harness('workplace-report.js');h.db.app_suborganization_weekly_reports[0].finalized_at=stamp;await h.open('report-A');h.hold='app_suborganization_weekly_reports';const save=h.call('saveReport',true);await new Promise(r=>setImmediate(r));h.node('#warSummary').value='요청 뒤 새 요약';h.release();await save;assert.equal(h.writes[0].body.finalized_at,stamp);assert.equal(h.node('#warSummary').value,'요청 뒤 새 요약');assert.equal(h.node('#warDraftModal').classList.contains('hidden'),false);});
+test('Report same ID reopened owns a different pending editor lease',async()=>{const h=harness('workplace-report.js');await h.open('report-A');h.hold='app_suborganization_weekly_reports';const save=h.call('saveReport',false);await new Promise(r=>setImmediate(r));h.call('modal',false);await h.open('report-A');h.node('#warSummary').value='다시 연 요약';assert.equal(h.node('#warSaveDraft').disabled,true);h.release();await save;await new Promise(r=>setImmediate(r));assert.equal(h.node('#warSummary').value,'다시 연 요약');assert.equal(h.node('#warDraftModal').classList.contains('hidden'),false);assert.equal(h.node('#warSaveDraft').disabled,false);});
+test('Report foreign organization row never confirms the draft',async()=>{const h=harness('workplace-report.js');await h.open('report-A');h.reply=rows=>rows.map(r=>({...r,organization_id:'org-B'}));await h.call('saveReport',true);assert.equal(h.node('#warDraftModal').classList.contains('hidden'),false);assert.equal(h.eval('reportAttempts.values().next().value.state'),'unknown');});
+
+test('Meeting view change retires pending edit without late rendering or refresh',async()=>{const h=harness('meeting-round-detail.js');await h.open('meeting-A');h.node('#mrdEditTranscript').value='이전 화면 제출';h.hold='app_meetings';const save=h.call('mrdSaveEdit');await new Promise(r=>setImmediate(r));h.emit('kptu:view-changed');h.node('#mrdResult').textContent='새 화면 표시';h.release();await save;assert.equal(h.node('#mrdResult').textContent,'새 화면 표시');assert.equal(h.events.includes('kptu:meetings-changed'),false);});
+
+test('Synthetic private-persistence adapter rejects any raw draft write',()=>{const h=harness('library-upload.js');assert.throws(()=>h.privateStore.setItem('synthetic-draft','개인 원 입력'),/private persistence forbidden/);});
+
+test('Meeting pending A cannot leave B with the old saving label',async()=>{const h=harness('meeting-round-detail.js');await h.open('meeting-A');h.hold='app_meetings';const save=h.call('mrdSaveEdit');await new Promise(r=>setImmediate(r));h.call('mrdSetEdit',false);await h.open('meeting-B');assert.equal(h.node('#mrdSaveEdit').textContent,'수정 저장');h.release();await save;assert.equal(h.node('#mrdSaveEdit').disabled,false);assert.equal(h.node('#mrdSaveEdit').textContent,'수정 저장');});
+test('Affiliation empty selection with unknown DELETE never claims a confirmed set',async()=>{const h=harness('workplace-detail.js');await h.open('org-A');h.call('wdOpenAff');h.setChecked([]);h.failTable='app_suborganization_affiliations';h.failMethod='DELETE';h.failStatus=503;await h.call('wdSaveAff');assert.equal(h.db.app_suborganization_affiliations.length,1);assert.equal(h.writes.filter(w=>w.method==='POST').length,0);assert.doesNotMatch(h.node('#wdAffStatus').textContent,/소속은 확인/);assert.equal(h.eval('wdSaveAttempts.values().next().value.stages.delete'),'unknown');});
+
+test('author self-review: confirmed unknown Library edit must adopt saved baseline without replacing current draft',async()=>{const h=harness('library-upload.js');await h.open('doc-A');h.node('#libraryEditTitle').value='이미 저장된 변경 제목';h.mode='unknown';await h.call('luSaveEdit');const a=h.eval('luEditAttempts.values().next().value');Object.assign(h.db.app_documents[0],copy(a.body));h.mode='positive';await h.call('luCheckEdit',h.eval('luEditor'));h.node('#libraryEditTitle').value='doc-A';await h.call('luSaveEdit');console.log('LIBRARY_AFTER_CONFIRMED_READ',JSON.stringify({title:h.db.app_documents[0].title,bodies:h.writes.map(w=>w.body)}));assert.equal(h.db.app_documents[0].title,'doc-A');});
+test('author self-review: confirmed unknown Meeting name adopts saved baseline using independent HTTP row copies',async()=>{const h=harness('meeting-round-detail.js');await h.open('meeting-A');h.node('#mrdEditTitle').value='이미 저장된 회의명';h.mode='unknown';await h.call('mrdSaveEdit');const a=h.eval('mrdEditAttempts.values().next().value');Object.assign(h.db.app_meetings[0],copy(a.body));h.mode='positive';await h.call('mrdCheckEdit',h.eval('mrdEditor'));h.node('#mrdEditTitle').value='회의';await h.call('mrdSaveEdit');console.log('MEETING_AFTER_CONFIRMED_READ',JSON.stringify({name:h.db.app_meetings[0].series_name,bodies:h.writes.map(w=>w.body)}));assert.equal(h.db.app_meetings[0].series_name,'회의');});
+
+test('author single probe: confirmed unknown Report final timestamp remains the known original value',async()=>{const h=harness('workplace-report.js');await h.open('report-A');h.mode='unknown';await h.call('saveReport',true);const a=h.eval('reportAttempts.values().next().value');Object.assign(h.db.app_suborganization_weekly_reports[0],copy(a.body));const first=a.body.finalized_at;h.mode='positive';await h.call('checkReport',h.eval('reportEditor'));await new Promise(r=>setTimeout(r,5));h.node('#warSummary').value='확인 이후 새 요약';await h.call('saveReport',true);console.log('REPORT_TIMESTAMP',JSON.stringify({first,second:h.writes[1].body.finalized_at,summary:h.db.app_suborganization_weekly_reports[0].summary}));assert.equal(h.writes[1].body.finalized_at,first);});
+
+// Independent HTTP copies above keep saved rows distinct from editor/cache models.
+const reopenedSavers=[
+  {file:'library-upload.js',id:'doc-A',table:'app_documents',field:'#libraryEditTitle',value:'doc-A',submitted:'submitted title',saved:'title',save:'luSaveEdit',modal:'#libraryEditModal',close:h=>h.call('luClose','libraryEditModal'),reopen:h=>h.call('luOpenEditById','doc-A'),prepare:h=>h.eval('luRenderLibrary=()=>{}')},
+  {file:'meeting-round-detail.js',id:'meeting-A',table:'app_meetings',field:'#mrdEditTitle',value:'회의',submitted:'submitted name',saved:'series_name',save:'mrdSaveEdit',modal:'#mrdEditor',close:h=>h.call('mrdSetEdit',false),reopen:h=>h.call('mrdStartEdit')},
+];
+for(const f of reopenedSavers){
+  for(const value of [f.value,'further current edit'])test(f.save+' pending reopen saves retained current value '+value,async()=>{
+    const h=harness(f.file);f.prepare?.(h);await h.open(f.id);h.node(f.field).value=f.submitted;h.hold=f.table;
+    const first=h.call(f.save);await new Promise(r=>setImmediate(r));f.close(h);await f.reopen(h);h.node(f.field).value=value;
+    h.release();await first;await new Promise(r=>setImmediate(r));
+    assert.equal(h.db[f.table][0][f.saved],f.submitted);assert.equal(h.node(f.field).value,value);assert.equal(h.node(f.modal).classList.contains('hidden'),false);
+    h.hold=f.table;const second=h.call(f.save);await new Promise(r=>setImmediate(r));
+    assert.equal(h.writes[1].body[f.saved],value);assert.equal(h.node(f.modal).classList.contains('hidden'),false);
+    h.release();await second;assert.equal(h.db[f.table][0][f.saved],value);assert.equal(h.node(f.modal).classList.contains('hidden'),true);
+    if(f.file==='library-upload.js'){assert.equal(h.db[f.table][0].source,'  원 출처  ');assert.equal(h.db[f.table][0].file_id,'original-file');}
+  });
+  test(f.save+' success while closed updates the next same-target reopen',async()=>{
+    const h=harness(f.file);f.prepare?.(h);await h.open(f.id);h.node(f.field).value=f.submitted;h.hold=f.table;
+    const first=h.call(f.save);await new Promise(r=>setImmediate(r));f.close(h);h.release();await first;
+    await f.reopen(h);assert.equal(h.node(f.field).value,f.submitted);h.node(f.field).value=f.value;await h.call(f.save);
+    assert.equal(h.db[f.table][0][f.saved],f.value);assert.equal(h.writes[1].body[f.saved],f.value);
+  });
+  for(const mode of ['denied','unknown'])test(f.save+' '+mode+' pending reopen retains original stored value',async()=>{
+    const h=harness(f.file);f.prepare?.(h);await h.open(f.id);h.node(f.field).value=f.submitted;h.hold=f.table;h.mode=mode;
+    const first=h.call(f.save);await new Promise(r=>setImmediate(r));f.close(h);await f.reopen(h);h.node(f.field).value=f.value;h.release();await first;await new Promise(r=>setImmediate(r));
+    assert.equal(h.db[f.table][0][f.saved],f.value);assert.equal(h.node(f.field).value,f.value);assert.equal(h.node(f.modal).classList.contains('hidden'),false);
+    h.mode='positive';await h.call(f.save);assert.equal(h.writes.length,mode==='unknown'?1:2);assert.equal(h.db[f.table][0][f.saved],f.value);
+  });
+}
+for(const reopenBefore of [true,false])test('Report first confirmed finalization survives '+(reopenBefore?'pending reopen':'reopen after success'),async()=>{
+  const h=harness('workplace-report.js');await h.open('report-A');h.hold='app_suborganization_weekly_reports';const first=h.call('saveReport',true);
+  await new Promise(r=>setImmediate(r));h.call('modal',false);if(reopenBefore)h.call('detail','report-A');h.release();await first;await new Promise(r=>setImmediate(r));
+  if(!reopenBefore)h.call('detail','report-A');assert.equal(h.node('#warDraftModal').classList.contains('hidden'),false);
+  const finalized=h.db.app_suborganization_weekly_reports[0].finalized_at;await new Promise(r=>setTimeout(r,10));h.node('#warSummary').value='reopened summary';
+  h.hold='app_suborganization_weekly_reports';const second=h.call('saveReport',true);await new Promise(r=>setImmediate(r));
+  assert.equal(h.writes[1].body.finalized_at,finalized);assert.equal(h.node('#warSummary').value,'reopened summary');assert.equal(h.node('#warDraftModal').classList.contains('hidden'),false);
+  h.release();await second;assert.equal(h.db.app_suborganization_weekly_reports[0].finalized_at,finalized);assert.equal(h.db.app_suborganization_weekly_reports[0].summary,'reopened summary');assert.equal(h.node('#warDraftModal').classList.contains('hidden'),true);
+});
+
+for(const f of [...reopenedSavers,{file:'workplace-report.js',id:'report-A',table:'app_suborganization_weekly_reports',field:'#warSummary',value:'원 요약',submitted:'submitted summary',saved:'summary',save:'saveReport',modal:'#warDraftModal',close:h=>h.call('modal',false),reopen:h=>h.call('detail','report-A')}]){
+  test(f.save+' foreign response on pending reopen keeps the draft and blocks resend',async()=>{
+    const h=harness(f.file);f.prepare?.(h);await h.open(f.id);h.node(f.field).value=f.submitted;h.hold=f.table;h.reply=rows=>rows.map(r=>({...r,id:'foreign-id'}));
+    const first=h.call(f.save,true);await new Promise(r=>setImmediate(r));f.close(h);await f.reopen(h);h.node(f.field).value=f.value;h.release();await first;await new Promise(r=>setImmediate(r));
+    assert.equal(h.node(f.field).value,f.value);assert.equal(h.node(f.modal).classList.contains('hidden'),false);await h.call(f.save,true);assert.equal(h.writes.length,1);
+  });
+  for(const change of ['owner','workspace','epoch'])test(f.save+' pending reopen '+change+' change rejects saved metadata adoption',async()=>{
+    const h=harness(f.file);f.prepare?.(h);await h.open(f.id);h.node(f.field).value=f.submitted;h.hold=f.table;
+    const first=h.call(f.save,true);await new Promise(r=>setImmediate(r));f.close(h);await f.reopen(h);
+    if(change==='owner')h.rt.session.read().user.id='other-owner';else if(change==='workspace')h.setContext({workspace:{id:'other-workspace'}});else h.setEpoch(1);
+    h.release();await first;await new Promise(r=>setImmediate(r));assert.equal(h.node(f.field).value,f.value);assert.equal(h.node(f.modal).classList.contains('hidden'),false);
+    const baseline=h.eval(f.file==='library-upload.js'?'luDocuments[0].title':f.file==='meeting-round-detail.js'?'mrdCurrent.series_name':'editingReport.summary');assert.equal(baseline,f.value);
+    await h.call(f.save,true);assert.equal(h.writes.length,1);
+  });
+}
+test('Library confirmed rename during reopen meeting lookup keeps current input with the saved baseline',async()=>{
+  const h=harness('library-upload.js');h.eval('luRenderLibrary=()=>{}');await h.open('doc-A');h.node('#libraryEditTitle').value='submitted title';h.hold='app_documents';const first=h.call('luSaveEdit');await new Promise(r=>setImmediate(r));h.call('luClose','libraryEditModal');
+  h.eval('window.__KPTU_START_TEAM_VIEW__=()=>new Promise(resolve=>window.resumeMeetings=resolve)');const opening=h.call('luOpenEditById','doc-A');await new Promise(r=>setImmediate(r));h.release();await first;h.eval('window.resumeMeetings()');await opening;
+  assert.equal(h.node('#libraryEditTitle').value,'doc-A');await h.call('luSaveEdit');assert.equal(h.db.app_documents[0].title,'doc-A');assert.equal(h.writes[1].body.title,'doc-A');
+});
+test('Library confirmed unknown rename is also the baseline of a later reopen',async()=>{
+  const h=harness('library-upload.js');h.eval('luRenderLibrary=()=>{}');await h.open('doc-A');h.node('#libraryEditTitle').value='submitted title';h.mode='unknown';await h.call('luSaveEdit');const a=h.eval('luEditAttempts.values().next().value');Object.assign(h.db.app_documents[0],copy(a.body));h.mode='positive';await h.call('luCheckEdit',h.eval('luEditor'));h.call('luClose','libraryEditModal');await h.call('luOpenEditById','doc-A');assert.equal(h.node('#libraryEditTitle').value,'submitted title');h.node('#libraryEditTitle').value='doc-A';await h.call('luSaveEdit');assert.equal(h.db.app_documents[0].title,'doc-A');
+});
+async function reportUnknownAfterPendingReopen(){
+  const h=harness('workplace-report.js');await h.open('report-A');h.node('#warSummary').value='first submitted summary';h.hold='app_suborganization_weekly_reports';
+  const first=h.call('saveReport',false);await new Promise(r=>setImmediate(r));h.call('modal',false);h.call('detail','report-A');h.release();await first;await new Promise(r=>setImmediate(r));
+  h.node('#warSummary').value='confirmed final summary';h.mode='unknown';await h.call('saveReport',true);
+  const a=h.eval('reportAttempts.values().next().value');Object.assign(h.db.app_suborganization_weekly_reports[0],copy(a.body));h.mode='positive';
+  return {h,finalized:a.body.finalized_at};
+}
+test('Report confirmed GET after pending reopen preserves saved summary and first finalization across another reopen',async()=>{
+  const {h,finalized}=await reportUnknownAfterPendingReopen();h.readHold='app_suborganization_weekly_reports';const checking=h.call('checkReport',h.eval('reportEditor'));await new Promise(r=>setImmediate(r));
+  h.node('#warSummary').value='additional current input';h.readRelease();await checking;
+  assert.equal(h.node('#warSummary').value,'additional current input');assert.equal(h.node('#warDraftModal').classList.contains('hidden'),false);
+  h.call('modal',false);h.call('detail','report-A');await new Promise(r=>setTimeout(r,10));
+  h.hold='app_suborganization_weekly_reports';const saving=h.call('saveReport',true);await new Promise(r=>setImmediate(r));assert.equal(h.node('#warDraftModal').classList.contains('hidden'),false);h.release();await saving;
+  const row=h.db.app_suborganization_weekly_reports[0],body=h.writes[2].body;
+  assert.deepEqual({savedSummary:row.summary,savedFinalized:row.finalized_at,bodySummary:body.summary,bodyFinalized:body.finalized_at},{savedSummary:'confirmed final summary',savedFinalized:finalized,bodySummary:'confirmed final summary',bodyFinalized:finalized});
+  assert.equal(h.node('#warDraftModal').classList.contains('hidden'),true);
+});
+for(const change of ['owner','workspace','epoch','editor'])test('Report confirmation after detached success rejects stale '+change+' adoption',async()=>{
+  const {h}=await reportUnknownAfterPendingReopen();h.readHold='app_suborganization_weekly_reports';const checking=h.call('checkReport',h.eval('reportEditor'));await new Promise(r=>setImmediate(r));
+  if(change==='owner')h.rt.session.read().user.id='other-owner';else if(change==='workspace')h.setContext({workspace:{id:'other-workspace'}});else if(change==='epoch')h.setEpoch(1);else{h.call('modal',false);h.call('detail','report-A');}
+  h.node('#warSummary').value='replacement current input';h.readRelease();await checking;
+  assert.equal(h.node('#warSummary').value,'replacement current input');assert.equal(h.eval('reports.find(r=>r.id==="report-A").summary'),'first submitted summary');assert.equal(h.eval('reportAttempts.size'),1);
+  await h.call('saveReport',true);assert.equal(h.writes.length,2);
+});
+test('Report foreign confirmation row after detached success never adopts cache or allows resend',async()=>{
+  const {h}=await reportUnknownAfterPendingReopen();h.db.app_suborganization_weekly_reports[0].organization_id='org-B';await h.call('checkReport',h.eval('reportEditor'));
+  assert.equal(h.eval('reports.find(r=>r.id==="report-A").summary'),'first submitted summary');assert.equal(h.node('#warSummary').value,'confirmed final summary');await h.call('saveReport',true);assert.equal(h.writes.length,2);
+});
+// Consume the actual checkbox renderer output: the VM DOM does not parse HTML.
+function openAffDefaults(h){h.call('wdOpenAff');const ids=[...h.node('#wdAffChoices').innerHTML.matchAll(/<input[^>]*value="([^"]+)" checked/g)].map(m=>m[1]).sort();h.setChecked(ids);return ids;}
+const storedAffIds=h=>h.db.app_suborganization_affiliations.filter(r=>r.organization_id==='org-A').map(r=>r.tag_id).sort();
+async function affTimestampUnknown(wanted=['tag-new']){
+  const h=harness('workplace-detail.js');await h.open('org-A');openAffDefaults(h);h.setChecked(wanted);h.failTable='app_suborganizations';h.failStatus=503;await h.call('wdSaveAff');
+  const a=h.eval('wdSaveAttempts.values().next().value');Object.assign(h.db.app_suborganizations[0],copy(a.timestampBody));h.failTable=null;h.failStatus=null;return h;
+}
+async function saveFreshAffDefaults(h,wanted){
+  h.call('wdModal','wdAffModal',false);const defaults=openAffDefaults(h),before=h.writes.length;await h.call('wdSaveAff');
+  const posts=h.writes.slice(before).filter(w=>w.method==='POST').map(w=>w.body),expectedPosts=wanted.length?[wanted.map(tag_id=>({organization_id:'org-A',tag_id,created_by:OWNER}))]:[];
+  assert.deepEqual({defaults,stored:storedAffIds(h),posts},{defaults:wanted,stored:wanted,posts:expectedPosts});
+  assert.equal(h.node('#wdAffModal').classList.contains('hidden'),true);
+}
+for(const wanted of [['tag-new'],[]]){
+  for(const lifetime of ['replacement','closed','current'])test('Affiliation confirmed '+(wanted.length?'new':'empty')+' defaults survive '+lifetime+' editor and next save',async()=>{
+    const h=harness('workplace-detail.js');await h.open('org-A');openAffDefaults(h);h.setChecked(wanted);h.hold='app_suborganizations';const saving=h.call('wdSaveAff');await new Promise(r=>setImmediate(r));
+    if(lifetime!=='current'){h.call('wdModal','wdAffModal',false);if(lifetime==='replacement')openAffDefaults(h);}if(lifetime!=='closed')h.setChecked(['tag-old']);
+    h.release();await saving;await new Promise(r=>setImmediate(r));assert.deepEqual(storedAffIds(h),wanted);
+    if(lifetime!=='closed'){assert.equal(h.node('#wdAffModal').classList.contains('hidden'),false);assert.equal(h.eval('wdSaveDraft("aff")'),'["tag-old"]');}
+    if(wanted.length)assert.deepEqual(h.writes.find(w=>w.method==='POST').body,[{organization_id:'org-A',tag_id:'tag-new',created_by:OWNER}]);else assert.equal(h.writes.filter(w=>w.method==='POST').length,0);
+    await saveFreshAffDefaults(h,wanted);
+  });
+  test('Affiliation confirmed GET adopts '+(wanted.length?'new':'empty')+' defaults without replacing current choices',async()=>{
+    const h=await affTimestampUnknown(wanted);h.setChecked(['tag-old']);h.readHold='app_suborganization_affiliations';const checking=h.call('wdCheckAff',h.eval('wdAffEditor'));await new Promise(r=>setImmediate(r));h.readRelease();await checking;
+    assert.equal(h.eval('wdSaveDraft("aff")'),'["tag-old"]');assert.equal(h.node('#wdAffModal').classList.contains('hidden'),false);assert.equal(h.eval('wdSaveAttempts.size'),0);assert.deepEqual(storedAffIds(h),wanted);
+    await saveFreshAffDefaults(h,wanted);
+  });
+}
+for(const path of ['direct','check'])for(const change of ['owner','workspace','epoch','organization'])test('Affiliation '+path+' confirmation rejects stale '+change+' cache adoption',async()=>{
+  let h,saving;
+  if(path==='check'){h=await affTimestampUnknown();h.readHold='app_suborganization_affiliations';saving=h.call('wdCheckAff',h.eval('wdAffEditor'));}
+  else{h=harness('workplace-detail.js');await h.open('org-A');openAffDefaults(h);h.setChecked(['tag-new']);h.hold='app_suborganizations';saving=h.call('wdSaveAff');}
+  await new Promise(r=>setImmediate(r));
+  if(change==='owner')h.rt.session.read().user.id='other-owner';else if(change==='workspace')h.setContext({workspace:{id:'other-workspace'}});else if(change==='epoch')h.setEpoch(1);else{h.call('wdClose',true);await h.open('org-B');openAffDefaults(h);}
+  h.setChecked(['tag-old']);const baseline=JSON.stringify(h.eval('wdAffiliations'));h.node('#wdUpdated').textContent='replacement UI';
+  if(path==='check')h.readRelease();else h.release();await saving;await new Promise(r=>setImmediate(r));
+  assert.equal(JSON.stringify(h.eval('wdAffiliations')),baseline);assert.equal(h.eval('wdSaveDraft("aff")'),'["tag-old"]');assert.equal(h.node('#wdUpdated').textContent,'replacement UI');assert.deepEqual(storedAffIds(h),['tag-new']);
+});
+test('Affiliation retired confirmation lease cannot adopt cache or clear the current unknown attempt',async()=>{
+  const h=await affTimestampUnknown();h.readHold='app_suborganization_affiliations';const checking=h.call('wdCheckAff',h.eval('wdAffEditor'));await new Promise(r=>setImmediate(r));h.call('wdModal','wdAffModal',false);openAffDefaults(h);h.setChecked([]);h.readRelease();await checking;
+  assert.deepEqual(h.eval('wdAffiliations').map(r=>r.tag_id),['tag-old']);assert.equal(h.eval('wdSaveAttempts.size'),1);assert.equal(h.eval('wdSaveDraft("aff")'),'[]');
+  await h.call('wdCheckAff',h.eval('wdAffEditor'));assert.equal(h.eval('wdSaveDraft("aff")'),'[]');await saveFreshAffDefaults(h,['tag-new']);
+});
+for(const stage of ['DELETE','POST'])test('Affiliation positive partial '+stage+' check adopts defaults only after remaining stages succeed',async()=>{
+  const h=harness('workplace-detail.js');await h.open('org-A');openAffDefaults(h);h.setChecked(['tag-new']);h.failTable='app_suborganization_affiliations';h.failMethod=stage;h.failStatus=503;await h.call('wdSaveAff');
+  if(stage==='DELETE')h.db.app_suborganization_affiliations=[];else h.db.app_suborganization_affiliations=[{organization_id:'org-A',tag_id:'tag-new',created_by:OWNER}];h.failTable=null;h.failStatus=null;await h.call('wdCheckAff',h.eval('wdAffEditor'));
+  assert.deepEqual(h.eval('wdAffiliations').map(r=>r.tag_id),['tag-old']);assert.equal(h.eval('wdSaveAttempts.size'),1);h.call('wdModal','wdAffModal',false);assert.deepEqual(openAffDefaults(h),['tag-old']);h.setChecked(['tag-new']);await h.call('wdSaveAff');
+  assert.equal(h.writes.filter(w=>w.method==='DELETE').length,1);assert.equal(h.writes.filter(w=>w.method==='POST').length,1);await saveFreshAffDefaults(h,['tag-new']);
+});
+for(const foreign of ['organization','workspace'])test('Affiliation foreign '+foreign+' timestamp response never confirms cache or permits resend',async()=>{
+  const h=harness('workplace-detail.js');await h.open('org-A');openAffDefaults(h);h.setChecked(['tag-new']);h.reply=(rows,call)=>call.table==='app_suborganizations'?rows.map(row=>({...row,...(foreign==='organization'?{id:'org-B'}:{workspace_id:'other-workspace'})})):rows;
+  await h.call('wdSaveAff');assert.deepEqual(h.eval('wdAffiliations').map(r=>r.tag_id),['tag-old']);assert.equal(h.eval('wdSaveAttempts.values().next().value.stages.timestamp'),'unknown');const before=h.writes.length;await h.call('wdSaveAff');assert.equal(h.writes.length,before);
+});
+test('Affiliation negative timestamp confirmation keeps stale cache and blocks retransmission',async()=>{
+  const h=await affTimestampUnknown();h.db.app_suborganizations[0].updated_at=stamp;await h.call('wdCheckAff',h.eval('wdAffEditor'));assert.deepEqual(h.eval('wdAffiliations').map(r=>r.tag_id),['tag-old']);assert.equal(h.eval('wdSaveAttempts.size'),1);const before=h.writes.length;await h.call('wdSaveAff');assert.equal(h.writes.length,before);assert.deepEqual(storedAffIds(h),['tag-new']);
+});

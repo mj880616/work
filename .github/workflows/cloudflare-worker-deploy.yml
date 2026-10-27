@@ -57,36 +57,69 @@ jobs:
             fi
           done
 
+      # Pages serves the build-pages.mjs output (Source: GitHub Actions,
+      # .github/workflows/pages-deploy.yml). Since CI-버전자동화 3단계 the checkout has no ?v= and
+      # no app/asset-manifest.json, so only this build output can match production.
+      - name: Jekyll build
+        uses: actions/jekyll-build-pages@44a6e6beabd48582f863aeeb6cb2151cc1716697 # v1.0.13
+        with:
+          source: ./
+          destination: ./_site
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Build expected Actions deployment output
+        run: |
+          npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
+          node scripts/build-pages.mjs _site "$RUNNER_TEMP/pages-out"
+          node scripts/check-pages-build.mjs "$RUNNER_TEMP/pages-out"
+
       - name: Wait for Web2 release on GitHub Pages
+        id: pages
         shell: bash
         run: |
           set -euo pipefail
 
-          wait_for_match() {
-            local local_path="$1"
-            local remote_url="$2"
-            local expected
-            local actual
-            expected="$(sha256sum "$local_path" | cut -d ' ' -f1)"
-            for attempt in {1..60}; do
-              actual="$(curl --silent --fail --location --compressed --connect-timeout 5 --max-time 10 --header 'Cache-Control: no-cache' "$remote_url?deploy=$GITHUB_SHA&attempt=$attempt" | sha256sum | cut -d ' ' -f1 || true)"
-              if [[ "$actual" == "$expected" ]]; then
-                echo "OK  GitHub Pages $local_path matches this commit"
-                return 0
-              fi
-              echo "WAIT ($attempt/60)  GitHub Pages $local_path"
-              sleep 5
+          files=(
+            app/index.html
+            app/app.js
+            app/loader-v2.js
+            app/app-icon.svg
+            app/pwa.js
+            app/windows-manifest.json
+            # The router pins ?v= assets only when they match this manifest on Pages.
+            app/asset-manifest.json
+          )
+          declare -A live
+
+          count_matches() {
+            local dir="$1"
+            local file
+            local count=0
+            for file in "${files[@]}"; do
+              if [[ "${live[$file]}" == "$(sha256sum "$dir/$file" | cut -d ' ' -f1)" ]]; then count=$((count + 1)); fi
             done
-            echo "FAIL  GitHub Pages $local_path did not match this commit"
-            return 1
+            echo "$count"
           }
 
-          wait_for_match app/index.html https://mj880616.github.io/work/app/index.html
-          wait_for_match app/app.js https://mj880616.github.io/work/app/app.js
-          wait_for_match app/loader-v2.js https://mj880616.github.io/work/app/loader-v2.js
-          wait_for_match app/app-icon.svg https://mj880616.github.io/work/app/app-icon.svg
-          wait_for_match app/pwa.js https://mj880616.github.io/work/app/pwa.js
-          wait_for_match app/windows-manifest.json https://mj880616.github.io/work/app/windows-manifest.json
+          for attempt in {1..60}; do
+            for file in "${files[@]}"; do
+              live[$file]="$(curl --silent --fail --location --compressed --connect-timeout 5 --max-time 10 --header 'Cache-Control: no-cache' "https://mj880616.github.io/work/$file?deploy=$GITHUB_SHA&attempt=$attempt" | sha256sum | cut -d ' ' -f1 || true)"
+            done
+            # Every file must match the build output; a partial match is still waiting.
+            if (( $(count_matches "$RUNNER_TEMP/pages-out") == ${#files[@]} )); then
+              echo "OK  GitHub Pages matches this commit's Actions build output"
+              echo "tree=$RUNNER_TEMP/pages-out" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "WAIT ($attempt/60)  GitHub Pages matches $(count_matches "$RUNNER_TEMP/pages-out")/${#files[@]} build files"
+            sleep 5
+          done
+          echo "FAIL  GitHub Pages did not match this commit's Actions build output"
+          exit 1
 
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4.1.3
@@ -98,11 +131,13 @@ jobs:
 
       - name: Verify production routes
         shell: bash
+        env:
+          PAGES_TREE: ${{ steps.pages.outputs.tree }}
         run: |
           set -euo pipefail
-          # Resolve this checkout's release URLs before any production request.
+          # Resolve the release URLs from the tree GitHub Pages serves before any production request.
           # A read/parse failure exits the step through set -e (no fallback URLs).
-          asset_urls="$(node scripts/cloudflare-check-urls.mjs)"
+          asset_urls="$(node scripts/cloudflare-check-urls.mjs "$PAGES_TREE")"
           IFS=$'\t' read -r APP_URL LOADER_URL PWA_URL SW_URL APP_ICON_URL <<< "$asset_urls"
           USER_AGENT='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36'
 

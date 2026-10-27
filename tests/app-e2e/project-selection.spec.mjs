@@ -1,6 +1,8 @@
 import {clickView} from './helpers/shell-navigation.mjs';
 import {test,expect} from '@playwright/test';
 import {calendarToday} from './helpers/calendar-today.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
+import {openMeetingResult} from './helpers/meeting-open.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -31,7 +33,7 @@ async function signIn(page,view,writes){
     if(path==='/rest/v1/app_profiles')return ok([{user_id:owner,display_name:'Test Owner'}]);
     if(path==='/rest/v1/app_spaces')return ok(url.searchParams.has('owner_id')?spaces.filter(row=>row.owner_id===owner):spaces);
     if(path==='/rest/v1/app_meetings'){
-      if(method==='PATCH'){writes.meeting=request.postDataJSON();return ok([{id:meeting.id}])}
+      if(method==='PATCH'){writes.meeting=request.postDataJSON();return ok([{...meeting,...writes.meeting}])}
       return ok([meeting]);
     }
     if(path==='/rest/v1/app_events'){
@@ -49,10 +51,7 @@ async function signIn(page,view,writes){
   });
   const returnTo=`${BASE}/app/?view=${view}`;
   await page.goto(`${BASE}/app/login/?return=${encodeURIComponent(returnTo)}`);
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('selection@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'selection@example.org');
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:15000});
   await expect(page.locator(`#${view}View`)).toBeVisible();
 }
@@ -68,7 +67,7 @@ async function expectCanonical(select){
 test('new meeting uses the project catalog tree while calendar has no project selector',async({page})=>{
   await signIn(page,'meetings',{});
   await page.locator('#newMeetingBtn').click();
-  await expectCanonical(page.locator('#meetingProject'));
+  await expect(page.locator('#meetingPlaces')).toBeVisible();
   await page.locator('#meetingModal [data-close]').click();
   await clickView(page,'calendar');
   await expect(page.locator('#calendarView')).toBeVisible();
@@ -78,15 +77,20 @@ test('new meeting uses the project catalog tree while calendar has no project se
 
 test('meeting edit retains an excluded project unless changed',async({page})=>{
   const writes={};await signIn(page,'meetings',writes);
-  await page.locator('[data-mrd-meeting="selection-meeting"]').click();
+  await openMeetingResult(page,'selection-meeting');
   await page.locator('#mrdEdit').click();
   const select=page.locator('#mrdEditProject');
   await expect(select).toHaveValue('legacy');
   await expect(select.locator('option[value="legacy"]')).toHaveAttribute('disabled','');
   await expect(select.locator('option[value="legacy"]')).toContainText('이전 공간');
   for(const id of ['archived','hidden-child','other-owner'])await expect(select.locator(`option[value="${id}"]`)).toHaveCount(0);
+  const setLinks=[];page.on('request',r=>{if(r.url().includes('/rest/v1/rpc/app_meeting_set_links'))setLinks.push(r.url())});
   await page.locator('#mrdSaveEdit').click();
-  await expect.poll(()=>writes.meeting?.project_id).toBe('legacy');
+  // MTG-사업보고 6단계: 연결은 [연결할 곳]·app_meeting_set_links 한 곳에서만 바꾼다. 연결을 고치지 않은 수정 저장은 project_id를 보내지 않아 'legacy'가 서버에 그대로 남는다.
+  await expect.poll(()=>writes.meeting).toBeTruthy();
+  expect(writes.meeting).not.toHaveProperty('project_id');
+  await expect(page.locator('#mrdEditor')).toBeHidden();
+  expect(setLinks).toEqual([]);
 });
 
 test('calendar never reads Web2 events or opens its edit dialog',async({page})=>{

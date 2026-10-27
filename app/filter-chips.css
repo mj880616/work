@@ -1,4 +1,4 @@
-@import url('./quick-controls.css?v=2');
+@import url('./quick-controls.css');
 /* The 30px home pill sits in a 44px scroll lane so touch targets are not clipped. */
 .filter-chips { box-sizing:border-box; max-width:100%; min-width:0; flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden; padding:7px 2px; min-height:44px; scrollbar-width:none; }
 .filter-chips::-webkit-scrollbar { display:none; }

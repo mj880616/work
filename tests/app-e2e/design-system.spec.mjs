@@ -1,6 +1,8 @@
+import { appOrigin } from './helpers/test-origin.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const user={id:'design-system-user',email:'design-system@example.org',user_metadata:{display_name:'Design QA'}};
@@ -30,11 +32,8 @@ async function mockApp(page){
 
 async function signIn(page){
   await enterLogin(page);
-  await expect(page.locator('#emailAuthToggle')).toBeVisible({timeout:10000});
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill(user.email);
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await expect(page.locator('#googleLoginBtn')).toBeVisible({timeout:10000});
+  await signInWithSession(page,user.email);
   await expect(page.locator('#appView')).toBeVisible({timeout:10000});
 }
 
@@ -53,7 +52,7 @@ test('Design System 1.0 keeps 36px top-level actions and the 32px calendar toolb
   test.setTimeout(60000);
   await page.setViewportSize({width:1024,height:900});
   await mockApp(page);
-  await page.goto('http://127.0.0.1:8123/app/');
+  await page.goto(`${appOrigin}/app/`);
   await signIn(page);
 
   const tokenNames=[
@@ -70,22 +69,31 @@ test('Design System 1.0 keeps 36px top-level actions and the 32px calendar toolb
   for(const name of tokenNames)expect(values[name],name).not.toBe('');
 
   const calendarAction=await actionMetrics(page,'calendar','#newEventBtn');
+  // UI-PC다듬기묶음: 이 시험은 PC 폭(1024) — [+ 일정 등록]은 같은 줄 [오늘]·보기 전환과 같은 작은 버튼 높이(--ds-compact-height 32px). (중간 폭 761~1023은 46px 그대로)
   expect(calendarAction.height).toBeCloseTo(32,0);
 
   const actions=[
-    ['tasks','#newTaskBtn'],['projects','#newProjectBtn'],
-    ['library','#newDocumentBtn'],['meetings','#newMeetingBtn']
+    ['library','#newDocumentBtn']
   ];
   const metrics=[];
   for(const [view,selector] of actions)metrics.push(await actionMetrics(page,view,selector));
-  expect(metrics[1].height).toBe(36);
-  const compact=[metrics[0],metrics[2],metrics[3]];
-  expect(new Set(compact.map(x=>Math.round(x.height))).size).toBe(1);
-  for(const metric of compact)expect(metric.height).toBeCloseTo(36,0);
+  // UI-PC프로젝트좌우(2026-10-20 사용자 확정): PC 프로젝트 화면의 [+ 프로젝트]는 왼쪽 목록 머리의 낮은 버튼
+  // (일정 [+ 일정 등록]과 같은 --ds-compact-height 32px), 모서리는 다른 추가 버튼과 같다.
+  const projectAction=await actionMetrics(page,'projects','#newProjectBtn');
+  expect(projectAction.height).toBeCloseTo(32,0);expect(projectAction.height).toBeCloseTo(calendarAction.height,0);expect(projectAction.radius).toBe(metrics[0].radius);
+  // UI-PC회의(2026-10-20): PC 회의 [+ 회의 결과]만 공용 입력칸 높이(--kptu-control-height 36px)로 줄였다. 다른 화면 버튼은 이번 범위 밖.
+  const meetingAction=await actionMetrics(page,'meetings','#newMeetingBtn');
+  expect(meetingAction.height).toBeCloseTo(36,0);expect(meetingAction.radius).toBe(metrics[0].radius);
+  // UI-PC버튼36(2026-10-20): PC(≥1024) 자료실 추가 버튼도 회의와 같은 입력칸 높이(--kptu-control-height 36px).
+  // 일정 [+ 일정 등록]은 머리줄 작업과 겹쳐 이번 범위 밖(위 46px 그대로).
+  expect(new Set(metrics.map(x=>Math.round(x.height))).size).toBe(1);
+  for(const metric of metrics)expect(metric.height).toBeCloseTo(36,0);
+  expect(metrics[0].height).toBeCloseTo(meetingAction.height,0);
   expect(new Set(metrics.map(x=>x.radius)).size).toBe(1);
 
   await clickView(page,'tasks');
-  await page.locator('#newTaskBtn').click();
+  await expect(page.locator('#gtTaskSection')).toBeVisible();
+  await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
   const modal=page.locator('#gtTaskModal .modal-card');
   await expect(modal).toBeVisible();
   expect(await modal.evaluate(el=>getComputedStyle(el).borderRadius)).toBe('12px');

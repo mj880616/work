@@ -1,8 +1,10 @@
 import { test, expect } from '@playwright/test';
 
 // Existing month-view regressions choose month explicitly.
-test.beforeEach(async({page})=>{await page.addInitScript(()=>{try{localStorage.setItem('kptu-calendar-view','month')}catch{}})});
+test.beforeEach(async({page})=>{await installViewPrefsServer(page,{calendar_view:'month'})});
 import { loginEntry } from './helpers/login-entry.mjs';
+import { signInWithSession } from './helpers/session-login.mjs';
+import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 
 const ORIGIN=process.env.APP_E2E_ORIGIN||'http://127.0.0.1:8123';
 const NOW='2026-10-15T03:00:00.000Z';
@@ -44,10 +46,7 @@ async function fixture(page,{width=390,onToggle}={}){
     return ok([]);
   });
   await page.goto(loginEntry(ORIGIN+'/app/?view=calendar'));
-  await page.locator('#emailAuthToggle').click();
-  await page.locator('#authEmail').fill('qa@example.org');
-  await page.locator('#authPassword').fill('password123');
-  await page.locator('#authSubmit').click();
+  await signInWithSession(page,'qa@example.org');
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
   await expect(page.locator('.cal-cell[data-date="2026-10-20"] .cmv-task-count')).toBeVisible();
   return {calls,external};
@@ -183,7 +182,7 @@ test('new task editor has no toggle button',async({page})=>{
   const {calls}=await fixture(page);
   await page.evaluate(()=>window.KPTURouter.go('tasks',{source:'qa'}));
   await expect(page.locator('#gtTaskBody [data-google-task="cell"]')).toBeVisible();
-  await page.locator('#newTaskBtn').click();
+  await page.waitForFunction(()=>window.KPTUGoogleTasks?.openEditor);await page.evaluate(()=>window.KPTUGoogleTasks.openEditor());
   await expect(page.locator('#gtTaskHeading')).toHaveText('Google 할 일 추가');
   await expect(page.locator('#gtToggleBtn')).toBeHidden();
   await expect(page.locator('#gtDeleteBtn')).toBeHidden();
@@ -234,4 +233,46 @@ test('delete request locks the new toggle button',async({page})=>{
   await expect(page.locator('#gtEditStatus')).toContainText('QA delete failure');
   await expect(page.locator('#gtToggleBtn')).toBeEnabled();
   expect(toggles(calls)).toHaveLength(0);
+});
+
+// UI-할일조작통일: the date list's circle completes / un-completes with the task view's own toggle; the list stays open and the editor
+// (which keeps 완료·삭제) opens only from the title.
+for(const [path,width] of [['cell',412],['list',412],['cell',870]]){
+  test(`date list circle toggles both ways, keeps the list open (${path}, ${width}px)`,async({page})=>{
+    const {calls,external}=await fixture(page,{width});
+    const id=path==='list'?'overflow':'cell';
+    await showDay(page,id);
+    const row=chip(page,id),mark=row.locator('.cmv-task-mark');
+    const hit=await mark.evaluate(m=>{const r=m.getBoundingClientRect(),a=getComputedStyle(m,'::after'),n=k=>parseFloat(a[k]);return {w:r.width-n('left')-n('right'),h:r.height-n('top')-n('bottom')}});
+    expect(hit.h).toBeGreaterThanOrEqual(44);
+    expect(hit.w).toBeGreaterThanOrEqual(44);
+    await mark.click();
+    await expect(row).toHaveClass(/cmv-task-done/);
+    await expect(page.locator('#calendarDayModal')).toBeVisible();
+    await expect(page.locator('#gtTaskModal')).toBeHidden();
+    await expect.poll(()=>toggles(calls).length).toBe(1);
+    await mark.click();
+    await expect(row).not.toHaveClass(/cmv-task-done/);
+    await expect.poll(()=>toggles(calls).length).toBe(2);
+    expect(toggles(calls).map(c=>c.body.completed)).toEqual([true,false]);
+    expect(calls.some(c=>['update','create','link','unlink','delete'].includes(c.action))).toBe(false);
+    await expect(page.locator('#calendarDayModal')).toBeVisible();
+    // The title still opens the existing editor, which has 완료 and 삭제.
+    await row.locator('.cmv-event-title').click();
+    await expect(page.locator('#gtTaskModal')).toBeVisible();
+    await expect(page.locator('#gtToggleBtn')).toBeVisible();
+    await expect(page.locator('#gtDeleteBtn')).toBeVisible();
+    expect(external).toEqual([]);
+  });
+}
+
+test('date list circle puts the row back when the save fails',async({page})=>{
+  const response=async()=>{};response.fail=true;
+  const {calls}=await fixture(page,{width:412,onToggle:response});
+  await showDay(page,'cell');
+  const row=chip(page,'cell');
+  await row.locator('.cmv-task-mark').click();
+  await expect.poll(()=>toggles(calls).length).toBe(1);
+  await expect(row).not.toHaveClass(/cmv-task-done/);
+  await expect(page.locator('#calendarDayModal')).toBeVisible();
 });

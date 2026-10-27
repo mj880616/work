@@ -53,7 +53,7 @@ test('session loss and bfcache restoration lock private UI before navigation',()
 });
 
 test('authenticated workspace initialization errors remain recoverable',()=>{
-  assert.match(login,/Web2 업무정보는 로그인한 사용자만 볼 수 있습니다/);
+  assert.match(login,/업무 정보는 로그인한 본인만 볼 수 있습니다/);
   assert.match(team,/showWorkspaceError\(\)/);
   assert.match(team,/bootRetryBtn/);
   assert.match(team,/bootLogoutBtn/);
@@ -68,4 +68,12 @@ test('Web2 client contains no account creation or membership mutation paths, inc
   }
   assert.doesNotMatch(loader,/access-approval/);
   assert.match(loader,/if\(teamState!=='workspace'\)return;/);
+});
+
+test('Web2 login screen offers Google only: no email, password, or sign-up controls', () => {
+  assert.match(login, /id="googleLoginBtn"/);
+  assert.doesNotMatch(login, /type="(?:password|email)"|authEmail|authPassword|authForm|emailAuth|비밀번호|resetPassword|signup/i);
+  const loginJs = readFileSync(new URL('../../app/login/login.js', import.meta.url), 'utf8');
+  const authService = readFileSync(new URL('../../app/auth-service.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(loginJs + authService, /signIn\b|grant_type=password|resetPassword|signUp/);
 });

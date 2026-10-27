@@ -18,7 +18,7 @@ test('registration always opens as event; task mode keeps title/date and hides e
  await page.locator('[data-event-mode="event"]').click();await expect(page.locator('#eventGoogleOptions')).toBeVisible();await expect(page.locator('#eventStartDate')).toHaveValue('2026-10-09');
  await page.locator('[data-event-mode="task"]').click();await page.locator('[data-close="eventModal"]').click();await page.locator('#newEventBtn').click();
  await expect(page.locator('[data-event-mode="event"]')).toHaveAttribute('aria-pressed','true');
- const boxes=await page.locator('[data-event-mode]').evaluateAll(es=>es.map(e=>{const r=e.getBoundingClientRect();return {top:r.top,height:r.height,target:parseFloat(getComputedStyle(e,'::after').height),right:r.right}}));expect(boxes[0].top).toBe(boxes[1].top);expect(boxes.every(r=>r.height===36&&r.target>=44&&r.right<=360)).toBeTruthy();
+ const boxes=await page.locator('[data-event-mode]').evaluateAll(es=>es.map(e=>{const r=e.getBoundingClientRect();return {top:r.top,height:r.height,target:parseFloat(getComputedStyle(e,'::after').height),right:r.right}}));expect(boxes[0].top).toBe(boxes[1].top);expect(boxes.every(r=>r.height>=30&&r.height<=32&&r.target===44&&r.right<=360)).toBeTruthy(); // UI-버튼크기: [일정 | 할 일]은 왼쪽 작은 세그먼트(상자 32px), 누르는 범위 44px
 });
 test('monthly blank cell supplies the task date',async({page})=>{
  await open(page);await page.locator('[data-close="eventModal"]').click();await page.locator('[data-calendar-view="month"]').click();
@@ -70,14 +70,15 @@ test('desktop task registration keeps fields and shared project sheet usable',as
 });
 test('project button retains its transparent 44px target',async({page})=>{
  await open(page);await page.locator('[data-event-mode="task"]').click();const b=page.locator('#eventTaskProject');
- const point=await b.evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top-2}});
+ // UI-버튼줄이기: 프로젝트 고르기는 보조 버튼이라 보이는 높이 32px, 누르는 범위는 ::after 44px. 위쪽 끝 2px 안을 누른다.
+ const point=await b.evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+2,h:r.height,press:parseFloat(getComputedStyle(el,'::after').minHeight)}});expect(point.h).toBe(32);expect(point.press).toBeGreaterThanOrEqual(44);
  expect(await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.closest('button')?.id,point)).toBe('eventTaskProject');
  await page.mouse.click(point.x,point.y);await expect(page.locator('#eventProjectSheet')).toBeVisible();
 });
 test('360px project label stays on one line like the optional date label',async({page})=>{
  await open(page);await page.locator('[data-event-mode="task"]').click();
  await expect(page.locator('#eventDateLabel')).toHaveText('날짜 (선택)');
- const label=await page.locator('#eventTaskOptions label').evaluate(el=>{
+ const label=await page.locator('#eventProjectField label').evaluate(el=>{
   const button=el.querySelector('button'),range=document.createRange();
   range.setStart(el,0);range.setEndBefore(button);
   const project=range.getBoundingClientRect(),text=range.toString().trim();
@@ -85,4 +86,23 @@ test('360px project label stays on one line like the optional date label',async(
  });
  expect(label.height).toBeGreaterThan(0);expect(label.height).toBeLessThanOrEqual(label.dateHeight+1);
  expect(label.text).toBe('프로젝트 (선택)');expect(label.buttonTop).toBeGreaterThanOrEqual(label.bottom);
+});
+
+test('event mode shows the project field and registers a project milestone after the Google save',async({page})=>{
+ await open(page);await expect(page.locator('#eventTaskProject')).toBeVisible();
+ const writes=[],milestones=[];await page.route(SB+'/functions/v1/google-calendar',r=>{writes.push(r.request().postDataJSON());return r.fulfill({json:{ok:true,event:{id:'created-event',calendarId:r.request().postDataJSON().calendar_id,location:r.request().postDataJSON().location||''}}});});
+ await page.route(SB+'/rest/v1/app_project_milestones*',r=>{if(r.request().method()==='POST'){milestones.push(r.request().postDataJSON());return r.fulfill({status:201,json:[r.request().postDataJSON()]})}return r.fulfill({json:[]})});
+ await page.locator('#eventTitle').fill('QA');await page.locator('#eventTaskProject').click();await page.locator('#eventProjectSheet').getByRole('button',{name:'자식 프로젝트',exact:true}).click();
+ await page.locator('#saveEventBtn').click();await expect(page.locator('#eventModal')).toBeHidden();
+ expect(writes).toHaveLength(1);expect(milestones).toHaveLength(1);
+ expect(milestones[0]).toMatchObject({project_id:'child',title:'QA',milestone_type:'action',status:'planned',google_calendar_id:writes[0].calendar_id,google_event_id:'created-event'});
+});
+test('project link failure keeps the event, offers retry and never creates a second milestone',async({page})=>{
+ await open(page);const writes=[],milestones=[];let fail=true,stored=[];
+ await page.route(SB+'/functions/v1/google-calendar',r=>{writes.push(r.request().postDataJSON());return r.fulfill({json:{ok:true,event:{id:'created-event',calendarId:r.request().postDataJSON().calendar_id,location:r.request().postDataJSON().location||''}}});});
+ await page.route(SB+'/rest/v1/app_project_milestones*',r=>{if(r.request().method()==='POST'){if(fail)return r.fulfill({status:500,json:{message:'fail'}});milestones.push(r.request().postDataJSON());stored=[{id:'m1',google_event_id:'created-event'}];return r.fulfill({status:201,json:[r.request().postDataJSON()]})}return r.fulfill({json:stored})});
+ await page.locator('#eventTitle').fill('QA');await page.locator('#eventTaskProject').click();await page.locator('#eventProjectSheet').getByRole('button',{name:'자식 프로젝트',exact:true}).click();
+ await page.locator('#saveEventBtn').click();await expect(page.locator('#eventStatus')).toContainText('프로젝트 연결 실패');await expect(page.locator('#eventModal')).toBeVisible();expect(writes).toHaveLength(1);
+ fail=false;const retry=page.locator('#eventStatus button',{hasText:'다시 시도'});await retry.dispatchEvent('click');await expect(page.locator('#eventModal')).toBeHidden();
+ expect(writes).toHaveLength(1);expect(milestones).toHaveLength(1);
 });

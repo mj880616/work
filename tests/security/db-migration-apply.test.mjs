@@ -34,7 +34,12 @@ test('DB workflow exposes only manual approved modes, main, fixed permissions an
   assert.match(source, /SUPABASE_PROJECT_REF: \$\{\{ vars\.SUPABASE_PROJECT_REF \}\}/);
   assert.equal([...source.matchAll(/persist-credentials: false/g)].length, 2);
   for (const action of [...source.matchAll(/uses: (\S+)/g)]) assert.match(action[1], /@[a-f0-9]{40}$/);
-  assert.doesNotMatch(source, /set -x|upload-artifact|\$\{\{ inputs\.[^\n]*\n[^\n]*run:/);
+  assert.doesNotMatch(source, /set -x|\$\{\{ inputs\.[^\n]*\n[^\n]*run:/);
+  // Only artifact: the catalog-only pre-apply snapshot directory of the run job (DB-승인형확장).
+  assert.equal([...source.matchAll(/upload-artifact@/g)].length, 1);
+  assert.match(source, /DB_SNAPSHOT_DIR: \$\{\{ runner\.temp \}\}\/db-snapshot\n/);
+  assert.match(source, /name: db-snapshot-\$\{\{ github\.run_id \}\}\n {10}path: \$\{\{ runner\.temp \}\}\/db-snapshot\/\n/);
+  assert.equal(plan.includes('upload-artifact'), false);
 });
 
 test('check/probe regression: main dispatch and numeric run IDs, no other probe schema/table', async () => {

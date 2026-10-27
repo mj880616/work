@@ -1,0 +1,102 @@
+name: Deploy GitHub Pages
+
+# CI-버전자동화 2단계(docs/design/ci-version-automation.md 4장): builds the Pages site the same way
+# the branch deployment does (Jekyll), adds content-hash ?v= to references (the repository has none
+# since 3단계) and writes app/asset-manifest.json with scripts/build-pages.mjs, checks the result,
+# and only then deploys it.
+#
+# Since 2단계 Pages Source is GitHub Actions and this workflow is the production deployment. The
+# deploy job still runs only while the Pages build_type is "workflow", so if Source is ever set back
+# to "Deploy from a branch" the build and checks run but nothing is deployed (the Summary says so).
+# workflow_dispatch with skip_deploy builds and checks without deploying.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      skip_deploy:
+        description: '빌드·검사만 하고 배포하지 않음'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# One Pages release at a time; a newer push waits instead of cancelling a running deploy.
+concurrency:
+  group: pages-production
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pages: read
+    outputs:
+      build_type: ${{ steps.source.outputs.build_type }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Read Pages source setting
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          build_type="$(gh api "repos/$GITHUB_REPOSITORY/pages" --jq .build_type)"
+          echo "Pages build_type: $build_type"
+          echo "build_type=$build_type" >> "$GITHUB_OUTPUT"
+      # The same Jekyll build GitHub Pages runs for a branch deployment.
+      - name: Jekyll build
+        uses: actions/jekyll-build-pages@44a6e6beabd48582f863aeeb6cb2151cc1716697 # v1.0.13
+        with:
+          source: ./
+          destination: ./_site
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Install locked checker parser
+        run: npm ci --prefix scripts --ignore-scripts --no-audit --no-fund
+      - name: Add content-hash ?v= and build the asset manifest
+        run: node scripts/build-pages.mjs _site "$RUNNER_TEMP/pages-out"
+      - name: Check hashed references, manifest and Worker fingerprints
+        run: node scripts/check-pages-build.mjs "$RUNNER_TEMP/pages-out"
+      - name: Check Worker deploy URL extraction on the output
+        run: node scripts/cloudflare-check-urls.mjs "$RUNNER_TEMP/pages-out"
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
+        with:
+          path: ${{ runner.temp }}/pages-out
+          retention-days: 3
+      - name: Summary
+        env:
+          BUILD_TYPE: ${{ steps.source.outputs.build_type }}
+          SKIP_DEPLOY: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_deploy }}
+        run: |
+          if [[ "$BUILD_TYPE" != workflow ]]; then
+            echo "배포 건너뜀: Pages Source가 GitHub Actions가 아님(build_type=$BUILD_TYPE). 운영은 브랜치 배포 그대로." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$SKIP_DEPLOY" == true ]]; then
+            echo "배포 건너뜀: skip_deploy 입력. 빌드·검사만 함." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "빌드·검사 통과. deploy job이 이 결과를 배포함." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.build_type == 'workflow' && !(github.event_name == 'workflow_dispatch' && inputs.skip_deploy)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5

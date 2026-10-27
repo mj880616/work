@@ -1,0 +1,29 @@
+name: Basket PC drop check
+
+on:
+  pull_request:
+    paths:
+      - 'basket-pc/**'
+      - 'tests/fixtures/basket-pc-content-disposition.json'
+      - '.github/workflows/basket-pc-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build (warnings are errors)
+        run: dotnet build basket-pc/BasketDrop.sln -c Release
+
+      - name: Test (fake server only, no production calls)
+        run: dotnet test basket-pc/tests/BasketDrop.Tests -c Release --no-build

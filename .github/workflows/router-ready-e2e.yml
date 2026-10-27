@@ -10,6 +10,7 @@ on:
       - 'app/index.html'
       - 'tests/app-e2e/app-initial-paint.spec.mjs'
       - '.github/workflows/router-ready-e2e.yml'
+      - '.github/actions/setup-playwright/**'
 
 permissions:
   contents: read
@@ -22,15 +23,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 20
+          node-version: 24
           package-manager-cache: false
       - name: Check explicit router readiness contract
         run: |
           set -e
           node --check app/app-router.js
-          grep -q "app-router.js?v=18" app/loader-v2.js
-          grep -Eq "loader-v2\.js\?v=[0-9]+" app/app.js
-          grep -Eq 'app\.js\?v=[0-9]+' app/index.html
+          grep -Fq "import('./app-router.js')" app/loader-v2.js
+          grep -Fq "import('./loader-v2.js')" app/app.js
+          grep -Fq '<script src="./app.js" defer>' app/index.html
           grep -q "kptu:app-ui-ready" app/app-router.js
           grep -q "kptu:session-changed" app/app-router.js
           grep -q "popstate" app/app-router.js
@@ -41,9 +42,7 @@ jobs:
             echo 'router returned to delayed route restoration'; exit 1
           fi
       - name: Install Playwright
-        run: |
-          npm install --no-save @playwright/test@1.55.0
-          npx playwright install --with-deps chromium
+        uses: ./.github/actions/setup-playwright
       - name: Start static app server
         run: |
           python3 -m http.server 8123 >/tmp/kptu-router-e2e-http.log 2>&1 &
@@ -57,4 +56,4 @@ jobs:
       - name: Run router ready tests
         run: >-
           npx playwright test tests/app-e2e/app-initial-paint.spec.mjs
-          --browser=chromium --workers=1 --reporter=line
+          --browser=chromium --workers=1 --reporter=line,github

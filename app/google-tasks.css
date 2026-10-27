@@ -61,18 +61,20 @@
 .gt-group{min-width:0;border-bottom:1px solid var(--kptu-border)}
 .gt-group-head{margin:0;padding:var(--kptu-space-2) 3px 4px;font-size:12px;font-weight:750;color:var(--kptu-muted)}
 .gt-overdue .gt-group-head,.gt-row.overdue .gt-due{color:var(--kptu-danger);font-weight:700}
-#gtCompleted>summary{display:flex;align-items:center;gap:5px;min-height:44px;cursor:pointer;list-style:none}
-#gtCompleted>summary::-webkit-details-marker{display:none}
-#gtCompleted .gt-disclosure{display:inline-block;transition:transform 160ms}
-#gtCompleted[open] .gt-disclosure{transform:rotate(90deg)}
-@media(prefers-reduced-motion:reduce){#gtCompleted .gt-disclosure{transition:none}}
+#gtCompleted>summary,#gtLater>summary{display:flex;align-items:center;gap:5px;min-height:44px;cursor:pointer;list-style:none}
+#gtCompleted>summary::-webkit-details-marker,#gtLater>summary::-webkit-details-marker{display:none}
+#gtCompleted .gt-disclosure,#gtLater .gt-disclosure{display:inline-block;transition:transform 160ms}
+#gtCompleted[open] .gt-disclosure,#gtLater[open] .gt-disclosure{transform:rotate(90deg)}
+@media(prefers-reduced-motion:reduce){#gtCompleted .gt-disclosure,#gtLater .gt-disclosure{transition:none}}
 .gt-connect{margin-top:var(--kptu-space-2)}.gt-status{padding:var(--kptu-space-3) 3px;color:var(--kptu-muted);font-size:11px}.gt-reconnect{border-color:var(--kptu-border-strong);color:var(--kptu-success)}.gt-retry{margin-left:8px;min-height:34px}.gt-sync{display:inline-flex;align-items:center;flex-wrap:wrap}
 .gt-modal-actions{display:flex;justify-content:flex-end;gap:8px;align-items:center}.gt-modal-actions .tl-danger{margin-right:auto}
 /* TASK-구현 PR 4: list scope note, link choices in the editor, project-linked rows and the link picker. */
 .gt-scope-note{margin:var(--kptu-space-1) 0 0;font-size:11px;line-height:1.45;color:var(--kptu-muted)}
 .gt-muted{color:var(--kptu-muted);font-size:11px}.gt-error{color:var(--kptu-danger)}
 .gt-links{min-width:0;margin:var(--kptu-space-2) 0;padding:var(--kptu-space-2);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm)}
-.gt-links legend{padding:0 4px;font-size:12px;font-weight:700}.gt-links legend small{font-weight:500;color:var(--kptu-muted)}
+/* UI-화면점검 ③: legend는 짧은 이름만(다른 라벨과 같은 12px·500·흐린 색), 안내문은 legend 밖 아래 작은 글씨 — 폰에서 안내문이 꺾여 테두리선이 글자를 지나가던 문제. */
+#gtTaskModal .gt-links>.gt-links-legend{max-width:100%;padding:0 4px;font-size:var(--ds-text-meta);font-weight:var(--ds-weight-medium);line-height:1.4;color:var(--kptu-muted)}
+#gtTaskModal .gt-links .gt-links-hint{margin:0 0 var(--kptu-space-2);font-size:var(--ds-text-meta);line-height:1.45;font-weight:var(--ds-weight-regular);color:var(--kptu-muted)}
 .gt-link-body{display:grid;gap:var(--kptu-space-2);max-height:min(240px,40vh);overflow:auto}
 .gt-link-group{display:grid;justify-items:stretch;gap:2px;min-width:0;width:100%}.gt-link-group>b{font-size:11px;color:var(--kptu-muted)}
 .gt-links .gt-link-opt{display:flex;flex-direction:row;align-items:flex-start;justify-content:flex-start;gap:8px;min-width:0;min-height:40px;margin:0;text-align:left;font-size:13px;font-weight:500;cursor:pointer}
@@ -85,6 +87,11 @@
 .gt-linked .gt-row.gt-side-row{grid-template-columns:auto minmax(0,1fr) auto}
 div.gt-main{cursor:default}
 .gt-linked-msg{padding:4px 3px;font-size:11px}.gt-linked-msg:empty{display:none}
+/* TASK-바로처리통일: 담당조직·프로젝트 상세 할 일 줄 오른쪽 ⋯(공용 task-inline.js, [연결 해제]도 이 안). 할 일 화면 줄의 ⋯와 같은 44px 투명 칸(ORG-PC상세정리 ③의
+   모양을 모든 폭에 그대로). PC(1024px~) hover/focus 때만 보이는 규칙은 ui-standard.css [data-task-inline-row]. */
+.gt-linked .gt-linked-more{display:grid;place-items:center;box-sizing:border-box;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);min-width:0;min-height:0;margin:-6px 0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;box-shadow:none;color:var(--kptu-muted);font-size:20px;line-height:1;cursor:pointer}
+.gt-linked .gt-linked-more:hover{background:var(--kptu-surface-subtle)}
+.gt-linked .gt-linked-more:focus-visible{outline:2px solid var(--kptu-primary);outline-offset:-2px}
 :is(#gtTaskModal,#gtPickModal):not(.hidden){z-index:60}
 @media(max-width:760px){.gt-head{align-items:flex-start}.gt-row{padding:7px 2px}.gt-main b{font-size:12.5px}.gt-note:not(.gt-sync){display:none}.gt-meta{gap:6px}.gt-meta span:last-child{max-width:42%}}
 #mrdTasks .gt-row{grid-template-columns:44px minmax(0,1fr) auto;gap:var(--kptu-space-2)}
@@ -108,9 +115,153 @@ div.gt-main{cursor:default}
 #calendarDayTasks{min-width:0}
 #calendarDayTasks .cmv-task{min-width:0;max-width:100%}
 #calendarDayTasks .cmv-event-title{font-size:14px;white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+/* 날짜 목록의 동그라미: 모양은 그대로 두고 누르는 영역만 44px로 넓힌다(완료·완료 취소). */
+#calendarDayTasks .cmv-task-mark{position:relative}
+#calendarDayTasks .cmv-task-mark::after{content:"";position:absolute;inset:-13px}
 #calendarDayTasks .cmv-task-overdue .gt-due{color:var(--kptu-danger)}
 
 #gtScopeModal .gt-scope-note{font-size:14px}
 
 /* D-6b: dialog role typography owned here; explicit roots preserve list styles. */
 #gtPickModal .gt-linked-msg{font-size:var(--kptu-text-meta)}
+
+/* BASKET-할일출처: source-note link under the task title, inside the same row. */
+#gtTaskBody .gt-row .gt-source{grid-column:2;justify-self:start;display:inline-flex;align-items:center;min-height:32px;margin-top:-6px;font-size:var(--kptu-text-meta);color:var(--kptu-primary-ink)}
+
+/* TASK-파일붙이기: attached file names under the task title (small, each opens the file in Drive), and the ⋯ → 파일 붙이기 dialog. */
+#gtTaskBody .gt-row .gt-files{grid-column:2;display:flex;max-width:100%;flex-wrap:wrap;gap:0 var(--kptu-space-3);min-width:0;margin-top:-6px}
+.gt-files .gt-file,.gt-files-list .gt-file{display:block;min-width:0;line-height:32px;min-height:32px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--kptu-text-meta);color:var(--kptu-primary-ink)}
+.gt-files-task{margin:0 0 var(--kptu-space-2);font-weight:700;overflow-wrap:anywhere}
+.gt-files-list{list-style:none;margin:0 0 var(--kptu-space-2);padding:0}
+.gt-files-list li{display:flex;align-items:center;justify-content:space-between;gap:var(--kptu-space-2);min-height:44px;border-top:1px solid var(--kptu-border)}
+.gt-files-list li .gt-file{flex:1 1 auto;min-width:0;display:block;line-height:44px}
+.gt-files-list .gt-files-empty{color:var(--kptu-muted);font-size:var(--kptu-text-meta)}
+.gt-files-actions{display:flex;gap:var(--kptu-space-2);margin-top:var(--kptu-space-2)}
+.gt-files-actions button{min-height:44px}
+.gt-files-status{min-height:1.4em;margin-top:var(--kptu-space-2);font-size:var(--kptu-text-meta);overflow-wrap:anywhere}
+.gt-files-status.error{color:var(--kptu-danger)}
+
+/* ───────── UI-PC할일(2026-10-20 사용자 요청): PC(≥1024) 할 일 화면 = 좌우 절반 ─────────
+   그리는 주인은 google-tasks.js renderTasks 하나(열 HTML은 같은 파일 columnsHtml). 폰·중간 폭은 위 묶음 목록 그대로.
+   UI-PC할일배치(2026-10-20) → UI-좌우비율(2026-10-21): 화면을 좌 1/3 : 우 2/3으로 나눈다(theme-tokens.css --ds-split-*). 왼쪽 1/3 = 위 칸 "지남·오늘" + 아래 칸 "일주일 안"(그 끝에 접기 줄 "나중 N ▸"·"완료 N ▸"), 높이는 항목 수만큼(넘치면 칸 안에서만 세로 넘김).
+   오른쪽 2/3 = 상세 칸 하나, 윗줄은 왼쪽 위 칸과 같은 줄에서 시작해 맨 아래까지. 빈 칸은 "없음".
+   상세 칸은 지금 수정 창(#gtTaskModal)을 그 자리에 옮겨 그대로 쓴다(같은 항목·같은 저장). 화면 전체는 한 페이지, 열·상세 칸 안에서만 세로로 넘긴다.
+   시각 언어는 PC 회의 열(meeting-ui.css .mcol)과 같다: 열은 따로 상자(0.5px 선·모서리 12px), 카드는 옅은 바탕 칸, 머리는 이름 + 흐린 건수. */
+#gtDetailPane{display:none}
+.gt-due-quick{display:none}
+@media(min-width:1024px){
+  html:has(#appView #tasksView:not(.hidden) #gtTaskSection.gt-pc) main{padding-bottom:12px}
+  html:has(#appView #tasksView:not(.hidden) #gtTaskSection.gt-pc) #appView>.app-nav{margin-bottom:0}
+  #appView #tasksView:not(.hidden):has(#gtTaskSection.gt-pc){display:flex;flex-direction:column;height:auto;min-height:calc(100vh - 24px - var(--kptu-topline-space,0px));min-height:calc(100dvh - 24px - var(--kptu-topline-space,0px))}
+  #appView #tasksView:has(#gtTaskSection.gt-pc)>.home-quick{flex:none;margin:0 0 var(--kptu-space-2);padding:6px}
+  #appView #tasksView #gtTaskSection.gt-pc{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:minmax(var(--ds-split-list-min),var(--ds-split-list)) minmax(0,var(--ds-split-detail));grid-template-rows:auto auto auto;align-content:start;column-gap:var(--kptu-space-3);margin:0;padding:0;border:0;background:transparent}
+  #appView #tasksView #gtTaskSection.gt-pc>.gt-head{grid-column:1 / -1;grid-row:1;min-height:32px}
+  #appView #tasksView #gtTaskSection.gt-pc>#gtTaskBody{grid-column:1;grid-row:2;min-height:0;margin:0}
+  #appView #tasksView #gtTaskSection.gt-pc>#gtTaskBody.gt-status{align-self:start}
+  #appView #tasksView #gtTaskSection.gt-pc>#gtTaskBody.gt-board{display:contents}
+  #appView #tasksView #gtTaskSection.gt-pc>#gtUndoDeletes{grid-column:1;grid-row:3}
+  #appView #tasksView #gtTaskSection.gt-pc>#gtDetailPane{grid-column:2;grid-row:2 / -1;display:block;align-self:start;position:sticky;top:12px;max-height:calc(100vh - 130px - var(--kptu-topline-space,0px));max-height:calc(100dvh - 130px - var(--kptu-topline-space,0px));min-height:0;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;padding:var(--kptu-space-3);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
+  #appView #tasksView #gtDetailPane .gt-pane-empty{margin:0;font-size:var(--ds-text-meta);line-height:1.5;color:var(--kptu-muted)}
+  #appView #tasksView #gtDetailPane.has-task .gt-pane-empty{display:none}
+  /* TASK-화면다듬기: [기한] 칸은 좁게, 오른쪽에 낮은 빠른 버튼 [내일][모레][다음주][기한 없음](PC 상세 칸에서만, 이미 있는 할 일을 고칠 때). */
+  #gtDetailPane #gtTaskModal.gt-docked .gt-due-row{display:flex;align-items:flex-end;gap:var(--kptu-space-2);flex-wrap:wrap}
+  #gtDetailPane #gtTaskModal.gt-docked .gt-due-row>label{flex:0 0 168px;min-width:0}
+  #gtDetailPane #gtTaskModal.gt-docked .gt-due-quick{display:flex;flex-wrap:wrap;gap:var(--kptu-space-1);align-items:center;min-width:0}
+  #gtDetailPane #gtTaskModal.gt-docked .gt-due-quick>button{min-height:var(--ds-compact-height,32px);height:var(--ds-compact-height,32px);padding:0 10px;margin:0;font-size:var(--ds-text-meta);white-space:nowrap}
+  /* 열 */
+  #appView #tasksView #gtTaskSection.gt-pc .gt-board{display:contents}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-cols{grid-column:1;grid-row:2;display:flex;flex-direction:column;align-items:stretch;gap:var(--kptu-space-3);min-width:0;min-height:0}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-col{box-sizing:border-box;flex:0 0 auto;display:flex;flex-direction:column;min-width:0;min-height:0;padding:var(--kptu-space-3) var(--kptu-space-2) var(--kptu-space-2);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--kptu-radius-lg);background:var(--kptu-surface)}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-col-head{display:flex;align-items:center;gap:8px;min-height:var(--ds-compact-height);margin:0;padding:0 4px;font-size:var(--ds-text-row);font-weight:var(--ds-weight-medium);line-height:1.4;color:var(--ds-section-ink)}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-col-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-col-count{flex:none;font-size:var(--ds-text-meta);font-weight:var(--ds-weight-regular);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-col-body{flex:0 0 auto;min-height:0;overflow:visible;margin-top:var(--kptu-space-2);padding:0 2px 2px}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-col-empty{margin:0;padding:var(--kptu-space-2) 4px;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-col-sub{margin:var(--kptu-space-3) 0 var(--kptu-space-1);padding:0 4px;font-size:var(--ds-text-meta);font-weight:var(--ds-weight-medium);color:var(--kptu-muted)}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-cards+.gt-cards{margin-top:var(--kptu-space-2)}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-cards{display:grid;gap:var(--kptu-space-2);margin:0;padding:0;list-style:none}
+  /* 카드: [완료 동그라미] 제목·기한·태그 [⋯]. 옅은 바탕 칸, 고른 카드는 할 일 색 테두리. */
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card{position:relative;box-sizing:border-box;display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:start;column-gap:2px;min-height:44px;margin:0;padding:0;border:0;border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle)}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card:hover{background:var(--ds-kind-other-soft)}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card.is-selected{background:var(--ds-kind-task-soft);outline:1.5px solid var(--ds-kind-task-ink);outline-offset:-1.5px}
+  /* 완료 동그라미: 보이는 원 20px, 누르는 범위 44×44(카드 왼쪽 여백까지). */
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-check{width:44px;height:44px;min-width:44px;min-height:44px}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-check::before{width:20px;height:20px;left:12px;top:12px}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-main{display:grid;gap:3px;align-content:start;min-height:44px;padding:10px 0 9px;border-radius:var(--kptu-radius-sm)}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-main b{font-size:var(--ds-text-row);line-height:1.4}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-meta{display:flex;flex-wrap:wrap;gap:3px 6px;align-items:center;margin:0;font-size:var(--ds-text-meta);line-height:1.4}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-due{flex:none}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-tag{display:inline-block;max-width:100%;box-sizing:border-box;padding:0 6px;border-radius:var(--kptu-radius-pill);font-size:11px;line-height:18px;white-space:normal;overflow-wrap:anywhere;color:var(--ds-kind-other-ink);background:var(--ds-kind-other-soft)}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-tag-project{color:var(--kptu-primary-ink);background:var(--kptu-primary-soft)}
+  /* ⋯: 누르는 범위 44×44(목록 줄과 같음), 보이는 바탕은 32px. */
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-menu-trigger{width:44px;height:44px;min-width:44px;min-height:44px;padding:0;font-size:18px;line-height:44px}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-menu-trigger::before{inset:6px}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-source{grid-column:2 / -1;margin:-6px 0 6px;min-height:24px}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-files{grid-column:2 / -1;margin:-6px 0 6px}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-card .gt-file{min-height:24px}
+  /* "나중 N ▸"·"완료 N ▸": "일주일 안" 열 맨 아래 접기 줄. 누르면 펼친다. */
+  #appView #tasksView #gtTaskSection.gt-pc .gt-col-fold{margin-top:var(--kptu-space-2);border-top:var(--ds-line-width) solid var(--ds-line)}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-col-fold+.gt-col-fold{margin-top:0}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-col-fold>summary{min-height:36px;padding:0 4px;font-size:var(--ds-text-meta);color:var(--kptu-muted)}
+  #appView #tasksView #gtTaskSection.gt-pc .gt-col-fold>summary:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px;border-radius:var(--kptu-radius-sm)}
+  /* 상세 칸 안의 수정 창(같은 요소). 창 겉모양만 칸에 맞게. */
+  #gtDetailPane #gtTaskModal.gt-docked{position:static;inset:auto;display:block;place-items:normal;padding:0;background:transparent;z-index:auto}
+  #gtDetailPane #gtTaskModal.gt-docked .modal-card{width:auto;max-width:none;justify-self:stretch;margin:0;max-height:none;overflow:visible;padding:0;border:0;box-shadow:none;background:transparent}
+  /* 제목 줄(제목 + 저장 + 닫기 X + 안내)은 상세 칸을 스크롤해도 위에 고정, 본문만 스크롤. 상세 칸 안쪽 여백만큼 바깥으로 펼쳐 가장자리에 붙인다. */
+  #gtDetailPane #gtTaskModal.gt-docked .modal-head{position:sticky;top:calc(var(--kptu-space-3) * -1);z-index:3;display:flex;flex-wrap:wrap;align-items:center;gap:var(--kptu-space-2);margin:calc(var(--kptu-space-3) * -1) calc(var(--kptu-space-3) * -1) var(--kptu-space-2);padding:var(--kptu-space-3) var(--kptu-space-3) var(--kptu-space-2);background:var(--kptu-surface);border-bottom:var(--ds-line-width) solid var(--ds-line);box-shadow:none}
+  #gtDetailPane #gtTaskModal.gt-docked .modal-head>div:first-child{flex:1 1 0;min-width:0}
+  #gtDetailPane #gtTaskModal.gt-docked .modal-head>.gt-pane-save{flex:none;min-height:36px}
+  #gtDetailPane #gtTaskModal.gt-docked .modal-head>.status{order:9;flex:0 0 100%;margin:0;font-size:var(--ds-text-meta);overflow-wrap:anywhere}
+  #gtDetailPane #gtTaskModal.gt-docked .modal-head>.status:empty{display:none}
+  #gtDetailPane #gtTaskModal.gt-docked .modal-head h2{font-size:var(--ds-text-section);line-height:1.4;font-weight:var(--ds-weight-medium)}
+  #gtDetailPane #gtTaskModal.gt-docked .modal-action-footer{position:static;margin:var(--kptu-space-3) 0 0;padding:var(--kptu-space-2) 0 0}
+  #gtDetailPane #gtTaskModal.gt-docked .gt-link-body{max-height:none}
+}
+/* UI-좌우비율(2026-10-21): 프로젝트 체크 목록은 한 줄에 하나, 하위는 상위 바로 아래 들여쓰기(아래 UI-고르기창개선 C의 data-depth 들여쓰기).
+   조직 묶음 안쪽만 2열(1280 이상). 1024~1279는 칸이 빠듯해 1열. 제목·안내 줄은 전체 폭. */
+@media(min-width:1280px){
+  #gtDetailPane #gtTaskModal.gt-docked .gt-org-group{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:var(--kptu-space-3)}
+}
+/* UI-할일조작통일: date list task row = the row button + a 44px ⋯ button on its right (menu: 완료·완료 취소·삭제). */
+#calendarDayTasks .gt-day-row{display:flex;align-items:center;min-width:0}
+#calendarDayTasks .gt-day-row>.cmv-task{flex:1 1 auto;min-width:0}
+#calendarDayTasks .gt-day-row[data-busy]{opacity:.55;pointer-events:none}
+#calendarDayTasks .gt-day-menu{flex:0 0 44px;width:44px;height:44px;min-height:44px;min-width:44px;padding:0;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-muted);font-size:20px;line-height:1;cursor:pointer}
+#calendarDayTasks .gt-day-menu:hover{background:var(--kptu-surface-subtle)}
+#calendarDayTasks .gt-day-menu:focus-visible{outline:2px solid var(--kptu-primary);outline-offset:-2px}
+/* UI-고르기창개선 C(PC만, 폰 그대로): 연결할 프로젝트·조직 체크 목록도 고르기 창과 같은 표시. 하위 프로젝트는 "↳" 없이 들여쓰기 +
+   흐린 글자, 조직은 묶음마다 작은 묶음 이름. 열 수(#776: 1280 이상 2열)는 그대로. */
+.gt-link-arrow{font-style:normal}
+.gt-org-group-name{display:none}
+@media(min-width:761px){
+  .gt-links .gt-link-opt[data-depth] .gt-link-arrow{display:none}
+  .gt-links .gt-link-opt>span{color:var(--kptu-ink)}
+  .gt-links .gt-link-opt[data-depth]>span{color:var(--kptu-muted)}
+  .gt-links .gt-link-opt[data-depth="1"]{padding-left:16px}
+  .gt-links .gt-link-opt[data-depth="2"]{padding-left:32px}
+  .gt-links .gt-link-opt[data-depth="3"]{padding-left:48px}
+  .gt-org-group-name{display:block;grid-column:1 / -1;padding:6px 0 0;font-size:11px;font-weight:500;color:var(--kptu-muted)}
+}
+/* TASK-추가창파일: 할 일 추가 창의 [📎 파일 붙이기] 한 줄과 고른 파일 목록. 저장 뒤 ⋯ → 파일 붙이기와 같은 경로로 올라간다.
+   보이는 버튼은 작게(32px), 누르는 범위는 44px. 이름이 길면 줄 안에서 줄인다(옆 스크롤 없음). */
+.gt-pick[hidden],.gt-pick [hidden]{display:none}
+.gt-pick{min-width:0;margin:0 0 var(--kptu-space-2)}
+.gt-pick-line{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;min-height:var(--kptu-touch-target,44px)}
+.gt-pick .gt-pick-btn{position:relative;display:inline-flex;align-items:center;gap:4px;height:var(--ds-compact-height,32px);min-height:0;margin:0;padding:0 var(--ds-compact-pad-x,12px);font-size:var(--kptu-text-meta)}
+.gt-pick .gt-pick-btn svg{color:var(--kptu-link)}
+.gt-pick .gt-pick-btn::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+.gt-pick-hint{min-width:0;color:var(--kptu-muted);font-size:11px;line-height:1.4;word-break:keep-all}
+.gt-pick-list{list-style:none;margin:0;padding:0}
+.gt-pick-list li{display:flex;align-items:center;justify-content:space-between;gap:var(--kptu-space-2);min-height:var(--kptu-touch-target,44px);border-top:1px solid var(--kptu-border)}
+.gt-pick-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--kptu-text-meta)}
+
+/* TASK-첨부열기: 첨부 rows under 할 일 in the edit window (icon + one-line name + small [열기] [내려받기]). */
+#gtTaskModal .gt-att{display:flex;align-items:flex-start;gap:var(--kptu-space-2);margin:0 0 var(--kptu-space-2);font-size:var(--kptu-text-meta)}
+#gtTaskModal .gt-att.hidden{display:none}
+#gtTaskModal .gt-att-label{flex:none;line-height:28px;color:var(--kptu-muted)}
+#gtTaskModal .gt-att-list{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px}
+#gtTaskModal .gt-att-row{display:flex;align-items:center;gap:var(--kptu-space-1);min-width:0;min-height:28px}
+#gtTaskModal .gt-att-icon{flex:none;color:var(--kptu-muted)}
+#gtTaskModal .gt-att-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#gtTaskModal .gt-att-btn{flex:none;width:auto;min-height:28px;height:28px;margin:0;padding:0 8px;font-size:var(--kptu-text-meta);white-space:nowrap}

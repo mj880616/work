@@ -28,7 +28,7 @@ test('record query scopes workspace, confirmed note sources and paginates instea
   assert.equal(result.length,101);assert.equal(result[0].summary,null);assert.equal(result[0].raw_text,'보관된 AI 제외 원문');
   assert.equal(calls.length,2);
   const q=new URL(calls[0],'http://fixture').searchParams;
-  assert.equal(q.get('workspace_id'),'eq.workspace');assert.equal(q.get('status'),'eq.confirmed');assert.equal(q.get('note_id'),'not.is.null');assert.equal(q.get('organization_id'),'in.(org)');
+  assert.equal(q.get('workspace_id'),'eq.workspace');assert.equal(q.get('status'),'eq.confirmed');assert.equal(q.get('note_id'),'not.is.null');assert.equal(q.get('organization_id'),'in.(org)');assert.equal(q.get('note.kind'),'eq.basket');
   assert.match(q.get('select'),/summary/);assert.match(q.get('select'),/app_notes!inner/);assert.equal(q.getAll('note.occurred_at').length,2);
   assert.doesNotMatch(calls.join(''),/archived_at|ai_export_allowed/);
 });
@@ -58,4 +58,50 @@ test('organization date projection shares confirmed owner/workspace checks witho
  const result=await readLinkRecords({kind:'organization',targetIds:['org'],dateOnly:true},rtFor(async path=>{calls.push(path);return [row,{...row,id:'foreign',workspace_id:'other'},{...row,id:'suggested',status:'suggested'}];}));
  assert.equal(result.length,1);assert.equal(result[0].occurred_at,row.note.occurred_at);assert.equal(Object.hasOwn(result[0],'raw_text'),false);assert.equal(Object.hasOwn(result[0],'summary'),false);
  const q=new URL(calls[0],'http://fixture').searchParams;assert.doesNotMatch(q.get('select'),/raw_text|summary/);assert.equal(q.get('workspace_id'),'eq.workspace');assert.equal(q.get('note.workspace_id'),'eq.workspace');assert.equal(q.get('status'),'eq.confirmed');assert.equal(q.get('note_id'),'not.is.null');
+});
+test('a note without a written summary shows its opening text: whitespace collapsed, 120 characters, ellipsis only when cut',async()=>{
+  const {noteExcerpt,isBlankLinkSummary,linkRecordHtml}=await import('../app/basket-link-records.js');
+  assert.equal(noteExcerpt('10/20 기자회견\n장소: 본사 앞\n\n참석 30명'),'10/20 기자회견 장소: 본사 앞 참석 30명');
+  assert.equal(noteExcerpt('가'.repeat(120)),'가'.repeat(120));
+  assert.equal(noteExcerpt('가'.repeat(121)),'가'.repeat(120)+'…');
+  assert.equal(noteExcerpt(null),'');
+  assert.equal(isBlankLinkSummary(' \n'),true);assert.equal(isBlankLinkSummary(null),true);assert.equal(isBlankLinkSummary('글'),false);
+  const html=linkRecordHtml({id:'l',note_id:'n',organization_id:'o',project_id:null,occurred_at:'2026-10-20T01:00:00Z',summary:null,raw_text:'<b>본문</b> 앞부분'});
+  // BUG-미리보기기호: the line shows plain letters (the tag is dropped, never a live <b>); no markdown marks, so nothing to open as markdown.
+  assert.match(html,/data-link-summary-text>본문 앞부분<\/p>/);
+  assert.doesNotMatch(html,/<b>/);
+  assert.doesNotMatch(html,/요약 없음/);
+});
+// UI-엔터저장: the summary box now follows the shared rule (app/enter-save.js; Ctrl/Cmd+Enter saves on PC, Enter and
+// Shift+Enter are new lines, a composing Enter is ignored). Its cases moved to tests/enter-save.test.mjs.
+test('UI-연결요약수정: Ctrl/Cmd+Enter saves, plain or Shift+Enter is a new line, IME composition Enter is ignored',async()=>{
+  const {SUMMARY_BLANK_TEXT}=await import('../app/basket-link-records.js');
+  const {enterAction}=await import('../app/enter-save.js');
+  const key=(o={})=>({key:'Enter',ctrlKey:false,metaKey:false,altKey:false,shiftKey:false,isComposing:false,keyCode:13,...o});
+  assert.equal(enterAction(key({ctrlKey:true}),'multi'),true);
+  assert.equal(enterAction(key({metaKey:true}),'multi'),true);
+  for(const o of [{},{shiftKey:true},{ctrlKey:true,shiftKey:true},{ctrlKey:true,altKey:true},{ctrlKey:true,isComposing:true},{ctrlKey:true,keyCode:229},{ctrlKey:true,key:'a'}])assert.equal(enterAction(key(o),'multi'),false,JSON.stringify(o));
+  assert.match(SUMMARY_BLANK_TEXT,/준비 중/);
+});
+
+// REF-참고묶음 화면 1: kind 'bundle' reads reference-bundle links with the same owner/workspace checks; other kinds never see them.
+test('REF-참고묶음: readLinkRecords kind bundle reads bundle links only; organization/project reads stay as before',async()=>{
+ const {readLinkRecords}=await import('../app/basket-link-records.js'),calls=[];
+ const note=id=>({id,workspace_id:'workspace',occurred_at:'2026-10-20T01:00:00Z',raw_text:'가상 원문'});
+ const rows=[{id:'b',workspace_id:'workspace',summary:null,note_id:'n1',organization_id:null,project_id:null,bundle_id:'bundle',status:'confirmed',note:note('n1')},
+  {id:'foreign',workspace_id:'other',note_id:'n2',bundle_id:'bundle',status:'confirmed',note:note('n2')},
+  {id:'mixed',workspace_id:'workspace',note_id:'n3',organization_id:'org',bundle_id:'bundle',status:'confirmed',note:note('n3')},
+  {id:'sug',workspace_id:'workspace',note_id:'n4',bundle_id:'bundle',status:'suggested',note:note('n4')}];
+ const rt=rtFor(async path=>{calls.push(path);return rows;});
+ const got=await readLinkRecords({kind:'bundle',targetIds:['bundle']},rt);
+ assert.deepEqual(got.map(r=>[r.id,r.bundle_id]),[['b','bundle']]);
+ const q=new URL(calls[0],'http://fixture').searchParams;
+ assert.deepEqual(q.getAll('bundle_id'),['not.is.null','in.(bundle)']);assert.equal(q.get('or'),null);assert.match(q.get('select'),/bundle_id/);
+ assert.equal(q.get('workspace_id'),'eq.workspace');assert.equal(q.get('note.workspace_id'),'eq.workspace');assert.equal(q.get('status'),'eq.confirmed');assert.equal(q.get('note_id'),'not.is.null');
+ // An organization read neither asks for bundle_id nor returns a bundle-only row.
+ calls.length=0;
+ const orgs=await readLinkRecords({kind:'organization',targetIds:['org']},rtFor(async path=>{calls.push(path);return [rows[0],rows[2]];}));
+ assert.deepEqual(orgs.map(r=>r.id),['mixed']);assert.equal(Object.hasOwn(orgs[0],'bundle_id'),false);
+ const oq=new URL(calls[0],'http://fixture').searchParams;assert.doesNotMatch(oq.get('select'),/bundle/);assert.equal(oq.get('or'),'(organization_id.not.is.null,project_id.not.is.null)');
+ await assert.rejects(readLinkRecords({kind:'meeting'},rt),/연결할 곳/);
 });
