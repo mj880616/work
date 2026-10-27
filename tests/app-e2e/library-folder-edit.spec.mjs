@@ -115,8 +115,8 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
   });
 
   test(`옮기기(같은 틀만·자기 아래 안 됨)·지우기(휴지통으로)·되돌리기·자료를 폴더로/밖으로 ${width}`,async({page})=>{
-    const folders=[{id:'fa',project_id:'top-a',name:'가상 A',sort_order:1024},{id:'fb',project_id:'top-a',name:'가상 B',sort_order:2048},{id:'fb1',project_id:'top-a',parent_id:'fb',name:'가상 B-1',sort_order:0},{id:'fn',project_id:null,name:'가상 없음 폴더',sort_order:0}];
-    const {s,errors}=await boot(page,width,{folders,items:[{document_id:'a-2',folder_id:'fb1'}]});
+    const folders=[{id:'fa',project_id:'top-a',name:'가상 A',sort_order:1024},{id:'fb',project_id:'top-a',name:'가상 B',sort_order:2048},{id:'00000000-0000-4000-8000-0000000000b1',project_id:'top-a',parent_id:'fb',name:'가상 B-1',sort_order:0},{id:'fn',project_id:null,name:'가상 없음 폴더',sort_order:0}];
+    const {s,errors}=await boot(page,width,{folders,items:[{document_id:'a-2',folder_id:'00000000-0000-4000-8000-0000000000b1'}]});
     await page.locator('#libraryExpandAll').click();
     // 옮기기: 같은 프로젝트 틀의 폴더만, 자기·자기 아래는 없다. 다른 틀('프로젝트 없음'의 폴더)은 없다.
     await press(page,menuOf(page,'f:fb'),width);await press(page,action(page,'옮기기…'),width);
@@ -126,10 +126,10 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
     await targets.first().focus();await page.keyboard.press('ArrowDown');await expect(targets.first()).toHaveAttribute('aria-checked','true');
     await press(page,page.locator('#libraryFolderSave'),width);await expect(page.locator('#libraryFolderModal')).toBeHidden();
     expect(s.writes.at(-1)).toMatchObject({table:'folders',method:'PATCH',id:'fb',body:{parent_id:'fa'}});
-    await expect(page.locator('#documentList details[data-lu-node="f:fa"] details[data-lu-node="f:fb"] details[data-lu-node="f:fb1"] [data-lu-document="a-2"]')).toBeAttached();
-    // 3단을 넘는 옮기기는 고를 곳에 없다: fb1은 이제 3단이라 메뉴의 '안에 새 폴더'가 없다.
+    await expect(page.locator('#documentList details[data-lu-node="f:fa"] details[data-lu-node="f:fb"] details[data-lu-node="f:00000000-0000-4000-8000-0000000000b1"] [data-lu-document="a-2"]')).toBeAttached();
+    // 3단을 넘는 옮기기는 고를 곳에 없다: 00000000-0000-4000-8000-0000000000b1은 이제 3단이라 메뉴의 '안에 새 폴더'가 없다.
     await page.locator('#libraryExpandAll').click();await page.locator('#libraryExpandAll').click();
-    await press(page,menuOf(page,'f:fb1'),width);await expect(action(page,'안에 새 폴더')).toHaveCount(0);await page.keyboard.press('Escape');
+    await press(page,menuOf(page,'f:00000000-0000-4000-8000-0000000000b1'),width);await expect(action(page,'안에 새 폴더')).toHaveCount(0);await page.keyboard.press('Escape');
     // 지우기(휴지통으로): 확인 창이 아래 폴더·자료 수와 '함께 들어간다'를 알린다. 취소하면 아무것도 안 바뀐다.
     const before=s.writes.length;let message='';
     page.once('dialog',d=>{message=d.message();d.dismiss()});await press(page,menuOf(page,'f:fb'),width);await press(page,action(page,'폴더 지우기'),width);
@@ -137,25 +137,25 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
     page.once('dialog',d=>d.accept());await press(page,menuOf(page,'f:fb'),width);await press(page,action(page,'폴더 지우기'),width);
     await expect(libraryNode(page,'f:fb')).toHaveCount(0);
     expect(s.writes.at(-1)).toEqual({table:'folders',method:'DELETE',id:'fb',body:null});
-    // 아래 폴더(fb1)도 함께 빠지고, 그 안의 자료(a-2)는 '폴더 없음' 자리에 나오지 않고 자료실 목록에서 함께 숨는다. 자료 연결은 그대로.
-    await expect(libraryNode(page,'f:fb1')).toHaveCount(0);await expect(page.locator('#documentList [data-lu-document="a-2"]')).toHaveCount(0);
-    expect(s.items).toEqual([{workspace_id:'workspace-1',document_id:'a-2',folder_id:'fb1'}]);
-    expect(s.trash.map(t=>[t.root,t.folders.map(f=>f.id)])).toEqual([['fb',['fb','fb1']]]);
+    // 아래 폴더(00000000-0000-4000-8000-0000000000b1)도 함께 빠지고, 그 안의 자료(a-2)는 '폴더 없음' 자리에 나오지 않고 자료실 목록에서 함께 숨는다. 자료 연결은 그대로.
+    await expect(libraryNode(page,'f:00000000-0000-4000-8000-0000000000b1')).toHaveCount(0);await expect(page.locator('#documentList [data-lu-document="a-2"]')).toHaveCount(0);
+    expect(s.items).toEqual([{workspace_id:'workspace-1',document_id:'a-2',folder_id:'00000000-0000-4000-8000-0000000000b1'}]);
+    expect(s.trash.map(t=>[t.root,t.folders.map(f=>f.id)])).toEqual([['fb',['fb','00000000-0000-4000-8000-0000000000b1']]]);
     // 안내 줄의 [되돌리기]: 서버가 묶음을 돌려놓고, 아래 폴더·자료가 원래 자리에 다시 보인다.
     const undo=page.locator('[data-undo-notice]');await expect(undo).toContainText('폴더를 휴지통으로 옮겼습니다.');
     await undo.locator('[data-undo-action]').click();
     await expect.poll(()=>s.trash.length).toBe(0);expect(s.rpc.at(-1)).toEqual({fn:'app_trash_restore',kind:'library_folder',id:'fb'});
-    await expect(page.locator('#documentList details[data-lu-node="f:fa"] details[data-lu-node="f:fb"] details[data-lu-node="f:fb1"] [data-lu-document="a-2"]')).toBeAttached();
+    await expect(page.locator('#documentList details[data-lu-node="f:fa"] details[data-lu-node="f:fb"] details[data-lu-node="f:00000000-0000-4000-8000-0000000000b1"] [data-lu-document="a-2"]')).toBeAttached();
     // 자료 ⋯ → 폴더로 옮기기 ›(이름 바꾸기 바로 아래): 같은 프로젝트 틀의 폴더를 고를 수 있고, 하위는 들여쓴다.
     await page.locator('#libraryExpandAll').click();if(await page.locator('#libraryExpandAll').getAttribute('data-lu-expand')!=='close')await page.locator('#libraryExpandAll').click();
     await press(page,page.locator('[data-lu-menu="a-1"]'),width);
     expect(await page.locator('#luMorePanel button').evaluateAll(xs=>xs.slice(0,2).map(x=>x.textContent.trim()))).toEqual(['이름 바꾸기F2','폴더로 옮기기›']);
     await press(page,page.locator('#luMorePanel [data-lu-move-open="a-1"]'),width);await expect(page.locator('#luMovePicker')).toBeVisible();
     expect(await moveEnabledNames(page)).toEqual(['가상 A','가상 B','가상 B-1']);
-    await expect(page.locator('#luMovePicker [data-lu-move-folder="fb1"]').last()).toHaveAttribute('style',/--lu-depth:\s*2/);
-    await press(page,moveFolder(page,'fb1'),width);await expect(page.locator('#luMovePicker')).toBeHidden();await expect(page.locator('#luMorePanel')).toBeHidden();
-    expect(s.writes.at(-1)).toEqual({table:'items',method:'POST',id:null,body:{document_id:'a-1',folder_id:'fb1',workspace_id:'workspace-1'}});
-    await expect(page.locator('#documentList details[data-lu-node="f:fb1"] [data-lu-document="a-1"]')).toBeAttached();
+    await expect(page.locator('#luMovePicker [data-lu-move-folder="00000000-0000-4000-8000-0000000000b1"]').last()).toHaveAttribute('style',/--lu-depth:\s*2/);
+    await press(page,moveFolder(page,'00000000-0000-4000-8000-0000000000b1'),width);await expect(page.locator('#luMovePicker')).toBeHidden();await expect(page.locator('#luMorePanel')).toBeHidden();
+    expect(s.writes.at(-1)).toEqual({table:'items',method:'POST',id:null,body:{document_id:'a-1',folder_id:'00000000-0000-4000-8000-0000000000b1',workspace_id:'workspace-1'}});
+    await expect(page.locator('#documentList details[data-lu-node="f:00000000-0000-4000-8000-0000000000b1"] [data-lu-document="a-1"]')).toBeAttached();
     // 폴더 밖으로: 연결만 지운다(자료는 프로젝트 바로 아래).
     await page.locator('#libraryExpandAll').click();if(await page.locator('#libraryExpandAll').getAttribute('data-lu-expand')!=='close')await page.locator('#libraryExpandAll').click();
     await openMove(page,'a-1',width);
