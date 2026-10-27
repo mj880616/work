@@ -8,6 +8,8 @@ import {readDiaryMonth, readDiaryDay, createDiary, saveDiaryText, removeDiaryPho
   diaryPhotos, diaryText, takeRequestedDay, todayKey, ownerScope, validateDiaryText, DIARY_MAX_PHOTOS, DIARY_COMMENT_MAX,
   photoComments, cleanComments, saveDiaryComments} from './diary-data.js';
 import {deleteNoteOriginal} from './basket-record-delete.js';
+import {odStatus, odAuthStart, odAuthFinish, odFolders, odFolderSet, odDisconnect, odDelete, odPhotos, odPhotoElement, clearOdPhotoCache, forgetOdPhoto,
+  odErrorText, readStars, addStar, removeStar, starKey, dayItems, takenLabel, takeOdReturn} from './diary-onedrive.js';
 // ED③ 일기: the day's text is the new editor (ed-editor.js) inside this panel; the read view draws its saved form (ed-render). The photos,
 // their comments, the calendar and the swipe stay as they were. Letters (raw_text) are still saved with it for every other reader.
 import {renderDoc} from './ed-render.mjs';
@@ -24,7 +26,7 @@ const shortDay = day => formatSeoulTime(day, {month:'long', day:'numeric'});
 
 root.innerHTML = `<div class="diary-head"><div class="diary-month"><button type="button" class="mini" data-diary-prev aria-label="이전 달">‹</button><b data-diary-title aria-live="polite"></b><button type="button" class="mini" data-diary-next aria-label="다음 달">›</button><button type="button" class="mini" data-diary-today>오늘</button></div><button type="button" id="newDiaryBtn" class="primary" data-diary-new aria-label="일기 쓰기">+ 일기</button></div>
 <p class="diary-status" data-diary-status role="status"></p><button type="button" class="secondary" data-diary-retry hidden>다시 시도</button>
-<div class="diary-cal" data-diary-cal><div class="diary-week-head" aria-hidden="true">${['일','월','화','수','목','금','토'].map((d, i) => `<span${i === 0 ? ' class="sunday"' : i === 6 ? ' class="saturday"' : ''}>${d}</span>`).join('')}</div><div class="diary-days" data-diary-days></div></div>
+<div class="diary-cal" data-diary-cal><section class="diary-od" data-diary-od hidden aria-label="원드라이브 사진"></section><div class="diary-week-head" aria-hidden="true">${['일','월','화','수','목','금','토'].map((d, i) => `<span${i === 0 ? ' class="sunday"' : i === 6 ? ' class="saturday"' : ''}>${d}</span>`).join('')}</div><div class="diary-days" data-diary-days></div></div>
 <section class="diary-list" data-diary-list hidden aria-label="이 달 일기 목록"></section>
 <section class="diary-detail" data-diary-detail hidden aria-labelledby="diaryDetailTitle"></section>
 <section class="diary-editor" data-diary-editor data-enter-save hidden aria-labelledby="diaryEditorTitle"></section>`;
@@ -33,6 +35,12 @@ const cal = $('[data-diary-cal]'), days = $('[data-diary-days]'), detail = $('[d
 
 let cursor = seoulParts(new Date()), rows = new Map(), loadedMonth = '', epoch = 0, owner = ownerScope(rt);
 let selected = null, source = 'all', dayLayer = null;
+// JOURNAL-일기원드라이브 2단계: 연결 상태·이 달의 원드라이브 사진·이 달의 별표. 모두 메모리에만 둔다(저장은 서버).
+const OD_NONE = {configured:false, connected:false, folder:null, canDelete:false};
+let od = {...OD_NONE}, odStatusFlight = null, odMonth = null, odOpen = false, odMessage = '', odBusy = false, odBrowse = null;
+let starSet = new Set(), starsState = 'loading', shown = [];
+const starBusy = new Set();
+const isStarred = item => starSet.has(starKey(item.source, item.key));
 let edit = null, editLayer = null;
 const monthKey = () => `${cursor.year}-${cursor.month}`;
 const monthOf = day => { const [y, m] = day.split('-').map(Number); return `${y}-${m - 1}`; };
@@ -45,15 +53,16 @@ function renderMonth() {
   const cells = [];
   for (let i = 0; i < lead; i++) cells.push(Object.assign(document.createElement('span'), {className:'diary-cell diary-blank'}));
   for (let n = 1; n <= total; n++) {
-    const day = seoulDateKey(addSeoulDays(first, n - 1)), row = rows.get(day), photos = diaryPhotos(row), text = diaryText(row);
+    const day = seoulDateKey(addSeoulDays(first, n - 1)), row = rows.get(day), photos = diaryPhotos(row), text = diaryText(row), odDay = odMonth?.days[day] || [];
     const cell = document.createElement('button');
     cell.type = 'button'; cell.className = 'diary-cell'; cell.dataset.diaryDay = day;
     if (day === today) cell.setAttribute('aria-current', 'date');
     cell.setAttribute('aria-pressed', String(selected === day));
-    cell.setAttribute('aria-label', `${shortDay(day)}${photos.length ? `, 사진 ${photos.length}장` : text ? ', 글' : ''}`);
+    cell.setAttribute('aria-label', `${shortDay(day)}${photos.length ? `, 사진 ${photos.length}장` : text ? ', 글' : ''}${odDay.length ? `, 원드라이브 사진 ${odDay.length}장` : ''}`);
     if (photos[0]) { cell.classList.add('has-photo'); cell.append(photoElement(row, photos[0], 'small', {label:'', link:false})); }
     const num = document.createElement('span'); num.className = 'diary-num'; num.textContent = String(n); cell.append(num);
     if (!photos.length && text) { const dot = document.createElement('span'); dot.className = 'diary-dot'; dot.dataset.diaryDot = ''; cell.append(dot); }
+    if (odDay.length) { const dot = document.createElement('span'); dot.className = 'diary-dot diary-dot-od'; dot.dataset.diaryOdDot = ''; cell.append(dot); }
     cells.push(cell);
   }
   days.replaceChildren(...cells);
@@ -80,7 +89,8 @@ async function loadMonth({force = false} = {}) {
   if (!force && loadedMonth === monthKey()) return renderMonth();
   const run = ++epoch, key = monthKey();
   status.textContent = '불러오는 중…'; $('[data-diary-retry]').hidden = true;
-  rows = new Map(); renderMonth();
+  rows = new Map(); odMonth = null; starSet = new Set(); starsState = 'loading'; renderMonth();
+  loadOd(run, key);
   try {
     const list = await readDiaryMonth(cursor.year, cursor.month, rt);
     if (!current(run)) return;
@@ -138,30 +148,49 @@ function closeDetail({fromBack = false} = {}) {
 function renderDetail() {
   if (!selected) return;
   sendWhere(longDay(selected));
-  const row = rows.get(selected), photos = diaryPhotos(row), text = diaryText(row);
+  const row = rows.get(selected), text = diaryText(row), hasPhotos = dayItems(selected, row, odMonth).length > 0;
   detail.hidden = false; list.hidden = true;
-  detail.innerHTML = `<div class="diary-panel-head"><button type="button" class="icon-btn" data-diary-detail-close aria-label="날짜 닫기">×</button></div>${row ? `<div class="diary-source" role="group" aria-label="사진 보기"><button type="button" data-diary-source="all" aria-pressed="${source === 'all'}">전체</button><button type="button" data-diary-source="star" aria-pressed="${source === 'star'}">별표</button></div><div data-diary-photos></div>${text ? `<div class="diary-text${diaryHasDoc(row) ? ' is-doc' : ''}" data-diary-text-view>${diaryHasDoc(row) ? '' : esc(text)}</div>` : ''}<div class="diary-actions"><button type="button" class="secondary" data-diary-edit>수정</button><button type="button" class="secondary diary-danger" data-diary-delete>일기 지우기</button></div>` : `<p class="diary-muted">이 날 일기가 없어요.</p>`}`;
+  detail.innerHTML = `<div class="diary-panel-head"><button type="button" class="icon-btn" data-diary-detail-close aria-label="날짜 닫기">×</button></div>${row || hasPhotos ? `<div class="diary-source" role="group" aria-label="사진 보기"><button type="button" data-diary-source="all" aria-pressed="${source === 'all'}">전체</button><button type="button" data-diary-source="star" aria-pressed="${source === 'star'}">별표</button></div><div data-diary-photos></div>` : ''}${row ? `${text ? `<div class="diary-text${diaryHasDoc(row) ? ' is-doc' : ''}" data-diary-text-view>${diaryHasDoc(row) ? '' : esc(text)}</div>` : ''}<div class="diary-actions"><button type="button" class="secondary" data-diary-edit>수정</button><button type="button" class="secondary diary-danger" data-diary-delete>일기 지우기</button></div>` : `<p class="diary-muted">이 날 일기가 없어요.</p>`}`;
   syncDetailTitle();
   const view = detail.querySelector('[data-diary-text-view]');
   if (view && diaryHasDoc(row)) view.replaceChildren(renderDoc(row.doc));
+  renderPhotos();
+}
+// ☆를 아직 쓸 수 없을 때의 안내. 원드라이브 준비 전에는 예전 안내 그대로.
+const starNote = () => !od.configured ? '원드라이브 연결 뒤 쓸 수 있어요' : starsState === 'loading' ? '별표를 불러오는 중이에요' : '별표를 지금은 쓸 수 없어요';
+const itemElement = (item, size, opts) => item.kind === 'od' ? odPhotoElement(item, size, opts) : photoElement(item.row, item.file, size, opts);
+// The day's photos: the ones uploaded here, then the OneDrive ones of the day, as one small square grid. [별표] keeps the starred ones.
+function renderPhotos() {
   const host = detail.querySelector('[data-diary-photos]');
-  if (!host) return;
-  if (source === 'star') { host.innerHTML = '<p class="diary-muted diary-star-note" data-diary-star-note>원드라이브 연결 뒤 쓸 수 있어요</p>'; return; }
-  if (!photos.length) { host.innerHTML = '<p class="diary-muted">직접 올린 사진이 없어요.</p>'; return; }
+  if (!host || !selected) return;
+  const row = rows.get(selected), all = dayItems(selected, row, odMonth);
+  if (source === 'star') {
+    if (starsState !== 'ready') { shown = []; host.innerHTML = `<p class="diary-muted diary-star-note" data-diary-star-note>${esc(starNote())}</p>`; return; }
+    shown = all.filter(isStarred);
+    if (!shown.length) {
+      host.innerHTML = `<p class="diary-muted diary-star-note" data-diary-star-note>별표한 사진이 없어요.${od.configured && !od.connected ? ' <button type="button" class="secondary" data-od-connect>원드라이브 연결</button>' : ''}</p>`;
+      return;
+    }
+  } else {
+    shown = all;
+    if (!shown.length) { host.innerHTML = `<p class="diary-muted">${od.connected && od.folder ? '이 날 사진이 없어요.' : '직접 올린 사진이 없어요.'}</p>`; return; }
+  }
   // Small square grid (four a row on a phone); a photo opens full screen.
   const grid = document.createElement('div');
   grid.className = 'diary-grid'; grid.dataset.diaryGrid = '';
-  grid.setAttribute('role', 'group'); grid.setAttribute('aria-label', `사진 ${photos.length}장`);
-  photos.forEach((file, i) => {
+  grid.setAttribute('role', 'group'); grid.setAttribute('aria-label', `사진 ${shown.length}장`);
+  shown.forEach((item, i) => {
     const button = document.createElement('button');
     button.type = 'button'; button.className = 'diary-grid-item'; button.dataset.diaryOpen = String(i);
-    button.setAttribute('aria-label', `사진 ${i + 1} 크게 보기`);
-    button.append(photoElement(row, file, 'small', {label:'', link:false}));
-    grid.append(button);
+    button.setAttribute('aria-label', `사진 ${i + 1} 크게 보기${isStarred(item) ? ', 별표' : ''}`);
+    button.append(itemElement(item, 'small', {label:'', link:false}));
+    const mark = document.createElement('span');
+    mark.className = 'diary-star-mark'; mark.setAttribute('aria-hidden', 'true'); mark.textContent = '★'; mark.hidden = !isStarred(item);
+    button.append(mark); grid.append(button);
   });
-  host.append(grid);
-  // One short line per photo that has a comment (the full-screen view shows it under the photo too).
-  const comments = photoComments(row), commented = photos.map((file, i) => ({i, text:comments[file.drive_file_id]})).filter(item => item.text);
+  host.replaceChildren(grid);
+  // One short line per uploaded photo that has a comment (the full-screen view shows it under the photo too).
+  const comments = photoComments(row), commented = shown.map((item, i) => ({i, text:item.kind === 'upload' ? comments[item.file.drive_file_id] : ''})).filter(item => item.text);
   if (commented.length) {
     const list = document.createElement('ul');
     list.className = 'diary-captions'; list.dataset.diaryCaptions = '';
@@ -172,47 +201,193 @@ function renderDetail() {
     host.append(list);
   }
 }
+// A star changed: the marks on the grid and the full-screen view follow without rebuilding the grid (focus stays).
+function paintStars() {
+  detail.querySelectorAll('[data-diary-open]').forEach(button => {
+    const i = Number(button.dataset.diaryOpen), item = shown[i];
+    if (!item) return;
+    const on = isStarred(item);
+    const mark = button.querySelector('.diary-star-mark'); if (mark) mark.hidden = !on;
+    button.setAttribute('aria-label', `사진 ${i + 1} 크게 보기${on ? ', 별표' : ''}`);
+  });
+  viewer?.refresh();
+}
+// ☆ saves at once (the server table is the only copy). A failed save puts the star back the way it was.
+async function toggleStar(item) {
+  if (!item) return;
+  if (starsState !== 'ready') { viewerNote(starNote()); return; }
+  const k = starKey(item.source, item.key);
+  if (starBusy.has(k)) return;
+  const was = starSet.has(k), scope = owner;
+  starBusy.add(k);
+  if (was) starSet.delete(k); else starSet.add(k);
+  if (viewer) viewer.starChanged = true;
+  paintStars();
+  try {
+    if (was) await removeStar(item, rt); else await addStar({source:item.source, key:item.key, day:item.day}, rt);
+    viewerNote('');
+  } catch {
+    if (scope === owner) { if (was) starSet.add(k); else starSet.delete(k); paintStars(); viewerNote('별표를 저장하지 못했어요. 다시 눌러 주세요.'); }
+  } finally { starBusy.delete(k); }
+}
+const viewerNote = text => { const el = viewer?.box.querySelector('[data-diary-viewer-note]'); if (el) el.textContent = text; };
 
-// Full-screen photo view: swipe sideways, "3 / 8", × and Back close it (router layer), ☆ is a place holder until OneDrive.
+// Full-screen photo view: swipe sideways, "3 / 8", × and Back close it (router layer). ☆ stars the shown photo (also a double tap, or the S key);
+// ⋯ (OneDrive photos only) sends it to the OneDrive recycle bin. OneDrive photos are fetched only near the one shown.
 let viewer = null;
 function openViewer(index) {
-  const row = rows.get(selected), photos = diaryPhotos(row);
-  if (!row || !photos[index] || viewer) return;
+  if (!shown[index] || viewer) return;
+  let items = shown.slice(), at = index, deleting = false;
   const trigger = document.activeElement, box = document.createElement('div');
   box.className = 'diary-viewer'; box.dataset.diaryViewer = '';
   box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', `${shortDay(selected)} 사진`);
-  box.innerHTML = `<div class="diary-viewer-bar"><span class="diary-viewer-count" data-diary-viewer-count aria-live="polite"></span><button type="button" class="diary-viewer-star" data-diary-star aria-label="별표">☆</button><button type="button" class="diary-viewer-close" data-diary-viewer-close aria-label="크게 보기 닫기">×</button></div><div class="diary-viewer-strip" data-diary-viewer-strip tabindex="0"></div><p class="diary-viewer-caption" data-diary-viewer-caption></p><p class="diary-viewer-note" data-diary-viewer-note role="status"></p>`;
-  const strip = box.querySelector('[data-diary-viewer-strip]'), count = box.querySelector('[data-diary-viewer-count]');
-  photos.forEach((file, i) => {
-    const slide = document.createElement('figure'); slide.className = 'diary-slide';
-    slide.append(photoElement(row, file, 'large', {label:`${shortDay(selected)} 사진 ${i + 1}`}));
-    strip.append(slide);
+  box.innerHTML = `<div class="diary-viewer-bar"><span class="diary-viewer-count" data-diary-viewer-count aria-live="polite"></span><span class="diary-viewer-stars" data-diary-viewer-stars hidden></span><button type="button" class="diary-viewer-star" data-diary-star aria-label="별표" aria-pressed="false">☆</button><details class="diary-viewer-more" data-diary-viewer-more hidden><summary aria-label="사진 메뉴" data-ctx="off">⋯</summary><div class="diary-viewer-more-panel"><button type="button" data-od-delete>원드라이브에서 지우기</button></div></details><button type="button" class="diary-viewer-close" data-diary-viewer-close aria-label="크게 보기 닫기">×</button></div><div class="diary-viewer-strip" data-diary-viewer-strip tabindex="0"></div><p class="diary-viewer-caption" data-diary-viewer-caption></p><p class="diary-viewer-note" data-diary-viewer-note role="status"></p>`;
+  const strip = box.querySelector('[data-diary-viewer-strip]'), count = box.querySelector('[data-diary-viewer-count]'), caption = box.querySelector('[data-diary-viewer-caption]');
+  const starBtn = box.querySelector('[data-diary-star]'), starCount = box.querySelector('[data-diary-viewer-stars]'), more = box.querySelector('[data-diary-viewer-more]');
+  const fill = i => {
+    const slide = strip.children[i];
+    if (!slide || slide.dataset.filled) return;
+    slide.dataset.filled = '1'; slide.append(itemElement(items[i], 'large', {label:`${shortDay(selected)} 사진 ${i + 1}`}));
+  };
+  const buildSlides = () => {
+    strip.replaceChildren(...items.map(() => Object.assign(document.createElement('figure'), {className:'diary-slide'})));
+    items.forEach((item, i) => { if (item.kind === 'upload') fill(i); });
+  };
+  const refresh = () => {
+    const item = items[at]; if (!item) return;
+    const on = isStarred(item), n = items.filter(isStarred).length;
+    starBtn.textContent = on ? '★' : '☆'; starBtn.setAttribute('aria-pressed', String(on)); starBtn.setAttribute('aria-label', on ? '별표 풀기' : '별표');
+    starCount.hidden = !n; starCount.textContent = `★ ${n}`;
+  };
+  const show = () => {
+    const item = items[at];
+    count.textContent = `${at + 1} / ${items.length}`;
+    caption.textContent = item.kind === 'upload' ? (photoComments(item.row)[item.file.drive_file_id] || '') : takenLabel(item);
+    more.hidden = !(item.kind === 'od' && od.canDelete); more.removeAttribute('open');
+    for (const d of [-1, 0, 1, 2]) fill(at + d);
+    refresh();
+  };
+  strip.addEventListener('scroll', () => { const next = Math.round(strip.scrollLeft / Math.max(1, strip.clientWidth)); if (next !== at && items[next]) { at = next; show(); } }, {passive:true});
+  const step = dir => strip.scrollTo({left:Math.max(0, Math.min(items.length - 1, at + dir)) * strip.clientWidth, behavior:'smooth'});
+  async function deleteCurrent() {
+    const item = items[at];
+    if (!item || item.kind !== 'od' || deleting) return;
+    more.removeAttribute('open');
+    if (!window.confirm('원드라이브에서도 지워져요. 휴지통으로 보내요. 지울까요?')) return;
+    deleting = true; viewerNote('지우는 중…');
+    try { await odDelete(rt, item.id); }
+    catch (error) { deleting = false; viewerNote(odErrorText(error)); return; }
+    deleting = false;
+    forgetOdPhoto(item.id);
+    if (odMonth?.days[item.day]) { odMonth.days[item.day] = odMonth.days[item.day].filter(p => p.id !== item.id); if (!odMonth.days[item.day].length) delete odMonth.days[item.day]; }
+    renderMonth(); renderPhotos();
+    items = shown.slice();
+    if (!items.length) { closeViewer(); return; }
+    at = Math.min(at, items.length - 1);
+    buildSlides(); strip.scrollLeft = at * strip.clientWidth; show(); viewerNote('원드라이브 휴지통으로 보냈어요.');
+  }
+  let lastTap = {t:0, i:-1};
+  strip.addEventListener('click', event => {
+    if (event.target.closest('a')) return;
+    const t = Date.now();
+    if (lastTap.i === at && t - lastTap.t < 320) { lastTap = {t:0, i:-1}; toggleStar(items[at]); } else lastTap = {t, i:at};
   });
-  let at = index;
-  const comments = photoComments(row), caption = box.querySelector('[data-diary-viewer-caption]');
-  const show = () => { count.textContent = `${at + 1} / ${photos.length}`; caption.textContent = comments[photos[at].drive_file_id] || ''; };
-  strip.addEventListener('scroll', () => { const next = Math.round(strip.scrollLeft / Math.max(1, strip.clientWidth)); if (next !== at && photos[next]) { at = next; show(); } }, {passive:true});
-  const step = dir => strip.scrollTo({left:Math.max(0, Math.min(photos.length - 1, at + dir)) * strip.clientWidth, behavior:'smooth'});
   box.addEventListener('keydown', event => {
     if (event.key === 'Escape') { event.preventDefault(); closeViewer(); }
     else if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') { event.preventDefault(); step(event.key === 'ArrowRight' ? 1 : -1); }
+    else if ((event.key === 's' || event.key === 'S') && !event.target.closest('input,textarea')) { event.preventDefault(); toggleStar(items[at]); }
   });
   box.addEventListener('click', event => {
     if (event.target.closest('[data-diary-viewer-close]')) closeViewer();
-    else if (event.target.closest('[data-diary-star]')) box.querySelector('[data-diary-viewer-note]').textContent = '원드라이브 연결 뒤 쓸 수 있어요';
+    else if (event.target.closest('[data-diary-star]')) toggleStar(items[at]);
+    else if (event.target.closest('[data-od-delete]')) deleteCurrent();
   });
-  root.append(box);
-  viewer = {box, trigger, layer:window.KPTURouter?.layer?.open('diary-photo', {close:() => { closeViewer({fromBack:true}); return true; }}) || null};
+  buildSlides(); root.append(box);
+  viewer = {box, trigger, refresh, starChanged:false, layer:window.KPTURouter?.layer?.open('diary-photo', {close:() => { closeViewer({fromBack:true}); return true; }}) || null};
   document.documentElement.classList.add('diary-viewer-open');
   strip.scrollLeft = index * strip.clientWidth; show();
   box.querySelector('[data-diary-viewer-close]').focus();
 }
 function closeViewer({fromBack = false, restore = true} = {}) {
   if (!viewer) return;
-  const {box, trigger, layer} = viewer; viewer = null;
+  const {box, trigger, layer, starChanged} = viewer; viewer = null;
   box.remove(); document.documentElement.classList.remove('diary-viewer-open');
   if (!fromBack) layer?.close();
+  // [별표] list: photos un-starred in the full-screen view leave the list now.
+  if (starChanged && source === 'star' && selected && restore) renderPhotos();
   if (restore && trigger?.isConnected) trigger.focus();
+}
+
+// 원드라이브 연결·폴더·이 달 사진·별표. Edge 호출은 모두 diary-onedrive.js를 거친다. 여기는 상태와 한 줄 안내만 그린다.
+const odPanel = $('[data-diary-od]');
+function ensureOdStatus(force = false) {
+  if (force) odStatusFlight = null;
+  odStatusFlight ||= odStatus(rt).then(next => { od = next; }, () => { od = {...OD_NONE}; });
+  return odStatusFlight;
+}
+async function loadOd(run, key) {
+  const [year, month] = [cursor.year, cursor.month];
+  await ensureOdStatus();
+  if (!current(run)) return;
+  const wantPhotos = od.connected && od.folder;
+  const [photos, stars] = await Promise.allSettled([wantPhotos ? odPhotos(rt, year, month) : Promise.resolve(null), readStars(year, month, rt)]);
+  if (!current(run) || key !== monthKey()) return;
+  odMonth = photos.status === 'fulfilled' ? photos.value : null;
+  starsState = stars.status === 'fulfilled' ? 'ready' : 'failed';
+  starSet = new Set(stars.status === 'fulfilled' ? stars.value.map(r => starKey(r.source, r.item_key)) : []);
+  if (photos.status === 'rejected') odMessage = odErrorText(photos.reason);
+  // A bad row from the notes read must not turn this background step into an unhandled error (loadMonth reports that read itself).
+  try {
+    renderOdPanel(); renderMonth();
+    if (selected && monthOf(selected) === key && !viewer && !edit) renderDetail();
+  } catch { /* shown by loadMonth's own status line */ }
+}
+function renderOdPanel() {
+  odPanel.hidden = !od.configured;
+  if (!od.configured) return;
+  const head = !od.connected ? '<span>원드라이브 사진을 날짜별로 모아 봐요.</span><button type="button" class="secondary" data-od-connect>원드라이브 연결</button>'
+    : !od.folder ? '<span>원드라이브 연결됨 · 사진 폴더를 골라 주세요.</span><button type="button" class="secondary" data-od-open>폴더 고르기</button>'
+    : `<span>원드라이브 · ${esc(od.folder.name)}${odMonth?.truncated ? ' (일부만 읽었어요)' : ''}</span><button type="button" class="secondary" data-od-open aria-expanded="${odOpen}">설정</button>`;
+  let body = '';
+  if (odOpen && od.connected) {
+    if (odBrowse) {
+      const names = odBrowse.stack.map(x => esc(x.name)).join(' › ');
+      body = `<div class="diary-od-browse"><p class="diary-muted">${names}</p>${odBrowse.stack.length > 1 ? '<button type="button" class="secondary" data-od-up>위로</button>' : ''}<ul>${(odBrowse.folders || []).map(f => `<li><button type="button" class="diary-od-name" data-od-enter="${esc(f.id)}" data-od-name="${esc(f.name)}">${esc(f.name)}</button><button type="button" class="secondary" data-od-pick="${esc(f.id)}">이 폴더 쓰기</button></li>`).join('')}</ul>${odBrowse.folders && !odBrowse.folders.length ? '<p class="diary-muted">하위 폴더가 없어요.</p>' : ''}${odBrowse.folders ? '' : '<p class="diary-muted">불러오는 중…</p>'}</div>`;
+    } else {
+      body = `<div class="diary-od-actions"><button type="button" class="secondary" data-od-change>폴더 바꾸기</button><button type="button" class="secondary diary-danger" data-od-disconnect>연결 끊기</button>${od.canDelete ? '' : '<button type="button" class="secondary" data-od-connect>지우기를 쓰려면 다시 연결</button>'}</div>`;
+    }
+  }
+  odPanel.innerHTML = `<div class="diary-od-line">${head}</div>${body}<p class="diary-od-note" role="status">${esc(odMessage)}</p>`;
+  odPanel.querySelectorAll('button').forEach(b => { b.disabled = odBusy; });
+}
+async function odRun(task, {reload = false} = {}) {
+  if (odBusy) return;
+  odBusy = true; odMessage = ''; renderOdPanel();
+  try { await task(); } catch (error) { odMessage = odErrorText(error); }
+  odBusy = false; renderOdPanel();
+  if (reload) loadMonth({force:true});
+}
+async function browseFolders(parentId) {
+  odBrowse.folders = null; renderOdPanel();
+  odBrowse.folders = await odFolders(rt, parentId);
+}
+const startBrowse = () => { odOpen = true; odBrowse = {stack:[{id:null, name:'맨 위'}], folders:null}; return browseFolders(null); };
+function toggleOdPanel() {
+  if (od.connected && !od.folder) { if (!odOpen) return odRun(startBrowse); return; }
+  odOpen = !odOpen; odBrowse = null; renderOdPanel();
+}
+function odConnect() {
+  return odRun(async () => { window.location.assign(await odAuthStart(rt)); });
+}
+async function finishOdReturn(back) {
+  odOpen = true;
+  if (back.error) { odMessage = back.error === 'access_denied' ? '원드라이브 연결을 취소했어요.' : '원드라이브 연결을 마치지 못했어요. 다시 눌러 주세요.'; renderOdPanel(); return; }
+  await odRun(async () => {
+    await odAuthFinish(rt, back);
+    await ensureOdStatus(true);
+    odMessage = od.canDelete ? '연결됐어요. 사진을 읽을 폴더를 골라 주세요.' : '연결됐어요. 다만 지우기 권한이 없어요.';
+    await startBrowse();
+  });
 }
 
 // Write / edit panel. One diary per day: a day that already has one always opens it to edit.
@@ -451,6 +626,16 @@ root.addEventListener('click', event => {
   if (button.matches('[data-diary-detail-close]')) return closeDetail();
   if (button.matches('[data-diary-source]')) { source = button.dataset.diarySource; return renderDetail(); }
   if (button.matches('[data-diary-open]')) return openViewer(Number(button.dataset.diaryOpen));
+  if (button.matches('[data-od-connect]')) return odConnect();
+  if (button.matches('[data-od-open]')) return toggleOdPanel();
+  if (button.matches('[data-od-change]')) return odRun(startBrowse);
+  if (button.matches('[data-od-up]')) { odBrowse.stack.pop(); const top = odBrowse.stack.at(-1); return odRun(() => browseFolders(top.id)); }
+  if (button.matches('[data-od-enter]')) { odBrowse.stack.push({id:button.dataset.odEnter, name:button.dataset.odName}); return odRun(() => browseFolders(button.dataset.odEnter)); }
+  if (button.matches('[data-od-pick]')) return odRun(async () => { await odFolderSet(rt, button.dataset.odPick); await ensureOdStatus(true); odBrowse = null; odOpen = false; }, {reload:true});
+  if (button.matches('[data-od-disconnect]')) {
+    if (!window.confirm('원드라이브 연결을 끊을까요? 원드라이브 사진은 그대로예요. 별표 기록도 남아요.')) return;
+    return odRun(async () => { await odDisconnect(rt); clearOdPhotoCache(); await ensureOdStatus(true); odBrowse = null; odOpen = false; }, {reload:true});
+  }
   if (button.matches('[data-diary-edit]')) return openEditor(selected);
   if (button.matches('[data-diary-delete]')) return removeDiary(edit ? edit.row : rows.get(selected));
   if (button.matches('[data-diary-editor-close]')) return closeEditor();
@@ -485,10 +670,13 @@ window.addEventListener('kptu:session-changed', () => {
   if (owner === ownerScope(rt)) return;
   owner = ownerScope(rt); epoch++;
   closeViewer({fromBack:true, restore:false});
+  od = {...OD_NONE}; odStatusFlight = null; odMonth = null; odOpen = false; odBrowse = null; odMessage = ''; starSet = new Set(); starsState = 'loading'; clearOdPhotoCache(); renderOdPanel();
   if (edit) { releasePending(); dropField(); edit = null; editor.hidden = true; editor.replaceChildren(); cal.hidden = false; $('.diary-head').hidden = false; $('[data-diary-new]').hidden = false; status.hidden = false; }
   editLayer = null; dayLayer = null; selected = null; sendWhere(null); detail.hidden = true; rows = new Map(); loadedMonth = ''; renderMonth();
 });
 function enter() {
+  const back = takeOdReturn();
+  if (back) ensureOdStatus().then(() => finishOdReturn(back));
   const day = takeRequestedDay(rt);
   if (day) {
     const [y, m] = day.split('-').map(Number);
