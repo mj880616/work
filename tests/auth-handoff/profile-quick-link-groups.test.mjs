@@ -118,7 +118,7 @@ test('quick link groups: dry-run, apply, own-row writes, CHECKs and guarded roll
    await assert.rejects(write(OWNER,OWNER,[link('zzz')],groups),{code:'23514'},'unknown group');
    await assert.rejects(write(OWNER,OWNER,[link('gab12cd')],[{id:'work',name:'업무'}]),{code:'23514'},'group removed while a link still points at it');
    await assert.rejects(write(OWNER,OWNER,[link('etc')],null),{code:'23514'},'empty groups = work and org only');
-   await assert.rejects(write(OWNER,OWNER,[link('gab12cd')]),{code:'23514'},'links only, groups left as saved, group not in it');
+   await assert.rejects(write(OWNER,OWNER,[link('qqq')]),{code:'23514'},'links only, groups left as saved, group not in it');
    assert.equal((await write(OWNER,OWNER,[link('work'),link('org')],null)).rowCount,1);
    assert.equal((await write(OWNER,OWNER,[],[{id:'only',name:'하나'}])).rowCount,1,'empty list with one group');
    assert.equal((await write(OWNER,OWNER,legacy,null)).rowCount,1);
@@ -155,6 +155,7 @@ test('quick link groups: dry-run, apply, own-row writes, CHECKs and guarded roll
    // Reachable only by a privileged write that bypasses the group_ref CHECK; emulate by dropping it in a rolled-back transaction.
    const c=await pool.connect();try{
     await c.query('begin');await c.query('alter table public.app_profiles drop constraint app_profiles_quick_links_group_ref_check');
+    await c.query('alter table public.app_profiles add constraint app_profiles_quick_links_group_ref_check check (true)');
     await c.query("update public.app_profiles set quick_link_groups=null,quick_links=$1::jsonb where user_id=$2",[JSON.stringify([link('gab12cd')]),OWNER]);
     await assert.rejects(c.query(rollbackSQL),{code:'23514'},'re-adding the original links CHECK refuses the row, so nothing is changed');
    }finally{await c.query('rollback').catch(()=>{});c.release();}
