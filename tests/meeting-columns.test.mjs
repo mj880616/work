@@ -94,7 +94,7 @@ test('PC 3단 배치: 왼쪽 종류 목록(건수) / 가운데 고른 종류의 
 test('오른쪽 결과(읽기용): 원문 규칙·특이사항·프로젝트·회의자료·후속 할 일, 입력칸 없음, 고치는 곳은 ⋯ 하나',()=>{
   assert.equal(resultText({transcript_text:'원문'}),'원문');
   assert.equal(resultText({transcript_text:'',decisions:'옛 결정'}),'[기존 회의결과 기록]\n옛 결정');
-  assert.equal(resultText({}),'기록 없음');
+  assert.equal(resultText({}),'');assert.equal(resultText({transcript_text:''}),'');
   const fileLine=({name,meta,cls,end})=>`<div class="${cls}">${name} ${meta}${end}</div>`;
   const m={id:'x1',series_name:'가상협의회',title:'옛 제목 <b>',round_no:2,transcript_text:'<script>원문</script>',notes:'가상 특이사항'};
   const html=resultHtml(m,{when:'2026. 9. 1.',project:'가상 프로젝트',legacyTitle:'옛 제목 <b>',docs:[{id:'d1',title:'가상 안건지',file_name:'가상 안건지.hwp',file_size:20480}],fileLine,tasksHtml:'<ul></ul>'});
@@ -104,7 +104,7 @@ test('오른쪽 결과(읽기용): 원문 규칙·특이사항·프로젝트·�
   assert.doesNotMatch(html,/<(input|textarea|select)\b/);
   assert.equal((html.match(/data-meeting-more=/g)||[]).length,1);
   const bare=resultHtml({id:'x2',round_no:null},{fileLine});
-  assert.match(bare,/회의자료가 없습니다/);assert.doesNotMatch(bare,/특이사항/);
+  assert.match(bare,/회의자료가 없습니다/);assert.doesNotMatch(bare,/특이사항/);assert.doesNotMatch(bare,/mcolTextHead/);/* MTG-보고창정리: 원문이 비면 원문 칸 자체가 없다 */
   assert.match(tasksHtml(null),/불러오는 중/);assert.match(tasksHtml('error'),/불러오지 못했습니다/);assert.match(tasksHtml([]),/후속 할 일이 없습니다/);
   const tasks=tasksHtml([{title:'가상 할 일',status:'needsAction'},{title:'끝난 일',status:'completed'}],{dueOf:t=>t.status==='completed'?'':'10. 25.'});
   assert.equal((tasks.match(/class="mcol-task( completed)?"/g)||[]).length,2);assert.match(tasks,/completed[^]*끝난 일/);assert.match(tasks,/10\. 25\./);

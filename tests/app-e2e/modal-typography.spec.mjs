@@ -375,6 +375,8 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // UI-디자인손질 1 (2026-10-16 사용자 결정): "차수" has no separate "선택" tag any more; drop that removed node from
   // the baseline only. Every other optional tag (특이사항·약칭 etc.) is still compared.
   await original.evaluate(()=>document.querySelectorAll('#meetingRoundNo,#mrdEditRound').forEach(input=>input.closest('label')?.querySelector(':scope > .optional')?.remove()));
+  // MTG-보고창정리: 입력·수정 창의 원문 칸 이름 줄에 작은 [선택] 표시가 생겼다(원문은 필수가 아님). 같은 모양을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
+  await original.evaluate(()=>{for(const id of ['meetingTranscript','mrdEditTranscript'])document.getElementById(id)?.closest('label')?.insertAdjacentHTML('afterbegin','<span class="optional">선택</span>')});
   // PRJ-색 added the project color field (hidden value input + choices); compare it under both style sets too.
   const colorField=await page.locator('#ps3CreateColorField').evaluate(el=>el.outerHTML);
   await original.locator('#ps3CreateParent').evaluate((el,html)=>el.closest('label').insertAdjacentHTML('afterend',html),colorField);

@@ -6,7 +6,7 @@ import {fileURLToPath} from 'node:url';
 import {dirname,resolve} from 'node:path';
 import {fillDateTime} from './helpers/date-time.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
-import {openMeetingResult} from './helpers/meeting-open.mjs';
+import {openMeetingResult,mrdMenu} from './helpers/meeting-open.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -468,7 +468,7 @@ test('edit can replace a meeting name with an existing choice',async({page})=>{
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(rows)});
   });
   await openMeetingResult(page,'meeting-1');
-  await page.locator('#mrdEdit').click();
+  await mrdMenu(page,'edit');
   await page.locator('#mrdEditNameSelect').selectOption({label:'통일할 회의'});
   await page.locator('#mrdSaveEdit').click();
   await expect.poll(()=>saved).not.toBeNull();
@@ -608,7 +608,7 @@ test('meeting edit preserves legacy name fields when the user does not rename th
   await openMeetingResult(page,'meeting-1');
   await expect(page.locator('#mrdResult')).toHaveText('원문 첫 줄\n원문 둘째 줄');
   await expect(page.locator('#mrdSpecialSection')).toBeVisible();
-  await page.locator('#mrdEdit').click();
+  await mrdMenu(page,'edit');
   await expect(page.locator('#mrdEditSeries')).toHaveCount(0);
   await expect(page.locator('#mrdEditTitle')).toHaveValue('궤도협의회');
   await expect(page.locator('#mrdEditAt')).toHaveValue('2026-09-17T19:00');
@@ -639,7 +639,7 @@ test('renaming a legacy meeting normalizes title and series_name to the one user
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([meeting])});
   });
   await openMeetingResult(page,'meeting-1');
-  await page.locator('#mrdEdit').click();
+  await mrdMenu(page,'edit');
   await page.locator('#mrdEditNameSelect').selectOption('__other__');
   await page.locator('#mrdEditTitle').fill('궤도협의회 집행위원회');
   await page.locator('#mrdSaveEdit').click();
@@ -659,7 +659,7 @@ test('round number remains optional on edit',async({page})=>{
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify([meeting])});
   });
   await openMeetingResult(page,'meeting-1');
-  await page.locator('#mrdEdit').click();
+  await mrdMenu(page,'edit');
   await page.locator('#mrdEditRound').fill('');
   await page.locator('#mrdSaveEdit').click();
   await expect.poll(()=>saved).not.toBeNull();
@@ -688,7 +688,7 @@ test('meeting edit does not report success when RLS updates zero rows',async({pa
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
   });
   await openMeetingResult(page,'meeting-1');
-  await page.locator('#mrdEdit').click();
+  await mrdMenu(page,'edit');
   await page.locator('#mrdSaveEdit').click();
   await expect(page.locator('#mrdEditStatus')).toContainText('저장 결과를 확인하지 못했습니다.');
   await expect(page.locator('#mrdEditStatus')).not.toHaveClass(/ok/);
@@ -981,7 +981,7 @@ test('changing a meeting project leaves existing Google follow-up links untouche
   await expect(page.locator('#mrdTasks [data-mrd-task="existing"]')).toBeVisible();
   // PC 3단(MEET-결과3단)은 오른쪽 결과도 후속 할 일을 읽으므로, 창을 연 뒤의 읽기 수를 기준으로 저장 때 다시 읽지 않는지 본다.
   const readsBeforeSave=linkedReads;expect(readsBeforeSave).toBeGreaterThanOrEqual(1);
-  await page.locator('#mrdEdit').click();
+  await mrdMenu(page,'edit');
   await page.locator('#mrdEditPlaces').click();await page.locator('#reportPlacesSheet').getByRole('button',{name:/하위/}).first().click();await page.locator('#reportPlacesSheet').getByRole('button',{name:'저장',exact:true}).click();
   await page.locator('#mrdSaveEdit').click();
   await expect(page.locator('#mrdTasks [data-mrd-task="existing"]')).toBeVisible();

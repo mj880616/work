@@ -4,6 +4,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { expectNoteTitle } from './helpers/note-title.mjs';
 import { edWin, edWinText, typeInto } from './helpers/note-editor.mjs';
+import { closeNote } from './helpers/note-close.mjs';
 
 // UI-노트폴더 1단계 (docs/design/note-folders.md): a note's folder is metadata.folder in its existing row (no database change).
 // The note list has one folder row under the search box ([전체] [folders…] [폴더 없음] + ⋯), the note ⋯ has [폴더로 옮기기],
@@ -88,7 +89,7 @@ for (const width of [390, 1280]) test(`move notes into folders, filter by folder
   await expect.poll(() => f.writes.length).toBe(2);
   expect(f.writes[1].body.metadata).toEqual({ tasks: [{ task_id: 't1' }], folder: '회의 폴더' });
   await expect(page.locator('[data-note-meta-folder]')).toHaveText('폴더 회의 폴더');
-  await press(page, page.locator('[data-note-close]'), width);
+  await closeNote(page);
   // Filtering: the folder, then "폴더 없음", then 전체 again. Inside a folder rows do not repeat the folder name.
   await press(page, chip(page, '회의 폴더'), width);
   expect(await titles(page)).toEqual(['가 노트', '나 노트']);
@@ -127,7 +128,7 @@ test('folder and pin share metadata without dropping each other; pinned notes st
   await expect(page.locator('#toast')).toHaveText('노트를 맨 위에 고정했어요.');
   expect(f.writes[0].body.metadata).toMatchObject({ folder: '자료 폴더' });
   expect(f.writes[0].query['metadata->>folder']).toBe('eq.자료 폴더');
-  await page.locator('[data-note-close]').tap();
+  await closeNote(page);
   // Move a pinned note into the folder: the pin stays.
   await moveFromRow(page, 'n3', 390, '자료 폴더');
   await expect.poll(() => f.writes.length).toBe(2);
@@ -250,7 +251,7 @@ test('a note written while a folder is shown goes into that folder', async ({ pa
   await expect(page.locator('[data-note-meta-folder]')).toHaveText('폴더 자료 폴더');
   expect(f.writes.map(w => w.method || 'PATCH')).toEqual(['POST', 'PATCH']);
   expect(f.writes[1].body).toEqual({ metadata: { folder: '자료 폴더' } });
-  await page.locator('[data-note-close]').click();
+  await closeNote(page);
   expect(await titles(page)).toEqual(['새 자료 노트', '가 노트']);
   expect(f.errors).toEqual([]);
 });

@@ -14,16 +14,24 @@ const HOUR = 3600000;
 // 수집기 두 줄(telegram·call)은 이 시간을 넘게 새 파일이 없어도 경고하지 않고 '조용함'으로만 표시한다(메시지·통화가 없는 날이 있음, 2026-10-22 사용자 결정). 경고는 신호(silent)만.
 // silent: 앱 스크립트가 1시간마다 보내는 신호 자체가 3시간 넘게 없으면 스크립트·트리거 문제로 본다.
 export const STALE_HOURS = Object.freeze({copy:24, radar:48, telegram:26, call:72});
+// OPS-수집멈춤알림: 경고로 올리는 기준. 위 STALE_HOURS(조용함)보다 훨씬 길어서, 메시지·통화가 없는 주말·연휴는 넘긴다.
+// telegram·call: 회사 PC 수집기가 이 시간 넘게 새 원문 파일을 안 올림. telegramSend·callSend: 보내기 스크립트가 이 시간 넘게 결과를 안 알림
+// (매일 08:10 트리거 + 지터 / 1시간 트리거 + 지터). GAP: 새 원문은 있는데 실제로 보낸 글이 이 시간 넘게 없음(빈 날만 보낸 경우).
+export const STALL_HOURS = Object.freeze({telegram:72, call:168});
+export const SEND_SILENT_HOURS = Object.freeze({telegramSend:26, callSend:3});
+export const SEND_GAP_HOURS = 72;
 export const SILENT_HOURS = 3;
 export const CACHE_MS = 10 * 60 * 1000;
 export const SOURCES = Object.freeze([
   {key:'telegram', label:'텔레그램 수집', collector:'telegram'},
   {key:'call', label:'통화 녹음 전사', collector:'transcript'},
+  {key:'telegramSend', label:'텔레그램 보내기', collector:'telegram_send', send:true},
+  {key:'callSend', label:'통화 보내기', collector:'call_send', send:true},
   {key:'copy', label:'Claude용 Drive 사본'},
   {key:'radar', label:'챙길 것 찾기(AI)'},
 ]);
-// 건수 칸을 채우는 줄. 텔레그램도 건수를 보여 주려면 'telegram'만 더하면 같은 칸에 들어간다.
-const COUNT_KEYS = new Set(['call']);
+// 건수 칸을 채우는 줄(통화 전사·텔레그램). 값은 점검 신호의 최근 24시간 새 파일 수이고, 신호에 건수가 없으면 칸을 비운다.
+const COUNT_KEYS = new Set(['call', 'telegram']);
 export const UNCHECKABLE_NOTE = 'Web2 권한 밖이라 확인 불가';
 const ISO = /^\d{4}-\d{2}-\d{2}T[\d:.]+(Z|[+-]\d{2}:\d{2})$/;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
@@ -57,7 +65,11 @@ export function collectorsFromStatus(data) {
   if (!c) return null;
   const one = v => v && typeof v === 'object' && validTime(v.last_at) !== null && validTime(v.reported_at) !== null
     ? {at:v.last_at, reportedAt:v.reported_at, count:Number.isInteger(v.count) && v.count >= 0 ? v.count : null} : null;
-  return {telegram:one(c.telegram), transcript:one(c.transcript)};
+  // 보내기 출처(OPS-수집멈춤알림): {at, reportedAt, state}. 옛 함수는 이 칸이 없어 null이고 그 줄은 조용히 숨는다.
+  const SEND_STATES = ['ok', 'test', 'limit_day', 'limit_ai', 'failing', 'broken'];
+  const send = v => v && typeof v === 'object' && validTime(v.last_at) !== null && validTime(v.reported_at) !== null && SEND_STATES.includes(v.state)
+    ? {at:v.last_at, reportedAt:v.reported_at, state:v.state} : null;
+  return {telegram:one(c.telegram), transcript:one(c.transcript), telegram_send:send(c.telegram_send), call_send:send(c.call_send)};
 }
 // One collector line → {state:'ok'|'quiet'|'silent'|'never', at, count}. quiet = 신호는 정상인데 새 파일만 없음(경고 아님).
 export function judgeCollector(key, raw, now = Date.now()) {
@@ -66,7 +78,27 @@ export function judgeCollector(key, raw, now = Date.now()) {
   if (at === null || reported === null) return {state:'never', at:null, count:null};
   const count = raw.count ?? null;
   if (now - reported > SILENT_HOURS * HOUR) return {state:'silent', at, count};
+  if (now - at > STALL_HOURS[key] * HOUR) return {state:'stalled', at, count};
   return {state:now - at > STALE_HOURS[key] * HOUR ? 'quiet' : 'ok', at, count};
+}
+// 보내기 스크립트 한 줄 → {state, at}. 신호를 아직 한 번도 못 받았으면 null(줄 숨김, 켜는 날 경고가 뜨지 않게).
+// 판정 순서: 신호 끊김 → 오류·실패 → AI 상한 → (정상일 때) 새 원문은 있는데 보낸 글이 오래 없음 → 하루 상한·시험 모드(경고 아님).
+// collectorRaw: 같은 줄의 수집기(telegram) 신호. 새 원문이 최근에 있을 때만 '빈 날만 보냄'을 의심한다.
+export function judgeSend(key, raw, now = Date.now(), collectorRaw = null) {
+  if (!raw) return null;
+  const at = validTime(raw.at), reported = validTime(raw.reportedAt);
+  if (at === null || reported === null) return null;
+  if (now - reported > SEND_SILENT_HOURS[key] * HOUR) return {state:'stopped', at};
+  if (raw.state === 'broken') return {state:'broken', at};
+  if (raw.state === 'failing') return {state:'failing', at};
+  if (raw.state === 'limit_ai') return {state:'limit_ai', at};
+  if (raw.state === 'test') return {state:'test', at};
+  if (raw.state === 'limit_day') return {state:'limit_day', at};
+  if (key === 'telegramSend' && collectorRaw) {
+    const fresh = validTime(collectorRaw.at);
+    if (fresh !== null && now - fresh <= STALE_HOURS.telegram * HOUR && now - at > SEND_GAP_HOURS * HOUR) return {state:'gap', at};
+  }
+  return {state:'ok', at};
 }
 export function radarFromRows(rows) {
   if (!Array.isArray(rows)) return null;
@@ -110,13 +142,18 @@ export async function readStatus(rt) {
 }
 
 const STATE_TEXT = {ok:'', stale:'주의 · 오래됨', failed:'주의 · 최근 실패', never:'기록 없음'};
-const COLLECTOR_TEXT = {ok:'', quiet:'조용함', silent:'주의 · 점검 신호 끊김', never:'점검 신호 없음'};
-const ATTENTION = new Set(['stale', 'failed', 'silent']);
+const COLLECTOR_TEXT = {ok:'', quiet:'조용함', silent:'주의 · 점검 신호 끊김', never:'점검 신호 없음', stalled:'주의 · 새 파일 없음',
+  stopped:'주의 · 보내기 멈춤', broken:'주의 · 보내기 오류', failing:'주의 · 보내기 실패 이어짐', limit_ai:'주의 · 이번 달 AI 상한', gap:'주의 · 받은 글이 안 보내짐',
+  limit_day:'하루 상한 · 내일 이어서', test:'시험 모드'};
+const ATTENTION = new Set(['stale', 'failed', 'silent', 'stalled', 'stopped', 'broken', 'failing', 'limit_ai', 'gap']);
 const timeText = at => formatSeoulTime(at, {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
 function judgeAll(raw, now) {
   const collectors = raw?.collectors || null;
   const judged = {copy:judge('copy', raw?.copy, now), radar:judge('radar', raw?.radar, now)};
-  if (collectors) for (const {key, collector} of SOURCES) if (collector) judged[key] = judgeCollector(key, collectors[collector], now);
+  if (collectors) for (const {key, collector, send} of SOURCES) {
+    if (!collector) continue;
+    judged[key] = send ? judgeSend(key, collectors[collector], now, collectors.telegram) : judgeCollector(key, collectors[collector], now);
+  }
   return {collectors, judged, empty:!judged.copy && !judged.radar && !collectors};
 }
 // HOME-수집경보: 폰 홈이 쓰는 요약. attention = 주의 줄(오래됨·최근 실패·점검 신호 끊김), ok = 정상으로 확인된 줄이 있는지.
@@ -127,13 +164,18 @@ export function summarize(raw, now = Date.now()) {
   return {empty:false, attention, ok:SOURCES.some(({key}) => ['ok', 'quiet'].includes(judged[key]?.state))};
 }
 // 받침이 있는 이름은 '이', 없으면 '가'(텔레그램 수집이 · 통화 녹음 전사가 · Claude용 Drive 사본이 · 챙길 것 찾기(AI)가).
-const SUBJECT = {telegram:'이', call:'가', copy:'이', radar:'가'};
+const SUBJECT = {telegram:'이', call:'가', telegramSend:'가', callSend:'가', copy:'이', radar:'가'};
+const SEND_ALERT = {
+  stopped:label => `${label}가 멈췄어요`, broken:label => `${label}에 오류가 났어요`, failing:label => `${label} 실패가 이어져요`,
+  limit_ai:label => `${label}가 이번 달 AI 상한에 걸렸어요`, gap:label => `${label}: 받은 글이 안 보내지고 있어요`,
+};
 const dayHalf = at => { const p = seoulParts(at); return `${p.month + 1}/${p.day} ${p.hour < 12 ? '오전' : '오후'}`; };
 export function alertText(attention) {
   const first = attention[0];
   if (!first) return '';
   const name = first.label + SUBJECT[first.key];
-  const text = first.state === 'failed' ? `${name} 최근 실패했어요`
+  const text = SEND_ALERT[first.state] ? SEND_ALERT[first.state](first.label)
+    : first.state === 'failed' ? `${name} 최근 실패했어요`
     : first.state === 'silent' ? `${first.label} 점검 신호가 끊겼어요`
     : first.at !== null ? `${name} ${dayHalf(first.at)} 이후 멈췄어요` : `${name} 멈췄어요`;
   return attention.length > 1 ? `${text} 외 ${attention.length - 1}건` : text;
@@ -141,7 +183,8 @@ export function alertText(attention) {
 export function renderRows(raw, now = Date.now()) {
   const {collectors, judged, empty} = judgeAll(raw, now);
   if (empty) return '';
-  return SOURCES.map(({key, label, collector}) => {
+  return SOURCES.map(({key, label, collector, send}) => {
+    if (send && !collectors) return '';
     if (collector && !collectors) return `<li class="collect-row" data-collect="${key}" data-collect-state="unknown"><span class="collect-name"><span class="collect-label">${esc(label)}</span></span><span class="collect-value">${esc(UNCHECKABLE_NOTE)}</span></li>`;
     const j = judged[key];
     if (!j) return '';

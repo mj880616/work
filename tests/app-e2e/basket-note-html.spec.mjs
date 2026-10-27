@@ -3,6 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import {noteMenuAction} from './helpers/note-menu.mjs';
 import { basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';
 import { expectNoteTitle } from './helpers/note-title.mjs';
+import { closeNote } from './helpers/note-close.mjs';
 // BUG-노트HTML표시: a note's .html attachment (ChatGPT HTML) shows in the same sandboxed frame as the memo read view
 // (html-frame.js, document-actions `html-view`), so a note made only of HTML no longer says "본문이 없는 노트입니다.".
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -118,7 +119,7 @@ for(const width of [390,1280]){
   const detail=await openNote(page,'n-empty',width);
   await expect(detail.locator('[data-basket-read-text]')).toHaveText('본문이 없는 노트입니다.');
   await expect(detail.locator('[data-basket-html-views] iframe')).toHaveCount(0);
-  await press(page,detail.locator('[data-note-close]'),width);
+  await closeNote(page);
   // Memo read view (regression): same frame for a memo's .html attachment.
   await press(page,basketKindButton(page,'memo'),width);
   await press(page,page.locator('[data-basket-row="m-html"]'),width);

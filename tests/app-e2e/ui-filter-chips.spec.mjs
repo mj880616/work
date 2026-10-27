@@ -4,7 +4,7 @@ import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 test.use({hasTouch:true});
 import {clickView} from './helpers/shell-navigation.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
-import {openMeetingResult} from './helpers/meeting-open.mjs';
+import {openMeetingResult,mrdMenu} from './helpers/meeting-open.mjs';
 import {expandLibraryTree,focusLibraryProject,libraryNodeHead} from './helpers/library-tree.mjs';
 export function chipState(){const s=baseState();s.meetingWrites=[];s.meetings=['궤도협의회','노사협의회','안전위원회','정책회의','현안회의','후속회의',''].map((name,i)=>({id:`meeting-${i}`,workspace_id:s.workspace.id,title:name,series_name:name,round_no:i+1,meeting_at:'2026-10-11T01:00:00Z',transcript_text:'원문',created_by:s.user.id}));s.docs.push({id:'meeting-doc',workspace_id:s.workspace.id,project_id:'child-a1',title:'회의 연결 자료',meeting_id:'meeting-0',category:'회의자료'});return s}
 // UI-PC회의: PC(≥1024) 회의는 유형별 열이고 위쪽 칩은 "보일 열 고르기"(meeting-columns.spec.mjs). 회의명 필터는 1024 미만에서 본다.
@@ -66,8 +66,8 @@ for(const timezoneId of ['Europe/Rome','Asia/Seoul','UTC'])test.describe(timezon
   // MEET-결과정리 ⑤ → MEET-결과3단: PC는 왼쪽에서 고른 회의 종류의 차수만 가운데에 보이므로 궤도협의회를 고른다(폰은 한 줄 목록 그대로).
   if(await page.locator('#meetingList [data-meeting-kind]').count())await page.locator('#meetingList [data-meeting-kind="궤도협의회"]').click();
   await expect(page.locator('#meetingList :is([data-mrd-meeting="meeting-0"] p,[data-meeting-round="meeting-0"] .mcol-when)')).toContainText('10:00');
-  await openMeetingResult(page,'meeting-0');await expect(page.locator('#mrdMeta')).toContainText('10:00');await page.locator('#mrdEdit').click();await expect(page.locator('#mrdEditAt')).toHaveValue('2026-10-11T10:00');
-  await fillDateTime(page,'#mrdEditAt','2026-10-11T00:30');await page.locator('#mrdSaveEdit').click();await expect.poll(()=>s.meetingWrites[0]?.meeting_at).toBe('2026-10-10T15:30:00.000Z');await page.locator('#mrdEdit').click();await expect(page.locator('#mrdEditAt')).toHaveValue('2026-10-11T00:30');await page.locator('#mrdClose').click();
+  await openMeetingResult(page,'meeting-0');await expect(page.locator('#mrdMeta')).toContainText('10:00');await mrdMenu(page,'edit');await expect(page.locator('#mrdEditAt')).toHaveValue('2026-10-11T10:00');
+  await fillDateTime(page,'#mrdEditAt','2026-10-11T00:30');await page.locator('#mrdSaveEdit').click();await expect.poll(()=>s.meetingWrites[0]?.meeting_at).toBe('2026-10-10T15:30:00.000Z');await mrdMenu(page,'edit');await expect(page.locator('#mrdEditAt')).toHaveValue('2026-10-11T00:30');await page.locator('#mrdClose').click();
   await page.locator('#newMeetingBtn').click();await page.locator('#meetingNameSelect').selectOption('궤도협의회');await fillDateTime(page,'#meetingAt','2026-10-11T10:00');await page.locator('#meetingTranscript').fill('새 원문');await page.locator('#saveMeetingBtn').click();await expect.poll(()=>s.meetingWrites.at(-1)?.meeting_at).toBe('2026-10-11T01:00:00.000Z');
 })});
 

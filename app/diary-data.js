@@ -122,7 +122,7 @@ export async function saveDiaryText(row, text, rt = window.KPTURuntime, {doc, st
   if (strict && Array.isArray(rows) && !rows.length) throw Object.assign(new Error('일기가 그사이 바뀌었어요. 다시 불러온 뒤 저장해 주세요.'), {code:'note_changed'});
   return one(rows);
 }
-// The photo leaves this day only; its Drive file stays in the "Web2 바구니" folder (no server trash path for one file).
+// The photo leaves this day (saved first). Its Drive original is then sent to the Drive trash by pruneDiaryPhotos below.
 export async function removeDiaryPhoto(row, fileId, rt = window.KPTURuntime) {
   const attachments = (row.attachments || []).filter(file => file.drive_file_id !== fileId);
   if (attachments.length === (row.attachments || []).length) throw new Error('이미 빠진 사진이에요.');
@@ -133,6 +133,25 @@ export async function removeDiaryPhoto(row, fileId, rt = window.KPTURuntime) {
   const rows = await patch(row, body, rt, {strict:true});
   if (Array.isArray(rows) && !rows.length) throw Object.assign(new Error('일기가 그사이 바뀌었어요. 다시 불러온 뒤 확인해 주세요.'), {code:'note_changed'});
   return one(rows);
+}
+// JOURNAL-일기사진정리: after a photo was taken out of the day, ask basket-files to send its Drive original to the Drive trash
+// (30 days, never a permanent delete). The server trashes a file only when no other note or document still lists it. Best effort:
+// it never throws; null means "not done" (offline, server not updated, error) and the file stays for the later cleanup list.
+// Returns {trashed, kept, failed, unknown} counts of the files asked about.
+export async function pruneDiaryPhotos(fileIds, {rt = window.KPTURuntime, fetcher = globalThis.fetch} = {}) {
+  const ids = [...new Set(fileIds)].filter(id => typeof id === 'string' && /^[A-Za-z0-9_-]{1,255}$/.test(id));
+  if (!ids.length || ids.length > 20) return null;
+  try {
+    if (!(await rt.session.ensure())) return null;
+    const token = rt.session.read()?.access_token;
+    if (!token) return null;
+    const response = await fetcher(`${rt.config.url}/functions/v1/basket-files?action=photo-prune`, {method:'POST', cache:'no-store',
+      headers:{apikey:rt.config.key, Authorization:'Bearer ' + token, 'Content-Type':'application/json'}, body:JSON.stringify({action:'photo-prune', file_ids:ids})});
+    const data = await response.json();
+    if (!response.ok || data?.ok !== true || data.action !== 'photo-prune') return null;
+    const count = key => Number.isInteger(data[key]) ? data[key] : 0;
+    return {trashed:count('trashed'), kept:count('kept'), failed:count('failed'), unknown:count('unknown')};
+  } catch { return null; }
 }
 // A row created only to hold photos that all failed is removed again (no attachment, plain owner-RLS delete).
 export async function dropEmptyDiary(row, rt = window.KPTURuntime) {
