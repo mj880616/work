@@ -70,6 +70,9 @@ function installTimeCells(){
   document.addEventListener('keydown',e=>{if(e.key==='Enter'&&isTimeCell(e.target))commitTime(e.target)});
 }
 
+// 날짜 칸에 보이는 글자: 'YYYY-MM-DD'(PC·폰 같음). 비면 '날짜' 안내.
+export function dateDisplay(value){return /^\d{4}-\d{2}-\d{2}$/.test(String(value||''))?String(value):'날짜'}
+
 // A date-time field: `holder` is the old <input type="hidden" data-datetime-input> with the old id.
 // It shows a date picker and a time cell, and its `.value` reads and writes the old "YYYY-MM-DDTHH:MM".
 export function bindDateTimeFields(root=document){
@@ -77,12 +80,16 @@ export function bindDateTimeFields(root=document){
     holder.dataset.dtBound='1';const label=holder.dataset.datetimeInput||'일시';
     const date=document.createElement('input');date.type='date';date.id=holder.id+'Date';date.setAttribute('aria-label',label+' 날짜');
     const time=document.createElement('input');time.id=holder.id+'Time';timeCellAttributes(time,label+' 시간');
-    const pair=document.createElement('span');pair.className='dt-pair';pair.append(date,time);holder.after(pair);
+    // 보이는 날짜 글자는 기기마다 다른 type=date 기본 표기 대신 앱이 한 가지('YYYY-MM-DD')로 그리고, 기기 달력 입력은 그 위에 투명하게 겹친다(dateText).
+    const dateBox=document.createElement('span');dateBox.className='dt-date';const dateText=document.createElement('span');dateText.className='dt-date-text';dateText.setAttribute('aria-hidden','true');dateBox.append(dateText,date);
+    const paintDate=()=>{dateText.textContent=dateDisplay(date.value);dateBox.classList.toggle('is-empty',!date.value)};
+    date.addEventListener('input',paintDate);date.addEventListener('change',paintDate);paintDate();
+    const pair=document.createElement('span');pair.className='dt-pair';pair.append(dateBox,time);holder.after(pair);
     const read=()=>{const d=date.value,t=time.value.trim();if(!d&&!t)return'';return d+'T'+(normalizeTime(t)||t)};
     // The holder's own value is kept in step too, for readers outside this page script (extensions, tests).
     const sync=()=>NATIVE_VALUE.set.call(holder,read());
     Object.defineProperty(holder,'value',{configurable:true,get:read,
-      set(v){const [d='',t='']=String(v??'').split('T');date.value=d;time.value=t.slice(0,5);paintTimeHint(time,false);sync()}});
+      set(v){const [d='',t='']=String(v??'').split('T');date.value=d;paintDate();time.value=t.slice(0,5);paintTimeHint(time,false);sync()}});
     [date,time].forEach(el=>['input','change'].forEach(type=>el.addEventListener(type,()=>queueMicrotask(sync))));
     sync();
   });

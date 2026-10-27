@@ -48,13 +48,13 @@ async function dragTo(page,i,x){
 const handle=(page,i)=>page.locator('#meetingList .mcol-layout>.split-resize-handle').nth(i);
 
 for(const width of [1280,1440,1920]){
- test(`PC ${width}: 사업 보고 3단 — 기본 1/6·1/6·2/3, 두 경계 끌기·최소 폭·기억·두 번 눌러 기본·키보드`,async({page})=>{
+ test(`PC ${width}: 사업 보고 3단 — 기본 1/6·1/12·3/4, 두 경계 끌기·최소 폭·기억·두 번 눌러 기본·키보드`,async({page})=>{
   const errors=await open(page,width);
   await expect(handle(page,0)).toHaveAttribute('role','separator');await expect(handle(page,0)).toHaveAttribute('aria-orientation','vertical');
-  await expect(handle(page,0)).toHaveAttribute('aria-valuenow','17');await expect(handle(page,1)).toHaveAttribute('aria-valuenow','33');
-  // 기본: 종류 = 차수 = 1/6, 결과 2/3. 경계선은 두 칸 사이 틈에 있다.
+  await expect(handle(page,0)).toHaveAttribute('aria-valuenow','17');expect(Number(await handle(page,1).getAttribute('aria-valuenow'))).toBeGreaterThanOrEqual(25);expect(Number(await handle(page,1).getAttribute('aria-valuenow'))).toBeLessThanOrEqual(28);
+  // 기본(MTG-3칸정리 ④): 종류 1/6, 차수는 그 절반 1/12(최소 72px 아래로는 안 줄임), 결과 나머지. 경계선은 두 칸 사이 틈에 있다.
   let m=await widths(page);
-  expect(Math.abs(m.kinds/m.total-1/6)).toBeLessThan(0.01);expect(Math.abs(m.rounds/m.total-1/6)).toBeLessThan(0.01);expect(Math.abs(m.result/m.total-2/3)).toBeLessThan(0.01);
+  expect(Math.abs(m.kinds/m.total-1/6)).toBeLessThan(0.01);expect(Math.abs(m.rounds/m.total-Math.max(1/12,72/m.total))).toBeLessThan(0.01);expect(m.rounds).toBeLessThan(m.kinds*0.75);
   const geo=await page.evaluate(()=>{const r=s=>document.querySelector(s).getBoundingClientRect(),hs=[...document.querySelectorAll('#meetingList .mcol-layout>.split-resize-handle')].map(h=>h.getBoundingClientRect()),k=r('.mcol-kinds'),d=r('.mcol-rounds'),x=r('.mcol-result');return {h0:[hs[0].x,hs[0].right],h1:[hs[1].x,hs[1].right],k:k.right,d:[d.left,d.right],x:x.left}});
   expect(geo.h0[0]).toBeLessThanOrEqual(geo.d[0]);expect(geo.h0[1]).toBeGreaterThanOrEqual(geo.k);
   expect(geo.h1[0]).toBeLessThanOrEqual(geo.x);expect(geo.h1[1]).toBeGreaterThanOrEqual(geo.d[1]);
@@ -62,12 +62,13 @@ for(const width of [1280,1440,1920]){
 
   // 첫 경계(종류|차수)를 끌면 종류와 차수만 바뀌고 결과 폭은 그대로.
   const resultBefore=m.result;
-  // 종류는 (종류+차수 몫 1/3) - (차수 최소 폭) 까지만 넓어진다. 가장 좁은 1280에서도 들어가는 0.19로 끈다.
-  await dragTo(page,0,await xFor(page,0,0.19));
+  // 종류는 (종류+차수 몫) - (차수 최소 폭) 까지만 넓어진다. 줄이는 쪽(0.14)으로 끈다.
+  const pairBefore=m.kinds+m.rounds,ratioBefore=await handle(page,1).getAttribute('aria-valuenow');
+  await dragTo(page,0,await xFor(page,0,0.14));
   m=await widths(page);
-  expect(Math.abs(m.kinds/m.total-0.19)).toBeLessThan(0.01);expect(Math.abs(m.result-resultBefore)).toBeLessThanOrEqual(1.5);
-  expect(Math.abs(m.kinds+m.rounds-(m.total/3))).toBeLessThanOrEqual(1.5);
-  await expect(handle(page,0)).toHaveAttribute('aria-valuenow','19');await expect(handle(page,1)).toHaveAttribute('aria-valuenow','33');
+  expect(Math.abs(m.kinds/m.total-0.14)).toBeLessThan(0.01);expect(Math.abs(m.result-resultBefore)).toBeLessThanOrEqual(1.5);
+  expect(Math.abs(m.kinds+m.rounds-pairBefore)).toBeLessThanOrEqual(1.5);
+  await expect(handle(page,0)).toHaveAttribute('aria-valuenow','14');await expect(handle(page,1)).toHaveAttribute('aria-valuenow',ratioBefore);
   await expect.poll(()=>typeof stored()).toBe('number');
 
   // 둘째 경계(차수|결과)를 끌면 차수와 결과만 바뀌고 종류 폭은 그대로.
@@ -89,26 +90,27 @@ for(const width of [1280,1440,1920]){
 
   // 최소 폭: 맨 왼쪽·맨 오른쪽 끝까지 끌어도 종류·차수 120, 결과 360 아래로 줄지 않는다.
   await dragTo(page,0,5);m=await widths(page);expect(m.kinds).toBeGreaterThanOrEqual(119);expect(m.kinds).toBeLessThan(130);
-  await dragTo(page,0,width-5);m=await widths(page);expect(m.rounds).toBeGreaterThanOrEqual(119);expect(m.rounds).toBeLessThan(130);
-  await dragTo(page,1,5);m=await widths(page);expect(m.rounds).toBeGreaterThanOrEqual(119);expect(m.rounds).toBeLessThan(130);
+  await dragTo(page,0,width-5);m=await widths(page);expect(m.rounds).toBeGreaterThanOrEqual(71);expect(m.rounds).toBeLessThan(82);
+  await dragTo(page,1,5);m=await widths(page);expect(m.rounds).toBeGreaterThanOrEqual(71);expect(m.rounds).toBeLessThan(82);
   await dragTo(page,1,width-5);m=await widths(page);expect(m.result).toBeGreaterThanOrEqual(359);expect(m.result).toBeLessThan(370);
   expect(m.over).toBeLessThanOrEqual(1);
 
   // 두 번 누르면 그 경계만 기본으로. 둘 다 기본이면 서버 기억도 지운다.
   await handle(page,0).dblclick();await settle(page);
-  m=await widths(page);expect(Math.abs(m.kinds/m.total-1/6)).toBeLessThan(0.01);expect(m.result).toBeLessThan(m.total*2/3);
+  m=await widths(page);expect(Math.abs(m.kinds/m.total-1/6)).toBeLessThan(0.01);expect(m.result).toBeLessThan(m.total*3/4);
   await handle(page,1).dblclick();await settle(page);
-  m=await widths(page);expect(Math.abs(m.kinds/m.total-1/6)).toBeLessThan(0.01);expect(Math.abs(m.rounds/m.total-1/6)).toBeLessThan(0.01);expect(Math.abs(m.result/m.total-2/3)).toBeLessThan(0.01);
+  m=await widths(page);expect(Math.abs(m.kinds/m.total-1/6)).toBeLessThan(0.01);expect(Math.abs(m.rounds/m.total-Math.max(1/12,72/m.total))).toBeLessThan(0.01);expect(Math.abs(m.result/m.total-(1-1/6-Math.max(1/12,72/m.total)))).toBeLessThan(0.01);
   await expect.poll(()=>stored()).toBeNull();
 
-  // 키보드: 경계에 초점 → → 한 번에 2%, ← 되돌림, Home은 왼쪽 칸 최소 폭, End는 오른쪽 칸 최소 폭.
-  await handle(page,0).focus();await expect(handle(page,0)).toBeFocused();
+  // 키보드: 경계에 초점 → → 한 번에 2%, ← 되돌림, Home은 왼쪽 칸 최소 폭, End는 오른쪽 칸 최소 폭. (차수 칸이 좁아 둘째 경계로 시험한다.)
+  const roundsDefault=m.rounds/m.total;
+  await handle(page,1).focus();await expect(handle(page,1)).toBeFocused();
   for(let i=0;i<2;i++)await page.keyboard.press('ArrowRight');await settle(page);
-  m=await widths(page);expect(Math.abs(m.kinds/m.total-(1/6+0.04))).toBeLessThan(0.01);expect(Math.abs(m.result/m.total-2/3)).toBeLessThan(0.01);
+  m=await widths(page);expect(Math.abs(m.rounds/m.total-(roundsDefault+0.04))).toBeLessThan(0.01);expect(Math.abs(m.kinds/m.total-1/6)).toBeLessThan(0.01);
   await expect.poll(()=>typeof stored()).toBe('number');
   await page.keyboard.press('ArrowLeft');await settle(page);
-  expect(Math.abs((await widths(page)).kinds/m.total-(1/6+0.02))).toBeLessThan(0.01);
-  await page.keyboard.press('Home');await settle(page);expect((await widths(page)).kinds).toBeLessThan(130);
+  expect(Math.abs((await widths(page)).rounds/m.total-(roundsDefault+0.02))).toBeLessThan(0.01);
+  await handle(page,0).focus();await page.keyboard.press('Home');await settle(page);expect((await widths(page)).kinds).toBeLessThan(130);
   await handle(page,1).focus();await page.keyboard.press('End');await settle(page);
   m=await widths(page);expect(m.result).toBeGreaterThanOrEqual(359);expect(m.result).toBeLessThan(370);
   expect(errors).toEqual([]);
@@ -118,10 +120,10 @@ for(const width of [1280,1440,1920]){
 test('서버 값을 읽거나 저장하지 못해도 기본으로 그리고 끌기는 된다(기억만 없음)',async({page})=>{
  const errors=await open(page,1280,{failRead:true,failWrite:true});
  let m=await widths(page);expect(Math.abs(m.kinds/m.total-1/6)).toBeLessThan(0.01);
- await dragTo(page,0,await xFor(page,0,0.19));
- m=await widths(page);expect(Math.abs(m.kinds/m.total-0.19)).toBeLessThan(0.01);
+ await dragTo(page,0,await xFor(page,0,0.14));
+ m=await widths(page);expect(Math.abs(m.kinds/m.total-0.14)).toBeLessThan(0.01);
  await page.locator('#meetingList [data-meeting-kind]').nth(1).click();await settle(page);
- m=await widths(page);expect(Math.abs(m.kinds/m.total-0.19)).toBeLessThan(0.01);
+ m=await widths(page);expect(Math.abs(m.kinds/m.total-0.14)).toBeLessThan(0.01);
  expect(errors).toEqual([]);
 });
 

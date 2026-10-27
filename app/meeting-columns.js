@@ -5,6 +5,7 @@
 export const PC_QUERY='(min-width:1024px)';
 export const NONE_KEY='__none__';
 // UI-회의자료표시(2026-10-20): 회의에 붙은 자료가 있으면 개수 없이 이 문구만 보인다(폰 목록). 없으면 표시 없음. PC 3단 가운데 줄에는 보이지 않는다(MEET-결과3단).
+import {seoulParts} from './meeting-time.js';
 import {reportKindOf} from './report-kinds.mjs';
 import {reportWords} from './report-words.mjs';
 import {fileAttrs,menuItemsHtml} from './file-actions.js';
@@ -62,6 +63,10 @@ export function meetingShortName(m){const series=String(m?.series_name||'').trim
 export function hasRound(m){return m?.round_no!=null&&m.round_no!==''&&Number.isFinite(Number(m.round_no))}
 // 카드·목록의 차수 자리 글자: N차 → (차수 없으면) 짧은 이름 → 차수 없음.
 export function roundLabel(m){return hasRound(m)?`${Number(m.round_no)}차`:meetingShortName(m)||'차수 없음'}
+// MTG-3칸정리(명진 2026-10-27 ③⑤): 3단 가운데 줄은 한 줄이다 - 왼쪽 '41차'(차수가 없으면 짧은 이름), 오른쪽 작은 날짜 '10.27'(시간은 뺌).
+// 차수도 짧은 이름도 없으면 왼쪽 자리에 날짜만 보인다. 날짜는 한국 날짜(meeting-time.js)로 읽는다.
+export function cardLead(m){return hasRound(m)?`${Number(m.round_no)}차`:meetingShortName(m)}
+export function shortDate(m){if(!m?.meeting_at)return '';const p=seoulParts(m.meeting_at);return `${p.month+1}.${p.day}`}
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -76,17 +81,17 @@ export function columnsHtml(columns,{selectedKey,selectedId,colorOf,whenOf,resul
   const selected=columns.find(c=>c.key===selectedKey)||columns[0],current=pickMeeting(selected,selectedId);
   const kinds=columns.map(c=>{
     const label=c.name||'회의명 미지정',on=c===selected;
-    return `<li><button type="button" class="mcol-kind" data-meeting-kind="${esc(c.key)}" aria-controls="mcolRounds"${on?' aria-current="true"':''} style="--meeting-color:${esc(colorOf(c.name))}"><span class="mcol-dot" aria-hidden="true"></span><span class="mcol-name" title="${esc(label)}">${esc(label)}</span><span class="mcol-count" aria-label="${c.meetings.length}건">${c.meetings.length}</span></button></li>`;
+    return `<li><button type="button" class="mcol-kind kptu-pick-row" data-meeting-kind="${esc(c.key)}" aria-controls="mcolRounds"${on?' aria-current="true"':''} style="--meeting-color:${esc(colorOf(c.name))}"><span class="mcol-dot" aria-hidden="true"></span><span class="mcol-name" title="${esc(label)}">${esc(label)}</span><span class="mcol-count" aria-label="${c.meetings.length}건">${c.meetings.length}</span></button></li>`;
   }).join('');
   const label=selected.name||'회의명 미지정';
   const rows=selected.meetings.map(m=>{
-    const roundText=roundLabel(m),when=whenOf(m),on=m===current;
-    return `<li><button type="button" class="mcol-card" data-meeting-round="${esc(m.id)}" aria-controls="mcolResult" aria-label="${esc([label,roundText,when].filter(Boolean).join(' · '))}"${on?' aria-current="true"':''}><b class="mcol-round" title="${esc(roundText)}">${esc(roundText)}</b><span class="mcol-meta"><span class="mcol-when" title="${esc(when)}">${esc(when)}</span></span></button></li>`;
+    const roundText=roundLabel(m),when=whenOf(m),on=m===current,lead=cardLead(m),date=shortDate(m);
+    const left=lead||date,right=lead?date:'';
+    return `<li><button type="button" class="mcol-card mcol-card-line" data-meeting-round="${esc(m.id)}" aria-controls="mcolResult" aria-label="${esc([label,roundText,when].filter(Boolean).join(' · '))}"${on?' aria-current="true"':''}><b class="mcol-round" title="${esc(left)}">${esc(left)}</b>${right?`<span class="mcol-date mcol-meta" title="${esc(when)}">${esc(right)}</span>`:''}</button></li>`;
   }).join('');
   return `<div class="mcol-layout mcol-three">`
     +`<nav class="mcol-kinds" aria-label="회의 종류"><ul>${kinds}</ul></nav>`
-    +`<section id="mcolRounds" class="mcol-rounds" data-meeting-column="${esc(selected.key)}" style="--meeting-color:${esc(colorOf(selected.name))}" aria-labelledby="mcolRoundsHead">`
-    +`<h3 class="mcol-head" id="mcolRoundsHead"><span class="mcol-dot" aria-hidden="true"></span><span class="mcol-name" title="${esc(label)}">${esc(label)}</span><span class="mcol-count" aria-label="${selected.meetings.length}건">${selected.meetings.length}</span></h3>`
+    +`<section id="mcolRounds" class="mcol-rounds" data-meeting-column="${esc(selected.key)}" style="--meeting-color:${esc(colorOf(selected.name))}" aria-label="${esc(label)} ${selected.meetings.length}건">`
     +`<ol class="mcol-cards">${rows}</ol>`
     +`</section>`
     +`<section id="mcolResult" class="mcol-result" style="--meeting-color:${esc(colorOf(selected.name))}" aria-label="사업 보고 결과"${current?` data-meeting-result="${esc(current.id)}"`:''}>${current?resultHtml(current,{kindName:label}):''}</section>`

@@ -147,13 +147,13 @@ async function ciSaveGoogle(){
 // MTG-사업보고 7단계: 일정 창 [결과 남기기] → 칸 고르기 → 일정 제목·시작·장소가 채워진 사업 보고 입력 창. 같은 날·같은 이름이 이미 있으면 먼저 묻는다(team.js KPTUReportEntry).
 async function ciLeaveReport(){
   const e=ciGoogleCurrent;if(!e?.id||ciGoogleSavePending||document.querySelector('#ciGoogleSave')?.disabled)return;
-  const at=e.allDay?`${e.start}T00:00`:(()=>{const p=ciParts(e.start);return `${p.date}T${p.time}`})();
+  const when=e.allDay?{date:String(e.start).slice(0,10)}:(()=>{const p=ciParts(e.start);return {at:`${p.date}T${p.time}`}})();
   const trigger=document.querySelector('#ciGoogleReport');
   try{
     await window.KPTUViewLoader?.prepare?.('meetings');
     if(!window.KPTUReportEntry)throw new Error('missing');
     ciGoogleOpenSeq++;ciGoogleCurrent=null;ciClose('#ciGoogleModal');
-    await window.KPTUReportEntry.open({name:e.title||'',at,location:e.location||'',trigger:document.activeElement===trigger?document.body:document.activeElement,dedupe:true});
+    await window.KPTUReportEntry.open({name:e.title||'',...when,location:e.location||'',trigger:document.activeElement===trigger?document.body:document.activeElement,dedupe:true});
   }catch(err){console.error('calendar report',err);ciStatus('#ciGoogleStatus','사업 보고 입력 창을 열지 못했어요. 다시 시도해 주세요.',true)}
 }
 async function ciDeleteGoogle(){if(!ciGoogleCurrent)return;if(!confirm('이 Google 일정을 삭제할까요?'))return false;const b=document.querySelector('#ciGoogleDelete');b.disabled=true;ciStatus('#ciGoogleStatus','삭제 중…');try{await ciGoogleCall('',{method:'POST',body:{action:'delete-event',calendar_id:ciGoogleCurrent.calendarId||'primary',event_id:ciGoogleCurrent.id}});window.KPTUCalendarPersistence?.forget?.(ciGoogleCurrent.id,ciGoogleCurrent.calendarId||'primary');ciClose('#ciGoogleModal');ciGoogleCurrent=null;await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.();ciToast('Google 일정을 삭제했습니다.')}catch(e){ciStatus('#ciGoogleStatus',e.message||String(e),true)}finally{b.disabled=false}}
