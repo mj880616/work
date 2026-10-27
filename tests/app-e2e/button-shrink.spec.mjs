@@ -103,8 +103,14 @@ for(const width of [390,1280]){
   const errors=await boot(page,width);
   await go(page,'journal');await check(page.locator('#journalView [data-journal-save]'),36,'업무일지 [저장]');
   await go(page,'pages');await check(page.locator('#pagesView [data-sp-new]'),36,'[새 공유 페이지]');
-  await go(page,'hwp');await check(page.locator('#hwpLabPick'),32,'[파일 선택]');await check(page.locator('#hwpLabUpload'),32,'[자료실에 올리기]');
-  await expect(page.locator('#hwpLabSave')).toBeVisible();expect((await measure(page.locator('#hwpLabSave'))).h).toBe(36);
+  await go(page,'hwp');
+  if(width<1024){
+   // HWP-화면가득: 폰은 위 얇은 줄의 [파일 ▾]·[저장 ▾]만 작은 버튼(32px)으로 보인다.
+   await check(page.locator('#hwpMenuFile'),32,'[파일 ▾]');await check(page.locator('#hwpMenuSave'),32,'[저장 ▾]');
+  }else{
+   await check(page.locator('#hwpLabPick'),32,'[파일 선택]');await check(page.locator('#hwpLabUpload'),32,'[자료실에 올리기]');
+   await expect(page.locator('#hwpLabSave')).toBeVisible();expect((await measure(page.locator('#hwpLabSave'))).h).toBe(36);
+  }
   await noWideScroll(page);expect(errors.filter(e=>!/rhwp|wasm/i.test(e))).toEqual([]);
  });
 

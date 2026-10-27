@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {readFileSync} from 'node:fs';
 import {openHome} from './helpers/home-entry.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
-import {servePagesCors} from './helpers/hwp-editor.mjs';
+import {servePagesCors,hwpPress} from './helpers/hwp-editor.mjs';
 // HWP 편집(☰ 메뉴·사이드바 [HWP 편집], ?view=hwp; the retired lab address ?view=hwp-lab leads here). The pinned rhwp
 // editor runs from Web2's own files in a sandboxed frame (2단계 칸막이, no same-origin access to Web2); a device file
 // stays in the browser (no server, Drive or external request) until the person registers it in the library's own
@@ -58,7 +58,7 @@ async function openLab(page,width,query='?view=hwp'){
 }
 
 async function download(page){
-  const [file]=await Promise.all([page.waitForEvent('download'),page.locator('#hwpLabSave').click()]);
+  const [file]=await Promise.all([page.waitForEvent('download'),hwpPress(page,'hwpLabSave')]);
   const path=await file.path();
   return {name:file.suggestedFilename(),bytes:[...readFileSync(path)],path};
 }

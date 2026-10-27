@@ -161,14 +161,14 @@ test('밝은 설정은 그대로 밝고, 칸막이(HWP 편집기·성명·게시
 for(const width of [390,1280])test('남은 화면: HWP 편집 바깥 틀·게시판 '+width,async({page})=>{
  const {errors}=await boot(page,width);
  const primary=await token(page,'--kptu-primary');
- // HWP 편집: 상자 0.5px·12px, 제목 18px/500, 버튼 한 높이·[내 기기에 저장] 하나만 채운 버튼, 칸막이 바깥 틀 0.5px·8px.
+ // HWP 편집: PC는 상자 0.5px·12px, 버튼 한 높이·[내 기기에 저장] 하나만 채운 버튼, 칸막이 바깥 틀 0.5px·8px.
+ // HWP-화면가득: 폰은 화면 가득(모서리 0)이고 위 얇은 줄의 [파일 ▾]·[저장 ▾]만 버튼(채운 버튼 없음). 겹친 제목·안내문은 없다.
  await view(page,'hwp');
  const hwp=page.locator('#hwpView');
- expect(await sameButtons(page,hwp)).toEqual(['내 기기에 저장']);
- const card=await look(hwp.locator('.hwp-lab'));expect(card.radius).toBe('12px');expect(card.shadow).toBe('none');
- const title=await look(hwp.locator('#hwpLabTitle'));expect([title.fontSize,title.fontWeight]).toEqual(['18px','500']);
- const note=await look(hwp.locator('.hwp-lab-note'));expect(note.fontSize).toBe('12px');expect(note.fg).toBe(await token(page,'--kptu-muted'));
- expect((await look(hwp.locator('#hwpLabEditor'))).radius).toBe('8px');
+ expect(await sameButtons(page,hwp)).toEqual(width<1024?[]:['내 기기에 저장']);
+ const card=await look(hwp.locator('.hwp-lab'));expect(card.radius).toBe(width<1024?'0px':'12px');expect(card.shadow).toBe('none');
+ await expect(hwp.locator('h2,.hwp-lab-note')).toHaveCount(0);
+ expect((await look(hwp.locator('#hwpLabEditor'))).radius).toBe(width<1024?'0px':'8px');
  // 게시판: 한 상자 안 줄(44px)·이름 13px/400·오른쪽 ›, 카드 그림자·떠오름 없음.
  await view(page,'pages');await openLegacyBoard(page);
  const board=page.locator('#web1BoardActive');await expect(board.locator('.w1b-card').first()).toBeVisible();

@@ -6,6 +6,9 @@
 // - 노조 서식으로 만들기(HWP-서식변환): 붙여 넣은 글을 AI(ai-assist hwp_convert)가 노조 문서 규칙 문단으로 나누고, 자료실 "양식"의 빈 양식에 칸막이 안
 //   보조 스크립트(studio-convert.js)가 채워 편집기에 연다. 위 줄의 [내려받기]·[자료실에 저장]으로 마친다(기기 저장소는 쓰지 않는다).
 // 편집기는 hwp-frame.js의 sandbox iframe(allow-same-origin 없음)에서 돈다. Web2 창·저장소·API에 닿지 못한다.
+// HWP-화면가득: 폰·폴드(1023px 이하)와 PC [전체 화면]에서는 카드가 화면을 가득 채우고(data-focus), 위 얇은 한 줄(#hwpLabBar:
+// [✕]·파일 이름·[파일 ▾]·[저장 ▾])과 편집기만 보인다. 두 메뉴는 공용 anchored-menu로 열고, 항목은 아래 기존 버튼을 그대로 누른다
+// (버튼의 켜짐·꺼짐·숨김은 sync()가 정하고 메뉴는 열 때 그 상태를 읽어 그린다).
 import {createSandboxedEditor} from './hwp-frame.js';
 import {HWP_EDIT_MAX_BYTES,editedName,takeHwpEditRequest,requestHwpEdit,openHwpFromDrive,saveLibraryCopy,saveBasketCopy,overwriteHwp,findUnionTemplate,UNION_TEMPLATE_CATEGORY,findConvertTemplate,saveConvertedCopy} from './hwp-drive.js';
 import {callAiAssist} from './basket-ai-summary.js';
@@ -14,6 +17,7 @@ import {DOC_TYPES,convertAnswer,buildPlan,convertedFileName} from './hwp-convert
 import {requestLibraryDocument} from './basket-library-send.js';
 import {requestBasketNote} from './basket-note-tasks.js';
 import {requestLibraryUpload} from './library-upload-request.js';
+import {createAnchoredMenu} from './anchored-menu.js';
 (()=>{
 'use strict';
 if(window.__KPTU_HWP_LAB_READY__)return;
@@ -50,6 +54,8 @@ function trackElapsed(stillOpening){
   return ()=>{clearInterval(timer);mark.remove()};
 }
 function sync(){
+  const label=$('hwpLabName');
+  if(label){label.textContent=(drive?drive.name:current?.name)||'HWP 편집';label.title=label.textContent}
   const save=$('hwpLabSave'),pick=$('hwpLabPick'),upload=$('hwpLabUpload');
   if(save)save.disabled=busy||!current||!!drive;
   if(upload)upload.disabled=busy||!current||!!drive;
@@ -90,10 +96,47 @@ function formatOf(name,bytes){
   return magic.every((byte,index)=>bytes[index]===byte)?ext:null;
 }
 
+// 위 한 줄 메뉴: 지금 모드(기기 파일·노조 서식으로 만든 문서·Drive 편집)에 보이는 기존 버튼을 같은 이름으로 늘어놓는다.
+const MENU_ITEMS={
+  file:()=>['hwpLabPick','hwpLabTemplate','hwpLabConvert'],
+  save:()=>drive?['hwpDriveNew','hwpDriveOverwrite','hwpDriveView']:current?.converted?['hwpConvDownload','hwpConvLibrary']:['hwpLabSave','hwpLabUpload'],
+};
+const escapeText=text=>String(text).replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[ch]);
+let barMenu=null;
+function mountBarMenu(card){
+  if(barMenu)return;
+  barMenu=createAnchoredMenu({id:'hwpBarMenu',className:'hwp-bar-panel',label:'HWP 편집 메뉴',historyKey:'kptuHwpBarMenu',
+    // 전체 화면(브라우저)에서는 카드 안쪽만 보이므로 메뉴 판도 카드 안에 둔다.
+    parent:()=>card,key:trigger=>trigger.dataset.hwpMenu,
+    render:key=>(MENU_ITEMS[key]?.()||[]).map(id=>{
+      const source=$(id);
+      if(!source||source.hidden)return '';
+      return `<button type="button" data-hwp-act="${id}"${source.disabled?' disabled':''}>${escapeText(source.textContent.trim())}</button>`;
+    }).join(''),
+    onAction:button=>{const source=$(button.dataset.hwpAct);if(source&&!source.disabled&&!source.hidden)source.click()}});
+  for(const trigger of card.querySelectorAll('[data-hwp-menu]')){
+    trigger.setAttribute('aria-controls','hwpBarMenu');
+    trigger.addEventListener('click',()=>barMenu.open(trigger));
+  }
+}
+// 폰·폴드 폭이거나 PC [전체 화면]이면 화면 가득(data-focus). 폭이 바뀌면(돌리기·펼침) 바로 다시 정한다.
+const NARROW=window.matchMedia('(max-width: 1023px)');
+function layout(){
+  const card=document.querySelector('#hwpView .hwp-lab');
+  if(!card)return;
+  const focus=NARROW.matches||card.hasAttribute('data-full');
+  if(!focus&&barMenu?.active)void barMenu.close();
+  card.toggleAttribute('data-focus',focus);
+}
+NARROW.addEventListener?.('change',layout);
+
 // Lab controls and Drive controls share the card; only one set is shown.
 function mount(){
   const card=document.querySelector('#hwpView .hwp-lab');
-  if(!card||$('hwpDriveBar'))return;
+  if(!card)return;
+  mountBarMenu(card);
+  layout();
+  if($('hwpDriveBar'))return;
   const bar=document.createElement('div');
   bar.id='hwpDriveBar';bar.className='hwp-lab-actions hwp-drive-bar';bar.hidden=true;
   bar.innerHTML='<button id="hwpDriveNew" class="primary" type="button" disabled>새 파일로 저장</button><button id="hwpDriveOverwrite" class="secondary" type="button" hidden disabled>원본에 덮어쓰기</button><a id="hwpDriveView" href="./?view=library" hidden>자료실에서 보기</a><button id="hwpDriveBack" class="secondary" type="button">돌아가기</button>';
@@ -122,9 +165,6 @@ function showMode(){
   const card=document.querySelector('#hwpView .hwp-lab');
   if(!card)return;
   card.querySelector('.hwp-lab-actions:not(.hwp-drive-bar)').hidden=driveMode;
-  card.querySelector('.hwp-lab-note').textContent=driveMode
-    ?'Drive 파일을 편집기에서 엽니다. 편집기는 Web2 화면과 분리되어 있고 기기에 남기지 않습니다. 저장은 HWP로만 합니다(HWPX도 HWP로).'
-    :'한글이 없는 PC나 폰에서 내 기기의 HWP·HWPX를 열어 고칩니다. 고른 파일은 이 기기 브라우저 안에서만 열고 기기에 남기지 않습니다. 저장은 HWP로만 합니다(HWPX도 HWP로).';
   $('hwpDriveBar').hidden=!driveMode;
   sync();
 }
@@ -167,7 +207,7 @@ function watchEdits(){
   let reading=false;
   watchTimer=setInterval(()=>{if(reading)return;reading=true;refreshDirty().finally(()=>{reading=false})},2000);
 }
-window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view!==VIEW)away=true;watchEdits()});
+window.addEventListener('kptu:view-changed',event=>{if(event.detail?.view!==VIEW){away=true;if(isFull())void exitFull()}watchEdits()});
 
 async function open(file){
   if(!file||busy||drive)return;
@@ -387,22 +427,66 @@ async function saveConvertedToLibrary(){
 }
 
 // 전체 화면 + 키보드 잠금: 일반 크롬 탭은 Ctrl+1~9를 탭 전환에 먼저 쓰므로, 전체 화면에서 숫자 키만 잠가 편집기가 받게 한다.
-// 잠금은 이 창(맨 바깥)에서만 걸 수 있다. 지원하지 않는 기기(폰 등)에서는 버튼을 숨기고 스타일 버튼을 쓴다.
+// 잠금은 이 창(맨 바깥)에서만 걸 수 있다. HWP-화면가득: 전체 화면은 카드(위 한 줄 + 편집기)를 채운다. 브라우저 전체 화면을 쓸 수
+// 없는 곳에서도 카드가 창 안을 꽉 채운다(같은 모양). Esc(브라우저 전체 화면)·[✕]로 원래 화면. 폰 폭은 늘 화면 가득이라 버튼이 없다.
 const DIGIT_KEYS=['Digit1','Digit2','Digit3','Digit4','Digit5','Digit6','Digit7','Digit8','Digit9','Digit0'];
 const canLockKeys=()=>!!(document.fullscreenEnabled&&navigator.keyboard&&typeof navigator.keyboard.lock==='function');
-async function toggleFullscreen(){
-  const host=$('hwpLabEditor');
-  if(!host)return;
-  if(document.fullscreenElement){await document.exitFullscreen().catch(()=>{});return}
+const cardOf=()=>document.querySelector('#hwpView .hwp-lab');
+let fullNative=false;
+function setFull(on){
+  const card=cardOf();
+  if(!card)return;
+  card.toggleAttribute('data-full',on);
+  $('hwpLabFull')?.setAttribute('aria-pressed',String(on));
+  layout();
+}
+const isFull=()=>!!cardOf()?.hasAttribute('data-full');
+async function enterFull(){
+  const card=cardOf();
+  if(!card||isFull())return;
+  setFull(true);
+  if(!document.fullscreenEnabled||typeof card.requestFullscreen!=='function'){status('브라우저 전체 화면을 쓸 수 없어 이 창 안에서 꽉 채웠어요. 스타일은 스타일 버튼이나 Alt+숫자를 쓰세요.');return}
   try{
-    await host.requestFullscreen();
-    await navigator.keyboard.lock(DIGIT_KEYS);
+    await card.requestFullscreen();
+    fullNative=true;
   }catch(err){
     console.error('hwp-lab fullscreen',err);
+    status('브라우저 전체 화면을 쓸 수 없어 이 창 안에서 꽉 채웠어요. 스타일은 스타일 버튼이나 Alt+숫자를 쓰세요.','error');
+    return;
+  }
+  try{
+    if(!canLockKeys())throw new Error('keyboard lock unavailable');
+    await navigator.keyboard.lock(DIGIT_KEYS);
+  }catch(err){
+    console.error('hwp-lab keyboard lock',err);
     status('전체 화면이나 키보드 잠금을 쓸 수 없어요. 스타일 버튼이나 Alt+숫자를 쓰세요.','error');
   }
 }
-document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement)try{navigator.keyboard?.unlock?.()}catch{/* Nothing is locked. */}});
+async function exitFull(){
+  const native=fullNative;
+  fullNative=false;
+  setFull(false);
+  if(native&&document.fullscreenElement)await document.exitFullscreen().catch(()=>{});
+}
+document.addEventListener('fullscreenchange',()=>{
+  if(document.fullscreenElement)return;
+  try{navigator.keyboard?.unlock?.()}catch{/* Nothing is locked. */}
+  // Esc가 브라우저 전체 화면을 끝냈으면 카드도 원래 화면으로.
+  if(fullNative){fullNative=false;setFull(false)}
+});
+// 브라우저 전체 화면이 아닌 창 안 꽉 채우기에서도 Esc로 원래 화면(열린 메뉴·창이 먼저 Esc를 받는다).
+document.addEventListener('keydown',event=>{
+  if(event.key!=='Escape'||event.defaultPrevented||fullNative||!isFull()||!here())return;
+  if(event.target?.closest?.('.modal,[role="dialog"]'))return;
+  event.preventDefault();
+  void exitFull();
+});
+// [✕]: 전체 화면이면 원래 화면, Drive 편집이면 [돌아가기]와 같고, 그 밖에는 이전 화면(저장 안 한 내용은 화면을 떠날 때 한 번 묻는다).
+function closeBar(){
+  if(isFull()){void exitFull();return}
+  if(drive){void back();return}
+  window.KPTURouter?.back?.();
+}
 
 async function exportCurrent(){
   const instance=await editor();
@@ -505,8 +589,8 @@ function start(){
     $('hwpLabPick')?.addEventListener('click',()=>input.click());
     $('hwpLabTemplate')?.addEventListener('click',()=>void openTemplate());
     $('hwpLabConvert')?.addEventListener('click',()=>void startConvert());
-    const full=$('hwpLabFull');
-    if(full){full.hidden=!canLockKeys();full.addEventListener('click',()=>void toggleFullscreen())}
+    $('hwpLabFull')?.addEventListener('click',()=>void (isFull()?exitFull():enterFull()));
+    $('hwpLabClose')?.addEventListener('click',closeBar);
     input.addEventListener('change',()=>{const file=input.files?.[0];input.value='';void open(file)});
     $('hwpLabSave')?.addEventListener('click',()=>void save());
     $('hwpLabUpload')?.addEventListener('click',()=>void uploadToLibrary());
