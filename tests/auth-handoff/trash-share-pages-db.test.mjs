@@ -173,7 +173,7 @@ test('TRASH 공유 페이지: prechecks, apply, delete goes to trash and closes 
    assert.equal((await pool.query("select count(*)::int n from pg_policy where polrelid='public.app_share_pages'::regclass and polname='share_pages_owner_all'")).rows[0].n,1); // 기존 정책은 그대로
    assert.equal((await pool.query("select has_table_privilege('anon','public.app_share_pages','select') g")).rows[0].g,false);
    // 권한 확대 없음: service_role은 새 칸을 읽을 수 없고, authenticated는 새 칸을 쓸 수 없다.
-   assert.equal((await pool.query("select has_column_privilege('service_role','public.app_share_pages','deleted_at','select') a, has_column_privilege('service_role','public.app_share_pages','deleted_status','select') b, has_column_privilege('authenticated','public.app_share_pages','deleted_at','update') c, has_column_privilege('authenticated','public.app_share_pages','deleted_status','update') d")).rows[0],{a:false,b:false,c:false,d:false});
+   assert.deepEqual({...(await pool.query("select has_column_privilege('service_role','public.app_share_pages','deleted_at','select') a, has_column_privilege('service_role','public.app_share_pages','deleted_status','select') b, has_column_privilege('authenticated','public.app_share_pages','deleted_at','update') c, has_column_privilege('authenticated','public.app_share_pages','deleted_status','update') d")).rows[0]},{a:false,b:false,c:false,d:false});
   });
   await t.test('the existing screen DELETE moves a published page, a draft and an archived page to the trash; links, photo records, text and version stay',async()=>{
    const olds={};for(const n of [1,2,3])olds[n]=await state(n);
@@ -223,7 +223,7 @@ test('TRASH 공유 페이지: prechecks, apply, delete goes to trash and closes 
    const made=(await owner(c=>c.query("insert into public.app_share_pages(workspace_id,title) values($1,'새 페이지') returning id",[WS_A]))).rows[0].id;
    await owner(c=>c.query('delete from public.app_share_pages where id=$1',[made]));
    madeId=made;
-   assert.deepEqual((await pool.query('select deleted_at is not null t, deleted_status s from public.app_share_pages where id=$1',[made])).rows[0],{t:true,s:'draft'});
+   assert.deepEqual({...(await pool.query('select deleted_at is not null t, deleted_status s from public.app_share_pages where id=$1',[made])).rows[0]},{t:true,s:'draft'});
    // the stranger's page is untouched by the owner
    assert.equal((await owner(c=>c.query('delete from public.app_share_pages where id=$1',[id(50)]))).rowCount,0);
    assert.equal((await state(50)).trashed,false);
@@ -291,7 +291,7 @@ test('TRASH 공유 페이지: prechecks, apply, delete goes to trash and closes 
    await owner(c=>c.query('delete from public.app_spaces where id=$1',[id(811)]));
    assert.deepEqual((await rpc(OWNER,'app_trash_list','project')).map(x=>[x.id,x.child_count]),[[id(811),0]]);
    assert.deepEqual(await rpc(OWNER,'app_trash_purge','project',id(811)),{ok:true,kind:'project',id:id(811)});
-   await pool.query("insert into public.app_notes(id,workspace_id,raw_text,kind) values($1,$2,'합성','note')",[id(820),WS_A]);
+   await pool.query("insert into public.app_notes(id,workspace_id,raw_text,kind,title) values($1,$2,'합성','note','합성 노트')",[id(820),WS_A]);
    await owner(c=>c.query('delete from public.app_notes where id=$1',[id(820)]));
    assert.deepEqual((await rpc(OWNER,'app_trash_list','note')).map(x=>x.id),[id(820)]);
    assert.deepEqual(await rpc(OWNER,'app_trash_purge','note',id(820)),{ok:true,kind:'note',id:id(820)});
@@ -309,7 +309,7 @@ test('TRASH 공유 페이지: prechecks, apply, delete goes to trash and closes 
    const post=v((await pool.query(postcheck)).rows);
    assert.equal(post['objects and history agree'],'예');assert.equal(post['trash installed'],'아니오');
    assert.equal(post['note trash still installed'],'예');assert.equal(post['library folder trash still installed'],'예');assert.equal(post['organization and report trash still installed'],'예');assert.equal(post['project trash still installed'],'예');
-   assert.deepEqual(await visible([90]),[id(90)]);assert.equal((await state(90)).status,'published');assert.equal(await open(tok90),200); // the same link opens again
+   assert.deepEqual(await visible([90]),[id(90)]);assert.equal((await pool.query('select status from public.app_share_pages where id=$1',[id(90)])).rows[0].status,'published');assert.equal(await open(tok90),200); // the same link opens again
    assert.equal(await count('app_share_page_links','page_id',90),1);assert.equal(await count('app_share_page_media','page_id',90),1);
    assert.equal((await del(90)).rowCount,1);assert.equal(await exists(90),0);assert.equal(await count('app_share_page_links','page_id',90),0);assert.equal(await count('app_share_page_media','page_id',90),0);
    await assert.rejects(rpc(OWNER,'app_trash_list','share_page'),/TRASH_KIND_UNKNOWN/);
