@@ -54,7 +54,7 @@ for(const [name,width] of [['PC',1440],['mid',900],['phone',390]]){
     const entries=panel.locator(phoneLike?'#mobileAccountGroup button':'button');
     await accountButton(page).click();
     await expect(panel).toBeVisible();
-    expect(await entries.allTextContents()).toEqual(['내 프로필','화면 색','로그아웃']);
+    expect(await entries.allTextContents()).toEqual(['내 프로필','메뉴 편집','화면 색','로그아웃']);
     const profile=panel.locator('[data-profile-open]');
     await expect(profile).toHaveClass(/account-action/);
     await profile.click();
@@ -118,7 +118,7 @@ for(const [name,width] of [['PC',1440],['mid',900],['phone',390]]){
     const panel=page.locator(phoneLike?'#mobileMenu':'#sidebarAccountPanel');
     await accountButton(page).click();
     await expect(panel).toBeVisible();
-    await expect(panel.locator(phoneLike?'#mobileAccountGroup button':'button')).toHaveText(['내 프로필','화면 색','로그아웃']);
+    await expect(panel.locator(phoneLike?'#mobileAccountGroup button':'button')).toHaveText(['내 프로필','메뉴 편집','화면 색','로그아웃']);
     await expect(panel.locator('[data-drive-summary-refresh],[data-drive-summary-status],[data-account-drive-slot],.drive-summary-time,.drive-summary-links')).toHaveCount(0);
     await expect(panel).not.toContainText('사본');
     await expect(page.locator('body')).not.toContainText('사본 갱신');

@@ -23,7 +23,12 @@ export const CALENDAR_VIEWS = Object.freeze(['list', 'week', 'month']);
 export const QUICK_MODES = Object.freeze(['update', 'task']);
 export const SPLIT_SCREENS = Object.freeze(['tasks', 'projects', 'team', 'reports']);
 export const REPORT_VIEWS = Object.freeze(['list', 'calendar', 'photo']); // 사업 보고 [목록|달력|사진] (ACT-사진 6단계). 일정 탭 calendar_view와 다른 칸
-export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view']);
+// MENU-HOME-편집: menu_layout = {bar, rest} (하단바 칸·그 밖 메뉴의 순서, 항목 이름 목록), home_cards = 홈에 보이는 칸의 이름 순서. 항목 이름의 뜻(어느 메뉴·어느 칸인지)은
+// menu-model.mjs·home-cards-model.mjs가 맡고, 여기서는 DB 검사(app_profiles_view_prefs_check)와 같은 모양만 본다.
+export const KEYS = Object.freeze(['theme', 'nav_collapsed', 'calendar_view', 'home_quick_mode', 'note_folder', 'split_ratio', 'collect_hidden_on', 'report_view', 'menu_layout', 'home_cards']);
+export const ID_RE = /^[a-z][a-z0-9_-]{0,29}$/;
+export const MENU_BAR_MAX = 6, MENU_REST_MAX = 24, HOME_CARDS_MAX = 24;
+const idList = (value, max) => Array.isArray(value) && value.length <= max && value.every(id => typeof id === 'string' && ID_RE.test(id));
 const FOLDER_RE = /^(all|none|f:[^\p{Cc}]{1,20})$/u;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ratioOk = v => typeof v === 'number' && Number.isFinite(v) && v > 0 && v < 1;
@@ -38,6 +43,9 @@ export function validValue(key, value) {
     case 'report_view': return REPORT_VIEWS.includes(value);
     case 'note_folder': return typeof value === 'string' && FOLDER_RE.test(value);
     case 'collect_hidden_on': return typeof value === 'string' && DATE_RE.test(value);
+    case 'menu_layout': return !!value && typeof value === 'object' && !Array.isArray(value)
+      && Object.keys(value).every(name => name === 'bar' || name === 'rest') && idList(value.bar, MENU_BAR_MAX) && idList(value.rest, MENU_REST_MAX);
+    case 'home_cards': return idList(value, HOME_CARDS_MAX);
     case 'split_ratio': return !!value && typeof value === 'object' && !Array.isArray(value)
       && Object.keys(value).every(name => SPLIT_SCREENS.includes(name) && ratioOk(value[name]));
     default: return false;
