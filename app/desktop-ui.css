@@ -101,6 +101,13 @@
    버튼은 UI-버튼기준의 작은 버튼(32px, 누르는 범위 44px)만 쓰고 채운 버튼은 편집의 [저장] 하나. 폰·761~1023px에는 줄이 없다. */
 #appView>.app-nav .nav-quick-links{display:none}
 .quick-links-panel[hidden]{display:none!important}
+.ql-menu{position:fixed;inset:auto;margin:0;z-index:100;box-sizing:border-box;padding:6px;border:var(--ds-line-width,1px) solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto}
+.ql-menu[hidden]{display:none!important}
+.ql-menu button{display:flex;align-items:center;width:100%;min-height:36px;padding:0 var(--kptu-space-3,12px);text-align:left;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-meta,12px);font-weight:600;cursor:pointer}
+.ql-menu button:is(:hover,:focus-visible){background:var(--kptu-primary-soft)}
+.ql-menu button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+.ql-menu .ql-menu-danger{color:var(--kptu-danger)}
+.ql-menu .ql-menu-sep{height:0;margin:4px 6px;border:0;border-top:var(--ds-line-width,1px) solid var(--kptu-border)}
 @media (min-width:1024px){
   /* UI-상단줄제목: 열린 노트 머리줄은 제목 줄이 없어 [복사]·[⋯]를 오른쪽 끝에 둔다. */
   #appView #basketView .note-head-main{justify-content:flex-end}
@@ -129,9 +136,27 @@
   .quick-links-panel .ql-remove{color:var(--kptu-danger);border-color:transparent;background:transparent}
   .quick-links-panel .ql-edit-list{margin:0;padding:0;list-style:none;display:grid;gap:4px}
   .quick-links-panel .ql-edit-row{display:grid;grid-template-columns:28px minmax(0,2fr) minmax(0,3fr) auto;align-items:center;gap:6px;border-radius:var(--kptu-radius-sm)}
-  .quick-links-panel .ql-edit-row.ql-drop{box-shadow:inset 0 2px 0 var(--kptu-primary)}
   .quick-links-panel .ql-handle{width:28px;height:var(--ds-compact-height,32px);padding:0;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-muted);cursor:grab;font-size:12px;letter-spacing:-2px}
   .quick-links-panel .ql-edit-row input{box-sizing:border-box;width:100%;height:var(--ds-compact-height,32px);min-height:var(--ds-compact-height,32px);padding:0 8px;border:var(--ds-line-width,1px) solid var(--kptu-border);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px)}
   .quick-links-panel .ql-edit-row input[aria-invalid="true"]{border-color:var(--kptu-danger);box-shadow:0 0 0 1px var(--kptu-danger)}
+  .quick-links-panel .ql-add{border-color:transparent;background:transparent;color:var(--kptu-muted)}
+  .quick-links-panel .ql-group-head{justify-content:flex-start;gap:4px}
+  .quick-links-panel .ql-group-head h3{margin:6px 0 4px}
+  .quick-links-panel .ql-spacer{flex:1}
+  .quick-links-panel .ql-icon{position:relative;width:28px;height:var(--ds-compact-height-sm,28px);padding:0;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-muted);font:inherit;font-size:14px;cursor:pointer}
+  .quick-links-panel .ql-icon::after{content:"";position:absolute;left:-8px;right:-8px;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+  .quick-links-panel .ql-icon:hover,.quick-links-panel .ql-icon:focus-visible{background:var(--kptu-primary-soft);color:var(--kptu-ink);outline:none}
+  .quick-links-panel .ql-gname-input{box-sizing:border-box;width:12em;max-width:100%;height:var(--ds-compact-height-sm,28px);padding:0 8px;border:var(--ds-line-width,1px) solid var(--kptu-border);border-radius:var(--ds-radius-control,8px);background:var(--kptu-surface);color:var(--kptu-ink);font:inherit;font-size:var(--ds-compact-text,13px)}
+  .quick-links-panel .ql-confirm{margin:2px 0 6px;padding:6px 8px;border:var(--ds-line-width,1px) solid var(--kptu-border);border-radius:var(--kptu-radius-sm);background:var(--kptu-primary-soft)}
+  .quick-links-panel .ql-confirm p{margin:0 0 6px;font-size:var(--ds-text-meta,12px)}
+  .quick-links-panel .ql-confirm-btns{display:flex;flex-wrap:wrap;gap:6px}
+  .quick-links-panel .ql-handle{font-size:14px;letter-spacing:0}
+  .quick-links-panel .ql-group-head .ql-handle{width:24px;height:var(--ds-compact-height-sm,28px)}
+  .quick-links-panel .ql-edit-row.ql-drop-before,.quick-links-panel .ql-group.ql-drop-before{box-shadow:inset 0 2px 0 var(--kptu-primary-ink)}
+  .quick-links-panel .ql-edit-row.ql-drop-after,.quick-links-panel .ql-group.ql-drop-after{box-shadow:inset 0 -2px 0 var(--kptu-primary-ink)}
+  .quick-links-panel .ql-drop-no{opacity:.55;cursor:no-drop}
+  .quick-links-panel .ql-group-head.ql-drop-into{outline:2px dashed var(--kptu-primary-ink);outline-offset:-2px;background:var(--kptu-primary-soft)}
+  .quick-links-panel .ql-group-head.ql-drop-into::after{content:'여기에 놓기';margin-left:auto;padding-right:8px;font-size:var(--ds-text-meta,12px);font-weight:700;color:var(--kptu-primary-ink);white-space:nowrap}
+  .quick-links-panel .ql-dragging{opacity:.5}
   .quick-links-panel .ql-foot{position:sticky;bottom:-8px;display:flex;justify-content:flex-end;gap:6px;margin:6px -12px -8px;padding:8px 12px;background:var(--kptu-surface);border-top:var(--ds-line-width,1px) solid var(--kptu-border)}
 }

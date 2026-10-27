@@ -37,7 +37,7 @@ test('저장된 값: 비어 있으면 초기 11개, 모양이 틀리면 null(믿
 test('편집 검사와 같은 묶음 안 순서 바꾸기', async () => {
   const {validateDraft, moveWithinGroup} = await mod;
   const rows = [{group: 'work', name: 'A', url: 'https://a.org'}, {group: 'work', name: 'B', url: 'b.org'}, {group: 'org', name: 'C', url: 'https://c.org'}];
-  assert.deepEqual(validateDraft(rows), {links: [rows[0], {group: 'work', name: 'B', url: 'https://b.org'}, rows[2]], errors: []});
+  assert.deepEqual(validateDraft(rows), {links: [rows[0], {group: 'work', name: 'B', url: 'https://b.org'}, rows[2]], groups: [{id: 'work', name: '업무'}, {id: 'org', name: '담당조직 홈페이지'}], errors: []});
   assert.deepEqual(validateDraft([{group: 'work', name: '', url: 'javascript:x'}]).errors, [[0, 'name'], [0, 'url']]);
   assert.deepEqual(moveWithinGroup(rows, 1, 0).map(r => r.name), ['B', 'A', 'C']);
   assert.equal(moveWithinGroup(rows, 1, 2), rows, 'never across groups');
@@ -48,16 +48,17 @@ test('읽기·쓰기: 내 프로필 행 quick_links 칸만, 칸이 없으면(400
   const calls = [];
   const rt = (reply) => ({context: {read: () => ({user: {id: 'u-1'}})}, api: async (path, options = {}) => { calls.push([path, options]); return reply(path, options); }});
   assert.deepEqual((await readLinks(rt(() => [{quick_links: null}]))).status, 'ok');
-  assert.equal(calls.at(-1)[0], '/rest/v1/app_profiles?user_id=eq.u-1&select=quick_links&limit=1');
+  assert.equal(calls.at(-1)[0], '/rest/v1/app_profiles?user_id=eq.u-1&select=quick_links,quick_link_groups&limit=1');
   const missing = rt(() => { const e = new Error('x'); e.status = 400; throw e; });
   const pending = await readLinks(missing);
   assert.equal(pending.status, 'pending'); assert.equal(pending.links.length, 11);
   assert.equal((await readLinks(rt(() => { const e = new Error('x'); e.status = 500; throw e; }))).status, 'error');
   assert.equal((await readLinks({context: {read: () => null}})).status, 'error');
   const links = [{group: 'work', name: 'A', url: 'https://a.org'}];
-  const saved = await saveLinks(links, rt((path, options) => [{quick_links: options.body.quick_links}]));
-  assert.deepEqual(saved, {ok: true, links});
-  assert.deepEqual(calls.at(-1), ['/rest/v1/app_profiles?user_id=eq.u-1', {method: 'PATCH', prefer: 'return=representation', body: {quick_links: links}}]);
-  assert.deepEqual(await saveLinks([{group: 'work', name: 'A', url: 'javascript:x'}], rt(() => assert.fail('must not send'))), {ok: false});
-  assert.deepEqual(await saveLinks(links, missing), {ok: false, pending: true});
+  const groups = [{id: 'work', name: '업무'}, {id: 'org', name: '담당조직 홈페이지'}];
+  const saved = await saveLinks(links, groups, rt((path, options) => [options.body]));
+  assert.deepEqual(saved, {ok: true, links, groups});
+  assert.deepEqual(calls.at(-1), ['/rest/v1/app_profiles?user_id=eq.u-1', {method: 'PATCH', prefer: 'return=representation', body: {quick_links: links, quick_link_groups: groups}}]);
+  assert.deepEqual(await saveLinks([{group: 'work', name: 'A', url: 'javascript:x'}], groups, rt(() => assert.fail('must not send'))), {ok: false});
+  assert.deepEqual(await saveLinks(links, groups, missing), {ok: false, pending: true});
 });
