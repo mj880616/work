@@ -12,6 +12,13 @@ export const AI_REASONING_TOKEN_HEADROOM = 1500;
 export const DEFAULT_PRICE_IN_KRW_PER_MTOK = 140;
 export const DEFAULT_PRICE_OUT_KRW_PER_MTOK = 700;
 
+// Web2 AI 요약 말투의 유일한 출처(AI-말투통일, 명진 결정 2026-10-27): 요약·정리 문장의 끝맺음을 '~함.'·'~임.' 식으로 통일한다.
+// - 요약을 만드는 서버 AI 지시문(텔레그램 소식·원장 자동 기록·원장 후보·원장 고치기·회의 정리)이 이 한 줄을 그대로 넣는다. 말투를 바꿀 때는 여기만 고친다.
+// - 앞으로 새로 만드는 요약부터 적용한다. 이미 저장된 요약은 바꾸지 않는다.
+// - 바깥에 내보내는 글(주간보고 한글·성명·보도자료)의 문체는 이 규칙이 아니다. 그 글의 재료를 만드는 지시문(연결 요약·조직 현황 요약·자료 한두 줄 요약·일정 제목)은 주간보고 문체를 따로 가지므로 넣지 않는다(docs/design/ai-tone.md).
+// - 제목·이름·표 칸 값은 이 규칙 대상이 아니다. 지시문마다 요약 문장이 들어가는 칸에만 쓰게 한다.
+export const AI_TONE_RULE = "말투: 요약·정리 문장은 '~함.'·'~임.'·'~됨.'·'~필요함.'처럼 짧은 명사형으로 맺는다. '~했다'·'~한다'·'~이다'·'~합니다'·'~입니다'·'~해요'로 끝내지 않는다. 예: '제작하기로 했다' → '제작하기로 함', '확인해야 한다' → '확인 필요함', '목표이다' → '목표임'. 제목·이름·날짜·정해진 값 칸에는 쓰지 않고, 글 속에서 따온 말은 원문 그대로 둔다.";
+
 // Responses 요청 몸통에 생각 수준을 붙인다. 부르는 쪽이 이미 reasoning을 정했으면 그대로 둔다.
 export function withReasoning<T extends Record<string, unknown>>(body: T): T & { reasoning: unknown } {
   return { ...body, reasoning: body.reasoning ?? { effort: AI_REASONING_EFFORT } };

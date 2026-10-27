@@ -1,6 +1,7 @@
 // SHARE-페이지삭제: ⋯ (right-click on a PC) → [보관] keeps the record (status 'archived', 5 seconds of [되돌리기]) and moves the page
-// to the small folded '보관함 n' under the list; there ⋯ → [되살리기] (back as a draft) or [완전히 삭제]. [삭제] (list or 보관함) asks
-// once and calls share-page-media purge_page (the server removes photo files, then the page); a failure keeps the page.
+// to the small folded '보관함 n' under the list; there ⋯ → [되살리기] (back as a draft) or [삭제].
+// TRASH-다른삭제: [삭제] (list or 보관함) asks once and sends a DELETE that the DB turns into 'in the trash' (보관함 and 휴지통 are separate);
+// the 5-second [되돌리기] brings it back through app_trash_restore; the permanent delete (share-page-media purge_page) is not on this screen.
 import {test, expect} from '@playwright/test';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {loginEntry} from './helpers/login-entry.mjs';
@@ -25,6 +26,12 @@ function mockApp(page, state) {
     if (path === '/rest/v1/app_profiles') return ok([{user_id:user.id, display_name:'공유 QA'}]);
     if (path === '/rest/v1/app_share_pages') {
       state.requests.push({method, search:url.search, body:request.postDataJSON?.() ?? null});
+      if (method === 'DELETE') {
+        // The DB trigger answers a DELETE by moving the row to the trash (it leaves the screen's reads; nothing is removed).
+        const row = state.pages.find(p => p.id === eq(url, 'id'));
+        if (row) { state.trash = [...(state.trash || []), {...row, deleted_status:row.status, deleted_at:'2026-10-27T01:00:00Z'}]; state.pages = state.pages.filter(p => p !== row); }
+        return route.fulfill({status:204, body:''});
+      }
       if (method === 'GET') {
         const f = url.searchParams.get('status') || '';
         return ok(state.pages.filter(p => f === 'neq.archived' ? p.status !== 'archived' : f === 'eq.archived' ? p.status === 'archived' : true));
@@ -48,6 +55,20 @@ function mockApp(page, state) {
     }
     if (path === '/functions/v1/google-calendar') return ok({connected:false, enabled:false, selected:[], calendars:[], events:[]});
     if (path.startsWith('/functions/v1/')) return ok({});
+    if (state.trashMissing && path.startsWith('/rest/v1/rpc/app_trash_')) return ok({code:'22023', message:'TRASH_KIND_UNKNOWN'}, 400);
+    if (path === '/rest/v1/rpc/app_trash_list') {
+      const kind = request.postDataJSON?.()?.p_kind;
+      return ok(kind === 'share_page' ? (state.trash || []).map(p => ({kind:'share_page', id:p.id, workspace_id:WS, title:p.title, prev_status:p.deleted_status, deleted_at:p.deleted_at, file_count:0, link_count:0})) : []);
+    }
+    if (path === '/rest/v1/rpc/app_trash_restore') {
+      const body = request.postDataJSON?.() ?? {};
+      state.restores = [...(state.restores || []), body];
+      const row = (state.trash || []).find(p => p.id === body.p_id);
+      if (!row) return ok({code:'P0002', message:'TRASH_NOT_FOUND'}, 400);
+      state.trash = state.trash.filter(p => p !== row);
+      const {deleted_status, deleted_at, ...back} = row; state.pages.push({...back, status:deleted_status});
+      return ok({ok:true, kind:'share_page', id:row.id, restored:1});
+    }
     if (path.startsWith('/rest/v1/rpc/')) return ok(null);
     if (path.startsWith('/rest/v1/')) return ok([]);
     return ok({});
@@ -121,7 +142,7 @@ for (const width of [390, 1280]) test('보관: confirm, leaves the list for the 
   await expect(kept).toHaveCount(1);
   await expect(kept).toContainText('민자철도 교섭 현황');
   await kept.locator('[data-sp-box-menu="page-1"]').click();
-  await expect(menu.getByRole('button')).toHaveText(['되살리기', '완전히 삭제']);
+  await expect(menu.getByRole('button')).toHaveText(['되살리기', '삭제']);
   await menu.getByRole('button', {name:'되살리기', exact:true}).click();
   await expect(list.locator('li')).toHaveCount(2);
   await expect(boxLine).toHaveCount(0);
@@ -131,7 +152,7 @@ for (const width of [390, 1280]) test('보관: confirm, leaves the list for the 
   expect(errors).toEqual([]);
 });
 
-for (const width of [390, 1280]) test('삭제: one confirmation, the server removes it for good (list and 보관함); a failure keeps the page ' + width, async ({page}) => {
+for (const width of [390, 1280]) test('삭제: one confirmation, the page goes to the 휴지통 and not for good (list and 보관함); 되돌리기 brings it back ' + width, async ({page}) => {
   const state = {pages:[...PAGES(), {id:'page-3', title:'보관한 페이지', status:'archived', project_id:null, updated_at:'2026-10-20T03:00:00.000Z'}]};
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await openList(page, width, state);
@@ -139,6 +160,7 @@ for (const width of [390, 1280]) test('삭제: one confirmation, the server remo
   const boxLine = page.locator('#sharePagesRoot details.sp-box');
   const menu = page.locator('#spRowMenu');
   const status = page.locator('#sharePagesRoot [data-sp-list-status]');
+  const deletes = () => state.requests.filter(r => r.method === 'DELETE');
   await expect(list.locator('li')).toHaveCount(2);
   await expect(boxLine.locator('summary')).toHaveText('보관함 1');
 
@@ -147,34 +169,53 @@ for (const width of [390, 1280]) test('삭제: one confirmation, the server remo
   page.once('dialog', d => { message = d.message(); void d.dismiss(); });
   await list.locator('[data-sp-row-menu="page-2"]').click();
   await menu.getByRole('button', {name:'삭제', exact:true}).click();
-  await expect.poll(() => message).toContain('페이지·링크·사진이 모두 지워지고 되살릴 수 없어요');
-  expect(state.purges || []).toHaveLength(0);
+  await expect.poll(() => message).toContain('공유 페이지를 휴지통으로 옮길까요');
+  expect(deletes()).toHaveLength(0);
 
-  // Server failure: the page stays and the line says pressing again finishes it.
-  state.purgeFail = true;
-  page.once('dialog', d => void d.accept());
-  await list.locator('[data-sp-row-menu="page-2"]').click();
-  await menu.getByRole('button', {name:'삭제', exact:true}).click();
-  await expect(status).toContainText('남은 것부터 지워요');
-  await expect(list.locator('li')).toHaveCount(2);
-
-  // Success from the list: gone, no undo notice, no browser REST delete.
-  state.purgeFail = false;
+  // Draft from the list: one confirmation, leaves the list, in the trash (not purged), 5 seconds of [되돌리기].
   page.once('dialog', d => void d.accept());
   await list.locator('[data-sp-row-menu="page-2"]').click();
   await menu.getByRole('button', {name:'삭제', exact:true}).click();
   await expect(list.locator('li')).toHaveCount(1);
-  await expect(status).toContainText('완전히 삭제했어요');
-  await expect(page.locator('.kptu-undo-notice')).toHaveCount(0);
-  expect(state.purges.at(-1)).toEqual({action:'purge_page', page_id:'page-2'});
+  expect(deletes()).toHaveLength(1);
+  expect(deletes()[0].search).toContain('id=eq.page-2');
+  expect((state.trash || []).map(p => p.id)).toEqual(['page-2']);
+  expect(state.purges || []).toHaveLength(0);
+  const notice = page.locator('.kptu-undo-notice');
+  await expect(notice).toContainText('휴지통으로 옮겼어요');
+  await notice.getByRole('button', {name:'되돌리기'}).click();
+  await expect(notice).toContainText('되돌렸습니다');
+  await expect(list.locator('li')).toHaveCount(2);
+  expect(state.restores.at(-1)).toEqual({p_kind:'share_page', p_id:'page-2'});
+  expect(state.pages.find(p => p.id === 'page-2')).toMatchObject({status:'draft'});
 
-  // From the 보관함.
+  // A published page: the question says the link stops and opens again on 되돌리기.
+  page.once('dialog', d => { message = d.message(); void d.accept(); });
+  await list.locator('[data-sp-row-menu="page-1"]').click();
+  await menu.getByRole('button', {name:'삭제', exact:true}).click();
+  await expect.poll(() => message).toContain('같은 링크가 다시 열립니다');
+  await expect(list.locator('li')).toHaveCount(1);
+
+  // From the 보관함: also the trash, and the 보관함 line goes away.
   await boxLine.locator('summary').click();
   page.once('dialog', d => void d.accept());
   await boxLine.locator('[data-sp-box-menu="page-3"]').click();
-  await menu.getByRole('button', {name:'완전히 삭제', exact:true}).click();
+  await menu.getByRole('button', {name:'삭제', exact:true}).click();
   await expect(boxLine).toHaveCount(0);
-  expect(state.purges.at(-1)).toEqual({action:'purge_page', page_id:'page-3'});
-  expect(state.requests.some(r => r.method === 'DELETE')).toBe(false);
+  expect((state.trash || []).map(p => p.id).sort()).toEqual(['page-1', 'page-3']);
+  expect(state.trash.find(p => p.id === 'page-3').deleted_status).toBe('archived');
+  expect(state.purges || []).toHaveLength(0);
   expect(errors).toEqual([]);
+});
+
+test('삭제: before the DB knows the 공유 페이지 휴지통 nothing is sent ("준비 중")', async ({page}) => {
+  const state = {pages:PAGES(), trashMissing:true};
+  await openList(page, 390, state);
+  const list = page.locator('#sharePagesRoot .sp-list-view > .sp-list');
+  page.once('dialog', d => void d.accept());
+  await list.locator('[data-sp-row-menu="page-2"]').click();
+  await page.locator('#spRowMenu').getByRole('button', {name:'삭제', exact:true}).click();
+  await expect(page.locator('#sharePagesRoot [data-sp-list-status]')).toContainText('휴지통은 준비 중입니다');
+  await expect(list.locator('li')).toHaveCount(2);
+  expect(state.requests.filter(r => r.method === 'DELETE')).toHaveLength(0);
 });
