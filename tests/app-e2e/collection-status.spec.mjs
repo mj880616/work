@@ -234,3 +234,20 @@ test('phone: the card opened from the warning line aligns the four times too (39
   for(const e of edges)expect(Math.abs(e.right-edges[0].right)).toBeLessThanOrEqual(1);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
+
+// OPS-수집멈춤알림: 보내기 스크립트 오류와 수집기 긴 멈춤은 폰 홈의 경고 한 줄로 뜬다. 하루 상한은 경고가 아니다.
+test('phone: a send error and a long collector stall raise the warning line; a daily cap does not',async({page})=>{
+  await fixture(page,{width:390,copy:withCollectors({
+    telegram:{last_at:'2026-10-02T22:30:00.000Z',count:null,reported_at:'2026-10-06T00:40:00.000Z'},
+    transcript:null,
+    telegram_send:{last_at:'2026-10-05T23:05:00.000Z',state:'broken',reported_at:'2026-10-06T00:30:00.000Z'},
+    call_send:{last_at:'2026-10-05T23:05:00.000Z',state:'limit_day',reported_at:'2026-10-06T00:30:00.000Z'},
+  })});
+  await expect(page.locator('[data-home-collect-alert]')).toBeVisible();
+  await expect(page.locator('[data-home-collect-alert]')).toContainText('외 1건');
+  await page.locator('#mobileMenuTab').click();
+  await expect(page.locator('[data-menu-collect] [data-collect="telegram"]')).toHaveAttribute('data-collect-state','stalled');
+  await expect(page.locator('[data-menu-collect] [data-collect="telegramSend"]')).toHaveAttribute('data-collect-state','broken');
+  await expect(page.locator('[data-menu-collect] [data-collect="callSend"]')).toHaveAttribute('data-collect-state','limit_day');
+  await expect(page.locator('[data-menu-collect] [data-collect="callSend"] .collect-warn')).toHaveCount(0);
+});

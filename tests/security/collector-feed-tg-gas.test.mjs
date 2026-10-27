@@ -222,7 +222,7 @@ test('429는 하루 상한과 이번 달 AI 상한을 구분해 멈춘 이유를
   assert.match(G.tgFeedLimitReason('AI_MONTHLY_LIMIT'),/다음 달 1일/);
   assert.match(G.tgFeedLimitReason('DAILY_LIMIT'),/하루 상한/);
   assert.match(G.tgFeedLimitReason(undefined),/429/);
-  assert.ok(source.includes("run.stop = tgFeedLimitReason(res.json && res.json.error); return;"),'429 처리에서 오류 코드를 넘긴다');
+  assert.ok(source.includes("run.stop = tgFeedLimitReason(res.json && res.json.error); run.kind = feedKindPick(run.kind, feedLimitKind(res.json && res.json.error)); return;"),'429 처리에서 오류 코드를 넘긴다');
 });
 
 test('마지막 실행 기록과 방별 진행 요약: 멈춘 방이 몇 개인지 보인다',()=>{

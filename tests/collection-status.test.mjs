@@ -97,7 +97,7 @@ test('collectorsFromStatus: only the ok shape; missing field (old function) is n
   assert.equal(mod.collectorsFromStatus({ok:false, collectors:{}}), null);
   assert.equal(mod.collectorsFromStatus(null), null);
   assert.deepEqual(mod.collectorsFromStatus({ok:true, collectors:{telegram:beat(1), transcript:{last_at:'파일 이름', reported_at:iso(now)}}}),
-    {telegram:{at:iso(now - H), reportedAt:iso(now - 0.5 * H), count:null}, transcript:null});
+    {telegram:{at:iso(now - H), reportedAt:iso(now - 0.5 * H), count:null}, transcript:null, telegram_send:null, call_send:null});
   assert.equal(mod.collectorsFromStatus({ok:true, collectors:{transcript:beat(1, 0.5, -3)}}).transcript.count, null);
 });
 test('judgeCollector: telegram 26h, call 72h, signal older than 3h is silent, nothing yet is never', () => {
@@ -131,7 +131,7 @@ test('readStatus: one status call feeds both copy and collectors', async () => {
   const raw = await mod.readStatus(rt);
   assert.equal(calls.filter(c => c.path.startsWith('/functions/v1/drive-summary')).length, 1);
   assert.equal(raw.copy.at, iso(now - H));
-  assert.deepEqual(raw.collectors, {telegram:{at:iso(now - H), reportedAt:iso(now - 0.5 * H), count:null}, transcript:null});
+  assert.deepEqual(raw.collectors, {telegram:{at:iso(now - H), reportedAt:iso(now - 0.5 * H), count:null}, transcript:null, telegram_send:null, call_send:null});
 });
 test('summarize: quiet collectors raise no attention and keep 수집 정상; silent one warns; other sources unchanged', () => {
   const quiet = mod.collectorsFromStatus({ok:true, collectors:{telegram:beat(30), transcript:beat(80)}});
@@ -141,4 +141,58 @@ test('summarize: quiet collectors raise no attention and keep 수집 정상; sil
   const cut = mod.collectorsFromStatus({ok:true, collectors:{telegram:beat(30, 4), transcript:beat(80)}});
   assert.deepEqual(mod.summarize({copy:null, radar:null, collectors:cut}, now).attention.map(x => x.key), ['telegram']);
   assert.equal(mod.summarize({copy:{at:iso(now - 25 * H)}, radar:null, collectors:quiet}, now).attention[0].key, 'copy');
+});
+
+// OPS-수집멈춤알림: 수집기 새 파일 멈춤 · 보내기 스크립트 멈춤/오류/상한. Synthetic values only.
+const col = (atH, repH = 0.5) => ({at:iso(now - atH * H), reportedAt:iso(now - repH * H), count:0});
+const send = (state, repH = 0.5, atH = 2) => ({at:iso(now - atH * H), reportedAt:iso(now - repH * H), state});
+
+test('collector stall: only a long gap (telegram 72h, call 168h) becomes a warning; weekends stay quiet', () => {
+  assert.equal(mod.judgeCollector('telegram', col(50), now).state, 'quiet');
+  assert.equal(mod.judgeCollector('telegram', col(73), now).state, 'stalled');
+  assert.equal(mod.judgeCollector('call', col(100), now).state, 'quiet');
+  assert.equal(mod.judgeCollector('call', col(169), now).state, 'stalled');
+  assert.equal(mod.judgeCollector('telegram', col(200, 4), now).state, 'silent', 'no signal wins over stall');
+});
+
+test('send source: judged by report time, then reported state; no report yet hides the line', () => {
+  assert.equal(mod.judgeSend('callSend', null, now), null);
+  assert.equal(mod.judgeSend('callSend', send('ok', 3.5), now).state, 'stopped');
+  assert.equal(mod.judgeSend('callSend', send('ok', 2.5), now).state, 'ok', 'hourly trigger jitter');
+  assert.equal(mod.judgeSend('telegramSend', send('ok', 25), now).state, 'ok');
+  assert.equal(mod.judgeSend('telegramSend', send('ok', 27), now).state, 'stopped', 'daily trigger gone');
+  for (const state of ['broken', 'failing', 'limit_ai', 'test', 'limit_day']) assert.equal(mod.judgeSend('callSend', send(state), now).state, state);
+});
+
+test('send gap: fresh raw files but nothing really sent for 72h is a warning; stale raw files are not', () => {
+  const fresh = col(5), old = col(40);
+  assert.equal(mod.judgeSend('telegramSend', send('ok', 1, 80), now, fresh).state, 'gap');
+  assert.equal(mod.judgeSend('telegramSend', send('ok', 1, 70), now, fresh).state, 'ok');
+  assert.equal(mod.judgeSend('telegramSend', send('ok', 1, 80), now, old).state, 'ok', 'collector quiet → empty days are expected');
+  assert.equal(mod.judgeSend('callSend', send('ok', 1, 200), now, fresh).state, 'ok', 'gap rule is telegram only');
+});
+
+test('collectorsFromStatus keeps send sources with a listed state only', () => {
+  const t = '2026-10-21T08:00:00.000Z';
+  const c = mod.collectorsFromStatus({ok:true, collectors:{telegram:null, transcript:null, telegram_send:{last_at:t, reported_at:t, state:'limit_ai'}, call_send:{last_at:t, reported_at:t, state:'내용'}}});
+  assert.deepEqual(c.telegram_send, {at:t, reportedAt:t, state:'limit_ai'});
+  assert.equal(c.call_send, null);
+  assert.equal(mod.collectorsFromStatus({ok:true, collectors:{telegram:null, transcript:null}}).telegram_send, null, 'old function without the field');
+});
+
+test('render and summary: send rows show notes, warn lines name the problem, old function hides the rows', () => {
+  const raw = {copy:null, radar:null, collectors:{telegram:null, transcript:null, telegram_send:send('limit_ai'), call_send:send('limit_day')}};
+  const html = mod.renderRows(raw, now);
+  assert.match(html, /data-collect="telegramSend" data-collect-state="limit_ai"/);
+  assert.match(html, /collect-warn">주의 · 이번 달 AI 상한/);
+  assert.match(html, /data-collect="callSend" data-collect-state="limit_day"[^]*하루 상한 · 내일 이어서/);
+  assert.doesNotMatch(html, /data-collect="callSend"[^]*collect-warn">하루/, 'daily cap is not a warning');
+  const sum = mod.summarize(raw, now);
+  assert.deepEqual(sum.attention.map(a => a.key), ['telegramSend']);
+  assert.equal(mod.alertText(sum.attention), '텔레그램 보내기가 이번 달 AI 상한에 걸렸어요');
+  const two = mod.summarize({copy:null, radar:null, collectors:{telegram:col(80), transcript:null, telegram_send:send('ok', 30), call_send:send('broken')}}, now);
+  assert.equal(mod.alertText(two.attention), '텔레그램 수집이 10/18 오후 이후 멈췄어요 외 2건'.replace('10/18 오후', mod.alertText(two.attention).match(/\d+\/\d+ \S+/)[0]));
+  const old = mod.renderRows({copy:{at:iso(now - H)}, radar:null, collectors:null}, now);
+  assert.doesNotMatch(old, /telegramSend|callSend/);
+  assert.equal(mod.alertText([{key:'callSend', label:'통화 보내기', state:'stopped', at:null}]), '통화 보내기가 멈췄어요');
 });
