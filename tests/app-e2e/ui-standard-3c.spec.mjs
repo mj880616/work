@@ -1,4 +1,5 @@
 import {openLegacyBoard} from './helpers/legacy-board.mjs';
+import {THEMES} from '../../app/view-prefs.js';
 import {test,expect} from '@playwright/test';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {enterLogin} from './helpers/login-entry.mjs';
@@ -123,19 +124,19 @@ test('다크 모드: 기기 설정이 어두우면 Web2 전체·창이 어둡고
  expect((await look(page.locator('.mobile-menu-panel'))).bg).toBe(surface);expect(await lowContrast(page)).toEqual([]);
  await page.locator('#mobileMenu [data-theme-open]').click();await expect(page.locator('#themeModal')).toBeVisible();
  expect((await look(page.locator('#themeModal .modal-card'))).bg).toBe(surface);
- // 테마 4종: 계정 색만 바뀌고 모두 어두운 바탕에서 읽힌다.
+ // 테마 10종: 계정 색만 바뀌고 모두 어두운 바탕에서 읽힌다.
  const primaries=new Set();
- for(const theme of ['olive','navy','terracotta','sand']){
+ for(const theme of THEMES){
   await page.locator(`[data-theme-choice="${theme}"]`).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme',theme);
   expect(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor),theme).toBe(dark);
   primaries.add(await token(page,'--kptu-primary'));
   expect(await lowContrast(page),theme).toEqual([]);
  }
- expect(primaries.size).toBe(4);
+ expect(primaries.size).toBe(THEMES.length);
  await page.keyboard.press('Escape');
  // 테마는 화면 색 창에서 고른다(사용자가 고르는 그 경로).
- for(const theme of ['navy','terracotta','sand']){
+ for(const theme of THEMES.slice(1)){
   await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-theme-open]').click();
   await page.locator(`[data-theme-choice="${theme}"]`).click();await expect(page.locator('html')).toHaveAttribute('data-theme',theme);
   await page.keyboard.press('Escape');await expect(page.locator('#themeModal')).toBeHidden();

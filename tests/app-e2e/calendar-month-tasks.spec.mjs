@@ -1,4 +1,5 @@
 import {test,expect} from '@playwright/test';
+import {THEMES} from '../../app/view-prefs.js';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
 test.use({timezoneId:'Asia/Seoul'});
 for(const width of [360,1280]){
@@ -66,7 +67,7 @@ test('supplied done and overdue flags control the marker across themes',async({p
   ]));
   const marker=page.locator('.cmv-task-count');
   await expect(marker).toHaveText('2');await expect(marker).toHaveAccessibleName('할 일 2개, 기한 지남 포함');
-  for(const theme of ['olive','navy','terracotta','sand']){
+  for(const theme of THEMES){
     await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
     expect(await marker.evaluate(el=>getComputedStyle(el).color)).toBe(await page.evaluate(()=>{
       const sample=document.createElement('span');sample.style.color='var(--kptu-danger)';document.body.append(sample);const color=getComputedStyle(sample).color;sample.remove();return color;

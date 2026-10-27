@@ -5,6 +5,7 @@ import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { installViewPrefsServer, leftoverDeviceKeys } from './helpers/view-prefs-server.mjs';
+import {THEMES} from '../../app/view-prefs.js';
 import {closeProjectDetail,expectProjectDetail,projectDetailDocked} from './helpers/project-detail.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -44,9 +45,11 @@ async function signIn(page){
 
 
 // SET-보기선택서버저장: 화면 색은 서버(프로필 view_prefs.theme)에 저장된다. 로그인 전 화면은 늘 기본(올리브)이고, 로그인 뒤 첫 화면을 공개하기 전에 저장된 색이 적용된다.
-const primary={olive:'#5c6a35',navy:'#263f5f',terracotta:'#a8582a',sand:'#4a3d33'};
+const primary={olive:'#5c6a35',navy:'#263f5f',terracotta:'#a8582a',sand:'#4a3d33',mugwort:'#3e6b55',lavender:'#61537f',ink:'#4a4a46',rose:'#93505d',teal:'#36676f',mustard:'#896820'};
+const pageColor={olive:'#f3f1ea',navy:'#f5f6f7',terracotta:'#f7f2ea',sand:'#f6f1e7',mugwort:'#f1f6f3',lavender:'#f5f3f8',ink:'#f4f4f2',rose:'#f8f1f2',teal:'#f1f6f7',mustard:'#f9f5eb'};
+test('this list follows the one allowed list of ten colors',()=>{expect(Object.keys(primary)).toEqual([...THEMES]);expect(Object.keys(pageColor)).toEqual([...THEMES])});
 const readPrimary=page=>page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-primary').trim());
-for(const stored of [null,'olive','navy','terracotta','sand','invalid']){
+for(const stored of [null,...THEMES,'invalid']){
  test('login is olive; the saved color is applied before the app opens and after reload: '+stored,async({page})=>{
   await installViewPrefsServer(page,stored===null?null:{theme:stored});
   await page.goto(`${appOrigin}/app/login/`);
@@ -90,10 +93,11 @@ for(const width of [390,1440]){
    await page.keyboard.press('Escape');await expect(dialog).toBeHidden();await expect(account).toBeFocused();
    await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay||null)).toBe(null);
   }
-  await clickView(page,'tasks');expect(await readPrimary(page)).toBe(primary.sand);
-  await page.reload();await expect(account).toBeVisible();expect(await readPrimary(page)).toBe(primary.sand);
+  const lastTheme=THEMES.at(-1);
+  await clickView(page,'tasks');expect(await readPrimary(page)).toBe(primary[lastTheme]);
+  await page.reload();await expect(account).toBeVisible();expect(await readPrimary(page)).toBe(primary[lastTheme]);
   await openTheme();await expect(dialog).toBeVisible();await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay)).toBe('themeModal');
-  await page.goBack();await expect(dialog).toBeHidden();expect(await readPrimary(page)).toBe(primary.sand);
+  await page.goBack();await expect(dialog).toBeHidden();expect(await readPrimary(page)).toBe(primary[lastTheme]);
   await openTheme();await expect(dialog).toBeVisible();await page.locator('#themeModal').click({position:{x:4,y:4}});await expect(dialog).toBeHidden();
   await expect.poll(()=>page.evaluate(()=>history.state?.kptuOverlay||null)).toBe(null);
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:team-ready',{detail:{state:'auth'}})));
@@ -104,6 +108,36 @@ for(const width of [390,1440]){
 test('direct color guard and its regression cases pass',async()=>{
  const {execFileSync}=await import('node:child_process');
  execFileSync(process.execPath,['--test','tests/hardcoded-colors.test.mjs','tests/theme-bootstrap.test.mjs'],{stdio:'pipe'});
+});
+
+test('a color the server refuses goes back to the old color, tells the person, and old colors still save',async({page})=>{
+ await page.setViewportSize({width:1440,height:900});
+ const prefs=await installViewPrefsServer(page,{theme:'navy'},{denyThemes:THEMES.slice(4)});await mockApp(page);
+ await page.goto(`${appOrigin}/app/?view=calendar`);await signIn(page);
+ await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
+ expect(await readPrimary(page)).toBe(primary.navy);
+ await accountButton(page).click();await page.locator('#sidebarThemeBtn').click();
+ await page.locator('[data-theme-choice="rose"]').click();
+ await expect.poll(()=>readPrimary(page)).toBe(primary.navy);
+ await expect(page.locator('#toast')).toContainText('원래 색으로 되돌렸어요');
+ await expect(page.locator('[data-theme-choice="navy"]')).toHaveAttribute('aria-pressed','true');
+ await expect(page.locator('[data-theme-choice="rose"]')).toHaveAttribute('aria-pressed','false');
+ expect(prefs.value).toEqual({theme:'navy'});
+ await page.locator('[data-theme-choice="sand"]').click();
+ await expect.poll(()=>prefs.value?.theme).toBe('sand');expect(await readPrimary(page)).toBe(primary.sand);
+});
+
+test('the phone status bar color follows the picked color, light and dark',async({page})=>{
+ await page.setViewportSize({width:390,height:844});await installViewPrefsServer(page,{theme:'mustard'});await mockApp(page);
+ await page.goto(`${appOrigin}/app/?view=calendar`);await signIn(page);
+ const meta=scheme=>page.locator(`meta[name="theme-color"][media="(prefers-color-scheme: ${scheme})"]`);
+ // 저장된 색을 적용한 직후에 맞춰진다.
+ await expect(meta('light')).toHaveAttribute('content',pageColor.mustard);
+ await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-theme-open]').click();
+ await page.locator('[data-theme-choice="lavender"]').click();
+ await expect(meta('light')).toHaveAttribute('content',pageColor.lavender);
+ await page.emulateMedia({colorScheme:'dark'});
+ await expect(meta('dark')).toHaveAttribute('content','#161613');
 });
 
 test('failed theme save still applies and does not write the profile elsewhere',async({page})=>{

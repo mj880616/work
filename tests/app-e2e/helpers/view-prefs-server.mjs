@@ -2,15 +2,17 @@
 // 화면의 fetch를 가로채 app_profiles?select=view_prefs 읽기와 view_prefs PATCH만 답한다(다른 요청은 그대로 통과).
 // 상태는 시험(Node) 쪽에 있어 새로고침해도 이어진다. 앱 코드는 바꾸지 않고, 기기 저장소를 쓰지 않는다.
 const installed=new WeakMap();
-export async function installViewPrefsServer(page,initial=null,{missingColumn=false,failRead=false,failWrite=false}={}){
+export async function installViewPrefsServer(page,initial=null,{missingColumn=false,failRead=false,failWrite=false,denyThemes=[]}={}){
   // 같은 쪽에 두 번 불러도 한 번만 설치하고, 두 번째부터는 처음 값에 합친다(beforeEach와 시험 안에서 함께 부르는 경우).
   if(installed.has(page)){const known=installed.get(page);if(initial)known.value={...(known.value||{}),...initial};return known}
-  const state={value:initial,patches:[],reads:0,missingColumn,failRead,failWrite};
+  const state={value:initial,patches:[],reads:0,missingColumn,failRead,failWrite,denyThemes};
   installed.set(page,state);
   await page.exposeFunction('__kptuViewPrefsServer',({method,body})=>{
     if(state.missingColumn)return {status:400,rows:{message:'column app_profiles.view_prefs does not exist'}};
     if(method==='GET'){state.reads++;return state.failRead?{status:500,rows:{}}:{status:200,rows:[{view_prefs:state.value}]}}
     if(state.failWrite)return {status:500,rows:{}};
+    // 서버 검사가 모르는 색(DB 적용 전)을 흉내 낸다: 값 검사 위반은 400.
+    if(state.denyThemes.includes(body.view_prefs?.theme))return {status:400,rows:{code:'23514',message:'violates check constraint app_profiles_view_prefs_check'}};
     state.value=body.view_prefs;state.patches.push(body.view_prefs);return {status:200,rows:[{user_id:'view-prefs-user'}]};
   });
   await page.addInitScript(()=>{
