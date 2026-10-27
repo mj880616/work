@@ -1388,3 +1388,18 @@ html .doc-kind-chips button[aria-pressed="false"]{ color:var(--kptu-muted); back
 /* MTG-3칸정리 ①(명진 2026-10-27): 고른 줄 표시 공용 규칙. 연한 강조 바탕(색마다 정한 --kptu-primary-soft) + 왼쪽 굵은 줄(--kptu-primary) + 진한 글자(--kptu-ink).
    바탕·줄·글자 모두 색 열 가지의 밝은/어두운 값에 이미 있고, 글자 대비는 tests/theme-contrast.test.mjs가 색마다 막는다. 줄은 안쪽 그림자라 칸 크기·글자 위치가 안 변한다. */
 #appView .kptu-pick-row[aria-current="true"]{ background:var(--kptu-primary-soft); box-shadow:inset 4px 0 0 var(--kptu-primary); color:var(--kptu-ink); font-weight:var(--ds-weight-medium); }
+
+/* ───────── UI-떠있는저장(2026-10-27 사용자 결정): 긴 글 쓰기 화면의 떠 있는 [저장] ─────────
+   그리는 주인은 float-save.js 하나(#floatSave). 원래 [저장]이 화면(아래 탭·전환 줄 위)에 다 보이지 않고 자판이 내려가 있을 때만 보인다.
+   자리: 오른쪽 아래, [달력 | 할 일 | 업무일지 | 일기] 전환 줄·아래 탭 바로 위(토스트와 같은 변수). 보이는 높이 32px, 누르는 범위 44px. */
+.float-save{
+  position:fixed; z-index:27; right:calc(12px + env(safe-area-inset-right));
+  bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom) + 8px);
+  box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; height:var(--ds-compact-height,32px); min-height:0; min-width:0; margin:0;
+  padding:0 var(--ds-compact-pad-x,12px); font-family:inherit; font-size:var(--ds-compact-text,13px); font-weight:var(--ds-weight-medium,500); line-height:1;
+  color:var(--kptu-on-primary); background:var(--kptu-primary); border:0; border-radius:var(--ds-radius-control,8px); box-shadow:var(--kptu-shadow-float); cursor:pointer;
+}
+.float-save::after{ content:""; position:absolute; left:-4px; right:-4px; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+.float-save[data-on="false"]{ visibility:hidden; pointer-events:none; }
+.float-save:disabled{ opacity:.5; cursor:default; }
+.float-save:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }

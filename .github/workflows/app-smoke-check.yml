@@ -222,7 +222,7 @@ jobs:
         run: node --test tests/home-fill-data.test.mjs tests/home-fill-model.test.mjs tests/inbox-count.test.mjs tests/inbox-promise.test.mjs tests/quick-save-session.test.mjs tests/trash-actions.test.mjs
 
       - name: Check notes, editor tables and text units (STAB-단위시험등록)
-        run: node --test tests/basket-note-folder.test.mjs tests/chatgpt-html.test.mjs tests/diary-doc.test.mjs tests/diary-onedrive.test.mjs tests/ed-table-colbuttons.test.mjs tests/ed-table-resize.test.mjs tests/note-files.test.mjs tests/preview-text.test.mjs tests/report-words.test.mjs tests/report-modal-fields.test.mjs tests/report-default-at.test.mjs
+        run: node --test tests/basket-note-folder.test.mjs tests/chatgpt-html.test.mjs tests/diary-doc.test.mjs tests/diary-onedrive.test.mjs tests/float-save.test.mjs tests/ed-table-colbuttons.test.mjs tests/ed-table-resize.test.mjs tests/note-files.test.mjs tests/preview-text.test.mjs tests/report-words.test.mjs tests/report-modal-fields.test.mjs tests/report-default-at.test.mjs
 
       - name: Check library, project, share and upload units (STAB-단위시험등록)
         run: node --test tests/library-select.test.mjs tests/project-fold.test.mjs tests/share-pages-label.test.mjs tests/share-photos.test.mjs tests/summary-copy-model.test.mjs tests/text-backfill-notice.test.mjs tests/upload-file-copy.test.mjs
