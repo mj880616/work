@@ -21,7 +21,6 @@
 .mrd-result-text{-webkit-user-select:text;user-select:text}
 #meetingRoundDetailModal .mrd-editor-actions button{width:auto;min-width:0;white-space:nowrap;flex:none}
 #meetingList article.item-card[data-mrd-meeting]{cursor:pointer}
-#meetingList article.item-card[data-mrd-meeting]:active{transform:scale(.995)}
 @media(max-width:760px){
   .meeting-round-detail-card{padding-bottom:calc(92px + env(safe-area-inset-bottom))!important;scroll-padding-bottom:calc(92px + env(safe-area-inset-bottom))!important}
   .mrd-editor-actions>*{flex:1}
