@@ -5,6 +5,8 @@ begin;
 --  1) app_onedrive_connections: 원드라이브 연결 1행(작업공간당 1개) = 갱신 토큰 + 사진을 읽을 폴더 하나.
 --     토큰이 들어 있으므로 authenticated·anon·PUBLIC에는 어떤 권한도 주지 않는다(정책 없음 = 화면에서는 읽지도 못함).
 --     읽고 쓰는 곳은 Edge 함수 onedrive-photos(service_role) 하나뿐이다. 기존 Google Drive 연결(public_policy_drive_config)과 같은 방식이다.
+--     2026-10-27 결정(설계 10절): 원드라이브 사진 지우기를 위해 Files.ReadWrite를 받는다. 그래서 허용 범위 검사는 '전체 범위(.All)·앱 폴더·선택 범위'만 거절한다.
+--     이 파일은 운영 미적용 상태에서 같은 판 번호로 고쳤다(적용 SQL은 main 파일 원문 그대로 쓰므로 한 번만 적용된다).
 --  2) app_diary_stars: 일기 사진 ☆ 표시(별표). 원드라이브 사진과 직접 올린 사진 모두 한 표에 둔다. 사진 파일은 여기 없고 "어느 사진인지"만 적는다.
 --     owner만 읽기·넣기·지우기(private.app_is_workspace_owner), 고치기 권한 없음. anon·PUBLIC·service_role 권한 없음.
 -- 안 하는 것: 함수·트리거·기존 표 변경. 화면은 아직 이 표를 쓰지 않으므로 지금 일기 화면은 그대로다.
@@ -34,7 +36,7 @@ create table public.app_onedrive_connections (
   connected_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint app_onedrive_connections_token_check check (char_length(refresh_token) between 8 and 4096),
-  constraint app_onedrive_connections_scope_check check (char_length(scope) between 1 and 300 and scope !~* 'readwrite|\.all'),
+  constraint app_onedrive_connections_scope_check check (char_length(scope) between 1 and 300 and scope !~* '\.all|appfolder|selected'),
   constraint app_onedrive_connections_folder_check check (
     (folder_id is null and folder_name is null and folder_path is null)
     or (folder_id is not null and folder_name is not null and folder_path is not null
