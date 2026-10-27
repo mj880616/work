@@ -1262,7 +1262,7 @@ test('TRASH-화면2: 프로젝트 휴지통만 준비되고 담당조직·사업
   await clickView(page,'projects');
   await page.locator('#ps3ArchiveBtn').click();
   await expect(page.locator('[data-ps3-trash-row="main-1"]')).toBeVisible();
-  await expect(page.locator('[data-ps3-trash-pending]')).toHaveText('담당조직·사업 보고·자료실 폴더·노트·업데이트 휴지통은 준비 중입니다.');
+  await expect(page.locator('[data-ps3-trash-pending]')).toHaveText('담당조직·사업 보고·자료실 폴더·노트·업데이트·공유 페이지 휴지통은 준비 중입니다.');
 });
 
 test('TRASH 2단계: 휴지통 함수가 아직 없으면 삭제는 지금 문구로 바로 지워지고 휴지통 자리에는 준비 중만 보인다',async({page})=>{

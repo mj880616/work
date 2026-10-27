@@ -3,9 +3,9 @@
 // 그 응답과 오류를 화면 글로 바꾸고 "휴지통을 쓸 수 있는가"를 종류마다 한 곳에서 판정한다. 브라우저 저장소는 쓰지 않는다.
 
 export const TRASH_KIND = 'project';
-export const TRASH_KINDS = Object.freeze(['project', 'organization', 'report', 'library_folder', 'note']);
+export const TRASH_KINDS = Object.freeze(['project', 'organization', 'report', 'library_folder', 'note', 'share_page']);
 // 종류 이름(화면 글). 사업 보고는 화면 어디서나 '사업 보고'라고 부른다.
-export const TRASH_KIND_LABEL = Object.freeze({project: '프로젝트', organization: '담당조직', report: '사업 보고', library_folder: '자료실 폴더', note: '노트·업데이트'});
+export const TRASH_KIND_LABEL = Object.freeze({project: '프로젝트', organization: '담당조직', report: '사업 보고', library_folder: '자료실 폴더', note: '노트·업데이트', share_page: '공유 페이지'});
 
 // 판정은 목록 호출 결과 하나로 한다. ready = 목록을 받음(함수가 있음), missing = 함수 없음(DB 미적용), failed = 그 밖의 실패.
 export const TRASH_STATE = Object.freeze({ UNKNOWN: 'unknown', READY: 'ready', MISSING: 'missing', FAILED: 'failed' });
@@ -38,6 +38,8 @@ function noteTitle(row) {
   return String(row.title || '').trim() || String(row.preview || '').trim() || (row.note_kind === 'note' ? '이름 없는 노트' : '내용 없는 업데이트');
 }
 export const noteKindWord = (noteKind) => (noteKind === 'note' ? '노트' : '업데이트');
+// 공유 페이지: 휴지통에 넣기 전 상태(초안·게시·보관) 이름. 모르는 값은 빈 글(표시 안 함).
+export const sharePrevWord = (prev) => (prev === 'published' ? '게시 중이던 페이지' : prev === 'archived' ? '보관함에 있던 페이지' : prev === 'draft' ? '초안' : '');
 
 // kind를 주면 그 종류의 줄만, null을 주면 모든 종류. 줄마다 kind를 붙인다(프로젝트 줄 모양은 그대로).
 export function normalizeTrashRows(data, kind = TRASH_KIND) {
@@ -50,7 +52,7 @@ export function normalizeTrashRows(data, kind = TRASH_KIND) {
       return {
         id: String(row.id),
         kind: rowKind,
-        name: rowKind === 'report' ? reportTitle(row) : rowKind === 'note' ? noteTitle(row) : String(row.name || '').trim() || '이름 없음',
+        name: rowKind === 'report' ? reportTitle(row) : rowKind === 'note' ? noteTitle(row) : rowKind === 'share_page' ? String(row.title || '').trim() || '제목 없음' : String(row.name || '').trim() || '이름 없음',
         parent_id: row.parent_id || null,
         deleted_at: row.deleted_at || null,
         child_count: Math.max(0, Number(row.child_count) || 0),
@@ -58,6 +60,7 @@ export function normalizeTrashRows(data, kind = TRASH_KIND) {
         project_name: rowKind === 'library_folder' ? String(row.project_name || '').trim() : '',
         note_kind: rowKind === 'note' ? (row.note_kind === 'note' ? 'note' : 'basket') : '',
         link_count: Math.max(0, Number(row.link_count) || 0),
+        prev_status: rowKind === 'share_page' ? (['draft', 'published', 'archived'].includes(row.prev_status) ? row.prev_status : '') : '',
         parent_in_trash: row.parent_in_trash === true,
       };
     })
@@ -122,6 +125,13 @@ export function otherDeleteText(kind, name, detail = null) {
       moved: `${word}를 휴지통으로 옮겼어요.`,
     };
   }
+  if (kind === 'share_page') {
+    const live = detail?.status === 'published' ? '\n게시가 멈춰 링크로 보던 사람도 볼 수 없게 되고, 휴지통에서 되돌리면 같은 링크가 다시 열립니다.' : '\n휴지통에서 되돌릴 수 있습니다.';
+    return {
+      confirm: `${q}공유 페이지를 휴지통으로 옮길까요?\n링크·사진은 지워지지 않습니다.${live}`,
+      moved: '공유 페이지를 휴지통으로 옮겼어요.',
+    };
+  }
   return {
     confirm: `${q}사업 보고를 휴지통으로 옮길까요?\n후속 할 일은 Google 할 일에 남고 자료 파일은 삭제하지 않습니다. 휴지통에서 되돌릴 수 있습니다.`,
     moved: '사업 보고를 휴지통으로 옮겼습니다.',
@@ -155,7 +165,7 @@ export const TRASH_TEXT = Object.freeze({
 // 위 단계가 아직 휴지통일 때 먼저 되돌리라는 안내(프로젝트는 상위 프로젝트, 자료실 폴더는 상위 폴더).
 export const parentFirstText = (kind) => (kind === 'library_folder' ? TRASH_TEXT.PARENT_FIRST_FOLDER : TRASH_TEXT.PARENT_FIRST);
 
-export const restoredText = (kind) => (kind === 'note' ? '글을 되돌렸습니다.' : kind === 'organization' ? '담당조직을 되돌렸습니다.' : kind === 'report' ? '사업 보고를 되돌렸습니다.' : kind === 'library_folder' ? '폴더를 되돌렸습니다.' : TRASH_TEXT.RESTORED);
+export const restoredText = (kind) => (kind === 'share_page' ? '공유 페이지를 되돌렸습니다.' : kind === 'note' ? '글을 되돌렸습니다.' : kind === 'organization' ? '담당조직을 되돌렸습니다.' : kind === 'report' ? '사업 보고를 되돌렸습니다.' : kind === 'library_folder' ? '폴더를 되돌렸습니다.' : TRASH_TEXT.RESTORED);
 
 // 서버 오류 코드(메시지 첫머리)를 화면 글로 바꾼다. 모르는 오류는 일반 문구로 둔다.
 export function trashErrorText(error, fallback = '처리하지 못했습니다. 다시 시도해 주세요.') {
@@ -175,6 +185,9 @@ export function purgeConfirmText(row) {
   }
   if (row.kind === 'report') {
     return `“${row.name}” 사업 보고를 영구 삭제할까요?\n보고에 달린 메모·원장 연결이 함께 지워지며 되돌릴 수 없습니다. 후속 할 일(Google 할 일)과 자료 파일은 지우지 않습니다.`;
+  }
+  if (row.kind === 'share_page') {
+    return `“${row.name}” 공유 페이지를 영구 삭제할까요?\n페이지·링크${row.file_count ? `·사진 ${row.file_count}장` : '·사진'}이 모두 지워지고 되돌릴 수 없습니다.`;
   }
   if (row.kind === 'note') {
     return `“${row.name}” ${noteKindWord(row.note_kind)}를 영구 삭제할까요?\n${row.link_count ? `조직·프로젝트·사업 보고 연결 ${row.link_count}곳도 함께 지워지고 ` : ''}되돌릴 수 없습니다.${row.file_count ? ` 첨부 파일 ${row.file_count}개는 Drive에 그대로 남습니다.` : ''}`;

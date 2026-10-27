@@ -4,7 +4,7 @@ import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
-import {mrdMenu,openMeetingResult} from './helpers/meeting-open.mjs';
+import {mrdMenu,openMeetingResult,closeMeetingResult} from './helpers/meeting-open.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 const CHIPS=['전체','회의','정책','교섭','언론','국회','투쟁','교육','기타'];
@@ -128,14 +128,14 @@ test('PC 1280: 칸 칩 한 줄 / [회의] 3단, 다른 칸·[전체] 2단(목록
   await expect(page.locator('#meetingList .mcol-kinds')).toBeVisible();
   await expect(page.locator('#meetingList .mcol-kinds .mcol-name')).toHaveText(['합성 운영 회의','합성 정기 회의']);
   await expect(page.locator('#meetingTypeFilter')).toBeHidden();
-  await expect(page.locator('#meetingList #mcolResult [data-report-kind-label]')).toHaveText('회의 칸');
+  await expect(page.locator('#meetingList #mcolResult #mrdMeta')).toContainText('회의 칸');
   // [언론]: 종류 단이 접히고 2단.
   await chip(page,'언론').click();
   await expect(page.locator('#meetingList .mcol-kinds')).toHaveCount(0);await expect(page.locator('#meetingList .mcol-two')).toBeVisible();
   await expect(page.locator('#meetingList .mcol-rounds .mcol-card')).toHaveCount(1);
   await expect(page.locator('#meetingList #mcolResult')).toHaveAttribute('data-meeting-result','p-1');
-  await expect(page.locator('#meetingList #mcolResult [data-report-kind-label]')).toHaveText('언론 칸');
-  await expect(page.locator('#meetingList #mcolResult .mcol-text').first()).toHaveText('합성 결과 p-1');
+  await expect(page.locator('#meetingList #mcolResult #mrdMeta')).toContainText('언론 칸');
+  await expect(page.locator('#meetingList #mcolResult #mrdResult')).toHaveText('합성 결과 p-1');
   const cols=await page.evaluate(()=>{const l=document.querySelector('#meetingList .mcol-rounds').getBoundingClientRect(),r=document.querySelector('#meetingList #mcolResult').getBoundingClientRect();return {l:l.width,r:r.width,side:l.right<=r.left,top:Math.abs(l.top-r.top)}});
   expect(cols.side).toBe(true);expect(cols.top).toBeLessThanOrEqual(1);expect(cols.r/cols.l).toBeGreaterThan(1.5);
   await expect(page.locator('#meetingList .split-resize-handle')).toHaveCount(1);
@@ -145,7 +145,7 @@ test('PC 1280: 칸 칩 한 줄 / [회의] 3단, 다른 칸·[전체] 2단(목록
   await expect(page.locator('#meetingList [data-meeting-round="q-1"] .mcol-kind-tag').first()).toHaveText('정책');
   await page.locator('#meetingList [data-meeting-round="x-1"]').click();
   await expect(page.locator('#meetingList #mcolResult')).toHaveAttribute('data-meeting-result','x-1');
-  await expect(page.locator('#meetingList #mcolResult [data-report-kind-label]')).toHaveText('기타 칸');
+  await expect(page.locator('#meetingList #mcolResult #mrdMeta')).toContainText('기타 칸');
   await expect(page.locator('#meetingList [data-meeting-round="x-1"]')).toBeFocused();
   await page.keyboard.press('ArrowUp');await expect(page.locator('#meetingList [data-meeting-round="m-1"]')).toBeFocused();
   await expect(page.locator('#meetingModal')).toBeHidden();
@@ -158,7 +158,7 @@ test('PC 1280: 결과 ⋯ → [칸 바꾸기] PATCH activity_kind, 바꾼 건은
   const s=kindState();await open(page,s,1280);
   await page.locator('#meetingList [data-meeting-kind="합성운영회의"]').click();
   await expect(page.locator('#meetingList #mcolResult')).toHaveAttribute('data-meeting-result','m-2');
-  await page.locator('#meetingList [data-meeting-more]').click();await page.locator('#mcolMenu [data-meeting-menu="kind"]').click();
+  await mrdMenu(page,'kind');
   const sheet=page.locator('#reportKindSheet');await expect(sheet).toBeVisible();await expect(sheet.locator('h2')).toHaveText('칸 바꾸기');
   await expect(sheet.locator('[data-sheet-value="meeting"]')).toHaveAttribute('aria-pressed','true');
   await sheet.locator('[data-sheet-value="struggle"]').click();
@@ -167,7 +167,7 @@ test('PC 1280: 결과 ⋯ → [칸 바꾸기] PATCH activity_kind, 바꾼 건은
   await expect(chip(page,'투쟁')).toHaveAttribute('aria-checked','true');
   await expect(page.locator('#meetingList .mcol-two')).toBeVisible();
   await expect(page.locator('#meetingList #mcolResult')).toHaveAttribute('data-meeting-result','m-2');
-  await expect(page.locator('#meetingList #mcolResult [data-report-kind-label]')).toHaveText('투쟁 칸');
+  await expect(page.locator('#meetingList #mcolResult #mrdMeta')).toContainText('투쟁 칸');
 });
 
 test('폰 390: 결과 창에 칸 표시·[칸 바꾸기] PATCH, 뒤로가기는 고르기 창부터 닫는다',async({page})=>{
@@ -180,7 +180,7 @@ test('폰 390: 결과 창에 칸 표시·[칸 바꾸기] PATCH, 뒤로가기는 
   await mrdMenu(page,'kind');await sheet.locator('[data-sheet-value="education"]').click();
   await expect.poll(()=>s.meetingWrites.at(-1)?.activity_kind).toBe('education');
   await expect(page.locator('#mrdMeta')).toContainText('교육 칸');await expect(page.locator('#mrdStatus')).toContainText('교육');
-  await page.locator('#mrdClose').click();
+  await closeMeetingResult(page);
   await expect(chip(page,'교육')).toHaveAttribute('aria-checked','true');
   await expect(page.locator('#meetingList [data-mrd-meeting="p-1"]')).toBeVisible();
   expect(await noSideScroll(page)).toBe(true);
@@ -215,8 +215,13 @@ for(const width of [390,1280])test(`${width}: 상세 창 - 정리함 담기·안
   expect(await noSideScroll(page)).toBe(true);
   // ⋯ 하나에 [수정][칸 바꾸기][삭제], 제목 줄 오른쪽(×의 왼쪽)에 있다.
   const more=modal.locator('#mrdMore'),close=modal.locator('#mrdClose');
-  const mb=await more.boundingBox(),cb=await close.boundingBox(),tb=await modal.locator('#mrdTitle').boundingBox();
-  expect(mb.x).toBeGreaterThan(tb.x);expect(mb.x+mb.width).toBeLessThanOrEqual(cb.x+1);expect(Math.abs((mb.y+mb.height/2)-(cb.y+cb.height/2))).toBeLessThan(6);
+  if(width===390){
+    const mb=await more.boundingBox(),cb=await close.boundingBox(),tb=await modal.locator('#mrdTitle').boundingBox();
+    expect(mb.x).toBeGreaterThan(tb.x);expect(mb.x+mb.width).toBeLessThanOrEqual(cb.x+1);expect(Math.abs((mb.y+mb.height/2)-(cb.y+cb.height/2))).toBeLessThan(6);
+  }else{
+    // PC: 팝업이 아니라 세 번째 칸에 붙은 화면이라 ×가 없고, ⋯만 머리 오른쪽에 있다.
+    await expect(close).toBeHidden();await expect(page.locator('#mcolResult #mrdMore')).toBeVisible();
+  }
   await more.click();
   await expect(modal.locator('#mrdMoreMenu button')).toHaveText(['수정','칸 바꾸기','삭제']);
   await page.keyboard.press('Escape');await expect(modal.locator('#mrdMoreMenu')).toBeHidden();
@@ -237,7 +242,7 @@ test('1280: 상세 창 우클릭도 같은 ⋯ 메뉴',async({page})=>{
   await chip(page,'회의').click();
   await openMeetingResult(page,'m-2');
   const modal=page.locator('#meetingRoundDetailModal');await expect(modal).toBeVisible();
-  await modal.locator('#mrdTitle').click({button:'right'});
+  await modal.locator('#mrdMeta').click({button:'right'});
   await expect(modal.locator('#mrdMoreMenu')).toBeVisible();await expect(modal.locator('#mrdMoreMenu button')).toHaveText(['수정','칸 바꾸기','삭제']);
   expect(errors).toEqual([]);
 });
@@ -255,7 +260,7 @@ test('수정 창: 다른 칸은 차수 줄이 없고, 옛 차수가 든 기록�
   await modal.locator('#mrdEditTranscript').fill('고친 합성 원문');await modal.locator('#mrdSaveEdit').click();
   await expect.poll(()=>s.meetingWrites.at(-1)?.transcript_text).toBe('고친 합성 원문');
   expect('round_no' in s.meetingWrites.at(-1)).toBe(false);
-  await modal.locator('#mrdClose').click();
+  await closeMeetingResult(page);
   await chip(page,'정책').click();await page.locator('#meetingList [data-mrd-meeting="r-1"]').click();
   await mrdMenu(page,'edit');
   await expect(modal.locator('#mrdEditRound')).toHaveValue('4');

@@ -27,7 +27,7 @@ async function open(page,width,options={}){
   await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
   await expect(page.locator('#meetingList .mcol-layout>.split-resize-handle')).toHaveCount(2);
   // 오른쪽 결과의 후속 할 일까지 불러온 뒤(그 뒤에는 칸을 다시 그리지 않는다) 잰다.
-  await expect(page.locator('#meetingList #mcolTasks')).not.toContainText('불러오는 중');
+  await expect(page.locator('#meetingList #mcolResult #mrdMeta')).toBeVisible();await expect(page.locator('#meetingList #mrdLoading')).toBeHidden();
   await settle(page);
   return errors;
 }
@@ -85,7 +85,7 @@ for(const width of [1280,1440,1920]){
   expect(Math.abs(kept.kinds-m.kinds)).toBeLessThanOrEqual(2.5);expect(Math.abs(kept.rounds-m.rounds)).toBeLessThanOrEqual(2.5);
   await expect.poll(()=>{const v=stored();return typeof v==='number'&&v>0&&v<1}).toBe(true);
   await page.reload();await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
-  await expect(page.locator('#meetingList .mcol-layout>.split-resize-handle')).toHaveCount(2);await expect(page.locator('#meetingList #mcolTasks')).not.toContainText('불러오는 중');await settle(page);
+  await expect(page.locator('#meetingList .mcol-layout>.split-resize-handle')).toHaveCount(2);await expect(page.locator('#meetingList #mcolResult #mrdMeta')).toBeVisible();await expect(page.locator('#meetingList #mrdLoading')).toBeHidden();await settle(page);
   const back=await widths(page);expect(Math.abs(back.kinds/back.total-m.kinds/m.total)).toBeLessThan(0.01);expect(Math.abs(back.rounds/back.total-m.rounds/m.total)).toBeLessThan(0.01);
 
   // 최소 폭: 맨 왼쪽·맨 오른쪽 끝까지 끌어도 종류·차수 120, 결과 360 아래로 줄지 않는다.

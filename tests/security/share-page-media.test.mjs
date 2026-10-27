@@ -26,7 +26,7 @@ test('inspectJpeg accepts a plain redrawn JPEG and refuses EXIF, XMP, IPTC and n
 });
 
 function media(){
- const state={pages:new Map([[PAGE,WS]]),blocks:new Map(),rows:new Map(),files:new Map(),failFile:new Set(),tokens:{good:'u1',other:'u2'},calls:[]};
+ const state={pages:new Map([[PAGE,WS]]),trash:new Set([PAGE]),blocks:new Map(),rows:new Map(),files:new Map(),failFile:new Set(),tokens:{good:'u1',other:'u2'},calls:[]};
  const owns=t=>t==='good';
  const deps={
   async userId(t){return state.tokens[t]??null;},
@@ -41,7 +41,8 @@ function media(){
   async removeFile(p){state.calls.push('remove');if(state.failFile.has(p))return false;state.files.delete(p);return true;},
   async signFile(p,s){return state.files.has(p)?`https://x.supabase.co/storage/v1/object/sign/share-page-media/${p}?token=t&s=${s}`:null;},
   async listFiles(folder){state.calls.push('list:'+folder);if(state.failList)return null;return [...state.files.keys()].filter(p=>p.startsWith(folder+'/')).map(p=>p.slice(folder.length+1));},
-  async deletePage(t,id){state.calls.push('deletePage');if(!owns(t)||!state.pages.has(id))return 0;state.pages.delete(id);for(const [k,r] of state.rows)if(r.page_id===id)state.rows.delete(k);return 1;},
+  async trashedPage(t,id){return owns(t)&&state.trash.has(id);},
+  async deletePage(t,id){state.calls.push('deletePage');if(!owns(t)||!state.trash.has(id)||!state.pages.has(id))return 0;state.pages.delete(id);state.trash.delete(id);for(const [k,r] of state.rows)if(r.page_id===id)state.rows.delete(k);return 1;},
  };
  return {state,handler:createShareMediaHandler(deps,{newId:()=>P1,log:()=>{}})};
 }
@@ -81,7 +82,7 @@ test('media: no login, a stranger, a foreign page, EXIF, oversize and wrong shap
 });
 test('media: a row that cannot be saved removes the file again',async()=>{
  const {state}=media();
- const h=createShareMediaHandler({userId:async()=>'u',pageWorkspace:async()=>WS,insertRow:async()=>false,rowsFor:async()=>[],rowById:async()=>null,deleteRow:async()=>true,pageBlocks:async()=>[],rowsForPage:async()=>[],listFiles:async()=>[],deletePage:async()=>0,
+ const h=createShareMediaHandler({userId:async()=>'u',pageWorkspace:async()=>WS,insertRow:async()=>false,rowsFor:async()=>[],rowById:async()=>null,deleteRow:async()=>true,pageBlocks:async()=>[],rowsForPage:async()=>[],listFiles:async()=>[],trashedPage:async()=>false,deletePage:async()=>0,
   putFile:async(p,b)=>{state.files.set(p,b);return true;},removeFile:async p=>{state.files.delete(p);return true;},signFile:async()=>null},{newId:()=>P1,log:()=>{}});
  assert.equal((await upload(h)).status,503);assert.equal(state.files.size,0);
 });
@@ -201,13 +202,26 @@ test('purge_page: no login, a stranger, a foreign page and a bad id remove nothi
  assert.equal(state.pages.has(PAGE),true);assert.equal(state.rows.size,1);assert.equal(state.files.size,1);
  assert.equal(state.calls.filter(c=>c==='remove'||c==='deletePage'||c.startsWith('list:')).length,0);
 });
-test('purge_page index: page row delete goes through the caller token (owner RLS), the bucket is listed only in the page folder',()=>{
+test('purge_page: a page that is not in the trash (a live page) is never purged: 404, no file or row touched',async()=>{
+ const {state,handler}=media();
+ put(state,P1);state.trash.delete(PAGE); // the page is live (not deleted to the trash)
+ assert.equal((await json(handler,{action:'purge_page',page_id:PAGE})).status,404);
+ assert.equal(state.pages.has(PAGE),true);assert.equal(state.rows.size,1);assert.equal(state.files.size,1);
+ assert.equal(state.calls.filter(c=>c==='remove'||c==='deletePage'||c.startsWith('list:')).length,0);
+ state.trash.add(PAGE); // once it is in the trash, the same call purges it
+ assert.equal((await json(handler,{action:'purge_page',page_id:PAGE})).status,200);
+ assert.equal(state.pages.has(PAGE),false);assert.equal(state.files.size,0);
+});
+test('purge_page index: the trash check and the page row delete go through the caller token (DB functions app_trash_list / app_trash_purge), the bucket is listed only in the page folder',()=>{
  const index=readFileSync('supabase/functions/share-page-media/index.ts','utf8');
- assert.match(index,/asUser\(token\)\.from\("app_share_pages"\)\.delete\(\)\.eq\("id", pageId\)/);
+ assert.match(index,/asUser\(token\)\.rpc\("app_trash_list", \{ p_kind: "share_page" \}\)/);
+ assert.match(index,/asUser\(token\)\.rpc\("app_trash_purge", \{ p_kind: "share_page", p_id: pageId \}\)/);
+ assert.doesNotMatch(index,/from\("app_share_pages"\)\.delete\(\)/);
  assert.match(index,/admin\.storage\.from\(BUCKET\)\.list\(folder/);
  assert.doesNotMatch(index,/admin\.from\(/);
  const handler=readFileSync('supabase/functions/share-page-media/handler.ts','utf8');
  assert.match(handler,/deps\.listFiles\(pageId\)/);
+ assert.match(handler,/deps\.trashedPage\(token, pageId\)/);
 });
 const doc=(...srcs)=>({type:'doc',v:'ed1',doc:{type:'doc',content:srcs.map(src=>({type:'image',attrs:{src,alt:''}}))}});
 function reader(blocks,{status='published',dead=false}={}){
