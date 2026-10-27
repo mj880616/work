@@ -91,11 +91,11 @@ for(const width of [390,1280])test(`menu entry opens a device HWP and hands the 
     expect(editor.y).toBeLessThanOrEqual(90);
     expect(editor.y+editor.h).toBeGreaterThanOrEqual(844-1);
     // [파일 ▾]: 파일 선택·노조 양식으로 새 문서·노조 서식으로 만들기. [저장 ▾]: 내 기기에 저장·자료실에 올리기(파일을 열기 전에는 꺼짐).
-    await openHwpMenu(page,'hwpLabPick',{tap:true});
+    await openHwpMenu(page,'hwpLabPick');
     await expect(page.locator('#hwpBarMenu button')).toHaveText(['파일 선택','노조 양식으로 새 문서','노조 서식으로 만들기']);
     await page.keyboard.press('Escape');
     await expect(page.locator('#hwpBarMenu')).toBeHidden();
-    await openHwpMenu(page,'hwpLabSave',{tap:true});
+    await openHwpMenu(page,'hwpLabSave');
     await expect(page.locator('#hwpBarMenu button')).toHaveText(['내 기기에 저장','자료실에 올리기']);
     await expect(hwpMenuItem(page,'hwpLabSave')).toBeDisabled();
     await page.keyboard.press('Escape');
@@ -119,7 +119,7 @@ for(const width of [390,1280])test(`menu entry opens a device HWP and hands the 
   page.on('dialog',dialog=>{seen.dialogs.push(dialog.message());void dialog.dismiss()});
   await openAndType(page,width);
   await page.screenshot({path:info.outputPath(`hwp-menu-${width}.png`)});
-  await hwpPress(page,'hwpLabUpload',{tap:width<761});
+  await hwpPress(page,'hwpLabUpload');
   // The library's own dialog opens with the edited HWP selected; project and category stay for the person.
   await expect(page.locator('#libraryView')).toBeVisible();
   await expect(page.locator('#documentModal')).toBeVisible();
