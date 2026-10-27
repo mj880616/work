@@ -264,3 +264,25 @@
 .feed-view .feed-se-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px}
 .feed-view .feed-se-actions .feed-status{flex:1 1 auto;margin:0;min-width:0}
 .feed-view .feed-se-orig{order:-1;margin-right:auto;font-size:11px;white-space:nowrap}
+
+/* TG-원문폰배치: 원문 메시지·시각별 요약·통화 전문 줄. PC(761px 이상)는 왼쪽 칸 그대로.
+   폰(760px 이하, 폴드 접힘·펼침 공통)은 '시각 · 이름'을 작은 한 줄로 올리고 글은 화면 폭 전체. 긴 원문은 6줄로 접고 [더보기]. 크기·색은 기존 토큰만(UI-버튼기준). */
+.feed-view .feed-rt-more{display:none}
+@media(max-width:760px){
+  .feed-view .feed-rm{flex-wrap:wrap;align-items:baseline;column-gap:4px;row-gap:1px}
+  .feed-view .feed-rm .feed-at{width:auto}
+  .feed-view .feed-rm .feed-who,.feed-view .feed-raw-wide .feed-who{flex:0 1 auto;width:auto;min-width:0;max-width:calc(100% - 48px);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:11px}
+  .feed-view .feed-rm .feed-who::before{content:"· "}
+  .feed-view .feed-rm .feed-whotag{display:inline-block;margin-left:6px}
+  .feed-view .feed-rm .feed-rt{flex:1 0 100%}
+  .feed-view .feed-rt.is-fold:not(.is-more){display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:6;line-clamp:6;overflow:hidden}
+  .feed-view .feed-rt-more{position:relative;display:inline-block;margin:0;padding:0;border:0;background:transparent;color:var(--kptu-muted);font:inherit;font-size:11px;text-decoration:underline dotted;text-underline-offset:2px;cursor:pointer}
+  .feed-view .feed-rt-more[hidden]{display:none}
+  .feed-view .feed-rt-more::after{content:"";position:absolute;inset:-10px -8px}
+  .feed-view .feed-rt-more:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
+  .feed-view .feed-di-row{flex-wrap:wrap;row-gap:0}
+  .feed-view .feed-di-row>.feed-at{flex:1 0 100%;width:auto;padding-top:0}
+  .feed-view .feed-di>.feed-raw,.feed-view .feed-di>.feed-faint,.feed-view .feed-di>.feed-link{margin-left:0}
+  .feed-view .feed-script p{flex-direction:column;gap:0}
+  .feed-view .feed-script b{max-width:none;font-size:11px}
+}

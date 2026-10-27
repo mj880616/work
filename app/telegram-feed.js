@@ -21,7 +21,7 @@ import {readSenders, setSenderName, mergeSenders, forgetSender} from './tg-sende
 import {lineOf, rdKey, splitRdKey, liveLines, groupLines, neighborDays, daysNeedingTitles, titleIndex, lineText, daySummary, openTarget, COPY_NOTE,
   firstWindow, olderWindow, reachedEnd, chunksOf, cleanFolderName, FOLDER_ERROR_TEXT, archivedRooms, withRoomState,
   swipeIntent, swipeEdge, swipeOffset, swipeSettle, swipeOpenOffset, allowOf, SWIPE_ACTIONS, ACTION_LABEL,
-  SUMEDIT, SUMEDIT_TEXT, editMap, itemTarget, dayTarget, itemSummary, isItemEdited, applyLineEdit, dayEdit, cleanSummaryInput, cleanDayInput, dayPatch, sumEditErrorText, linesToText} from './tg-day-model.mjs';
+  SUMEDIT, SUMEDIT_TEXT, editMap, itemTarget, dayTarget, itemSummary, isItemEdited, applyLineEdit, dayEdit, cleanSummaryInput, cleanDayInput, dayPatch, sumEditErrorText, linesToText, rawFoldable, rawMoreKey} from './tg-day-model.mjs';
 
 const rt = window.KPTURuntime;
 const $ = sel => document.querySelector(sel);
@@ -39,7 +39,7 @@ const ICON = {
 
 // state.mode: live (방·날 목록) | archive (보관함) | trash (휴지통) | senders (보낸 사람 이름). state.folder: 칸 줄에서 고른 폴더('' = 전체). state.swipe: 열려 있는 줄 {key, side}. state.sel: 열린 방 상세 {room, day}. state.open: 원문을 펼친 소식 ID.
 let state = fresh(), run = 0, layer = null, shelfLayer = null, editLayer = null, undo = null, undoTimer = 0;
-function fresh() { return {owner:'', loaded:false, missing:false, error:'', lines:[], from:'', end:false, titles:new Map(), pins:[], trashed:[], trashedDays:[], folders:[], rooms:new Map(), folder:'', swipe:null, fedit:null, mode:'live', days:[], orgs:[], mine:new Set(), sel:null, open:new Set(), dcache:new Map(), raw:new Map(), link:null, senders:null, sidx:null, sedit:null, sman:null, edits:null, se:null, note:'', status:'', busy:false}; }
+function fresh() { return {owner:'', loaded:false, missing:false, error:'', lines:[], from:'', end:false, titles:new Map(), pins:[], trashed:[], trashedDays:[], folders:[], rooms:new Map(), folder:'', swipe:null, fedit:null, mode:'live', days:[], orgs:[], mine:new Set(), sel:null, open:new Set(), more:new Set(), dcache:new Map(), raw:new Map(), link:null, senders:null, sidx:null, sedit:null, sman:null, edits:null, se:null, note:'', status:'', busy:false}; }
 
 function install() {
   if ($('#telegramView')) return;
@@ -231,7 +231,7 @@ function rawHtml(r) {
   if (!raw.raw_text) return '<p class="feed-faint">Web2에 남은 원문이 없어요. 원본은 Drive에 있어요.</p>';
   const canName = !!state.senders && !!r.room_key && !!r.day, rows = rawRows(telegramLines(raw.raw_text), state.sidx, r.room_key, r.day, {canName});
   const editing = state.sedit?.kind === 'raw' && state.sedit.rowId === r.id ? state.sedit.label : '';
-  return `<div class="feed-raw${canName ? ' feed-raw-wide' : ''}" data-tg-raw>${rows.map(l => rawLineHtml(l, editing)).join('')}</div>`;
+  return `<div class="feed-raw${canName ? ' feed-raw-wide' : ''}" data-tg-raw>${rows.map((l, i) => rawLineHtml(l, editing, rawMoreKey(r.id, i))).join('')}</div>`;
 }
 function paintDetail() {
   const box = $('#tgDetail'), sel = state.sel;
@@ -257,13 +257,23 @@ function paintDetail() {
     body = sumBox + (items.length ? `<div class="feed-ditems">${items.map(itemHtml).join('')}</div>` : '<p class="feed-faint">이 날 남은 소식이 없어요.</p>');
   }
   box.innerHTML = `${head}${nav}${note}<div class="feed-detail" data-tg-detail="${esc(selKey())}">${body}<p class="feed-status" data-tg-detail-status role="status">${statusHtml()}</p></div>${undoHtml()}`;
+  fitRawFolds(box);
 }
 
 // 한 줄: 시간 · 말한 사람(이름 > 나 > 수집기 이름 > A) · 글. 이름 없는 라벨의 그 날 첫 줄에만 [이름 붙이기]. 편집 중이면 그 줄 바로 아래에 이름 상자.
-function rawLineHtml(l, editing) {
+// 접기 후보 중 실제로 6줄 안에 다 들어간 글(폴드 펼침 폭, PC 세 칸)은 [더보기]를 감춘다. 그린 직후 같은 그리기 안에서 한 번 잰다.
+function fitRawFolds(box) {
+  for (const b of box.querySelectorAll('[data-tg-rt-more][aria-expanded="false"]')) {
+    const t = b.previousElementSibling;
+    if (t && t.scrollHeight <= t.clientHeight + 1) { b.hidden = true; t.classList.remove('is-fold'); }
+  }
+}
+// TG-원문폰배치: 폰(760px 이하)에서는 '시각 · 이름' 작은 한 줄 아래 글이 화면 폭 전체. 긴 글은 6줄로 접고 [더보기](펼친 상태는 state.more, 메모리만). PC는 세 칸 그대로.
+function rawLineHtml(l, editing, moreKey) {
   const k = l.shown.kind, cls = `feed-who${k === 'label' ? '' : ' is-named'}${k === 'self' ? ' is-self' : ''}${l.same ? ' is-same' : ''}`;
+  const fold = rawFoldable(l.text), more = fold && state.more.has(moreKey);
   const tag = l.tag ? `<button type="button" class="feed-whotag" data-tg-name-open="${esc(l.who)}" aria-label="${esc(l.who)} 이름 붙이기">이름 붙이기</button>` : '';
-  const row = `<div class="feed-rm"><span class="feed-at">${esc(l.at)}</span><span class="${cls}" title="${esc(l.shown.text)}">${esc(l.shown.text)}${tag}</span><span class="feed-rt">${l.forwarded ? '<span class="feed-faint">(전달)</span> ' : ''}${esc(l.text)}</span></div>`;
+  const row = `<div class="feed-rm"><span class="feed-at">${esc(l.at)}</span><span class="${cls}" title="${esc(l.shown.text)}">${esc(l.shown.text)}${tag}</span><span class="feed-rt${fold ? ` is-fold${more ? ' is-more' : ''}` : ''}">${l.forwarded ? '<span class="feed-faint">(전달)</span> ' : ''}${esc(l.text)}</span>${fold ? `<button type="button" class="feed-rt-more" data-tg-rt-more="${esc(moreKey)}" aria-expanded="${more}">${more ? '접기' : '더보기'}</button>` : ''}</div>`;
   return l.tag && editing === l.who ? row + sboxHtml() : row;
 }
 
@@ -373,13 +383,13 @@ function saveMan() {
 function select(room, day, item = '') {
   if (state.link && !dropLink()) return;
   if (state.sedit?.kind === 'raw') endEdit();
-  state.sel = {room, day}; state.status = ''; state.note = ''; state.open = new Set(item ? [item] : []); undo = null;
+  state.sel = {room, day}; state.status = ''; state.note = ''; state.open = new Set(item ? [item] : []); state.more = new Set(); undo = null;
   if (!pc.matches) layer ||= window.KPTURouter?.layer?.open('telegram-day', {close:() => { layer = null; closeDetail({fromBack:true}); return true; }}) || null;
   paint(); void ensureDetail().then(() => { if (item) void loadRaw(item); });
   (pc.matches ? $(`#tgList [data-tg-rdopen="${CSS.escape(rdKey(room, day))}"]`) : $('#tgDetail [data-tg-back]'))?.focus({preventScroll:true});
 }
 function closeDetail({fromBack = false, quiet = false} = {}) {
-  const key = selKey(); state.sel = null; state.link = null; state.note = ''; state.open = new Set(); if (state.sedit?.kind === 'raw') endEdit();
+  const key = selKey(); state.sel = null; state.link = null; state.note = ''; state.open = new Set(); state.more = new Set(); if (state.sedit?.kind === 'raw') endEdit();
   const l = layer; layer = null; if (!fromBack) l?.close();
   if (quiet) return;
   paint(); $(`#tgList [data-tg-rdopen="${CSS.escape(key)}"]`)?.focus({preventScroll:true});
@@ -399,7 +409,7 @@ async function navDay(dir) {
   }
   const day = dir === 'prev' ? nb.prev : nb.next; if (!day) return;
   if (state.sedit?.kind === 'raw') endEdit();
-  state.sel = {room:sel.room, day}; state.open = new Set(); state.link = null; state.note = ''; state.status = '';
+  state.sel = {room:sel.room, day}; state.open = new Set(); state.more = new Set(); state.link = null; state.note = ''; state.status = '';
   paint(); void ensureDetail();
 }
 function dropLink() { const r = itemOf(state.link?.rowId), changed = state.link && r && state.link.summary.trim() !== newLinkBox(r).summary.trim(); if (changed && !window.confirm('쓰던 요약을 버릴까요?')) return false; state.link = null; return true; }
@@ -755,6 +765,7 @@ function bind() {
     else if (d.tgRestore) void restoreItem(d.tgRestore);
     else if (b.hasAttribute('data-tg-older')) { b.disabled = true; void extend().then(() => paintList()).catch(() => { state.status = '이전 날을 불러오지 못했어요.'; paintList(); }); }
     else if (b.hasAttribute('data-tg-shelf-back')) { leaveShelf(); paint(); }
+    else if (d.tgRtMore) { const k = d.tgRtMore; if (state.more.has(k)) state.more.delete(k); else state.more.add(k); paintDetail(); $(`#tgDetail [data-tg-rt-more="${CSS.escape(k)}"]`)?.focus({preventScroll:true}); }
     else if (d.tgOpen) { const id = d.tgOpen; if (state.open.has(id)) { state.open.delete(id); if (state.link?.rowId === id && !dropLink()) { state.open.add(id); return; } if (state.sedit?.rowId === id) endEdit(); } else { state.open.add(id); void loadRaw(id); } paintDetail(); }
     else if (d.tgMore) menu.open(b);
     else if (b.hasAttribute('data-tg-head-more')) menu.open(b);

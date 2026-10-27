@@ -182,6 +182,9 @@ jobs:
       - name: Check shared Enter-to-save rule (UI-엔터저장)
         run: node --test tests/enter-save.test.mjs
 
+      - name: Check Telegram raw lines phone layout (TG-원문폰배치)
+        run: node --test tests/tg-raw-fold.test.mjs
+
       - name: Check meeting draft parser
         run: node --test tests/meeting-draft-parser.test.mjs
 
