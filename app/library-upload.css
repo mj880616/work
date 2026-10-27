@@ -31,6 +31,13 @@
 .library-edit-prev-row:first-child{border-top:0}
 .library-edit-prev-file{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;align-self:center;font-size:var(--ds-text-row,13px);color:var(--kptu-link)}
 .library-edit-prev-row small{flex:0 0 auto;font-size:var(--ds-text-meta,12px);color:var(--kptu-faint)}
+/* LIB-이전파일정리: 줄 끝 'N일 뒤 삭제'(작은 글자) + 작은 [계속 보관]. 새 큰 버튼 없음(보이는 크기 작게, 누르는 범위 44px). */
+.library-edit-prev-end{display:flex;flex:0 0 auto;align-items:baseline;gap:6px;margin-left:auto}
+.library-edit-prev-del.kept{color:var(--kptu-muted)}
+.library-edit-prev-keep{position:relative;align-self:center;min-height:24px;padding:0 6px;border:0;background:transparent;font:inherit;font-size:var(--ds-text-meta,12px);color:var(--kptu-link);cursor:pointer}
+.library-edit-prev-keep::after{content:"";position:absolute;left:-4px;right:-4px;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+.library-edit-prev-keep:disabled{opacity:.5;cursor:default}
+.library-edit-prev-keep:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2px}
 @media(max-width:650px){
   .library-picker-hint{font-size:var(--kptu-text-meta)!important}
   .library-selected-file{padding:9px 10px}

@@ -28,6 +28,8 @@ const CLASSIFIED = {
   '_shared/basket-file-origin.ts': 'unfiltered-on-purpose',
   // 일기사진정리: 서버 키로 모든 노트(휴지통 포함)의 첨부 목록을 읽어, 어떤 노트가 쓰는 Drive 사진도 휴지통에 보내지 않는다
   'basket-files/photo-prune.ts': 'unfiltered-on-purpose',
+  // 이전파일정리: 서버 키로 모든 노트(휴지통 포함)의 첨부를 읽어, 어떤 노트가 쓰는 Drive 파일도 휴지통에 보내지 않는다
+  'drive-summary/library-prev-prune.mjs': 'unfiltered-on-purpose',
   // 사용자 토큰(로그인 JWT)으로 읽음: 휴지통 숨김 정책(restrictive)이 자동으로 거른다
   'ai-assist/handler.ts': 'user-token',
   'basket-files/ocr.ts': 'user-token',

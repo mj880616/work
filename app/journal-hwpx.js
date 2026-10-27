@@ -35,6 +35,7 @@
 //   [처음부터]도 docs는 남긴다.
 // - 이 상자 하나만 이 모듈이 그린다(journal.js는 자리만 주고 주·자료가 바뀌면 알려 줌). 브라우저 저장소에 아무것도 두지 않는다.
 import {selectMyOrganizations} from './my-organizations.js';
+import {flashDone} from './press-feedback.js';
 import {loadDisputeState} from './org-dispute-stage.js';
 import {shortDay, reportDay, todayKey} from './journal-data.js';
 import {scheduleForm} from './journal-weekly.js';
@@ -150,9 +151,10 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
   // 임시저장 한 줄: "임시저장 14:32" / "저장 중…" / "저장 못 함 — [다시]" / 준비 중.
   const draftLine = el('p', 'journal-hwpx-draft'); draftLine.dataset.hwpxDraftStatus = ''; draftLine.hidden = true; draftLine.setAttribute('aria-live', 'polite');
   panel.append(title, draftLine, status, body);
+  // UI-눌림느낌: the small [복사] says '✓ 복사됨' for 1.5s once the copy worked.
   // JOURNAL-복사버튼: [주간보고 초안 복사]는 이 줄의 작은 [복사]로 옮김(같은 복사 기능은 journal.js가 onCopy로 넘김). 한글 파일 상자가 열려도 [복사]는 남는다.
   const bar = el('div', 'journal-hwpx-bar');
-  if (onCopy) { const copy = button('복사', 'hwpxCopy'); copy.setAttribute('aria-label', '주간보고 초안 복사'); copy.addEventListener('click', () => onCopy()); bar.append(start, copy); } else bar.append(start);
+  if (onCopy) { const copy = button('복사', 'hwpxCopy'); copy.setAttribute('aria-label', '주간보고 초안 복사'); copy.addEventListener('click', async () => { if (await onCopy()) flashDone(copy); }); bar.append(start, copy); } else bar.append(start);
   host.replaceChildren(bar, panel);
   const say = (text, kind = '') => { status.textContent = text || ''; status.dataset.kind = kind; };
   const lazy = () => lib || (lib = Promise.all([import('./weekly-hwpx/draft.mjs'), import('./hwp-drive.js')]).then(([draft, drive]) => ({draft, drive})));

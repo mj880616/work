@@ -9,6 +9,7 @@
 // - 자동 기록이 할 수 있는 일은 더하기뿐(새 기록 / 변화로 이어 붙이기 / 근거 추가) + 이미 뽑은 기록 '확인필요' 표시. 기존 기록 칸은 고치지 않는다.
 import { cleanLine, cleanMaterial, normalizeTitle, type SourceKind } from "./todo-radar.ts";
 import { ledgerDedupKey, looksPersonal } from "./ledger-candidates.ts";
+import { AI_TONE_RULE } from "../_shared/ai-model.ts";
 
 export const AUTO_KINDS = Object.freeze(["event", "change", "decision", "commitment"] as const);
 export type AutoKind = typeof AUTO_KINDS[number];
@@ -139,7 +140,8 @@ export const LEDGER_AUTO_INSTRUCTIONS = [
   "known_records에 있는 사건(kind=event)이 이어지거나 바뀐 것이면 kind=change로 만들고 event에 그 사건 id를 그대로 쓴다. 아니면 event는 빈 문자열.",
   "id는 known_records·already에 있는 값만 쓴다. 목록에 없는 id를 만들지 않는다.",
   "title은 한국어 한 줄 40자 안팎(120자 이하), 명사형으로 맺는다(예: \"가 지부 임금교섭 3차 결렬.\").",
-  "summary는 무슨 일이 언제 누구 사이에 있었는지 2~3문장(600자 이하), 명사형으로 맺는다. 원문 전체를 옮기지 않는다.",
+  "summary는 무슨 일이 언제 누구 사이에 있었는지 2~3문장(600자 이하)으로 쓴다. 원문 전체를 옮기지 않는다.",
+  AI_TONE_RULE,
   "date는 그 일이 일어난 날이 재료에 분명할 때만 YYYY-MM-DD(today 기준으로 계산), 아니면 빈 문자열.",
   "commitment는 counterparty(약속한 상대, 100자 이하)를 꼭 쓰고, 기한이 분명하면 follow_up_on에 YYYY-MM-DD. 다른 kind는 둘 다 빈 문자열.",
   "decision이면 decision_type을 adopted(채택)·rejected(기각)·on_hold(보류)·changed(변경) 중 하나로, 아니면 빈 문자열.",

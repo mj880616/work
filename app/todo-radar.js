@@ -12,6 +12,7 @@ import {readHomeCandidates, readWeekCandidates, findTodos, dismissCandidate, reo
   RADAR_SOURCE_LABEL, HOME_ROWS, TASK_TITLE_MAX} from './todo-radar-data.js';
 import {formatSeoulTime, seoulDateKey, seoulDayStart, addSeoulDays} from './meeting-time.js';
 import {copyText} from './copy-text.js';
+import {flashDone} from './press-feedback.js';
 import {offerUndoNotice} from './basket-record-delete.js';
 import {requestBasketNote, requestNoteDocOpen} from './basket-note-tasks.js';
 
@@ -275,6 +276,7 @@ export function mountRadar(host, {place}) {
       const p = dayPromises()[Number(d.radarLedger)]; if (!p) return;
       const ok = await copyText(ledgerRequestText(p));
       shared.status = ok ? '원장에 넣을 약속 문구를 복사했어요.' : '복사하지 못했어요.'; notify(false);
+      if (ok) flashDone(() => host.querySelector(`[data-radar-ledger="${CSS.escape(d.radarLedger)}"]`)); // UI-눌림느낌: after the repaint, the new button says '✓ 복사됨'
     }
   }, on);
   window.addEventListener(CHANGED, event => {
