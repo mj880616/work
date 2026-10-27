@@ -68,7 +68,7 @@ test('폰 오른쪽 밀기: [폴더로](파랑)·[보관](연노랑) 두 버튼,
  await btns.nth(1).tap();
  await expect.poll(()=>rpc(f,'app_feed_room_set').length).toBe(1);
  expect(rpc(f,'app_feed_room_set')[0].body).toEqual({p_room_key:'room-a',p_folder:null,p_archived:true});
- expect(await keys(view)).toEqual([B6,B3]);
+ await expect.poll(()=>keys(view)).toEqual([B6,B3]);
  await expect(view.locator('[data-tg-folder="' + '' + '"]')).toBeVisible();
  await expect(view.locator('.feed-chiprow [data-tg-shelf]')).toHaveText('보관함 2');
  const bar=view.locator('[data-tg-undobar]');await expect(bar).toContainText('보관했어요');
@@ -91,7 +91,7 @@ test('폰 왼쪽 밀기: [삭제] 한 버튼, 그 날 한 줄만 빠지고(같�
  await del.tap();
  await expect.poll(()=>rpc(f,'app_feed_room_day_set').length).toBe(1);
  expect(rpc(f,'app_feed_room_day_set')[0].body).toEqual({p_room_key:'room-a',p_day:'2026-10-06',p_state:'trashed'});
- expect(await keys(view)).toEqual([B6,A5,B3]);
+ await expect.poll(()=>keys(view)).toEqual([B6,A5,B3]);
  await expect(view.locator('[data-tg-undobar]')).toContainText('삭제했어요');
  await view.locator('[data-tg-undo]').tap();
  await expect.poll(()=>rpc(f,'app_feed_room_day_set').length).toBe(2);

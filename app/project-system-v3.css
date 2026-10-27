@@ -112,7 +112,7 @@
   .ps3-detail-card{padding:var(--kptu-space-4)}
   .ps3-modal-head{top:-16px}
   .ps3-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .ps3-summary{grid-template-columns:1fr}
+  .ps3-summary{grid-template-columns:minmax(0,1fr)}
   .ps3-summary b{margin-top:var(--kptu-space-1)}
   .ps3-row{align-items:flex-start}
   #projectsView>.section-head{flex-direction:column;align-items:stretch}
@@ -127,7 +127,7 @@
 .ps3-type-row b{display:block;font-size:11px}
 .ps3-type-row small{display:block;margin-top:2px;color:var(--kptu-muted);font-size:9.5px}
 @media(max-width:760px){
-  .ps3-type-control{grid-template-columns:1fr}
+  .ps3-type-control{grid-template-columns:minmax(0,1fr)}
   .ps3-type-control .mini{justify-self:start}
 }
 

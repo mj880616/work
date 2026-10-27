@@ -15,14 +15,12 @@ for(const width of [390,1000])test(`공용 알약 필터·2단 프로젝트·키
   await expect(group.getByRole('radio')).toHaveText(['전체','궤도협의회','노사협의회','안전위원회','정책회의','현안회의','후속회의','회의명 미지정']);
   await group.getByRole('radio',{name:'회의명 미지정',exact:true}).click();await expect(page.locator('.meeting-list-row')).toHaveCount(1);
   await group.getByRole('radio',{name:'궤도협의회',exact:true}).click();await expect(page.locator('.meeting-list-row')).toHaveCount(1);
-  // UI-디자인기준 3/3(8-9e-1): the meeting color is the dot before the name (it was the row's left stripe).
-  const color=await page.locator('.meeting-list-row').evaluate(e=>getComputedStyle(e.querySelector('.meeting-list-title'),'::before').backgroundColor);
-  expect(await group.locator('[data-filter-value="궤도협의회"] .filter-chip-dot').evaluate(e=>getComputedStyle(e).backgroundColor)).toBe(color);
+  // UI-화면폭넘침: 줄 앞 색 점은 없다(색은 필터 칩 점만).
+  expect(await page.locator('.meeting-list-row').evaluate(e=>getComputedStyle(e.querySelector('.meeting-list-title'),'::before').content)).toBe('none');
   await page.keyboard.press('ArrowRight');await expect(group.getByRole('radio',{name:'노사협의회',exact:true})).toBeFocused();await page.keyboard.press('Space');
   await expect(page.locator('.meeting-list-row h3')).toHaveText('노사협의회');
   await page.keyboard.press('ArrowLeft');await page.keyboard.press('Enter');await expect(page.locator('.meeting-list-row h3')).toHaveText('궤도협의회');
   await group.getByRole('radio',{name:'전체',exact:true}).click();await expect(page.locator('.meeting-list-row')).toHaveCount(s.meetings.length);
-  const namedColors=await page.locator('.meeting-list-row').evaluateAll(rows=>rows.slice(0,3).map(e=>getComputedStyle(e.querySelector('.meeting-list-title'),'::before').backgroundColor));expect(new Set(namedColors).size).toBe(3);
   if(width===390){
     await group.getByRole('radio',{name:'후속회의',exact:true}).tap();expect(await group.evaluate(e=>e.scrollLeft)).toBeGreaterThan(0);
     await page.evaluate(async()=>{document.querySelector('#meetingTypeFilter').value='회의명 미지정';await window.__KPTU_RELOAD_MEETINGS__()});
