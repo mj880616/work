@@ -21,7 +21,7 @@ test('real basket-files OCR and upload graph checks/bundles with functions-only 
    assert.ok(path!=='..'&&!path.startsWith('..'+sep)&&!isAbsolute(path),'import outside deployment artifact');
    local.push(relative(functions,file).split(sep).join('/'));
   }
-  assert.deepEqual(local.sort(),['_shared/basket-ocr-text.mjs','_shared/drive-ocr.ts','_shared/drive-photo.ts','_shared/drive-upload.ts','_shared/multipart.ts','basket-files/drive-trash.ts','basket-files/handler.ts','basket-files/index.ts','basket-files/note-delete.ts','basket-files/ocr.ts','basket-files/photo-prune.ts','basket-files/photo.ts']);
+  assert.deepEqual(local.sort(),['_shared/basket-ocr-text.mjs','_shared/drive-ocr.ts','_shared/drive-photo.ts','_shared/drive-trash.ts','_shared/drive-upload.ts','_shared/multipart.ts','basket-files/handler.ts','basket-files/index.ts','basket-files/note-delete.ts','basket-files/ocr.ts','basket-files/photo-prune.ts','basket-files/photo.ts']);
   run(['check','--no-config',entry]);const bundle=join(isolated,'basket-files.bundle.js');run(['bundle','--no-config',entry,'--output',bundle]);assert.ok((await stat(bundle)).size>0);
  }finally{await rm(isolated,{recursive:true,force:true});}
 });

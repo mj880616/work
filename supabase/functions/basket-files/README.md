@@ -208,4 +208,4 @@ CORS는 기존과 같고 공개 주소·새 권한은 없다. 이 동작을 모�
 다른 기록이 쓰면 `kept`로 세고 건드리지 않는다. 참조 표를 못 읽으면 503으로 멈추고 아무것도 보내지 않는다. 응답 `{ok, requested, trashed, kept, failed, unknown, results}`.
 `POST ?action=photo-orphans` `{action, dry_run:true}`: 읽기 전용. 바구니 폴더의 이미지 중 어떤 기록도 두지 않는 **정리 후보** 목록(1시간 안에 올린 파일 제외, 500개까지)을 돌려준다. 아무것도 쓰지 않는다.
 후보를 실제로 휴지통에 보내는 일은 사람이 목록을 확인한 뒤 같은 `photo-prune`에 id를 넘겨 한다(서버가 다시 한 번 참조를 확인).
-휴지통 이동 코드는 `drive-trash.ts` 한 곳을 `note-delete.ts`와 함께 쓴다. 원드라이브 사진은 이 동작과 무관하다.
+휴지통 이동 코드는 `_shared/drive-trash.ts` 한 곳을 `note-delete.ts`와 함께 쓴다. 원드라이브 사진은 이 동작과 무관하다.
