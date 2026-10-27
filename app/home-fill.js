@@ -12,8 +12,7 @@ const timeOf = value => { const d = new Date(value); return Number.isNaN(d.getTi
 const head = (key, title, goto, label) => `<header><h3 id="home-${key}-title">${title}</h3><button type="button" data-goto="${goto}">${label} ›</button></header>`;
 
 export function mountHomeFill({main, rt = window.KPTURuntime}) {
-  const tasksCard = main?.querySelector('[data-home-card="tasks"]');
-  if (!main || !tasksCard) return null;
+  if (!main) return null;
   const mq = window.matchMedia('(min-width:1024px)');
   const state = {events: null, tasks: null, news: null, tomorrow: 'loading', missed: 'loading', missedRows: [], inbox: null};
   let alive = true;
@@ -27,7 +26,7 @@ export function mountHomeFill({main, rt = window.KPTURuntime}) {
     return el;
   };
   const missed = card('missed'), inbox = card('inbox', 'home-fill-inbox'), tomorrow = card('tomorrow');
-  tasksCard.after(missed, inbox, tomorrow);
+  // MENU-HOME-편집: 세 칸의 자리는 home-read.js(placeCards)가 홈 칸 순서대로 정한다. 여기서는 만들어 돌려주기만 한다.
 
   function paintMissed() {
     const rows = pickMissed(state.missedRows);
@@ -83,6 +82,7 @@ export function mountHomeFill({main, rt = window.KPTURuntime}) {
   load();
 
   return {
+    cards: {missed, inbox, tomorrow},
     // home-read.js가 읽은 숫자. null = 아직 모르거나 읽을 수 없음(요약에서 뺀다).
     setEvents(n) { state.events = n; paintSummary(); },
     setTasks(n) { state.tasks = n; paintSummary(); },

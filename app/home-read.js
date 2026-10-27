@@ -6,6 +6,10 @@ import { limitRows } from './home-fill-model.mjs';
 import { mountCollectionStatus } from './collection-status.js';
 import { mountTextBackfillNotice } from './text-backfill-notice.js';
 import { createHomeCache } from './home-read-cache.js';
+import { viewPrefs } from './view-prefs.js';
+import { normalizeCards, placement, cardOf } from './home-cards-model.mjs';
+import { createExtraCard } from './home-extra.js';
+import { mountHomeEdit } from './home-edit.js';
 import { paintFreshness } from './data-freshness.js';
 import { createTaskInline, moreButtonHtml } from './task-inline.js';
 import {
@@ -60,7 +64,11 @@ let epoch = 0,
   fillMount = null,
   tasksOpen = false,
   collectMount = null,
-  textDoneMount = null;
+  textDoneMount = null,
+  els = new Map(),
+  extras = new Map(),
+  collectLines = null,
+  editMount = null;
 const metrics = {
   shellAt:
     window.__KPTU_STARTUP__?.marks.requestedShellVisible || performance.now(),
@@ -112,27 +120,50 @@ const cards = {
   meetings: ["사업 보고 후속", "meetings", "사업 보고"],
 };
 const desktopHome = window.matchMedia('(min-width:1024px)');
-function arrangeHome() {
+// MENU-HOME-편집: 홈에 보이는 칸과 순서는 서버(view_prefs.home_cards, 없으면 기본 순서)가 정한다. 폰·중간 폭은 한 칸에 위에서 아래로,
+// PC는 왼쪽(main)·오른쪽(aside) 칸별로 같은 순서(home-cards-model.mjs placement). 이 함수가 홈 칸 자리의 유일한 주인이다.
+const homeCards = () => normalizeCards(viewPrefs.get('home_cards'));
+function extraCard(id) {
+  if (!extras.has(id)) {
+    const made = createExtraCard(id);
+    if (!made) return null;
+    extras.set(id, made); els.set(id, made.el);
+    made.refresh();
+  }
+  return extras.get(id).el;
+}
+function placeCards() {
   const left = root.querySelector('[data-home-column="main"]'),
-    right = root.querySelector('[data-home-column="aside"]'),
-    dday = card('dday');
-  if (!left || !right || !dday) return;
-  const target = desktopHome.matches ? right : left,
-    before = desktopHome.matches ? null : card('meetings'),
-    radar = card('radar');
-  // HOME-오늘먼저: the phone has no right column. 오늘 일정 and 오늘 할 일 stay on top (right under the quick input);
-  // 주요 일정 and 챙길 것 go below them, before 회의 후속. PC keeps both in the right column.
-  const placed = dday.parentElement === target && (!radar || radar.previousElementSibling === dday)
-    && (desktopHome.matches || dday.previousElementSibling === (card('tomorrow') || card('tasks')));
-  if (placed) return;
-  const focused = [dday, radar].find(el => el?.contains(document.activeElement)) ? document.activeElement : null;
-  target.insertBefore(dday, before);
-  if (radar) target.insertBefore(radar, dday.nextSibling);
+    right = root.querySelector('[data-home-column="aside"]');
+  if (!left || !right || !els.size) return;
+  const phone = !desktopHome.matches,
+    plan = placement(homeCards(), phone),
+    want = { main: [], aside: [] };
+  for (const column of ['main', 'aside']) for (const id of plan[column]) {
+    const el = cardOf(id)?.extra ? extraCard(id) : els.get(id);
+    if (el) want[column].push(el);
+  }
+  const mine = new Set(els.values());
+  const same = (box, list) => { const now = [...box.children].filter(el => mine.has(el)); return now.length === list.length && now.every((el, i) => el === list[i]); };
+  const collectOn = plan.main.includes('collect') || plan.aside.includes('collect');
+  // 마지막 수집 시각의 폰용 경고 줄·정상 줄은 그 칸과 같이 홈에 놓이거나 빠진다.
+  const lines = collectLines && ((collectLines.alert.isConnected && collectLines.ok.isConnected) === collectOn);
+  if (same(left, want.main) && same(right, want.aside) && (lines ?? true)) return;
+  const focused = [...mine].find(el => el.contains(document.activeElement)) ? document.activeElement : null;
+  for (const el of mine) if (!want.main.includes(el) && !want.aside.includes(el)) el.remove();
+  want.main.forEach(el => left.append(el));
+  want.aside.forEach(el => right.append(el));
+  if (collectLines) {
+    if (collectOn) { if (!collectLines.alert.isConnected) left.insertBefore(collectLines.alert, left.querySelector('[data-home-text-done]')); if (!collectLines.ok.isConnected) right.after(collectLines.ok); }
+    else { collectLines.alert.remove(); collectLines.ok.remove(); }
+  }
   focused?.focus({ preventScroll: true });
 }
+window.addEventListener('kptu:home-cards-changed', placeCards);
+window.addEventListener('kptu:view-prefs-rejected', event => { if (event.detail?.paths?.includes('home_cards')) { placeCards(); editMount?.rejected(); } });
 // HOME-모바일정리②는 폰·중간 폭(한 칸 홈)에서만 겹친 회의 후속을 합친다. PC(오른쪽 칸 있는 홈)는 그대로.
 const mergeFollowUps = () => !desktopHome.matches;
-desktopHome.addEventListener('change', () => { arrangeHome(); renderTasks(); });
+desktopHome.addEventListener('change', () => { placeCards(); renderTasks(); });
 function shell() {
   const host = root.querySelector('[data-home-cards]'),
     quick = root.querySelector('[data-home-quick],.home-quick-placeholder'),
@@ -144,11 +175,17 @@ function shell() {
   // JOURNAL-챙길것: 챙길 것 sits below 주요 일정. todo-radar.js is the only renderer inside that card; it stays hidden until
   // the candidate table and the server function answer (not deployed yet = hidden).
   // HOME-수집경보: 폰·중간 폭의 경고 한 줄(본문 맨 위)과 '수집 정상 ✓' 한 줄(맨 아래)도 collection-status.js가 그린다.
-  host.innerHTML = `<div data-home-column="main"><div class="home-collect-alert" data-home-collect-alert hidden></div><p class="home-text-done" data-home-text-done role="status" hidden></p>${['calendar','tasks','meetings'].map(section).join('')}</div><div data-home-column="aside">${section('dday')}<section class="home-card home-radar" data-home-card="radar" hidden></section><section class="home-card home-collect" data-home-card="collect" aria-labelledby="home-collect-title" hidden></section></div><p class="home-collect-ok" data-home-collect-ok role="status" hidden></p>`;
+  host.innerHTML = `<div data-home-column="main"><div class="home-collect-alert" data-home-collect-alert hidden></div><p class="home-text-done" data-home-text-done role="status" hidden></p></div><div data-home-column="aside"></div><p class="home-collect-ok" data-home-collect-ok role="status" hidden></p>`;
+  els = new Map(); extras.forEach(made => made.destroy()); extras = new Map();
+  const made = document.createElement('template');
+  made.innerHTML = ['calendar','tasks','meetings','dday'].map(section).join('') + `<section class="home-card home-radar" data-home-card="radar" hidden></section><section class="home-card home-collect" data-home-card="collect" aria-labelledby="home-collect-title" hidden></section>`;
+  [...made.content.children].filter(el => el.dataset.homeCard).forEach(el => els.set(el.dataset.homeCard, el));
+  collectLines = { alert: host.querySelector('[data-home-collect-alert]'), ok: host.querySelector('[data-home-collect-ok]') };
   host.querySelector('[data-home-column="main"]').prepend(quick);
   // HOME-모바일홈채우기: 한 줄 요약과 놓친 약속·정리 안 된 것·내일 칸(폰·중간 폭만). home-fill.js가 유일한 renderer.
   fillMount?.destroy();
   fillMount = mountHomeFill({ main: host.querySelector('[data-home-column="main"]') });
+  for (const [id, el] of Object.entries(fillMount?.cards || {})) els.set(id, el);
   focused?.focus({ preventScroll: true });
   radarMount?.destroy();
   radarMount = mountRadar(card('radar'), { place: 'home' });
@@ -161,7 +198,9 @@ function shell() {
   textDoneMount?.destroy();
   textDoneMount = mountTextBackfillNotice(host.querySelector('[data-home-text-done]'));
   textDoneMount?.refresh();
-  arrangeHome();
+  placeCards();
+  editMount?.destroy();
+  editMount = mountHomeEdit({ root });
   root.querySelector('[data-home-timing]')?.remove();
   if(new URLSearchParams(location.search).get('homeTiming')==='1'){
     const p=document.createElement('p');p.className='home-timing';p.dataset.homeTiming='';root.append(p);
@@ -172,7 +211,8 @@ function timing(){
   const p=root.querySelector('[data-home-timing]');if(!p)return;
   p.textContent=Object.entries(cards).map(([key,[label]])=>`${label}: 표시 ${metrics.firstPaint[key]??'…'}ms · 최신 ${metrics.refreshed[key]??'…'}ms · 요청 ${requestKeys[key].reduce((n,k)=>n+(metrics.requests[k]||0),0)}회`).join(' / ')+` / 전체 요청 ${Object.values(metrics.requests).reduce((a,b)=>a+b,0)}회`;
 }
-const card = (key) => root.querySelector(`[data-home-card="${key}"]`);
+// MENU-HOME-편집: 칸 요소는 shell()이 한 번 모두 만들어 두고(els), 홈에 놓이는 것만 placeCards()가 붙인다. 뺀 칸은 화면에서만 빠지고 읽기·그리기는 그대로다.
+const card = (key) => els.get(key) || null;
 function paint(key, html, count = null) {
   const c = card(key);
   if (!c) return;
@@ -197,15 +237,18 @@ function paint(key, html, count = null) {
 }
 function empty(key, text, hide = false) {
   paint(key, `<p class="home-status">${text}</p>`, 0);
-  card(key).hidden = hide;
-  card(key).dataset.state = "empty";
+  const c = card(key);
+  if (!c) return;
+  c.hidden = hide;
+  c.dataset.state = "empty";
 }
 function failure(key) {
   paint(
     key,
     `<p class="home-status">불러오지 못했습니다. <button type="button" data-home-retry="${key}">다시 시도</button></p>`,
   );
-  card(key).dataset.state = "failed";
+  const c = card(key);
+  if (c) c.dataset.state = "failed";
 }
 const dependencies = {
   projects: () =>
