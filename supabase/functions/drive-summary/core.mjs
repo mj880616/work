@@ -166,8 +166,12 @@ const driveQuote = value => String(value).replace(/\\/g, '\\\\').replace(/'/g, "
 
 // OPS-수집점검 2단계: 바깥 수집 점검 신호(heartbeat). 통화 전사용 Google 앱 스크립트가 전사 폴더·텔레그램 수집 상태 파일의
 // 시각(과 건수)만 보내면, 사본 폴더 appProperties에 그 값과 받은 시각만 남긴다(사본 상태와 같은 저장 위치, DB 쓰기 없음).
-export const COLLECTOR_SOURCES = Object.freeze(['telegram', 'transcript']);
-const COLLECTOR_KEYS = Object.freeze(['source', 'last_at', 'count']);
+export const COLLECTOR_SOURCES = Object.freeze(['telegram', 'transcript', 'telegram_send', 'call_send']);
+// OPS-수집멈춤알림: the two "send" sources are the Apps Script feed (collector-feed.gs) reporting how its own sending went.
+// They carry one more field, `state`, from this closed list (no free text); the first two sources never carry it.
+export const COLLECTOR_SEND_SOURCES = Object.freeze(['telegram_send', 'call_send']);
+export const COLLECTOR_SEND_STATES = Object.freeze(['ok', 'test', 'limit_day', 'limit_ai', 'failing', 'broken']);
+const COLLECTOR_KEYS = Object.freeze(['source', 'last_at', 'count', 'state']);
 const COLLECTOR_BODY_BYTES = 1024, COLLECTOR_COUNT_MAX = 100000, COLLECTOR_FUTURE_MS = 10 * 60000;
 const COLLECTOR_OLDEST = Date.parse('2020-01-01T00:00:00Z');
 const collectorKey = (source, field) => `collector_${source}_${field}`;
@@ -187,9 +191,18 @@ export function parseHeartbeat(text, at) {
     if (!Number.isInteger(body.count) || body.count < 0 || body.count > COLLECTOR_COUNT_MAX) return null;
     count = body.count;
   }
-  return { source: body.source, lastAt: new Date(lastAt).toISOString(), count };
+  const isSend = COLLECTOR_SEND_SOURCES.includes(body.source);
+  let state = null;
+  if (isSend) {
+    if (!COLLECTOR_SEND_STATES.includes(body.state) || count !== null) return null;
+    state = body.state;
+  } else if ('state' in body) return null;
+  return { source: body.source, lastAt: new Date(lastAt).toISOString(), count, state };
 }
-export function heartbeatProperties({ source, lastAt, count }, at) {
+export function heartbeatProperties({ source, lastAt, count, state = null }, at) {
+  if (COLLECTOR_SEND_SOURCES.includes(source)) {
+    return { [collectorKey(source, 'at')]: lastAt, [collectorKey(source, 'state')]: state, [collectorKey(source, 'reported_at')]: at.toISOString() };
+  }
   return {
     [collectorKey(source, 'at')]: lastAt,
     [collectorKey(source, 'count')]: count === null ? null : String(count), // null clears an earlier count.
@@ -204,6 +217,11 @@ export function collectorStatus(appProperties) {
     const lastAt = statusTime(p[collectorKey(source, 'at')]), reportedAt = statusTime(p[collectorKey(source, 'reported_at')]);
     const rawCount = p[collectorKey(source, 'count')];
     const count = typeof rawCount === 'string' && /^\d{1,6}$/.test(rawCount) && Number(rawCount) <= COLLECTOR_COUNT_MAX ? Number(rawCount) : null;
+    if (COLLECTOR_SEND_SOURCES.includes(source)) {
+      const state = p[collectorKey(source, 'state')];
+      out[source] = lastAt && reportedAt && COLLECTOR_SEND_STATES.includes(state) ? { last_at: lastAt, state, reported_at: reportedAt } : null;
+      continue;
+    }
     out[source] = lastAt && reportedAt ? { last_at: lastAt, count, reported_at: reportedAt } : null;
   }
   return out;
