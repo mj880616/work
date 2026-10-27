@@ -8,6 +8,7 @@ on:
       - 'cloudflare/**'
       - 'tests/domain/bokdoong-router.test.mjs'
       - 'tests/domain/web2-pwa-registration.test.mjs'
+      - 'tests/app-icon.test.mjs'
       - 'p/**'
       - 'supabase/functions/meeting-ai-draft/**'
       - 'tests/meeting-draft-parser.test.mjs'
@@ -78,6 +79,7 @@ on:
       - 'cloudflare/**'
       - 'tests/domain/bokdoong-router.test.mjs'
       - 'tests/domain/web2-pwa-registration.test.mjs'
+      - 'tests/app-icon.test.mjs'
       - 'p/**'
       - 'supabase/functions/meeting-ai-draft/**'
       - 'tests/meeting-draft-parser.test.mjs'
@@ -159,6 +161,9 @@ jobs:
 
       - name: Check meeting Korea time conversions
         run: node --test tests/meeting-time.test.mjs tests/seoul-time.test.mjs tests/time-input.test.mjs tests/meeting-compact.test.mjs tests/select-menu.test.mjs tests/calendar-week-timeline.test.mjs tests/calendar-drag-model.test.mjs tests/calendar-create-slot.test.mjs
+
+      - name: Check Web2 app icon files (UI-앱아이콘 메모+체크)
+        run: node --test tests/app-icon.test.mjs
 
       - name: Check shared Enter-to-save rule (UI-엔터저장)
         run: node --test tests/enter-save.test.mjs
