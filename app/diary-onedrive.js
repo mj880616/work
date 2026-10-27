@@ -18,7 +18,9 @@ const monthParam = (year, month) => `${year}-${String(month + 1).padStart(2, '0'
 const monthRange = (year, month) => ({first: `${monthParam(year, month)}-01`, last: seoulDateKey(new Date(Date.UTC(year, month + 1, 0, 3)))});
 
 // ---- 원드라이브 (Edge) ----
-export const odCall = (rt, body) => rt.api(OD_FN, {method: 'POST', body, singleFlight: false});
+// 원드라이브는 서버가 사진 목록을 받아 오느라 한 번에 십수 초 걸릴 수 있어, 기본 15초 대신 45초까지 기다린다.
+export const OD_TIMEOUT_MS = 45000;
+export const odCall = (rt, body) => rt.api(OD_FN, {method: 'POST', body, singleFlight: false, timeoutMs: OD_TIMEOUT_MS});
 
 const ERROR_TEXT = {
   onedrive_not_configured: '원드라이브 연결 준비가 아직 안 됐어요.',
@@ -82,6 +84,8 @@ export function odSyncDelay(error) {
     return Math.min(120, Math.max(1, Number.isFinite(s) ? s : 10)) * 1000;
   }
   if (code === 'onedrive_index_busy' || error?.status === 409) return 5000;
+  // 화면이 기다리다 끊은 경우: 서버는 받은 만큼 저장해 두므로 잠깐 쉬고 이어서 받는다.
+  if (error?.code === 'timeout') return 3000;
   return null;
 }
 const wholeCount = n => (Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0);

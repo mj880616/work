@@ -8,10 +8,11 @@ export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 // 사진 색인(2026-10-28): 달을 열 때마다 폴더를 훑지 않고, 고른 맨 위 폴더의 delta를 나눠 받아 서버 표에 적는다.
 // 한 요청 안에서 받는 양은 시간·쪽 수로 자른다(Edge 요청 시간 안에 끝나게). 못 끝내면 다음 쪽 주소를 저장하고 more:true.
 export const DELTA_SELECT = "id,name,file,folder,photo,fileSystemInfo,parentReference,deleted";
-export const SYNC_BUDGET_MS = 20000;
-export const SYNC_MAX_PAGES = 30;
-export const AUTO_SYNC_BUDGET_MS = 6000;
-export const AUTO_SYNC_MAX_PAGES = 4;
+// 한 걸음은 화면 요청 시간(45초) 안에 넉넉히 끝나야 한다: 쪽 하나가 최대 20초 걸릴 수 있으므로 새 쪽은 8초까지만 시작한다.
+export const SYNC_BUDGET_MS = 8000;
+export const SYNC_MAX_PAGES = 15;
+export const AUTO_SYNC_BUDGET_MS = 3000;
+export const AUTO_SYNC_MAX_PAGES = 2;
 export const SYNC_LOCK_MS = 60000;
 export const SYNC_STALE_MS = 10 * 60 * 1000;
 export const MAX_FOLDER_DEPTH = 64;
