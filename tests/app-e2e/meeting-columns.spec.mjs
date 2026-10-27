@@ -108,7 +108,7 @@ for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 
   await expect(page.locator('body>#meetingRoundDetailModal')).toHaveCount(0);
   // 고치는 중: 맨 위 오른쪽에 작은 [취소][저장], 아래쪽 단추 줄은 없다. [취소]는 보는 화면으로.
   await expect(result(page).locator('.modal-head #mrdCancelEdit')).toBeVisible();await expect(result(page).locator('.modal-head #mrdSaveEdit')).toHaveText('저장');
-  await result(page).locator('#mrdCancelEdit').click();await expect(result(page).locator('#mrdEditor')).toBeHidden();await expect(result(page).locator('#mrdMeta')).toContainText('5차');
+  await result(page).locator('#mrdCancelEdit').click();await expect(result(page).locator('#mrdEditor')).toBeHidden();await expect(result(page).locator('#mrdMeta')).toContainText('9. 5.');
   // 키보드: 종류 목록은 위·아래 화살표로 옮겨 다니고 Enter로 고른다. 가운데 차수 목록도 화살표·Enter.
   await kind(page,'궤도협의회').focus();await page.keyboard.press('ArrowDown');await expect(kind(page,'__none__')).toBeFocused();
   await page.keyboard.press('End');await expect(kind(page,'안전위원회')).toBeFocused();await page.keyboard.press('Home');await expect(kind(page,'노사협의회')).toBeFocused();

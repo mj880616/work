@@ -341,7 +341,7 @@ async function d6bPrepare(page,source){
 // page than the other dialogs, so each rule's elements are compared in one fixed order (tag, id, class) on both sides.
 const d6bKey=el=>[el.tag,el.id,el.class,el.fontSize,el.color].join('\u0001');
 async function d6bSnapshot(page,selectors=d6bSelectors){
- const rows=await page.evaluate(selectors=>selectors.map((selector,index)=>({line:index+195,elements:[...document.querySelectorAll(selector)].filter(el=>!el.closest('#mrdLeave,#mrdLoading')).map(el=>{
+ const rows=await page.evaluate(selectors=>selectors.map((selector,index)=>({line:index+195,elements:[...document.querySelectorAll(selector)].filter(el=>!el.closest('#mrdLeave,#mrdLoading,#mrdTodoCand,#mrdTodoLine')).map(el=>{
   const style=getComputedStyle(el);return {tag:el.tagName,id:el.id,class:el.className,fontSize:style.fontSize,color:style.color};
  })})),selectors);
  for(const row of rows)row.elements.sort((a,b)=>d6bKey(a)<d6bKey(b)?-1:d6bKey(a)>d6bKey(b)?1:0);

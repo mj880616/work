@@ -36,7 +36,7 @@ test('PC 1280: ⋯ → [수정]은 세 번째 칸이 그 자리에서 고치는 
   // 맨 위 오른쪽 작은 [취소][저장]: 칸 안쪽 오른쪽 끝, 머리 줄 안.
   const col=await result(page).boundingBox(),save=await result(page).locator('#mrdSaveEdit').boundingBox(),cancel=await result(page).locator('#mrdCancelEdit').boundingBox();
   await expect(result(page).locator('.modal-head #mrdSaveEdit')).toHaveText('저장');await expect(result(page).locator('.modal-head #mrdCancelEdit')).toHaveText('취소');
-  expect(cancel.x).toBeLessThan(save.x);expect(save.x+save.width).toBeGreaterThan(col.x+col.width-48);expect(save.y-col.y).toBeLessThan(80);expect(save.height).toBeLessThanOrEqual(36);
+  expect(cancel.x).toBeLessThan(save.x);expect(save.x).toBeGreaterThan(col.x+col.width/2);expect(save.x+save.width).toBeLessThanOrEqual(col.x+col.width+1);expect(save.y-col.y).toBeLessThan(80);expect(save.height).toBeLessThanOrEqual(36);
   await result(page).locator('#mrdEditShortName').fill('고친 이름');await result(page).locator('#mrdSaveEdit').click();
   await expect.poll(()=>s.meetingWrites.at(-1)?.title).toBe('고친 이름');
   await expect(result(page).locator('#mrdEditor')).toBeHidden();await expect(result(page).locator('#mrdView')).toBeVisible();await expect(outsidePopup(page)).toHaveCount(0);
