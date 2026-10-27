@@ -336,8 +336,11 @@ async function loadOd(run, key) {
   starsState = stars.status === 'fulfilled' ? 'ready' : 'failed';
   starSet = new Set(stars.status === 'fulfilled' ? stars.value.map(r => starKey(r.source, r.item_key)) : []);
   if (photos.status === 'rejected') odMessage = odErrorText(photos.reason);
-  renderOdPanel(); renderMonth();
-  if (selected && monthOf(selected) === key && !viewer && !edit) renderDetail();
+  // A bad row from the notes read must not turn this background step into an unhandled error (loadMonth reports that read itself).
+  try {
+    renderOdPanel(); renderMonth();
+    if (selected && monthOf(selected) === key && !viewer && !edit) renderDetail();
+  } catch { /* shown by loadMonth's own status line */ }
 }
 function renderOdPanel() {
   odPanel.hidden = !od.configured;
