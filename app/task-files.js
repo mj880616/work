@@ -3,7 +3,8 @@
 // file in the task's notes, so the Google Tasks app shows a link. Detaching or deleting the task never deletes the Drive file.
 // Deploy order: google-tasks Edge first, then the table. The menu item and file names appear only once the table answers,
 // so an older Edge never gets an attach request.
-import { fileAttrs, driveFileUrl } from './file-actions.js'; // FILE-누르면동작: 이름 누르기·작은 버튼 처리는 file-actions.js 전역 클릭 처리
+import { fileAttrs, driveFileUrl } from './file-actions.js';
+export { splitTaskNotes, joinTaskNotes, taskAttachments } from './task-note-files.mjs'; // TASK-첨부열기: 메모 속 '첨부:' 줄 읽기·쓰기는 이 한 곳 // FILE-누르면동작: 이름 누르기·작은 버튼 처리는 file-actions.js 전역 클릭 처리
 const endpoint = action => `/functions/v1/google-tasks?action=${encodeURIComponent(action)}`;
 export const MAX_TASK_FILES = 10;
 export const MAX_TASK_FILE_BYTES = 100 * 1024 * 1024;
@@ -62,6 +63,17 @@ export async function detachTaskFile(taskId, driveFileId, {rt = window.KPTURunti
 export function fileLinksHtml(files) {
   if (!files?.length) return '';
   return `<div class="gt-files">${files.map(f => `<a class="gt-file" href="${esc(driveFileUrl(f.drive_file_id))}" target="_blank" rel="noopener noreferrer" ${fileAttrs({name: f.file_name, driveId: f.drive_file_id}, {press: true})} aria-label="첨부 파일 열기: ${esc(f.file_name)}">${esc(f.file_name)}</a>`).join('')}</div>`;
+}
+
+// TASK-첨부열기: the 첨부 rows of the edit window, under 할 일: file icon + name (one line, ellipsis) + [열기] [내려받기].
+// Both buttons are the shared file-actions buttons (data-fa-menu): Drive view in a new tab / Drive's own download. Nothing new on the server.
+export function attachmentRowsHtml(files) {
+  if (!files?.length) return '';
+  const icon = '<svg class="gt-att-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M4 1.5h5l3 3v10H4z M9 1.5v3h3" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>';
+  return files.map(f => {
+    const attrs = fileAttrs({name: f.file_name, driveId: f.drive_file_id}), name = esc(f.file_name);
+    return `<div class="gt-att-row">${icon}<span class="gt-att-name" title="${name}">${name}</span><button type="button" class="ghost gt-att-btn" data-fa-menu="open"${attrs} aria-label="첨부 열기: ${name}">열기</button><button type="button" class="ghost gt-att-btn" data-fa-menu="download"${attrs} aria-label="첨부 내려받기: ${name}">내려받기</button></div>`;
+  }).join('');
 }
 
 // The dialog behind ⋯ → 파일 붙이기: current files with [빼기], a picker, and a status line. The owner of the task list

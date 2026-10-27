@@ -1,15 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createViewPrefs,parsePrefs,applyChanges,validValue} from '../app/view-prefs.js';
+import {createViewPrefs,parsePrefs,applyChanges,validValue,THEMES} from '../app/view-prefs.js';
 
 // SET-보기선택서버저장: 서버 저장소(프로필 view_prefs)·기기 값 옮기기·모아 쓰기·실패 시 기본값.
 const OWNER='u1';
-function env({server=null,status=0,legacy={},patchFail=false}={}){
+function env({server=null,status=0,legacy={},patchFail=false,oldCheck=false}={}){
   const calls=[];let row=server;const store=new Map(Object.entries(legacy));
   const rt={context:{read:()=>({user:{id:OWNER}})},ownerCache:{prefix:'kptu_owner_cache:'},
     api:async(path,opts={})=>{calls.push({path,method:opts.method||'GET',body:opts.body});
       if(status){const e=new Error('x');e.status=status;throw e}
-      if((opts.method||'GET')==='PATCH'){if(patchFail){const e=new Error('x');e.status=500;throw e}row=opts.body.view_prefs;return [{user_id:OWNER}]}
+      if((opts.method||'GET')==='PATCH'){if(oldCheck&&!['olive','navy','terracotta','sand',undefined].includes(opts.body.view_prefs?.theme)){const e=new Error('check');e.status=400;throw e}if(patchFail){const e=new Error('x');e.status=500;throw e}row=opts.body.view_prefs;return [{user_id:OWNER}]}
       return [{view_prefs:row}]}};
   const timers=[];
   const api=createViewPrefs({runtime:()=>rt,storage:()=>({getItem:k=>store.has(k)?store.get(k):null,setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)}),
@@ -64,4 +64,44 @@ test('leaving the page sends pending changes at once on top of the last known se
   assert.deepEqual(e.row,{theme:'olive',calendar_view:'month'});
   assert.equal(e.calls.filter(c=>c.method==='PATCH').length,1);
   await e.api.flush();assert.equal(e.calls.filter(c=>c.method==='PATCH').length,1,'nothing left to send');
+});
+
+// UI-화면색10: 허용 목록은 THEMES 한 곳, 서버 검사가 새 색을 거절하면(DB 적용 전) 그 칸만 되돌리고 알린다.
+test('all ten colors are accepted, anything else is not',()=>{
+  assert.equal(THEMES.length,10);assert.equal(new Set(THEMES).size,10);
+  for(const t of THEMES){assert.ok(validValue('theme',t),t);assert.deepEqual(parsePrefs({theme:t}),{theme:t})}
+  for(const t of ['dark','Olive','','mustard ',null,5,['rose']])assert.equal(validValue('theme',t),false,String(t));
+});
+test('a color the server check refuses goes back to the old value and is announced; other changes are kept',async()=>{
+  const heard=[];const had=globalThis.window;
+  globalThis.window={dispatchEvent:event=>{heard.push([event.type,event.detail]);return true}};
+  try{
+    const e=env({server:{theme:'navy'},oldCheck:true});await e.api.load();heard.length=0;
+    e.api.set('theme','rose',{rejectable:true});e.api.set('nav_collapsed',true);
+    assert.equal(e.api.get('theme'),'rose','the screen shows the new color first');
+    await e.api.flush();
+    assert.equal(e.api.get('theme'),'navy','back to the value the server knows');
+    assert.deepEqual(heard.find(h=>h[0]==='kptu:view-prefs-rejected')?.[1],{paths:['theme']});
+    assert.deepEqual(e.row,{theme:'navy',nav_collapsed:true},'the other change was still saved');
+    assert.equal(e.api.status(),'ok','later saves still work');
+    e.api.set('theme','sand',{rejectable:true});await e.api.flush();
+    assert.equal(e.api.get('theme'),'sand');assert.deepEqual(e.row,{theme:'sand',nav_collapsed:true});
+    // A refusal for a field that did not ask for the notice keeps the old quiet behavior (no revert, no announcement).
+    heard.length=0;const q=env({server:{},oldCheck:true});await q.api.load();
+    q.api.set('theme','teal');await q.api.flush();
+    assert.equal(q.api.get('theme'),'teal');assert.equal(q.api.status(),'pending');assert.equal(heard.some(h=>h[0]==='kptu:view-prefs-rejected'),false);
+  }finally{if(had===undefined)delete globalThis.window;else globalThis.window=had}
+});
+test('a newer choice made while the refusal was on its way is not undone',async()=>{
+  const heard=[];const had=globalThis.window;
+  globalThis.window={dispatchEvent:event=>{heard.push(event.type);return true}};
+  try{
+    const e=env({server:{theme:'navy'},oldCheck:true});await e.api.load();heard.length=0;
+    e.api.set('theme','rose',{rejectable:true});
+    const sending=e.api.flush();
+    e.api.set('theme','sand',{rejectable:true});
+    await sending;await e.api.flush();
+    assert.equal(e.api.get('theme'),'sand');assert.equal(heard.includes('kptu:view-prefs-rejected'),false);
+    assert.equal(e.row.theme,'sand');
+  }finally{if(had===undefined)delete globalThis.window;else globalThis.window=had}
 });

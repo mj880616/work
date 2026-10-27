@@ -13,7 +13,11 @@
 //   바꾼 다른 칸을 덮지 않게 합친다. 실패해도 화면은 그대로이고 한 번 더 시도한 뒤 다음 변경 때 다시 시도한다.
 // - 칸이 아직 없는 서버(적용 전)는 읽기·쓰기가 400이라 기본값으로 동작하고 기기 값은 건드리지 않는다.
 //   report_view(사업 보고 보기)는 DB 검사가 새로 허용하는 칸이라 그 적용 전에는 쓰기가 400(검사 위반)이고 같은 방식으로 기억만 건너뛴다.
-export const THEMES = Object.freeze(['olive', 'navy', 'terracotta', 'sand']);
+// - 거절 알림(UI-화면색10): set(..., {rejectable:true})로 바꾼 칸을 서버 검사가 거절하면(읽기는 되는데 쓰기만 400 — 새 색 6가지를 DB가 아직 모를 때)
+//   그 칸만 따로 다시 보내 다른 칸이 같이 거절되지 않게 하고, 서버 값으로 되돌린 뒤 kptu:view-prefs-rejected 알림({paths})을 보낸다. 화면은 원래 값으로 돌아가고 안내한다.
+// 화면 색 허용 목록은 여기 한 곳이다(UI-화면색10, 열 가지). 고르는 창·저장 확인·시험이 이 목록을 읽는다. DB 검사(app_profiles_view_prefs_check)와 같은 값이어야 한다.
+export const THEMES = Object.freeze(['olive', 'navy', 'terracotta', 'sand', 'mugwort', 'lavender', 'ink', 'rose', 'teal', 'mustard']);
+export const DEFAULT_THEME = 'olive';
 export const CALENDAR_VIEWS = Object.freeze(['list', 'week', 'month']);
 export const QUICK_MODES = Object.freeze(['update', 'task']);
 export const SPLIT_SCREENS = Object.freeze(['tasks', 'projects', 'team', 'reports']);
@@ -97,6 +101,7 @@ export function createViewPrefs({ runtime = () => globalThis.window?.KPTURuntime
   let changes = {}, timer = null, flushing = null, retried = false;
   let lastRead = {};       // 마지막으로 아는 서버 값(읽기·쓰기 성공 때 갱신). 화면을 떠날 때 보내는 값의 바탕.
   let written = new Map(); // 올라간 뒤 지울 기기 값: path -> 기기 키 목록
+  const rejectable = new Set(); // 서버가 거절하면 화면을 되돌리고 알릴 칸(set의 rejectable 옵션)
 
   const rt = () => runtime();
   const userId = () => { try { return rt()?.context?.read?.()?.user?.id || rt()?.session?.read?.()?.user?.id || ''; } catch { return ''; } };
@@ -159,22 +164,46 @@ export function createViewPrefs({ runtime = () => globalThis.window?.KPTURuntime
     flushing = (async () => {
       const batch = changes; changes = {};
       const id = userId();
-      let outcome = 'error', server_ = null;
+      let outcome = 'error', merged = null;
+      const rejected = [];
+      const send = async (base, part) => {
+        const saved = await rt().api(url(id), { method: 'PATCH', prefer: 'return=representation', body: { view_prefs: serialize(applyChanges(base, part)) } });
+        return Array.isArray(saved) && saved.length === 1;
+      };
       try {
         if (!id || id !== owner || !rt()?.api) { outcome = 'drop'; }
         else {
-          const server = server_ = await fetchServer(id, undefined);
+          const server = await fetchServer(id, undefined);
           if (server.status === 'pending') outcome = 'pending';
           else if (server.status === 'ok') {
-            const next = applyChanges(server.prefs, batch);
-            const saved = await rt().api(url(id), { method: 'PATCH', prefer: 'return=representation', body: { view_prefs: serialize(next) } });
-            outcome = Array.isArray(saved) && saved.length === 1 ? 'ok' : 'error';
+            try {
+              if (await send(server.prefs, batch)) { outcome = 'ok'; merged = applyChanges(server.prefs, batch); }
+            } catch (error) {
+              if (error?.status !== 400) throw error;
+              // 읽기는 됐는데 쓰기가 400 = 검사가 값을 거절. 거절 알림 칸은 하나씩 따로 보내 어느 값이 거절됐는지 가리고, 나머지는 묶어 다시 보낸다.
+              const alone = Object.keys(batch).filter(path => rejectable.has(path));
+              if (!alone.length) throw error;
+              let base = server.prefs;
+              for (const path of alone) {
+                try { if (await send(base, { [path]: batch[path] })) base = applyChanges(base, { [path]: batch[path] }); else throw Object.assign(new Error('x'), { status: 500 }); }
+                catch (inner) { if (inner?.status !== 400) throw inner; rejected.push(path); }
+              }
+              const rest = Object.fromEntries(Object.entries(batch).filter(([path]) => !rejectable.has(path)));
+              if (Object.keys(rest).length) { if (await send(base, rest)) base = applyChanges(base, rest); else throw Object.assign(new Error('x'), { status: 500 }); }
+              outcome = 'ok'; merged = base;
+            }
           }
         }
       } catch (error) { outcome = error?.status === 400 ? 'pending' : 'error'; }
       if (outcome === 'ok') {
-        retried = false; state = 'ok'; lastRead = applyChanges(server_.prefs, batch);
-        for (const path of Object.keys(batch)) { const keys = written.get(path); if (keys) { removeKeys(keys); written.delete(path); } }
+        retried = false; state = 'ok'; lastRead = merged;
+        for (const path of Object.keys(batch)) { const keys = written.get(path); if (keys && !rejected.includes(path)) { removeKeys(keys); written.delete(path); } }
+        // 서버가 거절한 칸은 서버가 아는 값으로 되돌리고(기기 옛 값은 그대로 둔다) 화면에 알린다. 그 사이 사용자가 또 바꿨으면(이미 다른 값) 건드리지 않는다.
+        const reverted = rejected.filter(path => getPath(prefs, path) === batch[path]);
+        if (reverted.length) {
+          prefs = applyChanges(prefs, Object.fromEntries(reverted.map(path => [path, getPath(merged, path) ?? null])));
+          try { globalThis.window?.dispatchEvent?.(new CustomEvent('kptu:view-prefs-rejected', { detail: { paths: reverted } })); } catch { /* 알림만 */ }
+        }
       } else if (outcome === 'pending') { state = 'pending'; }
       else if (outcome === 'error') {
         // 이번 변경을 잃지 않게 다시 넣되, 그 사이 더 새로 바뀐 칸이 있으면 새 값이 이긴다.
@@ -197,8 +226,9 @@ export function createViewPrefs({ runtime = () => globalThis.window?.KPTURuntime
       for (const path of Object.keys(batch)) { const keys = written.get(path); if (keys) { removeKeys(keys); written.delete(path); } }
     } catch { changes = { ...batch, ...changes }; }
   }
-  function set(path, value) {
+  function set(path, value, options = {}) {
     if (!changeOk(path, value)) return false;
+    if (options.rejectable) rejectable.add(path);
     // 이미 같은 값(또는 아직 고른 적 없는 칸에 기본값)이면 보내지 않는다 — 화면이 그릴 때마다 호출해도 요청이 늘지 않는다.
     const now = getPath(prefs, path);
     if (now === value || (now === undefined && (value === null || value === DEFAULTS[path]))) return true;
@@ -211,7 +241,7 @@ export function createViewPrefs({ runtime = () => globalThis.window?.KPTURuntime
   return {
     load,
     get: key => (KEYS.includes(key) && key !== 'split_ratio' ? prefs[key] : undefined),
-    set: (key, value) => set(key, value),
+    set: (key, value, options) => set(key, value, options),
     getSplit: name => prefs.split_ratio?.[name],
     setSplit: (name, ratio) => set('split_ratio.' + name, ratio),
     flush,

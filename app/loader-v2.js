@@ -130,7 +130,7 @@
   // 앱 화면을 공개(kptu-shell-ready)하기 전에 기다려 테마를 한 번 적용한다. 실패·지연이면 기본값(올리브)으로 연다. 늦게 온 값으로 다시 덮지 않는다.
   const viewPrefs=await import('./view-prefs.js').then(async m=>{await m.viewPrefs.load();return m.viewPrefs}).catch(()=>null);
   const savedTheme=viewPrefs?.get('theme');
-  if(savedTheme)document.documentElement.setAttribute('data-theme',savedTheme);
+  if(savedTheme){document.documentElement.setAttribute('data-theme',savedTheme);window.dispatchEvent(new CustomEvent('kptu:theme-applied'))}
 
   const context=window.KPTURuntime.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;
   if(context)window.KPTUCapabilities.setContext({user:context.user,membership:context.membership});

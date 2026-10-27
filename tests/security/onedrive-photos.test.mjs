@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-// JOURNAL-일기원드라이브 1단계: 실제 onedrive-photos handler를 지어낸 Supabase와 지어낸 Microsoft Graph로 돌린다. 네트워크 없음.
+// JOURNAL-일기원드라이브 1~2단계: 실제 onedrive-photos handler를 지어낸 Supabase와 지어낸 Microsoft Graph로 돌린다. 네트워크 없음.
 // 비밀값·토큰·계정은 모두 고정 가짜 글자다.
 const {createOneDriveHandler}=await import('../../supabase/functions/onedrive-photos/handler.ts');
-const {insideFolder,folderPathOf,safeDownloadUrl,seoulDay,graphNextLink}=await import('../../supabase/functions/onedrive-photos/graph.ts');
+const {insideFolder,folderPathOf,safeDownloadUrl,seoulDay,graphNextLink,scopeAllowed,normalizeScopes,SCOPE}=await import('../../supabase/functions/onedrive-photos/graph.ts');
 
 const WS='a0000000-0000-4000-8000-000000000001',USER='u0000000-0000-4000-8000-000000000001',OTHER='u0000000-0000-4000-8000-000000000002';
 const JWT='synthetic-user-jwt',NOW=Date.parse('2026-10-26T03:00:00Z');
-const ENV={ONEDRIVE_CLIENT_ID:'synthetic-client-id',ONEDRIVE_CLIENT_SECRET:'synthetic-client-secret-0123456789',ONEDRIVE_REDIRECT_URI:'https://synthetic.example.test/app/onedrive-callback'};
+const ENV={ONEDRIVE_CLIENT_ID:'synthetic-client-id',ONEDRIVE_CLIENT_SECRET:'synthetic-client-secret-0123456789',ONEDRIVE_REDIRECT_URI:'https://synthetic.example.test/app/onedrive-return.html'};
 const REFRESH='synthetic-refresh-token-AAAA',REFRESH2='synthetic-refresh-token-BBBB',ACCESS='synthetic-access-token';
 
 function fakeAdmin({role='owner',row=null,saveError=false}={}){
@@ -32,18 +32,22 @@ function fakeAdmin({role='owner',row=null,saveError=false}={}){
 }
 
 // 지어낸 Microsoft: 토큰 주소, Graph, 임시 사진 주소.
-function fakeMicrosoft({tokenReply,items={},itemById={},thumb}={}){
+function fakeMicrosoft({tokenReply,items={},itemById={},thumb,deleteReply}={}){
   const calls=[];
   const fetch=async(url,init={})=>{
     url=String(url);calls.push({url,init});
     if(url.startsWith('https://login.microsoftonline.com/')){
       const form=new URLSearchParams(String(init.body));
       calls[calls.length-1].form=form;
-      const r=tokenReply?tokenReply(form):{status:200,body:{access_token:ACCESS,refresh_token:REFRESH2,scope:'Files.Read User.Read',expires_in:3600}};
+      const r=tokenReply?tokenReply(form):{status:200,body:{access_token:ACCESS,refresh_token:REFRESH2,scope:'Files.ReadWrite User.Read',expires_in:3600}};
       return new Response(JSON.stringify(r.body),{status:r.status});
     }
     if(url.startsWith('https://graph.microsoft.com/v1.0/')){
       assert.equal(init.headers.Authorization,`Bearer ${ACCESS}`);
+      if(init.method==='DELETE'){
+        const id=decodeURIComponent(url.slice('https://graph.microsoft.com/v1.0/me/drive/items/'.length));
+        return deleteReply?deleteReply(id):new Response(null,{status:204});
+      }
       const path=decodeURIComponent(url.slice('https://graph.microsoft.com/v1.0'.length).split('?')[0]);
       const thumbMatch=path.match(/^\/me\/drive\/items\/([^/]+)\/thumbnails\/0\/([^/]+)\/content$/);
       if(thumbMatch){return thumb?thumb(thumbMatch):new Response(null,{status:302,headers:{location:'https://thumbs.synthetic.example.test/t/abc'}});}
@@ -64,7 +68,7 @@ function fakeMicrosoft({tokenReply,items={},itemById={},thumb}={}){
   return {fetch,calls};
 }
 
-const connected={refresh_token:REFRESH,folder_id:'F1!100',folder_name:'카메라',folder_path:'/drive/root:/Pictures/Camera',connected_at:'2026-10-20T00:00:00Z'};
+const connected={refresh_token:REFRESH,scope:'files.readwrite user.read',folder_id:'F1!100',folder_name:'카메라',folder_path:'/drive/root:/Pictures/Camera',connected_at:'2026-10-20T00:00:00Z'};
 const make=({admin=fakeAdmin({row:{...connected}}),ms=fakeMicrosoft(),env=ENV}={})=>({
   admin,ms,handler:createOneDriveHandler(admin,{env:n=>env[n],fetch:ms.fetch,now:()=>NOW,log:()=>{}}),
 });
@@ -105,21 +109,21 @@ test('without secrets the function stops safely: status says not configured, eve
 
 test('status when configured: connected flag and folder name only, never the token',async()=>{
   const none=make({admin:fakeAdmin()});
-  assert.deepEqual(await read(await post(none.handler,{action:'status'})),{configured:true,connected:false,folder:null,connected_at:null});
+  assert.deepEqual(await read(await post(none.handler,{action:'status'})),{configured:true,connected:false,folder:null,connected_at:null,can_delete:false});
   const ok=make();const text=await (await post(ok.handler,{action:'status'})).text();
-  assert.deepEqual(JSON.parse(text),{configured:true,connected:true,folder:{name:'카메라'},connected_at:'2026-10-20T00:00:00Z'});
+  assert.deepEqual(JSON.parse(text),{configured:true,connected:true,folder:{name:'카메라'},connected_at:'2026-10-20T00:00:00Z',can_delete:true});
   assert.ok(!text.includes(REFRESH));
 });
 
-test('auth-start builds a read-only sign-in address with a signed, expiring state',async()=>{
+test('auth-start builds a sign-in address for exactly the files read/write scope with a signed, expiring state',async()=>{
   const {handler}=make({admin:fakeAdmin()});
   const {url}=await read(await post(handler,{action:'auth-start'}));
   const u=new URL(url);
   assert.equal(u.origin+u.pathname,'https://login.microsoftonline.com/common/oauth2/v2.0/authorize');
-  assert.equal(u.searchParams.get('scope'),'Files.Read offline_access');
+  assert.equal(u.searchParams.get('scope'),'Files.ReadWrite offline_access User.Read');assert.equal(SCOPE,'Files.ReadWrite offline_access User.Read');
   assert.equal(u.searchParams.get('redirect_uri'),ENV.ONEDRIVE_REDIRECT_URI);
   assert.equal(u.searchParams.get('client_id'),ENV.ONEDRIVE_CLIENT_ID);
-  assert.ok(!url.includes(ENV.ONEDRIVE_CLIENT_SECRET));assert.ok(!/ReadWrite/i.test(url));
+  assert.ok(!url.includes(ENV.ONEDRIVE_CLIENT_SECRET));assert.ok(!/\.All|AppFolder|Selected/i.test(url));
   const state=u.searchParams.get('state');assert.match(state,/^[\w-]+\.[\w-]+$/);
 });
 
@@ -134,7 +138,7 @@ test('auth-finish: exchanges the code on the server, stores the refresh token, a
   assert.equal(call.form.get('client_secret'),ENV.ONEDRIVE_CLIENT_SECRET);assert.equal(call.form.get('code'),'synthetic-code-123');
   const saved=ctx.admin.state.writes.at(-1);assert.equal(saved.op,'upsert');
   assert.equal(saved.v.refresh_token,REFRESH2);assert.equal(saved.v.workspace_id,WS);
-  assert.equal(saved.v.folder_id,null,'reconnect clears the folder');assert.equal(saved.v.scope,'files.read user.read');
+  assert.equal(saved.v.folder_id,null,'reconnect clears the folder');assert.equal(saved.v.scope,'files.readwrite user.read');
 });
 
 test('auth-finish rejects forged, other-user, expired and replayed-shape states without calling Microsoft',async()=>{
@@ -153,13 +157,17 @@ test('auth-finish rejects forged, other-user, expired and replayed-shape states 
   assert.equal(ctx.ms.calls.length,0);assert.equal(ctx.admin.state.writes.length,0);
 });
 
-test('auth-finish refuses broader permissions than read-only and stores nothing',async()=>{
-  for(const scope of ['Files.ReadWrite offline_access','Files.Read Files.ReadWrite.All','User.Read','Files.Read.All']){
+test('auth-finish refuses wide permissions (.All, AppFolder, Selected) and a missing ReadWrite, and stores nothing',async()=>{
+  for(const scope of ['Files.ReadWrite.All offline_access','Files.ReadWrite Files.Read.All','Files.ReadWrite.AppFolder','Files.ReadWrite.Selected User.Read','Files.Read offline_access','User.Read','Files.Read.All','Files.ReadWrite Sites.ReadWrite.All']){
     const ctx=make({admin:fakeAdmin(),ms:fakeMicrosoft({tokenReply:()=>({status:200,body:{access_token:ACCESS,refresh_token:REFRESH2,scope,expires_in:3600}})})});
     const state=await startState(ctx.handler);
     const r=await post(ctx.handler,{action:'auth-finish',code:'synthetic-code-123',state});
     assert.equal(r.status,400,scope);assert.deepEqual(await read(r),{error:'onedrive_scope_invalid'});assert.equal(ctx.admin.state.writes.length,0);
   }
+  // 마이크로소프트가 주소 접두사를 붙여 돌려줘도 같은 판정
+  const prefixed=make({admin:fakeAdmin(),ms:fakeMicrosoft({tokenReply:()=>({status:200,body:{access_token:ACCESS,refresh_token:REFRESH2,scope:'https://graph.microsoft.com/Files.ReadWrite https://graph.microsoft.com/User.Read',expires_in:3600}})})});
+  const ok=await post(prefixed.handler,{action:'auth-finish',code:'synthetic-code-123',state:await startState(prefixed.handler)});
+  assert.equal(ok.status,200);assert.equal(prefixed.admin.state.writes.at(-1).v.scope,'files.readwrite user.read');
   const rejected=make({admin:fakeAdmin(),ms:fakeMicrosoft({tokenReply:()=>({status:400,body:{error:'invalid_grant'}})})});
   const state=await startState(rejected.handler);
   assert.equal((await post(rejected.handler,{action:'auth-finish',code:'synthetic-code-123',state})).status,424);
@@ -238,6 +246,11 @@ test('disconnect deletes the stored connection; no response ever carries a token
   }
 });
 
+test('scope rule: ReadWrite required, .All/AppFolder/Selected refused',()=>{
+  assert.ok(scopeAllowed(normalizeScopes('Files.ReadWrite offline_access User.Read')));
+  for(const bad of ['files.readwrite.all','files.read','files.readwrite.appfolder files.readwrite','files.readwrite.selected','files.readwrite sites.read.all',''])assert.ok(!scopeAllowed(normalizeScopes(bad)),bad);
+});
+
 test('helpers: path boundary, folder path, temporary address, Seoul day, Graph next link',()=>{
   assert.ok(insideFolder('/drive/root:/Pictures/Camera','/drive/root:/Pictures/Camera'));
   assert.ok(insideFolder('/drive/root:/Pictures/Camera/2026/10','/drive/root:/Pictures/Camera'));
@@ -252,6 +265,47 @@ test('helpers: path boundary, folder path, temporary address, Seoul day, Graph n
   assert.equal(seoulDay('2026-10-12T15:00:00Z'),'2026-10-13');assert.equal(seoulDay('x'),null);
   assert.ok(graphNextLink('https://graph.microsoft.com/v1.0/me/drive/root/children?$skiptoken=1'));
   for(const bad of ['https://evil.test/v1.0/x','http://graph.microsoft.com/x','https://graph.microsoft.com.evil.test/x','https://u@graph.microsoft.com/x',5])assert.equal(graphNextLink(bad),null,String(bad));
+});
+
+const inFolderItem={id:'A1',file:{mimeType:'image/jpeg'},parentReference:{path:'/drive/root:/Pictures/Camera/2026'}};
+const deletes=ms=>ms.calls.filter(c=>c.init.method==='DELETE');
+
+test('photo-delete: owner only, chosen folder only, needs confirm, sends exactly one DELETE (recycle bin) and keeps the stars',async()=>{
+  const ms=fakeMicrosoft({itemById:{A1:inFolderItem,OUT:{id:'OUT',file:{mimeType:'image/jpeg'},parentReference:{path:'/drive/root:/Pictures/Camera2'}},
+    VID:{id:'VID',file:{mimeType:'video/mp4'},parentReference:{path:'/drive/root:/Pictures/Camera'}},DIR:{id:'DIR',folder:{},parentReference:{path:'/drive/root:/Pictures/Camera'}},
+    TOP:{id:'TOP',file:{mimeType:'image/jpeg'},parentReference:{path:'/drive/root:/Pictures'}}}});
+  const ctx=make({ms});
+  const r=await post(ctx.handler,{action:'photo-delete',id:'A1',confirm:true});
+  assert.equal(r.status,200);assert.deepEqual(await read(r),{deleted:true});
+  assert.equal(deletes(ms).length,1);assert.ok(deletes(ms)[0].url.endsWith('/me/drive/items/A1'));
+  // 폴더 밖·폴더 자체 위·사진 아님·없음: 지우기 호출이 한 번도 나가지 않는다
+  const before=deletes(ms).length;
+  assert.equal((await post(ctx.handler,{action:'photo-delete',id:'OUT',confirm:true})).status,403);
+  assert.equal((await post(ctx.handler,{action:'photo-delete',id:'TOP',confirm:true})).status,403);
+  for(const id of ['VID','DIR','MISSING'])assert.equal((await post(ctx.handler,{action:'photo-delete',id,confirm:true})).status,404,id);
+  for(const body of [{id:'A1'},{id:'A1',confirm:'true'},{id:'A1',confirm:1},{id:'../x',confirm:true},{confirm:true}])assert.equal((await post(ctx.handler,{action:'photo-delete',...body})).status,400,JSON.stringify(body));
+  assert.equal(deletes(ms).length,before);
+  // 다른 사용자·비로그인은 지우기까지 못 간다
+  assert.equal((await post(ctx.handler,{action:'photo-delete',id:'A1',confirm:true},{jwt:'other'})).status,403);
+  assert.equal((await post(ctx.handler,{action:'photo-delete',id:'A1',confirm:true},{jwt:null})).status,401);
+  assert.equal(deletes(ms).length,before);
+  // 별표 표는 건드리지 않는다(이 함수는 연결 표 밖을 쓰지 않는다)
+  assert.equal(ctx.admin.state.writes.filter(w=>w.op==='delete').length,0);
+});
+
+test('photo-delete: folder not chosen, not connected, read-only grant and Graph answers map to safe errors',async()=>{
+  assert.equal((await post(make({admin:fakeAdmin()}).handler,{action:'photo-delete',id:'A1',confirm:true})).status,424);
+  assert.equal((await post(make({admin:fakeAdmin({row:{...connected,folder_id:null,folder_name:null,folder_path:null}})}).handler,{action:'photo-delete',id:'A1',confirm:true})).status,424);
+  const readOnly=make({admin:fakeAdmin({row:{...connected,scope:'files.read user.read'}}),ms:fakeMicrosoft({itemById:{A1:inFolderItem}})});
+  const r=await post(readOnly.handler,{action:'photo-delete',id:'A1',confirm:true});
+  assert.equal(r.status,424);assert.deepEqual(await read(r),{error:'onedrive_reconnect_needed'});assert.equal(deletes(readOnly.ms).length,0);
+  assert.equal((await read(await post(readOnly.handler,{action:'status'}))).can_delete,false);
+  for(const [status,want,error] of [[404,404,'onedrive_item_missing'],[401,424,'onedrive_auth_expired'],[403,424,'onedrive_reconnect_needed'],[409,502,'onedrive_delete_failed'],[500,502,'onedrive_delete_failed']]){
+    const ctx=make({ms:fakeMicrosoft({itemById:{A1:inFolderItem},deleteReply:()=>new Response('{}',{status})})});
+    const out=await post(ctx.handler,{action:'photo-delete',id:'A1',confirm:true});assert.equal(out.status,want,String(status));assert.deepEqual(await read(out),{error});
+  }
+  const down=make({ms:{calls:[],fetch:async(url,init)=>{if(String(url).includes('/v1.0/me/drive/items/A1')&&init.method==='DELETE')throw new Error('net');return fakeMicrosoft({itemById:{A1:inFolderItem}}).fetch(url,init);}}});
+  assert.equal((await post(down.handler,{action:'photo-delete',id:'A1',confirm:true})).status,503);
 });
 
 test('the new function is pre-registered once in the section 5 table with verify_jwt true',async()=>{
