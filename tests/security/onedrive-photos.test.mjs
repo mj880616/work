@@ -22,8 +22,17 @@ function fakeAdmin({role='owner',row=null,saveError=false}={}){
         if(table==='app_onedrive_connections')return Promise.resolve({data:state.row,error:null});
         return Promise.resolve({data:null,error:null});
       },
-      upsert(v){state.writes.push({op:'upsert',v});if(saveError)return Promise.resolve({error:{}});state.row={...v};return Promise.resolve({error:null});},
-      update(v){ctx.patch=v;return {eq(k,val){state.writes.push({op:'update',v});if(saveError)return Promise.resolve({error:{}});if(state.row&&val===WS)Object.assign(state.row,v);return Promise.resolve({error:null});}};},
+      // 운영 DB처럼: service_role에는 workspace_id 고치기 권한이 없어 upsert(ON CONFLICT DO UPDATE SET workspace_id=…)는 항상 42501.
+      upsert(v){state.writes.push({op:'upsert',v});return Promise.resolve({error:{code:'42501'}});},
+      insert(v){state.writes.push({op:'insert',v});if(saveError==='insert')return Promise.resolve({error:{code:'42501'}});
+        if(state.row)return Promise.resolve({error:{code:'23505'}});state.row={...v};return Promise.resolve({error:null});},
+      update(v){ctx.patch=v;return {eq(k,val){
+        if('workspace_id' in v)return Promise.resolve({error:{code:'42501'}});
+        state.writes.push({op:'update',v});
+        const done=saveError===true||saveError==='update'?{error:{code:'42501'}}:(state.row&&val===WS?(Object.assign(state.row,v),{error:null,hit:1}):{error:null,hit:0});
+        const p=Promise.resolve({error:done.error});
+        p.select=()=>Promise.resolve(done.error?{data:null,error:done.error}:{data:Array.from({length:done.hit},()=>({workspace_id:val})),error:null});
+        return p;}};},
       delete(){return {eq(){state.writes.push({op:'delete'});state.row=null;return Promise.resolve({error:null});}};},
     };
     return api;
@@ -136,9 +145,41 @@ test('auth-finish: exchanges the code on the server, stores the refresh token, a
   assert.ok(!text.includes(REFRESH2)&&!text.includes(ACCESS));
   const call=ctx.ms.calls.find(c=>c.form);assert.equal(call.form.get('grant_type'),'authorization_code');
   assert.equal(call.form.get('client_secret'),ENV.ONEDRIVE_CLIENT_SECRET);assert.equal(call.form.get('code'),'synthetic-code-123');
-  const saved=ctx.admin.state.writes.at(-1);assert.equal(saved.op,'upsert');
-  assert.equal(saved.v.refresh_token,REFRESH2);assert.equal(saved.v.workspace_id,WS);
-  assert.equal(saved.v.folder_id,null,'reconnect clears the folder');assert.equal(saved.v.scope,'files.readwrite user.read');
+  // 이미 연결 행이 있으면: 넣기(23505) → 허용된 칸만 고치기. upsert는 쓰지 않는다.
+  assert.deepEqual(ctx.admin.state.writes.map(w=>w.op),['insert','update']);
+  const saved=ctx.admin.state.writes.at(-1);assert.ok(!('workspace_id' in saved.v),'workspace_id is never in the update');
+  assert.equal(saved.v.refresh_token,REFRESH2);assert.equal(ctx.admin.state.row.refresh_token,REFRESH2);
+  assert.equal(saved.v.folder_id,null,'reconnect clears the folder');assert.equal(ctx.admin.state.row.folder_path,null);assert.equal(saved.v.scope,'files.readwrite user.read');
+});
+
+test('auth-finish first connection: plain insert with workspace_id, no upsert; save failures log the stage and DB code only',async()=>{
+  const logs=[];const admin=fakeAdmin();const ms=fakeMicrosoft();
+  const handler=createOneDriveHandler(admin,{env:n=>ENV[n],fetch:ms.fetch,now:()=>NOW,log:c=>logs.push(c)});
+  const r=await post(handler,{action:'auth-finish',code:'synthetic-code-123',state:await startState(handler)});
+  assert.equal(r.status,200);assert.deepEqual(admin.state.writes.map(w=>w.op),['insert']);
+  assert.equal(admin.state.writes[0].v.workspace_id,WS);assert.equal(admin.state.row.refresh_token,REFRESH2);
+  assert.deepEqual(logs,[]);
+  // 다음 status는 연결됨
+  assert.equal((await read(await post(handler,{action:'status'}))).connected,true);
+  for(const [saveError,row,code] of [['insert',null,'onedrive_save_failed:insert:42501'],['update',{...connected},'onedrive_save_failed:update:42501']]){
+    const logs2=[];const a=fakeAdmin({row,saveError});const m=fakeMicrosoft();
+    const h=createOneDriveHandler(a,{env:n=>ENV[n],fetch:m.fetch,now:()=>NOW,log:c=>logs2.push(c)});
+    const res=await post(h,{action:'auth-finish',code:'synthetic-code-123',state:await startState(h)});
+    assert.equal(res.status,503);assert.deepEqual(await read(res),{error:'onedrive_unavailable'});
+    assert.deepEqual(logs2,[code]);
+    for(const l of logs2)for(const secret of [REFRESH2,ACCESS,ENV.ONEDRIVE_CLIENT_SECRET,'synthetic-code-123'])assert.ok(!l.includes(secret));
+  }
+  // Microsoft가 갱신 토큰을 안 주거나 거절하면 그 단계 이름을 남긴다(설명문은 남기지 않음).
+  for(const [reply,status,code] of [
+    [{status:200,body:{access_token:ACCESS,scope:'Files.ReadWrite User.Read'}},502,'onedrive_refresh_token_missing'],
+    [{status:401,body:{error:'invalid_client',error_description:'synthetic secret-ish text'}},424,'onedrive_token_rejected:401:invalid_client'],
+    [{status:500,body:{error:'server_error'}},503,'onedrive_token_rejected:500:server_error'],
+  ]){
+    const logs3=[];const a=fakeAdmin();const m=fakeMicrosoft({tokenReply:()=>reply});
+    const h=createOneDriveHandler(a,{env:n=>ENV[n],fetch:m.fetch,now:()=>NOW,log:c=>logs3.push(c)});
+    const res=await post(h,{action:'auth-finish',code:'synthetic-code-123',state:await startState(h)});
+    assert.equal(res.status,status,code);assert.deepEqual(logs3,[code]);assert.equal(a.state.writes.length,0);
+  }
 });
 
 test('auth-finish rejects forged, other-user, expired and replayed-shape states without calling Microsoft',async()=>{
