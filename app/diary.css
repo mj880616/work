@@ -156,3 +156,31 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 #appView #diaryView .diary-viewer-more > summary:focus-visible{ outline:2px solid var(--ds-photo-ink); outline-offset:-2px; }
 #appView #diaryView .diary-viewer-bar .diary-viewer-more-panel{ position:absolute; top:46px; right:0; z-index:2; min-width:12em; padding:4px; background:var(--ds-photo-stage); border:1px solid var(--ds-photo-ink); border-radius:var(--ds-radius-control); }
 #appView #diaryView .diary-viewer-bar .diary-viewer-more-panel button{ width:100%; min-width:0; height:44px; padding:0 12px; border-radius:var(--ds-radius-control); font-size:var(--ds-text-row); text-align:left; }
+
+/* JOURNAL-일기원드라이브: 설정 창(맨 위 폴더 아래 하위 폴더 스위치). 하단 탭·전환 줄 위에 앉아 가려지지 않는다. */
+#appView #diaryView .diary-od-sync{ margin:0; font-size:var(--ds-text-meta); color:var(--kptu-muted); }
+#appView #diaryView .diary-od-modal{ position:fixed; left:0; right:0; top:0; bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom)); z-index:900; display:flex; align-items:flex-end; justify-content:center; padding:8px 16px; background:var(--ds-photo-scrim); }
+#appView #diaryView .diary-od-sheet{ box-sizing:border-box; display:flex; flex-direction:column; gap:6px; width:min(100%,420px); max-height:100%; overflow-y:auto; padding:10px 12px; color:var(--kptu-ink); font-size:var(--ds-text-row); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); }
+@media(min-width:761px){ #appView #diaryView .diary-od-modal{ bottom:0; align-items:center; } }
+#appView #diaryView .diary-od-sheet .diary-muted{ margin:0; font-size:var(--ds-text-meta); }
+#appView #diaryView .diary-od-top{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+#appView #diaryView .diary-od-top b{ min-width:0; overflow-wrap:anywhere; font-weight:600; }
+#appView #diaryView .diary-od-tree{ display:flex; flex-direction:column; margin:0; padding:0; list-style:none; max-height:42vh; overflow-y:auto; }
+#appView #diaryView .diary-od-tree li{ display:flex; align-items:center; gap:4px; min-height:var(--kptu-touch-target,44px); }
+#appView #diaryView .diary-od-toprow{ padding-left:4px; color:var(--kptu-muted); min-height:32px!important; }
+#appView #diaryView .diary-od-row[data-depth="1"]{ padding-left:16px; }
+#appView #diaryView .diary-od-row[data-depth="2"]{ padding-left:32px; }
+#appView #diaryView .diary-od-row[data-depth="3"]{ padding-left:48px; }
+#appView #diaryView .diary-od-row[data-depth="4"]{ padding-left:64px; }
+#appView #diaryView .diary-od-row[data-depth="5"]{ padding-left:80px; }
+#appView #diaryView .diary-od-row.is-dim .diary-od-fname,#appView #diaryView .diary-od-row.is-dim .diary-od-n{ opacity:.45; }
+#appView #diaryView .diary-od-fname{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#appView #diaryView .diary-od-n{ flex:none; font-size:var(--ds-text-meta); color:var(--kptu-muted); font-variant-numeric:tabular-nums; }
+#appView #diaryView .diary-od-fold{ flex:none; width:24px; min-width:24px; height:var(--kptu-touch-target,44px); min-height:0; margin:0; padding:0; color:var(--kptu-muted); background:transparent; border:0; box-shadow:none; font:inherit; }
+#appView #diaryView .diary-od-switch{ position:relative; flex:none; width:40px; min-width:40px; height:var(--kptu-touch-target,44px); min-height:0; margin:0; padding:0; background:transparent; border:0; box-shadow:none; }
+#appView #diaryView .diary-od-switch::before{ content:""; position:absolute; left:4px; top:50%; width:32px; height:18px; margin-top:-9px; border-radius:9px; background:var(--ds-line); transition:background .12s; }
+#appView #diaryView .diary-od-switch::after{ content:""; position:absolute; left:7px; top:50%; width:12px; height:12px; margin-top:-6px; border-radius:50%; background:var(--kptu-surface); transition:transform .12s; }
+#appView #diaryView .diary-od-switch[aria-checked="true"]::before{ background:var(--ds-kind-other-ink); }
+#appView #diaryView .diary-od-switch[aria-checked="true"]::after{ transform:translateX(14px); }
+#appView #diaryView .diary-od-switch:focus-visible,#appView #diaryView .diary-od-fold:focus-visible{ outline:2px solid var(--kptu-primary); outline-offset:-2px; }
+#appView #diaryView .diary-od-foot{ display:flex; justify-content:flex-end; gap:8px; }

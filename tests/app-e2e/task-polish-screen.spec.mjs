@@ -39,10 +39,10 @@ test('1280: 빠른 기한 버튼은 바로 저장(오늘·내일·모레·다음
   await page.locator('[data-gt-edit="a"]').click();
   const quick=page.locator('#gtDetailPane .gt-due-quick');
   await expect(quick.locator('button')).toHaveText(['오늘','내일','모레','다음주','기한 없음']);
-  // [↵ 저장](UI-버튼기준 ④): 제목 줄의 작은 버튼(32px)이고 [오늘] 맨 앞 줄과 함께 한 줄에 들어간다. 글칸에 초점이 있어야 ↵ 안내가 붙는다.
+  // [↵ 저장](UI-버튼기준 ④, UI-저장자리로 아래 줄 오른쪽 36px 주 버튼)이고 [오늘] 맨 앞 줄과 함께 한 줄에 들어간다. 글칸에 초점이 있어야 ↵ 안내가 붙는다.
   await page.locator('#gtEditTitle').focus();
   const save=await page.locator('#gtSaveBtn').boundingBox();
-  expect(save.height).toBeLessThanOrEqual(33);
+  expect(save.height).toBeLessThanOrEqual(37);
   expect(await quick.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
   if(process.env.SHOT_DIR)await page.screenshot({path:`${process.env.SHOT_DIR}/task-today-after-1280.png`});
   const field=await page.locator('#gtEditDue').boundingBox(),first=await quick.locator('button').first().boundingBox();

@@ -211,11 +211,9 @@ div.gt-main{cursor:default}
   /* 제목 줄(제목 + 저장 + 닫기 X + 안내)은 상세 칸을 스크롤해도 위에 고정, 본문만 스크롤. 상세 칸 안쪽 여백만큼 바깥으로 펼쳐 가장자리에 붙인다. */
   #gtDetailPane #gtTaskModal.gt-docked .modal-head{position:sticky;top:calc(var(--kptu-space-3) * -1);z-index:3;display:flex;flex-wrap:wrap;align-items:center;gap:var(--kptu-space-2);margin:calc(var(--kptu-space-3) * -1) calc(var(--kptu-space-3) * -1) var(--kptu-space-2);padding:var(--kptu-space-3) var(--kptu-space-3) var(--kptu-space-2);background:var(--kptu-surface);border-bottom:var(--ds-line-width) solid var(--ds-line);box-shadow:none}
   #gtDetailPane #gtTaskModal.gt-docked .modal-head>div:first-child{flex:1 1 0;min-width:0}
-  #gtDetailPane #gtTaskModal.gt-docked .modal-head>.gt-pane-save{flex:none;min-height:36px}
-  #gtDetailPane #gtTaskModal.gt-docked .modal-head>.status{order:9;flex:0 0 100%;margin:0;font-size:var(--ds-text-meta);overflow-wrap:anywhere}
-  #gtDetailPane #gtTaskModal.gt-docked .modal-head>.status:empty{display:none}
   #gtDetailPane #gtTaskModal.gt-docked .modal-head h2{font-size:var(--ds-text-section);line-height:1.4;font-weight:var(--ds-weight-medium)}
-  #gtDetailPane #gtTaskModal.gt-docked .modal-action-footer{position:static;margin:var(--kptu-space-3) 0 0;padding:var(--kptu-space-2) 0 0}
+  /* UI-저장자리: 상세 칸 아래 줄은 칸 맨 아래에 붙어(칸이 스크롤해도 고정) [취소 없음] [저장]이 오른쪽 아래에 있다. */
+  #gtDetailPane #gtTaskModal.gt-docked .modal-action-footer{position:sticky;bottom:calc(var(--kptu-space-3) * -1);z-index:3;margin:var(--kptu-space-3) calc(var(--kptu-space-3) * -1) calc(var(--kptu-space-3) * -1);padding:var(--kptu-space-2) var(--kptu-space-3)}
   #gtDetailPane #gtTaskModal.gt-docked .gt-link-body{max-height:none}
 }
 /* UI-좌우비율(2026-10-21): 프로젝트 체크 목록은 한 줄에 하나, 하위는 상위 바로 아래 들여쓰기(아래 UI-고르기창개선 C의 data-depth 들여쓰기).
