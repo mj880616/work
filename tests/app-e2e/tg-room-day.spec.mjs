@@ -124,14 +124,14 @@ test('텔레그램 390: [텔레그램에서 열기] = 방 주소 → 번호 링�
  expect(f.errors).toEqual([]);
 });
 
-test('텔레그램 390: 소식 ⋯ 메뉴(고정·요약 복사·조직 연결·삭제), 삭제는 한 줄 되돌리기, 고정은 서버 저장',async({page})=>{
+test('텔레그램 390: 소식 ⋯ 메뉴(고정·요약 복사·요약 고치기·조직 연결·삭제), 삭제는 한 줄 되돌리기, 고정은 서버 저장',async({page})=>{
  const f=await fixture(page,{width:390});
  await page.context().grantPermissions(['clipboard-read','clipboard-write']);
  await openMenu(page,390,'텔레그램 소식');
  const view=page.locator('#telegramView'),detail=view.locator('#tgDetail');
  await tap(page,rd(view,A6).locator('.feed-rdb'),390);
  await tap(page,detail.locator(`[data-tg-more="${T.a1}"]`),390);
- const menu=page.locator('#tgMenu');await expect(menu.locator('button')).toHaveText(['고정','요약 복사','조직 연결','삭제']);
+ const menu=page.locator('#tgMenu');await expect(menu.locator('button')).toHaveText(['고정','요약 복사','요약 고치기','조직 연결','삭제']);
  await tap(page,menu.getByRole('button',{name:'고정',exact:true}),390);
  await expect.poll(()=>f.writes.filter(w=>w.id===T.a1&&w.body.pinned_at).length).toBe(1);
  await expect(detail.locator(`[data-tg-di="${T.a1}"] .feed-pin`)).toHaveText('고정');
@@ -168,7 +168,7 @@ test('텔레그램 1280: 목록 1/3 · 상세 2/3, 고른 줄 표시, 소식 ⋯
  const l=await list.boundingBox(),d=await detail.boundingBox();expect(l.x+l.width).toBeLessThanOrEqual(d.x+1);expect(l.width).toBeLessThan(d.width);
  // 소식 줄에서 오른쪽 클릭 = 그 소식의 ⋯ 메뉴가 누른 자리에.
  await detail.locator(`[data-tg-di="${T.a2}"] .feed-tx`).click({button:'right'});
- const menu=page.locator('#tgMenu');await expect(menu).toBeVisible();await expect(menu.locator('button')).toHaveText(['고정','요약 복사','조직 연결','삭제']);
+ const menu=page.locator('#tgMenu');await expect(menu).toBeVisible();await expect(menu.locator('button')).toHaveText(['고정','요약 복사','요약 고치기','조직 연결','삭제']);
  await menu.getByRole('button',{name:'삭제',exact:true}).click();
  await expect.poll(()=>f.writes.filter(w=>w.id===T.a2&&w.body.state==='trashed').length).toBe(1);
  await expect(detail.locator('.feed-di')).toHaveCount(1);

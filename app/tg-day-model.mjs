@@ -83,9 +83,11 @@ export function mergeParts(parts) {
 }
 // 방 상세의 요약 상자 재료. kind: 'ai'(AI가 쓴 요약) | 'titles'(요약이 없는 날: 소식 제목 모음, 결정 4) | 'none'.
 // partsKnown=false(요약 표를 읽지 못함)면 제목 모음이어도 "AI 요약 이전 날" 표시를 하지 않는다(old=false).
-export function daySummary(parts, items, {partsKnown = true} = {}) {
+export function daySummary(parts, items, {partsKnown = true, edit = null} = {}) {
   const m = mergeParts(parts);
-  if (m.lines.length) return {kind:'ai', old:false, lines:m.lines, shown:m.lines.slice(0, SUMMARY_SHOWN), rest:m.lines.slice(SUMMARY_SHOWN), openRef:m.openRef};
+  // 고친 줄이 있으면 AI 줄 대신 그것을 보여 준다(AI 줄은 서버에 그대로 있다). edited=true면 화면이 '고침'을 붙인다.
+  if (edit?.lines?.length) return {kind:'ai', old:false, edited:true, lines:edit.lines, shown:edit.lines.slice(0, SUMMARY_SHOWN), rest:edit.lines.slice(SUMMARY_SHOWN), openRef:m.openRef};
+  if (m.lines.length) return {kind:'ai', old:false, edited:false, lines:m.lines, shown:m.lines.slice(0, SUMMARY_SHOWN), rest:m.lines.slice(SUMMARY_SHOWN), openRef:m.openRef};
   const titles = [];
   for (const r of items || []) { const t = clean(r?.title) || clean(r?.summary); if (t && !titles.includes(t)) titles.push(t); }
   if (!titles.length) return {kind:'none', old:false, lines:[], shown:[], rest:[], openRef:m.openRef};
@@ -185,3 +187,73 @@ export const SWIPE_ACTIONS = Object.freeze({
 });
 export const ACTION_LABEL = Object.freeze({folder:'폴더로', archive:'보관', trash:'삭제', unarchive:'꺼내기'});
 export const allowOf = mode => { const a = SWIPE_ACTIONS[mode] || {start:[], end:[]}; return {start:a.start.length, end:a.end.length}; };
+
+// ---------- TG-요약고치기 (docs/design/tg-summary-edit.md): 명진이 손으로 고친 요약은 AI 값과 따로 서버에 있다(app_feed_summary_edits).
+// 화면은 AI 값 위에 고친 값을 입혀 보여 줄 뿐이고 AI 값은 지우지 않는다. [AI 원래 요약으로]는 고친 값을 비워 AI 값이 다시 보이게 한다.
+export const SUMEDIT = Object.freeze({SUMMARY_MAX:400, HEADLINE_MAX:60, LINES_MAX:12, LINE_MAX:150});
+export const SUMEDIT_TEXT = Object.freeze({
+  done:'요약을 고쳤어요.', reset:'AI가 쓴 요약으로 되돌렸어요.', noop:'바뀐 곳이 없어요.',
+  EMPTY:'요약을 적어 주세요.', LONG_SUMMARY:`요약은 ${SUMEDIT.SUMMARY_MAX}자까지예요.`, LONG_HEADLINE:`한 줄은 ${SUMEDIT.HEADLINE_MAX}자까지예요.`,
+  MANY:`요약은 ${SUMEDIT.LINES_MAX}줄까지예요.`, LONG_LINE:`한 줄은 ${SUMEDIT.LINE_MAX}자까지예요.`,
+  GONE:'이 요약이 그사이 사라졌어요. 목록을 다시 불러왔어요.', REFUSED:'저장하지 못했어요. 아무것도 바뀌지 않았어요.', UNAVAILABLE:'요약 고치기가 아직 준비되지 않았어요. 아무것도 바뀌지 않았어요.',
+  UNKNOWN:'저장했는지 확인하지 못했어요. 목록을 다시 불러왔어요.',
+});
+export const itemTarget = id => `item:${id}`;
+export const dayTarget = (room, day) => `day:${room}|${day}`;
+const oneLine = v => String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+// 서버가 돌려준 고친 값 한 벌 → 화면이 쓰는 꼴({summary?, headline?, lines?}). 모양이 틀린 칸은 버린다. headline은 빈 글도 "고쳐서 비운 것"이라 남긴다.
+export function cleanEditVals(v) {
+  const out = {};
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return out;
+  if (typeof v.summary === 'string' && oneLine(v.summary)) out.summary = oneLine(v.summary);
+  if (typeof v.headline === 'string') out.headline = oneLine(v.headline);
+  if (Array.isArray(v.lines)) { const lines = v.lines.map(x => (typeof x === 'string' ? oneLine(x) : '')).filter(Boolean); if (lines.length) out.lines = lines; }
+  return out;
+}
+// 읽기 함수가 돌려준 줄 [{target, vals}] → Map(target → 고친 값). 값이 하나도 없는 줄은 뺀다.
+export function editMap(rows) {
+  const map = new Map();
+  for (const r of rows || []) {
+    const t = typeof r?.target === 'string' ? r.target : '', vals = cleanEditVals(r?.vals);
+    if (/^(item:[0-9a-f-]{36}|day:[A-Za-z0-9_.:-]{1,100}\|\d{4}-\d{2}-\d{2})$/.test(t) && Object.keys(vals).length) map.set(t, vals);
+  }
+  return map;
+}
+// 소식 한 줄의 요약: 고친 값이 있으면 그것, 없으면 AI가 쓴 summary.
+export const itemSummary = (r, edits) => edits?.get?.(itemTarget(r?.id))?.summary ?? r?.summary ?? '';
+export const isItemEdited = (r, edits) => edits?.get?.(itemTarget(r?.id))?.summary !== undefined;
+// 목록 줄: 고친 한 줄(headline)이 있으면 그것을 입힌다(빈 글로 고친 것도 그대로: 소식 제목 모음으로 물러난다).
+export function applyLineEdit(line, edits) {
+  const e = edits?.get?.(dayTarget(line?.room_key, line?.day));
+  return e && e.headline !== undefined ? {...line, headline:e.headline} : line;
+}
+export const dayEdit = (edits, room, day) => edits?.get?.(dayTarget(room, day)) || null;
+
+// 소식 한 줄 입력 → {ok, value} | {ok:false, error}. 줄바꿈은 띄어쓰기로.
+export function cleanSummaryInput(value) {
+  const v = oneLine(value);
+  if (!v) return {ok:false, error:'EMPTY'};
+  return [...v].length > SUMEDIT.SUMMARY_MAX ? {ok:false, error:'LONG_SUMMARY'} : {ok:true, value:v};
+}
+// 그날 요약 입력: headline(목록에 보이는 한 줄) + 줄 모음(글 상자의 한 줄 = 요약 한 줄). → {ok, headline, lines} | {ok:false, error}
+export function cleanDayInput({headline = '', text = ''} = {}) {
+  const h = oneLine(headline);
+  if ([...h].length > SUMEDIT.HEADLINE_MAX) return {ok:false, error:'LONG_HEADLINE'};
+  const lines = String(text ?? '').split(/\r?\n/).map(oneLine).filter(Boolean);
+  if (!lines.length) return {ok:false, error:'EMPTY'};
+  if (lines.length > SUMEDIT.LINES_MAX) return {ok:false, error:'MANY'};
+  if (lines.some(l => [...l].length > SUMEDIT.LINE_MAX)) return {ok:false, error:'LONG_LINE'};
+  return {ok:true, headline:h, lines};
+}
+// 지금 보이는 값({headline, lines})과 입력을 견줘 바뀐 칸만 담은 patch를 만든다. 바뀐 곳이 없으면 {}.
+export function dayPatch(current, input) {
+  const patch = {};
+  if (input.headline !== oneLine(current?.headline)) patch.headline = input.headline;
+  const cur = (current?.lines || []).map(oneLine).filter(Boolean);
+  if (cur.length !== input.lines.length || cur.some((l, i) => l !== input.lines[i])) patch.lines = input.lines;
+  return patch;
+}
+// 서버가 거절한 이유 코드 → 화면 글.
+export const sumEditErrorText = code => SUMEDIT_TEXT[code] || SUMEDIT_TEXT.REFUSED;
+// 요약 상자 줄 모음의 글 상자용 글(한 줄 = 요약 한 줄).
+export const linesToText = lines => (lines || []).join('\n');
