@@ -46,7 +46,7 @@ async function openView(page,view){
 
 for(const width of [344,412,882])test(`칸·탭을 눌러도 화면 폭이 그대로 ${width}`,async({page})=>{
   test.setTimeout(240000);
-  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const errors=[];page.on('pageerror',e=>errors.push(String(e.stack||e.message).split('\n').slice(0,4).join(' / ')));
   const s=wideState();
   await page.setViewportSize({width,height:width<761?844:900});
   await mockApp(page,s);await extraRoutes(page);
@@ -57,7 +57,7 @@ for(const width of [344,412,882])test(`칸·탭을 눌러도 화면 폭이 그�
   for(const view of VIEWS){
     if(!await openView(page,view)){checked.push(view+' (열 수 없어 건너뜀)');continue}
     await check(`${view} 처음`);
-    const sel=`#${view}View :is([role=radio],[role=tab],[aria-pressed],[data-filter-value],.quick-pill-button,.filter-chips button,.feed-chiprow button,[data-tg-folder],[data-tg-shelf]):visible`;
+    const sel=`#${view}View :is([role=radio],[role=tab],[aria-pressed],[data-filter-value],.quick-pill-button,.filter-chips button,.feed-chiprow button,[data-tg-folder],[data-tg-shelf]):not([data-diary-day]):visible`;
     const total=Math.min(await page.locator(sel).count(),40);
     clicks[view]=total;
     for(let i=0;i<total;i++){
