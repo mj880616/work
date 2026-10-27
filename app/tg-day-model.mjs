@@ -257,3 +257,17 @@ export function dayPatch(current, input) {
 export const sumEditErrorText = code => SUMEDIT_TEXT[code] || SUMEDIT_TEXT.REFUSED;
 // 요약 상자 줄 모음의 글 상자용 글(한 줄 = 요약 한 줄).
 export const linesToText = lines => (lines || []).join('\n');
+
+// TG-원문폰배치: 폰에서 원문 메시지를 6줄까지만 보이고 [더보기]로 펼친다. 실제로 잘렸는지는 화면이 그린 뒤 높이로 다시 본다.
+// 여기서는 "접기 후보"만 고른다 — 글 줄이 6줄을 넘거나, 폴드 접힘 폭(한 줄 약 22자)으로 셈한 줄 수가 6줄을 넘는 글.
+export const RAW_FOLD_LINES = 6;
+export const RAW_FOLD_CHARS = 22;
+export function rawFoldable(text, {lines = RAW_FOLD_LINES, perLine = RAW_FOLD_CHARS} = {}) {
+  const parts = String(text ?? '').split('\n');
+  if (parts.length > lines) return true;
+  let n = 0;
+  for (const p of parts) { n += Math.max(1, Math.ceil([...p].length / perLine)); if (n > lines) return true; }
+  return false;
+}
+// 펼친 메시지 열쇠: 소식 ID + 원문 줄 순서. 펼친 상태는 화면 상태(메모리)에만 둔다.
+export const rawMoreKey = (rowId, index) => `${rowId}:${index}`;
