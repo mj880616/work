@@ -79,17 +79,94 @@ test('error text comes from the Edge error code and never shows raw server text'
   assert.match(m.odErrorText(new Error('SELECT secret FROM t')), /실패했어요/);
 });
 
-test('photo bytes: one POST per photo and size, kept in memory; a failed read is not cached', async () => {
-  const m = await mod, rt = runtime(), urls = [], seen = [];
-  globalThis.URL.createObjectURL = () => { const u = 'blob:' + urls.length; urls.push(u); return u; };
-  globalThis.URL.revokeObjectURL = () => {};
-  let ok = true;
-  const fetcher = async (url, init) => { seen.push({url, body:JSON.parse(init.body), auth:init.headers.Authorization}); return ok ? new Response(new Blob(['x']), {headers:{'content-type':'image/jpeg'}}) : new Response('{}', {status:502}); };
-  const a = await m.odPhotoUrl('A1', 'small', {rt, fetcher}), b = await m.odPhotoUrl('A1', 'small', {rt, fetcher});
-  assert.equal(a, b); assert.equal(seen.length, 1);
-  assert.deepEqual(seen[0].body, {action:'photo', id:'A1', size:'small'}); assert.equal(seen[0].url, 'https://x.invalid/functions/v1/onedrive-photos'); assert.equal(seen[0].auth, 'Bearer t');
-  await m.odPhotoUrl('A1', 'large', {rt, fetcher}); assert.equal(seen.length, 2);
-  ok = false;
-  await assert.rejects(m.odPhotoUrl('Z', 'small', {rt, fetcher})); ok = true;
-  await m.odPhotoUrl('Z', 'small', {rt, fetcher}); assert.equal(seen.length, 4);
+test('photo bytes: one POST per photo and size; 429 carries retry_after; 404/403 are final', async () => {
+  const m = await mod, rt = runtime(), seen = [];
+  globalThis.URL.createObjectURL = () => 'blob:1';
+  let reply = () => new Response(new Blob(['x']), {headers:{'content-type':'image/jpeg'}});
+  const fetcher = async (url, init) => { seen.push({url, body:JSON.parse(init.body), auth:init.headers.Authorization}); return reply(); };
+  assert.equal(await m.odPhotoBytes(rt, 'A1', 'large', fetcher), 'blob:1');
+  assert.deepEqual(seen[0].body, {action:'photo', id:'A1', size:'large'}); assert.equal(seen[0].url, 'https://x.invalid/functions/v1/onedrive-photos'); assert.equal(seen[0].auth, 'Bearer t');
+  reply = () => new Response(JSON.stringify({error:'onedrive_throttled', retry_after:12}), {status:429, headers:{'content-type':'application/json'}});
+  await assert.rejects(m.odPhotoBytes(rt, 'A1', 'small', fetcher), e => e.code === 'throttled' && e.retryAfter === 12);
+  reply = () => new Response('{}', {status:404}); await assert.rejects(m.odPhotoBytes(rt, 'A1', 'small', fetcher), e => e.code === 'missing');
+  reply = () => new Response('{}', {status:403}); await assert.rejects(m.odPhotoBytes(rt, 'A1', 'small', fetcher), e => e.code === 'outside');
+  reply = () => new Response('{}', {status:502}); await assert.rejects(m.odPhotoBytes(rt, 'A1', 'small', fetcher), /photo/);
+});
+
+test('photo addresses: one POST for many ids; only safe https addresses are kept; old server and 429 are told apart', async () => {
+  const m = await mod;
+  const rt = runtime(() => ({urls:{A:'https://thumbs.example.test/a?x=1', B:'http://thumbs.example.test/b', C:'https://127.0.0.1/c', D:'javascript:alert(1)'}, failed:{E:'outside', F:7}, retry_after:5}));
+  const out = await m.odPhotoUrls(rt, ['A', 'B', 'C', 'D', 'E', 'F'], 'small');
+  assert.deepEqual(rt.calls[0].body, {action:'photo-urls', ids:['A', 'B', 'C', 'D', 'E', 'F'], size:'small'});
+  assert.deepEqual([...out.urls], [['A', 'https://thumbs.example.test/a?x=1']]);
+  assert.deepEqual([...out.failed], [['E', 'outside']]);
+  assert.equal(out.retryAfter, 5);
+  const proto = await m.odPhotoUrls(runtime(() => JSON.parse('{"urls":{}}')), ['__proto__'], 'small');
+  assert.equal(proto.urls.size, 0);
+  await assert.rejects(m.odPhotoUrls(runtime(() => { throw Object.assign(new Error('action_invalid'), {status:400}); }), ['A']), e => e.code === 'unsupported');
+  await assert.rejects(m.odPhotoUrls(runtime(() => { throw Object.assign(new Error('onedrive_throttled'), {status:429, retryAfter:9}); }), ['A']), e => e.code === 'throttled' && e.retryAfter === 9);
+  await assert.rejects(m.odPhotoUrls(runtime(() => { throw Object.assign(new Error('onedrive_unavailable'), {status:503}); }), ['A']), /onedrive_unavailable/);
+  for (const bad of ['https://localhost/x', 'https://a.internal/x', 'https://u:p@a.example/x', 'https://[::1]/x', 'ftp://a.example/x', 7]) assert.equal(m.safeThumbUrl(bad), null, String(bad));
+});
+
+// 화면 단위: 지어낸 문서와 지어낸 IntersectionObserver로 칸이 보일 때만 받는지, 실패하면 간격을 두고 다시 받는지 본다.
+function fakeDom() {
+  const observers = [];
+  const el = tag => {
+    const node = {tagName:tag, dataset:{}, children:[], attrs:{}, isConnected:true, hidden:false,
+      append(...k) { node.children.push(...k); }, remove() { node.isConnected = false; node.removed = true; },
+      setAttribute(k, v) { node.attrs[k] = v; }, removeAttribute(k) { delete node.attrs[k]; if (k === 'src') node.src = undefined; }};
+    return node;
+  };
+  globalThis.document = {createElement:el};
+  globalThis.IntersectionObserver = class { constructor(cb, opts) { this.cb = cb; this.opts = opts; this.targets = new Set(); observers.push(this); }
+    observe(t) { this.targets.add(t); } unobserve(t) { this.targets.delete(t); } };
+  const show = (box, kind, on) => { for (const o of observers) if (!!o.opts === (kind === 'near') && o.targets.has(box)) o.cb([{target:box, isIntersecting:on}]); };
+  return {observers, show};
+}
+// 모듈이 관찰자를 한 번만 만들므로 지어낸 문서도 하나만 쓴다.
+let sharedDom = null;
+const dom1 = () => (sharedDom ||= fakeDom());
+const flush = async () => { for (let i = 0; i < 8; i++) await new Promise(r => setTimeout(r, 0)); };
+
+test('photo cell: asks only when on screen or about to be; a cell that leaves before its turn is taken back', async () => {
+  const m = await mod, dom = dom1(), asked = [];
+  const rt = runtime();
+  m.odThumbLoader(rt, {fetchUrls:async ids => { asked.push(ids); return {urls:Object.fromEntries(ids.map(id => [id, 'https://t.example.test/' + id]))}; }, fetchBytes:async () => 'blob:x'});
+  const boxes = ['A', 'B', 'C'].map(id => m.odPhotoElement({id}, 'small', {rt}));
+  await flush();
+  assert.deepEqual(asked, [], 'nothing until a cell is near the screen');
+  assert.equal(dom.observers.find(o => o.opts).opts.rootMargin, '200px 0px 100% 0px');
+  dom.show(boxes[0], 'view', true); dom.show(boxes[1], 'near', true); dom.show(boxes[2], 'near', true); dom.show(boxes[2], 'near', false);
+  await flush();
+  assert.deepEqual(asked, [['A', 'B']], 'visible first, the near one in the same batch, the one that left is not asked');
+  const img = boxes[0].children[0];
+  assert.equal(img.src, 'https://t.example.test/A'); assert.equal(img.referrerPolicy, 'no-referrer');
+  img.onload(); assert.equal(boxes[0].dataset.state, 'shown');
+  m.clearOdPhotoCache();
+});
+
+test('photo cell: a failed picture waits and tries again by itself, then rests with the 사진 mark until it comes back on screen', async () => {
+  const m = await mod, dom = dom1(), rt = runtime();
+  const timers = []; const realTimeout = globalThis.setTimeout;
+  let calls = 0;
+  m.odThumbLoader(rt, {fetchUrls:async () => { calls++; throw new Error('net'); }, fetchBytes:async () => 'blob:x'});
+  globalThis.setTimeout = (f, ms) => { if (ms >= 1000) { timers.push({f, ms}); return 0; } return realTimeout(f, ms); };
+  try {
+    const box = m.odPhotoElement({id:'A'}, 'small', {rt});
+    dom.show(box, 'view', true); await flush();
+    for (const wait of [3000, 6000, 12000, 24000]) {
+      assert.equal(box.dataset.state, 'retry'); assert.equal(timers.at(-1).ms, wait);
+      timers.at(-1).f(); await flush();
+    }
+    assert.equal(calls, 5);
+    assert.equal(box.dataset.state, 'link');
+    assert.equal(box.children.at(-1).textContent, '사진');
+    assert.equal(timers.length, 4, 'no endless retry while it stays on screen');
+    // 화면에서 나갔다가 다시 들어오면(3초 넘게 지난 뒤) 처음부터 다시 받는다.
+    const realNow = Date.now; Date.now = () => realNow() + 5000;
+    try { dom.show(box, 'view', false); dom.show(box, 'view', true); await flush(); } finally { Date.now = realNow; }
+    assert.equal(calls, 6); assert.equal(box.dataset.state, 'retry');
+  } finally { globalThis.setTimeout = realTimeout; }
+  m.clearOdPhotoCache();
 });
