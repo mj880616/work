@@ -17,7 +17,7 @@ export const HOME_ROWS = 4;
 export const TASK_TITLE_MAX = 200;
 // The server waits for OpenAI up to 30 s and may try once more; finding reads several tables first.
 export const RADAR_TIMEOUT_MS = 90000;
-const FIELDS = 'id,kind,summary,due,source_kind,source_id,source_day,evidence,project_id,organization_id,status,task_id,created_at,decided_at';
+const FIELDS = 'id,kind,summary,due,source_kind,source_id,source_day,evidence,project_id,organization_id,status,task_id,task_due,created_at,decided_at';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const encode = encodeURIComponent;
@@ -45,7 +45,7 @@ export function validCandidate(row) {
   return !!row && typeof row === 'object' && UUID.test(String(row.id)) && Object.hasOwn(RADAR_KIND_LABEL, row.kind)
     && Object.hasOwn(RADAR_SOURCE_LABEL, row.source_kind) && UUID.test(String(row.source_id)) && DAY.test(String(row.source_day))
     && typeof row.summary === 'string' && row.summary.trim() !== '' && ['open', 'tasked', 'dismissed'].includes(row.status)
-    && (row.due == null || DAY.test(String(row.due)));
+    && (row.due == null || DAY.test(String(row.due))) && (row.task_due == null || DAY.test(String(row.task_due)));
 }
 const clean = rows => (Array.isArray(rows) ? rows : []).filter(validCandidate);
 
@@ -129,7 +129,9 @@ async function patch(id, from, body, rt) {
 }
 export const dismissCandidate = (id, rt = window.KPTURuntime, now = new Date()) => patch(id, 'open', {status:'dismissed', decided_at:now.toISOString()}, rt);
 export const reopenCandidate = (id, rt = window.KPTURuntime) => patch(id, 'dismissed', {status:'open', decided_at:null}, rt);
-export const markTasked = (id, taskId, rt = window.KPTURuntime, now = new Date()) => patch(id, 'open', {status:'tasked', task_id:String(taskId), decided_at:now.toISOString()}, rt);
+// JOURNAL-챙길것화면 후속: the due the task was put in with is saved on the candidate (task_due; null = no due), so the handled row can always show it.
+export const markTasked = (id, taskId, rt = window.KPTURuntime, now = new Date(), due = null) =>
+  patch(id, 'open', {status:'tasked', task_id:String(taskId), decided_at:now.toISOString(), task_due:due && DAY.test(String(due)) ? String(due) : null}, rt);
 
 // The same targets the Google task create path takes (google-tasks Edge parseTargets): the candidate's project or
 // organization, and the meeting when the source is a meeting result.
@@ -158,7 +160,7 @@ export async function candidateToTask(candidate, draft, {rt = window.KPTURuntime
   catch (error) { return {status:error?.status ? 'failed' : 'unknown', code:error?.status === 401 ? 'session_required' : ''}; }
   if (result?.ok !== true || !result.task?.id) return {status:'failed'};
   let marked = false;
-  try { marked = await markTasked(candidate.id, result.task.id, rt, now()); } catch { marked = false; }
+  try { marked = await markTasked(candidate.id, result.task.id, rt, now(), draft.due || null); } catch { marked = false; }
   // BASKET-할일출처: a task made from an update is also listed on that update (existing feature). Failure is only reported.
   let recorded = null;
   if (candidate.source_kind === 'basket') {

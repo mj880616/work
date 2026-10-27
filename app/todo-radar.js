@@ -22,7 +22,7 @@ const stamp = value => formatSeoulTime(value, {month:'numeric', day:'numeric', h
 const CHANGED = 'kptu:todo-radar-changed';
 
 // Shared by every host in this tab, for the signed-in owner only.
-// dueOf: the due each candidate was put in with in this tab (no column for it; after a reload the task view's copy is read).
+// dueOf: the due each candidate was put in with in this tab (kept for a failed mark; the saved value is the candidate's task_due, older rows fall back to the task view's copy).
 const shared = {scope:'', autoDay:'', fnMissing:false, finding:null, promises:[], status:'', checkedAt:null, partial:false, dueOf:new Map()};
 function sameScope() {
   const scope = radarScope(rt);
@@ -118,8 +118,9 @@ export function mountRadar(host, {place}) {
   let lastKey = '', drawn = '';
   const shownKey = () => openRows().map(r => r.id).join(',');
   const dayPromises = () => place === 'home' ? shared.promises : shared.promises.filter(p => p.source_day === day);
-  // The due a handled row was put in with: this tab's own record, else the task's due in the task view's copy.
+  // The due a handled row was put in with: the saved task_due, else this tab's own record, else the task's due in the task view's copy.
   function taskedDue(c) {
+    if (c.task_due) return c.task_due;
     if (shared.dueOf.has(c.id)) return shared.dueOf.get(c.id);
     const task = (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).find(t => t?.id === c.task_id);
     return task ? (task.due || '') : null;
@@ -230,8 +231,8 @@ export function mountRadar(host, {place}) {
     if (result.status === 'failed') { rowStatus.set(c.id, result.code === 'session_required' ? '로그인이 필요해요. 다시 로그인한 뒤 눌러 주세요.' : '할 일로 넣지 못했어요. 다시 눌러 주세요.'); paint(); return; }
     edit = null;
     window.KPTUGoogleTasks?.invalidateAfterCreate?.(); window.dispatchEvent(new CustomEvent('kptu:google-tasks-changed'));
-    if (result.status === 'marked_failed') { unmarked.set(c.id, result.task.id); rowStatus.set(c.id, '할 일은 만들었어요. 챙길 것에서 빼지 못했어요.'); paint(); return; }
-    rowStatus.delete(c.id); c.status = 'tasked'; c.task_id = result.task.id; c.decided_at = new Date().toISOString();
+    if (result.status === 'marked_failed') { shared.dueOf.set(c.id, draft.due || ''); unmarked.set(c.id, result.task.id); rowStatus.set(c.id, '할 일은 만들었어요. 챙길 것에서 빼지 못했어요.'); paint(); return; }
+    rowStatus.delete(c.id); c.status = 'tasked'; c.task_id = result.task.id; c.decided_at = new Date().toISOString(); c.task_due = draft.due || null;
     shared.dueOf.set(c.id, draft.due || '');
     const extra = [result.linkError ? '연결은 할 일 화면에서 확인해 주세요.' : '', result.recorded === false ? '업데이트에는 기록하지 못했어요.' : ''].filter(Boolean).join(' ');
     shared.status = `할 일로 넣었어요${draft.due ? ` · 기한 ${dotDay(draft.due)}` : ' · 기한 없음'}.${extra ? ' ' + extra : ''}`; toast('Google 할 일을 만들었어요.');
@@ -266,9 +267,9 @@ export function mountRadar(host, {place}) {
     if (d.radarMark) {
       const c = byId(d.radarMark), taskId = unmarked.get(d.radarMark); if (!c || !taskId) return;
       busy.add(c.id); paint();
-      let ok = false; try { ok = await markTasked(c.id, taskId, rt); } catch { ok = false; }
+      let ok = false; try { ok = await markTasked(c.id, taskId, rt, new Date(), shared.dueOf.get(c.id) || null); } catch { ok = false; }
       busy.delete(c.id);
-      if (ok) { unmarked.delete(c.id); rowStatus.delete(c.id); c.status = 'tasked'; c.task_id = taskId; notify(true); } else rowStatus.set(c.id, '표시하지 못했어요. 다시 눌러 주세요.');
+      if (ok) { unmarked.delete(c.id); rowStatus.delete(c.id); c.status = 'tasked'; c.task_id = taskId; c.task_due = shared.dueOf.get(c.id) || null; notify(true); } else rowStatus.set(c.id, '표시하지 못했어요. 다시 눌러 주세요.');
       paint(); return;
     }
     if (d.radarLedger) {
