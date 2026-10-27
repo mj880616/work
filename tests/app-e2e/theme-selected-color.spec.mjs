@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {THEMES} from '../../app/view-prefs.js';
+import {THEMES} from './helpers/theme-list.mjs';
 import {openHome} from './helpers/home-entry.mjs';
 // UI-테마선택색(2026-10-22): 전환·필터의 고른 쪽 = 테마 주 버튼 색 + 흰 글자, 폰 하단 탭·PC 사이드바는 지금 화면 하나만,
 // 폰 메뉴 판 타일 여섯은 같은 모양. 테마 10종(THEMES)에서 글자/바탕 대비 4.5:1 이상.

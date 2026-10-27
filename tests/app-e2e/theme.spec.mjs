@@ -5,7 +5,7 @@ import { test, expect } from '@playwright/test';
 import { enterLogin } from './helpers/login-entry.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { installViewPrefsServer, leftoverDeviceKeys } from './helpers/view-prefs-server.mjs';
-import {THEMES} from '../../app/view-prefs.js';
+import {THEMES} from './helpers/theme-list.mjs';
 import {closeProjectDetail,expectProjectDetail,projectDetailDocked} from './helpers/project-detail.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';

@@ -1,5 +1,5 @@
 import {openLegacyBoard} from './helpers/legacy-board.mjs';
-import {THEMES} from '../../app/view-prefs.js';
+import {THEMES} from './helpers/theme-list.mjs';
 import {test,expect} from '@playwright/test';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {enterLogin} from './helpers/login-entry.mjs';

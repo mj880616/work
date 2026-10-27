@@ -134,3 +134,8 @@ test('the database check allows exactly the colors in THEMES (same names, same o
   assert.ok(list,'theme list found');
   assert.deepEqual([...list.matchAll(/'([a-z]+)'/g)].map(m=>m[1]),[...THEMES]);
 });
+
+test('the browser-test helper reads the same list',async()=>{
+  const helper=await import('./app-e2e/helpers/theme-list.mjs');
+  assert.deepEqual(helper.THEMES,[...THEMES]);
+});

@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {THEMES} from '../../app/view-prefs.js';
+import {THEMES} from './helpers/theme-list.mjs';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
 test.use({timezoneId:'Asia/Seoul'});
 for(const width of [360,1280]){

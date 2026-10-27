@@ -1,5 +1,5 @@
 import { appOrigin } from './helpers/test-origin.mjs';
-import {THEMES} from '../../app/view-prefs.js';
+import {THEMES} from './helpers/theme-list.mjs';
 import {selectFilter,filterOptions} from './helpers/filter-chips.mjs';
 import {onlyLibraryCategories} from './helpers/library-categories.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
