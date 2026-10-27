@@ -62,7 +62,8 @@ for(const width of [412,870,1280])test(`no basket button or guide text, one ⋯ 
 
 test('keyboard opens the ⋯ menu and [수정] opens the editor',async({page})=>{
   const f=await setup(page);
-  await page.locator('#mrdMore').focus();await page.keyboard.press('Enter');
+  await expect(page.locator('#mrdClose')).toBeFocused();// 창이 열린 뒤 처음 초점이 자리 잡은 다음에 ⋯로 옮긴다
+  await page.locator('#mrdMore').focus();await expect(page.locator('#mrdMore')).toBeFocused();await page.keyboard.press('Enter');
   await expect(page.locator('#mrdMoreMenu')).toBeVisible();
   await page.locator('#mrdMoreMenu [data-mrd-more="edit"]').click();
   await expect(page.locator('#mrdEditor')).toBeVisible();await expect(page.locator('#mrdMore')).toBeHidden();
