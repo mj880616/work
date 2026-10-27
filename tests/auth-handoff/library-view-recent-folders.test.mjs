@@ -105,7 +105,7 @@ test('library view recent folders: dry-run, apply, own-row writes, CHECK and gua
   });
   await t.test('the CHECK still refuses everything else it refused before, and bad recent_folders',async()=>{
    const bad=[[],'x',1,{extra:'x'},{group_by:'Folder'},{group_by:null},{categories_off:'회의'},{categories_off:[1]},{categories_off:['']},{categories_off:Array.from({length:61},(_,i)=>'n'+i)},
-    {recent_folders:'11111111-1111-4111-8111-111111111111'},{recent_folders:[1]},{recent_folders:[null]},{recent_folders:['x']},{recent_folders:['11111111-1111-4111-8111-111111111111']},{recent_folders:[' 11111111-1111-4111-8111-111111111111']},{recent_folders:['11111111-1111-4111-8111-111111111111x']},
+    {recent_folders:'11111111-1111-4111-8111-111111111111'},{recent_folders:[1]},{recent_folders:[null]},{recent_folders:['x']},{recent_folders:['AAAAAAAA-1111-4111-8111-111111111111']},{recent_folders:[' 11111111-1111-4111-8111-111111111111']},{recent_folders:['11111111-1111-4111-8111-111111111111x']},
     {recent_folders:Array.from({length:6},(_,i)=>`00000000-0000-4000-8000-00000000000${i}`)},{recent_folders:{}},{recent_folders:[['11111111-1111-4111-8111-111111111111']]},{recent_folders:['11111111-1111-4111-8111-111111111111'],extra:1}];
    for(const value of bad)await assert.rejects(write(OWNER,OWNER,value),{code:'23514'},JSON.stringify(value).slice(0,80));
    for(const value of [{group_by:'project'},{group_by:'folder'},{},{categories_off:[]},{recent_folders:[]},{recent_folders:['11111111-1111-4111-8111-111111111111']},{recent_folders:Array.from({length:5},(_,i)=>`00000000-0000-4000-8000-00000000000${i}`),group_by:'month'}])
