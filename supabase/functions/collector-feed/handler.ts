@@ -24,6 +24,10 @@
 //   형식이 틀리면 그 칸만 null로 버린다(요청은 막지 않음). AI 답의 `day`(headline + lines 3~4줄)는 같은 AI 호출에서 함께 받는다(호출 수 그대로).
 //   소식 저장 뒤 DB 함수 app_feed_room_touch → app_feed_room_day_add(service_role 전용)를 차례로 부른다. 소식이 한 줄도 저장되지 않았거나 day가 틀리면 부르지 않고,
 //   실패해도 소식 저장은 이미 끝났으므로 계속한다. 로그에는 단계 코드(TGDG_*)만 남기고 방 이름·아이디·요약은 남기지 않는다.
+//   TG-1시간수집(10/28): 앱 스크립트가 1시간마다 새 메시지만 보낸다. 선택 칸 `cont`(true = 이 방·날은 앞서 보낸 적이 있음)면 방 수를 다시 세지 않는다.
+//   AI 부르기 전에 읽기 전용 DB 함수 app_feed_room_day_context(service_role 전용)로 그 방·그날 앞서 저장된 소식(시각·제목·요약)을 읽어 재료에 붙이고,
+//   AI가 그날 요약(day)을 앞서 모인 소식까지 합쳐 다시 쓰게 한다. 이렇게 쓴 요약은 묶음 이름 앞에 `c-`를 붙여 저장하고, 화면은 가장 나중의 `c-` 요약 하나를 그날 요약으로 쓴다.
+//   함수가 없거나 읽기에 실패하면 앞서 모인 소식 없이 지금처럼 묶음 몫 요약(이름 앞 `c-` 없음)으로 저장한다.
 // - 하루 숫자는 app_feed_days에 더한다. 받은 요청 수(batch_count)·AI 사용량(ai_*)은 받은 날(한국 날짜) 줄, 나머지는 내용 날짜 줄.
 //   통화 숫자의 뜻(2단계 정리): total_count = 받은 전사 수(업무·개인함 저장·개수만 모두), kept_count = 업무 통화함에 저장한 줄,
 //   personal_count·unsure_count = 줄 없이 **개수만** 센 통화(요약 없는 옛 개인 기록 등. 개인 통화함에 저장한 통화는 세지 않는다: 그 수는 개인 표의 실제 줄 수),
@@ -38,7 +42,7 @@ import { organizationOptions, projectOptions } from "../ai-assist/library-fill.t
 import { CALL_LIMITS, cleanLine, kstDay, type OrgRow, parseCall } from "./call-analysis.ts";
 import { buildContext, CONTEXT_LIMITS, CONTEXT_PEOPLE_FN, CONTEXT_PEOPLE_ROWS } from "./context.ts";
 import {
-  parseTelegram, rawLines, TELEGRAM_INSTRUCTIONS, TELEGRAM_SCHEMA, telegramMaterial, TG_LIMITS, type TgDay, type TgMessage,
+  parseTelegram, rawLines, TELEGRAM_INSTRUCTIONS, TELEGRAM_SCHEMA, telegramMaterial, TG_LIMITS, type TgDay, type TgEarlier, type TgMessage,
 } from "./telegram.ts";
 
 export type Env = (name: string) => string | undefined;
@@ -65,7 +69,9 @@ export const RAW_TEXT_BYTES = 204800;
 // 하루 상한(설계 4.4절): 받은 날 기준 통화 요청 200건, 텔레그램 묶음 150개(TG-방날짜묶기 결정 2: 80에서 올림, 밀린 방×날을 약 1주에 풀기 위함. 한 달 AI 상한 6,000원은 그대로). 넘으면 429.
 // 통화는 업무·개인이 한 줄(app_feed_days 'call')에 합산된다. 개인 통화 내용까지 보내게 되어 50에서 올렸다
 // (줄은 source 'call'·'telegram'만 허용하므로 업무·개인을 따로 세려면 DB 변경이 필요해 이번 단계에서는 올리기로 한다. 비밀값 인증 뒤의 남용 방지선이다).
-export const DAILY_LIMITS = Object.freeze({ call: 200, telegram: 150 });
+// TG-1시간수집(10/28): 1시간마다 방별로 새 메시지만 보내므로 묶음 수가 늘어 텔레그램을 300으로 올림(07~23시 17번 × 활동 방 약 15곳 ≈ 255 + 밀린 날 여유).
+// 한 달 AI 상한 6,000원은 그대로이므로 비용 상한은 바뀌지 않는다.
+export const DAILY_LIMITS = Object.freeze({ call: 200, telegram: 300 });
 // 이 기능 한 달 AI 상한(Q7): 6,000원. ai-assist의 15,000원 상한과 따로 센다(app_feed_days.ai_*).
 export const MONTHLY_LIMIT_KRW = 6000;
 // 내용 날짜는 오늘(한국 날짜)부터 92일 전까지만 받는다(미래 날짜·오래된 날짜 거절).
@@ -98,6 +104,10 @@ export const NAMES_FN = "app_tg_sender_names_for_day";
 // TG-방날짜묶기: 방 정보·하루 요약 DB 함수(migration 20261027010000, service_role 전용).
 export const ROOM_TOUCH_FN = "app_feed_room_touch";
 export const ROOM_DAY_ADD_FN = "app_feed_room_day_add";
+// TG-1시간수집: 그 방·그날 앞서 저장된 소식 읽기(migration 20261028030000, service_role 전용, 읽기만).
+export const ROOM_DAY_CONTEXT_FN = "app_feed_room_day_context";
+// 그날 요약을 앞서 모인 소식까지 합쳐 다시 쓴 묶음 표시(화면 app/tg-day-model.mjs CUMULATIVE_PREFIX와 같음).
+export const CUMULATIVE_PREFIX = "c-";
 const CHAT_KINDS = ["user", "group", "channel"];
 const CHAT_USERNAME = /^[A-Za-z][A-Za-z0-9_]{4,31}$/;
 const OPEN_REF = /^[A-Za-z0-9_.:@/-]{1,100}$/;
@@ -183,7 +193,7 @@ export function parseSkipBody(b: Record<string, unknown>, today: string): SkipIn
 
 export type TgSender = { label: string; key?: string; name?: string; self?: boolean };
 type TelegramInput = {
-  day: string; room_key: string; room_label: string; total: number; part: number; attempt: number; messages: TgMessage[];
+  day: string; room_key: string; room_label: string; total: number; part: number; attempt: number; cont: boolean; messages: TgMessage[];
   senders: TgSender[]; sendersInvalid: boolean; sendersSkipped: number; oddDropped: number;
   chat_kind: string | null; chat_username: string | null; open_ref: string | null; roomInfoDropped: number;
 };
@@ -240,13 +250,15 @@ function parseSenders(raw: unknown, labelsInMessages: Set<string>) {
   return { senders: out, invalid: false, skipped, oddDropped };
 }
 export function parseTelegramBody(b: Record<string, unknown>, today: string): TelegramInput {
-  if (!exactKeys(b, ["day", "room_key", "room_label", "total", "messages"], ["part", "attempt", "senders", "chat_kind", "chat_username", "open_ref"])) throw new Fail(400, "INVALID_BODY");
+  if (!exactKeys(b, ["day", "room_key", "room_label", "total", "messages"], ["part", "attempt", "cont", "senders", "chat_kind", "chat_username", "open_ref"])) throw new Fail(400, "INVALID_BODY");
   if (!validDay(b.day, today)) throw new Fail(400, "INVALID_BODY");
   if (typeof b.room_key !== "string" || !ROOM_KEY.test(b.room_key)) throw new Fail(400, "INVALID_BODY");
   const label = typeof b.room_label === "string" && !/[\u0000-\u001f\u007f]/.test(b.room_label) ? cleanLine(b.room_label, 100) : null;
   if (!label) throw new Fail(400, "INVALID_BODY");
   const part = b.part ?? 1, attempt = b.attempt ?? 1;
   if (!isInt(part, 1, 50) || !isInt(attempt, 1, 3)) throw new Fail(400, "INVALID_BODY");
+  const cont = b.cont ?? false;
+  if (typeof cont !== "boolean") throw new Fail(400, "INVALID_BODY");
   if (!Array.isArray(b.messages) || b.messages.length > TG_LIMITS.messages) throw new Fail(400, "INVALID_BODY");
   if (!isInt(b.total, b.messages.length, 5000)) throw new Fail(400, "INVALID_BODY");
   const seen = new Set<string>();
@@ -271,7 +283,7 @@ export function parseTelegramBody(b: Record<string, unknown>, today: string): Te
   const sp = parseSenders(b.senders, new Set(messages.map((m) => m.sender)));
   const room = parseRoomInfo(b);
   return {
-    day: b.day, room_key: b.room_key, room_label: label, total: b.total, part, attempt, messages,
+    day: b.day, room_key: b.room_key, room_label: label, total: b.total, part, attempt, cont, messages,
     senders: sp.senders, sendersInvalid: sp.invalid, sendersSkipped: sp.skipped, oddDropped: sp.oddDropped,
     chat_kind: room.chat_kind, chat_username: room.chat_username, open_ref: room.open_ref, roomInfoDropped: room.dropped,
   };
@@ -501,7 +513,7 @@ async function saveSenders(db: Db, ws: string, input: TelegramInput, log: Log) {
 
 // 방 정보·하루 요약 저장(TG-방날짜묶기 2단계). 소식 저장 뒤에 부른다. 실패해도 던지지 않는다: 소식은 이미 저장됐고, 로그에는 단계 코드만 남긴다.
 // touch가 실패해도 day_add는 따로 시도한다(서로 다른 표). 방 이름·아이디·요약·열기 값은 로그에 넣지 않는다.
-async function saveRoomDay(db: Db, ws: string, input: TelegramInput, batch: string, day: TgDay | null, log: Log) {
+async function saveRoomDay(db: Db, ws: string, input: TelegramInput, batch: string, day: TgDay | null, log: Log, cumulative = false) {
   if (input.roomInfoDropped) log("telegram_room_info_dropped", { count: input.roomInfoDropped });
   try {
     const r = await db.rpcObject(ROOM_TOUCH_FN, {
@@ -511,7 +523,7 @@ async function saveRoomDay(db: Db, ws: string, input: TelegramInput, batch: stri
   } catch { log("telegram_room_touch_failed", { stage: "INTERNAL" }); }
   if (!day) return;
   try {
-    const part: Record<string, unknown> = { batch, first_at: new Date(input.messages[0].at).toISOString(), lines: day.lines };
+    const part: Record<string, unknown> = { batch: cumulative ? `${CUMULATIVE_PREFIX}${batch}` : batch, first_at: new Date(input.messages[0].at).toISOString(), lines: day.lines };
     if (day.headline) part.headline = day.headline;
     if (input.open_ref) part.open_ref = input.open_ref;
     const r = await db.rpcObject(ROOM_DAY_ADD_FN, { p_workspace: ws, p_room_key: input.room_key, p_day: input.day, p_part: part });
@@ -544,6 +556,24 @@ async function senderNames(db: Db, ws: string, input: TelegramInput, log: Log) {
   }
   return out;
 }
+// 그 방·그날 앞서 저장된 소식(TG-1시간수집). ok=false면 읽지 못한 것(함수 없음·실패): 그날 요약을 합쳐 쓰지 않는다. 제목·요약은 로그에 넣지 않는다.
+async function earlierItems(db: Db, ws: string, input: TelegramInput, log: Log): Promise<{ ok: boolean; items: TgEarlier[] }> {
+  try {
+    const res = await db.rpc(ROOM_DAY_CONTEXT_FN, { p_workspace: ws, p_room_key: input.room_key, p_day: input.day });
+    if (res === "missing") { log("telegram_context_failed", { stage: "FN_MISSING" }); return { ok: false, items: [] }; }
+    const items: TgEarlier[] = [];
+    for (const r of res.rows) {
+      const at = typeof r.at === "string" ? Date.parse(r.at) : NaN;
+      const summary = typeof r.summary === "string" ? r.summary.trim() : "";
+      if (!Number.isFinite(at) || !summary) continue;
+      items.push({ at, title: typeof r.title === "string" && r.title.trim() ? r.title : null, summary });
+    }
+    return { ok: true, items: items.slice(0, TG_LIMITS.earlierItems) };
+  } catch {
+    log("telegram_context_failed", { stage: "READ" });
+    return { ok: false, items: [] };
+  }
+}
 async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: number, deps: AiDeps) {
   const today = kstDay(nowMs);
   const msgRefs = input.messages.map((m) => m.ref).sort().join(",");
@@ -551,7 +581,8 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   const prefix = `tg:${batch}:`;
   const counts = (kept: number, failed = 0) => ({
     // 한 방이 여러 묶음(part)으로 나뉘면 그 방의 하루 메시지 수(total)·방 수는 첫 묶음에서만 센다.
-    total_count: input.part === 1 ? input.total : 0, kept_count: kept, room_count: input.part === 1 ? 1 : 0, failed_count: failed,
+    // 1시간마다 이어 보내는 묶음(cont)은 메시지 수(새로 온 것만)는 더하고 방 수는 다시 세지 않는다.
+    total_count: input.part === 1 ? input.total : 0, kept_count: kept, room_count: input.part === 1 && !input.cont ? 1 : 0, failed_count: failed,
   });
   await claimBatch(db, ws, today, "telegram", nowMs);
   // 이름표는 소식 저장·AI와 별개로 먼저 시도한다(다시 온 묶음·글 없는 묶음에서도 같은 값이라 다시 해도 안전).
@@ -573,7 +604,9 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   const projects = projectOptions(await db.get(`app_spaces?workspace_id=eq.${ws}&deleted_at=is.null&select=id,name,parent_id,status,metadata&order=sort_order.asc,created_at.asc&limit=500`));
   // 한 방·하루가 여러 묶음이면(둘째 묶음부터, 또는 보낸 메시지가 하루 전체보다 적을 때) 요약을 그 묶음 몫으로 쓰게 한다(설계 3.2절).
   const names = await senderNames(db, ws, input, deps.log);
-  const material = telegramMaterial(input.day, input.room_label, input.messages, orgs, projects, input.part > 1 || input.total > input.messages.length, names);
+  const earlier = await earlierItems(db, ws, input, deps.log);
+  const partial = input.part > 1 || input.cont || input.total > input.messages.length;
+  const material = telegramMaterial(input.day, input.room_label, input.messages, orgs, projects, partial, names, earlier.items);
   // 부르기 전에 횟수를 먼저 센다(ai-assist와 같음).
   await addDay(db, ws, today, "telegram", { ai_requests: 1 }, nowMs);
   const result = await callOpenAi({ doFetch: deps.doFetch, sleep: deps.sleep, log: deps.log }, config.key, {
@@ -620,7 +653,8 @@ async function runTelegram(db: Db, ws: string, input: TelegramInput, nowMs: numb
   }
   await addDay(db, ws, input.day, "telegram", counts(kept), nowMs);
   // 소식이 실제로 저장된 방·날만 방 정보와 요약을 남긴다(DB 함수도 소식이 있어야 받는다).
-  if (kept > 0) await saveRoomDay(db, ws, input, batch, parsedAi.day, deps.log);
+  // 앞서 모인 소식을 읽었으면(없어서 빈 목록이어도) 그날 요약은 그때까지 모인 소식 전체로 쓴 것이다(c- 묶음).
+  if (kept > 0) await saveRoomDay(db, ws, input, batch, parsedAi.day, deps.log, earlier.ok);
   return callResult({ kept });
 }
 

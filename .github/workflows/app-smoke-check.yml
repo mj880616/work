@@ -76,6 +76,9 @@ on:
       - 'tests/ai-tone.test.mjs'
       - 'supabase/functions/_shared/ai-model.ts'
       - 'supabase/functions/collector-feed/telegram.ts'
+      - 'supabase/functions/collector-feed/handler.ts'
+      - 'docs/ops/collector-feed.gs'
+      - 'tests/tg-feed-hourly.test.mjs'
       - 'supabase/functions/ai-assist/**'
       - 'scripts/check-app-smoke-contract.mjs'
       - 'scripts/check-app-smoke-contract.test.mjs'
@@ -157,6 +160,9 @@ on:
       - 'tests/ai-tone.test.mjs'
       - 'supabase/functions/_shared/ai-model.ts'
       - 'supabase/functions/collector-feed/telegram.ts'
+      - 'supabase/functions/collector-feed/handler.ts'
+      - 'docs/ops/collector-feed.gs'
+      - 'tests/tg-feed-hourly.test.mjs'
       - 'supabase/functions/ai-assist/**'
       - 'scripts/check-app-smoke-contract.mjs'
       - 'scripts/check-app-smoke-contract.test.mjs'
@@ -196,6 +202,9 @@ jobs:
 
       - name: Check home KST day and week boundaries
         run: node --test tests/home-read-model.test.mjs tests/home-read-cache.test.mjs tests/data-freshness.test.mjs tests/collection-status.test.mjs tests/collection-cadence.test.mjs
+
+      - name: Check telegram hourly send (new messages only, night rest, cumulative day summary)
+        run: node --test tests/tg-feed-hourly.test.mjs
 
       - name: Check phone bottom tab selection rule
         run: node --test tests/mobile-tab-selection.test.mjs tests/menu-model.test.mjs tests/home-cards-model.test.mjs tests/menu-home-prefs.test.mjs

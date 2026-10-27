@@ -170,8 +170,8 @@ test('여러 묶음이면 재료에 "일부" 표시가 붙는다(둘째 묶음, 
   assert.ok(telegramMaterial(TODAY,'가상방',[],[],[],true).includes('그날 대화의 일부'));
 });
 
-test('하루 묶음 한도는 150, 한 달 AI 상한은 6,000원 그대로',()=>{
-  assert.equal(DAILY_LIMITS.telegram,150);assert.equal(MONTHLY_LIMIT_KRW,6000);
+test('하루 묶음 한도는 300(TG-1시간수집), 한 달 AI 상한은 6,000원 그대로',()=>{
+  assert.equal(DAILY_LIMITS.telegram,300);assert.equal(MONTHLY_LIMIT_KRW,6000);
   assert.ok(TG_LIMITS.maxOutputTokens>=1700,'요약 몫(약 200토큰)을 출력 상한에 더했다');
 });
 

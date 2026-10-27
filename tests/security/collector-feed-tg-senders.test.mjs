@@ -225,6 +225,6 @@ test('소스: 번호 원문 칸·로그에 이름을 쓰는 코드·DB 표 직�
   assert.ok(!/app_tg_senders['"`?]|app_tg_day_senders/.test(code),'표를 직접 읽거나 쓰지 않는다');
   assert.equal([...code.matchAll(/db\.rpc\(NAMES_FN/g)].length,1,'읽기 전용 함수 호출 한 곳(AI 표시 이름)');
   assert.ok(!/sender_id|phone|telegram_user/.test(src.replace(/\/\/.*$/gm,'')),'번호 원문 칸 없음');
-  assert.ok(/telegramMaterial\([^)]*, names\)/.test(src),'AI 재료에는 표시 이름 목록(names)만 넘긴다(key·번호 없음)');
+  assert.ok(/telegramMaterial\([^)]*, names, earlier\.items\)/.test(src),'AI 재료에는 표시 이름 목록(names)만 넘긴다(key·번호 없음). 뒤의 earlier.items는 앞서 모인 소식(TG-1시간수집)');
   assert.ok(!/log\([^)]*names/.test(code.replace(/telegram_sender_names_failed/g,'')),'로그에 이름 없음');
 });

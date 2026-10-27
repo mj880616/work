@@ -28,7 +28,7 @@ test('앱 스크립트 파일: 텔레그램 구간에 폴더 ID·비밀값·방 
   for(const m of tg.matchAll(/(?:Logger\.log|new Error)\(([^;]*)\)/g)) assert.ok(!/\bsecret\b|getProperty\(CALL_FEED_SECRET_KEY\)/.test(m[1]),m[0]);
   assert.match(tg,/getProperty\(TG_FEED_TEST_KEY\) !== '끔'/,'시험 모드 기본 켬');
   assert.ok(tg.includes("?action=telegram")&&tg.includes('CALL_FEED_SECRET_KEY'),'통화와 같은 입구·비밀값');
-  assert.ok(tg.includes("atHour(8).nearMinute(10)"),'08:10 트리거');
+  assert.ok(tg.includes("newTrigger('tgFeed_run').timeBased().everyHours(1)"),'매시 트리거(TG-1시간수집)');
   // 검토후보·AI 검토 상태 파일은 읽지도 않는다(Q9).
   assert.ok(!/검토후보|telegram_ai_review_state/.test(tg.replace(/\/\/.*$|\/\*[\s\S]*?\*\//gm,'')),'코드에서 검토후보·상태 파일을 가리키지 않는다');
 });
@@ -129,7 +129,7 @@ test('만든 몸통이 서버 parseTelegramBody에서 그대로 읽힌다(묶음
 test('이어 하기 상태: 시작 날짜, 보낼 날짜 목록, 묶음 중간에서 이어 하기',()=>{
   const state={startDay:'2026-10-24',rooms:{},attempts:{}};
   const rs=plain(G.tgFeedRoomState(state,'-100123'));
-  assert.deepEqual(rs,{doneDay:'2026-10-23',backDay:'',partDay:'',partsDone:0});
+  assert.deepEqual(rs,{lastId:'',lastDay:'',doneDay:'2026-10-23',backDay:'',partDay:'',partsDone:0});
   // 오늘(10/25) 08:10: 어제(10/24)까지만. 오늘은 아직 끝나지 않았다.
   assert.deepEqual(plain(G.tgFeedPendingDays(rs.doneDay,state.startDay,'2026-10-25')),['2026-10-24']);
   assert.deepEqual(plain(G.tgFeedPendingDays(rs.doneDay,state.startDay,'2026-10-24')),[],'시작한 날 당일에는 보낼 것이 없다');
@@ -151,7 +151,7 @@ test('이어 하기 상태: 시작 날짜, 보낼 날짜 목록, 묶음 중간�
   assert.deepEqual(plain(s),{doneDay:'2026-10-24',backDay:'',partDay:'',partsDone:0});
   assert.deepEqual(plain(G.tgFeedPendingDays(s.doneDay,state.startDay,'2026-10-25')),[],'같은 날은 두 번 보내지 않는다');
   // 저장된 상태가 깨져도 시작 날짜로 되돌아간다
-  assert.deepEqual(plain(G.tgFeedRoomState({startDay:'2026-10-24',rooms:{a:{doneDay:'엉터리',partsDone:-4}}},'a')),{doneDay:'2026-10-23',backDay:'',partDay:'',partsDone:0});
+  assert.deepEqual(plain(G.tgFeedRoomState({startDay:'2026-10-24',rooms:{a:{doneDay:'엉터리',partsDone:-4,m:'12a'}}},'a')),{lastId:'',lastDay:'',doneDay:'2026-10-23',backDay:'',partDay:'',partsDone:0});
 });
 
 test('파일 찾는 범위: 그 날 0시(한국)부터 3일, 월 폴더는 한국 달과 UTC 달',()=>{
@@ -183,7 +183,7 @@ test('시작 날짜 앞 7일 보충: 방마다 따로 이어 하고, 평소 구�
   // 예전 설치: 시작 날짜 10/24, 오늘 10/25 08:10 → 보충 구간은 10/18~10/23, 평소 구간은 10/24(어제)
   const state={startDay:'2026-10-24',backChecked:true,backFrom:'2026-10-18',rooms:{},attempts:{}};
   const rs=plain(G.tgFeedRoomState(state,'-100123'));
-  assert.deepEqual(rs,{doneDay:'2026-10-23',backDay:'2026-10-17',partDay:'',partsDone:0});
+  assert.deepEqual(rs,{lastId:'',lastDay:'',doneDay:'2026-10-23',backDay:'2026-10-17',partDay:'',partsDone:0});
   const plan=plain(G.tgFeedPlanDays(rs,state,'2026-10-25'));
   assert.deepEqual(plan.map((p)=>p.day),['2026-10-18','2026-10-19','2026-10-20','2026-10-21','2026-10-22','2026-10-23','2026-10-24']);
   assert.deepEqual(plan.filter((p)=>p.back).map((p)=>p.day),['2026-10-18','2026-10-19','2026-10-20','2026-10-21','2026-10-22','2026-10-23']);

@@ -10,15 +10,17 @@ import {formatSeoulTime, seoulParts, seoulDateKey} from './meeting-time.js';
 import {viewPrefs} from './view-prefs.js';
 
 const HOUR = 3600000;
-// telegram: 회사 PC 수집이 messages/<YYYY-MM>/에 만드는 가장 최근 메시지 파일 시각(업무방 매일 07:30 1회 → 하루+2시간 여유로 26시간). call: 전사 폴더 최근 파일 시각(통화가 없는 주말을 넘기도록 72시간).
+// telegram: 회사 PC 수집이 messages/<YYYY-MM>/에 만드는 가장 최근 메시지 파일 시각. 수집은 1시간마다(한국 7~23시, TG-1시간수집 10/28)지만
+// 파일 시각은 마지막 메시지 시각이라 밤·주말에는 메시지가 없을 뿐이다. 그래서 '조용함' 기준은 하루+여유 26시간을 그대로 둔다. call: 전사 폴더 최근 파일 시각(통화가 없는 주말을 넘기도록 72시간).
 // 수집기 두 줄(telegram·call)은 이 시간을 넘게 새 파일이 없어도 경고하지 않고 '조용함'으로만 표시한다(메시지·통화가 없는 날이 있음, 2026-10-22 사용자 결정). 경고는 신호(silent)만.
 // silent: 앱 스크립트가 1시간마다 보내는 신호 자체가 3시간 넘게 없으면 스크립트·트리거 문제로 본다.
 export const STALE_HOURS = Object.freeze({copy:24, radar:48, telegram:26, call:72});
 // OPS-수집멈춤알림: 경고로 올리는 기준. 위 STALE_HOURS(조용함)보다 훨씬 길어서, 메시지·통화가 없는 주말·연휴는 넘긴다.
 // telegram·call: 회사 PC 수집기가 이 시간 넘게 새 원문 파일을 안 올림. telegramSend·callSend: 보내기 스크립트가 이 시간 넘게 결과를 안 알림
-// (매일 08:10 트리거 + 지터 / 1시간 트리거 + 지터). GAP: 새 원문은 있는데 실제로 보낸 글이 이 시간 넘게 없음(빈 날만 보낸 경우).
+// (텔레그램: 매시 트리거, 한국 0~7시는 쉬어 알림도 없음 → 가장 긴 정상 간격은 23시대 실행부터 7시대 실행까지 약 9시간 + 여유 1시간 = 10시간,
+//  TG-1시간수집 10/28 / 통화: 1시간 트리거 + 지터). GAP: 새 원문은 있는데 실제로 보낸 글이 이 시간 넘게 없음(빈 날만 보낸 경우).
 export const STALL_HOURS = Object.freeze({telegram:72, call:168});
-export const SEND_SILENT_HOURS = Object.freeze({telegramSend:26, callSend:3});
+export const SEND_SILENT_HOURS = Object.freeze({telegramSend:10, callSend:3});
 export const SEND_GAP_HOURS = 72;
 export const SILENT_HOURS = 3;
 export const CACHE_MS = 10 * 60 * 1000;

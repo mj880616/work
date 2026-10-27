@@ -74,12 +74,20 @@ export const lineText = (line, titles) => line.headline || (titles?.get(rdKey(li
 
 // app_feed_room_days.parts → 묶음마다 {first_at, headline, lines, open_ref}를 시각 순으로 이어 붙인다(설계 3.2절).
 // headline = 가장 이른 글 있는 묶음의 것, open_ref = 가장 이른 묶음 중 있는 것.
+// TG-1시간수집: 묶음 이름(batch)이 CUMULATIVE_PREFIX로 시작하면 서버가 그때까지 모인 소식 전체로 다시 쓴 그날 요약이다.
+// 그런 묶음이 있으면 저장 순서(배열 순서)로 가장 나중의 것 하나와, 그 뒤에 더해진 보통 묶음만 쓴다(앞의 묶음은 그 요약에 이미 들어 있다).
+export const CUMULATIVE_PREFIX = 'c-';
 export function mergeParts(parts) {
-  const list = (Array.isArray(parts) ? parts : []).filter(p => p && typeof p === 'object' && !Array.isArray(p)).map(p => ({
+  const all = (Array.isArray(parts) ? parts : []).filter(p => p && typeof p === 'object' && !Array.isArray(p));
+  let from = 0;
+  all.forEach((p, i) => { if (typeof p.batch === 'string' && p.batch.startsWith(CUMULATIVE_PREFIX)) from = i; });
+  const openRef = all.map(p => typeof p.open_ref === 'string' ? {first_at:typeof p.first_at === 'string' ? p.first_at : '', ref:p.open_ref} : null)
+    .filter(p => p?.ref).sort((a, b) => a.first_at.localeCompare(b.first_at))[0]?.ref || '';
+  const list = all.slice(from).map(p => ({
     first_at:typeof p.first_at === 'string' ? p.first_at : '', headline:text(p.headline),
-    lines:(Array.isArray(p.lines) ? p.lines : []).map(text).filter(Boolean), open_ref:typeof p.open_ref === 'string' ? p.open_ref : '',
+    lines:(Array.isArray(p.lines) ? p.lines : []).map(text).filter(Boolean),
   })).filter(p => p.lines.length || p.headline).sort((a, b) => a.first_at.localeCompare(b.first_at));
-  return {headline:list.find(p => p.headline)?.headline || '', lines:list.flatMap(p => p.lines), openRef:list.find(p => p.open_ref)?.open_ref || ''};
+  return {headline:list.find(p => p.headline)?.headline || '', lines:list.flatMap(p => p.lines), openRef};
 }
 // 방 상세의 요약 상자 재료. kind: 'ai'(AI가 쓴 요약) | 'titles'(요약이 없는 날: 소식 제목 모음, 결정 4) | 'none'.
 // partsKnown=false(요약 표를 읽지 못함)면 제목 모음이어도 "AI 요약 이전 날" 표시를 하지 않는다(old=false).

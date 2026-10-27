@@ -805,10 +805,10 @@ function callFeedVerdict(code) {
 // ═══════════════════════════════════════════════════════════════════════
 // 텔레그램 보내기 (TG-소식메뉴 3-나)
 //
-// 하는 일: 매일 08:10에 "어제까지 끝난 날"의 텔레그램 메시지를 방별·날짜별로 묶어 Web2 서버(collector-feed ?action=telegram)로 보낸다.
+// 하는 일: 매시(한국 7~23시) 텔레그램 새 메시지를 방별·날짜별로 묶어 Web2 서버(collector-feed ?action=telegram)로 보낸다(TG-1시간수집, 10/28).
 //   - 허용 목록(스크립트 속성 TG_FEED_ROOMS)에 적은 업무방 폴더만 읽는다. 목록에 없는 방(개인 수집 포함)은 열지 않는다.
-//   - 오늘 날짜는 보내지 않는다(하루가 끝난 날만). 같은 방·같은 날은 한 번만 보낸다(방별 doneDay).
-//   - 한 번에 4.5분 안에서 멈추고, 남은 일은 10분 뒤 이어 하기 트리거가 이어서 한다(하루 12번까지). 못 한 날은 다음 날 08:10에도 이어진다.
+//   - 오늘 날짜도 보낸다. 같은 메시지는 한 번만 보낸다(방별 보낸 가장 큰 메시지 번호 m). 하루가 끝난 날은 다음 날 첫 실행이 남은 것을 보내고 끝낸 날(doneDay)로 적는다.
+//   - 한 번에 4.5분 안에서 멈추고, 남은 일은 10분 뒤 이어 하기 트리거가 이어서 한다(한 번 실행에 5번까지). 못 한 것은 다음 매시 실행이 이어 한다.
 //   - 읽기(TG-소식멈춤 2단계): 방마다 못 보낸 날을 최대 3일씩 묶어 파일 목록을 Drive REST로 한 번 받고, 내용은 50개씩 UrlFetchApp.fetchAll로 병렬로 읽는다.
 //     방 순서는 가장 오래된 못 보낸 날이 앞선 방부터(날짜 우선). 읽기 전에 파일 수로 시간을 가늠해 안 들어가면 읽지 않고 미룬 뒤 다음 실행에서 그 방을 맨 먼저 읽는다.
 //     하루 URL 호출(목록+내용)은 상한(기본 15000, 스크립트 속성 TG_FEED_FETCH_BUDGET)을 넘기 전에 멈춘다. 날짜 판정은 메시지 안 날짜다.
@@ -817,6 +817,10 @@ function callFeedVerdict(code) {
 //   - 보내는 이(sender_id)는 방·날짜마다 A, B, C 같은 임시 이름으로 바꿔 보낸다. 실제 값(번호)은 서버로 가지 않는다.
 //   - 이름표(TG-발언자이름 3단계): 열쇠(스크립트 속성 TG_FEED_SENDER_KEY)가 있으면 라벨마다 {label, key(번호를 열쇠로 섞은 고정 해시), name, self}를 몸통의 senders로 함께 보낸다.
 //     name·self는 수집기가 sender_name·sender_is_self 칸을 적었을 때만 있다. 열쇠가 없으면 senders를 보내지 않는다. 번호·이름·key는 로그에 남기지 않는다.
+//   - 1시간마다(TG-1시간수집, 명진 10/28 결정): 트리거가 매시 tgFeed_run을 부른다. 한국 시각 0~7시(TG_FEED_QUIET_FROM~TG_FEED_QUIET_UNTIL)는 쉬고,
+//     그 사이 쌓인 메시지는 7시 실행에서 한 번에 보낸다. 오늘(한국)도 보내되, 방마다 이미 보낸 가장 큰 메시지 번호(방 상태 m)보다 큰 새 메시지만 보낸다.
+//     하루가 끝난 날은 다음 날 첫 실행이 남은 새 메시지를 보내고 그 날을 끝낸 날로 적는다(서버가 그 묶음에서 그날 요약을 모인 소식 전체로 다시 쓴다).
+//     보낸 이 라벨(A, B …)은 매번 그날 전체 메시지로 정하므로 시간이 달라도 같은 사람은 같은 라벨이다(그래서 그날 파일은 매번 다시 읽는다).
 // 통화 부분(callFeed…)과 같은 프로젝트·같은 비밀값(COLLECTOR_FEED_SECRET)을 쓴다. 이름은 모두 tgFeed로 시작한다.
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -840,7 +844,9 @@ var TG_FEED_TIME_LIMIT_MS = 4.5 * 60 * 1000;    // 앱 스크립트 6분 제한 
 var TG_FEED_SEND_EXTRA_MS = 45 * 1000;         // 이미 읽은 방은 시간 한도 뒤에도 이만큼 더 보낸다(읽고 나서 보내지 못해 버리는 일을 줄임)
 var TG_FEED_FIRST_EXTRA_MS = 30 * 1000;         // 첫 방은 읽기를 이만큼 더 길게 쓴다
 var TG_FEED_CONTINUE_MS = 10 * 60 * 1000;       // 이어 하기 트리거 간격
-var TG_FEED_MAX_CHAIN = 12;                     // 하루에 이어 하기를 부르는 최대 횟수
+var TG_FEED_MAX_CHAIN = 5;                      // 매시 실행 한 번에서 이어 하기를 부르는 최대 횟수(다음 매시 실행이 다시 0부터 센다)
+var TG_FEED_QUIET_FROM = 0;                     // 한국 시각 이 시부터(포함)
+var TG_FEED_QUIET_UNTIL = 7;                    // 이 시 전까지(제외) 쉰다. 쉬는 동안 온 메시지는 7시 실행에서 한 번에 보낸다
 var TG_FEED_WINDOW_DAYS = 3;                    // 그 날 메시지 파일은 그 날 0시부터 3일 안에 고쳐진 것으로 본다(수집이 하루 늦어도 잡힘)
 var TG_FEED_MAX_MESSAGES = 300;                 // 서버 한 묶음 상한(TG_LIMITS.messages)
 var TG_FEED_MAX_CHARS = 4000;                   // 서버 메시지 글자 상한(TG_LIMITS.messageChars)
@@ -917,7 +923,7 @@ function tgFeed_check() {
     '비밀값: ' + (secretLength >= 32 ? '있음' : '없음 또는 너무 짧음 — 안내 2단계'),
     '시험 모드: ' + (tgFeed_testMode_() ? '켬(보내지 않음)' : '끔(실제로 보냄)'),
     '시작 날짜: ' + (state.startDay || '없음 — tgFeed_setup을 먼저 실행'),
-    '자동 실행 트리거: ' + feedTriggerSummary_(['tgFeed_run', 'tgFeed_continue'], '매일 08:10(tgFeed_run)이 없습니다 — tgFeed_installDailyTrigger를 실행하세요'),
+    '자동 실행 트리거: ' + feedTriggerSummary_(['tgFeed_run', 'tgFeed_continue'], '매시(tgFeed_run)가 없습니다 — tgFeed_installHourlyTrigger를 실행하세요'),
     tgFeedProgressText(tgFeedProgress(state, found.rooms.map(function (r) { return r.key; }), nowDay), nowDay),
     tgFeedRemainingText(tgFeedRemaining(state, found.rooms.map(function (r) { return r.key; }), nowDay)),
     '오늘 URL 호출: ' + (state.fetch.d === nowDay ? state.fetch.n : 0) + ' / ' + tgFeed_fetchBudget_() + ' (파일 읽기·목록, 한국 날짜 기준)',
@@ -930,7 +936,8 @@ function tgFeed_check() {
 /**
  * 빠진 날 다시 보내기(1회용): 스크립트 속성 TG_FEED_REWIND_DAY에 날짜(예: 2026-10-25)를 적고 이 함수를 [실행]한다.
  * 방마다 "끝낸 날"을 그 날 하루 전으로 되돌린다(앞으로만 당기지 않고, 이미 더 앞이면 그대로). 최근 7일 안·어제까지만 받는다.
- * 같은 방·같은 날 묶음은 서버가 중복으로 알아보고 다시 저장하지 않는다(다만 서버 하루 상한 80개에는 센다).
+ * 같은 방·같은 날 묶음은 서버가 중복으로 알아보고 다시 저장하지 않는다(다만 서버 하루 상한에는 센다).
+ * 주의(TG-1시간수집): 1시간마다 나눠 보낸 날은 되돌려 다시 보내면 묶음 모양이 달라져 같은 소식이 두 번 생길 수 있다. 정말 빠진 날에만 쓴다.
  * 되돌린 뒤 tgFeed_run을 [실행]하면 그 날부터 다시 보낸다. 날짜 속성은 쓰고 나면 지운다.
  */
 function tgFeed_rewind() {
@@ -957,12 +964,18 @@ function tgFeed_testModeOn() {
   Logger.log('텔레그램 시험 모드를 켰습니다. 보내지 않고 개수만 셉니다.');
 }
 
-/** 처음 한 번: 매일 08:10경 tgFeed_run을 부르는 트리거를 만든다(있던 같은 트리거는 지우고 하나만 둔다). */
-function tgFeed_installDailyTrigger() {
+/**
+ * 처음 한 번(또는 매일 트리거에서 바꿀 때): 매시 tgFeed_run을 부르는 트리거를 만든다(있던 매일·매시·이어 하기 트리거는 지우고 하나만 둔다).
+ * 한국 시각 0~7시 실행은 스크립트 안에서 바로 끝낸다(트리거는 그대로 매시).
+ */
+function tgFeed_installHourlyTrigger() {
   tgFeed_removeTrigger();
-  ScriptApp.newTrigger('tgFeed_run').timeBased().atHour(8).nearMinute(10).everyDays(1).create();
-  Logger.log('매일 08:10 트리거를 만들었습니다(앱 스크립트 특성상 08:10~08:25 사이에 돕니다).');
+  ScriptApp.newTrigger('tgFeed_run').timeBased().everyHours(1).create();
+  Logger.log('매시 트리거를 만들었습니다(앱 스크립트 특성상 매시 아무 분에 돕니다). 한국 시각 ' + TG_FEED_QUIET_FROM + '~' + TG_FEED_QUIET_UNTIL + '시는 쉬고 7시에 몰아서 보냅니다.');
 }
+
+/** 옛 이름(매일 08:10 트리거 설치). 이제 매시 트리거를 만든다. */
+function tgFeed_installDailyTrigger() { tgFeed_installHourlyTrigger(); }
 
 /** 멈추기·되돌리기: 이 스크립트의 텔레그램 보내기 트리거(매일·이어 하기)만 지운다. 통화·전사·분석 트리거는 건드리지 않는다. */
 function tgFeed_removeTrigger() {
@@ -976,11 +989,17 @@ function tgFeed_removeTrigger() {
 
 // ── 트리거가 부르는 함수 ───────────────────────────────────────────────
 
-/** 매일 08:10 트리거. 이어 하기 횟수를 0으로 되돌리고 시작한다. */
-function tgFeed_run() { feedGuard_('tg', function () { return tgFeed_runCore_(false); }); }
+/** 매시 트리거. 이어 하기 횟수를 0으로 되돌리고 시작한다. 한국 시각 0~7시는 아무것도 하지 않는다(알림도 보내지 않음). */
+function tgFeed_run() {
+  if (tgFeedQuiet(Date.now())) { Logger.log('한국 시각 ' + TG_FEED_QUIET_FROM + '~' + TG_FEED_QUIET_UNTIL + '시는 쉽니다. 7시 실행에서 몰아서 보냅니다.'); return; }
+  feedGuard_('tg', function () { return tgFeed_runCore_(false); });
+}
 
-/** 이어 하기 트리거(10분 뒤 한 번). 이어 하기 횟수를 1 올리고, 한도(12번)가 넘으면 멈춘다. */
-function tgFeed_continue() { feedGuard_('tg', function () { return tgFeed_runCore_(true); }); }
+/** 이어 하기 트리거(10분 뒤 한 번). 이어 하기 횟수를 1 올리고, 한도(5번)가 넘으면 멈춘다. 쉬는 시각이면 하지 않는다(7시 실행이 이어 받음). */
+function tgFeed_continue() {
+  if (tgFeedQuiet(Date.now())) { Logger.log('쉬는 시각이라 이어 하기를 건너뜁니다. 7시 실행이 이어서 합니다.'); return; }
+  feedGuard_('tg', function () { return tgFeed_runCore_(true); });
+}
 
 function tgFeed_runCore_(isContinue) {
   var started = Date.now();
@@ -1001,7 +1020,7 @@ function tgFeed_runCore_(isContinue) {
         state.lastRun = tgFeedLastRun(Date.now(), '이어 하기 한도(' + TG_FEED_MAX_CHAIN + '번) 도달', 0, 0);
         tgFeed_saveState_(state);
       }
-      Logger.log('이어 하기 한도(' + TG_FEED_MAX_CHAIN + '번)를 넘어 오늘은 여기서 멈춥니다. 내일 08:10에 이어서 합니다.');
+      Logger.log('이어 하기 한도(' + TG_FEED_MAX_CHAIN + '번)를 넘어 여기서 멈춥니다. 다음 매시 실행에서 이어서 합니다.');
       return null;
     }
     var wanted = tgFeedParseRooms(props.getProperty(TG_FEED_ROOMS_KEY) || '');
@@ -1025,7 +1044,7 @@ function tgFeed_runCore_(isContinue) {
     // 방마다 보낼 날짜 계획. 읽는 순서는 "가장 오래된 못 보낸 날"이 앞선 방부터(날짜 우선) — 한 방이 오래 걸려도 다른 방이 굶지 않는다.
     var entries = found.rooms.map(function (room, i) {
       var rs = tgFeedRoomState(state, room.key);
-      return { room: room, n: i + 1, rs: rs, plan: tgFeedPlanDays(rs, state, today), first: !!state.pri && state.pri === room.key, blocked: false };
+      return { room: room, n: i + 1, rs: rs, plan: tgFeedPlanDays(rs, state, today, true), first: !!state.pri && state.pri === room.key, blocked: false };
     });
 
     while (!run.stop) {
@@ -1041,7 +1060,7 @@ function tgFeed_runCore_(isContinue) {
         rd = tgFeed_readDays_(run, e, [picks[0].day], first, false, true);
       }
       if (rd.status === 'time') { run.stop = '시간 제한(읽는 중) — 이 방은 다음 실행에서 맨 먼저 읽음'; run.resumable = true; if (!state.pri) state.pri = e.room.key; break; }
-      if (rd.status === 'quota') { run.stop = 'URL 호출 하루 한도(' + rd.note + ') — 내일 08:10에 이어서 함'; run.kind = feedKindPick(run.kind, 'limit_day'); break; }
+      if (rd.status === 'quota') { run.stop = 'URL 호출 하루 한도(' + rd.note + ') — 다음 날 7시에 이어서 함'; run.kind = feedKindPick(run.kind, 'limit_day'); break; }
       if (rd.status === 'defer') { e.blocked = true; run.tally.deferred++; run.resumable = true; if (!state.pri) state.pri = e.room.key; continue; }
       if (rd.status === 'fail') { e.blocked = true; run.tally.readFail++; run.kind = feedKindPick(run.kind, 'bad'); run.resumable = true; Logger.log('읽지 못해 이번에는 건너뜀: ' + e.n + '번째 방 (' + rd.note + ')'); continue; }
       run.tally.visits++;
@@ -1091,19 +1110,23 @@ function tgFeed_runCore_(isContinue) {
 function tgFeed_sendDay_(run, e, day, isBack, grouped) {
   var state = run.state, tally = run.tally, room = e.room, test = run.test, started = run.started, secret = run.secret;
   tally.days++;
-  tally.messages += grouped.messages.length;
-  tally.noText += grouped.total - grouped.messages.length;
-  var parts = tgFeedSplit(tgFeedAssignSenders(grouped.messages));
-  var senders = test ? [] : tgFeed_buildSenders_(grouped.messages);   // 시험 모드는 보내지 않으므로 해시도 만들지 않는다
-  var skipParts = tgFeedPartsToSkip(e.rs, day);
-  if (test) { tally.parts += parts.length; Logger.log('[시험] ' + e.n + '번째 방 ' + day + ': 전체 ' + grouped.total + '개 중 글 있는 ' + grouped.messages.length + '개, 묶음 ' + parts.length + '개'); return; }
+  // 라벨(A, B …)은 그날 전체로 정하고(시간마다 같은 사람 = 같은 라벨), 보내는 것은 이미 보낸 번호(e.rs.lastId)보다 큰 새 메시지만(보충 구간은 전부).
+  var fresh = tgFeedFresh(grouped, isBack ? '' : e.rs.lastId);
+  var open = !isBack && day >= run.today;   // 아직 끝나지 않은 오늘: 보내도 끝낸 날로 적지 않는다
+  var cont = !isBack && !!e.rs.lastId && e.rs.lastDay === day;   // 이 방·날을 앞서 보낸 적이 있음(서버가 방 수를 다시 세지 않음)
+  tally.messages += fresh.messages.length;
+  tally.noText += fresh.total - fresh.messages.length;
+  var parts = tgFeedSplit(fresh.messages);
+  var senders = test ? [] : tgFeedSendersFor(tgFeed_buildSenders_(grouped.messages), fresh.messages);   // 시험 모드는 보내지 않으므로 해시도 만들지 않는다
+  if (test) { tally.parts += parts.length; Logger.log('[시험] ' + e.n + '번째 방 ' + day + (open ? '(오늘)' : '') + ': 새 메시지 ' + fresh.total + '개 중 글 있는 ' + fresh.messages.length + '개, 묶음 ' + parts.length + '개'); return; }
   var save = function (rs) { e.rs = rs; state.rooms[room.key] = rs; tgFeed_saveState_(state); };
-  for (var p = skipParts; p < parts.length; p++) {
+  var after = function (p, count) { return tgFeedAfterSend(e.rs, day, isBack, open, p < count ? tgFeedMaxId(parts[p]) : fresh.maxId, p + 1 >= count ? fresh.maxId : ''); };
+  for (var p = 0; p < parts.length; p++) {
     if (Date.now() > run.sendLimit) { run.stop = '시간 제한'; run.resumable = true; return; }
     if (tally.parts >= TG_FEED_MAX_PARTS_PER_RUN) { run.stop = '한 번에 보낼 묶음 상한(' + TG_FEED_MAX_PARTS_PER_RUN + '개) 도달'; run.resumable = true; return; }
     var akey = room.key + '|' + day + '|' + (p + 1);
     var attempt = (state.attempts[akey] || 0) + 1;
-    var body = tgFeedBuildBody({ day: day, roomKey: room.key, roomLabel: room.label, total: grouped.total, part: p + 1, attempt: attempt, messages: parts[p], senders: senders });
+    var body = tgFeedBuildBody({ day: day, roomKey: room.key, roomLabel: room.label, total: p === 0 ? fresh.total : parts[p].length, part: p + 1, attempt: attempt, messages: parts[p], senders: senders, cont: cont || p > 0 });
     var res = tgFeed_post_(body, secret);
     var verdict = tgFeedVerdict(res.code, res.json && res.json.error);
     if (verdict === 'ok') {
@@ -1112,26 +1135,26 @@ function tgFeed_sendDay_(run, e, day, isBack, grouped) {
       tally.kept += out.kept || 0;
       tally.parts++;
       delete state.attempts[akey];
-      save(tgFeedAfterPart(e.rs, day, p, parts.length, isBack));
+      save(after(p, parts.length));
     } else if (verdict === 'auth') {
       tgFeed_saveState_(state);
       throw new Error('비밀값 불일치(401) — 스크립트 속성 값과 Supabase COLLECTOR_FEED_SECRET이 같은지 확인하세요.');
     } else if (verdict === 'limit') {
       run.stop = tgFeedLimitReason(res.json && res.json.error); run.kind = feedKindPick(run.kind, feedLimitKind(res.json && res.json.error)); return;
     } else if (verdict === 'pause') {
-      run.stop = '서버 준비 안 됨(HTTP ' + res.code + ' ' + (res.json && res.json.error || '') + ') — 내일 08:10에 다시 시도'; run.kind = feedKindPick(run.kind, 'broken'); return;
+      run.stop = '서버 준비 안 됨(HTTP ' + res.code + ' ' + (res.json && res.json.error || '') + ') — 다음 매시 실행에서 다시 시도'; run.kind = feedKindPick(run.kind, 'broken'); return;
     } else if (verdict === 'drop') {
       tally.skipped++;
       Logger.log('서버가 거절해 넘김: ' + e.n + '번째 방 ' + day + ' 묶음 ' + (p + 1) + ' (HTTP ' + res.code + (res.json && res.json.error ? ' ' + res.json.error : '') + ')');
       delete state.attempts[akey];
-      save(tgFeedAfterPart(e.rs, day, p, parts.length, isBack));
+      save(after(p, parts.length));
     } else {
       state.attempts[akey] = attempt;
       if (attempt >= TG_FEED_MAX_ATTEMPTS) {
         Logger.log(TG_FEED_MAX_ATTEMPTS + '번 실패해 넘김: ' + e.n + '번째 방 ' + day + ' 묶음 ' + (p + 1) + ' (HTTP ' + res.code + (res.json && res.json.error ? ' ' + res.json.error : '') + ')');
         tally.failed++;
         delete state.attempts[akey];
-        save(tgFeedAfterPart(e.rs, day, p, parts.length, isBack));
+        save(after(p, parts.length));
       } else {
         tally.retry++;
         tgFeed_saveState_(state);
@@ -1140,12 +1163,12 @@ function tgFeed_sendDay_(run, e, day, isBack, grouped) {
       }
     }
   }
-  if (!parts.length && !grouped.total) {   // 그 날 파일이 하나도 없으면 보낼 것이 없다. 끝난 날로만 적는다
-    save(tgFeedAfterPart(e.rs, day, 0, 1, isBack));
-  } else if (!parts.length) {   // 글 있는 메시지가 없는 날(첨부만 등)은 개수만 서버에 알린다(서버는 AI를 부르지 않고 개수만 센다)
-    var emptyRes = tgFeed_post_(tgFeedBuildBody({ day: day, roomKey: room.key, roomLabel: room.label, total: grouped.total, part: 1, attempt: 1, messages: [] }), secret);
+  if (!parts.length && !fresh.total) {   // 새 메시지가 없으면 보낼 것이 없다. 끝난 날이면 끝낸 날로만 적는다(오늘이면 그대로)
+    if (!open) save(after(0, 1));
+  } else if (!parts.length) {   // 새 메시지 중 글 있는 것이 없으면(첨부만 등) 개수만 서버에 알린다(서버는 AI를 부르지 않고 개수만 센다)
+    var emptyRes = tgFeed_post_(tgFeedBuildBody({ day: day, roomKey: room.key, roomLabel: room.label, total: fresh.total, part: 1, attempt: 1, messages: [], cont: cont }), secret);
     var ev = tgFeedVerdict(emptyRes.code, emptyRes.json && emptyRes.json.error);
-    if (ev === 'ok' || ev === 'drop') save(tgFeedAfterPart(e.rs, day, 0, 1, isBack));
+    if (ev === 'ok' || ev === 'drop') save(after(0, 1));
     else if (ev === 'auth') throw new Error('비밀값 불일치(401) — 스크립트 속성 값과 Supabase COLLECTOR_FEED_SECRET이 같은지 확인하세요.');
     else if (ev === 'limit') { run.stop = tgFeedLimitReason(emptyRes.json && emptyRes.json.error); run.kind = feedKindPick(run.kind, feedLimitKind(emptyRes.json && emptyRes.json.error)); }
     else { run.kind = feedKindPick(run.kind, ev === 'pause' ? 'broken' : 'bad'); run.stop = '서버 응답 이상(HTTP ' + emptyRes.code + ') — 다음 실행에서 다시 시도'; run.resumable = emptyRes.code === 0 || emptyRes.code >= 500; }
@@ -1508,7 +1531,49 @@ function tgFeedGroupDay(parsedList, day) {
     var d = Date.parse(a.at) - Date.parse(b.at);
     return d || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   });
-  return { total: Math.min(all.length, TG_FEED_MAX_TOTAL), messages: msgs };
+  return { total: Math.min(all.length, TG_FEED_MAX_TOTAL), messages: msgs, ids: all.map(function (p) { return p.id; }) };
+}
+
+/** 메시지 번호 a가 b보다 큰가(숫자 글자는 자리수·글자 순으로 비교해 큰 번호도 정확). b가 비었으면 항상 참. 숫자가 아닌 번호는 새 것으로 본다. */
+function tgFeedIdAfter(a, b) {
+  if (!b) return true;
+  if (!/^\d{1,20}$/.test(a) || !/^\d{1,20}$/.test(b)) return true;
+  a = a.replace(/^0+(?=\d)/, ''); b = b.replace(/^0+(?=\d)/, '');
+  return a.length !== b.length ? a.length > b.length : a > b;
+}
+
+/** 목록에서 가장 큰 숫자 번호(ref 또는 id). 없으면 ''. */
+function tgFeedMaxId(list) {
+  var max = '';
+  (list || []).forEach(function (m) { var id = typeof m === 'string' ? m : (m.ref || m.id || ''); if (/^\d{1,20}$/.test(id) && (!max || tgFeedIdAfter(id, max))) max = id.replace(/^0+(?=\d)/, ''); });
+  return max;
+}
+
+/**
+ * 하루치(tgFeedGroupDay 결과)에서 lastId보다 큰 새 메시지만 남긴다. 라벨은 그날 전체 순서로 먼저 붙인 뒤 거른다(시간이 달라도 같은 사람 = 같은 라벨).
+ * 반환: {total(새 메시지 수, 글 없는 것 포함), messages(라벨 붙은 새 글 메시지), maxId(새 메시지 중 가장 큰 번호, 없으면 '')}.
+ */
+function tgFeedFresh(grouped, lastId) {
+  var labeled = tgFeedAssignSenders(grouped.messages);
+  var ids = (grouped.ids || labeled.map(function (m) { return m.ref; })).filter(function (id) { return tgFeedIdAfter(id, lastId); });
+  return {
+    total: Math.min(ids.length, TG_FEED_MAX_TOTAL),
+    messages: labeled.filter(function (m) { return tgFeedIdAfter(m.ref, lastId); }),
+    maxId: tgFeedMaxId(ids),
+  };
+}
+
+/** 그날 전체로 만든 이름표 목록에서 이번에 보내는 메시지의 라벨만 남긴다. */
+function tgFeedSendersFor(senders, messages) {
+  var used = {};
+  (messages || []).forEach(function (m) { used[m.sender] = true; });
+  return (senders || []).filter(function (s) { return used[s.label]; });
+}
+
+/** 한국 시각 0~7시(쉬는 시각)인가. */
+function tgFeedQuiet(nowMs) {
+  var h = new Date(nowMs + CALL_FEED_KST_MS).getUTCHours();
+  return h >= TG_FEED_QUIET_FROM && h < TG_FEED_QUIET_UNTIL;
 }
 
 /** 번호 → A, B, … Z, AA, AB … (세 글자까지). */
@@ -1594,6 +1659,7 @@ function tgFeedBuildBody(input) {
   var body = { day: input.day, room_key: input.roomKey, room_label: input.roomLabel, total: Math.max(input.total, msgs.length), messages: msgs };
   if (input.part > 1) body.part = input.part;
   if (input.attempt > 1) body.attempt = input.attempt;
+  if (input.cont) body.cont = true;   // 이 방·날을 앞서 보낸 적이 있음(TG-1시간수집). 서버는 방 수를 다시 세지 않는다
   if (input.senders && input.senders.length) body.senders = input.senders;   // 나뉜 묶음마다 같은 목록. 라벨은 하루치 전체에서 정해져 일관된다
   return body;
 }
@@ -1604,7 +1670,10 @@ function tgFeedRoomState(state, key) {
   // 디스크에는 짧은 모양(d·b·p·n)으로 쓰고, 옛 긴 모양(doneDay·backDay·partDay·partsDone)도 받는다.
   var done = r.doneDay !== undefined ? r.doneDay : r.d, back = r.backDay !== undefined ? r.backDay : r.b;
   var partDay = r.partDay !== undefined ? r.partDay : r.p, partsDone = r.partsDone !== undefined ? r.partsDone : r.n;
+  var lastId = r.lastId !== undefined ? r.lastId : r.m, lastDay = r.lastDay !== undefined ? r.lastDay : r.l;
   return {
+    lastId: /^\d{1,20}$/.test(String(lastId || '')) ? String(lastId) : '',
+    lastDay: /^\d{4}-\d{2}-\d{2}$/.test(lastDay || '') ? lastDay : '',
     doneDay: /^\d{4}-\d{2}-\d{2}$/.test(done || '') ? done : tgFeedAddDays(state.startDay, -1),
     backDay: /^\d{4}-\d{2}-\d{2}$/.test(back || '') ? back : (state.backFrom ? tgFeedAddDays(state.backFrom, -1) : ''),
     partDay: /^\d{4}-\d{2}-\d{2}$/.test(partDay || '') ? partDay : '',
@@ -1612,15 +1681,15 @@ function tgFeedRoomState(state, key) {
   };
 }
 
-/** 보낼 날짜 목록: 끝낸 날 다음부터 어제(한국)까지. 시작 날짜 앞과 서버가 받는 92일보다 오래된 날은 뺀다. 오늘은 아직 끝나지 않아 뺀다. */
-function tgFeedPendingDays(doneDay, startDay, today) {
+/** 보낼 날짜 목록: 끝낸 날 다음부터 어제(한국)까지(withToday면 오늘까지, TG-1시간수집). 시작 날짜 앞과 서버가 받는 92일보다 오래된 날은 뺀다. */
+function tgFeedPendingDays(doneDay, startDay, today, withToday) {
   var first = tgFeedAddDays(doneDay, 1);
   if (first < startDay) first = startDay;
   var oldest = tgFeedAddDays(today, -CALL_FEED_MAX_PAST_DAYS);
   if (first < oldest) first = oldest;
-  var last = tgFeedAddDays(today, -1);
+  var last = withToday ? today : tgFeedAddDays(today, -1);
   var out = [];
-  for (var d = first; d <= last && out.length < 93; d = tgFeedAddDays(d, 1)) out.push(d);
+  for (var d = first; d <= last && out.length < 94; d = tgFeedAddDays(d, 1)) out.push(d);
   return out;
 }
 
@@ -1640,10 +1709,10 @@ function tgFeedBackfillDays(backDay, backFrom, startDay, today) {
 }
 
 /** 한 방에서 이번에 볼 날짜 계획: 보충 구간(back: true)이 먼저, 그 다음 평소 구간(back: false). 같은 날짜는 두 구간에 함께 들어가지 않는다. */
-function tgFeedPlanDays(roomState, state, today) {
+function tgFeedPlanDays(roomState, state, today, withToday) {
   var plan = [];
   tgFeedBackfillDays(roomState.backDay, state.backFrom, state.startDay, today).forEach(function (d) { plan.push({ day: d, back: true }); });
-  tgFeedPendingDays(roomState.doneDay, state.startDay, today).forEach(function (d) { plan.push({ day: d, back: false }); });
+  tgFeedPendingDays(roomState.doneDay, state.startDay, today, withToday).forEach(function (d) { plan.push({ day: d, back: false }); });
   return plan;
 }
 
@@ -1659,6 +1728,19 @@ function tgFeedAfterPart(roomState, day, partIndex, partCount, isBack) {
     return isBack ? { doneDay: roomState.doneDay, backDay: day, partDay: '', partsDone: 0 } : { doneDay: day, backDay: back, partDay: '', partsDone: 0 };
   }
   return { doneDay: roomState.doneDay, backDay: back, partDay: day, partsDone: partIndex + 1 };
+}
+
+/**
+ * 새 메시지를 한 묶음(또는 묶음 없는 날) 보낸 뒤의 방 상태(TG-1시간수집). sentMax = 이번에 보낸 묶음의 가장 큰 번호, doneMax = 그 날 마지막 묶음이면 새 메시지 전체의 가장 큰 번호.
+ * 보충 구간은 backDay만 옮긴다. 끝난 날의 마지막 묶음이면 그 날을 끝낸 날로 적는다. 오늘(open)은 번호만 옮기고 끝낸 날은 그대로 둔다.
+ */
+function tgFeedAfterSend(roomState, day, isBack, open, sentMax, doneMax) {
+  var rs = { doneDay: roomState.doneDay, backDay: roomState.backDay || '', partDay: '', partsDone: 0, lastId: roomState.lastId || '', lastDay: roomState.lastDay || '' };
+  if (isBack) { if (doneMax !== '' || sentMax === '') rs.backDay = day; return rs; }
+  var top = [sentMax, doneMax].reduce(function (a, b) { return b && (!a || tgFeedIdAfter(b, a)) ? b : a; }, '');
+  if (top && tgFeedIdAfter(top, rs.lastId)) { rs.lastId = top; rs.lastDay = day; }
+  if (!open && (doneMax !== '' || sentMax === '')) rs.doneDay = day;
+  return rs;
 }
 
 /** 그 날(한국)의 메시지 파일을 찾을 고친 시각 범위(밀리초): 그 날 0시부터 3일. */
@@ -1720,6 +1802,7 @@ function tgFeedCompactRoom(rs, state) {
   var o = { d: rs.doneDay };
   if (rs.backDay && rs.backDay !== (state && state.backFrom ? tgFeedAddDays(state.backFrom, -1) : '')) o.b = rs.backDay;   // 보충 구간을 막 시작한 방의 기본값은 쓰지 않는다
   if (rs.partDay) { o.p = rs.partDay; o.n = rs.partsDone; }
+  if (rs.lastId) { o.m = rs.lastId; o.l = rs.lastDay; }
   return o;
 }
 
@@ -1751,8 +1834,8 @@ function tgFeedRemainingText(r) {
 /** 429의 서버 오류 코드 → 멈춘 이유 글. 하루 상한(DAILY_LIMIT)과 이번 달 AI 상한(AI_MONTHLY_LIMIT)은 풀리는 때가 달라 구분해 적는다. */
 function tgFeedLimitReason(errorCode) {
   if (errorCode === 'AI_MONTHLY_LIMIT') return '이번 달 AI 상한(AI_MONTHLY_LIMIT, 429) — 다음 달 1일까지 풀리지 않음. 상한을 올릴지는 명진 결정';
-  if (errorCode === 'DAILY_LIMIT') return '서버 하루 상한(DAILY_LIMIT, 429, 묶음 80개) — 내일 08:10에 이어 보냄';
-  return '서버 상한(429' + (errorCode ? ' ' + errorCode : '') + ') — 내일 08:10에 이어 보냄';
+  if (errorCode === 'DAILY_LIMIT') return '서버 하루 상한(DAILY_LIMIT, 429, 묶음 300개) — 다음 날 7시에 이어 보냄';
+  return '서버 상한(429' + (errorCode ? ' ' + errorCode : '') + ') — 다음 매시 실행에서 다시 시도';
 }
 
 /** 마지막 실행 기록(멈춘 일이 로그를 열지 않아도 tgFeed_check에 보이게). 값은 날짜·개수·멈춘 이유 글뿐이다. */
@@ -1801,8 +1884,8 @@ function tgFeedRewind(state, day, today) {
   var changed = 0;
   Object.keys(next.rooms).forEach(function (k) {
     var rs = tgFeedRoomState(next, k);
-    if (rs.doneDay > prev) {
-      next.rooms[k] = { doneDay: prev, backDay: rs.backDay, partDay: '', partsDone: 0 };
+    if (rs.doneDay > prev || (rs.lastDay && rs.lastDay >= day)) {
+      next.rooms[k] = { doneDay: rs.doneDay > prev ? prev : rs.doneDay, backDay: rs.backDay, partDay: '', partsDone: 0 };   // 보낸 번호 기록도 지워 그 날부터 전부 다시 보낸다
       changed++;
     }
   });
@@ -1947,7 +2030,7 @@ if (typeof module !== 'undefined' && module.exports) {
     tgFeedAddDays: tgFeedAddDays, tgFeedParseRooms: tgFeedParseRooms, tgFeedRoomMatch: tgFeedRoomMatch, tgFeedRoomPick: tgFeedRoomPick, tgFeedRoomInfo: tgFeedRoomInfo,
     tgFeedParseTime: tgFeedParseTime, tgFeedParseMessage: tgFeedParseMessage, tgFeedGroupDay: tgFeedGroupDay, tgFeedSenderName: tgFeedSenderName,
     tgFeedAssignSenders: tgFeedAssignSenders, tgFeedCleanName: tgFeedCleanName, tgFeedHmacHex: tgFeedHmacHex, tgFeedBuildSenders: tgFeedBuildSenders, tgFeedSplit: tgFeedSplit, tgFeedBuildBody: tgFeedBuildBody, tgFeedRoomState: tgFeedRoomState,
-    tgFeedPendingDays: tgFeedPendingDays, tgFeedPartsToSkip: tgFeedPartsToSkip, tgFeedAfterPart: tgFeedAfterPart, tgFeedWindow: tgFeedWindow,
+    tgFeedPendingDays: tgFeedPendingDays, tgFeedIdAfter: tgFeedIdAfter, tgFeedMaxId: tgFeedMaxId, tgFeedFresh: tgFeedFresh, tgFeedSendersFor: tgFeedSendersFor, tgFeedQuiet: tgFeedQuiet, tgFeedAfterSend: tgFeedAfterSend, tgFeedPartsToSkip: tgFeedPartsToSkip, tgFeedAfterPart: tgFeedAfterPart, tgFeedWindow: tgFeedWindow,
     tgFeedMonths: tgFeedMonths, tgFeedBackfillDays: tgFeedBackfillDays, tgFeedLimitReason: tgFeedLimitReason, tgFeedLastRun: tgFeedLastRun, tgFeedLastRunClean: tgFeedLastRunClean, tgFeedLastRunText: tgFeedLastRunText, tgFeedProgress: tgFeedProgress, tgFeedProgressText: tgFeedProgressText, tgFeedRewind: tgFeedRewind, tgFeedPlanDays: tgFeedPlanDays, tgFeedVerdict: tgFeedVerdict,
     tgFeedWindowRange: tgFeedWindowRange, tgFeedMonthsOf: tgFeedMonthsOf, tgFeedByDay: tgFeedByDay, tgFeedNextRoom: tgFeedNextRoom, tgFeedIsQuotaError: tgFeedIsQuotaError,
     feedKindPick: feedKindPick, feedLimitKind: feedLimitKind, feedStallClean: feedStallClean, feedStallNext: feedStallNext, feedReportBody: feedReportBody,

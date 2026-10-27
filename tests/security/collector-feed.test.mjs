@@ -527,8 +527,8 @@ test('텔레그램: 중요한 것 없음이면 행 없이 개수만, 글 없는 
   assert.equal(r.status,503);assert.equal(h.calls.openai.length,0);assert.equal(h.db.app_feed_items.length,0);
 });
 
-test('텔레그램 한 달 상한 6,000원(이 기능만 따로)과 하루 묶음 150개 상한',async()=>{
-  assert.equal(MONTHLY_LIMIT_KRW,6000);assert.equal(DAILY_LIMITS.telegram,150);assert.equal(DAILY_LIMITS.call,200);
+test('텔레그램 한 달 상한 6,000원(이 기능만 따로)과 하루 묶음 300개 상한(TG-1시간수집)',async()=>{
+  assert.equal(MONTHLY_LIMIT_KRW,6000);assert.equal(DAILY_LIMITS.telegram,300);assert.equal(DAILY_LIMITS.call,200);
   const tokens=Math.ceil(MONTHLY_LIMIT_KRW*1_000_000/DEFAULT_PRICE_IN_KRW_PER_MTOK);
   let h=harness({days:[{workspace_id:WS,day:'2026-10-03',source:'telegram',...Object.fromEntries(COUNTERS.map(k=>[k,0])),ai_input_tokens:tokens}]});
   let r=await h.send('telegram',tgBody());assert.equal(r.status,429);assert.equal((await r.json()).error,'AI_MONTHLY_LIMIT');assert.equal(h.calls.openai.length,0);
