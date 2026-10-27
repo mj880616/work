@@ -18,7 +18,7 @@
 -- expect: column grants hash = 기록
 -- expect: triggers hash = 기록
 -- expect: indexes hash = 기록
-select 'prerequisite recorded' as item,case when (select count(*) from supabase_migrations.schema_migrations where version='20261027040000' and name='profile_view_prefs_theme10')=1 then '예' else '아니오' end as value
+select 'prerequisite recorded' as item,case when (select count(*) from supabase_migrations.schema_migrations where version='20261027020000' and name='profile_view_prefs_report_view')=1 then '예' else '아니오' end as value
 union all select 'new migration absent',case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261027040000') then '예' else '아니오' end
 union all select 'view prefs check without new themes',case when (select count(*) from pg_constraint where conrelid=to_regclass('public.app_profiles') and conname='app_profiles_view_prefs_check' and contype='c' and convalidated
   and pg_get_constraintdef(oid) ~ 'report_view' and pg_get_constraintdef(oid) !~ 'mustard')=1 then '예' else '아니오' end
