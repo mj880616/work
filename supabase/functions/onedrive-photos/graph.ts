@@ -5,9 +5,26 @@ export const GRAPH = "https://graph.microsoft.com/v1.0";
 export const IMAGE_MIME = /^image\/(jpeg|png|webp|gif|heic|heif)$/i;
 export const SIZES = { small: "c480x480", large: "c1600x1600" } as const;
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
-export const MAX_FOLDER_DEPTH = 3;
-export const MAX_REQUESTS = 40;
+// 사진 색인(2026-10-28): 달을 열 때마다 폴더를 훑지 않고, 고른 맨 위 폴더의 delta를 나눠 받아 서버 표에 적는다.
+// 한 요청 안에서 받는 양은 시간·쪽 수로 자른다(Edge 요청 시간 안에 끝나게). 못 끝내면 다음 쪽 주소를 저장하고 more:true.
+export const DELTA_SELECT = "id,name,file,folder,photo,fileSystemInfo,parentReference,deleted";
+// 한 걸음은 화면 요청 시간(45초) 안에 넉넉히 끝나야 한다: 쪽 하나가 최대 20초 걸릴 수 있으므로 새 쪽은 8초까지만 시작한다.
+export const SYNC_BUDGET_MS = 8000;
+export const SYNC_MAX_PAGES = 15;
+export const AUTO_SYNC_BUDGET_MS = 3000;
+export const AUTO_SYNC_MAX_PAGES = 2;
+export const SYNC_LOCK_MS = 60000;
+export const SYNC_STALE_MS = 10 * 60 * 1000;
+export const MAX_FOLDER_DEPTH = 64;
 export const MAX_ITEMS = 5000;
+
+// Retry-After(초 또는 날짜)를 1~3600초로 읽는다. 없거나 이상하면 30초.
+export function retryAfterSeconds(v: string | null, nowMs: number): number {
+  if (v && /^\d{1,6}$/.test(v.trim())) return Math.min(3600, Math.max(1, Number(v.trim())));
+  const at = v ? Date.parse(v) : NaN;
+  if (Number.isFinite(at)) return Math.min(3600, Math.max(1, Math.ceil((at - nowMs) / 1000)));
+  return 30;
+}
 
 export type OneDriveItem = {
   id: string;
@@ -16,7 +33,8 @@ export type OneDriveItem = {
   folder?: unknown;
   photo?: { takenDateTime?: string };
   fileSystemInfo?: { createdDateTime?: string };
-  parentReference?: { path?: string };
+  parentReference?: { path?: string; id?: string };
+  deleted?: unknown;
 };
 
 // 로그인 응답의 허용 범위를 소문자 목록으로 만든다(Graph 주소 접두사는 뗀다).

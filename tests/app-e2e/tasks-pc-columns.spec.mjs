@@ -1,6 +1,6 @@
 // UI-PC할일(2026-10-20) → UI-PC할일후속 → UI-PC할일배치(2026-10-20): PC(≥1024) 할 일 화면은 좌우 절반.
 // 왼쪽 절반 = 위 칸 "지남·오늘" + 아래 칸 "일주일 안"(높이는 항목 수만큼), 오른쪽 절반 = 상세 칸(왼쪽 위 칸과 같은 줄에서 시작해 맨 아래까지).
-// "나중 N ▸"·"완료 N ▸"는 "일주일 안" 열 맨 아래 접기 줄. 상세 칸의 [저장]은 맨 위 제목 줄(닫기 X 옆)에 있고 스크롤해도 고정.
+// "나중 N ▸"·"완료 N ▸"는 "일주일 안" 열 맨 아래 접기 줄. 상세 칸의 [저장]은 칸 맨 아래 줄 오른쪽 아래에 있고 스크롤해도 고정(UI-저장자리 2026-10-27, 전에는 제목 줄이었다).
 // 폰·중간 폭은 지금 묶음 목록 그대로. 상세 칸은 지금 수정 창과 같은 요소·같은 저장 경로(google-tasks update/link/unlink)를 쓴다.
 import {test,expect} from '@playwright/test';
 import {openEmphasisFixture} from './helpers/calendar-task-emphasis.mjs';
@@ -123,7 +123,7 @@ for(const width of [1280,1440]){
     const m=await page.evaluate(()=>({sh:document.documentElement.scrollHeight,ih:innerHeight}));expect(m.sh).toBeGreaterThan(m.ih+100);
   });
 
-  test(`PC ${width}: 상세 칸의 프로젝트 체크 목록은 한 열(순서 그대로), 조직은 2열, 저장·닫기 제목 줄은 그대로`,async({page})=>{
+  test(`PC ${width}: 상세 칸의 프로젝트 체크 목록은 한 열(순서 그대로), 조직은 2열`,async({page})=>{
     const projects=Array.from({length:6},(_,i)=>({...PROJECT,id:'p'+i,name:'프로젝트 '+i}));
     const orgs=Array.from({length:6},(_,i)=>({id:'o'+i,name:'조직 '+i,active:true}));
     await open(page,width,[task('a','2026-10-08')],{projects,orgs,height:900});
@@ -140,7 +140,8 @@ for(const width of [1280,1440]){
     const [pb,eb]=[await pane.boundingBox(),await pane.locator('#gtTaskModal .modal-card').boundingBox()];expect(eb.width).toBeGreaterThanOrEqual(pb.width-40);
     // 2열이어도 칸 밖으로 넘치지 않는다.
     const over=await pane.evaluate(e=>e.scrollWidth-e.clientWidth);expect(over).toBeLessThanOrEqual(1);
-    expect(await pane.locator('#gtSaveBtn').evaluate(e=>e.parentElement.classList.contains('modal-head'))).toBe(true);
+    // UI-저장자리: [저장]은 제목 줄이 아니라 창 아래 줄(modal-action-footer)에 있다.
+    expect(await pane.locator('#gtSaveBtn').evaluate(e=>e.parentElement.classList.contains('modal-action-footer')||!!e.closest('.modal-action-footer'))).toBe(true);
   });
 
   test(`PC ${width}: 빈 열은 "없음", 많으면 열이 내용만큼 커짐(안쪽 스크롤바 없음)`,async({page})=>{
@@ -208,7 +209,7 @@ for(const width of [1280,1440]){
     await expect(later).toHaveAttribute('open','');await expect(later.locator('[data-google-task="far"]')).toHaveClass(/is-selected/);
   });
 
-  test(`PC ${width}: 연결 목록이 길어도 [저장]은 처음부터 제목 줄에 보이고, 스크롤해도 고정, 누르면 저장`,async({page})=>{
+  test(`PC ${width}: 연결 목록이 길어도 [저장]은 칸 맨 아래 줄 오른쪽 아래에 보이고, 스크롤해도 고정, 누르면 저장`,async({page})=>{
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     const projects=Array.from({length:40},(_,i)=>({...PROJECT,id:'p'+i,name:'긴 목록 프로젝트 '+i}));
     const orgs=Array.from({length:30},(_,i)=>({id:'o'+i,name:'긴 목록 조직 '+i,active:true}));
@@ -220,29 +221,30 @@ for(const width of [1280,1440]){
     await expect(save).toBeEnabled();
     // 연결 목록이 길어 칸은 실제로 세로로 넘친다.
     const over=await pane.evaluate(e=>({sh:e.scrollHeight,ch:e.clientHeight}));expect(over.sh).toBeGreaterThan(over.ch*2);
-    // 저장은 제목 줄(닫기 X 왼쪽)에 있고 처음부터 화면 안에 있다. 맨 아래 줄에는 없다.
+    // UI-저장자리: 저장은 칸 맨 아래 줄 오른쪽 끝에 있고 처음부터 화면 안에 있다. 제목 줄에는 없다.
     await expect(save).toBeInViewport();
-    expect(await save.evaluate(e=>e.parentElement.classList.contains('modal-head'))).toBe(true);
-    await expect(pane.locator('.modal-action-footer #gtSaveBtn')).toHaveCount(0);
-    const head=async()=>({pane:await pane.boundingBox(),save:await save.boundingBox(),close:await close.boundingBox(),head:await pane.locator('.modal-head').boundingBox()});
-    const first=await head();
-    expect(first.save.y-first.pane.y).toBeLessThan(80);expect(first.save.x+first.save.width).toBeLessThanOrEqual(first.close.x+1);
-    // 맨 아래까지 스크롤해도 제목 줄(저장·닫기)은 칸 맨 위에 그대로.
+    expect(await save.evaluate(e=>e.closest('.modal-action-footer')!==null)).toBe(true);
+    await expect(pane.locator('.modal-head #gtSaveBtn')).toHaveCount(0);
+    const spot=async()=>({pane:await pane.boundingBox(),save:await save.boundingBox(),close:await close.boundingBox(),head:await pane.locator('.modal-head').boundingBox()});
+    const first=await spot();
+    expect(first.pane.y+first.pane.height-(first.save.y+first.save.height)).toBeLessThan(40);
+    expect(first.pane.x+first.pane.width-(first.save.x+first.save.width)).toBeLessThan(40);
+    // 맨 아래까지 스크롤해도 [저장]과 제목 줄(닫기)은 그 자리에 그대로.
     await pane.evaluate(e=>{e.scrollTop=e.scrollHeight});
     expect(await pane.evaluate(e=>e.scrollTop)).toBeGreaterThan(200);
-    const last=await head();
+    const last=await spot();
     expect(Math.abs(last.head.y-last.pane.y)).toBeLessThanOrEqual(2);expect(Math.abs(last.save.y-first.save.y)).toBeLessThanOrEqual(2);
     await expect(save).toBeInViewport();await expect(close).toBeInViewport();
-    // 스크롤한 채로 저장 → 같은 update 경로, 안내("저장했습니다.")도 제목 줄 안에서 보인다.
+    // 스크롤한 채로 저장 → 같은 update 경로, 안내("저장했습니다.")도 아래 줄 안에서 보인다.
     await pane.locator('#gtEditTitle').evaluate(e=>{e.value='고친 제목';e.dispatchEvent(new Event('input',{bubbles:true}))});
     await save.click();
     await expect(status).toHaveText('저장했습니다.');await expect(status).toBeInViewport();
-    expect(await status.evaluate(e=>e.parentElement.classList.contains('modal-head'))).toBe(true);
+    expect(await status.evaluate(e=>e.parentElement.classList.contains('modal-action-footer'))).toBe(true);
     expect(calls.find(c=>c.action==='update').body).toMatchObject({task_id:'a',title:'고친 제목'});
     expect(errors).toEqual([]);
   });
 
-  test(`PC ${width}: 저장 오류 안내도 제목 줄 근처에 보이고 입력은 유지`,async({page})=>{
+  test(`PC ${width}: 저장 오류 안내도 아래 줄(저장 바로 위)에 보이고 입력은 유지`,async({page})=>{
     const projects=Array.from({length:40},(_,i)=>({...PROJECT,id:'p'+i,name:'긴 목록 프로젝트 '+i}));
     const tasks=[task('a','2026-10-08')];
     await open(page,width,tasks,{projects,height:700});
@@ -257,7 +259,7 @@ for(const width of [1280,1440]){
     await pane.locator('#gtSaveBtn').click();
     const status=pane.locator('#gtEditStatus');
     await expect(status).not.toBeEmpty();await expect(status).not.toHaveText('저장했습니다.');await expect(status).toBeInViewport();
-    const [p,st]=[await pane.boundingBox(),await status.boundingBox()];expect(st.y-p.y).toBeLessThan(120);
+    const [p,st]=[await pane.boundingBox(),await status.boundingBox()];expect(p.y+p.height-(st.y+st.height)).toBeLessThan(120);
     await expect(pane.locator('#gtEditTitle')).toHaveValue('바꾼 제목');await expect(pane.locator('#gtSaveBtn')).toBeEnabled();
   });
 
@@ -279,7 +281,7 @@ test('폰 390: 지금 묶음 목록·수정 창 그대로(열·상세 칸 없음
   await page.locator('[data-gt-edit="today"]').click();
   const modal=page.locator('#gtTaskModal');await expect(modal).toBeVisible();
   expect(await modal.evaluate(e=>({parent:e.parentElement.tagName,role:e.getAttribute('role'),pos:getComputedStyle(e).position}))).toEqual({parent:'BODY',role:'dialog',pos:'fixed'});
-  // 폰 팝업: [저장]·안내는 그대로 맨 아래 줄(footer)에 있다(제목 줄로 옮기는 것은 PC 상세 칸만).
+  // 폰 팝업: [저장]·안내는 맨 아래 줄(footer)에 있다(PC 상세 칸도 같은 줄, UI-저장자리).
   // UI-팝업머리고정: 제목 줄은 모든 창에서 위에 고정(sticky)이다. 저장 위치는 바뀌지 않는다.
   expect(await modal.evaluate(e=>({save:e.querySelector('#gtSaveBtn').closest('.modal-action-footer')!==null,status:e.querySelector('#gtEditStatus').parentElement.classList.contains('modal-action-footer'),headSave:e.querySelector('.modal-head #gtSaveBtn')!==null,sticky:getComputedStyle(e.querySelector('.modal-head')).position}))).toEqual({save:true,status:true,headSave:false,sticky:'sticky'});
   await page.locator('[data-gt-close]').click();await expect(modal).toBeHidden();
@@ -293,9 +295,9 @@ test('중간 폭 900: 열·상세 칸 없이 묶음 목록, 수정 창 [저장]�
   expect(await modal.evaluate(e=>({parent:e.parentElement.tagName,save:e.querySelector('#gtSaveBtn').closest('.modal-action-footer')!==null}))).toEqual({parent:'BODY',save:true});
 });
 
-test('PC에서 열었다 닫은 뒤 폭을 좁히면 [저장]이 팝업 맨 아래 줄로 돌아온다',async({page})=>{
+test('PC에서 열었다 닫은 뒤 폭을 좁혀도 [저장]은 팝업 맨 아래 줄에 그대로 있다',async({page})=>{
   await open(page,1280,[task('a','2026-10-08')]);
-  await page.locator('[data-gt-edit="a"]').click();await expect(page.locator('#gtDetailPane .modal-head #gtSaveBtn')).toHaveCount(1);
+  await page.locator('[data-gt-edit="a"]').click();await expect(page.locator('#gtDetailPane .modal-action-footer #gtSaveBtn')).toHaveCount(1);
   await page.locator('#gtDetailPane [data-gt-close]').click();await expect(page.locator('#gtDetailPane .gt-pane-empty')).toBeVisible();
   await page.setViewportSize({width:390,height:844});
   await page.locator('[data-gt-edit="a"]').click();

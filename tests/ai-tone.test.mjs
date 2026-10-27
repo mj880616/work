@@ -71,6 +71,7 @@ const EXCLUDED = new Map([
   ['document-ai-index/index.ts', '검색용 색인 요약: 화면에 보이지 않고 AI 재료로만 쓰임. 화면에 보이게 되면 적용으로 옮길 것'],
   ['meeting-ai-ingest/index.ts', '문서에서 사실을 추출해 두는 재료 글(회의 요약 아님)'],
   ['page-ai-draft/index.ts', '현장 공유 페이지 초안(바깥에 내보내는 글)'],
+  ['ai-assist/hwp-convert.ts', '노조 서식 한글 문서(바깥에 내는 공식 문서, 명사형 문체 유지)'],
   ['team-ai/index.ts', '대화 답변(요약 아님). 공식 보고 문안은 요청 시 -함/-임을 이미 우선함'],
 ]);
 
