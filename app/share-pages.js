@@ -7,9 +7,12 @@
 // SHARE-페이지삭제: each list line has a ⋯ (right-click on a PC opens the same menu: context-menu.js) with [보관] and [삭제].
 // 보관 = keep the record, status 'archived' (share-pages-archive.mjs): it leaves the list for the 보관함 and the public link stops
 // (share-page-read shows only 'published'); links and photos stay. One confirmation, then 5 seconds of [되돌리기].
-// 보관함 = one small folded line under the list ('보관함 n'); its lines have a ⋯ with [되살리기] (always back as a draft) and
-// [완전히 삭제]. 삭제 = for good, on the server (share-page-media purge_page: photo files first, then the page; links and photo
-// records go with it). One confirmation, no undo. A kept page is not opened in the editor (a save would bring it back unseen).
+// 보관함 = one small folded line under the list ('보관함 n'); its lines have a ⋯ with [되살리기] (always back as a draft) and [삭제].
+// TRASH-다른삭제: 삭제 = the 휴지통 (same flow as the other kinds: trash-actions.js deleteToTrash, DB deleted_at). 보관함 and 휴지통 are separate
+// (like the Telegram feed): 보관 keeps status 'archived' as before; 삭제 hides the page and its link (the DB closes the status) and the page,
+// links and photos stay; the 5-second [되돌리기] and the 휴지통 tab ([되돌리기] = same status as before, a published page's same link opens again)
+// bring it back. The permanent delete is only in the 휴지통 tab (project-system-v3.js → share-page-media purge_page).
+// A kept page is not opened in the editor (a save would bring it back unseen).
 // Storage is the owner-RLS tables from PR 1 through the shared runtime (authenticated REST); no new RPC.
 // A link value (token) is read from the DB only when [복사] is pressed and goes straight to the clipboard: it is never
 // drawn, kept in this module, logged or stored in the browser. Lists read only id·label·expiry·off·created.
@@ -17,11 +20,13 @@ import {BLOCK_TYPES, ALL_TYPES, BLOCK_LABELS, ITEM_FIELDS, LIMITS, newBlock, new
   labelProblem, expiresAt, linkState, shareUrl, blockIsEmpty, blocksToDoc} from './share-pages-model.mjs';
 import {renderBlock} from './sr-render.mjs';
 import {copyText} from './copy-text.js';
+import {flashDone} from './press-feedback.js';
 import {createDocEditor} from './ed-editor.js';
 import {createSharePhotos, shareIdOf, SHARE_PHOTO_MAX} from './share-photos.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {offerUndoNotice} from './basket-record-delete.js';
-import {archiveFilter, boxFilter, archiveConfirmText, purgeConfirmText, archivePatch, undoPatch, restorePatch, purgePage, shortTitle} from './share-pages-archive.mjs';
+import {archiveFilter, boxFilter, archiveConfirmText, archivePatch, undoPatch, restorePatch, shortTitle} from './share-pages-archive.mjs';
+import {deleteToTrash} from './trash-actions.js';
 
 (() => {
 if (window.KPTUSharePages) return;
@@ -119,8 +124,8 @@ async function loadList({force = false} = {}) {
 // ── 보관 · 보관함 · 삭제 (SHARE-페이지삭제) ──
 let rowMenu = null, rowBusy = false;
 const MENU_ITEMS = {
-  list:'<button type="button" data-sp-row-action="archive">보관</button><button type="button" class="task-inline-danger" data-sp-row-action="purge">삭제</button>',
-  box:'<button type="button" data-sp-row-action="restore">되살리기</button><button type="button" class="task-inline-danger" data-sp-row-action="purge">완전히 삭제</button>',
+  list:'<button type="button" data-sp-row-action="archive">보관</button><button type="button" class="task-inline-danger" data-sp-row-action="trash">삭제</button>',
+  box:'<button type="button" data-sp-row-action="restore">되살리기</button><button type="button" class="task-inline-danger" data-sp-row-action="trash">삭제</button>',
 };
 function ensureRowMenu() {
   return rowMenu ||= createAnchoredMenu({id:'spRowMenu', className:'task-inline-menu sp-row-menu', label:'공유 페이지 관리', historyKey:'kptuSharePageMenu',
@@ -130,7 +135,7 @@ function ensureRowMenu() {
       const id = active.id.slice(active.id.indexOf(':') + 1), action = button.dataset.spRowAction;
       if (action === 'archive') void archivePage(id);
       else if (action === 'restore') void restorePage(id);
-      else if (action === 'purge') void purge(id);
+      else if (action === 'trash') void trashPage(id);
     }});
 }
 const listNote = text => { const node = listView.querySelector('[data-sp-list-status]'); if (node) node.textContent = text; };
@@ -182,23 +187,21 @@ async function restorePage(id) {
     if (owner === scope) listNote(message(e, '되살리지 못했어요. 다시 시도해 주세요.'));
   } finally { rowBusy = false; }
 }
-// 삭제(완전히): the server checks the owner, removes the photo files, then the page (links and photo records by cascade). No undo.
-async function purge(id) {
+// 삭제 = 휴지통: the DELETE below is turned into 'in the trash' by the DB (the page, its links and photos stay; the status closes so the public link
+// stops). deleteToTrash asks once, then checks the result with app_trash_list before it says so; before the DB has the kind it says 'preparing' and sends nothing.
+async function trashPage(id) {
   const page = pages?.find(p => p.id === id) || box?.find(p => p.id === id);
   if (!page || rowBusy) return;
-  if (!window.confirm(purgeConfirmText(page))) return;
-  const owner = scope;
-  rowBusy = true; listNote('삭제하는 중…');
+  const owner = scope, status = pages?.some(p => p.id === id) ? page.status : 'archived';
+  rowBusy = true; listNote('휴지통으로 옮기는 중…');
   try {
-    const result = await purgePage(id, {rt});
+    const result = await deleteToTrash({kind:'share_page', id, name:page.title, detail:{status}, rt,
+      remove:() => rt.api(`/rest/v1/app_share_pages?id=eq.${q(id)}&workspace_id=eq.${q(workspaceId())}`, {method:'DELETE', prefer:'return=minimal'}),
+      afterChange:() => owner === scope ? loadList({force:true}) : Promise.resolve(),
+      notify:text => { if (owner === scope) listNote(text); }});
     if (owner !== scope) return;
-    if (result.ok) {
-      pages = pages?.filter(p => p.id !== id) ?? pages; box = box?.filter(p => p.id !== id) ?? box;
-      renderList(); listNote('공유 페이지를 완전히 삭제했어요.');
-    } else {
-      listNote(result.message);
-      if (result.status === 404) void loadList({force:true}).then(() => { if (owner === scope) listNote(result.message); });
-    }
+    if (result.status === 'failed') listNote(message(result.error, '삭제하지 못했어요. 다시 시도해 주세요.'));
+    else if (result.status === 'moved' || result.status === 'cancelled') listNote('');
   } finally { rowBusy = false; }
 }
 
@@ -663,7 +666,7 @@ async function createLink() {
     if (editing === page) linkStatus(message(e, '링크를 만들지 못했어요.'));
   } finally { busy = false; }
 }
-async function copyLink(id) {
+async function copyLink(id, button = null) {
   if (!editing?.id) return;
   const page = editing;
   linkStatus('링크를 복사하는 중…');
@@ -672,6 +675,7 @@ async function copyLink(id) {
     if (editing !== page) return;
     if (!Array.isArray(rows) || rows.length !== 1) throw new Error('missing');
     const ok = await copyText(shareUrl(rows[0].token));
+    if (ok && button) flashDone(button); // UI-눌림느낌: [복사] says '✓ 복사됨' for 1.5s
     linkStatus(ok ? '링크를 복사했어요. 메신저에 붙여 넣어 보내세요.' : '복사하지 못했어요. 다시 눌러 주세요.');
   } catch (e) {
     if (editing === page) linkStatus(message(e, '링크를 복사하지 못했어요.'));
@@ -806,7 +810,7 @@ root.addEventListener('click', event => {
   if ('spConvertUndo' in d) { undoConvert(); return; }
   if ('spLinkCreate' in d) { void createLink(); return; }
   if ('spLinksReload' in d) { void loadLinks(); return; }
-  if (d.spLinkCopy) { void copyLink(d.spLinkCopy); return; }
+  if (d.spLinkCopy) { void copyLink(d.spLinkCopy, target); return; }
   if (d.spLinkOff) { void turnOff(d.spLinkOff); return; }
 });
 root.addEventListener('input', event => {
@@ -869,6 +873,9 @@ window.addEventListener('kptu:session-changed', () => {
   delete view.dataset.spEditing; view.removeAttribute('data-sp-full');
   renderList();
 });
+
+// Restored (or permanently deleted) from the 휴지통 tab elsewhere: read the list again.
+window.addEventListener('kptu:share-pages-changed', () => { void loadList({force:true}); });
 
 window.KPTUSharePages = {reload:() => loadList({force:true})};
 renderList();

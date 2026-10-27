@@ -152,6 +152,10 @@
   --ds-meeting-9:#29416f;--ds-meeting-10:#368c54;--ds-meeting-11:#7b0075;--ds-meeting-12:#758d14;--ds-meeting-13:#90844f;--ds-meeting-14:#5a14a6;--ds-meeting-15:#634303;--ds-meeting-16:#524ba5;
   /* 3/3(8-9e-3) 칸막이(iframe) 바탕: HWP 편집기·게시판 본문은 다크 모드에서도 밝게 둔다. */
   --ds-frame-paper:#ffffff;
+  /* UI-눌림느낌(2026-10-27 명진 요청): 누르는 순간 살짝 작아지고(--ds-press-scale) 바탕이 조금 진해진다(--ds-press-tint, 바탕 위에 한 겹).
+     큰 줄·카드는 눌림 도우미(press-feedback.js)가 --ds-press-scale-wide로 낮춘다. 복사됨 글자 색은 --ds-done-ink. */
+  --ds-press-scale:.97;--ds-press-scale-wide:.985;--ds-press-tint:rgb(0 0 0 / 9%);--ds-press-ms:80ms;
+  --ds-done-ink:var(--kptu-success);
 }
 /* 다크 모드(3/3 8-9e-3에서 켬): 기기 설정이 어두우면 Web2 전체(창 포함)가 어두운 값으로 바뀐다.
    값만 바꾸고 규칙은 그대로 토큰을 읽는다. 테마별로는 계정 색(--kptu-primary 계열)만 다시 정한다.
@@ -163,6 +167,7 @@
     --kptu-ink:#ebe9e1;--kptu-muted:#b1aea2;--kptu-faint:#938f84;
     --kptu-border:#34332d;--kptu-border-strong:#4a4840;
     --kptu-on-primary:#161613;
+    --ds-press-tint:rgb(255 255 255 / 13%);
     --kptu-danger:#f0918a;--kptu-danger-soft:#3b201d;
     --kptu-success:#86c79f;--kptu-success-soft:#1d3124;
     --kptu-warning:#e2b866;--kptu-warning-soft:#372c17;

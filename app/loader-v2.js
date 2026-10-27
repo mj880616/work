@@ -91,6 +91,7 @@
     import('./app-router.js'),
     import('./accessibility-dialog.js'),
     import('./enter-save.js'),
+    import('./press-feedback.js'),
     import('./native-back-guard.js'),
     import('./session-resilience.js'),
     import('./capabilities.js'),
