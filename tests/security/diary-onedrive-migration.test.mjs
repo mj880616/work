@@ -15,7 +15,12 @@ test('migration: two new tables, token table closed to every client role, stars 
  assert.doesNotMatch(code,/on table public\.app_onedrive_connections to authenticated/);
  assert.doesNotMatch(code,/create policy [^;]*app_onedrive_connections/);
  assert.match(code,/folder_id is not null and folder_name is not null and folder_path is not null/);
- assert.match(code,/scope !~\* 'readwrite\|\\\.all'/);
+ // 2026-10-27: 사진 지우기를 위해 Files.ReadWrite는 받는다. 전체 범위(.All)·앱 폴더·선택 범위만 거절한다.
+ const rule=code.match(/scope !~\* '([^']+)'/);
+ assert.ok(rule,'scope rule');assert.equal(rule[1],'\\.all|appfolder|selected');
+ const refused=new RegExp(rule[1],'i');
+ for(const ok of ['files.readwrite offline_access user.read','Files.ReadWrite User.Read'])assert.ok(!refused.test(ok),ok);
+ for(const bad of ['files.readwrite.all','files.read.all','Files.ReadWrite.AppFolder','files.readwrite.selected','sites.read.all'])assert.ok(refused.test(bad),bad);
  // 별표 표: 고치기 권한 없음, service_role 권한 없음, 정책 하나.
  assert.doesNotMatch(code,/grant update[^;]*app_diary_stars|app_diary_stars to service_role/i);
  assert.equal((code.match(/create policy/gi)||[]).length,1);
