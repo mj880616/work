@@ -4,7 +4,7 @@ import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
-import {selectMeetingRound,openMeetingResult,mrdMenu} from './helpers/meeting-open.mjs';
+import {selectMeetingRound,openMeetingResult,mrdMenu,closeMeetingResult} from './helpers/meeting-open.mjs';
 import {toplineItem} from './helpers/screen-title.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
@@ -55,16 +55,16 @@ for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 
   await expect(detail(page).locator('.mcol-card .mcol-round')).toHaveText(['2차','1차']);
   // ③: 가운데 줄은 '2차' + 오른쪽 작은 날짜 '10.12'(시간 뺌, 전체 일시는 마우스를 올리면).
   await expect(round(page,'labor-2').locator('.mcol-date')).toHaveText('10.12');await expect(round(page,'labor-2').locator('.mcol-date')).toHaveAttribute('title',/오후 02:30/);
-  // 처음 열면 가장 최근 차수(노사협의회 2차)가 오른쪽에 바로 보인다. 창은 열리지 않는다.
+  // 처음 열면 가장 최근 차수(노사협의회 2차)가 오른쪽 칸에 바로 붙는다. 팝업은 없다(그 칸에 사업 보고 창 요소 하나를 그대로 붙인 것).
   await expect(round(page,'labor-2')).toHaveAttribute('aria-current','true');
   await expect(result(page)).toHaveAttribute('data-meeting-result','labor-2');
-  await expect(toplineItem(page)).toHaveText('노사협의회 2차');await expect(result(page).locator('h3')).toHaveCount(0);
-  await expect(result(page).locator('.mcol-result-meta')).toContainText('2026. 10. 12. 오후 02:30');
-  await expect(result(page).locator('.mcol-text').first()).toHaveText('가상 노사협의회 2차 결과 원문\n둘째 줄');
-  await expect(page.locator('#meetingRoundDetailModal')).toBeHidden();
-  // 오른쪽은 읽기용: 입력칸·저장 버튼 없음, 고치는 곳은 머리의 ⋯ 하나.
-  await expect(result(page).locator('input,textarea,select,[contenteditable="true"]')).toHaveCount(0);
-  await expect(result(page).locator('button:not(.file-line-open)')).toHaveCount(1);await expect(result(page).locator('[data-meeting-more]')).toHaveAttribute('aria-label','사업 보고 관리');
+  await expect(toplineItem(page)).toHaveText('노사협의회 2차');
+  await expect(result(page).locator('#meetingRoundDetailModal.mrd-docked')).toBeVisible();await expect(page.locator('body>#meetingRoundDetailModal')).toHaveCount(0);
+  await expect(result(page).locator('#mrdMeta')).toContainText('2026. 10. 12. 오후 02:30');
+  await expect(result(page).locator('#mrdResult')).toHaveText('가상 노사협의회 2차 결과 원문\n둘째 줄');
+  // 보는 화면: 입력칸·저장 버튼은 없고, 고치는 곳은 머리의 ⋯ 하나(×는 칸에서 없다).
+  await expect(result(page).locator('#mrdEditor')).toBeHidden();await expect(result(page).locator('#mrdClose')).toBeHidden();
+  await expect(result(page).locator('#mrdMore')).toHaveAttribute('aria-label','사업 보고 관리');
   // 종류를 고르면 가운데에 그 회의의 차수 전부(최신 위), 오른쪽은 그 종류의 가장 최근 차수. 가운데 줄에는 "회의자료 있음"이 없다(날짜·시간만).
   await kind(page,'궤도협의회').click();
   await expect(kind(page,'궤도협의회')).toHaveAttribute('aria-current','true');await expect(kind(page,'노사협의회')).not.toHaveAttribute('aria-current','true');
@@ -74,16 +74,15 @@ for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 
   await expect(detail(page)).not.toContainText('회의자료');
   await expect(result(page)).toHaveAttribute('data-meeting-result','rail-6');
   // 오른쪽에 회의자료(이름·크기)·특이사항이 결과 창처럼 보인다. 자료가 없는 차수는 "회의자료가 없습니다."
-  await expect(result(page).locator('.mcol-file')).toHaveCount(2);await expect(result(page).locator('.mcol-file').first()).toContainText('궤도 자료 1');
-  await expect(result(page).locator('.mcol-notes')).toHaveText('가상 특이사항');
+  await expect(result(page).locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);await expect(result(page).locator('#mrdMaterials .mrd-file-row').first()).toContainText('궤도 자료 1');
+  await expect(result(page).locator('#mrdSpecial')).toHaveText('가상 특이사항');
   // 차수를 고르면 오른쪽만 바뀐다(창 없이).
   await round(page,'rail-5').click();
   await expect(round(page,'rail-5')).toHaveAttribute('aria-current','true');await expect(round(page,'rail-6')).not.toHaveAttribute('aria-current','true');
   await expect(round(page,'rail-5')).toBeFocused();
   await expect(result(page)).toHaveAttribute('data-meeting-result','rail-5');await expect(toplineItem(page)).toContainText('5차');
-  await expect(result(page).locator('.mcol-file')).toHaveCount(0);await expect(result(page)).toContainText('회의자료가 없습니다.');
-  await expect(result(page).locator('.mcol-notes')).toHaveCount(0);
-  await expect(page.locator('#meetingRoundDetailModal')).toBeHidden();
+  await expect(result(page).locator('#mrdMaterials .mrd-file-row')).toHaveCount(0);
+  await expect(result(page).locator('#mrdSpecialSection')).toBeHidden();
   // 배치: 종류 | 차수 | 결과 가로로 나란히, 위 끝 맞춤, 종류+차수 두 칸 합 : 결과 = 1 : 2, 셋 다 화면 아래 끝 가까이까지, 가로 넘침 없음.
   const g=await page.evaluate(()=>{const r=s=>{const b=document.querySelector(s).getBoundingClientRect();return {l:b.left,r:b.right,t:b.top,b:b.bottom,w:b.width}};return {k:r('#meetingList .mcol-kinds'),d:r('#meetingList .mcol-rounds'),x:r('#meetingList .mcol-result'),vh:innerHeight,sw:document.documentElement.scrollWidth-innerWidth,sh:document.documentElement.scrollHeight-innerHeight}});
   expect(g.k.r).toBeLessThanOrEqual(g.d.l);expect(g.d.r).toBeLessThanOrEqual(g.x.l);
@@ -94,20 +93,22 @@ for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 
   expect(g.d.w).toBeLessThan(g.k.w*0.75);expect(g.d.w).toBeGreaterThan(g.k.w*0.35);
   for(const box of [g.k,g.d,g.x])expect(g.vh-box.b).toBeLessThanOrEqual(40);
   expect(g.sw).toBeLessThanOrEqual(1);expect(g.sh).toBeLessThanOrEqual(1);
-  // ⋯ → [수정]: 누른 자리 바로 아래에 펼치고, 지금의 회의 결과 창(수정 단추가 있는 창)을 그 차수로 연다.
-  const more=result(page).locator('[data-meeting-more]');await more.click();
-  const menu=page.locator('#mcolMenu');await expect(menu).toBeVisible();await expect(more).toHaveAttribute('aria-expanded','true');
-  // MTG-사업보고 4단계: 메뉴는 [수정] [칸 바꾸기] 두 줄, 열면 [수정]에 초점.
-  await expect(menu.locator('button')).toHaveText(['수정','칸 바꾸기']);await expect(menu.locator('button').first()).toBeFocused();
-  const pos=await page.evaluate(()=>{const a=document.querySelector('#meetingList [data-meeting-more]').getBoundingClientRect(),b=document.querySelector('#mcolMenu').getBoundingClientRect();return {gap:b.top-a.bottom,right:b.right<=innerWidth,left:b.left>=0}});
+  // ⋯ → [수정]: 누른 자리 바로 아래에 메뉴가 펼쳐지고, 고르면 같은 칸이 그 자리에서 고치는 화면으로 바뀐다(팝업 없음).
+  const more=result(page).locator('#mrdMore');await more.click();
+  const menu=page.locator('#mrdMoreMenu');await expect(menu).toBeVisible();await expect(more).toHaveAttribute('aria-expanded','true');
+  // 메뉴는 [수정] [칸 바꾸기] [삭제], 열면 [수정]에 초점.
+  await expect(menu.locator('button')).toHaveText(['수정','칸 바꾸기','삭제']);await expect(menu.locator('button').first()).toBeFocused();
+  const pos=await page.evaluate(()=>{const a=document.querySelector('#mrdMore').getBoundingClientRect(),b=document.querySelector('#mrdMoreMenu').getBoundingClientRect();return {gap:b.top-a.bottom,right:b.right<=innerWidth,left:b.left>=0}});
   expect(pos.gap).toBeGreaterThanOrEqual(0);expect(pos.gap).toBeLessThanOrEqual(12);expect(pos.right&&pos.left).toBe(true);
   // Esc는 메뉴만 닫고 ⋯로 돌아간다. 바깥을 눌러도 닫힌다.
   await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(more).toBeFocused();await expect(more).toHaveAttribute('aria-expanded','false');
-  await more.click();await expect(menu).toBeVisible();await result(page).locator('.mcol-text').first().click();await expect(menu).toBeHidden();
-  await more.click();await menu.locator('[data-meeting-menu="edit"]').click();
-  await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();await expect(page.locator('#mrdTitle')).toContainText('궤도협의회');await expect(page.locator('#mrdMeta')).toContainText('5차');
-  await expect(page.locator('#mrdMore')).toBeVisible();
-  await page.locator('#mrdClose').click();await expect(page.locator('#meetingRoundDetailModal')).toBeHidden();
+  await more.click();await expect(menu).toBeVisible();await result(page).locator('#mrdResult').click();await expect(menu).toBeHidden();
+  await more.click();await menu.locator('[data-mrd-more="edit"]').click();
+  await expect(result(page).locator('#mrdEditor')).toBeVisible();await expect(result(page).locator('#mrdEditTitle')).toHaveValue(/궤도협의회/);await expect(result(page).locator('#mrdEditRound')).toHaveValue('5');
+  await expect(page.locator('body>#meetingRoundDetailModal')).toHaveCount(0);
+  // 고치는 중: 맨 위 오른쪽에 작은 [취소][저장], 아래쪽 단추 줄은 없다. [취소]는 보는 화면으로.
+  await expect(result(page).locator('.modal-head #mrdCancelEdit')).toBeVisible();await expect(result(page).locator('.modal-head #mrdSaveEdit')).toHaveText('저장');
+  await result(page).locator('#mrdCancelEdit').click();await expect(result(page).locator('#mrdEditor')).toBeHidden();await expect(result(page).locator('#mrdMeta')).toContainText('5차');
   // 키보드: 종류 목록은 위·아래 화살표로 옮겨 다니고 Enter로 고른다. 가운데 차수 목록도 화살표·Enter.
   await kind(page,'궤도협의회').focus();await page.keyboard.press('ArrowDown');await expect(kind(page,'__none__')).toBeFocused();
   await page.keyboard.press('End');await expect(kind(page,'안전위원회')).toBeFocused();await page.keyboard.press('Home');await expect(kind(page,'노사협의회')).toBeFocused();
@@ -133,21 +134,21 @@ test('PC 오른쪽 결과: 후속 할 일(읽기)·프로젝트·회의자료 �
   const routes=()=>page.route('**/functions/v1/google-tasks**',route=>{const url=new URL(route.request().url());const action=url.searchParams.get('action');if(action==='linked'){reads.push(url.searchParams.get('meeting_id'));const id=url.searchParams.get('meeting_id');return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({tasks:id==='labor-2'?[{id:'t1',title:'가상 후속 할 일',due:'2026-10-25T00:00:00Z',status:'needsAction'},{id:'t2',title:'끝난 가상 할 일',status:'completed'}]:[]})})}return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,tasks:[]})})});
   await open(page,s,1440,900,{routes});
   await expect(result(page)).toHaveAttribute('data-meeting-result','labor-2');
-  await expect(result(page).locator('.mcol-result-meta')).toContainText('연결 가상 프로젝트');
-  await expect(result(page).locator('.mcol-task')).toHaveCount(2);
-  await expect(result(page).locator('.mcol-task').first()).toContainText('가상 후속 할 일');await expect(result(page).locator('.mcol-task').first().locator('.mcol-task-due')).toHaveText('10. 25. (일)');
-  await expect(result(page).locator('.mcol-task.completed')).toContainText('끝난 가상 할 일');
+  await expect(result(page).locator('#mrdMeta')).toContainText('연결 가상 프로젝트');
+  await expect(result(page).locator('#mrdTasks [data-mrd-task]')).toHaveCount(2);
+  await expect(result(page).locator('#mrdTasks [data-mrd-task]').first()).toContainText('가상 후속 할 일');await expect(result(page).locator('#mrdTasks [data-mrd-task]').first()).toContainText('10. 25.');
+  await expect(result(page).locator('#mrdTasks [data-mrd-task]').nth(1)).toContainText('끝난 가상 할 일');
   // 같은 차수를 다시 그려도 할 일을 또 읽지 않는다(고른 차수가 바뀔 때만).
   expect(reads.filter(id=>id==='labor-2').length).toBe(1);
-  await round(page,'labor-1').click();await expect(result(page).locator('.mcol-tasks')).toContainText('후속 할 일이 없습니다.');
-  await round(page,'labor-2').click();await expect(result(page).locator('.mcol-task')).toHaveCount(2);
-  // 결과 창(⋯ → 수정)에서 원문을 고쳐 저장하면 창을 닫은 뒤 오른쪽도 새 원문.
-  await openMeetingResult(page,'labor-2');await mrdMenu(page,'edit');await page.locator('#mrdEditTranscript').fill('고친 가상 원문');await page.locator('#mrdSaveEdit').click();
+  await round(page,'labor-1').click();await expect(result(page).locator('#mrdTasks')).toContainText('후속 할 일이 없습니다.');
+  await round(page,'labor-2').click();await expect(result(page).locator('#mrdTasks [data-mrd-task]')).toHaveCount(2);
+  // 오른쪽 칸에서 ⋯ → 수정으로 원문을 고쳐 [저장]하면 같은 칸이 보는 화면으로 돌아가 새 원문을 보인다(창 없음).
+  await mrdMenu(page,'edit');await page.locator('#mrdEditTranscript').fill('고친 가상 원문');await page.locator('#mrdSaveEdit').click();
   await expect.poll(()=>s.meetingWrites.at(-1)?.transcript_text).toBe('고친 가상 원문');
-  await page.locator('#mrdClose').click();
-  await expect(result(page).locator('.mcol-text').first()).toHaveText('고친 가상 원문');await expect(result(page)).toHaveAttribute('data-meeting-result','labor-2');
-  // 회의자료 이름을 누르면 내려받기(결과 창과 같은 경로). 다른 주소로 넘어가므로 맨 끝에 본다.
-  await result(page).locator('[data-meeting-doc="labor-doc"]').click();
+  await expect(result(page).locator('#mrdEditor')).toBeHidden();
+  await expect(result(page).locator('#mrdResult')).toHaveText('고친 가상 원문');await expect(result(page)).toHaveAttribute('data-meeting-result','labor-2');
+  // 회의자료 줄 ⋯ → 내려받기(사업 보고 창과 같은 경로).
+  await result(page).locator('#mrdMaterials .file-line-more summary').click();await result(page).locator('#mrdMaterials [data-fa-menu="download"]').click();
   await expect.poll(()=>s.downloads.at(-1)?.document_id).toBe('labor-doc');
 });
 
@@ -160,7 +161,7 @@ test('PC: 차수가 많으면 가운데 목록만, 종류가 많으면 왼쪽 �
   await kind(page,'궤도협의회').click();
   await expect(detail(page).locator('.mcol-card')).toHaveCount(40);
   await round(page,'rail-6').click();
-  const list=page.locator('#meetingList .mcol-cards'),side=page.locator('#meetingList .mcol-kinds'),body=page.locator('#meetingList .mcol-result-body');
+  const list=page.locator('#meetingList .mcol-cards'),side=page.locator('#meetingList .mcol-kinds'),body=page.locator('#meetingList #meetingRoundDetailModal.mrd-docked');
   for(const box of [list,side,body]){
     const m=await box.evaluate(e=>({sh:e.scrollHeight,ch:e.clientHeight,oy:getComputedStyle(e).overflowY}));
     expect(m.sh).toBeGreaterThan(m.ch);expect(m.oy).toBe('auto');
@@ -232,7 +233,7 @@ test('① 카드 시각: 직접 지정 → 회의 결과 글의 일시 → 날�
   // 직접 지정한 시각은 그대로.
   await expect(round(page,'rail-6').locator('.mcol-date')).toHaveText('9.6');await expect(round(page,'rail-6').locator('.mcol-date')).toHaveAttribute('title','9. 6. 오전 10:00');
   // 오른쪽 결과 머리와 결과 창 머리 글자도 같은 규칙(연도 포함), 짧은 이름을 앞에.
-  await derived.click();await expect(toplineItem(page)).toContainText('파생 간담회');await expect(result(page).locator('.mcol-result-meta')).toContainText('2026. 10. 19. 오후 02:00');
+  await derived.click();await expect(toplineItem(page)).toContainText('파생 간담회');await expect(result(page).locator('#mrdMeta')).toContainText('2026. 10. 19. 오후 02:00');
   await openMeetingResult(page,'rail-derived');await expect(page.locator('#mrdMeta')).toContainText('파생 간담회');await expect(page.locator('#mrdMeta')).toContainText('2026. 10. 19. 오후 02:00');
   await expect(page.locator('#mrdMeta')).not.toContainText('기존 제목');
   // 수정 창의 짧은 이름 칸: 지금 짧은 이름이 들어 있고, 바꾸면 제목(title)만 바뀐다(종류 이름·저장된 시각은 그대로).
@@ -240,11 +241,11 @@ test('① 카드 시각: 직접 지정 → 회의 결과 글의 일시 → 날�
   await page.locator('#mrdEditShortName').fill('파생 토론회');await page.locator('#mrdSaveEdit').click();
   await expect.poll(()=>s.meetingWrites.at(-1)?.title).toBe('파생 토론회');
   expect(s.meetingWrites.at(-1).series_name).toBeUndefined();expect(s.meetingWrites.at(-1).meeting_at).toBe('2026-10-18T15:00:00.000Z');
-  await page.locator('#mrdClose').click();
+  await closeMeetingResult(page);
   await expect(round(page,'rail-derived').locator('.mcol-round')).toHaveText('파생 토론회');await expect(toplineItem(page)).toContainText('파생 토론회');
   // 짧은 이름을 비우면 제목은 종류 이름과 같게 → 다시 날짜만.
   await openMeetingResult(page,'rail-derived');await mrdMenu(page,'edit');await page.locator('#mrdEditShortName').fill('');await page.locator('#mrdSaveEdit').click();
-  await expect.poll(()=>s.meetingWrites.at(-1)?.title).toBe('궤도협의회');await page.locator('#mrdClose').click();
+  await expect.poll(()=>s.meetingWrites.at(-1)?.title).toBe('궤도협의회');await closeMeetingResult(page);
   await expect(round(page,'rail-derived').locator('.mcol-round')).toHaveText('10.19');
 });
 
@@ -357,9 +358,9 @@ async function checkFileMenu(page,s,rows,width){
 test('PC 1280 오른쪽 결과 칸: 사업 보고 자료 줄 ⋯ [Drive에서 열기]·[내려받기], 줄 누르기는 그대로',async({page})=>{
   const s=fileState();await open(page,s,1280);
   // ⋯가 없는 옛 자료(파일 번호·주소 없음)는 메뉴 없이 줄만.
-  await selectMeetingRound(page,'rail-6');await expect(result(page).locator('.mcol-file')).toHaveCount(2);await expect(result(page).locator('.file-line-more')).toHaveCount(0);
-  await selectMeetingRound(page,'labor-2');await expect(result(page).locator('.mcol-file')).toHaveCount(2);
-  await checkFileMenu(page,s,result(page).locator('.mcol-file'),1280);
+  await selectMeetingRound(page,'rail-6');await expect(result(page).locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);await expect(result(page).locator('.file-line-more')).toHaveCount(0);
+  await selectMeetingRound(page,'labor-2');await expect(result(page).locator('#mrdMaterials .mrd-file-row')).toHaveCount(2);
+  await checkFileMenu(page,s,result(page).locator('#mrdMaterials .mrd-file-row'),1280);
 });
 
 for(const width of [390,1280])test(`사업 보고 결과 창 ${width}: 자료 줄 ⋯ [Drive에서 열기]·[내려받기], ×·줄 누르기는 그대로`,async({page})=>{

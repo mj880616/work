@@ -189,7 +189,7 @@ test('meeting edit save sends one request on double press and unlocks after fail
   const state=await signIn(page,'meetings');
   await expect(page.locator('#meetingsView')).toBeVisible();
   await openMeetingEdit(page);
-  await pressTwiceWhileSaving(page,state,'#mrdSaveEdit','meeting','수정 저장');
+  await pressTwiceWhileSaving(page,state,'#mrdSaveEdit','meeting','저장');
   await expect(page.locator('#mrdEditor')).toBeHidden();
   await openMeetingEdit(page);
   const button=page.locator('#mrdSaveEdit');
@@ -197,13 +197,13 @@ test('meeting edit save sends one request on double press and unlocks after fail
   await button.click();await expect.poll(()=>state.writes.meeting).toBe(2);
   await expect(page.locator('#mrdEditStatus')).toContainText('권한');
   await expect(page.locator('#mrdEditNotes')).toHaveValue('명시 거부 뒤 재시도');
-  await expect(button).toBeEnabled();await expect(button).toHaveText('수정 저장');
+  await expect(button).toBeEnabled();await expect(button).toHaveText('저장');
   await button.click();await expect.poll(()=>state.writes.meeting).toBe(3);
   await expect(page.locator('#mrdEditor')).toBeHidden();
   await openMeetingEdit(page);await page.locator('#mrdEditNotes').fill('결과 불명인 제출');state.meetingFailure=500;
   await button.click();await expect.poll(()=>state.writes.meeting).toBe(4);
   await expect(page.locator('#mrdEditStatus')).toContainText('저장 결과를 확인하지 못했습니다.');
-  await expect(button).toBeEnabled();await expect(button).toHaveText('수정 저장');
+  await expect(button).toBeEnabled();await expect(button).toHaveText('저장');
   await button.click();expect(state.writes.meeting).toBe(4);
   let reads=state.meetingReads;
   await page.locator('#mrdEditStatus').getByRole('button',{name:'저장 결과 확인',exact:true}).click();

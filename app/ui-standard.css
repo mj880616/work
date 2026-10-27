@@ -1382,7 +1382,7 @@ html .doc-kind-chips button[aria-pressed="false"]{ color:var(--kptu-muted); back
 .modal .dt-date>input[type="date"]::-webkit-calendar-picker-indicator{ position:absolute; inset:0; width:auto; height:auto; margin:0; opacity:0; cursor:pointer; }
 /* 사업 보고 입력 창 줄 배치(④): 차수|짧은 이름, 일시|장소 두 칸 줄. 줄에 칸이 하나도 없으면(회의가 아닌 칸의 차수 줄) 줄 자체를 접고, 장소가 없는 서버면 일시가 한 줄을 다 쓴다. */
 .meeting-entry-section>.two-col:empty{ display:none; }
-.meeting-entry-section>.two-col:has(>#meetingLocationRow[hidden]){ grid-template-columns:minmax(0,1fr); }
+.meeting-entry-section>.two-col:has(>:is(#meetingLocationRow,#mrdEditLocationRow)[hidden]){ grid-template-columns:minmax(0,1fr); }
 .modal label>span:first-child:has(>.optional){ display:flex; align-items:baseline; flex-wrap:wrap; gap:0 6px; }
 
 /* MTG-3칸정리 ①(명진 2026-10-27): 고른 줄 표시 공용 규칙. 연한 강조 바탕(색마다 정한 --kptu-primary-soft) + 왼쪽 굵은 줄(--kptu-primary) + 진한 글자(--kptu-ink).

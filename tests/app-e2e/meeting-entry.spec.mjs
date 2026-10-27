@@ -6,7 +6,7 @@ import {fileURLToPath} from 'node:url';
 import {dirname,resolve} from 'node:path';
 import {fillDateTime} from './helpers/date-time.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
-import {openMeetingResult,mrdMenu} from './helpers/meeting-open.mjs';
+import {openMeetingResult,mrdMenu,closeMeetingResult} from './helpers/meeting-open.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -730,7 +730,7 @@ test('closing a meeting during a delayed follow-up save does not reopen its deta
   await page.locator('#mrdTaskTitle').fill('후속 자료 정리');
   await page.locator('#mrdTaskSave').click();
   await expect.poll(()=>posted).toBe(true);
-  await page.locator('#mrdClose').click();
+  await closeMeetingResult(page);
   release();
   await expect(page.locator('#meetingRoundDetailModal')).toHaveClass(/hidden/);
   await page.waitForTimeout(100);
@@ -803,7 +803,7 @@ test('meeting detail waits for a task screen completion and rereads it on reopen
   release();
   await expect(page.locator('#mrdTasks [data-mrd-task="meeting-follow-up"]')).toHaveClass(/completed/);
   expect(readsBeforeSave).toBe(0);
-  await page.locator('#mrdClose').click();
+  await closeMeetingResult(page);
   const previousReads=linkedReads,previousCompleted=linkedCompleted;
   await openMeetingResult(page,'meeting-1');
   await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
