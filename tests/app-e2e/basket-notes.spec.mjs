@@ -5,6 +5,7 @@ import { noteMenuAction } from './helpers/note-menu.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { expectNoteTitle } from './helpers/note-title.mjs';
 import { noteField, edWin, edWinText, typeInto } from './helpers/note-editor.mjs';
+import { closeNote } from './helpers/note-close.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 // MEMO-노트 PR 3: [메모 | 노트] in the basket tab. The mock keeps one app_notes store and honours the kind/id
 // filters, so every list and write is checked against the row kind the screen showed.
@@ -112,7 +113,7 @@ for(const width of [390,1280]){
   expect(f.writes[0].body).toMatchObject({title:'임금협상 정리 v2',raw_text:'쟁점\n\n기본급 5% 인상'});
   expect(f.writes[0].body.doc.v).toBe('ed1');expect(f.writes[0].body.metadata).toBeUndefined();
   await expect(detail.locator('[data-basket-read-text]')).toHaveAttribute('data-note-view','doc');
-  await detail.locator('[data-note-close]').click();
+  await closeNote(page);
   await expect(page.locator('[data-basket-kind-switch]')).toHaveCount(0);
   await expect(noteList(page).nth(0)).toContainText('임금협상 정리 v2');
   expect(f.errors).toEqual([]);
@@ -222,7 +223,7 @@ for(const width of [390,1280]){
   expect(f.writes).toHaveLength(1);
   expect(f.writes[0]).toMatchObject({method:'POST',body:{workspace_id:'w',kind:'note',title:'단체교섭 준비',raw_text:'할 일\n\n- 요구안 정리',metadata:{markdown:false}}});
   expect(f.writes[0].body.doc.doc.content.map(n=>n.type)).toEqual(['heading','bullet_list','paragraph']);
-  await detail.locator('[data-note-close]').click();
+  await closeNote(page);
   await expect(noteList(page)).toHaveCount(3);
   await expect(noteList(page).nth(0)).toContainText('단체교섭 준비');
   await expect(noteInput(page)).toHaveValue('');
@@ -443,6 +444,6 @@ test('[닫기] in the big window asks once, then hands the text back to the edit
  await ask.getByRole('button',{name:'저장하지 않고 닫기',exact:true}).click();
  await expect(edWin(page)).toHaveCount(0);await expect(noteField(page)).toHaveText('닫아도 남는 글');
  page.once('dialog',d=>d.accept());await detail.locator('[data-note-cancel]').click();
- await page.locator('[data-note-close]').click();
+ await closeNote(page);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });

@@ -4,6 +4,7 @@ import {openHome} from './helpers/home-entry.mjs';
 import {noteMenuAction} from './helpers/note-menu.mjs';
 import { chooseBasketKind, basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';
 import {openWriteFromEntry} from './helpers/write-opener.mjs';
+import { closeNote } from './helpers/note-close.mjs';
 // UI-버튼작게(2026-10-18 사용자 결정):
 // ① 바구니 노트·메모 읽기 화면 아래 버튼은 한 줄, 보이는 높이 32px(누르는 범위 44px), [연결하기]만 주 버튼 색. 첨부만 있는 메모도 같음. 노트는 UI-노트메뉴정리로 이 줄이 없어지고 [⋯] 안으로 들어갔다.
 // ② (옛 큰 창의 서식 도구줄 28px 시험은 창과 함께 지웠다.)
@@ -78,7 +79,7 @@ for(const width of [390,1280]){
   await noteMenuAction(page,'data-note-edit',{width});
   await expect(page.locator('[data-note-editor]')).toBeVisible();
   await tap(page,page.locator('[data-note-cancel]'),width);await expect(page.locator('[data-note-more]')).toBeVisible();
-  await tap(page,page.locator('[data-note-close]'),width);
+  await closeNote(page);
   // 메모: [연결하기][할 일 만들기][노트로 옮기기] — 같은 규칙, 세 버튼 모두 같은 모양(UI-바구니상세버튼색).
   await tap(page,basketKindButton(page,'memo'),width);
   await showBasketRow(page,'m1');
@@ -170,9 +171,9 @@ test('③ 폰: 일정·정리함 전환은 아래 탭 바로 위 한 줄(알약 
  await expect(page.locator('[data-note-row="n1"]')).toBeVisible();
  await expect(page.locator('#basketView #newNoteBtn')).toHaveCount(0);
  const noteQuick=await page.locator('#basketView [data-note-list] .home-quick').boundingBox();expect(noteQuick.y+noteQuick.height).toBeLessThanOrEqual(basketTabsTop+1);
- // An opened note (head "‹ 노트") keeps the list head hidden, as before (#660 ⑥); it comes back on close.
- await page.locator('[data-note-row="n1"]').tap();await expect(page.locator('[data-note-close]')).toBeVisible();
- await page.locator('[data-note-close]').tap();await expect(page.locator('[data-note-row="n1"]')).toBeVisible();
+ // An opened note (head: title and ⋯, no back button) keeps the list head hidden, as before (#660 ⑥); it comes back on close.
+ await page.locator('[data-note-row="n1"]').tap();await expect(page.locator('[data-note-more]')).toBeVisible();
+ await closeNote(page);await expect(page.locator('[data-note-row="n1"]')).toBeVisible();
  // The same for an opened memo.
  await basketKindButton(page,'memo').tap();await showBasketRow(page,'m1');
  await page.locator('[data-basket-row="m1"]').tap();await expect(page.locator('[data-basket-close]')).toBeVisible();
@@ -276,7 +277,7 @@ if(REVIEW){
    await page.locator('[data-basket-close]').click();
    await chooseBasketKind(page,'note');await expect(page.locator('[data-note-row="n1"]')).toBeVisible();await shot('basket-note-list');
    await page.locator('[data-note-row="n1"]').click();await expect(page.locator('[data-note-more]')).toBeVisible();await shot('note-read');
-   await page.locator('[data-note-close]').click();
+   await closeNote(page);
    await go(page,'calendar');await page.waitForTimeout(300);await shot('calendar');
    await go(page,'diary');await expect(page.locator('#diaryRoot [data-diary-day="2026-10-06"]')).toBeVisible();await shot('diary');
    await openWriteFromEntry(page,width);

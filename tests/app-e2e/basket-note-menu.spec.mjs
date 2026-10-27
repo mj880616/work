@@ -4,6 +4,7 @@ import { notePreview, plainLines, noteCopyPayload } from '../../app/note-preview
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { expectNoteTitle } from './helpers/note-title.mjs';
 import { noteTrash } from './helpers/note-trash.mjs';
+import { closeNote } from './helpers/note-close.mjs';
 
 // UI-노트메뉴정리: every note row has [복사] and [⋯] on its right; the ⋯ (list row and open note alike) holds 고정/고정 해제 · 수정 ·
 // (연결하기 · 바구니로 돌리기, open note only) · 삭제, and opens right under the pressed ⋯ (anchored-popup.js). The open note's head
@@ -119,7 +120,7 @@ for (const width of [390, 1280]) {
     // 수정 → that note's edit view.
     await press(page, rowMore(page, 'n-md'), width); await press(page, menu(page).getByRole('button', { name: '수정', exact: true }), width);
     await expect(page.locator('[data-note-editor]')).toBeVisible(); await expect(page.locator('[data-note-title-input]')).toHaveValue('정리 노트');
-    await press(page, page.locator('[data-note-cancel]'), width); await press(page, page.locator('[data-note-close]'), width);
+    await press(page, page.locator('[data-note-cancel]'), width); await closeNote(page);
     // 삭제 → a confirmation naming what goes with it; cancel keeps the note, accept removes it.
     let asked = 0; page.once('dialog', d => { asked++; d.dismiss(); });
     await press(page, rowMore(page, 'n-plain'), width); await press(page, menu(page).getByRole('button', { name: '삭제', exact: true }), width);
@@ -134,16 +135,16 @@ for (const width of [390, 1280]) {
     expect(f.errors).toEqual([]);
   });
 
-  test(`open note: one head line ‹ 노트 … 제목 … 복사 ⋯, no [수정][연결하기] under the body, they are in the ⋯ ${width}`, async ({ page }, info) => {
+  test(`open note: one head line 제목 … 복사 ⋯ (no back button), no [수정][연결하기] under the body, they are in the ⋯ ${width}`, async ({ page }, info) => {
     const f = await fixture(page, width);
     await press(page, page.locator('[data-note-row="n-md"]'), width);
     const detail = page.locator('[data-note-detail]');
     await expectNoteTitle(page,'정리 노트');
-    const back = await detail.locator('[data-note-close]').boundingBox(), title = width < 1024 ? await detail.locator('[data-note-read-title]').boundingBox() : null;
+    await expect(detail.locator('[data-note-close]')).toHaveCount(0);
+    const title = width < 1024 ? await detail.locator('[data-note-read-title]').boundingBox() : null;
     const copy = await detail.locator('[data-note-telegram]').boundingBox(), more = await detail.locator('[data-note-more]').boundingBox();
-    // One line: the same top band, left to right back · title · copy · ⋯.
-    for (const b of [title, copy, more].filter(Boolean)) expect(Math.abs((b.y + b.height / 2) - (back.y + back.height / 2))).toBeLessThanOrEqual(12);
-    if (title) { expect(back.x + back.width).toBeLessThanOrEqual(title.x + 1); expect(title.x + title.width).toBeLessThanOrEqual(copy.x + 1); } else expect(back.x + back.width).toBeLessThanOrEqual(copy.x + 1);
+    // One line: the same top band, left to right title · copy · ⋯.
+    if (title) { expect(Math.abs((title.y + title.height / 2) - (copy.y + copy.height / 2))).toBeLessThanOrEqual(12); expect(title.x + title.width).toBeLessThanOrEqual(copy.x + 1); }
     expect(copy.x + copy.width).toBeLessThanOrEqual(more.x + 1);
     const dbox = await detail.boundingBox(); expect(more.x + more.width).toBeGreaterThan(dbox.x + dbox.width - 8);
     // The ⋯ has no frame; the old corner box ⋯ with a border is gone and nothing sits below the body.

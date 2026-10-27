@@ -181,7 +181,7 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .basket-to-note .basket-text-label { margin:0 0 6px; }
 .basket-to-note-help { margin:0; color:var(--kptu-muted); font-size:12px; }
 @media(max-width:760px){
-  /* 폰: 노트 읽기·수정도 메모처럼 위 머리줄의 "바구니" 자리에 "‹ 노트"·[⋯]가 올라간다. */
+  /* 폰: 노트 읽기·수정도 메모처럼 위 머리줄의 "바구니" 자리에 노트 제목·[⋯]가 올라간다(돌아가기 버튼 없음, 뒤로가기). */
   #appView #basketView > [data-note-host] > [data-note-detail] > .basket-detail-head{ margin:calc(-1 * (var(--kptu-touch-target,44px) + 12px)) 0 12px; position:relative; z-index:2; }
   html:has(#basketView:not(.hidden) > [data-note-host]:not([hidden]) > [data-note-detail]:not([hidden])) .mobile-shell-header [data-mobile-view-name]{ visibility:hidden; }
 }

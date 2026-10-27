@@ -48,6 +48,10 @@ var CALL_FEED_TOTAL_MAX_BYTES = 204800;
 var CALL_FEED_MAX_PAST_DAYS = 92;
 var CALL_FEED_RECENT_DAYS = 7;   // 녹음 날짜가 이보다 오래된 통화는 보내지 않고 넘긴다(명진 결정 10/25: 최근 일주일과 앞으로만)
 var CALL_FEED_KST_MS = 9 * 3600 * 1000;
+// 멈춤 알림(OPS-수집멈춤알림): 실행이 끝날 때마다 "보내기가 잘 되고 있나"를 Web2 점검 신호 입구로 알린다. 시각·닫힌 상태 글자만 보내고, 실패해도 보내기는 영향 없다.
+var FEED_REPORT_URL = 'https://xmlkxfjeagycwttklxjw.supabase.co/functions/v1/drive-summary?action=heartbeat';   // 공개 주소, 비밀값 아님
+var FEED_REPORT_SECRET_KEY = 'COLLECTOR_HEARTBEAT_SECRET';   // 점검 신호 스크립트와 같은 값을 이 프로젝트의 스크립트 속성에도 한 번 넣는다. 없으면 알리지 않고 넘어간다
+var FEED_REPORT_FAIL_RUNS = 3;                               // 서버·연결 실패가 이만큼 이어지면 '실패 이어짐'으로 알린다
 
 // ── 손으로 [실행]하는 함수 ───────────────────────────────────────────────
 
@@ -96,6 +100,7 @@ function callFeed_check() {
     '시작 시각: ' + (callFeed_loadState_().since || '없음 — callFeed_setup을 먼저 실행'),
     '자동 실행 트리거: ' + feedTriggerSummary_(['callFeed_run'], '1시간 트리거(callFeed_run)가 없습니다 — callFeed_installHourlyTrigger를 실행하세요'),
     '마지막 실행: ' + tgFeedLastRunText(callFeed_loadState_().lastRun),
+    feedReportCheckText_(callFeed_loadState_().stall),
   ].join('\n'));
 }
 
@@ -231,7 +236,9 @@ function callFeed_saveResend_(cursorMs) {
 
 // ── 1시간 트리거가 부르는 함수 ─────────────────────────────────────────
 
-function callFeed_run() {
+function callFeed_run() { feedGuard_('call', callFeed_runCore_); }
+
+function callFeed_runCore_() {
   var started = Date.now();
   var props = PropertiesService.getScriptProperties();
   var test = callFeed_testMode_();
@@ -246,7 +253,7 @@ function callFeed_run() {
   var skipDays = test ? {} : state.skips;   // 시험 모드에서는 상태를 바꾸지 않는다
   var pending = test ? callFeedPendingClean(state.pending) : state.pending;   // 분석을 기다리는 통화 목록(시험 모드에서는 저장하지 않는다)
   var cursor = Date.parse(state.since);
-  var stop = '';
+  var stop = '', kind = '';
 
   // 보충 구간(한 번만): 예전 설치는 '설치한 시각 뒤에 만들어진 전사만' 봤기 때문에, 설치 전에 만들어졌지만 녹음이 최근 일주일 안인
   // 통화(분석은 나중에 끝남)가 빠져 있었다. [일주일 전 0시, 지금까지의 시작 시각] 구간을 따로 한 번 훑는다.
@@ -310,6 +317,7 @@ function callFeed_run() {
       throw new Error('비밀값 불일치(401) — 스크립트 속성 값과 Supabase COLLECTOR_FEED_SECRET이 같은지 확인하세요.');
     } else if (verdict === 'limit') {
       stop = '서버 하루 상한(429) — 다음 실행에서 이어 보냄';
+      kind = feedKindPick(kind, feedLimitKind(res.json && res.json.error));
       return 'stop';
     } else if (verdict === 'drop') {
       tally.skipped++;   // 고쳐도 다시 될 일이 없는 거절(400·413). 넘긴다
@@ -325,6 +333,7 @@ function callFeed_run() {
       return 'done';
     }
     stop = '서버·연결 실패(HTTP ' + res.code + ') — 다음 실행에서 다시 보냄';
+    kind = feedKindPick(kind, 'bad');
     return 'stop';
   }
 
@@ -394,6 +403,9 @@ function callFeed_run() {
   pending = trimmed.keep;
   tally.skipped += trimmed.dropped.length;
 
+  var rep = feedStallNext(state.stall, { test: test, kind: kind, sent: tally.sent > 0 }, Date.now());
+  if (!test) state.stall = { bad: rep.bad, sentAt: rep.sentAt, base: rep.base };
+
   // 개인 목록으로 거른 수: 날짜마다 한 번씩 보낸다. 실패하면 남겨 두었다가 다음 실행에서 보낸다.
   if (!test) {
     Object.keys(skipDays).sort().forEach(function (d) {
@@ -414,6 +426,7 @@ function callFeed_run() {
     '분석 대기: ' + tally.waiting + (tally.waiting ? '건(건너뛰고 계속)' : '') + ' · 대기 목록: ' + pending.length + '건 · 넘김: ' + tally.skipped + (tally.old ? ' · 일주일 넘은 옛 녹음 넘김: ' + tally.old : '') + (tally.retry ? ' · 다시 보낼 것: ' + tally.retry : ''),
     stop ? '멈춘 이유: ' + stop : '끝까지 봄',
   ].join('\n'));
+  return { source: 'call_send', lastAt: rep.lastAt, state: rep.state };
 }
 
 // ── Apps Script 도우미 (고칠 필요 없음) ─────────────────────────────────
@@ -427,7 +440,7 @@ function callFeed_loadState_() {
   var s = {};
   try { s = raw ? JSON.parse(raw) : {}; } catch (e) { s = {}; }
   var bf = s.backfill && isFinite(Number(s.backfill.from)) && isFinite(Number(s.backfill.to)) ? { from: Number(s.backfill.from), to: Number(s.backfill.to) } : null;
-  return { since: typeof s.since === 'string' ? s.since : '', backfillChecked: s.backfillChecked === true, backfill: bf, attempts: s.attempts || {}, skips: s.skips || {}, pending: callFeedPendingClean(s.pending), lastRun: tgFeedLastRunClean(s.lastRun) };
+  return { since: typeof s.since === 'string' ? s.since : '', backfillChecked: s.backfillChecked === true, backfill: bf, attempts: s.attempts || {}, skips: s.skips || {}, pending: callFeedPendingClean(s.pending), lastRun: tgFeedLastRunClean(s.lastRun), stall: feedStallClean(s.stall) };
 }
 
 function callFeed_saveState_(state) {
@@ -909,6 +922,7 @@ function tgFeed_check() {
     tgFeedRemainingText(tgFeedRemaining(state, found.rooms.map(function (r) { return r.key; }), nowDay)),
     '오늘 URL 호출: ' + (state.fetch.d === nowDay ? state.fetch.n : 0) + ' / ' + tgFeed_fetchBudget_() + ' (파일 읽기·목록, 한국 날짜 기준)',
     '마지막 실행: ' + tgFeedLastRunText(state.lastRun),
+    feedReportCheckText_(state.stall),
     '진행 기록 크기: ' + JSON.stringify(tgFeedCompactState(state)).length + ' / ' + TG_FEED_STATE_MAX_BYTES + '바이트' + (JSON.stringify(tgFeedCompactState(state)).length > TG_FEED_STATE_MAX_BYTES * 0.8 ? ' — 한도에 가깝습니다(방이 더 늘면 저장이 실패해 멈춥니다)' : ''),
   ].join('\n'));
 }
@@ -963,15 +977,15 @@ function tgFeed_removeTrigger() {
 // ── 트리거가 부르는 함수 ───────────────────────────────────────────────
 
 /** 매일 08:10 트리거. 이어 하기 횟수를 0으로 되돌리고 시작한다. */
-function tgFeed_run() { tgFeed_runCore_(false); }
+function tgFeed_run() { feedGuard_('tg', function () { return tgFeed_runCore_(false); }); }
 
 /** 이어 하기 트리거(10분 뒤 한 번). 이어 하기 횟수를 1 올리고, 한도(12번)가 넘으면 멈춘다. */
-function tgFeed_continue() { tgFeed_runCore_(true); }
+function tgFeed_continue() { feedGuard_('tg', function () { return tgFeed_runCore_(true); }); }
 
 function tgFeed_runCore_(isContinue) {
   var started = Date.now();
   var lock = LockService.getScriptLock();
-  if (!lock.tryLock(10000)) { Logger.log('다른 텔레그램 보내기가 돌고 있어 이번에는 건너뜁니다.'); return; }
+  if (!lock.tryLock(10000)) { Logger.log('다른 텔레그램 보내기가 돌고 있어 이번에는 건너뜁니다.'); return null; }
   try {
     // 이어 하기 트리거는 한 번 쓰면 지운다(쌓이지 않게).
     ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'tgFeed_continue') ScriptApp.deleteTrigger(t); });
@@ -988,7 +1002,7 @@ function tgFeed_runCore_(isContinue) {
         tgFeed_saveState_(state);
       }
       Logger.log('이어 하기 한도(' + TG_FEED_MAX_CHAIN + '번)를 넘어 오늘은 여기서 멈춥니다. 내일 08:10에 이어서 합니다.');
-      return;
+      return null;
     }
     var wanted = tgFeedParseRooms(props.getProperty(TG_FEED_ROOMS_KEY) || '');
     if (!wanted.length) throw new Error('허용 방 목록(' + TG_FEED_ROOMS_KEY + ')이 비어 있습니다. 안내 2단계를 먼저 하세요.');
@@ -1006,7 +1020,7 @@ function tgFeed_runCore_(isContinue) {
       state: state, test: test, secret: secret, started: started, today: today, stop: '', resumable: false,
       tally: { rooms: found.rooms.length, days: 0, parts: 0, messages: 0, noText: 0, kept: 0, duplicate: 0, skipped: 0, failed: 0, retry: 0, visits: 0, files: 0, listed: 0, unread: 0, readFail: 0, deferred: 0 },
       readLimit: started + TG_FEED_TIME_LIMIT_MS, sendLimit: started + TG_FEED_TIME_LIMIT_MS + TG_FEED_SEND_EXTRA_MS,
-      budget: tgFeed_fetchBudget_(), statFiles: 0, statMs: 0, token: '', dirs: null, dirsDirty: false,
+      kind: '', budget: tgFeed_fetchBudget_(), statFiles: 0, statMs: 0, token: '', dirs: null, dirsDirty: false,
     };
     // 방마다 보낼 날짜 계획. 읽는 순서는 "가장 오래된 못 보낸 날"이 앞선 방부터(날짜 우선) — 한 방이 오래 걸려도 다른 방이 굶지 않는다.
     var entries = found.rooms.map(function (room, i) {
@@ -1027,9 +1041,9 @@ function tgFeed_runCore_(isContinue) {
         rd = tgFeed_readDays_(run, e, [picks[0].day], first, false, true);
       }
       if (rd.status === 'time') { run.stop = '시간 제한(읽는 중) — 이 방은 다음 실행에서 맨 먼저 읽음'; run.resumable = true; if (!state.pri) state.pri = e.room.key; break; }
-      if (rd.status === 'quota') { run.stop = 'URL 호출 하루 한도(' + rd.note + ') — 내일 08:10에 이어서 함'; break; }
+      if (rd.status === 'quota') { run.stop = 'URL 호출 하루 한도(' + rd.note + ') — 내일 08:10에 이어서 함'; run.kind = feedKindPick(run.kind, 'limit_day'); break; }
       if (rd.status === 'defer') { e.blocked = true; run.tally.deferred++; run.resumable = true; if (!state.pri) state.pri = e.room.key; continue; }
-      if (rd.status === 'fail') { e.blocked = true; run.tally.readFail++; run.resumable = true; Logger.log('읽지 못해 이번에는 건너뜀: ' + e.n + '번째 방 (' + rd.note + ')'); continue; }
+      if (rd.status === 'fail') { e.blocked = true; run.tally.readFail++; run.kind = feedKindPick(run.kind, 'bad'); run.resumable = true; Logger.log('읽지 못해 이번에는 건너뜀: ' + e.n + '번째 방 (' + rd.note + ')'); continue; }
       run.tally.visits++;
       if (state.pri === e.room.key) state.pri = '';
       var byDay = tgFeedByDay(rd.parsed);
@@ -1044,6 +1058,8 @@ function tgFeed_runCore_(isContinue) {
     }
     tgFeed_saveDirs_(run);
     var tally = run.tally, stop = run.stop;
+    var rep = feedStallNext(state.stall, { test: test, kind: run.kind, sent: tally.parts > 0 }, Date.now());
+    if (!test) state.stall = { bad: rep.bad, sentAt: rep.sentAt, base: rep.base };
 
     if (!test) {
       if (run.resumable && state.chain < TG_FEED_MAX_CHAIN) {
@@ -1062,6 +1078,7 @@ function tgFeed_runCore_(isContinue) {
       found.missing.length ? '못 찾은 허용 방: ' + found.missing.join(' / ') : '허용 방 모두 찾음',
       stop ? '멈춘 이유: ' + stop : '끝까지 봄',
     ].join('\n'));
+    return { source: 'telegram_send', lastAt: rep.lastAt, state: rep.state };
   } finally {
     lock.releaseLock();
   }
@@ -1100,9 +1117,9 @@ function tgFeed_sendDay_(run, e, day, isBack, grouped) {
       tgFeed_saveState_(state);
       throw new Error('비밀값 불일치(401) — 스크립트 속성 값과 Supabase COLLECTOR_FEED_SECRET이 같은지 확인하세요.');
     } else if (verdict === 'limit') {
-      run.stop = tgFeedLimitReason(res.json && res.json.error); return;
+      run.stop = tgFeedLimitReason(res.json && res.json.error); run.kind = feedKindPick(run.kind, feedLimitKind(res.json && res.json.error)); return;
     } else if (verdict === 'pause') {
-      run.stop = '서버 준비 안 됨(HTTP ' + res.code + ' ' + (res.json && res.json.error || '') + ') — 내일 08:10에 다시 시도'; return;
+      run.stop = '서버 준비 안 됨(HTTP ' + res.code + ' ' + (res.json && res.json.error || '') + ') — 내일 08:10에 다시 시도'; run.kind = feedKindPick(run.kind, 'broken'); return;
     } else if (verdict === 'drop') {
       tally.skipped++;
       Logger.log('서버가 거절해 넘김: ' + e.n + '번째 방 ' + day + ' 묶음 ' + (p + 1) + ' (HTTP ' + res.code + (res.json && res.json.error ? ' ' + res.json.error : '') + ')');
@@ -1118,6 +1135,7 @@ function tgFeed_sendDay_(run, e, day, isBack, grouped) {
       } else {
         tally.retry++;
         tgFeed_saveState_(state);
+        run.kind = feedKindPick(run.kind, 'bad');
         run.stop = '서버·연결 실패(HTTP ' + res.code + (res.json && res.json.error ? ' ' + res.json.error : '') + ') — 10분 뒤 같은 묶음을 다시 보냄'; run.resumable = true; return;
       }
     }
@@ -1129,8 +1147,8 @@ function tgFeed_sendDay_(run, e, day, isBack, grouped) {
     var ev = tgFeedVerdict(emptyRes.code, emptyRes.json && emptyRes.json.error);
     if (ev === 'ok' || ev === 'drop') save(tgFeedAfterPart(e.rs, day, 0, 1, isBack));
     else if (ev === 'auth') throw new Error('비밀값 불일치(401) — 스크립트 속성 값과 Supabase COLLECTOR_FEED_SECRET이 같은지 확인하세요.');
-    else if (ev === 'limit') run.stop = tgFeedLimitReason(emptyRes.json && emptyRes.json.error);
-    else { run.stop = '서버 응답 이상(HTTP ' + emptyRes.code + ') — 다음 실행에서 다시 시도'; run.resumable = emptyRes.code === 0 || emptyRes.code >= 500; }
+    else if (ev === 'limit') { run.stop = tgFeedLimitReason(emptyRes.json && emptyRes.json.error); run.kind = feedKindPick(run.kind, feedLimitKind(emptyRes.json && emptyRes.json.error)); }
+    else { run.kind = feedKindPick(run.kind, ev === 'pause' ? 'broken' : 'bad'); run.stop = '서버 응답 이상(HTTP ' + emptyRes.code + ') — 다음 실행에서 다시 시도'; run.resumable = emptyRes.code === 0 || emptyRes.code >= 500; }
   }
 }
 
@@ -1154,6 +1172,7 @@ function tgFeed_loadState_() {
     lastRun: tgFeedLastRunClean(s.lastRun),
     fetch: s.fetch && /^\d{4}-\d{2}-\d{2}$/.test(s.fetch.d || '') && typeof s.fetch.n === 'number' && s.fetch.n >= 0 ? { d: s.fetch.d, n: Math.floor(s.fetch.n) } : { d: '', n: 0 },
     pri: typeof s.pri === 'string' && /^-?\d{1,30}$/.test(s.pri) ? s.pri : '',
+    stall: feedStallClean(s.stall),
   };
 }
 
@@ -1711,6 +1730,7 @@ function tgFeedCompactState(state) {
   var out = { startDay: state.startDay, backChecked: state.backChecked, backFrom: state.backFrom, rooms: rooms, attempts: state.attempts, chain: state.chain, lastRun: state.lastRun };
   if (state.fetch && state.fetch.n > 0) out.fetch = state.fetch;
   if (state.pri) out.pri = state.pri;
+  if (state.stall) out.stall = state.stall;
   return out;
 }
 
@@ -1813,6 +1833,106 @@ function tgFeedVerdict(code, errorCode) {
   return 'retry';
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// 멈춤 알림 (OPS-수집멈춤알림)
+//
+// 텔레그램·통화 보내기가 한 번 끝날 때마다 "시각 + 닫힌 상태 글자 하나"를 Web2 점검 신호 입구(drive-summary ?action=heartbeat)로 알린다.
+// Web2 홈 "마지막 수집 시각" 칸이 이 값으로 멈춤을 알아챈다(출처 이름 telegram_send·call_send). 내용·방 이름·파일 이름·번호는 보내지 않는다.
+//   state: ok(잘 됨) · test(시험 모드) · limit_day(서버 하루 상한 — 내일 이어짐) · limit_ai(이번 달 AI 상한) ·
+//          failing(서버·연결 실패가 3번 이어짐) · broken(비밀값 불일치·설정 빠짐·서버 준비 안 됨 등 사람이 고쳐야 함)
+//   last_at: 마지막으로 실제 글을 보낸 시각(아직 없으면 이 기능을 처음 켠 시각). 신호가 아예 끊기면 Web2가 '보내기 멈춤'(트리거 삭제·스크립트 정지)으로 본다.
+// 비밀값(스크립트 속성 COLLECTOR_HEARTBEAT_SECRET)이 이 프로젝트에 없으면 알리지 않고 넘어간다. 알리기에 실패해도 보내기는 영향이 없다.
+// ═══════════════════════════════════════════════════════════════════════
+
+/** 실행 결과 종류 둘 중 더 무거운 쪽: broken > limit_ai > bad(서버·연결 실패) > limit_day. */
+function feedKindPick(a, b) {
+  var rank = { '': 0, limit_day: 1, bad: 2, limit_ai: 3, broken: 4 };
+  return (rank[b] || 0) > (rank[a] || 0) ? b : (a || '');
+}
+/** 429의 서버 오류 코드 → limit_ai(이번 달 AI 상한) 또는 limit_day(하루 상한 등). */
+function feedLimitKind(errorCode) { return errorCode === 'AI_MONTHLY_LIMIT' ? 'limit_ai' : 'limit_day'; }
+
+/** 스크립트 속성에서 읽은 stall 기록 정리. 이상하면 null. */
+function feedStallClean(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  var okTime = function (t) { return typeof t === 'string' && t.length <= 40 && !isNaN(Date.parse(t)); };
+  var bad = Number(raw.bad);
+  return { bad: isFinite(bad) && bad >= 0 ? Math.min(Math.floor(bad), 99) : 0, sentAt: okTime(raw.sentAt) ? raw.sentAt : '', base: okTime(raw.base) ? raw.base : '' };
+}
+
+/**
+ * 이번 실행 결과로 다음 기록과 알릴 값을 만든다(순수 함수).
+ * prev: 지난 기록({bad, sentAt, base} 또는 null). input: {test, kind('' | limit_day | bad | limit_ai | broken), sent(이번에 실제 글을 보냈나)}.
+ */
+function feedStallNext(prev, input, nowMs) {
+  var p = feedStallClean(prev) || { bad: 0, sentAt: '', base: '' };
+  var nowIso = new Date(nowMs).toISOString();
+  var base = p.base || nowIso;
+  var sentAt = input.sent && !input.test ? nowIso : p.sentAt;
+  var bad = input.kind === 'bad' || input.kind === 'broken' ? Math.min(p.bad + 1, 99) : 0;
+  var state = 'ok';
+  if (input.test) state = 'test';
+  else if (input.kind === 'broken') state = 'broken';
+  else if (input.kind === 'limit_ai') state = 'limit_ai';
+  else if (input.kind === 'bad' && bad >= FEED_REPORT_FAIL_RUNS) state = 'failing';
+  else if (input.kind === 'limit_day') state = 'limit_day';
+  return { bad: bad, sentAt: sentAt, base: base, state: state, lastAt: sentAt || base };
+}
+
+/** 점검 신호 몸통(순수 함수). 서버가 받는 모양과 같다: {source, last_at, state}. */
+function feedReportBody(source, lastAt, state) {
+  return { source: source, last_at: lastAt, state: state };
+}
+
+/** 실행 한 번을 감싼다. 끝나면 결과를 알리고, 오류로 끝나면 broken을 알린 뒤 오류를 그대로 다시 던진다(트리거 실행 기록에 실패로 남음). */
+function feedGuard_(which, core) {
+  var result = null;
+  try {
+    result = core();
+  } catch (e) {
+    try {
+      var state = which === 'tg' ? tgFeed_loadState_() : callFeed_loadState_();
+      var next = feedStallNext(state.stall, { test: false, kind: 'broken', sent: false }, Date.now());
+      feedReport_({ source: which === 'tg' ? 'telegram_send' : 'call_send', lastAt: next.lastAt, state: 'broken' });
+    } catch (ignore) { /* 알리기 실패는 원래 오류를 가리지 않는다 */ }
+    throw e;
+  }
+  if (result) feedReport_(result);
+}
+
+/** 점검 신호 한 번 보내기. 비밀값이 없거나 실패하면 로그만 남기고 조용히 넘어간다. */
+function feedReport_(report) {
+  try {
+    var secret = PropertiesService.getScriptProperties().getProperty(FEED_REPORT_SECRET_KEY) || '';
+    if (secret.length < 32) { Logger.log('멈춤 알림: 스크립트 속성 ' + FEED_REPORT_SECRET_KEY + '가 없어 Web2에 알리지 않았습니다(안내 문서 멈춤 알림 단계).'); return; }
+    var res = UrlFetchApp.fetch(FEED_REPORT_URL, {
+      method: 'post', contentType: 'application/json', headers: { 'x-collector-heartbeat-secret': secret },
+      payload: JSON.stringify(feedReportBody(report.source, report.lastAt, report.state)), muteHttpExceptions: true,
+    });
+    var code = res.getResponseCode();
+    Logger.log('멈춤 알림 ' + report.source + ': ' + (code === 200 ? '알림(' + report.state + ')' : '실패(HTTP ' + code + ')'));
+  } catch (e) {
+    Logger.log('멈춤 알림 실패: ' + (e && e.message ? e.message : e));
+  }
+}
+
+/** check 함수가 쓰는 한 줄: 멈춤 알림 비밀값 유무(길이만)와 마지막 보낸 시각·이어진 실패 횟수. */
+function feedReportCheckText_(stall) {
+  var len = (PropertiesService.getScriptProperties().getProperty(FEED_REPORT_SECRET_KEY) || '').length;
+  var st = feedStallClean(stall);
+  return '멈춤 알림: 비밀값 ' + (len >= 32 ? '있음' : '없음 — Web2 홈에 멈춤이 알려지지 않음(안내 문서 멈춤 알림 단계)') +
+    (st ? ' · 마지막으로 글을 보낸 시각 ' + (st.sentAt || '없음') + ' · 이어진 실패 ' + st.bad + '번' : ' · 아직 기록 없음');
+}
+
+/** 손으로 [실행]: 멈춤 알림 시험. 지금 상태를 두 출처 모두 한 번 알린다(보내기·진행 기록은 건드리지 않는다). 실행 로그에 결과가 나온다. */
+function feedReport_test() {
+  var now = Date.now();
+  var tg = feedStallNext(tgFeed_loadState_().stall, { test: tgFeed_testMode_(), kind: '', sent: false }, now);
+  var call = feedStallNext(callFeed_loadState_().stall, { test: callFeed_testMode_(), kind: '', sent: false }, now);
+  feedReport_({ source: 'telegram_send', lastAt: tg.lastAt, state: tg.state });
+  feedReport_({ source: 'call_send', lastAt: call.lastAt, state: call.state });
+}
+
 // node 시험에서만 쓰는 내보내기(앱 스크립트에는 module이 없어서 아무 일도 하지 않는다).
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
@@ -1830,6 +1950,7 @@ if (typeof module !== 'undefined' && module.exports) {
     tgFeedPendingDays: tgFeedPendingDays, tgFeedPartsToSkip: tgFeedPartsToSkip, tgFeedAfterPart: tgFeedAfterPart, tgFeedWindow: tgFeedWindow,
     tgFeedMonths: tgFeedMonths, tgFeedBackfillDays: tgFeedBackfillDays, tgFeedLimitReason: tgFeedLimitReason, tgFeedLastRun: tgFeedLastRun, tgFeedLastRunClean: tgFeedLastRunClean, tgFeedLastRunText: tgFeedLastRunText, tgFeedProgress: tgFeedProgress, tgFeedProgressText: tgFeedProgressText, tgFeedRewind: tgFeedRewind, tgFeedPlanDays: tgFeedPlanDays, tgFeedVerdict: tgFeedVerdict,
     tgFeedWindowRange: tgFeedWindowRange, tgFeedMonthsOf: tgFeedMonthsOf, tgFeedByDay: tgFeedByDay, tgFeedNextRoom: tgFeedNextRoom, tgFeedIsQuotaError: tgFeedIsQuotaError,
+    feedKindPick: feedKindPick, feedLimitKind: feedLimitKind, feedStallClean: feedStallClean, feedStallNext: feedStallNext, feedReportBody: feedReportBody,
     tgFeedCompactRoom: tgFeedCompactRoom, tgFeedCompactState: tgFeedCompactState, tgFeedRemaining: tgFeedRemaining, tgFeedRemainingText: tgFeedRemainingText,
   };
 }

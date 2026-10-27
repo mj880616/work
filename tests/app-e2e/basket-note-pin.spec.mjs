@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
+import { closeNote } from './helpers/note-close.mjs';
 
 // UI-노트고정: [고정] in a note's ⋯ puts it on top of the note list (most recently pinned first); [고정 해제] returns it to
 // last-change order. Stored in the existing metadata jsonb (metadata.pinned_at) by an owner-RLS PATCH of metadata only;
@@ -48,7 +49,7 @@ for (const width of [390, 1280]) test(`pin a note to the top of the list and unp
   expect(f.writes[0].query).toMatchObject({ id: 'eq.n-old', kind: 'eq.note', updated_at: 'eq.2026-10-01T01:00:00Z', 'metadata->>pinned_at': 'is.null' });
   expect(Date.parse(f.writes[0].body.metadata.pinned_at)).toBeGreaterThan(0);
   expect(f.rows.find(r => r.id === 'n-old').updated_at).toBe('2026-10-01T01:00:00Z');
-  await press(page, page.locator('[data-note-close]'), width);
+  await closeNote(page);
   expect(await order(page)).toEqual(['오래된 노트', '최근 노트', '중간 노트']);
   await expect(page.locator('[data-note-row="n-old"] [data-note-pinned]')).toBeVisible();
   await expect(page.locator('[data-note-row="n-old"]')).toContainText('고친 날 2026. 10. 1.');
@@ -61,7 +62,7 @@ for (const width of [390, 1280]) test(`pin a note to the top of the list and unp
   await expect.poll(() => f.writes.length).toBe(2);
   expect(f.writes[1].body.metadata).toMatchObject({ tasks: [] });
   await expect(page.locator('#toast')).toHaveText('노트를 맨 위에 고정했어요.');
-  await page.locator('[data-note-close]').focus(); await page.keyboard.press('Enter');
+  await closeNote(page);
   await expect(page.locator('[data-note-detail]')).toBeHidden();
   expect(await order(page)).toEqual(['중간 노트', '오래된 노트', '최근 노트']);
   // Unpin: back to last-change order, the pin key removed.
@@ -71,7 +72,7 @@ for (const width of [390, 1280]) test(`pin a note to the top of the list and unp
   await press(page, page.locator('#noteDocMenu [data-note-pin]'), width);
   await expect(page.locator('#toast')).toHaveText('고정을 풀었어요.');
   expect(f.writes[2].body.metadata).toEqual({});
-  await press(page, page.locator('[data-note-close]'), width);
+  await closeNote(page);
   expect(await order(page)).toEqual(['중간 노트', '최근 노트', '오래된 노트']);
   await expect(page.locator('[data-note-row="n-old"] [data-note-pinned]')).toHaveCount(0);
   expect(f.errors).toEqual([]);

@@ -3,6 +3,7 @@ import { openHome } from './helpers/home-entry.mjs';
 import { basketKindButton, openKindMenu } from './helpers/basket-kind.mjs';
 import { expectNoteTitle } from './helpers/note-title.mjs';
 import { noteTrash } from './helpers/note-trash.mjs';
+import { closeNote } from './helpers/note-close.mjs';
 
 // UI-업데이트목록메뉴: every update row has [복사] and [⋯] at its top right (same look and behavior as the note rows, UI-노트메뉴정리).
 // The ⋯ holds 수정 · 연결하기 · 할 일 만들기 · 노트로 옮기기 · 삭제 (삭제 last, danger color) and opens right under the pressed ⋯.
@@ -170,7 +171,7 @@ for (const width of [390, 1280]) {
     await expectNoteTitle(page,'합성 둘째 업데이트');
     expect(f.writes).toHaveLength(1);
     expect(f.writes[0].query).toMatchObject({ id: 'eq.' + B, kind: 'eq.basket' }); expect(f.writes[0].body).toMatchObject({ kind: 'note', title: '합성 둘째 업데이트' });
-    await press(page, page.locator('[data-note-close]'), width);
+    await closeNote(page);
     await press(page, basketKindButton(page,'memo'), width);
     await expect(page.locator(`[data-basket-row="${B}"]`)).toHaveCount(0);
     // 삭제: cancel keeps everything and returns focus to the ⋯.

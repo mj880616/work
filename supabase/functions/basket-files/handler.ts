@@ -3,6 +3,7 @@ import type { UploadAdmin, UploadLog } from "../_shared/drive-upload.ts";
 import {createOcrHandler} from "./ocr.ts";
 import { createNoteDeleteHandler } from "./note-delete.ts";
 import { createPhotoHandler } from "./photo.ts";
+import { createPhotoPruneHandler } from "./photo-prune.ts";
 import { readMultipartForm } from "../_shared/multipart.ts";
 import type {OcrUser} from "./ocr.ts";
 
@@ -64,6 +65,7 @@ export function createBasketHandler(
   const ocr=createOcrHandler(admin,{...options,log});
   const noteDelete = createNoteDeleteHandler(admin, { ...options, log });
   const photo = createPhotoHandler(admin, { ...options, log });
+  const photoPrune = createPhotoPruneHandler(admin, { ...options, log });
   return async (req: Request): Promise<Response> => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
     let token = "";
@@ -103,6 +105,12 @@ export function createBasketHandler(
         req.method === "POST" &&
         new URL(req.url).searchParams.get("action") === "note-delete"
       ) return await noteDelete(req, workspaceId, `Bearer ${match[1]}`);
+      if (
+        req.method === "POST" &&
+        ["photo-prune", "photo-orphans"].includes(
+          new URL(req.url).searchParams.get("action") || "",
+        )
+      ) return await photoPrune(req, workspaceId);
       if (
         req.method === "GET" &&
         new URL(req.url).searchParams.get("action") === "photo"

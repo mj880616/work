@@ -200,3 +200,12 @@ Drive 검증이나 정확히 한 번의 외부 문서 생성을 증명하는 것
 
 CORS는 기존과 같고 공개 주소·새 권한은 없다. 이 동작을 모르는 이전 배포(v4)는 GET을 OCR로 보내
 400 `OCR_REQUEST_INVALID`로 거절하므로 화면은 "Drive에서 열기" 링크로 대신 보여 준다. 검사: `tests/security/basket-photo.test.mjs`.
+
+## 일기 사진 정리 (JOURNAL-일기사진정리)
+
+`POST ?action=photo-prune` `{action, file_ids:[1~20]}`: 일기에서 뺀 사진의 Drive 원본을 **Drive 휴지통**(30일, `trashed=true`, 영구 삭제 없음)으로 보낸다.
+파일마다 (1) 검증된 비공개 "Web2 바구니" 폴더 바로 아래, (2) 내 소유 이미지, (3) 어떤 노트(앱 휴지통 노트 포함)·자료실 문서도 목록에 두지 않음을 모두 만족할 때만 보낸다.
+다른 기록이 쓰면 `kept`로 세고 건드리지 않는다. 참조 표를 못 읽으면 503으로 멈추고 아무것도 보내지 않는다. 응답 `{ok, requested, trashed, kept, failed, unknown, results}`.
+`POST ?action=photo-orphans` `{action, dry_run:true}`: 읽기 전용. 바구니 폴더의 이미지 중 어떤 기록도 두지 않는 **정리 후보** 목록(1시간 안에 올린 파일 제외, 500개까지)을 돌려준다. 아무것도 쓰지 않는다.
+후보를 실제로 휴지통에 보내는 일은 사람이 목록을 확인한 뒤 같은 `photo-prune`에 id를 넘겨 한다(서버가 다시 한 번 참조를 확인).
+휴지통 이동 코드는 `drive-trash.ts` 한 곳을 `note-delete.ts`와 함께 쓴다. 원드라이브 사진은 이 동작과 무관하다.
