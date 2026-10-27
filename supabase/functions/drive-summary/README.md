@@ -93,6 +93,7 @@
 - 상태 읽기 `GET ?action=status` 응답에 `collectors:{telegram, transcript}`(각 `{last_at, count, reported_at}` 또는 `null`)를 더했다. 저장값도 같은 형식 검사를 통과한 것만 낸다.
 - 화면 기준: 텔레그램 26시간(업무방 매일 07:30 1회 수집)·통화 전사 72시간(통화 없는 날·주말) 넘으면 '조용함'(경고 아님, 2026-10-22 사용자 결정), 신호(`reported_at`)가 3시간 넘게 없으면 "점검 신호 끊김"(`app/collection-status.js`).
 - 앱 스크립트 코드·설정 안내: `docs/ops/collector-heartbeat.gs`, `docs/ops/collector-heartbeat.md`.
+- OPS-수집멈춤알림: 출처 `telegram_send`·`call_send`가 더해졌다. 보내기 스크립트(`docs/ops/collector-feed.gs`)가 자기 보내기 결과를 알린다. 이 두 출처만 `state`(`ok`·`test`·`limit_day`·`limit_ai`·`failing`·`broken` 중 하나, 자유 글 금지)를 꼭 보내고 `count`는 보내지 않는다. 앞의 두 출처(`telegram`·`transcript`)는 `state`를 보내면 400. 키 3개(`collector_<source>_at`·`_state`·`_reported_at`)만 PATCH하고 DB는 쓰지 않는다. 상태 읽기 `collectors`에 `telegram_send`·`call_send`(각 `{last_at, state, reported_at}` 또는 `null`)가 더해진다. 되돌리기: 이전 Edge 판을 다시 배포하면 새 출처 요청은 400이 되고 저장된 키는 읽히지 않는다(남아도 무해).
 - (S7-d에서 해소) 사본 재생성의 `recordStatus`가 읽어 둔 폴더 속성 전체를 다시 보내던 것을, 자기 키(`last_success_at` 또는 `last_failure_*`)만 보내도록 고쳤다. 재생성 도중 들어온 신호·원장 내보내기 시각이 옛 값으로 덮이지 않는다. 남은 위험: 비밀값이 새면 가짜 시각을 쓸 수 있을 뿐(읽기·내용·다른 키 쓰기 불가) — 비밀값 교체로 막는다.
 
 ## S7-d 원장 매주 Drive 내보내기
