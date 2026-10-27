@@ -5,7 +5,7 @@
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {watchFloatSave, refreshFloatSave} from './float-save.js'; // UI-떠있는저장: the one floating [저장] (calls this panel's own [저장])
 import {seoulParts, seoulDate, addSeoulDays, seoulDateKey, formatSeoulTime} from './meeting-time.js';
-import {readDiaryMonth, readDiaryDay, createDiary, saveDiaryText, removeDiaryPhoto, dropEmptyDiary, uploadDiaryPhotos, photoElement,
+import {readDiaryMonth, readDiaryDay, createDiary, saveDiaryText, removeDiaryPhoto, pruneDiaryPhotos, dropEmptyDiary, uploadDiaryPhotos, photoElement,
   diaryPhotos, diaryText, takeRequestedDay, todayKey, ownerScope, validateDiaryText, DIARY_MAX_PHOTOS, DIARY_COMMENT_MAX,
   photoComments, cleanComments, saveDiaryComments} from './diary-data.js';
 import {deleteNoteOriginal} from './basket-record-delete.js';
@@ -588,18 +588,26 @@ async function save() {
     renderEditor(error?.status === 401 ? '로그인이 필요해요. 다시 로그인한 뒤 저장해 주세요.' : error?.message && !error.status ? error.message : '일기를 저장하지 못했어요. 다시 시도해 주세요.');
   }
 }
+const pruneNote = pruned => !pruned ? '사진을 뺐어요. Drive 원본은 나중에 정리해요.'
+  : pruned.trashed ? '사진을 뺐어요. Drive 원본은 휴지통으로 보냈어요.'
+  : pruned.kept ? '사진을 뺐어요. 다른 기록이 같은 파일을 쓰고 있어 Drive 원본은 남겨요.' : '사진을 뺐어요. Drive 원본은 나중에 정리해요.';
 async function removePhoto(fileId) {
   if (!edit?.row || edit.busy) return;
-  if (!window.confirm('이 사진을 일기에서 뺄까요? Drive "Web2 바구니" 폴더의 파일은 그대로 남아요.')) return;
+  if (!window.confirm('이 사진을 일기에서 뺄까요? Drive 원본은 휴지통으로 보내요(30일 안에 복구 가능).')) return;
   edit.busy = true; renderEditor('사진을 빼는 중…');
+  let row;
   try {
-    const row = await removeDiaryPhoto(edit.row, fileId, rt);
-    rows.set(row.journal_day, row); edit.row = row; edit.busy = false;
-    delete edit.comments[fileId]; delete edit.startComments[fileId];
-    renderEditor('사진을 뺐어요.'); renderMonth();
+    row = await removeDiaryPhoto(edit.row, fileId, rt);
   } catch (error) {
-    edit.busy = false; renderEditor(error?.message && !error.status ? error.message : '사진을 빼지 못했어요. 다시 시도해 주세요.');
+    edit.busy = false; return renderEditor(error?.message && !error.status ? error.message : '사진을 빼지 못했어요. 다시 시도해 주세요.');
   }
+  rows.set(row.journal_day, row); edit.row = row;
+  delete edit.comments[fileId]; delete edit.startComments[fileId];
+  renderMonth();
+  // The photo is out of the day for good now; its Drive original goes to the Drive trash (best effort, never throws).
+  const pruned = await pruneDiaryPhotos([fileId], {rt});
+  if (!edit) return;
+  edit.busy = false; renderEditor(pruneNote(pruned));
 }
 async function removeDiary(row) {
   if (!row || edit?.busy) return;

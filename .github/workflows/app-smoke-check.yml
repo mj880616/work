@@ -209,6 +209,9 @@ jobs:
       - name: Ledger import checker (CSV·xlsx·import file, synthetic sheet)
         run: node --test tests/ledger-import-model.test.mjs tests/ledger-browse-model.test.mjs tests/ledger-candidate-model.test.mjs tests/ledger-export-model.test.mjs tests/ledger-auto-model.test.mjs tests/calendar-ref-model.test.mjs tests/ledger-fix-model.test.mjs tests/overlap-model.test.mjs tests/overlap-paths.test.mjs tests/overlap-weekly.test.mjs tests/ledger-merge-model.test.mjs
 
+      - name: Check diary photo prune to Drive trash (JOURNAL-일기사진정리, synthetic)
+        run: node --test tests/security/basket-photo-prune.test.mjs tests/security/basket-note-delete.test.mjs
+
       - name: Check removed team AI app path
         run: node --test tests/security/team-ai-app-removed.test.mjs
 

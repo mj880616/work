@@ -326,9 +326,9 @@ test('고치기에서 사진 하나 빼기, 글 없는 일기의 마지막 사�
  const f=await fixture(page,{rows});await openDiary(page,390);
  await cell(page,'2026-10-03').click();await page.locator('#diaryRoot [data-diary-edit]').click();
  const ed=page.locator('#diaryRoot [data-diary-editor]');
- page.once('dialog',d=>{expect(d.message()).toContain('Drive "Web2 바구니" 폴더의 파일은 그대로 남아요');d.accept();});
+ page.once('dialog',d=>{expect(d.message()).toContain('Drive 원본은 휴지통으로 보내요');d.accept();});
  await ed.locator('[data-diary-remove="pa"]').click();
- await expect(ed.locator('[data-diary-thumb]')).toHaveCount(1);await expect(ed.locator('[data-diary-editor-status]')).toHaveText('사진을 뺐어요.');
+ await expect(ed.locator('[data-diary-thumb]')).toHaveCount(1);await expect(ed.locator('[data-diary-editor-status]')).toContainText('사진을 뺐어요.');
  expect(f.writes.at(-1)).toMatchObject({method:'PATCH',query:{id:'eq.d3',kind:'eq.diary',updated_at:'eq.'+at},body:{attachments:[photo('pb')]}});
  await ed.locator('[data-diary-editor-close]').click();
  await cell(page,'2026-10-05').click();await page.locator('#diaryRoot [data-diary-edit]').click();
