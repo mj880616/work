@@ -8,7 +8,7 @@ import {readDiaryMonth, readDiaryDay, createDiary, saveDiaryText, removeDiaryPho
   diaryPhotos, diaryText, takeRequestedDay, todayKey, ownerScope, validateDiaryText, DIARY_MAX_PHOTOS, DIARY_COMMENT_MAX,
   photoComments, cleanComments, saveDiaryComments} from './diary-data.js';
 import {deleteNoteOriginal} from './basket-record-delete.js';
-import {odStatus, odAuthStart, odAuthFinish, odFolders, odFolderSet, odDisconnect, odDelete, odPhotos, odPhotoElement, clearOdPhotoCache, forgetOdPhoto,
+import {odStatus, odAuthStart, odAuthFinish, odFolders, odFolderSet, odDisconnect, odDelete, odPhotos, odPhotoElement, odPrefetchMonth, clearOdPhotoCache, forgetOdPhoto,
   odErrorText, odSync, odSyncDelay, odFolderTree, odFolderToggle, odTreeRows, odTreeChanges, readStars, addStar, removeStar, starKey, dayItems, takenLabel, takeOdReturn} from './diary-onedrive.js';
 // ED③ 일기: the day's text is the new editor (ed-editor.js) inside this panel; the read view draws its saved form (ed-render). The photos,
 // their comments, the calendar and the swipe stay as they were. Letters (raw_text) are still saved with it for every other reader.
@@ -250,7 +250,8 @@ function openViewer(index) {
   const fill = i => {
     const slide = strip.children[i];
     if (!slide || slide.dataset.filled) return;
-    slide.dataset.filled = '1'; slide.append(itemElement(items[i], 'large', {label:`${shortDay(selected)} 사진 ${i + 1}`}));
+    // 크게 보기는 화면 관찰 없이 바로 받는다: 보는 장이 먼저(VISIBLE), 앞뒤 2장은 그다음(NEAR).
+    slide.dataset.filled = '1'; slide.append(itemElement(items[i], 'large', {label:`${shortDay(selected)} 사진 ${i + 1}`, eager:true, prio:i === at ? 0 : 1}));
   };
   const buildSlides = () => {
     strip.replaceChildren(...items.map(() => Object.assign(document.createElement('figure'), {className:'diary-slide'})));
@@ -267,7 +268,7 @@ function openViewer(index) {
     count.textContent = `${at + 1} / ${items.length}`;
     caption.textContent = item.kind === 'upload' ? (photoComments(item.row)[item.file.drive_file_id] || '') : takenLabel(item);
     more.hidden = !(item.kind === 'od' && od.canDelete); more.removeAttribute('open');
-    for (const d of [-1, 0, 1, 2]) fill(at + d);
+    for (const d of [0, 1, -1, 2, -2]) fill(at + d);
     refresh();
   };
   strip.addEventListener('scroll', () => { const next = Math.round(strip.scrollLeft / Math.max(1, strip.clientWidth)); if (next !== at && items[next]) { at = next; show(); } }, {passive:true});
@@ -343,6 +344,8 @@ async function loadOd(run, key) {
   try {
     renderOdPanel(); renderMonth();
     if (selected && monthOf(selected) === key && !viewer && !edit) renderDetail();
+    // 이 달 날마다 앞 몇 장의 썸네일 주소를 가장 낮은 순서로 미리 받아 둔다(날짜를 누르면 바로 뜨게).
+    if (odMonth) odPrefetchMonth(odMonth, {rt});
   } catch { /* shown by loadMonth's own status line */ }
   if (wantPhotos && current(run)) startOdSync();
 }

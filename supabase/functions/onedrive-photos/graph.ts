@@ -5,6 +5,9 @@ export const GRAPH = "https://graph.microsoft.com/v1.0";
 export const IMAGE_MIME = /^image\/(jpeg|png|webp|gif|heic|heif)$/i;
 export const SIZES = { small: "c480x480", large: "c1600x1600" } as const;
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+// 썸네일 주소 묶음(photo-urls, 2026-10-28 OD-속도): 한 번에 받는 사진 수 상한과 Graph $batch 한 번에 넣는 사진 수(사진 1장 = 하위 요청 2개, $batch 상한 20개).
+export const PHOTO_URLS_MAX = 20;
+export const GRAPH_BATCH_PHOTOS = 10;
 // 사진 색인(2026-10-28): 달을 열 때마다 폴더를 훑지 않고, 고른 맨 위 폴더의 delta를 나눠 받아 서버 표에 적는다.
 // 한 요청 안에서 받는 양은 시간·쪽 수로 자른다(Edge 요청 시간 안에 끝나게). 못 끝내면 다음 쪽 주소를 저장하고 more:true.
 export const DELTA_SELECT = "id,name,file,folder,photo,fileSystemInfo,parentReference,deleted";

@@ -1,6 +1,6 @@
 import {
-  AUTO_SYNC_BUDGET_MS, AUTO_SYNC_MAX_PAGES, DELTA_SELECT, folderPathOf, GRAPH, graphNextLink, IMAGE_MIME, insideFolder,
-  MAX_FOLDER_DEPTH, MAX_IMAGE_BYTES, MAX_ITEMS, normalizeScopes, retryAfterSeconds, safeDownloadUrl, SCOPE, scopeAllowed,
+  AUTO_SYNC_BUDGET_MS, AUTO_SYNC_MAX_PAGES, DELTA_SELECT, folderPathOf, GRAPH, GRAPH_BATCH_PHOTOS, graphNextLink, IMAGE_MIME, insideFolder,
+  MAX_FOLDER_DEPTH, MAX_IMAGE_BYTES, MAX_ITEMS, PHOTO_URLS_MAX, normalizeScopes, retryAfterSeconds, safeDownloadUrl, SCOPE, scopeAllowed,
   seoulDay, SIZES, SYNC_BUDGET_MS, SYNC_LOCK_MS, SYNC_MAX_PAGES, SYNC_STALE_MS, takenOf, validItemId,
 } from "./graph.ts";
 import type { OneDriveItem } from "./graph.ts";
@@ -152,10 +152,19 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
   // 갱신 토큰으로 접근 토큰을 받는다. 새 갱신 토큰이 오면 바로 바꿔 저장한다(Microsoft는 갱신 때마다 새 토큰을 줄 수 있다).
   // 접근 토큰은 만료 1분 전까지 이 함수 안에서만 기억한다(사진 여러 장을 연달아 받을 때 갱신 요청을 줄임).
   const cached = new Map<string, { token: string; refresh: string; until: number }>();
-  async function accessToken(workspaceId: string, conn: { refresh_token: string }) {
-    const c = needConfig();
+  // 같은 순간에 여러 요청이 오면(사진 묶음 여러 개) 갱신 요청은 하나만 보내고 함께 기다린다(OD-속도).
+  const tokenFlights = new Map<string, { refresh: string; flight: Promise<string> }>();
+  function accessToken(workspaceId: string, conn: { refresh_token: string }): Promise<string> {
     const hit = cached.get(workspaceId);
-    if (hit && hit.refresh === conn.refresh_token && hit.until > now()) return hit.token;
+    if (hit && hit.refresh === conn.refresh_token && hit.until > now()) return Promise.resolve(hit.token);
+    const going = tokenFlights.get(workspaceId);
+    if (going && going.refresh === conn.refresh_token) return going.flight;
+    const flight = freshToken(workspaceId, conn).finally(() => { if (tokenFlights.get(workspaceId)?.flight === flight) tokenFlights.delete(workspaceId); });
+    tokenFlights.set(workspaceId, { refresh: conn.refresh_token, flight });
+    return flight;
+  }
+  async function freshToken(workspaceId: string, conn: { refresh_token: string }) {
+    const c = needConfig();
     cached.delete(workspaceId);
     const d = await tokenRequest(c, { grant_type: "refresh_token", refresh_token: conn.refresh_token });
     if (typeof d.refresh_token === "string" && d.refresh_token && d.refresh_token !== conn.refresh_token) {
@@ -608,6 +617,80 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     return json({ deleted: true });
   }
 
+  // 사진이면서 고른 폴더 안인지(photoInFolder와 같은 판단, Graph 응답 본문만 보고). 맞으면 null, 아니면 실패 이름.
+  const photoCheck = (id: string, item: OneDriveItem, folder: { path: string }): string | null => {
+    if (!item || item.id !== id || item.folder || !item.file?.mimeType || !IMAGE_MIME.test(item.file.mimeType)) return "missing";
+    if (!insideFolder(item.parentReference?.path, folder.path)) return "outside";
+    return null;
+  };
+
+  // 여러 장의 썸네일 주소(photo-urls). 사진마다 ① 사진 정보(폴더 안인지 확인) ② 썸네일 목록을 Graph $batch 한 번에 묻는다.
+  // 돌려주는 주소는 Microsoft가 그 썸네일 하나에만 준 짧게 사는 사전 인증 주소다(기존 photo의 302 위치와 같은 종류). 접근 토큰·갱신 토큰은 주소에 들어가지 않고 응답에도 싣지 않는다.
+  // 폴더 밖·사진 아님·없음·요청 많음은 사진별 failed로 알려 준다(주소를 주지 않음). 요청 많음이면 retry_after(초)를 함께 준다.
+  async function photoUrls(workspaceId: string, body: Record<string, unknown>): Promise<Response> {
+    const conn = await readConnection(workspaceId);
+    const folder = folderOf(conn);
+    const size = body.size === undefined ? "small" : body.size;
+    const ids = body.ids;
+    if (typeof size !== "string" || !Object.hasOwn(SIZES, size)) throw new Fail(400, "onedrive_request_invalid");
+    if (!Array.isArray(ids) || !ids.length || ids.length > PHOTO_URLS_MAX || !ids.every(validItemId)) throw new Fail(400, "onedrive_request_invalid");
+    const unique = [...new Set(ids as string[])];
+    const sizeKey = SIZES[size as keyof typeof SIZES];
+    const token = await accessToken(workspaceId, conn!);
+    const urls = new Map<string, string>(), failed = new Map<string, string>();
+    let retryAfter = 0;
+    const throttled = (id: string, header: string | null) => {
+      failed.set(id, "throttled");
+      retryAfter = Math.max(retryAfter, retryAfterSeconds(header, now()));
+    };
+    const chunks: string[][] = [];
+    for (let i = 0; i < unique.length; i += GRAPH_BATCH_PHOTOS) chunks.push(unique.slice(i, i + GRAPH_BATCH_PHOTOS));
+    await Promise.all(chunks.map(async (chunk) => {
+      const requests = chunk.flatMap((id, k) => [
+        { id: `m${k}`, method: "GET", url: `/me/drive/items/${encodeURIComponent(id)}?$select=id,file,folder,parentReference` },
+        { id: `t${k}`, method: "GET", url: `/me/drive/items/${encodeURIComponent(id)}/thumbnails?select=${sizeKey}` },
+      ]);
+      const r = await call("onedrive_batch", `${GRAPH}/$batch`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ requests }),
+      });
+      if (r.status === 429 || r.status === 503) {
+        log("onedrive_batch_throttled:" + r.status);
+        for (const id of chunk) throttled(id, r.headers.get("retry-after"));
+        return;
+      }
+      if (r.status === 401 || r.status === 403) throw new Fail(424, "onedrive_auth_expired");
+      if (!r.ok) {
+        log("onedrive_batch_rejected:" + r.status);
+        for (const id of chunk) failed.set(id, "unavailable");
+        return;
+      }
+      const d = await bodyJson(r);
+      const byId = new Map<string, { status?: number; headers?: Record<string, string>; body?: Record<string, unknown> }>();
+      for (const x of Array.isArray(d.responses) ? d.responses : []) if (x && typeof x.id === "string") byId.set(x.id, x);
+      chunk.forEach((id, k) => {
+        const meta = byId.get(`m${k}`), thumbs = byId.get(`t${k}`);
+        for (const part of [meta, thumbs]) {
+          if (part && (part.status === 429 || part.status === 503)) {
+            const h: Record<string, string> = part.headers || {};
+            return throttled(id, String(h["Retry-After"] ?? h["retry-after"] ?? "") || null);
+          }
+        }
+        if (!meta || meta.status === 404) return void failed.set(id, "missing");
+        if (meta.status !== 200) return void failed.set(id, "unavailable");
+        const bad = photoCheck(id, (meta.body || {}) as OneDriveItem, folder);
+        if (bad) return void failed.set(id, bad);
+        const set = thumbs?.status === 200 && Array.isArray(thumbs.body?.value) ? (thumbs.body!.value as Record<string, unknown>[])[0] : null;
+        const raw = (set?.[sizeKey] as { url?: unknown } | undefined)?.url;
+        const safe = typeof raw === "string" ? safeDownloadUrl(raw) : null;
+        if (!safe) return void failed.set(id, "unavailable");
+        urls.set(id, safe.toString());
+      });
+    }));
+    return json({ urls: Object.fromEntries(urls), failed: Object.fromEntries(failed), ...(retryAfter ? { retry_after: retryAfter } : {}) });
+  }
+
   // 사진 한 장(작게/크게). 지정 폴더 안의 사진만 돌려주고, 바이트는 서버가 받아 그대로 전달한다(원드라이브 주소·토큰은 화면에 가지 않음).
   async function photo(workspaceId: string, body: Record<string, unknown>): Promise<Response> {
     const conn = await readConnection(workspaceId);
@@ -665,6 +748,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail(400, "json_invalid");
       const action = body.action;
       if (action === "photo") return await photo(member.workspace_id, body);
+      if (action === "photo-urls") return await photoUrls(member.workspace_id, body);
       if (action === "photo-delete") return await photoDelete(member.workspace_id, body);
       if (typeof action !== "string" || !Object.hasOwn(actions, action)) throw new Fail(400, "action_invalid");
       return await actions[action]({ userId: data.user.id, workspaceId: member.workspace_id, body });

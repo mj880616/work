@@ -245,6 +245,9 @@ jobs:
       - name: Check diary OneDrive folder switches (JOURNAL-일기원드라이브, synthetic)
         run: node --test tests/diary-onedrive-folders.test.mjs
 
+      - name: Check OneDrive photo queue (OD-속도, visible first, limited at once, synthetic)
+        run: node --test tests/od-thumb-loader.test.mjs
+
       - name: Check diary photo prune to Drive trash (JOURNAL-일기사진정리, synthetic)
         run: node --test tests/security/basket-photo-prune.test.mjs tests/security/basket-note-delete.test.mjs
 

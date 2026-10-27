@@ -54,7 +54,7 @@ function fakeAdmin({role='owner',row=null,saveError=false,index={}}={}){
 }
 
 // 지어낸 Microsoft: 토큰 주소, Graph, 임시 사진 주소.
-function fakeMicrosoft({tokenReply,items={},itemById={},thumb,deleteReply,deltaPages=[[]],deltaChanges=[],deltaReply}={}){
+function fakeMicrosoft({tokenReply,items={},itemById={},thumb,deleteReply,deltaPages=[[]],deltaChanges=[],deltaReply,batchReply,subReply}={}){
   const calls=[];
   const fetch=async(url,init={})=>{
     url=String(url);calls.push({url,init});
@@ -69,6 +69,20 @@ function fakeMicrosoft({tokenReply,items={},itemById={},thumb,deleteReply,deltaP
       if(init.method==='DELETE'){
         const id=decodeURIComponent(url.slice('https://graph.microsoft.com/v1.0/me/drive/items/'.length));
         return deleteReply?deleteReply(id):new Response(null,{status:204});
+      }
+      // $batch: 하위 요청마다 사진 정보(itemById) 또는 썸네일 목록을 지어 답한다. subReply(req)가 답을 주면 그것을 쓴다.
+      if(url==='https://graph.microsoft.com/v1.0/$batch'&&init.method==='POST'){
+        if(batchReply){const r=batchReply(JSON.parse(init.body));if(r)return r;}
+        const {requests}=JSON.parse(init.body);
+        const responses=requests.map(q=>{
+          const own=subReply?.(q);if(own)return {id:q.id,...own};
+          const t=q.url.match(/^\/me\/drive\/items\/([^/?]+)\/thumbnails\?select=([a-z0-9]+)$/);
+          if(t){const id=decodeURIComponent(t[1]);return itemById[id]?{id:q.id,status:200,body:{value:[{id:'0',[t[2]]:{url:'https://thumbs.synthetic.example.test/u/'+id+'/'+t[2]}}]}}:{id:q.id,status:404,body:{}};}
+          const one=q.url.match(/^\/me\/drive\/items\/([^/?]+)\?\$select=id,file,folder,parentReference$/);
+          if(one){const id=decodeURIComponent(one[1]);return itemById[id]?{id:q.id,status:200,body:itemById[id]}:{id:q.id,status:404,body:{}};}
+          return {id:q.id,status:400,body:{}};
+        }).reverse();
+        return new Response(JSON.stringify({responses}),{headers:{'content-type':'application/json'}});
       }
       const path=decodeURIComponent(url.slice('https://graph.microsoft.com/v1.0'.length).split('?')[0]);
       const thumbMatch=path.match(/^\/me\/drive\/items\/([^/]+)\/thumbnails\/0\/([^/]+)\/content$/);
@@ -292,6 +306,69 @@ test('photo: only inside the chosen folder, thumbnail fetched server side withou
   }
   const notImage=make({ms:fakeMicrosoft({itemById:{A1:inFolder},thumb:()=>new Response('<html>',{headers:{'content-type':'text/html'}})})});
   assert.equal((await post(notImage.handler,{action:'photo',id:'A1'})).status,502);
+});
+
+test('photo-urls: many photos in one $batch, only photos inside the chosen folder get an address, no token in the reply',async()=>{
+  const inside=id=>({id,file:{mimeType:'image/jpeg'},parentReference:{path:'/drive/root:/Pictures/Camera/2026'}});
+  const itemById={A1:inside('A1'),A2:inside('A2'),OUT:{id:'OUT',file:{mimeType:'image/jpeg'},parentReference:{path:'/drive/root:/Pictures/Camera2'}},
+    VID:{id:'VID',file:{mimeType:'video/mp4'},parentReference:{path:'/drive/root:/Pictures/Camera'}},DIR:{id:'DIR',folder:{},parentReference:{path:'/drive/root:/Pictures/Camera'}}};
+  for(let i=0;i<14;i++)itemById['P'+i]=inside('P'+i);
+  const ms=fakeMicrosoft({itemById});const ctx=make({ms});
+  const r=await post(ctx.handler,{action:'photo-urls',ids:['A1','A2','OUT','VID','DIR','MISSING','A1'],size:'large'});
+  assert.equal(r.status,200);assert.equal(r.headers.get('cache-control'),'no-store');
+  const text=await r.text(),out=JSON.parse(text);
+  assert.deepEqual(out.urls,{A1:'https://thumbs.synthetic.example.test/u/A1/c1600x1600',A2:'https://thumbs.synthetic.example.test/u/A2/c1600x1600'});
+  assert.deepEqual(out.failed,{OUT:'outside',VID:'missing',DIR:'missing',MISSING:'missing'});
+  assert.equal(out.retry_after,undefined);
+  for(const secret of [ACCESS,REFRESH,REFRESH2])assert.ok(!text.includes(secret),'no token in the reply');
+  const batches=ms.calls.filter(c=>c.url.endsWith('/$batch'));
+  assert.equal(batches.length,1,'six distinct photos fit one $batch');
+  assert.equal(JSON.parse(batches[0].init.body).requests.length,12);
+  assert.ok(!ms.calls.some(c=>c.url.startsWith('https://thumbs.')),'the server does not download the pictures on this path');
+  // 기본 크기는 small, 20장이면 Graph $batch 두 번(한 번에 10장 = 하위 요청 20개)
+  const ids=[...Array(14).keys()].map(i=>'P'+i).concat(['A1','A2','OUT','VID','DIR','MISSING']);
+  const before=ms.calls.filter(c=>c.url.endsWith('/$batch')).length;
+  const small=await read(await post(ctx.handler,{action:'photo-urls',ids}));
+  assert.equal(Object.keys(small.urls).length,16);assert.match(small.urls.P0,/\/c480x480$/);
+  const after=ms.calls.filter(c=>c.url.endsWith('/$batch')).slice(before);
+  assert.equal(after.length,2);assert.ok(after.every(c=>JSON.parse(c.init.body).requests.length<=20));
+});
+
+test('photo-urls: requests that arrive together share one token refresh',async()=>{
+  const inside=id=>({id,file:{mimeType:'image/jpeg'},parentReference:{path:'/drive/root:/Pictures/Camera'}});
+  const ms=fakeMicrosoft({itemById:{A1:inside('A1'),A2:inside('A2'),A3:inside('A3')}});const ctx=make({ms});
+  const outs=await Promise.all(['A1','A2','A3'].map(id=>post(ctx.handler,{action:'photo-urls',ids:[id]}).then(read)));
+  assert.deepEqual(outs.map(o=>Object.keys(o.urls)),[['A1'],['A2'],['A3']]);
+  assert.equal(ms.calls.filter(c=>c.form).length,1,'one token request for three requests at once');
+});
+
+test('photo-urls: request shape and limits are checked before Microsoft is asked',async()=>{
+  const ms=fakeMicrosoft();const ctx=make({ms});
+  const many=[...Array(21).keys()].map(i=>'P'+i);
+  for(const body of [{},{ids:[]},{ids:'A1'},{ids:many},{ids:['../x']},{ids:['A1',5]},{ids:['A1'],size:'huge'},{ids:['A1'],size:'__proto__'}])
+    assert.equal((await post(ctx.handler,{action:'photo-urls',...body})).status,400,JSON.stringify(body).slice(0,40));
+  assert.equal(ms.calls.length,0);
+  assert.equal((await post(make({admin:fakeAdmin()}).handler,{action:'photo-urls',ids:['A1']})).status,424,'not connected');
+  assert.equal((await post(make({admin:fakeAdmin({row:{...connected,folder_id:null,folder_path:null}})}).handler,{action:'photo-urls',ids:['A1']})).status,424,'no folder');
+  assert.equal((await post(ctx.handler,{action:'photo-urls',ids:['A1']},{jwt:'other'})).status,403,'owner only');
+  assert.equal((await post(ctx.handler,{action:'photo-urls',ids:['A1']},{jwt:null})).status,401);
+});
+
+test('photo-urls: Microsoft 429 on the batch or on one photo becomes failed:throttled with retry_after; unsafe addresses are dropped',async()=>{
+  const inside=id=>({id,file:{mimeType:'image/jpeg'},parentReference:{path:'/drive/root:/Pictures/Camera'}});
+  const whole=make({ms:fakeMicrosoft({itemById:{A1:inside('A1')},batchReply:()=>new Response('{}',{status:429,headers:{'retry-after':'17'}})})});
+  assert.deepEqual(await read(await post(whole.handler,{action:'photo-urls',ids:['A1','A2']})),{urls:{},failed:{A1:'throttled',A2:'throttled'},retry_after:17});
+  const one=make({ms:fakeMicrosoft({itemById:{A1:inside('A1'),A2:inside('A2'),A3:inside('A3')},subReply:q=>{
+    if(q.url.includes('/A2/thumbnails'))return {status:429,headers:{'Retry-After':'4'},body:{}};
+    if(q.url.includes('/A3/thumbnails'))return {status:200,body:{value:[{c480x480:{url:'http://thumbs.synthetic.example.test/plain'}}]}};
+    return null;}})});
+  const out=await read(await post(one.handler,{action:'photo-urls',ids:['A1','A2','A3']}));
+  assert.deepEqual(Object.keys(out.urls),['A1']);
+  assert.deepEqual(out.failed,{A2:'throttled',A3:'unavailable'});assert.equal(out.retry_after,4);
+  const expired=make({ms:fakeMicrosoft({batchReply:()=>new Response('{}',{status:401})})});
+  assert.equal((await post(expired.handler,{action:'photo-urls',ids:['A1']})).status,424);
+  const broken=make({ms:fakeMicrosoft({batchReply:()=>new Response('{}',{status:500})})});
+  assert.deepEqual(await read(await post(broken.handler,{action:'photo-urls',ids:['A1']})),{urls:{},failed:{A1:'unavailable'}});
 });
 
 test('refresh token rotation is saved, access token is reused, expired grant becomes 424',async()=>{
