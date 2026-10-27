@@ -1,8 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,readdirSync} from 'node:fs';
 import {THEMES,DEFAULT_THEME,validValue} from '../app/view-prefs.js';
-// UI-화면색10: 화면 색 10가지의 일관성과 글자 대비. 허용 목록은 view-prefs.js THEMES 한 곳이고, 아래는 모두 그 목록을 읽는다.
+// UI-화면색10(2026-10-27 15:35 재정리: 수수한 다섯 + 산뜻한 다섯): 화면 색 10가지의 일관성과 글자 대비. 허용 목록은 view-prefs.js THEMES 한 곳이고, 아래는 모두 그 목록을 읽는다.
 const css=readFileSync('app/theme-tokens.css','utf8');
 const indexHtml=readFileSync('app/index.html','utf8');
 const topbar=readFileSync('app/topbar-actions.js','utf8');
@@ -50,8 +50,12 @@ test('the allowed color list is one list of ten that the screen, the pick window
   assert.doesNotMatch(topbar,/'olive'\s*,\s*'navy'/);
 });
 
-// 보조 글자는 4.5:1을 목표로 하되, 기존 테라코타(4.4999)가 반올림 경계라 0.05 여유를 둔다(새 여섯 가지는 모두 4.5 이상).
+// 보조 글자는 4.5:1을 목표로 하되 0.05 여유를 둔다(산뜻한 다섯은 모두 4.5 이상, 아래 별도 시험).
 const MUTED_MIN=4.45;
+// 레몬은 산뜻한 노랑이라 강조색(버튼 바탕)이 밝은 바탕과 3:1이 될 수 없다(견본 #F5CC00은 약 1.5:1). 그래서 글자 쪽에서 보장한다:
+// 버튼·선택 표시 글자는 진한 갈색(7:1 이상), 글자·링크·구역 제목·탭 글자는 진한 노랑(--kptu-primary-text). 그림 요소(고른 줄 막대 등)는 레몬만 1.3:1로 낮추고 나머지는 3:1을 지킨다.
+const NONTEXT_MIN=name=>name==='lemon'?1.3:3;
+const VIVID=['sky','mint','coral','lemon','red'];
 const LIGHT_KEYS=['--kptu-bg','--kptu-surface','--kptu-surface-subtle','--kptu-ink','--kptu-muted','--kptu-faint','--kptu-border','--kptu-border-strong','--kptu-primary','--kptu-primary-hover','--kptu-primary-ink','--kptu-primary-soft','--kptu-on-primary','--kptu-link'];
 for(const name of THEMES){
   test(`${name}: light colors are complete and readable`,()=>{
@@ -68,7 +72,7 @@ for(const name of THEMES){
     need('body text on soft',c['--kptu-ink'],c['--kptu-primary-soft'],7);
     need('button text',c['--kptu-on-primary'],c['--kptu-primary'],4.5);
     need('button text (hover)',c['--kptu-on-primary'],c['--kptu-primary-hover'],4.5);
-    need('picked button on page',c['--kptu-primary'],c['--kptu-bg'],3);
+    need('picked button on page',c['--kptu-primary'],c['--kptu-bg'],NONTEXT_MIN(name));
     need('border visible',c['--kptu-border-strong'],c['--kptu-bg'],1.2);
   });
   test(`${name}: dark colors are complete and readable`,()=>{
@@ -82,7 +86,7 @@ for(const name of THEMES){
     for(const surface of ['--kptu-bg','--kptu-surface','--kptu-surface-subtle'])need('muted text',c['--kptu-muted'],c[surface],MUTED_MIN);
     need('button text',c['--kptu-on-primary'],c['--kptu-primary'],4.5);
     need('button text (hover)',c['--kptu-on-primary'],c['--kptu-primary-hover'],4.5);
-    need('picked button on page',c['--kptu-primary'],c['--kptu-bg'],3);
+    need('picked button on page',c['--kptu-primary'],c['--kptu-bg'],NONTEXT_MIN(name));
   });
 }
 
@@ -119,20 +123,72 @@ test('a refused color goes back and tells the person',()=>{
   assert.match(handler,/themeToast\('/);
 });
 
-test('the six added colors meet the stricter 4.5:1 for muted text in both modes',()=>{
-  for(const name of THEMES.slice(4)){
+test('the five vivid colors: muted text 4.5:1 in both modes, white (dark brown on lemon) button text, readable accent text',()=>{
+  assert.deepEqual(THEMES.slice(5),VIVID,'vivid colors come after the five quiet ones');
+  for(const name of VIVID){
     for(const surface of ['--kptu-bg','--kptu-surface','--kptu-surface-subtle']){
       need(name+' light muted',light(name)['--kptu-muted'],light(name)[surface],4.5);
       need(name+' dark muted',dark(name)['--kptu-muted'],dark(name)[surface],4.5);
     }
+    // 글자로 쓰는 강조색(--kptu-primary-text)은 산뜻한 다섯 모두 읽히는 글자색(--kptu-primary-ink)을 따른다. 어두운 화면도 같은 선언이 쓰인다.
+    assert.match(css.slice(css.indexOf('[data-theme="'+name+'"]{')).split('}')[0],/--kptu-primary-text:var\(--kptu-primary-ink\);/,name);
+    for(const [mode,c] of [['light',light(name)],['dark',dark(name)]])
+      for(const surface of ['--kptu-bg','--kptu-surface','--kptu-surface-subtle','--kptu-primary-soft'])need(`${name} ${mode} accent text`,c['--kptu-primary-ink'],c[surface],4.5);
+    // 버튼 글자: 밝은 화면은 흰 글자(레몬만 진한 갈색 7:1 이상), 어두운 화면은 어두운 글자.
+    if(name==='lemon'){
+      assert.equal(light(name)['--kptu-on-primary'].toLowerCase(),'#3d3100');
+      need('lemon light button text',light(name)['--kptu-on-primary'],light(name)['--kptu-primary'],7);
+      need('lemon light button text (hover)',light(name)['--kptu-on-primary'],light(name)['--kptu-primary-hover'],7);
+      need('lemon dark button text',dark(name)['--kptu-on-primary'],dark(name)['--kptu-primary'],7);
+    }else assert.equal(light(name)['--kptu-on-primary'].toLowerCase(),'#ffffff',name);
+    // 바탕은 같은 색을 아주 연하게: 밝은 화면 페이지 바탕이 거의 흰색(가장 어두운 채널이 220 이상)이고 강조색보다 훨씬 밝다.
+    const bgRgb=rgb(light(name)['--kptu-bg']).map(v=>v*255);
+    assert.ok(Math.min(...bgRgb)>=220,name+' page color is very light');
+    assert.ok(ratio(light(name)['--kptu-bg'],light(name)['--kptu-primary'])>=1.4,name);
   }
 });
+test('the text accent token: default follows the main color, only the vivid five switch to the readable one; text uses the token',()=>{
+  assert.match(css.slice(0,css.indexOf('[data-theme="navy"]{')),/--kptu-primary-text:var\(--kptu-primary\);/,'default declared once in the first block');
+  assert.equal((css.match(/--kptu-primary-text:/g)||[]).length,1+VIVID.length,'declared only for the default and the vivid five');
+  // 강조색을 글자 색으로 쓰던 규칙은 모두 토큰을 읽는다(레몬에서 노란 글자가 되지 않게). 배경·테두리·accent-color 쓰임은 대상 아님.
+  const textUse=[];
+  for(const file of readdirSync('app').filter(name=>name.endsWith('.css')&&name!=='theme-tokens.css')){
+    for(const m of readFileSync('app/'+file,'utf8').matchAll(/(^|[;{\s])color:\s*var\(--kptu-primary\)/g))textUse.push(file+':'+m.index);
+  }
+  assert.deepEqual(textUse,[],'use var(--kptu-primary-text) for text');
+});
 
-test('the database check allows exactly the colors in THEMES (same names, same order)',()=>{
-  const sql=readFileSync('supabase/migrations/20261027040000_profile_view_prefs_theme10.sql','utf8').replace(/--.*$/gm,'');
-  const list=sql.match(/view_prefs ->> 'theme' in \(([^)]*)\)/)?.[1];
-  assert.ok(list,'theme list found');
-  assert.deepEqual([...list.matchAll(/'([a-z]+)'/g)].map(m=>m[1]),[...THEMES]);
+// 빨강 테마: 강조색(빨강)과 경고색이 같은 계열이라 위험 동작에는 색 말고 모양(이중 테두리·삼각 느낌표)을 더한다. 다른 테마는 건드리지 않는다.
+test('red theme marks dangerous actions with a shape, not only a color',()=>{
+  const ui=readFileSync('app/ui-standard.css','utf8');
+  const at=ui.indexOf(':root[data-theme="red"] :is(');
+  assert.ok(at>0,'red rules exist');
+  const rules=ui.slice(at);
+  assert.equal((rules.match(/\[data-theme="/g)||[]).length,2,'only the red theme is named');
+  assert.match(rules,/box-shadow:inset 0 0 0 1px currentColor;/);
+  assert.match(rules,/::before\{[^}]*mask:var\(--ds-warn-icon\)/);
+  assert.doesNotMatch(rules,/#[0-9a-f]{3,8}\b|rgba?\(/i,'colors follow the text color, no new color values');
+  assert.match(css,/--ds-warn-icon:url\("data:image\/svg\+xml,/);
+  // 이미 있는 위험 동작 이름을 모두 덮는다: 버튼(.danger·.ci-delete·.ps-danger·.ps3-danger-btn)과 삭제 메뉴 줄.
+  for(const name of ['button.danger','.ci-delete','.ps-danger','.ps3-danger-btn','.gt-menu-danger','.ps3-record-danger','.basket-menu-danger','.task-inline-danger','.lu-menu-danger','.rb-menu-danger','.tl-danger','.wd-danger'])assert.ok(rules.includes(name),name);
+});
+
+test('the database check allows exactly the colors in THEMES (same names, same order) and resets only the colors taken out',()=>{
+  const sql=readFileSync('supabase/migrations/20261027070000_profile_view_prefs_theme_refresh.sql','utf8').replace(/--.*$/gm,'');
+  const lists=[...sql.matchAll(/view_prefs ->> 'theme' in \(([^)]*)\)/g)].map(m=>[...m[1].matchAll(/'([a-z]+)'/g)].map(x=>x[1]));
+  // 같은 목록이 세 곳: 바꾸는 행 고르기(뺀 색), 새 검사(허용 색), 사후 확인(뺀 색).
+  const removed=['terracotta','sand','mugwort','rose','mustard'];
+  assert.deepEqual(lists.filter(l=>l.length===10),[[...THEMES]],'the new check allows exactly THEMES');
+  assert.deepEqual(lists.filter(l=>l.length===5),[removed,removed]);
+  for(const name of removed)assert.ok(!THEMES.includes(name),name+' is no longer allowed');
+  // 직전 열 가지(이전 migration)에서 빠진 색 = 뺀 색, 새로 생긴 색 = 산뜻한 다섯.
+  const before=[...readFileSync('supabase/migrations/20261027040000_profile_view_prefs_theme10.sql','utf8').replace(/--.*$/gm,'').match(/view_prefs ->> 'theme' in \(([^)]*)\)/)[1].matchAll(/'([a-z]+)'/g)].map(x=>x[1]);
+  assert.deepEqual(before.filter(name=>!THEMES.includes(name)),removed);
+  assert.deepEqual(THEMES.filter(name=>!before.includes(name)),VIVID);
+  // 행 바꾸기는 WHERE가 있는 theme 한 칸 바꾸기뿐이다.
+  const updates=sql.match(/update public\.app_profiles[^;]*;/g)||[];
+  assert.equal(updates.length,1);
+  assert.match(updates[0],/set view_prefs = jsonb_set\(view_prefs, '\{theme\}', '"olive"'::jsonb\)\s+where view_prefs ->> 'theme' in/);
 });
 
 test('the browser-test helper reads the same list',async()=>{
@@ -147,8 +203,8 @@ test('고른 줄 표시: 바탕·왼쪽 줄·글자가 열 가지 색 모두에�
   assert.match(rule[1],/background:var\(--kptu-primary-soft\)/);assert.match(rule[1],/inset 4px 0 0 var\(--kptu-primary\)/);assert.match(rule[1],/color:var\(--kptu-ink\)/);
   for(const name of THEMES)for(const [mode,c] of [['light',light(name)],['dark',dark(name)]]){
     need(`${name} ${mode} text on selected`,c['--kptu-ink'],c['--kptu-primary-soft'],7);
-    need(`${name} ${mode} bar on page`,c['--kptu-primary'],c['--kptu-surface'],3);
-    need(`${name} ${mode} bar on selected`,c['--kptu-primary'],c['--kptu-primary-soft'],3);
+    need(`${name} ${mode} bar on page`,c['--kptu-primary'],c['--kptu-surface'],NONTEXT_MIN(name));
+    need(`${name} ${mode} bar on selected`,c['--kptu-primary'],c['--kptu-primary-soft'],NONTEXT_MIN(name));
     assert.notEqual(c['--kptu-primary-soft'].toLowerCase(),c['--kptu-surface'].toLowerCase(),`${name} ${mode} selected differs from page`);
   }
 });

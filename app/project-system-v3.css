@@ -309,7 +309,7 @@ a.ps3-line-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:
 .ps3-plist .kptu-list-row.ps3-drop-after{background-position:bottom}
 /* PRJ-순서바꾸기(폰): [순서 바꾸기] 작은 버튼(32px, 누르는 범위 44px) → 줄마다 ↑ ↓(누르는 범위 44px). */
 #appView #projectsView .ps3-plist .ps3-order-toggle{position:relative;box-sizing:border-box;margin:0;padding:0;border:0;background:transparent;font-size:12px;font-weight:400;line-height:1;white-space:nowrap;color:var(--kptu-muted);text-decoration:underline;cursor:pointer}
-#appView #projectsView .ps3-plist .ps3-order-toggle[aria-pressed="true"]{color:var(--kptu-primary);font-weight:600}
+#appView #projectsView .ps3-plist .ps3-order-toggle[aria-pressed="true"]{color:var(--kptu-primary-text);font-weight:600}
 #appView #projectsView .ps3-plist .ps3-order-toggle::after{content:"";position:absolute;left:-6px;right:-6px;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 #appView #projectsView .ps3-plist .ps3-order-line>.kptu-list-row{min-width:0}
 #appView #projectsView .ps3-plist .ps3-order-move{flex:none;box-sizing:border-box;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);min-width:var(--kptu-touch-target,44px);min-height:var(--kptu-touch-target,44px);margin:0;padding:0;font-size:18px;line-height:1;color:var(--kptu-ink);background:transparent;border:0;border-radius:var(--kptu-radius-md)}

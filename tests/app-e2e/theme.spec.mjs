@@ -45,12 +45,13 @@ async function signIn(page){
 
 
 // SET-보기선택서버저장: 화면 색은 서버(프로필 view_prefs.theme)에 저장된다. 로그인 전 화면은 늘 기본(올리브)이고, 로그인 뒤 첫 화면을 공개하기 전에 저장된 색이 적용된다.
-const primary={olive:'#5c6a35',navy:'#263f5f',terracotta:'#a8582a',sand:'#4a3d33',mugwort:'#3e6b55',lavender:'#61537f',ink:'#4a4a46',rose:'#93505d',teal:'#36676f',mustard:'#896820'};
-const pageColor={olive:'#f3f1ea',navy:'#f5f6f7',terracotta:'#f7f2ea',sand:'#f6f1e7',mugwort:'#f1f6f3',lavender:'#f5f3f8',ink:'#f4f4f2',rose:'#f8f1f2',teal:'#f1f6f7',mustard:'#f9f5eb'};
+const primary={olive:'#5c6a35',navy:'#263f5f',ink:'#4a4a46',lavender:'#61537f',teal:'#36676f',sky:'#2c77c4',mint:'#14846e',coral:'#c4532f',lemon:'#f5cc00',red:'#d7261e'};
+const pageColor={olive:'#f3f1ea',navy:'#f5f6f7',ink:'#f4f4f2',lavender:'#f5f3f8',teal:'#f1f6f7',sky:'#eef6fd',mint:'#eaf8f4',coral:'#fff2ec',lemon:'#fffbe0',red:'#fff1f0'};
 test('this list follows the one allowed list of ten colors',()=>{expect(Object.keys(primary)).toEqual([...THEMES]);expect(Object.keys(pageColor)).toEqual([...THEMES])});
 // 아래 D-3b 시험의 카드 바탕(surface)도 같은 열 가지: 값은 theme-tokens.css의 --kptu-surface.
 const readPrimary=page=>page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-primary').trim());
-for(const stored of [null,...THEMES,'invalid']){
+// 서버에 남아 있을 수 있는 뺀 색(terracotta·sand·mugwort·rose·mustard)도 기본(올리브)으로 열린다.
+for(const stored of [null,...THEMES,'invalid','terracotta','sand','mugwort','rose','mustard']){
  test('login is olive; the saved color is applied before the app opens and after reload: '+stored,async({page})=>{
   await installViewPrefsServer(page,stored===null?null:{theme:stored});
   await page.goto(`${appOrigin}/app/login/`);
@@ -113,27 +114,27 @@ test('direct color guard and its regression cases pass',async()=>{
 
 test('a color the server refuses goes back to the old color, tells the person, and old colors still save',async({page})=>{
  await page.setViewportSize({width:1440,height:900});
- const prefs=await installViewPrefsServer(page,{theme:'navy'},{denyThemes:THEMES.slice(4)});await mockApp(page);
+ const prefs=await installViewPrefsServer(page,{theme:'navy'},{denyThemes:THEMES.slice(5)});await mockApp(page);
  await page.goto(`${appOrigin}/app/?view=calendar`);await signIn(page);
  await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/);
  expect(await readPrimary(page)).toBe(primary.navy);
  await accountButton(page).click();await page.locator('#sidebarThemeBtn').click();
- await page.locator('[data-theme-choice="rose"]').click();
+ await page.locator('[data-theme-choice="sky"]').click();
  await expect.poll(()=>readPrimary(page)).toBe(primary.navy);
  await expect(page.locator('#toast')).toContainText('원래 색으로 되돌렸어요');
  await expect(page.locator('[data-theme-choice="navy"]')).toHaveAttribute('aria-pressed','true');
- await expect(page.locator('[data-theme-choice="rose"]')).toHaveAttribute('aria-pressed','false');
+ await expect(page.locator('[data-theme-choice="sky"]')).toHaveAttribute('aria-pressed','false');
  expect(prefs.value).toEqual({theme:'navy'});
- await page.locator('[data-theme-choice="sand"]').click();
- await expect.poll(()=>prefs.value?.theme).toBe('sand');expect(await readPrimary(page)).toBe(primary.sand);
+ await page.locator('[data-theme-choice="ink"]').click();
+ await expect.poll(()=>prefs.value?.theme).toBe('ink');expect(await readPrimary(page)).toBe(primary.ink);
 });
 
 test('the phone status bar color follows the picked color, light and dark',async({page})=>{
- await page.setViewportSize({width:390,height:844});await installViewPrefsServer(page,{theme:'mustard'});await mockApp(page);
+ await page.setViewportSize({width:390,height:844});await installViewPrefsServer(page,{theme:'lemon'});await mockApp(page);
  await page.goto(`${appOrigin}/app/?view=calendar`);await signIn(page);
  const meta=scheme=>page.locator(`meta[name="theme-color"][media="(prefers-color-scheme: ${scheme})"]`);
  // 저장된 색을 적용한 직후에 맞춰진다.
- await expect(meta('light')).toHaveAttribute('content',pageColor.mustard);
+ await expect(meta('light')).toHaveAttribute('content',pageColor.lemon);
  await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu [data-theme-open]').click();
  await page.locator('[data-theme-choice="lavender"]').click();
  await expect(meta('light')).toHaveAttribute('content',pageColor.lavender);
@@ -192,7 +193,8 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
   await page.route('https://raw.githubusercontent.com/**',route=>route.fulfill({status:200,body:'<p>Fixture</p>'}));
   await page.goto(`${appOrigin}/app/?view=calendar`);await signIn(page);
   const rgb=hex=>'rgb('+hex.slice(1).match(/../g).map(v=>parseInt(v,16)).join(', ')+')';
-  const surface={olive:'#fffefa',navy:'#ffffff',terracotta:'#fffdf9',sand:'#fffcf6',mugwort:'#fdfefd',lavender:'#fefdfe',ink:'#fdfdfd',rose:'#fefdfd',teal:'#fdfefe',mustard:'#fefefc'};
+  const surface={olive:'#fffefa',navy:'#ffffff',ink:'#fdfdfd',lavender:'#fefdfe',teal:'#fdfefe',sky:'#fcfeff',mint:'#fbfffd',coral:'#fffdfb',lemon:'#fffef5',red:'#fffcfc'};
+  const textColor=await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-primary-text').trim());
   const matches=async(selector,property,hex)=>{
    const element=page.locator(selector).first();await expect(element).toBeVisible();
    await expect.poll(()=>element.evaluate((el,property)=>getComputedStyle(el)[property],property)).toBe(rgb(hex));
@@ -211,7 +213,7 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
    await expect(page.locator('#'+view+'View')).toBeVisible();await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
    await expect.poll(()=>page.evaluate(view=>window.KPTUViewLoader.isLoaded(view),view)).toBe(true);
    expect(await readPrimary(page)).toBe(color);
-   if(width<=760){if(['basket','calendar','tasks','projects','team'].includes(view))await matches('.mobile-tabs [aria-current]','color',color);}else{/* UI-테마선택색: 지금 화면 하나만 계정 색으로 채운다. 하위 묶음의 머리 항목은 채우지 않는다. */
+   if(width<=760){if(['basket','calendar','tasks','projects','team'].includes(view))await matches('.mobile-tabs [aria-current]','color',textColor);}else{/* UI-테마선택색: 지금 화면 하나만 계정 색으로 채운다. 하위 묶음의 머리 항목은 채우지 않는다. */
     // BASKET-PC메뉴: 정리함 쪽에서는 하위 줄([업데이트]·[챙길 것])이 지금 화면이므로 하위 줄도 함께 찾는다.
     const navBtn=page.locator('.app-nav :is(.nav-btn,.nav-sub-btn).active').first();await expect(navBtn).toBeVisible();
     const group=await navBtn.evaluate(el=>el.nextElementSibling?.classList.contains('nav-sub')===true);
@@ -258,7 +260,7 @@ for(const width of [390,1440])test('D-3c shell owns account and orders its actio
  await expect(nav.locator(':scope > [data-theme-open], :scope > [data-kptu-logout]')).toHaveCount(0);
  await account.click();
  const panel=page.locator(width<=760?'#mobileMenu':'#sidebarAccountPanel');await expect(panel).toBeVisible();
- expect(await panel.locator(width<=760?'#mobileAccountGroup button':'button').allTextContents()).toEqual(['내 프로필','화면 색','로그아웃']);
+ expect(await panel.locator(width<=760?'#mobileAccountGroup button':'button').allTextContents()).toEqual(['내 프로필','메뉴 편집','화면 색','로그아웃']);
  await page.keyboard.press('Escape');await expect(panel).toBeHidden();await expect(account).toBeFocused();
  await account.click();await page.goBack();await expect(panel).toBeHidden();
 });

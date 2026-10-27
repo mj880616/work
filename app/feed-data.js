@@ -138,7 +138,8 @@ export async function readTrashedDays(rt = window.KPTURuntime) {
   if (!Array.isArray(page)) throw Error('목록을 확인하지 못했어요.');
   return page.filter(r => r?.room_key && r.day);
 }
-const TGDG = [[/TGDG_FOLDER_NAME_TAKEN/, 'TAKEN'], [/TGDG_FOLDER_LIMIT/, 'LIMIT'], [/TGDG_FOLDER_NAME|TGDG_ARGS/, 'INVALID'], [/TGDG_NOT_FOUND|TGDG_NO_ROOM/, 'GONE']];
+const TGDG = [[/TGDG_FOLDER_NAME_TAKEN/, 'TAKEN'], [/TGDG_FOLDER_LIMIT/, 'LIMIT'], [/TGDG_FOLDER_NAME|TGDG_ARGS/, 'INVALID'], [/TGDG_NOT_FOUND|TGDG_NO_ROOM/, 'GONE'],
+  [/TGSE_NOT_FOUND/, 'GONE'], [/TGSE_(SUMMARY|HEADLINE|LINES|ARGS|FIELD|PATCH|RESET)/, 'INVALID']];
 function tgdgError(error) {
   const status = Number(error?.status) || 0, text = String(error?.message || '') + ' ' + String(error?.code || '');
   for (const [re, code] of TGDG) if (re.test(text)) return code;
@@ -158,6 +159,18 @@ export const setRoomDay = (roomKey, day, state, rt = window.KPTURuntime) => tgdg
 export const createFolder = (name, rt = window.KPTURuntime) => tgdg('app_feed_folder_create', {p_name:name}, rt);
 export const renameFolder = (id, name, rt = window.KPTURuntime) => tgdg('app_feed_folder_rename', {p_id:id, p_name:name}, rt);
 export const deleteFolder = (id, rt = window.KPTURuntime) => tgdg('app_feed_folder_delete', {p_id:id}, rt);
+
+// ---------- TG-요약고치기: 명진이 손으로 고친 요약은 AI 값과 따로 서버(app_feed_summary_edits, 소유자 읽기만)에 있고, 쓰기는 DB 함수 app_feed_summary_edit 하나뿐이다.
+// 읽기: [{target, vals}] 전부(소식 한 줄은 'item:<id>', 그날 요약은 'day:<방>|<날짜>'). 표가 아직 없거나 읽지 못하면 던진다(부르는 쪽이 고치기를 숨긴다).
+export async function readSummaryEdits(rt = window.KPTURuntime) {
+  const ws = workspaceOf(rt);
+  const rows = await readRecordPages(`/rest/v1/app_feed_summary_edits?workspace_id=eq.${encode(ws)}&select=target,vals&order=target.asc`, rt);
+  return rows.filter(r => r && typeof r.target === 'string');
+}
+// target 하나를 고친다. 소식 한 줄: {item}, 그날 요약: {room, day}. patch: {summary} | {headline?, lines?} 와 {reset:[칸 이름]}(AI 값으로 되돌림).
+// 돌려주는 값 {ok:true, changed, target, vals(그 target의 고친 값 전부)} 또는 {ok:false, error: GONE | INVALID | UNAVAILABLE | REFUSED | UNKNOWN}.
+export const editSummary = ({item = null, room = null, day = null, patch}, rt = window.KPTURuntime) =>
+  tgdg('app_feed_summary_edit', {p_item:item, p_room_key:room, p_day:day, p_patch:patch || {}}, rt);
 
 // Organizations for names and for the 조직 연결 box: every organization of the workspace (names of inactive ones are still shown on
 // old rows), plus which are mine (내 프로필 → 담당 사업장, the same rule as the 기록할 곳 sheet).

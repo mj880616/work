@@ -2,16 +2,18 @@
 // 규칙: 하단바에서 진하게 켜지는 칸은 언제나 하나. [메뉴] 창이 열려 있으면 [메뉴], 닫혀 있으면 지금 보는 화면의 칸.
 // 메뉴 창으로 들어가는 화면(사업 보고·자료실 …)과 노트는 하단바에 칸이 없으므로 [메뉴] 칸이 지금 화면이다.
 // 진하게 보이는 모양은 CSS가 aria-current="page" 하나만 보고 그린다(aria-expanded는 접근성 표시일 뿐 모양을 켜지 않는다).
-export const MENU_SHEET_VIEWS = Object.freeze(['meetings', 'library', 'hwp', 'pages', 'ledger', 'calls', 'telegram']);
-const SCHEDULE_VIEWS = Object.freeze(['calendar', 'tasks', 'journal', 'diary']);
-const TAB_VIEWS = Object.freeze(['home', 'basket', 'calendar', 'projects', 'team']);
+// MENU-HOME-편집: 하단바 칸 구성은 사용자가 정하므로(menu-model.mjs) 어느 화면이 어느 칸인지도 그 구성(layout)에서 읽는다. layout을 안 주면 기본 구성이다.
+import {defaultLayout, barItemForView, menuSheetViews} from './menu-model.mjs';
+export const MENU_SHEET_VIEWS = Object.freeze(menuSheetViews(defaultLayout()));
 
 // view: 라우터가 정한 화면 이름(별칭 적용 뒤). 돌려주는 값: 'menu' | 'schedule' | 'home' | 'basket' | 'projects' | 'team' | null.
-export function selectedMobileTab({view = null, noteMode = false, menuOpen = false} = {}) {
+export function selectedMobileTab({view = null, noteMode = false, menuOpen = false, layout = null} = {}) {
+  const shape = layout || defaultLayout();
   if (menuOpen) return 'menu';
-  if (noteMode || MENU_SHEET_VIEWS.includes(view)) return 'menu';
-  if (SCHEDULE_VIEWS.includes(view)) return 'schedule';
-  return TAB_VIEWS.includes(view) ? view : null;
+  const own = barItemForView(shape, view, noteMode);
+  if (own) return own === 'calendar' ? 'schedule' : own;
+  if (noteMode || menuSheetViews(shape).includes(view)) return 'menu';
+  return null;
 }
 
 // 하단바 버튼 하나가 어느 칸인지.
@@ -19,6 +21,7 @@ export function mobileTabKey(button) {
   if (!button) return null;
   if (button.id === 'mobileMenuTab') return 'menu';
   if ('mobileScheduleTab' in button.dataset) return 'schedule';
+  if (button.dataset.basketKindNav) return button.dataset.basketKindNav;
   return button.dataset.view || null;
 }
 
@@ -26,7 +29,7 @@ export function mobileTabKey(button) {
 let last = {view: null, noteMode: false};
 export function paintMobileTabs(root = document, state = {}) {
   last = {...last, ...state};
-  const selected = selectedMobileTab({...last, menuOpen: !!window.KPTUMobileMenu?.isOpen?.()});
+  const selected = selectedMobileTab({...last, menuOpen: !!window.KPTUMobileMenu?.isOpen?.(), layout: window.KPTUMenuLayout?.current?.() || null});
   root.querySelectorAll('.mobile-tabs button').forEach(button => {
     const own = mobileTabKey(button) === selected;
     button.classList.toggle('active', own);
