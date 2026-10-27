@@ -50,7 +50,7 @@ test('390 폰: 일기 쓰기 아래 줄은 글이 길어도 화면 아래 오른
   const sw=await box(page,'#diaryView .schedule-switch'),tabs=await box(page,'.mobile-tabs');
   // [저장]은 줄 맨 오른쪽, [취소]는 그 왼쪽(같은 높이). 줄은 전환 줄·아래 탭 위.
   expect(row.x+row.width-(save.x+save.width)).toBeLessThanOrEqual(2);
-  expect(cancel.x+cancel.width).toBeLessThanOrEqual(save.x);expect(Math.abs(cancel.y-save.y)).toBeLessThanOrEqual(1);
+  expect(cancel.x+cancel.width).toBeLessThanOrEqual(save.x);expect(Math.abs(cancel.y+cancel.height/2-(save.y+save.height/2))).toBeLessThanOrEqual(1);
   expect(row.y+row.height).toBeLessThanOrEqual(sw.y+1);expect(sw.y+sw.height).toBeLessThanOrEqual(tabs.y+1);
  }
  // 맨 아래까지 내리면 본문은 버튼 줄 위에서 끝난다(버튼이 글을 가리지 않음).

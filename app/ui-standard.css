@@ -1399,11 +1399,11 @@ html .doc-kind-chips button[aria-pressed="false"]{ color:var(--kptu-muted); back
 .save-row{ display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:var(--kptu-space-2); margin-top:var(--kptu-space-2); }
 .save-row[hidden]{ display:none; }
 .save-row > :is(.status,.feed-status){ flex:1 1 100%; margin:0; min-width:0; overflow-wrap:anywhere; }
-.save-row > .save-row-start{ margin-right:auto; }
+.save-row > .save-row-start:not(:has(~ .save-row-start)){ margin-right:auto !important; } /* 화면별 버튼 규칙(#appView … button{margin:0})이 많아 !important로 한 곳에서 고정 */
 .save-row .wide{ width:auto; margin:0; }
 .save-row-sticky{
   position:sticky; z-index:6; bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom));
   margin-top:var(--kptu-space-2); padding:var(--kptu-space-2) 0;
   background:var(--kptu-surface); border-top:var(--ds-line-width,1px) solid var(--ds-line,var(--kptu-border));
 }
-body.kptu-mobile-keyboard .save-row-sticky{ display:none; }
+body.kptu-mobile-keyboard .save-row-sticky{ display:none !important; }

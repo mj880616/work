@@ -140,7 +140,8 @@ for(const width of [1280,1440]){
     const [pb,eb]=[await pane.boundingBox(),await pane.locator('#gtTaskModal .modal-card').boundingBox()];expect(eb.width).toBeGreaterThanOrEqual(pb.width-40);
     // 2열이어도 칸 밖으로 넘치지 않는다.
     const over=await pane.evaluate(e=>e.scrollWidth-e.clientWidth);expect(over).toBeLessThanOrEqual(1);
-    expect(await pane.locator('#gtSaveBtn').evaluate(e=>e.parentElement.classList.contains('modal-head'))).toBe(true);
+    // UI-저장자리: [저장]은 제목 줄이 아니라 창 아래 줄(modal-action-footer)에 있다.
+    expect(await pane.locator('#gtSaveBtn').evaluate(e=>e.parentElement.classList.contains('modal-action-footer')||!!e.closest('.modal-action-footer'))).toBe(true);
   });
 
   test(`PC ${width}: 빈 열은 "없음", 많으면 열이 내용만큼 커짐(안쪽 스크롤바 없음)`,async({page})=>{

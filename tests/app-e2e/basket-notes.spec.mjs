@@ -349,11 +349,15 @@ for(const width of [360,390,412,870,1280]){
 // ED③ 노트·업데이트: a note's and an update's big window is the new one (#edWindow, data-edw-save).
 const EDW_SAVE='[data-edw-save]';
 async function headBox(locator){return locator.evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,height:r.height,after:getComputedStyle(el,'::after').height};});}
+// UI-저장자리(2026-10-27): 큰 창의 [저장]은 머리줄 아이콘이 아니라 창 맨 아래 줄 오른쪽 아래, 그 왼쪽에 [취소].
 async function expectIconNextToClose(editor,name){
  const icon=editor.locator(EDW_SAVE);await expect(icon).toBeVisible();await expect(icon).toHaveAccessibleName(name);
- const close=await headBox(editor.locator('[data-close="edWindow"]')),save=await headBox(icon);
- expect(save.left).toBeGreaterThanOrEqual(close.right);expect(save.left-close.right).toBeLessThan(16);expect(save.top).toBe(close.top);
- expect(Math.round(save.height)).toBe(32);expect(save.after).toBe('44px');
+ const cancel=editor.locator('[data-edw-cancel]');await expect(cancel).toBeVisible();
+ const win=await headBox(editor.locator('.ed-window-actions')),save=await headBox(icon),can=await headBox(cancel);
+ const card=await editor.evaluate(el=>{const r=el.getBoundingClientRect();return {right:r.right,bottom:r.bottom};});
+ expect(card.right-save.right).toBeLessThanOrEqual(16);
+ expect(card.bottom-(win.top+win.height)).toBeLessThanOrEqual(2);
+ expect(can.right).toBeLessThanOrEqual(save.left);expect(Math.round(save.top)).toBe(Math.round(can.top));
 }
 for(const width of [390,1280]){
  test(`big window save icon saves a note through [저장] and keeps the window open (NOTE-큰창저장유지), also when the save fails ${width}`,async({page})=>{

@@ -12,7 +12,7 @@ const rows=(src,cls)=>[...src.matchAll(new RegExp('<div class="[^"]*\\b'+cls+'\\
 
 test('저장 줄 CSS: 오른쪽 정렬, 맨 아래 고정 줄은 자판이 올라오면 숨김, 왼쪽 단추는 따로 지정',()=>{
  assert.match(css,/\.save-row\{[^}]*justify-content:flex-end/);
- assert.match(css,/\.save-row\s*>\s*\.save-row-start\{[^}]*margin-right:auto/);
+ assert.match(css,/\.save-row\s*>\s*\.save-row-start[^{]*\{[^}]*margin-right:auto/);
  assert.match(css,/\.save-row-sticky\{[^}]*position:sticky[^}]*bottom:calc\(var\(--kptu-mobile-tab-height/);
  assert.match(css,/body\.kptu-mobile-keyboard \.save-row-sticky\{[^}]*display:none/);
  assert.match(base,/\.modal-action-footer\{[^}]*justify-content:flex-end/);
