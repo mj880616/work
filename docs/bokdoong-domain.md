@@ -20,7 +20,7 @@ GitHub Pages custom domain을 설정하지 않음. 기존 github.io URL을 계�
 | `bokdoong.com` | 포털 페이지를 바로 제공 | `/work/personal/portal/` |
 | `work.bokdoong.com` | `/work/`로 호스트 내부 이동 | `/work/**` |
 | `desk.bokdoong.com` | `/work/app/`로 호스트 내부 이동 | `/work/app/**` |
-| `read.bokdoong.com` | `/read-think-write/`로 호스트 내부 이동 | `/read-think-write/**` |
+| `read.bokdoong.com` | (이 Worker 소관 아님) 2026-09-28 읽생기 전용 rtw-router로 이전 | 해당 없음 |
 | `arsenal.bokdoong.com` | `/work/personal/arsenal-match-archive/`로 호스트 내부 이동 | 해당 아카이브 경로만 |
 
 기존 경로를 유지하므로 CSS, JS, Web2 Service Worker 범위, 읽생기 SPA 경로를 일괄 변경하지 않아도 됨. `desk`의 Web1 공개 페이지 링크는 `work.bokdoong.com`의 같은 경로로 이동시켜 인증 앱과 공개 페이지의 새 Origin을 분리함. `lab`·`archive`를 추가하려면 Worker의 호스트별 경로 매핑과 Wrangler Custom Domain을 하나씩 추가하면 됨.
@@ -30,10 +30,10 @@ Cloudflare Worker Custom Domain을 배포하면 Cloudflare가 해당 호스트�
 ## 배포 순서와 되돌리기
 
 1. GitHub Pages 코드와 두 Edge Function 코드를 배포하고 기존 github.io URL을 재검사함.
-2. Supabase Auth Redirect URLs에 새 도메인 경로와 읽생기 기존 경로를 추가함. Site URL은 기존 값 그대로 유지함.
+2. Supabase Auth Redirect URLs에 새 도메인 경로를 추가함. Site URL은 기존 값 그대로 유지함.
 3. Cloudflare 공식 로그인 후 `cloudflare/wrangler.toml`로 Worker를 배포함. Custom Domain과 자동 DNS 레코드가 생성됐는지 확인함.
 4. 다섯 새 URL과 주요 기존 URL을 데스크톱·모바일에서 검증함. OAuth·복구는 실제 계정 로그인/메일 흐름까지 별도로 확인함.
 
-Supabase Auth Site URL은 기존 github.io 주소로 유지함. 운영 Redirect URLs에는 `desk`·`work`의 `/work/app/`와 `/work/app/confirmed.html`, 읽생기의 새·기존 `/read-think-write/`를 경로 단위로 등록함. Web2 Google 로그인은 `view`, `invite`, `project` 쿼리로 현재 화면을 전달하므로 해당 앱 루트의 쿼리 패턴만 허용함. Web1 관리자 로그인은 정확한 페이지 경로로 복귀하고, 복귀 전 쿼리는 같은 탭의 sessionStorage에서 복원함. Web1 편집 페이지는 `/work/2in1/`, `/work/p/`, `/work/private-rail/`, `/work/rail-council/`, `/work/review/`, `/work/sanbyeol/`, `/work/workforce/`의 실제 경로 깊이에 한정한 단일 구간 `*` 패턴으로 허용함. 루트 포털과 아스날 아카이브는 인증 복귀 주소로 등록하지 않음.
+Supabase Auth Site URL은 기존 github.io 주소로 유지함. 운영 Redirect URLs에는 `desk`·`work`의 `/work/app/`와 `/work/app/confirmed.html`를 경로 단위로 등록함. 읽생기 주소는 읽생기 저장소가 관리하며 이 문서의 허용 목록에서 제외함. Web2 Google 로그인은 `view`, `invite`, `project` 쿼리로 현재 화면을 전달하므로 해당 앱 루트의 쿼리 패턴만 허용함. Web1 관리자 로그인은 정확한 페이지 경로로 복귀하고, 복귀 전 쿼리는 같은 탭의 sessionStorage에서 복원함. Web1 편집 페이지는 `/work/2in1/`, `/work/p/`, `/work/private-rail/`, `/work/rail-council/`, `/work/review/`, `/work/sanbyeol/`, `/work/workforce/`의 실제 경로 깊이에 한정한 단일 구간 `*` 패턴으로 허용함. 루트 포털과 아스날 아카이브는 인증 복귀 주소로 등록하지 않음.
 
 문제가 생기면 Cloudflare Custom Domain 연결을 해제하거나 이전 Worker 버전으로 되돌림. GitHub Pages custom domain과 기존 URL은 수정하지 않으므로 기존 링크는 별도로 유지됨. Supabase Auth Redirect URLs에서 새 주소를 제거해도 기존 Site URL은 유지됨.

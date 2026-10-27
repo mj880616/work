@@ -617,7 +617,7 @@ test('status read: returns only the three folder values, never names, IDs, links
   assert.equal(response.status, 200);
   assert.deepEqual(result, { ok: true, checked_at: now.toISOString(), copy: {
     state: 'found', last_success_at: '2026-10-03T04:17:00.000Z', last_failure_at: '2026-10-02T21:17:05.120Z', last_failure_code: 'DRIVE_UPLOAD_FAILED',
-  }, collectors: { telegram: null, transcript: null }, text_backfill: null });
+  }, collectors: { telegram: null, transcript: null, telegram_send: null, call_send: null }, text_backfill: null });
   assert.doesNotMatch(JSON.stringify(result), /FORBIDDEN|folder"|docs\.google|읽기용 사본|kptu_/);
   assert.equal(writes(h).length, 0, 'no create, upload, or status PATCH');
   assert.equal(h.uploads.length, 0); assert.equal(h.patches.length, 0);
@@ -694,6 +694,7 @@ test('heartbeat: records only this source\'s time, count and received time on th
   assert.deepEqual(status.collectors, {
     telegram: { last_at: '2026-10-03T10:00:00.000Z', count: null, reported_at: '2026-10-03T10:00:00.000Z' },
     transcript: { last_at: '2026-10-03T05:05:00.000Z', count: 4, reported_at: now.toISOString() },
+    telegram_send: null, call_send: null,
   });
   // A later beat without count clears the earlier count.
   await h.heartbeatRequest({ 'x-collector-heartbeat-secret': 'beat-secret' }, { source: 'transcript', last_at: '2026-10-03T06:00:00Z' });
@@ -746,8 +747,37 @@ test('status read: stored collector values with a bad shape are dropped', () => 
   assert.deepEqual(core.collectorStatus({
     collector_telegram_at: '파일 이름.txt', collector_telegram_reported_at: '2026-10-03T10:00:00.000Z',
     collector_transcript_at: '2026-10-03T10:00:00.000Z', collector_transcript_reported_at: '2026-10-03T10:00:00.000Z', collector_transcript_count: '12; drop',
-  }), { telegram: null, transcript: { last_at: '2026-10-03T10:00:00.000Z', count: null, reported_at: '2026-10-03T10:00:00.000Z' } });
-  assert.deepEqual(core.collectorStatus(null), { telegram: null, transcript: null });
+  }), { telegram: null, transcript: { last_at: '2026-10-03T10:00:00.000Z', count: null, reported_at: '2026-10-03T10:00:00.000Z' }, telegram_send: null, call_send: null });
+  assert.deepEqual(core.collectorStatus(null), { telegram: null, transcript: null, telegram_send: null, call_send: null });
+});
+
+// OPS-수집멈춤알림: the Apps Script feed reports how its own sending went. Closed state list, no free text, no count.
+const sendBeat = { source: 'telegram_send', last_at: '2026-10-03T14:05:00+09:00', state: 'limit_ai' };
+test('heartbeat: a send source records time and a closed state only, and the status read returns them', async () => {
+  const h = harness({ existing: true });
+  const response = await h.heartbeatRequest({ 'x-collector-heartbeat-secret': 'beat-secret', 'Content-Type': 'application/json' }, sendBeat), result = await response.json();
+  assert.equal(response.status, 200);
+  assert.deepEqual(result, { ok: true, source: 'telegram_send', recorded_at: now.toISOString() });
+  assert.deepEqual(h.patches, [{ appProperties: { collector_telegram_send_at: '2026-10-03T05:05:00.000Z', collector_telegram_send_state: 'limit_ai', collector_telegram_send_reported_at: now.toISOString() } }]);
+  const status = await (await h.statusRequest({ Authorization: 'Bearer valid-owner' })).json();
+  assert.deepEqual(status.collectors.telegram_send, { last_at: '2026-10-03T05:05:00.000Z', state: 'limit_ai', reported_at: now.toISOString() });
+  assert.equal(status.collectors.call_send, null);
+  assert.equal(status.collectors.telegram, null, 'other sources untouched');
+});
+test('heartbeat: send sources need a listed state and no count; the first two sources never take a state', async () => {
+  for (const body of [
+    { source: 'call_send', last_at: sendBeat.last_at }, { ...sendBeat, state: '' }, { ...sendBeat, state: 'AI 상한에 걸림' }, { ...sendBeat, state: 'unknown' },
+    { ...sendBeat, count: 3 }, { ...beat, state: 'ok' }, { source: 'telegram', last_at: sendBeat.last_at, state: 'ok' },
+  ]) {
+    const h = harness({ existing: true }), response = await h.heartbeatRequest({ 'x-collector-heartbeat-secret': 'beat-secret' }, body), result = await response.json();
+    assert.equal(response.status, 400, JSON.stringify(body)); assert.deepEqual(result, { ok: false, error: 'INVALID_BODY' });
+    assert.equal(googleCalls(h).length, 0); assert.equal(h.patches.length, 0);
+  }
+  for (const state of core.COLLECTOR_SEND_STATES) assert.ok(core.parseHeartbeat(JSON.stringify({ ...sendBeat, source: 'call_send', state }), now), state);
+});
+test('status read: a stored send state outside the list is dropped', () => {
+  const out = core.collectorStatus({ collector_call_send_at: '2026-10-03T10:00:00.000Z', collector_call_send_reported_at: '2026-10-03T10:00:00.000Z', collector_call_send_state: 'FORBIDDEN 내용' });
+  assert.equal(out.call_send, null);
 });
 
 // TRASH-Edge거르기2: 서버 키는 RLS를 건너뛰므로 휴지통의 담당조직·사업 보고(deleted_at)를 읽기에서 직접 뺀다. 이름은 모두 가짜다.
