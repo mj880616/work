@@ -97,18 +97,44 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     });
     const d = await bodyJson(r);
     if (!r.ok || typeof d.access_token !== "string" || !d.access_token) {
-      log("onedrive_token_rejected");
+      // HTTP 상태와 Microsoft 오류 이름(예 invalid_client)만 남긴다. 오류 설명문은 남기지 않는다.
+      log("onedrive_token_rejected:" + r.status + (typeof d.error === "string" && /^[a-z_]{1,40}$/.test(d.error) ? ":" + d.error : ""));
       if (d.error === "invalid_grant" || r.status === 400 || r.status === 401) throw new Fail(424, "onedrive_auth_expired");
       throw new Fail(503, "onedrive_unavailable");
     }
     return d as { access_token: string; refresh_token?: string; scope?: string; expires_in?: number };
   }
 
+  // 실패 단계 로그: 단계 이름 + DB 오류 번호(SQLSTATE 5글자, 예 42501)만 남긴다. 오류 문장·토큰·코드·비밀값은 남기지 않는다.
+  const dbFail = (stage: string, error: unknown): never => {
+    const code = (error as { code?: unknown } | null)?.code;
+    log(stage + (typeof code === "string" && /^[0-9A-Z]{5}$/.test(code) ? ":" + code : ""));
+    throw new Fail(503, "onedrive_unavailable");
+  };
+
   async function readConnection(workspaceId: string) {
     const { data, error } = await admin.from("app_onedrive_connections")
       .select("refresh_token,scope,folder_id,folder_name,folder_path,connected_at").eq("workspace_id", workspaceId).maybeSingle();
-    if (error) throw new Fail(503, "onedrive_unavailable");
+    if (error) dbFail("onedrive_read_failed", error);
     return data as null | { refresh_token: string; scope?: string | null; folder_id: string | null; folder_name: string | null; folder_path: string | null; connected_at: string };
+  }
+
+  // 연결 1행 저장. upsert(INSERT … ON CONFLICT DO UPDATE)는 쓰지 않는다: PostgREST가 SET 절에 보낸 모든 칸(workspace_id 포함)을 넣는데,
+  // service_role에는 workspace_id 고치기 권한이 없어서(20261026140000 migration, 칸 단위 권한) 행이 없어도 42501로 거절된다.
+  // 대신 넣기를 먼저 하고, 이미 있으면(23505) 허용된 칸만 고친다. 두 동작 모두 기존 권한 안이다.
+  type ConnectionFields = {
+    refresh_token: string; scope: string; folder_id: null; folder_name: null; folder_path: null; connected_at: string; updated_at: string;
+  };
+  async function saveConnection(workspaceId: string, fields: ConnectionFields) {
+    const inserted = await admin.from("app_onedrive_connections").insert({ workspace_id: workspaceId, ...fields });
+    if (!inserted.error) return;
+    if (inserted.error.code !== "23505") dbFail("onedrive_save_failed:insert", inserted.error);
+    const { data, error } = await admin.from("app_onedrive_connections").update(fields).eq("workspace_id", workspaceId).select("workspace_id");
+    if (error) dbFail("onedrive_save_failed:update", error);
+    if (!Array.isArray(data) || data.length !== 1) {
+      log("onedrive_save_failed:update_missing");
+      throw new Fail(503, "onedrive_unavailable");
+    }
   }
 
   // 갱신 토큰으로 접근 토큰을 받는다. 새 갱신 토큰이 오면 바로 바꿔 저장한다(Microsoft는 갱신 때마다 새 토큰을 줄 수 있다).
@@ -123,10 +149,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     if (typeof d.refresh_token === "string" && d.refresh_token && d.refresh_token !== conn.refresh_token) {
       const { error } = await admin.from("app_onedrive_connections")
         .update({ refresh_token: d.refresh_token, updated_at: new Date(now()).toISOString() }).eq("workspace_id", workspaceId);
-      if (error) {
-        log("onedrive_token_save_failed");
-        throw new Fail(503, "onedrive_unavailable");
-      }
+      if (error) dbFail("onedrive_token_save_failed", error);
     }
     const expires = Number(d.expires_in);
     if (Number.isFinite(expires) && expires > 120) {
@@ -223,19 +246,21 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       const d = await tokenRequest(c, { grant_type: "authorization_code", code: body.code, redirect_uri: c.redirect });
       // 받은 허용 범위가 맞는지 확인한다: Files.ReadWrite가 있어야 하고, 전체 범위(.All)·앱 폴더·선택 범위가 섞이면 저장하지 않고 거절한다.
       const granted = normalizeScopes(d.scope);
-      if (!scopeAllowed(granted)) throw new Fail(400, "onedrive_scope_invalid");
-      if (typeof d.refresh_token !== "string" || !d.refresh_token || d.refresh_token.length > 4096) throw new Fail(502, "onedrive_unavailable");
+      if (!scopeAllowed(granted)) {
+        log("onedrive_scope_rejected");
+        throw new Fail(400, "onedrive_scope_invalid");
+      }
+      if (typeof d.refresh_token !== "string" || !d.refresh_token || d.refresh_token.length > 4096) {
+        log("onedrive_refresh_token_missing");
+        throw new Fail(502, "onedrive_unavailable");
+      }
       cached.delete(workspaceId);
       const stamp = new Date(now()).toISOString();
       // 다시 연결하면 다른 계정일 수 있으므로 폴더 지정은 비운다.
-      const { error } = await admin.from("app_onedrive_connections").upsert({
-        workspace_id: workspaceId, refresh_token: d.refresh_token, folder_id: null, folder_name: null, folder_path: null,
+      await saveConnection(workspaceId, {
+        refresh_token: d.refresh_token, folder_id: null, folder_name: null, folder_path: null,
         scope: granted.join(" "), connected_at: stamp, updated_at: stamp,
-      }, { onConflict: "workspace_id" });
-      if (error) {
-        log("onedrive_connection_save_failed");
-        throw new Fail(503, "onedrive_unavailable");
-      }
+      });
       return json({ connected: true });
     },
 
@@ -267,7 +292,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       const { error } = await admin.from("app_onedrive_connections")
         .update({ folder_id: item.id, folder_name: item.name, folder_path: path, updated_at: new Date(now()).toISOString() })
         .eq("workspace_id", workspaceId);
-      if (error) throw new Fail(503, "onedrive_unavailable");
+      if (error) dbFail("onedrive_folder_save_failed", error);
       return json({ folder: { name: item.name } });
     },
 
@@ -318,7 +343,7 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
     async disconnect({ workspaceId }) {
       cached.delete(workspaceId);
       const { error } = await admin.from("app_onedrive_connections").delete().eq("workspace_id", workspaceId);
-      if (error) throw new Fail(503, "onedrive_unavailable");
+      if (error) dbFail("onedrive_disconnect_failed", error);
       return json({ connected: false });
     },
   };
@@ -388,7 +413,10 @@ export function createOneDriveHandler(admin: OneDriveAdmin, options: OneDriveOpt
       if (req.method !== "POST") return json({ error: "POST only" }, 405);
       const { data: member, error: memberError } = await admin.from("app_workspace_members")
         .select("workspace_id,role").eq("user_id", data.user.id).maybeSingle();
-      if (memberError) throw new Fail(503, "authorize_unavailable");
+      if (memberError) {
+        log("onedrive_member_read_failed");
+        throw new Fail(503, "authorize_unavailable");
+      }
       if (member?.role !== "owner") throw new Fail(403, "forbidden");
       if ((req.headers.get("content-type") || "").split(";")[0].trim().toLowerCase() !== "application/json") throw new Fail(415, "json_required");
       const text = await req.text();
