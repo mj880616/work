@@ -29,6 +29,7 @@ export function mountHomeEdit({root}) {
     paintPage();
   };
   function paintTools() {
+    tools.classList.toggle('home-tools-open', editing);
     tools.innerHTML = editing
       ? '<span class="home-tools-title">홈 편집</span><button type="button" class="home-tools-btn" data-he-reset>처음대로</button><button type="button" class="home-tools-btn" data-he-done>완료</button>'
       : '<button type="button" class="home-tools-more" data-he-more data-ctx="off" aria-haspopup="true" aria-expanded="false" aria-label="홈 메뉴">⋯</button>';

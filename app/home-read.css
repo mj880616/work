@@ -383,7 +383,10 @@
 }
 
 /* MENU-HOME-편집: 홈 ⋯ 줄과 홈 편집(home-edit.js). 작고 낮게, 점선 테두리. */
-.home-tools{display:flex;align-items:center;justify-content:flex-end;gap:6px;min-height:24px;margin:2px 0 0}
+/* 평소의 [⋯] 줄은 높이를 차지하지 않는다(홈 전체 높이·창 안 자리가 처음 그대로). 편집 중에는 제목 줄로 보통 높이를 쓴다. */
+.home-tools{position:relative;display:flex;align-items:center;justify-content:flex-end;gap:6px;height:0;min-height:0;margin:0}
+.home-tools:not(.home-tools-open) .home-tools-more{position:absolute;right:0;top:0}
+.home-tools.home-tools-open{height:auto;min-height:24px;margin:0 0 2px}
 .home-tools-title{margin-right:auto;font-size:var(--ds-text-section,13px);font-weight:600;color:var(--kptu-muted)}
 .home-tools-more,.home-tools-btn{min-height:24px;padding:0 8px;border:0;border-radius:var(--kptu-radius-sm,6px);background:transparent;color:var(--kptu-muted);font-size:var(--ds-text-row,13px)}
 .home-tools-more{min-width:28px;font-size:16px;line-height:1}
