@@ -52,13 +52,14 @@ for(const width of [344,412,882])test(`칸·탭을 눌러도 화면 폭이 그�
   await mockApp(page,s);await extraRoutes(page);
   await signIn(page,testOrigin+'/app/?view=reports');
   await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
-  const bad=[],checked=[];
+  const bad=[],checked=[],clicks={};
   const check=async label=>{const o=await overflow(page);checked.push(label);if(o)bad.push(`${label}: ${o}`)};
   for(const view of VIEWS){
     if(!await openView(page,view)){checked.push(view+' (열 수 없어 건너뜀)');continue}
     await check(`${view} 처음`);
     const sel=`#${view}View :is([role=radio],[role=tab],[data-rv-view],[data-report-view]):visible`;
     const total=Math.min(await page.locator(sel).count(),40);
+    clicks[view]=total;
     for(let i=0;i<total;i++){
       const item=page.locator(sel).nth(i);
       if(!await item.count())break;
@@ -70,5 +71,9 @@ for(const width of [344,412,882])test(`칸·탭을 눌러도 화면 폭이 그�
   }
   test.info().annotations.push({type:'checked',description:checked.join(' | ')});
   expect(bad,bad.join('\n')).toEqual([]);
+  // 시험이 빈손으로 지나가지 않게: 사업 보고(칸 9·보기 3 등)·자료실·프로젝트 화면은 반드시 열려 칸을 눌러 봤어야 한다.
+  expect(clicks.meetings,JSON.stringify(clicks)).toBeGreaterThanOrEqual(10);
+  expect(clicks.library,JSON.stringify(clicks)).toBeGreaterThanOrEqual(3);
+  expect(checked.filter(x=>x.includes('건너뜀')).length,checked.join(' | ')).toBeLessThanOrEqual(6);
   expect(errors).toEqual([]);
 });
