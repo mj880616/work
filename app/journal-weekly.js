@@ -479,8 +479,9 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     input.setAttribute('aria-label', '자료 줄 고치기(이번 주 보고 글만)'); input.disabled = !!fileUi.saving;
     const save = el('button', 'mini primary', '저장'); save.type = 'button'; save.dataset.journalFileEditSave = item.file.id; save.disabled = !!fileUi.saving;
     const cancel = el('button', 'mini', '취소'); cancel.type = 'button'; cancel.dataset.journalFileEditCancel = item.file.id; cancel.disabled = !!fileUi.saving;
-    box.append(input, ' ', save, cancel);
+    box.append(input, ' ');
     if (item.file.edited) { const reset = el('button', 'mini', '원래대로'); reset.type = 'button'; reset.dataset.journalFileEditReset = item.file.id; reset.disabled = !!fileUi.saving; box.append(reset); }
+    box.append(cancel, save); // UI-저장자리: [취소] 왼쪽, [저장] 맨 오른쪽
     return box;
   }
   // 기록과 같아 접은 자료: 칸 맨 아래 늘 보이는 접힘 한 줄("기록과 같아 뺀 자료 N"). 펼치면 그 자료 줄과 [넣기](화면 ②).
@@ -663,11 +664,11 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
         area.value = editing.value; area.dataset.journalOrgEditInput = section.id; area.disabled = !!editing.saving;
         if (editing.invalid) area.setAttribute('aria-invalid', 'true');
         const note = el('p', 'journal-line-status', editing.status || ''); note.dataset.journalOrgEditStatus = ''; note.setAttribute('role', 'status'); note.setAttribute('aria-live', 'polite');
-        const actions = el('div', 'journal-edit-actions');
+        const actions = el('div', 'journal-edit-actions save-row');
         const save = el('button', 'mini primary', '저장'); save.type = 'button'; save.dataset.journalOrgEditSave = section.id;
         const cancel = el('button', 'mini', '취소'); cancel.type = 'button'; cancel.dataset.journalOrgEditCancel = section.id;
         if (editing.saving) { save.disabled = true; cancel.disabled = true; }
-        actions.append(save, cancel); box.append(label, area, note, actions); part.append(box);
+        actions.append(cancel, save); box.append(label, area, note, actions); part.append(box);
       } else if (section.summary) {
         const lines = el('ul', 'journal-weekly-list journal-org-summary'); lines.dataset.journalOrgSummary = section.id;
         for (const line of orgSummaryLines(section.summary.text)) lines.append(el('li', null, line));
@@ -865,11 +866,11 @@ function execEditRow(doc, el, ui, item) {
     if (ui.saving) input.disabled = true;
     wrap.append(input); form.append(wrap);
   }
-  const actions = el('div', 'journal-edit-actions');
+  const actions = el('div', 'journal-edit-actions save-row');
   const save = el('button', 'mini primary', '저장'); save.type = 'button'; save.dataset.journalExecSave = key;
   const cancel = el('button', 'mini', '취소'); cancel.type = 'button'; cancel.dataset.journalExecCancel = key;
-  actions.append(save, cancel);
-  if (item) { const del = el('button', 'mini journal-delete', '삭제'); del.type = 'button'; del.dataset.journalExecDelete = item.id; actions.append(del); }
+  if (item) { const del = el('button', 'mini journal-delete save-row-start', '삭제'); del.type = 'button'; del.dataset.journalExecDelete = item.id; actions.append(del); }
+  actions.append(cancel, save);
   if (ui.saving) for (const b of actions.children) b.disabled = true;
   form.append(actions); td.append(form); tr.append(td);
   return tr;
