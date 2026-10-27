@@ -71,6 +71,7 @@ for(const width of [344,412,882])test(`칸·탭을 눌러도 화면 폭이 그�
   }
   test.info().annotations.push({type:'checked',description:checked.join(' | ')});
   expect(bad,bad.join('\n')).toEqual([]);
+  expect('목록',JSON.stringify(clicks)+' // '+checked.filter(x=>!x.includes('칸 ')).join(' | ')).toBe('실험용 일부러 실패');
   // 시험이 빈손으로 지나가지 않게: 사업 보고(칸 9·보기 3 등)·자료실·프로젝트 화면은 반드시 열려 칸을 눌러 봤어야 한다.
   expect(clicks.meetings,JSON.stringify(clicks)).toBeGreaterThanOrEqual(10);
   expect(clicks.library,JSON.stringify(clicks)).toBeGreaterThanOrEqual(3);
