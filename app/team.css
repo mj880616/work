@@ -12,7 +12,7 @@ body.kptu-workspace-shell .topbar{display:none!important}
 .stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--kptu-space-3);margin-bottom:var(--kptu-space-3)}
 .stat-card{background:var(--kptu-surface);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-lg);padding:var(--kptu-space-4);text-align:left;color:var(--kptu-ink)}
 .stat-card span{display:block;color:var(--kptu-muted);font-size:12px;font-weight:600}
-.stat-card b{display:block;font-size:27px;margin-top:var(--kptu-space-1);color:var(--kptu-primary)}
+.stat-card b{display:block;font-size:27px;margin-top:var(--kptu-space-1);color:var(--kptu-primary-text)}
 .dashboard-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--kptu-space-3)}
 .panel{padding:var(--kptu-space-4)}
 .panel-head{display:flex;justify-content:space-between;gap:var(--kptu-space-3);align-items:flex-start;margin-bottom:var(--kptu-space-3)}
