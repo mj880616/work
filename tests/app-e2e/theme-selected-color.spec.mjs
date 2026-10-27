@@ -56,14 +56,15 @@ test('PC 1280: 이동 뒤에도 사이드바에 채워진 항목은 지금 화�
  expect(errors).toEqual([]);
 });
 
-for(const theme of ['olive','terracotta']){
+for(const theme of ['olive','sky','lemon']){
  test(`폰 390 ${theme}: 하단 탭 지금 화면은 테마 색 동그라미+흰 아이콘, 메뉴 화면에서는 [메뉴]`,async({page})=>{
   const errors=await open(page,390,theme);
-  const primary=await rgb(page,'var(--kptu-primary)'),on=await rgb(page,'var(--kptu-on-primary)');
+  // 글자로 쓰는 강조색은 --kptu-primary-text(레몬은 진한 노랑, 나머지는 주 버튼 색과 같거나 읽히는 변형). 동그라미 바탕은 주 버튼 색.
+  const primary=await rgb(page,'var(--kptu-primary)'),on=await rgb(page,'var(--kptu-on-primary)'),text=await rgb(page,'var(--kptu-primary-text)');
   const tabs=page.locator('#appView>.mobile-tabs');
   const cur=tabs.locator('[aria-current="page"]');
   await expect(cur).toHaveCount(1);await expect(cur).toContainText('홈');
-  expect(await bg(cur.locator('svg'))).toBe(primary);expect(await fg(cur.locator('svg'))).toBe(on);expect(await fg(cur)).toBe(primary);
+  expect(await bg(cur.locator('svg'))).toBe(primary);expect(await fg(cur.locator('svg'))).toBe(on);expect(await fg(cur)).toBe(text);
   expect(await bg(tabs.locator('button:not([aria-current]) svg').first())).toBe('rgba(0, 0, 0, 0)');
   // 메뉴로 닿는 화면 다섯: [메뉴]만 지금 화면.
   for(const view of ['library','meetings','hwp','pages']){

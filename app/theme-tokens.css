@@ -4,6 +4,8 @@
   --kptu-border:#e2ddd0;--kptu-border-strong:#cfc8b6;
   --kptu-primary:#5c6a35;--kptu-primary-hover:#4d5a2c;--kptu-primary-ink:#47532a;
   --kptu-primary-soft:#eef0e1;--kptu-on-primary:#ffffff;--kptu-link:#47532a;
+  /* 글자로 쓰는 강조색(탭 글자·오늘 표시·마우스를 올린 메뉴 글자 등). 보통은 주 버튼 색과 같고, 산뜻한 다섯 색은 읽히는 글자색(--kptu-primary-ink)이다. */
+  --kptu-primary-text:var(--kptu-primary);
 }
 [data-theme="navy"]{
   --kptu-bg:#f5f6f7;--kptu-surface:#ffffff;--kptu-surface-subtle:#f8f9fa;
@@ -11,28 +13,6 @@
   --kptu-border:#dfe4e8;--kptu-border-strong:#c9d1d8;
   --kptu-primary:#263f5f;--kptu-primary-hover:#1f354f;--kptu-primary-ink:#355f86;
   --kptu-primary-soft:#eef4f8;--kptu-on-primary:#ffffff;--kptu-link:#355f86;
-}
-[data-theme="terracotta"]{
-  --kptu-bg:#f7f2ea;--kptu-surface:#fffdf9;--kptu-surface-subtle:#fbf7f1;
-  --kptu-ink:#2b2521;--kptu-muted:#7a6d61;--kptu-faint:#95897c;
-  --kptu-border:#eadfd1;--kptu-border-strong:#d9c9b5;
-  --kptu-primary:#a8582a;--kptu-primary-hover:#934b22;--kptu-primary-ink:#7f3f1b;
-  --kptu-primary-soft:#f8e9dc;--kptu-on-primary:#ffffff;--kptu-link:#7f3f1b;
-}
-[data-theme="sand"]{
-  --kptu-bg:#f6f1e7;--kptu-surface:#fffcf6;--kptu-surface-subtle:#faf6ee;
-  --kptu-ink:#2e2924;--kptu-muted:#776c60;--kptu-faint:#938878;
-  --kptu-border:#e8dfcf;--kptu-border-strong:#d6c8b0;
-  --kptu-primary:#4a3d33;--kptu-primary-hover:#3c3129;--kptu-primary-ink:#7a5012;
-  --kptu-primary-soft:#f6ead1;--kptu-on-primary:#fffaf2;--kptu-link:#7a5012;
-}
-/* UI-화면색10(명진 결정 2026-10-27): 쑥·라벤더·먹·장미·청록·겨자 여섯 가지를 더해 열 가지. 바탕·강조는 요청 색 견본에서 시작해 글자 대비(tests/theme-contrast.test.mjs)에 맞춰 조정했다(겨자 강조만 눈에 띄게 어두워짐). 이름 목록은 view-prefs.js THEMES 한 곳. */
-[data-theme="mugwort"]{
-  --kptu-bg:#f1f6f3;--kptu-surface:#fdfefd;--kptu-surface-subtle:#f8faf9;
-  --kptu-ink:#1d2b24;--kptu-muted:#5a7266;--kptu-faint:#7b9388;
-  --kptu-border:#d8e3dd;--kptu-border-strong:#bfcfc7;
-  --kptu-primary:#3e6b55;--kptu-primary-hover:#38604c;--kptu-primary-ink:#3e6b55;
-  --kptu-primary-soft:#e8edeb;--kptu-on-primary:#ffffff;--kptu-link:#3e6b55;
 }
 [data-theme="lavender"]{
   --kptu-bg:#f5f3f8;--kptu-surface:#fefdfe;--kptu-surface-subtle:#faf9fc;
@@ -48,13 +28,6 @@
   --kptu-primary:#4a4a46;--kptu-primary-hover:#43433f;--kptu-primary-ink:#4a4a46;
   --kptu-primary-soft:#e9e9e9;--kptu-on-primary:#ffffff;--kptu-link:#4a4a46;
 }
-[data-theme="rose"]{
-  --kptu-bg:#f8f1f2;--kptu-surface:#fefdfd;--kptu-surface-subtle:#fcf8f8;
-  --kptu-ink:#2b1d1f;--kptu-muted:#725a5f;--kptu-faint:#988185;
-  --kptu-border:#eadadd;--kptu-border-strong:#dcc4c8;
-  --kptu-primary:#93505d;--kptu-primary-hover:#844854;--kptu-primary-ink:#93505d;
-  --kptu-primary-soft:#f2eaec;--kptu-on-primary:#ffffff;--kptu-link:#93505d;
-}
 [data-theme="teal"]{
   --kptu-bg:#f1f6f7;--kptu-surface:#fdfefe;--kptu-surface-subtle:#f8fafb;
   --kptu-ink:#1d292b;--kptu-muted:#5a6f72;--kptu-faint:#7b9093;
@@ -62,12 +35,48 @@
   --kptu-primary:#36676f;--kptu-primary-hover:#315d64;--kptu-primary-ink:#36676f;
   --kptu-primary-soft:#e7edee;--kptu-on-primary:#ffffff;--kptu-link:#36676f;
 }
-[data-theme="mustard"]{
-  --kptu-bg:#f9f5eb;--kptu-surface:#fefefc;--kptu-surface-subtle:#fcfaf5;
-  --kptu-ink:#2b261d;--kptu-muted:#726a5a;--kptu-faint:#938b7b;
-  --kptu-border:#ece3cf;--kptu-border-strong:#ded1b3;
-  --kptu-primary:#896820;--kptu-primary-hover:#7b5e1d;--kptu-primary-ink:#7d5f1d;
-  --kptu-primary-soft:#f3eee5;--kptu-on-primary:#ffffff;--kptu-link:#7d5f1d;
+/* UI-화면색10(명진 결정 2026-10-27): 열 가지. 15:35 재정리로 테라코타·모래·쑥·장미·겨자를 빼고 하늘·민트·코랄·레몬·빨강을 더했다. 차례는 수수한 다섯(올리브·남색·먹·라벤더·청록) → 산뜻한 다섯. 이름 목록은 view-prefs.js THEMES 한 곳.
+   산뜻한 다섯은 버튼·강조색은 선명하게, 바탕(--kptu-bg)은 같은 색을 아주 연하게 둔다. 견본 값(하늘 #2F7FD0·민트 #168F78·코랄 #E0613A·레몬 #F5CC00·빨강 #D7261E)에서 시작해 흰 글자 대비 4.5:1(tests/theme-contrast.test.mjs)에 맞춰 하늘·민트·코랄만 조금 어둡게 했다(빨강은 견본 그대로).
+   레몬은 노랑 위에 흰 글자가 안 읽혀 버튼·선택 표시 글자를 진한 갈색(--kptu-on-primary)으로 둔다. 레몬 강조색 자체는 밝은 바탕과 3:1이 안 되므로 글자·링크·구역 제목에는 쓰지 않고 진한 노랑(--kptu-primary-ink·--kptu-link)을 쓴다. */
+[data-theme="sky"]{
+  --kptu-bg:#eef6fd;--kptu-surface:#fcfeff;--kptu-surface-subtle:#f5fafe;
+  --kptu-ink:#15283a;--kptu-muted:#4f6479;--kptu-faint:#7a8da0;
+  --kptu-border:#d5e4f2;--kptu-border-strong:#b9d0e6;
+  --kptu-primary:#2c77c4;--kptu-primary-hover:#2569b0;--kptu-primary-ink:#1f64ad;
+  --kptu-primary-soft:#e1eefb;--kptu-on-primary:#ffffff;--kptu-link:#1f64ad;
+  --kptu-primary-text:var(--kptu-primary-ink);
+}
+[data-theme="mint"]{
+  --kptu-bg:#eaf8f4;--kptu-surface:#fbfffd;--kptu-surface-subtle:#f3fbf8;
+  --kptu-ink:#123027;--kptu-muted:#44695d;--kptu-faint:#72948a;
+  --kptu-border:#cfe9e1;--kptu-border-strong:#b0d6cb;
+  --kptu-primary:#14846e;--kptu-primary-hover:#117560;--kptu-primary-ink:#0e6e5c;
+  --kptu-primary-soft:#d9f2ea;--kptu-on-primary:#ffffff;--kptu-link:#0e6e5c;
+  --kptu-primary-text:var(--kptu-primary-ink);
+}
+[data-theme="coral"]{
+  --kptu-bg:#fff2ec;--kptu-surface:#fffdfb;--kptu-surface-subtle:#fff8f4;
+  --kptu-ink:#38201a;--kptu-muted:#7a5448;--kptu-faint:#a28378;
+  --kptu-border:#f5ddd2;--kptu-border-strong:#e8c3b3;
+  --kptu-primary:#c4532f;--kptu-primary-hover:#b04a29;--kptu-primary-ink:#a83a1f;
+  --kptu-primary-soft:#ffe6db;--kptu-on-primary:#ffffff;--kptu-link:#a83a1f;
+  --kptu-primary-text:var(--kptu-primary-ink);
+}
+[data-theme="lemon"]{
+  --kptu-bg:#fffbe0;--kptu-surface:#fffef5;--kptu-surface-subtle:#fffcea;
+  --kptu-ink:#2e2800;--kptu-muted:#6b5f1f;--kptu-faint:#938a55;
+  --kptu-border:#f1e8b3;--kptu-border-strong:#e0d58a;
+  --kptu-primary:#f5cc00;--kptu-primary-hover:#e6bd00;--kptu-primary-ink:#7a5c00;
+  --kptu-primary-soft:#fff3b0;--kptu-on-primary:#3d3100;--kptu-link:#7a5c00;
+  --kptu-primary-text:var(--kptu-primary-ink);
+}
+[data-theme="red"]{
+  --kptu-bg:#fff1f0;--kptu-surface:#fffcfc;--kptu-surface-subtle:#fff7f6;
+  --kptu-ink:#331412;--kptu-muted:#7a4a47;--kptu-faint:#a07c79;
+  --kptu-border:#f6d9d6;--kptu-border-strong:#e8bab6;
+  --kptu-primary:#d7261e;--kptu-primary-hover:#c01f18;--kptu-primary-ink:#b81e17;
+  --kptu-primary-soft:#ffe3e0;--kptu-on-primary:#ffffff;--kptu-link:#b81e17;
+  --kptu-primary-text:var(--kptu-primary-ink);
 }
 :root{
   --kptu-danger:#b42318;--kptu-danger-soft:#fdecea;
@@ -123,6 +132,8 @@
   --ds-fab-size:36px;--ds-fab-gap:12px;
   /* JOURNAL-일기: 사진 위 글자·가림 막과 크게 보기 바탕. 사진 위라 밝은·어두운 화면에서 같은 값. --ds-photo-paper는 투명 사진을 JPEG로 줄일 때 바탕. */
   --ds-photo-ink:#fff;--ds-photo-scrim:rgba(0,0,0,.5);--ds-photo-stage:#000;--ds-photo-paper:#fff;
+  /* UI-화면색재정리: 빨강 테마에서 경고 버튼·삭제 메뉴 앞에 붙는 삼각 느낌표 모양(선 모양만, 색은 글자 색). */
+  --ds-warn-icon:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 2.5 18.5 17.5H1.5Z M10 8v4.5 M10 14.4v.1' fill='none' stroke='black' stroke-width='1.8' stroke-linejoin='round' stroke-linecap='round'/%3E%3C/svg%3E");
   /* 동그란 [+]의 + 아이콘(선 두 개, 가운데 정렬). 모양만 쓰고 색은 버튼 글자 색(--kptu-on-primary). */
   --ds-fab-plus:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 3v14M3 10h14' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
   /* PRJ-색: 프로젝트 이름 앞 점 8가지(사용자가 메인 프로젝트에서 고름). -soft는 하위 프로젝트용 연한 톤. 저장값은 색 이름 키. */
@@ -195,28 +206,28 @@
   :root[data-theme="navy"]{
     --kptu-primary:#8fb4dc;--kptu-primary-hover:#a3c2e3;--kptu-primary-ink:#a6c6ea;--kptu-primary-soft:#1d2a3a;--kptu-link:#a6c6ea;
   }
-  :root[data-theme="terracotta"]{
-    --kptu-primary:#e39b6d;--kptu-primary-hover:#eaaf88;--kptu-primary-ink:#efb48d;--kptu-primary-soft:#3a2519;--kptu-link:#efb48d;
-  }
-  :root[data-theme="sand"]{
-    --kptu-primary:#d8b67f;--kptu-primary-hover:#e2c597;--kptu-primary-ink:#e2c597;--kptu-primary-soft:#352b1b;--kptu-link:#e2c597;
-  }
-  :root[data-theme="mugwort"]{
-    --kptu-primary:#8ebea7;--kptu-primary-hover:#9cc6b2;--kptu-primary-ink:#99c4b0;--kptu-primary-soft:#252e27;--kptu-link:#99c4b0;
-  }
   :root[data-theme="lavender"]{
     --kptu-primary:#bbb2cd;--kptu-primary-hover:#c3bbd3;--kptu-primary-ink:#c2bad2;--kptu-primary-soft:#2c292f;--kptu-link:#c2bad2;
   }
   :root[data-theme="ink"]{
     --kptu-primary:#b5b5b1;--kptu-primary-hover:#bebeba;--kptu-primary-ink:#bcbcb9;--kptu-primary-soft:#282824;--kptu-link:#bcbcb9;
   }
-  :root[data-theme="rose"]{
-    --kptu-primary:#d1abb2;--kptu-primary-hover:#d7b5bb;--kptu-primary-ink:#d6b3ba;--kptu-primary-soft:#362928;--kptu-link:#d6b3ba;
-  }
   :root[data-theme="teal"]{
     --kptu-primary:#88bdc5;--kptu-primary-hover:#96c5cc;--kptu-primary-ink:#94c4cb;--kptu-primary-soft:#242d2c;--kptu-link:#94c4cb;
   }
-  :root[data-theme="mustard"]{
-    --kptu-primary:#d8ae57;--kptu-primary-hover:#ddb86b;--kptu-primary-ink:#deba70;--kptu-primary-soft:#38301d;--kptu-link:#deba70;
+  :root[data-theme="sky"]{
+    --kptu-primary:#6aaef0;--kptu-primary-hover:#82bcf3;--kptu-primary-ink:#8fc2f4;--kptu-primary-soft:#1b2a3a;--kptu-link:#8fc2f4;
+  }
+  :root[data-theme="mint"]{
+    --kptu-primary:#52c4a8;--kptu-primary-hover:#6bcdb4;--kptu-primary-ink:#74d0b9;--kptu-primary-soft:#18302a;--kptu-link:#74d0b9;
+  }
+  :root[data-theme="coral"]{
+    --kptu-primary:#f2825f;--kptu-primary-hover:#f59477;--kptu-primary-ink:#f6a085;--kptu-primary-soft:#3a221a;--kptu-link:#f6a085;
+  }
+  :root[data-theme="lemon"]{
+    --kptu-primary:#f2d230;--kptu-primary-hover:#f6dc55;--kptu-primary-ink:#f7de5f;--kptu-primary-soft:#34301a;--kptu-link:#f7de5f;--kptu-on-primary:#2b2300;
+  }
+  :root[data-theme="red"]{
+    --kptu-primary:#ee5a52;--kptu-primary-hover:#f27770;--kptu-primary-ink:#f58b85;--kptu-primary-soft:#3d1f1d;--kptu-link:#f58b85;
   }
 }

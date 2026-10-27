@@ -15,8 +15,9 @@
 //   report_view(사업 보고 보기)는 DB 검사가 새로 허용하는 칸이라 그 적용 전에는 쓰기가 400(검사 위반)이고 같은 방식으로 기억만 건너뛴다.
 // - 거절 알림(UI-화면색10): set(..., {rejectable:true})로 바꾼 칸을 서버 검사가 거절하면(읽기는 되는데 쓰기만 400 — 새 색 6가지를 DB가 아직 모를 때)
 //   그 칸만 따로 다시 보내 다른 칸이 같이 거절되지 않게 하고, 서버 값으로 되돌린 뒤 kptu:view-prefs-rejected 알림({paths})을 보낸다. 화면은 원래 값으로 돌아가고 안내한다.
-// 화면 색 허용 목록은 여기 한 곳이다(UI-화면색10, 열 가지). 고르는 창·저장 확인·시험이 이 목록을 읽는다. DB 검사(app_profiles_view_prefs_check)와 같은 값이어야 한다.
-export const THEMES = Object.freeze(['olive', 'navy', 'terracotta', 'sand', 'mugwort', 'lavender', 'ink', 'rose', 'teal', 'mustard']);
+// 화면 색 허용 목록은 여기 한 곳이다(UI-화면색10, 2026-10-27 재정리로 열 가지: 수수한 다섯 → 산뜻한 다섯 차례). 고르는 창·저장 확인·시험이 이 목록을 읽는다. DB 검사(app_profiles_view_prefs_check)와 같은 값이어야 한다.
+// 빠진 색(terracotta·sand·mugwort·rose·mustard) 이름이 서버에 남아 있으면 parsePrefs가 그 칸만 버려 기본(olive)으로 보이고, 다른 칸을 저장할 때 다시 쓰지 않는다.
+export const THEMES = Object.freeze(['olive', 'navy', 'ink', 'lavender', 'teal', 'sky', 'mint', 'coral', 'lemon', 'red']);
 export const DEFAULT_THEME = 'olive';
 export const CALENDAR_VIEWS = Object.freeze(['list', 'week', 'month']);
 export const QUICK_MODES = Object.freeze(['update', 'task']);
