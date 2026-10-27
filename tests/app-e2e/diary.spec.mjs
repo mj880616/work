@@ -39,7 +39,7 @@ function valid(row){
  return (row.attachments||[]).length<=20;
 }
 async function fixture(page,{rows=store(),failUploadAt=0,photoView=true,width=390,height=900,photoSizes=null}={}){
- const writes=[],uploads=[],photoReads=[],deletes=[],errors=[];let uploadCount=0;
+ const writes=[],uploads=[],photoReads=[],deletes=[],prunes=[],errors=[];let uploadCount=0;
  page.on('pageerror',e=>errors.push(e.message));
  page.on('console',m=>{if(m.type()==='error'&&!/Failed to load resource/.test(m.text()))errors.push(m.text());});
  await page.setViewportSize({width,height});
@@ -91,6 +91,10 @@ async function fixture(page,{rows=store(),failUploadAt=0,photoView=true,width=39
    const nth=row.attachments.findIndex(a=>a.drive_file_id===u.searchParams.get('file_id'));
    return r.fulfill({status:200,contentType:'image/png',headers:{'cache-control':'private, max-age=3600'},body:sized&&u.searchParams.get('size')==='large'?sized[nth%sized.length]:img});
   }
+  if(req.method()==='POST'&&u.searchParams.get('action')==='photo-prune'){
+   const body=req.postDataJSON();prunes.push({action:body.action,file_ids:body.file_ids,auth:/^Bearer .+/.test(req.headers().authorization||'')});
+   return r.fulfill({json:{action:'photo-prune',ok:true,trashed:body.file_ids.length,kept:0,failed:0,unknown:0}});
+  }
   if(req.method()==='POST'&&u.searchParams.get('action')==='note-delete'){
    const body=req.postDataJSON(),row=rows.find(x=>x.id===body.note_id);
    if(!row)return r.fulfill({status:404,json:{action:'note-delete',note_id:body.note_id,attachments_total:0,trashed:0,failed:0,unknown:0,ok:false,note_deleted:false,code:'note_not_found'}});
@@ -115,7 +119,7 @@ async function fixture(page,{rows=store(),failUploadAt=0,photoView=true,width=39
   }
   return r.fulfill({status:500,json:{}});
  });
- return {rows,writes,uploads,photoReads,deletes,errors};
+ return {rows,writes,uploads,photoReads,deletes,prunes,errors};
 }
 async function openDiary(page,width){
  if(width<=760){
@@ -328,7 +332,8 @@ test('고치기에서 사진 하나 빼기, 글 없는 일기의 마지막 사�
  const ed=page.locator('#diaryRoot [data-diary-editor]');
  page.once('dialog',d=>{expect(d.message()).toContain('Drive 원본은 휴지통으로 보내요');d.accept();});
  await ed.locator('[data-diary-remove="pa"]').click();
- await expect(ed.locator('[data-diary-thumb]')).toHaveCount(1);await expect(ed.locator('[data-diary-editor-status]')).toContainText('사진을 뺐어요.');
+ await expect(ed.locator('[data-diary-thumb]')).toHaveCount(1);await expect(ed.locator('[data-diary-editor-status]')).toHaveText('사진을 뺐어요. Drive 원본은 휴지통으로 보냈어요.');
+ expect(f.prunes).toEqual([{action:'photo-prune',file_ids:['pa'],auth:true}]);
  expect(f.writes.at(-1)).toMatchObject({method:'PATCH',query:{id:'eq.d3',kind:'eq.diary',updated_at:'eq.'+at},body:{attachments:[photo('pb')]}});
  await ed.locator('[data-diary-editor-close]').click();
  await cell(page,'2026-10-05').click();await page.locator('#diaryRoot [data-diary-edit]').click();
@@ -512,7 +517,8 @@ for(const width of [390,1280]){
   // 사진을 빼면 그 사진의 코멘트도 같은 저장에서 빠진다.
   await openEditor(page);
   page.once('dialog',d=>d.accept());await ed.locator('[data-diary-remove="pa"]').click();
-  await expect(ed.locator('[data-diary-editor-status]')).toHaveText('사진을 뺐어요.');
+  await expect(ed.locator('[data-diary-editor-status]')).toHaveText('사진을 뺐어요. Drive 원본은 휴지통으로 보냈어요.');
+  expect(f.prunes).toEqual([{action:'photo-prune',file_ids:['pa'],auth:true}]);
   const removal=f.writes.at(-1);
   expect(removal.body.attachments.map(a=>a.drive_file_id)).toEqual(['pb','up1']);expect(removal.body.metadata.photo_comments).toEqual({up1:'새로 올린 사진'});
   expect(f.rows.find(r=>r.id==='d3').metadata.photo_comments).toEqual({up1:'새로 올린 사진'});
