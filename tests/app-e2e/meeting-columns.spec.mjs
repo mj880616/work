@@ -50,9 +50,11 @@ for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 
   await expect(page.locator('#meetingList [data-meeting-kind][aria-current="true"]')).toHaveCount(1);
   await expect(kind(page,'노사협의회')).toHaveAttribute('aria-current','true');
   expect(await kind(page,'궤도협의회').locator('.mcol-dot').evaluate(e=>getComputedStyle(e).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
-  await expect(detail(page).locator('.mcol-head .mcol-name')).toHaveText('노사협의회');
+  // MTG-3칸정리 ②: 가운데 칸 맨 위 제목 줄(첫 칸과 중복)은 없다. 칸 이름은 읽기 전용 이름표(aria-label)로만 남는다.
+  await expect(detail(page).locator('.mcol-head')).toHaveCount(0);await expect(detail(page)).toHaveAttribute('aria-label','노사협의회 2건');
   await expect(detail(page).locator('.mcol-card .mcol-round')).toHaveText(['2차','1차']);
-  await expect(round(page,'labor-2').locator('.mcol-when')).toContainText('10. 12. 오후 02:30');
+  // ③: 가운데 줄은 '2차' + 오른쪽 작은 날짜 '10.12'(시간 뺌, 전체 일시는 마우스를 올리면).
+  await expect(round(page,'labor-2').locator('.mcol-date')).toHaveText('10.12');await expect(round(page,'labor-2').locator('.mcol-date')).toHaveAttribute('title',/오후 02:30/);
   // 처음 열면 가장 최근 차수(노사협의회 2차)가 오른쪽에 바로 보인다. 창은 열리지 않는다.
   await expect(round(page,'labor-2')).toHaveAttribute('aria-current','true');
   await expect(result(page)).toHaveAttribute('data-meeting-result','labor-2');
@@ -87,8 +89,9 @@ for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 
   expect(g.k.r).toBeLessThanOrEqual(g.d.l);expect(g.d.r).toBeLessThanOrEqual(g.x.l);
   expect(Math.abs(g.k.t-g.d.t)).toBeLessThanOrEqual(1);expect(Math.abs(g.k.t-g.x.t)).toBeLessThanOrEqual(1);
   // MTG-3칸폭끌기: 세 칸이 한 줄 격자라 틈이 같고(칸 사이 12px), 비율은 틈을 뺀 칸 폭끼리 잰다.
-  const lists=g.k.w+g.d.w;expect(Math.abs(g.x.w/lists-2)).toBeLessThan(0.08);
-  expect(Math.abs(g.k.w-g.d.w)).toBeLessThanOrEqual(1);
+  // MTG-3칸정리 ④: 가운데 칸은 첫 칸의 약 절반(기본 1 : 0.5 : 4.5), 남는 폭은 결과 칸이 쓴다.
+  const lists=g.k.w+g.d.w;expect(g.x.w/lists).toBeGreaterThan(2.6);
+  expect(g.d.w).toBeLessThan(g.k.w*0.75);expect(g.d.w).toBeGreaterThan(g.k.w*0.35);
   for(const box of [g.k,g.d,g.x])expect(g.vh-box.b).toBeLessThanOrEqual(40);
   expect(g.sw).toBeLessThanOrEqual(1);expect(g.sh).toBeLessThanOrEqual(1);
   // ⋯ → [수정]: 누른 자리 바로 아래에 펼치고, 지금의 회의 결과 창(수정 단추가 있는 창)을 그 차수로 연다.
@@ -198,8 +201,7 @@ test('② 서로 다른 회의 종류는 서로 다른 색(예전 방식에서 �
     await page.emulateMedia({colorScheme:scheme});
     const colors=await page.locator('#meetingList .mcol-kinds [data-meeting-kind]:not([data-meeting-kind="__none__"]) .mcol-dot').evaluateAll(dots=>dots.map(d=>getComputedStyle(d).backgroundColor));
     expect(colors).toHaveLength(7);expect(new Set(colors).size).toBe(7);
-    // 오른쪽 머리 점은 고른 종류와 같은 색, 폰 목록·필터 칩도 같은 값을 쓴다.
-    expect(await detail(page).locator('.mcol-head .mcol-dot').evaluate(e=>getComputedStyle(e).backgroundColor)).toBe(colors[0]);
+    // (가운데 칸 머리 점은 머리 줄과 함께 없어졌다. 폰 목록·필터 칩은 같은 색 값을 쓴다.)
     seen.push(colors.join());
   }
   // 어두운 화면은 같은 칸의 밝은 값으로 바뀐다(바탕 대비 유지).
@@ -222,12 +224,13 @@ test('① 카드 시각: 직접 지정 → 회의 결과 글의 일시 → 날�
   );
   await open(page,s,1280);
   await expect(kind(page,'궤도협의회')).toHaveAttribute('aria-current','true');
-  await expect(detail(page).locator('.mcol-card .mcol-round').first()).toHaveText('차수 없음');
+  // ⑤: 차수·짧은 이름이 둘 다 없으면 왼쪽 자리에 날짜만 보인다.
+  await expect(detail(page).locator('.mcol-card .mcol-round').first()).toHaveText('10.20');
   const derived=round(page,'rail-derived'),upload=round(page,'rail-upload');
-  await expect(derived.locator('.mcol-round')).toHaveText('파생 간담회');await expect(derived.locator('.mcol-when')).toHaveText('10. 19. 오후 02:00');
-  await expect(upload.locator('.mcol-round')).toHaveText('차수 없음');await expect(upload.locator('.mcol-when')).toHaveText('10. 20.');
+  await expect(derived.locator('.mcol-round')).toHaveText('파생 간담회');await expect(derived.locator('.mcol-date')).toHaveText('10.19');await expect(derived.locator('.mcol-date')).toHaveAttribute('title','10. 19. 오후 02:00');
+  await expect(upload.locator('.mcol-round')).toHaveText('10.20');await expect(upload.locator('.mcol-date')).toHaveCount(0);
   // 직접 지정한 시각은 그대로.
-  await expect(round(page,'rail-6').locator('.mcol-when')).toHaveText('9. 6. 오전 10:00');
+  await expect(round(page,'rail-6').locator('.mcol-date')).toHaveText('9.6');await expect(round(page,'rail-6').locator('.mcol-date')).toHaveAttribute('title','9. 6. 오전 10:00');
   // 오른쪽 결과 머리와 결과 창 머리 글자도 같은 규칙(연도 포함), 짧은 이름을 앞에.
   await derived.click();await expect(toplineItem(page)).toContainText('파생 간담회');await expect(result(page).locator('.mcol-result-meta')).toContainText('2026. 10. 19. 오후 02:00');
   await openMeetingResult(page,'rail-derived');await expect(page.locator('#mrdMeta')).toContainText('파생 간담회');await expect(page.locator('#mrdMeta')).toContainText('2026. 10. 19. 오후 02:00');
@@ -239,10 +242,10 @@ test('① 카드 시각: 직접 지정 → 회의 결과 글의 일시 → 날�
   expect(s.meetingWrites.at(-1).series_name).toBeUndefined();expect(s.meetingWrites.at(-1).meeting_at).toBe('2026-10-18T15:00:00.000Z');
   await page.locator('#mrdClose').click();
   await expect(round(page,'rail-derived').locator('.mcol-round')).toHaveText('파생 토론회');await expect(toplineItem(page)).toContainText('파생 토론회');
-  // 짧은 이름을 비우면 제목은 종류 이름과 같게 → 다시 '차수 없음'.
+  // 짧은 이름을 비우면 제목은 종류 이름과 같게 → 다시 날짜만.
   await openMeetingResult(page,'rail-derived');await mrdMenu(page,'edit');await page.locator('#mrdEditShortName').fill('');await page.locator('#mrdSaveEdit').click();
   await expect.poll(()=>s.meetingWrites.at(-1)?.title).toBe('궤도협의회');await page.locator('#mrdClose').click();
-  await expect(round(page,'rail-derived').locator('.mcol-round')).toHaveText('차수 없음');
+  await expect(round(page,'rail-derived').locator('.mcol-round')).toHaveText('10.19');
 });
 
 test('③ 새 회의 결과에서 짧은 이름: 종류 이름은 그대로, 제목만 짧은 이름',async({page})=>{
@@ -288,7 +291,7 @@ for(const width of [1024,1100,1279])test(`PC ${width}: 회의 종류·차수 칸
     const r=e=>e.getBoundingClientRect(),within=(e,box)=>r(e).left>=r(box).left-0.5&&r(e).right<=r(box).right+0.5;
     const kinds=document.querySelector('#meetingList .mcol-kinds'),rounds=document.querySelector('#meetingList .mcol-rounds'),cards=document.querySelector('#meetingList .mcol-cards');
     const names=[...document.querySelectorAll('#meetingList .mcol-kind')].map(b=>({text:b.querySelector('.mcol-name').textContent.trim(),title:b.querySelector('.mcol-name').title,inside:within(b,kinds),on:b.getAttribute('aria-current')==='true',count:within(b.querySelector('.mcol-count'),kinds),ell:getComputedStyle(b.querySelector('.mcol-name')).textOverflow,clipped:b.querySelector('.mcol-name').scrollWidth>b.querySelector('.mcol-name').clientWidth}));
-    const rows=[...document.querySelectorAll('#meetingList .mcol-card')].map(b=>{const w=b.querySelector('.mcol-when'),ro=b.querySelector('.mcol-round');return {inside:within(b,cards),insideRounds:within(b,rounds),whenEll:getComputedStyle(w).textOverflow,whenTitle:w.title,roundTitle:ro.title,whenInside:within(w,b),roundInside:within(ro,b)}});
+    const rows=[...document.querySelectorAll('#meetingList .mcol-card')].map(b=>{const ro=b.querySelector('.mcol-round'),w=b.querySelector('.mcol-date')||ro;return {inside:within(b,cards),insideRounds:within(b,rounds),whenEll:getComputedStyle(w).textOverflow,whenTitle:w.title,roundTitle:ro.title,whenInside:within(w,b),roundInside:within(ro,b)}});
     return {names,rows,kindsOverflowX:kinds.scrollWidth-kinds.clientWidth,cardsOverflowX:cards.scrollWidth-cards.clientWidth,doc:document.documentElement.scrollWidth-innerWidth,
       kindsW:r(kinds).width,roundsW:r(rounds).width,resultW:r(document.querySelector('#meetingList #mcolResult')).width};
   });
@@ -296,8 +299,8 @@ for(const width of [1024,1100,1279])test(`PC ${width}: 회의 종류·차수 칸
   expect(m.names.find(n=>n.on).clipped,'고른 긴 종류 이름은 줄임표로 줄어듦').toBe(true);
   for(const n of m.rows){expect(n.inside).toBe(true);expect(n.insideRounds).toBe(true);expect(n.whenEll).toBe('ellipsis');expect(n.whenInside).toBe(true);expect(n.roundInside).toBe(true);expect(n.whenTitle).not.toBe('');expect(n.roundTitle).not.toBe('')}
   expect(m.kindsOverflowX,'종류 칸 가로 넘침 없음').toBeLessThanOrEqual(0);expect(m.cardsOverflowX,'차수 칸 가로 넘침 없음').toBeLessThanOrEqual(0);expect(m.doc).toBeLessThanOrEqual(1);
-  // 비율은 그대로: 종류+차수(+칸 사이) 1/3 : 결과 2/3 근처(좁은 폭은 list-min 240px 때문에 1/3보다 조금 넓다).
-  expect(m.resultW).toBeGreaterThan((m.kindsW+m.roundsW)*1.5);
+  // 비율: 결과 칸이 종류+차수보다 훨씬 넓다(기본 3/4).
+  expect(m.resultW).toBeGreaterThan((m.kindsW+m.roundsW)*2);
   expect(errors).toEqual([]);
 });
 

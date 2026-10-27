@@ -76,4 +76,23 @@ for(const width of [390,1280])test.describe(`${width}px`,()=>{
     await time.fill('1405');await expect(time).toHaveValue('14:05');await expect(page.locator('#meetingAt')).toHaveValue('2026-10-11T14:05');
     await page.locator('#saveMeetingBtn').click();await expect.poll(()=>s.meetingWrites.at(-1)?.meeting_at).toBe('2026-10-11T05:05:00.000Z');
   });
+  // MTG-보고창기본일시 + MTG-보고창칸정리: 새 입력 창을 열면 일시는 오늘(한국)·10:00, 칸 높이는 모두 같고 날짜는 한 가지 글자로 보인다.
+  test('사업 보고 새 입력 창: 일시 기본값(오늘 10:00)과 칸 배치',async({page})=>{
+    const s=baseState();s.meetings=[];await mockApp(page,s);await signIn(page,`${appOrigin}/app/?view=meetings`);await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
+    await page.locator('#newMeetingBtn').click();
+    const today=await page.evaluate(()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul'}).format(new Date()));
+    await expect(page.locator('#meetingAt')).toHaveValue(`${today}T10:00`);
+    await expect(page.locator('#meetingAtDate')).toHaveValue(today);await expect(page.locator('#meetingAtTime')).toHaveValue('10:00');
+    // 보이는 날짜 글자는 기기와 상관없이 YYYY-MM-DD 한 가지.
+    await expect(page.locator('#meetingModal .dt-date-text')).toHaveText(today);
+    await page.locator('#meetingAtDate').fill('2026-10-26');await expect(page.locator('#meetingModal .dt-date-text')).toHaveText('2026-10-26');
+    // 같은 줄의 칸들은 높이가 같고(28px), 연결할 곳 버튼의 ▾는 오른쪽 끝에 있다.
+    const hs=await page.evaluate(()=>['#meetingTitle','#meetingAtTime','#meetingModal .dt-date','#meetingPlaces'].map(sel=>Math.round(document.querySelector(sel).getBoundingClientRect().height)));
+    expect(new Set(hs).size,hs.join()).toBe(1);expect(hs[0]).toBeLessThanOrEqual(30);
+    const caret=await page.locator('#meetingPlaces').evaluate(el=>{const a=getComputedStyle(el,'::after');return {text:a.content,right:a.right,align:getComputedStyle(el).textAlign}});
+    expect(caret.text).toBe('"▾"');expect(caret.align).toBe('left');
+    // 다시 열면 이전에 고른 날짜가 남지 않고 다시 오늘 10:00.
+    await page.locator('#meetingModal [data-close="meetingModal"]').click();await page.locator('#newMeetingBtn').click();
+    await expect(page.locator('#meetingAt')).toHaveValue(`${today}T10:00`);
+  });
 });

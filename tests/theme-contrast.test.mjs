@@ -139,3 +139,16 @@ test('the browser-test helper reads the same list',async()=>{
   const helper=await import('./app-e2e/helpers/theme-list.mjs');
   assert.deepEqual(helper.THEMES,[...THEMES]);
 });
+
+// MTG-3칸정리 ①: 고른 줄 표시(공용 .kptu-pick-row) = 연한 강조 바탕 + 왼쪽 굵은 줄 + 진한 글자. 열 가지 색의 밝은/어두운 값 모두에서 줄과 글자가 보인다.
+test('고른 줄 표시: 바탕·왼쪽 줄·글자가 열 가지 색 모두에서 보인다',()=>{
+  const rule=readFileSync('app/ui-standard.css','utf8').match(/#appView \.kptu-pick-row\[aria-current="true"\]\{([^}]*)\}/);
+  assert.ok(rule,'shared selected-row rule');
+  assert.match(rule[1],/background:var\(--kptu-primary-soft\)/);assert.match(rule[1],/inset 4px 0 0 var\(--kptu-primary\)/);assert.match(rule[1],/color:var\(--kptu-ink\)/);
+  for(const name of THEMES)for(const [mode,c] of [['light',light(name)],['dark',dark(name)]]){
+    need(`${name} ${mode} text on selected`,c['--kptu-ink'],c['--kptu-primary-soft'],7);
+    need(`${name} ${mode} bar on page`,c['--kptu-primary'],c['--kptu-surface'],3);
+    need(`${name} ${mode} bar on selected`,c['--kptu-primary'],c['--kptu-primary-soft'],3);
+    assert.notEqual(c['--kptu-primary-soft'].toLowerCase(),c['--kptu-surface'].toLowerCase(),`${name} ${mode} selected differs from page`);
+  }
+});

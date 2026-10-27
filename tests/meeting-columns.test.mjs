@@ -2,7 +2,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {assignMeetingColors,meetingPaletteColor,MEETING_PALETTE,meetingColumns,columnsHtml,pickMeeting,resultHtml,resultText,tasksHtml,roundLabel,meetingShortName,NONE_KEY,fileMoreHtml,meetingFileFile} from '../app/meeting-columns.js';
+import {assignMeetingColors,meetingPaletteColor,MEETING_PALETTE,meetingColumns,columnsHtml,pickMeeting,resultHtml,resultText,tasksHtml,roundLabel,meetingShortName,cardLead,shortDate,NONE_KEY,fileMoreHtml,meetingFileFile} from '../app/meeting-columns.js';
 
 const nameOf=m=>String(m?.series_name||m?.title||'').trim(),keyOf=n=>String(n||'').replace(/\s+/g,'').toLowerCase();
 const row=(name,day,extra={})=>({id:`${name}-${day}`,title:name,series_name:name,round_no:1,meeting_at:`2026-09-${String(day).padStart(2,'0')}T01:00:00Z`,...extra});
@@ -125,4 +125,14 @@ test('사업 보고 자료 줄 ⋯: 자료실 자료면 두 항목, 줄 누르�
   // 주소만 있는 링크 자료는 [Drive에서 열기]만.
   const link=fileMoreHtml({id:'d3',title:'링크',drive_url:'https://drive.google.com/file/d/abc/view'});
   assert.match(link,/data-fa-menu="open"/);assert.doesNotMatch(link,/data-fa-menu="download"/);
+});
+
+test('MTG-3칸정리 ③⑤: 가운데 줄 글자 = 차수 → 짧은 이름 → (없음), 오른쪽 날짜는 M.D 한국 날짜',()=>{
+  assert.equal(cardLead({series_name:'가',title:'가',round_no:41}),'41차');
+  assert.equal(cardLead({series_name:'가',title:'파생 간담회',round_no:null}),'파생 간담회');
+  assert.equal(cardLead({series_name:'가',title:'가',round_no:null}),'');
+  assert.equal(shortDate({meeting_at:'2026-10-27T01:00:00Z'}),'10.27');
+  assert.equal(shortDate({meeting_at:'2026-09-06T01:00:00Z'}),'9.6');
+  assert.equal(shortDate({meeting_at:'2026-10-26T16:00:00Z'}),'10.27','한국 날짜로 읽는다(UTC 전날 16시 = 한국 다음 날 1시)');
+  assert.equal(shortDate({}),'');
 });
