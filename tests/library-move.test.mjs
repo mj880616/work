@@ -103,3 +103,11 @@ test('pickerRows: 폴더가 없으면 빈 목록',()=>{
   const r=m.pickerRows({folders:[],docs:[{id:'d1',project_id:null}],free:false});
   assert.deepEqual([r.recent,r.all,r.total,r.frameLimited],[[],[],0,false]);
 });
+
+test('옮길 곳 목록: 값 없는 [+ 새 폴더 만들어 넣기]·[폴더 밖으로] 표시는 있는지로 고른다(dataset 값 \'\'는 거짓이라 눌러도 아무 일 없던 잘못)',async()=>{
+  const {readFile}=await import('node:fs/promises');
+  const src=await readFile(new URL('../app/library-move-picker.js',import.meta.url),'utf8');
+  assert.match(src,/hasAttribute\('data-lu-move-new'\)\)void finish\(\(\)=>s\.onNew\(\)\)/);
+  assert.match(src,/hasAttribute\('data-lu-move-out'\)\)void finish\(\(\)=>s\.onOut\(\)\)/);
+  assert.doesNotMatch(src,/dataset\.luMove(New|Out)\)/);
+});

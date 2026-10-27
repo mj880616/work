@@ -29,8 +29,9 @@ export function createMovePicker({esc}){
       if(b.getAttribute('aria-disabled')==='true'||b.disabled)return;
       const s=state;
       if(b.dataset.luMoveFolder)void finish(()=>s.onPick(b.dataset.luMoveFolder));
-      else if(b.dataset.luMoveNew)void finish(()=>s.onNew());
-      else if(b.dataset.luMoveOut)void finish(()=>s.onOut());
+      // 값 없는 표시(data-lu-move-new·data-lu-move-out)는 dataset 값이 ''라 참/거짓으로 보면 안 된다: 있는지로 본다.
+      else if(b.hasAttribute('data-lu-move-new'))void finish(()=>s.onNew());
+      else if(b.hasAttribute('data-lu-move-out'))void finish(()=>s.onOut());
     });
     panel.addEventListener('keydown',e=>{
       if(!state)return;
