@@ -30,3 +30,8 @@ export async function openFirstMeetingResult(page){
   await more.click();
   await page.locator('#mcolMenu [data-meeting-menu="edit"]').click();
 }
+// MTG-보고창정리: 사업 보고 상세의 [수정]·[칸 바꾸기]·[삭제]는 제목 줄 오른쪽 ⋯ 메뉴 안에 있다. 사람이 하듯 ⋯를 누르고 항목을 누른다.
+export async function mrdMenu(page,action){
+  await page.locator('#mrdMore').click();
+  await page.locator(`#mrdMoreMenu [data-mrd-more="${action}"]`).click();
+}

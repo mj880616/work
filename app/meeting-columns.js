@@ -113,8 +113,8 @@ export function listHtml(rows,{selectedId,label,nameOf,kindOf=()=>'',colorOf,whe
 
 // 오른쪽 칸(읽기용): 지금 회의 결과 창 보기 면과 같은 정보 — 회의 이름·차수(짧은 이름)·회의 시각(연도 포함)·프로젝트·기존 제목,
 // 회의 결과 원문, 특이사항(있을 때만), 후속 할 일(읽기만, 따로 불러옴), 회의자료(이름을 누르면 내려받기). 입력칸·저장 버튼 없음.
-// 원문은 결과 창과 같은 규칙: 원문 → 옛 구조화 기록 → '기록 없음'.
-export function resultText(m){if(m?.transcript_text!=null&&String(m.transcript_text).length)return String(m.transcript_text);if(String(m?.decisions||'').trim())return `[기존 회의결과 기록]\n${m.decisions}`;return '기록 없음'}
+// 원문은 결과 창과 같은 규칙: 원문 → 옛 구조화 기록 → 없으면 빈 글(MTG-보고창정리: 원문 칸 자체를 그리지 않는다).
+export function resultText(m){if(m?.transcript_text!=null&&String(m.transcript_text).length)return String(m.transcript_text);if(String(m?.decisions||'').trim())return `[기존 회의결과 기록]\n${m.decisions}`;return ''}
 // FILE-사업보고⋯(2026-10-24 사용자 결정): 사업 보고 자료 줄 끝의 ⋯ — 담당조직·프로젝트 자료 줄과 같은 <details> 메뉴에
 // file-actions.js의 [Drive에서 열기]·[내려받기](menuItemsHtml, 누르면 file-actions.js 전역 클릭 처리)를 둔다. 줄 누르기 동작은 그대로다.
 // 결과 창(meeting-round-detail.js)도 이 함수를 쓴다. 두 항목이 다 없으면(열 길·내려받을 길 없음) ⋯를 그리지 않는다.
@@ -129,12 +129,12 @@ export function resultHtml(m,{kindLabel='',when='',project='',legacyTitle='',doc
   const {photos,files:docs}=splitPhotoDocs(allDocs);
   const words=reportWords(reportKindOf(m));
   const meta=[legacyTitle&&hasRound(m)?`기존 제목: ${legacyTitle}`:'',when,m?.location&&String(m.location).trim()?`장소 ${String(m.location).trim()}`:'',project?`연결 ${project}`:''].filter(Boolean);
-  const notes=String(m?.notes||'');
+  const notes=String(m?.notes||''),resultBody=resultText(m);
   const files=docs.length?docs.map(d=>{const name=d.file_name||d.title;return fileLine({name,meta:[d.title&&d.title!==name?d.title:'',d.file_size?Math.max(1,Math.round(d.file_size/1024))+'KB':''].filter(Boolean).join(' · '),cls:'mcol-file',end:`<button class="file-line-open" type="button" data-meeting-doc="${esc(d.id)}" aria-label="${esc(name)} 열기"></button>${fileMoreHtml(d,name)}`})}).join(''):`<p class="mcol-empty">${esc(words.materialsEmpty)}</p>`;
   return `<header class="mcol-result-head"><div class="mcol-result-title">${meta.length||kindLabel?`<p class="mcol-result-meta">${kindLabel?`<span data-report-kind-label>${esc(kindLabel)} 칸</span>`:''}${meta.map(x=>`<span>${esc(x)}</span>`).join('')}</p>`:''}</div>`
     +`<button type="button" class="icon-btn mcol-more" data-meeting-more="${esc(m.id)}" data-ctx="area" aria-label="사업 보고 관리" aria-haspopup="true" aria-expanded="false" aria-controls="mcolMenu"><span aria-hidden="true">⋯</span></button></header>`
     +`<div class="mcol-result-body">`
-    +`<section class="mcol-block" aria-labelledby="mcolTextHead"><h4 id="mcolTextHead">${esc(words.textLabel)}</h4><div class="mcol-text">${esc(resultText(m))}</div></section>`
+    +(resultBody?`<section class="mcol-block" aria-labelledby="mcolTextHead"><h4 id="mcolTextHead">${esc(words.textLabel)}</h4><div class="mcol-text">${esc(resultBody)}</div></section>`:'')
     +(notes.trim()?`<section class="mcol-block" aria-labelledby="mcolNotesHead"><h4 id="mcolNotesHead">특이사항</h4><div class="mcol-text mcol-notes">${esc(notes)}</div></section>`:'')
     +`<section class="mcol-block" aria-labelledby="mcolTasksHead"><h4 id="mcolTasksHead">후속 할 일</h4><div id="mcolTasks" class="mcol-tasks" aria-live="polite">${tasksHtml}</div></section>`
     +(photos.length?`<section class="mcol-block" aria-labelledby="mcolPhotosHead"><h4 id="mcolPhotosHead">사진 ${photos.length}</h4><div class="act-photo-grid mcol-photos" data-mcol-photos></div></section>`:'')

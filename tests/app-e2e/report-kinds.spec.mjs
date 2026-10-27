@@ -4,6 +4,7 @@ import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
+import {mrdMenu,openMeetingResult} from './helpers/meeting-open.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 const CHIPS=['전체','회의','정책','교섭','언론','국회','투쟁','교육','기타'];
@@ -80,12 +81,22 @@ for(const width of [390,1280])test(`${width}: [전체]에서 [+] → 칸 고르�
   const pick=page.locator('#meetingKindPick');
   await expect(pick.getByRole('radio',{name:'언론',exact:true})).toHaveAttribute('aria-checked','true');
   // 회의가 아닌 칸에서는 차수 칸이 접힌다.
-  await expect(page.locator('#meetingRoundNo')).toBeHidden();
+  await expect(page.locator('#meetingRoundNo')).toHaveCount(0);await expect(page.locator('#meetingShortName')).toHaveCount(0);
   if(width<=760)expect(await noSideScroll(page)).toBe(true);
   // 창 안에서 칸을 바꿀 수 있다.
   await pick.getByRole('radio',{name:'국회',exact:true}).click();await expect(pick.getByRole('radio',{name:'국회',exact:true})).toHaveAttribute('aria-checked','true');
   // MTG-사업보고말바꾸기: 회의가 아닌 칸은 '제목'·'원문'·'자료' 말을 쓰고 회의명 고르기·차수·짧은 이름이 없다.
-  await expect(page.locator('#meetingNameSelect')).toBeHidden();await expect(page.locator('#meetingShortName')).toBeHidden();
+  // MTG-보고창정리: 차수·짧은 이름 줄은 숨김이 아니라 창에 없다. 칸을 바꾸면 바로 나타나거나 빠지고, 회의 칸에서 쓴 값은 남는다.
+  await expect(page.locator('#meetingNameSelect')).toBeHidden();await expect(page.locator('#meetingShortName')).toHaveCount(0);await expect(page.locator('#meetingRoundNo')).toHaveCount(0);
+  await pick.getByRole('radio',{name:'회의',exact:true}).click();
+  await expect(page.locator('#meetingRoundNo')).toBeVisible();await expect(page.locator('#meetingShortName')).toBeVisible();
+  await page.locator('#meetingRoundNo').fill('5');
+  await pick.getByRole('radio',{name:'정책',exact:true}).click();
+  await expect(page.locator('#meetingRoundNo')).toHaveCount(0);await expect(page.locator('#meetingShortName')).toHaveCount(0);
+  await pick.getByRole('radio',{name:'회의',exact:true}).click();
+  await expect(page.locator('#meetingRoundNo')).toHaveValue('5');
+  await pick.getByRole('radio',{name:'국회',exact:true}).click();
+  await expect(page.locator('#meetingRoundNo')).toHaveCount(0);
   await expect(page.locator('#meetingTitleLabel')).toHaveText('제목');await expect(page.locator('[data-rw="meetingResultLegend"]')).toHaveText('내용');
   await expect(page.locator('#meetingMaterialsHead')).toHaveText('자료');await expect(page.locator('.meeting-create-modes')).toBeHidden();
   await page.locator('#meetingTitle').fill('합성 의원실 면담');await fillDateTime(page,'#meetingAt','2026-10-22T10:00');
@@ -163,14 +174,92 @@ test('폰 390: 결과 창에 칸 표시·[칸 바꾸기] PATCH, 뒤로가기는 
   const s=kindState();await open(page,s,390);
   await chip(page,'언론').click();await page.locator('#meetingList [data-mrd-meeting="p-1"]').click();
   await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();await expect(page.locator('#mrdMeta')).toContainText('언론 칸');
-  await page.locator('#mrdKind').click();const sheet=page.locator('#reportKindSheet');await expect(sheet).toBeVisible();
+  await mrdMenu(page,'kind');const sheet=page.locator('#reportKindSheet');await expect(sheet).toBeVisible();
   const box=await sheet.boundingBox();expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(391);
   await page.goBack();await expect(sheet).toBeHidden();await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();
-  await page.locator('#mrdKind').click();await sheet.locator('[data-sheet-value="education"]').click();
+  await mrdMenu(page,'kind');await sheet.locator('[data-sheet-value="education"]').click();
   await expect.poll(()=>s.meetingWrites.at(-1)?.activity_kind).toBe('education');
   await expect(page.locator('#mrdMeta')).toContainText('교육 칸');await expect(page.locator('#mrdStatus')).toContainText('교육');
   await page.locator('#mrdClose').click();
   await expect(chip(page,'교육')).toHaveAttribute('aria-checked','true');
   await expect(page.locator('#meetingList [data-mrd-meeting="p-1"]')).toBeVisible();
   expect(await noSideScroll(page)).toBe(true);
+});
+
+
+// MTG-보고창정리: 원문은 필수가 아니다. 비어 있어도 저장되고(transcript_text ''), 상세에는 원문 칸이 나오지 않는다.
+test('입력 창: 원문 없이도 저장된다 / 안내는 [선택]',async({page})=>{
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const s=kindState();await open(page,s,1280);
+  await chip(page,'교육').click();await page.locator('#newMeetingBtn').click();
+  await expect(page.locator('#meetingModal')).toBeVisible();
+  await expect(page.locator('#meetingTextLabel').locator('xpath=..')).toContainText('선택');
+  await page.locator('#meetingTitle').fill('합성 교육 행사');await fillDateTime(page,'#meetingAt','2026-10-22T10:00');
+  await page.locator('#saveMeetingBtn').click();
+  await expect.poll(()=>s.meetingWrites.at(-1)?.activity_kind).toBe('education');
+  expect(s.meetingWrites.at(-1)).toMatchObject({series_name:'합성 교육 행사',transcript_text:''});
+  await expect(page.locator('#meetingModal')).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+for(const width of [390,1280])test(`${width}: 상세 창 - 정리함 담기·안내문 없음, 큰 버튼 줄 대신 제목 줄 ⋯ 메뉴, 원문이 비면 원문 칸 없음`,async({page})=>{
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const s=kindState();
+  s.meetings.push({id:'e-1',workspace_id:s.workspace.id,title:'합성 빈 원문 회의',series_name:'합성 빈 원문 회의',round_no:3,meeting_at:'2026-10-20T01:00:00Z',transcript_text:'',decisions:'',notes:'',created_by:s.user.id,activity_kind:'meeting'});
+  await open(page,s,width);
+  await openMeetingResult(page,'e-1');
+  const modal=page.locator('#meetingRoundDetailModal');await expect(modal).toBeVisible();
+  await expect(modal.locator('#mrdResultSection')).toBeHidden();await expect(modal.locator('#mrdTextHead')).toBeHidden();
+  await expect(modal.locator('#mrdToBasket,#mrdBasketStatus,#mrdEdit,#mrdKind,#mrdDelete')).toHaveCount(0);
+  await expect(modal).not.toContainText('정리함에 담기');await expect(modal).not.toContainText('글을 길게 눌러 고르면');await expect(modal).not.toContainText('자료실 올리기 창이 열리고');
+  expect(await noSideScroll(page)).toBe(true);
+  // ⋯ 하나에 [수정][칸 바꾸기][삭제], 제목 줄 오른쪽(×의 왼쪽)에 있다.
+  const more=modal.locator('#mrdMore'),close=modal.locator('#mrdClose');
+  const mb=await more.boundingBox(),cb=await close.boundingBox(),tb=await modal.locator('#mrdTitle').boundingBox();
+  expect(mb.x).toBeGreaterThan(tb.x);expect(mb.x+mb.width).toBeLessThanOrEqual(cb.x+1);expect(Math.abs((mb.y+mb.height/2)-(cb.y+cb.height/2))).toBeLessThan(6);
+  await more.click();
+  await expect(modal.locator('#mrdMoreMenu button')).toHaveText(['수정','칸 바꾸기','삭제']);
+  await page.keyboard.press('Escape');await expect(modal.locator('#mrdMoreMenu')).toBeHidden();
+  // [수정]: 차수 줄은 회의 칸이라 있고, 원문이 비어도 저장된다.
+  await mrdMenu(page,'edit');
+  await expect(modal.locator('#mrdEditRound')).toHaveValue('3');await expect(modal.locator('#mrdEditTranscript')).toHaveValue('');
+  await modal.locator('#mrdEditNotes').fill('합성 특이사항');
+  await modal.locator('#mrdSaveEdit').click();
+  await expect.poll(()=>s.meetingWrites.at(-1)?.notes).toBe('합성 특이사항');
+  expect(s.meetingWrites.at(-1)).toMatchObject({transcript_text:'',round_no:3});
+  await expect(modal.locator('#mrdEditor')).toBeHidden();await expect(modal.locator('#mrdResultSection')).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
+test('1280: 상세 창 우클릭도 같은 ⋯ 메뉴',async({page})=>{
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const s=kindState();await open(page,s,1280);
+  await chip(page,'회의').click();
+  await openMeetingResult(page,'m-2');
+  const modal=page.locator('#meetingRoundDetailModal');await expect(modal).toBeVisible();
+  await modal.locator('#mrdTitle').click({button:'right'});
+  await expect(modal.locator('#mrdMoreMenu')).toBeVisible();await expect(modal.locator('#mrdMoreMenu button')).toHaveText(['수정','칸 바꾸기','삭제']);
+  expect(errors).toEqual([]);
+});
+
+// 다른 칸 기록은 차수·짧은 이름 줄이 없다. 이미 값이 든 기록만 수정 창에서 줄을 보여 값을 지우지 않는다.
+test('수정 창: 다른 칸은 차수 줄이 없고, 옛 차수가 든 기록은 값을 보여 주며 저장해도 그대로',async({page})=>{
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const s=kindState();
+  s.meetings.push({id:'r-1',workspace_id:s.workspace.id,title:'합성 옛 차수 기록',series_name:'합성 옛 차수 기록',round_no:4,meeting_at:'2026-10-19T01:00:00Z',transcript_text:'합성 원문',notes:'',created_by:s.user.id,activity_kind:'policy'});
+  await open(page,s,390);
+  await chip(page,'언론').click();await page.locator('#meetingList [data-mrd-meeting="p-1"]').click();
+  const modal=page.locator('#meetingRoundDetailModal');await expect(modal).toBeVisible();
+  await mrdMenu(page,'edit');
+  await expect(modal.locator('#mrdEditRound')).toHaveCount(0);await expect(modal.locator('#mrdEditShortName')).toHaveCount(0);
+  await modal.locator('#mrdEditTranscript').fill('고친 합성 원문');await modal.locator('#mrdSaveEdit').click();
+  await expect.poll(()=>s.meetingWrites.at(-1)?.transcript_text).toBe('고친 합성 원문');
+  expect('round_no' in s.meetingWrites.at(-1)).toBe(false);
+  await modal.locator('#mrdClose').click();
+  await chip(page,'정책').click();await page.locator('#meetingList [data-mrd-meeting="r-1"]').click();
+  await mrdMenu(page,'edit');
+  await expect(modal.locator('#mrdEditRound')).toHaveValue('4');
+  await modal.locator('#mrdSaveEdit').click();
+  await expect.poll(()=>s.meetingWrites.at(-1)?.round_no).toBe(4);
+  expect(errors).toEqual([]);
 });

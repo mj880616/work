@@ -4,7 +4,7 @@ import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
-import {selectMeetingRound,openMeetingResult} from './helpers/meeting-open.mjs';
+import {selectMeetingRound,openMeetingResult,mrdMenu} from './helpers/meeting-open.mjs';
 import {toplineItem} from './helpers/screen-title.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
@@ -103,7 +103,7 @@ for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 
   await more.click();await expect(menu).toBeVisible();await result(page).locator('.mcol-text').first().click();await expect(menu).toBeHidden();
   await more.click();await menu.locator('[data-meeting-menu="edit"]').click();
   await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();await expect(page.locator('#mrdTitle')).toContainText('궤도협의회');await expect(page.locator('#mrdMeta')).toContainText('5차');
-  await expect(page.locator('#mrdEdit')).toBeVisible();
+  await expect(page.locator('#mrdMore')).toBeVisible();
   await page.locator('#mrdClose').click();await expect(page.locator('#meetingRoundDetailModal')).toBeHidden();
   // 키보드: 종류 목록은 위·아래 화살표로 옮겨 다니고 Enter로 고른다. 가운데 차수 목록도 화살표·Enter.
   await kind(page,'궤도협의회').focus();await page.keyboard.press('ArrowDown');await expect(kind(page,'__none__')).toBeFocused();
@@ -139,7 +139,7 @@ test('PC 오른쪽 결과: 후속 할 일(읽기)·프로젝트·회의자료 �
   await round(page,'labor-1').click();await expect(result(page).locator('.mcol-tasks')).toContainText('후속 할 일이 없습니다.');
   await round(page,'labor-2').click();await expect(result(page).locator('.mcol-task')).toHaveCount(2);
   // 결과 창(⋯ → 수정)에서 원문을 고쳐 저장하면 창을 닫은 뒤 오른쪽도 새 원문.
-  await openMeetingResult(page,'labor-2');await page.locator('#mrdEdit').click();await page.locator('#mrdEditTranscript').fill('고친 가상 원문');await page.locator('#mrdSaveEdit').click();
+  await openMeetingResult(page,'labor-2');await mrdMenu(page,'edit');await page.locator('#mrdEditTranscript').fill('고친 가상 원문');await page.locator('#mrdSaveEdit').click();
   await expect.poll(()=>s.meetingWrites.at(-1)?.transcript_text).toBe('고친 가상 원문');
   await page.locator('#mrdClose').click();
   await expect(result(page).locator('.mcol-text').first()).toHaveText('고친 가상 원문');await expect(result(page)).toHaveAttribute('data-meeting-result','labor-2');
@@ -233,14 +233,14 @@ test('① 카드 시각: 직접 지정 → 회의 결과 글의 일시 → 날�
   await openMeetingResult(page,'rail-derived');await expect(page.locator('#mrdMeta')).toContainText('파생 간담회');await expect(page.locator('#mrdMeta')).toContainText('2026. 10. 19. 오후 02:00');
   await expect(page.locator('#mrdMeta')).not.toContainText('기존 제목');
   // 수정 창의 짧은 이름 칸: 지금 짧은 이름이 들어 있고, 바꾸면 제목(title)만 바뀐다(종류 이름·저장된 시각은 그대로).
-  await page.locator('#mrdEdit').click();await expect(page.locator('#mrdEditShortName')).toHaveValue('파생 간담회');
+  await mrdMenu(page,'edit');await expect(page.locator('#mrdEditShortName')).toHaveValue('파생 간담회');
   await page.locator('#mrdEditShortName').fill('파생 토론회');await page.locator('#mrdSaveEdit').click();
   await expect.poll(()=>s.meetingWrites.at(-1)?.title).toBe('파생 토론회');
   expect(s.meetingWrites.at(-1).series_name).toBeUndefined();expect(s.meetingWrites.at(-1).meeting_at).toBe('2026-10-18T15:00:00.000Z');
   await page.locator('#mrdClose').click();
   await expect(round(page,'rail-derived').locator('.mcol-round')).toHaveText('파생 토론회');await expect(toplineItem(page)).toContainText('파생 토론회');
   // 짧은 이름을 비우면 제목은 종류 이름과 같게 → 다시 '차수 없음'.
-  await openMeetingResult(page,'rail-derived');await page.locator('#mrdEdit').click();await page.locator('#mrdEditShortName').fill('');await page.locator('#mrdSaveEdit').click();
+  await openMeetingResult(page,'rail-derived');await mrdMenu(page,'edit');await page.locator('#mrdEditShortName').fill('');await page.locator('#mrdSaveEdit').click();
   await expect.poll(()=>s.meetingWrites.at(-1)?.title).toBe('궤도협의회');await page.locator('#mrdClose').click();
   await expect(round(page,'rail-derived').locator('.mcol-round')).toHaveText('차수 없음');
 });

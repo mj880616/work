@@ -250,10 +250,10 @@ for(const width of [390,1280])test('공용 창: 제목 18px/500, 버튼 한 높�
  modal=page.locator('#documentModal');await expect(modal).toBeVisible();
  await titleOf(modal);await inputs(modal);await labels(modal);expect((await sameButtons(page,modal)).length).toBeLessThanOrEqual(1);
  await page.keyboard.press('Escape');await expect(modal).toBeHidden();
- // 회의 상세: [삭제]는 빨간 테두리, 보조 버튼이라 공용 작은 버튼 높이(UI-MEET결과창정리).
+ // 회의 상세: 제목 줄 ⋯ 하나에 [수정]·[칸 바꾸기]·[삭제]가 있고 큰 버튼 줄은 없다(MTG-보고창정리).
  await view(page,'meetings');await openFirstMeetingResult(page);
  modal=page.locator('#meetingRoundDetailModal');await expect(modal).toBeVisible();
- const del=await look(modal.locator('#mrdDelete'));expect(del.height).toBe(parseFloat(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--ds-compact-height'))));expect(del.fg).toBe(await token(page,'--kptu-danger'));expect(del.border).toBe(await token(page,'--kptu-danger'));
+ await expect(modal.locator('#mrdEdit,#mrdKind,#mrdDelete')).toHaveCount(0);await modal.locator('#mrdMore').click();const del=modal.locator('#mrdMoreMenu [data-mrd-more="delete"]');await expect(del).toBeVisible();await expect(modal.locator('#mrdMoreMenu button')).toHaveText(['수정','칸 바꾸기','삭제']);await page.keyboard.press('Escape');await expect(del).toBeHidden();
  await page.keyboard.press('Escape');await expect(modal).toBeHidden();
  // 프로젝트 상세: 제목 18px, 위계(상위 링크는 제목 위)·⋯ 메뉴·접기(<details>)는 그대로.
  await view(page,'projects');await page.locator('[data-ps3-project="p1a"]').first().click();

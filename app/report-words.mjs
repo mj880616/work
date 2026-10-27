@@ -9,7 +9,6 @@ const MEETING=Object.freeze({
   nameMissing:'회의명을 입력해 주세요.',
   resultLegend:'회의 결과',
   textLabel:'회의 결과 원문',
-  textMissing:'회의 결과 원문을 입력해 주세요.',
   textPlaceholder:'회의 결과를 원문 그대로 입력하거나 붙여넣으세요. 줄바꿈을 포함해 그대로 저장됩니다.',
   materials:'회의자료',
   materialsEmpty:'회의자료가 없습니다.',
@@ -22,7 +21,6 @@ const OTHER=Object.freeze({
   nameMissing:'제목을 입력해 주세요.',
   resultLegend:'내용',
   textLabel:'원문',
-  textMissing:'내용 원문을 입력해 주세요.',
   textPlaceholder:'내용을 원문 그대로 입력하거나 붙여넣으세요. 줄바꿈을 포함해 그대로 저장됩니다.',
   materials:'자료',
   materialsEmpty:'자료가 없습니다.',
@@ -33,3 +31,11 @@ const OTHER=Object.freeze({
 // 칸 값 → 화면 글자 묶음. 모르는 값·빈 값은 [회의](옛 행과 같다).
 export function reportWords(kind){return !kind||kind===DEFAULT_KIND?MEETING:OTHER}
 export const isMeetingKind=kind=>reportWords(kind).meeting;
+
+// MTG-보고창정리: [차수]·[짧은 이름 — 차수가 없을 때] 줄은 회의를 등록할 때만 필요하다. 다른 칸의 새 기록에는 그리지 않는다.
+// 이미 차수·짧은 이름이 들어 있는 다른 칸 기록은 값을 지우지 않으려고 그 기록의 수정 창에서만 보여 준다(values: {round, shortName}).
+export function showRoundRows(kind,values={}){
+  if(isMeetingKind(kind))return true;
+  const round=values.round;
+  return (round!=null&&String(round).trim()!=='')||String(values.shortName??'').trim()!=='';
+}
