@@ -1262,9 +1262,8 @@ html #appView > .app-nav .nav-btn[data-nav-open]:has(+ .nav-sub){ color:var(--kp
 :is(#eventModal,#gtTaskModal) .gt-pick .gt-pick-btn{
   height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); line-height:1;
 }
-.modal :is(#eventTaskProject,#meetingPlaces){ display:inline-flex; width:auto; max-width:100%; justify-content:flex-start; }
-/* UI-버튼전수조사: 사업 보고 창 [연결 안 함 ▾](고르기 버튼)도 일정 창 [프로젝트 선택 안 함 ▾]과 같이 작은 버튼·글자 폭. 길면 창 폭에서 말줄임. */
-.modal #meetingPlaces{ display:block; height:var(--ds-compact-height); min-height:var(--ds-compact-height); line-height:var(--ds-compact-height); padding-top:0; padding-bottom:0; }
+.modal :is(#eventTaskProject){ display:inline-flex; width:auto; max-width:100%; justify-content:flex-start; }
+/* 사업 보고 창 [연결할 곳] 버튼은 공용 .field-btn(아래 MTG-보고창칸정리)이 그린다: 칸과 같은 28px·창 폭. */
 /* ③ 담당조직 상세 [저장]: 36px, [크게]는 보조 버튼이라 32px(UI-버튼전수조사 2026-10-24, PC 상세 칸 ⤢·프로젝트 상세 ⤢와 같은 값). 같은 줄 가운데 맞춤.
    프로젝트 상세 [기록]은 옆 입력칸과 한 높이(PRJ-화면다듬기)라 그대로 둔다. */
 #wdModal #wdInboxSave,

@@ -82,8 +82,9 @@ async function sameButtons(page,region,skip='.icon-btn'){
  return filled;
 }
 async function inputs(region){
- for(const input of await region.locator('input:visible:not([type="checkbox"],[type="radio"],[type="file"],[type="color"]),select:visible').all()){
-  const s=await look(input);expect(s.height,await input.getAttribute('id')).toBeGreaterThanOrEqual(46);expect(s.radius).toBe('8px');expect(s.fontWeight).toBe('400');
+ for(const input of await region.locator('input:visible:not([type="checkbox"],[type="radio"],[type="file"],[type="color"],.dt-date>input),select:visible').all()){
+  // MTG-보고창칸정리(명진 2026-10-27): 창 한 줄 입력칸 높이 46px -> 28px(공용 --ds-field-height). 날짜 칸 위에 투명하게 겹친 달력 입력(.dt-date>input)은 칸 자체(.dt-date)가 28px라 뺀다.
+  const s=await look(input);expect(s.height,await input.getAttribute('id')).toBeGreaterThanOrEqual(28);expect(s.height,await input.getAttribute('id')).toBeLessThanOrEqual(30);expect(s.radius).toBe('8px');expect(s.fontWeight).toBe('400');
  }
 }
 // Normal text contrast (WCAG): every visible text node in the viewport against its painted background. Large text needs 3:1.
@@ -228,7 +229,7 @@ test('공용 셸(PC): 사이드바 0.5px 상자·그림자 없음, 메뉴 13px(�
  expect(errors).toEqual([]);
 });
 
-for(const width of [390,1280])test('공용 창: 제목 18px/500, 버튼 한 높이·채운 버튼 하나, 입력칸 46px·8px, 라벨 500, 프로젝트 상세 위계·⋯·접기 그대로 '+width,async({page})=>{
+for(const width of [390,1280])test('공용 창: 제목 18px/500, 버튼 한 높이·채운 버튼 하나, 입력칸 28px·8px, 라벨 500, 프로젝트 상세 위계·⋯·접기 그대로 '+width,async({page})=>{
  const {errors}=await boot(page,width);
  const titleOf=async modal=>{const t=await look(modal.locator('.modal-head h2').first());expect([t.fontSize,t.fontWeight]).toEqual(['18px','500']);};
  const labels=async modal=>{for(const label of await modal.locator('label:visible').all())expect((await look(label)).fontWeight).toBe('500');};
