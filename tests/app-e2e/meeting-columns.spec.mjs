@@ -101,7 +101,7 @@ for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 
   const more=result(page).locator('#mrdMore');await more.click();
   const menu=page.locator('#mrdMoreMenu');await expect(menu).toBeVisible();await expect(more).toHaveAttribute('aria-expanded','true');
   // 메뉴는 [수정] [칸 바꾸기] [삭제], 열면 [수정]에 초점.
-  await expect(menu.locator('button')).toHaveText(['수정','칸 바꾸기','삭제']);await expect(menu.locator('button').first()).toBeFocused();
+  await expect(menu.locator('button')).toHaveText(['수정','칸 바꾸기','성명 초안 만들기','삭제']);await expect(menu.locator('button').first()).toBeFocused();
   const pos=await page.evaluate(()=>{const a=document.querySelector('#mrdMore').getBoundingClientRect(),b=document.querySelector('#mrdMoreMenu').getBoundingClientRect();return {gap:b.top-a.bottom,right:b.right<=innerWidth,left:b.left>=0}});
   expect(pos.gap).toBeGreaterThanOrEqual(0);expect(pos.gap).toBeLessThanOrEqual(12);expect(pos.right&&pos.left).toBe(true);
   // Esc는 메뉴만 닫고 ⋯로 돌아간다. 바깥을 눌러도 닫힌다.

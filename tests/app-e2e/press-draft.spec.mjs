@@ -30,7 +30,11 @@ async function fixture(page,{width,ai=()=>({json:ANSWER})}){
    calls.ai.push(body);return route.fulfill(ai(body));
   });
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_notes',route=>{
-   if(route.request().method()!=='POST')return route.fallback();
+   const method=route.request().method(),q=new URL(route.request().url()).searchParams;
+   // the folder write after the save: read the new note's metadata, then one guarded PATCH (basket-data.js setNoteFolderRef)
+   if(q.get('id')===`eq.${NOTE}`&&method==='GET')return route.fulfill({json:[{id:NOTE,updated_at:'2026-10-06T01:00:00Z',metadata:{}}]});
+   if(q.get('id')===`eq.${NOTE}`&&method==='PATCH'){const body=route.request().postDataJSON();calls.folders.push(body);return route.fulfill({json:[{id:NOTE,updated_at:'2026-10-06T01:00:00Z',metadata:body.metadata}]});}
+   if(method!=='POST')return route.fallback();
    const body=route.request().postDataJSON();calls.notes.push(body);
    return route.fulfill({status:201,json:[{id:NOTE,kind:'note',...body,created_at:'2026-10-06T01:00:00Z',updated_at:'2026-10-06T01:00:00Z',metadata:{}}]});
   });
@@ -40,7 +44,6 @@ async function fixture(page,{width,ai=()=>({json:ANSWER})}){
    calls.links.push(route.request().postDataJSON());return route.fulfill({status:201,json:[]});
   });
  }});
- page.on('request',r=>{const u=new URL(r.url());if(u.origin===SB&&u.pathname==='/rest/v1/app_notes'&&r.method()==='PATCH')calls.folders.push({query:u.search,body:r.postDataJSON()});});
  return {errors,calls};
 }
 const dlg=page=>page.locator('#pressDraftDialog');
@@ -78,6 +81,7 @@ for(const width of [412,884,1440])test(`press draft: pick 근거, preview only, 
  await expect(d.locator('[data-pd-status]')).toContainText('노트로 저장했어요.');
  await expect(d.locator('[data-pd-status]')).toContainText("'성명 초안' 폴더에 넣었어요.");
  expect(f.calls.notes.length).toBe(1);
+ expect(f.calls.folders).toEqual([{metadata:{folder_id:FOLDER,folder:'성명 초안'}}]);
  const note=f.calls.notes[0];
  expect(note).toMatchObject({kind:'note',title:ANSWER.title,ai_export_allowed:false});
  expect(note.raw_text).toContain('[성명 초안 · AI 초안 · 사실 확인 전]');
