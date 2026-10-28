@@ -234,6 +234,9 @@ jobs:
       - name: Check telegram hourly send (new messages only, night rest, cumulative day summary)
         run: node --test tests/tg-feed-hourly.test.mjs
 
+      - name: Check journal evening AI draft rules (today line draft, work calls only)
+        run: node --test tests/journal-draft-model.test.mjs
+
       - name: Check phone bottom tab selection rule
         run: node --test tests/mobile-tab-selection.test.mjs tests/menu-model.test.mjs tests/home-cards-model.test.mjs tests/menu-home-prefs.test.mjs
 
@@ -317,6 +320,9 @@ jobs:
 
       - name: Check photo menu (PHOTO-사진메뉴 1차, newest-first list·day heads·calendar cover·multi star·delete undo·shared viewer, synthetic)
         run: node --test tests/photos-model.test.mjs
+
+      - name: Check arsenal menu (주소 개편 ② E1, newest-first list·season/competition/search filters·goal lines·https links only, real archive data)
+        run: node --test tests/arsenal-model.test.mjs
 
       - name: Check diary list view (JOURNAL-일기목록, month groups·pin·star·find·view memory·no device storage, synthetic)
         run: node --test tests/diary-list-model.test.mjs
