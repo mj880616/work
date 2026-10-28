@@ -210,3 +210,37 @@ test('LIB-보기기억: 프로젝트 상세에서 자료 전체 보기로 들어
   await expect(chip(page,'정책')).toHaveAttribute('aria-pressed','false');await expect(chip(page,'회의')).toHaveAttribute('aria-pressed','true');
   expect(s.profilePatches||[]).toEqual([]);
 });
+
+// LIB-폴더보기 칩 순서(2026-10-28 08:25 ②, 11:53 결정 ①): 묶기 칩 처음 순서는 [폴더] 맨 앞. 칩을 끌어(폰은 꾹 눌러) 옮기면 순서가 바뀌고
+// 서버(library_view.group_order)에 기억해 새로 열어도(다른 기기) 같다. 고른 묶기는 그대로이고 칩을 끈 뒤 손을 떼도 그 칩이 눌리지 않는다.
+// 적용 전 서버(group_order 거절)에서는 그 칸만 빼고 다시 보내 다른 기억은 지키고, 순서는 이번 방문 동안만.
+const groupChips=page=>page.locator('#libraryGroupBy [data-filter-value]');
+async function dragChip(page,from,to){
+  const a=await page.locator(`#libraryGroupBy [data-filter-value="${from}"]`).boundingBox(),b=await page.locator(`#libraryGroupBy [data-filter-value="${to}"]`).boundingBox();
+  await page.mouse.move(a.x+a.width/2,a.y+a.height/2);await page.mouse.down();
+  await page.mouse.move(a.x+a.width/2-10,a.y+a.height/2,{steps:3});await page.mouse.move(b.x+4,b.y+b.height/2,{steps:8});await page.mouse.up();
+}
+for(const missing of [false,true])test(`LIB-폴더보기 칩 순서: [폴더] 맨 앞, 끌어 옮기면 서버에 기억${missing?' (적용 전 서버: 이번 방문만)':''}`,async({page,browser})=>{
+  const s=state(missing?{libraryViewNoOrder:true}:{});
+  const {errors}=await boot(page,1280,{s});
+  await expect.poll(()=>(s.profileReads||[]).some(q=>/select=library_view/.test(q))).toBe(true);
+  await expect(groupChips(page)).toHaveText(['폴더','프로젝트','담당조직','분류','월별']);
+  const checked=await page.locator('#libraryGroupBy [aria-checked="true"]').getAttribute('data-filter-value');
+  await dragChip(page,'month','folder');
+  await expect(groupChips(page)).toHaveText(['월별','폴더','프로젝트','담당조직','분류']);
+  await expect(page.locator('#libraryGroupBy [aria-checked="true"]')).toHaveAttribute('data-filter-value',checked);
+  if(missing){
+    await expect.poll(()=>(s.profilePatches||[]).length,{timeout:5000}).toBe(2);
+    expect(s.profilePatches[0].library_view.group_order).toEqual(['month','folder','project','organization','category']);
+    expect('group_order' in s.profilePatches[1].library_view).toBe(false);
+    // 다음 저장(분류 칩)에도 다시 보내지 않는다. 화면 순서는 그대로.
+    await chip(page,'교섭').click();await saved(s,3);expect('group_order' in s.profilePatches[2].library_view).toBe(false);
+    await expect(groupChips(page)).toHaveText(['월별','폴더','프로젝트','담당조직','분류']);
+  }else{
+    await saved(s,1);expect(s.profilePatches[0]).toEqual({library_view:{group_order:['month','folder','project','organization','category']}});
+    // 새로 열면(다른 기기) 같은 순서.
+    const other=await browser.newPage();await boot(other,390,{s});
+    await expect(groupChips(other)).toHaveText(['월별','폴더','프로젝트','담당조직','분류']);await other.close();
+  }
+  expect(errors).toEqual([]);
+});

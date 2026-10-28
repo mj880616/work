@@ -12,7 +12,8 @@ export function dropIndex(centers, y) {
 // root 안의 listSelector 칸들, 칸 안의 itemSelector 줄들. handleSelector는 줄 안 손잡이.
 // onDrop({id, list, index}) : list = 칸의 data-reorder-list 값, index = 끌고 있는 줄을 뺀 그 칸 안 자리.
 // onStep(id, dir) : 키보드. canDrag(id) : false면 잡히지 않는다(고정 줄).
-export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSelector = '[data-reorder-id]', handleSelector = '[data-reorder-handle]', onDrop, onStep = () => {}, canDrag = () => true, scroller = () => null} = {}) {
+// axis: 'y'(기본, 위아래 줄) 또는 'x'(가로 칩 줄 — 자료실 묶기 칩 순서). 'x'면 놓을 자리를 가로 가운데 위치로 정한다.
+export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSelector = '[data-reorder-id]', handleSelector = '[data-reorder-handle]', onDrop, onStep = () => {}, canDrag = () => true, scroller = () => null, axis = 'y'} = {}) {
   let drag = null, touch = null, marker = null, scrollDir = 0, scrollTimer = 0;
   const idOf = el => el?.dataset?.reorderId || '';
   const lists = () => [...root.querySelectorAll(listSelector)];
@@ -35,7 +36,9 @@ export function mountReorder(root, {listSelector = '[data-reorder-list]', itemSe
     }
     if (!list) return null;
     const items = [...list.querySelectorAll(itemSelector)].filter(el => el !== drag.el);
-    const index = dropIndex(items.map(el => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; }), y);
+    const index = axis === 'x'
+      ? dropIndex(items.map(el => { const r = el.getBoundingClientRect(); return r.left + r.width / 2; }), x)
+      : dropIndex(items.map(el => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; }), y);
     return {list, listId: list.dataset.reorderList || '', items, index};
   }
   function showMark(t) {
