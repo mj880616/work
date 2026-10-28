@@ -282,3 +282,10 @@ button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset
 .kptu-ask-note{display:block;margin:0 0 6px;font-size:11px;color:var(--kptu-muted)}
 .kptu-ask-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:6px}
 .kptu-ask-actions button{min-height:var(--kptu-action-compact-height)}
+/* 폴더 위치 줄 공용 모양(NOTE-탐색기 후속 ⑧): 자료실 '자료실 › … '·노트 '노트 › … ' 들어가기 위 한 줄. 작고 낮게, 길면 가로로 넘김(folder-path.mjs). */
+.fp-path{display:flex;align-items:center;gap:2px;margin:2px 0 4px;overflow-x:auto;white-space:nowrap;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);scrollbar-width:none}
+.fp-path[hidden]{display:none}
+.fp-path .fp-step{min-height:32px;padding:0 6px;border:0;border-radius:var(--kptu-radius-sm,6px);background:transparent;color:var(--kptu-primary-ink);font:inherit;cursor:pointer}
+.fp-path .fp-step:hover,.fp-path .fp-step:focus-visible{background:var(--kptu-surface-subtle)}
+.fp-path .fp-here{padding:0 6px;color:var(--kptu-ink);font-weight:600}
+.fp-path .fp-sep{color:var(--kptu-muted)}

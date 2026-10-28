@@ -284,10 +284,11 @@ async function openWriter(kind='update'){
     if(kind==='note'){
       const [{openNoteWindow},{requestNoteDocOpen},{createNoteFolderPick,lastViewedFolder}]=await Promise.all([import('./note-window.js'),import('./basket-note-tasks.js'),import('./note-folder-pick.js'),window.KPTUViewLoader?.prepare?.('basket')]);
       if(owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return;
-      // The note window's [폴더 ▾] starts at the folder last viewed on the note screen (server view settings; none seen = 폴더 없음). The chosen
-      // folder is written by the window right after the note is saved.
+      // NOTE-탐색기 후속 ⑤: the note window's [폴더 ▾] is the same folder tree picker as the note screen (note-folder-pick.js → library-move-picker.js).
+      // It starts at the top folder named by the last viewed folder setting (server view settings; none = 폴더 밖). The chosen folder (id) is
+      // written by the window right after the note is saved (pick.put → setNoteFolderRef).
       const pick=createNoteFolderPick({initial:lastViewedFolder(),title:'새 노트를 넣을 폴더'});void pick.load();
-      openNoteWindow({text:'',title:'새 노트',noteFolder:{label:pick.label,open:pick.open,get:pick.get,watch:pick.watch,close:pick.close,write:true},onClose:({saved})=>{
+      openNoteWindow({text:'',title:'새 노트',noteFolder:{label:pick.label,open:pick.open,get:pick.get,put:pick.put,watch:pick.watch,close:pick.close,write:true},onClose:({saved})=>{
         if(saved?.kind!=='note')return;
         requestNoteDocOpen(saved.id);
         const go=()=>window.KPTURouter?.go('basket',{source:'delegated'});
