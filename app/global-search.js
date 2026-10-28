@@ -14,6 +14,7 @@ import {requestBasketNote, requestNoteDocOpen, requestTaskOpen} from './basket-n
 import {requestLibraryDocument, requestLibrarySelection} from './basket-library-send.js';
 import {createAnchoredMenu} from './anchored-menu.js';
 import {notify} from './small-notice.js';
+import {looksSecret, SECRET_TITLE} from './note-secret.mjs';
 
 (() => {
 'use strict';
@@ -223,13 +224,15 @@ function rowNode(item, key, where) {
   row.append(icon(groupOf(groupKeyOfServer(item.kind) || key)?.icon || groupOf(key)?.icon));
   const main = el('span', 'gs-row-main');
   const head = el('span', 'gs-row-head');
-  head.append(marked(item.title, state.words, 'gs-row-title'));
+  // NOTE-비밀메모(17:23 결정): 비밀번호·토큰·키 모양 글이 보이는 노트 결과는 제목을 '비밀 메모'로 가리고 본문 조각은 보이지 않는다.
+  const secret = item.source === 'note' && item.kind === 'note' && looksSecret(`${item.title || ''}\n${item.snippet || ''}`);
+  head.append(secret ? el('span', 'gs-row-title', SECRET_TITLE) : marked(item.title, state.words, 'gs-row-title'));
   if (item.state && STATE_LABEL[item.state]) head.append(el('span', `gs-state gs-state-${item.state}`, STATE_LABEL[item.state]));
   if (item.source === 'document') { const f = docFolder.get(item.id); if (f) head.append(el('span', 'gs-row-folder', `📁 ${f}`)); else if (f === undefined) folderAsk.add(item.id); }
   main.append(head);
   const meta = [dateLabel(item), placeLabel(item)].filter(Boolean).join(' · ');
   if (meta) main.append(el('span', 'gs-row-meta', meta));
-  if (item.snippet && item.matched_in !== 'title') {
+  if (item.snippet && item.matched_in !== 'title' && !secret) {
     const snip = marked(item.snippet, state.words, 'gs-row-snippet');
     // ② 첨부 안 글자: 자료(document)는 파일 안 글자(extracted_text), 메모는 사진 글자(ocr). 작은 글자 한 줄로만 밝힌다.
     if (item.matched_in === 'attachment') snip.prepend(el('span', 'gs-row-where', item.source === 'document' ? '파일 안 글자에서 찾음 · ' : '사진 글자 · '));

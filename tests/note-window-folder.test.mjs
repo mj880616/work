@@ -67,6 +67,6 @@ test('NOTE-탐색기 후속 ⑤: an old folder name maps to the top folder of th
   assert.equal(folderIdFromName(folders, null), null);
   assert.equal(folderIdFromName(null, '회의'), null);
   assert.equal(noteFolderPlace(folders, 'c'), '\u{1F4C1} 개발');
-  assert.equal(noteFolderPlace(folders, null), '폴더 밖');
-  assert.equal(noteFolderPlace(folders, 'gone'), '폴더 밖');
+  assert.equal(noteFolderPlace(folders, null), '폴더 없음');
+  assert.equal(noteFolderPlace(folders, 'gone'), '폴더 없음');
 });

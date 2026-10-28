@@ -1,7 +1,7 @@
 // NOTE-탐색기: 노트 폴더 나무의 순수 부분(app/note-tree.mjs). 화면·네트워크 없음. 예시는 가짜 이름만.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {noteFolderId, foldersFromNames, noteFolderIdLegacy, noteLineTitle, noteLineDate, treeRows, folderContents, folderPath, canMoveFolder, noteFolderErrorText, OUTSIDE} from '../app/note-tree.mjs';
+import {noteFolderId, foldersFromNames, noteFolderIdLegacy, noteLineTitle, noteLineDate, treeRows, folderContents, folderPath, canMoveFolder, noteFolderErrorText, OUTSIDE, paneRows, paneHead} from '../app/note-tree.mjs';
 import {FOLDER_DEPTH_LIMIT} from '../app/folder-limits.mjs';
 
 const U = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -38,7 +38,7 @@ test('한 줄 제목·날짜: 직접 쓴 제목 → AI 제목 → 첫 줄(기호
 
 test('폰 한 화면 나무: 닫힌 폴더 안은 만들지 않고, 열면 들여쓰기, 폴더 밖은 맨 아래', () => {
   const closed = treeRows({folders:F, notes:N, folderOf:of});
-  assert.deepEqual(closed.map(r => `${r.type}:${r.name || r.id}:${r.count ?? ''}`), ['folder:가:1', 'folder:나:1', 'outside:폴더 밖:2']);
+  assert.deepEqual(closed.map(r => `${r.type}:${r.name || r.id}:${r.count ?? ''}`), ['folder:가:1', 'folder:나:1', 'outside:폴더 없음:2']);
   const open = treeRows({folders:F, notes:N, folderOf:of, isOpen:id => id === U(1) || id === U(2) || id === OUTSIDE});
   assert.deepEqual(open.map(r => `${r.type}:${r.id}:${r.depth}`), [`folder:${U(1)}:0`, `folder:${U(2)}:1`, 'note:a:2', `folder:${U(3)}:0`, 'outside:out:0', 'note:c:1', 'note:d:1']);
   const entered = treeRows({folders:F, notes:N, folderOf:of, root:U(1)});
@@ -80,4 +80,21 @@ test('AI title shows over an auto-filled title, never over an own title', async 
   assert.equal(await requestNoteAiTitle('n2', {rt: {}, call: async () => ({ok: true, data: {kind: 'note_title', skipped: 'own_title'}}), notify: () => told++}), null);
   assert.equal(await requestNoteAiTitle('n3', {rt: {}, call: async () => { throw new Error('x'); }, notify: () => told++}), null);
   assert.equal(told, 1, 'only a made title reloads the list');
+});
+
+// 10/28 17:45(PC)·17:55(폰 한 화면씩) 화면 정리.
+test('PC 오른쪽은 고른 폴더 노트만(폴더 줄 없음), 폰은 첫 화면 폴더 목록 → 폴더 화면(하위 폴더 먼저)', () => {
+  assert.deepEqual(paneRows({folders:F, notes:N, folderOf:of, at:U(1)}).map(r => r.id), [], 'PC: 폴더 줄은 왼쪽 나무에만');
+  assert.deepEqual(paneRows({folders:F, notes:N, folderOf:of, at:U(2)}).map(r => r.id), ['a']);
+  assert.deepEqual(paneRows({folders:F, notes:N, folderOf:of, at:null}).map(r => r.id), ['c', 'd'], 'PC 맨 위 = 폴더 없음');
+  assert.deepEqual(paneRows({folders:F, notes:N, folderOf:of, at:OUTSIDE}).map(r => r.id), ['c', 'd']);
+  const top = paneRows({folders:F, notes:N, folderOf:of, at:null, phone:true});
+  assert.deepEqual(top.map(r => `${r.type}:${r.name}:${r.count}`), ['folder:가:1', 'folder:나:1', 'outside:폴더 없음:2'], '폰 첫 화면: 폴더 목록, 폴더 없음 맨 아래');
+  assert.deepEqual(paneRows({folders:F, notes:N, folderOf:of, at:U(1), phone:true}).map(r => `${r.type}:${r.id}`), [`folder:${U(2)}`], '하위 폴더 줄 먼저');
+  assert.deepEqual(paneRows({folders:F, notes:N, folderOf:of, at:U(3), phone:true}).map(r => r.id), ['b']);
+  assert.deepEqual(paneRows({folders:F, notes:N, folderOf:of, at:OUTSIDE, phone:true}).map(r => r.id), ['c', 'd']);
+  assert.deepEqual(paneRows({folders:[], notes:N, folderOf:() => null, at:null, phone:true}).map(r => r.id), ['a', 'b', 'c', 'd'], '폴더가 없으면 바로 노트');
+  assert.deepEqual(paneRows({folders:F, notes:N, folderOf:of, at:null, phone:true, matches:n => n.id === 'a'}).map(r => r.path), ['가 › 가-1'], '찾는 중이면 경로와 함께');
+  assert.deepEqual(paneHead({folders:F, notes:N, folderOf:of, at:U(1)}), {name:'가', count:1});
+  assert.deepEqual(paneHead({folders:F, notes:N, folderOf:of, at:OUTSIDE}), {name:'폴더 없음', count:2});
 });

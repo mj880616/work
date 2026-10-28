@@ -23,8 +23,8 @@ export function folderIdFromName(folders, name) {
   if (!want || !Array.isArray(folders)) return null;
   return folders.filter(f => f && !f.parent_id && f.name === want).sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0))[0]?.id ?? null;
 }
-// 옮긴 뒤 알림에 쓰는 자리 이름: '📁 이름' 또는 '폴더 밖'.
+// 옮긴 뒤 알림에 쓰는 자리 이름: '📁 이름' 또는 '폴더 없음'(17:45 ④ 옛 '폴더 밖').
 export function noteFolderPlace(folders, id) {
   const f = id && Array.isArray(folders) ? folders.find(x => x.id === id) : null;
-  return f ? `\u{1F4C1} ${f.name}` : '폴더 밖';
+  return f ? `\u{1F4C1} ${f.name}` : '폴더 없음';
 }

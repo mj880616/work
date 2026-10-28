@@ -40,7 +40,8 @@ async function fixture(page, width, made = null) {
   await page.route(SB + '/rest/v1/app_record_links?**', r => { const q = new URL(r.request().url()).searchParams; return q.has('note_id') ? r.fulfill({ json: [] }) : r.fallback(); });
   await page.evaluate(() => window.KPTURouter.go('basket'));
   await chooseBasketKind(page,'note');
-  await expect(page.locator('[data-note-row]')).toHaveCount(rows.length);
+  // 10/28 17:55: the phone's first screen is the folder list (no note rows), so wait on the count in the head.
+  await expect(page.locator('[data-nx-count]')).toHaveText(`노트 · ${rows.length}`);
   return { rows, writes, errors, failOnce };
 }
 
@@ -74,7 +75,7 @@ for (const width of [1280, 390]) test(`the note input names the folder a new not
   // The new note goes into 회의 with the folder id and name (one metadata write after the save).
   await addNote(page, width, '새 노트 글');
   await expect.poll(() => f.rows.find(r => r.id === 'n-new')?.metadata).toEqual({ folder_id: U(1), folder: '회의' });
-  // [폴더 ▾] → [폴더 밖으로]: the next note goes to 폴더 밖.
+  // [폴더 ▾] → [폴더 밖으로]: the next note goes to 폴더 없음.
   await press(page, folderBtn(page), width);
   await press(page, picker(page).locator('[data-lu-move-out]'), width);
   await expect(folderBtn(page)).toHaveText('폴더 없음 ▾');
