@@ -378,6 +378,8 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   await original.evaluate(()=>document.querySelectorAll('#meetingRoundNo,#mrdEditRound').forEach(input=>input.closest('label')?.querySelector(':scope > .optional')?.remove()));
   // MTG-보고창정리: 입력·수정 창의 원문 칸 이름 줄에 작은 [선택] 표시가 생겼다(원문은 필수가 아님). 같은 모양을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
   await original.evaluate(()=>{for(const id of ['meetingTranscript','mrdEditTranscript'])document.getElementById(id)?.closest('label')?.insertAdjacentHTML('afterbegin','<span class="optional">선택</span>')});
+  // MTG-녹음초안: [회의] 입력 창의 원문 칸 위에 [녹음·전사 넣기] 줄과 접힌 패널(파일 칸·전사 글 칸)이 생겼다. 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다(기존 요소는 하나도 빼지 않는다).
+  {const html=await page.locator('#mtdBar').evaluate(el=>el.outerHTML+el.nextElementSibling.outerHTML);await original.locator('#meetingTranscript').evaluate((el,html)=>el.closest('label').insertAdjacentHTML('beforebegin',html),html)}
   // PRJ-색 added the project color field (hidden value input + choices); compare it under both style sets too.
   const colorField=await page.locator('#ps3CreateColorField').evaluate(el=>el.outerHTML);
   await original.locator('#ps3CreateParent').evaluate((el,html)=>el.closest('label').insertAdjacentHTML('afterend',html),colorField);
