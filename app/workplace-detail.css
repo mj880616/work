@@ -37,7 +37,9 @@
 .basket-link-menu button:hover{background:var(--kptu-surface-subtle)}
 .basket-link-menu .basket-link-danger{color:var(--kptu-danger)}
 .basket-link-menu button:focus-visible{outline:2px solid var(--kptu-primary);outline-offset:2px}
-#wdUpdates .basket-link-actions :is(button,a),#wdUpdates [data-link-summary-current],#wdUpdates [data-wd-link-retry]{min-height:44px;display:inline-flex;align-items:center;padding:6px 10px;box-sizing:border-box}
+/* UI-버튼통일(2026-10-28): 담당조직 창의 연결·수정 줄 버튼은 작은 버튼(32px), 누르는 범위 44px은 ::after. */
+#wdUpdates .basket-link-actions :is(button,a),#wdUpdates [data-link-summary-current],#wdUpdates [data-wd-link-retry]{position:relative;min-height:var(--ds-compact-height,32px);display:inline-flex;align-items:center;padding:0 10px;box-sizing:border-box}
+#wdUpdates .basket-link-actions :is(button,a)::after,#wdUpdates [data-link-summary-current]::after,#wdUpdates [data-wd-link-retry]::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 #wdUpdates [data-link-summary-form]{margin-top:10px;padding-top:10px;border-top:1px solid var(--kptu-border)}
 #wdUpdates [data-link-summary-input]{display:block;width:100%;max-width:100%;box-sizing:border-box;white-space:pre-wrap;resize:none}
 #wdUpdates :is(button,a,textarea):focus-visible{outline:2px solid var(--kptu-primary);outline-offset:2px}
@@ -47,7 +49,8 @@
 #wdUpdates [data-link-summary-form] .basket-link-actions{justify-content:flex-end}
 /* AI-서버연동 S4: [AI 요약] under the summary box; a proposal never replaces the text until [이걸로 바꾸기]. */
 #wdUpdates .ai-summary-row,#wdUpdates .ai-summary-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:6px}
-#wdUpdates [data-link-summary-ai-box] button{min-height:44px;display:inline-flex;align-items:center;padding:6px 10px;box-sizing:border-box}
+#wdUpdates [data-link-summary-ai-box] button{position:relative;min-height:var(--ds-compact-height,32px);display:inline-flex;align-items:center;padding:0 10px;box-sizing:border-box}
+#wdUpdates [data-link-summary-ai-box] button::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 #wdUpdates .ai-summary-status{min-width:0;font-size:var(--kptu-text-meta);color:var(--kptu-muted);overflow-wrap:anywhere}
 #wdUpdates .ai-summary-status:empty{display:none}
 #wdUpdates .ai-summary-proposal{margin-top:8px;padding:8px 10px;border:1px dashed var(--kptu-border);border-radius:var(--kptu-radius-md)}
@@ -90,7 +93,8 @@ a.wd-doc-main:focus-visible{outline:2px solid var(--kptu-info);outline-offset:2p
 #wdUpdates .wd-up-editor textarea{width:100%;box-sizing:border-box;min-height:96px;resize:none;font:inherit;font-size:var(--kptu-text-body);line-height:1.55}
 #wdUpdates .wd-up-editor .status:empty{display:none}
 #wdUpdates .wd-up-edit-actions{display:flex;justify-content:flex-end;gap:8px}
-#wdUpdates .wd-up-edit-actions button{min-height:44px;padding:6px 14px}
+#wdUpdates .wd-up-edit-actions button{position:relative;min-height:var(--ds-compact-height,32px);padding:0 12px}
+#wdUpdates .wd-up-edit-actions button::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 #wdUpdates :is(.wd-up-edit-actions [data-wd-field-big],[data-link-summary-form] [data-link-summary-big]){display:inline-flex;align-items:center;justify-content:center;min-width:44px;margin-right:auto;padding:6px 10px;color:var(--kptu-muted)}
 
 /* ORG-PC상세정리 (요청 14:10, PC 상세 칸만 — 761~1023px·폰 상세 창은 그대로).

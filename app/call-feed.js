@@ -27,7 +27,7 @@ const rt = window.KPTURuntime;
 const $ = sel => document.querySelector(sel);
 const pc = window.matchMedia('(min-width:1024px)');
 const phone = window.matchMedia('(max-width:760px)');
-const MORE = '<span aria-hidden="true">⋯</span>';
+const MORE = '<span class="more-dots" aria-hidden="true">⋯</span>';
 
 let state = fresh(), run = 0, layer = null, boxLayer = null, undo = null, ledgerAsk = null, loadP = null;
 function fresh() { return {edits:new Map(), editMissing:false, editFail:false, edit:null, who:null, sum:null, owner:'', loaded:false, loading:false, missing:false, error:'', rows:[], prows:[], pmissing:false, pfail:false, days:[], orgs:[], mine:new Set(), box:'work', selected:null, raw:new Map(), rawOpen:false, link:null, confirm:null, status:'', busy:false}; }
@@ -110,7 +110,7 @@ function paint() {
   $('#cfList').hidden = !wide && open; $('#cfDetail').hidden = !wide && !open;
   const row = rowOf(state.selected);
   window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'calls', name:wide && row ? topicOf(row) : null}}));
-  mountSplitResize({container:$('#cfSplit'), name:'tasks', label:'통화 목록과 상세 칸 폭 조절', list:() => $('#cfList'), pane:() => $('#cfDetail'), active:() => pc.matches && !view()?.classList.contains('hidden')});
+  mountSplitResize({container:$('#cfSplit'), name:'calls', inherit:'tasks', label:'통화 목록과 상세 칸 폭 조절', list:() => $('#cfList'), pane:() => $('#cfDetail'), active:() => pc.matches && !view()?.classList.contains('hidden')});
   focusEdit();
 }
 // 줄 안 제목 입력칸·고치기 박스를 다시 그린 뒤에도 쓰던 칸에 초점을 돌려준다. 제목 입력칸은 처음 한 번만 전체 선택.

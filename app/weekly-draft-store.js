@@ -23,6 +23,10 @@ export const DOC_TEXT_MAX = 200;
 //   issued: {at, from:'generated', lines:[{section, text}]} (weekly-lines.mjs). 원장 자동 기록(ai-assist, W-3)이 자료실 개인본을 이 줄과 견줘 바뀐 줄만 읽는다.
 //   임시저장은 draft 를 통째로 쓰므로 makeDraft·readDraft·merge3·keepDocsOnly 가 issued 를 다시 실어 보낸다(안 그러면 다음 저장에 지워진다).
 //   '고친 칸'이 아니라 사본 기록이라 hasContent·3자 비교 칸에는 넣지 않고(이어 쓰기·충돌 질문 없음), 합칠 때는 더 나중에 낸 것을 쓴다.
+// MTG-프로젝트합치기 사업영역 AI(docs/design/project-into-report.md 12.2·13절, 명진 결정 ⑤): 사업요약표 '진행' 한 줄 요약은 같은 draft의 area_summaries 칸.
+//   area_summaries: {"<사업영역 id>": {text, hash, edited, at}}. AI 줄(edited:false)은 서버 ai-assist가 쓰고, 사람이 고친 줄(edited:true)은
+//   [사업요약표 미리보기]의 [고치기]가 changeWeekAreaSummary로 쓴다. 한글 파일 상자·[주간 정리]는 읽은 그대로 다시 실어 보낸다.
+//   3자 비교 칸은 고친 줄만(area:<id>). AI 줄은 합칠 때 더 나중에 쓴 것(at)을 둔다. hasContent에는 넣지 않는다(상자에서 고친 것이 아님).
 
 // ---- 칸 열쇠 ----
 const oneLine = s => String(s ?? '').replace(/\s+/g, ' ').trim();
@@ -44,7 +48,7 @@ const sameLines = (a, b) => JSON.stringify(cleanLines(a)) === JSON.stringify(cle
 // me는 고친 이름일 때만(meFrom='typed'), date는 바탕(보고일)과 다를 때만 넘긴다(아니면 '').
 // keep: 이번 바탕에 넣지 못한 저장 칸(버리지 않고 다시 저장). titles: Map event → {title, place}.
 // drops(WEEKLY-환류, 설계 3.4): Map event → 'drop'(이번 주에 뺀 일정) | 'keep'(기억으로 빠지는 일정을 이번 주만 넣음) → dropped·kept.
-export function makeDraft({base = null, me = '', meFrom = '', date = '', cells = new Map(), initial = new Map(), keep = [], titles = new Map(), drops = new Map(), docs = [], confirmed = null, issued = null} = {}) {
+export function makeDraft({base = null, me = '', meFrom = '', date = '', cells = new Map(), initial = new Map(), keep = [], titles = new Map(), drops = new Map(), docs = [], areas = null, confirmed = null, issued = null} = {}) {
   const rows = [];
   for (const [id, lines] of cells) {
     if (initial.has(id) && sameLines(lines, initial.get(id))) continue;
@@ -57,6 +61,7 @@ export function makeDraft({base = null, me = '', meFrom = '', date = '', cells =
     titles:[...titles].map(([event, t]) => ({event:String(event), title:String(t?.title ?? ''), place:String(t?.place ?? '')}))};
   putDrops(out, drops);
   putDocs(out, docs);
+  putAreas(out, areas);
   if (confirmed) out.confirmed = confirmed;
   return putIssued(out, issued);
 }
@@ -99,12 +104,49 @@ export function withDocEdit(draft, id, patch) {
   return base;
 }
 // [처음부터]: 상자에서 고친 것은 비우되 [주간 정리]의 자료 줄 고침은 남긴다(없으면 null = 임시저장 비움).
-// 받은 초안 기록(issued)도 남긴다 — 처음부터 해도 이미 내준 초안의 기록은 그 주 비교 기준이다.
+// 받은 초안 기록(issued)·사업영역 한 줄 요약(area_summaries)도 남긴다 — 상자에서 고친 것이 아니다.
 export const keepDocsOnly = draft => {
-  const docs = draftDocs(draft), issued = readIssued(draft?.issued);
-  if (!docs.length && !issued) return null;
-  return putIssued({v:DRAFT_VERSION, base:null, me:'', me_from:'', date:'', rows:[], titles:[], ...(docs.length ? {docs} : {})}, issued);
+  const docs = draftDocs(draft), issued = readIssued(draft?.issued), areas = draftAreaSummaries(draft);
+  if (!docs.length && !issued && !Object.keys(areas).length) return null;
+  const out = {v:DRAFT_VERSION, base:null, me:'', me_from:'', date:'', rows:[], titles:[], ...(docs.length ? {docs} : {})};
+  putAreas(out, areas);
+  return putIssued(out, issued);
 };
+// ---- 사업영역 한 줄 요약(area_summaries) ----
+export const AREA_TEXT_MAX = 200; // 서버 readAreaSummaries 가 고친 줄을 자르는 길이와 같다
+const AREA_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const AREA_HASH = /^a1:[0-9a-f]{32}$/;
+// 한 항목을 모양대로(틀리면 null). 고친 줄은 hash 없음.
+export function cleanAreaSummary(e) {
+  if (!e || typeof e !== 'object' || Array.isArray(e)) return null;
+  const text = oneDocLine(e.text);
+  if (!text || [...text].length > AREA_TEXT_MAX) return null;
+  const edited = e.edited === true;
+  return {text, hash:!edited && typeof e.hash === 'string' && AREA_HASH.test(e.hash) ? e.hash : '', edited, at:typeof e.at === 'string' ? e.at.slice(0, 40) : ''};
+}
+// draft → {id: 항목}(모르는·틀린 것은 버림, 200개까지).
+export function draftAreaSummaries(draft) {
+  const raw = draft?.area_summaries, out = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for (const [id, e] of Object.entries(raw)) {
+    if (!AREA_ID.test(id) || Object.keys(out).length >= 200) continue;
+    const c = cleanAreaSummary(e);
+    if (c) out[id.toLowerCase()] = c;
+  }
+  return out;
+}
+function putAreas(out, areas) { const clean = draftAreaSummaries({area_summaries:areas}); if (Object.keys(clean).length) out.area_summaries = clean; else delete out.area_summaries; }
+// 사업영역 하나의 고친 줄을 바꾼 draft(draft가 없으면 빈 임시저장으로 시작). text가 비면(null·'') 그 사업영역 줄을 지운다 — 다음 요청 때 AI 줄이 다시 만들어진다.
+export function withAreaEdit(draft, areaId, text, at = new Date().toISOString()) {
+  const id = String(areaId || '').toLowerCase();
+  if (!AREA_ID.test(id)) throw new Error('area');
+  const base = draft ? {...draft} : {v:DRAFT_VERSION, base:null, me:'', me_from:'', date:'', rows:[], titles:[]};
+  const areas = draftAreaSummaries(base), line = oneDocLine(text);
+  if ([...line].length > AREA_TEXT_MAX) throw Object.assign(new Error(`한 줄은 ${AREA_TEXT_MAX}자까지예요.`), {code:'too_long'});
+  if (line) areas[id] = {text:line, hash:'', edited:true, at}; else delete areas[id];
+  putAreas(base, areas);
+  return base;
+}
 // 뺀 일정·이번 주만 넣은 일정(있을 때만 칸을 둔다 — 없으면 옛 모양 그대로).
 function putDrops(out, drops) {
   const dropped = [], kept = [];
@@ -131,6 +173,7 @@ export function readDraft(raw) {
   if (kept.length) out.kept = kept;
   putDocs(out, raw.docs);
   if (raw.confirmed && typeof raw.confirmed === 'object') out.confirmed = {document_id:String(raw.confirmed.document_id ?? ''), at:String(raw.confirmed.at ?? '')};
+  putAreas(out, raw.area_summaries);
   const issued = readIssued(raw.issued);
   if (issued) out.issued = issued;
   return out;
@@ -162,6 +205,7 @@ export function draftCells(draft) {
   for (const t of draft.titles ?? []) out.set(`title:${t.event}`, {title:t.title, place:t.place});
   for (const [event, how] of draftDrops(draft)) out.set(`drop:${event}`, how);
   for (const {id, ...rest} of draftDocs(draft)) out.set(`doc:${id}`, rest);
+  for (const [id, e] of Object.entries(draftAreaSummaries(draft))) if (e.edited) out.set(`area:${id}`, e.text);
   return out;
 }
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
@@ -188,9 +232,22 @@ export function merge3(base, mine, theirs) {
   }
   putDrops(out, new Map([...merged].filter(([k]) => k.startsWith('drop:')).map(([k, v]) => [k.slice(5), v])));
   putDocs(out, [...merged].filter(([k]) => k.startsWith('doc:')).map(([k, v]) => ({id:k.slice(4), ...v})));
+  putAreas(out, mergeAreas(base, mine, theirs, merged));
   const confirmed = mine?.confirmed ?? theirs?.confirmed;
   if (confirmed) out.confirmed = confirmed;
   return {draft:putIssued(out, newerIssued(newerIssued(base?.issued ?? null, mine?.issued ?? null), theirs?.issued ?? null)), conflicts};
+}
+
+// 사업영역 줄 합치기: 고친 줄은 3자 비교 결과(merged의 area:<id>), AI 줄은 세 판 중 더 나중에 쓴 것(고친 줄이 남은 사업영역은 그대로).
+function mergeAreas(base, mine, theirs, merged) {
+  const out = {}, sides = [base, mine, theirs].map(draftAreaSummaries);
+  for (const side of sides) for (const [id, e] of Object.entries(side)) if (!e.edited && !(out[id] && out[id].at >= e.at)) out[id] = e;
+  for (const id of Object.keys(out)) {
+    // 한쪽에서 고친 줄을 지웠으면(되돌리기) 옛 AI 줄도 두지 않는다 — 다음 요청 때 새로 만든다.
+    if (sides.some(side => side[id]?.edited) && !merged.has(`area:${id}`)) delete out[id];
+  }
+  for (const [k, text] of merged) if (k.startsWith('area:')) { const id = k.slice(5), at = sides.map(side => side[id]).filter(e => e?.edited && e.text === text).map(e => e.at).sort().at(-1) ?? ''; out[id] = {text, hash:'', edited:true, at}; }
+  return out;
 }
 
 // ---- 바탕 지문 ----
@@ -266,3 +323,8 @@ export async function changeWeekDocs({start, known = null, change}, rt = window.
   }
   throw Object.assign(new Error('changed'), {code:'changed'});
 }
+
+// [사업요약표 미리보기] 사업영역 한 줄 [고치기]: 그 주 행을 다시 읽고 area_summaries의 그 사업영역만 바꿔 쓴다(changeWeekDocs와 같은 다시 읽고 쓰기).
+// text 가 비면 고친 줄을 지운다(다음 요청 때 AI 줄). 반환 {ok:true, row} | {missing:true}.
+export const changeWeekAreaSummary = ({start, areaId, text, known = null, now = () => new Date().toISOString()}, rt = window.KPTURuntime) =>
+  changeWeekDocs({start, known, change:draft => withAreaEdit(draft, areaId, text, now())}, rt);

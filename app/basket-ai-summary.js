@@ -46,8 +46,12 @@ export const AI_SUMMARY_TEXT=Object.freeze({
   call_refill_not_pending:'이미 채웠거나 채울 수 없는 통화예요.',
   call_refill_unavailable:'통화 정보를 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
   note_title_unavailable:'노트 제목을 저장하지 못했어요.',
+  journal_draft_not_ready:'오늘 한 줄 초안 기능이 아직 준비되지 않았어요.',
+  journal_draft_unavailable:'오늘 한 줄 초안을 읽거나 저장하지 못했어요.',
   org_summary_not_ready:'조직 요약은 아직 준비 중이에요.',
   org_summary_unavailable:'조직 요약을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
+  org_people_not_ready:'주요 인물 기능이 아직 준비되지 않았어요.',
+  org_people_unavailable:'주요 인물 기록을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
   library_not_ready:'자료 정보 채우기가 아직 준비되지 않았어요.',
   library_unavailable:'자료를 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
   text_pending:'글자 읽는 중이에요. 잠시 뒤 다시 눌러 주세요.',
@@ -55,7 +59,7 @@ export const AI_SUMMARY_TEXT=Object.freeze({
   internal_error:'AI 요청을 처리하지 못했어요. 다시 눌러 주세요.',
 });
 // 잠깐의 문제라 같은 버튼을 [다시 시도]로 보여 줄 코드.
-const RETRYABLE=new Set(['offline','text_pending','auth_unavailable','usage_unavailable','read_unavailable','ai_busy','ai_timeout','ai_invalid_response','in_progress','radar_unavailable','ledger_unavailable','ledger_busy','org_summary_unavailable','internal_error']);
+const RETRYABLE=new Set(['offline','text_pending','auth_unavailable','usage_unavailable','read_unavailable','ai_busy','ai_timeout','ai_invalid_response','in_progress','radar_unavailable','ledger_unavailable','ledger_busy','org_summary_unavailable','org_people_unavailable','internal_error']);
 export const aiSummaryRetryable=code=>RETRYABLE.has(code);
 
 // 서버가 거절하는 메모(일기·보관·AI 제외·빈 글)에서는 버튼을 보이지 않는다(서버가 다시 확인한다).

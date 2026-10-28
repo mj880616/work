@@ -3,6 +3,7 @@
 import {photoElement} from './diary-data.js';
 import {attachmentName} from './attachment-name.mjs';
 import {holdPhotoMaker, forgetPhotoBlob, imageElementBlob, sharePhotoElement} from './photo-share.js';
+import {slotBox, slotLoading, slotShown, slotFailed} from './img-slot.js';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let current = null;
@@ -37,22 +38,28 @@ export function openPhotoView({row, file, trigger = null, rt = window.KPTURuntim
 function documentPhotoBox({file, getUrl, driveHref = ''}) {
   const shown = attachmentName({file_name: file.name}, '사진');
   const box = document.createElement('span');
-  box.className = 'diary-photo'; box.dataset.state = 'loading';
+  box.className = 'diary-photo'; box.dataset.state = 'loading'; slotBox(box);
   const img = document.createElement('img');
-  img.alt = shown; img.decoding = 'async'; img.hidden = true; box.append(img);
-  const fallback = () => {
-    img.onload = img.onerror = null; img.remove(); box.dataset.state = 'link';
-    const href = driveHref;
-    if (!href) { const mark = document.createElement('span'); mark.className = 'diary-photo-mark'; mark.textContent = '사진'; box.append(mark); return; }
-    const a = document.createElement('a');
-    a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.className = 'diary-photo-link';
+  img.alt = shown; img.decoding = 'async'; box.append(img);
+  let a = null;
+  // 못 받음: 공용 img-slot.js의 작은 ↻(누르면 다시) + Drive 보기 주소가 있으면 'Drive에서 열기'(photoElement와 같은 대체).
+  const fallback = why => {
+    img.onload = img.onerror = null; img.removeAttribute('src'); box.dataset.state = 'link';
+    slotFailed(box, load, why);
+    if (!driveHref || a) return;
+    a = document.createElement('a');
+    a.href = driveHref; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.className = 'diary-photo-link';
     a.textContent = 'Drive에서 열기'; a.setAttribute('aria-label', `${shown} Drive에서 열기`);
     box.append(a);
   };
-  // OD-공유고침: 뜬 그림(이 화면이 받은 blob: 주소)을 [공유]가 그대로 넘길 수 있게 칸에 걸어 둔다(photo-share.js).
-  img.onload = () => { img.onload = img.onerror = null; holdPhotoMaker(box, () => imageElementBlob(img)); box.dataset.state = 'shown'; };
-  img.onerror = () => { forgetPhotoBlob(box); fallback(); };
-  Promise.resolve().then(getUrl).then(url => { if (!url) throw new Error('url'); img.src = url; img.hidden = false; }, fallback);
+  function load() {
+    a?.remove(); a = null; box.dataset.state = 'loading'; slotLoading(box);
+    // OD-공유고침: 뜬 그림(이 화면이 받은 blob: 주소)을 [공유]가 그대로 넘길 수 있게 칸에 걸어 둔다(photo-share.js).
+    img.onload = () => { img.onload = img.onerror = null; holdPhotoMaker(box, () => imageElementBlob(img)); box.dataset.state = 'shown'; slotShown(box); };
+    img.onerror = () => { forgetPhotoBlob(box); fallback('img'); };
+    Promise.resolve().then(getUrl).then(url => { if (!url) throw new Error('url'); img.src = url; }, () => fallback('url'));
+  }
+  load();
   return {shown, box};
 }
 
@@ -83,7 +90,7 @@ export function openDocumentPhotoView({file, getUrl, driveHref = '', trigger = n
   };
   const paintMenu = () => {
     if (!actions) return;
-    more.innerHTML = '<summary class="basket-photo-more-btn" data-ctx="off" aria-label="사진 메뉴">⋯</summary><div class="basket-photo-more-panel" role="group" aria-label="사진 메뉴"></div>';
+    more.innerHTML = '<summary class="basket-photo-more-btn" data-ctx="off" aria-label="사진 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></summary><div class="basket-photo-more-panel" role="group" aria-label="사진 메뉴"></div>';
     const panel = more.querySelector('.basket-photo-more-panel');
     const share = document.createElement('button'); share.type = 'button'; share.dataset.photoShare = ''; share.textContent = '공유';
     share.addEventListener('click', () => { more.removeAttribute('open'); shareShown(); });

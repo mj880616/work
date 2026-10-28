@@ -32,7 +32,8 @@ import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the 
 import {weekStart, weekDays, shiftWeek, todayKey, ownerScope, readWorkWeek, changeWorkDay, validateWorkLine, WORK_LINE_MAX,
   workLines, addLine, editLine, removeLine, restoreLine, readWeekScheduleEvents, readDoneTasksWindow, readBasketUpdates, readMovedNotes, readOrgUpdates, readProjectUpdates,
   readWeekMeetings, readWeekDocuments, readWeekSharePages, readScheduleEvents, DONE_TASK_DAYS, WEEK_READ_CAP,
-  dayCard, othersCount, DAY_SOURCES, dueDay, dayRangeNote} from './journal-data.js';
+  dayCard, othersCount, DAY_SOURCES, dueDay, dayRangeNote, readWeekDrafts, requestDayDraft, readWeekCalls} from './journal-data.js';
+import {shouldAskDraft, draftFor, draftMaterial} from './journal-draft-model.mjs';
 import {loadWeekRefs, setIncluded} from './calendar-ref-data.js';
 import {refsOnDay, daySummary, needsCheck} from './calendar-ref-model.mjs';
 import {createTaskInline} from './task-inline.js';
@@ -77,7 +78,7 @@ root.innerHTML = `<div class="journal-head"><div class="journal-mode-switch" rol
 <div class="journal-days" data-journal-days role="group" aria-label="이번 주 날짜"></div>
 <section class="journal-day" data-journal-day>
 <section class="journal-group journal-schedule" data-journal-schedule aria-label="그날 일정"></section>
-<form class="journal-line" data-journal-line data-enter-save novalidate><label class="journal-heading" for="journalLineInput">오늘 한 줄</label><div class="journal-line-row"><textarea id="journalLineInput" rows="2" data-journal-input data-enter-field="single" placeholder="오늘 한 일을 한 줄로 남겨 보세요" aria-describedby="journalLineCount journalLineStatus"></textarea><button type="submit" class="primary" data-journal-save>저장</button></div><div class="journal-line-meta"><small id="journalLineCount" data-journal-count></small><p id="journalLineStatus" class="journal-line-status" data-journal-line-status role="status" aria-live="polite"></p></div></form>
+<form class="journal-line" data-journal-line data-enter-save novalidate><label class="journal-heading" for="journalLineInput">오늘 한 줄</label><div class="journal-line-row"><textarea id="journalLineInput" rows="2" data-journal-input data-enter-field="single" placeholder="오늘 한 일을 한 줄로 남겨 보세요" aria-describedby="journalLineCount journalLineStatus"></textarea><button type="submit" class="primary" data-journal-save>저장</button></div><div class="journal-line-meta"><small id="journalLineCount" data-journal-count></small><small class="journal-ai-note" data-journal-ai-note hidden>AI 초안 · 고쳐서 [저장]하면 확정</small><p id="journalLineStatus" class="journal-line-status" data-journal-line-status role="status" aria-live="polite"></p></div></form>
 <ol class="journal-lines" data-journal-lines aria-label="이 날 한 줄 목록"></ol>
 <section class="journal-tasks" data-journal-tasks aria-label="할 일과 한 일"></section>
 <section class="journal-radar" data-journal-radar hidden></section>
@@ -103,6 +104,8 @@ const freshOverlapUi = () => ({open:new Set(), busy:null, status:'', error:false
 let overlapUi = freshOverlapUi(), overlapFor = -1;
 let doneDays = DONE_TASK_DAYS; // days of finished tasks the Edge really covered (3 on an older Edge)
 let drafts = new Map(), saving = false;
+// JOURNAL-오늘한줄초안: days this visit already asked the server for an AI draft (owner:day; memory only, the server keeps one a day).
+const draftAsked = new Set();
 // The one line being edited in place: {day, index, before, value}.
 let editing = null;
 // 'day' (the day card) or 'week' ([주간 정리]); memory only.
@@ -144,7 +147,11 @@ function renderLine({keepStatus = false} = {}) {
   syncDayTitle();
   // UI-상단줄제목: the chosen day goes to the PC top line's place (kptu:where-item, topbar-actions.js).
   window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'journal', name:longDay(selected)}}));
-  input.value = drafts.get(selected) ?? '';
+  // JOURNAL-오늘한줄초안: a day with no line shows its AI draft (not saved as a line yet) in dim text until it is edited or saved.
+  const typed = drafts.get(selected), ai = typed === undefined && linesState === 'ok' ? aiDraft(selected) : '';
+  input.value = typed ?? ai;
+  input.classList.toggle('is-ai-draft', !!ai);
+  $('[data-journal-ai-note]').hidden = !ai;
   input.disabled = saving || linesState === 'loading';
   $('[data-journal-save]').disabled = saving || linesState === 'loading';
   if (!keepStatus) lineStatus.textContent = linesState === 'failed' ? '저장된 한 줄을 불러오지 못했어요. 지금 쓰면 그날 목록에 더해 저장해요.' : '';
@@ -212,7 +219,7 @@ const WIDE = window.matchMedia?.('(min-width:1024px)');
 function moreMenu(label, buttons) {
   const more = document.createElement('details');
   more.className = 'journal-item-more';
-  more.innerHTML = `<summary aria-label="${esc(label)} 더 보기"><span aria-hidden="true">⋯</span></summary>`;
+  more.innerHTML = `<summary aria-label="${esc(label)} 더 보기"><span class="more-dots" aria-hidden="true">⋯</span></summary>`;
   more.append(...buttons);
   return more;
 }
@@ -267,7 +274,7 @@ function taskRow(item, {pending}) {
   more.type = 'button'; more.className = 'journal-more-btn task-inline-more'; more.dataset.journalTaskMenu = item.id;
   more.setAttribute('aria-label', `${name} 더 보기`); more.setAttribute('aria-haspopup', 'true'); more.setAttribute('aria-expanded', 'false');
   more.setAttribute('aria-controls', 'journalTaskMenu'); more.disabled = taskLine.isBusy(item.id);
-  more.innerHTML = '<span aria-hidden="true">⋯</span>';
+  more.innerHTML = '<span class="more-dots" aria-hidden="true">⋯</span>';
   li.append(more);
   return li;
 }
@@ -478,8 +485,30 @@ function writePlace() {
 }
 function render() { writePlace(); renderMode(); renderWeek(); renderLine({keepStatus:true}); renderDay(); renderWeekly_(); radarDay(); }
 
+// JOURNAL-오늘한줄초안: the AI draft of a day (only when the day has no line; '' otherwise or before the table exists).
+const aiDraft = day => draftFor(materials.journalDrafts?.status === 'ok' ? materials.journalDrafts.items : null, day, !!lines.get(day));
+// After 18:00 KST, on today with no line and no draft, ask the server once with the day's materials (일정·한 일·회의·소식·업무 통화).
+// Waits until those reads have landed (a failed one is just left out). The server checks the same rules again and never overwrites.
+const DRAFT_SOURCES = ['events', 'tasks', 'meetings', 'basket', 'orgUpdates', 'projectUpdates', 'calls', 'journalDrafts'];
+async function maybeDraft() {
+  const day = todayKey(), key = `${ownerScope(rt)}:${day}`, read = materials.journalDrafts;
+  if (mode !== 'day' || selected !== day || linesState !== 'ok' || read?.status !== 'ok') return;
+  if (DRAFT_SOURCES.some(source => !materials[source] || materials[source].status === 'loading')) return;
+  if (!shouldAskDraft({day, today:day, hour:seoulParts(new Date()).hour, hasLine:!!lines.get(day), drafts:read.items, asked:draftAsked.has(key)})) return;
+  draftAsked.add(key);
+  const card = dayCard(materials, day, {kinds, tree:materials.catalog?.status === 'ok' ? materials.catalog.items : null});
+  let text = '';
+  try { text = await requestDayDraft(day, draftMaterial(card), rt); } catch { text = ''; }
+  if (!text || ownerScope(rt) !== key.slice(0, key.lastIndexOf(':')) || materials.journalDrafts !== read) return;
+  read.items.map.set(day, text);
+  if (selected === day && !saving && !editing) renderLine({keepStatus:true});
+}
+
 const readers = {
   events: () => readWeekScheduleEvents(start, rt),
+  // JOURNAL-오늘한줄초안: 업무 통화(업무 통화함만)와 그 주 AI 초안(표가 없으면 {missing:true}).
+  calls: () => readWeekCalls(start, rt),
+  journalDrafts: () => readWeekDrafts(start, rt),
   // 5. 주요 일정 of [주간 정리] and the draft: the two weeks from the Monday after the shown week (one more calendar read a week).
   upcoming: () => readScheduleEvents(start, rt),
   // One Google Tasks read: finished tasks (끝낸 할 일) and pending tasks in the server's range (할 일 예정).
@@ -527,6 +556,7 @@ async function loadGroup(key, run = SHARED_KEYS.has(key) ? sharedEpoch : epoch, 
   }
   renderDay(); renderWeekly_();
   void checkOverlaps();
+  void maybeDraft();
 }
 async function loadLines(run, scope) {
   linesState = 'loading'; renderLine();
@@ -539,6 +569,7 @@ async function loadLines(run, scope) {
     lines = new Map(); linesState = 'failed';
   }
   renderWeek(); renderLine(); renderWeekly_();
+  void maybeDraft();
 }
 // A new week reads its lines and that week's events (and the two weeks after it, 5. 주요 일정), organization/project records,
 // meetings, new documents and changed share pages; Google tasks (done and pending) and basket updates are read once per visit (not per week).
@@ -562,7 +593,7 @@ function loadWeek({shared = false} = {}) {
   overlapUi = freshOverlapUi();
   lines = new Map(); status.textContent = ''; editing = null; orgUi = {busy:false, status:'', error:false, editing:null, open:new Set()}; execUi = freshExec(); fileUi = freshFileUi();
   if (changedOwner) hwpx?.close(); else hwpx?.setWeek(start);
-  const keys = shared ? Object.keys(readers) : ['events', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'orgSummaries', 'execRequests', 'weekDraft', 'ledgerPromises', 'calendarRefs'];
+  const keys = shared ? Object.keys(readers) : ['events', 'calls', 'journalDrafts', 'upcoming', 'orgUpdates', 'projectUpdates', 'meetings', 'documents', 'sharePages', 'orgSummaries', 'execRequests', 'weekDraft', 'ledgerPromises', 'calendarRefs'];
   for (const key of keys) materials[key] = {status:'loading'};
   delete materials.overlaps;
   if (shared || changedOwner) { loadKinds(sharedRun, scope); loadMemory(sharedRun, scope); memoryUi = {open:false, busy:false, status:'', error:false, undo:null}; }
@@ -865,7 +896,7 @@ async function copyDraft() {
   const text = weeklyReportText(weeklySummary({start, lines, linesState, materials, doneDays, kinds, memory}));
   const ok = await copyText(text);
   // movedNotes, catalog (the project order) and this week's events (the day card's 일정) are not draft material.
-  const missing = Object.entries(materials).some(([key, state]) => !['movedNotes', 'catalog', 'events', 'orgSummaries', 'weekDraft', 'overlaps'].includes(key) && state?.status !== 'ok');
+  const missing = Object.entries(materials).some(([key, state]) => !['movedNotes', 'catalog', 'events', 'calls', 'journalDrafts', 'orgSummaries', 'weekDraft', 'overlaps'].includes(key) && state?.status !== 'ok');
   status.textContent = ok ? `주간보고 양식 순서로 복사했어요.${missing ? ' 불러오지 못한 묶음은 빠졌어요.' : ''}` : '복사하지 못했어요. 다시 시도해 주세요.';
   return ok;
 }
@@ -1206,7 +1237,9 @@ input.addEventListener('keydown', event => {
   if (event.key === 'Enter' && event.shiftKey && !event.isComposing && event.keyCode !== 229) { event.preventDefault(); lineStatus.textContent = '한 줄로 써 주세요. 줄바꿈은 넣을 수 없어요.'; }
 });
 input.addEventListener('input', () => {
-  if (input.value === '') drafts.delete(selected); else drafts.set(selected, input.value);
+  // JOURNAL-오늘한줄초안: once the AI draft is touched it is the owner's own unsaved text (an emptied draft stays empty).
+  if (input.classList.contains('is-ai-draft')) { input.classList.remove('is-ai-draft'); $('[data-journal-ai-note]').hidden = true; }
+  if (input.value === '' && !aiDraft(selected)) drafts.delete(selected); else drafts.set(selected, input.value);
   input.removeAttribute('aria-invalid');
   if (!saving) lineStatus.textContent = '';
   count();

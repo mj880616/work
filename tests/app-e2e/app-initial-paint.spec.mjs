@@ -77,7 +77,8 @@ test('router restores deep links only after explicit app-ui-ready and preserves 
   await expect(page.locator('#calendarView')).toHaveClass(/\bhidden\b/);
   expect(await page.evaluate(() => window.KPTURouter.current)).toBe('tasks');
 
-  await clickView(page,'projects');
+  // MTG-프로젝트합치기 3단계: [프로젝트] 메뉴가 없다. 이 시험은 라우터만 띄우므로(app.js 비움) 사업 보고 ⋯ 처리기가 없어 라우터로 바로 연다.
+  await page.evaluate(() => window.KPTURouter.go('projects', {source: 'delegated'}));
   await expect(page).toHaveURL(/\?view=projects(?:&|$)/);
   await expect(page.locator('#projectsView')).not.toHaveClass(/\bhidden\b/);
 

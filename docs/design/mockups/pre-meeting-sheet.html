@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>교섭·회의 전 한 장 시안</title>
+<style>
+/* Web2 기본 테마(olive) 변수 이름·값을 그대로 씀 — 다음 주 준비 한 장 시안과 같은 바탕·같은 묶음 모양 */
+:root{
+  --kptu-bg:#f3f1ea;--kptu-surface:#fffefa;--kptu-surface-subtle:#f7f5ee;
+  --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--kptu-faint:#8f8c7f;
+  --kptu-border:#e2ddd0;--kptu-border-strong:#cfc8b6;
+  --kptu-primary:#5c6a35;--kptu-primary-ink:#47532a;--kptu-primary-soft:#eef0e1;
+  --kptu-warning:#8a6218;--kptu-danger:#9a4048;
+  --ds-line:var(--kptu-border-strong);--ds-kind-journal-ink:#2a6537;
+  --ds-text-row:13px;--ds-text-meta:12px;--ds-compact-height-sm:28px;--ds-radius-control:8px;
+}
+@media (prefers-color-scheme:dark){:root{
+  --kptu-bg:#161613;--kptu-surface:#1f1f1b;--kptu-surface-subtle:#292924;--kptu-ink:#ebe9e1;--kptu-muted:#b1aea2;--kptu-faint:#938f84;
+  --kptu-border:#34332d;--kptu-border-strong:#4a4840;--kptu-primary:#b4c385;--kptu-primary-ink:#c2d095;--kptu-primary-soft:#2c3120;
+  --kptu-warning:#e0c97f;--kptu-danger:#e3a59c;--ds-kind-journal-ink:#9fd2a9;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--kptu-bg);color:var(--kptu-ink);font:13px/1.45 system-ui,"Noto Sans KR","Malgun Gothic",sans-serif;padding:12px 16px}
+h1{font-size:14px;font-weight:500;margin:0 0 4px;color:var(--kptu-muted)}
+h2{font-size:13px;font-weight:500;margin:0 0 6px;color:var(--kptu-primary-ink)}
+.lead{font-size:12px;color:var(--kptu-faint);margin:0 0 14px;max-width:780px}
+.section{margin-bottom:26px}
+.cap{font-size:12px;color:var(--kptu-muted);margin:0 0 4px}
+.scroll{overflow-x:auto;padding-bottom:4px}
+.phone{width:412px;max-width:100%;background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:12px;overflow:hidden}
+.pc{width:1440px;background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:10px;overflow:hidden;display:flex}
+.pc .nav{width:200px;flex:none;border-right:.5px solid var(--kptu-border);padding:10px 12px;color:var(--kptu-muted);font-size:12px;background:var(--kptu-surface-subtle)}
+.pc .nav div{padding:4px 6px;border-radius:6px}.pc .nav .on{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink)}
+.pc .main{flex:1;min-width:0;padding:0 0 12px}
+button{font:inherit;color:inherit;cursor:pointer}
+.fa{color:var(--kptu-faint)}.mu{color:var(--kptu-muted)}
+/* 업무일지 머리줄 (journal-head) */
+.jhead{display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:.5px solid var(--kptu-border);flex-wrap:wrap}
+.seg{display:inline-flex;border:.5px solid var(--ds-line);border-radius:var(--ds-radius-control);overflow:hidden}
+.seg button{border:0;background:transparent;height:var(--ds-compact-height-sm);padding:0 10px;font-size:var(--ds-text-row);color:var(--kptu-muted)}
+.seg button[aria-pressed=true]{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-weight:500}
+.wk{display:inline-flex;align-items:center;gap:4px;margin-left:auto}
+.mini{height:var(--ds-compact-height-sm);min-width:var(--ds-compact-height-sm);padding:0 8px;border:.5px solid var(--ds-line);border-radius:var(--ds-radius-control);background:transparent;font-size:12px;color:var(--kptu-muted)}
+.wk b{font-weight:500;font-size:13px;padding:0 4px}
+/* [다음 주] 칸 */
+.nw{margin:10px 12px 0;border:.5px solid var(--ds-line);border-radius:10px;background:var(--kptu-surface)}
+.nw-h{display:flex;align-items:baseline;gap:8px;padding:8px 10px 6px;flex-wrap:wrap}
+.nw-h h3{margin:0;font-size:13px;font-weight:600;color:var(--ds-kind-journal-ink)}
+.nw-h .when{font-size:12px;color:var(--kptu-faint);margin-left:auto;white-space:nowrap}
+.link{border:0;background:transparent;padding:0;color:var(--kptu-primary-ink);font-size:12px;text-decoration:underline;text-underline-offset:2px}
+.top{list-style:none;margin:0;padding:0 10px 8px;counter-reset:t}
+.top li{counter-increment:t;display:flex;gap:6px;padding:3px 0;font-size:13px;line-height:1.45}
+.top li::before{content:counter(t);flex:none;width:16px;height:16px;margin-top:1px;border-radius:50%;background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center}
+.top li button{border:0;background:transparent;padding:0;text-align:left;color:inherit}
+.top li button:hover{text-decoration:underline}
+.groups{border-top:.5px solid var(--kptu-border)}
+details.g{border-bottom:.5px solid var(--kptu-border)}
+details.g:last-child{border-bottom:0}
+details.g>summary{list-style:none;display:flex;gap:6px;align-items:baseline;padding:6px 10px;cursor:pointer;min-height:32px}
+details.g>summary::-webkit-details-marker{display:none}
+details.g>summary::before{content:"▸";color:var(--kptu-faint);font-size:11px;width:10px;flex:none}
+details.g[open]>summary::before{content:"▾"}
+.g .nm{font-weight:500;flex:none}
+.g .ct{color:var(--kptu-muted);flex:none}
+.g .sm{color:var(--kptu-faint);font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rows{list-style:none;margin:0;padding:0 10px 6px 26px}
+.rows li{display:flex;gap:8px;align-items:baseline;padding:3px 0;border-top:.5px dashed var(--kptu-border);font-size:13px}
+.rows li:first-child{border-top:0}
+.rows .d{flex:none;width:4.6em;color:var(--kptu-muted);font-size:12px}
+.rows .t{flex:1;min-width:0}
+.rows .o{flex:none;font-size:11px;color:var(--kptu-faint)}
+.rows .warn{color:var(--kptu-warning)}
+.rows a{color:inherit;text-decoration:none}.rows a:hover{text-decoration:underline}
+.pc .groups{display:grid;grid-template-columns:1fr 1fr;column-gap:0}
+.pc details.g{border-bottom:.5px solid var(--kptu-border)}
+.pc details.g:nth-child(odd){border-right:.5px solid var(--kptu-border)}
+.rest{margin:10px 12px 0;color:var(--kptu-faint);font-size:12px;border-top:.5px solid var(--kptu-border);padding-top:8px}
+.rest .ghost{height:10px;border-radius:4px;background:var(--kptu-surface-subtle);margin:6px 0}
+.empty{padding:8px 10px;font-size:13px;color:var(--kptu-muted);display:flex;gap:8px;align-items:center}
+.btn{height:var(--ds-compact-height-sm);padding:0 10px;border:.5px solid var(--ds-line);border-radius:var(--ds-radius-control);background:transparent;font-size:12px;color:var(--kptu-primary-ink)}
+/* 결정 */
+.dec{max-width:820px;background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:10px;padding:10px 14px}
+.dec h3{font-size:13px;margin:10px 0 4px;font-weight:600}
+.dec h3:first-child{margin-top:0}
+.dec p{margin:2px 0;font-size:13px}
+.dec .rec{color:var(--kptu-primary-ink);font-weight:500}
+.dec .why{color:var(--kptu-muted);font-size:12px}
+/* 한 장 */
+.nw{margin:0;border:0;border-radius:0}
+.nw-h{padding:8px 12px 2px}
+.meta{padding:0 12px 6px;font-size:12px;color:var(--kptu-muted);display:flex;gap:6px;flex-wrap:wrap;align-items:baseline}
+.stage{display:inline-flex;height:18px;align-items:center;padding:0 6px;border-radius:9px;background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-size:11px}
+.top{padding:0 12px 8px}
+.toptitle{padding:2px 12px 2px;font-size:12px;color:var(--kptu-muted);font-weight:500}
+.tag{display:inline-flex;align-items:center;height:18px;padding:0 6px;margin-left:4px;border:.5px solid var(--ds-line);border-radius:9px;background:var(--kptu-surface-subtle);font-size:11px;color:var(--kptu-primary-ink);white-space:nowrap;cursor:pointer;vertical-align:1px}
+.top li .tag{border:.5px solid var(--ds-line);background:var(--kptu-surface-subtle);padding:0 6px;color:var(--kptu-primary-ink)}
+.rows .ai::before{content:"AI";font-size:10px;color:var(--kptu-faint);border:.5px solid var(--ds-line);border-radius:4px;padding:0 3px;margin-right:4px}
+.chips{display:flex;gap:4px;flex-wrap:wrap;padding:2px 0 4px}
+.pchip{height:22px;padding:0 8px;border:.5px solid var(--ds-line);border-radius:11px;background:transparent;font-size:12px;color:var(--kptu-ink)}
+.note{padding:4px 12px 8px;font-size:11px;color:var(--kptu-faint)}
+/* 폰 시트 */
+.phone.sheetbg{background:var(--kptu-bg);position:relative}
+.under{padding:10px 12px;color:var(--kptu-faint);font-size:12px;height:120px}
+.sheet{background:var(--kptu-surface);border-top:.5px solid var(--ds-line);border-radius:14px 14px 0 0;box-shadow:0 -4px 16px rgba(0,0,0,.06)}
+.grab{width:36px;height:4px;border-radius:2px;background:var(--kptu-border-strong);margin:6px auto 2px}
+.sheet-x{display:flex;justify-content:flex-end;padding:0 8px}
+.tabbar{height:52px;border-top:.5px solid var(--kptu-border);display:flex;justify-content:space-around;align-items:center;font-size:11px;color:var(--kptu-faint);background:var(--kptu-surface)}
+/* 여는 줄 */
+.opener{display:flex;align-items:center;gap:6px;margin:6px 12px;padding:6px 10px;border:.5px solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-surface-subtle);font-size:13px}
+.opener .go{margin-left:auto;color:var(--kptu-primary-ink)}
+.opener .fa{font-size:12px}
+.form{padding:8px 12px;font-size:13px}
+.form .f{display:flex;gap:8px;padding:5px 0;border-bottom:.5px dashed var(--kptu-border)}
+.form .f b{flex:none;width:4.5em;font-weight:400;color:var(--kptu-muted);font-size:12px}
+.orghead{padding:8px 12px 2px}
+.orghead .crumb{font-size:12px;color:var(--kptu-faint)}
+.orghead h3{margin:2px 0 0;font-size:15px;font-weight:600;display:flex;align-items:center;gap:6px}
+.orghead h3 .more{margin-left:auto;border:.5px solid var(--ds-line);background:transparent;border-radius:var(--ds-radius-control);width:28px;height:28px;color:var(--kptu-muted)}
+.blk{margin:6px 12px;padding:6px 0;border-top:.5px solid var(--kptu-border);font-size:12px;color:var(--kptu-muted)}
+.blk .ghost{height:10px;border-radius:4px;background:var(--kptu-surface-subtle);margin:6px 0}
+.past{margin:0 12px;font-size:12px}
+.past summary{cursor:pointer;color:var(--kptu-muted);padding:4px 0;list-style:none}
+.past summary::-webkit-details-marker{display:none}
+.past li{list-style:none;padding:2px 0;color:var(--kptu-muted)}
+.past ul{margin:0;padding:0 0 4px 12px}
+/* PC: 조직 상세 + 오른쪽 한 장 */
+.pc .two{display:flex;min-height:760px}
+.pc .left{flex:1;min-width:0;border-right:.5px solid var(--kptu-border)}
+.pc .right{width:560px;flex:none}
+.pc .groups{display:block}
+.pc details.g:nth-child(odd){border-right:0}
+</style>
+</head>
+<body>
+<h1>교섭·회의 전 한 장 — 일정·담당조직 상세에서 여는 한 장 시안</h1>
+<p class="lead">가짜 자료. 내일(11/3) A 사업장 임금교섭 4차 일정에 담당조직이 연결돼 있어, 전날 18시 뒤 업무일지를 열 때 만든 장. 모양은 다음 주 준비 한 장과 같음(핵심 세 가지 → 접힌 묶음). 'AI' 표시 줄만 AI가 정리한 것이고 나머지는 기록 줄 그대로. 꼬리표를 누르면 그 근거 묶음이 열림.</p>
+
+<div class="section">
+  <h2>폰 412 — 일정 수정 창의 여는 줄 → 한 장(아래에서 올라오는 시트)</h2>
+  <p class="cap">왼쪽: 일정 수정 창 위쪽 한 줄(메뉴 항목은 늘리지 않음). 오른쪽: 누르면 뜨는 시트. 하단바에 가리지 않게 시트가 하단바 위에서 끝남. 뒤로가기 = 시트 닫기.</p>
+  <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">
+    <div class="phone" style="width:412px">
+      <div class="nw-h" style="padding:10px 12px 4px"><h3 style="margin:0;font-size:14px;font-weight:600">일정 수정</h3></div>
+      <div class="opener">📄 교섭 전 한 장 <span class="fa">10/29 18:20 만듦</span><span class="go">›</span></div>
+      <div class="form"><div class="f"><b>제목</b>A 사업장 임금교섭 4차</div><div class="f"><b>때</b>11/3(화) 14:00~16:00</div><div class="f"><b>장소</b>본사 회의실</div><div class="f"><b>담당조직</b>A 사업장</div><div class="f"><b>메모</b><span class="fa">—</span></div></div>
+      <div style="height:30px"></div>
+    </div>
+    <div class="phone sheetbg" style="width:412px">
+      <div class="under">일정 수정 창(뒤)</div>
+      <div class="sheet"><div class="grab"></div><div data-frame="phone"></div></div>
+      <div class="tabbar"><span>홈</span><span>업무일지</span><span>할 일</span><span>캘린더</span><span>더 보기</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>PC 1440 — 담당조직 상세 + 오른쪽 칸에 한 장</h2>
+  <p class="cap">담당조직 상세 제목 아래 '다가오는 교섭' 한 줄(⋯ 메뉴와 따로). 누르면 오른쪽 칸에 같은 한 장. 화면보다 좁으면 옆으로 밀어 보기.</p>
+  <div class="scroll"><div class="pc"><div class="nav"><div>홈</div><div>업무일지</div><div>할 일</div><div>캘린더</div><div>사업 보고</div><div class="on">담당조직</div><div>원장</div></div><div class="main"><div class="two">
+    <div class="left">
+      <div class="orghead"><div class="crumb">담당조직 › 운수 부문</div><h3>A 사업장 <span class="stage">조정 신청</span><button class="more" type="button" aria-label="더 보기">⋯</button></h3></div>
+      <div class="opener">📄 다가오는 교섭 11/3(화) 14:00 — 임금교섭 4차 <span class="go">한 장 ›</span></div>
+      <details class="past"><summary>▸ 지난 한 장 2</summary><ul><li>10/27 임금교섭 3차</li><li>10/13 임금교섭 2차</li></ul></details>
+      <div class="blk">할 일 · 자료 · 사업 보고 · 기록 · 타임라인 (지금 그대로)<div class="ghost"></div><div class="ghost" style="width:70%"></div><div class="ghost"></div><div class="ghost" style="width:50%"></div></div>
+      <div class="blk">[주요 인물 3] [기본 정보] [소속] [이전 요약] (ORG-주요인물 탭, 맨 아래)<div class="ghost" style="width:60%"></div></div>
+    </div>
+    <div class="right" data-frame="pc"></div>
+  </div></div></div></div>
+</div>
+
+<div class="section">
+  <h2>폰 412 — 아직 만들지 않은 때</h2>
+  <div class="phone" style="width:412px"><div class="nw-h"><h3>A 사업장 임금교섭 4차</h3><span class="when">11/3(화) 14:00</span></div><div class="empty">전날 18시 뒤 만듦. <button type="button" class="btn">지금 만들기</button></div><div style="height:6px"></div></div>
+</div>
+
+<div class="section">
+  <h2>명진이 정할 것</h2>
+  <div class="dec">
+    <h3>1. 어떤 일정에 한 장을 만들까</h3>
+    <p><span class="rec">추천: 담당조직이 연결된 일정 중 제목에 '교섭·회의·간담회·협의·면담'이 있는 것</span></p>
+    <p>다른 안: 담당조직이 연결된 일정은 전부.</p>
+    <p class="why">조직 행사·집회 같은 일정엔 안 만들어 AI 비용과 필요 없는 장이 줄어듦. 담당조직 연결을 안 한 일정은 제목에 조직 이름이 정확히 하나 맞을 때만.</p>
+    <h3>2. 언제 만들까</h3>
+    <p><span class="rec">추천: 전날 18시 뒤 업무일지·홈을 열면 자동 + 언제든 [지금 만들기]</span></p>
+    <p>다른 안: [지금 만들기]를 누를 때만.</p>
+    <p class="why">오늘 한 줄 저녁 초안과 같은 방식. 저녁에 열면 이미 준비돼 있음. 폰 알림은 폰 앱 알림 작업 때 붙임.</p>
+    <h3>3. 지난 한 장을 남겨 볼 수 있게 할까</h3>
+    <p><span class="rec">추천: 담당조직 상세에 '지난 한 장 n'(접힘)</span> (PC 시안 왼쪽)</p>
+    <p>다른 안: 다가오는 것만 보이기.</p>
+    <p class="why">교섭 회차마다 준비한 내용을 다시 볼 수 있음. 서버에는 어차피 남으므로 줄 하나만 더함.</p>
+    <h3>4. 텔레그램 소식을 AI 재료로 보낼까</h3>
+    <p><span class="rec">추천: 방 이름·요약만 보내고, 보낸 사람 이름·원문은 안 보냄</span></p>
+    <p>다른 안: ⑤ 묶음에 줄로만 보이고 AI엔 안 보냄.</p>
+    <p class="why">'Web2에 물어보기'와 같은 선. 핵심 세 가지에 텔레그램 소식도 반영됨.</p>
+  </div>
+</div>
+
+<script>
+const TOP=[
+  ['3차에서 남은 쟁점은 기본급 인상률·성과급 기준 두 가지임.','g1','회의 10/27'],
+  ['인상률 근거 자료를 11/1까지 보내기로 한 약속이 아직 대기임.','g4','원장 약속'],
+  ['지난주 통화에서 사측 실무자가 성과급 안을 바꿀 수 있다고 함.','g5','통화 10/28'],
+];
+const GROUPS=[
+  {id:'g1',nm:'① 지난 교섭·회의 결과',sm:'최근 3차(10/27): 인상률 이견, 다음 회차 일정 합의',open:true,rows:[
+    ['10/27','임금교섭 3차 — 인상률 회사 2.1% / 우리 5.4%, 4차 11/3 합의'],['10/13','임금교섭 2차 — 성과급 개인 평가 연동안 거부'],['9/29','임금교섭 1차 — 요구안 설명, 상견례']]},
+  {id:'g2',nm:'② 남은 쟁점',sm:'기본급 인상률 · 성과급 기준',rows:[
+    ['AI','기본급 인상률 — 3%p 넘게 차이 남 [회의 10/27]',1],['AI','성과급 기준 — 개인 평가 연동 여부 [회의 10/13] [통화 10/28]',1]]},
+  {id:'g3',nm:'③ 상대',sm:'사측 교섭위원 3명',rows:[
+    ['AI','인사팀장 — 교섭 대표 [회의 10/27]',1],['AI','노무 담당 과장 — 성과급 안 실무 [통화 10/28]',1],['AI','재무 담당 — 인건비 자료 설명 [회의 10/13]',1]]},
+  {id:'g4',nm:'④ 우리 약속',sm:'가장 이른 것 11/1 자료 회신',rows:[
+    ['11/1','인상률 근거 자료 회사에 보내기 (대기)'],['11/10','조합원 설명회 결과 공유 (대기)']]},
+  {id:'g5',nm:'⑤ 최근 통화·텔레그램',sm:'통화 3 · 텔레그램 2 (최근 30일)',rows:[
+    ['10/28','통화 · 지부장 — 사측 실무자 성과급 안 조정 가능 언급'],['10/28','텔레그램 · 간부방 — 근거 자료 초안 공유'],['10/21','통화 · 사무장 — 설명회 일정 의논'],['10/20','텔레그램 · 간부방 — 3차 준비 역할 나눔'],['10/14','통화 · 지부장 — 2차 결과 공유']]},
+  {id:'g6',nm:'⑥ 주요 인물',sm:'요즘: 지부장(김OO)은 성과급 안에 강하게 반대함.',people:true,rows:[
+    ['10/28','김OO · 통화 — 성과급 안 반대 입장 다시 확인'],['10/21','이OO · 통화 — 설명회 장소 확보']]},
+  {id:'g7',nm:'⑦ 관련 자료',sm:'교섭·합의 3 · 회의 1',rows:[
+    ['10/26','임금 인상률 근거표(초안).hwpx'],['10/12','회사 성과급 제도안.pdf'],['9/28','2026 임금 요구안.hwpx'],['9/28','1차 교섭 회의자료.pdf']]},
+];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function sheet(frame){
+  const top=TOP.map(([t,g,tg])=>`<li><span>${esc(t)}<button type="button" class="tag" data-ref="${g}">${tg}</button></span></li>`).join('');
+  const groups=GROUPS.map(g=>{
+    const ppl=g.people?`<li><div class="chips"><button class="pchip" type="button">모두</button><button class="pchip" type="button">김OO</button><button class="pchip" type="button">이OO</button><button class="pchip" type="button">박OO</button></div></li>`:'';
+    return `<details class="g" data-g="${g.id}"${g.open?' open':''}><summary><span class="nm">${g.nm}</span>${g.id==='g3'?'':`<span class="ct">${g.rows.length}건</span>`}<span class="sm">— ${esc(g.sm)}</span></summary><ul class="rows">${ppl}${g.rows.map(([d,t,ai])=>`<li><span class="d">${ai?'':esc(d)}</span><a class="t${ai?' ai':''}" href="#" onclick="return false">${esc(t)}</a></li>`).join('')}</ul></details>`;
+  }).join('');
+  return `<section class="nw" aria-labelledby="pm-${frame}"><div class="nw-h"><h3 id="pm-${frame}">A 사업장 임금교섭 4차</h3><span class="when">내일 11/3(화) 14:00 · 본사 회의실</span></div>
+  <div class="meta">쟁의 단계 <span class="stage">조정 신청</span> · 10/29 18:20 만듦 · <button type="button" class="link">다시 만들기</button></div>
+  <div class="toptitle">핵심 세 가지</div>
+  <ol class="top" aria-label="AI가 뽑은 핵심 세 가지">${top}</ol>
+  <div class="groups">${groups}</div>
+  <div class="note">AI가 기록을 정리한 것임. 원본을 눌러 확인할 것.</div></section>`;
+}
+document.querySelectorAll('[data-frame]').forEach(el=>{el.innerHTML=sheet(el.dataset.frame);});
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-ref]'); if(!b) return;
+  const box=b.closest('.nw'); const d=box.querySelector(`[data-g="${b.dataset.ref}"]`);
+  if(d){d.open=true;d.scrollIntoView({block:'nearest',behavior:'smooth'});}
+});
+</script>
+</body>
+</html>

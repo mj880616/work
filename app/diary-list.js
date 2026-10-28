@@ -47,7 +47,7 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
 
   const markButtons = row => {
     const day = esc(row.journal_day), star = !!diaryStarredAt(row), busy = state.busy.has(row.journal_day) ? ' disabled' : '';
-    return `<button type="button" class="diary-lv-star" data-diary-lv-star="${day}" aria-pressed="${star}" aria-label="${star ? '별표 풀기' : '별표'}"${busy}>${star ? '★' : '☆'}</button><button type="button" class="diary-lv-more" data-diary-lv-more="${day}" aria-haspopup="true" aria-expanded="false" aria-controls="diaryListMenu" aria-label="${esc(dayLabel(row.journal_day))} 메뉴">⋯</button>`;
+    return `<button type="button" class="diary-lv-star" data-diary-lv-star="${day}" aria-pressed="${star}" aria-label="${star ? '별표 풀기' : '별표'}"${busy}>${star ? '★' : '☆'}</button><button type="button" class="diary-lv-more" data-diary-lv-more="${day}" aria-haspopup="true" aria-expanded="false" aria-controls="diaryListMenu" aria-label="${esc(dayLabel(row.journal_day))} 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></button>`;
   };
   function rowHtml(row) {
     const day = row.journal_day, photos = diaryPhotos(row), {title, line} = rowText(row, photos.length), pinned = !!diaryPinnedAt(row), star = !!diaryStarredAt(row);
@@ -95,11 +95,11 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
     const day = box.dataset.diaryLvThumb, row = rowOf(day), owner = state.owner;
     if (!row) return;
     const photo = diaryPhotos(row)[0];
-    if (photo) { box.append(photoElement(row, photo, 'small', {label:'', link:false, rt})); box.classList.add('has-photo'); return; }
+    if (photo) { box.append(photoElement(row, photo, 'small', {label:'', link:false, rt, retry:false})); box.classList.add('has-photo'); return; }
     const month = await odMonthOf(day.slice(0, 7));
     const first = month?.days?.[day]?.[0];
     if (!first || owner !== state.owner || !box.isConnected) return;
-    box.append(odPhotoElement({kind:'od', source:'onedrive', key:first.id, id:first.id, day, name:first.name, taken_at:first.taken_at, approx:first.approx}, 'small', {label:'', rt}));
+    box.append(odPhotoElement({kind:'od', source:'onedrive', key:first.id, id:first.id, day, name:first.name, taken_at:first.taken_at, approx:first.approx}, 'small', {label:'', rt, retry:false}));
     box.classList.add('has-photo');
   }
 

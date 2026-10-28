@@ -64,6 +64,25 @@ export const weeklyReportText = (line, meeting) => { const plan = nextPlanLines(
 export const weeklyAreaRecords = (meetings, day, lineOf) => (meetings || []).filter(m => areaIdOf(m) && seoulKey(m.meeting_at) === day)
   .map(m => ({id:areaIdOf(m), name:'', at:m.meeting_at, text:weeklyReportText(lineOf(m), m), requests:[]}));
 
+// MTG-프로젝트합치기 사업영역 AI(설계 12·13절): 그 주 임시저장의 사업영역 한 줄(summaries = {id: {text, edited}})이 있으면
+// 그 사업영역(꼬리표)의 보고 줄들 대신 한 줄 하나로 — '진행' = 한 줄, '이후 계획' = 그 보고들의 다음 할 일(겹치지 않게).
+// 한 줄이 없는 사업영역은 지금처럼 보고마다 한 줄. records 는 weeklyAreaRecords 를 날마다 모은 것({...r, day}), meetings 는 같은 재료.
+export function summarizeAreaRecords(records, meetings, summaries) {
+  const lines = summaries && typeof summaries === 'object' ? summaries : {};
+  if (!Object.keys(lines).length) return records;
+  const out = [], done = new Set();
+  for (const r of records) {
+    const line = lines[String(r.id).toLowerCase()];
+    if (!line?.text) { out.push(r); continue; }
+    if (done.has(r.id)) continue;
+    done.add(r.id);
+    const days = new Set(records.filter(x => x.id === r.id).map(x => x.day));
+    const plans = [...new Set((meetings || []).filter(m => areaIdOf(m) === r.id && days.has(seoulKey(m.meeting_at))).flatMap(m => nextPlanLines(m.next_plan)))];
+    out.push({...r, text:plans.length ? `${line.text} → 이후: ${plans.join(' / ')}` : line.text, requests:[], summarized:true});
+  }
+  return out;
+}
+
 // 사업 보고 화면 사업영역 칩: 트리 줄([{project, depth}]) → Map(id → 1단 사업영역 id).
 export function areaRoots(tree) {
   const roots = new Map(), trail = [];
@@ -83,3 +102,19 @@ export function matchesAreaChip(meeting, chip, roots) {
   const id = shownArea(meeting).id;
   return chip === NO_AREA ? !id : !!id && roots.get(id) === chip;
 }
+
+// MTG-프로젝트합치기 3단계(요청 10/28 19:07 ③): 사업 보고 목록은 주 단위(‹ › 로 주 넘기기). 서울 월~일.
+// 처음 보이는 주: 이번 주에 보고가 있으면 이번 주, 없으면 오늘까지 중 가장 최근 보고의 주, 그것도 없으면 가장 최근 보고의 주, 보고가 없으면 이번 주.
+export const reportDay = meeting => seoulKey(meeting?.meeting_at);
+export function defaultReportWeek(meetings, today) {
+  const days = (meetings || []).map(reportDay).filter(Boolean).sort();
+  const now = weekOf(today);
+  if (days.some(d => d >= now.from && d <= now.to)) return now.from;
+  const past = days.filter(d => d <= today);
+  const pick = past.at(-1) || days.at(-1);
+  return pick ? weekOf(pick).from : now.from;
+}
+// from(월요일) 주에 든 보고만. from이 비면(전체) 그대로.
+export const inReportWeek = (list, from) => !from ? (list || []) : (list || []).filter(m => inPeriod(m, from, shiftDays(from, 6)));
+const shortDay = day => `${Number(day.slice(5, 7))}.${Number(day.slice(8, 10))}`;
+export const reportWeekLabel = from => `${shortDay(from)}(월)~${shortDay(shiftDays(from, 6))}(일)`;

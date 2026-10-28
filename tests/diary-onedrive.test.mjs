@@ -146,11 +146,11 @@ test('photo cell: asks only when on screen or about to be; a cell that leaves be
   m.clearOdPhotoCache();
 });
 
-test('photo cell: a failed picture waits and tries again by itself, then rests with the 사진 mark until it comes back on screen', async () => {
+test('photo cell: a failed picture waits and tries again by itself, then rests with a small ↻ until it comes back on screen', async () => {
   const m = await mod, dom = dom1(), rt = runtime();
   const timers = []; const realTimeout = globalThis.setTimeout;
   let calls = 0;
-  m.odThumbLoader(rt, {fetchUrls:async () => { calls++; throw new Error('net'); }, fetchBytes:async () => 'blob:x'});
+  m.odThumbLoader(rt, {fetchUrls:async () => { calls++; throw new Error('session'); }, fetchBytes:async () => 'blob:x'});
   globalThis.setTimeout = (f, ms) => { if (ms >= 1000) { timers.push({f, ms}); return 0; } return realTimeout(f, ms); };
   try {
     const box = m.odPhotoElement({id:'A'}, 'small', {rt});
@@ -161,7 +161,9 @@ test('photo cell: a failed picture waits and tries again by itself, then rests w
     }
     assert.equal(calls, 5);
     assert.equal(box.dataset.state, 'link');
-    assert.equal(box.children.at(-1).textContent, '사진');
+    assert.equal(box.dataset.imgState, 'failed'); assert.equal(box.dataset.imgWhy, 'session');
+    assert.equal(box.children.at(-1).textContent, '↻');
+    assert.ok(!box.children.some(c => c.tagName === 'img' && c.src), 'no broken picture left behind');
     assert.equal(timers.length, 4, 'no endless retry while it stays on screen');
     // 화면에서 나갔다가 다시 들어오면(3초 넘게 지난 뒤) 처음부터 다시 받는다.
     const realNow = Date.now; Date.now = () => realNow() + 5000;

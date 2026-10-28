@@ -5,6 +5,7 @@
 import {seoulDateKey} from './meeting-time.js';
 import {uploadBasketFile, driveFileUrl} from './basket-upload.js';
 import {holdPhotoMaker, forgetPhotoBlob, localImageBlob} from './photo-share.js';
+import {slotBox, slotLoading, slotShown, slotFailed} from './img-slot.js';
 import {diaryDocToStore, diaryDocError} from './diary-doc.mjs';
 import {withMark} from './diary-list-model.mjs';
 
@@ -273,31 +274,34 @@ export function diaryPhotoUrl(noteId, fileId, size = 'small', {rt = window.KPTUR
   flight.catch(() => { if (photoCache.get(key) === flight) photoCache.delete(key); });
   return flight;
 }
-// One photo element: the reduced image, or the "Drive에서 열기" link when the photo view cannot answer
-// (before the basket-files deploy, or a Drive error). Inside a button (calendar cell, day preview) link:false shows a
-// plain photo mark instead, since a link cannot sit inside a button; the day's large view keeps the link.
-export function photoElement(row, file, size, {label = '', rt = window.KPTURuntime, link = true} = {}) {
+// One photo element (shared img-slot.js rule, PHOTO-못받은사진): light gray while loading, the reduced image once drawn, and a small ↻
+// when the photo view cannot answer (tap = that photo again). The day's large view (link:true) also keeps the "Drive에서 열기" link.
+// retry:false: 더 큰 누르기 칸의 바탕(달력 날짜 칸·하루 미리보기·목록 줄)이라 ↻는 표시만(img-slot.js passive).
+export function photoElement(row, file, size, {label = '', rt = window.KPTURuntime, link = true, retry = true} = {}) {
   const box = document.createElement('span');
   box.className = 'diary-photo'; box.dataset.diaryPhoto = file.drive_file_id;
   const img = document.createElement('img');
-  img.alt = label || file.file_name || '일기 사진'; img.decoding = 'async'; img.loading = 'lazy'; img.hidden = true;
-  box.append(img); box.dataset.state = 'loading';
+  img.alt = label || file.file_name || '일기 사진'; img.decoding = 'async'; img.loading = 'lazy';
+  box.append(img); box.dataset.state = 'loading'; slotBox(box);
+  let anchor = null;
   // 'shown' only after the browser really drew the image (load). An error (revoked URL, undecodable file) forgets the
-  // cached copy and reads once more; a second failure shows the same fallback as a failed photo view.
+  // cached copy and reads once more; a second failure shows the same ↻ as a failed photo view.
   const attempt = tries => diaryPhotoUrl(row.id, file.drive_file_id, size, {rt}).then(url => {
-    img.onload = () => { img.onload = img.onerror = null; holdPhotoMaker(box, () => localImageBlob(url)); box.dataset.state = 'shown'; };
+    img.onload = () => { img.onload = img.onerror = null; holdPhotoMaker(box, () => localImageBlob(url)); box.dataset.state = 'shown'; slotShown(box); };
     img.onerror = () => {
-      img.onload = img.onerror = null; forgetPhotoBlob(box); img.hidden = true; img.removeAttribute('src');
+      img.onload = img.onerror = null; forgetPhotoBlob(box); img.removeAttribute('src');
       const forgotten = forgetDiaryPhoto(row.id, file.drive_file_id, size, url);
-      if (tries < 2) { box.dataset.state = 'retry'; forgotten.then(() => attempt(tries + 1)); } else fallback();
+      if (tries < 2) { box.dataset.state = 'retry'; forgotten.then(() => attempt(tries + 1)); } else fallback('img');
     };
-    img.src = url; img.hidden = false;
-  }, fallback);
-  function fallback() {
-    img.onload = img.onerror = null; img.remove(); box.dataset.state = 'link';
+    img.src = url;
+  }, () => fallback('photo'));
+  function again() { anchor?.remove(); anchor = null; box.dataset.state = 'loading'; slotLoading(box); attempt(1); }
+  function fallback(why) {
+    img.onload = img.onerror = null; img.removeAttribute('src'); box.dataset.state = 'link';
+    slotFailed(box, again, why, {passive: !retry});
     const href = driveFileUrl(file.drive_file_id);
-    if (!link || !href) { const mark = document.createElement('span'); mark.className = 'diary-photo-mark'; mark.setAttribute('aria-hidden', 'true'); mark.textContent = '사진'; box.append(mark); return; }
-    const anchor = document.createElement('a');
+    if (!link || !href || anchor) return;
+    anchor = document.createElement('a');
     anchor.href = href; anchor.target = '_blank'; anchor.rel = 'noopener noreferrer'; anchor.className = 'diary-photo-link';
     anchor.textContent = 'Drive에서 열기'; anchor.setAttribute('aria-label', `${label || file.file_name || '사진'} Drive에서 열기`);
     box.append(anchor);
@@ -317,7 +321,7 @@ export async function diaryDayPreview(day, {rt = window.KPTURuntime} = {}) {
   const button = document.createElement('button');
   button.type = 'button'; button.className = 'diary-day-preview'; button.dataset.diaryPreview = day;
   button.setAttribute('aria-label', `이 날 일기 보기${photos.length ? `, 사진 ${photos.length}장` : ''}`);
-  if (photos[0]) button.append(photoElement(row, photos[0], 'small', {label:'일기 첫 사진', rt, link:false}));
+  if (photos[0]) button.append(photoElement(row, photos[0], 'small', {label:'일기 첫 사진', rt, link:false, retry:false}));
   const body = document.createElement('span'); body.className = 'diary-day-preview-text';
   const title = document.createElement('b'); title.textContent = '일기';
   const line = document.createElement('span'); line.textContent = text ? [...text.replace(/\s+/g, ' ').trim()].slice(0, 60).join('') : `사진 ${photos.length}장`;

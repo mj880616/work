@@ -115,3 +115,12 @@ test('a newer choice made while the refusal was on its way is not undone',async(
     assert.equal(e.row.theme,'ink');
   }finally{if(had===undefined)delete globalThis.window;else globalThis.window=had}
 });
+
+// UI-작은결정묶음 ④: 칸 폭은 화면마다 따로(텔레그램·통화·참고 묶음·사업 보고 3단도 자기 이름). 옛 기기 키는 원래 네 화면만 옮긴다.
+test('split ratio accepts every screen name of its own and moves only the original device keys',async()=>{
+  assert.deepEqual(parsePrefs({split_ratio:{telegram:0.3,calls:0.35,refs:0.4,reports3:0.350571,chat:0.2}}),{split_ratio:{telegram:0.3,calls:0.35,refs:0.4,reports3:0.350571}});
+  assert.equal(validValue('split_ratio',{telegram:0.3}),true);assert.equal(validValue('split_ratio',{telegram:1}),false);
+  const e=env({server:{},legacy:{'kptu-split-ratio:telegram':'0.3','kptu-split-ratio:tasks':'0.4'}});
+  assert.equal(await e.api.load(),'ok');assert.equal(e.api.getSplit('tasks'),0.4);assert.equal(e.api.getSplit('telegram'),undefined);
+  assert.equal(e.api.setSplit('calls',0.45),true);assert.equal(e.api.getSplit('calls'),0.45);
+});

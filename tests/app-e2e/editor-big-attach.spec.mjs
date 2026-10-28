@@ -5,7 +5,7 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import {expectProjectDetail} from './helpers/project-detail.mjs';
 import {typeInto,edWin,edWinText} from './helpers/note-editor.mjs';
 import {expectProjectTitle} from './helpers/screen-title.mjs';
-// UI-크게첨부(2026-10-20 사용자 결정): (a) 조직 상세·프로젝트 상세의 업데이트 입력에도 [크게]. ED③ 기록(순서 5)부터 업데이트의 새 큰 창
+// UI-크게첨부(2026-10-20 사용자 결정): (a) 조직 상세·프로젝트 상세의 업데이트 입력에도 [크게](프로젝트 상세 쪽은 MTG-프로젝트합치기 3단계에서 입력칸과 함께 없어짐). ED③ 기록(순서 5)부터 업데이트의 새 큰 창
 // (update-window.js, #edWindow)이 그 조직·프로젝트를 미리 고른 채 열리고, 저장하면 그 조직·프로젝트 기록으로(글자와 서식 함께) 저장된 뒤 닫힌다. (b) 큰 편집 창에서도 [📎 첨부]
 // (바구니 첨부 부품 basket-upload.js 그대로). 첨부는 바구니로 저장할 때만 — 조직·프로젝트 기록이나 노트로 저장할 때 첨부가 있으면
 // 기존 안내. DB·Edge 변경 없음(기존 저장 경로만 부른다).
@@ -69,34 +69,17 @@ for(const width of [390,1280]){
   expect(f.errors).toEqual([]);
  });
 
- test(`프로젝트 상세 [크게]: 그 프로젝트가 고른 채 열리고, 저장하면 그 프로젝트 기록으로 저장·닫힘 ${width}`,async({page})=>{
+ // MTG-프로젝트합치기 3단계: 프로젝트 상세의 기록 입력칸과 [크게](⤢)는 없어졌다(기록은 사업 보고 한 곳, 명진 결정). 상세에서 큰 창이 열리지 않고
+ // 진행 기록도 쓰지 않는지만 본다(지난 기록 목록은 project-record-input.spec.mjs가 본다).
+ test(`프로젝트 상세: 기록 입력칸·[크게]가 없고 진행 기록을 쓰지 않음 ${width}`,async({page})=>{
   const f=await fixture(page,width);
   await clickView(page,'projects');await page.locator('#projectGrid .ps3-plist [data-ps3-project="p"]').click();
   await expectProjectDetail(page,'p');await expectProjectTitle(page,'테스트 프로젝트',{contains:true});
-  const form=page.locator('#ps3-progress [data-ps3-record-input]'),big=form.locator('[data-ps3-record-big]');
-  await expect(big).toBeVisible();await expect(big).toHaveAccessibleName('큰 창에서 쓰기');
-  const [i,b,s]=await Promise.all([form.locator('input').boundingBox(),big.boundingBox(),form.getByRole('button',{name:'기록',exact:true}).boundingBox()]);
-  // PRJ-화면다듬기: the icon sits inside the input, [기록] stays beside it.
-  expect(Math.abs(s.y-i.y)).toBeLessThanOrEqual(1);expect(b.x).toBeGreaterThanOrEqual(i.x);expect(b.x+b.width).toBeLessThanOrEqual(i.x+i.width+1);expect(i.x+i.width).toBeLessThanOrEqual(s.x);
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  await form.locator('input').fill('발제자 섭외');
-  await big.click();
-  const e=edWin(page);await expect(e).toBeVisible();
-  await expect(edWinText(page)).toContainText('발제자 섭외');
-  await expect(e.locator('[data-edw-place]')).toHaveText('테스트 프로젝트 ▾');
-  await expect(e.locator('[data-edw-save]')).toHaveAccessibleName('업데이트로 저장');
-  expect(await fits(page)).toBe(true);
-  // Several lines closed without saving come back to [크게] as written, with their form (the small input shows them on one line).
-  await typeInto(page,edWinText(page),'발제자 섭외\n자료집 마감');
-  await e.locator('[data-close="edWindow"]').click();
-  await page.locator('#edwCloseSheet').getByRole('button',{name:'저장하지 않고 닫기',exact:true}).click();await expect(page.locator('#edWindow')).toHaveCount(0);
-  await expect(form.locator('input')).toHaveValue('발제자 섭외 자료집 마감');expect(f.projects).toEqual([]);
-  await big.click();await expect(edWinText(page)).toContainText('자료집 마감');
-  await e.locator('[data-edw-save]').click();
+  await expect(page.locator('#ps3-progress')).toBeVisible();
+  await expect(page.locator('#ps3Body [data-ps3-record-input],#ps3Body [data-ps3-record-big]')).toHaveCount(0);
   await expect(page.locator('#edWindow')).toHaveCount(0);
-  await expect(page.locator('#toast')).toContainText('테스트 프로젝트 기록에 저장했어요.');
-  expect(f.projects).toHaveLength(1);expect(f.projects[0]).toMatchObject({project_id:'p',workstream_id:null,author_id:'home-test',summary:'발제자 섭외\n자료집 마감',effective_on:'2026-10-06'});expect(f.projects[0].doc).toMatchObject({v:'ed1'});
-  await expect(form.locator('input')).toHaveValue('');await expect(page.locator('#ps3DetailModal')).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  expect(f.projects).toEqual([]);
   expect(f.errors).toEqual([]);
  });
 

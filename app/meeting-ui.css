@@ -312,6 +312,9 @@
 
 /* MTG-프로젝트합치기 2단계: 사업영역 꼬리표·다음 할 일 칸(쓰기·고치기·보기), 사업 보고 위 [사업요약표 미리보기]·⋯ [사업영역 관리]. 작고 낮게. */
 .biz-area-fields{display:grid;gap:var(--kptu-space-2)}
+.biz-area-suggest{display:flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:12px;color:var(--kptu-muted)}
+.biz-area-sugs{display:inline-flex;flex-wrap:wrap;gap:4px;min-width:0}
+.biz-area-sugs .biz-area-chip{border-radius:999px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .biz-next-plan>summary{cursor:pointer;font-size:13px;color:var(--kptu-muted);padding:2px 0}
 .biz-next-plan textarea{width:100%;box-sizing:border-box;margin-top:var(--kptu-space-2);font-size:13px}
 .mrd-area-view{margin:var(--kptu-space-2) 0;font-size:13px}
@@ -349,3 +352,33 @@
 .biz-day{color:var(--kptu-muted);font-variant-numeric:tabular-nums}
 .biz-preview-foot{justify-content:space-between;border-top:1px solid var(--kptu-border)}
 .biz-preview-foot .status{margin:0;font-size:12px}
+/* 사업영역 AI 한 줄(설계 13절): 위 줄 작은 안내, 표 칸 안 한 줄 + 작은 글자 버튼 [고치기], 보고 줄은 접기. 작고 낮게. */
+.biz-ai-note{font-size:12px;color:var(--kptu-muted);min-width:0}
+.biz-ai-line{margin:0 0 2px}
+.biz-ai-add{position:relative;padding:0 2px;border:0;background:none;font:inherit;font-size:12px;color:var(--kptu-muted);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.biz-ai-add::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+.biz-ai-more>summary{cursor:pointer;font-size:12px;color:var(--kptu-muted)}
+.biz-ai-edit{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:2px}
+.biz-ai-edit input{flex:1 1 160px;min-width:0;font-size:13px}
+
+/* MTG-프로젝트합치기 3단계: 사업 보고 [목록]의 주 넘기기 줄(‹ 10.26(월)~11.1(일) n건 › [전체]). 작고 낮은 버튼, 한 줄. */
+#meetingsView .report-week-bar{flex-direction:row;flex-wrap:nowrap;align-items:center;min-width:0;margin-bottom:var(--kptu-space-2)}
+#meetingsView #reportWeekFilter{display:flex;align-items:center;gap:8px;min-width:0}
+#meetingsView .report-week-bar[hidden]{display:none}
+#meetingsView #reportWeekFilter button{width:auto;min-width:32px;max-width:none;padding-inline:8px;white-space:nowrap}
+/* 누르는 범위 44px은 위아래로만 넓힌다(일지 ‹ › 줄과 같은 방식). 공용 ::after의 좌우 확장은 32px 버튼 밖으로 넘쳐 목록 넘침 검사에 걸린다. */
+#meetingsView #reportWeekFilter button.mini::after{inset:auto;left:0;right:0;min-width:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px);min-height:0}
+#meetingsView #reportWeekFilter .report-week-label{font-size:var(--ds-text-meta,13px);white-space:nowrap}
+#meetingsView #reportWeekFilter .report-week-label small{color:var(--kptu-muted)}
+/* MTG-녹음초안: [회의] 입력 창의 [녹음·전사 넣기] 줄과 접힌 패널. 버튼은 공용 작은 버튼(button.secondary 32px), 글자는 메타 크기. */
+#meetingModal .mtd-bar{display:flex;align-items:center;flex-wrap:wrap;gap:var(--kptu-space-2);margin:0 0 var(--kptu-space-2)}
+#meetingModal .mtd-bar[hidden],#meetingModal .mtd-panel[hidden]{display:none}
+#meetingModal .mtd-status{flex:1 1 12em;min-width:0;font-size:var(--ds-text-meta,12px);line-height:1.4;color:var(--kptu-muted)}
+#meetingModal .mtd-status.ok{color:var(--kptu-success)}
+#meetingModal .mtd-status.error{color:var(--kptu-danger)}
+#meetingModal .mtd-panel{display:grid;gap:var(--kptu-space-2);margin:0 0 var(--kptu-space-3);padding:var(--kptu-space-2);border:1px dashed var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface-subtle)}
+#meetingModal .mtd-panel.drop-active{border-color:var(--kptu-info)}
+#meetingModal .mtd-file-line{display:flex;align-items:center;gap:var(--kptu-space-2);min-width:0}
+#meetingModal .mtd-note{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--ds-text-meta,12px);color:var(--kptu-faint)}
+#meetingModal .mtd-panel textarea{width:100%;min-height:0}
+#meetingModal .mtd-actions{display:flex;justify-content:flex-end;gap:var(--kptu-space-2)}

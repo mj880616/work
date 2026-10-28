@@ -284,7 +284,7 @@ test('JOURNAL-하루개편: the day card — 할 일/한 일, 주간보고 재�
   };
   const card = m.dayCard(materials, '2026-10-06', {kinds:{status:'ok', list:['본부집행위']}});
   assert.deepEqual(card.report.map(g => g.label), ['회의·활동 결과', '사업 소식', '조직 소식']);
-  assert.deepEqual(card.others.map(g => g.label), ['자료실 새 자료', '공유 페이지', '노트로 옮긴 것', '기타 메모', '참고', '어디에도 안 보낸 업데이트']);
+  assert.deepEqual(card.others.map(g => g.label), ['자료실 새 자료', '공유 페이지', '노트로 옮긴 것', '기타 메모', '참고', '어디에도 안 보낸 업데이트', '업무 통화']);
   // 회의·활동 결과: title, the result's first line ('' when none), the weekly-report kind switch as `hidden`, and where it opens.
   assert.deepEqual(card.report[0].items.map(i => [i.text, i.summary, i.hidden, i.open.type, i.open.id]), [
     ['08:30 운영위원회 3차', '옛 결정', false, 'meeting', 'm2'], ['11:00 기자회견', '결과 첫 줄', false, 'meeting', 'm1'], ['14:00 본부 집행위', '', true, 'meeting', 'm4']]);

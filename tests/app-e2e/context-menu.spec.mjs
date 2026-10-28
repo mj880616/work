@@ -264,15 +264,18 @@ test('1280 project detail: right-click on the detail head opens the ⋯ panel at
   await rightClickAt(page, head, 0.2, 0.5); await panel.locator('[data-ps3-edit-project]').click(); await expect(page.locator('#ps3CreateModal')).toBeVisible();
   expect(errors).toEqual([]);
 });
-test('1280 project detail: a record line opens the record ⋯ menu; browser menu stays inside the record input', async ({ page }) => {
+test('1280 project detail: a record line opens the record ⋯ menu; browser menu stays inside a record edit input', async ({ page }) => {
   await projectFixture(page); await watch(page);
   await clickView(page, 'projects'); await expectProjectTitle(page,'합성 정책 사업');
   const rec = page.locator('#ps3Body [data-basket-link="l-p"]'), menu = page.locator('#ps3RecordMenu');
   await rec.locator('[data-ps3-record-menu]').click(); await expect(menu).toBeVisible(); const viaButton = await labels(menu); await page.keyboard.press('Escape'); await expect(menu).toBeHidden();
   const at = await rightClickAt(page, rec, 0.5, 0.5); await expectAtPointer(page, menu, at); expect(await labels(menu)).toEqual(viaButton);
   await page.keyboard.press('Escape'); await expect(menu).toBeHidden();
-  const input = page.locator('#ps3Body [data-ps3-record-input] textarea, #ps3Body textarea, #ps3Body input[type="text"]').first();
-  await expect(input).toBeAttached(); await input.scrollIntoViewIfNeeded(); await rightClickAt(page, input, 0.5, 0.5); await expect(menu).toBeHidden(); expect(await kept(page)).toEqual([false, true]);
+  // MTG-프로젝트합치기 3단계: 맨 위 기록 입력칸이 없어져, 저장된 기록의 ⋯ 수정 칸(글 입력칸)에서 브라우저 메뉴가 그대로인지 본다.
+  await expect(page.locator('#ps3Body [data-ps3-record-input]')).toHaveCount(0);
+  await page.locator('#ps3Body [data-ps3-record="pr-0"] [data-ps3-record-menu]').click(); await menu.getByRole('button', { name: '수정', exact: true }).click();
+  const input = page.locator('#ps3Body form[data-ps3-edit-record="pr-0"] input');
+  await expect(input).toBeVisible(); await input.scrollIntoViewIfNeeded(); await rightClickAt(page, input, 0.5, 0.5); await expect(menu).toBeHidden(); expect(await kept(page)).toEqual([false, true]);
 });
 test('390 project detail: right-click changes nothing', async ({ page }) => {
   await projectFixture(page, { width: 390 }); await watch(page);

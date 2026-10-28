@@ -55,7 +55,7 @@ export function meetingWhen(m){
   return {at:date,date,time:'',source:'none'};
 }
 
-// 화면 글자: 시각이 있으면 "10. 19. 오후 02:00", 없으면 "10. 19."(시각 없이 날짜만). options는 연도 등 더할 때.
+// 화면 글자: 시각이 있으면 "10. 19. 14:00", 없으면 "10. 19."(시각 없이 날짜만). options는 연도 등 더할 때.
 export function formatMeetingWhen(m,options={}){
   const w=meetingWhen(m);if(!w.at)return '';
   return w.time

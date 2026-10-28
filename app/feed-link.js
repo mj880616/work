@@ -25,7 +25,9 @@ export function linkBoxHtml(box, orgs, prefix) {
 </div>`;
 }
 
-// One organization picker for both screens: my organizations first in the shared order (organization-order.js), the rest after.
+// One organization picker for both screens (ORG-고르기통일): only my organizations (feed-data.js readOrganizations → mine,
+// my-organizations.js) in the shared order (organization-order.js). The organization this row is already linked to stays
+// shown even when it is not mine, so the current link can be seen and kept; nothing else outside mine is offered.
 let sheet = null, pick = null;
 export function openOrgPicker(trigger, {orgs, mine, selected, onPick}) {
   pick = {orgs, mine, selected, onPick};
@@ -34,14 +36,12 @@ export function openOrgPicker(trigger, {orgs, mine, selected, onPick}) {
     canOpen:() => !!pick, choices:async () => true,
     render:() => {
       const order = window.KPTUOrganizationOrder, {orgs: all, mine: my, selected: sel} = pick;
-      const active = (all || []).filter(o => o.active !== false || o.id === sel);
-      const list = order?.forPicker ? order.forPicker(active, sel ? [sel] : []) : active;
-      const mineList = list.filter(o => my?.has(o.id)), rest = list.filter(o => !my?.has(o.id));
-      const groups = order?.groups ? order.groups(mineList.length ? mineList : list) : [mineList.length ? mineList : list];
+      const offered = (all || []).filter(o => (o.active !== false && my?.has(o.id)) || o.id === sel);
+      const list = order?.forPicker ? order.forPicker(offered, sel ? [sel] : []) : offered;
+      const groups = order?.groups ? order.groups(list) : [list];
       const row = o => orgRow(o, o.id === sel, esc);
-      const others = mineList.length && rest.length ? `<p class="home-choice-group-name">그 외</p><div class="home-choice-org-items">${(order?.sort ? order.sort(rest) : rest).map(row).join('')}</div>` : '';
       const none = `<button type="button" class="home-choice-row home-choice-pick" data-sheet-value="${NONE}" aria-pressed="${!sel}"><span class="home-choice-check" aria-hidden="true"></span><span class="home-choice-name">연결 안 함</span></button>`;
-      return {title:'연결할 조직', search:'조직 이름 찾기', html:none + orgGroupRows(groups, row) + others};
+      return {title:'연결할 조직', search:'조직 이름 찾기', html:none + orgGroupRows(groups, row)};
     },
     onSelect:(_kind, value) => { const p = pick; if (p) p.onPick(value === NONE ? '' : value); },
   });

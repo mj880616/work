@@ -20,7 +20,7 @@
 // (WEEKLY-한글초안 2단계 builds the .hwpx from this grouping) — except the request rows, which journal.js saves through
 // weekly-exec-requests.js. journal.js stays the only renderer of #journalRoot and calls
 // renderWeekly() into the box it owns.
-import {weeklyAreaRecords} from './business-area-model.mjs';
+import {weeklyAreaRecords, summarizeAreaRecords} from './business-area-model.mjs';
 import {weekDays, workLines, shortDay, reportDay, tasksOn, pendingOn, meetingsOn, meetingLine, orgNewsOn, projectRecordsOn, scheduleDays,
   compareOrgSections, journalMemosOn, documentLine, sharePageLine, UNSORTED, OTHERS, DONE_TASK_DAYS, doneCoverFrom, pendingCoverTo, PENDING_DAYS, todayKey, WEEK_READ_CAP} from './journal-data.js';
 import {requestTagsHtml, requestPrefix} from './update-requests.js';
@@ -30,7 +30,7 @@ import {itemWhat} from './weekly-hwpx/schedule.mjs';
 import {annotateCalendar, memoryTitle, idleWeeks} from './weekly-schedule-memory.js';
 import {formDay, dayParts, dayLabel, whatCell, requestLine, sortItems, EXEC_HEAD, EXEC_LIMITS, EXEC_MAX_ROWS, CARRIED_TAG} from './weekly-exec-requests.js';
 import {placeFiles, fileVerdict, fileItem, applyDocEdit, fileBucket} from './weekly-file-lines.mjs';
-import {docEdits} from './weekly-draft-store.js';
+import {docEdits, draftAreaSummaries} from './weekly-draft-store.js';
 import {weeklyPart as calRefWeekly} from './calendar-ref-model.mjs';
 import {refOfOpen, meetingRef, planOverlaps, reasonOf, OVERLAP_WEEK_TEXT as OV} from './overlap-weekly.mjs';
 
@@ -235,7 +235,9 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
     // MTG-프로젝트합치기 2단계: 사업영역 꼬리표를 직접 단 사업 보고도 ② 재료(진행 = 보고 한 줄, 이후 계획 = 다음 할 일).
     // 꼬리표가 빈 옛 보고는 넣지 않는다(지난 주 보고서가 달라지지 않게). 옛 진행 기록·바구니 프로젝트 연결은 그대로(결정 ⑦).
     // 사업 보고 읽기는 ③의 재료라 ② 출처 목록(WEEKLY_SOURCES.summary)에는 넣지 않는다: 읽히면 함께 놓이고, 못 읽으면 ③이 실패를 알린다.
-    const areaRecords = ok(m, 'meetings') ? days.flatMap(day => weeklyAreaRecords(ok(m, 'meetings'), day, areaLine).map(r => ({...r, day}))) : [];
+    // 사업영역 AI 한 줄(설계 13절): 그 주 임시저장 area_summaries에 줄이 있는 사업영역은 보고 줄들 대신 그 한 줄(고친 줄 우선 — 서버·화면이 같은 칸에 하나만 둔다).
+    const areaLines = draftRead && !draftRead.missing ? draftAreaSummaries(draftRead.row?.draft) : {};
+    const areaRecords = ok(m, 'meetings') ? summarizeAreaRecords(days.flatMap(day => weeklyAreaRecords(ok(m, 'meetings'), day, areaLine).map(r => ({...r, day}))), ok(m, 'meetings'), areaLines) : [];
     const all = [...rawRecords, ...areaRecords], records = all.filter(r => keep(r, 'summary'));
     const tree = ok(m, 'catalog');
     // WEEKLY-자료요약: 프로젝트에만 연결된 자료 → 그 프로젝트 줄(placeRecords가 자리를 찾음). 같은 프로젝트의 그 주 기록과 비교한다.
@@ -475,7 +477,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     if (item.file.kept) { const n = el('span', 'journal-file-note', '넣음'); n.dataset.journalFileKept = ''; li.append(' ', n); }
     if (!fe.editable || item.file.dropped || (item.file.verdict === 'same' && !item.file.kept)) return;
     const more = el('details', 'journal-kind-more'); more.dataset.journalFileMore = item.file.id;
-    const sum = el('summary', null, '⋯'); sum.setAttribute('aria-label', `${text} 자료 줄 고치기·빼기`);
+    const sum = el('summary'); const sumDots = el('span', 'more-dots', '⋯'); sumDots.setAttribute('aria-hidden', 'true'); sum.append(sumDots); sum.setAttribute('aria-label', `${text} 자료 줄 고치기·빼기`);
     const edit = el('button', 'mini', '고치기'); edit.type = 'button'; edit.dataset.journalFileEdit = item.file.id; edit.disabled = !canEdit;
     const drop = el('button', 'mini', '빼기'); drop.type = 'button'; drop.dataset.journalFileDrop = item.file.id; drop.disabled = !canEdit;
     drop.setAttribute('aria-label', `이번 주 보고에서 빼기: ${text}`);
@@ -620,7 +622,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
       if (mt.editable) [...list.children].forEach((li, i) => {
         const item = mt.items[i]; if (!validKindKey(item.kind)) return;
         const more = el('details', 'journal-kind-more'); more.dataset.journalKindMore = item.kind;
-        const summaryEl = el('summary', null, '⋯'); summaryEl.setAttribute('aria-label', `${item.kindName} 종류 설정`);
+        const summaryEl = el('summary'); const summaryDots = el('span', 'more-dots', '⋯'); summaryDots.setAttribute('aria-hidden', 'true'); summaryEl.append(summaryDots); summaryEl.setAttribute('aria-label', `${item.kindName} 종류 설정`);
         const toggle = el('button', 'mini', '주간보고에서 빼기'); toggle.type = 'button';
         toggle.dataset.journalKindToggle = item.kind; toggle.dataset.journalKindHide = '1'; toggle.dataset.journalKindName = item.kindName;
         toggle.setAttribute('aria-label', `${item.kindName} 종류를 주간보고에서 빼기`);

@@ -115,13 +115,14 @@ test('담당조직 상세: 그림 자료를 못 읽어도 사업 보고 줄은 �
  expect(errors).toEqual([]);
 });
 
-test('담당조직 상세: 작은 그림을 못 받으면 빈 칸으로 남고 줄 누르기는 그대로 된다',async({page})=>{
+test('담당조직 상세: 작은 그림을 못 받으면 회색 칸에 작은 ↻만 남고 줄 누르기는 그대로 된다',async({page})=>{
  const {log,errors}=await fixture(page,390,{photoFail:true});
  await openOrg(page);
  await orgRow(page,1).scrollIntoViewIfNeeded();
  await expect(orgRow(page,1).locator('.report-photo-thumb[data-state="empty"]')).toHaveCount(3);
  expect(log.photos.length).toBeGreaterThanOrEqual(3);
  await expect(orgRow(page,1).locator('.report-photo-thumb img')).toHaveCount(0);
+ await expect(orgRow(page,1).locator('.report-photo-thumb[data-img-state="failed"] .img-slot-retry')).toHaveCount(3);
  await expect(orgRow(page,1).locator('[data-report-photo-more]')).toHaveText('외 2장');
  await orgRow(page,1).locator('[data-wd-report-open]').click();
  await expect(page.locator('#meetingRoundDetailModal')).toBeVisible();

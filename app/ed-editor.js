@@ -37,6 +37,7 @@ import {TEXT_STYLES, DEFAULT_BODY, BODY_STYLES, TEXT_COLORS, HIGHLIGHTS, LIMITS,
 import {looksLikeMarkdown} from './note-markdown.mjs';
 import {markdownToDoc, markdownLettersOf} from './ed-markdown.mjs';
 import {toPlain} from './ed-text.mjs';
+import {slotLoading, slotShown, slotFailed} from './img-slot.js';
 
 const LIB = './editor-lib/pm-ed1-1.2.0/prosemirror.min.mjs';
 const MARKDOWN_IT = './markdown-lib/markdown-it-15.0.2/markdown-it.esm.min.mjs';
@@ -1106,17 +1107,24 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       if (node.attrs.alt) { const cap = document.createElement('figcaption'); cap.className = 'ed-photo-cap'; cap.textContent = node.attrs.alt; dom.append(cap); }
     };
     if (!src || !photos) { place(src ? '사진' : '사진 자리'); return {dom}; }
-    place('사진을 불러오는 중…');
+    // 공용 img-slot.js(PHOTO-못받은사진): 받는 동안 글자 없는 연한 회색 칸, 못 받으면 작은 ↻(누르면 그 사진만 다시).
     let gone = false;
-    photos.url(src).then(address => {
-      if (gone) return;
-      if (!address) { place('사진을 불러오지 못했어요'); return; }
-      const img = document.createElement('img');
-      img.className = 'ed-photo-img'; img.alt = node.attrs.alt || ''; img.referrerPolicy = 'no-referrer'; img.decoding = 'async';
-      img.addEventListener('error', () => { if (!gone) place('사진을 불러오지 못했어요'); });
-      img.src = address;
-      dom.className = 'ed-photo ed-center'; dom.replaceChildren(img);
-    }).catch(() => { if (!gone) place('사진을 불러오지 못했어요'); });
+    const bare = () => { place(''); dom.querySelector('.ed-photo-mark')?.remove(); };
+    const fail = () => { if (gone) return; bare(); slotFailed(dom, load, 'photo'); };
+    function load() {
+      bare(); slotLoading(dom);
+      photos.url(src).then(address => {
+        if (gone) return;
+        if (!address) return fail();
+        const img = document.createElement('img');
+        img.className = 'ed-photo-img'; img.alt = node.attrs.alt || ''; img.referrerPolicy = 'no-referrer'; img.decoding = 'async';
+        img.addEventListener('error', fail, {once: true});
+        img.addEventListener('load', () => { if (!gone) { dom.className = 'ed-photo ed-center'; slotShown(dom); } }, {once: true});
+        img.src = address;
+        dom.replaceChildren(img);
+      }).catch(fail);
+    }
+    load();
     return {dom, destroy() { gone = true; }};
   }
   const photoCount = () => { let n = 0; view.state.doc.descendants(x => { if (x.type === N.image && x.attrs.src) n++; }); return n; };

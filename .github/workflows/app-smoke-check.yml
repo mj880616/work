@@ -22,6 +22,7 @@ on:
       - 'tests/meeting-draft-parser.test.mjs'
       - 'tests/meeting-time.test.mjs'
       - 'tests/seoul-time.test.mjs'
+      - 'tests/ui-cleanup-b.test.mjs'
       - 'tests/time-input.test.mjs'
       - 'tests/meeting-compact.test.mjs'
       - 'tests/select-menu.test.mjs'
@@ -50,6 +51,7 @@ on:
       - 'scripts/hwp-lab/**'
       - 'scripts/pdf/**'
       - 'tests/meeting-file-parse.test.mjs'
+      - 'tests/meeting-transcript-model.test.mjs'
       - 'tests/meeting-when.test.mjs'
       - 'tests/meeting-columns.test.mjs'
       - 'tests/meeting-inline-edit.test.mjs'
@@ -116,6 +118,7 @@ on:
       - 'tests/meeting-draft-parser.test.mjs'
       - 'tests/meeting-time.test.mjs'
       - 'tests/seoul-time.test.mjs'
+      - 'tests/ui-cleanup-b.test.mjs'
       - 'tests/time-input.test.mjs'
       - 'tests/meeting-compact.test.mjs'
       - 'tests/select-menu.test.mjs'
@@ -144,6 +147,7 @@ on:
       - 'scripts/hwp-lab/**'
       - 'scripts/pdf/**'
       - 'tests/meeting-file-parse.test.mjs'
+      - 'tests/meeting-transcript-model.test.mjs'
       - 'tests/meeting-when.test.mjs'
       - 'tests/meeting-columns.test.mjs'
       - 'tests/meeting-inline-edit.test.mjs'
@@ -208,6 +212,9 @@ jobs:
       - name: Check meeting Korea time conversions
         run: node --test tests/meeting-time.test.mjs tests/seoul-time.test.mjs tests/time-input.test.mjs tests/meeting-compact.test.mjs tests/select-menu.test.mjs tests/calendar-week-timeline.test.mjs tests/calendar-drag-model.test.mjs tests/calendar-create-slot.test.mjs
 
+      - name: Check shared UI parts stay unified (UI-화면정리 B)
+        run: node --test tests/ui-cleanup-b.test.mjs
+
       - name: Check Web2 app icon files (UI-앱아이콘 메모+체크)
         run: node --test tests/app-icon.test.mjs
 
@@ -231,6 +238,9 @@ jobs:
 
       - name: Check telegram hourly send (new messages only, night rest, cumulative day summary)
         run: node --test tests/tg-feed-hourly.test.mjs
+
+      - name: Check journal evening AI draft rules (today line draft, work calls only)
+        run: node --test tests/journal-draft-model.test.mjs
 
       - name: Check phone bottom tab selection rule
         run: node --test tests/mobile-tab-selection.test.mjs tests/menu-model.test.mjs tests/home-cards-model.test.mjs tests/menu-home-prefs.test.mjs
@@ -271,6 +281,9 @@ jobs:
       - name: Meeting files·text grouping and pinned PDF reader
         run: node --test tests/meeting-file-parse.test.mjs tests/pdf-lib-pin.test.mjs
 
+      - name: Meeting transcript → meeting record draft (MTG-녹음초안)
+        run: node --test tests/meeting-transcript-model.test.mjs
+
       - name: Meeting card time, kind colors and PC layout
         run: node --test tests/meeting-when.test.mjs tests/meeting-columns.test.mjs tests/meeting-inline-edit.test.mjs tests/report-kinds.test.mjs tests/report-links.test.mjs
 
@@ -282,6 +295,9 @@ jobs:
 
       - name: Editor markdown paste unit tests (ED-폰마크다운붙여넣기 whole-text offer)
         run: node --test tests/ed-paste-markdown.test.mjs
+
+      - name: Organization pickers offer only my organizations (ORG-고르기통일)
+        run: node --test tests/org-picker-mine.test.mjs
 
       - name: Check English eyebrow cleanup
         run: node --test tests/english-labels.test.mjs
@@ -304,6 +320,9 @@ jobs:
       - name: Check OneDrive small-picture copies on the phone (OD-폰보관, cache key·limits·cleanup·one audit allowance, synthetic)
         run: node --test tests/od-thumb-cache.test.mjs
 
+      - name: Check picture cells (PHOTO-못받은사진, gray while loading, small retry mark when failed, every image place uses it, synthetic)
+        run: node --test tests/img-slot.test.mjs
+
       - name: Check OneDrive warm-up after app start (OD-미리받기, status·this month·few small pictures in memory, synthetic)
         run: node --test tests/od-warm.test.mjs
 
@@ -316,11 +335,17 @@ jobs:
       - name: Check photo menu (PHOTO-사진메뉴 1차, newest-first list·day heads·calendar cover·multi star·delete undo·shared viewer, synthetic)
         run: node --test tests/photos-model.test.mjs
 
+      - name: Check arsenal menu (주소 개편 ② E1, newest-first list·season/competition/search filters·goal lines·https links only, real archive data)
+        run: node --test tests/arsenal-model.test.mjs
+
       - name: Check diary list view (JOURNAL-일기목록, month groups·pin·star·find·view memory·no device storage, synthetic)
         run: node --test tests/diary-list-model.test.mjs
 
       - name: Check home AI usage line (AI-사용량줄, summary·warning·amount input·no device storage, synthetic)
         run: node --test tests/ai-usage-model.test.mjs
+
+      - name: Check shared date field and button rules (UI-날짜칸·UI-버튼통일, '10. 6. (화)'·no device storage, synthetic)
+        run: node --test tests/date-field.test.mjs
 
       - name: Check diary photo prune to Drive trash (JOURNAL-일기사진정리, synthetic)
         run: node --test tests/security/basket-photo-prune.test.mjs tests/security/basket-note-delete.test.mjs tests/security/basket-jsonb-contains.test.mjs
@@ -339,6 +364,9 @@ jobs:
 
       - name: Check notes, editor tables and text units (STAB-단위시험등록)
         run: node --test tests/basket-note-folder.test.mjs tests/note-window-folder.test.mjs tests/chatgpt-html.test.mjs tests/diary-doc.test.mjs tests/diary-onedrive.test.mjs tests/ed-table-colbuttons.test.mjs tests/ed-table-resize.test.mjs tests/note-files.test.mjs tests/preview-text.test.mjs tests/report-words.test.mjs tests/report-modal-fields.test.mjs tests/report-default-at.test.mjs
+
+      - name: Check phone share intake model (APP-폰앱새로 ②)
+        run: node --test tests/share-intake-model.test.mjs
 
       - name: Check press feedback and done-label units (UI-눌림느낌)
         run: node --test tests/press-feedback.test.mjs
@@ -361,6 +389,12 @@ jobs:
       - name: Check business report area tag and next plan (MTG-프로젝트합치기 2단계)
         run: node --test tests/business-area-model.test.mjs
 
+      - name: Check business report week list (MTG-프로젝트합치기 3단계)
+        run: node --test tests/report-week.test.mjs
+
+      - name: Check business area AI on the report screen (MTG-프로젝트합치기 사업영역 AI 화면)
+        run: node --test tests/business-area-ai-screen.test.mjs
+
       - name: Check hardcoded color baseline (STAB-단위시험등록)
         run: node --test tests/hardcoded-colors.test.mjs tests/context-menu-sites.test.mjs
 
@@ -369,6 +403,9 @@ jobs:
 
       - name: Check save keeps other active edit open (needs the locked parser) (STAB-단위시험등록)
         run: node --test tests/save-other-active.test.mjs
+
+      - name: UI-업데이트안내 기록 파일 검사·버전명·배포물 생성(needs the locked parser)
+        run: node --test tests/release-notes.test.mjs
 
       - name: Check every tests/ unit test is registered in a workflow (STAB-단위시험등록)
         run: node scripts/check-test-registration.mjs
@@ -619,9 +656,9 @@ jobs:
           grep -q "data-ps3-delete-project" app/project-system-v3.js
           grep -q 'owner_id=eq.${encodeURIComponent(userId)}' app/project-catalog.js
           grep -q 'catalog.fetchSpaces(wid,user.id)' app/project-system-v3.js
-          grep -q "data-ps3-record-input" app/project-system-v3.js
           grep -q "data-ps3-records" app/project-system-v3.js
-          grep -q "workstream_id:null,author_id:e.owner,status_label:null" app/project-system-v3.js
+          # MTG-프로젝트합치기 3단계: 상세 맨 위 진행 기록 입력칸은 없다(기록은 사업 보고 한 곳, 표·데이터 보존).
+          if grep -Eq 'data-ps3-record-input|saveRecordInput|openRecordBig' app/project-system-v3.js; then echo 'project record input returned'; exit 1; fi
           grep -q "data-ps3-basket-note" app/project-system-v3.js
           grep -q ".ps3-rec-line" app/project-system-v3.css
           if grep -Eq "data-ps3-add-ws|data-ps3-progress-item|data-ps3-quick-progress|ps3ProgressModal" app/project-system-v3.js; then echo 'retired per-item progress UI returned'; exit 1; fi

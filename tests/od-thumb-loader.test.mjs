@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 // OD-속도: 원드라이브 사진 받기 대기열(app/od-thumb-loader.js). 지어낸 받기 함수와 지어낸 시계만 쓴다(네트워크 없음).
-const {createThumbLoader, retryDelay, VISIBLE, NEAR, IDLE, ThumbError, LOADER_DEFAULTS} = await import('../app/od-thumb-loader.js');
+const {createThumbLoader, retryDelay, VISIBLE, NEAR, IDLE, ThumbError, LOADER_DEFAULTS, BATCH_REST_S} = await import('../app/od-thumb-loader.js');
 
 const tick = () => new Promise(r => setTimeout(r, 0));
 async function settle(n = 6) { for (let i = 0; i < n; i++) await tick(); }
@@ -149,7 +149,7 @@ test('memory keeps at most memMax pictures, drops the least recently used and le
 
 test('an address is reused only while it is fresh; failures are not remembered', async () => {
   const c = clock(); let n = 0, fail = true;
-  const l = createThumbLoader({fetchUrls: async ids => { n++; if (fail) throw new Error('net'); return {urls: Object.fromEntries(ids.map(id => [id, 'https://t.example/' + id + n]))}; },
+  const l = createThumbLoader({fetchUrls: async ids => { n++; if (fail) throw new Error('session'); return {urls: Object.fromEntries(ids.map(id => [id, 'https://t.example/' + id + n]))}; },
     now: c.now, setTimer: c.setTimer, ttlMs: 1000});
   await assert.rejects(l.get('a'));
   fail = false;
@@ -157,6 +157,22 @@ test('an address is reused only while it is fresh; failures are not remembered',
   assert.equal(await l.get('a'), 'https://t.example/a2');
   c.advance(1001);
   assert.equal(await l.get('a'), 'https://t.example/a3');
+});
+
+test('a batch that fails as a whole (server timeout etc.) does not fail its photos: rest, then those photos one by one', async () => {
+  const c = clock(), bytes = [];
+  const l = createThumbLoader({fetchUrls: async () => { throw Object.assign(new Error('onedrive_unavailable'), {status: 503}); },
+    fetchBytes: async id => { bytes.push(id); return 'blob:' + id; }, now: c.now, setTimer: c.setTimer, limit: 1});
+  const got = ['a', 'b'].map(id => l.get(id));
+  await settle();
+  assert.deepEqual(bytes, [], 'rests first');
+  c.advance(BATCH_REST_S * 1000); await settle();
+  c.advance(1); await settle();
+  assert.deepEqual(await Promise.all(got), ['blob:a', 'blob:b']);
+  assert.deepEqual(bytes, ['a', 'b']);
+  // 로그인·연결 문제는 그대로 실패로 끝난다.
+  const s = createThumbLoader({fetchUrls: async () => { throw new Error('onedrive_auth_expired'); }, fetchBytes: async () => 'blob:x'});
+  await assert.rejects(s.get('z'), /onedrive_auth_expired/);
 });
 
 test('retry waits: 3s doubling to 60s, then stops after four failures in a row', () => {

@@ -45,14 +45,14 @@ for(const tz of ['Europe/Rome','Asia/Seoul','UTC'])test(`보여 줄 회의 시�
     // 1) 직접 지정한 시각이 있으면 그것(글의 일시보다 우선).
     const set={meeting_at:'2026-10-19T05:30:00Z',transcript_text:'일시: 2026. 10. 19. 10:00'};
     assert.deepEqual(meetingWhen(set),{at:'2026-10-19T05:30:00.000Z',date:'2026-10-19',time:'14:30',source:'set'});
-    assert.match(formatMeetingWhen(set),/10\. 19\. 오후 02:30/);
+    assert.match(formatMeetingWhen(set),/10\. 19\. 14:30/);
     // 2) 0시 0분이면 결과 글의 일시.
     const text={meeting_at:'2026-10-18T15:00:00Z',transcript_text:'가상회의 결과\n일시: 2026. 10. 19.(월) 오후 2시'};
     assert.equal(meetingWhen(text).source,'text');assert.equal(meetingWhen(text).time,'14:00');
-    assert.match(formatMeetingWhen(text),/10\. 19\. 오후 02:00/);
+    assert.match(formatMeetingWhen(text),/10\. 19\. 14:00/);
     // 저장 순간 시각(초·밀리초)도 글의 일시로 바꿔 보인다.
     const uploaded={meeting_at:'2026-10-20T03:12:37.481Z',transcript_text:'일시: 2026. 10. 20. 09:00'};
-    assert.match(formatMeetingWhen(uploaded),/10\. 20\. 오전 09:00/);
+    assert.match(formatMeetingWhen(uploaded),/10\. 20\. 09:00/);
     // 3) 글에도 없으면 시각 없이 날짜만(올린 시각·빈 시각을 회의 시각처럼 보이지 않게).
     const none={meeting_at:'2026-10-20T03:12:37.481Z',transcript_text:'회의 결과 원문'};
     assert.deepEqual(meetingWhen(none),{at:'2026-10-20',date:'2026-10-20',time:'',source:'none'});

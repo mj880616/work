@@ -16,6 +16,7 @@ const handler = await import('../supabase/functions/ai-assist/handler.ts');
 const library = await import('../supabase/functions/ai-assist/library-fill.ts');
 const org = await import('../supabase/functions/ai-assist/org-summary.ts');
 const schedule = await import('../supabase/functions/ai-assist/schedule-titles.ts');
+const journal = await import('../supabase/functions/ai-assist/journal-draft.ts');
 const read = file => readFileSync(new URL(file, FUNCTIONS), 'utf8');
 
 const RULE = model.AI_TONE_RULE;
@@ -28,7 +29,7 @@ test('the tone rule names the ending style, the forbidden endings and the three 
 });
 
 test('summary-writing instructions carry the one shared rule: telegram news, ledger auto/candidates/fix, meeting draft', () => {
-  for (const [name, text] of [['telegram', telegram.TELEGRAM_INSTRUCTIONS], ['ledger_auto', auto.LEDGER_AUTO_INSTRUCTIONS], ['ledger_candidates', candidates.LEDGER_CANDIDATES_INSTRUCTIONS], ['ledger_fix', fix.LEDGER_FIX_INSTRUCTIONS]]) {
+  for (const [name, text] of [['telegram', telegram.TELEGRAM_INSTRUCTIONS], ['ledger_auto', auto.LEDGER_AUTO_INSTRUCTIONS], ['ledger_candidates', candidates.LEDGER_CANDIDATES_INSTRUCTIONS], ['ledger_fix', fix.LEDGER_FIX_INSTRUCTIONS], ['journal_draft', journal.JOURNAL_DRAFT_INSTRUCTIONS]]) {
     assert.equal(text.split(RULE).length - 1, 1, `${name}: rule appears exactly once, as the shared text`);
   }
   assert.ok(read('meeting-ai-draft/index.ts').includes('${AI_TONE_RULE}'), 'meeting draft puts the shared rule into its developer text');
@@ -57,7 +58,7 @@ test('instructions that feed the outward weekly report keep their own style and 
 });
 
 // 새 AI 지시문이 생기면 아래 목록에 '적용' 또는 '제외(이유)'로 올려야 한다. 말투를 빠뜨린 채 새 요약이 생기는 일을 막는다.
-const APPLIED = new Set(['collector-feed/telegram.ts', 'ai-assist/ledger-auto.ts', 'ai-assist/ledger-candidates.ts', 'ai-assist/ledger-fix.ts', 'meeting-ai-draft/index.ts']);
+const APPLIED = new Set(['collector-feed/telegram.ts', 'ai-assist/org-people-brief.ts', 'ai-assist/ledger-auto.ts', 'ai-assist/ledger-candidates.ts', 'ai-assist/ledger-fix.ts', 'ai-assist/journal-draft.ts', 'meeting-ai-draft/index.ts']);
 const EXCLUDED = new Map([
   ['collector-feed/handler.ts', '부르기만 한다. 텔레그램 지시문은 telegram.ts(적용)에 있다'],
   ['ai-assist/handler.ts', '연결 요약(주간보고 업무보고형)·챙길 것·겹침 판정이 한 파일에 있다. 연결 요약은 주간보고 문체라 제외'],
