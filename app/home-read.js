@@ -1,3 +1,4 @@
+import {waitHtml} from './wait-state.js';
 import { readRecordPages } from './basket-link-records.js';
 import { mountQuick } from './home-quick.js';
 import { mountRadar } from './todo-radar.js';
@@ -178,7 +179,7 @@ function shell() {
     focused = quick?.contains(document.activeElement) ? document.activeElement : null;
   const section = key => {
     const [title, view, label] = cards[key];
-    return `<section class="home-card" data-home-card="${key}" aria-labelledby="home-${key}-title"><header><h3 id="home-${key}-title">${title} <small data-home-count></small></h3>${view ? `<button type="button" data-goto="${view}">${label} ›</button>` : ""}</header>${key==='calendar'||key==='tasks'?'<p class="data-freshness" data-home-fresh role="status" aria-live="polite" hidden></p>':''}<div data-home-body role="status">불러오는 중…</div></section>`;
+    return `<section class="home-card" data-home-card="${key}" aria-labelledby="home-${key}-title"><header><h3 id="home-${key}-title">${title} <small data-home-count></small></h3>${view ? `<button type="button" data-goto="${view}">${label} ›</button>` : ""}</header>${key==='calendar'||key==='tasks'?'<p class="data-freshness" data-home-fresh role="status" aria-live="polite" hidden></p>':''}<div data-home-body>${waitHtml({rows:3})}</div></section>`;
   };
   // JOURNAL-챙길것: 챙길 것 sits below 주요 일정. todo-radar.js is the only renderer inside that card; it stays hidden until
   // the candidate table and the server function answer (not deployed yet = hidden).

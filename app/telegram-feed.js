@@ -1,3 +1,4 @@
+import {waitHtml} from './wait-state.js';
 // TG-방날짜묶기 4-가 (docs/design/tg-room-day-group.md 2절, 시안 mockups/tg-room-day-group.html): 텔레그램 소식 화면(?view=telegram, 사이드바 맨 아래).
 // 이 모듈이 #telegramView의 유일한 renderer다. 머리줄 '텔레그램 소식' + "오늘 n개 중 중요한 m개 · 방 k곳" + 방 거르기, 고정 띠, 작은 가운데 날짜,
 // 그 아래 "방 한 줄"(방 머리글자·방 이름·그날 내용 한 줄·소식 n·원문 n). 줄을 누르면 방 상세가 열린다(PC 오른쪽 2/3, 폰 router layer 한 칸):
@@ -186,7 +187,7 @@ function trashDayRowHtml(d) {
 }
 function paintList() {
   const box = $('#tgList');
-  if (!state.loaded) { box.innerHTML = headHtml() + '<p class="feed-empty" role="status">불러오는 중…</p>'; return; }
+  if (!state.loaded) { box.innerHTML = headHtml() + waitHtml({rows:6, h:34}); return; }
   if (state.missing) { box.innerHTML = headHtml() + '<p class="feed-empty" data-tg-empty="ready">준비 중이에요. 텔레그램 수집이 연결되면 여기에 보여요.</p>'; return; }
   if (state.error) { box.innerHTML = headHtml() + `<p class="feed-empty" role="status">${esc(state.error)} <button type="button" class="feed-text-btn" data-tg-retry>다시 시도</button></p>`; return; }
   const tail = `<p class="feed-status" data-tg-status role="status">${statusHtml()}</p>` + (state.sel ? '' : undoHtml());
@@ -226,7 +227,7 @@ function itemHtml(r) {
 }
 function rawHtml(r) {
   const raw = state.raw.get(r.id);
-  if (!raw || raw.loading) return '<p class="feed-faint" role="status">원문을 불러오는 중…</p>';
+  if (!raw || raw.loading) return waitHtml({rows:3});
   if (raw.error) return '<p class="feed-faint">원문을 불러오지 못했어요.</p>';
   if (!raw.raw_text) return '<p class="feed-faint">Web2에 남은 원문이 없어요. 원본은 Drive에 있어요.</p>';
   const canName = !!state.senders && !!r.room_key && !!r.day, rows = rawRows(telegramLines(raw.raw_text), state.sidx, r.room_key, r.day, {canName});
@@ -244,7 +245,7 @@ function paintDetail() {
   const nav = `<div class="feed-daynav"><button type="button" class="feed-nav" data-tg-nav="prev" aria-label="이전 날"${nb.prev || !state.end ? '' : ' disabled'}>‹</button><span class="feed-navday" data-tg-navday>${esc(dayLabel(sel.day))}</span><button type="button" class="feed-nav" data-tg-nav="next" aria-label="다음 날"${nb.next ? '' : ' disabled'}>›</button></div>`;
   const note = state.note ? `<p class="feed-notice" role="status" data-tg-note>${esc(state.note)}</p>` : '';
   let body;
-  if (!d || d.loading) body = '<p class="feed-faint" role="status">불러오는 중…</p>';
+  if (!d || d.loading) body = waitHtml({rows:4});
   else if (d.error) body = '<p class="feed-faint">이 방의 소식을 불러오지 못했어요.</p>';
   else {
     const title = sel.day === kstDay() ? '오늘 요약' : '그날 요약';

@@ -100,7 +100,7 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}]){
       await expect(listEvent(page,'gone')).toBeVisible();
       await expect(listEvent(page,'keep')).toBeVisible();
       await expect(fresh(page)).toHaveText('새로 불러오는 중');
-      await expect(page.locator('#calendarList .clv-day').first()).not.toContainText('불러오는 중');
+      await expect(page.locator('#calendarList .clv-day').first().locator('[data-wait]')).toHaveCount(0);
       release(state);
       await expect(listEvent(page,'gone')).toHaveCount(0);
       await expect(listEvent(page,'keep')).toBeVisible();
@@ -114,12 +114,12 @@ for(const viewport of [{width:390,height:844},{width:1280,height:900}]){
       const state=newState();state.hold=true;await mock(page,state);
       await signIn(page,'calendar');
       await expect(fresh(page)).toHaveText('불러오는 중…');
-      await expect(page.locator('#calendarList .clv-day').nth(3)).toContainText('불러오는 중…');
+      await expect(page.locator('#calendarList .clv-day').nth(3).locator('[data-wait]')).toHaveCount(1);await expect(page.locator('#calendarList .clv-day').nth(3)).not.toContainText('일정 없음');
       await expect(page.locator('#calendarList')).not.toContainText('일정 없음');
       release(state);
       await expect(listEvent(page,'keep')).toBeVisible();
       await expect(page.locator('#calendarList .clv-day').nth(3)).toContainText('일정 없음');
-      await expect(page.locator('#calendarList')).not.toContainText('불러오는 중…');
+      await expect(page.locator('#calendarList [data-wait]')).toHaveCount(0);
       await expect(fresh(page)).toBeHidden();
     });
 

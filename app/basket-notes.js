@@ -1,3 +1,4 @@
+import {waitInlineHtml} from './wait-state.js';
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import { viewPrefs } from './view-prefs.js';
 import { formatSeoulTime } from './meeting-time.js';
@@ -151,7 +152,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   async function refresh() {
     if (busy) return;
     const run = ++epoch, owner = scope();
-    status.textContent = '불러오는 중…'; host.querySelector('[data-note-retry]').hidden = true;
+    status.innerHTML = waitInlineHtml(); host.querySelector('[data-note-retry]').hidden = true;
     try {
       const [result, fold] = await Promise.all([readNoteDocs(rt), readNoteFolders(rt)]);
       if (run !== epoch || owner !== scope()) return;

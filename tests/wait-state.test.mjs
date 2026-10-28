@@ -1,0 +1,127 @@
+// UI-기다림표시통일(2026-10-29 명진 A안): 기다림·실패·없음 공용 부품(app/wait-state.js) 하나와 재발 방지.
+// - 기다림 = 글자 없는 위쪽 가는 줄 + 실제 줄 높이 회색 빈 줄, 0.4초 안에 끝나면 안 보임(base-ui.css .wait).
+// - 실패 = 빨간 작은 글자 '불러오지 못했습니다' + 작은 [다시], 없음 = 회색 '없음'.
+// - 민트(.notice) 상자는 '완료' 알림에만: 기다림·안내에 쓰지 않는다.
+// - 따로 만든 기다림 문구('…불러오는 중…' 등)가 새로 생기면 실패한다. 아직 남은 곳은 아래 기준표에 파일별 개수로 묶어 두고,
+//   늘어나거나 새 파일에 생기면 실패한다(줄어들면 기준표를 낮춘다). 남은 곳은 PR 본문 '남은 일' 목록과 같다.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readdirSync, readFileSync, statSync} from 'node:fs';
+import {join, relative} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {waitHtml, waitInlineHtml, failHtml, emptyHtml, barHtml, WAIT_LABEL, FAIL_TEXT} from '../app/wait-state.js';
+
+const APP = fileURLToPath(new URL('../app/', import.meta.url));
+const read = path => readFileSync(join(APP, path), 'utf8');
+const text = html => html.replace(/<[^>]*>/g, '');
+
+test('기다림은 글자 없이 가는 줄 + 회색 빈 줄, 화면 읽기에는 불러오는 중으로 알린다', () => {
+  const html = waitHtml();
+  assert.equal(text(html), '', '보이는 글자 없음');
+  assert.match(html, /^<div class="wait" data-wait role="status" aria-label="불러오는 중">/);
+  assert.equal(html.match(/class="wait-bar"/g).length, 1);
+  assert.equal(html.match(/class="wait-row"/g).length, 3);
+  assert.equal(waitHtml({rows: 6}).match(/class="wait-row"/g).length, 6);
+  assert.equal(waitHtml({rows: 99}).match(/class="wait-row"/g).length, 8, '너무 많이 그리지 않음');
+  assert.equal(waitHtml({rows: 0}).match(/class="wait-row"/g).length, 1);
+  assert.match(waitHtml({h: 34}), /style="--wait-h:34px"/, '실제 줄 높이');
+  assert.doesNotMatch(waitHtml({h: 'x;color:red'}), /style=/);
+  assert.equal(text(waitInlineHtml()), '');
+  assert.match(waitInlineHtml(), /aria-label="불러오는 중"/);
+  assert.equal(text(barHtml()), '');
+  assert.equal(WAIT_LABEL, '불러오는 중');
+});
+
+test('실패는 빨간 작은 글자 + 작은 [다시], 없음은 회색 글자', () => {
+  assert.equal(FAIL_TEXT, '불러오지 못했습니다');
+  assert.equal(failHtml(), '<p class="wait-fail" data-wait-fail role="alert">불러오지 못했습니다</p>');
+  assert.equal(failHtml({retry: 'data-x-retry'}), '<p class="wait-fail" data-wait-fail role="alert">불러오지 못했습니다 <button type="button" class="wait-retry" data-x-retry>다시</button></p>');
+  assert.doesNotMatch(failHtml({retry: 'onclick=alert(1)'}), /onclick/, '속성 이름만 받는다');
+  assert.equal(emptyHtml(), '<p class="wait-empty" data-wait-empty>없음</p>');
+  assert.equal(emptyHtml('<b>'), '<p class="wait-empty" data-wait-empty>&lt;b&gt;</p>');
+});
+
+test('모양: 0.4초 늦은 표시, 회색 빈 줄은 그림 칸과 같은 색, 실패는 빨강, 민트는 완료에만', () => {
+  const css = read('base-ui.css');
+  assert.match(css, /\.wait\{[^}]*animation:wait-show 0s linear \.4s both/);
+  assert.match(css, /@keyframes wait-show\{from\{visibility:hidden\}to\{visibility:visible\}\}/);
+  const gray = 'color-mix(in srgb,var(--kptu-border) 55%,transparent)';
+  assert.ok(css.includes(`.wait-row{display:block;height:var(--wait-h,20px);border-radius:4px;background:${gray}}`));
+  assert.ok(css.includes(`.img-slot:not([data-img-state="shown"]){background:${gray}}`), '그림 칸 받는 중 회색과 같은 색');
+  assert.match(css, /\.wait-fail\{[^}]*color:var\(--kptu-danger\)/);
+  assert.match(css, /\.wait-empty\{[^}]*color:var\(--kptu-muted\)/);
+  assert.match(css, /\.notice\{[^}]*var\(--kptu-success-soft\)/);
+  assert.match(css, /prefers-reduced-motion:reduce\)\{\.wait-bar::after\{animation:none/);
+});
+
+test('메뉴 화면 처음 열기: 민트 상자 없이 가는 줄, 실패는 공용 부품, 쉬는 틈에 미리 받기(기기 저장 없음)', () => {
+  const loader = read('loader-v2.js'), views = read('view-loader.js');
+  assert.doesNotMatch(loader, /기능을 불러오는 중/);
+  assert.doesNotMatch(loader, /className='notice'/);
+  assert.match(loader, /const wait=await import\('\.\/wait-state\.js'\);\n  await import\('\.\/view-loader\.js'\);/, '화면 파일보다 먼저 부품을 불러온다');
+  assert.match(loader, /wait\.barHtml\(\)/);
+  assert.match(loader, /wait\.failEl\(/);
+  assert.match(loader, /defer\(\(\)=>viewLoader\.warm\?\.\(\),\{timeout:8000\}\);/);
+  assert.match(views, /hint\('modulepreload',path\)/);
+  assert.match(views, /hint\('prefetch',path,'style'\)/);
+  const warmBlock = views.slice(views.indexOf('const warmModules={'), views.indexOf('const warmed=new Set();'));
+  assert.ok(warmBlock.length > 100);
+  assert.doesNotMatch(warmBlock, /hwp|arsenal/, 'HWP 편집기(약 20MB)·아스날은 미리 받지 않는다');
+  assert.match(views, /window\.KPTUViewLoader=\{load,loadAll,prepare,normalize,warm,/);
+  for (const source of [loader, views, read('wait-state.js')]) assert.doesNotMatch(source, /localStorage|sessionStorage|indexedDB|caches\.open/);
+});
+
+// 아직 공용 부품으로 옮기지 않은 기다림 문구(파일별 개수). 저장·찾기 같은 '누른 뒤 진행' 안내와 저장본 상태 줄(data-freshness)은 다음 묶음.
+const BASELINE = {
+  'basket-ai-summary.js': 1, 'basket-manual-link.js': 3, 'basket-notes.js': 1, 'basket.js': 1, 'business-area-fields.js': 1,
+  'calendar-interactions-v2.js': 3, 'calendar-list-view.js': 1, 'calendar-plus.js': 2, 'data-freshness.js': 2, 'diary.js': 3,
+  'global-search.js': 4, 'google-tasks.js': 1, 'home-quick.js': 1, 'hwp-lab.js': 7, 'journal-hwpx.js': 6, 'journal-weekly.js': 1,
+  'ledger-browse.js': 1, 'ledger-merge-model.mjs': 1, 'library-upload.js': 1, 'meeting-from-files.js': 2, 'meeting-round-detail.js': 1,
+  'meeting-todo-candidates.js': 1, 'overlap-weekly.mjs': 1, 'photo-share.js': 1, 'photo-strip.js': 1, 'photos.js': 3,
+  'project-system-v3.js': 4, 'share-pages.js': 2, 'task-inline.js': 1, 'telegram-feed.js': 2, 'todo-radar-data.js': 1, 'todo-radar.js': 1,
+  'workflow-ai-v3.js': 1, 'workplace-report.js': 1,
+};
+const SKIP = ['hwp-lab/', 'editor-lib/', 'pdf-lib/', 'markdown-lib/', 'legacy/', 'release-notes/'];
+const WAIT_WORDS = /불러오는 중|읽는 중|찾는 중|여는 중|받는 중|확인하는 중|기다리는 중|준비하는 중/g;
+const walk = dir => readdirSync(dir).flatMap(name => {
+  const path = join(dir, name);
+  return statSync(path).isDirectory() ? walk(path) : [path];
+});
+// 주석 줄은 세지 않는다.
+export function countWait(source) {
+  return source.split('\n').filter(line => !/^\s*(\/\/|\/\*|\*)/.test(line)).join('\n')
+    .replaceAll('aria-label="불러오는 중"', '').match(WAIT_WORDS)?.length || 0;
+}
+
+test('따로 만든 기다림 문구가 새로 생기지 않는다(기준표보다 늘면 실패)', () => {
+  const over = [], counts = {};
+  for (const file of walk(APP)) {
+    const rel = relative(APP, file).split('\\').join('/');
+    if (!/\.(m?js|html)$/.test(rel) || SKIP.some(dir => rel.startsWith(dir)) || rel === 'wait-state.js') continue;
+    const n = countWait(readFileSync(file, 'utf8'));
+    if (!n) continue;
+    counts[rel] = n;
+    if (n > (BASELINE[rel] || 0)) over.push(`${rel}: ${n}곳(기준 ${BASELINE[rel] || 0}) — 기다림은 wait-state.js(waitHtml·waitInlineHtml·failHtml·emptyHtml)를 쓰세요.`);
+  }
+  assert.deepEqual(over, []);
+  for (const [rel, n] of Object.entries(BASELINE)) assert.ok((counts[rel] || 0) <= n, rel);
+});
+
+test('민트(.notice) 상자를 안내·기다림에 새로 쓰지 않는다', () => {
+  const found = [];
+  for (const file of walk(APP)) {
+    const rel = relative(APP, file).split('\\').join('/');
+    if (!/\.(m?js|html)$/.test(rel) || SKIP.some(dir => rel.startsWith(dir))) continue;
+    const source = readFileSync(file, 'utf8');
+    if (/class(Name)?\s*=\s*\\?["'`]notice\b|classList\.add\(\s*['"]notice['"]/.test(source)) found.push(rel);
+  }
+  assert.deepEqual(found, []);
+});
+
+test('옮긴 화면은 공용 부품을 쓴다', () => {
+  for (const rel of ['journal.js', 'home-read.js', 'home-fill.js', 'telegram-feed.js', 'call-feed.js', 'photos.js', 'diary-list.js', 'ledger-browse.js',
+    'google-tasks.js', 'workplace-detail.js', 'quick-links.js', 'reference-bundles.js', 'arsenal.js', 'team.js', 'meeting-round-detail.js', 'calendar-day-items.js', 'basket.js']) {
+    assert.match(read(rel), /from '\.\/wait-state\.js';/, rel);
+  }
+  assert.match(read('index.html'), /id="web1BoardDetailStatus" class="w1b-detail-status hidden"><div class="wait" data-wait role="status" aria-label="불러오는 중">/);
+});

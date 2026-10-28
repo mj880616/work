@@ -207,7 +207,11 @@ test('tab navigation waits for deferred feature data on first click',async({page
     await clickView(page,'tasks');
     await expect(page.locator('#deferredFeatureStatus')).toBeVisible();
     await expect(page.locator('#deferredFeatureStatus')).toHaveAttribute('role','status');
-    await expect(page.locator('#deferredFeatureStatus')).toHaveText('기능을 불러오는 중입니다…');
+    // UI-기다림표시통일: 글자 없이 위쪽 가는 줄 하나(민트 상자 아님).
+    await expect(page.locator('#deferredFeatureStatus')).toHaveText('');
+    await expect(page.locator('#deferredFeatureStatus')).toHaveAttribute('aria-label','불러오는 중');
+    await expect(page.locator('#deferredFeatureStatus')).not.toHaveClass(/\bnotice\b/);
+    await expect(page.locator('#deferredFeatureStatus .wait-bar')).toHaveCount(1);
     await expect(page.locator('#homeView')).toBeVisible();
     await expect(page.locator('#tasksView')).toBeHidden();
   }finally{release();}
@@ -221,7 +225,9 @@ test('deferred module failure leaves the screen before usable and shows an alert
   // MTG-프로젝트합치기 3단계: 사업영역 관리(projects)는 사업 보고 ⋯ 안에서 연다(clickView). 그래서 그 앞 화면은 홈이 아니라 사업 보고다.
   await clickView(page,'projects');
   await expect(page.locator('#deferredFeatureError')).toHaveAttribute('role','alert');
-  await expect(page.locator('#deferredFeatureError')).toContainText('이 기능을 불러오지 못했습니다.');
+  await expect(page.locator('#deferredFeatureError')).toContainText('불러오지 못했습니다');
+  await expect(page.locator('#deferredFeatureError .wait-retry')).toHaveText('다시');
+  await expect(page.locator('#deferredFeatureError')).not.toHaveClass(/\bnotice\b/);
   await expect(page.locator('#meetingsView')).toBeVisible();await expect(page.locator('#projectsView')).toBeHidden();
 });
 

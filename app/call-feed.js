@@ -1,3 +1,4 @@
+import {waitHtml} from './wait-state.js';
 // CALL-통화메뉴 4단계 (docs/design/call-telegram-feed.md 10절 시안 (가)(다), 12절 결정) + CALL-개인통화함 3단계 (docs/design/call-personal.md, B안):
 // the 통화 screen (?view=calls, sidebar bottom). This module is the only renderer of #callsView. It shows one of two boxes with the same
 // list and the same detail: the 업무 통화함 (default, app_feed_items) and the 개인 통화함 (the personal table, opened by the small
@@ -145,7 +146,7 @@ function paintListNow() {
   const head = personalBox
     ? `<div class="feed-head"><button type="button" class="back-text" data-cf-box="work">‹ 업무 통화</button><span class="feed-head-title">개인 통화함</span><span class="feed-head-sub" data-cf-pcount>${state.pfail ? '' : `${personalRows().length}건`}</span></div>`
     : `<div class="feed-head"><span class="feed-head-sub"></span>${state.loaded && !state.missing && !state.error ? boxChip() : ''}</div>`;
-  if (!state.loaded) { box.innerHTML = head + '<p class="feed-empty" role="status">불러오는 중…</p>'; return; }
+  if (!state.loaded) { box.innerHTML = head + waitHtml({rows:6, h:34}); return; }
   if (state.missing) { box.innerHTML = head + '<p class="feed-empty" data-cf-empty="ready">준비 중이에요. 통화 수집이 연결되면 여기에 보여요.</p>'; return; }
   if (state.error) { box.innerHTML = head + `<p class="feed-empty" role="status">${esc(state.error)} <button type="button" class="feed-text-btn" data-cf-retry>다시 시도</button></p>`; return; }
   const status = `<p class="feed-status" data-cf-status role="status">${statusHtml()}</p>`;
@@ -173,7 +174,7 @@ function paintDetailNow() {
   const pointsHtml = state.sum?.rowId === r.id ? sumBoxHtml(r) : points.length ? `<div class="feed-k-row"><p class="feed-k">핵심내용${r.edited?.points ? ' <span class="feed-faint">· 고친 값</span>' : ''}</p><span class="feed-k-tools">${pencil}${copyButtonHtml('data-cf-copy')}</span></div><ul class="feed-points" data-cf-points>${points.map(p => `<li>${esc(p.text)}${p.tag ? `<span class="feed-tag feed-tag-${p.kind}">${esc(p.tag)}</span>` : ''}</li>`).join('')}</ul>` : `<p class="feed-faint">핵심내용이 없어요.${r.edited?.points || state.editMissing ? '' : ' <button type="button" class="feed-text-btn" data-cf-sum-open>직접 쓰기</button>'}</p>`;
   const raw = state.raw.get(r.id);
   let script;
-  if (!raw || raw.loading) script = '<p class="feed-faint" role="status">전문을 불러오는 중…</p>';
+  if (!raw || raw.loading) script = waitHtml({rows:3});
   else if (raw.error) script = '<p class="feed-faint">전문을 불러오지 못했어요.</p>';
   else if (!raw.raw_text) script = '<p class="feed-faint" data-cf-raw-empty>Web2에 남은 전문이 없어요. 원본은 Drive에 있어요.</p>';
   else if (raw.speaker_split) script = `<div class="feed-script" data-cf-script="lines">${speakerLines(raw.raw_text).map(l => `<p class="${l.me ? 'is-me' : ''}"><b>${esc(l.who)}</b><span>${esc(l.text)}</span></p>`).join('')}</div>`;

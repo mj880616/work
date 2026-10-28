@@ -1,3 +1,4 @@
+import {waitHtml} from './wait-state.js';
 // JOURNAL-주간보고허브 2단계: [주간 정리] — one week of the journal's materials grouped in the order of the weekly report form
 // (docs/design/weekly-report-hub.md 4절 2단계, 7절 결정; the form is docs/design/weekly-hwpx-draft.md 1.2·1.3절):
 //   1. 요청사항 — 1) 임원 일정 배정·논의 요청 (WEEKLY-임원요청정리, 2026-10-23): the week's own request rows (일 | 시간/내용/장소 |
@@ -543,7 +544,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
   };
   // A part's own loading / failure line ([다시 시도] reads only what failed); the other parts are unaffected.
   const status = (box, part, label) => {
-    if (part.loading) { box.append(muted('불러오는 중…')); return true; }
+    if (part.loading) { box.insertAdjacentHTML('beforeend', waitHtml({rows:2})); return true; }
     if (part.failed?.length) {
       const note = muted(`${label}${part.failed.length < WEEKLY_SOURCES[part.key].length ? ' 일부를' : '을(를)'} 불러오지 못했어요.`);
       note.classList.add('journal-failed'); note.dataset.journalFailed = '';
