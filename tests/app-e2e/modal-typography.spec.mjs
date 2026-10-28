@@ -411,6 +411,10 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   await original.locator('#wdModal #wdTasks').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),orgDocs);}
   // MTG-사업보고 6단계(PR #1042): 담당조직 상세에 [사업 보고] 묶음이 생겼다(폰 쪽만 — PC는 위에서 상세 전체를 옮긴다).
   if(width<1024){const reports=await page.locator('#wdModal #wdReports').evaluate(el=>el.outerHTML);await original.locator('#wdModal #wdDocs').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),reports)}
+  // ORG-주요인물 2/2: 접힌 묶음 '기본 정보 · 소속 · 이전 요약'(머리 h3·설명 small)과 그 안의 h4 '기본 정보'·'이전 요약'은
+  // 작은 탭 [주요 인물][기본 정보][소속][이전 요약]으로 바뀌어 화면에서 없어졌다(탭 이름이 제목 역할). 같은 모양으로 main 쪽에서도 뺀다(폰 쪽만 — PC는 위에서 상세 전체를 옮긴다).
+  // 남은 h3·h4·small(할 일·자료·협의회·사업단 등)은 그대로 양쪽 스타일로 비교한다.
+  if(width<1024){const gone=await original.evaluate(()=>{const els=[...document.querySelectorAll('#wdModal #wdMoreSec summary h3,#wdModal #wdMoreSec summary small,#wdModal #wdBasic .wd-head h4,#wdModal #wdRecent .wd-head h4')];els.forEach(el=>el.remove());return els.length});expect(gone,'retired 담당조직 headings in main').toBe(4)}
   // 사업 보고 만들기·수정 창: '프로젝트' 고르기가 [연결할 곳 ▾](+ 숨은 프로젝트 칸)으로 바뀌고 장소 칸이 생겼다. 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
   for(const [project,places,location] of [['meetingProject','meetingPlaces','meetingLocationRow'],['mrdEditProject','mrdEditPlaces','mrdEditLocationRow']]){
    const parts=await page.locator('#'+places).evaluate((el,location)=>{const label=el.closest('label');return [label.outerHTML+label.nextElementSibling.outerHTML,document.getElementById(location).outerHTML]},location);
