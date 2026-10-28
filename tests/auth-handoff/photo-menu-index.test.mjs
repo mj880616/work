@@ -178,8 +178,9 @@ test('photo menu index: plan, dry-run, apply, service_role-only columns, photo_v
    const again=await run('apply','9735');assert.equal(again.ok,true,again.summary);
   });
   await t.test('pair files read pg_catalog only and the migration grants nothing',async()=>{
-   for(const kind of ['precheck','snapshot','postcheck','rollback'])assert.doesNotMatch(await read(`docs/${stem}.${kind}.sql`),/information_schema/i,kind);
-   assert.doesNotMatch(await read(`supabase/migrations/${stem}.sql`),/\b(grant|revoke)\b|create policy|disable row level security/i);
+   const code=sql=>sql.replace(/--.*$/gm,'');
+   for(const kind of ['precheck','snapshot','postcheck','rollback'])assert.doesNotMatch(code(await read(`docs/${stem}.${kind}.sql`)),/information_schema/i,kind);
+   assert.doesNotMatch(code(await read(`supabase/migrations/${stem}.sql`)),/\b(grant|revoke)\b|create policy|disable row level security/i);
   });
  }finally{
   await closePool(pool);await cluster.stop().catch(()=>{});

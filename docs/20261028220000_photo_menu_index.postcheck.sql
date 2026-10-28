@@ -1,4 +1,4 @@
--- SELECT only. pg_catalog만 읽는다(information_schema 쓰지 않음). 적용 뒤(기록 + 새 칸·인덱스·photo_view 검사)와
+-- SELECT only. pg_catalog만 읽는다. 적용 뒤(기록 + 새 칸·인덱스·photo_view 검사)와
 -- 되돌린 뒤·시험 적용 뒤(기록 없음 + 새 칸·인덱스 없음 + photo_view 없는 검사) 모두 예가 나온다.
 -- 해시·개수 항목은 precheck의 같은 이름 항목과 같아야 한다(권한·정책·트리거·기존 제약·기존 인덱스 변경 없음).
 -- 색인 표 행 수는 비교하지 않는다(적용 중에도 지금 Edge가 색인을 받을 수 있다).

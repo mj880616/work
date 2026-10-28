@@ -1,4 +1,4 @@
--- SELECT only. 집계·해시만 읽는다(사진 이름·위치·프로필 글 없음). pg_catalog만 읽고 information_schema는 쓰지 않는다.
+-- SELECT only. 집계·해시만 읽는다(사진 이름·위치·프로필 글 없음). pg_catalog만 읽는다.
 -- dry-run/apply 전에 돌린다(시험 적용 전후 비교에도 쓴다). 이 값이 다르면 적용하지 않고 멈춘다(권한·정책을 넓히지 않는다).
 -- 적용 전 기대: 앞 단계 기록 예 / 이번 기록 없음 예 / 새 칸·인덱스 0 / 화면 기억 검사에 photo_view 없음 예 / 저장된 photo_view 0 /
 --   세 표 RLS 예 / anon·PUBLIC 아니오 / 색인 표 정책·authenticated 권한 없음 예 / service_role 넷 예 / 프로필 정책 2개 예. 해시·행 수는 기록.
