@@ -65,9 +65,19 @@ async function openDiary(page, width) {
   await expect(page.locator('#diaryRoot [data-diary-title]')).toHaveText('2026년 10월');
 }
 const cell = (page, day) => page.locator(`#diaryRoot [data-diary-day="${day}"]`);
+// 크게 보기 사진 위 한 손가락 세로 밀기(dy<0 위, dy>0 아래). 터치 이벤트를 직접 보낸다.
+async function swipe(page, dy) {
+  await page.locator('#diaryRoot [data-diary-viewer-strip]').evaluate((el, dy) => {
+    const r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+    const t = (cy) => new Touch({ identifier: 1, target: el, clientX: x, clientY: cy });
+    el.dispatchEvent(new TouchEvent('touchstart', { touches: [t(y)], changedTouches: [t(y)], bubbles: true }));
+    el.dispatchEvent(new TouchEvent('touchmove', { touches: [t(y + dy)], changedTouches: [t(y + dy)], bubbles: true }));
+    el.dispatchEvent(new TouchEvent('touchend', { touches: [], changedTouches: [t(y + dy)], bubbles: true }));
+  }, dy);
+}
 
 for (const width of [390, 1280]) {
-  test(`원드라이브 사진이 찍은 날짜에 모이고, 크게 보기에서 넘기며 ☆(버튼·두 번 누르기·S키), [별표]에 모이고, 확인 뒤 지우면 휴지통으로 ${width}`, async ({ page }) => {
+  test(`원드라이브 사진이 찍은 날짜에 모이고, 크게 보기에서 넘기며 ☆(버튼·위로 밀기·S키), [별표]에 모이고, 🗑은 묻지 않고 되돌리기 뒤 휴지통으로 ${width}`, async ({ page }) => {
     const f = await fixture(page, { width });
     await openDiary(page, width);
     const day = cell(page, '2026-10-12');
@@ -80,6 +90,28 @@ for (const width of [390, 1280]) {
     await expect(detail).toContainText('이 날 일기가 없어요.');
     await expect(grid).toHaveCount(6);
     await expect(grid.first().locator('img')).toBeVisible();
+    // OD-사진크기: [－]는 칸을 늘리고 [＋]는 줄인다(폰 4→6, 넓은 화면 6→8). 끝 단계 버튼은 누를 수 없다. 격자를 다시 그리지 않는다.
+    const cols = () => detail.locator('[data-diary-grid]').evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length);
+    const firstImg = await grid.first().locator('img').elementHandle();
+    expect(await cols()).toBe(width < 761 ? 4 : 6);
+    await expect(detail.locator('[data-photo-size="1"]')).toBeEnabled({ enabled: width < 761 });
+    await detail.locator('[data-photo-size="-1"]').click();
+    await expect.poll(cols).toBe(width < 761 ? 6 : 8);
+    expect(await firstImg.evaluate(el => el.isConnected)).toBe(true);
+    await detail.locator('[data-photo-size="1"]').click();
+    await expect.poll(cols).toBe(width < 761 ? 4 : 6);
+    // 격자 위 두 손가락: 벌리면 크게(칸 줄임), 오므리면 작게(칸 늘림). 격자는 touch-action:pan-y라 화면 확대가 되지 않는다.
+    const pinch = (from, to) => detail.locator('[data-diary-grid]').evaluate((el, [from, to]) => {
+      const r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + 20;
+      const T = (id, x) => new Touch({ identifier: id, target: el, clientX: x, clientY: cy });
+      const ev = (type, d) => el.dispatchEvent(new TouchEvent(type, { touches: type === 'touchend' ? [] : [T(1, cx - d), T(2, cx + d)], changedTouches: [T(1, cx - d), T(2, cx + d)], bubbles: true, cancelable: true }));
+      ev('touchstart', from); ev('touchmove', to); ev('touchend', to);
+    }, [from, to]);
+    expect(await detail.locator('[data-diary-grid]').evaluate(el => getComputedStyle(el).touchAction)).toBe('pan-y');
+    await pinch(40, 70);
+    await expect.poll(cols).toBe(width < 761 ? 3 : 6);
+    await pinch(70, 40);
+    await expect.poll(cols).toBe(width < 761 ? 4 : 8);
     await expect(detail.locator('.diary-star-mark:not([hidden])')).toHaveCount(0);
     expect(f.photoReads.every(r => r.size === 'small')).toBe(true);
 
@@ -87,14 +119,16 @@ for (const width of [390, 1280]) {
     const viewer = page.locator('#diaryRoot [data-diary-viewer]'), star = viewer.locator('[data-diary-star]'), count = viewer.locator('[data-diary-viewer-count]');
     await expect(viewer).toBeVisible();
     await expect(count).toHaveText('1 / 6');
-    await expect(viewer.locator('[data-diary-viewer-caption]')).toHaveText('10:00');
+    // 위 줄 오른쪽에 찍은 날짜·시각(아래 가운데 글은 직접 올린 사진의 설명만).
+    await expect(viewer.locator('[data-diary-viewer-when]')).toContainText('10:00');
+    await expect(viewer.locator('[data-diary-viewer-caption]')).toHaveText('');
+    await expect(viewer.locator('.diary-viewer-more, [data-diary-viewer-stars]')).toHaveCount(0);
     await expect(viewer.locator('.diary-slide').first().locator('img')).toBeVisible();
     // 가까운 사진만 크게 받는다(6장 중 처음 3장).
     expect(new Set(f.photoReads.filter(r => r.size === 'large').map(r => r.id))).toEqual(new Set(['A1', 'A2', 'A3']));
     await expect(star).toHaveAttribute('aria-pressed', 'false');
     await star.click();
     await expect(star).toHaveAttribute('aria-pressed', 'true');
-    await expect(viewer.locator('[data-diary-viewer-stars]')).toHaveText('★ 1');
     await expect.poll(() => f.starWrites.length).toBe(1);
     expect(f.starWrites[0].body).toEqual({ workspace_id: 'w', source: 'onedrive', item_key: 'A1', taken_day: '2026-10-12' });
     // 넘기기 + S 키
@@ -103,12 +137,13 @@ for (const width of [390, 1280]) {
     await expect(star).toHaveAttribute('aria-pressed', 'false');
     await page.keyboard.press('s');
     await expect(star).toHaveAttribute('aria-pressed', 'true');
-    // 두 번 누르기
+    // 위로 밀기 = 별표(한 손가락, 충분히 길게). 짧게 밀면 아무 일도 없다.
     await page.keyboard.press('ArrowRight');
     await expect(count).toHaveText('3 / 6');
-    await viewer.locator('.diary-slide').nth(2).dblclick();
+    await swipe(page, -30);
+    await expect(star).toHaveAttribute('aria-pressed', 'false');
+    await swipe(page, -160);
     await expect(star).toHaveAttribute('aria-pressed', 'true');
-    await expect(viewer.locator('[data-diary-viewer-stars]')).toHaveText('★ 3');
     await expect.poll(() => f.stars.map(s => s.item_key).sort()).toEqual(['A1', 'A2', 'A3']);
     await viewer.locator('[data-diary-viewer-close]').click();
     await expect(viewer).toHaveCount(0);
@@ -126,26 +161,32 @@ for (const width of [390, 1280]) {
     await detail.locator('[data-diary-source="all"]').click();
     await expect(grid).toHaveCount(6);
 
-    // 지우기: 취소하면 아무 일도 없다. 확인하면 휴지통 이동 요청 한 번, 별표 기록은 그대로.
+    // 🗑 지우기: 묻지 않고 바로 목록에서 빠지고 '되돌리기'가 보인다. 되돌리면 같은 자리로, 요청은 없다.
     await grid.nth(0).click();
     await expect(count).toHaveText('1 / 6');
     await page.keyboard.press('ArrowRight');
     await expect(count).toHaveText('2 / 6');
     const writesBefore = f.starWrites.length;
-    await viewer.locator('.diary-viewer-more > summary').click();
-    page.once('dialog', d => { expect(d.message()).toContain('원드라이브에서도 지워져요'); d.dismiss(); });
+    const dialogs = []; page.on('dialog', d => { dialogs.push(d.message()); d.dismiss(); });
+    const undo = viewer.locator('[data-diary-undo]');
     await viewer.locator('[data-od-delete]').click();
-    await expect.poll(() => f.edge.filter(b => b.action === 'photo-delete').length).toBe(0);
+    await expect(count).toHaveText('2 / 5');
+    await expect(viewer.locator('[data-diary-viewer-note]')).toContainText('휴지통으로 옮겼어요');
+    await expect(undo).toBeVisible();
+    await undo.click();
     await expect(count).toHaveText('2 / 6');
-    await viewer.locator('.diary-viewer-more > summary').click();
-    page.once('dialog', d => d.accept());
+    await expect(undo).toBeHidden();
+    expect(f.edge.filter(b => b.action === 'photo-delete').length).toBe(0);
+    // 다시 지우고 닫으면(되돌리기 시간 안이라도) 그때 휴지통 이동 요청 한 번, 별표 기록은 그대로.
     await viewer.locator('[data-od-delete]').click();
+    await expect(count).toHaveText('2 / 5');
+    await swipe(page, 160); // 아래로 밀기 = 닫기
+    await expect(viewer).toHaveCount(0);
     await expect.poll(() => f.edge.filter(b => b.action === 'photo-delete').length).toBe(1);
     expect(f.edge.find(b => b.action === 'photo-delete')).toEqual({ action: 'photo-delete', id: 'A2', confirm: true });
-    await expect(count).toHaveText('2 / 5');
     expect(f.starWrites.length).toBe(writesBefore);
     expect(f.stars.some(s => s.item_key === 'A2')).toBe(true);
-    await viewer.locator('[data-diary-viewer-close]').click();
+    expect(dialogs).toEqual([]);
     await expect(grid).toHaveCount(5);
     await expect(day).toHaveAttribute('aria-label', '10월 12일, 원드라이브 사진 5장');
     expect(f.errors).toEqual([]);
