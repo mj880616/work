@@ -72,8 +72,9 @@ test('PC 1280: list on the left, the first project on the right without a dialog
  const pad=el=>el.evaluate(n=>parseFloat(getComputedStyle(n).paddingLeft));expect(await pad(child)).toBeGreaterThan(await pad(main));
  await expect(child.locator('.ps3-color-dot')).toHaveAttribute('data-tone','soft');await expect(main.locator('.ps3-color-dot')).toHaveAttribute('data-color','green');
  await expect(main).toHaveAttribute('aria-current','true');
- // Detail parts: record input, progress, child projects, tasks, documents.
- for(const id of ['#ps3-progress [data-ps3-record-input]','#ps3-children','#ps3-tasks','#ps3-documents'])await expect(page.locator('#ps3Body '+id)).toBeVisible();
+ // Detail parts: progress records, child projects, tasks, documents. MTG-프로젝트합치기 3단계: 진행 기록 입력칸은 없다.
+ for(const id of ['#ps3-progress','#ps3-children','#ps3-tasks','#ps3-documents'])await expect(page.locator('#ps3Body '+id)).toBeVisible();
+ await expect(page.locator('#ps3Body [data-ps3-record-input]')).toHaveCount(0);
  // Another row: the pane changes, the URL is replaced (no history entry), the row shows the selection.
  const length=await page.evaluate(()=>history.length);
  await page.locator('#projectGrid .ps3-plist [data-ps3-project="pb"]').click();await expectProjectTitle(page,'합성 조직 사업');
@@ -150,7 +151,7 @@ test('phone 390: list and detail dialog stay; the update shows "← 프로젝트
  for(const how of ['button','back','browser']){
   await basketLine(page).click();await viaSheet(page);
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('basket');await expect(page.locator('[data-basket-text]')).toHaveValue(note.raw_text);
-  const back=page.locator('#basketView [data-basket-return]');await expect(back).toHaveText('← 프로젝트로 돌아가기');
+  const back=page.locator('#basketView [data-basket-return]');await expect(back).toHaveText('← 사업영역으로 돌아가기');
   const b=await back.boundingBox();expect(b.height).toBeGreaterThanOrEqual(44);
   if(how==='button')await back.click();else await goBack(page,how);
   await expect.poll(()=>page.evaluate(()=>KPTURouter.current)).toBe('projects');await expect(modal).toBeVisible();await expectProjectTitle(page,'합성 정책 사업');

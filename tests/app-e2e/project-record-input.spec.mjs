@@ -92,26 +92,19 @@ test('PRJ-기록입력 header: color dot + name, one summary line, no child-name
   await expect(page.locator('#ps3Hierarchy .ps3-parent-link')).toContainText('민자철도 대응');
 });
 
-test('PRJ-기록입력 top input writes a project record that belongs to no progress item',async({page})=>{
+// MTG-프로젝트합치기 3단계: 맨 위 진행 기록 입력칸·[기록]·⤢ 큰 창은 없어졌다(기록은 사업 보고 한 곳, 명진 결정). 지난 기록 목록은 그대로 보이고 아무것도 쓰지 않는다.
+test('PRJ-기록입력 detail has no record input or ⤢, and the record list stays first',async({page})=>{
   const state=await fixture(page);
-  const form=page.locator('#ps3-progress [data-ps3-record-input]');
-  await expect(form.locator('input')).toHaveCount(1);await expect(form.locator('select')).toHaveCount(0);
-  await expect(form.getByRole('button',{name:'기록',exact:true})).toBeVisible();
-  // The record input is the first thing in the detail body; per-item inputs, [저장], item creation and kind labels are gone.
+  await expect(page.locator('#ps3Body [data-ps3-record-input],#ps3Body [data-ps3-record-big],#ps3Body .ps3-record-input')).toHaveCount(0);
+  await expect(page.locator('#ps3-progress').getByRole('button',{name:'기록',exact:true})).toHaveCount(0);
+  await expect(page.locator('#ps3-progress input')).toHaveCount(0);
+  // The record list is still the first thing in the detail body; per-item inputs, item creation and kind labels stay gone.
   expect(await page.locator('#ps3Body > :first-child').getAttribute('id')).toBe('ps3-progress');
   await expect(page.locator('#ps3Body [data-ps3-quick-progress],#ps3Body [data-ps3-add-ws],#ps3Body .ps3-phase')).toHaveCount(0);
   await expect(page.locator('#ps3-progress')).not.toContainText('후속조치');
-  await form.locator('input').fill('  국토부 2차 협의 일정 잡음  ');
-  await form.getByRole('button',{name:'기록',exact:true}).click();
-  await expect(lines(page).first()).toContainText('국토부 2차 협의 일정 잡음');
-  await expect(lines(page).first().locator('time')).toHaveText(shortDay(seoulKey()));
-  await expect(form.locator('input')).toHaveValue('');
-  const posts=state.calls('app_project_progress_updates','POST');expect(posts).toHaveLength(1);
-  expect(posts[0].body).toEqual({project_id:'main',workstream_id:null,author_id:owner,status_label:null,summary:'국토부 2차 협의 일정 잡음',next_step:null,effective_on:seoulKey(),metadata:{}});
-  expect(state.calls('app_project_workstreams','POST')).toHaveLength(0);expect(state.calls('app_project_workstreams','PATCH')).toHaveLength(0);
-  // Empty input does not save.
-  await form.getByRole('button',{name:'기록',exact:true}).click();
-  expect(state.calls('app_project_progress_updates','POST')).toHaveLength(1);
+  await expect(lines(page)).toHaveCount(4);
+  await expect(lines(page).first()).toContainText('토론회 발제자 확정');
+  expect(state.calls('app_project_progress_updates','POST')).toHaveLength(0);
 });
 
 test('PRJ-기록입력 one list: new, old item records, items and 🧺 basket links by date, newest first',async({page})=>{
@@ -189,11 +182,10 @@ test('PRJ-기록입력 groups: same line lists, small + beside the title, docume
 for(const scheme of ['light','dark'])for(const records of [false,true])test(`PRJ-기록입력 390 ${scheme} ${records?'mixed records':'no records'} fits the phone`,async({page})=>{
   await fixture(page,{scheme,records});
   if(!records){await expect(page.locator('#ps3-progress .ps3-rec-empty')).toHaveText('아직 기록이 없어요');await expect(page.locator('#ps3-progress [data-ps3-record-count]')).toHaveText('0')}
-  else{await page.locator('#ps3-progress [data-ps3-record-input] input').fill('오늘 새 기록');await page.locator('#ps3-progress [data-ps3-record-input] button[type=submit]').click();await expect(lines(page)).toHaveCount(5)}
+  else await expect(lines(page)).toHaveCount(4);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-  const input=await page.locator('#ps3-progress [data-ps3-record-input] input').boundingBox(),button=await page.locator('#ps3-progress [data-ps3-record-input] button[type=submit]').boundingBox(),big=await page.locator('#ps3-progress [data-ps3-record-big]').boundingBox();
-  // PRJ-화면다듬기: the ⤢ icon is inside the input (right end); input and [기록] are one 36px line (PRJ-기록버튼줄이기), the ⤢ is 32px centered in the input.
-  expect(Math.abs(input.height-button.height)).toBeLessThanOrEqual(1);expect(big.x).toBeGreaterThanOrEqual(input.x);expect(big.x+big.width).toBeLessThanOrEqual(input.x+input.width+1);expect(big.y).toBeGreaterThanOrEqual(input.y-1);expect(big.y+big.height).toBeLessThanOrEqual(input.y+input.height+1);expect(Math.abs((big.y+big.height/2)-(input.y+input.height/2))).toBeLessThanOrEqual(1);expect(Math.round(input.height)).toBe(36);expect(Math.round(button.height)).toBe(36);expect(Math.round(big.height)).toBe(32);
+  // MTG-프로젝트합치기 3단계: 입력칸·[기록]·⤢가 없다(입력칸 높이 검사는 기능과 함께 없앴다).
+  await expect(page.locator('#ps3-progress [data-ps3-record-input],#ps3-progress [data-ps3-record-big]')).toHaveCount(0);
   for(const row of await lines(page).all()){const box=await row.boundingBox();expect(box.height).toBeGreaterThanOrEqual(44)}
   await capture(page,`detail-390-${scheme}-${records?'mixed':'empty'}`);
 });

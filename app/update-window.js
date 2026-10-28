@@ -28,7 +28,7 @@ function placeSheet() {
   sheet ||= createChoiceSheet({id:'edwPlaceSheet', titleId:'edwPlaceSheetTitle', historyKey:'kptuEdwPlace',
     canOpen:() => !!active && !active.closed(), choices:() => active.load(),
     // UPD-여러곳고르기: a press only marks (pending); [저장] keeps the marks, every other close drops them.
-    render:() => { if (active) active.pending = [...active.chosen]; return {title:'기록할 곳 선택', search:'조직·프로젝트 이름 검색', split:true, html:placeSheetHtml(active?.places, active?.pending, esc)}; },
+    render:() => { if (active) active.pending = [...active.chosen]; return {title:'기록할 곳 선택', search:'조직·사업영역 이름 검색', split:true, html:placeSheetHtml(active?.places, active?.pending, esc)}; },
     multi:() => active ? {pressed:value => value === 'basket' ? !active.pending.length : active.pending.some(p => placeValue(p) === value), label:choiceCountText(active.pending)} : null,
     onSelect:(kind, value) => active?.toggle(value), onCommit:() => active?.choose(),
     onError:error => active?.say(error?.message || '기록할 곳을 불러오지 못했어요.')});

@@ -75,7 +75,8 @@ test('view prefs menu/home: dry-run, apply, own-row writes, CHECK and guarded ro
   const saved_=async user=>(await pool.query('select view_prefs from public.app_profiles where user_id=$1',[user])).rows[0].view_prefs;
   const before=(await pool.query(snapshot)).rows,beforeCheck=(await pool.query(precheck)).rows;
   const base={theme:'lemon',nav_collapsed:true,calendar_view:'week',home_quick_mode:'task',note_folder:'f:회의 자료',split_ratio:{tasks:0.4,reports:0.25},collect_hidden_on:'2026-10-27',report_view:'photo'};
-  const MENU={menu_layout:{bar:['home','basket','calendar','projects','team'],rest:['note','meetings','library','hwp','pages','ledger','calls','telegram']}};
+  // MTG-프로젝트합치기 3단계: 저장 예시도 지금 기본 구성처럼 [프로젝트] 없이 하단바 4번째 칸이 사업 보고다(DB 검사는 이름 모양만 본다).
+  const MENU={menu_layout:{bar:['home','basket','calendar','meetings','team'],rest:['note','library','hwp','pages','ledger','calls','telegram']}};
   const HOME={home_cards:['today-events','todo','radar','recent-calls']};
 
   await t.test('before apply the original CHECK refuses the two new keys and accepts the old ones',async()=>{

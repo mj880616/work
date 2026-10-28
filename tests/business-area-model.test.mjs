@@ -71,7 +71,7 @@ test('화면 연결: 쓰기 창·고치기 창·보기 면·미리보기·⋯ �
   const html = read('index.html'), team = read('team.js'), mrd = read('meeting-round-detail.js'), fields = read('business-area-fields.js');
   assert.match(html, /id="meetingAreaFields"/);
   assert.match(html, /id="reportPreviewBtn"[^>]*>사업요약표 미리보기</);
-  assert.match(html, /<details id="reportMore"[^]*?data-report-areas>사업영역 관리</);
+  assert.match(html, /<details id="reportMore"[^]*?data-report-areas data-view="projects">사업영역 관리</);
   assert.match(team, /activity_kind:entryKind\(\),project_id:projectId,\.\.\.areaBody,/);
   assert.match(team, /openReportPreview\(t,\{meetings:\(\)=>meetings\}\)/);
   assert.match(mrd, /id="mrdEditArea"/); assert.match(mrd, /id="mrdAreaView"/);
@@ -94,7 +94,8 @@ test('사업영역 칩: 보고가 있는 1단만(트리 순서), 옛 보고는 �
   assert.equal(list.filter(x => m.matchesAreaChip(x, 'all', roots)).length, 5);
   // 칩·목록 연결(정적): 거르기는 목록·달력·사진·PC 세 칸이 함께 쓰는 reportRows·meetingColumnList 한 곳에서.
   const team = readFileSync(new URL('../app/team.js', import.meta.url), 'utf8');
-  assert.match(team, /function reportRows\(\)\{return areaMatch\(filterByReportKind\(meetings,reportChip\)\)\}/);
-  assert.match(team, /meetingColumns\(areaMatch\(filterByReportKind\(meetings,DEFAULT_KIND\)\)/);
-  assert.match(team, /resetPrivateState\(\)\{reportChip=DEFAULT_KIND;areaChip='all';areaTree=null;/);
+  // MTG-프로젝트합치기 3단계: [목록] 보기의 주 거르기(weekMatch)가 사업영역 거르기 바깥에 한 겹 더 걸린다(같은 두 곳).
+  assert.match(team, /function reportRows\(\)\{return weekMatch\(areaMatch\(filterByReportKind\(meetings,reportChip\)\)\)\}/);
+  assert.match(team, /meetingColumns\(weekMatch\(areaMatch\(filterByReportKind\(meetings,DEFAULT_KIND\)\)\)/);
+  assert.match(team, /resetPrivateState\(\)\{reportChip=DEFAULT_KIND;areaChip='all';reportWeek=null;reportWeekAll=false;areaTree=null;/);
 });

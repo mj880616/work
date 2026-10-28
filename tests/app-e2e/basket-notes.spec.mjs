@@ -262,7 +262,7 @@ test('phone back closes the new-note window and hands its text back to the note 
  await expect(edWin(page)).toHaveCount(0);await expect(page.locator('[data-note-list]')).toBeVisible();await expect(noteInput(page)).toBeFocused();
  await add.click();
  await typeInto(page,edWinText(page),'쓰던 글');
- await page.locator('.mobile-tabs [data-view="projects"]').click();
+ await page.locator('.mobile-tabs [data-view="meetings"]').click();
  const leave=page.locator('#edwCloseSheet');await expect(leave).toHaveAttribute('open','');
  await leave.getByRole('button',{name:'계속 쓰기',exact:true}).click();
  await expect(edWinText(page)).toHaveText('쓰던 글');

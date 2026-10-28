@@ -6,6 +6,7 @@ import {fillDateTime} from './helpers/date-time.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {selectMeetingRound,openMeetingResult,mrdMenu,closeMeetingResult} from './helpers/meeting-open.mjs';
 import {toplineItem} from './helpers/screen-title.mjs';
+import {showAllReportWeeks,reportWeekButton} from './helpers/report-week.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
 
@@ -22,9 +23,12 @@ function columnState(){
   s.docs.push({id:'rail-doc-1',workspace_id:s.workspace.id,project_id:null,title:'궤도 자료 1',meeting_id:'rail-6',category:'회의자료',tags:[]},{id:'rail-doc-2',workspace_id:s.workspace.id,project_id:null,title:'궤도 자료 2',meeting_id:'rail-6',category:'회의자료',tags:[]});
   return s;
 }
-async function open(page,s,width,height=900,{routes=async()=>{}}={}){
+// MTG-프로젝트합치기 3단계: [목록]은 한 주씩 보인다. 이 파일의 가짜 보고는 여러 주에 걸쳐 있어, 열자마자 주 줄의 [전체]로 모든 주를 본다
+// (주 넘기기 자체는 맨 아래 '주 단위 목록' 시험이 allWeeks:false로 본다).
+async function open(page,s,width,height=900,{routes=async()=>{},allWeeks=true}={}){
   await page.setViewportSize({width,height});await mockApp(page,s);await routes();
   await signIn(page,testOrigin+'/app/?view=meetings');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
+  if(allWeeks)await showAllReportWeeks(page);
 }
 const kinds=page=>page.locator('#meetingList .mcol-kinds [data-meeting-kind]');
 const kindNames=page=>page.locator('#meetingList .mcol-kinds .mcol-name');
@@ -132,13 +136,16 @@ test('PC 오른쪽 결과: 후속 할 일(읽기)·프로젝트·회의자료 �
   s.docs.push({id:'labor-doc',workspace_id:s.workspace.id,project_id:null,title:'가상 안건지',file_name:'가상 안건지.hwp',file_id:'drive-labor-doc',file_size:20480,meeting_id:'labor-2',category:'회의자료',tags:[]});
   const reads=[];s.downloads=[];
   const routes=()=>page.route('**/functions/v1/google-tasks**',route=>{const url=new URL(route.request().url());const action=url.searchParams.get('action');if(action==='linked'){reads.push(url.searchParams.get('meeting_id'));const id=url.searchParams.get('meeting_id');return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({tasks:id==='labor-2'?[{id:'t1',title:'가상 후속 할 일',due:'2026-10-25T00:00:00Z',status:'needsAction'},{id:'t2',title:'끝난 가상 할 일',status:'completed'}]:[]})})}return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({connected:true,authorized:true,tasks:[]})})});
-  await open(page,s,1440,900,{routes});
+  // 처음 붙는 차수(labor-2)의 할 일 읽기 횟수를 세므로, 그 읽기가 끝난 뒤에 [전체]를 누른다(labor-1은 다른 주).
+  await open(page,s,1440,900,{routes,allWeeks:false});
   await expect(result(page)).toHaveAttribute('data-meeting-result','labor-2');
   await expect(result(page).locator('#mrdMeta')).toContainText('연결 가상 프로젝트');
   await expect(result(page).locator('#mrdTasks [data-mrd-task]')).toHaveCount(2);
   await expect(result(page).locator('#mrdTasks [data-mrd-task]').first()).toContainText('가상 후속 할 일');await expect(result(page).locator('#mrdTasks [data-mrd-task]').first()).toContainText('10. 25.');
   await expect(result(page).locator('#mrdTasks [data-mrd-task]').nth(1)).toContainText('끝난 가상 할 일');
   // 같은 차수를 다시 그려도 할 일을 또 읽지 않는다(고른 차수가 바뀔 때만).
+  expect(reads.filter(id=>id==='labor-2').length).toBe(1);
+  await showAllReportWeeks(page);await expect(result(page)).toHaveAttribute('data-meeting-result','labor-2');
   expect(reads.filter(id=>id==='labor-2').length).toBe(1);
   await round(page,'labor-1').click();await expect(result(page).locator('#mrdTasks')).toContainText('후속 할 일이 없습니다.');
   await round(page,'labor-2').click();await expect(result(page).locator('#mrdTasks [data-mrd-task]')).toHaveCount(2);
@@ -372,4 +379,57 @@ for(const width of [390,1280])test(`사업 보고 결과 창 ${width}: 자료 �
   const x=row.locator('[data-mrd-delete-document]'),summary=row.locator('.file-line-more summary');
   await expect(x).toBeVisible();const a=await summary.boundingBox(),b=await x.boundingBox();expect(a.x+a.width).toBeLessThanOrEqual(b.x+1);
   await checkFileMenu(page,s,rows,width);
+});
+
+// MTG-프로젝트합치기 3단계(요청 10/28 19:07 ③): [목록] 보기는 한 주(서울 월~일)씩. 처음은 가장 최근 보고의 주(이번 주에 보고가 없을 때),
+// ‹ ›로 주를 넘기고 [전체]로 모든 주를 본다(다시 누르면 주 단위). 다른 곳에서 고른 보고(select)가 지금 주에 없으면 그 주로 옮긴다. 폰 한 줄 목록·PC 3단 같은 규칙.
+for(const width of [390,1280])test(`${width}: 사업 보고 [목록]은 주 단위 — 처음 최근 주, ‹ 앞 주, › 다시, [전체] 모든 주, 고른 보고의 주로 옮기기`,async({page})=>{
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const s=baseState();s.meetingWrites=[];
+  const row=(id,round,at)=>({id,workspace_id:s.workspace.id,title:'궤도협의회',series_name:'궤도협의회',round_no:round,meeting_at:at,transcript_text:'원문 '+id,created_by:s.user.id});
+  // 두 주(10.12~10.18 / 10.19~10.25)에 하나씩. 둘 다 오늘보다 앞이라 처음 주는 더 최근 보고(10.20)의 주다.
+  s.meetings=[row('week-old',1,'2026-10-13T01:00:00Z'),row('week-new',2,'2026-10-20T01:00:00Z')];
+  await open(page,s,width,900,{allWeeks:false});
+  const pc=width>=1024;
+  const shown=()=>page.locator(pc?'#meetingList [data-meeting-round]':'#meetingList [data-mrd-meeting]').evaluateAll((els,pc)=>els.map(e=>pc?e.dataset.meetingRound:e.dataset.mrdMeeting),pc);
+  const bar=page.locator('#meetingsView .report-week-bar'),label=page.locator('#reportWeekFilter .report-week-label');
+  const prev=reportWeekButton(page,'prev'),next=reportWeekButton(page,'next'),all=reportWeekButton(page,'all');
+  // 주 줄: 칩 줄 아래, ‹ 라벨(n건) › [전체] 한 줄.
+  await expect(bar).toBeVisible();await expect(page.locator('#reportWeekFilter')).toHaveAttribute('role','group');
+  await expect(prev).toHaveAttribute('aria-label','이전 주');await expect(next).toHaveAttribute('aria-label','다음 주');
+  await expect(all).toHaveText('전체');await expect(all).toHaveAttribute('aria-pressed','false');
+  const kindBar=await page.locator('#meetingsView .report-kind-bar').boundingBox(),weekBar=await bar.boundingBox();expect(weekBar.y).toBeGreaterThanOrEqual(kindBar.y+kindBar.height-1);
+  const tops=await page.locator('#reportWeekFilter > *').evaluateAll(els=>els.map(e=>{const r=e.getBoundingClientRect();return Math.round(r.top+r.height/2)}));
+  expect(Math.max(...tops)-Math.min(...tops)).toBeLessThanOrEqual(2);
+  // 처음: 최근 주(10.19~10.25)의 보고만.
+  await expect(label).toHaveText('10.19(월)~10.25(일) 1건');
+  await expect.poll(shown).toEqual(['week-new']);
+  if(pc){await expect(page.locator('#meetingList [data-meeting-kind="궤도협의회"] .mcol-count')).toHaveText('1');await expect(result(page)).toHaveAttribute('data-meeting-result','week-new')}
+  // ‹: 앞 주(10.12~10.18)의 보고만.
+  await prev.click();
+  await expect(label).toHaveText('10.12(월)~10.18(일) 1건');
+  await expect.poll(shown).toEqual(['week-old']);
+  if(pc)await expect(result(page)).toHaveAttribute('data-meeting-result','week-old');
+  // 보고가 없는 주도 넘길 수 있다(0건, 빈 목록).
+  await prev.click();await expect(label).toHaveText('10.5(월)~10.11(일) 0건');await expect.poll(shown).toEqual([]);
+  // ›: 다시 뒤 주로.
+  await next.click();await next.click();
+  await expect(label).toHaveText('10.19(월)~10.25(일) 1건');await expect.poll(shown).toEqual(['week-new']);
+  await prev.click();await expect.poll(shown).toEqual(['week-old']);
+  // [전체]: 모든 주(최신 위). 주 넘기기는 잠기고 라벨은 '모든 주'.
+  await all.click();
+  await expect(all).toHaveAttribute('aria-pressed','true');await expect(label).toHaveText('모든 주');
+  await expect(prev).toBeDisabled();await expect(next).toBeDisabled();
+  await expect.poll(shown).toEqual(['week-new','week-old']);
+  if(pc)await expect(page.locator('#meetingList [data-meeting-kind="궤도협의회"] .mcol-count')).toHaveText('2');
+  // 다시 누르면 보던 주(10.12~10.18)로.
+  await all.click();
+  await expect(all).toHaveAttribute('aria-pressed','false');await expect(label).toHaveText('10.12(월)~10.18(일) 1건');
+  await expect.poll(shown).toEqual(['week-old']);
+  // 다른 곳에서 고른 보고(KPTUMeetingColumns.select)가 지금 주에 없으면 그 보고의 주로 옮긴다.
+  await page.evaluate(()=>window.KPTUMeetingColumns.select({id:'week-new'}));
+  await expect(label).toHaveText('10.19(월)~10.25(일) 1건');await expect.poll(shown).toEqual(['week-new']);
+  if(pc)await expect(result(page)).toHaveAttribute('data-meeting-result','week-new');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);
+  expect(errors).toEqual([]);
 });

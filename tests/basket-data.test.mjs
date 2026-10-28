@@ -10,7 +10,7 @@ test('text validation rejects whitespace and over 20000 Unicode characters witho
 });
 test('archive wins, only confirmed note links count, all destinations remain visible',()=>{
  const links=[{note_id:'n',status:'suggested',project:{name:'제안'}},{note_id:'n',status:'confirmed',project_id:'p',project:{name:'프로젝트'}},{note_id:'n',status:'confirmed',organization_id:'o',organization:null},{note_id:'other',status:'confirmed',project_id:'p',project:{name:'다른 메모'}}];
- assert.deepEqual(noteState({id:'n'},links),{status:'확정',destinations:['프로젝트: 프로젝트','연결 대상 없음']});
+ assert.deepEqual(noteState({id:'n'},links),{status:'확정',destinations:['사업영역: 프로젝트','연결 대상 없음']});
  assert.equal(noteState({id:'n',archived_at:'now'},links).status,'보관');
  assert.equal(noteState({id:'new'},links).status,'미분류');
  const notes=[{id:'archived',archived_at:'now'},{id:'new'},{id:'n'}];
@@ -56,7 +56,7 @@ test('a memo whose files are a project document is classified, and follows where
  const note={id:'n',attachments:[{drive_file_id:'drive-a'},{drive_file_id:'drive-b'}]};
  const docs=[{file_id:'drive-a',project_id:'p',project:{name:'민자철도'}},{file_id:'drive-b',project_id:'p',project:{name:'민자철도'}}];
  assert.deepEqual(filedProjects(note,docs),[{project_id:'p',name:'민자철도'}]);
- assert.deepEqual(noteState(note,[],docs),{status:'확정',destinations:['프로젝트 자료: 민자철도']});
+ assert.deepEqual(noteState(note,[],docs),{status:'확정',destinations:['사업영역 자료: 민자철도']});
  assert.deepEqual(visibleNotes([note,{id:'plain'}],[],'unclassified',docs).map(n=>n.id),['plain']);
  // Moved to another project: the line follows; taken out of every project: unclassified again.
  assert.deepEqual(filedProjects(note,[{file_id:'drive-a',project_id:'q',project:{name:'궤도'}}]),[{project_id:'q',name:'궤도'}]);
@@ -85,7 +85,7 @@ test('the basket read asks for these attachments\' documents and their project n
 // UI-바구니거르기: [미분류][분류][보류] and, under [분류], where the memo went.
 test('segments split unclassified, classified and on-hold memos; place chips follow links, filed documents and tasks',()=>{
  assert.deepEqual(BASKET_PLACES.map(([v])=>v),['all','organization','project','reference','library','task','journal']);
- assert.deepEqual(BASKET_PLACES.map(([,l])=>l),['전체','담당조직','프로젝트','참고','자료실','할 일','업무일지']);
+ assert.deepEqual(BASKET_PLACES.map(([,l])=>l),['전체','담당조직','사업영역','참고','자료실','할 일','업무일지']);
  const task={task_id:'t1',task_list_id:'l',title:'할 일',created_at:'2026-10-18T00:00:00Z'};
  const notes=[
   {id:'org'},{id:'proj'},{id:'doc'},{id:'meet'},{id:'filed',attachments:[{drive_file_id:'drive-a'}]},
@@ -138,7 +138,7 @@ test('second row: organization and project names by memo count, the 7 categories
  // Most memos first; a suggested or archived link never makes a chip.
  assert.deepEqual(placeSubOptions(notes,links,docs,'organization'),[{value:'all',label:'모든 조직 4'},{value:'org-b',label:'나지부'},{value:'org-a',label:'가지부'}]);
  // Ties break by name.
- assert.deepEqual(placeSubOptions(notes,links,docs,'project'),[{value:'all',label:'모든 프로젝트 2'},{value:'pr-2',label:'궤도'},{value:'pr-1',label:'임단협'}]);
+ assert.deepEqual(placeSubOptions(notes,links,docs,'project'),[{value:'all',label:'모든 사업영역 2'},{value:'pr-2',label:'궤도'},{value:'pr-1',label:'임단협'}]);
  assert.deepEqual(placeSubOptions(notes,links,docs,'library').map(o=>o.label),['모든 자료 3','교섭','투쟁','교육','선전','정책','회의','기타']);
  const ids=(place,sub)=>visibleNotes(notes,links,'classified',docs,place,sub).map(n=>n.id);
  assert.deepEqual(ids('organization','org-a'),['o2','o3']);assert.deepEqual(ids('organization','org-b'),['o1','o3','o4']);

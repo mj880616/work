@@ -38,7 +38,8 @@ async function signIn(page){
 }
 
 async function actionMetrics(page,view,selector){
-  await page.locator(`[data-view="${view}"]`).first().click();
+  // MTG-프로젝트합치기 3단계: 사업영역 관리(projects)는 메뉴 버튼이 없어 사람이 가는 길(사업 보고 ⋯)로 연다.
+  if(view==='projects')await clickView(page,view);else await page.locator(`[data-view="${view}"]`).first().click();
   const el=page.locator(selector);
   await expect(el).toBeVisible({timeout:10000});
   return el.evaluate(node=>({

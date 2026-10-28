@@ -22,8 +22,8 @@ async function open(page,url=app+'?view=home'){
   await signInWithSession(page,user.email);
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
 }
-// BASKET-PC메뉴: 홈 / 정리함(업데이트·챙길 것) / 일정(달력→일정, 할 일·업무일지·일기) / 노트 / 프로젝트 …
-const order=['홈','정리함','업데이트','챙길 것','일정','할 일','업무일지','일기','노트','프로젝트','사업 보고','자료실','공유 페이지','담당조직','HWP 편집','원장','사진','통화','텔레그램 소식'];
+// BASKET-PC메뉴: 홈 / 정리함(업데이트·챙길 것) / 일정(달력→일정, 할 일·업무일지·일기) / 노트 / 사업 보고 …(MTG-프로젝트합치기 3단계: [프로젝트] 줄은 없다)
+const order=['홈','정리함','업데이트','챙길 것','일정','할 일','업무일지','일기','노트','사업 보고','자료실','공유 페이지','담당조직','HWP 편집','원장','사진','통화','텔레그램 소식'];
 for(const width of [761,820,900,1023])for(const fontSize of [null,24,40])test(`mid menu is a reachable ordered prefix at ${width}px, font ${fontSize||'default'}`,async({page})=>{
   await page.setViewportSize({width,height:844});await open(page);
   const trigger=page.locator('#mobileMenuOpen');await expect(trigger).toBeVisible();
@@ -52,7 +52,7 @@ for(const width of [761,820,900,1023])for(const fontSize of [null,24,40])test(`m
     let item=page.locator('.app-nav').getByRole('button',{name:label,exact:true});
     if(!await item.count()){await trigger.click();item=page.locator('#mobileMenu nav').getByRole('button',{name:label,exact:true})}
     await item.click();await expect(page.locator('#mobileMenu')).toBeHidden();
-    const view=({'홈':'home','정리함':'basket','업데이트':'basket','챙길 것':'basket','노트':'basket','일정':'calendar','할 일':'tasks','업무일지':'journal','일기':'diary','프로젝트':'projects','자료실':'library','사업 보고':'meetings','공유 페이지':'pages','담당조직':'team','HWP 편집':'hwp','원장':'ledger','사진':'photos','통화':'calls','텔레그램 소식':'telegram'})[label];
+    const view=({'홈':'home','정리함':'basket','업데이트':'basket','챙길 것':'basket','노트':'basket','일정':'calendar','할 일':'tasks','업무일지':'journal','일기':'diary','자료실':'library','사업 보고':'meetings','공유 페이지':'pages','담당조직':'team','HWP 편집':'hwp','원장':'ledger','사진':'photos','통화':'calls','텔레그램 소식':'telegram'})[label];
     await expect(page.locator('#'+view+'View')).toBeVisible();
     // HWP-화면가득: 폰·폴드 폭의 HWP 편집은 화면 가득이라 위 줄 메뉴가 가려진다. [✕]로 이전 화면에 돌아와 이어 간다.
     if(view==='hwp'){await page.locator('#hwpLabClose').click();await expect(page.locator('#hwpView')).toBeHidden();}
@@ -87,13 +87,13 @@ test('resize and font changes repartition; phone and PC return to their original
   await page.locator('.app-nav').evaluate(nav=>{nav.style.fontSize='';document.querySelectorAll('.nav-btn').forEach(b=>b.style.fontSize='')});await expect.poll(count).toBeGreaterThanOrEqual(normal);await expect.poll(()=>page.locator('.app-nav').evaluate(nav=>nav.scrollWidth-nav.clientWidth)).toBeLessThanOrEqual(1);
   await page.setViewportSize({width:760,height:844});await expect(page.locator('.app-nav')).toBeHidden();await expect(page.locator('.mobile-tabs')).toBeVisible();await page.locator('#mobileMenuTab').click();
   // 8-9e-2: [바구니]는 하단 탭으로 옮겨 메뉴 창에서 뺐다.
-  expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['노트','사업 보고','자료실','HWP 편집','공유 페이지','원장','사진','통화','텔레그램 소식']);await page.keyboard.press('Escape');
+  expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['노트','자료실','HWP 편집','공유 페이지','원장','사진','통화','텔레그램 소식']);await page.keyboard.press('Escape');
   await page.setViewportSize({width:1024,height:844});await expect(page.locator('#mobileMenuOpen')).toBeHidden();await expect(page.locator('.mobile-tabs')).toBeHidden();
   // UI-PC일정묶음: back on the PC sidebar, 할 일·업무일지·일기 are sub rows under [일정] again (with [달력] first).
-  expect(await page.locator('.app-nav .nav-btn:not(#mobileMenuOpen)').allTextContents()).toEqual(['홈','정리함','일정','노트','프로젝트','사업 보고','자료실','공유 페이지','담당조직','HWP 편집','원장','사진','통화','텔레그램 소식','자주 가는 링크 ›']);
+  expect(await page.locator('.app-nav .nav-btn:not(#mobileMenuOpen)').allTextContents()).toEqual(['홈','정리함','일정','노트','사업 보고','자료실','공유 페이지','담당조직','HWP 편집','원장','사진','통화','텔레그램 소식','자주 가는 링크 ›']);
   expect(await page.locator('.app-nav .nav-sub[aria-label="정리함"] .nav-sub-btn:not(.nav-btn)').allTextContents()).toEqual(['업데이트','챙길 것']);
   expect(await page.locator('.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn:not(.nav-btn)').allTextContents()).toEqual(['달력','할 일','업무일지','일기']);
-  expect(await page.locator('.app-nav :is(.nav-btn,.nav-sub-btn[data-view]):not(#mobileMenuOpen)').allTextContents()).toEqual(['홈','정리함','일정','할 일','업무일지','일기','노트','프로젝트','사업 보고','자료실','공유 페이지','담당조직','HWP 편집','원장','사진','통화','텔레그램 소식','자주 가는 링크 ›']);await expect(page.locator('.app-topline [data-account-open]')).toBeVisible();
+  expect(await page.locator('.app-nav :is(.nav-btn,.nav-sub-btn[data-view]):not(#mobileMenuOpen)').allTextContents()).toEqual(['홈','정리함','일정','할 일','업무일지','일기','노트','사업 보고','자료실','공유 페이지','담당조직','HWP 편집','원장','사진','통화','텔레그램 소식','자주 가는 링크 ›']);await expect(page.locator('.app-topline [data-account-open]')).toBeVisible();
 });
 
 // BASKET-PC메뉴: [업데이트]·[챙길 것]이 줄에 늘어 1023px 이하 줄에는 뒤쪽 칸이 들어가지 않는다. 글자를 키워 줄에서 빠진 공유 페이지의 지금 위치는
@@ -156,7 +156,7 @@ for(const width of [900,960,1023])test(`combined current location at ${width}px 
 });
 
 // 8-9e-2: on phones [바구니] is a bottom tab (not in the drawer) and the drawer opens from the [메뉴] tab.
-for(const label of ['사업 보고','자료실','공유 페이지','HWP 편집'])test(`phone drawer focus remains in the open drawer when ${label} is hidden at mid width`,async({page})=>{
+for(const label of ['자료실','공유 페이지','HWP 편집'])test(`phone drawer focus remains in the open drawer when ${label} is hidden at mid width`,async({page})=>{
   await page.setViewportSize({width:760,height:844});await open(page);
   await page.locator('#mobileMenuTab').click();await page.locator('#mobileMenu nav').getByRole('button',{name:label,exact:true}).focus();
   await page.setViewportSize({width:820,height:844});await expect(page.locator('#mobileMenu')).toBeVisible();await expect(page.locator('[data-mobile-menu-close]')).toBeFocused();

@@ -73,6 +73,11 @@ test('업데이트 여러 곳 연결: 연결이 모두 끝난 뒤에만 알리�
   const refused = await saveUpdate({places, text: '두 곳 소식', owner: 'owner'}, rtOf({ok: false, error: 'NOTE_CHANGED'}));
   assert.equal(refused.linkError, 'NOTE_CHANGED');
   assert.deepEqual(saved(), []);
+  // MTG-프로젝트합치기 3단계: 프로젝트(사업영역) 하나만 골라도 같은 길(바구니 업데이트 + 연결)이라 같은 basket 알림을 낸다.
+  reset();
+  const single = await saveUpdate({places: [{kind: 'project', id: 'p1'}], text: '두 곳 소식', owner: 'owner'}, rtOf({ok: true, created: 1}));
+  assert.equal(single.linkError, '');
+  assert.deepEqual(saved(), [{kind: 'basket', id: U(6), day: '2026-10-25', text: '두 곳 소식', targets: [{kind: 'project', id: 'p1'}]}]);
   reset();
   await saveUpdate({places: [{kind: 'reference', id: 'b1'}, {kind: 'reference', id: 'b2'}], text: '참고', owner: 'owner'}, rtOf({ok: true, created: 2}));
   assert.deepEqual(saved(), []);

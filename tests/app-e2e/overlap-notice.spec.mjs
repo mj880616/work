@@ -98,16 +98,15 @@ async function withOverlap(page,{ai='same'}={}){
   await page.route(SB+'/rest/v1/rpc/app_meeting_set_links',route=>{calls.setLinks.push(route.request().postDataJSON());return route.fulfill({status:200,json:{ok:true,updated_at:'2026-10-06T01:00:01Z',created:1,removed:0}});});
   return calls;
 }
+// MTG-프로젝트합치기 3단계: 상세 맨 위 입력칸이 없어져, 진행 기록은 이미 저장된 행(모의 데이터)으로 둔다. 상세를 다시 읽혀 그 줄이 보이게 한 뒤,
+// 저장 경로가 저장 뒤에 내는 것과 같은 kptu:record-saved(project_update) 알림을 보내 겹침 알림 화면을 본다.
 async function writeRecord(page,state,text='출정 기자회견 진행함'){
   // 저장된 기록의 id는 서버가 정한다(모의: 올바른 모양의 UUID).
-  await page.route(SB+'/rest/v1/app_project_progress_updates**',route=>{
-    if(route.request().method()!=='POST')return route.fallback();
-    const body=route.request().postDataJSON(),row={...body,id:UID,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
-    state.tables.app_project_progress_updates.push(row);return route.fulfill({status:200,json:[row]});
-  });
-  const form=page.locator('#ps3-progress [data-ps3-record-input]');
-  await form.locator('input').fill(text);
-  await form.getByRole('button',{name:'기록',exact:true}).click();
+  const row={id:UID,project_id:'main',workstream_id:null,author_id:owner,status_label:null,summary:text,next_step:null,effective_on:seoulKey(),created_at:new Date(NOW).toISOString(),metadata:{}};
+  state.tables.app_project_progress_updates.push(row);
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:tasks-changed')));
+  await expect(page.locator('#ps3-progress [data-ps3-records] > *').first()).toContainText(text);
+  await page.evaluate(detail=>window.dispatchEvent(new CustomEvent('kptu:record-saved',{detail})),{kind:'project_update',id:UID,project_id:'main',day:row.effective_on,text});
 }
 const notice=page=>page.locator('[data-overlap-notice]');
 

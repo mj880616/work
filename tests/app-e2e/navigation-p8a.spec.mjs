@@ -6,7 +6,8 @@ import { signInWithSession } from './helpers/session-login.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const app=`${appOrigin}/app/`;
-const views=['home','basket','calendar','tasks','journal','diary','projects','meetings','library','pages','team','hwp','ledger','photos','calls','telegram'];
+// MTG-프로젝트합치기 3단계: [프로젝트] 메뉴 줄은 없다(사업영역 관리는 사업 보고 ⋯ 안에서 연다).
+const views=['home','basket','calendar','tasks','journal','diary','meetings','library','pages','team','hwp','ledger','photos','calls','telegram'];
 const user={id:'p8a-user',email:'p8a@example.org',user_metadata:{display_name:'내비게이션 QA'}};
 const event={id:'p8a-event',title:'현장 일정',start_at:'2026-09-18T09:00:00+09:00',event_type:'meeting',location:'현장'};
 

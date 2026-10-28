@@ -3,6 +3,7 @@
 import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
+import {showAllReportWeeks} from './helpers/report-week.mjs';
 import {selectMeetingRound,openMeetingResult,mrdMenu} from './helpers/meeting-open.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
@@ -45,6 +46,8 @@ test('PC 1280: ⋯ → [수정]은 세 번째 칸이 그 자리에서 고치는 
 
 test('PC 1280: 고친 내용이 있는데 다른 차수를 누르면 그 자리 한 줄 — [버리기]/[저장]',async({page})=>{
   const s=state();await open(page,s,1280);
+  // MTG-프로젝트합치기 3단계: 세 차수가 서로 다른 주라 [전체]로 모든 주를 보고 차수를 옮겨 다닌다.
+  await showAllReportWeeks(page);
   await expect(result(page)).toHaveAttribute('data-meeting-result','rail-3');
   await mrdMenu(page,'edit');await result(page).locator('#mrdEditNotes').fill('고친 특이사항');
   await round(page,'rail-2').click();

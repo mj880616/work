@@ -130,7 +130,7 @@ for(const width of [1280,1440]){
     const pane=page.locator('#gtDetailPane');
     await page.locator('[data-gt-edit="a"]').click();await expect(pane.locator('[data-gt-link]')).toHaveCount(12);
     const left=group=>pane.locator(`.gt-link-group[aria-label="${group}"] .gt-link-opt`).evaluateAll(es=>es.map(e=>({x:Math.round(e.getBoundingClientRect().left),y:Math.round(e.getBoundingClientRect().top),t:e.textContent.trim()})));
-    const proj=await left('프로젝트');
+    const proj=await left('사업영역');
     expect(proj.length).toBe(6);expect(new Set(proj.map(r=>r.x)).size).toBe(1);
     expect(proj.map(r=>r.t)).toEqual(Array.from({length:6},(_,i)=>'프로젝트 '+i));expect(proj.every((r,i)=>i===0||r.y>proj[i-1].y)).toBe(true);
     // 조직 묶음 안쪽은 2열(홀수 번째는 왼쪽 열, 짝수 번째는 오른쪽 열).
@@ -310,7 +310,7 @@ test('PC: 하위 프로젝트는 상위 바로 아래 한 줄씩 들여쓰기(3�
   const projects=[P('p1','합성 상위'),P('p2','합성 하위','p1'),P('p3','합성 하위의 하위','p2'),P('p4','합성 다른 상위')];
   await open(page,1280,[task('a','2026-10-08')],{projects,height:900});
   await page.locator('[data-gt-edit="a"]').click();
-  const opts=page.locator('#gtDetailPane .gt-link-group[aria-label="프로젝트"] .gt-link-opt');await expect(opts).toHaveCount(4);
+  const opts=page.locator('#gtDetailPane .gt-link-group[aria-label="사업영역"] .gt-link-opt');await expect(opts).toHaveCount(4);
   const rows=await opts.evaluateAll(es=>es.map(e=>({t:e.querySelector('span').textContent.replace(/[↳\s]/g,''),x:Math.round(e.querySelector('input').getBoundingClientRect().left),y:Math.round(e.getBoundingClientRect().top)})));
   expect(rows.map(r=>r.t)).toEqual(['합성상위','합성하위','합성하위의하위','합성다른상위']);
   expect(rows[1].x).toBeGreaterThan(rows[0].x+8);expect(rows[2].x).toBeGreaterThan(rows[1].x+8);expect(rows[3].x).toBe(rows[0].x);
@@ -323,7 +323,7 @@ test('PC 1024(좁은 PC): 좌 1/3 : 우 2/3(왼쪽 최소 폭 안), 체크 목�
   const now=await col(page,'now').boundingBox(),pane=await page.locator('#gtDetailPane').boundingBox();
   expect(Math.abs(pane.width/now.width-2)).toBeLessThan(0.15);expect(now.width).toBeGreaterThanOrEqual(239);expect(Math.abs(pane.y-now.y)).toBeLessThanOrEqual(1);
   await page.locator('[data-gt-edit="a"]').click();await expect(page.locator('#gtDetailPane [data-gt-link]')).toHaveCount(5);
-  const xs=await page.locator('#gtDetailPane .gt-link-group[aria-label="프로젝트"] .gt-link-opt').evaluateAll(es=>es.map(e=>Math.round(e.getBoundingClientRect().left)));
+  const xs=await page.locator('#gtDetailPane .gt-link-group[aria-label="사업영역"] .gt-link-opt').evaluateAll(es=>es.map(e=>Math.round(e.getBoundingClientRect().left)));
   expect(new Set(xs).size).toBe(1);
   const m=await page.evaluate(()=>({sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth,sh:document.documentElement.scrollHeight,ih:innerHeight}));
   expect(m.sw).toBeLessThanOrEqual(m.cw+1);expect(m.sh).toBeLessThanOrEqual(m.ih+1);
