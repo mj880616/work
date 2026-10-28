@@ -1,3 +1,4 @@
+import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {fileAttrs,menuItemsHtml} from './file-actions.js';
 import {syncMoreToggle,bindMoreToggle} from './text-clamp.js';
@@ -51,7 +52,7 @@ function wdSaveRetire(){wdBasicSequence++;wdBasicEditor=null;wdAffSequence++;wdA
 // Keep the existing session/auth fallback available when a shared boot context is not installed.
 const wdRecordRt={api:wdApi,session:wdRt.session,config:wdRt.config,context:{read:()=>typeof wdRt.context?.read==='function'?(wdRt.context.read()||{}):{user:wdUser,workspace:{id:wdWorkspace}}}};
 function wdModal(id,on=true){if(id==='wdAffModal'&&!on){wdAffSequence++;wdAffEditor=null}const el=document.querySelector('#'+id);if(!el)return;el.classList.toggle('hidden',!on);el.setAttribute('aria-hidden',on?'false':'true')}
-function wdToast(s){const t=document.querySelector('#toast');if(!t)return;t.textContent=s;t.classList.remove('hidden');clearTimeout(wdToast.t);wdToast.t=setTimeout(()=>t.classList.add('hidden'),2200)}
+function wdToast(s){const t=document.querySelector('#toast');if(!t)return;t.textContent=s;kptuHoldToast(t)}
 async function wdCtx(){const epoch=wdSessionEpoch;if(!wdRt||!(await wdRt.session.ensure())||epoch!==wdSessionEpoch)return false;const shared=wdRt.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;if(shared?.user?.id&&shared?.workspace?.id){wdUser=shared.user;wdWorkspace=shared.workspace.id;wdRole=shared.membership?.role||null;return true}const user=await wdApi('/auth/v1/user');if(epoch!==wdSessionEpoch)return false;const m=await wdApi(`/rest/v1/app_workspace_members?user_id=eq.${user.id}&select=workspace_id,role&limit=1`);if(epoch!==wdSessionEpoch||!m?.length)return false;wdUser=user;wdWorkspace=m[0].workspace_id;wdRole=m[0].role;return true}
 // MTG-사업보고 6단계: 이 조직에 연결된 사업 보고(모든 종류) 묶음. 연결은 연결 표의 '출처 회의' 줄(report-links.js) 하나라, 사업 보고 쪽에서 연결해도
 // 여기서 [연결]로 골라도 같은 줄이다. 줄은 [종류] 이름·차수·날짜, 누르면 사업 보고 결과 창이 겹쳐 열린다. ⋯ → [연결 해제](5초 되돌리기).

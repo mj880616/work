@@ -1,7 +1,8 @@
+const kptuHoldToast=(el,opt)=>{el.classList.remove('hidden');import('./small-notice.js').then(m=>m.holdToast(el,opt)).catch(()=>{})}; // UI-작은알림자리: 일반 스크립트라 동적 import(#toast 위쪽·2초·올려 두면 멈춤)
 const gcrsNotify=(text,opt)=>import('./small-notice.js').then(m=>m.notify(text,opt)).catch(()=>{}); // UI-알림창정리: 일반 스크립트라 공용 작은 알림을 동적 import로
 function gcrsToast(message,type=''){
   const t=document.querySelector('#toast');
-  if(t){t.textContent=message;t.classList.remove('hidden');if(type)t.dataset.type=type;clearTimeout(gcrsToast.t);gcrsToast.t=setTimeout(()=>{t.classList.add('hidden');delete t.dataset.type},4200);return}
+  if(t){t.textContent=message;if(type)t.dataset.type=type;else delete t.dataset.type;kptuHoldToast(t);return}
   gcrsNotify(message);
 }
 function gcrsRun(){

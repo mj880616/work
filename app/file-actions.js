@@ -12,6 +12,7 @@
 //     서버를 거치지 않으므로 Edge 변경도 인증 변경도 없다. 보는 사람이 Drive에서 그 파일을 열 권한이 있어야 하는 것은
 //     기존 [Drive에서 열기]와 같다.
 // ⋯ 메뉴에는 어느 파일이든 [Drive에서 열기]와 [내려받기]를 둘 다 둔다(menuItemsHtml).
+import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import {fileKind} from './meeting-compact.js';
 import {isViewableImage} from './library-tree.js';
 
@@ -132,7 +133,7 @@ export function fileAttrs(file, {press = false} = {}) {
   return a('name', file?.name) + a('mime', file?.mime) + a('doc', file?.documentId) + a('id', file?.driveId) + a('url', file?.driveUrl) + (press ? ' data-fa-press' : '');
 }
 const fileOfEl = el => ({name: el.dataset.faName || '', mime: el.dataset.faMime || '', documentId: el.dataset.faDoc || '', driveId: el.dataset.faId || '', driveUrl: el.dataset.faUrl || ''});
-function toast(text) { const t = document.querySelector('#toast'); if (!t) return; t.textContent = text; t.classList.remove('hidden'); clearTimeout(toast.timer); toast.timer = setTimeout(() => t.classList.add('hidden'), 4200); }
+function toast(text) { const t = document.querySelector('#toast'); if (!t) return; t.textContent = text; kptuHoldToast(t); }
 if (typeof document !== 'undefined' && !globalThis.__kptuFileActionsBound) {
   globalThis.__kptuFileActionsBound = true;
   document.addEventListener('click', e => {

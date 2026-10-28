@@ -301,6 +301,9 @@ jobs:
       - name: Check small notice and confirm parts (UI-작은알림)
         run: node --test tests/small-notice.test.mjs
 
+      - name: Check small notice place, 2-second hold and Ctrl+Z undo history (UI-작은알림자리)
+        run: node --test tests/small-notice-undo.test.mjs
+
       - name: Check browser dialog sweep baseline (UI-알림창정리)
         run: node --test tests/notice-sweep.test.mjs
 

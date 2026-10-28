@@ -1,3 +1,4 @@
+import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import {toSeoulISO} from './meeting-time.js';
 import {linkEventEnd,normalizeTime,paintTimeHint} from './time-input.js';
 import {googleSaveFailure,unknownRetryText,addressConfirmedText,calendarName,logSaveDetail} from './calendar-save-notice.js';
@@ -28,7 +29,7 @@ function cmColorValue(target){const box=typeof target==='string'?document.queryS
 window.KPTUCalendarColors={palette:cmColorPalette,nearest:cmNearestColor,render:cmRenderColorPresets,value:cmColorValue};
 function cmRuntime(){const rt=window.KPTURuntime;if(!rt?.session||!rt?.api)throw new Error('앱 런타임을 불러오지 못했습니다.');return rt}
 async function cmGoogleCall(action,{method='GET',body=null,params=null,expectedSessionEpoch=null}={}){const rt=cmRuntime();if(!(await rt.session.ensure()))throw new Error('로그인이 필요합니다.');const u=new URL(rt.config.url+'/functions/v1/google-calendar');if(action)u.searchParams.set('action',action);if(params)Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,String(v)));const d=await rt.api(u.toString(),{method,body,expectedSessionEpoch});if(d?.error)throw new Error(d.error||'Google Calendar 요청 실패');return d}
-function cmToast(msg){const t=document.querySelector('#toast');if(!t)return;t.textContent=msg;t.classList.remove('hidden');clearTimeout(cmToast.t);cmToast.t=setTimeout(()=>t.classList.add('hidden'),2400)}
+function cmToast(msg){const t=document.querySelector('#toast');if(!t)return;t.textContent=msg;kptuHoldToast(t)}
 function cmCloseModal(){cmFormEpoch++;cmRequest=null;cmSavePending=false;const m=document.querySelector('#eventModal');if(m){m.classList.add('hidden');m.setAttribute('aria-hidden','true');window.KPTUA11y?.dialog.deactivate(m,{restoreFocus:true,fallbackFocus:'#calendarView h2'})}}
 function cmStatus(msg,err=false){const e=document.querySelector('#eventStatus');if(e){e.textContent=msg||'';e.className='status'+(err?' error':'');if(err){e.setAttribute('role','alert');e.removeAttribute('aria-live')}else{e.setAttribute('role','status');e.setAttribute('aria-live','polite')}}}
 function cmSetBusy(value){document.querySelectorAll('[data-event-mode],#eventTaskProject').forEach(b=>b.disabled=!!value);const b=document.querySelector('#saveEventBtn');if(!b)return;b.disabled=!!value;if(value)b.setAttribute('aria-busy','true');else b.removeAttribute('aria-busy')}

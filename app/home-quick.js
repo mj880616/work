@@ -1,3 +1,4 @@
+import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import { viewPrefs } from './view-prefs.js';
 import {basketOcrFor} from './basket-ocr-runtime.js';
 import { createChoiceSheet, projectRows } from './choice-sheet.js';
@@ -186,7 +187,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
   function taskLinkKeys(result){if(!Array.isArray(result?.links)||!Array.isArray(result?.meeting_links))throw new Error('프로젝트 연결의 저장 결과를 확인하지 못했습니다.');return new Set([...result.links,...result.meeting_links].filter(l=>l.status==='confirmed').map(taskLinkKey).filter(Boolean))}
   function taskNotice(message,{confirm=false}={}){status.textContent=message;if(confirm&&mode==='task'){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=taskAttempt?.task?'연결 확인':'할 일 목록에서 확인';b.onclick=()=>recoverQuickTask();status.append(document.createTextNode(' '),b)}}
   function taskControls(busy){box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=busy);pickerFiles.render()}
-  function taskToast(r,message){if(!taskScopeCurrent(r))return;const toast=document.querySelector('#toast');if(!toast)return;toast.textContent=message;toast.classList.remove('hidden');clearTimeout(save.toastTimer);save.toastTimer=setTimeout(()=>{if(taskScopeCurrent(r)&&r.token===taskSequence)toast.classList.add('hidden')},3200)}
+  function taskToast(r,message){if(!taskScopeCurrent(r))return;const toast=document.querySelector('#toast');if(!toast)return;toast.textContent=message;kptuHoldToast(toast)}
   function taskBodyMatches(task,body){return task.title===body.title&&(task.notes||'')===(body.notes||'')&&(task.due?String(task.due).slice(0,10):null)===(body.due||null)}
   async function recoverQuickTask(){
     const a=taskAttempt;if(!a||a.pending||taskRequest||taskReading||mode!=='task'||!taskScopeCurrent(a))return;
@@ -281,7 +282,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
       if(saveMode!=='basket'){rememberPlace(currentPlaces());setPlaces([]);}
       input.value='';expanded=false;paint();if(saveMode==='basket'||result?.note)onSaved(result?.note||result);
       if(linkFailed||fileFailed||docFailed)status.textContent=[linkFailed?linkFailText:'',fileFailed?[fileFailText,result.filed.message].filter(Boolean).join(' '):'',docFailed?docFailText:''].filter(Boolean).join(' ');
-      const toast=document.querySelector('#toast');toast.textContent=linkFailed||fileFailed||docFailed||saveMode==='basket'?'정리함에 저장했습니다.':saveMode==='files'?(text.trim()?'기록과 자료를 저장했습니다.':'자료로 넣었습니다.'):'기록을 저장했습니다.';toast.classList.remove('hidden');clearTimeout(save.toastTimer);save.toastTimer=setTimeout(()=>toast.classList.add('hidden'),3200);
+      const toast=document.querySelector('#toast');toast.textContent=linkFailed||fileFailed||docFailed||saveMode==='basket'?'정리함에 저장했습니다.':saveMode==='files'?(text.trim()?'기록과 자료를 저장했습니다.':'자료로 넣었습니다.'):'기록을 저장했습니다.';kptuHoldToast(toast);
       choicesFlight=null;
       return linkFailed||fileFailed||docFailed?{ok:true,linkError:result.linkError||'',fileError:fileFailed?(result.filed.message||'FILES'):'',docError:docFailed}:{ok:true};
     }catch(e){const message=e.message||'저장하지 못했습니다.';if(isCurrent())status.textContent=message;return {ok:false,message};}
@@ -309,7 +310,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
       if(!isCurrent())return {ok:false,message:'화면이 바뀌어 저장 결과를 확인하지 못했어요.'};
       input.value='';expanded=false;paint();onSaved(note);
       if(warning)status.textContent=warning;
-      const toast=document.querySelector('#toast');if(toast){toast.textContent=warning?'노트는 저장했어요. 첨부를 확인해 주세요.':'노트를 추가했습니다.';toast.classList.remove('hidden');clearTimeout(save.toastTimer);save.toastTimer=setTimeout(()=>toast.classList.add('hidden'),3200);}
+      const toast=document.querySelector('#toast');if(toast){toast.textContent=warning?'노트는 저장했어요. 첨부를 확인해 주세요.':'노트를 추가했습니다.';kptuHoldToast(toast);}
       return {ok:true};
     }catch(e){const message=e.message||'저장하지 못했습니다.';if(isCurrent())status.textContent=message;return {ok:false,message};}
     finally{saving=false;box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=false);paint();}

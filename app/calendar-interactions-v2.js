@@ -1,3 +1,4 @@
+import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import {askConfirm} from './small-notice.js'; // UI-알림창정리: 브라우저 기본 확인창 대신 공용 작은 확인창
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {seoulInputValue,seoulDateKey,seoulClock,seoulDayStart,addSeoulDays,toSeoulISO} from './meeting-time.js';
@@ -13,7 +14,7 @@ function ciLocal(v){return seoulInputValue(v)}
 function ciParts(v){return {date:seoulDateKey(v),time:seoulClock(v)}}
 function ciMinusDay(v){return seoulDateKey(addSeoulDays(seoulDayStart(v),-1))}
 function ciStatus(id,msg,err=false){const e=document.querySelector(id);if(e){e.textContent=msg||'';e.className='status'+(err?' error':'')}}
-function ciToast(msg){const t=document.querySelector('#toast');if(!t)return;t.textContent=msg;t.classList.remove('hidden');clearTimeout(ciToast.t);ciToast.t=setTimeout(()=>t.classList.add('hidden'),2200)}
+function ciToast(msg){const t=document.querySelector('#toast');if(!t)return;t.textContent=msg;kptuHoldToast(t)}
 function ciOpen(id){const m=document.querySelector(id);if(m){m.classList.remove('hidden');m.setAttribute('aria-hidden','false')}}
 function ciClose(id){if(id==='#ciGoogleModal'){ciGoogleOpenSeq++;ciSaveRequest=null;ciGoogleSavePending=false}const m=document.querySelector(id);if(m){m.classList.add('hidden');m.setAttribute('aria-hidden','true')}}
 function ciCloseDay(openNext){
