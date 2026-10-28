@@ -1,4 +1,5 @@
 import {selectFilter,filterOptions} from './helpers/filter-chips.mjs';
+import {noticeText} from './helpers/small-notice.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {test,expect} from '@playwright/test';
 import {readFileSync} from 'node:fs';
@@ -852,11 +853,8 @@ test('meeting detail restores a failed completion and alerts the user',async({pa
   await openMeetingResult(page,'meeting-1');
   const row=page.locator('#mrdTasks [data-mrd-task="meeting-follow-up"]');
   await expect(row).toBeVisible();
-  const dialog=page.waitForEvent('dialog');
   await row.locator('[data-mrd-task-toggle]').click();
-  const alert=await dialog;
-  expect(alert.message()).toContain('완료를 저장하지 못해 되돌렸습니다');
-  await alert.dismiss();
+  expect(await noticeText(page)).toContain('완료를 저장하지 못해 되돌렸습니다');
   await expect(row).toHaveClass(/pending/);
 });
 

@@ -1,3 +1,4 @@
+import {askConfirm} from './small-notice.js'; // UI-알림창정리: 브라우저 기본 확인창 대신 공용 작은 확인창
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {seoulInputValue,seoulDateKey,seoulClock,seoulDayStart,addSeoulDays,toSeoulISO} from './meeting-time.js';
 import {linkEventEnd,normalizeTime,paintTimeHint} from './time-input.js';
@@ -156,7 +157,7 @@ async function ciLeaveReport(){
     await window.KPTUReportEntry.open({name:e.title||'',...when,location:e.location||'',trigger:document.activeElement===trigger?document.body:document.activeElement,dedupe:true});
   }catch(err){console.error('calendar report',err);ciStatus('#ciGoogleStatus','사업 보고 입력 창을 열지 못했어요. 다시 시도해 주세요.',true)}
 }
-async function ciDeleteGoogle(){if(!ciGoogleCurrent)return;if(!confirm('이 Google 일정을 삭제할까요?'))return false;const b=document.querySelector('#ciGoogleDelete');b.disabled=true;ciStatus('#ciGoogleStatus','삭제 중…');try{await ciGoogleCall('',{method:'POST',body:{action:'delete-event',calendar_id:ciGoogleCurrent.calendarId||'primary',event_id:ciGoogleCurrent.id}});window.KPTUCalendarPersistence?.forget?.(ciGoogleCurrent.id,ciGoogleCurrent.calendarId||'primary');ciClose('#ciGoogleModal');ciGoogleCurrent=null;await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.();ciToast('Google 일정을 삭제했습니다.')}catch(e){ciStatus('#ciGoogleStatus',e.message||String(e),true)}finally{b.disabled=false}}
+async function ciDeleteGoogle(){if(!ciGoogleCurrent)return;if(!(await askConfirm(document.activeElement,{text:'이 Google 일정을 삭제할까요?',ok:"지우기",danger:true})))return false;const b=document.querySelector('#ciGoogleDelete');b.disabled=true;ciStatus('#ciGoogleStatus','삭제 중…');try{await ciGoogleCall('',{method:'POST',body:{action:'delete-event',calendar_id:ciGoogleCurrent.calendarId||'primary',event_id:ciGoogleCurrent.id}});window.KPTUCalendarPersistence?.forget?.(ciGoogleCurrent.id,ciGoogleCurrent.calendarId||'primary');ciClose('#ciGoogleModal');ciGoogleCurrent=null;await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.();ciToast('Google 일정을 삭제했습니다.')}catch(e){ciStatus('#ciGoogleStatus',e.message||String(e),true)}finally{b.disabled=false}}
 // CAL-빈칸시간채우기: 일정 만들기 창을 열고 누른 자리의 날짜·시간만 채운다(창 모양은 그대로). slot = calendar-create-slot.js 값.
 function ciCreateSlot(slot){const btn=document.querySelector('#newEventBtn');if(!btn||!slot)return;btn.click();const q=id=>document.querySelector('#event'+id),allDay=q('AllDay');if(allDay){allDay.checked=slot.kind==='allday';allDay.dispatchEvent(new Event('change',{bubbles:true}))}
   if(q('StartDate'))q('StartDate').value=slot.startDate;

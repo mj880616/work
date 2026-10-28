@@ -1,7 +1,8 @@
+const gcrsNotify=(text,opt)=>import('./small-notice.js').then(m=>m.notify(text,opt)).catch(()=>{}); // UI-알림창정리: 일반 스크립트라 공용 작은 알림을 동적 import로
 function gcrsToast(message,type=''){
   const t=document.querySelector('#toast');
   if(t){t.textContent=message;t.classList.remove('hidden');if(type)t.dataset.type=type;clearTimeout(gcrsToast.t);gcrsToast.t=setTimeout(()=>{t.classList.add('hidden');delete t.dataset.type},4200);return}
-  alert(message);
+  gcrsNotify(message);
 }
 function gcrsRun(){
   const url=new URL(location.href),result=url.searchParams.get('google');
