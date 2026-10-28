@@ -222,8 +222,8 @@ test('library file type keeps its kind color in all ten themes and search/filter
   // UI-PC자료실 M2: 폰(이 시험의 390px)은 종류를 색 글자로만 보인다(바탕 없음). PC 상자 색은 ui-standard-3a 1280에서 본다.
   for(const theme of THEMES){
     await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
-    await expect(page.locator('.lu-file-kind').first()).toHaveAttribute('data-lu-kind','hwp');
-    expect(await page.locator('.lu-file-kind').first().evaluate(el=>{const s=getComputedStyle(el);const probe=document.createElement('span');probe.style.color='var(--ds-file-hwp-ink)';probe.style.backgroundColor='var(--ds-file-hwp-soft)';el.append(probe);const p=getComputedStyle(probe),match=s.color===p.color&&s.backgroundColor===(innerWidth<761?'rgba(0, 0, 0, 0)':p.backgroundColor);probe.remove();return match})).toBe(true);
+    await expect(page.locator('#documentList .lu-file-kind').first()).toHaveAttribute('data-lu-kind','hwp');
+    expect(await page.locator('#documentList .lu-file-kind').first().evaluate(el=>{const s=getComputedStyle(el);const probe=document.createElement('span');probe.style.color='var(--ds-file-hwp-ink)';probe.style.backgroundColor='var(--ds-file-hwp-soft)';el.append(probe);const p=getComputedStyle(probe),match=s.color===p.color&&s.backgroundColor===(innerWidth<761?'rgba(0, 0, 0, 0)':p.backgroundColor);probe.remove();return match})).toBe(true);
   }
   await page.locator('#documentSearch').fill('목록에 표시하지 않을 출처');await expect(page.locator('.lu-row')).toHaveCount(10);
   await page.locator('#documentSearch').fill('없는 검색어');await expect(page.locator('.lu-row')).toHaveCount(0);

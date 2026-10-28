@@ -33,10 +33,10 @@ test('저장 응답 확인: 보낸 값과 같을 때만 통과(updated_at 제외
   assert.equal(rowMatches({...doc(),...body,title:'다른 이름'},body),false);
 });
 
-test('자료실 연결: 메뉴 맨 위 [이름 바꾸기 F2] → … → [수정…] → 구분선 → [삭제], 줄 F2, 같은 서버 길',()=>{
+test('자료실 연결: 메뉴 맨 위 [이름 바꾸기 F2] → [폴더로 옮기기 ›] → … → [수정…] → 구분선 → [삭제], 줄 F2, 같은 서버 길',()=>{
   const src=readFileSync(new URL('../app/library-upload.js',import.meta.url),'utf8');
   const menu=src.slice(src.indexOf('luMenuPanel.innerHTML=`'),src.indexOf('luMenuPanel.hidden=false'));
-  const order=['data-lu-rename','data-lu-hwp-edit','data-lu-drive-open','data-lu-download','data-lu-edit','fileMenuHtml','lu-menu-sep','data-lu-delete'].map(k=>menu.indexOf(k));
+  const order=['data-lu-rename','moveMenuHtml','data-lu-hwp-edit','data-lu-drive-open','data-lu-download','data-lu-edit','lu-menu-sep','data-lu-delete'].map(k=>menu.indexOf(k));
   assert.ok(order.every(i=>i>=0),String(order));
   assert.deepEqual([...order].sort((a,b)=>a-b),order);
   assert.match(menu,/>이름 바꾸기<span class="lu-menu-key"[^>]*>F2<\/span>/);

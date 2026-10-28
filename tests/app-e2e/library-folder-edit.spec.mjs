@@ -4,6 +4,7 @@ import { appOrigin } from './helpers/test-origin.mjs';
 import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {expandLibraryTree,libraryNode,libraryNodeHead} from './helpers/library-tree.mjs';
+import {moveEnabledNames,moveFolder,openMove as openMoveWith} from './helpers/library-folder-server.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const eq=(url,k)=>String(url.searchParams.get(k)||'').replace(/^eq\./,'');
@@ -22,7 +23,7 @@ async function boot(page,width,{folders=[],items=[],trashMode='ready'}={}){
     const req=route.request(),url=new URL(req.url()),m=req.method(),body=(()=>{try{return req.postDataJSON()}catch{return null}})();
     if(m!=='GET')s.writes.push({table:'folders',method:m,id:eq(url,'id')||null,body});
     if(m==='GET')return route.fulfill({json:s.folders});
-    if(m==='POST'){if(body.parent_id&&depth(body.parent_id)>=3)return route.fulfill(reject('LIB_FOLDER_DEPTH: folders are limited to 3 levels'));s.folders.push({...body,id:'new-'+(++seq),created_at:new Date().toISOString()});return route.fulfill({status:201,body:''})}
+    if(m==='POST'){if(body.parent_id&&depth(body.parent_id)>=3)return route.fulfill(reject('LIB_FOLDER_DEPTH: folders are limited to 3 levels'));const made={...body,id:'new-'+(++seq),created_at:new Date().toISOString()};s.folders.push(made);return route.fulfill(/return=representation/.test(req.headers()['prefer']||'')?{status:201,json:[made]}:{status:201,body:''})}
     const f=s.folders.find(x=>x.id===eq(url,'id'));
     if(m==='PATCH'){if('parent_id'in body&&body.parent_id&&depth(body.parent_id)+height(f.id)>3)return route.fulfill(reject('LIB_FOLDER_DEPTH: folders are limited to 3 levels'));Object.assign(f,body);return route.fulfill({status:204,body:''})}
     if(m==='DELETE'){const group=[f.id];for(let i=0;i<group.length;i++)for(const c of s.folders.filter(x=>x.parent_id===group[i]))group.push(c.id);s.trash.push({root:f.id,folders:s.folders.filter(x=>group.includes(x.id)),deleted_at:'2026-10-25T05:00:00Z'});s.folders=s.folders.filter(x=>!group.includes(x.id));return route.fulfill({status:204,body:''})}
@@ -53,6 +54,7 @@ async function boot(page,width,{folders=[],items=[],trashMode='ready'}={}){
 const menuOf=(page,key)=>libraryNodeHead(page,key).locator('[data-lu-node-menu]');
 const action=(page,name)=>page.locator('#luFolderMenu').getByRole('button',{name,exact:true});
 async function press(page,locator,width){if(width<761)await locator.tap();else await locator.click()}
+const openMove=(page,docId,width)=>openMoveWith(page,docId,width);
 const body=(page,key)=>page.locator(`#documentList details[data-lu-node="${key}"] > .lu-node-body > *`).evaluateAll(xs=>xs.map(x=>x.dataset.luNode||x.dataset.luDocument).filter(Boolean));
 const noScroll=page=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);
 
@@ -113,8 +115,8 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
   });
 
   test(`옮기기(같은 틀만·자기 아래 안 됨)·지우기(휴지통으로)·되돌리기·자료를 폴더로/밖으로 ${width}`,async({page})=>{
-    const folders=[{id:'fa',project_id:'top-a',name:'가상 A',sort_order:1024},{id:'fb',project_id:'top-a',name:'가상 B',sort_order:2048},{id:'fb1',project_id:'top-a',parent_id:'fb',name:'가상 B-1',sort_order:0},{id:'fn',project_id:null,name:'가상 없음 폴더',sort_order:0}];
-    const {s,errors}=await boot(page,width,{folders,items:[{document_id:'a-2',folder_id:'fb1'}]});
+    const folders=[{id:'fa',project_id:'top-a',name:'가상 A',sort_order:1024},{id:'fb',project_id:'top-a',name:'가상 B',sort_order:2048},{id:'00000000-0000-4000-8000-0000000000b1',project_id:'top-a',parent_id:'fb',name:'가상 B-1',sort_order:0},{id:'fn',project_id:null,name:'가상 없음 폴더',sort_order:0}];
+    const {s,errors}=await boot(page,width,{folders,items:[{document_id:'a-2',folder_id:'00000000-0000-4000-8000-0000000000b1'}]});
     await page.locator('#libraryExpandAll').click();
     // 옮기기: 같은 프로젝트 틀의 폴더만, 자기·자기 아래는 없다. 다른 틀('프로젝트 없음'의 폴더)은 없다.
     await press(page,menuOf(page,'f:fb'),width);await press(page,action(page,'옮기기…'),width);
@@ -124,10 +126,10 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
     await targets.first().focus();await page.keyboard.press('ArrowDown');await expect(targets.first()).toHaveAttribute('aria-checked','true');
     await press(page,page.locator('#libraryFolderSave'),width);await expect(page.locator('#libraryFolderModal')).toBeHidden();
     expect(s.writes.at(-1)).toMatchObject({table:'folders',method:'PATCH',id:'fb',body:{parent_id:'fa'}});
-    await expect(page.locator('#documentList details[data-lu-node="f:fa"] details[data-lu-node="f:fb"] details[data-lu-node="f:fb1"] [data-lu-document="a-2"]')).toBeAttached();
-    // 3단을 넘는 옮기기는 고를 곳에 없다: fb1은 이제 3단이라 메뉴의 '안에 새 폴더'가 없다.
+    await expect(page.locator('#documentList details[data-lu-node="f:fa"] details[data-lu-node="f:fb"] details[data-lu-node="f:00000000-0000-4000-8000-0000000000b1"] [data-lu-document="a-2"]')).toBeAttached();
+    // 3단을 넘는 옮기기는 고를 곳에 없다: 00000000-0000-4000-8000-0000000000b1은 이제 3단이라 메뉴의 '안에 새 폴더'가 없다.
     await page.locator('#libraryExpandAll').click();await page.locator('#libraryExpandAll').click();
-    await press(page,menuOf(page,'f:fb1'),width);await expect(action(page,'안에 새 폴더')).toHaveCount(0);await page.keyboard.press('Escape');
+    await press(page,menuOf(page,'f:00000000-0000-4000-8000-0000000000b1'),width);await expect(action(page,'안에 새 폴더')).toHaveCount(0);await page.keyboard.press('Escape');
     // 지우기(휴지통으로): 확인 창이 아래 폴더·자료 수와 '함께 들어간다'를 알린다. 취소하면 아무것도 안 바뀐다.
     const before=s.writes.length;let message='';
     page.once('dialog',d=>{message=d.message();d.dismiss()});await press(page,menuOf(page,'f:fb'),width);await press(page,action(page,'폴더 지우기'),width);
@@ -135,29 +137,39 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
     page.once('dialog',d=>d.accept());await press(page,menuOf(page,'f:fb'),width);await press(page,action(page,'폴더 지우기'),width);
     await expect(libraryNode(page,'f:fb')).toHaveCount(0);
     expect(s.writes.at(-1)).toEqual({table:'folders',method:'DELETE',id:'fb',body:null});
-    // 아래 폴더(fb1)도 함께 빠지고, 그 안의 자료(a-2)는 '폴더 없음' 자리에 나오지 않고 자료실 목록에서 함께 숨는다. 자료 연결은 그대로.
-    await expect(libraryNode(page,'f:fb1')).toHaveCount(0);await expect(page.locator('#documentList [data-lu-document="a-2"]')).toHaveCount(0);
-    expect(s.items).toEqual([{workspace_id:'workspace-1',document_id:'a-2',folder_id:'fb1'}]);
-    expect(s.trash.map(t=>[t.root,t.folders.map(f=>f.id)])).toEqual([['fb',['fb','fb1']]]);
+    // 아래 폴더(00000000-0000-4000-8000-0000000000b1)도 함께 빠지고, 그 안의 자료(a-2)는 '폴더 없음' 자리에 나오지 않고 자료실 목록에서 함께 숨는다. 자료 연결은 그대로.
+    await expect(libraryNode(page,'f:00000000-0000-4000-8000-0000000000b1')).toHaveCount(0);await expect(page.locator('#documentList [data-lu-document="a-2"]')).toHaveCount(0);
+    expect(s.items).toEqual([{workspace_id:'workspace-1',document_id:'a-2',folder_id:'00000000-0000-4000-8000-0000000000b1'}]);
+    expect(s.trash.map(t=>[t.root,t.folders.map(f=>f.id)])).toEqual([['fb',['fb','00000000-0000-4000-8000-0000000000b1']]]);
     // 안내 줄의 [되돌리기]: 서버가 묶음을 돌려놓고, 아래 폴더·자료가 원래 자리에 다시 보인다.
     const undo=page.locator('[data-undo-notice]');await expect(undo).toContainText('폴더를 휴지통으로 옮겼습니다.');
     await undo.locator('[data-undo-action]').click();
     await expect.poll(()=>s.trash.length).toBe(0);expect(s.rpc.at(-1)).toEqual({fn:'app_trash_restore',kind:'library_folder',id:'fb'});
-    await expect(page.locator('#documentList details[data-lu-node="f:fa"] details[data-lu-node="f:fb"] details[data-lu-node="f:fb1"] [data-lu-document="a-2"]')).toBeAttached();
-    // 자료 ⋯ → 폴더로 옮기기…: 같은 프로젝트 틀의 폴더만(지금 폴더 빼고), 경로 이름.
+    await expect(page.locator('#documentList details[data-lu-node="f:fa"] details[data-lu-node="f:fb"] details[data-lu-node="f:00000000-0000-4000-8000-0000000000b1"] [data-lu-document="a-2"]')).toBeAttached();
+    // 자료 ⋯ → 폴더로 옮기기 ›(이름 바꾸기 바로 아래): 같은 프로젝트 틀의 폴더를 고를 수 있고, 하위는 들여쓴다.
     await page.locator('#libraryExpandAll').click();if(await page.locator('#libraryExpandAll').getAttribute('data-lu-expand')!=='close')await page.locator('#libraryExpandAll').click();
-    await press(page,page.locator('[data-lu-menu="a-1"]'),width);await press(page,page.locator('#luMorePanel [data-lu-file-folder="a-1"]'),width);
-    await expect(page.locator('#libraryFolderTargets [data-lu-target]')).toHaveText(['가상 A','가상 A › 가상 B','가상 A › 가상 B › 가상 B-1']);
-    await press(page,page.locator('#libraryFolderTargets [data-lu-target="fb1"]'),width);await press(page,page.locator('#libraryFolderSave'),width);await expect(page.locator('#libraryFolderModal')).toBeHidden();
-    expect(s.writes.at(-1)).toEqual({table:'items',method:'POST',id:null,body:{document_id:'a-1',folder_id:'fb1',workspace_id:'workspace-1'}});
-    await expect(page.locator('#documentList details[data-lu-node="f:fb1"] [data-lu-document="a-1"]')).toBeAttached();
+    await press(page,page.locator('[data-lu-menu="a-1"]'),width);
+    expect(await page.locator('#luMorePanel button').evaluateAll(xs=>xs.slice(0,2).map(x=>x.textContent.trim()))).toEqual(['이름 바꾸기F2','폴더로 옮기기›']);
+    await press(page,page.locator('#luMorePanel [data-lu-move-open="a-1"]'),width);await expect(page.locator('#luMovePicker')).toBeVisible();
+    expect(await moveEnabledNames(page)).toEqual(['가상 A','가상 B','가상 B-1']);
+    await expect(page.locator('#luMovePicker [data-lu-move-folder="00000000-0000-4000-8000-0000000000b1"]').last()).toHaveAttribute('style',/--lu-depth:\s*2/);
+    await press(page,moveFolder(page,'00000000-0000-4000-8000-0000000000b1'),width);await expect(page.locator('#luMovePicker')).toBeHidden();await expect(page.locator('#luMorePanel')).toBeHidden();
+    expect(s.writes.at(-1)).toEqual({table:'items',method:'POST',id:null,body:{document_id:'a-1',folder_id:'00000000-0000-4000-8000-0000000000b1',workspace_id:'workspace-1'}});
+    await expect(page.locator('#documentList details[data-lu-node="f:00000000-0000-4000-8000-0000000000b1"] [data-lu-document="a-1"]')).toBeAttached();
     // 폴더 밖으로: 연결만 지운다(자료는 프로젝트 바로 아래).
     await page.locator('#libraryExpandAll').click();if(await page.locator('#libraryExpandAll').getAttribute('data-lu-expand')!=='close')await page.locator('#libraryExpandAll').click();
-    await press(page,page.locator('[data-lu-menu="a-1"]'),width);await press(page,page.locator('#luMorePanel [data-lu-file-out="a-1"]'),width);
+    await openMove(page,'a-1',width);
+    // 방금 넣은 폴더가 '최근 넣은 폴더' 맨 위에 보이고, 지금 있는 폴더는 고를 수 없다.
+    await expect(page.locator('#luMovePicker .lu-move-sec').first()).toHaveText('최근 넣은 폴더');
+    await expect(page.locator('#luMovePicker .lu-move-item').first()).toHaveText(/가상 A › 가상 B › 가상 B-1/);await expect(page.locator('#luMovePicker .lu-move-item').first()).toHaveAttribute('aria-current','true');
+    await press(page,page.locator('#luMovePicker [data-lu-move-out]'),width);
     await expect.poll(()=>s.writes.at(-1)).toEqual({table:'items',method:'DELETE',id:'a-1',body:null});
     await expect(page.locator('#documentList details[data-lu-node="p:top-a"] > .lu-node-body > [data-lu-document="a-1"]')).toBeAttached();
-    // 하위 프로젝트 자료(child-a1)의 ⋯에는 top-a 폴더가 보이지 않는다(다른 틀). 그 틀에 폴더가 없으면 버튼도 없다.
-    await press(page,page.locator('[data-lu-menu="a1-1"]'),width);await expect(page.locator('#luMorePanel [data-lu-file-folder]')).toHaveCount(0);await page.keyboard.press('Escape');
+    // 하위 프로젝트 자료(child-a1)는 top-a 폴더에 넣을 수 없다(다른 틀): 폴더 줄은 흐리고 이유 한 줄이 보이며 눌러도 아무 일도 없다.
+    await openMove(page,'a1-1',width);
+    expect(await moveEnabledNames(page)).toEqual([]);await expect(page.locator('#luMovePicker .lu-move-note')).toContainText('프로젝트가 달라 넣을 수 없어요');
+    const writesBefore=s.writes.length;await moveFolder(page,'fa').click({force:true});expect(s.writes.length).toBe(writesBefore);await expect(page.locator('#luMovePicker')).toBeVisible();
+    await page.keyboard.press('Escape');await expect(page.locator('#luMovePicker')).toBeHidden();await expect(page.locator('#luMorePanel')).toBeVisible();await page.keyboard.press('Escape');await expect(page.locator('#luMorePanel')).toBeHidden();
     // 자료(app_documents)는 한 번도 쓰지 않았다.
     expect(s.patches).toEqual([]);
     expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);

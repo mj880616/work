@@ -48,3 +48,16 @@ test('readView/saveView: 내 프로필 행 하나만, 칸이 없으면 pending, 
   assert.equal(calls.length,2);
   assert.deepEqual(await m.readView({context:{read:()=>({})},api:async()=>[]}),{status:'error'},'로그인 정보 없음');
 });
+
+// LIB-폴더로옮기기: recent_folders(최근 넣은 폴더, 최대 5개 uuid 글자).
+const R1='11111111-1111-4111-8111-111111111111',R2='22222222-2222-4222-8222-222222222222';
+test('recent_folders: 읽기·쓰기는 uuid 글자 최대 5개, 중복·틀린 모양은 거절',()=>{
+  assert.deepEqual(m.parseView({recent_folders:[R1,R2]}),{recentFolders:[R1,R2]});
+  assert.deepEqual(m.parseView({recent_folders:[]}),{recentFolders:[]});
+  assert.deepEqual(m.parseView({group_by:'folder',recent_folders:[R1]}),{groupBy:'folder',recentFolders:[R1]});
+  for(const bad of [{recent_folders:'x'},{recent_folders:[1]},{recent_folders:['abc']},{recent_folders:[R1,R1]},{recent_folders:['AAAAAAAA-1111-4111-8111-111111111111']},{recent_folders:[R1,R2,R1.replace('1','3'),R1.replace('1','4'),R1.replace('1','5'),R1.replace('1','6')]}])
+    assert.equal(m.parseView(bad),null,JSON.stringify(bad));
+  assert.deepEqual(m.serializeView({recentFolders:[R1,R1,R2]}),{recent_folders:[R1,R2]});
+  assert.deepEqual(m.serializeView({groupBy:'month',recentFolders:[]}),{group_by:'month',recent_folders:[]});
+  assert.equal(m.serializeView({recentFolders:['x']}),null);
+});

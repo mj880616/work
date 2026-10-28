@@ -108,6 +108,8 @@ test.describe('PC 1280 폴더 보기 끌어 옮기기',()=>{
 test.describe('폰 390 길게 누르기',()=>{
   test.use({hasTouch:true});
   const center=async(page,sel)=>page.locator(sel).evaluate(el=>{const r=el.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}});
+  // 줄 위에 '최근 올린 파일' 칸이 생겨 목록이 화면 밖으로 밀릴 수 있으므로, 길게 누르기 전에 그 줄을 화면 안으로 가져온다.
+  const centerView=async(page,sel)=>{await page.locator(sel).scrollIntoViewIfNeeded();return center(page,sel)};
   const touch=async(cdp,type,pts)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:pts.map((p,i)=>({x:p.x,y:p.y,id:i}))});
   test('누른 채 움직이면 놓은 폴더로 옮기고, 움직이지 않고 떼면 같은 메뉴가 열리고, 짧게 움직이면 스크롤로 본다',async({page})=>{
     const {s,errors}=await bootLibrary(page,390,{folders:FOLDERS,items:ITEMS,group:'폴더'});
@@ -126,19 +128,19 @@ test.describe('폰 390 길게 누르기',()=>{
     await expect(line(page)).toContainText('옮겼어요');
     // 2) 폴더 머리를 길게 눌렀다가 그대로 떼면 폴더 메뉴.
     await expandLibraryTree(page);
-    from=await center(page,head('f:fn')+' .lu-node-name');
+    from=await centerView(page,head('f:fn')+' .lu-node-name');
     await touch(cdp,'touchStart',[from]);await page.waitForTimeout(700);await touch(cdp,'touchEnd',[]);
     await expect(page.locator('#luFolderMenu')).toBeVisible();await expect(page.locator('#luFolderMenu').getByRole('button',{name:'폴더 지우기',exact:true})).toBeVisible();
     await page.keyboard.press('Escape');
     // 3) 자료 줄을 길게 눌렀다가 그대로 떼면 자료 ⋯ 메뉴(자료는 열리지 않는다).
     await expandLibraryTree(page);
-    from=await center(page,row('a1-1')+' .lu-row-title');
+    from=await centerView(page,row('a1-1')+' .lu-row-title');
     await touch(cdp,'touchStart',[from]);await page.waitForTimeout(700);await touch(cdp,'touchEnd',[]);
     await expect(page.locator('#luMorePanel')).toBeVisible();
     await expect(page.locator('#documentModal')).toBeHidden();
     await page.keyboard.press('Escape');
     // 4) 누르자마자 세로로 움직이면(스크롤) 잡히지 않는다.
-    from=await center(page,row('a1-1')+' .lu-row-title');
+    from=await centerView(page,row('a1-1')+' .lu-row-title');
     await touch(cdp,'touchStart',[from]);await touch(cdp,'touchMove',[{x:from.x,y:from.y-40}]);await page.waitForTimeout(700);
     await expect(page.locator('#documentList .lu-grabbed')).toHaveCount(0);
     await touch(cdp,'touchEnd',[]);

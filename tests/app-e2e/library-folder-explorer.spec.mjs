@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {expandLibraryTree,libraryNode,libraryNodeHead} from './helpers/library-tree.mjs';
-import {bootLibrary,libFolder,childrenOf,menuButton,folderMenuItem,press} from './helpers/library-folder-server.mjs';
+import {bootLibrary,libFolder,childrenOf,menuButton,folderMenuItem,press,openMove,moveFolder,moveEnabledNames,movePicker} from './helpers/library-folder-server.mjs';
 // LIB-폴더탐색기 화면 ①(docs/design/library-tree.md 12절): 묶기 '폴더'(프로젝트와 상관없는 폴더 나무), 폴더 메뉴(이름 바꾸기 F2·안에 새 폴더·접기/펼치기·폴더 지우기),
 // 줄 안 이름 바꾸기, 빈 곳 우클릭 [새 폴더], 틀을 넘는 옮기기(DB 적용 전에는 '준비 중' 안내).
 const FOLDERS=[libFolder('fa','top-a',{name:'가상 A',sort_order:1024}),libFolder('fc','child-a1',{name:'가상 C',parent_id:'fa',sort_order:0}),libFolder('fn',null,{name:'가상 N',sort_order:2048})];
@@ -135,10 +135,9 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
   test(`틀을 넘는 옮기기(폴더 보기): 자료 ⋯ 폴더로 옮기기…·폴더 옮기기…는 모든 폴더가 후보, DB 적용 뒤에는 되고 자료의 프로젝트는 그대로 ${width}`,async({page})=>{
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,group:'폴더',dbFree:true});
     await expandLibraryTree(page);
-    await press(page,page.locator('[data-lu-menu="a-2"]'),width);await press(page,page.locator('#luMorePanel [data-lu-file-folder="a-2"]'),width);
-    await expect(page.locator('#libraryFolderHint')).toContainText('자료의 프로젝트는 바뀌지 않아요');
-    await expect(page.locator('#libraryFolderTargets [data-lu-target]')).toHaveText(['가상 A','가상 A › 가상 C','가상 N']);
-    await press(page,page.locator('#libraryFolderTargets [data-lu-target="fn"]'),width);await press(page,page.locator('#libraryFolderSave'),width);await expect(page.locator('#libraryFolderModal')).toBeHidden();
+    await openMove(page,'a-2',width);
+    expect(await moveEnabledNames(page)).toEqual(['가상 A','가상 C','가상 N']);
+    await press(page,moveFolder(page,'fn'),width);await expect(movePicker(page)).toBeHidden();
     expect(s.writes.at(-1)).toEqual({table:'items',method:'POST',id:null,body:{document_id:'a-2',folder_id:'fn',workspace_id:'workspace-1'}});
     await expect(page.locator('#documentList details[data-lu-node="f:fn"] [data-lu-document="a-2"]')).toBeAttached();
     expect(s.docs.find(d=>d.id==='a-2').project_id).toBe('top-a');expect(s.patches).toEqual([]);
@@ -153,17 +152,16 @@ for(const width of [390,1280])test.describe(`폴더 보기 ${width}`,()=>{
   test(`DB 적용 전에는 틀을 넘는 옮기기가 '준비 중'으로 안내되고 화면은 그대로, 같은 틀 안 옮기기는 된다 ${width}`,async({page})=>{
     const {s,errors}=await bootLibrary(page,width,{folders:FOLDERS,items:ITEMS,group:'폴더',dbFree:false});
     await expandLibraryTree(page);
-    await press(page,page.locator('[data-lu-menu="a-2"]'),width);await press(page,page.locator('#luMorePanel [data-lu-file-folder="a-2"]'),width);
-    await press(page,page.locator('#libraryFolderTargets [data-lu-target="fn"]'),width);await press(page,page.locator('#libraryFolderSave'),width);
+    await openMove(page,'a-2',width);
+    await press(page,moveFolder(page,'fn'),width);
     await expect(page.locator('#libraryFolderStatusLine')).toContainText('아직 준비 중이에요');await expect(page.locator('#libraryFolderStatusLine')).toHaveClass(/error/);
-    // 작은 창은 닫히지 않고 같은 안내를 창 안에서도 보여 준다(다른 곳을 다시 고를 수 있게).
-    await expect(page.locator('#libraryFolderModal')).toBeVisible();await expect(page.locator('#libraryFolderStatus')).toContainText('아직 준비 중이에요');await press(page,page.locator('#libraryFolderCancel'),width);await expect(page.locator('#libraryFolderModal')).toBeHidden();
+    await expect(movePicker(page)).toBeHidden();
     expect(s.items.map(x=>x.document_id).sort()).toEqual(['a-1','n-1']);
     await expect(page.locator('#documentList details[data-lu-node="x:out"] [data-lu-document="a-2"]')).toBeAttached();
     // 같은 틀(top-a) 안: a-2 → fa 는 된다.
-    await press(page,page.locator('[data-lu-menu="a-2"]'),width);await press(page,page.locator('#luMorePanel [data-lu-file-folder="a-2"]'),width);
-    await press(page,page.locator('#libraryFolderTargets [data-lu-target="fa"]'),width);await press(page,page.locator('#libraryFolderSave'),width);await expect(page.locator('#libraryFolderModal')).toBeHidden();
-    expect(s.items.find(x=>x.document_id==='a-2')?.folder_id).toBe('fa');
+    await openMove(page,'a-2',width);
+    await press(page,moveFolder(page,'fa'),width);await expect(movePicker(page)).toBeHidden();
+    await expect.poll(()=>s.items.find(x=>x.document_id==='a-2')?.folder_id).toBe('fa');
     // 폴더를 다른 틀 폴더 아래로 옮기려는 시도(fn → fa)도 같은 안내.
     await press(page,menuButton(page,'f:fn'),width);await press(page,folderMenuItem(page,'옮기기…'),width);await press(page,page.locator('#libraryFolderTargets [data-lu-target="fa"]'),width);await press(page,page.locator('#libraryFolderSave'),width);
     await expect(page.locator('#libraryFolderStatus')).toContainText('아직 준비 중이에요');expect(s.folders.find(f=>f.id==='fn').parent_id).toBeNull();

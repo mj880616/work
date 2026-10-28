@@ -99,10 +99,9 @@ for(const width of [390,1280])test.describe(`일괄 수정 ${width}`,()=>{
     const {s,errors}=await boot(page,width);
     await pick(page,['a-2','a1-1'],width);
     await press(page,bar(page).getByRole('button',{name:'폴더로 옮기기',exact:true}),width);
-    await expect(page.locator('#libraryFolderModal')).toBeVisible();
-    await expect(page.locator('#libraryFolderHint')).toContainText('고른 2개');
-    await press(page,page.locator('#libraryFolderTargets').getByRole('radio',{name:/가상 N/}),width);
-    await press(page,page.locator('#libraryFolderSave'),width);
+    await expect(page.locator('#luMovePicker')).toBeVisible();
+    await press(page,page.locator('#luMovePicker [data-lu-move-folder="fn"]').last(),width);
+    await expect(page.locator('#luMovePicker')).toBeHidden();
     await expect.poll(()=>s.items.filter(x=>x.folder_id==='fn').map(x=>x.document_id).sort()).toEqual(['a-2','a1-1']);
     expect(s.docs.find(d=>d.id==='a1-1').project_id).toBe('child-a1');
     await expect(line(page)).toContainText('2개를 옮겼어요');

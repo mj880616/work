@@ -1407,6 +1407,10 @@ html .doc-kind-chips button[aria-pressed="false"]{ color:var(--kptu-muted); back
 }
 body.kptu-mobile-keyboard .save-row-sticky{ display:none !important; }
 
+/* LIB-끌기글자선택(2026-10-27 17:01 요청): 끌 수 있는 줄(draggable="true")은 끌 때 제목 글자가 파랗게 선택되지 않는다.
+   자료실 줄·폴더 머리, 프로젝트 목록 줄처럼 사이트 전체의 끌 수 있는 줄에 이 규칙 하나만 쓴다(화면마다 따로 쓰지 않음).
+   글 편집기(.ProseMirror)·입력칸·이미지는 뺀다(편집기 안 끌 수 있는 블록은 글자 선택을 그대로 둔다). 줄 안 이름 바꾸기 입력칸은 끌기를 끄고 연다. */
+#appView [draggable="true"]:not(.ProseMirror *,input,textarea,select,img,[contenteditable="true"]){ -webkit-user-select:none; user-select:none; }
 /* UI-화면색재정리(2026-10-27): 빨강 테마에서는 강조색(주 버튼·구역 제목·링크)과 경고색(삭제 같은 위험 동작)이 같은 계열이라 색만으로는 구분이 안 된다.
    그래서 이 테마에서만 위험 동작에 색 말고 모양을 더한다: 버튼은 안쪽에 한 줄 더한 이중 테두리, 버튼·삭제 메뉴 글자 앞에는 삼각 느낌표(--ds-warn-icon).
    다른 테마는 그대로다. 색은 글자 색(currentColor)을 따라가 밝은·어두운 화면 모두 맞고, 새 색 값은 쓰지 않는다. */
