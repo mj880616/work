@@ -3063,7 +3063,7 @@ async function runNoteTitle(ctx: Ctx, input: NoteTitleInput, deps: RadarDeps): P
     const status = result.code === "ai_timeout" ? 504 : result.code === "ai_not_configured" ? 503 : result.code === "ai_busy" ? 503 : 502;
     throw new Fail(status, result.code);
   }
-  const title = parseNoteTitle(outputText(result.raw, 16 * 1024));
+  const title = parseNoteTitle(outputText(result.raw, 16 * 1024) ?? "");
   if (!title) return skip("no_title");
   // 읽은 뒤 바뀌었으면(그 사이 고침·다른 기기 저장) 쓰지 않는다: updated_at이 같고 ai_title이 아직 없을 때만.
   // rest()는 쓰기 응답을 읽지 않으므로, 쓴 뒤 그 행을 다시 읽어 이번에 적은 시각(ai_title_at)이 들어갔는지로 확인한다.
