@@ -5,4 +5,17 @@
         <item name="android:windowBackground">@color/web_bg</item>
         <item name="android:windowActionModeOverlay">true</item>
     </style>
+    <!-- 위젯 한 줄: 시각 + 제목. 넘치면 끝을 줄인다. -->
+    <style name="WidgetRow">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">26dp</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:paddingEnd">8dp</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:textColor">@color/widget_ink</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:visibility">gone</item>
+    </style>
 </resources>

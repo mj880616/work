@@ -378,6 +378,9 @@ jobs:
       - name: Check phone share intake model (APP-폰앱새로 ②)
         run: node --test tests/share-intake-model.test.mjs
 
+      - name: Check phone widget logout line (APP-폰앱새로 ③)
+        run: node --test tests/phone-widget-line.test.mjs
+
       - name: Check press feedback and done-label units (UI-눌림느낌)
         run: node --test tests/press-feedback.test.mjs
 
