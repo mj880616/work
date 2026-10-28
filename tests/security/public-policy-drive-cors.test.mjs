@@ -31,6 +31,9 @@ test('Drive CORS allowlist is an exact set of four origins (no prefix or suffix 
 
 
 test('Drive OAuth returns to the canonical Web2 library',()=>{
-  assert.equal(source.includes("const DRIVE_APP_URL = 'https://desk.bokdoong.com/work/app/?view=library';"),true);
+  assert.equal(source.includes("const DRIVE_APP_URL = 'https://bokdoong.com/work/app/?view=library';"),true);
+  assert.equal(source.includes("const CALENDAR_APP_URL = 'https://bokdoong.com/work/app/';"),true);
+  // DOMAIN-주소이전 ①-D1: 돌아갈 화면에 옛 주소(desk)가 남지 않는다. 허용 주소에는 남는다(위 시험).
+  assert.equal(/_APP_URL = 'https:\/\/desk\.bokdoong\.com/.test(source),false);
   assert.equal(source.includes("const DRIVE_APP_URL = 'https://work.bokdoong.com/?view=library';"),false);
 });

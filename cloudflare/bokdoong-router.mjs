@@ -1,6 +1,7 @@
 const PAGES_ORIGIN = 'https://mj880616.github.io';
 const SERVICES = Object.freeze({
   'work.bokdoong.com': { root: '/work/', prefix: '/work/' },
+  // Redirect-only since DOMAIN-주소이전 ①-D1: movesToWeb2() sends / and /work/app/** to bokdoong.com first.
   'desk.bokdoong.com': { root: '/work/app/', prefix: '/work/app/' },
   'arsenal.bokdoong.com': {
     root: '/work/personal/arsenal-match-archive/',
@@ -8,29 +9,47 @@ const SERVICES = Object.freeze({
   }
 });
 
-// DOMAIN-주소이전 ①-E5: Web2 (/work/app/**) opens on bokdoong.com as well as desk. Both hosts get the
-// same Web2 rules (HTML freshness, verified immutable ?v= assets, once-per-epoch cache clearing).
-// The portal at bokdoong.com/ and every desk, work and arsenal route are unchanged.
+// DOMAIN-주소이전 ①-D1: Web2 (/work/app/**) is served on bokdoong.com only, with the Web2 rules (HTML freshness,
+// verified immutable ?v= assets, once-per-epoch cache clearing). bokdoong.com/ (the old portal) sends visitors
+// to Web2. desk.bokdoong.com (/ and /work/app/**) and work.bokdoong.com/work/app/** send visitors to the same path
+// and ?query on bokdoong.com with 302; the browser keeps the #fragment. Web1 on work, the share page and arsenal
+// are unchanged. The portal favicon stays until the C1 clean-up.
+const WEB2_HOST = 'bokdoong.com';
+const WEB2_ORIGIN = `https://${WEB2_HOST}`;
 const WEB2_PREFIX = '/work/app/';
-const WEB2_HOSTS = new Set(['desk.bokdoong.com', 'bokdoong.com']);
 
 function web2Path(host, path) {
-  return WEB2_HOSTS.has(host) && path.startsWith(WEB2_PREFIX);
+  return host === WEB2_HOST && path.startsWith(WEB2_PREFIX);
+}
+
+function isWeb2Route(path) {
+  return path === '/work/app' || path.startsWith(WEB2_PREFIX);
+}
+
+function movesToWeb2(host, path) {
+  if (host === WEB2_HOST) return path === '/' || path === '/work/app';
+  if (host === 'desk.bokdoong.com') return path === '/' || isWeb2Route(path);
+  if (host === 'work.bokdoong.com') return isWeb2Route(path);
+  return false;
+}
+
+// Same path (/ and /work/app become /work/app/) and the same ?query on bokdoong.com.
+function web2Redirect(incoming) {
+  const target = new URL(WEB2_ORIGIN);
+  target.pathname = incoming.pathname.startsWith(WEB2_PREFIX) ? incoming.pathname : WEB2_PREFIX;
+  target.search = incoming.search;
+  return Response.redirect(target.href, 302);
 }
 
 function allowedPath(host, path) {
-  if (host === 'bokdoong.com') {
-    return path === '/' || path === '/favicon.png' || path === '/favicon.ico' || path.startsWith(WEB2_PREFIX);
+  if (host === WEB2_HOST) {
+    return path === '/favicon.png' || path === '/favicon.ico' || path.startsWith(WEB2_PREFIX);
   }
   return Boolean(SERVICES[host] && path.startsWith(SERVICES[host].prefix));
 }
 
 function upstreamPath(host, path) {
-  if (host === 'bokdoong.com') {
-    if (path.startsWith(WEB2_PREFIX)) return path;
-    if (path === '/favicon.png' || path === '/favicon.ico') return `/work/personal/portal${path}`;
-    return '/work/personal/portal/';
-  }
+  if (host === WEB2_HOST && (path === '/favicon.png' || path === '/favicon.ico')) return `/work/personal/portal${path}`;
   return path;
 }
 
@@ -71,7 +90,7 @@ function hasCurrentEpoch(request) {
 
 // GitHub Pages serves HTML with max-age=600 and its CDN may answer an unchanged URL with a copy up
 // to 10 minutes old, so a fresh deploy would stay invisible to page loads and to app/version-notice.js
-// (which fetches /work/app/index.html). For Web2 HTML only (desk and bokdoong.com), the Worker appends a value that changes
+// (which fetches /work/app/index.html). For Web2 HTML only (bokdoong.com/work/app/), the Worker appends a value that changes
 // every 15 seconds to the Pages URL (like ?t= for the manifest). The visitor's URL, the response
 // headers and the edge cache key are unchanged; ?v= assets never get it.
 const FRESH_PARAM = '__fresh';
@@ -180,7 +199,7 @@ export default {
   async fetch(request, env, context) {
     const incoming = new URL(request.url);
     const host = incoming.hostname.toLowerCase();
-    if (!SERVICES[host] && host !== 'bokdoong.com') return new Response('Not found', { status: 404 });
+    if (!SERVICES[host] && host !== WEB2_HOST) return new Response('Not found', { status: 404 });
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       return new Response('Method not allowed', { status: 405, headers: { Allow: 'GET, HEAD' } });
     }
@@ -194,15 +213,12 @@ export default {
         headers: { 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': 'public, max-age=86400' }
       });
     }
-    if (incoming.pathname === '/' && host !== 'bokdoong.com') {
+    if (movesToWeb2(host, incoming.pathname)) return web2Redirect(incoming);
+    if (incoming.pathname === '/' && SERVICES[host]) {
       incoming.pathname = SERVICES[host].root;
       return Response.redirect(incoming.href, 302);
     }
-    if (WEB2_HOSTS.has(host) && incoming.pathname === '/work/app') {
-      incoming.pathname = WEB2_PREFIX;
-      return Response.redirect(incoming.href, 302);
-    }
-    if (WEB2_HOSTS.has(host) && incoming.pathname.startsWith('/work/') && !incoming.pathname.startsWith(WEB2_PREFIX)) {
+    if ((host === WEB2_HOST || host === 'desk.bokdoong.com') && incoming.pathname.startsWith('/work/') && !isWeb2Route(incoming.pathname)) {
       incoming.hostname = 'work.bokdoong.com';
       return Response.redirect(incoming.href, 302);
     }
@@ -256,7 +272,7 @@ export default {
       cache: 'no-store'
     }));
     const responseHeaders = new Headers(upstream.headers);
-    if (host === 'bokdoong.com' && upstream.ok) {
+    if (host === WEB2_HOST && upstream.ok) {
       if (incoming.pathname === '/favicon.png') responseHeaders.set('Content-Type', 'image/png');
       if (incoming.pathname === '/favicon.ico') responseHeaders.set('Content-Type', 'image/x-icon');
     }
