@@ -188,7 +188,8 @@ for (const width of [390, 1280]) {
     await openKindMenu(page,'note');await press(page, basketKindButton(page,'note'), width);
     const title = page.locator('[data-note-row="n-untitled"] .basket-title-text');
     await expect(title).toHaveText(/^제목 없이 쓴 아주 긴 노트의 첫 줄입니다/);
-    await expect(page.locator('[data-note-row="n-untitled"] .basket-preview')).toHaveText('둘째 줄');
+    // NOTE-탐색기 ②: one line, no preview.
+    await expect(page.locator('[data-note-row="n-untitled"] .basket-preview')).toHaveCount(0);
     // One line, cut with … when it does not fit (the phone cuts it; PC has room for the 80 characters shown).
     expect(await title.evaluate(el => [getComputedStyle(el).textOverflow, getComputedStyle(el).whiteSpace])).toEqual(['ellipsis', 'nowrap']);
     if (width === 390) expect(await title.evaluate(el => el.scrollWidth > el.clientWidth)).toBe(true);

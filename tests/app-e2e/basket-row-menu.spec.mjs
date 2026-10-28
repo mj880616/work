@@ -76,7 +76,7 @@ for (const width of [390, 1280]) {
       await expect(copy).toBeHidden(); await expect(page.locator('[data-basket-row-copy]:visible')).toHaveCount(0);
       expect(title.x + title.width).toBeLessThanOrEqual(mb.x + 1); expect(title.x + title.width).toBeGreaterThan(mb.x - 8);
       expect(title.width).toBeGreaterThanOrEqual(rb.width - 48 - 16 - 2);
-      for (const sel of ['.basket-preview', 'time']) { const b = await row.locator(sel).first().boundingBox(); expect(b.x + b.width).toBeLessThanOrEqual(mb.x + 1); }
+      for (const sel of ['time']) { const b = await row.locator(sel).first().boundingBox(); expect(b.x + b.width).toBeLessThanOrEqual(mb.x + 1); }
     }
     // A row with nothing to copy keeps only the ⋯, in the same place.
     await expect(page.locator(`[data-basket-row-copy="${C}"]`)).toBeHidden();

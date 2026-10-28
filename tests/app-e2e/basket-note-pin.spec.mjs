@@ -52,7 +52,7 @@ for (const width of [390, 1280]) test(`pin a note to the top of the list and unp
   await closeNote(page);
   expect(await order(page)).toEqual(['오래된 노트', '최근 노트', '중간 노트']);
   await expect(page.locator('[data-note-row="n-old"] [data-note-pinned]')).toBeVisible();
-  await expect(page.locator('[data-note-row="n-old"]')).toContainText('고친 날 2026. 10. 1.');
+  await expect(page.locator('[data-note-row="n-old"]')).toContainText('10.01'); // NOTE-탐색기 ②: one-line date (MM.DD)
   await page.screenshot({ path: info.outputPath(`note-pin-${width}.png`) });
   // Pin a second note by keyboard: the most recently pinned goes on top; other metadata keys stay.
   await page.locator('[data-note-row="n-mid"]').focus(); await page.keyboard.press('Enter');

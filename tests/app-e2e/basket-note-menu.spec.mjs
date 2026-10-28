@@ -180,11 +180,9 @@ for (const width of [390, 1280]) {
   test(`rows: plain preview without marks or a repeated title, and attachment-only notes copy their file names ${width}`, async ({ page }) => {
     const f = await fixture(page, width);
     const preview = id => page.locator(`[data-note-row="${id}"] .basket-preview`);
-    // Title = body first line → the preview starts at the next line; no # * - ``` [] ().
-    const text = await preview('n-md').textContent();
-    expect(text).toBe('쟁점 기본급 인상 code line 링크');
-    expect(text).not.toMatch(/[#*`\[\]()]|^-/);
-    await expect(preview('n-plain')).toHaveText('둘째 줄 글');
+    // NOTE-탐색기 ②: a note row is one line (title + date), no preview.
+    await expect(preview('n-md')).toHaveCount(0);
+    await expect(preview('n-plain')).toHaveCount(0);
     // Attachment-only note: the copy icon is there and copies the file names; an empty note has none.
     const fileCopy = page.locator('[data-note-row-copy="n-file"]');
     if (width >= 761) await expect(fileCopy).toBeVisible(); else await expect(fileCopy).toBeHidden();
@@ -224,7 +222,7 @@ for (const width of [390, 1280]) {
     for (const [k, sel] of [['title', '.basket-title'], ['text', '.basket-title-text'], ['preview', '.basket-preview'], ['time', 'time'], ['state', '.note-row-chips, > span:last-child']]) {
       const l = row.locator(sel).first(); if (await l.count()) parts[k] = await l.boundingBox();
     }
-    expect(Object.keys(parts)).toEqual(expect.arrayContaining(['title', 'text', 'preview', 'time']));
+    expect(Object.keys(parts)).toEqual(expect.arrayContaining(['title', 'text', 'time']));
     if (width < 761) {
       await expect(copy).toBeHidden(); await expect(page.locator('[data-note-row-copy]:visible')).toHaveCount(0);
       // The title box ends just left of the ⋯ (within the 4px gap), i.e. one icon wider than with a copy button beside it.
