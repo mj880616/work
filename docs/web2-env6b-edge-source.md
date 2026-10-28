@@ -180,7 +180,7 @@
 | 38 | `meeting-transcribe` | Web2 회의 녹음 파일 → 전사 글(Gemini, MTG-녹음초안 2단계. 녹음은 명진 Drive '웹2/회의자료/회의 녹음'에 올리고, 전사 글은 화면에만 돌려줌) | 배포 대기 | 없음 | **true** | work (코드·시험, 첫 배포 전) |
 
 `meeting-transcribe`(38행)는 **첫 배포 전**이다(MTG-녹음초안 2단계, PR B). 사업 보고 › [회의] 입력 창에서 로그인한 소유자만 부르고 예약 호출이 없으므로 `verify_jwt=true`를 선택한다. 함수 코드도 Auth 서버로 로그인을 다시 확인하고 본인 `app_workspace_members` 행이 `owner`인 작업공간만 받는다.
-서버 키는 작업 표 `app_meeting_transcribe_jobs`(migration `20261029070000`, service_role은 정한 칸만 넣기·고치기, 지우기 없음)·Drive 연결 설정 읽기·사용량 기록(`app_ai_external_usage` 넣기)에만 쓴다. 회의 읽기·회의자료 링크 행 넣기·이번 달 사용량 읽기는 호출한 사람의 토큰(소유자 RLS)으로 한다. 전사 글은 저장하지 않는다.
+서버 키는 작업 표 `app_meeting_transcribe_jobs`(migration `20261029071500`, service_role은 정한 칸만 넣기·고치기, 지우기 없음)·Drive 연결 설정 읽기·사용량 기록(`app_ai_external_usage` 넣기)에만 쓴다. 회의 읽기·회의자료 링크 행 넣기·이번 달 사용량 읽기는 호출한 사람의 토큰(소유자 RLS)으로 한다. 전사 글은 저장하지 않는다.
 Gemini 열쇠는 새 비밀값 `GEMINI_API_KEY`(명진이 대시보드에서 등록)만 읽는다. 없으면 `준비 중`(503 `not_ready`)으로 답하고 아무것도 올리지 않는다.
 첫 배포는 DB 적용 뒤 `first_deploy=true`·`verify_jwt=true`·`expect_unauth_401=true`로 한다. 이전 버전이 없으므로 되돌리기는 화면(PR C)이 아직 부르지 않는 상태 유지, 필요하면 사용자가 대시보드에서 삭제를 판단한다.
 
