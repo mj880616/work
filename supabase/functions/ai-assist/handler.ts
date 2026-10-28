@@ -2666,25 +2666,6 @@ async function runOrgPeopleBrief(ctx: Ctx, input: OrgPeopleBriefInput, deps: Rad
     if (String(c.workspace_id).toLowerCase() !== ctx.workspaceId) continue;
     add(c.day, "call", briefWhoIn([c.counterpart, c.title], people), [c.counterpart, c.summary || c.title].filter((v) => typeof v === "string" && v).join(" — "));
   }
-  // 텔레그램: 이름표가 그 사람인 방·날 + 제목·요약에 이름.
-  const senders = await softList(ctx, `app_tg_senders?workspace_id=eq.${ws}&select=id,workspace_id,name,auto_name,is_self&limit=${PEOPLE_BRIEF_READ_LIMIT}`, flags);
-  const senderWho = new Map<string, string[]>();
-  for (const s of senders) {
-    if (String(s.workspace_id).toLowerCase() !== ctx.workspaceId || s.is_self === true) continue;
-    const who = briefWhoIn([s.name, s.auto_name], people); if (who.length) senderWho.set(String(s.id), who);
-  }
-  const roomDay = new Map<string, Set<string>>();
-  if (senderWho.size) {
-    for (const l of await softList(ctx, `app_tg_day_senders?workspace_id=eq.${ws}&day=gte.${from}&select=workspace_id,room_key,day,sender_id&limit=${PEOPLE_BRIEF_READ_LIMIT}`, flags)) {
-      const who = senderWho.get(String(l.sender_id)); if (!who || String(l.workspace_id).toLowerCase() !== ctx.workspaceId) continue;
-      const k = `${l.room_key}|${l.day}`, cur = roomDay.get(k) ?? new Set<string>(); who.forEach((w) => cur.add(w)); roomDay.set(k, cur);
-    }
-  }
-  for (const t of await softList(ctx, `app_feed_items?workspace_id=eq.${ws}&source=eq.telegram&hidden_at=is.null&day=gte.${from}&select=id,workspace_id,day,room_key,room_label,title,summary&order=day.desc&limit=${PEOPLE_BRIEF_READ_LIMIT}`, flags)) {
-    if (String(t.workspace_id).toLowerCase() !== ctx.workspaceId) continue;
-    const who = new Set([...(roomDay.get(`${t.room_key}|${t.day}`) ?? []), ...briefWhoIn([t.title, t.summary], people)]);
-    add(t.day, "telegram", people.map((p) => p.name).filter((n) => who.has(n)), [t.room_label, t.summary || t.title].filter((v) => typeof v === "string" && v).join(" — "));
-  }
   // 열린 챙길 것·기다리는 약속.
   for (const c of await softList(ctx, `app_todo_candidates?workspace_id=eq.${ws}&status=eq.open&select=workspace_id,summary,evidence,due,created_at&order=created_at.desc&limit=100`, flags)) {
     if (String(c.workspace_id).toLowerCase() !== ctx.workspaceId) continue;

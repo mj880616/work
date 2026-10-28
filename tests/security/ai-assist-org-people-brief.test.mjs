@@ -61,7 +61,8 @@ function harness({openai=null,people=null,briefs=[],missing=false}={}){
     if(url.pathname==='/auth/v1/user')return users[bearer]?respond({id:users[bearer]}):respond({msg:'bad'},401);
     const uid=users[bearer];assert.ok(uid,'REST only with the caller token');
     const table=url.pathname.replace('/rest/v1/','');calls.rest.push({table,method,query:decodeURIComponent(url.search),body:init.body});
-    assert.notEqual(table,'app_call_personal','personal calls are never AI material');
+    assert.ok(!['app_call_personal','app_tg_senders','app_tg_day_senders'].includes(table),'personal calls and telegram names are never AI material');
+    if(table==='app_feed_items')assert.match(url.search,/[?&]source=eq\.call&/,'only call items are read');
     if(missing&&/^app_org_key_people/.test(table))return respond({code:'PGRST205',message:'schema cache'},404);
     const rows=db[table];assert.ok(rows,'unexpected table '+table);
     if(method==='GET')return respond(rows.filter(r=>visible(table,r,uid)&&matches(r,url)).slice(0,Number(url.searchParams.get('limit')||1e9)));
@@ -98,8 +99,8 @@ test("owner: one AI call with only the designated people's recent records; brief
   assert.equal(body.detail,'- 김가상: 교섭 일정 조율','a detail line carrying a phone number is dropped');
   assert.equal(calls.openai.length,1);
   const sent=calls.openai[0].input[1].content;
-  assert.match(sent,/CALL_SUMMARY_KIM/);assert.match(sent,/TG_ROOM_SUMMARY/);assert.match(sent,/자료 보내기/);assert.match(sent,/충원안/);
-  for(const no of ['UNRELATED_CALL','UNRELATED_TG','OLD_CALL','PERSONAL_CALL_SECRET','010-1234-5678'])assert.doesNotMatch(sent,new RegExp(no));
+  assert.match(sent,/CALL_SUMMARY_KIM/);assert.match(sent,/자료 보내기/);assert.match(sent,/충원안/);
+  for(const no of ['UNRELATED_CALL','UNRELATED_TG','TG_ROOM_SUMMARY','OLD_CALL','PERSONAL_CALL_SECRET','010-1234-5678'])assert.doesNotMatch(sent,new RegExp(no));
   assert.equal(calls.openai[0].store,false);
   const row=db.app_org_key_people_briefs.find(r=>r.organization_id===ORG_A);
   assert.equal(row.day,TODAY);assert.deepEqual(row.people_ids,[P1,P2].sort());

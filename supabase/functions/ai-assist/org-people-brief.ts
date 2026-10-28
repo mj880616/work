@@ -1,9 +1,10 @@
 // ai-assist 쓰임(kind=org_people_brief, ORG-주요인물): 순수 함수만 둔다(입출력은 handler.ts).
 // 담당조직 상세 [주요 인물] 탭의 '요즘' 한 문장(조직 단위, 사람 이름 괄호). 화면은 조직 ID만 보내고 하루 한 번만 부탁한다
 // (오늘 것이 있고 주요 인물이 그대로면 서버도 AI를 부르지 않고 저장된 문장을 돌려준다).
-// - 재료는 서버가 내 로그인으로 읽는다: 최근 30일 업무 통화(상대·제목·요약), 텔레그램(보낸 사람 이름표가 그 사람인 방·날과
-//   제목·요약에 이름이 나온 소식의 요약), 열린 챙길 것, 기다리는 약속. 지정한 사람(찾을 이름)에 걸린 것만 보낸다.
-//   개인 통화함(app_call_personal)은 화면에는 모으지만(결정) AI 재료로는 보내지 않는다(개인 통화 원문 보호).
+// - 재료는 서버가 내 로그인으로 읽는다: 최근 30일 업무 통화(상대·제목·요약), 열린 챙길 것, 기다리는 약속.
+//   지정한 사람(찾을 이름)에 걸린 것만 보낸다. 텔레그램은 보내지 않는다(ai-assist의 통화 표 읽기는 source=call만 —
+//   call-personal-box 시험 규칙, 텔레그램 보낸 사람 이름은 AI에 보내지 않는다는 TG-발언자이름 원칙).
+//   개인 통화함은 화면에는 모으지만(결정) AI 재료로는 보내지 않는다(개인 통화 원문 보호).
 // - 원문(raw_text)은 보내지 않는다. 요약 글만, 전화번호·이메일은 가린다(org-summary.ts cleanOrgText).
 // - AI 답은 믿지 않는 입력: 글자 수·줄바꿈·제어 문자·연락처를 다시 검사한다.
 
@@ -23,7 +24,7 @@ export const PEOPLE_BRIEF_MAX_OUTPUT_TOKENS = 1000;
 export const PEOPLE_BRIEF_READ_LIMIT = 300;
 
 export type BriefPerson = { id: string; name: string; needles: string[] };
-export type BriefItem = { day: string; type: "call" | "telegram" | "todo" | "promise"; who: string[]; text: string };
+export type BriefItem = { day: string; type: "call" | "todo" | "promise"; who: string[]; text: string };
 
 const chars = (s: string) => [...s].length;
 const cut = (s: string, n: number) => [...s].slice(0, n).join("");
@@ -73,7 +74,7 @@ export function peopleBriefMaterial(orgName: string, people: BriefPerson[], item
 }
 
 export const PEOPLE_BRIEF_INSTRUCTIONS = [
-  "너는 노동조합 담당자의 업무 비서다. 한 담당조직의 주요 인물들에 관한 최근 기록(통화·텔레그램·챙길 것·약속)을 받는다.",
+  "너는 노동조합 담당자의 업무 비서다. 한 담당조직의 주요 인물들에 관한 최근 기록(통화·챙길 것·약속)을 받는다.",
   "brief: 그 조직의 '요즘'을 한국어 한 문장(150자 이내, 줄바꿈 없음)으로 쓴다. 사람이 관련되면 문장 안에 사람 이름을 괄호로 붙인다. 예: 임금교섭 3차 일정 조율 중, 찬반투표 준비함(김OO).",
   "detail: 사람별 최근 흐름을 '- 이름: 내용' 줄로 3~6줄(600자 이내). 기록에 없는 일은 쓰지 않는다. 기록이 거의 없으면 detail은 빈 글자.",
   "전화번호·이메일·주민번호 같은 개인 연락처·식별 정보는 쓰지 않는다. 추측·평가·감정 표현을 하지 않는다. 날짜는 '10.24' 꼴.",
