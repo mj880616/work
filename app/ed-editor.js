@@ -25,14 +25,17 @@
 // in (a short note says so). A saved photo place (src null) still shows as a place.
 // Decisions (2026-10-22 사용자, 설계 0절): no format while typing (no input rules: "1. " "- " "# " stay letters) — except where the
 // opener asks for shortcuts (ED③ 노트, 2026-10-24 결정 2: see createDocEditor's shortcuts); a paste of
-// plain letters goes in as typed, one paragraph per line, and when it looks like markdown a small [서식으로 바꾸기] converts
-// that pasted part once (undo puts the letters back). [①] opens ①~⑩ (the next number after the nearest one is marked).
+// plain letters goes in as typed, one paragraph per line, and when it looks like markdown that pasted part is converted right
+// away, as its own undo step (ED-폰마크다운붙여넣기 2026-10-28: [↶] once puts the letters back). A phone's copy often brings a
+// formatted copy (text/html) that only wraps the same letters, signs and all, and a keyboard's clipboard row puts the letters in
+// as typed text with no paste at all: both count as a markdown paste. A text that is only plain lines looking like markdown (one
+// pasted as letters before) gets a small [서식으로 바꾸기] that converts the whole text once (undo puts it back). [①] opens ①~⑩ (the next number after the nearest one is marked).
 // 한글 IME: nothing here changes the document while a composition is running. A button pressed during one lets the press blur
 // the box first (that ends the composition), then runs and puts focus back.
 import {TEXT_STYLES, DEFAULT_BODY, BODY_STYLES, TEXT_COLORS, HIGHLIGHTS, LIMITS, cleanDoc, emptyDoc, safeHref, nextCircled,
   circled, widthsOfRow, tableLayout, scaleWidths, stepWidths, evenWidths, BULLET_MARKERS, ORDER_MARKERS, autoMarker, bulletGlyph, orderedLabel} from './ed-schema.mjs';
 import {looksLikeMarkdown} from './note-markdown.mjs';
-import {markdownToDoc} from './ed-markdown.mjs';
+import {markdownToDoc, markdownLettersOf} from './ed-markdown.mjs';
 import {toPlain} from './ed-text.mjs';
 
 const LIB = './editor-lib/pm-ed1-1.2.0/prosemirror.min.mjs';
@@ -110,6 +113,18 @@ function buildSchema(pm) {
         toDOM: m => ['mark', {class: `ed-hl ed-hl-${m.attrs.color}`}, 0]},
     },
   });
+}
+
+// ED-폰마크다운붙여넣기: a formatted copy (text/html) whose own letters still show the markdown signs ("## 공통" in a <p>) only
+// wraps the letters — a phone's copy brings one with almost any text. Then the letters are the paste, not the wrapper.
+function htmlShowsMarkdown(html) {
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    for (const el of doc.querySelectorAll('script,style,template')) el.remove();
+    for (const br of doc.querySelectorAll('br')) br.replaceWith('\n');
+    for (const el of doc.body.querySelectorAll('p,div,li,h1,h2,h3,h4,h5,h6,tr,pre,blockquote')) el.append('\n');
+    return looksLikeMarkdown(doc.body.textContent || '');
+  } catch { return false; }
 }
 
 // Pasted HTML: outside pictures become "이미지: 설명 (주소)" letters, scripts and styles go (parsed inert, nothing loads).
@@ -361,6 +376,8 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   // ── plugins ──
   // The pasted part of a plain-letter paste, kept (mapped through later steps) until it is converted or dismissed.
   const pasteKey = new pm.PluginKey('edPaste');
+  // Inside a code block letters stay letters (no markdown paste there).
+  const inCode = st => !!st.selection.$from.parent.type.spec.code;
   const pastePlugin = new pm.Plugin({
     key: pasteKey,
     state: {
@@ -374,7 +391,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
         if (to <= from) return null;
         let touched = false;
         tr.mapping.maps.forEach(map => map.forEach((s, e) => { if (s < prev.to && e > prev.from) touched = true; }));
-        return touched && !tr.getMeta('paste') ? null : {from, to, text: prev.text};
+        return touched && !tr.getMeta('paste') ? null : {...prev, from, to};
       },
     },
   });
@@ -681,7 +698,7 @@ export async function createDocEditor({host, value = null, onChange = null, labe
   if (fix) state = state.apply(fix.setMeta('addToHistory', false));
   if (!endsOpen(state.doc)) state = state.apply(state.tr.insert(state.doc.content.size, N.paragraph.create({style: DEFAULT_BODY})).setMeta('addToHistory', false));
 
-  let pendingPaste = null, pointerHeld = false;
+  let pendingPaste = null, pastingLetters = false, pointerHeld = false;
   const isFileTransfer = data => !!data && ([...(data.types || [])].includes('Files') || (data.files && data.files.length > 0));
   const view = new pm.EditorView(box, {
     state,
@@ -710,8 +727,12 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       const html = data?.getData('text/html') || '';
       // A copied picture or file (no letters with it) is not put in until ② (공유 사진 보관).
       if (isFileTransfer(data) && !text && !html) { photosFrom(data.files); return true; }
-      // Decide after the paste lands: mark its range when the letters look like markdown and no formatted copy came with them.
-      pendingPaste = !html && looksLikeMarkdown(text) ? {text, before: v.state.selection.from, size: v.state.doc.content.size} : null;
+      if (pastingLetters) return false;
+      // Decide after the paste lands: mark its range when the letters look like markdown and no formatted copy came with them,
+      // or the formatted copy only wraps the same letters (signs and all; a phone's copy). Then those letters are pasted.
+      const md = !inCode(v.state) && looksLikeMarkdown(text) && (!html || htmlShowsMarkdown(html));
+      pendingPaste = md ? {text, before: v.state.selection.from} : null;
+      if (md && html) { pasteLetters(v, text, event); return true; }
       return false;
     },
     handleDrop(v, event, slice, moved) {
@@ -724,6 +745,18 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       // Letters typed at a gap cursor (before or after a table, rule or photo) start a new line there. The gapcursor plugin
       // covers a composition starting there; this covers plain text input (a pasted word, a keyboard without composition).
       beforeinput(v, event) {
+        // A keyboard's clipboard row (Samsung keyboard, Gboard) puts copied letters in as typed text: no paste event comes.
+        // Several letters at once that look like markdown are that paste (one typed key is one letter; a composition is not
+        // this input type).
+        if (event.inputType === 'insertText' || event.inputType === 'insertReplacementText') {
+          const text = event.data ?? event.dataTransfer?.getData('text/plain') ?? '';
+          if (text.length > 3 && !v.composing && !inCode(v.state) && looksLikeMarkdown(text)) {
+            event.preventDefault();
+            pendingPaste = {text, before: v.state.selection.from};
+            pasteLetters(v, text);
+            return true;
+          }
+        }
         if (event.inputType !== 'insertText' || !event.data || !(v.state.selection instanceof pm.GapCursor)) return false;
         event.preventDefault();
         v.dispatch(v.state.tr.insertText(event.data).scrollIntoView());
@@ -747,8 +780,11 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       if (pendingPaste && tr.getMeta('paste') && tr.docChanged) {
         const to = tr.selection.to, from = tr.mapping.map(pendingPaste.before, -1);
         view.updateState(next);
-        if (to > from) view.dispatch(view.state.tr.setMeta(pasteKey, {from, to, text: pendingPaste.text}).setMeta('addToHistory', false));
         pendingPaste = null;
+        if (to > from) {
+          view.dispatch(view.state.tr.setMeta(pasteKey, {from, to, auto: true}).setMeta('addToHistory', false));
+          void convertPasted();
+        }
       } else view.updateState(next);
       if (tr.docChanged) onChange?.(getValue());
       paint();
@@ -998,11 +1034,23 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     view.focus();
     view.pasteText(text);
   }
+  // A markdown paste: the letters go in through the plain-letter path (one paragraph per line), then dispatchTransaction converts.
+  function pasteLetters(v, text, event) {
+    pastingLetters = true;
+    try { v.pasteText(text, event); } finally { pastingLetters = false; }
+  }
+  // The pasted part, converted right after the paste lands (auto) or by [서식으로 바꾸기] when converting at once could not load.
   async function convertPasted() {
     const range = pasteKey.getState(view.state);
     if (!range) return;
     let md;
-    try { md = await loadMarkdownIt(); } catch { say('서식으로 바꾸지 못했어요. 다시 눌러 주세요.'); return; }
+    try { md = await loadMarkdownIt(); } catch {
+      // Not loaded (offline): the letters stay and the small offer shows, to try again.
+      const now = pasteKey.getState(view.state);
+      if (now?.auto) view.dispatch(view.state.tr.setMeta(pasteKey, {...now, auto: false}).setMeta('addToHistory', false));
+      else say('서식으로 바꾸지 못했어요. 다시 눌러 주세요.');
+      return;
+    }
     const now = pasteKey.getState(view.state);
     if (!now) return;
     const converted = markdownToDoc(md, view.state.doc.textBetween(now.from, now.to, '\n', '\n'));
@@ -1010,6 +1058,32 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     // Its own undo step: [↶] puts the pasted letters back (not the paste and the change together).
     const tr = pm.closeHistory(view.state.tr.replaceWith(now.from, now.to, nodes).setMeta(pasteKey, null));
     view.dispatch(tr.scrollIntoView());
+    if (!now.auto) view.focus();
+    say('서식으로 바꿨어요. 되돌리기(↶)로 글자로 돌아가요.');
+    // After a paste converted by itself, [↶] back to the letters is the choice: no whole-text offer for them afterwards.
+    if (now.auto) { wholeDismissed = true; showNote('마크다운을 서식으로 바꿨어요. 기호 그대로는 되돌리기(↶)'); }
+  }
+  // ED-폰마크다운붙여넣기 ②: the whole text, when it is only plain lines that look like markdown (pasted as letters before).
+  let wholeDismissed = false, wholeSeen = null, wholeText = null;
+  function wholeLetters(st) {
+    if (wholeDismissed) return null;
+    if (wholeSeen !== st.doc) {
+      wholeSeen = st.doc;
+      let plain = true;
+      st.doc.forEach(n => { if (n.type !== N.paragraph) plain = false; });
+      wholeText = plain ? markdownLettersOf(st.doc.toJSON(), looksLikeMarkdown) : null;
+    }
+    return wholeText;
+  }
+  async function convertWhole() {
+    let md;
+    try { md = await loadMarkdownIt(); } catch { say('서식으로 바꾸지 못했어요. 다시 눌러 주세요.'); return; }
+    const text = wholeLetters(view.state);
+    if (!text) return;
+    const nodes = pm.Node.fromJSON(schema, markdownToDoc(md, text).doc).content;
+    // One undo step: [↶] puts the whole text back as letters.
+    view.dispatch(pm.closeHistory(view.state.tr.replaceWith(0, view.state.doc.content.size, nodes)).scrollIntoView());
+    wholeDismissed = true; paint();
     view.focus();
     say('서식으로 바꿨어요. 되돌리기(↶)로 글자로 돌아가요.');
   }
@@ -1334,8 +1408,11 @@ export async function createDocEditor({host, value = null, onChange = null, labe
     if (d.edCmd === 'plainPaste') { closePanels(); void plainPaste(); return; }
     if (d.edCmd && RUN[d.edCmd]) { if (!b.closest('.ed-tools') || openName !== 'more') closePanels(); run(RUN[d.edCmd]); return; }
     if (d.edTable) { run(() => tableCmd(d.edTable)); return; }
-    if ('edConvert' in d) { void convertPasted(); return; }
-    if ('edDismiss' in d) { view.dispatch(view.state.tr.setMeta(pasteKey, null).setMeta('addToHistory', false)); view.focus(); }
+    if ('edConvert' in d) { void (pasteKey.getState(view.state) ? convertPasted() : convertWhole()); return; }
+    if ('edDismiss' in d) {
+      if (!pasteKey.getState(view.state)) { wholeDismissed = true; paint(); }
+      view.dispatch(view.state.tr.setMeta(pasteKey, null).setMeta('addToHistory', false)); view.focus();
+    }
   });
   bar.addEventListener('keydown', e => {
     if (e.key !== 'Escape' || !openName) return;
@@ -1449,8 +1526,12 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       const next = circledText();
       for (const b of panels.symCircled.children) b.classList.toggle('is-next', b.dataset.edSym === next);
     }
+    // The pasted part being converted by itself shows nothing; one that could not convert, or a whole text of markdown letters,
+    // shows the small offer.
     const offer = pasteKey.getState(st);
-    suggest.hidden = !offer;
+    const whole = !offer && !!wholeLetters(st);
+    suggest.hidden = !(offer ? !offer.auto : whole);
+    suggestText.textContent = whole ? '이 글에 마크다운 기호가 보여요.' : '마크다운 기호가 보여요.';
     root.toggleAttribute('data-ed-empty', isEmpty());
   }
 

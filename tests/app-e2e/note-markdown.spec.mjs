@@ -215,17 +215,17 @@ for(const width of [390,1280]){
   expect(f.errors.filter(e=>!/Failed to load resource/.test(e))).toEqual([]);
  });
 
- test(`pasting an AI answer in a note keeps the letters, [서식으로 바꾸기] converts once (결정 3 가) ${width}`,async({page})=>{
+ test(`pasting an AI answer in a note converts right away (ED-폰마크다운붙여넣기), one undo back to the letters ${width}`,async({page})=>{
   await page.setViewportSize({width,height:900});const f=await fixture(page);
   const detail=await openNote(page,'합성 통화 메모');
   await noteMenuAction(page,'data-note-edit');
   const field=noteField(page);await expect(field).toBeVisible();
   await field.click();await page.keyboard.press('Control+A');
   await page.evaluate(()=>{const dt=new DataTransfer();dt.setData('text/plain','## 결론\n\n- **임금** 인상');document.querySelector('[data-note-body-field] .ProseMirror').dispatchEvent(new ClipboardEvent('paste',{clipboardData:dt,bubbles:true,cancelable:true}));});
-  await expect(field).toContainText('## 결론');await expect(field.locator('.ed-h2')).toHaveCount(0);
-  const offer=detail.locator('[data-note-body-field] .ed-suggest');await expect(offer).toBeVisible();
-  await offer.getByRole('button',{name:'서식으로 바꾸기'}).click();
   await expect(field.locator('.ed-h2')).toHaveText('결론');await expect(field.locator('li strong')).toHaveText('임금');
+  await expect(detail.locator('[data-note-body-field] .ed-suggest')).toBeHidden();
+  await page.keyboard.press('Control+z');
+  await expect(field).toContainText('## 결론');await expect(field.locator('.ed-h2')).toHaveCount(0);
   expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
  });
 
