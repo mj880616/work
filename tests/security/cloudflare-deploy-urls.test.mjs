@@ -18,7 +18,8 @@ const refs = [
   ['pwa.js', 'sw.js', '3d4e5f6071'],
   ['index.html', 'app-icon.svg', '4e5f607182'],
 ];
-const base = 'https://desk.bokdoong.com/work/app/';
+// DOMAIN-주소이전 ①-D1: bokdoong.com is the only Web2 host; desk and work redirect there.
+const base = 'https://bokdoong.com/work/app/';
 const built = (file, content) => {
   for (const [owner, asset, version] of refs) {
     if (file !== owner) continue;
@@ -59,7 +60,7 @@ test('the repository checkout itself has no ?v= and is refused, so it cannot sta
 });
 
 test('the Pages tree is a required single argument', t => {
-  for (const args of [[undefined], [fixture(t), ['extra']], [fixture(t), ['--host']], [fixture(t), ['--host', 'work.bokdoong.com']],
+  for (const args of [[undefined], [fixture(t), ['extra']], [fixture(t), ['--host']], [fixture(t), ['--host', 'work.bokdoong.com']], [fixture(t), ['--host', 'desk.bokdoong.com']],
     [fixture(t), ['--host', 'evil.example']], [fixture(t), ['--host', 'bokdoong.com', 'extra']], ['--host', ['bokdoong.com']]]) {
     const result = run(...args);
     assert.equal(result.status, 1);
@@ -119,7 +120,7 @@ test('gets sw.js only from the service worker registration URL', t => {
 });
 
 test('workflow consumes extracted URLs without fixed version addresses or a silent fallback', () => {
-  assert.doesNotMatch(workflow, /https:\/\/desk\.bokdoong\.com\/work\/app\/(?:app\.js|loader-v2\.js|pwa\.js|sw\.js|app-icon\.svg)\?v=[^\s'"$]+/);
+  assert.doesNotMatch(workflow, /https:\/\/(?:desk\.)?bokdoong\.com\/work\/app\/(?:app\.js|loader-v2\.js|pwa\.js|sw\.js|app-icon\.svg)\?v=[^\s'"$]+/);
   assert.match(workflow, /asset_urls="\$\(node scripts\/cloudflare-check-urls\.mjs "\$PAGES_TREE"\)"/);
   assert.match(workflow, /PAGES_TREE: \$\{\{ steps\.pages\.outputs\.tree \}\}/);
   assert.match(workflow, /read -r APP_URL LOADER_URL PWA_URL SW_URL APP_ICON_URL <<< "\$asset_urls"/);
@@ -138,24 +139,26 @@ test('workflow consumes extracted URLs without fixed version addresses or a sile
   ]) assert.ok(workflow.includes(expected), `preserves ${expected}`);
 });
 
-// DOMAIN-주소이전 ①-E5: Web2 also opens on bokdoong.com, so the deploy checks the same five assets there.
-test('--host bokdoong.com gives the same five URLs on bokdoong.com', t => {
+// DOMAIN-주소이전 ①-D1: Web2 is on bokdoong.com only; `--host bokdoong.com` gives the same five URLs, desk is refused.
+test('--host bokdoong.com gives the same five URLs as the default', t => {
   const result = run(fixture(t), ['--host', 'bokdoong.com']);
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(result.stdout.trim().split('\t'),
     refs.map(([, asset, version]) => `https://bokdoong.com/work/app/${asset}?v=${version}`));
-  const desk = run(fixture(t), ['--host', 'desk.bokdoong.com']);
-  assert.deepEqual(desk.stdout.trim().split('\t'), refs.map(([, asset, version]) => `${base}${asset}?v=${version}`));
 });
 
-test('workflow checks Web2 on bokdoong.com with the same rules as desk', () => {
-  assert.match(workflow, /web2_urls="\$\(node scripts\/cloudflare-check-urls\.mjs "\$PAGES_TREE" --host bokdoong\.com\)"/);
-  assert.match(workflow, /read -r WEB2_APP_URL WEB2_LOADER_URL WEB2_PWA_URL WEB2_SW_URL WEB2_APP_ICON_URL <<< "\$web2_urls"/);
-  for (const name of ['WEB2_APP_URL', 'WEB2_LOADER_URL', 'WEB2_PWA_URL', 'WEB2_SW_URL', 'WEB2_APP_ICON_URL']) {
-    assert.ok(workflow.includes(`check_200 "$${name}"`), `${name} has a 200 check`);
-  }
-  assert.ok(workflow.includes('"$WEB2_APP_URL" \\\n            "$WEB2_LOADER_URL" \\\n            "$WEB2_APP_ICON_URL"'), 'bokdoong.com immutable URL list');
-  assert.ok(workflow.includes('"$WEB2_SW_URL" \\'), 'bokdoong.com service worker no-cache check');
+test('workflow checks Web2 on bokdoong.com and the 302 moves from desk, work and the old portal root', () => {
+  assert.doesNotMatch(workflow, /WEB2_[A-Z_]*URL|--host desk/);
   assert.ok(workflow.includes("check_200 'https://bokdoong.com/work/app/' 'text/html'"));
   assert.ok(workflow.includes('https://bokdoong.com/work/app/__missing-cache-probe__.js?v=$GITHUB_SHA'));
+  assert.ok(!workflow.includes('https://desk.bokdoong.com/work/app/__missing-cache-probe__'));
+  assert.ok(workflow.includes("--write-out '%{http_code}|%{redirect_url}'"));
+  assert.ok(workflow.includes('if [[ "$result" == "302|$expected" ]]; then'));
+  for (const [from, to] of [
+    ['https://bokdoong.com/', 'https://bokdoong.com/work/app/'],
+    ['https://desk.bokdoong.com/', 'https://bokdoong.com/work/app/'],
+    ['https://desk.bokdoong.com/work/app/?view=library&drive=connected', 'https://bokdoong.com/work/app/?view=library&drive=connected'],
+    ['https://desk.bokdoong.com/work/app/onedrive-return.html?probe=1', 'https://bokdoong.com/work/app/onedrive-return.html?probe=1'],
+    ['https://work.bokdoong.com/work/app/?view=calendar', 'https://bokdoong.com/work/app/?view=calendar']
+  ]) assert.ok(workflow.includes(`check_redirect '${from}' '${to}'`), from);
 });
