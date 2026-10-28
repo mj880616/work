@@ -130,9 +130,11 @@ test('옮긴 화면은 공용 부품을 쓴다', () => {
     'google-tasks.js', 'workplace-detail.js', 'quick-links.js', 'reference-bundles.js', 'arsenal.js', 'team.js', 'meeting-round-detail.js', 'calendar-day-items.js', 'basket.js',
     // 2차
     'data-freshness.js', 'global-search.js', 'calendar-list-view.js', 'calendar-interactions-v2.js', 'calendar-plus.js', 'project-system-v3.js',
-    'basket-manual-link.js', 'business-area-fields.js', 'home-quick.js', 'meeting-todo-candidates.js', 'workflow-ai-v3.js', 'library-upload.js',
-    'workplace-report.js', 'ledger-merge.js', 'todo-radar.js', 'journal-hwpx.js', 'journal-weekly.js']) {
+    'basket-manual-link.js', 'business-area-fields.js', 'home-quick.js', 'meeting-todo-candidates.js', 'workflow-ai-v3.js',
+    'ledger-merge.js', 'todo-radar.js', 'journal-hwpx.js', 'journal-weekly.js']) {
     assert.match(read(rel), /from '\.\/wait-state\.js';/, rel);
   }
+  // 옛 모양 파일(즉시 실행 함수·선언 시험 대상)은 창에 둔 같은 부품(window.KPTUWait)을 쓴다.
+  for (const rel of ['library-upload.js', 'workplace-report.js']) assert.match(read(rel), /globalThis\.KPTUWait\?\.waitInlineHtml/, rel);
   assert.match(read('index.html'), /id="web1BoardDetailStatus" class="w1b-detail-status hidden"><div class="wait" data-wait role="status" aria-label="불러오는 중">/);
 });

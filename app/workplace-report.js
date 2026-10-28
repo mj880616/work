@@ -1,4 +1,3 @@
-import {waitInlineHtml} from './wait-state.js'; // UI-기다림표시통일 2차: 앞선 저장을 기다리는 동안 상태 줄은 글자 없는 회색 칸
 (()=>{
 'use strict';
 const rt=window.KPTURuntime;if(!rt)return;
@@ -62,7 +61,7 @@ function detail(id){
   document.querySelector('#warDraftState').textContent='';
   const e={id:editingReport.id,orgId:editingReport.organization_id,scope:reportScope(),sequence:++reportSequence,view:reportView};reportEditor=e;if(e.scope)reportObservedScope={...e.scope};modal(true);
   const a=e.scope&&reportAttempts.get(reportKey(e));reportBusy(!!a?.pending);
-  if(a?.pending){if(reportCurrent(e))document.querySelector('#warDraftState').innerHTML=waitInlineHtml();a.done.then(()=>{if(reportCurrent(e)){reportBusy(false);reportNotice(e,'앞선 요청이 끝났습니다. 현재 입력은 유지했습니다.',a.state==='unknown')}})}else if(a)reportNotice(e,'앞선 저장 결과를 먼저 확인해 주세요.',true);
+  if(a?.pending){if(reportCurrent(e))document.querySelector('#warDraftState').innerHTML=globalThis.KPTUWait?.waitInlineHtml?.()||'';a.done.then(()=>{if(reportCurrent(e)){reportBusy(false);reportNotice(e,'앞선 요청이 끝났습니다. 현재 입력은 유지했습니다.',a.state==='unknown')}})}else if(a)reportNotice(e,'앞선 저장 결과를 먼저 확인해 주세요.',true);
 }
 
 async function saveReport(finalize){
