@@ -6,6 +6,7 @@ import { LedgerError, LEDGER_LIMITS, LEDGER_TITLE, readLedger, buildBackup, rend
 import { basketState, prepareBasket, selectBasketOrganizations, BASKET_LIMITS } from './basket.mjs';
 import { runTextBackfill, textBackfillStatus, TextBackfillError, DONE_AT, DONE_COUNT, DISMISSED_AT } from './text-backfill.mjs';
 import { runLibraryPrevPrune, PrevPruneError } from './library-prev-prune.mjs';
+import { AI_USAGE_BODY_BYTES, parseAiUsageReport, readAiUsage, seoulDay, summarizeAiUsage, openAiPrice } from './ai-usage.mjs';
 export { basketState, BASKET_LIMITS };
 const WORKSPACE = 'kptu-work';
 const DAY = 86400000, KST = 9 * 3600000, PAGE = 500;
@@ -499,13 +500,16 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date(), cr
       if (action !== 'status') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405);
       if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) throw new SummaryError('SERVER_CONFIG_MISSING');
       if (req.headers.get('x-drive-summary-cron-secret') !== null) throw new SummaryError('UNAUTHORIZED', 401);
-      const { ownerId } = await authorize(req);
+      const { workspaceId, ownerId } = await authorize(req);
       if (!ownerId) throw new SummaryError('UNAUTHORIZED', 401);
+      // AI-사용량줄: the home's one status request also carries the AI usage summary (null when its tables or the anon key
+      // are missing or a read fails). It never makes the status answer fail.
+      const aiUsagePromise = aiUsageSummary(req, workspaceId).catch(() => null);
       const token = await accessToken();
       const folder = await findFile(token, 'folder');
-      if (!folder) return json({ ok: true, checked_at: checkedAt(), copy: { state: 'none', last_success_at: null, last_failure_at: null, last_failure_code: null }, collectors: collectorStatus(null), text_backfill: null });
+      if (!folder) return json({ ok: true, checked_at: checkedAt(), copy: { state: 'none', last_success_at: null, last_failure_at: null, last_failure_code: null }, collectors: collectorStatus(null), text_backfill: null, ai_usage: await aiUsagePromise });
       await assertPrivate(token, folder.id);
-      return json({ ok: true, checked_at: checkedAt(), copy: folderStatus(folder.appProperties), collectors: collectorStatus(folder.appProperties), text_backfill: textBackfillStatus(folder.appProperties) });
+      return json({ ok: true, checked_at: checkedAt(), copy: folderStatus(folder.appProperties), collectors: collectorStatus(folder.appProperties), text_backfill: textBackfillStatus(folder.appProperties), ai_usage: await aiUsagePromise });
     } catch (error) {
       const code = error instanceof SummaryError ? error.message : 'STATUS_FAILED';
       return json({ ok: false, error: code, checked_at: checkedAt() }, error instanceof SummaryError ? error.status : 502);
@@ -536,6 +540,67 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date(), cr
     } catch (error) {
       const code = error instanceof SummaryError ? error.message : 'HEARTBEAT_FAILED';
       return json({ ok: false, error: code }, error instanceof SummaryError ? error.status : 502);
+    }
+  }
+  // AI-사용량줄: POST ?action=ai_usage. Only the collector secret header (same as heartbeat; no JWT, no cron secret).
+  // Inserts one usage report row (numbers, model name and the script's ref only) into app_ai_external_usage with the
+  // service role's column insert grant; a repeated ref is ignored. Never reads content, never touches Drive.
+  async function aiUsageReport(req) {
+    try {
+      if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) throw new SummaryError('SERVER_CONFIG_MISSING');
+      if (req.headers.get('x-drive-summary-cron-secret') !== null || req.headers.get('Authorization') !== null) throw new SummaryError('UNAUTHORIZED', 401);
+      if (!await secretMatches(req.headers.get('x-collector-heartbeat-secret'), env.COLLECTOR_HEARTBEAT_SECRET)) throw new SummaryError('UNAUTHORIZED', 401);
+      const length = Number(req.headers.get('content-length') || 0);
+      if (length > AI_USAGE_BODY_BYTES) throw new SummaryError('INVALID_BODY', 400);
+      const report = parseAiUsageReport(await req.text().catch(() => ''));
+      if (!report) throw new SummaryError('INVALID_BODY', 400);
+      const workspaces = await dbRows('app_workspaces', { select: 'id', slug: `eq.${WORKSPACE}` });
+      if (workspaces.length !== 1) throw new SummaryError('WORKSPACE_UNAVAILABLE');
+      const at = now();
+      let response;
+      try {
+        response = await fetcher(`${env.SUPABASE_URL}/rest/v1/app_ai_external_usage?on_conflict=workspace_id,ref`, {
+          method: 'POST',
+          headers: { apikey: env.SUPABASE_SERVICE_ROLE_KEY, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, 'Content-Type': 'application/json', Prefer: 'resolution=ignore-duplicates,return=minimal' },
+          body: JSON.stringify({ workspace_id: workspaces[0].id, day: seoulDay(at), ...report }),
+          signal: AbortSignal.timeout(30000),
+        });
+      } catch { throw new SummaryError('AI_USAGE_WRITE_FAILED'); }
+      if (!response.ok) { try { await response.body?.cancel(); } catch { /* ignore */ } throw new SummaryError(response.status === 404 ? 'AI_USAGE_TABLE_MISSING' : 'AI_USAGE_WRITE_FAILED'); }
+      try { await response.body?.cancel(); } catch { /* ignore */ }
+      return json({ ok: true, recorded_at: at.toISOString() });
+    } catch (error) {
+      const code = error instanceof SummaryError ? error.message : 'AI_USAGE_FAILED';
+      return json({ ok: false, error: code }, error instanceof SummaryError ? error.status : 502);
+    }
+  }
+  async function aiUsageSummary(req, workspaceId) {
+    if (!env.SUPABASE_ANON_KEY) return null;
+    const at = now();
+    const rows = await readAiUsage({ fetcher, baseUrl: env.SUPABASE_URL, anonKey: env.SUPABASE_ANON_KEY, userAuthorization: req.headers.get('Authorization'), workspaceId, now: at });
+    return { ok: true, ...summarizeAiUsage(rows, at, openAiPrice(env)) };
+  }
+  // AI-사용량줄: GET ?action=ai_usage. Owner JWT only. The home reads the same summary inside ?action=status; this path is
+  // only for a fresh read right after the owner adds or removes an amount. Reads with the caller's token + anon key (owner RLS) and returns
+  // won amounts, limits, balances and the last 10 entered amounts. No Drive access, no writes.
+  async function aiUsageRead(req) {
+    const checkedAt = () => now().toISOString();
+    try {
+      if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY || !env.SUPABASE_ANON_KEY) throw new SummaryError('SERVER_CONFIG_MISSING');
+      if (req.headers.get('x-drive-summary-cron-secret') !== null || req.headers.get('x-collector-heartbeat-secret') !== null) throw new SummaryError('UNAUTHORIZED', 401);
+      const { workspaceId, ownerId } = await authorize(req);
+      if (!ownerId) throw new SummaryError('UNAUTHORIZED', 401);
+      const at = now();
+      let rows;
+      try {
+        rows = await readAiUsage({ fetcher, baseUrl: env.SUPABASE_URL, anonKey: env.SUPABASE_ANON_KEY, userAuthorization: req.headers.get('Authorization'), workspaceId, now: at });
+      } catch (error) {
+        throw new SummaryError(error?.message === 'AI_USAGE_TABLE_MISSING' ? 'AI_USAGE_TABLE_MISSING' : 'AI_USAGE_READ_FAILED', error?.message === 'AI_USAGE_TABLE_MISSING' ? 404 : 502);
+      }
+      return json({ ok: true, checked_at: checkedAt(), ...summarizeAiUsage(rows, at, openAiPrice(env)) });
+    } catch (error) {
+      const code = error instanceof SummaryError ? error.message : 'AI_USAGE_FAILED';
+      return json({ ok: false, error: code, checked_at: checkedAt() }, error instanceof SummaryError ? error.status : 502);
     }
   }
   // LIB-글자채우기야간: POST ?action=text_backfill. The cron secret only (no JWT path: the nightly workflow has no user).
@@ -638,9 +703,10 @@ export function createHandler({ env, fetcher = fetch, now = () => new Date(), cr
   const actionOf = req => { try { return new URL(req.url).searchParams.get('action'); } catch { return null; } };
   return async req => {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
-    if (req.method === 'GET') return actionOf(req) === 'ledger_status' ? ledgerStatusRead(req) : statusRead(req);
+    if (req.method === 'GET') return actionOf(req) === 'ledger_status' ? ledgerStatusRead(req) : actionOf(req) === 'ai_usage' ? aiUsageRead(req) : statusRead(req);
     if (req.method !== 'POST') return json({ ok: false, error: 'METHOD_NOT_ALLOWED', updated_at: null, documents: {} }, 405);
     if (actionOf(req) === 'heartbeat') return heartbeat(req);
+    if (actionOf(req) === 'ai_usage') return aiUsageReport(req);
     // A collector secret never reaches the copy rebuild path, even next to another credential.
     if (req.headers.get('x-collector-heartbeat-secret') !== null) return json({ ok: false, error: 'UNAUTHORIZED', updated_at: null, documents: {} }, 401);
     if (actionOf(req) === 'ledger_export') return ledgerExport(req);

@@ -130,3 +130,7 @@
 
 크론 비밀값 헤더만 받는다(JWT 경로 없음, 헤더가 틀리면 401). 자료실에서 파일을 교체해 밀려난 이전 파일(`app_documents.previous_files`)이 교체한 지 30일이 지나고 [계속 보관]이 아니면 Drive **휴지통**으로 옮기고(`trashed=true`, 영구 삭제 없음, `_shared/drive-trash.ts`) 항목에 `pruned_at`·`prune_result`를 남긴다.
 내 소유이고 저장된 자료실 폴더 바로 아래인 파일만 옮긴다. 그 밖은 Drive를 건드리지 않고 목록에서만 뺀다. 다른 자료·노트(휴지통 포함)·할 일 첨부가 같은 파일을 쓰면 건드리지 않는다. 하룻밤 최대 50개. `dry_run=1`은 Drive 메타데이터만 읽고 아무것도 쓰지 않는다. 응답은 건수만(파일 이름·ID 없음). 설계: `docs/design/library-replace-file.md` 8절.
+
+## AI-사용량줄 (`?action=ai_usage`)
+- `POST ?action=ai_usage`: 수집 점검 신호와 같은 `x-collector-heartbeat-secret` 머리글만. 몸통(1KB 이하) `{ref, source: transcript|analysis, model, calls, input_tokens, audio_tokens, output_tokens}` — 숫자·모델 이름·보고 번호만. `app_ai_external_usage`에 한 행 넣기(같은 ref는 무시). Drive는 건드리지 않음.
+- `GET ?action=ai_usage`: 소유자 JWT만. 소유자 토큰 + anon 키로 `app_ai_daily_usage`·`app_feed_days`·`app_ai_external_usage`·`app_ai_cost_entries`를 읽어 이번 달 원(추정)·상한·잔액·보정 비율을 돌려줌. Gemini 단가는 `_shared/ai-prices.mjs` 한 곳, OpenAI 기본 단가·상한은 `_shared/ai-model.ts`·ai-assist·collector-feed와 같은지 시험이 대조.

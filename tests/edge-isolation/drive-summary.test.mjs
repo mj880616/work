@@ -7,7 +7,7 @@ import {checkDriveSummaryIsolation} from '../../scripts/check-drive-summary-isol
 
 test('functions-only deployment copy passes Deno check and bundle for the real drive-summary graph',{timeout:120000},async()=>{
   const result=await checkDriveSummaryIsolation();
-  assert.equal(result.modules,15); // LIB-이전파일정리 library-prev-prune.mjs·_shared/library-prev-model.mjs·_shared/drive-trash.ts로 12 -> 15, 바구니 원문 제거로 9 -> 8, LIB-글자채우기야간 text-backfill.mjs·_shared/document-text.ts로 8 -> 10, LIB-스캔글자읽기 _shared/drive-ocr.ts·basket-ocr-text.mjs로 10 -> 12
+  assert.equal(result.modules,17); // AI-사용량줄 ai-usage.mjs·_shared/ai-prices.mjs로 15 -> 17, LIB-이전파일정리 library-prev-prune.mjs·_shared/library-prev-model.mjs·_shared/drive-trash.ts로 12 -> 15, 바구니 원문 제거로 9 -> 8, LIB-글자채우기야간 text-backfill.mjs·_shared/document-text.ts로 8 -> 10, LIB-스캔글자읽기 _shared/drive-ocr.ts·basket-ocr-text.mjs로 10 -> 12
   assert.ok(result.bundleBytes>0);
 });
 
