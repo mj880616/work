@@ -83,7 +83,7 @@ export function openDocumentPhotoView({file, getUrl, driveHref = '', trigger = n
   };
   const paintMenu = () => {
     if (!actions) return;
-    more.innerHTML = '<summary class="basket-photo-more-btn" data-ctx="off" aria-label="사진 메뉴">⋯</summary><div class="basket-photo-more-panel" role="group" aria-label="사진 메뉴"></div>';
+    more.innerHTML = '<summary class="basket-photo-more-btn" data-ctx="off" aria-label="사진 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></summary><div class="basket-photo-more-panel" role="group" aria-label="사진 메뉴"></div>';
     const panel = more.querySelector('.basket-photo-more-panel');
     const share = document.createElement('button'); share.type = 'button'; share.dataset.photoShare = ''; share.textContent = '공유';
     share.addEventListener('click', () => { more.removeAttribute('open'); shareShown(); });

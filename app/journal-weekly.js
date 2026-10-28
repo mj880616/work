@@ -475,7 +475,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
     if (item.file.kept) { const n = el('span', 'journal-file-note', '넣음'); n.dataset.journalFileKept = ''; li.append(' ', n); }
     if (!fe.editable || item.file.dropped || (item.file.verdict === 'same' && !item.file.kept)) return;
     const more = el('details', 'journal-kind-more'); more.dataset.journalFileMore = item.file.id;
-    const sum = el('summary', null, '⋯'); sum.setAttribute('aria-label', `${text} 자료 줄 고치기·빼기`);
+    const sum = el('summary'); const sumDots = el('span', 'more-dots', '⋯'); sumDots.setAttribute('aria-hidden', 'true'); sum.append(sumDots); sum.setAttribute('aria-label', `${text} 자료 줄 고치기·빼기`);
     const edit = el('button', 'mini', '고치기'); edit.type = 'button'; edit.dataset.journalFileEdit = item.file.id; edit.disabled = !canEdit;
     const drop = el('button', 'mini', '빼기'); drop.type = 'button'; drop.dataset.journalFileDrop = item.file.id; drop.disabled = !canEdit;
     drop.setAttribute('aria-label', `이번 주 보고에서 빼기: ${text}`);
@@ -620,7 +620,7 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
       if (mt.editable) [...list.children].forEach((li, i) => {
         const item = mt.items[i]; if (!validKindKey(item.kind)) return;
         const more = el('details', 'journal-kind-more'); more.dataset.journalKindMore = item.kind;
-        const summaryEl = el('summary', null, '⋯'); summaryEl.setAttribute('aria-label', `${item.kindName} 종류 설정`);
+        const summaryEl = el('summary'); const summaryDots = el('span', 'more-dots', '⋯'); summaryDots.setAttribute('aria-hidden', 'true'); summaryEl.append(summaryDots); summaryEl.setAttribute('aria-label', `${item.kindName} 종류 설정`);
         const toggle = el('button', 'mini', '주간보고에서 빼기'); toggle.type = 'button';
         toggle.dataset.journalKindToggle = item.kind; toggle.dataset.journalKindHide = '1'; toggle.dataset.journalKindName = item.kindName;
         toggle.setAttribute('aria-label', `${item.kindName} 종류를 주간보고에서 빼기`);

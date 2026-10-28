@@ -26,7 +26,7 @@ import {lineOf, rdKey, splitRdKey, liveLines, groupLines, neighborDays, daysNeed
 const rt = window.KPTURuntime;
 const $ = sel => document.querySelector(sel);
 const pc = window.matchMedia('(min-width:1024px)');
-const MORE = '<span aria-hidden="true">⋯</span>';
+const MORE = '<span class="more-dots" aria-hidden="true">⋯</span>';
 const UNDO_MS = 8000;
 // 버튼 안 그림(글자색을 따라가는 선 그림, 색은 CSS 토큰).
 const svg = d => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${d}</svg>`;
@@ -158,7 +158,7 @@ function headHtml() {
   const failed = today?.failed ? ` · 판정 실패 ${today.failed}` : '';
   const ready = state.loaded && !state.missing && !state.error;
   const more = ready ? `<button type="button" class="feed-more" data-tg-head-more aria-haspopup="true" aria-expanded="false" aria-label="소식 메뉴">${MORE}</button>` : '';
-  return `<div class="feed-head"><span class="feed-head-title" aria-hidden="true">텔레그램 소식</span><span class="feed-head-sub" data-tg-today>${ready ? esc(telegramHeadText(today) + failed) : ''}</span>${more}</div>${ready ? chipsHtml() + feditHtml() : ''}`;
+  return `<div class="feed-head"><span class="feed-head-title screen-title" aria-hidden="true">텔레그램 소식</span><span class="feed-head-sub" data-tg-today>${ready ? esc(telegramHeadText(today) + failed) : ''}</span>${more}</div>${ready ? chipsHtml() + feditHtml() : ''}`;
 }
 // 줄 밀기: 버튼은 닫혀 있으면 보이지도 눌리지도 않는다. mode: live | archive.
 const actBtn = (side, kind, open) => `<button type="button" class="feed-act feed-act-${kind}" data-tg-act-btn="${side}" data-tg-kind="${kind}" tabindex="-1"${open === side ? '' : ' aria-hidden="true"'} aria-label="${ACTION_LABEL[kind]}">${ICON[kind === 'unarchive' ? 'unarchive' : kind]}<span>${ACTION_LABEL[kind]}</span></button>`;

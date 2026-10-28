@@ -103,7 +103,7 @@
 .feed-view .feed-r6 .feed-dot{background:var(--ds-kind-other-soft);color:var(--ds-kind-other-ink)}.feed-view .feed-r6 .feed-rn{color:var(--ds-kind-other-ink)}
 .feed-view .feed-detail-name{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .feed-view .feed-detail-name .feed-rn{display:inline;margin:0;font-size:var(--ds-text-section)}
-.feed-view .feed-open{position:relative;flex:none;margin:0;padding:0 2px;border:0;background:transparent;color:var(--kptu-primary-ink);font:inherit;font-size:var(--ds-text-meta);text-decoration:underline dotted;text-underline-offset:2px;cursor:pointer}
+.feed-view .feed-open{position:relative;flex:none;margin:0;padding:0 2px;border:0;background:transparent;color:var(--kptu-primary-ink);font:inherit;font-size:var(--ds-text-meta);text-decoration:underline;text-underline-offset:2px;cursor:pointer}
 .feed-view .feed-open::after{content:"";position:absolute;inset:-10px -4px}
 .feed-view .feed-open:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
 .feed-view .feed-daynav{display:flex;align-items:center;justify-content:center;gap:8px;margin:2px 0 6px}
@@ -146,7 +146,7 @@
 .feed-menu .feed-faint{font-size:11px;color:var(--kptu-muted)}
 
 /* CALL-개인통화함 3단계: 개인 통화함 칩·확인할 통화·줄 ⋯·확인 안내 (색은 토큰만) */
-.feed-view .feed-chip{position:relative;flex:none;height:var(--ds-compact-height-sm);min-height:0;margin:0;padding:0 8px;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-surface-subtle);color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-meta);white-space:nowrap;cursor:pointer}
+.feed-view .feed-chip{position:relative;flex:none;height:var(--ds-compact-height-sm);min-height:0;margin:0;padding:0 8px;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:transparent;color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-meta);white-space:nowrap;cursor:pointer}
 .feed-view .feed-chip::after{content:"";position:absolute;inset:-8px -4px}
 .feed-view .feed-chip:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
 .feed-view .feed-note{margin:0;padding:4px 8px;border-bottom:var(--ds-line-width) solid var(--kptu-border);font-size:11px;line-height:1.5;color:var(--kptu-muted)}
@@ -185,7 +185,7 @@
 .feed-view .feed-edit-input{border-color:var(--ds-line)}
 .feed-view .feed-title-input:focus-visible,.feed-view .feed-edit-input:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
 .feed-view .feed-detail-title-input{font-size:15px;font-weight:var(--ds-weight-medium)}
-.feed-view .feed-whoname{position:relative;display:inline;margin:0;padding:0;border:0;background:transparent;color:inherit;font:inherit;text-decoration:underline dotted;text-underline-offset:2px;cursor:pointer}
+.feed-view .feed-whoname{position:relative;display:inline;margin:0;padding:0;border:0;background:transparent;color:inherit;font:inherit;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
 .feed-view .feed-whoname::after{content:"";position:absolute;inset:-12px -4px}
 .feed-view .feed-whoname:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
 .feed-view .feed-who-box .feed-link-row{flex-wrap:wrap;margin-bottom:4px}
@@ -206,7 +206,7 @@
 .feed-view .feed-who.is-self{color:var(--kptu-muted)}
 .feed-view .feed-who.is-same{visibility:hidden}
 @media(min-width:1024px){.feed-view .feed-raw-wide .feed-who{width:84px}}
-.feed-view .feed-whotag{position:relative;display:block;margin:0;padding:0;border:0;background:transparent;color:var(--kptu-primary-ink);font:inherit;font-size:11px;line-height:1.35;text-decoration:underline dotted;text-underline-offset:2px;white-space:nowrap;cursor:pointer}
+.feed-view .feed-whotag{position:relative;display:block;margin:0;padding:0;border:0;background:transparent;color:var(--kptu-primary-ink);font:inherit;font-size:11px;line-height:1.35;text-decoration:underline;text-underline-offset:2px;white-space:nowrap;cursor:pointer}
 .feed-view .feed-whotag::after{content:"";position:absolute;inset:-8px -6px}
 .feed-view .feed-whotag:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
 .feed-view .feed-sbox{display:grid;gap:6px;margin:4px 0 8px;padding:8px 10px;border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-control);background:var(--kptu-surface)}
@@ -216,7 +216,7 @@
 .feed-view .feed-scope{justify-self:start;padding:1px 6px;border-radius:4px;background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-size:11px}
 .feed-view .feed-scope.is-one{background:var(--kptu-surface-subtle);color:var(--kptu-muted)}
 .feed-view .feed-chips{display:flex;flex-wrap:wrap;gap:4px}
-.feed-view .feed-chip{position:relative;margin:0;padding:1px 8px;border:var(--ds-line-width) solid var(--ds-line);border-radius:10px;background:var(--kptu-surface-subtle);color:var(--kptu-ink);font:inherit;font-size:12px;cursor:pointer}
+.feed-view .feed-chip{position:relative;margin:0;padding:1px 8px;border:var(--ds-line-width) solid var(--ds-line);border-radius:10px;background:transparent;color:var(--kptu-ink);font:inherit;font-size:12px;cursor:pointer}
 .feed-view .feed-chip::after{content:"";position:absolute;inset:-6px -2px}
 .feed-view .feed-chip[aria-pressed="true"]{background:var(--ds-select-bg);border-color:var(--ds-select-line);color:var(--kptu-primary-ink)}
 .feed-view .feed-chip:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
@@ -278,7 +278,7 @@
   .feed-view .feed-rm .feed-whotag{display:inline-block;margin-left:6px}
   .feed-view .feed-rm .feed-rt{flex:1 0 100%}
   .feed-view .feed-rt.is-fold:not(.is-more){display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:6;line-clamp:6;overflow:hidden}
-  .feed-view .feed-rt-more{position:relative;display:inline-block;margin:0;padding:0;border:0;background:transparent;color:var(--kptu-muted);font:inherit;font-size:11px;text-decoration:underline dotted;text-underline-offset:2px;cursor:pointer}
+  .feed-view .feed-rt-more{position:relative;display:inline-block;margin:0;padding:0;border:0;background:transparent;color:var(--kptu-muted);font:inherit;font-size:11px;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
   .feed-view .feed-rt-more[hidden]{display:none}
   .feed-view .feed-rt-more::after{content:"";position:absolute;inset:-10px -8px}
   .feed-view .feed-rt-more:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}

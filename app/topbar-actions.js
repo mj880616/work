@@ -265,7 +265,7 @@ window.addEventListener('kptu:view-changed',event=>{
   syncMenuLocation();
   const home=event.detail?.view==='home';
   document.querySelector('.mobile-shell-header [data-home-date]')?.toggleAttribute('hidden',!home);
-  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'정리함',calendar:'일정',tasks:'일정',journal:'일정',diary:'일정',projects:'프로젝트',team:'담당조직',meetings:'사업 보고',library:'자료실',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',pages:'공유 페이지',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식'})[event.detail?.view]||''}
+  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'정리함',calendar:'일정',tasks:'할 일',journal:'업무일지',diary:'일기',projects:'프로젝트',team:'담당조직',meetings:'사업 보고',library:'자료실',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',pages:'공유 페이지',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식'})[event.detail?.view]||''}
 });
 // [+ 추가] (UI-디자인손질 8, BASKET-업데이트통합 PR 2, ED③): [업데이트] opens the update's big window (update-window.js) with no place (= the basket),
 // [노트] opens the note's (note-window.js). Each saves through its existing owner-RLS path and the window closes (저장하고 닫기). A saved

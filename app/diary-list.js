@@ -47,7 +47,7 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
 
   const markButtons = row => {
     const day = esc(row.journal_day), star = !!diaryStarredAt(row), busy = state.busy.has(row.journal_day) ? ' disabled' : '';
-    return `<button type="button" class="diary-lv-star" data-diary-lv-star="${day}" aria-pressed="${star}" aria-label="${star ? '별표 풀기' : '별표'}"${busy}>${star ? '★' : '☆'}</button><button type="button" class="diary-lv-more" data-diary-lv-more="${day}" aria-haspopup="true" aria-expanded="false" aria-controls="diaryListMenu" aria-label="${esc(dayLabel(row.journal_day))} 메뉴">⋯</button>`;
+    return `<button type="button" class="diary-lv-star" data-diary-lv-star="${day}" aria-pressed="${star}" aria-label="${star ? '별표 풀기' : '별표'}"${busy}>${star ? '★' : '☆'}</button><button type="button" class="diary-lv-more" data-diary-lv-more="${day}" aria-haspopup="true" aria-expanded="false" aria-controls="diaryListMenu" aria-label="${esc(dayLabel(row.journal_day))} 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></button>`;
   };
   function rowHtml(row) {
     const day = row.journal_day, photos = diaryPhotos(row), {title, line} = rowText(row, photos.length), pinned = !!diaryPinnedAt(row), star = !!diaryStarredAt(row);

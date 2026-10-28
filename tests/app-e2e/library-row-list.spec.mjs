@@ -186,7 +186,7 @@ for(const width of [390,1440]){
     const panel=await page.locator('.lu-more-panel').boundingBox();expect(panel.x).toBeGreaterThanOrEqual(0);expect(panel.x+panel.width).toBeLessThanOrEqual(width);expect(panel.y+panel.height).toBeLessThanOrEqual(900);
     await page.keyboard.press('Escape');await expect(page.locator('.lu-more-panel')).toBeHidden();
     await expect.poll(()=>page.evaluate(()=>history.state?.kptuLibraryMenu||null)).toBe(null);
-    await menu(page);await page.locator('#libraryListCard h2').click();await expect(page.locator('.lu-more-panel')).toBeHidden();
+    await menu(page);/* UI-화면정리 B ①: 큰 제목 '자료실'은 폰 머리줄·PC 위쪽 줄이 맡아 본문에서는 읽기 프로그램용이므로 머리 줄 빈 곳을 누른다 */await page.locator('#libraryListCard .add-list-head').click({position:{x:1,y:1}});await expect(page.locator('.lu-more-panel')).toBeHidden();
     await expect.poll(()=>page.evaluate(()=>history.state?.kptuLibraryMenu||null)).toBe(null);
     await menu(page);await page.goBack();await expect(page.locator('.lu-more-panel')).toBeHidden();await expect(page).toHaveURL(url);
     // D-3c pseudo-element: click 4px outside the visible 32px icon.

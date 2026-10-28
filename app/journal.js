@@ -212,7 +212,7 @@ const WIDE = window.matchMedia?.('(min-width:1024px)');
 function moreMenu(label, buttons) {
   const more = document.createElement('details');
   more.className = 'journal-item-more';
-  more.innerHTML = `<summary aria-label="${esc(label)} 더 보기"><span aria-hidden="true">⋯</span></summary>`;
+  more.innerHTML = `<summary aria-label="${esc(label)} 더 보기"><span class="more-dots" aria-hidden="true">⋯</span></summary>`;
   more.append(...buttons);
   return more;
 }
@@ -267,7 +267,7 @@ function taskRow(item, {pending}) {
   more.type = 'button'; more.className = 'journal-more-btn task-inline-more'; more.dataset.journalTaskMenu = item.id;
   more.setAttribute('aria-label', `${name} 더 보기`); more.setAttribute('aria-haspopup', 'true'); more.setAttribute('aria-expanded', 'false');
   more.setAttribute('aria-controls', 'journalTaskMenu'); more.disabled = taskLine.isBusy(item.id);
-  more.innerHTML = '<span aria-hidden="true">⋯</span>';
+  more.innerHTML = '<span class="more-dots" aria-hidden="true">⋯</span>';
   li.append(more);
   return li;
 }

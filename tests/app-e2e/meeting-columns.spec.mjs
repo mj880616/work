@@ -54,13 +54,13 @@ for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 
   await expect(detail(page).locator('.mcol-head')).toHaveCount(0);await expect(detail(page)).toHaveAttribute('aria-label','노사협의회 2건');
   await expect(detail(page).locator('.mcol-card .mcol-round')).toHaveText(['2차','1차']);
   // ③: 가운데 줄은 '2차' + 오른쪽 작은 날짜 '10.12'(시간 뺌, 전체 일시는 마우스를 올리면).
-  await expect(round(page,'labor-2').locator('.mcol-date')).toHaveText('10.12');await expect(round(page,'labor-2').locator('.mcol-date')).toHaveAttribute('title',/오후 02:30/);
+  await expect(round(page,'labor-2').locator('.mcol-date')).toHaveText('10.12');await expect(round(page,'labor-2').locator('.mcol-date')).toHaveAttribute('title',/14:30/);
   // 처음 열면 가장 최근 차수(노사협의회 2차)가 오른쪽 칸에 바로 붙는다. 팝업은 없다(그 칸에 사업 보고 창 요소 하나를 그대로 붙인 것).
   await expect(round(page,'labor-2')).toHaveAttribute('aria-current','true');
   await expect(result(page)).toHaveAttribute('data-meeting-result','labor-2');
   await expect(toplineItem(page)).toHaveText('노사협의회 2차');
   await expect(result(page).locator('#meetingRoundDetailModal.mrd-docked')).toBeVisible();await expect(page.locator('body>#meetingRoundDetailModal')).toHaveCount(0);
-  await expect(result(page).locator('#mrdMeta')).toContainText('2026. 10. 12. 오후 02:30');
+  await expect(result(page).locator('#mrdMeta')).toContainText('2026. 10. 12. 14:30');
   await expect(result(page).locator('#mrdResult')).toHaveText('가상 노사협의회 2차 결과 원문\n둘째 줄');
   // 보는 화면: 입력칸·저장 버튼은 없고, 고치는 곳은 머리의 ⋯ 하나(×는 칸에서 없다).
   await expect(result(page).locator('#mrdEditor')).toBeHidden();await expect(result(page).locator('#mrdClose')).toBeHidden();
@@ -228,13 +228,13 @@ test('① 카드 시각: 직접 지정 → 회의 결과 글의 일시 → 날�
   // ⑤: 차수·짧은 이름이 둘 다 없으면 왼쪽 자리에 날짜만 보인다.
   await expect(detail(page).locator('.mcol-card .mcol-round').first()).toHaveText('10.20');
   const derived=round(page,'rail-derived'),upload=round(page,'rail-upload');
-  await expect(derived.locator('.mcol-round')).toHaveText('파생 간담회');await expect(derived.locator('.mcol-date')).toHaveText('10.19');await expect(derived.locator('.mcol-date')).toHaveAttribute('title','10. 19. 오후 02:00');
+  await expect(derived.locator('.mcol-round')).toHaveText('파생 간담회');await expect(derived.locator('.mcol-date')).toHaveText('10.19');await expect(derived.locator('.mcol-date')).toHaveAttribute('title','10. 19. 14:00');
   await expect(upload.locator('.mcol-round')).toHaveText('10.20');await expect(upload.locator('.mcol-date')).toHaveCount(0);
   // 직접 지정한 시각은 그대로.
-  await expect(round(page,'rail-6').locator('.mcol-date')).toHaveText('9.6');await expect(round(page,'rail-6').locator('.mcol-date')).toHaveAttribute('title','9. 6. 오전 10:00');
+  await expect(round(page,'rail-6').locator('.mcol-date')).toHaveText('9.6');await expect(round(page,'rail-6').locator('.mcol-date')).toHaveAttribute('title','9. 6. 10:00');
   // 오른쪽 결과 머리와 결과 창 머리 글자도 같은 규칙(연도 포함), 짧은 이름을 앞에.
-  await derived.click();await expect(toplineItem(page)).toContainText('파생 간담회');await expect(result(page).locator('#mrdMeta')).toContainText('2026. 10. 19. 오후 02:00');
-  await openMeetingResult(page,'rail-derived');await expect(page.locator('#mrdMeta')).toContainText('파생 간담회');await expect(page.locator('#mrdMeta')).toContainText('2026. 10. 19. 오후 02:00');
+  await derived.click();await expect(toplineItem(page)).toContainText('파생 간담회');await expect(result(page).locator('#mrdMeta')).toContainText('2026. 10. 19. 14:00');
+  await openMeetingResult(page,'rail-derived');await expect(page.locator('#mrdMeta')).toContainText('파생 간담회');await expect(page.locator('#mrdMeta')).toContainText('2026. 10. 19. 14:00');
   await expect(page.locator('#mrdMeta')).not.toContainText('기존 제목');
   // 수정 창의 짧은 이름 칸: 지금 짧은 이름이 들어 있고, 바꾸면 제목(title)만 바뀐다(종류 이름·저장된 시각은 그대로).
   await mrdMenu(page,'edit');await expect(page.locator('#mrdEditShortName')).toHaveValue('파생 간담회');
@@ -273,8 +273,8 @@ test('폰 390: 지금 한 줄 목록 그대로(종류 목록·차수 목록 없�
   await expect(page.locator('[data-mrd-meeting="rail-6"] p')).toContainText('회의자료 있음');
   await expect(page.locator('[data-mrd-meeting="rail-6"] p')).not.toContainText('2개');
   await expect(page.locator('[data-mrd-meeting="rail-5"] p')).not.toContainText('회의자료');
-  await expect(page.locator('[data-mrd-meeting="rail-derived"] p')).toHaveText('파생 간담회 · 10. 19. 오후 02:00');
-  await expect(page.locator('[data-mrd-meeting="blank-1"] p')).toHaveText('8. 20. 오전 10:00');
+  await expect(page.locator('[data-mrd-meeting="rail-derived"] p')).toHaveText('파생 간담회 · 10. 19. 14:00');
+  await expect(page.locator('[data-mrd-meeting="blank-1"] p')).toHaveText('8. 20. 10:00');
   // 폰의 [+ 회의 결과]는 지금처럼 회의명 없이 연다.
   await page.locator('#newMeetingBtn').click();await expect(page.locator('#meetingNameSelect')).toHaveValue('__other__');await expect(page.locator('#meetingTitle')).toHaveValue('');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)).toBeLessThanOrEqual(1);

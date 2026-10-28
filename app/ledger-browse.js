@@ -560,7 +560,7 @@ function menuHtml(id, row, info) {
   const runCancel = plan.undoRun ? `<button type="button" class="lb-menu-item" role="menuitem" data-lb-action="undo-run" data-lb-run="${esc(info.runId)}"${off}>${state.acting === 'run' ? '취소하는 중…' : '이번 자동 기록 취소'}</button>` : '';
   const bottom = marks + runCancel;
   if (!top && !bottom) return '';
-  return `<details class="lb-kebab"><summary class="lb-more-btn" aria-label="기록 관리: ${esc(row.ledger_id)}">⋯</summary><div class="lb-menu" role="group" aria-label="기록 관리">${top}${top && bottom ? '<hr class="lb-menu-sep">' : ''}${bottom}</div></details>`;
+  return `<details class="lb-kebab"><summary class="lb-more-btn" aria-label="기록 관리: ${esc(row.ledger_id)}"><span class="more-dots" aria-hidden="true">⋯</span></summary><div class="lb-menu" role="group" aria-label="기록 관리">${top}${top && bottom ? '<hr class="lb-menu-sep">' : ''}${bottom}</div></details>`;
 }
 // 바로가기를 누르면 바뀌는 것 한 줄 + 결과·이유 한 줄(비워도 됨) + [반영]. 반영 전에는 아무것도 바뀌지 않는다.
 function quickHtml(id) {

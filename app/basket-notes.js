@@ -1,5 +1,6 @@
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import { viewPrefs } from './view-prefs.js';
+import { formatSeoulTime } from './meeting-time.js';
 // MEMO-노트: the [노트] side of the basket tab. Notes are app_notes rows with kind=note (20261017052234), read and
 // written through the existing owner-RLS REST paths in basket-data.js; there is no new save path.
 // This module owns everything drawn into its host: list (search, newest change first) → read → edit. The list's own input
@@ -42,9 +43,9 @@ import { noteMarkdown } from './note-markdown.mjs';
 import { basketNoteOrigin, basketReturnHtml } from './basket-note-tasks.js';
 
 const chipKinds = [['project','프로젝트'], ['organization','담당조직'], ['meeting','사업 보고'], ['document','자료실'], ['bundle','참고']];
-const day = value => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul', dateStyle:'medium', timeStyle:'short'}).format(d); };
+const day = value => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : formatSeoulTime(d, {year:'numeric', month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'}); };
 // UI-바구니상세개편: [복사] on every note row and in the read view (same conversion as the write window's 텔레그램용 복사).
-const MORE_ICON = '<span aria-hidden="true">⋯</span>';
+const MORE_ICON = '<span class="more-dots" aria-hidden="true">⋯</span>';
 const PIN_ICON = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M6 2.5h4M7 2.5v4l-2.5 3h7L9 6.5v-4M8 9.5v4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const COPY_ICON = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M10.5 3.5v-.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
 function showToast(message) {
