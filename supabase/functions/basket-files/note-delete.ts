@@ -130,9 +130,10 @@ export function createNoteDeleteHandler(
         if (ids.includes(row?.file_id)) kept.add(row.file_id);
       }
       for (const id of ids) {
+        // attachments is jsonb: JSON text, not a JS array (see photo-prune.ts).
         const notes = await db!.from("app_notes").select("id").contains(
           "attachments",
-          [{ drive_file_id: id }],
+          JSON.stringify([{ drive_file_id: id }]),
         ).neq("id", noteId!).limit(1);
         if (notes.error || !Array.isArray(notes.data)) throw Error();
         if (notes.data.length) kept.add(id);
