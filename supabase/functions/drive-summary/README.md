@@ -133,4 +133,4 @@
 
 ## AI-사용량줄 (`?action=ai_usage`)
 - `POST ?action=ai_usage`: 수집 점검 신호와 같은 `x-collector-heartbeat-secret` 머리글만. 몸통(1KB 이하) `{ref, source: transcript|analysis, model, calls, input_tokens, audio_tokens, output_tokens}` — 숫자·모델 이름·보고 번호만. `app_ai_external_usage`에 한 행 넣기(같은 ref는 무시). Drive는 건드리지 않음.
-- `GET ?action=ai_usage`: 소유자 JWT만. 소유자 토큰 + anon 키로 `app_ai_daily_usage`·`app_feed_days`·`app_ai_external_usage`·`app_ai_cost_entries`를 읽어 이번 달 원(추정)·상한·잔액·보정 비율을 돌려줌. 단가·상한은 `_shared/ai-model.ts` 한 곳.
+- `GET ?action=ai_usage`: 소유자 JWT만. 소유자 토큰 + anon 키로 `app_ai_daily_usage`·`app_feed_days`·`app_ai_external_usage`·`app_ai_cost_entries`를 읽어 이번 달 원(추정)·상한·잔액·보정 비율을 돌려줌. Gemini 단가는 `_shared/ai-prices.mjs` 한 곳, OpenAI 기본 단가·상한은 `_shared/ai-model.ts`·ai-assist·collector-feed와 같은지 시험이 대조.

@@ -16,7 +16,7 @@ Deno.serve(createHandler({
     SUPABASE_ANON_KEY: Deno.env.get('SUPABASE_ANON_KEY'),
     DRIVE_SUMMARY_CRON_SECRET: Deno.env.get('DRIVE_SUMMARY_CRON_SECRET'),
     COLLECTOR_HEARTBEAT_SECRET: Deno.env.get('COLLECTOR_HEARTBEAT_SECRET'),
-    // AI-사용량줄: the same price overrides ai-assist·collector-feed use (optional; defaults in _shared/ai-model.ts).
+    // AI-사용량줄: the same price overrides ai-assist·collector-feed use (optional; defaults in _shared/ai-prices.mjs, checked against _shared/ai-model.ts by tests).
     WEB2_AI_PRICE_IN_KRW_PER_MTOK: Deno.env.get('WEB2_AI_PRICE_IN_KRW_PER_MTOK'),
     WEB2_AI_PRICE_OUT_KRW_PER_MTOK: Deno.env.get('WEB2_AI_PRICE_OUT_KRW_PER_MTOK'),
   },

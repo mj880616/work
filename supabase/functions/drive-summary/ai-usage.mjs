@@ -3,13 +3,12 @@
 //   수집 점검 신호(heartbeat)와 같은 비밀값 머리글만 받는다. 몸통은 숫자·모델 이름·보고 번호(ref)뿐이고 글·전사 내용은 받지 않는다.
 //   같은 ref를 다시 보내면 한 번만 들어간다(app_ai_external_usage, 넣기만).
 // - GET ?action=ai_usage: 소유자 JWT만. 이번 달 OpenAI(Web2 서버 AI: ai-assist의 app_ai_daily_usage + collector-feed의 app_feed_days.ai_*)·
-//   Gemini(위 보고) 사용량을 단가(_shared/ai-model.ts 한 곳)로 셈해 원으로 돌려주고, 명진이 넣은 충전·청구 금액(app_ai_cost_entries)으로
+//   Gemini(위 보고) 사용량을 단가(_shared/ai-prices.mjs)로 셈해 원으로 돌려주고, 명진이 넣은 충전·청구 금액(app_ai_cost_entries)으로
 //   잔액과 보정 비율을 계산한다. 읽기는 호출한 사람의 토큰 + anon 키(소유자 RLS)로만 한다(서버 키로 읽지 않음).
 // 금액은 모두 '추정'이다. OpenAI·Gemini 모두 잔액을 프로그램으로 주지 않으므로(관리자 키는 쓰지 않음) 충전 금액에서 쓴 만큼 뺀다.
 import {
-  AI_MONTHLY_LIMIT_ASSIST_KRW, AI_MONTHLY_LIMIT_FEED_KRW, DEFAULT_PRICE_IN_KRW_PER_MTOK, DEFAULT_PRICE_OUT_KRW_PER_MTOK,
-  geminiKrw, geminiPrice,
-} from '../_shared/ai-model.ts';
+  AI_MONTHLY_LIMIT_ASSIST_KRW, AI_MONTHLY_LIMIT_FEED_KRW, OPENAI_DEFAULT_IN_KRW, OPENAI_DEFAULT_OUT_KRW, geminiKrw, geminiPrice,
+} from '../_shared/ai-prices.mjs';
 
 export const AI_USAGE_BODY_BYTES = 1024;
 export const WARN_RATIO = 0.8;          // 월 상한 80%(명진 결정 10/28 00:55)
@@ -52,7 +51,7 @@ export function parseAiUsageReport(text) {
 export function openAiPrice(env = {}) {
   const pin = String(env.WEB2_AI_PRICE_IN_KRW_PER_MTOK ?? '').trim(), pout = String(env.WEB2_AI_PRICE_OUT_KRW_PER_MTOK ?? '').trim();
   const ok = v => v && PRICE.test(v) && Number(v) > 0;
-  return { input: ok(pin) ? Number(pin) : DEFAULT_PRICE_IN_KRW_PER_MTOK, output: ok(pout) ? Number(pout) : DEFAULT_PRICE_OUT_KRW_PER_MTOK };
+  return { input: ok(pin) ? Number(pin) : OPENAI_DEFAULT_IN_KRW, output: ok(pout) ? Number(pout) : OPENAI_DEFAULT_OUT_KRW };
 }
 const tok = v => (Number.isSafeInteger(Number(v)) && Number(v) >= 0 ? Number(v) : 0);
 const openAiKrw = (input, output, price) => (input * price.input + output * price.output) / 1_000_000;

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createHandler } from '../../supabase/functions/drive-summary/core.mjs';
 import { parseAiUsageReport, summarizeAiUsage, openAiPrice, readStart } from '../../supabase/functions/drive-summary/ai-usage.mjs';
 import * as model from '../../supabase/functions/_shared/ai-model.ts';
+import * as prices from '../../supabase/functions/_shared/ai-prices.mjs';
 import * as assist from '../../supabase/functions/ai-assist/handler.ts';
 import * as feed from '../../supabase/functions/collector-feed/handler.ts';
 
@@ -29,14 +30,17 @@ function harness(data = {}) {
 }
 const report = { ref: 'gm-20261028-0001', source: 'transcript', model: 'models/gemini-2.5-flash', calls: 1, input_tokens: 12000, audio_tokens: 10000, output_tokens: 3000 };
 
-test('단가·상한은 ai-model.ts 한 곳: ai-assist·collector-feed 상한과 같다', () => {
-  assert.equal(model.AI_MONTHLY_LIMIT_ASSIST_KRW, assist.MONTHLY_LIMIT_KRW);
-  assert.equal(model.AI_MONTHLY_LIMIT_FEED_KRW, feed.MONTHLY_LIMIT_KRW);
-  assert.equal(model.geminiPrice('gemini-2.5-flash-lite-001').prefix, 'gemini-2.5-flash-lite');
-  assert.equal(model.geminiPrice('gemini-2.5-flash').prefix, 'gemini-2.5-flash');
-  assert.equal(model.geminiPrice('gemini-9-ultra'), null);
+test('단가·상한: ai-prices.mjs 값이 ai-model.ts·ai-assist·collector-feed 값과 같다', () => {
+  assert.equal(prices.AI_MONTHLY_LIMIT_ASSIST_KRW, assist.MONTHLY_LIMIT_KRW);
+  assert.equal(prices.AI_MONTHLY_LIMIT_FEED_KRW, feed.MONTHLY_LIMIT_KRW);
+  assert.equal(prices.OPENAI_DEFAULT_IN_KRW, model.DEFAULT_PRICE_IN_KRW_PER_MTOK);
+  assert.equal(prices.OPENAI_DEFAULT_OUT_KRW, model.DEFAULT_PRICE_OUT_KRW_PER_MTOK);
+  assert.equal(model.DEFAULT_PRICE_IN_KRW_PER_MTOK, assist.DEFAULT_PRICE_IN_KRW_PER_MTOK);
+  assert.equal(prices.geminiPrice('gemini-2.5-flash-lite-001').prefix, 'gemini-2.5-flash-lite');
+  assert.equal(prices.geminiPrice('gemini-2.5-flash').prefix, 'gemini-2.5-flash');
+  assert.equal(prices.geminiPrice('gemini-9-ultra'), null);
   // 2,000 글 + 10,000 음성 입력, 3,000 출력(flash): (2000*420 + 10000*1400 + 3000*3500) / 1e6
-  assert.equal(Math.round(model.geminiKrw('gemini-2.5-flash', 12000, 10000, 3000) * 1000) / 1000, 25.34);
+  assert.equal(Math.round(prices.geminiKrw('gemini-2.5-flash', 12000, 10000, 3000) * 1000) / 1000, 25.34);
   assert.deepEqual(openAiPrice({}), { input: model.DEFAULT_PRICE_IN_KRW_PER_MTOK, output: model.DEFAULT_PRICE_OUT_KRW_PER_MTOK });
   assert.deepEqual(openAiPrice({ WEB2_AI_PRICE_IN_KRW_PER_MTOK: '200', WEB2_AI_PRICE_OUT_KRW_PER_MTOK: 'x' }), { input: 200, output: model.DEFAULT_PRICE_OUT_KRW_PER_MTOK });
 });

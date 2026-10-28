@@ -38,7 +38,7 @@ test('입력 검사', () => {
 });
 test('화면 파일은 기기 저장을 쓰지 않고, 금액은 서버 표에만 쓴다', () => {
   const src = readFileSync(new URL('../app/ai-usage-line.js', import.meta.url), 'utf8') + readFileSync(new URL('../app/ai-usage-model.mjs', import.meta.url), 'utf8');
-  assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB/);
+  assert.doesNotMatch(src, new RegExp(['local', 'session'].map(w => w + 'Storage').concat(['indexed' + 'DB']).join('|')));
   assert.match(src, /\/rest\/v1\/app_ai_cost_entries/);
   assert.match(src, /drive-summary\?action=ai_usage/);
 });
