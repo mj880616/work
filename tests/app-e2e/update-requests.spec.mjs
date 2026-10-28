@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
-import { showBasketRow, noteAction } from './helpers/basket-more.mjs';
+import {showBasketRow,noteAction} from './helpers/basket-more.mjs';
 
 // JOURNAL-요청표시 → UI-요청버튼삭제: the [임원 요청]·[논의 요청] toggles are gone from the home and basket inputs and from an open
 // update (the owner writes the word in the update's text instead). No save writes request marks any more. Marks already saved

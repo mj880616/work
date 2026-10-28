@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
-import { openBasketMore } from './helpers/basket-more.mjs';
 import {expectDiaryDay} from './helpers/screen-title.mjs';
 import {typeInto} from './helpers/note-editor.mjs';
 // ED③ 일기: the day's text is the new editor ([data-diary-text] .ProseMirror). Typing goes through the editor like a person (select all, type).
@@ -369,16 +368,12 @@ test('폰 뒤로가기: 쓰기 창 → 날짜 순서로 닫힘',async({page})=>{
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-test('일기는 정리함 목록·AI 분류 요청 복사에 나오지 않는다',async({page})=>{
+test('일기는 정리함 목록에 나오지 않는다',async({page})=>{
  const f=await fixture(page);
  await page.evaluate(()=>{window.__copied=[];const keep=t=>{window.__copied.push(String(t));return Promise.resolve();};navigator.clipboard.writeText=keep;navigator.clipboard.write=async items=>keep(await (await items[0].getType('text/plain')).text());});
  await page.evaluate(()=>window.KPTURouter.go('basket'));
  await expect(page.locator('[data-basket-row="b1"]')).toBeVisible();await expect(page.locator('[data-basket-row]')).toHaveCount(1);
  await expect(page.locator('#basketView')).not.toContainText('DIARY_TEXT_SECRET');
- await openBasketMore(page);await page.locator('#basketMoreMenu [data-handoff-copy]').click();
- await expect.poll(()=>page.evaluate(()=>window.__copied.length)).toBeGreaterThan(0);
- const copied=await page.evaluate(()=>window.__copied.join('\n'));
- expect(copied).toContain('합성 정리함 메모');expect(copied).not.toContain('DIARY_TEXT_SECRET');expect(copied).not.toContain('글만 쓴 날');
  expect(f.errors).toEqual([]);
 });
 

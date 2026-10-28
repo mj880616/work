@@ -1,7 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {enterLogin} from './helpers/login-entry.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
-import {openBasketMore,requestClassification,handoffLine} from './helpers/basket-more.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { clickView } from './helpers/shell-navigation.mjs';
@@ -207,88 +206,12 @@ test('홈: 입력칸은 하단 탭 바로 위, 그 위로 탭·버튼, 카드가
  expect(errors).toEqual([]);
 });
 
-test('정리함: [⋯] 작은 메뉴(목록을 밀지 않음·Esc·바깥·키보드), [메모 | 노트] 옆 필터 칩, 한 줄 입력칸',async({page})=>{
- const {errors}=await boot(page,390);
- await page.locator('.mobile-tabs [data-view="basket"]').click();await loaded(page,'basket');await expect(page.locator('[data-basket-row]')).toHaveCount(2);
- const basket=page.locator('#basketView'),more=basket.locator('[data-basket-more]'),menu=page.locator('#basketMoreMenu');
- await expect(more).toHaveAttribute('aria-label','더보기');const m=await box(more);expect(m.width).toBeGreaterThanOrEqual(44);expect(m.height).toBeGreaterThanOrEqual(44);
- // 제목 오른쪽(폰 머리줄 "바구니"와 같은 줄).
- const title=await box(page.locator('[data-mobile-view-name]'));expect(m.right).toBeGreaterThan(300);expect(Math.abs((m.top+m.bottom)/2-(title.top+title.bottom)/2)).toBeLessThanOrEqual(4);
- await expect(handoffLine(page)).toBeHidden();
- const filters=basket.locator('[data-basket-filter]');await expect(filters).toHaveText(['미분류 2','분류 완료','보류']);
- // UI-버튼크기: 필터는 알약 칩(32px, 누르는 범위 44px), 폭 가득이 아니다.
- // BASKET-전환줄하단: 폰의 [업데이트 | 챙길 것] 전환은 입력칸 아래·아래 탭 바로 위 전환 줄에 있고, 필터 줄에는 필터만 왼쪽부터 남는다.
- const first=await box(filters.first()),last=await box(filters.last()),rows=await box(basket.locator('[data-basket-rows]')),kinds=await box(basket.locator('.inbox-pane-switch'));
- expect(kinds.top).toBeGreaterThan(rows.top);expect(Math.round(first.left)).toBe(Math.round(rows.left));
- expect(Math.round(first.height)).toBe(32);expect(last.right).toBeLessThanOrEqual(rows.right);
- const before=await box(filters.first());
- await more.click();await expect(menu).toBeVisible();await expect(more).toHaveAttribute('aria-expanded','true');
- await expect(menu.getByRole('button')).toHaveText(['AI 분류 요청','GPT 답변 가져오기']);await expect(menu.locator('[data-handoff-copy]')).toBeFocused();
- expect(await box(filters.first())).toEqual(before);
- const mb=await box(menu);expect(mb.top).toBeGreaterThanOrEqual(m.bottom);
- for(const item of await menu.getByRole('button').all())expect((await box(item)).height).toBeGreaterThanOrEqual(44);
- await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(more).toBeFocused();
- await page.keyboard.press('Enter');await expect(menu).toBeVisible();
- await page.mouse.click(30,400);await expect(menu).toBeHidden();await expect(more).toHaveAttribute('aria-expanded','false');
- await more.focus();await page.keyboard.press('Enter');await page.keyboard.press('Tab');await page.keyboard.press('Tab');await expect(menu).toBeHidden();
- // 입력칸: 하단 탭 바로 위 한 줄, 테두리 하나, 손잡이 없음, 첨부 클립 그대로.
- // UI-버튼작게 ③ + BASKET-전환줄하단: 입력칸 → [업데이트 | 챙길 것] 전환 줄(44px) → 아래 탭 순서.
- const quick=basket.locator('[data-basket-list] .home-quick'),input=quick.locator('[data-quick-input]');
- expect(Math.round((await box(quick)).bottom)).toBe(Math.round((await box(page.locator('.mobile-tabs'))).top)-44);
- await expect(input).toHaveCSS('height','46px');await expect(input).toHaveCSS('resize','none');await expect(quick).toHaveCSS('border-left-width','0px');await expect(quick).toHaveCSS('border-bottom-width','0px');
- await expect(quick.locator('.basket-clip')).toBeVisible();
- expect(errors).toEqual([]);
-});
-
-test('정리함 [분류 요청]: 조용히 복사 + 한 줄 알림 → [분류 결과 입력] 창이 아래에서, 닫고 다시 누르면 다시 복사',async({page})=>{
- const {errors}=await boot(page,390);
- await page.context().grantPermissions(['clipboard-read','clipboard-write']);
- await page.locator('.mobile-tabs [data-view="basket"]').click();await loaded(page,'basket');await expect(page.locator('[data-basket-row]')).toHaveCount(2);
- await requestClassification(page);
- await expect(handoffLine(page)).toHaveText('미분류 업데이트 2개 AI 분류 요청을 복사했어요. ChatGPT에 붙여 넣고, 받은 답을 아래 [분류 결과 입력]에 붙여 넣으세요.');await expect(page.locator('[data-handoff-status]')).toBeEmpty();
- const copied=await page.evaluate(()=>navigator.clipboard.readText());expect(copied).toContain('합성 메모 하나');expect(copied).toContain('합성 메모 둘');
- const sheet=page.locator('[data-classification-panel]');await expect(sheet).toBeVisible();await expect(page.locator('[data-classification-input]')).toBeFocused();
- await expect(sheet.getByRole('heading',{name:'분류 결과 입력'})).toBeVisible();
- const t=await box(page.locator('.mobile-tabs'));await expect.poll(async()=>Math.round((await box(sheet)).bottom)).toBe(Math.round(t.top));const s=await box(sheet);expect(s.left).toBe(0);expect(s.right).toBe(390);
- await page.locator('[data-classification-close]').click();await expect(sheet).toBeHidden();await expect(handoffLine(page)).toBeHidden();await expect(page.locator('[data-basket-more]')).toBeFocused();
- await page.evaluate(()=>navigator.clipboard.writeText('다른 글'));
- await requestClassification(page,{keyboard:true});await expect(sheet).toBeVisible();await expect(handoffLine(page)).toHaveText('미분류 업데이트 2개 AI 분류 요청을 복사했어요. ChatGPT에 붙여 넣고, 받은 답을 아래 [분류 결과 입력]에 붙여 넣으세요.');
- expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(copied);
- expect(errors).toEqual([]);
-});
-
-test('정리함: 메모가 없으면 가운데 회색 "아직 메모가 없어요"',async({page})=>{
+test('정리함: 업데이트가 없으면 회색 한 줄 "업데이트 없음"',async({page})=>{
  const {errors}=await boot(page,390,{notes:[]});
  await page.locator('.mobile-tabs [data-view="basket"]').click();await loaded(page,'basket');
- const empty=page.locator('#basketView [data-basket-list-status]');await expect(empty).toHaveText('아직 업데이트가 없어요');
- await expect(empty).toHaveCSS('text-align','center');expect(await empty.evaluate(el=>getComputedStyle(el).color)).toBe(await token(page,'--kptu-muted'));
+ const empty=page.locator('#basketView [data-basket-list-status]');await expect(empty).toHaveText('업데이트 없음');
+ await expect(empty).toHaveCSS('text-align','start');expect(await empty.evaluate(el=>getComputedStyle(el).color)).toBe(await token(page,'--kptu-muted'));
  await expect(page.locator('#basketView [data-basket-filter="unclassified"]')).toHaveText('미분류 0');
  expect(errors).toEqual([]);
 });
 
-// UI-바구니머리줄: 너비가 760px을 넘으면(폴드를 펼쳐 "PC 화면으로 보기"한 폭 포함) [⋯ 더보기]는 제목줄이 아니라
-// [업데이트|노트 · 미분류 · 분류 완료 · 보류] 줄의 오른쪽 끝에 있고, 메뉴는 그 버튼 아래로 열린다. 760px 이하(폰)는 머리줄 그대로.
-for(const width of [1280,761])test(`정리함: 넓은 화면 ${width}에서 [⋯ 더보기]는 필터 줄 오른쪽 끝, 메뉴는 버튼 아래`,async({page})=>{
- const {errors}=await boot(page,width);
- await page.evaluate(()=>window.KPTURouter.go('basket'));await loaded(page,'basket');await expect(page.locator('[data-basket-row]')).toHaveCount(2);
- const basket=page.locator('#basketView'),more=basket.locator('[data-basket-more]'),menu=page.locator('#basketMoreMenu');
- await expect(more).toBeVisible();
- await expect(basket.locator(':scope > .basket-head [data-basket-more]')).toHaveCount(0);
- await expect(basket.locator('.basket-switch-row [data-basket-more]')).toHaveCount(1);
- await expect(basket.locator('[data-basket-filter]')).toHaveText(['미분류 2','분류 완료','보류']);
- await expect(basket.locator('[data-basket-filter="classified"]')).toHaveAttribute('data-basket-filter','classified');
- const m=await box(more),last=await box(basket.locator('[data-basket-filter="archived"]')),kind=await box(basket.locator('[data-update-filters]')),row=await box(basket.locator('.basket-switch-row')),head=await box(basket.locator(':scope > .basket-head'));
- expect(m.top).toBeGreaterThanOrEqual(head.bottom-1);
- expect(Math.abs((m.top+m.bottom)/2-(kind.top+kind.bottom)/2)).toBeLessThanOrEqual(24);
- expect(m.left).toBeGreaterThan(last.right);expect(Math.abs(m.right-row.right)).toBeLessThanOrEqual(2);
- await more.click();await expect(menu).toBeVisible();
- const mb=await box(menu);expect(mb.top).toBeGreaterThanOrEqual(m.bottom);expect(mb.right).toBeLessThanOrEqual(m.right+1);
- await expect(menu.getByRole('button')).toHaveText(['AI 분류 요청','GPT 답변 가져오기']);
- await page.keyboard.press('Escape');await expect(menu).toBeHidden();
- await chooseBasketKind(page,'note');await expect(more).toBeHidden();
- await chooseBasketKind(page,'memo');await expect(more).toBeVisible();
- // 폭을 760으로 줄이면 머리줄로 돌아간다.
- await page.setViewportSize({width:760,height:844});await expect(basket.locator(':scope > .basket-head [data-basket-more]')).toHaveCount(1);
- await page.setViewportSize({width,height:900});await expect(basket.locator('.basket-switch-row [data-basket-more]')).toHaveCount(1);
- expect(errors).toEqual([]);
-});
