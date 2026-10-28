@@ -9,7 +9,16 @@ const root = resolve(import.meta.dirname, '../..');
 const allowed = [
   'https://mj880616.github.io',
   'https://work.bokdoong.com',
-  'https://desk.bokdoong.com'
+  'https://desk.bokdoong.com',
+  'https://bokdoong.com'
+];
+const lookalikes = [
+  'https://untrusted.example',
+  'http://bokdoong.com',
+  'https://www.bokdoong.com',
+  'https://bokdoong.com.evil.example',
+  'https://evilbokdoong.com',
+  'https://bokdoong.com:8443'
 ];
 
 function handlerFor(name) {
@@ -27,7 +36,7 @@ function handlerFor(name) {
 }
 
 for (const name of ['public-page-edit', 'pc0921-board']) {
-  test(`${name} allows only the existing and two owned work origins`, async () => {
+  test(`${name} allows only the exact owned Web2 origins`, async () => {
     const handler = handlerFor(name);
     for (const origin of allowed) {
       const response = await handler(new Request(`https://example.supabase.co/functions/v1/${name}`, {
@@ -37,11 +46,13 @@ for (const name of ['public-page-edit', 'pc0921-board']) {
       assert.equal(response.headers.get('Access-Control-Allow-Origin'), origin);
       assert.equal(response.headers.get('Vary'), 'Origin');
     }
-    const denied = await handler(new Request(`https://example.supabase.co/functions/v1/${name}`, {
-      method: 'OPTIONS', headers: { Origin: 'https://untrusted.example' }
-    }));
-    assert.equal(denied.status, 403);
-    assert.equal(denied.headers.get('Access-Control-Allow-Origin'), null);
+    for (const origin of lookalikes) {
+      const denied = await handler(new Request(`https://example.supabase.co/functions/v1/${name}`, {
+        method: 'OPTIONS', headers: { Origin: origin }
+      }));
+      assert.equal(denied.status, 403, `${origin} denied`);
+      assert.equal(denied.headers.get('Access-Control-Allow-Origin'), null);
+    }
   });
 }
 

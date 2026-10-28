@@ -5,7 +5,8 @@ const ANON=Deno.env.get('SUPABASE_ANON_KEY')!;
 const ALLOWED_ORIGINS=new Set([
   'https://mj880616.github.io',
   'https://work.bokdoong.com',
-  'https://desk.bokdoong.com'
+  'https://desk.bokdoong.com',
+  'https://bokdoong.com'
 ]);
 const WEB1_ADMIN_USER_ID='987b778e-69fe-4080-ad7f-191dc732d234';
 const baseCors={

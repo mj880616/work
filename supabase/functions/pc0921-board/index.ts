@@ -4,7 +4,8 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const ALLOWED_ORIGINS=new Set([
   "https://mj880616.github.io",
   "https://work.bokdoong.com",
-  "https://desk.bokdoong.com"
+  "https://desk.bokdoong.com",
+  "https://bokdoong.com"
 ]);
 const baseCors={
   "Access-Control-Allow-Headers":"authorization, content-type",
