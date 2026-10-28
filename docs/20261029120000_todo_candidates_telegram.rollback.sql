@@ -14,7 +14,7 @@ begin
 end
 $$;
 
-drop function public.app_todo_candidate_from_telegram(uuid, uuid, text, text, date);
+drop function public.app_todo_candidate_from_telegram(uuid, text, text, text, date);
 
 update public.app_todo_candidates set status = 'dismissed', decided_at = now()
   where source_kind = 'telegram' and status = 'open';

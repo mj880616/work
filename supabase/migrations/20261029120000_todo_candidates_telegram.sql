@@ -3,8 +3,9 @@ begin;
 -- 텔레그램에서 '나한테 온 요청'을 챙길 것 후보로 올릴 수 있게 한다.
 --  1) 후보 표 출처 종류 검사(app_todo_candidates_source_kind_check)에 'telegram'을 더한다. 기존 6개 출처는 그대로다.
 --  2) 서버(collector-feed, service_role)가 후보 한 줄을 넣는 함수 1개:
---     public.app_todo_candidate_from_telegram(p_workspace, p_feed_item, p_summary, p_evidence, p_due) -> text('added'|'exists')
+--     public.app_todo_candidate_from_telegram(p_workspace, p_source_ref, p_summary, p_evidence, p_due) -> jsonb {result: 'added'|'exists'}
 --     - 후보 표는 service_role에 권한이 없으므로(20261021075034) 표 권한을 넓히지 않고 이 함수만 service_role에 연다.
+--     - 소식은 서버가 저장한 source_ref(tg:묶음:번호)로 찾는다(service_role은 소식 id를 읽을 권한이 없음).
 --     - 그 작업공간의 텔레그램 소식(지우지 않은 것)이 있어야 넣는다. 출처 날짜·조직은 소식 줄에서 읽는다(서버가 정하지 못함).
 --     - 늘 kind=request, status=open으로 넣는다. 할 일로 넣기·무시는 명진이 화면에서 누른다(자동 할 일 없음).
 --     - 같은 소식은 한 번만(dedupe_key = 'tg:' || 소식 id, 기존 유일 열쇠). 다시 오면 'exists'.
@@ -25,7 +26,7 @@ begin
      or (select count(*) from supabase_migrations.schema_migrations where version = '20261024140000' and name = 'call_tg_feed') <> 1
      or to_regclass('public.app_todo_candidates') is null
      or to_regclass('public.app_feed_items') is null
-     or to_regprocedure('public.app_todo_candidate_from_telegram(uuid,uuid,text,text,date)') is not null
+     or to_regprocedure('public.app_todo_candidate_from_telegram(uuid,text,text,text,date)') is not null
      -- 지금 검사식이 앞 단계 그대로(6개 출처)여야 한다.
      or (select count(*) from pg_constraint where conrelid = to_regclass('public.app_todo_candidates')
          and conname = 'app_todo_candidates_source_kind_check'
@@ -41,51 +42,52 @@ alter table public.app_todo_candidates drop constraint app_todo_candidates_sourc
 alter table public.app_todo_candidates add constraint app_todo_candidates_source_kind_check check (
   source_kind in ('basket', 'note', 'work', 'meeting', 'org_update', 'project_update', 'telegram'));
 
-create function public.app_todo_candidate_from_telegram(p_workspace uuid, p_feed_item uuid, p_summary text, p_evidence text, p_due date)
-returns text
+create function public.app_todo_candidate_from_telegram(p_workspace uuid, p_source_ref text, p_summary text, p_evidence text, p_due date)
+returns jsonb
 language plpgsql
 volatile
 security definer
 set search_path = ''
 as $$
 declare
+  v_item uuid;
   v_day date;
   v_org uuid;
   v_summary text := pg_catalog.btrim(coalesce(p_summary, ''));
   v_evidence text := pg_catalog.btrim(coalesce(p_evidence, ''));
   v_id uuid;
 begin
-  if p_workspace is null or p_feed_item is null
+  if p_workspace is null or p_source_ref is null or p_source_ref !~ '^tg:[A-Za-z0-9_-]{1,64}:[0-9]{1,4}$'
      or pg_catalog.char_length(v_summary) not between 1 and 100 or v_summary ~ '[[:cntrl:]]'
      or pg_catalog.char_length(v_evidence) > 200 or v_evidence ~ '[[:cntrl:]]' then
     raise exception using errcode = '22023', message = 'TODO_TG_ARGS';
   end if;
-  select i.day, i.organization_id into v_day, v_org
+  select i.id, i.day, i.organization_id into v_item, v_day, v_org
     from public.app_feed_items i
-    where i.id = p_feed_item and i.workspace_id = p_workspace and i.source = 'telegram' and i.hidden_at is null;
-  if v_day is null then
+    where i.source_ref = p_source_ref and i.workspace_id = p_workspace and i.source = 'telegram' and i.hidden_at is null;
+  if v_item is null then
     raise exception using errcode = '22023', message = 'TODO_TG_SOURCE';
   end if;
   insert into public.app_todo_candidates (workspace_id, kind, summary, due, source_kind, source_id, source_day, evidence, dedupe_key, organization_id)
-    values (p_workspace, 'request', v_summary, p_due, 'telegram', p_feed_item, v_day, v_evidence, 'tg:' || p_feed_item::text, v_org)
+    values (p_workspace, 'request', v_summary, p_due, 'telegram', v_item, v_day, v_evidence, 'tg:' || v_item::text, v_org)
     on conflict (workspace_id, dedupe_key) do nothing
     returning id into v_id;
-  return case when v_id is null then 'exists' else 'added' end;
+  return pg_catalog.jsonb_build_object('result', case when v_id is null then 'exists' else 'added' end);
 end
 $$;
 
-revoke all on function public.app_todo_candidate_from_telegram(uuid, uuid, text, text, date) from public, anon, authenticated, service_role;
-grant execute on function public.app_todo_candidate_from_telegram(uuid, uuid, text, text, date) to service_role;
+revoke all on function public.app_todo_candidate_from_telegram(uuid, text, text, text, date) from public, anon, authenticated, service_role;
+grant execute on function public.app_todo_candidate_from_telegram(uuid, text, text, text, date) to service_role;
 
 do $$
 begin
   if (select count(*) from pg_constraint where conrelid = 'public.app_todo_candidates'::regclass
       and conname = 'app_todo_candidates_source_kind_check' and pg_get_constraintdef(oid) like '%telegram%' and convalidated) <> 1
-     or not exists (select 1 from pg_proc where oid = to_regprocedure('public.app_todo_candidate_from_telegram(uuid,uuid,text,text,date)')
+     or not exists (select 1 from pg_proc where oid = to_regprocedure('public.app_todo_candidate_from_telegram(uuid,text,text,text,date)')
          and prosecdef and proconfig = array['search_path=""'] and coalesce(proacl::text, '') !~ '(^|[{,])=')
-     or not has_function_privilege('service_role', 'public.app_todo_candidate_from_telegram(uuid,uuid,text,text,date)', 'execute')
-     or has_function_privilege('anon', 'public.app_todo_candidate_from_telegram(uuid,uuid,text,text,date)', 'execute')
-     or has_function_privilege('authenticated', 'public.app_todo_candidate_from_telegram(uuid,uuid,text,text,date)', 'execute')
+     or not has_function_privilege('service_role', 'public.app_todo_candidate_from_telegram(uuid,text,text,text,date)', 'execute')
+     or has_function_privilege('anon', 'public.app_todo_candidate_from_telegram(uuid,text,text,text,date)', 'execute')
+     or has_function_privilege('authenticated', 'public.app_todo_candidate_from_telegram(uuid,text,text,text,date)', 'execute')
      or has_any_column_privilege('service_role', 'public.app_todo_candidates'::regclass, 'select,insert,update,references')
      or has_any_column_privilege('anon', 'public.app_todo_candidates'::regclass, 'select,insert,update,references')
      or (select count(*) from pg_policy where polrelid = 'public.app_todo_candidates'::regclass) <> 1 then
@@ -95,5 +97,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261029120000', 'todo_candidates_telegram', array['FEAT-1029 5: app_todo_candidates source_kind check adds telegram; SECURITY DEFINER function app_todo_candidate_from_telegram (empty search_path, service_role execute only, inserts one open request candidate from a non-hidden telegram feed item, dedupe tg:<id>); no table grants or policies changed, no new tables']);
+values ('20261029120000', 'todo_candidates_telegram', array['FEAT-1029 5: app_todo_candidates source_kind check adds telegram; SECURITY DEFINER function app_todo_candidate_from_telegram (empty search_path, service_role execute only, inserts one open request candidate from a non-hidden telegram feed item found by source_ref, dedupe tg:<id>); no table grants or policies changed, no new tables']);
 commit;

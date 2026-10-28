@@ -45,7 +45,7 @@ test('todo candidates telegram: check adds telegram; one definer insert function
   const owner=fn=>as('authenticated',OWNER,fn),server=fn=>as('service_role','',fn);
   const values=rows=>Object.fromEntries(rows.map(r=>[r.item,r.value]));
   const FEED_A='31000000-0000-4000-8000-000000000001',FEED_B='31000000-0000-4000-8000-000000000002',FEED_HIDDEN='31000000-0000-4000-8000-000000000003',FEED_CALL='31000000-0000-4000-8000-000000000004';
-  const fn='select public.app_todo_candidate_from_telegram($1,$2,$3,$4,$5) r';
+  const fn="select public.app_todo_candidate_from_telegram($1,$2,$3,$4,$5)->>'result' r";
   const before=(await pool.query(snapshot)).rows;
   const beforeCheck=await readOnly(precheck);
 
@@ -62,7 +62,7 @@ test('todo candidates telegram: check adds telegram; one definer insert function
    assert.equal(lines.length,3);['무엇이 바뀌나:','잘못되면:','되돌리는 법:'].forEach((p,i)=>assert.ok(lines[i].startsWith(p)));
    const code=migration.replace(/--.*$/gm,'');
    const grants=[...code.matchAll(/^grant [^;]*;/gim)].map(m=>m[0].replace(/\s+/g,' '));
-   assert.deepEqual(grants,['grant execute on function public.app_todo_candidate_from_telegram(uuid, uuid, text, text, date) to service_role;']);
+   assert.deepEqual(grants,['grant execute on function public.app_todo_candidate_from_telegram(uuid, text, text, text, date) to service_role;']);
    assert.doesNotMatch(code,/create table|create policy|alter policy|drop policy|create trigger|create or replace|rtw_|\bto (anon|public|authenticated)\b/i);
    assert.deepEqual([...code.matchAll(/^alter table [^;]*/gim)].map(m=>m[0].split(' ').slice(0,5).join(' ')),[
     'alter table public.app_todo_candidates drop constraint','alter table public.app_todo_candidates add constraint']);
@@ -92,18 +92,20 @@ test('todo candidates telegram: check adds telegram; one definer insert function
    await ins(FEED_HIDDEN,WS_A,'telegram','tg:fake:3',null);
    await ins(FEED_CALL,WS_A,'call','call:fake:1');
    await pool.query('update public.app_feed_items set hidden_at=now() where id=$1',[FEED_HIDDEN]);
-   assert.equal((await server(c=>c.query(fn,[WS_A,FEED_A,' 가상 자료 보내 달라는 요청 ','가상 근거 한 줄','2026-10-30']))).rows[0].r,'added');
-   assert.equal((await server(c=>c.query(fn,[WS_A,FEED_A,'다른 요약','',null]))).rows[0].r,'exists');
+   assert.equal((await server(c=>c.query(fn,[WS_A,'tg:fake:1',' 가상 자료 보내 달라는 요청 ','가상 근거 한 줄','2026-10-30']))).rows[0].r,'added');
+   assert.equal((await server(c=>c.query(fn,[WS_A,'tg:fake:1','다른 요약','',null]))).rows[0].r,'exists');
    const rows=(await pool.query("select kind,summary,due::text,source_kind,source_id,source_day::text,evidence,dedupe_key,organization_id,project_id,status,task_id from public.app_todo_candidates")).rows;
    assert.deepEqual(rows,[{kind:'request',summary:'가상 자료 보내 달라는 요청',due:'2026-10-30',source_kind:'telegram',source_id:FEED_A,source_day:'2026-10-29',evidence:'가상 근거 한 줄',dedupe_key:'tg:'+FEED_A,organization_id:ORG_A,project_id:null,status:'open',task_id:null}]);
-   for(const [ws,id] of [[WS_A,FEED_B],[WS_A,FEED_HIDDEN],[WS_A,FEED_CALL],[WS_A,MISSING]])
-    await assert.rejects(server(c=>c.query(fn,[ws,id,'가상','',null])),/TODO_TG_SOURCE/,id);
+   for(const [ws,ref] of [[WS_A,'tg:fake:2'],[WS_B,'tg:fake:1'],[WS_A,'tg:fake:3'],[WS_A,'tg:fake:9']])
+    await assert.rejects(server(c=>c.query(fn,[ws,ref,'가상','',null])),/TODO_TG_SOURCE/,ref);
+   for(const ref of ['call:fake:1','tg:../x:1','tg:fake:1;',null])
+    await assert.rejects(server(c=>c.query(fn,[WS_A,ref,'가상','',null])),/TODO_TG_ARGS/,String(ref));
    for(const [s,e] of [['',''],['가'.repeat(101),''],['줄\n바꿈',''],['가상','가'.repeat(201)]])
-    await assert.rejects(server(c=>c.query(fn,[WS_A,FEED_A,s,e,null])),/TODO_TG_ARGS/);
+    await assert.rejects(server(c=>c.query(fn,[WS_A,'tg:fake:1',s,e,null])),/TODO_TG_ARGS/);
    await assert.rejects(server(c=>c.query('select summary from public.app_todo_candidates')),/permission denied/);
    await assert.rejects(server(c=>c.query("insert into public.app_todo_candidates(workspace_id,kind,summary,source_kind,source_id,source_day,dedupe_key) values($1,'request','x','telegram',$2,'2026-10-29','z')",[WS_A,FEED_A])),/permission denied/);
-   await assert.rejects(owner(c=>c.query(fn,[WS_A,FEED_A,'가상','',null])),/permission denied/);
-   await assert.rejects(as('anon','',c=>c.query(fn,[WS_A,FEED_A,'가상','',null])),/permission denied/);
+   await assert.rejects(owner(c=>c.query(fn,[WS_A,'tg:fake:1','가상','',null])),/permission denied/);
+   await assert.rejects(as('anon','',c=>c.query(fn,[WS_A,'tg:fake:1','가상','',null])),/permission denied/);
    // 명진은 화면에서 텔레그램 후보를 보고 처리 칸만 바꾼다(기존 경로 그대로).
    const seen=(await owner(c=>c.query("select source_kind from public.app_todo_candidates"))).rows;
    assert.deepEqual(seen,[{source_kind:'telegram'}]);
@@ -115,7 +117,7 @@ test('todo candidates telegram: check adds telegram; one definer insert function
   await t.test('rollback removes the function and record, dismisses open telegram rows, keeps rows; re-apply works',async()=>{
    await pool.query(rollbackSQL);
    assert.equal((await pool.query('select count(*)::int n from supabase_migrations.schema_migrations where version=$1',[version])).rows[0].n,0);
-   assert.equal((await pool.query("select to_regprocedure('public.app_todo_candidate_from_telegram(uuid,uuid,text,text,date)') f")).rows[0].f,null);
+   assert.equal((await pool.query("select to_regprocedure('public.app_todo_candidate_from_telegram(uuid,text,text,text,date)') f")).rows[0].f,null);
    assert.deepEqual((await pool.query("select source_kind,status from public.app_todo_candidates")).rows,[{source_kind:'telegram',status:'dismissed'}]);
    await assert.rejects(owner(c=>c.query("insert into public.app_todo_candidates(workspace_id,kind,summary,source_kind,source_id,source_day,dedupe_key) values($1,'request','x','telegram',$2,'2026-10-29','z2')",[WS_A,FEED_A])),{code:'23514'});
    await pool.query(migration);

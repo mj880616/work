@@ -8,7 +8,7 @@
 -- expect: candidates grants policies hash = 기록
 select 'new migration absent' as item,case when not exists(select 1 from supabase_migrations.schema_migrations where version='20261029120000') then '예' else '아니오' end as value
 union all select 'previous steps applied',case when (select count(*) from supabase_migrations.schema_migrations where (version='20261021075034' and name='todo_radar_candidates') or (version='20261024140000' and name='call_tg_feed'))=2 and to_regclass('public.app_todo_candidates') is not null and to_regclass('public.app_feed_items') is not null then '예' else '아니오' end
-union all select 'telegram function absent',case when to_regprocedure('public.app_todo_candidate_from_telegram(uuid,uuid,text,text,date)') is null then '예' else '아니오' end
+union all select 'telegram function absent',case when to_regprocedure('public.app_todo_candidate_from_telegram(uuid,text,text,text,date)') is null then '예' else '아니오' end
 union all select 'source kind check has six kinds',case when (select count(*) from pg_constraint where conrelid=to_regclass('public.app_todo_candidates') and conname='app_todo_candidates_source_kind_check' and pg_get_constraintdef(oid) like '%project_update%' and pg_get_constraintdef(oid) not like '%telegram%')=1 then '예' else '아니오' end
 union all select 'candidates rows',(select count(*)::text from public.app_todo_candidates)
 union all select 'candidates grants policies hash',md5(coalesce((select string_agg(c.relname||':'||c.relrowsecurity::text||':'||coalesce(c.relacl::text,''),',' order by c.relname) from pg_class c where c.oid=to_regclass('public.app_todo_candidates')),'')
