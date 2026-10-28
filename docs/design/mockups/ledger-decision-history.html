@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>결정 변경 이력 시안</title>
+<style>
+/* Web2 스타일 변수(app/base-ui.css --kptu-*, 기본 테마 olive 톤). 가짜 자료. */
+:root{
+  --kptu-bg:#f3f1ea;--kptu-surface:#fffefa;--kptu-surface-subtle:#f7f5ee;
+  --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--kptu-faint:#8f8c7f;
+  --kptu-border:#e2ddd0;--kptu-border-strong:#cfc8b6;
+  --kptu-primary:#5c6a35;--kptu-primary-ink:#47532a;--kptu-primary-soft:#eef0e1;
+  --kptu-warning:#8a6218;--kptu-warning-soft:#faf4e7;--kptu-link:#355f86;
+  --kptu-radius-sm:6px;--kptu-radius-md:8px;
+}
+@media (prefers-color-scheme:dark){:root{
+  --kptu-bg:#161613;--kptu-surface:#1f1f1b;--kptu-surface-subtle:#292924;--kptu-ink:#ebe9e1;--kptu-muted:#b1aea2;--kptu-faint:#938f84;
+  --kptu-border:#34332d;--kptu-border-strong:#4a4840;--kptu-primary:#b4c385;--kptu-primary-ink:#c2d095;--kptu-primary-soft:#2c3120;
+  --kptu-warning:#e0c97f;--kptu-warning-soft:#3a3420;--kptu-link:#a9c6de;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--kptu-bg);color:var(--kptu-ink);font:13px/1.45 system-ui,"Noto Sans KR","Malgun Gothic",sans-serif;padding:12px 16px}
+h1{font-size:14px;font-weight:500;margin:0 0 4px;color:var(--kptu-muted)}
+h2{font-size:13px;font-weight:500;margin:0 0 6px;color:var(--kptu-primary-ink)}
+.lead{font-size:12px;color:var(--kptu-faint);margin:0 0 12px;max-width:780px}
+.section{margin-bottom:24px}
+.cap{font-size:12px;color:var(--kptu-muted);margin:0 0 4px}
+.scroll{overflow-x:auto;padding-bottom:4px}
+.phone{width:412px;max-width:100%;background:var(--kptu-surface);border:.5px solid var(--kptu-border-strong);border-radius:12px;overflow:hidden}
+.pc{width:1440px;background:var(--kptu-surface);border:.5px solid var(--kptu-border-strong);border-radius:10px;overflow:hidden;display:flex;min-height:360px}
+.side{width:200px;flex:none;border-right:.5px solid var(--kptu-border);padding:10px 8px;background:var(--kptu-surface-subtle)}
+.side div{padding:4px 8px;border-radius:6px;color:var(--kptu-muted);font-size:12px}
+.side .on{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink)}
+.main{flex:1;min-width:0;padding:10px 14px}
+.cols{display:flex;gap:12px}.cols>.c1{flex:1;min-width:0}.cols>.c2{width:420px;flex:none}
+.top{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:.5px solid var(--kptu-border);min-height:38px}
+.top .t{font-weight:500;flex:1}
+.card{border:.5px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);margin:8px 12px;padding:6px 10px}
+.pc .card{margin:0 0 10px}
+.card header{display:flex;align-items:center;gap:6px;margin-bottom:2px}
+.card h3{font-size:13px;font-weight:500;margin:0;flex:1}
+.fa{color:var(--kptu-faint)}.mu{color:var(--kptu-muted)}.xs{font-size:11px}.sm{font-size:12px}
+.row{display:flex;align-items:center;gap:6px;padding:4px 0;border-top:.5px solid var(--kptu-border)}
+.row:first-of-type{border-top:0}
+.grow{flex:1;min-width:0}
+.ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+a,.lnk{color:var(--kptu-link);text-decoration:none}
+button{font:inherit;color:inherit;cursor:pointer}
+.tb{border:0;background:transparent;color:var(--kptu-muted);font-size:12px;padding:2px 4px;min-height:28px}
+.ib{width:28px;height:28px;border:.5px solid var(--kptu-border);border-radius:6px;background:transparent;color:var(--kptu-muted);font-size:13px;padding:0}
+.btn{border:.5px solid var(--kptu-border-strong);border-radius:6px;background:transparent;padding:3px 10px;font-size:12px;min-height:30px}
+.btn.pri{background:var(--kptu-primary);border-color:var(--kptu-primary);color:var(--kptu-surface)}
+.chip{font-size:12px;padding:2px 9px;border:.5px solid var(--kptu-border-strong);border-radius:12px;background:transparent;color:var(--kptu-muted)}
+.chip.on{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);border-color:var(--kptu-primary)}
+.tag{font-size:11px;color:var(--kptu-faint);border:.5px solid var(--kptu-border);border-radius:4px;padding:0 4px}
+.ref{font-size:11px;color:var(--kptu-link);vertical-align:1px;white-space:nowrap}
+details>summary{cursor:pointer;list-style:none;color:var(--kptu-muted);font-size:12px;padding:3px 0}
+details>summary::-webkit-details-marker{display:none}
+.pad{padding:6px 12px}
+.note{font-size:12px;color:var(--kptu-faint);margin:6px 0 0;max-width:780px}
+</style>
+</head>
+<body>
+<style>
+.dt{display:grid;grid-template-columns:72px 1fr;gap:2px 8px;font-size:12px;padding:6px 12px}
+.dt dt{color:var(--kptu-faint)}.dt dd{margin:0}
+.hist{margin:4px 12px 8px;border-top:.5px solid var(--kptu-border)}
+.tl{position:relative;margin:2px 0 4px 6px;padding-left:12px;border-left:1.5px solid var(--kptu-border-strong)}
+.tl .ln{position:relative;display:flex;gap:8px;padding:3px 0;font-size:12px}
+.tl .ln::before{content:"";position:absolute;left:-16.5px;top:9px;width:7px;height:7px;border-radius:50%;background:var(--kptu-border-strong)}
+.tl .ln.now::before{background:var(--kptu-primary)}
+.tl .d{width:38px;flex:none;color:var(--kptu-faint)}
+.tl .now .grow{color:var(--kptu-ink)}.tl .old .grow{color:var(--kptu-muted)}
+.nowtag{font-size:11px;color:var(--kptu-primary-ink);background:var(--kptu-primary-soft);border-radius:4px;padding:0 4px}
+.why{display:block;font-size:11px;color:var(--kptu-faint)}
+.more{font-size:12px;color:var(--kptu-link);padding:2px 0 0}
+.ttlrow{display:flex;gap:6px;align-items:flex-start;padding:8px 12px 2px}
+.ttlrow .t{flex:1;font-weight:500}
+</style>
+<h1>결정 변경 이력 — 원장 상세 시안</h1>
+<p class="lead">설계: docs/design/feature-bundle-1029.md 6절. 원장 상세 맨 아래 [이전 결정 N] 접기. 펼치면 '대체됨'으로 남은 옛 기록을 오래된 것부터 한 줄씩. 같은 주제의 다른 결정은 따로 한 줄. AI 없음. 내용은 지어낸 것.</p>
+
+<div class="section">
+<h2>폰 412 — 접힘(기본)</h2>
+<div class="phone">
+  <div class="top"><button class="ib" aria-label="뒤로">‹</button><span class="t">원장</span></div>
+  <div class="ttlrow"><span class="t">회의비 기준 1인 1만 5천 원</span><button class="ib" aria-label="더보기">⋯</button></div>
+  <div class="xs fa" style="padding:0 12px"><span class="tag">결정</span> 10.12 · 주제 회의비</div>
+  <dl class="dt"><dt>내용</dt><dd>팀 회의·간담회 식비 기준을 1인 1만 5천 원으로 함.</dd><dt>근거</dt><dd><a href="#">팀 정례 회의 10.12 ›</a></dd></dl>
+  <div class="hist"><details><summary>이전 결정 2 ▸</summary></details></div>
+</div>
+</div>
+
+<div class="section">
+<h2>폰 412 — 펼침</h2>
+<div class="phone">
+  <div class="top"><button class="ib" aria-label="뒤로">‹</button><span class="t">원장</span></div>
+  <div class="ttlrow"><span class="t">회의비 기준 1인 1만 5천 원</span><button class="ib" aria-label="더보기">⋯</button></div>
+  <div class="xs fa" style="padding:0 12px"><span class="tag">결정</span> 10.12 · 주제 회의비</div>
+  <dl class="dt"><dt>내용</dt><dd>팀 회의·간담회 식비 기준을 1인 1만 5천 원으로 함.</dd><dt>근거</dt><dd><a href="#">팀 정례 회의 10.12 ›</a></dd></dl>
+  <div class="hist"><details open><summary>이전 결정 2 ⌄</summary>
+    <div class="tl">
+      <div class="ln old"><span class="d">7.15</span><span class="grow">회의비 기준 1인 8천 원</span></div>
+      <div class="ln old"><span class="d">9.03</span><span class="grow">회의비 기준 1인 1만 원<span class="why">사유: 간담회 늘어 기준 다시 정함</span></span></div>
+      <div class="ln now"><span class="d">10.12</span><span class="grow">회의비 기준 1인 1만 5천 원 <span class="nowtag">지금</span><span class="why">사유: 물가 반영</span></span></div>
+    </div>
+    <div class="more"><a href="#">같은 주제 결정 5건 ›</a></div>
+  </details></div>
+</div>
+<p class="note">옛 줄을 누르면 그 기록의 근거·출처가 그 자리에서 펼쳐짐(읽기만). 결정이 아닌 기록은 '이전 기록 N'.</p>
+</div>
+
+<div class="section">
+<h2>PC 1440 — 목록(왼쪽)·상세(오른쪽)</h2>
+<div class="scroll"><div class="pc">
+  <div class="side"><div>홈</div><div>담당조직</div><div>사업 보고</div><div class="on">원장</div></div>
+  <div class="main" style="padding:0;display:flex">
+    <div style="width:520px;flex:none;border-right:.5px solid var(--kptu-border);padding:8px 12px">
+      <div class="row"><span class="tag">결정</span><span class="grow ell">회의비 기준 1인 1만 5천 원</span><span class="xs fa">10.12</span></div>
+      <div class="row"><span class="tag">약속</span><span class="grow ell">가지부 교섭 자료 회신</span><span class="xs fa">10.20</span></div>
+      <div class="row"><span class="tag">일어난 일</span><span class="grow ell">나공사 임금교섭 2차</span><span class="xs fa">10.17</span></div>
+      <div class="row"><span class="tag">결정</span><span class="grow ell">주간보고 마감 목요일 18시</span><span class="xs fa">10.08</span></div>
+    </div>
+    <div class="grow">
+      <div class="ttlrow"><span class="t">회의비 기준 1인 1만 5천 원</span><button class="ib" aria-label="더보기">⋯</button></div>
+      <div class="xs fa" style="padding:0 12px"><span class="tag">결정</span> 10.12 · 주제 회의비</div>
+      <dl class="dt" style="max-width:720px"><dt>내용</dt><dd>팀 회의·간담회 식비 기준을 1인 1만 5천 원으로 함.</dd><dt>근거</dt><dd><a href="#">팀 정례 회의 10.12 ›</a></dd></dl>
+      <div class="hist" style="max-width:720px"><details open><summary>이전 결정 2 ⌄</summary>
+        <div class="tl">
+          <div class="ln old"><span class="d">7.15</span><span class="grow">회의비 기준 1인 8천 원</span></div>
+          <div class="ln old"><span class="d">9.03</span><span class="grow">회의비 기준 1인 1만 원<span class="why">사유: 간담회 늘어 기준 다시 정함</span></span></div>
+          <div class="ln now"><span class="d">10.12</span><span class="grow">회의비 기준 1인 1만 5천 원 <span class="nowtag">지금</span><span class="why">사유: 물가 반영</span></span></div>
+        </div>
+        <div class="more"><a href="#">같은 주제 결정 5건 ›</a></div>
+      </details></div>
+    </div>
+  </div>
+</div></div>
+</div>
+</body></html>
