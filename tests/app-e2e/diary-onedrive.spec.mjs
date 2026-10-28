@@ -7,10 +7,10 @@ const SB = 'https://xmlkxfjeagycwttklxjw.supabase.co';
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==', 'base64');
 const photo = (id, hour) => ({ id, name: id + '.jpg', taken_at: `2026-10-12T${String(hour).padStart(2, '0')}:00:00Z`, approx: false });
 
-async function fixture(page, { width = 390, status = { configured: true, connected: true, folder: { name: '카메라' }, can_delete: true }, days = null } = {}) {
+async function fixture(page, { width = 390, status = { configured: true, connected: true, folder: { name: '카메라' }, can_delete: true }, days = null, statusFail = false } = {}) {
   const state = {
     days: days || { '2026-10-12': ['A1', 'A2', 'A3', 'A4', 'A5', 'A6'].map((id, i) => photo(id, i + 1)) },
-    stars: [], edge: [], syncPlan: [], tree: null, toggles: [], starWrites: [], photoReads: [], status: { ...status }, errors: [],
+    stars: [], edge: [], syncPlan: [], tree: null, toggles: [], starWrites: [], photoReads: [], status: { ...status }, statusFail, errors: [],
   };
   page.on('pageerror', e => state.errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) state.errors.push(m.text()); });
@@ -37,7 +37,7 @@ async function fixture(page, { width = 390, status = { configured: true, connect
     const body = r.request().postDataJSON();
     if (body.action === 'photo') { state.photoReads.push(body); return r.fulfill({ status: 200, contentType: 'image/png', body: PNG }); }
     state.edge.push(body);
-    if (body.action === 'status') return r.fulfill({ json: state.status });
+    if (body.action === 'status') return state.statusFail ? r.fulfill({ status: 503, json: { error: 'onedrive_unavailable' } }) : r.fulfill({ json: state.status });
     if (body.action === 'photos') return r.fulfill({ json: { month: body.month, days: state.days, truncated: false } });
     if (body.action === 'photo-delete') {
       for (const day of Object.keys(state.days)) state.days[day] = state.days[day].filter(p => p.id !== body.id);
@@ -65,6 +65,15 @@ async function openDiary(page, width) {
   await expect(page.locator('#diaryRoot [data-diary-title]')).toHaveText('2026년 10월');
 }
 const cell = (page, day) => page.locator(`#diaryRoot [data-diary-day="${day}"]`);
+// OD-연결아이콘: 연결 표시는 [오늘] 오른쪽 아이콘 하나, 누르면 드롭다운(#diaryOdMenu).
+const odIcon = page => page.locator('#diaryRoot [data-od-link]');
+const odMenu = page => page.locator('#diaryOdMenu');
+async function odPick(page, name) {
+  await odIcon(page).click();
+  await expect(odMenu(page)).toBeVisible();
+  await odMenu(page).locator('button', { hasText: name }).click();
+  await expect(odMenu(page)).toBeHidden();
+}
 // 크게 보기 사진 위 한 손가락 세로 밀기(dy<0 위, dy>0 아래). 터치 이벤트를 직접 보낸다.
 async function swipe(page, dy) {
   await page.locator('#diaryRoot [data-diary-viewer-strip]').evaluate((el, dy) => {
@@ -197,9 +206,15 @@ test('연결 전: 한 줄 안내 → 연결 버튼은 마이크로소프트 로�
   const f = await fixture(page, { status: { configured: true, connected: false, folder: null, can_delete: false }, days: {} });
   await page.route('https://login.microsoftonline.com/**', r => r.fulfill({ contentType: 'text/html', body: '<p>ms</p>' }));
   await openDiary(page, 390);
-  const strip = page.locator('#diaryRoot [data-diary-od]');
-  await expect(strip).toContainText('원드라이브 사진을 날짜별로 모아 봐요.');
-  await strip.getByRole('button', { name: '원드라이브 연결' }).click();
+  await expect(odIcon(page)).toBeVisible();
+  await expect(odIcon(page)).toHaveAttribute('data-state', 'off');
+  await expect(odIcon(page)).toHaveAttribute('aria-label', '원드라이브 · 연결 안 됨');
+  // 옛 연결 줄은 없다(아이콘 하나만).
+  await expect(page.locator('#diaryRoot .diary-od-line')).toHaveCount(0);
+  await expect(page.locator('#diaryRoot [data-diary-od]')).toBeHidden();
+  await odIcon(page).click();
+  await expect(odMenu(page)).toContainText('연결 안 됨');
+  await odMenu(page).getByRole('button', { name: '원드라이브 연결' }).click();
   await page.waitForURL(/login\.microsoftonline\.com/);
   expect(f.edge.some(b => b.action === 'auth-start')).toBe(true);
   // 돌아오는 페이지: 코드를 # 뒤로 옮겨 일기로 보낸다.
@@ -212,12 +227,12 @@ test('연결 전: 한 줄 안내 → 연결 버튼은 마이크로소프트 로�
   await panel.getByRole('button', { name: '사진', exact: true }).click();
   await expect(panel).toContainText('맨 위 › 사진');
   await panel.getByRole('button', { name: '이 폴더 쓰기' }).click();
-  await expect(panel).toContainText('원드라이브 · 사진');
+  await expect(odIcon(page)).toHaveAttribute('aria-label', '원드라이브 · 연결됨 · 사진');
+  await expect(odIcon(page)).toHaveAttribute('data-state', 'ok');
   expect(f.edge.find(b => b.action === 'folder-set')).toEqual({ action: 'folder-set', folder_id: 'F3' });
   page.once('dialog', d => { expect(d.message()).toContain('별표 기록도 남아요'); d.accept(); });
-  await panel.getByRole('button', { name: '설정' }).click();
-  await panel.getByRole('button', { name: '연결 끊기' }).click();
-  await expect(panel).toContainText('원드라이브 사진을 날짜별로 모아 봐요.');
+  await odPick(page, '연결 끊기');
+  await expect(odIcon(page)).toHaveAttribute('data-state', 'off');
   expect(f.edge.some(b => b.action === 'disconnect')).toBe(true);
   expect(f.errors).toEqual([]);
 });
@@ -226,6 +241,7 @@ test('원드라이브 준비가 안 된 서버에서는 연결 줄이 없고 일
   const f = await fixture(page, { status: { configured: false, connected: false, folder: null }, days: {} });
   await openDiary(page, 390);
   await expect(page.locator('#diaryRoot [data-diary-od]')).toBeHidden();
+  await expect(odIcon(page)).toBeHidden();
   await cell(page, '2026-10-12').click();
   await expect(page.locator('#diaryRoot [data-diary-detail]')).toContainText('이 날 일기가 없어요.');
   await expect(page.locator('#diaryRoot [data-diary-detail] [data-diary-source]')).toHaveCount(0);
@@ -251,7 +267,7 @@ for (const width of [390, 1280]) {
     f.tree = TREE();
     await openDiary(page, width);
     const panel = page.locator('#diaryRoot [data-diary-od]');
-    await panel.getByRole('button', { name: '설정' }).click();
+    await odPick(page, '하위 폴더 켜고 끄기');
     const sheet = panel.locator('[data-od-modal] [role="dialog"]');
     await expect(sheet).toBeVisible();
     await expect(sheet).toContainText('원드라이브 · 카메라');
@@ -277,12 +293,12 @@ for (const width of [390, 1280]) {
     await expect(sheet).toHaveCount(0);
     expect(f.toggles).toEqual([]);
     // 뒤로가기도 창 닫기.
-    await panel.getByRole('button', { name: '설정' }).click();
+    await odPick(page, '하위 폴더 켜고 끄기');
     await expect(sheet).toBeVisible();
     await page.goBack();
     await expect(sheet).toHaveCount(0);
     // 저장: 바뀐 것만.
-    await panel.getByRole('button', { name: '설정' }).click();
+    await odPick(page, '하위 폴더 켜고 끄기');
     await sheet.getByRole('button', { name: '봄 하위 폴더' }).click();
     await sheet.getByRole('switch', { name: '봄 여행 사진 보기' }).click();
     await sheet.getByRole('switch', { name: '여름 사진 보기' }).click();
@@ -315,4 +331,50 @@ test('사진 목록 받기를 알 수 없는 오류가 막으면 알려진 문�
   await openDiary(page, 390);
   await expect(page.locator('#diaryRoot [data-diary-od]')).toContainText('원드라이브 연결이 풀렸어요. 다시 연결해 주세요.');
   expect(f.edge.filter(b => b.action === 'sync')).toHaveLength(1);
+  // 오류는 아이콘의 작은 빨간 점, 드롭다운에도 같은 문구.
+  await expect(odIcon(page)).toHaveAttribute('data-state', 'error');
+  await expect(odIcon(page).locator('.od-link-dot')).toBeVisible();
+  await odIcon(page).click();
+  await expect(odMenu(page)).toContainText('원드라이브 연결이 풀렸어요. 다시 연결해 주세요.');
+});
+
+for (const width of [390, 1280]) {
+  test(`원드라이브 아이콘: [오늘] 오른쪽 작은 아이콘, 드롭다운 항목, '일기에서 사진 보이기'를 끄면 원드라이브 사진만 빠지고 다시 켜면 돌아온다 ${width}`, async ({ page }) => {
+    const f = await fixture(page, { width });
+    await openDiary(page, width);
+    const icon = odIcon(page), today = page.locator('#diaryRoot [data-diary-today]');
+    await expect(icon).toHaveAttribute('data-state', 'ok');
+    await expect(icon).toHaveAttribute('aria-label', '원드라이브 · 연결됨 · 카메라');
+    const a = await today.boundingBox(), b = await icon.boundingBox();
+    expect(b.x).toBeGreaterThan(a.x + a.width - 1);
+    expect(Math.abs((b.y + b.height / 2) - (a.y + a.height / 2))).toBeLessThanOrEqual(4);
+    expect(b.height).toBeLessThanOrEqual(40);
+    await expect(cell(page, '2026-10-12').locator('[data-diary-od-dot]')).toBeVisible();
+    await icon.click();
+    const menu = odMenu(page);
+    await expect(menu).toContainText('연결됨 · 카메라');
+    await expect(menu.locator('button')).toHaveText(['폴더 바꾸기', '하위 폴더 켜고 끄기', '✓일기에서 사진 보이기', '연결 끊기']);
+    // 뒤로가기로 닫힌다.
+    await page.goBack();
+    await expect(menu).toBeHidden();
+    await odPick(page, '일기에서 사진 보이기');
+    await expect(cell(page, '2026-10-12').locator('[data-diary-od-dot]')).toHaveCount(0);
+    await icon.click();
+    await expect(menu.locator('[data-od-act="show"]')).toHaveAttribute('aria-checked', 'false');
+    await menu.locator('[data-od-act="show"]').click();
+    await expect(cell(page, '2026-10-12').locator('[data-diary-od-dot]')).toBeVisible();
+    // 폴더 바꾸기 = 폴더 고르기 창.
+    await odPick(page, '폴더 바꾸기');
+    await expect(page.locator('#diaryRoot [data-od-modal]')).toContainText('맨 위');
+    expect(f.errors).toEqual([]);
+  });
+}
+
+test('원드라이브 상태 확인이 실패하면 아이콘에 빨간 점, 드롭다운 [다시 확인]', async ({ page }) => {
+  const f = await fixture(page, { width: 390, statusFail: true });
+  await openDiary(page, 390);
+  await expect(odIcon(page)).toHaveAttribute('data-state', 'error');
+  f.statusFail = false;
+  await odPick(page, '다시 확인');
+  await expect(odIcon(page)).toHaveAttribute('data-state', 'ok');
 });
