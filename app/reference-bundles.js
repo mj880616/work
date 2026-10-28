@@ -1,3 +1,4 @@
+import {askConfirm} from './small-notice.js'; // UI-알림창정리: 브라우저 기본 확인창 대신 공용 작은 확인창
 // REF-참고묶음 화면 2 (docs/design/ref-bundle.md 6절, 질문 1~7 추천안): the 참고 묶음 screen (?view=reference). This module is the
 // only renderer of #referenceView: the bundle list (name · linked count · last date, head ⋯ [묶음 더하기]·[순서 바꾸기]) and one
 // bundle's detail (its linked updates and notes, newest first; a row opens the original, its ⋯ [업데이트 열기]·[연결 해제];
@@ -131,9 +132,9 @@ function renameBundle(){
     }catch(error){if(current())state.detailStatus=bundleErrorText(error);}
   }).then(()=>{(state.mode==='rename'?$('#rbDetail [data-rb-rename-input]'):$('#rbDetail [data-rb-detail-more]'))?.focus();});
 }
-function removeBundle(){
+async function removeBundle(){
   const b=bundleOf(state.selected);if(!b||linksOf(b.id).length)return;
-  if(!window.confirm(`'${b.name}' 묶음을 지울까요? 붙은 소식이 없는 빈 묶음이에요.`))return;
+  if(!(await askConfirm(document.activeElement,{text:`'${b.name}' 묶음을 지울까요? 붙은 소식이 없는 빈 묶음이에요.`,ok:"지우기",danger:true})))return;
   return guarded(async current=>{
     try{const gone=await deleteReferenceBundle(b.id,rt);if(!current())return;
       if(!gone){state.detailStatus='지우지 못했어요. 목록을 다시 불러와 확인해 주세요.';await load();return;}

@@ -1,3 +1,4 @@
+import {notify} from './small-notice.js'; // UI-알림창정리: 브라우저 기본 알림창 대신 공용 작은 알림
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {meetingInputValue,toMeetingISO,seoulDateKey} from './meeting-time.js';
 import {formatMeetingWhen} from './meeting-when.js';
@@ -90,15 +91,15 @@ async function mrdTaskClick(e){
       if(epoch!==mrdRequestEpoch||mrdCurrent?.id!==meeting.id||mrdTaskToggleSeq.get(t.id)!==seq)return;
       await mrdReload(meeting.id);
       const saved=mrdTasks.find(x=>x.id===t.id);
-      if(saved&&(saved.status==='completed')!==want)alert(want?'완료를 저장하지 못해 되돌렸습니다':'완료 취소를 저장하지 못해 되돌렸습니다');
+      if(saved&&(saved.status==='completed')!==want)notify(want?'완료를 저장하지 못해 되돌렸습니다':'완료 취소를 저장하지 못해 되돌렸습니다',{error:true});
       else window.dispatchEvent(new CustomEvent('kptu:tasks-changed'));
-    }catch(err){if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id)alert(err.message||String(err))}
+    }catch(err){if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id)notify(err.message||String(err),{error:true})}
     return;
   }
 }
-async function mrdDeleteTask(t,trigger){const meeting=mrdCurrent,epoch=mrdRequestEpoch;if(!t||!meeting||!confirm(`“${t.title}” Google 할 일을 삭제할까요?`))return;if(trigger)trigger.disabled=true;try{await mrdApi(mrdTaskEndpoint('delete'),{method:'POST',body:{action:'delete',task_id:t.id,task_list_id:t.taskListId||null}});window.dispatchEvent(new CustomEvent('kptu:tasks-changed'));if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id)await mrdReload(meeting.id)}catch(err){if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id){alert(err.message||String(err));if(trigger)trigger.disabled=false}}}
+async function mrdDeleteTask(t,trigger){const meeting=mrdCurrent,epoch=mrdRequestEpoch;if(!t||!meeting||!confirm(`“${t.title}” Google 할 일을 삭제할까요?`))return;if(trigger)trigger.disabled=true;try{await mrdApi(mrdTaskEndpoint('delete'),{method:'POST',body:{action:'delete',task_id:t.id,task_list_id:t.taskListId||null}});window.dispatchEvent(new CustomEvent('kptu:tasks-changed'));if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id)await mrdReload(meeting.id)}catch(err){if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id){notify(err.message||String(err),{error:true});if(trigger)trigger.disabled=false}}}
 // FILE-누르면동작: 자료 줄을 누르면 종류별 동작(file-actions.js). docs는 이 창이 그린 자료 목록.
-async function mrdDownload(id,docs=[]){const d=docs.find(x=>x.id===id);if(!d)return;await pressFile(meetingFileFile(d),{api:mrdApi,onError:m=>alert(m)})}
+async function mrdDownload(id,docs=[]){const d=docs.find(x=>x.id===id);if(!d)return;await pressFile(meetingFileFile(d),{api:mrdApi,onError:m=>notify(m,{error:true})})}
 function mrdRenderMaterials(allDocs){
     // ACT-사진 3단계: 그림은 '사진' 줄(작은 그림), 나머지는 아래 자료 줄. 같은 자료 목록을 그리는 곳만 둘로 나눈다.
     const {photos,files:docs}=splitPhotoDocs(allDocs);mrdRenderPhotos(photos,allDocs);
@@ -136,7 +137,7 @@ function mrdRenderPhotos(photos,allDocs){
   const canEdit=!!mrdCurrent&&mrdCanEdit(mrdCurrent);
   section.hidden=!canEdit&&!photos.length;head.textContent=photos.length?`사진 ${photos.length}`:'사진';
   document.querySelector('#mrdPickPhotos').hidden=!canEdit;
-  mountPhotoGrid(box,photos,{api:mrdApi,onError:m=>alert(m),extraActions:(file,doc)=>doc?[{label:'지우기',run:()=>mrdDeleteDocumentById(doc.id,allDocs)}]:[]});
+  mountPhotoGrid(box,photos,{api:mrdApi,onError:m=>notify(m,{error:true}),extraActions:(file,doc)=>doc?[{label:'지우기',run:()=>mrdDeleteDocumentById(doc.id,allDocs)}]:[]});
 }
 async function mrdEnsureLibrary(fail){
   const loader=window.KPTUViewLoader;
@@ -242,13 +243,13 @@ async function mrdOpenMeeting(id){
     mrdInstallModal();
     if(!(await mrdLoadMeeting(id,epoch)))return;
     mrdOpen();mrdTodos?.open();
-  }catch(e){if(epoch===mrdRequestEpoch)alert(e.message||String(e))}
+  }catch(e){if(epoch===mrdRequestEpoch)notify(e.message||String(e),{error:true})}
 }
 // 열려 있는 사업 보고를 다시 읽는다(할 일 완료·삭제 뒤). 칸에 붙어 있으면 창을 다시 열지 않고 칸 안에서만 다시 채운다.
 async function mrdReload(id){
   if(!mrdDocked)return mrdOpenMeeting(id);
   const epoch=++mrdRequestEpoch;
-  try{await mrdLoadMeeting(id,epoch)}catch(e){if(epoch===mrdRequestEpoch)alert(e.message||String(e))}
+  try{await mrdLoadMeeting(id,epoch)}catch(e){if(epoch===mrdRequestEpoch)notify(e.message||String(e),{error:true})}
 }
 const mrdEditInputs=['Title','Round','ShortName','At','Project','Transcript','Notes'];
 function mrdEditDraft(){return JSON.stringify([...mrdEditInputs.map(key=>document.querySelector('#mrdEdit'+key)?.value??''),mrdSummaries?.draft()||''])}
@@ -307,7 +308,7 @@ async function mrdSaveEdit(){
 window.addEventListener('kptu:view-changed',()=>{if(mrdEditor)mrdSetEdit(false)});
 window.addEventListener('kptu:session-changed',()=>{if(mrdEditSameScope(mrdEditObservedScope))return;mrdEditObservedScope=null;mrdEditAttempts.clear();mrdEditSequence++;mrdEditor=null;mrdEditInputs.forEach(k=>{const input=document.querySelector('#mrdEdit'+k);if(input)input.value=''})});
 window.addEventListener('kptu:dialog-closed',event=>{if(event.detail?.modal?.id==='meetingRoundDetailModal')mrdSetEdit(false)});
-async function mrdDeleteMeeting(){const meeting=mrdCurrent,epoch=mrdRequestEpoch;if(!meeting||!mrdCanDelete(meeting))return;const {deleteToTrash}=await import('./trash-actions.js');const r=await deleteToTrash({kind:'report',id:meeting.id,name:mrdMeetingName(meeting)||meeting.title||'회의',remove:()=>mrdApi('/rest/v1/app_meetings?id=eq.'+encodeURIComponent(meeting.id),{method:'DELETE'}),closeBefore:()=>{if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id)mrdClose()},afterChange:mrdRefreshMeetingList,notify:msg=>alert(msg)});if(r.status==='failed'&&epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id)alert(r.error?.message||String(r.error))}
+async function mrdDeleteMeeting(){const meeting=mrdCurrent,epoch=mrdRequestEpoch;if(!meeting||!mrdCanDelete(meeting))return;const {deleteToTrash}=await import('./trash-actions.js');const r=await deleteToTrash({kind:'report',id:meeting.id,name:mrdMeetingName(meeting)||meeting.title||'회의',remove:()=>mrdApi('/rest/v1/app_meetings?id=eq.'+encodeURIComponent(meeting.id),{method:'DELETE'}),closeBefore:()=>{if(epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id)mrdClose()},afterChange:mrdRefreshMeetingList,notify:msg=>notify(msg)});if(r.status==='failed'&&epoch===mrdRequestEpoch&&mrdCurrent?.id===meeting.id)notify(r.error?.message||String(r.error),{error:true})}
 // UI-회의결과창정리: 파일을 고르면 바로 올라간다([업로드] 버튼 없음). 아직 차례가 오지 않은 파일은 ×로 뺄 수 있다.
 // MEET-파일AI분류: 파일 올리기는 담당조직·프로젝트 상세와 같은 자료실 올리기 창(library-upload.js)을 연다.
 // 파일 올리기·AI 자동 분류는 그 창이 하고, 올라온 자료는 library-files의 meeting_id로 이 사업 보고에 붙는다. 올리기가 끝나면 kptu:documents-changed로 아래 자료 목록이 다시 읽힌다.

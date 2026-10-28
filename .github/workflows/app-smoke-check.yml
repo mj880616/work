@@ -295,6 +295,12 @@ jobs:
       - name: Check save button place rule (UI-저장자리)
         run: node --test tests/save-button-rule.test.mjs
 
+      - name: Check small notice and confirm parts (UI-작은알림)
+        run: node --test tests/small-notice.test.mjs
+
+      - name: Check browser dialog sweep baseline (UI-알림창정리)
+        run: node --test tests/notice-sweep.test.mjs
+
       - name: Check library, project, share and upload units (STAB-단위시험등록)
         run: node --test tests/library-prev-model.test.mjs tests/library-select.test.mjs tests/project-fold.test.mjs tests/share-pages-label.test.mjs tests/share-photos.test.mjs tests/summary-copy-model.test.mjs tests/text-backfill-notice.test.mjs tests/upload-file-copy.test.mjs
 

@@ -256,3 +256,18 @@ button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset
 .kptu-select-opt[aria-selected="true"]::after{content:"✓";flex:0 0 auto;font-weight:700}
 .kptu-select-opt[aria-disabled="true"]{color:var(--kptu-muted);cursor:default}
 .kptu-select-group{padding:6px 8px 2px;font-size:12px;color:var(--kptu-muted)}
+/* UI-작은알림 (2026-10-28): 브라우저 기본 알림창 대신 쓰는 공용 작은 알림(small-notice.js notify)·작은 확인창(askConfirm). 하단바 위, 톤다운. */
+.kptu-notice{position:fixed;z-index:60;left:50%;transform:translateX(-50%);bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px) + 10px);max-width:min(92vw,520px);display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;padding:7px 8px 7px 12px;border-radius:var(--kptu-radius-md);background:var(--kptu-ink);color:var(--kptu-surface);font-size:12px;line-height:1.4;box-shadow:var(--kptu-shadow-float)}
+.kptu-notice[hidden]{display:none}
+.kptu-notice.error{background:var(--kptu-danger)}
+.kptu-notice-text{flex:1 1 auto;min-width:0}
+.kptu-notice-undo,.kptu-notice-close{border:0;background:transparent;color:inherit;font:inherit;font-weight:700;padding:2px 4px;min-height:24px;cursor:pointer}
+.kptu-notice-undo{text-decoration:underline;text-underline-offset:2px}
+.kptu-notice-close{opacity:.7;font-weight:400}
+.kptu-notice-note{flex:1 0 100%;order:5;font-size:11px;opacity:.75}
+.kptu-ask{position:fixed;z-index:61;box-sizing:border-box;padding:10px 12px;border:1px solid var(--kptu-border-strong);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);font-size:13px;overflow:auto}
+.kptu-ask.kptu-ask-center{left:50%;transform:translateX(-50%);width:min(92vw,300px);bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px) + 12px)}
+.kptu-ask-text{margin:0 0 4px;line-height:1.45;white-space:pre-line}
+.kptu-ask-note{display:block;margin:0 0 6px;font-size:11px;color:var(--kptu-muted)}
+.kptu-ask-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:6px}
+.kptu-ask-actions button{min-height:var(--kptu-action-compact-height)}
