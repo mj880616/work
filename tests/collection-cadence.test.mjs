@@ -40,10 +40,15 @@ test('collector lines stay quiet through weekends and holidays; only a stall pas
 
 test('send lines: silence limits leave room for the real trigger schedules in the feed script', () => {
   const gs = read('docs/ops/collector-feed.gs');
-  assert.match(gs, /newTrigger\('tgFeed_run'\)\.timeBased\(\)\.atHour\(8\)\.nearMinute\(10\)\.everyDays\(1\)/);
+  assert.match(gs, /newTrigger\('tgFeed_run'\)\.timeBased\(\)\.everyHours\(1\)/);
   assert.match(gs, /newTrigger\('callFeed_run'\)\.timeBased\(\)\.everyHours\(1\)/);
-  // daily 08:10~08:25 trigger: longest gap about 24h15m. Hourly trigger: up to about 2h.
-  assert.ok(mod.SEND_SILENT_HOURS.telegramSend >= 25);
+  // TG-1시간수집: telegram send runs hourly but rests 00:00-07:00 KST without reporting.
+  // Longest healthy gap: a run early in the 23:00 hour to a run late in the 07:00 hour, about 9h. One missed daytime run must still be visible within a day.
+  const quiet = Number(/var TG_FEED_QUIET_UNTIL = (\d+);/.exec(gs)[1]) - Number(/var TG_FEED_QUIET_FROM = (\d+);/.exec(gs)[1]);
+  assert.equal(quiet, 7);
+  assert.ok(mod.SEND_SILENT_HOURS.telegramSend >= quiet + 2, 'night rest plus hourly jitter must not warn');
+  assert.ok(mod.SEND_SILENT_HOURS.telegramSend <= 12, 'a stopped hourly sender must warn the same day');
+  // Hourly trigger: up to about 2h.
   assert.ok(mod.SEND_SILENT_HOURS.callSend >= 2.5);
   assert.ok(mod.SEND_GAP_HOURS >= 72, 'Friday evening to Monday morning has no business messages');
 });

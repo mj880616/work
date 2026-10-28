@@ -151,7 +151,7 @@ test('빠르게 읽기: 파일 내용은 50개씩 묶어 병렬(fetchAll)로 받
   assert.deepEqual(env.counts.batches,[50,50,30]);
   assert.equal(totalMedia(env),130,'파일마다 정확히 한 번');
   assert.equal(sentMsgs(env),130);
-  assert.deepEqual(plain(env.state().rooms['-1001']),{d:'2026-10-25'});
+  assert.deepEqual(plain(env.state().rooms['-1001']),{d:'2026-10-25',m:'1130',l:'2026-10-25'},'끝낸 날과 보낸 가장 큰 메시지 번호(TG-1시간수집)');
   assert.match(out,/읽은 파일 130개/);
   assert.match(out,/끝까지 봄/);
   assert.ok(!/getBlob/.test(source.slice(source.indexOf('텔레그램 보내기 (TG-소식메뉴 3-나)'),source.indexOf('// node 시험에서만'))),'getBlob 호출 없음');
@@ -222,7 +222,10 @@ test('큰 방은 시간이 모자라면 미루고(읽다 버리지 않음), 다�
   st=env.state();
   assert.equal(st.rooms['-1002'].d,'2026-10-25');
   assert.equal(st.pri||'','');
-  assert.match(out2,/끝까지 봄/);
+  // 오늘(TG-1시간수집)도 방마다 보므로 큰 방 뒤 남은 오늘 확인은 다음 이어 하기에서 끝난다.
+  let last=out2,k=0;
+  while(env.hasContinue()&&k++<5){env.clock.now+=600000;last=env.run('tgFeed_continue');}
+  assert.match(last,/끝까지 봄/);
   assert.equal(sentMsgs(env),2460);
 });
 
@@ -444,4 +447,36 @@ test('원본 요건: 비밀값·토큰은 로그에 안 찍고, Drive는 읽기�
   for(const m of tg.matchAll(/(?:Logger\.log|new Error)\(([^;]*)\)/g)) assert.ok(!/token|Authorization|getOAuthToken/i.test(m[1]),m[0]);
   assert.ok(!/method: 'post'[^}]*googleapis\.com\/drive/.test(tg));
   assert.ok(!/method: '(?:put|patch|delete)'/i.test(tg));
+});
+
+test('TG-1시간수집: 같은 날 매시 실행은 새 메시지만 보내고, 밤 0~7시는 쉬며, 다음 날 7시 실행이 어제를 끝낸 날로 적는다',()=>{
+  const env=makeEnv({startDay:'2026-10-26',now:'2026-10-26T10:10:00+09:00'});
+  const room=env.addRoom({key:'-1001',name:'가상 업무방'});
+  room.add('2026-10-26',2);
+  let out=env.run();
+  assert.deepEqual(env.posts.map(p=>[p.day,p.n,p.dup]),[['2026-10-26',2,false]]);
+  let st=env.state().rooms['-1001'];
+  assert.equal(st.d,'2026-10-25','오늘은 아직 끝낸 날이 아니다');assert.equal(st.m,'1002');assert.equal(st.l,'2026-10-26');
+  assert.match(out,/끝까지 봄/);
+  // 한 시간 뒤: 새로 온 3개만
+  room.add('2026-10-26',3);
+  env.clock.now+=3600000;out=env.run();
+  assert.deepEqual(env.posts.slice(1).map(p=>[p.day,p.n,p.total,p.dup]),[['2026-10-26',3,3,false]]);
+  // 새 것이 없으면 보내지 않는다
+  env.clock.now+=3600000;env.run();
+  assert.equal(env.posts.length,2);
+  // 밤 3시: 아무것도 하지 않는다(새 메시지가 있어도)
+  room.add('2026-10-26',1);
+  env.clock.now=Date.parse('2026-10-27T03:10:00+09:00');
+  const reads=totalMedia(env);
+  out=env.run();
+  assert.match(out,/쉽니다/);assert.equal(env.posts.length,2);assert.equal(totalMedia(env),reads,'쉬는 동안 파일을 읽지 않는다');
+  // 7시: 어제 남은 1개를 보내고 어제를 끝낸 날로 적는다
+  env.clock.now=Date.parse('2026-10-27T07:10:00+09:00');
+  out=env.run();
+  assert.deepEqual(env.posts.slice(2).map(p=>[p.day,p.n]),[['2026-10-26',1]]);
+  st=env.state().rooms['-1001'];
+  assert.equal(st.d,'2026-10-26');assert.equal(st.m,'1006');
+  assert.equal(sentMsgs(env),6,'같은 메시지를 두 번 보내지 않는다');
+  assert.ok(env.posts.every(p=>!p.dup));
 });

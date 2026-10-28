@@ -161,8 +161,8 @@ test('send source: judged by report time, then reported state; no report yet hid
   assert.equal(mod.judgeSend('callSend', null, now), null);
   assert.equal(mod.judgeSend('callSend', send('ok', 3.5), now).state, 'stopped');
   assert.equal(mod.judgeSend('callSend', send('ok', 2.5), now).state, 'ok', 'hourly trigger jitter');
-  assert.equal(mod.judgeSend('telegramSend', send('ok', 25), now).state, 'ok');
-  assert.equal(mod.judgeSend('telegramSend', send('ok', 27), now).state, 'stopped', 'daily trigger gone');
+  assert.equal(mod.judgeSend('telegramSend', send('ok', 9.5), now).state, 'ok', 'night rest 00-07 KST (TG-1시간수집)');
+  assert.equal(mod.judgeSend('telegramSend', send('ok', 11), now).state, 'stopped', 'hourly trigger gone');
   for (const state of ['broken', 'failing', 'limit_ai', 'test', 'limit_day']) assert.equal(mod.judgeSend('callSend', send(state), now).state, state);
 });
 

@@ -57,6 +57,23 @@ test('묶음 요약 합치기: 첫 메시지 시각 순으로 이어 붙이고 h
   assert.deepEqual(mergeParts(null), {headline:'', lines:[], openRef:''});
 });
 
+test('TG-1시간수집: 그때까지 모인 소식으로 다시 쓴 요약(c- 묶음)이 있으면 가장 나중의 것 하나와 그 뒤 보통 묶음만 쓴다', () => {
+  const parts = [
+    {batch:'b1', first_at:'2026-10-28T00:10:00Z', headline:'옛 묶음', lines:['옛 줄'], open_ref:'111'},
+    {batch:'c-b2', first_at:'2026-10-28T01:10:00Z', headline:'첫 누적', lines:['누적 1']},
+    {batch:'c-b3', first_at:'2026-10-28T02:10:00Z', headline:'둘째 누적', lines:['누적 1', '누적 2', '누적 3']},
+    {batch:'b4', first_at:'2026-10-28T03:10:00Z', headline:'', lines:['읽기 실패 뒤 묶음']},
+  ];
+  const m = mergeParts(parts);
+  assert.equal(m.headline, '둘째 누적');
+  assert.deepEqual(m.lines, ['누적 1', '누적 2', '누적 3', '읽기 실패 뒤 묶음']);
+  assert.equal(m.openRef, '111', '열기 값은 누적 앞 묶음에 있어도 가장 이른 것');
+  // 다음 날 아침 마무리 요약은 first_at이 전날 밤이어도 저장 순서가 마지막이면 그것을 쓴다.
+  const fin = [...parts, {batch:'c-b5', first_at:'2026-10-28T14:50:00Z', headline:'마무리', lines:['전체 1', '전체 2', '전체 3']}];
+  assert.deepEqual(mergeParts(fin).lines, ['전체 1', '전체 2', '전체 3']);
+  assert.equal(daySummary(fin, []).shown.length, 3);
+});
+
 test('요약이 없는 날(결정 4): 소식 제목 4개까지 모아 보여 주고 "AI 요약 이전 날" 표시, 표를 못 읽으면 표시 없음', () => {
   const items = ['일', '이', '삼', '사', '오', '일'].map(t => ({title:`제목 ${t}`}));
   const s = daySummary([], items);
