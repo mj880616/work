@@ -6,10 +6,12 @@ import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the 
 import {seoulParts, seoulDate, addSeoulDays, seoulDateKey, formatSeoulTime} from './meeting-time.js';
 import {readDiaryMonth, readDiaryDay, createDiary, saveDiaryText, removeDiaryPhoto, pruneDiaryPhotos, dropEmptyDiary, uploadDiaryPhotos, photoElement,
   diaryPhotos, diaryText, takeRequestedDay, todayKey, ownerScope, validateDiaryText, DIARY_MAX_PHOTOS, DIARY_COMMENT_MAX,
-  photoComments, cleanComments, saveDiaryComments} from './diary-data.js';
+  photoComments, cleanComments, saveDiaryComments, diaryPhotoUrl} from './diary-data.js';
+import {SIZE_BUTTONS, WIDE_QUERY, paintGrid, paintButtons, changeCols, attachPinch} from './photo-grid-size.js';
+import {swipeKind, shareFileName, putBack, UNDO_MS} from './photo-viewer-model.mjs';
 import {deleteNoteOriginal} from './basket-record-delete.js';
 import {odStatus, odAuthStart, odAuthFinish, odFolders, odFolderSet, odDisconnect, odDelete, odPhotos, odPhotoElement, odPrefetchMonth, clearOdPhotoCache, forgetOdPhoto, odKeepReconcile, odStartPrefetch, odStopPrefetch, odKeepCount, odKeepClear, odKeepForOwner,
-  odErrorText, odSync, odSyncDelay, odFolderTree, odFolderToggle, odTreeRows, odTreeChanges, readStars, addStar, removeStar, starKey, dayItems, takenLabel, takeOdReturn} from './diary-onedrive.js';
+  odErrorText, odSync, odSyncDelay, odFolderTree, odFolderToggle, odTreeRows, odTreeChanges, readStars, addStar, removeStar, starKey, dayItems, takenLabel, takeOdReturn, odPhotoUrl, grabThumb} from './diary-onedrive.js';
 // ED③ 일기: the day's text is the new editor (ed-editor.js) inside this panel; the read view draws its saved form (ed-render). The photos,
 // their comments, the calendar and the swipe stay as they were. Letters (raw_text) are still saved with it for every other reader.
 import {renderDoc} from './ed-render.mjs';
@@ -153,7 +155,7 @@ function renderDetail() {
   sendWhere(longDay(selected));
   const row = rows.get(selected), text = diaryText(row), hasPhotos = dayItems(selected, row, odMonth).length > 0;
   detail.hidden = false; list.hidden = true;
-  detail.innerHTML = `<div class="diary-panel-head"><button type="button" class="icon-btn" data-diary-detail-close aria-label="날짜 닫기">×</button></div>${row || hasPhotos ? `<div class="diary-source" role="group" aria-label="사진 보기"><button type="button" data-diary-source="all" aria-pressed="${source === 'all'}">전체</button><button type="button" data-diary-source="star" aria-pressed="${source === 'star'}">별표</button></div><div data-diary-photos></div>` : ''}${row ? `${text ? `<div class="diary-text${diaryHasDoc(row) ? ' is-doc' : ''}" data-diary-text-view>${diaryHasDoc(row) ? '' : esc(text)}</div>` : ''}<div class="diary-actions"><button type="button" class="secondary" data-diary-edit>수정</button><button type="button" class="secondary diary-danger" data-diary-delete>일기 지우기</button></div>` : `<p class="diary-muted">이 날 일기가 없어요.</p>`}`;
+  detail.innerHTML = `<div class="diary-panel-head"><button type="button" class="icon-btn" data-diary-detail-close aria-label="날짜 닫기">×</button></div>${row || hasPhotos ? `<div class="diary-photo-bar"><div class="diary-source" role="group" aria-label="사진 보기"><button type="button" data-diary-source="all" aria-pressed="${source === 'all'}">전체</button><button type="button" data-diary-source="star" aria-pressed="${source === 'star'}">별표</button></div>${SIZE_BUTTONS}</div><div data-diary-photos></div>` : ''}${row ? `${text ? `<div class="diary-text${diaryHasDoc(row) ? ' is-doc' : ''}" data-diary-text-view>${diaryHasDoc(row) ? '' : esc(text)}</div>` : ''}<div class="diary-actions"><button type="button" class="secondary" data-diary-edit>수정</button><button type="button" class="secondary diary-danger" data-diary-delete>일기 지우기</button></div>` : `<p class="diary-muted">이 날 일기가 없어요.</p>`}`;
   syncDetailTitle();
   const view = detail.querySelector('[data-diary-text-view]');
   if (view && diaryHasDoc(row)) view.replaceChildren(renderDoc(row.doc));
@@ -178,9 +180,10 @@ function renderPhotos() {
     shown = all;
     if (!shown.length) { host.innerHTML = `<p class="diary-muted">${od.connected && od.folder ? '이 날 사진이 없어요.' : '직접 올린 사진이 없어요.'}</p>`; return; }
   }
-  // Small square grid (four a row on a phone); a photo opens full screen.
+  // Small square grid (OD-사진크기: 한 줄 칸 수는 [－][＋]·두 손가락으로 고르고 서버에 기억, 기본 폰 4·넓은 화면 6); a photo opens full screen.
   const grid = document.createElement('div');
   grid.className = 'diary-grid'; grid.dataset.diaryGrid = '';
+  paintGrid(grid); attachPinch(grid, sizeChanged);
   grid.setAttribute('role', 'group'); grid.setAttribute('aria-label', `사진 ${shown.length}장`);
   shown.forEach((item, i) => {
     const button = document.createElement('button');
@@ -192,6 +195,7 @@ function renderPhotos() {
     button.append(mark); grid.append(button);
   });
   host.replaceChildren(grid);
+  paintButtons(detail);
   // One short line per uploaded photo that has a comment (the full-screen view shows it under the photo too).
   const comments = photoComments(row), commented = shown.map((item, i) => ({i, text:item.kind === 'upload' ? comments[item.file.drive_file_id] : ''})).filter(item => item.text);
   if (commented.length) {
@@ -204,6 +208,10 @@ function renderPhotos() {
     host.append(list);
   }
 }
+// 칸 수가 바뀌면 격자의 CSS 변수만 바꾼다(다시 그리지 않아 받은 그림·스크롤이 그대로).
+function sizeChanged() { paintGrid(detail.querySelector('[data-diary-grid]')); paintButtons(detail); }
+// 폴드를 펼치거나 접으면(넓은 화면 ↔ 좁은 화면) CSS가 칸 수를 바꾸고, [－][＋]의 끝 단계 표시만 다시 맞춘다.
+globalThis.matchMedia?.(WIDE_QUERY)?.addEventListener?.('change', () => paintButtons(detail));
 // A star changed: the marks on the grid and the full-screen view follow without rebuilding the grid (focus stays).
 function paintStars() {
   detail.querySelectorAll('[data-diary-open]').forEach(button => {
@@ -233,20 +241,62 @@ async function toggleStar(item) {
     if (scope === owner) { if (was) starSet.add(k); else starSet.delete(k); paintStars(); viewerNote('별표를 저장하지 못했어요. 다시 눌러 주세요.'); }
   } finally { starBusy.delete(k); }
 }
-const viewerNote = text => { const el = viewer?.box.querySelector('[data-diary-viewer-note]'); if (el) el.textContent = text; };
+const viewerNote = text => { const el = viewer?.box.querySelector('[data-diary-viewer-note-text]'); if (el) el.textContent = text; };
 
-// Full-screen photo view: swipe sideways, "3 / 8", × and Back close it (router layer). ☆ stars the shown photo (also a double tap, or the S key);
-// ⋯ (OneDrive photos only) sends it to the OneDrive recycle bin. OneDrive photos are fetched only near the one shown.
-let viewer = null;
+// Full-screen photo view (OD-크게보기 2026-10-28): 위 줄 [✕] '6 / 256' … 찍은 날짜·시각, 아래 버튼줄 [☆ 별표] [⇪ 공유] [🗑 지우기] [ⓘ 정보].
+// 손동작: 좌우 넘기기 = 앞뒤 사진, 위로 밀기 = 별표 토글, 아래로 밀기 = 닫기(× 버튼·뒤로가기도 닫기, router layer). S 키 = 별표.
+// 🗑(원드라이브 사진만)은 묻지 않고 목록에서 바로 빼고 '휴지통으로 옮겼어요 · 되돌리기'를 몇 초 보여 준다. 그 시간이 지나거나 닫거나 화면을 떠나면
+// 원드라이브 휴지통으로 보낸다(영구 삭제 아님). 되돌리기는 보내기 전이라 같은 자리로 그대로 돌아온다. OneDrive photos are fetched only near the one shown.
+let viewer = null, pendingDel = null;
+const diaryStatus = text => { const el = root.querySelector('[data-diary-status]'); if (el) el.textContent = text; };
+// 이 달 목록에서 그 사진을 빼고 원래 자리를 기억한다.
+function takeFromMonth(item) {
+  const list = odMonth?.days?.[item.day] || [], index = list.findIndex(p => p.id === item.id);
+  if (index < 0) return null;
+  const photo = list[index];
+  odMonth.days[item.day] = list.filter(p => p.id !== item.id);
+  if (!odMonth.days[item.day].length) delete odMonth.days[item.day];
+  return {photo, index, day:item.day, month:odMonth, scope:owner};
+}
+function putBackMonth(p) {
+  if (!p || odMonth !== p.month || owner !== p.scope) return false;
+  odMonth.days[p.day] = putBack(odMonth.days[p.day], p.photo, p.index);
+  return true;
+}
+// 기다리던 지우기를 지금 보낸다. 실패하면 사진을 제자리로 되돌리고 알린다.
+async function commitDelete({keepalive = false} = {}) {
+  const p = pendingDel; if (!p) return;
+  pendingDel = null; clearTimeout(p.timer);
+  if (viewer) viewer.undoShown(false);
+  try { await odDelete(rt, p.photo.id, {keepalive}); forgetOdPhoto(p.photo.id); }
+  catch (error) {
+    if (error?.message === 'onedrive_item_missing') { forgetOdPhoto(p.photo.id); return; }
+    if (putBackMonth(p)) { renderMonth(); if (selected === p.day && !edit) renderPhotos(); viewer?.reload(p.photo.id); }
+    const text = `지우지 못했어요: ${odErrorText(error)}`;
+    if (viewer) viewerNote(text); else diaryStatus(text);
+  }
+}
+function undoDelete() {
+  const p = pendingDel; if (!p) return;
+  pendingDel = null; clearTimeout(p.timer);
+  if (putBackMonth(p)) { renderMonth(); if (selected === p.day && !edit) renderPhotos(); viewer?.reload(p.photo.id); }
+  viewer?.undoShown(false); viewerNote('되돌렸어요.');
+}
+if (typeof document !== 'undefined') {
+  window.addEventListener('pagehide', () => { if (pendingDel) commitDelete({keepalive:true}); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && pendingDel) commitDelete({keepalive:true}); });
+}
+const zoomed = () => (globalThis.visualViewport?.scale || 1) > 1.05;
 function openViewer(index) {
   if (!shown[index] || viewer) return;
-  let items = shown.slice(), at = index, deleting = false;
+  let items = shown.slice(), at = index, noteTimer = null;
   const trigger = document.activeElement, box = document.createElement('div');
   box.className = 'diary-viewer'; box.dataset.diaryViewer = '';
   box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', `${shortDay(selected)} 사진`);
-  box.innerHTML = `<div class="diary-viewer-bar"><span class="diary-viewer-count" data-diary-viewer-count aria-live="polite"></span><span class="diary-viewer-stars" data-diary-viewer-stars hidden></span><button type="button" class="diary-viewer-star" data-diary-star aria-label="별표" aria-pressed="false">☆</button><details class="diary-viewer-more" data-diary-viewer-more hidden><summary aria-label="사진 메뉴" data-ctx="off">⋯</summary><div class="diary-viewer-more-panel"><button type="button" data-od-delete>원드라이브에서 지우기</button></div></details><button type="button" class="diary-viewer-close" data-diary-viewer-close aria-label="크게 보기 닫기">×</button></div><div class="diary-viewer-strip" data-diary-viewer-strip tabindex="0"></div><p class="diary-viewer-caption" data-diary-viewer-caption></p><p class="diary-viewer-note" data-diary-viewer-note role="status"></p>`;
+  box.innerHTML = `<div class="diary-viewer-bar"><button type="button" class="diary-viewer-close" data-diary-viewer-close aria-label="크게 보기 닫기">✕</button><span class="diary-viewer-count" data-diary-viewer-count aria-live="polite"></span><span class="diary-viewer-when" data-diary-viewer-when></span></div><div class="diary-viewer-strip" data-diary-viewer-strip tabindex="0"></div><p class="diary-viewer-caption" data-diary-viewer-caption></p><dl class="diary-viewer-info" data-diary-viewer-info hidden></dl><p class="diary-viewer-note" data-diary-viewer-note role="status"><span data-diary-viewer-note-text></span><button type="button" class="diary-viewer-undo" data-diary-undo hidden>되돌리기</button></p><div class="diary-viewer-actions" role="group" aria-label="사진 동작"><button type="button" data-diary-star aria-pressed="false"><span aria-hidden="true">☆</span> 별표</button><button type="button" data-diary-share><span aria-hidden="true">⇪</span> 공유</button><button type="button" data-od-delete><span aria-hidden="true">🗑</span> 지우기</button><button type="button" data-diary-info aria-expanded="false"><span aria-hidden="true">ⓘ</span> 정보</button></div>`;
   const strip = box.querySelector('[data-diary-viewer-strip]'), count = box.querySelector('[data-diary-viewer-count]'), caption = box.querySelector('[data-diary-viewer-caption]');
-  const starBtn = box.querySelector('[data-diary-star]'), starCount = box.querySelector('[data-diary-viewer-stars]'), more = box.querySelector('[data-diary-viewer-more]');
+  const when = box.querySelector('[data-diary-viewer-when]'), info = box.querySelector('[data-diary-viewer-info]'), infoBtn = box.querySelector('[data-diary-info]');
+  const starBtn = box.querySelector('[data-diary-star]'), delBtn = box.querySelector('[data-od-delete]'), undoBtn = box.querySelector('[data-diary-undo]');
   const fill = i => {
     const slide = strip.children[i];
     if (!slide || slide.dataset.filled) return;
@@ -259,43 +309,79 @@ function openViewer(index) {
   };
   const refresh = () => {
     const item = items[at]; if (!item) return;
-    const on = isStarred(item), n = items.filter(isStarred).length;
-    starBtn.textContent = on ? '★' : '☆'; starBtn.setAttribute('aria-pressed', String(on)); starBtn.setAttribute('aria-label', on ? '별표 풀기' : '별표');
-    starCount.hidden = !n; starCount.textContent = `★ ${n}`;
+    const on = isStarred(item);
+    starBtn.firstElementChild.textContent = on ? '★' : '☆'; starBtn.setAttribute('aria-pressed', String(on)); starBtn.setAttribute('aria-label', on ? '별표 풀기' : '별표');
+  };
+  const paintInfo = () => {
+    const item = items[at]; if (!item || info.hidden) return;
+    const rows = [['찍은 때', `${shortDay(item.day)}${takenLabel(item) ? ' ' + takenLabel(item) : ''}`], ['파일', item.kind === 'od' ? item.name : (item.file?.file_name || '')], ['출처', item.kind === 'od' ? '원드라이브' : '직접 올린 사진']];
+    info.replaceChildren(...rows.filter(([, v]) => v).flatMap(([k, v]) => [Object.assign(document.createElement('dt'), {textContent:k}), Object.assign(document.createElement('dd'), {textContent:v})]));
   };
   const show = () => {
     const item = items[at];
     count.textContent = `${at + 1} / ${items.length}`;
-    caption.textContent = item.kind === 'upload' ? (photoComments(item.row)[item.file.drive_file_id] || '') : takenLabel(item);
-    more.hidden = !(item.kind === 'od' && od.canDelete); more.removeAttribute('open');
+    when.textContent = `${shortDay(item.day)}${takenLabel(item) ? ' ' + takenLabel(item) : ''}`;
+    caption.textContent = item.kind === 'upload' ? (photoComments(item.row)[item.file.drive_file_id] || '') : '';
+    delBtn.disabled = !(item.kind === 'od' && od.canDelete);
+    delBtn.title = item.kind === 'od' ? (od.canDelete ? '원드라이브 휴지통으로' : '지우려면 원드라이브를 다시 연결해 주세요') : '직접 올린 사진은 일기 [수정]에서 빼요';
     for (const d of [0, 1, -1, 2, -2]) fill(at + d);
-    refresh();
+    refresh(); paintInfo();
   };
+  const note = (text, ms = 0) => { clearTimeout(noteTimer); viewerNote(text); if (ms) noteTimer = setTimeout(() => { if (!pendingDel) viewerNote(''); }, ms); };
   strip.addEventListener('scroll', () => { const next = Math.round(strip.scrollLeft / Math.max(1, strip.clientWidth)); if (next !== at && items[next]) { at = next; show(); } }, {passive:true});
   const step = dir => strip.scrollTo({left:Math.max(0, Math.min(items.length - 1, at + dir)) * strip.clientWidth, behavior:'smooth'});
-  async function deleteCurrent() {
-    const item = items[at];
-    if (!item || item.kind !== 'od' || deleting) return;
-    more.removeAttribute('open');
-    if (!window.confirm('원드라이브에서도 지워져요. 휴지통으로 보내요. 지울까요?')) return;
-    deleting = true; viewerNote('지우는 중…');
-    try { await odDelete(rt, item.id); }
-    catch (error) { deleting = false; viewerNote(odErrorText(error)); return; }
-    deleting = false;
-    forgetOdPhoto(item.id);
-    if (odMonth?.days[item.day]) { odMonth.days[item.day] = odMonth.days[item.day].filter(p => p.id !== item.id); if (!odMonth.days[item.day].length) delete odMonth.days[item.day]; }
-    renderMonth(); renderPhotos();
+  // 목록이 바뀐 뒤(지우기·되돌리기) 다시 짠다. id가 주어지면 그 사진으로 간다.
+  const reload = id => {
     items = shown.slice();
     if (!items.length) { closeViewer(); return; }
-    at = Math.min(at, items.length - 1);
-    buildSlides(); strip.scrollLeft = at * strip.clientWidth; show(); viewerNote('원드라이브 휴지통으로 보냈어요.');
+    const found = id ? items.findIndex(x => x.kind === 'od' && x.id === id) : -1;
+    at = found >= 0 ? found : Math.min(at, items.length - 1);
+    buildSlides(); strip.scrollLeft = at * strip.clientWidth; show();
+  };
+  function deleteCurrent() {
+    const item = items[at];
+    if (!item || item.kind !== 'od' || !od.canDelete) { note(delBtn.title, 3000); return; }
+    if (pendingDel) commitDelete(); // 앞서 지운 사진은 지금 보낸다(되돌리기는 마지막 한 장만)
+    const taken = takeFromMonth(item);
+    if (!taken) return;
+    pendingDel = {...taken, timer:setTimeout(() => commitDelete(), UNDO_MS)};
+    renderMonth(); renderPhotos();
+    reload(null);
+    if (viewer) { clearTimeout(noteTimer); viewerNote('휴지통으로 옮겼어요'); viewer.undoShown(true); }
   }
-  let lastTap = {t:0, i:-1};
-  strip.addEventListener('click', event => {
-    if (event.target.closest('a')) return;
-    const t = Date.now();
-    if (lastTap.i === at && t - lastTap.t < 320) { lastTap = {t:0, i:-1}; toggleStar(items[at]); } else lastTap = {t, i:at};
-  });
+  async function shareCurrent() {
+    const item = items[at]; if (!item) return;
+    note('공유 준비 중…');
+    let blob = null;
+    try {
+      const url = item.kind === 'od' ? await odPhotoUrl(item.id, 'large', {rt}) : await diaryPhotoUrl(item.row.id, item.file.drive_file_id, 'large', {rt});
+      blob = await grabThumb(url);
+    } catch { blob = null; }
+    if (!viewer || items[at] !== item) return;
+    const file = blob && typeof File === 'function' ? new File([blob], shareFileName(item, blob.type), {type:blob.type || 'image/jpeg'}) : null;
+    if (file && navigator.canShare?.({files:[file]})) {
+      try { await navigator.share({files:[file]}); note(''); return; }
+      catch (error) { if (error?.name === 'AbortError') { note(''); return; } }
+    }
+    // 폰 공유 창을 못 쓰는 기기: 사진 파일로 저장한다(원드라이브 임시 주소는 로그인 없이 열리는 주소라 복사해 주지 않는다).
+    if (!blob) { note('사진을 받지 못했어요. 잠시 뒤 다시 해 주세요.', 4000); return; }
+    const a = document.createElement('a'), local = URL.createObjectURL(blob);
+    a.href = local; a.download = file?.name || shareFileName(item, blob.type); document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(local), 10000);
+    note('이 기기는 공유 창이 없어 사진 파일로 저장했어요.', 4000);
+  }
+  // 한 손가락 세로 밀기(사진 위): 위 = 별표, 아래 = 닫기. 가로 넘기기·확대(두 손가락)는 브라우저가 맡는다.
+  let touch = null;
+  strip.addEventListener('touchstart', event => { touch = event.touches.length === 1 ? {x:event.touches[0].clientX, y:event.touches[0].clientY, t:Date.now(), fingers:1} : null; }, {passive:true});
+  strip.addEventListener('touchmove', event => { if (touch && event.touches.length > 1) touch.fingers = event.touches.length; }, {passive:true});
+  strip.addEventListener('touchend', event => {
+    const start = touch; touch = null;
+    const end = event.changedTouches[0];
+    if (!start || !end) return;
+    const kind = swipeKind({dx:end.clientX - start.x, dy:end.clientY - start.y, dt:Date.now() - start.t, fingers:start.fingers, zoomed:zoomed()});
+    if (kind === 'down') closeViewer();
+    else if (kind === 'up') { const item = items[at], was = isStarred(item); toggleStar(item); if (isStarred(item) !== was) note(was ? '별표를 풀었어요' : '별표했어요', 1500); }
+  }, {passive:true});
   box.addEventListener('keydown', event => {
     if (event.key === 'Escape') { event.preventDefault(); closeViewer(); }
     else if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') { event.preventDefault(); step(event.key === 'ArrowRight' ? 1 : -1); }
@@ -304,10 +390,14 @@ function openViewer(index) {
   box.addEventListener('click', event => {
     if (event.target.closest('[data-diary-viewer-close]')) closeViewer();
     else if (event.target.closest('[data-diary-star]')) toggleStar(items[at]);
+    else if (event.target.closest('[data-diary-share]')) shareCurrent();
+    else if (event.target.closest('[data-diary-undo]')) undoDelete();
     else if (event.target.closest('[data-od-delete]')) deleteCurrent();
+    else if (event.target.closest('[data-diary-info]')) { info.hidden = !info.hidden; infoBtn.setAttribute('aria-expanded', String(!info.hidden)); paintInfo(); }
   });
   buildSlides(); root.append(box);
-  viewer = {box, trigger, refresh, starChanged:false, layer:window.KPTURouter?.layer?.open('diary-photo', {close:() => { closeViewer({fromBack:true}); return true; }}) || null};
+  viewer = {box, trigger, refresh, reload, starChanged:false, undoShown:on => { undoBtn.hidden = !on; if (!on && !pendingDel) viewerNote(''); },
+    layer:window.KPTURouter?.layer?.open('diary-photo', {close:() => { closeViewer({fromBack:true}); return true; }}) || null};
   document.documentElement.classList.add('diary-viewer-open');
   strip.scrollLeft = index * strip.clientWidth; show();
   box.querySelector('[data-diary-viewer-close]').focus();
@@ -317,6 +407,8 @@ function closeViewer({fromBack = false, restore = true} = {}) {
   const {box, trigger, layer, starChanged} = viewer; viewer = null;
   box.remove(); document.documentElement.classList.remove('diary-viewer-open');
   if (!fromBack) layer?.close();
+  // 되돌리기 시간이 남았어도 닫으면 지금 휴지통으로 보낸다(되돌리기 버튼이 사라지므로).
+  if (pendingDel) commitDelete();
   // [별표] list: photos un-starred in the full-screen view leave the list now.
   if (starChanged && source === 'star' && selected && restore) renderPhotos();
   if (restore && trigger?.isConnected) trigger.focus();
@@ -715,6 +807,7 @@ root.addEventListener('click', event => {
   if (button.matches('[data-diary-new]')) return openEditor(selected || todayKey());
   if (button.matches('[data-diary-detail-close]')) return closeDetail();
   if (button.matches('[data-diary-source]')) { source = button.dataset.diarySource; return renderDetail(); }
+  if (button.matches('[data-photo-size]')) { if (changeCols(Number(button.dataset.photoSize))) sizeChanged(); return; }
   if (button.matches('[data-diary-open]')) return openViewer(Number(button.dataset.diaryOpen));
   if (button.matches('[data-od-connect]')) return odConnect();
   if (button.matches('[data-od-open]')) return toggleOdPanel();
