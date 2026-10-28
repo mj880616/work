@@ -1,6 +1,6 @@
 import { appOrigin } from './helpers/test-origin.mjs';
 // LIB-토글트리 ③(docs/design/library-tree.md 6절): 자료실 전용 폴더 편집 — ⋯ 메뉴, 만들기·이름·위로/아래로·옮기기·지우기, 자료 폴더로/밖으로.
-// 저장은 소유자 RLS 표(app_library_folders·_items) REST뿐. 아래 가짜 서버는 DB 트리거와 같은 규칙(3단, 같은 틀)과 휴지통(TRASH-다른삭제 3단계: 지우면 그 폴더와 아래 폴더가 함께 휴지통으로, 자료 연결은 그대로)을 흉내 낸다.
+// 저장은 소유자 RLS 표(app_library_folders·_items) REST뿐. 아래 가짜 서버는 DB 트리거와 같은 규칙(100단, 같은 틀)과 휴지통(TRASH-다른삭제 3단계: 지우면 그 폴더와 아래 폴더가 함께 휴지통으로, 자료 연결은 그대로)을 흉내 낸다.
 import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {expandLibraryTree,libraryNode,libraryNodeHead} from './helpers/library-tree.mjs';
@@ -129,9 +129,9 @@ for(const width of [390,1280])test.describe(`폴더 편집 ${width}`,()=>{
     await press(page,page.locator('#libraryFolderSave'),width);await expect(page.locator('#libraryFolderModal')).toBeHidden();
     expect(s.writes.at(-1)).toMatchObject({table:'folders',method:'PATCH',id:'fb',body:{parent_id:'fa'}});
     await expect(page.locator('#documentList details[data-lu-node="f:fa"] details[data-lu-node="f:fb"] details[data-lu-node="f:00000000-0000-4000-8000-0000000000b1"] [data-lu-document="a-2"]')).toBeAttached();
-    // 3단을 넘는 옮기기는 고를 곳에 없다: 00000000-0000-4000-8000-0000000000b1은 이제 3단이라 메뉴의 '안에 새 폴더'가 없다.
+    // LIB-폴더100단: 00000000-0000-4000-8000-0000000000b1은 이제 3단이지만 100단 안이라 메뉴에 '안에 새 폴더'가 있다.
     await page.locator('#libraryExpandAll').click();await page.locator('#libraryExpandAll').click();
-    await press(page,menuOf(page,'f:00000000-0000-4000-8000-0000000000b1'),width);await expect(action(page,'안에 새 폴더')).toHaveCount(0);await page.keyboard.press('Escape');
+    await press(page,menuOf(page,'f:00000000-0000-4000-8000-0000000000b1'),width);await expect(action(page,'안에 새 폴더')).toHaveCount(1);await page.keyboard.press('Escape');
     // 지우기(휴지통으로): 확인 창이 아래 폴더·자료 수와 '함께 들어간다'를 알린다. 취소하면 아무것도 안 바뀐다.
     const before=s.writes.length;let message='';
     page.once('dialog',d=>{message=d.message();d.dismiss()});await press(page,menuOf(page,'f:fb'),width);await press(page,action(page,'폴더 지우기'),width);
