@@ -33,7 +33,6 @@ for(const width of [390,1280])test(`상대 약속 줄 and [원장으로] in 정�
  await expect(row.getByRole('button',{name:'할 일로'})).toHaveCount(0);
  // Not counted: one candidate, one promise, the number is 1.
  await expect(basketPaneButton(page,'todo')).toContainText('1');
- await expect(page.locator('#basketView [data-inbox-chip="open"]')).toContainText('1');
  await row.getByRole('button',{name:'원장으로'}).click();
  await expect(page.locator('#basketView [data-inbox-todo-line]')).toHaveText('원장에 넣을 약속 문구를 복사했어요.');
  expect(await page.evaluate(()=>navigator.clipboard.readText())).toMatch(/^쓰기요청\n- 종류: 약속\(상대·제3자\)\n- 내용: 상대 측 자료 송부 약속\n- 기한: 2026-10-10/);

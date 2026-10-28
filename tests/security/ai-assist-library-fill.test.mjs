@@ -538,7 +538,6 @@ test('replaced file: before the replace DB column exists the read falls back to 
 });
 
 // ---- WEEKLY-자료요약 2단계: 한두 줄 요약(brief) ------------------------------------------------------------------------
-const {classificationFormat}=await import('../../app/basket-classification.js');
 const sum=(over={})=>fill({project:'',organization:'',brief:'A 지부 임금교섭 요구안. 기본급 5% 인상 요구, 10.28.(화) 1차 교섭 예정.',...over});
 const userAll={title:'user',document_date:'user',source:'user',category:'user'};
 const sentFiles=calls=>JSON.parse(calls.openai[0].input[1].content).files;
@@ -546,8 +545,7 @@ const hashOf=text=>lib.briefHash(text);
 const TEXT='2026년 임금교섭 요구안\n공공운수노조\n2026. 10. 20.';
 const tried=n=>({document_id:id(n),workspace_id:WS,batch_id:'f0000000-0000-4000-8000-000000000001',with_text:true,changed:0});
 
-test('brief: the record-summary rule is the same sentence as the basket guide; the status words and job-title rule are in the AI guide',()=>{
-  assert.ok(classificationFormat(new Date('2026-10-24T00:00:00Z')).includes(lib.RECORD_SUMMARY_RULE),'basket guide and Edge constant must match word for word');
+test('brief: the record-summary rule is in the AI guide; the status words and job-title rule are in the AI guide',()=>{
   assert.ok(lib.LIBRARY_FILL_INSTRUCTIONS.includes(lib.RECORD_SUMMARY_RULE));
   for(const w of ['예정','검토','확정','취소','진행','완료'])assert.ok(lib.LIBRARY_FILL_INSTRUCTIONS.includes(w),w);
   assert.match(lib.LIBRARY_FILL_INSTRUCTIONS,/'예정'을 '진행'이나 '완료'로, '검토'를 '확정'으로 바꾸지 않는다/);

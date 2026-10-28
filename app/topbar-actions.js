@@ -55,11 +55,11 @@ const menuQuery=window.matchMedia('(max-width:1023px)');
 const appNav=document.querySelector('#appView>.app-nav'),drawerNav=mobilePanel?.querySelector('nav');
 // MENU-HOME-편집: 폰 [메뉴] 창 안 줄은 menu-layout.js가 순서대로 다시 만들 수 있으므로 그때그때 읽는다(한 줄 메뉴 때 옮겨 담은 PC 버튼은 뺀다).
 const phoneButtons=()=>[...drawerNav?.children||[]].filter(el=>!el.matches('.nav-btn,.nav-sub-btn'));
-// BASKET-정리함이름: [노트] (data-basket-kind-nav) and BASKET-PC메뉴 [업데이트]·[챙길 것] (data-basket-pane-nav) are not screens of their own; they sit in the 761~1023px row too.
-// BASKET-PC메뉴: the order is the sidebar's: 홈 / 정리함(업데이트·챙길 것) / 일정(달력·할 일·업무일지·일기) / 노트 / 프로젝트 …
+// BASKET-정리함이름: [노트] (data-basket-kind-nav) is not a screen of its own; it sits in the 761~1023px row too.
+// BASKET-정리함한화면: the order is the sidebar's: 홈 / 정리함 / 일정(달력·할 일·업무일지·일기) / 노트 / 프로젝트 …
 // MENU-HOME-편집: 순서는 menu-model.mjs(사용자가 정한 메뉴 순서). 버튼은 처음 모양(index.html)의 것을 그대로 쓰고 자리만 바꾼다.
-const ALL_KEYS=['home','basket','pane:update','pane:todo','calendar','tasks','journal','diary','note','projects','meetings','library','pages','team','hwp','ledger','photos','calls','telegram','arsenal'];
-const keyButton=key=>appNav?.querySelector(key==='note'?'[data-basket-kind-nav="note"]':key.startsWith('pane:')?`[data-basket-pane-nav="${key.slice(5)}"]`:`[data-view="${key}"]`);
+const ALL_KEYS=['home','basket','calendar','tasks','journal','diary','note','projects','meetings','library','pages','team','hwp','ledger','photos','calls','telegram','arsenal'];
+const keyButton=key=>appNav?.querySelector(key==='note'?'[data-basket-kind-nav="note"]':`[data-view="${key}"]`);
 const buttonByKey=new Map(ALL_KEYS.map(key=>[key,keyButton(key)]).filter(([,button])=>button));
 const orderedButtons=()=>{const layout=window.KPTUMenuLayout?.current?.();return midKeys(layout).map(key=>buttonByKey.get(key)).filter(Boolean)};
 let midItems=orderedButtons();
@@ -83,9 +83,7 @@ function syncMenuLocation(){
   let overflowCurrent=false;
   const noteMode=view==='basket'&&document.getElementById('basketView')?.dataset.kind==='note';
   midItems.forEach(button=>{
-    const paneNow=document.getElementById('basketView')?.dataset.pane==='todo'?'todo':'update';
-    // The [정리함] head is never the current page here: its sub item of the side shown is (like [일정] over [할 일]).
-    const current=button.dataset.basketKindNav?noteMode:button.dataset.basketPaneNav?view==='basket'&&!noteMode&&button.dataset.basketPaneNav===paneNow:button.hasAttribute('data-basket-head')?false:button.dataset.view===view&&!(noteMode&&view==='basket');
+    const current=button.dataset.basketKindNav?noteMode:button.dataset.view===view&&!(noteMode&&view==='basket');
     button.classList.toggle('active',current);
     if(current)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');
     if(current&&button.parentElement===drawerNav)overflowCurrent=true;
@@ -309,18 +307,12 @@ async function openWriter(kind='update'){
   finally{writerOpening=false}
 }
 // BASKET-정리함이름: [노트] is its own menu item (PC sidebar row, phone [메뉴] sheet row). It opens the note side through the basket's
-// own one-shot hand-off (basket-note-tasks.js); [정리함] (data-view="basket") always opens the update/챙길 것 side.
-// BASKET-PC메뉴: [업데이트]·[챙길 것] under [정리함] open the same panel on that side through the router (the side is written to the address,
-// ?view=basket&pane=todo, and back goes to the previous side).
-document.querySelectorAll('#appView [data-basket-pane-nav]').forEach(button=>button.addEventListener('click',()=>{
-  window.KPTURouter?.go('basket',{source:'delegated',sub:button.dataset.basketPaneNav});
-}));
-window.addEventListener('kptu:basket-pane',()=>syncMenuLocation());
+// own one-shot hand-off (basket-note-tasks.js); [정리함] (data-view="basket") always opens the one 정리함 screen (챙길 것 + 업데이트).
 // MENU-HOME-편집: [노트]는 하단바에도 올 수 있고 줄이 다시 만들어지므로 누르기를 위임으로 받는다.
 document.addEventListener('click',async event=>{
   const button=event.target.closest?.('#appView [data-basket-kind-nav]');if(!button)return;
   try{const {requestBasketKind}=await import('./basket-note-tasks.js');requestBasketKind(button.dataset.basketKindNav);}catch(error){console.error('basket kind',error)}
-  // NAV-새로고침제자리: the note side is written to the address (?view=basket&pane=note) like [챙길 것].
+  // NAV-새로고침제자리: the note side is written to the address (?view=basket&pane=note).
   // On the basket screen already, [노트] changes the side of the same entry (Back still leaves the screen), as before.
   window.KPTURouter?.go('basket',{source:'delegated',sub:button.dataset.basketKindNav==='note'?'note':null,replaceUrl:window.KPTURouter?.current==='basket'});
 });

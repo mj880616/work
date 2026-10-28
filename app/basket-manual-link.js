@@ -5,7 +5,7 @@ const WAITING='\u0000wait';
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {confirmLinks,ERROR_TEXT} from './basket-classification.js';
 import {validateLinkSummary,isBlankLinkSummary,readRecordPages} from './basket-link-records.js';
-import {selectBasketOrganizations} from './basket-ai-handoff.js';
+import {selectMyOrganizations} from './my-organizations.js';
 import {createChoiceSheet,projectRows,projectRow,orgGroupRows,orgRow} from './choice-sheet.js';
 import {readReferenceBundles} from './reference-bundles-data.js';
 import {createGoogleTask} from './quick-save.js';
@@ -87,7 +87,7 @@ export async function readManualChoices(rt=window.KPTURuntime){
   ]);
   const after=rt.context.read();
   if(catalog.workspaceId!==workspaceId||catalog.userId!==userId||after?.workspace?.id!==workspaceId||after?.user?.id!==userId)throw Error('업무 공간이 바뀌었어요. 다시 눌러 주세요.');
-  const order=window.KPTUOrganizationOrder,organizations=order.forPicker(selectBasketOrganizations(rows,assignees).organizations);
+  const order=window.KPTUOrganizationOrder,organizations=order.forPicker(selectMyOrganizations(rows,assignees).organizations);
   return {owner:`${userId}:${workspaceId}`,organizations,organizationNames:new Map(rows.map(row=>[row.id,row.name])),groups:order.groups(organizations),projects:window.KPTUProjectCatalog.tree(catalog.projects).filter(x=>x.project.status==='active'),bundles};
 }
 

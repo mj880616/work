@@ -11,7 +11,7 @@
 // icon: 24칸 선 그림 한 줄(폰 하단바·[메뉴] 창이 같이 쓴다). pc: PC 왼쪽 메뉴에서 이 항목 밑에 같이 따라오는 작은 메뉴 이름.
 export const ITEMS = Object.freeze([
   {id: 'home', label: '홈', view: 'home', icon: 'M3 10 12 3l9 7M5 9v12h5v-7h4v7h5V9'},
-  {id: 'basket', label: '정리함', view: 'basket', icon: 'M3 10h18l-2 10H5zM8 10l3-6m5 6-3-6M9 14v3m6-3v3', pc: ['pane:update', 'pane:todo']},
+  {id: 'basket', label: '정리함', view: 'basket', icon: 'M3 10h18l-2 10H5zM8 10l3-6m5 6-3-6M9 14v3m6-3v3'},
   {id: 'calendar', label: '일정', view: 'calendar', group: ['calendar', 'tasks', 'journal', 'diary'], icon: 'M5 5h14v16H5zM8 3v4m8-4v4M5 10h14', pc: ['tasks', 'journal', 'diary']},
   {id: 'note', label: '노트', kind: 'note', icon: 'M4 20l1-4L16 5l3 3L8 19zM14 7l3 3'},
   // MTG-프로젝트합치기 3단계: [프로젝트] 메뉴는 없다. 사업영역 관리 화면(라우터 이름 projects)은 사업 보고 ⋯ 안에서 열고, 하단바·왼쪽 메뉴에서는 사업 보고 칸이 그 화면을 맡는다.

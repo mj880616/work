@@ -15,8 +15,9 @@
   // MTG-사업보고: the 회의 screen (#meetingsView) is written as ?view=reports in the address; the old ?view=meetings still opens it.
   const URL_NAME={meetings:'reports'};
   const urlName=view=>URL_NAME[view]||view;
-  // BASKET-PC메뉴: a screen's own sides that the menu lists as sub items but that are not screens (정리함의 [챙길 것]) are written to the address as
-  // one more parameter (?view=basket&pane=todo), like the 일정 sub screens are written as their own ?view=. The default side has no parameter.
+  // A screen's own sides that are not screens are written to the address as one more parameter (?view=basket&pane=note), like the 일정
+  // sub screens are written as their own ?view=. The default side has no parameter. BASKET-정리함한화면: the old ?pane=todo still arrives
+  // (old bookmarks) and the 정리함 opens at its '챙길 것' box, then drops it from the address.
   // The router owns the address and the history entries of it; the screen (basket.js) owns what is drawn and is told through the view hook
   // (detail.sub) and, for a back/forward step inside the same screen, kptu:sub-changed.
   // NAV-새로고침제자리: [노트] is a side of the same screen too (?view=basket&pane=note), so a reload on the note side stays there.
@@ -256,14 +257,8 @@
     // BASKET-정리함이름: [노트] is its own menu item but lives on the basket panel (basket.js writes the side it shows to
     // #basketView[data-kind]). On that side [정리함] is not the current page and [노트] is; on every other screen [노트] is not marked.
     const noteMode=target==='basket'&&document.getElementById('basketView')?.dataset.kind==='note';
-    // BASKET-PC메뉴: [정리함] heads the sub items [업데이트]·[챙길 것] (data-basket-pane-nav, the side kept in #basketView[data-pane]). The sub item of the
-    // side shown is the current page; the head only carries the group look (data-nav-open) like [일정], so one page is current, not two.
-    const paneNow=document.getElementById('basketView')?.dataset.pane==='todo'?'todo':'update';
-    document.querySelectorAll('.app-nav .nav-btn,.app-nav .nav-sub-btn:is([data-view],[data-goto],[data-basket-pane-nav]),.mobile-menu-panel :is([data-view],[data-basket-kind-nav])').forEach(btn=>{
-      if(btn.hasAttribute('data-basket-head')){
-        btn.toggleAttribute('data-nav-open',target==='basket'&&!noteMode);btn.classList.remove('active');btn.removeAttribute('aria-current');return;
-      }
-      const own=btn.dataset.basketPaneNav?target==='basket'&&!noteMode&&btn.dataset.basketPaneNav===paneNow:btn.dataset.basketKindNav?noteMode:(btn.dataset.view||btn.dataset.goto)===target&&!(noteMode&&btn.dataset.view==='basket');
+    document.querySelectorAll('.app-nav .nav-btn,.app-nav .nav-sub-btn:is([data-view],[data-goto]),.mobile-menu-panel :is([data-view],[data-basket-kind-nav])').forEach(btn=>{
+      const own=btn.dataset.basketKindNav?noteMode:(btn.dataset.view||btn.dataset.goto)===target&&!(noteMode&&btn.dataset.view==='basket');
       btn.classList.toggle('active',own||!!btn.dataset.navGroup?.split(' ').includes(target));
       if(own)btn.setAttribute('aria-current',btn.dataset.goto&&!btn.dataset.view?'true':'page');
       else btn.removeAttribute('aria-current');

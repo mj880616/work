@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
-import { noteAction } from './helpers/basket-more.mjs';
+import {noteAction} from './helpers/basket-more.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
 import { closeNote } from './helpers/note-close.mjs';
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';

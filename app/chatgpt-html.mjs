@@ -3,7 +3,6 @@
 // - HTML 붙여넣기: 완전한 HTML 문서(<!doctype html> 또는 ```html 블록)를 .html 첨부로 바꾼다.
 // - 칸막이 문서: 보여 줄 HTML 맨 앞에 네트워크를 모두 막는 CSP와 높이 알림 스크립트를 붙인다(html-frame.js가 sandbox iframe에 넣는다).
 
-export const CHATGPT_HTML_REQUEST = '위 답변을 외부 라이브러리·폰트·이미지 주소 없이 인라인 CSS와 인라인 SVG만 쓴 HTML 파일 하나로 만들어 줘. 카드·표·도식 모양을 살려 줘.';
 export const HTML_MAX_BYTES = 2 * 1024 * 1024;
 export const HTML_MARK = '📄 ChatGPT HTML';
 

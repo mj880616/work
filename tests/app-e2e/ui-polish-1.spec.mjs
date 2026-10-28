@@ -143,7 +143,7 @@ test('쓰기 메뉴 없음: PC 사이드바·폰 메뉴 창·☰ 메뉴에 [쓰�
  // UI-PC일정묶음: 할 일·업무일지·일기는 [일정] 아래 하위 메뉴(달력·할 일·업무일지·일기)로.
  await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="일정"] .nav-sub-btn:visible')).toHaveText(['달력','할 일','업무일지','일기']);
  // BASKET-PC메뉴: [정리함] 아래 [업데이트]·[챙길 것], [노트]는 [일정] 다음.
- await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="정리함"] .nav-sub-btn:visible')).toHaveText(['업데이트','챙길 것']);
+ await expect(page.locator('#appView>.app-nav .nav-sub[aria-label="정리함"]')).toHaveCount(0);
  await expect(page.locator('#appView>.app-nav .nav-btn:visible')).toHaveText(['정리함','일정','노트','사업 보고','자료실','공유 페이지','담당조직','HWP 편집','원장','사진','통화','텔레그램 소식','아스날',/^자주 가는 링크/]);
  await openWriteFromEntry(page,1280);await expect(page.locator('#edWindow')).toBeVisible();
  await page.keyboard.press('Escape');await expect(page.locator('#edWindow')).toHaveCount(0);
@@ -196,10 +196,10 @@ for(const width of [1280])test(`빠른 추가 [업데이트] 쓰기 창(ED③ �
 for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`메모 읽기·수정: "‹ 정리함", 이 메모의 [⋯] 메뉴, 큰 버튼 둘, 연결·날짜 한 줄 ${width}${dark?' 어두운 화면':''}`,async({page})=>{
  const {errors,state}=await boot(page,width,{dark});
  await view(page,'basket');
- const listMore=page.locator('[data-basket-more]');await expect(listMore).toBeVisible();
+ const listMore=page.locator('#basketView [data-inbox-find]');await expect(listMore).toBeVisible();await expect(page.locator('[data-basket-more]')).toHaveCount(0);
  await (await showBasketRow(page,N1)).click();
  const detail=page.locator('[data-basket-detail]');await expect(detail.locator('[data-basket-read-text]')).toBeVisible();
- // The list menu (AI 분류 요청 등) is the list's only; the note has its own.
+ // The list's top line ([다시 찾기]) is the list's only; the note has its own [⋯].
  await expect(listMore).toBeHidden();
  const back=detail.locator('.basket-back');await expect(back).toHaveText('‹ 정리함');await expect(back).toHaveAccessibleName('정리함 목록으로');
  if(width<761){
@@ -243,15 +243,6 @@ for(const [width,dark] of [[390,false],[390,true],[1280,false]])test(`메모 읽
  // "‹ 바구니" returns to the list with its own [⋯].
  await back.click();await expect(page.locator('[data-basket-list]')).toBeVisible();await expect(listMore).toBeVisible();
  expect(errors).toEqual([]);
-});
-
-test('정리함 목록 [⋯]: [AI 분류 요청], 누른 뒤 안내 문구',async({page,context})=>{
- await context.grantPermissions(['clipboard-read','clipboard-write'],{origin:testOrigin});
- await boot(page,390);await view(page,'basket');
- await page.locator('[data-basket-more]').click();
- await expect(page.locator('#basketMoreMenu button')).toHaveText(['AI 분류 요청','GPT 답변 가져오기']);
- await page.locator('[data-handoff-copy]').click();
- await expect(page.locator('[data-basket-handoff-scope]')).toContainText('AI 분류 요청을 복사했어요. ChatGPT에 붙여 넣고, 받은 답을 아래 [분류 결과 입력]에 붙여 넣으세요.');
 });
 
 for(const width of [390,1280])test(`상자 안쪽 여백·제목 정리: 회의 결과 창, 담당조직 머리줄, 일정 하루 보기 할 일 ${width}`,async({page})=>{

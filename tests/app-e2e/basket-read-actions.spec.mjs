@@ -40,7 +40,7 @@ for(const width of [390,1280])test(`read actions: three buttons in one row, the 
  const detail=page.locator('[data-basket-detail]'),more=detail.locator('[data-basket-note-more]'),menu=detail.locator('#basketNoteMenu');
  await expect(page.locator('#basketView [data-basket-more]')).toBeHidden();
  await expect(page.locator('#basketView').getByRole('button',{name:'AI 분류 요청',exact:true})).toHaveCount(0);
- await expect(page.locator('[data-basket-handoff-scope]')).toBeHidden();
+ await expect(page.locator('[data-basket-handoff-scope]')).toHaveCount(0);
  if(width===390)await more.tap();else await more.click();
  await expect(menu.getByRole('button')).toHaveText(['수정','보류로','업무일지에 남기기','삭제']);
  for(const b of await menu.getByRole('button').all())expect((await box(b)).height).toBeGreaterThanOrEqual(44);

@@ -4,7 +4,6 @@ import {clickView} from './helpers/shell-navigation.mjs';
 import {enterLogin} from './helpers/login-entry.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
 import {showAllReportWeeks} from './helpers/report-week.mjs';
-import {openClassification} from './helpers/basket-more.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 // UI-디자인기준 3/3 1부(8-9e-1): 담당조직·자료실·회의를 새 기준(버튼 높이 하나·버튼 4종·모서리 8px·13px/500·0.5px 상자 안 줄 단위)으로,
 // 목록 줄 이름 13px·400(프로젝트 메인만 500)·보조 줄 12px 흐린 색, 담당조직 마지막 기록 점·보조 줄, 프로젝트 목록 오른쪽 D-day 하나,
@@ -201,11 +200,9 @@ for(const width of [390,1280])test(`프로젝트 목록 오른쪽은 D-day 하�
  const basket=page.locator('#basketView');await expect(basket.locator('[data-basket-row]')).toHaveCount(1);
  await rowText(page,basket.locator('.basket-row .basket-title'));
  for(const meta of await basket.locator('.basket-row time').all())expect((await look(meta)).fontSize).toBe('12px');
- // 8-9e-2(#577): [분류 결과 입력] 칸은 [⋯] → [분류 요청]이 요청문을 복사한 뒤 곧바로 연다.
- await openClassification(page);
- await expect(basket.getByRole('heading',{level:3,name:'분류 결과 입력',exact:true})).toBeVisible();
- await expect(basket.getByRole('heading',{name:'AI 정리 결과'})).toHaveCount(0);
- await expect(basket.locator('[data-classification-panel]')).toHaveAttribute('aria-labelledby','basketClassificationTitle');
+ // BASKET-AI메뉴삭제: [분류 결과 입력] 칸은 없다. BASKET-정리함한화면: 칸 제목은 '챙길 것'·'업데이트' 두 개.
+ await expect(basket.getByRole('heading',{level:3,name:'분류 결과 입력',exact:true})).toHaveCount(0);
+ await expect(basket.locator('#inboxTodoTitle')).toContainText('챙길 것');await expect(basket.locator('#inboxUpdateTitle')).toContainText('업데이트');
  expect(errors).toEqual([]);
 });
 

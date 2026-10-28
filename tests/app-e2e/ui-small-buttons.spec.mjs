@@ -140,33 +140,17 @@ test('③ 폰: 일정·정리함 전환은 아래 탭 바로 위 한 줄(알약 
  await go(page,'tasks');const quickH=await page.locator('#tasksView .home-quick').evaluate(el=>Math.ceil(el.getBoundingClientRect().height));
  expect(await page.locator('#tasksView').evaluate(el=>getComputedStyle(el).paddingBottom)).toBe(`${quickH+44+16}px`);
  await go(page,'calendar');
- // 정리함: 입력칸 → [업데이트 | 챙길 것] 전환 줄 → 아래 탭 순서(BASKET-전환줄하단). [노트]는 [메뉴] 안 독립 메뉴.
+ // BASKET-정리함한화면: 정리함은 한 화면(위 챙길 것 칸·아래 업데이트 칸)이라 아래 탭 위 전환 줄이 없다. [노트]는 [메뉴] 안 독립 메뉴.
  await page.locator('.mobile-tabs [data-view="basket"]').tap();
- await expect(page.locator('#basketView .basket-kind-switch')).toHaveCount(0);
+ await expect(page.locator('#basketView .basket-kind-switch')).toHaveCount(0);await expect(page.locator('.inbox-pane-switch')).toHaveCount(0);
+ await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('#calendarView')).toBeHidden();
+ await expect.poll(()=>page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-switch-dock').trim()||'0px')).toBe('0px');
  const basketTabsTop=(await page.locator('.mobile-tabs').boundingBox()).y;
- // BASKET-전환줄하단: the [업데이트 | 챙길 것] switch is the same kind of 32px pill, 6px above the tabs, centred; the input box sits right on top of it.
- const paneSwitch=page.locator('#basketView .inbox-pane-switch');await expect(paneSwitch).toBeVisible();
- const pill=await paneSwitch.boundingBox();
- expect(Math.round(pill.height)).toBe(32);expect(Math.round(basketTabsTop-(pill.y+pill.height))).toBe(6);expect(Math.abs(pill.x+pill.width/2-195)).toBeLessThanOrEqual(1);
- expect(pill.y).toBeGreaterThan(header.y+header.height+300);
- const paneCells=[];for(const c of await paneSwitch.getByRole('button').all())paneCells.push(await measure(c));
- expect(paneCells).toHaveLength(2);
- for(const [i,c] of paneCells.entries()){expect(c.h).toBeGreaterThanOrEqual(30);expect(c.h).toBeLessThanOrEqual(32);expect(c.hit).toBe(44);expect(c.hits).toEqual([true,true,true]);expect(c.bg).toBe(i===0?gray:white);}
- expect(paneCells[0].radius).toBe('999px');
- expect(Math.abs(paneCells[0].w-paneCells[1].w)).toBeLessThanOrEqual(1);
- expect(await page.evaluate(([x,y])=>!!document.elementFromPoint(x,y)?.closest('.inbox-pane-switch'),[20,pill.y+pill.height/2])).toBe(true);
- expect(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-switch-dock').trim())).toBe('44px');
- const quick=await page.locator('#basketView [data-basket-list] .home-quick').boundingBox();expect(Math.round(quick.y+quick.height)).toBe(Math.round(basketTabsTop-44));
- // The list end is cleared by the input box and the switch row; the head keeps only the title and [⋯].
- const basketQuickH=Math.ceil(quick.height);expect(await page.locator('#basketView').evaluate(el=>getComputedStyle(el).paddingBottom)).toBe(`${basketQuickH+44+16}px`);
- expect(await page.locator('#basketView > .basket-head > *').evaluateAll(els=>els.filter(e=>getComputedStyle(e).position!=='fixed'&&getComputedStyle(e).display!=='none').map(e=>e.tagName+(e.matches('.inbox-pane-switch')?'.pane':'')))).not.toContain('DIV.pane');
- // Picking [챙길 것] changes the pane and the pill stays at the same spot (one element, no second copy).
- await paneSwitch.locator('[data-inbox-pane="todo"]').tap();await expect(page.locator('#basketView')).toHaveAttribute('data-pane','todo');
- const afterPane=await paneSwitch.boundingBox();expect(afterPane.y).toBe(pill.y);expect(afterPane.height).toBe(pill.height);
- await expect(paneSwitch.locator('[data-inbox-pane="todo"]')).toHaveAttribute('aria-pressed','true');
- await paneSwitch.locator('[data-inbox-pane="update"]').tap();await expect(page.locator('#basketView')).toHaveAttribute('data-pane','update');
- // Filters stay at the top, alone on their row; the [업데이트 | 챙길 것] switch is at the bottom.
- const filter=await page.locator('[data-basket-filter="unclassified"]').boundingBox();expect(filter.y).toBeLessThan(header.y+header.height+40);
+ const quick=await page.locator('#basketView [data-basket-list] .home-quick').boundingBox();expect(quick.y+quick.height).toBeLessThanOrEqual(basketTabsTop+1);
+ // 맨 위 한 줄과 작은 [다시 찾기], 그 아래 챙길 것 칸, 그 아래 업데이트 칸(필터 줄).
+ const find=await measure(page.locator('#basketView [data-inbox-find]'));expect(find.h).toBeLessThanOrEqual(32);expect(find.hit).toBe(44);
+ const todoBox=await page.locator('#basketView [data-inbox-todo-section]').boundingBox(),filter=await page.locator('[data-basket-filter="unclassified"]').boundingBox();
+ expect(todoBox.y).toBeLessThan(filter.y);
  await openKindMenu(page,'note');await basketKindButton(page,'note').tap();
  await expect(page.locator('[data-note-row="n1"]')).toBeVisible();
  await expect(page.locator('#basketView #newNoteBtn')).toHaveCount(0);
@@ -177,11 +161,10 @@ test('③ 폰: 일정·정리함 전환은 아래 탭 바로 위 한 줄(알약 
  // The same for an opened memo.
  await basketKindButton(page,'memo').tap();await showBasketRow(page,'m1');
  await page.locator('[data-basket-row="m1"]').tap();await expect(page.locator('[data-basket-close]')).toBeVisible();
- await expect(page.locator('#basketView .inbox-pane-switch')).toBeHidden();
- expect(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-switch-dock').trim()||'0px')).toBe('0px');
- await page.locator('[data-basket-close]').tap();await expect(page.locator('#basketView .inbox-pane-switch')).toBeVisible();
+ await expect(page.locator('#basketView [data-inbox-todo-section]')).toBeHidden();
+ await page.locator('[data-basket-close]').tap();await expect(page.locator('#basketView [data-inbox-todo-section]')).toBeVisible();
  // One painter per screen: each switch is the screen's own element, there is no second copy anywhere.
- expect(await page.locator('.schedule-switch').count()).toBe(4);expect(await page.locator('.basket-kind-switch').count()).toBe(0);expect(await page.locator('.inbox-pane-switch').count()).toBe(1);
+ expect(await page.locator('.schedule-switch').count()).toBe(4);expect(await page.locator('.basket-kind-switch').count()).toBe(0);expect(await page.locator('.inbox-pane-switch').count()).toBe(0);
  for(const v of ['calendar','tasks','journal','diary'])expect(await page.locator(`#${v}View > .schedule-switch`).count()).toBe(1);
  expect(await noWideScroll(page)).toBe(true);
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
@@ -196,13 +179,12 @@ test('③ 폰: 자판이 뜨면 전환 줄·아래 탭이 함께 숨고, 내려�
  await page.locator('#basketView [data-basket-list] .home-quick [data-quick-input]').focus();await keyboard(page,true);
  await expect(page.locator('body')).toHaveClass(/kptu-mobile-keyboard/);
  await expect(tabs).toBeHidden();await expect(sw).toBeHidden();
- // BASKET-전환줄하단: the [업데이트 | 챙길 것] row hides with the tabs and the dock height is 0.
- await expect(page.locator('#basketView .inbox-pane-switch')).toBeHidden();
+ // BASKET-정리함한화면: there is no switch row, the dock height is 0.
  expect(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-switch-dock').trim())).toBe('0px');
  // The input sits right on the keyboard (no room left for the hidden row).
  await expect.poll(async()=>{const b=await page.locator('#basketView [data-basket-list] .home-quick').boundingBox();return Math.round(b.y+b.height);}).toBe(444);
  await keyboard(page,false);
- await expect(tabs).toBeVisible();await expect(sw).toBeVisible();await expect(page.locator('#basketView .inbox-pane-switch')).toBeVisible();
+ await expect(tabs).toBeVisible();await expect(sw).toBeVisible();
  // 노트 검색칸도 같은 공용 감지.
  await openKindMenu(page,'note');await basketKindButton(page,'note').tap();await page.locator('[data-note-search]').focus();await keyboard(page,true);
  await expect(tabs).toBeHidden();await expect(sw).toBeHidden();

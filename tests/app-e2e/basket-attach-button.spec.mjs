@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { openHome } from './helpers/home-entry.mjs';
-import { noteAction } from './helpers/basket-more.mjs';
+import {noteAction} from './helpers/basket-more.mjs';
 
 // UI-PC바구니첨부버튼: the attach control is the shared button [📎 첨부]. PC basket input: outside the input, left of
 // [추가], same line and height. Phone: the icon stays inside the input (label hidden). The edit screen's tool row shows

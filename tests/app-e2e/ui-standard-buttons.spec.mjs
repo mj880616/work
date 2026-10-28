@@ -1,6 +1,5 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
-import {openBasketMore} from './helpers/basket-more.mjs';
 // UI-디자인기준 1/3 보완(8-9c2): 홈·바구니 버튼 높이 하나(홈 빠른 입력 [추가] 높이), 버튼 4종,
 // 홈 빠른 입력 탭 종류 색, "오늘 할 일" 제목, 바구니 AI 버튼 [⋯ 더보기], 다크 모드 끔.
 test.use({hasTouch:true});
@@ -30,19 +29,18 @@ async function sameButtons(region,height,quickHeight=height){
   // UI-바구니상세개편: the [복사]·원문 toggle icons, photo previews and the files' small text links are not button shapes either.
   // UI-업데이트목록메뉴: the update row's [⋯] beside [복사] is the same small icon (as the note row's).
   // UI-PC바구니첨부버튼: the [📎 첨부] shared button (46px) is checked in basket-attach-button.spec.
-  if(await control.evaluate(el=>el.matches('.basket-row,.basket-clip,.home-quick-big,.icon-btn,.quick-text-link,.home-basket-link,.md-body *,.basket-more-menu *,.basket-back,[data-basket-note-more],.basket-icon-button,.basket-row-copy,.basket-row-more,.basket-file-thumb,.basket-file-link')||el.matches('.basket-more-trigger')&&innerWidth<761))continue;
+  if(await control.evaluate(el=>el.matches('.basket-row,.basket-clip,.home-quick-big,.icon-btn,.quick-text-link,.inbox-todo-link,.inbox-todo-source,.home-basket-link,.md-body *,.basket-more-menu *,.basket-back,[data-basket-note-more],.basket-icon-button,.basket-row-copy,.basket-row-more,.basket-file-thumb,.basket-file-link')||el.matches('.basket-more-trigger')&&innerWidth<761))continue;
   const s=await look(control);shaped.push(s);
   // UI-버튼크기: 주 동작 버튼만 [추가] 높이(46px). 전환(홈 [업데이트 ▾|할 일]·바구니 [메모|노트])은 32px 상자 안 칸으로
   // 바깥쪽 모서리만 8px, 필터([미분류·전체·보관])는 32px 알약, PC [⋯ 더보기]는 32px 보조 버튼. 작은 것은 누르는 범위(::after) 44px.
   const want=await control.evaluate(el=>{
-   const seg=el.closest('.home-quick-modes,.inbox-pane-switch');
-   // BASKET-전환줄하단: on phones the basket [업데이트 | 챙길 것] is the bottom-row pill (999px ends, like the schedule switch).
-   const r=seg&&seg.matches('.inbox-pane-switch')&&innerWidth<=760?'999px':'8px';
+   const seg=el.closest('.home-quick-modes');
+   const r='8px';
    if(seg){const cells=[...seg.querySelectorAll('button')],i=cells.indexOf(el);return {min:30,max:32,radius:i===0?`${r} 0px 0px ${r}`:i===cells.length-1?`0px ${r} ${r} 0px`:'0px'};}
    // UI-버튼작게 ①: 읽기 화면 아래 버튼은 한 줄 32px. UI-업데이트편집한줄: 수정 화면 버튼 줄과 [첨부 저장]도 32px.
    if(el.closest('.basket-read-actions,.basket-edit-actions')||el.matches('[data-basket-upload]'))return {min:32,max:32,radius:'8px'};
    if(el.matches('[data-basket-filter]'))return {min:32,max:32,radius:'999px'};
-   if(el.matches('.basket-more-trigger'))return {min:32,max:32,radius:'8px'};
+   if(el.matches('.inbox-find,.inbox-chip'))return {min:32,max:32,radius:'8px'};
    return null;
   });
   const label=await control.textContent();
@@ -83,24 +81,16 @@ for(const width of [390,1280])test(`home and basket buttons share the [추가] h
  await expect(tasks.locator('h3')).toContainText('오늘 할 일');await expect(tasks.locator('h3')).not.toContainText('밀린');
  await expect(tasks).toContainText('지연 항목');await expect(tasks).toContainText('오늘 항목');
 
- // Basket list: filters, [추가] and [⋯ 더보기]; the AI buttons are folded away until it opens.
+ // Basket list: filters, [추가], the top line's small [다시 찾기] and the 챙길 것 chips (BASKET-정리함한화면: no [⋯ 더보기]).
  await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-row]')).toHaveCount(1);
- const basket=page.locator('#basketView'),more=basket.locator('[data-basket-more]');
- // 8-9e-2: [⋯] is a button (aria-label 더보기) that opens a small menu under itself.
- await expect(more).toHaveJSProperty('tagName','BUTTON');await expect(more).toHaveAttribute('aria-label','더보기');await expect(more).toHaveAttribute('aria-expanded','false');
+ const basket=page.locator('#basketView');
+ await expect(basket.locator('[data-basket-more]')).toHaveCount(0);
  for(const name of ['AI 분류 요청','분류 결과 입력','GPT 답변 가져오기'])await expect(basket.getByRole('button',{name,exact:true})).toHaveCount(0);
  await sameButtons(basket,height,quickHeight);
  const filled=[];for(const c of await basket.locator('button:visible').all())if((await look(c)).bg===primary&&!(await c.evaluate(el=>el.matches('[aria-pressed="true"],[aria-checked="true"],.active'))))filled.push(await c.textContent());
  expect(filled).toEqual(['추가']);
  // UI-선택표시톤다운: 고른 필터는 연한 선택 바탕 + 테두리 선(주 색 채움은 [추가]만).
  {const on=await look(basket.locator('[data-basket-filter="unclassified"]'));expect(on.bg).toBe(await token(page,'--ds-select-bg'));expect(on.border).toBe(await token(page,'--ds-select-line'));expect(on.bg).not.toBe(primary);}
- // Keyboard opens and closes the menu; it does not push the list.
- const listTop=(await basket.locator('[data-basket-filter="unclassified"]').boundingBox()).y;
- await more.focus();await page.keyboard.press('Enter');await expect(more).toHaveAttribute('aria-expanded','true');
- await expect(page.locator('#basketMoreMenu').getByRole('button')).toHaveText(['AI 분류 요청','GPT 답변 가져오기']);
- expect((await basket.locator('[data-basket-filter="unclassified"]').boundingBox()).y).toBe(listTop);
- await sameButtons(basket,height,quickHeight);
- await page.keyboard.press('Escape');await expect(more).toHaveAttribute('aria-expanded','false');await expect(more).toBeFocused();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 
  // Read view: actions and attachment controls share the height; 연결하기 filled, 할 일 만들기 task kind (UI-디자인손질 6),
@@ -135,6 +125,5 @@ test('dark mode follows the device on home and basket (3/3 8-9e-3 turned it on f
  const home=await colors();expect(home.bg).toBe(dark.bg);expect(home.surface).toBe(dark.surface);expect(home.scheme).toContain('dark');
  await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-row]')).toHaveCount(1);
  expect(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor)).toBe(dark.bg);
- await openBasketMore(page);
  expect(errors).toEqual([]);
 });

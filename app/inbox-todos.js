@@ -17,7 +17,7 @@ import {flashDone} from './press-feedback.js';
 
 const CHANGED = 'kptu:todo-radar-changed';
 export const INBOX_CHIPS = Object.freeze([['open', '처리 전'], ['tasked', '할 일로 보냄'], ['dismissed', '무시함']]);
-const EMPTY = Object.freeze({open: '처리할 챙길 것이 없어요.', tasked: '할 일로 보낸 것이 없어요.', dismissed: '무시한 것이 없어요.'});
+const EMPTY = Object.freeze({open: '챙길 것 없음', tasked: '보낸 것 없음', dismissed: '무시한 것 없음'});
 const taskTitles = () => (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).filter(t => t?.status !== 'completed').map(t => t.title);
 
 // MTG-후속할일후보: the same list can sit inside one 사업 보고 window. `read` swaps in the reader for that meeting's rows, `quietEmpty` draws nothing
