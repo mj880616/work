@@ -576,3 +576,24 @@ test('index responses carry list facts only: no token, secret or Graph link',asy
     for(const secret of [REFRESH,REFRESH2,ACCESS,ENV.ONEDRIVE_CLIENT_SECRET,'graph.microsoft.com','token='])assert.ok(!text.includes(secret),body.action+' '+secret);
   }
 });
+
+// ── OD-미리받기(2026-10-28): 일기 탭을 열 때 서버가 Microsoft를 몇 번 부르는지 잰다(새로 뜬 서버 = 토큰 기억 없음) ──
+// 일기 탭 첫 열기의 차례: status → photos(이번 달) → (날짜를 열면) photo-urls. photos는 마지막 받기가 10분 넘었으면 그 자리에서 delta를 받는다.
+test('measure: Microsoft round trips per diary entry step on a cold server; photos waits for delta only when the last sync is over 10 minutes old',async()=>{
+  const kinds=calls=>calls.map(c=>c.url.startsWith('https://login.microsoftonline.com/')?'token':c.url.includes('/$batch')?'batch':c.url.includes('/delta')?'delta':'other');
+  const iso=ms=>new Date(NOW-ms).toISOString();
+  const row=ago=>({...connected,index_done_at:iso(86400000),synced_at:iso(ago),delta_link:'https://graph.microsoft.com/v1.0/me/drive/items/F1!100/delta?token=latest'});
+  const steps=async ago=>{
+    const ms=fakeMicrosoft({deltaPages:tree(),itemById:{P0:{id:'P0',file:{mimeType:'image/jpeg'},parentReference:{path:'/drive/root:/Pictures/Camera'}}}});
+    const ctx=make({admin:fakeAdmin({row:row(ago)}),ms});
+    const out={};
+    for(const [name,body] of [['status',{action:'status'}],['photos',{action:'photos',month:'2026-10'}],['photo-urls',{action:'photo-urls',ids:['P0'],size:'small'}]]){
+      const before=ms.calls.length;assert.equal((await post(ctx.handler,body)).status,200,name);out[name]=kinds(ms.calls.slice(before));
+    }
+    return out;
+  };
+  // 11분 전에 받았음(앱을 오래 안 열었음): photos가 토큰 새로 받기 + delta 한 쪽을 기다린 뒤 답한다. photo-urls는 같은 서버면 토큰을 다시 쓴다.
+  assert.deepEqual(await steps(11*60000),{status:[],photos:['token','delta'],'photo-urls':['batch']});
+  // 2분 전에 받았음(미리 받기가 먼저 돈 뒤): photos는 Microsoft를 부르지 않고 서버 표만 읽는다. 토큰은 photo-urls에서 처음 받는다.
+  assert.deepEqual(await steps(2*60000),{status:[],photos:[],'photo-urls':['token','batch']});
+});

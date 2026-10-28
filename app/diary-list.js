@@ -9,7 +9,7 @@
 // - 기기 저장 없음: 펼친 달·찾기 글자·밀어 둔 줄은 메모리만, 고정·별표는 서버(일기 행 metadata).
 import {readDiaryList, setDiaryMark, diaryPhotos, photoElement, ownerScope} from './diary-data.js';
 import {buildDiaryList, rowText, dayLabel, diaryPinnedAt, diaryStarredAt, MARK_KEYS} from './diary-list-model.mjs';
-import {odPhotos, odPhotoElement} from './diary-onedrive.js';
+import {odPhotos, odPhotoElement, odTakeWarmMonth} from './diary-onedrive.js';
 import {swipeIntent, swipeOffset, swipeSettle, swipeOpenOffset, swipeEdge} from './tg-day-model.mjs';
 import {createAnchoredMenu} from './anchored-menu.js';
 
@@ -86,7 +86,7 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
   function odMonthOf(key) {
     if (!odCache.has(key)) {
       const [y, m] = key.split('-').map(Number);
-      odCache.set(key, odReady().then(on => (on ? odPhotos(rt, y, m - 1) : null)).catch(() => null));
+      odCache.set(key, odReady().then(on => (on ? odTakeWarmMonth(rt, y, m - 1) || odPhotos(rt, y, m - 1) : null)).catch(() => null)); // OD-미리받기: 앱을 켤 때 받아 둔 이번 달이 있으면 그것
     }
     return odCache.get(key);
   }
