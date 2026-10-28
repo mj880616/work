@@ -234,6 +234,9 @@ jobs:
       - name: Check organization key people tab (ORG-주요인물)
         run: node --test tests/org-key-people.test.mjs
 
+      - name: Check ledger decision history (FEAT-1029묶음 ⑥)
+        run: node --test tests/ledger-decision-history.test.mjs
+
       - name: Check meeting draft parser
         run: node --test tests/meeting-draft-parser.test.mjs
 
