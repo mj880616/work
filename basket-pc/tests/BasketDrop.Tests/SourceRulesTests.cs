@@ -201,4 +201,40 @@ public class SourceRulesTests
         foreach (var form in new[] { "PasteForm.cs", "StatusForm.cs" })
             Assert.Contains("AppIcon.ForWindow()", File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", form)));
     }
+
+    private static int[] IcoSizes(string file)
+    {
+        var ico = File.ReadAllBytes(file);
+        Assert.Equal(1, BitConverter.ToUInt16(ico, 2));
+        return Enumerable.Range(0, BitConverter.ToUInt16(ico, 4))
+            .Select(i => ico[6 + 16 * i] == 0 ? 256 : (int)ico[6 + 16 * i]).OrderBy(x => x).ToArray();
+    }
+
+    [Fact]
+    public void Tray_status_icons_are_built_and_embedded()
+    {
+        var csproj = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "BasketDrop.csproj"));
+        var appIcon = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "AppIcon.cs"));
+        foreach (var name in new[] { "tray-pending.ico", "tray-signedout.ico", "tray-signedout-pending.ico" })
+        {
+            Assert.Equal(new[] { 16, 20, 24, 32, 40, 48 }, IcoSizes(Path.Combine(Root(), "src", "BasketDrop", name)));
+            Assert.Contains($"LogicalName=\"BasketDrop.{name}\"", csproj);
+            Assert.Contains($"\"BasketDrop.{name}\"", appIcon);
+        }
+        var tray = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "TrayApp.cs"));
+        Assert.Contains("TrayStatus.From(", tray);
+        Assert.Contains("AppIcon.ForTray(picture)", tray);
+    }
+
+    [Fact]
+    public void Icon_drawing_uses_the_web2_icon_colours()
+    {
+        static HashSet<string> Colours(string svg) =>
+            Regex.Matches(svg, "#[0-9A-Fa-f]{6}").Select(m => m.Value.ToUpperInvariant()).ToHashSet();
+        var web2 = Colours(File.ReadAllText(Path.Combine(Root(), "..", "app", "app-icon.svg")));
+        var basket = Colours(File.ReadAllText(Path.Combine(Root(), "icon", "basket-icon.svg")));
+        basket.Remove("#C9673D"); // the waiting dot, the only extra colour
+        Assert.Equal(web2.OrderBy(x => x), basket.OrderBy(x => x));
+        Assert.True(File.Exists(Path.Combine(Root(), "tools", "make-icon.py")));
+    }
 }
