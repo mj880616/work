@@ -23,6 +23,7 @@ on:
       - 'tests/meeting-time.test.mjs'
       - 'tests/seoul-time.test.mjs'
       - 'tests/ui-cleanup-b.test.mjs'
+      - 'tests/ui-cleanup-c.test.mjs'
       - 'tests/wait-state.test.mjs'
       - 'tests/time-input.test.mjs'
       - 'tests/meeting-compact.test.mjs'
@@ -120,6 +121,7 @@ on:
       - 'tests/meeting-time.test.mjs'
       - 'tests/seoul-time.test.mjs'
       - 'tests/ui-cleanup-b.test.mjs'
+      - 'tests/ui-cleanup-c.test.mjs'
       - 'tests/wait-state.test.mjs'
       - 'tests/time-input.test.mjs'
       - 'tests/meeting-compact.test.mjs'
@@ -217,6 +219,8 @@ jobs:
       - name: Check shared UI parts stay unified (UI-화면정리 B)
         run: node --test tests/ui-cleanup-b.test.mjs
 
+      - name: Check editor toolbar, add buttons and top bands stay unified (UI-화면정리 C)
+        run: node --test tests/ui-cleanup-c.test.mjs
       - name: Check one shared loading/failed/empty part (UI-기다림표시통일)
         run: node --test tests/wait-state.test.mjs
 

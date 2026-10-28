@@ -106,7 +106,8 @@ for(const width of [1280,1440])test(`PC ${width}: 3단 — 왼쪽 회의 종류 
   expect(pos.gap).toBeGreaterThanOrEqual(0);expect(pos.gap).toBeLessThanOrEqual(12);expect(pos.right&&pos.left).toBe(true);
   // Esc는 메뉴만 닫고 ⋯로 돌아간다. 바깥을 눌러도 닫힌다.
   await page.keyboard.press('Escape');await expect(menu).toBeHidden();await expect(more).toBeFocused();await expect(more).toHaveAttribute('aria-expanded','false');
-  await more.click();await expect(menu).toBeVisible();await result(page).locator('#mrdResult').click({position:{x:4,y:4}});await expect(menu).toBeHidden();
+  // UI-화면정리 C: ⋯ 점이 공용 .more-dots가 되어 머리줄이 낮아지면 메뉴가 결과 글 첫 줄을 덮을 수 있으므로, 바깥 누르기는 메뉴 밖인 머리 날짜 줄에서 잰다.
+  await more.click();await expect(menu).toBeVisible();await result(page).locator('#mrdMeta').click({position:{x:4,y:4}});await expect(menu).toBeHidden();
   await more.click();await menu.locator('[data-mrd-more="edit"]').click();
   await expect(result(page).locator('#mrdEditor')).toBeVisible();await expect(result(page).locator('#mrdEditRound')).toHaveValue('5');
   await expect(page.locator('body>#meetingRoundDetailModal')).toHaveCount(0);
