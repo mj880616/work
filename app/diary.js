@@ -753,7 +753,7 @@ async function commitDiaryDelete(job) {
   job.done = true; clearInterval(job.watch); window.removeEventListener('pagehide', job.leave);
   if (pendingDelete === job) pendingDelete = null;
   const result = await deleteNoteOriginal(job.row.id, {rt, confirmed:true});
-  if (job.owner !== owner || ['deleted', 'missing', 'stale'].includes(result.status)) return;
+  if (job.owner !== ownerScope(rt) || ['deleted', 'missing', 'stale'].includes(result.status)) return;
   restoreDiaryRow(job.row);
   notifySmall(`${shortDay(job.row.journal_day)} 일기를 지우지 못해 되살렸어요. ${String(result.message || '').replace(/업데이트/g, '일기')}`.trim(), {error:true});
 }
@@ -767,13 +767,13 @@ async function removeDiary(row) {
   rows.delete(day); listView.dropDay(day); listDirty = true;
   if (edit) closeEditor({force:true});
   closeDetail(); renderMonth();
-  const job = {row, owner, done:false, undone:false};
+  const job = {row, owner:ownerScope(rt), done:false, undone:false};
   pendingDelete = job;
   const box = offerUndoNotice({text:`${shortDay(day)} ${DIARY_DELETED}`, onUndo:async () => {
     if (job.done) return {status:'failed', message:'이미 지워져 되돌리지 못했어요.'};
     job.undone = true; clearInterval(job.watch); window.removeEventListener('pagehide', job.leave);
     if (pendingDelete === job) pendingDelete = null;
-    if (job.owner !== owner) return {status:'stale'};
+    if (job.owner !== ownerScope(rt)) return {status:'stale'};
     restoreDiaryRow(row);
     return {status:'restored', message:'일기를 되돌렸어요.'};
   }});

@@ -68,9 +68,7 @@ import {eventColor} from './home-read-model.js';
     if(!view||!view.classList.contains('hidden')){
       // Pinch zoom changes the visual viewport, not the layout space available to the grid.
       const viewportHeight=document.documentElement.clientHeight||window.innerHeight||window.visualViewport?.height||0;
-      // 화면정리 A3(2026-10-28): 폰은 아래에 붙은 하단 탭·[달력|할 일|업무일지|일기] 전환 줄 높이만큼 칸을 줄여 마지막 주가 그 줄들에 가리지 않게 한다.
-      const rootEl=document.documentElement,dock=mq760.matches?cssPx(rootEl,'--kptu-mobile-tab-height',0)+cssPx(rootEl,'--kptu-switch-dock',0):0;
-      const safeBottom=(view?(parseFloat(getComputedStyle(view).paddingBottom)||0):0)+dock;
+      const safeBottom=view?(parseFloat(getComputedStyle(view).paddingBottom)||0):0;
       // Page scrolling must not create extra slots when tasks or events trigger a rerender.
       const gridTop=grid.getBoundingClientRect().top+(mq760.matches?window.scrollY:0);
       const available=Math.floor(viewportHeight-gridTop-safeBottom);
