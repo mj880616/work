@@ -286,6 +286,9 @@ export function isSearching(filters) {
 export const LEDGER_ROW_COLS = 'id,ledger_id,kind,title,summary,date_start,date_end,date_precision,validity,sensitivity,counterparty,commitment_status,follow_up_on';
 export const overdueRecordsPath = (workspaceId, today, limit = 30) =>
   `/rest/v1/app_ledger_records?workspace_id=eq.${encodeURIComponent(workspaceId)}&kind=eq.commitment&commitment_status=eq.waiting&validity=in.(current,needs_check)&follow_up_on=lt.${today}&select=${LEDGER_ROW_COLS}&order=follow_up_on.asc&limit=${limit}`;
+// ORG-주요인물: 아직 기다리는 약속 전부(놓친 약속과 같은 조건에서 확인일 조건만 뺌). 상대(counterparty)로 사람을 고른다.
+export const waitingCommitmentsPath = (workspaceId, limit = MAX_LIMIT) =>
+  `/rest/v1/app_ledger_records?workspace_id=eq.${encodeURIComponent(workspaceId)}&kind=eq.commitment&commitment_status=eq.waiting&validity=in.(current,needs_check)&select=${LEDGER_ROW_COLS}&order=follow_up_on.asc.nullslast&limit=${limit}`;
 // 확인일이 오늘(서울)보다 며칠 지났나. 지나지 않았거나 날짜가 아니면 0.
 export function overdueDays(day, now = new Date()) {
   if (!isDay(day)) return 0;
