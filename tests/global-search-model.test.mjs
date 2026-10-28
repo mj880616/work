@@ -245,3 +245,11 @@ test('the auto text read is wired only to the library screen, next to the auto t
   const users=readdirSync(dir).filter(f=>/\.(m?js|html)$/.test(f)&&f!=='document-text-read.js').filter(f=>/readMissingTexts|startAutoTextRead/.test(rf(new URL(f,dir),'utf8')));
   assert.deepEqual(users,['library-upload.js']);
 });
+
+test('SEARCH-선택옮기기 ④: 정리 전 꼬리표 글자는 값만 · 로 잇는다', async () => {
+  const {tidySnippet} = await import('../app/global-search-model.mjs');
+  assert.equal(tidySnippet('{종류:회의자료,조직:공공기관사업본부,주제:본부집행위}'), '회의자료 · 공공기관사업본부 · 본부집행위');
+  assert.equal(tidySnippet('앞 글 {종류:회의자료} 뒤 글'), '앞 글 회의자료 뒤 글');
+  assert.equal(tidySnippet('그냥 {괄호} 글'), '그냥 {괄호} 글');
+  assert.equal(tidySnippet(null), null);
+});

@@ -8,8 +8,8 @@ const ORIGIN={project_id:'ai',category:'ai'};
 const DOCS=[libDoc('a-1','top-a',{field_origin:{...ORIGIN}}),libDoc('a-2','top-a',{field_origin:{...ORIGIN}}),libDoc('a1-1','child-a1',{field_origin:{...ORIGIN}}),libDoc('n-1',null,{field_origin:{...ORIGIN}})];
 const line=page=>page.locator('#libraryFolderStatusLine');
 const bar=page=>page.locator('#librarySelectBar');
-async function boot(page,width){
-  const r=await bootLibrary(page,width,{folders:FOLDERS,items:[],docs:structuredClone(DOCS),group:'폴더'});
+async function boot(page,width,{group='폴더',docs=DOCS}={}){
+  const r=await bootLibrary(page,width,{folders:FOLDERS,items:[],docs:structuredClone(docs),group});
   const {s}=r;s.patches=[];
   await page.route(`${SB}/rest/v1/app_documents*`,route=>{
     const req=route.request();if(req.method()!=='PATCH')return route.fallback();
@@ -188,4 +188,37 @@ test.describe('LIB-후속1 PC 선택',()=>{
     await expect(bar(page)).toBeHidden();
     expect(errors).toEqual([]);
   });
+});
+
+// LIB-후속1 ⑤: 분류로 묶은 화면에서 자료를 다른 분류 머리(또는 그 분류의 열린 자료 줄) 위에 놓으면 분류가 바뀐다(칸 기록 user). 왼쪽 폴더 팝업은 그대로.
+test('분류 묶기에서 끌어 분류 바꾸기, 놓일 묶음 전체 칠함, 왼쪽 폴더 팝업 유지',async({page})=>{
+  const docs=[...DOCS.slice(0,3),libDoc('n-1',null,{category:'기타',field_origin:{...ORIGIN}})];
+  const {s,errors}=await boot(page,1280,{group:'분류',docs});
+  await expect(page.locator('#documentList details[data-lu-node="c:기타"]')).toHaveCount(1);
+  const r=await page.evaluate(()=>{
+    const src=document.querySelector('[data-lu-document="a-2"]'),dst=document.querySelector('#documentList details[data-lu-node="c:기타"] > summary'),dt=new DataTransfer(),b=dst.getBoundingClientRect();
+    src.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer:dt}));
+    const over=new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:dt,clientX:b.left+b.width/2,clientY:b.top+b.height/2});dst.dispatchEvent(over);
+    const out={allowed:over.defaultPrevented,group:dst.parentElement.classList.contains('lu-drop-group')};
+    dst.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:dt,clientX:b.left+b.width/2,clientY:b.top+b.height/2}));
+    src.dispatchEvent(new DragEvent('dragend',{bubbles:true,dataTransfer:dt}));
+    return out;
+  });
+  expect(r).toEqual({allowed:true,group:true});
+  await expect.poll(()=>s.patches.map(p=>p.id)).toEqual(['a-2']);
+  expect(s.patches[0].body.category).toBe('기타');expect(s.patches[0].body.field_origin.category).toBe('user');
+  await expect(line(page)).toContainText('1개의 분류을(를) 바꿨어요');
+  await expect(page.locator('#documentList .lu-drop-group')).toHaveCount(0);
+  // 같은 분류에는 놓을 수 없고, 끄는 동안 왼쪽 폴더 팝업이 뜬다.
+  const again=await page.evaluate(async()=>{
+    const src=document.querySelector('[data-lu-document="a-2"]'),dst=document.querySelector('#documentList details[data-lu-node="c:기타"] > summary'),dt=new DataTransfer();
+    src.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer:dt}));
+    await new Promise(r=>setTimeout(r,30));
+    const over=new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:dt,clientX:10,clientY:10});dst.dispatchEvent(over);
+    const panel=document.querySelector('.lu-drop-panel');const out={allowed:over.defaultPrevented,panel:!!panel&&!panel.hidden};
+    src.dispatchEvent(new DragEvent('dragend',{bubbles:true,dataTransfer:dt}));
+    return out;
+  });
+  expect(again).toEqual({allowed:false,panel:true});
+  expect(errors).toEqual([]);
 });

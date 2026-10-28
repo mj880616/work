@@ -11,7 +11,7 @@ import {createMovePicker} from './library-move-picker.js';
 const T_FOLDERS='/rest/v1/app_library_folders',T_ITEMS='/rest/v1/app_library_folder_items';
 const enc=encodeURIComponent;
 
-export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},notify=null,toggleNode=()=>{},selected=()=>[],touchOk=()=>false,recent={get:()=>[],push:()=>{}},onMoveProgress=()=>{},onMoved=()=>{}}){
+export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},notify=null,toggleNode=()=>{},selected=()=>[],touchOk=()=>false,recent={get:()=>[],push:()=>{}},onMoveProgress=()=>{},onMoved=()=>{},categoryOf=null,changeCategory=null}){
   // state(): {workspace, folders, items, docs, projectName(id), free(폴더 보기: 프로젝트 틀을 보지 않음), isOpen(key)}
   // notify(text,{error,undo}): '… · 되돌리기' 한 줄(없으면 status). toggleNode(key): 토글 접기·펼치기.
   // selected(): 지금 고른 자료 id들(여러 개 끌기). touchOk(): 폰 길게 누르기를 켤 화면인지.
@@ -216,6 +216,13 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   }
   function dropFor(e){
     if(!drag)return null;
+    // LIB-후속1 ⑤: 분류로 묶은 화면에서 자료를 다른 분류 머리(또는 그 분류의 열린 자료 줄) 위에 놓으면 그 분류로 바꾼다. 왼쪽 폴더 팝업은 그대로(폴더 옮기기).
+    if(drag.kind==='file'&&categoryOf&&changeCategory){
+      const rowNode=e.target?.closest?.('#documentList .lu-row')?.closest('details.lu-node');
+      const cHead=e.target?.closest?.('#documentList summary.lu-node-head')||(rowNode?.dataset.luNode?.startsWith('c:')?rowNode.querySelector(':scope > summary.lu-node-head'):null);
+      const cKey=cHead?.parentElement?.dataset.luNode||'';
+      if(cKey.startsWith('c:')){const name=cKey.slice(2);return {head:cHead,ok:drag.docs.some(d=>categoryOf(d.category)!==name),kind:'category',value:name}}
+    }
     const head=e.target?.closest?.('#documentList summary.lu-node-head');if(!head)return null;
     const node=head.parentElement,key=node?.dataset.luNode;if(!key)return null;
     const free=!!s().free,r=head.getBoundingClientRect(),y=e.clientY-r.top,edge=r.height/4;
@@ -236,11 +243,14 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
     const ok=folderMoveTargets(s().folders,drag.id,free).includes(target.id);
     return {head,ok,kind:'into',target:target.id};
   }
-  function clearMarks(){hideDropPanel();document.querySelectorAll('#documentList .lu-drop-into,#documentList .lu-drop-before,#documentList .lu-drop-after,#documentList .lu-drop-no,#documentList .lu-dragging,#documentList .lu-grabbed').forEach(el=>el.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no','lu-dragging','lu-grabbed'))}
+  function clearMarks(){hideDropPanel();document.querySelectorAll('#documentList .lu-drop-into,#documentList .lu-drop-before,#documentList .lu-drop-after,#documentList .lu-drop-no,#documentList .lu-dragging,#documentList .lu-grabbed,#documentList .lu-drop-group').forEach(el=>el.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no','lu-dragging','lu-grabbed','lu-drop-group'))}
   function showMarks(t){
+    if(!t)document.querySelectorAll('#documentList .lu-drop-group').forEach(el=>el.classList.remove('lu-drop-group'));
     document.querySelectorAll('#documentList .lu-drop-into,#documentList .lu-drop-before,#documentList .lu-drop-after,#documentList .lu-drop-no').forEach(el=>{if(el!==t?.head)el.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no')});
     if(!t)return;t.head.classList.remove('lu-drop-into','lu-drop-before','lu-drop-after','lu-drop-no');
     t.head.classList.add(!t.ok?'lu-drop-no':t.kind==='before'?'lu-drop-before':t.kind==='after'?'lu-drop-after':'lu-drop-into');
+    document.querySelectorAll('#documentList .lu-drop-group').forEach(el=>{if(el!==t.head.parentElement)el.classList.remove('lu-drop-group')});
+    t.head.parentElement?.classList.toggle('lu-drop-group',t.ok&&t.kind==='category');
   }
   const markDragging=d=>{for(const el of d?.els||[])el.classList.add('lu-dragging')};
   // 화면 가장자리 근처에서 끌면 목록이 저절로 움직인다(끌기가 끝나면 멈춤).
@@ -299,7 +309,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   }
   function commitDrop(d,t){
     if(!d||!t?.ok)return;
-    if(d.kind==='file'){const docs=d.docs.map(x=>docById(x.id)).filter(Boolean);if(docs.length)void moveDocs(docs,t.kind==='top'?null:t.target);return}
+    if(d.kind==='file'){const docs=d.docs.map(x=>docById(x.id)).filter(Boolean);if(!docs.length)return;if(t.kind==='category'){void changeCategory(docs.filter(x=>categoryOf(x.category)!==t.value),t.value);return}void moveDocs(docs,t.kind==='top'?null:t.target);return}
     if(t.kind==='top')void dragMoveFolder(d.id,null);else if(t.kind==='into')void dragMoveFolder(d.id,t.target);else void placeBeside(d.id,t.target,t.kind==='after');
   }
   // ---- 끌기 놓을 곳 목록 (LIB-폴더로옮기기 ③) ----

@@ -418,3 +418,5 @@
 @media(prefers-reduced-motion:reduce){#appView #libraryView #documentList .lu-row.lu-flash{animation-duration:.6s}}
 /* 선택 모드 메뉴 머리 'n개 골랐음'(누르는 것 아님, 작은 회색 글자). */
 .lu-more-panel .lu-menu-head{margin:0;padding:4px var(--kptu-space-3,12px) 2px;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+/* LIB-후속1 ⑤: 분류 묶기에서 끌 때 놓일 분류 묶음 전체(머리 + 안의 줄)를 연한 강조색으로. */
+#appView #libraryView #documentList details.lu-node.lu-drop-group{background:var(--kptu-primary-soft);border-radius:var(--kptu-radius-sm,6px)}
