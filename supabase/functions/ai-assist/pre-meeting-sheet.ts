@@ -1,7 +1,7 @@
 // ai-assist 쓰임 pre_meeting_sheet(FEAT-1029묶음 ② 교섭·회의 전 한 장, 설계 docs/design/pre-meeting-sheet.md, 명진 결정 10/29 07:27 '모두 추천대로').
 // 순수 함수만 둔다(입출력은 handler.ts).
 // - 화면은 일정 값(일정 키·제목·시작·끝·장소)과 담당조직 id만 보낸다. Google 일정은 서버가 로그인 토큰으로 읽을 수 없어 화면이 보낸다(#1431과 같은 까닭).
-// - 재료(①~⑦)는 서버가 내 로그인 토큰으로 이미 있는 표에서 읽는다(owner RLS, 관리자 키 없음). 개인 통화함(app_call_personal)은 읽지 않는다.
+// - 재료(①~⑦)는 서버가 내 로그인 토큰으로 이미 있는 표에서 읽는다(owner RLS, 관리자 키 없음). 개인 통화함은 읽지 않는다.
 // - 원장 교섭·전략(S2) 기록은 줄로는 보이되(제목·날짜) AI에는 보내지 않는다. 텔레그램은 방 이름·요약만 보낸다(결정 4, 보낸 사람·원문 없음).
 // - AI 답은 믿지 않는 입력: 공용 근거 검사(sheet-evidence.ts groundedLines)로 근거 번호가 보낸 줄에 없는 줄은 버린다.
 import { AI_TONE_RULE } from "../_shared/ai-model.ts";
