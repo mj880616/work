@@ -117,12 +117,13 @@
   --ds-kind-diary-soft:#eee8f8;--ds-kind-diary-ink:#5a3d8f;
   --ds-kind-task-soft:#e1f5ee;--ds-kind-task-ink:#0f6e56;
   --ds-kind-other-soft:#efede6;--ds-kind-other-ink:#55534a;
-  /* UI-선택표시톤다운(명진 2026-10-28, docs/design-decisions.md '선택 표시 규칙'): 고른 메뉴·탭·전환·필터 = 연한 바탕 + 얇은 선(세로 메뉴·목록 줄은 왼쪽 --ds-select-mark-left, 가로 전환은 아래 2px 선(ui-standard.css ::before), 알약 칩은 테두리) + 보통 글자.
-     꽉 칠한 주 색(--kptu-primary)은 [저장] 같은 누르는 주 버튼에만. 오늘 날짜 같은 작은 표시는 동그라미 테두리(--ds-today-ring).
+  /* UI-선택표시톤다운(명진 2026-10-28, docs/design-decisions.md '선택 표시 규칙'): 고른 메뉴·탭·전환·필터 = 연한 바탕 + 얇은 선(세로 메뉴·목록 줄은 왼쪽 --kptu-shadow-select, 가로 전환은 아래 2px 선(ui-standard.css ::before), 알약 칩은 테두리) + 보통 글자.
+     꽉 칠한 주 색(--kptu-primary)은 [저장] 같은 누르는 주 버튼에만. 오늘 날짜 같은 작은 표시는 동그라미 테두리(--kptu-shadow-today).
      선 색은 글자로 쓰는 강조색(--kptu-primary-text)이라 열 가지 색·밝은/어두운 화면 모두 연한 바탕 위에서 3:1 이상(tests/theme-contrast.test.mjs). */
   --ds-select-bg:var(--kptu-primary-soft);--ds-select-ink:var(--kptu-ink);--ds-select-line:var(--kptu-primary-text);
-  --ds-select-mark-left:inset 2px 0 0 var(--ds-select-line);
-  --ds-today-ink:var(--kptu-primary-text);--ds-today-ring:inset 0 0 0 1.5px var(--kptu-primary-text);
+  /* 선 그림자는 Design System 1.0 규칙(box-shadow는 --kptu-shadow-* 토큰만)을 따라 --kptu-shadow-* 이름이다. */
+  --kptu-shadow-select:inset 2px 0 0 var(--ds-select-line);
+  --ds-today-ink:var(--kptu-primary-text);--kptu-shadow-today:inset 0 0 0 1.5px var(--kptu-primary-text);
   /* 3/3(8-9e) 자료실 파일 종류 색(원장 CC18 결정): PDF 빨강·HWP 파랑·엑셀 초록·워드 남색·PPT 주황, 나머지는 --ds-kind-other(회색). */
   --ds-file-pdf-soft:#fbe5e2;--ds-file-pdf-ink:#a3271b;
   --ds-file-hwp-soft:#e3eefb;--ds-file-hwp-ink:#1c5aa6;

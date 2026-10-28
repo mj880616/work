@@ -218,7 +218,13 @@ for(const width of [390,1440])for(const [theme,color] of Object.entries(primary)
     const navBtn=page.locator('.app-nav :is(.nav-btn,.nav-sub-btn).active').first();await expect(navBtn).toBeVisible();
     const group=await navBtn.evaluate(el=>el.nextElementSibling?.classList.contains('nav-sub')===true);
     if(group)await expect.poll(()=>navBtn.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
-    else await matches('.app-nav :is(.nav-btn,.nav-sub-btn).active','backgroundColor',color);
+    else{
+     // UI-선택표시톤다운: 지금 화면은 연한 선택 바탕(--ds-select-bg) + 왼쪽 얇은 선. 주 색으로 채우지 않는다.
+     const soft=await page.evaluate(()=>{const e=document.createElement('i');e.style.color='var(--ds-select-bg)';document.body.append(e);const c=getComputedStyle(e).color;e.remove();return c;});
+     expect(soft).not.toBe(rgb(color));
+     await expect.poll(()=>navBtn.evaluate(el=>getComputedStyle(el).backgroundColor)).toBe(soft);
+     expect(await navBtn.evaluate(el=>getComputedStyle(el).boxShadow)).toContain('inset');
+    }
    }
    if(view==='pages')await openLegacyBoard(page);/* SHARE PR 2: 옛 게시판 카드는 [이전 페이지] 안으로 접힘 */
    await matches(selector,property,expected);

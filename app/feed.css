@@ -34,7 +34,7 @@
 .feed-view .feed-day{padding:8px 4px 2px;font-size:11px;color:var(--kptu-muted);letter-spacing:.02em}
 .feed-view .feed-call{display:flex;align-items:baseline;gap:8px;width:100%;min-height:var(--kptu-touch-target);margin:0;padding:6px 8px;border:0;border-bottom:var(--ds-line-width) solid var(--kptu-border);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-row);text-align:left;cursor:pointer;box-sizing:border-box}
 .feed-view .feed-call:hover{background:var(--kptu-surface-subtle)}
-.feed-view .feed-call.is-selected{background:var(--ds-select-bg);box-shadow:var(--ds-select-mark-left)}
+.feed-view .feed-call.is-selected{background:var(--ds-select-bg);box-shadow:var(--kptu-shadow-select)}
 .feed-view .feed-time{flex:none;width:38px;font-size:var(--ds-text-meta);color:var(--kptu-muted);font-variant-numeric:tabular-nums}
 .feed-view .feed-title{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* UI-선택표시톤다운 ③: 꼬리표는 제목보다 튀지 않게 차분한 회갈색(종류 '그 밖' 회색 짝 토큰), 글자는 조직 약칭 하나(call-feed.js tagOf). */
@@ -82,7 +82,7 @@
 .feed-view .feed-cnt{flex:none;font-size:11px}
 .feed-view .feed-day-center{text-align:center;padding:10px 0 4px}
 .feed-view .feed-rd{position:relative;display:flex;align-items:flex-start;gap:8px;padding:5px 4px;border-bottom:var(--ds-line-width) solid var(--kptu-border)}
-.feed-view .feed-rd.is-selected{background:var(--ds-select-bg);box-shadow:var(--ds-select-mark-left)}
+.feed-view .feed-rd.is-selected{background:var(--ds-select-bg);box-shadow:var(--kptu-shadow-select)}
 .feed-view .feed-dot{flex:none;display:flex;align-items:center;justify-content:center;width:22px;height:22px;margin-top:2px;border-radius:50%;font-size:11px;font-weight:var(--ds-weight-medium)}
 .feed-view .feed-rdb{display:block;flex:1 1 auto;min-width:0;margin:0;padding:0;border:0;background:transparent;color:var(--kptu-ink);font:inherit;text-align:left;cursor:pointer}
 .feed-view .feed-rdb:focus-visible{outline:2px solid var(--kptu-info);outline-offset:-2px}
@@ -240,7 +240,7 @@
 .feed-view .feed-chiprow .feed-folder-more{width:var(--ds-compact-height-sm,24px);height:var(--ds-compact-height-sm,24px)}
 .feed-view .feed-swipe{position:relative;overflow:hidden}
 .feed-view .feed-swipe>.feed-rd{z-index:1;background:var(--kptu-surface);touch-action:pan-y;transition:transform .18s ease}
-.feed-view .feed-swipe>.feed-rd.is-selected{background:var(--ds-select-bg);box-shadow:var(--ds-select-mark-left)}
+.feed-view .feed-swipe>.feed-rd.is-selected{background:var(--ds-select-bg);box-shadow:var(--kptu-shadow-select)}
 .feed-view .feed-swipe>.feed-rd.is-drag{transition:none}
 .feed-view .feed-acts{position:absolute;top:0;bottom:0;display:flex}
 .feed-view .feed-acts-start{left:0}

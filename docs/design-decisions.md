@@ -685,7 +685,7 @@ PC(1024px~) 담당조직 상세 칸만 바꾼다. 왼쪽 조직 목록과 폰·7
   - **꽉 칠한 주 색은 [저장]·[추가] 같은 누르는 주 버튼에만** 쓴다(진행 막대·체크 칸 같은 그림 요소는 예외).
   - 오늘 날짜 같은 작은 표시는 **동그라미 테두리**(채우지 않음). 사진 위 날짜는 사진 위 글자색 테두리.
   - 폰 하단 탭의 지금 화면은 아이콘 뒤 연한 동그라미 + 강조 글자색 아이콘.
-- 값은 `app/theme-tokens.css` 한 곳: `--ds-select-bg`(= `--kptu-primary-soft`), `--ds-select-ink`(= `--kptu-ink`), `--ds-select-line`(= 글자로 쓰는 강조색 `--kptu-primary-text`), `--ds-select-mark-left`, `--ds-today-ink`·`--ds-today-ring`. 화면 CSS는 이 토큰만 읽고 색을 따로 적지 않는다. 가로 전환의 아래 선은 `ui-standard.css`의 공용 `::before` 한 규칙이다(버튼 그림자 없음 규칙 유지).
+- 값은 `app/theme-tokens.css` 한 곳: `--ds-select-bg`(= `--kptu-primary-soft`), `--ds-select-ink`(= `--kptu-ink`), `--ds-select-line`(= 글자로 쓰는 강조색 `--kptu-primary-text`), `--kptu-shadow-select`, `--ds-today-ink`·`--kptu-shadow-today`. 화면 CSS는 이 토큰만 읽고 색을 따로 적지 않는다. 가로 전환의 아래 선은 `ui-standard.css`의 공용 `::before` 한 규칙이다(버튼 그림자 없음 규칙 유지).
 - 색별 조정: 레몬은 형광 노랑을 버터·겨자(#e3c25a)로 낮추고 바탕을 덜 노랗게(#fbf8ec), 빨강은 경고처럼 보이지 않게 조금 어두운 벽돌색(#b23a2e), 코랄은 주 버튼 색만 살짝 낮춤(#b8553a). 올리브·남색·먹·라벤더·청록·하늘·민트는 색 그대로, 위 공통 규칙만.
 - 통화 탭(같은 종류 전수 포함): 고른 줄은 연한 바탕 + 왼쪽 선, 목록 칸은 가로 스크롤 막대 없이 긴 제목을 '…'로, 줄 오른쪽 꼬리표는 회갈색(`--ds-kind-other-*`)에 조직 약칭 하나, PC 오른쪽 칸은 처음부터 맨 위 통화의 핵심내용.
 - 자동 시험: `tests/theme-contrast.test.mjs`가 열 가지 색·밝은/어두운 화면에서 선택 글자 7:1, 선·오늘 테두리 3:1(오늘 숫자 4.5:1)을 재고, app CSS에서 고른 상태·오늘 표시를 주 색으로 채운 규칙이 없는지 본다.

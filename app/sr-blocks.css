@@ -5,7 +5,7 @@
 .sr-wrap{display:flex;flex-direction:column;gap:14px;max-width:640px;margin:0 auto;padding:20px 16px 12px;color:var(--kptu-ink);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:var(--ds-text-read);line-height:1.65}
 .sr-title{margin:4px 0 0;font-size:22px;font-weight:var(--ds-weight-medium);line-height:1.35;word-break:keep-all;overflow-wrap:anywhere}
 .sr-h{margin:0 0 10px;font-size:var(--ds-text-section);font-weight:var(--ds-weight-medium);color:var(--ds-section-ink)}
-.sr-summary{padding:14px 16px;border-radius:var(--ds-radius-box);background:var(--ds-select-bg);box-shadow:var(--ds-select-mark-left);color:var(--kptu-ink)}
+.sr-summary{padding:14px 16px;border-radius:var(--ds-radius-box);background:var(--ds-select-bg);box-shadow:var(--kptu-shadow-select);color:var(--kptu-ink)}
 .sr-summary-text{margin:0;word-break:keep-all;font-size:16px;font-weight:var(--ds-weight-medium);line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
 .sr-block{padding:14px 16px;background:var(--kptu-surface);border:var(--ds-line-width) solid var(--ds-line);border-radius:var(--ds-radius-box)}
 .sr-stage-bar{display:flex;gap:4px;margin:0;padding:0;list-style:none}
