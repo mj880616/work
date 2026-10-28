@@ -4,5 +4,5 @@ select 'table' as kind,n as name,coalesce(to_regclass(n)::text,'absent') as defi
   from unnest(array['public.app_meeting_transcribe_jobs']) n
 union all select 'owner function',p.oid::regprocedure::text,p.prosecdef::text
   from pg_proc p where p.oid=to_regprocedure('private.app_is_workspace_owner(uuid)')
-union all select 'history',version,name from supabase_migrations.schema_migrations where version='20261029070000'
+union all select 'history',version,name from supabase_migrations.schema_migrations where version='20261029071500'
 order by 1,2;
