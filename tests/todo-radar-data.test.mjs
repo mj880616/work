@@ -171,3 +171,36 @@ test('the 사업 보고 window uses the 정리함 list part and the existing tas
   for(const text of [box,inbox])assert.doesNotMatch(text,new RegExp([store,session,idb].join('|')));
   assert.doesNotMatch(css.slice(css.indexOf('MTG-후속할일후보')),/#[0-9a-fA-F]{3,8}\b|rgba?\(/);
 });
+
+test('task_due: the handled row keeps the due it was put in with (saved on the candidate, null = no due)',async()=>{
+  // reads ask for the column and keep a well-formed date; a malformed one is skipped, never rendered raw
+  const {rt,calls}=fakeRt({api:async()=>[row({status:'tasked',task_id:'g1',decided_at:'2026-10-27T01:00:00Z',task_due:'2026-10-30'}),row({id:id(8),task_due:'abc'}),row({id:id(9)})]});
+  const read=await mod.readOpenCandidates(rt);
+  assert.match(calls[0].path,/select=[^&]*,task_id,task_due,created_at/);
+  assert.deepEqual(read.rows.map(r=>[r.id,r.task_due]),[[id(1),'2026-10-30'],[id(9),undefined]]);
+  // [할 일로] with a due writes it with the mark, in the same PATCH
+  {const {rt:w,calls:c}=fakeRt({api:async path=>path.includes('google-tasks')?{ok:true,task:{id:'g1'}}:[{id:id(1),status:'tasked'}]});
+   assert.equal((await mod.candidateToTask(row({source_kind:'note'}),{title:'x',due:'2026-10-24'},{rt:w,now:()=>new Date('2026-10-27T01:00:00Z')})).status,'done');
+   const patch=c.find(x=>x.path.includes('app_todo_candidates'));
+   assert.deepEqual(patch.opts.body,{status:'tasked',task_id:'g1',decided_at:'2026-10-27T01:00:00.000Z',task_due:'2026-10-24'});}
+  // no due (or a malformed one) writes null, so a tasked row never holds a bad date
+  {const {rt:w,calls:c}=fakeRt({api:async path=>path.includes('google-tasks')?{ok:true,task:{id:'g2'}}:[{id:id(1),status:'tasked'}]});
+   await mod.candidateToTask(row({source_kind:'note'}),{title:'x',due:''},{rt:w});
+   assert.equal(c.find(x=>x.path.includes('app_todo_candidates')).opts.body.task_due,null);}
+  {const {rt:w,calls:c}=fakeRt({api:async()=>[{id:id(1),status:'tasked'}]});
+   assert.equal(await mod.markTasked(id(1),'g3',w,new Date('2026-10-27T01:00:00Z'),'내일'),true);
+   assert.equal(c[0].opts.body.task_due,null);
+   await mod.markTasked(id(1),'g3',w,new Date('2026-10-27T01:00:00Z'),'2026-10-31');assert.equal(c[1].opts.body.task_due,'2026-10-31');}
+});
+
+test('task_due: both lists read the saved due first and keep it when marking again',async()=>{
+  const {readFile}=await import('node:fs/promises');
+  const read=name=>readFile(new URL(`../app/${name}`,import.meta.url),'utf8');
+  const [radar,inbox]=await Promise.all([read('todo-radar.js'),read('inbox-todos.js')]);
+  assert.match(radar,/function taskedDue\(c\) \{\n    if \(c\.task_due\) return c\.task_due;/);
+  assert.match(inbox,/const due = c\.task_due \? dotDay\(c\.task_due\)/);
+  // a failed mark keeps the chosen due for the retry, and a successful one fills the row at once
+  assert.match(radar,/markTasked\(c\.id, taskId, rt, new Date\(\), shared\.dueOf\.get\(c\.id\) \|\| null\)/);
+  assert.match(inbox,/markTasked\(c\.id, taskId, rt, new Date\(\), dues\.get\(c\.id\) \|\| null\)/);
+  assert.match(radar,/c\.task_due = draft\.due \|\| null/);assert.match(inbox,/c\.task_due = draft\.due \|\| null/);
+});

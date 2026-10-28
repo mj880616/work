@@ -59,7 +59,8 @@ test('the repository checkout itself has no ?v= and is refused, so it cannot sta
 });
 
 test('the Pages tree is a required single argument', t => {
-  for (const args of [[undefined], [fixture(t), ['extra']]]) {
+  for (const args of [[undefined], [fixture(t), ['extra']], [fixture(t), ['--host']], [fixture(t), ['--host', 'work.bokdoong.com']],
+    [fixture(t), ['--host', 'evil.example']], [fixture(t), ['--host', 'bokdoong.com', 'extra']], ['--host', ['bokdoong.com']]]) {
     const result = run(...args);
     assert.equal(result.status, 1);
     assert.equal(result.stdout, '');
@@ -135,4 +136,26 @@ test('workflow consumes extracted URLs without fixed version addresses or a sile
     "check_icon 'https://bokdoong.com/favicon.png' 'image/png'",
     "check_icon 'https://bokdoong.com/favicon.ico' 'image/x-icon'",
   ]) assert.ok(workflow.includes(expected), `preserves ${expected}`);
+});
+
+// DOMAIN-주소이전 ①-E5: Web2 also opens on bokdoong.com, so the deploy checks the same five assets there.
+test('--host bokdoong.com gives the same five URLs on bokdoong.com', t => {
+  const result = run(fixture(t), ['--host', 'bokdoong.com']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(result.stdout.trim().split('\t'),
+    refs.map(([, asset, version]) => `https://bokdoong.com/work/app/${asset}?v=${version}`));
+  const desk = run(fixture(t), ['--host', 'desk.bokdoong.com']);
+  assert.deepEqual(desk.stdout.trim().split('\t'), refs.map(([, asset, version]) => `${base}${asset}?v=${version}`));
+});
+
+test('workflow checks Web2 on bokdoong.com with the same rules as desk', () => {
+  assert.match(workflow, /web2_urls="\$\(node scripts\/cloudflare-check-urls\.mjs "\$PAGES_TREE" --host bokdoong\.com\)"/);
+  assert.match(workflow, /read -r WEB2_APP_URL WEB2_LOADER_URL WEB2_PWA_URL WEB2_SW_URL WEB2_APP_ICON_URL <<< "\$web2_urls"/);
+  for (const name of ['WEB2_APP_URL', 'WEB2_LOADER_URL', 'WEB2_PWA_URL', 'WEB2_SW_URL', 'WEB2_APP_ICON_URL']) {
+    assert.ok(workflow.includes(`check_200 "$${name}"`), `${name} has a 200 check`);
+  }
+  assert.ok(workflow.includes('"$WEB2_APP_URL" \\\n            "$WEB2_LOADER_URL" \\\n            "$WEB2_APP_ICON_URL"'), 'bokdoong.com immutable URL list');
+  assert.ok(workflow.includes('"$WEB2_SW_URL" \\'), 'bokdoong.com service worker no-cache check');
+  assert.ok(workflow.includes("check_200 'https://bokdoong.com/work/app/' 'text/html'"));
+  assert.ok(workflow.includes('https://bokdoong.com/work/app/__missing-cache-probe__.js?v=$GITHUB_SHA'));
 });

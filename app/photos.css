@@ -50,3 +50,21 @@
 #appView #photosView button.photos-cal-cell .photos-cal-n,#appView #photosView .photos-cal-c{ color:var(--ds-photo-ink); text-shadow:0 0 3px var(--ds-photo-scrim); }
 #appView #photosView .photos-cal-c{ position:absolute; right:3px; bottom:2px; z-index:1; font-size:10px; line-height:1; font-variant-numeric:tabular-nums; }
 #appView #photosView .photos-cal-cell:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+/* PHOTO-사진메뉴 2차: 동영상 표시·빠른 이동 막대·휴지통 위 줄·설정 창(일기와 같은 공용 부품 od-settings.js, 모양은 diary.css의 :is(#diaryView,#photosView) .diary-od-*). */
+#appView #photosView .photos-dur{ position:absolute; right:3px; bottom:2px; z-index:1; padding:0 3px; border-radius:3px; font-size:10px; line-height:14px; font-variant-numeric:tabular-nums; color:var(--ds-photo-ink); background:var(--ds-photo-scrim); pointer-events:none; }
+#appView #photosView .photos-top{ display:flex; align-items:center; gap:6px; margin:4px 0; }
+#appView #photosView .photos-rail{ position:fixed; right:0; z-index:4; top:calc(var(--kptu-topbar-height,56px) + 56px); bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom) + 16px); width:22px; touch-action:none; cursor:ns-resize; }
+#appView #photosView .photos-rail[hidden]{ display:none; }
+#appView #photosView .photos-rail::before{ content:""; position:absolute; top:0; bottom:0; right:6px; width:2px; border-radius:1px; background:var(--ds-line); }
+#appView #photosView .photos-rail-thumb{ position:absolute; right:3px; width:8px; height:24px; margin-top:-2px; border-radius:4px; background:var(--kptu-muted); opacity:.6; }
+#appView #photosView .photos-rail-bubble{ position:absolute; right:26px; padding:1px 8px; border-radius:var(--kptu-radius-pill,999px); font-size:var(--ds-compact-text,13px); line-height:20px; white-space:nowrap; font-variant-numeric:tabular-nums; color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width,.5px) solid var(--ds-line); }
+#appView #photosView .photos-rail-bubble[hidden]{ display:none; }
+#appView #photosView .photos-rail:focus-visible{ outline:2px solid var(--kptu-primary); outline-offset:-2px; }
+#appView #photosView .diary-viewer .diary-viewer-video{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:var(--ds-photo-stage); }
+#appView #photosView .diary-viewer .diary-viewer-play{ position:absolute; left:50%; top:50%; z-index:1; transform:translate(-50%,-50%); min-width:0; min-height:0; height:var(--ds-compact-height,32px); margin:0; padding:0 12px; border:0; border-radius:var(--kptu-radius-pill,999px); color:var(--ds-photo-ink); background:var(--ds-photo-scrim); box-shadow:none; font-size:var(--ds-compact-text,13px); font-variant-numeric:tabular-nums; }
+#appView #photosView .diary-viewer .diary-viewer-play::after{ content:""; position:absolute; inset:-6px; }
+#appView #photosView .diary-viewer-info button.diary-viewer-original{ min-width:0; min-height:0; height:auto; margin:0; padding:0; border:0; background:transparent; box-shadow:none; font-size:inherit; }
+#appView #photosView .photos-od button.secondary{ align-self:flex-start; height:var(--ds-compact-height); min-height:var(--ds-compact-height); padding:0 var(--ds-compact-pad-x); font-size:var(--ds-compact-text); }
+#appView #photosView .photos-od .diary-danger{ color:var(--kptu-danger); }
+#appView #photosView .photos-od:empty{ display:none; }
+#appView #photosView .photos-act button[hidden]{ display:none; }

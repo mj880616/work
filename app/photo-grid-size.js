@@ -65,7 +65,7 @@ export function changeCols(dir, {prefs = viewPrefs, wide = isWide()} = {}) {
 export const SIZE_BUTTONS = '<span class="photo-size" role="group" aria-label="사진 크기"><button type="button" data-photo-size="-1" aria-label="사진 작게(한 줄 칸 늘리기)">－</button><button type="button" data-photo-size="1" aria-label="사진 크게(한 줄 칸 줄이기)">＋</button></span>';
 
 // 격자 위 두 손가락 벌리기·오므리기. onChange(dir)는 단계가 바뀐 뒤 부른다. 떼어 낼 함수를 돌려준다.
-export function attachPinch(grid, onChange) {
+export function attachPinch(grid, onChange, change = changeCols) {
   if (!grid?.addEventListener) return () => {};
   let base = 0, active = false;
   const dist = touches => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
@@ -79,7 +79,7 @@ export function attachPinch(grid, onChange) {
     const d = dist(event.touches), dir = pinchDir(d / base);
     if (!dir) return;
     base = d;
-    if (changeCols(dir)) onChange?.(dir);
+    if (change(dir)) onChange?.(dir);
   };
   const end = event => { if (event.touches.length < 2) active = false; };
   grid.addEventListener('touchstart', start, {passive: true});
@@ -90,6 +90,29 @@ export function attachPinch(grid, onChange) {
     grid.removeEventListener('touchstart', start); grid.removeEventListener('touchmove', move);
     grid.removeEventListener('touchend', end); grid.removeEventListener('touchcancel', end);
   };
+}
+// PHOTO-사진메뉴 2차: 다른 칸 수 규칙을 쓰는 격자(사진 메뉴 = view_prefs.photo_view.cols, 폰 3~6·PC 5~12)도 같은 [－][＋]·핀치를 쓴다.
+// current(wide) → 지금 칸 수, step(wide, cols, dir) → 다음 칸 수, save(wide, cols) → 서버 저장(부르는 쪽). 돌려주는 함수 모양은 위 기본 것과 같다.
+export function createGridSizer({current, step, save}) {
+  const paint = grid => {
+    if (!grid) return;
+    grid.style.setProperty('--photo-cols', String(current(false)));
+    grid.style.setProperty('--photo-cols-wide', String(current(true)));
+  };
+  const buttons = root => {
+    const wide = isWide(), cols = current(wide);
+    root?.querySelectorAll?.('[data-photo-size]').forEach(button => {
+      button.disabled = step(wide, cols, Number(button.dataset.photoSize)) === cols;
+      button.title = `한 줄 ${cols}칸`;
+    });
+  };
+  const change = (dir, wide = isWide()) => {
+    const cols = current(wide), next = step(wide, cols, dir);
+    if (next === cols) return false;
+    save(wide, next);
+    return true;
+  };
+  return {paintGrid: paint, paintButtons: buttons, changeCols: change, attachPinch: (grid, onChange) => attachPinch(grid, onChange, dir => change(dir))};
 }
 // 테스트용: 이번 접속의 선택을 비운다.
 export function resetChosen() { chosen.narrow = null; chosen.wide = null; }

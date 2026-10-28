@@ -299,3 +299,16 @@ test('자료 요약: without the documents read (loading or failed) the cells sh
   const plain = m.weeklySummary({...base, materials:{...materials(), documents:ok(docs)}});
   assert.deepEqual(plain.notes.docs.items.map(i => i.text), ['[기타] 가 조직 요구안']);
 });
+
+// HOME-줄누르기 ⑦: [주간 정리]의 끝낸 할 일 줄과 5. 주요 일정 칸은 누를 곳(할 일 id·일정 id와 달력)을 함께 가진다. 글은 그대로.
+test('weekly task lines and schedule cells carry what to open (text unchanged)', async () => {
+  const m = await mod;
+  const w = m.weeklySummary({...base, materials:{...materials(), upcoming:ok(upcoming)}});
+  const done = w.notes.tasks.items.find(i => i.text === '끝낸 일');
+  assert.equal(done.taskId, 't1');
+  const items = w.calendar.rows.flatMap(r => r.items);
+  assert.ok(items.length > 0);
+  for (const i of items) if (i.open) { assert.equal(typeof i.open.id, 'string'); assert.ok(i.open.calendarId); }
+  assert.ok(items.some(i => i.open?.id));
+  assert.deepEqual(w.calendar.rows[1].items.map(i => i.what), ['종일 / 가상 종일 행사', '09:00 / 가상 아침 일정', '10:30 / 가상 회의 / 가상 장소']);
+});

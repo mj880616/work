@@ -45,9 +45,12 @@ export async function checkBuild(files) {
   };
   try {
     resetManifestMemo();
-    for (const [file, v] of urls) {
-      const response = await router.fetch(new Request(`https://desk.bokdoong.com/work/${file}?v=${v}`), {}, { waitUntil() {} });
-      if (response.headers.get('Cache-Control') !== 'public, max-age=31536000, immutable') errors.push(`(c) ${file}?v=${v}: ${response.status} ${response.headers.get('Cache-Control')}`);
+    // Web2 opens on desk and (DOMAIN-주소이전 ①-E5) on bokdoong.com with the same asset rules.
+    for (const host of ['desk.bokdoong.com', 'bokdoong.com']) {
+      for (const [file, v] of urls) {
+        const response = await router.fetch(new Request(`https://${host}/work/${file}?v=${v}`), {}, { waitUntil() {} });
+        if (response.headers.get('Cache-Control') !== 'public, max-age=31536000, immutable') errors.push(`(c) ${host} ${file}?v=${v}: ${response.status} ${response.headers.get('Cache-Control')}`);
+      }
     }
   } finally {
     globalThis.fetch = originalFetch;

@@ -85,9 +85,11 @@ export function createPhotoPruneHandler(
       if (typeof row?.file_id === "string" && ids.includes(row.file_id)) kept.add(row.file_id);
     }
     for (const id of ids) {
+      // attachments is jsonb: hand PostgREST a JSON text (cs.[{...}]). A JS array would be sent as a Postgres array literal
+      // (cs.{[object Object]}), which PostgREST rejects, so every check failed (503) before this fix.
       const notes = await admin.from("app_notes").select("id").contains(
         "attachments",
-        [{ drive_file_id: id }],
+        JSON.stringify([{ drive_file_id: id }]),
       ).limit(1);
       if (notes.error || !Array.isArray(notes.data)) throw Error();
       if (notes.data.length) kept.add(id);

@@ -4,6 +4,7 @@
 // 규칙: 놓친 약속·내일이 비면 '없음' 한 줄, 정리 안 된 것은 0건이면 줄 자체를 그리지 않음, 새 소식을 알 수 없으면 요약에서 뺀다.
 import {summaryText, pickMissed, missedTag, tomorrowLine} from './home-fill-model.mjs';
 import {readMissedPromises, readNewsCount, readInbox} from './home-fill-data.js';
+import {eventAttrs} from './event-open.js';
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const clock = new Intl.DateTimeFormat('ko-KR', {timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'});
@@ -14,7 +15,7 @@ const head = (key, title, goto, label) => `<header><h3 id="home-${key}-title">${
 export function mountHomeFill({main, rt = window.KPTURuntime}) {
   if (!main) return null;
   const mq = window.matchMedia('(min-width:1024px)');
-  const state = {events: null, tasks: null, news: null, tomorrow: 'loading', missed: 'loading', missedRows: [], inbox: null};
+  const state = {events: null, tasks: null, news: null, tomorrow: 'loading', tomorrowOpen: false, missed: 'loading', missedRows: [], inbox: null};
   let alive = true;
 
   const summary = document.createElement('p');
@@ -34,7 +35,8 @@ export function mountHomeFill({main, rt = window.KPTURuntime}) {
       : state.missed === 'failed' ? '<p class="home-status">확인하지 못했어요</p>'
       : rows.length ? rows.map(r => {
         const who = typeof r.counterparty === 'string' && r.counterparty.trim() ? `<small>${esc(r.counterparty.trim())}</small>` : '';
-        return `<div class="home-event" data-home-missed="${esc(r.id)}"><span class="home-title">${esc(r.title)}</span>${who}<span class="home-day-tag">${esc(missedTag(r))}</span></div>`;
+        // HOME-줄누르기 ⑤: 누르면 원장의 그 약속(home-read.js가 연다).
+        return `<button type="button" class="home-event home-event-open" data-home-missed="${esc(r.id)}" aria-label="${esc(r.title)} 원장에서 보기"><span class="home-title">${esc(r.title)}</span>${who}<span class="home-day-tag">${esc(missedTag(r))}</span></button>`;
       }).join('')
       : '<p class="home-status">없음</p>';
     missed.innerHTML = `${head('missed', '놓친 약속', 'ledger', '원장')}<div data-home-body>${body}</div>`;
@@ -45,6 +47,12 @@ export function mountHomeFill({main, rt = window.KPTURuntime}) {
     inbox.hidden = mq.matches || !(n > 0);
     inbox.innerHTML = n > 0 ? `<header><h3 id="home-inbox-title">정리 안 된 것</h3><button type="button" class="home-fill-inbox-line" data-goto="basket">${n}건 ›</button></header>` : '';
   }
+  // HOME-줄누르기 ③: 첫 일정 줄을 누르면 그 일정 수정 창(home-read.js가 data-google-event로 연다), '외 n건'을 누르면 내일 하루 일정이
+  // 이 칸 안에 펼쳐지고(각 줄도 수정 창), 다시 누르면 접힌다. 펼침은 이 칸의 메모리에만 있다.
+  const eventLine = (row, tail = '') => {
+    const text = `<time>${esc(row.allDay ? '종일' : timeOf(row.start))}</time><span class="home-title">${esc(row.title || '(제목 없음)')}</span>${tail}`;
+    return row.id ? `<button type="button" class="home-event home-event-open" ${eventAttrs(row.id, row.calendarId)} aria-label="${esc(row.title || '제목 없음')} 일정 열기">${text}</button>` : `<div class="home-event">${text}</div>`;
+  };
   function paintTomorrow() {
     const t = state.tomorrow;
     let body;
@@ -52,7 +60,9 @@ export function mountHomeFill({main, rt = window.KPTURuntime}) {
     else if (t === 'unavailable') body = '<p class="home-status">확인하지 못했어요</p>';
     else {
       const line = tomorrowLine(t, timeOf);
-      body = line ? `<div class="home-event"><time>${esc(line.time)}</time><span class="home-title">${esc(line.title)}</span>${line.more ? `<small>외 ${line.more}건</small>` : ''}</div>` : '<p class="home-status">없음</p>';
+      if (!line) body = '<p class="home-status">없음</p>';
+      else if (state.tomorrowOpen && line.more) body = t.map(row => eventLine(row)).join('') + '<button type="button" class="home-more" data-home-tomorrow-more="close" aria-expanded="true">접기</button>';
+      else body = `<div class="home-tomorrow-line">${eventLine(t[0])}${line.more ? `<button type="button" class="home-tomorrow-more" data-home-tomorrow-more="open" aria-expanded="false">외 ${line.more}건</button>` : ''}</div>`;
     }
     tomorrow.innerHTML = `${head('tomorrow', '내일', 'calendar', '달력')}<div data-home-body>${body}</div>`;
   }
@@ -65,6 +75,11 @@ export function mountHomeFill({main, rt = window.KPTURuntime}) {
     missed.hidden = off; tomorrow.hidden = off;
     paintSummary(); paintInbox();
   }
+  tomorrow.addEventListener('click', e => {
+    const b = e.target.closest?.('[data-home-tomorrow-more]'); if (!b) return;
+    state.tomorrowOpen = b.dataset.homeTomorrowMore === 'open'; paintTomorrow();
+    tomorrow.querySelector(state.tomorrowOpen ? '[data-home-tomorrow-more="close"]' : '[data-home-tomorrow-more="open"]')?.focus({preventScroll: true});
+  });
   paintMissed(); paintTomorrow(); apply();
   mq.addEventListener('change', apply);
 

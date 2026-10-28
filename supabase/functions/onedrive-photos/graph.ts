@@ -3,6 +3,9 @@
 export const SCOPE = "Files.ReadWrite offline_access User.Read";
 export const GRAPH = "https://graph.microsoft.com/v1.0";
 export const IMAGE_MIME = /^image\/(jpeg|png|webp|gif|heic|heif)$/i;
+// 사진 메뉴 ①(PHOTO-사진메뉴): 동영상도 색인한다. 일기 날짜 화면은 계속 사진(kind='photo')만 보인다.
+export const VIDEO_MIME = /^video\/(mp4|quicktime|3gpp|webm)$/i;
+export const isMediaMime = (v: unknown): v is string => typeof v === "string" && (IMAGE_MIME.test(v) || VIDEO_MIME.test(v));
 export const SIZES = { small: "c480x480", large: "c1600x1600" } as const;
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 // 썸네일 주소 묶음(photo-urls, 2026-10-28 OD-속도): 한 번에 받는 사진 수 상한과 Graph $batch 한 번에 넣는 사진 수(사진 1장 = 하위 요청 2개, $batch 상한 20개).
@@ -10,7 +13,7 @@ export const PHOTO_URLS_MAX = 20;
 export const GRAPH_BATCH_PHOTOS = 10;
 // 사진 색인(2026-10-28): 달을 열 때마다 폴더를 훑지 않고, 고른 맨 위 폴더의 delta를 나눠 받아 서버 표에 적는다.
 // 한 요청 안에서 받는 양은 시간·쪽 수로 자른다(Edge 요청 시간 안에 끝나게). 못 끝내면 다음 쪽 주소를 저장하고 more:true.
-export const DELTA_SELECT = "id,name,file,folder,photo,fileSystemInfo,parentReference,deleted";
+export const DELTA_SELECT = "id,name,size,file,folder,photo,image,video,location,fileSystemInfo,parentReference,deleted";
 // 한 걸음은 화면 요청 시간(45초) 안에 넉넉히 끝나야 한다: 쪽 하나가 최대 20초 걸릴 수 있으므로 새 쪽은 8초까지만 시작한다.
 export const SYNC_BUDGET_MS = 8000;
 export const SYNC_MAX_PAGES = 15;
@@ -20,6 +23,20 @@ export const SYNC_LOCK_MS = 60000;
 export const SYNC_STALE_MS = 10 * 60 * 1000;
 export const MAX_FOLDER_DEPTH = 64;
 export const MAX_ITEMS = 5000;
+// 사진 메뉴 ①: 최신순 쪽 읽기(library)·여러 장 옮기기/지우기·별표 거르기의 상한. Graph $batch 한 번은 하위 요청 20개까지.
+export const LIBRARY_DEFAULT = 120;
+export const LIBRARY_MAX = 200;
+export const LIBRARY_SCAN_PAGES = 20;
+export const MOVE_MAX = 50;
+export const STAR_IDS_MAX = 500;
+export const GRAPH_BATCH_MAX = 20;
+// Web2 휴지통(명진 결정 1, 2026-10-28 22:43): 지운 사진은 고른 맨 위 폴더 안 이 폴더로 옮기고, 30일 지나면 원드라이브 휴지통으로 보낸다.
+export const TRASH_NAME = ".Web2 휴지통";
+export const TRASH_DAYS = 30;
+export const TRASH_PURGE_STEP = 20;
+export const TRASH_LIST_MAX = 2000;
+// 동영상 재생·원본 받기 주소(media-url): Microsoft가 주는 사전 인증 주소는 약 1시간 산다. 화면은 이 초만큼만 쓰고 다시 받는다.
+export const MEDIA_URL_TTL_S = 3000;
 
 // Retry-After(초 또는 날짜)를 1~3600초로 읽는다. 없거나 이상하면 30초.
 export function retryAfterSeconds(v: string | null, nowMs: number): number {
@@ -32,13 +49,46 @@ export function retryAfterSeconds(v: string | null, nowMs: number): number {
 export type OneDriveItem = {
   id: string;
   name?: string;
-  file?: { mimeType?: string };
+  size?: number;
+  file?: { mimeType?: string; hashes?: { sha1Hash?: string } };
   folder?: unknown;
   photo?: { takenDateTime?: string };
+  image?: { width?: number; height?: number };
+  video?: { duration?: number; width?: number; height?: number };
+  location?: { latitude?: number; longitude?: number };
   fileSystemInfo?: { createdDateTime?: string };
   parentReference?: { path?: string; id?: string };
   deleted?: unknown;
+  "@microsoft.graph.downloadUrl"?: string;
 };
+
+const intIn = (v: unknown, lo: number, hi: number) => (typeof v === "number" && Number.isInteger(v) && v >= lo && v <= hi ? v : null);
+const numIn = (v: unknown, lo: number, hi: number) => (typeof v === "number" && Number.isFinite(v) && v >= lo && v <= hi ? v : null);
+
+// 스크린샷 추정: Graph에 스크린샷 표시가 없어서 파일 이름으로만 본다(안드로이드 Screenshot_…, 아이폰·PC 'Screen Shot'·'스크린샷'·'캡처').
+export const isScreenshotName = (name: unknown) =>
+  typeof name === "string" && /^(screenshot|screen[ _-]?shot|스크린샷|화면[ _]?캡처|캡처)/i.test(name.normalize("NFC"));
+
+// 색인 새 칸(DB 20261028220000): 종류·형식·크기·가로세로·길이·sha1·위치·스크린샷. 값이 이상하면 그 칸만 비운다(DB 검사와 같은 범위).
+export function mediaFields(item: OneDriveItem) {
+  const mime = String(item.file?.mimeType || "").toLowerCase();
+  const kind = VIDEO_MIME.test(mime) ? "video" : "photo";
+  const sha = String(item.file?.hashes?.sha1Hash || "").toLowerCase();
+  const lat = numIn(item.location?.latitude, -90, 90), lon = numIn(item.location?.longitude, -180, 180);
+  const both = lat !== null && lon !== null;
+  return {
+    kind,
+    mime: /^(image|video)\/[a-z0-9.+-]{1,80}$/.test(mime) ? mime : null,
+    size_bytes: intIn(item.size, 0, Number.MAX_SAFE_INTEGER),
+    width: intIn(kind === "video" ? item.video?.width : item.image?.width, 1, 100000),
+    height: intIn(kind === "video" ? item.video?.height : item.image?.height, 1, 100000),
+    duration_ms: kind === "video" ? intIn(item.video?.duration, 0, 864000000) : null,
+    sha1: /^[0-9a-f]{40}$/.test(sha) ? sha : null,
+    lat: both ? lat : null,
+    lon: both ? lon : null,
+    screenshot: kind === "photo" && isScreenshotName(item.name),
+  };
+}
 
 // 로그인 응답의 허용 범위를 소문자 목록으로 만든다(Graph 주소 접두사는 뗀다).
 export const normalizeScopes = (v: unknown): string[] =>

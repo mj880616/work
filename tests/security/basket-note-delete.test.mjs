@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {containsParam,jsonbContains} from './helpers/postgrest-jsonb.mjs';
 
 // Real basket-files handler + shared Drive code. Only the Supabase SDK and the
 // Google HTTP boundary are modeled; no production access.
@@ -35,7 +36,7 @@ function harness(options={}){
     return {rpc:async()=>({data:null,error:{message:'unused'}}),from:table=>{
       const q={table,filters:[],method:'select',limit:null};calls.user.push(q);
       const b={select:()=>b,eq:(k,v)=>{q.filters.push(['eq',k,v]);return b;},neq:(k,v)=>{q.filters.push(['neq',k,v]);return b;},
-        in:(k,v)=>{q.filters.push(['in',k,v]);return b;},contains:(k,v)=>{q.filters.push(['contains',k,v]);return b;},limit:n=>{q.limit=n;return b;},
+        in:(k,v)=>{q.filters.push(['in',k,v]);return b;},contains:(k,v)=>{q.filters.push(['contains',k,containsParam(v)]);return b;},limit:n=>{q.limit=n;return b;},
         delete:()=>{q.method='delete';return b;},maybeSingle:async()=>exec(true),then:(r,e)=>exec(false).then(r,e)};
       async function exec(single){
         await options.beforeUser?.(q,state);
@@ -44,7 +45,8 @@ function harness(options={}){
         if(q.method==='select'&&table==='app_notes'&&options.lookupError?.(q,calls))return {data:null,error:{message:'synthetic-secret'}};
         if(q.method==='select'&&table==='app_documents'&&options.documentsError)return {data:null,error:{message:'synthetic-secret'}};
         // RLS model: the signed-in owner sees only its own workspace rows.
-        const visible=rows.filter(r=>(r.workspace_id??WS)===WS&&q.filters.every(([op,k,v])=>op==='eq'?r[k]===v:op==='neq'?r[k]!==v:op==='in'?v.includes(r[k]):(r[k]||[]).some(a=>a.drive_file_id===v[0].drive_file_id)));
+        let visible=rows.filter(r=>(r.workspace_id??WS)===WS&&q.filters.every(([op,k,v])=>op==='eq'?r[k]===v:op==='neq'?r[k]!==v:op==='in'?v.includes(r[k]):true));
+        for(const [op,k,v] of q.filters)if(op==='contains'){const m=jsonbContains(visible,k,v);if(m.error)return {data:null,error:m.error};visible=m.rows;}
         if(q.method==='delete'){
           if(options.deleteThrows)throw new Error('lost');
           if(options.deleteError){if(options.deleteCommits)state.notes=state.notes.filter(r=>!visible.includes(r));return {data:null,error:{code:'42501',message:'synthetic-secret'}};}
@@ -96,6 +98,13 @@ test('owner delete trashes each attachment, then deletes the note with the calle
   assert.deepEqual(del.filters,[['eq','id',NOTE],['eq','workspace_id',WS],['eq','updated_at',T1]]);
   // Trash happens before the note delete.
   assert.ok(r.calls.user.indexOf(del)===r.calls.user.length-1);
+});
+
+test('the other-note reference check sends PostgREST jsonb JSON text (attachments=cs.[{...}]), not an array literal',async()=>{
+  const r=await run();
+  const sent=r.calls.user.filter(q=>q.table==='app_notes').flatMap(q=>q.filters.filter(f=>f[0]==='contains'));
+  assert.deepEqual(sent,[['contains','attachments','cs.[{"drive_file_id":"a1"}]'],['contains','attachments','cs.[{"drive_file_id":"a2"}]']]);
+  assert.equal(r.calls.logs.includes('note_delete_drive_unavailable'),false);
 });
 
 test('no permanent Drive DELETE and no service_role note read or delete on any path',async()=>{
