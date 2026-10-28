@@ -58,7 +58,7 @@ const phoneButtons=()=>[...drawerNav?.children||[]].filter(el=>!el.matches('.nav
 // BASKET-정리함이름: [노트] (data-basket-kind-nav) and BASKET-PC메뉴 [업데이트]·[챙길 것] (data-basket-pane-nav) are not screens of their own; they sit in the 761~1023px row too.
 // BASKET-PC메뉴: the order is the sidebar's: 홈 / 정리함(업데이트·챙길 것) / 일정(달력·할 일·업무일지·일기) / 노트 / 프로젝트 …
 // MENU-HOME-편집: 순서는 menu-model.mjs(사용자가 정한 메뉴 순서). 버튼은 처음 모양(index.html)의 것을 그대로 쓰고 자리만 바꾼다.
-const ALL_KEYS=['home','basket','pane:update','pane:todo','calendar','tasks','journal','diary','note','projects','meetings','library','pages','team','hwp','ledger','calls','telegram'];
+const ALL_KEYS=['home','basket','pane:update','pane:todo','calendar','tasks','journal','diary','note','projects','meetings','library','pages','team','hwp','ledger','photos','calls','telegram'];
 const keyButton=key=>appNav?.querySelector(key==='note'?'[data-basket-kind-nav="note"]':key.startsWith('pane:')?`[data-basket-pane-nav="${key.slice(5)}"]`:`[data-view="${key}"]`);
 const buttonByKey=new Map(ALL_KEYS.map(key=>[key,keyButton(key)]).filter(([,button])=>button));
 const orderedButtons=()=>{const layout=window.KPTUMenuLayout?.current?.();return midKeys(layout).map(key=>buttonByKey.get(key)).filter(Boolean)};
@@ -265,7 +265,7 @@ window.addEventListener('kptu:view-changed',event=>{
   syncMenuLocation();
   const home=event.detail?.view==='home';
   document.querySelector('.mobile-shell-header [data-home-date]')?.toggleAttribute('hidden',!home);
-  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'정리함',calendar:'일정',tasks:'일정',journal:'일정',diary:'일정',projects:'프로젝트',team:'담당조직',meetings:'사업 보고',library:'자료실',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',pages:'공유 페이지',search:'검색',reference:'참고 묶음',calls:'통화',telegram:'텔레그램 소식'})[event.detail?.view]||''}
+  const name=document.querySelector('[data-mobile-view-name]');if(name){name.hidden=home;name.textContent=({basket:document.getElementById('basketView')?.dataset.kind==='note'?'노트':'정리함',calendar:'일정',tasks:'일정',journal:'일정',diary:'일정',projects:'프로젝트',team:'담당조직',meetings:'사업 보고',library:'자료실',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',pages:'공유 페이지',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식'})[event.detail?.view]||''}
 });
 // [+ 추가] (UI-디자인손질 8, BASKET-업데이트통합 PR 2, ED③): [업데이트] opens the update's big window (update-window.js) with no place (= the basket),
 // [노트] opens the note's (note-window.js). Each saves through its existing owner-RLS path and the window closes (저장하고 닫기). A saved
@@ -483,7 +483,7 @@ paintTrail();
 // Where you are: group › screen. The group word goes to the group's first screen; the last word is the current page.
 const GROUPS={calendar:'schedule',tasks:'schedule',journal:'schedule',diary:'schedule',reference:'team'};
 const GROUP_HEAD={schedule:{name:'일정',view:'calendar'},team:{name:'담당조직',view:'team'}};
-const VIEW_NAMES={home:'홈',basket:'정리함',calendar:'달력',tasks:'할 일',journal:'업무일지',diary:'일기',projects:'프로젝트',library:'자료실',meetings:'사업 보고',pages:'공유 페이지',team:'담당조직',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',search:'검색',reference:'참고 묶음',calls:'통화',telegram:'텔레그램 소식'};
+const VIEW_NAMES={home:'홈',basket:'정리함',calendar:'달력',tasks:'할 일',journal:'업무일지',diary:'일기',projects:'프로젝트',library:'자료실',meetings:'사업 보고',pages:'공유 페이지',team:'담당조직',hwp:'HWP 편집',profile:'내 프로필',ledger:'원장',search:'검색',reference:'참고 묶음',photos:'사진',calls:'통화',telegram:'텔레그램 소식'};
 const whereList=topline?.querySelector('[data-topline-where]');
 let basketKind=null;
 const whereItems=new Map();

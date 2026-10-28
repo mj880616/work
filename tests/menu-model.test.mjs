@@ -7,7 +7,8 @@ import {dropIndex} from '../app/reorder-drag.js';
 test('기본 구성은 지금 화면과 같고 모든 항목이 정확히 한 번 나온다', () => {
   const d = defaultLayout();
   assert.deepEqual(d.bar, ['home', 'basket', 'calendar', 'projects', 'team']);
-  assert.deepEqual(d.rest, ['note', 'meetings', 'library', 'hwp', 'pages', 'ledger', 'calls', 'telegram']);
+  // PHOTO-사진메뉴: [사진]은 처음 자리가 [메뉴] 창 안(원장 다음, 통화·텔레그램 위).
+  assert.deepEqual(d.rest, ['note', 'meetings', 'library', 'hwp', 'pages', 'ledger', 'photos', 'calls', 'telegram']);
   assert.deepEqual([...d.bar, ...d.rest].sort(), ITEMS.map(i => i.id).sort());
   assert.equal(d.bar.length, BAR_MAX);
   assert.ok(isDefaultLayout(d)); assert.equal(layoutToPrefs(d), null);
@@ -56,7 +57,7 @@ test('PC 왼쪽 메뉴는 하단바 메뉴가 위, 나머지가 그 아래 같�
   assert.deepEqual(pcSplit(moved).tail, ['telegram']);
   assert.ok(pcSplit(moved).main.includes('calls'));
   assert.deepEqual(midKeys(defaultLayout()).slice(0, 8), ['home', 'basket', 'pane:update', 'pane:todo', 'calendar', 'tasks', 'journal', 'diary']);
-  assert.equal(midKeys(defaultLayout()).length, 18);
+  assert.equal(midKeys(defaultLayout()).length, 19);
 });
 
 test('하단바에서 지금 화면이 어느 칸인지', () => {

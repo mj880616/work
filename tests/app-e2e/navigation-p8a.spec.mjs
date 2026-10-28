@@ -6,7 +6,7 @@ import { signInWithSession } from './helpers/session-login.mjs';
 
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const app=`${appOrigin}/app/`;
-const views=['home','basket','calendar','tasks','journal','diary','projects','meetings','library','pages','team','hwp','ledger','calls','telegram'];
+const views=['home','basket','calendar','tasks','journal','diary','projects','meetings','library','pages','team','hwp','ledger','photos','calls','telegram'];
 const user={id:'p8a-user',email:'p8a@example.org',user_metadata:{display_name:'내비게이션 QA'}};
 const event={id:'p8a-event',title:'현장 일정',start_at:'2026-09-18T09:00:00+09:00',event_type:'meeting',location:'현장'};
 
@@ -81,7 +81,7 @@ test('top-level V3 navigation opens the library and keeps removed controls absen
   await expect(page.locator('#appView')).toHaveCount(0);
 });
 
-test('removed personal and photo deep links return to home while the retired media link opens the library',async({page})=>{
+test('removed personal deep links return to home, the retired media link opens the library, and ?view=photos is the new photo menu',async({page})=>{
   test.setTimeout(60000);
   await mockApp(page);
   await signIn(page);
@@ -94,10 +94,10 @@ test('removed personal and photo deep links return to home while the retired med
   await expect(page.locator('#libraryView')).toBeVisible({timeout:20000});
   await expect(page.locator('#mediaView')).toHaveCount(0);
   await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBe('library');
+  // PHOTO-사진메뉴: ?view=photos는 이제 새 '사진' 메뉴(원드라이브 갤러리)다. 옛 포토룸의 일정 사진 기록 칸은 돌아오지 않는다.
   await page.goto(app+'?view=photos');
-  await expect(page.locator('#homeView')).toBeVisible({timeout:20000});
-  await expect(page.locator('#photosView')).toHaveCount(0);
-  await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBeNull();
+  await expect(page.locator('#photosView')).toBeVisible({timeout:20000});
+  await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBe('photos');
   await expect(page.locator('#eventRecordSection,#eventRecordList')).toHaveCount(0);
 });
 

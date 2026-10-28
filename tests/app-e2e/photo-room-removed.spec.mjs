@@ -56,7 +56,8 @@ async function settleAfterCalendar(page){
   await page.waitForTimeout(2000);
 }
 
-test('?view=photos opens home and replaces the retired view in the URL',async({page})=>{
+// PHOTO-사진메뉴(2026-10-28): ?view=photos is now the new 사진 menu (OneDrive gallery, app/photos.js), not the retired photo room.
+test('?view=photos opens the new photo menu and never the retired photo room',async({page})=>{
   test.setTimeout(60000);
   const errors=watchErrors(page);
   const seen=await mockApp(page);
@@ -64,11 +65,11 @@ test('?view=photos opens home and replaces the retired view in the URL',async({p
   await page.waitForLoadState('networkidle');
   await page.goto(app+'?view=photos');
   await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
-  await expect(page.locator('#homeView')).toBeVisible({timeout:20000});
-  await expect(page.locator('#photosView')).toHaveCount(0);
-  await expect.poll(()=>new URL(page.url()).searchParams.get('view')).toBe(null);
+  await expect(page.locator('#photosView')).toBeVisible({timeout:20000});
+  await expect(page.locator('#photosView [data-photos-tab]')).toHaveText(['사진','달력']);
   await page.waitForLoadState('networkidle');
   expect(seen.photoAssets).toEqual([]);
+  expect(seen.eventMedia).toBe(0);
   expect(errors).toEqual([]);
 });
 
@@ -83,19 +84,19 @@ test('entering the calendar requests no photo room files',async({page})=>{
   await settleAfterCalendar(page);
   expect(seen.photoAssets).toEqual([]);
   expect(seen.eventMedia).toBe(0);
-  expect(await page.evaluate(()=>window.KPTUViewLoader.normalize('photos'))).toBe('home');
+  expect(await page.evaluate(()=>window.KPTUViewLoader.normalize('photos'))).toBe('photos');
   expect(errors).toEqual([]);
 });
 
-test('no photo room screen, link, or button remains',async({page})=>{
+test('no photo room screen, link, or button remains (the new 사진 menu button is separate)',async({page})=>{
   test.setTimeout(60000);
   const errors=watchErrors(page);
   await mockApp(page);
   await signIn(page);
   await settleAfterCalendar(page);
   for(const selector of [
-    '#photosView','#photosCalendarEntry','#photoUploadOpen','#photoUploadModal','#eventDetailModal',
-    '#photoGrid','#eventPhotoStrip','[data-view="photos"]','[data-goto="photos"]','[data-photo-event]',
+    '#photosCalendarEntry','#photoUploadOpen','#photoUploadModal','#eventDetailModal',
+    '#photoGrid','#eventPhotoStrip','[data-goto="photos"]','[data-photo-event]',
     '[data-photo-close]','a[href*="view=photos"]'
   ])await expect(page.locator(selector),selector).toHaveCount(0);
   await expect(page.getByText('포토룸')).toHaveCount(0);
