@@ -105,8 +105,10 @@ test('bizreport area tag + next plan: plan, precheck, dry-run, apply, owner/work
    // Tag pointing to another workspace's project: refused by the restrictive policy (no row leaks through the FK either).
    await assert.rejects(setTag(MEETING_A,PROJECT_B,null),{code:'42501'});
    await assert.rejects(as('authenticated',OWNER,c=>c.query("insert into public.app_meetings(id,workspace_id,title,business_area_id) values ('25000000-0000-4000-8000-0000000000a1',$1,'x',$2)",[WS_A,PROJECT_B])),{code:'42501'});
-   // Unknown project id: refused by the FK.
-   await assert.rejects(setTag(MEETING_A,'22000000-0000-4000-8000-0000000000ff',null),{code:'23503'});
+   // Unknown project id: refused (the same-workspace policy finds no such project before the FK is checked).
+   await assert.rejects(setTag(MEETING_A,'22000000-0000-4000-8000-0000000000ff',null),{code:'42501'});
+   // The FK still guards writers that skip RLS (service_role / table owner).
+   await assert.rejects(pool.query("update public.app_meetings set business_area_id='22000000-0000-4000-8000-0000000000ff' where id=$1",[MEETING_A]),{code:'23503'});
    // A stranger (owner of workspace B) cannot see or change workspace A's report.
    assert.equal((await setTag(MEETING_A,null,null,STRANGER)).rowCount,0);
    assert.equal((await as('authenticated',STRANGER,c=>c.query('select count(*)::int n from public.app_meetings where id=$1',[MEETING_A]))).rows[0].n,0);
