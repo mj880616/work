@@ -35,6 +35,18 @@ public class SourceRulesTests
     }
 
     [Fact]
+    public void Paste_window_is_one_editable_box_without_the_old_paste_button_or_hint()
+    {
+        var form = File.ReadAllText(Path.Combine(Root(), "src", "BasketDrop", "PasteForm.cs"));
+        Assert.DoesNotContain("붙여넣기 (Ctrl+V)", form);
+        Assert.DoesNotContain("Ctrl+V로 복사한 글·사진·파일을 붙여넣어요", form);
+        Assert.DoesNotContain("ReadOnly = true", form);
+        Assert.Contains("PasteText.Compose", form); // what is sent is decided in one tested place
+        Assert.Contains("_app.Submit(", form);       // same queue path as every other entry, no new server call
+        Assert.DoesNotContain("HttpClient", form);
+    }
+
+    [Fact]
     public void No_source_logs_or_shows_token_values()
     {
         foreach (var file in Sources())
