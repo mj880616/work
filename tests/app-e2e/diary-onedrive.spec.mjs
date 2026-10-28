@@ -71,7 +71,7 @@ const odMenu = page => page.locator('#diaryOdMenu');
 async function odPick(page, name) {
   await odIcon(page).click();
   await expect(odMenu(page)).toBeVisible();
-  await odMenu(page).getByRole('button', { name }).click();
+  await odMenu(page).locator('button', { hasText: name }).click();
   await expect(odMenu(page)).toBeHidden();
 }
 // 크게 보기 사진 위 한 손가락 세로 밀기(dy<0 위, dy>0 아래). 터치 이벤트를 직접 보낸다.

@@ -59,7 +59,8 @@ test('일기 연결: 옛 연결 줄(원드라이브 · 폴더 [설정])은 없�
   const diary = read('app/diary.js'), part = read('app/od-link.js');
   assert.match(part, /import \{createAnchoredMenu\} from '\.\/anchored-menu\.js';/);
   assert.match(diary, /import \{odLinkButtonHtml, paintOdLink, createOdLinkMenu\} from '\.\/od-link\.js';/);
-  assert.match(diary, /data-diary-today>오늘<\/button><\/div><div class="diary-lv-tools"[^`]*<\/div>\$\{odLinkButtonHtml\(\)\}<button type="button" id="newDiaryBtn"/);
+  assert.match(diary, /<div class="diary-month-od"><div class="diary-month">[^`]*data-diary-today>오늘<\/button><\/div>\$\{odLinkButtonHtml\(\)\}<\/div><div class="diary-lv-tools"/);
+  assert.match(read('app/diary.css'), /\.diary-month-od\{ display:flex; align-items:center; gap:6px; \}/);
   assert.doesNotMatch(diary, /diary-od-line|data-od-open|toggleOdPanel/);
   assert.match(diary, /if \(button\.matches\('\[data-od-link\]'\)\) return odLinkMenu\.open\(button\);/);
   // 원드라이브 칸(받는 중·안내·설정 창)은 달력 밖에 두어 목록 보기에서도 설정 창이 보인다.

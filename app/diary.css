@@ -10,6 +10,8 @@
 #appView #diaryView .diary-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:var(--kptu-touch-target,44px); }
 #appView #diaryView .diary [hidden]{ display:none!important; }
 #appView #diaryView .diary-month{ display:flex; align-items:center; gap:6px; }
+/* OD-연결아이콘: 원드라이브 아이콘은 [오늘] 바로 오른쪽에 붙어 함께 줄바꿈된다(목록 보기에서는 달 이동이 숨고 아이콘만 남음). */
+#appView #diaryView .diary-month-od{ display:flex; align-items:center; gap:6px; }
 #appView #diaryView .diary-month b{ min-width:7.5em; text-align:center; font-size:var(--ds-text-title); font-weight:var(--ds-weight-medium); }
 #appView #diaryView .diary-status{ margin:0; color:var(--kptu-muted); font-size:var(--ds-text-meta); }
 #appView #diaryView .diary-status:empty{ display:none; }
