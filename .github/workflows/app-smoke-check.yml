@@ -247,6 +247,9 @@ jobs:
       - name: Check journal evening AI draft rules (today line draft, work calls only)
         run: node --test tests/journal-draft-model.test.mjs
 
+      - name: Check next-week sheet rules (work calendar only, read-only materials, auto after Friday 15:00)
+        run: node --test tests/next-week-sheet-model.test.mjs
+
       - name: Check phone bottom tab selection rule
         run: node --test tests/mobile-tab-selection.test.mjs tests/menu-model.test.mjs tests/home-cards-model.test.mjs tests/menu-home-prefs.test.mjs
 
