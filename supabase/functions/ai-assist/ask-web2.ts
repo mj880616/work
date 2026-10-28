@@ -76,7 +76,7 @@ export function askOrg(question: string, orgs: { id: string; name: string; alias
 
 export type AskHit = {
   kind: string; source: string; id: string; date: string | null; day: string | null; title: string; snippet: string;
-  org_id: string | null; room: string | null; sent: boolean; tag: string | null;
+  org_id: string | null; project_id: string | null; room: string | null; sent: boolean; tag: string | null;
 };
 export type AskSource = AskHit & { ref: string };
 
@@ -100,6 +100,7 @@ export function hitsFromSearch(result: unknown): AskHit[] {
         date: isoDay(it.day) ?? isoDay(it.occurred_at), day: isoDay(it.day),
         title: cleanTitle(it.title), snippet: maskEvidenceText(text, ASK_SNIPPET_CHARS),
         org_id: typeof it.organization_id === "string" && UUID.test(it.organization_id) ? it.organization_id.toLowerCase() : null,
+        project_id: typeof it.project_id === "string" && UUID.test(it.project_id) ? it.project_id.toLowerCase() : null,
         room: kind === "telegram" && typeof it.room_key === "string" && /^[A-Za-z0-9_.:-]{1,100}$/.test(it.room_key) ? it.room_key : null,
         sent: true, tag: null,
       });
@@ -120,7 +121,7 @@ export function hitsFromLedger(rows: unknown): AskHit[] {
     out.push({
       kind: "ledger", source: "ledger", id: id.toLowerCase(), date: isoDay(r.date_start), day: null,
       title: cleanTitle(r.title), snippet: s2 ? "" : maskEvidenceText(r.summary, ASK_SNIPPET_CHARS),
-      org_id: null, room: null, sent: !s2, tag: s2 ? "교섭·전략" : null,
+      org_id: null, project_id: null, room: null, sent: !s2, tag: s2 ? "교섭·전략" : null,
     });
   }
   return out;
@@ -174,6 +175,6 @@ export function parseAskAnswer(raw: string, sources: AskSource[]): EvidenceLine[
   return evidenceLines(raw, allowed, { maxLines: ASK_MAX_LINES, maxChars: ASK_LINE_CHARS });
 }
 
-// 저장용 근거(앞뒤 한 줄 없음 — 원본이 바뀌면 원본을 보도록).
+// 저장용 근거(앞뒤 한 줄 없음 — 원본이 바뀌면 원본을 보도록). 프로젝트·조직 id는 화면이 그 기록을 여는 데만 쓴다(AI에는 안 보냄).
 export const storedSources = (sources: AskSource[]) =>
-  sources.map((s) => ({ ref: s.ref, kind: s.kind, source: s.source, id: s.id, date: s.date, day: s.day, room: s.room, title: s.title, sent: s.sent, tag: s.tag }));
+  sources.map((s) => ({ ref: s.ref, kind: s.kind, source: s.source, id: s.id, date: s.date, day: s.day, room: s.room, project_id: s.project_id, organization_id: s.org_id, title: s.title, sent: s.sent, tag: s.tag }));
