@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>사진 메뉴 시안</title>
+<style>
+/* 앱 토큰(app/theme-tokens.css 올리브 기본값·app/base-ui.css 크기)을 옮겨 적은 시안 전용 사본. 앱에는 쓰지 않는다. */
+:root{
+  --kptu-bg:#f3f1ea;--kptu-surface:#fffefa;--kptu-surface-subtle:#f7f5ee;
+  --kptu-ink:#2a2a23;--kptu-muted:#6e6c60;--kptu-faint:#8f8c7f;
+  --kptu-border:#e2ddd0;--kptu-border-strong:#cfc8b6;
+  --kptu-primary:#5c6a35;--kptu-primary-ink:#47532a;--kptu-primary-soft:#eef0e1;--kptu-on-primary:#fff;
+  --kptu-danger:#9a4048;--kptu-warning:#8a6218;
+  --kptu-radius-sm:6px;--kptu-radius-md:8px;--kptu-radius-lg:12px;--kptu-radius-pill:999px;
+  --ds-compact-height:32px;--ds-compact-height-sm:28px;--ds-text-meta:12px;
+  --ds-line:var(--kptu-border-strong);
+}
+@media (prefers-color-scheme:dark){:root{
+  --kptu-bg:#161613;--kptu-surface:#1f1f1b;--kptu-surface-subtle:#292924;--kptu-ink:#ebe9e1;--kptu-muted:#b1aea2;--kptu-faint:#938f84;
+  --kptu-border:#34332d;--kptu-border-strong:#4a4840;--kptu-primary:#b4c385;--kptu-primary-ink:#c2d095;--kptu-primary-soft:#2c3120;--kptu-on-primary:#161613;
+  --kptu-danger:#d98a90;--kptu-warning:#d8b56a;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--kptu-bg);color:var(--kptu-ink);font:13px/1.45 system-ui,"Noto Sans KR","Malgun Gothic",sans-serif;padding:12px}
+h1{font-size:14px;font-weight:500;margin:0 0 4px;color:var(--kptu-muted)}
+.note{font-size:12px;color:var(--kptu-muted);margin:0 0 12px;max-width:900px}
+.wrap{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
+.wrap>div{max-width:100%;min-width:0}
+.label{font-size:12px;color:var(--kptu-muted);margin:0 0 4px}
+.phone{width:390px;max-width:100%;height:760px;background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:14px;position:relative;overflow:hidden;display:flex;flex-direction:column}
+.pc{width:1280px;max-width:100%;height:720px;background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:10px;display:grid;grid-template-columns:200px 1fr;overflow:hidden;position:relative}
+.side{background:var(--kptu-surface-subtle);border-right:.5px solid var(--kptu-border);padding:10px 8px;font-size:13px}
+.side div{padding:5px 8px;border-radius:var(--kptu-radius-sm);color:var(--kptu-muted)}
+.side .on{background:var(--kptu-primary-soft);color:var(--kptu-primary-ink)}
+.topline{height:40px;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:.5px solid var(--kptu-border);font-size:12px;color:var(--kptu-muted)}
+.main{display:flex;flex-direction:column;min-width:0;position:relative}
+/* 칩 줄 */
+.chips{display:flex;gap:6px;align-items:center;padding:8px 10px;border-bottom:.5px solid var(--kptu-border);overflow:hidden;flex:none}
+.chip{height:28px;padding:0 10px;border-radius:var(--kptu-radius-pill);border:.5px solid var(--kptu-border-strong);background:transparent;color:var(--kptu-muted);font:inherit;font-size:12.5px;display:inline-flex;align-items:center;white-space:nowrap;flex:none}
+.chip.on{background:var(--kptu-primary-soft);border-color:var(--kptu-primary);color:var(--kptu-primary-ink)}
+.chips .sp{flex:1}
+.tool{height:28px;min-width:28px;padding:0 6px;border:0;background:transparent;color:var(--kptu-muted);font:inherit;font-size:12px;border-radius:var(--kptu-radius-sm);display:inline-flex;align-items:center;justify-content:center;flex:none}
+.tool.b{border:.5px solid var(--kptu-border)}
+.body{flex:1;overflow:hidden;position:relative}
+.dh{display:flex;align-items:center;gap:6px;padding:8px 10px 4px;font-size:12px;color:var(--kptu-muted)}
+.dh b{font-weight:500;color:var(--kptu-ink)}
+.dh .ck{width:16px;height:16px;border-radius:50%;border:1px solid var(--kptu-border-strong);margin-left:auto}
+.dh .ck.on{background:var(--kptu-primary);border-color:var(--kptu-primary)}
+.grid{display:grid;grid-template-columns:repeat(var(--cols,4),1fr);gap:2px;padding:0 2px}
+.ph{aspect-ratio:1;position:relative;border-radius:2px;overflow:hidden}
+.ph .v{position:absolute;right:3px;bottom:3px;font-size:10px;color:#fff;background:rgba(0,0,0,.45);padding:0 4px;border-radius:3px}
+.ph .s{position:absolute;left:3px;bottom:2px;font-size:11px;color:#f4e3a1;text-shadow:0 0 2px rgba(0,0,0,.6)}
+.ph.sel{outline:2px solid var(--kptu-primary);outline-offset:-2px}
+.ph.sel::after{content:"✓";position:absolute;right:3px;top:3px;width:16px;height:16px;border-radius:50%;background:var(--kptu-primary);color:var(--kptu-on-primary);font-size:10px;display:flex;align-items:center;justify-content:center}
+.ph.unsel::after{content:"";position:absolute;right:3px;top:3px;width:14px;height:14px;border-radius:50%;border:1.5px solid rgba(255,255,255,.85)}
+.scrub{position:absolute;right:0;top:0;bottom:0;width:14px;display:flex;flex-direction:column;justify-content:space-between;padding:6px 0;align-items:center}
+.scrub i{width:2px;height:2px;border-radius:1px;background:var(--kptu-faint)}
+.scrub .thumb{position:absolute;right:2px;top:38%;width:4px;height:36px;border-radius:2px;background:var(--kptu-muted)}
+.bubble{position:absolute;right:16px;top:38%;font-size:12px;background:var(--kptu-ink);color:var(--kptu-surface);padding:2px 8px;border-radius:var(--kptu-radius-pill)}
+.tabbar{height:52px;flex:none;border-top:.5px solid var(--kptu-border);display:flex;justify-content:space-around;align-items:center;font-size:11px;color:var(--kptu-faint);background:var(--kptu-surface)}
+.tabbar .on{color:var(--kptu-primary-ink)}
+/* 선택 모드 */
+.selbar{height:40px;flex:none;background:var(--kptu-primary);color:var(--kptu-on-primary);display:flex;align-items:center;gap:8px;padding:0 10px;font-size:13px}
+.actbar{flex:none;display:flex;gap:2px;justify-content:space-between;padding:6px 6px;border-top:.5px solid var(--kptu-border);background:var(--kptu-surface)}
+.act{height:32px;padding:0 6px;border:0;background:transparent;color:var(--kptu-ink);font:inherit;font-size:11.5px;display:inline-flex;align-items:center;gap:3px;border-radius:var(--kptu-radius-sm);white-space:nowrap}
+.act.d{color:var(--kptu-danger)}
+/* 크게 보기 */
+.viewer{position:absolute;inset:0;background:#141412;color:#eee;display:flex;flex-direction:column}
+.viewer .top{height:40px;display:flex;align-items:center;padding:0 10px;font-size:12px;color:#bbb;gap:8px}
+.viewer .img{flex:1;margin:0 0 8px;position:relative}
+.viewer .bot{height:48px;display:flex;justify-content:space-around;align-items:center;border-top:.5px solid #333}
+.viewer .bot button{height:32px;min-width:44px;border:0;background:transparent;color:#ddd;font:inherit;font-size:15px;border-radius:var(--kptu-radius-sm)}
+.viewer .bot button.on{color:#f0d77a}
+.gest{position:absolute;left:8px;right:8px;top:8px;font-size:11px;color:#aaa;display:flex;justify-content:space-between}
+.play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:46px;height:46px;border-radius:50%;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-size:18px}
+.vbar{position:absolute;left:10px;right:10px;bottom:8px;height:3px;background:#555;border-radius:2px}
+.vbar i{display:block;width:30%;height:100%;background:#ddd;border-radius:2px}
+/* 아래 판 */
+.sheet{position:absolute;left:0;right:0;bottom:52px;background:var(--kptu-surface);color:var(--kptu-ink);border-top-left-radius:12px;border-top-right-radius:12px;border-top:.5px solid var(--ds-line);padding:8px 12px 10px;box-shadow:0 -8px 24px rgba(20,33,48,.12)}
+.sheet .grip{width:32px;height:3px;border-radius:2px;background:var(--kptu-border-strong);margin:0 auto 8px}
+.sheet .row{display:flex;flex-wrap:wrap;gap:5px;margin:4px 0 8px}
+.tag{height:26px;padding:0 9px;border-radius:var(--kptu-radius-pill);background:var(--kptu-surface-subtle);border:.5px solid var(--kptu-border);font-size:12px;display:inline-flex;align-items:center;gap:4px;color:var(--kptu-ink)}
+.tag.on{background:var(--kptu-primary-soft);border-color:var(--kptu-primary);color:var(--kptu-primary-ink)}
+.tag .x{color:var(--kptu-faint)}
+.inp{height:32px;border:.5px solid var(--kptu-border-strong);border-radius:var(--kptu-radius-sm);padding:0 8px;display:flex;align-items:center;color:var(--kptu-faint);font-size:12.5px}
+.small{font-size:11.5px;color:var(--kptu-muted)}
+/* 폴더 */
+.frow{display:flex;align-items:center;gap:6px;height:36px;padding:0 10px;border-bottom:.5px solid var(--kptu-border);font-size:13px}
+.frow .n{color:var(--kptu-faint);font-size:12px;margin-left:auto}
+.frow .m{width:28px;text-align:center;color:var(--kptu-faint)}
+.frow.add{color:var(--kptu-primary-ink);border-bottom:0}
+.frow .off{color:var(--kptu-faint);font-size:11px}
+/* 앨범 */
+.albums{display:grid;grid-template-columns:repeat(var(--acols,2),1fr);gap:8px;padding:10px}
+.card{border:.5px solid var(--kptu-border);border-radius:var(--kptu-radius-md);overflow:hidden;background:var(--kptu-surface)}
+.card .ph{aspect-ratio:4/3;border-radius:0}
+.card .cap{display:flex;align-items:center;gap:4px;padding:5px 8px;font-size:12.5px}
+.card .cap .n{color:var(--kptu-faint);font-size:11.5px}
+.card .cap .m{margin-left:auto;color:var(--kptu-faint)}
+.card.add{display:flex;align-items:center;justify-content:center;color:var(--kptu-primary-ink);border-style:dashed;min-height:120px;font-size:12.5px}
+/* 달력 */
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:4px 6px}
+.cal .h{font-size:11px;color:var(--kptu-faint);text-align:center;padding:2px 0}
+.cal .c{aspect-ratio:.8;border-radius:4px;position:relative;font-size:10.5px;color:var(--kptu-muted);padding:2px 3px;background:var(--kptu-surface-subtle);overflow:hidden}
+.cal .c .ph{position:absolute;left:3px;right:3px;bottom:3px;top:16px;aspect-ratio:auto;border-radius:3px}
+.cal .c .k{position:absolute;right:5px;bottom:4px;color:#fff;font-size:10px;text-shadow:0 0 2px #000}
+.cal .c.today{outline:1px solid var(--kptu-primary)}
+/* 지도 */
+.map{position:absolute;inset:0;background:linear-gradient(135deg,#e7ebe0 0%,#dfe7ea 45%,#e9e4d8 100%)}
+@media (prefers-color-scheme:dark){.map{background:linear-gradient(135deg,#252a22,#1f282c 45%,#2a271f)}}
+.map .road{position:absolute;background:rgba(255,255,255,.7);height:3px;transform-origin:left}
+@media (prefers-color-scheme:dark){.map .road{background:rgba(255,255,255,.12)}}
+.pin{position:absolute;border-radius:50%;background:var(--kptu-primary);color:var(--kptu-on-primary);font-size:11px;display:flex;align-items:center;justify-content:center;border:2px solid var(--kptu-surface);box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.attr{position:absolute;right:4px;bottom:2px;font-size:9.5px;color:var(--kptu-muted);background:rgba(255,255,255,.6);padding:0 3px}
+/* 안내 줄 */
+.info{display:flex;align-items:center;gap:6px;padding:6px 10px;font-size:12px;color:var(--kptu-muted);border-bottom:.5px solid var(--kptu-border)}
+.info .lnk{margin-left:auto;color:var(--kptu-primary-ink);font-size:12px}
+.toast{position:absolute;left:50%;transform:translateX(-50%);bottom:64px;background:var(--kptu-ink);color:var(--kptu-surface);font-size:12px;padding:6px 12px;border-radius:var(--kptu-radius-pill);white-space:nowrap}
+.toast b{font-weight:500;margin-left:8px;color:var(--kptu-primary-soft)}
+.confirm{position:absolute;left:24px;right:24px;top:40%;background:var(--kptu-surface);border:.5px solid var(--ds-line);border-radius:var(--kptu-radius-lg);padding:12px 14px;box-shadow:0 24px 64px rgba(20,33,48,.16);font-size:13px}
+.confirm .btns{display:flex;justify-content:flex-end;gap:6px;margin-top:10px}
+.btn{height:32px;padding:0 12px;border-radius:var(--kptu-radius-sm);border:.5px solid var(--kptu-border-strong);background:transparent;color:var(--kptu-ink);font:inherit;font-size:12.5px}
+.btn.d{color:var(--kptu-danger);border-color:var(--kptu-danger)}
+.sw{width:30px;height:18px;border-radius:9px;background:var(--kptu-primary);position:relative;flex:none}
+.sw::after{content:"";position:absolute;right:2px;top:2px;width:14px;height:14px;border-radius:50%;background:var(--kptu-on-primary)}
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.25)}
+.pcview{position:absolute;inset:0;background:#141412;display:grid;grid-template-columns:1fr 280px}
+.pcview .stage{position:relative;display:flex;flex-direction:column}
+.pcview .panel{background:var(--kptu-surface);color:var(--kptu-ink);padding:12px;font-size:12.5px;border-left:.5px solid var(--ds-line)}
+.pcview .panel dt{color:var(--kptu-faint);font-size:11.5px;margin-top:8px}
+.pcview .panel dd{margin:0}
+.arrow{position:absolute;top:45%;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.12);color:#ddd;display:flex;align-items:center;justify-content:center}
+</style>
+</head>
+<body>
+<h1>새 '사진' 메뉴 시안 (PHOTO-사진메뉴) · 가짜 내용</h1>
+<p class="note">폰 390px 화면 10개 + PC 1280px 2개. 색·크기는 앱 토큰(올리브 기본, 어두운 화면 자동). 버튼은 32px 작은 버튼·28px 칩. 크게 보기 손동작: 좌우 = 앞뒤, 위로 밀기 = 별표, 아래로 밀기 = 닫기. 선택 모드의 위·아래 줄, 작은 알림·확인창은 자료실 세션 공용 부품 모양을 따른다. 설계: <code>photo-menu.md</code>.</p>
+
+<div class="wrap">
+
+<div>
+<p class="label">① 사진 — 최신순, 날짜 머리줄, 오른쪽 달 이동 막대</p>
+<div class="phone">
+  <div class="chips"><span class="chip on">사진</span><span class="chip">달력</span><span class="chip">폴더</span><span class="chip">앨범</span><span class="chip">지도</span><span class="chip">휴지통</span></div>
+  <div class="chips" style="padding:4px 10px"><span class="chip">전체 ▾</span><span class="sp"></span><button class="tool b">－</button><button class="tool b">＋</button></div>
+  <div class="body">
+    <div class="dh"><b>10월 27일 (화)</b> · 14장</div><div class="grid" data-n="8" data-v="2:0:42" data-s="1,5"></div>
+    <div class="dh"><b>10월 25일 (일)</b> · 6장</div><div class="grid" data-n="6" data-v="4:1:05"></div>
+    <div class="dh"><b>10월 21일 (수)</b> · 9장</div><div class="grid" data-n="9" data-s="3"></div>
+    <div class="dh"><b>10월 18일 (일)</b> · 4장</div><div class="grid" data-n="4"></div>
+    <div class="scrub"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><span class="thumb"></span></div>
+    <span class="bubble">2026.10</span>
+  </div>
+  <div class="tabbar"><span>홈</span><span>할 일</span><span>일정</span><span>바구니</span><span class="on">메뉴</span></div>
+</div>
+</div>
+
+<div>
+<p class="label">② 여러 장 고르기 — 길게 눌러 시작, 끌어서 여러 장, ○ = 그날 전체</p>
+<div class="phone">
+  <div class="selbar"><span>✕</span><span>·</span><span>7개 골랐음</span></div>
+  <div class="body">
+    <div class="dh"><b>10월 27일 (화)</b> · 14장<span class="ck on"></span></div><div class="grid" data-n="8" data-sel="all"></div>
+    <div class="dh"><b>10월 25일 (일)</b> · 6장<span class="ck"></span></div><div class="grid" data-n="6" data-sel="0,1,2" data-v="4:1:05"></div>
+    <div class="dh"><b>10월 21일 (수)</b> · 9장<span class="ck"></span></div><div class="grid" data-n="9" data-sel="none"></div>
+  </div>
+  <div class="actbar"><button class="act">☆ 별표</button><button class="act"># 태그</button><button class="act">⇪ 공유</button><button class="act">⤓ 받기</button><button class="act d">🗑 지우기</button><button class="act">⋯</button></div>
+  <div class="tabbar"><span>홈</span><span>할 일</span><span>일정</span><span>바구니</span><span class="on">메뉴</span></div>
+</div>
+</div>
+
+<div>
+<p class="label">③ 크게 보기 — 버튼줄 [☆][#][⇪][🗑][ⓘ] (추천, 0절 2번)</p>
+<div class="phone">
+  <div class="viewer">
+    <div class="top"><span>←</span><span>10월 27일 14:20</span><span style="margin-left:auto">3 / 14</span></div>
+    <div class="img ph" data-c="3" style="aspect-ratio:auto"><div class="gest"><span>← 앞뒤 →</span><span>↑ 별표 · ↓ 닫기</span></div></div>
+    <div class="bot"><button class="on">★</button><button>#</button><button>⇪</button><button>🗑</button><button>ⓘ</button></div>
+  </div>
+  <div class="toast" style="bottom:60px">별표했어요</div>
+</div>
+</div>
+
+<div>
+<p class="label">④ [#] 태그 판 — 넣은 태그 / 자주 쓰는 태그 / 새 태그 바로 입력</p>
+<div class="phone">
+  <div class="viewer">
+    <div class="top"><span>←</span><span>10월 27일 14:20</span><span style="margin-left:auto">3 / 14</span></div>
+    <div class="img ph" data-c="3" style="aspect-ratio:auto"></div>
+    <div class="bot"><button>☆</button><button class="on">#</button><button>⇪</button><button>🗑</button><button>ⓘ</button></div>
+  </div>
+  <div class="sheet" style="bottom:48px">
+    <div class="grip"></div>
+    <div class="small">이 사진</div>
+    <div class="row"><span class="tag on">#가을산행 <span class="x">✕</span></span><span class="tag on">#가족 <span class="x">✕</span></span></div>
+    <div class="small">자주 쓰는 태그</div>
+    <div class="row"><span class="tag">#현장</span><span class="tag">#회의</span><span class="tag">#음식</span><span class="tag">#아이</span><span class="tag">#여행2026</span><span class="tag">#영수증</span></div>
+    <div class="inp">#새 태그 입력 후 Enter</div>
+  </div>
+</div>
+</div>
+
+<div>
+<p class="label">⑤ 동영상 — 썸네일 ▶ 길이, 크게 보기에서 바로 재생 / [ⓘ] 정보 판</p>
+<div class="phone">
+  <div class="viewer">
+    <div class="top"><span>←</span><span>10월 25일 11:02 · 동영상 1:05</span><span style="margin-left:auto">5 / 6</span></div>
+    <div class="img ph" data-c="6" style="aspect-ratio:auto;flex:none;height:300px"><span class="play">▶</span><span class="vbar"><i></i></span></div>
+    <div style="flex:1"></div>
+    <div class="bot"><button>☆</button><button>#</button><button>⇪</button><button>🗑</button><button class="on">ⓘ</button></div>
+  </div>
+  <div class="sheet" style="bottom:48px">
+    <div class="grip"></div>
+    <div style="display:grid;grid-template-columns:72px 1fr;gap:3px 8px;font-size:12.5px">
+      <span class="small">찍은 때</span><span>2026-10-25 (일) 11:02</span>
+      <span class="small">파일</span><span>VID_20261025_110201.mp4 · 48 MB</span>
+      <span class="small">폴더</span><span style="color:var(--kptu-primary-ink)">카메라 앨범 › 2026 ›</span>
+      <span class="small">크기</span><span>1920×1080 · 1:05</span>
+      <span class="small">위치</span><span>있음 · <span style="color:var(--kptu-primary-ink)">지도에서 보기 ›</span></span>
+      <span class="small">태그</span><span>#가족</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px"><span class="small">원본에 위치 정보가 들어 있을 수 있어요</span><button class="btn">⤓ 원본 받기</button></div>
+  </div>
+</div>
+</div>
+
+<div>
+<p class="label">⑥ 달력 — 칸마다 대표 사진 1장 + 장수</p>
+<div class="phone">
+  <div class="chips"><span class="chip">사진</span><span class="chip on">달력</span><span class="chip">폴더</span><span class="chip">앨범</span><span class="chip">지도</span><span class="chip">휴지통</span></div>
+  <div class="chips" style="padding:4px 10px;border-bottom:0"><button class="tool">‹</button><span style="font-size:13px">2026년 10월</span><button class="tool">›</button><span class="sp"></span><span class="chip">전체 ▾</span></div>
+  <div class="body"><div class="cal" id="cal"></div></div>
+  <div class="tabbar"><span>홈</span><span>할 일</span><span>일정</span><span>바구니</span><span class="on">메뉴</span></div>
+</div>
+</div>
+
+<div>
+<p class="label">⑦ 폴더 — 원드라이브 폴더 그대로, ⋯ 메뉴, + 새 폴더</p>
+<div class="phone">
+  <div class="chips"><span class="chip">사진</span><span class="chip">달력</span><span class="chip on">폴더</span><span class="chip">앨범</span><span class="chip">지도</span><span class="chip">휴지통</span></div>
+  <div class="body">
+    <div class="frow">📁 <span>카메라 앨범</span><span class="n">3,412</span><span class="m">⋯</span></div>
+    <div class="frow" style="padding-left:28px">📁 <span>2026</span><span class="n">1,204</span><span class="m">⋯</span></div>
+    <div class="frow" style="padding-left:46px">📁 <span>가을 산행</span><span class="n">86</span><span class="m">⋯</span></div>
+    <div class="frow" style="padding-left:28px">📁 <span>2025</span><span class="n">2,208</span><span class="m">⋯</span></div>
+    <div class="frow" style="padding-left:28px">📁 <span>스크린샷</span> <span class="off">· 일기·사진에서 끔</span><span class="n">512</span><span class="m">⋯</span></div>
+    <div class="frow">📁 <span>현장 사진</span><span class="n">640</span><span class="m">⋯</span></div>
+    <div class="frow add">＋ 새 폴더</div>
+    <div class="sheet">
+      <div class="grip"></div>
+      <div class="small" style="margin-bottom:4px">📁 가을 산행 · 86장</div>
+      <div class="frow" style="padding:0 2px">＋ 새 하위 폴더</div>
+      <div class="frow" style="padding:0 2px">이름 바꾸기</div>
+      <div class="frow" style="padding:0 2px">다른 폴더로 옮기기</div>
+      <div class="frow" style="padding:0 2px;justify-content:space-between">일기·사진에 보이기 <span class="sw"></span></div>
+      <div class="frow" style="padding:0 2px;border-bottom:0;color:var(--kptu-danger)">지우기</div>
+    </div>
+  </div>
+  <div class="tabbar"><span>홈</span><span>할 일</span><span>일정</span><span>바구니</span><span class="on">메뉴</span></div>
+</div>
+</div>
+
+<div>
+<p class="label">⑧ 폴더 지우기 확인 — 장수를 보여 주고 한 번만 묻기</p>
+<div class="phone">
+  <div class="chips"><span class="chip">사진</span><span class="chip">달력</span><span class="chip on">폴더</span><span class="chip">앨범</span><span class="chip">지도</span><span class="chip">휴지통</span></div>
+  <div class="body">
+    <div class="frow">📁 <span>카메라 앨범</span><span class="n">3,412</span><span class="m">⋯</span></div>
+    <div class="frow" style="padding-left:28px">📁 <span>2026</span><span class="n">1,204</span><span class="m">⋯</span></div>
+    <div class="frow" style="padding-left:46px">📁 <span>가을 산행</span><span class="n">86</span><span class="m">⋯</span></div>
+    <div class="dim"></div>
+    <div class="confirm">'가을 산행' 폴더를 지울까요?<div class="small" style="margin-top:4px">사진 86장도 같이 휴지통으로 가요. 휴지통에서 30일 안에 되살릴 수 있어요.</div><div class="btns"><button class="btn">취소</button><button class="btn d">지우기</button></div></div>
+  </div>
+  <div class="tabbar"><span>홈</span><span>할 일</span><span>일정</span><span>바구니</span><span class="on">메뉴</span></div>
+</div>
+</div>
+
+<div>
+<p class="label">⑨ 앨범 — #태그 카드(대표 사진 + 장수), 마지막 칸 + 새 앨범</p>
+<div class="phone">
+  <div class="chips"><span class="chip">사진</span><span class="chip">달력</span><span class="chip">폴더</span><span class="chip on">앨범</span><span class="chip">지도</span><span class="chip">휴지통</span></div>
+  <div class="body"><div class="albums" id="albums"></div></div>
+  <div class="tabbar"><span>홈</span><span>할 일</span><span>일정</span><span>바구니</span><span class="on">메뉴</span></div>
+</div>
+</div>
+
+<div>
+<p class="label">⑩ 지도 — 묶음 동그라미, 누르면 아래 판에 그 사진들</p>
+<div class="phone">
+  <div class="chips"><span class="chip">사진</span><span class="chip">달력</span><span class="chip">폴더</span><span class="chip">앨범</span><span class="chip on">지도</span><span class="chip">휴지통</span></div>
+  <div class="body">
+    <div class="map">
+      <span class="road" style="left:0;top:30%;width:120%;transform:rotate(-8deg)"></span>
+      <span class="road" style="left:20%;top:0;width:110%;transform:rotate(70deg)"></span>
+      <span class="road" style="left:0;top:62%;width:120%;transform:rotate(12deg)"></span>
+      <span class="pin" style="left:30%;top:18%;width:34px;height:34px">128</span>
+      <span class="pin" style="left:62%;top:34%;width:26px;height:26px">24</span>
+      <span class="pin" style="left:18%;top:44%;width:22px;height:22px">6</span>
+      <span class="pin" style="left:70%;top:12%;width:22px;height:22px">3</span>
+      <span class="attr">© OpenStreetMap</span>
+    </div>
+    <div class="sheet" style="bottom:0">
+      <div class="grip"></div>
+      <div class="small" style="margin-bottom:6px">이 근처 24장 · 2026-09-12 ~ 10-25</div>
+      <div class="grid" data-n="8" style="--cols:4"></div>
+    </div>
+  </div>
+  <div class="tabbar"><span>홈</span><span>할 일</span><span>일정</span><span>바구니</span><span class="on">메뉴</span></div>
+</div>
+</div>
+
+<div>
+<p class="label">⑪ 휴지통 + 정리 도우미 (0절 1번 B안)</p>
+<div class="phone">
+  <div class="chips"><span class="chip">사진</span><span class="chip">달력</span><span class="chip">폴더</span><span class="chip">앨범</span><span class="chip">지도</span><span class="chip on">휴지통</span></div>
+  <div class="info">▸ 정리 도우미 · 같은 파일 3묶음 · 연사 5묶음<span class="lnk">보기 ›</span></div>
+  <div class="info">30일 뒤 원드라이브 휴지통으로 가요<span class="lnk">모두 비우기</span></div>
+  <div class="body">
+    <div class="dh"><b>10월 28일 지움</b> · 5장 · 29일 남음</div><div class="grid" data-n="5" data-v="1:0:12"></div>
+    <div class="dh"><b>10월 20일 지움</b> · 3장 · 21일 남음</div><div class="grid" data-n="3"></div>
+    <div class="dh" style="margin-top:6px"><b>정리 도우미 · 연사</b> · 10월 27일 14:20 · 6장</div>
+    <div class="grid" data-n="6" data-sel="1,2,3,4,5"></div>
+    <div class="small" style="padding:4px 10px">첫 장만 남기고 골랐어요. AI가 사진 내용을 보지 않아요(파일·시각으로만 묶음).</div>
+  </div>
+  <div class="actbar"><button class="act">↺ 되살리기</button><span></span><button class="act d">🗑 바로 지우기</button></div>
+  <div class="tabbar"><span>홈</span><span>할 일</span><span>일정</span><span>바구니</span><span class="on">메뉴</span></div>
+</div>
+</div>
+
+<div>
+<p class="label">⑫ 일기 [원드라이브] 패널 — 일기에 보이기 스위치(기본 켜짐, 서버 저장)</p>
+<div class="phone">
+  <div class="chips"><span class="chip on">일기</span><span class="chip">업무일지</span><span class="sp"></span><span class="chip">원드라이브</span></div>
+  <div style="padding:8px 10px;border-bottom:.5px solid var(--kptu-border);font-size:12.5px">
+    <div style="display:flex;align-items:center;gap:6px;height:28px">📁 카메라 앨범 · <span style="color:var(--kptu-primary-ink)">폴더 바꾸기</span> · <span style="color:var(--kptu-primary-ink)">연결 끊기</span></div>
+    <div style="display:flex;align-items:center;gap:6px;height:32px">원드라이브 사진을 일기에 보이기<span style="margin-left:auto" class="sw"></span></div>
+    <div class="small">꺼도 직접 올린 일기 사진은 늘 보여요. 사진 메뉴는 그대로예요.</div>
+  </div>
+  <div class="body">
+    <div class="dh"><b>10월 27일 (화)</b></div>
+    <div style="padding:2px 10px 6px;font-size:13px">산에 다녀왔다. 단풍이 생각보다 빨리 들었다…</div>
+    <div class="grid" data-n="4"></div>
+  </div>
+  <div class="tabbar"><span>홈</span><span>할 일</span><span>일정</span><span>바구니</span><span class="on">메뉴</span></div>
+</div>
+</div>
+
+</div>
+
+<h1 style="margin-top:20px">PC 1280px</h1>
+<div class="wrap">
+<div>
+<p class="label">PC ① 사진 보기 + 고른 상태 (칸 10, 아래 작업 줄 6개 다 보임)</p>
+<div class="pc">
+  <div class="side"><div>홈</div><div>할 일</div><div>일정</div><div>바구니</div><div>일지</div><div class="on">사진</div><div>자료실</div><div>메뉴</div></div>
+  <div class="main">
+    <div class="topline">☰ ← → <span>사진</span><span style="flex:1"></span><span>+ 추가</span><span>계정 ▾</span></div>
+    <div class="selbar"><span>✕</span><span>·</span><span>3개 골랐음</span><span style="flex:1"></span><span style="font-size:12px;opacity:.8">Shift+클릭 범위 · Esc 해제</span></div>
+    <div class="chips"><span class="chip on">사진</span><span class="chip">달력</span><span class="chip">폴더</span><span class="chip">앨범</span><span class="chip">지도</span><span class="chip">휴지통</span><span class="sp"></span><span class="chip">★ 별표 ▾</span><button class="tool b">－</button><button class="tool b">＋</button></div>
+    <div class="body" style="--cols:10">
+      <div class="dh"><b>10월 27일 (화)</b> · 14장<span class="ck" style="margin-left:8px"></span></div><div class="grid" data-n="14" data-sel="2,3,7" data-s="1,5" data-v="9:0:42"></div>
+      <div class="dh"><b>10월 25일 (일)</b> · 6장<span class="ck" style="margin-left:8px"></span></div><div class="grid" data-n="6" data-sel="none" data-v="4:1:05"></div>
+      <div class="dh"><b>10월 21일 (수)</b> · 9장<span class="ck" style="margin-left:8px"></span></div><div class="grid" data-n="9" data-sel="none"></div>
+      <div class="scrub"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><span class="thumb" style="top:8%"></span></div>
+    </div>
+    <div class="actbar" style="justify-content:flex-start;gap:6px"><button class="act">☆ 별표</button><button class="act"># 태그</button><button class="act">⇪ 공유</button><button class="act">⤓ 받기</button><button class="act">📁 폴더로 옮기기</button><button class="act d">🗑 지우기</button></div>
+  </div>
+</div>
+</div>
+
+<div>
+<p class="label">PC ② 크게 보기 + [ⓘ] 정보 칸(오른쪽), ←/→ 키·S 별표·Esc 닫기</p>
+<div class="pc">
+  <div class="side"><div>홈</div><div>할 일</div><div>일정</div><div>바구니</div><div>일지</div><div class="on">사진</div><div>자료실</div><div>메뉴</div></div>
+  <div class="main">
+    <div class="pcview">
+      <div class="stage">
+        <div class="viewer" style="position:relative;flex:1">
+          <div class="top"><span>✕</span><span>10월 27일 14:20</span><span style="margin-left:auto">3 / 14</span></div>
+          <div class="img ph" data-c="2" style="aspect-ratio:auto;margin:0 60px 8px"></div>
+          <span class="arrow" style="left:12px">‹</span><span class="arrow" style="right:12px">›</span>
+          <div class="bot"><button class="on">★</button><button>#</button><button>⇪</button><button>🗑</button><button class="on">ⓘ</button></div>
+        </div>
+      </div>
+      <dl class="panel">
+        <dt>찍은 때</dt><dd>2026-10-27 (화) 14:20</dd>
+        <dt>파일</dt><dd>IMG_20261027_142012.jpg · 3.4 MB</dd>
+        <dt>폴더</dt><dd style="color:var(--kptu-primary-ink)">카메라 앨범 › 2026 › 가을 산행</dd>
+        <dt>크기</dt><dd>4032×3024</dd>
+        <dt>위치</dt><dd><div class="map" style="position:relative;height:90px;border-radius:6px;margin-top:2px"><span class="pin" style="left:46%;top:36%;width:14px;height:14px"></span><span class="attr">© OpenStreetMap</span></div></dd>
+        <dt>태그</dt><dd><span class="tag on">#가을산행</span> <span class="tag on">#가족</span> <span class="tag">＋</span></dd>
+        <dd style="margin-top:12px"><button class="btn">⤓ 원본 받기</button></dd>
+      </dl>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<script>
+// 가짜 사진: 톤다운 색 그라디언트 칸만 만든다(실제 그림·외부 주소 없음).
+const tones=[['#9aa58a','#c7c2a6'],['#7f93a3','#b9c4c9'],['#b49a7c','#ddc9ad'],['#8b8a74','#c9c3a3'],['#a28c8f','#d3c2bd'],['#6f8478','#adbcb0'],['#9c8f6c','#d4c99f'],['#7d7f93','#bdbcc9']];
+let seed=1;const rnd=()=>{seed=(seed*9301+49297)%233280;return seed/233280};
+const fill=(el,c)=>{const t=tones[c%tones.length];el.style.background=`linear-gradient(${Math.floor(rnd()*360)}deg,${t[0]},${t[1]})`;};
+document.querySelectorAll('.img.ph[data-c]').forEach(el=>fill(el,+el.dataset.c));
+document.querySelectorAll('.grid[data-n]').forEach(g=>{
+  const n=+g.dataset.n, stars=(g.dataset.s||'').split(',').filter(Boolean).map(Number);
+  const [vi,...vl]=(g.dataset.v||'').split(':'); const sel=g.dataset.sel;
+  const selSet=sel==='all'?null:new Set((sel&&sel!=='none'?sel.split(','):[]).map(Number));
+  for(let i=0;i<n;i++){const d=document.createElement('div');d.className='ph';fill(d,Math.floor(rnd()*8));
+    if(stars.includes(i))d.insertAdjacentHTML('beforeend','<span class="s">★</span>');
+    if(vi!==''&&+vi===i)d.insertAdjacentHTML('beforeend',`<span class="v">▶ ${vl.join(':')}</span>`);
+    if(sel!==undefined){d.classList.add(selSet===null||selSet.has(i)?'sel':'unsel');}
+    g.appendChild(d);}
+});
+// 달력
+const cal=document.getElementById('cal');
+'일월화수목금토'.split('').forEach(h=>cal.insertAdjacentHTML('beforeend',`<div class="h">${h}</div>`));
+for(let i=0;i<4;i++)cal.insertAdjacentHTML('beforeend','<div></div>');
+const counts={2:12,3:4,5:1,9:23,10:8,12:3,17:2,18:4,21:9,22:1,25:6,27:14,28:2};
+for(let d=1;d<=31;d++){const c=document.createElement('div');c.className='c'+(d===28?' today':'');c.textContent=d;
+  if(counts[d]){const p=document.createElement('div');p.className='ph';fill(p,d);c.appendChild(p);c.insertAdjacentHTML('beforeend',`<span class="k">${counts[d]}</span>`);}
+  cal.appendChild(c);}
+// 앨범
+const al=document.getElementById('albums');
+[['가을산행',86],['가족',412],['현장',230],['음식',57],['여행2026',318],['영수증',41],['아이',964]].forEach(([t,n],i)=>{
+  al.insertAdjacentHTML('beforeend',`<div class="card"><div class="ph"></div><div class="cap">#${t} <span class="n">${n}</span><span class="m">⋯</span></div></div>`);
+  fill(al.lastElementChild.querySelector('.ph'),i+2);});
+al.insertAdjacentHTML('beforeend','<div class="card add">＋ 새 앨범</div>');
+</script>
+</body>
+</html>
