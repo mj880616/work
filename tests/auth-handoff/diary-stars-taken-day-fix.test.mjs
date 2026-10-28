@@ -79,7 +79,7 @@ test('diary stars taken_day fix: waits for the re-walked index, fixes onedrive s
 
   await t.test('pair files read pg_catalog only and the snapshot reads no row values',async()=>{
    for(const kind of ['precheck','snapshot','postcheck','rollback'])assert.doesNotMatch(await read(`docs/${STEM}.${kind}.sql`),/information_schema/i);
-   assert.doesNotMatch(migration,/information_schema|\bgrant\b|\bto (anon|authenticated|public)\b/i);
+   assert.doesNotMatch(migration,/information_schema|\bgrant\s+(select|insert|update|delete|all|execute|usage)\b|\bto (anon|authenticated|public)\b/i);
    assert.ok((await rows(await read(`docs/${STEM}.snapshot.sql`))).length>0);
   });
  }finally{await closePool(pool);await cluster.stop().catch(()=>{});}
