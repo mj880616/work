@@ -5,7 +5,7 @@ const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
 // BASKET-4b-2 decision 5: an AI write-request suggestion is only a hint; nothing is marked automatically.
 const OVERLAP_ANNOUNCE_MAX=3;
 export const WRITE_REQUEST_HINT='쓰기요청 후보는 Web2에서 표시하지 않아요.';
-const names={organization:'담당조직',project:'프로젝트',reference:'참고',library:'자료실',write_request_candidate:'쓰기요청 후보',google_task:'Google 할 일'};
+const names={organization:'담당조직',project:'사업영역',reference:'참고',library:'자료실',write_request_candidate:'쓰기요청 후보',google_task:'Google 할 일'};
 // BASKET-분류중복·변화반영 ②: easy-language notes for the verdicts judged in basket-classification.js.
 export const DUPLICATE_TEXT='이미 같은 내용이 기록돼 있어요. 체크하면 다시 기록해요.';
 export const CHANGED_TEXT='달라진 점만 기록해요(후속)';
@@ -16,7 +16,7 @@ export const FOLLOW_UP_PREFIX='후속: ';
 export const startsChecked=target=>!target.error&&!target.excluded&&target.kind!=='reference';
 export const initialSummary=target=>target.verdict==='changed'&&typeof target.reason==='string'&&!target.reason.startsWith(FOLLOW_UP_PREFIX)?FOLLOW_UP_PREFIX+target.reason:target.reason;
 export function mountClassification(host,{onOpen,onClose,onBusy,onConfirmed,isBlocked}) {
-  host.innerHTML=`<section data-classification-panel hidden role="dialog" aria-labelledby="basketClassificationTitle"><div class="basket-head"><h3 id="basketClassificationTitle">분류 결과 입력</h3><button type="button" class="quick-pill-button" data-classification-close>목록으로</button></div><label class="basket-text-label">AI 답 붙여넣기<textarea data-classification-input rows="6" spellcheck="false" placeholder="답 전체 또는 복사용 블록을 넣으세요."></textarea></label><p>선택된 조직·프로젝트와 요약을 고친 뒤 마지막에 확정하세요.</p><div data-classification-rows></div><div class="modal-action-footer basket-approval-footer"><p data-classification-status class="status" role="status" aria-live="polite"></p><div class="basket-actions basket-compact-actions"><button type="button" class="quick-pill-button" data-classification-preview>확인</button><button type="button" class="quick-pill-button quick-pill-primary" data-classification-confirm disabled>선택 확정</button></div></div></section>`;
+  host.innerHTML=`<section data-classification-panel hidden role="dialog" aria-labelledby="basketClassificationTitle"><div class="basket-head"><h3 id="basketClassificationTitle">분류 결과 입력</h3><button type="button" class="quick-pill-button" data-classification-close>목록으로</button></div><label class="basket-text-label">AI 답 붙여넣기<textarea data-classification-input rows="6" spellcheck="false" placeholder="답 전체 또는 복사용 블록을 넣으세요."></textarea></label><p>선택된 조직·사업영역과 요약을 고친 뒤 마지막에 확정하세요.</p><div data-classification-rows></div><div class="modal-action-footer basket-approval-footer"><p data-classification-status class="status" role="status" aria-live="polite"></p><div class="basket-actions basket-compact-actions"><button type="button" class="quick-pill-button" data-classification-preview>확인</button><button type="button" class="quick-pill-button quick-pill-primary" data-classification-confirm disabled>선택 확정</button></div></div></section>`;
   const panel=host.querySelector('[data-classification-panel]'),input=host.querySelector('textarea'),status=host.querySelector('[role="status"]'),rows=host.querySelector('[data-classification-rows]'),button=host.querySelector('[data-classification-confirm]');
   let sentRecords=[],proposal=null,snapshot=null,preview=[],busy=false,epoch=0,missing=false,uncertain=false;
   const states=new Map();let destinationChoices=[];

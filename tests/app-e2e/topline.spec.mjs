@@ -116,7 +116,10 @@ test('PC: ← → bring back the project chosen on the left/right projects scree
  await expect(first).toHaveAttribute('aria-current','true');await expect(page.locator('#projectsView')).toBeVisible();
  await forward(page).click();
  await expect(row('child')).toHaveAttribute('aria-current','true');
+ // MTG-프로젝트합치기 3단계: 사업영역 관리(projects)는 사업 보고 ⋯ 안에서 열어(show → clickView) 그 앞에 사업 보고 화면이 한 칸 더 있다.
  await back(page).click();await back(page).click();
+ await expect(page.locator('#meetingsView')).toBeVisible();
+ await back(page).click();
  await expect(page.locator('#homeView')).toBeVisible();
 });
 
@@ -134,6 +137,11 @@ test('PC: where shows group › screen and the group word opens the group',async
  await where(page).getByRole('button',{name:'일정'}).click();
  await expect(page.locator('#calendarView')).toBeVisible();
  await expect(where(page).locator('[aria-current="page"]')).toHaveText('달력');
+ // MTG-프로젝트합치기 3단계: 사업영역 관리는 사업 보고 아래 화면(사업 보고 › 사업영역 관리), 앞 낱말은 사업 보고로 간다.
+ await show(page,'projects');
+ await expect(where(page).locator('li').nth(0)).toHaveText('사업 보고');await expect(where(page).locator('li').nth(1)).toHaveText('사업영역 관리');
+ await where(page).getByRole('button',{name:'사업 보고',exact:true}).click();
+ await expect(page.locator('#meetingsView')).toBeVisible();
  await page.locator('#appView>.app-nav [data-basket-kind-nav="note"]').click();
  await expect(where(page).locator('li')).toHaveText(['노트']);
  await page.locator('#appView>.app-nav .nav-btn[data-view="basket"]').click();

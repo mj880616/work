@@ -24,7 +24,7 @@ test('PC 1280: 맨 위 "홈" 줄이 홈 메뉴이고 고른 표시를 가진다;
  await expect(brand).toHaveClass(/active/);
  const box=await brand.boundingBox();expect(box.height).toBeGreaterThanOrEqual(44);
  // 키보드로도 홈으로 간다.
- await nav(page).locator('.nav-btn[data-view="projects"]').click();await expect(page.locator('#projectsView')).toBeVisible();
+ await nav(page).locator('.nav-btn[data-view="meetings"]').click();await expect(page.locator('#meetingsView')).toBeVisible();
  await brand.focus();await page.keyboard.press('Enter');await expect(page.locator('#homeView')).toBeVisible();
  expect(errors).toEqual([]);
 });
@@ -35,8 +35,8 @@ test('PC 1280: [정리함] 아래 하위 줄 [업데이트]·[챙길 것](건수
  await expect(basketRow).toHaveText('정리함');await expect(sub.locator('.nav-sub-btn')).toHaveText([/^업데이트/,/^챙길 것/]);
  await expect(nav(page).locator('.nav-sub[aria-label="일정"] .nav-sub-btn')).toHaveText(['달력','할 일','업무일지','일기']);
  await expect(noteRow).toBeVisible();await expect(noteRow).toHaveText('노트');
- // 순서: 정리함 / 업데이트·챙길 것 / 일정 / 달력…일기 / 노트 / 프로젝트. 하위 줄은 일정 하위 줄과 같은 들여쓰기·같은 부품 클래스.
- const ys=[];for(const l of [basketRow,updateRow,todoRow,nav(page).locator('.nav-btn[data-view="calendar"]'),nav(page).locator('.nav-sub[aria-label="일정"] [data-goto="calendar"]'),noteRow,nav(page).locator('.nav-btn[data-view="projects"]')])ys.push((await l.boundingBox()).y);
+ // 순서: 정리함 / 업데이트·챙길 것 / 일정 / 달력…일기 / 노트 / 사업 보고(MTG-프로젝트합치기 3단계: [프로젝트] 줄은 없다). 하위 줄은 일정 하위 줄과 같은 들여쓰기·같은 부품 클래스.
+ const ys=[];for(const l of [basketRow,updateRow,todoRow,nav(page).locator('.nav-btn[data-view="calendar"]'),nav(page).locator('.nav-sub[aria-label="일정"] [data-goto="calendar"]'),noteRow,nav(page).locator('.nav-btn[data-view="meetings"]')])ys.push((await l.boundingBox()).y);
  expect([...ys].sort((a,b)=>a-b)).toEqual(ys);
  const u=await updateRow.boundingBox(),cal=await nav(page).locator('.nav-sub[aria-label="일정"] [data-goto="calendar"]').boundingBox(),n=await noteRow.boundingBox(),b=await basketRow.boundingBox();
  expect(Math.abs(u.x-cal.x)).toBeLessThan(2);expect(u.x).toBeGreaterThan(b.x);expect(Math.abs(n.x-b.x)).toBeLessThan(2);
@@ -128,7 +128,7 @@ test('PC 1280: [일정] 아래 [달력]·[할 일]·[업무일지]·[일기], �
  const look=await shape(item('달력'));expect(look.weight).toBe('500');
  expect(await shape(item('일기'))).toMatchObject({weight:'400'});
  // 다른 화면으로 가면 [일정] 묶음의 표시는 모두 꺼진다.
- await nav(page).locator('.nav-btn[data-view="projects"]').click();await expect(page.locator('#projectsView')).toBeVisible();
+ await nav(page).locator('.nav-btn[data-view="meetings"]').click();await expect(page.locator('#meetingsView')).toBeVisible();
  await expect(head).not.toHaveClass(/active/);await expect(sub.locator('[aria-current],.active')).toHaveCount(0);
  // 키보드로도 연다.
  await item('업무일지').focus();await page.keyboard.press('Enter');await expect(page.locator('#journalView')).toBeVisible();
@@ -144,7 +144,7 @@ for(const view of ['calendar','tasks','journal','diary'])test(`옛 주소 ?view=
  await expect(sub.locator('[aria-current]')).toHaveText(label);
  await expect(nav(page).locator('.nav-btn[data-view="calendar"]')).toHaveClass(/active/);
  // 뒤로 가기·앞으로 가기에도 표시가 따라온다.
- await nav(page).locator('.nav-btn[data-view="projects"]').click();await expect(page.locator('#projectsView')).toBeVisible();
+ await nav(page).locator('.nav-btn[data-view="meetings"]').click();await expect(page.locator('#meetingsView')).toBeVisible();
  await page.goBack();await expect(page.locator(`#${view}View`)).toBeVisible();await expect(sub.locator('[aria-current]')).toHaveText(label);
  expect(errors).toEqual([]);
 });
@@ -162,10 +162,10 @@ test('"일지" → "업무일지": 사이드바·폰 전환 줄·화면, 주소(
  await expect(page.locator('#journalView .schedule-switch').getByRole('button')).toHaveText(['달력','할 일','업무일지','일기']);
  expect(await bare()).toBe(0);
  // 폰: 하단 탭 6칸·메뉴 판 항목은 그대로.
- await expect(page.locator('.mobile-tabs > button')).toHaveText(['홈','정리함','일정','프로젝트','담당조직','메뉴']);
+ await expect(page.locator('.mobile-tabs > button')).toHaveText(['홈','정리함','일정','사업 보고','담당조직','메뉴']);
  await expect(page.locator('.mobile-tabs [data-mobile-schedule-tab]')).toHaveAttribute('aria-current','page');
  await page.locator('#mobileMenuTab').click();
- expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['노트','사업 보고','자료실','HWP 편집','공유 페이지','원장','사진','통화','텔레그램 소식']);
+ expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['노트','자료실','HWP 편집','공유 페이지','원장','사진','통화','텔레그램 소식','아스날']);
  await expect(nav(page)).toBeHidden();
  expect(errors).toEqual([]);
 });

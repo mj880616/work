@@ -21,7 +21,10 @@ export const THEMES = Object.freeze(['olive', 'navy', 'ink', 'lavender', 'teal',
 export const DEFAULT_THEME = 'olive';
 export const CALENDAR_VIEWS = Object.freeze(['list', 'week', 'month']);
 export const QUICK_MODES = Object.freeze(['update', 'task']);
-export const SPLIT_SCREENS = Object.freeze(['tasks', 'projects', 'team', 'reports']);
+// UI-작은결정묶음 ④(명진 10/27): 칸 폭은 화면마다 따로 — 텔레그램·통화·참고 묶음·사업 보고 3단이 다른 화면 값을 같이 쓰지 않는다
+// (migration 20261029010000_profile_view_prefs_split_screens. 적용 전에는 새 이름 쓰기가 400이라 이 화면은 그 DB 적용 뒤 merge).
+export const SPLIT_SCREENS = Object.freeze(['tasks', 'projects', 'team', 'reports', 'telegram', 'calls', 'refs', 'reports3']);
+const LEGACY_SPLIT_SCREENS = ['tasks', 'projects', 'team', 'reports']; // 옛 기기 저장 키가 있던 화면(새 이름은 기기에 쓴 적 없음)
 export const REPORT_VIEWS = Object.freeze(['list', 'calendar', 'photo']); // 사업 보고 [목록|달력|사진] (ACT-사진 6단계). 일정 탭 calendar_view와 다른 칸
 // MENU-HOME-편집: menu_layout = {bar, rest} (하단바 칸·그 밖 메뉴의 순서, 항목 이름 목록), home_cards = 홈에 보이는 칸의 이름 순서. 항목 이름의 뜻(어느 메뉴·어느 칸인지)은
 // menu-model.mjs·home-cards-model.mjs가 맡고, 여기서는 DB 검사(app_profiles_view_prefs_check)와 같은 모양만 본다.
@@ -109,7 +112,7 @@ const LEGACY = [
   { path: 'home_quick_mode', keys: () => ['kptu-home-quick-mode'], parse: v => (QUICK_MODES.includes(v) ? v : undefined) },
   { path: 'note_folder', keys: c => (c.owner ? ['kptu_owner_cache:note-folder-v1:' + c.owner] : []), parse: v => (validValue('note_folder', v) ? v : undefined) },
   { path: 'collect_hidden_on', keys: c => (c.owner ? [c.cachePrefix + 'collect-alert-hidden-v1:' + c.owner] : []), parse: v => (validValue('collect_hidden_on', v) ? v : undefined) },
-  ...SPLIT_SCREENS.map(name => ({ path: 'split_ratio.' + name, keys: () => ['kptu-split-ratio:' + name], parse: v => { const n = Number(v); return v !== null && v !== '' && ratioOk(n) ? n : undefined; } }))
+  ...LEGACY_SPLIT_SCREENS.map(name => ({ path: 'split_ratio.' + name, keys: () => ['kptu-split-ratio:' + name], parse: v => { const n = Number(v); return v !== null && v !== '' && ratioOk(n) ? n : undefined; } }))
 ];
 
 // 고른 적 없을 때 화면이 보여 주는 값: 이 값으로 "바꾸는" 호출은 저장할 것이 없다.

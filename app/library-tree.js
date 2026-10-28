@@ -6,7 +6,7 @@
 
 import {FOLDER_DEPTH_LIMIT,folderIndent,folderDepthLimitFrom} from './folder-limits.mjs';
 export const GROUP_BY=Object.freeze(['project','organization','category','month','folder']);
-export const GROUP_LABELS=Object.freeze({project:'프로젝트',organization:'담당조직',category:'분류',month:'월별',folder:'폴더'});
+export const GROUP_LABELS=Object.freeze({project:'사업영역',organization:'담당조직',category:'분류',month:'월별',folder:'폴더'});
 // 결정 D12: 한 토글에 파일이 20개를 넘으면 20개만 보이고 [N건 더].
 export const FILE_LIMIT=20;
 // 결정 D3 → LIB-폴더100단(10/28): 폴더 안 폴더는 100단까지(DB 트리거가 강제, 화면은 그 이상을 만들지 않음). 숫자는 folder-limits.mjs 한 곳.
@@ -74,12 +74,12 @@ function byProject(o){
   const {docs,tree=[],folders=[],items=[],projectName,colorOf,filtering}=o;
   const top=[],groups=new Map(),stack=[];
   for(const {project,depth} of tree){
-    const g=node('group','p:'+project.id,String(project.name||'이름 없는 프로젝트'),{projectId:project.id,projectDepth:depth,...(colorOf?.(project)||{})});
+    const g=node('group','p:'+project.id,String(project.name||'이름 없는 사업영역'),{projectId:project.id,projectDepth:depth,...(colorOf?.(project)||{})});
     groups.set(project.id,g);stack.length=depth;const parent=depth>0?stack[depth-1]:null;stack[depth]=g;(parent?parent.children:top).push(g);
   }
   const stale=[];
-  const groupFor=id=>{if(!id)return null;if(groups.has(id))return groups.get(id);const g=node('group','p:'+id,projectName?.(id)||'[확인할 수 없는 프로젝트]',{projectId:id,projectDepth:0,stale:true});groups.set(id,g);stale.push(g);return g};
-  const none=node('group','p:none','프로젝트 없음',{projectId:null,projectDepth:0});
+  const groupFor=id=>{if(!id)return null;if(groups.has(id))return groups.get(id);const g=node('group','p:'+id,projectName?.(id)||'[확인할 수 없는 사업영역]',{projectId:id,projectDepth:0,stale:true});groups.set(id,g);stale.push(g);return g};
+  const none=node('group','p:none','사업영역 없음',{projectId:null,projectDepth:0});
   const frames=new Map();
   const frameOf=pid=>{const key=pid||null;if(!frames.has(key))frames.set(key,folderForest(folders,key));return frames.get(key)};
   for(const pid of new Set(folders.map(f=>f.project_id||null))){const g=pid?groupFor(pid):none,{roots}=frameOf(pid);g.children.push(...roots)}
@@ -213,7 +213,7 @@ export function documentsInTrashedFolders(folders,items,ready=true){if(!ready)re
 // 폴더 이름 검사(DB 검사와 같음: 1~40자, 앞뒤 공백·제어문자 없음). 앞뒤 공백은 잘라서 쓴다.
 export function cleanFolderName(raw){const name=String(raw??'').replace(/[\u0000-\u001f\u007f]/g,'').trim();return name.length>=1&&[...name].length<=40?name:null}
 // DB 거절(23514 + LIB_FOLDER_*)을 일상어로.
-export function folderErrorText(e){const m=String(e?.message||'');if(/LIB_PHOTOSET_PARTIAL/.test(m))return e?.partial?'사진 묶음 일부를 되돌리지 못했어요. 목록을 확인해 주세요.':'사진 묶음을 옮기지 못해 그대로 두었어요.';if(/LIB_FOLDER_DEPTH/.test(m))return `폴더는 ${folderDepthLimitFrom(m)}단까지만 만들 수 있어요.`;if(/LIB_FOLDER_CYCLE/.test(m))return '폴더를 자기 안으로 옮길 수 없어요.';if(/LIB_FOLDER_SCOPE|row-level security|42501/.test(m))return '프로젝트가 다른 폴더로 옮기는 기능은 아직 준비 중이에요. 같은 프로젝트 안에서는 옮길 수 있어요.';if(/name_check|23514/.test(m))return '폴더 이름은 1~40자로 써 주세요.';return '저장하지 못했어요. 잠시 뒤 다시 해 주세요.'}
+export function folderErrorText(e){const m=String(e?.message||'');if(/LIB_PHOTOSET_PARTIAL/.test(m))return e?.partial?'사진 묶음 일부를 되돌리지 못했어요. 목록을 확인해 주세요.':'사진 묶음을 옮기지 못해 그대로 두었어요.';if(/LIB_FOLDER_DEPTH/.test(m))return `폴더는 ${folderDepthLimitFrom(m)}단까지만 만들 수 있어요.`;if(/LIB_FOLDER_CYCLE/.test(m))return '폴더를 자기 안으로 옮길 수 없어요.';if(/LIB_FOLDER_SCOPE|row-level security|42501/.test(m))return '사업영역이 다른 폴더로 옮기는 기능은 아직 준비 중이에요. 같은 사업영역 안에서는 옮길 수 있어요.';if(/name_check|23514/.test(m))return '폴더 이름은 1~40자로 써 주세요.';return '저장하지 못했어요. 잠시 뒤 다시 해 주세요.'}
 
 // LIB-정리보충 ③(2026-10-28 10:41): '폴더 밖' 자료의 폴더 추천(AI 쓰지 않음). 이미 폴더에 든 자료 중
 // 제목 첫 낱말(흔한 말 '자료·파일·사본' 등과 숫자는 건너뜀)이 같은 자료가 든 폴더만 후보이고, 분류·프로젝트가 같으면 1점씩 더한다.

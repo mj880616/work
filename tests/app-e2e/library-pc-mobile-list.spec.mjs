@@ -187,7 +187,7 @@ for(const scheme of ['light','dark'])test(`PC 거르기 줄: 이름표·차례(�
   const {errors}=await boot(page,1280,{scheme});
   const labels=page.locator('#libraryView .library-filter-toolbar .lu-filter-label:visible'),group=page.locator('#libraryGroupBy'),category=page.locator('#libraryCategoryFilter');
   await expect(labels).toHaveText(['묶기','분류']);await expect(page.locator('#documentProject')).toBeHidden();
-  await expect(group.getByRole('radio')).toHaveText(['폴더','프로젝트','담당조직','분류','월별']);await expect(group.getByRole('radio',{name:'프로젝트'})).toHaveAttribute('aria-checked','true');
+  await expect(group.getByRole('radio')).toHaveText(['폴더','사업영역','담당조직','분류','월별']);await expect(group.getByRole('radio',{name:'사업영역'})).toHaveAttribute('aria-checked','true');
   const search=await box(page.locator('#documentSearch')),top=await box(group),cat=await box(category);
   expect(top.y).toBeGreaterThanOrEqual(search.y+search.height-1);expect(cat.y).toBeGreaterThanOrEqual(top.y+top.height-1);
   const labelBoxes=await labels.evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {x:Math.round(r.left),right:r.right,mid:r.top+r.height/2}}));
@@ -206,7 +206,7 @@ for(const scheme of ['light','dark'])test(`PC 거르기 줄: 이름표·차례(�
   await page.locator('#libraryOrganizationFilter [data-filter-value="all"]').click();await expect(labels).toHaveText(['묶기','분류']);
   // 프로젝트 상세의 자료 "전체 보기"처럼 다른 화면이 프로젝트 하나로 걸러 열면 [프로젝트] 줄([전체 | 그 프로젝트])이 묶기와 종류 사이에 생긴다.
   await page.evaluate(()=>{document.querySelector('#documentProject').value='child-a1';window.KPTULibrary.render()});
-  await expect(labels).toHaveText(['묶기','프로젝트','분류']);await expect(page.locator('#documentProject').getByRole('radio')).toHaveText(['전체','공공기관 기능개혁 대응 › 국토부 대응']);
+  await expect(labels).toHaveText(['묶기','사업영역','분류']);await expect(page.locator('#documentProject').getByRole('radio')).toHaveText(['전체','공공기관 기능개혁 대응 › 국토부 대응']);
   await page.locator('#documentProject [data-filter-value="all"]').click();await expect(labels).toHaveText(['묶기','분류']);await expect(page.locator('#documentProject')).toHaveJSProperty('value','all');
   await expect(page.locator('#newDocumentBtn')).toHaveClass(/\bprimary\b/);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);

@@ -1,7 +1,5 @@
 /* PROFILE-화면정리: 칸 제목 한 가지 크기, 칸 간격 8px, 안내문 없음. 크기·글자는 --ds-* 토큰만 쓴다(UI-버튼기준). */
 .ps-profile-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;max-width:760px}
-#profileView .ps-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;max-width:760px}
-#profileView .ps-head h2{margin:0;flex:1;min-width:0;font-size:var(--ds-text-title);line-height:1.35;font-weight:var(--ds-weight-medium,600)}
 #profileView .ps-state{color:var(--kptu-muted);font-size:var(--ds-text-meta);white-space:nowrap}
 /* UI-저장자리: [저장]은 오른쪽 아래 줄(상태 글은 그 줄 왼쪽). */
 #profileView .ps-actions{max-width:760px;margin-top:8px}
@@ -20,7 +18,7 @@
 .ps-group-name{margin:6px 0 0;padding-top:4px;border-top:.5px solid var(--kptu-border);color:var(--kptu-muted);font-size:11px;line-height:1.4;break-after:avoid}
 .ps-org-group:first-child .ps-group-name{margin-top:0;padding-top:0;border-top:0}
 .ps-org-row{display:flex;align-items:center;gap:6px;min-height:var(--ds-compact-height);break-inside:avoid}
-.ps-org-pick{display:flex;flex:1;align-items:center;gap:8px;min-width:0;min-height:var(--ds-compact-height);margin:0;cursor:pointer;font-size:var(--ds-text-row)}
+.ps-org-pick{display:flex;flex-direction:row;justify-content:flex-start;flex:1;align-items:center;text-align:left;font-weight:var(--ds-weight-regular);color:var(--kptu-ink);gap:8px;min-width:0;min-height:var(--ds-compact-height);margin:0;cursor:pointer;font-size:var(--ds-text-row)}
 #profileView .ps-org-box{flex:none;width:16px;min-width:16px;height:16px;min-height:16px;margin:0;padding:0;accent-color:var(--kptu-primary)}
 .ps-org-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #profileView .ps-org-go{position:relative;flex:none;width:var(--ds-compact-height);height:var(--ds-compact-height);padding:0;border:0;background:transparent;color:var(--kptu-faint);font-size:16px;line-height:1}
@@ -30,10 +28,11 @@
 .ps-legacy-title{margin-right:6px;color:var(--kptu-muted)}
 .ps-legacy-chip{display:inline-flex;align-items:center;margin:0 6px 0 0;color:var(--kptu-muted)}
 .ps-legacy-chip small{margin-left:4px;opacity:.72}
+/* 화면정리 A1(2026-10-28): 로그아웃은 메뉴(계정) 한 곳에만. 계정 칸은 [내 공간]이 보일 때만 남는다. */
 #profileView .ps-account-panel{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#profileView .ps-account-panel:not(:has(button:not(.hidden))){display:none}
 #profileView .ps-account-panel h3{margin:0}
 .ps-account-actions{display:flex;gap:6px;align-items:center}
-.ps-danger{color:var(--kptu-danger);border-color:var(--kptu-danger);background:var(--kptu-surface)}
 @media(min-width:1024px){.ps-org-list{column-count:2;column-gap:20px}}
 @media(max-width:700px){#profileView .ps-fields{max-width:none}}
 
@@ -48,3 +47,21 @@
 #profileView .ps-calref-color[aria-pressed="true"]{border-color:var(--kptu-primary);font-weight:700}
 #profileView .ps-calref-color[disabled]{opacity:.5}
 #profileView .ps-calref-check input{flex:none;width:16px;min-width:16px;height:16px;min-height:16px;margin:0;padding:0;accent-color:var(--kptu-primary)}
+/* UI-업데이트안내(설계 9.4): 맨 아래 접힌 [업데이트 기록] — 한 줄 요약(버전명·날짜·첫 줄) + 누르면 펼침. 새 색·카드 없음. */
+#profileView .ps-release[hidden]{display:none}
+#profileView .ps-release>summary.rn-title{display:flex;align-items:center;gap:8px;min-height:var(--ds-compact-height);cursor:pointer;font-size:var(--ds-text-row);font-weight:var(--ds-weight-medium,600)}
+#profileView .ps-release .rn-title-text{flex:1;min-width:0}
+#profileView .ps-release .rn-title-ver{color:var(--kptu-muted);font-size:var(--ds-text-meta);font-weight:var(--ds-weight-regular,400)}
+#profileView .rn-list{display:grid;gap:0;margin-top:4px;border-top:.5px solid var(--kptu-border)}
+#profileView .rn-note{border-bottom:.5px solid var(--kptu-border)}
+#profileView .rn-head{display:flex;align-items:center;gap:8px;min-height:var(--ds-compact-height);cursor:pointer;font-size:var(--ds-text-row)}
+#profileView .rn-ver{flex:none;font-variant-numeric:tabular-nums;font-weight:var(--ds-weight-medium,600)}
+#profileView .rn-date{flex:none;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+#profileView .rn-one{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#profileView .rn-now{flex:none;padding:0 6px;border-radius:var(--kptu-radius-sm);background:var(--kptu-primary-soft);color:var(--kptu-primary-ink);font-size:var(--ds-text-meta)}
+#profileView .rn-body{padding:0 0 6px 4px;font-size:var(--ds-text-row);overflow-wrap:anywhere}
+#profileView .rn-changes{margin:0;padding-left:18px}
+#profileView .rn-check{margin:4px 0 0;color:var(--kptu-muted);font-size:var(--ds-text-meta)}
+#profileView .rn-check-label{color:var(--kptu-ink);font-weight:var(--ds-weight-medium,600)}
+#profileView .rn-more{margin-top:6px}
+#profileView .rn-more[hidden]{display:none}

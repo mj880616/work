@@ -127,7 +127,7 @@ export function filedProjects(note, docs = []) {
   const byFile = new Map(docs.map(doc => [doc.file_id, doc])), seen = new Map();
   for (const file of Array.isArray(note?.attachments) ? note.attachments : []) {
     const doc = byFile.get(String(file?.drive_file_id || ''));
-    if (doc?.project_id && !seen.has(doc.project_id)) seen.set(doc.project_id, {project_id: doc.project_id, name: doc.project?.name || '프로젝트'});
+    if (doc?.project_id && !seen.has(doc.project_id)) seen.set(doc.project_id, {project_id: doc.project_id, name: doc.project?.name || '사업영역'});
   }
   return [...seen.values()];
 }
@@ -365,7 +365,7 @@ async function moveFolderNoteToBasket(note, rt) {
 // A memo counts as classified when it has a confirmed link or its files are a project's documents ([자료로 넣기]).
 // REF-참고묶음: a link to a reference bundle (bundle_id, app_reference_bundles) is a place too — "참고: 묶음 이름". It is never
 // report material (journal-data.js basketPlaces keeps it apart), but the update has gone somewhere, so it is '확정'.
-export const LINK_KINDS = Object.freeze([['project','프로젝트'], ['organization','담당조직'], ['meeting','사업 보고'], ['document','자료실'], ['bundle','참고']]);
+export const LINK_KINDS = Object.freeze([['project','사업영역'], ['organization','담당조직'], ['meeting','사업 보고'], ['document','자료실'], ['bundle','참고']]);
 export function noteState(note, links, docs = []) {
   const confirmed = links.filter(l => l.note_id === note.id && l.status === 'confirmed');
   const destinations = confirmed.map(link => {
@@ -377,7 +377,7 @@ export function noteState(note, links, docs = []) {
     return '연결 대상 없음';
   });
   const filed = filedProjects(note, docs), filedOrgs = filedOrganizations(note, docs);
-  destinations.push(...filedOrgs.map(o => `담당조직 자료: ${o.name}`), ...filed.map(p => `프로젝트 자료: ${p.name}`));
+  destinations.push(...filedOrgs.map(o => `담당조직 자료: ${o.name}`), ...filed.map(p => `사업영역 자료: ${p.name}`));
   return {status:note.archived_at ? '보관' : confirmed.length || filed.length || filedOrgs.length ? '확정' : links.some(l => l.note_id === note.id && l.status === 'suggested') ? '분류 제안됨' : '미분류', destinations};
 }
 // UI-바구니거르기: where a classified memo went, from what is already read (no stored state):
@@ -385,7 +385,7 @@ export function noteState(note, links, docs = []) {
 // 'project' and 'library'), Google tasks made from it (metadata.tasks, basket-note-tasks.js) and the work-journal memo
 // mark (metadata.journal_at, update-journal.js; place 'journal' = [업무일지]).
 // REF-참고묶음: [참고] = a confirmed link to a reference bundle (read and shown only; attaching comes with the next screen PR).
-export const BASKET_PLACES = Object.freeze([['all','전체'], ['organization','담당조직'], ['project','프로젝트'], ['reference','참고'], ['library','자료실'], ['task','할 일'], ['journal','업무일지']]);
+export const BASKET_PLACES = Object.freeze([['all','전체'], ['organization','담당조직'], ['project','사업영역'], ['reference','참고'], ['library','자료실'], ['task','할 일'], ['journal','업무일지']]);
 export function notePlaces(note, links, docs = []) {
   const places = new Set();
   for (const link of links) {
@@ -430,7 +430,7 @@ export function visibleNotes(notes, links, filter, docs = [], place = 'all', sub
 // or one of the 7 document categories (document-categories.js). Everything comes from what the basket already reads:
 // confirmed links (their organization/project ids and names, a linked document's category) and [자료로 넣기]
 // documents (their project and category). [전체]·[할 일] have no second row.
-const SUB_PLACES = Object.freeze({organization:'모든 조직', project:'모든 프로젝트', reference:'모든 참고', library:'모든 자료'});
+const SUB_PLACES = Object.freeze({organization:'모든 조직', project:'모든 사업영역', reference:'모든 참고', library:'모든 자료'});
 // The documents holding this memo's attachments ([자료로 넣기]), once each, in attachment order.
 function filedDocs(note, docs) {
   const byFile = new Map(docs.map(doc => [doc.file_id, doc])), seen = new Map();
@@ -471,7 +471,7 @@ export function placeSubOptions(notes, links, docs, place) {
   }
   const head = {value:'all', label:`${allLabel} ${inPlace.length}`};
   if (place === 'library') return [head, ...documentCategories().map(name => ({value:name, label:name}))];
-  const fallback = place === 'organization' ? '조직' : place === 'reference' ? '참고 묶음' : '프로젝트';
+  const fallback = place === 'organization' ? '조직' : place === 'reference' ? '참고 묶음' : '사업영역';
   const rows = [...counts].map(([value, count]) => ({value, label:names.get(value) || fallback, count}));
   rows.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'ko'));
   return [head, ...rows.map(({value, label}) => ({value, label}))];

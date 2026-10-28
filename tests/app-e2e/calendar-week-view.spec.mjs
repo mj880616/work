@@ -169,9 +169,10 @@ test('phone sideways swipe does not leave the week list; the bottom tabs keep it
   await page.waitForTimeout(300);
   // UI-밀기탭이동삭제: 옆으로 밀어도 탭이 바뀌지 않는다.
   await expect(page.locator('#calendarView')).toBeVisible();
-  await expect(page.locator('#projectsView')).toBeHidden();
-  await page.locator('.mobile-tabs [data-view="projects"]').click();
-  await expect(page.locator('#projectsView')).toBeVisible();
+  // MTG-프로젝트합치기 3단계: 하단바 [일정] 다음 칸은 [사업 보고].
+  await expect(page.locator('#meetingsView')).toBeHidden();
+  await page.locator('.mobile-tabs [data-view="meetings"]').click();
+  await expect(page.locator('#meetingsView')).toBeVisible();
   await page.evaluate(()=>window.KPTURouter.go('calendar',{source:'test'}));
   await expect(page.locator('#monthTitle')).toHaveText(before);
 });

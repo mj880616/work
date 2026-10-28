@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { createNote, attachNoteDoc, saveUpdateDoc, updateNote, readBasket } from '../app/basket-data.js';
 import { textLimitFor, saveUpdate } from '../app/update-places.js';
 
-// ED③ 업데이트 (설계 11.4 순서 3): the update's saved form (doc) goes with the letters onto the basket update (ED③ 기록: and one organization's or project's own record).
+// ED③ 업데이트 (설계 11.4 순서 3): the update's saved form (doc) goes with the letters onto the basket update (ED③ 기록: and one organization's own record).
 const runtime = api => ({context:{read:() => ({workspace:{id:'w'}, user:{id:'u'}})}, api});
 const q = path => new URL(path, 'http://x').searchParams;
 const DOC = {v:'ed1', doc:{type:'doc', content:[{type:'paragraph', content:[{type:'text', text:'글'}]}]}};
@@ -58,29 +58,44 @@ test('the basket screen reads the saved form; the other readers of the basket ke
   assert.match(selects[1], /(^|,)doc(,|$)/);
 });
 
-test('one project record is a one-line summary (500 letters); every other place takes 20000', () => {
+// MTG-프로젝트합치기 3단계: 프로젝트(사업영역) 하나도 진행 기록(500자 한 줄)이 아니라 바구니 업데이트 + 연결이므로 어느 곳이든 20000자다.
+test('every place takes 20000 letters, one project (사업영역) included', () => {
   assert.equal(textLimitFor(null), 20000);
   assert.equal(textLimitFor([]), 20000);
   assert.equal(textLimitFor({kind:'organization', id:'o'}), 20000);
   assert.equal(textLimitFor([{kind:'organization', id:'o'}]), 20000);
-  assert.equal(textLimitFor([{kind:'project', id:'p'}]), 500);
-  assert.equal(textLimitFor({kind:'project', id:'p'}), 500);
+  assert.equal(textLimitFor([{kind:'project', id:'p'}]), 20000);
+  assert.equal(textLimitFor({kind:'project', id:'p'}), 20000);
   assert.equal(textLimitFor([{kind:'project', id:'p'}, {kind:'organization', id:'o'}]), 20000);
 });
 
-test('one organization or project record is saved with its saved form in the same insert; without a form the body is as before', async () => {
+// 조직 하나는 그 조직 기록에 서식과 함께 한 번에 넣는다. 프로젝트 하나는 서식을 담은 바구니 업데이트를 만든 뒤
+// 바구니 [연결하기]와 같은 app_basket_confirm_links(reason '직접 연결')로 그 프로젝트에 잇는다(진행 기록 표에는 쓰지 않는다).
+test('one organization record is saved with its saved form in the same insert; one project is a basket update with the form, linked to it', async () => {
   const calls = [];
-  const rt = {context:{read:() => ({workspace:{id:'w'}, user:{id:'u'}})}, api:async (path, options) => { calls.push({path, body:options?.body}); return [{id:'r'}]; }};
-  await saveUpdate({places:[{kind:'organization', id:'o'}], text:'글', owner:'u', doc:DOC}, rt);
-  await saveUpdate({places:[{kind:'project', id:'p'}], text:'글', owner:'u', doc:DOC}, rt);
-  await saveUpdate({places:[{kind:'organization', id:'o'}], text:'글', owner:'u'}, rt);
-  await saveUpdate({places:[{kind:'project', id:'p'}], text:'글', owner:'u'}, rt);
-  assert.equal(calls.length, 4);
-  assert.deepEqual(calls[0].body, {organization_id:'o', raw_text:'글', created_by:'u', doc:DOC});
-  assert.equal(calls[1].body.doc, DOC);
-  assert.equal(calls[1].body.summary, '글');
-  assert.deepEqual(calls[2].body, {organization_id:'o', raw_text:'글', created_by:'u'});
-  assert.ok(!('doc' in calls[3].body));
+  const prev = {window:globalThis.window, CustomEvent:globalThis.CustomEvent};
+  globalThis.window = {dispatchEvent:() => {}, addEventListener:() => {}};
+  globalThis.CustomEvent = class { constructor(type, init) { this.type = type; this.detail = init?.detail; } };
+  try {
+    const rt = {context:{read:() => ({workspace:{id:'w'}, user:{id:'u'}})}, api:async (path, options) => {
+      calls.push({path, body:options?.body});
+      if (path.includes('app_basket_confirm_links')) return {ok:true, created:1, existing:0};
+      if (path.startsWith('/rest/v1/app_notes')) return [{id:'n', updated_at:'2026-10-28T00:00:00Z', raw_text:options.body.raw_text}];
+      return [{id:'r'}];
+    }};
+    await saveUpdate({places:[{kind:'organization', id:'o'}], text:'글', owner:'u', doc:DOC}, rt);
+    const one = await saveUpdate({places:[{kind:'project', id:'p'}], text:'글', owner:'u', doc:DOC}, rt);
+    await saveUpdate({places:[{kind:'organization', id:'o'}], text:'글', owner:'u'}, rt);
+    await saveUpdate({places:[{kind:'project', id:'p'}], text:'글', owner:'u'}, rt);
+    assert.deepEqual(calls.map(c => c.path.split('?')[0]), ['/rest/v1/app_suborganization_updates', '/rest/v1/app_notes', '/rest/v1/rpc/app_basket_confirm_links', '/rest/v1/app_suborganization_updates', '/rest/v1/app_notes', '/rest/v1/rpc/app_basket_confirm_links']);
+    assert.deepEqual(calls[0].body, {organization_id:'o', raw_text:'글', created_by:'u', doc:DOC});
+    assert.deepEqual(calls[1].body, {workspace_id:'w', raw_text:'글', doc:DOC});
+    assert.deepEqual(calls[2].body, {p_note_id:'n', p_note_updated_at:'2026-10-28T00:00:00Z', p_targets:[{kind:'project', target_id:'p', reason:'직접 연결'}]});
+    assert.equal(one.linkError, '');
+    assert.deepEqual(calls[3].body, {organization_id:'o', raw_text:'글', created_by:'u'});
+    assert.deepEqual(calls[4].body, {workspace_id:'w', raw_text:'글'});
+    assert.ok(!calls.some(c => c.path.includes('app_project_progress_updates')));
+  } finally { globalThis.window = prev.window; globalThis.CustomEvent = prev.CustomEvent; }
 });
 
 test('the update window has no switch to a note, no autosave and no browser storage; the entrances pass the form to the existing saves', () => {

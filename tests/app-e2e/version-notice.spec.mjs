@@ -24,6 +24,8 @@ async function boot(page,{connected=false}={}){
     else if(path==='/rest/v1/app_profiles')data=[{user_id:user.id,display_name:'QA'}];
     else if(path==='/rest/v1/app_spaces')data=[{id:'version-project',workspace_id:workspace.id,name:'QA project',status:'active',owner_id:user.id,metadata:{project_system:'v2',management_version:2}}];
     else if(path==='/rest/v1/app_project_modules')data=[{project_id:'version-project',module_key:'progress',enabled:true,sort_order:10}];
+    // MTG-프로젝트합치기 3단계: 상세에 진행 기록 입력칸이 없어, 고치기 초안을 만들 이미 저장된 기록 하나를 둔다(GET만).
+    else if(path==='/rest/v1/app_project_progress_updates'&&route.request().method()==='GET')data=[{id:'version-record',project_id:'version-project',workstream_id:null,author_id:user.id,status_label:null,summary:'QA saved record',next_step:null,effective_on:'2026-10-01',created_at:'2026-10-01T01:00:00Z',metadata:{}}];
     else if(path==='/rest/v1/app_project_workstreams'){
       if(route.request().method()==='PATCH')streamTitle=route.request().postDataJSON().title||streamTitle;
       data=[{id:'version-stream',project_id:'version-project',title:streamTitle,phase:'in_progress',sort_order:10}];
@@ -135,7 +137,9 @@ test('project draft uses existing confirmDiscard; accepting reloads',async({page
   await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();
   await clickView(page,'projects');
   await page.locator('[data-ps3-project="version-project"]').first().click();
-  const field=page.locator('[data-ps3-record-input] input');await expect(field).toBeVisible();await field.fill('QA draft');
+  // MTG-프로젝트합치기 3단계: 입력칸 대신 저장된 기록의 ⋯ 수정 칸에 쓴 초안으로 본다.
+  await page.locator('[data-ps3-record="version-record"] [data-ps3-record-menu]').click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'수정',exact:true}).click();
+  const field=page.locator('form[data-ps3-edit-record="version-record"] input');await expect(field).toBeVisible();await field.fill('QA draft');
   let message='';page.once('dialog',async d=>{message=d.message();await d.dismiss()});
   await notice(page).getByRole('button',{name:'새로고침',exact:true}).click();
   expect(message).toBe('저장하지 않은 프로젝트 내용이 있습니다. 이동하면서 버릴까요?');await expect(field).toHaveValue('QA draft');
@@ -180,7 +184,9 @@ async function openProject(page){
 // UI-프로젝트화면정리: the folded memo box is gone; an unsaved project record draft still confirms before reload.
 test('unsaved project record draft still confirms before reload',async({page})=>{
   await boot(page);await response(page,current+1);await visible(page);await expect(notice(page)).toBeVisible();await openProject(page);
-  const input=page.locator('#ps3-progress [data-ps3-record-input] input');await input.fill('QA record');
+  // MTG-프로젝트합치기 3단계: 입력칸 대신 저장된 기록의 ⋯ 수정 칸에 쓴 초안으로 본다.
+  await page.locator('[data-ps3-record="version-record"] [data-ps3-record-menu]').click();await page.locator('#ps3RecordMenu').getByRole('button',{name:'수정',exact:true}).click();
+  const input=page.locator('#ps3-progress form[data-ps3-edit-record="version-record"] input');await input.fill('QA record');
   const dialog=page.waitForEvent('dialog');const click=notice(page).getByRole('button',{name:'새로고침',exact:true}).click();
   const d=await dialog;expect(d.message()).toContain('저장하지 않은 프로젝트 내용');await d.dismiss();await click;
   expect(await input.inputValue()).toBe('QA record');

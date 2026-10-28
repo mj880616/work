@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { loadArchive, auditArchive } from './validate-archive.mjs';
+import { loadArchive, auditArchive } from '../../scripts/arsenal/validate-archive.mjs';
 
 const baselineText = execFileSync('git', [
   'show',
@@ -113,7 +113,7 @@ test('only the three verified Ipswich assist-label corrections are allowed in le
 });
 
 test('2025-26 match statistics have numeric big-chance coverage and source links', () => {
-  const data = loadArchive(readFileSync(new URL('./matches.js', import.meta.url), 'utf8'))
+  const data = loadArchive(readFileSync(new URL('../../app/arsenal/matches.js', import.meta.url), 'utf8'))
     .filter(match => match.season === '2025-26');
   assert.equal(data.length, 53);
   for (const match of data) {

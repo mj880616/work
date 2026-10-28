@@ -83,3 +83,19 @@ export function matchesAreaChip(meeting, chip, roots) {
   const id = shownArea(meeting).id;
   return chip === NO_AREA ? !id : !!id && roots.get(id) === chip;
 }
+
+// MTG-프로젝트합치기 3단계(요청 10/28 19:07 ③): 사업 보고 목록은 주 단위(‹ › 로 주 넘기기). 서울 월~일.
+// 처음 보이는 주: 이번 주에 보고가 있으면 이번 주, 없으면 오늘까지 중 가장 최근 보고의 주, 그것도 없으면 가장 최근 보고의 주, 보고가 없으면 이번 주.
+export const reportDay = meeting => seoulKey(meeting?.meeting_at);
+export function defaultReportWeek(meetings, today) {
+  const days = (meetings || []).map(reportDay).filter(Boolean).sort();
+  const now = weekOf(today);
+  if (days.some(d => d >= now.from && d <= now.to)) return now.from;
+  const past = days.filter(d => d <= today);
+  const pick = past.at(-1) || days.at(-1);
+  return pick ? weekOf(pick).from : now.from;
+}
+// from(월요일) 주에 든 보고만. from이 비면(전체) 그대로.
+export const inReportWeek = (list, from) => !from ? (list || []) : (list || []).filter(m => inPeriod(m, from, shiftDays(from, 6)));
+const shortDay = day => `${Number(day.slice(5, 7))}.${Number(day.slice(8, 10))}`;
+export const reportWeekLabel = from => `${shortDay(from)}(월)~${shortDay(shiftDays(from, 6))}(일)`;

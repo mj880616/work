@@ -103,12 +103,8 @@ test('normal fixture: exact author/project filters return only the requested exi
   expect(rows.map(row=>row.id)).toEqual(['memo-a']);
   const query=state.calls('app_project_comments','GET').at(-1).query;expect(query).toMatchObject({id:'eq.memo-a',project_id:'eq.p',author_id:'eq.home-test'});
 });
-// UI-프로젝트화면정리: the memo box is gone; the same rule is checked with the other editor in the detail, the top record input.
-test('normal adjacent draft: saving a top record preserves a different dirty progress record',async({page})=>{
-  const state=await fixture(page);await openProject(page);const row=await editRecord(page);await row.locator('input').fill('別の 수정 초안');
-  const top=page.locator('#ps3-progress [data-ps3-record-input]');await top.locator('input').fill('추가 기록');await top.locator('button[type=submit]').click();await expect(page.locator('#toast')).toContainText('기록했습니다');
-  await expect(row.locator('input')).toHaveValue('別の 수정 초안');expect(state.calls('app_project_progress_updates','POST')).toHaveLength(1);
-});
+// MTG-프로젝트합치기 3단계: 'normal adjacent draft: saving a top record preserves a different dirty progress record'는 상세 맨 위 입력칸 저장으로
+// 다른 기록 초안이 지켜지는지 보던 시험이라, 입력칸(saveRecordInput)이 없어지며 함께 없앴다. 기록 고치기 초안은 아래 PATCH 시험들이 계속 본다.
 
 for(const width of [390,1280])test(`Project PATCH failure keeps its current draft ${width}`,async({page})=>{
   const state=await fixture(page,width);await editProject(page);state.next('app_spaces','PATCH',{status:403,apply:false,response:{message:'synthetic permission denied'}});
@@ -181,11 +177,8 @@ test('positive module GET confirms a known project without reposting confirmed s
 test('same-ID WS close-reopen keeps the first request locked until result confirmation',async({page})=>{
   const state=await fixture(page);state.tables.app_project_progress_updates.length=0;await openProject(page);await editItem(page,'ws-a');const first=state.next('app_project_workstreams','PATCH',{hold:true});try{await page.locator('#ps3WsSave').click();await expect.poll(()=>first.claimed).toBe(true);await page.locator('[data-ps3-close="ps3WorkstreamModal"]').click();await editItem(page,'ws-a');await expect(page.locator('#ps3WsSave')).toBeDisabled();first.release();await expect(page.locator('#ps3WsSave')).toBeEnabled();await expect(page.locator('#ps3WorkstreamModal')).toBeVisible();await expect(page.getByRole('button',{name:'저장 결과 확인',exact:true})).toBeVisible();expect(state.calls('app_project_workstreams','PATCH')).toHaveLength(1)}finally{first.release()}
 });
-// PRJ-기록입력: one top input replaced the per-item quick inputs, so there is no other workstream to switch to.
-test('unknown top record blocks a changed title after a negative GET',async({page})=>{
-  const state=await fixture(page);await openProject(page);const first=page.locator('[data-ps3-record-input]');state.next('app_project_progress_updates','POST',{status:503,apply:false,response:{message:'unknown quick'}});await first.locator('input').fill('불명 기록');await first.locator('button[type=submit]').click();await expect(page.locator('#toast')).toContainText('unknown quick');state.next('app_project_progress_updates','GET',{when:r=>r.query.author_id==='eq.home-test'&&r.query.workstream_id==='is.null',response:[]});await page.getByRole('button',{name:'저장 결과 확인',exact:true}).click();await expect(page.locator('#ps3Body')).toContainText('목록에서 결과를 찾지 못했습니다');await first.locator('input').fill('새 제목');await first.locator('button[type=submit]').click();expect(state.calls('app_project_progress_updates','POST')).toHaveLength(1);await expect(first.locator('input')).toHaveValue('새 제목');
-  expect(state.calls('app_project_progress_updates','GET').some(r=>r.query.workstream_id==='is.null'&&r.query.project_id==='eq.p')).toBe(true);
-});
+// MTG-프로젝트합치기 3단계: 'unknown top record blocks a changed title after a negative GET'는 맨 위 입력칸 저장의 결과 확인 흐름을 보던 시험이라
+// 입력칸과 함께 없앴다(결과 확인 흐름 자체는 옛 항목·주요 일정 저장 시험이 계속 본다).
 for(const width of [390,1280])test(`Project footer stays reachable by touch and keyboard ${width}`,async({page})=>{
   await fixture(page,width);await editProject(page);const footer=page.locator('#ps3CreateModal .modal-action-footer'),button=page.locator('#ps3CreateSave');await expect(footer).toBeVisible();const box=await button.boundingBox();expect(await button.evaluate(b=>parseFloat(getComputedStyle(b,'::after').minHeight))).toBeGreaterThanOrEqual(44);// UI-디자인기준 3/3 3부(8-9e-3): 창 버튼은 보이는 높이 자체가 46px(≥44px)이라 누르는 범위가 버튼 안에 있다. 위·아래 끝 2px 안을 눌러도 이 버튼.
 expect(box.height).toBe(36);/* UI-버튼줄이기: 창 주 동작 36px, 누르는 범위 ::after 44px */for(const y of [box.y+2,box.y+box.height-2])expect(await button.evaluate((b,{x,y})=>document.elementFromPoint(x,y)?.closest('button')===b,{x:box.x+box.width/2,y})).toBe(true);expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(width);await page.locator('[data-ps3-close="ps3CreateModal"]').focus();await page.keyboard.press('Shift+Tab');await expect(button).toBeFocused();await page.keyboard.press('Escape');await expect(page.locator('#ps3CreateModal')).toBeHidden();

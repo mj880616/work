@@ -95,7 +95,7 @@ test('library toolbar and Web1 board expose accessible navigation',async({page})
   await boot(page,{width:1024,height:768});
   await clickView(page,'library');
   await expect(page.locator('label[for="documentSearch"]')).toHaveCount(1);
-  await expect(page.locator('#documentProject')).toHaveAttribute('aria-label','프로젝트 필터');
+  await expect(page.locator('#documentProject')).toHaveAttribute('aria-label','사업영역 필터');
   await clickView(page,'pages');await openLegacyBoard(page);
   await expect(page.locator('#web1BoardActive .w1b-card')).toHaveCount(5);
   await expect(page.locator('#web1BoardActive .w1b-card').first()).toHaveAttribute('data-web1-board-href',/^https:\/\/work\.bokdoong\.com\//);

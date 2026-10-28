@@ -15,6 +15,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.webkit.RenderProcessGoneDetail
+import android.webkit.WebResourceResponse
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
@@ -26,6 +27,9 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.webkit.JavaScriptReplyProxy
+import androidx.webkit.ServiceWorkerClientCompat
+import androidx.webkit.ServiceWorkerControllerCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import org.json.JSONArray
@@ -33,6 +37,7 @@ import org.json.JSONArray
 /**
  * 웹2 폰 앱 껍데기(설계 docs/design/phone-app-v2.md 단계 ①).
  * 화면은 모두 desk.bokdoong.com 웹이다. 앱은 시스템 바 색, 뒤로가기, 로그인 복귀, 바깥 링크, 파일 선택만 맡는다.
+ * 단계 ②: 다른 앱의 [공유]로 받은 것을 메모리에 들고 웹 바구니 확인 줄로 넘긴다(ShareIntake, 폰에 저장하지 않음).
  * 앱은 토큰·업무 데이터를 따로 저장하지 않는다. 로그인은 브라우저 탭에서 하고 기존 handoff로 돌아온다.
  */
 class MainActivity : ComponentActivity() {
@@ -112,11 +117,23 @@ class MainActivity : ComponentActivity() {
 
         // 웹2 화면(허용 Origin의 최상위 화면)만 바 색을 알려 줄 수 있다. 다른 사이트에는 이 이름이 보이지 않는다.
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
-            WebViewCompat.addWebMessageListener(webView, BAR_BRIDGE, ShellRules.ALLOWED_ORIGINS) { _, message, sourceOrigin, isMainFrame, _ ->
+            // 단계 ②: 같은 다리로 공유 목록을 묻고(share:get), 다 받았음(share:done)·돌아가기(share:back)를 알린다.
+            WebViewCompat.addWebMessageListener(webView, BAR_BRIDGE, ShellRules.ALLOWED_ORIGINS) { _, message, sourceOrigin, isMainFrame, reply ->
                 if (!isMainFrame || sourceOrigin.toString() !in ShellRules.ALLOWED_ORIGINS) return@addWebMessageListener
                 val data = message.data ?: return@addWebMessageListener
                 if (data.startsWith("bar:")) ShellRules.parseColor(data.substring(4))?.let(::applyBarColor)
+                else if (data.startsWith("share:")) onShareMessage(data, reply)
             }
+        }
+
+        // 웹 서비스 워커(app/sw.js)를 거친 요청도 __share 가로채기가 받도록 같은 규칙을 건다.
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE) &&
+            WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_SHOULD_INTERCEPT_REQUEST)
+        ) {
+            ServiceWorkerControllerCompat.getInstance().setServiceWorkerClient(object : ServiceWorkerClientCompat() {
+                override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? =
+                    ShareIntake.serve(request.url.toString(), request.method, applicationContext.contentResolver)
+            })
         }
 
         webView.webChromeClient = object : WebChromeClient() {
@@ -145,6 +162,9 @@ class MainActivity : ComponentActivity() {
                 return true
             }
 
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
+                ShareIntake.serve(request.url.toString(), request.method, applicationContext.contentResolver)
+
             override fun onPageFinished(view: WebView, url: String?) {
                 super.onPageFinished(view, url)
                 if (ShellRules.isInternalApp(url)) syncBarColor()
@@ -164,6 +184,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun loadFromIntent(intent: Intent?) {
+        if (ShareIntake.isShare(intent)) {
+            deliverShare(intent!!)
+            return
+        }
         val data = intent?.data?.toString()
         when {
             ShellRules.isAppReturn(data) -> webView.loadUrl(ShellRules.homeForReturn(data))
@@ -175,9 +199,45 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        if (ShareIntake.isShare(intent)) {
+            deliverShare(intent)
+            return
+        }
         val data = intent.data?.toString()
         // 로그인·캘린더 복귀 또는 웹2 주소일 때만 화면을 바꾼다. 아이콘으로 다시 열면 보던 화면을 그대로 둔다.
         if (ShellRules.isAppReturn(data) || ShellRules.isInternalApp(data)) loadFromIntent(intent)
+    }
+
+    /**
+     * 공유를 받으면 웹 바구니로 넘긴다. 웹2 화면이 이미 떠 있으면 다시 불러오지 않고 그 화면에 번호만 알리고(arrive),
+     * 아니면 ?view=basket&share=<번호>로 연다. 로그인 전이면 로그인 뒤 웹이 빈 번호로 다시 묻는다.
+     */
+    private fun deliverShare(intent: Intent) {
+        val share = ShareIntake.receive(intent, contentResolver, packageName)
+        if (share == null) {
+            if (!ShellRules.isInternalApp(webView.url)) webView.loadUrl(ShellRules.HOME)
+            return
+        }
+        val target = ShellRules.shareHome(share.id)
+        if (!ShellRules.isInternalApp(webView.url)) {
+            webView.loadUrl(target)
+            return
+        }
+        webView.evaluateJavascript(ARRIVE_SCRIPT.replace("%ID%", share.id)) { value ->
+            if (value != "true") webView.loadUrl(target)
+        }
+    }
+
+    private fun onShareMessage(data: String, reply: JavaScriptReplyProxy) {
+        when (val m = ShellRules.shareMessage(data)) {
+            is ShellRules.ShareMessage.Get -> {
+                val p = ShareIntake.get(m.id)
+                reply.postMessage(if (p == null) "share:none" else "share:list:" + p.json)
+            }
+            is ShellRules.ShareMessage.Done -> ShareIntake.done(m.id)
+            ShellRules.ShareMessage.Back -> moveTaskToBack(true)
+            null -> Unit
+        }
     }
 
     override fun onResume() {
@@ -341,6 +401,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         alive = false
+        // 앱을 닫으면 공유로 받은 것도 버린다(폰에 보관하지 않음, D6). 화면 다시 만들기(다크 전환 등)에는 유지한다.
+        if (isFinishing) ShareIntake.clear()
         fileCallback?.onReceiveValue(null)
         fileCallback = null
         webView.stopLoading()
@@ -353,6 +415,10 @@ class MainActivity : ComponentActivity() {
         const val BAR_BRIDGE = "KPTUAppShell"
         val INK_ON_LIGHT = Color.rgb(0x2b, 0x2a, 0x26)
         val INK_ON_DARK = Color.rgb(0xe8, 0xe6, 0xdf)
+
+        // %ID%는 ShellRules.isShareId를 통과한 값([A-Za-z0-9_-])만 들어간다.
+        const val ARRIVE_SCRIPT =
+            "(function(){try{return !!(window.KPTUShareIntake&&window.KPTUShareIntake.arrive('%ID%'));}catch(e){return false;}})();"
 
         const val BACK_SCRIPT =
             "(function(){try{return !!(window.KPTUNativeBack&&window.KPTUNativeBack.handle&&window.KPTUNativeBack.handle());}catch(e){return false;}})();"

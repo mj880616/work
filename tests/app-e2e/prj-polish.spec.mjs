@@ -3,7 +3,7 @@ import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {expectProjectDetail} from './helpers/project-detail.mjs';
 // PRJ-화면다듬기(2026-10-22 사용자 결정): (1) 프로젝트 목록 오른쪽 "일정 없음" 대신 "최근 기록 10.21", 기록이 없으면 빈칸
-// (2) 상세 기록 칸의 [크게]는 입력 칸 안 ⤢ 아이콘 (3) 진행 기록·조직 기록은 4줄까지만, 잘린 글을 누르면(조직은 [더보기]) 펼침
+// (2) 상세 기록 칸의 [크게]는 입력 칸 안 ⤢ 아이콘(MTG-프로젝트합치기 3단계에서 입력칸과 함께 없어짐) (3) 진행 기록·조직 기록은 4줄까지만, 잘린 글을 누르면(조직은 [더보기]) 펼침
 // (4) 상세 안 겹상자 테두리 제거. DB·Edge 변경 없음.
 test.use({hasTouch:true});
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -44,15 +44,13 @@ for(const width of [390,1280]){
   expect(await noOverflow(page)).toBe(true);expect(f.errors).toEqual([]);
  });
 
- test(`프로젝트 상세: ⤢ 아이콘은 입력 칸 안, 기록은 4줄, 겹상자 없음 ${width}`,async({page})=>{
+ test(`프로젝트 상세: 입력 칸·⤢ 없음, 기록은 4줄, 겹상자 없음 ${width}`,async({page})=>{
   const f=await fixture(page,width);
   await clickView(page,'projects');await page.locator('#projectGrid .ps3-plist [data-ps3-project="p"]').click();
   await expectProjectDetail(page,'p');
-  const form=page.locator('#ps3-progress [data-ps3-record-input]'),input=form.locator('input'),big=form.locator('[data-ps3-record-big]');
-  await expect(big).toBeVisible();await expect(big).toHaveText('');await expect(big).toHaveAccessibleName('큰 창에서 쓰기');
-  const [i,b]=await Promise.all([input.boundingBox(),big.boundingBox()]);
-  expect(b.x).toBeGreaterThanOrEqual(i.x);expect(b.x+b.width).toBeLessThanOrEqual(i.x+i.width+1);expect(b.y).toBeGreaterThanOrEqual(i.y-1);expect(b.y+b.height).toBeLessThanOrEqual(i.y+i.height+1);
-  expect(b.width).toBeGreaterThanOrEqual(44);
+  // MTG-프로젝트합치기 3단계: 진행 기록 입력칸과 그 안의 ⤢는 없어졌다(기록은 사업 보고 한 곳).
+  await expect(page.locator('#ps3-progress [data-ps3-record-input],#ps3-progress [data-ps3-record-big]')).toHaveCount(0);
+  await expect(page.locator('[data-ps3-record="r-long"]')).toBeVisible();
   // 4 lines, then the first tap opens that record only; the second tap is the old behaviour (menu).
   const long=page.locator('[data-ps3-record="r-long"] .ps3-rec-text'),mid=page.locator('[data-ps3-record="r-mid"] .ps3-rec-text');
   const lh=await long.evaluate(e=>parseFloat(getComputedStyle(e).lineHeight));

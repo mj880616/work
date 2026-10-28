@@ -63,7 +63,7 @@ function paint(){
   window.dispatchEvent(new CustomEvent('kptu:where-item',{detail:{view:'reference',name:wide&&selected?selected.name:null}}));
   // The ratio is the 담당조직 screen's (view_prefs split_ratio.team): the DB check accepts only tasks·projects·team·reports, and this
   // screen is entered from the organization list.
-  mountSplitResize({container:$('#rbSplit'),name:'team',label:'참고 묶음 목록과 상세 칸 폭 조절',list:()=>$('#rbList'),pane:()=>$('#rbDetail'),active:()=>pc.matches&&!view()?.classList.contains('hidden')});
+  mountSplitResize({container:$('#rbSplit'),name:'refs',inherit:'team',label:'참고 묶음 목록과 상세 칸 폭 조절',list:()=>$('#rbList'),pane:()=>$('#rbDetail'),active:()=>pc.matches&&!view()?.classList.contains('hidden')});
 }
 function paintList(){
   const box=$('#rbList'),stats=bundleStats(state.links);

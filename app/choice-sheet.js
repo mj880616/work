@@ -6,11 +6,11 @@ import {WIDE_QUERY,isWide,placeAnchored,clearAnchored,followAnchor} from './anch
 // filters the list, when the indentation no longer tells where it sits (the text is added while searching and removed after, so the
 // row's text stays its name otherwise). The search still matches the name only.
 export function projectRow(x,selected,esc,{value=x.project.id,extra=''}={}){
-  const name=x.project.name||'이름 없는 프로젝트',path=x.depth>=2&&x.path?` data-sheet-path="${esc(x.path)}"`:'';
+  const name=x.project.name||'이름 없는 사업영역',path=x.depth>=2&&x.path?` data-sheet-path="${esc(x.path)}"`:'';
   return `<button type="button" class="home-choice-row home-choice-pick" style="--home-choice-depth:${x.depth}" data-depth="${x.depth}" data-sheet-value="${esc(value)}"${path} aria-pressed="${value===selected}" title="${esc(name)}" ${extra}><span class="home-choice-check" aria-hidden="true"></span><span class="home-choice-name">${esc(name)}</span></button>`;
 }
 export function projectRows(rows,selected,esc){
-  return [{project:{id:'',name:'프로젝트 없음'},depth:0},...rows].map(x=>projectRow(x,selected,esc)).join('');
+  return [{project:{id:'',name:'사업영역 없음'},depth:0},...rows].map(x=>projectRow(x,selected,esc)).join('');
 }
 // UI-고르기창개선 A → UPD-여러곳고르기 ①: organizations by group (organization-order.js), the same look as the project list: the
 // group name is a small heading and its organizations follow one per line (a row with a check box, drawn by row(o)). When no
