@@ -44,6 +44,9 @@
 #appView #journalView .journal-line-meta small.over{ color:var(--kptu-danger); }
 #appView #journalView .journal-line-status{ margin:0; font-size:var(--ds-text-row); }
 #appView #journalView .journal-line-status:empty{ display:none; }
+/* JOURNAL-오늘한줄초안: 저장 전 AI 초안은 흐린 글씨(고치기 시작하면 보통 글씨). 안내는 글자 수 옆 작은 한 줄. */
+#appView #journalView textarea.is-ai-draft{ color:var(--kptu-muted); font-style:italic; }
+#appView #journalView .journal-line-meta small.journal-ai-note[hidden]{ display:none; }
 /* JOURNAL-오늘한줄목록: 저장한 줄은 입력칸 바로 아래 목록(저장한 순서, 오래된 것 위). 줄을 누르면 그 자리에서 고치기 칸 + [저장][취소][삭제]. */
 #appView #journalView .journal-lines{ display:flex; flex-direction:column; gap:4px; margin:0; padding:0; list-style:none; }
 #appView #journalView .journal-line-item{ margin:0; }
