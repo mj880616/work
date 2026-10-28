@@ -143,8 +143,9 @@ test('③ 폰: 일정·정리함 전환은 아래 탭 바로 위 한 줄(알약 
  // BASKET-정리함한화면: 정리함은 한 화면(위 챙길 것 칸·아래 업데이트 칸)이라 아래 탭 위 전환 줄이 없다. [노트]는 [메뉴] 안 독립 메뉴.
  await page.locator('.mobile-tabs [data-view="basket"]').tap();
  await expect(page.locator('#basketView .basket-kind-switch')).toHaveCount(0);await expect(page.locator('.inbox-pane-switch')).toHaveCount(0);
+ await expect(page.locator('#basketView')).toBeVisible();await expect(page.locator('#calendarView')).toBeHidden();
+ await expect.poll(()=>page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-switch-dock').trim()||'0px')).toBe('0px');
  const basketTabsTop=(await page.locator('.mobile-tabs').boundingBox()).y;
- expect(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--kptu-switch-dock').trim()||'0px')).toBe('0px');
  const quick=await page.locator('#basketView [data-basket-list] .home-quick').boundingBox();expect(quick.y+quick.height).toBeLessThanOrEqual(basketTabsTop+1);
  // 맨 위 한 줄과 작은 [다시 찾기], 그 아래 챙길 것 칸, 그 아래 업데이트 칸(필터 줄).
  const find=await measure(page.locator('#basketView [data-inbox-find]'));expect(find.h).toBeLessThanOrEqual(32);expect(find.hit).toBe(44);
