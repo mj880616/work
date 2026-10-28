@@ -50,6 +50,7 @@ on:
       - 'scripts/hwp-lab/**'
       - 'scripts/pdf/**'
       - 'tests/meeting-file-parse.test.mjs'
+      - 'tests/meeting-transcript-model.test.mjs'
       - 'tests/meeting-when.test.mjs'
       - 'tests/meeting-columns.test.mjs'
       - 'tests/meeting-inline-edit.test.mjs'
@@ -144,6 +145,7 @@ on:
       - 'scripts/hwp-lab/**'
       - 'scripts/pdf/**'
       - 'tests/meeting-file-parse.test.mjs'
+      - 'tests/meeting-transcript-model.test.mjs'
       - 'tests/meeting-when.test.mjs'
       - 'tests/meeting-columns.test.mjs'
       - 'tests/meeting-inline-edit.test.mjs'
@@ -270,6 +272,9 @@ jobs:
 
       - name: Meeting files·text grouping and pinned PDF reader
         run: node --test tests/meeting-file-parse.test.mjs tests/pdf-lib-pin.test.mjs
+
+      - name: Meeting transcript → meeting record draft (MTG-녹음초안)
+        run: node --test tests/meeting-transcript-model.test.mjs
 
       - name: Meeting card time, kind colors and PC layout
         run: node --test tests/meeting-when.test.mjs tests/meeting-columns.test.mjs tests/meeting-inline-edit.test.mjs tests/report-kinds.test.mjs tests/report-links.test.mjs
