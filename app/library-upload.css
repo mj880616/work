@@ -421,6 +421,13 @@
 /* LIB-후속1 ⑤: 분류 묶기에서 끌 때 놓일 분류 묶음 전체(머리 + 안의 줄)를 연한 강조색으로. */
 #appView #libraryView #documentList details.lu-node.lu-drop-group{background:var(--kptu-primary-soft);border-radius:var(--kptu-radius-sm,6px)}
 
+/* LIB-폴더100단 ②: 들어간 폴더의 위치 줄 '자료실 › 조직 › …'. 작고 낮게, 길면 가로로 넘김(줄바꿈 없이). */
+#appView #libraryView .lu-path{display:flex;align-items:center;gap:2px;margin:0 0 4px;overflow-x:auto;white-space:nowrap;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);scrollbar-width:none}
+#appView #libraryView .lu-path[hidden]{display:none}
+#appView #libraryView .lu-path-step{min-height:32px;padding:0 6px;border:0;border-radius:var(--kptu-radius-sm,6px);background:transparent;color:var(--kptu-primary-ink);font:inherit;cursor:pointer}
+#appView #libraryView .lu-path-step:hover,#appView #libraryView .lu-path-step:focus-visible{background:var(--kptu-surface-subtle)}
+#appView #libraryView .lu-path-here{padding:0 6px;color:var(--kptu-ink);font-weight:600}
+#appView #libraryView .lu-path-sep{color:var(--kptu-muted)}
 /* LIB-폴더보기 칩 순서(08:25 ②): 묶기 칩을 끌 때 놓일 자리는 칩 왼쪽 세로선(줄 끝이면 칩 줄 오른쪽 끝). 잡힌 칩은 살짝 흔들림(움직임 줄이기면 색만). */
 #appView #libraryView #libraryGroupBy .re-drop-before{border-top:0;border-left:2px solid var(--kptu-primary-ink)}
 #appView #libraryView #libraryGroupBy.re-drop-end{border-top:0;border-right:2px solid var(--kptu-primary-ink)}
