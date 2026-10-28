@@ -1,4 +1,4 @@
-import {waitHtml} from './wait-state.js';
+import {waitHtml, waitInlineHtml} from './wait-state.js';
 // TG-방날짜묶기 4-가 (docs/design/tg-room-day-group.md 2절, 시안 mockups/tg-room-day-group.html): 텔레그램 소식 화면(?view=telegram, 사이드바 맨 아래).
 // 이 모듈이 #telegramView의 유일한 renderer다. 머리줄 '텔레그램 소식' + "오늘 n개 중 중요한 m개 · 방 k곳" + 방 거르기, 고정 띠, 작은 가운데 날짜,
 // 그 아래 "방 한 줄"(방 머리글자·방 이름·그날 내용 한 줄·소식 n·원문 n). 줄을 누르면 방 상세가 열린다(PC 오른쪽 2/3, 폰 router layer 한 칸):
@@ -122,7 +122,8 @@ function paint() {
   window.dispatchEvent(new CustomEvent('kptu:where-item', {detail:{view:'telegram', name:wide && state.sel ? (l?.room_label || '') || null : null}}));
   mountSplitResize({container:$('#tgSplit'), name:'telegram', inherit:'tasks', label:'텔레그램 소식과 방 상세 칸 폭 조절', list:() => $('#tgList'), pane:() => $('#tgDetail'), active:() => pc.matches && !view()?.classList.contains('hidden')});
 }
-const statusHtml = () => esc(state.status);
+const TG_WAIT = '\u0000wait'; // UI-기다림표시통일 2차: 이전 날을 찾는 동안은 글자 없는 회색 칸
+const statusHtml = () => state.status === TG_WAIT ? waitInlineHtml() : esc(state.status);
 const undoHtml = () => (undo ? `<div class="feed-undo" role="status" data-tg-undobar><span>${esc(undo.text)}</span><span aria-hidden="true">·</span><button type="button" class="feed-undo-btn" data-tg-undo>되돌리기</button></div>` : '');
 function chipsHtml() {
   const archived = archivedRooms(state.rooms, state.lines).length;
@@ -401,11 +402,11 @@ async function navDay(dir) {
   if (state.link && !dropLink()) return;
   let nb = neighborDays(state.lines, sel.room, sel.day);
   if (dir === 'prev' && !nb.prev) {
-    state.busy = true; state.status = '이전 날을 찾는 중…'; paintDetail();
+    state.busy = true; state.status = TG_WAIT; paintDetail();
     try { while (!nb.prev && !state.end && await extend()) nb = neighborDays(state.lines, sel.room, sel.day); }
     catch { state.status = '이전 날을 불러오지 못했어요.'; }
     state.busy = false; if (state.sel !== sel) return;
-    if (!nb.prev) { if (state.status === '이전 날을 찾는 중…') state.status = '더 이전 소식이 없어요.'; paint(); return; }
+    if (!nb.prev) { if (state.status === TG_WAIT) state.status = '더 이전 소식이 없어요.'; paint(); return; }
     state.status = '';
   }
   const day = dir === 'prev' ? nb.prev : nb.next; if (!day) return;

@@ -73,18 +73,18 @@ test('메뉴 화면 처음 열기: 민트 상자 없이 가는 줄, 실패는 �
   for (const source of [loader, views, read('wait-state.js')]) assert.doesNotMatch(source, deviceStore);
 });
 
-// 아직 공용 부품으로 옮기지 않은 기다림 문구(파일별 개수). 늘면 실패, 줄면 낮춘다.
-// 2차(저장본 상태 줄·검색·달력·누른 뒤 진행 안내)를 옮긴 뒤 남은 것: 사진 받기 작은 알림·일기·텔레그램·공유 페이지 편집기·노트 편집기,
-// 주간보고 복사 글의 '(불러오는 중)'(복사 글이라 유지 검토).
+// 기다림 문구가 남은 곳(파일별 개수). 2차까지 화면의 기다림 표시는 모두 공용 부품으로 옮겼고, 아래는 기다림 표시가 아닌 글자라 그대로 둔다.
+// 늘거나 새 파일에 생기면 실패한다(줄면 낮춘다).
 const BASELINE = {
-  'basket-notes.js': 1, 'diary.js': 3, 'journal-weekly.js': 1, 'photo-share.js': 1, 'photo-strip.js': 1, 'photos.js': 3, 'share-pages.js': 2,
-  'telegram-feed.js': 2,
-  // 기다림 표시가 아닌 글자(그대로 둔다, 늘면 실패):
   // - 상태 이름·서버 답 안내: 사진 글자 인식 상태 '읽는 중'(basket.js)·'글자 읽는 중'(basket-manual-link.js, summary-part-unify 시험),
   //   서버 답 '글자 읽는 중이에요. 잠시 뒤 다시 눌러 주세요.'(basket-ai-summary.js)·'챙길 것을 찾는 중이에요…'(todo-radar-data.js),
-  //   아직 안 열린 기능을 누를 때 작은 알림(task-inline.js).
+  //   아직 안 열린 기능을 누를 때 작은 알림(task-inline.js), 편집기가 열리기 전 저장을 누를 때 거절 안내(basket-notes.js).
+  'basket.js': 1, 'basket-manual-link.js': 1, 'basket-ai-summary.js': 1, 'todo-radar-data.js': 1, 'task-inline.js': 1, 'basket-notes.js': 1,
+  // - 사진 내려받기 작은 알림(장수·한 번에 받는 한도, photos.js): 알림 부품은 글자만 받는다.
+  'photos.js': 2,
+  // - 주간보고 복사 글의 '(불러오는 중)'(journal-weekly.js, journal-meeting-kinds 시험): 화면이 아니라 붙여 넣을 글이라 글자가 필요하다.
+  'journal-weekly.js': 1,
   // - 한글 편집기(약 20MB)·한글 파일 열기의 단계 안내(파일 받음·편집기 준비 중, hwp-drive-edit 시험): 수십 초 걸리는 일이라 단계 글자를 둔다.
-  'basket.js': 1, 'basket-manual-link.js': 1, 'basket-ai-summary.js': 1, 'todo-radar-data.js': 1, 'task-inline.js': 1,
   'hwp-lab.js': 7, 'journal-hwpx.js': 4,
 };
 const SKIP = ['hwp-lab/', 'editor-lib/', 'pdf-lib/', 'markdown-lib/', 'legacy/', 'release-notes/'];
@@ -113,7 +113,7 @@ test('따로 만든 기다림 문구가 새로 생기지 않는다(기준표보�
   for (const [rel, n] of Object.entries(BASELINE)) assert.ok((counts[rel] || 0) <= n, rel);
 });
 
-test('민트(.notice) 상자를 안내·기다림에 새로 쓰지 않는다(남은 2곳 밖)', () => {
+test('민트(.notice) 상자를 안내·기다림에 쓰지 않는다(완료 알림 부품 밖에는 0곳)', () => {
   const found = [];
   for (const file of walk(APP)) {
     const rel = relative(APP, file).split('\\').join('/');
@@ -121,8 +121,8 @@ test('민트(.notice) 상자를 안내·기다림에 새로 쓰지 않는다(남
     const source = readFileSync(file, 'utf8');
     if (/class(Name)?\s*=\s*\\?["'`]notice\b|classList\.add\(\s*['"]notice['"]/.test(source)) found.push(rel);
   }
-  // 남은 2곳(회의 AI 창 안내 글, 프로젝트 지우기 창 안내)은 D-6b 글자 모양 보존 시험(modal-typography)과 함께 다음 묶음에서 바꾼다.
-  assert.deepEqual(found, ['project-system-v3.js', 'workflow-ai-v3.js']);
+  // 2차: 남았던 2곳(회의 AI 창 안내 글, 프로젝트 지우기 창 안내)도 회색 글자(.muted)로 바꿨다(modal-typography D-6b 함께).
+  assert.deepEqual(found, []);
 });
 
 test('옮긴 화면은 공용 부품을 쓴다', () => {
@@ -131,7 +131,7 @@ test('옮긴 화면은 공용 부품을 쓴다', () => {
     // 2차
     'data-freshness.js', 'global-search.js', 'calendar-list-view.js', 'calendar-interactions-v2.js', 'calendar-plus.js', 'project-system-v3.js',
     'basket-manual-link.js', 'business-area-fields.js', 'home-quick.js', 'meeting-todo-candidates.js', 'workflow-ai-v3.js',
-    'ledger-merge.js', 'todo-radar.js', 'journal-hwpx.js', 'journal-weekly.js']) {
+    'ledger-merge.js', 'todo-radar.js', 'journal-hwpx.js', 'journal-weekly.js', 'photo-share.js', 'telegram-feed.js', 'share-pages.js', 'diary.js']) {
     assert.match(read(rel), /from '\.\/wait-state\.js';/, rel);
   }
   // 옛 모양 파일(즉시 실행 함수·선언 시험 대상)은 창에 둔 같은 부품(window.KPTUWait)을 쓴다.
