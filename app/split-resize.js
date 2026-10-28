@@ -70,8 +70,10 @@ export function decodeTriple(v,defaults){
 }
 
 // The stored value of a screen as shares (null = default). Two columns: the left share itself; three: the pair above.
-function readShares(name,n,defaults){
-  const v=viewPrefs.getSplit(name);if(!(v>0&&v<1))return null;
+// UI-작은결정묶음 ④: a screen that used to share another screen's value (o.inherit) starts from that value until its own is saved;
+// it only ever writes its own name.
+function readShares(name,n,defaults,inherit){
+  let v=viewPrefs.getSplit(name);if(!(v>0&&v<1)&&inherit)v=viewPrefs.getSplit(inherit);if(!(v>0&&v<1))return null;
   if(n===2)return [v,1-v];
   if(n===3)return decodeTriple(v,defaults);
   return null;
@@ -102,6 +104,7 @@ html.split-resizing,html.split-resizing *{cursor:col-resize!important;user-selec
  * @param {object} o
  * @param {HTMLElement} o.container grid whose columns use one variable each
  * @param {string} o.name screen name, also the storage key part
+ * @param {string} [o.inherit] screen name whose stored value is used until this screen saves its own (UI-작은결정묶음 ④)
  * @param {() => Element|null} [o.list] two columns: left column element (its top is where the boundary starts)
  * @param {() => Element|null} [o.pane] two columns: right column element (its left edge is where the boundary sits)
  * @param {Array<{el:() => Element|null, varName:string, minVar?:string, minFallback?:number, share?:number, id?:string}>} [o.columns]
@@ -141,7 +144,7 @@ export function mountSplitResize(o){
     container.append(handle);handles.push(handle);
   }
   if(getComputedStyle(container).position==='static')container.style.position='relative';
-  let shares=readShares(o.name,n,defaults)??defaults.slice(),drag=null,frame=0;
+  let shares=readShares(o.name,n,defaults,o.inherit)??defaults.slice(),drag=null,frame=0;
 
   const gap=()=>{const v=parseFloat(getComputedStyle(container).columnGap);return Number.isFinite(v)?v:0};
   // Width the columns share: the content box minus the gaps between them.
