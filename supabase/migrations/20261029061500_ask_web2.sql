@@ -205,10 +205,10 @@ begin
   -- 텔레그램 소식: 방 이름·제목·요약(손으로 고친 요약 우선)·핵심 줄. 원문·보낸 사람 표는 읽지 않는다.
   -- 지운 소식, 그날 그 방 줄을 지운 날(app_feed_room_days.hidden_at)은 뺀다. 개인 텔레그램 표는 읽지 않는다.
   tgs as (
-    select 'telegram'::text, 'telegram'::text, g.id, g.title, g.body, null::jsonb, g.occurred_at, g.day, null::text,
+    select 'telegram'::text, 'telegram'::text, g.id, g.title, g.body, pg_catalog.jsonb_build_object('room', g.room_key), g.occurred_at, g.day, null::text,
       g.project_id, g.organization_id, null::uuid, null::text
     from (
-      select f.id, f.occurred_at, f.day, f.project_id, f.organization_id,
+      select f.id, f.occurred_at, f.day, f.project_id, f.organization_id, f.room_key,
         pg_catalog.concat_ws(' · ', f.room_label, f.title) as title,
         pg_catalog.concat_ws(' ', coalesce(se.vals ->> 'summary', f.summary), (select pg_catalog.string_agg(x #>> '{}', ' ')
           from pg_catalog.jsonb_path_query(f.points, '$[*] ? (@.type() == "string")') x)) as body
@@ -268,8 +268,9 @@ begin
       'occurred_at', h.occurred_at, 'day', h.day, 'state', h.state,
       'project_id', h.link_project, 'project_name', (select s.name from public.app_spaces s where s.id = h.link_project),
       'organization_id', h.link_org, 'organization_name', (select o.name from public.app_suborganizations o where o.id = h.link_org))
-      -- 통화·텔레그램 줄에만: 요약·핵심 줄 앞 200자(물어보기 재료). 다른 종류의 줄 모양은 그대로다.
+      -- 통화·텔레그램 줄에만: 요약·핵심 줄 앞 200자(물어보기 재료), 텔레그램은 방 번호(그 방·그날 소식을 여는 데 씀). 다른 종류의 줄 모양은 그대로다.
       || case when h.source in ('call', 'telegram') then pg_catalog.jsonb_build_object('summary', pg_catalog.left(h.body, 200)) else '{}'::jsonb end
+      || case when h.source = 'telegram' then pg_catalog.jsonb_build_object('room_key', h.attach ->> 'room') else '{}'::jsonb end
       as item
     from hit h
   ),

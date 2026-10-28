@@ -140,7 +140,8 @@ test('ASK-Web2 DB: search kinds call/telegram + answers table — plans, guard, 
    assert.deepEqual([calls.items[0].title,calls.items[0].organization_id,calls.items[0].organization_name,calls.items[0].summary],
     ['임금 통화',ORG,'궤도지부','성과급 기준 쟁점 논의 인상률 근거 자료 보내기']);
    assert.deepEqual([calls.items[1].title,calls.items[1].summary],['고친 임금 제목','요약 없음 고친 핵심 교섭']);
-   assert.deepEqual(tgs.items.map(i=>[i.id,i.title,i.summary,i.matched_in]),[[TG,'궤도 단톡 · 교섭 소식','고친 요약 임금 잠정 다음 교섭 11/1','body']]);
+   assert.deepEqual(tgs.items.map(i=>[i.id,i.title,i.summary,i.matched_in,i.room_key]),[[TG,'궤도 단톡 · 교섭 소식','고친 요약 임금 잠정 다음 교섭 11/1','body','r1']]);
+   assert.equal(Object.hasOwn(calls.items[0],'room_key'),false);
    // Counterpart and organization name are searchable; the snippet never comes from raw text.
    assert.equal(group(await search({q:'위원장',kind:'call'}),'call').total,1);
    assert.equal(group(await search({q:'궤도지부',kind:'call'}),'call').total,1);
