@@ -212,7 +212,7 @@ for(const width of [390,1280])test.describe(`폴더 들어가기 ${width}`,()=>{
     await expect(path).toBeVisible();await expect(path).toHaveText('자료실›가상 A');await expect(path.locator('[aria-current="location"]')).toHaveText('가상 A');
     // 안의 폴더로 한 단계 더(폰은 메뉴, PC는 두 번 누르기).
     if(width<761){await press(page,menuButton(page,'f:fc'),width);await press(page,folderMenuItem(page,'이 폴더로 들어가기'),width)}
-    else await libraryNodeHead(page,'f:fc').locator('.lu-node-name').dblclick();
+    else await libraryNodeHead(page,'f:fc').locator('.lu-node-name').dispatchEvent('dblclick');// PC 두 번 누르기(더블클릭 이벤트). 실제 두 번 누름의 펼침·접힘은 이 시험의 관심 밖.
     expect(await tops(page)).toEqual(['f:fc']);await expect(libraryNode(page,'f:fc')).toHaveAttribute('style',/--lu-depth:\s*0/);
     await expect(path).toHaveText('자료실›가상 A›가상 C');expect(await childrenOf(page,'f:fc')).toEqual(['a-1']);
     // 위치 줄의 '가상 A'를 누르면 그 단계로.
