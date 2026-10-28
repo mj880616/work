@@ -61,6 +61,8 @@ async function fixture(page,{width=1280,missing=false,empty=false}={}){
    return r.fulfill({json:Number(q.get('offset')||0)||empty?[]:days.filter(d=>d.source===src)});
   });
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganizations',r=>r.fulfill({json:Number(new URL(r.request().url()).searchParams.get('offset')||0)?[]:[{id:ORG,workspace_id:'w',name:'예시지부',active:true},{id:'o',workspace_id:'w',name:'테스트 조직',active:true}]}));
+  // ORG-고르기통일: 예시지부만 내 담당조직(테스트 조직은 담당 밖이라 조직 고르기 창에 나오지 않는다).
+  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganization_assignees',r=>r.fulfill({json:Number(new URL(r.request().url()).searchParams.get('offset')||0)?[]:[{organization_id:ORG}]}));
   await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganization_updates',r=>{
    if(r.request().method()==='POST'){writes.push({table:'org_update',body:r.request().postDataJSON()});return r.fulfill({status:201,json:[]});}
    return r.fulfill({json:[]});
@@ -231,6 +233,7 @@ test('통화 1280: 조직 연결은 핵심내용을 요약 기본값으로, 저�
  await expect(text).toHaveValue('- 원고 금요일 마감');
  await page.locator('#cfDetail [data-cf-link-pick]').click();
  const sheet=page.locator('#feedOrgSheet');await expect(sheet).toBeVisible();
+ await expect(sheet.getByRole('button',{name:'테스트 조직',exact:true})).toHaveCount(0);
  await sheet.getByRole('button',{name:'예시지부',exact:true}).click();await expect(sheet).toBeHidden();
  await expect(page.locator('#cfDetail [data-cf-link-pick]')).toHaveText('예시지부 ▾');
  await page.locator('#cfDetail [data-cf-link-save]').click();
