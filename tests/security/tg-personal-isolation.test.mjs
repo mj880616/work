@@ -11,6 +11,7 @@ const ALLOWED=new Set([
  'docs/20261025030000_tg_personal_days.precheck.sql','docs/20261025030000_tg_personal_days.snapshot.sql',
  'docs/20261025030000_tg_personal_days.postcheck.sql','docs/20261025030000_tg_personal_days.rollback.sql','docs/20261025030000_tg_personal_days.summary.md',
  'docs/migration-history.md','docs/design/tg-personal.md',
+ 'docs/design/multi-user-audit.md', // 설계 문서(표 이름만 나열, 읽는 코드 아님) — #1451
  'tests/auth-handoff/tg-personal-days.test.mjs','tests/auth-handoff/package.json','tests/security/tg-personal-isolation.test.mjs',
 ]);
 const SKIP=new Set(['.git','node_modules','.claude']);
