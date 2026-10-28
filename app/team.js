@@ -21,7 +21,7 @@ import {mountSplitResize} from './split-resize.js';
 import {targetList,targetsLabel,firstProjectId} from './report-links-model.mjs';
 import {saveReportTargets,readAllReportTargets,locationAvailable,noteLocationFromMeetings,noteAreaFromMeetings,LEGACY_NOTE} from './report-links.js';
 import {mountAreaFields} from './business-area-fields.js';
-import {areaRoots,areaChipOptions,matchesAreaChip,areaIdOf,defaultReportWeek,inReportWeek,reportWeekLabel,reportDay,weekOf,shiftDays} from './business-area-model.mjs'; // MTG-프로젝트합치기 2단계: [사업영역] 꼬리표 + 다음 할 일 칸
+import {areaRoots,areaChipOptions,matchesAreaChip,areaIdOf,defaultReportWeek,inReportWeek,reportWeekLabel,reportDay as reportDayOf,weekOf,shiftDays} from './business-area-model.mjs'; // MTG-프로젝트합치기 2단계: [사업영역] 꼬리표 + 다음 할 일 칸
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const KEY='sb_publishable_X-0lXJztIQUriUidBZ1PLQ_QemTRSpA';
 const SESSION_KEY='kptu_collab_session_v1';
@@ -194,7 +194,7 @@ function weekMatch(list){return weekOn()?inReportWeek(list,currentWeek()):list}
 function renderReportWeek(){const host=$('#reportWeekFilter'),bar=host?.parentElement;if(!host)return;const show=reportView==='list'&&meetings.length>0;if(bar)bar.hidden=!show;if(!show){host.innerHTML='';return}const from=currentWeek(),n=inReportWeek(filterByReportKind(meetings,reportChip),from).length;host.innerHTML=`<button type="button" class="mini secondary" data-report-week="prev" aria-label="이전 주"${reportWeekAll?' disabled':''}>‹</button><span class="report-week-label" aria-live="polite">${reportWeekAll?'모든 주':esc(reportWeekLabel(from))+` <small>${n}건</small>`}</span><button type="button" class="mini secondary" data-report-week="next" aria-label="다음 주"${reportWeekAll?' disabled':''}>›</button><button type="button" class="mini secondary" data-report-week="all" aria-pressed="${reportWeekAll}">전체</button>`}
 function reportWeekClick(e){const b=e.target.closest('[data-report-week]');if(!b||b.disabled)return;const to=b.dataset.reportWeek;if(!leaveReport(()=>{if(to==='all')reportWeekAll=!reportWeekAll;else reportWeek=shiftDays(currentWeek(),to==='next'?7:-7);meetingSelectedId=null;renderMeetings({resetList:true})}))renderReportWeek()}
 // 다른 곳에서 고른 보고가 지금 주에 없으면 그 보고의 주로 옮긴다.
-function weekFor(m){const day=reportDay(m);if(!weekOn()||!day)return false;const from=weekOf(day).from;if(from===currentWeek())return false;reportWeek=from;return true}
+function weekFor(m){const day=reportDayOf(m);if(!weekOn()||!day)return false;const from=weekOf(day).from;if(from===currentWeek())return false;reportWeek=from;return true}
 function reportRows(){return weekMatch(areaMatch(filterByReportKind(meetings,reportChip)))}
 function renderReportChips(){const host=$('#reportKindFilter');if(!host)return;renderFilterChips(host,{label:'칸',controls:'meetingList',value:reportChip,options:reportKindChips(),onChange:value=>selectReportChip(value)})}
 function selectReportChip(value){const next=value===ALL_KINDS||isReportKind(value)?value:DEFAULT_KIND;if(next===reportChip)return;if(!leaveReport(()=>{reportChip=next;meetingSelectedId=null;renderMeetings({resetList:true})}))renderReportChips()}
