@@ -38,7 +38,8 @@ const routeStyles={
   reference:['./reference-bundles.css','./ui-standard.css'],
   calls:['./choice-sheet.css','./feed.css','./ui-standard.css'],
   telegram:['./choice-sheet.css','./feed.css','./ui-standard.css'],
-  photos:['./diary.css','./od-link.css','./photos.css','./view-wide.css','./ui-standard.css']
+  photos:['./diary.css','./od-link.css','./photos.css','./view-wide.css','./ui-standard.css'],
+  arsenal:['./arsenal.css','./view-wide.css','./ui-standard.css']
 };
 async function prepare(view){
   const key=normalize(view);
@@ -179,7 +180,9 @@ async function calls(){ await organizationOrder(); await module('./call-feed.js'
 async function telegram(){ await organizationOrder(); await module('./telegram-feed.js'); return {ok:true} }
 // PHOTO-사진메뉴: [사진](?view=photos, 폰 메뉴 판·사이드바). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #photosView를 만든다).
 async function photos(){ await module('./photos.js'); return {ok:true} }
-const loaders={home,basket,calendar,tasks,journal,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram};
+// 주소 개편 ② E1: [아스날](?view=arsenal, 메뉴 창 맨 아래·사이드바 맨 아래). loadAll에 넣지 않고 열 때만 불러온다(모듈이 #arsenalView를 만들고 경기 자료도 그때 불러온다).
+async function arsenal(){ await module('./arsenal.js'); return {ok:true} }
+const loaders={home,basket,calendar,tasks,journal,diary,projects,library,meetings,pages,team:organizations,hwp:hwpLab,profile,ledger,search,reference,photos,calls,telegram,arsenal};
 // Retired addresses that open another view (옛 시험판 ?view=hwp-lab → hwp, 새 주소 ?view=reports → meetings 화면, 옛 ?view=media(성명·보도자료) → 자료실). The router uses the same map.
 const VIEW_ALIAS={'hwp-lab':'hwp',reports:'meetings',media:'library'};
 function normalize(view){

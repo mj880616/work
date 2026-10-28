@@ -3,6 +3,12 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const url = pathToFileURL(resolve('personal/arsenal-match-archive/index.html')).href;
+// 주소 개편 ② E1: 옛 페이지는 운영 주소의 app/arsenal/matches.js를 읽는다. 시험은 저장소의 같은 파일로 대신 답한다(바깥 연결 없음).
+const DATA_URL = 'https://bokdoong.com/work/app/arsenal/matches.js';
+const DATA_FILE = resolve('app/arsenal/matches.js');
+test.beforeEach(async ({ page }) => {
+  await page.route(DATA_URL, route => route.fulfill({ path: DATA_FILE, contentType: 'text/javascript; charset=utf-8' }));
+});
 
 for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
   test(`score overview shows scorers, minutes and credited assists at ${viewport.width}px`, async ({ page }) => {

@@ -126,7 +126,7 @@ CLI로 설정할 경우, **별도 승인 뒤에만** 저장소 루트에서 `gh 
 | --- | --- | --- |
 | `app-e2e-check.yml` | PR, push main, 매일 21:00 UTC, 수동 | `app/**`, `p/**`, `tests/app-e2e/**`, 자신 |
 | `app-smoke-check.yml` | PR, push main, 수동 | `app/**`, `cloudflare/**`, `p/**`, `supabase/functions/meeting-ai-draft/**`, `tests/domain/bokdoong-router.test.mjs`, `tests/domain/web2-pwa-registration.test.mjs`, `tests/meeting-draft-parser.test.mjs`, 자신 |
-| `arsenal-archive-check.yml` | PR | `personal/arsenal-match-archive/**`, 자신 |
+| `arsenal-archive-check.yml` | PR | `personal/arsenal-match-archive/**`, `app/arsenal/**`, `scripts/arsenal/**`, `tests/arsenal/**`, 자신 |
 | `authz-security-check.yml` | PR, push *, 수동 | `supabase/**`, `tests/security/**`, `tests/auth-handoff/**`, 자신 |
 | `browser-storage-audit.yml` | PR, push main, 수동 | `**/*.html`, `**/*.js`, `**/*.mjs`, `**/*.ts`, `**/*.tsx`, `**/*.jsx`, 자신 |
 | `build-android-app.yml` | PR, push *, 수동 | `android-app/**`, `app/app-icon.svg`, 자신 |

@@ -4,7 +4,11 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runInNewContext } from 'node:vm';
 
-const archivePath = new URL('./matches.js', import.meta.url);
+// 주소 개편 ② E1: 자료는 Web2 아스날 화면 옆(app/arsenal/matches.js)에 있다.
+export const ARCHIVE_FILE = 'app/arsenal/matches.js';
+// 옮기기 전 커밋(기준 커밋이 옮기기 PR보다 앞일 때)은 옛 자리에서 읽는다.
+const OLD_ARCHIVE_FILE = 'personal/arsenal-match-archive/matches.js';
+const archivePath = new URL('../../app/arsenal/matches.js', import.meta.url);
 const premierRounds = new Set(Array.from({ length: 38 }, (_, i) => `${i + 1}R`));
 const uclRounds = new Set([
   ...Array.from({ length: 8 }, (_, i) => `League Phase MD${i + 1}`),
@@ -158,14 +162,18 @@ export function auditArchive(matches, { complete = true, baselineMatches } = {})
   return { counts, errors };
 }
 
+// 기준 커밋의 자료: 새 자리에 있으면 그것, 없으면(옮기기 전 커밋) 옛 자리.
+export function baselineText(ref) {
+  const show = file => execFileSync('git', ['show', `${ref}:${file}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  try { return show(ARCHIVE_FILE); } catch { return show(OLD_ARCHIVE_FILE); }
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
   const partial = args.includes('--partial');
   const baselineAt = args.indexOf('--baseline-ref');
   if (baselineAt >= 0 && !args[baselineAt + 1]) throw new Error('--baseline-ref requires a git ref');
-  const baselineMatches = baselineAt < 0 ? undefined : loadArchive(execFileSync('git', [
-    'show', `${args[baselineAt + 1]}:personal/arsenal-match-archive/matches.js`
-  ], { encoding: 'utf8' }));
+  const baselineMatches = baselineAt < 0 ? undefined : loadArchive(baselineText(args[baselineAt + 1]));
   const result = auditArchive(loadArchive(readFileSync(archivePath, 'utf8')), {
     complete: !partial,
     baselineMatches
