@@ -61,3 +61,20 @@ test('recent_folders: 읽기·쓰기는 uuid 글자 최대 5개, 중복·틀린 
   assert.deepEqual(m.serializeView({groupBy:'month',recentFolders:[]}),{group_by:'month',recent_folders:[]});
   assert.equal(m.serializeView({recentFolders:['x']}),null);
 });
+
+test('group_order: 묶기 칩 순서 — 기본은 [폴더] 맨 앞, 일부만 기억해도 빠진 값은 기본 순서로 뒤에, 틀린 모양은 거절',async()=>{
+  const {orderedGroups,moveGroup,DEFAULT_GROUP_ORDER,parseView,serializeView}=m;
+  assert.deepEqual([...DEFAULT_GROUP_ORDER],['folder','project','organization','category','month']);
+  assert.deepEqual(orderedGroups(null),['folder','project','organization','category','month']);
+  assert.deepEqual(orderedGroups(['month','project']),['month','project','folder','organization','category']);
+  assert.deepEqual(orderedGroups(['x']),['folder','project','organization','category','month']);
+  assert.deepEqual(orderedGroups(['folder','folder']),['folder','project','organization','category','month']);
+  assert.deepEqual(moveGroup(null,'month',0),['month','folder','project','organization','category']);
+  assert.deepEqual(moveGroup(null,'folder',4),['project','organization','category','month','folder']);
+  assert.deepEqual(moveGroup(null,'folder',99),['project','organization','category','month','folder']);
+  assert.deepEqual(moveGroup(null,'nope',0),['folder','project','organization','category','month']);
+  assert.deepEqual(parseView({group_order:['month','folder']}),{groupOrder:['month','folder']});
+  for(const bad of ['folder',[1],['Folder'],['folder','folder'],['folder','project','organization','category','month','folder'],{}])assert.equal(parseView({group_order:bad}),null,JSON.stringify(bad));
+  assert.deepEqual(serializeView({groupBy:'folder',groupOrder:['folder','month']}),{group_by:'folder',group_order:['folder','month']});
+  assert.equal(serializeView({groupOrder:['files']}),null);
+});
