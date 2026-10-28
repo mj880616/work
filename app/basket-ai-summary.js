@@ -54,6 +54,7 @@ export const AI_SUMMARY_TEXT=Object.freeze({
   org_summary_unavailable:'조직 요약을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
   org_people_not_ready:'주요 인물 기능이 아직 준비되지 않았어요.',
   org_people_unavailable:'주요 인물 기록을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
+  press_no_source:'고른 기록에 초안에 쓸 글이 없어요.',
   library_not_ready:'자료 정보 채우기가 아직 준비되지 않았어요.',
   library_unavailable:'자료를 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
   text_pending:'글자 읽는 중이에요. 잠시 뒤 다시 눌러 주세요.',
