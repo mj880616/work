@@ -61,7 +61,7 @@ test('wdSaveTime creates once and retries after failure',async({page})=>{
 });
 
 async function openAff(page){
-  await page.locator('#wdMore > summary').click();
+  await page.locator('#wdMore [data-wd-tab="aff"]').click();
   await page.locator('#wdAffManage').click();
   await expect(page.locator('#wdAffModal')).toBeVisible();
 }
