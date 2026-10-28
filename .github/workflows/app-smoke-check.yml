@@ -280,6 +280,9 @@ jobs:
       - name: Check diary list view (JOURNAL-일기목록, month groups·pin·star·find·view memory·no device storage, synthetic)
         run: node --test tests/diary-list-model.test.mjs
 
+      - name: Check home AI usage line (AI-사용량줄, summary·warning·amount input·no device storage, synthetic)
+        run: node --test tests/ai-usage-model.test.mjs
+
       - name: Check diary photo prune to Drive trash (JOURNAL-일기사진정리, synthetic)
         run: node --test tests/security/basket-photo-prune.test.mjs tests/security/basket-note-delete.test.mjs
 

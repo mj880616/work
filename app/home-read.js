@@ -5,6 +5,7 @@ import { mountHomeFill } from './home-fill.js';
 import { limitRows } from './home-fill-model.mjs';
 import { mountCollectionStatus } from './collection-status.js';
 import { mountTextBackfillNotice } from './text-backfill-notice.js';
+import { mountAiUsageLine } from './ai-usage-line.js';
 import { createHomeCache } from './home-read-cache.js';
 import { viewPrefs } from './view-prefs.js';
 import { normalizeCards, placement, cardOf } from './home-cards-model.mjs';
@@ -68,6 +69,8 @@ let epoch = 0,
   els = new Map(),
   extras = new Map(),
   collectLines = null,
+  aiLine = null,
+  aiMount = null,
   editMount = null;
 const metrics = {
   shellAt:
@@ -148,7 +151,10 @@ function placeCards() {
   const collectOn = plan.main.includes('collect') || plan.aside.includes('collect');
   // 마지막 수집 시각의 폰용 경고 줄·정상 줄은 그 칸과 같이 홈에 놓이거나 빠진다.
   const lines = collectLines && ((collectLines.alert.isConnected && collectLines.ok.isConnected) === collectOn);
-  if (same(left, want.main) && same(right, want.aside) && (lines ?? true)) return;
+  // AI-사용량줄: 'AI 사용량' 줄은 수집 칸 바로 아래(PC: 마지막 수집 시각 칸 아래, 폰: '수집 정상 ✓' 줄 자리 아래). 수집 칸을 빼면 같이 빠진다.
+  const aiAnchor = !aiLine || !collectOn ? null : phone ? collectLines?.ok : els.get('collect');
+  const aiPlaced = !aiLine || (aiAnchor ? aiAnchor.nextElementSibling === aiLine : !aiLine.isConnected);
+  if (same(left, want.main) && same(right, want.aside) && (lines ?? true) && aiPlaced) return;
   const focused = [...mine].find(el => el.contains(document.activeElement)) ? document.activeElement : null;
   for (const el of mine) if (!want.main.includes(el) && !want.aside.includes(el)) el.remove();
   want.main.forEach(el => left.append(el));
@@ -157,6 +163,7 @@ function placeCards() {
     if (collectOn) { if (!collectLines.alert.isConnected) left.insertBefore(collectLines.alert, left.querySelector('[data-home-text-done]')); if (!collectLines.ok.isConnected) right.after(collectLines.ok); }
     else { collectLines.alert.remove(); collectLines.ok.remove(); }
   }
+  if (aiLine) { const anchor = !collectOn ? null : phone ? collectLines?.ok : els.get('collect'); if (!anchor) aiLine.remove(); else if (anchor.nextElementSibling !== aiLine) anchor.after(aiLine); }
   focused?.focus({ preventScroll: true });
 }
 window.addEventListener('kptu:home-cards-changed', placeCards);
@@ -195,6 +202,14 @@ function shell() {
   collectMount = mountCollectionStatus(card('collect'), { alert: host.querySelector('[data-home-collect-alert]'), okLine: host.querySelector('[data-home-collect-ok]') });
   collectMount?.refresh();
   // LIB-글자채우기야간: '예전 자료 글자 읽기 끝남 (N개)' 한 줄. text-backfill-notice.js is the only renderer; same status answer as above.
+  // AI-사용량줄: ai-usage-line.js가 이 줄의 유일한 renderer. 함수 배포 전·표 없음이면 숨어 있다.
+  aiMount?.destroy();
+  aiLine = document.createElement('section');
+  aiLine.className = 'home-ai-usage';
+  aiLine.dataset.homeAiUsage = '';
+  aiLine.setAttribute('aria-label', 'AI 사용량');
+  aiMount = mountAiUsageLine(aiLine);
+  aiMount?.refresh();
   textDoneMount?.destroy();
   textDoneMount = mountTextBackfillNotice(host.querySelector('[data-home-text-done]'));
   textDoneMount?.refresh();

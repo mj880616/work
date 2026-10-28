@@ -12,6 +12,35 @@ export const AI_REASONING_TOKEN_HEADROOM = 1500;
 export const DEFAULT_PRICE_IN_KRW_PER_MTOK = 140;
 export const DEFAULT_PRICE_OUT_KRW_PER_MTOK = 700;
 
+// AI-사용량줄: 이번 달 AI 상한(추정 원). ai-assist(Web2 AI 전체)·collector-feed(텔레그램·통화 판정)의 MONTHLY_LIMIT_KRW와 같은 값이어야 한다(시험이 대조),
+// 홈 'AI 사용량' 줄(drive-summary GET ?action=ai_usage)이 같은 값으로 막대·80% 경고를 그린다.
+export const AI_MONTHLY_LIMIT_ASSIST_KRW = 15000;
+export const AI_MONTHLY_LIMIT_FEED_KRW = 6000;
+
+// AI-사용량줄: 회사 PC 전사·분석 스크립트(Gemini) 단가. 100만 토큰당 원(1달러 1,400원). 바뀌면 여기만 고친다.
+// 2025년 Google 공식 가격표 기준(유료 등급, 20만 토큰 이하 요청). 음성 입력은 글 입력보다 비싸 따로 둔다.
+// 모델 이름 앞부분으로 찾고(긴 것부터), 표에 없는 모델은 가장 비싼 줄(GEMINI_UNKNOWN_PRICE)로 세고 화면에 '단가 미확인'을 붙인다.
+export type GeminiPrice = { prefix: string; input: number; audio: number; output: number };
+const usd = (n: number) => Math.round(n * 1400 * 100) / 100;
+export const GEMINI_PRICES: readonly GeminiPrice[] = Object.freeze([
+  { prefix: "gemini-2.5-flash-lite", input: usd(0.10), audio: usd(0.30), output: usd(0.40) },
+  { prefix: "gemini-2.5-flash", input: usd(0.30), audio: usd(1.00), output: usd(2.50) },
+  { prefix: "gemini-2.5-pro", input: usd(1.25), audio: usd(1.25), output: usd(10.00) },
+  { prefix: "gemini-2.0-flash-lite", input: usd(0.075), audio: usd(0.075), output: usd(0.30) },
+  { prefix: "gemini-2.0-flash", input: usd(0.10), audio: usd(0.70), output: usd(0.40) },
+].sort((a, b) => b.prefix.length - a.prefix.length));
+export const GEMINI_UNKNOWN_PRICE: GeminiPrice = Object.freeze({ prefix: "", input: usd(2.00), audio: usd(2.00), output: usd(12.00) });
+export function geminiPrice(model: string): GeminiPrice | null {
+  const m = String(model || "").toLowerCase();
+  return GEMINI_PRICES.find((p) => m.startsWith(p.prefix)) ?? null;
+}
+// 음성 토큰은 입력 토큰의 일부다(Gemini usageMetadata.promptTokensDetails의 AUDIO). 출력에는 생각 토큰을 더해 보낸다.
+export function geminiKrw(model: string, input: number, audio: number, output: number): number {
+  const p = geminiPrice(model) ?? GEMINI_UNKNOWN_PRICE;
+  const i = Math.max(input, 0), a = Math.min(Math.max(audio, 0), i);
+  return ((i - a) * p.input + a * p.audio + Math.max(output, 0) * p.output) / 1_000_000;
+}
+
 // Web2 AI 요약 말투의 유일한 출처(AI-말투통일, 명진 결정 2026-10-27): 요약·정리 문장의 끝맺음을 '~함.'·'~임.' 식으로 통일한다.
 // - 요약을 만드는 서버 AI 지시문(텔레그램 소식·원장 자동 기록·원장 후보·원장 고치기·회의 정리)이 이 한 줄을 그대로 넣는다. 말투를 바꿀 때는 여기만 고친다.
 // - 앞으로 새로 만드는 요약부터 적용한다. 이미 저장된 요약은 바꾸지 않는다.
