@@ -746,11 +746,11 @@ export async function createDocEditor({host, value = null, onChange = null, labe
       // covers a composition starting there; this covers plain text input (a pasted word, a keyboard without composition).
       beforeinput(v, event) {
         // A keyboard's clipboard row (Samsung keyboard, Gboard) puts copied letters in as typed text: no paste event comes.
-        // Several letters at once that look like markdown are that paste (one typed key is one letter; a composition is not
-        // this input type).
+        // Several lines at once that look like markdown are that paste (typing, a word picked from the keyboard or dictation
+        // is one line; a composition is not this input type). One line of letters stays as typed ("# 새 메모" typed in a note).
         if (event.inputType === 'insertText' || event.inputType === 'insertReplacementText') {
           const text = event.data ?? event.dataTransfer?.getData('text/plain') ?? '';
-          if (text.length > 3 && !v.composing && !inCode(v.state) && looksLikeMarkdown(text)) {
+          if (/\n/.test(text) && !v.composing && !inCode(v.state) && looksLikeMarkdown(text)) {
             event.preventDefault();
             pendingPaste = {text, before: v.state.selection.from};
             pasteLetters(v, text);
