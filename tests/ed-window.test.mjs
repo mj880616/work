@@ -152,7 +152,7 @@ test('opened and closed untouched: the editor value equals the start, so no save
 });
 
 // ED③ 노트·업데이트·기록 (설계 11.4 순서 2·3·5·6): the note screens (note-window.js), the update entrances (update-window.js) and the
-// organization / project record screens (update-window.js for [크게], record-window.js for an edit) open the new window. The old
+// organization / project record screens (update-window.js for the organization's [크게], record-window.js for an edit) open the new window. The old
 // big windows (md-editor.js, write-window.js) are deleted; no file in app/ names them any more.
 test('the new write window is opened by the note, update and record screens; nothing names the old one', () => {
   for (const f of ['diary.js', 'home-read.js', 'journal.js']) assert.ok(!/update-window\.js|note-window\.js|record-window\.js/.test(readFileSync(`app/${f}`, 'utf8')), f);
@@ -162,7 +162,9 @@ test('the new write window is opened by the note, update and record screens; not
   assert.match(readFileSync('app/record-window.js', 'utf8'), /from '\.\/ed-window\.js'/);
   assert.match(readFileSync('app/basket-notes.js', 'utf8'), /import\('\.\/note-window\.js'\)/);
   assert.match(readFileSync('app/topbar-actions.js', 'utf8'), /import\('\.\/note-window\.js'\)/);
-  for (const f of ['home-quick.js', 'basket.js', 'topbar-actions.js', 'workplace-detail.js', 'project-system-v3.js']) assert.match(readFileSync(`app/${f}`, 'utf8'), /import\('\.\/update-window\.js'\)/, f);
+  for (const f of ['home-quick.js', 'basket.js', 'topbar-actions.js', 'workplace-detail.js']) assert.match(readFileSync(`app/${f}`, 'utf8'), /import\('\.\/update-window\.js'\)/, f);
+  // MTG-프로젝트합치기 3단계: 프로젝트 상세의 진행 기록 입력칸과 [크게]가 없어져, 상세는 업데이트 창을 열지 않는다(기록 고치기는 record-window.js).
+  assert.doesNotMatch(readFileSync('app/project-system-v3.js', 'utf8'), /update-window\.js/);
   for (const f of ['workplace-detail.js', 'project-system-v3.js']) assert.match(readFileSync(`app/${f}`, 'utf8'), /import\('\.\/record-window\.js'\)/, f);
   // ED③ 순서 6: the old window modules are gone and no source file refers to them (code, loader, css, html).
   for (const f of ['md-editor.js', 'write-window.js', 'md-editor.css', 'md-editor-ops.mjs', 'md-toolbar-layout.mjs']) assert.ok(!existsSync(`app/${f}`), f);

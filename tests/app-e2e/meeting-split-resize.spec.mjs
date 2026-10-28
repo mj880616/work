@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {installViewPrefsServer} from './helpers/view-prefs-server.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
+import {showAllReportWeeks} from './helpers/report-week.mjs';
 // MTG-3칸폭끌기(2026-10-26 요청): PC(≥1024) 사업 보고 3단(왼쪽 회의 종류 / 가운데 차수 / 오른쪽 결과)의 두 경계를 끌어 칸 폭을 바꾼다.
 // 할 일·프로젝트·담당조직과 같은 공용 app/split-resize.js(경계 여러 개). 기본 1/6 : 1/6 : 2/3, 경계는 이웃 두 칸만 움직이고, 칸마다 최소 폭
 // (종류·차수 120, 결과 360), 두 번 누르면 그 경계만 기본, 키보드 ←→·Home·End, 고른 폭은 서버(프로필 view_prefs.split_ratio.reports)에 기억한다.
@@ -25,6 +26,8 @@ async function open(page,width,options={}){
   await mockApp(page,columnState());
   await signIn(page,testOrigin+'/app/?view=meetings');
   await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
+  // MTG-프로젝트합치기 3단계: 가짜 보고가 여러 주에 걸쳐 있어(종류 둘을 다 보려고) [전체]로 모든 주를 본다.
+  await showAllReportWeeks(page);
   await expect(page.locator('#meetingList .mcol-layout>.split-resize-handle')).toHaveCount(2);
   // 오른쪽 결과의 후속 할 일까지 불러온 뒤(그 뒤에는 칸을 다시 그리지 않는다) 잰다.
   await expect(page.locator('#meetingList #mcolResult #mrdMeta')).toBeVisible();await expect(page.locator('#meetingList #mrdLoading')).toBeHidden();

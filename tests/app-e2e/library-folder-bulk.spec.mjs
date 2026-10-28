@@ -34,7 +34,7 @@ for(const width of [390,1280])test.describe(`일괄 수정 ${width}`,()=>{
   test(`한 줄 도구줄: 고른 것이 없으면 꺼져 있고, 고르면 켜진다 ${width}`,async({page})=>{
     const {errors}=await boot(page,width);
     await press(page,page.locator('#librarySelectBtn'),width);
-    const labels=['프로젝트 바꾸기','담당조직 바꾸기','분류 바꾸기','폴더로 옮기기','삭제'];
+    const labels=['사업영역 바꾸기','담당조직 바꾸기','분류 바꾸기','폴더로 옮기기','삭제'];
     for(const name of labels){await expect(bar(page).getByRole('button',{name,exact:true})).toBeVisible();await expect(bar(page).getByRole('button',{name,exact:true})).toBeDisabled()}
     await page.locator('[data-lu-pick="a-2"]').check();
     for(const name of labels)await expect(bar(page).getByRole('button',{name,exact:true})).toBeEnabled();
@@ -61,9 +61,9 @@ for(const width of [390,1280])test.describe(`일괄 수정 ${width}`,()=>{
   test(`프로젝트 바꾸기: 고른 자료 모두, 사용자 수정 표시, 칸 기록 user, 되돌리기 ${width}`,async({page})=>{
     const {s,errors}=await boot(page,width);
     await pick(page,['a-2','a1-1'],width);
-    await press(page,bar(page).getByRole('button',{name:'프로젝트 바꾸기',exact:true}),width);
+    await press(page,bar(page).getByRole('button',{name:'사업영역 바꾸기',exact:true}),width);
     await expect(page.locator('#luBulkMenu')).toBeVisible();
-    await expect(menuItem(page,'프로젝트 없음')).toBeVisible();
+    await expect(menuItem(page,'사업영역 없음')).toBeVisible();
     await press(page,menuItem(page,'민자철도 정책 대응'),width);
     await expect.poll(()=>s.patches.length).toBe(2);
     expect(s.patches.map(p=>p.id)).toEqual(['a-2','a1-1']);
@@ -71,7 +71,7 @@ for(const width of [390,1280])test.describe(`일괄 수정 ${width}`,()=>{
       expect(p.body.project_id).toBe('top-b');expect(p.body.auto_classified).toBe(false);expect(p.body.classification_note).toBe('사용자 수정');
       expect(p.body.field_origin).toEqual({project_id:'user',category:'ai'});expect(Object.keys(p.body).sort()).toEqual(['auto_classified','classification_note','field_origin','project_id','updated_at']);
     }
-    await expect(line(page)).toContainText('2개의 프로젝트을(를) 바꿨어요');
+    await expect(line(page)).toContainText('2개의 사업영역을(를) 바꿨어요');
     expect(s.docs.find(d=>d.id==='a1-1').project_id).toBe('top-b');
     expect(s.docs.find(d=>d.id==='a-1').project_id).toBe('top-a');
     // LIB-후속1 ③: 일괄 작업이 끝나면 선택 모드는 저절로 풀린다.

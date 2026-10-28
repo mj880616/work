@@ -364,6 +364,9 @@ jobs:
       - name: Check business report area tag and next plan (MTG-프로젝트합치기 2단계)
         run: node --test tests/business-area-model.test.mjs
 
+      - name: Check business report week list (MTG-프로젝트합치기 3단계)
+        run: node --test tests/report-week.test.mjs
+
       - name: Check hardcoded color baseline (STAB-단위시험등록)
         run: node --test tests/hardcoded-colors.test.mjs tests/context-menu-sites.test.mjs
 
@@ -622,9 +625,9 @@ jobs:
           grep -q "data-ps3-delete-project" app/project-system-v3.js
           grep -q 'owner_id=eq.${encodeURIComponent(userId)}' app/project-catalog.js
           grep -q 'catalog.fetchSpaces(wid,user.id)' app/project-system-v3.js
-          grep -q "data-ps3-record-input" app/project-system-v3.js
           grep -q "data-ps3-records" app/project-system-v3.js
-          grep -q "workstream_id:null,author_id:e.owner,status_label:null" app/project-system-v3.js
+          # MTG-프로젝트합치기 3단계: 상세 맨 위 진행 기록 입력칸은 없다(기록은 사업 보고 한 곳, 표·데이터 보존).
+          if grep -Eq 'data-ps3-record-input|saveRecordInput|openRecordBig' app/project-system-v3.js; then echo 'project record input returned'; exit 1; fi
           grep -q "data-ps3-basket-note" app/project-system-v3.js
           grep -q ".ps3-rec-line" app/project-system-v3.css
           if grep -Eq "data-ps3-add-ws|data-ps3-progress-item|data-ps3-quick-progress|ps3ProgressModal" app/project-system-v3.js; then echo 'retired per-item progress UI returned'; exit 1; fi

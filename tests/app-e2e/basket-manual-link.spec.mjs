@@ -85,7 +85,7 @@ test('organization and project linked together in one call, each with its own su
  await summary(detail,o,'organization').fill('조직 요약');await summary(detail,p,'project').fill('프로젝트 요약');
  await detail.getByRole('button',{name:'연결',exact:true}).click();await expect(detail.locator('[data-basket-status]')).toHaveText('2곳에 연결했어요.');
  expect(f.calls).toHaveLength(1);expect(f.calls[0].p_targets).toEqual([{kind:'organization',target_id:o,reason:'직접 연결',summary:'조직 요약'},{kind:'project',target_id:p,reason:'직접 연결',summary:'프로젝트 요약'}]);
- await expect(detail.locator('[data-basket-state]')).toContainText('프로젝트: 합성 기자회견 준비');expect(f.errors).toEqual([]);
+ await expect(detail.locator('[data-basket-state]')).toContainText('사업영역: 합성 기자회견 준비');expect(f.errors).toEqual([]);
 });
 
 test('an already linked place is shown as linked and cannot be chosen again; a removed pick is not sent',async({page})=>{
@@ -101,7 +101,7 @@ test('an already linked place is shown as linked and cannot be chosen again; a r
 
 test('no pick never calls the database',async({page})=>{
  const f=await fixture(page),detail=await openNote(page,1280);await detail.getByRole('button',{name:'연결하기'}).click();
- await detail.getByRole('button',{name:'연결',exact:true}).click();await expect(detail.locator('[data-manual-status]')).toHaveText('연결할 담당조직이나 프로젝트를 골라 주세요.');
+ await detail.getByRole('button',{name:'연결',exact:true}).click();await expect(detail.locator('[data-manual-status]')).toHaveText('연결할 담당조직이나 사업영역을 골라 주세요.');
  expect(f.calls).toEqual([]);expect(f.errors).toEqual([]);
 });
 
@@ -210,5 +210,5 @@ test('the task form is not rebuilt when the project list arrives, so a tap in pr
  release();await loaded;await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>setTimeout(r,0))));
  await expect(detail.locator('[data-manual-task-day="tomorrow"][data-marker="same"]')).toHaveCount(1);
  await expect(detail.locator('[data-manual-task-title][data-marker="same"]')).toHaveValue('쓰는 중');await expect(detail.locator('[data-manual-task-title]')).toBeFocused();
- await expect(detail.locator('[data-manual-task-project]')).toHaveText('프로젝트 ▾');expect(f.errors).toEqual([]);
+ await expect(detail.locator('[data-manual-task-project]')).toHaveText('사업영역 ▾');expect(f.errors).toEqual([]);
 });

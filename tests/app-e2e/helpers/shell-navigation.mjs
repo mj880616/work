@@ -25,6 +25,15 @@ export async function clickView(page,view){
     await direct.click();
     return;
   }
+  // MTG-프로젝트합치기 3단계: [프로젝트] 메뉴가 없다. 사업영역 관리(라우터 이름 projects)는 사람처럼 사업 보고 ⋯ → [사업영역 관리]로 연다.
+  if(view==='projects'){
+    await clickView(page,'meetings');
+    // ⋯ 안 [사업영역 관리]의 처리기는 사업 보고 화면 모듈(team.js)이 붙이므로, 그 화면이 다 뜬 뒤에 누른다.
+    await page.waitForFunction(()=>!document.querySelector('#meetingsView')?.classList.contains('hidden')&&window.KPTUViewLoader?.isLoaded?.('meetings')!==false);
+    await page.locator('#meetingsView #reportMore summary:visible').click();
+    await page.locator('#meetingsView #reportMore [data-report-areas]:visible').click();
+    return;
+  }
   // Phone (8-9e-2): the [일정] tab opens the side seen last; [달력 | 할 일] on top switches.
   const schedule=page.locator('.mobile-tabs [data-mobile-schedule-tab]:visible');
   if(['calendar','tasks'].includes(view)&&await schedule.count()){

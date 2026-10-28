@@ -124,8 +124,8 @@ for(const width of [390,1280])test(`검색·종류 거르기: 맞는 토글만 �
 for(const width of [390,1280])test(`묶기 전환: 담당조직·종류·월별은 같은 얇은 토글(폴더 없음), 바꾸면 접힌 채 ${width}`,async({page})=>{
   const {errors}=await boot(page,width,{folders:[{id:'f-1',project_id:'top-a',parent_id:null,name:'가상 폴더',sort_order:1024,created_at:'2026-10-01T00:00:00Z'}],items:[]});
   const group=page.locator('#libraryGroupBy');
-  await expect(group).toHaveAttribute('role','radiogroup');await expect(group.getByRole('radio')).toHaveText(['폴더','프로젝트','담당조직','분류','월별']);
-  await expect(group.getByRole('radio',{name:'프로젝트'})).toHaveAttribute('aria-checked','true');
+  await expect(group).toHaveAttribute('role','radiogroup');await expect(group.getByRole('radio')).toHaveText(['폴더','사업영역','담당조직','분류','월별']);
+  await expect(group.getByRole('radio',{name:'사업영역'})).toHaveAttribute('aria-checked','true');
   await expect(group.getByRole('radio').first()).toHaveCSS('height','32px');
   await libraryNodeHead(page,'p:top-a').click();
   await group.getByRole('radio',{name:'월별'}).click();
@@ -139,7 +139,7 @@ for(const width of [390,1280])test(`묶기 전환: 담당조직·종류·월별�
   await expect(page.locator('#documentList > details > summary .lu-node-name')).toHaveText(['가상 지부','조직 없음']);
   await libraryNodeHead(page,'o:org-1').click();expect(await visibleRows(page)).toEqual(['none-1']);
   // 키보드로 묶기 칩을 옮긴다(공용 알약 칩: 화살표).
-  await group.getByRole('radio',{name:'담당조직'}).focus();await page.keyboard.press('ArrowLeft');await expect(group.getByRole('radio',{name:'프로젝트'})).toHaveAttribute('aria-checked','true');
+  await group.getByRole('radio',{name:'담당조직'}).focus();await page.keyboard.press('ArrowLeft');await expect(group.getByRole('radio',{name:'사업영역'})).toHaveAttribute('aria-checked','true');
   await expect(page.locator('#documentList [data-lu-node-kind="folder"]')).toHaveCount(1);
   expect(await noScroll(page)).toBe(true);expect(errors).toEqual([]);
 });

@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
-// MTG-기록겹침거르기 3단계 나머지: 홈 [업데이트] 프로젝트 기록·여러 곳 연결 업데이트·담당조직 기록도 저장이 끝나면 같은 "비슷한 기록이 있어요" 알림을 낸다.
+// MTG-기록겹침거르기 3단계 나머지: 홈 [업데이트] 사업영역 한 곳(MTG-프로젝트합치기 3단계부터 연결 업데이트)·여러 곳 연결 업데이트·담당조직 기록도 저장이 끝나면 같은 "비슷한 기록이 있어요" 알림을 낸다.
 // 진짜 앱이 Chromium에서 돌고, Supabase REST·ai-assist·판정 저장·연결 저장 경계만 모의다. 이름은 모두 합성 값이다.
 // openHome은 브라우저 시계를 2026-10-06T01:00:00Z(서울 10.6)로 고정한다.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -46,25 +46,30 @@ async function pick(page,q,...names){
   await dialog(page).getByRole('button',{name:'저장',exact:true}).click();
 }
 
-test('MTG-겹침 홈 [업데이트]로 프로젝트에 기록하면 저장된 기록의 id로 확인하고 알림이 뜬다',async({page})=>{
+// MTG-프로젝트합치기 3단계: 사업영역(프로젝트) 하나는 진행 기록이 아니라 정리함 업데이트 + 연결이므로, 연결이 끝난 뒤 그 업데이트(basket)로 확인한다.
+test('MTG-겹침 홈 [업데이트]로 사업영역 하나에 기록하면 연결된 업데이트의 id로 확인하고 알림이 뜬다',async({page})=>{
   const q=await homeUpdate(page);const calls=await overlap(page);
-  const posts=[];
-  await page.route(SB+'/rest/v1/app_project_progress_updates',route=>{
+  const NOTE='f0000000-0000-4000-8000-000000000005',posts=[],links=[],progress=[];
+  await page.route(SB+'/rest/v1/app_project_progress_updates',route=>{if(route.request().method()!=='POST')return route.fallback();progress.push(route.request().postDataJSON());return route.fulfill({status:200,json:[]});});
+  await page.route(SB+'/rest/v1/app_notes**',route=>{
     if(route.request().method()!=='POST')return route.fallback();
     const body=route.request().postDataJSON();posts.push({body,prefer:route.request().headers().prefer||''});
-    return route.fulfill({status:200,json:[{...body,id:UID,created_at:new Date().toISOString(),updated_at:new Date().toISOString()}]});
+    return route.fulfill({status:200,json:[{...body,id:NOTE,kind:'basket',occurred_at:'2026-10-06T01:00:00Z',updated_at:'2026-10-06T01:00:00Z',ai_export_allowed:true}]});
   });
+  await page.route(SB+'/rest/v1/rpc/app_basket_confirm_links',route=>{links.push(route.request().postDataJSON());return route.fulfill({status:200,json:{ok:true,created:1,existing:0}});});
   await pick(page,q,'테스트 프로젝트');
   await q.locator('[data-quick-save]').click();
   await expect(notice(page)).toBeVisible();
   await expect(notice(page)).toContainText('비슷한 기록이 있어요');await expect(notice(page)).toContainText(TITLE);
+  expect(progress).toEqual([]);
   expect(posts).toHaveLength(1);expect(posts[0].prefer).toContain('return=representation');
+  expect(links).toEqual([{p_note_id:NOTE,p_note_updated_at:'2026-10-06T01:00:00Z',p_targets:[{kind:'project',target_id:'p',reason:'직접 연결'}]}]);
   expect(calls.ai).toHaveLength(1);
-  expect(calls.ai[0].pairs).toEqual([{a:`meeting:${MID}`,b:`project_update:${UID}`}]);
+  expect(calls.ai[0].pairs).toEqual([{a:`basket:${NOTE}`,b:`meeting:${MID}`}]);
   await notice(page).getByRole('button',{name:'연결로 바꾸기'}).click();
-  await expect(notice(page)).toContainText('연결했어요. 쓴 글은 연결 메모로 붙였어요.');
+  await expect(notice(page)).toContainText('연결했어요');
   expect(calls.setLinks).toHaveLength(1);
-  expect(calls.setLinks[0].p_targets).toEqual([{kind:'project',target_id:'p',summary:'출정 기자회견 진행함'}]);
+  expect(calls.setLinks[0].p_targets.map(t=>[t.kind,t.target_id,t.summary])).toEqual([['project','p','출정 기자회견 진행함']]);
   expect(calls.verdicts[0].p_pairs[0]).toMatchObject({verdict:'same',decided_by:'user'});
 });
 

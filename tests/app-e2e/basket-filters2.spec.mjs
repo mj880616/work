@@ -97,9 +97,9 @@ for(const width of [390,1280])for(const scheme of ['light','dark'])test(`[분류
  await expect(subs.locator('[aria-checked="true"]')).toHaveText('합성 두리지부');await expect.poll(()=>shown(page)).toEqual([ORG_B]);
 
  // ② Changing the place starts its own row at [모든 ○○]. [프로젝트]: a link's project and a [자료로 넣기] project.
- await tap(page,place('프로젝트'),width);await expect(subs).toHaveAttribute('aria-label','프로젝트');
- await expect(subs.getByRole('radio')).toHaveText(['모든 프로젝트 2','합성 궤도','합성 임단협']);
- await expect(subs.locator('[aria-checked="true"]')).toHaveText('모든 프로젝트 2');expect(await shown(page)).toEqual([PROJ_X,FILED]);
+ await tap(page,place('사업영역'),width);await expect(subs).toHaveAttribute('aria-label','사업영역');
+ await expect(subs.getByRole('radio')).toHaveText(['모든 사업영역 2','합성 궤도','합성 임단협']);
+ await expect(subs.locator('[aria-checked="true"]')).toHaveText('모든 사업영역 2');expect(await shown(page)).toEqual([PROJ_X,FILED]);
  await tap(page,subChip('합성 궤도'),width);await expect.poll(()=>shown(page)).toEqual([FILED]);
  await capture(page,info,`basket-sub-project-${width}-${scheme}`);
 

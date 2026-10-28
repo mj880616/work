@@ -4,6 +4,7 @@ import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {fillDateTime} from './helpers/date-time.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
+import {showAllReportWeeks} from './helpers/report-week.mjs';
 import {mrdMenu,openMeetingResult,closeMeetingResult} from './helpers/meeting-open.mjs';
 
 test.use({timezoneId:'Asia/Seoul'});
@@ -27,6 +28,8 @@ async function open(page,s,width){
   await page.setViewportSize({width,height:900});await mockApp(page,s);
   await signIn(page,testOrigin+'/app/?view=reports');await page.waitForFunction(()=>window.KPTUViewLoader?.isLoaded('meetings'));
   await expect(page.locator('#meetingsView')).toBeVisible();
+  // MTG-프로젝트합치기 3단계: 칸별 가짜 보고가 여러 주(10.1~10.21)에 걸쳐 있어 [전체]로 모든 주를 본다(칸 거르기만 시험한다).
+  await showAllReportWeeks(page);
 }
 const chips=page=>page.locator('#reportKindFilter');
 const chip=(page,name)=>chips(page).getByRole('radio',{name,exact:true});

@@ -35,7 +35,7 @@ test('cancelled confirmation sends no write',async()=>{
   const note=rtFor(async(path,options={})=>{calls.push({path,...options});return path.includes('app_notes')?[{id:'note',attachments:[{},{}]}]:[{id:'l1',organization_id:'o'},{id:'l2',project_id:'p'}];});
   const {result:noteResult,calls:asked}=await withConfirm(false,()=>mod.deleteNoteOriginal('note',{rt:note}));
   assert.equal(noteResult.status,'cancelled');
-  assert.deepEqual(asked,['업데이트 원문을 지웁니다. 연결된 조직·프로젝트 2곳에서도 사라집니다. 첨부 파일 2개는 Drive 휴지통으로 옮깁니다(30일 안에 복구 가능).']);
+  assert.deepEqual(asked,['업데이트 원문을 지웁니다. 연결된 조직·사업영역 2곳에서도 사라집니다. 첨부 파일 2개는 Drive 휴지통으로 옮깁니다(30일 안에 복구 가능).']);
   assert.ok(calls.every(call=>!call.method||call.method==='GET'));
 });
 
@@ -44,7 +44,7 @@ test('note delete targets exactly that note id and workspace; links go by cascad
   const rt=rtFor(async(path,options={})=>{calls.push({path,...options});if(options.method==='DELETE')return [{id:'n1'}];return path.includes('app_notes')?[{id:'n1',attachments:[]}]:[{id:'l1',organization_id:'o'},{id:'l2',meeting_id:'m'}];});
   const {result,calls:asked}=await withConfirm(true,()=>mod.deleteNoteOriginal('n1',{rt}));
   assert.equal(result.status,'deleted');assert.equal(result.message,'업데이트를 지웠어요.');
-  assert.match(asked[0],/조직·프로젝트 1곳/);assert.match(asked[0],/사업 보고·자료실 연결 1곳/);assert.doesNotMatch(asked[0],/첨부/);
+  assert.match(asked[0],/조직·사업영역 1곳/);assert.match(asked[0],/사업 보고·자료실 연결 1곳/);assert.doesNotMatch(asked[0],/첨부/);
   const writes=calls.filter(call=>call.method==='DELETE');
   assert.equal(writes.length,1);
   const url=q(writes[0].path);
@@ -118,7 +118,7 @@ const body=(extra={})=>({action:'note-delete',note_id:'n1',attachments_total:2,t
 test('note with attachments posts once to basket-files note-delete with the user JWT and no REST delete',async()=>{
   events.length=0;const c=serverCase({reply:{status:200,body:body()}});
   const {result,calls:asked}=await withConfirm(true,()=>mod.deleteNoteOriginal('n1',{rt:c.rt,fetcher:c.fetcher}));
-  assert.deepEqual(asked,['업데이트 원문을 지웁니다. 연결된 조직·프로젝트 1곳에서도 사라집니다. 첨부 파일 2개는 Drive 휴지통으로 옮깁니다(30일 안에 복구 가능).']);
+  assert.deepEqual(asked,['업데이트 원문을 지웁니다. 연결된 조직·사업영역 1곳에서도 사라집니다. 첨부 파일 2개는 Drive 휴지통으로 옮깁니다(30일 안에 복구 가능).']);
   assert.deepEqual(result,{status:'deleted',message:'업데이트를 지우고 첨부를 Drive 휴지통으로 옮겼어요.'});
   assert.equal(c.posts.length,1);
   assert.equal(c.posts[0].url,'https://sb.invalid/functions/v1/basket-files?action=note-delete');

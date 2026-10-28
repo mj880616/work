@@ -144,14 +144,14 @@ test('library selectors match the canonical project hierarchy on direct entry wi
   await page.locator('#newDocumentBtn').click();
   await expect(page.locator('#documentModal')).toBeVisible();
   const upload=await optionsOf(page,'#docProject');
-  expect(upload[0]).toEqual({value:'',text:'프로젝트 없음',stale:false});
+  expect(upload[0]).toEqual({value:'',text:'사업영역 없음',stale:false});
   expect(upload.slice(1).map(o=>[o.value,o.text])).toEqual(EXPECTED);
   await expect(page.locator('#docProject')).toHaveValue('');
 
   // LIB-토글트리: 자료실의 프로젝트 차례는 트리다. 활성 1단 프로젝트(자료가 없어도)와 자료가 있는 하위, 그 뒤 보관·옛 공간·확인 불가 연결, 맨 아래 '프로젝트 없음'.
   expect(await treeProjects(page)).toEqual([
     ['top-a','공공기관 기능개혁 대응'],['child-a1','국토부 대응'],['top-b','민자철도 정책 대응'],['orphan-1','고아 하위 프로젝트'],
-    ['top-c','[보관됨] 보관된 상위'],['legacy-1','[이전 공간] 기존 일반 공간'],['gone-1','[확인할 수 없는 프로젝트]'],['none','프로젝트 없음']
+    ['top-c','[보관됨] 보관된 상위'],['legacy-1','[이전 공간] 기존 일반 공간'],['gone-1','[확인할 수 없는 사업영역]'],['none','사업영역 없음']
   ]);
   for(const hidden of ['child-a3','child-c1','other-owner'])await expect(libraryNode(page,'p:'+hidden)).toHaveCount(0);
 
@@ -201,7 +201,7 @@ test('upload sends the exact selected parent or child project id and rejects sta
   await page.locator('#libraryFileInput').setInputFiles({name:'stale.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4')});
   await page.locator('#docProject').evaluate(s=>{s.add(new Option('보관된 상위','top-c'));s.value='top-c'});
   await page.locator('#saveDocumentBtn').click();
-  await expect(page.locator('#documentStatus')).toContainText('프로젝트를 다시 선택');
+  await expect(page.locator('#documentStatus')).toContainText('사업영역을 다시 선택');
   await expect(page.locator('#docProject')).toHaveValue('');
   expect(state.uploads).toHaveLength(2);
 });
@@ -254,7 +254,7 @@ test('server-side missing project maps to the stale project message and refreshe
   await page.locator('#docProject').selectOption('top-b');
   state.spaces=state.spaces.map(x=>x.id==='top-b'?{...x,status:'archived'}:x);
   await page.locator('#saveDocumentBtn').click();
-  await expect(page.locator('#documentStatus')).toHaveText('선택한 프로젝트를 더 이상 사용할 수 없습니다. 프로젝트를 다시 선택해 주세요.');
+  await expect(page.locator('#documentStatus')).toHaveText('선택한 사업영역을 더 이상 사용할 수 없습니다. 사업영역을 다시 선택해 주세요.');
   await expect(page.locator('#docProject')).toHaveValue('');
   await expect(page.locator('#docProject option[value="top-b"]')).toHaveCount(0);
   await expect(page.locator('#documentModal')).toBeVisible();

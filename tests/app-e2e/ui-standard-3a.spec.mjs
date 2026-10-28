@@ -3,6 +3,7 @@ import {expandLibraryTree} from './helpers/library-tree.mjs';
 import {clickView} from './helpers/shell-navigation.mjs';
 import {enterLogin} from './helpers/login-entry.mjs';
 import {testOrigin} from './helpers/test-origin.mjs';
+import {showAllReportWeeks} from './helpers/report-week.mjs';
 import {openClassification} from './helpers/basket-more.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 // UI-디자인기준 3/3 1부(8-9e-1): 담당조직·자료실·회의를 새 기준(버튼 높이 하나·버튼 4종·모서리 8px·13px/500·0.5px 상자 안 줄 단위)으로,
@@ -163,6 +164,8 @@ for(const width of [390,1280])test(`자료실: 종류 색(확장자, 없으면 D
 for(const width of [390,1000])test(`회의: 줄 단위 목록·색 점 없음·필터·버튼 ${width}`,async({page})=>{
  const {errors}=await boot(page,width);
  await view(page,'meetings');
+ // MTG-프로젝트합치기 3단계: 두 보고가 다른 주(10.14·10.10, 시계 10.16)라 [전체]로 모든 주를 본다. 주 줄의 작은 버튼도 아래 버튼 기준 검사에 든다.
+ await showAllReportWeeks(page);
  const rows=page.locator('#meetingList .meeting-list-row');await expect(rows).toHaveCount(2);
  await rowText(page,rows.locator('h3'));await metaText(page,rows.locator('p'));
  for(const row of await rows.all()){const s=await look(row);expect(s.height).toBeGreaterThanOrEqual(44);expect(s.radius).toBe('0px');}

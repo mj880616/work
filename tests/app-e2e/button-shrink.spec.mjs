@@ -77,10 +77,8 @@ for(const width of [390,1280]){
  test(`프로젝트·담당조직 상세 버튼 ${width}`,async({page})=>{
   const errors=await boot(page,width);
   await go(page,'projects');await page.locator('#projectGrid [data-ps3-project="p"]').first().click();await expect(page.locator('#ps3DetailModal')).toBeVisible();
-  // PRJ-기록버튼줄이기(2026-10-22 사용자 결정 14:21): 기록 입력칸·[기록]은 36px 한 높이·한 줄, [큰 창에서 쓰기]는 입력칸 안 보조 32px, 누르는 범위 44px.
-  const rec=await check(page.locator('#ps3DetailModal [data-ps3-record-input] > button.primary'),36,'프로젝트 [기록]'),input=await measure(page.locator('#ps3DetailModal [data-ps3-record-input] input'));
-  expect(input.h,'기록 입력칸 높이').toBe(36);expect(rec.h).toBe(input.h);expect(rec.top).toBe(input.top);expect(rec.bottom).toBe(input.bottom);
-  const rbig=await check(page.locator('#ps3DetailModal [data-ps3-record-big]'),32,'프로젝트 [큰 창에서 쓰기]');expect(rbig.top).toBeGreaterThanOrEqual(input.top);expect(rbig.bottom).toBeLessThanOrEqual(input.bottom);expect(rbig.right).toBeLessThanOrEqual(input.right);
+  // MTG-프로젝트합치기 3단계: 기록 입력칸·[기록]·[큰 창에서 쓰기]는 없어졌다(기록은 사업 보고 한 곳). 잴 버튼이 없음을 확인한다.
+  await expect(page.locator('#ps3DetailModal [data-ps3-record-input],#ps3DetailModal [data-ps3-record-big]')).toHaveCount(0);
   // TASK-바로처리통일: 할 일 줄 [연결 해제]는 줄 ⋯ 안(공용 할 일 줄)이라 따로 잴 버튼이 없다.
   await expect(page.locator('#ps3DetailModal .gt-linked').getByRole('button',{name:/연결 해제/})).toHaveCount(0);
   await page.keyboard.press('Escape');

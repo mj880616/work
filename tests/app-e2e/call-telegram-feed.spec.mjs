@@ -91,7 +91,7 @@ test('PC 1280: 사이드바 맨 아래 [통화]·[텔레그램 소식], 자주 �
  expect(below).toBe(true);
  // 하단 탭은 늘지 않는다.
  await page.setViewportSize({width:390,height:860});
- await expect(page.locator('.mobile-tabs > button')).toHaveText(['홈','정리함','일정','프로젝트','담당조직','메뉴']);
+ await expect(page.locator('.mobile-tabs > button')).toHaveText(['홈','정리함','일정','사업 보고','담당조직','메뉴']);
  expect(f.errors).toEqual([]);
 });
 
