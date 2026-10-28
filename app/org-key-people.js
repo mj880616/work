@@ -1,3 +1,4 @@
+import {waitHtml} from './wait-state.js';
 // ORG-주요인물 화면: 담당조직 상세 맨 아래 작은 탭 [주요 인물][기본 정보][소속][이전 요약] 중 [주요 인물] 칸의 유일한 renderer.
 // 칩 줄([모두][이름…][+ 인물]) → '요즘' 한 문장(조직 단위, 하루 한 번) → 열린 것(약속·챙길 것) → 지난 기록(통화·텔레그램·회의).
 // - 지정·찾을 이름은 서버 표 app_org_key_people(20261029014700). 표가 없으면(적용 전) 조용히 '준비 중' 한 줄.
@@ -111,7 +112,7 @@ function paint() {
   if (!ui) return;
   const {host, status, people, canEdit} = ui;
   setTabCount();
-  if (status === 'loading' && !people.length) { host.innerHTML = '<p class="okp-faint" role="status">불러오는 중…</p>'; return; }
+  if (status === 'loading' && !people.length) { host.innerHTML = waitHtml({rows:3}); return; }
   if (status === 'missing') { host.innerHTML = '<p class="okp-faint" data-okp-preparing>준비 중이에요.</p>'; return; }
   if (status === 'error') { host.innerHTML = '<p class="okp-faint" role="alert">주요 인물을 불러오지 못했어요. <button type="button" class="okp-link" data-okp-retry>다시 시도</button></p>'; return; }
   const chips = [`<button type="button" class="okp-chip" data-okp-pick="" aria-pressed="${!ui.pick}">모두</button>`]

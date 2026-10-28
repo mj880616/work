@@ -1,3 +1,4 @@
+import {waitHtml} from './wait-state.js';
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {
   LOCKED_CATEGORY,CATEGORY_NAME_LIMIT,documentCategories,documentCategoriesLoaded,loadDocumentCategories,categoryNameProblem,categoryErrorText,
@@ -28,7 +29,7 @@ export function mountCategoryEditor(host,{documents=()=>[],refresh=async()=>docu
     return `<li class="dce-row" data-dce-row="${esc(name)}"><span class="dce-name">${esc(name)}</span><span class="dce-meta">자료 ${countOf(name)}개</span><span class="dce-actions"><button type="button" class="secondary" data-dce-rename="${esc(name)}" aria-label="${esc(name)} 이름 바꾸기" ${busy?'disabled':''}>이름 바꾸기</button><button type="button" class="danger" data-dce-delete="${esc(name)}" aria-label="${esc(name)} 지우기" ${busy?'disabled':''}>지우기</button></span></li>`;
   }
   function paint(){
-    if(loading){host.innerHTML='<section class="dce" aria-labelledby="dceTitle"><h3 id="dceTitle">분류 목록</h3><p class="dce-note" role="status">분류 목록을 불러오는 중…</p></section>';return;}
+    if(loading){host.innerHTML='<section class="dce" aria-labelledby="dceTitle"><h3 id="dceTitle">분류 목록</h3>'+waitHtml({rows:3})+'</section>';return;}
     if(!documentCategoriesLoaded()){
       host.innerHTML=`<section class="dce" aria-labelledby="dceTitle"><h3 id="dceTitle">분류 목록</h3><p class="dce-note" role="status">${esc(CATEGORY_EDITOR_TEXT.loadFailed)}</p><div class="dce-actions"><button type="button" class="secondary" data-dce-reload ${busy?'disabled':''}>다시 불러오기</button></div></section>`;
       return;

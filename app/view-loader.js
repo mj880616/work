@@ -207,5 +207,44 @@ async function loadAll(){
   for(const view of ['home','basket','calendar','tasks','projects','library','meetings','pages','team'])await load(view);
   return true
 }
-window.KPTUViewLoader={load,loadAll,prepare,normalize,isLoaded:view=>loaded.has(normalize(view))};
+// UI-기다림표시통일 ⑤: 메뉴 화면 프로그램 미리 받기. 앱을 켠 뒤 쉬는 틈에(loader-v2.js) 메뉴 화면의 첫 프로그램과 모양 파일을 받아만 둔다
+// (modulepreload·prefetch: 실행·적용하지 않음 → 화면·자료에 영향 없음). 처음 눌러도 '불러오는 중'이 거의 안 보이게 한다. 기기 저장 없이 브라우저 기본 캐시만.
+// HWP 편집기(약 20MB)·아스날은 받지 않는다. 주소는 위 화면별 불러오기와 같은 글자(Pages 빌드가 같은 해시 번호를 붙인다).
+const warmModules={
+  basket:['./basket.js'],
+  calendar:['./calendar-month-view.js','./calendar-view.js','./calendar-plus.js'],
+  tasks:['./project-catalog.js','./organization-order.js','./google-tasks.js'],
+  journal:['./journal.js'],
+  diary:['./diary.js'],
+  projects:['./project-system-v3.js'],
+  library:['./library-upload.js'],
+  meetings:['./task-workflow.js','./meeting-round-detail.js'],
+  pages:['./share-pages.js','./web1-board.js'],
+  team:['./suborganizations.js','./workplace-detail.js'],
+  ledger:['./ledger-browse.js'],
+  reference:['./reference-bundles.js'],
+  calls:['./call-feed.js'],
+  telegram:['./telegram-feed.js'],
+  photos:['./photos.js']
+};
+const warmed=new Set();
+function hint(rel,path,as){
+  const href=new URL(path,location.href).href;
+  if(warmed.has(href))return;
+  warmed.add(href);
+  const link=document.createElement('link');
+  link.rel=rel;link.href=path;if(as)link.as=as;link.dataset.kptuWarm='1';
+  document.head.appendChild(link);
+}
+function warm(){
+  if(navigator.connection?.saveData)return false;
+  const have=new Set([...document.querySelectorAll('link[rel="stylesheet"]')].map(link=>link.href));
+  for(const [view,paths] of Object.entries(warmModules)){
+    if(loaded.has(view))continue;
+    for(const path of paths)hint('modulepreload',path);
+    for(const path of routeStyles[view]||[])if(!have.has(new URL(path,location.href).href))hint('prefetch',path,'style');
+  }
+  return true
+}
+window.KPTUViewLoader={load,loadAll,prepare,normalize,warm,isLoaded:view=>loaded.has(normalize(view))};
 })();

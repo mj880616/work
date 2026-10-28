@@ -1,3 +1,4 @@
+import {waitHtml, failHtml} from './wait-state.js';
 // 주소 개편 ② E1(docs/design/domain-move.md 2절, 시안 docs/design/mockups/domain-move.html): '아스날' 화면(?view=arsenal). #arsenalView의 유일한 그리기 주인.
 // - 자료 app/arsenal/matches.js(window.ARSENAL_MATCHES)는 이 화면을 처음 열 때만 불러온다(view-loader가 이 모듈도 열 때만 부름 → 첫 화면 속도 영향 없음).
 // - 위 줄: 시즌·대회 고르기·상대 검색·경기 수. 아래: 경기 목록(최신순) + 고른 경기 리뷰.
@@ -99,7 +100,7 @@ function paint() {
   const list = $('[data-ars-list]'), detail = $('[data-ars-detail]'), count = $('[data-ars-count]');
   if (!matches) {
     count.textContent = '';
-    list.innerHTML = failed ? '<p class="ars-note">경기 기록을 불러오지 못했음. <button type="button" class="ars-small" data-ars-retry>다시</button></p>' : '<p class="ars-note">불러오는 중…</p>';
+    list.innerHTML = failed ? failHtml({retry: 'data-ars-retry'}) : waitHtml({rows:5});
     detail.replaceChildren();
     root.dataset.open = 'false';
     return;

@@ -1,3 +1,4 @@
+import {waitHtml} from './wait-state.js';
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {renderFilterChips} from './filter-chips.js';
@@ -205,7 +206,7 @@ function selectedMeetingColumn(columns=meetingColumnList()){return columns.find(
 function renderMeetingRows(box){renderMeetingTypeOptions();const chip=reportChip,filter=chip===DEFAULT_KIND?$('#meetingTypeFilter')?.value||'all':'all';const rows=sortRecentFirst(reportRows().filter(m=>filter==='all'||(filter==='__none__'?!meetingName(m):meetingName(m)===filter)));box.innerHTML=rows.map(m=>{const related=documents.filter(d=>d.meeting_id===m.id),color=meetingColor(meetingName(m)),name=meetingName(m)||'회의명 미지정',meta=[chip===ALL_KINDS?reportKindLabel(reportKindOf(m)):null,...meetingRowMeta(m),areaNameOf(m),related.length?MEETING_DOCS_LABEL:null].filter(Boolean).join(' · ');return `<article class="item-card meeting-list-row" data-mrd-meeting="${esc(m.id)}" data-report-kind="${esc(reportKindOf(m))}"${color?` style="--meeting-color:${color}"`:''} role="button" tabindex="0"><div class="meeting-list-main"><div class="meeting-list-title"><h3>${esc(name)}</h3></div><p>${esc(meta)}</p></div></article>`}).join('')||`<div class="empty">${chip===DEFAULT_KIND||chip===ALL_KINDS?'조건에 맞는 사업 보고가 없습니다.':'이 칸에 사업 보고가 없습니다.'}</div>`}
 // MTG-고치기바로: 세 번째 칸의 안쪽은 이 파일이 그리지 않는다. 칸(자리)만 만들고, 고른 사업 보고의 보기·고치기 창(meeting-round-detail.js의 창 요소 하나)을 붙인다.
 // 창을 아직 못 불러왔으면 이 한 줄이 보이고, 창이 준비되면(kptu:report-detail-ready) 바로 바뀐다.
-const meetingResult=()=>'<p class="mcol-empty" data-mcol-pending>불러오는 중…</p>';
+const meetingResult=()=>`<div class="mcol-wait" data-mcol-pending>${waitHtml({rows:5})}</div>`;
 function undockReport(){window.KPTUMeetingRoundDetail?.undock?.()}
 function dockReport(){const slot=$('#meetingList #mcolResult'),id=slot?.dataset.meetingResult,api=window.KPTUMeetingRoundDetail;if(!slot||!id||!api?.dock)return;void api.dock(slot,id)}
 for(const name of ['kptu:report-detail-ready','kptu:report-pane-free'])window.addEventListener(name,()=>{if(meetingPc?.matches&&teamViewLoaded.has('meetings'))dockReport()});

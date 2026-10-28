@@ -1,3 +1,4 @@
+import {waitHtml} from './wait-state.js';
 import {seoulDateKey,seoulClock,formatSeoulTime} from './meeting-time.js';
 (()=>{
   if(window.__KPTU_CALENDAR_DAY_OVERFLOW__)return;
@@ -41,7 +42,7 @@ import {seoulDateKey,seoulClock,formatSeoulTime} from './meeting-time.js';
     if(schedules.length){const section=document.createElement('section');section.id='calendarDayEvents';schedules.forEach(e=>section.append(eventRow(e)));list.append(section)}
     if(tasks.length){const section=document.createElement('section');section.id='calendarDayTasks';const heading=document.createElement('h3');heading.textContent='할 일';section.append(heading);tasks.forEach(e=>section.append(taskLine(e,eventRow(e))));list.append(section)}
     if(tasks.length)window.KPTUGoogleTasks?.describeTasks?.(tasks.map(e=>({id:e.id,due:taskDate(e)}))).then(rows=>{if(seq!==openSeq||owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return;rows.forEach(t=>{const main=list.querySelector(`[data-calendar-task="${CSS.escape(t.id)}"] .gt-day-main`);if(!main)return;main.querySelector('.gt-meta')?.remove();main.insertAdjacentHTML('beforeend',window.KPTUGoogleTasks.taskMeta(t));})}).catch(()=>{});
-    if(!events.length){const known=window.KPTUCalendarPersistence?.knows?.(new Date(seoulDateKey(date)+'T00:00:00+09:00'),new Date(Date.parse(seoulDateKey(date)+'T00:00:00+09:00')+86400000))??false;list.innerHTML=`<div class="empty compact">${known?'일정 없음':'불러오는 중…'}</div>`}
+    if(!events.length){const known=window.KPTUCalendarPersistence?.knows?.(new Date(seoulDateKey(date)+'T00:00:00+09:00'),new Date(Date.parse(seoulDateKey(date)+'T00:00:00+09:00')+86400000))??false;list.innerHTML=known?'<div class="empty compact">일정 없음</div>':waitHtml({rows:2})}
     // JOURNAL-일기: that day's diary first photo, small, on top of the list (opens [일기] on that day).
     Promise.all([import('./diary-data.js'),window.KPTUViewLoader?.prepare?.('diary')]).then(([diary])=>diary.diaryDayPreview(seoulDateKey(date))).then(preview=>{
       if(!preview||seq!==openSeq||owner!==window.KPTURuntime?.session?.read?.()?.user?.id)return;

@@ -1,3 +1,4 @@
+import {waitHtml, failHtml} from './wait-state.js';
 // JOURNAL-일기목록 (명진 요청 2026-10-28 08:04): 일기 [목록] 보기. diary.js가 [달력 / 목록]을 바꾸고 이 모듈이 목록 칸(#diaryRoot 안의
 // [data-diary-all]) 하나만 그린다(그 칸의 유일한 렌더러). 규칙은 diary-list-model.mjs, 읽기·저장은 diary-data.js(owner RLS, 내 일기만).
 // - 줄: 왼쪽 40px 작은 그림(직접 올린 사진 먼저, 없으면 원드라이브 사진 — 일기에서 원드라이브 사진을 보는 연결이 켜져 있을 때만),
@@ -30,7 +31,7 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
     if (state.loaded && !force) return;
     if (state.loading && !force) return state.loading;
     const run = ++state.epoch, owner = scopeNow();
-    state.error = ''; if (!state.loaded) { note.textContent = '불러오는 중…'; }
+    state.error = ''; if (!state.loaded) { note.textContent = ''; body.innerHTML = waitHtml({rows:6}); }
     state.loading = readDiaryList(rt).then(({rows, truncated}) => {
       if (run !== state.epoch || owner !== scopeNow()) return;
       Object.assign(state, {owner, loaded:true, rows, truncated, error:''});
@@ -60,8 +61,8 @@ export function createDiaryList({host, rt = window.KPTURuntime, odReady = async 
     if (host.hidden) return;
     observer?.disconnect();
     searchRow.hidden = !state.search;
-    if (state.error) { note.innerHTML = `${esc(state.error)} <button type="button" class="mini" data-diary-lv-retry>다시 시도</button>`; body.replaceChildren(); return; }
-    if (!state.loaded) { note.textContent = '불러오는 중…'; body.replaceChildren(); return; }
+    if (state.error) { note.textContent = ''; body.innerHTML = failHtml({retry: 'data-diary-lv-retry'}); return; }
+    if (!state.loaded) { note.textContent = ''; body.innerHTML = waitHtml({rows:6}); return; }
     const list = buildDiaryList(state.rows, {filter:state.filter, query:state.query, opened:state.opened});
     const empty = !list.total ? (state.query ? '찾는 글이 든 일기가 없어요.' : state.filter === 'star' ? '별표한 일기가 없어요. 줄 오른쪽 ☆를 눌러 별표해 보세요.' : '아직 일기가 없어요. [+ 일기]로 남겨 보세요.') : '';
     note.textContent = state.note || empty || (state.truncated ? '최근 일기 1,000편만 보여요.' : '');

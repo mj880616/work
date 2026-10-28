@@ -1,3 +1,4 @@
+import {waitInlineHtml, failHtml} from './wait-state.js';
 // 원장 재료 C-4: 내 프로필의 '참고 일정' 칸 (docs/design/ledger-sources.md 5.1). profile-settings.js가 칸 자리를 만들고 이 모듈이 그 안을 그린다.
 // 캘린더 하나 고르기 → 내 일정 색(0~5개) → [내가 만든 일정도 포함]. 바꾸면 바로 서버(app_profiles.ledger_calendar)에 저장하고 한 번 맞춰 본다.
 // 이 칸은 프로필의 [저장] 버튼과 따로 바로 저장한다(고르기 값 하나라서, 저장 안 된 변경이 생기지 않음).
@@ -17,8 +18,8 @@ export function mountCalendarRefSettings(host, {rt, userId, confirm = message =>
     const {phase, choice, calendars, eventColors, busy, note} = state;
     const head = `<div class="ps-panel-head"><h3>참고 일정</h3><span class="ps-state" data-ps-calref-state role="status" aria-live="polite">${esc(note)}</span></div>`;
     if (phase !== 'ready') {
-      const text = phase === 'loading' ? '불러오는 중…' : phase === 'disconnected' ? 'Google 캘린더를 연결하면 고를 수 있어요.' : '지금은 불러오지 못했어요.';
-      host.innerHTML = `${head}<div class="ps-calref"><span class="ps-calref-line">${esc(text)}</span></div>`;
+      const line = phase === 'loading' ? waitInlineHtml() : phase === 'disconnected' ? '<span class="ps-calref-line">Google 캘린더를 연결하면 고를 수 있어요.</span>' : failHtml();
+      host.innerHTML = `${head}<div class="ps-calref">${line}</div>`;
       return;
     }
     const known = calendars.some(c => c.id === choice.calendar);

@@ -145,13 +145,17 @@
   // MTG-기록겹침거르기 3단계: 프로젝트 기록·사업 보고 저장 직후 겹침 알림(저장 뒤 확인, 실패하면 아무것도 안 보임). 기다리지 않는다.
   import('./overlap-check.js').catch(err=>console.warn('overlap check load failed',err?.name||'Error'));
 
-  const showFeatureError=err=>{
+  const showFeatureError=(err,retry=null)=>{
     console.error('view feature load failed',err);
+    // UI-기다림표시통일: 실패는 공용 부품(wait-state.js) — 빨간 작은 글자 '불러오지 못했습니다' + 작은 [다시](민트 상자 쓰지 않음).
     let box=document.querySelector('#deferredFeatureError');
-    if(!box){box=document.createElement('div');box.id='deferredFeatureError';box.className='notice';box.setAttribute('role','alert');document.querySelector('#appView .app-nav')?.after(box)}
-    box.textContent='이 기능을 불러오지 못했습니다. 네트워크를 확인한 뒤 새로고침해 주세요.';
+    if(!box){box=document.createElement('div');box.id='deferredFeatureError';box.setAttribute('role','alert');document.querySelector('#appView .app-nav')?.after(box)}
+    box.className='wait-fail-host';
+    box.replaceChildren(wait.failEl({onRetry:retry?()=>{box.remove();retry()}:()=>location.reload()}));
+    box.firstElementChild?.removeAttribute('role');
   };
 
+  const wait=await import('./wait-state.js');
   await import('./view-loader.js');
   const viewLoader=window.KPTUViewLoader;
   const params=new URLSearchParams(location.search);
@@ -184,14 +188,16 @@
     const view=controlView(control);
     if(!control||!view||viewLoader.isLoaded(view))return;
     event.preventDefault();event.stopImmediatePropagation();
+    // UI-기다림표시통일: 메뉴 화면 프로그램을 처음 받는 동안 글자 없이 위쪽 가는 줄 하나(0.4초 안에 끝나면 안 보임). 민트 상자 쓰지 않음.
     let status=document.querySelector('#deferredFeatureStatus');
-    if(!status){status=document.createElement('div');status.id='deferredFeatureStatus';status.className='notice';status.setAttribute('role','status');document.querySelector('#appView .app-nav')?.after(status)}
-    status.textContent='기능을 불러오는 중입니다…';
-    viewLoader.load(view).then(()=>{
+    if(!status){const t=document.createElement('template');t.innerHTML=wait.barHtml();status=t.content.firstElementChild;status.id='deferredFeatureStatus';document.querySelector('#appView .app-nav')?.after(status)}
+    document.querySelector('#deferredFeatureError')?.remove();
+    const open=()=>viewLoader.load(view).then(()=>{
       status.remove();
       if(control.dataset?.view||control.dataset?.goto||control.dataset?.hdvGoto)window.KPTURouter?.go?.(view,{source:'delegated'});
       else control.click();
-    }).catch(err=>{status.remove();showFeatureError(err)});
+    }).catch(err=>{status.remove();showFeatureError(err,()=>control.click())});
+    open();
   },true);
 
   window.KPTUDeferredFeatures={load:()=>viewLoader.loadAll(),loadView:viewLoader.load};
@@ -218,6 +224,9 @@
   import('./basket-share.js').catch(err=>console.warn('share intake load failed',err?.name||'Error'));
   const defer=window.requestIdleCallback?((fn,opts)=>window.requestIdleCallback(fn,opts)):((fn)=>setTimeout(fn,200));
   // OD-미리받기: 첫 화면이 다 뜬 뒤 한가할 때 원드라이브 연결 확인·이번 달 목록·작은 그림 몇 장을 뒤에서 받아 둔다(기다리지 않음, 화면 없음).
+  // UI-기다림표시통일 ⑤: 첫 화면이 다 뜬 뒤 쉬는 틈에 메뉴 화면 프로그램을 미리 받아 둔다(받기만, 실행 안 함 — 처음 눌러도 '불러오는 중'이 거의 안 보이게).
+  // 기기 저장 없음: 브라우저 기본 캐시만 쓴다.
+  defer(()=>viewLoader.warm?.(),{timeout:8000});
   defer(()=>import('./od-warm.js').catch(err=>console.warn('onedrive warm load failed',err?.name||'Error')),{timeout:5000});
 })().catch(err=>{
   console.error(err);
