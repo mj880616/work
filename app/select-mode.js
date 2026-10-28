@@ -1,15 +1,16 @@
 // 선택 모드 상태 공용 부품(NOTE-탐색기 후속 ⑦, 2026-10-28): 자료실(library-upload.js luPick)과 노트(basket-notes.js pick)가 같은 상태 코드를 쓴다.
 // 상태 주인은 이 부품 하나: items(null = 선택 모드 아님, Set = 고른 열쇠들), anchor(Shift 범위의 시작 줄). 화면 기억만(기기 저장 없음).
 // 그리기·서버 일은 부르는 화면이 한다. 고르기 규칙은 자료실과 같은 순수 함수(library-select.js toggleAll·pruneSelected, library-bulk.js rangeIds).
-// layer(선택): 라우터 한 겹 이름. 주면 선택 모드를 켤 때 한 겹을 열어 폰 뒤로가기(갤럭시 뒤로)가 선택 모드를 끈다(노트). 안 주면 겹 없음(자료실 그대로).
+// layer(선택): 라우터 한 겹 이름. 주면 선택 모드를 켤 때 한 겹을 열어 폰 뒤로가기(갤럭시 뒤로)가 선택 모드를 끈다(노트·자료실). 안 주면 겹 없음.
+// canLeave(선택): 뒤로가기로 끄려 할 때 false를 돌려주면(예: 고른 것을 옮기거나 지우는 중) 선택 모드를 그대로 두고 겹으로 돌아간다.
 import {toggleAll, pruneSelected} from './library-select.js';
 import {rangeIds} from './library-bulk.js';
 
-export function createSelectMode({layer = null, router = () => globalThis.window?.KPTURouter, onBack = null} = {}) {
+export function createSelectMode({layer = null, router = () => globalThis.window?.KPTURouter, onBack = null, canLeave = null} = {}) {
   let items = null, opened = null;
   const openLayer = () => {
     if (!layer || opened) return;
-    opened = router()?.layer?.open(layer, {close: () => { opened = null; const was = !!items; items = null; self.anchor = null; if (was) onBack?.(); return true; }}) || null;
+    opened = router()?.layer?.open(layer, {close: () => { if (items && canLeave?.() === false) return false; opened = null; const was = !!items; items = null; self.anchor = null; if (was) onBack?.(); return true; }}) || null;
   };
   const closeLayer = fromBack => { const l = opened; opened = null; if (!fromBack) l?.close(); };
   const self = {

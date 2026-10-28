@@ -49,9 +49,21 @@ test('select mode with a layer: opening once, Back ends it, stop closes the laye
   assert.equal(log.at(-1), 'open:basket-note-select', 'a Back that already removed the layer does not close it again');
 });
 
+test('select mode with a layer: Back while busy (canLeave false) keeps it and the layer', () => {
+  let close = null, busy = true, backs = 0;
+  const router = () => ({layer: {open: (name, opts) => { close = opts.close; return {close: () => {}}; }}});
+  const s = createSelectMode({layer: 'library-select', router, onBack: () => backs++, canLeave: () => !busy});
+  s.start(['d1']);
+  assert.equal(close(), false, '옮기는 중 뒤로가기는 거절(라우터가 겹으로 돌아감)');
+  assert.equal(s.active, true); assert.equal(s.has('d1'), true); assert.equal(backs, 0);
+  busy = false;
+  assert.equal(close(), true);
+  assert.equal(s.active, false); assert.equal(backs, 1);
+});
+
 test('the library and the note screen use the shared select state, not their own Set', () => {
   const lib = readFileSync('app/library-upload.js', 'utf8'), notes = readFileSync('app/basket-notes.js', 'utf8');
-  assert.match(lib, /const luPick=createSelectMode\(\);/);
+  assert.match(lib, /const luPick=createSelectMode\(\{layer:'library-select',onBack:\(\)=>luRenderLibrary\(\),canLeave:\(\)=>!luSelBusy\}\);/);
   assert.doesNotMatch(lib, /\bluSel\b|luPickAnchor/);
   assert.match(notes, /createSelectMode\(\{layer:'basket-note-select'/);
   assert.doesNotMatch(notes, /picked = new Set\(\)|selectLayer/);

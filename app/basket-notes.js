@@ -808,7 +808,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   }
   async function toBasket() {
     if (!selected || editing || busy) return;
-    if (!window.confirm('이 노트를 정리함 업데이트로 돌릴까요? 제목은 지워지고 본문·첨부·연결은 그대로 남아요.')) return;
+    if (!await askConfirm(host.querySelector('[data-note-to-basket]') || document.activeElement, {text:'이 노트를 정리함 업데이트로 돌릴까요?', note:'제목은 지워지고 본문·첨부·연결은 그대로 남아요.', ok:'돌리기'})) return;
+    if (!selected || editing || busy) return;
     const note = selected, run = ++epoch, owner = scope(); lock(true); say('');
     try {
       await moveToBasket(note, rt);
