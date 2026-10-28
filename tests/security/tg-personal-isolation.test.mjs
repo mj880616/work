@@ -12,6 +12,11 @@ const ALLOWED=new Set([
  'docs/20261025030000_tg_personal_days.postcheck.sql','docs/20261025030000_tg_personal_days.rollback.sql','docs/20261025030000_tg_personal_days.summary.md',
  'docs/migration-history.md','docs/design/tg-personal.md',
  'docs/design/multi-user-audit.md', // 설계 문서(표 이름만 나열, 읽는 코드 아님) — #1451
+ // MULTI 단계 ① 운영자 전용 잠금: 이 표에 읽기 제한 정책·쓰기 막는 트리거만 더한다(읽는 길 아님)
+ 'supabase/migrations/20261029090000_operator_features.sql',
+ 'docs/20261029090000_operator_features.precheck.sql','docs/20261029090000_operator_features.snapshot.sql',
+ 'docs/20261029090000_operator_features.postcheck.sql','docs/20261029090000_operator_features.rollback.sql',
+ 'tests/auth-handoff/operator-features.test.mjs',
  'tests/auth-handoff/tg-personal-days.test.mjs','tests/auth-handoff/package.json','tests/security/tg-personal-isolation.test.mjs',
 ]);
 const SKIP=new Set(['.git','node_modules','.claude']);
