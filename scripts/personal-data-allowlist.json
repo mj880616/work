@@ -28,12 +28,6 @@
       "kinds": ["mobile", "landline"],
       "paths": ["analysis/kptu-corpus/"],
       "reason": "결정 대기: 조합 공개 게시물 원문 사본에 실린 담당 연락처. 명진이 이 폴더를 지움/비공개 저장소로 옮김 결정하면 이 항목을 지운다(SEC-공개저장소점검)."
-    },
-    {
-      "kinds": ["mobile"],
-      "paths": ["wedding/gift-desk/"],
-      "hashes": ["8acd8bbfc4dfccda"],
-      "reason": "결정 대기: 행사 당일 안내 페이지의 연락처. 명진이 페이지 삭제를 결정하면 이 항목을 지운다(SEC-공개저장소점검)."
     }
   ]
 }
