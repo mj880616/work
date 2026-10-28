@@ -184,3 +184,6 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 #appView #diaryView .diary-od-switch[aria-checked="true"]::after{ transform:translateX(14px); }
 #appView #diaryView .diary-od-switch:focus-visible,#appView #diaryView .diary-od-fold:focus-visible{ outline:2px solid var(--kptu-primary); outline-offset:-2px; }
 #appView #diaryView .diary-od-foot{ display:flex; justify-content:flex-end; gap:8px; }
+/* OD-폰보관: 설정 창 아래 한 줄 '폰에 보관한 작은 그림 N장 · 비우기'. 작은 글씨, 비우기는 글자 버튼(터치 높이는 유지). */
+#appView #diaryView .diary-od-keep{ display:flex; align-items:center; gap:4px; margin:0; color:var(--kptu-muted); font-size:var(--ds-text-meta); }
+#appView #diaryView .diary-od-keep-clear{ min-height:var(--kptu-touch-target,44px); margin:0; padding:0 4px; color:var(--kptu-primary-ink); background:transparent; border:0; box-shadow:none; font:inherit; text-decoration:underline; }
