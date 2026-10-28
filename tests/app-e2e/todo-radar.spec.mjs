@@ -327,3 +327,33 @@ for(const width of [1280])test(`업무일지 [다시 찾기]는 홈과 같은 �
  expect(journal).toEqual(home);expect(home).toEqual({h:28,size:'12px',weight:500,border:'none'});
  expect(f.errors).toEqual([]);
 });
+
+// FEAT-1029 ⑤ 텔레그램에서 나한테 온 요청: 같은 렌더러, 출처 꼬리 '텔레그램 · 방 이름 · 날짜', 근거 ▾ 안에 [원문 보기 ›] → 텔레그램 화면.
+// 방 이름은 소식 표(app_feed_items) 한 번 읽기로 붙는다(가짜 응답). 폰 412·884는 업무일지 칸, PC 1440은 홈 카드와 업무일지 칸.
+const TG_FEED='c0000000-0000-4000-8000-000000000301';
+for(const width of [412,884,1440])test(`telegram candidate: room in the source line, evidence with 원문 보기, opens the telegram view ${width}`,async({page})=>{
+ const feedReads=[];
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_feed_items',route=>{
+  const q=new URL(route.request().url()).searchParams;
+  if(q.get('id')?.startsWith('in.')){feedReads.push(Object.fromEntries(q));return route.fulfill({json:[{id:TG_FEED,room_key:'-100777',room_label:'가상 간부방'}]});}
+  return route.fulfill({json:[]});
+ });
+ const f=await fixture(page,{width,rows:[cand(1,{source_kind:'telegram',source_id:TG_FEED,due:'2026-10-09',summary:'가상 교섭 자료 보내기',evidence:'14:12 가상위원장: 금요일 전까지 자료 부탁드려요'}),cand(2,{summary:'가상 조직 회신'})]});
+ await page.evaluate(()=>window.KPTURouter.go('journal'));
+ const box=page.locator('#journalView [data-journal-radar]');
+ const row=box.locator(`[data-radar-row="${id(1)}"]`);
+ await expect(row.locator('[data-radar-source]').first()).toHaveText('텔레그램 · 가상 간부방 · 10.6 · 제안 기한 10.9');
+ await expect(box.locator(`[data-radar-row="${id(2)}"] [data-radar-source]`)).toHaveText('업데이트');
+ expect(feedReads.length).toBeGreaterThanOrEqual(1);
+ expect(feedReads[0]).toMatchObject({source:'eq.telegram',id:`in.(${TG_FEED})`,select:'id,room_key,room_label'});
+ for(const name of ['바로 할 일로','고쳐서 넣기','무시'])await expect(btn(row,name)).toBeVisible();
+ await tap(page,row.locator('[data-radar-why]'),width);
+ const ev=row.locator('[data-radar-evidence]');
+ await expect(ev).toContainText('14:12 가상위원장: 금요일 전까지 자료 부탁드려요');
+ const raw=ev.getByRole('button',{name:'원문 보기 ›'});await expect(raw).toBeVisible();
+ expect(await noWideScroll(page)).toBe(true);
+ if(width>=1280){const home=radar(page);await page.evaluate(()=>window.KPTURouter.go('home'));await expect(home.locator(`[data-radar-row="${id(1)}"] [data-radar-source]`)).toContainText('텔레그램 · 가상 간부방');await page.evaluate(()=>window.KPTURouter.go('journal'));await expect(raw).toBeVisible();}
+ await tap(page,row.locator('[data-radar-evidence]').getByRole('button',{name:'원문 보기 ›'}),width);
+ await expect.poll(()=>page.evaluate(()=>window.KPTURouter.current)).toBe('telegram');
+ expect(f.errors.filter(e=>!/telegram|feed/i.test(e))).toEqual([]);
+});
