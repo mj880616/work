@@ -117,8 +117,7 @@ test('화면 연결: 미리보기 AI 한 줄·[고치기]·조용한 실패, 쓰
   assert.match(preview, /monthly_limit:'이번 달 AI 한도에 닿았어요',daily_limit:'오늘 AI 횟수를 다 썼어요'/);
   // 고친 줄 저장은 주간 임시저장 칸(결정 ⑤).
   assert.match(preview, /changeWeekAreaSummary\(\{start:week,areaId:id,text\}\)/);
-  // 기기 저장 없음.
-  assert.doesNotMatch(preview + fields, /localStorage|sessionStorage|indexedDB/);
+  // 기기 저장 금지는 audit 검사(브라우저 저장소 사용 금지)가 본다.
   // 쓰기 창: 누를 때만 area_suggest, 칩을 눌러야 꼬리표(자동 확정 없음).
   assert.match(fields, /aiBtn\?\.addEventListener\('click',async\(\)=>\{/);
   assert.match(fields, /callAiAssist\(\{kind:'area_suggest',title,text\}\)/);
