@@ -153,14 +153,14 @@ export function upcomingSchedule(events, start) {
     // key: the event's own id (WEEKLY-일정다듬기 — the .hwpx title check keeps what was confirmed per event); time/title/place: the parts
     // of the form cell (weekly-hwpx/schedule.mjs formWhat). `what` stays the screen and copy text as before.
     list.push({day:first < from ? from : first, first, last, multi:first !== last, allDay:!!event.allDay, at:event.allDay ? 0 : Date.parse(event.start), title, time, place,
-      key:key || `${first}|${time}|${title}`, what:[time, title, place].filter(Boolean).join(' / ')});
+      key:key || `${first}|${time}|${title}`, what:[time, title, place].filter(Boolean).join(' / '), ...(event.id ? {open:{id:String(event.id), calendarId:event.calendarId || 'primary'}} : {})});
   }
   list.sort((a, b) => a.day.localeCompare(b.day) || a.multi - b.multi || (a.multi && a.last.localeCompare(b.last)) || b.allDay - a.allDay || a.at - b.at || a.title.localeCompare(b.title, 'ko'));
   const rows = [];
   for (const item of list) {
     const label = span(item.first, item.last, formDay, ' ~ ');
     const row = rows.at(-1)?.label === label ? rows.at(-1) : (rows.push({day:item.day, label, items:[]}), rows.at(-1));
-    row.items.push({what:item.what, multi:item.multi, key:item.key, time:item.time, title:item.title, place:item.place});
+    row.items.push({what:item.what, multi:item.multi, key:item.key, time:item.time, title:item.title, place:item.place, ...(item.open ? {open:item.open} : {})});
   }
   vacations.sort((a, b) => a.first.localeCompare(b.first) || a.last.localeCompare(b.last));
   return {days, rows, vacations, noCalendar:hasReportCalendar(events) === false};
@@ -198,6 +198,7 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
   const days = weekDays(start), m = {...materials, lines:{status:linesState === 'loading' ? 'loading' : linesState === 'ok' ? 'ok' : 'failed', items:lines}};
   const part = (key, build) => { const s = state(m, WEEKLY_SOURCES[key]); return {key, ...s, ...(s.loading ? {} : build(s))}; };
   const perDay = (source, pick) => { const read = ok(m, source); return read ? days.flatMap(day => pick(read, day).map(text => ({day, text}))) : []; };
+  const perDayTasks = pick => { const read = ok(m, 'tasks'); return read ? days.flatMap(day => pick(read, day).map(task => ({day, text:task.title || '(제목 없음)', ...(task.id ? {taskId:String(task.id)} : {})}))) : []; };
   const files = weekFiles(m, days);
   // MTG-기록겹침거르기 4단계(docs/design/record-overlap.md 4.2절): 이 주에 보이는 줄에 겹침 참조를 달고, 저장된 same 판정(m.overlaps)으로
   // 겹친 줄을 한 곳에서 뺀다. 요약·조직 소식·화면·초안 복사·한글 파일이 모두 이 모델을 쓰므로 한 번에 같은 결과가 된다.
@@ -308,10 +309,11 @@ export function weeklySummary({start, lines, linesState = 'ok', materials = {}, 
     // 원장 재료 C-4(설계 5.3): 개인 공유 캘린더 참고 일정. 고르지 않았거나 읽는 중이면 보이지 않고, items는 체크된 줄만(복사 재료), all은 화면용 전부.
     // 주간보고 '5. 주요 일정'(calendar)과 한글 파일에는 들어가지 않는다 — 이 값은 notes 밖 어디에도 쓰이지 않는다.
     calRefs:calRefsPart(m.calendarRefs, days),
-    tasks:part('tasks', () => ({items:perDay('tasks', (read, day) => tasksOn(read, day).map(task => task.title || '(제목 없음)')),
+    // HOME-줄누르기 ⑦: 끝낸 할 일·할 일 예정 줄은 누르면 그 할 일 수정 창(업무일지 하루 할 일 줄과 같은 열기). 글은 그대로.
+    tasks:part('tasks', () => ({items:perDayTasks((read, day) => tasksOn(read, day)),
       ...(days[0] < doneCoverFrom(doneDays, today) ? {note:`Google 할 일은 최근 ${doneDays}일 안에 끝낸 것만 모여요.`} : {})})),
     // 할 일 예정 by due day in this week (the server sends overdue and up to 6 days ahead only).
-    due:part('due', () => ({items:perDay('tasks', (read, day) => pendingOn(read, day).map(task => task.title || '(제목 없음)')),
+    due:part('due', () => ({items:perDayTasks((read, day) => pendingOn(read, day)),
       ...(days[6] > pendingCoverTo(today) ? {note:`할 일 예정은 오늘부터 ${PENDING_DAYS}일 안 마감만 모여요.`} : {})})),
     // 조직 칸·프로젝트 줄로 간 자료는 여기서 뺀다(두 번 안 보이게). 회의자료·연결 없는 자료는 그대로.
     docs:part('docs', () => ({items:perDay('documents', (read, day) => read.filter(doc => !files.placed.has(doc?.id) && seoulDay(doc?.created_at) === day).map(documentLine))})),
@@ -451,7 +453,9 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
       li.append(dayTag(item.day));
       if (item.requests?.length) li.insertAdjacentHTML('beforeend', requestTagsHtml(item.requests, esc));
       if (item.label && (item.issue || !inTable)) li.append(el('span', 'journal-weekly-label', `${item.label}: `));
-      if (item.file) fileLine(li, item, line(item)); else li.append(doc.createTextNode(line(item)));
+      if (item.file) fileLine(li, item, line(item));
+      else if (item.taskId) { const b = el('button', 'journal-weekly-open', line(item)); b.type = 'button'; b.dataset.journalWeeklyTask = item.taskId; b.setAttribute('aria-label', `${line(item)} (할 일 열기)`); li.append(b); }
+      else li.append(doc.createTextNode(line(item)));
       list.append(li);
     }
     return list;
@@ -716,7 +720,10 @@ export function renderWeekly(host, model, esc, orgUi = {}, execUi = {}, memoryUi
       for (const row of c.rows) row.items.forEach((item, index) => {
         const tr = el('tr'); tr.dataset.journalScheduleDay = row.day;
         if (!index) { const th = el('th', 'journal-weekly-area', row.label); th.scope = 'rowgroup'; th.rowSpan = row.items.length; tr.append(th); }
-        const what = el('td', 'journal-weekly-what', item.what);
+        // HOME-줄누르기 ⑦: 칸의 글을 누르면 달력의 그 일정 수정 창(업무일지 그날 일정 줄과 같은 열기).
+        const what = el('td', 'journal-weekly-what');
+        if (item.open?.id) { const b = el('button', 'journal-weekly-open', item.what); b.type = 'button'; b.dataset.journalWeeklyEvent = item.open.id; b.dataset.journalWeeklyCalendar = item.open.calendarId || 'primary'; b.setAttribute('aria-label', `${item.what} (일정 열기)`); what.append(b); }
+        else what.append(item.what);
         if (item.memo?.title) { const tag = el('span', 'journal-exec-carried', MEMORY_TAG); tag.title = `원래 제목: ${item.title}`; tag.dataset.journalScheduleMemory = ''; what.append(' ', tag); }
         tr.append(what, el('td', 'journal-weekly-owner'));
         body.append(tr);

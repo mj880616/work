@@ -420,3 +420,8 @@
 #appView #journalView ul.journal-calref-list{ list-style:none; margin:0; padding:0 0 4px; display:flex; flex-direction:column; }
 #appView #journalView .journal-calref-item{ display:flex; align-items:center; gap:8px; min-height:var(--kptu-touch-target,44px); margin:0; font-size:var(--ds-text-row); cursor:pointer; }
 #appView #journalView .journal-calref-item input{ flex:none; width:16px; min-width:16px; height:16px; min-height:16px; margin:0; padding:0; accent-color:var(--kptu-primary); }
+/* HOME-줄누르기 ⑦: [주간 정리]의 일정 칸·할 일 줄 글자는 누르면 그 일정·할 일 수정 창. 글처럼 보이고(버튼 모양 없음) 누르는 범위만 넓힌다. */
+#appView #journalView button.journal-weekly-open{ position:relative; display:inline; margin:0; padding:0; border:0; background:transparent; color:inherit; font:inherit; text-align:left; white-space:normal; cursor:pointer; }
+#appView #journalView button.journal-weekly-open::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - 16px); height:32px; }
+#appView #journalView button.journal-weekly-open:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
+@media(hover:hover){ #appView #journalView button.journal-weekly-open:hover{ text-decoration:underline; text-underline-offset:2px; } }
