@@ -229,6 +229,9 @@ jobs:
       - name: Check Telegram raw lines phone layout (TG-원문폰배치)
         run: node --test tests/tg-raw-fold.test.mjs
 
+      - name: Check organization key people tab (ORG-주요인물)
+        run: node --test tests/org-key-people.test.mjs
+
       - name: Check meeting draft parser
         run: node --test tests/meeting-draft-parser.test.mjs
 

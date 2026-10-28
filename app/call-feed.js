@@ -581,4 +581,13 @@ async function openCall(id) {
   const r = rowOf(id); if (!r || isPersonal(r)) return;
   state.box = 'work'; select(id);
 }
-window.KPTUCallFeed = {reload:() => load(), open:openCall};
+// ORG-주요인물: 담당조직 [주요 인물] 탭의 통화 줄이 부른다. 업무·개인 통화함 어느 쪽이든 그 통화함으로 바꿔 연다.
+async function showCall(id) {
+  if (!state.loaded || state.owner !== scopeOf(rt)) await load(); else if (state.loading && loadP) await loadP;
+  const r = rowOf(id); if (!r) return false;
+  const box = isPersonal(r) ? 'personal' : 'work';
+  if (state.box !== box) setBox(box);
+  if (state.box !== box) return false;
+  select(id); return true;
+}
+window.KPTUCallFeed = {reload:() => load(), open:openCall, show:showCall};
