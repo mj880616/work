@@ -1033,8 +1033,8 @@ function luBindSelect(){
   document.addEventListener('keydown',luOnSelEscape);
   // Shift+클릭으로 여러 줄을 고를 때 화면 글자가 파랗게 칠해지지 않게(선택 모드 중 목록 칸 전체).
   document.querySelector('#libraryListCard')?.addEventListener('mousedown',e=>{if(e.shiftKey&&luPick.items&&LU_FINE?.matches&&!e.target.closest?.('input:not([type=checkbox]),textarea,[contenteditable]'))e.preventDefault()});
-  window.addEventListener('kptu:view-changed',event=>{if(luPick.items&&!luSelBusy&&event.detail?.view!=='library'){luPick.items=null;luSyncPicks()}});
-  window.addEventListener('kptu:session-changed',()=>{if(luPick.items&&!luSelBusy){luPick.items=null;luSyncPicks()}});
+  window.addEventListener('kptu:view-changed',event=>{if(luPick?.items&&!luSelBusy&&event.detail?.view!=='library'){luPick.items=null;luSyncPicks()}});
+  window.addEventListener('kptu:session-changed',()=>{if(luPick?.items&&!luSelBusy){luPick.items=null;luSyncPicks()}});
 }
 // LIB-자동정리: 자료실을 열 때(목록을 읽은 뒤) 정리 안 된 기존 자료를 조용히 소량씩 서버에 채우기 요청한다. 버튼·표시·안내문 없음.
 // 목록 열기는 이것을 기다리지 않는다. 한 번에 하나만 돌고, 로그인·업무공간이 바뀌거나 자료실을 떠나면 다음 요청을 보내지 않는다.
