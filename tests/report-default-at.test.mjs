@@ -41,8 +41,8 @@ test('기본값을 정하는 곳은 한 군데: 입력 창 여는 함수만 쓰�
   assert.match(cal,/e\.allDay\?\{date:String\(e\.start\)\.slice\(0,10\)\}:/);
   assert.match(cal,/\.\.\.when,location/);
 });
-test('날짜 칸의 보이는 글자는 한 가지(YYYY-MM-DD)다',()=>{
-  assert.equal(dateDisplay('2026-10-26'),'2026-10-26');
+test('날짜 칸의 보이는 글자는 사이트 공용 한 가지(10. 26. (월))다',()=>{
+  assert.match(dateDisplay('2026-10-26'),/^(2026\. )?10\. 26\. \(월\)$/);
   assert.equal(dateDisplay(''),'날짜');assert.equal(dateDisplay('2026. 10. 26.'),'날짜');
   const css=read('app/ui-standard.css');
   assert.match(css,/\.modal \.dt-date>input\[type="date"\]\{[^}]*opacity:0/);

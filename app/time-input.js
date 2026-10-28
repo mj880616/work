@@ -3,6 +3,7 @@
 // Values keep their old shapes ("HH:MM", and "YYYY-MM-DDTHH:MM" for date-time holders),
 // so the existing save paths still read `.value` unchanged. Dates stay native date pickers.
 import {seoulInputValue,toSeoulISO} from './meeting-time.js';
+import {dateLabel} from './date-field.js';
 
 const pad=n=>String(n).padStart(2,'0');
 const HOUR=3600000;
@@ -70,8 +71,8 @@ function installTimeCells(){
   document.addEventListener('keydown',e=>{if(e.key==='Enter'&&isTimeCell(e.target))commitTime(e.target)});
 }
 
-// 날짜 칸에 보이는 글자: 'YYYY-MM-DD'(PC·폰 같음). 비면 '날짜' 안내.
-export function dateDisplay(value){return /^\d{4}-\d{2}-\d{2}$/.test(String(value||''))?String(value):'날짜'}
+// 날짜 칸에 보이는 글자: 사이트 공용 '10. 6. (화)'(UI-날짜칸, app/date-field.js · PC·폰 같음). 비면 '날짜' 안내.
+export function dateDisplay(value){return dateLabel(value)||'날짜'}
 
 // A date-time field: `holder` is the old <input type="hidden" data-datetime-input> with the old id.
 // It shows a date picker and a time cell, and its `.value` reads and writes the old "YYYY-MM-DDTHH:MM".
@@ -80,7 +81,7 @@ export function bindDateTimeFields(root=document){
     holder.dataset.dtBound='1';const label=holder.dataset.datetimeInput||'일시';
     const date=document.createElement('input');date.type='date';date.id=holder.id+'Date';date.setAttribute('aria-label',label+' 날짜');
     const time=document.createElement('input');time.id=holder.id+'Time';timeCellAttributes(time,label+' 시간');
-    // 보이는 날짜 글자는 기기마다 다른 type=date 기본 표기 대신 앱이 한 가지('YYYY-MM-DD')로 그리고, 기기 달력 입력은 그 위에 투명하게 겹친다(dateText).
+    // 보이는 날짜 글자는 기기마다 다른 type=date 기본 표기 대신 앱이 한 가지('10. 6. (화)')로 그리고, 기기 달력 입력은 그 위에 투명하게 겹친다(dateText).
     const dateBox=document.createElement('span');dateBox.className='dt-date';const dateText=document.createElement('span');dateText.className='dt-date-text';dateText.setAttribute('aria-hidden','true');dateBox.append(dateText,date);
     const paintDate=()=>{dateText.textContent=dateDisplay(date.value);dateBox.classList.toggle('is-empty',!date.value)};
     date.addEventListener('input',paintDate);date.addEventListener('change',paintDate);paintDate();

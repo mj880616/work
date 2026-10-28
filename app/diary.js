@@ -10,7 +10,9 @@ import {readDiaryMonth, readDiaryDay, createDiary, saveDiaryText, removeDiaryPho
 import {SIZE_BUTTONS, WIDE_QUERY, paintGrid, paintButtons, changeCols, attachPinch} from './photo-grid-size.js';
 import {swipeKind, shareFileName, putBack, UNDO_MS} from './photo-viewer-model.mjs';
 import {preparePhotoBlob, sharePhotoElement} from './photo-share.js';
-import {deleteNoteOriginal} from './basket-record-delete.js';
+import {deleteNoteOriginal, offerUndoNotice} from './basket-record-delete.js';
+import {notify as notifySmall} from './small-notice.js';
+import {createAnchoredMenu} from './anchored-menu.js';
 import {odStatusCached, odTakeWarmMonth, odAuthStart, odAuthFinish, odFolders, odFolderSet, odDisconnect, odDelete, odPhotos, odPhotoElement, odPrefetchMonth, clearOdPhotoCache, forgetOdPhoto, odKeepReconcile, odStartPrefetch, odStopPrefetch, odKeepCount, odKeepClear, odKeepForOwner,
   odErrorText, odSync, odSyncDelay, odFolderTree, odFolderToggle, odTreeRows, odTreeChanges, readStars, addStar, removeStar, starKey, dayItems, takenLabel, takeOdReturn} from './diary-onedrive.js';
 // ED③ 일기: the day's text is the new editor (ed-editor.js) inside this panel; the read view draws its saved form (ed-render). The photos,
@@ -698,13 +700,14 @@ function dropField() {
 function renderEditor(message = '') {
   const {row, day} = edit, photos = diaryPhotos(row), count = photos.length + edit.pending.length;
   editor.hidden = false;
-  editor.innerHTML = `<div class="diary-panel-head"><h3 id="diaryEditorTitle" tabindex="-1">${row ? '일기 수정' : '일기 쓰기'}</h3><button type="button" class="icon-btn" data-diary-editor-close aria-label="일기 창 닫기">×</button></div>
-<label class="diary-field"><span>날짜</span><input type="date" data-diary-date value="${esc(day)}" min="2000-01-01" max="2100-12-31"${row ? ' disabled' : ''}></label>
-<div class="diary-pick"><input id="diaryPhotoInput" class="a11y-only" type="file" accept="image/*" multiple tabindex="-1" aria-hidden="true" data-diary-input><button type="button" class="secondary" data-diary-pick aria-controls="diaryPhotoInput"${count >= DIARY_MAX_PHOTOS ? ' disabled' : ''}>사진 고르기</button><small data-diary-count>${count}/${DIARY_MAX_PHOTOS}장 · 긴 변 2048px로 줄여 올려요</small></div>
+  // UI-버튼통일(2026-10-28 19:16 시안 승인): 위 줄 제목 · [⋯](일기 지우기) · ✕(테두리 없음). 날짜는 달력이 열리는 공용 칸 하나(이름표 없음, app/date-field.js)이고
+  // 그 옆에 작은 [📷 사진 0/20]. 글 칸도 이름표 없이 편집기만. 아래 줄은 오른쪽에 [취소](작은 버튼)·[저장](진한 버튼 하나).
+  editor.innerHTML = `<div class="diary-panel-head"><h3 id="diaryEditorTitle" tabindex="-1">${row ? '일기 수정' : '일기 쓰기'}</h3><span class="diary-head-ends">${row ? '<button type="button" class="icon-btn diary-head-more" data-diary-editor-more aria-haspopup="true" aria-expanded="false" aria-label="일기 관리"><span aria-hidden="true">⋯</span></button>' : ''}<button type="button" class="icon-btn" data-diary-editor-close aria-label="일기 창 닫기">×</button></span></div>
+<div class="diary-edit-top"><input type="date" data-diary-date value="${esc(day)}" min="2000-01-01" max="2100-12-31" aria-label="일기 날짜"${row ? ' disabled' : ''}><input id="diaryPhotoInput" class="a11y-only" type="file" accept="image/*" multiple tabindex="-1" aria-hidden="true" data-diary-input><button type="button" class="secondary diary-photo-pick" data-diary-pick aria-controls="diaryPhotoInput" aria-label="사진 고르기, ${count}장 / 최대 ${DIARY_MAX_PHOTOS}장"${count >= DIARY_MAX_PHOTOS ? ' disabled' : ''}><span aria-hidden="true">📷</span> 사진 <span data-diary-count>${count}/${DIARY_MAX_PHOTOS}</span></button></div>
 <div class="diary-thumbs" data-diary-thumbs></div>
-<div class="diary-field"><span id="diaryTextLabel">글</span><div data-diary-doc-slot></div></div>
+<div class="diary-doc"><div data-diary-doc-slot></div></div>
 <p class="diary-editor-status" data-diary-editor-status role="status" aria-live="polite"></p>
-<div class="diary-actions save-row save-row-sticky">${row ? '<button type="button" class="secondary diary-danger save-row-start" data-diary-delete>일기 지우기</button>' : ''}<button type="button" data-diary-editor-close>취소</button><button type="button" class="primary" data-diary-save data-enter-save-submit>저장</button></div>`;
+<div class="diary-actions save-row save-row-sticky"><button type="button" class="secondary" data-diary-editor-close>취소</button><button type="button" class="primary" data-diary-save data-enter-save-submit>저장</button></div>`;
   editor.querySelector('[data-diary-doc-slot]').replaceWith(edit.host);
   const thumbs = editor.querySelector('[data-diary-thumbs]');
   // Each photo has a one-line optional comment under it (max 200 chars), typed text kept in edit state across redraws.
@@ -864,18 +867,51 @@ async function removePhoto(fileId) {
   if (!edit) return;
   edit.busy = false; renderEditor(pruneNote(pruned));
 }
+// UI-버튼통일 ①(2026-10-28 19:16, 08:28 지우기 방식과 같게): [일기 지우기](쓰기 창 ⋯ 안·날짜 칸)는 묻지 않고 바로 화면에서 빼고
+// 위쪽 작은 알림 '일기를 지웠어요 · [되돌리기]'(공용 offerUndoNotice, PC Ctrl+Z 포함)를 띄운다. 일기는 하루 1행이라 서버 휴지통 대상이 아니므로
+// 실제 지우기(note-delete — 사진은 Drive 휴지통)는 알림이 닫힐 때(2초, 올려 두면 멈춤·다른 알림이 뜨면 바로) 보낸다. [되돌리기]면 아무것도 보내지 않는다.
+// 알림이 떠 있는 동안 페이지를 닫으면 보내지 못해 일기는 남는다(잃는 쪽이 아니라 남는 쪽). 서버가 실패하면 그 날을 되살리고 알린다.
+let pendingDelete = null;
+const DIARY_DELETED = '일기를 지웠어요.';
+function restoreDiaryRow(row) {
+  if (!rows.has(row.journal_day)) rows.set(row.journal_day, row);
+  listDirty = true; renderMonth();
+}
+async function commitDiaryDelete(job) {
+  if (job.done || job.undone) return;
+  // 로그인이 바뀌었으면 보내지 않는다(일기는 남음).
+  if (job.owner !== ownerScope(rt)) { job.undone = true; clearInterval(job.watch); window.removeEventListener('pagehide', job.leave); if (pendingDelete === job) pendingDelete = null; return; }
+  job.done = true; clearInterval(job.watch); window.removeEventListener('pagehide', job.leave);
+  if (pendingDelete === job) pendingDelete = null;
+  const result = await deleteNoteOriginal(job.row.id, {rt, confirmed:true});
+  if (job.owner !== owner || ['deleted', 'missing', 'stale'].includes(result.status)) return;
+  restoreDiaryRow(job.row);
+  notifySmall(`${shortDay(job.row.journal_day)} 일기를 지우지 못해 되살렸어요. ${String(result.message || '').replace(/업데이트/g, '일기')}`.trim(), {error:true});
+}
+const editorMenu = createAnchoredMenu({id:'diaryEditorMenu', className:'diary-lv-menu', label:'일기 관리', historyKey:'kptuDiaryEditorMenu', key:() => 'editor',
+  render:() => '<button type="button" class="diary-menu-danger" data-diary-menu="delete">일기 지우기</button>',
+  onAction:button => { if (button.dataset.diaryMenu === 'delete' && edit?.row) void removeDiary(edit.row); }});
 async function removeDiary(row) {
   if (!row || edit?.busy) return;
-  const photos = diaryPhotos(row).length;
-  const result = await deleteNoteOriginal(row.id, {rt, describe:() => `${shortDay(row.journal_day)} 일기를 지웁니다.${photos ? ` 사진 ${photos}장은 Drive 휴지통으로 옮깁니다(30일 안에 복구 가능).` : ''}`});
-  if (!['deleted', 'missing'].includes(result.status)) {
-    if (result.message) (edit ? setEditorStatus : text => { status.textContent = text; })(result.message.replace(/업데이트/g, '일기'));
-    return;
-  }
-  rows.delete(row.journal_day); listView.dropDay(row.journal_day); listDirty = true;
+  if (pendingDelete) await commitDiaryDelete(pendingDelete);
+  const day = row.journal_day;
+  rows.delete(day); listView.dropDay(day); listDirty = true;
   if (edit) closeEditor({force:true});
   closeDetail(); renderMonth();
-  status.textContent = (result.message || '일기를 지웠어요.').replace(/업데이트/g, '일기');
+  const job = {row, owner, done:false, undone:false};
+  pendingDelete = job;
+  const box = offerUndoNotice({text:`${shortDay(day)} ${DIARY_DELETED}`, onUndo:async () => {
+    if (job.done) return {status:'failed', message:'이미 지워져 되돌리지 못했어요.'};
+    job.undone = true; clearInterval(job.watch); window.removeEventListener('pagehide', job.leave);
+    if (pendingDelete === job) pendingDelete = null;
+    if (job.owner !== owner) return {status:'stale'};
+    restoreDiaryRow(row);
+    return {status:'restored', message:'일기를 되돌렸어요.'};
+  }});
+  if (!box) return commitDiaryDelete(job);
+  job.leave = () => { void commitDiaryDelete(job); };
+  window.addEventListener('pagehide', job.leave);
+  job.watch = setInterval(() => { if (!box.isConnected) void commitDiaryDelete(job); }, 250);
 }
 
 root.addEventListener('click', event => {
@@ -914,6 +950,7 @@ root.addEventListener('click', event => {
   if (button.matches('[data-od-keep-clear]')) return odRun(async () => { await odKeepClear(); odKeep = 0; refreshOdKeep(); });
   if (button.matches('[data-od-disconnect]')) return askOdDisconnect();
   if (button.matches('[data-diary-edit]')) return openEditor(selected);
+  if (button.matches('[data-diary-editor-more]')) return editorMenu.open(button);
   if (button.matches('[data-diary-delete]')) return removeDiary(edit ? edit.row : rows.get(selected));
   if (button.matches('[data-diary-editor-close]')) return closeEditor();
   if (button.matches('[data-diary-pick]')) return editor.querySelector('[data-diary-input]')?.click();
