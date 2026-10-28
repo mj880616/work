@@ -21,7 +21,13 @@ for(const tz of ['Asia/Seoul','Europe/Rome','America/Los_Angeles'])test(`공용 
     assert.equal(time.seoulParts('2026-09-14T15:30:00Z').weekday,2);
     assert.equal(time.seoulDayStart('2026-10-01').toISOString(),'2026-09-30T15:00:00.000Z');
     assert.equal(time.seoulDateKey(time.addSeoulDays(time.seoulDate(2026,8,30),1)),'2026-10-01');
-    assert.match(time.formatSeoulTime('2026-09-15T01:00:00Z',{hour:'2-digit',minute:'2-digit',month:undefined,day:undefined}),/오전 10:00/);
+    assert.match(time.formatSeoulTime('2026-09-15T01:00:00Z',{hour:'2-digit',minute:'2-digit',month:undefined,day:undefined}),/^10:00$/);
+    // UI-화면정리 B: 시각은 언제나 24시간 HH:MM(초·오전/오후 없음).
+    assert.equal(time.formatSeoulTime('2026-09-15T08:05:09Z',{hour:'numeric',minute:'numeric',second:'numeric'}),'17:05');
+    assert.equal(time.formatSeoulTime('2026-09-15T08:05:09Z',{year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric',second:'numeric'}),'2026. 9. 15. 17:05');
+    assert.equal(time.formatSeoulTime('2026-09-15T08:05:09Z',{dateStyle:'medium',timeStyle:'short'}),'2026. 9. 15. 17:05');
+    assert.equal(time.formatMeetingTime('2026-09-15T08:05:09Z'),'9. 15. 17:05');
+    assert.equal(time.formatSeoulTime('2026-09-15T08:05:09Z',{month:'long',day:'numeric'}),'9월 15일');
     for(const invalid of ['2026-02-30T10:00','2026-10-01T25:00','2026-10-01'])assert.throws(()=>time.toSeoulISO(invalid),RangeError);
   }finally{if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous}
 });

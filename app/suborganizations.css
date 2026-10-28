@@ -83,9 +83,12 @@
 #appView #teamView>.so-team-head .so-team-more::after{inset:-6px 0;width:auto;min-width:0;left:0;right:0}
 @media(max-width:760px){
   #appView #teamView>.so-team-head{justify-content:flex-end;min-height:var(--kptu-touch-target,44px);margin:calc(-1 * (var(--kptu-touch-target,44px) + 12px)) 0 12px;pointer-events:none}
-  #appView #teamView>.so-team-head .so-team-title{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   #appView #teamView>.so-team-head .so-team-more{pointer-events:auto;width:var(--kptu-touch-target,44px);height:var(--kptu-touch-target,44px);font-size:22px}
   #appView #teamView>.so-team-head .so-team-more::after{content:none}
+}
+/* UI-화면정리 B ①: PC(1024px~)는 위쪽 경로 줄('담당조직')이 화면 이름을 보인다. 큰 제목은 공용 .screen-title(ui-standard.css)이 폰·PC에서 읽기 프로그램용으로 두고, ⋯는 같은 줄 오른쪽 끝. */
+@media(min-width:1024px){
+  #appView #teamView>.so-team-head{justify-content:flex-end}
 }
 /* REF-참고묶음 화면 2: 담당조직 목록 맨 아래 입구 한 줄 "참고 묶음 ›"(질문 1 추천안). 담당조직 줄처럼 낮은 줄, 흐린 글자. */
 #soOrganizationList .so-reference-entry{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:var(--kptu-touch-target);margin:0;padding:6px var(--kptu-space-4);border:0;border-top:var(--ds-line-width) solid var(--kptu-border);background:transparent;color:var(--kptu-muted);font:inherit;font-size:var(--ds-text-row);text-align:left;cursor:pointer;box-sizing:border-box}

@@ -325,7 +325,7 @@ function editHtml() {
       + `<button type="button" class="ql-handle" draggable="true" data-ql-ghandle="${esc(id)}" aria-label="분류 순서 바꾸기(끌거나 위·아래 화살표)">⠿</button>`
       + '<span class="ql-spacer"></span>'
       + `<button type="button" class="ql-icon" data-ql-rename="${esc(id)}" aria-label="분류 이름 바꾸기">✎</button>`
-      + `<button type="button" class="ql-icon" data-ql-menu="g:${esc(id)}" aria-haspopup="menu" aria-expanded="false" aria-label="분류 메뉴">⋯</button></div>`
+      + `<button type="button" class="ql-icon" data-ql-menu="g:${esc(id)}" aria-haspopup="menu" aria-expanded="false" aria-label="분류 메뉴"><span class="more-dots" aria-hidden="true">⋯</span></button></div>`
       + (state.confirm === id ? confirmHtml(id) : '') + list + '</section>';
   }).join('');
   return '<div class="ql-head"><h2>자주 가는 링크 편집</h2><button type="button" class="ql-btn ql-add" data-ql-menu="add" aria-haspopup="menu" aria-expanded="false">+ 추가</button></div>'

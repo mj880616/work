@@ -39,7 +39,7 @@ export const shortName = name => { const chars = [...String(name || '(제목 없
 // The ⋯ of one line. attr is the screen's own data attribute (camelCase dataset name → data-… in HTML).
 const dataName = attr => attr.replace(/[A-Z]/g, c => '-' + c.toLowerCase());
 export function moreButtonHtml({id, name, attr, menuId, className = ''}) {
-  return `<button type="button" class="task-inline-more${className ? ' ' + className : ''}" data-${dataName(attr)}="${esc(id)}" aria-label="${esc(name || '(제목 없음)')} 더 보기" aria-haspopup="true" aria-expanded="false" aria-controls="${esc(menuId)}"><span aria-hidden="true">⋯</span></button>`;
+  return `<button type="button" class="task-inline-more${className ? ' ' + className : ''}" data-${dataName(attr)}="${esc(id)}" aria-label="${esc(name || '(제목 없음)')} 더 보기" aria-haspopup="true" aria-expanded="false" aria-controls="${esc(menuId)}"><span class="more-dots" aria-hidden="true">⋯</span></button>`;
 }
 
 // ── 기한 바꾸기: one small date box at a time, under the ⋯ that asked for it ──

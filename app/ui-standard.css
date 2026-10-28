@@ -1466,3 +1466,18 @@ button.icon-btn:is([aria-label$="닫기"],[data-close]){ border-color:transparen
 button.icon-btn:is([aria-label$="닫기"],[data-close]):hover{ color:var(--kptu-ink); }
 /* ③ 고르기 상자 ▾ 자리: 화면 규칙이 padding을 정해도 글자가 ▾ 밑으로 들어가지 않게 오른쪽 여백만 한 곳에서 고정한다. */
 select:not([multiple],[size],[hidden]){ padding-right:26px !important; }
+/* ===== UI-화면정리 B(2026-10-28 명진 요청 20:03): 공용 부품 통일 — A 묶음의 부품을 그대로 쓰고, 화면마다 따로 있던 모양을 여기 한 곳으로 =====
+   기록: docs/design-decisions.md "UI-화면정리 B". 값은 --ds-*·--kptu-* 토큰만 쓴다. 재발 방지 시험: tests/ui-cleanup-b.test.mjs.
+   ① 화면 큰 제목(.screen-title): 폰(~760px)은 위 머리줄, PC(1024px~)는 위쪽 경로 줄이 화면 이름을 보이므로 본문의 큰 제목은 읽기 프로그램용으로만 남긴다.
+      둘 다 없는 중간 폭(761~1023px)에서만 보인다. 화면 이름이 두 번 나오지 않게 한다(자료실·담당조직·텔레그램 소식, 정리함·노트는 basket.js가 같은 폭 기준). */
+@media (max-width:760px),(min-width:1024px){
+  .screen-title{ position:absolute; width:1px; height:1px; margin:0; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+}
+/* 자료실 머리 줄: 큰 제목이 줄에서 빠져도 [+ 자료 등록]은 오른쪽 끝 그대로(제목이 밀어 주던 자리). */
+#appView #libraryView #libraryListCard .add-list-head>.lu-head-actions{ margin-left:auto; }
+/* ③ ⋯(더 보기): 모든 ⋯ 버튼의 점은 같은 글자 하나(<span class="more-dots" aria-hidden="true">⋯</span>)가 그린다. 버튼 칸 크기·자리는 화면 규칙 그대로이고,
+      점의 크기·굵기·색만 여기서 정한다(연한 작은 점·굵은 점 섞임 정리). 화면 CSS는 .more-dots의 글자 모양을 따로 정하지 않는다. */
+.more-dots{ display:inline-block; font-size:var(--ds-text-read); font-weight:var(--ds-weight-medium); line-height:1; letter-spacing:0; color:var(--kptu-muted); pointer-events:none; }
+:is(button,summary):hover>.more-dots,:is(button,summary)[aria-expanded="true"]>.more-dots,details[open]>summary>.more-dots{ color:var(--kptu-ink); }
+/* 사진 크게 보기 위의 ⋯는 사진 위 글자색(어두운 사진 바탕). 크기·굵기는 위 공용 규칙 그대로. */
+.basket-photo-more-btn>.more-dots,.basket-photo-more-btn:hover>.more-dots,details[open]>.basket-photo-more-btn>.more-dots{ color:var(--ds-photo-ink); }
