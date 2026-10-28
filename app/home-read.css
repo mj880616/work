@@ -471,3 +471,24 @@
 .home-ai-usage .aiu-entries summary { cursor:pointer; color:var(--kptu-muted); font-size:11px; }
 .home-ai-usage .aiu-entry { display:flex; align-items:center; justify-content:space-between; gap:6px; }
 .home-ai-usage .aiu-entry-del { width:24px; height:24px; padding:0; border:0; background:transparent; color:var(--kptu-muted); cursor:pointer; }
+/* FEAT-1029묶음 ③ 연락 없는 조직(org-quiet.js): 카드가 아니라 톤다운 경고색 한 줄. 펼치면 바로 아래 얇은 목록. */
+.home-card.home-quiet { padding:0; border:0; background:transparent; border-radius:0; }
+.home-quiet .oq-line { display:flex; align-items:center; gap:6px; min-height:30px; padding:2px 4px 2px 10px; border-radius:var(--ds-radius-control,8px); background:var(--kptu-warning-soft,var(--kptu-surface)); color:var(--kptu-warning); font-size:var(--ds-text-meta,12px); line-height:1.4; }
+.home-quiet.is-open .oq-line { border-radius:var(--ds-radius-control,8px) var(--ds-radius-control,8px) 0 0; }
+.home-quiet .oq-text { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.home-quiet .oq-org { display:inline; min-height:0; margin:0; padding:0; border:0; background:transparent; color:var(--kptu-ink); font:inherit; cursor:pointer; text-decoration:none; }
+.home-quiet .oq-org:hover, .home-quiet .oq-org:focus-visible { text-decoration:underline; }
+.home-quiet .oq-d { color:var(--kptu-faint); }
+.home-quiet .oq-toggle { flex:none; width:28px; height:28px; margin:0; padding:0; border:0; border-radius:6px; background:transparent; color:var(--kptu-muted); font:inherit; font-size:14px; cursor:pointer; }
+.home-quiet .oq-list { margin:0; padding:2px 10px 4px; list-style:none; border:1px solid var(--kptu-border); border-top:0; border-radius:0 0 var(--ds-radius-control,8px) var(--ds-radius-control,8px); font-size:var(--ds-text-meta,12px); }
+.home-quiet .oq-list[hidden] { display:none; }
+.home-quiet .oq-row { display:flex; align-items:center; gap:8px; min-height:28px; border-top:1px solid var(--kptu-border); }
+.home-quiet .oq-row:first-child { border-top:0; }
+.home-quiet .oq-row .oq-org { flex:1; min-width:0; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-height:28px; }
+.home-quiet .oq-last { color:var(--kptu-faint); font-size:11px; white-space:nowrap; }
+.home-quiet .oq-days { min-width:44px; text-align:right; color:var(--kptu-muted); white-space:nowrap; }
+.home-quiet .oq-note { padding:3px 0 0; color:var(--kptu-faint); font-size:11px; border-top:1px solid var(--kptu-border); }
+.he-seg { display:inline-flex; flex:none; border:1px solid var(--kptu-border-strong,var(--kptu-border)); border-radius:6px; overflow:hidden; }
+.he-seg button { min-height:28px; margin:0; padding:0 7px; border:0; border-left:1px solid var(--kptu-border); background:transparent; color:var(--kptu-muted); font:inherit; font-size:12px; cursor:pointer; }
+.he-seg button:first-child { border-left:0; }
+.he-seg button[aria-pressed="true"] { background:var(--kptu-primary-soft); color:var(--kptu-primary-ink,var(--kptu-primary)); }
