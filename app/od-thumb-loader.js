@@ -8,6 +8,9 @@
 export const VISIBLE = 0, NEAR = 1, IDLE = 2;
 export const LOADER_DEFAULTS = Object.freeze({limit: 4, batchMax: 20, memMax: 300, ttlMs: 20 * 60 * 1000});
 const MISSING = new Set(['missing', 'outside']);
+// 묶음 요청이 이 오류로 실패하면 그 사진들도 실패로 끝낸다(다시 받아도 안 되는 로그인·연결 문제).
+const STOP = /^(session|onedrive_(auth_expired|not_connected|not_configured|folder_not_set|reconnect_needed)|forbidden|session_required)$/;
+export const BATCH_REST_S = 2;
 
 export class ThumbError extends Error {
   constructor(code, {retryAfter = 0} = {}) { super(code); this.code = code; this.retryAfter = retryAfter; }
@@ -83,7 +86,11 @@ export function createThumbLoader({fetchUrls, fetchBytes, revoke = () => {}, now
       if (gen !== generation) return;
       if (error?.code === 'unsupported') { mode = 'bytes'; for (const [, f] of take) f.queued = true; return; }
       if (error?.code === 'throttled') { pause(error.retryAfter); for (const [, f] of take) f.queued = true; return; }
-      for (const [key] of take) settle(key, error);
+      // PHOTO-못받은사진: 로그인·연결 문제는 묶음 전체가 실패다. 그 밖(서버 시간 초과·잠깐 끊김 등 묶음 요청 자체의 실패)은
+      // 묶음의 사진을 한꺼번에 실패시키지 않고 잠깐 쉰 뒤 그 사진만 한 장씩 받는 길로 다시 줄 세운다(20장이 함께 4번 실패해 모두 ↻가 되지 않게).
+      if (STOP.test(String(error?.message || '')) || error?.status === 401) { for (const [key] of take) settle(key, error); return; }
+      pause(BATCH_REST_S);
+      for (const [key, f] of take) { bytesOnly.add(key); f.queued = true; }
       return;
     }
     if (gen !== generation) return;

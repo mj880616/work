@@ -12,6 +12,7 @@ import {toTelegram as docTelegram, toHangul} from './ed-text.mjs';
 import {hasDoc, needsMarkdown, noteStartDoc} from './note-doc.mjs';
 import {diaryPhotoUrl} from './diary-data.js';
 import {attachmentName} from './attachment-name.mjs';
+import {slotLoading, slotImg, slotFailed} from './img-slot.js';
 
 const STYLES = ['./ed-doc.css'];
 function ensureStyles() {
@@ -33,18 +34,25 @@ export async function startValue(note) { return noteStartDoc(note, await markdow
 
 // The note's photos: drive:<id> of a file in this note's attachments, shown through the owner-only photo view.
 const fileOf = (note, id) => (note?.attachments || []).find(f => f?.drive_file_id === id) || null;
+// 표시는 공용 img-slot.js(PHOTO-못받은사진): 받는 동안 글자 없는 연한 회색 칸, 못 받으면 작은 ↻(누르면 그 사진만 다시).
 export function fillPhotos(box, note, {rt = window.KPTURuntime} = {}) {
   for (const place of box.querySelectorAll('[data-ed-drive]')) {
     const file = fileOf(note, place.dataset.edDrive);
     if (!file || !/^image\//.test(file.mime_type || '')) continue;
-    diaryPhotoUrl(note.id, file.drive_file_id, 'large', {rt}).then(url => {
-      if (!place.isConnected) return;
-      const img = document.createElement('img');
-      img.className = 'ed-photo-img'; img.alt = place.dataset.alt || attachmentName(file, '사진'); img.decoding = 'async'; img.loading = 'lazy';
-      img.src = url;
-      place.classList.remove('is-place'); place.removeAttribute('role'); place.removeAttribute('aria-label');
-      place.replaceChildren(img);
-    }, () => {});
+    const load = () => {
+      place.querySelector('.ed-photo-mark')?.remove();
+      slotLoading(place);
+      diaryPhotoUrl(note.id, file.drive_file_id, 'large', {rt}).then(url => {
+        if (!place.isConnected) return;
+        const img = document.createElement('img');
+        img.className = 'ed-photo-img'; img.alt = place.dataset.alt || attachmentName(file, '사진'); img.decoding = 'async';
+        slotImg(place, img, url, {
+          retry: () => { img.remove(); load(); },
+          onShown: () => { place.classList.remove('is-place'); place.removeAttribute('role'); place.removeAttribute('aria-label'); place.replaceChildren(img); },
+        });
+      }, () => { if (place.isConnected) slotFailed(place, load, 'photo'); });
+    };
+    load();
   }
 }
 // The read view of a note with doc. Returns true when it drew (false: the caller keeps the old view).

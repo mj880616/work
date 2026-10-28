@@ -2,6 +2,7 @@
 // (소유자 로그인만, Drive 읽기만, 줄인 그림은 어디에도 저장하지 않는다). 그림인지 아닌지는 library-tree.js fileKindOf 하나로 판단한다.
 // 받은 그림은 이 화면(메모리)에서만 쓰고 브라우저 저장소에 두지 않는다. 로그인한 소유자가 바뀌면 비운다.
 import {fileKindOf} from './library-tree.js';
+import {slotBox, slotImg, slotFailed} from './img-slot.js';
 
 const SIZES = new Set(['small', 'large']);
 const DOC_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -43,20 +44,23 @@ export function libraryPhotoUrl(documentId, size = 'small', {rt = window.KPTURun
 }
 
 // 목록 줄의 작은 그림 칸(.lu-thumb[data-lu-thumb=<자료 번호>])을 채운다. 보이는 줄만 부른다(접힌 묶음 안은 펼칠 때).
-// 못 받으면 칸을 지워 종류 표시만 남긴다. 목록을 다시 그려도 받아 둔 그림은 바로 쓴다.
+// 표시는 공용 img-slot.js(PHOTO-못받은사진): 받는 중 연한 회색 칸, 못 받으면 작은 ↻(누르면 그 사진만 다시). 목록을 다시 그려도 받아 둔 그림은 바로 쓴다.
 let watcher = null;
 function fill(el) {
   const id = el.dataset.luThumb, cached = cachedLibraryPhotoUrl(id, 'small');
+  slotBox(el);
+  const again = () => { el.replaceChildren(); fill(el); };
   const show = url => {
     if (!el.isConnected) return;
     const img = document.createElement('img');
     img.alt = ''; img.decoding = 'async'; img.draggable = false;
-    img.onerror = () => el.remove();
-    img.src = url; el.replaceChildren(img); el.dataset.state = 'shown';
+    el.replaceChildren();
+    el.dataset.state = 'shown';
+    slotImg(el, img, url, {retry: again, onFailed: () => { el.dataset.state = 'failed'; }});
   };
   if (cached) { show(cached); return; }
   el.dataset.state = 'loading';
-  libraryPhotoUrl(id, 'small').then(show, () => el.remove());
+  libraryPhotoUrl(id, 'small').then(show, () => { el.dataset.state = 'failed'; slotFailed(el, again, 'photo'); });
 }
 export function hydrateLibraryThumbs(root) {
   const cells = [...(root?.querySelectorAll?.('.lu-thumb[data-lu-thumb]:not([data-state])') || [])];
