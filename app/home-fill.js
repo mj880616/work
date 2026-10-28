@@ -1,3 +1,4 @@
+import {waitHtml} from './wait-state.js';
 // HOME-모바일홈채우기: 폰·중간 폭 홈(1023px 이하)의 한 줄 요약('일정 3 · 할 일 4 · 새 소식 12')과 새 칸 셋(놓친 약속 · 정리 안 된 것 · 내일)의
 // 유일한 renderer. PC 홈(1024px~)에서는 이 칸들을 만들지 않고 숨긴다. home-read.js는 일정·할 일·내일 일정 숫자만 넘기고
 // (setEvents·setTasks·setTomorrow), 원장·텔레그램 소식·정리함 숫자는 home-fill-data.js로 여기서 읽는다.
@@ -31,7 +32,7 @@ export function mountHomeFill({main, rt = window.KPTURuntime}) {
 
   function paintMissed() {
     const rows = pickMissed(state.missedRows);
-    const body = state.missed === 'loading' ? '<p class="home-status">불러오는 중…</p>'
+    const body = state.missed === 'loading' ? waitHtml({rows:2})
       : state.missed === 'failed' ? '<p class="home-status">확인하지 못했어요</p>'
       : rows.length ? rows.map(r => {
         const who = typeof r.counterparty === 'string' && r.counterparty.trim() ? `<small>${esc(r.counterparty.trim())}</small>` : '';
@@ -56,7 +57,7 @@ export function mountHomeFill({main, rt = window.KPTURuntime}) {
   function paintTomorrow() {
     const t = state.tomorrow;
     let body;
-    if (t === 'loading') body = '<p class="home-status">불러오는 중…</p>';
+    if (t === 'loading') body = waitHtml({rows:2});
     else if (t === 'unavailable') body = '<p class="home-status">확인하지 못했어요</p>';
     else {
       const line = tomorrowLine(t, timeOf);

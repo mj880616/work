@@ -300,3 +300,22 @@ html .img-slot:not([data-img-state="shown"]){background:color-mix(in srgb,var(--
 .img-slot-retry:focus-visible{outline:2px solid var(--kptu-primary);outline-offset:1px;border-radius:50%}
 .img-slot .diary-photo-link{position:absolute;left:0;right:0;bottom:8px;z-index:1;text-align:center}
 .act-photo-thumb.img-slot::before{content:none}
+/* UI-기다림표시통일(2026-10-29 명진 A안): 기다림·실패·없음 공용 부품(wait-state.js) 하나. 기다림 = 위쪽 가는 줄 + 실제 줄 높이 회색 빈 줄, 글자 없음.
+   0.4초 안에 끝나면 아무것도 보이지 않는다(늦은 표시). 회색 빈 줄은 그림 칸(.img-slot 받는 중)과 같은 색. 민트(.notice)는 완료 알림에만. */
+.wait{display:grid;gap:6px;padding:4px 0;animation:wait-show 0s linear .4s both}
+@keyframes wait-show{from{visibility:hidden}to{visibility:visible}}
+.wait-bar{position:relative;display:block;height:2px;overflow:hidden;border-radius:1px}
+.wait-bar::after{content:"";position:absolute;top:0;bottom:0;left:0;width:30%;background:var(--kptu-muted);opacity:.4;animation:wait-run 1.2s ease-in-out infinite}
+@keyframes wait-run{from{transform:translateX(-100%)}to{transform:translateX(340%)}}
+.wait-row{display:block;height:var(--wait-h,20px);border-radius:4px;background:color-mix(in srgb,var(--kptu-border) 55%,transparent)}
+.wait-row:nth-child(3n+3){width:72%}
+.wait.wait-inline{display:inline-block;vertical-align:middle;padding:0;width:3.5em}
+.wait.wait-inline .wait-row{height:.9em;width:100%}
+.wait.wait-only-bar{padding:0;gap:0}
+.wait-fail{margin:4px 0;font-size:var(--kptu-text-meta,12px);color:var(--kptu-danger);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.wait-fail .wait-retry{min-height:24px;padding:0 8px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-sm,6px);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta,12px);font-weight:400;cursor:pointer}
+.wait-fail .wait-retry:hover{background:var(--kptu-surface-subtle)}
+.wait-fail .wait-retry:focus-visible{outline:2px solid var(--kptu-info);outline-offset:1px}
+.wait-empty{margin:4px 0;font-size:var(--kptu-text-meta,12px);color:var(--kptu-muted)}
+#deferredFeatureStatus.wait-only-bar{position:sticky;top:0;z-index:5;margin:0}
+@media (prefers-reduced-motion:reduce){.wait-bar::after{animation:none;width:100%;opacity:.25}}

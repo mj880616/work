@@ -1,3 +1,4 @@
+import {waitHtml} from './wait-state.js';
 // AI-서버연동 S7-c: [원장] 화면의 원장 목록·검색 칸(#ledgerBrowseRoot). 이 모듈이 그 칸의 유일한 renderer다.
 // 검색은 S7-a 검색 RPC(app_ledger_search, SECURITY INVOKER라 owner RLS 그대로)만 쓴다. 기본은 업무만(L1), 관심 정보는 따로 고른다.
 // 화면(S7-c 정리): 검색칸 하나만 늘 보이고 나머지 조건은 [조건 ▾] 안(처음엔 접힘, 펼침 상태는 저장하지 않음). 걸린 조건은 칩, ✕로 하나씩 해제.
@@ -370,7 +371,7 @@ function render() {
   if (!root.querySelector('[data-lb-shell]')) root.innerHTML = shellHtml();
   syncForm(root);
   const box = root.querySelector('#lbResults');
-  if (state.phase === 'loading') box.innerHTML = '<p class="lg-note" role="status">원장을 읽는 중…</p>';
+  if (state.phase === 'loading') box.innerHTML = waitHtml({rows:6});
   else if (state.phase === 'error') box.innerHTML = '<p class="lg-error" role="alert">원장을 읽지 못했습니다.</p><button type="button" class="lg-tool" data-lb-action="reload">다시 읽기</button>';
   else box.innerHTML = state.story ? storyHtml() : isSearching(state.filters) ? resultsHtml() : homeHtml();
   root.querySelector('#lbStatus').textContent = state.busy ? '찾는 중…' : state.phase === 'ready' && !state.story && isSearching(state.filters) ? countLabel(state.rows.length, state.limit) : '';
@@ -471,7 +472,7 @@ function section(key, title, body, count) {
 }
 function homeHtml() {
   const h = state.home;
-  if (!h) return '<p class="lg-note" role="status">원장을 읽는 중…</p>';
+  if (!h) return waitHtml({rows:4});
   if (h.error) return '<p class="lg-error" role="alert">원장을 읽지 못했어요.</p><button type="button" class="lg-tool" data-lb-action="reload">다시 읽기</button>';
   // 한 기록은 한 칸에만(앞 칸에 나온 기록은 뒤 칸에서 뺀다: 줄·상세 id가 겹치지 않게).
   const shown = new Set();
@@ -495,7 +496,7 @@ function storyHtml() {
   const s = state.story;
   const head = `<div class="lb-story-head"><button type="button" class="lg-text-btn" data-lb-action="home">‹ 원장</button><h4 id="lbStoryTitle" class="lb-sec-h" tabindex="-1">${esc(s.name)}</h4>${s.rows ? `<span class="lb-sec-n">${s.rows.length}</span>` : ''}</div>`;
   if (s.error) return head + `<p class="lg-error" role="alert">${esc(s.error)}</p>`;
-  if (!s.rows) return head + '<p class="lg-note" role="status">이야기를 읽는 중…</p>';
+  if (!s.rows) return head + waitHtml({rows:4});
   if (!s.rows.length) return head + '<p class="lg-note" data-lb-empty>이 이야기에 남은 기록이 없어요.</p>';
   // 시간순(오래된 것 먼저) 그대로 두고, 처음엔 가장 최근 쪽 6건만. 접힌 앞쪽(오래된 기록)은 위의 [더보기 n ▾].
   const { shown, hidden } = capped('story', s.rows, { fromEnd: true });
@@ -519,7 +520,7 @@ function rowHtml(r, extra = '') {
   </li>`;
 }
 function detailHtml(id) {
-  if (state.detailBusy === id) return '<p class="lg-note" role="status">상세를 읽는 중…</p>';
+  if (state.detailBusy === id) return waitHtml({rows:3});
   const d = state.details.get(id);
   if (!d) return `<p class="lg-error" role="alert">${esc(state.detailError || '상세를 읽지 못했습니다.')}</p>`;
   const summary = d.record.summary ? `<p class="lb-text">${esc(d.record.summary)}</p>` : '';

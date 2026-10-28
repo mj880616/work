@@ -1,3 +1,4 @@
+import {waitInlineHtml, waitEl} from './wait-state.js';
 // SHARE-현장공유 PR 2(화면): the top of the "공유 페이지" menu (#sharePagesRoot). This module is the only renderer of that
 // region: my share pages list + [새 공유 페이지], and the editor (title, blocks, 초안/게시, project link, links).
 // The old Web1 cards below stay with web1-board.js, folded under "이전 페이지" (S7: not moved).
@@ -80,7 +81,7 @@ function renderList() {
   const head = el('div', {class:'sp-head'}, el('h2', {text:'내 공유 페이지'}),
     el('button', {type:'button', class:'primary', 'aria-label':'새 공유 페이지', dataset:{spNew:''}, text:'+ 새 공유 페이지'}));
   const body = [];
-  if (listState === 'loading' && !pages) status.textContent = '불러오는 중…';
+  if (listState === 'loading' && !pages) status.innerHTML = waitInlineHtml();
   else if (listState === 'error') {
     status.textContent = '공유 페이지 목록을 불러오지 못했어요.';
     body.push(el('button', {type:'button', class:'secondary', dataset:{spReload:''}, text:'다시 불러오기'}));
@@ -395,7 +396,7 @@ function renderLinks() {
       el('input', {type:'date', class:'sp-input', dataset:{spLinkExpiry:''}})),
     el('button', {type:'button', class:'secondary', dataset:{spLinkCreate:''}, text:'링크 만들기'}));
   const items = [];
-  if (editing.linksState === 'loading') items.push(el('p', {class:'sp-hint', text:'링크를 불러오는 중…'}));
+  if (editing.linksState === 'loading') items.push(waitEl({rows:2}));
   else if (editing.linksState === 'error') items.push(el('p', {class:'sp-hint', text:'링크 목록을 불러오지 못했어요.'}),
     el('button', {type:'button', class:'secondary', dataset:{spLinksReload:''}, text:'다시 불러오기'}));
   else if (!editing.links.length) items.push(el('p', {class:'sp-hint', text:'아직 만든 링크가 없어요. 받는 곳마다 따로 만들면 하나만 끌 수 있어요.'}));
@@ -565,7 +566,7 @@ async function openPage(id) {
   if (busy) return;
   const run = ++epoch, owner = scope;
   const status = listView.querySelector('[data-sp-list-status]');
-  if (status) status.textContent = '불러오는 중…';
+  if (status) status.innerHTML = waitInlineHtml();
   try {
     const rows = await rt.api(`/rest/v1/app_share_pages?id=eq.${q(id)}&workspace_id=eq.${q(workspaceId())}&select=${PAGE_COLUMNS}`, {singleFlight:false});
     if (run !== epoch || owner !== scope) return;

@@ -1,3 +1,4 @@
+import {waitHtml, failHtml} from './wait-state.js';
 import {askConfirm} from './small-notice.js'; // UI-알림창정리: 브라우저 기본 확인창 대신 공용 작은 확인창
 // REF-참고묶음 화면 2 (docs/design/ref-bundle.md 6절, 질문 1~7 추천안): the 참고 묶음 screen (?view=reference). This module is the
 // only renderer of #referenceView: the bundle list (name · linked count · last date, head ⋯ [묶음 더하기]·[순서 바꾸기]) and one
@@ -68,7 +69,7 @@ function paint(){
 function paintList(){
   const box=$('#rbList'),stats=bundleStats(state.links);
   const head=`<div class="rb-list-head"><span class="rb-label">묶음</span><button type="button" class="rb-more" data-rb-list-more data-ctx="off" aria-haspopup="true" aria-expanded="false" aria-label="참고 묶음 메뉴"${state.order||state.busy?' disabled':''}>${MORE}</button></div>`;
-  if(!state.loaded){box.innerHTML=head+`<p class="rb-empty" role="status">${esc(state.error||'불러오는 중…')}</p>${state.error?'<button type="button" class="rb-text-btn" data-rb-retry>다시 시도</button>':''}`;return;}
+  if(!state.loaded){box.innerHTML=head+(state.error?failHtml({retry:'data-rb-retry'}):waitHtml({rows:4}));return;}
   const rows=(state.order||state.bundles).map((b,i,all)=>{
     const s=stats.get(b.id)||{count:0,last:''},meta=`${s.count}${s.last?' · '+md(s.last):''}`;
     if(state.order)return `<div class="rb-row rb-order-row" data-rb-order-row="${esc(b.id)}"><span class="rb-name">${esc(b.name)}</span><button type="button" class="rb-icon-btn" data-rb-up="${esc(b.id)}" aria-label="${esc(b.name)} 위로"${i===0?' disabled':''}>↑</button><button type="button" class="rb-icon-btn" data-rb-down="${esc(b.id)}" aria-label="${esc(b.name)} 아래로"${i===all.length-1?' disabled':''}>↓</button></div>`;

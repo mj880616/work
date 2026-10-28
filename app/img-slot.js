@@ -2,7 +2,7 @@
 // - 받는 중: 글자 없는 연한 회색 칸(data-img-state="loading").
 // - 받음: 그림(data-img-state="shown"). <img>는 다 받은 뒤에만 보인다(그 전에는 visibility:hidden → 깨진 그림 표시·대체 글자가 화면에 나오지 않음).
 // - 못 받음: 같은 회색 칸 가운데 작은 ↻ 하나(data-img-state="failed"). ↻를 누르면 그 그림만 다시 받는다. 화면을 다시 열면 칸이 새로 만들어져 저절로 다시 받는다.
-// - 모양은 base-ui.css의 .img-slot 규칙 하나. '불러오는 중' 통일 부품(UI-기다림표시통일)이 생기면 회색 칸 색을 그 부품의 회색 빈 줄과 맞춘다.
+// - 모양은 base-ui.css의 .img-slot 규칙 하나. 회색 칸 색은 '불러오는 중' 공용 부품(wait-state.js, UI-기다림표시통일)의 회색 빈 줄과 같다.
 // - 안전망: 이 파일을 불러오면 문서 전체에서 그림 받기 실패(error)를 잡아 그 <img>를 감춘다(data-img-broken). 칸 규칙을 아직 안 쓴 곳도 깨진 그림이 보이지 않는다.
 // 기기 저장 없음(메모리의 WeakMap뿐).
 export const SLOT_CLASS = 'img-slot';

@@ -24,6 +24,7 @@ on:
       - 'tests/seoul-time.test.mjs'
       - 'tests/ui-cleanup-b.test.mjs'
       - 'tests/ui-cleanup-c.test.mjs'
+      - 'tests/wait-state.test.mjs'
       - 'tests/time-input.test.mjs'
       - 'tests/meeting-compact.test.mjs'
       - 'tests/select-menu.test.mjs'
@@ -121,6 +122,7 @@ on:
       - 'tests/seoul-time.test.mjs'
       - 'tests/ui-cleanup-b.test.mjs'
       - 'tests/ui-cleanup-c.test.mjs'
+      - 'tests/wait-state.test.mjs'
       - 'tests/time-input.test.mjs'
       - 'tests/meeting-compact.test.mjs'
       - 'tests/select-menu.test.mjs'
@@ -219,6 +221,8 @@ jobs:
 
       - name: Check editor toolbar, add buttons and top bands stay unified (UI-화면정리 C)
         run: node --test tests/ui-cleanup-c.test.mjs
+      - name: Check one shared loading/failed/empty part (UI-기다림표시통일)
+        run: node --test tests/wait-state.test.mjs
 
       - name: Check Web2 app icon files (UI-앱아이콘 메모+체크)
         run: node --test tests/app-icon.test.mjs
@@ -228,6 +232,9 @@ jobs:
 
       - name: Check Telegram raw lines phone layout (TG-원문폰배치)
         run: node --test tests/tg-raw-fold.test.mjs
+
+      - name: Check organization key people tab (ORG-주요인물)
+        run: node --test tests/org-key-people.test.mjs
 
       - name: Check meeting draft parser
         run: node --test tests/meeting-draft-parser.test.mjs

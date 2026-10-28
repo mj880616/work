@@ -1,3 +1,4 @@
+import {waitHtml, failHtml} from './wait-state.js';
 // PHOTO-사진메뉴(docs/design/photo-menu.md, 시안 photo-menu-mock.html): '사진' 메뉴(?view=photos). #photosView의 유일한 그리기 주인.
 // 원드라이브 사진·동영상 색인(Edge onedrive-photos, PR 1410: library·months·days·media-url·photo-delete·trash-*)을 읽어 갤러리처럼 보여 준다.
 // - 위 칩 줄: [사진] [달력] [휴지통] · 오른쪽 끝 거르기(전체·★·동영상·스크린샷)·[－][＋]·원드라이브 아이콘(od-link.js).
@@ -158,7 +159,7 @@ async function loadBar(r) {
 
 // ---- 그리기 ----
 function gate() {
-  if (!odReady) return '<p class="photos-muted">불러오는 중…</p>';
+  if (!odReady) return waitHtml({rows:4, h:72});
   if (od.failed) return '<p class="photos-muted">원드라이브 상태를 읽지 못했어요. <button type="button" class="mini" data-photos-retry>다시</button></p>';
   if (!od.configured || !od.connected) return `<p class="photos-muted">원드라이브 연결 뒤 쓸 수 있어요${od.configured ? ' <button type="button" class="mini" data-photos-connect>연결</button>' : ''}</p>`;
   if (!od.folder) return '<p class="photos-muted">사진을 읽을 폴더를 고른 뒤 쓸 수 있어요 <button type="button" class="mini" data-photos-folder>폴더 고르기</button></p>';
@@ -212,8 +213,8 @@ function paintList({full = false} = {}) {
   rendered = items.length;
   list.querySelectorAll('[data-photos-day]').forEach(h => { const n = h.querySelector('[data-photos-day-n]'); if (n) n.textContent = `· ${counts.get(h.dataset.photosDay) || 0}장`; });
   const foot = body.querySelector('[data-photos-foot]');
-  foot.innerHTML = failed ? `사진을 읽지 못했어요: ${esc(failed)} <button type="button" class="mini" data-photos-more>다시</button>`
-    : ended ? (items.length ? '' : filter === 'all' ? '사진이 없어요.' : `${FILTER_TEXT[filter]} 사진이 없어요.`) : '불러오는 중…';
+  foot.innerHTML = failed ? failHtml({retry: 'data-photos-more'})
+    : ended ? (items.length ? '' : filter === 'all' ? '사진이 없어요.' : `${FILTER_TEXT[filter]} 사진이 없어요.`) : waitHtml({rows:2, h:72});
   sizer.paintButtons(root); paintSelect(); paintRail();
   watchFoot(foot);
 }
@@ -235,7 +236,7 @@ async function renderCalendar() {
   const cacheKey = `${want}:${key}`;
   let days = calData.get(cacheKey);
   if (!days) {
-    body.innerHTML = `${headHtml}<p class="photos-muted">불러오는 중…</p>`;
+    body.innerHTML = `${headHtml}${waitHtml({rows:4, h:72})}`;
     try {
       await ensureStars(r);
       // 대표 사진은 별표한 것 먼저: 그 달 별표 id만 보낸다(500개까지).
@@ -268,7 +269,7 @@ async function renderTrash({reload = false} = {}) {
   if (g) { body.innerHTML = g; return; }
   const r = run;
   if (!trash || reload) {
-    body.innerHTML = '<p class="photos-muted">불러오는 중…</p>';
+    body.innerHTML = waitHtml({rows:4, h:72});
     try { trash = (await odTrashList(rt)).items.map(p => ({...toItem(p), trashed_at:p.trashed_at, purge_at:p.purge_at})); trashFailed = ''; }
     catch (error) { if (!current(r)) return; trash = null; trashFailed = odErrorText(error); }
     if (!current(r) || tab !== 'trash') return;

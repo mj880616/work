@@ -1,3 +1,4 @@
+import {waitHtml, waitInlineHtml, failHtml} from './wait-state.js';
 // ORG-쟁의단계 화면: ① 조직 상세의 '쟁의 단계' 한 줄(선택 + 달력 날짜 + 저장, 접힌 단계 이력) ② 쟁의 단계 관리 창.
 // 데이터는 org-dispute-stage.js, 판정은 org-dispute-stage-model.mjs 한 곳. 표가 없으면(DB 적용 전) '준비 중' 한 줄만 보인다.
 import {seoulDateKey} from './meeting-time.js';
@@ -31,7 +32,7 @@ const lineStages = state => state.stages.length ? sortStages(state.stages) : DEF
 function paintLine() {
   if (!line) return;
   const {host, orgId, canEdit} = line, state = peekDisputeState();
-  if (!state) { host.innerHTML = '<span class="wd-stage-k">쟁의 단계</span><span class="wd-stage-note">불러오는 중…</span>'; return; }
+  if (!state) { host.innerHTML = '<span class="wd-stage-k">쟁의 단계</span><span class="wd-stage-note">' + waitInlineHtml() + '</span>'; return; }
   if (state.status === 'preparing') { host.innerHTML = '<span class="wd-stage-k">쟁의 단계</span><span class="wd-stage-note" data-stage-preparing>준비 중</span>'; return; }
   if (state.status === 'error') { host.innerHTML = '<span class="wd-stage-k">쟁의 단계</span><span class="wd-stage-note" role="alert">불러오지 못했어요</span><button type="button" class="wd-stage-btn" data-stage-retry>다시 시도</button>'; return; }
   const stages = lineStages(state), cur = stageOfOrg(orgId, state.histories, stages);
@@ -235,9 +236,9 @@ function rowHtml(s, state) {
 function paintManager() {
   const body = document.querySelector('#soStageBody'); if (!mgr || !body) return;
   const state = peekDisputeState();
-  if (!state) { body.innerHTML = '<p class="stg-note" role="status">불러오는 중…</p>'; return; }
+  if (!state) { body.innerHTML = waitHtml({rows:3}); return; }
   if (state.status === 'preparing') { body.innerHTML = '<p class="stg-note" data-stage-preparing>쟁의 단계는 준비 중이에요.</p>'; return; }
-  if (state.status === 'error') { body.innerHTML = '<p class="stg-note" role="alert">단계를 불러오지 못했어요.</p><button type="button" class="stg-link" data-stg-reload>다시 시도</button>'; return; }
+  if (state.status === 'error') { body.innerHTML = failHtml({retry: 'data-stg-reload'}); return; }
   const stages = sortStages(state.stages), busy = mgr.busy ? ' disabled' : '';
   const add = mgr.adding
     ? `<form class="stg-add" data-stg-add-form data-enter-save><input class="stg-input" data-stg-add-input maxlength="${STAGE_NAME_LIMIT}" value="${esc(mgr.addDraft)}" placeholder="새 단계 이름" aria-label="새 단계 이름" autocomplete="off"><button type="button" class="stg-link" data-stg-add-cancel>취소</button><button type="submit" class="stg-link" data-enter-save-submit${busy}>추가</button></form>`

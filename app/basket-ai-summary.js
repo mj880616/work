@@ -48,6 +48,8 @@ export const AI_SUMMARY_TEXT=Object.freeze({
   note_title_unavailable:'노트 제목을 저장하지 못했어요.',
   journal_draft_not_ready:'오늘 한 줄 초안 기능이 아직 준비되지 않았어요.',
   journal_draft_unavailable:'오늘 한 줄 초안을 읽거나 저장하지 못했어요.',
+  next_week_sheet_not_ready:'다음 주 준비 기능이 아직 준비되지 않았어요.',
+  next_week_sheet_unavailable:'다음 주 준비 한 장을 읽거나 저장하지 못했어요.',
   org_summary_not_ready:'조직 요약은 아직 준비 중이에요.',
   org_summary_unavailable:'조직 요약을 읽거나 저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.',
   org_people_not_ready:'주요 인물 기능이 아직 준비되지 않았어요.',

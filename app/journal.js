@@ -1,3 +1,4 @@
+import {waitHtml, waitInlineHtml} from './wait-state.js';
 // JOURNAL-일지 2단계(업무일지): the [일지] side of the schedule tab (?view=journal). This module is the only renderer of
 // #journalRoot: the week's day-number row (Monday to Sunday, ‹ › moves a week, a green dot on days with a line — J4 ①)
 // → the chosen day: "오늘 한 줄" on top, then that day's materials (일정·끝낸 할 일·조직 소식·회의·행사 결과 — JOURNAL-일지카드정리,
@@ -291,7 +292,7 @@ function partBox(part, {heading = 'h4'} = {}) {
   const box = document.createElement('section');
   box.className = 'journal-group'; box.dataset.journalGroup = part.key;
   const head = document.createElement(heading); head.className = 'journal-heading'; head.textContent = part.label; box.append(head);
-  if (part.loading) { box.insertAdjacentHTML('beforeend', '<p class="journal-muted">불러오는 중…</p>'); return box; }
+  if (part.loading) { box.insertAdjacentHTML('beforeend', waitHtml({rows:2})); return box; }
   if (part.sections.length) for (const section of part.sections) {
     const wrap = document.createElement('div');
     wrap.className = 'journal-org'; wrap.dataset.journalOrg = section.name;
@@ -308,7 +309,7 @@ function renderTasks(card) {
     const box = document.createElement('section');
     box.className = 'journal-group journal-task-col'; box.dataset.journalGroup = key;
     box.innerHTML = `<h4 class="journal-heading">${label}</h4>`;
-    if (part.loading) { box.insertAdjacentHTML('beforeend', '<p class="journal-muted">불러오는 중…</p>'); return box; }
+    if (part.loading) { box.insertAdjacentHTML('beforeend', waitHtml({rows:2})); return box; }
     if (items.length) { const ul = document.createElement('ul'); ul.className = 'journal-items'; ul.append(...items.map(item => taskRow(item, {pending}))); box.append(ul); }
     else if (!part.failed) { const note = dayRangeNote(key, selected, range); box.insertAdjacentHTML('beforeend', `<p class="journal-muted">${esc(note || empty)}</p>`); }
     return box;
@@ -349,7 +350,7 @@ function renderSchedule(card) {
   const head = document.createElement('div'); head.className = 'journal-schedule-head';
   head.innerHTML = '<h4 class="journal-heading">그날 일정</h4><button type="button" class="journal-schedule-cal" data-journal-calendar aria-label="이 날 달력 보기">달력 ›</button>';
   host.replaceChildren(head);
-  if (part.loading) { host.insertAdjacentHTML('beforeend', '<p class="journal-muted">불러오는 중…</p>'); return; }
+  if (part.loading) { host.insertAdjacentHTML('beforeend', waitHtml({rows:2})); return; }
   if (part.items.length) { const ul = document.createElement('ul'); ul.className = 'journal-events'; ul.append(...part.items.map(eventRow)); host.append(ul); }
   else if (!part.failed) host.insertAdjacentHTML('beforeend', '<p class="journal-muted" data-journal-events-empty>일정 없음</p>');
   partNotes(host, part);
@@ -402,7 +403,7 @@ function renderDay() {
   others.className = 'journal-others'; others.dataset.journalOthers = ''; others.open = othersOpen;
   const loading = card.others.some(part => part.loading), count = othersCount(card.others), failed = card.others.some(part => part.failed);
   // Folded, the summary still says when a part could not be read (its [다시 시도] is inside).
-  others.innerHTML = `<summary><span class="journal-heading">그 밖의 기록</span> <small class="journal-others-count" data-journal-others-count>${esc(count || (loading ? '불러오는 중…' : '없음'))}</small>${failed ? '<small class="journal-failed" data-journal-others-failed>· 못 읽은 묶음 있음</small>' : ''}</summary>`;
+  others.innerHTML = `<summary><span class="journal-heading">그 밖의 기록</span> <small class="journal-others-count" data-journal-others-count>${count ? esc(count) : loading ? waitInlineHtml() : '없음'}</small>${failed ? '<small class="journal-failed" data-journal-others-failed>· 못 읽은 묶음 있음</small>' : ''}</summary>`;
   const body = document.createElement('div'); body.className = 'journal-others-parts';
   body.append(...shown.map(part => partBox(part, {heading:'h5'})));
   others.append(body);

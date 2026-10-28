@@ -411,6 +411,10 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   await original.locator('#wdModal #wdTasks').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),orgDocs);}
   // MTG-사업보고 6단계(PR #1042): 담당조직 상세에 [사업 보고] 묶음이 생겼다(폰 쪽만 — PC는 위에서 상세 전체를 옮긴다).
   if(width<1024){const reports=await page.locator('#wdModal #wdReports').evaluate(el=>el.outerHTML);await original.locator('#wdModal #wdDocs').evaluate((el,html)=>el.insertAdjacentHTML('afterend',html),reports)}
+  // ORG-주요인물 2/2: 접힌 묶음 '기본 정보 · 소속 · 이전 요약'(머리 h3·설명 small)과 그 안의 h4 '기본 정보'·'이전 요약'은
+  // 작은 탭 [주요 인물][기본 정보][소속][이전 요약]으로 바뀌어 화면에서 없어졌다(탭 이름이 제목 역할). 같은 모양으로 main 쪽에서도 뺀다(폰 쪽만 — PC는 위에서 상세 전체를 옮긴다).
+  // 남은 h3·h4·small(할 일·자료·협의회·사업단 등)은 그대로 양쪽 스타일로 비교한다.
+  if(width<1024){const gone=await original.evaluate(()=>{const els=[...document.querySelectorAll('#wdModal #wdMoreSec summary h3,#wdModal #wdMoreSec summary small,#wdModal #wdBasic .wd-head h4,#wdModal #wdRecent .wd-head h4')];els.forEach(el=>el.remove());return els.length});expect(gone,'retired 담당조직 headings in main').toBe(4)}
   // 사업 보고 만들기·수정 창: '프로젝트' 고르기가 [연결할 곳 ▾](+ 숨은 프로젝트 칸)으로 바뀌고 장소 칸이 생겼다. 현재 마크업을 main 쪽에도 넣어 양쪽 스타일로 비교한다.
   for(const [project,places,location] of [['meetingProject','meetingPlaces','meetingLocationRow'],['mrdEditProject','mrdEditPlaces','mrdEditLocationRow']]){
    const parts=await page.locator('#'+places).evaluate((el,location)=>{const label=el.closest('label');return [label.outerHTML+label.nextElementSibling.outerHTML,document.getElementById(location).outerHTML]},location);
@@ -436,7 +440,8 @@ for(const width of [390,1280])test('D-6b all 16 rules preserve main font-size an
   // Two new elements carry their own PRJ-기록입력 rules that main never had: the header line (compared above on line 202)
   // and the empty-list text (project-record-input.spec). Drop exactly those from the generic dialog rows on both sides.
   // UI-회의결과창정리: 묶음 설명(.mtg-note 12px)과 빈 상태(.mtg-empty 13px)도 자기 규칙이 있다(meeting-entry.spec에서 크기 확인).
-  const generic=el=>!(el.class==='gt-links-legend'||el.class==='gt-links-hint'||el.class==='ps3-rec-empty'||el.class==='mtg-note'||el.class==='mtg-empty'||el.id==='ps3Summary');
+  // ORG-주요인물: 담당조직 상세 [주요 인물] 탭의 글(.okp-*)은 자기 규칙(작은 흐린 글씨)을 가진 새 요소라 양쪽 비교에서 뺀다(org-key-people.test 확인).
+  const generic=el=>!(String(el.class||'').startsWith('okp-')||el.class==='gt-links-legend'||el.class==='gt-links-hint'||el.class==='ps3-rec-empty'||el.class==='mtg-note'||el.class==='mtg-empty'||el.id==='ps3Summary');
   for(const rows of [before,after])rows.forEach((row,i)=>{if(i!==d6bSelectors.indexOf(d6bProgressLine))row.elements=row.elements.filter(generic)});
   // UI-디자인기준 3/3 3부(8-9e-3): 창 제목(h2)만 새 기준 18px. 나머지 15개 규칙과 색은 그대로 비교한다.
   for(const row of before)for(const el of row.elements)if(el.tag==='H2')el.fontSize='18px';

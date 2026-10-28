@@ -99,7 +99,7 @@ test('basket save lock blocks duplicate home posts and detail patches, reload gu
 test('session scope change clears basket content and prevents a delayed response from restoring it',async({page})=>{
  await fixture(page);let release;const pending=new Promise(r=>release=r);
  await page.route(SB+'/rest/v1/app_notes?**',async r=>{await pending;await r.fulfill({json:[{id:'stale',raw_text:'BASKET_STALE_PRIVATE',occurred_at:'2026-10-06'}]});});
- await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-list-status]')).toContainText('불러오는 중');
+ await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-list-status] [data-wait]')).toHaveCount(1);
  await page.evaluate(()=>{const rt=window.KPTURuntime;const c=rt.context.read();rt.context.set({...c,user:{...c.user,id:'different'}});window.dispatchEvent(new CustomEvent('kptu:session-changed',{detail:{session:rt.session.read()}}));});release();
  await expect(page.locator('[data-basket-row]')).toHaveCount(0);await expect(page.locator('#basketView')).not.toContainText('BASKET_STALE_PRIVATE');
 });
@@ -183,14 +183,14 @@ test('basket scope change while reading a file drops draft and sends no stale up
 test('basket attachment save invalidates an earlier list read and keeps counts when reopened',async({page})=>{
  const f=await fixture(page),u=await basketUploadFixture(page,f),q=quick(page);await page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click();await page.locator('[data-basket-row="n"]').click();await page.locator('[data-basket-close]').click();
  let release;const pending=new Promise(r=>release=r),old=structuredClone(f.notes);
- await page.route(SB+'/rest/v1/app_notes?**',async r=>{await pending;return r.fulfill({json:old});});await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-list-status]')).toContainText('불러오는 중');
+ await page.route(SB+'/rest/v1/app_notes?**',async r=>{await pending;return r.fulfill({json:old});});await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-list-status] [data-wait]')).toHaveCount(1);
  await page.locator('[data-basket-row="n"]').click();await noteAction(page,'[data-basket-edit]');await page.locator('#detailBasketFiles').setInputFiles(uploadFiles(['fresh.txt']));await page.locator('[data-basket-upload]').click();await expect(page.locator('[data-basket-attachments] a')).toHaveCount(1);const linksDone=page.waitForResponse(r=>r.url().includes('app_record_links')&&r.url().includes('note_id'));release();await linksDone;await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
  await expect(page.locator('[data-basket-row="n"]')).toContainText('첨부 1개');await page.locator('[data-basket-close]').click();await page.locator('[data-basket-row="n"]').click();await expect(page.locator('[data-basket-attachments] a')).toHaveCount(1);expect(u.calls).toHaveLength(1);expect(f.errors).toEqual([]);
 });
 test('basket opening detail invalidates older reads that finish before attachment save',async({page})=>{
  const f=await fixture(page),u=await basketUploadFixture(page,f),q=quick(page);await page.locator('#homeView [data-goto="basket"]:visible,.mobile-tabs [data-view="basket"]:visible').click();await page.locator('[data-basket-row="n"]').click();await page.locator('[data-basket-close]').click();
  let release;const pending=new Promise(r=>release=r),old=structuredClone(f.notes);
- await page.route(SB+'/rest/v1/app_notes?**',async r=>{await pending;return r.fulfill({json:old});});await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-list-status]')).toContainText('불러오는 중');await page.locator('[data-basket-row="n"]').click();await noteAction(page,'[data-basket-edit]');
+ await page.route(SB+'/rest/v1/app_notes?**',async r=>{await pending;return r.fulfill({json:old});});await page.evaluate(()=>window.KPTURouter.go('basket'));await expect(page.locator('[data-basket-list-status] [data-wait]')).toHaveCount(1);await page.locator('[data-basket-row="n"]').click();await noteAction(page,'[data-basket-edit]');
  const linksDone=page.waitForResponse(r=>r.url().includes('app_record_links')&&r.url().includes('note_id'));release();await linksDone;await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
  await page.locator('#detailBasketFiles').setInputFiles(uploadFiles(['fresh.txt']));await page.locator('[data-basket-upload]').click();await expect(page.locator('[data-basket-attachments] a')).toHaveCount(1);await expect(page.locator('[data-basket-row="n"]')).toContainText('첨부 1개');await page.locator('[data-basket-close]').click();await page.locator('[data-basket-row="n"]').click();await expect(page.locator('[data-basket-attachments] a')).toHaveCount(1);expect(u.calls).toHaveLength(1);expect(f.errors).toEqual([]);
 });

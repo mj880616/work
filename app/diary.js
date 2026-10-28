@@ -1,3 +1,4 @@
+import {waitInlineHtml} from './wait-state.js';
 // JOURNAL-일기 1차: the [일기] side of the schedule tab (?view=diary). This module is the only renderer of #diaryRoot:
 // month photo calendar → the chosen day below it (photos large, swipe sideways, and the text) → write/edit panel.
 // Rows, photos and photo views go through diary-data.js (owner RLS + basket-files); deleting uses the basket's
@@ -153,7 +154,7 @@ function renderList() {
 async function loadMonth({force = false} = {}) {
   if (!force && loadedMonth === monthKey()) return renderMonth();
   const run = ++epoch, key = monthKey();
-  status.textContent = '불러오는 중…'; $('[data-diary-retry]').hidden = true;
+  status.innerHTML = waitInlineHtml(); $('[data-diary-retry]').hidden = true;
   rows = new Map(); odMonth = null; starSet = new Set(); starsState = 'loading'; renderMonth();
   loadOd(run, key, force);
   try {

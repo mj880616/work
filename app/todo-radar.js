@@ -1,3 +1,4 @@
+import {waitHtml} from './wait-state.js';
 // JOURNAL-챙길것 1단계 + AI-서버연동 S5: the "챙길 것" box (docs/design/todo-radar.md 4·5·10·11절).
 // One renderer per host element: the home card body (#homeView [data-home-card="radar"], below 주요 일정) and the journal box
 // above the day card (#journalView [data-journal-radar]). home-read.js and journal.js only make the empty host and tell it
@@ -185,7 +186,7 @@ export function mountRadar(host, {place}) {
       ? `<header class="radar-head"><h3 id="${titleId}">챙길 것 <small data-home-count data-radar-count>${list.length || ''}</small></h3>${findBtn}</header>`
       : `<header class="radar-head"><h4 id="${titleId}">그날 나온 챙길 것 <small data-radar-count>${list.length || ''}</small></h4>${findBtn}</header>`;
     const empty = state === 'failed' ? `<p class="radar-muted">챙길 것을 불러오지 못했어요. <button type="button" class="radar-link" data-radar-retry>다시 시도</button></p>`
-      : !list.length && !promises.length ? `<p class="radar-muted">${state === 'loading' ? '불러오는 중…' : place === 'home' ? '남은 챙길 것 없음' : '이 날 기록에서 나온 챙길 것 없음'}</p>` : '';
+      : !list.length && !promises.length ? (state === 'loading' ? waitHtml({rows:2}) : `<p class="radar-muted">${place === 'home' ? '남은 챙길 것 없음' : '이 날 기록에서 나온 챙길 것 없음'}</p>`) : '';
     const hiddenCount = list.length - listed.length;
     const more = all && list.length > HOME_ROWS ? `<button type="button" class="radar-link" data-radar-all aria-expanded="true">접기</button>`
       : hiddenCount > 0 ? `<button type="button" class="radar-link" data-radar-all aria-expanded="false">${hiddenCount}건 더 ›</button>` : '';
