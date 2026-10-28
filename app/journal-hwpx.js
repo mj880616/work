@@ -42,7 +42,7 @@ import {scheduleForm} from './journal-weekly.js';
 import {carryOver, carryCutoff, formRequests, formDay, mergeCarried} from './weekly-exec-requests.js';
 import {scheduleItems, scheduleMismatches, titleRequest, titleAnswer, NO_PLACE} from './weekly-hwpx/schedule.mjs';
 import {callAiAssist, AI_SUMMARY_TEXT, aiSummaryRetryable} from './basket-ai-summary.js';
-import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, draftDocs, keepDocsOnly} from './weekly-draft-store.js';
+import {cellKeys, cellId, parseCellId, summaryKey, orgKey, makeDraft, putIssued, placeDraft, merge3, sameDraft, hasContent, baseDigest, readWeekDraft, writeWeekDraft, draftDocs, draftAreaSummaries, keepDocsOnly} from './weekly-draft-store.js';
 import {sameIssuedLines} from './weekly-lines.mjs';
 import {isDropped, defaultTitle, visibleCalendar, effectiveOverrides, memoryCandidates, withEntries, withUsed, changeMemory} from './weekly-schedule-memory.js';
 
@@ -778,7 +778,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     const cells = new Map([...s.cellAt].map(([id, at]) => [id, s.edits[at.section].get(at.index) ?? []]));
     const typedMe = s.meFrom === 'typed';
     return makeDraft({base:s.baseInfo ? {...s.baseInfo, digest:s.digest} : null, me:typedMe ? s.me : '', meFrom:typedMe ? 'typed' : '', date:s.date === s.defaultDate ? '' : s.date, cells, initial:s.initial,
-      keep:s.store?.keep ?? [], titles:s.titles, drops:s.drops, docs:s.docs ?? [], confirmed:s.store?.confirmed ?? null, issued:s.store?.issued ?? null});
+      keep:s.store?.keep ?? [], titles:s.titles, drops:s.drops, docs:s.docs ?? [], areas:s.areas ?? null, confirmed:s.store?.confirmed ?? null, issued:s.store?.issued ?? null});
   }
   // Put a draft's cells into the current base by name; what does not fit is kept aside (shown folded, saved again as it was).
   function placeCells(s, d) {
@@ -795,7 +795,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     if (me !== s.me) { s.me = me; rebase(); }
     s.date = d.date || s.defaultDate;
     const placed = placeCells(s, d);
-    s.titles = placed.titles; s.drops = placed.drops; s.docs = draftDocs(d); s.titleKeys = '';
+    s.titles = placed.titles; s.drops = placed.drops; s.docs = draftDocs(d); s.areas = draftAreaSummaries(d); s.titleKeys = '';
     return placed;
   }
   async function attachDraft(s, baseInfo, saved) {
@@ -809,6 +809,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     s.store.last = d ?? null;
     s.store.issued = d?.issued ?? null;
     s.docs = draftDocs(d);
+    s.areas = draftAreaSummaries(d); // 사업영역 한 줄 요약: 이 상자는 고치지 않고 읽은 그대로 다시 실어 보낸다
     s.store.savedAt = saved.row?.saved_at ?? null;
     if (hasContent(d)) {
       applyDraft(s, d);
@@ -839,9 +840,10 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
     const {draft: merged, conflicts} = merge3(st.last, mine, theirs);
     st.last = theirs ?? null;
     st.issued = merged.issued ?? null; // 받은 초안 기록은 더 나중에 낸 쪽(다른 기기 것일 수 있음)
+    s.areas = draftAreaSummaries(merged); // 사업영역 한 줄 요약도 합친 판(서버가 그사이 쓴 AI 줄 포함)
     if (state !== s) return merged;
     // Nothing came from the other side (e.g. a row made by the request table meanwhile): keep the box as it is.
-    if (!conflicts.length && sameDraft(merged, mine)) return putIssued(mine, st.issued);
+    if (!conflicts.length && sameDraft(merged, mine)) return currentDraft(s);
     const focus = doc.activeElement?.id, at = [doc.activeElement?.selectionStart, doc.activeElement?.selectionEnd];
     applyDraft(s, merged);
     st.conflicts = [...st.conflicts.filter(c => !conflicts.some(n => n.cell === c.cell)), ...conflicts];
@@ -908,6 +910,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
   const cellLabel = cell => {
     if (cell === 'me') return '담당 팀원 칸의 내 이름';
     if (cell === 'date') return '■ 일시';
+    if (cell.startsWith('area:')) return '사업요약표 사업영역 한 줄';
     if (cell.startsWith('title:') || cell.startsWith('drop:')) { const key = cell.slice(cell.indexOf(':') + 1), item = scheduleItems(fullCalendar()).find(i => i.key === key); return `5. 주요 일정 ${item ? `${item.label} ${item.time} ${item.title}` : ''}${cell.startsWith('drop:') ? ' 빼기' : ''}`.trim(); }
     const {section, key, n} = parseCellId(cell.slice(4));
     return `${SECTION_NAME[section] ?? section} · ${key.replace('›', ' › ')}${n ? ` (${n + 1}번째)` : ''}`;
@@ -937,6 +940,7 @@ export function mountWeeklyHwpx(host, {getWeek, onCopy, onCarry, onMemory, rt = 
       if (c.cell === 'me') { const kept = currentDraft(s); s.me = v ?? s.meResolved; s.meFrom = v ? 'typed' : s.meResolvedFrom; rebase(); placeCells(s, kept); }
       else if (c.cell === 'date') s.date = v ?? s.defaultDate;
       else if (c.cell.startsWith('title:')) { const key = c.cell.slice(6); if (v) s.titles.set(key, {title:v.title, place:v.place}); else s.titles.delete(key); s.titleKeys = ''; }
+      else if (c.cell.startsWith('area:')) { const id = c.cell.slice(5), areas = {...(s.areas ?? {})}; if (v) areas[id] = {text:v, hash:'', edited:true, at:new Date().toISOString()}; else delete areas[id]; s.areas = areas; }
       else if (c.cell.startsWith('drop:')) { const key = c.cell.slice(5); if (v) s.drops.set(key, v); else s.drops.delete(key); s.titleKeys = ''; }
       else { const at = s.cellAt.get(c.cell.slice(4)); if (at) s.edits[at.section].set(at.index, v ?? [...s.initial.get(c.cell.slice(4))]); }
       s.built = null;
