@@ -298,6 +298,9 @@ jobs:
       - name: Check photo grid size and full-screen photo gestures (OD-사진크기·OD-크게보기, steps·pinch·server save·swipe·undo, synthetic)
         run: node --test tests/photo-grid-size.test.mjs
 
+      - name: Check photo menu (PHOTO-사진메뉴 1차, newest-first list·day heads·calendar cover·multi star·delete undo·shared viewer, synthetic)
+        run: node --test tests/photos-model.test.mjs
+
       - name: Check diary list view (JOURNAL-일기목록, month groups·pin·star·find·view memory·no device storage, synthetic)
         run: node --test tests/diary-list-model.test.mjs
 
@@ -450,7 +453,7 @@ jobs:
           # 포토룸 삭제 상태 유지(TASK-포토룸삭제 1단계): 전용 파일과 로더·라우터·스타일 연결이 돌아오면 실패.
           test ! -f app/photo-room.js
           test ! -f app/photo-room.css
-          if grep -Eq "photo-room|__KPTU_PHOTO_ROOM|photos" app/loader-v2.js app/view-loader.js app/app-router.js app/styles.css app/index.html; then echo 'retired photo room returned'; exit 1; fi
+          if grep -Eq "photo-room|__KPTU_PHOTO_ROOM" app/loader-v2.js app/view-loader.js app/app-router.js app/styles.css app/index.html; then echo 'retired photo room returned'; exit 1; fi
           grep -q "__KPTU_MEETING_ROUND_DETAIL_READY__" app/view-loader.js
           if grep -q 'mobile-dock.js' app/loader-v2.js app/view-loader.js; then echo 'obsolete personal dock returned'; exit 1; fi
           if grep -Eq "notification-center-ui|__KPTU_NOTIFICATION_CENTER_READY__|push-notifications-ui" app/loader-v2.js app/view-loader.js app/styles.css; then echo 'notification runtime returned'; exit 1; fi
