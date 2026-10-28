@@ -60,14 +60,14 @@ function cmPaintFiles(){const f=cmEnsureFiles();if(!f)return;const owner=cmOwner
   if(cmMode==='task'&&!cmFilesOn&&owner)void taskFilesAvailable().then(yes=>{if(owner!==cmOwner())return;if(yes)cmFilesOn=true;if(cmMode==='task'&&!cmSaved)place(yes,false)})}
 let cmFormOwner=window.KPTURuntime.context.read()?.user?.id;
 const cmProjectButton=()=>document.querySelector('#eventTaskProject');
-function cmPaintProject(){const b=cmProjectButton();if(!b)return;const name=cmProjectRows.find(x=>x.project.id===cmProject)?.project.name||'',label=document.createElement('span'),arrow=document.createElement('span');label.className='event-project-name';label.textContent=cmProject&&name?name:'선택 안 함';label.dataset.empty=String(!(cmProject&&name));arrow.className='event-project-arrow';arrow.setAttribute('aria-hidden','true');arrow.textContent='▾';b.replaceChildren(label,arrow);b.setAttribute('aria-label',cmProject&&name?'프로젝트: '+name:'프로젝트')}
+function cmPaintProject(){const b=cmProjectButton();if(!b)return;const name=cmProjectRows.find(x=>x.project.id===cmProject)?.project.name||'',label=document.createElement('span'),arrow=document.createElement('span');label.className='event-project-name';label.textContent=cmProject&&name?name:'선택 안 함';label.dataset.empty=String(!(cmProject&&name));arrow.className='event-project-arrow';arrow.setAttribute('aria-hidden','true');arrow.textContent='▾';b.replaceChildren(label,arrow);b.setAttribute('aria-label',cmProject&&name?'사업영역: '+name:'사업영역')}
 async function cmLoadProjects(){const ctx=window.KPTURuntime.context.read(),snap=await window.KPTUProjectCatalog.load({workspaceId:ctx.workspaceId,userId:ctx.user.id});cmProjectRows=snap.tree.filter(x=>x.project.status==='active');if(!cmProjectRows.some(x=>x.project.id===cmProject))cmProject='';cmPaintProject();}
 // UI-홈빠른입력상세: 홈 빠른 입력 [+]가 고른 프로젝트를 새 [할 일 등록] 창의 프로젝트 칸에 채운다(창에서 다시 고르면 그 값). 이름은 같은 목록에서 찾는다.
 function cmSetTaskProject(id){if(cmSavePending||cmSaved)return;cmProject=typeof id==='string'?id:'';cmPaintProject();if(cmProject&&!cmProjectRows.some(x=>x.project.id===cmProject)){const seq=cmFormEpoch;cmLoadProjects().catch(()=>{if(seq===cmFormEpoch){cmProject='';cmPaintProject();}});}}
 const cmProjectPicker=createChoiceSheet({id:'eventProjectSheet',titleId:'eventProjectSheetTitle',historyKey:'kptuEventProjectChoice',
   canOpen:()=>!cmSavePending&&!cmSaved?.linked&&!document.querySelector('#eventModal')?.classList.contains('hidden'),
   choices:cmLoadProjects,
-  render:()=>({title:'프로젝트 선택',search:'프로젝트 이름 검색',html:projectRows(cmProjectRows,cmProject,cmEsc)}),onSelect:(_,value)=>{cmProject=value;cmPaintProject();},onError:e=>cmStatus(e.message||'프로젝트 목록을 불러오지 못했습니다.',true)
+  render:()=>({title:'사업영역 선택',search:'사업영역 이름 검색',html:projectRows(cmProjectRows,cmProject,cmEsc)}),onSelect:(_,value)=>{cmProject=value;cmPaintProject();},onError:e=>cmStatus(e.message||'사업영역 목록을 불러오지 못했습니다.',true)
 });
 window.addEventListener('kptu:session-changed',()=>{const nextOwner=window.KPTURuntime.context.read()?.user?.id;if(nextOwner===cmFormOwner)return;cmFormOwner=nextOwner;cmProjectPicker.dismiss();cmProject='';cmProjectRows=[];cmFormEpoch++;cmRequest=null;cmSaved=null;cmAttempts.clear();cmSavePending=false;cmSetBusy(false);cmPaintProject();});
 window.addEventListener('kptu:view-changed',()=>cmProjectPicker.dismiss());
@@ -134,7 +134,7 @@ async function cmSaveTask(){
       if(d?.ok!==true||typeof d.task?.id!=='string'||!d.task.id||(cmSaved&&d.task.id!==cmSaved.record.id))throw new Error('할 일 저장 결과를 확인하지 못했습니다.');
       if(!cmSaved)cmSaved={kind:'task',record:d.task,body,links:cmTaskLinks(d),managedProject:body.links[0]?.project_id||'',unknown:false};else{cmSaved.record=d.task;cmSaved.body=body}
       await attachFiles(cmSaved.record);if(!cmActive(r))return false;
-      if(d.link_error){stage='links';const links=await cmCall(r,'/functions/v1/google-tasks?action=links&task_id='+encodeURIComponent(cmSaved.record.id),{singleFlight:false});if(!cmActive(r))return false;cmSaved.links=cmTaskLinks(links);cmStatus('할 일은 저장했습니다. 프로젝트 연결을 확인한 뒤 저장해 주세요.'+(filesNotice?' '+filesNotice:''),true);return false}
+      if(d.link_error){stage='links';const links=await cmCall(r,'/functions/v1/google-tasks?action=links&task_id='+encodeURIComponent(cmSaved.record.id),{singleFlight:false});if(!cmActive(r))return false;cmSaved.links=cmTaskLinks(links);cmStatus('할 일은 저장했습니다. 사업영역 연결을 확인한 뒤 저장해 주세요.'+(filesNotice?' '+filesNotice:''),true);return false}
     }
     if(!cmActive(r))return false;
     stage='links';const next=body.links[0]?.project_id||'',previous=cmSaved.managedProject;
@@ -161,13 +161,13 @@ function cmLinkFailed(message){
 async function cmLinkProject(r){
   if(!cmProject||!cmSaved||cmSaved.kind!=='event'||cmSaved.linked===cmProject)return true;
   try{await saveProjectMilestone(cmLinkBody(r),cmRuntime());if(!cmActive(r))return false;cmSaved.linked=cmProject;return true}
-  catch(e){if(!cmActive(r))return false;cmLinkFailed('일정은 저장했습니다. 프로젝트 연결 실패, 다시 시도해 주세요. '+(e.message||''));return false}
+  catch(e){if(!cmActive(r))return false;cmLinkFailed('일정은 저장했습니다. 사업영역 연결 실패, 다시 시도해 주세요. '+(e.message||''));return false}
 }
 async function cmRetryLink(){
   if(cmSavePending||!cmSaved||cmSaved.kind!=='event')return;
   const r={owner:cmOwner(),epoch:cmSession(),seq:cmFormEpoch,snapshot:cmSnapshot()};if(!r.owner)return;
-  cmRequest=r;cmSavePending=true;cmSetBusy(true);cmStatus('프로젝트에 연결 중…');
-  try{const ok=await cmLinkProject(r);if(ok&&cmActive(r)){cmSetBusy(false);cmCloseModal();cmToast('프로젝트 주요 일정에 등록했습니다.')}}
+  cmRequest=r;cmSavePending=true;cmSetBusy(true);cmStatus('사업영역에 연결 중…');
+  try{const ok=await cmLinkProject(r);if(ok&&cmActive(r)){cmSetBusy(false);cmCloseModal();cmToast('사업영역 주요 일정에 등록했습니다.')}}
   finally{if(cmRequest===r){cmRequest=null;cmSavePending=false;if(cmSameSession(r)&&r.seq===cmFormEpoch)cmSetBusy(false)}}
 }
 async function cmSaveGoogle(){
@@ -206,7 +206,7 @@ async function cmSaveGoogle(){
     if(d.event.location!==body.location){cmStatus('일정은 저장했습니다. 장소 저장은 확인하지 못했습니다. 장소와 수정 입력은 유지했습니다. 확인한 뒤 다시 저장해 주세요.',true);try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{}return false}
     const linked=!!cmSaved.linked,unchanged=r.snapshot===cmSnapshot();if(unchanged){cmSetBusy(false);button.textContent=label;cmCloseModal()}else cmStatus('보낸 내용은 저장했습니다. 이후 수정한 내용은 아직 저장하지 않았습니다.');
     try{await window.__KPTU_RELOAD_GOOGLE_EVENTS__?.()}catch{if(cmSameSession(r)&&unchanged&&r.seq+1===cmFormEpoch)cmToast('일정은 저장했습니다. 목록을 새로고침해 주세요.');return true}
-    if(cmSameSession(r)&&unchanged&&r.seq+1===cmFormEpoch)cmToast(linked?'저장하고 프로젝트 주요 일정에 등록했습니다.':'Google Calendar에 저장했습니다.');return true;
+    if(cmSameSession(r)&&unchanged&&r.seq+1===cmFormEpoch)cmToast(linked?'저장하고 사업영역 주요 일정에 등록했습니다.':'Google Calendar에 저장했습니다.');return true;
   }catch(e){
     if(attempt)attempt.pending=false;if(!cmActive(r))return false;
     const checking=!!cmSaved?.unknown,f=checking?{kind:'unknown',detail:String(e?.message||e),text:'앞선 저장 결과를 아직 확인하지 못했습니다. 입력은 유지했습니다.'}:googleSaveFailure(e,{create:!cmSaved});logSaveDetail(f.detail);

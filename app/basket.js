@@ -188,7 +188,7 @@ async function putFiles({projectId=null,organizationId=null,projectName='',organ
     for(const [fileId,doc] of result.docs||[]){
       const before=docs.find(d=>d.file_id===fileId);
       docs=[...docs.filter(d=>d.file_id!==fileId),{id:doc.id,file_id:fileId,project_id:doc.project_id||null,organization_id:doc.organization_id||null,category:before?.category??doc.category??null,
-        project:{name:doc.project_id&&doc.project_id===projectId?projectName||'프로젝트':before?.project?.name||''},
+        project:{name:doc.project_id&&doc.project_id===projectId?projectName||'사업영역':before?.project?.name||''},
         organization:{name:doc.organization_id&&doc.organization_id===organizationId?organizationName||'조직':before?.organization?.name||''}}];
     }
     renderList();
@@ -529,7 +529,7 @@ function paintHandoffScope(){
 // Meeting and library chips stay plain: their links cannot be put back by the existing link path.
 // REF-참고묶음 화면 2: a reference chip ("참고: ○○") gets × too (restoreRecordLink takes kind 'reference'), and on the note screen
 // it opens that bundle on the 참고 묶음 screen.
-const chipKinds=[['project','프로젝트'],['organization','담당조직'],['meeting','사업 보고'],['document','자료실'],['bundle','참고']];
+const chipKinds=[['project','사업영역'],['organization','담당조직'],['meeting','사업 보고'],['document','자료실'],['bundle','참고']];
 const confirmedLinks = noteId => links.filter(l => l.note_id === noteId && l.status === 'confirmed');
 function chipInfo(link) {
   const [kind, label] = chipKinds.find(([key]) => link[key + '_id']) || ['other', '연결'];
@@ -546,7 +546,7 @@ function linkChip(link, {open = false} = {}) {
 // Moving or removing the documents elsewhere changes it on the next read; there is nothing to undo here.
 function filedChips(note) {
   const chip = (kind, id, name, label) => `<span class="basket-chip" data-chip-kind="${kind}" data-basket-filed${kind === 'organization' ? '-org' : ''}="${esc(id)}"><span class="basket-chip-name"><span class="basket-chip-dot" aria-hidden="true"></span><span class="a11y-only">${label} 자료: </span>${esc(name)} · 자료</span></span>`;
-  return [...filedOrganizations(note, docs).map(o => chip('organization', o.organization_id, o.name, '담당조직')), ...filedProjects(note, docs).map(p => chip('project', p.project_id, p.name, '프로젝트'))];
+  return [...filedOrganizations(note, docs).map(o => chip('organization', o.organization_id, o.name, '담당조직')), ...filedProjects(note, docs).map(p => chip('project', p.project_id, p.name, '사업영역'))];
 }
 // UI-바구니거르기: under [분류], one row of place chips (shared filter-chips.js) narrows by where the memo went.
 // The choice lives only in this module's memory; entering the basket starts again at [미분류]·[전체].
@@ -559,7 +559,7 @@ function paintPlaceFilter() {
 // UI-바구니거르기2: [담당조직]/[프로젝트] → one row of names ([모든 ○○ N] + places holding a memo, most first),
 // [자료실] → the 7 document categories. [전체]·[할 일] have none. Same shared chips, same memory-only choice.
 const subFilter = root.querySelector('[data-basket-sub-filter]');
-const SUB_LABELS = {organization:'조직', project:'프로젝트', reference:'참고 묶음', library:'자료 분류'};
+const SUB_LABELS = {organization:'조직', project:'사업영역', reference:'참고 묶음', library:'자료 분류'};
 function paintSubFilter() {
   // REF-참고묶음 화면 2: [분류] › [참고] also offers the 참고 묶음 screen (a text link under the bundle names).
   root.querySelector('[data-basket-ref-open]').hidden = !(filter === 'classified' && place === 'reference');
@@ -1091,7 +1091,7 @@ async function openChipPlace(linkId) {
   try {
     await window.KPTUViewLoader.load(project ? 'projects' : 'team');
     await (project ? window.KPTUProjects.open(link.project_id) : window.KPTUWorkplace.open(link.organization_id));
-  } catch { if (selected?.id === link.note_id) detail.querySelector('[data-basket-status]').textContent = project ? '프로젝트를 열지 못했어요. 다시 시도해 주세요.' : '담당조직을 열지 못했어요. 다시 시도해 주세요.'; }
+  } catch { if (selected?.id === link.note_id) detail.querySelector('[data-basket-status]').textContent = project ? '사업영역을 열지 못했어요. 다시 시도해 주세요.' : '담당조직을 열지 못했어요. 다시 시도해 주세요.'; }
 }
 // Another screen (or this one) changed links or documents: re-read them only, keeping any open note and its drafts.
 let linkReadRun = 0;

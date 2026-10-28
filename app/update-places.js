@@ -1,13 +1,15 @@
 // BASKET-업데이트통합: where an "업데이트" goes, in one place for the home input and the shared write window (update-window.js).
-// No place → a basket note (미분류); an organization → that organization's record; a project → that project's progress record.
-// Every save is an existing owner-RLS path (createNote, saveOrganizationUpdate, saveProjectProgress); nothing new is written here.
+// No place → a basket note (미분류); an organization → that organization's record; a project (사업영역) → a basket update linked to it.
+// MTG-프로젝트합치기 3단계: 프로젝트 진행 기록은 더 쓰지 않는다(기록은 사업 보고 한 곳). 사업영역을 고르면 바구니 [연결하기]와 같은
+// 연결 줄로 남고(결정 ⑦: 주간보고 ②에 그대로), 지난 진행 기록 표·데이터는 그대로 둔다.
+// Every save is an existing owner-RLS path (createNote, saveOrganizationUpdate, app_basket_confirm_links); nothing new is written here.
 // UPD-여러곳고르기: several places can be chosen at once (an array; empty is the basket). Two or more → one basket update linked
 // to every chosen place through the basket's own [연결하기] path (app_basket_confirm_links: owner RLS, INVOKER, 1~20 places, all
 // or none), so the update is one original shown in each place's records, as a linked basket update already is.
 import { createNote, readBasketNote, attachNoteDoc } from './basket-data.js';
 import { uploadBatch } from './basket-upload.js';
 import { putFilesIntoTargets } from './basket-file-docs.js';
-import { saveOrganizationUpdate, saveProjectProgress } from './quick-save.js';
+import { saveOrganizationUpdate } from './quick-save.js';
 import { projectRows, projectRow, orgGroupRows, orgRow } from './choice-sheet.js';
 import { confirmLinks } from './basket-classification.js';
 import { announceRecordSaved, basketDetail } from './record-saved.js';
@@ -67,7 +69,7 @@ export async function readPlaces(sources, {rt = window.KPTURuntime, isCurrent = 
   }
   if (!isCurrent()) return null;
   // PRJ-3단: each row also carries its parents' names ("1단 › 2단"), shown on third-level rows while searching (choice-sheet.js).
-  const trail = [], projects = window.KPTUProjectCatalog.tree(ps).map(x => { trail.length = x.depth; const path = trail.join(' › '); trail.push(x.project.name || '이름 없는 프로젝트'); return {...x, path}; });
+  const trail = [], projects = window.KPTUProjectCatalog.tree(ps).map(x => { trail.length = x.depth; const path = trail.join(' › '); trail.push(x.project.name || '이름 없는 사업영역'); return {...x, path}; });
   return {projects: projects.filter(x => x.project.status === 'active'), orgs: order.withRecent(eligible, recent.map(r => r.organization_id), 3), bundles: Array.isArray(bs) ? bs : []};
 }
 // A place that is no longer offered (organization unassigned, project archived) falls back to the basket.
@@ -122,7 +124,7 @@ export function placeSheetHtml(places, chosen, esc, {basket: withBasket = true, 
   const recentBlock = withBasket || recent.length ? `<div data-sheet-recent-block data-sheet-hide-on-search><p class="home-choice-label">최근</p><div class="home-choice-group home-choice-group-plain">${withBasket ? basket : ''}<span data-sheet-recent class="home-choice-inline">${recent.join('')}</span></div></div>` : '';
   const bundles = references ? places?.bundles || [] : [];
   const refs = bundles.length ? `<p class="home-choice-label" data-sheet-label-of="refs">참고</p><div data-sheet-refs data-sheet-part="refs">${bundles.map(b => referenceRow(b, picked('reference:' + b.id), esc)).join('')}</div>` : '';
-  const projectCol = projects.length ? `<div class="home-choice-col" data-sheet-col="projects"><p class="home-choice-label" data-sheet-label-of="projects">프로젝트</p><div data-sheet-projects data-sheet-part="projects">${projects.map(row).join('')}</div>${refs}</div>` : refs ? `<div class="home-choice-col" data-sheet-col="refs">${refs}</div>` : '';
+  const projectCol = projects.length ? `<div class="home-choice-col" data-sheet-col="projects"><p class="home-choice-label" data-sheet-label-of="projects">사업영역</p><div data-sheet-projects data-sheet-part="projects">${projects.map(row).join('')}</div>${refs}</div>` : refs ? `<div class="home-choice-col" data-sheet-col="refs">${refs}</div>` : '';
   return `${recentBlock}<div class="home-choice-col" data-sheet-col="orgs"><p class="home-choice-label" data-sheet-label-of="all">담당조직</p><div data-sheet-all data-sheet-part="all">${orgGroupRows(orgs.groups, o => orgRow(o, picked(o.id), esc))}</div></div>${projectCol}`;
 }
 // One reference bundle: the same row as an organization (check box, one per line), valued 'reference:<id>'.
@@ -136,14 +138,14 @@ export { projectRows };
 // note linked to every place at once (app_basket_confirm_links, the basket [연결하기] path; the database refuses all or none).
 // When the links are refused the note stays in the basket (nothing is lost or doubled): {note, linkError} says so to the caller.
 // ED③ 업데이트·기록: doc (optional) is the new editor's saved form. It goes onto the basket note (no place, or two or more places) and,
-// with one organization or project, onto that record with its letters in the same insert (ED③ 기록, 설계 11.4 순서 5).
+// with one organization, onto that record with its letters in the same insert (ED③ 기록, 설계 11.4 순서 5).
 export async function saveUpdate({place, places, text, owner, doc = null}, rt = window.KPTURuntime) {
   const list = placeList(places ?? place);
   if (!list.length) return createNote({raw_text:text, ...(doc ? {doc} : {})}, rt);
   // REF-참고묶음: a reference bundle has no record table, so one bundle alone also goes the basket-update-and-link way below.
-  if (list.length === 1 && list[0].kind !== 'reference') {
+  // MTG-프로젝트합치기 3단계: one project (사업영역) alone goes that way too (no new progress record).
+  if (list.length === 1 && list[0].kind === 'organization') {
     const [one] = list;
-    if (one.kind === 'project') return saveProjectProgress({project_id:one.id, raw_text:text.trim(), created_by:owner, doc}, rt);
     return saveOrganizationUpdate({organization_id:one.id, raw_text:text.trim(), created_by:owner, doc}, rt);
   }
   if (list.length > PLACE_LIMIT) throw new Error(`한 번에 ${PLACE_LIMIT}곳까지 고를 수 있어요.`);
@@ -160,9 +162,8 @@ export async function saveUpdate({place, places, text, owner, doc = null}, rt = 
 }
 export const MULTI_REASON = '직접 연결'; // the same reason as the basket [연결하기] (basket-manual-link.js)
 export const linkFailText = '업데이트는 정리함에 저장했지만 고른 곳에 연결하지 못했어요. 정리함에서 [연결하기]로 다시 연결해 주세요.';
-// ED③ 기록: the most letters a record may hold at these places: one project's record is a one-line summary (500, as its input), anything else 20000.
-export const RECORD_PROJECT_MAX = 500;
-export const textLimitFor = places => { const list = placeList(places); return list.length === 1 && list[0].kind === 'project' ? RECORD_PROJECT_MAX : 20000; };
+// ED③ 기록: the most letters a record may hold at these places. MTG-프로젝트합치기 3단계: no place takes a one-line progress record any more.
+export const textLimitFor = () => 20000;
 export const docFailText = '글자는 저장했지만 서식은 저장하지 못했어요. 정리함에서 그 업데이트를 열어 다시 고쳐 저장해 주세요.';
 export const fileFailText = '파일은 정리함에 저장했지만 고른 곳 자료로 넣지 못했어요. 정리함에서 [연결하기]로 다시 넣어 주세요.';
 // BUG-업데이트첨부연결: an update with files and one or more chosen places gives the same result as saving it in the basket and

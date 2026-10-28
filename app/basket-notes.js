@@ -41,7 +41,7 @@ import { notePreview, noteCopyPayload } from './note-preview.mjs';
 import { noteMarkdown } from './note-markdown.mjs';
 import { basketNoteOrigin, basketReturnHtml } from './basket-note-tasks.js';
 
-const chipKinds = [['project','프로젝트'], ['organization','담당조직'], ['meeting','사업 보고'], ['document','자료실'], ['bundle','참고']];
+const chipKinds = [['project','사업영역'], ['organization','담당조직'], ['meeting','사업 보고'], ['document','자료실'], ['bundle','참고']];
 const day = value => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul', dateStyle:'medium', timeStyle:'short'}).format(d); };
 // UI-바구니상세개편: [복사] on every note row and in the read view (same conversion as the write window's 텔레그램용 복사).
 const MORE_ICON = '<span aria-hidden="true">⋯</span>';
