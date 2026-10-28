@@ -199,3 +199,59 @@ html.diary-viewer-open,html.diary-viewer-open body{ overflow:hidden; }
 /* OD-폰보관: 설정 창 아래 한 줄 '폰에 보관한 작은 그림 N장 · 비우기'. 작은 글씨, 비우기는 글자 버튼(터치 높이는 유지). */
 #appView #diaryView .diary-od-keep{ display:flex; align-items:center; gap:4px; margin:0; color:var(--kptu-muted); font-size:var(--ds-text-meta); }
 #appView #diaryView .diary-od-keep-clear{ min-height:var(--kptu-touch-target,44px); margin:0; padding:0 4px; color:var(--kptu-primary-ink); background:transparent; border:0; box-shadow:none; font:inherit; text-decoration:underline; }
+
+/* JOURNAL-일기목록: 위 줄 [달력|목록] … [전체|★] 🔍 [+ 일기]. 두 묶음 버튼은 사진 [전체|별표]와 같은 .diary-source 모양을 그대로 쓴다. */
+#appView #diaryView .diary-head{ flex-wrap:wrap; justify-content:flex-start; }
+#appView #diaryView .diary-head > [data-diary-new]{ margin-left:auto; }
+#appView #diaryView .diary-head .diary-source{ align-self:center; }
+#appView #diaryView .diary-lv-tools{ display:flex; align-items:center; gap:6px; }
+#appView #diaryView .diary-lv-tools[hidden], #appView #diaryView .diary-month[hidden]{ display:none; }
+#appView #diaryView .diary-lv-find[aria-pressed="true"]{ background:var(--ds-kind-other-soft); color:var(--ds-kind-other-ink); }
+
+/* 목록: 작고 촘촘하게. 달 머리줄 '2026년 10월 · 9', 줄은 40px 그림 + 날짜·제목 + 본문 첫 줄 + ☆ ⋯. */
+#appView #diaryView .diary-all{ display:flex; flex-direction:column; gap:6px; }
+#appView #diaryView .diary-all[hidden]{ display:none; }
+#appView #diaryView .diary-lv-search{ display:flex; align-items:center; gap:6px; }
+#appView #diaryView .diary-lv-search[hidden]{ display:none; }
+#appView #diaryView .diary-lv-search input{ flex:1 1 auto; min-width:0; height:var(--ds-compact-height); padding:0 8px; font:inherit; font-size:var(--ds-compact-text); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); }
+#appView #diaryView .diary-lv-note{ margin:0; color:var(--kptu-muted); font-size:var(--ds-compact-text); }
+#appView #diaryView .diary-lv-note:empty{ display:none; }
+#appView #diaryView .diary-lv-body{ display:flex; flex-direction:column; gap:4px; }
+#appView #diaryView .diary-lv-group{ display:flex; flex-direction:column; }
+#appView #diaryView .diary-lv-head{ display:flex; align-items:center; gap:4px; width:100%; min-height:28px; height:auto; margin:0; padding:2px 4px; text-align:left; font:inherit; font-size:var(--ds-compact-text); font-weight:var(--ds-weight-medium); color:var(--kptu-muted); background:transparent; border:0; border-bottom:var(--ds-line-width) solid var(--ds-line); border-radius:0; box-shadow:none; cursor:pointer; }
+#appView #diaryView .diary-lv-head span{ font-weight:normal; }
+#appView #diaryView .diary-lv-head i{ margin-left:auto; font-style:normal; }
+#appView #diaryView h4.diary-lv-head{ cursor:default; }
+#appView #diaryView .diary-lv-rows{ display:flex; flex-direction:column; }
+#appView #diaryView .diary-lv-swipe{ position:relative; overflow:hidden; border-bottom:var(--ds-line-width) solid var(--ds-line); }
+#appView #diaryView .diary-lv-row{ position:relative; z-index:1; display:flex; align-items:center; gap:2px; background:var(--kptu-surface); touch-action:pan-y; transition:transform .18s ease; }
+#appView #diaryView .diary-lv-row.is-drag{ transition:none; }
+#appView #diaryView .diary-lv-swipe[data-side="start"] > .diary-lv-row{ transform:translateX(64px); }
+#appView #diaryView .diary-lv-swipe[data-side="end"] > .diary-lv-row{ transform:translateX(-64px); }
+#appView #diaryView .diary-lv-acts{ position:absolute; top:0; bottom:0; display:flex; }
+#appView #diaryView .diary-lv-acts-start{ left:0; }
+#appView #diaryView .diary-lv-acts-end{ right:0; }
+#appView #diaryView .diary-lv-act{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; width:64px; min-height:0; height:auto; margin:0; padding:0; border:0; border-radius:0; font:inherit; font-size:11px; cursor:pointer; background:var(--kptu-warning-soft); color:var(--kptu-warning); }
+#appView #diaryView .diary-lv-acts-start .diary-lv-act{ background:var(--kptu-info-soft); color:var(--kptu-info); }
+#appView #diaryView .diary-lv-open{ display:flex; align-items:center; gap:8px; flex:1 1 auto; min-width:0; min-height:48px; height:auto; margin:0; padding:4px; text-align:left; font:inherit; color:var(--kptu-ink); background:transparent; border:0; border-radius:0; box-shadow:none; cursor:pointer; }
+#appView #diaryView .diary-lv-thumb{ position:relative; flex:0 0 40px; width:40px; height:40px; overflow:hidden; border-radius:var(--ds-radius-control); background:var(--kptu-surface-subtle); }
+#appView #diaryView .diary-lv-thumb:not(.has-photo){ visibility:hidden; }
+#appView #diaryView .diary-lv-thumb .diary-photo{ position:absolute; inset:0; display:block; }
+#appView #diaryView .diary-lv-thumb .diary-photo img{ width:100%; height:100%; object-fit:cover; display:block; }
+#appView #diaryView .diary-lv-thumb .diary-photo-mark{ position:absolute; inset:auto 0 2px; font-size:9px; text-align:center; color:var(--kptu-muted); }
+#appView #diaryView .diary-lv-text{ display:flex; flex-direction:column; gap:1px; min-width:0; }
+#appView #diaryView .diary-lv-top{ display:flex; align-items:baseline; gap:6px; min-width:0; font-size:var(--ds-text-row); }
+#appView #diaryView .diary-lv-top b{ flex:0 0 auto; color:var(--kptu-primary-ink); font-weight:var(--ds-weight-medium); }
+#appView #diaryView .diary-lv-title, #appView #diaryView .diary-lv-line{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#appView #diaryView .diary-lv-line{ color:var(--kptu-muted); font-size:var(--ds-compact-text); }
+#appView #diaryView .diary-lv-star, #appView #diaryView .diary-lv-more{ flex:0 0 auto; width:32px; min-width:32px; height:32px; min-height:32px; margin:0; padding:0; font:inherit; font-size:15px; line-height:1; color:var(--kptu-muted); background:transparent; border:0; border-radius:var(--ds-radius-control); box-shadow:none; cursor:pointer; }
+#appView #diaryView .diary-lv-star[aria-pressed="true"]{ color:var(--kptu-warning); }
+#appView #diaryView .diary-lv-open:focus-visible, #appView #diaryView .diary-lv-star:focus-visible, #appView #diaryView .diary-lv-more:focus-visible, #appView #diaryView .diary-lv-head:focus-visible, #appView #diaryView .diary-lv-act:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }
+@media(hover:hover){ #appView #diaryView .diary-lv-open:hover, #appView #diaryView .diary-lv-star:hover, #appView #diaryView .diary-lv-more:hover{ background:var(--kptu-surface-subtle); } }
+@media(prefers-reduced-motion:reduce){ #appView #diaryView .diary-lv-row{ transition:none; } }
+/* ⋯ 메뉴(문서 몸에 붙는 공용 anchored-menu). */
+.diary-lv-menu{ position:fixed; inset:auto; margin:0; box-sizing:border-box; padding:4px; border:var(--ds-line-width) solid var(--ds-line); border-radius:var(--ds-radius-control); background:var(--kptu-surface); color:var(--kptu-ink); box-shadow:var(--kptu-shadow-float); z-index:1600; overflow:auto; }
+.diary-lv-menu[hidden]{ display:none; }
+.diary-lv-menu button{ display:block; width:100%; height:var(--kptu-touch-target); min-height:var(--kptu-touch-target); padding:0 12px; text-align:left; border:0; border-radius:var(--ds-radius-control); background:transparent; color:var(--kptu-ink); font:inherit; font-size:var(--ds-compact-text); cursor:pointer; }
+.diary-lv-menu button:hover{ background:var(--kptu-surface-subtle); }
+.diary-lv-menu button:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:-2px; }

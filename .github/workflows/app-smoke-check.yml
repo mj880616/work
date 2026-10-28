@@ -271,6 +271,9 @@ jobs:
       - name: Check photo grid size and full-screen photo gestures (OD-사진크기·OD-크게보기, steps·pinch·server save·swipe·undo, synthetic)
         run: node --test tests/photo-grid-size.test.mjs
 
+      - name: Check diary list view (JOURNAL-일기목록, month groups·pin·star·find·view memory·no device storage, synthetic)
+        run: node --test tests/diary-list-model.test.mjs
+
       - name: Check diary photo prune to Drive trash (JOURNAL-일기사진정리, synthetic)
         run: node --test tests/security/basket-photo-prune.test.mjs tests/security/basket-note-delete.test.mjs
 
