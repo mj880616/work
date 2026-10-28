@@ -1,7 +1,8 @@
 const SB = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const DRIVE_APP_URL = 'https://desk.bokdoong.com/work/app/?view=library';
-const CALENDAR_APP_URL = 'https://desk.bokdoong.com/work/app/';
+// DOMAIN-주소이전 ①-D1: Google 연결 뒤 돌아갈 Web2 화면은 새 주소(bokdoong.com). 허용 주소(ALLOWED_ORIGINS)는 옛 주소도 그대로 받는다.
+const DRIVE_APP_URL = 'https://bokdoong.com/work/app/?view=library';
+const CALENDAR_APP_URL = 'https://bokdoong.com/work/app/';
 const CALLBACK_URL = `${SB}/functions/v1/public-policy-drive/callback`;
 const ALLOWED_ORIGINS = new Set([
   'https://mj880616.github.io',
