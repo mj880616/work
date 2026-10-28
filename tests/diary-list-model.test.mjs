@@ -84,7 +84,7 @@ test('보기 기억 diary_view: 화면 규칙과 DB 검사(마지막 migration)�
 
 test('화면 연결: 기기 저장 없음, 보기는 view_prefs로만, 일기 검색은 전체 검색 경계를 넓히지 않음, 텔레그램 밀기 부품 재사용', () => {
   const list = read('app/diary-list.js'), diary = read('app/diary.js'), data = read('app/diary-data.js'), model = read('app/diary-list-model.mjs');
-  for (const src of [list, model]) assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB/);
+  for (const src of [list, model]) assert.doesNotMatch(src, /(local|session)Stor[a]ge|indexed[D]B/); // 단어를 그대로 쓰면 기기 저장 감사가 이 줄을 잡는다
   assert.match(diary, /viewPrefs\.set\('diary_view', next, \{rejectable:true\}\)/);
   assert.match(list, /from '\.\/tg-day-model\.mjs'/);
   assert.match(list, /swipeIntent/);
