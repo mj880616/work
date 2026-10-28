@@ -148,3 +148,47 @@ test.describe('폰 390 길게 누르기',()=>{
     expect(errors).toEqual([]);
   });
 });
+
+// LIB-정리보충 ④(10:41): 열린 폴더 안의 자료 줄 위에 놓아도 그 폴더로(놓일 폴더 전체를 칠함), '폴더 밖' 자료 줄이면 폴더 밖으로.
+// 10:42: 끄는 채 닫힌 폴더 위에 1초 머물면 저절로 열린다(목록을 다시 그리지 않아 끌기가 끊기지 않음).
+test.describe('PC 1280 자료 줄 위에 놓기·머물면 열림',()=>{
+  test('열린 폴더 안 자료 줄 위에 놓으면 그 폴더로, 폴더 밖 줄이면 폴더 밖으로',async({page})=>{
+    const {s,errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,group:'폴더'});
+    await expandLibraryTree(page);
+    const over=await page.evaluate(({from,to})=>{
+      const src=document.querySelector(from),dst=document.querySelector(to),dt=new DataTransfer(),r=dst.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;
+      src.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer:dt}));
+      const ev=new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:dt,clientX:x,clientY:y});dst.dispatchEvent(ev);
+      const group=document.querySelector('#documentList details[data-lu-node="f:fa"]').classList.contains('lu-drop-group');
+      dst.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:dt,clientX:x,clientY:y}));src.dispatchEvent(new DragEvent('dragend',{bubbles:true,dataTransfer:dt}));
+      return {allowed:ev.defaultPrevented,group};
+    },{from:row('a-2'),to:row('n-1')});
+    expect(over).toEqual({allowed:true,group:true});
+    await expect.poll(()=>s.items.find(x=>x.document_id==='a-2')?.folder_id).toBe('fa');
+    await expect(line(page)).toContainText('옮겼어요');
+    // 폴더 밖 자료 줄(a1-1) 위에 폴더 안 자료(a-1)를 놓으면 폴더 밖으로.
+    await expandLibraryTree(page);
+    const r=await dragTo(page,row('a-1'),row('a1-1'));expect(r.allowed).toBe(true);
+    await expect.poll(()=>s.items.some(x=>x.document_id==='a-1')).toBe(false);
+    // 같은 폴더 안 다른 줄 위(이미 그 폴더)는 놓을 수 없다.
+    await expandLibraryTree(page);
+    const same=await dragTo(page,row('n-1'),row('a-2'));expect(same.allowed).toBe(false);
+    expect(errors).toEqual([]);
+  });
+  test('끄는 채 닫힌 폴더 위에 1초 머물면 열리고, 바로 지나가면 열리지 않는다',async({page})=>{
+    const {errors}=await bootLibrary(page,1280,{folders:FOLDERS,items:ITEMS,group:'폴더'});
+    await libraryNodeHead(page,'x:out').click();await expect(page.locator(row('a-2'))).toBeVisible();
+    const result=await page.evaluate(async({from,fa,fn})=>{
+      const src=document.querySelector(from),dt=new DataTransfer(),at=sel=>{const el=document.querySelector(sel),r=el.getBoundingClientRect();return {el,x:r.left+r.width/2,y:r.top+r.height/2}};
+      const over=({el,x,y})=>el.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:dt,clientX:x,clientY:y}));
+      src.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer:dt}));
+      // 폴더 N 위를 잠깐 지나 폴더 A로: N은 열리지 않는다.
+      over(at(fn));await new Promise(r=>setTimeout(r,300));over(at(fa));
+      await new Promise(r=>setTimeout(r,1300));
+      const out={fa:document.querySelector('#documentList details[data-lu-node="f:fa"]').open,fn:document.querySelector('#documentList details[data-lu-node="f:fn"]').open};
+      src.dispatchEvent(new DragEvent('dragend',{bubbles:true,dataTransfer:dt}));return out;
+    },{from:row('a-2'),fa:head('f:fa'),fn:head('f:fn')});
+    expect(result).toEqual({fa:true,fn:false});
+    expect(errors).toEqual([]);
+  });
+});

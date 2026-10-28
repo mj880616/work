@@ -232,13 +232,17 @@ test('revoked Google Drive token starts reconnect through the canonical function
   page.on('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.accept()});
   await revealLibraryRow(page,'doc-1');await page.locator('[data-lu-menu="doc-1"]').click();
   await page.locator('[data-lu-delete="doc-1"]').click();
-  // Shared helper (Task2): result guidance first, then the reconnect offer.
-  await expect.poll(()=>dialogs.length).toBe(3);
-  expect(dialogs[1]).toBe('Google Drive 연결을 확인해 주세요. 다시 삭제하기 전에 자료 목록과 원본 상태를 먼저 확인해 주세요.');
-  expect(dialogs[2]).toContain('Google Drive 연결이 만료됐습니다');
+  // LIB-바로지우기: 묻지 않고 줄이 빠지고 '지웠어요 · 되돌리기'. 창을 숨기면(자료실을 떠나는 것과 같은 길) 기다리지 않고 보낸다.
+  await expect(page.locator('[data-lu-document="doc-1"]')).toHaveCount(0);
+  expect(dialogs).toEqual([]);
+  await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});document.dispatchEvent(new Event('visibilitychange'));delete document.hidden});
+  // 서버가 Drive 만료로 거절 → 줄을 되살리고 작은 알림, 그다음 Drive 다시 연결을 한 번 묻는다(같은 공용 입구).
+  await expect.poll(()=>dialogs.length).toBe(1);
+  expect(dialogs[0]).toContain('Google Drive 연결이 만료됐습니다');
   await expect.poll(()=>page.evaluate(()=>window.__driveReconnectCalls.at(-1))).toEqual({action:'drive-start'});
   await expect(page).toHaveURL(/#drive-auth$/);
   await expect(page.locator('[data-lu-document="doc-1"]')).toBeVisible();
+  await expect(page.locator('#kptuNotice.error .kptu-notice-text')).toHaveText('지우지 못해 목록에 되살렸어요.');
 });
 
 
