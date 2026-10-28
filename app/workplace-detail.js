@@ -402,3 +402,6 @@ function wdScroll(){const m=document.querySelector('#wdModal');return {pane:docu
 async function wdResume(){const o=takeBasketReturn('team',wdRecordRt);if(!o){wdPlace();return void wdOpenFirst()}wdResuming=true;try{await new Promise(resolve=>setTimeout(resolve));if(window.KPTURouter?.current!=='team')return;await wdOpen(o.id)}finally{wdResuming=false}if(wdOrg?.id!==o.id||window.KPTURouter?.current!=='team')return;const set=()=>{const m=document.querySelector('#wdModal'),card=m?.querySelector('.modal-card'),pane=document.querySelector('#wdDetailPane'),list=document.querySelector('#soOrganizationList');if(pane)pane.scrollTop=o.scroll?.pane||0;if(list)list.scrollTop=o.scroll?.list||0;if(card)card.scrollTop=o.scroll?.card||0;if(m)m.scrollTop=o.scroll?.modal||0;window.scrollTo({top:o.scroll?.page||0,behavior:'instant'})};set();requestAnimationFrame(set)}
 window.KPTURouter?.on?.('team',()=>{void wdResume()});
 window.KPTUWorkplace={open:wdOpen};
+// NAV-새로고침제자리: on a reload of 담당조직 the screen is shown before this module loads, so its view hook does not run and the list may
+// already be drawn: the organization written in the address is opened here. A list drawn later opens it through kptu:suborganizations-rendered.
+if(wdPlaced&&window.KPTURouter?.current==='team'){wdPlace();wdOpenFirst()}

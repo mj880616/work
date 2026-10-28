@@ -92,7 +92,10 @@
   }
   function setPlace(view,values={}){
     const keys=PLACE_PARAMS[view];
-    if(!keys||api.current!==view||viewFromUrl()!==view||!authenticatedShellReady())return false;
+    if(!keys||api.current!==view)return false;
+    // A layer is closing (its history.back() has not arrived yet): the place is written on the entry the screen ends on, after it.
+    if(releasing){pendingPlace={view,values:{...(pendingPlace?.view===view?pendingPlace.values:{}),...values}};return true}
+    if(viewFromUrl()!==view||!authenticatedShellReady())return false;
     const u=new URL(location.href);
     for(const [key,value] of Object.entries(values)){
       if(!keys.includes(key))continue;
@@ -127,6 +130,9 @@
   // The owner's close button calls the returned close() after closing itself.
   const LAYERS='kptuLayers';
   const layers=[];let releasing=0,deferred=[],layerReturn=false,traverseDelta=0;
+  // NAV-새로고침제자리: a side step (setSub) or a place (setPlace) asked while a layer is closing waits for that back to arrive,
+  // so the step's own entry is added after it instead of being the one the late back leaves (one owner of the history stack).
+  let pendingSub=null,pendingPlace=null;
   const chainOf=state=>Array.isArray(state?.[LAYERS])?state[LAYERS]:[];
   const topOf=state=>chainOf(state).at(-1);
   function pushLayer(layer){
@@ -154,7 +160,13 @@
     history.back();
   }
   // A view change ends the layers of the view left; their owners close them on kptu:view-changed.
-  function forgetLayers(){layers.length=0;deferred=[];releasing=0}
+  function forgetLayers(){layers.length=0;deferred=[];releasing=0;pendingSub=null;pendingPlace=null}
+  function flushPending(){
+    const step=pendingSub,where=pendingPlace;pendingSub=null;pendingPlace=null;
+    if(step&&api.current===step.view)writeSub(step.view,step.sub,{replace:step.replace});
+    deferred.splice(0).forEach(pushLayer);
+    if(where)setPlace(where.view,where.values);
+  }
   function returnToLayer(layer){
     const entry=window.navigation?.currentEntry;
     if(entry&&Number.isInteger(entry.index)&&Number.isInteger(layer.index)){
@@ -191,7 +203,7 @@
     if(layerReturn){layerReturn=false;return}
     if(releasing){
       releasing--;
-      if(!releasing)deferred.splice(0).forEach(pushLayer);
+      if(!releasing)flushPending();
       restoreFromUrl('popstate');
       return;
     }
@@ -371,6 +383,10 @@
   function setSub(view,sub,{replace=false}={}){
     if(api.current!==view||!SUB_PARAMS[view]||!authenticatedShellReady())return false;
     sub=subName(view,sub);
+    if(releasing){pendingSub={view,sub,replace:replace&&pendingSub?.replace!==false};return true}
+    return writeSub(view,sub,{replace});
+  }
+  function writeSub(view,sub,{replace=false}={}){
     if((api.sub||null)===sub&&subFromUrl(view)===sub)return true;
     api.sub=sub;
     syncUrl(view,{replace,sub});

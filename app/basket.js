@@ -415,7 +415,9 @@ window.addEventListener('kptu:sub-changed',e=>{
   if(wantedKind===kind&&wanted===pane)return;
   if(busy||classification.isOpen()||selected||noteDocs.isBusy()||noteDocs.isOpen()){window.KPTURouter?.setSub?.('basket',paneSub(),{replace:true});return;}
   closeRowMenu();setMore(false);handoff.close();hideHandoffNotice();
-  if(wantedKind!==kind)showKind(wantedKind,{address:false});
+  // NAV-새로고침제자리: a reload on the note side arrives here (the screen was shown before this module loaded, so its view hook did not
+  // run): the open note and the folder entered come from the address, like the view hook reads them.
+  if(wantedKind!==kind){const written=wantedKind==='note'?window.KPTURouter?.place?.('basket')||{}:{};showKind(wantedKind,{address:false,openId:written.doc||null,folder:written.folder||null});}
   if(wantedKind==='memo')showPane(wanted);
 });
 // address: how the side reaches the address — 'replace' corrects it to the side shown (entering the screen), 'push' is a step of its
