@@ -13,6 +13,7 @@ import {placeAnchored, clearAnchored, followAnchor} from './anchored-popup.js';
 import {requestBasketNote, requestNoteDocOpen, requestTaskOpen} from './basket-note-tasks.js';
 import {requestLibraryDocument, requestLibrarySelection} from './basket-library-send.js';
 import {createAnchoredMenu} from './anchored-menu.js';
+import {notify} from './small-notice.js';
 
 (() => {
 'use strict';
@@ -427,6 +428,7 @@ function closePanel() {
 document.addEventListener('pointerdown', e => {
   if (!panelOpen) return;
   if (panel.contains(e.target) || slotInput?.wrap.contains(e.target)) return;
+  if (e.target.closest?.('.lu-move-picker')) return; // 노트 [폴더로 옮기기 ›]의 폴더 고르기 창(결과 창은 그대로 둔다)
   void closePanel();
 }, true);
 PC.addEventListener('change', () => { if (!PC.matches && panelOpen) void closePanel(); paintAll(); });
@@ -439,26 +441,60 @@ function paintAll() {
 }
 // SEARCH-선택옮기기(1차, LIB-후속1 ②): 자료실 결과 줄을 우클릭(폰은 꾹 누르기 = 브라우저 contextmenu)하면 작은 메뉴.
 // 맨 위 [선택], 자료실 결과가 여럿이면 [자료실 결과 n개 모두 고르기], [열기]. 고르면 자료실 화면의 같은 선택 모드(같은 메뉴·폴더로 옮기기·분류 바꾸기·지우기)로
-// 넘어가 그 자료들이 고른 채로 열린다(선택·옮기기 부품을 따로 만들지 않음). 노트·할 일 등 다른 종류 결과는 이번 판에서 메뉴가 없다.
+// 넘어가 그 자료들이 고른 채로 열린다(선택·옮기기 부품을 따로 만들지 않음).
+// NOTE-탐색기 후속 ⑥(10:44 ②): 노트 결과 줄도 같은 메뉴를 연다. 노트는 노트 폴더, 자료실 자료는 자료실 폴더라 종류별로 나눠 묻는다 —
+// 노트는 [폴더로 옮기기 ›]·[노트 결과 n개 폴더로 옮기기 ›]가 노트 화면과 같은 폴더 나무 고르기 창(note-folder-pick.js → library-move-picker.js)을 열어
+// 그 자리에서 옮기고('옮겼어요 노트 n개 → 📁 이름 · 되돌리기'), 자료실 자료는 [자료실 결과 n개 모두 고르기](노트 줄 메뉴에도 있음)로 자료실 선택 모드에
+// 넘겨 자료실 폴더를 고른다. 자료실 줄 메뉴는 그대로([선택]·[모두 고르기]·[열기]).
+// 할 일·일정 등 폴더 없는 종류의 결과는 메뉴가 없다(고를 수 없음).
 const docKeys = host => [...(host?.querySelectorAll('[role="option"][data-gs-key^="document:"]') || [])].map(o => o.dataset.gsKey);
+const isNoteDoc = key => rowsByKey.get(key)?.source === 'note' && rowsByKey.get(key)?.kind === 'note';
+const noteKeys = host => [...(host?.querySelectorAll('[role="option"][data-gs-key^="note:"]') || [])].map(o => o.dataset.gsKey).filter(isNoteDoc);
+const resultsHost = key => document.querySelector(`[role="option"][data-gs-key="${CSS.escape(key)}"]`)?.closest('.gs-panel, #searchView');
 let rowMenu = null;
 function gsRowMenu() {
   if (rowMenu) return rowMenu;
-  rowMenu = createAnchoredMenu({id: 'gsRowMenu', className: 'lu-more-panel gs-row-menu', label: '검색 결과 자료', historyKey: 'kptuSearchRowMenu',
+  rowMenu = createAnchoredMenu({id: 'gsRowMenu', className: 'lu-more-panel gs-row-menu', label: '검색 결과 메뉴', historyKey: 'kptuSearchRowMenu',
     parent: t => t.closest('.gs-panel, #searchView') || document.body, key: t => t.dataset.gsKey,
     render: key => {
-      const host = document.querySelector(`[role="option"][data-gs-key="${CSS.escape(key)}"]`)?.closest('.gs-panel, #searchView');
-      const all = docKeys(host);
-      return `<button type="button" data-gs-act="pick">선택</button>${all.length > 1 ? `<button type="button" data-gs-act="all">자료실 결과 ${all.length}개 모두 고르기</button>` : ''}<button type="button" data-gs-act="open">열기</button>`;
+      const host = resultsHost(key), docs = docKeys(host), notes = noteKeys(host);
+      if (isNoteDoc(key)) {
+        return `<button type="button" data-gs-act="note-move">폴더로 옮기기 ›</button>${notes.length > 1 ? `<button type="button" data-gs-act="note-all">노트 결과 ${notes.length}개 폴더로 옮기기 ›</button>` : ''}${docs.length ? `<button type="button" data-gs-act="all">자료실 결과 ${docs.length}개 모두 고르기</button>` : ''}<button type="button" data-gs-act="open">열기</button>`;
+      }
+      return `<button type="button" data-gs-act="pick">선택</button>${docs.length > 1 ? `<button type="button" data-gs-act="all">자료실 결과 ${docs.length}개 모두 고르기</button>` : ''}<button type="button" data-gs-act="open">열기</button>`;
     },
     onAction: (button, active) => {
       const act = button.dataset.gsAct, option = active.trigger, item = rowsByKey.get(active.id);
       if (!item) return;
       if (act === 'open') { activate(option); return; }
-      const keys = act === 'all' ? docKeys(option.closest('.gs-panel, #searchView')) : [active.id];
+      const host = option.closest('.gs-panel, #searchView');
+      if (act === 'note-move' || act === 'note-all') {
+        const keys = act === 'note-all' ? noteKeys(host) : [active.id];
+        void moveNoteResults(option, keys.map(k => rowsByKey.get(k)?.id).filter(Boolean));
+        return;
+      }
+      const keys = act === 'all' ? docKeys(host) : [active.id];
       void selectInLibrary(keys.map(k => rowsByKey.get(k)?.id).filter(Boolean));
     }});
   return rowMenu;
+}
+// 노트 결과를 노트 폴더로(그 자리에서). 폴더 표가 아직 없으면 노트 화면과 같은 안내 한 줄.
+async function moveNoteResults(anchor, ids) {
+  if (!ids.length) return;
+  const rt = window.KPTURuntime, owner = rt?.session?.read?.()?.user?.id;
+  const {loadNoteFolders, openNoteFolderPicker, moveNotesToFolder} = await import('./note-folder-pick.js');
+  const {ready, folders} = await loadNoteFolders(rt).catch(() => ({ready: false, folders: []}));
+  if (owner !== rt?.session?.read?.()?.user?.id || !anchor.isConnected) return;
+  if (!ready) { notify('노트 폴더를 읽지 못했어요. 잠시 뒤 다시 해 주세요.', {error: true}); return; }
+  openNoteFolderPicker({anchor, folders, onPick: async folder => {
+    const result = await moveNotesToFolder(ids, folder, {rt, folders});
+    if (owner !== rt?.session?.read?.()?.user?.id) return;
+    const n = result.done.length;
+    if (!n) { notify('노트를 옮기지 못했어요. 다시 해 주세요.', {error: true}); return; }
+    window.dispatchEvent(new CustomEvent('kptu:basket-notes-restored'));
+    notify(`옮겼어요 노트 ${n}개 → ${result.place}${result.failed.length ? ` · ${result.failed.length}개는 못 옮김` : ''}`, {label: `노트 폴더 옮기기 ${n}개`,
+      undo: result.undo ? async () => { const ok = await result.undo(); window.dispatchEvent(new CustomEvent('kptu:basket-notes-restored')); return ok; } : null});
+  }});
 }
 async function selectInLibrary(ids) {
   if (!ids.length) return;
@@ -470,8 +506,9 @@ async function selectInLibrary(ids) {
   requestLibrarySelection(ids); r.go('library', {source: 'delegated'});
 }
 document.addEventListener('contextmenu', e => {
-  const option = e.target.closest?.('.gs-panel [role="option"][data-gs-key^="document:"], #searchView [role="option"][data-gs-key^="document:"]');
+  const option = e.target.closest?.('.gs-panel [role="option"][data-gs-key^="document:"], #searchView [role="option"][data-gs-key^="document:"], .gs-panel [role="option"][data-gs-key^="note:"], #searchView [role="option"][data-gs-key^="note:"]');
   if (!option || e.shiftKey || !rowsByKey.has(option.dataset.gsKey)) return;
+  if (option.dataset.gsKey.startsWith('note:') && !isNoteDoc(option.dataset.gsKey)) return;
   e.preventDefault(); e.stopPropagation();
   window.KPTUContextMenu?.pinAt?.(option, e.clientX, e.clientY);
   gsRowMenu().open(option);

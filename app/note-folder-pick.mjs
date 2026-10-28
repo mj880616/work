@@ -17,3 +17,14 @@ export function folderChoices(names, current) {
 }
 // 저장할 때 폴더를 따로 써야 하나(기존 노트: 지금 폴더와 고른 폴더가 다를 때만).
 export const folderChanged = (before, after) => (before || null) !== (after || null);
+// NOTE-탐색기 후속 ⑤: 옛 이름(화면 설정·metadata.folder)을 폴더 표의 같은 이름 맨 위 폴더 id로(없으면 null = 폴더 밖). 순서가 같으면 앞 폴더.
+export function folderIdFromName(folders, name) {
+  const want = typeof name === 'string' ? name.trim() : '';
+  if (!want || !Array.isArray(folders)) return null;
+  return folders.filter(f => f && !f.parent_id && f.name === want).sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0))[0]?.id ?? null;
+}
+// 옮긴 뒤 알림에 쓰는 자리 이름: '📁 이름' 또는 '폴더 밖'.
+export function noteFolderPlace(folders, id) {
+  const f = id && Array.isArray(folders) ? folders.find(x => x.id === id) : null;
+  return f ? `\u{1F4C1} ${f.name}` : '폴더 밖';
+}

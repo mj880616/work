@@ -177,9 +177,6 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 .nx-count { flex:none; font-size:12px; color:var(--kptu-muted); white-space:nowrap; }
 #appView #basketView .note-list-head > button.note-folder-more { flex:none; font-size:20px; line-height:1; }
 .note-folder-status { margin:0 0 6px; color:var(--kptu-muted); font-size:13px; }
-.nx-where { display:flex; flex-wrap:wrap; align-items:center; gap:2px; margin:2px 0 4px; font-size:13px; color:var(--kptu-muted); }
-.nx-where button { min-height:28px; padding:0 6px; border:0; background:none; color:var(--kptu-link); font:inherit; cursor:pointer; border-radius:var(--kptu-radius-sm); }
-.nx-where [aria-current] { padding:0 6px; color:var(--kptu-ink); font-weight:600; }
 .nx-select-bar:not([hidden]) { position:sticky; top:0; z-index:3; display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:2px 0 4px; padding:4px 6px; border:1px solid var(--kptu-border); border-radius:var(--kptu-radius-md); background:var(--kptu-surface); font-size:13px; }
 .nx-select-bar button { min-height:30px; padding:0 8px; font-size:13px; }
 .nx-select-bar .nx-sel-close { margin-left:auto; }
