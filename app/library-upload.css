@@ -400,3 +400,9 @@
 .lu-drop-item.lu-drop-over:not([aria-disabled="true"]){outline:2px dashed var(--kptu-primary-ink);outline-offset:-2px;background:var(--kptu-primary-soft)}
 .lu-drop-note{margin:4px 4px 0;font-size:var(--ds-text-meta,12px);line-height:1.4;color:var(--kptu-muted)}
 .lu-drop-note[hidden]{display:none}
+/* LIB-폴더보기 (2026-10-28 명진 요청 08:25 ③): 폴더로 묶었을 때 폴더 줄은 ▸ 대신 📁(닫힘)/📂(열림) 글자, '폴더 밖'은 🗂 + 흐린 글자. 다른 묶기는 그대로. */
+#appView #libraryView .lu-node-head.lu-node-emoji::before{content:none;display:none}
+#appView #libraryView .lu-folder-emoji{flex:none;margin:0 4px 0 1px;font-size:14px;line-height:1}
+#appView #libraryView .lu-fe-open,#appView #libraryView .lu-node[open] > .lu-node-head .lu-fe-closed{display:none}
+#appView #libraryView .lu-node[open] > .lu-node-head .lu-fe-open{display:inline}
+#appView #libraryView .lu-node-out .lu-node-name{color:var(--kptu-muted)}
