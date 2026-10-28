@@ -55,7 +55,8 @@ const copied = page => page.evaluate(() => window.__copied.at(-1));
 async function copyRow(page, id, width) {
   if (width >= 761) return press(page, page.locator(`[data-note-row-copy="${id}"]`), width);
   await press(page, rowMore(page, id), width);
-  await expect(menu(page).locator('button').first()).toHaveText('복사');
+  // NOTE-탐색기 (11:01 결정): [선택] is the first item, then 복사.
+  await expect(menu(page).locator('button').nth(1)).toHaveText('복사');
   await press(page, menu(page).getByRole('button', { name: '복사', exact: true }), width);
   await expect(menu(page)).toBeHidden();
 }
@@ -82,7 +83,7 @@ for (const width of [390, 1280]) {
     else await expect(page.locator('[data-note-row-copy="n-plain"]')).toBeHidden();
     await press(page, more, width);
     await expect(menu(page)).toBeVisible(); await expect(more).toHaveAttribute('aria-expanded', 'true');
-    await expect(menu(page).locator('button')).toHaveText(width < 761 ? ['복사', '고정', '폴더로 옮기기', '수정', '삭제'] : ['고정', '폴더로 옮기기', '수정', '삭제']);
+    await expect(menu(page).locator('button')).toHaveText(width < 761 ? ['선택', '복사', '고정', '폴더로 옮기기', '수정', '삭제'] : ['선택', '고정', '폴더로 옮기기', '수정', '삭제']);
     const m = await menu(page).boundingBox();
     expect(m.y).toBeGreaterThanOrEqual(mb.y + mb.height - 1); expect(m.y - (mb.y + mb.height)).toBeLessThanOrEqual(12);
     expect(m.x).toBeGreaterThanOrEqual(0); expect(m.x + m.width).toBeLessThanOrEqual(width);
@@ -113,7 +114,7 @@ for (const width of [390, 1280]) {
     await expect(page.locator('[data-note-row="n-plain"] [data-note-pinned]')).toBeVisible();
     await expect(page.locator('[data-note-detail]')).toBeHidden();
     await press(page, rowMore(page, 'n-plain'), width);
-    await expect(menu(page).locator('button').nth(width < 761 ? 1 : 0)).toHaveText('고정 해제');
+    await expect(menu(page).locator('button').nth(width < 761 ? 2 : 1)).toHaveText('고정 해제');
     await press(page, menu(page).getByRole('button', { name: '고정 해제', exact: true }), width);
     await expect(page.locator('#toast')).toHaveText('고정을 풀었어요.');
     expect(f.writes[1].body.metadata).toEqual({});
@@ -194,7 +195,7 @@ for (const width of [390, 1280]) {
     // A note with nothing to copy has no 복사 item on a phone either; the ⋯ keeps the other items.
     await press(page, rowMore(page, 'n-empty'), width);
     await expect(menu(page).getByRole('button', { name: '복사', exact: true })).toHaveCount(0);
-    await expect(menu(page).locator('button').first()).toHaveText('고정');
+    await expect(menu(page).locator('button').nth(1)).toHaveText('고정');
     await page.keyboard.press('Escape'); await expect(menu(page)).toBeHidden();
     // Text notes copy as before (title first line, 텔레그램 conversion).
     await copyRow(page, 'n-plain', width);
@@ -225,14 +226,13 @@ for (const width of [390, 1280]) {
     expect(Object.keys(parts)).toEqual(expect.arrayContaining(['title', 'text', 'time']));
     if (width < 761) {
       await expect(copy).toBeHidden(); await expect(page.locator('[data-note-row-copy]:visible')).toHaveCount(0);
-      // The title box ends just left of the ⋯ (within the 4px gap), i.e. one icon wider than with a copy button beside it.
-      expect(parts.title.x + parts.title.width).toBeLessThanOrEqual(mb.x + 1);
-      expect(parts.title.x + parts.title.width).toBeGreaterThan(mb.x - 8);
-      expect(parts.title.width).toBeGreaterThanOrEqual(rb.width - 48 - 16 - 2);
-      // The preview and date sit under the title line and also stop at the ⋯'s left edge: the column below the ⋯ stays empty.
-      for (const k of ['preview', 'time']) expect(parts[k].x + parts[k].width).toBeLessThanOrEqual(mb.x + 1);
-      // The phone menu's 복사 is the PC button's copy: same text, same notice.
-      await press(page, more, width); await expect(menu(page).locator('button').first()).toHaveText('복사');
+      // NOTE-탐색기 ②: one line — the title and the date (right after it) stop at the ⋯'s left edge, on the ⋯'s line.
+      expect(parts.title.x + parts.title.width).toBeLessThanOrEqual(parts.time.x + 1);
+      expect(parts.time.x + parts.time.width).toBeLessThanOrEqual(mb.x + 1);
+      expect(Math.abs((parts.time.y + parts.time.height / 2) - (mb.y + mb.height / 2))).toBeLessThan(12);
+      expect(parts.preview).toBeUndefined();
+      // The phone menu's 복사 is the PC button's copy: same text, same notice ([선택] comes first).
+      await press(page, more, width); await expect(menu(page).locator('button').nth(1)).toHaveText('복사');
       await press(page, menu(page).getByRole('button', { name: '복사', exact: true }), width);
       await expect(page.locator('#toast')).toHaveText('복사했습니다');
       expect((await copied(page)).startsWith('정리 노트')).toBe(true);
@@ -242,9 +242,9 @@ for (const width of [390, 1280]) {
       await expect(copy).toBeVisible(); const cb = await copy.boundingBox();
       expect(cb.x + cb.width).toBeLessThanOrEqual(mb.x + 1); expect(Math.round(cb.y)).toBe(Math.round(mb.y));
       expect(parts.title.x + parts.title.width).toBeLessThanOrEqual(cb.x + 1);
-      expect(parts.preview.x + parts.preview.width).toBeLessThanOrEqual(cb.x + 1);
+      expect(parts.time.x + parts.time.width).toBeLessThanOrEqual(cb.x + 1);
       await press(page, more, width);
-      await expect(menu(page).locator('button')).toHaveText(['고정', '폴더로 옮기기', '수정', '삭제']);
+      await expect(menu(page).locator('button')).toHaveText(['선택', '고정', '폴더로 옮기기', '수정', '삭제']);
       await page.keyboard.press('Escape');
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
