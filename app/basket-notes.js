@@ -460,7 +460,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
   // ED③ 노트: title, the letters taken out of the saved form (raw_text, for search·AI·journal) and the saved form (doc) go in one guarded write.
   async function save({stay = false} = {}) {
     if (!selected || !editing || busy) return {ok:false, message:'지금은 저장할 수 없어요.'};
-    if (!field) return {ok:false, message:'편집기를 여는 중이에요. 잠시 뒤 다시 눌러 주세요.'};
+    if (!field) { const message = '편집기를 여는 중이에요. 잠시 뒤 다시 눌러 주세요.'; say(message); return {ok:false, message}; }
     const f = fields(), files = stay ? pendingFiles() : 0;
     if (!textDirty() && !files) { if (stay) return {ok:true, message:'저장했어요'}; showToast('저장된 노트입니다.'); finishEdit({force:true}); return {ok:true}; }
     if (!textDirty()) return await saveFiles();
