@@ -12,7 +12,7 @@ const SRC='c0000000-0000-4000-8000-000000000101',ORG='c0000000-0000-4000-8000-00
 const cand=(n,over={})=>({id:id(n),kind:'request',summary:`가상 요청 ${n}`,due:null,source_kind:'basket',source_id:SRC,source_day:'2026-10-06',evidence:`근거 ${n}`,project_id:null,organization_id:null,status:'open',task_id:null,created_at:`2026-10-06T00:0${n%10}:00Z`,decided_at:null,...over});
 const resourceNoise=text=>/Failed to load resource|net::ERR_FAILED/.test(text);
 
-async function fixture(page,{rows=[cand(1,{kind:'deadline',due:'2026-10-09',summary:'가상 의견 제출'}),cand(2,{source_kind:'org_update',organization_id:ORG,summary:'가상 조직 회신'})],tables=true,fn='ok',state={last_success_at:'2026-10-06T00:30:00Z',last_partial:false},width=1280}={}){
+async function fixture(page,{rows=[cand(1,{kind:'deadline',due:'2026-10-09',summary:'가상 의견 제출'}),cand(2,{source_kind:'org_update',organization_id:ORG,summary:'가상 조직 회신'})],tables=true,fn='ok',state={last_success_at:'2026-10-06T00:30:00Z',last_partial:false},width=1280,routes=null}={}){
  await page.setViewportSize({width,height:900});
  const f=await openHome(page);
  // Calls are counted only from the reloaded page; the first page (before these routes) may still be finishing.
@@ -43,6 +43,7 @@ async function fixture(page,{rows=[cand(1,{kind:'deadline',due:'2026-10-09',summ
   if(body.mode==='auto')return route.fulfill({json:{ok:true,kind:'todo_radar',skipped:true,checked_at:db.state?.last_success_at??null,partial:db.state?.last_partial===true}});
   return route.fulfill({json:{ok:true,kind:'todo_radar',added:0,found:0,partial:false,checked_at:'2026-10-06T01:00:00Z',promises:[]}});
  });
+ await routes?.(); // extra routes (after the home's catch-all, so they win)
  // The home starts before these routes exist; start again from a fresh page so every radar read hits them.
  page.once('framenavigated',()=>{armed=true;});
  await page.reload();await expect(page.locator('#appView')).toHaveClass(/kptu-ui-ready/,{timeout:20000});
@@ -333,12 +334,12 @@ for(const width of [1280])test(`업무일지 [다시 찾기]는 홈과 같은 �
 const TG_FEED='c0000000-0000-4000-8000-000000000301';
 for(const width of [412,884,1440])test(`telegram candidate: room in the source line, evidence with 원문 보기, opens the telegram view ${width}`,async({page})=>{
  const feedReads=[];
- await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_feed_items',route=>{
+ const routes=()=>page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_feed_items',route=>{
   const q=new URL(route.request().url()).searchParams;
   if(q.get('id')?.startsWith('in.')){feedReads.push(Object.fromEntries(q));return route.fulfill({json:[{id:TG_FEED,room_key:'-100777',room_label:'가상 간부방'}]});}
   return route.fulfill({json:[]});
  });
- const f=await fixture(page,{width,rows:[cand(1,{source_kind:'telegram',source_id:TG_FEED,due:'2026-10-09',summary:'가상 교섭 자료 보내기',evidence:'14:12 가상위원장: 금요일 전까지 자료 부탁드려요'}),cand(2,{summary:'가상 조직 회신'})]});
+ const f=await fixture(page,{width,routes,rows:[cand(1,{source_kind:'telegram',source_id:TG_FEED,due:'2026-10-09',summary:'가상 교섭 자료 보내기',evidence:'14:12 가상위원장: 금요일 전까지 자료 부탁드려요'}),cand(2,{summary:'가상 조직 회신'})]});
  await page.evaluate(()=>window.KPTURouter.go('journal'));
  const box=page.locator('#journalView [data-journal-radar]');
  const row=box.locator(`[data-radar-row="${id(1)}"]`);
