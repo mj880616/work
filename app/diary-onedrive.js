@@ -46,6 +46,9 @@ const ERROR_TEXT = {
   onedrive_throttled: '원드라이브가 요청이 많다고 해요. 잠시 뒤 다시 해 주세요.',
   onedrive_folder_missing: '이 폴더를 찾지 못했어요. 목록을 다시 열어 주세요.',
   onedrive_index_read_failed: '사진 목록을 읽지 못했어요. 잠시 뒤 다시 해 주세요.',
+  onedrive_media_unavailable: '원본 주소를 받지 못했어요. 잠시 뒤 다시 해 주세요.',
+  onedrive_trash_missing: '휴지통이 비어 있어요.',
+  action_invalid: '서버가 아직 이 기능을 몰라요. 잠시 뒤 다시 해 주세요.',
 };
 export function odErrorText(error) {
   const code = String(error?.message || '');
@@ -124,6 +127,76 @@ export const odFolderSet = (rt, folderId) => odCall(rt, {action: 'folder-set', f
 export const odDisconnect = rt => odCall(rt, {action: 'disconnect'});
 // 휴지통으로 보내기. keepalive: 화면을 떠나는 순간(되돌리기 시간 중 앱 닫기)에도 요청이 끝까지 나가게 한다(그때는 세션 갱신 없이 지금 토큰으로).
 export const odDelete = (rt, id, {keepalive = false} = {}) => rt.api(OD_FN, {method: 'POST', body: {action: 'photo-delete', id, confirm: true}, singleFlight: false, timeoutMs: OD_TIMEOUT_MS, ...(keepalive ? {keepalive: true, refreshSession: false} : {})});
+
+// ---- PHOTO-사진메뉴 2차: 사진 메뉴 전용 서버 동작(Edge onedrive-photos, PR 1410). 모두 서버 색인을 읽고, 화면은 메모리에만 둔다. ----
+export const OD_FILTERS = Object.freeze(['all', 'star', 'video', 'shot']);
+const mediaOf = p => ({id: p.id, name: String(p.name || ''), taken_at: String(p.taken_at || ''), approx: p.approx === true,
+  day: dayRe.test(p.day || '') ? p.day : '', kind: p.kind === 'video' ? 'video' : 'photo',
+  width: Number.isFinite(p.width) ? p.width : null, height: Number.isFinite(p.height) ? p.height : null,
+  duration_ms: Number.isFinite(p.duration_ms) ? p.duration_ms : null, screenshot: p.screenshot === true});
+const filterBody = (filter, starIds) => ({filter: OD_FILTERS.includes(filter) ? filter : 'all', ...(starIds ? {star_ids: starIds} : {})});
+// 최신순 한 쪽: {items, next(다음 쪽 cursor 또는 null), indexing}.
+export async function odLibrary(rt, {filter = 'all', cursor = null, limit = 120, starIds = null} = {}) {
+  const d = await odCall(rt, {action: 'library', ...filterBody(filter, starIds), limit, ...(cursor ? {cursor} : {})});
+  const items = (Array.isArray(d?.items) ? d.items : []).filter(p => p && typeof p.id === 'string' && p.id && dayRe.test(p.day || '')).map(mediaOf);
+  const n = d?.next_cursor;
+  return {items, next: n && typeof n.t === 'string' && typeof n.id === 'string' ? {t: n.t, id: n.id} : null, indexing: d?.indexing === true};
+}
+// 달별 장수 {months:{'2026-10':n}, total}.
+export async function odMonths(rt, {filter = 'all', starIds = null} = {}) {
+  const d = await odCall(rt, {action: 'months', ...filterBody(filter, starIds)});
+  const months = {};
+  for (const [k, n] of Object.entries(d?.months && typeof d.months === 'object' ? d.months : {})) if (/^\d{4}-\d{2}$/.test(k) && Number.isInteger(n) && n > 0) months[k] = n;
+  return {months, total: Number.isInteger(d?.total) ? d.total : 0};
+}
+// 한 달 날별 장수·대표 1장 {days:{'2026-10-05':{count, cover:{id, kind}}}}.
+export async function odDays(rt, month, {filter = 'all', starIds = null} = {}) {
+  const d = await odCall(rt, {action: 'days', month, ...filterBody(filter, starIds)});
+  const days = {};
+  for (const [k, v] of Object.entries(d?.days && typeof d.days === 'object' ? d.days : {})) {
+    if (dayRe.test(k) && v && Number.isInteger(v.count) && typeof v.cover?.id === 'string') days[k] = {count: v.count, cover: {id: v.cover.id, kind: v.cover.kind === 'video' ? 'video' : 'photo'}};
+  }
+  return {days};
+}
+// 재생·원본 받기 주소(약 1시간 사는 Microsoft 주소, 메모리에만). purpose: play(동영상만) | download.
+export async function odMediaUrl(rt, id, purpose = 'download') {
+  const d = await odCall(rt, {action: 'media-url', id, purpose});
+  const url = safeThumbUrl(d?.url);
+  if (!url) throw new Error('onedrive_media_unavailable');
+  return {url, kind: d.kind === 'video' ? 'video' : 'photo', name: typeof d.name === 'string' ? d.name : '', expiresIn: Number.isFinite(d.expires_in) ? d.expires_in : 3000};
+}
+// 여러 장 지우기(Web2 휴지통으로, ids ≤ 50): {moved:[id], failed:{id:이유}}.
+export async function odDeleteMany(rt, ids, {keepalive = false} = {}) {
+  const d = await rt.api(OD_FN, {method: 'POST', body: {action: 'photo-delete', ids, confirm: true}, singleFlight: false, timeoutMs: OD_TIMEOUT_MS, ...(keepalive ? {keepalive: true, refreshSession: false} : {})});
+  return {moved: Array.isArray(d?.moved) ? d.moved.filter(x => typeof x === 'string') : [], failed: d?.failed && typeof d.failed === 'object' ? d.failed : {}};
+}
+// Web2 휴지통: 목록(열 때 서버가 30일 지난 것을 조금씩 원드라이브 휴지통으로 보냄)·되살리기·바로 지우기.
+export async function odTrashList(rt) {
+  const d = await odCall(rt, {action: 'trash-list'});
+  const items = (Array.isArray(d?.items) ? d.items : []).filter(p => p && typeof p.id === 'string' && p.id && dayRe.test(p.day || ''))
+    .map(p => ({...mediaOf(p), trashed_at: String(p.trashed_at || ''), purge_at: String(p.purge_at || '')}));
+  return {items, truncated: d?.truncated === true};
+}
+export async function odTrashRestore(rt, ids) {
+  const d = await odCall(rt, {action: 'trash-restore', ids});
+  return {restored: Array.isArray(d?.restored) ? d.restored : [], failed: d?.failed && typeof d.failed === 'object' ? d.failed : {}};
+}
+export async function odTrashPurge(rt, ids) {
+  const d = await odCall(rt, {action: 'trash-purge', ids, confirm: true});
+  return {purged: Array.isArray(d?.purged) ? d.purged : [], failed: d?.failed && typeof d.failed === 'object' ? d.failed : {}};
+}
+// 연결 뒤 돌아올 화면(명진 결정 5): 마이크로소프트가 그대로 돌려주는 state 끝에 '~photos'를 붙인다. 돌아오는 페이지가 떼어 내고 그 화면으로 보낸다
+// (서버가 확인하는 서명 부분은 그대로, 저장 없음). 일기는 붙이지 않는다(예전 그대로).
+export const OD_BACK_VIEWS = Object.freeze(['photos']);
+export function odAuthUrlBack(url, back) {
+  if (!OD_BACK_VIEWS.includes(back)) return url;
+  try {
+    const u = new URL(url), state = u.searchParams.get('state');
+    if (!state || state.includes('~')) return url;
+    u.searchParams.set('state', `${state}~${back}`);
+    return u.href;
+  } catch { return url; }
+}
 
 // 한 달치 사진: {days:{'YYYY-MM-DD':[{id,name,taken_at,approx}]}, truncated}. 모양이 맞는 것만 받는다.
 export async function odPhotos(rt, year, month) {
@@ -591,6 +664,12 @@ export function odPhotoElement(item, size, {label = '', rt = window.KPTURuntime,
 
 // ---- 별표 (app_diary_stars, owner RLS) ----
 export const starKey = (source, key) => `${source}:${key}`;
+// 사진 메뉴 ★ 거르기: 원드라이브 별표 전체(서버 owner RLS 표).
+export async function readOdStars(rt = window.KPTURuntime) {
+  const rows = await rt.api(`/rest/v1/app_diary_stars?workspace_id=eq.${encode(workspace(rt))}&source=eq.onedrive&select=source,item_key,taken_day&order=taken_day.desc&limit=10000`);
+  if (!Array.isArray(rows)) throw new Error('stars');
+  return rows.filter(r => r && r.source === 'onedrive' && typeof r.item_key === 'string');
+}
 export async function readStars(year, month, rt = window.KPTURuntime) {
   const {first, last} = monthRange(year, month);
   const rows = await rt.api(`/rest/v1/app_diary_stars?workspace_id=eq.${encode(workspace(rt))}&taken_day=gte.${first}&taken_day=lte.${last}&select=source,item_key,taken_day&order=taken_day.asc&limit=5000`);
