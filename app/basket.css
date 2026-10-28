@@ -127,7 +127,7 @@ body.kptu-mobile-keyboard #basketView .basket-approval-footer { position:static;
 #appView #basketView .inbox-find,#appView #basketView .inbox-chip { position:relative; flex:none; height:var(--ds-compact-height,32px); min-height:var(--ds-compact-height,32px); margin:0; padding:0 var(--ds-compact-pad-x,10px); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width) solid var(--ds-line); border-radius:8px; box-shadow:none; background-image:none; font-size:13px; font-weight:var(--ds-weight-medium,500); line-height:1; white-space:nowrap; }
 #appView #basketView :is(.inbox-find,.inbox-chip)::after { content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
 #appView #basketView .inbox-chip[aria-pressed="true"] { color:var(--ds-select-ink); background:var(--ds-select-bg); border-color:var(--ds-select-line); }
-#appView #basketView .inbox-section-head { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; min-height:var(--kptu-touch-target,44px); margin:0; }
+#appView #basketView .inbox-section-head:not([hidden]) { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; min-height:var(--kptu-touch-target,44px); margin:0; }
 #appView #basketView .inbox-section-head h3 { margin:0 auto 0 0; font-size:var(--ds-text-row,15px); font-weight:var(--ds-weight-medium,500); }
 #appView #basketView .inbox-chips { display:flex; gap:4px; }
 #appView #basketView .inbox-section[hidden] { display:none; }
