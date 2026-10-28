@@ -346,6 +346,9 @@ jobs:
       - name: Check business report area tag and next plan (MTG-프로젝트합치기 2단계)
         run: node --test tests/business-area-model.test.mjs
 
+      - name: Check business report week list (MTG-프로젝트합치기 3단계)
+        run: node --test tests/report-week.test.mjs
+
       - name: Check hardcoded color baseline (STAB-단위시험등록)
         run: node --test tests/hardcoded-colors.test.mjs tests/context-menu-sites.test.mjs
 
