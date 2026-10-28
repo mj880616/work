@@ -4,7 +4,7 @@ begin;
 --  1) 검색 함수 public.app_search_records(20261023013000, 운영 적용됨)를 같은 서명·같은 권한 모양으로 다시 정의해
 --     종류 두 개를 더한다: call(업무 통화, app_feed_items source='call')·telegram(텔레그램 소식, source='telegram').
 --     두 종류는 p_kinds·p_kind로 이름을 불렀을 때만 찾는다. 종류를 비우면(p_kinds null) 지금처럼 8종류만 — 전체 검색 화면 결과는 그대로다.
---     개인 통화함(app_call_personal)·개인 텔레그램(app_tg_personal_days)·일기·원문(raw_text)은 읽지 않는다(결정 1).
+--     개인 통화함 표·개인 텔레그램 요약 표·일기·원문(raw_text)은 읽지 않는다(결정 1).
 --     바뀌지 않는 것: SECURITY INVOKER·search_path 빈칸(기존 owner RLS 그대로), 실행은 authenticated만, 입력 규칙·오류 코드·반환 모양.
 --  2) 새 표 public.app_ask_answers: 물어본 질문·답 줄·근거 목록(앞뒤 한 줄은 저장 안 함)을 30일 남긴다(결정 4).
 --     owner만(private.app_is_workspace_owner). authenticated: 읽기·지우기, 넣기는 칸 5개(created_at은 서버 시각). 고치기 없음.
