@@ -1,17 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 권한은 인터넷 하나. 사진·저장소 전체 읽기, 앱 설치 권한은 요청하지 않는다(설계 5.2·6.3). -->
     <uses-permission android:name="android.permission.INTERNET" />
     <application
         android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:usesCleartextTraffic="false"
         android:label="웹2"
         android:icon="@drawable/app_icon"
         android:roundIcon="@drawable/app_icon"
         android:theme="@style/AppTheme">
+        <!-- singleTask: 로그인 복귀(kptuwork://auth)가 오면 위에 떠 있던 브라우저 탭을 닫고 이 화면으로 돌아온다. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:launchMode="singleTop"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|keyboard|keyboardHidden|navigation"
+            android:windowSoftInputMode="adjustResize"
             android:enableOnBackInvokedCallback="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
