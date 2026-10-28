@@ -1,3 +1,4 @@
+import {requestNoteAiTitle} from './note-ai-title.js';
 import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import { viewPrefs } from './view-prefs.js';
 import {basketOcrFor} from './basket-ocr-runtime.js';
@@ -300,6 +301,7 @@ export function mountQuick({root, dependencies, refreshTasks=()=>{}, invalidateP
     box.querySelectorAll('button,input,textarea,select').forEach(el=>el.disabled=true);pickerFiles.render();
     try{
       const note=await createNoteDoc({title,raw_text:text,markdown:false});
+      void requestNoteAiTitle(note.id);// NOTE-탐색기 ③: AI 요약 제목(서버가 정함, 기다리지 않음)
       let warning='';
       if(files.length){
         try{await uploadNoteFiles(note.id,batch,{isCurrent:()=>owner===quickScope(),onChange:()=>{if(isCurrent())pickerFiles.render();}});}

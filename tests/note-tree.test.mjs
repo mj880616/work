@@ -64,3 +64,20 @@ test('위치 줄·옮기기 규칙: 자기 안으로 못 옮김, 100단 한도',
   assert.match(noteFolderErrorText({message:'NOTE_FOLDER_DEPTH: folders are limited to 100 levels'}), /100단/);
   assert.match(noteFolderErrorText({message:'NOTE_FOLDER_CYCLE: x'}), /자기 안/);
 });
+
+// NOTE-탐색기 ③: AI 요약 제목. 제목 칸이 본문 첫 줄로 자동으로 채운 것이면 AI 제목이 먼저, 직접 쓴 제목은 그대로.
+test('AI title shows over an auto-filled title, never over an own title', async () => {
+  const {noteLineTitle: line, autoNoteTitle} = await import('../app/note-tree.mjs');
+  assert.equal(autoNoteTitle('\n# 첫 줄 제목\n본문'), '첫 줄 제목');
+  assert.equal(line({title: '첫 줄 제목', raw_text: '# 첫 줄 제목\n본문', metadata: {ai_title: 'AI 제목'}}), 'AI 제목');
+  assert.equal(line({title: '내가 쓴 제목', raw_text: '첫 줄\n본문', metadata: {ai_title: 'AI 제목'}}), '내가 쓴 제목');
+  assert.equal(line({title: '첫 줄', raw_text: '첫 줄\n본문', metadata: {}}), '첫 줄');
+  const {requestNoteAiTitle} = await import('../app/note-ai-title.js');
+  const sent = []; let told = 0;
+  const call = async body => { sent.push(body); return {ok: true, data: {kind: 'note_title', id: body.id, title: '짧은 제목'}}; };
+  assert.equal(await requestNoteAiTitle('n1', {rt: {}, call, notify: () => told++}), '짧은 제목');
+  assert.deepEqual(sent, [{kind: 'note_title', id: 'n1'}]); assert.equal(told, 1);
+  assert.equal(await requestNoteAiTitle('n2', {rt: {}, call: async () => ({ok: true, data: {kind: 'note_title', skipped: 'own_title'}}), notify: () => told++}), null);
+  assert.equal(await requestNoteAiTitle('n3', {rt: {}, call: async () => { throw new Error('x'); }, notify: () => told++}), null);
+  assert.equal(told, 1, 'only a made title reloads the list');
+});

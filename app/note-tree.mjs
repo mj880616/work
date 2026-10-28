@@ -32,10 +32,16 @@ export function noteFolderIdLegacy(note, folders) {
 }
 
 // 노트 줄 제목: 직접 쓴 제목 → (AI 요약 제목 metadata.ai_title, 다음 단계) → 본문 첫 줄. 기호 없이 한 줄.
+// NOTE-탐색기 ③: 제목 칸이 본문 첫 줄로 자동으로 채운 것(basket-data.js noteTitleFromText와 같은 규칙)이면 직접 쓴 제목이 아니다 → AI 요약 제목이 먼저.
+// 서버(ai-assist note-title.ts hasOwnTitle)도 같은 규칙으로 직접 쓴 제목이 있는 노트에는 AI 제목을 만들지 않는다.
+export function autoNoteTitle(text) {
+  const line = String(text ?? '').split(/\r?\n/).map(v => v.trim()).find(Boolean) || '';
+  return [...line.replace(/^#{1,6}\s+/, '')].slice(0, 200).join('').trim();
+}
 export function noteLineTitle(note) {
   const own = String(note?.title || '').trim();
-  if (own) return own;
   const ai = plain(note?.metadata) && typeof note.metadata.ai_title === 'string' ? note.metadata.ai_title.trim() : '';
+  if (own && (own !== autoNoteTitle(note?.raw_text) || !ai)) return own;
   if (ai) return ai;
   const first = String(note?.raw_text || '').split('\n').map(l => plainInline(l.replace(/^\s{0,3}(#{1,6}\s+|[-*+]\s+(\[[ xX]\]\s+)?|\d+[.)]\s+|>\s?)/, ''))).find(Boolean) || '';
   if (first) return first;
