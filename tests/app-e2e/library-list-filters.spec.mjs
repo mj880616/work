@@ -1,5 +1,5 @@
 import { appOrigin } from './helpers/test-origin.mjs';
-// LIB-목록간격(줄 여백·종류 꼬리표·폴더 줄 글자·폰 두 줄) · LIB-거르기전체([전체] 칩 세 상태·'고른 종류 없음') · LIB-보기기억(묶기·종류 칩을 프로필 칸에 서버 저장, PC와 폰이 같게 열림).
+// LIB-목록간격(줄 여백·종류 꼬리표·폴더 줄 글자·폰 두 줄) · LIB-거르기전체([전체] 칩 세 상태·'고른 분류 없음') · LIB-보기기억(묶기·종류 칩을 프로필 칸에 서버 저장, PC와 폰이 같게 열림).
 import {test,expect} from '@playwright/test';
 import {baseState,mockApp,signIn} from './helpers/filter-chip-fixture.mjs';
 import {expandLibraryTree} from './helpers/library-tree.mjs';
@@ -81,7 +81,7 @@ for(const width of [1280,390])test(`LIB-목록간격: 자료 줄 여백 절반·
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });
 
-for(const width of [1280,390])test(`LIB-거르기전체: [전체] 칩 세 상태(모두·일부·없음)와 '고른 종류 없음' ${width}`,async({page})=>{
+for(const width of [1280,390])test(`LIB-거르기전체: [전체] 칩 세 상태(모두·일부·없음)와 '고른 분류 없음' ${width}`,async({page})=>{
   const {errors}=await boot(page,width);
   const group=page.locator('#libraryCategoryFilter'),all=chip(page,'all');
   await expect(group.getByRole('button').first()).toHaveText('전체');
@@ -97,17 +97,17 @@ for(const width of [1280,390])test(`LIB-거르기전체: [전체] 칩 세 상태
   // 모두 켜짐 → 누르면 모두 끔 → 목록 자리에 한 줄만.
   await all.click();await expect(all).toHaveAttribute('aria-pressed','false');
   await expect(group.locator('[aria-pressed="true"]')).toHaveCount(0);await expect(rows(page)).toHaveCount(0);
-  await expect(page.locator('#documentList')).toHaveText('고른 종류 없음');await expect(page.locator('#documentList .empty')).toHaveCount(1);
+  await expect(page.locator('#documentList')).toHaveText('고른 분류 없음');await expect(page.locator('#documentList .empty')).toHaveCount(1);
   // 모두 꺼짐 → 누르면 모두 켬.
   await all.click();await expect(all).toHaveAttribute('aria-pressed','true');await expect(rows(page)).toHaveCount(8);
   // 개별 칩과 섞기: 하나 끄면 일부, 하나만 남기고 끄면 일부, 마지막까지 끄면 없음, 하나 켜면 일부.
   await chip(page,'교섭').click();await expect(all).toHaveAttribute('aria-pressed','mixed');
   for(const n of ['투쟁','교육','선전','정책','회의','기타'])await chip(page,n).click();
-  await expect(all).toHaveAttribute('aria-pressed','false');await expect(page.locator('#documentList')).toHaveText('고른 종류 없음');
+  await expect(all).toHaveAttribute('aria-pressed','false');await expect(page.locator('#documentList')).toHaveText('고른 분류 없음');
   await chip(page,'정책').click();await expect(all).toHaveAttribute('aria-pressed','mixed');expect(await ids(page)).toEqual(['d3','d4','d6','d7']);
   // 검색어가 있어도 모두 끄면 같은 한 줄, 안내('꺼져 있어요')는 그대로 따로 나온다.
   await all.click();await all.click();await page.locator('#documentSearch').fill('보도');
-  await expect(page.locator('#documentList .empty')).toHaveText('고른 종류 없음');await expect(page.locator('.lu-off-hint')).toContainText('선전 분류 1건은 꺼져 있어요');
+  await expect(page.locator('#documentList .empty')).toHaveText('고른 분류 없음');await expect(page.locator('.lu-off-hint')).toContainText('선전 분류 1건은 꺼져 있어요');
   await page.locator('#documentSearch').fill('');
   // 없는 자료를 찾는 평소 빈 목록은 예전 문구 그대로.
   await all.click();await page.locator('#documentSearch').fill('없는검색어zzz');await expect(page.locator('#documentList .empty')).toHaveText('자료가 없습니다.');
@@ -140,7 +140,7 @@ for(const width of [1280,390])test(`LIB-보기기억: 묶기·종류 칩을 프�
   for(const w of [1280,390]){
     const other=await browser.newPage();await other.emulateMedia({colorScheme:'light'});
     const o=await boot(other,w,{s,expand:false});
-    await expect(other.locator('#libraryGroupBy [aria-checked="true"]')).toHaveText('종류');
+    await expect(other.locator('#libraryGroupBy [aria-checked="true"]')).toHaveText('분류');
     await expect(chip(other,'교섭')).toHaveAttribute('aria-pressed','false');await expect(chip(other,'기타')).toHaveAttribute('aria-pressed','false');await expect(chip(other,'회의')).toHaveAttribute('aria-pressed','true');
     await expect(chip(other,'all')).toHaveAttribute('aria-pressed','mixed');
     expect(o.errors).toEqual([]);await other.close();
@@ -149,7 +149,7 @@ for(const width of [1280,390])test(`LIB-보기기억: 묶기·종류 칩을 프�
   const before=s.profilePatches.length;await chip(page,'all').click();await chip(page,'all').click();await saved(s,before+1);
   expect(s.libraryView.categories_off.length).toBe(7);
   const again=await browser.newPage();await boot(again,width,{s,expand:false});
-  await expect(again.locator('#libraryCategoryFilter [aria-pressed="true"]')).toHaveCount(0);await expect(again.locator('#documentList')).toHaveText('고른 종류 없음');await again.close();
+  await expect(again.locator('#libraryCategoryFilter [aria-pressed="true"]')).toHaveCount(0);await expect(again.locator('#documentList')).toHaveText('고른 분류 없음');await again.close();
   expect(errors).toEqual([]);
 });
 

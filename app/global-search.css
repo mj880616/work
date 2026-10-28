@@ -74,3 +74,10 @@
 .mobile-menu-panel .gs-menu-entry:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 /* 761~1023px의 ☰ 메뉴 창에도 같은 입구(그 폭에는 상단 줄 검색칸이 없음). PC(1024px~)는 상단 줄 검색칸. */
 @media (min-width:1024px){.mobile-menu-search{display:none}}
+
+/* LIB-후속1 ② / SEARCH-선택옮기기(1차): 자료실 결과 줄 우클릭·꾹 누르기 메뉴. 자료실 줄 메뉴(.lu-more-panel)와 같은 모양(이 화면에서는 그 CSS가 없을 수 있어 같은 값을 둔다). */
+.gs-row-menu{position:fixed;inset:auto;margin:0;z-index:100;box-sizing:border-box;padding:6px;border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);background:var(--kptu-surface);color:var(--kptu-ink);box-shadow:var(--kptu-shadow-float);overflow:auto}
+.gs-row-menu[hidden]{display:none}
+.gs-row-menu button{display:flex;align-items:center;width:100%;min-height:36px;padding:0 var(--kptu-space-3,12px);text-align:left;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:var(--kptu-ink);font-size:var(--kptu-text-meta);font-weight:600;cursor:pointer}
+.gs-row-menu button:is(:hover,:focus-visible){background:var(--kptu-primary-soft)}
+.gs-row-menu button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}

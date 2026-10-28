@@ -6,7 +6,7 @@
 
 import {FOLDER_DEPTH_LIMIT,folderIndent,folderDepthLimitFrom} from './folder-limits.mjs';
 export const GROUP_BY=Object.freeze(['project','organization','category','month','folder']);
-export const GROUP_LABELS=Object.freeze({project:'프로젝트',organization:'담당조직',category:'종류',month:'월별',folder:'폴더'});
+export const GROUP_LABELS=Object.freeze({project:'프로젝트',organization:'담당조직',category:'분류',month:'월별',folder:'폴더'});
 // 결정 D12: 한 토글에 파일이 20개를 넘으면 20개만 보이고 [N건 더].
 export const FILE_LIMIT=20;
 // 결정 D3 → LIB-폴더100단(10/28): 폴더 안 폴더는 100단까지(DB 트리거가 강제, 화면은 그 이상을 만들지 않음). 숫자는 folder-limits.mjs 한 곳.

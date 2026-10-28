@@ -8,7 +8,7 @@ import {deleteSequentially} from './library-select.js';
 export const BULK_FIELDS=Object.freeze({
   project:Object.freeze({field:'project_id',label:'프로젝트',none:'프로젝트 없음'}),
   organization:Object.freeze({field:'organization_id',label:'담당조직',none:'담당조직 없음'}),
-  category:Object.freeze({field:'category',label:'종류',none:''}),
+  category:Object.freeze({field:'category',label:'분류',none:''}),
 });
 const norm=v=>v===undefined||v===''?null:v;
 
