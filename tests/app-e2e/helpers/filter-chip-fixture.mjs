@@ -73,6 +73,8 @@ async function mockApp(page,state){
         if(state.libraryViewNoFolder&&body?.library_view?.group_by==='folder')return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'23514',message:'new row for relation "app_profiles" violates check constraint "app_profiles_library_view_check"'})});
         // LIB-폴더로옮기기 적용 전 서버: 검사가 recent_folders 칸을 거절(400, 검사 위반).
         if(state.libraryViewNoRecent&&body?.library_view&&'recent_folders' in body.library_view)return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'23514',message:'new row for relation "app_profiles" violates check constraint "app_profiles_library_view_check"'})});
+        // LIB-폴더보기 칩 순서 적용 전 서버: 검사가 group_order 칸을 거절(400, 검사 위반).
+        if(state.libraryViewNoOrder&&body?.library_view&&'group_order' in body.library_view)return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({code:'23514',message:'new row for relation "app_profiles" violates check constraint "app_profiles_library_view_check"'})});
         if(state.libraryViewFail)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'fail'})});
         if(body&&'library_view' in body)state.libraryView=body.library_view;
         return ok([{user_id:state.user.id,display_name:'자료실 관리자',library_view:state.libraryView??null}]);
