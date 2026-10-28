@@ -24,6 +24,7 @@ import {takeLibraryUploadRequest} from './library-upload-request.js';
 import {normalizeUploadMeeting,uploadMeetingLabel} from './library-upload-meeting.mjs';
 import {isPhotoFile,photoUploadFields} from './activity-photo-model.mjs';
 import {normalizeUploadOrganization,uploadOrganizationLabel,linkUploadedDocument} from './library-upload-organization.js';
+import {pickMyOrganizations} from './my-organizations.js';
 import {fileLine,bindDropTarget} from './meeting-compact.js';
 import {visibleEntries,entryState,deleteLabel,isKept} from './library-prev-model.mjs';
 import {documentCategories,categoryOf,categoryOptions,categoryTag,loadDocumentCategories} from './document-categories.js';
@@ -372,7 +373,7 @@ function luOffHint(hidden){if(!hidden.length)return '';const names=[...new Set(h
 // LIB-토글트리 ②(docs/design/library-tree.md 5절): 목록은 토글 안 토글. 상태 주인은 이 모듈, 그리기는 luRenderLibrary 하나.
 // 펼침: 거르지 않을 때는 사용자가 연 토글(luOpen), 거를 때(검색·담당조직·프로젝트·기본과 다른 종류 칩)는 맞는 자료가 든 토글을 펼치고
 // 그 동안 사용자가 여닫은 것은 따로(luFilterOpen) 기억한다. 거르기를 풀면 직전 펼침으로 돌아간다. 자료실에 들어올 때는 맨 위 단만(결정 D13).
-let luGroupBy='project',luSessionFolder=false,luFolders_=[],luFolderItems=[],luOrganizations=null,luOrganizationsLoading=null,luLastTree=[],luFilterSignature='';
+let luGroupBy='project',luSessionFolder=false,luFolders_=[],luFolderItems=[],luOrganizations=null,luMyOrganizations=[],luOrganizationsLoading=null,luLastTree=[],luFilterSignature='';
 const luOpened=new Set(),luFilterOpen=new Map(),luShowAll=new Set();
 function luResetTree(){luOpened.clear();luFilterOpen.clear();luShowAll.clear();luFilterSignature=''}
 // 폴더 표(app_library_folders·_items, 소유자 RLS)는 읽기만 한다. 표가 없거나 읽기에 실패하면 폴더 없이 그대로 그린다.
@@ -380,8 +381,11 @@ async function luLoadFolders(){if(!luWorkspace)return;const w=encodeURIComponent
 async function luLoadAll(){await Promise.all([luLoadDocuments(),luLoadFolders()])}
 // TRASH-다른삭제 3단계: 보관 창 휴지통에서 폴더를 되돌리거나 영구 삭제하면 이미 열려 있는 자료실도 폴더 표를 다시 읽는다(안 열렸으면 처음 열 때 읽는다).
 window.addEventListener('kptu:library-folders-changed',()=>{if(!luWorkspace)return;void luLoadFolders().then(()=>luRenderLibrary()).catch(()=>{})});
-// 담당조직 묶기를 처음 고를 때 한 번 읽는다(조직 순서는 organization-order.js). 실패하면 조직 이름 없이 묶는다.
-function luLoadOrganizations(){if(luOrganizations||luOrganizationsLoading||!luWorkspace)return luOrganizationsLoading;luOrganizationsLoading=Promise.all([luApi('/rest/v1/app_suborganizations?workspace_id=eq.'+encodeURIComponent(luWorkspace)+'&select=id,name,active&order=id.asc'),import('./organization-order.js')]).then(([rows])=>{luOrganizations=window.KPTUOrganizationOrder?.sort?.(rows||[])||rows||[]}).catch(()=>{luOrganizations=[]}).finally(()=>{luOrganizationsLoading=null;luRenderLibrary()});return luOrganizationsLoading}
+// 담당조직 묶기·일괄 바꾸기를 처음 고를 때 한 번 읽는다(조직 순서는 organization-order.js). 실패하면 조직 이름 없이 묶는다.
+// 묶기(이미 붙은 자료 보여 주기)는 모든 조직 이름을 쓰고, 일괄 바꾸기(고르기 칸)는 내 담당조직만 쓴다(my-organizations.js, ORG-고르기통일).
+function luLoadOrganizations(){if(luOrganizations||luOrganizationsLoading||!luWorkspace)return luOrganizationsLoading;const user=luUser?.id||'';luOrganizationsLoading=Promise.all([luApi('/rest/v1/app_suborganizations?workspace_id=eq.'+encodeURIComponent(luWorkspace)+'&select=id,name,active&order=id.asc'),user?luApi('/rest/v1/app_suborganization_assignees?user_id=eq.'+encodeURIComponent(user)+'&select=organization_id').catch(()=>[]):[],import('./organization-order.js')]).then(([rows,assignees])=>{const sort=list=>window.KPTUOrganizationOrder?.sort?.(list)||list;luOrganizations=sort(rows||[]);luMyOrganizations=sort(pickMyOrganizations(rows||[],Array.isArray(assignees)?assignees:[]))}).catch(()=>{luOrganizations=[];luMyOrganizations=[]}).finally(()=>{luOrganizationsLoading=null;luRenderLibrary()});return luOrganizationsLoading}
+// 일괄 바꾸기의 담당조직 칸: 내 담당조직만. 고른 자료가 모두 이미 붙어 있는 조직(지금 값)이 담당 밖이면 그 한 곳만 함께 보여 지금 값을 알 수 있게 한다.
+function luBulkOrganizations(cur){const order=window.KPTUOrganizationOrder,mine=luMyOrganizations||[];const now=cur&&!mine.some(o=>o.id===cur)?(luOrganizations||[]).find(o=>o.id===cur):null;const list=now?(order?.sort?order.sort([...mine,now]):[...mine,now]):mine;return order?.forPicker?order.forPicker(list,cur?[cur]:[]):list}
 const LU_PROJECT_COLORS=['green','blue','orange','purple','pink','yellow','red','gray'];
 function luProjectColor(project){const rows=luCatalog()?.projects||[];let top=project,guard=0;while(top?.parent_id&&guard++<5){const up=rows.find(p=>p.id===top.parent_id);if(!up)break;top=up}const key=LU_PROJECT_COLORS.includes(top?.metadata?.color)?top.metadata.color:'gray';return {color:key,tone:top!==project?'soft':''}}
 const luKindKey=k=>k==='파일'?'other':k==='그림'?'img':k==='웹'?'web':k.toLowerCase();
@@ -988,7 +992,7 @@ function luBulkMenu(){
   luBulkUi=createAnchoredMenu({id:'luBulkMenu',className:'lu-folder-menu lu-bulk-menu',label:'고른 자료 일괄 바꾸기',historyKey:'kptuLibraryBulkMenu',key:t=>t.dataset.luBulk||'category',onClose:()=>{luBulkTarget=null},
     render:kind=>{
       const cur=commonValue(luBulkDocs(),kind);
-      return bulkChoices(kind,{projects:luProjectRows(),organizations:luOrganizations||[],categories:documentCategories()}).map(c=>`<button type="button" data-lu-bulk-value="${luEsc(c.value)}"${cur!==undefined&&(cur??'')===c.value?' aria-current="true"':''}${c.depth?` style="--lu-depth:${Number(c.depth)||0}"`:''}>${luEsc(c.label)}${cur!==undefined&&(cur??'')===c.value?'<span class="lu-menu-key" aria-hidden="true">✓</span>':''}</button>`).join('')||'<button type="button" disabled>고를 수 있는 값이 없어요</button>';
+      return bulkChoices(kind,{projects:luProjectRows(),organizations:kind==='organization'?luBulkOrganizations(cur):[],categories:documentCategories()}).map(c=>`<button type="button" data-lu-bulk-value="${luEsc(c.value)}"${cur!==undefined&&(cur??'')===c.value?' aria-current="true"':''}${c.depth?` style="--lu-depth:${Number(c.depth)||0}"`:''}>${luEsc(c.label)}${cur!==undefined&&(cur??'')===c.value?'<span class="lu-menu-key" aria-hidden="true">✓</span>':''}</button>`).join('')||'<button type="button" disabled>고를 수 있는 값이 없어요</button>';
     },
     onAction:(button,active)=>{if(button.disabled)return;const ids=luBulkTarget;void luBulkApply(active.id,button.dataset.luBulkValue??'',ids)}});
   return luBulkUi;
