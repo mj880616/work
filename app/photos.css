@@ -1,0 +1,52 @@
+/* PHOTO-사진메뉴 1차: '사진' 메뉴(#photosView). 격자·크게 보기·[－][＋]는 일기와 같은 칸(diary.css의 :is(#diaryView,#photosView) 규칙).
+   여기는 사진 메뉴에만 있는 칩 줄·날짜 머리줄·달력·선택 줄만. 콤팩트·톤다운, 버튼은 32px(누르는 범위 44px). */
+#appView #photosView .photos{ display:flex; flex-direction:column; gap:4px; min-width:0; }
+#appView #photosView .photos-bar{ position:sticky; top:0; z-index:2; display:flex; align-items:center; gap:6px; min-height:var(--kptu-touch-target,44px); background:var(--kptu-bg); }
+#appView #photosView .photos-chips{ display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; min-width:0; }
+#appView #photosView .photos-chip{ position:relative; flex:none; min-width:0; min-height:0; height:var(--ds-compact-height,32px); margin:0; padding:0 12px; border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--kptu-radius-pill,999px);
+  color:var(--kptu-muted); background:transparent; box-shadow:none; font-size:var(--ds-compact-text,13px); font-weight:var(--ds-weight-regular,400); }
+#appView #photosView .photos-chip[aria-pressed="true"]{ color:var(--ds-kind-other-ink); background:var(--ds-kind-other-soft); border-color:var(--ds-kind-other-soft); }
+#appView #photosView .photos-chip::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+#appView #photosView .photos-sp{ flex:1; }
+#appView #photosView .photos-filter{ min-height:0; height:var(--ds-compact-height,32px); width:auto; padding:0 6px; font-size:var(--ds-compact-text,13px); color:var(--kptu-ink); background:var(--kptu-surface); border:var(--ds-line-width,.5px) solid var(--ds-line); border-radius:var(--kptu-radius-sm,6px); }
+#appView #photosView .photos-filter[hidden],#appView #photosView .photo-size[hidden]{ display:none; }
+#appView #photosView .photos-note{ margin:0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+#appView #photosView .photos-note:empty{ display:none; }
+#appView #photosView .photos-muted{ margin:8px 0; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+#appView #photosView .photos-foot:empty{ display:none; }
+#appView #photosView .photos-day{ display:flex; align-items:center; gap:6px; padding:8px 2px 4px; font-size:var(--ds-text-meta,12px); color:var(--kptu-muted); }
+#appView #photosView .photos-day b{ font-weight:var(--ds-weight-medium,500); color:var(--kptu-ink); }
+#appView #photosView .photos-day-pick{ position:relative; width:18px; min-width:0; height:18px; min-height:0; margin:0 0 0 auto; padding:0; border:1px solid var(--kptu-border-strong,var(--ds-line)); border-radius:50%; background:transparent; box-shadow:none; }
+#appView #photosView .photos-day-pick[hidden]{ display:none; }
+#appView #photosView .photos-day-pick[aria-pressed="true"]{ background:var(--ds-select-bg); border-color:var(--ds-select-line); }
+#appView #photosView .photos-day-pick::after{ content:""; position:absolute; inset:-13px; }
+/* 여러 장 고르기: 고른 칸은 강조색 테두리 + 오른쪽 위 작은 체크(설계 5절). */
+#appView #photosView .is-selecting .diary-grid-item{ cursor:pointer; }
+#appView #photosView .photos-pick{ display:none; }
+#appView #photosView .is-selecting .photos-pick{ display:grid; place-items:center; position:absolute; top:3px; right:3px; z-index:1; width:16px; height:16px; border-radius:50%; border:1.5px solid var(--ds-photo-ink); font-size:10px; color:var(--kptu-on-primary); pointer-events:none; }
+#appView #photosView .diary-grid-item.is-picked{ outline:2px solid var(--kptu-primary); outline-offset:-2px; }
+#appView #photosView .diary-grid-item.is-picked .photos-pick{ background:var(--kptu-primary); border-color:var(--kptu-primary); }
+#appView #photosView .diary-grid-item.is-picked .photos-pick::before{ content:"✓"; }
+#appView #photosView .is-selecting .diary-star-mark{ right:auto; left:3px; }
+#appView #photosView .photos-sel{ position:sticky; top:0; z-index:3; display:flex; align-items:center; gap:8px; min-height:40px; padding:0 8px; color:var(--kptu-on-primary); background:var(--kptu-primary); border-radius:var(--kptu-radius-sm,6px); font-size:var(--ds-compact-text,13px); }
+#appView #photosView .photos-sel[hidden],#appView #photosView .photos-act[hidden]{ display:none; }
+#appView #photosView .photos-sel-x{ position:relative; width:32px; min-width:0; height:32px; min-height:0; margin:0; padding:0; color:inherit; background:transparent; border:0; box-shadow:none; font-size:16px; }
+#appView #photosView .photos-act{ position:sticky; bottom:calc(var(--kptu-mobile-tab-height,0px) + env(safe-area-inset-bottom)); z-index:3; display:flex; justify-content:space-around; gap:2px; padding:4px; background:var(--kptu-surface); border-top:var(--ds-line-width,.5px) solid var(--ds-line); }
+#appView #photosView .photos-act button{ position:relative; display:inline-flex; align-items:center; gap:4px; min-width:0; min-height:0; height:var(--ds-compact-height,32px); margin:0; padding:0 10px; color:var(--kptu-ink); background:transparent; border:0; box-shadow:none; font-size:var(--ds-compact-text,13px); }
+#appView #photosView .photos-act button::after{ content:""; position:absolute; left:0; right:0; top:calc(50% - var(--kptu-touch-target,44px) / 2); height:var(--kptu-touch-target,44px); }
+#appView #photosView .photos-act button:disabled{ opacity:.45; }
+#appView #photosView .photos-act .photos-danger{ color:var(--kptu-danger); }
+/* 달력: 일기 달력처럼 7칸. 칸마다 그날 대표 사진 1장(작게)과 장수. */
+#appView #photosView .photos-cal-head{ display:flex; align-items:center; justify-content:center; gap:12px; padding:4px 0; font-size:var(--ds-text-row,14px); }
+#appView #photosView .photos-cal-head b{ font-weight:var(--ds-weight-medium,500); }
+#appView #photosView .photos-cal{ display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:2px; }
+#appView #photosView .photos-cal-w{ text-align:center; font-size:11px; color:var(--kptu-muted); padding:2px 0; }
+#appView #photosView .photos-cal-cell{ position:relative; display:block; aspect-ratio:1/1; min-width:0; min-height:0; height:auto; margin:0; padding:0; overflow:hidden; border:0; border-radius:4px; background:var(--kptu-surface-subtle); box-shadow:none; color:var(--kptu-muted); font-size:11px; }
+#appView #photosView .photos-cal-cell.is-blank{ background:transparent; }
+#appView #photosView .photos-cal-cell .diary-photo{ position:absolute; inset:0; display:block; }
+#appView #photosView .photos-cal-cell img{ width:100%; height:100%; object-fit:cover; display:block; }
+#appView #photosView .photos-cal-cell .diary-photo-mark{ display:none; }
+#appView #photosView .photos-cal-n{ position:absolute; left:3px; top:2px; z-index:1; line-height:1; }
+#appView #photosView button.photos-cal-cell .photos-cal-n,#appView #photosView .photos-cal-c{ color:var(--ds-photo-ink); text-shadow:0 0 3px var(--ds-photo-scrim); }
+#appView #photosView .photos-cal-c{ position:absolute; right:3px; bottom:2px; z-index:1; font-size:10px; line-height:1; font-variant-numeric:tabular-nums; }
+#appView #photosView .photos-cal-cell:focus-visible{ outline:2px solid var(--kptu-primary-ink); outline-offset:2px; }
