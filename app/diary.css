@@ -29,10 +29,12 @@
 #appView #diaryView .diary-cell .diary-num{ position:absolute; top:4px; left:5px; z-index:1; font-size:var(--ds-text-meta); line-height:1.2; }
 #appView #diaryView .diary-cell .diary-dot{ position:absolute; left:50%; bottom:18%; width:7px; height:7px; margin-left:-3.5px; border-radius:50%; background:var(--kptu-primary-ink); }
 #appView #diaryView .diary-cell.has-photo .diary-num{ padding:1px 5px; color:var(--ds-photo-ink); background:var(--ds-photo-scrim); border-radius:6px; }
-/* UI-일기손질 ②: 오늘은 날짜 숫자를 테마 대표색 동그라미(채움)로, 고른 날은 칸 테두리(아래 aria-pressed)로 — 둘이 겹쳐도 구분된다.
+/* UI-일기손질 ② → UI-선택표시톤다운: 오늘은 날짜 숫자를 강조색 동그라미 테두리(채우지 않음)로, 고른 날은 칸 테두리(아래 aria-pressed)로 — 둘이 겹쳐도 구분된다.
    [달력] 탭 오늘 칸(ui-standard.css)과 같은 모양. 사진 있는 날도 같은 동그라미. */
 #appView #diaryView .diary-cell[aria-current="date"] .diary-num{ box-sizing:border-box; display:grid; place-items:center; min-width:20px; height:20px; padding:0 5px;
-  font-weight:var(--ds-weight-medium); line-height:1; color:var(--kptu-surface); background:var(--kptu-primary-ink); border-radius:999px; }
+  font-weight:var(--ds-weight-medium); line-height:1; color:var(--ds-today-ink); background:transparent; box-shadow:var(--kptu-shadow-today); border-radius:999px; }
+/* 사진 있는 날의 오늘: 사진 위라 가림 막 바탕은 그대로 두고 동그라미 테두리만 사진 위 글자색으로. */
+#appView #diaryView .diary-cell.has-photo[aria-current="date"] .diary-num{ color:var(--ds-photo-ink); background:var(--ds-photo-scrim); box-shadow:inset 0 0 0 1.5px var(--ds-photo-ink); }
 #appView #diaryView .diary-cell .diary-photo{ position:absolute; inset:0; display:block; }
 #appView #diaryView .diary-cell .diary-photo img{ width:100%; height:100%; object-fit:cover; display:block; }
 #appView #diaryView .diary-cell .diary-photo{ background:var(--kptu-primary-soft); }

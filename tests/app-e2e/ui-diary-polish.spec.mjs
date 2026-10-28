@@ -100,30 +100,33 @@ test('① the shared [+] stays at the bottom right whatever is pressed (calendar
  expect(f.writes).toEqual([]);expect(f.errors).toEqual([]);
 });
 
-for(const width of [390,1280])test(`② today is a filled theme-primary circle on the number, the chosen day keeps the border (일기·달력) ${width}`,async({page})=>{
+for(const width of [390,1280])test(`② today is a theme-accent ring (not filled) on the number, the chosen day keeps the border (일기·달력) ${width}`,async({page})=>{
  const f=await fixture(page,{width});
  await page.evaluate(()=>window.KPTURouter.go('diary'));
  const today=page.locator('#diaryRoot [data-diary-day="2026-10-06"]'),other=page.locator('#diaryRoot [data-diary-day="2026-10-04"]');
  await expect(today).toHaveAttribute('aria-current','date');
- const purple=await page.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-primary-ink)';document.querySelector('#diaryView').append(e);const c=getComputedStyle(e).color;e.remove();return c;});
- const look=loc=>loc.evaluate(el=>{const n=el.querySelector('.diary-num'),c=getComputedStyle(n),cell=getComputedStyle(el);const r=n.getBoundingClientRect();return {bg:c.backgroundColor,radius:c.borderRadius,w:Math.round(r.width),h:Math.round(r.height),ring:cell.boxShadow};});
+ // UI-선택표시톤다운: 오늘 = 강조 글자색(--kptu-primary-text) 동그라미 테두리 + 같은 색 숫자, 바탕은 칠하지 않는다.
+ const accent=await page.evaluate(()=>{const e=document.createElement('span');e.style.color='var(--kptu-primary-text)';document.querySelector('#diaryView').append(e);const c=getComputedStyle(e).color;e.remove();return c;});
+ const look=loc=>loc.evaluate(el=>{const n=el.querySelector('.diary-num'),c=getComputedStyle(n),cell=getComputedStyle(el);const r=n.getBoundingClientRect();return {bg:c.backgroundColor,fg:c.color,numRing:c.boxShadow,radius:c.borderRadius,w:Math.round(r.width),h:Math.round(r.height),ring:cell.boxShadow,photo:el.classList.contains('has-photo')};});
+ const ringed=t=>t.photo?t.numRing.includes('inset'):(t.numRing.startsWith(accent)&&t.numRing.includes('inset'));
  const t=await look(today),o=await look(other);
- expect(t.bg).toBe(purple);expect(t.radius).toBe('999px');expect(t.h).toBe(20);expect(t.w).toBeGreaterThanOrEqual(20);
- expect(o.bg).toBe('rgba(0, 0, 0, 0)');
- // Today is not "chosen": no ring until it is pressed. Pressing a day adds the ring and leaves today's circle as it was.
+ if(!t.photo){expect(t.bg).toBe('rgba(0, 0, 0, 0)');expect(t.fg).toBe(accent);}
+ expect(ringed(t)).toBe(true);expect(t.radius).toBe('999px');expect(t.h).toBe(20);expect(t.w).toBeGreaterThanOrEqual(20);
+ if(!o.photo)expect(o.bg).toBe('rgba(0, 0, 0, 0)');expect(o.numRing).toBe('none');
+ // Today is not "chosen": no cell ring until it is pressed. Pressing a day adds the ring and leaves today's circle as it was.
  expect(t.ring).toBe('none');
  await other.click();await expect(other).toHaveAttribute('aria-pressed','true');
- expect((await look(other)).ring).not.toBe('none');expect((await look(other)).bg).toBe('rgba(0, 0, 0, 0)');
- expect((await look(today)).bg).toBe(purple);expect((await look(today)).ring).toBe('none');
+ expect((await look(other)).ring).not.toBe('none');expect((await look(other)).numRing).toBe('none');
+ expect(ringed(await look(today))).toBe(true);expect((await look(today)).ring).toBe('none');
  await page.locator('#diaryRoot [data-diary-detail-close]').click();
  await today.click();
- const both=await look(today);expect(both.bg).toBe(purple);expect(both.ring).not.toBe('none');
- // [달력]: the same circle and colour on today's number.
+ const both=await look(today);expect(ringed(both)).toBe(true);expect(both.ring).not.toBe('none');
+ // [달력]: the same ring and colour on today's number.
  await openMonth(page);
  const day=page.locator('#calendarGrid .cal-cell.today .cal-day');
  await expect(day).toBeVisible();
- const c=await day.evaluate(el=>{const s=getComputedStyle(el);return {bg:s.backgroundColor,radius:s.borderRadius};});
- expect(c.bg).toBe(purple);expect(c.radius).toBe('999px');
+ const c=await day.evaluate(el=>{const s=getComputedStyle(el);return {bg:s.backgroundColor,fg:s.color,ring:s.boxShadow,radius:s.borderRadius};});
+ expect(c.bg).toBe('rgba(0, 0, 0, 0)');expect(c.fg).toBe(accent);expect(c.ring.startsWith(accent)&&c.ring.includes('inset')).toBe(true);expect(c.radius).toBe('999px');
  expect(f.errors).toEqual([]);
 });
 
