@@ -66,7 +66,8 @@ test('active library delete entry point explains that the Drive file may be tras
   const code = readFileSync(new URL('../../app/library-upload.js', import.meta.url), 'utf8');
   const shared = readFileSync(new URL('../../app/document-delete.js', import.meta.url), 'utf8');
   assert.match(code, /import\('\.\/document-delete\.js'\)/);
-  assert.match(code, /await helper\.deleteDocument\(registration,/);
+  // LIB-바로지우기(#1376): 줄 하나든 여럿이든 같은 공용 길(document-delete.js)·같은 세션 확인을 쓴다.
+  assert.match(code, /await helper\.deleteDocument\(\w+,\{api:luApi,maybeReconnect:luMaybeReconnectDrive,expectedSessionEpoch:/);
   assert.match(shared, /파일도 Drive 휴지통으로 이동할 수 있습니다\. 삭제 결과에서 원본 보존 여부를 확인해 주세요\./);
   assert.match(shared, /자료 등록을 삭제하고 파일을 Drive 휴지통으로 이동했습니다\./);
 });

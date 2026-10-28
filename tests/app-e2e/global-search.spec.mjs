@@ -238,3 +238,29 @@ test('PC 1280: 자료실 결과 우클릭 메뉴 [선택]·[열기], [선택]은
   await expect(panel(page)).toBeHidden();
   expect(errors).toEqual([]);
 });
+
+// SEARCH-선택옮기기 ③(2026-10-28 10:44): 자료실 결과 줄마다 지금 들어 있는 폴더를 작게 '📁 이름'(자료실 폴더 표를 읽기만, 한 번에).
+// 자료가 바뀌면(자료실에서 옮긴 뒤 kptu:documents-changed) 다시 읽어 바로 바뀐다.
+test('PC 1280: 자료실 결과 줄에 지금 폴더 표시, 옮기면 바뀜',async({page})=>{
+  await page.setViewportSize({width:1280,height:860});
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const calls=[],reads=[];let folderOf='f-1';
+  const D='00000000-0000-4000-8000-0000000000d1';
+  await openHome(page,{beforeLoad:async()=>{
+    await page.route(SB+'/rest/v1/rpc/app_search_records',route=>{const body=route.request().postDataJSON();calls.push(body);const data=reply(body);
+      for(const g of data.groups)for(const it of g.items)if(it.source==='document')it.id=D;
+      return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)})});
+    await page.route(SB+'/rest/v1/app_library_folder_items*',route=>{reads.push(route.request().url());return route.fulfill({json:folderOf?[{document_id:D,folder_id:folderOf==='f-1'?'00000000-0000-4000-8000-0000000000f1':'00000000-0000-4000-8000-0000000000f2'}]:[]})});
+    await page.route(SB+'/rest/v1/app_library_folders*',route=>route.fulfill({json:[{id:'00000000-0000-4000-8000-0000000000f1',name:'회의자료'},{id:'00000000-0000-4000-8000-0000000000f2',name:'교섭 자료'}]}));
+  }});
+  await top(page).click();await top(page).fill('교섭');
+  const row=panel(page).locator('[data-gs-group="document"] .gs-row').first();
+  await expect(row.locator('.gs-row-folder')).toHaveText('📁 회의자료');
+  expect(reads.length).toBe(1);expect(reads[0]).toContain(`document_id=in.(${D})`);
+  // 자료실에서 옮긴 뒤(같은 신호) → 다시 읽어 바뀐다.
+  folderOf='f-2';await page.evaluate(()=>window.dispatchEvent(new CustomEvent('kptu:documents-changed')));
+  await expect(row.locator('.gs-row-folder')).toHaveText('📁 교섭 자료');
+  // 다른 종류 결과 줄에는 폴더 표시가 없다.
+  await expect(panel(page).locator('[data-gs-group="update"] .gs-row-folder')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});

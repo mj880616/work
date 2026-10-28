@@ -12,11 +12,12 @@ export const FILE_LIMIT=20;
 // 결정 D3 → LIB-폴더100단(10/28): 폴더 안 폴더는 100단까지(DB 트리거가 강제, 화면은 그 이상을 만들지 않음). 숫자는 folder-limits.mjs 한 곳.
 export const FOLDER_DEPTH=FOLDER_DEPTH_LIMIT;
 // 접힌 줄의 종류 색 점 순서(기존 --ds-file-* 색 + LIB-그림형식의 그림). 최대 6개.
-export const KIND_ORDER=Object.freeze(['HWP','PDF','XLS','DOC','PPT','그림','파일']);
+// LIB-정리보충 ⑤(10:41): 웹 페이지 원본(.html, 성명·보도자료 옮겨 올 때 생긴 것)은 '파일' 대신 '웹'.
+export const KIND_ORDER=Object.freeze(['HWP','PDF','XLS','DOC','PPT','그림','웹','파일']);
 const KIND_DOTS=6;
 // 자료 한 건의 파일 형식 글자(자료실 줄의 종류 표시). 확장자를 먼저 보고, 확장자가 없으면 Drive가 알려 준 mime_type을 본다.
-const KIND_BY_EXT=Object.freeze({HWP:'HWP',HWPX:'HWP',PDF:'PDF',XLS:'XLS',XLSX:'XLS',DOC:'DOC',DOCX:'DOC',PPT:'PPT',PPTX:'PPT',JPG:'그림',JPEG:'그림',PNG:'그림',GIF:'그림',WEBP:'그림',HEIC:'그림',BMP:'그림'});
-const KIND_BY_MIME=Object.freeze([[/^application\/pdf$/,'PDF'],[/hwp|hancom|haansoft/,'HWP'],[/spreadsheet|ms-excel/,'XLS'],[/wordprocessing|msword|google-apps\.document/,'DOC'],[/presentation|powerpoint/,'PPT'],[/^image\//,'그림']]);
+const KIND_BY_EXT=Object.freeze({HWP:'HWP',HWPX:'HWP',PDF:'PDF',XLS:'XLS',XLSX:'XLS',DOC:'DOC',DOCX:'DOC',PPT:'PPT',PPTX:'PPT',JPG:'그림',JPEG:'그림',PNG:'그림',GIF:'그림',WEBP:'그림',HEIC:'그림',BMP:'그림',HTML:'웹',HTM:'웹',MHT:'웹',MHTML:'웹'});
+const KIND_BY_MIME=Object.freeze([[/^application\/pdf$/,'PDF'],[/hwp|hancom|haansoft/,'HWP'],[/spreadsheet|ms-excel/,'XLS'],[/wordprocessing|msword|google-apps\.document/,'DOC'],[/presentation|powerpoint/,'PPT'],[/^image\//,'그림'],[/^text\/html$|xhtml/,'웹']]);
 export function fileKindOf(name,mime){
   const ext=String(name||'').includes('.')?String(name).split('.').pop().toUpperCase():'';
   if(KIND_BY_EXT[ext])return KIND_BY_EXT[ext];
@@ -102,7 +103,9 @@ export const OUTSIDE_KEY='x:out';
 function byFolder(o){
   const {docs,folders=[],items=[],filtering}=o,{roots,byId}=forestOf(folders),outside=node('group',OUTSIDE_KEY,'폴더 밖',{outside:true});
   const where=new Map(items.map(x=>[x.document_id,x.folder_id]));
-  for(const d of docs){const fid=where.get(d.id),f=fid?byId.get(fid):null;(f||outside).files.push(d)}
+  // LIB-정리보충 ②(10:41): 사진 묶음 줄(계산으로 만든 한 줄)은 묶음 안 실제 사진들이 모두 같은 폴더에 있으면 그 폴더 안에, 아니면 폴더 밖에 한 줄로.
+  const folderOf=d=>{if(!d?.photoset)return where.get(d.id);const ids=(d.photos||[]).map(p=>where.get(p.id));return ids.length&&ids.every(x=>x&&x===ids[0])?ids[0]:undefined};
+  for(const d of docs){const fid=folderOf(d),f=fid?byId.get(fid):null;(f||outside).files.push(d)}
   const list=[outside,...roots];
   list.forEach(n=>finish(n,o.kindOf,o.sortKey));
   if(filtering)return prune(list,()=>false);
@@ -210,4 +213,4 @@ export function documentsInTrashedFolders(folders,items,ready=true){if(!ready)re
 // 폴더 이름 검사(DB 검사와 같음: 1~40자, 앞뒤 공백·제어문자 없음). 앞뒤 공백은 잘라서 쓴다.
 export function cleanFolderName(raw){const name=String(raw??'').replace(/[\u0000-\u001f\u007f]/g,'').trim();return name.length>=1&&[...name].length<=40?name:null}
 // DB 거절(23514 + LIB_FOLDER_*)을 일상어로.
-export function folderErrorText(e){const m=String(e?.message||'');if(/LIB_FOLDER_DEPTH/.test(m))return `폴더는 ${folderDepthLimitFrom(m)}단까지만 만들 수 있어요.`;if(/LIB_FOLDER_CYCLE/.test(m))return '폴더를 자기 안으로 옮길 수 없어요.';if(/LIB_FOLDER_SCOPE|row-level security|42501/.test(m))return '프로젝트가 다른 폴더로 옮기는 기능은 아직 준비 중이에요. 같은 프로젝트 안에서는 옮길 수 있어요.';if(/name_check|23514/.test(m))return '폴더 이름은 1~40자로 써 주세요.';return '저장하지 못했어요. 잠시 뒤 다시 해 주세요.'}
+export function folderErrorText(e){const m=String(e?.message||'');if(/LIB_PHOTOSET_PARTIAL/.test(m))return e?.partial?'사진 묶음 일부를 되돌리지 못했어요. 목록을 확인해 주세요.':'사진 묶음을 옮기지 못해 그대로 두었어요.';if(/LIB_FOLDER_DEPTH/.test(m))return `폴더는 ${folderDepthLimitFrom(m)}단까지만 만들 수 있어요.`;if(/LIB_FOLDER_CYCLE/.test(m))return '폴더를 자기 안으로 옮길 수 없어요.';if(/LIB_FOLDER_SCOPE|row-level security|42501/.test(m))return '프로젝트가 다른 폴더로 옮기는 기능은 아직 준비 중이에요. 같은 프로젝트 안에서는 옮길 수 있어요.';if(/name_check|23514/.test(m))return '폴더 이름은 1~40자로 써 주세요.';return '저장하지 못했어요. 잠시 뒤 다시 해 주세요.'}
