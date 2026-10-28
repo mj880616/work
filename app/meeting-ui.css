@@ -355,5 +355,7 @@
 #meetingsView #reportWeekFilter{display:flex;align-items:center;gap:8px;min-width:0}
 #meetingsView .report-week-bar[hidden]{display:none}
 #meetingsView #reportWeekFilter button{width:auto;min-width:32px;max-width:none;padding-inline:8px;white-space:nowrap}
+/* 누르는 범위 44px은 위아래로만 넓힌다(일지 ‹ › 줄과 같은 방식). 공용 ::after의 좌우 확장은 32px 버튼 밖으로 넘쳐 목록 넘침 검사에 걸린다. */
+#meetingsView #reportWeekFilter button.mini::after{inset:auto;left:0;right:0;min-width:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px);min-height:0}
 #meetingsView #reportWeekFilter .report-week-label{font-size:var(--ds-text-meta,13px);white-space:nowrap}
 #meetingsView #reportWeekFilter .report-week-label small{color:var(--kptu-muted)}
