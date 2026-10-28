@@ -254,7 +254,7 @@ for(const width of [390,1280])test('공용 창: 제목 18px/500, 버튼 한 높�
  // 회의 상세: 제목 줄 ⋯ 하나에 [수정]·[칸 바꾸기]·[삭제]가 있고 큰 버튼 줄은 없다(MTG-보고창정리).
  await view(page,'meetings');await openFirstMeetingResult(page);
  modal=page.locator('#meetingRoundDetailModal');await expect(modal).toBeVisible();
- await expect(modal.locator('#mrdEdit,#mrdKind,#mrdDelete')).toHaveCount(0);await modal.locator('#mrdMore').click();const del=modal.locator('#mrdMoreMenu [data-mrd-more="delete"]');await expect(del).toBeVisible();await expect(modal.locator('#mrdMoreMenu button')).toHaveText(['수정','칸 바꾸기','삭제']);await page.keyboard.press('Escape');await expect(del).toBeHidden();
+ await expect(modal.locator('#mrdEdit,#mrdKind,#mrdDelete')).toHaveCount(0);await modal.locator('#mrdMore').click();const del=modal.locator('#mrdMoreMenu [data-mrd-more="delete"]');await expect(del).toBeVisible();await expect(modal.locator('#mrdMoreMenu button')).toHaveText(['수정','칸 바꾸기','성명 초안 만들기','삭제']);await page.keyboard.press('Escape');await expect(del).toBeHidden();
  // PC는 세 번째 칸에 붙은 화면이라 닫을 창이 없다(Esc는 메뉴만 닫는다). 폰·중간 폭만 창이 닫힌다.
  if(!(await modal.evaluate(m=>m.dataset.mrdDocked==='1'))){await page.keyboard.press('Escape');await expect(modal).toBeHidden()}
  // 프로젝트 상세: 제목 18px, 위계(상위 링크는 제목 위)·⋯ 메뉴·접기(<details>)는 그대로.

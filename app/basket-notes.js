@@ -196,7 +196,8 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     if (from === 'file') return [['data-note-file-detach', '빼기']];
     if (from === 'picked') return [['data-nx-sel-move', `${pick.size}개 — 폴더로 옮기기`], ['data-nx-sel-delete', '지우기', 'basket-menu-danger'], ['data-nx-sel-close', '선택 끝내기']];
     if (from === 'folder') return [['data-nx-select', '선택'], ['data-nx-enter', '이 폴더로 들어가기'], ...(canEditFolders() ? [['data-nx-new-in', '새 폴더'], ['data-nx-rename', '이름 바꾸기'], ['data-nx-move-folder', '옮기기…'], ['data-nx-delete-folder', '폴더 지우기', 'basket-menu-danger']] : [])];
-    if (from === 'head') return [...(canEditFolders() ? [['data-nx-new-in', at && at !== OUTSIDE ? '이 폴더에 새 폴더' : '새 폴더']] : []), ['data-nx-select', '선택'], ...(at && at !== OUTSIDE ? [['data-nx-up', '위 폴더로']] : [])];
+    // FEAT-1029 ④: [성명·보도자료 초안] opens the draft window (press-draft.js); it saves a note only when [노트로 저장] is pressed.
+    if (from === 'head') return [...(canEditFolders() ? [['data-nx-new-in', at && at !== OUTSIDE ? '이 폴더에 새 폴더' : '새 폴더']] : []), ['data-nx-select', '선택'], ...(at && at !== OUTSIDE ? [['data-nx-up', '위 폴더로']] : []), ['data-press-draft-open', '성명·보도자료 초안']];
     return [
       ...(from === 'list' ? [['data-nx-select', '선택']] : []),
       // 17:45 ③: 줄의 복사 아이콘은 없앴다 — 복사는 PC·폰 모두 이 메뉴(⋯·우클릭·꾹 누르기) 안.
@@ -865,6 +866,7 @@ export function mountNotes(host, {esc, rt = window.KPTURuntime, onOpenChange = (
     }
     if (from.from === 'folder' || from.from === 'head') {
       const id = from.from === 'folder' ? from.folderId : at === OUTSIDE ? null : at;
+      if (b.hasAttribute('data-press-draft-open')) { const trigger = from.trigger; void import('./press-draft.js').then(m => m.openPressDraft({trigger})); return; }
       if (b.hasAttribute('data-nx-select')) startSelect(from.from === 'folder' ? 'f:' + id : null);
       else if (b.hasAttribute('data-nx-enter')) enter(id);
       else if (b.hasAttribute('data-nx-up')) enter(folderById(at)?.parent_id || null);

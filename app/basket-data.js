@@ -194,8 +194,9 @@ export function noteTitleFromText(text) {
 // [노트] [+] and menu [쓰기]: a new kind=note row through the same owner-RLS insert as createNote.
 // NOTE-마크다운선택: markdown (true/false) is the window's [마크다운] box, kept in the row's existing metadata jsonb (metadata.markdown).
 // ED③ 노트: doc (optional) is the new editor's saved form; raw_text is then the letters taken out of it (ed-text.mjs toPlain).
-export async function createNoteDoc({title, raw_text, markdown, doc}, rt = window.KPTURuntime) {
-  const body = {kind:'note', title:validateNoteTitle(title), raw_text:validateNoteBody(raw_text), ...(typeof markdown === 'boolean' ? {metadata:{markdown}} : {}), ...(doc ? {doc} : {})};
+// FEAT-1029 ④: ai_export_allowed:false (optional) keeps an AI-written draft (성명·보도자료 초안) out of AI material; any other value is not sent.
+export async function createNoteDoc({title, raw_text, markdown, doc, ai_export_allowed}, rt = window.KPTURuntime) {
+  const body = {kind:'note', title:validateNoteTitle(title), raw_text:validateNoteBody(raw_text), ...(typeof markdown === 'boolean' ? {metadata:{markdown}} : {}), ...(doc ? {doc} : {}), ...(ai_export_allowed === false ? {ai_export_allowed:false} : {})};
   const workspace_id = rt.context.read()?.workspace?.id;
   workspace(rt);
   return savedRow(await rt.api('/rest/v1/app_notes', {method:'POST', prefer:'return=representation', body:{workspace_id, ...body}}));

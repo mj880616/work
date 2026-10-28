@@ -61,8 +61,9 @@ function mrdEnsureMoreMenu(){
   if(mrdMoreMenu)return mrdMoreMenu;
   mrdMoreMenu=createAnchoredMenu({id:'mrdMoreMenu',className:'gt-task-menu mrd-more-menu',label:'사업 보고 관리',historyKey:'kptuMeetingDetailMenu',parent:document.querySelector('#meetingRoundDetailModal'),key:()=>mrdCurrent?.id||'',
     canOpen:()=>!!mrdCurrent&&(mrdCanEdit(mrdCurrent)||mrdCanDelete(mrdCurrent)),
-    render:()=>[mrdCanEdit(mrdCurrent)?'<button type="button" data-mrd-more="edit">수정</button><button type="button" data-mrd-more="kind">칸 바꾸기</button>':'',mrdCanDelete(mrdCurrent)?'<button type="button" class="gt-menu-danger" data-mrd-more="delete">삭제</button>':''].join(''),
-    onAction:(button,active)=>{const act=button.dataset.mrdMore;if(act==='edit')mrdStartEdit();else if(act==='kind')mrdChangeKind(active.trigger);else if(act==='delete')mrdDeleteMeeting()}});
+    render:()=>[mrdCanEdit(mrdCurrent)?'<button type="button" data-mrd-more="edit">수정</button><button type="button" data-mrd-more="kind">칸 바꾸기</button><button type="button" data-mrd-more="press">성명 초안 만들기</button>':'',mrdCanDelete(mrdCurrent)?'<button type="button" class="gt-menu-danger" data-mrd-more="delete">삭제</button>':''].join(''),
+    // FEAT-1029 ④: [성명 초안 만들기] = 성명·보도자료 초안 창, 이 보고가 근거로 미리 골라짐(press-draft.js). 저장은 그 창의 [노트로 저장]뿐.
+    onAction:(button,active)=>{const act=button.dataset.mrdMore;if(act==='edit')mrdStartEdit();else if(act==='kind')mrdChangeKind(active.trigger);else if(act==='press'){const id=mrdCurrent?.id,trigger=active.trigger;if(id)void import('./press-draft.js').then(m=>m.openPressDraft({trigger,preselect:id}))}else if(act==='delete')mrdDeleteMeeting()}});
   return mrdMoreMenu;
 }
 function mrdSetEdit(on){if(!on){mrdEditSequence++;mrdEditor=null;mrdSummaries?.clear();mrdLeaveClear();mrdEditHistoryEnd()}document.querySelector('#mrdView')?.classList.toggle('hidden',on);document.querySelector('#mrdEditor')?.classList.toggle('hidden',!on);mrdPaintMore(on);mrdPlaceActions(on)}
