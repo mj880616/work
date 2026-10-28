@@ -4,7 +4,7 @@ import {baseState,mockApp,signIn} from './filter-chip-fixture.mjs';
 import {libraryNode} from './library-tree.mjs';
 // LIB-폴더탐색기 시험용 가짜 서버: 자료실 폴더·자료 연결 표(소유자 RLS REST)를 DB 규칙대로 흉내 낸다.
 // dbFree=false는 DB 적용 전(같은 프로젝트 틀만: 폴더 위치 LIB_FOLDER_SCOPE, 자료 연결 RLS 42501), true는 적용 뒤(틀 제한 없음).
-// 깊이 3단·순환 금지는 둘 다 DB가 지킨다. 쓰기는 s.writes에 쌓고, 자료(app_documents) PATCH는 s.patches(필드 모양은 fixture 그대로).
+// 깊이 100단(LIB-폴더100단)·순환 금지는 둘 다 DB가 지킨다. 쓰기는 s.writes에 쌓고, 자료(app_documents) PATCH는 s.patches(필드 모양은 fixture 그대로).
 export const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const eq=(url,k)=>String(url.searchParams.get(k)||'').replace(/^eq\./,'');
 export const libDoc=(id,project_id,extra={})=>({id,workspace_id:'workspace-1',project_id,title:'자료 '+id,file_name:id+'.pdf',category:'정책자료',tags:[],document_date:'2026-10-01',created_at:'2026-10-01T00:00:00Z',...extra});
@@ -31,7 +31,7 @@ export async function bootLibrary(page,width,{folders=[],items=[],docs=null,dbFr
     if(m!=='GET')s.writes.push({table:'folders',method:m,id:eq(url,'id')||null,body});
     if(m==='GET')return route.fulfill({json:s.folders});
     if(m==='POST'){
-      if(body.parent_id&&depth(body.parent_id)>=3)return route.fulfill(reject('23514','LIB_FOLDER_DEPTH: folders are limited to 3 levels'));
+      if(body.parent_id&&depth(body.parent_id)>=100)return route.fulfill(reject('23514','LIB_FOLDER_DEPTH: folders are limited to 100 levels'));
       if(body.parent_id&&!s.dbFree&&(byId(body.parent_id)?.project_id||null)!==(body.project_id||null))return route.fulfill(scope);
       const made={...body,id:'new-'+(++seq),created_at:new Date().toISOString()};s.folders.push(made);return route.fulfill(/return=representation/.test(req.headers()['prefer']||'')?{status:201,json:[made]}:{status:201,body:''});
     }
@@ -39,7 +39,7 @@ export async function bootLibrary(page,width,{folders=[],items=[],docs=null,dbFr
     if(m==='PATCH'){
       if(f&&'parent_id'in body&&body.parent_id){
         if(inside(body.parent_id,f.id))return route.fulfill(reject('23514','LIB_FOLDER_CYCLE: a folder cannot be placed under itself or a folder below it'));
-        if(depth(body.parent_id)+height(f.id)>3)return route.fulfill(reject('23514','LIB_FOLDER_DEPTH: folders are limited to 3 levels'));
+        if(depth(body.parent_id)+height(f.id)>100)return route.fulfill(reject('23514','LIB_FOLDER_DEPTH: folders are limited to 100 levels'));
         if(!s.dbFree&&(byId(body.parent_id)?.project_id||null)!==(f.project_id||null))return route.fulfill(scope);
       }
       if(f)Object.assign(f,body);return route.fulfill({status:204,body:''});

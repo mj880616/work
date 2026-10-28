@@ -1,3 +1,4 @@
+import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {basketOcrFor} from './basket-ocr-runtime.js';
 import {seoulInputValue} from './meeting-time.js';
@@ -55,10 +56,9 @@ let requestedNote = (initialUrl.searchParams.get('view') === 'basket' ? initialU
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // UI-바구니상세개편: results ("저장했습니다", "복사했습니다") are one short notice on the app's shared #toast that goes
 // away by itself (same element and timing as the other screens); errors and guidance stay in the screen's status line.
-function showToast(message, ms = 3200) {
+function showToast(message) {
   const toast = document.querySelector('#toast'); if (!toast) return;
-  toast.textContent = message; toast.classList.remove('hidden');
-  clearTimeout(showToast.timer); showToast.timer = setTimeout(() => toast.classList.add('hidden'), ms);
+  toast.textContent = message; kptuHoldToast(toast);
 }
 // [복사]: the same conversion as the write window's [텔레그램용 복사] (md-telegram.mjs), on a copy only.
 async function copyNote(note, button = null) {
@@ -688,7 +688,7 @@ async function copyChatgptRequest(button=null){
   if(ok&&button)flashDone(button); // UI-눌림느낌
   const toast=document.querySelector('#toast');if(!toast)return;
   toast.textContent=ok?'GPT 답변 가져오기 요청을 복사했어요. ChatGPT 답변 아래에 붙여 넣고, 받은 HTML을 정리함 입력에 붙여 넣으세요.':'복사하지 못했어요. 이 문구를 직접 복사해 주세요: '+CHATGPT_HTML_REQUEST;
-  toast.classList.remove('hidden');clearTimeout(copyChatgptRequest.timer);copyChatgptRequest.timer=setTimeout(()=>toast.classList.add('hidden'),ok?4200:9000);
+  kptuHoldToast(toast,{ms:ok?undefined:9000});
 }
 // UI-바구니상세개편: one row per attachment inside the update card. A photo shows a small preview (press it for the large
 // view); any other file shows its kind. Under the name and size, small text links with icons: [Drive에서 열기],

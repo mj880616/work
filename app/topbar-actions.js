@@ -1,3 +1,4 @@
+import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import {viewPrefs,THEMES,DEFAULT_THEME} from './view-prefs.js';
 import {repaintMobileTabs} from './mobile-tab-selection.mjs';
 import {midKeys,pcSplit,itemOf,isDefaultLayout} from './menu-model.mjs';
@@ -271,7 +272,7 @@ window.addEventListener('kptu:view-changed',event=>{
 // note then opens on the basket's [노트] side. Text closed without saving stays in this tab's memory for the next time only
 // (never in browser storage).
 let writeDraft='',writeDraftDoc=null,writerOpening=false;
-const writeToast=message=>{const toast=document.querySelector('#toast');if(!toast)return;toast.textContent=message;toast.classList.remove('hidden');clearTimeout(writeToast.timer);writeToast.timer=setTimeout(()=>toast.classList.add('hidden'),3200)};
+const writeToast=message=>{const toast=document.querySelector('#toast');if(!toast)return;toast.textContent=message;kptuHoldToast(toast)};
 // kind: 'update' (top line [+ 추가] → 업데이트) or 'note' (top line → 노트).
 async function openWriter(kind='update'){
   if(writerOpening||document.querySelector('#edWindow:not(.hidden)')||window.__KPTU_TEAM_READY_STATE__!=='workspace')return;
@@ -620,7 +621,7 @@ modal?.addEventListener('click',event=>{
   syncThemeColor();
   selected();
 });
-const themeToast=message=>{const toast=document.querySelector('#toast');if(!toast)return;toast.textContent=message;toast.classList.remove('hidden');clearTimeout(themeToast.timer);themeToast.timer=setTimeout(()=>toast.classList.add('hidden'),4200)};
+const themeToast=message=>{const toast=document.querySelector('#toast');if(!toast)return;toast.textContent=message;kptuHoldToast(toast)};
 window.addEventListener('kptu:view-prefs-rejected',event=>{
   if(!event.detail?.paths?.includes('theme'))return;
   const saved=viewPrefs.get('theme');

@@ -3,6 +3,7 @@
 // PC 왼쪽 메뉴·761~1023px 한 줄 메뉴의 자리 바꾸기는 그 버튼들의 주인인 topbar-actions.js가 kptu:menu-layout-applied를 받아 한다.
 // 기본 구성이고 한 번도 바꾼 적이 없으면 index.html의 처음 모양을 그대로 둔다(다시 그리지 않음).
 // 저장은 view-prefs.js(서버)뿐이다. 서버가 새 칸을 아직 모르면(DB 적용 전) 거절 알림으로 원래 순서로 돌아가고 안내한다.
+import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import {viewPrefs} from './view-prefs.js';
 import {ITEMS, MENU_ICON, itemOf, normalizeLayout, layoutToPrefs, isDefaultLayout, defaultLayout, moveItem, stepItem, sameLayout} from './menu-model.mjs';
 
@@ -78,5 +79,5 @@ window.addEventListener('kptu:view-prefs-rejected', event => {
   apply(fromPrefs());
   window.dispatchEvent(new CustomEvent('kptu:menu-layout-rejected'));
   const toast = document.querySelector('#toast');
-  if (toast) { toast.textContent = '서버가 아직 이 순서를 받지 못해 원래 순서로 되돌렸어요.'; toast.classList.remove('hidden'); clearTimeout(toast._menuTimer); toast._menuTimer = setTimeout(() => toast.classList.add('hidden'), 4200); }
+  if (toast) { toast.textContent = '서버가 아직 이 순서를 받지 못해 원래 순서로 되돌렸어요.'; kptuHoldToast(toast); }
 });

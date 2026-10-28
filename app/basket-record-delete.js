@@ -9,6 +9,7 @@
 import {confirmLinks} from './basket-classification.js';
 import {TRASH_STATE,TRASH_TEXT,otherDeleteText,otherDeleteBlockedText} from './project-trash-model.mjs';
 import {readTrashKind,restoreFromTrashKind} from './trash-rpc.js';
+import {holdTimer,recordUndo,dropUndo,hideSmallNotices,NOTICE_UNDO_MS} from './small-notice.js'; // UI-작은알림자리: 위쪽 2초·올려 두면 멈춤·Ctrl+Z 기록
 
 const PAGE_SIZE=100;
 const contextFor=rt=>typeof rt.context?.read==='function'?(rt.context.read()||{}):(globalThis.window?.__KPTU_BOOT_CONTEXT__||{});
@@ -19,7 +20,7 @@ const pending=new Set();
 // One confirmation for every screen: the place's name, and that the note stays.
 export const disconnectConfirmText=name=>`${String(name||'').trim()||'이'} 연결을 해제할까요? 업데이트는 남아요`;
 export const disconnectLabel=name=>`${String(name||'').trim()||'이'} 연결 해제`;
-export const UNDO_MS=5000;
+export const UNDO_MS=NOTICE_UNDO_MS; // UI-작은알림자리(2026-10-28 명진 결정): 사이트 전체 작은 알림 2초
 export const RECORD_DELETE_TEXT=Object.freeze({
   DISCONNECT_FAILED:'연결을 해제하지 못했어요. 다시 시도해 주세요.',
   DISCONNECT_MISSING:'이미 해제된 연결이에요. 목록을 다시 불러왔어요.',
@@ -204,10 +205,11 @@ export async function restoreRecordLink({noteId,kind,targetId,summary=null},{rt=
   }finally{pending.delete(key);}
 }
 
-// One undo notice at a time, for 5 seconds. It sits inside the open dialog (if any) so the
-// dialog's focus loop reaches [되돌리기]; the result is said in the same notice.
-let undoBox=null,undoTimer=0;
-export function closeUndoNotice(){clearTimeout(undoTimer);undoTimer=0;undoBox?.remove();undoBox=null;}
+// One undo notice at a time, for 2 seconds (UI-작은알림자리), at the top of the screen. It sits inside the open dialog (if any) so the
+// dialog's focus loop reaches [되돌리기]; the result is said in the same notice. While the pointer is on it or focus is inside it,
+// it stays (small-notice.js holdTimer). Each notice is also put on the shared undo history, so PC Ctrl+Z undoes it the same way.
+let undoBox=null,undoClock=null;
+export function closeUndoNotice(){undoClock?.stop();undoClock=null;undoBox?.remove();undoBox=null;}
 globalThis.window?.addEventListener?.('kptu:session-changed',closeUndoNotice);
 export function offerUndoNotice({text=RECORD_DELETE_TEXT.DISCONNECTED,onUndo,ms=UNDO_MS,doc=globalThis.document}={}){
   closeUndoNotice();if(!doc||typeof onUndo!=='function')return null;
@@ -215,15 +217,20 @@ export function offerUndoNotice({text=RECORD_DELETE_TEXT.DISCONNECTED,onUndo,ms=
   const box=doc.createElement('div');box.className='kptu-undo-notice';box.dataset.undoNotice='';
   box.innerHTML='<span role="status" aria-live="polite" data-undo-text></span><button type="button" data-undo-action>되돌리기</button>';
   const line=box.querySelector('[data-undo-text]'),button=box.querySelector('[data-undo-action]');line.textContent=text;
-  const finish=message=>{if(undoBox!==box)return;button.remove();line.textContent=message;clearTimeout(undoTimer);undoTimer=setTimeout(()=>{if(undoBox===box)closeUndoNotice();},2400);};
+  let ran=false;
+  const run=async()=>{ran=true;try{return await onUndo();}catch{return {status:'unknown',message:RECORD_DELETE_TEXT.RESULT_UNKNOWN};}};
+  const later=(wait,fn)=>{undoClock?.stop();undoClock=holdTimer(box,wait,()=>{if(undoBox===box)fn();});};
+  const finish=message=>{if(undoBox!==box)return;button.remove();line.textContent=message;later(2400,closeUndoNotice);};
   button.addEventListener('click',async()=>{
-    if(undoBox!==box||button.disabled)return;
-    clearTimeout(undoTimer);button.disabled=true;line.textContent='되돌리는 중…';
-    let result;try{result=await onUndo();}catch{result={status:'unknown',message:RECORD_DELETE_TEXT.RESULT_UNKNOWN};}
+    if(undoBox!==box||button.disabled||ran)return;
+    dropUndo(entry);undoClock?.stop();button.disabled=true;line.textContent='되돌리는 중…';
+    const result=await run();
     if(result?.status==='stale'){if(undoBox===box)closeUndoNotice();return;}
     finish(result?.message||RECORD_DELETE_TEXT.RESULT_UNKNOWN);
   });
-  host.append(box);undoBox=box;undoTimer=setTimeout(()=>{if(undoBox===box)closeUndoNotice();},ms);
+  // Ctrl+Z: the same onUndo once; the shared part says '되돌렸어요: …' (or why not) in its own top line.
+  const entry=recordUndo({label:text,undo:async()=>{if(ran)return {silent:true};if(undoBox===box)closeUndoNotice();return run();}});
+  hideSmallNotices(doc);host.append(box);undoBox=box;later(Math.min(ms,UNDO_MS)||UNDO_MS,closeUndoNotice);
   return box;
 }
 

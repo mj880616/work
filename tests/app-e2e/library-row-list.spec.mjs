@@ -207,11 +207,12 @@ for(const width of [390,1440]){
     expect(await page.evaluate(()=>history.state?.kptuLibraryMenu||null)).toBe(null);
     await page.locator('#libraryEditTitle').fill('수정한 자료');await page.locator('#libraryEditSave').click();await expect(page.locator('#libraryEditModal')).toBeHidden();
     await expect(page.locator('.lu-row-title').first()).toHaveText('수정한 자료');expect(state.patches).toHaveLength(1);
-    // 확인창은 삭제 눌림 뒤 비동기로 뜬다. 이 창이 실제로 닫힐 때까지 기다린 뒤 다음 단계로 간다(안 그러면 아래 acceptDelete가 같은 창을 또 잡아 "already handled"가 난다).
-    await menu(page);const cancelled=new Promise((resolve,reject)=>page.once('dialog',async d=>{try{expect(d.type()).toBe('confirm');expect(d.message()).toContain('Drive 휴지통');await d.dismiss();resolve()}catch(e){reject(e)}}));
-    await page.locator('[data-lu-delete]').click();await cancelled;await expect(page.locator('.lu-more-panel')).toBeHidden();expect(state.deletes).toHaveLength(0);
-    await menu(page);const dialogs=[];const acceptDelete=async d=>{dialogs.push(d.type());if(d.type()==='confirm')expect(d.message()).toContain('자료 등록을 삭제할까요?');else expect(d.message()).toBe('자료 등록을 삭제했습니다. Drive 파일 처리 결과는 확인하지 못했습니다. 원본 상태를 직접 확인해 주세요.');await d.accept()};page.on('dialog',acceptDelete);await page.locator('[data-lu-delete]').click();await expect(page.locator('[data-lu-document="row-0"]')).toHaveCount(0);
-    expect(state.deletes).toEqual([{action:'delete',document_id:'row-0'}]);expect(dialogs).toEqual(['confirm','alert']);page.off('dialog',acceptDelete);
+    // LIB-바로지우기: 묻지 않고 줄이 빠지고 '지웠어요 · 되돌리기'(6초). [되돌리기]는 요청을 보내지 않고, 그대로 두면 6초 뒤 한 번만 보낸다. 알림창은 없다.
+    const dialogs=[];const onDialog=async d=>{dialogs.push(d.type());await d.dismiss()};page.on('dialog',onDialog);
+    await menu(page);await page.locator('[data-lu-delete]').click();await expect(page.locator('.lu-more-panel')).toBeHidden();await expect(page.locator('[data-lu-document="row-0"]')).toHaveCount(0);
+    await page.locator('#kptuNotice .kptu-notice-undo').click();await expect(page.locator('[data-lu-document="row-0"]')).toHaveCount(1);expect(state.deletes).toHaveLength(0);
+    await menu(page);await page.locator('[data-lu-delete]').click();await expect(page.locator('[data-lu-document="row-0"]')).toHaveCount(0);
+    await expect.poll(()=>state.deletes,{timeout:12000}).toEqual([{action:'delete',document_id:'row-0'}]);expect(dialogs).toEqual([]);page.off('dialog',onDialog);
     await menu(page,'row-1');await expect(page.locator('.lu-more-panel button').filter({hasText:/^(Drive에서 열기|내려받기)$/})).toHaveText(['Drive에서 열기','내려받기']);await page.locator('[data-lu-download]').click();await expect(page).toHaveURL(/library-open-fixture.*download=1/);
     expect(state.downloads).toEqual([{document_id:'row-1'}]);
   });
@@ -286,10 +287,10 @@ for(const width of [390,1280]){
       expect(await ids()).toEqual(['ordinary-a','category-only','meeting-a','ordinary-b','meeting-b']);
       await onlyLibraryCategories(page,['회의'],{tap:width===390});expect(await ids()).toEqual(['category-only','meeting-b']);
       await page.screenshot({path:`/tmp/library-two-meetings-${width}.png`,fullPage:true});
-      // Keyboard (LIB-거르기전체): [전체] turns every category on, pressing it again turns every category off ('고른 종류 없음'), and a third press turns all on; [회의] off returns to the default.
+      // Keyboard (LIB-거르기전체): [전체] turns every category on, pressing it again turns every category off ('고른 분류 없음'), and a third press turns all on; [회의] off returns to the default.
       await pressed('전체').focus();await page.keyboard.press('Enter');
       await expect(rows).toHaveCount(5);await expect(pressed('전체')).toHaveAttribute('aria-pressed','true');await expect(pressed('전체')).toBeFocused();
-      await page.keyboard.press('Space');await expect(rows).toHaveCount(0);await expect(pressed('전체')).toHaveAttribute('aria-pressed','false');await expect(pressed('전체')).toBeFocused();await expect(page.locator('#documentList')).toHaveText('고른 종류 없음');
+      await page.keyboard.press('Space');await expect(rows).toHaveCount(0);await expect(pressed('전체')).toHaveAttribute('aria-pressed','false');await expect(pressed('전체')).toBeFocused();await expect(page.locator('#documentList')).toHaveText('고른 분류 없음');
       await page.keyboard.press('Enter');await expect(rows).toHaveCount(5);await expect(pressed('전체')).toBeFocused();
       await pressed('회의').click();await expect(rows).toHaveCount(3);await expect(pressed('회의')).toHaveAttribute('aria-pressed','false');
       await focusLibraryProject(page,'top-a');

@@ -112,6 +112,15 @@ export function snippetAround(text, words, radius = SNIPPET_RADIUS) {
 
 const time = v => { const n = Date.parse(v || ''); return Number.isFinite(n) ? n : -Infinity; };
 // 최근 것 먼저(occurred_at 내림차순, 같으면 id). 서버와 같은 순서.
+// SEARCH-선택옮기기 ④: 서버 snippet에 정리 전 꼬리표 글자('{종류:회의자료,조직:공공기관사업본부,주제:본부집행위}')가 그대로 오면
+// 이름(키)은 빼고 값만 '회의자료 · 공공기관사업본부 · 본부집행위'로 보인다. 그 밖의 글자는 그대로.
+export function tidySnippet(text) {
+  if (typeof text !== 'string' || !text) return text;
+  return text.replace(/\{([^{}]*:[^{}]*)\}/g, (all, body) => {
+    const values = body.split(',').map(part => { const at = part.indexOf(':'); return (at >= 0 ? part.slice(at + 1) : part).replace(/^"|"$/g, '').trim(); }).filter(Boolean);
+    return values.length ? values.join(' · ') : all;
+  }).replace(/\s+/g, ' ').trim();
+}
 export function byRecent(a, b) {
   const d = time(b.occurred_at) - time(a.occurred_at);
   if (d) return d > 0 ? 1 : -1;
@@ -162,7 +171,7 @@ function cleanItem(raw) {
   return {
     kind: s(raw.kind), source: s(raw.source), id: String(raw.id), title: s(raw.title) || '(제목 없음)',
     matched_in: ['title', 'body', 'attachment'].includes(raw.matched_in) ? raw.matched_in : 'title',
-    snippet: s(raw.snippet), occurred_at: s(raw.occurred_at), day: s(raw.day),
+    snippet: tidySnippet(s(raw.snippet)), occurred_at: s(raw.occurred_at), day: s(raw.day),
     state: ['held', 'done', 'cancelled'].includes(raw.state) ? raw.state : null,
     project_id: s(raw.project_id), project_name: s(raw.project_name),
     organization_id: s(raw.organization_id), organization_name: s(raw.organization_name)

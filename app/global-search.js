@@ -11,7 +11,8 @@ import * as data from './global-search-data.js';
 import {renderFilterChips} from './filter-chips.js';
 import {placeAnchored, clearAnchored, followAnchor} from './anchored-popup.js';
 import {requestBasketNote, requestNoteDocOpen, requestTaskOpen} from './basket-note-tasks.js';
-import {requestLibraryDocument} from './basket-library-send.js';
+import {requestLibraryDocument, requestLibrarySelection} from './basket-library-send.js';
+import {createAnchoredMenu} from './anchored-menu.js';
 
 (() => {
 'use strict';
@@ -412,6 +413,45 @@ function paintAll() {
   const where = view?.querySelector('.gs-view-title');
   if (where) where.textContent = state.text.trim() ? `‘${state.text.trim()}’ 검색 결과` : '검색 결과';
 }
+// SEARCH-선택옮기기(1차, LIB-후속1 ②): 자료실 결과 줄을 우클릭(폰은 꾹 누르기 = 브라우저 contextmenu)하면 작은 메뉴.
+// 맨 위 [선택], 자료실 결과가 여럿이면 [자료실 결과 n개 모두 고르기], [열기]. 고르면 자료실 화면의 같은 선택 모드(같은 메뉴·폴더로 옮기기·분류 바꾸기·지우기)로
+// 넘어가 그 자료들이 고른 채로 열린다(선택·옮기기 부품을 따로 만들지 않음). 노트·할 일 등 다른 종류 결과는 이번 판에서 메뉴가 없다.
+const docKeys = host => [...(host?.querySelectorAll('[role="option"][data-gs-key^="document:"]') || [])].map(o => o.dataset.gsKey);
+let rowMenu = null;
+function gsRowMenu() {
+  if (rowMenu) return rowMenu;
+  rowMenu = createAnchoredMenu({id: 'gsRowMenu', className: 'lu-more-panel gs-row-menu', label: '검색 결과 자료', historyKey: 'kptuSearchRowMenu',
+    parent: t => t.closest('.gs-panel, #searchView') || document.body, key: t => t.dataset.gsKey,
+    render: key => {
+      const host = document.querySelector(`[role="option"][data-gs-key="${CSS.escape(key)}"]`)?.closest('.gs-panel, #searchView');
+      const all = docKeys(host);
+      return `<button type="button" data-gs-act="pick">선택</button>${all.length > 1 ? `<button type="button" data-gs-act="all">자료실 결과 ${all.length}개 모두 고르기</button>` : ''}<button type="button" data-gs-act="open">열기</button>`;
+    },
+    onAction: (button, active) => {
+      const act = button.dataset.gsAct, option = active.trigger, item = rowsByKey.get(active.id);
+      if (!item) return;
+      if (act === 'open') { activate(option); return; }
+      const keys = act === 'all' ? docKeys(option.closest('.gs-panel, #searchView')) : [active.id];
+      void selectInLibrary(keys.map(k => rowsByKey.get(k)?.id).filter(Boolean));
+    }});
+  return rowMenu;
+}
+async function selectInLibrary(ids) {
+  if (!ids.length) return;
+  const mine = ++opening;
+  await closePanel();
+  const r = router(); if (!r) return;
+  try { await window.KPTUViewLoader?.load?.('library'); } catch { return; }
+  if (mine !== opening) return;
+  requestLibrarySelection(ids); r.go('library', {source: 'delegated'});
+}
+document.addEventListener('contextmenu', e => {
+  const option = e.target.closest?.('.gs-panel [role="option"][data-gs-key^="document:"], #searchView [role="option"][data-gs-key^="document:"]');
+  if (!option || e.shiftKey || !rowsByKey.has(option.dataset.gsKey)) return;
+  e.preventDefault(); e.stopPropagation();
+  window.KPTUContextMenu?.pinAt?.(option, e.clientX, e.clientY);
+  gsRowMenu().open(option);
+}, true);
 // 결과 줄 누르기(결과 창·전용 화면 공용).
 document.addEventListener('click', e => {
   const option = e.target.closest?.('.gs-panel [role="option"], #searchView [role="option"]');

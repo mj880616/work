@@ -5,7 +5,7 @@
 // - OD-폰보관(2026-10-28 명진 결정, '기기 저장 금지'의 단 하나의 예외): '작은 그림(small)' 바이트 사본만 od-thumb-cache.js(Cache Storage)에 보관한다.
 //   주소·토큰·파일 이름은 보관하지 않는다. 그 밖의 것(별표·설정·일기)은 계속 서버에만 둔다.
 import './od-thumb-cache.js';
-import {ownerScope, diaryPhotos} from './diary-data.js';
+import {ownerScope, diaryPhotos, todayKey} from './diary-data.js';
 import {seoulDateKey} from './meeting-time.js';
 import {createThumbLoader, retryDelay, ThumbError, VISIBLE, NEAR, IDLE} from './od-thumb-loader.js';
 
@@ -136,6 +136,93 @@ export async function odPhotos(rt, year, month) {
   return {days, truncated: d?.truncated === true};
 }
 
+// ---- OD-미리받기(2026-10-28): 앱을 켠 뒤 한가할 때 받아 둔 연결 상태·이번 달 목록 ----
+// od-warm.js가 첫 화면이 다 뜬 뒤 odWarm()을 한 번 부른다. 받아 둔 것은 이 탭 메모리에만 있고(기기 저장 없음), 로그인한 사람이 바뀌면 버린다.
+// 일기·일기 목록은 처음 열 때 이것을 먼저 쓰고(기다리던 요청이면 그 요청을 함께 기다린다), 다시 읽기(force)는 늘 서버에 묻는다.
+// 이번 달 목록을 미리 받으면 서버가 그 자리에서 원드라이브 바뀐 것(delta)도 받아 두므로(10분 기준), 일기를 열 때는 서버 표만 읽는다.
+export const WARM = Object.freeze({statusMs: 30 * 60 * 1000, monthMs: 10 * 60 * 1000, firstDay: 4, maxThumbs: 8});
+const warm = {owner: '', status: null, statusAt: 0, months: new Map()};
+function warmFor(rt) {
+  const scope = ownerScope(rt), owner = scope && scope !== ':' && !scope.startsWith(':') && !scope.endsWith(':') ? scope : '';
+  if (warm.owner !== owner) { warm.owner = owner; warm.status = null; warm.statusAt = 0; warm.months.clear(); }
+  return owner;
+}
+export function odWarmReset() { warm.status = null; warm.statusAt = 0; warm.months.clear(); }
+// 연결 상태(30분 안에 받아 둔 '연결됨' 또는 받는 중인 것). force: 서버에 다시 묻고 받아 둔 달 목록도 버린다(연결·폴더가 바뀐 뒤).
+export function odStatusCached(rt, {force = false, now = Date.now()} = {}) {
+  const owner = warmFor(rt);
+  if (force) warm.months.clear();
+  if (!force && owner && warm.status && now - warm.statusAt < WARM.statusMs) return warm.status;
+  const flight = odStatus(rt);
+  if (!owner) return flight;
+  warm.status = flight; warm.statusAt = now;
+  // 다시 쓰는 것은 '연결·폴더 있음'뿐이다. 연결 전·준비 전·실패는 받는 동안만 함께 기다리고 끝나면 버린다(다른 기기에서 연결한 것을 놓치지 않게).
+  const drop = () => { if (warm.status === flight) { warm.status = null; warm.statusAt = 0; } };
+  flight.then(st => { if (!(st?.configured && st.connected && st.folder)) drop(); }, drop);
+  return flight;
+}
+// 받아 둔 이번 달 목록을 한 번만 꺼낸다(10분 넘었거나 없으면 null → 부르는 쪽이 서버에 묻는다). 미리 받기가 실패했으면 서버에 다시 묻는다.
+export function odTakeWarmMonth(rt, year, month, {now = Date.now()} = {}) {
+  const owner = warmFor(rt), key = monthParam(year, month), hit = warm.months.get(key);
+  if (!owner || !hit) return null;
+  warm.months.delete(key);
+  if (now - hit.at >= WARM.monthMs) return null;
+  return hit.promise.catch(() => odPhotos(rt, year, month));
+}
+// 미리 받을 작은 그림: 오늘부터 거꾸로, 사진이 있는 첫 날은 앞 4장(날짜 칸에 먼저 보이는 순서), 그다음 날들은 첫 장 하나씩(목록 줄의 그림), 모두 8장까지.
+export function warmPicks(month, today, {firstDay = WARM.firstDay, max = WARM.maxThumbs} = {}) {
+  const days = Object.keys(month?.days || {}).filter(day => dayRe.test(day) && day <= today).sort().reverse();
+  const out = [];
+  for (const day of days) {
+    for (const p of (month.days[day] || []).slice(0, out.length ? 1 : firstDay)) {
+      if (out.length >= max) return out;
+      out.push({kind: 'od', source: 'onedrive', key: p.id, id: p.id, day, name: p.name, taken_at: p.taken_at, approx: p.approx});
+    }
+  }
+  return out;
+}
+// 앱을 켠 뒤 한 번: 연결 확인 → (연결·폴더가 있을 때만) 이번 달 목록 → 앞쪽 작은 그림 몇 장. 원드라이브를 연결하지 않았으면 상태 확인 한 번으로 끝난다.
+// 작은 그림은 주소를 대기열(가장 낮은 순서, 한 번에 묶어 받기)로 받고, 폰 보관소를 쓸 수 있으면 그 바이트를 보관한다(OD-폰보관의 같은 예외).
+export async function odWarm(rt = window.KPTURuntime, {today = todayKey(), now = () => Date.now()} = {}) {
+  const owner = warmFor(rt);
+  if (!owner) return {done: false, why: 'owner'};
+  let st;
+  try { st = await odStatusCached(rt, {now: now()}); } catch { return {done: false, why: 'status'}; }
+  if (!st?.configured || !st.connected || !st.folder) return {done: false, why: 'not-connected'};
+  if (warmFor(rt) !== owner) return {done: false, why: 'owner'};
+  const year = Number(today.slice(0, 4)), month = Number(today.slice(5, 7)) - 1, key = monthParam(year, month);
+  let hit = warm.months.get(key);
+  if (!hit || now() - hit.at >= WARM.monthMs) {
+    const flight = odPhotos(rt, year, month), mine = {at: now(), promise: flight};
+    warm.months.set(key, mine); hit = mine;
+    flight.catch(() => { if (warm.months.get(key) === mine) warm.months.delete(key); });
+  }
+  let data;
+  try { data = await hit.promise; } catch { return {done: false, why: 'photos'}; }
+  if (warmFor(rt) !== owner) return {done: false, why: 'owner'};
+  const picks = warmPicks(data, today);
+  return {done: true, picks: picks.length, kept: await warmThumbs(rt, picks, owner)};
+}
+async function warmThumbs(rt, picks, owner) {
+  if (!picks.length) return 0;
+  const l = odThumbLoader(rt), store = keepStore(), keep = !!store?.available();
+  let want = picks;
+  if (keep) {
+    const have = new Set();
+    for (const ym of new Set(picks.map(p => p.day.slice(0, 7)))) for (const id of await store.monthIds(owner, KEEP_SIZE, ym)) have.add(id);
+    want = picks.filter(p => !have.has(p.id));
+  }
+  const got = await Promise.allSettled(want.map(p => l.get(p.id, KEEP_SIZE, IDLE)));
+  if (!keep) return 0;
+  let kept = 0;
+  for (let i = 0; i < want.length; i++) {
+    if (got[i].status !== 'fulfilled' || warm.owner !== owner) continue;
+    const blob = await grabThumb(got[i].value);
+    if (blob && await store.put(owner, want[i].id, KEEP_SIZE, want[i].day.slice(0, 7), blob)) kept++;
+  }
+  return kept;
+}
+
 // ---- 사진 그림 (OD-속도 2026-10-28: 보이는 칸부터, 동시 4개, 중복 합치기, 메모리 기억 300장) ----
 // 받는 길: ① photo-urls(여러 장의 짧게 사는 썸네일 주소를 한 번에) ② photo(한 장씩 서버가 그림을 넘김, object URL). 대기열은 od-thumb-loader.js.
 // 기억은 이 화면을 보는 동안의 메모리뿐이고 로그인한 사람이 바뀌면 버린다. 썸네일 주소의 그림은 브라우저 일반 HTTP 캐시가 주소 단위로 다시 쓴다.
@@ -201,7 +288,7 @@ export function odThumbLoader(rt = window.KPTURuntime, {fetchUrls, fetchBytes} =
   });
   return loader;
 }
-export function clearOdPhotoCache() { loader?.clear(); }
+export function clearOdPhotoCache() { loader?.clear(); odWarmReset(); }
 export function forgetOdPhoto(id, rt = window.KPTURuntime) { loader?.forget(id); keepStore()?.remove(ownerScope(rt), id); }
 // 그림 주소 하나(대기열을 거친다). 크게 보기·미리 받기가 쓴다.
 export const odPhotoUrl = (id, size = 'small', {rt = window.KPTURuntime, prio = VISIBLE} = {}) => odThumbLoader(rt).get(id, size, prio);

@@ -4,12 +4,13 @@
 // 노드 모양(묶기 4가지 공통): {kind:'group'|'folder', key, label, depth, count, kinds, files, children, more, ...}
 // source는 나중에 Drive 폴더 보기(DRIVE-자료트리)를 더할 자리다(결정 D10). 지금은 늘 'library'.
 
+import {FOLDER_DEPTH_LIMIT,folderIndent,folderDepthLimitFrom} from './folder-limits.mjs';
 export const GROUP_BY=Object.freeze(['project','organization','category','month','folder']);
-export const GROUP_LABELS=Object.freeze({project:'프로젝트',organization:'담당조직',category:'종류',month:'월별',folder:'폴더'});
+export const GROUP_LABELS=Object.freeze({project:'프로젝트',organization:'담당조직',category:'분류',month:'월별',folder:'폴더'});
 // 결정 D12: 한 토글에 파일이 20개를 넘으면 20개만 보이고 [N건 더].
 export const FILE_LIMIT=20;
-// 결정 D3: 폴더 안 폴더는 3단까지(DB 트리거가 강제, 화면은 그 이상을 만들지 않음).
-export const FOLDER_DEPTH=3;
+// 결정 D3 → LIB-폴더100단(10/28): 폴더 안 폴더는 100단까지(DB 트리거가 강제, 화면은 그 이상을 만들지 않음). 숫자는 folder-limits.mjs 한 곳.
+export const FOLDER_DEPTH=FOLDER_DEPTH_LIMIT;
 // 접힌 줄의 종류 색 점 순서(기존 --ds-file-* 색 + LIB-그림형식의 그림). 최대 6개.
 export const KIND_ORDER=Object.freeze(['HWP','PDF','XLS','DOC','PPT','그림','파일']);
 const KIND_DOTS=6;
@@ -163,7 +164,7 @@ export function treeHtml(list,{isOpen,showAll,fileHtml,esc,kindKey,menu=null,can
     const all=showAll(n.key),files=all?n.files:n.files.slice(0,FILE_LIMIT),rest=n.files.length-files.length;
     return n.children.map(one).join('')+files.map(d=>fileHtml(d,n)).join('')+(rest>0?`<button type="button" class="lu-more-files" data-lu-more="${esc(n.key)}">${rest}건 더</button>`:'');
   };
-  const one=n=>`<details class="lu-node" data-lu-node="${esc(n.key)}" data-lu-node-kind="${n.kind}" style="--lu-depth:${Math.min(n.depth,6)}"${isOpen(n.key)?' open':''}>${head(n)}<div class="lu-node-body">${body(n)}</div></details>`;
+  const one=n=>`<details class="lu-node" data-lu-node="${esc(n.key)}" data-lu-node-kind="${n.kind}" style="--lu-depth:${folderIndent(n.depth)}"${isOpen(n.key)?' open':''}>${head(n)}<div class="lu-node-body">${body(n)}</div></details>`;
   return list.map(one).join('');
 }
 
@@ -179,7 +180,7 @@ const frameOf=f=>f?.project_id||null;
 export function folderSiblings(folders,{projectId=null,parentId=null,free=false}){return folders.filter(f=>(free||frameOf(f)===(projectId||null))&&(f.parent_id||null)===(parentId||null)).sort(folderOrder)}
 // 새 폴더를 만들 수 있나(상위 폴더 깊이 < 3).
 export const canAddChild=(folders,parentId)=>!parentId||folderDepth(folders,parentId)<FOLDER_DEPTH;
-// 폴더를 옮길 수 있는 곳: 같은 틀의 맨 위(null) 또는 자기·자기 아래가 아니고 합친 깊이가 3단 이하인 폴더. 지금 상위는 뺀다.
+// 폴더를 옮길 수 있는 곳: 같은 틀의 맨 위(null) 또는 자기·자기 아래가 아니고 합친 깊이가 FOLDER_DEPTH(100단) 이하인 폴더. 지금 상위는 뺀다.
 export function folderMoveTargets(folders,id,free=false){
   const f=folders.find(x=>x.id===id);if(!f)return [];
   const inside=folderSubtree(folders,id),h=folderHeight(folders,id),out=[];
@@ -209,4 +210,4 @@ export function documentsInTrashedFolders(folders,items,ready=true){if(!ready)re
 // 폴더 이름 검사(DB 검사와 같음: 1~40자, 앞뒤 공백·제어문자 없음). 앞뒤 공백은 잘라서 쓴다.
 export function cleanFolderName(raw){const name=String(raw??'').replace(/[\u0000-\u001f\u007f]/g,'').trim();return name.length>=1&&[...name].length<=40?name:null}
 // DB 거절(23514 + LIB_FOLDER_*)을 일상어로.
-export function folderErrorText(e){const m=String(e?.message||'');if(/LIB_FOLDER_DEPTH/.test(m))return '폴더는 3단까지만 만들 수 있어요.';if(/LIB_FOLDER_CYCLE/.test(m))return '폴더를 자기 안으로 옮길 수 없어요.';if(/LIB_FOLDER_SCOPE|row-level security|42501/.test(m))return '프로젝트가 다른 폴더로 옮기는 기능은 아직 준비 중이에요. 같은 프로젝트 안에서는 옮길 수 있어요.';if(/name_check|23514/.test(m))return '폴더 이름은 1~40자로 써 주세요.';return '저장하지 못했어요. 잠시 뒤 다시 해 주세요.'}
+export function folderErrorText(e){const m=String(e?.message||'');if(/LIB_FOLDER_DEPTH/.test(m))return `폴더는 ${folderDepthLimitFrom(m)}단까지만 만들 수 있어요.`;if(/LIB_FOLDER_CYCLE/.test(m))return '폴더를 자기 안으로 옮길 수 없어요.';if(/LIB_FOLDER_SCOPE|row-level security|42501/.test(m))return '프로젝트가 다른 폴더로 옮기는 기능은 아직 준비 중이에요. 같은 프로젝트 안에서는 옮길 수 있어요.';if(/name_check|23514/.test(m))return '폴더 이름은 1~40자로 써 주세요.';return '저장하지 못했어요. 잠시 뒤 다시 해 주세요.'}

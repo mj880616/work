@@ -217,3 +217,24 @@ test('Phone 390: the menu sheet has a search field at the top; it opens a full-s
  await page.locator('#searchView .gs-back').click();
  await expect(page.locator('#homeView')).toBeVisible();
 });
+
+// LIB-후속1 ② / SEARCH-선택옮기기(1차): 자료실 결과 줄 우클릭 = 작은 메뉴(맨 위 [선택], [열기]). [선택]은 결과 창을 닫고 자료실 화면의 같은 선택 모드로 넘긴다.
+// 다른 종류 결과(업데이트 등) 우클릭은 이 메뉴를 열지 않는다.
+test('PC 1280: 자료실 결과 우클릭 메뉴 [선택]·[열기], [선택]은 자료실 화면으로',async({page})=>{
+  await page.setViewportSize({width:1280,height:860});
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const calls=[];
+  await openHome(page,{beforeLoad:()=>routeSearch(page,calls)});
+  await top(page).click();await top(page).fill('교섭');
+  await expect(panel(page).locator('.gs-band')).not.toHaveCount(0);
+  await panel(page).locator('[data-gs-group="update"] .gs-row').first().click({button:'right'});
+  await expect(page.locator('#gsRowMenu')).toBeHidden();
+  await panel(page).locator('[data-gs-group="document"] .gs-row').first().click({button:'right'});
+  const menu=page.locator('#gsRowMenu');
+  await expect(menu).toBeVisible();await expect(panel(page)).toBeVisible();
+  await expect(menu.getByRole('button')).toHaveText(['선택','열기']);
+  await menu.getByRole('button',{name:'선택',exact:true}).click();
+  await expect(page.locator('#libraryView')).toBeVisible();
+  await expect(panel(page)).toBeHidden();
+  expect(errors).toEqual([]);
+});

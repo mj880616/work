@@ -7,6 +7,7 @@
 // - A candidate is only a candidate: ✓/✎ make one Google task through the existing create path; ✕ dismisses it
 //   (5 s [되돌리기]); both stay in '처리함' struck through (JOURNAL-챙길것화면). A counterpart promise is shown once with [원장으로 복사] and never stored.
 // - Nothing is kept in browser storage. A table or function that is not deployed yet hides the box quietly (as PR 838 does for [AI 요약]).
+import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import {readHomeCandidates, readWeekCandidates, findTodos, dismissCandidate, reopenCandidate, markTasked,
   candidateToTask, validateTaskDraft, notPlanned, ledgerRequestText, radarScope, quickDue, dotDay, dueChoices,
   RADAR_SOURCE_LABEL, HOME_ROWS, TASK_TITLE_MAX} from './todo-radar-data.js';
@@ -32,7 +33,7 @@ function sameScope() {
 }
 // reload:true when candidates changed (other hosts read again); false when only the shared status line changed.
 const notify = (reload = true) => window.dispatchEvent(new CustomEvent(CHANGED, {detail:{reload}}));
-const toast = message => { const box = document.querySelector('#toast'); if (!box) return; box.textContent = message; box.classList.remove('hidden'); clearTimeout(toast.timer); toast.timer = setTimeout(() => box.classList.add('hidden'), 3200); };
+const toast = message => { const box = document.querySelector('#toast'); if (!box) return; box.textContent = message; kptuHoldToast(box); };
 // Titles of tasks that are not done, from the task view's own copy (decision 5: do not show what is already a task).
 const taskTitles = () => (window.KPTUGoogleTasks?.peekTasks?.()?.tasks || []).filter(t => t?.status !== 'completed').map(t => t.title);
 

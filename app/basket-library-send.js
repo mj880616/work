@@ -45,4 +45,9 @@ let revealRequest=null;
 const revealScope=rt=>{const c=rt?.context?.read?.();return c?.user?.id&&c?.workspace?.id?`${c.user.id}:${c.workspace.id}`:'';};
 export function requestLibraryDocument(id,rt=window.KPTURuntime){const scope=revealScope(rt);revealRequest=typeof id==='string'&&id&&scope?{id,scope,at:Date.now()}:null;}
 export function takeLibraryDocumentRequest(rt=window.KPTURuntime){const value=revealRequest;revealRequest=null;return value&&value.scope===revealScope(rt)&&Date.now()-value.at<REVEAL_MS?value.id:null;}
+// SEARCH-선택옮기기(1차): 전체 검색 결과에서 [선택]·[모두 고르기]한 자료를 자료실 선택 모드로 넘긴다(같은 선택 부품·메뉴로 옮기기·분류 바꾸기).
+// 화면 메모리만(기기 저장 없음), 로그인·업무공간이 같을 때 1분 안에 한 번.
+let selectRequest=null;
+export function requestLibrarySelection(ids,rt=window.KPTURuntime){const scope=revealScope(rt),list=[...new Set((ids||[]).filter(x=>typeof x==='string'&&x))];selectRequest=list.length&&scope?{ids:list,scope,at:Date.now()}:null;}
+export function takeLibrarySelectionRequest(rt=window.KPTURuntime){const value=selectRequest;selectRequest=null;return value&&value.scope===revealScope(rt)&&Date.now()-value.at<REVEAL_MS?value.ids:null;}
 export const libraryHref='./?view=library';

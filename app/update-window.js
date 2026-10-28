@@ -8,6 +8,7 @@
 //   - The saved form (doc) goes with the letters: onto the basket update, or (ED③ 기록, 순서 5) onto one organization's or project's own
 //     record. One project's record is a one-line summary, so its letters stop at 500 (textLimitFor).
 //   - There is no [업데이트 | 노트] switch here: a note is written from the note input / [+ 추가] → [노트] (note-window.js).
+import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import {openEdWindow} from './ed-window.js';
 import {createChoiceSheet} from './choice-sheet.js';
 import {validateNoteText, attachNoteDoc} from './basket-data.js';
@@ -19,7 +20,7 @@ export const UPDATE_TEXT_MAX = 20000;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
 function toast(message) {
   const box = document.querySelector('#toast'); if (!box) return;
-  box.textContent = message; box.classList.remove('hidden'); clearTimeout(toast.timer); toast.timer = setTimeout(() => box.classList.add('hidden'), 3200);
+  box.textContent = message; kptuHoldToast(box);
 }
 export const savedMessage = saved => saved.places?.length || saved.place ? `${saved.name || '고른 곳'} 기록에 저장했어요.` : '정리함에 저장했어요.';
 let sheet = null, active = null;

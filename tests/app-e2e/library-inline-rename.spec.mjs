@@ -68,9 +68,9 @@ for(const width of [390,1280])test.describe(`줄 안 이름 바꾸기 ${width}`,
     await revealLibraryRow(page,DOC(1));
     await row(page,1).locator('.lu-more-trigger').click();
     const buttons=page.locator('#luMorePanel button');
-    await expect(buttons.first()).toHaveText(/^이름 바꾸기/);
+    await expect(buttons.first()).toHaveText('선택');await expect(buttons.nth(1)).toHaveText(/^이름 바꾸기/);
     await expect(buttons.filter({hasText:/^(Drive에서 열기|내려받기)$/})).toHaveText(['Drive에서 열기','내려받기']);
-    await expect(page.locator('#luMorePanel [data-lu-edit]')).toHaveText('수정…');
+    await expect(page.locator('#luMorePanel [data-lu-edit]')).toHaveText('정보 수정…');
     await expect(buttons.last()).toHaveText('삭제');
     await expect(page.locator('#luMorePanel .lu-menu-sep')).toHaveCount(1);
     for(const b of await buttons.all())expect((await b.boundingBox()).height).toBeLessThan(44);

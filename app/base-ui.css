@@ -152,12 +152,23 @@ button:disabled,[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
 .modal-foot>div:last-child{display:flex;gap:var(--kptu-space-2)}
 .result-box{margin-top:var(--kptu-space-3);background:var(--kptu-surface-subtle);border:1px solid var(--kptu-border);border-radius:var(--kptu-radius-md);padding:var(--kptu-space-3);font-size:12px;word-break:break-all}
 .result-box a{color:var(--kptu-link)}
-.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--kptu-ink);color:var(--kptu-surface);padding:10px var(--kptu-space-3);border-radius:var(--kptu-radius-md);font-size:12px;z-index:100;box-shadow:var(--kptu-shadow-float)}
-/* BUG-바구니연결해제: one 5-second undo notice after a basket link disconnect (basket-record-delete.js). */
-.kptu-undo-notice{position:fixed;left:50%;bottom:calc(var(--kptu-mobile-tab-height,0px) + 16px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:110;display:flex;align-items:center;gap:var(--kptu-space-2);width:max-content;max-width:calc(100vw - 32px);box-sizing:border-box;padding:4px 4px 4px var(--kptu-space-3);background:var(--kptu-ink);color:var(--kptu-surface);border-radius:var(--kptu-radius-md);box-shadow:var(--kptu-shadow-float);font-size:13px;line-height:1.4}
+/* UI-작은알림자리(2026-10-28 명진 결정 10:52): 작은 알림(#toast·.kptu-undo-notice·.kptu-notice)은 모두 화면 위쪽 가운데,
+   맨 위 줄(폰 머리줄·PC 상단 줄) 바로 아래·목록 위에 뜬다. 폰 하단바·손가락에 가리지 않게. 새 버전 알림 줄이 떠 있으면 그 아래로.
+   자리는 --kptu-notice-top 하나로 정하고, 화면마다 bottom을 따로 올리던 덮어쓰기는 없앴다(docs/design-decisions.md '작은 알림 자리'). */
+:root{--kptu-notice-top:calc(env(safe-area-inset-top,0px) + 56px)}
+body.kptu-version-notice-open{--kptu-notice-top:calc(env(safe-area-inset-top,0px) + 56px + var(--kptu-version-notice-height,33px))}
+/* 되돌리기 알림이 떠 있는 동안 뒤에 뜬 작은 알림·#toast는 한 줄 아래로(겹쳐 [되돌리기]를 가리지 않게). */
+body:has(.kptu-undo-notice) :is(.toast,.kptu-notice){top:calc(var(--kptu-notice-top) + 44px)}
+/* 위쪽 알림 글 부분은 아래 목록(거르기 칩 등) 누르기를 막지 않는다. [되돌리기]·✕만 눌린다. */
+.kptu-undo-notice,.kptu-notice{pointer-events:none}
+.kptu-undo-notice button,.kptu-notice button{pointer-events:auto}
+.toast{position:fixed;left:50%;top:var(--kptu-notice-top);bottom:auto;transform:translateX(-50%);max-width:min(92vw,520px);box-sizing:border-box;background:var(--kptu-ink);color:var(--kptu-surface);padding:7px var(--kptu-space-3);border-radius:var(--kptu-radius-md);font-size:12px;z-index:100;box-shadow:var(--kptu-shadow-float)}
+/* BUG-바구니연결해제·UI-작은알림자리: one 2-second undo notice (basket-record-delete.js offerUndoNotice), at the top like every small notice. */
+.kptu-undo-notice{position:fixed;left:50%;top:var(--kptu-notice-top);bottom:auto;transform:translateX(-50%);z-index:110;display:flex;align-items:center;gap:var(--kptu-space-2);width:max-content;max-width:calc(100vw - 32px);box-sizing:border-box;padding:4px 4px 4px var(--kptu-space-3);background:var(--kptu-ink);color:var(--kptu-surface);border-radius:var(--kptu-radius-md);box-shadow:var(--kptu-shadow-float);font-size:13px;line-height:1.4}
 .kptu-undo-notice[data-overlap-notice]{flex-wrap:wrap;justify-content:flex-end}
 .kptu-undo-notice [data-undo-text]{min-width:0;overflow-wrap:anywhere}
-.kptu-undo-notice [data-undo-action]{flex:0 0 auto;min-height:44px;min-width:44px;padding:0 12px;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:inherit;font:inherit;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.kptu-undo-notice [data-undo-action]{position:relative;flex:0 0 auto;min-height:28px;min-width:44px;padding:0 10px;border:0;border-radius:var(--kptu-radius-md);background:transparent;color:inherit;font:inherit;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.kptu-undo-notice [data-undo-action]::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
 .kptu-undo-notice [data-undo-action]:focus-visible{outline:2px solid currentColor;outline-offset:-4px}
 @media(max-width:760px){
   main{padding:22px 12px 60px}
@@ -257,7 +268,7 @@ button.back-text:focus-visible{outline:2px solid var(--kptu-info);outline-offset
 .kptu-select-opt[aria-disabled="true"]{color:var(--kptu-muted);cursor:default}
 .kptu-select-group{padding:6px 8px 2px;font-size:12px;color:var(--kptu-muted)}
 /* UI-작은알림 (2026-10-28): 브라우저 기본 알림창 대신 쓰는 공용 작은 알림(small-notice.js notify)·작은 확인창(askConfirm). 하단바 위, 톤다운. */
-.kptu-notice{position:fixed;z-index:60;left:50%;transform:translateX(-50%);bottom:calc(var(--kptu-mobile-tab-height,0px) + var(--kptu-switch-dock,0px) + env(safe-area-inset-bottom,0px) + 10px);max-width:min(92vw,520px);display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;padding:7px 8px 7px 12px;border-radius:var(--kptu-radius-md);background:var(--kptu-ink);color:var(--kptu-surface);font-size:12px;line-height:1.4;box-shadow:var(--kptu-shadow-float)}
+.kptu-notice{position:fixed;z-index:110;left:50%;transform:translateX(-50%);top:var(--kptu-notice-top);bottom:auto;max-width:min(92vw,520px);display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;padding:7px 8px 7px 12px;border-radius:var(--kptu-radius-md);background:var(--kptu-ink);color:var(--kptu-surface);font-size:12px;line-height:1.4;box-shadow:var(--kptu-shadow-float)}
 .kptu-notice[hidden]{display:none}
 .kptu-notice.error{background:var(--kptu-danger)}
 .kptu-notice-text{flex:1 1 auto;min-width:0}

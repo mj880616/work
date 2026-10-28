@@ -5,6 +5,7 @@
 import {seoulDateKey} from './meeting-time.js';
 import {uploadBasketFile, driveFileUrl} from './basket-upload.js';
 import {diaryDocToStore, diaryDocError} from './diary-doc.mjs';
+import {withMark} from './diary-list-model.mjs';
 
 export const DIARY_MAX_PHOTOS = 20;
 export const DIARY_TEXT_MAX = 20000;
@@ -87,6 +88,29 @@ export async function readDiaryMonth(year, month, rt = window.KPTURuntime) {
   const first = `${year}-${String(month + 1).padStart(2, '0')}-01`;
   const last = seoulDateKey(new Date(Date.UTC(year, month + 1, 0, 3)));
   return rt.api(`${base(rt)}&journal_day=gte.${first}&journal_day=lte.${last}&select=${FIELDS}&order=journal_day.asc&limit=40`);
+}
+// JOURNAL-일기목록: every diary for the [목록] view, newest first (doc is left out: the list shows letters only). One read of up to
+// DIARY_LIST_MAX rows; truncated tells the screen that older ones were not read.
+export const DIARY_LIST_MAX = 1000;
+export async function readDiaryList(rt = window.KPTURuntime, {max = DIARY_LIST_MAX} = {}) {
+  const rows = await rt.api(`${base(rt)}&select=id,journal_day,raw_text,attachments,metadata,updated_at&order=journal_day.desc&limit=${max + 1}`);
+  const list = Array.isArray(rows) ? rows : [];
+  return {rows:list.slice(0, max), truncated:list.length > max};
+}
+// JOURNAL-일기목록: 📌 고정·★ 별표 = metadata.pinned_at·metadata.starred_at (diary-list-model.mjs withMark). Like the note pin, marking is
+// not an edit: updated_at is not touched. The row is read again and the PATCH applies only while updated_at and both marks are still
+// what was read, so a change made elsewhere (text, photos, comments, the other mark) is never overwritten; then note_changed.
+const markGuard = (key, value) => typeof value === 'string' ? `&metadata->>${key}=eq.${encode(value)}` : `&metadata->>${key}=is.null`;
+export async function setDiaryMark(row, key, on, rt = window.KPTURuntime, now = new Date()) {
+  const where = `${base(rt)}&id=eq.${encode(row.id)}`;
+  const rows = await rt.api(`${where}&select=id,journal_day,metadata,updated_at`, {singleFlight:false});
+  if (!Array.isArray(rows) || rows.length !== 1) throw new Error('일기를 찾지 못했어요.');
+  const fresh = rows[0], old = fresh.metadata && typeof fresh.metadata === 'object' && !Array.isArray(fresh.metadata) ? fresh.metadata : {};
+  const metadata = withMark(old, key, on, now);
+  const guard = `&updated_at=eq.${encode(fresh.updated_at)}${markGuard('pinned_at', old.pinned_at)}${markGuard('starred_at', old.starred_at)}`;
+  const saved = await rt.api(`${where}${guard}&select=id,journal_day,metadata,updated_at`, {method:'PATCH', prefer:'return=representation', body:{metadata}});
+  if (!Array.isArray(saved) || saved.length !== 1) throw Object.assign(new Error('일기가 그사이 바뀌었어요. 다시 눌러 주세요.'), {code:'note_changed'});
+  return saved[0];
 }
 export async function readDiaryDay(day, rt = window.KPTURuntime) {
   const rows = await rt.api(`${base(rt)}&journal_day=eq.${checkDay(day)}&select=${FIELDS}&limit=1`);

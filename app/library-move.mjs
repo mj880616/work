@@ -4,6 +4,7 @@
 // ③ 최근 넣은 폴더 기억 목록(최대 5개, 맨 앞이 가장 최근). 저장은 library-view-pref.js(서버 app_profiles.library_view.recent_folders)가 한다.
 // 옮기는 서버 길은 library-folders.js(LIB-폴더탐색기와 같은 app_library_folder_items 쓰기) 하나이고, 여기는 목록만 만든다.
 import {folderDepth,folderSiblings} from './library-tree.js';
+import {folderIndent} from './folder-limits.mjs';
 
 export const RECENT_UPLOAD_LIMIT=5,RECENT_UPLOAD_MORE=15,NEW_DAYS=3,RECENT_FOLDER_MAX=5;
 const DAY=24*3600*1000;
@@ -52,11 +53,11 @@ export const MIXED_REASON='프로젝트가 다른 자료가 섞여 있어요';
 export function pickerRows({folders=[],docs=[],itemFolder=new Map(),free=false,recent=[],query=''}){
   const byId=new Map(folders.map(f=>[f.id,f]));
   const frames=new Set(docs.map(d=>d.project_id||null));
-  const pathOf=id=>{const out=[];let f=byId.get(id),guard=0;while(f&&guard++<6){out.unshift(f.name);f=f.parent_id?byId.get(f.parent_id):null}return out.join(' › ')};
+  const pathOf=id=>{const out=[];let f=byId.get(id),guard=0;while(f&&guard++<6){out.unshift(f.name);f=f.parent_id?byId.get(f.parent_id):null}if(f)out.unshift('…');return out.join(' › ')};// LIB-폴더100단: 가까운 6단만, 더 깊으면 앞을 '…'로
   const row=f=>{
     const frameOk=free||(frames.size===1&&frames.has(f.project_id||null));
     const current=docs.length>0&&docs.every(d=>itemFolder.get(d.id)===f.id);
-    return {id:f.id,name:f.name,label:pathOf(f.id),depth:Math.max(0,folderDepth(folders,f.id)-1),enabled:frameOk&&!current,current,reason:frameOk?'':(frames.size>1?MIXED_REASON:FRAME_REASON),recent:false};
+    return {id:f.id,name:f.name,label:pathOf(f.id),depth:folderIndent(folderDepth(folders,f.id)-1),enabled:frameOk&&!current,current,reason:frameOk?'':(frames.size>1?MIXED_REASON:FRAME_REASON),recent:false};
   };
   const all=[];
   const walk=parent=>{for(const f of folderSiblings(folders,{free:true,parentId:parent})){all.push(row(f));walk(f.id)}};

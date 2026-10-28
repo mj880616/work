@@ -1,3 +1,4 @@
+const kptuHoldToast=(el,opt)=>{el.classList.remove('hidden');import('./small-notice.js').then(m=>m.holdToast(el,opt)).catch(()=>{})}; // UI-작은알림자리: 일반 스크립트라 동적 import(#toast 위쪽·2초·올려 두면 멈춤)
 (()=>{
 'use strict';
 const notify=(text,opt)=>import('./small-notice.js').then(m=>m.notify(text,opt)).catch(()=>{}); // UI-알림창정리: 일반 스크립트라 공용 작은 알림을 동적 import로
@@ -11,7 +12,7 @@ const nameOf=id=>soProfiles.find(x=>x.user_id===id)?.display_name||id?.slice(0,8
 const norm=v=>String(v??'').trim().toLocaleLowerCase('ko-KR');
 const isAdmin=()=>['owner','admin'].includes(soRole);
 const canEdit=o=>isAdmin()||o?.created_by===soUser?.id;
-function toast(msg){const t=document.querySelector('#toast');if(!t)return;t.textContent=msg;t.classList.remove('hidden');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.add('hidden'),2300)}
+function toast(msg){const t=document.querySelector('#toast');if(!t)return;t.textContent=msg;kptuHoldToast(t)}
 function setStatus(el,msg,type=''){if(!el)return;el.textContent=msg||'';el.className='status'+(type?' '+type:'');if(type==='error'){el.setAttribute('role','alert');el.removeAttribute('aria-live')}else{el.setAttribute('role','status');el.setAttribute('aria-live','polite')}}
 function setBusy(btn,busy){if(!btn)return;btn.disabled=!!busy;if(busy)btn.setAttribute('aria-busy','true');else btn.removeAttribute('aria-busy')}
 async function context(){if(!rt?.session||!(await rt.session.ensure()))return false;const shared=rt.context?.read?.()||window.__KPTU_BOOT_CONTEXT__;if(shared?.user?.id&&shared?.workspace?.id){soUser=shared.user;soWorkspace=shared.workspace.id;soRole=shared.membership?.role||null}else{soUser=await api('/auth/v1/user');const ms=await api(`/rest/v1/app_workspace_members?user_id=eq.${soUser.id}&select=workspace_id,role&limit=1`);if(!ms?.length)return false;soWorkspace=ms[0].workspace_id;soRole=ms[0].role}soMembers=[];soProfiles=await api('/rest/v1/app_profiles?select=user_id,display_name');return true}

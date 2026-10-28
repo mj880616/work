@@ -4,6 +4,7 @@
 //   New note: a title row (title box + optional [폴더 ▾]) above the text, [📎 첨부] under it (the note input's own file batch or this
 //   window's), the [사진] button (a photo needs a saved note, so a new note says "먼저 저장"), and the markdown line shortcuts.
 //   There is no [업데이트 | 노트] switch here: an update is written from the update input (차이 — PR 본문).
+import {holdToast as kptuHoldToast} from './small-notice.js'; // UI-작은알림자리: #toast도 위쪽·2초·올려 두면 멈춤(시계 하나)
 import {openEdWindow} from './ed-window.js';
 import {createNoteDoc, noteTitleFromText, setNoteFolder} from './basket-data.js';
 import {createUploadBatch, uploadNoteFiles, mountBasketPicker, fileTitle} from './basket-upload.js';
@@ -12,7 +13,7 @@ import {NOTE_TEXT_MAX} from './note-doc.mjs';
 
 function toast(message) {
   const box = document.querySelector('#toast'); if (!box) return;
-  box.textContent = message; box.classList.remove('hidden'); clearTimeout(toast.timer); toast.timer = setTimeout(() => box.classList.add('hidden'), 3200);
+  box.textContent = message; kptuHoldToast(box);
 }
 // [📎 첨부] row under the text: the basket picker part on a file batch. Returns {node, picker, pending()}.
 export function attachRow({id, getBatch, isBusy, say}) {

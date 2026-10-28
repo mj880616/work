@@ -76,9 +76,9 @@ for(const width of [390,1280])test(`분류 칩: 기본은 회의만 꺼짐, 여�
   await expect(chip(page,'교섭')).toHaveAttribute('aria-pressed','false');await expect(chip(page,'기타')).toHaveAttribute('aria-pressed','false');
   expect((await ids(page)).sort()).toEqual(['dated-prefix','policy','short']);
   await chip(page,'회의').click();expect((await ids(page)).sort()).toEqual(['dated-prefix','meeting','policy','short']);
-  // [전체](LIB-거르기전체): 일부 켜짐 → 누르면 모두 켬 → 다시 누르면 모두 끔(고른 종류 없음) → 누르면 모두 켬. 기본 상태는 [회의]를 다시 끄면 된다.
+  // [전체](LIB-거르기전체): 일부 켜짐 → 누르면 모두 켬 → 다시 누르면 모두 끔(고른 분류 없음) → 누르면 모두 켬. 기본 상태는 [회의]를 다시 끄면 된다.
   await chip(page,'all').click();await expect(chip(page,'all')).toHaveAttribute('aria-pressed','true');await expect(group.locator('[aria-pressed="false"]')).toHaveCount(0);await expect(rows(page)).toHaveCount(8);
-  await chip(page,'all').click();await expect(chip(page,'all')).toHaveAttribute('aria-pressed','false');await expect(group.locator('[aria-pressed="true"]')).toHaveCount(0);await expect(rows(page)).toHaveCount(0);await expect(page.locator('#documentList')).toHaveText('고른 종류 없음');
+  await chip(page,'all').click();await expect(chip(page,'all')).toHaveAttribute('aria-pressed','false');await expect(group.locator('[aria-pressed="true"]')).toHaveCount(0);await expect(rows(page)).toHaveCount(0);await expect(page.locator('#documentList')).toHaveText('고른 분류 없음');
   await chip(page,'all').click();await expect(rows(page)).toHaveCount(8);
   await chip(page,'회의').click();await expect(group.locator('[aria-pressed="false"]')).toHaveText(['회의']);await expect(rows(page)).toHaveCount(7);
   // 검색은 칩을 따르고, 꺼진 분류에 걸린 자료는 목록 아래에 알린다. [켜기]는 그 분류만 켠다.
@@ -186,8 +186,8 @@ const box=locator=>locator.boundingBox();
 for(const scheme of ['light','dark'])test(`PC 거르기 줄: 이름표·차례(묶기 → 종류)·담당조직 줄·프로젝트 줄은 다른 화면에서 걸러 열 때만 ${scheme}`,async({page})=>{
   const {errors}=await boot(page,1280,{scheme});
   const labels=page.locator('#libraryView .library-filter-toolbar .lu-filter-label:visible'),group=page.locator('#libraryGroupBy'),category=page.locator('#libraryCategoryFilter');
-  await expect(labels).toHaveText(['묶기','종류']);await expect(page.locator('#documentProject')).toBeHidden();
-  await expect(group.getByRole('radio')).toHaveText(['프로젝트','담당조직','종류','월별','폴더']);await expect(group.getByRole('radio',{name:'프로젝트'})).toHaveAttribute('aria-checked','true');
+  await expect(labels).toHaveText(['묶기','분류']);await expect(page.locator('#documentProject')).toBeHidden();
+  await expect(group.getByRole('radio')).toHaveText(['프로젝트','담당조직','분류','월별','폴더']);await expect(group.getByRole('radio',{name:'프로젝트'})).toHaveAttribute('aria-checked','true');
   const search=await box(page.locator('#documentSearch')),top=await box(group),cat=await box(category);
   expect(top.y).toBeGreaterThanOrEqual(search.y+search.height-1);expect(cat.y).toBeGreaterThanOrEqual(top.y+top.height-1);
   const labelBoxes=await labels.evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {x:Math.round(r.left),right:r.right,mid:r.top+r.height/2}}));
@@ -202,19 +202,19 @@ for(const scheme of ['light','dark'])test(`PC 거르기 줄: 이름표·차례(�
   expect(await page.locator('#libraryView .lu-filter-label').evaluateAll(els=>els.every(el=>el.getAttribute('aria-hidden')==='true'))).toBe(true);
   // 담당조직으로 걸러 들어오면 그 줄도 같은 모양(이름표 + 칩)으로 끼운다.
   await page.evaluate(()=>{window.KPTULibrary.showOrganization('org-1','가상 지부')});
-  await expect(labels).toHaveText(['묶기','담당조직','종류']);await expect(page.locator('#libraryOrganizationFilter')).toBeVisible();
-  await page.locator('#libraryOrganizationFilter [data-filter-value="all"]').click();await expect(labels).toHaveText(['묶기','종류']);
+  await expect(labels).toHaveText(['묶기','담당조직','분류']);await expect(page.locator('#libraryOrganizationFilter')).toBeVisible();
+  await page.locator('#libraryOrganizationFilter [data-filter-value="all"]').click();await expect(labels).toHaveText(['묶기','분류']);
   // 프로젝트 상세의 자료 "전체 보기"처럼 다른 화면이 프로젝트 하나로 걸러 열면 [프로젝트] 줄([전체 | 그 프로젝트])이 묶기와 종류 사이에 생긴다.
   await page.evaluate(()=>{document.querySelector('#documentProject').value='child-a1';window.KPTULibrary.render()});
-  await expect(labels).toHaveText(['묶기','프로젝트','종류']);await expect(page.locator('#documentProject').getByRole('radio')).toHaveText(['전체','공공기관 기능개혁 대응 › 국토부 대응']);
-  await page.locator('#documentProject [data-filter-value="all"]').click();await expect(labels).toHaveText(['묶기','종류']);await expect(page.locator('#documentProject')).toHaveJSProperty('value','all');
+  await expect(labels).toHaveText(['묶기','프로젝트','분류']);await expect(page.locator('#documentProject').getByRole('radio')).toHaveText(['전체','공공기관 기능개혁 대응 › 국토부 대응']);
+  await page.locator('#documentProject [data-filter-value="all"]').click();await expect(labels).toHaveText(['묶기','분류']);await expect(page.locator('#documentProject')).toHaveJSProperty('value','all');
   await expect(page.locator('#newDocumentBtn')).toHaveClass(/\bprimary\b/);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);
 });
 
 test('폰 거르기 줄: 줄마다 이름표(묶기·종류) + 옆으로 밀기, 차례는 PC와 같음',async({page})=>{
   const {errors}=await boot(page,390);
-  await expect(page.locator('#libraryView .lu-filter-label:visible')).toHaveText(['묶기','종류']);
+  await expect(page.locator('#libraryView .lu-filter-label:visible')).toHaveText(['묶기','분류']);
   const group=page.locator('#libraryGroupBy'),category=page.locator('#libraryCategoryFilter');
   const top=await box(group),cat=await box(category);expect(cat.y).toBeGreaterThanOrEqual(top.y+top.height-1);
   for(const [b,n] of [[top,0],[cat,1]]){const l=await box(page.locator('#libraryView .lu-filter-label:visible').nth(n));expect(b.x).toBeGreaterThanOrEqual(l.x+l.width-1)}

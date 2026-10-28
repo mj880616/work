@@ -158,7 +158,7 @@ export const TRASH_TEXT = Object.freeze({
   UNDO_FAILED: '되돌리지 못했습니다.',
   NOT_CONFIRMED: '삭제 요청은 보냈지만 휴지통에서 확인하지 못했습니다. 보관 창의 휴지통을 확인해 주세요.',
   PARENT_FIRST_FOLDER: '상위 폴더를 먼저 되돌려 주세요.',
-  FOLDER_DEPTH: '폴더가 3단을 넘어 되돌리지 못했습니다. 위 폴더를 옮긴 뒤 다시 시도해 주세요.',
+  FOLDER_DEPTH: '폴더 단 제한을 넘어 되돌리지 못했습니다. 위 폴더를 옮긴 뒤 다시 시도해 주세요.',
   NAME_TAKEN: '같은 이름이 이미 있어 되돌리지 못했습니다. 이름을 바꾼 뒤 다시 시도해 주세요.',
 });
 

@@ -113,7 +113,7 @@ for(const width of [390,1280])test(`검색·종류 거르기: 맞는 토글만 �
   // LIB-거르기전체: 일부 켜짐에서 [전체] 한 번 = 모두 켬(거르기 풀림), 한 번 더 = 모두 끔(빈 목록 한 줄), 또 한 번 = 모두 켬.
   await chip('all').click();
   expect(await tops(page)).toEqual(['p:top-a','p:top-b','p:orphan-1','p:none']);
-  await chip('all').click();expect(await tops(page)).toEqual([]);await expect(page.locator('#documentList .empty')).toHaveText('고른 종류 없음');
+  await chip('all').click();expect(await tops(page)).toEqual([]);await expect(page.locator('#documentList .empty')).toHaveText('고른 분류 없음');
   await chip('all').click();
   expect(await tops(page)).toEqual(['p:top-a','p:top-b','p:orphan-1','p:none']);
   // 맞는 자료가 없으면 빈 안내.
@@ -124,7 +124,7 @@ for(const width of [390,1280])test(`검색·종류 거르기: 맞는 토글만 �
 for(const width of [390,1280])test(`묶기 전환: 담당조직·종류·월별은 같은 얇은 토글(폴더 없음), 바꾸면 접힌 채 ${width}`,async({page})=>{
   const {errors}=await boot(page,width,{folders:[{id:'f-1',project_id:'top-a',parent_id:null,name:'가상 폴더',sort_order:1024,created_at:'2026-10-01T00:00:00Z'}],items:[]});
   const group=page.locator('#libraryGroupBy');
-  await expect(group).toHaveAttribute('role','radiogroup');await expect(group.getByRole('radio')).toHaveText(['프로젝트','담당조직','종류','월별','폴더']);
+  await expect(group).toHaveAttribute('role','radiogroup');await expect(group.getByRole('radio')).toHaveText(['프로젝트','담당조직','분류','월별','폴더']);
   await expect(group.getByRole('radio',{name:'프로젝트'})).toHaveAttribute('aria-checked','true');
   await expect(group.getByRole('radio').first()).toHaveCSS('height','32px');
   await libraryNodeHead(page,'p:top-a').click();
@@ -133,7 +133,7 @@ for(const width of [390,1280])test(`묶기 전환: 담당조직·종류·월별�
   await expect(page.locator('#documentList details[open]')).toHaveCount(0);
   await expect(libraryNodeHead(page,'m:2026-10').locator('.lu-node-name')).toHaveText('2026년 10월');await expect(libraryNodeHead(page,'m:2026-10').locator('.lu-node-count')).toHaveText('2');
   await expect(page.locator('#documentList [data-lu-node-kind="folder"]')).toHaveCount(0);
-  await group.getByRole('radio',{name:'종류'}).click();
+  await group.getByRole('radio',{name:'분류'}).click();
   await expect(page.locator('#documentList > details > summary .lu-node-name')).toHaveText(['교섭','정책']);
   await group.getByRole('radio',{name:'담당조직'}).click();
   await expect(page.locator('#documentList > details > summary .lu-node-name')).toHaveText(['가상 지부','조직 없음']);

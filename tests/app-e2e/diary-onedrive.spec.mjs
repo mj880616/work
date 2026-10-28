@@ -229,7 +229,10 @@ test('원드라이브 준비가 안 된 서버에서는 연결 줄이 없고 일
   await cell(page, '2026-10-12').click();
   await expect(page.locator('#diaryRoot [data-diary-detail]')).toContainText('이 날 일기가 없어요.');
   await expect(page.locator('#diaryRoot [data-diary-detail] [data-diary-source]')).toHaveCount(0);
-  expect(f.edge.map(b => b.action)).toEqual(['status']);
+  // 원드라이브에는 연결 확인만 묻는다(OD-미리받기: 앱을 켤 때 한 번 + 일기를 열 때 한 번까지. '연결 안 됨'은 다시 쓰지 않는다).
+  const actions = f.edge.map(b => b.action);
+  expect(actions.length).toBeGreaterThanOrEqual(1); expect(actions.length).toBeLessThanOrEqual(2);
+  expect(actions.every(a => a === 'status')).toBe(true);
   expect(f.errors).toEqual([]);
 });
 

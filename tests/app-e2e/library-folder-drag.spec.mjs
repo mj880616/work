@@ -75,7 +75,7 @@ test.describe('PC 1280 폴더 보기 끌어 옮기기',()=>{
     await page.locator('[data-lu-pick="a-2"]').check();await page.locator('[data-lu-pick="a1-1"]').check();
     const r=await dragTo(page,row('a-2'),head('f:fn'));expect(r.allowed).toBe(true);
     await expect.poll(()=>s.items.filter(x=>x.folder_id==='fn').map(x=>x.document_id).sort()).toEqual(['a-2','a1-1']);
-    await expect(line(page)).toContainText('2개를 옮겼어요');
+    await expect(line(page)).toContainText('옮겼어요 2개 → 📁');
     await line(page).locator('.lu-undo').click();await expect(line(page)).toContainText('되돌렸어요');// 서버 쪽 반영만이 아니라 화면의 되돌리기 끝(다시 불러오기까지)을 기다린다. 끝나기 전 다음 끌기는 처리 중이라 무시된다.
     await expect.poll(()=>s.items.filter(x=>x.folder_id==='fn').length).toBe(0);
     expect(errors).toEqual([]);

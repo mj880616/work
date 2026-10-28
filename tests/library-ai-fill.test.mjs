@@ -209,7 +209,7 @@ test('tidyCandidates: a document whose file was replaced (reclassify_needed) is 
 
 test('replace file screen: renamed menu item, file line in the edit dialog, saved only on [수정 저장], hidden before the DB column, no storage',()=>{
   const src=readFileSync(new URL('../app/library-upload.js',import.meta.url),'utf8');
-  assert.match(src,/data-lu-edit="\$\{luEsc\(id\)\}">수정…<\/button>/);
+  assert.match(src,/data-lu-edit="\$\{luEsc\(id\)\}">정보 수정…<\/button>/);
   assert.ok(!src.includes('>정보 수정<'));
   assert.match(src,/<h2>자료 수정<\/h2>/);
   assert.match(src,/function luReplaceReady\(d\)\{return !!d&&Object\.hasOwn\(d,'previous_files'\)\}/);

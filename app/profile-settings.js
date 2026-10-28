@@ -1,3 +1,4 @@
+const kptuHoldToast=(el,opt)=>{el.classList.remove('hidden');import('./small-notice.js').then(m=>m.holdToast(el,opt)).catch(()=>{})}; // UI-작은알림자리: 일반 스크립트라 동적 import(#toast 위쪽·2초·올려 두면 멈춤)
 (()=>{
 'use strict';
 // PROFILE-화면정리(docs/design/profile-screen-tidy.md): 이 모듈이 #profileView의 유일한 renderer다.
@@ -11,7 +12,7 @@ const want=new Map();
 const api=(path,options={})=>rt.api(path,options);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const $=sel=>document.querySelector(sel);
-function toast(msg,ms=2200){const t=$('#toast');if(!t)return;t.textContent=msg;t.classList.remove('hidden');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.add('hidden'),ms)}
+function toast(msg){const t=$('#toast');if(!t)return;t.textContent=msg;kptuHoldToast(t)}
 function installView(){
   if($('#profileView'))return;
   $('#appView')?.insertAdjacentHTML('beforeend',`<section id="profileView" class="view-panel hidden"><div class="ps-head"><h2>내 프로필</h2></div><div class="ps-profile-grid"><article class="panel ps-panel"><h3>기본 정보</h3><div class="ps-fields"><input id="psName" type="text" placeholder="이름" aria-label="이름" autocomplete="off"><input id="psTitle" type="text" placeholder="직책 (예: 국장)" aria-label="직책" autocomplete="off"></div></article><article class="panel ps-panel" id="psWorkplacePanel"><div class="ps-panel-head"><h3>담당 사업장</h3><span id="psWorkplaceCount" class="ps-state"></span></div><div id="psWorkplaceList"></div></article><article class="panel ps-panel" id="psCalRefPanel"></article><article class="panel ps-panel ps-account-panel"><h3>계정</h3><div class="ps-account-actions"><button id="psMySpaceEntry" class="secondary hidden" data-goto="myspace" type="button">내 공간</button><button id="psLogout" class="mini ps-danger" type="button">로그아웃</button></div></article></div><div class="ps-actions save-row save-row-sticky"><span id="psState" class="ps-state" role="status" aria-live="polite"></span><button id="psSave" class="primary ps-save" type="button" disabled>저장</button></div></section>`);

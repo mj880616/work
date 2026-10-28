@@ -217,6 +217,9 @@ jobs:
       - name: Check basket data and sequential file uploads
         run: node --test tests/basket-data.test.mjs tests/basket-upload.test.mjs tests/basket-ocr-text.test.mjs tests/basket-ocr.test.mjs tests/basket-ocr-runtime.test.mjs tests/basket-classification.test.mjs tests/basket-ai-handoff.test.mjs tests/basket-link-records.test.mjs tests/basket-record-delete.test.mjs tests/basket-manual-link.test.mjs tests/reference-bundles-data.test.mjs tests/basket-ref-bundle-ai.test.mjs tests/update-places-reference.test.mjs tests/basket-ai-summary.test.mjs tests/todo-radar-data.test.mjs tests/basket-note-tasks.test.mjs tests/basket-kind-filter.test.mjs tests/basket-record-summary-guide.test.mjs tests/basket-library-send.test.mjs tests/diary-data.test.mjs tests/journal-data.test.mjs tests/journal-weekly.test.mjs tests/weekly-file-lines.test.mjs tests/journal-org-summary.test.mjs tests/journal-meeting-kinds.test.mjs tests/project-order.test.mjs tests/basket-file-docs.test.mjs tests/document-categories.test.mjs tests/basket-note-pin.test.mjs tests/update-requests.test.mjs tests/update-journal.test.mjs tests/task-files.test.mjs tests/task-note-files.test.mjs tests/file-actions.test.mjs tests/chip-no-ellipsis.test.mjs tests/grid-fr-guard.test.mjs tests/library-ai-fill.test.mjs tests/library-drop.test.mjs tests/quick-links.test.mjs tests/feed-model.test.mjs tests/call-personal-screen.test.mjs tests/call-user-edit.test.mjs tests/project-trash-model.test.mjs tests/summary-part-unify.test.mjs tests/tg-sender-model.test.mjs tests/tg-day-model.test.mjs tests/ai-tone.test.mjs tests/quick-links-groups.test.mjs tests/tg-summary-edit-model.test.mjs
 
+      - name: Check folder depth limit and indent (LIB-폴더100단)
+        run: node --test tests/folder-limits.test.mjs
+
       - name: Check library toggle tree model
         run: node --test tests/library-tree.test.mjs tests/library-bulk.test.mjs tests/library-view-pref.test.mjs tests/library-move.test.mjs tests/category-chips.test.mjs tests/org-dispute-stage-model.test.mjs tests/view-prefs.test.mjs tests/theme-contrast.test.mjs tests/theme-bootstrap.test.mjs tests/library-upload-organization.test.mjs tests/library-rename.test.mjs tests/library-photo.test.mjs tests/report-photos.test.mjs tests/library-photoset.test.mjs tests/activity-photo.test.mjs tests/report-views.test.mjs
 
@@ -268,8 +271,14 @@ jobs:
       - name: Check OneDrive small-picture copies on the phone (OD-폰보관, cache key·limits·cleanup·one audit allowance, synthetic)
         run: node --test tests/od-thumb-cache.test.mjs
 
+      - name: Check OneDrive warm-up after app start (OD-미리받기, status·this month·few small pictures in memory, synthetic)
+        run: node --test tests/od-warm.test.mjs
+
       - name: Check photo grid size and full-screen photo gestures (OD-사진크기·OD-크게보기, steps·pinch·server save·swipe·undo, synthetic)
         run: node --test tests/photo-grid-size.test.mjs
+
+      - name: Check diary list view (JOURNAL-일기목록, month groups·pin·star·find·view memory·no device storage, synthetic)
+        run: node --test tests/diary-list-model.test.mjs
 
       - name: Check diary photo prune to Drive trash (JOURNAL-일기사진정리, synthetic)
         run: node --test tests/security/basket-photo-prune.test.mjs tests/security/basket-note-delete.test.mjs
@@ -297,6 +306,9 @@ jobs:
 
       - name: Check small notice and confirm parts (UI-작은알림)
         run: node --test tests/small-notice.test.mjs
+
+      - name: Check small notice place, 2-second hold and Ctrl+Z undo history (UI-작은알림자리)
+        run: node --test tests/small-notice-undo.test.mjs
 
       - name: Check browser dialog sweep baseline (UI-알림창정리)
         run: node --test tests/notice-sweep.test.mjs
