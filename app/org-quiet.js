@@ -31,10 +31,10 @@ async function readMine(rt, ws) {
   if (mine.fallback) throw new Hide();
   return mine.organizations;
 }
-async function readPeople(rt, ws, orgIds) {
+async function readPeople(rt, ws) {
   try {
     const rows = await readRecordPages(`/rest/v1/app_org_key_people?workspace_id=eq.${enc(ws)}&select=id,organization_id,name,match_names&order=organization_id.asc,sort_order.asc,id.asc`, rt);
-    return rows.filter(p => p?.id && orgIds.has(p.organization_id));
+    return rows.filter(p => p?.id && p.organization_id);
   } catch (error) { if (missingTable(error)) throw new Hide(); throw error; }
 }
 async function readCalls(rt, ws, from) {
@@ -66,8 +66,11 @@ export async function computeQuiet(rt = window.KPTURuntime, weeks = weeksOf(view
   if (!ws || !rt?.api) return null;
   const today = kstDay(), from = addDays(today, -LOOKBACK_DAYS), cutoff = addDays(today, -(weeks * 7 - 1));
   try {
-    const orgs = await readMine(rt, ws);
-    const people = await readPeople(rt, ws, new Set(orgs.map(o => o.id)));
+    // 주요 인물부터(한 번 읽기): 하나도 없으면 다른 읽기를 하지 않는다(홈 첫 화면 요청 수를 늘리지 않게).
+    const everyone = await readPeople(rt, ws);
+    if (!everyone.length) return null;
+    const orgs = await readMine(rt, ws), mineIds = new Set(orgs.map(o => o.id));
+    const people = everyone.filter(p => mineIds.has(p.organization_id));
     if (!people.length) return null;
     const [calls, senders] = await Promise.all([readCalls(rt, ws, from), readSenders(rt)]);
     const callDays = lastCallDays(calls, people), talks = talkDays(senders, people, from), orgsOf = orgsOfPeople(people);

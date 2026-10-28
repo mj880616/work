@@ -74,7 +74,7 @@ for (const [width, phone] of [[412, true], [884, true], [1440, false]]) {
     await page.keyboard.press('Enter');
     await expect(q.locator('.oq-list')).toBeHidden();
     // 이름을 누르면 담당조직으로
-    await q.locator('[data-oq-org="o1"]').click();
+    await q.locator('.oq-text [data-oq-org="o1"]').click();
     await expect.poll(() => page.evaluate(() => window.KPTURouter.current)).toBe('team');
   });
 }
