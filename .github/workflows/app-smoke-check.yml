@@ -237,6 +237,9 @@ jobs:
       - name: Check home quiet organizations line (FEAT-1029묶음 ③)
         run: node --test tests/org-quiet.test.mjs
 
+      - name: Check ledger decision history (FEAT-1029묶음 ⑥)
+        run: node --test tests/ledger-decision-history.test.mjs
+
       - name: Check meeting draft parser
         run: node --test tests/meeting-draft-parser.test.mjs
 
