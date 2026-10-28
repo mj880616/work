@@ -118,7 +118,9 @@ test('파일 형식: 확장자를 먼저, 없으면 mime. 그림은 확장자 �
   assert.equal(m.fileKindOf('a.zip','application/zip'),'파일');assert.equal(m.fileKindOf('noext',''),'파일');
   // 확장자가 알려진 문서면 mime이 image여도 문서가 먼저.
   assert.equal(m.fileKindOf('a.pdf','image/png'),'PDF');
-  assert.deepEqual([...m.KIND_ORDER],['HWP','PDF','XLS','DOC','PPT','그림','파일']);
+  assert.deepEqual([...m.KIND_ORDER],['HWP','PDF','XLS','DOC','PPT','그림','웹','파일']);
+  // LIB-정리보충 ⑤: 웹 페이지 원본은 '웹'.
+  for(const name of ['a.html','a.HTM','성명.mhtml'])assert.equal(m.fileKindOf(name,''),'웹',name);assert.equal(m.fileKindOf('noext','text/html'),'웹');
 });
 
 test('접힌 줄 색 점: 그림이 든 토글은 그림 점이 PPT 뒤에 나온다',()=>{

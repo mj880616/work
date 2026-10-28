@@ -12,11 +12,12 @@ export const FILE_LIMIT=20;
 // 결정 D3 → LIB-폴더100단(10/28): 폴더 안 폴더는 100단까지(DB 트리거가 강제, 화면은 그 이상을 만들지 않음). 숫자는 folder-limits.mjs 한 곳.
 export const FOLDER_DEPTH=FOLDER_DEPTH_LIMIT;
 // 접힌 줄의 종류 색 점 순서(기존 --ds-file-* 색 + LIB-그림형식의 그림). 최대 6개.
-export const KIND_ORDER=Object.freeze(['HWP','PDF','XLS','DOC','PPT','그림','파일']);
+// LIB-정리보충 ⑤(10:41): 웹 페이지 원본(.html, 성명·보도자료 옮겨 올 때 생긴 것)은 '파일' 대신 '웹'.
+export const KIND_ORDER=Object.freeze(['HWP','PDF','XLS','DOC','PPT','그림','웹','파일']);
 const KIND_DOTS=6;
 // 자료 한 건의 파일 형식 글자(자료실 줄의 종류 표시). 확장자를 먼저 보고, 확장자가 없으면 Drive가 알려 준 mime_type을 본다.
-const KIND_BY_EXT=Object.freeze({HWP:'HWP',HWPX:'HWP',PDF:'PDF',XLS:'XLS',XLSX:'XLS',DOC:'DOC',DOCX:'DOC',PPT:'PPT',PPTX:'PPT',JPG:'그림',JPEG:'그림',PNG:'그림',GIF:'그림',WEBP:'그림',HEIC:'그림',BMP:'그림'});
-const KIND_BY_MIME=Object.freeze([[/^application\/pdf$/,'PDF'],[/hwp|hancom|haansoft/,'HWP'],[/spreadsheet|ms-excel/,'XLS'],[/wordprocessing|msword|google-apps\.document/,'DOC'],[/presentation|powerpoint/,'PPT'],[/^image\//,'그림']]);
+const KIND_BY_EXT=Object.freeze({HWP:'HWP',HWPX:'HWP',PDF:'PDF',XLS:'XLS',XLSX:'XLS',DOC:'DOC',DOCX:'DOC',PPT:'PPT',PPTX:'PPT',JPG:'그림',JPEG:'그림',PNG:'그림',GIF:'그림',WEBP:'그림',HEIC:'그림',BMP:'그림',HTML:'웹',HTM:'웹',MHT:'웹',MHTML:'웹'});
+const KIND_BY_MIME=Object.freeze([[/^application\/pdf$/,'PDF'],[/hwp|hancom|haansoft/,'HWP'],[/spreadsheet|ms-excel/,'XLS'],[/wordprocessing|msword|google-apps\.document/,'DOC'],[/presentation|powerpoint/,'PPT'],[/^image\//,'그림'],[/^text\/html$|xhtml/,'웹']]);
 export function fileKindOf(name,mime){
   const ext=String(name||'').includes('.')?String(name).split('.').pop().toUpperCase():'';
   if(KIND_BY_EXT[ext])return KIND_BY_EXT[ext];
