@@ -54,9 +54,12 @@ test('PC 1280: 이동 뒤에도 사이드바에 채워진 항목은 지금 화�
  await nav(page).locator('.nav-btn[data-view="library"]').click();await expect(page.locator('#libraryView')).toBeVisible();await seen('자료실');
  await page.evaluate(()=>window.KPTURouter.go('pages'));await expect(page.locator('#pagesView')).toBeVisible();await seen('공유 페이지');
  await expect(nav(page).locator('[aria-current]')).toHaveCount(1);
- // 일정 → 프로젝트: [일정] 머리와 [달력]이 둘 다 채워지지 않는다.
+ // 일정 → 사업 보고: [일정] 머리와 [달력]이 둘 다 채워지지 않는다(MTG-프로젝트합치기 3단계: [프로젝트] 줄은 없다).
  await nav(page).locator('.nav-btn[data-view="calendar"]').click();await expect(page.locator('#calendarView')).toBeVisible();await seen('달력');
- await nav(page).locator('.nav-btn[data-view="projects"]').click();await expect(page.locator('#projectsView')).toBeVisible();await seen('프로젝트');
+ await nav(page).locator('.nav-btn[data-view="meetings"]').click();await expect(page.locator('#meetingsView')).toBeVisible();await seen('사업 보고');
+ await expect(nav(page).locator('.nav-btn.active')).toHaveCount(1);
+ // 사업영역 관리(라우터 이름 projects)는 사업 보고 아래 화면이라 [사업 보고] 줄 하나가 채워진다.
+ await page.evaluate(()=>window.KPTURouter.go('projects'));await expect(page.locator('#projectsView')).toBeVisible();await seen('사업 보고');
  await expect(nav(page).locator('.nav-btn.active')).toHaveCount(1);
  // 바구니 [노트] → 다른 화면.
  await nav(page).locator('.nav-btn[data-basket-kind-nav="note"]').click();await expect(page.locator('#basketView')).toBeVisible();await seen('노트');
@@ -74,22 +77,25 @@ for(const theme of ['olive','sky','lemon']){
   await expect(cur).toHaveCount(1);await expect(cur).toContainText('홈');
   expect(await bg(cur.locator('svg'))).toBe(soft);expect(await fg(cur.locator('svg'))).toBe(text);expect(await fg(cur)).toBe(text);
   expect(await bg(tabs.locator('button:not([aria-current]) svg').first())).toBe('rgba(0, 0, 0, 0)');
-  // 메뉴로 닿는 화면 다섯: [메뉴]만 지금 화면.
-  for(const view of ['library','meetings','hwp','pages']){
+  // 메뉴로 닿는 화면: [메뉴]만 지금 화면(MTG-프로젝트합치기 3단계: 사업 보고는 하단바 칸이라 여기서 빠진다).
+  for(const view of ['library','hwp','pages']){
    await page.evaluate(v=>window.KPTURouter.go(v),view);await expect(page.locator(`#${view}View`)).toBeVisible();
    await expect(tabs.locator('[aria-current="page"]')).toHaveCount(1);await expect(tabs.locator('#mobileMenuTab')).toHaveAttribute('aria-current','page');
    expect(await bg(tabs.locator('#mobileMenuTab svg'))).toBe(soft);
   }
-  await page.evaluate(()=>window.KPTURouter.go('projects'));await expect(page.locator('#projectsView')).toBeVisible();
-  await expect(tabs.locator('#mobileMenuTab')).not.toHaveAttribute('aria-current','page');await expect(tabs.locator('[aria-current="page"]')).toContainText('프로젝트');
+  // 사업 보고와 그 아래 사업영역 관리(라우터 이름 projects)는 하단바 [사업 보고] 칸.
+  for(const view of ['meetings','projects']){
+   await page.evaluate(v=>window.KPTURouter.go(v),view);await expect(page.locator(`#${view}View`)).toBeVisible();
+   await expect(tabs.locator('#mobileMenuTab')).not.toHaveAttribute('aria-current','page');await expect(tabs.locator('[aria-current="page"]')).toHaveCount(1);await expect(tabs.locator('[aria-current="page"]')).toContainText('사업 보고');
+  }
   expect(errors).toEqual([]);
  });
 }
 
-test('폰 390: 메뉴 판 타일 아홉이 같은 모양이고 낮다(CALL·TG: 통화·텔레그램 소식 추가, PRESS-자료실편입: 성명·보도자료 삭제, PHOTO-사진메뉴: 사진 추가)',async({page})=>{
+test('폰 390: 메뉴 판 타일 여덟이 같은 모양이고 낮다(CALL·TG: 통화·텔레그램 소식 추가, PRESS-자료실편입: 성명·보도자료 삭제, PHOTO-사진메뉴: 사진 추가, MTG-프로젝트합치기 3단계: 사업 보고는 하단바로)',async({page})=>{
  const errors=await open(page,390);
  await page.locator('#mobileMenuTab').click();await expect(page.locator('#mobileMenu .mobile-menu-panel')).toBeVisible();
- const tiles=page.locator('#mobileMenu .mobile-menu-panel nav button');await expect(tiles).toHaveCount(9);
+ const tiles=page.locator('#mobileMenu .mobile-menu-panel nav button');await expect(tiles).toHaveCount(8);
  const look=await tiles.evaluateAll(els=>els.map(e=>{const s=getComputedStyle(e);return {bg:s.backgroundColor,color:s.color,border:s.borderTopColor,h:Math.round(e.getBoundingClientRect().height)}}));
  for(const t of look){expect(t).toEqual(look[0]);expect(t.h).toBeLessThanOrEqual(60);expect(t.h).toBeGreaterThanOrEqual(44)}
  expect(errors).toEqual([]);

@@ -18,7 +18,7 @@ test('프로젝트 묶기: 3단 프로젝트, 빈 하위 숨김, 1단·프로젝
   const out=m.buildTree(base({docs}));
   assert.deepEqual(out.map(n=>n.key),['p:a','p:b','p:gone','p:none']);
   assert.deepEqual(shape(out)[0],['p:a',2,['d1'],[['p:a1',1,[],[['p:a11',1,['d2'],[]]]]]]);
-  assert.equal(out[1].count,0);assert.equal(out[2].label,'[gone]');assert.equal(out[3].label,'프로젝트 없음');
+  assert.equal(out[1].count,0);assert.equal(out[2].label,'[gone]');assert.equal(out[3].label,'사업영역 없음');
 });
 
 test('폴더: 같은 프로젝트 틀 안 3단 폴더, 하위 프로젝트 다음·파일 앞, 빈 폴더 보임, 어긋난 연결은 프로젝트 바로 아래',()=>{

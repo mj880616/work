@@ -74,7 +74,7 @@ test('UI-PC다듬기묶음 ① PC 1280: 사이드바 맨 아래는 [HWP 편집]�
 test('UI-PC다듬기묶음 ① 폰 390: ☰ 메뉴에 [쓰기]가 없고 회의부터 시작',async({page})=>{
  await boot(page,390);
  await page.locator('#mobileMenuTab').click();
- expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['노트','사업 보고','자료실','HWP 편집','공유 페이지','원장','사진','통화','텔레그램 소식']);
+ expect(await page.locator('#mobileMenu nav button:visible').allTextContents()).toEqual(['노트','자료실','HWP 편집','공유 페이지','원장','사진','통화','텔레그램 소식']);
 });
 
 for(const width of [1024,1280,1440,1920])test(`UI-PC다듬기묶음 ② PC ${width}: [+ 일정 등록]은 같은 줄 [오늘]·보기 전환과 같은 높이, 누르는 범위 44`,async({page})=>{

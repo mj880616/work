@@ -215,13 +215,14 @@ test('tab navigation waits for deferred feature data on first click',async({page
   await expect(page.locator('#deferredFeatureStatus')).toHaveCount(0);
 });
 
-test('deferred module failure leaves home usable and shows an alert',async({page})=>{
+test('deferred module failure leaves the screen before usable and shows an alert',async({page})=>{
   await page.route('**/app/project-system-v3.js*',route=>route.abort());
   await loginWithMock(page);
+  // MTG-프로젝트합치기 3단계: 사업영역 관리(projects)는 사업 보고 ⋯ 안에서 연다(clickView). 그래서 그 앞 화면은 홈이 아니라 사업 보고다.
   await clickView(page,'projects');
   await expect(page.locator('#deferredFeatureError')).toHaveAttribute('role','alert');
   await expect(page.locator('#deferredFeatureError')).toContainText('이 기능을 불러오지 못했습니다.');
-  await expect(page.locator('#homeView')).toBeVisible();
+  await expect(page.locator('#meetingsView')).toBeVisible();await expect(page.locator('#projectsView')).toBeHidden();
 });
 
 

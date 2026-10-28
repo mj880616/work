@@ -3,7 +3,8 @@ import {openHome} from './helpers/home-entry.mjs';
 import {openWriteFromEntry} from './helpers/write-opener.mjs';
 import {typeInto} from './helpers/note-editor.mjs';
 // ED③ 업데이트(설계 11.4 순서 3): 업데이트를 쓰는 곳(상단 줄 [+ 추가] → [업데이트], 홈·바구니 [크게])은 새 편집기 창(#edWindow)을 연다.
-// 위쪽 [기록할 곳 ▾]에서 고른 곳(없으면 바구니)으로, 바구니·여러 곳 저장은 글자와 서식(doc)을 함께, 조직·프로젝트 기록 한 곳은 글자만.
+// 위쪽 [기록할 곳 ▾]에서 고른 곳(없으면 바구니)으로, 바구니·여러 곳 저장은 글자와 서식(doc)을 함께, 조직 기록 한 곳도 서식까지.
+// MTG-프로젝트합치기 3단계: 사업영역(프로젝트) 한 곳은 진행 기록이 아니라 서식을 담은 정리함 업데이트 1건 + 그 사업영역 연결이다.
 // 저장하면 닫힌다(저장하고 닫기). 저장 경로는 기존 그대로.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const quick=page=>page.locator('#homeView [data-home-quick]');
@@ -13,7 +14,7 @@ const sheet=page=>page.locator('#edwPlaceSheet');
 async function fixture(page,width){
  await page.setViewportSize({width,height:844});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
- const home=await openHome(page),notes=[],orgs=[],projects=[];
+ const home=await openHome(page),notes=[],orgs=[],projects=[],links=[];
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_notes',r=>{
   if(r.request().method()!=='POST')return r.fallback();
   const body=r.request().postDataJSON();notes.push(body);
@@ -21,7 +22,8 @@ async function fixture(page,width){
  });
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_suborganization_updates',r=>r.request().method()==='POST'?(orgs.push(r.request().postDataJSON()),r.fulfill({status:201,json:[]})):r.fallback());
  await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/app_project_progress_updates',r=>r.request().method()==='POST'?(projects.push(r.request().postDataJSON()),r.fulfill({status:201,json:[]})):r.fallback());
- return {...home,errors,notes,orgs,projects};
+ await page.route(u=>u.origin===SB&&u.pathname==='/rest/v1/rpc/app_basket_confirm_links',r=>{links.push(r.request().postDataJSON());return r.fulfill({json:{ok:true,created:1,existing:0}});});
+ return {...home,errors,notes,orgs,projects,links};
 }
 
 async function openWriter(page,width){
@@ -59,7 +61,7 @@ for(const width of [390,1280]){
   expect(f.errors).toEqual([]);
  });
 
- test(`home [크게]: a place chosen at home comes along; ▾ in the window changes it; one organization or project record keeps the form too ${width}`,async({page})=>{
+ test(`home [크게]: a place chosen at home comes along; ▾ in the window changes it; one organization record keeps the form too, one project is a linked update ${width}`,async({page})=>{
   const f=await fixture(page,width),q=quick(page);
   await q.locator('[data-quick-input]').fill('조직 기록');
   await q.locator('[data-quick-org]').click();await page.getByRole('dialog').getByRole('button',{name:'테스트 조직',exact:true}).first().click();await page.getByRole('dialog').getByRole('button',{name:'저장',exact:true}).click();
@@ -84,7 +86,9 @@ for(const width of [390,1280]){
   await expect(e.locator('[data-edw-place]')).toContainText('테스트 프로젝트');
   await expect(e.locator('.ed-window-status')).toHaveText('테스트 프로젝트 기록에 저장돼요.');
   await e.locator('[data-edw-save]').click();await expect(win(page)).toHaveCount(0);
-  expect(f.projects).toHaveLength(1);expect(f.projects[0]).toMatchObject({project_id:'p',workstream_id:null,author_id:'home-test',summary:'프로젝트 진행'});expect(f.projects[0].doc).toMatchObject({v:'ed1'});
+  expect(f.projects).toEqual([]);
+  expect(f.notes).toHaveLength(1);expect(f.notes[0]).toMatchObject({raw_text:'프로젝트 진행'});expect(f.notes[0].doc).toMatchObject({v:'ed1'});
+  expect(f.links).toEqual([{p_note_id:'new-1',p_note_updated_at:'2026-10-06T01:00:00Z',p_targets:[{kind:'project',target_id:'p',reason:'직접 연결'}]}]);
   // UI-기록할곳되돌리기: after the add, the home input goes back to the basket; the project just used is first on the 최근 line.
   await expect(q.locator('[data-quick-org]')).toHaveAccessibleName('기록할 곳 선택');
   const home=page.locator('#homeChoiceSheet');await q.locator('[data-quick-org]').click();await expect(home).toBeVisible();

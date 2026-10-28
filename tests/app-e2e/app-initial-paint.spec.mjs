@@ -81,6 +81,9 @@ test('router restores deep links only after explicit app-ui-ready and preserves 
   await expect(page).toHaveURL(/\?view=projects(?:&|$)/);
   await expect(page.locator('#projectsView')).not.toHaveClass(/\bhidden\b/);
 
+  // MTG-프로젝트합치기 3단계: 사업영역 관리(projects)는 사업 보고 ⋯ 안에서 열어(clickView) 바로 앞 기록은 사업 보고다.
+  await page.goBack();
+  await expect(page.locator('#meetingsView')).not.toHaveClass(/\bhidden\b/);
   await page.goBack();
   await expect(page).toHaveURL(/\?view=tasks(?:&|$)/);
   await expect(page.locator('#tasksView')).not.toHaveClass(/\bhidden\b/);

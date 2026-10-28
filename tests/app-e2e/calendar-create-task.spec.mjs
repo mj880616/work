@@ -66,7 +66,7 @@ test('pending event save locks mode changes',async({page})=>{
 test('desktop task registration keeps fields and shared project sheet usable',async({page})=>{
  await page.setViewportSize({width:1280,height:900});await open(page);await page.locator('[data-event-mode="task"]').click();
  await expect(page.getByLabel('날짜 (선택)',{exact:true})).toHaveValue('2026-10-06');await page.locator('#eventTaskProject').click();
- await page.locator('#eventProjectSheet').getByRole('button',{name:'프로젝트 없음',exact:true}).click();await expect(page.locator('#eventTaskProject')).toBeFocused();await expect(page.locator('#eventModal')).toBeVisible();
+ await page.locator('#eventProjectSheet').getByRole('button',{name:'사업영역 없음',exact:true}).click();await expect(page.locator('#eventTaskProject')).toBeFocused();await expect(page.locator('#eventModal')).toBeVisible();
 });
 test('project button retains its transparent 44px target',async({page})=>{
  await open(page);await page.locator('[data-event-mode="task"]').click();const b=page.locator('#eventTaskProject');
@@ -85,7 +85,7 @@ test('360px project label stays on one line like the optional date label',async(
   return {text,height:project.height,dateHeight:document.getElementById('eventDateLabel').getBoundingClientRect().height,bottom:project.bottom,buttonTop:button.getBoundingClientRect().top};
  });
  expect(label.height).toBeGreaterThan(0);expect(label.height).toBeLessThanOrEqual(label.dateHeight+1);
- expect(label.text).toBe('프로젝트 (선택)');expect(label.buttonTop).toBeGreaterThanOrEqual(label.bottom);
+ expect(label.text).toBe('사업영역 (선택)');expect(label.buttonTop).toBeGreaterThanOrEqual(label.bottom);
 });
 
 test('event mode shows the project field and registers a project milestone after the Google save',async({page})=>{
@@ -102,7 +102,7 @@ test('project link failure keeps the event, offers retry and never creates a sec
  await page.route(SB+'/functions/v1/google-calendar',r=>{writes.push(r.request().postDataJSON());return r.fulfill({json:{ok:true,event:{id:'created-event',calendarId:r.request().postDataJSON().calendar_id,location:r.request().postDataJSON().location||''}}});});
  await page.route(SB+'/rest/v1/app_project_milestones*',r=>{if(r.request().method()==='POST'){if(fail)return r.fulfill({status:500,json:{message:'fail'}});milestones.push(r.request().postDataJSON());stored=[{id:'m1',google_event_id:'created-event'}];return r.fulfill({status:201,json:[r.request().postDataJSON()]})}return r.fulfill({json:stored})});
  await page.locator('#eventTitle').fill('QA');await page.locator('#eventTaskProject').click();await page.locator('#eventProjectSheet').getByRole('button',{name:'자식 프로젝트',exact:true}).click();
- await page.locator('#saveEventBtn').click();await expect(page.locator('#eventStatus')).toContainText('프로젝트 연결 실패');await expect(page.locator('#eventModal')).toBeVisible();expect(writes).toHaveLength(1);
+ await page.locator('#saveEventBtn').click();await expect(page.locator('#eventStatus')).toContainText('사업영역 연결 실패');await expect(page.locator('#eventModal')).toBeVisible();expect(writes).toHaveLength(1);
  fail=false;const retry=page.locator('#eventStatus button',{hasText:'다시 시도'});await retry.dispatchEvent('click');await expect(page.locator('#eventModal')).toBeHidden();
  expect(writes).toHaveLength(1);expect(milestones).toHaveLength(1);
 });

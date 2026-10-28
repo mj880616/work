@@ -4,7 +4,8 @@ import {testOrigin} from './helpers/test-origin.mjs';
 import {openBasketMore,requestClassification,handoffLine} from './helpers/basket-more.mjs';
 import { signInWithSession } from './helpers/session-login.mjs';
 import { chooseBasketKind } from './helpers/basket-kind.mjs';
-// UI-디자인기준 3/3 2부(8-9e-2): 폰(760px 이하) 배치만 바꾼다. 하단 탭 6칸(홈·바구니·일정·프로젝트·담당조직·메뉴),
+import { clickView } from './helpers/shell-navigation.mjs';
+// UI-디자인기준 3/3 2부(8-9e-2): 폰(760px 이하) 배치만 바꾼다. 하단 탭 6칸(홈·바구니·일정·사업 보고·담당조직·메뉴; MTG-프로젝트합치기 3단계 전에는 프로젝트),
 // [일정] 탭 하나에 [달력 | 할 일], 홈·바구니 입력칸 하단 고정(자판 위로), 동그란 [+], 담당조직 추가 링크, 바구니 [⋯] 메뉴와
 // [분류 요청] → 조용히 복사 + 한 줄 알림 + [분류 결과 입력] 창(#577). PC(1280)는 그대로.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
@@ -57,17 +58,18 @@ const token=(page,name)=>page.evaluate(name=>{const e=document.createElement('sp
 test('폰 하단 탭 6칸: 정리함 색 아이콘, [메뉴] 탭이 메뉴 창을 열고 오른쪽 위 ☰는 없다',async({page})=>{
  const {errors}=await boot(page,390);
  const tabs=page.locator('.mobile-tabs > button');
- await expect(tabs).toHaveText(['홈','정리함','일정','프로젝트','담당조직','메뉴']);
+ // MTG-프로젝트합치기 3단계: 4번째 칸이 [프로젝트] → [사업 보고].
+ await expect(tabs).toHaveText(['홈','정리함','일정','사업 보고','담당조직','메뉴']);
  for(const tab of await tabs.all()){const b=await box(tab);expect(b.width).toBeGreaterThanOrEqual(44);expect(b.height).toBeGreaterThanOrEqual(44);}
  // 8-9e-3(사용자 결정): 바구니 아이콘도 다른 탭과 같다 — 고르지 않으면 회색(흐린 색), 고르면 같은 선택 색. 바구니 종류 색(주황)은 쓰지 않는다.
  const tabColor=view=>page.locator(`.mobile-tabs [data-view="${view}"] svg`).evaluate(el=>getComputedStyle(el).color);
- expect(await tabColor('basket')).toBe(await tabColor('projects'));expect(await tabColor('basket')).toBe(await token(page,'--kptu-muted'));
+ expect(await tabColor('basket')).toBe(await tabColor('meetings'));expect(await tabColor('basket')).toBe(await token(page,'--kptu-muted'));
  expect(await tabColor('basket')).not.toBe(await token(page,'--ds-kind-basket-ink'));
  await expect(page.locator('#mobileMenuOpen')).toBeHidden();
  const menuTab=page.locator('#mobileMenuTab');await expect(menuTab).toHaveAttribute('aria-expanded','false');
  await menuTab.click();await expect(page.locator('#mobileMenu')).toBeVisible();await expect(menuTab).toHaveAttribute('aria-expanded','true');
  // 바구니는 하단 탭으로 옮겨 메뉴 창에서 뺐다. UI-디자인손질 4: 큰 칸 [쓰기]·회의·자료실·HWP 편집·게시판.
- await expect(page.locator('#mobileMenu nav button:visible')).toHaveText(['노트','사업 보고','자료실','HWP 편집','공유 페이지','원장','사진','통화','텔레그램 소식']);
+ await expect(page.locator('#mobileMenu nav button:visible')).toHaveText(['노트','자료실','HWP 편집','공유 페이지','원장','사진','통화','텔레그램 소식']);
  await page.keyboard.press('Escape');await expect(page.locator('#mobileMenu')).toBeHidden();await expect(menuTab).toBeFocused();await expect(menuTab).toHaveAttribute('aria-expanded','false');
  await menuTab.click();await page.locator('#mobileMenu [data-view="library"]').click();await loaded(page,'library');await expect(page.locator('#mobileMenu')).toBeHidden();
  await page.locator('.mobile-tabs [data-view="basket"]').click();await loaded(page,'basket');await expect(page.locator('.mobile-tabs [data-view="basket"]')).toHaveAttribute('aria-current','page');
@@ -102,7 +104,7 @@ test('[일정] 탭: [달력 | 할 일] 전환, 마지막으로 본 쪽, 옛 ?vie
  expect(Math.abs((switchBox.left+switchBox.right)/2-195)).toBeLessThanOrEqual(1);
  // UI-밀기탭이동삭제: 탭 이동은 하단 탭 누르기로만 한다. 할 일 쪽에서도 [일정] 자리가 그대로 이어진다.
  const goTab=async view=>{await page.locator('.mobile-tabs [data-view="'+view+'"]').first().click();await loaded(page,view);};
- await goTab('projects');await goTab('team');await goTab('basket');await goTab('home');
+ await goTab('meetings');await goTab('team');await goTab('basket');await goTab('home');
  expect(errors).toEqual([]);
 });
 
@@ -111,7 +113,8 @@ test('PC(1280)는 그대로: 일정·할 일 따로, 위쪽 추가 버튼, 홈 �
  await expect(page.locator('.mobile-tabs')).toBeHidden();
  expect(await page.locator('#homeView .home-quick').evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');await expect(page.locator('#homeView .home-basket-link')).toBeVisible();
  for(const [view,id,text] of [['calendar','#newEventBtn',null],['projects','#newProjectBtn','+ 프로젝트'],['library','#newDocumentBtn','+ 자료 등록']]){
-  await page.locator(`.app-nav [data-view="${view}"]`).click();await loaded(page,view);
+  // MTG-프로젝트합치기 3단계: 사업영역 관리(projects)는 왼쪽 메뉴 줄이 없어 사업 보고 ⋯ 안에서 연다(clickView가 그 길로 간다).
+  await clickView(page,view);await loaded(page,view);
   await expect(page.locator(`#${view}View .schedule-switch`)).toHaveCount(view==='calendar'||view==='tasks'?1:0);
   if(view==='calendar'||view==='tasks')await expect(page.locator(`#${view}View .schedule-switch`)).toBeHidden();
   const button=page.locator(id);await expect(button).toBeVisible();expect(await button.evaluate(el=>getComputedStyle(el).position)).not.toBe('fixed');

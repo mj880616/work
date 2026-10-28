@@ -100,7 +100,7 @@ test('PC 프로젝트: 한 줄에 하나, 하위는 들여쓰기·흐린 글자(
  await expect(sheet).toHaveClass(/home-choice-anchored/);
  const {d,gap}=await below(trigger,sheet);expect(gap).toBeGreaterThanOrEqual(-1);expect(gap).toBeLessThanOrEqual(12);expect(d.width).toBeLessThanOrEqual(360);
  const rows=sheet.locator('[data-sheet-value]');
- await expect(rows).toHaveText(['프로젝트 없음','테스트 프로젝트','자식 프로젝트','손자 프로젝트','다른 상위 프로젝트']);
+ await expect(rows).toHaveText(['사업영역 없음','테스트 프로젝트','자식 프로젝트','손자 프로젝트','다른 상위 프로젝트']);
  expect((await sheet.locator('[data-sheet-content]').textContent())).not.toContain('↳');
  const info=await rows.evaluateAll(rs=>rs.map(r=>{const n=r.querySelector('.home-choice-name'),c=r.querySelector('.home-choice-check'),b=r.getBoundingClientRect();return {x:n.getBoundingClientRect().left,color:getComputedStyle(n).color,check:c.getBoundingClientRect().width,h:b.height,w:b.width};}));
  const [, top,child,grand,other]=info;
@@ -167,7 +167,7 @@ for(const width of [390,1280])test(`할 일 수정 창 연결 fieldset legend: �
    legendH:box(legend).height,legendLineH:parseFloat(getComputedStyle(legend).lineHeight),hintBelow:box(hint).top>=box(legend).bottom-1,hintInside:box(hint).left>=box(set).left&&box(hint).right<=box(set).right,
    legendRight:box(legend).right,setRight:box(set).right,weight:Number(getComputedStyle(legend).fontWeight),labelWeight:Number(getComputedStyle(label).fontWeight)};
  });
- expect(m.legendText).toBe('연결할 프로젝트·조직');expect(m.legendInsideSmall).toBe(false);
+ expect(m.legendText).toBe('연결할 사업영역·조직');expect(m.legendInsideSmall).toBe(false);
  expect(m.legendSize).toBe(m.labelSize);expect(m.weight).toBe(m.labelWeight);
  expect(m.hintOutside).toBe(true);expect(m.hintText).toContain('고르지 않아도');expect(m.hintSize,'안내문은 같은 창의 다른 안내 글(.gt-scope-note)과 같은 크기이고 legend보다 크지 않다').toBe(m.noteSize);expect(m.hintSize).toBeLessThanOrEqual(m.legendSize);expect(m.hintWeight).toBeLessThan(m.weight);
  expect(m.legendH,'legend 한 줄').toBeLessThanOrEqual(m.legendLineH+1);expect(m.legendRight).toBeLessThanOrEqual(m.setRight);

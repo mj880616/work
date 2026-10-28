@@ -39,7 +39,7 @@ test('PC 1280×800: 넓은 창 — 제목 옆 검색칸, 최근 한 줄, 왼쪽 
  const recent=await box(sheet.locator('[data-sheet-recent-block]')),orgs=await box(sheet.locator('[data-sheet-col="orgs"]')),projects=await box(sheet.locator('[data-sheet-col="projects"]'));
  expect(recent.y+recent.height).toBeLessThanOrEqual(orgs.y+1);expect(Math.abs(orgs.y-projects.y)).toBeLessThanOrEqual(1);expect(orgs.x+orgs.width).toBeLessThanOrEqual(projects.x);
  await expect(sheet.locator('[data-sheet-recent] [data-sheet-value]')).toHaveText(['서해선지부','서울교통공사노동조합','전국철도노동조합']);
- await expect(sheet.locator('[data-sheet-col="orgs"] .home-choice-label')).toHaveText('담당조직');await expect(sheet.locator('[data-sheet-col="projects"] .home-choice-label')).toHaveText('프로젝트');
+ await expect(sheet.locator('[data-sheet-col="orgs"] .home-choice-label')).toHaveText('담당조직');await expect(sheet.locator('[data-sheet-col="projects"] .home-choice-label')).toHaveText('사업영역');
  // Organizations are rows under group headings with full names (UPD-여러곳고르기 ①); projects keep one per line with a check box (B3).
  await expect(sheet.locator('[data-sheet-all] [data-sheet-group] .home-choice-group-name')).toHaveText(['철도','지하철','민자철도','민간도시철도']);
  await expect(sheet.locator('[data-sheet-all] [data-sheet-value]')).toHaveText(NAMES);
@@ -91,7 +91,7 @@ for(const [width,height] of [[390,844],[900,800]])test(`폭 ${width}: 위아래 
  await sheet.locator('[data-sheet-projects] [data-sheet-value]').first().scrollIntoViewIfNeeded();
  const project=await box(sheet.locator('[data-sheet-projects] [data-sheet-value]').first()),org2=await box(sheet.locator('[data-sheet-all] [data-sheet-value]').last());
  expect(recent.y).toBeLessThan(org.y);expect(org2.y).toBeLessThan(project.y);
- expect(await sheet.locator('[data-sheet-content] .home-choice-label').allTextContents()).toEqual(['최근','담당조직','프로젝트']);
+ expect(await sheet.locator('[data-sheet-content] .home-choice-label').allTextContents()).toEqual(['최근','담당조직','사업영역']);
 });
 
 test('창이 열린 채 폭을 바꾸면 넓은 배치와 위아래 배치가 그 자리에서 바뀜(검색칸도 제자리로)',async({page})=>{
@@ -117,10 +117,11 @@ for(const width of [390,1280])test(`읽는 도중 목록이 갱신돼도 기록�
 });
 
 for(const width of [390,1280])test(`조직에 추가하면 다음 입력은 정리함으로, 방금 쓴 곳은 최근 맨 앞 ${width}`,async({page})=>{
- const q=await setup(page,{width,height:width<761?844:800,projects:2});const orgBodies=[],projectBodies=[],notes=[];
+ const q=await setup(page,{width,height:width<761?844:800,projects:2});const orgBodies=[],projectBodies=[],notes=[],links=[];
  await page.route(SB+'/rest/v1/app_suborganization_updates',r=>{orgBodies.push(r.request().postDataJSON());return r.fulfill({json:[]});});
  await page.route(SB+'/rest/v1/app_project_progress_updates',r=>{projectBodies.push(r.request().postDataJSON());return r.fulfill({json:[]});});
- await page.route(SB+'/rest/v1/app_notes**',r=>{if(r.request().method()!=='POST')return r.fallback();const body=r.request().postDataJSON();notes.push(body);return r.fulfill({json:[{id:'n'+notes.length,kind:'basket',occurred_at:'2026-10-06T01:00:00Z',...body}]});});
+ await page.route(SB+'/rest/v1/app_notes**',r=>{if(r.request().method()!=='POST')return r.fallback();const body=r.request().postDataJSON();notes.push(body);return r.fulfill({json:[{id:'n'+notes.length,kind:'basket',occurred_at:'2026-10-06T01:00:00Z',updated_at:'2026-10-06T01:00:00.123456Z',...body}]});});
+ await page.route(SB+'/rest/v1/rpc/app_basket_confirm_links',r=>{links.push(r.request().postDataJSON());return r.fulfill({json:{ok:true,created:1,existing:0}});});
  await q.locator('[data-quick-org]').click();await dialog(page).locator('[data-sheet-all]').getByRole('button',{name:'공항철도지부',exact:true}).click();await dialog(page).getByRole('button',{name:'저장',exact:true}).click();
  await expect(q.locator('[data-quick-input]')).toHaveAttribute('placeholder','공항철도지부 기록을 입력하세요');
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
@@ -140,14 +141,16 @@ for(const width of [390,1280])test(`조직에 추가하면 다음 입력은 정�
  await sheet.locator('[data-sheet-recent]').getByRole('button',{name:'공항철도지부',exact:true}).click();
  await expect(sheet.locator('[aria-pressed="true"]')).toHaveText(['자식 프로젝트']);await sheet.getByRole('button',{name:'저장',exact:true}).click();
  await q.locator('[data-quick-input]').fill('합성 진행');await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
- expect(projectBodies).toHaveLength(1);expect(projectBodies[0]).toMatchObject({project_id:'child',summary:'합성 진행'});
+ // MTG-프로젝트합치기 3단계: 사업영역 하나는 진행 기록이 아니라 정리함 업데이트 1건 + 그 사업영역 연결이다.
+ expect(projectBodies).toHaveLength(0);expect(notes).toHaveLength(1);expect(notes[0]).toMatchObject({raw_text:'합성 진행'});
+ expect(links).toEqual([{p_note_id:'n1',p_note_updated_at:'2026-10-06T01:00:00.123456Z',p_targets:[{kind:'project',target_id:'child',reason:'직접 연결'}]}]);
  await expect(q).toHaveAttribute('data-mode','basket');
  await q.locator('[data-quick-org]').click();await expect(sheet.locator('[data-sheet-recent] [data-sheet-value]').first()).toHaveText('자식 프로젝트');
  await expect(sheet.locator('[data-sheet-recent] [aria-pressed="true"]')).toHaveCount(0);
  await page.keyboard.press('Escape');await expect(sheet).toBeHidden();
  // The next add with nothing chosen goes to the basket.
  await q.locator('[data-quick-input]').fill('정리함 기록');await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
- expect(notes).toHaveLength(1);expect(notes[0]).toMatchObject({raw_text:'정리함 기록'});expect(orgBodies).toHaveLength(1);expect(projectBodies).toHaveLength(1);
+ expect(notes).toHaveLength(2);expect(notes[1]).toMatchObject({raw_text:'정리함 기록'});expect(orgBodies).toHaveLength(1);expect(projectBodies).toHaveLength(0);expect(links).toHaveLength(1);
 });
 
 test('추가가 실패하면 고른 곳과 글을 그대로 두어 다시 누르면 같은 곳에 저장',async({page})=>{

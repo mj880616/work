@@ -40,7 +40,8 @@ test('project V3 includes the complete management actions in its own renderer', 
   expect(src).toContain('id="ps3-children"');
   expect(src).toContain('data-ps3-child');
   expect(src).toContain('ps3-more');
-  expect(src).toContain('data-ps3-record-input');
+  // MTG-프로젝트합치기 3단계: 진행 기록 입력칸·⤢ 큰 창은 없어졌다(기록은 사업 보고 한 곳).
+  for(const gone of ['class="ps3-record-input"','data-ps3-record-big','saveRecordInput','openRecordBig','prepareRecordInput'])expect(src).not.toContain(gone);
   expect(src).not.toContain('data-ps3-quick-progress');
   expect(src).not.toContain('ps3-child-menu');
   expect(src).not.toContain('data-ps3-doc-filter');

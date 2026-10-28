@@ -10,7 +10,8 @@ test('메뉴 창이 열려 있으면 어느 화면에서든 [메뉴]만', () => 
 });
 
 test('메뉴 창이 닫혀 있으면 지금 화면의 칸 하나', () => {
-  const expected = {home: 'home', basket: 'basket', calendar: 'schedule', tasks: 'schedule', journal: 'schedule', diary: 'schedule', projects: 'projects', team: 'team'};
+  const expected = {home: 'home', basket: 'basket', calendar: 'schedule', tasks: 'schedule', journal: 'schedule', diary: 'schedule', meetings: 'meetings', projects: 'meetings', team: 'team'};
+  // MTG-프로젝트합치기 3단계: 하단바 4번째 칸은 [사업 보고]이고, 사업영역 관리(라우터 이름 projects)에서도 그 칸이 켜진다.
   for (const [view, tab] of Object.entries(expected)) assert.equal(selectedMobileTab({view}), tab, view);
   for (const view of MENU_SHEET_VIEWS) assert.equal(selectedMobileTab({view}), 'menu', view);
   assert.equal(selectedMobileTab({view: 'basket', noteMode: true}), 'menu', '노트는 하단바에 칸이 없다');
@@ -21,7 +22,7 @@ function button(attrs = {}) {
   const set = new Set(), a = {...attrs.attrs};
   return {id: attrs.id || '', dataset: attrs.dataset || {}, classList: {toggle: (c, on) => on ? set.add(c) : set.delete(c)}, setAttribute: (k, v) => { a[k] = v; }, removeAttribute: k => { delete a[k]; }, a, set};
 }
-const tabs = () => [button({dataset: {view: 'home'}}), button({dataset: {view: 'basket'}}), button({dataset: {view: 'calendar', mobileScheduleTab: ''}}), button({dataset: {view: 'projects'}}), button({dataset: {view: 'team'}}), button({id: 'mobileMenuTab'})];
+const tabs = () => [button({dataset: {view: 'home'}}), button({dataset: {view: 'basket'}}), button({dataset: {view: 'calendar', mobileScheduleTab: ''}}), button({dataset: {view: 'meetings'}}), button({dataset: {view: 'team'}}), button({id: 'mobileMenuTab'})];
 const root = list => ({querySelectorAll: () => list});
 const current = list => list.filter(b => b.a['aria-current'] === 'page').map(mobileTabKey);
 

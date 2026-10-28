@@ -26,7 +26,7 @@ test('bulkUndoBody: 바꾸기 전 값·기록으로',()=>{
 });
 
 test('bulkChoices·commonValue·bulkResultText',()=>{
-  assert.deepEqual(bulkChoices('project',{projects:[{value:'p1',label:'가',depth:1}]}),[{value:'',label:'프로젝트 없음'},{value:'p1',label:'가',depth:1}]);
+  assert.deepEqual(bulkChoices('project',{projects:[{value:'p1',label:'가',depth:1}]}),[{value:'',label:'사업영역 없음'},{value:'p1',label:'가',depth:1}]);
   assert.deepEqual(bulkChoices('organization',{organizations:[{id:'o1',name:'A'},{id:'o2'}]}).map(x=>x.label),['담당조직 없음','A','이름 없는 조직']);
   assert.deepEqual(bulkChoices('category',{categories:['기타','정책자료']}).map(x=>x.value),['기타','정책자료']);
   assert.equal(commonValue([doc(),doc({id:'d2'})],'project'),'p1');

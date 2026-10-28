@@ -1,7 +1,8 @@
 import { installViewPrefsServer } from './helpers/view-prefs-server.mjs';
 import {test,expect} from '@playwright/test';
 import {openHome} from './helpers/home-entry.mjs';
-// UI-홈업데이트선택: [업데이트 ▾] picks one of 담당조직 or 프로젝트; each saves through its own existing path.
+// UI-홈업데이트선택: [업데이트 ▾] picks one of 담당조직 or 프로젝트; each saves through its own existing path
+// (MTG-프로젝트합치기 3단계: 프로젝트 하나는 정리함 업데이트 + 연결).
 // BASKET-업데이트통합 PR 1: ▾ also offers [바구니(미분류)]; with no place chosen [업데이트] saves to the basket.
 const SB='https://xmlkxfjeagycwttklxjw.supabase.co';
 const quick=page=>page.locator('#homeView [data-home-quick]');
@@ -31,22 +32,27 @@ test('sheet lists organizations and projects together; a press marks and [저장
  await expect(dialog(page).locator('[aria-pressed="true"]')).toHaveCount(1);
  await expect(dialog(page).locator('[data-sheet-all] [aria-pressed="true"]')).toHaveCount(0);
 });
-test('project choice saves through the project progress table and organization choice keeps the organization path',async({page})=>{
+// MTG-프로젝트합치기 3단계: 프로젝트(사업영역) 하나를 고르면 진행 기록 표가 아니라 정리함 업데이트 1건 + 바구니 [연결하기]와 같은
+// app_basket_confirm_links(reason '직접 연결')로 그 사업영역에 잇는다. 조직 하나는 지금처럼 그 조직 기록이다.
+test('project choice saves a basket update linked to the project and organization choice keeps the organization path',async({page})=>{
  const {q}=await ready(page,1280);
- const projectBodies=[],orgBodies=[];
+ const projectBodies=[],orgBodies=[],notes=[],links=[];
  await page.route(SB+'/rest/v1/app_project_progress_updates',r=>{projectBodies.push(r.request().postDataJSON());return r.fulfill({json:[]});});
  await page.route(SB+'/rest/v1/app_suborganization_updates',r=>{orgBodies.push(r.request().postDataJSON());return r.fulfill({json:[]});});
+ await page.route(SB+'/rest/v1/app_notes**',r=>{if(r.request().method()!=='POST')return r.fallback();const body=r.request().postDataJSON();notes.push(body);return r.fulfill({status:201,json:[{id:'new-note',kind:'basket',occurred_at:'2026-10-06T01:00:00Z',updated_at:'2026-10-06T01:00:00.123456Z',ai_export_allowed:true,archived_at:null,attachments:[],metadata:{},...body}]});});
+ await page.route(SB+'/rest/v1/rpc/app_basket_confirm_links',r=>{links.push(r.request().postDataJSON());return r.fulfill({json:{ok:true,created:1,existing:0}});});
  await q.locator('[data-quick-org]').click();
  await dialog(page).locator('[data-sheet-projects]').getByRole('button',{name:'테스트 프로젝트',exact:true}).click();await dialog(page).getByRole('button',{name:'저장',exact:true}).click();
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
- expect(orgBodies).toHaveLength(0);expect(projectBodies).toHaveLength(1);
- expect(projectBodies[0]).toMatchObject({project_id:'p',workstream_id:null,author_id:'home-test',status_label:null,summary:'기록 내용',next_step:null,metadata:{}});
- expect(projectBodies[0].effective_on).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+ await expect(page.locator('#toast')).toContainText('기록을 저장했습니다.');
+ expect(orgBodies).toHaveLength(0);expect(projectBodies).toHaveLength(0);
+ expect(notes).toHaveLength(1);expect(notes[0]).toMatchObject({raw_text:'기록 내용'});
+ expect(links).toEqual([{p_note_id:'new-note',p_note_updated_at:'2026-10-06T01:00:00.123456Z',p_targets:[{kind:'project',target_id:'p',reason:'직접 연결'}]}]);
  await q.locator('[data-quick-input]').fill('조직 기록');
  await q.locator('[data-quick-org]').click();
  await dialog(page).getByRole('button',{name:'테스트 조직',exact:true}).first().click();await dialog(page).getByRole('button',{name:'저장',exact:true}).click();
  await q.locator('[data-quick-save]').click();await expect(q.locator('[data-quick-input]')).toHaveValue('');
- expect(projectBodies).toHaveLength(1);expect(orgBodies).toEqual([{organization_id:'o',raw_text:'조직 기록',created_by:'home-test'}]);
+ expect(projectBodies).toHaveLength(0);expect(notes).toHaveLength(1);expect(links).toHaveLength(1);expect(orgBodies).toEqual([{organization_id:'o',raw_text:'조직 기록',created_by:'home-test'}]);
 });
 for(const width of [390,1280])test(`saving without a place puts the update in the basket; [정리함] in the sheet clears a chosen place ${width}`,async({page})=>{
  const {q}=await ready(page,width);
