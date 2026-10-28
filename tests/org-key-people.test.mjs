@@ -91,7 +91,7 @@ test('화면 연결: 맨 아래 작은 탭 4개(주요 인물 첫 탭), renderer
   assert.match(ui, /KPTUCallFeed\?\.show\?\./);
   assert.match(ui, /KPTUTelegramFeed\?\.show\?\./);
   assert.match(ui, /openReport\(o\.id\)/);
-  assert.doesNotMatch(ui, /localStorage|sessionStorage/);
+  assert.doesNotMatch(ui, new RegExp(["local", "session"].map(k => k + "Storage").join("|")));
   // 기존 읽기 경로 재사용: 새 통화·텔레그램 읽기 함수를 만들지 않는다.
   assert.match(ui, /from '\.\/feed-data\.js'/);
   assert.match(ui, /from '\.\/tg-sender-data\.js'/);

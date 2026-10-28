@@ -152,7 +152,7 @@ button.wd-doc-main:hover{background:var(--kptu-surface-subtle)}
 
 /* ORG-주요인물: 맨 아래 작은 탭 [주요 인물][기본 정보][소속][이전 요약](role=tablist, 패널은 hidden 속성) + [주요 인물] 칸(org-key-people.js). */
 .wd-tabs{display:flex;gap:2px;border-bottom:1px solid var(--kptu-border);margin:0 0 8px;overflow-x:auto;scrollbar-width:none}
-.wd-tab{position:relative;flex:0 0 auto;height:var(--ds-compact-height);min-height:0;padding:0 10px;border:0;border-bottom:2px solid transparent;border-radius:0;background:none;color:var(--kptu-muted);font-size:var(--ds-text-button);font-weight:500}
+.wd-tab{position:relative;flex:0 0 auto;height:var(--ds-compact-height);min-height:0;padding:0 10px;border:0;border-bottom:2px solid transparent;border-radius:var(--kptu-radius-none,0);background:none;color:var(--kptu-muted);font-size:var(--ds-text-button);font-weight:500}
 .wd-tab::after{content:"";position:absolute;inset:-6px 0}
 .wd-tab[aria-selected="true"]{color:var(--kptu-ink);border-bottom-color:var(--kptu-ink);font-weight:600}
 .wd-tab-n{margin-left:4px;color:var(--kptu-muted);font-weight:400}
@@ -180,10 +180,10 @@ details.okp-brief>summary{display:flex;gap:6px;align-items:baseline;cursor:point
 .okp-h small{font-weight:400}
 .okp-list{list-style:none;margin:0;padding:0;border-top:1px solid var(--kptu-border)}
 .okp-list li{border-bottom:1px solid var(--kptu-border)}
-.okp-row{display:flex;align-items:baseline;gap:6px;width:100%;min-height:0;height:auto;padding:5px 2px;border:0;border-radius:0;background:none;color:var(--kptu-ink);font-size:var(--ds-text-meta);font-weight:400;text-align:left}
+.okp-row{display:flex;align-items:baseline;gap:6px;width:100%;min-height:0;height:auto;padding:5px 2px;border:0;border-radius:var(--kptu-radius-none,0);background:none;color:var(--kptu-ink);font-size:var(--ds-text-meta);font-weight:400;text-align:left}
 .okp-row:hover{background:var(--kptu-surface-subtle)}
 .okp-day{flex:0 0 auto;min-width:3.4em;color:var(--kptu-muted);font-variant-numeric:tabular-nums}
-.okp-tag{flex:0 0 auto;padding:0 5px;border-radius:4px;background:var(--kptu-surface-subtle);color:var(--kptu-muted);font-size:11px;line-height:18px}
+.okp-tag{flex:0 0 auto;padding:0 5px;border-radius:var(--kptu-radius-sm);background:var(--kptu-surface-subtle);color:var(--kptu-muted);font-size:11px;line-height:18px}
 .okp-text{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .okp-who{flex:0 1 auto;max-width:30%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--kptu-muted)}
 .okp-due{flex:0 0 auto;color:var(--kptu-muted);font-variant-numeric:tabular-nums}
