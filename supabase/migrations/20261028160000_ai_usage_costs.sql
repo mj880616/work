@@ -11,7 +11,8 @@ begin;
 --
 -- 권한: 새 표 2개만. 기존 표의 권한·정책·칸은 건드리지 않는다.
 --   authenticated: 두 표 모두 작업공간 소유자(private.app_is_workspace_owner)만 읽기. app_ai_cost_entries는 소유자만 넣기·지우기(칸 4개 넣기 grant).
---   service_role: app_ai_external_usage 넣기(칸 grant)만. 읽기·고치기·지우기 없음. app_ai_cost_entries 권한 없음.
+--   service_role: app_ai_external_usage 넣기(칸 grant) + 겹침 확인용 workspace_id·ref 두 칸 읽기만(on conflict do nothing에 필요).
+--     다른 칸 읽기·고치기·지우기 없음. app_ai_cost_entries 권한 없음.
 --   anon·PUBLIC: 없음.
 -- 안 하는 것: 함수·트리거·기존 표·기존 자료 변경. 화면·Edge가 아직 이 표를 쓰지 않으므로 지금 화면은 그대로다.
 set local lock_timeout = '5s';
@@ -78,6 +79,7 @@ revoke all on table public.app_ai_cost_entries from public, anon, authenticated,
 grant select on table public.app_ai_external_usage to authenticated;
 grant insert (workspace_id, ref, provider, source, model, day, calls, input_tokens, audio_tokens, output_tokens)
   on table public.app_ai_external_usage to service_role;
+grant select (workspace_id, ref) on table public.app_ai_external_usage to service_role;
 grant select, delete on table public.app_ai_cost_entries to authenticated;
 grant insert (workspace_id, provider, kind, amount_krw, month) on table public.app_ai_cost_entries to authenticated;
 
@@ -91,7 +93,7 @@ create policy ai_cost_entries_owner_delete on public.app_ai_cost_entries for del
   using (private.app_is_workspace_owner(workspace_id));
 
 -- 사후 확인: RLS 켜짐, 정책 4개(위 이름 그대로), anon·PUBLIC 권한 없음, authenticated는 읽기(+금액 표 넣기 칸·지우기)만,
--- service_role은 사용량 표 넣기 칸만(읽기·고치기·지우기 없음)·금액 표 권한 없음. 다르면 전체 취소.
+-- service_role은 사용량 표 넣기 칸 + workspace_id·ref 읽기만(다른 칸 읽기·고치기·지우기 없음)·금액 표 권한 없음. 다르면 전체 취소.
 do $$
 declare t regclass;
 begin
@@ -118,6 +120,8 @@ begin
      or has_column_privilege('authenticated', 'public.app_ai_cost_entries', 'created_at', 'insert')
      or not has_table_privilege('authenticated', 'public.app_ai_cost_entries', 'delete')
      or not has_column_privilege('service_role', 'public.app_ai_external_usage', 'ref', 'insert')
+     or not has_column_privilege('service_role', 'public.app_ai_external_usage', 'ref', 'select')
+     or has_column_privilege('service_role', 'public.app_ai_external_usage', 'input_tokens', 'select')
      or has_column_privilege('service_role', 'public.app_ai_external_usage', 'created_at', 'insert')
      or has_any_column_privilege('service_role', 'public.app_ai_cost_entries', 'select,insert,update,references') then
     raise exception 'AI_USAGE_POSTCHECK_FAILED; stop';
@@ -126,5 +130,5 @@ end
 $$;
 
 insert into supabase_migrations.schema_migrations (version, name, statements)
-values ('20261028160000', 'ai_usage_costs', array['AI-사용량줄: app_ai_external_usage (owner read, service_role column insert only) + app_ai_cost_entries (owner read/insert/delete, no service_role)']);
+values ('20261028160000', 'ai_usage_costs', array['AI-사용량줄: app_ai_external_usage (owner read, service_role column insert + workspace_id/ref select) + app_ai_cost_entries (owner read/insert/delete, no service_role)']);
 commit;

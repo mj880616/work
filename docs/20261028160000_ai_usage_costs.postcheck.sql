@@ -24,8 +24,11 @@ union all select 'authenticated: usage read only, entries read/insert/delete',ca
   and not has_column_privilege('authenticated',(select c from t),'id','insert')
   and not has_any_column_privilege('authenticated',(select c from t),'update,references')
   and not has_table_privilege('authenticated',(select c from t),'update,truncate,references,trigger')) then '예' else '아니오' end
-union all select 'service_role: usage column insert only, no entries access',case when (select u from t) is null or (
+union all select 'service_role: usage column insert + key columns read only, no entries access',case when (select u from t) is null or (
   has_column_privilege('service_role',(select u from t),'ref','insert')
+  and has_column_privilege('service_role',(select u from t),'ref','select')
+  and not has_column_privilege('service_role',(select u from t),'input_tokens','select')
+  and not has_any_column_privilege('service_role',(select u from t),'update,references')
   and not has_column_privilege('service_role',(select u from t),'created_at','insert')
   and not has_table_privilege('service_role',(select u from t),'select,update,delete,truncate,references,trigger')
   and not has_table_privilege('service_role',(select c from t),'select,insert,update,delete,truncate,references,trigger')
