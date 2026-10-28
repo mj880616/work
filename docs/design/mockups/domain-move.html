@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>주소 이전 시안</title>
+<style>
+:root{--bg:#f3f1ea;--sf:#fffefa;--ink:#2a2a23;--mu:#6e6c60;--bd:#e2ddd0;--pr:#5c6a35;--prs:#eef0e1}
+@media (prefers-color-scheme:dark){:root{--bg:#161613;--sf:#1f1f1b;--ink:#ebe9e1;--mu:#b1aea2;--bd:#34332d;--pr:#b4c385;--prs:#2c3120}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.45 system-ui,"Noto Sans KR",sans-serif;padding:12px}
+h1{font-size:14px;font-weight:500;margin:0 0 8px;color:var(--mu)}
+.wrap{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start}
+.label{font-size:12px;color:var(--mu);margin:0 0 4px}
+.box{width:360px;max-width:100%;background:var(--sf);border:.5px solid var(--bd);border-radius:10px;padding:10px 12px}
+.blank{height:180px;display:flex;align-items:center;justify-content:center;color:var(--mu)}
+.note{display:flex;gap:8px;align-items:center;padding:6px 8px;border:.5px solid var(--bd);border-radius:8px;background:var(--prs);font-size:12px}
+.note button{margin-left:auto;font:inherit;font-size:12px;padding:2px 8px;border:.5px solid var(--bd);border-radius:6px;background:var(--sf);color:var(--ink)}
+ul{list-style:none;margin:0;padding:0}
+li{padding:5px 2px;border-bottom:.5px solid var(--bd)}
+li.new{color:var(--pr)}
+.sub{font-size:11px;color:var(--mu)}
+</style>
+</head>
+<body>
+<h1>주소 이전 시안 (docs/design/domain-move.md)</h1>
+<div class="wrap">
+  <div>
+    <p class="label">④ 옛 Web1 주소 (빈 화면에 한 줄)</p>
+    <div class="box blank">더 이상 운영하지 않는 페이지입니다</div>
+  </div>
+  <div>
+    <p class="label">① 새 주소 로그인 화면 위 한 줄 (옛 주소에서 넘어왔을 때만)</p>
+    <div class="box"><div class="note">주소가 bokdoong.com으로 바뀌었습니다. 한 번만 다시 로그인해 주세요. <button type="button">닫기</button></div></div>
+    <p class="sub">설치한 앱은 새 주소에서 다시 설치(아이콘 바꾸기 재설치와 한 번에).</p>
+  </div>
+  <div>
+    <p class="label">② 메뉴 창 맨 아래 '아스날'</p>
+    <div class="box"><ul><li>노트</li><li>자료실</li><li>원장</li><li>…</li><li class="new">아스날 <span class="sub">경기 기록</span></li></ul></div>
+  </div>
+</div>
+</body>
+</html>

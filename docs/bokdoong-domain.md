@@ -37,3 +37,7 @@ Cloudflare Worker Custom Domain을 배포하면 Cloudflare가 해당 호스트�
 Supabase Auth Site URL은 기존 github.io 주소로 유지함. 운영 Redirect URLs에는 `desk`·`work`의 `/work/app/`와 `/work/app/confirmed.html`를 경로 단위로 등록함. 읽생기 주소는 읽생기 저장소가 관리하며 이 문서의 허용 목록에서 제외함. Web2 Google 로그인은 `view`, `invite`, `project` 쿼리로 현재 화면을 전달하므로 해당 앱 루트의 쿼리 패턴만 허용함. Web1 관리자 로그인은 정확한 페이지 경로로 복귀하고, 복귀 전 쿼리는 같은 탭의 sessionStorage에서 복원함. Web1 편집 페이지는 `/work/2in1/`, `/work/p/`, `/work/private-rail/`, `/work/rail-council/`, `/work/review/`, `/work/sanbyeol/`, `/work/workforce/`의 실제 경로 깊이에 한정한 단일 구간 `*` 패턴으로 허용함. 루트 포털과 아스날 아카이브는 인증 복귀 주소로 등록하지 않음.
 
 문제가 생기면 Cloudflare Custom Domain 연결을 해제하거나 이전 Worker 버전으로 되돌림. GitHub Pages custom domain과 기존 URL은 수정하지 않으므로 기존 링크는 별도로 유지됨. Supabase Auth Redirect URLs에서 새 주소를 제거해도 기존 Site URL은 유지됨.
+
+## 예정 변경 (설계만, 운영 반영 전)
+
+- 2026-10-28 DOMAIN-주소이전: `bokdoong.com` = Web2(`/work/app/`), 포털 삭제, desk·work의 Web2 경로와 arsenal은 `bokdoong.com`으로 넘김, 공유 페이지는 `work.bokdoong.com/work/share/` 유지, 마지막에 Web1 삭제. 단계·되돌리기·명진 화면 단계는 [`design/domain-move.md`](design/domain-move.md). 운영에 반영되면 위 표를 그 상태로 고친다.
