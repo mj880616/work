@@ -28,6 +28,9 @@ const wdRecordCurrent=(id,epoch=wdEpoch)=>wdCurrent(id,epoch)&&wdOrg?.id===id&&d
 function wdFlushLinks(){if(wdLinkPending&&wdRecordCurrent(wdTargetId))void wdRefreshLinks()}
 function wdDisposeLinks(){wdLinkEditor?.dispose();wdLinkEditor=null;wdLinkRun++}
 function wdConfirmDiscard(){if(wdLinkEditor?.hasDraft()&&!confirm('저장하지 않은 기록 요약이 있습니다. 이동하면서 버릴까요?'))return false;return !wdUpDirty()||confirm('저장하지 않은 기록 수정이 있습니다. 이동하면서 버릴까요?')}
+// NAV-새로고침제자리: the organization open (?view=team&org=<id>) is written to the address (no history entry of its own; a phone window
+// keeps its own entry), so a reload opens it again. The address is read once when this module loads and applied when the list is drawn.
+let wdPlaced=(()=>{const q=new URLSearchParams(globalThis.location?.search||''),id=q.get('org')||'';return q.get('view')==='team'&&/^[A-Za-z0-9_.:-]{1,80}$/.test(id)?id:null})();
 function wdClose(force=false){if(!force&&!wdConfirmDiscard())return false;wdEpoch++;wdUpEditClear();wdSaveRetire();wdTargetId=null;wdLinkPending=false;wdDocsRun++;wdDisposeLinks();wdModal('wdModal',false);wdPaintSelection();wdResetTasks();return true}
 let wdUser=null,wdWorkspace=null,wdRole=null,wdOrg=null,wdItems=[],wdUpdates=[],wdTimeline=[],wdTags=[],wdAffiliations=[],wdTimeEdit=null;
 const wdE=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -384,13 +387,10 @@ function wdPlace(){
 function wdOrder(dock){const log=document.querySelector('#wdLog'),inbox=document.querySelector('#wdInbox'),docs=document.querySelector('#wdDocs');if(!log||!inbox||!docs)return;if(dock)inbox.after(log);else docs.after(log)}
 // The list row of the organization shown on the right carries the selection (PC only); the list module paints it.
 // ORG-PC상세정리 ①: the pane has no title of its own; the top line's place shows "담당조직 › 조직명" (topbar-actions.js).
-// NAV-새로고침제자리: the organization open (?view=team&org=<id>) is written to the address (no history entry of its own; a phone window
-// keeps its own entry), so a reload opens it again. The address is read once when this module loads and applied when the list is drawn.
-let wdPlaced=(()=>{const q=new URLSearchParams(globalThis.location?.search||''),id=q.get('org')||'';return q.get('view')==='team'&&/^[A-Za-z0-9_.:-]{1,80}$/.test(id)?id:null})();
 function wdPaintSelection(){const m=document.querySelector('#wdModal'),open=!!m&&!m.classList.contains('hidden'),shown=wdDocked()&&open;if(!wdPlaced)window.KPTURouter?.setPlace?.('team',{org:open?wdTargetId:null});document.querySelector('#wdDetailPane')?.classList.toggle('has-org',shown);window.dispatchEvent(new CustomEvent('kptu:workplace-selection',{detail:{id:shown?wdTargetId:null}}));wdPaintWhere()}
 function wdPaintWhere(){const m=document.querySelector('#wdModal'),shown=wdDocked()&&!!m&&!m.classList.contains('hidden')&&wdOrg?.id===wdTargetId;window.dispatchEvent(new CustomEvent('kptu:where-item',{detail:{view:'team',name:shown?wdOrg.name:null}}))}
 // On a PC with nothing chosen: the last organization seen on this device, else the first one in the list.
-function wdOpenFirst(){if(wdPlaced){const id=wdPlaced,ids=wdListIds();if(!ids.length)return;wdPlaced=null;if(ids.includes(id)&&!wdTargetId){void wdOpen(id);return}}if(wdResuming||!wdSplitWanted()||wdTargetId)return;const ids=wdListIds(),last=wdLastOrg.read(wdUser?.id||wdRt.session?.read?.()?.user?.id),id=ids.includes(last)?last:ids[0];if(id)void wdOpen(id)}
+function wdOpenFirst(){if(wdPlaced){const id=wdPlaced,ids=wdListIds();if(!ids.length||window.KPTURouter?.current!=='team')return;wdPlaced=null;if(ids.includes(id)&&!wdTargetId){void wdOpen(id);return}}if(wdResuming||!wdSplitWanted()||wdTargetId)return;const ids=wdListIds(),last=wdLastOrg.read(wdUser?.id||wdRt.session?.read?.()?.user?.id),id=ids.includes(last)?last:ids[0];if(id)void wdOpen(id)}
 window.addEventListener('kptu:suborganizations-rendered',()=>{wdPlace();wdPaintSelection();wdOpenFirst()});
 WD_PC?.addEventListener?.('change',()=>{wdPlace();wdOpenFirst()});
 

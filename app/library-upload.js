@@ -412,7 +412,7 @@ const luRebase=(n,base)=>({...n,depth:n.depth-base,children:n.children.map(c=>lu
 // NAV-새로고침제자리: the folder entered is written to the address (?view=library&folder=<id>, no history entry of its own), so a reload
 // enters it again. The address is read when the screen loads (luTakePlace) and applied once the folders are read and 묶기 is 폴더.
 let luPlaceFolder=null;
-function luTakePlace(){luPlaceFolder=window.KPTURouter?.place?.('library')?.folder||null}
+function luTakePlace(){const q=new URLSearchParams(globalThis.location?.search||''),id=q.get('folder')||'';luPlaceFolder=q.get('view')==='library'&&/^[A-Za-z0-9_.:-]{1,80}$/.test(id)?id:null}
 function luFolderScope(tree){
   if(luPlaceFolder&&luFoldersReady){if(luGroupBy==='folder'&&luFolders_.some(f=>f.id===luPlaceFolder)){luInFolder=luPlaceFolder;luOpened.add('f:'+luInFolder)}luPlaceFolder=null}
   if(luInFolder&&(luGroupBy!=='folder'||!luFolders_.some(f=>f.id===luInFolder)))luInFolder=null;
