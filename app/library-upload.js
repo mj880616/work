@@ -1,6 +1,7 @@
 import './enter-save.js'; // UI-엔터저장: shared Enter-to-save rule for the data-enter-save roots below
 import {renderFilterChips} from './filter-chips.js';
-import {readView,saveView} from './library-view-pref.js';
+import {readView,saveView,orderedGroups,moveGroup} from './library-view-pref.js';
+import {mountReorder} from './reorder-drag.js';
 import {RECENT_UPLOAD_LIMIT,RECENT_UPLOAD_MORE,recentUploads,isNewUpload,uploadTimeLabel,rememberFolder,cleanRecentFolders} from './library-move.mjs';
 import {renderCategoryChips,toggleCategoryOff} from './category-chips.js';
 import {nodeDocumentIds,toggleAll,allSelected,someSelected,pruneSelected,deleteSequentially,confirmText,resultText} from './library-select.js';
@@ -82,6 +83,9 @@ let luRemembered=null,luViewHold=false,luViewOwner='',luViewTimer=0,luViewChain=
 const luDefaultOff=()=>new Set(luRemembered?.categoriesOff??LU_DEFAULT_OFF);
 // LIB-폴더로옮기기: '최근 넣은 폴더'(맨 앞이 가장 최근, 최대 5). 서버(app_profiles.library_view.recent_folders)에 기억하고, 서버가 아직 그 칸을 받지 못하면(DB 적용 전) 이번 방문 동안만 화면에 둔다.
 let luRecentFolders=[],luRecentRejected=false;
+// LIB-폴더보기 칩 순서(08:25 ②, 11:53 결정 ①): 묶기 칩 순서. 처음은 [폴더] 맨 앞. 꾹 눌러(PC는 끌어) 옮기면 서버(library_view.group_order)에 기억하고,
+// 서버가 아직 그 칸을 받지 못하면(DB 적용 전) 이번 방문 동안만 화면에 둔다. null = 고른 적 없음(기본 순서).
+let luGroupOrder=null,luOrderRejected=false;
 function luPushRecentFolder(id){luRecentFolders=rememberFolder(luRecentFolders,id);luViewPending.add('recent');clearTimeout(luViewTimer);luViewTimer=setTimeout(luFlushView,400)}
 // 걸러 보는 중인지 가를 때 비교하는 '들어올 때의 칩 상태'(고른 칩이 이것과 다르면 맞는 자료가 든 토글을 펼친다).
 let luBaselineOff=new Set(LU_DEFAULT_OFF);
@@ -105,10 +109,13 @@ function luFlushView(){
   const group=fields.has('groupBy')?luGroupBy:luRemembered?.groupBy;if(group!==undefined)next.groupBy=group;
   const off=fields.has('categories')?documentCategories().filter(n=>luCategoryOff.has(n)):luRemembered?.categoriesOff;if(off!==undefined)next.categoriesOff=off;
   if(!luRecentRejected&&(luRecentFolders.length||luRemembered?.recentFolders!==undefined))next.recentFolders=[...luRecentFolders];
+  if(!luOrderRejected&&luGroupOrder)next.groupOrder=[...luGroupOrder];
   luRemembered=next;
   luViewChain=luViewChain.then(async()=>{
     let sent=next,result=await saveView(sent);
     // DB 검사가 아직 recent_folders를 받지 않는 서버(적용 전)면 400이다. 그 칸만 빼고 다시 보내 묶기·종류 칩 기억은 지키고, 최근 폴더는 이번 방문 동안만 화면에 둔다.
+    // group_order도 같다(20261028140000 적용 전): 그 칸만 빼고 다시 보내고 칩 순서는 이번 방문 동안만.
+    if(result.status==='pending'&&sent.groupOrder!==undefined){luOrderRejected=true;sent={...sent};delete sent.groupOrder;luRemembered=sent;result=await saveView(sent)}
     if(result.status==='pending'&&sent.recentFolders!==undefined){luRecentRejected=true;sent={...sent};delete sent.recentFolders;luRemembered=sent;result=await saveView(sent)}
     // DB 검사가 아직 '폴더'를 받지 않는 서버(적용 전)면 400이다. 폴더만 빼고(앞서 기억한 묶기 그대로) 다시 보내 종류 칩 기억은 지키고, 폴더는 이번 방문 동안만 유지한다(luSessionFolder).
     if(result.status==='pending'&&sent.groupBy==='folder'){
@@ -127,7 +134,7 @@ function luApplyRememberedFolder(){
 }
 async function luRefreshView(){
   const owner=luUser?.id;if(!owner)return;
-  if(luViewOwner&&luViewOwner!==owner){luRemembered=null;luRecentFolders=[];luRecentRejected=false}
+  if(luViewOwner&&luViewOwner!==owner){luRemembered=null;luRecentFolders=[];luRecentRejected=false;luGroupOrder=null;luOrderRejected=false}
   luViewOwner=owner;
   // 아직 보내지 못한 고른 값이 있으면 먼저 보내고 끝나길 기다린 뒤 읽는다(방금 고른 값을 옛 서버 값으로 덮지 않게).
   luFlushView();await luViewChain;
@@ -136,6 +143,7 @@ async function luRefreshView(){
   luRemembered=result.view;luBaselineOff=luDefaultOff();
   if(result.view.recentFolders!==undefined)luRecentFolders=cleanRecentFolders(result.view.recentFolders);
   let changed=false;
+  if(result.view.groupOrder!==undefined&&!luViewPending.has('groupOrder')){const next=orderedGroups(result.view.groupOrder);if(JSON.stringify(next)!==JSON.stringify(orderedGroups(luGroupOrder))){luGroupOrder=next;changed=true}}
   luWantFolder=result.view.groupBy==='folder';
   // 폴더 표가 아직 없거나 못 읽었으면 폴더 묶기는 열 수 없어 프로젝트로 연다.
   const group=luFoldersReady&&(luSessionFolder||luWantFolder)?'folder':(luWantFolder?'project':(result.view.groupBy||'project'));
@@ -372,7 +380,22 @@ function luProjectColor(project){const rows=luCatalog()?.projects||[];let top=pr
 const luKindKey=k=>k==='파일'?'other':k==='그림'?'img':k.toLowerCase();
 function luRenderGroupBy(){
   const host=document.querySelector('#libraryGroupBy');if(!host)return;
-  renderFilterChips(host,{label:'묶기',controls:'documentList',small:true,value:luGroupBy,options:GROUP_BY.filter(value=>value!=='folder'||luFoldersReady).map(value=>({value,label:GROUP_LABELS[value]})),onChange:value=>{if(value===luGroupBy)return;luGroupBy=value;luSessionFolder=value==='folder';luUserChangedView('groupBy');luOpened.clear();luFilterOpen.clear();luShowAll.clear();if(value==='organization')luLoadOrganizations();luRenderLibrary()}});
+  renderFilterChips(host,{label:'묶기',controls:'documentList',small:true,value:luGroupBy,options:orderedGroups(luGroupOrder).filter(value=>value!=='folder'||luFoldersReady).map(value=>({value,label:GROUP_LABELS[value]})),onChange:value=>{if(value===luGroupBy)return;luGroupBy=value;luSessionFolder=value==='folder';luUserChangedView('groupBy');luOpened.clear();luFilterOpen.clear();luShowAll.clear();if(value==='organization')luLoadOrganizations();luRenderLibrary()}});
+  // 칩 끌기 표시: 칩 자체가 손잡이(PC는 4px 넘게 끌면, 폰은 꾹 누르면 잡힘 — reorder-drag.js 공용 약속). 칩 줄을 다시 그릴 때마다 붙인다.
+  host.dataset.reorderList='groups';
+  for(const b of host.children)if(b.dataset.filterValue){b.dataset.reorderId=b.dataset.filterValue;b.setAttribute('data-reorder-handle','');b.setAttribute('data-lu-group-chip','')}
+  const row=host.parentElement;
+  if(row&&!row._luGroupReorder)row._luGroupReorder=mountReorder(row,{listSelector:'#libraryGroupBy',itemSelector:'[data-lu-group-chip]',handleSelector:'[data-lu-group-chip]',axis:'x',onDrop:({id,index})=>luMoveGroupChip(id,index)});
+}
+// 칩을 놓은 자리로 순서를 바꾸고 0.4초 뒤 서버에 기억한다(다른 보기 칸은 기억한 값 그대로). 고른 묶기는 그대로.
+function luMoveGroupChip(id,index){
+  const shown=orderedGroups(luGroupOrder).filter(value=>value!=='folder'||luFoldersReady);
+  // index는 보이는 칩(폴더 표를 못 읽으면 [폴더] 없음) 기준 → 다섯 값 전체 순서의 자리로 바꾼다.
+  const others=shown.filter(v=>v!==id),before=others[index];
+  const full=orderedGroups(luGroupOrder).filter(v=>v!==id),at=before?full.indexOf(before):full.length;
+  const next=moveGroup(luGroupOrder,id,at);
+  if(JSON.stringify(next)===JSON.stringify(orderedGroups(luGroupOrder)))return;
+  luGroupOrder=next;luRenderGroupBy();luUserChangedView('groupOrder');
 }
 function luFiltering(q,pid){const names=documentCategories(),off=names.filter(n=>luCategoryOff.has(n)),base=names.filter(n=>luBaselineOff.has(n)),categories=off.length>0&&!(off.length===base.length&&off.every(n=>base.includes(n)));return !!(q||luOrganization||(pid&&pid!=='all')||categories)}
 function luIsOpen(key,filtering,matched){return filtering?(luFilterOpen.has(key)?luFilterOpen.get(key):matched.has(key)):luOpened.has(key)}
