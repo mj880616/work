@@ -28,6 +28,17 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="kptuwork" android:host="auth" />
             </intent-filter>
+            <!-- 단계 ②: 다른 앱의 [공유]에 "웹2 바구니"로 보인다. 글·링크·사진·파일. 받은 항목의 임시 읽기 권한만 쓴다(저장소 권한 없음). -->
+            <intent-filter android:label="웹2 바구니">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <intent-filter android:label="웹2 바구니">
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
         </activity>
     </application>
 </manifest>

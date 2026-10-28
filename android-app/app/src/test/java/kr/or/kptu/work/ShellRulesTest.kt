@@ -98,4 +98,53 @@ class ShellRulesTest {
         assertFalse(ShellRules.isTrustedApk("https://github.com/other/work/releases/download/phone-app-v0.3.0/a.apk", "0.3.0"))
         assertFalse(ShellRules.isTrustedApk(null, "0.3.0"))
     }
+
+    private val shareId = "AbCdEfGhIjKlMnOpQrStUv"
+
+    @Test
+    fun shareRequestAddresses() {
+        assertEquals(shareId to 0, ShellRules.shareRequest("https://desk.bokdoong.com/work/app/__share/$shareId/0"))
+        assertEquals(shareId to 19, ShellRules.shareRequest("https://desk.bokdoong.com/__share/$shareId/19"))
+        assertEquals(shareId to 3, ShellRules.shareRequest("https://work.bokdoong.com/work/app/__share/$shareId/3"))
+        assertNull(ShellRules.shareRequest("http://desk.bokdoong.com/work/app/__share/$shareId/0"))
+        assertNull(ShellRules.shareRequest("https://evil.example/work/app/__share/$shareId/0"))
+        assertNull(ShellRules.shareRequest("https://desk.bokdoong.com:8443/work/app/__share/$shareId/0"))
+        assertNull(ShellRules.shareRequest("https://desk.bokdoong.com/work/app/__share/short/0"))
+        assertNull(ShellRules.shareRequest("https://desk.bokdoong.com/work/app/__share/$shareId/0?x=1"))
+        assertNull(ShellRules.shareRequest("https://desk.bokdoong.com/work/app/__share/$shareId/100"))
+        assertNull(ShellRules.shareRequest("https://desk.bokdoong.com/work/app/__share/$shareId/../0"))
+        assertNull(ShellRules.shareRequest("https://desk.bokdoong.com/work/app/x/__share/$shareId/0"))
+        assertNull(ShellRules.shareRequest(null))
+        assertEquals("https://desk.bokdoong.com/work/app/?view=basket&share=$shareId", ShellRules.shareHome(shareId))
+    }
+
+    @Test
+    fun shareMessages() {
+        assertEquals(ShellRules.ShareMessage.Get(null), ShellRules.shareMessage("share:get:"))
+        assertEquals(ShellRules.ShareMessage.Get(shareId), ShellRules.shareMessage("share:get:$shareId"))
+        assertEquals(ShellRules.ShareMessage.Done(shareId), ShellRules.shareMessage("share:done:$shareId"))
+        assertEquals(ShellRules.ShareMessage.Back, ShellRules.shareMessage("share:back"))
+        assertNull(ShellRules.shareMessage("share:get:'));alert(1)//"))
+        assertNull(ShellRules.shareMessage("share:done:"))
+        assertNull(ShellRules.shareMessage("bar:#fff"))
+        assertNull(ShellRules.shareMessage(null))
+    }
+
+    @Test
+    fun shareListJsonAndNames() {
+        assertEquals("공유 파일 1", ShellRules.shareName(null, 0))
+        assertEquals("a b c.pdf", ShellRules.shareName("a/b\nc.pdf", 0))
+        assertEquals(200, ShellRules.shareName("가".repeat(300), 0).length)
+        assertEquals("image/jpeg", ShellRules.shareMime("IMAGE/JPEG"))
+        assertEquals("application/octet-stream", ShellRules.shareMime("image/*"))
+        assertEquals("application/octet-stream", ShellRules.shareMime(null))
+        assertEquals("\"a\\\"b\\\\c\\u003c\\u000a\"", ShellRules.jsonString("a\"b\\c<\n"))
+        val json = ShellRules.shareListJson(shareId, "제목", "글", listOf(ShellRules.ShareMeta("사진.jpg", "image/jpeg", 10), ShellRules.ShareMeta("x", "application/pdf", -7)))
+        assertEquals(
+            "{\"id\":\"$shareId\",\"subject\":\"제목\",\"text\":\"글\",\"items\":[{\"i\":0,\"name\":\"사진.jpg\",\"type\":\"image/jpeg\",\"size\":10},{\"i\":1,\"name\":\"x\",\"type\":\"application/pdf\",\"size\":-1}]}",
+            json,
+        )
+        val many = ShellRules.shareListJson(shareId, null, null, List(60) { ShellRules.ShareMeta("f", "text/plain", 1) })
+        assertEquals(ShellRules.SHARE_MAX_ITEMS, Regex("\"i\":").findAll(many).count())
+    }
 }
