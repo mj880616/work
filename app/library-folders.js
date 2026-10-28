@@ -12,7 +12,7 @@ import {createMovePicker} from './library-move-picker.js';
 const T_FOLDERS='/rest/v1/app_library_folders',T_ITEMS='/rest/v1/app_library_folder_items';
 const enc=encodeURIComponent;
 
-export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},notify=null,toggleNode=()=>{},selected=()=>[],touchOk=()=>false,recent={get:()=>[],push:()=>{}},onMoveProgress=()=>{},onMoved=()=>{},categoryOf=null,changeCategory=null}){
+export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},notify=null,toggleNode=()=>{},selected=()=>[],touchOk=()=>false,recent={get:()=>[],push:()=>{}},onMoveProgress=()=>{},onMoved=()=>{},categoryOf=null,changeCategory=null,photoSetDocs=()=>[]}){
   // state(): {workspace, folders, items, docs, projectName(id), free(폴더 보기: 프로젝트 틀을 보지 않음), isOpen(key)}
   // notify(text,{error,undo}): '… · 되돌리기' 한 줄(없으면 status). toggleNode(key): 토글 접기·펼치기.
   // selected(): 지금 고른 자료 id들(여러 개 끌기). touchOk(): 폰 길게 누르기를 켤 화면인지.
@@ -206,8 +206,10 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   const rowOf=id=>[...document.querySelectorAll('#documentList .lu-row')].find(x=>x.dataset.luDocument===id);
   // el에서 시작한 끌기 상태. touch=true(폰 길게 누르기)이면 draggable 표시가 없어도 잡는다.
   function dragFrom(el,touch=false){
-    const head=el.closest?.(touch?'summary.lu-node-head':'summary.lu-node-head[draggable="true"]'),row=el.closest?.(touch?'.lu-row[data-lu-document]':'.lu-row[draggable="true"]');
+    const head=el.closest?.(touch?'summary.lu-node-head':'summary.lu-node-head[draggable="true"]'),row=el.closest?.(touch?'.lu-row[data-lu-document],.lu-row[data-lu-photoset]':'.lu-row[draggable="true"]');
     if(head){const key=head.parentElement?.dataset.luNode||'';if(!key.startsWith('f:'))return null;const f=folder(key.slice(2));if(!f)return null;return {kind:'folder',id:f.id,frame:f.project_id||null,els:[head.parentElement]}}
+    // LIB-정리보충 ②: 사진 묶음 줄은 폴더 보기에서만 끈다. 묶음 안 실제 사진 자료 모두가 함께 옮겨지고(set=true), 일부만 옮겨진 채로 끝나지 않는다(moveDocs all).
+    if(row?.dataset.luPhotoset){if(!s().free)return null;const docs=photoSetDocs(row.dataset.luPhotoset);if(!docs.length)return null;return {kind:'file',id:'photoset:'+row.dataset.luPhotoset,docs,els:[row],set:true}}
     if(row){
       const doc=docById(row.dataset.luDocument);if(!doc)return null;
       const picked=selected(),many=picked.length>1&&picked.includes(doc.id),docs=(many?picked.map(docById).filter(Boolean):[doc]);
@@ -264,7 +266,8 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   }
   function stopScroll(){scrollDir=0;if(scrollTimer&&typeof cancelAnimationFrame==='function')cancelAnimationFrame(scrollTimer);scrollTimer=0}
   // 자료 여럿(또는 하나)을 폴더로/폴더 밖으로. 이전 자리를 기억해 '되돌리기'가 그 자리로 돌려놓는다(그 사이 또 바뀐 것은 건드리지 않음).
-  async function moveDocs(docs,folderId){
+  // all=true(사진 묶음): 하나라도 못 옮기면 이미 옮긴 것을 이전 자리로 되돌려 '모두 옮김 / 모두 그대로' 둘 중 하나로 끝낸다.
+  async function moveDocs(docs,folderId,{all=false}={}){
     const todo=docs.filter(d=>folderId?docFolder(d)?.id!==folderId:!!rawItem(d));if(!todo.length)return false;
     const prev=todo.map(d=>({id:d.id,had:!!rawItem(d),folder:rawItem(d)?.folder_id||null})),w=id=>`?document_id=eq.${enc(id)}&workspace_id=eq.${enc(s().workspace)}`;
     // LIB-후속1 ③: 하나씩 옮기며 'n/전체'를 알리고, 일부가 실패해도 옮긴 것은 그대로 둔다(실패한 것만 onMoved로 돌려 고른 채 남김).
@@ -277,7 +280,18 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
         done.push(p.id);
       }catch(e){firstError??=e;failed.push(p.id)}
       try{onMoveProgress({index:i+1,total:prev.length})}catch{}
-    }if(!done.length)throw firstError||new Error('move failed')});
+      if(all&&failed.length){failed.push(...prev.slice(i+1).map(x=>x.id));break}
+    }
+    if(all&&failed.length&&done.length){
+      // 되돌리기(보상): 옮긴 것을 이전 자리로. 이것도 실패하면 그 사실을 알린다(남은 것은 목록 다시 읽기가 보여 줌).
+      const back=[];for(const id of done){const p=prev.find(x=>x.id===id);try{
+        if(!p.had)await api(T_ITEMS+w(p.id),{method:'DELETE',prefer:'return=minimal'});
+        else await api(T_ITEMS+w(p.id),{method:'PATCH',prefer:'return=minimal',body:{folder_id:p.folder}});
+        back.push(id)}catch{}}
+      failed.push(...back);const stuck=done.filter(id=>!back.includes(id));done.length=0;done.push(...stuck);
+      throw Object.assign(new Error('LIB_PHOTOSET_PARTIAL'),{partial:stuck.length});
+    }
+    if(!done.length)throw firstError||new Error('move failed')});
     try{onMoved({done:ok?done:[],failed:ok?failed:prev.map(p=>p.id),folderId})}catch{}
     if(!ok)return false;
     if(folderId)reveal(chain(todo[0].project_id||null,folderId));
@@ -310,7 +324,7 @@ export function mountLibraryFolders({api,esc,state,reload,status,reveal=()=>{},n
   }
   function commitDrop(d,t){
     if(!d||!t?.ok)return;
-    if(d.kind==='file'){const docs=d.docs.map(x=>docById(x.id)).filter(Boolean);if(!docs.length)return;if(t.kind==='category'){void changeCategory(docs.filter(x=>categoryOf(x.category)!==t.value),t.value);return}void moveDocs(docs,t.kind==='top'?null:t.target);return}
+    if(d.kind==='file'){const docs=d.docs.map(x=>docById(x.id)).filter(Boolean);if(!docs.length)return;if(t.kind==='category'){void changeCategory(docs.filter(x=>categoryOf(x.category)!==t.value),t.value);return}void moveDocs(docs,t.kind==='top'?null:t.target,{all:!!d.set});return}
     if(t.kind==='top')void dragMoveFolder(d.id,null);else if(t.kind==='into')void dragMoveFolder(d.id,t.target);else void placeBeside(d.id,t.target,t.kind==='after');
   }
   // ---- 끌기 놓을 곳 목록 (LIB-폴더로옮기기 ③) ----

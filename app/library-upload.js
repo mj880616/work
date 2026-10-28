@@ -324,6 +324,8 @@ async function luLoadPhotoMeetings(){
   }catch(e){luPhotoMeetings=null;console.warn('library photo meetings read failed',e?.message||e)}
 }
 const luListDocs=()=>foldPhotoSets(luDocuments,luPhotoMeetings);
+// LIB-정리보충 ②: 사진 묶음 줄(사업 보고 하나)의 실제 사진 자료 행들. 묶음은 계산된 줄이라 옮길 때는 이 행들을 한 번에 옮긴다(사업 보고 연결은 그대로).
+function luPhotoSetMembers(meetingId){const set=luListDocs().find(d=>isPhotoSet(d)&&d.meeting_id===meetingId);if(!set)return [];const ids=new Set((set.photos||[]).map(p=>p.id));return luDocuments.filter(d=>ids.has(d.id))}
 // 묶음 줄: 사업 보고 하나 = 한 줄. 누르면 그 사업 보고(사진 보기는 사업 보고 화면 쪽 단계에서 이어 붙는다). 사진은 자료실에서 고르거나 옮기거나 지울 수 없다(사업 보고에서 다룸).
 function luPhotoSetRowHtml(d){
   const label=luEsc(d.title),date=luDisplayName(d).date,mid=luEsc(d.meeting_id);
@@ -444,7 +446,7 @@ const luFolderViews=()=>(luGroupBy==='project'||luGroupBy==='folder')&&luFolders
 // LIB-폴더로옮기기 ③: 끌기는 어느 묶기에서나(종류·담당조직·월별은 왼쪽에 뜨는 놓을 곳 목록으로). 폰 길게 누르기는 폴더 토글이 보이는 묶기에서만(luFolderViews).
 const luCanDrag=()=>!!LU_FINE?.matches&&luFoldersReady;
 // 파일 줄은 그 프로젝트 틀에 폴더가 있을 때만 끌 수 있다(놓을 곳이 없으면 끌지 않음). 줄 HTML은 luRowHtml 그대로에 draggable만 붙인다.
-function luDragRowHtml(d,node){const html=luRowHtml(d,node);if(isPhotoSet(d)||!luCanDrag()||!(luGroupBy==='folder'||luGroupBy==='category'||luFolders_.some(f=>(f.project_id||null)===(d.project_id||null))))return html;return html.replace('<article class="lu-row','<article draggable="true" class="lu-row')}
+function luDragRowHtml(d,node){const html=luRowHtml(d,node);if((isPhotoSet(d)&&luGroupBy!=='folder')||!luCanDrag()||!(luGroupBy==='folder'||luGroupBy==='category'||luFolders_.some(f=>(f.project_id||null)===(d.project_id||null))))return html;return html.replace('<article class="lu-row','<article draggable="true" class="lu-row')}
 // LIB-줄안이름바꾸기: 줄 우클릭·⋯ 메뉴의 [이름 바꾸기] 또는 줄을 고른 채 F2 → 창 없이 그 줄 제목이 입력칸이 된다(글자 전체 선택).
 // Enter·바깥 누르기=저장, Esc=취소. 저장하면 줄 위 한 줄에 '이름을 바꿨어요 · 되돌리기'. 바꾸는 것은 Web2 제목뿐(Drive 원본 파일 이름 그대로).
 // 저장은 [수정] 창과 같은 서버 길(app_documents PATCH)이고 제목 칸을 사용자 값('user')으로 남긴다(library-rename.js). 브라우저 저장소는 쓰지 않는다.
@@ -520,7 +522,7 @@ async function luRenameUndo(id,renamed,snapshot){
   finally{luRenameBusy=false}
 }
 function luFolderStatus(text,error=false){const el=document.querySelector('#libraryFolderStatusLine');if(!el)return;el.textContent=text||'';el.hidden=!text;el.classList.toggle('error',!!error)}
-function luFolders(){if(!luFolderUi)luFolderUi=mountLibraryFolders({api:luApi,esc:luEsc,state:()=>({workspace:luWorkspace,folders:luFolders_,items:luFolderItems,docs:luDocuments,projectName:luProjectName,free:luGroupBy==='folder',treeView:luGroupBy==='project'||luGroupBy==='folder',isOpen:luNodeOpen}),reload:async()=>{await luLoadFolders();luRenderLibrary()},status:luFolderStatus,notify:luRenameNotice,reveal:luRevealKeys,toggleNode:luToggleNode,selected:()=>luSel?[...luSel]:[],touchOk:()=>luFolderViews()||(luGroupBy==='category'&&luFoldersReady),onMoveProgress:({index,total})=>{const c=document.querySelector('#librarySelectCount');if(c&&luSel&&total>1)c.textContent=`옮기는 중 ${index}/${total}`},categoryOf:name=>categoryOf(name),changeCategory:(docs,name)=>{const ids=docs.map(d=>d.id);if(!ids.length)return;const many=!!luSel&&ids.every(id=>luSel.has(id));return luBulkApply('category',name,many?null:ids)},onMoved:({done,failed})=>{const fromSel=!!luSel&&[...done,...failed].some(id=>luSel.has(id));luAfterBulk([...done,...failed],failed,fromSel)},recent:{get:()=>luRecentFolders,push:luPushRecentFolder}});return luFolderUi}
+function luFolders(){if(!luFolderUi)luFolderUi=mountLibraryFolders({photoSetDocs:luPhotoSetMembers,api:luApi,esc:luEsc,state:()=>({workspace:luWorkspace,folders:luFolders_,items:luFolderItems,docs:luDocuments,projectName:luProjectName,free:luGroupBy==='folder',treeView:luGroupBy==='project'||luGroupBy==='folder',isOpen:luNodeOpen}),reload:async()=>{await luLoadFolders();luRenderLibrary()},status:luFolderStatus,notify:luRenameNotice,reveal:luRevealKeys,toggleNode:luToggleNode,selected:()=>luSel?[...luSel]:[],touchOk:()=>luFolderViews()||(luGroupBy==='category'&&luFoldersReady),onMoveProgress:({index,total})=>{const c=document.querySelector('#librarySelectCount');if(c&&luSel&&total>1)c.textContent=`옮기는 중 ${index}/${total}`},categoryOf:name=>categoryOf(name),changeCategory:(docs,name)=>{const ids=docs.map(d=>d.id);if(!ids.length)return;const many=!!luSel&&ids.every(id=>luSel.has(id));return luBulkApply('category',name,many?null:ids)},onMoved:({done,failed})=>{const fromSel=!!luSel&&[...done,...failed].some(id=>luSel.has(id));luAfterBulk([...done,...failed],failed,fromSel)},recent:{get:()=>luRecentFolders,push:luPushRecentFolder}});return luFolderUi}
 // 토글 하나를 접거나 편다(폴더 ⋯ 메뉴의 [접기·펼치기]). 상태는 머리를 눌렀을 때와 같은 곳(luOpened·luFilterOpen)에 적는다.
 const luNodeEl=key=>[...document.querySelectorAll('#documentList details[data-lu-node]')].find(x=>x.dataset.luNode===key);
 const luNodeOpen=key=>!!luNodeEl(key)?.open;

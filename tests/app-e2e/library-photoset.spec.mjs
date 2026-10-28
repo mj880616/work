@@ -59,6 +59,17 @@ async function mock(page, state) {
       state.meetingOpens.push(id);
       return ok(state.meetings.filter(m => 'eq.' + m.id === id).map(m => ({...m, workspace_id: 'workspace-1', notes: '', decisions: '', transcript: ''})));
     }
+    // LIB-정리보충 ②: 폴더 표(합성). state.failItem 자료의 넣기는 서버가 거절한다(일부만 옮겨지는 상황 만들기).
+    if (path === '/rest/v1/app_library_folders' && req.method() === 'GET') return ok(state.folders || []);
+    if (path === '/rest/v1/app_library_folder_items') {
+      const m = req.method(), did = (url.searchParams.get('document_id') || '').replace(/^eq\./, '');
+      state.items ||= [];
+      if (m === 'GET') return ok(state.items);
+      (state.itemWrites ||= []).push(m);
+      if (m === 'POST') {const b = req.postDataJSON(); if (b.document_id === state.failItem) return route.fulfill({status: 500, contentType: 'application/json', body: '{"message":"QA failure"}'}); state.items.push({document_id: b.document_id, folder_id: b.folder_id}); return route.fulfill({status: 201, body: ''});}
+      if (m === 'DELETE') {state.items = state.items.filter(x => x.document_id !== did); return route.fulfill({status: 204, body: ''});}
+      if (m === 'PATCH') {const b = req.postDataJSON(); state.items.filter(x => x.document_id === did).forEach(x => {x.folder_id = b.folder_id;}); return route.fulfill({status: 204, body: ''});}
+    }
     if (path.startsWith('/rest/v1/')) return ok([]);
     return ok({});
   });
@@ -124,4 +135,44 @@ test('library keeps one row per photo when the business reports cannot be read',
   await open(page, state, 390);
   await expect(page.locator('[data-lu-photoset]')).toHaveCount(0);
   for (const n of [11, 15, 21, 30, 40]) await expect(page.locator(`[data-lu-document="${ID(n)}"]`)).toHaveCount(1);
+});
+
+// LIB-정리보충 ②(2026-10-28 10:41): 폴더 보기에서 사진 묶음 줄도 끌어 폴더에 넣는다 — 묶음 안 실제 사진 자료 모두가 함께 그 폴더로,
+// 폴더 안에서도 한 줄로 묶여 보이고, 하나라도 못 넣으면 넣은 것을 되돌려 일부만 옮겨진 채 끝나지 않는다. 사업 보고 연결(meeting_id)은 그대로.
+async function dragSetTo(page, meetingId, key) {
+  return page.evaluate(({meetingId, key}) => {
+    const src = document.querySelector(`[data-lu-photoset="${meetingId}"]`), dst = document.querySelector(`#documentList details[data-lu-node="${key}"] > summary`), dt = new DataTransfer(), r = dst.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+    const draggable = src.getAttribute('draggable');
+    src.dispatchEvent(new DragEvent('dragstart', {bubbles: true, cancelable: true, dataTransfer: dt}));
+    const over = new DragEvent('dragover', {bubbles: true, cancelable: true, dataTransfer: dt, clientX: x, clientY: y}); dst.dispatchEvent(over);
+    dst.dispatchEvent(new DragEvent('drop', {bubbles: true, cancelable: true, dataTransfer: dt, clientX: x, clientY: y}));
+    src.dispatchEvent(new DragEvent('dragend', {bubbles: true, dataTransfer: dt}));
+    return {draggable, allowed: over.defaultPrevented};
+  }, {meetingId, key});
+}
+for (const fail of [false, true]) test(`photo set row drags into a folder as one unit${fail ? ' (partial failure rolls back)' : ''}`, async ({page}) => {
+  const state = makeState();
+  state.folders = [{id: ID(700), workspace_id: 'workspace-1', project_id: null, parent_id: null, name: '결의대회 사진', sort_order: 1024, created_at: now()}];
+  if (fail) state.failItem = ID(13);
+  await open(page, state, 1440);
+  await page.locator('#libraryGroupBy').getByRole('radio', {name: '폴더'}).click();
+  await expandLibraryTree(page);
+  const r = await dragSetTo(page, M1, 'f:' + ID(700));
+  expect(r).toEqual({draggable: 'true', allowed: true});
+  const photos = [11, 12, 13, 14, 15].map(ID);
+  if (!fail) {
+    await expect.poll(() => photos.every(id => state.items.some(x => x.document_id === id && x.folder_id === ID(700)))).toBe(true);
+    // 결과 보고(PDF)·다른 사업 보고 사진은 그대로. 사업 보고 연결은 바꾸지 않는다(자료 행 쓰기 없음).
+    expect(state.items.map(x => x.document_id).sort()).toEqual([...photos].sort());
+    await expandLibraryTree(page);
+    await expect(page.locator(`#documentList details[data-lu-node="f:${ID(700)}"] [data-lu-photoset="${M1}"]`)).toHaveCount(1);
+    await expect(page.locator('#libraryFolderStatusLine')).toContainText('옮겼어요 5개');
+  } else {
+    // 셋째 사진에서 실패 → 앞의 두 장을 되돌려 하나도 들어가지 않은 상태로 끝난다. 묶음 줄은 폴더 밖에 그대로.
+    await expect(page.locator('#libraryFolderStatusLine')).toContainText('사진 묶음을 옮기지 못해 그대로 두었어요');
+    expect(state.items).toEqual([]);
+    expect(state.itemWrites.filter(m => m === 'DELETE')).toHaveLength(2);
+    await expandLibraryTree(page);
+    await expect(page.locator(`#documentList details[data-lu-node="x:out"] [data-lu-photoset="${M1}"]`)).toHaveCount(1);
+  }
 });

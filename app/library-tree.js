@@ -102,7 +102,9 @@ export const OUTSIDE_KEY='x:out';
 function byFolder(o){
   const {docs,folders=[],items=[],filtering}=o,{roots,byId}=forestOf(folders),outside=node('group',OUTSIDE_KEY,'폴더 밖',{outside:true});
   const where=new Map(items.map(x=>[x.document_id,x.folder_id]));
-  for(const d of docs){const fid=where.get(d.id),f=fid?byId.get(fid):null;(f||outside).files.push(d)}
+  // LIB-정리보충 ②(10:41): 사진 묶음 줄(계산으로 만든 한 줄)은 묶음 안 실제 사진들이 모두 같은 폴더에 있으면 그 폴더 안에, 아니면 폴더 밖에 한 줄로.
+  const folderOf=d=>{if(!d?.photoset)return where.get(d.id);const ids=(d.photos||[]).map(p=>where.get(p.id));return ids.length&&ids.every(x=>x&&x===ids[0])?ids[0]:undefined};
+  for(const d of docs){const fid=folderOf(d),f=fid?byId.get(fid):null;(f||outside).files.push(d)}
   const list=[outside,...roots];
   list.forEach(n=>finish(n,o.kindOf,o.sortKey));
   if(filtering)return prune(list,()=>false);
@@ -210,4 +212,4 @@ export function documentsInTrashedFolders(folders,items,ready=true){if(!ready)re
 // 폴더 이름 검사(DB 검사와 같음: 1~40자, 앞뒤 공백·제어문자 없음). 앞뒤 공백은 잘라서 쓴다.
 export function cleanFolderName(raw){const name=String(raw??'').replace(/[\u0000-\u001f\u007f]/g,'').trim();return name.length>=1&&[...name].length<=40?name:null}
 // DB 거절(23514 + LIB_FOLDER_*)을 일상어로.
-export function folderErrorText(e){const m=String(e?.message||'');if(/LIB_FOLDER_DEPTH/.test(m))return `폴더는 ${folderDepthLimitFrom(m)}단까지만 만들 수 있어요.`;if(/LIB_FOLDER_CYCLE/.test(m))return '폴더를 자기 안으로 옮길 수 없어요.';if(/LIB_FOLDER_SCOPE|row-level security|42501/.test(m))return '프로젝트가 다른 폴더로 옮기는 기능은 아직 준비 중이에요. 같은 프로젝트 안에서는 옮길 수 있어요.';if(/name_check|23514/.test(m))return '폴더 이름은 1~40자로 써 주세요.';return '저장하지 못했어요. 잠시 뒤 다시 해 주세요.'}
+export function folderErrorText(e){const m=String(e?.message||'');if(/LIB_PHOTOSET_PARTIAL/.test(m))return e?.partial?'사진 묶음 일부를 되돌리지 못했어요. 목록을 확인해 주세요.':'사진 묶음을 옮기지 못해 그대로 두었어요.';if(/LIB_FOLDER_DEPTH/.test(m))return `폴더는 ${folderDepthLimitFrom(m)}단까지만 만들 수 있어요.`;if(/LIB_FOLDER_CYCLE/.test(m))return '폴더를 자기 안으로 옮길 수 없어요.';if(/LIB_FOLDER_SCOPE|row-level security|42501/.test(m))return '프로젝트가 다른 폴더로 옮기는 기능은 아직 준비 중이에요. 같은 프로젝트 안에서는 옮길 수 있어요.';if(/name_check|23514/.test(m))return '폴더 이름은 1~40자로 써 주세요.';return '저장하지 못했어요. 잠시 뒤 다시 해 주세요.'}
