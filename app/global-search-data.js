@@ -4,6 +4,8 @@
 // - Google 할 일: 이 기기 저장본(google-tasks.js의 peekTasks). 없으면 같은 모듈의 listTasks로 한 번 읽는다(미완료 + 최근 완료).
 // 쓰기·새 저장소 없음. 로그인이 바뀌면 메모리 사본을 버린다. 요청 취소 대신 요청 번호로 늦게 온 답을 버린다(runtime api에 signal 없음).
 import {eventRanges, cleanServer, filterEvents, filterTasks} from './global-search-model.mjs';
+import {callAiAssist} from './basket-ai-summary.js';
+import {ASK_CODES} from './ask-web2-model.mjs';
 
 const rt = () => window.KPTURuntime;
 const ownerId = () => rt()?.session?.read?.()?.user?.id || '';
@@ -92,4 +94,18 @@ export function localMatches(words) {
     task: tk ? filterTasks(tk.list, words) : [],
     eventsFailed: !!ev?.failed, tasksFailed: !!tk?.failed
   };
+}
+
+// FEAT-1029묶음 ① Web2에 물어보기(docs/design/ask-web2.md): 질문 한 줄을 ai-assist kind=ask_web2로 보낸다(누를 때만, 글자마다 안 부름).
+// 최근 물어본 것은 서버 표 app_ask_answers(owner RLS, 30일)에서 5줄만 읽는다(기기 저장 없음). 표가 없으면(DB 적용 전) 빈 목록.
+export async function askWeb2(question) {
+  const r = await callAiAssist({kind: 'ask_web2', question}, {rt: rt()}, ASK_CODES);
+  return r.ok ? {ok: true, data: r.data} : {ok: false, code: r.code};
+}
+export async function recentAsks({now = Date.now()} = {}) {
+  const since = new Date(now - 30 * 86400000).toISOString();
+  try {
+    const rows = await rt().api(`/rest/v1/app_ask_answers?created_at=gte.${encodeURIComponent(since)}&ai_status=in.(ok,empty)&select=id,question,lines,sources,ai_status,created_at&order=created_at.desc&limit=5`);
+    return Array.isArray(rows) ? rows : [];
+  } catch { return []; }
 }

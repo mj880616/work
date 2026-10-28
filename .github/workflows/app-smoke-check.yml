@@ -77,6 +77,8 @@ on:
       - 'tests/ledger-import-fixture.mjs'
       - 'tests/ledger-browse-model.test.mjs'
       - 'tests/global-search-model.test.mjs'
+      - 'tests/ask-web2-model.test.mjs'
+      - 'app/ask-web2-model.mjs'
       - 'tests/ledger-candidate-model.test.mjs'
       - 'tests/ledger-export-model.test.mjs'
       - 'tests/ledger-auto-model.test.mjs'
@@ -174,6 +176,8 @@ on:
       - 'tests/ledger-import-fixture.mjs'
       - 'tests/ledger-browse-model.test.mjs'
       - 'tests/global-search-model.test.mjs'
+      - 'tests/ask-web2-model.test.mjs'
+      - 'app/ask-web2-model.mjs'
       - 'tests/ledger-candidate-model.test.mjs'
       - 'tests/ledger-export-model.test.mjs'
       - 'tests/ledger-auto-model.test.mjs'
@@ -314,6 +318,9 @@ jobs:
 
       - name: Global search model (SEARCH-전체검색 words, highlights, Google filters, groups, error codes)
         run: node --test tests/global-search-model.test.mjs
+
+      - name: Ask Web2 answer box rules (FEAT-1029묶음 ① question detection, evidence refs, open targets)
+        run: node --test tests/ask-web2-model.test.mjs
 
       - name: Ledger import checker (CSV·xlsx·import file, synthetic sheet)
         run: node --test tests/ledger-import-model.test.mjs tests/ledger-browse-model.test.mjs tests/ledger-candidate-model.test.mjs tests/ledger-export-model.test.mjs tests/ledger-auto-model.test.mjs tests/calendar-ref-model.test.mjs tests/ledger-fix-model.test.mjs tests/overlap-model.test.mjs tests/overlap-paths.test.mjs tests/overlap-weekly.test.mjs tests/ledger-merge-model.test.mjs

@@ -83,3 +83,32 @@
 .gs-row-menu button:focus-visible{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
 /* SEARCH-선택옮기기 ③: 자료실 결과 줄의 지금 폴더 '📁 이름' — 작은 흐린 글자, 길면 말줄임. */
 .gs-row-folder{flex:0 1 auto;min-width:0;max-width:12em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--kptu-muted);font-size:11px}
+
+/* FEAT-1029묶음 ① Web2에 물어보기: 물어보기 줄·답 상자·근거 꼬리표·최근 물어본 것. 콤팩트, 톤다운(색 상자 없음). */
+.gs-ask-line{display:flex;align-items:center;gap:6px;min-height:36px;box-sizing:border-box;padding:6px 12px;border-bottom:var(--ds-line-width,.5px) solid var(--ds-line);cursor:pointer;font-size:var(--ds-text-row,13px);color:var(--kptu-link,var(--kptu-primary-ink))}
+.gs-ask-line:hover,.gs-ask-line.is-active{background:var(--kptu-primary-soft)}
+.gs-ask-line.is-active{outline:2px solid var(--kptu-primary-ink);outline-offset:-2px}
+.gs-ask-line .gs-icon,.gs-ask-head .gs-icon{color:var(--kptu-primary-ink)}
+.gs-ask-name{font-weight:var(--ds-weight-medium,600)}
+.gs-ask-hint{margin-left:auto;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.gs-ask-box{display:flex;flex-direction:column;gap:4px;padding:8px 12px;border-bottom:var(--ds-line-width,.5px) solid var(--ds-line)}
+.gs-ask-head{display:flex;align-items:center;gap:6px;font-size:var(--ds-text-meta,12px);color:var(--kptu-ink)}
+.gs-ask-time{color:var(--kptu-muted)}
+.gs-ask-again,.gs-ask-more{position:relative;padding:0 6px;min-height:24px;border:0;border-radius:var(--kptu-radius-sm);background:transparent;color:var(--kptu-link,var(--kptu-primary-ink));font:inherit;font-size:var(--ds-text-meta,12px);cursor:pointer}
+.gs-ask-again{margin-left:auto}
+.gs-ask-again::after,.gs-ask-more::after{content:"";position:absolute;left:0;right:0;top:calc(50% - var(--kptu-touch-target,44px) / 2);height:var(--kptu-touch-target,44px)}
+.gs-ask-again:hover,.gs-ask-more:hover{background:var(--kptu-primary-soft)}
+.gs-ask-more{align-self:flex-start;margin:4px 8px 6px}
+.gs-ask-q{margin:0;font-size:var(--ds-text-row,13px);color:var(--kptu-muted)}
+.gs-ask-lines{margin:0;padding:0 0 0 16px;display:flex;flex-direction:column;gap:3px;font-size:var(--ds-text-row,13px);color:var(--kptu-ink)}
+.gs-ask-tag{display:inline-flex;align-items:center;padding:0 6px;min-height:20px;border:var(--ds-line-width,.5px) solid var(--ds-line);border-radius:var(--ds-chip-radius,999px);background:var(--kptu-surface-subtle);color:var(--kptu-ink);font:inherit;font-size:11px;line-height:18px;cursor:pointer;vertical-align:baseline}
+.gs-ask-tag:hover{background:var(--kptu-primary-soft)}
+.gs-ask-tag:disabled,.gs-ask-src-row:disabled{cursor:default;opacity:.7}
+.gs-ask-status,.gs-ask-foot{margin:0;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted)}
+.gs-ask-src summary{cursor:pointer;font-size:var(--ds-text-meta,12px);color:var(--kptu-muted);min-height:24px;line-height:24px}
+.gs-ask-src-row{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px;width:100%;box-sizing:border-box;min-height:32px;padding:4px 0 4px 12px;border:0;border-top:var(--ds-line-width,.5px) solid color-mix(in srgb,var(--ds-line) 50%,transparent);background:transparent;color:var(--kptu-ink);font:inherit;font-size:var(--ds-text-meta,12px);text-align:left;cursor:pointer}
+.gs-ask-src-row:hover{background:var(--kptu-primary-soft)}
+.gs-ask-src-tag{flex:none;color:var(--kptu-muted)}
+.gs-ask-src-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gs-ask-src-snip{flex:1 0 100%;color:var(--kptu-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gs-recent .gs-row{padding-left:28px}
